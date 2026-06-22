@@ -9,6 +9,7 @@ import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import GuardianAlertBanner from '@/components/guardian/GuardianAlertBanner';
 import useSWR from 'swr';
 import { Eye, Shield, Activity, Map } from 'lucide-react';
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 import s from '../dash/dash.module.css';
 import { AdBanner } from '@/components/app/AdBanner';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
@@ -27,6 +28,12 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     tabReality: '시장 현황',
     tabShield: '방어 지표',
     tabFlow: '기관 플로우',
+    headerSub: '매크로 리스크 감시',
+    macroStrip: '리스크 스트립',
+    fgLabel: '공포·탐욕',
+    vixLabel: 'VIX',
+    spxLabel: 'S&P 500',
+    ndxLabel: 'NASDAQ 100',
     extremeGreed: '극단적 탐욕',
     greed: '탐욕',
     neutral: '중립',
@@ -49,6 +56,12 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     tabReality: 'Reality',
     tabShield: 'Shield',
     tabFlow: 'Flow',
+    headerSub: 'Macro Risk Sentinel',
+    macroStrip: 'Risk Strip',
+    fgLabel: 'Fear&Greed',
+    vixLabel: 'VIX',
+    spxLabel: 'S&P 500',
+    ndxLabel: 'NASDAQ 100',
     extremeGreed: 'EXTREME GREED',
     greed: 'GREED',
     neutral: 'NEUTRAL',
@@ -71,6 +84,12 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     tabReality: '市場現況',
     tabShield: '防御指標',
     tabFlow: '機関フロー',
+    headerSub: 'マクロリスク監視',
+    macroStrip: 'リスクストリップ',
+    fgLabel: '恐怖・強欲',
+    vixLabel: 'VIX',
+    spxLabel: 'S&P 500',
+    ndxLabel: 'NASDAQ 100',
     extremeGreed: '極限の強気',
     greed: '強気',
     neutral: '中立',
@@ -99,6 +118,13 @@ const indexFetcher = (url: string) => fetch(url).then(r => r.json());
 interface IndexQuote { price: number; changePct: number; updatedAt: string; }
 interface IndexCloseData { nasdaq: IndexQuote | null; dow: IndexQuote | null; spx: IndexQuote | null; }
 
+function tabFromParam(param: string | null): TabKey {
+  if (param === 'reality') return 'reality';
+  if (param === 'shield') return 'shield';
+  if (param === 'flow') return 'flow';
+  return 'overview';
+}
+
 function GuardianPageContent() {
   const locale = useLocale();
   const searchParams = useSearchParams();
@@ -108,22 +134,19 @@ function GuardianPageContent() {
   const { data: globalData, loading, alerts, connectionMode, rlsi } = useGuardian();
   const data = globalData as any;
   const { snapshot } = useMacroSnapshot();
+  const { status: marketStatusInfo } = useMarketStatus();
   const { data: idxData } = useSWR<IndexCloseData>('/api/market/index-close', indexFetcher, { refreshInterval: 60000, dedupingInterval: 30000 });
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [activeTab, setActiveTab] = useState<TabKey>(() => tabFromParam(tabParam));
   const tabsRef = useRef<HTMLDivElement>(null);
+  const tabParamRef = useRef(tabParam);
 
   // Sync activeTab with tabParam if provided
   useEffect(() => {
-    if (tabParam) {
-      if (tabParam === 'reality') {
-        setActiveTab('reality');
-      } else if (tabParam === 'briefing' || tabParam === 'overview') {
-        setActiveTab('overview');
-      } else if (tabParam === 'shield') {
-        setActiveTab('shield');
-      } else if (tabParam === 'flow') {
-        setActiveTab('flow');
-      }
+    if (tabParamRef.current !== tabParam) {
+      tabParamRef.current = tabParam;
+      const nextTab = tabFromParam(tabParam);
+      const raf = requestAnimationFrame(() => setActiveTab(nextTab));
+      return () => cancelAnimationFrame(raf);
     }
   }, [tabParam]);
 
@@ -142,13 +165,6 @@ function GuardianPageContent() {
     if (v > 20) return { label: t.vixElevated, color: '#f59e0b', border: 'rgba(245, 158, 11, 0.15)', bg: 'rgba(245, 158, 11, 0.04)' };
     if (v > 15) return { label: t.vixNormal, color: '#94a3b8', border: 'rgba(255, 255, 255, 0.06)', bg: 'rgba(255, 255, 255, 0.02)' };
     return { label: t.vixLow, color: '#34d399', border: 'rgba(16, 185, 129, 0.15)', bg: 'rgba(16, 185, 129, 0.04)' };
-  };
-
-  const getDxyStatus = (d: number) => {
-    if (d > 105) return { label: t.dxyStrong, color: '#f43f5e' };
-    if (d > 100) return { label: t.dxyFirm, color: '#f59e0b' };
-    if (d > 95) return { label: t.dxyNeutral, color: '#94a3b8' };
-    return { label: t.dxyWeak, color: '#34d399' };
   };
 
   const getIndexStatus = (chg: number | null) => {
@@ -225,177 +241,264 @@ function GuardianPageContent() {
   }, [data]);
 
   const session = data?.rlsi?.session;
+  const sessionBadge = (() => {
+    if (marketStatusInfo.isHoliday) return { label: 'HOLIDAY', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.35)' };
+    if (session === 'REG') return { label: 'LIVE', color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.32)' };
+    if (session === 'PRE') return { label: 'PRE', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.32)' };
+    if (session === 'POST') return { label: 'AFTER', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.32)' };
+    return { label: 'CLOSED', color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.18)' };
+  })();
+
+  const macroCards = [
+    {
+      key: 'fg',
+      label: t.fgLabel,
+      value: fgScore > 0 ? fgScore.toFixed(0) : '—',
+      sub: fgStatus.label,
+      color: fgStatus.color,
+      border: fgStatus.border,
+      bg: fgStatus.bg,
+    },
+    {
+      key: 'vix',
+      label: t.vixLabel,
+      value: vix > 0 ? vix.toFixed(1) : '—',
+      sub: `${vixChg >= 0 ? '+' : ''}${vixChg.toFixed(1)}%`,
+      color: vixStatus.color,
+      subColor: vixChg >= 0 ? 'var(--red)' : 'var(--green)',
+      border: vixStatus.border,
+      bg: vixStatus.bg,
+    },
+    {
+      key: 'spx',
+      label: t.spxLabel,
+      value: spxChg !== null ? `${spxChg >= 0 ? '+' : ''}${spxChg.toFixed(2)}%` : '—',
+      sub: spxPrice !== null ? Number(spxPrice).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '',
+      color: spxStatus.color,
+      border: spxStatus.border,
+      bg: spxStatus.bg,
+    },
+    {
+      key: 'ndx',
+      label: t.ndxLabel,
+      value: ndxChg !== null ? `${ndxChg >= 0 ? '+' : ''}${ndxChg.toFixed(2)}%` : '—',
+      sub: ndxPrice !== null ? Number(ndxPrice).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '',
+      color: ndxStatus.color,
+      border: ndxStatus.border,
+      bg: ndxStatus.bg,
+    },
+  ];
 
   return (
     <div className={s.page} style={{ paddingBottom: '90px' }}>
       
       {/* ═══ APP-VIEW OPTIMIZED HEADER (NO WEB HEADER OFFSET) ═══ */}
       <div style={{
-        background: 'linear-gradient(180deg, rgba(5,10,20,0.98) 0%, rgba(5,10,20,0.92) 100%)',
-        backdropFilter: 'blur(24px) saturate(1.4)',
+        background: 'linear-gradient(180deg, rgba(5,10,20,0.98) 0%, rgba(5,10,20,0.90) 100%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(1.45)',
+        backdropFilter: 'blur(24px) saturate(1.45)',
         borderBottom: '1px solid rgba(52,211,153,0.08)',
-        padding: '12px 16px 8px',
+        padding: '10px 12px 8px',
         position: 'sticky',
         top: 0,
         zIndex: 100
       }}>
-        {/* ── GUARDIAN EYE BANNER ── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Animated Pulse Ring */}
-            <div style={{ position: 'relative', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div className="app-skeleton" style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(52,211,153,0.3)' }} />
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399' }} />
-            </div>
-            <div>
-              <div style={{ font: 'var(--f-h2)', fontWeight: 800, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                GUARDIAN
-              </div>
-              <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', letterSpacing: '0.08em', marginTop: 2 }}>
-                {locale === 'ko' ? '가디언 매크로 리스크 · LIVE' : locale === 'ja' ? 'ガーディアン・マクロ · LIVE' : 'MARKET RISK SENTINEL · LIVE'}
-              </div>
-            </div>
-          </div>
-
-          {/* RLSI Score Badge */}
-          <div style={{
-            border: `1px solid ${rlsiColor}33`,
-            background: `linear-gradient(135deg, ${rlsiColor}15, ${rlsiColor}08)`,
-            borderRadius: 'var(--r-card)',
-            padding: '6px 12px',
-            textAlign: 'right'
-          }}>
-            <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>RLSI</div>
-            <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 900, color: rlsiColor }}>
-              {rlsiScore.toFixed(0)}
-            </div>
-          </div>
-        </div>
-
-        {/* ── MACRO INDICATOR GRID (4 cards) ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '8px' }}>
-          {/* Fear & Greed */}
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid',
-            borderColor: fgStatus.border, background: fgStatus.bg, textAlign: 'center'
-          }}>
-            <span style={{ font: "600 10.5px/1.2 'Inter'", color: 'var(--text-dim)', marginBottom: 4 }}>
-              Fear&amp;Greed
-            </span>
-            <span className="tnum" style={{ font: "900 18px/1 'Inter'", color: fgStatus.color }}>
-              {fgScore > 0 ? fgScore.toFixed(0) : '—'}
-            </span>
-            <span style={{ font: "800 10.5px/1.2 'Inter'", color: fgStatus.color, marginTop: 4 }}>
-              {fgStatus.label}
-            </span>
-          </div>
-
-          {/* VIX */}
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid',
-            borderColor: vixStatus.border, background: vixStatus.bg
-          }}>
-            <span style={{ font: "600 10.5px/1.2 'Inter'", color: 'var(--text-dim)', marginBottom: 4 }}>VIX</span>
-            <span className="tnum" style={{ font: "900 18px/1 'Inter'", color: vixStatus.color }}>
-              {vix > 0 ? vix.toFixed(1) : '—'}
-            </span>
-            <span className="tnum" style={{ font: "700 10.5px/1.2 'Inter'", color: vixChg >= 0 ? 'var(--red)' : 'var(--green)', marginTop: 4 }}>
-              {vixChg >= 0 ? '+' : ''}{vixChg.toFixed(1)}%
-            </span>
-          </div>
-
-          {/* S&P 500 */}
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid',
-            borderColor: spxStatus.border, background: spxStatus.bg, textAlign: 'center'
-          }}>
-            <span style={{ font: "600 10.5px/1.2 'Inter'", color: 'var(--text-dim)', marginBottom: 4 }}>S&amp;P 500</span>
-            <span className="tnum" style={{ font: "800 13px/1.2 'Inter'", fontWeight: 900, color: spxStatus.color }}>
-              {spxChg !== null ? (spxChg >= 0 ? '+' : '') + spxChg.toFixed(2) + '%' : '—'}
-            </span>
-            <span className="tnum" style={{ font: "500 10px/1.2 'Inter'", color: 'var(--text-muted)', marginTop: 4 }}>
-              {spxPrice !== null ? Number(spxPrice).toLocaleString(undefined, { maximumFractionDigits: 0 }) : ''}
-            </span>
-          </div>
-
-          {/* NASDAQ 100 */}
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid',
-            borderColor: ndxStatus.border, background: ndxStatus.bg, textAlign: 'center'
-          }}>
-            <span style={{ font: "600 10.5px/1.2 'Inter'", color: 'var(--text-dim)', marginBottom: 4 }}>NASDAQ 100</span>
-            <span className="tnum" style={{ font: "800 13px/1.2 'Inter'", fontWeight: 900, color: ndxStatus.color }}>
-              {ndxChg !== null ? (ndxChg >= 0 ? '+' : '') + ndxChg.toFixed(2) + '%' : '—'}
-            </span>
-            <span className="tnum" style={{ font: "500 10px/1.2 'Inter'", color: 'var(--text-muted)', marginTop: 4 }}>
-              {ndxPrice !== null ? Number(ndxPrice).toLocaleString(undefined, { maximumFractionDigits: 0 }) : ''}
-            </span>
-          </div>
-        </div>
-
-        {/* ── SUB-TAB NAVIGATION (Separated capsule row) ── */}
         <div style={{
-          marginTop: '14px',
-          padding: '4px',
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
-          borderRadius: '24px',
-          boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.03), 0 4px 12px rgba(0,0,0,0.3)',
-          backdropFilter: 'blur(8px)',
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 22,
+          border: '1px solid rgba(148,163,184,0.13)',
+          background: 'linear-gradient(145deg, rgba(15,23,42,0.78), rgba(2,6,23,0.66))',
+          boxShadow: '0 18px 48px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.06)',
         }}>
-          <div ref={tabsRef} style={{ display: 'flex', gap: '2px' }}>
-            {TABS_CONFIG.map(tab => {
-              const isActive = activeTab === tab.key;
-              const TabIcon = tab.icon;
-              return (
-                <button
-                  key={tab.key}
-                  data-tab={tab.key}
-                  onClick={() => handleTabSwitch(tab.key)}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            background: 'radial-gradient(circle at 12% 8%, rgba(52,211,153,0.18), transparent 36%), radial-gradient(circle at 82% 12%, rgba(6,182,212,0.12), transparent 32%)'
+          }} />
+
+          {/* ── COMMAND HEADER ── */}
+          <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '13px 14px 10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+              <div style={{ position: 'relative', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
+                <div className="app-skeleton" style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(52,211,153,0.36)', background: 'rgba(52,211,153,0.08)' }} />
+                <div style={{ position: 'absolute', inset: 5, borderRadius: '50%', border: '1px solid rgba(6,182,212,0.18)' }} />
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 14px rgba(52,211,153,0.75)' }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                  <span style={{ font: 'var(--f-h2)', fontWeight: 900, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.025em', whiteSpace: 'nowrap' }}>
+                    GUARDIAN
+                  </span>
+                  <span style={{
+                    font: 'var(--f-micro)',
+                    color: sessionBadge.color,
+                    background: sessionBadge.bg,
+                    border: `1px solid ${sessionBadge.border}`,
+                    padding: '3px 7px',
+                    borderRadius: 999,
+                    letterSpacing: '0.08em',
+                    fontWeight: 900,
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {sessionBadge.label}
+                  </span>
+                </div>
+                <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', letterSpacing: '0.05em', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {t.headerSub}
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              border: `1px solid ${rlsiColor}38`,
+              background: `linear-gradient(145deg, ${rlsiColor}18, rgba(15,23,42,0.78))`,
+              borderRadius: 14,
+              padding: '7px 11px',
+              textAlign: 'right',
+              minWidth: 62,
+              boxShadow: `0 0 18px ${rlsiColor}12`
+            }}>
+              <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>RLSI</div>
+              <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 950, color: rlsiColor, lineHeight: 1 }}>
+                {rlsiScore.toFixed(0)}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── GUARDIAN ANALYSIS CONTROL DECK ── */}
+      <div style={{ padding: '10px 16px 0' }}>
+        <div style={{
+          overflow: 'hidden',
+          borderRadius: '22px 22px 14px 14px',
+          border: '1px solid rgba(52,211,153,0.14)',
+          background: 'linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.68))',
+          boxShadow: '0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.25)',
+          backdropFilter: 'blur(18px) saturate(1.25)'
+        }}>
+          <div style={{ position: 'relative', padding: '10px 10px 8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 3px 7px' }}>
+              <span style={{ font: 'var(--f-micro)', color: 'var(--cyan)', letterSpacing: '0.12em', fontWeight: 900, textTransform: 'uppercase' }}>
+                {t.macroStrip}
+              </span>
+              <span style={{ width: 44, height: 1, background: 'linear-gradient(90deg, rgba(6,182,212,0.45), transparent)' }} />
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              gap: 6,
+              padding: 6,
+              borderRadius: 17,
+              border: '1px solid rgba(255,255,255,0.055)',
+              background: 'rgba(2,6,23,0.38)',
+            }}>
+              {macroCards.map(card => (
+                <div
+                  key={card.key}
                   style={{
-                    flex: 1,
+                    minWidth: 0,
                     display: 'flex',
-                    alignItems: 'center',
+                    flexDirection: 'column',
                     justifyContent: 'center',
-                    gap: '6px',
-                    padding: '8px 0',
-                    background: isActive ? 'linear-gradient(135deg, rgba(6,182,212,0.15) 0%, rgba(52,211,153,0.15) 100%)' : 'transparent',
-                    border: isActive ? '1px solid rgba(52,211,153,0.25)' : '1px solid transparent',
-                    borderRadius: '20px',
-                    cursor: 'pointer',
-                    color: isActive ? 'var(--text)' : 'var(--text-dim)',
-                    outline: 'none',
-                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: isActive ? '0 2px 8px rgba(52,211,153,0.08)' : 'none',
-                    WebkitTapHighlightColor: 'transparent'
+                    alignItems: 'center',
+                    minHeight: 66,
+                    padding: '8px 4px',
+                    borderRadius: 13,
+                    border: `1px solid ${card.border}`,
+                    background: `linear-gradient(180deg, ${card.bg}, rgba(15,23,42,0.30))`,
+                    textAlign: 'center',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)'
                   }}
                 >
-                  <TabIcon size={13} style={{ color: isActive ? 'var(--cyan)' : 'var(--text-muted)' }} />
-                  <span style={{ font: 'var(--f-micro)', fontWeight: 800, fontSize: '11px', letterSpacing: '0.02em' }}>
-                    {tab.label}
+                  <span style={{ maxWidth: '100%', font: "800 9.5px/1.1 'Inter'", color: 'var(--text-dim)', letterSpacing: '0.035em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {card.label}
                   </span>
-                </button>
-              );
-            })}
+                  <span className="tnum" style={{ maxWidth: '100%', marginTop: 5, font: "950 17px/1 'Inter'", color: card.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {card.value}
+                  </span>
+                  <span className="tnum" style={{ maxWidth: '100%', marginTop: 5, font: "800 9.5px/1.1 'Inter'", color: card.subColor || card.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {card.sub}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{
+            padding: '7px 8px 8px',
+            borderTop: '1px solid rgba(148,163,184,0.08)',
+            background: 'linear-gradient(180deg, rgba(15,23,42,0.30), rgba(2,6,23,0.40))'
+          }}>
+            <div ref={tabsRef} style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            gap: 4,
+            }}>
+              {TABS_CONFIG.map(tab => {
+                const isActive = activeTab === tab.key;
+                const TabIcon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    data-tab={tab.key}
+                    onClick={() => handleTabSwitch(tab.key)}
+                    style={{
+                      minWidth: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      padding: '9px 2px',
+                      background: isActive
+                        ? 'linear-gradient(135deg, rgba(6,182,212,0.22), rgba(52,211,153,0.15))'
+                        : 'rgba(15,23,42,0.22)',
+                      border: isActive ? '1px solid rgba(52,211,153,0.34)' : '1px solid rgba(148,163,184,0.035)',
+                      borderRadius: 15,
+                      cursor: 'pointer',
+                      color: isActive ? 'var(--text)' : 'var(--text-dim)',
+                      outline: 'none',
+                      transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: isActive ? '0 0 18px rgba(6,182,212,0.14), inset 0 1px 0 rgba(255,255,255,0.06)' : 'none',
+                      WebkitTapHighlightColor: 'transparent'
+                    }}
+                  >
+                    <TabIcon size={13} style={{ flex: '0 0 auto', color: isActive ? 'var(--cyan)' : 'var(--text-muted)' }} />
+                    <span style={{ minWidth: 0, font: 'var(--f-micro)', fontWeight: 900, fontSize: '10.5px', letterSpacing: '0.015em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
+        <div style={{
+          width: 1,
+          height: 10,
+          margin: '0 auto -2px',
+          background: 'linear-gradient(180deg, rgba(52,211,153,0.34), rgba(52,211,153,0.03))',
+          boxShadow: '0 0 14px rgba(6,182,212,0.22)',
+        }} />
       </div>
 
       {/* ALERT BANNER */}
-      <div style={{ padding: '12px 16px 4px' }}>
-        <GuardianAlertBanner alerts={alerts} connectionMode={connectionMode} />
-      </div>
+      {alerts.length > 0 && (
+        <div style={{ padding: '6px 16px 4px' }}>
+          <GuardianAlertBanner alerts={alerts} connectionMode={connectionMode} />
+        </div>
+      )}
 
       {/* TAB CONTENT (RECYCLING ORIGINAL COMPONENTS) */}
       <SwipeableTabs
         onSwipeLeft={() => { const TABS: TabKey[] = ['overview','reality','shield','flow']; const i = TABS.indexOf(activeTab); if (i < TABS.length - 1) setActiveTab(TABS[i + 1]); }}
         onSwipeRight={() => { const TABS: TabKey[] = ['overview','reality','shield','flow']; const i = TABS.indexOf(activeTab); if (i > 0) setActiveTab(TABS[i - 1]); }}
       >
-      <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px' }}>
+      <div style={{ marginTop: 0, display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px' }}>
         {activeTab === 'overview' && (
           <MobileGuardianOverview
             data={data}
@@ -416,6 +519,7 @@ function GuardianPageContent() {
             loading={loading}
             verdict={verdict}
             session={session}
+            useAppValueWall
           />
         )}
         {activeTab === 'flow' && (

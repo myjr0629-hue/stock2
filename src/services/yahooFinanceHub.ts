@@ -2,7 +2,7 @@
 // Rate-limited fetcher for VIX, NQ, and TNX (US10Y) with Redis caching
 // Fetches from Yahoo max once per minute, serves from cache otherwise
 
-import { getFromCache, setInCache, CACHE_KEYS } from './redisClient';
+import { getFromCache } from './redisClient';
 
 // ============================================================
 // Types
@@ -15,6 +15,9 @@ export interface YahooQuote {
     change: number;
     changePct: number;
     updatedAt: string;
+    marketTime?: string;
+    marketState?: string;
+    exchangeTimezoneName?: string;
     source: "YAHOO" | "CACHE" | "REDIS" | "DEFAULT";
     isStale: boolean;
 }

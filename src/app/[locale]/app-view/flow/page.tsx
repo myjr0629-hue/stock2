@@ -133,6 +133,270 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
    DEMO FALLBACK DATA — Always show content even if APIs fail
    ═══════════════════════════════════════════════════════════ */
 
+const APP_FLOW_COPY = {
+  ko: {
+    searchPlaceholder: '티커를 입력하거나 옵션 흐름을 바로 분석',
+    searchCta: 'FLOW',
+    searchHint: '옵션, 다크풀, 감마 구조를 하나의 흐름으로 압축',
+    overviewEyebrow: 'OPTIONS FLOW OVERVIEW',
+    drivers: '핵심 드라이버',
+    opiFactors: 'OPI 구성 요인',
+    factorPcr: 'P/C 압력',
+    factorPremium: '프리미엄 우위',
+    factorGamma: '감마 위치',
+    pressurePair: 'Pressure Pair',
+    pressureConclusion: '수급 압력 결론',
+    netPremium: '순 프리미엄',
+    callShare: 'Call Share',
+    putShare: 'Put Share',
+    sourceFreshness: 'Source',
+    liveSource: 'LIVE FLOW',
+    estimatedSource: 'ESTIMATED',
+    gammaFlip: 'Gamma Flip',
+    spot: 'Spot',
+    flipDistance: 'Flip 거리',
+    volatilityEffect: '변동성 효과',
+    absorbsVol: '변동성 흡수',
+    amplifiesVol: '변동성 확대',
+    premiumFlow: '프리미엄 흐름',
+    gammaMap: '감마 위치',
+    riskState: '리스크 상태',
+    highConviction: 'HIGH CONVICTION',
+    mediumConviction: 'WATCH',
+    lowConviction: 'NEUTRAL',
+    callDominant: '콜 우위',
+    putDominant: '풋 우위',
+    balanced: '균형',
+    aboveGamma: '감마 플립 위',
+    belowGamma: '감마 플립 아래',
+    stable: '안정',
+    loaded: '변동성 장전',
+    erupting: '분출 가능',
+    opiInfoTitle: 'OPI 설명',
+    opiInfo: '콜/풋 프리미엄, 거래량, P/C 비율을 합성해 옵션 압력이 어느 방향으로 기울었는지 보여줍니다.',
+    intraday: '장중 작동',
+    closed: '장마감',
+    underlyingOpi: '기초자산 OPI',
+    compositeIndex: '종합 수급 지수',
+    compStrong: '강한 상방',
+    compNeutral: '중립 혼조',
+    compBear: '하방 압력',
+    compositeInfoTitle: '종합지수 설명',
+    compositeInfo: 'OPI, IV Rank, P/C, 감마 위치, 고래 플로우를 합성해 방향성 일치도를 점수화합니다.',
+    squeezeProbability: '스퀴즈 분출 확률',
+    squeezeHigh: '높음 (주의)',
+    squeezeModerate: '보통 (대기)',
+    squeezeLow: '낮음 (안정)',
+    squeezeInfoTitle: '스퀴즈 확률 설명',
+    squeezeInfo: '공매도 비율과 변동성, 옵션 포지셔닝을 결합해 급격한 가격 압축 해소 가능성을 추정합니다.',
+    totalPremium: '총 프리미엄',
+    callBias: 'Call 상방 베팅',
+    putBias: 'Put 하방 베팅',
+    spotTitle: '현재가 위치',
+    spotInfoTitle: '현재가 위치 설명',
+    spotInfo: '풋 플로어와 콜 월 사이에서 현재 가격이 어디에 놓여 있는지 보여줍니다.',
+    support: '지지선',
+    resistance: '저항선',
+    optionsRegime: '옵션 시장 & GEX 레짐',
+    longGamma: 'LONG GAMMA (안정적 레짐)',
+    shortGamma: 'SHORT GAMMA (변동성 레짐)',
+    regimeInfoTitle: '감마 레짐 설명',
+    regimeInfo: '감마 노출 기반의 변동성 레짐입니다. Long Gamma는 변동성 흡수, Short Gamma는 변동성 확대 가능성을 뜻합니다.',
+    regimeInsight: 'IV Rank {ivRank}%, P/C {pcRatio} 기준으로 현재 옵션 구조는 {bias}에 가깝습니다.',
+    signals: {
+      bullish: {
+        title: '상방 플로우 우위',
+        body: '종합 플로우 점수가 상방 쪽으로 기울어져 있습니다. OPI가 중립권이어도 고래 포지션, 스마트머니, UOA가 상방 결론을 강화합니다.',
+        action: '콜 월 돌파 시 모멘텀 확인, 감마 플립 이탈 시 속도 둔화 가능성을 우선 체크하세요.'
+      },
+      neutral: {
+        title: '균형 구간 압축',
+        body: '프리미엄과 P/C가 균형권에 있어 방향성보다 레인지와 레짐 변화가 더 중요합니다.',
+        action: '풋 플로어와 콜 월 사이에서 체결 강도 변화가 먼저 나타나는 쪽을 추적하세요.'
+      },
+      bearish: {
+        title: '하방 헤지 압력',
+        body: '풋 수요와 변동성 압력이 커지고 있습니다. 반등보다 지지선 방어 여부가 먼저입니다.',
+        action: '풋 플로어 하향 이탈과 Short Gamma 전환이 겹치는지 확인하세요.'
+      }
+    }
+  },
+  en: {
+    searchPlaceholder: 'Enter a ticker or scan options flow',
+    searchCta: 'FLOW',
+    searchHint: 'Options, dark pool, and gamma structure compressed into one read',
+    overviewEyebrow: 'OPTIONS FLOW OVERVIEW',
+    drivers: 'Key Drivers',
+    opiFactors: 'OPI Factor Rail',
+    factorPcr: 'P/C Pressure',
+    factorPremium: 'Premium Bias',
+    factorGamma: 'Gamma Position',
+    pressurePair: 'Pressure Pair',
+    pressureConclusion: 'Pressure Read',
+    netPremium: 'Net Premium',
+    callShare: 'Call Share',
+    putShare: 'Put Share',
+    sourceFreshness: 'Source',
+    liveSource: 'LIVE FLOW',
+    estimatedSource: 'ESTIMATED',
+    gammaFlip: 'Gamma Flip',
+    spot: 'Spot',
+    flipDistance: 'Flip Distance',
+    volatilityEffect: 'Vol Effect',
+    absorbsVol: 'Vol absorbing',
+    amplifiesVol: 'Vol amplifying',
+    premiumFlow: 'Premium Flow',
+    gammaMap: 'Gamma Map',
+    riskState: 'Risk State',
+    highConviction: 'HIGH CONVICTION',
+    mediumConviction: 'WATCH',
+    lowConviction: 'NEUTRAL',
+    callDominant: 'Call dominant',
+    putDominant: 'Put dominant',
+    balanced: 'Balanced',
+    aboveGamma: 'Above gamma flip',
+    belowGamma: 'Below gamma flip',
+    stable: 'Stable',
+    loaded: 'Volatility loaded',
+    erupting: 'Breakout risk',
+    opiInfoTitle: 'OPI Info',
+    opiInfo: 'Combines call/put premium, volume, and P/C ratio to show which direction options pressure is leaning.',
+    intraday: 'Intraday',
+    closed: 'Closed',
+    underlyingOpi: 'Underlying OPI',
+    compositeIndex: 'Composite Index',
+    compStrong: 'Strong Bullish',
+    compNeutral: 'Neutral Mixed',
+    compBear: 'Bearish Flow',
+    compositeInfoTitle: 'Composite Info',
+    compositeInfo: 'Scores alignment across OPI, IV Rank, P/C, gamma position, and whale flow.',
+    squeezeProbability: 'Squeeze Probability',
+    squeezeHigh: 'High Squeeze',
+    squeezeModerate: 'Moderate',
+    squeezeLow: 'Low Squeeze',
+    squeezeInfoTitle: 'Squeeze Info',
+    squeezeInfo: 'Estimates compression-release risk by combining short volume, volatility, and options positioning.',
+    totalPremium: 'Total Premium',
+    callBias: 'Call bullish bet',
+    putBias: 'Put bearish bet',
+    spotTitle: 'Spot Price Position',
+    spotInfoTitle: 'Ruler Info',
+    spotInfo: 'Shows where the current price sits between Put Floor support and Call Wall resistance.',
+    support: 'Support',
+    resistance: 'Resistance',
+    optionsRegime: 'Options Market & GEX Regime',
+    longGamma: 'LONG GAMMA (STABLE)',
+    shortGamma: 'SHORT GAMMA (VOLATILE)',
+    regimeInfoTitle: 'Regime Info',
+    regimeInfo: 'Gamma exposure regime. Long Gamma tends to absorb volatility, while Short Gamma can amplify moves.',
+    regimeInsight: 'At IV Rank {ivRank}% and P/C {pcRatio}, the current options structure is near {bias}.',
+    signals: {
+      bullish: {
+        title: 'Bullish flow dominance',
+        body: 'The composite flow score is leaning bullish. Even when OPI is neutral, whale positioning, smart money, and UOA can carry the top-level verdict.',
+        action: 'Confirm momentum on a Call Wall break, and watch for speed loss if price loses gamma flip.'
+      },
+      neutral: {
+        title: 'Compressed balance zone',
+        body: 'Premium and P/C are in balance, so range control and regime change matter more than direction.',
+        action: 'Track which side prints stronger first between Put Floor and Call Wall.'
+      },
+      bearish: {
+        title: 'Downside hedge pressure',
+        body: 'Put demand and volatility pressure are rising. Support defense matters before chasing rebounds.',
+        action: 'Watch whether a Put Floor break overlaps with a Short Gamma transition.'
+      }
+    }
+  },
+  ja: {
+    searchPlaceholder: 'ティッカーを入力してオプションフローを分析',
+    searchCta: 'FLOW',
+    searchHint: 'オプション、ダークプール、ガンマ構造を一つの読み筋に集約',
+    overviewEyebrow: 'OPTIONS FLOW OVERVIEW',
+    drivers: '主要ドライバー',
+    opiFactors: 'OPI構成要因',
+    factorPcr: 'P/C圧力',
+    factorPremium: 'プレミアム優位',
+    factorGamma: 'ガンマ位置',
+    pressurePair: 'Pressure Pair',
+    pressureConclusion: '需給圧力の結論',
+    netPremium: 'ネットプレミアム',
+    callShare: 'Call Share',
+    putShare: 'Put Share',
+    sourceFreshness: 'Source',
+    liveSource: 'LIVE FLOW',
+    estimatedSource: 'ESTIMATED',
+    gammaFlip: 'Gamma Flip',
+    spot: 'Spot',
+    flipDistance: 'Flip距離',
+    volatilityEffect: '変動性効果',
+    absorbsVol: '変動性吸収',
+    amplifiesVol: '変動性拡大',
+    premiumFlow: 'プレミアムフロー',
+    gammaMap: 'ガンマ位置',
+    riskState: 'リスク状態',
+    highConviction: 'HIGH CONVICTION',
+    mediumConviction: 'WATCH',
+    lowConviction: 'NEUTRAL',
+    callDominant: 'コール優勢',
+    putDominant: 'プット優勢',
+    balanced: '均衡',
+    aboveGamma: 'ガンマフリップ上',
+    belowGamma: 'ガンマフリップ下',
+    stable: '安定',
+    loaded: '変動性蓄積',
+    erupting: 'ブレイク警戒',
+    opiInfoTitle: 'OPI説明',
+    opiInfo: 'コール/プットのプレミアム、出来高、P/C比率を合成し、オプション圧力の方向を示します。',
+    intraday: '取引中',
+    closed: '引け後',
+    underlyingOpi: '原資産 OPI',
+    compositeIndex: '総合需給指数',
+    compStrong: '強い上方向',
+    compNeutral: '中立混合',
+    compBear: '下方向圧力',
+    compositeInfoTitle: '総合指数説明',
+    compositeInfo: 'OPI、IV Rank、P/C、ガンマ位置、ホエールフローの方向一致度を点数化します。',
+    squeezeProbability: 'スクイーズ確率',
+    squeezeHigh: '高い (注意)',
+    squeezeModerate: '中程度',
+    squeezeLow: '低い (安定)',
+    squeezeInfoTitle: 'スクイーズ説明',
+    squeezeInfo: 'ショート出来高、変動性、オプションポジションから価格圧縮の解放リスクを推定します。',
+    totalPremium: '総プレミアム',
+    callBias: 'コール上昇ベット',
+    putBias: 'プット下落ベット',
+    spotTitle: '現在値の位置',
+    spotInfoTitle: '現在値位置説明',
+    spotInfo: 'プットフロアとコールウォールの間で現在価格がどこにあるかを示します。',
+    support: '支持線',
+    resistance: '抵抗線',
+    optionsRegime: 'オプション市場 & GEXレジーム',
+    longGamma: 'LONG GAMMA (安定)',
+    shortGamma: 'SHORT GAMMA (変動性)',
+    regimeInfoTitle: 'ガンマレジーム説明',
+    regimeInfo: 'ガンマエクスポージャーに基づく変動性レジームです。Long Gammaは変動性を吸収し、Short Gammaは値動きを拡大しやすくします。',
+    regimeInsight: 'IV Rank {ivRank}%、P/C {pcRatio} 基準で現在のオプション構造は {bias} に近い状態です。',
+    signals: {
+      bullish: {
+        title: '上方向フロー優勢',
+        body: '総合フロースコアは上方向に傾いています。OPIが中立圏でも、ホエール、スマートマネー、UOAが上方向の結論を補強します。',
+        action: 'コールウォール突破時はモメンタム確認、ガンマフリップ割れでは減速を優先確認します。'
+      },
+      neutral: {
+        title: '均衡圏で圧縮',
+        body: 'プレミアムとP/Cが均衡圏にあり、方向よりもレンジとレジーム変化が重要です。',
+        action: 'プットフロアとコールウォールの間で先に強く約定する側を追跡します。'
+      },
+      bearish: {
+        title: '下方向ヘッジ圧力',
+        body: 'プット需要と変動性圧力が高まっています。反発より支持線防衛が先です。',
+        action: 'プットフロア割れとShort Gamma転換が重なるか確認します。'
+      }
+    }
+  }
+} as const;
+
 /* FlowTransaction & DEMO_FLOW — removed (orphan: never read in JSX) */
 
 /* ═══════════════════════════════════════════════════════════
@@ -164,6 +428,180 @@ const DEMO_DARK_POOL_TRADES = [
   { id: 'dp-4', exchangeName: 'FINRA ADF', side: 'SELL', size: 2000, price: 209.22, premium: 418440, timeET: '11:30:57' },
   { id: 'dp-5', exchangeName: 'FINRA ADF', side: 'SELL', size: 1000, price: 209.23, premium: 209230, timeET: '11:30:04' },
 ];
+
+const WHALE_PREMIUM_FLOOR = 50000;
+
+const WHALE_DP_COPY = {
+  ko: {
+    sectionEyebrow: 'LEVEL 3 FLOW',
+    sectionTitle: '기관 플로우 총량',
+    sectionInfoTitle: '기관 플로우 설명',
+    sectionInfo: '고래 옵션 체결과 다크풀 블록 거래를 같은 화면에서 압축해 기관성 수급이 어느 방향으로 쏠리는지 보여줍니다. 투자 조언이 아니라 시장 구조 참고용 지표입니다.',
+    liveBadge: '실시간 집계',
+    dayTotal: '당일 추적 총량',
+    whaleOptions: '고래 옵션',
+    darkBlocks: '다크풀 블록',
+    callFlow: 'Call 흐름',
+    putFlow: 'Put 흐름',
+    buySide: '매수 판정',
+    sellSide: '매도 판정',
+    psychology: '심리 판독',
+    psychologyInfoTitle: '심리 판독 설명',
+    psychologyInfo: '고래 Call 비중, 다크풀 순방향, 숏볼륨 압력을 가중 합산한 파생 판독입니다. 원천 데이터의 방향 일치도를 보여주며 투자 조언은 아닙니다.',
+    chase: '추격 매수 심리',
+    hedge: '헤지 방어 심리',
+    mixed: '혼합 수급',
+    conviction: '확신도',
+    dpDominance: '다크풀 비중',
+    shortPressure: '숏 압력',
+    blockIntensity: '블록 강도',
+    netBias: '순방향',
+    whaleTab: '고래',
+    darkTab: '다크풀',
+    chainTitle: '기관급 실시간 체인',
+    chainSubtitle: '고래 스윕, 다크풀 블록, 가격대별 충격도를 1시간 동안 확인합니다.',
+    unlockCta: '광고 보고 1시간 해제',
+    adFree: '또는 $9.99/월 광고 제거',
+    socialProof: '오늘 14.2K 잠금해제',
+    freePreview: '무료 미리보기',
+    largestPrint: '최대 체결',
+    prints: '건',
+    cost: '비용',
+    bep: '손익분기',
+    premium: '프리미엄',
+    strike: '행사가',
+    value: '거래대금',
+    price: '체결가',
+    shares: '주',
+    impactHigh: 'HIGH',
+    impactMid: 'MED',
+    impactLow: 'LOW',
+    sourceFresh: '데이터 신선도',
+    liveData: 'LIVE',
+    recentData: 'RECENT',
+    closedData: 'CLOSED DATA',
+    delayedData: 'DELAYED',
+    noData: '현재 표시할 기관성 체결이 없습니다',
+  },
+  en: {
+    sectionEyebrow: 'LEVEL 3 FLOW',
+    sectionTitle: 'Institutional Flow Total',
+    sectionInfoTitle: 'Institutional Flow',
+    sectionInfo: 'Combines whale options prints and dark-pool block trades to show where institutional pressure is leaning. Educational market-structure signal, not investment advice.',
+    liveBadge: 'Live aggregate',
+    dayTotal: 'Tracked today',
+    whaleOptions: 'Whale options',
+    darkBlocks: 'Dark blocks',
+    callFlow: 'Call flow',
+    putFlow: 'Put flow',
+    buySide: 'Buy classified',
+    sellSide: 'Sell classified',
+    psychology: 'Psychology Read',
+    psychologyInfoTitle: 'Psychology Read',
+    psychologyInfo: 'Derived read from weighted whale call share, dark-pool net direction, and short-volume pressure. It shows signal alignment, not investment advice.',
+    chase: 'Chase demand',
+    hedge: 'Hedge defense',
+    mixed: 'Mixed flow',
+    conviction: 'Conviction',
+    dpDominance: 'Dark pool share',
+    shortPressure: 'Short pressure',
+    blockIntensity: 'Block intensity',
+    netBias: 'Net bias',
+    whaleTab: 'Whale',
+    darkTab: 'Dark Pool',
+    chainTitle: 'Institutional Live Chain',
+    chainSubtitle: 'Unlock whale sweeps, dark-pool blocks, and strike-level impact for 1 hour.',
+    unlockCta: 'Watch ad to unlock 1HR',
+    adFree: 'or $9.99/mo ad-free',
+    socialProof: '14.2K unlocked today',
+    freePreview: 'Free preview',
+    largestPrint: 'Largest print',
+    prints: 'prints',
+    cost: 'Cost',
+    bep: 'BEP',
+    premium: 'Premium',
+    strike: 'Strike',
+    value: 'Value',
+    price: 'Price',
+    shares: 'shares',
+    impactHigh: 'HIGH',
+    impactMid: 'MED',
+    impactLow: 'LOW',
+    sourceFresh: 'Freshness',
+    liveData: 'LIVE',
+    recentData: 'RECENT',
+    closedData: 'CLOSED DATA',
+    delayedData: 'DELAYED',
+    noData: 'No institutional prints available right now',
+  },
+  ja: {
+    sectionEyebrow: 'LEVEL 3 FLOW',
+    sectionTitle: '機関フロー総量',
+    sectionInfoTitle: '機関フロー説明',
+    sectionInfo: '大口オプション約定とダークプールのブロック取引を圧縮し、機関性資金がどちらへ傾いているかを示します。投資助言ではなく市場構造の参考指標です。',
+    liveBadge: 'リアルタイム集計',
+    dayTotal: '本日追跡総量',
+    whaleOptions: '大口オプション',
+    darkBlocks: 'ダークブロック',
+    callFlow: 'Call フロー',
+    putFlow: 'Put フロー',
+    buySide: '買い判定',
+    sellSide: '売り判定',
+    psychology: '心理判定',
+    psychologyInfoTitle: '心理判定',
+    psychologyInfo: '大口Call比率、ダークプールのネット方向、ショート出来高圧力を加重した派生判定です。原データの方向一致度を示すもので投資助言ではありません。',
+    chase: '追随買い心理',
+    hedge: 'ヘッジ防衛心理',
+    mixed: '混合フロー',
+    conviction: '確信度',
+    dpDominance: 'ダークプール比率',
+    shortPressure: 'ショート圧力',
+    blockIntensity: 'ブロック強度',
+    netBias: 'ネット方向',
+    whaleTab: '大口',
+    darkTab: 'ダーク',
+    chainTitle: '機関級ライブチェーン',
+    chainSubtitle: '大口スイープ、ダークプールブロック、価格帯別インパクトを1時間確認できます。',
+    unlockCta: '広告視聴で1時間解除',
+    adFree: 'または月$9.99で広告なし',
+    socialProof: '本日14.2K件解除',
+    freePreview: '無料プレビュー',
+    largestPrint: '最大約定',
+    prints: '件',
+    cost: 'コスト',
+    bep: 'BEP',
+    premium: 'プレミアム',
+    strike: '権利行使価格',
+    value: '取引代金',
+    price: '約定価格',
+    shares: '株',
+    impactHigh: 'HIGH',
+    impactMid: 'MED',
+    impactLow: 'LOW',
+    sourceFresh: '鮮度',
+    liveData: 'LIVE',
+    recentData: 'RECENT',
+    closedData: 'CLOSED DATA',
+    delayedData: 'DELAYED',
+    noData: '現在表示できる機関性約定はありません',
+  }
+} as const;
+
+function formatCompactMoney(value: number | null | undefined, digits = 1) {
+  const n = Number(value || 0);
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1000000000) return `${sign}$${(abs / 1000000000).toFixed(digits)}B`;
+  if (abs >= 1000000) return `${sign}$${(abs / 1000000).toFixed(digits)}M`;
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+function pctNumber(value: string | number | null | undefined) {
+  if (typeof value === 'number') return value > 1 ? value : value * 100;
+  if (!value) return 0;
+  return Number(String(value).replace(/[^0-9.-]/g, '')) || 0;
+}
 
 function SparklineBg({ up, seed = 'default' }: { up: boolean; seed?: string }) {
   const [mounted, setMounted] = useState(false);
@@ -223,6 +661,7 @@ function SparklineBg({ up, seed = 'default' }: { up: boolean; seed?: string }) {
 export default function AppFlowPage() {
   const locale = useLocale();
   const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
+  const flowCopy = useMemo(() => APP_FLOW_COPY[locale as keyof typeof APP_FLOW_COPY] || APP_FLOW_COPY.en, [locale]);
   const tIndicators = useTranslations('indicators');
 
   const [mounted, setMounted] = useState(false);
@@ -256,10 +695,13 @@ export default function AppFlowPage() {
   const [volRegime, setVolRegime] = useState('LOADED'); // STABLE, LOADED, ERUPTING
   /* transactions state — removed (orphan: never read in JSX) */
   const [rawChain, setRawChain] = useState<any[]>([]);
+  const [whaleTradesFeed, setWhaleTradesFeed] = useState<any[]>([]);
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>([]);
+  const [darkPoolMeta, setDarkPoolMeta] = useState<any>(null);
+  const [whaleMeta, setWhaleMeta] = useState<any>(null);
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
-  const [minPremium, setMinPremium] = useState(100000); // 100k, 250k, 500k, 1000000
+  const [ivRankOverride, setIvRankOverride] = useState<number | null>(null);
 
   // Click outside to close popovers
   useEffect(() => {
@@ -308,7 +750,9 @@ export default function AppFlowPage() {
   });
 
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+  const [extFlash, setExtFlash] = useState<'up' | 'down' | null>(null);
   const prevPriceRef = useRef(displayPrice);
+  const prevExtPriceRef = useRef(activeExtPrice);
   const displayPriceRef = useRef(displayPrice);
   const displayChangePctRef = useRef(displayChangePct);
   const effectiveSessionRef = useRef(effectiveSession);
@@ -339,7 +783,7 @@ export default function AppFlowPage() {
     shortVolStr = '공매도 ' + s1 + 'M / 전체 ' + s2 + 'M';
   }
 
-  const blockCount = tickerData?.flow?.blockTrades || 214;
+  const blockCount = tickerData?.flow?.blockTrades ?? darkPoolMeta?.tradeCount ?? 214;
 
   useEffect(() => {
     displayPriceRef.current = displayPrice;
@@ -353,6 +797,20 @@ export default function AppFlowPage() {
       return () => clearTimeout(tId);
     }
   }, [displayPrice, displayChangePct, effectiveSession]);
+
+  useEffect(() => {
+    if (!activeExtPrice || activeExtPrice <= 0) {
+      prevExtPriceRef.current = activeExtPrice;
+      return;
+    }
+    if (activeExtPrice !== prevExtPriceRef.current) {
+      const isUp = activeExtPrice >= prevExtPriceRef.current;
+      setExtFlash(isUp ? 'up' : 'down');
+      prevExtPriceRef.current = activeExtPrice;
+      const tId = setTimeout(() => setExtFlash(null), 950);
+      return () => clearTimeout(tId);
+    }
+  }, [activeExtPrice]);
 
   const resolvedPrevClose = tickerData?.prices?.prevRegularClose || tickerData?.rawTickerData?.prices?.prevRegularClose || tickerData?.prevClose || 0;
   const finalChangeAbs = resolvedPrevClose > 0 ? Math.abs(displayPrice - resolvedPrevClose) : Math.abs(tickerData?.display?.changeAbs || 0);
@@ -390,26 +848,53 @@ export default function AppFlowPage() {
     async function fetchFlow() {
       if (initialLoadRef.current) setLoading(true);
       try {
-        const [res, dpRes] = await Promise.all([
+        const [res, dpRes, ivRes, whaleRes] = await Promise.all([
           fetch(`/api/live/ticker?t=${ticker.toUpperCase()}`),
-          fetch(`/api/flow/dark-pool-trades?ticker=${ticker.toUpperCase()}&limit=20`).catch(() => null)
+          fetch(`/api/flow/dark-pool-trades?ticker=${ticker.toUpperCase()}&limit=20`).catch(() => null),
+          fetch(`/api/flow/iv-percentile?ticker=${ticker.toUpperCase()}`).catch(() => null),
+          fetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`).catch(() => null)
         ]);
 
         if (!res.ok) throw new Error();
         const data = await res.json();
 
         let dpItems = DEMO_DARK_POOL_TRADES;
+        let dpMetaNext: any = null;
         if (dpRes && dpRes.ok) {
           const dpData = await dpRes.json();
+          dpMetaNext = dpData;
           if (dpData && Array.isArray(dpData.items) && dpData.items.length > 0) {
             dpItems = dpData.items;
+          }
+        }
+
+        let whaleItems: any[] = [];
+        let whaleMetaNext: any = null;
+        if (whaleRes && whaleRes.ok) {
+          const whaleData = await whaleRes.json();
+          whaleMetaNext = whaleData;
+          if (whaleData && Array.isArray(whaleData.items)) {
+            whaleItems = whaleData.items;
+          }
+        }
+
+        let ivRankFromPercentile: number | null = null;
+        if (ivRes && ivRes.ok) {
+          const ivData = await ivRes.json();
+          const rawIvRank = ivData?.percentile ?? ivData?.ivRank ?? ivData?.ivPercentile ?? null;
+          if (rawIvRank != null && Number.isFinite(Number(rawIvRank))) {
+            ivRankFromPercentile = Math.round(Number(rawIvRank));
           }
         }
 
         if (cancelled) return;
 
         setDarkPoolTrades(dpItems);
+        setDarkPoolMeta(dpMetaNext);
+        setWhaleTradesFeed(whaleItems);
+        setWhaleMeta(whaleMetaNext);
         setTickerData(data);
+        setIvRankOverride(ivRankFromPercentile);
         if (data.display?.price) setPrice(data.display.price);
         if (data.display?.changePctPct) setChange(data.display.changePctPct);
 
@@ -474,6 +959,9 @@ export default function AppFlowPage() {
         setCallPct(ticker === 'TSLA' ? 42.1 : 58.6);
         setMaxPainVal(ticker === 'TSLA' ? 170.0 : 210.0);
         setRawChain([]);
+        setWhaleTradesFeed([]);
+        setWhaleMeta(null);
+        setDarkPoolMeta(null);
         setDarkPoolTrades(DEMO_DARK_POOL_TRADES);
       } finally {
         if (!cancelled) {
@@ -506,8 +994,32 @@ export default function AppFlowPage() {
 
   // Compute real Whale Sweeps
   const whaleSweeps = useMemo(() => {
-    const baseList = (!rawChain || rawChain.length === 0) 
-      ? DEMO_WHALES 
+    const apiList = whaleTradesFeed.map((tx: any, i: number) => {
+      const type = (tx.type || tx.optionType || 'CALL').toUpperCase();
+      const expiry = tx.expiry
+        ? String(tx.expiry).includes('-')
+          ? String(tx.expiry).split('-').slice(1).join('/')
+          : String(tx.expiry)
+        : '06/19';
+      return {
+        id: tx.id || `whale-${i}`,
+        time: tx.timeET || tx.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0],
+        tradeDate: tx.tradeDate || null,
+        strike: Number(tx.strike || 0),
+        type: type as 'CALL' | 'PUT',
+        expiry,
+        size: Number(tx.size || 0),
+        px: Number(tx.price || tx.px || 0),
+        premium: Number(tx.premium || 0),
+        dir: tx.side || (type === 'CALL' ? 'ASK' : 'BID'),
+        contractTicker: tx.ticker || ''
+      };
+    });
+
+    const baseList = apiList.length > 0
+      ? apiList
+      : (!rawChain || rawChain.length === 0)
+      ? DEMO_WHALES
       : rawChain.map((c: any, i: number) => {
           const strike = c.details?.strike_price || 0;
           const type = (c.details?.contract_type || 'call').toUpperCase();
@@ -531,13 +1043,13 @@ export default function AppFlowPage() {
           };
         });
 
-    const filtered = baseList.filter(tx => tx.premium >= minPremium);
+    const filtered = baseList.filter(tx => tx.premium >= WHALE_PREMIUM_FLOOR);
     return filtered.sort((a, b) => b.premium - a.premium);
-  }, [rawChain, DEMO_WHALES, minPremium]);
+  }, [rawChain, DEMO_WHALES, whaleTradesFeed]);
 
   const filteredDarkPoolTrades = useMemo(() => {
-    return darkPoolTrades.filter((tx: any) => tx.premium >= minPremium);
-  }, [darkPoolTrades, minPremium]);
+    return darkPoolTrades.filter((tx: any) => tx.isBlock !== false && tx.premium >= 200000);
+  }, [darkPoolTrades]);
 
   const whaleSummary = useMemo(() => {
     const count = whaleSweeps.length;
@@ -554,6 +1066,63 @@ export default function AppFlowPage() {
     const sellSum = filteredDarkPoolTrades.filter((tx: any) => tx.side === 'SELL').reduce((sum: number, tx: any) => sum + tx.premium, 0);
     return { count, total, buySum, sellSum };
   }, [filteredDarkPoolTrades]);
+
+  const whaleCopy = useMemo(() => WHALE_DP_COPY[locale as keyof typeof WHALE_DP_COPY] || WHALE_DP_COPY.en, [locale]);
+  const institutionalTotalLabel = locale === 'ko'
+    ? '당일 추적 명목총액'
+    : locale === 'ja'
+    ? '本日追跡名目総額'
+    : 'Tracked notional today';
+  const totalCompositionLabel = locale === 'ko'
+    ? '총량 구성'
+    : locale === 'ja'
+    ? '総額構成'
+    : 'Total mix';
+  const dpDayValue = Number(darkPoolMeta?.totalDarkPoolValue ?? dpSummary.total ?? 0);
+  const dpDayCount = Number(tickerData?.flow?.blockTrades ?? darkPoolMeta?.tradeCount ?? filteredDarkPoolTrades.length);
+  const dpDayPct = Number(pctNumber(dpPct) || darkPoolMeta?.darkPoolPercent || 0);
+  const dpNetBuyValue = Number(tickerData?.flow?.darkPoolNetBuyVal ?? (dpSummary.buySum - dpSummary.sellSum));
+  const whaleDayTotal = Number(whaleSummary.total || 0);
+  const whaleDayCount = Number(whaleMeta?.count ?? whaleSummary.count ?? 0);
+  const institutionalTotal = whaleDayTotal + dpDayValue;
+  const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : callPct;
+  const largestWhalePrint = whaleSweeps[0]?.premium || 0;
+  const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
+  const largestInstitutionalPrint = Math.max(largestWhalePrint, largestDpPrint);
+  const shortPressureNum = pctNumber(shortPct);
+  const whaleBiasScore = Math.max(-100, Math.min(100, Math.round((whaleCallShare - 50) * 2)));
+  const dpBiasScore = institutionalTotal > 0 ? Math.max(-100, Math.min(100, Math.round((dpNetBuyValue / Math.max(dpDayValue, 1)) * 100))) : 0;
+  const pressureScore = Math.max(-100, Math.min(100, Math.round((whaleBiasScore * 0.5) + (dpBiasScore * 0.3) - ((shortPressureNum - 45) * 0.8))));
+  const psychologyLabel = pressureScore >= 20
+    ? whaleCopy.chase
+    : pressureScore <= -20
+    ? whaleCopy.hedge
+    : whaleCopy.mixed;
+  const psychologyAccent = pressureScore >= 20 ? '#10b981' : pressureScore <= -20 ? '#f43f5e' : '#f59e0b';
+  const rawBlockCount = Number(dpDayCount || blockCount || 0);
+  const formattedBlockCount = rawBlockCount.toLocaleString(locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US');
+  const convictionPct = Math.max(35, Math.min(92, Math.round(
+    45
+    + Math.abs(pressureScore) * 0.35
+    + Math.min(whaleDayCount, 25) * 0.4
+    + Math.min(dpDayPct, 60) * 0.12
+  )));
+  const blockIntensityPct = Math.max(5, Math.min(100, Math.round((rawBlockCount / 10000) * 100)));
+  const isSessionClosed = effectiveSession === 'CLOSED';
+  const isFlowStale = Boolean(darkPoolMeta?._stale);
+  const isFlowCached = Boolean(darkPoolMeta?._cached || whaleMeta?._cached);
+  const flowFreshness = isSessionClosed
+    ? whaleCopy.closedData
+    : isFlowStale
+    ? whaleCopy.delayedData
+    : isFlowCached
+    ? whaleCopy.recentData
+    : whaleCopy.liveData;
+  const flowPreviewStats = [
+    { label: whaleCopy.largestPrint, value: formatCompactMoney(largestInstitutionalPrint), color: largestInstitutionalPrint >= 1000000 ? '#f59e0b' : '#38bdf8' },
+    { label: whaleCopy.netBias, value: `${dpNetBuyValue >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(dpNetBuyValue))}`, color: dpNetBuyValue >= 0 ? '#10b981' : '#f43f5e' },
+    { label: whaleCopy.sourceFresh, value: flowFreshness, color: flowFreshness === whaleCopy.liveData ? '#22d3ee' : isSessionClosed ? '#94a3b8' : '#f59e0b' },
+  ];
 
   // Compute real UOA
   const uoaList = useMemo(() => {
@@ -602,7 +1171,15 @@ export default function AppFlowPage() {
   const rotationAngle = -90 + (opi / 100) * 180; // maps 0-100 to -90 to +90 degrees
 
   // ── Task 5: Derived dynamic values for Overview & AI Intel tabs ──
-  const ivRankVal = tickerData?.flow?.ivRank ?? tickerData?.unified?.volatility?.ivRank ?? null;
+  const rawIvRankVal = ivRankOverride
+    ?? tickerData?.flow?.ivRank
+    ?? tickerData?.rawTickerData?.flow?.ivRank
+    ?? tickerData?.unified?.volatility?.ivRank
+    ?? tickerData?.volatility?.ivRank
+    ?? null;
+  const ivRankVal = rawIvRankVal != null && Number.isFinite(Number(rawIvRankVal))
+    ? Math.round(Number(rawIvRankVal))
+    : null;
   const ivSkewVal = tickerData?.flow?.ivSkew ?? null;
   const putFloorVal = tickerData?.flow?.putFloor ?? null;
   const callWallVal = tickerData?.flow?.callWall ?? null;
@@ -625,11 +1202,6 @@ export default function AppFlowPage() {
   // Regime label (Options Market Regime)
   const regimeLabel = ivRankVal == null ? '—' : ivRankVal < 30 ? t.lowVol : ivRankVal < 70 ? t.neutral : t.highVol;
   const regimeBadgeClass = ivRankVal == null ? s.badgeAmber : ivRankVal < 30 ? s.badgeGreen : ivRankVal < 70 ? s.badgeAmber : `${s.headerBadge}`;
-  const regimeInsight = locale === 'ko'
-    ? `IV Rank ${ivRankVal ?? '—'}% 수준에서 P/C 비율 ${pcRatio.toFixed(2)}의 옵션 시장 레짐`
-    : locale === 'ja'
-    ? `IV Rank ${ivRankVal ?? '—'}%水準でP/C比率${pcRatio.toFixed(2)}のオプション市場レジーム`
-    : `Options market regime at IV Rank ${ivRankVal ?? '—'}% with P/C ratio ${pcRatio.toFixed(2)}`;
 
   // AI Verdict derived values
   const aiIvRank = ivRankVal ?? null;
@@ -721,16 +1293,79 @@ export default function AppFlowPage() {
 
   const compositeScore = useMemo(() => {
     const flowBonus = Math.abs(netWhalePremium) > 1000000 ? (netWhalePremium > 0 ? 5 : -5) : 0;
-    let score = opiScore + whaleScore + squeezeScore + skewScore + smartScore + dexScore + uoaScore + pcScore + zdteScore + flowBonus;
+    const score = opiScore + whaleScore + squeezeScore + skewScore + smartScore + dexScore + uoaScore + pcScore + zdteScore + flowBonus;
     return Math.max(-100, Math.min(100, Math.round(score)));
   }, [opiScore, whaleScore, squeezeScore, skewScore, smartScore, dexScore, uoaScore, pcScore, zdteScore, netWhalePremium]);
 
-  const compositeIndex = Math.round((opi * 0.4) + (((ivRankVal ?? 50)) * 0.3) + ((100 - pcRatio * 50) * 0.3));
+  const gammaFlipNumForOverview = typeof liveGammaFlip === 'number'
+    ? liveGammaFlip
+    : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
+  const overviewDirection = compositeScore >= 20 ? 'bullish' : compositeScore <= -20 ? 'bearish' : 'neutral';
+  const overviewSignal = flowCopy.signals[overviewDirection];
+  const overviewAccent = overviewDirection === 'bullish'
+    ? '#10b981'
+    : overviewDirection === 'bearish'
+    ? '#f43f5e'
+    : '#f59e0b';
+  const premiumBiasLabel = callPct >= 55
+    ? flowCopy.callDominant
+    : callPct <= 45
+    ? flowCopy.putDominant
+    : flowCopy.balanced;
+  const gammaPositionLabel = gammaFlipNumForOverview > 0 && displayPrice >= gammaFlipNumForOverview
+    ? flowCopy.aboveGamma
+    : flowCopy.belowGamma;
+  const riskStateLabel = volRegime === 'ERUPTING'
+    ? flowCopy.erupting
+    : volRegime === 'LOADED'
+    ? flowCopy.loaded
+    : flowCopy.stable;
+  const convictionLabel = Math.abs(compositeScore) >= 45 || opi >= 68 || opi <= 35
+    ? flowCopy.highConviction
+    : Math.abs(compositeScore) >= 20 || squeezeProb >= 55
+    ? flowCopy.mediumConviction
+    : flowCopy.lowConviction;
+  const netPremiumOverview = tickerData?.flow?.netPremium
+    ?? (callPct >= 50 ? totalPrem * (callPct - 50) / 50 : -totalPrem * (50 - callPct) / 50);
+  const netPremiumText = `${netPremiumOverview >= 0 ? '+' : '-'}$${Math.abs(netPremiumOverview) >= 1000000
+    ? `${(Math.abs(netPremiumOverview) / 1000000).toFixed(1)}M`
+    : `${(Math.abs(netPremiumOverview) / 1000).toFixed(0)}K`
+  }`;
+  const gammaDistancePct = gammaFlipNumForOverview > 0
+    ? ((displayPrice - gammaFlipNumForOverview) / gammaFlipNumForOverview) * 100
+    : 0;
+  const gammaDistanceText = gammaFlipNumForOverview > 0
+    ? `${gammaDistancePct >= 0 ? '+' : ''}${gammaDistancePct.toFixed(1)}%`
+    : '--';
+  const opiFactorRails = [
+    {
+      label: flowCopy.factorPcr,
+      value: pcRatio.toFixed(2),
+      color: pcRatio <= 0.75 ? '#10b981' : pcRatio >= 1.25 ? '#f43f5e' : '#f59e0b',
+      width: Math.max(12, Math.min(100, Math.abs(1 - pcRatio) * 80 + 28))
+    },
+    {
+      label: flowCopy.factorPremium,
+      value: `${callPct.toFixed(0)}% Call`,
+      color: callPct >= 55 ? '#10b981' : callPct <= 45 ? '#f43f5e' : '#f59e0b',
+      width: Math.max(12, Math.min(100, Math.abs(callPct - 50) * 2 + 28))
+    },
+    {
+      label: flowCopy.factorGamma,
+      value: gammaDistanceText,
+      color: gammaDistancePct >= 0 ? '#10b981' : '#f43f5e',
+      width: Math.max(12, Math.min(100, Math.abs(gammaDistancePct) * 16 + 24))
+    }
+  ];
+  const regimeInsightText = flowCopy.regimeInsight
+    .replace('{ivRank}', `${ivRankVal ?? '--'}`)
+    .replace('{pcRatio}', pcRatio.toFixed(2))
+    .replace('{bias}', premiumBiasLabel);
 
-  const aiVerdictLabel = opi >= 65 ? t.bullishMomentum : opi >= 40 ? t.neutralLabel : t.bearishPressure;
-  const aiVerdictBadgeStyle = opi >= 65
+  const aiVerdictLabel = overviewSignal.title;
+  const aiVerdictBadgeStyle = overviewDirection === 'bullish'
     ? { background: 'rgba(16, 185, 129, 0.12)', color: 'var(--green)', border: '1px solid rgba(16, 185, 129, 0.25)' }
-    : opi >= 40
+    : overviewDirection === 'neutral'
     ? { background: 'rgba(245, 158, 11, 0.12)', color: 'var(--amber)', border: '1px solid rgba(245, 158, 11, 0.25)' }
     : { background: 'rgba(239, 68, 68, 0.12)', color: 'var(--red)', border: '1px solid rgba(239, 68, 68, 0.25)' };
   const aiOpiColor = opi >= 65 ? 'var(--green)' : opi >= 40 ? 'var(--amber)' : 'var(--red)';
@@ -774,14 +1409,14 @@ export default function AppFlowPage() {
         className="popover-container animate-in fade-in zoom-in-95 duration-150"
         style={{
           position: 'absolute',
-          top: '45px',
-          left: '16px',
-          right: '16px',
-          background: 'rgba(15, 23, 42, 0.95)',
+          top: '42px',
+          left: '14px',
+          right: '14px',
+          background: 'linear-gradient(135deg, rgba(8, 20, 38, 0.88), rgba(13, 30, 52, 0.72))',
           border: '1px solid rgba(6, 182, 212, 0.3)',
-          borderRadius: '10px',
-          padding: '12px 14px',
-          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(6, 182, 212, 0.15)',
+          borderRadius: '12px',
+          padding: '11px 12px',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 16px 34px -12px rgba(0, 0, 0, 0.72), 0 8px 18px -12px rgba(6, 182, 212, 0.55)',
           zIndex: 100,
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
@@ -794,12 +1429,13 @@ export default function AppFlowPage() {
           <button 
             type="button"
             onClick={(e) => { e.stopPropagation(); setActivePopover(null); }}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', padding: '2px' }}
+            aria-label="Close info"
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', fontSize: 0, lineHeight: 0, backgroundImage: 'linear-gradient(45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%), linear-gradient(-45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%)' }}
           >
             ✕
           </button>
         </div>
-        <div style={{ fontSize: '11px', lineHeight: '1.4', color: '#b4c6ef', fontWeight: 500, textAlign: 'left' }}>
+        <div style={{ fontSize: '11px', lineHeight: '1.45', color: '#b4c6ef', fontWeight: 600, textAlign: 'left' }}>
           {text}
         </div>
       </div>
@@ -809,31 +1445,37 @@ export default function AppFlowPage() {
   const renderWhaleCard = (tx: any, idx: number) => {
     const isCall = tx.type === 'CALL';
     const dirColor = tx.dir === 'ASK' ? '#10b981' : tx.dir === 'BID' ? '#ef4444' : '#f59e0b';
-    const impactLabel = tx.premium > 500000 ? 'IMPACT: HIGH' : tx.premium > 100000 ? 'IMPACT: MID' : 'IMPACT: LOW';
+    const impactLabel = tx.premium > 500000 ? whaleCopy.impactHigh : tx.premium > 100000 ? whaleCopy.impactMid : whaleCopy.impactLow;
     const impactColor = tx.premium > 500000 ? '#ef4444' : tx.premium > 100000 ? '#f59e0b' : 'var(--cyan)';
+    const cost = tx.size > 0 ? tx.premium / (tx.size * 100) : tx.px || 0;
+    const bep = isCall ? Number(tx.strike || 0) + cost : Number(tx.strike || 0) - cost;
 
     return (
       <div
-        key={idx}
+        key={tx.id || idx}
         style={{
           flex: '0 0 78%',
           scrollSnapAlign: 'start',
-          background: 'linear-gradient(135deg, rgba(20, 30, 50, 0.4) 0%, rgba(10, 15, 30, 0.6) 100%)',
-          border: `1px solid ${isCall ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.18)'}`,
-          borderRadius: '12px',
+          background: isCall
+            ? 'linear-gradient(145deg, rgba(8, 47, 73, 0.52), rgba(15, 23, 42, 0.78))'
+            : 'linear-gradient(145deg, rgba(76, 5, 25, 0.42), rgba(15, 23, 42, 0.78))',
+          border: `1px solid ${isCall ? 'rgba(16,185,129,0.34)' : 'rgba(244,63,94,0.3)'}`,
+          borderRadius: '14px',
           padding: '12px 14px',
           position: 'relative',
-          boxShadow: isCall 
-            ? '0 4px 12px rgba(16,185,129,0.03)' 
-            : '0 4px 12px rgba(239,68,68,0.03)',
+          boxShadow: isCall
+            ? 'inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 26px rgba(16,185,129,0.05)'
+            : 'inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 26px rgba(244,63,94,0.05)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          minHeight: '125px'
+          minHeight: '152px',
+          overflow: 'hidden'
         }}
       >
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 18% 0%, rgba(255,255,255,0.12), transparent 32%)' }} />
         {/* Ticker & Type */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '12px', fontWeight: 900, color: '#ffffff' }}>{ticker}</span>
             <span style={{
@@ -848,16 +1490,16 @@ export default function AppFlowPage() {
               {isCall ? 'CALL' : 'PUT'} | {tx.expiry}
             </span>
           </div>
-          <span style={{ fontSize: '8px', fontWeight: 800, color: impactColor, background: 'rgba(255,255,255,0.02)', padding: '2px 5px', borderRadius: '4px' }}>
-            {impactLabel}
+          <span style={{ fontSize: '8px', fontWeight: 900, color: impactColor, background: 'rgba(255,255,255,0.04)', padding: '3px 6px', borderRadius: '999px', border: `1px solid ${impactColor}33`, whiteSpace: 'nowrap' }}>
+            IMPACT {impactLabel}
           </span>
         </div>
 
         {/* Premium & Strike */}
-        <div style={{ margin: '10px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div style={{ position: 'relative', margin: '10px 0 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              {locale === 'ko' ? '프리미엄' : 'PREMIUM'}
+              {whaleCopy.premium}
             </span>
             <span className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: dirColor }}>
               ${(tx.premium / 1000).toFixed(1)}K
@@ -865,7 +1507,7 @@ export default function AppFlowPage() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              {locale === 'ko' ? '행사가' : 'STRIKE'}
+              {whaleCopy.strike}
             </span>
             <span className="tnum" style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>
               ${tx.strike}
@@ -873,8 +1515,19 @@ export default function AppFlowPage() {
           </div>
         </div>
 
+        <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px', marginBottom: '8px' }}>
+          <div style={{ padding: '7px 8px', borderRadius: '9px', background: 'rgba(2, 6, 23, 0.25)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ display: 'block', fontSize: '8px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{whaleCopy.cost}</span>
+            <span className="tnum" style={{ fontSize: '12px', fontWeight: 900, color: '#e2e8f0' }}>${cost.toFixed(2)}</span>
+          </div>
+          <div style={{ padding: '7px 8px', borderRadius: '9px', background: 'rgba(2, 6, 23, 0.25)', border: '1px solid rgba(255,255,255,0.06)', textAlign: 'right' }}>
+            <span style={{ display: 'block', fontSize: '8px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{whaleCopy.bep}</span>
+            <span className="tnum" style={{ fontSize: '12px', fontWeight: 900, color: bep >= displayPrice ? '#10b981' : '#f43f5e' }}>${bep.toFixed(2)}</span>
+          </div>
+        </div>
+
         {/* Time & Side */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '6px' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '7px' }}>
           <span>{tx.time}</span>
           <span style={{ fontWeight: 800, color: '#ffffff' }}>
             {tx.dir}
@@ -896,24 +1549,30 @@ export default function AppFlowPage() {
         style={{
           flex: '0 0 78%',
           scrollSnapAlign: 'start',
-          background: 'linear-gradient(135deg, rgba(20, 30, 50, 0.4) 0%, rgba(10, 15, 30, 0.6) 100%)',
-          border: `1px solid ${isBuy ? 'rgba(16,185,129,0.18)' : isSell ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.1)'}`,
-          borderRadius: '12px',
+          background: isBuy
+            ? 'linear-gradient(145deg, rgba(6, 78, 59, 0.42), rgba(15, 23, 42, 0.78))'
+            : isSell
+            ? 'linear-gradient(145deg, rgba(76, 5, 25, 0.4), rgba(15, 23, 42, 0.78))'
+            : 'linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.78))',
+          border: `1px solid ${isBuy ? 'rgba(16,185,129,0.34)' : isSell ? 'rgba(244,63,94,0.3)' : 'rgba(255,255,255,0.1)'}`,
+          borderRadius: '14px',
           padding: '12px 14px',
           position: 'relative',
           boxShadow: isBuy
-            ? '0 4px 12px rgba(16,185,129,0.03)'
+            ? 'inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 26px rgba(16,185,129,0.05)'
             : isSell
-            ? '0 4px 12px rgba(239,68,68,0.03)'
-            : 'none',
+            ? 'inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 26px rgba(244,63,94,0.05)'
+            : 'inset 0 1px 0 rgba(255,255,255,0.08)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          minHeight: '125px'
+          minHeight: '138px',
+          overflow: 'hidden'
         }}
       >
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 18% 0%, rgba(255,255,255,0.12), transparent 32%)' }} />
         {/* Ticker & Side */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '12px', fontWeight: 900, color: '#ffffff' }}>{ticker}</span>
             <span style={{
@@ -934,10 +1593,10 @@ export default function AppFlowPage() {
         </div>
 
         {/* Value & Price */}
-        <div style={{ margin: '10px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div style={{ position: 'relative', margin: '10px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              {locale === 'ko' ? '거래 대금' : 'VALUE'}
+              {whaleCopy.value}
             </span>
             <span className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: 'var(--cyan)' }}>
               ${(tx.premium / 1000).toFixed(0)}K
@@ -945,7 +1604,7 @@ export default function AppFlowPage() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              {locale === 'ko' ? '체결단가' : 'PRICE'}
+              {whaleCopy.price}
             </span>
             <span className="tnum" style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>
               ${tx.price.toFixed(2)}
@@ -954,10 +1613,10 @@ export default function AppFlowPage() {
         </div>
 
         {/* Size & Time */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '6px' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '7px' }}>
           <span>{tx.timeET}</span>
           <span style={{ fontWeight: 800, color: '#ffffff' }}>
-            {(tx.size / 1000).toFixed(1)}K shares
+            {(tx.size / 1000).toFixed(1)}K {whaleCopy.shares}
           </span>
         </div>
       </div>
@@ -1025,12 +1684,13 @@ export default function AppFlowPage() {
 
       {/* SEARCH BAR (Toggleable) */}
       {isSearchOpen && (
-        <form onSubmit={handleSearch} style={{ padding: '12px 16px 4px', display: 'flex', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>
+        <form onSubmit={handleSearch} style={{ padding: '12px 16px 6px', display: 'flex', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '7px' }}>
           <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center', position: 'relative' }}>
             <div style={{ position: 'relative', flex: 1 }}>
               {/* Magnifying Glass Icon on Left */}
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', opacity: 0.6 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', opacity: 0.9, zIndex: 2 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
@@ -1039,25 +1699,42 @@ export default function AppFlowPage() {
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder={t.searchPlaceholder}
+                placeholder={flowCopy.searchPlaceholder}
                 style={{
                   width: '100%',
-                  height: '38px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: 'var(--r-pill)',
-                  padding: '0 16px 0 34px',
+                  height: '44px',
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.72), rgba(30, 41, 59, 0.48))',
+                  border: '1px solid rgba(125, 211, 252, 0.22)',
+                  borderRadius: '16px',
+                  padding: '0 76px 0 40px',
                   font: 'var(--f-small)',
-                  fontWeight: 600,
+                  fontWeight: 800,
                   color: 'var(--text)',
                   outline: 'none',
                   transition: 'all 0.3s ease',
                   backdropFilter: 'blur(16px) saturate(180%)',
                   WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+                  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 34px rgba(0, 0, 0, 0.34), 0 0 24px rgba(6, 182, 212, 0.08)',
                   boxSizing: 'border-box'
                 }}
               />
+              <span style={{
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                font: 'var(--f-micro)',
+                fontWeight: 900,
+                color: 'var(--cyan)',
+                letterSpacing: '0.08em',
+                background: 'rgba(6, 182, 212, 0.1)',
+                border: '1px solid rgba(6, 182, 212, 0.2)',
+                borderRadius: '999px',
+                padding: '4px 8px',
+                pointerEvents: 'none'
+              }}>
+                {flowCopy.searchCta}
+              </span>
             </div>
             {/* Close Search Button */}
             <button
@@ -1068,16 +1745,16 @@ export default function AppFlowPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '38px',
-                height: '38px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '10px',
+                width: '44px',
+                height: '44px',
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.72), rgba(30, 41, 59, 0.5))',
+                border: '1px solid rgba(148, 163, 184, 0.18)',
+                borderRadius: '14px',
                 cursor: 'pointer',
                 color: 'rgba(255, 255, 255, 0.7)',
                 transition: 'all 0.2s ease',
                 outline: 'none',
-                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 34px rgba(0, 0, 0, 0.28)',
                 backdropFilter: 'blur(16px) saturate(180%)',
                 WebkitBackdropFilter: 'blur(16px) saturate(180%)',
                 boxSizing: 'border-box'
@@ -1097,6 +1774,23 @@ export default function AppFlowPage() {
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '0 4px 0 6px' }}>
+            <span style={{ font: 'var(--f-micro)', color: 'rgba(180, 198, 239, 0.72)', fontWeight: 700, lineHeight: 1.25 }}>
+              {flowCopy.searchHint}
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              {[0, 1, 2].map((dot) => (
+                <span key={dot} style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  background: dot === 1 ? 'var(--cyan)' : 'rgba(34, 211, 238, 0.35)',
+                  boxShadow: dot === 1 ? '0 0 8px rgba(34, 211, 238, 0.9)' : 'none'
+                }} />
+              ))}
+            </span>
+          </div>
           </div>
         </form>
       )}
@@ -1255,7 +1949,7 @@ export default function AppFlowPage() {
                 </span>
               </div>
               {hasExt && (
-                <div className={s.heroExtCard}>
+                <div className={`${s.heroExtCard} ext-live ${extFlash ? `ext-${extFlash}` : ''}`}>
                   <SparklineBg up={activeExtPct >= 0} seed={`${ticker}-ext`} />
                   <span className={s.heroExtLabel}>{activeExtLabel}</span>
                   <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
@@ -1447,6 +2141,58 @@ export default function AppFlowPage() {
           0% { border-color: rgba(239, 68, 68, 0.25); box-shadow: 0 0 4px rgba(239, 68, 68, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.03); }
           100% { border-color: rgba(239, 68, 68, 0.65); box-shadow: 0 0 10px rgba(239, 68, 68, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.03); }
         }
+        @keyframes ext-live-breathe {
+          0%, 100% {
+            border-color: rgba(148, 163, 184, 0.13);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 rgba(6,182,212,0);
+          }
+          50% {
+            border-color: rgba(6, 182, 212, 0.34);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 18px rgba(6,182,212,0.13);
+          }
+        }
+        @keyframes ext-flash-up {
+          0% {
+            border-color: rgba(16, 185, 129, 0.86);
+            background-color: rgba(16, 185, 129, 0.13);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 24px rgba(16,185,129,0.32);
+          }
+          100% {
+            border-color: rgba(148, 163, 184, 0.13);
+            background-color: rgba(15, 23, 42, 0.32);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 rgba(16,185,129,0);
+          }
+        }
+        @keyframes ext-flash-down {
+          0% {
+            border-color: rgba(244, 63, 94, 0.86);
+            background-color: rgba(244, 63, 94, 0.13);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 24px rgba(244,63,94,0.32);
+          }
+          100% {
+            border-color: rgba(148, 163, 184, 0.13);
+            background-color: rgba(15, 23, 42, 0.32);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 rgba(244,63,94,0);
+          }
+        }
+        .ext-live {
+          position: relative;
+          animation: ext-live-breathe 2.6s ease-in-out infinite;
+          will-change: border-color, box-shadow, background-color;
+        }
+        .ext-up {
+          animation: ext-flash-up 0.95s ease-out 1, ext-live-breathe 2.6s ease-in-out 0.95s infinite;
+        }
+        .ext-down {
+          animation: ext-flash-down 0.95s ease-out 1, ext-live-breathe 2.6s ease-in-out 0.95s infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ext-live,
+          .ext-up,
+          .ext-down {
+            animation: none;
+          }
+        }
 
         .vital-gold-glow {
           animation: vital-pulse-gold 2s infinite alternate;
@@ -1472,9 +2218,119 @@ export default function AppFlowPage() {
       >
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
+          {/* Premium Flow Briefing */}
+          <div className="premium-card animate-glow" style={{
+            padding: '16px',
+            margin: 0,
+            position: 'relative',
+            overflow: 'hidden',
+            borderTop: 'none',
+            borderTopLeftRadius: '0px',
+            borderTopRightRadius: '0px',
+            background: `linear-gradient(135deg, ${overviewAccent}18 0%, rgba(15, 23, 42, 0.7) 42%, rgba(30, 41, 59, 0.46) 100%)`,
+            borderColor: `${overviewAccent}40`
+          }}>
+            <div style={{
+              position: 'absolute',
+              right: '-48px',
+              top: '-56px',
+              width: '150px',
+              height: '150px',
+              borderRadius: '50%',
+              background: `${overviewAccent}1f`,
+              filter: 'blur(28px)'
+            }} />
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <span style={{ font: 'var(--f-micro)', fontWeight: 900, color: 'rgba(180, 198, 239, 0.82)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {flowCopy.overviewEyebrow}
+              </span>
+              <span style={{
+                font: 'var(--f-micro)',
+                fontWeight: 900,
+                color: overviewAccent,
+                background: `${overviewAccent}14`,
+                border: `1px solid ${overviewAccent}35`,
+                borderRadius: '999px',
+                padding: '4px 8px',
+                whiteSpace: 'nowrap'
+              }}>
+                {convictionLabel}
+              </span>
+            </div>
+
+            <div style={{ position: 'relative', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+              <div style={{
+                width: 42,
+                height: 42,
+                borderRadius: '14px',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: overviewAccent,
+                background: `${overviewAccent}14`,
+                border: `1px solid ${overviewAccent}35`,
+                boxShadow: `0 0 20px ${overviewAccent}22`
+              }}>
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 17l6-6 4 4 8-8" />
+                  <path d="M14 7h7v7" />
+                </svg>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ font: 'var(--f-h2)', fontWeight: 900, color: '#f8fafc', lineHeight: 1.12, marginBottom: '6px' }}>
+                  {overviewSignal.title}
+                </div>
+                <div style={{ font: 'var(--f-small)', fontWeight: 650, color: '#b4c6ef', lineHeight: 1.5 }}>
+                  {overviewSignal.body}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginTop: '14px' }}>
+              {[
+                { label: flowCopy.premiumFlow, value: premiumBiasLabel, color: callPct >= 55 ? '#10b981' : callPct <= 45 ? '#f43f5e' : '#f59e0b' },
+                { label: flowCopy.gammaMap, value: gammaPositionLabel, color: gammaFlipNumForOverview > 0 && displayPrice >= gammaFlipNumForOverview ? '#10b981' : '#f59e0b' },
+                { label: flowCopy.riskState, value: riskStateLabel, color: volRegime === 'ERUPTING' ? '#f43f5e' : volRegime === 'LOADED' ? '#f59e0b' : '#10b981' }
+              ].map((item) => (
+                <div key={item.label} style={{
+                  minWidth: 0,
+                  padding: '10px 8px',
+                  borderRadius: '10px',
+                  background: 'rgba(15, 23, 42, 0.42)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)'
+                }}>
+                  <div style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'rgba(148, 163, 184, 0.9)', marginBottom: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.label}
+                  </div>
+                  <div style={{ font: 'var(--f-micro)', fontWeight: 900, color: item.color, lineHeight: 1.25, minHeight: '22px' }}>
+                    {item.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{
+              position: 'relative',
+              marginTop: '12px',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              color: '#dbeafe',
+              font: 'var(--f-small)',
+              fontWeight: 700,
+              lineHeight: 1.45,
+              background: 'rgba(6, 182, 212, 0.055)',
+              border: '1px solid rgba(6, 182, 212, 0.16)'
+            }}>
+              {overviewSignal.action}
+            </div>
+          </div>
+
           {/* OPI Radial Gauge (Module 1) */}
-          <div className="premium-card" style={{ padding: '20px 18px', margin: 0, position: 'relative', borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px' }}>
-            {renderPopover('opi', locale === 'ko' ? '옵션 가격 압박 지수. 콜/풋 포지셔닝에 따른 가격 압박 방향을 보여줍니다. 양수(+)는 콜 가격 우위, 음수(-)는 풋 가격 우위입니다.' : 'Options Price Gauge — price pressure direction from call/put positioning. Positive = call-price dominance, negative = put-price dominance.', locale === 'ko' ? 'OPI 설명' : 'OPI Info')}
+          <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
+            {renderPopover('opi', flowCopy.opiInfo, flowCopy.opiInfoTitle)}
             <div className="app-card-head" style={{ marginBottom: 0 }}>
               <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
                 {t.opiGauge}
@@ -1492,15 +2348,15 @@ export default function AppFlowPage() {
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em'
                 }}>
-                  {opiCalculated.isFallback ? (locale === 'ko' ? '장마감' : 'Closed') : (locale === 'ko' ? '장중 작동' : 'Intraday')}
+                  {opiCalculated.isFallback ? flowCopy.closed : flowCopy.intraday}
                 </span>
               </span>
               <span style={{ font: 'var(--f-micro)', fontWeight: 900, color: gaugeColor, letterSpacing: '0.05em' }}>{gaugeStatus}</span>
             </div>
 
             {/* Semi-circular Gauge */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 12, position: 'relative', height: '115px' }}>
-              <svg width="190" height="105" viewBox="0 0 180 100">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 10, position: 'relative', height: '108px' }}>
+              <svg width="182" height="100" viewBox="0 0 180 100">
                 <defs>
                   <linearGradient id="opiGaugeGrad" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#f43f5e" />
@@ -1549,8 +2405,8 @@ export default function AppFlowPage() {
                 />
               </svg>
               {/* Positioned value badge below the hand but inside the arc */}
-              <div style={{ position: 'absolute', bottom: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span className="tnum" style={{ font: 'var(--f-display)', fontSize: '32px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.03em', textShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
+              <div style={{ position: 'absolute', bottom: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span className="tnum" style={{ font: 'var(--f-display)', fontSize: '30px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.03em', textShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
                   {opi.toFixed(1)}
                 </span>
                 <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'var(--text-muted)', fontSize: '8.5px', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '-4px' }}>
@@ -1559,14 +2415,41 @@ export default function AppFlowPage() {
               </div>
             </div>
 
+            <div style={{ marginTop: '6px', padding: '10px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.32)', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ font: 'var(--f-micro)', fontWeight: 900, color: 'rgba(180, 198, 239, 0.78)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                {flowCopy.opiFactors}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                {opiFactorRails.map((factor) => (
+                  <div key={factor.label} style={{ display: 'grid', gridTemplateColumns: '74px 1fr 54px', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'rgba(148, 163, 184, 0.95)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {factor.label}
+                    </span>
+                    <div style={{ height: '5px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', position: 'relative' }}>
+                      <div style={{
+                        width: `${factor.width}%`,
+                        height: '100%',
+                        borderRadius: '999px',
+                        background: `linear-gradient(90deg, ${factor.color}88, ${factor.color})`,
+                        boxShadow: `0 0 10px ${factor.color}55`
+                      }} />
+                    </div>
+                    <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 900, color: factor.color, textAlign: 'right' }}>
+                      {factor.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* PCR Summary */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 14, paddingTop: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 12, paddingTop: 12 }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.pcRatio}</span>
                 <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: '#ffffff', marginTop: 4 }}>{pcRatio.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{locale === 'ko' ? '기초자산 OPI' : 'Underlying OPI'}</span>
+                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{flowCopy.underlyingOpi}</span>
                 <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: gaugeColor, marginTop: 4 }}>{opi.toFixed(0)} ({gaugeStatus})</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -1588,74 +2471,106 @@ export default function AppFlowPage() {
             </div>
           </div>
 
-          {/* Sentiment & Squeeze Grid (Module 2) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            {/* Left Card: Composite Index */}
-            {(() => {
-              const compStatus = compositeIndex >= 65 ? (locale === 'ko' ? '강세 수급' : 'Strong Bullish') : compositeIndex >= 40 ? (locale === 'ko' ? '중립 혼조' : 'Neutral Mixed') : (locale === 'ko' ? '약세 흐름' : 'Bearish Flow');
-              const compColor = compositeIndex >= 65 ? '#10b981' : compositeIndex >= 40 ? '#fbbf24' : '#f43f5e';
-              const radius = 24;
-              const circum = 2 * Math.PI * radius;
-              const strokeDashoffset = circum - (compositeIndex / 100) * circum;
-              
-              return (
-                <div className="premium-card" style={{ padding: '16px 14px', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', position: 'relative' }}>
-                  {renderPopover('composite', locale === 'ko' ? '종합 수급 지수. GEX 레짐, OPI, IV Rank, PC Ratio 등 9가지 핵심 지표의 방향 일치도를 가중치 점수화한 지표입니다.' : 'Multi-indicator composite — direction alignment score across 9 core indicators (flow, gamma, IV, short interest, etc.).', locale === 'ko' ? '종합지수 설명' : 'Composite Info')}
-                  <span className="app-card-title" style={{ fontSize: '10px', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {locale === 'ko' ? '종합 수급 지수' : 'Composite Index'}
+          {/* Pressure Pair (Composite + Squeeze) */}
+          {(() => {
+            const compStatus = compositeScore >= 20 ? flowCopy.compStrong : compositeScore <= -20 ? flowCopy.compBear : flowCopy.compNeutral;
+            const compColor = compositeScore >= 20 ? '#10b981' : compositeScore <= -20 ? '#f43f5e' : '#f59e0b';
+            const sqStatus = squeezeProb >= 70 ? flowCopy.squeezeHigh : squeezeProb >= 40 ? flowCopy.squeezeModerate : flowCopy.squeezeLow;
+            const sqColor = squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
+            const compositePos = Math.max(0, Math.min(100, (compositeScore + 100) / 2));
+
+            return (
+              <div className="premium-card" style={{ padding: '14px', margin: 0, position: 'relative', overflow: 'hidden' }}>
+                {renderPopover('composite', flowCopy.compositeInfo, flowCopy.compositeInfoTitle)}
+                {renderPopover('squeeze', flowCopy.squeezeInfo, flowCopy.squeezeInfoTitle)}
+                <div className="app-card-head" style={{ marginBottom: '10px', alignItems: 'center' }}>
+                  <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {flowCopy.pressurePair}
                     <InfoBtn popKey="composite" />
                   </span>
-                  <div style={{ position: 'relative', width: '64px', height: '64px', marginTop: '2px' }}>
-                    <svg width="64" height="64" viewBox="0 0 64 64" style={{ transform: 'rotate(-90deg)' }}>
-                      <circle cx="32" cy="32" r={radius} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="3" />
-                      <circle cx="32" cy="32" r={radius} fill="none" stroke={compColor} strokeWidth="3" strokeDasharray={circum} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${compColor})` }} />
-                    </svg>
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: 'var(--f-small)', fontWeight: 900, color: '#ffffff', fontSize: '13px' }}>
-                      {compositeIndex}%
+                  <span style={{
+                    font: 'var(--f-micro)',
+                    fontWeight: 900,
+                    color: compColor,
+                    background: `${compColor}14`,
+                    border: `1px solid ${compColor}30`,
+                    borderRadius: '999px',
+                    padding: '3px 8px'
+                  }}>
+                    {compStatus}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 68px 1fr', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ padding: '11px 10px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.38)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800, marginBottom: '7px' }}>{flowCopy.compositeIndex}</div>
+                    <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: compColor, lineHeight: 1 }}>
+                      {compositeScore > 0 ? '+' : ''}{compositeScore}
+                    </div>
+                    <div style={{ height: '5px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', marginTop: '10px', overflow: 'hidden' }}>
+                      <div style={{ width: `${compositePos}%`, height: '100%', background: `linear-gradient(90deg, rgba(239,68,68,0.75), ${compColor})`, borderRadius: '999px' }} />
                     </div>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: compColor, letterSpacing: '0.02em' }}>{compStatus}</span>
-                </div>
-              );
-            })()}
 
-            {/* Right Card: Squeeze Probability */}
-            {(() => {
-              const sqStatus = squeezeProb >= 70 ? (locale === 'ko' ? '높음 (위험)' : 'High Squeeze') : squeezeProb >= 40 ? (locale === 'ko' ? '보통 (대기)' : 'Moderate') : (locale === 'ko' ? '낮음 (안정)' : 'Low Squeeze');
-              const sqColor = squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
-              const radius = 24;
-              const circum = 2 * Math.PI * radius;
-              const strokeDashoffset = circum - (squeezeProb / 100) * circum;
+                  <div style={{
+                    width: 68,
+                    height: 68,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: `radial-gradient(circle at 50% 42%, ${overviewAccent}26, rgba(15,23,42,0.52) 68%)`,
+                    border: `1px solid ${overviewAccent}35`,
+                    boxShadow: `0 0 24px ${overviewAccent}16`
+                  }}>
+                    <span style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.75)', fontWeight: 800 }}>{flowCopy.pressureConclusion}</span>
+                    <span style={{ font: 'var(--f-micro)', color: overviewAccent, fontWeight: 950, marginTop: '4px', textAlign: 'center', lineHeight: 1.1 }}>
+                      {overviewSignal.title}
+                    </span>
+                  </div>
 
-              return (
-                <div className="premium-card" style={{ padding: '16px 14px', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', position: 'relative' }}>
-                  {renderPopover('squeeze', locale === 'ko' ? '숏 스퀴즈 발생 확률. 공매도 비율, 대차 잔고, Days to Cover(DTC) 등을 종합 분석하여 숏 스퀴즈 유발 압력을 보여줍니다.' : 'Short squeeze indicator — combines short interest, utilization rate & DTC. Higher values indicate increased squeeze pressure.', locale === 'ko' ? '스퀴즈 확률 설명' : 'Squeeze Info')}
-                  <span className="app-card-title" style={{ fontSize: '10px', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {locale === 'ko' ? '스퀴즈 분출 확률' : 'Squeeze Probability'}
-                    <InfoBtn popKey="squeeze" />
-                  </span>
-                  <div style={{ position: 'relative', width: '64px', height: '64px', marginTop: '2px' }}>
-                    <svg width="64" height="64" viewBox="0 0 64 64" style={{ transform: 'rotate(-90deg)' }}>
-                      <circle cx="32" cy="32" r={radius} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="3" />
-                      <circle cx="32" cy="32" r={radius} fill="none" stroke={sqColor} strokeWidth="3" strokeDasharray={circum} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${sqColor})` }} />
-                    </svg>
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: 'var(--f-small)', fontWeight: 900, color: '#ffffff', fontSize: '13px' }}>
+                  <div style={{ padding: '11px 10px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.38)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                      <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800 }}>{flowCopy.squeezeProbability}</span>
+                      <InfoBtn popKey="squeeze" />
+                    </div>
+                    <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: sqColor, lineHeight: 1, marginTop: '7px' }}>
                       {squeezeProb}%
                     </div>
+                    <div style={{ font: 'var(--f-micro)', color: sqColor, fontWeight: 900, marginTop: '6px' }}>
+                      {sqStatus}
+                    </div>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: sqColor, letterSpacing: '0.02em' }}>{sqStatus}</span>
                 </div>
-              );
-            })()}
-          </div>
+              </div>
+            );
+          })()}
 
           {/* Premium Total Option Flows (Module 3) */}
-          <div className="premium-card" style={{ padding: '18px 16px', margin: 0 }}>
+          <div className="premium-card" style={{ padding: '16px', margin: 0 }}>
             <div className="app-card-head" style={{ marginBottom: '8px' }}>
-              <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.totalPremium}</span>
+              <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{flowCopy.totalPremium}</span>
               <span className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
                 ${(totalPrem / 1000000).toFixed(1)}M
               </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', margin: '10px 0 12px' }}>
+              {[
+                { label: flowCopy.netPremium, value: netPremiumText, color: netPremiumOverview >= 0 ? '#10b981' : '#f43f5e' },
+                { label: flowCopy.sourceFreshness, value: opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource, color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
+              ].map((item) => (
+                <div key={item.label} style={{
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  background: 'rgba(15, 23, 42, 0.34)',
+                  border: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                  <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800, marginBottom: '5px' }}>{item.label}</div>
+                  <div className="tnum" style={{ font: 'var(--f-small)', color: item.color, fontWeight: 950 }}>{item.value}</div>
+                </div>
+              ))}
             </div>
             
             <div style={{ background: 'rgba(255,255,255,0.02)', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', margin: '6px 0 14px', border: '1px solid rgba(255,255,255,0.03)' }}>
@@ -1666,13 +2581,24 @@ export default function AppFlowPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{t.callBullish}</span>
+                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{flowCopy.callBias}</span>
                 <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#10b981' }}>{callPct.toFixed(1)}%</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{t.putBearish}</span>
+                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{flowCopy.putBias}</span>
                 <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#ef4444' }}>{(100 - callPct).toFixed(1)}%</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
+              <div style={{ padding: '7px 10px', borderRadius: '10px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.12)' }}>
+                <div style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 800 }}>{flowCopy.callShare}</div>
+                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#10b981', marginTop: '3px' }}>{callPct.toFixed(1)}%</div>
+              </div>
+              <div style={{ padding: '7px 10px', borderRadius: '10px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
+                <div style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 800 }}>{flowCopy.putShare}</div>
+                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#f43f5e', marginTop: '3px' }}>{(100 - callPct).toFixed(1)}%</div>
               </div>
             </div>
           </div>
@@ -1683,12 +2609,15 @@ export default function AppFlowPage() {
             const wall = callWallVal || (displayPrice * 1.05);
             const range = wall - floor || 1;
             const pct = Math.max(2, Math.min(98, ((displayPrice - floor) / range) * 100));
+            const gammaPct = gammaFlipNumForOverview > 0
+              ? Math.max(2, Math.min(98, ((gammaFlipNumForOverview - floor) / range) * 100))
+              : null;
 
             return (
-              <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
-                {renderPopover('ruler', locale === 'ko' ? '현재가 위치 자. 풋 플로어(지지선, 하한)와 콜 월(저항선, 상한) 사이에서 현재 주가의 상대적인 위치를 백분율(%)로 표시합니다.' : 'Current price position ruler showing relative percentage between Put Floor (Support) and Call Wall (Resistance).', locale === 'ko' ? '현재가 위치 설명' : 'Ruler Info')}
-                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '18px', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {locale === 'ko' ? '현재가 위치 (Spot Price Position)' : 'Spot Price Position Ruler'}
+              <div className="premium-card" style={{ padding: '16px', margin: 0, position: 'relative' }}>
+                {renderPopover('ruler', flowCopy.spotInfo, flowCopy.spotInfoTitle)}
+                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '14px', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {flowCopy.spotTitle}
                   <InfoBtn popKey="ruler" />
                 </span>
                 
@@ -1698,7 +2627,7 @@ export default function AppFlowPage() {
                   height: '8px', 
                   background: 'rgba(255, 255, 255, 0.04)', 
                   borderRadius: '4px', 
-                  margin: '30px 8px 18px',
+                  margin: '24px 8px 16px',
                   border: '1px solid rgba(255, 255, 255, 0.02)'
                 }}>
                   {/* Subtle technical tick marks behind slider */}
@@ -1711,6 +2640,32 @@ export default function AppFlowPage() {
                   
                   {/* Glowing center indicator bar */}
                   <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(245, 158, 11, 0.06) 50%, rgba(16, 185, 129, 0.12) 100%)', borderRadius: '4px' }} />
+
+                  {gammaPct != null && (
+                    <div style={{
+                      position: 'absolute',
+                      left: `${gammaPct}%`,
+                      top: '-9px',
+                      bottom: '-9px',
+                      width: '1px',
+                      background: 'rgba(245, 158, 11, 0.72)',
+                      boxShadow: '0 0 10px rgba(245, 158, 11, 0.55)',
+                      zIndex: 2
+                    }}>
+                      <span aria-hidden="true" style={{
+                        position: 'absolute',
+                        top: '-4px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: '#f59e0b',
+                        border: '1px solid rgba(255,255,255,0.55)',
+                        boxShadow: '0 0 8px rgba(245, 158, 11, 0.7)'
+                      }} />
+                    </div>
+                  )}
                   
                   {/* Floating Price Pin with Tooltip */}
                   <div
@@ -1775,13 +2730,26 @@ export default function AppFlowPage() {
                 {/* Left & Right Anchors */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', font: 'var(--f-micro)', fontWeight: 700, padding: '0 4px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.04em' }}>PUT FLOOR ({t.support})</span>
+                    <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.04em' }}>PUT FLOOR ({flowCopy.support})</span>
                     <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>${floor.toFixed(0)}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.04em' }}>CALL WALL ({t.resistance})</span>
+                    <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.04em' }}>CALL WALL ({flowCopy.resistance})</span>
                     <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>${wall.toFixed(0)}</span>
                   </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginTop: '14px' }}>
+                  {[
+                    { label: flowCopy.spot, value: `$${displayPrice.toFixed(2)}`, color: 'var(--cyan)' },
+                    { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(2)}` : '--', color: '#f59e0b' },
+                    { label: flowCopy.flipDistance, value: gammaDistanceText, color: gammaDistancePct >= 0 ? '#10b981' : '#f43f5e' }
+                  ].map((item) => (
+                    <div key={item.label} style={{ padding: '8px 8px', borderRadius: '9px', background: 'rgba(15,23,42,0.34)', border: '1px solid rgba(255,255,255,0.05)', minWidth: 0 }}>
+                      <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.88)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                      <div className="tnum" style={{ font: 'var(--f-micro)', color: item.color, fontWeight: 950, marginTop: '4px', whiteSpace: 'nowrap' }}>{item.value}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -1794,16 +2762,35 @@ export default function AppFlowPage() {
               : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
             const isAboveGamma = displayPrice >= gammaFlipNum;
             const gexRegimeColor = isAboveGamma ? '#10b981' : '#ef4444';
-            const gexRegimeLabel = isAboveGamma 
-              ? (locale === 'ko' ? 'LONG GAMMA (안정적 레짐)' : 'LONG GAMMA (STABLE)')
-              : (locale === 'ko' ? 'SHORT GAMMA (변동성 레짐)' : 'SHORT GAMMA (VOLATILE)');
+            const gexRegimeLabel = isAboveGamma ? flowCopy.longGamma : flowCopy.shortGamma;
 
             return (
-              <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
-                {renderPopover('gex', locale === 'ko' ? '감마 익스포저 레짐. 양(+)의 감마(Long Gamma)는 변동성을 억제하여 주가를 안정시키며, 음(-)의 감마(Short Gamma)는 변동성을 증폭시키는 환경을 의미합니다.' : 'GEX Regime indicates market volatility suppression (Long Gamma) vs amplification (Short Gamma).', locale === 'ko' ? '감마 레짐 설명' : 'Regime Info')}
-                <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
+              <ValueWall
+                locale={locale}
+                compact
+                title={locale === 'ko' ? 'GEX 레짐 잠금해제' : locale === 'ja' ? 'GEXレジーム解除' : 'Unlock GEX Regime'}
+                subtitle={
+                  locale === 'ko'
+                    ? '광고 시청 후 1시간 동안 IV Rank, 감마 플립, 변동성 레짐 상세 해석을 확인합니다.'
+                    : locale === 'ja'
+                    ? '広告視聴後1時間、IV Rank・Gamma Flip・ボラティリティレジームの詳細解釈を確認できます。'
+                    : 'Watch an ad to unlock IV Rank, Gamma Flip, and volatility regime context for 1 hour.'
+                }
+                socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kが解除' : '14.2K unlocked today'}
+                teaser={{
+                  label: locale === 'ko' ? 'FREE PREVIEW · GEX 레짐' : locale === 'ja' ? 'FREE PREVIEW · GEXレジーム' : 'FREE PREVIEW · GEX REGIME',
+                  value: gexRegimeLabel
+                }}
+                previewChipLabel={whaleCopy.freePreview}
+                ctaLabel={whaleCopy.unlockCta}
+                adFreeLabel={whaleCopy.adFree}
+                onUnlock={() => setIsLocked(false)}
+              >
+                <div className="premium-card" style={{ padding: '16px', margin: 0, position: 'relative' }}>
+                {renderPopover('gex', flowCopy.regimeInfo, flowCopy.regimeInfoTitle)}
+                <div className="app-card-head" style={{ marginBottom: '12px', alignItems: 'center' }}>
                   <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    OPTIONS MARKET & GEX REGIME
+                    {flowCopy.optionsRegime}
                     <InfoBtn popKey="gex" />
                   </span>
                   <span style={{
@@ -1821,7 +2808,30 @@ export default function AppFlowPage() {
                   </span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
+                <div style={{
+                  marginBottom: '10px',
+                  padding: '9px 11px',
+                  borderRadius: '10px',
+                  background: isAboveGamma ? 'rgba(16,185,129,0.055)' : 'rgba(239,68,68,0.055)',
+                  border: `1px solid ${isAboveGamma ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)'}`,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <div>
+                    <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800, marginBottom: '3px' }}>{flowCopy.volatilityEffect}</div>
+                    <div style={{ font: 'var(--f-small)', color: gexRegimeColor, fontWeight: 950 }}>
+                      {isAboveGamma ? flowCopy.absorbsVol : flowCopy.amplifiesVol}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800, marginBottom: '3px' }}>{flowCopy.flipDistance}</div>
+                    <div className="tnum" style={{ font: 'var(--f-small)', color: gexRegimeColor, fontWeight: 950 }}>{gammaDistanceText}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Rank</div>
                     <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : '—'}</div>
@@ -1833,6 +2843,10 @@ export default function AppFlowPage() {
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Volume P/C</div>
                     <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{pcRatio.toFixed(2)}</div>
+                  </div>
+                  <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+                    <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>{flowCopy.gammaFlip}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>{gammaFlipNum > 0 ? `$${gammaFlipNum.toFixed(0)}` : '—'}</div>
                   </div>
                 </div>
 
@@ -1850,9 +2864,10 @@ export default function AppFlowPage() {
                   lineHeight: 1.4
                 }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)', flexShrink: 0 }} />
-                  <span>{regimeInsight}</span>
+                  <span>{regimeInsightText}</span>
                 </div>
               </div>
+              </ValueWall>
             );
           })()}
         </div>
@@ -1860,353 +2875,323 @@ export default function AppFlowPage() {
       {/* 2. AI INTEL TAB */}
       {activeTab === 'ai-intel' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
-          {/* AI VERDICT GAUGE */}
-          <div className="premium-card animate-glow" style={{ padding: '18px 16px', margin: 0, position: 'relative', borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px' }}>
-            <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
-              <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                AI VERDICT
-              </span>
-              <span style={{
-                fontSize: '9px',
-                fontWeight: 900,
-                padding: '3px 8px',
-                borderRadius: '12px',
-                ...aiVerdictBadgeStyle,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em'
-              }}>
-                {aiVerdictLabel}
-              </span>
-            </div>
+          {(() => {
+            const posPct = Math.max(0, Math.min(100, ((compositeScore + 100) / 200) * 100));
+            const scoreColor = overviewDirection === 'bullish' ? '#10b981' : overviewDirection === 'bearish' ? '#ef4444' : '#f59e0b';
+            const bullishBias = Math.round((compositeScore + 100) / 2);
+            const confidence = Math.round(Math.max(35, Math.min(96, Math.abs(compositeScore) * 0.72 + Math.abs(netPremiumOverview / Math.max(totalPrem, 1)) * 32 + (convictionLabel === flowCopy.highConviction ? 18 : 8))));
+            const conflictRisk = Math.round(Math.max(5, Math.min(92, (Math.sign(opiScore) !== Math.sign(compositeScore) ? 24 : 8) + (squeezeProb >= 60 ? 18 : 6) + (overviewDirection === 'neutral' ? 18 : 0) + (volRegime === 'ERUPTING' ? 22 : volRegime === 'LOADED' ? 14 : 4))));
+            const conflictLabel = conflictRisk >= 65
+              ? (locale === 'ko' ? '높음' : locale === 'ja' ? '高い' : 'High')
+              : conflictRisk >= 38
+              ? (locale === 'ko' ? '보통' : locale === 'ja' ? '中程度' : 'Medium')
+              : (locale === 'ko' ? '낮음' : locale === 'ja' ? '低い' : 'Low');
+            const flowGroupScore = Math.round(opiScore + whaleScore + smartScore + uoaScore);
+            const volatilityGroupScore = Math.round(squeezeScore + skewScore + zdteScore);
+            const positioningGroupScore = Math.round(dexScore + pcScore + (gammaDistancePct >= 0 ? 6 : -6));
+            const rail = (score: number, max = 60) => Math.max(4, Math.min(100, (Math.abs(score) / max) * 100));
+            const signed = (n: number) => `${n > 0 ? '+' : ''}${n}`;
+            const directionText = overviewDirection === 'bullish'
+              ? (locale === 'ko' ? '상방 우위' : locale === 'ja' ? '上方向優勢' : 'Bullish bias')
+              : overviewDirection === 'bearish'
+              ? (locale === 'ko' ? '하방 압력' : locale === 'ja' ? '下方向圧力' : 'Bearish pressure')
+              : (locale === 'ko' ? '중립 압축' : locale === 'ja' ? '中立圧縮' : 'Neutral compression');
+            const ui = locale === 'ko'
+              ? {
+                  verdictInfoTitle: 'AI Verdict 설명',
+                  verdictInfo: 'AI Verdict는 OPI 하나가 아니라 OPI, 고래 포지션, 스마트머니, UOA, IV 스큐, P/C, 감마 위치, 스퀴즈 확률을 합성한 방향성 점수입니다. 투자 조언이 아니라 현재 옵션 수급 구조를 요약한 참고용 인사이트입니다.',
+                  analysisVerdict: '종합 판정',
+                  bearishEdge: '하방 -100',
+                  neutralEdge: '중립 0',
+                  bullishEdge: '상방 +100',
+                  bullishBias: 'Bullish Bias',
+                  confidence: 'Confidence',
+                  conflictRisk: 'Conflict Risk',
+                  engineAxes: '엔진 축',
+                  flow: 'Flow',
+                  volatility: 'Volatility',
+                  positioning: 'Positioning',
+                  aiCard: 'AI 플로우 인텔리전스',
+                  coreConclusion: '핵심 결론',
+                  evidence: '근거',
+                  priceCondition: '가격 조건',
+                  unlockTitle: 'AI 상세 시나리오 잠금해제',
+                  unlockSub: '광고 시청 후 1시간 동안 상세 시나리오, 위험 조건, 가격 트리거를 확인합니다.',
+                  social: '오늘 14.2K 잠금해제',
+                  teaserLabel: 'FREE PREVIEW · AI 맥락',
+                  watchCta: '광고 보고 1시간 해제',
+                  adFree: '또는 월 $9.99 광고 제거',
+                  details: '상세 시나리오',
+                  riskLabel: '리스크 조건',
+                  noAdvice: '참고용 시장 구조 분석'
+                }
+              : locale === 'ja'
+              ? {
+                  verdictInfoTitle: 'AI Verdict説明',
+                  verdictInfo: 'AI VerdictはOPI単独ではなく、OPI、ホエール、スマートマネー、UOA、IVスキュー、P/C、ガンマ位置、スクイーズ確率を合成した方向性スコアです。投資助言ではなく、現在のオプション需給構造を要約した参考情報です。',
+                  analysisVerdict: '総合判定',
+                  bearishEdge: '下方向 -100',
+                  neutralEdge: '中立 0',
+                  bullishEdge: '上方向 +100',
+                  bullishBias: 'Bullish Bias',
+                  confidence: 'Confidence',
+                  conflictRisk: 'Conflict Risk',
+                  engineAxes: 'エンジン軸',
+                  flow: 'Flow',
+                  volatility: 'Volatility',
+                  positioning: 'Positioning',
+                  aiCard: 'AIフロー・インテリジェンス',
+                  coreConclusion: '核心結論',
+                  evidence: '根拠',
+                  priceCondition: '価格条件',
+                  unlockTitle: 'AI詳細シナリオを解除',
+                  unlockSub: '広告視聴後1時間、詳細シナリオ、リスク条件、価格トリガーを確認できます。',
+                  social: '本日14.2Kが解除',
+                  teaserLabel: 'FREE PREVIEW · AI文脈',
+                  watchCta: '広告で1時間解除',
+                  adFree: 'または月額$9.99で広告なし',
+                  details: '詳細シナリオ',
+                  riskLabel: 'リスク条件',
+                  noAdvice: '参考用の市場構造分析'
+                }
+              : {
+                  verdictInfoTitle: 'AI Verdict Info',
+                  verdictInfo: 'AI Verdict is not OPI alone. It blends OPI, whale positioning, smart money, UOA, IV skew, P/C, gamma position, and squeeze probability into one directional score. It is market-structure context, not investment advice.',
+                  analysisVerdict: 'Composite Verdict',
+                  bearishEdge: 'Bearish -100',
+                  neutralEdge: 'Neutral 0',
+                  bullishEdge: 'Bullish +100',
+                  bullishBias: 'Bullish Bias',
+                  confidence: 'Confidence',
+                  conflictRisk: 'Conflict Risk',
+                  engineAxes: 'Engine Axes',
+                  flow: 'Flow',
+                  volatility: 'Volatility',
+                  positioning: 'Positioning',
+                  aiCard: 'AI Flow Intelligence',
+                  coreConclusion: 'Core Read',
+                  evidence: 'Evidence',
+                  priceCondition: 'Price Condition',
+                  unlockTitle: 'Unlock Detailed AI Scenario',
+                  unlockSub: 'Watch an ad to unlock detailed scenarios, risk conditions, and price triggers for 1 hour.',
+                  social: '14.2K unlocked today',
+                  teaserLabel: 'FREE PREVIEW · AI CONTEXT',
+                  watchCta: 'Watch & Unlock · 1HR',
+                  adFree: 'or $9.99/mo ad-free',
+                  details: 'Detailed Scenario',
+                  riskLabel: 'Risk Condition',
+                  noAdvice: 'Market-structure context only'
+                };
+            const factorGroups = [
+              {
+                label: ui.flow,
+                score: flowGroupScore,
+                color: flowGroupScore >= 0 ? '#10b981' : '#f43f5e',
+                items: [
+                  { label: 'OPI', value: signed(Math.round(opiScore)) },
+                  { label: locale === 'ko' ? '고래' : locale === 'ja' ? 'ホエール' : 'Whale', value: signed(Math.round(whaleScore)) },
+                  { label: 'UOA', value: signed(Math.round(uoaScore)) }
+                ]
+              },
+              {
+                label: ui.volatility,
+                score: volatilityGroupScore,
+                color: volatilityGroupScore >= 0 ? '#10b981' : '#f59e0b',
+                items: [
+                  { label: locale === 'ko' ? '스퀴즈' : locale === 'ja' ? 'スクイーズ' : 'Squeeze', value: signed(Math.round(squeezeScore)) },
+                  { label: 'IV Skew', value: `${ivSkewVal != null ? ivSkewVal.toFixed(1) : '--'}%` },
+                  { label: locale === 'ko' ? '레짐' : locale === 'ja' ? 'レジーム' : 'Regime', value: riskStateLabel }
+                ]
+              },
+              {
+                label: ui.positioning,
+                score: positioningGroupScore,
+                color: positioningGroupScore >= 0 ? '#10b981' : '#f43f5e',
+                items: [
+                  { label: 'P/C', value: pcRatio.toFixed(2) },
+                  { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--' },
+                  { label: flowCopy.flipDistance, value: gammaDistanceText }
+                ]
+              }
+            ];
+            const evidenceRows = [
+              { label: ui.coreConclusion, value: overviewSignal.title, body: overviewSignal.body },
+              { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.totalPremium} $${(totalPrem / 1000000).toFixed(1)}M, P/C ${pcRatio.toFixed(2)}` },
+              { label: ui.priceCondition, value: overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(2)}` : '--'} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
+            ];
+            const lockedScenario = [
+              `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
+              `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
+              `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
+            ];
 
-            {/* Composite Slider Track */}
-            {(() => {
-              const posPct = ((compositeScore + 100) / 200) * 100;
-              const scoreColor = compositeScore > 20 
-                ? '#10b981' 
-                : compositeScore < -20 
-                ? '#ef4444' 
-                : '#f59e0b';
-              
-              return (
-                <div style={{ marginBottom: '20px', background: 'rgba(30, 41, 59, 0.15)', padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.02)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '0.04em' }}>
-                      {locale === 'ko' ? '분석 종합' : 'ANALYSIS VERDICT'}
+            return (
+              <>
+                <div className="premium-card animate-glow" style={{ padding: '18px 16px', margin: 0, position: 'relative', borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px', background: 'linear-gradient(150deg, rgba(15,23,42,0.88), rgba(13,25,48,0.76) 48%, rgba(6,182,212,0.045))', border: `1px solid ${overviewDirection === 'bullish' ? 'rgba(16,185,129,0.18)' : overviewDirection === 'bearish' ? 'rgba(244,63,94,0.18)' : 'rgba(245,158,11,0.16)'}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.045), 0 18px 42px -28px ${scoreColor}` }}>
+                  {renderPopover('ai-verdict', ui.verdictInfo, ui.verdictInfoTitle)}
+                  <div className="app-card-head" style={{ marginBottom: '13px', alignItems: 'center' }}>
+                    <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 850, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      AI VERDICT
+                      <InfoBtn popKey="ai-verdict" />
                     </span>
-                    <span className="tnum" style={{ fontSize: '15px', fontWeight: 900, color: scoreColor, textShadow: `0 0 8px ${scoreColor}40` }}>
-                      {compositeScore > 0 ? '+' : ''}{compositeScore}
+                    <span style={{ fontSize: '9px', fontWeight: 950, padding: '3px 8px', borderRadius: '12px', ...aiVerdictBadgeStyle, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {aiVerdictLabel}
                     </span>
                   </div>
-                  
-                  {/* Slider Track */}
-                  <div style={{ position: 'relative', height: '6px', borderRadius: '3px', background: 'linear-gradient(90deg, #ef4444 0%, #1e293b 45%, #1e293b 55%, #10b981 100%)', border: '1px solid rgba(255,255,255,0.05)', margin: '10px 0' }}>
-                    {/* Center Mark */}
-                    <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.2)' }} />
-                    
-                    {/* Glowing Pin */}
-                    <div style={{
-                      position: 'absolute',
-                      left: `calc(${posPct}% - 4px)`,
-                      top: '-5px',
-                      width: '8px',
-                      height: '16px',
-                      borderRadius: '4px',
-                      background: '#ffffff',
-                      boxShadow: `0 0 10px ${scoreColor}, 0 0 4px #ffffff`,
-                      border: `1.5px solid ${scoreColor}`,
-                      zIndex: 3,
-                      transition: 'left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)'
-                    }} />
+
+                  <div style={{ marginBottom: '13px', background: 'linear-gradient(180deg, rgba(30,41,59,0.26), rgba(15,23,42,0.16))', padding: '13px 12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.045)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.035)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '9px', gap: '12px' }}>
+                      <div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 850, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{ui.analysisVerdict}</div>
+                        <div style={{ fontSize: '15px', color: '#f8fafc', fontWeight: 950, marginTop: '3px', lineHeight: 1.15 }}>{directionText}</div>
+                      </div>
+                      <span className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: scoreColor, textShadow: `0 0 14px ${scoreColor}55`, lineHeight: 1 }}>
+                        {signed(compositeScore)}
+                      </span>
+                    </div>
+                    <div style={{ position: 'relative', height: '7px', borderRadius: '999px', background: 'linear-gradient(90deg, rgba(239,68,68,0.78) 0%, rgba(30,41,59,0.9) 47%, rgba(30,41,59,0.9) 53%, rgba(16,185,129,0.86) 100%)', border: '1px solid rgba(255,255,255,0.055)', margin: '12px 0 9px', overflow: 'visible' }}>
+                      <div style={{ position: 'absolute', left: '50%', top: '-4px', bottom: '-4px', width: '1px', background: 'rgba(255,255,255,0.22)' }} />
+                      <div style={{ position: 'absolute', left: `calc(${posPct}% - 5px)`, top: '-6px', width: '10px', height: '19px', borderRadius: '6px', background: '#ffffff', boxShadow: `0 0 12px ${scoreColor}, 0 0 5px #ffffff`, border: `1.5px solid ${scoreColor}`, zIndex: 3, transition: 'left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: 'var(--text-muted)', fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span>{ui.bearishEdge}</span>
+                      <span>{ui.neutralEdge}</span>
+                      <span>{ui.bullishEdge}</span>
+                    </div>
                   </div>
-                  
-                  {/* Labels */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    <span>{locale === 'ko' ? '극하락 (-100)' : 'EXT BEARISH (-100)'}</span>
-                    <span>{locale === 'ko' ? '중립 (0)' : 'NEUTRAL (0)'}</span>
-                    <span>{locale === 'ko' ? '극상승 (+100)' : 'EXT BULLISH (+100)'}</span>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginBottom: '13px' }}>
+                    {[
+                      { label: ui.bullishBias, value: `${bullishBias}%`, color: scoreColor },
+                      { label: ui.confidence, value: `${confidence}%`, color: confidence >= 70 ? '#10b981' : '#f59e0b' },
+                      { label: ui.conflictRisk, value: conflictLabel, color: conflictRisk >= 65 ? '#f43f5e' : conflictRisk >= 38 ? '#f59e0b' : '#10b981' }
+                    ].map((item) => (
+                      <div key={item.label} style={{ minWidth: 0, padding: '10px 8px', borderRadius: '10px', background: `linear-gradient(160deg, ${item.color}14, rgba(15,23,42,0.28))`, border: `1px solid ${item.color}22`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.035)` }}>
+                        <div style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                        <div className="tnum" style={{ color: item.color, fontSize: '15px', fontWeight: 950, marginTop: '5px', whiteSpace: 'nowrap' }}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '9px' }}>
+                    <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 850, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{ui.engineAxes}</span>
+                    <span style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 750 }}>{flowCopy.liveSource}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {factorGroups.map((group) => (
+                      <div key={group.label} style={{ padding: '10px 10px', borderRadius: '11px', background: 'rgba(15,23,42,0.30)', border: '1px solid rgba(255,255,255,0.055)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.025)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '82px 1fr 40px', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '11px', color: '#dbeafe', fontWeight: 900, whiteSpace: 'nowrap' }}>{group.label}</span>
+                          <div style={{ position: 'relative', height: '5px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.22)' }} />
+                            <div style={{ position: 'absolute', left: group.score >= 0 ? '50%' : `calc(50% - ${rail(group.score)}%)`, width: `${rail(group.score)}%`, top: 0, bottom: 0, borderRadius: '999px', background: `linear-gradient(90deg, ${group.color}88, ${group.color})`, boxShadow: `0 0 8px ${group.color}66` }} />
+                          </div>
+                          <span className="tnum" style={{ color: group.color, fontWeight: 950, textAlign: 'right', fontSize: '12px' }}>{signed(group.score)}</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px', marginTop: '9px' }}>
+                          {group.items.map((item) => (
+                            <div key={item.label} style={{ minWidth: 0 }}>
+                              <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.74)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                              <div className="tnum" style={{ font: 'var(--f-micro)', color: '#f8fafc', fontWeight: 900, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              );
-            })()}
 
-            {/* 9-Factor Option Sentiment Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              {(() => {
-                const factors = [
-                  {
-                    id: 'opi',
-                    name: locale === 'ko' ? '옵션 압박 (OPI)' : 'OPI',
-                    value: `${opiScore >= 0 ? '+' : ''}${Math.round(opiScore)}`,
-                    score: opiScore,
-                    maxScore: 25,
-                    info: locale === 'ko' ? '옵션 압박 지수 (OPI)는 콜과 풋 옵션 프리미엄의 매수 세기 비율을 지수화한 것입니다.' : 'Options Pressure Index measures the buying strength ratio of call vs put premiums.'
-                  },
-                  {
-                    id: 'whale',
-                    name: locale === 'ko' ? '고래 포지션' : 'Whale Net',
-                    value: `${whaleScore >= 0 ? '+' : ''}${Math.round(whaleScore)}`,
-                    score: whaleScore,
-                    maxScore: 25,
-                    info: locale === 'ko' ? '기관 및 대형 고래 투자자의 옵션 순거래 방향과 총 매수 규모를 추적한 지표입니다.' : 'Tracks the net trading direction and total premium size of institutions.'
-                  },
-                  {
-                    id: 'squeeze',
-                    name: locale === 'ko' ? '스퀴즈 확률' : 'Squeeze',
-                    value: `${squeezeScore >= 0 ? '+' : ''}${Math.round(squeezeScore)}`,
-                    score: squeezeScore,
-                    maxScore: 15,
-                    info: locale === 'ko' ? '공매도 비중과 내재변동성(IV) 분석을 바탕으로 숏 스퀴즈 발생 잠재력을 나타냅니다.' : 'Indicates short squeeze potential based on short volume and IV rank.'
-                  },
-                  {
-                    id: 'skew',
-                    name: locale === 'ko' ? 'IV 스큐' : 'IV Skew',
-                    value: `${skewScore >= 0 ? '+' : ''}${Math.round(skewScore)}`,
-                    score: skewScore,
-                    maxScore: 15,
-                    info: locale === 'ko' ? '콜 옵션과 풋 옵션 간 내재변동성의 차이(기울기)를 측정하여 하방 베팅 강도를 탐색합니다.' : 'Measures the difference in implied volatility between OTM calls and puts.'
-                  },
-                  {
-                    id: 'smart',
-                    name: locale === 'ko' ? '스마트머니' : 'Smart Money',
-                    value: `${smartScore >= 0 ? '+' : ''}${Math.round(smartScore)}`,
-                    score: smartScore,
-                    maxScore: 10,
-                    info: locale === 'ko' ? '비공개 블록딜 거래 및 장외 기관 주문 흐름(Smart Money)을 분석하여 가중치를 부여합니다.' : 'Analyzes private block trades and over-the-counter institutional orders.'
-                  },
-                  {
-                    id: 'dex',
-                    name: locale === 'ko' ? '감마노출 (DEX)' : 'DEX Gamma',
-                    value: `${dexScore >= 0 ? '+' : ''}${Math.round(dexScore)}`,
-                    score: dexScore,
-                    maxScore: 10,
-                    info: locale === 'ko' ? '기초자산 가격과 감마 플립 레벨 간 이격도를 측정하여 딜러의 델타 헤징 압력을 추적합니다.' : 'Tracks dealer delta-hedging pressure by measuring distance to Gamma Flip.'
-                  },
-                  {
-                    id: 'uoa',
-                    name: locale === 'ko' ? '이례적 UOA' : 'Unusual UOA',
-                    value: `${uoaScore >= 0 ? '+' : ''}${Math.round(uoaScore)}`,
-                    score: uoaScore,
-                    maxScore: 5,
-                    info: locale === 'ko' ? '일반적인 수준을 넘어서는 대규모 또는 갑작스러운 이례적 옵션 수급(UOA) 강도를 추적합니다.' : 'Tracks unusual option activity volume multiples.'
-                  },
-                  {
-                    id: 'pc',
-                    name: locale === 'ko' ? '풋/콜 비율' : 'P/C Ratio',
-                    value: `${pcScore >= 0 ? '+' : ''}${Math.round(pcScore)}`,
-                    score: pcScore,
-                    maxScore: 5,
-                    info: locale === 'ko' ? '시장 전체의 풋 옵션 거래량 대비 콜 옵션 거래량의 상대적 비율을 점수화한 지표입니다.' : 'Scores the volume ratio of put options relative to call options.'
-                  },
-                  {
-                    id: 'gex',
-                    name: locale === 'ko' ? '감마 레짐' : 'GEX Regime',
-                    value: `${zdteScore >= 0 ? '+' : ''}${Math.round(zdteScore)}`,
-                    score: zdteScore,
-                    maxScore: 5,
-                    info: locale === 'ko' ? '시장 감마 환경을 나타내며, 롱 감마 레짐은 안정적 흐름, 숏 감마 레짐은 변동성 확대를 의미합니다.' : 'Indicates overall market gamma volatility regime.'
-                  }
-                ];
-
-                return factors.map((f) => (
-                  <div key={f.id} style={{
-                    background: 'rgba(30, 41, 59, 0.4)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    borderRadius: '8px',
-                    padding: '12px 6px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    position: 'relative',
-                    minHeight: '84px',
-                    justifyContent: 'space-between',
-                    backdropFilter: 'blur(10px)',
-                    WebkitBackdropFilter: 'blur(10px)'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', gap: '1px' }}>
-                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {f.name}
+                <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative', background: 'linear-gradient(155deg, rgba(15,23,42,0.88), rgba(12,22,42,0.72) 54%, rgba(245,158,11,0.045))', border: '1px solid rgba(255,255,255,0.07)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.045), 0 18px 46px -34px rgba(245,158,11,0.55)' }}>
+                  <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="9" stroke="var(--cyan)" strokeWidth="1.5" />
+                        <path d="M12 8v4l3 3" stroke="var(--cyan)" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                      <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 850, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {ui.aiCard}
                       </span>
-                      <InfoBtn popKey={f.id} />
                     </div>
-
-                    <div className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: '#f8fafc', margin: '3px 0' }}>
-                      {f.value}
-                    </div>
-
-                    <div style={{ position: 'relative', width: '85%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden', margin: '2px auto 0' }}>
-                      <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.3)', zIndex: 2 }} />
-                      {f.score !== 0 && (() => {
-                        const pct = Math.min(100, (Math.abs(f.score) / f.maxScore) * 50);
-                        const isPositive = f.score > 0;
-                        return (
-                          <div style={{
-                            position: 'absolute',
-                            left: isPositive ? '50%' : `calc(50% - ${pct}%)`,
-                            width: `${pct}%`,
-                            height: '100%',
-                            background: isPositive ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #dc2626, #ef4444)',
-                            borderRadius: '1px',
-                            boxShadow: isPositive ? '0 0 4px rgba(16,185,129,0.4)' : '0 0 4px rgba(239,68,68,0.4)'
-                          }} />
-                        );
-                      })()}
-                    </div>
-                    {renderPopover(f.id, f.info, f.name)}
-                  </div>
-                ));
-              })()}
-            </div>
-          </div>
-
-          {/* AI FLOW INTELLIGENCE */}
-          <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
-            <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="9" stroke="var(--cyan)" strokeWidth="1.5" />
-                  <path d="M12 8v4l3 3" stroke="var(--cyan)" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {locale === 'ko' ? 'AI 플로우 인텔리전스' : locale === 'ja' ? 'AIフロー・インテリジェンス' : 'AI FLOW INTELLIGENCE'}
-                </span>
-              </div>
-              <span style={{ fontSize: '10px', fontWeight: 900, background: 'rgba(6, 182, 212, 0.08)', color: 'var(--cyan)', border: '1px solid rgba(6, 182, 212, 0.2)', padding: '2px 8px', borderRadius: '12px', letterSpacing: '0.06em' }}>
-                Claude
-              </span>
-            </div>
-            
-            {(() => {
-              const aiTitle = locale === 'ko' ? '구조적 분배 분석 (Structural Distribution)'
-                : locale === 'ja' ? '構造的分配分析 (Structural Distribution)'
-                : 'Structural Distribution';
-
-              const aiDesc = locale === 'ko' ? `기관 풋-헤지 포지션 확대, OPI ||| - 하방 수급이 콜을 압도. 약감마(Short Gamma) 전환 임계점에 접근 중이며, Put Wall($200, 4.6%) 이탈 시 재가격 가능성이 높아집니다.`
-                : locale === 'ja' ? `機関投資家のプットヘッジポジション拡大、OPI ||| - 下方の需給がコールを圧倒。ショートガンマ（Short Gamma）転換の閾値に接近中であり、Put Wall（$200、4.6%）を下抜けた場合、リプライシングの可能性が高まります。`
-                : `Institutional put-hedge positions are expanding, OPI ||| - downside liquidity dominates calls. Approaching the short gamma transition threshold, repricing probability increases if the Put Wall ($200, 4.6%) is breached.`;
-
-              const insightHeader = locale === 'ko' ? '핵심 맥락 인사이트 4'
-                : locale === 'ja' ? '主要な背景インサイト 4'
-                : 'Key Context Insights (4)';
-
-              const bullets = locale === 'ko' ? [
-                `${ticker}는 현가 $${displayPrice.toFixed(2)}에서 강한 공매도 고래 포지셔닝($15.5M)과 종합적 OPI(+3)의 불일치를 나타내고 있으며, 이는 기관들이 단기 하방성 약세 베팅을 구축하는 와중에도 옵션 시장 구조는 아직 하향성 협의를 형성하지 않았음을 시사한다.`,
-                `감마 플립 레벨($207)이 핸들 바로 아래에 위치한 상황에서 $200 풋 플로어와 $220 콜 월 사이의 좁은 거래 범위는 딜러 헤지 매락이 현재 양방향 모두에서 패널을 가하고 있음을 나타낸다.`,
-                `만기 주간 $210 / $215 콜 감마 집중이 강한 저항으로 작용하고 있으며, $200 부근의 기관 풋 차단벽이 하단을 지지하고 있다.`,
-                `다크풀의 대량 체결비율(50.8%)을 고려할 때 현 위치에서의 소폭 횡보세 이후 돌파 방향성 탐색 시나리오가 유력하다.`
-              ] : locale === 'ja' ? [
-                `${ticker}は現在値$${displayPrice.toFixed(2)}において、強力な空売りクジラポジション（$15.5M）と総合的なOPI（+3）の乖離を示しており、これは機関投資家が短期的な下落方向の弱気ベッティングを構築している最中であっても、オプション市場構造はまだ下落方向の合意を形成していないことを示唆しています。`,
-                `ガンマフリップレベル（$207）が現在の株価のすぐ下に位置する状況で、$200プットフロアと$220コールウォールの間の狭い取引レンジは、ディーラーのヘッジフローが現在双方向で圧力をかけていることを示しています。`,
-                `満期週の$210 / $215コールガンマの集中が強力な抵抗として作用しており、$200付近の機関投資家のプット障壁が下値を支持しています。`,
-                `ダークプールの大量約定比率（50.8%）を考慮すると、現在の水準での小幅な横ばい推移の後、ブレイクアウトの方向性を模索するシナリオが有力です。`
-              ] : [
-                `${ticker} shows a divergence between strong short whale positioning ($15.5M) at the current price of $${displayPrice.toFixed(2)} and the composite OPI (+3), suggesting that although institutions are building short-term bearish bets, the options market structure has not yet reached a downward consensus.`,
-                `With the Gamma Flip level ($207) situated just below the handle, the tight trading range between the $200 Put Floor and the $220 Call Wall indicates that dealer hedging flow is currently exerting pressure in both directions.`,
-                `Expiration week Call Gamma concentration at $210 / $215 is acting as strong resistance, while the institutional Put wall near $200 supports the downside.`,
-                `Considering the heavy Dark Pool execution ratio (50.8%), the most likely scenario is a brief consolidation at the current level followed by a directional breakout search.`
-              ];
-
-              const triggerLabel = locale === 'ko' ? '재가격 조건' : locale === 'ja' ? 'リプライシング条件' : 'Repricing Condition';
-              const triggerValue = locale === 'ko' ? '풋 임계값 이탈' : locale === 'ja' ? 'プット閾値の逸脱' : 'Put Threshold Breach';
-
-              return (
-                <>
-                  <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#b4c6ef', background: 'rgba(30, 41, 59, 0.15)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.02)' }}>
-                    <div style={{ fontWeight: 800, color: '#ffffff', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ color: 'var(--cyan)' }}>✦</span> {aiTitle}
-                    </div>
-                    {aiDesc}
+                    <span style={{ fontSize: '10px', fontWeight: 950, background: 'rgba(6, 182, 212, 0.08)', color: 'var(--cyan)', border: '1px solid rgba(6, 182, 212, 0.2)', padding: '2px 8px', borderRadius: '12px', letterSpacing: '0.06em' }}>
+                      Claude
+                    </span>
                   </div>
 
-                  {/* Bullet Insights */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '14px', marginTop: '14px', position: 'relative' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                    {evidenceRows.map((row, idx) => (
+                      <div key={row.label} style={{ padding: '12px 12px', borderRadius: '11px', background: idx === 0 ? `linear-gradient(135deg, ${scoreColor}16, rgba(15,23,42,0.28))` : 'rgba(15,23,42,0.30)', border: idx === 0 ? `1px solid ${scoreColor}2a` : '1px solid rgba(255,255,255,0.055)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
+                          <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.86)', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{row.label}</span>
+                          {idx === 0 && <span style={{ fontSize: '8px', fontWeight: 950, color: scoreColor, background: `${scoreColor}16`, border: `1px solid ${scoreColor}2a`, padding: '2px 6px', borderRadius: '999px', whiteSpace: 'nowrap' }}>{convictionLabel}</span>}
+                        </div>
+                        <div style={{ color: idx === 0 ? '#f8fafc' : '#dbeafe', fontWeight: idx === 0 ? 950 : 850, lineHeight: 1.35, fontSize: idx === 0 ? '14px' : '12.5px' }}>{row.value}</div>
+                        <div style={{ color: '#b4c6ef', lineHeight: 1.55, fontSize: '12px', marginTop: '7px' }}>{row.body}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.055)', paddingTop: '14px', marginTop: '14px', position: 'relative' }}>
                     <ValueWall
-                      title={locale === 'ko' ? 'AI 핵심 맥락 잠금해제' : 'Unlock AI Insights'}
-                      subtitle={locale === 'ko' ? '광고 시청 후 1시간 동안 AI 상세 맥락 분석을 해제합니다.' : 'Watch an ad to unlock AI insights for 1 hour.'}
-                      socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : '14.2K unlocked today'}
+                      locale={locale}
+                      title={ui.unlockTitle}
+                      subtitle={ui.unlockSub}
+                      socialProof={ui.social}
+                      teaser={{ label: ui.teaserLabel, value: `${ui.details} · ${directionText}` }}
+                      ctaLabel={ui.watchCta}
+                      adFreeLabel={ui.adFree}
+                      previewChipLabel={whaleCopy.freePreview}
                       onUnlock={() => setIsLocked(false)}
                       lockedPreview={
-                        <div style={{ opacity: 0.12, filter: 'blur(3.5px)', pointerEvents: 'none' }}>
-                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            {insightHeader}
+                        <div style={{ opacity: 0.14, filter: 'blur(3.5px)', pointerEvents: 'none' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 850, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{ui.details}</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', fontSize: '12.5px', lineHeight: '1.55' }}>
+                            {lockedScenario.slice(0, 2).map((txt) => (
+                              <div key={txt} style={{ color: '#b4c6ef', paddingLeft: '12px', borderLeft: '2px solid rgba(6,182,212,0.35)' }}>{txt}</div>
+                            ))}
                           </div>
-                          <ul style={{ paddingLeft: '0', margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', lineHeight: '1.6' }}>
-                            <li style={{ listStyleType: 'none', position: 'relative', paddingLeft: '16px', color: '#b4c6ef' }}>
-                              <span style={{ position: 'absolute', left: 0, color: 'var(--cyan)', fontWeight: 'bold' }}>•</span>
-                              {bullets[0]}
-                            </li>
-                            <li style={{ listStyleType: 'none', position: 'relative', paddingLeft: '16px', color: '#b4c6ef' }}>
-                              <span style={{ position: 'absolute', left: 0, color: 'var(--cyan)', fontWeight: 'bold' }}>•</span>
-                              {bullets[1]}
-                            </li>
-                          </ul>
                         </div>
                       }
                     >
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        {insightHeader}
-                      </div>
-                      <ul style={{
-                        paddingLeft: '0',
-                        margin: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '10px',
-                        fontSize: '12.5px',
-                        lineHeight: '1.6'
-                      }}>
-                        {bullets.map((txt, idx) => (
-                          <li key={idx} style={{
-                            listStyleType: 'none',
-                            position: 'relative',
-                            paddingLeft: '16px',
-                            color: '#b4c6ef',
-                          }}>
-                            <span style={{
-                              position: 'absolute',
-                              left: 0,
-                              color: 'var(--cyan)',
-                              fontWeight: 'bold'
-                            }}>•</span>
-                            {txt}
-                          </li>
+                      <div style={{ fontSize: '11px', fontWeight: 850, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{ui.details}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', fontSize: '12.5px', lineHeight: '1.55' }}>
+                        {lockedScenario.map((txt) => (
+                          <div key={txt} style={{ color: '#b4c6ef', paddingLeft: '12px', borderLeft: `2px solid ${scoreColor}88` }}>{txt}</div>
                         ))}
-                      </ul>
+                      </div>
                     </ValueWall>
                   </div>
 
-                  {/* Trigger condition */}
-                  <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(245, 158, 11, 0.04)', border: '1px solid rgba(245, 158, 11, 0.15)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{triggerLabel}</span>
-                      <span style={{ font: 'var(--f-small)', fontWeight: 800, color: '#ffffff', marginTop: '2px', display: 'block' }}>{triggerValue}</span>
+                  <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(245, 158, 11, 0.045)', border: '1px solid rgba(245, 158, 11, 0.16)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{ui.riskLabel}</span>
+                      <span style={{ font: 'var(--f-small)', fontWeight: 850, color: '#ffffff', marginTop: '2px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{overviewSignal.action}</span>
                     </div>
-                    <span style={{ fontSize: '9px', fontWeight: 900, background: 'rgba(245, 158, 11, 0.08)', color: 'var(--amber)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '3px 8px', borderRadius: '12px', letterSpacing: '0.04em' }}>
-                      RISK: MEDIUM
+                    <span style={{ fontSize: '8px', fontWeight: 950, background: 'rgba(6, 182, 212, 0.07)', color: 'var(--cyan)', border: '1px solid rgba(6, 182, 212, 0.18)', padding: '3px 7px', borderRadius: '12px', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                      {ui.noAdvice}
                     </span>
                   </div>
-                </>
-              );
-            })()}
-          </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}{/* 3. FLOW (WHALE RADAR) TAB */}
       {activeTab === 'whale-flow' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
             {/* TODAY'S WHALE FLOW & SUMMARY WIDGET */}
             {(() => {
-              const whaleTotalVol = totalPrem;
-              const whaleNetBet = netWhalePremium;
-              const whaleCallPrem = Math.max(0, (whaleTotalVol + whaleNetBet) / 2);
-              const whalePutPrem = Math.max(0, (whaleTotalVol - whaleNetBet) / 2);
-              const callPctShare = whaleTotalVol > 0 ? (whaleCallPrem / whaleTotalVol) * 100 : 50;
-              const putPctShare = whaleTotalVol > 0 ? (whalePutPrem / whaleTotalVol) * 100 : 50;
+              const whaleTotalVol = institutionalTotal;
+              const optionMixPct = whaleTotalVol > 0 ? Math.max(1, Math.min(99, (whaleDayTotal / whaleTotalVol) * 100)) : 50;
+              const darkMixPct = 100 - optionMixPct;
 
               return (
-                <div className="premium-card animate-glow" style={{ padding: '18px 16px', margin: 0, borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px' }}>
+                <div className="premium-card animate-glow" style={{ padding: '18px 16px', margin: 0, borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px', position: 'relative', background: 'linear-gradient(150deg, rgba(15,23,42,0.9), rgba(11,25,45,0.78) 52%, rgba(6,182,212,0.06))', border: '1px solid rgba(6, 182, 212, 0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 44px -30px rgba(6,182,212,0.45)' }}>
+                  {renderPopover('inst-flow', whaleCopy.sectionInfo, whaleCopy.sectionInfoTitle)}
                   <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
                     <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      {locale === 'ko' ? '기관 고래 주문 총합' : "TODAY'S WHALE FLOW"}
+                      {whaleCopy.sectionTitle}
+                      <InfoBtn popKey="inst-flow" />
                     </span>
                     <span style={{
                       fontSize: '8px',
@@ -2219,58 +3204,106 @@ export default function AppFlowPage() {
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em'
                     }}>
-                      {locale === 'ko' ? '실시간 집계' : 'LIVE ACCUM'}
+                      {whaleCopy.liveBadge}
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
-                    <div>
-                      <span style={{ fontSize: '9px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                        {locale === 'ko' ? '당일 고래 누적 거래대금' : 'Whale Total Volume'}
-                      </span>
-                      <span className="tnum" style={{ fontSize: '24px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', marginTop: '2px', display: 'block' }}>
-                        ${(whaleTotalVol / 1000000).toFixed(2)}M
+                  <div style={{ marginBottom: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '12px' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: '11px', color: '#a8b8d8', display: 'block', fontWeight: 850, letterSpacing: '0.01em' }}>
+                          {institutionalTotalLabel}
+                        </span>
+                        <span className="tnum" style={{ fontSize: '28px', lineHeight: 1.05, fontWeight: 950, color: '#ffffff', letterSpacing: '-0.02em', marginTop: '4px', display: 'block' }}>
+                          {formatCompactMoney(whaleTotalVol, 2)}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '9px', color: '#8da3c7', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', paddingBottom: '3px', whiteSpace: 'nowrap' }}>
+                        {totalCompositionLabel}
                       </span>
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700 }}>
-                      <span style={{ color: '#10b981', marginRight: '8px' }}>C ${(whaleCallPrem / 1000000).toFixed(1)}M</span>
-                      <span style={{ color: '#ef4444' }}>P ${(whalePutPrem / 1000000).toFixed(1)}M</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
+                      <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(16,185,129,0.075)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                        <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.whaleOptions}</div>
+                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#10f2b0' }}>{formatCompactMoney(whaleDayTotal, 1)}</div>
+                      </div>
+                      <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(34,211,238,0.075)', border: '1px solid rgba(34,211,238,0.15)' }}>
+                        <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.darkBlocks}</div>
+                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#22d3ee' }}>{formatCompactMoney(dpDayValue, 1)}</div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Dual Distribution Bar */}
-                  <div style={{ height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', marginBottom: '16px' }}>
-                    <div style={{ width: `${callPctShare}%`, background: 'linear-gradient(90deg, #059669, #10b981)', transition: 'width 0.4s ease' }} />
-                    <div style={{ width: `${putPctShare}%`, background: 'linear-gradient(90deg, #ef4444, #dc2626)', transition: 'width 0.4s ease' }} />
+                  {/* Total composition bar */}
+                  <div style={{ height: '7px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', marginBottom: '16px', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.025)' }}>
+                    <div style={{ width: `${optionMixPct}%`, minWidth: whaleDayTotal > 0 ? '4px' : 0, background: 'linear-gradient(90deg, #10b981, #34d399)', transition: 'width 0.4s ease' }} />
+                    <div style={{ width: `${darkMixPct}%`, background: 'linear-gradient(90deg, #22d3ee, #0891b2)', transition: 'width 0.4s ease' }} />
                   </div>
 
                   {/* Three metrics */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '14px' }}>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>Dark Pool %</div>
-                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: 'var(--cyan)', marginTop: '4px' }}>{dpPct}</div>
+                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.dpDominance}</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: 'var(--cyan)', marginTop: '4px' }}>{dpDayPct.toFixed(1)}%</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {dpNetBuyStr}
+                        {dpNetBuyValue >= 0 ? '+' : '-'}{formatCompactMoney(Math.abs(dpNetBuyValue), 1)}
                       </span>
                     </div>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>Short Vol %</div>
+                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.shortPressure}</div>
                       <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f43f5e', marginTop: '4px' }}>{shortPct}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px' }}>
-                        {locale === 'ko' ? '일일 공매도' : 'Daily Short'}
+                        {whaleCopy.psychology}
                       </span>
                     </div>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>Block Trades</div>
-                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{blockCount}</div>
+                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.blockIntensity}</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{dpDayCount || blockCount}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px' }}>
-                        {locale === 'ko' ? '대량 체결' : 'Block Trades'}
+                        {blockIntensityPct}%
                       </span>
                     </div>
                   </div>
                 </div>
               );
             })()}
+
+            <div className="premium-card" style={{ padding: '15px 14px', margin: 0, position: 'relative', background: 'linear-gradient(155deg, rgba(15,23,42,0.88), rgba(12,22,42,0.72) 58%, rgba(245,158,11,0.045))', border: '1px solid rgba(255,255,255,0.07)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.045)' }}>
+              {renderPopover('flow-psych', whaleCopy.psychologyInfo, whaleCopy.psychologyInfoTitle)}
+              <div className="app-card-head" style={{ marginBottom: '12px', alignItems: 'center' }}>
+                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {whaleCopy.psychology}
+                  <InfoBtn popKey="flow-psych" />
+                </span>
+                <span style={{ fontSize: '8px', fontWeight: 950, padding: '3px 8px', borderRadius: '999px', color: psychologyAccent, background: `${psychologyAccent}16`, border: `1px solid ${psychologyAccent}28`, whiteSpace: 'nowrap' }}>
+                  {psychologyLabel}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 86px 1fr', gap: '8px', alignItems: 'stretch' }}>
+                <div style={{ padding: '11px 10px', borderRadius: '11px', background: 'rgba(15,23,42,0.34)', border: '1px solid rgba(255,255,255,0.055)' }}>
+                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 850 }}>{whaleCopy.conviction}</div>
+                  <div className="tnum" style={{ color: psychologyAccent, fontSize: '18px', fontWeight: 950, marginTop: '5px' }}>{convictionPct}%</div>
+                  <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: '7px' }}>
+                    <div style={{ width: `${convictionPct}%`, height: '100%', background: psychologyAccent, boxShadow: `0 0 10px ${psychologyAccent}99` }} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', placeItems: 'center', textAlign: 'center', borderRadius: '999px', background: `radial-gradient(circle, ${psychologyAccent}1e, rgba(15,23,42,0.2) 64%)`, border: `1px solid ${psychologyAccent}24`, minHeight: '72px' }}>
+                  <div>
+                    <div className="tnum" style={{ fontSize: '17px', fontWeight: 950, color: psychologyAccent }}>{pressureScore >= 0 ? '+' : ''}{pressureScore}</div>
+                    <div style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 850, textTransform: 'uppercase' }}>{whaleCopy.netBias}</div>
+                  </div>
+                </div>
+                <div style={{ padding: '11px 10px', borderRadius: '11px', background: 'rgba(15,23,42,0.34)', border: '1px solid rgba(255,255,255,0.055)' }}>
+                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 850 }}>{whaleCopy.blockIntensity}</div>
+                  <div className="tnum" style={{ color: '#22d3ee', fontSize: '18px', fontWeight: 950, marginTop: '5px' }}>{formattedBlockCount}</div>
+                  <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: '7px' }}>
+                    <div style={{ width: `${blockIntensityPct}%`, height: '100%', background: '#22d3ee', boxShadow: '0 0 10px rgba(34,211,238,0.7)' }} />
+                  </div>
+                  <div style={{ marginTop: '5px', fontSize: '8px', color: '#91a6ca', fontWeight: 850 }}>{blockIntensityPct}%</div>
+                </div>
+              </div>
+            </div>
 
             {/* VALUE WALL / PREMIUM OPTIONS TABLE */}
             <div style={{ position: 'relative', overflow: 'hidden', background: 'rgba(30, 41, 59, 0.12)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '14px', padding: '12px' }}>
@@ -2292,7 +3325,7 @@ export default function AppFlowPage() {
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {t.whaleRadar}
+                  {whaleCopy.whaleTab} <span className="tnum" style={{ opacity: 0.8 }}>{whaleDayCount}</span>
                 </button>
                 <button
                   onClick={() => setFlowTab('darkpool')}
@@ -2310,15 +3343,29 @@ export default function AppFlowPage() {
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {t.darkPoolTitle || 'Dark Pool & Block Trades'}
+                  {whaleCopy.darkTab} <span className="tnum" style={{ opacity: 0.8 }}>{dpDayCount}</span>
                 </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '7px', marginBottom: '12px' }}>
+                {flowPreviewStats.map((item) => (
+                  <div key={item.label} style={{ minWidth: 0, padding: '10px 9px', borderRadius: '10px', background: `linear-gradient(155deg, ${item.color}12, rgba(15,23,42,0.3))`, border: `1px solid ${item.color}22` }}>
+                    <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                    <div className="tnum" style={{ color: item.color, fontSize: '13px', fontWeight: 950, marginTop: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
+                  </div>
+                ))}
               </div>
 
               {/* Horizontal Scroll Deck wrapped in ValueWall */}
               <ValueWall
-                title={locale === 'ko' ? '기관급 실시간 옵션 체인' : locale === 'ja' ? '機関レベルのオプションチェーン' : 'Institutional Options Chain'}
-                subtitle={<>{locale === 'ko' ? '실시간 고래 거래 + 다크풀 플로우, ' : locale === 'ja' ? 'リアルタイムホエール取引 + リアルタイムダークプール, ' : 'Real-time whale sweeps + block trades, '}<span style={{ color: 'var(--amber)' }}><b>{locale === 'ko' ? '지금 업데이트 중' : locale === 'ja' ? '更新중' : 'updating now'}</b></span>.</>}
-                socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
+                locale={locale}
+                title={whaleCopy.chainTitle}
+                subtitle={whaleCopy.chainSubtitle}
+                socialProof={whaleCopy.socialProof}
+                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? whaleDayCount : dpDayCount} ${whaleCopy.prints} / ${formatCompactMoney(flowTab === 'whale' ? largestWhalePrint : largestDpPrint, 1)}` }}
+                ctaLabel={whaleCopy.unlockCta}
+                adFreeLabel={whaleCopy.adFree}
+                previewChipLabel={whaleCopy.freePreview}
                 onUnlock={() => setIsLocked(false)}
                 lockedPreview={
                   <div 
@@ -2350,16 +3397,13 @@ export default function AppFlowPage() {
                     padding: '4px 0 10px',
                     scrollSnapType: 'x mandatory',
                     WebkitOverflowScrolling: 'touch',
-                    minHeight: '145px'
+                    minHeight: flowTab === 'whale' ? '170px' : '150px'
                   }}
                 >
-                  {flowTab === 'whale' ? (
-                    /* Whale Sweep Radar Deck */
-                    whaleSweeps.map((tx, idx) => renderWhaleCard(tx, idx))
-                  ) : (
-                    /* Dark Pool & Block Trades Deck */
-                    filteredDarkPoolTrades.map((tx, idx) => renderDarkPoolCard(tx, idx))
-                  )}
+                  {flowTab === 'whale'
+                    ? (whaleSweeps.length > 0 ? whaleSweeps.map((tx, idx) => renderWhaleCard(tx, idx)) : <div style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '12px', padding: '18px 4px' }}>{whaleCopy.noData}</div>)
+                    : (filteredDarkPoolTrades.length > 0 ? filteredDarkPoolTrades.map((tx, idx) => renderDarkPoolCard(tx, idx)) : <div style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '12px', padding: '18px 4px' }}>{whaleCopy.noData}</div>)
+                  }
                 </div>
               </ValueWall>
             </div>
@@ -2387,6 +3431,76 @@ export default function AppFlowPage() {
         </div>
       )}{/* 4. STRIKE PROFILE TAB */}
       {activeTab === 'strike-profile' && (() => {
+        const strikeCopy = locale === 'ko'
+          ? {
+              title: '주간 스트라이크 맵',
+              weekly: '주간 만기',
+              spotRegime: '현재가 레짐',
+              callWall: '콜 월',
+              putFloor: '풋 플로어',
+              gammaFlip: '감마 플립',
+              aboveFlip: '플립 위',
+              belowFlip: '플립 아래',
+              nearestResistance: '근접 저항',
+              nearestSupport: '근접 지지',
+              breakout: '돌파 조건',
+              breakdown: '이탈 조건',
+              compression: '압축 폭',
+              currentLane: '현재가 레인',
+              callSide: 'CALL 저항',
+              putSide: 'PUT 지지',
+              callWallNote: '콜 월 돌파 시 상단 감마 저항 재평가',
+              putFloorNote: '풋 플로어 이탈 시 하단 헤지 압력 확인',
+              liveMove: '장중 현재가 기준으로 레인이 재계산됩니다',
+            }
+          : locale === 'ja'
+          ? {
+              title: '週間ストライクマップ',
+              weekly: '週間満期',
+              spotRegime: '現在値レジーム',
+              callWall: 'コールウォール',
+              putFloor: 'プットフロア',
+              gammaFlip: 'ガンマフリップ',
+              aboveFlip: 'フリップ上',
+              belowFlip: 'フリップ下',
+              nearestResistance: '近接抵抗',
+              nearestSupport: '近接支持',
+              breakout: '突破条件',
+              breakdown: '下抜け条件',
+              compression: '圧縮幅',
+              currentLane: '現在値レーン',
+              callSide: 'CALL抵抗',
+              putSide: 'PUT支持',
+              callWallNote: 'コールウォール突破時は上値ガンマ抵抗を再評価',
+              putFloorNote: 'プットフロア割れでは下方向ヘッジ圧力を確認',
+              liveMove: '取引中は現在値を基準にレーンを再計算します',
+            }
+          : {
+              title: 'Weekly Strike Map',
+              weekly: 'Weekly Expiry',
+              spotRegime: 'Spot Regime',
+              callWall: 'Call Wall',
+              putFloor: 'Put Floor',
+              gammaFlip: 'Gamma Flip',
+              aboveFlip: 'Above flip',
+              belowFlip: 'Below flip',
+              nearestResistance: 'Nearest resistance',
+              nearestSupport: 'Nearest support',
+              breakout: 'Breakout trigger',
+              breakdown: 'Breakdown trigger',
+              compression: 'Compression',
+              currentLane: 'Current lane',
+              callSide: 'CALL resistance',
+              putSide: 'PUT support',
+              callWallNote: 'Recheck upper gamma resistance on a Call Wall break',
+              putFloorNote: 'Watch downside hedge pressure if Put Floor breaks',
+              liveMove: 'During market hours, the lane recalculates around live spot',
+            };
+        const parseStrikePrice = (value: any) => {
+          if (typeof value === 'number') return value;
+          const parsed = parseFloat(String(value ?? '').replace(/[^0-9.-]/g, ''));
+          return Number.isFinite(parsed) ? parsed : null;
+        };
         // Group rawChain by strike price
         const strikeMap: Record<number, { strike: number; put: number; call: number; isWall: boolean; isFloor: boolean; isUnderlyer?: boolean }> = {};
         
@@ -2419,7 +3533,7 @@ export default function AppFlowPage() {
         });
 
         // Unique strikes sorted ascending
-        let strikes = Object.keys(strikeMap).map(Number).sort((a, b) => a - b);
+        const strikes = Object.keys(strikeMap).map(Number).sort((a, b) => a - b);
         
         // If empty or too few strikes, generate synthetic fallback strikes surrounding displayPrice
         if (strikes.length === 0) {
@@ -2461,7 +3575,7 @@ export default function AppFlowPage() {
         selectedStrikes.sort((a, b) => b - a);
 
         // Calculate max call and put volume in the selected window for auto-scaling
-        const maxVal = Math.max(100, ...selectedStrikes.map(stk => Math.max(strikeMap[stk].call || 0, strikeMap[stk].put || 0)));
+        let maxVal = Math.max(100, ...selectedStrikes.map(stk => Math.max(strikeMap[stk].call || 0, strikeMap[stk].put || 0)));
 
         // Find dynamic call wall and put floor in the selected window
         let maxCallVol = 0;
@@ -2482,9 +3596,43 @@ export default function AppFlowPage() {
           }
         });
 
+        const flowCallWall = parseStrikePrice(callWallVal);
+        const flowPutFloor = parseStrikePrice(putFloorVal);
+        const flowGammaFlip = parseStrikePrice(liveGammaFlip);
+        [flowCallWall, flowPutFloor, flowGammaFlip].forEach((level) => {
+          if (level != null && !selectedStrikes.includes(level)) {
+            selectedStrikes.push(level);
+            if (!strikeMap[level]) strikeMap[level] = { strike: level, put: 0, call: 0, isWall: false, isFloor: false };
+          }
+        });
+        selectedStrikes.sort((a, b) => b - a);
+        maxVal = Math.max(100, ...selectedStrikes.map(stk => Math.max(strikeMap[stk].call || 0, strikeMap[stk].put || 0)));
+        if (flowCallWall != null) wallStrike = flowCallWall;
+        if (flowPutFloor != null) floorStrike = flowPutFloor;
+
         const closestStrike = selectedStrikes.reduce((prev, curr) => 
           Math.abs(curr - displayPrice) < Math.abs(prev - displayPrice) ? curr : prev
         , selectedStrikes[0]);
+
+        const weeklyExpiryLabel = nearestExpiry
+          ? `${nearestExpiry.split('-').slice(1).join('/')} ${strikeCopy.weekly}`
+          : strikeCopy.weekly;
+        const nearestResistance = selectedStrikes.filter(stk => stk > displayPrice).sort((a, b) => a - b)[0] ?? wallStrike;
+        const nearestSupport = selectedStrikes.filter(stk => stk < displayPrice).sort((a, b) => b - a)[0] ?? floorStrike;
+        const wallDistancePct = wallStrike > 0 ? ((wallStrike - displayPrice) / displayPrice) * 100 : 0;
+        const floorDistancePct = floorStrike > 0 ? ((displayPrice - floorStrike) / displayPrice) * 100 : 0;
+        const compressionPct = wallStrike > 0 && floorStrike > 0 ? ((wallStrike - floorStrike) / displayPrice) * 100 : 0;
+        const isAboveGamma = flowGammaFlip != null ? displayPrice >= flowGammaFlip : true;
+        const laneLabel = wallStrike > 0 && floorStrike > 0 && displayPrice > floorStrike && displayPrice < wallStrike
+          ? `${strikeCopy.putFloor} $${floorStrike} - ${strikeCopy.callWall} $${wallStrike}`
+          : displayPrice >= wallStrike
+          ? `${strikeCopy.callWall} $${wallStrike} ${strikeCopy.breakout}`
+          : `${strikeCopy.putFloor} $${floorStrike} ${strikeCopy.breakdown}`;
+        const formatDistance = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+        const rangeSpan = Math.max(0.01, wallStrike - floorStrike);
+        const clampPct = (value: number) => Math.max(0, Math.min(100, value));
+        const spotRangePct = wallStrike > floorStrike ? clampPct(((displayPrice - floorStrike) / rangeSpan) * 100) : 50;
+        const gammaRangePct = flowGammaFlip != null && wallStrike > floorStrike ? clampPct(((flowGammaFlip - floorStrike) / rangeSpan) * 100) : null;
 
         // Format nearest expiry date
         const expiryLabel = nearestExpiry 
@@ -2493,8 +3641,8 @@ export default function AppFlowPage() {
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
-            <div className="premium-card" style={{ padding: '18px 16px', margin: 0, borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px' }}>
-              <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
+            <div className="premium-card" style={{ padding: '16px 16px', margin: 0, borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px', background: 'linear-gradient(155deg, rgba(15,23,42,0.92), rgba(8,20,38,0.78) 58%, rgba(6,182,212,0.045))', border: '1px solid rgba(6,182,212,0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 38px -32px rgba(6,182,212,0.5)' }}>
+              <div className="app-card-head" style={{ display: 'none', marginBottom: '14px', alignItems: 'center' }}>
                 <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {locale === 'ko' ? '장중 행사가 프로파일' : locale === 'ja' ? 'イントラデイ行使価格プロファイル' : 'INTRADAY STRIKE PROFILE'}
                 </span>
@@ -2503,15 +3651,77 @@ export default function AppFlowPage() {
                 </span>
               </div>
 
+              <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
+                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#9fb5d9', fontWeight: 900, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {strikeCopy.title}
+                </span>
+                <span style={{ fontSize: '9px', fontWeight: 950, background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.18)', color: 'var(--cyan)', padding: '3px 8px', borderRadius: '12px', letterSpacing: '0.04em' }}>
+                  {weeklyExpiryLabel}
+                </span>
+              </div>
+
+              <div style={{ padding: '12px', borderRadius: '13px', background: 'linear-gradient(135deg, rgba(6,182,212,0.08), rgba(15,23,42,0.38))', border: '1px solid rgba(6,182,212,0.16)', marginBottom: '13px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '11px' }}>
+                  <div>
+                    <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{strikeCopy.spotRegime}</div>
+                    <div className="tnum" style={{ marginTop: '3px', fontSize: '24px', lineHeight: 1, fontWeight: 950, color: '#ffffff' }}>${displayPrice.toFixed(2)}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 900, textTransform: 'uppercase' }}>{strikeCopy.gammaFlip}</div>
+                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 950, color: isAboveGamma ? '#10f2b0' : '#fb7185' }}>{isAboveGamma ? strikeCopy.aboveFlip : strikeCopy.belowFlip}</div>
+                    <div className="tnum" style={{ marginTop: '2px', fontSize: '11px', color: '#cbd5e1', fontWeight: 850 }}>{flowGammaFlip != null ? `$${flowGammaFlip.toFixed(2)}` : '--'}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '7px' }}>
+                  {[
+                    { label: strikeCopy.putFloor, value: floorStrike > 0 ? `$${floorStrike}` : '--', sub: floorStrike > 0 ? `-${floorDistancePct.toFixed(1)}%` : '--', color: '#fb7185' },
+                    { label: strikeCopy.compression, value: compressionPct > 0 ? `${compressionPct.toFixed(1)}%` : '--', sub: strikeCopy.currentLane, color: '#f59e0b' },
+                    { label: strikeCopy.callWall, value: wallStrike > 0 ? `$${wallStrike}` : '--', sub: wallStrike > 0 ? formatDistance(wallDistancePct) : '--', color: '#10f2b0' },
+                  ].map((item) => (
+                    <div key={item.label} style={{ minWidth: 0, padding: '9px 8px', borderRadius: '10px', background: `${item.color}0e`, border: `1px solid ${item.color}24` }}>
+                      <div style={{ fontSize: '8px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                      <div className="tnum" style={{ marginTop: '4px', fontSize: '14px', fontWeight: 950, color: item.color, whiteSpace: 'nowrap' }}>{item.value}</div>
+                      <div style={{ marginTop: '3px', fontSize: '8px', color: '#c6d3ea', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.sub}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: '13px', padding: '12px 8px 8px', borderRadius: '11px', background: 'rgba(2,8,23,0.22)', border: '1px solid rgba(255,255,255,0.045)' }}>
+                  <div style={{ position: 'relative', height: '26px' }}>
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: '11px', height: '6px', borderRadius: '999px', background: 'linear-gradient(90deg, rgba(251,113,133,0.62), rgba(245,158,11,0.5), rgba(16,242,176,0.66))', boxShadow: '0 0 16px rgba(6,182,212,0.12)' }} />
+                    {gammaRangePct != null && (
+                      <div style={{ position: 'absolute', left: `${gammaRangePct}%`, top: '3px', transform: 'translateX(-50%)', width: '2px', height: '22px', borderRadius: '2px', background: '#f59e0b', boxShadow: '0 0 9px rgba(245,158,11,0.7)' }} />
+                    )}
+                    <div style={{ position: 'absolute', left: `${spotRangePct}%`, top: '-1px', transform: 'translateX(-50%)', display: 'grid', placeItems: 'center' }}>
+                      <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#22d3ee', border: '2px solid rgba(7,18,32,0.95)', boxShadow: '0 0 16px rgba(34,211,238,0.85)' }} />
+                      <div className="tnum" style={{ marginTop: '2px', fontSize: '8px', fontWeight: 950, color: '#aeefff', whiteSpace: 'nowrap' }}>${displayPrice.toFixed(1)}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '8px', fontWeight: 900, color: '#91a6ca' }}>
+                    <span style={{ color: '#fb7185' }}>${floorStrike}</span>
+                    <span style={{ color: '#f59e0b' }}>{flowGammaFlip != null ? `$${flowGammaFlip.toFixed(0)}` : strikeCopy.gammaFlip}</span>
+                    <span style={{ color: '#10f2b0' }}>${wallStrike}</span>
+                  </div>
+                </div>
+                <div style={{ marginTop: '10px', padding: '8px 9px', borderRadius: '9px', background: 'rgba(2,8,23,0.28)', border: '1px solid rgba(255,255,255,0.055)', color: '#c7d7f4', fontSize: '10px', lineHeight: 1.45, fontWeight: 800 }}>
+                  {laneLabel}
+                </div>
+              </div>
+
               {/* Label header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', font: 'var(--f-micro)', color: 'var(--text-muted)', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ display: 'none', justifyContent: 'space-between', font: 'var(--f-micro)', color: 'var(--text-muted)', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 <span style={{ color: '#ef4444' }}>{locale === 'ko' ? 'PUT 지지' : 'PUT SUPPORT'}</span>
                 <span style={{ width: '60px', textAlign: 'center' }}>STRIKE</span>
                 <span style={{ color: '#10b981' }}>{locale === 'ko' ? 'CALL 저항' : 'CALL RESIST'}</span>
               </div>
 
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', paddingBottom: '9px', borderBottom: '1px solid rgba(255,255,255,0.07)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <span style={{ color: '#fb7185', fontSize: '10px' }}>{strikeCopy.putSide}</span>
+                <span style={{ width: '66px', textAlign: 'center', fontSize: '10px', color: '#dbeafe' }}>STRIKE</span>
+                <span style={{ color: '#10f2b0', fontSize: '10px' }}>{strikeCopy.callSide}</span>
+              </div>
+
               {/* Bar List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px', position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '14px', position: 'relative' }}>
                 
                 {/* Dynamic Underlyer Line */}
                 {(() => {
@@ -2522,16 +3732,16 @@ export default function AppFlowPage() {
                   const bottomStrike = selectedStrikes[selectedStrikes.length - 1];
                   
                   if (displayPrice >= topStrike) {
-                    yPos = 13;
+                    yPos = 15;
                   } else if (displayPrice <= bottomStrike) {
-                    yPos = (selectedStrikes.length - 1) * 36 + 13;
+                    yPos = (selectedStrikes.length - 1) * 36 + 15;
                   } else {
                     for (let i = 0; i < selectedStrikes.length - 1; i++) {
                       const upper = selectedStrikes[i];
                       const lower = selectedStrikes[i + 1];
                       if (displayPrice <= upper && displayPrice > lower) {
                         const ratio = (upper - displayPrice) / (upper - lower);
-                        yPos = i * 36 + 13 + ratio * 36;
+                        yPos = i * 36 + 15 + ratio * 36;
                         break;
                       }
                     }
@@ -2558,10 +3768,10 @@ export default function AppFlowPage() {
                         boxShadow: '0 0 6px rgba(6, 182, 212, 0.4)'
                       }} />
                       <div style={{
-                        background: 'rgba(6, 182, 212, 0.95)',
-                        color: '#050a14',
-                        font: '900 9px var(--f-mono)',
-                        padding: '3px 8px',
+                        background: 'linear-gradient(135deg, rgba(34,211,238,0.98), rgba(14,165,233,0.95))',
+                        color: '#04111f',
+                        font: '950 10px var(--f-mono)',
+                        padding: '4px 9px',
                         borderRadius: '12px',
                         boxShadow: '0 0 10px rgba(6, 182, 212, 0.5)',
                         marginLeft: '8px',
@@ -2590,33 +3800,34 @@ export default function AppFlowPage() {
                   const isClosest = strike === closestStrike;
                   const isWall = strike === wallStrike;
                   const isFloor = strike === floorStrike;
+                  const isGamma = flowGammaFlip != null && Math.abs(strike - flowGammaFlip) < 0.01;
 
                   return (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', height: '26px', position: 'relative' }}>
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', height: '27px', position: 'relative', borderRadius: '9px', background: isClosest ? 'rgba(6,182,212,0.045)' : isWall ? 'rgba(16,185,129,0.035)' : isFloor ? 'rgba(239,68,68,0.035)' : 'transparent' }}>
                       {/* Put bar (grows left) */}
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: '12px' }}>
                         <div style={{
                           width: `${putPct}%`,
-                          height: '7px',
+                          height: isFloor ? '10px' : '8px',
                           background: isFloor 
-                            ? 'linear-gradient(270deg, rgba(239, 68, 68, 0.2) 0%, #ef4444 100%)' 
+                            ? 'linear-gradient(270deg, rgba(239, 68, 68, 0.22) 0%, #fb7185 100%)'
                             : 'linear-gradient(270deg, rgba(239, 68, 68, 0.06) 0%, rgba(239, 68, 68, 0.65) 100%)',
-                          borderRadius: '3.5px',
-                          boxShadow: isFloor ? '0 0 8px rgba(239, 68, 68, 0.4)' : 'none',
+                          borderRadius: '999px',
+                          boxShadow: isFloor ? '0 0 12px rgba(239, 68, 68, 0.55)' : 'none',
                           transition: 'width 0.4s ease'
                         }} />
                       </div>
 
                       {/* Strike Label */}
                       <div className="tnum" style={{
-                        width: '60px',
+                        width: '66px',
                         textAlign: 'center',
-                        fontSize: '11px',
-                        fontWeight: 900,
-                        color: isClosest ? 'var(--cyan)' : '#ffffff',
-                        background: isClosest ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
-                        border: isClosest ? '1px solid rgba(6, 182, 212, 0.3)' : 'none',
-                        borderRadius: '6px',
+                        fontSize: isClosest ? '12px' : '11px',
+                        fontWeight: 950,
+                        color: isClosest ? '#22d3ee' : isGamma ? '#f59e0b' : '#ffffff',
+                        background: isClosest ? 'rgba(6, 182, 212, 0.14)' : isGamma ? 'rgba(245,158,11,0.10)' : 'rgba(15,23,42,0.18)',
+                        border: isClosest ? '1px solid rgba(6, 182, 212, 0.34)' : isGamma ? '1px solid rgba(245,158,11,0.22)' : '1px solid rgba(255,255,255,0.035)',
+                        borderRadius: '8px',
                         padding: isClosest ? '2px 0' : 0,
                         zIndex: 2,
                         textShadow: isClosest ? '0 0 8px rgba(6, 182, 212, 0.3)' : 'none'
@@ -2628,12 +3839,12 @@ export default function AppFlowPage() {
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start', paddingLeft: '12px' }}>
                         <div style={{
                           width: `${callPct}%`,
-                          height: '7px',
+                          height: isWall ? '10px' : '8px',
                           background: isWall 
-                            ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.2) 0%, #10b981 100%)' 
+                            ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.22) 0%, #10f2b0 100%)'
                             : 'linear-gradient(90deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.65) 100%)',
-                          borderRadius: '3.5px',
-                          boxShadow: isWall ? '0 0 8px rgba(16, 185, 129, 0.4)' : 'none',
+                          borderRadius: '999px',
+                          boxShadow: isWall ? '0 0 12px rgba(16, 185, 129, 0.55)' : 'none',
                           transition: 'width 0.4s ease'
                         }} />
                       </div>
@@ -2642,40 +3853,60 @@ export default function AppFlowPage() {
                       {isWall && (
                         <span style={{
                           position: 'absolute',
-                          right: 0,
-                          fontSize: '8px',
+                          right: '2px',
+                          fontSize: '9px',
                           fontFamily: 'var(--f-mono)',
-                          fontWeight: 900,
-                          background: 'rgba(16, 185, 129, 0.08)',
-                          color: '#10b981',
-                          padding: '2px 6px',
-                          borderRadius: '10px',
-                          border: '1px solid rgba(16, 185, 129, 0.2)',
+                          fontWeight: 950,
+                          background: 'rgba(16, 185, 129, 0.16)',
+                          color: '#10f2b0',
+                          padding: '3px 7px',
+                          borderRadius: '999px',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
                           letterSpacing: '0.04em'
                         }}>
-                          WALL
+                          CALL WALL
                         </span>
                       )}
                       {isFloor && (
                         <span style={{
                           position: 'absolute',
-                          left: 0,
-                          fontSize: '8px',
+                          left: '2px',
+                          fontSize: '9px',
                           fontFamily: 'var(--f-mono)',
-                          fontWeight: 900,
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          color: '#ef4444',
-                          padding: '2px 6px',
-                          borderRadius: '10px',
-                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          fontWeight: 950,
+                          background: 'rgba(239, 68, 68, 0.16)',
+                          color: '#fb7185',
+                          padding: '3px 7px',
+                          borderRadius: '999px',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
                           letterSpacing: '0.04em'
                         }}>
-                          FLOOR
+                          PUT FLOOR
                         </span>
                       )}
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            <div className="premium-card" style={{ padding: '14px', margin: 0, background: 'linear-gradient(150deg, rgba(15,23,42,0.86), rgba(8,18,34,0.72))', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {[
+                  { label: strikeCopy.nearestSupport, value: nearestSupport ? `$${nearestSupport}` : '--', sub: strikeCopy.putFloorNote, color: '#fb7185' },
+                  { label: strikeCopy.nearestResistance, value: nearestResistance ? `$${nearestResistance}` : '--', sub: strikeCopy.callWallNote, color: '#10f2b0' },
+                  { label: strikeCopy.breakdown, value: floorStrike > 0 ? `$${floorStrike}` : '--', sub: strikeCopy.putFloor, color: '#f43f5e' },
+                  { label: strikeCopy.breakout, value: wallStrike > 0 ? `$${wallStrike}` : '--', sub: strikeCopy.callWall, color: '#22d3ee' },
+                ].map((item) => (
+                  <div key={item.label} style={{ minWidth: 0, padding: '11px 10px', borderRadius: '11px', background: `${item.color}0d`, border: `1px solid ${item.color}20` }}>
+                    <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                    <div className="tnum" style={{ marginTop: '4px', color: item.color, fontSize: '17px', fontWeight: 950 }}>{item.value}</div>
+                    <div style={{ marginTop: '5px', fontSize: '8.5px', color: '#c1ccea', lineHeight: 1.35, fontWeight: 760, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.sub}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '10px', padding: '9px 10px', borderRadius: '10px', background: 'rgba(6,182,212,0.07)', border: '1px solid rgba(6,182,212,0.14)', color: '#aeefff', fontSize: '10px', fontWeight: 850 }}>
+                {strikeCopy.liveMove}
               </div>
             </div>
           </div>

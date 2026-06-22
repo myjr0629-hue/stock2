@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { Sparkline } from '@/components/app/Sparkline';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 import s from './movers.module.css';
+
+type MoversTab = 'value' | 'gainers' | 'losers';
 
 interface MoverItem {
   ticker: string;
@@ -18,78 +21,69 @@ interface MoverItem {
   spark: number[];
 }
 
-const DEMO_MOVERS: MoverItem[] = [
-  { ticker: 'NVDA', price: 135.42, changePercent: 5.2, volume: 45200000, value: 6100000000, up: true, spark: [128,130,132,131,134,135] },
-  { ticker: 'TSLA', price: 168.90, changePercent: -2.1, volume: 38100000, value: 6430000000, up: false, spark: [172,171,170,169,168,169] },
-  { ticker: 'AAPL', price: 212.55, changePercent: 1.8, volume: 31200000, value: 6628000000, up: true, spark: [208,209,210,211,212,213] },
-  { ticker: 'AMD', price: 164.30, changePercent: 3.4, volume: 28900000, value: 4749000000, up: true, spark: [158,160,161,163,164,164] },
-  { ticker: 'MSFT', price: 432.10, changePercent: 0.8, volume: 22100000, value: 9550000000, up: true, spark: [428,429,430,431,432,432] },
-];
-
 function fmtPrice(n: number): string {
-  if (n == null) return '—';
+  if (!Number.isFinite(n)) return '—';
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtVolume(n: number): string {
-  if (n == null) return '—';
+  if (!Number.isFinite(n)) return '—';
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
   if (n >= 1000) return (n / 1000).toFixed(0) + 'K';
   return n.toLocaleString();
 }
 
 function fmtValue(n: number): string {
-  if (n == null) return '—';
+  if (!Number.isFinite(n)) return '—';
   if (n >= 1000000000) return '$' + (n / 1000000000).toFixed(2) + 'B';
   if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
   return '$' + n.toLocaleString();
 }
 
-function StockLogo({ symbol }: { symbol: string }) {
-  const [error, setError] = useState(false);
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
 
-  if (error) {
+function normalizeMover(item: any): MoverItem {
+  const price = Number(item?.price) || 0;
+  const changePercent = Number(item?.changePercent) || 0;
+  const volume = Number(item?.volume) || 0;
+  const value = Number(item?.value) || volume * price;
+  return {
+    ticker: String(item?.ticker || item?.symbol || '').toUpperCase(),
+    price,
+    changePercent,
+    volume,
+    value,
+    up: changePercent >= 0,
+    spark: Array.isArray(item?.spark) ? item.spark.map((v: unknown) => Number(v)).filter(Number.isFinite) : [],
+  };
+}
+
+function StockLogo({ symbol }: { symbol: string }) {
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const sources = [
+    `/api/logo/${symbol}`,
+    `https://assets.parqet.com/logos/symbol/${symbol}?format=png`,
+  ];
+  const src = sources[sourceIndex];
+
+  if (!src) {
     return (
-      <div style={{
-        width: '32px',
-        height: '32px',
-        borderRadius: '50%',
-        background: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#22d3ee',
-        fontWeight: 800,
-        fontSize: '12px',
-        fontFamily: 'monospace',
-        flexShrink: 0
-      }}>
-        {symbol.charAt(0)}
+      <div className={s.logoFallback}>
+        {symbol.slice(0, 2)}
       </div>
     );
   }
 
   return (
-    <div style={{
-      width: '32px',
-      height: '32px',
-      borderRadius: '50%',
-      background: '#ffffff',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '4px',
-      overflow: 'hidden',
-      flexShrink: 0
-    }}>
+    <div className={s.logoBubble}>
       <img
         loading="lazy"
-        src={`/api/logo/${symbol}`}
+        src={src}
         alt={symbol}
-        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-        onError={() => setError(true)}
+        className={s.logoImg}
+        onError={() => setSourceIndex((idx) => idx + 1)}
       />
     </div>
   );
@@ -98,46 +92,49 @@ function StockLogo({ symbol }: { symbol: string }) {
 function MoversPageContent() {
   const locale = useLocale();
   const router = useRouter();
+  const { status: marketStatus } = useMarketStatus();
   const [data, setData] = useState<{
     value: MoverItem[];
     gainers: MoverItem[];
     losers: MoverItem[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'value' | 'gainers' | 'losers'>('value');
+  const [activeTab, setActiveTab] = useState<MoversTab>('value');
+  const hasDataRef = useRef(false);
 
-  const allTickers = data 
-    ? Array.from(new Set([
+  const allTickers = useMemo(() => (
+    data
+      ? Array.from(new Set([
         ...data.value.map(m => m.ticker),
         ...data.gainers.map(m => m.ticker),
         ...data.losers.map(m => m.ticker)
       ]))
-    : [];
+      : []
+  ), [data]);
 
   const { prices } = useRealtimeData(allTickers);
+  const equityWsActive = !marketStatus.isHoliday && marketStatus.market === 'open'
+    && (marketStatus.session === 'pre' || marketStatus.session === 'regular' || marketStatus.session === 'post');
 
   useEffect(() => {
     let active = true;
     async function fetchAllMovers() {
       try {
-        const res = await fetch('/api/market/movers');
+        const res = await fetch('/api/market/movers?limit=10', { cache: 'no-store' });
         if (!res.ok) throw new Error('Failed to fetch movers');
         const json = await res.json();
         if (active) {
           setData({
-            value: json.value || [],
-            gainers: json.gainers || [],
-            losers: json.losers || []
+            value: (json.value || []).map(normalizeMover).filter((m: MoverItem) => m.ticker),
+            gainers: (json.gainers || []).map(normalizeMover).filter((m: MoverItem) => m.ticker),
+            losers: (json.losers || []).map(normalizeMover).filter((m: MoverItem) => m.ticker)
           });
+          hasDataRef.current = true;
         }
       } catch (err) {
         console.error('Error fetching movers:', err);
-        if (active && !data) {
-          setData({
-            value: DEMO_MOVERS,
-            gainers: DEMO_MOVERS.filter(m => m.up),
-            losers: DEMO_MOVERS.filter(m => !m.up)
-          });
+        if (active && !hasDataRef.current) {
+          setData({ value: [], gainers: [], losers: [] });
         }
       } finally {
         if (active) setLoading(false);
@@ -162,6 +159,12 @@ function MoversPageContent() {
       loading: '실시간 데이터를 받아오는 중...',
       vol: '거래량',
       val: '거래대금',
+      valueMetric: '거래대금',
+      volumeMetric: '거래량',
+      lastSession: 'CLOSE',
+      leaderShare: '리더 대비',
+      gainerImpact: '상승 임팩트',
+      loserImpact: '하락 압력',
       errorNotice: '서버 연결 중... 데모 데이터를 표시합니다'
     },
     en: {
@@ -172,6 +175,12 @@ function MoversPageContent() {
       loading: 'Fetching real-time data...',
       vol: 'Vol',
       val: 'Value',
+      valueMetric: 'Trading value',
+      volumeMetric: 'Volume',
+      lastSession: 'CLOSE',
+      leaderShare: 'Leader share',
+      gainerImpact: 'Move impact',
+      loserImpact: 'Downside pressure',
       errorNotice: 'Connecting to server... Showing demo data'
     },
     ja: {
@@ -182,6 +191,12 @@ function MoversPageContent() {
       loading: 'リアルタイムデータを取得中...',
       vol: '出来高',
       val: '売買代金',
+      valueMetric: '売買代金',
+      volumeMetric: '出来高',
+      lastSession: 'CLOSE',
+      leaderShare: '首位比',
+      gainerImpact: '上昇インパクト',
+      loserImpact: '下落圧力',
       errorNotice: 'サーバー接続中... デモデータを表示しています'
     }
   }[locale as 'ko' | 'en' | 'ja'] || {
@@ -192,6 +207,12 @@ function MoversPageContent() {
     loading: 'Fetching real-time data...',
     vol: 'Vol',
     val: 'Value',
+    valueMetric: 'Trading value',
+    volumeMetric: 'Volume',
+    lastSession: 'CLOSE',
+    leaderShare: 'Leader share',
+    gainerImpact: 'Move impact',
+    loserImpact: 'Downside pressure',
     errorNotice: 'Connecting to server... Showing demo data'
   };
 
@@ -212,7 +233,7 @@ function MoversPageContent() {
 
   const tabConfig = [
     { key: 'value' as const, color: '#22d3ee', rgb: '34,211,238',
-      label: { ko: '거래대금', en: 'Volume', ja: '売買代金' },
+      label: { ko: '거래대금', en: 'Value', ja: '売買代金' },
       sub: { ko: 'TOP 10', en: 'TOP 10', ja: 'TOP 10' },
     },
     { key: 'gainers' as const, color: '#10b981', rgb: '16,185,129',
@@ -228,30 +249,36 @@ function MoversPageContent() {
   const loc = (locale as 'ko' | 'en' | 'ja') || 'en';
   const activeColor = tabConfig.find(tb => tb.key === activeTab)?.color || '#22d3ee';
   const activeItems = activeTab === 'value' ? data.value : activeTab === 'gainers' ? data.gainers : data.losers;
+  const activeTitle = activeTab === 'value' ? t.valueSec : activeTab === 'gainers' ? t.gainersSec : t.losersSec;
+  const activeMetric = activeTab === 'value' ? t.valueMetric : t.volumeMetric;
+  const maxRef = Math.max(
+    ...activeItems.map((item) => activeTab === 'value' ? (item.value || item.volume * item.price) : item.volume),
+    1
+  );
 
   const renderRow = (item: MoverItem, index: number) => {
     const wsData = prices.get(item.ticker);
-    const displayPrice = wsData ? wsData.price : item.price;
-    const displayChangePercent = wsData ? wsData.changePct : item.changePercent;
+    const wsFresh = Boolean(wsData?.ts && Date.now() - wsData.ts < 120000);
+    const useWsPrice = Boolean(equityWsActive && wsFresh && isFiniteNumber(wsData?.price) && wsData.price > 0);
+    const useWsChange = Boolean(
+      useWsPrice &&
+      isFiniteNumber(wsData?.changePct) &&
+      (Math.abs(wsData.changePct) >= 0.005 || Math.abs(item.changePercent) < 0.005)
+    );
+    const displayPrice = useWsPrice ? wsData!.price : item.price;
+    const displayChangePercent = useWsChange ? wsData!.changePct : item.changePercent;
     
-    // Use the actual daily volume from the snapshot (item.volume).
-    // The WebSocket volume (wsData.volume) is only the volume accumulated since the connection started, not the full daily volume.
     const displayVolume = item.volume;
-    const displayValue = displayVolume * displayPrice;
+    const displayValue = item.value || displayVolume * item.price;
 
     const chgText = `${displayChangePercent >= 0 ? '+' : ''}${displayChangePercent.toFixed(2)}%`;
     const rankClass = index === 0 ? s.rank1 : index === 1 ? s.rank2 : index === 2 ? s.rank3 : s.rank;
-
-    // Calculate maxRef based on displayValue of the first item (which is the highest) or max volume of active items
-    const firstItem = data.value[0];
-    const firstItemPrice = firstItem ? (prices.get(firstItem.ticker)?.price || firstItem.price) : 1;
-    const firstItemVal = firstItem ? firstItem.volume * firstItemPrice : 1;
-
-    const maxRef = activeTab === 'value'
-      ? firstItemVal
-      : Math.max(...activeItems.map(x => x.volume), 1);
-
     const relativePercent = Math.min(100, Math.max(5, ((activeTab === 'value' ? displayValue : displayVolume) / maxRef) * 100));
+    const reasonLine = activeTab === 'value'
+      ? `${t.leaderShare} ${Math.round(relativePercent)}%`
+      : activeTab === 'gainers'
+        ? `${t.gainerImpact} ${chgText}`
+        : `${t.loserImpact} ${chgText}`;
 
     return (
       <div key={item.ticker} className={s.row} onClick={() => handleTickerClick(item.ticker)}>
@@ -264,6 +291,7 @@ function MoversPageContent() {
           <span className={s.volume}>
             {activeTab === 'value' ? `${t.val}: ${fmtValue(displayValue)}` : `${t.vol}: ${fmtVolume(displayVolume)}`}
           </span>
+          <span className={`${s.reason} ${displayChangePercent >= 0 ? s.reasonUp : s.reasonDn}`}>{reasonLine}</span>
           <div className={s.progressTrack}>
             <div className={s.progressBar} style={{ width: `${relativePercent}%`, background: activeColor }} />
           </div>
@@ -323,7 +351,6 @@ function MoversPageContent() {
         <div className={s.tabTrack}>
           {tabConfig.map((tab) => {
             const isActive = activeTab === tab.key;
-            const count = tab.key === 'value' ? data.value.length : tab.key === 'gainers' ? data.gainers.length : data.losers.length;
             return (
               <button
                 key={tab.key}
@@ -358,6 +385,13 @@ function MoversPageContent() {
       {/* Main content scroll */}
       <div className={s.scroll}>
         <div className={`${s.card} ${activeTab === 'value' ? s.cardValue : activeTab === 'gainers' ? s.cardGainers : s.cardLosers}`}>
+          <div className={s.listHead}>
+            <div>
+              <span className={s.listEyebrow}>{activeMetric}</span>
+              <h2 className={s.listTitle}>{activeTitle}</h2>
+            </div>
+            <span className={s.sessionPill}>{equityWsActive ? 'LIVE' : t.lastSession}</span>
+          </div>
           {activeItems.map((item, index) => renderRow(item, index))}
         </div>
         <MobileAppFooter />

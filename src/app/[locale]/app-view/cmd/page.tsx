@@ -1942,7 +1942,9 @@ function CmdPageContent() {
   });
 
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+  const [extFlash, setExtFlash] = useState<'up' | 'down' | null>(null);
   const prevPriceRef = useRef(displayPrice);
+  const prevExtPriceRef = useRef(activeExtPrice);
   const displayPriceRef = useRef(displayPrice);
   const displayChangePctRef = useRef(displayChangePct);
   const effectiveSessionRef = useRef(effectiveSession);
@@ -1959,6 +1961,20 @@ function CmdPageContent() {
       return () => clearTimeout(tId);
     }
   }, [displayPrice, displayChangePct, effectiveSession]);
+
+  useEffect(() => {
+    if (!activeExtPrice || activeExtPrice <= 0) {
+      prevExtPriceRef.current = activeExtPrice;
+      return;
+    }
+    if (activeExtPrice !== prevExtPriceRef.current) {
+      const isUp = activeExtPrice >= prevExtPriceRef.current;
+      setExtFlash(isUp ? 'up' : 'down');
+      prevExtPriceRef.current = activeExtPrice;
+      const tId = setTimeout(() => setExtFlash(null), 950);
+      return () => clearTimeout(tId);
+    }
+  }, [activeExtPrice]);
 
   const resolvedPrevClose = t?.prices?.prevRegularClose || t?.prevClose || 0;
   const finalChangeAbs = resolvedPrevClose > 0 ? Math.abs(displayPrice - resolvedPrevClose) : Math.abs(t?.display?.changeAbs || data?.change || 0);
@@ -2128,7 +2144,7 @@ function CmdPageContent() {
     let rg = rs >= 75 ? 'ERUPTING' : rs >= 50 ? 'LOADED' : rs >= 25 ? 'COILING' : 'CALM';
     const cachedIv = volatility.iv || 0;
     const derivedIv = iv ? Math.round(iv * 100) : 0;
-    let finalIv = derivedIv > 0 ? derivedIv : cachedIv;
+    const finalIv = derivedIv > 0 ? derivedIv : cachedIv;
     if (derivedIv === 0 && cachedIv > 0) {
       let rs2 = 5;
       if (isShortGamma) rs2 += Math.min(30, Math.abs(netGex) / 1000000 * 3);
@@ -2367,7 +2383,7 @@ function CmdPageContent() {
             </span>
           </div>
           {hasExt && (
-            <div className={s.heroExtCard}>
+            <div className={`${s.heroExtCard} ${s.extLive} ${extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : ''}`}>
               <SparklineBg up={activeExtPct >= 0} seed={`${data.ticker}-ext`} />
               <span className={s.heroExtLabel}>{activeExtLabel}</span>
               <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
@@ -2557,6 +2573,7 @@ function CmdPageContent() {
 
       {activeTab === 'verdict' && (
         <ValueWall
+          locale={locale}
           title={locale === 'ko' ? 'AI 분석 잠금' : locale === 'ja' ? 'AI分析ロック' : 'AI Analysis Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
           socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
@@ -2682,6 +2699,7 @@ function CmdPageContent() {
 
       {activeTab === 'quant' && (
         <ValueWall
+          locale={locale}
           title={locale === 'ko' ? '퀀트 시그널 잠금' : locale === 'ja' ? 'クオンツシグナルロック' : 'Quant Signals Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
           socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
@@ -2822,6 +2840,7 @@ function CmdPageContent() {
 
       {activeTab === 'holders' && (
         <ValueWall
+          locale={locale}
           title={locale === 'ko' ? '기관 보유 잠금' : locale === 'ja' ? '機関保有ロック' : 'Holdings Data Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
           socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}

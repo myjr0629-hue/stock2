@@ -1,5 +1,8 @@
 /* App View — Mobile App Layout */
 .app-viewport {
+  --app-tabbar-height: 72px;
+  --app-anchor-ad-height: 50px;
+  --app-anchor-ad-gap: 8px;
   width: 100vw;
   max-width: 430px;
   margin: 0 auto;
@@ -25,7 +28,13 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
-  padding-bottom: 132px; /* space for tab bar (72px) + AdMob banner ad (60px) */
+  padding-bottom: calc(
+    var(--app-tabbar-height) +
+    var(--app-anchor-ad-height) +
+    var(--app-anchor-ad-gap) +
+    18px +
+    env(safe-area-inset-bottom)
+  );
   scrollbar-width: none;
 }
 
@@ -162,9 +171,110 @@
   border-radius: 3px;
 }
 
+/* Fixed AdMob-style anchor preview for app-view web testing.
+   Native builds use the AdMob overlay with the same vertical slot. */
+.app-anchor-ad {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--app-tabbar-height) + env(safe-area-inset-bottom));
+  z-index: 998;
+  transform: translateX(-50%);
+  width: min(100% - 32px, 398px);
+  height: var(--app-anchor-ad-height);
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 6% 10%, rgba(99, 102, 241, 0.16), transparent 42%),
+    rgba(23, 32, 54, 0.88);
+  border: 1px solid rgba(134, 148, 255, 0.22);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 30px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+
+.app-anchor-ad::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 56%, transparent 72%);
+  opacity: 0.55;
+}
+
+.app-anchor-ad-flag {
+  position: relative;
+  z-index: 1;
+  font: 800 8px/1 var(--font-inter, Inter, sans-serif);
+  color: rgba(214, 222, 255, 0.58);
+  letter-spacing: 0.06em;
+  padding: 3px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.app-anchor-ad-icon {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #a5b4fc;
+  font: 900 13px/1 var(--font-inter, Inter, sans-serif);
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(165, 180, 252, 0.24);
+}
+
+.app-anchor-ad-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-anchor-ad-copy strong {
+  color: var(--text);
+  font: 800 11px/1.15 var(--font-inter, Inter, sans-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-anchor-ad-copy small {
+  color: var(--text-muted);
+  font: 600 9px/1.15 var(--font-inter, Inter, sans-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-anchor-ad-cta {
+  position: relative;
+  z-index: 1;
+  color: #c4b5fd;
+  font: 900 10px/1 var(--font-inter, Inter, sans-serif);
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(196, 181, 253, 0.3);
+  background: rgba(99, 102, 241, 0.12);
+  white-space: nowrap;
+}
+
 /* App View Safety Override - Hides desktop components in app-view mode */
 .is-app-view header:not(.app-header),
-.is-app-view footer,
+.is-app-view footer:not(.app-mobile-footer),
 .is-app-view .landing-header,
 .is-app-view .footer,
 .is-app-view .desktop-only,
@@ -180,15 +290,17 @@
 /* App Bottom Tabbar (Global Styles for App Wrapper) */
 .app-tabbar {
   position: fixed;
-  bottom: 60px; /* Sit above AdMob banner */
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
   max-width: 430px;
+  height: calc(var(--app-tabbar-height) + env(safe-area-inset-bottom));
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 8px 0 8px;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
   background: rgba(5, 10, 20, 0.92);
   backdrop-filter: blur(30px) saturate(180%);
   -webkit-backdrop-filter: blur(30px) saturate(180%);

@@ -1566,7 +1566,13 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
                 Limit: 1,
               }));
               if (existingAH.Items?.[0]) {
-                const mergedAH = { ...existingAH.Items[0], alphaScore: alphaRaw, alphaGrade, alphaAction };
+                const mergedAH = { 
+                  ...existingAH.Items[0], 
+                  alphaScore: alphaRaw, 
+                  alphaGrade, 
+                  alphaAction,
+                  engineVersion: '7.1.0' // Tag Lambda-computed V7.1.0 Alpha Score
+                };
                 await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: mergedAH }));
               }
             } catch {} // best-effort — don't fail the whole pipeline

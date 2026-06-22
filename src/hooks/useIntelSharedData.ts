@@ -69,6 +69,14 @@ export interface IntelSharedData {
     fetchedAt: string | null;
 }
 
+interface IntelSharedDataRuntimeOptions {
+    fullData?: 'all' | 'manual' | 'staggered';
+    batchMode?: 'full' | 'price' | 'price-dp' | 'ssr';
+    pricePollMs?: number;
+    fastPollMs?: number;
+    fullPollMs?: number;
+}
+
 // Helper: safe JSON fetch
 async function safeFetch(url: string): Promise<any> {
     try {
@@ -90,8 +98,17 @@ export function useIntelSharedData(
     initialODData?: IntelQuote[],
     initialQEData?: IntelQuote[],
     initialFPData?: IntelQuote[],
-    initialCFData?: IntelQuote[]
+    initialCFData?: IntelQuote[],
+    runtimeOptions?: IntelSharedDataRuntimeOptions
 ): IntelSharedData & { refresh: () => void } {
+    const fullDataMode = runtimeOptions?.fullData ?? 'all';
+    const batchMode = runtimeOptions?.batchMode ?? 'full';
+    const shouldAutoFull = fullDataMode !== 'manual';
+    const shouldStaggerFull = fullDataMode === 'staggered';
+    const pricePollMs = runtimeOptions?.pricePollMs ?? 2000;
+    const fastPollMs = runtimeOptions?.fastPollMs ?? 30000;
+    const fullPollMs = runtimeOptions?.fullPollMs ?? 120000;
+
     const [m7Data, setM7Data] = useState<IntelQuote[]>(initialM7Data || []);
     const [physicalAIData, setPhysicalAIData] = useState<IntelQuote[]>(initialPAIData || []);
     const [siliconCoreData, setSiliconCoreData] = useState<IntelQuote[]>(initialSCData || []);
@@ -104,12 +121,11 @@ export function useIntelSharedData(
     const [cloudFortressData, setCloudFortressData] = useState<IntelQuote[]>(initialCFData || []);
     const [loading, setLoading] = useState(!(initialM7Data?.length && initialPAIData?.length));
     const [refreshing, setRefreshing] = useState(false);
-    const [optionsLoading, setOptionsLoading] = useState(true);
+    const [optionsLoading, setOptionsLoading] = useState(shouldAutoFull);
     const [fetchedAt, setFetchedAt] = useState<string | null>(null);
 
     const isFastFetching = useRef(false);
     const isFullFetching = useRef(false);
-    const isInitialized = useRef(false);
     const hasFullData = useRef(false);
 
     // ── Phase 1: Fast API — instant prices (~1-2s) ──
@@ -172,47 +188,46 @@ export function useIntelSharedData(
         setOptionsLoading(true);
 
         try {
-            const [m7Batch, paiBatch, scBatch, pmBatch, bpBatch, csBatch, odBatch, qeBatch, fpBatch, cfBatch] = await Promise.all([
-                safeFetch(`/api/watchlist/batch?tickers=${M7_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${PHYSICAL_AI_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${SILICON_CORE_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${POWER_MATRIX_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${BIO_PULSE_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${CYBER_SHIELD_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${ORBIT_DEFENSE_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${QUANTUM_EDGE_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${FINTECH_PULSE_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${CLOUD_FORTRESS_TICKERS.join(',')}`),
-            ]);
-
-            // Merge batch results into existing Phase 1 data
             const mergeIfPresent = (batch: any, setter: React.Dispatch<React.SetStateAction<IntelQuote[]>>) => {
                 if (batch?.results) setter(prev => mergeWatchlistBatchIntoQuotes(prev, batch.results));
             };
 
-            mergeIfPresent(m7Batch, setM7Data);
-            mergeIfPresent(paiBatch, setPhysicalAIData);
-            mergeIfPresent(scBatch, setSiliconCoreData);
-            mergeIfPresent(pmBatch, setPowerMatrixData);
-            mergeIfPresent(bpBatch, setBioPulseData);
-            mergeIfPresent(csBatch, setCyberShieldData);
-            mergeIfPresent(odBatch, setOrbitDefenseData);
-            mergeIfPresent(qeBatch, setQuantumEdgeData);
-            mergeIfPresent(fpBatch, setFintechPulseData);
-            mergeIfPresent(cfBatch, setCloudFortressData);
+            const batchJobs: Array<{ url: string; setter: React.Dispatch<React.SetStateAction<IntelQuote[]>> }> = [
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${M7_TICKERS.join(',')}`, setter: setM7Data },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${PHYSICAL_AI_TICKERS.join(',')}`, setter: setPhysicalAIData },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${SILICON_CORE_TICKERS.join(',')}`, setter: setSiliconCoreData },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${POWER_MATRIX_TICKERS.join(',')}`, setter: setPowerMatrixData },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${BIO_PULSE_TICKERS.join(',')}`, setter: setBioPulseData },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${CYBER_SHIELD_TICKERS.join(',')}`, setter: setCyberShieldData },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${ORBIT_DEFENSE_TICKERS.join(',')}`, setter: setOrbitDefenseData },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${QUANTUM_EDGE_TICKERS.join(',')}`, setter: setQuantumEdgeData },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${FINTECH_PULSE_TICKERS.join(',')}`, setter: setFintechPulseData },
+                { url: `/api/watchlist/batch?mode=${batchMode}&tickers=${CLOUD_FORTRESS_TICKERS.join(',')}`, setter: setCloudFortressData },
+            ];
+
+            if (shouldStaggerFull) {
+                const chunkSize = 3;
+                for (let i = 0; i < batchJobs.length; i += chunkSize) {
+                    const chunk = batchJobs.slice(i, i + chunkSize);
+                    const batches = await Promise.all(chunk.map(job => safeFetch(job.url)));
+                    batches.forEach((batch, index) => mergeIfPresent(batch, chunk[index].setter));
+                }
+            } else {
+                const batches = await Promise.all(batchJobs.map(job => safeFetch(job.url)));
+                batches.forEach((batch, index) => mergeIfPresent(batch, batchJobs[index].setter));
+            }
 
             hasFullData.current = true;
             setOptionsLoading(false);
             setFetchedAt(new Date().toISOString());
-            const elapsed = m7Batch?.meta?.elapsed || 0;
-            console.log(`[IntelSharedData] ✅ Full data loaded via watchlist/batch (${elapsed}ms)`);
+            console.log(`[IntelSharedData] ✅ Full data loaded via watchlist/batch (${shouldStaggerFull ? 'staggered' : 'parallel'})`);
         } catch (e) {
             console.error('[IntelSharedData] Full fetch failed:', e);
             setOptionsLoading(false);
         } finally {
             isFullFetching.current = false;
         }
-    }, []);
+    }, [batchMode, shouldStaggerFull]);
 
     // ── Phase 0: Ultra-fast price-only polling (5s) via /api/live/quotes ──
     // [ONE-PIPE] calcUnifiedPrice 적용 — regularCloseToday 잠금으로 Polygon 불안정 차단
@@ -263,8 +278,16 @@ export function useIntelSharedData(
                         regularCloseToday: regCloseToday,
                     });
 
+                    const hasIncomingRegularChange = typeof p.changePercent === 'number' && Number.isFinite(p.changePercent);
+                    const nextChangePct = !hasIncomingRegularChange
+                        && session === 'CLOSED'
+                        && q.changePct !== 0
+                        && Math.abs(pipe.changePct) < 0.001
+                        ? q.changePct
+                        : pipe.changePct;
+
                     // Skip if price unchanged
-                    if (pipe.price === q.price && pipe.changePct === q.changePct) return q;
+                    if (pipe.price === q.price && nextChangePct === q.changePct) return q;
 
                     hasAnyChange = true;
                     const flash: 'up' | 'down' | null = pipe.price > q.price ? 'up'
@@ -273,7 +296,7 @@ export function useIntelSharedData(
                     return {
                         ...q,
                         price: pipe.price,
-                        changePct: pipe.changePct,
+                        changePct: nextChangePct,
                         prevClose: pipe.prevClose || q.prevClose,
                         volume: p.volume ?? q.volume,
                         regularCloseToday: regCloseToday,
@@ -297,7 +320,7 @@ export function useIntelSharedData(
             setQuantumEdgeData(updateFn);
             setFintechPulseData(updateFn);
             setCloudFortressData(updateFn);
-        } catch (e) {
+        } catch {
             // silent fail — prices will refresh on next cycle
         } finally {
             isPriceFetching.current = false;
@@ -309,9 +332,13 @@ export function useIntelSharedData(
         setRefreshing(true);
         await fetchFast();
         setRefreshing(false);
-        // Full data refresh in background
-        fetchFull();
-    }, [fetchFast, fetchFull]);
+        if (shouldAutoFull) {
+            // Full data refresh in background
+            fetchFull();
+        } else {
+            setOptionsLoading(false);
+        }
+    }, [fetchFast, fetchFull, shouldAutoFull]);
 
     // Initial load + intervals
     useEffect(() => {
@@ -325,35 +352,52 @@ export function useIntelSharedData(
         }
 
         // Phase 2: Full data in background (non-blocking)
-        fetchFull();
+        if (shouldAutoFull) {
+            fetchFull();
+        } else {
+            setOptionsLoading(false);
+        }
 
-        // Price-only refresh every 2 seconds (ultra-fast, lightweight snapshot)
+        // Price-only refresh. App screens can request a slower cadence to avoid
+        // hammering all sector tickers while a detail view fetches its own batch.
         const priceInterval = setInterval(() => {
             if (!isPriceFetching.current) {
                 fetchPriceOnly();
             }
-        }, 2000);
+        }, pricePollMs);
 
-        // Fast refresh every 30 seconds (sparklines, extended prices stay fresh)
+        // Fast refresh (sparklines, extended prices stay fresh)
         const fastInterval = setInterval(() => {
             if (!isFastFetching.current) {
                 fetchFast();
             }
-        }, 30000);
+        }, fastPollMs);
 
         // Full refresh every 2 minutes (keeps Redis cache + options/alpha alive)
-        const fullInterval = setInterval(() => {
-            if (!isFullFetching.current) {
-                fetchFull();
-            }
-        }, 120000);
+        const fullInterval = shouldAutoFull
+            ? setInterval(() => {
+                if (!isFullFetching.current) {
+                    fetchFull();
+                }
+            }, fullPollMs)
+            : null;
 
         return () => {
             clearInterval(priceInterval);
             clearInterval(fastInterval);
-            clearInterval(fullInterval);
+            if (fullInterval) clearInterval(fullInterval);
         };
-    }, []); // Empty deps - runs once on mount
+    }, [
+        fetchFast,
+        fetchFull,
+        fetchPriceOnly,
+        fastPollMs,
+        fullPollMs,
+        initialM7Data?.length,
+        initialPAIData?.length,
+        pricePollMs,
+        shouldAutoFull,
+    ]);
 
     return {
         m7: m7Data,
@@ -372,6 +416,28 @@ export function useIntelSharedData(
         fetchedAt,
         refresh
     };
+}
+
+export function useIntelSharedDataForApp(): IntelSharedData & { refresh: () => void } {
+    return useIntelSharedData(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        {
+            fullData: 'staggered',
+            batchMode: 'price-dp',
+            pricePollMs: 10000,
+            fastPollMs: 45000,
+            fullPollMs: 240000,
+        }
+    );
 }
 
 /**
@@ -405,6 +471,48 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
     });
 }
 
+function pickFiniteNumber<T extends number | null | undefined>(value: T, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function quoteFromBatchResult(batch: any): IntelQuote | null {
+    if (!batch?.ticker || batch.error) return null;
+
+    const rt = batch.realtime || {};
+    const alpha = batch.alphaSnapshot || {};
+    const gex = pickFiniteNumber(rt.gex, 0);
+
+    return {
+        ticker: batch.ticker,
+        price: pickFiniteNumber(rt.price, 0),
+        changePct: pickFiniteNumber(rt.changePct, 0),
+        prevClose: pickFiniteNumber(rt.prevClose, 0),
+        volume: pickFiniteNumber(rt.volume, 0),
+        extendedPrice: pickFiniteNumber(rt.extendedPrice, 0),
+        extendedChangePct: pickFiniteNumber(rt.extendedChangePct, 0),
+        extendedLabel: rt.extendedLabel || '',
+        session: rt.session || '',
+        alphaScore: pickFiniteNumber(alpha.score, 50),
+        grade: alpha.grade || 'B',
+        maxPain: pickFiniteNumber(rt.maxPain, 0),
+        callWall: pickFiniteNumber(rt.callWall, 0),
+        putFloor: pickFiniteNumber(rt.putFloor, 0),
+        gex,
+        pcr: pickFiniteNumber(rt.pcr, 0),
+        gammaRegime: gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : (rt.gammaRegime || 'NEUTRAL'),
+        sparkline: rt.sparkline?.length > 0 ? rt.sparkline : [],
+        netPremium: pickFiniteNumber(rt.netPremium, 0),
+        rsi: pickFiniteNumber(rt.rsi, 0),
+        rvol: pickFiniteNumber(rt.relVol ?? rt.rvol, 0),
+        squeezeScore: pickFiniteNumber(rt.squeezeScore, 0),
+        ivSkew: pickFiniteNumber(rt.ivSkew, 0),
+        impliedMovePct: pickFiniteNumber(rt.impliedMovePct, 0),
+        whaleIndex: pickFiniteNumber(rt.whaleIndex, 0),
+        darkPoolPct: pickFiniteNumber(rt.darkPoolPct, 0),
+        regularCloseToday: pickFiniteNumber(rt.regularCloseToday, 0) || null,
+    };
+}
+
 // Export ticker constants for components
 export { M7_TICKERS, PHYSICAL_AI_TICKERS, SILICON_CORE_TICKERS, POWER_MATRIX_TICKERS, BIO_PULSE_TICKERS, CYBER_SHIELD_TICKERS, ORBIT_DEFENSE_TICKERS, QUANTUM_EDGE_TICKERS, FINTECH_PULSE_TICKERS, CLOUD_FORTRESS_TICKERS };
 
@@ -418,31 +526,49 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
         if (r.ticker && !r.error) batchMap.set(r.ticker, r);
     });
 
+    if (existingQuotes.length === 0) {
+        return batchResults
+            .map(quoteFromBatchResult)
+            .filter((quote): quote is IntelQuote => quote !== null);
+    }
+
     return existingQuotes.map(existing => {
         const batch = batchMap.get(existing.ticker);
         if (!batch) return existing;
 
         const rt = batch.realtime || {};
         const alpha = batch.alphaSnapshot || {};
-        const gex = rt.gex || 0;
+        const gex = pickFiniteNumber(rt.gex, existing.gex);
 
         return {
             ...existing,
+            price: pickFiniteNumber(rt.price, existing.price),
+            changePct: pickFiniteNumber(rt.changePct, existing.changePct),
+            prevClose: pickFiniteNumber(rt.prevClose, existing.prevClose),
+            volume: pickFiniteNumber(rt.volume, existing.volume),
+            regularCloseToday: pickFiniteNumber(rt.regularCloseToday, existing.regularCloseToday ?? 0) || existing.regularCloseToday,
+            extendedPrice: pickFiniteNumber(rt.extendedPrice, existing.extendedPrice),
+            extendedChangePct: pickFiniteNumber(rt.extendedChangePct, existing.extendedChangePct),
+            extendedLabel: rt.extendedLabel || existing.extendedLabel,
+            session: rt.session || existing.session,
             // Options data from watchlist/batch
-            alphaScore: alpha.score || existing.alphaScore,
+            alphaScore: pickFiniteNumber(alpha.score, existing.alphaScore),
             grade: alpha.grade || existing.grade,
-            maxPain: rt.maxPain || existing.maxPain,
-            callWall: rt.callWall || existing.callWall,
-            putFloor: rt.putFloor || existing.putFloor,
-            gex: gex || existing.gex,
-            pcr: rt.pcr || existing.pcr,
+            maxPain: pickFiniteNumber(rt.maxPain, existing.maxPain),
+            callWall: pickFiniteNumber(rt.callWall, existing.callWall),
+            putFloor: pickFiniteNumber(rt.putFloor, existing.putFloor),
+            gex,
+            pcr: pickFiniteNumber(rt.pcr, existing.pcr),
             gammaRegime: gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : existing.gammaRegime,
             sparkline: rt.sparkline?.length > 0 ? rt.sparkline : existing.sparkline,
-            netPremium: rt.netPremium || existing.netPremium,
-            rsi: rt.rsi || existing.rsi || 0,
-            rvol: rt.relVol || existing.rvol || 0,
-            whaleIndex: rt.whaleIndex || existing.whaleIndex || 0,
-            darkPoolPct: rt.darkPoolPct || existing.darkPoolPct || 0,
+            netPremium: pickFiniteNumber(rt.netPremium, existing.netPremium),
+            rsi: pickFiniteNumber(rt.rsi, existing.rsi || 0),
+            rvol: pickFiniteNumber(rt.relVol ?? rt.rvol, existing.rvol || 0),
+            squeezeScore: pickFiniteNumber(rt.squeezeScore, existing.squeezeScore || 0),
+            ivSkew: pickFiniteNumber(rt.ivSkew, existing.ivSkew || 0),
+            impliedMovePct: pickFiniteNumber(rt.impliedMovePct, existing.impliedMovePct || 0),
+            whaleIndex: pickFiniteNumber(rt.whaleIndex, existing.whaleIndex || 0),
+            darkPoolPct: pickFiniteNumber(rt.darkPoolPct, existing.darkPoolPct || 0),
         };
     });
 }

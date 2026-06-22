@@ -5,7 +5,7 @@
 
 
 import { getOptionsData } from '@/services/stockApi';
-import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
+import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
@@ -311,8 +311,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
             const opts = optionsData as any;
             const alphaGex = structureRes?.netGex ?? opts?.gems?.gex ?? opts?.gex ?? null;
             const alphaPcr = opts?.putCallRatio ?? null;
-            const alphaCallWall = structureRes?.callWall ?? opts?.callWall ?? null;
-            const alphaPutFloor = structureRes?.putFloor ?? opts?.putFloor ?? null;
+            const alphaCallWall = structureRes?.levels?.callWall ?? structureRes?.callWall ?? opts?.callWall ?? null;
+            const alphaPutFloor = structureRes?.levels?.putFloor ?? structureRes?.putFloor ?? opts?.putFloor ?? null;
             const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
             const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
 
@@ -321,6 +321,16 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
             const blockTradesCount = (structureRes as any)?.blockTrades ?? null;
             const netPremium = structureRes?.netPremium ?? null;
             const whaleIndex = calculateWhaleIndex(alphaGex, darkPoolPct, blockTradesCount, netPremium);
+
+            const rawContracts = opts?.rawContracts || [];
+            const currentPrice = stockData.price || 0;
+            const ivSkew = computeIVSkew(rawContracts, currentPrice);
+            let impliedMovePct = null;
+            if (alphaCallWall > 0 && alphaPutFloor > 0 && currentPrice > 0) {
+                impliedMovePct = ((alphaCallWall - alphaPutFloor) / currentPrice) * 100;
+            } else {
+                impliedMovePct = computeImpliedMovePct(rawContracts, currentPrice);
+            }
 
             let alphaResult;
             try {
@@ -332,6 +342,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                     rawChain: opts?.rawChain || [], squeezeScore: alphaSqueezeScore, relVol,
                     darkPoolPct, blockTrades: blockTradesCount, whaleIndex, netFlow: netPremium,
                     optionsDataAvailable: !!opts, preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                    ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
+                    impliedMovePct: impliedMovePct ?? null,
                 });
             } catch (e) {
                 console.error(`[Portfolio Batch] Engine failed for ${ticker}:`, e);
@@ -343,7 +355,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
 
             const { score, grade, action, triggerCodes: triggers, dataCompleteness: confidence } = alphaResult;
 
-            const currentPrice = stockData.price || 0;
+
             const maxPain = structureRes?.maxPain ?? opts?.maxPain ?? null;
             const rawGex = opts?.gems?.gex || opts?.gex;
             const gex = structureRes?.netGex ?? rawGex ?? null;
@@ -375,7 +387,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 whaleIndex, whaleConfidence: whaleIndex >= 65 ? 'HIGH' : whaleIndex >= 55 ? 'MED' : whaleIndex >= 45 ? 'LOW' : 'NONE',
                 putFloor: alphaPutFloor, callWall: alphaCallWall, netPremium,
                 vwapDist: null, volume: stockData.volume || null, squeezeScore: alphaSqueezeScore, iv: structureRes?.atmIv ?? null, darkPoolPct: darkPoolPct || 0,
-                ivSkew: null, impliedMovePct: null,
+                ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
+                impliedMovePct: impliedMovePct ?? null,
                 // [V3 FIX] Dashboard card fields
                 shortVolPct: null,
                 vwap: stockData.vwap ?? null,
@@ -411,6 +424,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 gammaFlipLevel: alphaGammaFlip ?? null,
                 return3D: return3D ?? null,
                 netPremium: netPremium ?? null,
+                ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
+                impliedMovePct: impliedMovePct ?? null,
             });
 
             return fullObj;

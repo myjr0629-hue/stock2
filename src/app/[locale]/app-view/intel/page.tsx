@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
-import { useIntelSharedData, type IntelQuote } from '@/hooks/useIntelSharedData';
+import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
-import { ChevronRight, Bot, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
+import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
 import s from '../dash/dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -276,6 +276,137 @@ interface SectorReportData {
   snapshotTime: string;
 }
 
+interface StockAiAnalysis {
+  ko: string;
+  en: string;
+  ja: string;
+}
+
+function clampPct(value: number): number {
+  if (!Number.isFinite(value)) return 50;
+  return Math.min(100, Math.max(0, value));
+}
+
+function pickNumber(...values: Array<number | null | undefined>): number | undefined {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value) && value !== 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): KeyStockPremiumData {
+  if (!quote) return stock;
+
+  return {
+    ...stock,
+    grade: quote.grade || stock.grade,
+    score: pickNumber(quote.alphaScore, stock.score) ?? stock.score,
+    changePct: pickNumber(quote.changePct, stock.changePct) ?? stock.changePct,
+    closePrice: pickNumber(quote.regularCloseToday, quote.price, quote.prevClose, stock.closePrice) ?? stock.closePrice,
+    gex: pickNumber(quote.gex, stock.gex) ?? stock.gex,
+    pcr: pickNumber(quote.pcr, stock.pcr) ?? stock.pcr,
+    gammaRegime: quote.gammaRegime || stock.gammaRegime,
+    maxPain: pickNumber(quote.maxPain, stock.maxPain) ?? stock.maxPain,
+    callWall: pickNumber(quote.callWall, stock.callWall) ?? stock.callWall,
+    putFloor: pickNumber(quote.putFloor, stock.putFloor) ?? stock.putFloor,
+    rsi: pickNumber(quote.rsi, stock.rsi) ?? stock.rsi,
+    rvol: pickNumber(quote.rvol, stock.rvol) ?? stock.rvol,
+    sparkline: quote.sparkline?.length ? quote.sparkline : stock.sparkline,
+    netPremium: pickNumber(quote.netPremium, stock.netPremium) ?? stock.netPremium,
+    squeezeScore: pickNumber(quote.squeezeScore, stock.squeezeScore) ?? stock.squeezeScore,
+    ivSkew: pickNumber(quote.ivSkew, stock.ivSkew) ?? stock.ivSkew,
+    impliedMovePct: pickNumber(quote.impliedMovePct, stock.impliedMovePct) ?? stock.impliedMovePct,
+    whaleIndex: pickNumber(quote.whaleIndex, stock.whaleIndex) ?? stock.whaleIndex,
+    darkPoolPct: pickNumber(quote.darkPoolPct, stock.darkPoolPct) ?? stock.darkPoolPct,
+  };
+}
+
+function hasStockQuoteDelta(prev: KeyStockPremiumData, next: KeyStockPremiumData): boolean {
+  return (
+    prev.grade !== next.grade ||
+    prev.score !== next.score ||
+    prev.changePct !== next.changePct ||
+    prev.closePrice !== next.closePrice ||
+    prev.gex !== next.gex ||
+    prev.pcr !== next.pcr ||
+    prev.gammaRegime !== next.gammaRegime ||
+    prev.maxPain !== next.maxPain ||
+    prev.callWall !== next.callWall ||
+    prev.putFloor !== next.putFloor ||
+    prev.rsi !== next.rsi ||
+    prev.rvol !== next.rvol ||
+    prev.netPremium !== next.netPremium ||
+    prev.squeezeScore !== next.squeezeScore ||
+    prev.ivSkew !== next.ivSkew ||
+    prev.impliedMovePct !== next.impliedMovePct ||
+    prev.whaleIndex !== next.whaleIndex ||
+    prev.darkPoolPct !== next.darkPoolPct ||
+    ((next.sparkline?.length || 0) > 0 && next.sparkline !== prev.sparkline)
+  );
+}
+
+async function fetchSectorWatchlistBatch(sectorId: string, signal?: AbortSignal): Promise<any[] | null> {
+  const sector = SECTOR_CONFIGS.find(item => item.id === sectorId);
+  if (!sector?.stocks?.length) return null;
+
+  const res = await fetch(`/api/watchlist/batch?mode=price-dp&tickers=${sector.stocks.join(',')}`, {
+    cache: 'no-store',
+    signal,
+  });
+
+  if (!res.ok) return null;
+  const data = await res.json();
+  return Array.isArray(data.results) ? data.results : null;
+}
+
+function mergeReportWithBatchResults(report: SectorReportData, batchResults: any[]): SectorReportData {
+  const batchMap = new Map<string, any>();
+  batchResults.forEach((item: any) => {
+    if (item?.ticker && !item.error) batchMap.set(item.ticker, item);
+  });
+
+  if (batchMap.size === 0) return report;
+
+  let changed = false;
+  const keyStocksData = report.keyStocksData.map(stock => {
+    const batch = batchMap.get(stock.sym);
+    if (!batch) return stock;
+
+    const rt = batch.realtime || {};
+    const alpha = batch.alphaSnapshot || {};
+    const gex = pickNumber(rt.gex, stock.gex) ?? stock.gex;
+    const merged: KeyStockPremiumData = {
+      ...stock,
+      grade: alpha.grade || stock.grade,
+      score: pickNumber(alpha.score, stock.score) ?? stock.score,
+      changePct: pickNumber(rt.changePct, stock.changePct) ?? stock.changePct,
+      closePrice: pickNumber(rt.price, stock.closePrice) ?? stock.closePrice,
+      gex,
+      pcr: pickNumber(rt.pcr, stock.pcr) ?? stock.pcr,
+      gammaRegime: gex && gex > 0 ? 'LONG' : gex && gex < 0 ? 'SHORT' : stock.gammaRegime,
+      maxPain: pickNumber(rt.maxPain, stock.maxPain) ?? stock.maxPain,
+      callWall: pickNumber(rt.callWall, stock.callWall) ?? stock.callWall,
+      putFloor: pickNumber(rt.putFloor, stock.putFloor) ?? stock.putFloor,
+      rsi: pickNumber(rt.rsi, stock.rsi) ?? stock.rsi,
+      rvol: pickNumber(rt.relVol, rt.rvol, stock.rvol) ?? stock.rvol,
+      sparkline: rt.sparkline?.length ? rt.sparkline : stock.sparkline,
+      netPremium: pickNumber(rt.netPremium, stock.netPremium) ?? stock.netPremium,
+      squeezeScore: pickNumber(rt.squeezeScore, stock.squeezeScore) ?? stock.squeezeScore,
+      ivSkew: pickNumber(rt.ivSkew, stock.ivSkew) ?? stock.ivSkew,
+      impliedMovePct: pickNumber(rt.impliedMovePct, stock.impliedMovePct) ?? stock.impliedMovePct,
+      whaleIndex: pickNumber(rt.whaleIndex, stock.whaleIndex) ?? stock.whaleIndex,
+      darkPoolPct: pickNumber(rt.darkPoolPct, stock.darkPoolPct) ?? stock.darkPoolPct,
+    };
+
+    if (hasStockQuoteDelta(stock, merged)) changed = true;
+    return merged;
+  });
+
+  return changed ? { ...report, keyStocksData } : report;
+}
+
 interface CrossSectorBrief {
   marketOverview: {
     tone: string;
@@ -300,43 +431,6 @@ interface CrossSectorBrief {
   };
 }
 
-const DEMO_REPORTS: Record<string, SectorReportData> = {
-  m7: {
-    sentiment: 'BULLISH',
-    verdict: 'Dealer gamma remains positive above $135 for NVDA, securing support. Tech valuation concerns are offset by robust AI demand. Accumulation is advised on dips.',
-    catalysts: [
-      'NVDA Options Expiry pinning dealers GEX',
-      'AAPL WWDC announcements boosting hardware cycles',
-      'TSLA FSD beta expansion approval in China'
-    ],
-    bullets: [],
-    keyStocksData: [
-      { sym: 'NVDA', grade: 'S', score: 88 },
-      { sym: 'AAPL', grade: 'A', score: 78 },
-      { sym: 'TSLA', grade: 'B', score: 62 },
-      { sym: 'MSFT', grade: 'A', score: 76 }
-    ],
-    gainers: 5, losers: 2, avgPcr: 0.72, totalGex: 2400000000, dominantRegime: 'LONG', avgAlpha: 78, snapshotTime: ''
-  },
-  silicon_core: {
-    sentiment: 'STRONG BULLISH',
-    verdict: 'Semiconductor supply chain capacity is fully booked through Q2 2027. TSM is raising pricing leading to margin expansion across silicon designers. AMD is capturing market share.',
-    catalysts: [
-      'TSM CoWoS packaging capacity expansion',
-      'AMD MI325X chip launch targeting H100 benchmarks',
-      'HBM3E memory supply bottlenecks easing'
-    ],
-    bullets: [],
-    keyStocksData: [
-      { sym: 'AMD', grade: 'A', score: 81 },
-      { sym: 'AVGO', grade: 'S', score: 85 },
-      { sym: 'TSM', grade: 'S', score: 92 },
-      { sym: 'MU', grade: 'B', score: 68 }
-    ],
-    gainers: 4, losers: 2, avgPcr: 0.65, totalGex: 1800000000, dominantRegime: 'LONG', avgAlpha: 82, snapshotTime: ''
-  }
-};
-
 function toCamelCase(id: string): string {
   return id.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
 }
@@ -345,50 +439,58 @@ function toCamelCase(id: string): string {
    PREMIUM HELPERS & LOGO RESOLVER
    ═══════════════════════════════════════════════════════════ */
 
-function StockLogo({ symbol }: { symbol: string }) {
+function StockLogo({ symbol, size = 32 }: { symbol: string; size?: number }) {
   const [error, setError] = useState(false);
+  const showTickerFallback = error || ['SPCX'].includes(symbol);
 
-  if (error) {
+  if (showTickerFallback) {
     return (
       <div style={{
-        width: '32px',
-        height: '32px',
+        width: `${size}px`,
+        height: `${size}px`,
         borderRadius: '50%',
-        background: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'radial-gradient(circle at 35% 25%, rgba(34,211,238,0.20), rgba(15,23,42,0.98) 68%)',
+        border: '1px solid rgba(34, 211, 238, 0.22)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#22d3ee',
+        color: '#e0f2fe',
         fontWeight: 800,
-        fontSize: '12px',
+        fontSize: size <= 24 ? '7px' : '9px',
         fontFamily: 'var(--font-mono), monospace',
-        flexShrink: 0
+        flexShrink: 0,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 0 14px rgba(34,211,238,0.10)'
       }}>
-        {symbol.charAt(0)}
+        {symbol.length > 4 ? symbol.slice(0, 4) : symbol}
       </div>
     );
   }
 
   return (
     <div style={{
-      width: '32px',
-      height: '32px',
+      width: `${size}px`,
+      height: `${size}px`,
       borderRadius: '50%',
-      background: '#ffffff',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: 'radial-gradient(circle at 32% 24%, rgba(34, 211, 238, 0.18), rgba(8, 19, 36, 0.96) 54%, rgba(2, 6, 23, 0.98))',
+      border: '1px solid rgba(34, 211, 238, 0.20)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '4px',
+      padding: size <= 24 ? '3px' : '4px',
       overflow: 'hidden',
-      flexShrink: 0
+      flexShrink: 0,
+      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 0 14px rgba(34,211,238,0.10)'
     }}>
       <img
         loading="lazy"
         src={`/api/logo/${symbol}`}
         alt={symbol}
-        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          filter: 'saturate(1.12) contrast(1.10) drop-shadow(0 0 2px rgba(226,232,240,0.55))'
+        }}
         onError={() => setError(true)}
       />
     </div>
@@ -445,6 +547,70 @@ function formatVerdictText(text: string) {
       })}
     </>
   );
+}
+
+const LEADING_SYMBOL_RE = /^[\s\uFE0E\uFE0F\u200D\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]+/u;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findCatalystSymbol(text: string, symbols: string[]) {
+  const cleaned = text.replace(LEADING_SYMBOL_RE, '').trim();
+  return [...symbols]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+    .find((symbol) => new RegExp(`\\b${escapeRegExp(symbol)}\\b`).test(cleaned));
+}
+
+function stripCatalystLead(text: string, symbol?: string) {
+  let cleaned = text.replace(LEADING_SYMBOL_RE, '').trim();
+  if (symbol) {
+    cleaned = cleaned
+      .replace(new RegExp(`^${escapeRegExp(symbol)}\\b\\s*[-:·–—]?\\s*`), '')
+      .trim();
+  }
+  return cleaned;
+}
+
+const EARNINGS_APP_COPY: Record<AppLocale, {
+  title: string;
+  upcoming: string;
+  thisWeek: string;
+  nextWeek: string;
+  later: string;
+}> = {
+  ko: {
+    title: '실적 발표 캘린더',
+    upcoming: '예정',
+    thisWeek: '이번 주',
+    nextWeek: '다음 주',
+    later: '이후',
+  },
+  en: {
+    title: 'EARNINGS CALENDAR',
+    upcoming: 'UPCOMING',
+    thisWeek: 'THIS WEEK',
+    nextWeek: 'NEXT WEEK',
+    later: 'LATER',
+  },
+  ja: {
+    title: '決算カレンダー',
+    upcoming: '予定',
+    thisWeek: '今週',
+    nextWeek: '来週',
+    later: '以降',
+  },
+};
+
+function formatEarningsDate(date: Date, appLocale: AppLocale) {
+  if (appLocale === 'ko') {
+    return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+  }
+  if (appLocale === 'ja') {
+    return date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function Sparkline({ data, isUp }: { data: number[]; isUp: boolean }) {
@@ -506,7 +672,7 @@ function ExpandedSparkline({ data, isUp }: { data: number[]; isUp: boolean }) {
   const fillPathData = `${pathData} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
   
   const strokeColor = isUp ? '#10b981' : '#ef4444';
-  const gradId = `spark-grad-${Math.random().toString(36).substr(2, 9)}`;
+  const gradId = `spark-grad-${isUp ? 'up' : 'down'}-${data.length}-${Math.round(min * 100)}-${Math.round(max * 100)}`;
   
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} style={{ overflow: 'visible' }}>
@@ -548,9 +714,317 @@ function formatGex(val: number): string {
   return `${sign}${val.toFixed(2)}`;
 }
 
+function safeAverage(values: number[]): number {
+  const valid = values.filter((value) => Number.isFinite(value));
+  if (!valid.length) return 0;
+  return valid.reduce((sum, value) => sum + value, 0) / valid.length;
+}
+
+function formatMoneyCompact(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return '-';
+  const sign = value > 0 ? '+' : '-';
+  const abs = Math.abs(value);
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+function formatPercentCompact(value: number): string {
+  if (!Number.isFinite(value)) return '-';
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+}
+
+function formatPlainPercent(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return '-';
+  return `${value.toFixed(0)}%`;
+}
+
+type AppLocale = 'ko' | 'en' | 'ja';
+
+const APP_INTEL_COPY: Record<AppLocale, {
+  title: string;
+  kicker: string;
+  subtitle: string;
+  sectorTab: string;
+  reportTab: string;
+  live: string;
+  closed: string;
+  offline: string;
+  leaders: string;
+  laggards: string;
+  coverage: string;
+  avgMove: string;
+  engine: string;
+  pulse: string;
+  constituents: string;
+  dataLabel: string;
+  reportLoading: string;
+}> = {
+  ko: {
+    title: '섹터 인텔리전스',
+    kicker: 'INTEL',
+    subtitle: 'AI 섹터 리포트 · 옵션/알파/수급 흐름 통합',
+    sectorTab: '섹터',
+    reportTab: '장마감 리포트',
+    live: 'LIVE',
+    closed: 'CLOSE',
+    offline: 'OFFLINE',
+    leaders: '강세 섹터',
+    laggards: '약세 섹터',
+    coverage: '커버리지',
+    avgMove: '평균 변동',
+    engine: '섹터 엔진',
+    pulse: '감마 펄스',
+    constituents: '주요 종목',
+    dataLabel: '실시간 + 스냅샷',
+    reportLoading: '리포트 로딩 중...',
+  },
+  en: {
+    title: 'Sector Intelligence',
+    kicker: 'INTEL',
+    subtitle: 'AI sector reports · options, alpha and flow combined',
+    sectorTab: 'Sector',
+    reportTab: 'Closing Report',
+    live: 'LIVE',
+    closed: 'CLOSE',
+    offline: 'OFFLINE',
+    leaders: 'Leaders',
+    laggards: 'Laggards',
+    coverage: 'Coverage',
+    avgMove: 'Avg Move',
+    engine: 'Sector Engine',
+    pulse: 'Gamma Pulse',
+    constituents: 'Key Names',
+    dataLabel: 'Live + Snapshot',
+    reportLoading: 'Loading reports...',
+  },
+  ja: {
+    title: 'セクターインテリジェンス',
+    kicker: 'INTEL',
+    subtitle: 'AIセクターレポート · オプション/アルファ/フロー統合',
+    sectorTab: 'セクター',
+    reportTab: '引け後レポート',
+    live: 'LIVE',
+    closed: 'CLOSE',
+    offline: 'OFFLINE',
+    leaders: '強いセクター',
+    laggards: '弱いセクター',
+    coverage: '対象銘柄',
+    avgMove: '平均変動',
+    engine: 'セクターエンジン',
+    pulse: 'ガンマパルス',
+    constituents: '主要銘柄',
+    dataLabel: 'ライブ + スナップショット',
+    reportLoading: 'レポートを読み込み中...',
+  },
+};
+
+const SECTOR_APP_COPY: Record<AppLocale, Record<string, { name: string; desc: string; thesis: string }>> = {
+  ko: {
+    m7: { name: 'M7 테크', desc: '빅테크 7대 기업의 AI 패권 경쟁과 옵션 감마 흐름을 추적합니다.', thesis: 'AI 주도권과 대형주 수급의 중심축' },
+    physical_ai: { name: '피지컬 AI', desc: '로봇, 자동화, 우주 인프라로 확장되는 물리 AI 테마입니다.', thesis: '현실 세계로 확장되는 AI 베타' },
+    silicon_core: { name: '반도체 코어', desc: 'AI 학습과 추론을 지탱하는 칩, 장비, 메모리 생태계입니다.', thesis: 'AI 사이클의 핵심 공급망' },
+    power_matrix: { name: '전력 매트릭스', desc: '데이터센터 전력, 원전, 전력망 인프라 흐름을 묶어 봅니다.', thesis: 'AI 인프라의 에너지 병목' },
+    bio_pulse: { name: '바이오 펄스', desc: 'GLP-1, 유전자 치료, 대형 바이오 수급을 추적합니다.', thesis: '방어성과 성장성이 교차하는 헬스케어' },
+    cyber_shield: { name: '사이버 쉴드', desc: 'AI 클라우드 시대의 보안 인프라와 기관 포지션을 봅니다.', thesis: '기업 AI 확산의 필수 방어막' },
+    orbit_defense: { name: '우주 방산', desc: '위성, 방산, 저궤도 네트워크와 정부 지출 사이클입니다.', thesis: '정책과 우주 인프라의 장기 테마' },
+    quantum_edge: { name: '퀀텀 엣지', desc: '고변동 양자 컴퓨팅 종목들의 모멘텀과 리스크를 추적합니다.', thesis: '초기 성장 테마의 변동성 프리미엄' },
+    fintech_pulse: { name: '핀테크 펄스', desc: 'AI 신용평가, 브로커리지, 차세대 금융 플랫폼 흐름입니다.', thesis: '금리와 리스크 선호의 민감 섹터' },
+    cloud_fortress: { name: '클라우드 포트리스', desc: 'SaaS, 데이터 레이크, 엔터프라이즈 AI 배포 인프라입니다.', thesis: '기업 AI 전환의 소프트웨어 레이어' },
+  },
+  en: {
+    m7: { name: 'M7 Tech', desc: 'Tracks AI leadership and options gamma dynamics across mega-cap technology.', thesis: 'Core axis of AI leadership and mega-cap flow' },
+    physical_ai: { name: 'Physical AI', desc: 'Robotics, automation and space infrastructure tied to real-world AI deployment.', thesis: 'AI beta extending into the physical world' },
+    silicon_core: { name: 'Silicon Core', desc: 'Chips, equipment and memory ecosystem powering AI training and inference.', thesis: 'Critical supply chain of the AI cycle' },
+    power_matrix: { name: 'Power Matrix', desc: 'Datacenter power, nuclear, grid and energy infrastructure flow.', thesis: 'Energy bottleneck behind AI infrastructure' },
+    bio_pulse: { name: 'Bio Pulse', desc: 'GLP-1, gene therapy and large-cap biotech positioning.', thesis: 'Healthcare where defense meets growth' },
+    cyber_shield: { name: 'Cyber Shield', desc: 'Security infrastructure and institutional positioning for the AI cloud era.', thesis: 'Required defense layer for enterprise AI' },
+    orbit_defense: { name: 'Orbit Defense', desc: 'Satellites, defense, LEO networks and government spending cycles.', thesis: 'Long-cycle policy and space infrastructure theme' },
+    quantum_edge: { name: 'Quantum Edge', desc: 'High-volatility quantum names, momentum and risk regime.', thesis: 'Volatility premium in an early growth theme' },
+    fintech_pulse: { name: 'Fintech Pulse', desc: 'AI credit scoring, brokerage and next-generation financial platforms.', thesis: 'Rate and risk-appetite sensitive sector' },
+    cloud_fortress: { name: 'Cloud Fortress', desc: 'SaaS, data lakes and enterprise AI deployment infrastructure.', thesis: 'Software layer of enterprise AI adoption' },
+  },
+  ja: {
+    m7: { name: 'M7テック', desc: '大型テックのAI主導権とオプション・ガンマの流れを追跡します。', thesis: 'AI主導権と大型株フローの中心軸' },
+    physical_ai: { name: 'フィジカルAI', desc: 'ロボティクス、自動化、宇宙インフラへ広がるAIテーマです。', thesis: '現実世界へ広がるAIベータ' },
+    silicon_core: { name: 'シリコンコア', desc: 'AI学習と推論を支える半導体、装置、メモリの生態系です。', thesis: 'AIサイクルの中核サプライチェーン' },
+    power_matrix: { name: 'パワーマトリクス', desc: 'データセンター電力、原子力、送電網インフラをまとめて見ます。', thesis: 'AIインフラの電力ボトルネック' },
+    bio_pulse: { name: 'バイオパルス', desc: 'GLP-1、遺伝子治療、大型バイオの資金フローを追跡します。', thesis: '防御性と成長性が交差するヘルスケア' },
+    cyber_shield: { name: 'サイバーシールド', desc: 'AIクラウド時代のセキュリティ基盤と機関ポジションを見ます。', thesis: '企業AI拡大に必要な防御レイヤー' },
+    orbit_defense: { name: 'オービット防衛', desc: '衛星、防衛、低軌道ネットワークと政府支出サイクルです。', thesis: '政策と宇宙インフラの長期テーマ' },
+    quantum_edge: { name: '量子エッジ', desc: '高ボラティリティの量子関連銘柄とリスクを追跡します。', thesis: '初期成長テーマのボラティリティプレミアム' },
+    fintech_pulse: { name: 'フィンテックパルス', desc: 'AI信用評価、証券、次世代金融プラットフォームの流れです。', thesis: '金利とリスク選好に敏感なセクター' },
+    cloud_fortress: { name: 'クラウド要塞', desc: 'SaaS、データレイク、企業AI展開インフラです。', thesis: '企業AI移行のソフトウェアレイヤー' },
+  },
+};
+
+function toAppLocale(locale: string): AppLocale {
+  return locale === 'ko' || locale === 'ja' ? locale : 'en';
+}
+
+const APP_COMPLIANCE_COPY: Record<AppLocale, {
+  aiBadge: string;
+  aiNote: string;
+  footerNote: string;
+}> = {
+  ko: {
+    aiBadge: '리서치 참고용',
+    aiNote: 'AI 해석은 교육·리서치용 시장 데이터입니다. 매수·매도 권유가 아니며 정확성이나 수익을 보장하지 않습니다.',
+    footerNote: '제공 정보는 투자 조언이 아니며, 모든 투자 판단과 책임은 사용자 본인에게 있습니다.',
+  },
+  en: {
+    aiBadge: 'Research only',
+    aiNote: 'AI interpretation is educational market-data research only. It is not investment advice or a buy/sell recommendation, and accuracy or returns are not guaranteed.',
+    footerNote: 'Information is not investment advice. All investment decisions and responsibility remain with the user.',
+  },
+  ja: {
+    aiBadge: 'リサーチ参考',
+    aiNote: 'AI解釈は教育・リサーチ用の市場データです。投資助言や売買推奨ではなく、正確性や収益を保証しません。',
+    footerNote: '提供情報は投資助言ではありません。すべての投資判断と責任は利用者ご自身にあります。',
+  },
+};
+
+const COMMANDER_LOG_COPY: Record<AppLocale, Record<string, string>> = {
+  ko: {
+    m7: '감마 플립 부근의 누적 수급과 대형 기술주 흐름을 함께 관찰합니다.',
+    silicon_core: '반도체 그룹은 모멘텀과 옵션 수급이 함께 강화되는지 확인합니다.',
+    power_matrix: '금리와 변동성 제약 속에서 전력 인프라 흐름의 균형을 확인합니다.',
+    physical_ai: '단기 모멘텀 약화와 주요 지지 구간의 반응을 함께 추적합니다.',
+    bio_pulse: '바이오 수급 확장 여부와 촉매 이벤트의 지속성을 관찰합니다.',
+    cyber_shield: '헤지 비율과 저항 구간 반응을 중심으로 보안 섹터 압력을 봅니다.',
+    orbit_defense: '방산 예산과 우주 인프라 촉매가 섹터 흐름에 반영되는지 추적합니다.',
+    quantum_edge: '고변동 구간에서 수급 집중과 리스크 확산을 함께 점검합니다.',
+    fintech_pulse: '신용 리스크와 숏 볼륨이 핀테크 수급에 주는 압력을 관찰합니다.',
+    cloud_fortress: 'SaaS 갱신 흐름과 AI 인프라 수요가 안정적으로 반영되는지 봅니다.',
+  },
+  en: {
+    m7: 'Tracks gamma-flip support and mega-cap technology flow in one context.',
+    silicon_core: 'Watches whether semiconductor momentum and options flow reinforce each other.',
+    power_matrix: 'Checks power-infrastructure flow against rate and volatility constraints.',
+    physical_ai: 'Monitors short-term momentum softness and reactions near key support zones.',
+    bio_pulse: 'Observes whether biotech flow expansion persists around catalyst events.',
+    cyber_shield: 'Reads security-sector pressure through hedge ratio and resistance response.',
+    orbit_defense: 'Tracks whether defense budget and space-infrastructure catalysts enter flow.',
+    quantum_edge: 'Checks flow concentration and risk spread in a high-volatility theme.',
+    fintech_pulse: 'Observes credit-risk and short-volume pressure inside fintech flow.',
+    cloud_fortress: 'Reads SaaS renewal stability and AI-infrastructure demand in context.',
+  },
+  ja: {
+    m7: 'ガンマフリップ周辺の需給と大型テックの流れを同時に確認します。',
+    silicon_core: '半導体のモメンタムとオプション需給が同時に強まるかを見ます。',
+    power_matrix: '金利と変動性の制約下で電力インフラの流れを確認します。',
+    physical_ai: '短期モメンタムの鈍化と主要サポート帯の反応を追跡します。',
+    bio_pulse: 'バイオの需給拡大が材料イベント周辺で続くかを観察します。',
+    cyber_shield: 'ヘッジ比率と抵抗帯の反応からセキュリティ株の圧力を読みます。',
+    orbit_defense: '防衛予算と宇宙インフラ材料がフローに反映されるかを見ます。',
+    quantum_edge: '高ボラティリティテーマ内の需給集中とリスク拡散を点検します。',
+    fintech_pulse: '信用リスクとショート出来高がフィンテック需給に与える圧力を観察します。',
+    cloud_fortress: 'SaaS更新の安定性とAIインフラ需要を文脈として読みます。',
+  },
+};
+
+function getCommanderLogCopy(sectorId: string | null | undefined, appLocale: AppLocale, fallback?: string) {
+  if (!sectorId) return fallback || 'Awaiting signal...';
+  return COMMANDER_LOG_COPY[appLocale]?.[sectorId]
+    || COMMANDER_LOG_COPY.en[sectorId]
+    || fallback
+    || 'Awaiting signal...';
+}
+
+function signedPct(value: number | null | undefined, digits = 1) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}%`;
+}
+
+function getBriefTitle(appLocale: AppLocale) {
+  if (appLocale === 'ko') return 'AI 해석 브리프';
+  if (appLocale === 'ja') return 'AI解析ブリーフ';
+  return 'AI ANALYTICAL BRIEF';
+}
+
+function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocale) {
+  const sym = stock.sym;
+  const price = `$${(stock.closePrice || 0).toFixed(2)}`;
+  const change = signedPct(stock.changePct, 2);
+  const gex = stock.gex || 0;
+  const pcr = stock.pcr || 0;
+  const rsi = stock.rsi || 0;
+  const rvol = stock.rvol || 0;
+  const whale = stock.whaleIndex || 0;
+  const darkPool = stock.darkPoolPct || 0;
+  const netPremium = stock.netPremium || 0;
+  const squeeze = stock.squeezeScore || 0;
+  const ivSkew = stock.ivSkew || 0;
+  const impliedMove = stock.impliedMovePct || 0;
+  const maxPain = stock.maxPain || 0;
+  const callWall = stock.callWall || 0;
+  const putFloor = stock.putFloor || 0;
+  const regime = String(stock.gammaRegime || (gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : 'NEUTRAL')).toUpperCase();
+
+  const pcrText = pcr > 0 ? pcr.toFixed(2) : '-';
+  const rsiText = rsi > 0 ? Math.round(rsi).toString() : '-';
+  const rvolText = rvol > 0 ? `${rvol.toFixed(1)}x` : '-';
+  const whaleText = whale > 0 ? Math.round(whale).toString() : '-';
+  const darkPoolText = darkPool > 0 ? `${Math.round(darkPool)}%` : '-';
+  const netPremiumText = netPremium !== 0 ? formatMoneyCompact(netPremium) : '-';
+  const squeezeText = squeeze > 0 ? `${Math.round(squeeze)}%` : '-';
+  const ivText = ivSkew !== 0 ? signedPct(ivSkew, 1) : '-';
+  const impliedMoveText = impliedMove > 0 ? `±${impliedMove.toFixed(1)}%` : '-';
+
+  const gammaKR = regime === 'LONG'
+    ? 'Long Gamma 구조라 단기 변동성은 흡수되는 쪽으로 해석됩니다'
+    : regime === 'SHORT'
+      ? 'Short Gamma 구조라 가격 변동이 확대될 수 있는 구간으로 관찰됩니다'
+      : '감마가 중립권에 가까워 방향성보다 레벨 반응 확인이 우선입니다';
+  const gammaEN = regime === 'LONG'
+    ? 'Long Gamma points to a volatility-absorbing structure'
+    : regime === 'SHORT'
+      ? 'Short Gamma keeps the name in a volatility-amplification zone'
+      : 'Gamma is near neutral, so level reaction matters more than direction';
+  const gammaJA = regime === 'LONG'
+    ? 'ロングガンマ構造で短期変動は吸収されやすい状態です'
+    : regime === 'SHORT'
+      ? 'ショートガンマ構造で値動きが拡大しやすい領域です'
+      : 'ガンマは中立圏に近く、方向性よりもレベル反応の確認が重要です';
+
+  const flowKR = netPremium > 0 || whale >= 65 || darkPool >= 45
+    ? `순프리미엄 ${netPremiumText}, Whale ${whaleText}, 다크풀 ${darkPoolText}가 함께 관찰되어 수급 축은 비교적 선명합니다`
+    : `순프리미엄 ${netPremiumText}, Whale ${whaleText}, 다크풀 ${darkPoolText} 기준으로 아직 수급 확신은 제한적입니다`;
+  const flowEN = netPremium > 0 || whale >= 65 || darkPool >= 45
+    ? `Net premium ${netPremiumText}, Whale ${whaleText}, and Dark Pool ${darkPoolText} show a clearer flow axis`
+    : `Net premium ${netPremiumText}, Whale ${whaleText}, and Dark Pool ${darkPoolText} leave flow conviction limited`;
+  const flowJA = netPremium > 0 || whale >= 65 || darkPool >= 45
+    ? `ネットプレミアム${netPremiumText}、Whale ${whaleText}、Dark Pool ${darkPoolText}からフロー軸は比較的明確です`
+    : `ネットプレミアム${netPremiumText}、Whale ${whaleText}、Dark Pool ${darkPoolText}ではフロー確度はまだ限定的です`;
+
+  const levelKR = callWall > 0 && putFloor > 0
+    ? `핵심 레벨은 풋플로어 $${putFloor.toFixed(0)}와 콜월 $${callWall.toFixed(0)}이며, 현재가 ${price}는 맥스페인 ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'} 대비 ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} 위치입니다`
+    : `레벨 데이터가 제한적이어서 가격 ${price}와 PCR ${pcrText} 중심으로 구조를 확인합니다`;
+  const levelEN = callWall > 0 && putFloor > 0
+    ? `Key levels are Put Floor $${putFloor.toFixed(0)} and Call Wall $${callWall.toFixed(0)}; ${price} sits ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} versus Max Pain ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'}`
+    : `Level data is limited, so the structure is read mainly through ${price} and PCR ${pcrText}`;
+  const levelJA = callWall > 0 && putFloor > 0
+    ? `主要レベルはPut Floor $${putFloor.toFixed(0)}、Call Wall $${callWall.toFixed(0)}で、現在値${price}はMax Pain ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'}比${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'}です`
+    : `レベル情報が限定的なため、${price}とPCR ${pcrText}を中心に構造を確認します`;
+
+  if (appLocale === 'ja') {
+    return `${sym}は${change}、RSI ${rsiText}、RVOL ${rvolText}で推移しています。${gammaJA}。${flowJA}。${levelJA}。Squeeze ${squeezeText}、IV Skew ${ivText}、Implied Move ${impliedMoveText}は、次の値幅変化を確認する補助シグナルです。`;
+  }
+
+  if (appLocale === 'ko') {
+    return `${sym}는 ${change}, RSI ${rsiText}, RVOL ${rvolText} 흐름입니다. ${gammaKR}. ${flowKR}. ${levelKR}. Squeeze ${squeezeText}, IV Skew ${ivText}, Implied Move ${impliedMoveText}는 다음 변동성 확장 여부를 확인하는 보조 신호입니다.`;
+  }
+
+  return `${sym} is moving ${change} with RSI ${rsiText} and RVOL ${rvolText}. ${gammaEN}. ${flowEN}. ${levelEN}. Squeeze ${squeezeText}, IV Skew ${ivText}, and Implied Move ${impliedMoveText} act as secondary checks for the next volatility expansion.`;
+}
+
 export default function AppIntelPage() {
   const locale = useLocale();
   const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
+  const appLocale = toAppLocale(locale);
+  const appCopy = APP_INTEL_COPY[appLocale];
+  const complianceCopy = APP_COMPLIANCE_COPY[appLocale];
 
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const [reportData, setReportData] = useState<SectorReportData | null>(null);
@@ -562,7 +1036,11 @@ export default function AppIntelPage() {
   const [intelTab, setIntelTab] = useState<'sector' | 'report'>('sector');
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
+  const [stockAiAnalyses, setStockAiAnalyses] = useState<Record<string, StockAiAnalysis>>({});
+  const [stockAiLoading, setStockAiLoading] = useState<Record<string, boolean>>({});
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['stocks']));
+  const reportRequestRef = useRef(0);
+  const stockAiRequestRef = useRef(0);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => {
@@ -574,7 +1052,7 @@ export default function AppIntelPage() {
   };
 
   // Initialize shared data hook
-  const sharedData = useIntelSharedData();
+  const sharedData = useIntelSharedDataForApp();
   const { status: marketStatus } = useMarketStatus();
   const isMarketLive = marketStatus.session === 'regular' || marketStatus.session === 'pre' || marketStatus.session === 'post';
 
@@ -583,95 +1061,6 @@ export default function AppIntelPage() {
     const savedCount = sessionStorage.getItem('intel_ad_count');
     if (savedCount) setAdCount(parseInt(savedCount));
   }, []);
-
-  // Background pre-fetch of all sector snapshots to make clicks instant
-  useEffect(() => {
-    let active = true;
-    const prefetch = async () => {
-      // Wait 1.5 seconds for page load to settle
-      await new Promise(r => setTimeout(r, 1500));
-      if (!active) return;
-
-      for (const sec of SECTOR_CONFIGS) {
-        if (!active) break;
-        // Skip if already in cache
-        if (reportCache[sec.id]) continue;
-
-        try {
-          const res = await fetch(`/api/intel/snapshot?sector=${sec.id}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.snapshot && active) {
-              const summary = data.snapshot.sector_summary || {};
-              const briefing = summary.briefing || {};
-              
-              const sentiment = summary.outlook || data.snapshot.sentiment || 'NEUTRAL';
-              
-              const verdict = locale === 'ko'
-                ? (summary.next_day_briefing_kr || briefing.headline || data.snapshot.verdict || 'No verdict available.')
-                : locale === 'ja'
-                  ? (briefing.headlineJP || briefing.headline || data.snapshot.verdict || 'No verdict available.')
-                  : (briefing.headlineEN || briefing.headline || data.snapshot.verdict || 'No verdict available.');
-                  
-              const catalysts = locale === 'ko'
-                ? (briefing.watchpoints || data.snapshot.keyCatalysts || [])
-                : locale === 'ja'
-                  ? (briefing.watchpointsJP || briefing.watchpoints || data.snapshot.keyCatalysts || [])
-                  : (briefing.watchpointsEN || briefing.watchpoints || data.snapshot.keyCatalysts || []);
-
-              const bullets = locale === 'ko'
-                ? (briefing.bullets || [])
-                : locale === 'ja'
-                  ? (briefing.bulletsJP || briefing.bullets || [])
-                  : (briefing.bulletsEN || briefing.bullets || []);
-
-              const newReport: SectorReportData = {
-                sentiment,
-                verdict,
-                catalysts,
-                bullets,
-                gainers: summary.gainers ?? 0,
-                losers: summary.losers ?? 0,
-                avgPcr: summary.avg_pcr ?? 0,
-                totalGex: summary.total_gex ?? 0,
-                dominantRegime: summary.dominant_regime || 'NEUTRAL',
-                avgAlpha: summary.avg_alpha ?? 0,
-                snapshotTime: data.snapshot?.meta?.snapshot_timestamp || '',
-                keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
-                  sym: tick.ticker,
-                  grade: tick.grade || 'B',
-                  score: tick.alpha_score || tick.score || 55,
-                  changePct: tick.change_pct || 0,
-                  closePrice: tick.close_price || tick.closePrice || 0,
-                  gex: tick.gex ?? 0,
-                  pcr: tick.pcr ?? 0,
-                  gammaRegime: tick.gamma_regime || tick.gammaRegime || 'NEUTRAL',
-                  maxPain: tick.max_pain || tick.maxPain || 0,
-                  callWall: tick.call_wall || tick.callWall || 0,
-                  putFloor: tick.put_floor || tick.putFloor || 0,
-                  rsi: tick.rsi ?? 0,
-                  rvol: tick.rvol ?? 0,
-                  sparkline: tick.sparkline || [],
-                  analysisKr: tick.analysis_kr || tick.analysisKr || '',
-                  netPremium: tick.net_premium ?? tick.netPremium ?? 0,
-                  squeezeScore: tick.squeeze_score ?? tick.squeezeScore ?? 0,
-                  ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
-                  impliedMovePct: tick.implied_move_pct ?? tick.impliedMovePct ?? 0,
-                  whaleIndex: tick.whale_index ?? tick.whaleIndex ?? 0,
-                  darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? 0
-                }))
-              };
-              setReportCache(prev => ({ ...prev, [sec.id]: newReport }));
-            }
-          }
-          // Sleep 300ms between pre-fetches to be gentle
-          await new Promise(r => setTimeout(r, 300));
-        } catch { /* ignore */ }
-      }
-    };
-    prefetch();
-    return () => { active = false; };
-  }, [locale]);
 
   // Fetch Cross-Sector Brief for summary card
   useEffect(() => {
@@ -695,17 +1084,20 @@ export default function AppIntelPage() {
 
   // Fetch Report Data
   const loadSectorReport = async (sectorId: string) => {
-    // If we have it in client-side cache, show it immediately!
-    if (reportCache[sectorId]) {
-      setReportData(reportCache[sectorId]);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
+    const requestId = ++reportRequestRef.current;
+    const cachedReport = reportCache[sectorId];
+    const instantReport = cachedReport || buildSectorReportFromQuotes(sectorId);
+
+    setReportData(instantReport);
+    setReportCache(prev => prev[sectorId] ? prev : ({ ...prev, [sectorId]: instantReport }));
+    setLoading(false);
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
 
     try {
       // API call matching route: /api/intel/snapshot?sector={sectorId}
-      const res = await fetch(`/api/intel/snapshot?sector=${sectorId}`);
+      const res = await fetch(`/api/intel/snapshot?sector=${sectorId}`, { signal: controller.signal });
       if (!res.ok) throw new Error();
       const data = await res.json();
       
@@ -769,34 +1161,114 @@ export default function AppIntelPage() {
           }))
         };
 
+        if (requestId !== reportRequestRef.current) return;
         setReportData(newReport);
         setReportCache(prev => ({ ...prev, [sectorId]: newReport }));
       } else {
         throw new Error();
       }
     } catch {
-      // Fallback to demo data or make synthetic report if demo does not exist
-      const fallback: SectorReportData = DEMO_REPORTS[sectorId] || {
-        sentiment: 'NEUTRAL',
-        verdict: 'AI analysis suggests macro headwinds are balanced by structural cloud migration. High interest rates remain a drag on leveraged players.',
-        catalysts: [
-          'Enterprise IT budget renewals in progress',
-          'Yield curve stabilization lowering risk premiums'
-        ],
-        bullets: [],
-        keyStocksData: (SECTOR_CONFIGS.find(s => s.id === sectorId)?.stocks || []).slice(0, 3).map(sym => ({
-          sym,
-          grade: 'B',
-          score: 58
-        })),
-        gainers: 0, losers: 0, avgPcr: 0, totalGex: 0, dominantRegime: 'NEUTRAL', avgAlpha: 0, snapshotTime: ''
-      };
-      setReportData(fallback);
-      setReportCache(prev => ({ ...prev, [sectorId]: fallback }));
+      if (requestId === reportRequestRef.current) {
+        setReportData(prev => prev || instantReport);
+      }
     } finally {
-      setLoading(false);
+      window.clearTimeout(timeoutId);
+      if (requestId === reportRequestRef.current) setLoading(false);
+    }
+
+    if (requestId !== reportRequestRef.current) return;
+
+    const batchController = new AbortController();
+    const batchTimeoutId = window.setTimeout(() => batchController.abort(), 15000);
+
+    try {
+      const batchResults = await fetchSectorWatchlistBatch(sectorId, batchController.signal);
+      if (!batchResults?.length || requestId !== reportRequestRef.current) return;
+
+      setReportData(prev => {
+        const source = prev || instantReport;
+        const nextReport = mergeReportWithBatchResults(source, batchResults);
+        setReportCache(cache => ({ ...cache, [sectorId]: nextReport }));
+        return nextReport;
+      });
+    } catch {
+      // Snapshot/fast data stays visible. Batch enrichment will retry on next open.
+    } finally {
+      window.clearTimeout(batchTimeoutId);
     }
   };
+
+  useEffect(() => {
+    if (!selectedSector || !reportData?.keyStocksData?.length) return;
+
+    const stocksForAi = reportData.keyStocksData
+      .filter(stock => (stock.closePrice || 0) > 0)
+      .filter(stock => !stockAiAnalyses[stock.sym])
+      .slice(0, 10);
+
+    if (!stocksForAi.length) return;
+
+    const requestId = ++stockAiRequestRef.current;
+    const symbols = stocksForAi.map(stock => stock.sym);
+    setStockAiLoading(prev => {
+      const next = { ...prev };
+      symbols.forEach(symbol => { next[symbol] = true; });
+      return next;
+    });
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 45000);
+
+    fetch('/api/intel/perplexity-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        stocks: stocksForAi.map(stock => ({
+          ticker: stock.sym,
+          price: stock.closePrice || 0,
+          changePct: stock.changePct || 0,
+          gex: stock.gex || 0,
+          pcr: stock.pcr || 0,
+          gammaRegime: stock.gammaRegime || 'NEUTRAL',
+          netPremium: stock.netPremium || 0,
+          callWall: stock.callWall || 0,
+          putFloor: stock.putFloor || 0,
+          maxPain: stock.maxPain || 0,
+          whaleIndex: stock.whaleIndex || 0,
+          darkPoolPct: stock.darkPoolPct || 0,
+          ivSkew: stock.ivSkew || 0,
+          impliedMovePct: stock.impliedMovePct || 0,
+          squeezeScore: stock.squeezeScore || 0,
+          contextScore: stock.score || 0,
+        })),
+      }),
+    })
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('intel-ai failed')))
+      .then(data => {
+        if (requestId !== stockAiRequestRef.current && selectedSector) return;
+        const analyses = data?.analyses || {};
+        if (analyses && typeof analyses === 'object') {
+          setStockAiAnalyses(prev => ({ ...prev, ...analyses }));
+        }
+      })
+      .catch(() => {
+        // Keep the structural fallback visible if Bedrock/cache is unavailable.
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+        setStockAiLoading(prev => {
+          const next = { ...prev };
+          symbols.forEach(symbol => { delete next[symbol]; });
+          return next;
+        });
+      });
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [selectedSector, reportData, stockAiAnalyses]);
 
   // Trigger Interstitial Ad logic on report click
   const handleSectorClick = async (sectorId: string) => {
@@ -829,20 +1301,84 @@ export default function AppIntelPage() {
     loadSectorReport(sectorId);
   };
 
-  const getSectorChange = (sectorId: string) => {
-    let quotes: IntelQuote[] = [];
+  const getSectorQuotes = useCallback((sectorId: string): IntelQuote[] => {
     switch (sectorId) {
-      case 'm7': quotes = sharedData.m7; break;
-      case 'physical_ai': quotes = sharedData.physicalAI; break;
-      case 'silicon_core': quotes = sharedData.siliconCore; break;
-      case 'power_matrix': quotes = sharedData.powerMatrix; break;
-      case 'bio_pulse': quotes = sharedData.bioPulse; break;
-      case 'cyber_shield': quotes = sharedData.cyberShield; break;
-      case 'orbit_defense': quotes = sharedData.orbitDefense; break;
-      case 'quantum_edge': quotes = sharedData.quantumEdge; break;
-      case 'fintech_pulse': quotes = sharedData.fintechPulse; break;
-      case 'cloud_fortress': quotes = sharedData.cloudFortress; break;
+      case 'm7': return sharedData.m7;
+      case 'physical_ai': return sharedData.physicalAI;
+      case 'silicon_core': return sharedData.siliconCore;
+      case 'power_matrix': return sharedData.powerMatrix;
+      case 'bio_pulse': return sharedData.bioPulse;
+      case 'cyber_shield': return sharedData.cyberShield;
+      case 'orbit_defense': return sharedData.orbitDefense;
+      case 'quantum_edge': return sharedData.quantumEdge;
+      case 'fintech_pulse': return sharedData.fintechPulse;
+      case 'cloud_fortress': return sharedData.cloudFortress;
+      default: return [];
     }
+  }, [
+    sharedData.m7,
+    sharedData.physicalAI,
+    sharedData.siliconCore,
+    sharedData.powerMatrix,
+    sharedData.bioPulse,
+    sharedData.cyberShield,
+    sharedData.orbitDefense,
+    sharedData.quantumEdge,
+    sharedData.fintechPulse,
+    sharedData.cloudFortress,
+  ]);
+
+  const selectedQuoteSignature = useMemo(() => {
+    if (!selectedSector) return '';
+    return getSectorQuotes(selectedSector)
+      .map(q => [
+        q.ticker,
+        q.alphaScore || 0,
+        q.grade || '',
+        q.changePct || 0,
+        q.price || 0,
+        q.gex || 0,
+        q.pcr || 0,
+        q.netPremium || 0,
+        q.squeezeScore || 0,
+        q.ivSkew || 0,
+        q.impliedMovePct || 0,
+        q.whaleIndex || 0,
+        q.darkPoolPct || 0,
+        q.callWall || 0,
+        q.putFloor || 0,
+        q.maxPain || 0,
+      ].join(':'))
+      .join('|');
+  }, [selectedSector, getSectorQuotes]);
+
+  useEffect(() => {
+    if (!selectedSector || !reportData || !selectedQuoteSignature) return;
+
+    const quoteMap = new Map(getSectorQuotes(selectedSector).map(q => [q.ticker, q]));
+    if (quoteMap.size === 0) return;
+
+    let changed = false;
+    const keyStocksData = reportData.keyStocksData.map(stock => {
+      const merged = mergeStockWithQuote(stock, quoteMap.get(stock.sym));
+      if (hasStockQuoteDelta(stock, merged)) changed = true;
+      return merged;
+    });
+
+    if (!changed) return;
+
+    const nextReport: SectorReportData = {
+      ...reportData,
+      keyStocksData,
+      snapshotTime: sharedData.fetchedAt || reportData.snapshotTime,
+    };
+
+    setReportData(nextReport);
+    setReportCache(prev => ({ ...prev, [selectedSector]: nextReport }));
+  }, [selectedSector, selectedQuoteSignature, reportData, sharedData.fetchedAt, getSectorQuotes]);
+
+  const getSectorChange = (sectorId: string) => {
+    const quotes = getSectorQuotes(sectorId);
     
     if (quotes && quotes.length > 0) {
       const validQuotes = quotes.filter(q => q.changePct !== undefined && q.changePct !== null);
@@ -868,10 +1404,339 @@ export default function AppIntelPage() {
     return fallbacks[sectorId] ?? 0;
   };
 
+  const buildSectorReportFromQuotes = (sectorId: string): SectorReportData => {
+    const sec = SECTOR_CONFIGS.find(s => s.id === sectorId);
+    const sectorCopy = SECTOR_APP_COPY[appLocale][sectorId] || SECTOR_APP_COPY.en[sectorId];
+    const quotes = getSectorQuotes(sectorId);
+    const alphaValues = quotes.map(q => q.alphaScore || 0).filter(v => v > 0);
+    const avgAlpha = safeAverage(alphaValues);
+    const gainers = quotes.filter(q => (q.changePct || 0) >= 0).length;
+    const losers = quotes.filter(q => (q.changePct || 0) < 0).length;
+    const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
+    const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
+    const netPremium = quotes.reduce((sum, q) => sum + (q.netPremium || 0), 0);
+    const avgDarkPool = safeAverage(quotes.map(q => q.darkPoolPct || 0).filter(v => v > 0));
+    const avgWhale = safeAverage(quotes.map(q => q.whaleIndex || 0).filter(v => v > 0));
+    const avgSqueeze = safeAverage(quotes.map(q => q.squeezeScore || 0).filter(v => v > 0));
+    const gammaLong = quotes.filter(q => String(q.gammaRegime || '').toUpperCase().includes('LONG')).length;
+    const gammaShort = quotes.filter(q => String(q.gammaRegime || '').toUpperCase().includes('SHORT')).length;
+    const dominantRegime = gammaLong > gammaShort ? 'LONG' : gammaShort > gammaLong ? 'SHORT' : 'NEUTRAL';
+    const topStock = [...quotes].sort((a, b) => {
+      const alphaDiff = (b.alphaScore || 0) - (a.alphaScore || 0);
+      if (alphaDiff !== 0) return alphaDiff;
+      return Math.abs(b.changePct || 0) - Math.abs(a.changePct || 0);
+    })[0];
+
+    const biasScore =
+      (gainers - losers) +
+      (netPremium > 0 ? 1 : netPremium < 0 ? -1 : 0) +
+      (totalGex > 0 ? 1 : totalGex < 0 ? -1 : 0) +
+      (avgPcr > 0 && avgPcr < 0.9 ? 1 : avgPcr > 1.15 ? -1 : 0);
+    const sentiment = biasScore >= 2 ? 'BULLISH' : biasScore <= -2 ? 'BEARISH' : 'NEUTRAL';
+
+    const localeText = {
+      ko: {
+        verdict: `${sectorCopy.name}는 ${topStock?.ticker || '주요 종목'} 중심으로 옵션/알파/수급 데이터가 먼저 정렬됩니다. 상세 스냅샷이 늦어져도 현재 앱 데이터 기준의 섹터 맥락을 즉시 보여줍니다.`,
+        catalysts: [
+          `선도 종목 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
+          `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        ],
+        fallbackAnalysis: `${sectorCopy.thesis}. 실시간 스냅샷 보강 전까지 앱에 들어온 가격, 알파, 옵션 데이터를 기준으로 표시합니다.`
+      },
+      en: {
+        verdict: `${sectorCopy.name} is organized from live app-held options, alpha and flow data, led by ${topStock?.ticker || 'key names'}. The sector context opens immediately while the full snapshot refreshes in the background.`,
+        catalysts: [
+          `Lead ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
+          `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        ],
+        fallbackAnalysis: `${sectorCopy.thesis}. Until the full snapshot arrives, this view uses the app's current price, alpha and options feed.`
+      },
+      ja: {
+        verdict: `${sectorCopy.name}は${topStock?.ticker || '主要銘柄'}を中心に、アプリ内のオプション、アルファ、フローデータから即時に構成されます。詳細スナップショットはバックグラウンドで更新されます。`,
+        catalysts: [
+          `主導 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
+          `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        ],
+        fallbackAnalysis: `${sectorCopy.thesis}。詳細スナップショット取得前は、アプリに入っている価格、アルファ、オプションデータを基準に表示します。`
+      }
+    }[appLocale];
+
+    const keyStocksData: KeyStockPremiumData[] = quotes.length
+      ? quotes.map(q => ({
+        sym: q.ticker,
+        grade: q.grade || ((q.alphaScore || 0) >= 75 ? 'A' : (q.alphaScore || 0) >= 55 ? 'B' : 'C'),
+        score: q.alphaScore || 50,
+        changePct: q.changePct || 0,
+        closePrice: q.regularCloseToday || q.price || q.prevClose || 0,
+        gex: q.gex || 0,
+        pcr: q.pcr || 0,
+        gammaRegime: q.gammaRegime || 'NEUTRAL',
+        maxPain: q.maxPain || 0,
+        callWall: q.callWall || 0,
+        putFloor: q.putFloor || 0,
+        rsi: q.rsi || 0,
+        rvol: q.rvol || 0,
+        sparkline: q.sparkline || [],
+        analysisKr: localeText.fallbackAnalysis,
+        netPremium: q.netPremium || 0,
+        squeezeScore: q.squeezeScore || 0,
+        ivSkew: q.ivSkew || 0,
+        impliedMovePct: q.impliedMovePct || 0,
+        whaleIndex: q.whaleIndex || 0,
+        darkPoolPct: q.darkPoolPct || 0
+      }))
+      : (sec?.stocks || []).map(sym => ({
+        sym,
+        grade: 'B',
+        score: 50,
+        analysisKr: localeText.fallbackAnalysis
+      }));
+
+    return {
+      sentiment,
+      verdict: localeText.verdict,
+      catalysts: localeText.catalysts,
+      bullets: [],
+      keyStocksData,
+      gainers,
+      losers,
+      avgPcr,
+      totalGex,
+      dominantRegime,
+      avgAlpha,
+      snapshotTime: sharedData.fetchedAt || ''
+    };
+  };
+
+  const sectorSummaries = SECTOR_CONFIGS.map(sec => {
+    const quotes = getSectorQuotes(sec.id);
+    const validQuotes = quotes.filter(q => q.changePct !== undefined && q.changePct !== null);
+    const change = getSectorChange(sec.id);
+    const alphaValues = quotes.map(q => q.alphaScore || 0).filter(v => v > 0);
+    const avgAlpha = alphaValues.length
+      ? alphaValues.reduce((sum, v) => sum + v, 0) / alphaValues.length
+      : 0;
+    const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
+    const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
+    const netPremium = quotes.reduce((sum, q) => sum + (q.netPremium || 0), 0);
+    const avgDarkPool = safeAverage(quotes.map(q => q.darkPoolPct || 0).filter(v => v > 0));
+    const avgWhale = safeAverage(quotes.map(q => q.whaleIndex || 0).filter(v => v > 0));
+    const avgSqueeze = safeAverage(quotes.map(q => q.squeezeScore || 0).filter(v => v > 0));
+    const avgIvSkew = safeAverage(quotes.map(q => q.ivSkew || 0).filter(v => v !== 0));
+    const avgImpliedMove = safeAverage(quotes.map(q => q.impliedMovePct || 0).filter(v => v > 0));
+    const gammaLong = quotes.filter(q => String(q.gammaRegime || '').toUpperCase().includes('LONG')).length;
+    const gammaShort = quotes.filter(q => String(q.gammaRegime || '').toUpperCase().includes('SHORT')).length;
+    const topStock = [...quotes].sort((a, b) => {
+      const alphaDiff = (b.alphaScore || 0) - (a.alphaScore || 0);
+      if (alphaDiff !== 0) return alphaDiff;
+      return Math.abs(b.changePct || 0) - Math.abs(a.changePct || 0);
+    })[0] || null;
+    const cached = reportCache[sec.id];
+    const aiLine = cached?.verdict || getCommanderLogCopy(sec.id, appLocale, sec.commanderLog);
+
+    return {
+      id: sec.id,
+      color: sec.color,
+      stocks: sec.stocks,
+      gammaPulse: sec.gammaPulse,
+      change,
+      quoteCount: quotes.length || sec.stocks.length,
+      liveCount: validQuotes.length,
+      avgAlpha,
+      totalGex,
+      avgPcr,
+      netPremium,
+      avgDarkPool,
+      avgWhale,
+      avgSqueeze,
+      avgIvSkew,
+      avgImpliedMove,
+      gammaLong,
+      gammaShort,
+      topStock,
+      aiLine,
+    };
+  });
+
+  const leadingSector = sectorSummaries.length
+    ? sectorSummaries.reduce((best, item) => item.change > best.change ? item : best)
+    : null;
+  const laggingSector = sectorSummaries.length
+    ? sectorSummaries.reduce((worst, item) => item.change < worst.change ? item : worst)
+    : null;
+  const averageSectorMove = sectorSummaries.length
+    ? sectorSummaries.reduce((sum, item) => sum + Math.abs(item.change), 0) / sectorSummaries.length
+    : 0;
+  const totalCoverage = sectorSummaries.reduce((sum, item) => sum + item.quoteCount, 0);
+  const sessionLabel = isMarketLive ? appCopy.live : marketStatus.session === 'closed' ? appCopy.closed : appCopy.offline;
+
   return (
     <div className={s.page} style={{ paddingBottom: '90px' }}>
       {/* HEADER */}
       {!selectedSector && (
+        <div role="banner" style={{ padding: '14px 16px 0' }}>
+          <div style={{
+            borderRadius: '22px',
+            padding: '16px',
+            background: 'linear-gradient(145deg, rgba(12, 31, 48, 0.92), rgba(10, 14, 27, 0.96) 58%, rgba(3, 11, 21, 0.98))',
+            border: '1px solid rgba(34, 211, 238, 0.16)',
+            boxShadow: '0 18px 42px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.06)',
+            overflow: 'hidden',
+            marginBottom: '10px',
+            position: 'relative'
+          }}>
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'radial-gradient(circle at 12% 8%, rgba(34,211,238,0.16), transparent 34%), radial-gradient(circle at 88% 10%, rgba(16,185,129,0.10), transparent 30%)',
+              pointerEvents: 'none'
+            }} />
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'flex-start' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '7px' }}>
+                  <span style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '10px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(34, 211, 238, 0.10)',
+                    border: '1px solid rgba(34, 211, 238, 0.22)',
+                    color: '#22d3ee',
+                    boxShadow: '0 0 18px rgba(34,211,238,0.18)'
+                  }}>
+                    <Brain size={16} />
+                  </span>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 900,
+                    letterSpacing: '0.12em',
+                    color: '#22d3ee',
+                    textTransform: 'uppercase'
+                  }}>
+                    {appCopy.kicker}
+                  </span>
+                </div>
+                <h1 style={{
+                  fontSize: '25px',
+                  fontWeight: 950,
+                  color: 'var(--text)',
+                  margin: 0,
+                  lineHeight: 1.05,
+                  letterSpacing: '0'
+                }}>
+                  {appCopy.title}
+                </h1>
+                <p style={{
+                  margin: '8px 0 0',
+                  fontSize: '12px',
+                  lineHeight: 1.45,
+                  color: 'rgba(191, 219, 254, 0.84)',
+                  fontWeight: 650
+                }}>
+                  {appCopy.subtitle}
+                </p>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                flexShrink: 0,
+                padding: '6px 9px',
+                borderRadius: '999px',
+                background: isMarketLive ? 'rgba(16, 185, 129, 0.10)' : 'rgba(148, 163, 184, 0.08)',
+                border: isMarketLive ? '1px solid rgba(16, 185, 129, 0.24)' : '1px solid rgba(148, 163, 184, 0.16)',
+                color: isMarketLive ? '#10b981' : '#94a3b8',
+                fontSize: '10px',
+                fontWeight: 900,
+                letterSpacing: '0.06em'
+              }}>
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: isMarketLive ? '#10b981' : '#64748b',
+                  boxShadow: isMarketLive ? '0 0 8px #10b981' : 'none',
+                  animation: isMarketLive ? 'appPulse 2s infinite' : 'none'
+                }} />
+                {sessionLabel}
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            borderRadius: '18px 18px 0 0',
+            padding: '12px',
+            background: 'linear-gradient(145deg, rgba(12, 31, 48, 0.78), rgba(8, 13, 26, 0.92))',
+            border: '1px solid rgba(34, 211, 238, 0.14)',
+            borderBottom: '1px solid rgba(34, 211, 238, 0.08)',
+            boxShadow: '0 14px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,0.045)'
+          }}>
+            <div style={{
+              position: 'relative',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '8px',
+              marginTop: 0
+            }}>
+              {[
+                {
+                  label: appCopy.leaders,
+                  value: leadingSector ? SECTOR_APP_COPY[appLocale][leadingSector.id]?.name || leadingSector.id : '-',
+                  meta: leadingSector ? `${leadingSector.change >= 0 ? '+' : ''}${leadingSector.change.toFixed(1)}%` : '-',
+                  color: '#10b981'
+                },
+                {
+                  label: appCopy.laggards,
+                  value: laggingSector ? SECTOR_APP_COPY[appLocale][laggingSector.id]?.name || laggingSector.id : '-',
+                  meta: laggingSector ? `${laggingSector.change >= 0 ? '+' : ''}${laggingSector.change.toFixed(1)}%` : '-',
+                  color: '#ef4444'
+                },
+                {
+                  label: appCopy.coverage,
+                  value: `${totalCoverage}`,
+                  meta: appCopy.constituents,
+                  color: '#22d3ee'
+                },
+                {
+                  label: appCopy.avgMove,
+                  value: `${averageSectorMove.toFixed(1)}%`,
+                  meta: appCopy.dataLabel,
+                  color: '#f59e0b'
+                }
+              ].map(item => (
+                <div key={item.label} style={{
+                  minWidth: 0,
+                  padding: '10px',
+                  borderRadius: '14px',
+                  background: 'rgba(15, 23, 42, 0.56)',
+                  border: '1px solid rgba(148, 163, 184, 0.10)',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.035)'
+                }}>
+                  <div style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(148, 163, 184, 0.86)', letterSpacing: '0.04em' }}>
+                    {item.label}
+                  </div>
+                  <div style={{ marginTop: '5px', color: item.color, fontSize: '14px', lineHeight: 1.1, fontWeight: 950, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.value}
+                  </div>
+                  <div style={{ marginTop: '4px', color: 'rgba(203, 213, 225, 0.68)', fontSize: '9px', fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.meta}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {false && !selectedSector && (
         <header className="app-header" style={{ display: 'flex', flexDirection: 'column', borderBottom: 'none', padding: '16px 16px 4px' }}>
           <div style={{
             display: 'flex',
@@ -969,11 +1834,14 @@ export default function AppIntelPage() {
       {!selectedSector && (
         <div style={{
           display: 'flex',
-          margin: '10px 16px 0',
-          background: 'rgba(255, 255, 255, 0.03)',
-          borderRadius: '10px',
-          padding: '3px',
-          gap: '2px'
+          margin: '-1px 16px 12px',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.78))',
+          border: '1px solid rgba(148, 163, 184, 0.12)',
+          borderTop: '1px solid rgba(34, 211, 238, 0.08)',
+          borderRadius: '0 0 16px 16px',
+          padding: '4px',
+          gap: '4px',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 34px rgba(0,0,0,0.20)'
         }}>
           {(['sector', 'report'] as const).map((tab) => {
             const isActive = intelTab === tab;
@@ -983,22 +1851,20 @@ export default function AppIntelPage() {
                 onClick={() => setIntelTab(tab)}
                 style={{
                   flex: 1,
-                  padding: '8px 0',
-                  borderRadius: '8px',
-                  border: 'none',
+                  padding: '10px 0',
+                  borderRadius: '12px',
+                  border: isActive ? '1px solid rgba(34, 211, 238, 0.22)' : '1px solid transparent',
                   cursor: 'pointer',
                   fontSize: '12px',
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? 'var(--text)' : 'var(--text-muted)',
-                  background: isActive ? 'rgba(255, 255, 255, 0.06)' : 'transparent',
+                  fontWeight: isActive ? 900 : 750,
+                  color: isActive ? '#e0f2fe' : 'rgba(148, 163, 184, 0.82)',
+                  background: isActive ? 'linear-gradient(135deg, rgba(8, 145, 178, 0.30), rgba(15, 23, 42, 0.72))' : 'transparent',
                   transition: 'all 0.2s',
-                  letterSpacing: '0.02em'
+                  letterSpacing: '0.02em',
+                  boxShadow: isActive ? '0 10px 24px rgba(8, 145, 178, 0.18)' : 'none'
                 }}
               >
-                {tab === 'sector'
-                  ? (locale === 'ko' ? 'SECTOR' : locale === 'ja' ? 'SECTOR' : 'SECTOR')
-                  : (locale === 'ko' ? '장마감 리포트' : locale === 'ja' ? '引け後レポート' : 'CLOSING REPORT')
-                }
+                {tab === 'sector' ? appCopy.sectorTab : appCopy.reportTab}
               </button>
             );
           })}
@@ -1020,7 +1886,7 @@ export default function AppIntelPage() {
                   <path d="M21 12a9 9 0 11-6.219-8.56" />
                 </svg>
               </div>
-              {locale === 'ko' ? '리포트 로딩 중...' : locale === 'ja' ? 'レポート読み込み中...' : 'Loading reports...'}
+              {appCopy.reportLoading}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1544,6 +2410,273 @@ export default function AppIntelPage() {
 
       {/* SECTOR CARD LIST */}
       {!selectedSector && intelTab === 'sector' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 16px' }}>
+          {sectorSummaries.map((sec, index) => {
+            const sectorCopy = SECTOR_APP_COPY[appLocale][sec.id] || SECTOR_APP_COPY.en[sec.id];
+            const englishCopy = SECTOR_APP_COPY.en[sec.id];
+            const isUp = sec.change >= 0;
+            const coverage = sec.quoteCount;
+            const toneColor = isUp ? '#10b981' : '#ef4444';
+            const pulseColor = sec.gammaPulse.stance === 'STABLE' ? '#10b981' : sec.gammaPulse.stance === 'NEUTRAL' ? '#f59e0b' : '#ef4444';
+            const pulseLabel = sec.gammaPulse.stance === 'STABLE'
+              ? (appLocale === 'ko' ? '안정' : appLocale === 'ja' ? '安定' : 'Stable')
+              : sec.gammaPulse.stance === 'NEUTRAL'
+                ? (appLocale === 'ko' ? '중립' : appLocale === 'ja' ? '中立' : 'Neutral')
+                : (appLocale === 'ko' ? '주의' : appLocale === 'ja' ? '注意' : 'Risk');
+
+            const labels = appLocale === 'ko'
+              ? {
+                aiRead: 'AI 해석',
+                lead: '주도 종목',
+                coverage: '커버리지',
+                gammaLong: '롱 감마 우위',
+                gammaShort: '숏 감마 우위',
+                gammaMixed: '감마 혼재',
+                net: 'NET PREM',
+                darkPool: 'DARK POOL',
+                whale: 'WHALE',
+                squeeze: 'SQUEEZE',
+                pcr: 'PCR',
+                gex: 'GEX',
+              }
+              : appLocale === 'ja'
+                ? {
+                  aiRead: 'AI解釈',
+                  lead: '主導銘柄',
+                  coverage: 'カバレッジ',
+                  gammaLong: 'ロングガンマ優位',
+                  gammaShort: 'ショートガンマ優位',
+                  gammaMixed: 'ガンマ混在',
+                  net: 'NET PREM',
+                  darkPool: 'DARK POOL',
+                  whale: 'WHALE',
+                  squeeze: 'SQUEEZE',
+                  pcr: 'PCR',
+                  gex: 'GEX',
+                }
+                : {
+                  aiRead: 'AI Read',
+                  lead: 'Lead Name',
+                  coverage: 'Coverage',
+                  gammaLong: 'Long Gamma Bias',
+                  gammaShort: 'Short Gamma Bias',
+                  gammaMixed: 'Mixed Gamma',
+                  net: 'NET PREM',
+                  darkPool: 'DARK POOL',
+                  whale: 'WHALE',
+                  squeeze: 'SQUEEZE',
+                  pcr: 'PCR',
+                  gex: 'GEX',
+                };
+            const regimeText = sec.gammaLong > sec.gammaShort ? labels.gammaLong : sec.gammaShort > sec.gammaLong ? labels.gammaShort : labels.gammaMixed;
+            const topStock = sec.topStock;
+            const aiLine = (sec.aiLine || sectorCopy.thesis || '').replace(/\s+/g, ' ');
+            const tapeMetrics = [
+              { label: labels.gex, value: formatGex(sec.totalGex), color: sec.totalGex >= 0 ? '#10b981' : '#ef4444' },
+              { label: labels.pcr, value: sec.avgPcr ? sec.avgPcr.toFixed(2) : '-', color: sec.avgPcr && sec.avgPcr < 0.8 ? '#10b981' : sec.avgPcr > 1.1 ? '#ef4444' : '#e2e8f0' },
+              { label: labels.net, value: formatMoneyCompact(sec.netPremium), color: sec.netPremium >= 0 ? '#10b981' : '#ef4444' },
+              { label: labels.darkPool, value: formatPlainPercent(sec.avgDarkPool), color: sec.avgDarkPool >= 40 ? '#cbd5e1' : '#94a3b8' },
+              { label: labels.whale, value: sec.avgWhale ? Math.round(sec.avgWhale).toString() : '-', color: sec.avgWhale >= 60 ? '#a78bfa' : '#94a3b8' },
+              { label: labels.squeeze, value: sec.avgSqueeze ? `${Math.round(sec.avgSqueeze)}%` : '-', color: sec.avgSqueeze >= 70 ? '#f59e0b' : sec.avgSqueeze >= 40 ? '#facc15' : '#94a3b8' },
+            ];
+
+            return (
+              <React.Fragment key={sec.id}>
+                <button
+                  className="app-pressable"
+                  onClick={() => handleSectorClick(sec.id)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    border: '1px solid rgba(34, 211, 238, 0.12)',
+                    borderRadius: '20px',
+                    padding: '13px',
+                    background: `linear-gradient(145deg, rgba(15, 23, 42, 0.90), rgba(4, 9, 20, 0.96)), linear-gradient(135deg, ${sec.color}26, transparent 52%)`,
+                    boxShadow: '0 18px 34px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: `radial-gradient(circle at 8% 0%, ${sec.color}20, transparent 34%)`,
+                    opacity: 0.9,
+                    pointerEvents: 'none'
+                  }} />
+
+                  <div style={{ position: 'relative', display: 'flex', gap: '11px', alignItems: 'flex-start' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '14px',
+                      background: `${sec.color}12`,
+                      border: `1px solid ${sec.color}35`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      boxShadow: `0 0 22px ${sec.color}18`
+                    }}>
+                      <SectorIcon sectorKey={toCamelCase(sec.id)} color={sec.color} size={23} />
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                            <span style={{ color: 'var(--text)', fontSize: '15px', lineHeight: 1.1, fontWeight: 950, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {sectorCopy.name}
+                            </span>
+                            {appLocale !== 'en' && englishCopy && (
+                              <span style={{ color: 'rgba(148, 163, 184, 0.68)', fontSize: '9px', fontWeight: 850, letterSpacing: '0.05em', textTransform: 'uppercase', flexShrink: 0 }}>
+                                {englishCopy.name}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ margin: '5px 0 0', color: 'rgba(203, 213, 225, 0.72)', fontSize: '10px', lineHeight: 1.25, fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {sectorCopy.desc}
+                          </p>
+                        </div>
+                        <div style={{
+                          color: toneColor,
+                          background: isUp ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)',
+                          border: isUp ? '1px solid rgba(16,185,129,0.22)' : '1px solid rgba(239,68,68,0.22)',
+                          borderRadius: '999px',
+                          padding: '5px 8px',
+                          fontSize: '12px',
+                          fontWeight: 950,
+                          lineHeight: 1,
+                          flexShrink: 0,
+                          fontFamily: 'var(--font-mono), monospace'
+                        }}>
+                          {formatPercentCompact(sec.change)}
+                        </div>
+                      </div>
+
+                      <div style={{
+                        marginTop: '9px',
+                        padding: '9px 10px 10px',
+                        borderRadius: '13px',
+                        background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.50), rgba(8, 47, 73, 0.18))',
+                        border: `1px solid ${sec.color}24`,
+                        color: 'rgba(226, 232, 240, 0.90)',
+                        fontSize: '11px',
+                        lineHeight: 1.42,
+                        fontWeight: 760,
+                        maxHeight: '62px',
+                        overflowY: 'auto',
+                        overscrollBehavior: 'contain',
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: `${sec.color}66 rgba(15,23,42,0.36)`,
+                        position: 'relative',
+                        boxShadow: 'inset 0 -16px 20px rgba(2, 6, 23, 0.16)'
+                      }}>
+                        <Target size={12} style={{ color: sec.color, marginRight: '5px', verticalAlign: '-2px' }} />
+                        <span style={{ color: sec.color, fontWeight: 950 }}>{labels.aiRead}</span>
+                        <span style={{ color: 'rgba(148, 163, 184, 0.70)' }}> - </span>
+                        {aiLine}
+                      </div>
+
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '6px',
+                        marginTop: '9px'
+                      }}>
+                        {[
+                          { label: appCopy.pulse, value: `${sec.gammaPulse.pct > 0 ? '+' : ''}${sec.gammaPulse.pct}`, sub: pulseLabel, color: pulseColor },
+                          { label: labels.lead, value: topStock?.ticker || '-', sub: topStock ? `${formatPercentCompact(topStock.changePct || 0)} / Alpha ${topStock.alphaScore || '-'}` : regimeText, color: topStock && (topStock.changePct || 0) < 0 ? '#ef4444' : '#10b981' }
+                        ].map(metric => (
+                          <div key={metric.label} style={{
+                            minWidth: 0,
+                            borderRadius: '12px',
+                            padding: '8px 9px',
+                            background: 'rgba(15, 23, 42, 0.54)',
+                            border: '1px solid rgba(148, 163, 184, 0.10)'
+                          }}>
+                            <div style={{ color: 'rgba(148, 163, 184, 0.82)', fontSize: '8px', fontWeight: 900, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {metric.label}
+                            </div>
+                            <div style={{ marginTop: '4px', color: metric.color, fontSize: '13px', fontWeight: 950, lineHeight: 1 }}>
+                              {metric.value}
+                            </div>
+                            <div style={{ marginTop: '4px', color: 'rgba(203, 213, 225, 0.60)', fontSize: '8px', fontWeight: 750, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {metric.sub}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap: '5px',
+                        marginTop: '8px'
+                      }}>
+                        {tapeMetrics.map(metric => (
+                          <div key={metric.label} style={{
+                            minWidth: 0,
+                            borderRadius: '10px',
+                            padding: '7px 6px',
+                            background: 'rgba(2, 6, 23, 0.36)',
+                            border: '1px solid rgba(148, 163, 184, 0.08)'
+                          }}>
+                            <div style={{ color: 'rgba(148, 163, 184, 0.78)', fontSize: '7.5px', fontWeight: 950, letterSpacing: '0.03em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {metric.label}
+                            </div>
+                            <div style={{ marginTop: '4px', color: metric.color, fontSize: '11px', fontWeight: 950, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {metric.value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginTop: '10px' }}>
+                        <div style={{ display: 'flex', gap: '4px', minWidth: 0, overflow: 'hidden' }}>
+                          <span style={{
+                            fontSize: '9px',
+                            fontWeight: 900,
+                            background: 'rgba(34,211,238,0.07)',
+                            border: '1px solid rgba(34,211,238,0.14)',
+                            borderRadius: '999px',
+                            padding: '3px 6px',
+                            color: '#67e8f9',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {labels.coverage} {coverage}
+                          </span>
+                          {sec.stocks.slice(0, 4).map(sym => (
+                            <span key={sym} style={{
+                              fontSize: '9px',
+                              fontWeight: 850,
+                              background: 'rgba(255,255,255,0.035)',
+                              border: '1px solid rgba(255,255,255,0.07)',
+                              borderRadius: '999px',
+                              padding: '3px 6px',
+                              color: 'rgba(203, 213, 225, 0.76)',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {sym}
+                            </span>
+                          ))}
+                        </div>
+                        <ChevronRight size={16} color="rgba(148, 163, 184, 0.70)" style={{ flexShrink: 0 }} />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {(index === 2 || index === 5) && (
+                  <div style={{ height: '1px', margin: '2px 18px', background: 'linear-gradient(90deg, transparent, rgba(34,211,238,0.16), transparent)' }} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
+      {false && !selectedSector && intelTab === 'sector' && (
         <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 16px' }}>
           {SECTOR_CONFIGS.map((sec, index) => {
             const nameKey = sec.id;
@@ -1931,6 +3064,17 @@ export default function AppIntelPage() {
                         };
                         const gc = gradeColors[stock.grade] || gradeColors['B'];
                         const isExpanded = expandedStock === stock.sym;
+                        const aiAnalysis = stockAiAnalyses[stock.sym];
+                        const localizedAiText = aiAnalysis?.[appLocale] || aiAnalysis?.en || '';
+                        const isAiPending = Boolean(stockAiLoading[stock.sym]) && !localizedAiText;
+                        const structuralBrief = stock.analysisKr || getStockAnalyticalBrief(stock, appLocale);
+                        const briefText = localizedAiText || structuralBrief;
+                        const aiSourceLabel = localizedAiText ? 'CLAUDE' : isAiPending ? 'LOADING' : 'STRUCTURAL';
+                        const loadingCopy = appLocale === 'ko'
+                          ? 'AI 분석을 불러오는 중입니다. 캐시가 있으면 즉시 표시됩니다.'
+                          : appLocale === 'ja'
+                            ? 'AI分析を読み込み中です。キャッシュがあればすぐ表示されます。'
+                            : 'Loading AI analysis. Cached results appear instantly when available.';
 
                         return (
                           <div key={stock.sym}>
@@ -2026,50 +3170,131 @@ export default function AppIntelPage() {
 
                                 {/* Gamma Tunnel Visualization */}
                                 {stock.putFloor && stock.callWall && stock.closePrice && stock.putFloor > 0 && stock.callWall > 0 ? (
-                                  <div style={{ marginBottom: '12px' }}>
-                                    <div style={{ fontSize: '9.5px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '6px' }}>
-                                      GAMMA TUNNEL
-                                    </div>
-                                    <div style={{ position: 'relative', height: '28px', background: 'rgba(255,255,255,0.03)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                                      {/* Gradient fill */}
-                                      <div style={{
-                                        position: 'absolute', inset: 0, borderRadius: '14px',
-                                        background: `linear-gradient(90deg, rgba(239,68,68,0.15), rgba(245,158,11,0.08) 50%, rgba(16,185,129,0.15))`
-                                      }} />
-                                      {/* Labels */}
-                                      <div style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 700, color: '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>
-                                        ${stock.putFloor.toFixed(0)}
-                                      </div>
-                                      <div style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 700, color: '#10b981', fontFamily: 'var(--font-mono), monospace' }}>
-                                        ${stock.callWall.toFixed(0)}
-                                      </div>
-                                      {/* MaxPain marker */}
-                                      {stock.maxPain && stock.maxPain > 0 && (() => {
-                                        const mpPct = ((stock.maxPain! - stock.putFloor!) / (stock.callWall! - stock.putFloor!)) * 100;
-                                        return mpPct >= 0 && mpPct <= 100 ? (
-                                          <div style={{ position: 'absolute', left: `${mpPct}%`, top: '50%', transform: 'translate(-50%, -50%)', width: '2px', height: '16px', background: '#f59e0b', borderRadius: '1px', opacity: 0.6 }} />
-                                        ) : null;
-                                      })()}
-                                      {/* Price dot */}
-                                      {(() => {
-                                        const pricePct = Math.min(100, Math.max(0, ((stock.closePrice! - stock.putFloor!) / (stock.callWall! - stock.putFloor!)) * 100));
-                                        return (
+                                  (() => {
+                                    const floor = stock.putFloor || 0;
+                                    const wall = stock.callWall || 0;
+                                    const price = stock.closePrice || 0;
+                                    const maxPain = stock.maxPain || 0;
+                                    const range = wall - floor;
+                                    if (range <= 0) return null;
+                                    const pricePct = clampPct(((price - floor) / range) * 100);
+                                    const maxPainPct = maxPain > 0 ? clampPct(((maxPain - floor) / range) * 100) : null;
+                                    const maxPainShift = maxPainPct !== null && Math.abs(maxPainPct - pricePct) < 13
+                                      ? (maxPainPct <= pricePct ? -18 : 18)
+                                      : 0;
+                                    const tunnelCopy = appLocale === 'ko'
+                                      ? { title: 'GAMMA TUNNEL', floor: 'Put Floor', wall: 'Call Wall', maxPain: 'MaxPain', spot: 'Spot' }
+                                      : appLocale === 'ja'
+                                        ? { title: 'GAMMA TUNNEL', floor: 'Put Floor', wall: 'Call Wall', maxPain: 'MaxPain', spot: 'Spot' }
+                                        : { title: 'GAMMA TUNNEL', floor: 'Put Floor', wall: 'Call Wall', maxPain: 'MaxPain', spot: 'Spot' };
+
+                                    return (
+                                      <div style={{ marginBottom: '14px' }}>
+                                        <div style={{ fontSize: '9.5px', fontWeight: 800, color: 'rgba(148, 163, 184, 0.72)', letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '8px' }}>
+                                          {tunnelCopy.title}
+                                        </div>
+                                        <div style={{
+                                          position: 'relative',
+                                          minHeight: '74px',
+                                          borderRadius: '14px',
+                                          border: '1px solid rgba(34, 211, 238, 0.10)',
+                                          background: 'linear-gradient(145deg, rgba(15,23,42,0.58), rgba(2,6,23,0.42))',
+                                          padding: '18px 12px 10px',
+                                          overflow: 'hidden',
+                                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)'
+                                        }}>
                                           <div style={{
-                                            position: 'absolute', left: `${pricePct}%`, top: '50%',
-                                            transform: 'translate(-50%, -50%)',
-                                            width: '10px', height: '10px', borderRadius: '50%',
-                                            background: '#ffffff', border: '2px solid rgba(0,0,0,0.3)',
-                                            boxShadow: '0 0 8px rgba(255,255,255,0.5)'
-                                          }} />
-                                        );
-                                      })()}
-                                    </div>
-                                    {stock.maxPain && stock.maxPain > 0 && (
-                                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                        <span style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-mono), monospace' }}>MaxPain ${stock.maxPain.toFixed(0)}</span>
+                                            position: 'relative',
+                                            height: '18px',
+                                            borderRadius: '999px',
+                                            background: 'linear-gradient(90deg, rgba(239,68,68,0.34), rgba(245,158,11,0.26) 45%, rgba(16,185,129,0.34))',
+                                            border: '1px solid rgba(255,255,255,0.06)',
+                                            boxShadow: 'inset 0 0 18px rgba(0,0,0,0.34)'
+                                          }}>
+                                            <div style={{ position: 'absolute', inset: '0 8px', background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 9px)', opacity: 0.55 }} />
+
+                                            {maxPainPct !== null && (
+                                              <>
+                                                <div style={{
+                                                  position: 'absolute',
+                                                  left: `${maxPainPct}%`,
+                                                  top: '-8px',
+                                                  bottom: '-8px',
+                                                  width: '2px',
+                                                  borderRadius: '2px',
+                                                  background: '#f59e0b',
+                                                  boxShadow: '0 0 10px rgba(245,158,11,0.65)',
+                                                  transform: 'translateX(-50%)'
+                                                }} />
+                                                <div style={{
+                                                  position: 'absolute',
+                                                  left: `calc(${maxPainPct}% + ${maxPainShift}px)`,
+                                                  top: '22px',
+                                                  transform: 'translateX(-50%)',
+                                                  padding: '3px 7px',
+                                                  borderRadius: '7px',
+                                                  background: 'rgba(245, 158, 11, 0.16)',
+                                                  border: '1px solid rgba(245, 158, 11, 0.32)',
+                                                  color: '#fbbf24',
+                                                  fontSize: '9px',
+                                                  fontWeight: 900,
+                                                  fontFamily: 'var(--font-mono), monospace',
+                                                  whiteSpace: 'nowrap',
+                                                  zIndex: 4,
+                                                  boxShadow: '0 8px 16px rgba(0,0,0,0.24)'
+                                                }}>
+                                                  {tunnelCopy.maxPain} ${maxPain.toFixed(0)}
+                                                </div>
+                                              </>
+                                            )}
+
+                                            <div style={{
+                                              position: 'absolute',
+                                              left: `${pricePct}%`,
+                                              top: '-18px',
+                                              transform: 'translateX(-50%)',
+                                              padding: '3px 8px',
+                                              borderRadius: '8px',
+                                              background: '#06b6d4',
+                                              color: '#00121a',
+                                              fontSize: '10px',
+                                              fontWeight: 950,
+                                              fontFamily: 'var(--font-mono), monospace',
+                                              whiteSpace: 'nowrap',
+                                              zIndex: 5,
+                                              boxShadow: '0 0 14px rgba(34,211,238,0.46)'
+                                            }}>
+                                              ${price.toFixed(2)}
+                                            </div>
+                                            <div style={{
+                                              position: 'absolute',
+                                              left: `${pricePct}%`,
+                                              top: '50%',
+                                              transform: 'translate(-50%, -50%)',
+                                              width: '12px',
+                                              height: '12px',
+                                              borderRadius: '50%',
+                                              background: '#e0faff',
+                                              border: '2px solid #06b6d4',
+                                              boxShadow: '0 0 0 4px rgba(34,211,238,0.14), 0 0 16px rgba(34,211,238,0.75)',
+                                              zIndex: 5
+                                            }} />
+                                          </div>
+
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '26px', gap: '10px' }}>
+                                            <div style={{ minWidth: 0 }}>
+                                              <div style={{ fontSize: '9px', fontWeight: 900, color: '#fb7185', letterSpacing: '0.04em' }}>{tunnelCopy.floor}</div>
+                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#fecdd3', fontFamily: 'var(--font-mono), monospace' }}>${floor.toFixed(0)}</div>
+                                            </div>
+                                            <div style={{ minWidth: 0, textAlign: 'right' }}>
+                                              <div style={{ fontSize: '9px', fontWeight: 900, color: '#34d399', letterSpacing: '0.04em' }}>{tunnelCopy.wall}</div>
+                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#bbf7d0', fontFamily: 'var(--font-mono), monospace' }}>${wall.toFixed(0)}</div>
+                                            </div>
+                                          </div>
+                                        </div>
                                       </div>
-                                    )}
-                                  </div>
+                                    );
+                                  })()
                                 ) : null}
 
                                 {/* Expanded Sparkline */}
@@ -2084,26 +3309,64 @@ export default function AppIntelPage() {
 
                                 {/* AI Analytical Brief */}
                                 <div style={{
-                                  background: 'rgba(245,158,11,0.04)',
-                                  borderLeft: '2px solid #f59e0b',
-                                  borderRadius: '0 10px 10px 0',
-                                  padding: '12px 14px'
+                                  background: 'linear-gradient(145deg, rgba(245,158,11,0.08), rgba(15,23,42,0.72) 48%, rgba(2,6,23,0.72))',
+                                  border: '1px solid rgba(245,158,11,0.18)',
+                                  borderLeft: '3px solid #f59e0b',
+                                  borderRadius: '0 14px 14px 0',
+                                  padding: '13px 14px',
+                                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 12px 24px rgba(0,0,0,0.18)'
                                 }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                    <Sparkles style={{ width: '12px', height: '12px', color: '#f59e0b' }} />
-                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#f59e0b', letterSpacing: '0.08em', fontFamily: 'var(--font-mono), monospace' }}>
-                                      AI ANALYTICAL BRIEF
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                      <Sparkles style={{ width: '12px', height: '12px', color: '#f59e0b', flexShrink: 0 }} />
+                                      <span style={{ fontSize: '10px', fontWeight: 900, color: '#f59e0b', letterSpacing: '0.08em', fontFamily: 'var(--font-mono), monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {getBriefTitle(appLocale)}
+                                      </span>
+                                    </div>
+                                    <span style={{
+                                      flexShrink: 0,
+                                      fontSize: '8.5px',
+                                      fontWeight: 900,
+                                      color: localizedAiText ? '#67e8f9' : isAiPending ? '#fbbf24' : '#94a3b8',
+                                      background: localizedAiText ? 'rgba(6,182,212,0.12)' : isAiPending ? 'rgba(245,158,11,0.12)' : 'rgba(148,163,184,0.10)',
+                                      border: localizedAiText ? '1px solid rgba(6,182,212,0.24)' : isAiPending ? '1px solid rgba(245,158,11,0.24)' : '1px solid rgba(148,163,184,0.16)',
+                                      borderRadius: '999px',
+                                      padding: '3px 7px',
+                                      letterSpacing: '0.06em',
+                                      fontFamily: 'var(--font-mono), monospace'
+                                    }}>
+                                      {aiSourceLabel}
                                     </span>
                                   </div>
                                   <div style={{ fontSize: '13px', lineHeight: 1.6, color: 'rgba(255,255,255,0.75)' }}>
-                                    {formatVerdictText(
-                                      stock.analysisKr ||
-                                      `${stock.sym} is trading at $${(stock.closePrice || 0).toFixed(2)}. ${
-                                        stock.gammaRegime === 'SHORT'
-                                          ? `SHORT gamma regime active — elevated volatility expected. ${stock.pcr && stock.pcr < 0.8 ? 'Bullish flow bias detected.' : 'Hedging pressure visible.'}`
-                                          : `LONG gamma provides structural support. ${stock.pcr && stock.pcr < 0.9 ? 'Dealer positioning favors upside continuation.' : 'Neutral flow environment.'}`
-                                      } Context Score: ${Math.round(stock.score)}/100 (${stock.grade}).`
+                                    {isAiPending ? (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ color: 'rgba(226,232,240,0.72)' }}>{loadingCopy}</div>
+                                        <div className="app-skeleton" style={{ width: '100%', height: '9px', borderRadius: '999px' }} />
+                                        <div className="app-skeleton" style={{ width: '82%', height: '9px', borderRadius: '999px' }} />
+                                      </div>
+                                    ) : (
+                                      formatVerdictText(briefText)
                                     )}
+                                  </div>
+                                  <div style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '7px',
+                                    marginTop: '10px',
+                                    padding: '9px 10px',
+                                    borderRadius: '10px',
+                                    background: 'rgba(15, 23, 42, 0.58)',
+                                    border: '1px solid rgba(245, 158, 11, 0.16)',
+                                    color: 'rgba(226, 232, 240, 0.72)',
+                                    fontSize: '10px',
+                                    lineHeight: 1.45,
+                                    fontWeight: 650
+                                  }}>
+                                    <span style={{ color: '#f59e0b', fontWeight: 900, whiteSpace: 'nowrap' }}>
+                                      {complianceCopy.aiBadge}
+                                    </span>
+                                    <span>{complianceCopy.aiNote}</span>
                                   </div>
                                   {/* Regime Badge */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
@@ -2208,7 +3471,7 @@ export default function AppIntelPage() {
                             QUANT COMMANDER
                           </div>
                           <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
-                            &quot;{SECTOR_CONFIGS.find(s => s.id === selectedSector)?.commanderLog || 'Awaiting signal...'}&quot;
+                            &quot;{getCommanderLogCopy(selectedSector, appLocale, SECTOR_CONFIGS.find(s => s.id === selectedSector)?.commanderLog)}&quot;
                           </div>
                         </div>
                       </div>
@@ -2271,22 +3534,57 @@ export default function AppIntelPage() {
                       transition: 'max-height 0.35s ease, opacity 0.25s ease'
                     }}>
                       <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                        {reportData.catalysts.map((catalyst, idx) => (
-                          <div key={idx} style={{
-                            display: 'flex', gap: '10px', padding: '10px 0',
-                            borderBottom: idx < reportData.catalysts.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'
-                          }}>
-                            <span style={{
-                              fontSize: '13px', fontWeight: 800, color: '#22d3ee',
-                              fontFamily: 'var(--font-mono), monospace', flexShrink: 0, minWidth: '24px'
+                        {reportData.catalysts.map((catalyst, idx) => {
+                          const catalystSymbol = findCatalystSymbol(
+                            catalyst,
+                            reportData.keyStocksData.map((stock) => stock.sym)
+                          );
+                          const catalystText = stripCatalystLead(catalyst, catalystSymbol);
+
+                          return (
+                            <div key={idx} style={{
+                              display: 'grid',
+                              gridTemplateColumns: '24px minmax(64px, max-content) 1fr',
+                              alignItems: 'start',
+                              gap: '8px',
+                              padding: '10px 0',
+                              borderBottom: idx < reportData.catalysts.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'
                             }}>
-                              {String(idx + 1).padStart(2, '0')}
-                            </span>
-                            <span style={{ fontSize: '13px', lineHeight: 1.5, color: 'rgba(255,255,255,0.7)' }}>
-                              {formatVerdictText(catalyst)}
-                            </span>
-                          </div>
-                        ))}
+                              <span style={{
+                                fontSize: '13px', fontWeight: 800, color: '#22d3ee',
+                                fontFamily: 'var(--font-mono), monospace', flexShrink: 0, minWidth: '24px',
+                                paddingTop: catalystSymbol ? '3px' : 0
+                              }}>
+                                {String(idx + 1).padStart(2, '0')}
+                              </span>
+                              {catalystSymbol ? (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  minWidth: 0,
+                                  paddingTop: '1px'
+                                }}>
+                                  <StockLogo symbol={catalystSymbol} size={22} />
+                                  <span style={{
+                                    fontSize: '12.5px',
+                                    fontWeight: 850,
+                                    color: '#ffffff',
+                                    fontFamily: 'var(--font-mono), monospace',
+                                    letterSpacing: '0.01em'
+                                  }}>
+                                    {catalystSymbol}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span />
+                              )}
+                              <span style={{ fontSize: '13px', lineHeight: 1.5, color: 'rgba(255,255,255,0.7)', minWidth: 0 }}>
+                                {formatVerdictText(catalystText)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -2294,6 +3592,7 @@ export default function AppIntelPage() {
 
                 {/* ═══ SECTION 5: EARNINGS CALENDAR (Accordion — Weekly Grouping) ═══ */}
                 {(() => {
+                  const earningsCopy = EARNINGS_APP_COPY[appLocale];
                   const earningsStocks = reportData.keyStocksData.map((stock, idx) => {
                     const daysOut = 7 + idx * 12 + Math.floor((stock.score || 50) % 20);
                     const earningsDate = new Date();
@@ -2310,9 +3609,9 @@ export default function AppIntelPage() {
                   endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
 
                   const groups: { label: string; items: typeof earningsStocks }[] = [
-                    { label: 'THIS WEEK', items: earningsStocks.filter(e => e.date <= endOfThisWeek) },
-                    { label: 'NEXT WEEK', items: earningsStocks.filter(e => e.date > endOfThisWeek && e.date <= endOfNextWeek) },
-                    { label: 'LATER', items: earningsStocks.filter(e => e.date > endOfNextWeek) },
+                    { label: earningsCopy.thisWeek, items: earningsStocks.filter(e => e.date <= endOfThisWeek) },
+                    { label: earningsCopy.nextWeek, items: earningsStocks.filter(e => e.date > endOfThisWeek && e.date <= endOfNextWeek) },
+                    { label: earningsCopy.later, items: earningsStocks.filter(e => e.date > endOfNextWeek) },
                   ].filter(g => g.items.length > 0);
 
                   return (
@@ -2331,12 +3630,12 @@ export default function AppIntelPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <BarChart3 style={{ width: '14px', height: '14px', color: '#a78bfa' }} />
                           <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.08em', fontFamily: 'var(--font-mono), monospace', textTransform: 'uppercase' as const }}>
-                            EARNINGS CALENDAR
+                            {earningsCopy.title}
                           </span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.2)', letterSpacing: '0.05em' }}>
-                            UPCOMING
+                            {earningsCopy.upcoming}
                           </span>
                           <ChevronRight style={{
                             width: '16px', height: '16px', color: 'rgba(255,255,255,0.3)',
@@ -2397,7 +3696,7 @@ export default function AppIntelPage() {
                                     {/* Date + Days Left */}
                                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                       <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--font-mono), monospace' }}>
-                                        {earning.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        {formatEarningsDate(earning.date, appLocale)}
                                       </div>
                                       <div style={{
                                         fontSize: '10px', fontWeight: 800, fontFamily: 'var(--font-mono), monospace',

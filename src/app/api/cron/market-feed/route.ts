@@ -80,6 +80,9 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
 
         const change = price - prevClose;
         const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
+        const marketTime = typeof meta.regularMarketTime === 'number'
+            ? new Date(meta.regularMarketTime * 1000).toISOString()
+            : undefined;
 
         return {
             symbol,
@@ -88,6 +91,9 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
             change,
             changePct,
             updatedAt: new Date().toISOString(),
+            marketTime,
+            marketState: meta.marketState,
+            exchangeTimezoneName: meta.exchangeTimezoneName,
             source: 'YAHOO',
             isStale: false,
         };

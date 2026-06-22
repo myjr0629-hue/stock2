@@ -3,19 +3,137 @@
 // [V5] Uses Alpha Engine V5 (calculateAlphaScore) with FULL data enrichment
 // [V5] Macro + Flow + Catalyst data = absolute alpha scores identical to reports
 
-import { NextResponse } from 'next/server';
 import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
-import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
+import { getAnalysisCacheForTickers, writeAnalysisCache } from '@/services/analysisCache';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
+
+type WatchlistBatchMode = 'full' | 'price' | 'price-dp' | 'ssr';
+
+const EC2_REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
+const EC2_REDIS_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const INST_LAST_PREFIX = 'cache:inst-last:';
+const INST_LAST_TTL = 259200;
+
+async function readLastKnownTradeData(ticker: string) {
+    try {
+        const lastKnown = await getFromCache<any>(`${INST_LAST_PREFIX}${ticker}`);
+        if (!lastKnown) return null;
+        const darkPoolPercent = typeof lastKnown.darkPool?.percent === 'number' ? lastKnown.darkPool.percent : 0;
+        const blockTrades = typeof lastKnown.blockTrade?.count === 'number' ? lastKnown.blockTrade.count : 0;
+        if (darkPoolPercent <= 0 && blockTrades <= 0) return null;
+        return {
+            darkPoolPercent,
+            blockTrades,
+            blockVolume: typeof lastKnown.blockTrade?.volume === 'number' ? lastKnown.blockTrade.volume : 0,
+            netBuyValue: typeof lastKnown.darkPool?.netBuyValue === 'number' ? lastKnown.darkPool.netBuyValue : 0,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function normalizeTradeMetrics(rawMetrics: any) {
+    if (!rawMetrics) return null;
+    const metrics = typeof rawMetrics === 'string' ? JSON.parse(rawMetrics) : rawMetrics;
+    const darkPoolPercent = typeof metrics.darkPool?.percent === 'number' ? metrics.darkPool.percent : 0;
+    const blockTrades = typeof metrics.blockTrade?.count === 'number' ? metrics.blockTrade.count : 0;
+    if (darkPoolPercent <= 0 && blockTrades <= 0) return null;
+
+    return {
+        darkPoolPercent,
+        blockTrades,
+        blockVolume: typeof metrics.blockTrade?.volume === 'number' ? metrics.blockTrade.volume : 0,
+        netBuyValue: typeof metrics.darkPool?.netBuyValue === 'number' ? metrics.darkPool.netBuyValue : 0,
+    };
+}
+
+function normalizeTradeData(tradeData: Awaited<ReturnType<typeof fetchTradeData>>) {
+    if (!tradeData) return null;
+    if ((tradeData.darkPoolPercent ?? 0) <= 0 && (tradeData.blockTrades ?? 0) <= 0) return null;
+
+    return {
+        darkPoolPercent: tradeData.darkPoolPercent ?? 0,
+        blockTrades: tradeData.blockTrades ?? 0,
+        blockVolume: tradeData.blockVolume ?? 0,
+        netBuyValue: tradeData.netBuyValue ?? 0,
+    };
+}
+
+async function fetchCachedTradeDataOnly(ticker: string, timeoutMs = 3200) {
+    try {
+        const lastKnownPromise = readLastKnownTradeData(ticker);
+        let payload = normalizeTradeMetrics(await getFromCache<any>(`rt-metrics:${ticker}`).catch(() => null));
+
+        if (!payload) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+            try {
+                const proxyRes = await fetch(
+                    `${EC2_REDIS_PROXY}/get?key=${encodeURIComponent(`rt-metrics:${ticker}`)}`,
+                    {
+                        headers: { 'Authorization': `Bearer ${EC2_REDIS_PROXY_KEY}` },
+                        signal: controller.signal,
+                        cache: 'no-store',
+                    }
+                );
+
+                if (proxyRes.ok) {
+                    const proxyData = await proxyRes.json();
+                    payload = normalizeTradeMetrics(proxyData?.result);
+                }
+            } catch {
+                // Fall through to the last known institutional snapshot below.
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
+        if (!payload) {
+            const lastKnown = await lastKnownPromise;
+            if (lastKnown) return lastKnown;
+
+            const tradeDeadline = new Promise<null>(resolve => setTimeout(() => resolve(null), timeoutMs + 1200));
+            payload = normalizeTradeData(await Promise.race([
+                fetchTradeData(ticker).catch(() => null),
+                tradeDeadline,
+            ]));
+        }
+
+        if (!payload) return null;
+
+        const lastKnown = await lastKnownPromise;
+        const mergedPayload = {
+            darkPoolPercent: payload.darkPoolPercent > 0 ? payload.darkPoolPercent : (lastKnown?.darkPoolPercent ?? 0),
+            blockTrades: payload.blockTrades > 0 ? payload.blockTrades : (lastKnown?.blockTrades ?? 0),
+            blockVolume: payload.blockVolume > 0 ? payload.blockVolume : (lastKnown?.blockVolume ?? 0),
+            netBuyValue: payload.netBuyValue !== 0 ? payload.netBuyValue : (lastKnown?.netBuyValue ?? 0),
+        };
+
+        if (mergedPayload.darkPoolPercent > 0 || mergedPayload.blockTrades > 0) {
+            await setInCache(`${INST_LAST_PREFIX}${ticker}`, {
+                darkPool: { percent: mergedPayload.darkPoolPercent, netBuyValue: mergedPayload.netBuyValue },
+                blockTrade: { count: mergedPayload.blockTrades, volume: mergedPayload.blockVolume },
+                _ts: Date.now(),
+                _source: 'ec2-flow-accumulator',
+            }, INST_LAST_TTL).catch(() => {});
+            return mergedPayload;
+        }
+
+        return null;
+    } catch {
+        return readLastKnownTradeData(ticker);
+    }
+}
 
 // [PERF] Lightweight stock data fetcher - skips chart data entirely
 // Same data sources as getStockData(), minus getStockChartData() (which downloads 1000+ minute bars)
@@ -119,7 +237,7 @@ async function getStockDataLight(symbol: string) {
 // Exported separately so it can be called seamlessly during SSR (Server Components)
 // without creating mock Request objects or failing on absolute URL resolution
 // ============================================================================
-export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
+export async function processWatchlistBatch(tickers: string[], mode: WatchlistBatchMode = 'full') {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
@@ -310,8 +428,21 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
 
             // 🔥 [SSR FAST-TRACK / STEP 3] SSR initial render: Bypass heavy computations & EC2 calls
             // Returns the Stale cache natively in 0.05s to eliminate Skeleton Hang completely
-            if (mode === 'ssr' || mode === 'price') {
+            if (mode === 'ssr' || mode === 'price' || mode === 'price-dp') {
                 const refPrice = base.extendedPrice || base.displayPrice;
+                const cachedTradeData = mode === 'price-dp'
+                    ? await fetchCachedTradeDataOnly(ticker)
+                    : null;
+                const fastDarkPoolPct = (cachedTradeData?.darkPoolPercent && cachedTradeData.darkPoolPercent > 0)
+                    ? cachedTradeData.darkPoolPercent
+                    : (analysis.darkPoolPct ?? 0);
+                const fastBlockTrades = cachedTradeData?.blockTrades ?? null;
+                const fastWhaleIndex = calculateWhaleIndex(
+                    analysis.gex,
+                    fastDarkPoolPct,
+                    fastBlockTrades,
+                    analysis.netPremium
+                );
                 return {
                     ticker,
                     alphaSnapshot: analysis.alphaSnapshot || null,
@@ -327,9 +458,9 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                         gex: analysis.gex ?? null,
                         gexM: analysis.gexM ?? null,
                         pcr: analysis.pcr ?? null,
-                        whaleIndex: calculateWhaleIndex(analysis.gex, analysis.darkPoolPct, null, analysis.netPremium),
+                        whaleIndex: fastWhaleIndex,
                         whaleConfidence: analysis.whaleConfidence ?? 'NONE',
-                        darkPoolPct: analysis.darkPoolPct ?? 0,
+                        darkPoolPct: fastDarkPoolPct,
                         squeezeScore: analysis.squeezeScore ?? null,
                         ivSkew: (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null,
                         impliedMovePct: analysis.impliedMovePct ?? null,
@@ -340,6 +471,9 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                         callWall: analysis.callWall ?? null,
                         putFloor: analysis.putFloor ?? null,
                         netPremium: analysis.netPremium ?? null,
+                        blockTrades: fastBlockTrades,
+                        blockVolume: cachedTradeData?.blockVolume ?? null,
+                        netBuyValue: cachedTradeData?.netBuyValue ?? null,
                         volume: base.volume ?? 0,
                         relVol: analysis.relVol ?? 0,
                         extendedPrice: base.extendedPrice ?? null,
@@ -477,8 +611,15 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         // ============================================
         // B. CACHE MISS & FAST MODE (PRICE | SSR)
         // ============================================
-        if (mode === 'price' || mode === 'ssr') {
+        if (mode === 'price' || mode === 'price-dp' || mode === 'ssr') {
             const base = buildBasePrice();  // CACHE MISS + fast mode: no dailyCloses available, falls back to 0
+            const cachedTradeData = mode === 'price-dp'
+                ? await fetchCachedTradeDataOnly(ticker)
+                : null;
+            const fastDarkPoolPct = (cachedTradeData?.darkPoolPercent && cachedTradeData.darkPoolPercent > 0)
+                ? cachedTradeData.darkPoolPercent
+                : 0;
+            const fastBlockTrades = cachedTradeData?.blockTrades ?? null;
 
             return {
                 ticker,
@@ -490,7 +631,12 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     extendedChangePct: base.extendedChangePct,
                     extendedLabel: base.extendedLabel,
                     volume: base.volume,
-                    vwap: base.vwap
+                    vwap: base.vwap,
+                    whaleIndex: calculateWhaleIndex(null, fastDarkPoolPct, fastBlockTrades, null),
+                    darkPoolPct: fastDarkPoolPct,
+                    blockTrades: fastBlockTrades,
+                    blockVolume: cachedTradeData?.blockVolume ?? null,
+                    netBuyValue: cachedTradeData?.netBuyValue ?? null,
                 }
             };
         }
@@ -516,6 +662,11 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 // 빠른 응답을 유지하되, Polygon의 가벼운 Price+Aggs 데이터만 추가 병렬 호출하여 스파크라인과 3D리턴 복구.
                 const stockData = await getStockDataLight(ticker).catch(() => null);
                 const base = buildBasePrice(stockData?.dailyResults?.map((d: any) => d.close));
+                const dynamoCachedTradeData = await fetchCachedTradeDataOnly(ticker);
+                const dynamoDarkPoolPct = (dynamoCachedTradeData?.darkPoolPercent && dynamoCachedTradeData.darkPoolPercent > 0)
+                    ? dynamoCachedTradeData.darkPoolPercent
+                    : (dynAny.institutional?.darkPool?.percent || 0);
+                const dynamoBlockTrades = dynamoCachedTradeData?.blockTrades ?? null;
 
                 // Build analysisEntry from DynamoDB data and write to Redis cache
                 const dynamoAnalysis: Record<string, any> = {
@@ -535,9 +686,12 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     gammaFlipLevel: gd?.gammaFlipLevel || null,
                     squeezeScore: dynAny.squeeze?.riskScore ?? null,
                     iv: dynAny.volatility?.iv || null,
-                    whaleIndex: calculateWhaleIndex(gd?.netGex, dynAny.institutional?.darkPool?.percent || 0, null, null),
+                    whaleIndex: calculateWhaleIndex(gd?.netGex, dynamoDarkPoolPct, dynamoBlockTrades, null),
                     whaleConfidence: (gd?.netGex != null) ? 'MED' : 'NONE',
-                    darkPoolPct: dynAny.institutional?.darkPool?.percent || 0,
+                    darkPoolPct: dynamoDarkPoolPct,
+                    blockTrades: dynamoBlockTrades,
+                    blockVolume: dynamoCachedTradeData?.blockVolume ?? null,
+                    netBuyValue: dynamoCachedTradeData?.netBuyValue ?? null,
                     netPremium: null,
                     vwapDist: null,
                     volume: base.volume || null,
@@ -680,7 +834,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
 
             // [FIX] Use getStockDataLight's changePct directly (snapshot-based, always correct)
             // Previously: dailyResults[-2] could be wrong date due to weekends/holidays
-            let changePct = stockData.changePercent || 0;
+            const changePct = stockData.changePercent || 0;
 
             let relVol: number | null = null;
             if (isREG) {
@@ -962,12 +1116,12 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 squeezeScore: alphaSqueezeScore ?? null,
                 relVol: relVol ?? null,
                 shortVolPct: shortVolPct ?? null,
-                callWall: directCallWall || structureRes?.callWall || null,
-                putFloor: directPutFloor || structureRes?.putFloor || null,
+                callWall: directCallWall || structureRes?.levels?.callWall || structureRes?.callWall || null,
+                putFloor: directPutFloor || structureRes?.levels?.putFloor || structureRes?.putFloor || null,
                 gammaFlipLevel: alphaGammaFlip ?? null,
                 return3D: return3D ?? null,
                 netPremium: netPremium ?? null,
-                ivSkew: typeof ivSkew === 'number' ? ivSkew : null,
+                ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
                 impliedMovePct: impliedMovePct ?? null,
             });
 

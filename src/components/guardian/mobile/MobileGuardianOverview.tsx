@@ -33,13 +33,95 @@ interface Props {
 }
 
 export default function MobileGuardianOverview({ data, loading, verdict, session }: Props) {
-    const t = useTranslations('guardian');
     const gt = useTranslations('gate');
     const locale = useLocale();
     const { status: marketStatusInfo } = useMarketStatus();
     const isMarketActive = getIsMarketActive(session, marketStatusInfo.isHoliday);
     const [insightTab, setInsightTab] = useState<'insight' | 'whatif'>('insight');
     const { data: fedwatch } = useSWR('/api/guardian/fedwatch', url => fetch(url).then(r => r.json()), { refreshInterval: 60000 });
+    const fwEase = typeof fedwatch?.ease === 'number' ? fedwatch.ease : 0;
+    const fwPause = typeof fedwatch?.noChange === 'number' ? fedwatch.noChange : 0;
+    const fwHike = typeof fedwatch?.hike === 'number' ? fedwatch.hike : 0;
+    const fwTotal = fwEase + fwPause + fwHike;
+    const hasFedwatch = fwTotal > 0;
+    const fwDominant = fwPause >= fwHike && fwPause >= fwEase ? 'pause' : fwHike >= fwEase ? 'hike' : 'cut';
+    const fwLocale = (locale === 'ko' || locale === 'ja' || locale === 'en') ? locale : 'en';
+    const fwText = {
+        ko: {
+            title: 'FOMC 경로 & 유동성',
+            fomcDday: 'FOMC',
+            baseCase: fwDominant === 'pause' ? '동결 우세' : fwDominant === 'hike' ? '인상 리스크 우세' : '인하 가능성 우세',
+            baseDesc: fwDominant === 'pause' ? '현재 확률은 동결을 기준 시나리오로 가리킵니다.' : fwDominant === 'hike' ? '시장 확률은 추가 긴축 리스크를 더 크게 반영합니다.' : '시장 확률은 완화 전환 가능성을 더 크게 반영합니다.',
+            cut: '인하',
+            pause: '동결',
+            hike: '인상',
+            base: '기준',
+            tail: '리스크',
+            low: '낮음',
+            range: '범위',
+            prob: '확률',
+            week: '1주 변화',
+            liquidity: '유동성',
+            safeHaven: '안전자산',
+            favorable: '우호적',
+            dry: '건조',
+            flight: '회피',
+            stable: '안정',
+            unavailable: 'FedWatch 데이터 대기 중',
+        },
+        en: {
+            title: 'FOMC Path & Liquidity',
+            fomcDday: 'FOMC',
+            baseCase: fwDominant === 'pause' ? 'Pause Base Case' : fwDominant === 'hike' ? 'Hike Risk Leads' : 'Cut Probability Leads',
+            baseDesc: fwDominant === 'pause' ? 'Current probabilities point to a hold as the base case.' : fwDominant === 'hike' ? 'Market probabilities are leaning toward additional tightening risk.' : 'Market probabilities are leaning toward an easing path.',
+            cut: 'Cut',
+            pause: 'Pause',
+            hike: 'Hike',
+            base: 'Base',
+            tail: 'Risk',
+            low: 'Low',
+            range: 'Range',
+            prob: 'Prob',
+            week: '1W Chg',
+            liquidity: 'Liquidity',
+            safeHaven: 'Safe Haven',
+            favorable: 'Favorable',
+            dry: 'Dry',
+            flight: 'Flight',
+            stable: 'Stable',
+            unavailable: 'Waiting for FedWatch data',
+        },
+        ja: {
+            title: 'FOMC経路 & 流動性',
+            fomcDday: 'FOMC',
+            baseCase: fwDominant === 'pause' ? '据え置き優勢' : fwDominant === 'hike' ? '利上げリスク優勢' : '利下げ確率優勢',
+            baseDesc: fwDominant === 'pause' ? '現在の確率は据え置きを基本シナリオとして示しています。' : fwDominant === 'hike' ? '市場確率は追加引き締めリスクをより強く反映しています。' : '市場確率は緩和方向への転換をより強く反映しています。',
+            cut: '利下げ',
+            pause: '据置',
+            hike: '利上げ',
+            base: '基準',
+            tail: 'リスク',
+            low: '低い',
+            range: 'レンジ',
+            prob: '確率',
+            week: '1週変化',
+            liquidity: '流動性',
+            safeHaven: '安全資産',
+            favorable: '良好',
+            dry: '低下',
+            flight: '逃避',
+            stable: '安定',
+            unavailable: 'FedWatchデータ待機中',
+        },
+    }[fwLocale];
+    const liquidityScore = data?.rlsi?.components?.liquidityScore ?? 50;
+    const safeHavenFlow = data?.rlsi?.components?.safeHavenFlow ?? 0;
+    const daysUntilFomc = typeof fedwatch?.daysUntilFomc === 'number' ? fedwatch.daysUntilFomc : null;
+    const fwScenarios = [
+        { key: 'cut', label: fwText.cut, value: fwEase, prev: fedwatch?.prevEase, color: 'var(--green)' },
+        { key: 'pause', label: fwText.pause, value: fwPause, prev: fedwatch?.prevNoChange, color: 'var(--cyan)' },
+        { key: 'hike', label: fwText.hike, value: fwHike, prev: fedwatch?.prevHike, color: 'var(--red)' },
+    ];
 
     return (
         <div className="space-y-3">
@@ -145,185 +227,99 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                 style={{ background: 'linear-gradient(180deg, rgba(139,92,246,0.10) 0%, rgba(139,92,246,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}>
                 <ProGate title="Macro Intelligence" fomoMessage={gt('fomoMacroBriefing')} description={gt('descMacroBriefing')} mode="blur" compact>
                     <div className="p-4 space-y-4">
-                        {/* Title */}
-                        <div className="flex items-center gap-2">
-                            <Landmark className="w-4 h-4 text-violet-400 shrink-0" />
-                            <h3 className="text-[13px] font-semibold uppercase tracking-[0.15em] text-violet-400 font-jakarta">
-                                FOMC FEDWATCH & LIQUIDITY
-                            </h3>
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <Landmark className="w-4 h-4 text-violet-400 shrink-0" />
+                                <div className="min-w-0">
+                                    <h3 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-violet-300 font-jakarta truncate">
+                                        {fwText.title}
+                                    </h3>
+                                </div>
+                            </div>
+                            <div className="shrink-0 rounded-full border border-violet-400/20 bg-violet-500/[0.08] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-violet-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                                <span className="font-jakarta">{fwText.fomcDday}</span>
+                                <span className="ml-1 font-mono tabular-nums">{daysUntilFomc !== null ? `D-${daysUntilFomc}` : '—'}</span>
+                            </div>
                         </div>
 
-                        {/* FedWatch Section */}
-                        <div className="space-y-2.5">
-                            <div className="flex justify-between items-baseline">
-                                <span className="text-[12.5px] font-medium text-slate-300 uppercase tracking-wider font-jakarta">Fed Rate Target Probability</span>
-                                <span className="text-[12px] font-mono text-slate-400 font-medium font-jakarta">Target: {fedwatch?.targetRate || '5.25% - 5.50%'}</span>
+                        <div className="rounded-2xl border border-violet-400/15 bg-violet-500/[0.045] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="text-[10.5px] font-black uppercase tracking-[0.13em] text-violet-300">
+                                        {fwDominant === 'pause' ? fwText.base : fwText.tail}
+                                    </div>
+                                    <div className="mt-1 text-[18px] font-black text-white tracking-[-0.01em]">
+                                        {hasFedwatch ? fwText.baseCase : fwText.unavailable}
+                                    </div>
+                                    <p className="mt-1.5 text-[12px] leading-relaxed text-slate-300">
+                                        {hasFedwatch ? fwText.baseDesc : ''}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-white/[0.06] bg-slate-950/45 px-3 py-2 text-right">
+                                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{fwText.prob}</div>
+                                    <div className="text-[22px] font-black font-mono text-cyan-300 tabular-nums">
+                                        {hasFedwatch ? `${Math.max(fwEase, fwPause, fwHike).toFixed(1)}%` : '—'}
+                                    </div>
+                                </div>
                             </div>
-                            {/* Horizontal Stacked Progress Bar */}
-                            {(() => {
-                                const ease = fedwatch?.ease || 0;
-                                const noChange = fedwatch?.noChange || 0;
-                                const hike = fedwatch?.hike || 0;
-                                const total = ease + noChange + hike || 100;
-                                
-                                const easePct = (ease / total) * 100;
-                                const noChangePct = (noChange / total) * 100;
-                                const hikePct = (hike / total) * 100;
+
+                            <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-slate-950/70 border border-slate-800/70 flex">
+                                {fwScenarios.map(item => {
+                                    const width = hasFedwatch ? Math.max((item.value / fwTotal) * 100, item.value > 0 ? 2 : 0) : 0;
+                                    return (
+                                        <div key={item.key} style={{ width: `${width}%`, background: item.color }} className="h-full opacity-90" />
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                            {fwScenarios.map(item => {
+                                const isLead = item.key === fwDominant && hasFedwatch;
+                                const change = typeof item.prev === 'number' ? item.value - item.prev : null;
+                                const changeText = change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}%`;
+                                const changeClass = change === null ? 'text-slate-500' : change > 0 ? 'text-emerald-400' : change < 0 ? 'text-rose-400' : 'text-slate-500';
 
                                 return (
-                                    <div className="space-y-2">
-                                        <div className="h-6 w-full bg-slate-900/60 rounded-lg overflow-hidden flex border border-slate-800/30">
-                                            {easePct > 0 && (
-                                                <div 
-                                                    style={{ width: `${easePct}%`, background: 'var(--green)' }} 
-                                                    className="h-full flex items-center justify-center text-[11px] font-mono font-bold text-black"
-                                                >
-                                                    {easePct >= 10 && `${ease.toFixed(0)}%`}
-                                                </div>
-                                            )}
-                                            {noChangePct > 0 && (
-                                                <div 
-                                                    style={{ width: `${noChangePct}%`, background: 'var(--cyan)' }} 
-                                                    className="h-full flex items-center justify-center text-[11px] font-mono font-bold text-black"
-                                                >
-                                                    {noChangePct >= 10 && `${noChange.toFixed(0)}%`}
-                                                </div>
-                                            )}
-                                            {hikePct > 0 && (
-                                                <div 
-                                                    style={{ width: `${hikePct}%`, background: 'var(--red)' }} 
-                                                    className="h-full flex items-center justify-center text-[11px] font-mono font-bold text-black"
-                                                >
-                                                    {hikePct >= 10 && `${hike.toFixed(0)}%`}
-                                                </div>
-                                            )}
+                                    <div
+                                        key={item.key}
+                                        className={`rounded-xl border p-2.5 min-w-0 ${isLead ? 'border-cyan-400/25 bg-cyan-400/[0.07]' : 'border-slate-800/70 bg-slate-950/35'}`}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: item.color }} />
+                                            <span className="text-[10.5px] font-black uppercase tracking-[0.08em] text-slate-400 truncate">{item.label}</span>
                                         </div>
-                                        <div className="flex justify-between items-center text-[11.5px] font-bold tracking-wider text-slate-300">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--green)' }} />
-                                                <span>CUTS: {ease.toFixed(1)}%</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--cyan)' }} />
-                                                <span>PAUSE: {noChange.toFixed(1)}%</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--red)' }} />
-                                                <span>HIKES: {hike.toFixed(1)}%</span>
-                                            </div>
+                                        <div className="mt-2 text-[18px] font-black font-mono text-white tabular-nums">
+                                            {hasFedwatch ? `${item.value.toFixed(1)}%` : '—'}
                                         </div>
-
-                                        {/* Target Rate Probabilities Matrix Grid */}
-                                        <div className="mt-3 bg-slate-950/50 rounded-lg p-2.5 border border-slate-800/40 text-[12.5px] font-jakarta">
-                                            {/* Header */}
-                                            <div className="grid grid-cols-4 gap-1 text-[10.5px] font-bold tracking-wider text-slate-400 uppercase pb-1.5 border-b border-slate-800/80">
-                                                <span>Outcome</span>
-                                                <span className="text-center">Range</span>
-                                                <span className="text-right">Prob</span>
-                                                <span className="text-right">1W Change</span>
-                                            </div>
-
-                                            {/* Data Rows */}
-                                            {(() => {
-                                                const L_MATRIX = {
-                                                    ko: { cut: '금리 인하', hold: '동결 (금리 유지)', hike: '금리 인상' },
-                                                    en: { cut: 'Rate Cut', hold: 'Pause (Hold)', hike: 'Rate Hike' },
-                                                    ja: { cut: '利下げ', hold: '維持 (金利据置)', hike: '利上げ' }
-                                                }[locale as 'ko' | 'en' | 'ja'] || { cut: 'Rate Cut', hold: 'Pause (Hold)', hike: 'Rate Hike' };
-
-                                                let low = 5.25;
-                                                let high = 5.50;
-                                                if (fedwatch?.targetRate) {
-                                                    const match = fedwatch.targetRate.match(/(\d+\.?\d*)/g);
-                                                    if (match && match.length >= 2) {
-                                                        low = parseFloat(match[0]);
-                                                        high = parseFloat(match[1]);
-                                                        if (low > 10) {
-                                                            low = low / 100;
-                                                            high = high / 100;
-                                                        }
-                                                    }
-                                                }
-
-                                                const rows = [
-                                                    {
-                                                        lbl: L_MATRIX.cut,
-                                                        range: `${(low - 0.25).toFixed(2)}% - ${low.toFixed(2)}%`,
-                                                        prob: ease,
-                                                        prev: fedwatch?.prevEase,
-                                                        clr: 'var(--green)'
-                                                    },
-                                                    {
-                                                        lbl: L_MATRIX.hold,
-                                                        range: `${low.toFixed(2)}% - ${high.toFixed(2)}%`,
-                                                        prob: noChange,
-                                                        prev: fedwatch?.prevNoChange,
-                                                        clr: 'var(--cyan)'
-                                                    },
-                                                    {
-                                                        lbl: L_MATRIX.hike,
-                                                        range: `${high.toFixed(2)}% - ${(high + 0.25).toFixed(2)}%`,
-                                                        prob: hike,
-                                                        prev: fedwatch?.prevHike,
-                                                        clr: 'var(--red)'
-                                                    }
-                                                ];
-
-                                                return rows.map((r, idx) => {
-                                                    const change = r.prev !== null && r.prev !== undefined ? r.prob - r.prev : null;
-                                                    const chgText = change !== null
-                                                        ? (change > 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`)
-                                                        : '—';
-                                                    const chgClr = change !== null
-                                                        ? (change > 0 ? 'text-emerald-400' : change < 0 ? 'text-rose-400' : 'text-slate-400')
-                                                        : 'text-slate-600';
-
-                                                    return (
-                                                        <div key={idx} className="grid grid-cols-4 gap-1 py-2 border-b border-slate-900/60 last:border-b-0 items-center font-medium">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: r.clr }} />
-                                                                <span className="text-slate-200 font-bold truncate">{r.lbl}</span>
-                                                            </div>
-                                                            <span className="text-center font-mono text-slate-300 text-[11px] tabular-nums whitespace-nowrap">{r.range}</span>
-                                                            <span className="text-right font-mono text-white font-bold tabular-nums">{r.prob.toFixed(1)}%</span>
-                                                            <span className={`text-right font-mono font-bold text-[11.5px] tabular-nums ${chgClr}`}>{chgText}</span>
-                                                        </div>
-                                                    );
-                                                });
-                                            })()}
+                                        <div className={`mt-1 text-[10.5px] font-bold font-mono tabular-nums ${changeClass}`}>
+                                            {fwText.week} {changeText}
                                         </div>
                                     </div>
                                 );
-                            })()}
+                            })}
                         </div>
 
-
-
-                        {/* Liquidity Section */}
-                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/40">
-                            <div className="bg-slate-900/40 border border-slate-800/60 rounded-lg p-2.5 flex flex-col justify-between">
-                                <span className="text-[11.5px] font-normal text-slate-400 uppercase tracking-wider font-jakarta">Net Liquidity Index</span>
-                                <div className="flex items-baseline gap-1.5 mt-1">
-                                    <span className="text-[19px] font-semibold font-mono text-emerald-400">
-                                        {(data?.rlsi?.components?.liquidityScore ?? 50).toFixed(0)}
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div className="rounded-xl border border-emerald-400/15 bg-emerald-500/[0.045] p-3">
+                                <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-slate-400">{fwText.liquidity}</span>
+                                <div className="mt-1 flex items-baseline gap-1.5">
+                                    <span className="text-[22px] font-black font-mono text-emerald-400 tabular-nums">
+                                        {liquidityScore.toFixed(0)}
                                     </span>
-                                    <span className="text-[11px] font-semibold text-emerald-400/80 uppercase">
-                                        {(data?.rlsi?.components?.liquidityScore ?? 50) >= 50 ? 'FAVORABLE' : 'DRY'}
+                                    <span className="text-[11px] font-black text-emerald-400/80 uppercase">
+                                        {liquidityScore >= 50 ? fwText.favorable : fwText.dry}
                                     </span>
                                 </div>
                             </div>
-                            <div className="bg-slate-900/40 border border-slate-800/60 rounded-lg p-2.5 flex flex-col justify-between">
-                                <span className="text-[11.5px] font-normal text-slate-400 uppercase tracking-wider font-jakarta">Safe Haven Flow</span>
-                                <div className="flex items-baseline gap-1.5 mt-1">
-                                    <span className={`text-[19px] font-semibold font-mono ${
-                                        (data?.rlsi?.components?.safeHavenFlow ?? 0) > 0.5 ? 'text-rose-400' : 'text-emerald-400'
-                                    }`}>
-                                        {(data?.rlsi?.components?.safeHavenFlow ?? 0).toFixed(2)}
+                            <div className="rounded-xl border border-cyan-400/15 bg-cyan-500/[0.035] p-3">
+                                <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-slate-400">{fwText.safeHaven}</span>
+                                <div className="mt-1 flex items-baseline gap-1.5">
+                                    <span className={`text-[22px] font-black font-mono tabular-nums ${safeHavenFlow > 0.5 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                        {safeHavenFlow.toFixed(2)}
                                     </span>
-                                    <span className={`text-[11px] font-semibold uppercase ${
-                                        (data?.rlsi?.components?.safeHavenFlow ?? 0) > 0.5 ? 'text-rose-400' : 'text-emerald-400'
-                                    }`}>
-                                        {(data?.rlsi?.components?.safeHavenFlow ?? 0) > 0.5 ? 'FLIGHT' : 'STABLE'}
+                                    <span className={`text-[11px] font-black uppercase ${safeHavenFlow > 0.5 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                        {safeHavenFlow > 0.5 ? fwText.flight : fwText.stable}
                                     </span>
                                 </div>
                             </div>

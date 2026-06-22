@@ -10,10 +10,69 @@ const getSpark = (up: boolean) => {
     : [11, 10, 10.5, 9, 8.5, 7.5, 8, 6.5, 5];
 };
 
+const toNumber = (value: any): number => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+};
+
+const getSnapshotPrice = (t: any): number => {
+    return toNumber(t.day?.c) || toNumber(t.lastTrade?.p) || toNumber(t.min?.c) || toNumber(t.prevDay?.c);
+};
+
+const getRegularChangePercent = (t: any): number => {
+    const prevClose = toNumber(t.prevDay?.c);
+    const dayClose = toNumber(t.day?.c);
+
+    if (dayClose > 0 && prevClose > 0 && dayClose !== prevClose) {
+        return ((dayClose - prevClose) / prevClose) * 100;
+    }
+
+    const liveLast = toNumber(t.lastTrade?.p) || toNumber(t.min?.c);
+    if (liveLast > 0 && prevClose > 0 && liveLast !== prevClose) {
+        return ((liveLast - prevClose) / prevClose) * 100;
+    }
+
+    return toNumber(t.todaysChangePerc);
+};
+
+const isCommonTickerSymbol = (ticker: string): boolean => {
+    const likelyWarrantOrUnit = ticker.length === 5 && /[WRU]$/.test(ticker);
+
+    return (
+        ticker !== 'ZVZZT' &&
+        /^[A-Z]{1,5}$/.test(ticker) &&
+        !likelyWarrantOrUnit
+    );
+};
+
+const isTradableCommonStock = (t: any): boolean => {
+    const ticker = String(t?.ticker || '');
+    const price = getSnapshotPrice(t);
+    const volume = toNumber(t.day?.v) || toNumber(t.prevDay?.v);
+
+    return (
+        isCommonTickerSymbol(ticker) &&
+        price >= 1 &&
+        volume >= 10000
+    );
+};
+
+function hasMoverSet(data: any): boolean {
+    return Boolean(
+        data &&
+        Array.isArray(data.value) &&
+        Array.isArray(data.gainers) &&
+        Array.isArray(data.losers) &&
+        data.value.length > 0 &&
+        data.gainers.length > 0 &&
+        data.losers.length > 0
+    );
+}
+
 const mapTicker = (t: any) => {
-  const price = t.lastTrade?.p ?? t.day?.c ?? t.prevDay?.c ?? 0;
-  const changePercent = t.todaysChangePerc ?? 0;
-  const volume = t.day?.v ?? t.prevDay?.v ?? 0;
+  const price = getSnapshotPrice(t);
+  const changePercent = getRegularChangePercent(t);
+  const volume = toNumber(t.day?.v) || toNumber(t.prevDay?.v);
   const value = volume * price;
   return {
     ticker: t.ticker,
@@ -26,6 +85,84 @@ const mapTicker = (t: any) => {
   };
 };
 
+const byTradingValue = (a: any, b: any) => b.value - a.value;
+const byGainers = (a: any, b: any) => b.changePercent - a.changePercent || byTradingValue(a, b);
+const byLosers = (a: any, b: any) => a.changePercent - b.changePercent || byTradingValue(a, b);
+
+const formatDateKey = (date: Date): string => {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
+const getCurrentETDate = (): Date => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(new Date());
+
+    const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return new Date(Date.UTC(Number(map.year), Number(map.month) - 1, Number(map.day)));
+};
+
+async function fetchRecentGroupedUniverse(): Promise<any[]> {
+    const base = getCurrentETDate();
+    const sessions: Array<{ date: string; results: any[] }> = [];
+
+    for (let offset = 0; offset < 12 && sessions.length < 2; offset += 1) {
+        const date = new Date(base);
+        date.setUTCDate(base.getUTCDate() - offset);
+        const day = date.getUTCDay();
+        if (day === 0 || day === 6) continue;
+
+        const dateStr = formatDateKey(date);
+        try {
+            const grouped = await fetchMassive(`/v2/aggs/grouped/locale/us/market/stocks/${dateStr}`, {}, true);
+            const results = Array.isArray(grouped?.results) ? grouped.results : [];
+            if (results.length > 100) {
+                sessions.push({ date: dateStr, results });
+            }
+        } catch (err: any) {
+            console.warn(`[Movers API] grouped fallback failed for ${dateStr}:`, err?.message || err);
+        }
+    }
+
+    if (sessions.length < 2) return [];
+
+    const latest = sessions[0].results;
+    const previousCloseByTicker = new Map<string, number>();
+    sessions[1].results.forEach((r: any) => {
+        if (r?.T && toNumber(r.c) > 0) {
+            previousCloseByTicker.set(r.T, toNumber(r.c));
+        }
+    });
+
+    return latest
+        .filter((r: any) => isCommonTickerSymbol(String(r?.T || '')))
+        .map((r: any) => {
+            const ticker = String(r.T);
+            const price = toNumber(r.c);
+            const prevClose = previousCloseByTicker.get(ticker) || 0;
+            const volume = toNumber(r.v);
+            const changePercent = price > 0 && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+            const value = price * volume;
+
+            return {
+                ticker,
+                price,
+                changePercent,
+                volume,
+                value,
+                up: changePercent >= 0,
+                spark: getSpark(changePercent >= 0),
+            };
+        })
+        .filter((m: any) => m.price >= 1 && m.volume >= 10000 && m.value > 0);
+}
+
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type');
@@ -34,10 +171,11 @@ export async function GET(req: NextRequest) {
 
     try {
         // We will try to fetch the cache of all movers.
-        const cacheKey = 'market:movers:all';
+        const cacheKey = 'market:movers:all:v3';
+        const lastGoodKey = 'market:movers:last_good:v3';
         let cachedData = await getFromCache<any>(cacheKey);
 
-        if (!cachedData) {
+        if (!hasMoverSet(cachedData)) {
             // Fetch everything concurrently from Polygon/Massive Client
             // Use cache for full tickers list to avoid massive payloads too frequently, but fresh snapshots for movers
             const [gainersRes, losersRes, tickersRes] = await Promise.all([
@@ -50,31 +188,53 @@ export async function GET(req: NextRequest) {
             const rawLosers = losersRes?.tickers || [];
             const rawTickers = tickersRes?.tickers || [];
 
-            // Process Gainers & Losers
-            const gainers = rawGainers.map(mapTicker).slice(0, 30);
-            const losers = rawLosers.map(mapTicker).slice(0, 30);
+            const universe = rawTickers
+                .filter(isTradableCommonStock)
+                .map(mapTicker)
+                .filter((m: any) => m.price > 0 && m.value > 0);
+
+            const hasSnapshotChange = universe.some((m: any) => Math.abs(m.changePercent) >= 0.0001);
+            const groupedUniverse = hasSnapshotChange ? [] : await fetchRecentGroupedUniverse();
+            const rankingUniverse = groupedUniverse.length > 0 ? groupedUniverse : universe;
+
+            const sourceGainers = rawGainers
+                .filter(isTradableCommonStock)
+                .map(mapTicker)
+                .filter((m: any) => m.changePercent > 0)
+                .sort(byGainers);
+
+            const sourceLosers = rawLosers
+                .filter(isTradableCommonStock)
+                .map(mapTicker)
+                .filter((m: any) => m.changePercent < 0)
+                .sort(byLosers);
 
             // Process Trading Value Movers (from full tickers list)
-            const value = rawTickers
-                .filter((t: any) => {
-                    const price = t.lastTrade?.p ?? t.day?.c ?? t.prevDay?.c ?? 0;
-                    const volume = t.day?.v ?? t.prevDay?.v ?? 0;
-                    // Filter: standard tickers, price >= 1.0, volume >= 10,000
-                    return (
-                        t.ticker &&
-                        /^[A-Z]{1,5}$/.test(t.ticker) &&
-                        price >= 1.0 &&
-                        volume >= 10000
-                    );
-                })
-                .map(mapTicker)
-                .sort((a: any, b: any) => b.value - a.value)
+            const value = rankingUniverse
+                .slice()
+                .sort(byTradingValue)
+                .slice(0, 30);
+
+            // During holidays/closed sessions the dedicated mover endpoints can be empty.
+            // In that case, derive prior-session gainers/losers from the full snapshot.
+            const gainers = (sourceGainers.length > 0 ? sourceGainers : rankingUniverse.filter((m: any) => m.changePercent > 0).sort(byGainers))
+                .slice(0, 30);
+            const losers = (sourceLosers.length > 0 ? sourceLosers : rankingUniverse.filter((m: any) => m.changePercent < 0).sort(byLosers))
                 .slice(0, 30);
 
             cachedData = { gainers, losers, value, ts: Date.now() };
-            
-            // Cache in Redis for 60 seconds (with jitter applied inside setInCache)
-            await setInCache(cacheKey, cachedData, 60);
+
+            if (hasMoverSet(cachedData)) {
+                // Cache in Redis for 60 seconds (with jitter applied inside setInCache)
+                await setInCache(cacheKey, cachedData, 60);
+                // Preserve last regular valid snapshot for weekends/holidays/offline data windows.
+                await setInCache(lastGoodKey, cachedData, 7 * 24 * 60 * 60);
+            } else {
+                const lastGood = await getFromCache<any>(lastGoodKey);
+                if (hasMoverSet(lastGood)) {
+                    cachedData = lastGood;
+                }
+            }
         }
 
         if (type === 'value') {

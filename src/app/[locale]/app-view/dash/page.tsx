@@ -21,6 +21,13 @@ interface PulseItem {
   chg: number;
   up: boolean;
   spark: number[];
+  live?: boolean;
+  updatedAt?: string;
+  marketTime?: string;
+  marketAgeSec?: number;
+  feedSource?: string;
+  isStale?: boolean;
+  feedAgeSec?: number;
 }
 
 interface MacroItem {
@@ -29,6 +36,13 @@ interface MacroItem {
   chg: number;
   unit: string;
   badge?: string;
+  live?: boolean;
+  updatedAt?: string;
+  marketTime?: string;
+  marketAgeSec?: number;
+  feedSource?: string;
+  isStale?: boolean;
+  feedAgeSec?: number;
 }
 
 interface SectorItem {
@@ -80,13 +94,6 @@ const DEMO_SECTORS: SectorItem[] = [
   { name: 'Healthcare', pct: -0.5 }, { name: 'Utilities', pct: -0.8 },
 ];
 
-const DEMO_MOVERS: MoverItem[] = [
-  { sym: 'NVDA', px: '136.42', chg: '+5.2%', up: true, spark: [4, 5, 5, 7, 8, 9, 11, 13, 14] },
-  { sym: 'TSLA', px: '168.90', chg: '-2.1%', up: false, spark: [12, 11, 12, 10, 9, 9, 8, 7, 7] },
-  { sym: 'AAPL', px: '212.55', chg: '+1.8%', up: true, spark: [6, 6, 7, 6, 8, 8, 9, 10, 11] },
-  { sym: 'AMD', px: '164.30', chg: '+3.4%', up: true, spark: [5, 6, 5, 7, 8, 8, 10, 11, 12] },
-];
-
 const DEMO_BRIEFING = 'Futures point <strong>higher</strong> as cooling CPI revives rate-cut bets. <strong>Semis</strong> lead pre-market on AI capex headlines, while <strong>energy</strong> firms on crude\'s third up-day. Watch <strong>NVDA</strong> into its options expiry — dealer gamma is pinning price near $135.';
 
 /* ═══════════════════════════════════════════════════════════
@@ -102,6 +109,133 @@ function fmtPrice(n: number): string {
 function fmtChg(n: number): string {
   const sign = n >= 0 ? '+' : '';
   return `${sign}${n.toFixed(2)}%`;
+}
+
+function avgChange(items: PulseItem[]): number {
+  if (!items.length) return 0;
+  return items.reduce((sum, item) => sum + (Number.isFinite(item.chg) ? item.chg : 0), 0) / items.length;
+}
+
+function clampPct(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+
+function hasUsableQuote(quote: any): boolean {
+  return Boolean(quote && Number(quote.price) > 0 && quote.changePercent != null);
+}
+
+function stableChangePct(quote: any, fallback: number, allowZero: boolean): number {
+  if (!hasUsableQuote(quote)) return fallback;
+  const pct = Number(quote.changePercent);
+  if (Math.abs(pct) < 0.0001) {
+    const price = Number(quote.price);
+    const prevClose = Number(quote.previousClose ?? quote.prevClose);
+    if (price > 0 && prevClose > 0 && Math.abs(price - prevClose) > 0.001) {
+      return ((price - prevClose) / prevClose) * 100;
+    }
+  }
+  if (!allowZero && Math.abs(pct) < 0.0001) return fallback;
+  return pct;
+}
+
+function parsePctText(value: string): number | null {
+  const parsed = Number(String(value).replace('%', '').replace('+', '').trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+const REDIS_FEED_FRESH_SEC = 390;
+
+function getEtClockParts() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour12: false,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+  });
+  const parts = formatter.formatToParts(now);
+  const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  const year = Number(partMap.year);
+  const month = Number(partMap.month) - 1;
+  const dayOfMonth = Number(partMap.day);
+  const hour = Number(partMap.hour);
+  const minute = Number(partMap.minute);
+  const etDate = new Date(year, month, dayOfMonth, hour, minute);
+  return {
+    day: etDate.getDay(),
+    hour,
+    minute,
+    timeDecimal: hour + minute / 60,
+    totalMins: hour * 60 + minute,
+  };
+}
+
+function isCmeGlobexActive(kind: 'equity' | 'gold' | 'oil', isHoliday: boolean): boolean {
+  const { day, timeDecimal } = getEtClockParts();
+  if (day === 6) return false;
+  if (day === 0) return timeDecimal >= 18;
+  if (isHoliday) {
+    const haltTime = kind === 'gold' ? 13.75 : 13;
+    return timeDecimal < haltTime || timeDecimal >= 18;
+  }
+  if (day === 5) return timeDecimal < 17;
+  return timeDecimal < 17 || timeDecimal >= 18;
+}
+
+function isVixSessionActive(isHoliday: boolean): boolean {
+  const { day, timeDecimal } = getEtClockParts();
+  if (day === 0 || day === 6) return false;
+  return isHoliday
+    ? timeDecimal >= 3 && timeDecimal < 13
+    : timeDecimal >= 3 && timeDecimal < 16.25;
+}
+
+function isUs10YSessionActive(isHoliday: boolean): boolean {
+  const { day, timeDecimal } = getEtClockParts();
+  if (isHoliday || day === 0 || day === 6) return false;
+  return timeDecimal >= 8 && timeDecimal < 17.25;
+}
+
+function isDxySessionActive(isHoliday: boolean): boolean {
+  const { day, totalMins } = getEtClockParts();
+  if (isHoliday || day === 0 || day === 6) return false;
+  return totalMins >= 4 * 60 && totalMins < 20 * 60;
+}
+
+function isFreshFeedFactor(factor: any, maxAgeSec = REDIS_FEED_FRESH_SEC): boolean {
+  if (!factor || factor.status !== 'OK' || factor.feedSource === 'DEFAULT' || factor.isStale) {
+    return false;
+  }
+  if (typeof factor.marketAgeSec === 'number') {
+    return factor.marketAgeSec <= maxAgeSec;
+  }
+  if (factor.marketTime) {
+    const marketMs = new Date(factor.marketTime).getTime();
+    return Number.isFinite(marketMs) && Date.now() - marketMs <= maxAgeSec * 1000;
+  }
+  if (typeof factor.feedAgeSec === 'number') {
+    return factor.feedAgeSec <= maxAgeSec;
+  }
+  if (factor.updatedAt) {
+    const updatedMs = new Date(factor.updatedAt).getTime();
+    return Number.isFinite(updatedMs) && Date.now() - updatedMs <= maxAgeSec * 1000;
+  }
+  return false;
+}
+
+function feedMetaForItem(factor: any, sessionActive = true) {
+  return {
+    live: sessionActive && isFreshFeedFactor(factor),
+    updatedAt: factor?.updatedAt,
+    marketTime: factor?.marketTime,
+    marketAgeSec: factor?.marketAgeSec,
+    feedSource: factor?.feedSource,
+    isStale: factor?.isStale,
+    feedAgeSec: factor?.feedAgeSec,
+  };
 }
 
 function fmtMacroValue(level: number | null, label: string): string {
@@ -293,15 +427,19 @@ interface TickerNewsItem {
 export default function AppDashPage() {
   const locale = useLocale();
   const router = useRouter();
-  const { status: marketStatusInfo } = useMarketStatus();
-  const isLive = marketStatusInfo?.session === 'regular' && !marketStatusInfo?.isHoliday;
+  const { status: marketStatusInfo, loading: marketStatusLoading } = useMarketStatus();
+  const marketSession = marketStatusInfo?.session;
+  const isMarketHoliday = Boolean(marketStatusInfo?.isHoliday);
+  const marketStatusReady = !marketStatusLoading;
+  const isLive = marketStatusReady && marketSession === 'regular' && !isMarketHoliday;
+  const equityExtendedLive = marketStatusReady && !isMarketHoliday && (marketSession === 'pre' || marketSession === 'regular' || marketSession === 'post');
   const [loading, setLoading] = useState(true);
   const [indices, setIndices] = useState<PulseItem[]>(DEMO_INDICES);
   const [futures, setFutures] = useState<PulseItem[]>(DEMO_FUTURES);
   const [etfs, setEtfs] = useState<PulseItem[]>(DEMO_ETFS);
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
-  const [movers, setMovers] = useState<MoverItem[]>(DEMO_MOVERS);
+  const [movers, setMovers] = useState<MoverItem[]>([]);
   const [moverSort, setMoverSort] = useState<'value' | 'gainers' | 'losers'>('value');
   const [moversLoading, setMoversLoading] = useState(false);
   const [briefing, setBriefing] = useState<string>(DEMO_BRIEFING);
@@ -341,7 +479,7 @@ export default function AppDashPage() {
           setFlashStates(prev => ({ ...prev, [sym]: direction }));
           
           // Clear the flash class after 1.2s to match keyframes
-          const timer = setTimeout(() => {
+          setTimeout(() => {
             setFlashStates(prev => {
               if (prev[sym] === direction) {
                 const next = { ...prev };
@@ -359,37 +497,6 @@ export default function AppDashPage() {
 
   // Determine if a specific index/macro cell is currently "active" (trading hours)
   const checkIsItemActive = (symOrLabel: string): boolean => {
-    const now = new Date();
-    // Convert to New York time parts reliably without string parsing
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York',
-      hour12: false,
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      second: 'numeric',
-    });
-    
-    const parts = formatter.formatToParts(now);
-    const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
-    
-    const year = parseInt(partMap.year, 10);
-    const month = parseInt(partMap.month, 10) - 1; // 0-indexed month
-    const date = parseInt(partMap.day, 10);
-    const hour = parseInt(partMap.hour, 10);
-    const min = parseInt(partMap.minute, 10);
-    
-    const nyDate = new Date(year, month, date, hour, min);
-    const day = nyDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-    const totalMins = hour * 60 + min;
-
-    const isFuturesClosed = 
-      (day === 5 && totalMins >= 17 * 60) || // Friday after 5 PM
-      day === 6 || // Saturday
-      (day === 0 && totalMins < 18 * 60); // Sunday before 6 PM
-
     const symbol = symOrLabel.toUpperCase();
 
     // 1. Crypto (BTC): always active (24/7/365)
@@ -400,23 +507,18 @@ export default function AppDashPage() {
     // 2. Futures (NASDAQ100 F, Russell2k F, S&P500 F, GOLD, OIL)
     const CME_FUTURES_SYMBOLS = ['NASDAQ100 F', 'RUSSELL2K F', 'S&P500 F', 'GOLD', 'OIL'];
     if (CME_FUTURES_SYMBOLS.includes(symbol)) {
-      if (isFuturesClosed) return false;
-      // Daily maintenance break: 5:00 PM to 6:00 PM ET (17:00 - 18:00)
-      const isMaintenanceBreak = hour === 17;
-      return !isMaintenanceBreak;
+      const kind = symbol === 'GOLD' ? 'gold' : symbol === 'OIL' ? 'oil' : 'equity';
+      return isCmeGlobexActive(kind, isMarketHoliday);
     }
 
     // 3. DXY (Dollar Index proxy UUP): Weekdays 4:00 AM - 8:00 PM ET
     if (symbol === 'DXY') {
-      const isWeekday = day >= 1 && day <= 5;
-      const isTradingHours = totalMins >= 4 * 60 && totalMins < 20 * 60; // 4:00 AM - 8:00 PM
-      return isWeekday && isTradingHours && !marketStatusInfo?.isHoliday;
+      return isDxySessionActive(isMarketHoliday);
     }
 
     // 4. US 10Y (Bond Yields): Standard stock market hours (weekdays 9:30 AM - 4:00 PM ET)
     if (symbol === 'US 10Y' || symbol === 'TNX') {
-      const isRegularActive = marketStatusInfo?.session === 'regular' && !marketStatusInfo?.isHoliday;
-      return isRegularActive;
+      return isUs10YSessionActive(isMarketHoliday);
     }
 
     // 5. Fear & Greed (F&G) and Yield Curve spread (2s10s)
@@ -425,8 +527,294 @@ export default function AppDashPage() {
     }
 
     // 6. Regular Equities/ETFs/Sectors (DOW, NASDAQ, S&P 500, SPY, QQQ, VIX, R2K)
-    const isRegularActive = marketStatusInfo?.session === 'regular' && !marketStatusInfo?.isHoliday;
+    if (symbol === 'SPY' || symbol === 'QQQ') {
+      return equityExtendedLive;
+    }
+    if (symbol === 'VIX') {
+      return isVixSessionActive(isMarketHoliday);
+    }
+
+    const isRegularActive = marketSession === 'regular' && !isMarketHoliday;
     return isRegularActive;
+  };
+
+  const copy = {
+    ko: {
+      regime: '시장 상태',
+      futures: '선물',
+      cash: '현물',
+      risk: '리스크',
+      futuresLive: 'FUTURES LIVE',
+      regularLive: 'LIVE',
+      closed: 'CLOSED',
+      holiday: 'HOLIDAY',
+      futuresRow: '지수 선물',
+      cashRow: '현물 지수',
+      etfRow: 'ETF / 변동성',
+      futuresOpen: '정규장 밖에도 선물 흐름은 ET 기준으로 추적됩니다.',
+      regularOpen: '정규장 실시간 흐름을 반영합니다.',
+      marketClosed: '장 마감 데이터와 선물 흐름을 함께 봅니다.',
+      riskOn: 'Risk-On 우위',
+      mixed: '혼조',
+      riskOff: 'Risk-Off 경계',
+      bullish: '상방',
+      bearish: '하방',
+      neutral: '중립',
+    },
+    en: {
+      regime: 'Market State',
+      futures: 'Futures',
+      cash: 'Cash',
+      risk: 'Risk',
+      futuresLive: 'FUTURES LIVE',
+      regularLive: 'LIVE',
+      closed: 'CLOSED',
+      holiday: 'HOLIDAY',
+      futuresRow: 'Index Futures',
+      cashRow: 'Cash Indices',
+      etfRow: 'ETF / Volatility',
+      futuresOpen: 'Futures remain tracked on ET even outside regular hours.',
+      regularOpen: 'Regular-session flow is updating live.',
+      marketClosed: 'Closed-session data is paired with active futures context.',
+      riskOn: 'Risk-On Tilt',
+      mixed: 'Mixed Tape',
+      riskOff: 'Risk-Off Watch',
+      bullish: 'Bullish',
+      bearish: 'Bearish',
+      neutral: 'Neutral',
+    },
+    ja: {
+      regime: '市場状態',
+      futures: '先物',
+      cash: '現物',
+      risk: 'リスク',
+      futuresLive: 'FUTURES LIVE',
+      regularLive: 'LIVE',
+      closed: 'CLOSED',
+      holiday: 'HOLIDAY',
+      futuresRow: '指数先物',
+      cashRow: '現物指数',
+      etfRow: 'ETF / 変動性',
+      futuresOpen: '通常取引外でも先物フローはET基準で追跡されます。',
+      regularOpen: '通常取引のリアルタイムフローを反映します。',
+      marketClosed: '引け後データと先物フローを合わせて確認します。',
+      riskOn: 'Risk-On 優勢',
+      mixed: 'まちまち',
+      riskOff: 'Risk-Off 警戒',
+      bullish: '上向き',
+      bearish: '下向き',
+      neutral: '中立',
+    },
+  }[locale as 'ko' | 'en' | 'ja'] || {
+    regime: 'Market State',
+    futures: 'Futures',
+    cash: 'Cash',
+    risk: 'Risk',
+    futuresLive: 'FUTURES LIVE',
+    regularLive: 'LIVE',
+    closed: 'CLOSED',
+    holiday: 'HOLIDAY',
+    futuresRow: 'Index Futures',
+    cashRow: 'Cash Indices',
+    etfRow: 'ETF / Volatility',
+    futuresOpen: 'Futures remain tracked on ET even outside regular hours.',
+    regularOpen: 'Regular-session flow is updating live.',
+    marketClosed: 'Closed-session data is paired with active futures context.',
+    riskOn: 'Risk-On Tilt',
+    mixed: 'Mixed Tape',
+    riskOff: 'Risk-Off Watch',
+    bullish: 'Bullish',
+    bearish: 'Bearish',
+    neutral: 'Neutral',
+  };
+
+  const gateCopy = {
+    ko: {
+      title: '기관급 마켓 펄스',
+      subtitle: '변동성 레짐, 다크풀 흐름, 섹터 순환을 1시간 동안 확인합니다.',
+      teaserLabel: '무료 미리보기 · 기관급 펄스',
+      previewChip: '무료 미리보기',
+      cta: '광고 보고 1시간 해제',
+      adFree: '또는 $9.99/월 광고 제거',
+      social: '오늘 14.2K 잠금해제',
+      teaserUnit: '4개 중 1개',
+      signals: {
+        volatility: { label: '변동성 레짐', kicker: '시장 압축/확대', insight: '시장 변동성이 압축되는지, 확대되는지 추적합니다.' },
+        darkPool: { label: '다크풀 거래량', kicker: '기관성 비공개 체결', insight: '일반 호가창 밖의 대형 체결 흐름을 감지합니다.' },
+        squeeze: { label: '스퀴즈 위험', kicker: '단기 변동성 압력', insight: '감마와 포지션 쏠림이 만드는 급변 가능성을 봅니다.' },
+        rotation: { label: '섹터 순환 강도', kicker: '자금 이동 방향', insight: '공격/방어 섹터로 자금이 이동하는 강도를 확인합니다.' },
+      },
+    },
+    en: {
+      title: 'Institutional Market Pulse',
+      subtitle: 'Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.',
+      teaserLabel: 'Free preview · Institutional pulse',
+      previewChip: 'Free preview',
+      cta: 'Watch ad to unlock 1HR',
+      adFree: 'or $9.99/mo ad-free',
+      social: '14.2K unlocked today',
+      teaserUnit: '1 of 4',
+      signals: {
+        volatility: { label: 'Volatility Regime', kicker: 'Compression / expansion', insight: 'Tracks whether market volatility is compressing or expanding.' },
+        darkPool: { label: 'Dark Pool Volume', kicker: 'Institutional prints', insight: 'Surfaces large off-exchange flow hidden from the open book.' },
+        squeeze: { label: 'Squeeze Risk', kicker: 'Short-term pressure', insight: 'Monitors gamma and positioning pressure behind fast moves.' },
+        rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
+      },
+    },
+    ja: {
+      title: '機関級マーケットパルス',
+      subtitle: 'ボラティリティ・レジーム、ダークプールフロー、セクターローテーションを1時間確認できます。',
+      teaserLabel: '無料プレビュー · 機関投資家パルス',
+      previewChip: '無料プレビュー',
+      cta: '広告視聴で1時間解除',
+      adFree: 'または月$9.99で広告なし',
+      social: '本日14.2K件解除',
+      teaserUnit: '4つ中1つ',
+      signals: {
+        volatility: { label: 'ボラティリティ・レジーム', kicker: '圧縮 / 拡大', insight: '市場の変動性が圧縮か拡大かを追跡します。' },
+        darkPool: { label: 'ダークプール出来高', kicker: '機関投資家フロー', insight: '板に見えにくい大口の非公開取引を確認します。' },
+        squeeze: { label: 'スクイーズリスク', kicker: '短期圧力', insight: 'ガンマとポジション偏りによる急変リスクを見ます。' },
+        rotation: { label: 'セクター循環強度', kicker: '資金移動', insight: '資金がリスク側か防御側へ回る強さを確認します。' },
+      },
+    },
+  }[locale as 'ko' | 'en' | 'ja'] || {
+    title: 'Institutional Market Pulse',
+    subtitle: 'Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.',
+    teaserLabel: 'Free preview · Institutional pulse',
+    previewChip: 'Free preview',
+    cta: 'Watch ad to unlock 1HR',
+    adFree: 'or $9.99/mo ad-free',
+    social: '14.2K unlocked today',
+    teaserUnit: '1 of 4',
+    signals: {
+      volatility: { label: 'Volatility Regime', kicker: 'Compression / expansion', insight: 'Tracks whether market volatility is compressing or expanding.' },
+      darkPool: { label: 'Dark Pool Volume', kicker: 'Institutional prints', insight: 'Surfaces large off-exchange flow hidden from the open book.' },
+      squeeze: { label: 'Squeeze Risk', kicker: 'Short-term pressure', insight: 'Monitors gamma and positioning pressure behind fast moves.' },
+      rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
+    },
+  };
+
+  const futuresLive = futures.some((p) => p.live ?? checkIsItemActive(p.sym));
+  const volatilityLive = etfs.some((p) => p.sym === 'VIX' && p.live);
+  const futuresAvg = avgChange(futures);
+  const cashAvg = avgChange(indices);
+  const vixChange = etfs.find((p) => p.sym === 'VIX')?.chg ?? 0;
+  const fgValue = parseFloat(macro.find((m) => m.label === 'F&G')?.value || '50');
+  const breadthPct = sectors.length
+    ? Math.round((sectors.filter((sec) => sec.pct >= 0).length / sectors.length) * 100)
+    : 50;
+  const riskScore = clampPct(50 + futuresAvg * 7 + cashAvg * 4 + (breadthPct - 50) * 0.35 + (Number.isFinite(fgValue) ? (fgValue - 50) * 0.25 : 0) - Math.max(0, vixChange) * 2.5);
+  const riskTone = riskScore >= 58 ? copy.riskOn : riskScore <= 42 ? copy.riskOff : copy.mixed;
+  const futuresTone = futuresAvg > 0.15 ? copy.bullish : futuresAvg < -0.15 ? copy.bearish : copy.neutral;
+  const cashTone = cashAvg > 0.15 ? copy.bullish : cashAvg < -0.15 ? copy.bearish : copy.neutral;
+  const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : copy.closed;
+  const pulseStatusNote = isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : copy.marketClosed;
+  const pulseStatusClass = isLive ? '' : (futuresLive || volatilityLive) ? s.futuresOpen : s.closed;
+  const etfRowStatus = equityExtendedLive ? 'LIVE' : volatilityLive ? 'VIX LIVE' : 'CLOSED';
+  const etfRowLive = equityExtendedLive || volatilityLive;
+  const canUseEquitySocket = (symbol: string) => {
+    const s = symbol.toUpperCase();
+    if (s === 'SPY' || s === 'QQQ') return equityExtendedLive;
+    if (s === 'VIX') return isLive;
+    return equityExtendedLive;
+  };
+  const shouldUseWsQuote = (
+    symbol: string,
+    wsData: { price?: number; changePct?: number | null } | null | undefined
+  ): wsData is { price: number; changePct: number } => {
+    return Boolean(
+      canUseEquitySocket(symbol) &&
+      wsData &&
+      typeof wsData.price === 'number' &&
+      wsData.price > 0 &&
+      typeof wsData.changePct === 'number'
+    );
+  };
+  const normalizeSignalToken = (value?: string | null) => String(value || '').replace(/_/g, ' ').trim().toUpperCase();
+  const localizeRegime = (value?: string | null) => {
+    const token = normalizeSignalToken(value);
+    const map = {
+      ko: { COILING: '압축', LOADED: '긴장 고조', EXPANDING: '확대', CALM: '안정', NORMAL: '보통' },
+      en: { COILING: 'Coiling', LOADED: 'Loaded', EXPANDING: 'Expanding', CALM: 'Calm', NORMAL: 'Normal' },
+      ja: { COILING: '圧縮', LOADED: '緊張上昇', EXPANDING: '拡大', CALM: '安定', NORMAL: '通常' },
+    }[locale as 'ko' | 'en' | 'ja'];
+    return map?.[token as keyof typeof map] || (value ? value.replace(/_/g, ' ') : 'Coiling');
+  };
+  const localizeRisk = (value?: string | null) => {
+    const token = normalizeSignalToken(value);
+    const map = {
+      ko: { LOW: '낮음', MEDIUM: '보통', HIGH: '높음', EXTREME: '극단' },
+      en: { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', EXTREME: 'Extreme' },
+      ja: { LOW: '低い', MEDIUM: '中程度', HIGH: '高い', EXTREME: '極端' },
+    }[locale as 'ko' | 'en' | 'ja'];
+    return map?.[token as keyof typeof map] || (value ? value.replace(/_/g, ' ') : 'Low');
+  };
+  const localizeRotation = (value?: string | null) => {
+    const token = normalizeSignalToken(value);
+    const map = {
+      ko: { 'RISK ON': '상방 순환', RISK_ON: '상방 순환', 'RISK OFF': '방어 순환', RISK_OFF: '방어 순환', NEUTRAL: '중립 순환', DEFENSIVE: '방어 순환' },
+      en: { 'RISK ON': 'Risk-On Tilt', RISK_ON: 'Risk-On Tilt', 'RISK OFF': 'Defensive Tilt', RISK_OFF: 'Defensive Tilt', NEUTRAL: 'Neutral Tilt', DEFENSIVE: 'Defensive Tilt' },
+      ja: { 'RISK ON': 'リスクオン傾向', RISK_ON: 'リスクオン傾向', 'RISK OFF': '防御寄り', RISK_OFF: '防御寄り', NEUTRAL: '中立循環', DEFENSIVE: '防御寄り' },
+    }[locale as 'ko' | 'en' | 'ja'];
+    return map?.[token as keyof typeof map] || (value ? value.replace(/_/g, ' ') : 'Neutral Tilt');
+  };
+  const formatDarkPoolVolume = (volume?: number | null) => {
+    if (!volume || !Number.isFinite(volume)) return 'DP —';
+    if (volume >= 1e9) return `DP ${(volume / 1e9).toFixed(1)}B`;
+    if (volume >= 1e6) return `DP ${(volume / 1e6).toFixed(1)}M`;
+    return `DP ${(volume / 1e3).toFixed(1)}K`;
+  };
+  const volScore = clampPct(volRegime?.score || 38);
+  const darkPoolScore = clampPct(darkPoolFlow?.percent || 42.5);
+  const squeezeScore = clampPct(gammaSqueeze?.score || 34);
+  const rotationScore = clampPct(sectorRotation?.score || 50);
+  const institutionalSignals = [
+    {
+      key: 'vol',
+      tone: 'cyan',
+      label: gateCopy.signals.volatility.label,
+      kicker: gateCopy.signals.volatility.kicker,
+      value: localizeRegime(volRegime?.regime),
+      sub: `${volScore.toFixed(0)}%`,
+      insight: gateCopy.signals.volatility.insight,
+      score: volScore,
+    },
+    {
+      key: 'dark',
+      tone: 'green',
+      label: gateCopy.signals.darkPool.label,
+      kicker: gateCopy.signals.darkPool.kicker,
+      value: `${darkPoolScore.toFixed(1)}%`,
+      sub: formatDarkPoolVolume(darkPoolFlow?.volume),
+      insight: gateCopy.signals.darkPool.insight,
+      score: darkPoolScore,
+    },
+    {
+      key: 'squeeze',
+      tone: 'pink',
+      label: gateCopy.signals.squeeze.label,
+      kicker: gateCopy.signals.squeeze.kicker,
+      value: localizeRisk(gammaSqueeze?.risk),
+      sub: `${squeezeScore.toFixed(0)}%`,
+      insight: gateCopy.signals.squeeze.insight,
+      score: squeezeScore,
+    },
+    {
+      key: 'rotation',
+      tone: 'amber',
+      label: gateCopy.signals.rotation.label,
+      kicker: gateCopy.signals.rotation.kicker,
+      value: localizeRotation(sectorRotation?.direction),
+      sub: `Rotation ${rotationScore.toFixed(0)}`,
+      insight: gateCopy.signals.rotation.insight,
+      score: rotationScore,
+    },
+  ];
+  const signalToneClass = {
+    cyan: s.instToneCyan,
+    green: s.instToneGreen,
+    pink: s.instTonePink,
+    amber: s.instToneAmber,
   };
 
   /* ── Load dynamic movers ── */
@@ -452,7 +840,27 @@ export default function AppDashPage() {
               spark: t.spark || [5, 6, 7, 8, 9]
             };
           });
-          setMovers(mapped);
+          if (mapped.length > 0) {
+            setMovers(prev => mapped.map(item => {
+              const currentPct = parsePctText(item.chg) ?? 0;
+              if (equityExtendedLive || Math.abs(currentPct) >= 0.0001) {
+                return item;
+              }
+              const previous = prev.find(p => p.sym === item.sym);
+              const previousPct = previous ? parsePctText(previous.chg) : null;
+              if (previous && previousPct != null && Math.abs(previousPct) >= 0.0001) {
+                const sign = previousPct >= 0 ? '+' : '';
+                return {
+                  ...item,
+                  px: item.px !== '0.00' ? item.px : previous.px,
+                  up: previousPct >= 0,
+                  chg: `${sign}${previousPct.toFixed(2)}%`,
+                  spark: previous.spark,
+                };
+              }
+              return item;
+            }));
+          }
         }
       } catch (err) {
         console.error('Error loading movers:', err);
@@ -469,7 +877,7 @@ export default function AppDashPage() {
       active = false;
       clearInterval(interval);
     };
-  }, [moverSort]);
+  }, [moverSort, equityExtendedLive]);
 
   /* ── Fetch live data from APIs ── */
   useEffect(() => {
@@ -477,7 +885,7 @@ export default function AppDashPage() {
 
     async function fetchAll() {
       try {
-        const [marketRes, macroRes, briefingRes, quotesRes, premiumRes, indexRes, newsRes] = await Promise.allSettled([
+        const [, macroRes, briefingRes, quotesRes, premiumRes, indexRes, newsRes] = await Promise.allSettled([
           fetch('/api/live/market'),
           fetch('/api/market/macro'),
           fetch(`/api/guardian/briefing?locale=${locale}`),
@@ -535,7 +943,22 @@ export default function AppDashPage() {
               });
             }
             if (items.length >= 2) {
-              setIndices(items);
+              setIndices(prev => items.map(item => {
+                if (isLive || Math.abs(item.chg) >= 0.0001) {
+                  return item;
+                }
+                const previous = prev.find(p => p.sym === item.sym);
+                if (!previous || Math.abs(previous.chg) < 0.0001) {
+                  return item;
+                }
+                return {
+                  ...item,
+                  px: item.px || previous.px,
+                  chg: previous.chg,
+                  up: previous.chg >= 0,
+                  spark: previous.spark,
+                };
+              }));
             }
           } catch {
             // fallback
@@ -554,6 +977,7 @@ export default function AppDashPage() {
                 chg: f.nasdaq100.chgPct ?? 0.45,
                 up: (f.nasdaq100.chgPct ?? 0) >= 0,
                 spark: DEMO_FUTURES[0].spark,
+                ...feedMetaForItem(f.nasdaq100, isCmeGlobexActive('equity', isMarketHoliday)),
               });
             }
             if (f.spx) {
@@ -563,6 +987,7 @@ export default function AppDashPage() {
                 chg: f.spx.chgPct ?? 0.30,
                 up: (f.spx.chgPct ?? 0) >= 0,
                 spark: DEMO_FUTURES[1].spark,
+                ...feedMetaForItem(f.spx, isCmeGlobexActive('equity', isMarketHoliday)),
               });
             }
             if (f.rut) {
@@ -572,6 +997,7 @@ export default function AppDashPage() {
                 chg: f.rut.chgPct ?? 0.15,
                 up: (f.rut.chgPct ?? 0) >= 0,
                 spark: DEMO_FUTURES[2].spark,
+                ...feedMetaForItem(f.rut, isCmeGlobexActive('equity', isMarketHoliday)),
               });
             }
             if (futItems.length >= 2) {
@@ -586,6 +1012,7 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.btc?.level, 'Bitcoin'),
               chg: f.btc?.chgPct ?? 0,
               unit: '%',
+              ...feedMetaForItem(f.btc, true),
             });
 
             // GOLD
@@ -594,6 +1021,7 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.gold?.level, 'Gold'),
               chg: f.gold?.chgPct ?? 0,
               unit: '%',
+              ...feedMetaForItem(f.gold, isCmeGlobexActive('gold', isMarketHoliday)),
             });
 
             // OIL
@@ -602,6 +1030,7 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.oil?.level, 'Oil'),
               chg: f.oil?.chgPct ?? 0,
               unit: '%',
+              ...feedMetaForItem(f.oil, isCmeGlobexActive('oil', isMarketHoliday)),
             });
 
             // SOX
@@ -610,6 +1039,7 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.sox?.level, 'SOX'),
               chg: f.sox?.chgPct ?? 0,
               unit: '%',
+              ...feedMetaForItem(f.sox, isLive),
             });
 
             // US 10Y
@@ -618,6 +1048,7 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.us10y?.level, 'US 10Y'),
               chg: f.us10y?.chgPct ?? 0,
               unit: '',
+              ...feedMetaForItem(f.us10y, isUs10YSessionActive(isMarketHoliday)),
             });
 
             // DXY
@@ -677,17 +1108,19 @@ export default function AppDashPage() {
           const q = quotesData.data || {};
 
           // 1. Sector Heatmap (mapped from XL* ETFs)
-          const mappedSectors: SectorItem[] = [
-            { name: 'Tech', pct: q.XLK?.changePercent ?? 2.1 },
-            { name: 'Energy', pct: q.XLE?.changePercent ?? 1.2 },
-            { name: 'Cons. Disc', pct: q.XLY?.changePercent ?? 0.9 },
-            { name: 'Materials', pct: q.XLB?.changePercent ?? 0.6 },
-            { name: 'Industrials', pct: q.XLI?.changePercent ?? 0.4 },
-            { name: 'Finance', pct: q.XLF?.changePercent ?? 0.3 },
-            { name: 'Healthcare', pct: q.XLV?.changePercent ?? -0.5 },
-            { name: 'Utilities', pct: q.XLU?.changePercent ?? -0.8 },
-          ];
-          setSectors(mappedSectors);
+          setSectors(prev => {
+            const fallback = (name: string, demo: number) => prev.find(sec => sec.name === name)?.pct ?? demo;
+            return [
+              { name: 'Tech', pct: stableChangePct(q.XLK, fallback('Tech', 2.1), equityExtendedLive) },
+              { name: 'Energy', pct: stableChangePct(q.XLE, fallback('Energy', 1.2), equityExtendedLive) },
+              { name: 'Cons. Disc', pct: stableChangePct(q.XLY, fallback('Cons. Disc', 0.9), equityExtendedLive) },
+              { name: 'Materials', pct: stableChangePct(q.XLB, fallback('Materials', 0.6), equityExtendedLive) },
+              { name: 'Industrials', pct: stableChangePct(q.XLI, fallback('Industrials', 0.4), equityExtendedLive) },
+              { name: 'Finance', pct: stableChangePct(q.XLF, fallback('Finance', 0.3), equityExtendedLive) },
+              { name: 'Healthcare', pct: stableChangePct(q.XLV, fallback('Healthcare', -0.5), equityExtendedLive) },
+              { name: 'Utilities', pct: stableChangePct(q.XLU, fallback('Utilities', -0.8), equityExtendedLive) },
+            ];
+          });
 
           // 2. Top Movers (Handled dynamically by separate effect hook based on active toggle tab)
 
@@ -698,30 +1131,38 @@ export default function AppDashPage() {
           const vixVal = f?.vix?.level ?? 21.5;
           const vixChg = f?.vix?.chgPct ?? -3.1;
 
-          const etfItems: PulseItem[] = [
-            {
-              sym: 'SPY',
-              px: spyQuote.price || DEMO_ETFS[0].px,
-              chg: spyQuote.changePercent != null ? spyQuote.changePercent : DEMO_ETFS[0].chg,
-              up: (spyQuote.changePercent != null ? spyQuote.changePercent : DEMO_ETFS[0].chg) >= 0,
-              spark: DEMO_ETFS[0].spark,
-            },
-            {
-              sym: 'QQQ',
-              px: qqqQuote.price || DEMO_ETFS[1].px,
-              chg: qqqQuote.changePercent != null ? qqqQuote.changePercent : DEMO_ETFS[1].chg,
-              up: (qqqQuote.changePercent != null ? qqqQuote.changePercent : DEMO_ETFS[1].chg) >= 0,
-              spark: DEMO_ETFS[1].spark,
-            },
-            {
-              sym: 'VIX',
-              px: vixVal,
-              chg: vixChg,
-              up: vixChg >= 0,
-              spark: DEMO_ETFS[2].spark,
-            }
-          ];
-          setEtfs(etfItems);
+          setEtfs(prev => {
+            const prevSpy = prev.find(item => item.sym === 'SPY');
+            const prevQqq = prev.find(item => item.sym === 'QQQ');
+            const spyChg = stableChangePct(spyQuote, prevSpy?.chg ?? DEMO_ETFS[0].chg, equityExtendedLive);
+            const qqqChg = stableChangePct(qqqQuote, prevQqq?.chg ?? DEMO_ETFS[1].chg, equityExtendedLive);
+            return [
+              {
+                sym: 'SPY',
+                px: spyQuote.price || prevSpy?.px || DEMO_ETFS[0].px,
+                chg: spyChg,
+                up: spyChg >= 0,
+                spark: DEMO_ETFS[0].spark,
+                live: equityExtendedLive,
+              },
+              {
+                sym: 'QQQ',
+                px: qqqQuote.price || prevQqq?.px || DEMO_ETFS[1].px,
+                chg: qqqChg,
+                up: qqqChg >= 0,
+                spark: DEMO_ETFS[1].spark,
+                live: equityExtendedLive,
+              },
+              {
+                sym: 'VIX',
+                px: vixVal,
+                chg: vixChg,
+                up: vixChg >= 0,
+                spark: DEMO_ETFS[2].spark,
+                ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday)),
+              }
+            ];
+          });
         }
 
         // ── Briefing ──
@@ -783,7 +1224,7 @@ export default function AppDashPage() {
       cancelled = true;
       clearInterval(intervalId);
     };
-  }, []);
+  }, [locale, equityExtendedLive, isLive, isMarketHoliday]);
 
   // Ticker auto-rotation: every 5 seconds
   useEffect(() => {
@@ -911,6 +1352,30 @@ export default function AppDashPage() {
         </div>
       )}
 
+      <div className={s.regimeStrip}>
+        <div className={s.regimePrimary}>
+          <span className={s.regimeKicker}>{copy.regime}</span>
+          <strong className={riskScore >= 58 ? s.regimePositive : riskScore <= 42 ? s.regimeNegative : s.regimeNeutral}>
+            {riskTone}
+          </strong>
+          <span className={s.regimeNote}>{pulseStatusNote}</span>
+        </div>
+        <div className={s.regimeMetrics}>
+          <div className={s.regimeMetric}>
+            <span>{copy.futures}</span>
+            <b className={futuresAvg >= 0 ? s.pos : s.neg}>{futuresTone} {fmtChg(futuresAvg)}</b>
+          </div>
+          <div className={s.regimeMetric}>
+            <span>{copy.cash}</span>
+            <b className={cashAvg >= 0 ? s.pos : s.neg}>{cashTone} {fmtChg(cashAvg)}</b>
+          </div>
+          <div className={s.regimeMetric}>
+            <span>{copy.risk}</span>
+            <b>{Math.round(riskScore)}</b>
+          </div>
+        </div>
+      </div>
+
       {/* ══════════════ MARKET PULSE ══════════════ */}
       <div className={s.card}>
         <div className={s.pulseGlow} />
@@ -920,10 +1385,10 @@ export default function AppDashPage() {
               <span className={s.pulseHeaderDecorator}>|</span>
               <span className={s.cardTitle}>Market Pulse</span>
             </div>
-            <div className={`${s.pulseLiveBadge} ${!isLive ? s.closed : ''}`}>
-              <div className={`${s.pulseDot} ${!isLive ? s.closed : ''}`} />
-              <span style={{ fontSize: '10px', fontWeight: '900', color: isLive ? 'var(--cyan)' : '#64748b', letterSpacing: '0.08em', lineHeight: 1 }}>
-                {isLive ? 'LIVE' : 'CLOSED'}
+            <div className={`${s.pulseLiveBadge} ${pulseStatusClass}`}>
+              <div className={`${s.pulseDot} ${pulseStatusClass}`} />
+              <span style={{ fontSize: '10px', fontWeight: '900', color: isLive || futuresLive || volatilityLive ? 'var(--cyan)' : '#64748b', letterSpacing: '0.08em', lineHeight: 1 }}>
+                {pulseStatusLabel}
               </span>
             </div>
           </div>
@@ -933,9 +1398,13 @@ export default function AppDashPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {/* ── Futures Row (NASDAQ100 F, Russell2k F, S&P500 F) ── */}
+            <div className={s.pulseRowMeta}>
+              <span>{copy.futuresRow}</span>
+              <em className={futuresLive ? s.metaLive : ''}>{futuresLive ? copy.futuresLive : copy.closed}</em>
+            </div>
             <div className={s.pulseRow}>
               {futures.map((p) => (
-                <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
+                <div key={p.sym} className={`${s.pulseCard} ${(p.live ?? checkIsItemActive(p.sym)) ? s.live : ''} ${p.up ? s.up : s.down}`}>
                   <div className={s.pulseCardSymRow}>
                     {getSymBadge(p.sym)}
                     <span className={s.pulseSym}>{p.sym}</span>
@@ -952,20 +1421,18 @@ export default function AppDashPage() {
             </div>
 
             {/* ── Indices Row (DOW, NASDAQ, S&P 500) ── */}
+            <div className={s.pulseRowMeta}>
+              <span>{copy.cashRow}</span>
+              <em className={isLive ? s.metaLive : isMarketHoliday ? s.metaHoliday : ''}>{isLive ? copy.regularLive : isMarketHoliday ? copy.holiday : copy.closed}</em>
+            </div>
             <div className={s.pulseRow}>
               {indices.map((p) => {
-                const proxySym = p.sym === 'DOW' ? 'DIA'
-                               : p.sym === 'NASDAQ' ? 'QQQ'
-                               : p.sym === 'S&P 500' ? 'SPY'
-                               : '';
-                const wsData = wsGetPrice(proxySym);
-                
-                // Overlay change if available
-                const displayChg = wsData && wsData.changePct != null ? wsData.changePct : p.chg;
+                // Cash index row is Redis/index-close based. ETF proxies must not overwrite index change.
+                const displayChg = p.chg;
                 const isUp = displayChg >= 0;
                 
                 // Flash animation class
-                const flashClass = wsData ? (flashStates[proxySym] === 'up' ? s.flashUp : flashStates[proxySym] === 'down' ? s.flashDown : '') : '';
+                const flashClass = '';
 
                 return (
                   <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
@@ -986,20 +1453,25 @@ export default function AppDashPage() {
             </div>
 
             {/* ── ETFs Row (SPY, QQQ, VIX) ── */}
+            <div className={s.pulseRowMeta}>
+              <span>{copy.etfRow}</span>
+              <em className={etfRowLive ? s.metaLive : ''}>{etfRowStatus}</em>
+            </div>
             <div className={s.pulseRow}>
               {etfs.map((p) => {
                 const wsData = wsGetPrice(p.sym);
+                const useWs = shouldUseWsQuote(p.sym, wsData);
                 
                 // Overlay price & change if available
-                const displayPx = wsData && wsData.price > 0 ? wsData.price : p.px;
-                const displayChg = wsData && wsData.changePct != null ? wsData.changePct : p.chg;
+                const displayPx = useWs ? wsData.price : p.px;
+                const displayChg = useWs ? wsData.changePct : p.chg;
                 const isUp = displayChg >= 0;
                 
                 // Flash animation class
-                const flashClass = wsData ? (flashStates[p.sym] === 'up' ? s.flashUp : flashStates[p.sym] === 'down' ? s.flashDown : '') : '';
+                const flashClass = useWs ? (flashStates[p.sym] === 'up' ? s.flashUp : flashStates[p.sym] === 'down' ? s.flashDown : '') : '';
 
                 return (
-                  <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
+                  <div key={p.sym} className={`${s.pulseCard} ${(p.live ?? checkIsItemActive(p.sym)) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
                     <div className={s.pulseCardSymRow}>
                       {getSymBadge(p.sym)}
                       <span className={s.pulseSym}>{p.sym}</span>
@@ -1034,7 +1506,7 @@ export default function AppDashPage() {
         ) : (
           <div className={s.macroGrid}>
             {macro.map((m) => (
-              <div key={m.label} className={`${s.macroCell} ${checkIsItemActive(m.label) ? s.live : ''}`}>
+              <div key={m.label} className={`${s.macroCell} ${(m.live ?? checkIsItemActive(m.label)) ? s.live : ''}`}>
                 <div className={s.macroLabelRow}>
                   {getMacroBadge(m.label)}
                   <span className={s.macroLabel}>{m.label}</span>
@@ -1105,19 +1577,33 @@ export default function AppDashPage() {
         <div className={s.moversScroll} style={{ padding: '0 var(--s4)' }}>
           {movers.map((mv) => {
             const wsData = wsGetPrice(mv.sym);
+            const useWs = shouldUseWsQuote(mv.sym, wsData);
 
             // Overlay price & change if available
-            const displayPx = wsData && wsData.price > 0 ? wsData.price.toFixed(2) : mv.px;
-            const displayChg = wsData && wsData.changePct != null 
+            const displayPx = useWs ? wsData.price.toFixed(2) : mv.px;
+            const displayChg = useWs
               ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
               : mv.chg;
             const isUp = displayChg.startsWith('+');
 
             // Flash animation class
-            const flashClass = wsData ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
+            const flashClass = useWs ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
 
             return (
-              <div key={mv.sym} className={`${s.moverCard} ${flashClass}`}>
+              <div
+                key={mv.sym}
+                className={`${s.moverCard} ${flashClass}`}
+                onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    router.push(`/app-view/cmd?t=${mv.sym}`);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`${mv.sym} command`}
+              >
                 <div className={s.moverTop}>
                   <span className={s.moverSym}>{mv.sym}</span>
                   <span className={isUp ? s.moverChgUp : s.moverChgDown}>
@@ -1154,8 +1640,9 @@ export default function AppDashPage() {
                            : sec.name === 'Utilities' ? 'XLU'
                            : '';
               const wsData = wsGetPrice(symbol);
-              const displayPct = wsData && wsData.changePct != null ? wsData.changePct : sec.pct;
-              const flashClass = wsData ? (flashStates[symbol] === 'up' ? s.flashUp : flashStates[symbol] === 'down' ? s.flashDown : '') : '';
+              const useWs = shouldUseWsQuote(symbol, wsData);
+              const displayPct = useWs ? wsData.changePct : sec.pct;
+              const flashClass = useWs ? (flashStates[symbol] === 'up' ? s.flashUp : flashStates[symbol] === 'down' ? s.flashDown : '') : '';
 
               return (
                 <div
@@ -1301,188 +1788,58 @@ export default function AppDashPage() {
 
       {/* ══════════════ INSTITUTIONAL PULSE (PREMIUM) ══════════════ */}
         <ValueWall
-          title="Institutional Pulse"
-          subtitle={<>Volatility regime + dark-pool flow map, updating <span style={{ color: 'var(--amber)' }}><b>right now</b></span>.</>}
+          locale={locale}
+          title={gateCopy.title}
+          subtitle={gateCopy.subtitle}
           teaser={{
-            label: 'INSTITUTIONAL · 1 OF 4 FREE',
-            value: volRegime?.regime || 'COILING'
+            label: gateCopy.teaserLabel,
+            value: `${institutionalSignals[0].value} · ${gateCopy.teaserUnit}`
           }}
-          socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
+          ctaLabel={gateCopy.cta}
+          adFreeLabel={gateCopy.adFree}
+          previewChipLabel={gateCopy.previewChip}
+          socialProof={gateCopy.social}
           lockedPreview={
-            <div className={s.instPulseGrid} style={{ opacity: 0.12, padding: '0', filter: 'blur(2.5px)', gap: '10px' }} aria-hidden="true">
-              {/* 1 */}
-              <div className={s.instCell}>
-                <span className={s.instLabel}>Volatility Regime</span>
-                <div className={s.instValRow}>
-                  <span className={s.instVal}>COILING</span>
-                  <span className={s.instSub}>38%</span>
+            <div className={`${s.instPulseGrid} ${s.instPulsePreview}`} aria-hidden="true">
+              {institutionalSignals.map((signal) => (
+                <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
+                  <div className={s.instHeader}>
+                    <span className={s.instLabel}>{signal.label}</span>
+                    <span className={s.instKicker}>{signal.kicker}</span>
+                  </div>
+                  <div className={s.instValRow}>
+                    <span className={s.instVal}>{signal.value}</span>
+                    <span className={s.instSub}>{signal.sub}</span>
+                  </div>
+                  <div className={s.instTrack}>
+                    <div className={s.instFill} style={{ width: `${signal.score}%` }} />
+                  </div>
+                  <p className={s.instInsight}>{signal.insight}</p>
                 </div>
-                <div className={s.instTrack}>
-                  <div className={s.instFill} style={{ width: '38%', background: 'var(--cyan)' }} />
-                </div>
-              </div>
-              {/* 2 */}
-              <div className={s.instCell}>
-                <span className={s.instLabel}>Dark Pool Volume</span>
-                <div className={s.instValRow}>
-                  <span className={s.instVal}>42.5%</span>
-                  <span className={s.instSub}>$8.5B</span>
-                </div>
-                <div className={s.instTrack}>
-                  <div className={s.instFill} style={{ width: '42.5%', background: 'var(--green)' }} />
-                </div>
-              </div>
-              {/* 3 */}
-              <div className={s.instCell}>
-                <span className={s.instLabel}>Squeeze Risk</span>
-                <div className={s.instValRow}>
-                  <span className={s.instVal}>LOW</span>
-                  <span className={s.instSub}>34%</span>
-                </div>
-                <div className={s.instTrack}>
-                  <div className={s.instFill} style={{ width: '34%', background: '#ec4899' }} />
-                </div>
-              </div>
-              {/* 4 */}
-              <div className={s.instCell}>
-                <span className={s.instLabel}>Rotation Intensity</span>
-                <div className={s.instValRow}>
-                  <span className={s.instVal}>NEUTRAL</span>
-                  <span className={s.instSub}>50%</span>
-                </div>
-                <div className={s.instTrack}>
-                  <div className={s.instFill} style={{ width: '50%', background: 'var(--amber)' }} />
-                </div>
-              </div>
+              ))}
             </div>
           }
         >
           {loading ? (
             <div style={{ height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', margin: '16px' }} />
           ) : (
-            <div className={s.instPulseGrid} style={{ padding: '0', gap: '10px' }}>
-              {/* 1. Volatility Regime */}
-              <div 
-                className={s.instCell} 
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
-                  border: '1px solid rgba(34, 211, 238, 0.15)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(34, 211, 238, 0.05)',
-                  position: 'relative'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className={s.instLabel} style={{ color: 'var(--cyan)', fontSize: '9px', fontWeight: 'bold' }}>Volatility Regime</span>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{locale === 'ko' ? '시장의 날씨' : locale === 'ja' ? '市場のウェザー' : 'Market Weather'}</span>
+            <div className={s.instPulseGrid}>
+              {institutionalSignals.map((signal) => (
+                <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
+                  <div className={s.instHeader}>
+                    <span className={s.instLabel}>{signal.label}</span>
+                    <span className={s.instKicker}>{signal.kicker}</span>
+                  </div>
+                  <div className={s.instValRow}>
+                    <span className={s.instVal}>{signal.value}</span>
+                    <span className={s.instSub}>{signal.sub}</span>
+                  </div>
+                  <div className={s.instTrack}>
+                    <div className={s.instFill} style={{ width: `${signal.score}%` }} />
+                  </div>
+                  <p className={s.instInsight}>{signal.insight}</p>
                 </div>
-                <div className={s.instValRow} style={{ marginTop: '4px' }}>
-                  <span className={s.instVal} style={{ fontSize: '16px', textShadow: '0 0 8px rgba(34, 211, 238, 0.3)' }}>{volRegime?.regime || 'COILING'}</span>
-                  <span className={s.instSub} style={{ fontSize: '11px', color: 'var(--cyan)' }}>{volRegime?.score || 38}%</span>
-                </div>
-                <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
-                  <div 
-                    className={s.instFill} 
-                    style={{ 
-                      height: '100%',
-                      width: `${volRegime?.score || 38}%`, 
-                      background: (volRegime?.score || 38) >= 75 ? 'linear-gradient(90deg, var(--red) 0%, #ff4b4b 100%)' : (volRegime?.score || 38) >= 50 ? 'linear-gradient(90deg, var(--amber) 0%, #ffb84d 100%)' : 'linear-gradient(90deg, var(--cyan) 0%, #00f0ff 100%)',
-                      boxShadow: (volRegime?.score || 38) >= 75 ? '0 0 8px var(--red)' : (volRegime?.score || 38) >= 50 ? '0 0 8px var(--amber)' : '0 0 8px var(--cyan)'
-                    }} 
-                  />
-                </div>
-              </div>
-
-              {/* 2. Dark Pool Volume */}
-              <div 
-                className={s.instCell} 
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
-                  border: '1px solid rgba(16, 185, 129, 0.15)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(16, 185, 129, 0.05)'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className={s.instLabel} style={{ color: 'var(--green)', fontSize: '9px', fontWeight: 'bold' }}>Dark Pool Volume</span>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{locale === 'ko' ? '기관 비밀 거래' : locale === 'ja' ? '機関取引フロー' : 'Institutional Flow'}</span>
-                </div>
-                <div className={s.instValRow} style={{ marginTop: '4px' }}>
-                  <span className={s.instVal} style={{ fontSize: '16px', color: 'var(--green)', textShadow: '0 0 8px rgba(16, 185, 129, 0.3)' }}>{darkPoolFlow?.percent || 42.5}%</span>
-                  <span className={s.instSub} style={{ fontSize: '11px', color: '#a3e635' }}>
-                    DP {darkPoolFlow?.volume ? (darkPoolFlow.volume >= 1e6 ? `${(darkPoolFlow.volume / 1e6).toFixed(1)}M` : `${(darkPoolFlow.volume / 1e3).toFixed(1)}K`) : '—'}
-                  </span>
-                </div>
-                <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
-                  <div 
-                    className={s.instFill} 
-                    style={{ 
-                      height: '100%',
-                      width: `${darkPoolFlow?.percent || 42.5}%`, 
-                      background: 'linear-gradient(90deg, var(--green) 0%, #10b981 100%)',
-                      boxShadow: '0 0 8px var(--green)'
-                    }} 
-                  />
-                </div>
-              </div>
-
-              {/* 3. Gamma Squeeze Risk */}
-              <div 
-                className={s.instCell} 
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
-                  border: '1px solid rgba(236, 72, 153, 0.15)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(236, 72, 153, 0.05)'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className={s.instLabel} style={{ color: '#ec4899', fontSize: '9px', fontWeight: 'bold' }}>Squeeze Risk</span>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{locale === 'ko' ? '주가 폭발력' : locale === 'ja' ? 'スクイーズリスク' : 'Squeeze Risk'}</span>
-                </div>
-                <div className={s.instValRow} style={{ marginTop: '4px' }}>
-                  <span className={s.instVal} style={{ fontSize: '16px', color: '#f43f5e', textShadow: '0 0 8px rgba(244, 63, 94, 0.3)' }}>{gammaSqueeze?.risk || 'LOW'}</span>
-                  <span className={s.instSub} style={{ fontSize: '11px', color: '#fda4af' }}>{gammaSqueeze?.score || 34}%</span>
-                </div>
-                <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
-                  <div 
-                    className={s.instFill} 
-                    style={{ 
-                      height: '100%',
-                      width: `${gammaSqueeze?.score || 34}%`, 
-                      background: 'linear-gradient(90deg, #ec4899 0%, #f43f5e 100%)',
-                      boxShadow: '0 0 8px #ec4899'
-                    }} 
-                  />
-                </div>
-              </div>
-
-              {/* 4. Sector Rotation Intensity */}
-              <div 
-                className={s.instCell} 
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
-                  border: '1px solid rgba(234, 179, 8, 0.15)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(234, 179, 8, 0.05)'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className={s.instLabel} style={{ color: 'var(--amber)', fontSize: '9px', fontWeight: 'bold' }}>Rotation Intensity</span>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{locale === 'ko' ? '공격/수비 전환' : locale === 'ja' ? 'ローテーション' : 'Rotation'}</span>
-                </div>
-                <div className={s.instValRow} style={{ marginTop: '4px' }}>
-                  <span className={s.instVal} style={{ fontSize: '16px', color: 'var(--amber)', textShadow: '0 0 8px rgba(245, 158, 11, 0.3)' }}>{sectorRotation?.direction || 'NEUTRAL'}</span>
-                  <span className={s.instSub} style={{ fontSize: '11px', color: '#fde047' }}>{sectorRotation?.score || 50}%</span>
-                </div>
-                <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
-                  <div 
-                    className={s.instFill} 
-                    style={{ 
-                      height: '100%',
-                      width: `${sectorRotation?.score || 50}%`, 
-                      background: 'linear-gradient(90deg, var(--amber) 0%, #fbbf24 100%)',
-                      boxShadow: '0 0 8px var(--amber)'
-                    }} 
-                  />
-                </div>
-              </div>
+              ))}
             </div>
           )}
         </ValueWall>

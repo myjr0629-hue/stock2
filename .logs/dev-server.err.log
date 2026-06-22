@@ -1,0 +1,507 @@
+ ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Command Unified] ⏱️ Timeout (8000ms): earnings
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[V5.0] META: No cache available for weekend - falling back to API
+[V5.0] TSLA: No cache available for weekend - falling back to API
+[V5.0] PLTR: No cache available for weekend - falling back to API
+[V5.0] AMD: No cache available for weekend - falling back to API
+[V5.0] MU: No cache available for weekend - falling back to API
+[V5.0] ASML: No cache available for weekend - falling back to API
+[V5.0] LLY: No cache available for weekend - falling back to API
+[V5.0] ARM: No cache available for weekend - falling back to API
+[V5.0] AVGO: No cache available for weekend - falling back to API
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Redis] EC2 Proxy unavailable: The operation was aborted due to timeout
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+ ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3172,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 236,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3172,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 236,
+      bytesRead: 0
+    }
+  }
+}
+[Error: failed to pipe response] {
+  [cause]: [TypeError: fetch failed] {
+    [cause]: [Error [SocketError]: other side closed] {
+      code: 'UND_ERR_SOCKET',
+      socket: {
+        localAddress: '222.105.84.174',
+        localPort: 3172,
+        remoteAddress: '198.44.194.196',
+        remotePort: 443,
+        remoteFamily: 'IPv4',
+        timeout: undefined,
+        bytesWritten: 236,
+        bytesRead: 0
+      }
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3176,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3176,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[Error: failed to pipe response] {
+  [cause]: [TypeError: fetch failed] {
+    [cause]: [Error [SocketError]: other side closed] {
+      code: 'UND_ERR_SOCKET',
+      socket: {
+        localAddress: '222.105.84.174',
+        localPort: 3176,
+        remoteAddress: '198.44.194.196',
+        remotePort: 443,
+        remoteFamily: 'IPv4',
+        timeout: undefined,
+        bytesWritten: 238,
+        bytesRead: 0
+      }
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3174,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3177,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3173,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 237,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3175,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 3171,
+      remoteAddress: '198.44.194.196',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 237,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11439,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11439,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11442,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 237,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11442,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 237,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11440,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 236,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11441,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 237,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11436,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11436,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11438,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 11437,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 237,
+      bytesRead: 0
+    }
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [SocketError]: other side closed] {
+    code: 'UND_ERR_SOCKET',
+    socket: {
+      localAddress: '222.105.84.174',
+      localPort: 4771,
+      remoteAddress: '198.44.194.33',
+      remotePort: 443,
+      remoteFamily: 'IPv4',
+      timeout: undefined,
+      bytesWritten: 238,
+      bytesRead: 0
+    }
+  }
+}
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+ ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[realtime-metrics] fetchTradeData error: TypeError: fetch failed
+    at async fetchTradeData (src\services\realtimeMetricsService.ts:81:40)
+    at async (src\services\watchlistBatchService.ts:356:35)
+    at async processWatchlistBatch (src\services\watchlistBatchService.ts:179:30)
+    at async GET (src\app\api\watchlist\batch\route.ts:30:21)
+  79 |     // [FALLBACK] Polygon REST sampling (5,000 trades) — used when EC2 data unavailable
+  80 |     try {
+> 81 |         const [tradesRes, quotesRes] = await Promise.all([
+     |                                        ^
+  82 |             fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=5000&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } } as any),
+  83 |             fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } } as any),
+  84 |         ]); {
+  [cause]: Error: connect ETIMEDOUT 198.44.194.32:443
+      at <unknown> (Error: connect ETIMEDOUT 198.44.194.32:443) {
+    errno: -4039,
+    code: 'ETIMEDOUT',
+    syscall: 'connect',
+    address: '198.44.194.32',
+    port: 443
+  }
+}
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[TypeError: fetch failed] {
+  [cause]: [Error [ConnectTimeoutError]: Connect Timeout Error (attempted address: api.polygon.io:443, timeout: 10000ms)] {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error [ConnectTimeoutError]: Connect Timeout Error (attempted address: api.polygon.io:443, timeout: 10000ms)] {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+[Error: failed to pipe response] {
+  [cause]: [TypeError: fetch failed] {
+    [cause]: [Error [ConnectTimeoutError]: Connect Timeout Error (attempted address: api.polygon.io:443, timeout: 10000ms)] {
+      code: 'UND_ERR_CONNECT_TIMEOUT'
+    }
+  }
+}
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+ ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+[Breadth] Too few active tickers: 0
+Failed to set fetch cache https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF [Error: Failed to set Next.js data cache for https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF, items over 2MB can not be cached (5705559 bytes)]
+ ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase

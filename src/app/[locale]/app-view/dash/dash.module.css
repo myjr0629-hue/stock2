@@ -126,6 +126,12 @@
   border-color: rgba(148, 163, 184, 0.15);
 }
 
+.pulseLiveBadge.futuresOpen {
+  background: rgba(34, 211, 238, 0.075);
+  border-color: rgba(34, 211, 238, 0.22);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.08);
+}
+
 .pulseDot {
   width: 6px;
   height: 6px;
@@ -138,6 +144,11 @@
 .pulseDot.closed {
   background: #64748b;
   animation: none;
+}
+
+.pulseDot.futuresOpen {
+  background: var(--cyan);
+  animation: pulseCyan 2s ease-in-out infinite;
 }
 
 @keyframes pulseCyan {
@@ -642,6 +653,7 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: transform 0.12s ease;
+  cursor: pointer;
 }
 
 .moverCard:active {
@@ -768,7 +780,14 @@
 .instPulseGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--s3);
+  gap: 10px;
+  padding: 0;
+}
+
+.instPulsePreview {
+  opacity: 0.16;
+  filter: blur(2.5px) saturate(0.9);
+  -webkit-filter: blur(2.5px) saturate(0.9);
 }
 
 .instCell {
@@ -781,40 +800,164 @@
   border-radius: var(--r-btn);
 }
 
+.instCellPremium {
+  position: relative;
+  min-height: 136px;
+  padding: 12px;
+  gap: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgba(18, 29, 51, 0.82), rgba(12, 18, 33, 0.72)),
+    radial-gradient(circle at 85% 0%, rgba(255, 255, 255, 0.08), transparent 34%);
+  border-color: rgba(148, 163, 184, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 26px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.instCellPremium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 42%);
+  opacity: 0.55;
+}
+
+.instHeader {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 .instLabel {
-  font: var(--f-micro);
+  font: 800 9px/1.15 'Inter', sans-serif;
   color: var(--text-muted);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.instKicker {
+  font: 700 9.5px/1.2 'Inter', sans-serif;
+  color: rgba(203, 213, 225, 0.58);
+  overflow-wrap: anywhere;
 }
 
 .instValRow {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
 }
 
 .instVal {
-  font: 700 18px/1 'Inter', sans-serif;
+  font: 850 17px/1.05 'Inter', sans-serif;
   color: var(--text);
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .instSub {
-  font: var(--f-micro);
+  font: 800 10px/1.1 'Inter', sans-serif;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .instTrack {
-  height: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
-  overflow: hidden;
   position: relative;
+  z-index: 1;
+  height: 5px;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
 }
 
 .instFill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 999px;
+}
+
+.instInsight {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font: 650 10px/1.45 'Inter', sans-serif;
+  color: rgba(226, 232, 240, 0.72);
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.instToneCyan {
+  border-color: rgba(34, 211, 238, 0.22);
+}
+
+.instToneCyan .instLabel,
+.instToneCyan .instSub {
+  color: var(--cyan);
+}
+
+.instToneCyan .instVal {
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.22);
+}
+
+.instToneCyan .instFill {
+  background: linear-gradient(90deg, #22d3ee, #38bdf8);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.55);
+}
+
+.instToneGreen {
+  border-color: rgba(16, 185, 129, 0.22);
+}
+
+.instToneGreen .instLabel,
+.instToneGreen .instVal,
+.instToneGreen .instSub {
+  color: var(--green);
+}
+
+.instToneGreen .instFill {
+  background: linear-gradient(90deg, #10b981, #34d399);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.55);
+}
+
+.instTonePink {
+  border-color: rgba(236, 72, 153, 0.22);
+}
+
+.instTonePink .instLabel,
+.instTonePink .instVal,
+.instTonePink .instSub {
+  color: #fb7185;
+}
+
+.instTonePink .instFill {
+  background: linear-gradient(90deg, #ec4899, #fb7185);
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+}
+
+.instToneAmber {
+  border-color: rgba(245, 158, 11, 0.24);
+}
+
+.instToneAmber .instLabel,
+.instToneAmber .instVal,
+.instToneAmber .instSub {
+  color: var(--amber);
+}
+
+.instToneAmber .instFill {
+  background: linear-gradient(90deg, #f59e0b, #facc15);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.55);
 }
 
 /* ── Market Pulse 2-row layout ── */
@@ -822,6 +965,40 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+}
+
+.pulseRowMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 1px -2px;
+  min-height: 14px;
+}
+
+.pulseRowMeta span,
+.pulseRowMeta em {
+  font: 850 10px/1 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.pulseRowMeta span {
+  color: var(--text-muted);
+}
+
+.pulseRowMeta em {
+  color: rgba(148, 163, 184, 0.82);
+  font-style: normal;
+}
+
+.pulseRowMeta .metaLive {
+  color: var(--cyan);
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.25);
+}
+
+.pulseRowMeta .metaHoliday {
+  color: #fbbf24;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.35);
 }
 
 .pulseDivider {
@@ -905,6 +1082,98 @@
   color: var(--text-muted);
   margin-left: auto;
   opacity: 0.7;
+}
+
+/* ── MARKET STATE STRIP ── */
+.regimeStrip {
+  margin: 0 var(--s4) 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.14);
+  background:
+    linear-gradient(135deg, rgba(8, 145, 178, 0.12), rgba(15, 23, 42, 0.72) 44%, rgba(16, 185, 129, 0.08)),
+    rgba(15, 23, 42, 0.58);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.regimePrimary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+
+.regimeKicker {
+  font: 800 10px/1 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.regimePrimary strong {
+  font: 900 16px/1.05 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.regimePositive {
+  color: var(--green);
+  text-shadow: 0 0 16px rgba(16, 185, 129, 0.22);
+}
+
+.regimeNegative {
+  color: var(--red);
+  text-shadow: 0 0 16px rgba(239, 68, 68, 0.2);
+}
+
+.regimeNeutral {
+  color: var(--amber);
+  text-shadow: 0 0 16px rgba(245, 158, 11, 0.16);
+}
+
+.regimeNote {
+  font: 600 10px/1.35 'Inter', sans-serif;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.regimeMetrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.7fr;
+  gap: 8px;
+}
+
+.regimeMetric {
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(2, 6, 23, 0.26);
+}
+
+.regimeMetric span {
+  display: block;
+  margin-bottom: 4px;
+  font: 800 9px/1 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.regimeMetric b {
+  display: block;
+  font: 900 13px/1.1 'Inter', sans-serif;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes slideUpFadeIn {

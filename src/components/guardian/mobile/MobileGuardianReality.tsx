@@ -8,7 +8,6 @@
 
 import React from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { useTier } from '@/contexts/TierContext';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { RealityCheck } from '@/components/guardian/RealityCheck';
 import { EconomicCalendarWidget } from '@/components/guardian/EconomicCalendarWidget';
@@ -61,7 +60,7 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
             </div>
 
             {/* ── ECONOMIC CALENDAR ── */}
-            <EconomicCalendarWidget locale={locale} />
+            <EconomicCalendarWidget locale={locale} localizeLabels />
         </div>
     );
 }

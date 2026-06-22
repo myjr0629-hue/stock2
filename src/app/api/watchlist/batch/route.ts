@@ -12,6 +12,8 @@ import { processWatchlistBatch } from '@/services/watchlistBatchService';
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tickersParam = searchParams.get('tickers');
+    const modeParam = searchParams.get('mode');
+    const mode = modeParam === 'price' || modeParam === 'price-dp' || modeParam === 'ssr' ? modeParam : 'full';
 
     if (!tickersParam) {
         return NextResponse.json({ error: 'tickers required (comma-separated)' }, { status: 400 });
@@ -27,7 +29,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Max 50 tickers per request' }, { status: 400 });
     }
 
-    const payload = await processWatchlistBatch(tickers);
+    const payload = await processWatchlistBatch(tickers, mode);
     return NextResponse.json(payload, {
         headers: {
             // [PERF] Browser can serve stale data for 5s while revalidating in background

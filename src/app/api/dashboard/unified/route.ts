@@ -472,12 +472,12 @@ async function buildResponseFromResults(
                     squeezeScore: data.squeezeScore ?? null,
                     relVol: data.relVol ?? null,
                     shortVolPct: data.shortVolPct ?? null,
-                    callWall: data.callWall ?? null,
-                    putFloor: data.putFloor ?? null,
+                    callWall: data.levels?.callWall ?? data.callWall ?? null,
+                    putFloor: data.levels?.putFloor ?? data.putFloor ?? null,
                     gammaFlipLevel: data.gammaFlipLevel ?? null,
                     return3D: data.return3d ?? null,
                     netPremium: data.netPremium ?? null,
-                    ivSkew: data.ivSkew ?? null,
+                    ivSkew: typeof data.ivSkew === 'number' ? data.ivSkew : (typeof data.ivSkew === 'object' && data.ivSkew !== null ? (data.ivSkew as any).value ?? null : null),
                     impliedMovePct: data.impliedMovePct ?? null,
                 });
             } catch (e) {

@@ -102,11 +102,14 @@ class AdManagerService {
     if (!this.initialized) return;
     try {
       const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
+      const { Capacitor } = await import('@capacitor/core');
+      const bottomMargin = Capacitor.getPlatform() === 'ios' ? 108 : 76;
+
       await AdMob.showBanner({
         adId: this.config.bannerId,
         adSize: BannerAdSize.ADAPTIVE_BANNER,
         position: BannerAdPosition.BOTTOM_CENTER,
-        margin: 0,
+        margin: bottomMargin,
         isTesting: this.config.testMode,
       });
       this.trackImpression('banner');

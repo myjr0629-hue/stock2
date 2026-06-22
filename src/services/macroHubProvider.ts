@@ -18,6 +18,14 @@ export interface MacroFactor {
     source: "MASSIVE" | "FRED" | "FAIL"; // Added FRED source
     status: "OK" | "UNAVAILABLE";
     symbolUsed: string;
+    updatedAt?: string;
+    marketTime?: string;
+    marketState?: string;
+    exchangeTimezoneName?: string;
+    feedSource?: YahooQuote["source"];
+    isStale?: boolean;
+    feedAgeSec?: number;
+    marketAgeSec?: number;
 }
 
 export interface MacroSnapshot {
@@ -96,7 +104,7 @@ async function fetchIndexSnapshot(ticker: string, label: string, multiplier: num
             // [Fix V3 Parsing] Use 'session' object if available (Standard V3 Snapshot)
             const session = result.session;
 
-            let rawLevel =
+            const rawLevel =
                 session?.price ||
                 session?.close ||
                 result.last_trade?.p ||
@@ -147,6 +155,35 @@ async function fetchIndexSnapshot(ticker: string, label: string, multiplier: num
 
 function createFailFactor(label: string, symbolUsed: string): MacroFactor {
     return { level: null, chgPct: null, chgAbs: null, label, source: "FAIL", status: "UNAVAILABLE", symbolUsed };
+}
+
+function createYahooFactor(quote: YahooQuote, label: string, symbolUsed: string): MacroFactor {
+    const updatedAtMs = quote.updatedAt ? new Date(quote.updatedAt).getTime() : NaN;
+    const marketTimeMs = quote.marketTime ? new Date(quote.marketTime).getTime() : NaN;
+    const feedAgeSec = Number.isFinite(updatedAtMs)
+        ? Math.max(0, Math.floor((Date.now() - updatedAtMs) / 1000))
+        : undefined;
+    const marketAgeSec = Number.isFinite(marketTimeMs)
+        ? Math.max(0, Math.floor((Date.now() - marketTimeMs) / 1000))
+        : undefined;
+
+    return {
+        level: quote.price,
+        chgPct: quote.changePct,
+        chgAbs: quote.change,
+        label,
+        source: quote.source === "DEFAULT" ? "FAIL" : "MASSIVE",
+        status: quote.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
+        symbolUsed,
+        updatedAt: quote.updatedAt,
+        marketTime: quote.marketTime,
+        marketState: quote.marketState,
+        exchangeTimezoneName: quote.exchangeTimezoneName,
+        feedSource: quote.source,
+        isStale: quote.isStale || quote.source === "DEFAULT",
+        feedAgeSec,
+        marketAgeSec
+    };
 }
 
 // [Phase 41.3] Real Macro Intelligence (Fed Data)
@@ -332,111 +369,43 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
 
     // [V45.9] Use NQ=F from Yahoo, fallback to QQQ proxy
     const nqData = yahooData.nq;
-    const qqq: MacroFactor = nqData.source !== "DEFAULT" ? {
-        level: nqData.price,
-        chgPct: nqData.changePct,
-        chgAbs: nqData.change,
-        label: "NASDAQ 100",
-        source: nqData.source === "YAHOO" ? "MASSIVE" : "FAIL",
-        status: "OK",
-        symbolUsed: "NQ=F"
-    } : qqqFallback; // Fallback to QQQ proxy if Yahoo fails completely
+    const qqq: MacroFactor = nqData.source !== "DEFAULT"
+        ? createYahooFactor(nqData, "NASDAQ 100", "NQ=F")
+        : qqqFallback; // Fallback to QQQ proxy if Yahoo fails completely
 
     // [V45.9] Convert VIX Yahoo data to MacroFactor format
     const vixData = yahooData.vix;
-    const vixy: MacroFactor = {
-        level: vixData.price,
-        chgPct: vixData.changePct,
-        chgAbs: vixData.change,
-        label: "VIX",
-        source: vixData.source === "YAHOO" ? "MASSIVE" : vixData.source === "REDIS" ? "FRED" : "FAIL",
-        status: vixData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: vixData.source === "YAHOO" ? "^VIX" : vixData.source
-    };
+    const vixy: MacroFactor = createYahooFactor(vixData, "VIX", "^VIX");
 
     // S&P 500 from Yahoo ES=F (E-mini futures)
     const spxData = yahooData.spx;
-    const spx: MacroFactor = {
-        level: spxData.price,
-        chgPct: spxData.changePct,
-        chgAbs: spxData.change,
-        label: "S&P 500",
-        source: spxData.source === "YAHOO" ? "MASSIVE" : spxData.source === "REDIS" ? "FRED" : "FAIL",
-        status: spxData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: "ES=F"
-    };
+    const spx: MacroFactor = createYahooFactor(spxData, "S&P 500", "ES=F");
 
     // Bitcoin from Yahoo BTC-USD
     const btcData = yahooData.btc;
-    const btc: MacroFactor = {
-        level: btcData.price,
-        chgPct: btcData.changePct,
-        chgAbs: btcData.change,
-        label: "Bitcoin",
-        source: btcData.source === "YAHOO" ? "MASSIVE" : btcData.source === "REDIS" ? "FRED" : "FAIL",
-        status: btcData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: "BTC-USD"
-    };
+    const btc: MacroFactor = createYahooFactor(btcData, "Bitcoin", "BTC-USD");
 
     // Gold from Yahoo GC=F
     const goldData = yahooData.gold;
-    const gold: MacroFactor = {
-        level: goldData.price,
-        chgPct: goldData.changePct,
-        chgAbs: goldData.change,
-        label: "Gold",
-        source: goldData.source === "YAHOO" ? "MASSIVE" : goldData.source === "REDIS" ? "FRED" : "FAIL",
-        status: goldData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: "GC=F"
-    };
+    const gold: MacroFactor = createYahooFactor(goldData, "Gold", "GC=F");
 
     // Oil (WTI) from Yahoo CL=F
     const oilData = yahooData.oil;
-    const oil: MacroFactor = {
-        level: oilData.price,
-        chgPct: oilData.changePct,
-        chgAbs: oilData.change,
-        label: "Oil",
-        source: oilData.source === "YAHOO" ? "MASSIVE" : oilData.source === "REDIS" ? "FRED" : "FAIL",
-        status: oilData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: "CL=F"
-    };
+    const oil: MacroFactor = createYahooFactor(oilData, "Oil", "CL=F");
 
     // SOX (Philadelphia Semiconductor Index) from Yahoo ^SOX
     const soxData = yahooData.sox;
-    const sox: MacroFactor = {
-        level: soxData.price,
-        chgPct: soxData.changePct,
-        chgAbs: soxData.change,
-        label: "SOX",
-        source: soxData.source === "YAHOO" ? "MASSIVE" : soxData.source === "REDIS" ? "FRED" : "FAIL",
-        status: soxData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: "^SOX"
-    };
+    const sox: MacroFactor = createYahooFactor(soxData, "SOX", "^SOX");
 
     // Russell 2000 from Yahoo RTY=F (E-mini futures)
     const rutData = yahooData.rut;
-    const rut: MacroFactor = {
-        level: rutData.price,
-        chgPct: rutData.changePct,
-        chgAbs: rutData.change,
-        label: "Russell 2K",
-        source: rutData.source === "YAHOO" ? "MASSIVE" : rutData.source === "REDIS" ? "FRED" : "FAIL",
-        status: rutData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: "RTY=F"
-    };
+    const rut: MacroFactor = createYahooFactor(rutData, "Russell 2K", "RTY=F");
 
     // [V7.0] US10Y: Yahoo ^TNX real-time, fallback to FED daily
     const tnxData = yahooData.tnx;
-    const us10y: MacroFactor = tnxData.source !== "DEFAULT" ? {
-        level: tnxData.price,
-        chgPct: tnxData.changePct,
-        chgAbs: tnxData.change,
-        label: "US 10Y",
-        source: "MASSIVE",
-        status: "OK",
-        symbolUsed: "^TNX (Yahoo)"
-    } : fedYield; // Fallback to FED daily if Yahoo fails
+    const us10y: MacroFactor = tnxData.source !== "DEFAULT"
+        ? createYahooFactor(tnxData, "US 10Y", "^TNX")
+        : fedYield; // Fallback to FED daily if Yahoo fails
 
     // [V7.0] Use real-time US10Y for yield curve and real yield
     const liveUs10y = us10y.level ?? yieldCurve?.us10y ?? 4.2;

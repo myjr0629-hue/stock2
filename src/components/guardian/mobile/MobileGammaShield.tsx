@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import type { GammaShieldData } from '@/services/guardian/gammaShieldEngine';
-import { Shield, Zap, AlertTriangle, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Shield } from 'lucide-react';
 import { useLocale } from 'next-intl';
 import { GuardianTooltip } from '../GuardianTooltip';
 
@@ -110,6 +110,206 @@ interface Props {
     isMarketActive: boolean;
 }
 
+const UI: Record<Locale, Record<string, string>> = {
+    ko: {
+        gammaTitle: 'GAMMA SHIELD',
+        subtitle: 'SPY+QQQ 옵션 감마 방어 구조',
+        live: 'LIVE',
+        standby: 'STANDBY',
+        sessionData: 'SESSION DATA',
+        defenseMatrix: '방어 매트릭스',
+        gammaPressure: '감마 압력',
+        squeezeRisk: '스퀴즈 위험',
+        volatilityState: '변동성 상태',
+        dealerCushion: '딜러 쿠션',
+        expansionRisk: '확대 위험',
+        calmRange: '레인지 안정',
+        triggerBand: '트리거 밴드',
+        support: '지지',
+        current: '현재',
+        resistance: '저항',
+        flipPoint: '감마 전환',
+        distance: 'Flip 거리',
+        pressureMap: '압력 지도',
+        spyLayer: 'SPY 감마',
+        qqqLayer: 'QQQ 감마',
+        confidence: '신뢰도',
+        realtime: 'REALTIME',
+        prevSession: '직전',
+        compressionBuilding: '압축 형성',
+        historicalContext: '30일 구조 검증',
+        percentile: '감마 백분위',
+        regimeStreak: '레짐 지속',
+        regimeShifts: '전환 횟수',
+        resistanceHold: '저항 신뢰도',
+        supportHold: '지지 신뢰도',
+        wallTrend: '월 이동',
+        infoOnly: '실시간 구조와 30일 히스토리 기반. 정보 제공 목적.',
+        longGamma: 'LONG GAMMA',
+        neutralGamma: 'NEUTRAL',
+        shortGamma: 'SHORT GAMMA',
+        highConviction: 'HIGH CONVICTION',
+        balanced: 'BALANCED',
+        fragile: 'FRAGILE',
+        low: 'LOW',
+        medium: 'MEDIUM',
+        high: 'HIGH',
+        extreme: 'EXTREME',
+    },
+    en: {
+        gammaTitle: 'GAMMA SHIELD',
+        subtitle: 'SPY+QQQ option gamma defense map',
+        live: 'LIVE',
+        standby: 'STANDBY',
+        sessionData: 'SESSION DATA',
+        defenseMatrix: 'Defense Matrix',
+        gammaPressure: 'Gamma Pressure',
+        squeezeRisk: 'Squeeze Risk',
+        volatilityState: 'Volatility State',
+        dealerCushion: 'Dealer Cushion',
+        expansionRisk: 'Expansion Risk',
+        calmRange: 'Range Stability',
+        triggerBand: 'Trigger Band',
+        support: 'Support',
+        current: 'Current',
+        resistance: 'Resistance',
+        flipPoint: 'Gamma Flip',
+        distance: 'Flip Distance',
+        pressureMap: 'Pressure Map',
+        spyLayer: 'SPY Gamma',
+        qqqLayer: 'QQQ Gamma',
+        confidence: 'Confidence',
+        realtime: 'REALTIME',
+        prevSession: 'prev',
+        compressionBuilding: 'compression building',
+        historicalContext: '30D Structure Check',
+        percentile: 'Gamma Percentile',
+        regimeStreak: 'Regime Streak',
+        regimeShifts: 'Regime Shifts',
+        resistanceHold: 'Resistance Hold',
+        supportHold: 'Support Hold',
+        wallTrend: 'Wall Drift',
+        infoOnly: 'Live structure with 30D historical context. Informational only.',
+        longGamma: 'LONG GAMMA',
+        neutralGamma: 'NEUTRAL',
+        shortGamma: 'SHORT GAMMA',
+        highConviction: 'HIGH CONVICTION',
+        balanced: 'BALANCED',
+        fragile: 'FRAGILE',
+        low: 'LOW',
+        medium: 'MEDIUM',
+        high: 'HIGH',
+        extreme: 'EXTREME',
+    },
+    ja: {
+        gammaTitle: 'GAMMA SHIELD',
+        subtitle: 'SPY+QQQオプション・ガンマ防御構造',
+        live: 'LIVE',
+        standby: 'STANDBY',
+        sessionData: 'SESSION DATA',
+        defenseMatrix: '防御マトリクス',
+        gammaPressure: 'ガンマ圧力',
+        squeezeRisk: 'スクイーズリスク',
+        volatilityState: '変動性状態',
+        dealerCushion: 'ディーラー緩衝',
+        expansionRisk: '拡大リスク',
+        calmRange: 'レンジ安定',
+        triggerBand: 'トリガーバンド',
+        support: '支持',
+        current: '現在',
+        resistance: '抵抗',
+        flipPoint: 'ガンマ反転',
+        distance: '反転距離',
+        pressureMap: '圧力マップ',
+        spyLayer: 'SPYガンマ',
+        qqqLayer: 'QQQガンマ',
+        confidence: '信頼度',
+        realtime: 'REALTIME',
+        prevSession: '前回',
+        compressionBuilding: '圧縮形成',
+        historicalContext: '30日構造検証',
+        percentile: 'ガンマ百分位',
+        regimeStreak: 'レジーム継続',
+        regimeShifts: '転換回数',
+        resistanceHold: '抵抗信頼度',
+        supportHold: '支持信頼度',
+        wallTrend: 'ウォール移動',
+        infoOnly: 'ライブ構造と30日履歴を参照。情報提供のみ。',
+        longGamma: 'LONG GAMMA',
+        neutralGamma: 'NEUTRAL',
+        shortGamma: 'SHORT GAMMA',
+        highConviction: 'HIGH CONVICTION',
+        balanced: 'BALANCED',
+        fragile: 'FRAGILE',
+        low: 'LOW',
+        medium: 'MEDIUM',
+        high: 'HIGH',
+        extreme: 'EXTREME',
+    },
+};
+
+function ui(locale: Locale, key: string): string {
+    return UI[locale]?.[key] || UI.en[key] || key;
+}
+
+function formatSigned(value: number | null | undefined, suffix = ''): string {
+    if (value === null || value === undefined || Number.isNaN(value)) return '--';
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value}${suffix}`;
+}
+
+function formatPoint(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(value)) return '--';
+    return value.toLocaleString();
+}
+
+function localizedGexLevel(level: GammaShieldData['gexLevel'], locale: Locale): string {
+    if (level === 'LONG_GAMMA') return ui(locale, 'longGamma');
+    if (level === 'SHORT_GAMMA') return ui(locale, 'shortGamma');
+    return ui(locale, 'neutralGamma');
+}
+
+function localizedSqueezeLevel(level: GammaShieldData['squeezeLevel'], locale: Locale): string {
+    if (level === 'EXTREME') return ui(locale, 'extreme');
+    if (level === 'HIGH') return ui(locale, 'high');
+    if (level === 'MEDIUM') return ui(locale, 'medium');
+    return ui(locale, 'low');
+}
+
+function getGammaHeadline(gexIndex: number, squeezeRisk: number, locale: Locale): string {
+    if (locale === 'ko') {
+        if (gexIndex >= 35 && squeezeRisk < 45) return '감마 방어 우위';
+        if (gexIndex >= 20) return '감마 쿠션 유지';
+        if (gexIndex <= -25) return '변동성 확대 경계';
+        if (squeezeRisk >= 55) return '압축 에너지 축적';
+        return '중립 레인지 관찰';
+    }
+    if (locale === 'ja') {
+        if (gexIndex >= 35 && squeezeRisk < 45) return 'ガンマ防御優位';
+        if (gexIndex >= 20) return 'ガンマ緩衝維持';
+        if (gexIndex <= -25) return '変動性拡大に警戒';
+        if (squeezeRisk >= 55) return '圧縮エネルギー蓄積';
+        return '中立レンジ観察';
+    }
+    if (gexIndex >= 35 && squeezeRisk < 45) return 'Gamma Defense Leads';
+    if (gexIndex >= 20) return 'Gamma Cushion Holding';
+    if (gexIndex <= -25) return 'Vol Expansion Watch';
+    if (squeezeRisk >= 55) return 'Compression Building';
+    return 'Neutral Range Watch';
+}
+
+function getDefenseLabel(gexIndex: number, squeezeRisk: number, locale: Locale): string {
+    if (gexIndex >= 20 && squeezeRisk < 45) return ui(locale, 'dealerCushion');
+    if (gexIndex <= -20 || squeezeRisk >= 55) return ui(locale, 'expansionRisk');
+    return ui(locale, 'calmRange');
+}
+
+function getGexToneClass(index: number): string {
+    if (index >= 20) return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300';
+    if (index <= -20) return 'border-rose-400/30 bg-rose-500/10 text-rose-300';
+    return 'border-slate-500/30 bg-slate-500/10 text-slate-300';
+}
+
 // === GEX Gauge Colors ===
 function getGexColor(index: number): string {
     if (index >= 40) return 'text-emerald-400';
@@ -117,14 +317,6 @@ function getGexColor(index: number): string {
     if (index >= -20) return 'text-slate-300';
     if (index >= -40) return 'text-amber-400';
     return 'text-red-400';
-}
-
-function getGexBarGradient(index: number): string {
-    if (index >= 40) return 'from-emerald-500 to-emerald-400';
-    if (index >= 20) return 'from-emerald-500/80 to-emerald-400/80';
-    if (index >= -20) return 'from-slate-500 to-slate-400';
-    if (index >= -40) return 'from-amber-500 to-amber-400';
-    return 'from-red-600 to-red-400';
 }
 
 function getGexBgGlow(index: number): string {
@@ -259,21 +451,21 @@ function TriggerBand({
             <div className="grid grid-cols-3 gap-2 text-center items-end">
                 {/* Support */}
                 <div className="flex flex-col items-start text-left">
-                    <span className="text-[10px] font-bold font-jakarta text-slate-400 tracking-wider">SUPPORT</span>
+                    <span className="text-[10px] font-bold font-jakarta text-slate-400 tracking-wider">{ui(locale, 'support')}</span>
                     <span className="text-[13px] font-black font-jakarta text-emerald-400 tabular-nums">
                         {support.toLocaleString()}
                     </span>
                 </div>
                 {/* Current */}
                 <div className="flex flex-col items-center">
-                    <span className="text-[10px] font-bold font-jakarta text-slate-300 tracking-wider mb-0.5">CURRENT</span>
+                    <span className="text-[10px] font-bold font-jakarta text-slate-300 tracking-wider mb-0.5">{ui(locale, 'current')}</span>
                     <span className="text-[14px] font-black font-jakarta text-cyan-300 bg-slate-950/80 border border-cyan-500/30 px-2.5 py-1 rounded-md tabular-nums leading-none">
                         {current.toLocaleString()}
                     </span>
                 </div>
                 {/* Resistance */}
                 <div className="flex flex-col items-end text-right">
-                    <span className="text-[10px] font-bold font-jakarta text-slate-400 tracking-wider">RESISTANCE</span>
+                    <span className="text-[10px] font-bold font-jakarta text-slate-400 tracking-wider">{ui(locale, 'resistance')}</span>
                     <span className="text-[13px] font-black font-jakarta text-rose-400 tabular-nums">
                         {resistance.toLocaleString()}
                     </span>
@@ -296,6 +488,7 @@ function TriggerBand({
 }
 
 // === Directional Insight Generator (v3 → v4 Compliance) ===
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getInsightText(
     gexIndex: number,
     squeezeRisk: number,
@@ -648,43 +841,80 @@ export default function GammaShield({ data, isMarketActive }: Props) {
         );
     }
 
-    const { gexIndex, gexLevel, gexLabel, squeezeRisk, squeezeLevel, supportWall, resistanceWall, currentPrice, gammaFlipPoint, confidence, prevGexIndex, gexChange, spyGexIndex, qqqGexIndex, spySqueezeScore = 0, qqqSqueezeScore = 0 } = data;
+    const { gexIndex, gexLevel, squeezeRisk, squeezeLevel, supportWall, resistanceWall, currentPrice, gammaFlipPoint, confidence, gexChange, spyGexIndex, qqqGexIndex, spySqueezeScore = 0, qqqSqueezeScore = 0, source } = data;
+    const headline = getGammaHeadline(gexIndex, squeezeRisk, locale);
+    const defenseLabel = getDefenseLabel(gexIndex, squeezeRisk, locale);
+    const levelLabel = localizedGexLevel(gexLevel, locale);
+    const squeezeLabel = localizedSqueezeLevel(squeezeLevel, locale);
+    const flipDistance = currentPrice && gammaFlipPoint
+        ? ((currentPrice - gammaFlipPoint) / gammaFlipPoint) * 100
+        : null;
+    const bandWidth = supportWall && resistanceWall && currentPrice
+        ? ((resistanceWall - supportWall) / currentPrice) * 100
+        : null;
+    const distanceToSupport = supportWall && currentPrice
+        ? ((currentPrice - supportWall) / currentPrice) * 100
+        : null;
+    const distanceToResistance = resistanceWall && currentPrice
+        ? ((resistanceWall - currentPrice) / currentPrice) * 100
+        : null;
+    const sourceLabel = source === 'LIVE' && isMarketActive ? ui(locale, 'live') : ui(locale, 'sessionData');
 
     return (
         <div className={`
-            bg-gradient-to-br from-slate-900/70 via-slate-900/50 to-slate-800/30
+            bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(145deg,rgba(15,23,42,0.86),rgba(2,6,23,0.96))]
             backdrop-blur-xl rounded-xl
-            border border-slate-700/30
+            border border-cyan-400/15
             ${getGexBgGlow(gexIndex)}
-            transition-all duration-500
+            transition-all duration-500 overflow-hidden
         `}>
             {/* Header — Clean */}
-            <div className="flex items-center justify-between px-4 pt-3.5 pb-1.5">
-                <div className="flex items-center gap-2">
-                    <Shield className={`w-4 h-4 shrink-0 ${gexIndex >= 0 ? 'text-cyan-400' : 'text-amber-400'}`} />
+            <div className="flex items-start justify-between px-4 pt-4 pb-2">
+                <div className="flex items-start gap-2.5 min-w-0">
+                    <div className={`mt-0.5 grid h-7 w-7 place-items-center rounded-lg border ${getGexToneClass(gexIndex)} shadow-[0_0_18px_rgba(34,211,238,0.08)]`}>
+                        <Shield className="h-3.5 w-3.5" />
+                    </div>
                     <GuardianTooltip sectionId="gammaShield">
-                        <span className="text-[13px] font-bold font-jakarta tracking-[0.08em] text-slate-200">
-                            GAMMA SHIELD
-                        </span>
+                        <div className="min-w-0">
+                            <div className="text-[13px] font-black font-jakarta tracking-[0.16em] text-slate-100">
+                                {ui(locale, 'gammaTitle')}
+                            </div>
+                            <div className="mt-0.5 text-[10.5px] font-semibold font-jakarta text-cyan-200/70 truncate">
+                                {ui(locale, 'subtitle')}
+                            </div>
+                        </div>
                     </GuardianTooltip>
-                    <span className={`text-[10px] font-bold font-jakarta px-1.5 py-0.5 rounded border ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`text-[9.5px] font-black font-jakarta px-2 py-0.5 rounded-full border ${confidence === 'HIGH' ? 'text-emerald-300 border-emerald-400/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-300 border-amber-400/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
                         {confidence}
                     </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10.5px] font-jakarta text-slate-400">SPY + QQQ</span>
-                    <span className={`text-[10px] font-bold font-jakarta px-2 py-0.5 rounded border ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
-                        {isMarketActive ? 'LIVE' : 'STANDBY'}
+                    <span className={`text-[9.5px] font-bold font-jakarta px-2 py-0.5 rounded-full border ${source === 'LIVE' && isMarketActive ? 'text-cyan-300 border-cyan-400/30 bg-cyan-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
+                        {sourceLabel}
                     </span>
                 </div>
             </div>
 
             {/* Summary Strip — readable multi-line insight */}
             <div className="px-4 pb-3">
-                <div className="bg-slate-800/40 rounded-xl px-3.5 py-2.5 border border-slate-700/20 shadow-inner">
+                <div className="rounded-xl border border-cyan-400/15 bg-cyan-950/20 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                            <div className="text-[18px] font-black leading-none text-white font-jakarta">
+                                {headline}
+                            </div>
+                            <div className="mt-1 text-[11px] font-bold font-jakarta text-cyan-200/80">
+                                {levelLabel} / {defenseLabel}
+                            </div>
+                        </div>
+                        <div className={`shrink-0 rounded-lg px-2 py-1 text-right border ${getGexToneClass(gexIndex)}`}>
+                            <div className="text-[9px] font-black uppercase tracking-[0.12em] opacity-80">{ui(locale, 'gammaPressure')}</div>
+                            <div className="text-[18px] font-black tabular-nums leading-none">{formatSigned(gexIndex)}</div>
+                        </div>
+                    </div>
                     {getSummaryInsight(gexIndex, squeezeRisk, squeezeLevel, currentPrice, supportWall, resistanceWall, locale, histStats).map((line, i) => (
-                        <p key={i} className={`text-[12.5px] font-jakarta leading-relaxed ${i === 0 ? 'text-slate-200 font-semibold' : 'text-slate-400 mt-1'}`}>
-                            {i === 0 ? '⚡ ' : '  '}{line}
+                        <p key={i} className={`text-[12.5px] font-jakarta leading-relaxed ${i === 0 ? 'text-slate-100 font-semibold' : 'text-slate-400 mt-1'}`}>
+                            {line}
                         </p>
                     ))}
                 </div>
@@ -694,15 +924,15 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             <div className="flex flex-col gap-3.5 px-4 pb-4">
 
                 {/* ── Layer 1: Gamma Pressure Index ── */}
-                <div className="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 flex flex-col gap-3 shadow-inner">
+                <div className="bg-slate-950/55 rounded-xl border border-cyan-400/10 p-3.5 flex flex-col gap-3 shadow-inner">
                     {/* Header */}
                     <div className="flex items-center justify-between border-b border-slate-700/60 pb-1.5">
                         <span className="text-[11px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
-                            Gamma Pressure Index
+                            {ui(locale, 'defenseMatrix')}
                         </span>
                         {histStats && (
                             <span className="text-[11px] font-bold font-jakarta text-slate-300">
-                                {histStats.percentile}th percentile
+                                {histStats.percentile}th
                             </span>
                         )}
                     </div>
@@ -712,15 +942,15 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         <div className="flex flex-col gap-1.5">
                             <div className="flex items-baseline gap-2">
                                 <div className={`text-[32px] font-black font-jakarta tabular-nums leading-none ${getGexColor(gexIndex)}`}>
-                                    {gexIndex >= 0 ? '+' : ''}{gexIndex}
+                                    {formatSigned(gexIndex)}
                                 </div>
                                 <div className={`text-[10px] font-bold font-jakarta px-1.5 py-0.5 rounded border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/15' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/40 bg-red-500/15' : 'text-slate-300 border-slate-600/40 bg-slate-600/15'}`}>
-                                    {gexLevel?.replace('_', ' ') || ''}
+                                    {levelLabel}
                                 </div>
                             </div>
                             {gexChange !== null && (
                                 <span className={`text-[11px] font-medium font-jakarta tabular-nums ${gexChange > 0 ? 'text-emerald-400' : gexChange < 0 ? 'text-red-400' : 'text-slate-400'}`}>
-                                    {gexChange > 0 ? `▲ ${gexChange}` : gexChange < 0 ? `▼ ${Math.abs(gexChange)}` : '±0'} vs yesterday
+                                    {formatSigned(gexChange)} vs {ui(locale, 'prevSession')}
                                 </span>
                             )}
                         </div>
@@ -746,7 +976,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             const fillColor = trendUp ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
                             return (
                                 <div className="flex flex-col items-end gap-1">
-                                    <span className="text-[10px] font-semibold font-jakarta text-slate-300 uppercase tracking-wider">7D GEX Trend</span>
+                                    <span className="text-[10px] font-semibold font-jakarta text-slate-300 uppercase tracking-wider">7D GEX</span>
                                     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="rounded">
                                         <path d={fillD} fill={fillColor} />
                                         <path d={d} fill="none" stroke={lineColor} strokeWidth="1.6" strokeLinejoin="round" />
@@ -756,10 +986,25 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             );
                         })()}
                     </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-lg border border-slate-700/50 bg-slate-900/60 px-2.5 py-2">
+                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{ui(locale, 'spyLayer')}</div>
+                            <div className={`mt-1 text-[15px] font-black tabular-nums ${getGexColor(spyGexIndex)}`}>{formatSigned(spyGexIndex)}</div>
+                        </div>
+                        <div className="rounded-lg border border-slate-700/50 bg-slate-900/60 px-2.5 py-2">
+                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{ui(locale, 'qqqLayer')}</div>
+                            <div className={`mt-1 text-[15px] font-black tabular-nums ${getGexColor(qqqGexIndex)}`}>{formatSigned(qqqGexIndex)}</div>
+                        </div>
+                        <div className="rounded-lg border border-slate-700/50 bg-slate-900/60 px-2.5 py-2">
+                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{ui(locale, 'confidence')}</div>
+                            <div className="mt-1 text-[15px] font-black text-slate-100">{confidence}</div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* ── Layer 2: Squeeze Risk ── */}
-                <div className="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 flex flex-col items-center gap-2.5 shadow-inner relative overflow-hidden">
+                <div className="bg-slate-950/55 rounded-xl border border-slate-800/80 p-3.5 flex flex-col items-center gap-2.5 shadow-inner relative overflow-hidden">
                     {/* HUD Corner Tech Decorations */}
                     <div className="absolute top-2 left-2 w-1.5 h-1.5 border-t border-l border-cyan-500/50" />
                     <div className="absolute top-2 right-2 w-1.5 h-1.5 border-t border-r border-cyan-500/50" />
@@ -768,10 +1013,10 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                     <div className="flex items-center justify-between w-full border-b border-slate-700/60 pb-1.5">
                         <span className="text-[11px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
-                            Squeeze Risk
+                            {ui(locale, 'squeezeRisk')}
                         </span>
                         <span className={`text-[10px] font-bold font-jakarta uppercase tracking-wider px-2 py-0.5 rounded border ${getSqueezeBadgeBg(squeezeLevel)}`}>
-                            {squeezeLevel}
+                            {squeezeLabel}
                         </span>
                     </div>
 
@@ -796,12 +1041,33 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         <span>EXTREME 70</span>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                        <div className="rounded-lg border border-slate-700/50 bg-slate-900/60 px-2.5 py-2">
+                            <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                                <span>SPY</span>
+                                <span>{spySqueezeScore}%</span>
+                            </div>
+                            <div className="mt-1.5 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                <div className="h-full rounded-full bg-cyan-400" style={{ width: `${Math.min(100, Math.max(0, spySqueezeScore))}%` }} />
+                            </div>
+                        </div>
+                        <div className="rounded-lg border border-slate-700/50 bg-slate-900/60 px-2.5 py-2">
+                            <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                                <span>QQQ</span>
+                                <span>{qqqSqueezeScore}%</span>
+                            </div>
+                            <div className="mt-1.5 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                <div className="h-full rounded-full bg-violet-400" style={{ width: `${Math.min(100, Math.max(0, qqqSqueezeScore))}%` }} />
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Threshold Distance */}
                     {squeezeRisk < 70 && (
                         <div className="text-[11.5px] font-medium font-jakarta text-slate-200 text-center mt-1 leading-snug">
                             {squeezeRisk < 45
-                                ? <span>→ <span className="text-amber-400 font-semibold">HIGH</span> if +{45 - squeezeRisk}pt · compression building</span>
-                                : <span>→ <span className="text-red-400 font-semibold">EXTREME</span> if +{70 - squeezeRisk}pt · compression building</span>
+                                ? <span><span className="text-amber-400 font-semibold">HIGH</span> if +{45 - squeezeRisk}pt / {ui(locale, 'compressionBuilding')}</span>
+                                : <span><span className="text-red-400 font-semibold">EXTREME</span> if +{70 - squeezeRisk}pt / {ui(locale, 'compressionBuilding')}</span>
                             }
                         </div>
                     )}
@@ -821,10 +1087,10 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 <div className="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 flex flex-col gap-3 shadow-inner">
                     <div className="flex items-center justify-between border-b border-slate-700/60 pb-1.5">
                         <span className="text-[11px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
-                            Trigger Band
+                            {ui(locale, 'triggerBand')}
                         </span>
                         <span className="text-[10px] font-bold font-jakarta text-emerald-400 tracking-wider">
-                            S&P 500 · REALTIME
+                            S&P 500 / {ui(locale, 'realtime')}
                         </span>
                     </div>
                     
@@ -835,10 +1101,36 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         locale={locale}
                     />
 
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 px-2.5 py-2">
+                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">{ui(locale, 'support')}</div>
+                            <div className="mt-1 text-[13px] font-black text-emerald-300 tabular-nums">
+                                {distanceToSupport !== null ? `${distanceToSupport.toFixed(1)}%` : '--'}
+                            </div>
+                        </div>
+                        <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 px-2.5 py-2">
+                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">{ui(locale, 'distance')}</div>
+                            <div className={`mt-1 text-[13px] font-black tabular-nums ${flipDistance !== null && Math.abs(flipDistance) < 2 ? 'text-amber-300' : 'text-slate-100'}`}>
+                                {flipDistance !== null ? `${formatSigned(Number(flipDistance.toFixed(1)), '%')}` : '--'}
+                            </div>
+                        </div>
+                        <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 px-2.5 py-2">
+                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">{ui(locale, 'resistance')}</div>
+                            <div className="mt-1 text-[13px] font-black text-rose-300 tabular-nums">
+                                {distanceToResistance !== null ? `${distanceToResistance.toFixed(1)}%` : '--'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="rounded-lg border border-cyan-400/10 bg-cyan-950/15 px-3 py-2 text-[11px] font-semibold font-jakarta text-cyan-100/85">
+                        {ui(locale, 'pressureMap')} / {supportWall ? formatPoint(supportWall) : '--'} - {resistanceWall ? formatPoint(resistanceWall) : '--'}
+                        {bandWidth !== null ? ` (${bandWidth.toFixed(1)}%)` : ''}
+                    </div>
+
                     {/* Gamma Flip Point */}
                     {gammaFlipPoint && currentPrice && (
                         <div className="flex items-center justify-between pt-2 border-t border-slate-800/50">
-                            <span className="text-[11px] font-bold font-jakarta text-amber-400 tracking-wider">⚡ FLIP POINT</span>
+                            <span className="text-[11px] font-bold font-jakarta text-amber-400 tracking-wider">{ui(locale, 'flipPoint')}</span>
                             <div className="flex items-center gap-1.5">
                                 <span className={`text-[13px] font-bold font-jakarta tabular-nums ${Math.abs(currentPrice - gammaFlipPoint) / currentPrice < 0.02 ? 'text-amber-400 animate-pulse' : 'text-slate-200'}`}>
                                     {gammaFlipPoint.toLocaleString()}
@@ -861,11 +1153,11 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             <div className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-cyan-400/80 shadow-[0_0_6px_rgba(34,211,238,0.6)]" />
                                 <span className="text-[11px] text-slate-200 font-bold font-jakarta uppercase tracking-wider">
-                                    Historical Context (30D)
+                                    {ui(locale, 'historicalContext')}
                                 </span>
                             </div>
                             <span className="text-[10px] text-slate-400 font-bold font-jakarta">
-                                DynamoDB History
+                                30D
                             </span>
                         </div>
 
@@ -874,7 +1166,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                             {/* 1. GEX 30D Percentile */}
                             <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">GEX 30D Pctl</span>
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">{ui(locale, 'percentile')}</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center ${histStats.percentile <= 25 ? 'text-amber-400' : histStats.percentile >= 75 ? 'text-emerald-400' : 'text-white'}`}>
                                     {histStats.percentile}<small className="text-[10px] font-bold text-slate-400 ml-0.5">th</small>
                                 </div>
@@ -885,7 +1177,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                             {/* 2. Current Regime Streak */}
                             <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">Regime Streak</span>
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">{ui(locale, 'regimeStreak')}</span>
                                 <div className="text-[11.5px] font-black font-jakarta leading-none text-center truncate w-full flex items-center justify-center">
                                     <span className={`${histStats.regimeLabel === 'POSITIVE' ? 'text-emerald-400' : histStats.regimeLabel === 'NEGATIVE' ? 'text-red-400' : 'text-slate-300'}`}>
                                         {histStats.regimeLabel === 'POSITIVE' ? 'POS' : histStats.regimeLabel === 'NEGATIVE' ? 'NEG' : histStats.regimeLabel}
@@ -899,7 +1191,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                             {/* 3. Regime Shifts */}
                             <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">Regime Shifts</span>
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">{ui(locale, 'regimeShifts')}</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center ${histStats.regimeShifts === 0 ? 'text-emerald-400' : histStats.regimeShifts >= 3 ? 'text-amber-400' : 'text-white'}`}>
                                     {histStats.regimeShifts}
                                 </div>
@@ -910,7 +1202,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                             {/* 4. Call Wall Hit Rate */}
                             <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">CW Hit Rate</span>
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">{ui(locale, 'resistanceHold')}</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center ${(histStats.cwAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.cwAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                                     {histStats.cwAccuracy !== null ? (
                                         <>{histStats.cwAccuracy}<small className="text-[10px] font-bold text-slate-400 ml-0.5">%</small></>
@@ -923,7 +1215,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                             {/* 5. Put Floor Hit Rate */}
                             <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">PF Hit Rate</span>
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">{ui(locale, 'supportHold')}</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center ${(histStats.pfAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.pfAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                                     {histStats.pfAccuracy !== null ? (
                                         <>{histStats.pfAccuracy}<small className="text-[10px] font-bold text-slate-400 ml-0.5">%</small></>
@@ -936,7 +1228,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                             {/* 6. Call Wall Trend */}
                             <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">CW Trend</span>
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">{ui(locale, 'wallTrend')}</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center truncate w-full ${histStats.cwTrendDir === 'up' ? 'text-cyan-400' : histStats.cwTrendDir === 'down' ? 'text-red-400' : 'text-slate-300'}`}>
                                     {histStats.cwTrend !== null ? (
                                         <>
