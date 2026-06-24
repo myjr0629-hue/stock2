@@ -1,17 +1,17 @@
 // ============================================================================
-// [V3.0] ALPHA ENGINE — THE ABSOLUTE ENGINE
+// [V8.0] ALPHA ENGINE — THE CONTRARIAN ENGINE
 // ============================================================================
 // 
 // Philosophy: Alpha Score is ABSOLUTE. 80 means "STRONG" — always, everywhere.
 // Reports, watchlist, dashboard, individual stocks — ONE engine, ONE score.
 // "Data is abundant. So what do I DO?" — This engine answers that.
 //
-// Architecture: 5-Pillar System (100 points)
-//   MOMENTUM(25) + STRUCTURE(25) + FLOW(25) + REGIME(15) + CATALYST(10)
+// Architecture: V8.0.0 Contrarian Scoring System (100 points)
+//   REGIME_INVERTED(40) + CATALYST(30) + MEAN_REVERSION(30)
+//   Data-proven via grid search: 90,965 pairs, r=0.1652
 //
-// Session Awareness: PRE / REG / POST / CLOSED → auto-adjusts weights
-// Absolute Gates: Forced downgrades for dangerous patterns
-// Self-Explaining: Every score tells you WHY
+// Legacy pillars (Momentum/Structure/Flow/Regime/Catalyst) are still
+// calculated and returned for diagnostic display, but do NOT drive the score.
 // 
 // Single entry point: calculateAlphaScore(input) → result
 // ============================================================================
@@ -150,15 +150,22 @@ export interface AlphaResult {
 // CONSTANTS
 // ============================================================================
 
-const ENGINE_VERSION = '7.0.0';
+const ENGINE_VERSION = '8.0.0';
 
-// Pillar max scores
+// Pillar max scores (kept for diagnostic pillar display)
 const PILLAR_MAX = {
     MOMENTUM: 25,
     STRUCTURE: 25,
     FLOW: 25,
     REGIME: 15,
     CATALYST: 10,
+} as const;
+
+// V8 Scoring weights (data-proven via grid search over 90,965 pairs)
+const V8_SCORE_WEIGHTS = {
+    REGIME_INVERTED: 40,  // r=+0.1607 (strongest predictor)
+    CATALYST: 30,         // r=+0.0809 (second strongest)
+    MEAN_REVERSION: 30,   // changePct + VWAP + RSI (proven contrarian edge)
 } as const;
 
 // Grade thresholds (absolute — never change)
@@ -189,101 +196,41 @@ const GRADE_THRESHOLDS = {
  * @returns AlphaResult with score, grade, action, WHY explanation, pillar breakdown
  */
 export function calculateAlphaScore(input: AlphaInput): AlphaResult {
-    const startTime = Date.now();
-
-
     // 1. Calculate data completeness
     const completeness = calculateDataCompleteness(input);
 
-    // 1b. [V7.0.0] Dynamic Regime Shifter & High-Beta Ticker Detection
+    // 2. Calculate each legacy pillar for diagnostic display
+    // These are still returned in the AlphaResult for backward compatibility
     const vixVal = input.vixValue ?? 0;
     const vixChg = input.vixChangePct ?? 0;
     const ndxChg = input.ndxChangePct ?? 0;
     const isMarketPanic = vixVal >= 22 || vixChg >= 8 || ndxChg <= -0.8;
-    
-    // High-beta/Meme tickers are forced to R-Mode to prevent overbought chases
     const highBetaTickers = ['TSLA', 'NVDA', 'AMD', 'IONQ', 'SOFI', 'UPST', 'AFRM', 'ASTS', 'LUNR'];
     const isHighBeta = input.ticker && highBetaTickers.includes(input.ticker.toUpperCase());
     const regimeMode: 'M-Mode' | 'R-Mode' = (isMarketPanic || isHighBeta) ? 'R-Mode' : 'M-Mode';
 
-    // 2. Calculate each pillar (Pass regimeMode to momentum calculation)
     const momentum = calculateMomentum(input, regimeMode);
     const structure = calculateStructure(input);
     const flow = calculateFlow(input);
     const regime = calculateRegime(input);
     const catalyst = calculateCatalyst(input);
 
-    // [V3.2] No session caps, no adaptive weights.
-    // 데이터가 같으면 점수도 같아야 합니다.
-
-    // 4a. [V3.2] Score Normalization
-    let rawScore = momentum.score + structure.score + flow.score + regime.score + catalyst.score;
-
-    // 4b. [V3.1] Historical Score Trend Adjustment (±3)
-    // If previous score exists, adjust based on trajectory
-    const prev = input.prevAlphaScore;
-    let trendAdjust = 0;
-    if (prev !== null && prev !== undefined && prev > 0) {
-        const delta = rawScore - prev;
-        if (delta >= 10) {
-            trendAdjust = 3;  // Strong uptrend — momentum bonus
-        } else if (delta >= 5) {
-            trendAdjust = 2;  // Moderate uptrend
-        } else if (delta >= 2) {
-            trendAdjust = 1;  // Mild uptrend
-        } else if (delta <= -10) {
-            trendAdjust = -3; // Sharp decline — warning
-        } else if (delta <= -5) {
-            trendAdjust = -2; // Moderate decline
-        } else if (delta <= -2) {
-            trendAdjust = -1; // Mild decline
-        }
-        rawScore += trendAdjust;
-    }
-
-    // 4c. [V3.1 → V6.0] Self-Correction Loop (Supabase TrackRecord)
-    // Adjust score based on persistent win/loss logs + entry zone accuracy
-    const hWinRate = input.historicalWinRate;
-    const hTotal = input.historicalTotalTrades;
-    const hEntryAcc = input.historicalEntryAccuracy;
-    let trackRecordAdjust = 0;
-
-    if (hWinRate !== null && hWinRate !== undefined && hTotal && hTotal >= 1) {
-        if (hWinRate >= 70) {
-            trackRecordAdjust = 5; // Serial Winner Bonus
-        } else if (hWinRate <= 30 && hTotal >= 2) {
-            trackRecordAdjust = -10; // Serial Loser Penalty (Requires at least 2 trades)
-        } else if (hWinRate <= 50 && hTotal >= 3) {
-            trackRecordAdjust = -5; // Consistent Underperformer
-        }
-
-        // [V6.0] Entry Accuracy Modifier — penalize if entry zone consistently misses
-        if (hEntryAcc !== null && hEntryAcc !== undefined && hTotal >= 3) {
-            if (hEntryAcc < 30) {
-                trackRecordAdjust -= 3; // Entry zone rarely triggered → reduce confidence
-            }
-        }
-
-        rawScore += trackRecordAdjust;
-    }
-
-    // 5. Apply absolute gates
-    const gatesResult = applyAbsoluteGates(rawScore, input);
-    let finalScore = Math.round(Math.max(0, Math.min(100, gatesResult.adjustedScore)));
-
-    // [V5.0] Gate: LOW_DATA_CAP — 데이터 완결성 50% 미만인 종목은 Score 65 캡
-    // 백테스팅 근거: 70-79 패자 16종목 전원이 DarkPool=0%, WhaleIndex=0으로 데이터 부족
-    // Lambda V8 종목이 데이터 없이 70+를 받는 허점 차단
-    if (completeness.pct < 50 && finalScore > 65) {
-        finalScore = 65;
-        gatesResult.gatesApplied.push('LOW_DATA_CAP');
-    }
+    // 3. [V8.0.0] Calculate Mean Reversion pillar (new)
+    const meanReversion = calculateMeanReversion(input);
 
     // ══════════════════════════════════════════════════════════════════
-    // [V6.0] DATA-PROVEN GATES — 28,802 T+3쌍 × 50종목 × 2년 실증
-    // Polygon REST API 2024-01-01 ~ 2026-05-08 시뮬레이션 기반
+    // [V8.0.0] Score = Regime(inverted, 40pts) + Catalyst(scaled, 30pts) + MeanReversion(30pts)
+    // Grid search optimal: R×(-1) + C×0.5 = r=0.1652 (vs V7 r=-0.016)
     // ══════════════════════════════════════════════════════════════════
-    const changePctFinal = input.changePct || 0;
+    const regimeInverted = (PILLAR_MAX.REGIME - regime.score) / PILLAR_MAX.REGIME * V8_SCORE_WEIGHTS.REGIME_INVERTED;
+    const catalystScaled = catalyst.score / PILLAR_MAX.CATALYST * V8_SCORE_WEIGHTS.CATALYST;
+    const meanRevScore = meanReversion.score / 30 * V8_SCORE_WEIGHTS.MEAN_REVERSION;
+    let rawScore = regimeInverted + catalystScaled + meanRevScore;
+
+    // ══════════════════════════════════════════════════════════════════
+    // [V8.0.0] DATA-PROVEN GATES — Kept from V6.0 (proven effective)
+    // ══════════════════════════════════════════════════════════════════
+    const gatesApplied: string[] = [];
     const rsiFinal = input.rsi14 ?? null;
     const vwapDistFinal = (input.vwap && input.vwap > 0 && input.price > 0)
         ? ((input.price - input.vwap) / input.vwap) * 100 : 0;
@@ -291,43 +238,16 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
     // [V6.0] Gate: RSI_EXTREME_OVERSOLD — RSI < 25 극과매도 보너스
     // 근거: n=281, avg +1.86%, 적중률 64.8% (28,802쌍 중 최강 단일 신호)
     if (rsiFinal !== null && rsiFinal < 25) {
-        finalScore += 8;
-        gatesResult.gatesApplied.push('RSI_EXTREME_OVERSOLD');
+        rawScore += 8;
+        gatesApplied.push('RSI_EXTREME_OVERSOLD');
     }
 
     // [V6.0] Gate: VWAP_RSI_OVERSOLD — VWAP<-2% + RSI<35 조합 최강 보너스
     // 근거: n=98, avg +2.90%, 적중률 66.3% (전체 시뮬레이션 최강 조합)
     if (vwapDistFinal < -2 && rsiFinal !== null && rsiFinal < 35) {
-        finalScore += 10;
-        gatesResult.gatesApplied.push('VWAP_RSI_OVERSOLD');
+        rawScore += 10;
+        gatesApplied.push('VWAP_RSI_OVERSOLD');
     }
-
-    // [V6.0] Gate: VWAP_RSI_OVERHEAT — VWAP>+2% + RSI>65 유일한 진짜 과열
-    // 근거: n=78, avg -0.27% (28,802쌍 중 유일한 마이너스 조합)
-    if (vwapDistFinal > 2 && rsiFinal !== null && rsiFinal > 65) {
-        finalScore -= 5;
-        gatesResult.gatesApplied.push('VWAP_RSI_OVERHEAT');
-    }
-
-    // [V6.0] Gate: BEAR_SURGE_TRAP — 하락장에서 급등 = 유일한 함정
-    // 근거: Bear(QQQ<-0.5%) + changePct>+3% → n=155, avg -0.43%, 적중률 43.2%
-    if (ndxChg < -0.5 && changePctFinal > 3) {
-        finalScore -= 8;
-        gatesResult.gatesApplied.push('BEAR_SURGE_TRAP');
-    }
-
-    // [V6.0] Gate: SIDEWAYS_PENALTY — 횡보(-1%~+1%) = 최저 수익 구간
-    // 근거: changePct -1%~+1% → avg +0.12~0.16% (전체 평균의 절반)
-    if (changePctFinal > -1 && changePctFinal < 1) {
-        finalScore -= 2;
-        gatesResult.gatesApplied.push('SIDEWAYS_PENALTY');
-    }
-
-    // [V6.0] SURGE_PENALTY 삭제 — 28,802쌍 실증: changePct>+5%도 avg +0.61% (양수)
-    // V5.2의 SURGE_PENALTY는 거짓 감점이었음. U자형 패턴으로 양극단 모두 양호.
-
-    // [V6.0] MOMENTUM_OVERHEAT 삭제 — Momentum Pillar 고점수 자체는 위험하지 않음
-    // 위험한 것은 VWAP+RSI 조합뿐 (위에서 처리)
 
     // ══════════════════════════════════════════════════════════════════
     // [V6.0+] FEAR_RESOLUTION Gate — N차원 Deep Analysis 최강 발견
@@ -338,31 +258,35 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
 
     // [V6.0+] Gate: FEAR_RESOLUTION — 공포 해소 국면 극강 보너스
     // 근거: QQQ<-0.5% + VIXY<-2% + RSI<40 → n=29, T+3 적중률 89.7%, avg +4.03%
-    // T+5: 96.6%, T+10: 96.6% (avg +12.85%) — 전체 시뮬레이션 최강 조합
     if (isFearResolution && rsiFinal !== null && rsiFinal < 40) {
-        finalScore += 12;
-        gatesResult.gatesApplied.push('FEAR_RESOLUTION');
+        rawScore += 12;
+        gatesApplied.push('FEAR_RESOLUTION');
     }
 
     // [V6.0+] Gate: FEAR_RESOLUTION_MACD — 공포 해소 + MACD 약세 확인
     // 근거: QQQ<-0.5% + VIXY<-2% + MACD<0 → n=39, T+3 적중률 89.7%, T+5: 97.4%
     const macdHistFinal = input.macdHistogram ?? null;
-    if (isFearResolution && macdHistFinal !== null && macdHistFinal < 0 && !gatesResult.gatesApplied.includes('FEAR_RESOLUTION')) {
-        finalScore += 10;
-        gatesResult.gatesApplied.push('FEAR_RESOLUTION_MACD');
+    if (isFearResolution && macdHistFinal !== null && macdHistFinal < 0 && !gatesApplied.includes('FEAR_RESOLUTION')) {
+        rawScore += 10;
+        gatesApplied.push('FEAR_RESOLUTION_MACD');
     }
 
-    // clamp after V6.0 gates
-    finalScore = Math.round(Math.max(0, Math.min(100, finalScore)));
+    // [V8.0.0] Add mean reversion info to gates for visibility
+    if (meanReversion.score >= 20) {
+        gatesApplied.push('MEAN_REVERSION_STRONG');
+    } else if (meanReversion.score >= 12) {
+        gatesApplied.push('MEAN_REVERSION_MODERATE');
+    }
 
-    // [V7.0.0] Apply Empirical Probability Calibrator mapping layer
-    const calibratedScore = empiricalCalibrate(finalScore);
+    // Clamp to 0-100
+    let finalScore = Math.round(Math.max(0, Math.min(100, rawScore)));
 
-    // 6. Determine grade and action (Evaluate based on calibrated score)
-    const grade = determineGrade(calibratedScore);
+    // 4. Determine grade and action
+    const grade = determineGrade(finalScore);
     const { action, actionKR } = determineAction(grade, input);
 
-    // 7. Build WHY explanation
+    // 5. Build WHY explanation (uses legacy pillar data for display)
+    const gatesResult: GateResult = { adjustedScore: finalScore, gatesApplied };
     const explanation = buildExplanation(
         input, momentum, structure, flow, regime, catalyst, gatesResult, grade
     );
@@ -370,34 +294,22 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
     const whyFactors = [...explanation.whyFactors];
     const triggerCodes = [...explanation.triggerCodes];
 
-    // Add V7.0.0 specific contextual labels to the Korean why explanation
+    // [V8.0.0] Add contrarian context labels
     if (regimeMode === 'R-Mode') {
         whyKR = `[🔄R-Mode] ` + whyKR;
         whyFactors.push('R_MODE_ACTIVE');
         triggerCodes.push('R_MODE');
     }
-    if (gatesResult.gatesApplied.includes('OVERHEAT_UPPER_CAP')) {
-        whyKR = `🚨과열상한캡(Hold) + ` + whyKR;
-    }
-    if (gatesResult.gatesApplied.includes('OVERSOLD_LOWER_FLOOR')) {
-        whyKR = `⭐바닥과매도플로어(Buy) + ` + whyKR;
+    if (meanReversion.score >= 20) {
+        whyKR = `⭐역발상매수(MR${meanReversion.score}) + ` + whyKR;
+        whyFactors.push('MEAN_REVERSION_STRONG');
     }
 
-    if (trackRecordAdjust > 0) {
-        whyKR += ' [⭐연승보너스]';
-        whyFactors.push('SERIAL_WINNER');
-        triggerCodes.push('SERIAL_WINNER');
-    } else if (trackRecordAdjust < 0) {
-        whyKR += ' [⚠️연패페널티]';
-        whyFactors.push('SERIAL_LOSER');
-        triggerCodes.push('SERIAL_LOSER');
-    }
-
-    // 8. Session adjustment flag
+    // 6. Session adjustment flag
     const sessionAdjusted = input.session !== 'REG';
 
     return {
-        score: calibratedScore,
+        score: finalScore,
         grade,
         action,
         actionKR,
@@ -411,7 +323,7 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
             regime,
             catalyst,
         },
-        gatesApplied: gatesResult.gatesApplied,
+        gatesApplied,
         sessionAdjusted,
         dataCompleteness: completeness.pct,
         dataCompletenessLabel: completeness.label,
@@ -1115,6 +1027,68 @@ function calculateCatalyst(input: AlphaInput): PillarDetail {
         score: round1(total),
         max: PILLAR_MAX.CATALYST,
         pct: Math.round((total / PILLAR_MAX.CATALYST) * 100),
+        factors,
+    };
+}
+
+// ============================================================================
+// [V8.0.0] PILLAR: MEAN REVERSION (30점) — "Is the market overreacting?"
+// Data-proven: changePct<-5% → avg +2.22%, VWAP<-3% → avg +2.25%
+// ============================================================================
+function calculateMeanReversion(input: AlphaInput): PillarDetail {
+    const factors: PillarDetail['factors'] = [];
+    let total = 0;
+
+    // Factor 1: Price Drop Magnitude (0-10)
+    // Empirical: <-5% → +2.22%, -5~-3% → +1.23%, -3~-1% → +0.81%
+    const changePct = input.changePct || 0;
+    let dropScore = 0;
+    if (changePct <= -5) dropScore = 10;
+    else if (changePct <= -3) dropScore = 8;
+    else if (changePct <= -1) dropScore = 5;
+    else if (changePct <= 0) dropScore = 3;
+    else if (changePct <= 1) dropScore = 2;
+    else if (changePct <= 3) dropScore = 1;
+    else dropScore = 0;
+    factors.push({ name: 'priceDrop', value: round1(dropScore), max: 10, detail: `변동 ${changePct >= 0 ? '+' : ''}${changePct.toFixed(1)}%` });
+    total += dropScore;
+
+    // Factor 2: VWAP Undervaluation (0-10)
+    // Empirical: VWAP<-3% → +2.25%, -3~-1% → +1.22%
+    let vwapScore = 0;
+    if (input.vwap && input.vwap > 0 && input.price > 0) {
+        const vwapDist = ((input.price - input.vwap) / input.vwap) * 100;
+        if (vwapDist < -3) vwapScore = 10;
+        else if (vwapDist < -1) vwapScore = 7;
+        else if (vwapDist < 0) vwapScore = 4;
+        else if (vwapDist < 1) vwapScore = 2;
+        else vwapScore = 0;
+        factors.push({ name: 'vwapUnderval', value: round1(vwapScore), max: 10, detail: `VWAP거리 ${vwapDist >= 0 ? '+' : ''}${vwapDist.toFixed(1)}%` });
+    } else {
+        vwapScore = changePct < -1 ? 4 : 1;
+        factors.push({ name: 'vwapUnderval', value: round1(vwapScore), max: 10, detail: 'VWAP 없음(추정)' });
+    }
+    total += vwapScore;
+
+    // Factor 3: RSI Oversold (0-10)
+    // Empirical: RSI<25 → strongest bounce signal
+    let rsiScore = 0;
+    const rsi = input.rsi14 ?? 50;
+    if (rsi < 25) rsiScore = 10;
+    else if (rsi < 35) rsiScore = 7;
+    else if (rsi < 45) rsiScore = 4;
+    else if (rsi < 55) rsiScore = 2;
+    else if (rsi < 65) rsiScore = 1;
+    else rsiScore = 0;
+    factors.push({ name: 'rsiOversold', value: round1(rsiScore), max: 10, detail: `RSI ${rsi.toFixed(1)}` });
+    total += rsiScore;
+
+    total = clamp(total, 0, 30);
+
+    return {
+        score: round1(total),
+        max: 30,
+        pct: Math.round((total / 30) * 100),
         factors,
     };
 }

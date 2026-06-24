@@ -426,27 +426,85 @@ async function computeRlsi() {
   } catch (e) { console.error('RLSI err:', e.message); return { error: e.message }; }
 }
 
-// ====== Alpha Score (v10: enhanced with MACD, IV Rank, Vol Spread) ======
+// ====== Alpha Score V8.0.0 — Contrarian Scoring ======
+// Grid search optimal (90,965 pairs): Regime(inverted) + Catalyst + MeanReversion
+// V7 r=-0.016 → V8 r=+0.165 (음→양 전환)
 function computeAlphaScore(priceData, gexData, extras) {
-  let s = 50;
-  const c = priceData.changePct||0;
-  if(c>3) s+=15; else if(c>1) s+=10; else if(c>0) s+=5; else if(c<-3) s-=15; else if(c<-1) s-=10; else if(c<0) s-=5;
-  if(priceData.volume>50000000) s+=5; else if(priceData.volume>20000000) s+=3;
-  if(gexData) { if(gexData.gammaRegime==='POSITIVE') s+=5; else if(gexData.gammaRegime==='NEGATIVE') s-=5; if(gexData.pcr<0.7) s+=5; else if(gexData.pcr>1.3) s-=5; }
-  // [v10] MACD crossover signal
-  if (extras?.macdCrossover === 'BULL') s += 5;
-  else if (extras?.macdCrossover === 'BEAR') s -= 5;
-  // [v10] IV Rank extreme signal
+  // === PILLAR 1: Mean Reversion (0-30) ===
+  // Drops predict rebounds: chg<-5% → avg +2.22%, VWAP<-3% → avg +2.25%
+  let meanRev = 0;
+  const c = priceData.changePct || 0;
+  // Factor 1: Price drop magnitude (0-10)
+  if (c <= -5) meanRev += 10;
+  else if (c <= -3) meanRev += 8;
+  else if (c <= -1) meanRev += 5;
+  else if (c <= 0) meanRev += 3;
+  else if (c <= 1) meanRev += 2;
+  else if (c <= 3) meanRev += 1;
+  // Factor 2: VWAP undervaluation (0-10)
+  const vwap = priceData.vwap || priceData.vw || 0;
+  const price = priceData.lastTrade?.p || priceData.price || priceData.prevDay?.c || 0;
+  if (vwap > 0 && price > 0) {
+    const vwapDist = ((price - vwap) / vwap) * 100;
+    if (vwapDist < -3) meanRev += 10;
+    else if (vwapDist < -1) meanRev += 7;
+    else if (vwapDist < 0) meanRev += 4;
+    else if (vwapDist < 1) meanRev += 2;
+  } else {
+    meanRev += (c < -1 ? 4 : 1);
+  }
+  // Factor 3: RSI oversold (0-10)
+  const rsi = extras?.rsi ?? 50;
+  if (rsi < 25) meanRev += 10;
+  else if (rsi < 35) meanRev += 7;
+  else if (rsi < 45) meanRev += 4;
+  else if (rsi < 55) meanRev += 2;
+  else if (rsi < 65) meanRev += 1;
+  meanRev = Math.min(30, meanRev);
+
+  // === PILLAR 2: Regime Inverted (0-40) ===
+  // Unstable market = opportunity (r=+0.16 when inverted)
+  let regimeInv = 20; // default neutral
+  if (gexData) {
+    // Negative gamma = unstable = higher score (contrarian)
+    if (gexData.gammaRegime === 'NEGATIVE') regimeInv += 10;
+    else if (gexData.gammaRegime === 'POSITIVE') regimeInv -= 5;
+    // High PCR (bearish hedging) = contrarian opportunity
+    if (gexData.pcr > 1.3) regimeInv += 10;
+    else if (gexData.pcr > 1.0) regimeInv += 5;
+    else if (gexData.pcr < 0.7) regimeInv -= 5;
+  }
+  regimeInv = Math.max(0, Math.min(40, regimeInv));
+
+  // === PILLAR 3: Catalyst (0-30) ===
+  let catalyst = 15; // default neutral
+  // MACD dead cross in contrarian = buying opportunity
+  if (extras?.macdCrossover === 'BEAR') catalyst += 5;
+  else if (extras?.macdCrossover === 'BULL') catalyst += 3;
+  // IV depressed = cheap options = catalyst
   if (extras?.ivRank !== null && extras?.ivRank !== undefined) {
-    if (extras.ivRank >= 90) s -= 3;  // IV overheated — premium expensive
-    else if (extras.ivRank <= 10) s += 3;  // IV depressed — potential expansion
+    if (extras.ivRank <= 10) catalyst += 5;
+    else if (extras.ivRank >= 90) catalyst -= 3;
   }
-  // [v10] Vol Spread signal (IV vs HV)
+  // Vol Spread: IV below HV = underpriced opportunity
   if (extras?.volSpread !== null && extras?.volSpread !== undefined) {
-    if (extras.volSpread > 15) s -= 2;  // IV much higher than HV — overpriced
-    else if (extras.volSpread < -10) s += 2;  // IV below HV — underpriced
+    if (extras.volSpread < -10) catalyst += 5;
+    else if (extras.volSpread > 15) catalyst -= 2;
   }
-  return Math.max(0, Math.min(100, Math.round(s)));
+  catalyst = Math.max(0, Math.min(30, catalyst));
+
+  let score = meanRev + regimeInv + catalyst;
+
+  // === V6 proven gates (keep) ===
+  // RSI extreme oversold bonus
+  if (rsi < 25) score += 8;
+  // VWAP+RSI oversold combo
+  if (vwap > 0 && price > 0) {
+    const vd = ((price - vwap) / vwap) * 100;
+    if (vd < -2 && rsi < 35) score += 10;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 // ====== OMR (Options Market Regime) Calculator ======
@@ -1422,6 +1480,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               macdCrossover: smaData.macdCrossover || 'NONE',
               ivRank,
               volSpread,
+              rsi: rsiMap?.[ticker] ?? null,
             });
             const alphaGrade = alphaRaw >= 80 ? 'S' : alphaRaw >= 65 ? 'A' : alphaRaw >= 50 ? 'B' : alphaRaw >= 35 ? 'C' : 'D';
             const alphaAction = alphaRaw >= 65 ? 'BUY' : alphaRaw >= 50 ? 'HOLD' : alphaRaw >= 35 ? 'WATCH' : 'AVOID';
@@ -1466,7 +1525,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
                 actionKR: alphaAction === 'BUY' ? '매수' : alphaAction === 'HOLD' ? '관망' : alphaAction === 'WATCH' ? '주의' : '회피',
                 confidence: Math.min(100, Math.max(0, Math.abs(alphaRaw - 50) * 2)),
                 triggers: alphaTriggers,
-                engineVersion: 'lambda-v8',
+                engineVersion: 'lambda-v8.0.0-contrarian',
                 capturedAt: new Date().toISOString(),
               },
               rsi: rsiMap?.[ticker] ?? null,
@@ -1571,7 +1630,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
                   alphaScore: alphaRaw, 
                   alphaGrade, 
                   alphaAction,
-                  engineVersion: '7.1.0' // Tag Lambda-computed V7.1.0 Alpha Score
+                  engineVersion: '8.0.0' // Tag Lambda-computed V8.0.0 Contrarian Alpha Score
                 };
                 await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: mergedAH }));
               }
@@ -2022,7 +2081,7 @@ exports.handler = async (event) => {
         // cache:analysis — analysis summary for Dashboard/Watchlist/Portfolio
         const analysisEntry = {
           ticker, timestamp: Date.now(),
-          alphaSnapshot: oldAnalysis.alphaSnapshot || { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8-ondemand', capturedAt: new Date().toISOString() },
+          alphaSnapshot: oldAnalysis.alphaSnapshot || { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8.0.0-ondemand', capturedAt: new Date().toISOString() },
           rsi: oldAnalysis.rsi || null, return3d: oldAnalysis.return3d || null, sparkline: oldAnalysis.sparkline || [], relVol: oldAnalysis.relVol || null,
           expiration: structure.expiration || null,
           maxPain: structure.maxPain || null,
