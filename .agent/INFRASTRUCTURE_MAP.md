@@ -150,7 +150,7 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 
 ## 4. AWS 구성요소
 
-### 4.1 Lambda v7.1 (signum-harvest) — 2026-05-07 2,000종목 확장 완료
+### 4.1 Lambda V8.0.0 (signum-harvest) — 2026-06-24 V8 Contrarian Engine 배포
 - **코드 위치**: `scripts/deploy-lambda-v7.js` (~118KB, Lambda 전체 코드 포함)
 - **배포 명령**: `node scripts/deploy-lambda-v7.js`
   - zip 생성 → UpdateFunctionCode → UpdateFunctionConfiguration 자동
@@ -257,57 +257,102 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 | **volSpread** | IV - HV20 (양수=고평가) (v10) | ~97% |
 | **ivRank** | IV/HV20 비율 → 0-100 정규화 (v10) | ~97% |
 
-#### Alpha Score v10 공식 (2026-05-08)
+#### Lambda Alpha Score V8.0.0 공식 (2026-06-24 — Contrarian Scoring)
 ```
-Alpha Score (0-100) = Base(50) + Price(±15) + Volume(+5) + Gamma(±5) + PCR(±5)
-                    + MACD(±5) + IVRank(±3) + VolSpread(±2)
+Alpha Score (0-100) = MeanReversion(0-30) + RegimeInverted(0-40) + Catalyst(0-30)
+                    + V6 Gates (RSI_OVERSOLD +8, VWAP_RSI_OVERSOLD +10)
 
-기존 4팩터:
-  1. Price Change: >3%=+15, >1%=+10, >0=+5, <0=-5, <-1%=-10, <-3%=-15
-  2. Volume: >50M=+5, >20M=+3
-  3. Gamma Regime: POSITIVE=+5, NEGATIVE=-5
-  4. PCR: <0.7=+5, >1.3=-5
+Pillar 1: Mean Reversion (0-30) — "시장이 과잉 반응했나?"
+  1. Price Drop (0-10): ≤-5%=10, ≤-3%=8, ≤-1%=5, ≤0=3, ≤1=2, ≤3=1, >3=0
+  2. VWAP Undervaluation (0-10): <-3%=10, <-1%=7, <0=4, <1=2, >1=0
+  3. RSI Oversold (0-10): <25=10, <35=7, <45=4, <55=2, <65=1, >65=0
 
-v10 신규 3팩터:
-  5. MACD Crossover: BULL=+5, BEAR=-5
-  6. IV Rank: >=90=-3 (과열), <=10=+3 (저평가)
-  7. Vol Spread: >15=-2 (IV 고평가), <-10=+2 (IV 저평가)
+Pillar 2: Regime Inverted (0-40) — "불안정 시장 = 기회"
+  Base: 20 (neutral)
+  Negative Gamma: +10 (contrarian buy)
+  Positive Gamma: -5
+  PCR > 1.3: +10 (bearish hedging = contrarian opportunity)
+  PCR > 1.0: +5
+  PCR < 0.7: -5
 
-v10 신규 트리거:
-  - MACD_BULL_CROSS: MACD 히스토그램 음→양 전환
-  - MACD_BEAR_CROSS: MACD 히스토그램 양→음 전환
-  - IV_OVERHEATED: IV Rank >= 90
-  - IV_DEPRESSED: IV Rank <= 10
-  - DUAL_BULL: EMA9>EMA21 (BULL) + SMA50>SMA200 (GOLDEN) 동시
+Pillar 3: Catalyst (0-30) — "촉매 존재 여부"
+  Base: 15 (neutral)
+  MACD Bear Cross: +5 (contrarian = 매수기회)
+  MACD Bull Cross: +3
+  IV Rank ≤ 10: +5 (IV 저평가 = 기회)
+  IV Rank ≥ 90: -3
+  Vol Spread < -10: +5 (HV > IV = 저평가)
+  Vol Spread > 15: -2
 ```
 
-> **v10 개선 효과**: 입력 팩터 4→7개 (+75%), 트리거 7→12종 (+71%). 점수 자체 변화는 ~10%이나, Power Engine IF→THEN 시나리오의 근거가 2배 풍부해짐.
-> **API 비용 영향**: Step 3에 EMA9/EMA21/MACD 3개 병렬 추가 (+6,000 API/실행), 실행 시간 ~3-5초 증가.
-> **HV20은 API 호출 0**: 기존 daily bars에서 순수 계산.
+> **V8 핵심 패러다임 전환 (2026-06-24)**:
+> - V7 "좋아 보이는 종목 = 고점수" (Pearson r = -0.016, 역전) → V8 "시장이 과도하게 벌한 종목 = 고점수" (r = +0.165, 정상)
+> - Grid Search 90,965쌍 분석: V7의 5-Pillar 중 M/S/F(75점)는 순수 노이즈, Regime역방향+Catalyst만 수익 예측
+> - **제거**: Empirical Calibrator, Asymmetric Gates, trendAdjust, trackRecordAdjust, SIDEWAYS_PENALTY, BEAR_SURGE_TRAP, VWAP_RSI_OVERHEAT, LOW_DATA_CAP
+> - **유지**: RSI_EXTREME_OVERSOLD, VWAP_RSI_OVERSOLD, FEAR_RESOLUTION, FEAR_RESOLUTION_MACD (실증 검증 통과 Gate)
+> - **신규**: MEAN_REVERSION_STRONG (MR≥20), MEAN_REVERSION_MODERATE (MR≥15) gate tags
 
-#### Lambda Alpha Score v10 vs Vercel Alpha Engine V7.0.0
-> Lambda `computeAlphaScore()` = v10 (7 factor, 0-100) - harvest sorting
-> Vercel `calculateAlphaScore()` = V7.0.0 (5-Pillar, 54,850 T+3 pairs) - final score
+#### Lambda Alpha Score V8.0.0 vs Vercel Alpha Engine V8.0.0
+> Lambda `computeAlphaScore()` = V8.0.0 Contrarian (3-Pillar + V6 gates) - harvest scoring
+> Vercel `calculateAlphaScore()` = V8.0.0 (Contrarian, 기존 5-Pillar 진단 표시 유지) - final score
+> **동일한 Contrarian 철학** — Lambda는 간소화 버전, Vercel은 5-Pillar 진단 출력 포함
 
-#### Vercel Alpha Engine V7.0.0 (src/services/alphaEngine.ts)
-- ENGINE_VERSION = '7.0.0'
-- 5-Pillar: MOMENTUM(25) + STRUCTURE(25) + FLOW(25) + REGIME(15) + CATALYST(10)
+#### Vercel Alpha Engine V8.0.0 (src/services/alphaEngine.ts)
+- ENGINE_VERSION = '8.0.0'
+- **V8 Score**: Regime_Inverted(40) + Catalyst_Scaled(30) + MeanReversion(30) = 100점
+- **진단 표시용**: 기존 5-Pillar (M25+S25+F25+R15+C10) 계산 유지 → `AlphaResult.pillars` 하위 호환
 - Grade: S(85+) / A(70+) / B(55+) / C(40+) / D(25+) / F(<25)
-- Self-Correction: Supabase TrackRecord (win70%+ = +5, loss30%- = -10, [V6.0] Entry Accuracy Modifier -3)
+- **V8 Gates 유지**: RSI_EXTREME_OVERSOLD(+8), VWAP_RSI_OVERSOLD(+10), FEAR_RESOLUTION(+12), FEAR_RESOLUTION_MACD(+10)
+- **V8 제거**: Calibrator, Asymmetric Gates, TrackRecord, trendAdjust
 
-##### V7.0.0 역학 개조 & Calibration (54,850쌍 전수분석)
-- **Dynamic Regime Shifter**: VIX/NDX 급변동 감지 및 고베타 9개 종목(TSLA 등) R-Mode(평균회귀) 스위칭.
-- **Absolute Gates 2.0 (상하방 비대칭 컷오프)**: 상방 과열 캡(Hold/Watch 강제 45점 캡), 하방 바닥 플로어(A등급 강제 65점 상향).
-- **Empirical Calibrator (`empiricalCalibrate`)**: 스코어가 올라갈수록 수익률이 선형 비례하도록 우상향 매핑 레이어(Q1 -1.85% → Q5 +3.32%) 탑재.
+##### DynamoDB alpha-history V8 저장 필드 (2026-06-24 확장)
+> Lambda 크론 실행 시 `signum-alpha-history`에 V8 pillar 데이터 저장 (미래 백테스트용)
 
-##### V6.0 Data-Proven Gates (28,802 T+3 pairs)
+| 필드 | 내용 | 용도 |
+|------|------|------|
+| `alphaScore` | V8 Contrarian 점수 (0-100) | 백테스트 핵심 |
+| `alphaGrade` | S/A/B/C/D | 등급 |
+| `alphaAction` | BUY/HOLD/WATCH/AVOID | 액션 |
+| `engineVersion` | `8.0.0` | 버전 추적 |
+| `changePct` | 당일 가격변동률 | MeanReversion Factor |
+| `rsi14` | RSI(14) | MeanReversion Factor |
+| `vwapDist` | VWAP 이격도(%) | MeanReversion Factor |
+| `close` | 종가 | 수익률 계산 |
+| `vwap` | VWAP | 참조값 |
+
+##### 버전 태그 체계 (V8)
+| 위치 | 버전 | 용도 |
+|------|------|------|
+| `alphaEngine.ts` ENGINE_VERSION | `8.0.0` | Vercel SSR 점수 |
+| Lambda alphaSnapshot.engineVersion | `lambda-v8.0.0-contrarian` | Redis cache:analysis |
+| DynamoDB alpha-history engineVersion | `8.0.0` | 백테스트 버전 분류 |
+| Lambda on-demand | `lambda-v8.0.0-ondemand` | On-demand 호출 |
+
+##### V8 성능 벤치마크 (in-sample, 90,965쌍)
+| 지표 | V7 | V8 | 개선 |
+|------|:---:|:---:|:---:|
+| Pearson r (T+3) | -0.016 | **+0.165** | +0.181 |
+| Q5 Win% | 50.1% | **62.8%** | +12.7%p |
+| Q5 avg return | -0.01% | **+5.59%** | +5.60%p |
+| LS Spread | -0.27% | **+4.58%** | +4.85%p |
+| 점수→수익 방향 | ❌ 역전 | **✅ 정상** | 패러다임 전환 |
+
+> ⚠️ 위 수치는 in-sample(학습 데이터). Out-of-sample 검증은 2-3주 데이터 축적 후 실시.
+
+##### V6.0 Data-Proven Gates (V8에서 유지)
 - RSI_EXTREME_OVERSOLD: RSI<25 = +8 (n=281, +1.86%, 64.8%)
 - VWAP_RSI_OVERSOLD: VWAP<-2% + RSI<35 = +10 (n=98, +2.90%, 66.3%)
-- VWAP_RSI_OVERHEAT: VWAP>+2% + RSI>65 = -5 (n=78, -0.27%)
-- BEAR_SURGE_TRAP: QQQ<-0.5% + chg>+3% = -8 (n=155, -0.43%)
-- SIDEWAYS_PENALTY: chg -1%~+1% = -2 (avg +0.12%)
 - FEAR_RESOLUTION: QQQ down + VIX down + RSI<40 = +12 (n=29, +4.03%, 89.7%)
 - FEAR_RESOLUTION_MACD: QQQ down + VIX down + MACD<0 = +10 (n=39, 89.7%)
+
+##### V8에서 제거된 V7 요소 (역사 기록)
+- ~~Dynamic Regime Shifter~~: V8은 전체 Regime 역방향 적용으로 대체
+- ~~Absolute Gates 2.0~~: V8 Contrarian에서는 상한/하한 캡이 불필요
+- ~~Empirical Calibrator~~: 변별력 훼손, V8에서 raw score 직접 사용
+- ~~SIDEWAYS_PENALTY~~: 횡보 구간이 V7 시대에는 역효과
+- ~~BEAR_SURGE_TRAP~~: 노이즈로 판명
+- ~~VWAP_RSI_OVERHEAT~~: 데이터 미지지
+- ~~TrackRecord Adjustment~~: Self-correction은 V8에서 제거
 
 ##### Backtest Version Classification (admin/backtest/route.ts)
 - PRE_V5.0: ~2026-04-18
@@ -315,6 +360,12 @@ v10 신규 트리거:
 - V5.2: 2026-05-06 (SURGE_PENALTY removed)
 - V6.0: 2026-05-08 (Deep Analysis gates) -- FIXED 2026-05-10
 - V7.0.0: 2026-05-29 (Dynamic Regime Shifter & Empirical Calibration)
+- **V8.0.0: 2026-06-24 (Contrarian Scoring — Regime Inverted + MeanReversion + Catalyst)**
+
+##### V8 Out-of-sample 검증 로드맵
+1. **2026-06-24 ~ 2026-07-07 (2주)**: V8 스코어 + pillar 데이터 축적 (~30,000쌍 예상)
+2. **2026-07-07~**: Out-of-sample 백테스트 실행 → 실전 r, Win%, LS-Spread 측정
+3. **V9 검토**: Out-of-sample 결과에 따라 가중치 미세 조정 or 신규 Factor 추가
 
 ##### System Health (/admin/health)
 - HEALTH tab: Lambda/Redis/DynamoDB status
