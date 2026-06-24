@@ -70,7 +70,59 @@ async function uploadToSupabase(buffer: Buffer, path: string): Promise<string> {
   if (error) throw new Error(`Upload failed: ${error.message}`);
   
   const { data } = supabase.storage.from('marketing-assets').getPublicUrl(path);
+
+  // [2026-06-25] Auto-cleanup: delete assets older than 7 days (Free plan 1GB limit)
+  cleanupOldAssets().catch(() => {}); // fire-and-forget, never block upload
+  
   return data.publicUrl;
+}
+
+// Counter to avoid running cleanup on every single upload (run once per hour max)
+let lastCleanupTime = 0;
+const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
+
+async function cleanupOldAssets() {
+  if (Date.now() - lastCleanupTime < CLEANUP_INTERVAL) return;
+  lastCleanupTime = Date.now();
+
+  try {
+    const supabase = getSupabase();
+    const BUCKET = 'marketing-assets';
+    const DAYS_TO_KEEP = 7;
+    const cutoff = new Date(Date.now() - DAYS_TO_KEEP * 24 * 60 * 60 * 1000);
+
+    const { data: files } = await supabase.storage.from(BUCKET).list('', {
+      limit: 1000, sortBy: { column: 'created_at', order: 'asc' }
+    });
+    if (!files) return;
+
+    const toDelete: string[] = [];
+    for (const f of files) {
+      if (f.id === null) {
+        // folder — list sub-files
+        const { data: sub } = await supabase.storage.from(BUCKET).list(f.name, { limit: 2000 });
+        if (sub) {
+          for (const sf of sub) {
+            if (sf.created_at && new Date(sf.created_at) < cutoff) {
+              toDelete.push(`${f.name}/${sf.name}`);
+            }
+          }
+        }
+      } else if (f.created_at && new Date(f.created_at) < cutoff) {
+        toDelete.push(f.name);
+      }
+    }
+
+    if (toDelete.length === 0) return;
+
+    // Delete in batches of 100
+    for (let i = 0; i < toDelete.length; i += 100) {
+      await supabase.storage.from(BUCKET).remove(toDelete.slice(i, i + 100));
+    }
+    console.log(`[Marketing] Auto-cleanup: deleted ${toDelete.length} old assets (>7 days)`);
+  } catch (e) {
+    // Silent — cleanup failure must never break marketing pipeline
+  }
 }
 
 // ── EC2 캡처 (1회) ──
