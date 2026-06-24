@@ -1625,16 +1625,27 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
                 Limit: 1,
               }));
               if (existingAH.Items?.[0]) {
+                // [V8] Compute V8 pillar breakdown for backtesting
+                const snapVw = snap.vwap || snap.vw || 0;
+                const vwDist = snapVw > 0 ? Math.round(((price - snapVw) / snapVw) * 10000) / 100 : null;
+                const rsiVal = rsiMap?.[ticker] ?? null;
+                
                 const mergedAH = { 
                   ...existingAH.Items[0], 
                   alphaScore: alphaRaw, 
                   alphaGrade, 
                   alphaAction,
-                  engineVersion: '8.0.0' // Tag Lambda-computed V8.0.0 Contrarian Alpha Score
+                  engineVersion: '8.0.0', // Tag Lambda-computed V8.0.0 Contrarian Alpha Score
+                  // [V8] Pillar breakdown for future backtesting
+                  changePct: snap.changePct || 0,
+                  rsi14: rsiVal,
+                  vwapDist: vwDist,
+                  close: price,
+                  vwap: snapVw || null,
                 };
                 await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: mergedAH }));
               }
-            } catch {} // best-effort — don't fail the whole pipeline
+            } catch (ahErr) { console.log('alpha-history write-back err ' + ticker + ': ' + (ahErr.message || ahErr)); }
           }
           
           // [v8] Also write cache:command:unified:{TICKER} — full 9-field data for Command/Ticker pages
