@@ -242,7 +242,7 @@ function GuardianPageContent() {
 
   const session = data?.rlsi?.session;
   const isRiskStreamActive = session === 'REG' || session === 'PRE' || session === 'POST';
-  const isVolMetricActive = session === 'REG' || session === 'POST';
+  const isVolMetricActive = session === 'REG' || session === 'PRE' || session === 'POST';
   const sessionBadge = (() => {
     if (marketStatusInfo.isHoliday) return { label: 'HOLIDAY', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.35)' };
     if (session === 'REG') return { label: 'LIVE', color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.32)' };
