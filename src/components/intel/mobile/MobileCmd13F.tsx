@@ -98,6 +98,7 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
     if (holders.length === 0) return <div className="text-center py-12 text-slate-400 text-sm">No institutional 13-F data available</div>;
 
     const getQ = (d: string) => { const dt = new Date(d); return `Q${Math.ceil((dt.getMonth() + 1) / 3)} ${dt.getFullYear()}`; };
+    const needsScroll = holders.length > 5;
 
     return (
         <div className="space-y-3">
@@ -118,6 +119,10 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
             </div>
 
             {/* Holder List — Card style */}
+            <div
+                className="space-y-3 pr-1"
+                style={needsScroll ? { maxHeight: 548, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } : undefined}
+            >
             {holders.map((h: any, idx: number) => {
                 const weight = summary?.totalValue ? ((h.marketValue / summary.totalValue) * 100) : 0;
                 return (
@@ -145,6 +150,12 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
                     </div>
                 );
             })}
+            </div>
+            {needsScroll && (
+                <div className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    Scroll for {holders.length - 5} more holders
+                </div>
+            )}
             <div className="text-center text-[11px] text-slate-500 py-2">
                 Source: SEC Form 13-F · Top {Math.min(holders.length, 20)} of {summary?.totalHolders || holders.length}
             </div>

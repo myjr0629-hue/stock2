@@ -56,8 +56,8 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!_isNative || !mounted) return;
 
-    if (pathname === '/' || pathname === '/ko' || pathname === '/en') {
-      const targetLocale = pathname === '/' ? 'ko' : pathname.split('/')[1] || 'ko';
+    if (pathname === '/' || pathname === '/ko' || pathname === '/en' || pathname === '/ja') {
+      const targetLocale = pathname === '/' ? 'en' : pathname.split('/')[1] || 'en';
       router.replace(`/${targetLocale}/app-view/dash`);
     }
   }, [pathname, mounted, router]);

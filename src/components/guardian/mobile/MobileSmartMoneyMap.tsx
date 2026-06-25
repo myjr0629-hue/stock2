@@ -527,7 +527,6 @@ export default function MobileSmartMoneyMap({
             <svg
                 className="w-full h-full select-none touch-none"
                 viewBox={`0 0 ${FT_W} ${FT_H}`}
-                style={{ contentVisibility: 'auto' }}
                 onClick={(e) => {
                     if (e.target === e.currentTarget) {
                         setFocusedId(null);

@@ -872,7 +872,7 @@ function FedWatchMini() {
         <div className="w-full self-stretch mt-1 mb-1 px-2">
             <div className="relative rounded-lg border border-slate-600/40 overflow-hidden"
                 style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(15,23,42,0.95) 40%, rgba(6,182,212,0.03) 100%)' }}>
-                <div className="relative z-10 px-4 py-3">
+                <div className="relative z-10 px-3 py-2.5">
                     <div className="flex items-center gap-2">
                         <Landmark className="w-3.5 h-3.5 text-indigo-400/60" />
                         <span className="text-[13px] font-black uppercase tracking-[0.15em] text-white/80 font-jakarta">FEDWATCH</span>
@@ -919,19 +919,19 @@ function FedWatchMini() {
                 style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(15,23,42,0.95) 40%, rgba(6,182,212,0.03) 100%)', boxShadow: '0 0 12px rgba(99,102,241,0.12), 0 0 4px rgba(6,182,212,0.08)' }}>
                 <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
                     style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.3) 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
-                <div className="relative z-10 px-4 py-2.5">
+                <div className="relative z-10 px-3 py-2">
                     {/* Row 1: Header */}
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
                             <Landmark className="w-3.5 h-3.5 text-indigo-400/60" />
-                            <span className="text-[13px] font-black uppercase tracking-[0.15em] text-white/80 font-jakarta">FEDWATCH</span>
+                            <span className="text-[12px] font-black uppercase tracking-[0.14em] text-white/80 font-jakarta">FEDWATCH</span>
                         </div>
                         <div className="flex items-center gap-2">
                             {data.targetRate && (
-                                <span className="text-[12px] font-mono text-slate-300">{data.targetRate} bps</span>
+                                <span className="text-[10.5px] font-mono text-slate-300">{data.targetRate} bps</span>
                             )}
                             {data.daysUntilFomc && (
-                                <span className="text-[12px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 text-amber-400">
+                                <span className="text-[10.5px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 text-amber-400">
                                     FOMC D-{data.daysUntilFomc}
                                 </span>
                             )}
@@ -939,13 +939,13 @@ function FedWatchMini() {
                     </div>
 
                     {/* Row 2: Dominant number left + Stacked bar right */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                         {/* Left: Big dominant % */}
                         <div className="flex-shrink-0">
-                            <div className="text-[28px] font-mono font-black leading-none tabular-nums" style={{ color: dom.clr }}>
-                                {dom.pct}<span className="text-[16px] text-slate-400">%</span>
+                            <div className="text-[25px] font-mono font-black leading-none tabular-nums" style={{ color: dom.clr }}>
+                                {dom.pct}<span className="text-[14px] text-slate-400">%</span>
                             </div>
-                            <div className="text-[12px] font-bold text-slate-300 mt-0.5 tracking-wide">{dom.lbl}</div>
+                            <div className="text-[10.5px] font-bold text-slate-300 mt-0.5 tracking-wide">{dom.lbl}</div>
                         </div>
 
                         {/* Right: Stacked horizontal bar + labels */}
@@ -957,15 +957,15 @@ function FedWatchMini() {
                                         style={{ width: `${total > 0 ? (seg.pct / total) * 100 : 33}%`, background: seg.bg }} />
                                 ))}
                             </div>
-                            {/* Labels below bar */}
-                            <div className="flex items-center justify-between mt-1.5">
+                            {/* Labels below bar: wrap on mobile so probabilities never collapse */}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
                                 {segments.map((seg, i) => (
-                                    <div key={i} className="flex items-center gap-1">
+                                    <div key={i} className="flex min-w-[78px] flex-1 items-center justify-center gap-0.5 rounded bg-slate-950/35 px-1 py-0.5">
                                         <div className="w-1.5 h-1.5 rounded-full" style={{ background: seg.clr }} />
-                                        <span className="text-[12px] font-bold" style={{ color: seg.clr }}>{seg.lbl}</span>
-                                        <span className="text-[13px] font-mono font-bold text-slate-300">{seg.pct}%</span>
+                                        <span className="text-[9.5px] font-bold leading-none" style={{ color: seg.clr }}>{seg.lbl}</span>
+                                        <span className="text-[10px] font-mono font-bold leading-none text-slate-300 tabular-nums">{seg.pct}%</span>
                                         {seg.delta && (
-                                            <span className="text-[12px] font-mono font-bold" style={{ color: seg.delta.color }}>
+                                            <span className="text-[9.5px] font-mono font-bold leading-none tabular-nums" style={{ color: seg.delta.color }}>
                                                 {seg.delta.arrow}{seg.delta.val}
                                             </span>
                                         )}

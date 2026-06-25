@@ -39,6 +39,29 @@ const TEST_AD_IDS: AdConfig = {
   testMode: true,
 };
 
+function resolveDefaultAdConfig(): AdConfig {
+  const explicitTestMode = process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true';
+  const isDev = process.env.NODE_ENV !== 'production';
+  const config: AdConfig = {
+    bannerId: process.env.NEXT_PUBLIC_ADMOB_BANNER_ID || '',
+    interstitialId: process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_ID || '',
+    rewardedId: process.env.NEXT_PUBLIC_ADMOB_REWARDED_ID || '',
+    testMode: explicitTestMode,
+  };
+  const missingIds = !config.bannerId || !config.interstitialId || !config.rewardedId;
+
+  if (explicitTestMode || (isDev && missingIds)) {
+    return {
+      bannerId: config.bannerId || TEST_AD_IDS.bannerId,
+      interstitialId: config.interstitialId || TEST_AD_IDS.interstitialId,
+      rewardedId: config.rewardedId || TEST_AD_IDS.rewardedId,
+      testMode: true,
+    };
+  }
+
+  return config;
+}
+
 // ---------------------------------------------------------------------------
 // LocalStorage Keys
 // ---------------------------------------------------------------------------
@@ -49,10 +72,11 @@ const AD_STATS_KEY = 'signum_ad_stats';
 // Ad Manager Singleton
 // ---------------------------------------------------------------------------
 class AdManagerService {
-  private config: AdConfig = TEST_AD_IDS;
+  private config: AdConfig = resolveDefaultAdConfig();
   private initialized = false;
   private interstitialLoaded = false;
   private rewardedLoaded = false;
+  private bannerSuppressed = false;
   private listeners: Map<string, Set<Function>> = new Map();
 
   // --- Initialization ---
@@ -75,6 +99,11 @@ class AdManagerService {
     // Merge custom config
     if (customConfig) {
       this.config = { ...this.config, ...customConfig };
+    }
+
+    if (!this.config.bannerId || !this.config.interstitialId || !this.config.rewardedId) {
+      console.warn('[AdManager] AdMob unit IDs are missing; native ads disabled.');
+      return;
     }
 
     try {
@@ -100,10 +129,11 @@ class AdManagerService {
   // --- Banner Ad (하단 고정) ---
   async showBanner() {
     if (!this.initialized) return;
+    if (this.bannerSuppressed) return;
     try {
       const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
       const { Capacitor } = await import('@capacitor/core');
-      const bottomMargin = Capacitor.getPlatform() === 'ios' ? 108 : 76;
+      const bottomMargin = Capacitor.getPlatform() === 'ios' ? 104 : 74;
 
       await AdMob.showBanner({
         adId: this.config.bannerId,
@@ -125,6 +155,15 @@ class AdManagerService {
       const { AdMob } = await import('@capacitor-community/admob');
       await AdMob.hideBanner();
     } catch {}
+  }
+
+  async setBannerSuppressed(suppressed: boolean) {
+    this.bannerSuppressed = suppressed;
+    if (suppressed) {
+      await this.hideBanner();
+    } else {
+      await this.showBanner();
+    }
   }
 
   // --- Interstitial Ad (전면, 페이지 전환 시) ---

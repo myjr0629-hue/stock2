@@ -85,6 +85,125 @@ interface Props {
     session?: string;
 }
 
+type FlowLocale = 'ko' | 'en' | 'ja';
+
+const FLOW_REPORT_COPY: Record<FlowLocale, {
+    executive: string;
+    evidence: string;
+    fullBrief: string;
+    showBrief: string;
+    hideBrief: string;
+    status: string;
+    interpretation: string;
+    outlook: string;
+    watch: string;
+}> = {
+    ko: {
+        executive: '핵심 판단',
+        evidence: '근거 레이어',
+        fullBrief: '전체 브리핑',
+        showBrief: '전체 보기',
+        hideBrief: '접기',
+        status: '상태',
+        interpretation: '해석',
+        outlook: '전망',
+        watch: '관찰',
+    },
+    en: {
+        executive: 'Executive Read',
+        evidence: 'Evidence Stack',
+        fullBrief: 'Full Brief',
+        showBrief: 'Show Full Brief',
+        hideBrief: 'Hide Details',
+        status: 'Status',
+        interpretation: 'Interpretation',
+        outlook: 'Outlook',
+        watch: 'Watch',
+    },
+    ja: {
+        executive: '要点',
+        evidence: '根拠レイヤー',
+        fullBrief: '全文',
+        showBrief: '全文を表示',
+        hideBrief: '閉じる',
+        status: '状態',
+        interpretation: '解釈',
+        outlook: '見通し',
+        watch: '注視',
+    },
+};
+
+function asFlowLocale(locale: string): FlowLocale {
+    return locale === 'ko' || locale === 'ja' ? locale : 'en';
+}
+
+function cleanReportText(text?: string): string {
+    return String(text || '')
+        .replace(/\*\*/g, '')
+        .replace(/\r/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function softTrim(text: string, max: number): string {
+    const compact = cleanReportText(text).replace(/\s+/g, ' ');
+    if (compact.length <= max) return compact;
+    const cut = compact.slice(0, max);
+    const lastStop = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('。'), cut.lastIndexOf('다.'), cut.lastIndexOf(';'));
+    return `${(lastStop > max * 0.58 ? cut.slice(0, lastStop + 1) : cut).trim()}...`;
+}
+
+function extractReportSections(text: string, locale: FlowLocale) {
+    const source = cleanReportText(text);
+    const labelMap = [
+        { key: 'status', label: FLOW_REPORT_COPY[locale].status, patterns: ['Status', '상태', '状態'] },
+        { key: 'interpretation', label: FLOW_REPORT_COPY[locale].interpretation, patterns: ['Interpretation', '해석', '解釈'] },
+        { key: 'outlook', label: FLOW_REPORT_COPY[locale].outlook, patterns: ['Outlook', '전망', '見通し'] },
+    ] as const;
+
+    const found = labelMap
+        .map(item => {
+            const pattern = new RegExp(`(?:^|\\n)\\s*\\[?(?:${item.patterns.join('|')})\\]?\\s*:?\\s*`, 'i');
+            const match = source.match(pattern);
+            return match ? { ...item, index: match.index || 0, end: (match.index || 0) + match[0].length } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a!.index - b!.index) as Array<{ key: string; label: string; index: number; end: number }>;
+
+    if (found.length === 0) {
+        const sentences = source.split(/(?<=[.!?。])\s+/).filter(Boolean);
+        return [
+            { key: 'status', label: FLOW_REPORT_COPY[locale].status, text: sentences.slice(0, 1).join(' ') || source },
+            { key: 'interpretation', label: FLOW_REPORT_COPY[locale].interpretation, text: sentences.slice(1, 3).join(' ') },
+            { key: 'outlook', label: FLOW_REPORT_COPY[locale].outlook, text: sentences.slice(3).join(' ') },
+        ].filter(section => section.text);
+    }
+
+    return found.map((item, index) => {
+        const next = found[index + 1];
+        return {
+            key: item.key,
+            label: item.label,
+            text: source.slice(item.end, next ? next.index : source.length).trim(),
+        };
+    }).filter(section => section.text);
+}
+
+function getReportDigest(text: string, locale: FlowLocale) {
+    const sections = extractReportSections(text, locale);
+    const primary = sections[0]?.text || text;
+    const maxPrimary = locale === 'en' ? 175 : 145;
+    const maxChip = locale === 'en' ? 118 : 98;
+
+    return {
+        primary: softTrim(primary, maxPrimary),
+        chips: sections.slice(0, 3).map(section => ({
+            ...section,
+            text: softTrim(section.text, maxChip),
+        })),
+    };
+}
+
 export default function MobileGuardianFlow({ data, loading, verdict, session }: Props) {
     const t = useTranslations('guardian');
     const gt = useTranslations('gate');
@@ -103,6 +222,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
     const isMapUnlocked = hasAccess('elite') || isMapGuestPreview;
 
     const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
+    const [showTacticalDetails, setShowTacticalDetails] = useState(false);
     const intelSectorId = selectedSectorId || data?.verdictTargetId || null;
     const selectedSector = data?.sectors?.find((s: any) => s.id === intelSectorId);
     const constituentSymbols = selectedSector?.topConstituents?.map((c: any) => c.symbol) || [];
@@ -142,6 +262,9 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
 
     const isTargetLocked = data?.tripleA?.isTargetLock || false;
     const isBullMode = (data?.tripleA?.regime || 'NEUTRAL') === 'BULL';
+    const flowLocale = asFlowLocale(locale);
+    const flowReportCopy = FLOW_REPORT_COPY[flowLocale];
+    const tacticalDigest = useMemo(() => getReportDigest(verdict.desc, flowLocale), [verdict.desc, flowLocale]);
     const mapBorderClass = isTargetLocked && isFullyActive
         ? "border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-pulse"
         : isTargetLocked ? "border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
@@ -208,7 +331,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
 
             {/* ── TACTICAL VERDICT ── (Relocated from Tab 3) */}
             <ProGate title="Tactical Verdict" fomoMessage={gt('fomoIntelStack')} description={gt('descRlsiInsight')} mode="blur">
-                <div className="border border-slate-800 rounded-lg p-3.5 relative flex flex-col shadow-2xl overflow-hidden"
+                <div className="app-intel-surface rounded-2xl p-3.5 relative flex flex-col"
                     style={{
                         background: verdict.sentiment === 'BULLISH'
                             ? 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.04) 40%, rgba(10,14,20,1) 70%)'
@@ -257,11 +380,55 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
 
                     {isMarketActive ? (
                         <>
-                            <div className="overflow-hidden mb-2">
-                                <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
-                                <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                    {renderColoredText(verdict.desc)}
+                            <div className="overflow-hidden mb-3">
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{flowReportCopy.executive}</div>
+                                        <h4 className={`mt-1 text-[17px] font-black leading-tight uppercase tracking-[0.01em] ${verdict.color}`}>{verdict.title}</h4>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTacticalDetails(value => !value)}
+                                        className="app-brief-toggle shrink-0 rounded-md border border-cyan-400/20 bg-cyan-950/40 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.05em] text-cyan-300"
+                                    >
+                                        {showTacticalDetails ? flowReportCopy.hideBrief : flowReportCopy.showBrief}
+                                    </button>
                                 </div>
+
+                                <div className="rounded-xl border border-white/[0.07] bg-black/24 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                                    <div className="text-[13px] font-semibold text-white/90 leading-[1.65]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                        {renderColoredText(tacticalDigest.primary)}
+                                    </div>
+                                </div>
+
+                                <div className="mt-2 grid gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-300">{flowReportCopy.evidence}</span>
+                                        <span className="rounded-full border border-white/8 bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-slate-500">AI Layers</span>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        {tacticalDigest.chips.map((section, index) => (
+                                            <div key={`${section.key}-${index}`} className="rounded-lg border border-slate-700/45 bg-slate-950/34 px-3 py-2">
+                                                <div className="mb-1 flex items-center gap-2">
+                                                    <span className="grid h-4 w-4 place-items-center rounded border border-cyan-300/16 bg-cyan-400/8 text-[8px] font-black text-cyan-300">L{index + 1}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">{section.label}</span>
+                                                </div>
+                                                <div className="text-[12px] font-semibold leading-[1.55] text-slate-200/92" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                                    {renderColoredText(section.text)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {showTacticalDetails && (
+                                    <div className="mt-2 rounded-xl border border-cyan-400/14 bg-cyan-950/10 p-3">
+                                        <div className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-300">{flowReportCopy.fullBrief}</div>
+                                        <div className="text-[13px] text-white/82 leading-[1.75] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                            {renderColoredText(cleanReportText(verdict.desc))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* COMPACT METRICS */}
@@ -341,10 +508,32 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
                     ) : verdict.title ? (
                         <>
                             <div className="overflow-hidden mb-2">
-                                <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
-                                <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                    {renderColoredText(verdict.desc)}
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{flowReportCopy.executive}</div>
+                                        <h4 className={`mt-1 text-[17px] font-black leading-tight uppercase tracking-[0.01em] ${verdict.color}`}>{verdict.title}</h4>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTacticalDetails(value => !value)}
+                                        className="app-brief-toggle shrink-0 rounded-md border border-cyan-400/20 bg-cyan-950/40 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.05em] text-cyan-300"
+                                    >
+                                        {showTacticalDetails ? flowReportCopy.hideBrief : flowReportCopy.showBrief}
+                                    </button>
                                 </div>
+                                <div className="rounded-xl border border-white/[0.07] bg-black/24 p-3">
+                                    <div className="text-[13px] font-semibold text-white/90 leading-[1.65]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                        {renderColoredText(tacticalDigest.primary)}
+                                    </div>
+                                </div>
+                                {showTacticalDetails && (
+                                    <div className="mt-2 rounded-xl border border-cyan-400/14 bg-cyan-950/10 p-3">
+                                        <div className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-300">{flowReportCopy.fullBrief}</div>
+                                        <div className="text-[13px] text-white/82 leading-[1.75] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                            {renderColoredText(cleanReportText(verdict.desc))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="text-[12px] text-amber-500/50 font-mono mt-2 font-jakarta">Last session analysis</div>
                         </>
@@ -365,7 +554,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
             </ProGate>
 
             {/* ── SECTOR INTEL ── */}
-            <div className="border border-slate-800 rounded-xl p-4 relative shadow-2xl flex flex-col min-h-[280px] overflow-hidden"
+            <div className="app-intel-surface rounded-2xl p-4 relative flex flex-col min-h-[280px]"
                 style={{ background: 'radial-gradient(circle at 85% 15%, rgba(6,182,212,0.12) 0%, transparent 45%), rgba(10,14,20,1)' }}>
                 <h3 className="text-[13px] font-black uppercase tracking-[0.15em] text-cyan-400 mb-3 border-b border-cyan-900/30 pb-2 font-jakarta">
                     <GuardianTooltip sectionId="sectorIntel" position="right"><span>SECTOR INTEL</span></GuardianTooltip>
@@ -461,7 +650,7 @@ function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, loc
             {/* Live ticker table */}
             <div className="space-y-1">
                 {topMovers.length > 0 ? topMovers.map((stock: any) => (
-                    <Link key={stock.symbol} href={`/ticker?ticker=${stock.symbol}`}
+                    <Link key={stock.symbol} href={`/app-view/cmd?t=${stock.symbol}`}
                         className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group">
                         <div className="flex items-center gap-3">
                             <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">

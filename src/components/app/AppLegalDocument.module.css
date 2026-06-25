@@ -1,0 +1,125 @@
+.page {
+  min-height: 100dvh;
+  padding: max(18px, env(safe-area-inset-top)) 14px max(24px, env(safe-area-inset-bottom));
+  color: #e5edf7;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.10), transparent 34%),
+    #07101f;
+}
+
+.shell {
+  width: min(100%, 430px);
+  margin: 0 auto;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.badge {
+  color: #22d3ee;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.card {
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(9, 23, 41, 0.96), rgba(6, 12, 24, 0.98)),
+    rgba(15, 23, 42, 0.9);
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.hero {
+  padding: 22px 18px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.10);
+  background:
+    radial-gradient(circle at 16% 8%, rgba(16, 185, 129, 0.14), transparent 30%),
+    linear-gradient(135deg, rgba(8, 47, 73, 0.54), rgba(15, 23, 42, 0));
+}
+
+.title {
+  margin: 8px 0 8px;
+  color: #f8fafc;
+  font-size: 25px;
+  line-height: 1.08;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.updated {
+  margin: 0;
+  color: rgba(148, 163, 184, 0.85);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.body {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.section {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.section h2 {
+  margin: 0 0 8px;
+  color: #67e8f9;
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 900;
+}
+
+.section p,
+.section li {
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 12px;
+  line-height: 1.65;
+  font-weight: 650;
+}
+
+.section p {
+  margin: 0;
+}
+
+.section ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 17px;
+}
+
+.contact {
+  color: #fbbf24;
+  font-weight: 850;
+}

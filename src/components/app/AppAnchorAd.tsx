@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
+import { usePathname } from '@/i18n/routing';
 
 const COPY: Record<string, { sponsor: string; title: string; sub: string; cta: string }> = {
   ko: {
@@ -26,8 +27,12 @@ const COPY: Record<string, { sponsor: string; title: string; sub: string; cta: s
 
 export function AppAnchorAd() {
   const locale = useLocale();
+  const pathname = usePathname();
   const copy = COPY[locale] || COPY.en;
   const [isNative, setIsNative] = useState(false);
+  const isDocumentRoute = pathname?.includes('/app-view/terms') ||
+    pathname?.includes('/app-view/privacy') ||
+    pathname?.includes('/app-view/onboarding');
 
   useEffect(() => {
     let mounted = true;
@@ -45,7 +50,7 @@ export function AppAnchorAd() {
     };
   }, []);
 
-  if (isNative) {
+  if (isNative || isDocumentRoute) {
     return null;
   }
 

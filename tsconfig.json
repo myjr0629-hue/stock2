@@ -39,6 +39,11 @@
   ],
   "exclude": [
     "node_modules",
+    "harvest_lambda",
+    "sns_lambda_package",
+    "lambda_layer",
+    "snapshots",
+    ".logs",
     "scripts",
     "tests",
     "src/app/_backup_before_i18n",

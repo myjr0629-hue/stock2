@@ -12,7 +12,7 @@
 .headerBrand {
   display: flex;
   align-items: center;
-  gap: var(--s3);
+  gap: 9px;
 }
 
 .brandIcon {
@@ -33,20 +33,20 @@
 .brandText {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .brandName {
-  font: 800 15px/1 'Inter', sans-serif;
+  font: 850 13px/1 'Inter', sans-serif;
   color: var(--text);
   letter-spacing: 0.04em;
   text-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
 }
 
 .brandSub {
-  font: var(--f-micro);
+  font: 800 8.5px/1 'Plus Jakarta Sans', sans-serif;
   color: var(--text-muted);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.13em;
 }
 
 .headerActions {
@@ -56,8 +56,8 @@
 }
 
 .headerBtn {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: none;
   background: var(--surface-2);
@@ -66,9 +66,14 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  min-height: 44px;
-  min-width: 44px;
+  min-height: 30px !important;
+  min-width: 30px !important;
   transition: background 0.15s ease;
+}
+
+.headerBtn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .headerBtn:active {
@@ -84,10 +89,47 @@
 
 .cardHead {
   composes: app-card-head from global;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .cardTitle {
   composes: app-card-title from global;
+}
+
+.sessionPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.58);
+  color: rgba(203, 213, 225, 0.78);
+  font: 800 9px/1 'Inter', sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sessionLive {
+  border-color: rgba(34, 211, 238, 0.34);
+  background: rgba(8, 145, 178, 0.16);
+  color: var(--cyan);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.08);
+}
+
+.sessionHoliday {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--amber);
+}
+
+.sessionClosed {
+  color: rgba(148, 163, 184, 0.82);
 }
 
 /* ── MARKET PULSE ── */
@@ -181,7 +223,8 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  height: 100px; /* 고정 높이 100px로 콤팩트화 */
+  height: 104px;
+  min-width: 0;
   box-sizing: border-box;
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -193,6 +236,7 @@
   align-items: center; /* 원형 뱃지와 티커 텍스트 수직 중앙 정렬 */
   gap: 5px;
   line-height: 1;
+  min-width: 0;
 }
 
 .pulseSym {
@@ -201,6 +245,9 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 원형 브랜드 심볼 뱃지 스타일 */
@@ -243,9 +290,12 @@
 }
 
 .pulsePrice {
-  font: 800 15px/1.1 'ui-monospace', 'SFMono-Regular', monospace;
+  font: 800 14px/1.1 'ui-monospace', 'SFMono-Regular', monospace;
   color: var(--text);
   margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Live Pulse Mapping Hooks ── */
@@ -348,17 +398,26 @@
 }
 
 .macroCell.live {
-  animation: macroCellBlink 2.5s infinite ease-in-out;
+  animation: macroLiveBlink 2.2s infinite ease-in-out;
+  border-color: rgba(34, 211, 238, 0.36);
+  background: linear-gradient(145deg, rgba(8, 47, 73, 0.34), rgba(15, 23, 42, 0.42));
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.06),
+    0 0 14px rgba(34, 211, 238, 0.08);
 }
 
-@keyframes macroCellBlink {
+@keyframes macroLiveBlink {
   0%, 100% {
-    border-color: rgba(255, 255, 255, 0.04);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    border-color: rgba(34, 211, 238, 0.32);
+    box-shadow:
+      inset 0 0 0 1px rgba(34, 211, 238, 0.055),
+      0 0 10px rgba(34, 211, 238, 0.08);
   }
   50% {
-    border-color: rgba(34, 211, 238, 0.45);
-    box-shadow: 0 0 10px rgba(34, 211, 238, 0.15), inset 0 0 4px rgba(34, 211, 238, 0.05);
+    border-color: rgba(34, 211, 238, 0.72);
+    box-shadow:
+      inset 0 0 0 1px rgba(34, 211, 238, 0.12),
+      0 0 18px rgba(34, 211, 238, 0.22);
   }
 }
 
@@ -496,7 +555,11 @@
   gap: 4px;
   min-height: 52px;
   border: 1px solid transparent;
-  transition: transform 0.12s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    inset 0 -18px 32px rgba(2, 6, 23, 0.12),
+    0 8px 18px rgba(0, 0, 0, 0.12);
+  transition: transform 0.12s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .sectorCell:active {
@@ -505,7 +568,7 @@
 
 .sectorName {
   font: var(--f-micro);
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(241, 245, 249, 0.78);
   letter-spacing: 0.02em;
   text-align: center;
   white-space: nowrap;
@@ -515,10 +578,18 @@
 }
 
 .sectorPct {
-  font: 700 13px/1 'Inter', sans-serif;
+  font: 800 13px/1 'Inter', sans-serif;
   font-variant-numeric: tabular-nums;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.sectorPctUp {
+  color: #5eead4;
+}
+
+.sectorPctDown {
+  color: #fda4af;
 }
 
 /* ── AI BRIEFING ── */
@@ -963,7 +1034,7 @@
 /* ── Market Pulse 2-row layout ── */
 .pulseRow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1194,25 +1265,33 @@
   align-items: center;
   margin-bottom: var(--s3);
   width: 100%;
+  gap: 10px;
 }
 
 .briefingToggle {
   display: flex;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 28px;
+  min-height: 28px !important;
+  background: rgba(2, 6, 23, 0.32);
+  border: 1px solid rgba(148, 163, 184, 0.10);
+  border-radius: 999px;
   padding: 2px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .toggleBtn {
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font: 700 10px/1 'Plus Jakarta Sans', sans-serif;
-  padding: 5px 10px;
-  border-radius: 12px;
+  font: 800 9px/1 'Plus Jakarta Sans', sans-serif;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 9px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
 }
 
 .toggleBtn:active {
@@ -1220,9 +1299,11 @@
 }
 
 .toggleBtnActive {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.12);
   color: var(--amber);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 4px 10px rgba(0, 0, 0, 0.14);
 }
 
 .briefingNewsSection {
@@ -1345,22 +1426,29 @@
 /* ── TOP MOVERS SWITCHER TAB STYLES ── */
 .moversToggle {
   display: flex;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 28px;
+  min-height: 28px !important;
+  background: rgba(2, 6, 23, 0.32);
+  border: 1px solid rgba(148, 163, 184, 0.10);
+  border-radius: 999px;
   padding: 2px;
   margin-left: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .moverToggleBtn {
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font: 700 10px/1 'Plus Jakarta Sans', sans-serif;
-  padding: 5px 10px;
-  border-radius: 12px;
+  font: 800 9px/1 'Plus Jakarta Sans', sans-serif;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 9px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
 }
 
 .moverToggleBtn:hover {
@@ -1372,7 +1460,9 @@
 }
 
 .moverToggleBtnActive {
-  background: rgba(34, 211, 238, 0.15);
+  background: rgba(34, 211, 238, 0.12);
   color: var(--cyan);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 4px 10px rgba(0, 0, 0, 0.14);
 }

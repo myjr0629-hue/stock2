@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type SyntheticEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
@@ -13,6 +13,19 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
+
+const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
+const APP_LOGO = (t: string) => `/api/logo/${t}`;
+
+function handleLogoFallback(event: SyntheticEvent<HTMLImageElement>, ticker: string) {
+  const img = event.currentTarget;
+  if (img.dataset.logoFallback !== 'parqet') {
+    img.dataset.logoFallback = 'parqet';
+    img.src = LOGO(ticker);
+    return;
+  }
+  img.style.display = 'none';
+}
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -658,15 +671,37 @@ function SparklineBg({ up, seed = 'default' }: { up: boolean; seed?: string }) {
   );
 }
 
+const BROKEN_COPY_NEEDLES = ['?', '?명', '媛', '而', '뚮', '꺍', '궥', '誤', '鸚', '쨌'];
+
+function isSafeLocaleCopy(value: unknown) {
+  try {
+    const text = JSON.stringify(value);
+    return !BROKEN_COPY_NEEDLES.some(needle => text.includes(needle));
+  } catch {
+    return false;
+  }
+}
+
 export default function AppFlowPage() {
   const locale = useLocale();
-  const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
-  const flowCopy = useMemo(() => APP_FLOW_COPY[locale as keyof typeof APP_FLOW_COPY] || APP_FLOW_COPY.en, [locale]);
+  const t = useMemo(() => {
+    const copy = TRANSLATIONS[locale];
+    return copy && isSafeLocaleCopy(copy) ? copy : TRANSLATIONS.en;
+  }, [locale]);
+  const flowCopy = useMemo(() => {
+    const copy = APP_FLOW_COPY[locale as keyof typeof APP_FLOW_COPY];
+    return copy && isSafeLocaleCopy(copy) ? copy : APP_FLOW_COPY.en;
+  }, [locale]);
   const tIndicators = useTranslations('indicators');
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    const queryTicker = new URLSearchParams(window.location.search).get('t')?.trim().toUpperCase();
+    if (queryTicker) {
+      setTicker(queryTicker);
+      setSearchInput(queryTicker);
+    }
   }, []);
 
   const [ticker, setTicker] = useState('NVDA');
@@ -726,7 +761,30 @@ export default function AppFlowPage() {
     };
   }, [opi, effectiveSession]);
 
-  const liveGammaFlip = tickerData?.premium?.gammaFlip || tickerData?.flow?.gammaFlip || (ticker === 'TSLA' ? '$165.00' : ticker === 'AAPL' ? '$210.00' : '$208.00');
+  const pickPositiveNumber = (...values: unknown[]) => {
+    for (const value of values) {
+      if (value == null || value === '') continue;
+      const n = typeof value === 'string'
+        ? Number(value.replace(/[$,%\s,]/g, ''))
+        : Number(value);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return null;
+  };
+
+  const liveGammaFlipRaw = pickPositiveNumber(
+    tickerData?.flow?.gammaFlipLevel,
+    tickerData?.rawTickerData?.flow?.gammaFlipLevel,
+    tickerData?.flow?.gammaFlip,
+    tickerData?.rawTickerData?.flow?.gammaFlip,
+    tickerData?.premium?.gammaFlipRaw,
+    tickerData?.rawTickerData?.premium?.gammaFlipRaw,
+    tickerData?.premium?.gammaFlip,
+    tickerData?.rawTickerData?.premium?.gammaFlip,
+  );
+  const liveGammaFlip = liveGammaFlipRaw
+    ? `$${liveGammaFlipRaw.toFixed(2)}`
+    : (ticker === 'TSLA' ? '$165.00' : ticker === 'AAPL' ? '$210.00' : '$208.00');
 
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
@@ -748,6 +806,29 @@ export default function AppFlowPage() {
     extended: tickerData?.extended || tickerData?.rawTickerData?.extended || {},
     prices: tickerData?.prices || tickerData?.rawTickerData?.prices || {},
   });
+
+  const liveRsi = pickPositiveNumber(
+    tickerData?.display?.rsi14,
+    tickerData?.rawTickerData?.display?.rsi14,
+  ) ?? (ticker === 'TSLA' ? 44.5 : ticker === 'AAPL' ? 58.9 : 64.2);
+  const liveVwap = pickPositiveNumber(
+    tickerData?.vwap,
+    tickerData?.rawTickerData?.vwap,
+    tickerData?.display?.vwap,
+    tickerData?.rawTickerData?.display?.vwap,
+  ) ?? (displayPrice * 0.995);
+  const liveHigh = pickPositiveNumber(
+    tickerData?.prices?.high,
+    tickerData?.rawTickerData?.prices?.high,
+    tickerData?.display?.high,
+    tickerData?.rawTickerData?.display?.high,
+  ) ?? (displayPrice * 1.015);
+  const liveLow = pickPositiveNumber(
+    tickerData?.prices?.low,
+    tickerData?.rawTickerData?.prices?.low,
+    tickerData?.display?.low,
+    tickerData?.rawTickerData?.display?.low,
+  ) ?? (displayPrice * 0.985);
 
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
   const [extFlash, setExtFlash] = useState<'up' | 'down' | null>(null);
@@ -799,6 +880,11 @@ export default function AppFlowPage() {
   }, [displayPrice, displayChangePct, effectiveSession]);
 
   useEffect(() => {
+    if (effectiveSession !== 'PRE' && effectiveSession !== 'POST') {
+      prevExtPriceRef.current = activeExtPrice;
+      setExtFlash(null);
+      return;
+    }
     if (!activeExtPrice || activeExtPrice <= 0) {
       prevExtPriceRef.current = activeExtPrice;
       return;
@@ -810,7 +896,7 @@ export default function AppFlowPage() {
       const tId = setTimeout(() => setExtFlash(null), 950);
       return () => clearTimeout(tId);
     }
-  }, [activeExtPrice]);
+  }, [activeExtPrice, effectiveSession]);
 
   const resolvedPrevClose = tickerData?.prices?.prevRegularClose || tickerData?.rawTickerData?.prices?.prevRegularClose || tickerData?.prevClose || 0;
   const finalChangeAbs = resolvedPrevClose > 0 ? Math.abs(displayPrice - resolvedPrevClose) : Math.abs(tickerData?.display?.changeAbs || 0);
@@ -846,17 +932,61 @@ export default function AppFlowPage() {
     initialLoadRef.current = true;
 
     async function fetchFlow() {
-      if (initialLoadRef.current) setLoading(true);
+      if (initialLoadRef.current) {
+        setLoading(true);
+        setTickerData(null);
+      }
       try {
-        const [res, dpRes, ivRes, whaleRes] = await Promise.all([
-          fetch(`/api/live/ticker?t=${ticker.toUpperCase()}`),
-          fetch(`/api/flow/dark-pool-trades?ticker=${ticker.toUpperCase()}&limit=20`).catch(() => null),
-          fetch(`/api/flow/iv-percentile?ticker=${ticker.toUpperCase()}`).catch(() => null),
-          fetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`).catch(() => null)
-        ]);
+        const optionalFetch = async (url: string, timeoutMs = 4500) => {
+          const controller = new AbortController();
+          const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+          try {
+            return await fetch(url, { signal: controller.signal });
+          } catch {
+            return null;
+          } finally {
+            window.clearTimeout(timer);
+          }
+        };
 
+        const res = await fetch(`/api/live/ticker?t=${ticker.toUpperCase()}`);
         if (!res.ok) throw new Error();
         const data = await res.json();
+
+        if (cancelled) return;
+
+        setTickerData(data);
+        if (data.display?.price) setPrice(data.display.price);
+        if (data.display?.changePctPct) setChange(data.display.changePctPct);
+
+        const flow = data.flow;
+        if (flow) {
+          if (flow.oiPcr != null) {
+            setPcRatio(flow.oiPcr);
+            const calcOpi = Math.max(10, Math.min(95, Math.round(100 - flow.oiPcr * 50)));
+            setOpi(calcOpi);
+          }
+          if (flow.netPremium != null) {
+            setTotalPrem(Math.abs(flow.netPremium) * 2.5 || 12500000);
+            setCallPct(flow.netPremium >= 0 ? 68.4 : 38.2);
+          }
+          if (flow.maxPain != null) setMaxPainVal(flow.maxPain);
+          if (data.volatilityRegime?.regime) setVolRegime(data.volatilityRegime.regime);
+          if (flow.rawChain && flow.rawChain.length > 0) {
+            setRawChain(flow.rawChain);
+          } else {
+            setRawChain([]);
+          }
+        }
+
+        setLoading(false);
+        initialLoadRef.current = false;
+
+        const [dpRes, ivRes, whaleRes] = await Promise.all([
+          optionalFetch(`/api/flow/dark-pool-trades?ticker=${ticker.toUpperCase()}&limit=20`),
+          optionalFetch(`/api/flow/iv-percentile?ticker=${ticker.toUpperCase()}`),
+          optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 3500)
+        ]);
 
         let dpItems = DEMO_DARK_POOL_TRADES;
         let dpMetaNext: any = null;
@@ -898,26 +1028,26 @@ export default function AppFlowPage() {
         if (data.display?.price) setPrice(data.display.price);
         if (data.display?.changePctPct) setChange(data.display.changePctPct);
 
-        const flow = data.flow;
-        if (flow) {
-          if (flow.oiPcr != null) {
-            setPcRatio(flow.oiPcr);
+        const flowAfterOptional = data.flow;
+        if (flowAfterOptional) {
+          if (flowAfterOptional.oiPcr != null) {
+            setPcRatio(flowAfterOptional.oiPcr);
             // Derive a synthetic OPI between 0-100 (inverse of PC ratio)
-            const calcOpi = Math.max(10, Math.min(95, Math.round(100 - flow.oiPcr * 50)));
+            const calcOpi = Math.max(10, Math.min(95, Math.round(100 - flowAfterOptional.oiPcr * 50)));
             setOpi(calcOpi);
           }
-          if (flow.netPremium != null) {
+          if (flowAfterOptional.netPremium != null) {
             // Estimate total premium from net premium
-            setTotalPrem(Math.abs(flow.netPremium) * 2.5 || 12500000);
-            setCallPct(flow.netPremium >= 0 ? 68.4 : 38.2);
+            setTotalPrem(Math.abs(flowAfterOptional.netPremium) * 2.5 || 12500000);
+            setCallPct(flowAfterOptional.netPremium >= 0 ? 68.4 : 38.2);
           }
-          if (flow.maxPain != null) setMaxPainVal(flow.maxPain);
+          if (flowAfterOptional.maxPain != null) setMaxPainVal(flowAfterOptional.maxPain);
           if (data.volatilityRegime?.regime) setVolRegime(data.volatilityRegime.regime);
 
           // Convert raw chain data to transactions
-          if (flow.rawChain && flow.rawChain.length > 0) {
-            setRawChain(flow.rawChain);
-            const txs = flow.rawChain.slice(0, 8).map((c: any, i: number) => {
+          if (flowAfterOptional.rawChain && flowAfterOptional.rawChain.length > 0) {
+            setRawChain(flowAfterOptional.rawChain);
+            const txs = flowAfterOptional.rawChain.slice(0, 8).map((c: any, i: number) => {
               const timeStr = c.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0];
               return {
                 time: timeStr,
@@ -936,28 +1066,6 @@ export default function AppFlowPage() {
           }
         }
       } catch {
-        // Fallback to synthetic values for fallback ticker
-        const dummyPrice = ticker === 'TSLA' ? 168.90 : ticker === 'AAPL' ? 212.55 : 208.19;
-        const dummyChange = ticker === 'TSLA' ? -2.1 : 1.8;
-        setTickerData({
-          display: {
-            price: dummyPrice,
-            changePctPct: dummyChange,
-          },
-          rawTickerData: {
-            display: {
-              price: dummyPrice,
-              changePctPct: dummyChange,
-            }
-          }
-        });
-        setPrice(dummyPrice);
-        setChange(dummyChange);
-        setOpi(ticker === 'TSLA' ? 38.5 : 62.4);
-        setPcRatio(ticker === 'TSLA' ? 1.45 : 0.72);
-        setTotalPrem(14500000);
-        setCallPct(ticker === 'TSLA' ? 42.1 : 58.6);
-        setMaxPainVal(ticker === 'TSLA' ? 170.0 : 210.0);
         setRawChain([]);
         setWhaleTradesFeed([]);
         setWhaleMeta(null);
@@ -1810,8 +1918,12 @@ export default function AppFlowPage() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
-                padding: '6px 14px',
+                height: '32px',
+                minHeight: 0,
+                padding: '0 14px',
+                boxSizing: 'border-box',
                 borderRadius: 'var(--r-pill)',
                 border: '1px solid',
                 borderColor: isActive ? brand.color : 'rgba(255,255,255,0.06)',
@@ -1819,6 +1931,7 @@ export default function AppFlowPage() {
                 color: isActive ? '#ffffff' : 'var(--text-dim)',
                 font: 'var(--f-micro)',
                 fontWeight: 700,
+                lineHeight: 1,
                 cursor: 'pointer',
                 transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 boxShadow: isActive ? `0 0 12px ${brand.glow}` : 'none',
@@ -1864,7 +1977,26 @@ export default function AppFlowPage() {
       )}
 
       {/* ── MAIN CONTENT (hidden during loading) ── */}
-      {!loading && (<>
+      {!loading && !tickerData && (
+        <div style={{ padding: '0 16px', marginTop: '16px' }}>
+          <div
+            className="premium-card"
+            style={{
+              padding: '18px',
+              borderColor: 'rgba(255, 176, 32, 0.35)',
+              background: 'linear-gradient(135deg, rgba(255,176,32,0.10), rgba(9,15,28,0.92))'
+            }}
+          >
+            <div className="app-label" style={{ color: '#ffb020', marginBottom: '8px' }}>DATA RECONNECTING</div>
+            <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fbff' }}>Flow data is warming up</h2>
+            <p style={{ margin: '8px 0 0', color: '#aeb9c9', fontSize: '13px', lineHeight: 1.5 }}>
+              Live ticker data did not respond yet. Reopen this page or try again in a moment.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!loading && tickerData && (<>
 
       {/* ── PRICE CARD v2 (From cmd/page.tsx) ── */}
       {(() => {
@@ -1876,12 +2008,11 @@ export default function AppFlowPage() {
         const isOpen = effectiveSession === 'REG';
         const isPrePost = effectiveSession === 'PRE' || effectiveSession === 'POST';
         const hasExt = activeExtPrice > 0 && activeExtLabel;
-
-        const liveRsi = tickerData?.display?.rsi14 || tickerData?.rawTickerData?.display?.rsi14 || (ticker === 'TSLA' ? 44.5 : ticker === 'AAPL' ? 58.9 : 64.2);
-        const liveVwap = tickerData?.display?.vwap || tickerData?.rawTickerData?.display?.vwap || (displayPrice * 0.995);
-        const liveHigh = tickerData?.display?.high || tickerData?.rawTickerData?.display?.high || (displayPrice * 1.015);
-        const liveLow = tickerData?.display?.low || tickerData?.rawTickerData?.display?.low || (displayPrice * 0.985);
-        const liveGammaFlip = tickerData?.premium?.gammaFlip || tickerData?.flow?.gammaFlip || (ticker === 'TSLA' ? '$165.00' : ticker === 'AAPL' ? '$210.00' : '$208.00');
+        const extCardClassName = [
+          s.heroExtCard,
+          isPrePost ? s.extLive : s.extClosed,
+          isPrePost && extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : '',
+        ].filter(Boolean).join(' ');
 
         const companyName = tickerData?.name || tickerData?.company || tickerData?.rawTickerData?.name || (ticker === 'NVDA' ? 'NVIDIA Corp' : ticker === 'TSLA' ? 'Tesla Inc' : ticker === 'AAPL' ? 'Apple Inc' : ticker === 'SPY' ? 'SPDR S&P 500 ETF' : ticker === 'QQQ' ? 'Invesco QQQ Trust' : '');
 
@@ -1902,11 +2033,15 @@ export default function AppFlowPage() {
             <div className={s.heroIdentity}>
               <div className={s.heroLeft}>
                 <div className={s.heroLogo}>
-                  <img
-                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
-                    alt={ticker}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
+                  {ticker === 'SPCX' ? (
+                    <span className={s.heroLogoFallback}>SPCX</span>
+                  ) : (
+                    <img
+                      src={APP_LOGO(ticker)}
+                      alt={ticker}
+                      onError={(e) => handleLogoFallback(e, ticker)}
+                    />
+                  )}
                 </div>
                 <div className={s.heroNameGroup}>
                   <span className={s.heroTicker}>{ticker}</span>
@@ -1949,7 +2084,7 @@ export default function AppFlowPage() {
                 </span>
               </div>
               {hasExt && (
-                <div className={`${s.heroExtCard} ext-live ${extFlash ? `ext-${extFlash}` : ''}`}>
+                <div className={extCardClassName}>
                   <SparklineBg up={activeExtPct >= 0} seed={`${ticker}-ext`} />
                   <span className={s.heroExtLabel}>{activeExtLabel}</span>
                   <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
@@ -1988,8 +2123,8 @@ export default function AppFlowPage() {
                     {gammaFlipNum > 0 && (
                       <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {gfDiff >= 0
-                          ? (locale === 'ko' ? '상회' : locale === 'ja' ? '상회' : 'above')
-                          : (locale === 'ko' ? '하회' : locale === 'ja' ? '하회' : 'below')
+                          ? (locale === 'ko' ? '상회' : locale === 'ja' ? '上回る' : 'above')
+                          : (locale === 'ko' ? '하회' : locale === 'ja' ? '下回る' : 'below')
                         } ({gfDiff >= 0 ? '+' : ''}{gfDiff.toFixed(2)}%)
                       </span>
                     )}
@@ -2019,19 +2154,54 @@ export default function AppFlowPage() {
               <div className={s.p2Vital}>
                 <div className={s.k}>RSI 14</div>
                 <div className={s.v}>{liveRsi.toFixed(1)}</div>
-                <div className={s.bar}><i style={{ width: `${liveRsi}%` }} /></div>
+                {(() => {
+                  const rsiPct = Math.max(0, Math.min(100, liveRsi || 0));
+                  const rsiState = rsiPct >= 70 ? 'Hot' : rsiPct >= 60 ? 'Warm' : rsiPct <= 30 ? 'Oversold' : rsiPct <= 40 ? 'Cool' : 'Neutral';
+                  const rsiColor = rsiPct >= 70 ? 'var(--red)' : rsiPct >= 60 ? 'var(--amber)' : rsiPct <= 30 ? 'var(--green)' : 'var(--cyan)';
+                  return (
+                    <>
+                      <div className={s.vitalSub} style={{ color: rsiColor }}>{rsiState}</div>
+                      <div className={s.bar}><i style={{ width: `${rsiPct}%`, background: rsiColor }} /></div>
+                    </>
+                  );
+                })()}
               </div>
               <div className={s.p2Vital}>
                 <div className={s.k}>VWAP</div>
                 <div className={s.v}>${liveVwap.toFixed(2)}</div>
-                <div className={s.bar}><i style={{ width: '52%' }} /></div>
+                {(() => {
+                  const vwapDiff = liveVwap > 0 ? ((displayPrice - liveVwap) / liveVwap) * 100 : 0;
+                  const vwapColor = vwapDiff >= 0 ? 'var(--green)' : 'var(--red)';
+                  return (
+                    <>
+                      <div className={s.vitalSub} style={{ color: vwapColor }}>
+                        {vwapDiff >= 0
+                          ? (locale === 'ko' ? '상회' : locale === 'ja' ? '上回る' : 'above')
+                          : (locale === 'ko' ? '하회' : locale === 'ja' ? '下回る' : 'below')} {vwapDiff >= 0 ? '+' : ''}{vwapDiff.toFixed(2)}%
+                      </div>
+                      <div className={s.bar}><i style={{ width: `${Math.min(100, Math.max(6, 50 + vwapDiff * 8))}%`, background: vwapColor }} /></div>
+                    </>
+                  );
+                })()}
               </div>
               <div className={s.p2Vital}>
                 <div className={s.k}>DAY RANGE</div>
-                <div className={s.v}>${liveLow.toFixed(1)}–${liveHigh.toFixed(1)}</div>
-                <div className={s.bar}>
-                  <i style={{ width: `${((displayPrice - liveLow) / (liveHigh - liveLow || 1)) * 100}%` }} />
-                </div>
+                {(() => {
+                  const rangePct = Math.max(0, Math.min(100, ((displayPrice - liveLow) / (liveHigh - liveLow || 1)) * 100));
+                  const rangeColor = rangePct >= 70 ? 'var(--green)' : rangePct <= 30 ? 'var(--red)' : 'var(--cyan)';
+                  return (
+                    <div className={s.dayRangeMetric}>
+                      <div className={s.rangeRail}>
+                        <i style={{ width: `${rangePct}%`, background: `linear-gradient(90deg, rgba(239,68,68,0.65), ${rangeColor})` }} />
+                        <span className={s.rangePin} style={{ left: `${rangePct}%`, borderColor: rangeColor, boxShadow: `0 0 12px ${rangeColor}` }} />
+                      </div>
+                      <div className={s.rangeBottom}>
+                        <span>LOW <strong>${liveLow.toFixed(1)}</strong></span>
+                        <span>HIGH <strong>${liveHigh.toFixed(1)}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -3104,12 +3274,28 @@ export default function AppFlowPage() {
 
                 <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative', background: 'linear-gradient(155deg, rgba(15,23,42,0.88), rgba(12,22,42,0.72) 54%, rgba(245,158,11,0.045))', border: '1px solid rgba(255,255,255,0.07)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.045), 0 18px 46px -34px rgba(245,158,11,0.55)' }}>
                   <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="9" stroke="var(--cyan)" strokeWidth="1.5" />
-                        <path d="M12 8v4l3 3" stroke="var(--cyan)" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                      <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 850, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                      <span style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 10,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '0 0 auto',
+                        background: 'linear-gradient(145deg, rgba(6,182,212,0.16), rgba(15,23,42,0.72))',
+                        border: '1px solid rgba(6,182,212,0.24)',
+                        boxShadow: '0 0 18px rgba(6,182,212,0.14), inset 0 1px 0 rgba(255,255,255,0.08)'
+                      }}>
+                        <img
+                          src="/signum-sg-vectorized.svg"
+                          alt=""
+                          width={15}
+                          height={15}
+                          style={{ objectFit: 'contain', filter: 'drop-shadow(0 0 5px rgba(34,211,238,0.45))' }}
+                        />
+                      </span>
+                      <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#dff7ff', fontWeight: 950, fontSize: '12.5px', textTransform: 'uppercase', letterSpacing: '0.055em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ui.aiCard}
                       </span>
                     </div>
@@ -3691,9 +3877,9 @@ export default function AppFlowPage() {
                     {gammaRangePct != null && (
                       <div style={{ position: 'absolute', left: `${gammaRangePct}%`, top: '3px', transform: 'translateX(-50%)', width: '2px', height: '22px', borderRadius: '2px', background: '#f59e0b', boxShadow: '0 0 9px rgba(245,158,11,0.7)' }} />
                     )}
-                    <div style={{ position: 'absolute', left: `${spotRangePct}%`, top: '-1px', transform: 'translateX(-50%)', display: 'grid', placeItems: 'center' }}>
+                    <div style={{ position: 'absolute', left: `${spotRangePct}%`, top: '14px', transform: 'translate(-50%, -50%)', display: 'grid', placeItems: 'center', zIndex: 4 }}>
                       <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#22d3ee', border: '2px solid rgba(7,18,32,0.95)', boxShadow: '0 0 16px rgba(34,211,238,0.85)' }} />
-                      <div className="tnum" style={{ marginTop: '2px', fontSize: '8px', fontWeight: 950, color: '#aeefff', whiteSpace: 'nowrap' }}>${displayPrice.toFixed(1)}</div>
+                      <div className="tnum" style={{ position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)', fontSize: '8px', fontWeight: 950, color: '#aeefff', whiteSpace: 'nowrap' }}>${displayPrice.toFixed(1)}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '8px', fontWeight: 900, color: '#91a6ca' }}>
@@ -3728,20 +3914,24 @@ export default function AppFlowPage() {
                   if (selectedStrikes.length < 2) return null;
                   
                   let yPos = -999;
+                  const rowHeight = 27;
+                  const rowGap = 9;
+                  const rowPitch = rowHeight + rowGap;
+                  const rowCenter = rowHeight / 2;
                   const topStrike = selectedStrikes[0];
                   const bottomStrike = selectedStrikes[selectedStrikes.length - 1];
                   
                   if (displayPrice >= topStrike) {
-                    yPos = 15;
+                    yPos = rowCenter;
                   } else if (displayPrice <= bottomStrike) {
-                    yPos = (selectedStrikes.length - 1) * 36 + 15;
+                    yPos = (selectedStrikes.length - 1) * rowPitch + rowCenter;
                   } else {
                     for (let i = 0; i < selectedStrikes.length - 1; i++) {
                       const upper = selectedStrikes[i];
                       const lower = selectedStrikes[i + 1];
                       if (displayPrice <= upper && displayPrice > lower) {
                         const ratio = (upper - displayPrice) / (upper - lower);
-                        yPos = i * 36 + 15 + ratio * 36;
+                        yPos = i * rowPitch + rowCenter + ratio * rowPitch;
                         break;
                       }
                     }

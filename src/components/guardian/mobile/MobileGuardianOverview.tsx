@@ -163,13 +163,13 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                 style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}>
                 <ProGate title="RLSI Insight" fomoMessage={gt('fomoRlsiInsight')} description={gt('descRlsiInsight')} mode="blur" compact>
                     {/* Premium Segment Control */}
-                    <div className="px-3 pt-3 pb-1.5">
-                        <div className="flex items-center bg-white/[0.04] rounded-xl p-0.5 border border-white/[0.06]">
+                    <div className="px-2.5 pt-2.5 pb-1">
+                        <div className="flex items-center bg-white/[0.04] rounded-md p-0.5 border border-white/[0.06]">
                             {(['insight', 'whatif'] as const).map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setInsightTab(tab)}
-                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] transition-all duration-300 touch-manipulation
+                                    className={`flex-1 flex h-7 min-h-7 items-center justify-center gap-1 rounded px-2 py-0 transition-all duration-300 touch-manipulation
                                         ${insightTab === tab
                                             ? tab === 'whatif'
                                                 ? 'bg-violet-500/20 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.15)]'
@@ -178,7 +178,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                                         }`}
                                     style={{ WebkitTapHighlightColor: 'transparent' }}
                                 >
-                                    <span className="text-[11px] font-bold tracking-wider"
+                                    <span className="text-[9.5px] font-bold tracking-wide"
                                         style={{ fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
                                         {tab === 'insight' ? (locale === 'ko' ? 'BRIEFING' : locale === 'ja' ? 'ブリーフィング' : 'BRIEFING') : 'WHAT-IF'}
                                     </span>
@@ -201,6 +201,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                             loading={loading}
                             isMarketActive={isMarketActive}
                             session={session || 'CLOSED'}
+                            appCompact
                         />
                     ) : (
                         <WhatIfSimulator
@@ -226,7 +227,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
             <div className="backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl overflow-hidden"
                 style={{ background: 'linear-gradient(180deg, rgba(139,92,246,0.10) 0%, rgba(139,92,246,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}>
                 <ProGate title="Macro Intelligence" fomoMessage={gt('fomoMacroBriefing')} description={gt('descMacroBriefing')} mode="blur" compact>
-                    <div className="p-4 space-y-4">
+                    <div className="p-2.5 space-y-2.5">
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-2 min-w-0">
                                 <Landmark className="w-4 h-4 text-violet-400 shrink-0" />
@@ -236,34 +237,34 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                                     </h3>
                                 </div>
                             </div>
-                            <div className="shrink-0 rounded-full border border-violet-400/20 bg-violet-500/[0.08] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-violet-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <div className="shrink-0 rounded-md border border-violet-400/20 bg-violet-500/[0.08] px-2 py-0.5 text-[9.5px] font-black uppercase tracking-[0.07em] text-violet-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                                 <span className="font-jakarta">{fwText.fomcDday}</span>
                                 <span className="ml-1 font-mono tabular-nums">{daysUntilFomc !== null ? `D-${daysUntilFomc}` : '—'}</span>
                             </div>
                         </div>
 
-                        <div className="rounded-2xl border border-violet-400/15 bg-violet-500/[0.045] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                        <div className="rounded-lg border border-violet-400/15 bg-violet-500/[0.045] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <div className="text-[10.5px] font-black uppercase tracking-[0.13em] text-violet-300">
                                         {fwDominant === 'pause' ? fwText.base : fwText.tail}
                                     </div>
-                                    <div className="mt-1 text-[18px] font-black text-white tracking-[-0.01em]">
+                                    <div className="mt-1 text-[15px] font-black text-white tracking-[-0.01em]">
                                         {hasFedwatch ? fwText.baseCase : fwText.unavailable}
                                     </div>
-                                    <p className="mt-1.5 text-[12px] leading-relaxed text-slate-300">
+                                    <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
                                         {hasFedwatch ? fwText.baseDesc : ''}
                                     </p>
                                 </div>
-                                <div className="rounded-xl border border-white/[0.06] bg-slate-950/45 px-3 py-2 text-right">
+                                <div className="rounded-md border border-white/[0.06] bg-slate-950/45 px-2 py-1.5 text-right">
                                     <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{fwText.prob}</div>
-                                    <div className="text-[22px] font-black font-mono text-cyan-300 tabular-nums">
+                                    <div className="text-[18px] font-black font-mono text-cyan-300 tabular-nums">
                                         {hasFedwatch ? `${Math.max(fwEase, fwPause, fwHike).toFixed(1)}%` : '—'}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-slate-950/70 border border-slate-800/70 flex">
+                            <div className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-950/70 border border-slate-800/70 flex">
                                 {fwScenarios.map(item => {
                                     const width = hasFedwatch ? Math.max((item.value / fwTotal) * 100, item.value > 0 ? 2 : 0) : 0;
                                     return (
@@ -283,16 +284,16 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                                 return (
                                     <div
                                         key={item.key}
-                                        className={`rounded-xl border p-2.5 min-w-0 ${isLead ? 'border-cyan-400/25 bg-cyan-400/[0.07]' : 'border-slate-800/70 bg-slate-950/35'}`}
+                                        className={`rounded-lg border p-2 min-w-0 ${isLead ? 'border-cyan-400/25 bg-cyan-400/[0.07]' : 'border-slate-800/70 bg-slate-950/35'}`}
                                     >
                                         <div className="flex items-center gap-1.5">
                                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: item.color }} />
                                             <span className="text-[10.5px] font-black uppercase tracking-[0.08em] text-slate-400 truncate">{item.label}</span>
                                         </div>
-                                        <div className="mt-2 text-[18px] font-black font-mono text-white tabular-nums">
+                                        <div className="mt-1.5 text-[16px] font-black font-mono text-white tabular-nums">
                                             {hasFedwatch ? `${item.value.toFixed(1)}%` : '—'}
                                         </div>
-                                        <div className={`mt-1 text-[10.5px] font-bold font-mono tabular-nums ${changeClass}`}>
+                                        <div className={`mt-0.5 text-[10px] font-bold font-mono tabular-nums ${changeClass}`}>
                                             {fwText.week} {changeText}
                                         </div>
                                     </div>
@@ -301,10 +302,10 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 pt-1">
-                            <div className="rounded-xl border border-emerald-400/15 bg-emerald-500/[0.045] p-3">
+                            <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/[0.045] p-2.5">
                                 <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-slate-400">{fwText.liquidity}</span>
                                 <div className="mt-1 flex items-baseline gap-1.5">
-                                    <span className="text-[22px] font-black font-mono text-emerald-400 tabular-nums">
+                                    <span className="text-[19px] font-black font-mono text-emerald-400 tabular-nums">
                                         {liquidityScore.toFixed(0)}
                                     </span>
                                     <span className="text-[11px] font-black text-emerald-400/80 uppercase">
@@ -312,10 +313,10 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                                     </span>
                                 </div>
                             </div>
-                            <div className="rounded-xl border border-cyan-400/15 bg-cyan-500/[0.035] p-3">
+                            <div className="rounded-lg border border-cyan-400/15 bg-cyan-500/[0.035] p-2.5">
                                 <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-slate-400">{fwText.safeHaven}</span>
                                 <div className="mt-1 flex items-baseline gap-1.5">
-                                    <span className={`text-[22px] font-black font-mono tabular-nums ${safeHavenFlow > 0.5 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    <span className={`text-[19px] font-black font-mono tabular-nums ${safeHavenFlow > 0.5 ? 'text-rose-400' : 'text-emerald-400'}`}>
                                         {safeHavenFlow.toFixed(2)}
                                     </span>
                                     <span className={`text-[11px] font-black uppercase ${safeHavenFlow > 0.5 ? 'text-rose-400' : 'text-emerald-400'}`}>

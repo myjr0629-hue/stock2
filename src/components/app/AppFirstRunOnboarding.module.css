@@ -22,15 +22,20 @@
 
 .panel {
   width: 100%;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   border: 1px solid rgba(34, 211, 238, 0.18);
   border-radius: 28px;
-  overflow: hidden;
   background:
     linear-gradient(145deg, rgba(9, 23, 41, 0.96), rgba(6, 12, 24, 0.98)),
     rgba(15, 23, 42, 0.9);
   box-shadow:
     0 28px 80px rgba(0, 0, 0, 0.56),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.panel::-webkit-scrollbar {
+  width: 0;
 }
 
 .hero {
@@ -228,9 +233,17 @@
   padding: 0 18px 18px;
 }
 
+.actionsSingle {
+  grid-template-columns: 1fr;
+}
+
 .ghostButton,
 .primaryButton {
-  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px !important;
+  min-height: 48px !important;
   border: 0;
   border-radius: 16px;
   font-size: 13px;

@@ -138,14 +138,31 @@ function CandleChart({ ticker, price, vwap, locale = 'en' }: { ticker: string; p
         if (!active) return;
 
         if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          const mapped = json.data.map((item: any) => ({
-            o: item.open ?? item.close,
-            h: item.high ?? Math.max(item.open ?? item.close, item.close),
-            l: item.low ?? Math.min(item.open ?? item.close, item.close),
-            c: item.close,
-            dateET: item.dateET ?? '',
-            session: item.session ?? 'REG'
-          }));
+          const toPrice = (value: unknown): number | null => {
+            const n = typeof value === 'number' ? value : Number(value);
+            return Number.isFinite(n) && n > 0 ? n : null;
+          };
+
+          const mapped = json.data.flatMap((item: any) => {
+            if (item?._gapBreak) return [];
+
+            const close = toPrice(item.close);
+            if (close === null) return [];
+
+            const open = toPrice(item.open) ?? close;
+            const high = toPrice(item.high) ?? Math.max(open, close);
+            const low = toPrice(item.low) ?? Math.min(open, close);
+
+            return [{
+              o: open,
+              h: Math.max(high, open, close),
+              l: Math.min(low, open, close),
+              c: close,
+              dateET: item.dateET ?? '',
+              session: item.session ?? 'REG'
+            }];
+          });
+          if (mapped.length === 0) throw new Error('No valid chart points');
           setCandles(mapped);
         } else {
           throw new Error('Empty data');
@@ -736,28 +753,62 @@ function SparklineBg({ up, seed = 'default' }: { up: boolean; seed?: string }) {
 /* ═══════════════════════════════════════════
    GEX BAR CHART (premium)
    ═══════════════════════════════════════════ */
-function GexBarChart({ data }: { data: number[] }) {
+function fmtCompactPrice(value?: number | null) {
+  if (!value || !Number.isFinite(value)) return '--';
+  if (value >= 1000) return `$${value.toFixed(0)}`;
+  if (value >= 100) return `$${value.toFixed(1)}`;
+  return `$${value.toFixed(2)}`;
+}
+
+function GexBarChart({
+  data,
+  gammaFlip,
+  putFloor,
+  callWall,
+}: {
+  data: number[];
+  gammaFlip?: number | null;
+  putFloor?: number | null;
+  callWall?: number | null;
+}) {
   const maxAbs = Math.max(...data.map(Math.abs), 1);
+  const negCount = data.filter((v) => v < 0).length;
+  const posCount = data.filter((v) => v >= 0).length;
+  const netBias = data.reduce((sum, v) => sum + v, 0);
+  const biasLabel = netBias >= 0 ? 'POSITIVE GAMMA' : 'NEGATIVE GAMMA';
   return (
     <div style={{ marginBottom: 'var(--s3)' }}>
-      <div className={s.cardTitle} style={{ marginBottom: 'var(--s2)' }}>GEX PROFILE</div>
+      <div className={s.gexHead}>
+        <div>
+          <div className={s.cardTitle} style={{ marginBottom: 4 }}>GEX PROFILE</div>
+          <p className={s.gexExplain}>Dealer gamma pressure by strike. Red = hedge pressure, green = stabilizing support.</p>
+        </div>
+        <span className={netBias >= 0 ? s.gexBiasPos : s.gexBiasNeg}>{biasLabel}</span>
+      </div>
+      <div className={s.gexLegendRow}>
+        <span className={s.gexLegendNeg}>PUT PRESSURE</span>
+        <span className={s.gexLegendMid}>GAMMA FLIP {fmtCompactPrice(gammaFlip)}</span>
+        <span className={s.gexLegendPos}>CALL SUPPORT</span>
+      </div>
       <div className={s.gexChart}>
+        <span className={s.gexZeroLine} />
         {data.map((v, i) => {
-          const h = (Math.abs(v) / maxAbs) * 80;
+          const h = Math.max(4, (Math.abs(v) / maxAbs) * 42);
           const isPos = v >= 0;
           return (
-            <div key={i} style={{
-              width: 14,
-              height: h,
-              borderRadius: isPos ? '3px 3px 0 0' : '0 0 3px 3px',
-              background: isPos
-                ? 'linear-gradient(180deg, var(--green), rgba(16,185,129,0.4))'
-                : 'linear-gradient(0deg, var(--red), rgba(239,68,68,0.4))',
-              alignSelf: isPos ? 'flex-end' : 'flex-start',
-              transition: 'height 0.4s ease',
-            }} />
+            <div key={i} className={s.gexBarSlot}>
+              <span
+                className={isPos ? s.gexBarPositive : s.gexBarNegative}
+                style={{ height: h }}
+              />
+            </div>
           );
         })}
+      </div>
+      <div className={s.gexLevelRow}>
+        <span>Put floor <b>{fmtCompactPrice(putFloor)}</b></span>
+        <span>{negCount} neg / {posCount} pos bars</span>
+        <span>Call wall <b>{fmtCompactPrice(callWall)}</b></span>
       </div>
     </div>
   );
@@ -2282,6 +2333,11 @@ function CmdPageContent() {
   const isPrePost = effectiveSession === 'PRE' || effectiveSession === 'POST';
 
   const hasExt = activeExtPrice > 0 && activeExtLabel;
+  const extCardClassName = [
+    s.heroExtCard,
+    isPrePost ? s.extLive : s.extClosed,
+    isPrePost && extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <>
@@ -2383,7 +2439,7 @@ function CmdPageContent() {
             </span>
           </div>
           {hasExt && (
-            <div className={`${s.heroExtCard} ${s.extLive} ${extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : ''}`}>
+            <div className={extCardClassName}>
               <SparklineBg up={activeExtPct >= 0} seed={`${data.ticker}-ext`} />
               <span className={s.heroExtLabel}>{activeExtLabel}</span>
               <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
@@ -2448,19 +2504,53 @@ function CmdPageContent() {
           <div className={s.p2Vital}>
             <div className={s.k}>RSI 14</div>
             <div className={s.v}>{data.rsi14.toFixed(1)}</div>
-            <div className={s.bar}><i style={{ width: `${data.rsi14}%` }} /></div>
+            {(() => {
+              const rsiColor = data.rsi14 >= 70 ? 'var(--red)' : data.rsi14 >= 55 ? 'var(--amber)' : data.rsi14 <= 35 ? 'var(--cyan)' : 'var(--green)';
+              const rsiLabel = data.rsi14 >= 70 ? 'Hot' : data.rsi14 >= 55 ? 'Warm' : data.rsi14 <= 35 ? 'Cool' : 'Stable';
+              return (
+                <>
+                  <div className={s.vitalSub} style={{ color: rsiColor }}>{rsiLabel}</div>
+                  <div className={s.bar}><i style={{ width: `${data.rsi14}%`, background: rsiColor }} /></div>
+                </>
+              );
+            })()}
           </div>
           <div className={s.p2Vital}>
             <div className={s.k}>VWAP</div>
             <div className={s.v}>${data.vwap.toFixed(2)}</div>
-            <div className={s.bar}><i style={{ width: '52%' }} /></div>
+            {(() => {
+              const vwapDiff = data.vwap > 0 ? ((displayPrice - data.vwap) / data.vwap) * 100 : 0;
+              const vwapColor = vwapDiff >= 0 ? 'var(--green)' : 'var(--red)';
+              return (
+                <>
+                  <div className={s.vitalSub} style={{ color: vwapColor }}>
+                    {vwapDiff >= 0
+                      ? (locale === 'ko' ? '상회' : locale === 'ja' ? '上回る' : 'above')
+                      : (locale === 'ko' ? '하회' : locale === 'ja' ? '下回る' : 'below')} {vwapDiff >= 0 ? '+' : ''}{vwapDiff.toFixed(2)}%
+                  </div>
+                  <div className={s.bar}><i style={{ width: `${Math.min(100, Math.max(6, 50 + vwapDiff * 8))}%`, background: vwapColor }} /></div>
+                </>
+              );
+            })()}
           </div>
           <div className={s.p2Vital}>
             <div className={s.k}>DAY RANGE</div>
-            <div className={s.v}>${data.low.toFixed(1)}–${data.high.toFixed(1)}</div>
-            <div className={s.bar}>
-              <i style={{ width: `${((displayPrice - data.low) / (data.high - data.low || 1)) * 100}%` }} />
-            </div>
+            {(() => {
+              const rangePct = Math.max(0, Math.min(100, ((displayPrice - data.low) / (data.high - data.low || 1)) * 100));
+              const rangeColor = rangePct >= 70 ? 'var(--green)' : rangePct <= 30 ? 'var(--red)' : 'var(--cyan)';
+              return (
+                <div className={s.dayRangeMetric}>
+                  <div className={s.rangeRail}>
+                    <i style={{ width: `${rangePct}%`, background: `linear-gradient(90deg, rgba(239,68,68,0.65), ${rangeColor})` }} />
+                    <span className={s.rangePin} style={{ left: `${rangePct}%`, borderColor: rangeColor, boxShadow: `0 0 12px ${rangeColor}` }} />
+                  </div>
+                  <div className={s.rangeBottom}>
+                    <span>LOW <strong>${data.low.toFixed(1)}</strong></span>
+                    <span>HIGH <strong>${data.high.toFixed(1)}</strong></span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -2817,7 +2907,12 @@ function CmdPageContent() {
           </div>
 
           {/* GEX Profile */}
-          <GexBarChart data={data.premium.gex} />
+          <GexBarChart
+            data={data.premium.gex}
+            gammaFlip={data.premium.gammaFlipRaw}
+            putFloor={data.premium.putFloor}
+            callWall={data.premium.callWall}
+          />
 
           {/* Premium Metrics Summary */}
           <div className={s.premiumMetrics} style={{ marginBottom: 'var(--s3)', marginTop: '16px' }}>

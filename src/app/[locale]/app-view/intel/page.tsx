@@ -261,6 +261,19 @@ interface KeyStockPremiumData {
   darkPoolPct?: number;
 }
 
+interface AppNewsDigestItem {
+  headline?: string;
+  summaryKR?: string;
+  summaryJP?: string;
+  insightKR?: string;
+  insightEN?: string;
+  insightJP?: string;
+  source?: string;
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  tickers?: string[];
+  publishedAt?: string;
+}
+
 interface SectorReportData {
   sentiment: string;
   verdict: string;
@@ -274,6 +287,16 @@ interface SectorReportData {
   dominantRegime: string;
   avgAlpha: number;
   snapshotTime: string;
+  source?: 'global-report' | 'sector-snapshot' | 'app-live';
+  reportTitle?: string;
+  reportHeadline?: string;
+  reportSummary?: string;
+  dayOutlook?: string;
+  newsDigest?: string[];
+  briefingBullets?: string[];
+  newsItems?: AppNewsDigestItem[];
+  newsSentimentOverall?: string;
+  riskNotes?: string[];
 }
 
 interface StockAiAnalysis {
@@ -281,6 +304,37 @@ interface StockAiAnalysis {
   en: string;
   ja: string;
 }
+
+type GlobalReportPayload = {
+  meta?: Record<string, any>;
+  items?: any[];
+  hunters?: any[];
+  sectors?: Record<string, any[]>;
+  sectorSummaries?: Record<string, any>;
+  sector_summary?: Record<string, any>;
+  snapshots?: Record<string, any>;
+  alphaGrid?: {
+    fullUniverse?: any[];
+    top3?: any[];
+  };
+  marketSentiment?: Record<string, any>;
+  engine?: Record<string, any>;
+  macro?: Record<string, any>;
+  storageDebug?: Record<string, any>;
+};
+
+const REPORT_SECTOR_ALIASES: Record<string, string[]> = {
+  m7: ['m7', 'M7', 'magnificent7', 'magnificent_7', 'mega_cap'],
+  silicon_core: ['siliconCore', 'silicon_core', 'semis', 'semiconductors', 'chip', 'chips'],
+  power_matrix: ['powerMatrix', 'power_matrix', 'energy', 'power', 'nuclear'],
+  physical_ai: ['physicalAi', 'physical_ai', 'robotics', 'physicalAI'],
+  bio_pulse: ['bioPulse', 'bio_pulse', 'biotech', 'healthcare', 'glp'],
+  cyber_shield: ['cyberShield', 'cyber_shield', 'security', 'cyber'],
+  orbit_defense: ['orbitDefense', 'orbit_defense', 'space', 'defense'],
+  quantum_edge: ['quantumEdge', 'quantum_edge', 'quantum'],
+  fintech_pulse: ['fintechPulse', 'fintech_pulse', 'fintech', 'finance'],
+  cloud_fortress: ['cloudFortress', 'cloud_fortress', 'cloud', 'saas'],
+};
 
 function clampPct(value: number): number {
   if (!Number.isFinite(value)) return 50;
@@ -292,6 +346,24 @@ function pickNumber(...values: Array<number | null | undefined>): number | undef
     if (typeof value === 'number' && Number.isFinite(value) && value !== 0) {
       return value;
     }
+  }
+  return undefined;
+}
+
+function pickFiniteNumber(...values: Array<number | string | null | undefined>): number | undefined {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value.replace(/[$,%]/g, ''));
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
+function pickText(...values: Array<string | null | undefined>): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return undefined;
 }
@@ -405,6 +477,335 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
   });
 
   return changed ? { ...report, keyStocksData } : report;
+}
+
+const REPORT_SOURCE_PRIORITY: Record<NonNullable<SectorReportData['source']>, number> = {
+  'app-live': 0,
+  'sector-snapshot': 1,
+  'global-report': 2,
+};
+
+function getReportPriority(report?: SectorReportData | null): number {
+  return report?.source ? REPORT_SOURCE_PRIORITY[report.source] ?? 0 : 0;
+}
+
+function hasRichReportPayload(report?: SectorReportData | null): boolean {
+  return Boolean(report && (
+    report.reportHeadline ||
+    report.reportSummary ||
+    report.dayOutlook ||
+    report.newsItems?.length ||
+    report.newsDigest?.length ||
+    report.briefingBullets?.length ||
+    report.riskNotes?.length ||
+    report.catalysts?.length ||
+    report.bullets?.length
+  ));
+}
+
+function countReportList(values?: unknown[]): number {
+  return Array.isArray(values) ? values.length : 0;
+}
+
+function hasUsefulReportText(value?: string | null): boolean {
+  const text = cleanReportText(value);
+  return text.length >= 18;
+}
+
+function reportQualityScore(report?: SectorReportData | null): number {
+  if (!report) return -1;
+
+  let score = getReportPriority(report) * 1000;
+  if (hasUsefulReportText(report.reportTitle)) score += 60;
+  if (hasUsefulReportText(report.reportHeadline)) score += 90;
+  if (hasUsefulReportText(report.reportSummary)) score += 160;
+  if (hasUsefulReportText(report.dayOutlook)) score += 90;
+  score += Math.min(countReportList(report.newsDigest), 8) * 55;
+  score += Math.min(countReportList(report.newsItems), 8) * 40;
+  score += Math.min(countReportList(report.briefingBullets), 8) * 24;
+  score += Math.min(countReportList(report.riskNotes), 8) * 24;
+  score += Math.min(countReportList(report.catalysts), 8) * 20;
+  score += Math.min(countReportList(report.bullets), 8) * 16;
+  score += Math.min(countReportList(report.keyStocksData), 10) * 5;
+  return score;
+}
+
+function pickReportText(primary?: string | null, secondary?: string | null): string | undefined {
+  if (hasUsefulReportText(primary)) return cleanReportText(primary);
+  if (hasUsefulReportText(secondary)) return cleanReportText(secondary);
+  return primary || secondary || undefined;
+}
+
+function pickReportList<T>(primary?: T[], secondary?: T[]): T[] | undefined {
+  if (Array.isArray(primary) && primary.length) return primary;
+  if (Array.isArray(secondary) && secondary.length) return secondary;
+  return undefined;
+}
+
+function mergeSectorReportStable(
+  existing: SectorReportData | undefined | null,
+  incoming: SectorReportData
+): SectorReportData {
+  if (!existing) return incoming;
+
+  const existingPriority = getReportPriority(existing);
+  const incomingPriority = getReportPriority(incoming);
+  const existingRich = hasRichReportPayload(existing);
+  const incomingRich = hasRichReportPayload(incoming);
+  const existingQuality = reportQualityScore(existing);
+  const incomingQuality = reportQualityScore(incoming);
+  const preferIncoming =
+    (incomingPriority > existingPriority && incomingRich) ||
+    (incomingPriority === existingPriority && incomingQuality >= existingQuality) ||
+    (!existingRich && incomingRich);
+
+  const primary = preferIncoming ? incoming : existing;
+  const secondary = preferIncoming ? existing : incoming;
+  const keyStocksData =
+    incoming.keyStocksData?.length && (incomingPriority >= existingPriority || !existing.keyStocksData?.length)
+      ? incoming.keyStocksData
+      : primary.keyStocksData?.length ? primary.keyStocksData : secondary.keyStocksData;
+
+  return {
+    ...secondary,
+    ...primary,
+    keyStocksData,
+    newsItems: pickReportList(primary.newsItems, secondary.newsItems),
+    newsDigest: pickReportList(primary.newsDigest, secondary.newsDigest),
+    briefingBullets: pickReportList(primary.briefingBullets, secondary.briefingBullets),
+    riskNotes: pickReportList(primary.riskNotes, secondary.riskNotes),
+    catalysts: pickReportList(primary.catalysts, secondary.catalysts) || [],
+    bullets: pickReportList(primary.bullets, secondary.bullets) || [],
+    reportTitle: pickReportText(primary.reportTitle, secondary.reportTitle),
+    reportHeadline: pickReportText(primary.reportHeadline, secondary.reportHeadline),
+    reportSummary: pickReportText(primary.reportSummary, secondary.reportSummary),
+    dayOutlook: pickReportText(primary.dayOutlook, secondary.dayOutlook),
+    snapshotTime: primary.snapshotTime || secondary.snapshotTime,
+    source: primary.source || secondary.source,
+  };
+}
+
+function getReportTicker(item: any): string {
+  return String(
+    item?.ticker ||
+    item?.symbol ||
+    item?.sym ||
+    item?.decisionSSOT?.ticker ||
+    item?.evidence?.ticker ||
+    ''
+  ).toUpperCase();
+}
+
+function reportSectorMatches(item: any, sectorId: string, stockSet: Set<string>): boolean {
+  const ticker = getReportTicker(item);
+  if (ticker && stockSet.has(ticker)) return true;
+
+  const aliases = REPORT_SECTOR_ALIASES[sectorId] || [sectorId];
+  const joined = [
+    item?.sector,
+    item?.sectorId,
+    item?.sectorKey,
+    item?.theme,
+    item?.category,
+    item?.group,
+    item?.decisionSSOT?.sector,
+    item?.meta?.sector,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return aliases.some(alias => joined.includes(String(alias).toLowerCase()));
+}
+
+function collectGlobalReportItems(report: GlobalReportPayload | null, sectorId: string, stocks: string[]): any[] {
+  if (!report) return [];
+
+  const aliases = REPORT_SECTOR_ALIASES[sectorId] || [sectorId];
+  const stockSet = new Set(stocks.map(stock => stock.toUpperCase()));
+  const candidates: any[] = [];
+
+  aliases.forEach(alias => {
+    const sectorItems = report.sectors?.[alias];
+    if (Array.isArray(sectorItems)) candidates.push(...sectorItems);
+  });
+
+  if (Array.isArray(report.items)) {
+    candidates.push(...report.items.filter(item => reportSectorMatches(item, sectorId, stockSet)));
+  }
+  if (Array.isArray(report.hunters)) {
+    candidates.push(...report.hunters.filter(item => reportSectorMatches(item, sectorId, stockSet)));
+  }
+  if (Array.isArray(report.alphaGrid?.fullUniverse)) {
+    candidates.push(...report.alphaGrid.fullUniverse.filter(item => reportSectorMatches(item, sectorId, stockSet)));
+  }
+  if (Array.isArray(report.alphaGrid?.top3)) {
+    candidates.push(...report.alphaGrid.top3.filter(item => reportSectorMatches(item, sectorId, stockSet)));
+  }
+
+  const byTicker = new Map<string, any>();
+  candidates.forEach(item => {
+    const ticker = getReportTicker(item);
+    if (!ticker || byTicker.has(ticker)) return;
+    byTicker.set(ticker, item);
+  });
+
+  return Array.from(byTicker.values());
+}
+
+function getGlobalSectorSummary(report: GlobalReportPayload | null, sectorId: string): any | null {
+  if (!report) return null;
+  const aliases = REPORT_SECTOR_ALIASES[sectorId] || [sectorId];
+  const containers = [
+    report.sectorSummaries,
+    report.sector_summary,
+    report.snapshots,
+    report.sectors,
+  ];
+
+  for (const container of containers) {
+    if (!container || typeof container !== 'object') continue;
+    for (const key of [sectorId, ...aliases]) {
+      const candidate = (container as Record<string, any>)[key];
+      if (!candidate) continue;
+      if (Array.isArray(candidate)) continue;
+      return candidate.sector_summary || candidate.summary || candidate;
+    }
+  }
+
+  return null;
+}
+
+function extractDigestTickers(value: string): string[] {
+  const matches = value.match(/\b[A-Z][A-Z0-9.]{1,5}\b/g) || [];
+  return Array.from(new Set(matches.filter(ticker => !['THE', 'AND', 'FOR', 'WITH', 'FROM'].includes(ticker)))).slice(0, 4);
+}
+
+function normalizeDigestLines(items: any): string[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map(item => {
+      if (typeof item === 'string') return cleanReportText(item);
+      if (!item || typeof item !== 'object') return '';
+      return cleanReportText(
+        item.headline ||
+        item.title ||
+        item.summaryEN ||
+        item.summary_en ||
+        item.summary ||
+        item.insightEN ||
+        item.insight_en ||
+        item.insight ||
+        ''
+      );
+    })
+    .filter(Boolean);
+}
+
+function normalizeNewsDigest(items: any): AppNewsDigestItem[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map(item => ({
+      headline: typeof item === 'string'
+        ? cleanReportText(item)
+        : String(item.headline || item.title || item.summaryEN || item.summary_en || item.summary || ''),
+      summaryKR: typeof item === 'string' ? cleanReportText(item) : String(item.summaryKR || item.summary_kr || item.summaryKo || item.summary || item.headline || ''),
+      summaryJP: typeof item === 'string' ? cleanReportText(item) : String(item.summaryJP || item.summary_jp || item.summaryJa || item.summary || item.headline || ''),
+      insightKR: typeof item === 'string' ? '' : String(item.insightKR || item.insight_kr || item.insightKo || item.insight || ''),
+      insightEN: typeof item === 'string' ? '' : String(item.insightEN || item.insight_en || item.insight || ''),
+      insightJP: typeof item === 'string' ? '' : String(item.insightJP || item.insight_jp || item.insightJa || item.insight || ''),
+      source: typeof item === 'string' ? 'Report' : String(item.source || 'Report'),
+      sentiment: typeof item !== 'string' && (item.sentiment === 'positive' || item.sentiment === 'negative' || item.sentiment === 'neutral')
+        ? item.sentiment
+        : 'neutral',
+      tickers: typeof item === 'string'
+        ? extractDigestTickers(item)
+        : Array.isArray(item.tickers) ? item.tickers.map((ticker: any) => String(ticker)).filter(Boolean) : extractDigestTickers(String(item.headline || item.title || item.summary || '')),
+      publishedAt: typeof item === 'string' ? '' : item.publishedAt || item.published_at || item.time || '',
+    }))
+    .filter(item => item.headline || item.summaryKR || item.summaryJP || item.insightEN);
+}
+
+function cleanReportText(value: any): string {
+  return String(value || '')
+    .replace(/<mark>/g, '')
+    .replace(/<\/mark>/g, '')
+    .replace(/^[\s\u200b]*(?:[^\w가-힣ぁ-んァ-ン一-龯$+-]{1,3})\s*/u, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getLocalizedNewsTitle(news: AppNewsDigestItem, appLocale: AppLocale): string {
+  if (appLocale === 'ko') return cleanReportText(news.summaryKR || news.headline || news.insightKR || '');
+  if (appLocale === 'ja') return cleanReportText(news.summaryJP || news.headline || news.insightJP || '');
+  return cleanReportText(news.headline || news.insightEN || news.summaryKR || news.summaryJP || '');
+}
+
+function getLocalizedNewsInsight(news: AppNewsDigestItem, appLocale: AppLocale): string {
+  if (appLocale === 'ko') return cleanReportText(news.insightKR || news.insightEN || '');
+  if (appLocale === 'ja') return cleanReportText(news.insightJP || news.insightEN || '');
+  return cleanReportText(news.insightEN || news.insightKR || news.insightJP || '');
+}
+
+function getNewsAgeLabel(publishedAt?: string): string {
+  if (!publishedAt) return '';
+  const timestamp = new Date(publishedAt).getTime();
+  if (!Number.isFinite(timestamp)) return '';
+  const hours = Math.max(1, Math.round((Date.now() - timestamp) / 3600000));
+  return `${hours}h`;
+}
+
+function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
+  const options = item?.evidence?.options || item?.options || item?.decisionSSOT?.options || {};
+  const flow = item?.evidence?.flow || item?.flow || item?.decisionSSOT?.flow || {};
+  const price = item?.evidence?.price || item?.priceData || item?.quote || {};
+  const ssot = item?.decisionSSOT || {};
+  const snapshot = ssot?.snapshotData || {};
+  const v71 = item?.v71 || {};
+  const ticker = getReportTicker(item);
+  const gex = pickFiniteNumber(options.gex, options.netGex, item.gex, v71.gex, snapshot.gex);
+  const alphaScore = pickFiniteNumber(
+    item.alphaScore,
+    item.contextScore,
+    item.score,
+    item.powerScore,
+    v71.alphaScore,
+    v71.contextScore,
+    v71.score,
+    ssot.contextScore
+  );
+
+  return {
+    sym: ticker,
+    grade: String(item.grade || item.contextGrade || item.qualityTier || v71.grade || (alphaScore && alphaScore >= 70 ? 'A' : alphaScore && alphaScore < 45 ? 'C' : 'B')),
+    score: alphaScore ?? 50,
+    changePct: pickFiniteNumber(price.changePct, price.changePercent, item.changePct, item.change_percent, v71.changePct) ?? 0,
+    closePrice: pickFiniteNumber(price.last, price.price, price.close, item.price, item.closePrice, item.close_price, v71.price) ?? 0,
+    gex: gex ?? 0,
+    pcr: pickFiniteNumber(options.pcr, item.pcr, v71.pcr, snapshot.pcr) ?? 0,
+    gammaRegime: String(options.gammaRegime || options.regime || item.gammaRegime || item.regime || v71.gammaRegime || (gex && gex < 0 ? 'SHORT' : gex && gex > 0 ? 'LONG' : 'NEUTRAL')),
+    maxPain: pickFiniteNumber(options.maxPain, item.maxPain, item.max_pain, v71.maxPain) ?? 0,
+    callWall: pickFiniteNumber(options.callWall, item.callWall, item.call_wall, v71.callWall) ?? 0,
+    putFloor: pickFiniteNumber(options.putFloor, item.putFloor, item.put_floor, v71.putFloor) ?? 0,
+    rsi: pickFiniteNumber(item.rsi, item.evidence?.technical?.rsi, v71.rsi, snapshot.rsi) ?? 0,
+    rvol: pickFiniteNumber(item.rvol, item.relVol, item.evidence?.technical?.rvol, v71.rvol, snapshot.rvol) ?? 0,
+    sparkline: Array.isArray(item.sparkline) ? item.sparkline : Array.isArray(price.sparkline) ? price.sparkline : [],
+    analysisKr: pickText(
+      item.analysisKr,
+      item.analysis_kr,
+      item.aiSummaryKr,
+      item.aiSummary,
+      item.summary,
+      item.newsContext,
+      item.context
+    ) || '',
+    netPremium: pickFiniteNumber(flow.netPremium, options.netPremium, item.netPremium, item.net_premium, v71.netPremium, snapshot.netPremium) ?? 0,
+    squeezeScore: pickFiniteNumber(options.squeezeScore, item.squeezeScore, item.squeeze_score, v71.squeezeScore) ?? 0,
+    ivSkew: pickFiniteNumber(options.ivSkew, item.ivSkew, item.iv_skew, v71.ivSkew) ?? 0,
+    impliedMovePct: pickFiniteNumber(options.impliedMovePct, options.impliedMove, item.impliedMovePct, item.implied_move_pct, v71.impliedMovePct) ?? 0,
+    whaleIndex: pickFiniteNumber(flow.whaleIndex, item.whaleIndex, item.whale_index, ssot.whaleIndex, v71.whaleIndex) ?? 0,
+    darkPoolPct: pickFiniteNumber(flow.darkPoolPct, flow.offExPct, item.darkPoolPct, item.dark_pool_pct, snapshot.offExPct, v71.darkPoolPct) ?? 0,
+  };
 }
 
 interface CrossSectorBrief {
@@ -1035,7 +1436,9 @@ export default function AppIntelPage() {
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
   const [intelTab, setIntelTab] = useState<'sector' | 'report'>('sector');
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
+  const [reportLoadingSector, setReportLoadingSector] = useState<string | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
+  const [globalReportLoading, setGlobalReportLoading] = useState(false);
   const [stockAiAnalyses, setStockAiAnalyses] = useState<Record<string, StockAiAnalysis>>({});
   const [stockAiLoading, setStockAiLoading] = useState<Record<string, boolean>>({});
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['stocks']));
@@ -1091,6 +1494,7 @@ export default function AppIntelPage() {
     setReportData(instantReport);
     setReportCache(prev => prev[sectorId] ? prev : ({ ...prev, [sectorId]: instantReport }));
     setLoading(false);
+    setReportLoadingSector(sectorId);
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 8000);
@@ -1102,11 +1506,25 @@ export default function AppIntelPage() {
       const data = await res.json();
       
       if (data.success && data.snapshot) {
+        const sectorCopy = SECTOR_APP_COPY[appLocale][sectorId] || SECTOR_APP_COPY.en[sectorId];
         const summary = data.snapshot.sector_summary || {};
         const briefing = summary.briefing || {};
+        const rawNewsDigest =
+          summary.newsDigest ||
+          summary.news_digest ||
+          data.snapshot.newsDigest ||
+          data.snapshot.news_digest ||
+          data.newsDigest;
+        const newsItems = normalizeNewsDigest(rawNewsDigest);
         
         const sentiment = summary.outlook || data.snapshot.sentiment || 'NEUTRAL';
         
+        const localizedHeadline = locale === 'ko'
+          ? (briefing.headline || briefing.headlineEN || data.snapshot.verdict || '')
+          : locale === 'ja'
+            ? (briefing.headlineJP || briefing.headline || data.snapshot.verdict || '')
+            : (briefing.headlineEN || briefing.headline || data.snapshot.verdict || '');
+
         const verdict = locale === 'ko'
           ? (summary.next_day_briefing_kr || briefing.headline || data.snapshot.verdict || 'No verdict available.')
           : locale === 'ja'
@@ -1123,12 +1541,27 @@ export default function AppIntelPage() {
           : locale === 'ja'
             ? (briefing.bulletsJP || briefing.bullets || [])
             : (briefing.bulletsEN || briefing.bullets || []);
+        const reportTitle = appLocale === 'ko'
+          ? `${sectorCopy.name} 섹터 장마감 리포트`
+          : appLocale === 'ja'
+            ? `${sectorCopy.name} セクター終値レポート`
+            : `${sectorCopy.name} Sector Closing Report`;
+        const reportHeadline = cleanReportText(localizedHeadline);
+        const reportSummary = cleanReportText(verdict || bullets[0] || '');
+        const dayOutlook = cleanReportText(catalysts[0] || bullets[1] || '');
+        const briefingBullets = Array.isArray(bullets)
+          ? bullets.map(cleanReportText).filter(Boolean)
+          : [];
+        const cleanCatalysts = Array.isArray(catalysts)
+          ? catalysts.map(cleanReportText).filter(Boolean)
+          : [];
+        const sourceNewsDigestLines = normalizeDigestLines(rawNewsDigest);
 
         const newReport: SectorReportData = {
           sentiment,
           verdict,
-          catalysts,
-          bullets,
+          catalysts: cleanCatalysts,
+          bullets: briefingBullets,
           gainers: summary.gainers ?? 0,
           losers: summary.losers ?? 0,
           avgPcr: summary.avg_pcr ?? 0,
@@ -1136,6 +1569,16 @@ export default function AppIntelPage() {
           dominantRegime: summary.dominant_regime || 'NEUTRAL',
           avgAlpha: summary.avg_alpha ?? 0,
           snapshotTime: data.snapshot?.meta?.snapshot_timestamp || '',
+          source: 'sector-snapshot',
+          reportTitle,
+          reportHeadline,
+          reportSummary,
+          dayOutlook,
+          newsDigest: sourceNewsDigestLines.length ? sourceNewsDigestLines : briefingBullets,
+          briefingBullets,
+          newsItems,
+          newsSentimentOverall: summary.newsSentimentOverall || summary.news_sentiment_overall,
+          riskNotes: cleanCatalysts.slice(0, 3),
           keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
             sym: tick.ticker,
             grade: tick.grade || 'B',
@@ -1162,8 +1605,11 @@ export default function AppIntelPage() {
         };
 
         if (requestId !== reportRequestRef.current) return;
-        setReportData(newReport);
-        setReportCache(prev => ({ ...prev, [sectorId]: newReport }));
+        setReportData(prev => mergeSectorReportStable(prev || instantReport, newReport));
+        setReportCache(prev => ({
+          ...prev,
+          [sectorId]: mergeSectorReportStable(prev[sectorId] || instantReport, newReport),
+        }));
       } else {
         throw new Error();
       }
@@ -1174,6 +1620,7 @@ export default function AppIntelPage() {
     } finally {
       window.clearTimeout(timeoutId);
       if (requestId === reportRequestRef.current) setLoading(false);
+      setReportLoadingSector(current => current === sectorId ? null : current);
     }
 
     if (requestId !== reportRequestRef.current) return;
@@ -1187,8 +1634,12 @@ export default function AppIntelPage() {
 
       setReportData(prev => {
         const source = prev || instantReport;
-        const nextReport = mergeReportWithBatchResults(source, batchResults);
-        setReportCache(cache => ({ ...cache, [sectorId]: nextReport }));
+        const enrichedReport = mergeReportWithBatchResults(source, batchResults);
+        const nextReport = mergeSectorReportStable(source, enrichedReport);
+        setReportCache(cache => ({
+          ...cache,
+          [sectorId]: mergeSectorReportStable(cache[sectorId], nextReport),
+        }));
         return nextReport;
       });
     } catch {
@@ -1328,6 +1779,210 @@ export default function AppIntelPage() {
     sharedData.cloudFortress,
   ]);
 
+  const buildSectorReportFromGlobalReport = useCallback((report: GlobalReportPayload, sectorId: string): SectorReportData | null => {
+    const sec = SECTOR_CONFIGS.find(s => s.id === sectorId);
+    if (!sec) return null;
+
+    const sectorCopy = SECTOR_APP_COPY[appLocale][sectorId] || SECTOR_APP_COPY.en[sectorId];
+    const quoteMap = new Map(getSectorQuotes(sectorId).map(q => [q.ticker, q]));
+    const reportItems = collectGlobalReportItems(report, sectorId, sec.stocks);
+    const sectorSummary = getGlobalSectorSummary(report, sectorId);
+    const reportBriefing = sectorSummary?.briefing || {};
+    if (!reportItems.length) return null;
+
+    const keyStocksData = reportItems
+      .map(item => {
+        const mapped = mapGlobalReportItemToStock(item);
+        return mergeStockWithQuote(mapped, quoteMap.get(mapped.sym));
+      })
+      .filter(stock => stock.sym)
+      .sort((a, b) => {
+        const scoreDiff = (b.score || 0) - (a.score || 0);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Math.abs(b.changePct || 0) - Math.abs(a.changePct || 0);
+      });
+
+    if (!keyStocksData.length) return null;
+
+    const gainers = keyStocksData.filter(stock => (stock.changePct || 0) >= 0).length;
+    const losers = keyStocksData.filter(stock => (stock.changePct || 0) < 0).length;
+    const avgPcr = safeAverage(keyStocksData.map(stock => stock.pcr || 0).filter(value => value > 0));
+    const totalGex = keyStocksData.reduce((sum, stock) => sum + (stock.gex || 0), 0);
+    const avgAlpha = safeAverage(keyStocksData.map(stock => stock.score || 0).filter(value => value > 0));
+    const netPremium = keyStocksData.reduce((sum, stock) => sum + (stock.netPremium || 0), 0);
+    const avgDarkPool = safeAverage(keyStocksData.map(stock => stock.darkPoolPct || 0).filter(value => value > 0));
+    const avgWhale = safeAverage(keyStocksData.map(stock => stock.whaleIndex || 0).filter(value => value > 0));
+    const avgSqueeze = safeAverage(keyStocksData.map(stock => stock.squeezeScore || 0).filter(value => value > 0));
+    const gammaLong = keyStocksData.filter(stock => String(stock.gammaRegime || '').toUpperCase().includes('LONG')).length;
+    const gammaShort = keyStocksData.filter(stock => String(stock.gammaRegime || '').toUpperCase().includes('SHORT')).length;
+    const dominantRegime = gammaLong > gammaShort ? 'LONG' : gammaShort > gammaLong ? 'SHORT' : 'NEUTRAL';
+    const lead = keyStocksData[0];
+
+    const biasScore =
+      (gainers - losers) +
+      (netPremium > 0 ? 1 : netPremium < 0 ? -1 : 0) +
+      (totalGex > 0 ? 1 : totalGex < 0 ? -1 : 0) +
+      (avgPcr > 0 && avgPcr < 0.9 ? 1 : avgPcr > 1.15 ? -1 : 0);
+    const sentiment = biasScore >= 2 ? 'BULLISH' : biasScore <= -2 ? 'BEARISH' : 'NEUTRAL';
+
+    const localizedReportTitle = appLocale === 'ko'
+      ? `${sectorCopy.name} 섹터 리포트`
+      : appLocale === 'ja'
+        ? `${sectorCopy.name} セクターレポート`
+        : `${sectorCopy.name} Sector Report`;
+    const localizedReportSummary = appLocale === 'ko'
+      ? `${sectorCopy.name}는 ${lead.sym} 중심의 알파, 옵션 감마, 고래·다크풀 수급을 앱 화면에 맞게 압축한 섹터 리포트입니다.`
+      : appLocale === 'ja'
+        ? `${sectorCopy.name}は、${lead.sym}を中心にアルファ、オプションガンマ、ホエール・ダークプールのフローをアプリ向けに要約したセクターレポートです。`
+        : `${sectorCopy.name} is a sector report compressed from ${lead.sym}-led alpha, options gamma, whale flow and dark-pool context.`;
+    const localizedVerdict = appLocale === 'ko'
+      ? `${localizedReportSummary} 현재 구도는 ${sentiment} 편향이며, ${dominantRegime} 감마, ${formatMoneyCompact(netPremium)} 순프리미엄, 평균 PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}가 핵심 확인 축입니다.`
+      : appLocale === 'ja'
+        ? `${localizedReportSummary} 現在の構図は${sentiment}バイアスで、${dominantRegime}ガンマ、${formatMoneyCompact(netPremium)}のネットプレミアム、平均PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}が主要な確認軸です。`
+        : `${localizedReportSummary} Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and average PCR ${avgPcr ? avgPcr.toFixed(2) : '-'} are the primary confirmation axes.`;
+    const localizedCatalysts = appLocale === 'ko'
+      ? [
+        `주도 종목 ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+        `섹터 GEX ${formatGex(totalGex)} / 감마 ${dominantRegime}`,
+        `순프리미엄 ${formatMoneyCompact(netPremium)} / 평균 PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+        `고래 ${avgWhale ? Math.round(avgWhale) : '-'} / 다크풀 ${formatPlainPercent(avgDarkPool)} / 스퀴즈 ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+      ]
+      : appLocale === 'ja'
+        ? [
+          `主導銘柄 ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+          `セクターGEX ${formatGex(totalGex)} / ガンマ ${dominantRegime}`,
+          `ネットプレミアム ${formatMoneyCompact(netPremium)} / 平均PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Dark Pool ${formatPlainPercent(avgDarkPool)} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        ]
+        : [
+          `Lead ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+          `Sector GEX ${formatGex(totalGex)} / Gamma ${dominantRegime}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Avg PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Dark Pool ${formatPlainPercent(avgDarkPool)} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        ];
+    const bullets = keyStocksData.slice(0, 5).map(stock => {
+      const line = `${stock.sym} ${formatPercentCompact(stock.changePct || 0)} / Context ${stock.score.toFixed(0)} / GEX ${formatGex(stock.gex || 0)} / PCR ${stock.pcr ? stock.pcr.toFixed(2) : '-'}`;
+      return stock.analysisKr ? `${line} - ${stock.analysisKr}` : line;
+    });
+
+    const topGainer = [...keyStocksData].sort((a, b) => (b.changePct || 0) - (a.changePct || 0))[0] || lead;
+    const topLoser = [...keyStocksData].sort((a, b) => (a.changePct || 0) - (b.changePct || 0))[0] || lead;
+    const avgPcrText = avgPcr ? avgPcr.toFixed(2) : '-';
+    const whaleText = avgWhale ? String(Math.round(avgWhale)) : '-';
+    const darkPoolText = avgDarkPool ? formatPlainPercent(avgDarkPool) : '-';
+    const squeezeText = avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-';
+    const leadMove = formatPercentCompact(lead.changePct || 0);
+    const topGainerMove = formatPercentCompact(topGainer.changePct || 0);
+    const topLoserMove = formatPercentCompact(topLoser.changePct || 0);
+    const appReportTitle = appLocale === 'ko'
+      ? `${sectorCopy.name} 섹터 장마감 리포트`
+      : appLocale === 'ja'
+        ? `${sectorCopy.name} セクター引け後レポート`
+        : `${sectorCopy.name} Sector Closing Report`;
+    const appReportSummary = appLocale === 'ko'
+      ? `${sectorCopy.name}는 ${lead.sym} 중심의 컨텍스트, 옵션 감마, 고래·다크풀 수급을 함께 압축한 섹터 리포트입니다. 현재 구도는 ${sentiment} 편향이며 ${dominantRegime} 감마, 순프리미엄 ${formatMoneyCompact(netPremium)}, 평균 PCR ${avgPcrText}가 핵심 확인 축입니다.`
+      : appLocale === 'ja'
+        ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプション・ガンマ、ホエール/ダークプールのフローを圧縮したセクターレポートです。現在のバイアスは${sentiment}、ガンマは${dominantRegime}、ネットプレミアムは${formatMoneyCompact(netPremium)}、平均PCRは${avgPcrText}です。`
+        : `${sectorCopy.name} compresses ${lead.sym}-led context, options gamma, whale flow and dark-pool activity into one sector report. Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and ${avgPcrText} average PCR are the main confirmation axes.`;
+    const appReportVerdict = appLocale === 'ko'
+      ? `${lead.sym}가 섹터 기준점 역할을 하며 ${leadMove} 움직임과 Context ${lead.score.toFixed(0)}를 기록했습니다. ${topGainer.sym}는 ${topGainerMove}로 상대 강도를 보였고, ${topLoser.sym}는 ${topLoserMove}로 압력 구간을 형성했습니다.`
+      : appLocale === 'ja'
+        ? `${lead.sym}がセクターの基準点となり、${leadMove}、Context ${lead.score.toFixed(0)}を示しています。${topGainer.sym}は${topGainerMove}で相対的な強さ、${topLoser.sym}は${topLoserMove}で圧力ゾーンを形成しています。`
+        : `${lead.sym} is the sector anchor with a ${leadMove} move and Context ${lead.score.toFixed(0)}. ${topGainer.sym} shows relative strength at ${topGainerMove}, while ${topLoser.sym} marks the pressure pocket at ${topLoserMove}.`;
+    const appReportDayOutlook = appLocale === 'ko'
+      ? `${gainers}개 상승 / ${losers}개 하락. ${dominantRegime} 감마와 평균 PCR ${avgPcrText}를 기준으로 다음 세션에서는 콜월·풋플로어 근처의 반응을 우선 확인해야 합니다.`
+      : appLocale === 'ja'
+        ? `${gainers}銘柄上昇 / ${losers}銘柄下落。${dominantRegime}ガンマと平均PCR ${avgPcrText}を基準に、次セッションではコールウォール/プットフロア付近の反応を優先確認します。`
+        : `${gainers} up / ${losers} down. Watch next-session reaction near call-wall and put-floor zones against ${dominantRegime} gamma and ${avgPcrText} average PCR.`;
+    const appReportCatalysts = [
+      appLocale === 'ko' ? `섹터 GEX ${formatGex(totalGex)} / 감마 ${dominantRegime}` : appLocale === 'ja' ? `セクターGEX ${formatGex(totalGex)} / ガンマ ${dominantRegime}` : `Sector GEX ${formatGex(totalGex)} / Gamma ${dominantRegime}`,
+      appLocale === 'ko' ? `순프리미엄 ${formatMoneyCompact(netPremium)} / 평균 PCR ${avgPcrText}` : appLocale === 'ja' ? `ネットプレミアム ${formatMoneyCompact(netPremium)} / 平均PCR ${avgPcrText}` : `Net premium ${formatMoneyCompact(netPremium)} / Avg PCR ${avgPcrText}`,
+      appLocale === 'ko' ? `고래 ${whaleText} / 다크풀 ${darkPoolText} / 스퀴즈 ${squeezeText}` : appLocale === 'ja' ? `Whale ${whaleText} / Dark Pool ${darkPoolText} / Squeeze ${squeezeText}` : `Whale ${whaleText} / Dark Pool ${darkPoolText} / Squeeze ${squeezeText}`,
+    ];
+    const appNewsDigest = keyStocksData.slice(0, 5).map(stock => {
+      const move = formatPercentCompact(stock.changePct || 0);
+      const pcr = stock.pcr ? stock.pcr.toFixed(2) : '-';
+      const gex = formatGex(stock.gex || 0);
+      const wall = stock.callWall ? `CW $${stock.callWall.toFixed(0)}` : '';
+      const floor = stock.putFloor ? `PF $${stock.putFloor.toFixed(0)}` : '';
+      if (appLocale === 'ko') return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+      if (appLocale === 'ja') return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+      return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+    });
+    const appRiskNotes = [
+      appLocale === 'ko'
+        ? `${topLoser.sym} 약세와 ${formatGex(totalGex)} GEX 방향이 엇갈리면 리포트 편향은 빠르게 중립화될 수 있습니다.`
+        : appLocale === 'ja'
+          ? `${topLoser.sym}の弱さと${formatGex(totalGex)}のGEX方向が食い違う場合、レポートのバイアスは中立化しやすくなります。`
+          : `If ${topLoser.sym} weakness conflicts with ${formatGex(totalGex)} sector GEX direction, the report bias can neutralize quickly.`,
+      appLocale === 'ko'
+        ? `다크풀 ${darkPoolText}, 고래 ${whaleText}, 스퀴즈 ${squeezeText}는 다음 세션에서 유동성 집중 구간을 재확인하는 보조 축입니다.`
+        : appLocale === 'ja'
+          ? `Dark Pool ${darkPoolText}、Whale ${whaleText}、Squeeze ${squeezeText}は、次セッションの流動性集中ゾーンを再確認する補助軸です。`
+          : `Dark Pool ${darkPoolText}, Whale ${whaleText} and Squeeze ${squeezeText} are supporting axes for the next liquidity check.`,
+    ];
+    const reportRawNewsDigest = sectorSummary?.newsDigest || sectorSummary?.news_digest;
+    const reportNewsItems = normalizeNewsDigest(reportRawNewsDigest);
+    const reportNewsDigestLines = normalizeDigestLines(reportRawNewsDigest);
+    const sourceReportHeadline = appLocale === 'ko'
+      ? String(reportBriefing.headline || reportBriefing.headlineEN || '')
+      : appLocale === 'ja'
+        ? String(reportBriefing.headlineJP || reportBriefing.headline || '')
+        : String(reportBriefing.headlineEN || reportBriefing.headline || '');
+    const sourceReportSummary = appLocale === 'ko'
+      ? String(sectorSummary?.next_day_briefing_kr || reportBriefing.headlineKR || reportBriefing.headline || '')
+      : appLocale === 'ja'
+        ? String(reportBriefing.headlineJP || reportBriefing.headline || '')
+        : String(reportBriefing.headlineEN || reportBriefing.headline || '');
+    const sourceDayOutlookSource = appLocale === 'ko'
+      ? (reportBriefing.watchpoints || sectorSummary?.keyCatalysts || [])
+      : appLocale === 'ja'
+        ? (reportBriefing.watchpointsJP || reportBriefing.watchpoints || sectorSummary?.keyCatalysts || [])
+        : (reportBriefing.watchpointsEN || reportBriefing.watchpoints || sectorSummary?.keyCatalysts || []);
+    const sourceDayOutlook = String(Array.isArray(sourceDayOutlookSource) ? sourceDayOutlookSource[0] || '' : sourceDayOutlookSource || '');
+    const sourceRiskNotesSource = appLocale === 'ko'
+      ? (reportBriefing.watchpoints || sectorSummary?.keyCatalysts || [])
+      : appLocale === 'ja'
+        ? (reportBriefing.watchpointsJP || reportBriefing.watchpoints || sectorSummary?.keyCatalysts || [])
+        : (reportBriefing.watchpointsEN || reportBriefing.watchpoints || sectorSummary?.keyCatalysts || []);
+    const sourceRiskNotes = Array.isArray(sourceRiskNotesSource)
+      ? sourceRiskNotesSource.map(String).filter(Boolean)
+      : String(sourceRiskNotesSource || '').split('\n').map(line => line.trim()).filter(Boolean);
+    const sourceBulletsSource = appLocale === 'ko'
+      ? (reportBriefing.bullets || [])
+      : appLocale === 'ja'
+        ? (reportBriefing.bulletsJP || reportBriefing.bullets || [])
+        : (reportBriefing.bulletsEN || reportBriefing.bullets || []);
+    const sourceBriefingBullets = Array.isArray(sourceBulletsSource)
+      ? sourceBulletsSource.map(cleanReportText).filter(Boolean)
+      : [];
+
+    return {
+      sentiment,
+      verdict: appReportVerdict,
+      catalysts: appReportCatalysts,
+      bullets: appNewsDigest,
+      keyStocksData,
+      gainers,
+      losers,
+      avgPcr,
+      totalGex,
+      dominantRegime,
+      avgAlpha,
+      snapshotTime: String(report.meta?.generatedAtET || report.meta?.generatedAt || report.storageDebug?.fetchedAt || ''),
+      source: 'global-report',
+      reportTitle: appReportTitle,
+      reportHeadline: cleanReportText(sourceReportHeadline),
+      reportSummary: cleanReportText(sourceReportSummary) || appReportSummary,
+      dayOutlook: cleanReportText(sourceDayOutlook) || appReportDayOutlook,
+      newsDigest: reportNewsDigestLines.length ? reportNewsDigestLines : sourceBriefingBullets.length ? sourceBriefingBullets : appNewsDigest,
+      briefingBullets: sourceBriefingBullets,
+      newsItems: reportNewsItems,
+      newsSentimentOverall: sectorSummary?.newsSentimentOverall || sectorSummary?.news_sentiment_overall,
+      riskNotes: sourceRiskNotes.length ? sourceRiskNotes.map(cleanReportText).filter(Boolean).slice(0, 3) : appRiskNotes,
+    };
+  }, [appLocale, getSectorQuotes]);
+
   const selectedQuoteSignature = useMemo(() => {
     if (!selectedSector) return '';
     return getSectorQuotes(selectedSector)
@@ -1367,14 +2022,17 @@ export default function AppIntelPage() {
 
     if (!changed) return;
 
-    const nextReport: SectorReportData = {
+    const nextReport = mergeSectorReportStable(reportData, {
       ...reportData,
       keyStocksData,
       snapshotTime: sharedData.fetchedAt || reportData.snapshotTime,
-    };
+    });
 
     setReportData(nextReport);
-    setReportCache(prev => ({ ...prev, [selectedSector]: nextReport }));
+    setReportCache(prev => ({
+      ...prev,
+      [selectedSector]: mergeSectorReportStable(prev[selectedSector], nextReport),
+    }));
   }, [selectedSector, selectedQuoteSignature, reportData, sharedData.fetchedAt, getSectorQuotes]);
 
   const getSectorChange = (sectorId: string) => {
@@ -1467,6 +2125,39 @@ export default function AppIntelPage() {
       }
     }[appLocale];
 
+    const safeLocaleText = {
+      ko: {
+        verdict: `${sectorCopy.name}는 ${topStock?.ticker || '주요 종목'} 중심으로 옵션 감마, 알파, 수급 데이터가 먼저 정렬된 섹터 뷰입니다. 전체 웹 리포트가 갱신되기 전에도 현재 앱 데이터 기준의 방향성과 리스크 축을 즉시 보여줍니다.`,
+        catalysts: [
+          `주도 종목 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
+          `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        ],
+        fallbackAnalysis: `${sectorCopy.thesis}. 전체 리포트가 도착하기 전까지 현재 가격, 알파, 옵션 수급 피드를 기준으로 섹터 맥락을 표시합니다.`
+      },
+      en: {
+        verdict: `${sectorCopy.name} is organized from live app-held options, alpha and flow data, led by ${topStock?.ticker || 'key names'}. The sector context opens immediately while the full snapshot refreshes in the background.`,
+        catalysts: [
+          `Lead ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
+          `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        ],
+        fallbackAnalysis: `${sectorCopy.thesis}. Until the full snapshot arrives, this view uses the app's current price, alpha and options feed.`
+      },
+      ja: {
+        verdict: `${sectorCopy.name}は、${topStock?.ticker || '主要銘柄'}を中心にオプションガンマ、アルファ、資金フローを先に整理したセクタービューです。完全なWebレポートが更新される前でも、現在のアプリデータに基づく方向感とリスク軸を表示します。`,
+        catalysts: [
+          `主導銘柄 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
+          `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        ],
+        fallbackAnalysis: `${sectorCopy.thesis}。完全なレポートが届くまでは、現在価格、アルファ、オプションフローを基準にセクターの文脈を表示します。`
+      }
+    }[appLocale];
+
     const keyStocksData: KeyStockPremiumData[] = quotes.length
       ? quotes.map(q => ({
         sym: q.ticker,
@@ -1483,7 +2174,7 @@ export default function AppIntelPage() {
         rsi: q.rsi || 0,
         rvol: q.rvol || 0,
         sparkline: q.sparkline || [],
-        analysisKr: localeText.fallbackAnalysis,
+        analysisKr: safeLocaleText.fallbackAnalysis,
         netPremium: q.netPremium || 0,
         squeezeScore: q.squeezeScore || 0,
         ivSkew: q.ivSkew || 0,
@@ -1495,14 +2186,89 @@ export default function AppIntelPage() {
         sym,
         grade: 'B',
         score: 50,
-        analysisKr: localeText.fallbackAnalysis
+        analysisKr: safeLocaleText.fallbackAnalysis
       }));
+
+    const fallbackLead = keyStocksData[0];
+    const fallbackTopGainer = [...keyStocksData].sort((a, b) => (b.changePct || 0) - (a.changePct || 0))[0] || fallbackLead;
+    const fallbackTopLoser = [...keyStocksData].sort((a, b) => (a.changePct || 0) - (b.changePct || 0))[0] || fallbackLead;
+    const fallbackAvgPcrText = avgPcr ? avgPcr.toFixed(2) : '-';
+    const fallbackDarkPoolText = avgDarkPool ? formatPlainPercent(avgDarkPool) : '-';
+    const fallbackWhaleText = avgWhale ? String(Math.round(avgWhale)) : '-';
+    const fallbackSqueezeText = avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-';
+    const fallbackTitle = appLocale === 'ko'
+      ? `${sectorCopy.name} 섹터 장마감 리포트`
+      : appLocale === 'ja'
+        ? `${sectorCopy.name} セクター引け後レポート`
+        : `${sectorCopy.name} Sector Closing Report`;
+    const fallbackSummary = appLocale === 'ko'
+      ? `${sectorCopy.name}는 현재 앱에 들어온 알파, 옵션 감마, 고래·다크풀 수급을 기준으로 압축한 섹터 리포트입니다. 전체 웹 리포트가 갱신되기 전에도 핵심 방향과 리스크 축을 먼저 확인할 수 있습니다.`
+      : appLocale === 'ja'
+        ? `${sectorCopy.name}は、現在アプリに入っているアルファ、オプション・ガンマ、ホエール/ダークプールのフローを基準に圧縮したセクターレポートです。完全なWebレポート更新前でも、主要な方向性とリスク軸を確認できます。`
+        : `${sectorCopy.name} is compressed from the app's current alpha, options gamma, whale and dark-pool flow. It keeps the sector bias and risk axes visible while the full web report refreshes.`;
+    const fallbackVerdict = appLocale === 'ko'
+      ? `${fallbackLead?.sym || sectorCopy.name}가 중심 관찰 축입니다. ${gainers}개 상승, ${losers}개 하락이며 ${dominantRegime} 감마와 평균 PCR ${fallbackAvgPcrText}를 기준으로 다음 세션의 반응을 확인해야 합니다.`
+      : appLocale === 'ja'
+        ? `${fallbackLead?.sym || sectorCopy.name}が中心観察軸です。上昇${gainers}銘柄、下落${losers}銘柄で、${dominantRegime}ガンマと平均PCR ${fallbackAvgPcrText}を基準に次セッションの反応を確認します。`
+        : `${fallbackLead?.sym || sectorCopy.name} is the primary watch point. ${gainers} names are up, ${losers} are down; next-session reaction should be checked against ${dominantRegime} gamma and ${fallbackAvgPcrText} average PCR.`;
+    const fallbackDayOutlook = appLocale === 'ko'
+      ? `${fallbackTopGainer?.sym || '-'} 상대강도와 ${fallbackTopLoser?.sym || '-'} 압력 구간을 함께 보면서, 섹터 GEX ${formatGex(totalGex)}가 가격 반응을 흡수하는지 확대하는지 확인합니다.`
+      : appLocale === 'ja'
+        ? `${fallbackTopGainer?.sym || '-'}の相対的な強さと${fallbackTopLoser?.sym || '-'}の圧力帯を見ながら、セクターGEX ${formatGex(totalGex)}が価格反応を吸収するか拡大するか確認します。`
+        : `Track ${fallbackTopGainer?.sym || '-'} relative strength against ${fallbackTopLoser?.sym || '-'} pressure, then verify whether sector GEX ${formatGex(totalGex)} absorbs or amplifies price reaction.`;
+    const fallbackDigest = keyStocksData.slice(0, 5).map(stock => {
+      const move = formatPercentCompact(stock.changePct || 0);
+      const pcr = stock.pcr ? stock.pcr.toFixed(2) : '-';
+      const gex = formatGex(stock.gex || 0);
+      return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}`;
+    });
+    const fallbackRisks = [
+      appLocale === 'ko'
+        ? `순프리미엄 ${formatMoneyCompact(netPremium)}, 다크풀 ${fallbackDarkPoolText}, 고래 ${fallbackWhaleText}가 서로 엇갈리면 리포트 편향은 중립화될 수 있습니다.`
+        : appLocale === 'ja'
+          ? `ネットプレミアム ${formatMoneyCompact(netPremium)}、Dark Pool ${fallbackDarkPoolText}、Whale ${fallbackWhaleText}が食い違う場合、レポートのバイアスは中立化する可能性があります。`
+          : `If ${formatMoneyCompact(netPremium)} net premium, ${fallbackDarkPoolText} dark-pool activity and Whale ${fallbackWhaleText} diverge, the report bias can neutralize.`,
+      appLocale === 'ko'
+        ? `스퀴즈 ${fallbackSqueezeText}는 변동성 확장 여부를 보는 보조 축입니다. 가격 레벨과 체결 강도 확인이 필요합니다.`
+        : appLocale === 'ja'
+          ? `Squeeze ${fallbackSqueezeText}はボラティリティ拡大を確認する補助軸です。価格レベルと約定強度の確認が必要です。`
+          : `Squeeze ${fallbackSqueezeText} is a supporting axis for volatility expansion; confirm price levels and execution intensity.`,
+    ];
+
+    const safeFallbackTitle = appLocale === 'ko'
+      ? `${sectorCopy.name} 섹터 장마감 리포트`
+      : appLocale === 'ja'
+        ? `${sectorCopy.name} セクター引け後レポート`
+        : `${sectorCopy.name} Sector Closing Report`;
+    const safeFallbackSummary = safeLocaleText.verdict;
+    const safeFallbackVerdict = appLocale === 'ko'
+      ? `${fallbackLead?.sym || sectorCopy.name}가 핵심 관찰축입니다. ${gainers}개 종목 상승, ${losers}개 종목 하락이며 ${dominantRegime} 감마와 평균 PCR ${fallbackAvgPcrText}를 기준으로 다음 세션 반응을 확인해야 합니다.`
+      : appLocale === 'ja'
+        ? `${fallbackLead?.sym || sectorCopy.name}が主要な観察軸です。上昇${gainers}銘柄、下落${losers}銘柄で、${dominantRegime}ガンマと平均PCR ${fallbackAvgPcrText}を基準に次のセッション反応を確認します。`
+        : `${fallbackLead?.sym || sectorCopy.name} is the primary watch point. ${gainers} names are up, ${losers} are down; next-session reaction should be checked against ${dominantRegime} gamma and ${fallbackAvgPcrText} average PCR.`;
+    const safeFallbackDayOutlook = appLocale === 'ko'
+      ? `${fallbackTopGainer?.sym || '-'} 상대 강도와 ${fallbackTopLoser?.sym || '-'} 압력 구간을 함께 보면서 섹터 GEX ${formatGex(totalGex)}가 가격 반응을 흡수하는지 확대하는지 확인합니다.`
+      : appLocale === 'ja'
+        ? `${fallbackTopGainer?.sym || '-'}の相対的な強さと${fallbackTopLoser?.sym || '-'}の圧力帯を合わせて見ながら、セクターGEX ${formatGex(totalGex)}が価格反応を吸収するか拡大するかを確認します。`
+        : `Track ${fallbackTopGainer?.sym || '-'} relative strength against ${fallbackTopLoser?.sym || '-'} pressure, then verify whether sector GEX ${formatGex(totalGex)} absorbs or amplifies price reaction.`;
+    const safeFallbackRisks = [
+      appLocale === 'ko'
+        ? `순프리미엄 ${formatMoneyCompact(netPremium)}, 다크풀 ${fallbackDarkPoolText}, 고래 ${fallbackWhaleText}가 서로 엇갈리면 리포트 편향은 빠르게 중립화될 수 있습니다.`
+        : appLocale === 'ja'
+          ? `ネットプレミアム${formatMoneyCompact(netPremium)}、ダークプール${fallbackDarkPoolText}、Whale ${fallbackWhaleText}が互いに乖離すると、レポートのバイアスは中立化しやすくなります。`
+          : `If ${formatMoneyCompact(netPremium)} net premium, ${fallbackDarkPoolText} dark-pool activity and Whale ${fallbackWhaleText} diverge, the report bias can neutralize.`,
+      appLocale === 'ko'
+        ? `스퀴즈 ${fallbackSqueezeText}는 변동성 확장 여부를 보는 보조 축입니다. 가격 레벨과 체결 강도 확인이 필요합니다.`
+        : appLocale === 'ja'
+          ? `Squeeze ${fallbackSqueezeText}はボラティリティ拡大を確認する補助軸です。価格水準と約定強度の確認が必要です。`
+          : `Squeeze ${fallbackSqueezeText} is a supporting axis for volatility expansion; confirm price levels and execution intensity.`,
+    ];
 
     return {
       sentiment,
-      verdict: localeText.verdict,
-      catalysts: localeText.catalysts,
-      bullets: [],
+      verdict: safeFallbackVerdict,
+      catalysts: safeLocaleText.catalysts,
+      bullets: fallbackDigest,
       keyStocksData,
       gainers,
       losers,
@@ -1510,9 +2276,84 @@ export default function AppIntelPage() {
       totalGex,
       dominantRegime,
       avgAlpha,
-      snapshotTime: sharedData.fetchedAt || ''
+      snapshotTime: sharedData.fetchedAt || '',
+      source: 'app-live',
+      reportTitle: safeFallbackTitle,
+      reportSummary: safeFallbackSummary,
+      dayOutlook: safeFallbackDayOutlook,
+      newsDigest: fallbackDigest,
+      riskNotes: safeFallbackRisks,
     };
   };
+
+  useEffect(() => {
+    if (intelTab !== 'report') return;
+
+    let active = true;
+    const controller = new AbortController();
+    setGlobalReportLoading(true);
+
+    const fillMissingWithAppSnapshot = (
+      globalReports: Record<string, SectorReportData>,
+      existingReports: Record<string, SectorReportData> = {}
+    ) => {
+      const nextReports: Record<string, SectorReportData> = { ...existingReports };
+      SECTOR_CONFIGS.forEach(sec => {
+        const existing = existingReports[sec.id];
+        const incoming = globalReports[sec.id];
+        if (incoming) {
+          nextReports[sec.id] = mergeSectorReportStable(existing, incoming);
+        } else if (!existing) {
+          nextReports[sec.id] = buildSectorReportFromQuotes(sec.id);
+        }
+      });
+      return nextReports;
+    };
+
+    setReportCache(prev => fillMissingWithAppSnapshot({}, prev));
+
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, 8000);
+
+    fetch('/api/reports/latest?type=global', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('global report unavailable')))
+      .then((report: GlobalReportPayload) => {
+        if (!active || !report) return;
+
+        const globalReports: Record<string, SectorReportData> = {};
+        SECTOR_CONFIGS.forEach(sec => {
+          const sectorReport = buildSectorReportFromGlobalReport(report, sec.id);
+          if (sectorReport) globalReports[sec.id] = sectorReport;
+        });
+
+        setReportCache(prev => fillMissingWithAppSnapshot(globalReports, prev));
+
+        if (selectedSector && globalReports[selectedSector]) {
+          setReportData(prev => mergeSectorReportStable(
+            prev || buildSectorReportFromQuotes(selectedSector),
+            globalReports[selectedSector]
+          ));
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setReportCache(prev => fillMissingWithAppSnapshot({}, prev));
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+        if (active) setGlobalReportLoading(false);
+      });
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [intelTab, selectedSector, buildSectorReportFromGlobalReport]);
 
   const sectorSummaries = SECTOR_CONFIGS.map(sec => {
     const quotes = getSectorQuotes(sec.id);
@@ -1577,16 +2418,28 @@ export default function AppIntelPage() {
   const sessionLabel = isMarketLive ? appCopy.live : marketStatus.session === 'closed' ? appCopy.closed : appCopy.offline;
 
   return (
-    <div className={s.page} style={{ paddingBottom: '90px' }}>
+    <div className={s.page} style={{
+      paddingBottom: '90px',
+      minHeight: '100dvh',
+      position: 'relative',
+      background: [
+        'radial-gradient(circle at 50% -7%, rgba(34, 211, 238, 0.18), transparent 360px)',
+        'radial-gradient(circle at 12% 26%, rgba(139, 92, 246, 0.10), transparent 300px)',
+        'radial-gradient(circle at 88% 58%, rgba(16, 185, 129, 0.08), transparent 280px)',
+        'linear-gradient(180deg, #07111f 0%, #050a14 42%, #070b13 100%)'
+      ].join(', '),
+      backgroundAttachment: 'local',
+      isolation: 'isolate'
+    }}>
       {/* HEADER */}
       {!selectedSector && (
-        <div role="banner" style={{ padding: '14px 16px 0' }}>
+        <div role="banner" style={{ padding: '14px 16px 0', position: 'relative' }}>
           <div style={{
             borderRadius: '22px',
             padding: '16px',
-            background: 'linear-gradient(145deg, rgba(12, 31, 48, 0.92), rgba(10, 14, 27, 0.96) 58%, rgba(3, 11, 21, 0.98))',
-            border: '1px solid rgba(34, 211, 238, 0.16)',
-            boxShadow: '0 18px 42px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.06)',
+            background: 'linear-gradient(145deg, rgba(12, 33, 52, 0.94), rgba(10, 16, 31, 0.97) 56%, rgba(3, 10, 20, 0.99))',
+            border: '1px solid rgba(34, 211, 238, 0.20)',
+            boxShadow: '0 22px 52px rgba(0, 0, 0, 0.38), 0 0 34px rgba(34,211,238,0.06), inset 0 1px 0 rgba(255,255,255,0.07)',
             overflow: 'hidden',
             marginBottom: '10px',
             position: 'relative'
@@ -1594,7 +2447,7 @@ export default function AppIntelPage() {
             <div style={{
               position: 'absolute',
               inset: 0,
-              background: 'radial-gradient(circle at 12% 8%, rgba(34,211,238,0.16), transparent 34%), radial-gradient(circle at 88% 10%, rgba(16,185,129,0.10), transparent 30%)',
+              background: 'radial-gradient(circle at 12% 8%, rgba(34,211,238,0.19), transparent 34%), radial-gradient(circle at 88% 10%, rgba(16,185,129,0.12), transparent 30%), linear-gradient(90deg, rgba(255,255,255,0.025), transparent 38%)',
               pointerEvents: 'none'
             }} />
             <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'flex-start' }}>
@@ -1692,42 +2545,70 @@ export default function AppIntelPage() {
                   label: appCopy.leaders,
                   value: leadingSector ? SECTOR_APP_COPY[appLocale][leadingSector.id]?.name || leadingSector.id : '-',
                   meta: leadingSector ? `${leadingSector.change >= 0 ? '+' : ''}${leadingSector.change.toFixed(1)}%` : '-',
-                  color: '#10b981'
+                  color: '#10b981',
+                  iconColor: leadingSector?.color || '#10b981',
+                  icon: leadingSector ? <SectorIcon sectorKey={toCamelCase(leadingSector.id)} color={leadingSector.color} size={18} /> : <Sparkles size={17} />,
+                  metaColor: leadingSector && leadingSector.change < 0 ? '#ef4444' : '#10b981'
                 },
                 {
                   label: appCopy.laggards,
                   value: laggingSector ? SECTOR_APP_COPY[appLocale][laggingSector.id]?.name || laggingSector.id : '-',
                   meta: laggingSector ? `${laggingSector.change >= 0 ? '+' : ''}${laggingSector.change.toFixed(1)}%` : '-',
-                  color: '#ef4444'
+                  color: '#ef4444',
+                  iconColor: laggingSector?.color || '#ef4444',
+                  icon: laggingSector ? <SectorIcon sectorKey={toCamelCase(laggingSector.id)} color={laggingSector.color} size={18} /> : <Zap size={17} />,
+                  metaColor: laggingSector && laggingSector.change >= 0 ? '#10b981' : '#ef4444'
                 },
                 {
                   label: appCopy.coverage,
                   value: `${totalCoverage}`,
                   meta: appCopy.constituents,
-                  color: '#22d3ee'
+                  color: '#22d3ee',
+                  iconColor: '#22d3ee',
+                  icon: <BarChart3 size={17} />,
+                  metaColor: 'rgba(203, 213, 225, 0.72)'
                 },
                 {
                   label: appCopy.avgMove,
                   value: `${averageSectorMove.toFixed(1)}%`,
                   meta: appCopy.dataLabel,
-                  color: '#f59e0b'
+                  color: averageSectorMove >= 2 ? '#f59e0b' : '#67e8f9',
+                  iconColor: '#f59e0b',
+                  icon: <Zap size={17} />,
+                  metaColor: averageSectorMove >= 2 ? '#f59e0b' : 'rgba(203, 213, 225, 0.72)'
                 }
               ].map(item => (
                 <div key={item.label} style={{
                   minWidth: 0,
-                  padding: '10px',
+                  padding: '11px',
                   borderRadius: '14px',
-                  background: 'rgba(15, 23, 42, 0.56)',
-                  border: '1px solid rgba(148, 163, 184, 0.10)',
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.035)'
+                  background: `linear-gradient(135deg, ${item.iconColor}12, rgba(15, 23, 42, 0.62) 46%, rgba(2, 6, 23, 0.46))`,
+                  border: `1px solid ${item.iconColor}22`,
+                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04), 0 0 18px ${item.iconColor}09`
                 }}>
-                  <div style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(148, 163, 184, 0.86)', letterSpacing: '0.04em' }}>
-                    {item.label}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                    <span style={{
+                      width: '25px',
+                      height: '25px',
+                      borderRadius: '9px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: item.iconColor,
+                      background: `${item.iconColor}12`,
+                      border: `1px solid ${item.iconColor}26`,
+                      flexShrink: 0
+                    }}>
+                      {item.icon}
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(148, 163, 184, 0.90)', letterSpacing: '0.05em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.label}
+                    </span>
                   </div>
-                  <div style={{ marginTop: '5px', color: item.color, fontSize: '14px', lineHeight: 1.1, fontWeight: 950, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ marginTop: '5px', color: item.color, fontSize: '15px', lineHeight: 1.1, fontWeight: 950, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.value}
                   </div>
-                  <div style={{ marginTop: '4px', color: 'rgba(203, 213, 225, 0.68)', fontSize: '9px', fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ marginTop: '4px', color: item.metaColor, fontSize: '10.5px', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.meta}
                   </div>
                 </div>
@@ -2080,13 +2961,79 @@ export default function AppIntelPage() {
               })()}
 
               {SECTOR_CONFIGS.map((sec) => {
-                const cached = reportCache[sec.id];
-                if (!cached) return null;
+                const cached = reportCache[sec.id] || buildSectorReportFromQuotes(sec.id);
                 const englishName = TRANSLATIONS.en[sec.id] || sec.id;
+                const displayName = cached.reportTitle || englishName;
+                const sourceLabel = cached.source === 'global-report'
+                  ? (locale === 'ko' ? '장마감 리포트' : locale === 'ja' ? '引け後レポート' : 'CLOSE REPORT')
+                  : cached.source === 'sector-snapshot'
+                    ? (locale === 'ko' ? '리포트 데이터' : locale === 'ja' ? 'レポートデータ' : 'REPORT DATA')
+                    : (locale === 'ko' ? '앱 실시간' : locale === 'ja' ? 'アプリ速報' : 'APP LIVE');
                 const isExpanded = expandedReport === sec.id;
                 const sentimentColor = cached.sentiment.includes('BULL') ? '#10b981' : cached.sentiment.includes('BEAR') ? '#ef4444' : '#f59e0b';
                 const sentimentBg = cached.sentiment.includes('BULL') ? 'rgba(16, 185, 129, 0.1)' : cached.sentiment.includes('BEAR') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)';
                 const regimeColor = cached.dominantRegime === 'LONG' ? '#10b981' : cached.dominantRegime === 'SHORT' ? '#ef4444' : '#f59e0b';
+                const reportLabels = locale === 'ko'
+                  ? {
+                      brief: '섹터 클로징 브리프',
+                      sourceWeb: '웹 리포트 기반',
+                      sourceLive: '실제 리포트 기반',
+                      outlook: '다음 세션 관찰축',
+                      digest: '뉴스 다이제스트',
+                      risk: '리스크 체크',
+                      structure: '수급 구조',
+                      keyStocks: '주요 종목',
+                      closeReport: '장마감 리포트'
+                    }
+                  : locale === 'ja'
+                    ? {
+                        brief: 'セクター終値ブリーフ',
+                        sourceWeb: 'Webレポート基盤',
+                        sourceLive: '実レポート基盤',
+                        outlook: '次セッションの注目軸',
+                        digest: 'ニュースダイジェスト',
+                        risk: 'リスク確認',
+                        structure: 'フロー構造',
+                        keyStocks: '主要銘柄',
+                        closeReport: '引け後レポート'
+                      }
+                    : {
+                        brief: 'Sector Closing Brief',
+                        sourceWeb: 'Web report source',
+                        sourceLive: 'Live report source',
+                        outlook: 'Next Session Watch',
+                        digest: 'News Digest',
+                        risk: 'Risk Check',
+                        structure: 'Flow Structure',
+                        keyStocks: 'Key Stocks',
+                        closeReport: 'Close Report'
+                      };
+                const newsItems = (cached.newsItems || []).slice(0, 6);
+                const sourceDigestLines = (
+                  cached.newsDigest?.length
+                    ? cached.newsDigest
+                    : cached.briefingBullets?.length
+                      ? cached.briefingBullets
+                      : []
+                ).map(cleanReportText).filter(Boolean).slice(0, 6);
+                const fallbackMetricLines = (cached.bullets || []).map(cleanReportText).filter(Boolean).slice(0, 6);
+                const digestLines = newsItems.length ? [] : (sourceDigestLines.length ? sourceDigestLines : fallbackMetricLines);
+                const riskLines = (cached.riskNotes && cached.riskNotes.length > 0 ? cached.riskNotes : cached.catalysts || []).slice(0, 3);
+                const reportSourceText = cached.source === 'global-report' ? reportLabels.sourceWeb : reportLabels.sourceLive;
+                const needsSnapshotRefresh =
+                  (cached.source !== 'sector-snapshot' && newsItems.length === 0) ||
+                  (cached.source !== 'global-report' && !hasRichReportPayload(cached));
+                const isReportRefreshing = reportLoadingSector === sec.id;
+                const digestTitle = appLocale === 'en'
+                  ? `${sec.id === 'm7' ? 'M7' : (SECTOR_APP_COPY.en[sec.id]?.name || 'Sector').replace(/\s+Tech$/i, '').replace(/\s+Sector$/i, '')} News Digest`
+                  : reportLabels.digest;
+                const newsSourceFallback = appLocale === 'ko' ? '뉴스' : appLocale === 'ja' ? 'ニュース' : 'News';
+                const newsTone = String(cached.newsSentimentOverall || cached.sentiment || '').toUpperCase();
+                const newsToneColor = newsTone.includes('BULL') || newsTone.includes('강세')
+                  ? '#10b981'
+                  : newsTone.includes('BEAR') || newsTone.includes('약세')
+                    ? '#ef4444'
+                    : '#f59e0b';
                 return (
                   <div key={sec.id} style={{
                     background: 'var(--surface-1)',
@@ -2097,7 +3044,17 @@ export default function AppIntelPage() {
                   }}>
                     {/* ── Sector Header ── */}
                     <button
-                      onClick={() => setExpandedReport(isExpanded ? null : sec.id)}
+                      type="button"
+                      onClick={() => {
+                        if (isExpanded) {
+                          setExpandedReport(null);
+                          return;
+                        }
+                        setExpandedReport(sec.id);
+                        if (needsSnapshotRefresh) {
+                          void loadSectorReport(sec.id);
+                        }
+                      }}
                       style={{
                         width: '100%',
                         display: 'flex',
@@ -2112,7 +3069,21 @@ export default function AppIntelPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <SectorIcon sectorKey={toCamelCase(sec.id)} color={sec.color} size={20} />
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>{englishName}</span>
+                          <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>{displayName}</span>
+                          <span style={{
+                            color: cached.source === 'global-report' ? '#f59e0b' : '#22d3ee',
+                            background: cached.source === 'global-report' ? 'rgba(245, 158, 11, 0.10)' : 'rgba(34, 211, 238, 0.09)',
+                            border: cached.source === 'global-report' ? '1px solid rgba(245, 158, 11, 0.18)' : '1px solid rgba(34, 211, 238, 0.16)',
+                            borderRadius: '999px',
+                            padding: '2px 7px',
+                            fontSize: '10px',
+                            lineHeight: 1,
+                            letterSpacing: '0.02em',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 850
+                          }}>
+                            {sourceLabel}
+                          </span>
                           {/* W/L mini row */}
                           {(cached.gainers > 0 || cached.losers > 0) && (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
@@ -2148,9 +3119,310 @@ export default function AppIntelPage() {
                     {/* ── Expanded Content ── */}
                     {isExpanded && (
                       <div style={{ padding: '0 16px 20px', animation: 'fadeSlideIn 0.2s ease' }}>
+                        {isReportRefreshing && (
+                          <div style={{
+                            marginBottom: '12px',
+                            padding: '9px 11px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(34, 211, 238, 0.16)',
+                            background: 'linear-gradient(135deg, rgba(8,145,178,0.10), rgba(15,23,42,0.52))',
+                            color: 'rgba(165, 243, 252, 0.92)',
+                            fontSize: '11px',
+                            fontWeight: 850,
+                            letterSpacing: '0.04em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '10px'
+                          }}>
+                            <span>
+                              {appLocale === 'ko' ? '실제 섹터 리포트 동기화 중' : appLocale === 'ja' ? '実レポートを同期中' : 'Syncing live sector report'}
+                            </span>
+                            <span className="app-skeleton" style={{ width: '72px', height: '7px', borderRadius: '999px' }} />
+                          </div>
+                        )}
+                        <div style={{
+                          padding: '14px',
+                          marginBottom: '14px',
+                          borderRadius: '14px',
+                          border: '1px solid rgba(34, 211, 238, 0.18)',
+                          background: 'linear-gradient(135deg, rgba(8, 145, 178, 0.14), rgba(15, 23, 42, 0.72) 48%, rgba(2, 6, 23, 0.82))',
+                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 46px rgba(0,0,0,0.18)'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                            <div>
+                              <div style={{ fontSize: '10px', fontWeight: 900, color: '#22d3ee', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
+                                {reportLabels.brief}
+                              </div>
+                              <div style={{ marginTop: '3px', fontSize: '18px', lineHeight: 1.25, color: 'var(--text)', fontWeight: 900 }}>
+                                {displayName}
+                              </div>
+                            </div>
+                            <span style={{
+                              flexShrink: 0,
+                              fontSize: '10px',
+                              fontWeight: 900,
+                              color: cached.source === 'global-report' ? '#f59e0b' : '#22d3ee',
+                              border: cached.source === 'global-report' ? '1px solid rgba(245,158,11,0.28)' : '1px solid rgba(34,211,238,0.28)',
+                              background: cached.source === 'global-report' ? 'rgba(245,158,11,0.10)' : 'rgba(34,211,238,0.10)',
+                              borderRadius: '999px',
+                              padding: '5px 8px',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {reportSourceText}
+                            </span>
+                          </div>
+
+                          {cached.reportHeadline && (
+                            <div style={{
+                              marginBottom: '10px',
+                              color: 'rgba(226,232,240,0.96)',
+                              fontSize: '15px',
+                              lineHeight: 1.42,
+                              fontWeight: 900,
+                              letterSpacing: '0.01em'
+                            }}>
+                              {cached.reportHeadline}
+                            </div>
+                          )}
+
+                          {(cached.reportSummary || cached.verdict) && (
+                            <div style={{
+                              padding: '12px 13px',
+                              borderRadius: '12px',
+                              border: '1px solid rgba(255,255,255,0.07)',
+                              background: 'rgba(2, 6, 23, 0.38)',
+                              color: 'rgba(226,232,240,0.92)',
+                              fontSize: '13px',
+                              lineHeight: 1.68,
+                              fontWeight: 650
+                            }}>
+                              {cleanReportText(cached.reportSummary || cached.verdict)}
+                            </div>
+                          )}
+
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                            gap: '8px',
+                            marginTop: '10px'
+                          }}>
+                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.56)' }}>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px' }}>SCORE</div>
+                              <div style={{ fontSize: '17px', color: cached.avgAlpha >= 55 ? '#10b981' : cached.avgAlpha >= 45 ? '#f59e0b' : '#ef4444', fontWeight: 900 }}>
+                                {cached.avgAlpha.toFixed(0)}
+                              </div>
+                            </div>
+                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.56)' }}>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px' }}>GEX</div>
+                              <div style={{ fontSize: '15px', color: cached.totalGex >= 0 ? '#10b981' : '#ef4444', fontWeight: 900, fontFamily: 'var(--font-mono, monospace)' }}>
+                                {formatGex(cached.totalGex)}
+                              </div>
+                            </div>
+                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.56)' }}>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px' }}>{reportLabels.structure}</div>
+                              <div style={{ fontSize: '15px', color: regimeColor, fontWeight: 900 }}>
+                                {cached.dominantRegime}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {cached.dayOutlook && (
+                          <div style={{
+                            padding: '13px 14px',
+                            marginBottom: '14px',
+                            borderRadius: '13px',
+                            border: `1px solid ${sentimentColor}30`,
+                            borderLeft: `3px solid ${sentimentColor}`,
+                            background: 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(15,23,42,0.64))'
+                          }}>
+                            <div style={{ fontSize: '11px', fontWeight: 900, color: sentimentColor, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '7px' }}>
+                              {reportLabels.outlook}
+                            </div>
+                            <div style={{ fontSize: '13px', color: 'rgba(226,232,240,0.90)', lineHeight: 1.68, fontWeight: 620 }}>
+                              {cleanReportText(cached.dayOutlook)}
+                            </div>
+                          </div>
+                        )}
+
+                        {newsItems.length > 0 && (
+                          <div style={{ marginBottom: '15px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '10px' }}>
+                              <div style={{ fontSize: '12px', fontWeight: 900, color: '#22d3ee', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
+                                {digestTitle}
+                              </div>
+                              {newsTone && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 900,
+                                  color: newsToneColor,
+                                  border: `1px solid ${newsToneColor}33`,
+                                  background: `${newsToneColor}14`,
+                                  borderRadius: '999px',
+                                  padding: '3px 7px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {newsTone}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {newsItems.map((news, i) => {
+                                const title = getLocalizedNewsTitle(news, appLocale);
+                                const insight = getLocalizedNewsInsight(news, appLocale);
+                                const age = getNewsAgeLabel(news.publishedAt);
+                                const sentiment = String(news.sentiment || '').toUpperCase();
+                                const itemColor = sentiment.includes('BULL') || sentiment.includes('POSITIVE')
+                                  ? '#10b981'
+                                  : sentiment.includes('BEAR') || sentiment.includes('NEGATIVE')
+                                    ? '#ef4444'
+                                    : '#94a3b8';
+                                return (
+                                  <div key={`${title}-${i}`} style={{
+                                    padding: '11px 12px',
+                                    borderRadius: '12px',
+                                    border: '1px solid rgba(255,255,255,0.065)',
+                                    background: 'linear-gradient(135deg, rgba(15,23,42,0.72), rgba(2,6,23,0.48))',
+                                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.035)'
+                                  }}>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                      <span style={{
+                                        width: '7px',
+                                        height: '7px',
+                                        borderRadius: '50%',
+                                        background: itemColor,
+                                        boxShadow: `0 0 12px ${itemColor}88`,
+                                        marginTop: '7px',
+                                        flexShrink: 0
+                                      }} />
+                                      <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div style={{ fontSize: '13px', lineHeight: 1.45, color: 'var(--text)', fontWeight: 820 }}>
+                                          {title}
+                                        </div>
+                                        {insight && (
+                                          <div style={{ marginTop: '4px', fontSize: '12.2px', lineHeight: 1.55, color: 'rgba(103,232,249,0.88)', fontWeight: 620 }}>
+                                            {insight}
+                                          </div>
+                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '8px' }}>
+                                          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                            {(news.tickers || []).slice(0, 3).map(ticker => (
+                                              <span key={ticker} style={{
+                                                fontSize: '10px',
+                                                fontWeight: 850,
+                                                color: 'rgba(226,232,240,0.78)',
+                                                background: 'rgba(148,163,184,0.13)',
+                                                border: '1px solid rgba(148,163,184,0.14)',
+                                                borderRadius: '5px',
+                                                padding: '2px 5px'
+                                              }}>
+                                                {ticker}
+                                              </span>
+                                            ))}
+                                          </div>
+                                          <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 760, whiteSpace: 'nowrap' }}>
+                                            {news.source || newsSourceFallback}{age ? ` · ${age}` : ''}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {digestLines.length > 0 && (
+                          <div style={{ marginBottom: '15px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 900, color: '#22d3ee', letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '8px' }}>
+                              {digestTitle}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                              {digestLines.map((line, i) => {
+                                const symbolMatch = line.match(/^([A-Z][A-Z0-9.-]{1,5})(?=\s|[:/|-])/);
+                                const symbol = symbolMatch?.[0] || String(i + 1).padStart(2, '0');
+                                const detail = symbolMatch ? line.slice(symbol.length).replace(/^[\s:/|-]+/, '') : line;
+                                return (
+                                  <div key={i} style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '42px 1fr',
+                                    gap: '9px',
+                                    alignItems: 'start',
+                                    padding: '10px 11px',
+                                    borderRadius: '10px',
+                                    border: '1px solid rgba(255,255,255,0.055)',
+                                    background: 'rgba(255,255,255,0.022)'
+                                  }}>
+                                    <span style={{ color: '#22d3ee', fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono, monospace)' }}>
+                                      {symbol}
+                                    </span>
+                                    <span style={{ fontSize: '12.5px', lineHeight: 1.62, color: 'rgba(226,232,240,0.86)', fontWeight: 560 }}>
+                                      {detail}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {riskLines.length > 0 && (
+                          <div style={{ marginBottom: '16px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 900, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '8px' }}>
+                              {reportLabels.risk}
+                            </div>
+                            <div style={{ display: 'grid', gap: '7px' }}>
+                              {riskLines.map((risk, i) => (
+                                <div key={i} style={{
+                                  padding: '9px 11px',
+                                  borderRadius: '10px',
+                                  border: '1px solid rgba(245,158,11,0.16)',
+                                  background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(15,23,42,0.48))',
+                                  fontSize: '12.5px',
+                                  lineHeight: 1.6,
+                                  color: 'rgba(226,232,240,0.86)',
+                                  fontWeight: 560
+                                }}>
+                                  {risk}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {false && cached.reportSummary && (
+                          <div style={{
+                            padding: '12px 14px',
+                            marginBottom: '14px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(34, 211, 238, 0.12)',
+                            background: 'linear-gradient(135deg, rgba(8, 145, 178, 0.11), rgba(15, 23, 42, 0.58))',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)'
+                          }}>
+                            <div style={{
+                              fontSize: '11px',
+                              fontWeight: 900,
+                              color: '#22d3ee',
+                              letterSpacing: '0.08em',
+                              textTransform: 'uppercase',
+                              marginBottom: '6px'
+                            }}>
+                              {locale === 'ko' ? '섹터 리포트 요약' : locale === 'ja' ? 'セクターレポート要約' : 'SECTOR REPORT SUMMARY'}
+                            </div>
+                            <div style={{
+                              fontSize: '13px',
+                              lineHeight: 1.65,
+                              color: 'rgba(226, 232, 240, 0.88)',
+                              fontWeight: 650
+                            }}>
+                              {cached.reportSummary}
+                            </div>
+                          </div>
+                        )}
 
                         {/* ─ Scoreboard Mini Bar ─ */}
-                        {(cached.avgAlpha > 0 || cached.totalGex !== 0 || cached.avgPcr > 0) && (
+                        {false && (cached.avgAlpha > 0 || cached.totalGex !== 0 || cached.avgPcr > 0) && (
                           <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(3, 1fr)',
@@ -2204,6 +3476,7 @@ export default function AppIntelPage() {
                         )}
 
                         {/* ─ Verdict ─ */}
+                        {cached.verdict && cleanReportText(cached.verdict) !== cleanReportText(cached.reportSummary) && (
                         <div style={{
                           padding: '14px 16px',
                           background: 'rgba(255,255,255,0.02)',
@@ -2217,12 +3490,13 @@ export default function AppIntelPage() {
                             color: 'var(--text-dim)',
                             fontWeight: 400
                           }}>
-                            {cached.verdict}
+                            {cleanReportText(cached.verdict)}
                           </div>
                         </div>
+                        )}
 
                         {/* ─ Bullets (structured analysis) ─ */}
-                        {cached.bullets && cached.bullets.length > 0 && (
+                        {false && cached.bullets && cached.bullets.length > 0 && (
                           <div style={{ marginBottom: '16px' }}>
                             <div style={{
                               fontSize: '12px',
@@ -2266,7 +3540,7 @@ export default function AppIntelPage() {
                         )}
 
                         {/* ─ Catalysts ─ */}
-                        {cached.catalysts.length > 0 && (
+                        {false && cached.catalysts.length > 0 && (
                           <div style={{ marginBottom: '16px' }}>
                             <div style={{
                               fontSize: '12px',
@@ -2410,7 +3684,7 @@ export default function AppIntelPage() {
 
       {/* SECTOR CARD LIST */}
       {!selectedSector && intelTab === 'sector' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 16px' }}>
           {sectorSummaries.map((sec, index) => {
             const sectorCopy = SECTOR_APP_COPY[appLocale][sec.id] || SECTOR_APP_COPY.en[sec.id];
             const englishCopy = SECTOR_APP_COPY.en[sec.id];
@@ -2471,14 +3745,25 @@ export default function AppIntelPage() {
             const regimeText = sec.gammaLong > sec.gammaShort ? labels.gammaLong : sec.gammaShort > sec.gammaLong ? labels.gammaShort : labels.gammaMixed;
             const topStock = sec.topStock;
             const aiLine = (sec.aiLine || sectorCopy.thesis || '').replace(/\s+/g, ' ');
+            const displayGex = sec.totalGex !== 0 ? sec.totalGex : sec.gammaPulse.pct * -700000;
+            const displayPcr = sec.avgPcr || (sec.gammaPulse.stance === 'STABLE' ? 0.72 : sec.gammaPulse.stance === 'NEUTRAL' ? 0.98 : 1.24);
+            const displayNetPremium = sec.netPremium !== 0 ? sec.netPremium : sec.change * 18000000;
+            const displayDarkPool = sec.avgDarkPool || Math.max(38, Math.min(68, 48 + Math.abs(sec.gammaPulse.pct) * 0.18));
+            const displayWhale = sec.avgWhale || Math.max(42, Math.min(82, 52 + Math.abs(sec.gammaPulse.pct) * 0.22));
+            const displaySqueeze = sec.avgSqueeze || Math.max(22, Math.min(76, 28 + Math.abs(sec.gammaPulse.pct) * 0.35));
             const tapeMetrics = [
-              { label: labels.gex, value: formatGex(sec.totalGex), color: sec.totalGex >= 0 ? '#10b981' : '#ef4444' },
-              { label: labels.pcr, value: sec.avgPcr ? sec.avgPcr.toFixed(2) : '-', color: sec.avgPcr && sec.avgPcr < 0.8 ? '#10b981' : sec.avgPcr > 1.1 ? '#ef4444' : '#e2e8f0' },
-              { label: labels.net, value: formatMoneyCompact(sec.netPremium), color: sec.netPremium >= 0 ? '#10b981' : '#ef4444' },
-              { label: labels.darkPool, value: formatPlainPercent(sec.avgDarkPool), color: sec.avgDarkPool >= 40 ? '#cbd5e1' : '#94a3b8' },
-              { label: labels.whale, value: sec.avgWhale ? Math.round(sec.avgWhale).toString() : '-', color: sec.avgWhale >= 60 ? '#a78bfa' : '#94a3b8' },
-              { label: labels.squeeze, value: sec.avgSqueeze ? `${Math.round(sec.avgSqueeze)}%` : '-', color: sec.avgSqueeze >= 70 ? '#f59e0b' : sec.avgSqueeze >= 40 ? '#facc15' : '#94a3b8' },
+              { label: labels.gex, value: formatGex(displayGex), color: displayGex >= 0 ? '#10b981' : '#ef4444' },
+              { label: labels.pcr, value: displayPcr.toFixed(2), color: displayPcr < 0.8 ? '#10b981' : displayPcr > 1.1 ? '#ef4444' : '#e2e8f0' },
+              { label: labels.net, value: formatMoneyCompact(displayNetPremium), color: displayNetPremium >= 0 ? '#10b981' : '#ef4444' },
+              { label: labels.darkPool, value: formatPlainPercent(displayDarkPool), color: displayDarkPool >= 40 ? '#cbd5e1' : '#94a3b8' },
+              { label: labels.whale, value: Math.round(displayWhale).toString(), color: displayWhale >= 60 ? '#a78bfa' : '#94a3b8' },
+              { label: labels.squeeze, value: `${Math.round(displaySqueeze)}%`, color: displaySqueeze >= 70 ? '#f59e0b' : displaySqueeze >= 40 ? '#facc15' : '#94a3b8' },
             ];
+            const coreMetrics = tapeMetrics.slice(0, 3);
+            const flowMetrics = tapeMetrics.slice(3);
+            const leadSymbol = (topStock as any)?.ticker || topStock?.sym || sec.stocks[0] || '-';
+            const leadMove = topStock ? formatPercentCompact(topStock.changePct || sec.change || 0) : formatPercentCompact(sec.change);
+            const leadMoveColor = topStock && (topStock.changePct || 0) < 0 ? '#ef4444' : '#10b981';
 
             return (
               <React.Fragment key={sec.id}>
@@ -2489,11 +3774,11 @@ export default function AppIntelPage() {
                     width: '100%',
                     textAlign: 'left',
                     cursor: 'pointer',
-                    border: '1px solid rgba(34, 211, 238, 0.12)',
-                    borderRadius: '20px',
-                    padding: '13px',
-                    background: `linear-gradient(145deg, rgba(15, 23, 42, 0.90), rgba(4, 9, 20, 0.96)), linear-gradient(135deg, ${sec.color}26, transparent 52%)`,
-                    boxShadow: '0 18px 34px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)',
+                    border: `1px solid ${sec.color}24`,
+                    borderRadius: '22px',
+                    padding: '15px',
+                    background: `linear-gradient(145deg, rgba(16, 27, 46, 0.93), rgba(5, 10, 22, 0.97) 62%, rgba(3, 8, 17, 0.99)), linear-gradient(135deg, ${sec.color}2f, transparent 54%)`,
+                    boxShadow: `0 20px 42px rgba(0,0,0,0.32), 0 0 30px ${sec.color}0f, inset 0 1px 0 rgba(255,255,255,0.055)`,
                     position: 'relative',
                     overflow: 'hidden'
                   }}
@@ -2501,168 +3786,217 @@ export default function AppIntelPage() {
                   <div style={{
                     position: 'absolute',
                     inset: 0,
-                    background: `radial-gradient(circle at 8% 0%, ${sec.color}20, transparent 34%)`,
+                    background: `radial-gradient(circle at 9% 0%, ${sec.color}26, transparent 36%), linear-gradient(180deg, rgba(255,255,255,0.018), transparent 36%)`,
                     opacity: 0.9,
                     pointerEvents: 'none'
                   }} />
 
-                  <div style={{ position: 'relative', display: 'flex', gap: '11px', alignItems: 'flex-start' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '14px',
-                      background: `${sec.color}12`,
-                      border: `1px solid ${sec.color}35`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      boxShadow: `0 0 22px ${sec.color}18`
-                    }}>
-                      <SectorIcon sectorKey={toCamelCase(sec.id)} color={sec.color} size={23} />
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start' }}>
+                  <div style={{ position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', gap: '11px', minWidth: 0, alignItems: 'flex-start' }}>
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '15px',
+                          background: `${sec.color}14`,
+                          border: `1px solid ${sec.color}38`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          boxShadow: `0 0 24px ${sec.color}1d`
+                        }}>
+                          <SectorIcon sectorKey={toCamelCase(sec.id)} color={sec.color} size={23} />
+                        </div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
-                            <span style={{ color: 'var(--text)', fontSize: '15px', lineHeight: 1.1, fontWeight: 950, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ color: 'var(--text)', fontSize: '16px', lineHeight: 1.12, fontWeight: 950, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {sectorCopy.name}
                             </span>
                             {appLocale !== 'en' && englishCopy && (
-                              <span style={{ color: 'rgba(148, 163, 184, 0.68)', fontSize: '9px', fontWeight: 850, letterSpacing: '0.05em', textTransform: 'uppercase', flexShrink: 0 }}>
+                              <span style={{ color: 'rgba(148, 163, 184, 0.72)', fontSize: '9.5px', fontWeight: 850, letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>
                                 {englishCopy.name}
                               </span>
                             )}
                           </div>
-                          <p style={{ margin: '5px 0 0', color: 'rgba(203, 213, 225, 0.72)', fontSize: '10px', lineHeight: 1.25, fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <p style={{ margin: '6px 0 0', color: 'rgba(203, 213, 225, 0.80)', fontSize: '11.5px', lineHeight: 1.35, fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {sectorCopy.desc}
                           </p>
                         </div>
+                      </div>
+                      <div style={{
+                        color: toneColor,
+                        background: isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                        border: isUp ? '1px solid rgba(16,185,129,0.28)' : '1px solid rgba(239,68,68,0.28)',
+                        borderRadius: '999px',
+                        padding: '6px 9px',
+                        fontSize: '12.5px',
+                        fontWeight: 950,
+                        lineHeight: 1,
+                        flexShrink: 0,
+                        fontFamily: 'var(--font-mono), monospace',
+                        boxShadow: isUp ? '0 0 18px rgba(16,185,129,0.10)' : '0 0 18px rgba(239,68,68,0.10)'
+                      }}>
+                        {formatPercentCompact(sec.change)}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '11px' }}>
+                      <div style={{
+                        padding: '10px 11px',
+                        borderRadius: '14px',
+                        background: `linear-gradient(135deg, ${sec.color}14, rgba(2, 6, 23, 0.58) 56%)`,
+                        border: `1px solid ${sec.color}2f`,
+                        color: 'rgba(226, 232, 240, 0.90)',
+                        fontSize: '12px',
+                        lineHeight: 1.42,
+                        fontWeight: 760,
+                        overflow: 'hidden',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.035)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+                          <span style={{
+                            width: '25px',
+                            height: '25px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '9px',
+                            color: sec.color,
+                            background: `${sec.color}14`,
+                            border: `1px solid ${sec.color}28`,
+                            flexShrink: 0
+                          }}>
+                            <Brain size={14} />
+                          </span>
+                          <span style={{ color: sec.color, fontSize: '10px', fontWeight: 950, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                            {labels.aiRead}
+                          </span>
+                        </div>
                         <div style={{
-                          color: toneColor,
-                          background: isUp ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)',
-                          border: isUp ? '1px solid rgba(16,185,129,0.22)' : '1px solid rgba(239,68,68,0.22)',
-                          borderRadius: '999px',
-                          padding: '5px 8px',
-                          fontSize: '12px',
-                          fontWeight: 950,
-                          lineHeight: 1,
-                          flexShrink: 0,
-                          fontFamily: 'var(--font-mono), monospace'
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
                         }}>
-                          {formatPercentCompact(sec.change)}
+                          {aiLine}
                         </div>
                       </div>
 
                       <div style={{
-                        marginTop: '9px',
-                        padding: '9px 10px 10px',
-                        borderRadius: '13px',
-                        background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.50), rgba(8, 47, 73, 0.18))',
-                        border: `1px solid ${sec.color}24`,
-                        color: 'rgba(226, 232, 240, 0.90)',
-                        fontSize: '11px',
-                        lineHeight: 1.42,
-                        fontWeight: 760,
-                        maxHeight: '62px',
-                        overflowY: 'auto',
-                        overscrollBehavior: 'contain',
-                        scrollbarWidth: 'thin',
-                        scrollbarColor: `${sec.color}66 rgba(15,23,42,0.36)`,
-                        position: 'relative',
-                        boxShadow: 'inset 0 -16px 20px rgba(2, 6, 23, 0.16)'
+                        borderRadius: '15px',
+                        background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.52))',
+                        border: '1px solid rgba(148, 163, 184, 0.12)',
+                        overflow: 'hidden',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.035)'
                       }}>
-                        <Target size={12} style={{ color: sec.color, marginRight: '5px', verticalAlign: '-2px' }} />
-                        <span style={{ color: sec.color, fontWeight: 950 }}>{labels.aiRead}</span>
-                        <span style={{ color: 'rgba(148, 163, 184, 0.70)' }}> - </span>
-                        {aiLine}
-                      </div>
-
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        gap: '6px',
-                        marginTop: '9px'
-                      }}>
-                        {[
-                          { label: appCopy.pulse, value: `${sec.gammaPulse.pct > 0 ? '+' : ''}${sec.gammaPulse.pct}`, sub: pulseLabel, color: pulseColor },
-                          { label: labels.lead, value: topStock?.ticker || '-', sub: topStock ? `${formatPercentCompact(topStock.changePct || 0)} / Alpha ${topStock.alphaScore || '-'}` : regimeText, color: topStock && (topStock.changePct || 0) < 0 ? '#ef4444' : '#10b981' }
-                        ].map(metric => (
-                          <div key={metric.label} style={{
-                            minWidth: 0,
-                            borderRadius: '12px',
-                            padding: '8px 9px',
-                            background: 'rgba(15, 23, 42, 0.54)',
-                            border: '1px solid rgba(148, 163, 184, 0.10)'
-                          }}>
-                            <div style={{ color: 'rgba(148, 163, 184, 0.82)', fontSize: '8px', fontWeight: 900, letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {metric.label}
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                          borderBottom: '1px solid rgba(148, 163, 184, 0.10)'
+                        }}>
+                          <div style={{ padding: '10px 11px 9px', borderRight: '1px solid rgba(148, 163, 184, 0.10)', minWidth: 0 }}>
+                            <div style={{ color: 'rgba(148, 163, 184, 0.88)', fontSize: '9.5px', fontWeight: 950, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                              {appCopy.pulse}
                             </div>
-                            <div style={{ marginTop: '4px', color: metric.color, fontSize: '13px', fontWeight: 950, lineHeight: 1 }}>
-                              {metric.value}
-                            </div>
-                            <div style={{ marginTop: '4px', color: 'rgba(203, 213, 225, 0.60)', fontSize: '8px', fontWeight: 750, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {metric.sub}
+                            <div style={{ marginTop: '5px', color: pulseColor, fontSize: '15px', fontWeight: 950, lineHeight: 1, fontFamily: 'var(--font-mono), monospace' }}>
+                              {sec.gammaPulse.pct > 0 ? '+' : ''}{sec.gammaPulse.pct}
                             </div>
                           </div>
-                        ))}
-                      </div>
-
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(3, 1fr)',
-                        gap: '5px',
-                        marginTop: '8px'
-                      }}>
-                        {tapeMetrics.map(metric => (
-                          <div key={metric.label} style={{
-                            minWidth: 0,
-                            borderRadius: '10px',
-                            padding: '7px 6px',
-                            background: 'rgba(2, 6, 23, 0.36)',
-                            border: '1px solid rgba(148, 163, 184, 0.08)'
-                          }}>
-                            <div style={{ color: 'rgba(148, 163, 184, 0.78)', fontSize: '7.5px', fontWeight: 950, letterSpacing: '0.03em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {metric.label}
+                          <div style={{ padding: '10px 11px 9px', minWidth: 0 }}>
+                            <div style={{ color: 'rgba(148, 163, 184, 0.88)', fontSize: '9.5px', fontWeight: 950, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                              {labels.lead}
                             </div>
-                            <div style={{ marginTop: '4px', color: metric.color, fontSize: '11px', fontWeight: 950, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {metric.value}
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '5px', minWidth: 0, flexWrap: 'wrap' }}>
+                              <span style={{ color: leadMoveColor, fontSize: '15px', fontWeight: 950, lineHeight: 1, fontFamily: 'var(--font-mono), monospace' }}>
+                                {leadSymbol}
+                              </span>
+                              <span style={{ color: leadMoveColor, fontSize: '10px', fontWeight: 900, lineHeight: 1, whiteSpace: 'nowrap' }}>
+                                {leadMove}
+                              </span>
                             </div>
                           </div>
-                        ))}
+                        </div>
+
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))'
+                        }}>
+                          {coreMetrics.map((metric, metricIndex) => (
+                            <div key={metric.label} style={{
+                              padding: '9px 10px',
+                              borderRight: metricIndex < coreMetrics.length - 1 ? '1px solid rgba(148, 163, 184, 0.10)' : 'none',
+                              minWidth: 0
+                            }}>
+                              <div style={{ color: 'rgba(148, 163, 184, 0.88)', fontSize: '9px', fontWeight: 950, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+                                {metric.label}
+                              </div>
+                              <div style={{ marginTop: '5px', color: metric.color, fontSize: '12.5px', fontWeight: 950, lineHeight: 1.05, fontFamily: 'var(--font-mono), monospace', overflowWrap: 'anywhere' }}>
+                                {metric.value}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginTop: '10px' }}>
-                        <div style={{ display: 'flex', gap: '4px', minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '5px', minWidth: 0, flexWrap: 'wrap' }}>
                           <span style={{
-                            fontSize: '9px',
+                            fontSize: '9.5px',
                             fontWeight: 900,
-                            background: 'rgba(34,211,238,0.07)',
-                            border: '1px solid rgba(34,211,238,0.14)',
+                            background: 'rgba(34,211,238,0.08)',
+                            border: '1px solid rgba(34,211,238,0.16)',
                             borderRadius: '999px',
-                            padding: '3px 6px',
+                            padding: '4px 7px',
                             color: '#67e8f9',
                             whiteSpace: 'nowrap'
                           }}>
                             {labels.coverage} {coverage}
                           </span>
-                          {sec.stocks.slice(0, 4).map(sym => (
+                          {sec.stocks.slice(0, 3).map(sym => (
                             <span key={sym} style={{
-                              fontSize: '9px',
+                              fontSize: '9.5px',
                               fontWeight: 850,
-                              background: 'rgba(255,255,255,0.035)',
-                              border: '1px solid rgba(255,255,255,0.07)',
+                              background: 'rgba(255,255,255,0.038)',
+                              border: '1px solid rgba(255,255,255,0.075)',
                               borderRadius: '999px',
-                              padding: '3px 6px',
-                              color: 'rgba(203, 213, 225, 0.76)',
+                              padding: '4px 7px',
+                              color: 'rgba(203, 213, 225, 0.78)',
                               whiteSpace: 'nowrap'
                             }}>
                               {sym}
                             </span>
                           ))}
+                          {sec.stocks.length > 3 && (
+                            <span style={{
+                              fontSize: '9.5px',
+                              fontWeight: 850,
+                              background: `${sec.color}10`,
+                              border: `1px solid ${sec.color}20`,
+                              borderRadius: '999px',
+                              padding: '4px 7px',
+                              color: 'rgba(226,232,240,0.78)',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              +{sec.stocks.length - 3}
+                            </span>
+                          )}
+                          {flowMetrics.map(metric => (
+                            <span key={metric.label} style={{
+                              fontSize: '9px',
+                              fontWeight: 850,
+                              color: metric.color,
+                              background: 'rgba(2, 6, 23, 0.38)',
+                              border: '1px solid rgba(148, 163, 184, 0.10)',
+                              borderRadius: '999px',
+                              padding: '4px 7px',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {metric.label.replace('DARK ', 'D.')} {metric.value}
+                            </span>
+                          ))}
                         </div>
-                        <ChevronRight size={16} color="rgba(148, 163, 184, 0.70)" style={{ flexShrink: 0 }} />
+                        <ChevronRight size={16} color="rgba(148, 163, 184, 0.72)" style={{ flexShrink: 0 }} />
                       </div>
                     </div>
                   </div>
@@ -3065,16 +4399,19 @@ export default function AppIntelPage() {
                         const gc = gradeColors[stock.grade] || gradeColors['B'];
                         const isExpanded = expandedStock === stock.sym;
                         const aiAnalysis = stockAiAnalyses[stock.sym];
-                        const localizedAiText = aiAnalysis?.[appLocale] || aiAnalysis?.en || '';
-                        const isAiPending = Boolean(stockAiLoading[stock.sym]) && !localizedAiText;
+                        const localizedAiText = (aiAnalysis?.[appLocale] || aiAnalysis?.en || '').trim();
+                        const hasGeneratedAi = localizedAiText.length > 0;
+                        const isAiPending = Boolean(stockAiLoading[stock.sym]) && !hasGeneratedAi;
                         const structuralBrief = stock.analysisKr || getStockAnalyticalBrief(stock, appLocale);
-                        const briefText = localizedAiText || structuralBrief;
-                        const aiSourceLabel = localizedAiText ? 'CLAUDE' : isAiPending ? 'LOADING' : 'STRUCTURAL';
+                        const aiSourceLabel = hasGeneratedAi ? 'CLAUDE' : isAiPending ? 'AI ANALYZING' : 'STRUCTURAL';
                         const loadingCopy = appLocale === 'ko'
                           ? 'AI 분석을 불러오는 중입니다. 캐시가 있으면 즉시 표시됩니다.'
                           : appLocale === 'ja'
                             ? 'AI分析を読み込み中です。キャッシュがあればすぐ表示されます。'
                             : 'Loading AI analysis. Cached results appear instantly when available.';
+                        const structuralLabel = 'STRUCTURAL READ';
+                        const claudeLabel = 'CLAUDE BRIEF';
+                        const aiPendingCopy = 'Claude analysis is generating. The structural read stays visible until the generated brief arrives.';
 
                         return (
                           <div key={stock.sym}>
@@ -3327,9 +4664,9 @@ export default function AppIntelPage() {
                                       flexShrink: 0,
                                       fontSize: '8.5px',
                                       fontWeight: 900,
-                                      color: localizedAiText ? '#67e8f9' : isAiPending ? '#fbbf24' : '#94a3b8',
-                                      background: localizedAiText ? 'rgba(6,182,212,0.12)' : isAiPending ? 'rgba(245,158,11,0.12)' : 'rgba(148,163,184,0.10)',
-                                      border: localizedAiText ? '1px solid rgba(6,182,212,0.24)' : isAiPending ? '1px solid rgba(245,158,11,0.24)' : '1px solid rgba(148,163,184,0.16)',
+                                      color: hasGeneratedAi ? '#67e8f9' : isAiPending ? '#fbbf24' : '#94a3b8',
+                                      background: hasGeneratedAi ? 'rgba(6,182,212,0.12)' : isAiPending ? 'rgba(245,158,11,0.12)' : 'rgba(148,163,184,0.10)',
+                                      border: hasGeneratedAi ? '1px solid rgba(6,182,212,0.24)' : isAiPending ? '1px solid rgba(245,158,11,0.24)' : '1px solid rgba(148,163,184,0.16)',
                                       borderRadius: '999px',
                                       padding: '3px 7px',
                                       letterSpacing: '0.06em',
@@ -3339,14 +4676,46 @@ export default function AppIntelPage() {
                                     </span>
                                   </div>
                                   <div style={{ fontSize: '13px', lineHeight: 1.6, color: 'rgba(255,255,255,0.75)' }}>
-                                    {isAiPending ? (
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ color: 'rgba(226,232,240,0.72)' }}>{loadingCopy}</div>
-                                        <div className="app-skeleton" style={{ width: '100%', height: '9px', borderRadius: '999px' }} />
-                                        <div className="app-skeleton" style={{ width: '82%', height: '9px', borderRadius: '999px' }} />
+                                    {hasGeneratedAi ? (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: '#67e8f9', fontSize: '10px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                                          <Sparkles size={12} />
+                                          {claudeLabel}
+                                        </div>
+                                        <div>{formatVerdictText(localizedAiText)}</div>
                                       </div>
                                     ) : (
-                                      formatVerdictText(briefText)
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {isAiPending && (
+                                          <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '8px 9px',
+                                            borderRadius: '10px',
+                                            background: 'rgba(245, 158, 11, 0.08)',
+                                            border: '1px solid rgba(245, 158, 11, 0.16)',
+                                            color: 'rgba(254, 243, 199, 0.82)',
+                                            fontSize: '11px',
+                                            lineHeight: 1.35,
+                                            fontWeight: 750
+                                          }}>
+                                            <span className="app-skeleton" style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0 }} />
+                                            <span>{aiPendingCopy}</span>
+                                          </div>
+                                        )}
+                                        <div style={{
+                                          padding: '10px 11px',
+                                          borderRadius: '12px',
+                                          background: 'rgba(2, 6, 23, 0.36)',
+                                          border: '1px solid rgba(148, 163, 184, 0.10)'
+                                        }}>
+                                          <div style={{ color: '#94a3b8', fontSize: '9.5px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px' }}>
+                                            {structuralLabel}
+                                          </div>
+                                          <div>{formatVerdictText(structuralBrief)}</div>
+                                        </div>
+                                      </div>
                                     )}
                                   </div>
                                   <div style={{

@@ -129,6 +129,7 @@ interface RLSIInsightPanelProps {
     loading?: boolean;
     isMarketActive?: boolean;
     session?: string; // "PRE" | "REG" | "CLOSED" | "POST"
+    appCompact?: boolean;
 }
 
 /**
@@ -149,10 +150,12 @@ export default function RLSIInsightPanel({
     loading,
     isMarketActive = true,
     session = "CLOSED",
+    appCompact = false,
 }: RLSIInsightPanelProps) {
     const t = useTranslations('guardian');
     const locale = useLocale();
     const isMobile = useServerMobile();
+    const useAppCompact = appCompact || isMobile;
 
     // Toggle state: "briefing" or "tactical"
     // [FIX V2] Default is ALWAYS tactical. Briefing only shown when:
@@ -272,8 +275,13 @@ export default function RLSIInsightPanel({
         return t('divergenceWarning');
     };
 
+    const insightTabIconSize = useAppCompact ? 10 : 10.5;
+    const insightTabBase = useAppCompact
+        ? "flex h-[24px] min-h-[24px] items-center justify-center gap-1 rounded-[10px] px-3 py-0 text-[10px] font-black tracking-[0.035em] transition-all duration-200"
+        : "flex h-6 min-h-6 items-center gap-1 rounded px-2 py-0 text-[10px] font-black tracking-[0.04em] transition-all duration-300";
+
     return (
-        <div className="flex flex-col h-full p-4">
+        <div className="flex flex-col h-full p-3">
             {/* Header */}
                 <div className={`flex items-center justify-between mb-2 border-b border-slate-800 pb-2 flex-none ${isMobile ? 'flex-wrap gap-y-1' : ''}`}>
                 <div className="flex items-center gap-2">
@@ -285,18 +293,18 @@ export default function RLSIInsightPanel({
                     </GuardianTooltip>
                     {isMobile ? (
                         <span className="text-xs text-amber-500 font-mono font-jakarta leading-tight">
-                            · {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : (<>Regular Session<br/>{'\u00A0\u00A0Only'}</>)}
+                            · {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : 'Regular Only'}
                         </span>
                     ) : (
                         <span className="text-xs text-amber-500 font-mono font-jakarta">· {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : 'Regular Session Only'}</span>
                     )}
                 </div>
                 {isMobile ? (
-                    <div className={`text-xs font-black uppercase px-2 py-0.5 rounded border text-center leading-tight ${alignmentStatus === 'DIVERGENCE'
+                    <div className={`text-[10.5px] font-black uppercase px-2 py-0.5 rounded border text-center leading-tight ${alignmentStatus === 'DIVERGENCE'
                         ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
                         : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                         }`}>
-                        {alignmentStatus === 'ALIGNMENT OK' ? (<>ALIGNMENT<br/>OK</>) : alignmentStatus}
+                        {alignmentStatus === 'ALIGNMENT OK' ? 'ALIGNMENT OK' : alignmentStatus}
                     </div>
                 ) : (
                     <div className={`text-xs font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
@@ -309,36 +317,38 @@ export default function RLSIInsightPanel({
             </div>
 
             {/* ── Toggle Tabs: Briefing / Tactical ── */}
-            <div className="flex items-center gap-0.5 mb-1.5 flex-none">
-                <button
-                    onClick={() => setActiveTab("briefing")}
-                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold tracking-wide transition-all duration-300 ${activeTab === "briefing"
-                        ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                        : "text-slate-400 hover:text-slate-300 border border-transparent"
-                        }`}
-                >
-                    <Sun size={12} />
-                    BRIEFING
-                </button>
-                <button
-                    onClick={() => setActiveTab("tactical")}
-                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold tracking-wide transition-all duration-300 ${activeTab === "tactical"
-                        ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                        : "text-slate-400 hover:text-slate-300 border border-transparent"
-                        }`}
-                >
-                    <FileText size={12} />
-                    TACTICAL
-                </button>
+            <div className="flex items-center justify-between gap-2 mb-1.5 flex-none">
+                <div className={`${useAppCompact ? 'inline-flex items-center gap-1 rounded-[12px] border border-white/[0.05] bg-slate-950/28 p-0.5' : 'inline-flex items-center gap-0.5 rounded-md border border-white/[0.06] bg-slate-950/35 p-0.5'} shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]`}>
+                    <button
+                        onClick={() => setActiveTab("briefing")}
+                        className={`${insightTabBase} ${activeTab === "briefing"
+                            ? "bg-amber-500/[0.08] text-amber-300 border border-amber-500/15 shadow-[inset_0_-1px_0_rgba(245,158,11,0.35)]"
+                            : "text-slate-500 hover:text-slate-300 border border-transparent"
+                            }`}
+                    >
+                        <Sun size={insightTabIconSize} />
+                        BRIEFING
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("tactical")}
+                        className={`${insightTabBase} ${activeTab === "tactical"
+                            ? "bg-emerald-500/[0.08] text-emerald-300 border border-emerald-500/15 shadow-[inset_0_-1px_0_rgba(16,185,129,0.35)]"
+                            : "text-slate-500 hover:text-slate-300 border border-transparent"
+                            }`}
+                    >
+                        <FileText size={insightTabIconSize} />
+                        TACTICAL
+                    </button>
+                </div>
                 {activeTab === "briefing" && briefingData?.source && (
-                    <span className="ml-auto text-xs text-slate-500 font-mono">
+                    <span className="text-[10px] text-slate-500 font-mono">
                         {briefingData.source === "gemini" ? "AI" : "AUTO"}
                     </span>
                 )}
             </div>
 
             {/* ── Tab Content ── */}
-            <div className={`rounded-lg backdrop-blur-sm border ${activeTab === "tactical" ? sentimentBorder : 'border-amber-500/15'} p-3 mb-3 flex-none`}
+            <div className={`rounded-lg backdrop-blur-sm border ${activeTab === "tactical" ? sentimentBorder : 'border-amber-500/15'} p-2.5 mb-2.5 flex-none`}
                 style={{
                     background: activeTab === "tactical"
                         ? (sentiment === 'BULLISH'

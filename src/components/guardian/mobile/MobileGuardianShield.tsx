@@ -179,11 +179,11 @@ const GAMMA_AI_COPY: Record<LocaleKey, {
         supportDistance: '지지 거리',
         resistanceDistance: '저항 거리',
         longGammaTitle: '변동성 흡수 우위',
-        longGammaBody: '딜러 감마가 완충 역할을 하는 구간입니다. 급격한 방향 추격보다 레인지와 벽 반응 확인이 더 중요합니다.',
+        longGammaBody: '딜러 감마가 완충 역할을 하는 구간입니다. 급격한 방향 추격보다 현재가가 벽에 닿을 때 속도가 죽는지, 체결이 흡수되는지 확인하는 해석이 더 중요합니다.',
         shortGammaTitle: '변동성 확대 주의',
-        shortGammaBody: '딜러 헤지가 가격 움직임을 키울 수 있는 구간입니다. 플립과 벽 돌파 여부를 우선 확인해야 합니다.',
+        shortGammaBody: '딜러 헤지가 가격 움직임을 키울 수 있는 구간입니다. 플립과 벽 돌파가 동시에 발생하면 단순 돌파보다 변동성 재가격 신호로 해석해야 합니다.',
         neutralTitle: '중립 레인지 관찰',
-        neutralBody: '방향성보다 지지·저항 사이의 균형이 핵심입니다. 플립 전후 반응이 다음 레짐을 결정합니다.',
+        neutralBody: '방향성보다 지지·저항 사이의 균형이 핵심입니다. 플립 전후 체결 반응과 압축 변화가 다음 레짐 전환의 단서입니다.',
         lowSqueeze: '압축 낮음',
         mediumSqueeze: '압축 형성',
         highSqueeze: '압축 높음',
@@ -215,11 +215,11 @@ const GAMMA_AI_COPY: Record<LocaleKey, {
         supportDistance: 'Support Distance',
         resistanceDistance: 'Resistance Distance',
         longGammaTitle: 'Volatility Absorption',
-        longGammaBody: 'Dealer gamma is acting as a cushion. Range behavior and wall reactions matter more than chasing direction.',
+        longGammaBody: 'Dealer gamma is acting as a cushion. Instead of chasing direction, watch whether price slows at the walls or liquidity absorbs the move.',
         shortGammaTitle: 'Volatility Expansion Risk',
-        shortGammaBody: 'Dealer hedging can amplify price movement. Watch the flip level and wall breaks first.',
+        shortGammaBody: 'Dealer hedging can amplify price movement. If the flip and a wall break align, treat it as a volatility repricing signal rather than a simple breakout.',
         neutralTitle: 'Neutral Range Watch',
-        neutralBody: 'The structure is balanced. Reactions around the flip and both walls will define the next regime.',
+        neutralBody: 'The structure is balanced. Reactions around the flip, plus compression changes, define whether the next regime becomes absorption or expansion.',
         lowSqueeze: 'Low compression',
         mediumSqueeze: 'Compression building',
         highSqueeze: 'High compression',
@@ -251,11 +251,11 @@ const GAMMA_AI_COPY: Record<LocaleKey, {
         supportDistance: '支持距離',
         resistanceDistance: '抵抗距離',
         longGammaTitle: 'ボラティリティ吸収優位',
-        longGammaBody: 'ディーラー・ガンマがクッションとして働く領域です。方向追随よりレンジと壁の反応確認が重要です。',
+        longGammaBody: 'ディーラー・ガンマがクッションとして働く領域です。方向追随より、壁付近で価格速度が落ちるのか、流動性が吸収するのかを確認します。',
         shortGammaTitle: 'ボラティリティ拡大に注意',
-        shortGammaBody: 'ディーラーのヘッジが値動きを増幅しやすい領域です。フリップ水準と壁の突破を優先して確認します。',
+        shortGammaBody: 'ディーラーのヘッジが値動きを増幅しやすい領域です。フリップと壁の突破が重なる場合、単純なブレイクではなく変動性の再評価として見ます。',
         neutralTitle: '中立レンジ監視',
-        neutralBody: '構造は均衡しています。フリップ前後と両側の壁の反応が次の体制を決めます。',
+        neutralBody: '構造は均衡しています。フリップ前後の反応と圧縮変化が、次の体制が吸収か拡大かを決める手掛かりです。',
         lowSqueeze: '圧縮低め',
         mediumSqueeze: '圧縮形成',
         highSqueeze: '圧縮高め',
@@ -287,8 +287,16 @@ function formatDistance(value: number | null): string {
     return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
 }
 
-function getInsightPreview(text: string, max = 110): string {
-    const compact = text.replace(/\s+/g, ' ').trim();
+function cleanAiBriefText(text: string): string {
+    return text
+        .replace(/\*\*/g, '')
+        .replace(/\r/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function getInsightPreview(text: string, max = 145): string {
+    const compact = cleanAiBriefText(text).replace(/\s+/g, ' ').trim();
     return compact.length > max ? `${compact.slice(0, max).trim()}...` : compact;
 }
 
@@ -335,23 +343,23 @@ function getAiLogicPoints(gammaShield: any, localeKey: LocaleKey, copy: typeof G
 
     if (localeKey === 'ja') {
         return [
-            { label: '構造解釈', value: gexText || '—', body: 'ガンマ水準と圧縮度を合わせて、変動性が吸収されるのか拡大しやすいのかを判断します。' },
-            { label: '圧縮状態', value: squeezeText, body: '低い圧縮はレンジ継続、高い圧縮はブレイク時の速度変化に注意します。' },
+            { label: '構造解釈', value: gexText || '—', body: 'ガンマ水準と圧縮度を合わせ、現在の値動きが壁で吸収されるのか、ブレイク時に増幅されるのかを分けて読みます。' },
+            { label: '圧縮状態', value: squeezeText, body: '圧縮は方向予測ではなくエネルギーの蓄積です。高いほど、壁を抜けた後の速度変化を優先確認します。' },
             { label: '確認条件', value: priceText, body: getPriceCondition(gammaShield, copy) },
         ];
     }
 
     if (localeKey === 'en') {
         return [
-            { label: 'Structure Read', value: gexText || '—', body: 'Combines gamma regime and compression to judge whether volatility is being absorbed or can expand.' },
-            { label: 'Compression State', value: squeezeText, body: 'Low compression favors range behavior; high compression makes break reactions more important.' },
+            { label: 'Structure Read', value: gexText || '—', body: 'Combines gamma regime and compression to separate wall absorption from potential breakout amplification.' },
+            { label: 'Compression State', value: squeezeText, body: 'Compression is not a direction call; it measures stored energy. Higher readings make post-wall speed more important.' },
             { label: 'Confirmation Path', value: priceText, body: getPriceCondition(gammaShield, copy) },
         ];
     }
 
     return [
-        { label: '구조 해석', value: gexText || '—', body: '감마 레짐과 압축도를 함께 읽어 변동성이 흡수되는지, 확대될 수 있는지 판단합니다.' },
-        { label: '압축 상태', value: squeezeText, body: '압축이 낮으면 레인지 유지, 높아지면 돌파 시 속도 변화 가능성을 우선 확인합니다.' },
+        { label: '구조 해석', value: gexText || '—', body: '감마 레짐과 압축도를 결합해 현재 변동성이 벽에서 흡수되는지, 돌파 후 확대될 수 있는지 분리해서 읽습니다.' },
+        { label: '압축 상태', value: squeezeText, body: '압축은 방향 예측이 아니라 에너지 축적 신호입니다. 높아질수록 벽 돌파 이후 속도 변화를 우선 확인합니다.' },
         { label: '확인 조건', value: priceText, body: getPriceCondition(gammaShield, copy) },
     ];
 }
@@ -376,10 +384,12 @@ function GammaShieldAiCard({
         : thesis.tone === 'emerald'
             ? 'text-emerald-300 border-emerald-400/20 bg-emerald-500/10'
             : 'text-amber-300 border-amber-400/20 bg-amber-500/10';
+    const cleanInsight = cleanAiBriefText(gammaInsight || '');
+    const previewInsight = getInsightPreview(cleanInsight, localeKey === 'en' ? 188 : 156);
 
     return (
         <div
-            className="relative overflow-hidden rounded-xl border border-cyan-400/20 p-3 shadow-2xl"
+            className="relative overflow-hidden rounded-2xl border border-cyan-300/25 p-4 shadow-2xl"
             style={{
                 background: 'radial-gradient(circle at 16% 0%, rgba(20,184,166,0.18), transparent 34%), linear-gradient(145deg, rgba(15,23,42,0.96), rgba(2,6,23,0.98))',
                 boxShadow: '0 18px 48px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.045)',
@@ -398,63 +408,72 @@ function GammaShieldAiCard({
                             height={15}
                             style={{ objectFit: 'contain', filter: 'drop-shadow(0 0 4px rgba(34,211,238,0.45))' }}
                         />
-                        <h3 className="text-[12px] font-black uppercase tracking-[0.18em] text-cyan-300 font-jakarta">
+                        <h3 className="text-[13px] font-black uppercase tracking-[0.18em] text-cyan-300 font-jakarta">
                             GAMMA SHIELD AI
                         </h3>
                     </div>
-                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-500">
                         {copy.engine} · {effectiveSession === 'REG' ? 'Live' : 'Standby'}
                     </div>
                 </div>
-                <span className="shrink-0 rounded-md border border-cyan-400/20 bg-cyan-950/70 px-2 py-1 text-[9px] font-black text-cyan-300">
+                <span className="shrink-0 rounded-md border border-cyan-400/20 bg-cyan-950/70 px-2 py-1 text-[10px] font-black text-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.16)]">
                     CLAUDE
                 </span>
             </div>
 
-            <div className={`relative mt-3 rounded-xl border p-2.5 ${toneClass}`}>
+            <div className={`relative mt-3 rounded-xl border p-3 ${toneClass}`}>
                 <div className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] opacity-80">
                     {copy.thesis}
                 </div>
-                <div className="text-[16px] font-black leading-tight text-white">
+                <div className="text-[18px] font-black leading-[1.15] text-white">
                     {thesis.title}
                 </div>
-                <p className="mt-1.5 text-[12px] font-semibold leading-[1.55] text-slate-200/90">
+                <p className="mt-1.5 text-[13.5px] font-semibold leading-[1.7] text-slate-200/90">
                     {thesis.body}
                 </p>
             </div>
 
-            <div className="relative mt-3 rounded-xl border border-cyan-400/15 bg-slate-950/35 p-2.5">
+            <div className="relative mt-3 overflow-hidden rounded-xl border border-cyan-400/15 bg-slate-950/35 p-3">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
                 <div className="mb-2 flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-300">{copy.evidence}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">{copy.trigger}</span>
+                    <span className="rounded-full border border-white/8 bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">3-LAYER AI</span>
                 </div>
                 <div className="space-y-2">
-                    {logicPoints.map((point) => (
-                        <div key={point.label} className="rounded-lg border border-white/7 bg-black/20 p-2.5">
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="text-[9px] font-black uppercase tracking-[0.09em] text-slate-500">{point.label}</span>
-                                <span className="max-w-[58%] truncate text-right text-[10px] font-black text-cyan-200">{point.value}</span>
+                    {logicPoints.map((point, index) => (
+                        <div key={point.label} className="rounded-lg border border-white/7 bg-black/22 p-3">
+                            <div className="flex items-start gap-2">
+                                <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-cyan-300/15 bg-cyan-400/8 text-[9px] font-black text-cyan-300">
+                                    L{index + 1}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <div className="grid gap-1">
+                                        <span className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-500">{point.label}</span>
+                                        <span className="text-[11.5px] font-black leading-snug text-cyan-200 break-words">{point.value}</span>
+                                    </div>
+                                    <p className="mt-1.5 text-[12.5px] font-semibold leading-[1.62] text-slate-200/90">{point.body}</p>
+                                </div>
                             </div>
-                            <p className="mt-1 text-[11px] font-semibold leading-[1.45] text-slate-200/88">{point.body}</p>
                         </div>
                     ))}
                 </div>
             </div>
 
             {gammaInsight ? (
-                <div className="relative mt-3 rounded-xl border border-white/8 bg-black/20 p-2.5">
+                <div className="relative mt-3 overflow-hidden rounded-xl border border-cyan-300/12 bg-black/24 p-3">
+                    <div className="pointer-events-none absolute -left-8 top-0 h-full w-10 rotate-12 bg-cyan-200/5 blur-sm" />
                     <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{copy.aiBrief}</div>
                         <button
                             type="button"
                             onClick={() => setShowDetails((value) => !value)}
-                            className="shrink-0 rounded-md border border-cyan-400/20 bg-cyan-950/40 px-2 py-1 text-[9px] font-black text-cyan-300"
+                            className="app-brief-toggle shrink-0 rounded-md border border-cyan-400/20 bg-cyan-950/40 px-2.5 py-1.5 text-[10.5px] font-black text-cyan-300"
                         >
                             {showDetails ? copy.hideDetails : copy.showDetails}
                         </button>
                     </div>
-                    <div className="text-[12px] text-white/92 leading-[1.65] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                        {renderColoredText(showDetails ? gammaInsight : getInsightPreview(gammaInsight))}
+                    <div className="text-[13.5px] font-medium text-white/92 leading-[1.72] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                        {renderColoredText(showDetails ? cleanInsight : previewInsight)}
                     </div>
                 </div>
             ) : (
@@ -464,7 +483,7 @@ function GammaShieldAiCard({
                 </div>
             )}
 
-            <div className="relative mt-3 rounded-lg border border-amber-400/15 bg-amber-500/8 px-2.5 py-2 text-[10px] font-semibold leading-[1.45] text-amber-100/80">
+            <div className="relative mt-3 rounded-lg border border-amber-400/15 bg-amber-500/8 px-3 py-2.5 text-[10.5px] font-semibold leading-[1.5] text-amber-100/80">
                 {copy.compliance}
             </div>
         </div>

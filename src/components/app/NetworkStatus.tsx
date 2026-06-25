@@ -4,20 +4,19 @@ import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 
 const LABELS = {
-  ko: { offline: '오프라인', lastUpdate: '마지막 업데이트', agoSuffix: '전', reconnecting: '재연결 중...' },
-  en: { offline: 'Offline', lastUpdate: 'Last update', agoSuffix: 'ago', reconnecting: 'Reconnecting...' },
-  ja: { offline: 'オフライン', lastUpdate: '最終更新', agoSuffix: '前', reconnecting: '再接続中...' },
+  ko: { offline: '오프라인', reconnecting: '재연결 중...' },
+  en: { offline: 'Offline', reconnecting: 'Reconnecting...' },
+  ja: { offline: 'オフライン', reconnecting: '再接続中...' },
 };
 
 export function NetworkStatus() {
   const [online, setOnline] = useState(true);
-  const [lastOnline, setLastOnline] = useState<number>(Date.now());
   const locale = useLocale() as 'ko' | 'en' | 'ja';
   const t = LABELS[locale] || LABELS.en;
 
   useEffect(() => {
-    const goOnline = () => { setOnline(true); setLastOnline(Date.now()); };
-    const goOffline = () => { setOnline(false); setLastOnline(Date.now()); };
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
 
     if (typeof navigator !== 'undefined') setOnline(navigator.onLine);
     window.addEventListener('online', goOnline);
@@ -29,9 +28,6 @@ export function NetworkStatus() {
   }, []);
 
   if (online) return null;
-
-  const elapsed = Math.round((Date.now() - lastOnline) / 60000);
-  const timeText = elapsed < 1 ? '<1min' : `${elapsed}min`;
 
   return (
     <div style={{
