@@ -241,6 +241,8 @@ function GuardianPageContent() {
   }, [data]);
 
   const session = data?.rlsi?.session;
+  const isRiskStreamActive = session === 'REG' || session === 'PRE' || session === 'POST';
+  const isVolMetricActive = session === 'REG' || session === 'POST';
   const sessionBadge = (() => {
     if (marketStatusInfo.isHoliday) return { label: 'HOLIDAY', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.35)' };
     if (session === 'REG') return { label: 'LIVE', color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.32)' };
@@ -258,6 +260,7 @@ function GuardianPageContent() {
       color: fgStatus.color,
       border: fgStatus.border,
       bg: fgStatus.bg,
+      active: false,
     },
     {
       key: 'vix',
@@ -268,6 +271,7 @@ function GuardianPageContent() {
       subColor: vixChg >= 0 ? 'var(--red)' : 'var(--green)',
       border: vixStatus.border,
       bg: vixStatus.bg,
+      active: isVolMetricActive && vix > 0,
     },
     {
       key: 'spx',
@@ -277,6 +281,7 @@ function GuardianPageContent() {
       color: spxStatus.color,
       border: spxStatus.border,
       bg: spxStatus.bg,
+      active: isRiskStreamActive && spxChg !== null,
     },
     {
       key: 'ndx',
@@ -286,6 +291,7 @@ function GuardianPageContent() {
       color: ndxStatus.color,
       border: ndxStatus.border,
       bg: ndxStatus.bg,
+      active: isRiskStreamActive && ndxChg !== null,
     },
   ];
 
@@ -298,7 +304,7 @@ function GuardianPageContent() {
         WebkitBackdropFilter: 'blur(24px) saturate(1.45)',
         backdropFilter: 'blur(24px) saturate(1.45)',
         borderBottom: '1px solid rgba(52,211,153,0.08)',
-        padding: '10px 12px 8px',
+        padding: '8px 12px 7px',
         position: 'sticky',
         top: 0,
         zIndex: 100
@@ -306,7 +312,7 @@ function GuardianPageContent() {
         <div style={{
           position: 'relative',
           overflow: 'hidden',
-          borderRadius: 22,
+          borderRadius: 18,
           border: '1px solid rgba(148,163,184,0.13)',
           background: 'linear-gradient(145deg, rgba(15,23,42,0.78), rgba(2,6,23,0.66))',
           boxShadow: '0 18px 48px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.06)',
@@ -319,16 +325,16 @@ function GuardianPageContent() {
           }} />
 
           {/* ── COMMAND HEADER ── */}
-          <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '13px 14px 10px' }}>
+          <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 13px 9px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
-              <div style={{ position: 'relative', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
+              <div style={{ position: 'relative', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
                 <div className="app-skeleton" style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(52,211,153,0.36)', background: 'rgba(52,211,153,0.08)' }} />
                 <div style={{ position: 'absolute', inset: 5, borderRadius: '50%', border: '1px solid rgba(6,182,212,0.18)' }} />
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 14px rgba(52,211,153,0.75)' }} />
+                <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 14px rgba(52,211,153,0.75)' }} />
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                  <span style={{ font: 'var(--f-h2)', fontWeight: 900, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.025em', whiteSpace: 'nowrap' }}>
+                  <span style={{ font: '850 16px/1 Inter, sans-serif', color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.025em', whiteSpace: 'nowrap' }}>
                     GUARDIAN
                   </span>
                   <span style={{
@@ -336,7 +342,7 @@ function GuardianPageContent() {
                     color: sessionBadge.color,
                     background: sessionBadge.bg,
                     border: `1px solid ${sessionBadge.border}`,
-                    padding: '3px 7px',
+                    padding: '2px 7px',
                     borderRadius: 999,
                     letterSpacing: '0.08em',
                     fontWeight: 900,
@@ -354,8 +360,8 @@ function GuardianPageContent() {
             <div style={{
               border: `1px solid ${rlsiColor}38`,
               background: `linear-gradient(145deg, ${rlsiColor}18, rgba(15,23,42,0.78))`,
-              borderRadius: 14,
-              padding: '7px 11px',
+              borderRadius: 12,
+              padding: '6px 10px',
               textAlign: 'right',
               minWidth: 62,
               boxShadow: `0 0 18px ${rlsiColor}12`
@@ -371,18 +377,18 @@ function GuardianPageContent() {
       </div>
 
       {/* ── GUARDIAN ANALYSIS CONTROL DECK ── */}
-      <div style={{ padding: '10px 16px 0' }}>
+      <div style={{ padding: '8px 16px 0' }}>
         <div style={{
           overflow: 'hidden',
-          borderRadius: '22px 22px 14px 14px',
+          borderRadius: '18px 18px 13px 13px',
           border: '1px solid rgba(52,211,153,0.14)',
           background: 'linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.68))',
           boxShadow: '0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)',
           WebkitBackdropFilter: 'blur(18px) saturate(1.25)',
           backdropFilter: 'blur(18px) saturate(1.25)'
         }}>
-          <div style={{ position: 'relative', padding: '10px 10px 8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 3px 7px' }}>
+          <div style={{ position: 'relative', padding: '7px 8px 6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 2px 6px' }}>
               <span style={{ font: 'var(--f-micro)', color: 'var(--cyan)', letterSpacing: '0.12em', fontWeight: 900, textTransform: 'uppercase' }}>
                 {t.macroStrip}
               </span>
@@ -391,37 +397,55 @@ function GuardianPageContent() {
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-              gap: 6,
-              padding: 6,
-              borderRadius: 17,
+              gap: 5,
+              padding: 4,
+              borderRadius: 14,
               border: '1px solid rgba(255,255,255,0.055)',
               background: 'rgba(2,6,23,0.38)',
             }}>
               {macroCards.map(card => (
                 <div
                   key={card.key}
+                  className={card.active && (card.key === 'spx' || card.key === 'ndx') ? 'app-live-index-pulse' : undefined}
                   style={{
+                    position: 'relative',
                     minWidth: 0,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    minHeight: 66,
-                    padding: '8px 4px',
-                    borderRadius: 13,
-                    border: `1px solid ${card.border}`,
-                    background: `linear-gradient(180deg, ${card.bg}, rgba(15,23,42,0.30))`,
+                    minHeight: 50,
+                    padding: '5px 3px',
+                    borderRadius: 10,
+                    border: card.active ? '1px solid rgba(34, 211, 238, 0.48)' : `1px solid ${card.border}`,
+                    background: card.active
+                      ? `linear-gradient(180deg, rgba(8,145,178,0.16), ${card.bg} 52%, rgba(15,23,42,0.30))`
+                      : `linear-gradient(180deg, ${card.bg}, rgba(15,23,42,0.30))`,
                     textAlign: 'center',
-                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)'
+                    boxShadow: card.active
+                      ? '0 0 18px rgba(34, 211, 238, 0.15), inset 0 1px 0 rgba(255,255,255,0.06)'
+                      : 'inset 0 1px 0 rgba(255,255,255,0.03)'
                   }}
                 >
-                  <span style={{ maxWidth: '100%', font: "800 9.5px/1.1 'Inter'", color: 'var(--text-dim)', letterSpacing: '0.035em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {card.active && (
+                    <span style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 6,
+                      width: 5,
+                      height: 5,
+                      borderRadius: '50%',
+                      background: '#22d3ee',
+                      boxShadow: '0 0 10px rgba(34,211,238,0.85)'
+                    }} />
+                  )}
+                  <span style={{ maxWidth: '100%', font: "800 8.5px/1.08 'Inter'", color: 'var(--text-dim)', letterSpacing: '0.03em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {card.label}
                   </span>
-                  <span className="tnum" style={{ maxWidth: '100%', marginTop: 5, font: "950 17px/1 'Inter'", color: card.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span className="tnum" style={{ maxWidth: '100%', marginTop: 3, font: "950 14px/1 'Inter'", color: card.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {card.value}
                   </span>
-                  <span className="tnum" style={{ maxWidth: '100%', marginTop: 5, font: "800 9.5px/1.1 'Inter'", color: card.subColor || card.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span className="tnum" style={{ maxWidth: '100%', marginTop: 3, font: "800 8.5px/1.08 'Inter'", color: card.subColor || card.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {card.sub}
                   </span>
                 </div>
@@ -430,14 +454,14 @@ function GuardianPageContent() {
           </div>
 
           <div style={{
-            padding: '7px 8px 8px',
+            padding: '5px 6px 6px',
             borderTop: '1px solid rgba(148,163,184,0.08)',
             background: 'linear-gradient(180deg, rgba(15,23,42,0.30), rgba(2,6,23,0.40))'
           }}>
             <div ref={tabsRef} style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-            gap: 4,
+            gap: 5,
             }}>
               {TABS_CONFIG.map(tab => {
                 const isActive = activeTab === tab.key;
@@ -452,13 +476,15 @@ function GuardianPageContent() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: 5,
-                      padding: '9px 2px',
+                      gap: 4,
+                      height: 44,
+                      minHeight: 44,
+                      padding: '0 2px',
                       background: isActive
                         ? 'linear-gradient(135deg, rgba(6,182,212,0.22), rgba(52,211,153,0.15))'
                         : 'rgba(15,23,42,0.22)',
                       border: isActive ? '1px solid rgba(52,211,153,0.34)' : '1px solid rgba(148,163,184,0.035)',
-                      borderRadius: 15,
+                      borderRadius: 10,
                       cursor: 'pointer',
                       color: isActive ? 'var(--text)' : 'var(--text-dim)',
                       outline: 'none',
@@ -467,8 +493,8 @@ function GuardianPageContent() {
                       WebkitTapHighlightColor: 'transparent'
                     }}
                   >
-                    <TabIcon size={13} style={{ flex: '0 0 auto', color: isActive ? 'var(--cyan)' : 'var(--text-muted)' }} />
-                    <span style={{ minWidth: 0, font: 'var(--f-micro)', fontWeight: 900, fontSize: '10.5px', letterSpacing: '0.015em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <TabIcon size={11} style={{ flex: '0 0 auto', color: isActive ? 'var(--cyan)' : 'var(--text-muted)' }} />
+                    <span style={{ minWidth: 0, font: 'var(--f-micro)', fontWeight: 900, fontSize: '9px', letterSpacing: '0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {tab.label}
                     </span>
                   </button>
