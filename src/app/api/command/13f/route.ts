@@ -1,20 +1,20 @@
 /**
  * [13-F] Institutional Holdings API
  * 
- * Fetches SEC Form 13-F data from Massive API for a given ticker.
- * Returns top institutional holders with names, shares, and QoQ changes.
+ * Fetches SEC Form 13-F data for a given ticker.
  * 
  * Usage: GET /api/command/13f?ticker=NVDA
  * 
- * Data flow:
- * 1. Fetch 13-F filings from Massive (paginated, up to 5000 records)
- * 2. Filter by ticker's known issuer name / CUSIP
- * 3. Resolve filer CIK → institution name via SEC EDGAR
- * 4. Compare current vs previous quarter for QoQ changes
+ * Data flow (V2 — Cache-first):
+ * 1. Check Redis cache (populated by /api/cron/13f-cache, CUSIP-indexed)
+ * 2. If cache hit → return top holders from 30+ institutions instantly
+ * 3. If cache miss → fallback to Massive API (paginated, limited coverage)
+ * 4. Resolve filer CIK → institution name via SEC EDGAR
  * 5. Return top holders sorted by market value
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getFromCache } from '@/services/redisClient';
 
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
@@ -153,7 +153,64 @@ export async function GET(request: NextRequest) {
         // 1. Get CUSIP for this ticker
         const cusip = CUSIP_MAP[ticker];
 
-        // 2. Fetch 13-F filings from Massive (multiple pages for QoQ comparison)
+        // 2. [V2] Try Redis cache first (populated by /api/cron/13f-cache)
+        if (cusip) {
+            try {
+                const cached = await getFromCache<{
+                    holders: Array<{
+                        cik: string; name: string; domain?: string;
+                        shares: number; marketValue: number;
+                        period: string; filingDate: string;
+                    }>;
+                    updatedAt: string;
+                }>(`cache:13f:cusip:${cusip}`);
+
+                if (cached && cached.holders && cached.holders.length > 0) {
+                    console.log(`[13F] Cache HIT for ${ticker} (${cusip}): ${cached.holders.length} holders`);
+                    
+                    // Build response from cache
+                    const holders: Holder13F[] = cached.holders.map((h, i) => ({
+                        rank: i + 1,
+                        cik: h.cik,
+                        name: h.name,
+                        domain: h.domain || getInstitutionDomain(h.cik),
+                        shares: h.shares,
+                        marketValue: h.marketValue,
+                        period: h.period,
+                        filingDate: h.filingDate,
+                        prevShares: null,      // QoQ not available from cache (single period)
+                        sharesChange: null,
+                        sharesChangePct: null,
+                        prevMarketValue: null,
+                        marketValueChange: null,
+                    }));
+
+                    const totalShares = holders.reduce((s, h) => s + h.shares, 0);
+                    const totalValue = holders.reduce((s, h) => s + h.marketValue, 0);
+
+                    return NextResponse.json({
+                        ticker,
+                        holders: holders.slice(0, 20),
+                        summary: {
+                            totalHolders: holders.length,
+                            totalShares,
+                            totalValue,
+                            period: holders[0]?.period || null,
+                            prevPeriod: null,
+                            newEntrants: 0,
+                            exits: 0,
+                        },
+                        _source: 'redis-cache',
+                        _updatedAt: cached.updatedAt,
+                    });
+                }
+            } catch (e) {
+                // Redis error — fall through to Polygon API
+                console.warn('[13F] Redis cache error, falling back to API:', e);
+            }
+        }
+
+        // 3. [Fallback] Fetch from Polygon API (original logic — limited coverage)
         // Strategy: Keep paginating until we have matches from at least 2 distinct quarters
         const allResults: Filing13F[] = [];
         let nextUrl: string | null = null;

@@ -99,6 +99,10 @@
         {
             "path": "/api/cron/dispatch-v2/spotlight?region=all&dry_run=false&draft=true",
             "schedule": "15 15 * * 1-5"
+        },
+        {
+            "path": "/api/cron/13f-cache",
+            "schedule": "0 22 * * 1-5"
         }
     ]
 }
