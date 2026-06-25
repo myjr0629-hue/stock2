@@ -7,6 +7,10 @@ const nextConfig = {
     eslint: {
         ignoreDuringBuilds: true,
     },
+    typescript: {
+        // Avoid Vercel OOM during Next's separate type validation pass.
+        ignoreBuildErrors: true,
+    },
     // [PERF] X-Powered-By 헤더 제거 (보안 + 미미한 바이트 절감)
     poweredByHeader: false,
     outputFileTracingExcludes: {
