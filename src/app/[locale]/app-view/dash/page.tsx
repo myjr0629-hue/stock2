@@ -199,10 +199,12 @@ function isUs10YSessionActive(isHoliday: boolean): boolean {
   return timeDecimal >= 8 && timeDecimal < 17.25;
 }
 
-function isDxySessionActive(isHoliday: boolean): boolean {
+function isDxySessionActive(): boolean {
   const { day, totalMins } = getEtClockParts();
-  if (isHoliday || day === 0 || day === 6) return false;
-  return totalMins >= 4 * 60 && totalMins < 20 * 60;
+  if (day === 6) return false;
+  if (day === 0) return totalMins >= 18 * 60;
+  if (day === 5) return totalMins < 17 * 60;
+  return totalMins < 17 * 60 || totalMins >= 20 * 60;
 }
 
 function isFreshFeedFactor(factor: any, maxAgeSec = REDIS_FEED_FRESH_SEC): boolean {
@@ -226,9 +228,15 @@ function isFreshFeedFactor(factor: any, maxAgeSec = REDIS_FEED_FRESH_SEC): boole
   return false;
 }
 
-function feedMetaForItem(factor: any, sessionActive = true) {
+function feedMetaForItem(
+  factor: any,
+  sessionActive = true,
+  options: { requireFresh?: boolean } = {}
+) {
+  const requireFresh = options.requireFresh ?? true;
+  const hasLiveFeed = factor && factor.feedSource !== 'DEFAULT' && factor.feedSource !== 'FALLBACK';
   return {
-    live: sessionActive && isFreshFeedFactor(factor),
+    live: sessionActive && (requireFresh ? isFreshFeedFactor(factor) : hasLiveFeed),
     updatedAt: factor?.updatedAt,
     marketTime: factor?.marketTime,
     marketAgeSec: factor?.marketAgeSec,
@@ -255,27 +263,28 @@ function fmtMacroValue(level: number | null, label: string): string {
 
 function heatBg(pct: number): string {
   const abs = Math.abs(pct);
-  if (abs < 0.2) return 'rgba(30, 41, 59, 0.4)'; // Neutral dark-gray for flat sectors
+  if (abs < 0.2) return 'linear-gradient(145deg, rgba(30, 41, 59, 0.52), rgba(15, 23, 42, 0.66))'; // Neutral dark-gray for flat sectors
   
-  // Non-linear intensity scaling (peaks at 3.0% change)
-  const intensity = Math.min(abs / 3.0, 1.0);
-  const alpha = 0.12 + intensity * 0.58; // scale from 12% to 70% opacity
+  // Premium dark heat scale: preserve direction without flooding the tile.
+  const intensity = Math.min(abs / 4.0, 1.0);
+  const coreAlpha = 0.18 + intensity * 0.34;
+  const washAlpha = 0.08 + intensity * 0.18;
   
   return pct >= 0
-    ? `rgba(16, 185, 129, ${alpha.toFixed(2)})`
-    : `rgba(239, 68, 68, ${alpha.toFixed(2)})`;
+    ? `linear-gradient(145deg, rgba(6, 95, 70, ${coreAlpha.toFixed(2)}), rgba(20, 184, 166, ${washAlpha.toFixed(2)}) 52%, rgba(15, 23, 42, 0.42))`
+    : `linear-gradient(145deg, rgba(127, 29, 29, ${coreAlpha.toFixed(2)}), rgba(190, 18, 60, ${washAlpha.toFixed(2)}) 54%, rgba(15, 23, 42, 0.46))`;
 }
 
 function heatBorder(pct: number): string {
   const abs = Math.abs(pct);
-  if (abs < 0.2) return 'rgba(255, 255, 255, 0.03)';
+  if (abs < 0.2) return 'rgba(148, 163, 184, 0.10)';
   
-  const intensity = Math.min(abs / 3.0, 1.0);
-  const alpha = 0.2 + intensity * 0.5; // scale border opacity from 20% to 70%
+  const intensity = Math.min(abs / 4.0, 1.0);
+  const alpha = 0.18 + intensity * 0.28;
   
   return pct >= 0
-    ? `rgba(16, 185, 129, ${alpha.toFixed(2)})`
-    : `rgba(239, 68, 68, ${alpha.toFixed(2)})`;
+    ? `rgba(45, 212, 191, ${alpha.toFixed(2)})`
+    : `rgba(251, 113, 133, ${alpha.toFixed(2)})`;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -511,9 +520,9 @@ export default function AppDashPage() {
       return isCmeGlobexActive(kind, isMarketHoliday);
     }
 
-    // 3. DXY (Dollar Index proxy UUP): Weekdays 4:00 AM - 8:00 PM ET
+    // 3. DXY: FX-style 24/5 session on ET with the daily 17:00-18:00 maintenance break.
     if (symbol === 'DXY') {
-      return isDxySessionActive(isMarketHoliday);
+      return isDxySessionActive();
     }
 
     // 4. US 10Y (Bond Yields): Standard stock market hours (weekdays 9:30 AM - 4:00 PM ET)
@@ -628,6 +637,64 @@ export default function AppDashPage() {
     neutral: 'Neutral',
   };
 
+  const safeDashCopy: Record<string, Partial<typeof copy>> = {
+    ko: {
+      regime: '시장 상태',
+      futures: '선물',
+      cash: '현물',
+      risk: '리스크',
+      futuresRow: '지수 선물',
+      cashRow: '현물 지수',
+      etfRow: 'ETF / 변동성',
+      futuresOpen: '정규장 밖에도 선물 흐름은 ET 기준으로 추적됩니다.',
+      regularOpen: '정규장 실시간 흐름을 반영합니다.',
+      marketClosed: '장마감 데이터와 활성 선물 흐름을 함께 봅니다.',
+      riskOn: 'Risk-On 우위',
+      mixed: '혼조',
+      riskOff: 'Risk-Off 경계',
+      bullish: '상방',
+      bearish: '하방',
+      neutral: '중립',
+    },
+    en: {
+      regime: 'Market State',
+      futures: 'Futures',
+      cash: 'Cash',
+      risk: 'Risk',
+      futuresRow: 'Index Futures',
+      cashRow: 'Cash Indices',
+      etfRow: 'ETF / Volatility',
+      futuresOpen: 'Futures remain tracked on ET even outside regular hours.',
+      regularOpen: 'Regular-session flow is updating live.',
+      marketClosed: 'Closed-session data is paired with active futures context.',
+      riskOn: 'Risk-On Tilt',
+      mixed: 'Mixed Tape',
+      riskOff: 'Risk-Off Watch',
+      bullish: 'Bullish',
+      bearish: 'Bearish',
+      neutral: 'Neutral',
+    },
+    ja: {
+      regime: '市場状態',
+      futures: '先物',
+      cash: '現物',
+      risk: 'リスク',
+      futuresRow: '指数先物',
+      cashRow: '現物指数',
+      etfRow: 'ETF / ボラティリティ',
+      futuresOpen: '通常時間外も先物フローをET基準で追跡します。',
+      regularOpen: '通常取引時間のフローをリアルタイムで反映します。',
+      marketClosed: '引け後データと稼働中の先物フローを合わせて表示します。',
+      riskOn: 'Risk-On 優勢',
+      mixed: 'まちまち',
+      riskOff: 'Risk-Off 警戒',
+      bullish: '強気',
+      bearish: '弱気',
+      neutral: '中立',
+    },
+  };
+  Object.assign(copy, safeDashCopy[locale] ?? safeDashCopy.en);
+
   const gateCopy = {
     ko: {
       title: '기관급 마켓 펄스',
@@ -694,8 +761,9 @@ export default function AppDashPage() {
     },
   };
 
-  const futuresLive = futures.some((p) => p.live ?? checkIsItemActive(p.sym));
-  const volatilityLive = etfs.some((p) => p.sym === 'VIX' && p.live);
+  const itemSessionLive = (symOrLabel: string) => checkIsItemActive(symOrLabel);
+  const futuresLive = isCmeGlobexActive('equity', isMarketHoliday);
+  const volatilityLive = itemSessionLive('VIX');
   const futuresAvg = avgChange(futures);
   const cashAvg = avgChange(indices);
   const vixChange = etfs.find((p) => p.sym === 'VIX')?.chg ?? 0;
@@ -710,12 +778,26 @@ export default function AppDashPage() {
   const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : copy.closed;
   const pulseStatusNote = isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : copy.marketClosed;
   const pulseStatusClass = isLive ? '' : (futuresLive || volatilityLive) ? s.futuresOpen : s.closed;
-  const etfRowStatus = equityExtendedLive ? 'LIVE' : volatilityLive ? 'VIX LIVE' : 'CLOSED';
+  const etfRowStatus = equityExtendedLive ? 'LIVE' : volatilityLive ? 'VIX LIVE' : isMarketHoliday ? copy.holiday : copy.closed;
   const etfRowLive = equityExtendedLive || volatilityLive;
+  const sectorSessionLabel = isMarketHoliday
+    ? copy.holiday
+    : marketSession === 'pre'
+      ? 'PRE'
+      : marketSession === 'regular'
+        ? 'REGULAR'
+        : marketSession === 'post'
+          ? 'POST'
+          : copy.closed;
+  const sectorSessionClass = isMarketHoliday
+    ? s.sessionHoliday
+    : equityExtendedLive
+      ? s.sessionLive
+      : s.sessionClosed;
   const canUseEquitySocket = (symbol: string) => {
     const s = symbol.toUpperCase();
     if (s === 'SPY' || s === 'QQQ') return equityExtendedLive;
-    if (s === 'VIX') return isLive;
+    if (s === 'VIX') return itemSessionLive('VIX');
     return equityExtendedLive;
   };
   const shouldUseWsQuote = (
@@ -977,7 +1059,7 @@ export default function AppDashPage() {
                 chg: f.nasdaq100.chgPct ?? 0.45,
                 up: (f.nasdaq100.chgPct ?? 0) >= 0,
                 spark: DEMO_FUTURES[0].spark,
-                ...feedMetaForItem(f.nasdaq100, isCmeGlobexActive('equity', isMarketHoliday)),
+                ...feedMetaForItem(f.nasdaq100, isCmeGlobexActive('equity', isMarketHoliday), { requireFresh: false }),
               });
             }
             if (f.spx) {
@@ -987,7 +1069,7 @@ export default function AppDashPage() {
                 chg: f.spx.chgPct ?? 0.30,
                 up: (f.spx.chgPct ?? 0) >= 0,
                 spark: DEMO_FUTURES[1].spark,
-                ...feedMetaForItem(f.spx, isCmeGlobexActive('equity', isMarketHoliday)),
+                ...feedMetaForItem(f.spx, isCmeGlobexActive('equity', isMarketHoliday), { requireFresh: false }),
               });
             }
             if (f.rut) {
@@ -997,7 +1079,7 @@ export default function AppDashPage() {
                 chg: f.rut.chgPct ?? 0.15,
                 up: (f.rut.chgPct ?? 0) >= 0,
                 spark: DEMO_FUTURES[2].spark,
-                ...feedMetaForItem(f.rut, isCmeGlobexActive('equity', isMarketHoliday)),
+                ...feedMetaForItem(f.rut, isCmeGlobexActive('equity', isMarketHoliday), { requireFresh: false }),
               });
             }
             if (futItems.length >= 2) {
@@ -1012,7 +1094,8 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.btc?.level, 'Bitcoin'),
               chg: f.btc?.chgPct ?? 0,
               unit: '%',
-              ...feedMetaForItem(f.btc, true),
+              ...feedMetaForItem(f.btc, true, { requireFresh: false }),
+              live: true, // BTC 24/7
             });
 
             // GOLD
@@ -1021,7 +1104,8 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.gold?.level, 'Gold'),
               chg: f.gold?.chgPct ?? 0,
               unit: '%',
-              ...feedMetaForItem(f.gold, isCmeGlobexActive('gold', isMarketHoliday)),
+              ...feedMetaForItem(f.gold, isCmeGlobexActive('gold', isMarketHoliday), { requireFresh: false }),
+              live: isCmeGlobexActive('gold', isMarketHoliday),
             });
 
             // OIL
@@ -1030,7 +1114,8 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.oil?.level, 'Oil'),
               chg: f.oil?.chgPct ?? 0,
               unit: '%',
-              ...feedMetaForItem(f.oil, isCmeGlobexActive('oil', isMarketHoliday)),
+              ...feedMetaForItem(f.oil, isCmeGlobexActive('oil', isMarketHoliday), { requireFresh: false }),
+              live: isCmeGlobexActive('oil', isMarketHoliday),
             });
 
             // SOX
@@ -1040,6 +1125,7 @@ export default function AppDashPage() {
               chg: f.sox?.chgPct ?? 0,
               unit: '%',
               ...feedMetaForItem(f.sox, isLive),
+              live: isLive,
             });
 
             // US 10Y
@@ -1048,7 +1134,8 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.us10y?.level, 'US 10Y'),
               chg: f.us10y?.chgPct ?? 0,
               unit: '',
-              ...feedMetaForItem(f.us10y, isUs10YSessionActive(isMarketHoliday)),
+              ...feedMetaForItem(f.us10y, isUs10YSessionActive(isMarketHoliday), { requireFresh: false }),
+              live: isUs10YSessionActive(isMarketHoliday),
             });
 
             // DXY
@@ -1057,6 +1144,8 @@ export default function AppDashPage() {
               value: fmtMacroValue(f.dxy?.level, 'DOLLAR (DXY)'),
               chg: f.dxy?.chgPct ?? 0,
               unit: '',
+              ...feedMetaForItem(f.dxy, isDxySessionActive(), { requireFresh: false }),
+              live: isDxySessionActive(),
             });
 
             // Yield Curve 2s10s
@@ -1068,6 +1157,7 @@ export default function AppDashPage() {
                 chg: 0,
                 unit: '',
                 badge: macroSnap.yieldCurve.trend === 'INVERTED' ? 'INVERT' : macroSnap.yieldCurve.trend === 'STEEPENING' ? 'STEEP' : macroSnap.yieldCurve.trend === 'FLATTENING' ? 'FLAT' : 'NORMAL',
+                live: isUs10YSessionActive(isMarketHoliday),
               });
             } else {
               macroItems.push(DEMO_MACRO[6]);
@@ -1082,6 +1172,7 @@ export default function AppDashPage() {
                 chg: 0,
                 unit: '',
                 badge: fgBadgeLabel(fgScore),
+                live: false,
               });
             } else {
               // Fallback to VIX synthetic if CNN data is missing
@@ -1093,6 +1184,7 @@ export default function AppDashPage() {
                 chg: 0,
                 unit: '',
                 badge: fgBadgeLabel(fg),
+                live: false,
               });
             }
 
@@ -1109,16 +1201,19 @@ export default function AppDashPage() {
 
           // 1. Sector Heatmap (mapped from XL* ETFs)
           setSectors(prev => {
-            const fallback = (name: string, demo: number) => prev.find(sec => sec.name === name)?.pct ?? demo;
+            const fallback = (name: string, demo: number) => {
+              const previous = prev.find(sec => sec.name === name)?.pct;
+              return Number.isFinite(previous) && Math.abs(previous ?? 0) > 0.0001 ? previous! : demo;
+            };
             return [
-              { name: 'Tech', pct: stableChangePct(q.XLK, fallback('Tech', 2.1), equityExtendedLive) },
-              { name: 'Energy', pct: stableChangePct(q.XLE, fallback('Energy', 1.2), equityExtendedLive) },
-              { name: 'Cons. Disc', pct: stableChangePct(q.XLY, fallback('Cons. Disc', 0.9), equityExtendedLive) },
-              { name: 'Materials', pct: stableChangePct(q.XLB, fallback('Materials', 0.6), equityExtendedLive) },
-              { name: 'Industrials', pct: stableChangePct(q.XLI, fallback('Industrials', 0.4), equityExtendedLive) },
-              { name: 'Finance', pct: stableChangePct(q.XLF, fallback('Finance', 0.3), equityExtendedLive) },
-              { name: 'Healthcare', pct: stableChangePct(q.XLV, fallback('Healthcare', -0.5), equityExtendedLive) },
-              { name: 'Utilities', pct: stableChangePct(q.XLU, fallback('Utilities', -0.8), equityExtendedLive) },
+              { name: 'Tech', pct: stableChangePct(q.XLK, fallback('Tech', 2.1), false) },
+              { name: 'Energy', pct: stableChangePct(q.XLE, fallback('Energy', 1.2), false) },
+              { name: 'Cons. Disc', pct: stableChangePct(q.XLY, fallback('Cons. Disc', 0.9), false) },
+              { name: 'Materials', pct: stableChangePct(q.XLB, fallback('Materials', 0.6), false) },
+              { name: 'Industrials', pct: stableChangePct(q.XLI, fallback('Industrials', 0.4), false) },
+              { name: 'Finance', pct: stableChangePct(q.XLF, fallback('Finance', 0.3), false) },
+              { name: 'Healthcare', pct: stableChangePct(q.XLV, fallback('Healthcare', -0.5), false) },
+              { name: 'Utilities', pct: stableChangePct(q.XLU, fallback('Utilities', -0.8), false) },
             ];
           });
 
@@ -1159,7 +1254,7 @@ export default function AppDashPage() {
                 chg: vixChg,
                 up: vixChg >= 0,
                 spark: DEMO_ETFS[2].spark,
-                ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday)),
+                ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday), { requireFresh: false }),
               }
             ];
           });
@@ -1244,8 +1339,8 @@ export default function AppDashPage() {
           <img 
             src="/signum-sg-vectorized.svg" 
             alt="SIGNUM HQ" 
-            width="28" 
-            height="28" 
+            width="24" 
+            height="24" 
             style={{ 
               filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.35))',
               flexShrink: 0
@@ -1393,10 +1488,7 @@ export default function AppDashPage() {
             </div>
           </div>
         </div>
-        {loading ? (
-          <div className={s.skelPulse} style={{ height: '232px' }} />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {/* ── Futures Row (NASDAQ100 F, Russell2k F, S&P500 F) ── */}
             <div className={s.pulseRowMeta}>
               <span>{copy.futuresRow}</span>
@@ -1404,7 +1496,7 @@ export default function AppDashPage() {
             </div>
             <div className={s.pulseRow}>
               {futures.map((p) => (
-                <div key={p.sym} className={`${s.pulseCard} ${(p.live ?? checkIsItemActive(p.sym)) ? s.live : ''} ${p.up ? s.up : s.down}`}>
+                <div key={p.sym} className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
                   <div className={s.pulseCardSymRow}>
                     {getSymBadge(p.sym)}
                     <span className={s.pulseSym}>{p.sym}</span>
@@ -1471,7 +1563,7 @@ export default function AppDashPage() {
                 const flashClass = useWs ? (flashStates[p.sym] === 'up' ? s.flashUp : flashStates[p.sym] === 'down' ? s.flashDown : '') : '';
 
                 return (
-                  <div key={p.sym} className={`${s.pulseCard} ${(p.live ?? checkIsItemActive(p.sym)) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
+                  <div key={p.sym} className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
                     <div className={s.pulseCardSymRow}>
                       {getSymBadge(p.sym)}
                       <span className={s.pulseSym}>{p.sym}</span>
@@ -1489,8 +1581,7 @@ export default function AppDashPage() {
                 );
               })}
             </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* ══════════════ MACRO BOARD ══════════════ */}
@@ -1501,12 +1592,9 @@ export default function AppDashPage() {
             <span className={s.cardTitle}>Macro Board</span>
           </div>
         </div>
-        {loading ? (
-          <div className={s.skelMacro} />
-        ) : (
-          <div className={s.macroGrid}>
+        <div className={s.macroGrid}>
             {macro.map((m) => (
-              <div key={m.label} className={`${s.macroCell} ${(m.live ?? checkIsItemActive(m.label)) ? s.live : ''}`}>
+              <div key={m.label} className={`${s.macroCell} ${m.live ? s.live : ''}`}>
                 <div className={s.macroLabelRow}>
                   {getMacroBadge(m.label)}
                   <span className={s.macroLabel}>{m.label}</span>
@@ -1527,8 +1615,7 @@ export default function AppDashPage() {
                 )}
               </div>
             ))}
-          </div>
-        )}
+        </div>
       </div>
 
       {/* ══════════════ TOP MOVERS (Moved for better flow) ══════════════ */}
@@ -1624,6 +1711,7 @@ export default function AppDashPage() {
       <div className={s.card}>
         <div className={s.cardHead}>
           <span className={s.cardTitle}>SECTOR HEATMAP</span>
+          <span className={`${s.sessionPill} ${sectorSessionClass}`}>{sectorSessionLabel}</span>
         </div>
         {loading ? (
           <div className={s.skelSector} />
@@ -1641,8 +1729,11 @@ export default function AppDashPage() {
                            : '';
               const wsData = wsGetPrice(symbol);
               const useWs = shouldUseWsQuote(symbol, wsData);
-              const displayPct = useWs ? wsData.changePct : sec.pct;
-              const flashClass = useWs ? (flashStates[symbol] === 'up' ? s.flashUp : flashStates[symbol] === 'down' ? s.flashDown : '') : '';
+              const wsChangeLooksStale = useWs
+                && Math.abs(wsData.changePct) < 0.0001
+                && Math.abs(sec.pct) >= 0.0001;
+              const displayPct = useWs && !wsChangeLooksStale ? wsData.changePct : sec.pct;
+              const flashClass = useWs && !wsChangeLooksStale ? (flashStates[symbol] === 'up' ? s.flashUp : flashStates[symbol] === 'down' ? s.flashDown : '') : '';
 
               return (
                 <div
@@ -1654,7 +1745,7 @@ export default function AppDashPage() {
                   }}
                 >
                   <span className={s.sectorName}>{sec.name}</span>
-                  <span className={`${s.sectorPct} ${displayPct >= 0 ? s.pos : s.neg}`}>
+                  <span className={`${s.sectorPct} ${displayPct >= 0 ? s.sectorPctUp : s.sectorPctDown}`}>
                     {displayPct >= 0 ? '+' : ''}{displayPct.toFixed(1)}%
                   </span>
                 </div>
