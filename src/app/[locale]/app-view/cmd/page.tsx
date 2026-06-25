@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
@@ -2086,7 +2086,10 @@ function CmdPageContent() {
   }, [ticker]);
 
   // ── [AI DEEP INSIGHTS] Fetch detailed AI report ──
-  useEffect(() => {
+  const [aiLastFetchedAt, setAiLastFetchedAt] = useState<number>(0);
+  const [aiRefreshCooldown, setAiRefreshCooldown] = useState(false);
+
+  const fetchAiAnalysis = useCallback((triggerReason: string = 'FIRST_VIEW') => {
     if (!data) return;
     setAiLoading(true);
 
@@ -2129,22 +2132,37 @@ function CmdPageContent() {
       relatedTickers: u.related?.topRelated?.map((r: any) => r.ticker) || [],
     };
 
-    const abortController = new AbortController();
     fetch('/api/command/deep-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker, locale, snapshot, triggerReason: 'FIRST_VIEW', gexStats }),
-      signal: abortController.signal,
+      body: JSON.stringify({ ticker, locale, snapshot, triggerReason, gexStats }),
     })
       .then(r => r.ok ? r.json() : null)
       .then(res => {
-        if (res) setAiInsightData(res);
+        if (res) {
+          setAiInsightData(res);
+          setAiLastFetchedAt(Date.now());
+          // Fallback auto-retry: if server returned a fallback result, retry after 15s
+          if (res.isFallback) {
+            setTimeout(() => fetchAiAnalysis('FIRST_VIEW'), 15000);
+          }
+        }
       })
       .catch(() => {})
       .finally(() => setAiLoading(false));
-
-    return () => { abortController.abort(); };
   }, [data, gexStats, locale, ticker]);
+
+  useEffect(() => {
+    fetchAiAnalysis('FIRST_VIEW');
+  }, [fetchAiAnalysis]);
+
+  // Manual refresh handler with 30-min cooldown
+  const handleAiRefresh = useCallback(() => {
+    if (aiRefreshCooldown) return;
+    setAiRefreshCooldown(true);
+    fetchAiAnalysis('MANUAL_REFRESH');
+    setTimeout(() => setAiRefreshCooldown(false), 30 * 60 * 1000);
+  }, [aiRefreshCooldown, fetchAiAnalysis]);
 
   // ── 9-Signal Calculations (Same as MobileCmdMetrics) ──
   const signalsData = useMemo(() => {
@@ -2669,6 +2687,31 @@ function CmdPageContent() {
           socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
         >
         <div className={`${s.animateIn} ${s.delay2}`}>
+          {/* AI Manual Refresh */}
+          {verdictHeader && !aiLoading && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button
+                onClick={handleAiRefresh}
+                disabled={aiRefreshCooldown}
+                style={{
+                  background: aiRefreshCooldown ? 'rgba(255,255,255,0.03)' : 'rgba(34,211,238,0.08)',
+                  border: `1px solid ${aiRefreshCooldown ? 'rgba(255,255,255,0.06)' : 'rgba(34,211,238,0.2)'}`,
+                  borderRadius: 8,
+                  padding: '6px 12px',
+                  color: aiRefreshCooldown ? '#64748b' : '#22d3ee',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: aiRefreshCooldown ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  minHeight: 0,
+                }}
+              >
+                ↻ {aiRefreshCooldown
+                    ? (locale === 'ko' ? '쿨다운 중' : locale === 'ja' ? 'クールダウン中' : 'Cooldown')
+                    : (locale === 'ko' ? '분석 갱신' : locale === 'ja' ? '分析更新' : 'Refresh')}
+              </button>
+            </div>
+          )}
           {aiLoading && !verdictHeader && (
             <div className="rounded-2xl border border-white/[0.06] bg-[#0f172a]/50 p-8 flex flex-col items-center gap-3 text-center">
               <div className="relative w-9 h-9 flex items-center justify-center">
