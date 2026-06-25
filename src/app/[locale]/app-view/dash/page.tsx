@@ -1496,7 +1496,7 @@ export default function AppDashPage() {
             </div>
             <div className={s.pulseRow}>
               {futures.map((p) => (
-                <div key={p.sym} className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
+                <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
                   <div className={s.pulseCardSymRow}>
                     {getSymBadge(p.sym)}
                     <span className={s.pulseSym}>{p.sym}</span>
@@ -1527,7 +1527,7 @@ export default function AppDashPage() {
                 const flashClass = '';
 
                 return (
-                  <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
+                  <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
                     <div className={s.pulseCardSymRow}>
                       {getSymBadge(p.sym)}
                       <span className={s.pulseSym}>{p.sym}</span>
@@ -1563,7 +1563,7 @@ export default function AppDashPage() {
                 const flashClass = useWs ? (flashStates[p.sym] === 'up' ? s.flashUp : flashStates[p.sym] === 'down' ? s.flashDown : '') : '';
 
                 return (
-                  <div key={p.sym} className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
+                  <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
                     <div className={s.pulseCardSymRow}>
                       {getSymBadge(p.sym)}
                       <span className={s.pulseSym}>{p.sym}</span>
@@ -1594,7 +1594,7 @@ export default function AppDashPage() {
         </div>
         <div className={s.macroGrid}>
             {macro.map((m) => (
-              <div key={m.label} className={`${s.macroCell} ${m.live ? s.live : ''}`}>
+              <div key={m.label} suppressHydrationWarning className={`${s.macroCell} ${m.live ? s.live : ''}`}>
                 <div className={s.macroLabelRow}>
                   {getMacroBadge(m.label)}
                   <span className={s.macroLabel}>{m.label}</span>
@@ -1711,7 +1711,7 @@ export default function AppDashPage() {
       <div className={s.card}>
         <div className={s.cardHead}>
           <span className={s.cardTitle}>SECTOR HEATMAP</span>
-          <span className={`${s.sessionPill} ${sectorSessionClass}`}>{sectorSessionLabel}</span>
+          <span suppressHydrationWarning className={`${s.sessionPill} ${sectorSessionClass}`}>{sectorSessionLabel}</span>
         </div>
         {loading ? (
           <div className={s.skelSector} />
