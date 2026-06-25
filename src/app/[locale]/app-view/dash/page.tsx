@@ -310,12 +310,20 @@ function fgBadgeLabel(value: number): string {
 function getTickerLogo(sym: string) {
   return (
     <img
-      src={`https://assets.parqet.com/logos/symbol/${sym}?format=svg`}
+      src={`https://financialmodelingprep.com/image-stock/${sym}.png`}
       alt=""
       width={16}
       height={16}
-      style={{ borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, display: 'inline-block' }}
-      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+      style={{ borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, display: 'inline-block', objectFit: 'cover' }}
+      onError={(e) => {
+        const img = e.target as HTMLImageElement;
+        if (!img.dataset.fallback) {
+          img.dataset.fallback = '1';
+          img.src = `https://assets.parqet.com/logos/symbol/${sym}?format=svg`;
+        } else {
+          img.style.display = 'none';
+        }
+      }}
     />
   );
 }
