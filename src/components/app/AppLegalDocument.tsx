@@ -1,3 +1,5 @@
+'use client';
+
 import { Link } from '@/i18n/routing';
 import styles from './AppLegalDocument.module.css';
 
