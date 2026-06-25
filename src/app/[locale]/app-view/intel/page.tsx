@@ -3761,7 +3761,7 @@ export default function AppIntelPage() {
             ];
             const coreMetrics = tapeMetrics.slice(0, 3);
             const flowMetrics = tapeMetrics.slice(3);
-            const leadSymbol = (topStock as any)?.ticker || topStock?.sym || sec.stocks[0] || '-';
+            const leadSymbol = (topStock as any)?.ticker || topStock?.ticker || sec.stocks[0] || '-';
             const leadMove = topStock ? formatPercentCompact(topStock.changePct || sec.change || 0) : formatPercentCompact(sec.change);
             const leadMoveColor = topStock && (topStock.changePct || 0) < 0 ? '#ef4444' : '#10b981';
 
