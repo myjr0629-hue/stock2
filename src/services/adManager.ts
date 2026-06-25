@@ -41,7 +41,6 @@ const TEST_AD_IDS: AdConfig = {
 
 function resolveDefaultAdConfig(): AdConfig {
   const explicitTestMode = process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true';
-  const isDev = process.env.NODE_ENV !== 'production';
   const config: AdConfig = {
     bannerId: process.env.NEXT_PUBLIC_ADMOB_BANNER_ID || '',
     interstitialId: process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_ID || '',
@@ -50,7 +49,9 @@ function resolveDefaultAdConfig(): AdConfig {
   };
   const missingIds = !config.bannerId || !config.interstitialId || !config.rewardedId;
 
-  if (explicitTestMode || (isDev && missingIds)) {
+  // Always fall back to test IDs when real IDs are not configured.
+  // Native apps load the production URL but still need AdMob to initialize.
+  if (explicitTestMode || missingIds) {
     return {
       bannerId: config.bannerId || TEST_AD_IDS.bannerId,
       interstitialId: config.interstitialId || TEST_AD_IDS.interstitialId,
