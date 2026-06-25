@@ -1,17 +1,25 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 import { KeyboardResize } from '@capacitor/keyboard';
 
+const useLiveReload = process.env.CAPACITOR_LIVE_RELOAD === 'true';
+
 const config: CapacitorConfig = {
   appId: 'com.signumhq.app',
   appName: 'SIGNUM HQ',
   webDir: 'out',
 
-  // 개발용: 로컬 Next.js 개발 서버 연동 (10.0.2.2는 에뮬레이터에서 호스트 PC를 가리키는 IP)
-  server: {
-    url: 'http://10.0.2.2:3000',
-    cleartext: true,
-    allowNavigation: ['10.0.2.2:3000'],
-  },
+  // Production: WebView → signumhq.com
+  // 개발용: CAPACITOR_LIVE_RELOAD=true → 로컬 Next.js 개발 서버
+  server: useLiveReload
+    ? {
+        url: 'http://10.0.2.2:3000',
+        cleartext: true,
+        allowNavigation: ['10.0.2.2:3000'],
+      }
+    : {
+        url: 'https://www.signumhq.com',
+        cleartext: false,
+      },
 
   // iOS 설정
   ios: {
@@ -55,4 +63,3 @@ const config: CapacitorConfig = {
 };
 
 export default config;
-

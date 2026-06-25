@@ -1,0 +1,7 @@
+# app-ads.txt for SIGNUM HQ (com.signumhq.app)
+# Reference: https://developers.google.com/admob/android/app-ads-txt
+#
+# TODO: Replace pub-XXXXXXXXXXXXXXXX with your actual AdMob Publisher ID
+# Find it at: AdMob Dashboard → Settings → Account Information → Publisher ID
+#
+google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
