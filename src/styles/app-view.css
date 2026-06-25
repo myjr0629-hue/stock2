@@ -198,8 +198,6 @@ html.native-app body {
   -webkit-appearance: none;
   appearance: none;
   min-height: 0 !important;
-  padding: 0;
-  box-sizing: border-box;
 }
 
 .app-viewport button,
