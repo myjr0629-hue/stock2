@@ -307,12 +307,25 @@ function fgBadgeLabel(value: number): string {
   return 'EXTREME FEAR';
 }
 
+function getTickerLogo(sym: string) {
+  return (
+    <img
+      src={`https://assets.parqet.com/logos/symbol/${sym}?format=svg`}
+      alt=""
+      width={16}
+      height={16}
+      style={{ borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, display: 'inline-block' }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
+}
+
 function getSymBadge(sym: string) {
   switch (sym) {
     case 'DOW':
-      return <span className={`${s.symbolBadge} ${s.dow}`}>30</span>;
+      return <span className={`${s.symbolBadge} ${s.dow}`}>DJI</span>;
     case 'NASDAQ':
-      return <span className={`${s.symbolBadge} ${s.nasdaq}`}>100</span>;
+      return <span className={`${s.symbolBadge} ${s.nasdaq}`}>NDX</span>;
     case 'S&P 500':
       return <span className={`${s.symbolBadge} ${s.sp500}`}>500</span>;
     case 'SPY':
@@ -1692,7 +1705,7 @@ export default function AppDashPage() {
                 aria-label={`${mv.sym} command`}
               >
                 <div className={s.moverTop}>
-                  <span className={s.moverSym}>{mv.sym}</span>
+                  <span className={s.moverSym}>{getSymBadge(mv.sym) || getTickerLogo(mv.sym)} {mv.sym}</span>
                   <span className={isUp ? s.moverChgUp : s.moverChgDown}>
                     {displayChg}
                   </span>
