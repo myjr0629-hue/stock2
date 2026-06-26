@@ -17,8 +17,11 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
   const isSettingsRoute = pathname?.includes('/app-view/settings');
   const hideAd = isDocumentRoute || isSettingsRoute;
 
-  // Block pull-to-refresh at JavaScript level (belt-and-suspenders with CSS)
+  // Tag html element for app-only CSS (fallback for :has() on older WebViews)
+  // + block pull-to-refresh at JS level
   useEffect(() => {
+    document.documentElement.classList.add('is-app-view');
+
     let startY = 0;
     const onTouchStart = (e: TouchEvent) => {
       startY = e.touches[0].clientY;
@@ -26,7 +29,6 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     const onTouchMove = (e: TouchEvent) => {
       const y = e.touches[0].clientY;
       const scrollEl = document.querySelector('.app-main');
-      // If at top of scroll and pulling down → block refresh
       if (scrollEl && scrollEl.scrollTop <= 0 && y > startY) {
         e.preventDefault();
       }
@@ -34,6 +36,7 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     document.addEventListener('touchstart', onTouchStart, { passive: true });
     document.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => {
+      document.documentElement.classList.remove('is-app-view');
       document.removeEventListener('touchstart', onTouchStart);
       document.removeEventListener('touchmove', onTouchMove);
     };

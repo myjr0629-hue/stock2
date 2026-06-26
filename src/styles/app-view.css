@@ -1,11 +1,18 @@
 /* App View — Mobile App Layout */
 
-/* Chrome WebView checks html/body for pull-to-refresh — must block here */
+/* Lock html/body to kill pull-to-refresh & swipe navigation.
+   Dual selector: :has() for modern + .is-app-view class for older WebViews.
+   App-only — web pages never get .is-app-view class. */
 html:has(.app-viewport),
-html:has(.app-viewport) body {
+html.is-app-view,
+html:has(.app-viewport) body,
+html.is-app-view body {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   overscroll-behavior: none !important;
   -webkit-overscroll-behavior: none !important;
-  overflow: hidden;
 }
 
 .app-viewport {
