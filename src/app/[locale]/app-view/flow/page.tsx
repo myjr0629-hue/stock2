@@ -1323,9 +1323,51 @@ export default function AppFlowPage() {
     ? Math.round(Number(rawIvRankVal))
     : null;
   const ivSkewVal = tickerData?.flow?.ivSkew ?? null;
-  const putFloorVal = tickerData?.flow?.putFloor ?? null;
-  const callWallVal = tickerData?.flow?.callWall ?? null;
+  const putFloorValApi = tickerData?.flow?.putFloor ?? null;
+  const callWallValApi = tickerData?.flow?.callWall ?? null;
   const atmIvVal = tickerData?.flow?.atmIv ?? tickerData?.unified?.volatility?.atmIv ?? null;
+
+  // ── [MATCH WEB] rawChain-based Call Wall / Put Floor (same as FlowRadar.tsx L1275-1288) ──
+  // Web uses rawChain VOLUME with 0-7 DTE multi-expiry to find max call/put volume strikes
+  const { callWallDerived, putFloorDerived } = useMemo(() => {
+    if (!rawChain || rawChain.length === 0) return { callWallDerived: 0, putFloorDerived: 0 };
+    // 0-7 DTE filter (same as web FlowRadar VOLUME mode)
+    const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
+    const maxDTE = 7;
+    const filtered = rawChain.filter((opt: any) => {
+      const expiryStr = opt.details?.expiration_date;
+      if (!expiryStr) return false;
+      const parts = expiryStr.split('-');
+      if (parts.length !== 3) return false;
+      const expiryDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const dte = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return dte >= 0 && dte <= maxDTE;
+    });
+    const source = filtered.length > 0 ? filtered : rawChain;
+    // Aggregate volume per strike
+    const map: Record<number, { callVol: number; putVol: number }> = {};
+    source.forEach((opt: any) => {
+      const strike = opt.details?.strike_price;
+      if (typeof strike !== 'number') return;
+      const vol = opt.day?.volume || 0;
+      const type = opt.details?.contract_type;
+      if (!map[strike]) map[strike] = { callVol: 0, putVol: 0 };
+      if (type === 'call') map[strike].callVol += vol;
+      else if (type === 'put') map[strike].putVol += vol;
+    });
+    let maxCall = -1, maxPut = -1, cStrike = 0, pStrike = 0;
+    Object.entries(map).forEach(([s, d]) => {
+      const strike = Number(s);
+      if (d.callVol > maxCall) { maxCall = d.callVol; cStrike = strike; }
+      if (d.putVol > maxPut) { maxPut = d.putVol; pStrike = strike; }
+    });
+    return { callWallDerived: cStrike, putFloorDerived: pStrike };
+  }, [rawChain]);
+
+  // Use rawChain-derived values (web standard), fall back to API if rawChain empty
+  const putFloorVal = putFloorDerived > 0 ? putFloorDerived : putFloorValApi;
+  const callWallVal = callWallDerived > 0 ? callWallDerived : callWallValApi;
   const impliedMoveRaw = tickerData?.flow?.impliedMove ?? (atmIvVal != null ? (atmIvVal / Math.sqrt(252) * 100) : null);
   const impliedMoveStr = impliedMoveRaw != null ? `±${impliedMoveRaw.toFixed(1)}%` : '—';
 
@@ -3793,12 +3835,20 @@ export default function AppFlowPage() {
         const strikeMap: Record<number, { strike: number; put: number; call: number; isWall: boolean; isFloor: boolean; isUnderlyer?: boolean }> = {};
         
         const chain = rawChain || [];
-        // Use nearest weekly expiry (주간만기) — consistent with structureService
-        const expirations = Array.from(new Set(chain.map(opt => opt.details?.expiration_date).filter(Boolean))).sort() as string[];
-        const nearestExpiry = expirations[0] || '';
-        const effectiveChain = nearestExpiry
-          ? chain.filter(opt => opt.details?.expiration_date === nearestExpiry)
-          : chain;
+        // [MATCH WEB] 0-7 DTE multi-expiry filter (same as FlowRadar VOLUME mode)
+        const etNowStrike = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const todayStrike = new Date(etNowStrike.getFullYear(), etNowStrike.getMonth(), etNowStrike.getDate());
+        const maxDTEStrike = 7;
+        const dteFiltered = chain.filter(opt => {
+          const expiryStr = opt.details?.expiration_date;
+          if (!expiryStr) return false;
+          const parts = expiryStr.split('-');
+          if (parts.length !== 3) return false;
+          const expiryDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          const dte = Math.ceil((expiryDate.getTime() - todayStrike.getTime()) / (1000 * 60 * 60 * 24));
+          return dte >= 0 && dte <= maxDTEStrike;
+        });
+        const effectiveChain = dteFiltered.length > 0 ? dteFiltered : chain;
 
         effectiveChain.forEach(opt => {
           const strike = opt.details?.strike_price;
@@ -3893,15 +3943,18 @@ export default function AppFlowPage() {
         });
         selectedStrikes.sort((a, b) => b - a);
         maxVal = Math.max(100, ...selectedStrikes.map(stk => Math.max(strikeMap[stk].call || 0, strikeMap[stk].put || 0)));
-        // Use API structure values (weekly expiry OI-based) as authoritative source
-        if (flowCallWall != null) wallStrike = flowCallWall;
-        if (flowPutFloor != null) floorStrike = flowPutFloor;
+        // [MATCH WEB] Use rawChain-derived VOLUME values (not API OI cache)
+        // API levels only used as fallback when rawChain calculation found nothing
+        if (wallStrike <= 0 && flowCallWall != null) wallStrike = flowCallWall;
+        if (floorStrike <= 0 && flowPutFloor != null) floorStrike = flowPutFloor;
 
         const closestStrike = selectedStrikes.reduce((prev, curr) => 
           Math.abs(curr - displayPrice) < Math.abs(prev - displayPrice) ? curr : prev
         , selectedStrikes[0]);
 
-        const weeklyExpiryLabel = nearestExpiry ? `${nearestExpiry.slice(5)} ${strikeCopy.weekly}` : strikeCopy.weekly;
+        const expirations = Array.from(new Set(effectiveChain.map(opt => opt.details?.expiration_date).filter(Boolean))).sort() as string[];
+        const chartExpiry = expirations[0] || '';
+        const weeklyExpiryLabel = chartExpiry ? `${chartExpiry.slice(5)} ${strikeCopy.weekly}` : strikeCopy.weekly;
         const nearestResistance = selectedStrikes.filter(stk => stk > displayPrice).sort((a, b) => a - b)[0] ?? wallStrike;
         const nearestSupport = selectedStrikes.filter(stk => stk < displayPrice).sort((a, b) => b - a)[0] ?? floorStrike;
         const wallDistancePct = wallStrike > 0 ? ((wallStrike - displayPrice) / displayPrice) * 100 : 0;
