@@ -789,7 +789,7 @@ export default function AppFlowPage() {
   );
   const liveGammaFlip = liveGammaFlipRaw
     ? `$${liveGammaFlipRaw.toFixed(2)}`
-    : (ticker === 'TSLA' ? '$165.00' : ticker === 'AAPL' ? '$210.00' : '$208.00');
+    : '—';
 
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
@@ -980,8 +980,8 @@ export default function AppFlowPage() {
             setOpi(calcOpi);
           }
           if (flow.netPremium != null) {
-            setTotalPrem(Math.abs(flow.netPremium) * 2.5 || 12500000);
-            setCallPct(flow.netPremium >= 0 ? 68.4 : 38.2);
+            setTotalPrem(Math.abs(flow.netPremium));
+            // callPct will be set from rawChain real volumes below
           }
           if (flow.maxPain != null) setMaxPainVal(flow.maxPain);
           if (data.volatilityRegime?.regime) setVolRegime(data.volatilityRegime.regime);
@@ -1050,9 +1050,8 @@ export default function AppFlowPage() {
             setOpi(calcOpi);
           }
           if (flowAfterOptional.netPremium != null) {
-            // Estimate total premium from net premium
-            setTotalPrem(Math.abs(flowAfterOptional.netPremium) * 2.5 || 12500000);
-            setCallPct(flowAfterOptional.netPremium >= 0 ? 68.4 : 38.2);
+            setTotalPrem(Math.abs(flowAfterOptional.netPremium));
+            // callPct will be set from rawChain real volumes below
           }
           if (flowAfterOptional.maxPain != null) setMaxPainVal(flowAfterOptional.maxPain);
           if (data.volatilityRegime?.regime) setVolRegime(data.volatilityRegime.regime);
@@ -1077,6 +1076,8 @@ export default function AppFlowPage() {
             if (pVol > 0) setPcRatio(Math.round(cVol / pVol * 100) / 100);
             setPcCallVol(cVol);
             setPcPutVol(pVol);
+            // Real call % from actual volumes
+            if (cVol + pVol > 0) setCallPct(Math.round(cVol / (cVol + pVol) * 1000) / 10);
             
             // OI P/C: all available expiries (monthly scope)
             let cOI = 0, pOI = 0;

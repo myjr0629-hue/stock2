@@ -358,7 +358,7 @@ function CandleChart({ ticker, price, vwap, locale = 'en' }: { ticker: string; p
 
       {/* ── NBBO & Spread Banner ── */}
       <div className={s.nbbo2}>
-        <span>NBBO <b style={{ color: 'var(--green)' }}>${nbbo.bid}</b> ×100</span>
+        <span>NBBO<span style={{ fontSize: '8px', opacity: 0.5, marginLeft: '3px' }}>Est.</span> <b style={{ color: 'var(--green)' }}>${nbbo.bid}</b> ×100</span>
         <span className={s.spread}>Spread {nbbo.spread}%</span>
         <span><b style={{ color: 'var(--red)' }}>${nbbo.ask}</b> ×100</span>
       </div>

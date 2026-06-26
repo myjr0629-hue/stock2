@@ -472,10 +472,10 @@ export default function AppDashPage() {
   const [moverSort, setMoverSort] = useState<'value' | 'gainers' | 'losers'>('value');
   const [moversLoading, setMoversLoading] = useState(false);
   const [briefing, setBriefing] = useState<string>(DEMO_BRIEFING);
-  const [volRegime, setVolRegime] = useState<{ regime: string; score: number } | null>({ regime: 'COILING', score: 38 });
-  const [darkPoolFlow, setDarkPoolFlow] = useState<{ percent: number; volume: number; totalVolume: number } | null>({ percent: 42.5, volume: 0, totalVolume: 0 });
-  const [gammaSqueeze, setGammaSqueeze] = useState<{ score: number; risk: string } | null>({ score: 34, risk: 'LOW' });
-  const [sectorRotation, setSectorRotation] = useState<{ score: number; direction: string; conviction: string } | null>({ score: 50, direction: 'NEUTRAL', conviction: 'LOW' });
+  const [volRegime, setVolRegime] = useState<{ regime: string; score: number } | null>(null);
+  const [darkPoolFlow, setDarkPoolFlow] = useState<{ percent: number; volume: number; totalVolume: number } | null>(null);
+  const [gammaSqueeze, setGammaSqueeze] = useState<{ score: number; risk: string } | null>(null);
+  const [sectorRotation, setSectorRotation] = useState<{ score: number; direction: string; conviction: string } | null>(null);
   const [newsItems, setNewsItems] = useState<TickerNewsItem[]>([]);
   const [tickerIndex, setTickerIndex] = useState(0);
   const [briefingMode, setBriefingMode] = useState<'briefing' | 'news'>('news');
