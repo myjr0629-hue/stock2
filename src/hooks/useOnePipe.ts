@@ -100,9 +100,8 @@ export function computeOnePipe(params: {
         }
         case 'PRE': {
             price = prevClose;
-            // PRE 본장 등락률: 폴링에서 가져온 changePct 사용 (전일 본장 등락률)
-            // /api/live/quotes PRE에서 changePct = (dayClose - prevDayClose) / prevDayClose
-            changePct = pollChangePct ?? 0;
+            // PRE 본장 등락률: null이면 기존 값 유지 (Phase 0 race condition 방지)
+            changePct = pollChangePct ?? changePct ?? 0;
             source = 'POLL';
             const preRealtime = (wsPrice && wsPrice > 0) ? wsPrice : (pollExtPrice > 0 ? pollExtPrice : 0);
             if (preRealtime > 0) {

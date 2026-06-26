@@ -280,7 +280,7 @@ export function useIntelSharedData(
 
                     const hasIncomingRegularChange = typeof p.changePercent === 'number' && Number.isFinite(p.changePercent);
                     const nextChangePct = !hasIncomingRegularChange
-                        && session === 'CLOSED'
+                        && (session === 'CLOSED' || session === 'PRE' || session === 'POST')
                         && q.changePct !== 0
                         && Math.abs(pipe.changePct) < 0.001
                         ? q.changePct
