@@ -362,7 +362,7 @@ function GuardianPageContent() {
               background: `linear-gradient(145deg, ${rlsiColor}18, rgba(15,23,42,0.78))`,
               borderRadius: 12,
               padding: '6px 10px',
-              textAlign: 'right',
+              textAlign: 'center',
               minWidth: 62,
               boxShadow: `0 0 18px ${rlsiColor}12`
             }}>
@@ -406,7 +406,7 @@ function GuardianPageContent() {
               {macroCards.map(card => (
                 <div
                   key={card.key}
-                  className={card.active && (card.key === 'spx' || card.key === 'ndx') ? 'app-live-index-pulse' : undefined}
+                  className={card.active && (card.key === 'spx' || card.key === 'ndx' || card.key === 'vix') ? 'app-live-index-pulse' : undefined}
                   style={{
                     position: 'relative',
                     minWidth: 0,
