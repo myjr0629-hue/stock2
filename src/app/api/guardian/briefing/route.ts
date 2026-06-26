@@ -13,9 +13,24 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const maxDuration = 60;
 
+const SUPPORTED_LOCALES = new Set(['ko', 'en', 'ja']);
+const HANGUL_RE = /[\u3131-\u318E\uAC00-\uD7A3]/;
+const JAPANESE_KANA_RE = /[\u3040-\u30FF]/;
+
+function normalizeLocale(value: string | null): 'ko' | 'en' | 'ja' {
+    return SUPPORTED_LOCALES.has(value || '') ? value as 'ko' | 'en' | 'ja' : 'ko';
+}
+
+function isBriefingUsableForLocale(locale: 'ko' | 'en' | 'ja', text: unknown): text is string {
+    if (typeof text !== 'string' || text.trim().length < 50) return false;
+    if (locale === 'en') return !HANGUL_RE.test(text) && !JAPANESE_KANA_RE.test(text);
+    if (locale === 'ja') return !HANGUL_RE.test(text);
+    return true;
+}
+
 export async function GET(req: NextRequest) {
     try {
-        const locale = req.nextUrl.searchParams.get('locale') || 'ko';
+        const locale = normalizeLocale(req.nextUrl.searchParams.get('locale'));
 
         // Today's date in ET (briefing is only valid for the current trading day)
         const nowET = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
@@ -38,7 +53,7 @@ export async function GET(req: NextRequest) {
             const briefingDate = localeBriefing.date || '';
             const isToday = briefingDate === todayET || briefingDate === todayUS;
 
-            if (isToday) {
+            if (isToday && isBriefingUsableForLocale(locale, localeBriefing.briefing)) {
                 return NextResponse.json({
                     success: true,
                     briefing: localeBriefing.briefing,
@@ -51,23 +66,26 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // Fallback to legacy key
-        const legacyKey = 'guardian:morning_briefing';
-        const legacyBriefing = await getFromCache<any>(legacyKey);
+        // Fallback to legacy key only for Korean. Legacy stores Korean text and
+        // must not be served to English/Japanese app pages.
+        if (locale === 'ko') {
+            const legacyKey = 'guardian:morning_briefing';
+            const legacyBriefing = await getFromCache<any>(legacyKey);
 
-        if (legacyBriefing) {
-            const briefingDate = legacyBriefing.date || '';
-            const isToday = briefingDate === todayET || briefingDate === todayUS;
+            if (legacyBriefing) {
+                const briefingDate = legacyBriefing.date || '';
+                const isToday = briefingDate === todayET || briefingDate === todayUS;
 
-            if (isToday) {
-                return NextResponse.json({
-                    success: true,
-                    briefing: legacyBriefing.text || legacyBriefing.briefing,
-                    date: legacyBriefing.date,
-                    source: legacyBriefing.source,
-                    generatedAt: legacyBriefing.generatedAt,
-                    preMarket: legacyBriefing.preMarket,
-                });
+                if (isToday && isBriefingUsableForLocale(locale, legacyBriefing.text || legacyBriefing.briefing)) {
+                    return NextResponse.json({
+                        success: true,
+                        briefing: legacyBriefing.text || legacyBriefing.briefing,
+                        date: legacyBriefing.date,
+                        source: legacyBriefing.source,
+                        generatedAt: legacyBriefing.generatedAt,
+                        preMarket: legacyBriefing.preMarket,
+                    });
+                }
             }
         }
 

@@ -73,7 +73,8 @@ export function AppBottomNav() {
   const locale = useLocale();
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
-    pathname?.includes('/app-view/onboarding');
+    pathname?.includes('/app-view/onboarding') ||
+    pathname?.includes('/app-view/settings');
 
   if (isDocumentRoute) return null;
 

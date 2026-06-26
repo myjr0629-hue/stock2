@@ -32,7 +32,8 @@ export function AppAnchorAd() {
   const [isNative, setIsNative] = useState(false);
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
-    pathname?.includes('/app-view/onboarding');
+    pathname?.includes('/app-view/onboarding') ||
+    pathname?.includes('/app-view/settings');
 
   useEffect(() => {
     let mounted = true;

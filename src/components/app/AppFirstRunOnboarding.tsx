@@ -168,12 +168,46 @@ export function AppFirstRunOnboarding() {
 
   if (!mounted || !visible || isDocumentRoute) return null;
 
-  const finish = () => {
+  const finish = async () => {
     try {
       window.localStorage.setItem(STORAGE_KEY, 'accepted');
     } catch {
       // If storage is unavailable, close for the current session.
     }
+
+    // Request push notification permissions (native only)
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // @ts-ignore — @capacitor/push-notifications is installed at native build time
+        const PushMod: any = await import('@capacitor/push-notifications');
+        const PushNotifications = PushMod.PushNotifications;
+        const permResult = await PushNotifications.requestPermissions();
+        if (permResult.receive === 'granted') {
+          await PushNotifications.register();
+          // Listen for registration token
+          PushNotifications.addListener('registration', (token: { value: string }) => {
+            try {
+              window.localStorage.setItem('signumhq.push.token', token.value);
+            } catch {}
+            // Send token to server
+            fetch('/api/push/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token: token.value,
+                platform: Capacitor.getPlatform(),
+                locale: window.location.pathname.split('/')[1] || 'en',
+              }),
+            }).catch(() => {});
+          });
+        }
+      }
+    } catch {
+      // Push not available (web preview or plugin missing)
+    }
+
     setVisible(false);
   };
 

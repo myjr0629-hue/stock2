@@ -480,8 +480,8 @@ export default function AppDashPage() {
   const [newsItems, setNewsItems] = useState<TickerNewsItem[]>([]);
   const [tickerIndex, setTickerIndex] = useState(0);
   const [briefingMode, setBriefingMode] = useState<'briefing' | 'news'>('news');
-  const [showLangDropdown, setShowLangDropdown] = useState(false);
-  const [showToast, setShowToast] = useState(false);
+
+
 
   // ── WebSocket Real-Time Integration ──
   const wsSymbols = useMemo(() => {
@@ -1375,51 +1375,12 @@ export default function AppDashPage() {
           </div>
         </div>
         <div className={s.headerActions}>
-          <button className={s.headerBtn} aria-label="Notifications" onClick={() => {
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 2500);
-          }}>
+          <button className={s.headerBtn} aria-label="Settings" onClick={() => router.push(`/${locale}/app-view/settings`)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" strokeWidth="1.6" />
             </svg>
           </button>
-          <div style={{ position: 'relative' }}>
-            <button className={s.headerBtn} aria-label="Language" onClick={() => setShowLangDropdown(!showLangDropdown)}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2Z" stroke="currentColor" strokeWidth="1.6" />
-              </svg>
-            </button>
-            {showLangDropdown && (
-              <div style={{
-                position: 'absolute', top: '100%', right: 0, marginTop: '8px',
-                background: 'rgba(15, 23, 42, 0.98)', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '12px', padding: '6px', zIndex: 100,
-                backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: '120px'
-              }}>
-                {[{ code: 'ko', label: '🇰🇷 한국어' }, { code: 'en', label: '🇺🇸 English' }, { code: 'ja', label: '🇯🇵 日本語' }].map(lang => (
-                  <button key={lang.code}
-                    onClick={() => {
-                      setShowLangDropdown(false);
-                      const currentPath = window.location.pathname;
-                      const newPath = currentPath.replace(/^\/(ko|en|ja)/, `/${lang.code}`);
-                      router.push(newPath);
-                    }}
-                    style={{
-                      display: 'block', width: '100%', padding: '10px 14px',
-                      background: locale === lang.code ? 'rgba(34,211,238,0.1)' : 'transparent',
-                      border: locale === lang.code ? '1px solid rgba(34,211,238,0.2)' : '1px solid transparent',
-                      borderRadius: '8px', color: locale === lang.code ? 'var(--cyan)' : 'rgba(255,255,255,0.7)',
-                      fontSize: '13px', fontWeight: locale === lang.code ? 700 : 500,
-                      cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s ease'
-                    }}
-                  >{lang.label}</button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </header>
 
@@ -1962,31 +1923,6 @@ export default function AppDashPage() {
       <AdBanner />
       <MobileAppFooter />
 
-      {/* Language dropdown backdrop */}
-      {showLangDropdown && (
-        <div
-          onClick={() => setShowLangDropdown(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'transparent' }}
-        />
-      )}
-
-      {/* Toast notification */}
-      {showToast && (
-        <div style={{
-          position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(34,211,238,0.25)',
-          borderRadius: '12px', padding: '12px 20px', zIndex: 200,
-          backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', gap: '8px',
-          animation: 'appFadeIn 0.2s ease',
-        }}>
-          <span style={{ fontSize: '14px' }}>🔔</span>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>
-            {locale === 'ko' ? '알림 기능 준비 중입니다' : locale === 'ja' ? '通知機能は準備中です' : 'Notifications coming soon'}
-          </span>
-        </div>
-      )}
     </div>
   );
 }

@@ -90,6 +90,45 @@ const CONFIG = {
 // REDIS CONNECTION
 // ══════════════════════════════════════════════════════════════
 
+const SECTOR_NAMES_EN = {
+    XLK: "Technology",
+    XLC: "Communication Services",
+    XLY: "Consumer Discretionary",
+    XLE: "Energy",
+    XLF: "Financials",
+    XLV: "Health Care",
+    XLI: "Industrials",
+    XLB: "Materials",
+    XLP: "Consumer Staples",
+    XLRE: "Real Estate",
+    XLU: "Utilities",
+    AI_PWR: "AI Power Grid",
+    SMH: "Semiconductors",
+    HACK: "Cybersecurity",
+    ICLN: "Clean Energy",
+    SAFE_HAVEN: "Safe Haven Assets",
+};
+
+const HANGUL_RE = /[\u3131-\u318E\uAC00-\uD7A3]/;
+const JAPANESE_KANA_RE = /[\u3040-\u30FF]/;
+
+function sectorNameForBriefing(sector) {
+    const id = String(sector?.id || sector?.sectorId || sector?.ticker || "").toUpperCase();
+    if (id && SECTOR_NAMES_EN[id]) return SECTOR_NAMES_EN[id];
+
+    const rawName = typeof sector?.name === "string" ? sector.name.trim() : "";
+    if (rawName && /^[\x20-\x7E]+$/.test(rawName)) return rawName;
+
+    return id || "Sector";
+}
+
+function isBriefingUsableForLocale(locale, briefing) {
+    if (!briefing || typeof briefing.briefing !== "string" || briefing.briefing.length < 50) return false;
+    if (locale === "en") return !HANGUL_RE.test(briefing.briefing) && !JAPANESE_KANA_RE.test(briefing.briefing);
+    if (locale === "ja") return !HANGUL_RE.test(briefing.briefing);
+    return true;
+}
+
 const redis = new Redis({
     host: CONFIG.ELASTICACHE_HOST,
     port: CONFIG.ELASTICACHE_PORT,
@@ -659,16 +698,26 @@ async function generateMorningBriefing() {
     const now = new Date();
     const etDateStr = now.toLocaleDateString("en-US", { timeZone: "America/New_York" });
 
-    // [FIX] Check Redis for existing today's briefing (not memory variable)
-    // This survives EC2 restarts and ensures we never regenerate an already-existing briefing
+    // Check all locale caches. A single Korean briefing is not enough: the app
+    // must have clean ko/en/ja text before the daily job is considered complete.
     try {
-        const existingRaw = await redis.get("guardian:morning_briefing:ko");
-        if (existingRaw) {
-            const existing = JSON.parse(existingRaw);
-            if (existing.date === etDateStr && existing.briefing && existing.briefing.length > 50) {
-                return; // Today's briefing already exists — skip
+        const missingLocales = [];
+        for (const locale of CONFIG.LOCALES) {
+            const existingRaw = await redis.get(`guardian:morning_briefing:${locale}`);
+            let existing = null;
+            if (existingRaw) {
+                try {
+                    existing = JSON.parse(existingRaw);
+                } catch {
+                    existing = null;
+                }
+            }
+            if (!existing || existing.date !== etDateStr || !isBriefingUsableForLocale(locale, existing)) {
+                missingLocales.push(locale);
             }
         }
+        if (missingLocales.length === 0) return;
+        console.log(`[Briefing] Regenerating; missing/stale/contaminated locales: ${missingLocales.join(", ")}`);
     } catch (e) {
         console.warn("[Briefing] Redis check error (will attempt generation):", e.message);
     }
@@ -720,7 +769,7 @@ async function generateMorningBriefing() {
                     accept: 'application/json',
                     body: JSON.stringify({
                         anthropic_version: 'bedrock-2023-05-31',
-                        max_tokens: 2048,
+                        max_tokens: 4096,
                         temperature: 0.3,
                         system: systemPrompt,
                         messages: [
@@ -750,7 +799,13 @@ async function generateMorningBriefing() {
                 };
 
                 const briefingTexts = JSON.parse(rawText);
-                if (isInvalid(briefingTexts.ko) || isInvalid(briefingTexts.en)) {
+                if (
+                    isInvalid(briefingTexts.ko) ||
+                    isInvalid(briefingTexts.en) ||
+                    isInvalid(briefingTexts.ja) ||
+                    (briefingTexts.en && !isBriefingUsableForLocale("en", { briefing: briefingTexts.en })) ||
+                    (briefingTexts.ja && !isBriefingUsableForLocale("ja", { briefing: briefingTexts.ja }))
+                ) {
                     throw new Error('AI generated invalid/refusal response (intercepted by EC2)');
                 }
 
@@ -852,7 +907,7 @@ function generateFallbackBriefing(snapshot, dateStr) {
     const sectors = (snapshot?.sectors || [])
         .sort((a, b) => Math.abs(b.change || 0) - Math.abs(a.change || 0))
         .slice(0, 3)
-        .map(s => `${s.name}(${s.change >= 0 ? "+" : ""}${(s.change || 0).toFixed(1)}%)`)
+        .map(s => `${sectorNameForBriefing(s)}(${s.change >= 0 ? "+" : ""}${(s.change || 0).toFixed(1)}%)`)
         .join(", ");
 
     const gammaDesc = gex != null ? (gex > 0 ? "롱 감마" : "숏 감마") : null;

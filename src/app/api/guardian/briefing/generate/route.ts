@@ -22,6 +22,113 @@ export const maxDuration = 60;
 
 const BEDROCK_MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
+const SECTOR_NAMES_EN: Record<string, string> = {
+    XLK: 'Technology',
+    XLC: 'Communication Services',
+    XLY: 'Consumer Discretionary',
+    XLE: 'Energy',
+    XLF: 'Financials',
+    XLV: 'Health Care',
+    XLI: 'Industrials',
+    XLB: 'Materials',
+    XLP: 'Consumer Staples',
+    XLRE: 'Real Estate',
+    XLU: 'Utilities',
+    AI_PWR: 'AI Power Grid',
+    SMH: 'Semiconductors',
+    HACK: 'Cybersecurity',
+    ICLN: 'Clean Energy',
+    SAFE_HAVEN: 'Safe Haven Assets',
+};
+
+function sectorNameForBriefing(sector: any): string {
+    const id = String(sector?.id || sector?.sectorId || sector?.ticker || '').toUpperCase();
+    if (id && SECTOR_NAMES_EN[id]) return SECTOR_NAMES_EN[id];
+
+    const rawName = typeof sector?.name === 'string' ? sector.name.trim() : '';
+    if (rawName && /^[\x20-\x7E]+$/.test(rawName)) return rawName;
+
+    return id || 'Sector';
+}
+
+const HANGUL_RE = /[\u3131-\u318E\uAC00-\uD7A3]/;
+const JAPANESE_KANA_RE = /[\u3040-\u30FF]/;
+
+function hasWrongLocaleText(locale: 'ko' | 'en' | 'ja', text: string): boolean {
+    if (locale === 'en') return HANGUL_RE.test(text) || JAPANESE_KANA_RE.test(text);
+    if (locale === 'ja') return HANGUL_RE.test(text);
+    return false;
+}
+
+type BriefingTexts = Record<'ko' | 'en' | 'ja', string>;
+
+function buildTemplateBriefing(snapshot: any, dateStr: string): BriefingTexts {
+    const rlsi = Number(snapshot?.rlsi?.score ?? NaN);
+    const vix = Number(snapshot?.rlsi?.components?.vix ?? NaN);
+    const gex = Number(snapshot?.gammaShield?.gexIndex ?? NaN);
+    const breadth = Number(snapshot?.breadth?.breadthPct ?? NaN);
+    const sectors = (snapshot?.sectors || [])
+        .sort((a: any, b: any) => Math.abs(b.change || 0) - Math.abs(a.change || 0))
+        .slice(0, 3)
+        .map((s: any) => `${sectorNameForBriefing(s)}(${s.change >= 0 ? '+' : ''}${(s.change || 0).toFixed(1)}%)`)
+        .join(', ');
+
+    const rlsiEn = Number.isFinite(rlsi) ? `Market health (RLSI) is ${rlsi.toFixed(0)}.` : 'Market health data is limited.';
+    const vixEn = Number.isFinite(vix) ? `VIX is ${vix.toFixed(1)}, defining the current volatility backdrop.` : 'Volatility data is limited.';
+    const gexEn = Number.isFinite(gex) ? `Gamma positioning is ${gex >= 0 ? 'long gamma' : 'short gamma'} with GEX ${gex.toFixed(0)}.` : 'Gamma positioning is not available.';
+    const breadthEn = Number.isFinite(breadth) ? `Market breadth is ${breadth.toFixed(0)}%, showing ${breadth >= 60 ? 'broad participation' : breadth >= 45 ? 'mixed participation' : 'weak participation'}.` : 'Breadth data is limited.';
+    const sectorsEn = sectors ? `Notable sector moves: ${sectors}.` : 'No notable sector move is available.';
+
+    return {
+        ko: [
+            `${dateStr} 프리마켓 브리핑입니다.`,
+            Number.isFinite(rlsi) ? `시장 건강도(RLSI)는 ${rlsi.toFixed(0)}로 관찰됩니다.` : '시장 건강도 데이터는 제한적입니다.',
+            Number.isFinite(vix) ? `VIX는 ${vix.toFixed(1)}로 현재 변동성 배경을 형성합니다.` : '변동성 데이터는 제한적입니다.',
+            Number.isFinite(gex) ? `감마 환경은 ${gex >= 0 ? '롱 감마' : '숏 감마'}이며 GEX는 ${gex.toFixed(0)}입니다.` : '감마 데이터는 아직 제한적입니다.',
+            Number.isFinite(breadth) ? `시장 참여도는 ${breadth.toFixed(0)}%로 ${breadth >= 60 ? '넓은 참여' : breadth >= 45 ? '혼조 참여' : '약한 참여'}가 관찰됩니다.` : '시장 참여도 데이터는 제한적입니다.',
+            sectors ? `주요 섹터 움직임: ${sectors}.` : '뚜렷한 섹터 움직임은 아직 확인되지 않습니다.',
+        ].join(' '),
+        en: [`Pre-market conditions as of ${dateStr}.`, rlsiEn, vixEn, gexEn, breadthEn, sectorsEn].join(' '),
+        ja: [
+            `${dateStr}のプレマーケットブリーフィングです。`,
+            Number.isFinite(rlsi) ? `市場健全性(RLSI)は${rlsi.toFixed(0)}として観測されています。` : '市場健全性データは限定的です。',
+            Number.isFinite(vix) ? `VIXは${vix.toFixed(1)}で、現在のボラティリティ環境を示しています。` : 'ボラティリティデータは限定的です。',
+            Number.isFinite(gex) ? `ガンマ環境は${gex >= 0 ? 'ロングガンマ' : 'ショートガンマ'}で、GEXは${gex.toFixed(0)}です。` : 'ガンマデータはまだ限定的です。',
+            Number.isFinite(breadth) ? `市場参加度は${breadth.toFixed(0)}%で、${breadth >= 60 ? '広い参加' : breadth >= 45 ? 'まちまちな参加' : '弱い参加'}が観測されています。` : '市場参加度データは限定的です。',
+            sectors ? `主なセクターの動き: ${sectors}.` : '明確なセクターの動きはまだ確認されていません。',
+        ].join(' '),
+    };
+}
+
+async function saveBriefingTexts(briefing: BriefingTexts, meta: {
+    date: string;
+    source: string;
+    newsCount?: number;
+    calendarCount?: number;
+}) {
+    const locales = ['ko', 'en', 'ja'] as const;
+    const generatedAt = new Date().toISOString();
+
+    for (const loc of locales) {
+        await setInCache(`guardian:morning_briefing:${loc}`, {
+            date: meta.date,
+            generatedAt,
+            briefing: briefing[loc],
+            source: meta.source,
+            newsCount: meta.newsCount || 0,
+            calendarCount: meta.calendarCount || 0,
+        }, 24 * 60 * 60);
+    }
+
+    await setInCache('guardian:morning_briefing', {
+        date: meta.date,
+        generatedAt,
+        text: briefing.ko || briefing.en,
+        briefing: briefing.ko || briefing.en,
+        source: meta.source,
+    }, 24 * 60 * 60);
+}
+
 let _bedrockClient: BedrockRuntimeClient | null = null;
 function getBedrock(): BedrockRuntimeClient {
     if (_bedrockClient) return _bedrockClient;
@@ -37,6 +144,9 @@ function getBedrock(): BedrockRuntimeClient {
 
 export async function POST(req: Request) {
     const startTime = Date.now();
+    let snapshotForFallback: any = null;
+    let fallbackNewsCount = 0;
+    let fallbackCalendarCount = 0;
 
     try {
         const body = await req.json();
@@ -47,6 +157,7 @@ export async function POST(req: Request) {
             console.log('[Briefing Gen] Snapshot missing or null, fetching via GuardianDataHub...');
             snapshot = await GuardianDataHub.getGuardianSnapshot(false);
         }
+        snapshotForFallback = snapshot;
 
         // 1. Fetch Polygon broad market news (stock/sector)
         let marketNews: string[] = [];
@@ -89,6 +200,7 @@ export async function POST(req: Request) {
         } catch (e) {
             console.warn('[Briefing Gen] FMP news fetch failed:', e);
         }
+        fallbackNewsCount = marketNews.length;
 
         // 2. Get economic calendar from Redis
         let calendarEvents: string[] = [];
@@ -104,6 +216,7 @@ export async function POST(req: Request) {
         } catch (e) {
             console.warn('[Briefing Gen] Calendar fetch failed:', e);
         }
+        fallbackCalendarCount = calendarEvents.length;
 
         // 2.3. Fetch SEC 8-K filings for major tickers
         let sec8kSection = '';
@@ -167,7 +280,7 @@ export async function POST(req: Request) {
         const sectors = (snapshot?.sectors || [])
             .sort((a: any, b: any) => Math.abs(b.change || 0) - Math.abs(a.change || 0))
             .slice(0, 5)
-            .map((s: any) => `${s.name} ${s.change >= 0 ? '+' : ''}${s.change?.toFixed(1)}%`)
+            .map((s: any) => `${sectorNameForBriefing(s)} ${s.change >= 0 ? '+' : ''}${s.change?.toFixed(1)}%`)
             .join(', ');
 
         // RLSI trend
@@ -196,6 +309,8 @@ Your briefing must read like a NARRATIVE STORY that weaves together overnight ne
 - Write exactly 6-8 sentences per language. CONCISE but COMPLETE.
 - NEVER give investment advice. ONLY observational language: "관찰됨", "나타남", "observed", "noted".
 - Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
+- The market data uses English canonical sector names. Keep them in English for the English briefing; translate them naturally only in Korean/Japanese.
+- STRICT LOCALE SEPARATION: English output must contain no Korean or Japanese text. Korean output must be Korean. Japanese output must be Japanese.
 - Do NOT use any emoji or special Unicode symbols. Plain text only.
 - JSON SAFETY: DO NOT use double quotes (") anywhere inside your sentences. If you must quote a title, word, or headline, use single quotes (') instead. Unescaped double quotes will CRASH the system.
 - FORMATTING: Do NOT use line breaks (\\n) inside your translated strings. Keep each language's briefing as a single continuous paragraph.
@@ -266,7 +381,7 @@ Output ONLY valid JSON (no markdown fences):
             accept: 'application/json',
             body: JSON.stringify({
                 anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 2048,
+                max_tokens: 4096,
                 temperature: 0.3,
                 system: systemPrompt,
                 messages: [
@@ -302,9 +417,30 @@ Output ONLY valid JSON (no markdown fences):
                    lower.includes('불가능');
         };
 
-        if (isInvalid(briefing.ko) || isInvalid(briefing.en)) {
-            console.error('[Briefing Gen] AI generated a refusal or suspiciously short response. Rejecting cache storage to prevent UI pollution.');
-            return NextResponse.json({ error: 'AI generated invalid/refusal response' }, { status: 500 });
+        if (
+            isInvalid(briefing.ko) ||
+            isInvalid(briefing.en) ||
+            isInvalid(briefing.ja) ||
+            hasWrongLocaleText('en', briefing.en) ||
+            hasWrongLocaleText('ja', briefing.ja)
+        ) {
+            console.error('[Briefing Gen] AI generated invalid/mixed-locale text. Saving clean template fallback.');
+            const etDateStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+            const fallback = buildTemplateBriefing(snapshot, etDateStr);
+            await saveBriefingTexts(fallback, {
+                date: etDateStr,
+                source: 'template-validation',
+                newsCount: marketNews.length,
+                calendarCount: calendarEvents.length,
+            });
+            return NextResponse.json({
+                success: true,
+                briefing: fallback,
+                newsCount: marketNews.length,
+                calendarCount: calendarEvents.length,
+                savedToRedis: true,
+                source: 'template-validation',
+            });
         }
 
         const elapsed = Date.now() - startTime;
@@ -313,26 +449,12 @@ Output ONLY valid JSON (no markdown fences):
         console.log(`[Briefing Gen] ✅ Narrative briefing generated in ${elapsed}ms`);
 
         // [AUTO-SAVE] Store directly in Redis — no Worker dependency
-        const locales = ['ko', 'en', 'ja'] as const;
-        for (const loc of locales) {
-            const briefingText = briefing[loc] || briefing.en || 'Briefing not available';
-            await setInCache(`guardian:morning_briefing:${loc}`, {
-                date: etDateStr,
-                generatedAt: new Date().toISOString(),
-                briefing: briefingText,
-                source: 'claude',
-                newsCount: marketNews.length,
-                calendarCount: calendarEvents.length,
-            }, 24 * 60 * 60);
-        }
-        // Legacy key
-        await setInCache('guardian:morning_briefing', {
+        await saveBriefingTexts(briefing as BriefingTexts, {
             date: etDateStr,
-            generatedAt: new Date().toISOString(),
-            text: briefing.ko || briefing.en,
-            briefing: briefing.ko || briefing.en,
             source: 'claude',
-        }, 24 * 60 * 60);
+            newsCount: marketNews.length,
+            calendarCount: calendarEvents.length,
+        });
 
         console.log(`[Briefing Gen] ✅ Saved to Redis (3 locales + legacy)`);
 
@@ -347,6 +469,26 @@ Output ONLY valid JSON (no markdown fences):
 
     } catch (e: any) {
         console.error('[Briefing Gen] Error:', e.message);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        try {
+            const etDateStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+            const fallback = buildTemplateBriefing(snapshotForFallback, etDateStr);
+            await saveBriefingTexts(fallback, {
+                date: etDateStr,
+                source: 'template-error',
+                newsCount: fallbackNewsCount,
+                calendarCount: fallbackCalendarCount,
+            });
+            return NextResponse.json({
+                success: true,
+                briefing: fallback,
+                newsCount: fallbackNewsCount,
+                calendarCount: fallbackCalendarCount,
+                savedToRedis: true,
+                source: 'template-error',
+                warning: e.message,
+            });
+        } catch (fallbackError: any) {
+            return NextResponse.json({ error: e.message, fallbackError: fallbackError.message }, { status: 500 });
+        }
     }
 }

@@ -10,6 +10,17 @@ export async function middleware(request: NextRequest) {
     request.headers.set('x-url', request.url);
     request.headers.set('x-pathname', request.nextUrl.pathname);
 
+    // ── Native WebView redirect: prevent landing page flash on app startup ──
+    const ua = request.headers.get('user-agent') || '';
+    const pathname = request.nextUrl.pathname;
+    const isNativeWebView = ua.includes('wv') || ua.includes('com.signumhq.app');
+    const isRootOrLocaleOnly = pathname === '/' || /^\/(ko|en|ja)$/.test(pathname);
+
+    if (isNativeWebView && isRootOrLocaleOnly) {
+      const locale = pathname === '/' ? 'en' : pathname.replace('/', '');
+      return NextResponse.redirect(new URL(`/${locale}/app-view/dash`, request.url));
+    }
+
     // First, handle Supabase session refresh
     const supabaseResponse = await updateSession(request);
 

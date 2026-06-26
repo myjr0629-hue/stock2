@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
 const POLYGON_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
 
+export const dynamic = 'force-dynamic';
 export const revalidate = 10;
 
 type SessionType = "PRE" | "REG" | "POST" | "CLOSED";

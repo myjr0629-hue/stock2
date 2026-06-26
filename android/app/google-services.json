@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "445244834096",
+    "project_id": "signumhq-app",
+    "storage_bucket": "signumhq-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:445244834096:android:c094b102093e2694fcc8f5",
+        "android_client_info": {
+          "package_name": "com.signumhq.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmSkVQJMECd6bpGD6fxkYOu3HEO6dXiGA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
