@@ -1,4 +1,13 @@
 /* App View — Mobile App Layout */
+
+/* Chrome WebView checks html/body for pull-to-refresh — must block here */
+html:has(.app-viewport),
+html:has(.app-viewport) body {
+  overscroll-behavior: none !important;
+  -webkit-overscroll-behavior: none !important;
+  overflow: hidden;
+}
+
 .app-viewport {
   --app-tabbar-height: 72px;
   --app-anchor-ad-height: 50px;
