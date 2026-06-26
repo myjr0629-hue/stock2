@@ -720,19 +720,19 @@ export default function AppFlowPage() {
   const [tickerData, setTickerData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'ai-intel' | 'whale-flow' | 'strike-profile'>('overview');
   
-  const [price, setPrice] = useState(208.19);
-  const [change, setChange] = useState(-0.22);
-  const [opi, setOpi] = useState(72.4); // 0-100
-  const [pcRatio, setPcRatio] = useState(0.68);
+  const [price, setPrice] = useState(0);
+  const [change, setChange] = useState(0);
+  const [opi, setOpi] = useState(0); // 0-100
+  const [pcRatio, setPcRatio] = useState(0);
   const [pcRatioOI, setPcRatioOI] = useState(0);
   const [pcCallVol, setPcCallVol] = useState(0);
   const [pcPutVol, setPcPutVol] = useState(0);
   const [pcCallOI, setPcCallOI] = useState(0);
   const [pcPutOI, setPcPutOI] = useState(0);
-  const [totalPrem, setTotalPrem] = useState(18900000); // USD
-  const [callPct, setCallPct] = useState(64.5); // %
-  const [maxPainVal, setMaxPainVal] = useState(135.0);
-  const [volRegime, setVolRegime] = useState('LOADED'); // STABLE, LOADED, ERUPTING
+  const [totalPrem, setTotalPrem] = useState(0); // USD
+  const [callPct, setCallPct] = useState(50); // %
+  const [maxPainVal, setMaxPainVal] = useState(0);
+  const [volRegime, setVolRegime] = useState('STABLE'); // STABLE, LOADED, ERUPTING
   /* transactions state — removed (orphan: never read in JSX) */
   const [rawChain, setRawChain] = useState<any[]>([]);
   const [whaleTradesFeed, setWhaleTradesFeed] = useState<any[]>([]);
@@ -844,32 +844,36 @@ export default function AppFlowPage() {
   const effectiveSessionRef = useRef(effectiveSession);
 
   // Dynamic Dark Pool / Squeezes
-  const dpPct = tickerData?.flow?.darkPoolPct ? (tickerData.flow.darkPoolPct > 1 ? tickerData.flow.darkPoolPct.toFixed(1) : (tickerData.flow.darkPoolPct * 100).toFixed(1)) + '%' : '60.5%';
+  const dpPct = tickerData?.flow?.darkPoolPct ? (tickerData.flow.darkPoolPct > 1 ? tickerData.flow.darkPoolPct.toFixed(1) : (tickerData.flow.darkPoolPct * 100).toFixed(1)) + '%' : '—';
   
-  let dpVolStr = 'DP 18613.5K / 전체 30744.8K';
+  let dpVolStr = locale === 'ko' ? 'DP — / 전체 —' : locale === 'ja' ? 'DP — / 全体 —' : 'DP — / Total —';
   if (tickerData?.flow?.darkPoolVol && tickerData?.flow?.darkPoolTotalVol) {
     const v1 = (tickerData.flow.darkPoolVol / 1000).toFixed(1);
     const v2 = (tickerData.flow.darkPoolTotalVol / 1000).toFixed(1);
-    dpVolStr = 'DP ' + v1 + 'K / 전체 ' + v2 + 'K';
+    const totalLabel = locale === 'ko' ? '전체' : locale === 'ja' ? '全体' : 'Total';
+    dpVolStr = 'DP ' + v1 + 'K / ' + totalLabel + ' ' + v2 + 'K';
   }
   
-  let dpNetBuyStr = '순매수 -53.5K';
+  let dpNetBuyStr = locale === 'ko' ? '순매수 —' : locale === 'ja' ? '純買い —' : 'Net Buy —';
   if (tickerData?.flow?.darkPoolNetBuyVal !== undefined && tickerData?.flow?.darkPoolNetBuyVal !== null) {
     const prefix = tickerData.flow.darkPoolNetBuyVal >= 0 ? '+' : '';
     const val = (tickerData.flow.darkPoolNetBuyVal / 1000).toFixed(1);
-    dpNetBuyStr = '순매수 ' + prefix + val + 'K';
+    const label = locale === 'ko' ? '순매수' : locale === 'ja' ? '純買い' : 'Net Buy';
+    dpNetBuyStr = label + ' ' + prefix + val + 'K';
   }
 
-  const shortPct = tickerData?.flow?.shortVolPct ? (tickerData.flow.shortVolPct > 1 ? tickerData.flow.shortVolPct.toFixed(1) : (tickerData.flow.shortVolPct * 100).toFixed(1)) + '%' : '45.2%';
+  const shortPct = tickerData?.flow?.shortVolPct ? (tickerData.flow.shortVolPct > 1 ? tickerData.flow.shortVolPct.toFixed(1) : (tickerData.flow.shortVolPct * 100).toFixed(1)) + '%' : '—';
   
-  let shortVolStr = '공매도 17.8M / 전체 39.5M';
+  let shortVolStr = locale === 'ko' ? '공매도 — / 전체 —' : locale === 'ja' ? '空売り — / 全体 —' : 'Short Vol — / Total —';
   if (tickerData?.flow?.shortVol && tickerData?.flow?.shortTotalVol) {
     const s1 = (tickerData.flow.shortVol / 1000000).toFixed(1);
     const s2 = (tickerData.flow.shortTotalVol / 1000000).toFixed(1);
-    shortVolStr = '공매도 ' + s1 + 'M / 전체 ' + s2 + 'M';
+    const shortLabel = locale === 'ko' ? '공매도' : locale === 'ja' ? '空売り' : 'Short Vol';
+    const totalLabel = locale === 'ko' ? '전체' : locale === 'ja' ? '全体' : 'Total';
+    shortVolStr = shortLabel + ' ' + s1 + 'M / ' + totalLabel + ' ' + s2 + 'M';
   }
 
-  const blockCount = tickerData?.flow?.blockTrades ?? darkPoolMeta?.tradeCount ?? 214;
+  const blockCount = tickerData?.flow?.blockTrades ?? darkPoolMeta?.tradeCount ?? 0;
 
   useEffect(() => {
     displayPriceRef.current = displayPrice;
@@ -1090,7 +1094,7 @@ export default function AppFlowPage() {
                 time: timeStr,
                 strike: c.details?.strike_price || c.strike || 0,
                 type: c.details?.contract_type?.toUpperCase() || c.type || (i % 2 === 0 ? 'CALL' : 'PUT'),
-                expiry: c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '06/19',
+                expiry: c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '',
                 size: c.day?.volume || c.size || 100 * (i + 1),
                 px: c.last_quote?.midpoint || c.price || 1.5,
                 premium: (c.day?.volume && c.last_quote?.midpoint) ? c.day.volume * c.last_quote.midpoint * 100 : (c.premium || (c.size || 100) * (c.price || 1.5) * 100),
@@ -1123,17 +1127,17 @@ export default function AppFlowPage() {
 
   // Demo Sweeps & UOA for fallback
   const DEMO_WHALES = useMemo(() => [
-    { time: '10:14:22', strike: 140, type: 'CALL', expiry: '06/19', size: 1250, px: 2.45, premium: 306250, dir: 'ASK' as const },
-    { time: '10:11:58', strike: 145, type: 'CALL', expiry: '06/19', size: 2100, px: 1.22, premium: 256200, dir: 'ASK' as const },
+    { time: '10:14:22', strike: 140, type: 'CALL', expiry: '', size: 1250, px: 2.45, premium: 306250, dir: 'ASK' as const },
+    { time: '10:11:58', strike: 145, type: 'CALL', expiry: '', size: 2100, px: 1.22, premium: 256200, dir: 'ASK' as const },
     { time: '10:10:15', strike: 130, type: 'PUT', expiry: '06/26', size: 800, px: 3.10, premium: 248000, dir: 'BID' as const },
     { time: '10:08:44', strike: 138, type: 'CALL', expiry: '06/12', size: 1100, px: 1.85, premium: 203500, dir: 'ASK' as const },
     { time: '10:05:12', strike: 135, type: 'PUT', expiry: '06/12', size: 1400, px: 1.12, premium: 156800, dir: 'BID' as const },
   ], []);
 
   const DEMO_UOA = useMemo(() => [
-    { strike: 150, type: 'CALL', expiry: '06/19', volume: 4800, oi: 1200, ratio: 4.0 },
+    { strike: 150, type: 'CALL', expiry: '', volume: 4800, oi: 1200, ratio: 4.0 },
     { strike: 132, type: 'PUT', expiry: '06/12', volume: 3200, oi: 950, ratio: 3.37 },
-    { strike: 142, type: 'CALL', expiry: '06/19', volume: 5500, oi: 2200, ratio: 2.5 },
+    { strike: 142, type: 'CALL', expiry: '', volume: 5500, oi: 2200, ratio: 2.5 },
     { strike: 128, type: 'PUT', expiry: '06/26', volume: 1800, oi: 800, ratio: 2.25 },
   ], []);
 
@@ -1145,7 +1149,7 @@ export default function AppFlowPage() {
         ? String(tx.expiry).includes('-')
           ? String(tx.expiry).split('-').slice(1).join('/')
           : String(tx.expiry)
-        : '06/19';
+        : '';
       return {
         id: tx.id || `whale-${i}`,
         time: tx.timeET || tx.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0],
@@ -1168,7 +1172,7 @@ export default function AppFlowPage() {
       : rawChain.map((c: any, i: number) => {
           const strike = c.details?.strike_price || 0;
           const type = (c.details?.contract_type || 'call').toUpperCase();
-          const expiry = c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '06/19';
+          const expiry = c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '';
           const volume = c.day?.volume || 0;
           const px = c.last_quote?.midpoint || c.day?.close || 0;
           const premium = volume * px * 100;
@@ -1275,7 +1279,7 @@ export default function AppFlowPage() {
     const uoas = rawChain.map((c: any) => {
       const strike = c.details?.strike_price || 0;
       const type = (c.details?.contract_type || 'call').toUpperCase();
-      const expiry = c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '06/19';
+      const expiry = c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '';
       const volume = c.day?.volume || 0;
       const oi = c.open_interest || c.day?.open_interest || 1;
       const ratio = volume / oi;
@@ -2800,7 +2804,7 @@ export default function AppFlowPage() {
           <div className="premium-card" style={{ padding: '14px', margin: 0 }}>
             <div className="app-card-head" style={{ marginBottom: '10px' }}>
               <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                P/C RATIO
+                C/P RATIO
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>

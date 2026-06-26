@@ -22,35 +22,34 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 const DEMO = {
   ticker: 'NVDA',
   company: 'NVIDIA Corp',
-  price: 135.20,
-  change: 3.45,
-  changePct: 2.62,
+  price: 0,
+  change: 0,
+  changePct: 0,
   up: true,
-  rsi14: 64.2,
-  vwap: 133.80,
-  high: 137.50,
-  low: 131.20,
+  rsi14: 0,
+  vwap: 0,
+  high: 0,
+  low: 0,
   session: 'REG' as const,
-  analyst: { rating: 'STRONG BUY', target: 180.00, targetHigh: 220.00, targetLow: 140.00, buy: 15, hold: 3, sell: 1, totalAnalysts: 19, bullishPct: 79 },
+  analyst: { rating: '—', target: 0, targetHigh: 0, targetLow: 0, buy: 0, hold: 0, sell: 0, totalAnalysts: 0, bullishPct: 0 },
   fundamentals: [
-    { label: 'P / E', value: '45.2', sub: 'Industry avg 38.5', trend: 'up' },
-    { label: 'ROE', value: '56.3%', sub: 'vs 22.1% sector', trend: 'up' },
-    { label: 'REVENUE TTM', value: '$35.1B', sub: '+122% YoY', trend: 'up' },
-    { label: 'EPS', value: '$2.12', sub: 'Beat by $0.08', trend: 'up' },
+    { label: 'P / E', value: '—', sub: '', trend: 'up' },
+    { label: 'ROE', value: '—', sub: '', trend: 'up' },
+    { label: 'REVENUE TTM', value: '—', sub: '', trend: 'up' },
+    { label: 'EPS', value: '—', sub: '', trend: 'up' },
   ],
-  earnings: { date: 'Aug 25, 2026', daysLeft: 80, progress: 62, session: 'AMC' },
+  earnings: { date: '—', daysLeft: 999, progress: 0, session: '—' },
   premium: {
-    gex: [-3, -5, -2, 4, 8, 14, 22, 30, 18, 9, 5, -2, -6, -3],
-    gammaFlip: '$132.50',
-    gammaFlipRaw: 132.50,
-    callWall: 140.00,
-    putFloor: 130.00,
-    maxPain: 135.00,
-    netPremium: 2400000,
-    darkPool: '68.4%',
-    blockTrades: 214,
-    aiInsight:
-      'Dealers are short gamma below $132.50 — a break lower accelerates volatility. Heavy dark-pool accumulation (68%) plus 214 block prints signal institutional positioning ahead of expiry. Bias: bullish above flip.',
+    gex: [0],
+    gammaFlip: '$0.00',
+    gammaFlipRaw: 0,
+    callWall: 0,
+    putFloor: 0,
+    maxPain: 0,
+    netPremium: 0,
+    darkPool: '—',
+    blockTrades: 0,
+    aiInsight: '',
   },
 };
 
@@ -1872,7 +1871,11 @@ function CmdPageContent() {
         const earnings = earnSource ? {
           date: earnSource.nextEarningsDate || DEMO.earnings.date,
           daysLeft: earnSource.daysUntilEarnings ?? DEMO.earnings.daysLeft,
-          progress: DEMO.earnings.progress,
+          progress: (() => {
+            const days = earnSource.daysUntilEarnings ?? DEMO.earnings.daysLeft;
+            if (days >= 90 || days <= 0) return 0;
+            return Math.round(((90 - days) / 90) * 100);
+          })(),
           session: earnSource.hourLabel || DEMO.earnings.session,
         } : DEMO.earnings;
         const earnRaw: EarnRaw | null = earnSource ? {
@@ -1918,7 +1921,7 @@ function CmdPageContent() {
           change: Math.abs(changeAbs),
           changePct: Math.abs(changePct),
           up,
-          rsi14: DEMO.rsi14,
+          rsi14: u.rsi14 || u.technical?.rsi14 || t?.technical?.rsi14 || 0,
           vwap: t?.vwap ?? DEMO.vwap,
           session,
           analyst,
