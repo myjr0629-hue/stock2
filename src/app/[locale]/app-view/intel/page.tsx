@@ -2048,16 +2048,16 @@ export default function AppIntelPage() {
     
     // Fallback exact mockup draft values
     const fallbacks: Record<string, number> = {
-      m7: 2.1,
-      physical_ai: 1.8,
-      silicon_core: -0.3,
-      power_matrix: 3.2,
-      bio_pulse: 0.5,
-      cyber_shield: 1.1,
-      orbit_defense: 0.8,
-      quantum_edge: -1.5,
-      fintech_pulse: -0.9,
-      cloud_fortress: 1.4,
+      m7: 0,
+      physical_ai: 0,
+      silicon_core: 0,
+      power_matrix: 0,
+      bio_pulse: 0,
+      cyber_shield: 0,
+      orbit_defense: 0,
+      quantum_edge: 0,
+      fintech_pulse: 0,
+      cloud_fortress: 0,
     };
     return fallbacks[sectorId] ?? 0;
   };

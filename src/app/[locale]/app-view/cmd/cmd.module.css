@@ -318,7 +318,7 @@
 
 .rangeTab {
   flex: 1;
-  height: 24px;
+  height: 36px;
   padding: 0;
   border: none;
   border-radius: 10px;
@@ -327,7 +327,7 @@
   font: 800 10px/1 var(--f-sans);
   letter-spacing: 0.035em;
   cursor: pointer;
-  min-height: 24px;
+  min-height: 36px;
   transition: background 0.15s ease, color 0.15s ease, transform .12s ease;
 }
 

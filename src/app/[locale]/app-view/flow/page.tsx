@@ -2070,10 +2070,10 @@ export default function AppFlowPage() {
               background: 'linear-gradient(135deg, rgba(255,176,32,0.10), rgba(9,15,28,0.92))'
             }}
           >
-            <div className="app-label" style={{ color: '#ffb020', marginBottom: '8px' }}>DATA RECONNECTING</div>
-            <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fbff' }}>Flow data is warming up</h2>
+            <div className="app-label" style={{ color: '#ffb020', marginBottom: '8px' }}>{locale === 'ko' ? '데이터 재연결 중' : locale === 'ja' ? 'データ再接続中' : 'DATA RECONNECTING'}</div>
+            <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fbff' }}>{locale === 'ko' ? '데이터를 준비하고 있습니다' : locale === 'ja' ? 'データを準備しています' : 'Flow data is warming up'}</h2>
             <p style={{ margin: '8px 0 0', color: '#aeb9c9', fontSize: '13px', lineHeight: 1.5 }}>
-              Live ticker data did not respond yet. Reopen this page or try again in a moment.
+              {locale === 'ko' ? '실시간 데이터가 아직 응답하지 않았습니다. 페이지를 다시 열거나 잠시 후 재시도하세요.' : locale === 'ja' ? 'リアルタイムデータがまだ応答していません。ページを再度開くか、しばらくしてから再試行してください。' : 'Live ticker data did not respond yet. Reopen this page or try again in a moment.'}
             </p>
           </div>
         </div>
@@ -2309,7 +2309,7 @@ export default function AppFlowPage() {
           className={activeTab === 'overview' ? s.on : ''}
           onClick={() => setActiveTab('overview')}
         >
-          OVERVIEW
+          {locale === 'ko' ? '오버뷰' : locale === 'ja' ? 'オーバービュー' : 'OVERVIEW'}
         </button>
         <button
           className={activeTab === 'ai-intel' ? s.on : ''}
@@ -2322,20 +2322,20 @@ export default function AppFlowPage() {
             fontWeight: 900,
             opacity: activeTab === 'ai-intel' ? 1 : 0.65
           }}>
-            AI INTEL
+            {locale === 'ko' ? 'AI 인텔' : locale === 'ja' ? 'AIインテル' : 'AI INTEL'}
           </span>
         </button>
         <button
           className={activeTab === 'whale-flow' ? s.on : ''}
           onClick={() => setActiveTab('whale-flow')}
         >
-          WHALE & DP
+          {locale === 'ko' ? '웨일 & DP' : locale === 'ja' ? 'ホエール＆DP' : 'WHALE & DP'}
         </button>
         <button
           className={activeTab === 'strike-profile' ? s.on : ''}
           onClick={() => setActiveTab('strike-profile')}
         >
-          STRIKE
+          {locale === 'ko' ? '스트라이크' : locale === 'ja' ? 'ストライク' : 'STRIKE'}
         </button>
       </div>
 

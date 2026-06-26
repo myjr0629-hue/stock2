@@ -47,6 +47,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     dxyFirm: '달러 견조',
     dxyNeutral: '달러 중립',
     dxyWeak: '약달러',
+    systemInit: '시스템 초기화 중...',
+    systemInitDesc: '가디언 노드에 보안 연결 설정 중...',
+    guardianTitle: '가디언',
+    loadingText: '로딩 중…',
   },
   en: {
     macroTitle: 'GUARDIAN MACRO',
@@ -75,6 +79,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     dxyFirm: 'FIRM',
     dxyNeutral: 'NEUTRAL',
     dxyWeak: 'WEAK',
+    systemInit: 'SYSTEM INITIALIZING...',
+    systemInitDesc: 'ESTABLISHING SECURE CONNECTION TO GUARDIAN NODE...',
+    guardianTitle: 'Guardian',
+    loadingText: 'Loading…',
   },
   ja: {
     macroTitle: 'ガーディアン・マクロ',
@@ -103,6 +111,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     dxyFirm: 'ドル堅調',
     dxyNeutral: 'ドル中立',
     dxyWeak: 'ドル安',
+    systemInit: 'システム初期化中...',
+    systemInitDesc: 'ガーディアンノードにセキュア接続設定中...',
+    guardianTitle: 'ガーディアン',
+    loadingText: '読み込み中…',
   }
 };
 
@@ -251,8 +263,8 @@ function GuardianPageContent() {
   // Verdict computation
   const verdict = useMemo(() => {
     if (!data || !data.verdict) return {
-      title: 'SYSTEM INITIALIZING...',
-      desc: 'ESTABLISHING SECURE CONNECTION TO GUARDIAN NODE...',
+      title: t.systemInit,
+      desc: t.systemInitDesc,
       color: 'text-slate-500',
       sentiment: 'NEUTRAL' as const,
       realityInsight: undefined as string | undefined,
@@ -599,11 +611,13 @@ function GuardianPageContent() {
 }
 
 export default function AppGuardianPage() {
+  const locale = useLocale();
+  const ft = TRANSLATIONS[locale] || TRANSLATIONS.en;
   return (
     <Suspense fallback={
       <div style={{ padding: '80px 16px 16px', textAlign: 'center' }}>
-        <h1 style={{ font: 'var(--f-h1)', color: 'var(--text)' }}>Guardian</h1>
-        <p style={{ font: 'var(--f-body)', color: 'var(--text-dim)', marginTop: 8 }}>Loading…</p>
+        <h1 style={{ font: 'var(--f-h1)', color: 'var(--text)' }}>{ft.guardianTitle}</h1>
+        <p style={{ font: 'var(--f-body)', color: 'var(--text-dim)', marginTop: 8 }}>{ft.loadingText}</p>
       </div>
     }>
       <GuardianPageContent />
