@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
+import { useInterstitialAd } from '@/hooks/useInterstitialAd';
 
 const TABS = [
   { id: 'dash', label: 'Dashboard', path: '/app-view/dash', icon: 'dashboard' },
@@ -71,6 +72,7 @@ export function AppBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const locale = useLocale();
+  const { onTabSwitch } = useInterstitialAd();
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
     pathname?.includes('/app-view/onboarding') ||
@@ -92,7 +94,8 @@ export function AppBottomNav() {
             className={`app-tabbar-tab ${isActive ? 'active' : ''}`}
             onClick={() => {
               if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
-              router.push(tab.path);
+              if (!isActive) onTabSwitch();
+              router.replace(tab.path);
             }}
           >
             <TabIcon name={tab.icon} active={isActive} />
