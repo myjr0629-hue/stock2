@@ -118,6 +118,38 @@ const indexFetcher = (url: string) => fetch(url).then(r => r.json());
 interface IndexQuote { price: number; changePct: number; updatedAt: string; }
 interface IndexCloseData { nasdaq: IndexQuote | null; dow: IndexQuote | null; spx: IndexQuote | null; }
 
+// ── Time-based session detection (matches dashboard logic) ──
+function getEtClockParts() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour12: false,
+    year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric',
+  });
+  const parts = formatter.formatToParts(now);
+  const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  const hour = Number(partMap.hour);
+  const minute = Number(partMap.minute);
+  const etDate = new Date(Number(partMap.year), Number(partMap.month) - 1, Number(partMap.day), hour, minute);
+  return { day: etDate.getDay(), hour, minute, timeDecimal: hour + minute / 60, totalMins: hour * 60 + minute };
+}
+
+function isCmeGlobexActive(isHoliday: boolean): boolean {
+  const { day, timeDecimal } = getEtClockParts();
+  if (day === 6) return false;
+  if (day === 0) return timeDecimal >= 18;
+  if (isHoliday) return timeDecimal < 13 || timeDecimal >= 18;
+  if (day === 5) return timeDecimal < 17;
+  return timeDecimal < 17 || timeDecimal >= 18;
+}
+
+function isVixSessionActive(isHoliday: boolean): boolean {
+  const { day, timeDecimal } = getEtClockParts();
+  if (day === 0 || day === 6) return false;
+  return isHoliday
+    ? timeDecimal >= 3 && timeDecimal < 13
+    : timeDecimal >= 3 && timeDecimal < 16.25;
+}
+
 function tabFromParam(param: string | null): TabKey {
   if (param === 'reality') return 'reality';
   if (param === 'shield') return 'shield';
@@ -241,8 +273,9 @@ function GuardianPageContent() {
   }, [data]);
 
   const session = data?.rlsi?.session;
-  const isRiskStreamActive = session === 'REG' || session === 'PRE' || session === 'POST';
-  const isVolMetricActive = session === 'REG' || session === 'PRE' || session === 'POST';
+  const isHoliday = marketStatusInfo.isHoliday;
+  const isRiskStreamActive = isCmeGlobexActive(isHoliday);
+  const isVolMetricActive = isVixSessionActive(isHoliday);
   const sessionBadge = (() => {
     if (marketStatusInfo.isHoliday) return { label: 'HOLIDAY', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.35)' };
     if (session === 'REG') return { label: 'LIVE', color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.32)' };
