@@ -188,8 +188,8 @@ function isCmeGlobexActive(kind: 'equity' | 'gold' | 'oil', isHoliday: boolean):
 function isVixSessionActive(isHoliday: boolean): boolean {
   const { day, timeDecimal } = getEtClockParts();
   if (day === 0 || day === 6 || isHoliday) return false;
-  // VIX: regular market hours 9:30 AM - 4:15 PM ET
-  return timeDecimal >= 9.5 && timeDecimal < 16.25;
+  // VIX: pre-market(4:00 AM) ~ post-market(8:00 PM) ET
+  return timeDecimal >= 4 && timeDecimal < 20;
 }
 
 function isUs10YSessionActive(isHoliday: boolean): boolean {
