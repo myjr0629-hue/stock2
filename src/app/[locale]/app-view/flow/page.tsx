@@ -3691,16 +3691,24 @@ export default function AppFlowPage() {
         const strikeMap: Record<number, { strike: number; put: number; call: number; isWall: boolean; isFloor: boolean; isUnderlyer?: boolean }> = {};
         
         const chain = rawChain || [];
-        // Find nearest expiration date
-        const expirations = Array.from(new Set(chain.map(opt => opt.details?.expiration_date).filter(Boolean))).sort() as string[];
-        const nearestExpiry = expirations[0] || '';
+        // [FIX] Match web FlowRadar DTE filtering: use 0-7 DTE multi-expiry (not single nearest)
+        const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
+        const maxDTE = 7; // Match web FlowRadar VOLUME mode
         
-        // Filter options for this nearest expiry (or all if none)
-        const filteredChain = nearestExpiry 
-          ? chain.filter(opt => opt.details?.expiration_date === nearestExpiry)
-          : chain;
+        const filteredChain = chain.filter(opt => {
+          const expiryStr = opt.details?.expiration_date;
+          if (!expiryStr) return false;
+          const parts = expiryStr.split('-');
+          if (parts.length !== 3) return false;
+          const expiryDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          const dte = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          return dte >= 0 && dte <= maxDTE;
+        });
+        // If no options within 7 DTE, use all available
+        const effectiveChain = filteredChain.length > 0 ? filteredChain : chain;
 
-        filteredChain.forEach(opt => {
+        effectiveChain.forEach(opt => {
           const strike = opt.details?.strike_price;
           if (typeof strike !== 'number') return;
           
@@ -3793,16 +3801,16 @@ export default function AppFlowPage() {
         });
         selectedStrikes.sort((a, b) => b - a);
         maxVal = Math.max(100, ...selectedStrikes.map(stk => Math.max(strikeMap[stk].call || 0, strikeMap[stk].put || 0)));
-        if (flowCallWall != null) wallStrike = flowCallWall;
-        if (flowPutFloor != null) floorStrike = flowPutFloor;
+        // Use rawChain-derived values (same as web FlowRadar)
+        // Only fall back to API cache if rawChain produced no results
+        if (wallStrike <= 0 && flowCallWall != null) wallStrike = flowCallWall;
+        if (floorStrike <= 0 && flowPutFloor != null) floorStrike = flowPutFloor;
 
         const closestStrike = selectedStrikes.reduce((prev, curr) => 
           Math.abs(curr - displayPrice) < Math.abs(prev - displayPrice) ? curr : prev
         , selectedStrikes[0]);
 
-        const weeklyExpiryLabel = nearestExpiry
-          ? `${nearestExpiry.split('-').slice(1).join('/')} ${strikeCopy.weekly}`
-          : strikeCopy.weekly;
+        const weeklyExpiryLabel = `0-7 DTE ${strikeCopy.weekly}`;
         const nearestResistance = selectedStrikes.filter(stk => stk > displayPrice).sort((a, b) => a - b)[0] ?? wallStrike;
         const nearestSupport = selectedStrikes.filter(stk => stk < displayPrice).sort((a, b) => b - a)[0] ?? floorStrike;
         const wallDistancePct = wallStrike > 0 ? ((wallStrike - displayPrice) / displayPrice) * 100 : 0;
