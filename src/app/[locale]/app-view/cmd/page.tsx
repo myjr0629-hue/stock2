@@ -1921,7 +1921,7 @@ function CmdPageContent() {
           change: Math.abs(changeAbs),
           changePct: Math.abs(changePct),
           up,
-          rsi14: u.rsi14 || u.technical?.rsi14 || t?.technical?.rsi14 || 0,
+          rsi14: u.rsi14 || u.technical?.rsi14 || t?.display?.rsi14 || t?.technical?.rsi14 || 0,
           vwap: t?.vwap ?? DEMO.vwap,
           session,
           analyst,
