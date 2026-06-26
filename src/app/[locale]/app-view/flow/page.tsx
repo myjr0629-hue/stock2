@@ -724,6 +724,11 @@ export default function AppFlowPage() {
   const [change, setChange] = useState(-0.22);
   const [opi, setOpi] = useState(72.4); // 0-100
   const [pcRatio, setPcRatio] = useState(0.68);
+  const [pcRatioOI, setPcRatioOI] = useState(0);
+  const [pcCallVol, setPcCallVol] = useState(0);
+  const [pcPutVol, setPcPutVol] = useState(0);
+  const [pcCallOI, setPcCallOI] = useState(0);
+  const [pcPutOI, setPcPutOI] = useState(0);
   const [totalPrem, setTotalPrem] = useState(18900000); // USD
   const [callPct, setCallPct] = useState(64.5); // %
   const [maxPainVal, setMaxPainVal] = useState(135.0);
@@ -1047,6 +1052,35 @@ export default function AppFlowPage() {
           // Convert raw chain data to transactions
           if (flowAfterOptional.rawChain && flowAfterOptional.rawChain.length > 0) {
             setRawChain(flowAfterOptional.rawChain);
+            // Calculate P/C Ratio Volume (weekly expiry) and OI (monthly/all expiry)
+            const chainData = flowAfterOptional.rawChain;
+            const allExpiries = Array.from(new Set(chainData.map((c: any) => c.details?.expiration_date).filter(Boolean))).sort() as string[];
+            const weeklyExpiry = allExpiries[0] || '';
+            
+            // Volume P/C: nearest weekly expiry only
+            let cVol = 0, pVol = 0;
+            chainData.forEach((c: any) => {
+              if (weeklyExpiry && c.details?.expiration_date !== weeklyExpiry) return;
+              const vol = c.day?.volume || 0;
+              const type = c.details?.contract_type;
+              if (type === 'call') cVol += vol;
+              else if (type === 'put') pVol += vol;
+            });
+            if (pVol > 0) setPcRatio(Math.round(cVol / pVol * 100) / 100);
+            setPcCallVol(cVol);
+            setPcPutVol(pVol);
+            
+            // OI P/C: all available expiries (monthly scope)
+            let cOI = 0, pOI = 0;
+            chainData.forEach((c: any) => {
+              const oi = c.open_interest || 0;
+              const type = c.details?.contract_type;
+              if (type === 'call') cOI += oi;
+              else if (type === 'put') pOI += oi;
+            });
+            setPcRatioOI(pOI > 0 ? Math.round(cOI / pOI * 100) / 100 : 0);
+            setPcCallOI(cOI);
+            setPcPutOI(pOI);
             const txs = flowAfterOptional.rawChain.slice(0, 8).map((c: any, i: number) => {
               const timeStr = c.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0];
               return {
@@ -2717,6 +2751,74 @@ export default function AppFlowPage() {
             );
           })()}
 
+          {/* P/C RATIO — Volume (Weekly) + OI (Monthly) */}
+          <div className="premium-card" style={{ padding: '14px', margin: 0 }}>
+            <div className="app-card-head" style={{ marginBottom: '10px' }}>
+              <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                P/C RATIO
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {/* Volume P/C (Weekly) */}
+              <div style={{
+                padding: '12px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(15,23,42,0.4))',
+                border: '1px solid rgba(99,102,241,0.15)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '6px' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#818cf8', boxShadow: '0 0 6px #818cf8' }} />
+                  <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800 }}>VOLUME</span>
+                </div>
+                <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcRatio >= 1.3 ? '#10b981' : pcRatio <= 0.75 ? '#f43f5e' : '#ffffff', lineHeight: 1, marginBottom: '6px' }}>
+                  {pcRatio.toFixed(2)}
+                </div>
+                <div style={{ font: 'var(--f-micro)', color: pcRatio >= 1.3 ? '#10b981' : pcRatio <= 0.75 ? '#f43f5e' : '#f59e0b', fontWeight: 800, marginBottom: '6px' }}>
+                  {pcRatio >= 2.0 ? (locale === 'ko' ? '강한 콜 우위' : locale === 'ja' ? '強いコール優位' : 'Strong Call') : pcRatio >= 1.3 ? (locale === 'ko' ? '콜 우위' : locale === 'ja' ? 'コール優位' : 'Call dominant') : pcRatio <= 0.5 ? (locale === 'ko' ? '강한 풋 우위' : locale === 'ja' ? '強いプット優位' : 'Strong Put') : pcRatio <= 0.75 ? (locale === 'ko' ? '풋 우위' : locale === 'ja' ? 'プット優位' : 'Put dominant') : (locale === 'ko' ? '균형' : locale === 'ja' ? 'バランス' : 'Balanced')}
+                </div>
+                <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  C {pcCallVol >= 1000 ? `${(pcCallVol / 1000).toFixed(0)}K` : pcCallVol} / P {pcPutVol >= 1000 ? `${(pcPutVol / 1000).toFixed(0)}K` : pcPutVol}
+                </div>
+                {/* Mini bar */}
+                <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: '8px', background: 'rgba(255,255,255,0.04)' }}>
+                  <div style={{ width: `${pcCallVol + pcPutVol > 0 ? (pcCallVol / (pcCallVol + pcPutVol)) * 100 : 50}%`, background: '#10b981', height: '100%' }} />
+                  <div style={{ flex: 1, background: '#ef4444', height: '100%' }} />
+                </div>
+              </div>
+
+              {/* OI P/C (Monthly) */}
+              <div style={{
+                padding: '12px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(15,23,42,0.4))',
+                border: '1px solid rgba(99,102,241,0.15)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '6px' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 6px #a78bfa' }} />
+                  <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800 }}>OI</span>
+                </div>
+                <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcRatioOI >= 1.3 ? '#10b981' : pcRatioOI <= 0.75 ? '#f43f5e' : '#ffffff', lineHeight: 1, marginBottom: '6px' }}>
+                  {pcRatioOI.toFixed(2)}
+                </div>
+                <div style={{ font: 'var(--f-micro)', color: pcRatioOI >= 1.3 ? '#10b981' : pcRatioOI <= 0.75 ? '#f43f5e' : '#f59e0b', fontWeight: 800, marginBottom: '6px' }}>
+                  {pcRatioOI >= 2.0 ? (locale === 'ko' ? '강한 콜 우위' : locale === 'ja' ? '強いコール優位' : 'Strong Call') : pcRatioOI >= 1.3 ? (locale === 'ko' ? '콜 우위' : locale === 'ja' ? 'コール優位' : 'Call dominant') : pcRatioOI <= 0.5 ? (locale === 'ko' ? '강한 풋 우위' : locale === 'ja' ? '強いプット優位' : 'Strong Put') : pcRatioOI <= 0.75 ? (locale === 'ko' ? '풋 우위' : locale === 'ja' ? 'プット優位' : 'Put dominant') : (locale === 'ko' ? '균형' : locale === 'ja' ? 'バランス' : 'Balanced')}
+                </div>
+                <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  C {pcCallOI >= 1000 ? `${(pcCallOI / 1000).toFixed(0)}K` : pcCallOI} / P {pcPutOI >= 1000 ? `${(pcPutOI / 1000).toFixed(0)}K` : pcPutOI}
+                </div>
+                {/* Mini bar */}
+                <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: '8px', background: 'rgba(255,255,255,0.04)' }}>
+                  <div style={{ width: `${pcCallOI + pcPutOI > 0 ? (pcCallOI / (pcCallOI + pcPutOI)) * 100 : 50}%`, background: '#10b981', height: '100%' }} />
+                  <div style={{ flex: 1, background: '#ef4444', height: '100%' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Premium Total Option Flows (Module 3) */}
           <div className="premium-card" style={{ padding: '16px', margin: 0 }}>
             <div className="app-card-head" style={{ marginBottom: '8px' }}>
@@ -3691,22 +3793,12 @@ export default function AppFlowPage() {
         const strikeMap: Record<number, { strike: number; put: number; call: number; isWall: boolean; isFloor: boolean; isUnderlyer?: boolean }> = {};
         
         const chain = rawChain || [];
-        // [FIX] Match web FlowRadar DTE filtering: use 0-7 DTE multi-expiry (not single nearest)
-        const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-        const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
-        const maxDTE = 7; // Match web FlowRadar VOLUME mode
-        
-        const filteredChain = chain.filter(opt => {
-          const expiryStr = opt.details?.expiration_date;
-          if (!expiryStr) return false;
-          const parts = expiryStr.split('-');
-          if (parts.length !== 3) return false;
-          const expiryDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-          const dte = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-          return dte >= 0 && dte <= maxDTE;
-        });
-        // If no options within 7 DTE, use all available
-        const effectiveChain = filteredChain.length > 0 ? filteredChain : chain;
+        // Use nearest weekly expiry (주간만기) — consistent with structureService
+        const expirations = Array.from(new Set(chain.map(opt => opt.details?.expiration_date).filter(Boolean))).sort() as string[];
+        const nearestExpiry = expirations[0] || '';
+        const effectiveChain = nearestExpiry
+          ? chain.filter(opt => opt.details?.expiration_date === nearestExpiry)
+          : chain;
 
         effectiveChain.forEach(opt => {
           const strike = opt.details?.strike_price;
@@ -3801,16 +3893,15 @@ export default function AppFlowPage() {
         });
         selectedStrikes.sort((a, b) => b - a);
         maxVal = Math.max(100, ...selectedStrikes.map(stk => Math.max(strikeMap[stk].call || 0, strikeMap[stk].put || 0)));
-        // Use rawChain-derived values (same as web FlowRadar)
-        // Only fall back to API cache if rawChain produced no results
-        if (wallStrike <= 0 && flowCallWall != null) wallStrike = flowCallWall;
-        if (floorStrike <= 0 && flowPutFloor != null) floorStrike = flowPutFloor;
+        // Use API structure values (weekly expiry OI-based) as authoritative source
+        if (flowCallWall != null) wallStrike = flowCallWall;
+        if (flowPutFloor != null) floorStrike = flowPutFloor;
 
         const closestStrike = selectedStrikes.reduce((prev, curr) => 
           Math.abs(curr - displayPrice) < Math.abs(prev - displayPrice) ? curr : prev
         , selectedStrikes[0]);
 
-        const weeklyExpiryLabel = `0-7 DTE ${strikeCopy.weekly}`;
+        const weeklyExpiryLabel = nearestExpiry ? `${nearestExpiry.slice(5)} ${strikeCopy.weekly}` : strikeCopy.weekly;
         const nearestResistance = selectedStrikes.filter(stk => stk > displayPrice).sort((a, b) => a - b)[0] ?? wallStrike;
         const nearestSupport = selectedStrikes.filter(stk => stk < displayPrice).sort((a, b) => b - a)[0] ?? floorStrike;
         const wallDistancePct = wallStrike > 0 ? ((wallStrike - displayPrice) / displayPrice) * 100 : 0;
