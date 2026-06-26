@@ -22,6 +22,8 @@
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
+  overscroll-behavior: none;
+  -webkit-overscroll-behavior: none;
 }
 
 html[lang^="en"] .app-viewport,
