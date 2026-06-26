@@ -1747,7 +1747,12 @@ function CmdPageContent() {
   const tIndicators = useTranslations('indicators');
   const tCommon = useTranslations('common');
   const tDashboard = useTranslations('dashboard');
-  const ticker = (searchParams.get('t') || 'NVDA').toUpperCase();
+  const ticker = (searchParams.get('t') || (typeof window !== 'undefined' ? localStorage.getItem('app-active-ticker') : null) || 'NVDA').toUpperCase();
+
+  // Sync ticker to localStorage for Flow ↔ Command sync
+  useEffect(() => {
+    if (ticker) localStorage.setItem('app-active-ticker', ticker);
+  }, [ticker]);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchVal, setSearchVal] = useState('');
@@ -2409,7 +2414,7 @@ function CmdPageContent() {
       </header>
 
       {/* ── TICKER SUB-HEADER ── */}
-      <div className={s.header}>
+      <div className={s.header} style={{ minHeight: '42px', padding: '6px var(--s4)' }}>
         <button className={s.headerBtn} onClick={() => router.back()} aria-label="Back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M15 19l-7-7 7-7" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -2428,12 +2433,8 @@ function CmdPageContent() {
             <span className={s.headerTicker} style={{ fontSize: '15px' }}>{data.ticker}</span>
           </div>
         </div>
-        <button className={s.headerBtn} aria-label="Search" onClick={() => setIsSearchOpen(true)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="7" stroke="var(--text-dim)" strokeWidth="2" />
-            <path d="m16.5 16.5 4 4" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
+        {/* Spacer for layout balance */}
+        <div style={{ width: 36 }} />
       </div>
 
       <div 

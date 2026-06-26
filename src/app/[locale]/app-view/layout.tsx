@@ -13,13 +13,15 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
     pathname?.includes('/app-view/onboarding');
+  const isSettingsRoute = pathname?.includes('/app-view/settings');
+  const hideAd = isDocumentRoute || isSettingsRoute;
 
   return (
     <div className={`app-viewport ${isDocumentRoute ? 'app-document-route' : ''}`}>
       <main className="app-main">
         {children}
       </main>
-      <AppAnchorAd />
+      {!hideAd && <AppAnchorAd />}
       <AppBottomNav />
       <NetworkStatus />
       <AppFirstRunOnboarding />

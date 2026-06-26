@@ -698,14 +698,23 @@ export default function AppFlowPage() {
   useEffect(() => {
     setMounted(true);
     const queryTicker = new URLSearchParams(window.location.search).get('t')?.trim().toUpperCase();
+    const savedTicker = localStorage.getItem('app-active-ticker');
     if (queryTicker) {
       setTicker(queryTicker);
       setSearchInput(queryTicker);
+    } else if (savedTicker) {
+      setTicker(savedTicker);
+      setSearchInput(savedTicker);
     }
   }, []);
 
   const [ticker, setTicker] = useState('NVDA');
   const [searchInput, setSearchInput] = useState('NVDA');
+
+  // Sync ticker to localStorage for Flow ↔ Command sync
+  useEffect(() => {
+    if (ticker) localStorage.setItem('app-active-ticker', ticker);
+  }, [ticker]);
   const [loading, setLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
