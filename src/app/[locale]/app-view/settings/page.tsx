@@ -27,6 +27,7 @@ const T: Record<string, {
   cacheCancel: string;
   cacheConfirm: string;
   cacheToast: string;
+  selectLang: string;
 }> = {
   ko: {
     title: '설정',
@@ -49,6 +50,7 @@ const T: Record<string, {
     cacheCancel: '취소',
     cacheConfirm: '초기화',
     cacheToast: '캐시가 초기화되었습니다',
+    selectLang: '언어 선택',
   },
   en: {
     title: 'Settings',
@@ -71,6 +73,7 @@ const T: Record<string, {
     cacheCancel: 'Cancel',
     cacheConfirm: 'Clear',
     cacheToast: 'Cache cleared successfully',
+    selectLang: 'Select Language',
   },
   ja: {
     title: '設定',
@@ -93,13 +96,15 @@ const T: Record<string, {
     cacheCancel: 'キャンセル',
     cacheConfirm: 'クリア',
     cacheToast: 'キャッシュをクリアしました',
+    selectLang: '言語を選択',
   },
 };
 
+// Order: English → Japanese → Korean
 const LANGS = [
-  { code: 'ko', flag: '🇰🇷', name: '한국어' },
   { code: 'en', flag: '🇺🇸', name: 'English' },
   { code: 'ja', flag: '🇯🇵', name: '日本語' },
+  { code: 'ko', flag: '🇰🇷', name: '한국어' },
 ];
 
 const PREFS_KEY = 'signumhq.push.prefs';
@@ -118,6 +123,10 @@ function savePrefs(prefs: { enabled: boolean; morning: boolean; closing: boolean
   } catch {}
 }
 
+function getCurrentLangLabel(locale: string) {
+  return LANGS.find(l => l.code === locale) ?? LANGS[0];
+}
+
 export default function SettingsPage() {
   const locale = useLocale();
   const router = useRouter();
@@ -125,6 +134,7 @@ export default function SettingsPage() {
 
   const [prefs, setPrefs] = useState({ enabled: true, morning: true, closing: true });
   const [showCacheDialog, setShowCacheDialog] = useState(false);
+  const [showLangSheet, setShowLangSheet] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [mounted, setMounted] = useState(false);
 
@@ -137,7 +147,6 @@ export default function SettingsPage() {
     setPrefs(prev => {
       const next = { ...prev, ...patch };
       savePrefs(next);
-      // Async server sync
       const token = localStorage.getItem('signumhq.push.token');
       if (token) {
         fetch('/api/push/preferences', {
@@ -152,6 +161,7 @@ export default function SettingsPage() {
 
   const handleLangChange = (code: string) => {
     if (code === locale) return;
+    setShowLangSheet(false);
     const currentPath = window.location.pathname;
     const newPath = currentPath.replace(/^\/(ko|en|ja)/, `/${code}`);
     router.push(newPath);
@@ -159,7 +169,6 @@ export default function SettingsPage() {
 
   const handleClearCache = () => {
     setShowCacheDialog(false);
-    // Clear caches
     try {
       const keysToKeep = ['signumhq.app.onboarding.v1', 'signumhq.push.prefs', 'signumhq.push.token'];
       const allKeys = Object.keys(localStorage);
@@ -167,12 +176,12 @@ export default function SettingsPage() {
         if (!keysToKeep.includes(k)) localStorage.removeItem(k);
       });
     } catch {}
-    // Clear session storage
     try { sessionStorage.clear(); } catch {}
-    // Show toast then reload
     setToastMsg(t.cacheToast);
     setTimeout(() => window.location.reload(), 1500);
   };
+
+  const currentLang = getCurrentLangLabel(locale);
 
   if (!mounted) return <div className={s.page} />;
 
@@ -180,44 +189,40 @@ export default function SettingsPage() {
     <div className={s.page}>
       {/* ── Header ── */}
       <header className={s.header}>
-        <button className={s.backBtn} onClick={() => router.back()} aria-label="Back">
+        <button className={s.backBtn} onClick={() => router.push(`/${locale}/app-view/dash`)} aria-label="Back">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
         <h1 className={s.headerTitle}>{t.title}</h1>
       </header>
 
-      {/* ══ LANGUAGE ══ */}
+      {/* ══ LANGUAGE + NOTIFICATIONS ══ */}
       <div className={s.section}>
-        <div className={s.sectionLabel}>{t.language}</div>
+        <div className={s.sectionLabel}>{t.language} & {t.notifications}</div>
         <div className={s.card}>
-          <div className={s.langGrid}>
-            {LANGS.map(lang => (
-              <button
-                key={lang.code}
-                className={`${s.langOption} ${locale === lang.code ? s.langActive : ''}`}
-                onClick={() => handleLangChange(lang.code)}
-              >
-                <span className={s.langFlag}>{lang.flag}</span>
-                <span className={s.langName}>{lang.name}</span>
-                <span className={s.langCheck}>
-                  {locale === lang.code && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                      <path d="M5 13l4 4L19 7" stroke="#050a14" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </span>
-              </button>
-            ))}
+          {/* Language row */}
+          <div className={s.row} onClick={() => setShowLangSheet(true)}>
+            <div className={s.rowLeft}>
+              <div className={`${s.rowIcon} ${s.rowIconLang}`}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2Z" stroke="currentColor" strokeWidth="1.8" />
+                </svg>
+              </div>
+              <div className={s.rowLabel}>{t.language}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className={s.rowValue}>{currentLang.flag} {currentLang.name}</span>
+              <span className={s.rowChevron}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* ══ NOTIFICATIONS ══ */}
-      <div className={s.section}>
-        <div className={s.sectionLabel}>{t.notifications}</div>
-        <div className={s.card}>
+          {/* Notifications master toggle */}
           <div className={s.row} onClick={() => updatePrefs({ enabled: !prefs.enabled })}>
             <div className={s.rowLeft}>
               <div className={`${s.rowIcon} ${s.rowIconNotif}`}>
@@ -324,6 +329,31 @@ export default function SettingsPage() {
         <div className={s.versionLogo}>SIGNUM<span>HQ</span></div>
         <div className={s.versionNum}>v1.0.0</div>
       </div>
+
+      {/* ── Language Bottom Sheet ── */}
+      {showLangSheet && (
+        <div className={s.sheetOverlay} onClick={() => setShowLangSheet(false)}>
+          <div className={s.sheet} onClick={e => e.stopPropagation()}>
+            <div className={s.sheetHandle} />
+            <div className={s.sheetTitle}>{t.selectLang}</div>
+            {LANGS.map(lang => (
+              <button
+                key={lang.code}
+                className={`${s.sheetOption} ${locale === lang.code ? s.sheetOptionActive : ''}`}
+                onClick={() => handleLangChange(lang.code)}
+              >
+                <span className={s.sheetFlag}>{lang.flag}</span>
+                <span className={s.sheetLangName}>{lang.name}</span>
+                {locale === lang.code && (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={s.sheetCheck}>
+                    <path d="M5 13l4 4L19 7" stroke="var(--cyan)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Cache Confirm Dialog ── */}
       {showCacheDialog && (
