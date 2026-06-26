@@ -815,7 +815,7 @@ export default function AppFlowPage() {
   const liveRsi = pickPositiveNumber(
     tickerData?.display?.rsi14,
     tickerData?.rawTickerData?.display?.rsi14,
-  ) ?? (ticker === 'TSLA' ? 44.5 : ticker === 'AAPL' ? 58.9 : 64.2);
+  ) ?? 0;
   const liveVwap = pickPositiveNumber(
     tickerData?.vwap,
     tickerData?.rawTickerData?.vwap,
@@ -974,7 +974,8 @@ export default function AppFlowPage() {
         const flow = data.flow;
         if (flow) {
           if (flow.oiPcr != null) {
-            setPcRatio(flow.oiPcr);
+            // pcRatio is set later from rawChain volume calculation (line ~1076)
+            // Do NOT set pcRatio here to avoid flicker (oiPcr vs volume-based race condition)
             const calcOpi = Math.max(10, Math.min(95, Math.round(100 - flow.oiPcr * 50)));
             setOpi(calcOpi);
           }
@@ -1043,8 +1044,8 @@ export default function AppFlowPage() {
         const flowAfterOptional = data.flow;
         if (flowAfterOptional) {
           if (flowAfterOptional.oiPcr != null) {
-            setPcRatio(flowAfterOptional.oiPcr);
-            // Derive a synthetic OPI between 0-100 (inverse of PC ratio)
+            // pcRatio is set from rawChain volume calculation below
+            // Do NOT set pcRatio here to avoid flicker
             const calcOpi = Math.max(10, Math.min(95, Math.round(100 - flowAfterOptional.oiPcr * 50)));
             setOpi(calcOpi);
           }

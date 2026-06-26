@@ -567,7 +567,8 @@ export async function GET(req: NextRequest) {
             baselinePrice,
             baselineLabel,
             priceLabel,
-            asOfET: etStr
+            asOfET: etStr,
+            rsi14: (() => { const c = historicalResults.slice().reverse().map((h: any) => h.c).filter(Boolean); return c.length >= 15 ? computeRSI14(c) : null; })(),
         },
 
         // [S-52.2.1] All 3 sessions - both frac and pct
