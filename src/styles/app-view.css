@@ -48,6 +48,7 @@ html[lang^="ja"] .app-viewport,
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
+  touch-action: pan-y pinch-zoom;
   padding-bottom: calc(
     var(--app-tabbar-height) +
     var(--app-anchor-ad-height) +
