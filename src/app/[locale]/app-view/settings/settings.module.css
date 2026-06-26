@@ -6,7 +6,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 9998;
   background: rgba(0, 0, 0, 0.5);
   animation: fadeIn 0.2s ease;
 }
@@ -21,7 +21,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 101;
+  z-index: 9999;
   max-height: 88dvh;
   border-radius: 20px 20px 0 0;
   background: linear-gradient(180deg, #0e1726 0%, #0a1428 100%);

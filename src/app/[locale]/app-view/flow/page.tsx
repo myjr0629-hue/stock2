@@ -906,6 +906,9 @@ export default function AppFlowPage() {
   const resolvedPrevClose = tickerData?.prices?.prevRegularClose || tickerData?.rawTickerData?.prices?.prevRegularClose || tickerData?.prevClose || 0;
   const finalChangeAbs = resolvedPrevClose > 0 ? Math.abs(displayPrice - resolvedPrevClose) : Math.abs(tickerData?.display?.changeAbs || 0);
   const up = displayChangePct >= 0;
+  const isClosed = effectiveSession === 'CLOSED';
+  // During market closed: show neutral white color (not red/green)
+  const priceColorClass = isClosed ? '' : (up ? s.pos : s.neg);
 
   // Check localStorage for unlock timestamp
   useEffect(() => {
@@ -2155,8 +2158,8 @@ export default function AppFlowPage() {
                 <span className={`${s.p2Price} ${flash ? s[`flash-${flash}`] : ''}`}>
                   ${displayPrice.toFixed(2)}
                 </span>
-                <span className={`${s.p2Chg} ${up ? s.pos : s.neg}`}>
-                  {up ? '▲' : '▼'} {up ? '+' : ''}{displayChangePct.toFixed(2)}%
+                <span className={`${s.p2Chg} ${priceColorClass}`} style={isClosed ? { color: 'var(--text-dim)' } : undefined}>
+                  {isClosed ? '' : (up ? '▲' : '▼')} {up ? '+' : ''}{displayChangePct.toFixed(2)}%
                 </span>
               </div>
               {hasExt && (
