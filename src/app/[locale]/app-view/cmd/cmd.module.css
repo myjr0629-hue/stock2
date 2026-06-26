@@ -1396,6 +1396,11 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
+.extLive .heroExtLabel {
+  color: #22d3ee;
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+}
+
 .heroExtPrice {
   font: 800 20px/1 var(--f-mono);
   color: var(--text);
