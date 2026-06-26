@@ -1272,8 +1272,8 @@
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  height: 28px;
-  min-height: 28px !important;
+  height: 34px;
+  min-height: 34px !important;
   background: rgba(2, 6, 23, 0.32);
   border: 1px solid rgba(148, 163, 184, 0.10);
   border-radius: 999px;
@@ -1285,10 +1285,10 @@
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font: 800 9px/1 'Plus Jakarta Sans', sans-serif;
-  height: 22px !important;
-  min-height: 22px !important;
-  padding: 0 9px;
+  font: 800 12px/1 'Plus Jakarta Sans', sans-serif;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 12px;
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;

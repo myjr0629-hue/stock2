@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
         allowNavigation: ['10.0.2.2:3000'],
       }
     : {
-        url: 'https://www.signumhq.com',
+        url: 'https://www.signumhq.com/en/app-view/dash',
         cleartext: false,
       },
 
