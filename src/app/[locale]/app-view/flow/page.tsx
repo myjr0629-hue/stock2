@@ -2309,7 +2309,7 @@ export default function AppFlowPage() {
           className={activeTab === 'overview' ? s.on : ''}
           onClick={() => setActiveTab('overview')}
         >
-          {locale === 'ko' ? '오버뷰' : locale === 'ja' ? 'オーバービュー' : 'OVERVIEW'}
+          OVERVIEW
         </button>
         <button
           className={activeTab === 'ai-intel' ? s.on : ''}
@@ -2322,20 +2322,20 @@ export default function AppFlowPage() {
             fontWeight: 900,
             opacity: activeTab === 'ai-intel' ? 1 : 0.65
           }}>
-            {locale === 'ko' ? 'AI 인텔' : locale === 'ja' ? 'AIインテル' : 'AI INTEL'}
+            AI INTEL
           </span>
         </button>
         <button
           className={activeTab === 'whale-flow' ? s.on : ''}
           onClick={() => setActiveTab('whale-flow')}
         >
-          {locale === 'ko' ? '웨일 & DP' : locale === 'ja' ? 'ホエール＆DP' : 'WHALE & DP'}
+          WHALE & DP
         </button>
         <button
           className={activeTab === 'strike-profile' ? s.on : ''}
           onClick={() => setActiveTab('strike-profile')}
         >
-          {locale === 'ko' ? '스트라이크' : locale === 'ja' ? 'ストライク' : 'STRIKE'}
+          STRIKE
         </button>
       </div>
 
