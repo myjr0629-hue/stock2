@@ -146,6 +146,30 @@ export function AppGexTimeline({
     };
   }, [ticker, days]);
 
+  // While the bottom sheet is open, suppress the NATIVE AdMob banner — it's an OS layer
+  // drawn over the WebView, so no web z-index can cover it. Mirrors the onboarding pattern.
+  useEffect(() => {
+    if (!tipOpen) return;
+    let active = true;
+    (async () => {
+      const { Capacitor } = await import('@capacitor/core');
+      if (!Capacitor.isNativePlatform() || !active) return;
+      const { adManager } = await import('@/services/adManager');
+      await adManager.setBannerSuppressed(true);
+    })().catch(() => {});
+    return () => {
+      active = false;
+      (async () => {
+        try {
+          const { Capacitor } = await import('@capacitor/core');
+          if (!Capacitor.isNativePlatform()) return;
+          const { adManager } = await import('@/services/adManager');
+          await adManager.setBannerSuppressed(false);
+        } catch {}
+      })();
+    };
+  }, [tipOpen]);
+
   const stats = useMemo(() => {
     if (!points || points.length < 2) return null;
     const gexValues = points.map((d) => d.gex);
