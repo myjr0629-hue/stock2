@@ -2967,22 +2967,8 @@ function CmdPageContent() {
             putFloor={data.premium.putFloor}
             callWall={data.premium.callWall}
           />
-
-          {/* Premium Metrics Summary */}
-          <div className={s.premiumMetrics} style={{ marginBottom: 'var(--s3)', marginTop: '16px' }}>
-            <div className={s.premiumMetric}>
-              <span className={s.premiumMetricLabel}>GAMMA FLIP</span>
-              <span className={s.premiumMetricValue}>{data.premium.gammaFlip}</span>
-            </div>
-            <div className={s.premiumMetric}>
-              <span className={s.premiumMetricLabel}>DARK POOL</span>
-              <span className={s.premiumMetricValue}>{data.premium.darkPool}</span>
-            </div>
-            <div className={s.premiumMetric}>
-              <span className={s.premiumMetricLabel}>BLOCKS</span>
-              <span className={s.premiumMetricValue}>{data.premium.blockTrades}</span>
-            </div>
-          </div>
+          {/* Premium Metrics Summary removed — GAMMA FLIP duplicates the GEX Timeline + hero,
+              DARK POOL / BLOCKS duplicate the INST RADAR card (same quant tab). */}
         </div>
         </ValueWall>
       )}
