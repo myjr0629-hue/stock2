@@ -117,6 +117,20 @@ export function AppGexTimeline({
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
   const [tipOpen, setTipOpen] = useState(false);
 
+  // Open/close the info sheet AND toggle the native banner in lock-step with the tap.
+  // Driving it from the user action (not effect cleanup) makes restore reliable on device.
+  const setSheet = (open: boolean) => {
+    setTipOpen(open);
+    (async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (!Capacitor.isNativePlatform()) return;
+        const { adManager } = await import('@/services/adManager');
+        await adManager.setBannerSuppressed(open);
+      } catch {}
+    })();
+  };
+
   useEffect(() => {
     if (!ticker) return;
     let alive = true;
@@ -146,19 +160,12 @@ export function AppGexTimeline({
     };
   }, [ticker, days]);
 
-  // While the bottom sheet is open, suppress the NATIVE AdMob banner — it's an OS layer
-  // drawn over the WebView, so no web z-index can cover it. Mirrors the onboarding pattern.
+  // The native AdMob banner is an OS layer over the WebView — no web z-index can cover it,
+  // so it must be hidden while the sheet is open. We drive it directly from the open/close
+  // tap (setSheet) so restore is reliable on device. This effect is only a safety net:
+  // if the component unmounts while the sheet is open, make sure the banner comes back.
   useEffect(() => {
-    if (!tipOpen) return;
-    let active = true;
-    (async () => {
-      const { Capacitor } = await import('@capacitor/core');
-      if (!Capacitor.isNativePlatform() || !active) return;
-      const { adManager } = await import('@/services/adManager');
-      await adManager.setBannerSuppressed(true);
-    })().catch(() => {});
     return () => {
-      active = false;
       (async () => {
         try {
           const { Capacitor } = await import('@capacitor/core');
@@ -168,7 +175,7 @@ export function AppGexTimeline({
         } catch {}
       })();
     };
-  }, [tipOpen]);
+  }, []);
 
   const stats = useMemo(() => {
     if (!points || points.length < 2) return null;
@@ -305,18 +312,18 @@ export function AppGexTimeline({
 
   return (
     <div style={shell}>
-      <Header locale={locale} value={stats.latest.gex} percentile={stats.percentile} isPositive={stats.isPositive} onInfo={() => setTipOpen((v) => !v)} infoOpen={tipOpen} />
+      <Header locale={locale} value={stats.latest.gex} percentile={stats.percentile} isPositive={stats.isPositive} onInfo={() => setSheet(!tipOpen)} infoOpen={tipOpen} />
 
       {/* What-is-this — premium bottom-sheet popup, portaled to body so no ancestor
           transform can trap the fixed overlay. Tap backdrop / button to close. */}
       {tipOpen && typeof document !== 'undefined' && createPortal(
-        <div style={sheetOverlay} onClick={() => setTipOpen(false)} role="dialog" aria-modal="true">
+        <div style={sheetOverlay} onClick={() => setSheet(false)} role="dialog" aria-modal="true">
           <style>{`@keyframes agxUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes agxFade{from{opacity:0}to{opacity:1}}`}</style>
           <div style={sheetCard} onClick={(e) => e.stopPropagation()}>
             <div style={sheetHandle} />
             <div style={sheetTitle}>{tr(T.tlTitle, locale)}</div>
             <div style={sheetBody}>{tr(T.tlBody, locale)}</div>
-            <button type="button" style={sheetClose} onClick={() => setTipOpen(false)}>{tr(T.close, locale)}</button>
+            <button type="button" style={sheetClose} onClick={() => setSheet(false)}>{tr(T.close, locale)}</button>
           </div>
         </div>,
         document.body,
