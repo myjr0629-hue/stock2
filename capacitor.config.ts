@@ -23,7 +23,9 @@ const config: CapacitorConfig = {
 
   // iOS 설정
   ios: {
-    contentInset: 'always',
+    // 'never': WKWebView가 세이프영역을 자동 인셋하지 않음.
+    // 상단 세이프영역은 CSS env(safe-area-inset-top) 한 곳에서만 처리 → 이중 인셋/갭 제거.
+    contentInset: 'never',
     backgroundColor: '#050a14',
     scheme: 'signumhq',
     preferredContentMode: 'mobile',
