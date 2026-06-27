@@ -8,6 +8,7 @@ import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { AdBanner } from '@/components/app/AdBanner';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
+import { AppGexTimeline } from '@/components/app/AppGexTimeline';
 import s from './cmd.module.css';
 
 // WebSocket real-time price hooks
@@ -2957,9 +2958,11 @@ function CmdPageContent() {
             />
           </div>
 
-          {/* GEX Profile */}
-          <GexBarChart
-            data={data.premium.gex}
+          {/* GEX Timeline (30D regime history — app-native, /api/history SSOT) */}
+          <AppGexTimeline
+            ticker={data.ticker}
+            locale={locale}
+            currentPrice={displayPrice}
             gammaFlip={data.premium.gammaFlipRaw}
             putFloor={data.premium.putFloor}
             callWall={data.premium.callWall}
