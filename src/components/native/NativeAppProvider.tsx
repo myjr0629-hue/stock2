@@ -82,14 +82,19 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
         // 스플래시 스크린 숨기기
         const { SplashScreen } = await import('@capacitor/splash-screen');
         if (_platform === 'ios') {
-          // iOS: 다크 네이티브 스플래시를 콘텐츠 페인트 직후까지 유지 →
-          // 대시보드 렌더 전 흰 웹 로딩 화면이 보이는 깜빡임 제거.
-          const hideSplash = () => { SplashScreen.hide({ fadeOutDuration: 350 }).catch(() => {}); };
-          const onReady = () => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(hideSplash, 200)));
-          if (document.readyState === 'complete') onReady();
-          else window.addEventListener('load', onReady, { once: true });
-          // 안전 폴백: 어떤 경우에도 스플래시가 4초 이상 남지 않도록
-          setTimeout(hideSplash, 4000);
+          // iOS: 다크 네이티브 스플래시를 "앱 셸(.app-viewport)이 실제 렌더된 뒤"에 내림.
+          // readyState/load는 흰 웹 로딩 화면 단계에서 이미 발동하므로, 앱 셸 DOM 등장까지 대기 →
+          // 흰 로딩 화면이 노출되는 깜빡임 제거. (최대 5초 안전 폴백)
+          const hideSplash = () => { SplashScreen.hide({ fadeOutDuration: 300 }).catch(() => {}); };
+          const start = Date.now();
+          const waitForAppShell = () => {
+            if (document.querySelector('.app-viewport') || Date.now() - start > 5000) {
+              requestAnimationFrame(() => requestAnimationFrame(hideSplash));
+            } else {
+              setTimeout(waitForAppShell, 80);
+            }
+          };
+          waitForAppShell();
         } else {
           // 안드로이드: 기존 동작 그대로
           await SplashScreen.hide({ fadeOutDuration: 500 });
