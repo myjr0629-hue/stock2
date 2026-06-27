@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, ReactNode } from 'react';
+import { useRef, useState, useEffect, ReactNode } from 'react';
 
 interface SwipeableTabsProps {
   children: ReactNode;
@@ -13,6 +13,17 @@ export function SwipeableTabs({ children, onSwipeLeft, onSwipeRight, threshold =
   const startX = useRef(0);
   const startY = useRef(0);
   const startTime = useRef(0);
+
+  // 네이티브 앱에서만 좌우 스와이프(탭 전환)를 끈다.
+  // 웹(브라우저)은 isNative=false → 핸들러가 그대로 붙어 기존 동작 100% 유지(영향 0).
+  const [isNative, setIsNative] = useState(false);
+  useEffect(() => {
+    try {
+      const { Capacitor } = require('@capacitor/core');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot platform detection on mount (SSR-safe)
+      setIsNative(Capacitor.isNativePlatform());
+    } catch { /* web */ }
+  }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
@@ -39,8 +50,8 @@ export function SwipeableTabs({ children, onSwipeLeft, onSwipeRight, threshold =
 
   return (
     <div
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={isNative ? undefined : handleTouchStart}
+      onTouchEnd={isNative ? undefined : handleTouchEnd}
       style={{ touchAction: 'pan-y' }}
     >
       {children}
