@@ -117,19 +117,10 @@ export function AppGexTimeline({
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
   const [tipOpen, setTipOpen] = useState(false);
 
-  // Open/close the info sheet AND toggle the native banner in lock-step with the tap.
-  // Driving it from the user action (not effect cleanup) makes restore reliable on device.
-  const setSheet = (open: boolean) => {
-    setTipOpen(open);
-    (async () => {
-      try {
-        const { Capacitor } = await import('@capacitor/core');
-        if (!Capacitor.isNativePlatform()) return;
-        const { adManager } = await import('@/services/adManager');
-        await adManager.setBannerSuppressed(open);
-      } catch {}
-    })();
-  };
+  // Centered popup — deliberately does NOT touch the native AdMob banner. A centered modal
+  // doesn't overlap the bottom banner, so there's nothing to hide/restore (the native
+  // hide->show round-trip proved unreliable on Android). The banner just stays in place.
+  const setSheet = (open: boolean) => setTipOpen(open);
 
   useEffect(() => {
     if (!ticker) return;
@@ -159,23 +150,6 @@ export function AppGexTimeline({
       alive = false;
     };
   }, [ticker, days]);
-
-  // The native AdMob banner is an OS layer over the WebView — no web z-index can cover it,
-  // so it must be hidden while the sheet is open. We drive it directly from the open/close
-  // tap (setSheet) so restore is reliable on device. This effect is only a safety net:
-  // if the component unmounts while the sheet is open, make sure the banner comes back.
-  useEffect(() => {
-    return () => {
-      (async () => {
-        try {
-          const { Capacitor } = await import('@capacitor/core');
-          if (!Capacitor.isNativePlatform()) return;
-          const { adManager } = await import('@/services/adManager');
-          await adManager.setBannerSuppressed(false);
-        } catch {}
-      })();
-    };
-  }, []);
 
   const stats = useMemo(() => {
     if (!points || points.length < 2) return null;
@@ -318,9 +292,8 @@ export function AppGexTimeline({
           transform can trap the fixed overlay. Tap backdrop / button to close. */}
       {tipOpen && typeof document !== 'undefined' && createPortal(
         <div style={sheetOverlay} onClick={() => setSheet(false)} role="dialog" aria-modal="true">
-          <style>{`@keyframes agxUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes agxFade{from{opacity:0}to{opacity:1}}`}</style>
+          <style>{`@keyframes agxPop{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}@keyframes agxFade{from{opacity:0}to{opacity:1}}`}</style>
           <div style={sheetCard} onClick={(e) => e.stopPropagation()}>
-            <div style={sheetHandle} />
             <div style={sheetTitle}>{tr(T.tlTitle, locale)}</div>
             <div style={sheetBody}>{tr(T.tlBody, locale)}</div>
             <button type="button" style={sheetClose} onClick={() => setSheet(false)}>{tr(T.close, locale)}</button>
@@ -482,9 +455,8 @@ const statCard: CSSProperties = { flex: 1, padding: '10px 12px', borderRadius: 1
 const statBig: CSSProperties = { fontSize: 20, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'baseline', gap: 5, fontVariantNumeric: 'tabular-nums' };
 const statUnit: CSSProperties = { fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' };
 const statLabel: CSSProperties = { fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: 0.4, marginTop: 3, textTransform: 'uppercase' };
-const sheetOverlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,6,16,0.55)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', animation: 'agxFade 0.2s ease' };
-const sheetCard: CSSProperties = { width: '100%', maxWidth: 460, background: 'var(--bg-elev)', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTop: '1px solid var(--border-strong)', padding: '12px 20px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))', boxShadow: '0 -12px 40px rgba(0,0,0,0.5)', animation: 'agxUp 0.3s cubic-bezier(0.32,0.72,0,1)' };
-const sheetHandle: CSSProperties = { width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '2px auto 14px' };
+const sheetOverlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,6,16,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 22, animation: 'agxFade 0.18s ease' };
+const sheetCard: CSSProperties = { width: '100%', maxWidth: 380, background: 'var(--bg-elev)', borderRadius: 20, border: '1px solid var(--border-strong)', padding: '18px 20px', boxShadow: '0 20px 60px rgba(0,0,0,0.6)', animation: 'agxPop 0.22s cubic-bezier(0.34,1.4,0.5,1)' };
 const sheetTitle: CSSProperties = { fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8 };
 const sheetBody: CSSProperties = { fontSize: 13, lineHeight: 1.65, color: 'var(--text-dim)' };
 const sheetClose: CSSProperties = { marginTop: 18, width: '100%', padding: 12, borderRadius: 12, background: 'var(--cyan-dim)', color: 'var(--cyan)', border: '1px solid var(--cyan)', fontSize: 13, fontWeight: 700, cursor: 'pointer' };
