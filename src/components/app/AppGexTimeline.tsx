@@ -75,6 +75,16 @@ const T = {
   callWall: { ko: '콜 월', en: 'Call Wall', ja: 'コールウォール' },
   putFloor: { ko: '풋 플로어', en: 'Put Floor', ja: 'プットフロア' },
   gammaFlip: { ko: '감마 플립', en: 'Gamma Flip', ja: 'ガンマフリップ' },
+  whatNow: { ko: '지금 무슨 의미인가', en: 'WHAT THIS MEANS', ja: '今、何を意味するか' },
+  pctUpper: { ko: '중상위', en: 'upper', ja: '中上位' },
+  pctMid: { ko: '중간', en: 'mid', ja: '中位' },
+  pctLower: { ko: '하위', en: 'lower', ja: '下位' },
+  tlTitle: { ko: 'GEX 타임라인이란?', en: 'What is the GEX Timeline?', ja: 'GEXタイムラインとは？' },
+  tlBody: {
+    ko: '딜러(옵션 마켓메이커)가 떠안은 감마 포지션의 30일 추이입니다. 음수(숏 감마)면 딜러 헤지가 가격 변동을 키우고, 양수(롱 감마)면 변동을 억제합니다. 즉 이 종목이 구조적으로 "잘 튀는지" "눌리는지"를 보여줍니다.',
+    en: 'The 30-day trend of dealer (option market-maker) gamma positioning. Negative (short gamma) means dealer hedging amplifies price moves; positive (long gamma) dampens them — i.e. whether this name is structurally "jumpy" or "pinned".',
+    ja: 'ディーラー（オプション・マーケットメイカー）が抱えるガンマ・ポジションの30日推移です。マイナス（ショートガンマ）はヘッジが値動きを増幅し、プラス（ロングガンマ）は抑制します。つまりこの銘柄が構造的に「動きやすい」か「抑えられている」かを示します。',
+  },
   loading: { ko: 'GEX 히스토리 불러오는 중…', en: 'Loading GEX history…', ja: 'GEX履歴を読み込み中…' },
   empty: {
     ko: 'GEX 히스토리가 아직 충분하지 않습니다. 데이터가 쌓이면 표시됩니다.',
@@ -103,6 +113,7 @@ export function AppGexTimeline({
 }: Props) {
   const [points, setPoints] = useState<GexPoint[] | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
+  const [tipOpen, setTipOpen] = useState(false);
 
   useEffect(() => {
     if (!ticker) return;
@@ -188,28 +199,38 @@ export function AppGexTimeline({
     };
   }, [points]);
 
-  const insight = useMemo(() => {
-    if (!stats) return '';
+  // Clear, app-native interpretation (compliance-safe / observational only): 3 scannable lines.
+  const interp = useMemo(() => {
+    if (!stats) return null;
     const { latest, percentile, streakDays, avgDuration, streakMultiple, isPositive } = stats;
-    const regime = isPositive ? tr(T.longGamma, locale) : tr(T.shortGamma, locale);
     const gx = fmtGex(latest.gex);
-    const mech = isPositive
-      ? { ko: '딜러가 변동성을 흡수하는 안정 국면', en: 'dealers absorb volatility (stabilizing)', ja: 'ディーラーがボラを吸収する安定局面' }
-      : { ko: '딜러가 변동성을 증폭하는 국면', en: 'dealers amplify volatility', ja: 'ディーラーがボラを増幅する局面' };
-    const suffix =
-      avgDuration > 0 && streakMultiple > 1.5
-        ? {
-            ko: ` 평균 ${avgDuration}${tr(T.days, locale)} 대비 ${streakMultiple}배 지속 중.`,
-            en: ` ${streakMultiple}× the ${avgDuration}-day average.`,
-            ja: ` 平均${avgDuration}日に対し${streakMultiple}倍持続中。`,
-          }
-        : { ko: '', en: '', ja: '' };
-    if (locale === 'ko')
-      return `GEX ${gx} · ${percentile}번째 백분위 — ${regime}(${tr(mech, 'ko')}). ${streakDays}세션 연속 관찰.${tr(suffix, 'ko')}`;
-    if (locale === 'ja')
-      return `GEX ${gx} · ${percentile}パーセンタイル — ${regime}（${tr(mech, 'ja')}）。${streakDays}セッション連続で観測。${tr(suffix, 'ja')}`;
-    return `GEX ${gx} · ${ordinal(percentile, 'en')} — ${regime} (${tr(mech, 'en')}). Observed for ${streakDays} consecutive sessions.${tr(suffix, 'en')}`;
-  }, [stats, locale]);
+    const pctWord = percentile >= 66 ? T.pctUpper : percentile >= 33 ? T.pctMid : T.pctLower;
+
+    const meaning = isPositive
+      ? { ko: '롱 감마 환경 — 딜러 헤지가 가격 움직임을 흡수하는 구조입니다.', en: 'Long-gamma environment — dealer hedging absorbs price moves.', ja: 'ロングガンマ環境 — ヘッジが値動きを吸収する構造です。' }
+      : { ko: '숏 감마 환경 — 딜러 헤지가 가격 움직임을 키우는 구조입니다.', en: 'Short-gamma environment — dealer hedging amplifies price moves.', ja: 'ショートガンマ環境 — ヘッジが値動きを増幅する構造です。' };
+    const behavior = isPositive
+      ? { ko: '변동이 억제되고 박스권·평균회귀 경향이 관찰됩니다.', en: 'Moves tend to be dampened — range-bound, mean-reverting behavior is observed.', ja: '値動きが抑えられ、レンジ・平均回帰の傾向が観測されます。' }
+      : { ko: '변동폭이 크고 추세가 이어지는 흐름이 관찰됩니다 (평균회귀보다 추세 추종).', en: 'Wider, trend-extending swings tend to be observed rather than mean-reversion.', ja: '平均回帰よりも、値幅が大きくトレンドが続きやすい動きが観測されます。' };
+
+    let flipNote = { ko: '', en: '', ja: '' };
+    if (currentPrice && gammaFlip && currentPrice > 0 && gammaFlip > 0) {
+      flipNote = currentPrice >= gammaFlip
+        ? { ko: ' 현재가는 감마플립 위 — 지지 우위 구조로 관찰됩니다.', en: ' Price sits above the gamma flip — a support-leaning structure is observed.', ja: ' 現在値はガンマフリップの上 — 支持寄りの構造が観測されます。' }
+        : { ko: ' 현재가는 감마플립 아래 — 저항 우위 구조로 관찰됩니다.', en: ' Price sits below the gamma flip — a resistance-leaning structure is observed.', ja: ' 現在値はガンマフリップの下 — 抵抗寄りの構造が観測されます。' };
+    }
+    const persist = avgDuration > 0 && streakMultiple > 1.5
+      ? { ko: ` 평균 ${avgDuration}${tr(T.days, locale)} 대비 ${streakMultiple}배 지속.`, en: ` ${streakMultiple}× its ${avgDuration}-day average.`, ja: ` 平均${avgDuration}日に対し${streakMultiple}倍持続。` }
+      : { ko: '', en: '', ja: '' };
+
+    const context = {
+      ko: `현재 GEX ${gx} · 30일 중 ${tr(pctWord, 'ko')}(${percentile}번째 백분위) · ${streakDays}세션 연속.${tr(persist, 'ko')}${tr(flipNote, 'ko')}`,
+      en: `GEX ${gx} · ${tr(pctWord, 'en')} of its 30-day range (${ordinal(percentile, 'en')}) · ${streakDays} sessions running.${tr(persist, 'en')}${tr(flipNote, 'en')}`,
+      ja: `現在GEX ${gx} · 30日中${tr(pctWord, 'ja')}（${percentile}パーセンタイル） · ${streakDays}セッション連続。${tr(persist, 'ja')}${tr(flipNote, 'ja')}`,
+    };
+
+    return { meaning: tr(meaning, locale), behavior: tr(behavior, locale), context: tr(context, locale) };
+  }, [stats, locale, currentPrice, gammaFlip]);
 
   // ---- Honest non-ready states (no fake chart) ----
   if (status === 'loading') {
@@ -258,7 +279,15 @@ export function AppGexTimeline({
 
   return (
     <div style={shell}>
-      <Header locale={locale} value={stats.latest.gex} percentile={stats.percentile} isPositive={stats.isPositive} />
+      <Header locale={locale} value={stats.latest.gex} percentile={stats.percentile} isPositive={stats.isPositive} onInfo={() => setTipOpen((v) => !v)} infoOpen={tipOpen} />
+
+      {/* What-is-this tooltip — tap to toggle (app-native, no hover) */}
+      {tipOpen && (
+        <div style={tipPanel}>
+          <div style={tipTitle}>{tr(T.tlTitle, locale)}</div>
+          <div style={tipBody}>{tr(T.tlBody, locale)}</div>
+        </div>
+      )}
 
       {/* 30D area chart with zero reference */}
       <div style={{ position: 'relative', marginTop: 6 }}>
@@ -313,8 +342,15 @@ export function AppGexTimeline({
         </div>
       </div>
 
-      {/* Auto insight (compliance-safe) */}
-      <p style={insightStyle}>{insight}</p>
+      {/* Interpretation — clear "what this means now" (compliance-safe, app-native) */}
+      {interp && (
+        <div style={whatCard}>
+          <div style={whatLabel}>{tr(T.whatNow, locale)}</div>
+          <div style={interpStrong}>{interp.meaning}</div>
+          <div style={interpLine}>{interp.behavior}</div>
+          <div style={interpMuted}>{interp.context}</div>
+        </div>
+      )}
 
       {/* Flip events */}
       {stats.flipEvents.length > 0 && (
@@ -348,11 +384,30 @@ export function AppGexTimeline({
   );
 }
 
-function Header({ locale, value, percentile, isPositive }: { locale: string; value?: number; percentile?: number; isPositive?: boolean }) {
+function Header({ locale, value, percentile, isPositive, onInfo, infoOpen }: { locale: string; value?: number; percentile?: number; isPositive?: boolean; onInfo?: () => void; infoOpen?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text)' }}>
-        {tr(T.title, locale)} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>· 30D</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text)' }}>
+          {tr(T.title, locale)} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>· 30D</span>
+        </span>
+        {onInfo && (
+          <button
+            type="button"
+            onClick={onInfo}
+            aria-label="What is the GEX Timeline?"
+            style={{
+              width: 16, height: 16, borderRadius: '50%', flex: '0 0 auto',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10, fontWeight: 700, fontStyle: 'italic', lineHeight: 1, cursor: 'pointer',
+              color: infoOpen ? '#0b111e' : 'var(--text-muted)',
+              background: infoOpen ? 'var(--text-muted)' : 'var(--surface-3)',
+              border: '1px solid var(--border-strong)', padding: 0,
+            }}
+          >
+            i
+          </button>
+        )}
       </div>
       {value != null && (
         <div style={{ textAlign: 'right' }}>
@@ -386,6 +441,13 @@ const statCard: CSSProperties = { flex: 1, padding: '10px 12px', borderRadius: 1
 const statBig: CSSProperties = { fontSize: 20, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'baseline', gap: 5, fontVariantNumeric: 'tabular-nums' };
 const statUnit: CSSProperties = { fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' };
 const statLabel: CSSProperties = { fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: 0.4, marginTop: 3, textTransform: 'uppercase' };
-const insightStyle: CSSProperties = { fontSize: 11.5, lineHeight: 1.55, color: 'var(--text-dim)', marginTop: 12, padding: '10px 12px', borderRadius: 9, background: 'var(--surface-1)', border: '1px solid var(--border)' };
+const tipPanel: CSSProperties = { marginTop: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-3)', border: '1px solid var(--border-strong)' };
+const tipTitle: CSSProperties = { fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 4 };
+const tipBody: CSSProperties = { fontSize: 11, lineHeight: 1.6, color: 'var(--text-dim)' };
+const whatCard: CSSProperties = { marginTop: 12, padding: '11px 12px', borderRadius: 10, background: 'var(--surface-1)', border: '1px solid var(--border)' };
+const whatLabel: CSSProperties = { fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 };
+const interpStrong: CSSProperties = { fontSize: 12.5, fontWeight: 600, lineHeight: 1.5, color: 'var(--text)' };
+const interpLine: CSSProperties = { fontSize: 11.5, lineHeight: 1.55, color: 'var(--text-dim)', marginTop: 4 };
+const interpMuted: CSSProperties = { fontSize: 10.5, lineHeight: 1.55, color: 'var(--text-muted)', marginTop: 6 };
 
 export default AppGexTimeline;
