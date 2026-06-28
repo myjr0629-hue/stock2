@@ -1,7 +1,6 @@
 'use client';
 
 import { usePathname, useRouter } from '@/i18n/routing';
-import { useLocale } from 'next-intl';
 import { useInterstitialAd } from '@/hooks/useInterstitialAd';
 
 const TABS = [
@@ -11,14 +10,6 @@ const TABS = [
   { id: 'flow', label: 'Flow', path: '/app-view/flow', icon: 'flow' },
   { id: 'intel', label: 'Intel', path: '/app-view/intel', icon: 'intel' },
 ] as const;
-
-const TAB_LABELS: Record<(typeof TABS)[number]['id'], Record<string, string>> = {
-  dash: { ko: '대시보드', en: 'Dashboard', ja: 'ダッシュ' },
-  guardian: { ko: '가디언', en: 'Guardian', ja: 'ガーディアン' },
-  cmd: { ko: '커맨드', en: 'Command', ja: 'コマンド' },
-  flow: { ko: '플로우', en: 'Flow', ja: 'フロー' },
-  intel: { ko: '인텔', en: 'Intel', ja: 'インテル' },
-};
 
 function TabIcon({ name, active }: { name: string; active: boolean }) {
   const color = active ? 'var(--cyan)' : 'var(--text-muted)';
@@ -71,7 +62,6 @@ function TabIcon({ name, active }: { name: string; active: boolean }) {
 export function AppBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const locale = useLocale();
   const { onTabSwitch } = useInterstitialAd();
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
@@ -86,7 +76,9 @@ export function AppBottomNav() {
     <nav className="app-tabbar">
       {TABS.map((tab) => {
         const isActive = tab.id === activeTab;
-        const label = TAB_LABELS[tab.id]?.[locale] || TAB_LABELS[tab.id]?.en || tab.label;
+        // Brand/feature names — kept in English across all locales (matches the
+        // English-fixed Guardian/Intel page titles). Avoids awkward transliteration.
+        const label = tab.label;
 
         return (
           <button
