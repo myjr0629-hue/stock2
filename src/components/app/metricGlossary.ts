@@ -33,7 +33,11 @@ export type MetricTerm =
   | 'whale'
   | 'rsi'
   | 'vwap'
-  | 'shortInterest';
+  | 'shortInterest'
+  | 'volRegime'
+  | 'conviction'
+  | 'trendPhase'
+  | 'fundamental';
 
 export const CLOSE_LABEL: Record<Lang, string> = { ko: '확인', en: 'Got it', ja: '閉じる' };
 
@@ -188,6 +192,38 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
       ko: '유통주식 대비 공매도된 비율과 환매에 걸리는 일수(Days to Cover)를 봅니다. 높을수록 숏 스퀴즈 연료가 쌓인 것으로 관찰됩니다.',
       en: 'The percentage of float sold short, alongside days-to-cover. Higher readings reflect more fuel for a potential short squeeze.',
       ja: '浮動株に対する空売り比率と買い戻しに要する日数（Days to Cover）を見ます。高いほどショートスクイーズの燃料が蓄積していると観測されます。',
+    },
+  },
+  volRegime: {
+    title: { ko: '변동성 레짐 (Vol Regime)', en: 'Volatility Regime', ja: 'ボラティリティ・レジーム' },
+    body: {
+      ko: '옵션 변동성의 압축/확장 국면입니다. COILING(에너지 응축·저변동) → LOADED(변동성 축적) → ERUPTING(극단 변동)으로, 변동성이 어느 단계에 있는지 관찰됩니다.',
+      en: 'The compression/expansion phase of option volatility — COILING (energy building, low vol) → LOADED (accumulating) → ERUPTING (extreme). It shows which stage volatility is observed to be in.',
+      ja: 'オプション変動性の圧縮/拡張の局面です。COILING（エネルギー凝縮・低ボラ）→ LOADED（蓄積）→ ERUPTING（極端な変動）の段階として観測されます。',
+    },
+  },
+  conviction: {
+    title: { ko: '컨빅션 (Conviction)', en: 'Conviction', ja: 'コンビクション' },
+    body: {
+      ko: '실시간 옵션 플로우·가격·VWAP 신호를 융합한 당장의 방향 정렬도(0~100)입니다. 높을수록 상방, 낮을수록 하방으로 신호가 정렬된 것으로 관찰됩니다.',
+      en: 'A 0–100 read of how aligned the live signals (options flow, price, VWAP) are right now. Higher reflects upside-aligned signals, lower downside-aligned.',
+      ja: 'リアルタイムのオプションフロー・価格・VWAPシグナルの方向一致度（0〜100）です。高いほど上方、低いほど下方にシグナルが揃っていると観測されます。',
+    },
+  },
+  trendPhase: {
+    title: { ko: '트렌드 페이즈 (Trend Phase)', en: 'Trend Phase', ja: 'トレンドフェーズ' },
+    body: {
+      ko: '이동평균 교차(골든/데드 크로스) 기반의 추세 국면입니다. 골든크로스는 상승 추세, 데드크로스는 하락 추세, 그 외는 횡보로 관찰됩니다.',
+      en: 'The trend phase from moving-average crossovers. A golden cross is read as an up-trend, a dead cross as a down-trend, otherwise consolidation.',
+      ja: '移動平均のクロス（ゴールデン/デッド）に基づくトレンド局面です。ゴールデンクロスは上昇、デッドクロスは下降、それ以外はレンジとして観測されます。',
+    },
+  },
+  fundamental: {
+    title: { ko: '펀더멘탈 (Fundamental)', en: 'Fundamental', ja: 'ファンダメンタル' },
+    body: {
+      ko: 'PER·ROE·부채비율 등 재무 지표를 종합한 건전성 등급입니다. A에 가까울수록 재무가 우량한 것으로 평가됩니다.',
+      en: 'A health grade compiled from valuation and profitability metrics (P/E, ROE, debt, etc.). Grades closer to A reflect stronger fundamentals.',
+      ja: 'PER・ROE・負債比率などの財務指標を総合した健全性グレードです。Aに近いほど財務が良好と評価されます。',
     },
   },
 };

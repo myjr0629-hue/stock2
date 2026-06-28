@@ -10,6 +10,7 @@ import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 
 // WebSocket real-time price hooks
@@ -1436,10 +1437,10 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
 /* ═══════════════════════════════════════════
    SIGNAL CARD
    ═══════════════════════════════════════════ */
-function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, iconKey, locale = 'en' }: {
+function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, iconKey, locale = 'en', infoTerm }: {
   label: string; value: string; sub?: React.ReactNode; iconKey?: string;
   color?: string; bg?: string; border?: string;
-  badge?: string; badgeColor?: string; locale?: string;
+  badge?: string; badgeColor?: string; locale?: string; infoTerm?: MetricTerm;
 }) {
   const getGlowColor = () => {
     const k = (iconKey || label).toUpperCase();
@@ -1678,6 +1679,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, i
           <div className="flex items-center gap-1.5 text-slate-300 font-bold uppercase tracking-wider text-[10.5px]">
             {icon && <span style={{ color: colorVal, filter: `drop-shadow(0 0 2px ${colorVal})` }}>{icon}</span>}
             <span>{label}</span>
+            {infoTerm && <MetricInfo term={infoTerm} locale={locale} size={12} />}
           </div>
           {badge && (
             <span className={`text-[9.5px] font-black px-1.5 py-0.5 rounded ${badgeColor || 'bg-slate-800/80 text-slate-300 border border-white/5'}`}>
@@ -2859,6 +2861,7 @@ function CmdPageContent() {
                 <SignalCard 
                   label={locale === 'ko' ? '변동성 레짐' : locale === 'ja' ? 'ボラティリティ体制' : 'VOL REGIME'}
                   iconKey="VOL REGIME"
+                  infoTerm="volRegime"
                   value={`${signalsData.regimeScore} /100`}
                   badge={signalsData.regime}
                   badgeColor={signalsData.regime === 'ERUPTING' ? 'bg-rose-500/25 text-rose-400' : signalsData.regime === 'LOADED' ? 'bg-amber-500/25 text-amber-400' : signalsData.regime === 'COILING' ? 'bg-cyan-500/25 text-cyan-400' : 'bg-emerald-500/25 text-emerald-400'}
@@ -2873,6 +2876,7 @@ function CmdPageContent() {
                 <SignalCard 
                   label={locale === 'ko' ? '확신도' : locale === 'ja' ? 'コンビクション' : 'CONVICTION'}
                   iconKey="CONVICTION"
+                  infoTerm="conviction"
                   value={`${signalsData.convictionScore} /100`}
                   badge={signalsData.convictionGrade}
                   badgeColor={signalsData.convictionScore >= 60 ? 'bg-emerald-500/25 text-emerald-400' : signalsData.convictionScore <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
@@ -2887,6 +2891,7 @@ function CmdPageContent() {
                 <SignalCard 
                   label={locale === 'ko' ? '순매도 스퀘즈' : locale === 'ja' ? 'ショートスクイーズ' : 'SHORT SQUEEZE'}
                   iconKey="SHORT SQUEEZE"
+                  infoTerm="squeeze"
                   value={signalsData.squeezePercent != null ? `${Number(signalsData.squeezePercent).toFixed(1)}%` : '-'}
                   badge={signalsData.squeezeStatus}
                   badgeColor={signalsData.squeezeStatus === 'CRITICAL' ? 'bg-rose-500/25 text-rose-400' : signalsData.squeezeStatus === 'HIGH' ? 'bg-amber-500/25 text-amber-400' : signalsData.squeezeStatus === 'MEDIUM' ? 'bg-cyan-500/25 text-cyan-400' : 'bg-emerald-500/25 text-emerald-400'}
@@ -2901,6 +2906,7 @@ function CmdPageContent() {
                 <SignalCard 
                   label={locale === 'ko' ? '기관 레이더' : locale === 'ja' ? '機関レーダー' : 'INST RADAR'}
                   iconKey="INST RADAR"
+                  infoTerm="darkPool"
                   value={signalsData.darkPool > 0 ? `${signalsData.darkPool.toFixed(1)}%` : '—'}
                   color={signalsData.darkPool >= 45 ? 'text-fuchsia-400' : signalsData.darkPool >= 30 ? 'text-purple-400' : 'text-slate-300'}
                   bg={signalsData.darkPool >= 45 ? 'bg-fuchsia-950/20' : signalsData.darkPool >= 30 ? 'bg-purple-950/20' : 'bg-slate-900/40'}
@@ -2913,6 +2919,7 @@ function CmdPageContent() {
                 <SignalCard 
                   label={locale === 'ko' ? '트렌드 페이즈' : locale === 'ja' ? 'トレンドフェーズ' : 'TREND PHASE'}
                   iconKey="TREND PHASE"
+                  infoTerm="trendPhase"
                   value={signalsData.smaCross === 'GOLDEN' ? 'GOLDEN' : signalsData.smaCross === 'DEAD' ? 'DEAD' : 'CALM'}
                   color={signalsData.smaCross === 'GOLDEN' ? 'text-emerald-400' : signalsData.smaCross === 'DEAD' ? 'text-rose-400' : 'text-slate-300'}
                   bg={signalsData.smaCross === 'GOLDEN' ? 'bg-emerald-950/20' : signalsData.smaCross === 'DEAD' ? 'bg-rose-950/20' : 'bg-slate-900/40'}
@@ -2925,6 +2932,7 @@ function CmdPageContent() {
                 <SignalCard 
                   label={locale === 'ko' ? '펀더멘탈' : locale === 'ja' ? 'ファンダメンタル' : 'FUNDAMENTAL'}
                   iconKey="FUNDAMENTAL"
+                  infoTerm="fundamental"
                   value={signalsData.fundGrade || 'C'}
                   color={signalsData.fundGrade?.startsWith('A') ? 'text-emerald-400' : signalsData.fundGrade?.startsWith('B') ? 'text-cyan-400' : 'text-amber-400'}
                   bg={signalsData.fundGrade?.startsWith('A') ? 'bg-emerald-950/20' : signalsData.fundGrade?.startsWith('B') ? 'bg-cyan-950/20' : 'bg-slate-900/40'}
