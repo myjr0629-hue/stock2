@@ -208,7 +208,8 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
         className="native-app-root"
         style={{
           minHeight: '100dvh',
-          paddingTop: _platform === 'ios' ? 'env(safe-area-inset-top)' : undefined,
+          // 상단 세이프영역은 네이티브 contentInset:'always'가 처리한다.
+          // 여기서 env(safe-area-inset-top)을 또 주면 이중 인셋(상단 갭)이 되므로 제거.
           overflow: 'hidden',
         }}
       >

@@ -23,9 +23,10 @@ const config: CapacitorConfig = {
 
   // iOS 설정
   ios: {
-    // 'never': WKWebView가 세이프영역을 자동 인셋하지 않음.
-    // 상단 세이프영역은 CSS env(safe-area-inset-top) 한 곳에서만 처리 → 이중 인셋/갭 제거.
-    contentInset: 'never',
+    // 'always': WKWebView가 상·하단 세이프영역을 네이티브에서 일관되게 인셋한다.
+    // (하단 AdMob 배너/탭바 정렬이 이 값 기준이라 'never'로 바꾸면 하단 정렬이 깨짐)
+    // 상단 갭의 원인이던 CSS env(safe-area-inset-top) paddingTop은 제거하여 이중 인셋만 없앤다.
+    contentInset: 'always',
     backgroundColor: '#050a14',
     scheme: 'signumhq',
     preferredContentMode: 'mobile',
