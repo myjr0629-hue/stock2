@@ -125,6 +125,7 @@ export function AppGexTimeline({
   useEffect(() => {
     if (!ticker) return;
     let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to loading when ticker/days changes before the refetch (intended)
     setStatus('loading');
     setPoints(null);
     fetch(`/api/history?type=gex&ticker=${encodeURIComponent(ticker)}&days=${days}`)
@@ -401,7 +402,7 @@ function Header({ locale, value, percentile, isPositive, onInfo, infoOpen }: { l
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text)' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>
           {tr(T.title, locale)} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>· 30D</span>
         </span>
         {onInfo && (
