@@ -28,10 +28,23 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     };
     const onTouchMove = (e: TouchEvent) => {
       const y = e.touches[0].clientY;
-      const scrollEl = document.querySelector('.app-main');
-      if (scrollEl && scrollEl.scrollTop <= 0 && y > startY) {
-        e.preventDefault();
+      if (y <= startY) return; // only guard downward pulls (pull-to-refresh direction)
+      // Block the pull only when the ACTUAL scroller under the finger is at its top.
+      // Walk up to the nearest vertically-scrollable ancestor so custom scrollers that are
+      // decoupled from .app-main (e.g. the market-movers list .viewport/.scroll) keep working.
+      let el = e.target as HTMLElement | null;
+      while (el && el !== document.body && el !== document.documentElement) {
+        if (el.scrollHeight > el.clientHeight) {
+          const oy = getComputedStyle(el).overflowY;
+          if (oy === 'auto' || oy === 'scroll') {
+            if (el.scrollTop <= 0) e.preventDefault();
+            return;
+          }
+        }
+        el = el.parentElement;
       }
+      // No scrollable ancestor → block to prevent document-level rubber-band/refresh.
+      e.preventDefault();
     };
     document.addEventListener('touchstart', onTouchStart, { passive: true });
     document.addEventListener('touchmove', onTouchMove, { passive: false });
