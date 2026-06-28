@@ -4334,6 +4334,25 @@ export default function AppIntelPage() {
                         ))}
                       </div>
 
+                      {/* Breadth bar — gainers vs losers (real data) */}
+                      {(reportData.gainers + reportData.losers) > 0 && (() => {
+                        const total = reportData.gainers + reportData.losers;
+                        const upPct = Math.max(0, Math.min(100, (reportData.gainers / total) * 100));
+                        const breadthLabel = locale === 'ko' ? '등락 폭' : locale === 'ja' ? '騰落幅' : 'BREADTH';
+                        return (
+                          <div style={{ marginTop: '11px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', fontSize: '9px', fontWeight: 800, letterSpacing: '0.06em' }}>
+                              <span style={{ color: '#34d399', fontFamily: 'var(--font-mono), monospace' }}>{'▲'} {reportData.gainers}</span>
+                              <span style={{ color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' as const }}>{breadthLabel}</span>
+                              <span style={{ color: '#f87171', fontFamily: 'var(--font-mono), monospace' }}>{reportData.losers} {'▼'}</span>
+                            </div>
+                            <div style={{ height: '6px', borderRadius: '999px', overflow: 'hidden', display: 'flex', background: 'rgba(239,68,68,0.30)' }}>
+                              <div style={{ width: `${upPct}%`, height: '100%', background: 'linear-gradient(90deg, #059669, #10b981)', transition: 'width 0.4s ease' }} />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Sentiment + Grade */}
                       <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -4450,11 +4469,19 @@ export default function AppIntelPage() {
                                 <div style={{ fontSize: '15px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace', letterSpacing: '-0.01em' }}>
                                   {stock.sym}
                                 </div>
-                                {stock.rsi && stock.rsi > 0 && (
-                                  <div style={{ fontSize: '10px', fontWeight: 600, color: stock.rsi > 70 ? '#ef4444' : stock.rsi < 30 ? '#10b981' : 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-mono), monospace', marginTop: '1px' }}>
-                                    RSI {Math.round(stock.rsi)}
-                                  </div>
-                                )}
+                                {stock.rsi && stock.rsi > 0 && (() => {
+                                  const rsiColor = stock.rsi > 70 ? '#f87171' : stock.rsi < 30 ? '#34d399' : '#64748b';
+                                  return (
+                                    <div style={{ marginTop: '2px' }}>
+                                      <div style={{ fontSize: '10px', fontWeight: 600, color: rsiColor, fontFamily: 'var(--font-mono), monospace', lineHeight: 1 }}>
+                                        RSI {Math.round(stock.rsi)}
+                                      </div>
+                                      <div style={{ width: '44px', height: '3px', borderRadius: '999px', marginTop: '3px', background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+                                        <div style={{ width: `${Math.max(0, Math.min(100, stock.rsi))}%`, height: '100%', background: rsiColor, borderRadius: '999px' }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                               {/* Sparkline */}
                               <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
