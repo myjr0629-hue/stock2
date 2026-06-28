@@ -3764,8 +3764,12 @@ export default function AppIntelPage() {
             const leadSymbol = (topStock as any)?.ticker || topStock?.ticker || sec.stocks[0] || '-';
             const leadMove = topStock ? formatPercentCompact(topStock.changePct || sec.change || 0) : formatPercentCompact(sec.change);
             const leadMoveColor = topStock && (topStock.changePct || 0) < 0 ? '#ef4444' : '#10b981';
-            // 종목별 실시간 등락맵 (브레드스 칩 색상용 — 실제 데이터)
-            const sectorQuoteMap = new Map(getSectorQuotes(sec.id).map(q => [q.ticker, q.changePct]));
+            // 섹터 종목 실시간 데이터 (브레드스 칩 색상 + 주도종목 추세선 — 실제 데이터)
+            const sectorQuotes = getSectorQuotes(sec.id);
+            const sectorQuoteMap = new Map(sectorQuotes.map(q => [q.ticker, q.changePct]));
+            const leadQuote = sectorQuotes.find(q => q.ticker === leadSymbol) || sectorQuotes[0];
+            const leadSparkline = (leadQuote?.sparkline && leadQuote.sparkline.length >= 3) ? leadQuote.sparkline : null;
+            const leadSparkUp = (leadQuote?.changePct ?? sec.change) >= 0;
 
             return (
               <React.Fragment key={sec.id}>
@@ -3826,20 +3830,26 @@ export default function AppIntelPage() {
                           </p>
                         </div>
                       </div>
-                      <div style={{
-                        color: toneColor,
-                        background: isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                        border: isUp ? '1px solid rgba(16,185,129,0.28)' : '1px solid rgba(239,68,68,0.28)',
-                        borderRadius: '999px',
-                        padding: '6px 9px',
-                        fontSize: '12.5px',
-                        fontWeight: 950,
-                        lineHeight: 1,
-                        flexShrink: 0,
-                        fontFamily: 'var(--font-mono), monospace',
-                        boxShadow: isUp ? '0 0 18px rgba(16,185,129,0.10)' : '0 0 18px rgba(239,68,68,0.10)'
-                      }}>
-                        {formatPercentCompact(sec.change)}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+                        {leadSparkline && (
+                          <div style={{ width: '62px', height: '18px', opacity: 0.92 }}>
+                            <Sparkline data={leadSparkline} isUp={leadSparkUp} />
+                          </div>
+                        )}
+                        <div style={{
+                          color: toneColor,
+                          background: isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                          border: isUp ? '1px solid rgba(16,185,129,0.28)' : '1px solid rgba(239,68,68,0.28)',
+                          borderRadius: '999px',
+                          padding: '6px 9px',
+                          fontSize: '12.5px',
+                          fontWeight: 950,
+                          lineHeight: 1,
+                          fontFamily: 'var(--font-mono), monospace',
+                          boxShadow: isUp ? '0 0 18px rgba(16,185,129,0.10)' : '0 0 18px rgba(239,68,68,0.10)'
+                        }}>
+                          {formatPercentCompact(sec.change)}
+                        </div>
                       </div>
                     </div>
 
