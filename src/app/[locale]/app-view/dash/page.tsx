@@ -1611,19 +1611,19 @@ export default function AppDashPage() {
               className={`${s.moverToggleBtn} ${moverSort === 'value' ? s.moverToggleBtnActive : ''}`}
               onClick={() => setMoverSort('value')}
             >
-              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代금' : 'Value'}
+              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代金' : 'Value'}
             </button>
             <button 
               className={`${s.moverToggleBtn} ${moverSort === 'gainers' ? s.moverToggleBtnActive : ''}`}
               onClick={() => setMoverSort('gainers')}
             >
-              {locale === 'ko' ? '상승률' : locale === 'ja' ? '상승' : 'Gainers'}
+              {locale === 'ko' ? '상승률' : locale === 'ja' ? '上昇' : 'Gainers'}
             </button>
             <button 
               className={`${s.moverToggleBtn} ${moverSort === 'losers' ? s.moverToggleBtnActive : ''}`}
               onClick={() => setMoverSort('losers')}
             >
-              {locale === 'ko' ? '하락률' : locale === 'ja' ? '하락' : 'Losers'}
+              {locale === 'ko' ? '하락률' : locale === 'ja' ? '下落' : 'Losers'}
             </button>
           </div>
         </div>
