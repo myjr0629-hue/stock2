@@ -1437,7 +1437,7 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
 /* ═══════════════════════════════════════════
    SIGNAL CARD
    ═══════════════════════════════════════════ */
-function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, iconKey, locale = 'en', infoTerm }: {
+function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, locale = 'en', infoTerm }: {
   label: string; value: string; sub?: React.ReactNode; iconKey?: string;
   color?: string; bg?: string; border?: string;
   badge?: string; badgeColor?: string; locale?: string; infoTerm?: MetricTerm;
@@ -1680,14 +1680,10 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, i
             {icon && <span style={{ color: colorVal, filter: `drop-shadow(0 0 2px ${colorVal})` }}>{icon}</span>}
             <span className="whitespace-nowrap">{label}</span>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {badge && (
-              <span className={`text-[9.5px] font-black px-1.5 py-0.5 rounded ${badgeColor || 'bg-slate-800/80 text-slate-300 border border-white/5'}`}>
-                {badge}
-              </span>
-            )}
-            {infoTerm && <MetricInfo term={infoTerm} locale={locale} size={12} />}
-          </div>
+          {/* Header status badge removed — it duplicated the status shown on the value
+              line below and overlapped the label on device. (badge prop still feeds
+              getInsight/getProgress.) */}
+          {infoTerm && <MetricInfo term={infoTerm} locale={locale} size={12} />}
         </div>
         
         {/* Metric Value & Insight Badge Inline Row */}
