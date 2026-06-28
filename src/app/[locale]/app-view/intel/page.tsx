@@ -3764,6 +3764,8 @@ export default function AppIntelPage() {
             const leadSymbol = (topStock as any)?.ticker || topStock?.ticker || sec.stocks[0] || '-';
             const leadMove = topStock ? formatPercentCompact(topStock.changePct || sec.change || 0) : formatPercentCompact(sec.change);
             const leadMoveColor = topStock && (topStock.changePct || 0) < 0 ? '#ef4444' : '#10b981';
+            // 종목별 실시간 등락맵 (브레드스 칩 색상용 — 실제 데이터)
+            const sectorQuoteMap = new Map(getSectorQuotes(sec.id).map(q => [q.ticker, q.changePct]));
 
             return (
               <React.Fragment key={sec.id}>
@@ -3953,20 +3955,26 @@ export default function AppIntelPage() {
                           }}>
                             {labels.coverage} {coverage}
                           </span>
-                          {sec.stocks.slice(0, 3).map(sym => (
-                            <span key={sym} style={{
-                              fontSize: '9.5px',
-                              fontWeight: 850,
-                              background: 'rgba(255,255,255,0.038)',
-                              border: '1px solid rgba(255,255,255,0.075)',
-                              borderRadius: '999px',
-                              padding: '4px 7px',
-                              color: 'rgba(203, 213, 225, 0.78)',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {sym}
-                            </span>
-                          ))}
+                          {sec.stocks.slice(0, 3).map(sym => {
+                            const ch = sectorQuoteMap.get(sym);
+                            const has = typeof ch === 'number' && Number.isFinite(ch);
+                            const up = (ch ?? 0) >= 0;
+                            return (
+                              <span key={sym} style={{
+                                fontSize: '9.5px',
+                                fontWeight: 850,
+                                background: has ? (up ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)') : 'rgba(255,255,255,0.038)',
+                                border: `1px solid ${has ? (up ? 'rgba(16,185,129,0.24)' : 'rgba(239,68,68,0.24)') : 'rgba(255,255,255,0.075)'}`,
+                                borderRadius: '999px',
+                                padding: '4px 7px',
+                                color: has ? (up ? '#34d399' : '#f87171') : 'rgba(203, 213, 225, 0.78)',
+                                whiteSpace: 'nowrap',
+                                fontVariantNumeric: 'tabular-nums'
+                              }}>
+                                {sym}{has ? ` ${up ? '+' : ''}${(ch as number).toFixed(1)}%` : ''}
+                              </span>
+                            );
+                          })}
                           {sec.stocks.length > 3 && (
                             <span style={{
                               fontSize: '9.5px',
