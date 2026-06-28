@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App dark base (#050a14) — used for the Android 12+ system splash bg
+         so launch matches iOS (was defaulting to white). -->
+    <color name="splash_background">#050A14</color>
+</resources>
