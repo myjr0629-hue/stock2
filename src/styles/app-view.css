@@ -125,6 +125,14 @@ html.native-app body {
   margin: 0 var(--s4) var(--s3);
 }
 
+/* Intel sector-detail: the wrapper already pads 16px, so drop the app-card's
+   own horizontal margin to avoid a double inset (detail was narrower than the
+   sector overview). Vertical margin kept. */
+.intel-detail-body .app-card {
+  margin-left: 0;
+  margin-right: 0;
+}
+
 .app-card-head {
   display: flex;
   align-items: center;

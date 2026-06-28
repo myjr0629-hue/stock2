@@ -4239,7 +4239,7 @@ export default function AppIntelPage() {
             </div>
           ) : (
             reportData && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 16px' }}>
+              <div className="intel-detail-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 16px' }}>
 
                 {/* ═══ SECTION 1: HERO HEADER CARD (Enhanced with Scoreboard) ═══ */}
                 {(() => {
