@@ -171,6 +171,47 @@ html.native-ios .native-bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 34px) !important;
 }
 
+/* ===========================================================================
+   6.1 iOS Premium Polish — native-ios 전용 (안드로이드/웹 영향 0)
+   롤백: 이 6.1 블록 전체를 삭제하면 원복됨.
+   =========================================================================== */
+
+/* (a) 타이포그래피 — iOS: 라틴/숫자는 San Francisco, 한글은 Pretendard(글리프 폴백).
+   워드마크('Inter'/'Plus Jakarta Sans' 리터럴 지정)는 영향 없이 유지됨. */
+html.native-ios {
+  /* var(--font-inter)을 쓰는 숫자/시세(.font-num 등) → SF. 리터럴 'Inter'는 불변 */
+  --font-inter: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif;
+}
+html.native-ios[lang^="ko"] .app-viewport,
+html.native-ios[lang^="ja"] .app-viewport,
+html.native-ios[lang^="en"] .app-viewport,
+html.native-ios .app-viewport {
+  --f-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Pretendard Variable', Pretendard, 'Inter', sans-serif;
+  --f-jakarta: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Pretendard Variable', Pretendard, 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+/* 숫자 정렬 보존 */
+html.native-ios .font-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* (b) 글래스모피즘 강화 — 크롬(탭바/헤더)만. 데이터 카드는 선명 유지(가독성). */
+html.native-ios .app-tabbar {
+  background: rgba(5, 10, 20, 0.72);
+  backdrop-filter: blur(46px) saturate(200%);
+  -webkit-backdrop-filter: blur(46px) saturate(200%);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.06), 0 -10px 40px rgba(0, 0, 0, 0.5);
+}
+html.native-ios .app-header {
+  background: rgba(5, 10, 20, 0.60);
+  backdrop-filter: blur(42px) saturate(195%);
+  -webkit-backdrop-filter: blur(42px) saturate(195%);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07);
+}
+
 /* ---------------------------------------------------------------------------
    7. Android Specific
    --------------------------------------------------------------------------- */
