@@ -1675,17 +1675,19 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, i
     >
       <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-transparent pointer-events-none" />
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 text-slate-300 font-bold uppercase tracking-wider text-[10.5px]">
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div className="flex items-center gap-1.5 text-slate-300 font-bold uppercase tracking-wider text-[10.5px] min-w-0">
             {icon && <span style={{ color: colorVal, filter: `drop-shadow(0 0 2px ${colorVal})` }}>{icon}</span>}
-            <span>{label}</span>
+            <span className="whitespace-nowrap">{label}</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {badge && (
+              <span className={`text-[9.5px] font-black px-1.5 py-0.5 rounded ${badgeColor || 'bg-slate-800/80 text-slate-300 border border-white/5'}`}>
+                {badge}
+              </span>
+            )}
             {infoTerm && <MetricInfo term={infoTerm} locale={locale} size={12} />}
           </div>
-          {badge && (
-            <span className={`text-[9.5px] font-black px-1.5 py-0.5 rounded ${badgeColor || 'bg-slate-800/80 text-slate-300 border border-white/5'}`}>
-              {badge}
-            </span>
-          )}
         </div>
         
         {/* Metric Value & Insight Badge Inline Row */}
