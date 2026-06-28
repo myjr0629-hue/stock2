@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { createPortal } from 'react-dom';
+import { MetricInfo } from './MetricInfo';
 
 interface GexPoint {
   timestamp: number;
@@ -80,13 +80,6 @@ const T = {
   pctUpper: { ko: '중상위', en: 'upper', ja: '中上位' },
   pctMid: { ko: '중간', en: 'mid', ja: '中位' },
   pctLower: { ko: '하위', en: 'lower', ja: '下位' },
-  tlTitle: { ko: 'GEX 타임라인이란?', en: 'What is the GEX Timeline?', ja: 'GEXタイムラインとは？' },
-  tlBody: {
-    ko: '딜러(옵션 마켓메이커)가 떠안은 감마 포지션의 30일 추이입니다. 음수(숏 감마)면 딜러 헤지가 가격 변동을 키우고, 양수(롱 감마)면 변동을 억제합니다. 즉 이 종목이 구조적으로 "잘 튀는지" "눌리는지"를 보여줍니다.',
-    en: 'The 30-day trend of dealer (option market-maker) gamma positioning. Negative (short gamma) means dealer hedging amplifies price moves; positive (long gamma) dampens them — i.e. whether this name is structurally "jumpy" or "pinned".',
-    ja: 'ディーラー（オプション・マーケットメイカー）が抱えるガンマ・ポジションの30日推移です。マイナス（ショートガンマ）はヘッジが値動きを増幅し、プラス（ロングガンマ）は抑制します。つまりこの銘柄が構造的に「動きやすい」か「抑えられている」かを示します。',
-  },
-  close: { ko: '확인', en: 'Got it', ja: '閉じる' },
   loading: { ko: 'GEX 히스토리 불러오는 중…', en: 'Loading GEX history…', ja: 'GEX履歴を読み込み中…' },
   empty: {
     ko: 'GEX 히스토리가 아직 충분하지 않습니다. 데이터가 쌓이면 표시됩니다.',
@@ -115,12 +108,6 @@ export function AppGexTimeline({
 }: Props) {
   const [points, setPoints] = useState<GexPoint[] | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
-  const [tipOpen, setTipOpen] = useState(false);
-
-  // Centered popup — deliberately does NOT touch the native AdMob banner. A centered modal
-  // doesn't overlap the bottom banner, so there's nothing to hide/restore (the native
-  // hide->show round-trip proved unreliable on Android). The banner just stays in place.
-  const setSheet = (open: boolean) => setTipOpen(open);
 
   useEffect(() => {
     if (!ticker) return;
@@ -287,21 +274,7 @@ export function AppGexTimeline({
 
   return (
     <div style={shell}>
-      <Header locale={locale} value={stats.latest.gex} percentile={stats.percentile} isPositive={stats.isPositive} onInfo={() => setSheet(!tipOpen)} infoOpen={tipOpen} />
-
-      {/* What-is-this — premium bottom-sheet popup, portaled to body so no ancestor
-          transform can trap the fixed overlay. Tap backdrop / button to close. */}
-      {tipOpen && typeof document !== 'undefined' && createPortal(
-        <div style={sheetOverlay} onClick={() => setSheet(false)} role="dialog" aria-modal="true">
-          <style>{`@keyframes agxPop{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}@keyframes agxFade{from{opacity:0}to{opacity:1}}`}</style>
-          <div style={sheetCard} onClick={(e) => e.stopPropagation()}>
-            <div style={sheetTitle}>{tr(T.tlTitle, locale)}</div>
-            <div style={sheetBody}>{tr(T.tlBody, locale)}</div>
-            <button type="button" style={sheetClose} onClick={() => setSheet(false)}>{tr(T.close, locale)}</button>
-          </div>
-        </div>,
-        document.body,
-      )}
+      <Header locale={locale} value={stats.latest.gex} percentile={stats.percentile} isPositive={stats.isPositive} />
 
       {/* 30D area chart with zero reference */}
       <div style={{ position: 'relative', marginTop: 6 }}>
@@ -398,31 +371,14 @@ export function AppGexTimeline({
   );
 }
 
-function Header({ locale, value, percentile, isPositive, onInfo, infoOpen }: { locale: string; value?: number; percentile?: number; isPositive?: boolean; onInfo?: () => void; infoOpen?: boolean }) {
+function Header({ locale, value, percentile, isPositive }: { locale: string; value?: number; percentile?: number; isPositive?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>
           {tr(T.title, locale)} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>· 30D</span>
         </span>
-        {onInfo && (
-          <button
-            type="button"
-            onClick={onInfo}
-            aria-label="What is the GEX Timeline?"
-            style={{
-              width: 18, height: 18, borderRadius: '50%', flex: '0 0 auto',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 800, fontStyle: 'italic', lineHeight: 1, cursor: 'pointer',
-              color: infoOpen ? '#06121a' : 'var(--cyan)',
-              background: infoOpen ? 'var(--cyan)' : 'var(--cyan-dim)',
-              border: '1px solid var(--cyan)', padding: 0,
-              boxShadow: 'var(--glow-cyan)',
-            }}
-          >
-            i
-          </button>
-        )}
+        <MetricInfo term="gexTimeline" locale={locale} size={18} />
       </div>
       {value != null && (
         <div style={{ textAlign: 'right' }}>
@@ -456,11 +412,6 @@ const statCard: CSSProperties = { flex: 1, padding: '10px 12px', borderRadius: 1
 const statBig: CSSProperties = { fontSize: 20, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'baseline', gap: 5, fontVariantNumeric: 'tabular-nums' };
 const statUnit: CSSProperties = { fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' };
 const statLabel: CSSProperties = { fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: 0.4, marginTop: 3, textTransform: 'uppercase' };
-const sheetOverlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,6,16,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 22, animation: 'agxFade 0.18s ease' };
-const sheetCard: CSSProperties = { width: '100%', maxWidth: 380, background: 'var(--bg-elev)', borderRadius: 20, border: '1px solid var(--border-strong)', padding: '18px 20px', boxShadow: '0 20px 60px rgba(0,0,0,0.6)', animation: 'agxPop 0.22s cubic-bezier(0.34,1.4,0.5,1)' };
-const sheetTitle: CSSProperties = { fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8 };
-const sheetBody: CSSProperties = { fontSize: 13, lineHeight: 1.65, color: 'var(--text-dim)' };
-const sheetClose: CSSProperties = { marginTop: 18, width: '100%', padding: 12, borderRadius: 12, background: 'var(--cyan-dim)', color: 'var(--cyan)', border: '1px solid var(--cyan)', fontSize: 13, fontWeight: 700, cursor: 'pointer' };
 const whatCard: CSSProperties = { marginTop: 12, padding: '11px 12px', borderRadius: 10, background: 'var(--surface-1)', border: '1px solid var(--border)' };
 const whatLabel: CSSProperties = { fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 };
 const interpStrong: CSSProperties = { fontSize: 12.5, fontWeight: 600, lineHeight: 1.5, color: 'var(--text)' };
