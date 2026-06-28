@@ -70,7 +70,7 @@ export default function IVSkewCurve({
         callRichTitle: { ko: '상방 기대 상승', en: 'Upside Positioning', ja: '上方期待上昇' }[locale],
         callRichDesc: { ko: '상방 콜옵션 매수세가 강해지며 주가 상승 기대감이 반영되고 있습니다.', en: 'Call option accumulation suggests strong upside expectations.', ja: 'コールオプションの買いが集まり、上昇期待が反映されています。' }[locale],
         balancedTitle: { ko: '방향성 포지션 부재', en: 'Neutral Position', ja: '方向性ポジション不在' }[locale],
-        balancedDesc: { ko: '콜과 풋의 변동성이 균형을 이루며 중립 구간에 위치하고 있습니다.', en: 'Implied volatility is balanced, showing no clear directional bias.', ja: 'コールとプット의ボラティリティが均衡し、中立な状態です。' }[locale],
+        balancedDesc: { ko: '콜과 풋의 변동성이 균형을 이루며 중립 구간에 위치하고 있습니다.', en: 'Implied volatility is balanced, showing no clear directional bias.', ja: 'コールとプットのボラティリティが均衡し、中立な状態です。' }[locale],
         gammaFlipSubClose: { ko: 'Spot price 근접', en: 'Near Spot Price', ja: 'スポット価格近接' }[locale],
         gammaFlipSubAbove: { ko: 'Spot price 상회', en: 'Above Spot Price', ja: 'スポット価格上回る' }[locale],
         gammaFlipSubBelow: { ko: 'Spot price 하회', en: 'Below Spot Price', ja: 'スポット価格下回る' }[locale],
