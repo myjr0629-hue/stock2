@@ -43,8 +43,8 @@ const config: CapacitorConfig = {
   // 플러그인 설정
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
-      launchAutoHide: false, // NativeAppProvider에서 수동 hide
+      launchShowDuration: 3000,
+      launchAutoHide: true,
       backgroundColor: '#050a14',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',
