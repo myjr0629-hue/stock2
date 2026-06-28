@@ -12,7 +12,7 @@
 .headerBrand {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
 }
 
 .brandIcon {
@@ -37,14 +37,14 @@
 }
 
 .brandName {
-  font: 850 13px/1 'Inter', sans-serif;
+  font: 850 15px/1 'Inter', sans-serif;
   color: var(--text);
   letter-spacing: 0.04em;
   text-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
 }
 
 .brandSub {
-  font: 800 8.5px/1 'Plus Jakarta Sans', sans-serif;
+  font: 800 10px/1 'Plus Jakarta Sans', sans-serif;
   color: var(--text-muted);
   letter-spacing: 0.13em;
 }

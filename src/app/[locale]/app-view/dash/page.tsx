@@ -1357,10 +1357,10 @@ export default function AppDashPage() {
       <header className="app-header">
         <div className={s.headerBrand}>
           <img 
-            src="/signum-sg-vectorized.svg" 
-            alt="SIGNUM HQ" 
-            width="24" 
-            height="24" 
+            src="/signum-sg-vectorized.svg"
+            alt="SIGNUM HQ"
+            width="30"
+            height="30"
             style={{ 
               filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.35))',
               flexShrink: 0
