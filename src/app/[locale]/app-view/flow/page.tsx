@@ -1582,25 +1582,30 @@ export default function AppFlowPage() {
         setActivePopover(activePopover === popKey ? null : popKey);
       }}
       style={{
-        background: 'transparent',
-        border: 'none',
-        padding: '2px',
-        marginLeft: '4px',
-        color: activePopover === popKey ? 'var(--cyan)' : 'var(--text-muted)',
+        width: 18,
+        height: 18,
+        borderRadius: '50%',
+        flex: '0 0 auto',
+        padding: 0,
+        marginLeft: '6px',
+        color: activePopover === popKey ? '#06121a' : 'var(--cyan)',
+        background: activePopover === popKey ? 'var(--cyan)' : 'var(--cyan-dim)',
+        border: '1px solid var(--cyan)',
+        boxShadow: 'var(--glow-cyan)',
         cursor: 'pointer',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
+        fontSize: 11,
+        fontWeight: 800,
+        fontStyle: 'italic',
+        lineHeight: 1,
         outline: 'none',
-        transition: 'color 0.2s ease',
+        transition: 'all 0.2s ease',
         verticalAlign: 'middle'
       }}
     >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="16" x2="12" y2="12" />
-        <line x1="12" y1="8" x2="12.01" y2="8" />
-      </svg>
+      i
     </button>
   );
 
