@@ -1437,15 +1437,15 @@ export default function AppDashPage() {
           <span className={s.regimeNote}>{pulseStatusNote}</span>
         </div>
         <div className={s.regimeMetrics}>
-          <div className={s.regimeMetric}>
+          <div className={`${s.regimeMetric} ${futuresAvg > 0.15 ? s.metricUp : futuresAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.futures}</span>
             <b className={futuresAvg >= 0 ? s.pos : s.neg}>{futuresTone} {fmtChg(futuresAvg)}</b>
           </div>
-          <div className={s.regimeMetric}>
+          <div className={`${s.regimeMetric} ${cashAvg > 0.15 ? s.metricUp : cashAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.cash}</span>
             <b className={cashAvg >= 0 ? s.pos : s.neg}>{cashTone} {fmtChg(cashAvg)}</b>
           </div>
-          <div className={s.regimeMetric}>
+          <div className={`${s.regimeMetric} ${riskScore >= 58 ? s.metricUp : riskScore <= 42 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.risk}</span>
             <b>{Math.round(riskScore)}</b>
           </div>

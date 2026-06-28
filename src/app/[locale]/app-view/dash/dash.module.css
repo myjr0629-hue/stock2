@@ -1217,7 +1217,7 @@
 
 .regimeMetrics {
   display: grid;
-  grid-template-columns: 1fr 1fr 0.7fr;
+  grid-template-columns: 1fr 1fr 0.55fr;
   gap: 8px;
 }
 
@@ -1227,6 +1227,19 @@
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.055);
   background: rgba(2, 6, 23, 0.26);
+}
+
+/* State-tinted borders — match the displayed tone (bullish/bearish/neutral). */
+.metricUp {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.06);
+}
+.metricDown {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.06);
+}
+.metricFlat {
+  border-color: rgba(148, 163, 184, 0.30);
 }
 
 .regimeMetric span {
@@ -1240,11 +1253,10 @@
 
 .regimeMetric b {
   display: block;
-  font: 900 13px/1.1 'Inter', sans-serif;
+  font: 900 11.5px/1.2 'Inter', sans-serif;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 @keyframes slideUpFadeIn {
