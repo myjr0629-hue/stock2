@@ -9,6 +9,7 @@ import { AdBanner } from '@/components/app/AdBanner';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
+import { MetricInfo } from '@/components/app/MetricInfo';
 import s from './cmd.module.css';
 
 // WebSocket real-time price hooks
@@ -2480,7 +2481,7 @@ function CmdPageContent() {
         {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
         <div className={s.heroMetrics}>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel}>MAX PAIN</span>
+            <span className={s.heroMetricLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
               ${data.premium.maxPain > 0 ? data.premium.maxPain.toFixed(0) : '—'}
             </span>
@@ -2494,7 +2495,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel}>GAMMA FLIP</span>
+            <span className={s.heroMetricLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>GAMMA FLIP<MetricInfo term="gammaFlip" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>{data.premium.gammaFlip}</span>
             {data.premium.gammaFlipRaw > 0 && (() => {
               const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;
@@ -2509,7 +2510,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel}>TOTAL PREMIUM</span>
+            <span className={s.heroMetricLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>TOTAL PREMIUM<MetricInfo term="netPremium" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
               {data.premium.netPremium !== 0
                 ? (Math.abs(data.premium.netPremium) >= 1e6
