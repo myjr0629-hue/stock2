@@ -37,6 +37,7 @@ export const YAHOO_CACHE_KEYS = {
     SOX: 'yahoo:sox',
     USDKRW: 'yahoo:usdkrw',
     USDJPY: 'yahoo:usdjpy',
+    DXY: 'yahoo:dxy',
     // Actual index (regular session close) — distinct from futures
     IDX_NASDAQ: 'yahoo:idx:nasdaq',
     IDX_DOW: 'yahoo:idx:dow',
@@ -55,8 +56,8 @@ export const YAHOO_CACHE_KEYS = {
  * Every call reads Redis → always gets the latest cron-written data.
  * If Redis is empty, returns safe defaults.
  */
-export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; vix3m: YahooQuote; nq: YahooQuote; tnx: YahooQuote; spx: YahooQuote; btc: YahooQuote; gold: YahooQuote; tlt: YahooQuote; oil: YahooQuote; rut: YahooQuote; sox: YahooQuote }> {
-    const [redisVix, redisVix3m, redisNq, redisTnx, redisSpx, redisBtc, redisGold, redisTlt, redisOil, redisRut, redisSox] = await Promise.all([
+export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; vix3m: YahooQuote; nq: YahooQuote; tnx: YahooQuote; spx: YahooQuote; btc: YahooQuote; gold: YahooQuote; tlt: YahooQuote; oil: YahooQuote; rut: YahooQuote; sox: YahooQuote; dxy: YahooQuote }> {
+    const [redisVix, redisVix3m, redisNq, redisTnx, redisSpx, redisBtc, redisGold, redisTlt, redisOil, redisRut, redisSox, redisDxy] = await Promise.all([
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX3M),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.NQ),
@@ -67,7 +68,8 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; vix3m: Yaho
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.TLT),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.OIL),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.RUT),
-        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.SOX)
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.SOX),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.DXY)
     ]);
 
     return {
@@ -81,7 +83,8 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; vix3m: Yaho
         tlt: redisTlt || getDefaultQuote('TLT', 90),
         oil: redisOil || getDefaultQuote('CL=F', 70),
         rut: redisRut || getDefaultQuote('RTY=F', 2650),
-        sox: redisSox || getDefaultQuote('^SOX', 5200)
+        sox: redisSox || getDefaultQuote('^SOX', 5200),
+        dxy: redisDxy || getDefaultQuote('DX-Y.NYB', 99)
     };
 }
 

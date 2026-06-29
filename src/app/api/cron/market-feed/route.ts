@@ -25,6 +25,8 @@ const SYMBOLS = [
     { yahoo: '^SOX',  key: YAHOO_CACHE_KEYS.SOX },
     { yahoo: 'KRW=X', key: YAHOO_CACHE_KEYS.USDKRW },
     { yahoo: 'JPY=X', key: YAHOO_CACHE_KEYS.USDJPY },
+    // Real ICE US Dollar Index (DXY) — trades ~24/5, unlike the UUP-ETF proxy
+    { yahoo: 'DX-Y.NYB', key: YAHOO_CACHE_KEYS.DXY },
     // Actual index quotes (regular session close — not futures)
     { yahoo: '^IXIC', key: YAHOO_CACHE_KEYS.IDX_NASDAQ },
     { yahoo: '^DJI',  key: YAHOO_CACHE_KEYS.IDX_DOW },

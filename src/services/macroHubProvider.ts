@@ -420,13 +420,22 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     // [V7.0] Real Yield with live US10Y
     const realYield = await fetchRealYieldData(liveUs10y);
 
-    // DXY Proxy: UUP (Bullish Dollar ETF) -> Calibrated to ~98.23 (x3.6315)
-    // [V3 PIPELINE] Also fetch TLT for Safe Haven flow detection
-    const [dxy, tltFactor, gldFactor] = await Promise.all([
-        fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus),
+    // [V3 PIPELINE] TLT (Safe Haven) + GLD
+    const [tltFactor, gldFactor] = await Promise.all([
         fetchIndexSnapshot(SYMBOLS.TLT, "TLT (20Y Bond)", 1, marketStatus),
         fetchIndexSnapshot(SYMBOLS.GLD, "GLD (Gold)", 1, marketStatus)
     ]);
+
+    // DXY: prefer the REAL ICE US Dollar Index from Yahoo (DX-Y.NYB, ~24/5) so the change
+    // is present during FX hours. Fall back to the UUP-ETF proxy only when the Yahoo feed
+    // is missing/default — never regress to a blank.
+    let dxy: MacroFactor;
+    const yahooDxy = yahooData.dxy;
+    if (yahooDxy && yahooDxy.source !== "DEFAULT" && (yahooDxy.price || 0) > 0) {
+        dxy = createYahooFactor(yahooDxy, "DOLLAR (DXY)", "DX-Y.NYB");
+    } else {
+        dxy = await fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus);
+    }
 
     // Regime Logic: QQQ Price > SMA20
     // We need to fetch SMA20 for QQQ
