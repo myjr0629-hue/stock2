@@ -185,8 +185,9 @@ export function AppFirstRunOnboarding() {
         const PushNotifications = PushMod.PushNotifications;
         const permResult = await PushNotifications.requestPermissions();
         if (permResult.receive === 'granted') {
-          await PushNotifications.register();
-          // Listen for registration token
+          // Attach listeners BEFORE register() — register() resolves the token
+          // asynchronously, so a listener added afterwards can miss it (the token
+          // would never reach the server). Order matters here.
           PushNotifications.addListener('registration', (token: { value: string }) => {
             try {
               window.localStorage.setItem('signumhq.push.token', token.value);
@@ -202,6 +203,10 @@ export function AppFirstRunOnboarding() {
               }),
             }).catch(() => {});
           });
+          PushNotifications.addListener('registrationError', (err: { error: string }) => {
+            console.warn('[Push] registration error:', err?.error);
+          });
+          await PushNotifications.register();
         }
       }
     } catch {
