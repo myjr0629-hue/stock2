@@ -158,26 +158,33 @@ export async function GET(request: NextRequest) {
             try {
                 const cached = await getFromCache<{
                     holders: Array<{
-                        cik: string; name: string; domain?: string;
+                        cik: string; name?: string | null; domain?: string | null;
                         shares: number; marketValue: number;
-                        period: string; filingDate: string;
+                        period?: string; filingDate?: string;
                     }>;
+                    totalHolders?: number; totalShares?: number; totalValue?: number;
+                    period?: string;
                     updatedAt: string;
                 }>(`cache:13f:cusip:${cusip}`);
 
                 if (cached && cached.holders && cached.holders.length > 0) {
-                    console.log(`[13F] Cache HIT for ${ticker} (${cusip}): ${cached.holders.length} holders`);
-                    
-                    // Build response from cache
-                    const holders: Holder13F[] = cached.holders.map((h, i) => ({
+                    const totalHolders = cached.totalHolders ?? cached.holders.length;
+                    console.log(`[13F] Cache HIT for ${ticker} (${cusip}): ${cached.holders.length} stored / ${totalHolders} total`);
+
+                    // Display top 20; resolve any unnamed filer (full-universe ingest only
+                    // labels known majors) via SEC EDGAR (cached). Holders are pre-sorted desc.
+                    const top = cached.holders.slice(0, 20);
+                    const names = await Promise.all(top.map(h => h.name ? Promise.resolve(h.name) : resolveCikName(h.cik)));
+                    const period = cached.period || top[0]?.period || null;
+                    const holders: Holder13F[] = top.map((h, i) => ({
                         rank: i + 1,
                         cik: h.cik,
-                        name: h.name,
+                        name: names[i],
                         domain: h.domain || getInstitutionDomain(h.cik),
                         shares: h.shares,
                         marketValue: h.marketValue,
-                        period: h.period,
-                        filingDate: h.filingDate,
+                        period: period || '',
+                        filingDate: h.filingDate || '',
                         prevShares: null,      // QoQ not available from cache (single period)
                         sharesChange: null,
                         sharesChangePct: null,
@@ -185,17 +192,19 @@ export async function GET(request: NextRequest) {
                         marketValueChange: null,
                     }));
 
-                    const totalShares = holders.reduce((s, h) => s + h.shares, 0);
-                    const totalValue = holders.reduce((s, h) => s + h.marketValue, 0);
+                    // Accurate aggregates computed at ingest over ALL holders (fallback: sum
+                    // stored rows for legacy cache format).
+                    const totalShares = cached.totalShares ?? cached.holders.reduce((s, h) => s + h.shares, 0);
+                    const totalValue = cached.totalValue ?? cached.holders.reduce((s, h) => s + h.marketValue, 0);
 
                     return NextResponse.json({
                         ticker,
-                        holders: holders.slice(0, 20),
+                        holders,
                         summary: {
-                            totalHolders: holders.length,
+                            totalHolders,
                             totalShares,
                             totalValue,
-                            period: holders[0]?.period || null,
+                            period,
                             prevPeriod: null,
                             newEntrants: 0,
                             exits: 0,

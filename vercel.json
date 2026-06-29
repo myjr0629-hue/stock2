@@ -101,10 +101,6 @@
             "schedule": "15 15 * * 1-5"
         },
         {
-            "path": "/api/cron/13f-cache",
-            "schedule": "0 22 * * 1-5"
-        },
-        {
             "path": "/api/cron/push?type=morning",
             "schedule": "20 12 * * 1-5"
         },
