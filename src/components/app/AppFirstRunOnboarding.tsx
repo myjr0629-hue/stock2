@@ -179,33 +179,59 @@ export function AppFirstRunOnboarding() {
     try {
       const { Capacitor } = await import('@capacitor/core');
       if (Capacitor.isNativePlatform()) {
+        const platform = Capacitor.getPlatform();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         // @ts-ignore — @capacitor/push-notifications is installed at native build time
         const PushMod: any = await import('@capacitor/push-notifications');
         const PushNotifications = PushMod.PushNotifications;
+
+        // Server only accepts FCM registration tokens. On Android the
+        // 'registration' event already yields an FCM token; on iOS it yields the
+        // raw APNs token, so there we fetch the FCM token via @capacitor-community/fcm.
+        const postToken = (token: string) => {
+          if (!token) return;
+          try {
+            window.localStorage.setItem('signumhq.push.token', token);
+          } catch {}
+          fetch('/api/push/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              token,
+              platform,
+              locale: window.location.pathname.split('/')[1] || 'en',
+            }),
+          }).catch(() => {});
+        };
+
         const permResult = await PushNotifications.requestPermissions();
         if (permResult.receive === 'granted') {
           // Attach listeners BEFORE register() — register() resolves the token
-          // asynchronously, so a listener added afterwards can miss it (the token
-          // would never reach the server). Order matters here.
-          PushNotifications.addListener('registration', (token: { value: string }) => {
-            try {
-              window.localStorage.setItem('signumhq.push.token', token.value);
-            } catch {}
-            // Send token to server
-            fetch('/api/push/register', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                token: token.value,
-                platform: Capacitor.getPlatform(),
-                locale: window.location.pathname.split('/')[1] || 'en',
-              }),
-            }).catch(() => {});
-          });
+          // asynchronously, so a listener added afterwards can miss it.
           PushNotifications.addListener('registrationError', (err: { error: string }) => {
             console.warn('[Push] registration error:', err?.error);
           });
+
+          if (platform === 'ios') {
+            // APNs token is delivered via 'registration'; once it's set, Firebase
+            // can mint the FCM token. Wait for that event, then read the FCM token.
+            PushNotifications.addListener('registration', async () => {
+              try {
+                // @ts-ignore — native-only plugin
+                const FCMMod: any = await import('@capacitor-community/fcm');
+                const { token } = await FCMMod.FCM.getToken();
+                postToken(token);
+              } catch (e) {
+                console.warn('[Push] FCM.getToken failed:', e);
+              }
+            });
+          } else {
+            // Android: the 'registration' event value IS the FCM token.
+            PushNotifications.addListener('registration', (token: { value: string }) => {
+              postToken(token.value);
+            });
+          }
+
           await PushNotifications.register();
         }
       }
