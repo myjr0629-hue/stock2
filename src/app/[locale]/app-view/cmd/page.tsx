@@ -1760,6 +1760,9 @@ function tl(val: Tri | undefined, locale: string): string {
 /* ═══════════════════════════════════════════
    PAGE CONTENT (needs Suspense boundary)
    ═══════════════════════════════════════════ */
+// M7 + key index/ETF tickers for the quick-pick chip row (recents are prepended).
+const POPULAR_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ'];
+
 function CmdPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1770,10 +1773,28 @@ function CmdPageContent() {
   const tDashboard = useTranslations('dashboard');
   const ticker = (searchParams.get('t') || (typeof window !== 'undefined' ? localStorage.getItem('app-active-ticker') : null) || 'NVDA').toUpperCase();
 
-  // Sync ticker to localStorage for Flow ↔ Command sync
+  // Sync ticker to localStorage for Flow ↔ Command sync + track recently-viewed.
+  const [recentTickers, setRecentTickers] = useState<string[]>([]);
   useEffect(() => {
-    if (ticker) localStorage.setItem('app-active-ticker', ticker);
+    if (!ticker) return;
+    try {
+      localStorage.setItem('app-active-ticker', ticker);
+      const prev: string[] = JSON.parse(localStorage.getItem('app-recent-tickers') || '[]');
+      const next = [ticker, ...prev.filter((t) => t !== ticker)].slice(0, 6);
+      localStorage.setItem('app-recent-tickers', JSON.stringify(next));
+      setRecentTickers(next);
+    } catch { /* storage unavailable */ }
   }, [ticker]);
+
+  // Quick-pick chips: recently-viewed first, then popular (deduped).
+  const chipTickers = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const t of [...recentTickers, ...POPULAR_TICKERS]) {
+      if (t && !seen.has(t)) { seen.add(t); out.push(t); }
+    }
+    return out.slice(0, 12);
+  }, [recentTickers]);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchVal, setSearchVal] = useState('');
@@ -2427,7 +2448,42 @@ function CmdPageContent() {
         </button>
       </div>
 
-      <div 
+      {/* ── Ticker quick-pick chips (recently-viewed + popular) ── */}
+      <div style={{ display: 'flex', gap: '8px', padding: '8px 16px 4px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="no-scrollbar">
+        {chipTickers.map((sym) => {
+          const isActive = ticker === sym;
+          return (
+            <button
+              key={sym}
+              onClick={() => { if (sym !== ticker) router.push(`/${locale}/app-view/cmd?t=${sym}`); }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                height: '32px', minHeight: 0, padding: '0 12px', boxSizing: 'border-box',
+                borderRadius: 'var(--r-pill, 999px)', border: '1px solid',
+                borderColor: isActive ? 'var(--cyan, #06b6d4)' : 'rgba(255,255,255,0.06)',
+                background: isActive ? 'rgba(30,41,59,0.55)' : 'rgba(255,255,255,0.02)',
+                color: isActive ? '#ffffff' : 'var(--text-dim)',
+                font: 'var(--f-micro)', fontWeight: 700, lineHeight: 1, cursor: 'pointer',
+                transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
+                boxShadow: isActive ? '0 0 12px rgba(6,182,212,0.3)' : 'none',
+                flexShrink: 0, outline: 'none',
+              }}
+            >
+              <div style={{ width: '16px', height: '16px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <img
+                  src={`https://assets.parqet.com/logos/symbol/${sym}?format=png`}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+              <span>{sym}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div
         className={`${s.p2Card} ${s.connectedP2Card} ${s.animateIn} ${s.delay1}`}
         style={{
           marginBottom: '0px',
