@@ -9,6 +9,7 @@ import { AdBanner } from '@/components/app/AdBanner';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
+import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
@@ -2675,6 +2676,9 @@ function CmdPageContent() {
               locale={locale}
             />
           </div>
+
+          {/* 5-Day daily-change tape — recent momentum between chart & forward view */}
+          <App5DayTape ticker={data.ticker} locale={locale} />
 
           <AnalystConsensus analyst={data.analyst} price={displayPrice} locale={locale} />
           <FundamentalsCard raw={data.fundRaw || null} locale={locale} />
