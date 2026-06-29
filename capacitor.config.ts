@@ -17,11 +17,7 @@ const config: CapacitorConfig = {
         allowNavigation: ['10.0.2.2:3000'],
       }
     : {
-        // No locale prefix: next-intl middleware detects the device language
-        // (NEXT_LOCALE cookie → Accept-Language) and redirects to /{ko|en|ja}/app-view/dash.
-        // This makes the app start in the device's language and persist the user's choice
-        // across cold launches, instead of always forcing English.
-        url: 'https://www.signumhq.com/app-view/dash',
+        url: 'https://www.signumhq.com/en/app-view/dash',
         cleartext: false,
       },
 
