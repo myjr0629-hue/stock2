@@ -4455,7 +4455,11 @@ export default function AppIntelPage() {
                         const localizedAiText = (aiAnalysis?.[appLocale] || aiAnalysis?.en || '').trim();
                         const hasGeneratedAi = localizedAiText.length > 0;
                         const isAiPending = Boolean(stockAiLoading[stock.sym]) && !hasGeneratedAi;
-                        const structuralBrief = stock.analysisKr || getStockAnalyticalBrief(stock, appLocale);
+                        // analysisKr is the API's Korean-only structural read; for en/ja use the
+                        // already-localized generator so the read matches the user's language.
+                        const structuralBrief = appLocale === 'ko'
+                          ? (stock.analysisKr || getStockAnalyticalBrief(stock, 'ko'))
+                          : getStockAnalyticalBrief(stock, appLocale);
                         const aiSourceLabel = hasGeneratedAi ? 'CLAUDE' : isAiPending ? 'AI ANALYZING' : 'STRUCTURAL';
                         const loadingCopy = appLocale === 'ko'
                           ? 'AI 분석을 불러오는 중입니다. 캐시가 있으면 즉시 표시됩니다.'
@@ -4464,7 +4468,6 @@ export default function AppIntelPage() {
                             : 'Loading AI analysis. Cached results appear instantly when available.';
                         const structuralLabel = 'STRUCTURAL READ';
                         const claudeLabel = 'CLAUDE BRIEF';
-                        const aiPendingCopy = 'Claude analysis is generating. The structural read stays visible until the generated brief arrives.';
 
                         return (
                           <div key={stock.sym}>
@@ -4745,37 +4748,34 @@ export default function AppIntelPage() {
                                         </div>
                                         <div>{formatVerdictText(localizedAiText)}</div>
                                       </div>
-                                    ) : (
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        {isAiPending && (
-                                          <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            padding: '8px 9px',
-                                            borderRadius: '10px',
-                                            background: 'rgba(245, 158, 11, 0.08)',
-                                            border: '1px solid rgba(245, 158, 11, 0.16)',
-                                            color: 'rgba(254, 243, 199, 0.82)',
-                                            fontSize: '11px',
-                                            lineHeight: 1.35,
-                                            fontWeight: 750
-                                          }}>
-                                            <span className="app-skeleton" style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0 }} />
-                                            <span>{aiPendingCopy}</span>
+                                    ) : isAiPending ? (
+                                      // Claude is generating — show a spinner (no structural read during load).
+                                      <div style={{
+                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                        padding: '14px 12px', borderRadius: '12px',
+                                        background: 'rgba(245, 158, 11, 0.06)',
+                                        border: '1px solid rgba(245, 158, 11, 0.16)'
+                                      }}>
+                                        <span style={{ width: '15px', height: '15px', borderRadius: '50%', border: '2px solid rgba(245, 158, 11, 0.25)', borderTopColor: '#fbbf24', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#fbbf24', fontSize: '10px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                                            <Sparkles size={11} /> {claudeLabel}
                                           </div>
-                                        )}
-                                        <div style={{
-                                          padding: '10px 11px',
-                                          borderRadius: '12px',
-                                          background: 'rgba(2, 6, 23, 0.36)',
-                                          border: '1px solid rgba(148, 163, 184, 0.10)'
-                                        }}>
-                                          <div style={{ color: '#94a3b8', fontSize: '9.5px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px' }}>
-                                            {structuralLabel}
-                                          </div>
-                                          <div>{formatVerdictText(structuralBrief)}</div>
+                                          <div style={{ color: 'rgba(254, 243, 199, 0.82)', fontSize: '11.5px', lineHeight: 1.4 }}>{loadingCopy}</div>
                                         </div>
+                                      </div>
+                                    ) : (
+                                      // Fallback only when the AI brief is unavailable.
+                                      <div style={{
+                                        padding: '10px 11px',
+                                        borderRadius: '12px',
+                                        background: 'rgba(2, 6, 23, 0.36)',
+                                        border: '1px solid rgba(148, 163, 184, 0.10)'
+                                      }}>
+                                        <div style={{ color: '#94a3b8', fontSize: '9.5px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px' }}>
+                                          {structuralLabel}
+                                        </div>
+                                        <div>{formatVerdictText(structuralBrief)}</div>
                                       </div>
                                     )}
                                   </div>
