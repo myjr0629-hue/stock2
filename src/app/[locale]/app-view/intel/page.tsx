@@ -4748,34 +4748,31 @@ export default function AppIntelPage() {
                                         </div>
                                         <div>{formatVerdictText(localizedAiText)}</div>
                                       </div>
-                                    ) : isAiPending ? (
-                                      // Claude is generating — show a spinner (no structural read during load).
-                                      <div style={{
-                                        display: 'flex', alignItems: 'center', gap: '10px',
-                                        padding: '14px 12px', borderRadius: '12px',
-                                        background: 'rgba(245, 158, 11, 0.06)',
-                                        border: '1px solid rgba(245, 158, 11, 0.16)'
-                                      }}>
-                                        <span style={{ width: '15px', height: '15px', borderRadius: '50%', border: '2px solid rgba(245, 158, 11, 0.25)', borderTopColor: '#fbbf24', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#fbbf24', fontSize: '10px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-                                            <Sparkles size={11} /> {claudeLabel}
-                                          </div>
-                                          <div style={{ color: 'rgba(254, 243, 199, 0.82)', fontSize: '11.5px', lineHeight: 1.4 }}>{loadingCopy}</div>
-                                        </div>
-                                      </div>
                                     ) : (
-                                      // Fallback only when the AI brief is unavailable.
-                                      <div style={{
-                                        padding: '10px 11px',
-                                        borderRadius: '12px',
-                                        background: 'rgba(2, 6, 23, 0.36)',
-                                        border: '1px solid rgba(148, 163, 184, 0.10)'
-                                      }}>
-                                        <div style={{ color: '#94a3b8', fontSize: '9.5px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px' }}>
-                                          {structuralLabel}
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {/* AI analyzing — spinner + message above the structural read until Claude arrives. */}
+                                        <div style={{
+                                          display: 'flex', alignItems: 'center', gap: '9px',
+                                          padding: '9px 11px', borderRadius: '10px',
+                                          background: 'rgba(245, 158, 11, 0.08)',
+                                          border: '1px solid rgba(245, 158, 11, 0.18)'
+                                        }}>
+                                          <span style={{ width: '13px', height: '13px', borderRadius: '50%', border: '2px solid rgba(245, 158, 11, 0.25)', borderTopColor: '#fbbf24', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+                                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'rgba(254, 243, 199, 0.9)', fontSize: '11px', fontWeight: 750, lineHeight: 1.35 }}>
+                                            <Sparkles size={11} style={{ color: '#fbbf24', flexShrink: 0 }} /> {loadingCopy}
+                                          </span>
                                         </div>
-                                        <div>{formatVerdictText(structuralBrief)}</div>
+                                        {/* Structural read — instant baseline while the AI brief generates. */}
+                                        <div style={{
+                                          padding: '10px 11px', borderRadius: '12px',
+                                          background: 'rgba(2, 6, 23, 0.36)',
+                                          border: '1px solid rgba(148, 163, 184, 0.10)'
+                                        }}>
+                                          <div style={{ color: '#94a3b8', fontSize: '9.5px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px' }}>
+                                            {structuralLabel}
+                                          </div>
+                                          <div>{formatVerdictText(structuralBrief)}</div>
+                                        </div>
                                       </div>
                                     )}
                                   </div>
