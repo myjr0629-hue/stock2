@@ -108,7 +108,7 @@ function sma(candles: { c: number }[], window: number): (number | null)[] {
 /* ═══════════════════════════════════════════
    SVG CANDLESTICK CHART (PREMIUM INTEGRATED)
    ═══════════════════════════════════════════ */
-function CandleChart({ ticker, price, vwap, locale = 'en' }: { ticker: string; price: number; vwap?: number; locale?: string }) {
+function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker: string; price: number; vwap?: number; locale?: string; changePct?: number }) {
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
@@ -196,12 +196,16 @@ function CandleChart({ ticker, price, vwap, locale = 'en' }: { ticker: string; p
     return copy;
   }, [candles, price]);
 
-  // Trend detection to color the line/gradient green or red
+  // Trend detection to color the line/gradient/current-price label green or red.
+  // 1D = "today's move": color by change vs previous close so it matches the hero
+  // badge and the active session (pre / post / regular — plus is green, minus is red).
+  // Longer ranges use the range trend (current price vs first point).
   const isTrendUp = useMemo(() => {
+    if (range === '1D' && typeof changePct === 'number' && changePct !== 0) return changePct > 0;
     if (displayCandles.length < 2) return true;
     const firstVal = displayCandles[0].c;
     return price >= firstVal;
-  }, [displayCandles, price]);
+  }, [range, changePct, displayCandles, price]);
 
   const trendColor = isTrendUp ? '#10b981' : '#ef4444';
 
@@ -2665,13 +2669,18 @@ function CmdPageContent() {
               borderTopRightRadius: '0px'
             }}
           >
-            <CandleChart 
-              ticker={data.ticker} 
+            <CandleChart
+              ticker={data.ticker}
               price={
                 (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0
                   ? activeExtPrice
                   : displayPrice
-              } 
+              }
+              changePct={
+                (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0
+                  ? activeExtPct
+                  : displayChangePct
+              }
               vwap={data.vwap}
               locale={locale}
             />

@@ -89,9 +89,20 @@ export function App5DayTape({ ticker, locale = 'en' }: { ticker: string; locale?
   );
 }
 
-const shell: CSSProperties = { padding: 14, borderRadius: 14, background: 'var(--surface-1)', border: '1px solid var(--border)', marginBottom: 'var(--s3)' };
-const head: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 };
-const titleStyle: CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)' };
+// Mirror the cmd .card / .cardTitle styles exactly so width, inset margin, border
+// and radius line up pixel-for-pixel with the sibling cards (chart, analyst).
+const shell: CSSProperties = {
+  background: 'rgba(22, 32, 54, 0.45)',
+  backdropFilter: 'var(--glass)',
+  WebkitBackdropFilter: 'var(--glass)',
+  border: '1px solid rgba(255, 255, 255, 0.055)',
+  borderRadius: 'var(--r-card)',
+  padding: 'var(--s4)',
+  margin: '0 var(--s4) var(--s3)',
+  boxShadow: 'var(--shadow)',
+};
+const head: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s3)' };
+const titleStyle: CSSProperties = { font: 'var(--f-micro)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)' };
 const pill = (chg: number): CSSProperties => ({ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', borderRadius: 9, background: chg >= 0 ? 'var(--green-dim)' : 'var(--red-dim)', border: `1px solid ${(chg >= 0 ? GREEN : RED)}33` });
 const pillDay: CSSProperties = { fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' };
 
