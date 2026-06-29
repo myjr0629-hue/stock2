@@ -153,6 +153,9 @@ export default function SettingsPage() {
   const handleLangChange = (code: string) => {
     if (code === locale) return;
     setLangOpen(false);
+    // Remember the user's EXPLICIT choice so the native app honors it over the
+    // device language on the next cold launch (see app-view/layout.tsx).
+    try { localStorage.setItem('signumhq.app.locale', code); } catch { /* storage unavailable */ }
     const currentPath = window.location.pathname;
     const newPath = currentPath.replace(/^\/(ko|en|ja)/, `/${code}`);
     router.push(newPath);
