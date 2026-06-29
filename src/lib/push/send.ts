@@ -77,7 +77,7 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
       sent += res.successCount;
 
       // Prune tokens that FCM reports as permanently invalid.
-      res.responses.forEach((r, idx) => {
+      res.responses.forEach((r: any, idx: number) => {
         const code = r.error?.code || '';
         if (!r.success && /registration-token-not-registered|invalid-argument|not-registered/.test(code)) {
           const dead = batch[idx];
