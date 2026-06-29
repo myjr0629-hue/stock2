@@ -133,7 +133,17 @@ exports.handler = async (event) => {
           const currentYearStr = new Date().toISOString().slice(0, 4);
           const nextYearData = [...forwardData].reverse().find(f => f.date && f.date.slice(0, 4) > currentYearStr);
           if (nextYearData && nextYearData.epsAvg !== undefined && nextYearData.revenueAvg) {
-            forwardMap[ticker] = { eps: nextYearData.epsAvg, revenue: nextYearData.revenueAvg, year: nextYearData.date.slice(0, 4) };
+            // Current fiscal year = the year immediately before the forward year — the base for
+            // forward-vs-current YoY growth. null if that year's estimate isn't available.
+            const baseYearStr = String(Number(nextYearData.date.slice(0, 4)) - 1);
+            const currentYearData = forwardData.find(f => f.date && f.date.slice(0, 4) === baseYearStr);
+            forwardMap[ticker] = {
+              eps: nextYearData.epsAvg,
+              revenue: nextYearData.revenueAvg,
+              year: nextYearData.date.slice(0, 4),
+              currentEps: (currentYearData && currentYearData.epsAvg !== undefined) ? currentYearData.epsAvg : null,
+              currentRevenue: (currentYearData && currentYearData.revenueAvg) ? currentYearData.revenueAvg : null,
+            };
           }
         }
 
@@ -256,6 +266,9 @@ exports.handler = async (event) => {
         forwardEps: fw.eps || null,
         forwardRevenue: fw.revenue || null,
         forwardYear: fw.year || null,
+        // Current-FY estimate (base for forward-vs-current YoY growth)
+        currentEps: (fw.currentEps != null) ? fw.currentEps : null,
+        currentRevenue: (fw.currentRevenue != null) ? fw.currentRevenue : null,
         // Revision fields
         forwardEpsRevision: revisionEps,
         forwardEpsRevisionDate: revisionDate,

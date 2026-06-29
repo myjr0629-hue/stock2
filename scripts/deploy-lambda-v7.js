@@ -2266,7 +2266,7 @@ exports.handler = async (event) => {
         if (e) {
           const today2 = new Date().toISOString().slice(0,10);
           const daysUntil = e.nextDate ? Math.ceil((new Date(e.nextDate).getTime()-new Date(today2).getTime())/86400000) : 0;
-          detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year, forwardEps:e.forwardEps||null, forwardRevenue:e.forwardRevenue||null, forwardYear:e.forwardYear||null };
+          detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year, forwardEps:e.forwardEps||null, forwardRevenue:e.forwardRevenue||null, forwardYear:e.forwardYear||null, currentEps:e.currentEps??null, currentRevenue:e.currentRevenue??null };
         }
         // Only overwrite fundamentals/overview/related if not already set by harvestDetails (Polygon fresh data)
         if (!detailsMap[ticker].fundamentals) {

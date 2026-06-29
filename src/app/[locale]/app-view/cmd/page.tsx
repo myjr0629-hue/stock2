@@ -1048,6 +1048,8 @@ interface EarnRaw {
   forwardEps?: number | null;
   forwardRevenue?: number | null;
   forwardYear?: string | null;
+  currentEps?: number | null;
+  currentRevenue?: number | null;
   lastSurprise?: { actualEps: number; estimatedEps: number; surpriseEps: number; surprisePct: number; date: string } | null;
   hasData?: boolean;
 }
@@ -1168,6 +1170,12 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
                 <div className={s.premForwardLeft}>
                   <span className={s.premForwardLabel}>EPS</span>
                   <span className={s.premForwardVal}>${raw.forwardEps.toFixed(2)}</span>
+                  {(() => {
+                    const cur = raw.currentEps, fwd = raw.forwardEps;
+                    if (cur == null || cur === 0 || fwd == null) return null;
+                    const g = ((fwd - cur) / Math.abs(cur)) * 100;
+                    return <span style={{ fontSize: '10px', fontWeight: 800, color: g >= 0 ? 'var(--green)' : 'var(--red)', fontVariantNumeric: 'tabular-nums' }}>{g >= 0 ? '▲ +' : '▼ '}{g.toFixed(0)}% YoY</span>;
+                  })()}
                 </div>
                 <svg className={s.premForwardChart} viewBox="0 0 44 22">
                   <path
@@ -1186,6 +1194,12 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
                 <div className={s.premForwardLeft}>
                   <span className={s.premForwardLabel}>{locale === 'ko' ? '매출' : 'Rev'}</span>
                   <span className={s.premForwardVal}>{fmtRevenue(raw.forwardRevenue)}</span>
+                  {(() => {
+                    const cur = raw.currentRevenue, fwd = raw.forwardRevenue;
+                    if (cur == null || cur === 0 || fwd == null) return null;
+                    const g = ((fwd - cur) / Math.abs(cur)) * 100;
+                    return <span style={{ fontSize: '10px', fontWeight: 800, color: g >= 0 ? 'var(--green)' : 'var(--red)', fontVariantNumeric: 'tabular-nums' }}>{g >= 0 ? '▲ +' : '▼ '}{g.toFixed(0)}% YoY</span>;
+                  })()}
                 </div>
                 <svg className={s.premForwardChart} viewBox="0 0 44 22">
                   <rect x="2" y="14" width="4" height="8" rx="1" fill="#06b6d4" opacity="0.4" />
@@ -1897,6 +1911,8 @@ function CmdPageContent() {
           forwardEps: earnSource.forwardEps ?? null,
           forwardRevenue: earnSource.forwardRevenue ?? null,
           forwardYear: earnSource.forwardYear ?? null,
+          currentEps: earnSource.currentEps ?? null,
+          currentRevenue: earnSource.currentRevenue ?? null,
           lastSurprise: earnSource.lastSurprise ?? null,
           hasData: true,
         } : null;
