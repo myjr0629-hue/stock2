@@ -17,6 +17,35 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
   const isSettingsRoute = pathname?.includes('/app-view/settings');
   const hideAd = isDocumentRoute || isSettingsRoute;
 
+  // ── Native-only: start in the device's language (or the user's saved choice). ──
+  // IMPORTANT: this performs only a SAME-ORIGIN client navigation. It never makes the
+  // WebView's initial server.url load return a redirect, so the in-app browser / Safari
+  // can never be triggered (that was the failure mode of a server-side 307). Web is
+  // untouched (guarded by isNativePlatform). Loop-safe: after redirecting, current===desired.
+  useEffect(() => {
+    let isNative = false;
+    try { isNative = require('@capacitor/core').Capacitor.isNativePlatform(); } catch { /* web */ }
+    if (!isNative) return;
+
+    const SUPPORTED = ['ko', 'en', 'ja'];
+    const path = window.location.pathname;
+    const seg = path.split('/')[1];
+    const current = SUPPORTED.includes(seg) ? seg : 'en';
+
+    // The user's explicit choice (NEXT_LOCALE cookie) wins over the device language.
+    const saved = document.cookie.match(/(?:^|;\s*)NEXT_LOCALE=([^;]+)/)?.[1];
+    let desired = saved && SUPPORTED.includes(saved) ? saved : '';
+    if (!desired) {
+      const dev = (navigator.language || 'en').slice(0, 2).toLowerCase();
+      desired = SUPPORTED.includes(dev) ? dev : 'en';
+    }
+
+    if (desired !== current) {
+      const rest = path.replace(/^\/(ko|en|ja)(?=\/|$)/, '') || '/app-view/dash';
+      window.location.replace(`/${desired}${rest}${window.location.search}`);
+    }
+  }, []);
+
   // Tag html element for app-only CSS (fallback for :has() on older WebViews)
   // + block pull-to-refresh at JS level
   useEffect(() => {
