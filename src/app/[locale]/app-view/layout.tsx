@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppBottomNav } from '@/components/app/AppBottomNav';
 import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
@@ -86,6 +86,7 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className={`app-viewport ${isDocumentRoute ? 'app-document-route' : ''}`}>
+      <LocaleDebugBanner />
       <main className="app-main">
         {children}
       </main>
@@ -93,6 +94,25 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <AppBottomNav />
       <NetworkStatus />
       <AppFirstRunOnboarding />
+    </div>
+  );
+}
+
+// TEMP DIAGNOSTIC — remove after confirming device-language signals on iOS.
+function LocaleDebugBanner() {
+  const [info, setInfo] = useState<string>('');
+  useEffect(() => {
+    let isNative = false;
+    try { isNative = require('@capacitor/core').Capacitor.isNativePlatform(); } catch {}
+    if (!isNative) return;
+    let intlLoc = '';
+    try { intlLoc = Intl.DateTimeFormat().resolvedOptions().locale; } catch {}
+    setInfo(`lang=${navigator.language} | langs=${(navigator.languages || []).join(',')} | intl=${intlLoc} | path=${window.location.pathname}`);
+  }, []);
+  if (!info) return null;
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999, background: '#ff0080', color: '#fff', fontSize: 11, padding: '6px 8px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+      {info}
     </div>
   );
 }
