@@ -35,7 +35,7 @@ const FT_H = 400;
 const FT_CX = 180;
 const FT_CY = 192;
 const FT_RING_X = 94;  // horizontal radius (narrower so side labels don't clip)
-const FT_RING_Y = 122; // vertical radius (taller to fill the tall card)
+const FT_RING_Y = 128; // vertical radius (taller to fill the tall card)
 const LABEL_MIN_R = 25; // Hide details on small bubbles unless focused
 
 // Mapping system sector names to short codes for compact fallback
@@ -504,9 +504,9 @@ export default function MobileSmartMoneyMap({
 
     // Radius calculation by weight
     const getBubbleRadius = (node: typeof nodes[0]) => {
-        if (node.isCenter) return 44;
+        if (node.isCenter) return 42;
         // height is roughly between 0.5 and 2.5
-        return 18 + (node.height || 1.0) * 11;
+        return 16 + (node.height || 1.0) * 10;
     };
 
     const handleNodeClick = (nodeId: string) => {
