@@ -108,7 +108,22 @@ class AdManagerService {
     }
 
     try {
-      const { AdMob } = await import('@capacitor-community/admob');
+      const { AdMob, AdmobConsentStatus } = await import('@capacitor-community/admob');
+
+      // ── UMP consent (GDPR/EEA) — must run BEFORE initialize / loading ads. ──
+      // Outside the EEA/UK the status resolves to NOT_REQUIRED and no form is shown.
+      // Wrapped so a consent failure never blocks the app.
+      try {
+        const consentInfo = await AdMob.requestConsentInfo();
+        if (
+          consentInfo.isConsentFormAvailable &&
+          consentInfo.status === AdmobConsentStatus.REQUIRED
+        ) {
+          await AdMob.showConsentForm();
+        }
+      } catch (consentErr) {
+        console.warn('[AdManager] UMP consent flow skipped:', consentErr);
+      }
 
       await AdMob.initialize({
         requestTrackingAuthorization: true,
