@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppBottomNav } from '@/components/app/AppBottomNav';
 import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
@@ -11,6 +12,7 @@ import '@/styles/app-view.css';
 
 export default function AppViewLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
     pathname?.includes('/app-view/onboarding');
@@ -47,9 +49,13 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
 
     if (desired !== current) {
       const rest = path.replace(/^\/(ko|en|ja)(?=\/|$)/, '') || '/app-view/dash';
-      window.location.replace(`/${desired}${rest}${window.location.search}`);
+      // Use the Next.js router (client-side SPA navigation) — NOT window.location,
+      // which Capacitor treats as a top-level navigation and opens in an in-app
+      // Safari. A router push/replace stays inside the WebView (same mechanism the
+      // in-app language switcher uses).
+      router.replace(`/${desired}${rest}`);
     }
-  }, []);
+  }, [router]);
 
   // Tag html element for app-only CSS (fallback for :has() on older WebViews)
   // + block pull-to-refresh at JS level
