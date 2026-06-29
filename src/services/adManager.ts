@@ -39,6 +39,34 @@ const TEST_AD_IDS: AdConfig = {
   testMode: true,
 };
 
+// ---------------------------------------------------------------------------
+// Production Ad Unit IDs (AdMob account ca-app-pub-1716731715414173).
+// Ad unit IDs are PLATFORM-SPECIFIC, so they are selected at runtime by
+// Capacitor.getPlatform() in init(). These are public identifiers, not secrets.
+// ---------------------------------------------------------------------------
+const PROD_AD_IDS_IOS: AdConfig = {
+  bannerId: 'ca-app-pub-1716731715414173/1878755113',
+  interstitialId: 'ca-app-pub-1716731715414173/9818357259',
+  rewardedId: 'ca-app-pub-1716731715414173/5712012740',
+  testMode: false,
+};
+
+const PROD_AD_IDS_ANDROID: AdConfig = {
+  bannerId: 'ca-app-pub-1716731715414173/9374101756',
+  interstitialId: 'ca-app-pub-1716731715414173/5687540555',
+  rewardedId: 'ca-app-pub-1716731715414173/6011395643',
+  testMode: false,
+};
+
+// Pick the right ad unit IDs for the current platform. Set
+// NEXT_PUBLIC_ADMOB_TEST_MODE=true to force Google test ads in QA builds.
+function resolvePlatformAdConfig(platform: string): AdConfig {
+  if (process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true') {
+    return { ...TEST_AD_IDS };
+  }
+  return platform === 'ios' ? { ...PROD_AD_IDS_IOS } : { ...PROD_AD_IDS_ANDROID };
+}
+
 function resolveDefaultAdConfig(): AdConfig {
   const explicitTestMode = process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true';
   const config: AdConfig = {
@@ -85,13 +113,16 @@ class AdManagerService {
     if (this.initialized) return;
     if (typeof window === 'undefined') return;
 
-    // Check if running in Capacitor native
+    // Check if running in Capacitor native + select platform-specific ad IDs
     try {
       const { Capacitor } = await import('@capacitor/core');
       if (!Capacitor.isNativePlatform()) {
         console.log('[AdManager] Web mode — ads disabled');
         return;
       }
+      // Real production ad unit IDs differ between iOS and Android — pick the
+      // correct set for this platform (or Google test ads if test mode is forced).
+      this.config = resolvePlatformAdConfig(Capacitor.getPlatform());
     } catch {
       console.log('[AdManager] Capacitor not available');
       return;

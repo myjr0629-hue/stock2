@@ -10,11 +10,13 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        def adMobAppId = System.getenv("ADMOB_ANDROID_APP_ID") ?: "ca-app-pub-3940256099942544~3347511713"
+        // AdMob: production Android App ID (account ca-app-pub-1716731715414173).
+        // Env override kept for flexibility; defaults to the real production ID.
+        def adMobAppId = System.getenv("ADMOB_ANDROID_APP_ID") ?: "ca-app-pub-1716731715414173~8198575283"
         manifestPlaceholders = [adMobAppId: adMobAppId]
         if (gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") } &&
                 adMobAppId == "ca-app-pub-3940256099942544~3347511713") {
-            throw new GradleException("ADMOB_ANDROID_APP_ID must be set for release builds.")
+            throw new GradleException("ADMOB_ANDROID_APP_ID must not be the Google test ID for release builds.")
         }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
