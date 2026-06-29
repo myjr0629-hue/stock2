@@ -2294,7 +2294,9 @@ function CmdPageContent() {
 
   const companyDescription = useMemo(() => {
     const overview = data?.unified?.overview?.overview || {};
-    return locale === 'ko' ? overview.description : locale === 'ja' ? (overview.descriptionJA || overview.descriptionEN) : overview.descriptionEN;
+    // overview.description is already translated to the requested locale (the API + cache are
+    // per-locale). The old `descriptionJA` field never existed, so ja fell back to English.
+    return locale === 'en' ? overview.descriptionEN : (overview.description || overview.descriptionEN);
   }, [data, locale]);
 
   const relatedPeers = useMemo(() => {
