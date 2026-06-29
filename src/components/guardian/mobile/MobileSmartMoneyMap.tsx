@@ -646,6 +646,12 @@ export default function MobileSmartMoneyMap({
                     const shortCode = SECTOR_SHORT_CODES[n.id] || n.name.substring(0, 2);
                     const displayLabel = SECTOR_SHORT_LABELS[n.id] || n.name;
 
+                    // Place labels radially: top-half bubbles label upward, bottom-half
+                    // downward, so labels point away from the cluster instead of colliding.
+                    const labelAbove = !n.isCenter && n.ty < FT_CY - 4;
+                    const nameY = labelAbove ? -(r + 13) : (r + 14);
+                    const changeY = labelAbove ? -(r + 25) : (r + 24);
+
                     const mainColor = n.color || '#ffffff';
                     const chgColor = n.density >= 0 ? '#34d399' : '#f87171';
 
@@ -731,7 +737,7 @@ export default function MobileSmartMoneyMap({
                             <g pointerEvents="none">
                                 <text
                                     textAnchor="middle"
-                                    y={r + 14}
+                                    y={nameY}
                                     fill="#f1f5f9"
                                     fontWeight="900"
                                     letterSpacing="0.04em"
@@ -741,7 +747,7 @@ export default function MobileSmartMoneyMap({
                                 </text>
                                 <text
                                     textAnchor="middle"
-                                    y={r + 24}
+                                    y={changeY}
                                     fill={chgColor}
                                     fontWeight="700"
                                     style={{ font: '700 9px Inter, sans-serif', fontVariantNumeric: 'tabular-nums' }}
