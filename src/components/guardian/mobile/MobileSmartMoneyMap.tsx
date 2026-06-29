@@ -34,7 +34,8 @@ const FT_W = 360;
 const FT_H = 400;
 const FT_CX = 180;
 const FT_CY = 192;
-const FT_RING = 112;
+const FT_RING_X = 94;  // horizontal radius (narrower so side labels don't clip)
+const FT_RING_Y = 122; // vertical radius (taller to fill the tall card)
 const LABEL_MIN_R = 25; // Hide details on small bubbles unless focused
 
 // Mapping system sector names to short codes for compact fallback
@@ -462,8 +463,8 @@ export default function MobileSmartMoneyMap({
                 const angle = offset + i * step + rotationAngle;
                 return {
                     ...s,
-                    x: FT_CX + FT_RING * Math.cos(angle),
-                    y: FT_CY + (FT_RING - 14) * Math.sin(angle),
+                    x: FT_CX + FT_RING_X * Math.cos(angle),
+                    y: FT_CY + FT_RING_Y * Math.sin(angle),
                     isCenter: false,
                     angle
                 };
@@ -577,8 +578,8 @@ export default function MobileSmartMoneyMap({
                 <ellipse
                     cx={FT_CX}
                     cy={FT_CY}
-                    rx={FT_RING}
-                    ry={FT_RING - 14}
+                    rx={FT_RING_X}
+                    ry={FT_RING_Y}
                     fill="none"
                     stroke="rgba(255,255,255,0.04)"
                     strokeWidth="1.2"
