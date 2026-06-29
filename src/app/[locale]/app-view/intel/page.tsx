@@ -2655,7 +2655,7 @@ export default function AppIntelPage() {
                   marginTop: '3px',
                   fontWeight: 500
                 }}>
-                  {locale === 'ko' ? '섹터 인텔리전스' : 'セクター・インテリジェンス'}
+                  {locale === 'ko' ? '섹터 인텔리전스' : locale === 'ja' ? 'セクター・インテリジェンス' : 'Sector Intelligence'}
                 </div>
               )}
             </div>
