@@ -274,7 +274,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
         <div className="space-y-3">
             {/* ── FLOW TOPOGRAPHY MAP ── */}
             <div className={`relative w-full bg-[#0a0e14] border rounded-xl overflow-hidden ${mapBorderClass}`}
-                style={{ height: 'clamp(320px, 50vh, 420px)' }}>
+                style={{ height: 'clamp(360px, 54vh, 460px)' }}>
                 {/* Map Header */}
                 <div className="absolute top-2 left-2 z-10 flex flex-wrap items-center gap-1.5 right-2">
                     <GuardianTooltip sectionId="flowMap">

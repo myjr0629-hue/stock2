@@ -31,10 +31,10 @@ interface MobileSmartMoneyMapProps {
 
 // === CONSTANTS FOR 2D LAYOUT ===
 const FT_W = 360;
-const FT_H = 350;
+const FT_H = 400;
 const FT_CX = 180;
-const FT_CY = 170;
-const FT_RING = 92;
+const FT_CY = 192;
+const FT_RING = 112;
 const LABEL_MIN_R = 25; // Hide details on small bubbles unless focused
 
 // Mapping system sector names to short codes for compact fallback
@@ -503,9 +503,9 @@ export default function MobileSmartMoneyMap({
 
     // Radius calculation by weight
     const getBubbleRadius = (node: typeof nodes[0]) => {
-        if (node.isCenter) return 40;
+        if (node.isCenter) return 44;
         // height is roughly between 0.5 and 2.5
-        return 16 + (node.height || 1.0) * 10;
+        return 18 + (node.height || 1.0) * 11;
     };
 
     const handleNodeClick = (nodeId: string) => {
