@@ -1229,6 +1229,11 @@
   background: rgba(2, 6, 23, 0.26);
 }
 
+/* RISK cell is a single number — center it (FUTURES/CASH stay left). */
+.regimeMetricCenter {
+  text-align: center;
+}
+
 /* State-tinted borders — match the displayed tone (bullish/bearish/neutral). */
 .metricUp {
   border-color: rgba(16, 185, 129, 0.45);

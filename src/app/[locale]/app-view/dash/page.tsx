@@ -1445,7 +1445,7 @@ export default function AppDashPage() {
             <span>{copy.cash}</span>
             <b className={cashAvg >= 0 ? s.pos : s.neg}>{cashTone} {fmtChg(cashAvg)}</b>
           </div>
-          <div className={`${s.regimeMetric} ${riskScore >= 58 ? s.metricUp : riskScore <= 42 ? s.metricDown : s.metricFlat}`}>
+          <div className={`${s.regimeMetric} ${s.regimeMetricCenter} ${riskScore >= 58 ? s.metricUp : riskScore <= 42 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.risk}</span>
             <b>{Math.round(riskScore)}</b>
           </div>
