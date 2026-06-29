@@ -2701,10 +2701,10 @@ export default function AppIntelPage() {
             opacity: 0.95,
             width: '100%'
           }}>
-            {TRANSLATIONS.en.headerDesc}
+            {t.headerDesc}
             {locale !== 'en' && (
               <span style={{ color: 'var(--text-muted)', fontStyle: 'normal', fontWeight: 400, marginLeft: '6px' }}>
-                ({locale === 'ko' ? t.subtitle : t.subtitle})
+                ({t.subtitle})
               </span>
             )}
           </div>

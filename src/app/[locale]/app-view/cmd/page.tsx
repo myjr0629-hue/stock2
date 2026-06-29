@@ -891,8 +891,8 @@ function AnalystConsensus({
         </div>
         {analyst.targetHigh > 0 && (
           <div className={s.analystTargetRange}>
-            <span>{locale === 'ko' ? '최고' : 'High'} ${analyst.targetHigh.toFixed(0)}</span>
-            <span>{locale === 'ko' ? '최저' : 'Low'} ${analyst.targetLow.toFixed(0)}</span>
+            <span>{locale === 'ko' ? '최고' : locale === 'ja' ? '最高' : 'High'} ${analyst.targetHigh.toFixed(0)}</span>
+            <span>{locale === 'ko' ? '최저' : locale === 'ja' ? '最低' : 'Low'} ${analyst.targetLow.toFixed(0)}</span>
           </div>
         )}
       </div>
@@ -959,11 +959,11 @@ function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?
       val: raw?.de != null ? String(raw.de) : null 
     },
     { 
-      key: locale === 'ko' ? '매출' : 'Rev', 
+      key: locale === 'ko' ? '매출' : locale === 'ja' ? '売上' : 'Rev', 
       val: raw?.revenueGrowth != null ? `${raw.revenueGrowth > 0 ? '+' : ''}${raw.revenueGrowth}%` : null 
     },
     { 
-      key: locale === 'ko' ? '마진' : 'Margin', 
+      key: locale === 'ko' ? '마진' : locale === 'ja' ? 'マージン' : 'Margin',
       val: raw?.netMargin != null ? `${raw.netMargin}%` : null 
     },
   ].filter(m => m.val !== null);
@@ -1117,7 +1117,7 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
           <span className={s.premCountdownBadge}>{daysLabel}</span>
           {days !== null && days > 0 && (
             <div className={s.premDaysText}>
-              {locale === 'ko' ? `${days}일 후` : `${days}d`}
+              {locale === 'ko' ? `${days}일 후` : locale === 'ja' ? `${days}日後` : `${days}d`}
             </div>
           )}
         </div>
@@ -1143,7 +1143,7 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
         <div className={s.premInfoRow}>
           {raw.epsEstimate != null && (
             <div className={s.premInfoPill}>
-              <span>{locale === 'ko' ? '예상 EPS' : 'Est EPS'}</span>
+              <span>{locale === 'ko' ? '예상 EPS' : locale === 'ja' ? '予想EPS' : 'Est EPS'}</span>
               <span className={s.premInfoPillValue}>${raw.epsEstimate.toFixed(2)}</span>
             </div>
           )}
@@ -1167,7 +1167,7 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
       {(raw.forwardEps != null || raw.forwardRevenue != null) && (
         <div className={s.premForwardSection}>
           <div className={s.premForwardTitle}>
-            {locale === 'ko' ? `내년전망` : 'Forward'} {raw.forwardYear ? `(FY${raw.forwardYear.slice(-2)})` : ''}
+            {locale === 'ko' ? `내년전망` : locale === 'ja' ? `来期予想` : 'Forward'} {raw.forwardYear ? `(FY${raw.forwardYear.slice(-2)})` : ''}
           </div>
           <div className={s.premForwardGrid}>
             {raw.forwardEps != null && (
@@ -1197,7 +1197,7 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
             {raw.forwardRevenue != null && (
               <div className={s.premForwardCard}>
                 <div className={s.premForwardLeft}>
-                  <span className={s.premForwardLabel}>{locale === 'ko' ? '매출' : 'Rev'}</span>
+                  <span className={s.premForwardLabel}>{locale === 'ko' ? '매출' : locale === 'ja' ? '売上' : 'Rev'}</span>
                   <span className={s.premForwardVal}>{fmtRevenue(raw.forwardRevenue)}</span>
                   {(() => {
                     const cur = raw.currentRevenue, fwd = raw.forwardRevenue;
