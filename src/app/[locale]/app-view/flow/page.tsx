@@ -751,7 +751,6 @@ export default function AppFlowPage() {
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
   const [ivRankOverride, setIvRankOverride] = useState<number | null>(null);
-  if (typeof window !== 'undefined') { (window as any).__fr = (((window as any).__fr) || 0) + 1; console.log('[flow-render]', (window as any).__fr); }
 
   // Click outside to close popovers
   useEffect(() => {
@@ -1584,7 +1583,6 @@ export default function AppFlowPage() {
       className="info-btn"
       type="button"
       onClick={(e) => {
-        console.log('[info-tap]', popKey);
         e.stopPropagation();
         setActivePopover(activePopover === popKey ? null : popKey);
       }}
@@ -2330,13 +2328,13 @@ export default function AppFlowPage() {
         <span className={s.segPill} style={{ left: `calc(3px + ${['overview', 'ai-intel', 'whale-flow', 'strike-profile'].indexOf(activeTab)} * (100% - 6px) / 4)` }}></span>
         <button
           className={activeTab === 'overview' ? s.on : ''}
-          onClick={() => { console.log('[flow-tab]', 'overview'); setActiveTab('overview'); }}
+          onClick={() => setActiveTab('overview')}
         >
           OVERVIEW
         </button>
         <button
           className={activeTab === 'ai-intel' ? s.on : ''}
-          onClick={() => { console.log('[flow-tab]', 'ai-intel'); setActiveTab('ai-intel'); }}
+          onClick={() => setActiveTab('ai-intel')}
         >
           <span style={{
             background: 'linear-gradient(90deg, #a855f7, #ec4899, #3b82f6)',
@@ -2350,13 +2348,13 @@ export default function AppFlowPage() {
         </button>
         <button
           className={activeTab === 'whale-flow' ? s.on : ''}
-          onClick={() => { console.log('[flow-tab]', 'whale-flow'); setActiveTab('whale-flow'); }}
+          onClick={() => setActiveTab('whale-flow')}
         >
           WHALE & DP
         </button>
         <button
           className={activeTab === 'strike-profile' ? s.on : ''}
-          onClick={() => { console.log('[flow-tab]', 'strike-profile'); setActiveTab('strike-profile'); }}
+          onClick={() => setActiveTab('strike-profile')}
         >
           STRIKE
         </button>
