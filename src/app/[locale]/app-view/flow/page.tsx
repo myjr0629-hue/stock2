@@ -752,15 +752,19 @@ export default function AppFlowPage() {
   const [activePopover, setActivePopover] = useState<string | null>(null);
   const [ivRankOverride, setIvRankOverride] = useState<number | null>(null);
 
-  // Click outside to close popovers
+  // Tap outside to close popovers. Use 'pointerdown' (not 'click'): iOS WKWebView
+  // does NOT bubble click events to document from non-interactive elements (plain
+  // divs), so a 'click' listener never fired for outside taps on iOS — the popover
+  // wouldn't close. pointerdown is delivered for every tap on every platform.
   useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (activePopover && !(e.target as HTMLElement).closest('.popover-container') && !(e.target as HTMLElement).closest('.info-btn')) {
+    const handleOutsideTap = (e: Event) => {
+      const t = e.target as HTMLElement;
+      if (activePopover && !t.closest('.popover-container') && !t.closest('.info-btn')) {
         setActivePopover(null);
       }
     };
-    document.addEventListener('click', handleOutsideClick);
-    return () => document.removeEventListener('click', handleOutsideClick);
+    document.addEventListener('pointerdown', handleOutsideTap);
+    return () => document.removeEventListener('pointerdown', handleOutsideTap);
   }, [activePopover]);
 
   // Compute display prices via util
@@ -1602,7 +1606,9 @@ export default function AppFlowPage() {
         lineHeight: 1,
         outline: 'none',
         transition: 'all 0.2s ease',
-        verticalAlign: 'middle'
+        verticalAlign: 'middle',
+        touchAction: 'manipulation',
+        WebkitTapHighlightColor: 'transparent',
       }}
     >
       i
@@ -1637,7 +1643,7 @@ export default function AppFlowPage() {
             type="button"
             onClick={(e) => { e.stopPropagation(); setActivePopover(null); }}
             aria-label="Close info"
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', fontSize: 0, lineHeight: 0, backgroundImage: 'linear-gradient(45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%), linear-gradient(-45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%)' }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', fontSize: 0, lineHeight: 0, backgroundImage: 'linear-gradient(45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%), linear-gradient(-45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%)' }}
           >
             ✕
           </button>

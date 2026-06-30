@@ -57,6 +57,35 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     }
   }, [router]);
 
+  // ── Native-only: deep-link when a push notification is tapped. ──
+  // closing report → Intel page, morning brief → Guardian page.
+  useEffect(() => {
+    let isNative = false;
+    try { isNative = require('@capacitor/core').Capacitor.isNativePlatform(); } catch { /* web */ }
+    if (!isNative) return;
+
+    let remove: (() => void) | undefined;
+    (async () => {
+      try {
+        // @ts-ignore — native-only plugin
+        const PushMod: any = await import('@capacitor/push-notifications');
+        const handle = await PushMod.PushNotifications.addListener(
+          'pushNotificationActionPerformed',
+          (action: { notification?: { data?: Record<string, string> } }) => {
+            const type = action?.notification?.data?.type;
+            const target = type === 'morning' ? 'guardian' : type === 'closing' ? 'intel' : null;
+            if (!target) return;
+            const seg = window.location.pathname.split('/')[1];
+            const loc = ['ko', 'en', 'ja'].includes(seg) ? seg : 'en';
+            router.push(`/${loc}/app-view/${target}`);
+          },
+        );
+        remove = () => { try { handle.remove(); } catch {} };
+      } catch { /* plugin unavailable (web) */ }
+    })();
+    return () => { remove?.(); };
+  }, [router]);
+
   // Tag html element for app-only CSS (fallback for :has() on older WebViews)
   // + block pull-to-refresh at JS level
   useEffect(() => {
