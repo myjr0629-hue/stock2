@@ -67,7 +67,8 @@ function fmtDollar(n: number): string {
 }
 
 // --- Utility: Generate colored initials for institutions without logos ---
-function getInitials(name: string): string {
+function getInitials(name: string | null | undefined): string {
+    if (!name) return '—';
     const words = name.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(Boolean);
     if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
     return name.substring(0, 2).toUpperCase();
@@ -84,8 +85,9 @@ function getInitialColor(name: string): string {
         'from-indigo-500 to-indigo-600',
         'from-teal-500 to-teal-600',
     ];
+    const s = name || '';
     let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
 }
 

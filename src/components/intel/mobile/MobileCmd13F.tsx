@@ -24,18 +24,21 @@ function fmtShares(n: number): string {
     if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
     return n.toLocaleString();
 }
-function getInitials(name: string): string {
+function getInitials(name: string | null | undefined): string {
+    if (!name) return '—';
     const words = name.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(Boolean);
     if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
     return name.substring(0, 2).toUpperCase();
 }
 const INIT_COLORS = ['from-blue-500 to-blue-600','from-violet-500 to-violet-600','from-emerald-500 to-emerald-600','from-amber-500 to-amber-600','from-rose-500 to-rose-600','from-cyan-500 to-cyan-600','from-indigo-500 to-indigo-600','from-teal-500 to-teal-600'];
-function getInitialColor(name: string): string {
+function getInitialColor(name: string | null | undefined): string {
+    const s = name || '';
     let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
     return INIT_COLORS[Math.abs(hash) % INIT_COLORS.length];
 }
-function compactName(name: string): string {
+function compactName(name: string | null | undefined): string {
+    if (!name) return '—';
     const parts = name.trim().split(/\s+/);
     if (parts.length <= 1) return name;
     return `${parts[1].charAt(0)}. ${parts[0]}`;
