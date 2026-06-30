@@ -188,24 +188,58 @@
 
 .ack {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgba(34, 211, 238, 0.18);
   background: rgba(8, 47, 73, 0.24);
   color: rgba(226, 232, 240, 0.92);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.45;
   font-weight: 700;
+  cursor: pointer;
 }
 
+/* Custom checkbox — native rendering differs between iOS WKWebView and
+   Android Chrome, breaking alignment. appearance:none makes it identical
+   on both platforms and in every language. */
 .ack input {
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  accent-color: #22d3ee;
-  flex: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border-radius: 6px;
+  border: 1.5px solid rgba(34, 211, 238, 0.55);
+  background: rgba(15, 23, 42, 0.6);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ack input:checked {
+  background: #22d3ee;
+  border-color: #22d3ee;
+}
+
+.ack input:checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid #06141f;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.ack span {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 .links {
