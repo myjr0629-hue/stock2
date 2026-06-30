@@ -59,7 +59,7 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
 
   const messaging = await getMessaging();
   let sent = 0;
-  let pruned = 0;
+  const deadTokens: string[] = [];
 
   for (const locale of LOCALES) {
     const toks = byLocale[locale];
@@ -76,18 +76,23 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
       });
       sent += res.successCount;
 
-      // Prune tokens that FCM reports as permanently invalid.
+      // Collect tokens FCM reports as permanently invalid.
       res.responses.forEach((r: any, idx: number) => {
         const code = r.error?.code || '';
         if (!r.success && /registration-token-not-registered|invalid-argument|not-registered/.test(code)) {
-          const dead = batch[idx];
-          redis.srem('push:token_list', dead);
-          redis.del(`push:tokens:${dead}`);
-          pruned += 1;
+          deadTokens.push(batch[idx]);
         }
       });
     }
   }
 
-  return { total: tokens.length, sent, pruned };
+  // Remove dead tokens — MUST await: on Vercel the function may freeze right
+  // after returning, so fire-and-forget redis writes would never land (dead
+  // tokens would linger forever and waste every future send).
+  if (deadTokens.length) {
+    await redis.srem('push:token_list', ...deadTokens);
+    await Promise.all(deadTokens.map(t => redis.del(`push:tokens:${t}`)));
+  }
+
+  return { total: tokens.length, sent, pruned: deadTokens.length };
 }
