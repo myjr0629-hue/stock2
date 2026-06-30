@@ -175,13 +175,9 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
     const timer = setTimeout(() => setIsTransitioning(false), 350);
     setPrevPathname(pathname);
 
-    // 햅틱 피드백
-    (async () => {
-      try {
-        const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
-        await Haptics.impact({ style: ImpactStyle.Light });
-      } catch {}
-    })();
+    // (Tap haptics are handled globally in the app-view layout for every
+    // interactive tap — iOS + Android. A per-navigation buzz here would
+    // double up with that on bottom-nav taps, so it's intentionally gone.)
 
     return () => clearTimeout(timer);
   }, [pathname, prevPathname, mounted]);

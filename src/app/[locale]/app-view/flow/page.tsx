@@ -3714,7 +3714,11 @@ export default function AppFlowPage() {
                 ))}
               </div>
 
-              {/* Horizontal Scroll Deck wrapped in ValueWall */}
+              {/* Horizontal Scroll Deck wrapped in ValueWall.
+                  Break out of this card's 12px side/bottom padding so the gate
+                  spans the full card width — matches the gates on other tabs,
+                  which were ~12px wider on each side. */}
+              <div style={{ margin: '0 -12px -12px' }}>
               <ValueWall
                 locale={locale}
                 title={whaleCopy.chainTitle}
@@ -3764,6 +3768,7 @@ export default function AppFlowPage() {
                   }
                 </div>
               </ValueWall>
+              </div>
             </div>
 
             {/* Max Pain Info (also blurred if locked) */}

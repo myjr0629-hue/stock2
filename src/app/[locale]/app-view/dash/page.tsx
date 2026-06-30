@@ -76,6 +76,17 @@ const DEMO_ETFS: PulseItem[] = [
   { sym: 'VIX', px: 21.5, chg: -3.1, up: false, spark: [11, 10, 11, 9, 8, 8, 7, 6, 6] },
 ];
 
+// Display order so the three Market-Pulse rows line up column-wise:
+// col1 = Nasdaq family, col2 = S&P family, col3 = other. The data builders
+// keep their own (spark-tied) order; we only reorder for presentation.
+const PULSE_INDEX_ORDER = ['NASDAQ', 'S&P 500', 'DOW'];
+const PULSE_ETF_ORDER = ['QQQ', 'SPY', 'VIX'];
+const sortPulse = (arr: PulseItem[], order: string[]): PulseItem[] =>
+  [...arr].sort((a, b) => {
+    const ia = order.indexOf(a.sym); const ib = order.indexOf(b.sym);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+
 const DEMO_MACRO: MacroItem[] = [
   { label: 'BTC', value: '$68.5K', chg: 2.1, unit: '%' },
   { label: 'GOLD', value: '$2,340', chg: -0.4, unit: '%' },
@@ -1499,7 +1510,7 @@ export default function AppDashPage() {
               <em className={isLive ? s.metaLive : isMarketHoliday ? s.metaHoliday : ''}>{isLive ? copy.regularLive : isMarketHoliday ? copy.holiday : copy.closed}</em>
             </div>
             <div className={s.pulseRow}>
-              {indices.map((p) => {
+              {sortPulse(indices, PULSE_INDEX_ORDER).map((p) => {
                 // Cash index row is Redis/index-close based. ETF proxies must not overwrite index change.
                 const displayChg = p.chg;
                 const isUp = displayChg >= 0;
@@ -1531,7 +1542,7 @@ export default function AppDashPage() {
               <em className={etfRowLive ? s.metaLive : ''}>{etfRowStatus}</em>
             </div>
             <div className={s.pulseRow}>
-              {etfs.map((p) => {
+              {sortPulse(etfs, PULSE_ETF_ORDER).map((p) => {
                 const wsData = wsGetPrice(p.sym);
                 const useWs = shouldUseWsQuote(p.sym, wsData);
                 

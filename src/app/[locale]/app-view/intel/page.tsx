@@ -2548,7 +2548,8 @@ export default function AppIntelPage() {
                   color: '#10b981',
                   iconColor: leadingSector?.color || '#10b981',
                   icon: leadingSector ? <SectorIcon sectorKey={toCamelCase(leadingSector.id)} color={leadingSector.color} size={18} /> : <Sparkles size={17} />,
-                  metaColor: leadingSector && leadingSector.change < 0 ? '#ef4444' : '#10b981'
+                  metaColor: leadingSector && leadingSector.change < 0 ? '#ef4444' : '#10b981',
+                  onClick: leadingSector ? () => handleSectorClick(leadingSector.id) : undefined
                 },
                 {
                   label: appCopy.laggards,
@@ -2557,7 +2558,8 @@ export default function AppIntelPage() {
                   color: '#ef4444',
                   iconColor: laggingSector?.color || '#ef4444',
                   icon: laggingSector ? <SectorIcon sectorKey={toCamelCase(laggingSector.id)} color={laggingSector.color} size={18} /> : <Zap size={17} />,
-                  metaColor: laggingSector && laggingSector.change >= 0 ? '#10b981' : '#ef4444'
+                  metaColor: laggingSector && laggingSector.change >= 0 ? '#10b981' : '#ef4444',
+                  onClick: laggingSector ? () => handleSectorClick(laggingSector.id) : undefined
                 },
                 {
                   label: appCopy.coverage,
@@ -2566,7 +2568,8 @@ export default function AppIntelPage() {
                   color: '#22d3ee',
                   iconColor: '#22d3ee',
                   icon: <BarChart3 size={17} />,
-                  metaColor: 'rgba(203, 213, 225, 0.72)'
+                  metaColor: 'rgba(203, 213, 225, 0.72)',
+                  onClick: undefined
                 },
                 {
                   label: appCopy.avgMove,
@@ -2575,13 +2578,19 @@ export default function AppIntelPage() {
                   color: averageSectorMove >= 2 ? '#f59e0b' : '#67e8f9',
                   iconColor: '#f59e0b',
                   icon: <Zap size={17} />,
-                  metaColor: averageSectorMove >= 2 ? '#f59e0b' : 'rgba(203, 213, 225, 0.72)'
+                  metaColor: averageSectorMove >= 2 ? '#f59e0b' : 'rgba(203, 213, 225, 0.72)',
+                  onClick: undefined
                 }
               ].map(item => (
-                <div key={item.label} style={{
+                <div key={item.label}
+                  onClick={item.onClick}
+                  role={item.onClick ? 'button' : undefined}
+                  style={{
                   minWidth: 0,
                   padding: '11px',
                   borderRadius: '14px',
+                  cursor: item.onClick ? 'pointer' : 'default',
+                  WebkitTapHighlightColor: 'transparent',
                   background: `linear-gradient(135deg, ${item.iconColor}12, rgba(15, 23, 42, 0.62) 46%, rgba(2, 6, 23, 0.46))`,
                   border: `1px solid ${item.iconColor}22`,
                   boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04), 0 0 18px ${item.iconColor}09`

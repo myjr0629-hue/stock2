@@ -86,6 +86,37 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     return () => { remove?.(); };
   }, [router]);
 
+  // ── Native-only: tactile feedback on every interactive tap (iOS + Android). ──
+  // iOS has no Web Vibration API (navigator.vibrate is a no-op), so taps felt
+  // "dead" vs Android. Capacitor Haptics works on both. One delegated listener
+  // covers all buttons/tabs/links/ⓘ — fires a Light impact on each genuine tap.
+  useEffect(() => {
+    let isNative = false;
+    try { isNative = require('@capacitor/core').Capacitor.isNativePlatform(); } catch { /* web */ }
+    if (!isNative) return;
+
+    let impact: ((opts: { style: unknown }) => Promise<void>) | null = null;
+    let lightStyle: unknown = undefined;
+    let disposed = false;
+    (async () => {
+      try {
+        // @ts-ignore — native-only plugin
+        const m: any = await import('@capacitor/haptics');
+        if (disposed) return;
+        impact = (opts) => m.Haptics.impact(opts);
+        lightStyle = m.ImpactStyle.Light;
+      } catch { /* plugin unavailable */ }
+    })();
+
+    const onTap = (e: Event) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest('button, a, [role="button"], [role="tab"], .info-btn')) return;
+      impact?.({ style: lightStyle }).catch(() => {});
+    };
+    document.addEventListener('click', onTap, true);
+    return () => { disposed = true; document.removeEventListener('click', onTap, true); };
+  }, []);
+
   // Tag html element for app-only CSS (fallback for :has() on older WebViews)
   // + block pull-to-refresh at JS level
   useEffect(() => {

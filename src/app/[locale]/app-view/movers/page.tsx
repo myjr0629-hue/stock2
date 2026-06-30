@@ -120,7 +120,7 @@ function MoversPageContent() {
     let active = true;
     async function fetchAllMovers() {
       try {
-        const res = await fetch('/api/market/movers?limit=10', { cache: 'no-store' });
+        const res = await fetch('/api/market/movers?limit=20', { cache: 'no-store' });
         if (!res.ok) throw new Error('Failed to fetch movers');
         const json = await res.json();
         if (active) {
@@ -153,9 +153,9 @@ function MoversPageContent() {
   const t = {
     ko: {
       title: '실시간 마켓 무버',
-      valueSec: '거래대금 상위 10',
-      gainersSec: '상승률 상위 10',
-      losersSec: '하락률 상위 10',
+      valueSec: '거래대금 상위 20',
+      gainersSec: '상승률 상위 20',
+      losersSec: '하락률 상위 20',
       loading: '실시간 데이터를 받아오는 중...',
       vol: '거래량',
       val: '거래대금',
@@ -169,9 +169,9 @@ function MoversPageContent() {
     },
     en: {
       title: 'Live Market Movers',
-      valueSec: 'Top 10 Trading Value',
-      gainersSec: 'Top 10 Gainers',
-      losersSec: 'Top 10 Losers',
+      valueSec: 'Top 20 Trading Value',
+      gainersSec: 'Top 20 Gainers',
+      losersSec: 'Top 20 Losers',
       loading: 'Fetching real-time data...',
       vol: 'Vol',
       val: 'Value',
@@ -185,9 +185,9 @@ function MoversPageContent() {
     },
     ja: {
       title: 'リアルタイム・ムーバー',
-      valueSec: '取引代金上位 10',
-      gainersSec: '上昇率上位 10',
-      losersSec: '下落率上位 10',
+      valueSec: '取引代金上位 20',
+      gainersSec: '上昇率上位 20',
+      losersSec: '下落率上位 20',
       loading: 'リアルタイムデータを取得中...',
       vol: '出来高',
       val: '売買代金',
@@ -201,9 +201,9 @@ function MoversPageContent() {
     }
   }[locale as 'ko' | 'en' | 'ja'] || {
     title: 'Live Market Movers',
-    valueSec: 'Top 10 Trading Value',
-    gainersSec: 'Top 10 Gainers',
-    losersSec: 'Top 10 Losers',
+    valueSec: 'Top 20 Trading Value',
+    gainersSec: 'Top 20 Gainers',
+    losersSec: 'Top 20 Losers',
     loading: 'Fetching real-time data...',
     vol: 'Vol',
     val: 'Value',
@@ -234,15 +234,15 @@ function MoversPageContent() {
   const tabConfig = [
     { key: 'value' as const, color: '#22d3ee', rgb: '34,211,238',
       label: { ko: '거래대금', en: 'Value', ja: '売買代金' },
-      sub: { ko: 'TOP 10', en: 'TOP 10', ja: 'TOP 10' },
+      sub: { ko: 'TOP 20', en: 'TOP 20', ja: 'TOP 20' },
     },
     { key: 'gainers' as const, color: '#10b981', rgb: '16,185,129',
       label: { ko: '상승률', en: 'Gainers', ja: '上昇率' },
-      sub: { ko: 'TOP 10', en: 'TOP 10', ja: 'TOP 10' },
+      sub: { ko: 'TOP 20', en: 'TOP 20', ja: 'TOP 20' },
     },
     { key: 'losers' as const, color: '#ef4444', rgb: '239,68,68',
       label: { ko: '하락률', en: 'Losers', ja: '下落率' },
-      sub: { ko: 'TOP 10', en: 'TOP 10', ja: 'TOP 10' },
+      sub: { ko: 'TOP 20', en: 'TOP 20', ja: 'TOP 20' },
     },
   ];
 

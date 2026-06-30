@@ -85,7 +85,8 @@ export function AppBottomNav() {
             key={tab.id}
             className={`app-tabbar-tab ${isActive ? 'active' : ''}`}
             onClick={() => {
-              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
+              // Haptic handled globally for all taps in the app-view layout
+              // (Capacitor Haptics, iOS + Android). No per-button vibrate here.
               if (!isActive) onTabSwitch();
               router.replace(tab.path);
             }}
