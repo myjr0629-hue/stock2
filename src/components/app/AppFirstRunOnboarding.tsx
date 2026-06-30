@@ -188,11 +188,14 @@ export function AppFirstRunOnboarding() {
         // Server only accepts FCM registration tokens. On Android the
         // 'registration' event already yields an FCM token; on iOS it yields the
         // raw APNs token, so there we fetch the FCM token via @capacitor-community/fcm.
-        const postToken = (token: string) => {
+        const postToken = (token: string, attempt = 0) => {
           if (!token) return;
           try {
             window.localStorage.setItem('signumhq.push.token', token);
           } catch {}
+          // Retry with backoff: a single fire-and-forget POST is lost if the
+          // first-launch network blips, and onboarding never re-runs — so the
+          // device would never register. Retry a few times before giving up.
           fetch('/api/push/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -201,7 +204,15 @@ export function AppFirstRunOnboarding() {
               platform,
               locale: window.location.pathname.split('/')[1] || 'en',
             }),
-          }).catch(() => {});
+          })
+            .then(res => {
+              if (!res.ok) throw new Error(`register ${res.status}`);
+            })
+            .catch(() => {
+              if (attempt < 4) {
+                setTimeout(() => postToken(token, attempt + 1), 2000 * (attempt + 1));
+              }
+            });
         };
 
         const permResult = await PushNotifications.requestPermissions();
