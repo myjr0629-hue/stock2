@@ -223,42 +223,13 @@ export function AppFirstRunOnboarding() {
             console.warn('[Push] registration error:', err?.error);
           });
 
-          if (platform === 'ios') {
-            // APNs token is delivered via 'registration'. Firebase then needs a
-            // moment to exchange it for an FCM token, so FCM.getToken() can return
-            // empty if called immediately. Retry with backoff until it yields one.
-            PushNotifications.addListener('registration', async () => {
-              // @ts-ignore — native-only plugin
-              let FCM: any;
-              try {
-                const FCMMod: any = await import('@capacitor-community/fcm');
-                FCM = FCMMod.FCM;
-              } catch (e) {
-                console.warn('[Push] fcm plugin import failed:', e);
-                return;
-              }
-              for (let attempt = 0; attempt < 8; attempt++) {
-                try {
-                  const res = await FCM.getToken();
-                  if (res?.token) {
-                    console.log('[Push] iOS FCM token acquired (attempt ' + attempt + ')');
-                    postToken(res.token);
-                    return;
-                  }
-                  console.warn('[Push] iOS FCM token empty, attempt ' + attempt);
-                } catch (e) {
-                  console.warn('[Push] FCM.getToken attempt ' + attempt + ' failed:', e);
-                }
-                await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
-              }
-              console.warn('[Push] iOS FCM token never became available');
-            });
-          } else {
-            // Android: the 'registration' event value IS the FCM token.
-            PushNotifications.addListener('registration', (token: { value: string }) => {
-              postToken(token.value);
-            });
-          }
+          // The 'registration' event value is the device token: an FCM token on
+          // Android, the raw APNs token on iOS. The server routes by platform
+          // (Android → FCM, iOS → APNs directly), so both just post the value.
+          PushNotifications.addListener('registration', (token: { value: string }) => {
+            console.log('[Push] token registered (' + platform + ')');
+            postToken(token.value);
+          });
 
           await PushNotifications.register();
         }
