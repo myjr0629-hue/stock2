@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import FirebaseCore
+import FirebaseMessaging
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -12,6 +13,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // registration token (required for iOS push delivery via FCM).
         FirebaseApp.configure()
         return true
+    }
+
+    // APNs registration callbacks. We disable Firebase's swizzling
+    // (FirebaseAppDelegateProxyEnabled = NO in Info.plist) and forward the token
+    // explicitly to BOTH Firebase (so FCM can mint a token) and Capacitor (so the
+    // push-notifications plugin's 'registration' event fires). Without this,
+    // Firebase's swizzle swallowed the callback and Capacitor never saw the token.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Messaging.messaging().apnsToken = deviceToken
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
