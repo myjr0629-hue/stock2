@@ -1978,6 +1978,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             atmSlice={options?.atmSlice || []}
                                             underlyingPrice={displayPrice}
                                             expiration={options?.atmSlice?.[0]?.expiration || structure?.expiration}
+                                            wide
                                         />
                                     </ProGate>
                                 ) : activeInsightTab === '13f' ? (
