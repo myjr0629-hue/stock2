@@ -97,11 +97,7 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     };
     const onTouchMove = (e: TouchEvent) => {
       const y = e.touches[0].clientY;
-      // Ignore tiny movements. A tap can wobble a few px, and calling
-      // preventDefault during a tap cancels the synthesized `click` on iOS — that
-      // made small buttons (e.g. the ⓘ info tooltips) need several tries to tap.
-      // Only act once it's clearly a downward drag (pull-to-refresh direction).
-      if (y - startY <= 10) return;
+      if (y <= startY) return; // only guard downward pulls (pull-to-refresh direction)
       // Block the pull only when the ACTUAL scroller under the finger is at its top.
       // Walk up to the nearest vertically-scrollable ancestor so custom scrollers that are
       // decoupled from .app-main (e.g. the market-movers list .viewport/.scroll) keep working.
