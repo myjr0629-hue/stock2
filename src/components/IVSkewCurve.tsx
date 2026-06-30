@@ -32,8 +32,6 @@ interface IVSkewCurveProps {
     gammaFlip?: number;
     darkPool?: number;
     blockTradeCount?: number;
-    /** Web desktop only: restore the original 700×280 geometry. App omits this → unchanged. */
-    wide?: boolean;
 }
 
 interface StrikeIV {
@@ -56,8 +54,7 @@ export default function IVSkewCurve({
     expiration,
     gammaFlip = 0,
     darkPool = 0,
-    blockTradeCount = 0,
-    wide = false
+    blockTradeCount = 0
 }: IVSkewCurveProps) {
     const [hoverIdx, setHoverIdx] = useState<number | null>(null);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -277,11 +274,8 @@ export default function IVSkewCurve({
         return { strikeData: data, avgCallIV: ac, avgPutIV: ap, skewDir: dir as 'PUT RICH' | 'CALL RICH' | 'BALANCED', maxIV: mx, fearStrike, targetStrike, crossover };
     }, [atmSlice, resolvedPrice, wsIVByStrike]);
 
-    // SVG dimensions. App (default) keeps the compact mobile aspect; `wide` restores
-    // the original desktop geometry (700×280) so the web isn't oversized. App passes
-    // no `wide` prop → identical to before.
-    const W = wide ? 700 : 520, H = wide ? 280 : 240;
-    const PAD = wide ? { top: 30, right: 20, bottom: 50, left: 55 } : { top: 25, right: 15, bottom: 35, left: 45 };
+    // SVG dimensions (optimized for mobile aspect ratio and no empty spaces)
+    const W = 520, H = 240, PAD = { top: 25, right: 15, bottom: 35, left: 45 };
     const plotW = W - PAD.left - PAD.right;
     const plotH = H - PAD.top - PAD.bottom;
 
