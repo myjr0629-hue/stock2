@@ -23,8 +23,9 @@
 // Flags: DRY=1 (compute + print, no Redis writes) · MAXPAGES=N (cap for tests)
 // ============================================================================
 
-const { Redis } = require('@upstash/redis');
-
+// Zero-dependency: writes go through the Upstash REST pipeline via fetch, so this
+// file runs identically as a local CLI script and as the signum-13f Lambda (no
+// node_modules to bundle).
 const API_KEY = process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
 const BASE = process.env.MASSIVE_BASE_URL || 'https://api.polygon.io';
 const DRY = process.env.DRY === '1';
@@ -32,10 +33,18 @@ const MAXPAGES = process.env.MAXPAGES ? parseInt(process.env.MAXPAGES, 10) : Inf
 const TTL = 1209600; // 14 days — outlives the weekly rebuild cadence
 const STORE_TOP = 60;  // holders persisted per CUSIP (display shows top 20)
 
-const redis = DRY ? null : new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
-});
+const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim();
+const REDIS_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim();
+
+async function redisPipeline(commands) {
+    const res = await fetch(`${REDIS_URL}/pipeline`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(commands),
+    });
+    if (!res.ok) throw new Error(`Upstash ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    return res.json();
+}
 
 // Major filer CIK → name/domain. Used to label the common big holders without a
 // per-row name lookup (the feed only carries filer_cik). Unknown CIKs are stored
@@ -117,7 +126,14 @@ async function main() {
         if (!f.cusip || !(f.market_value > 0)) return;
         const key = `${f.filer_cik}|${f.cusip}`;
         const prev = dedup.get(key);
-        if (!prev || (f.filing_date || '') >= (prev.filing_date || '')) dedup.set(key, f);
+        if (!prev || (f.filing_date || '') >= (prev.filing_date || '')) {
+            // Store only the fields we need — keeps 2.2M-entry map within Lambda memory.
+            dedup.set(key, {
+                cik: f.filer_cik, cusip: f.cusip,
+                shares: f.shares_or_principal_amount, marketValue: f.market_value,
+                filingDate: f.filing_date, issuerName: f.issuer_name,
+            });
+        }
     };
 
     async function scanShard(gte, lt) {
@@ -152,16 +168,16 @@ async function main() {
     const byCusip = new Map();
     for (const f of dedup.values()) {
         const list = byCusip.get(f.cusip) || [];
-        const k = KNOWN[f.filer_cik];
+        const k = KNOWN[f.cik];
         list.push({
-            cik: f.filer_cik,
+            cik: f.cik,
             name: k ? k.name : null,
             domain: k ? k.domain : null,
-            shares: f.shares_or_principal_amount,
-            marketValue: f.market_value,
-            period: f.period,
-            filingDate: f.filing_date,
-            issuerName: f.issuer_name,
+            shares: f.shares,
+            marketValue: f.marketValue,
+            period,
+            filingDate: f.filingDate,
+            issuerName: f.issuerName,
         });
         byCusip.set(f.cusip, list);
     }
@@ -180,35 +196,40 @@ async function main() {
         console.log('\n⚠ NVDA not found');
     }
 
-    if (DRY) { console.log('\n(DRY — no Redis writes)'); return; }
+    if (DRY) { console.log('\n(DRY — no Redis writes)'); return { period, cusips: byCusip.size, holdings: dedup.size, dry: true }; }
 
-    // Persist: top-N holders + accurate aggregates per CUSIP.
-    let saved = 0;
-    const entries = [...byCusip.entries()];
-    for (let i = 0; i < entries.length; i += 40) {
-        const batch = entries.slice(i, i + 40);
-        await Promise.all(batch.map(async ([cusip, holders]) => {
-            holders.sort((a, b) => b.marketValue - a.marketValue);
-            const totalShares = holders.reduce((s, h) => s + h.shares, 0);
-            const totalValue = holders.reduce((s, h) => s + h.marketValue, 0);
-            await redis.set(`cache:13f:cusip:${cusip}`, JSON.stringify({
-                holders: holders.slice(0, STORE_TOP),
-                totalHolders: holders.length,
-                totalShares,
-                totalValue,
-                period,
-                updatedAt: new Date().toISOString(),
-            }), { ex: TTL });
-            saved++;
-        }));
+    // Persist via Upstash REST pipeline, streamed in batches (top-N holders +
+    // accurate aggregates per CUSIP). Streaming avoids holding all 24k commands at once.
+    const now = new Date().toISOString();
+    let batch = [], saved = 0;
+    const flush = async () => { if (batch.length) { await redisPipeline(batch); saved += batch.length; batch = []; } };
+    for (const [cusip, holders] of byCusip.entries()) {
+        holders.sort((a, b) => b.marketValue - a.marketValue);
+        const totalShares = holders.reduce((s, h) => s + h.shares, 0);
+        const totalValue = holders.reduce((s, h) => s + h.marketValue, 0);
+        batch.push(['SET', `cache:13f:cusip:${cusip}`, JSON.stringify({
+            holders: holders.slice(0, STORE_TOP),
+            totalHolders: holders.length,
+            totalShares, totalValue, period, updatedAt: now,
+        }), 'EX', String(TTL)]);
+        if (batch.length >= 200) await flush();
     }
-    await redis.set('cache:13f:meta', JSON.stringify({
-        period, cusipsCached: saved, uniqueHoldings: dedup.size,
-        pagesScanned: pages, updatedAt: new Date().toISOString(),
-        elapsedMs: Date.now() - start,
-    }), { ex: TTL });
+    batch.push(['SET', 'cache:13f:meta', JSON.stringify({
+        period, cusipsCached: byCusip.size, uniqueHoldings: dedup.size,
+        pagesScanned: pages, updatedAt: now, elapsedMs: Date.now() - start,
+    }), 'EX', String(TTL)]);
+    await flush();
 
-    console.log(`\n✅ Saved ${saved} CUSIPs in ${((Date.now() - start) / 1000).toFixed(0)}s`);
+    console.log(`\n✅ Saved ${byCusip.size} CUSIPs in ${((Date.now() - start) / 1000).toFixed(0)}s`);
+    return { period, cusips: byCusip.size, holdings: dedup.size, elapsedMs: Date.now() - start };
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+// Shared entry point — runs as the signum-13f Lambda or as a local CLI script.
+exports.handler = async () => {
+    const r = await main();
+    return { statusCode: 200, body: JSON.stringify(r) };
+};
+
+if (require.main === module) {
+    main().catch(e => { console.error(e); process.exit(1); });
+}
