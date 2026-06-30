@@ -87,6 +87,16 @@ const sortPulse = (arr: PulseItem[], order: string[]): PulseItem[] =>
     return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
   });
 
+// Last real fetched values, kept at MODULE scope so they survive the component
+// unmounting on navigation. Without this, navigating away and back re-initialised
+// the Market Pulse rows to the DEMO_* placeholders (cash row showed e.g. NASDAQ
+// 17,863 / +0.35% instead of the live Redis value). On remount we seed state from
+// these instead of the demo data; the demo arrays are only ever shown on the very
+// first load before the first successful fetch.
+let lastGoodIndices: PulseItem[] | null = null;
+let lastGoodFutures: PulseItem[] | null = null;
+let lastGoodEtfs: PulseItem[] | null = null;
+
 const DEMO_MACRO: MacroItem[] = [
   { label: 'BTC', value: '$68.5K', chg: 2.1, unit: '%' },
   { label: 'GOLD', value: '$2,340', chg: -0.4, unit: '%' },
@@ -474,9 +484,9 @@ export default function AppDashPage() {
   const isLive = marketStatusReady && marketSession === 'regular' && !isMarketHoliday;
   const equityExtendedLive = marketStatusReady && !isMarketHoliday && (marketSession === 'pre' || marketSession === 'regular' || marketSession === 'post');
   const [loading, setLoading] = useState(true);
-  const [indices, setIndices] = useState<PulseItem[]>(DEMO_INDICES);
-  const [futures, setFutures] = useState<PulseItem[]>(DEMO_FUTURES);
-  const [etfs, setEtfs] = useState<PulseItem[]>(DEMO_ETFS);
+  const [indices, setIndices] = useState<PulseItem[]>(lastGoodIndices ?? DEMO_INDICES);
+  const [futures, setFutures] = useState<PulseItem[]>(lastGoodFutures ?? DEMO_FUTURES);
+  const [etfs, setEtfs] = useState<PulseItem[]>(lastGoodEtfs ?? DEMO_ETFS);
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
   const [movers, setMovers] = useState<MoverItem[]>([]);
@@ -1002,9 +1012,9 @@ export default function AppDashPage() {
           fetch('/api/live/market'),
           fetch('/api/market/macro'),
           fetch(`/api/guardian/briefing?locale=${locale}`),
-          fetch('/api/live/quotes?symbols=XLK,XLE,XLY,XLB,XLI,XLF,XLV,XLU,SPY,QQQ'),
+          fetch('/api/live/quotes?symbols=XLK,XLE,XLY,XLB,XLI,XLF,XLV,XLU,SPY,QQQ', { cache: 'no-store' }),
           fetch(`/api/live/premium-metrics?locale=${locale}`),
-          fetch('/api/market/index-close'),
+          fetch('/api/market/index-close', { cache: 'no-store' }),
           fetch(`/api/guardian/news-digest?locale=${locale}`),
         ]);
 
@@ -1055,23 +1065,15 @@ export default function AppDashPage() {
                 spark: DEMO_INDICES[2].spark,
               });
             }
-            if (items.length >= 2) {
-              setIndices(prev => items.map(item => {
-                if (isLive || Math.abs(item.chg) >= 0.0001) {
-                  return item;
-                }
-                const previous = prev.find(p => p.sym === item.sym);
-                if (!previous || Math.abs(previous.chg) < 0.0001) {
-                  return item;
-                }
-                return {
-                  ...item,
-                  px: item.px || previous.px,
-                  chg: previous.chg,
-                  up: previous.chg >= 0,
-                  spark: previous.spark,
-                };
-              }));
+            // Always show the freshest Redis values (the latest close after hours),
+            // as long as every price is valid (> 0). The previous logic fell back to
+            // the prior state's value when not live + ~0 change — which on a remount
+            // (prev = DEMO) bled the demo placeholder back in. We instead keep the
+            // last good values cached at module scope, so a stale/partial fetch never
+            // shows demo data; it just keeps the last real values.
+            if (items.length >= 2 && items.every(it => it.px > 0)) {
+              lastGoodIndices = items;
+              setIndices(items);
             }
           } catch {
             // fallback
@@ -1114,6 +1116,7 @@ export default function AppDashPage() {
               });
             }
             if (futItems.length >= 2) {
+              lastGoodFutures = futItems;
               setFutures(futItems);
             }
 
@@ -1262,7 +1265,7 @@ export default function AppDashPage() {
             const prevQqq = prev.find(item => item.sym === 'QQQ');
             const spyChg = stableChangePct(spyQuote, prevSpy?.chg ?? DEMO_ETFS[0].chg, equityExtendedLive);
             const qqqChg = stableChangePct(qqqQuote, prevQqq?.chg ?? DEMO_ETFS[1].chg, equityExtendedLive);
-            return [
+            const next: PulseItem[] = [
               {
                 sym: 'SPY',
                 px: spyQuote.price || prevSpy?.px || DEMO_ETFS[0].px,
@@ -1288,6 +1291,8 @@ export default function AppDashPage() {
                 ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday), { requireFresh: false }),
               }
             ];
+            lastGoodEtfs = next;
+            return next;
           });
         }
 
