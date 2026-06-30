@@ -21,7 +21,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // push-notifications plugin's 'registration' event fires). Without this,
     // Firebase's swizzle swallowed the callback and Capacitor never saw the token.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        Messaging.messaging().apnsToken = deviceToken
+        // Set the APNs token WITH its environment. Auto-detection can route a
+        // sandbox (development) token to the production APNs gateway, which
+        // silently drops the push (FCM still reports success). Set it explicitly
+        // per build configuration so FCM uses the right APNs server.
+        #if DEBUG
+        Messaging.messaging().setAPNSToken(deviceToken, type: .sandbox)
+        #else
+        Messaging.messaging().setAPNSToken(deviceToken, type: .prod)
+        #endif
         NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
     }
 
