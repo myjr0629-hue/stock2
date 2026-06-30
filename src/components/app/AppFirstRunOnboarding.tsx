@@ -224,17 +224,34 @@ export function AppFirstRunOnboarding() {
           });
 
           if (platform === 'ios') {
-            // APNs token is delivered via 'registration'; once it's set, Firebase
-            // can mint the FCM token. Wait for that event, then read the FCM token.
+            // APNs token is delivered via 'registration'. Firebase then needs a
+            // moment to exchange it for an FCM token, so FCM.getToken() can return
+            // empty if called immediately. Retry with backoff until it yields one.
             PushNotifications.addListener('registration', async () => {
+              // @ts-ignore — native-only plugin
+              let FCM: any;
               try {
-                // @ts-ignore — native-only plugin
                 const FCMMod: any = await import('@capacitor-community/fcm');
-                const { token } = await FCMMod.FCM.getToken();
-                postToken(token);
+                FCM = FCMMod.FCM;
               } catch (e) {
-                console.warn('[Push] FCM.getToken failed:', e);
+                console.warn('[Push] fcm plugin import failed:', e);
+                return;
               }
+              for (let attempt = 0; attempt < 8; attempt++) {
+                try {
+                  const res = await FCM.getToken();
+                  if (res?.token) {
+                    console.log('[Push] iOS FCM token acquired (attempt ' + attempt + ')');
+                    postToken(res.token);
+                    return;
+                  }
+                  console.warn('[Push] iOS FCM token empty, attempt ' + attempt);
+                } catch (e) {
+                  console.warn('[Push] FCM.getToken attempt ' + attempt + ' failed:', e);
+                }
+                await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+              }
+              console.warn('[Push] iOS FCM token never became available');
             });
           } else {
             // Android: the 'registration' event value IS the FCM token.
