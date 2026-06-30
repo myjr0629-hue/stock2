@@ -28,8 +28,6 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>FirebaseAppDelegateProxyEnabled</key>
-	<false/>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-1716731715414173~4757602262</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
