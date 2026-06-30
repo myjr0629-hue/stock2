@@ -3084,8 +3084,8 @@ function CmdPageContent() {
               borderTopRightRadius: '0px'
             }}
           >
-            <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-3">Institutional & Insider Filings</div>
-            <MobileCmd13F ticker={data.ticker} />
+            <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-3">{locale === 'ko' ? '기관 · 내부자 공시' : locale === 'ja' ? '機関・内部者の届出' : 'Institutional & Insider Filings'}</div>
+            <MobileCmd13F ticker={data.ticker} locale={locale} />
           </div>
         </div>
         </ValueWall>

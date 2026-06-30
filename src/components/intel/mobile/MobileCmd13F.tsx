@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
+import { MetricInfo } from '@/components/app/MetricInfo';
 
 // ── Utilities ──
 function fmtNum(n: number): string {
@@ -266,35 +267,40 @@ function MobileInsiderContent({ ticker }: { ticker: string }) {
 // ═══════════════════════════════════════════════════
 type SubTab = '13f' | 'insider';
 
-export function MobileCmd13F({ ticker }: { ticker: string }) {
+export function MobileCmd13F({ ticker, locale = 'en' }: { ticker: string; locale?: string }) {
     const [sub, setSub] = useState<SubTab>('13f');
+    const insiderLabel = locale === 'ko' ? '내부자거래' : locale === 'ja' ? '内部者取引' : 'Insider';
 
     return (
         <div className="space-y-3">
-            {/* Toggle Bar */}
-            <div className="flex rounded-xl bg-white/[0.04] border border-white/[0.06] p-1 gap-1">
-                <button
-                    onClick={() => setSub('13f')}
-                    className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all ${sub === '13f' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 active:bg-white/[0.06]'}`}
-                >
-                    <span className="flex items-center justify-center gap-1.5">
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={sub === '13f' ? 'text-white' : 'text-indigo-400'}>
-                            <path d="M8 1L1 5V6H15V5L8 1Z" /><rect x="2" y="7" width="2" height="5" /><rect x="5" y="7" width="2" height="5" /><rect x="9" y="7" width="2" height="5" /><rect x="12" y="7" width="2" height="5" /><rect x="1" y="13" width="14" height="1.5" rx="0.5" />
-                        </svg>
-                        13-F Holdings
-                    </span>
-                </button>
-                <button
-                    onClick={() => setSub('insider')}
-                    className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all ${sub === 'insider' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30' : 'text-slate-400 active:bg-white/[0.06]'}`}
-                >
-                    <span className="flex items-center justify-center gap-1.5">
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className={sub === 'insider' ? 'text-white' : 'text-amber-400'}>
-                            <circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" />
-                        </svg>
-                        Insider
-                    </span>
-                </button>
+            {/* Toggle Bar + contextual info tooltip (kept outside the buttons to avoid nested <button>) */}
+            <div className="flex items-center gap-2">
+                <div className="flex flex-1 rounded-xl bg-white/[0.04] border border-white/[0.06] p-1 gap-1">
+                    <button
+                        onClick={() => setSub('13f')}
+                        className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all ${sub === '13f' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 active:bg-white/[0.06]'}`}
+                    >
+                        <span className="flex items-center justify-center gap-1.5">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={sub === '13f' ? 'text-white' : 'text-indigo-400'}>
+                                <path d="M8 1L1 5V6H15V5L8 1Z" /><rect x="2" y="7" width="2" height="5" /><rect x="5" y="7" width="2" height="5" /><rect x="9" y="7" width="2" height="5" /><rect x="12" y="7" width="2" height="5" /><rect x="1" y="13" width="14" height="1.5" rx="0.5" />
+                            </svg>
+                            13-F Holdings
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setSub('insider')}
+                        className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all ${sub === 'insider' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30' : 'text-slate-400 active:bg-white/[0.06]'}`}
+                    >
+                        <span className="flex items-center justify-center gap-1.5">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className={sub === 'insider' ? 'text-white' : 'text-amber-400'}>
+                                <circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" />
+                            </svg>
+                            {insiderLabel}
+                        </span>
+                    </button>
+                </div>
+                {/* Explains whichever filing type is active, in the user's language */}
+                <MetricInfo term={sub === '13f' ? 'institutional13f' : 'insiderActivity'} locale={locale} size={18} />
             </div>
 
             {/* Content */}

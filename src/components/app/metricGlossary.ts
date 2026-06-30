@@ -37,7 +37,9 @@ export type MetricTerm =
   | 'volRegime'
   | 'conviction'
   | 'trendPhase'
-  | 'fundamental';
+  | 'fundamental'
+  | 'institutional13f'
+  | 'insiderActivity';
 
 export const CLOSE_LABEL: Record<Lang, string> = { ko: '확인', en: 'Got it', ja: '閉じる' };
 
@@ -224,6 +226,22 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
       ko: 'PER·ROE·부채비율 등 재무 지표를 종합한 건전성 등급입니다. A에 가까울수록 재무가 우량한 것으로 평가됩니다.',
       en: 'A health grade compiled from valuation and profitability metrics (P/E, ROE, debt, etc.). Grades closer to A reflect stronger fundamentals.',
       ja: 'PER・ROE・負債比率などの財務指標を総合した健全性グレードです。Aに近いほど財務が良好と評価されます。',
+    },
+  },
+  institutional13f: {
+    title: { ko: '13-F 기관 보유란?', en: 'What is 13-F?', ja: '13-F（機関保有）とは？' },
+    body: {
+      ko: '운용자산 1억 달러 이상의 기관투자자가 분기마다 SEC에 제출하는 보유 종목 공시입니다. 어떤 기관이 이 종목을 얼마나 보유하는지, 비중은 얼마인지 보여줍니다. 분기 1회·약 45일 지연 공시라 최신 매매가 아닌 분기말 기준입니다.',
+      en: 'A quarterly SEC filing by institutional managers with over $100M in assets, disclosing their equity holdings. Shows which institutions hold this stock, how many shares, and the weight. Quarterly and ~45-day lagged, so it reflects quarter-end positions — not live trading.',
+      ja: '運用資産1億ドル超の機関投資家が四半期ごとにSECへ提出する保有銘柄の開示です。どの機関がこの銘柄を何株・どの比率で保有するかを示します。四半期1回・約45日遅れのため、最新売買ではなく四半期末時点の保有状況です。',
+    },
+  },
+  insiderActivity: {
+    title: { ko: '내부자 거래란?', en: 'What is Insider Activity?', ja: '内部者取引とは？' },
+    body: {
+      ko: '임원·이사·10% 이상 주주 등 회사 내부자가 자사 주식을 매매하면 SEC Form 4로 공시됩니다. 내부자의 매수는 회사에 대한 자신감으로 해석될 수 있고, 매도는 분산투자·세금 등 다양한 이유가 있을 수 있습니다. 참고 지표일 뿐 매매 신호가 아닙니다.',
+      en: "When a company's officers, directors, or 10%+ owners buy or sell its stock, it's disclosed via SEC Form 4. Insider buying can signal confidence, while selling may have many reasons (diversification, taxes, etc.). It's a reference signal, not a trade recommendation.",
+      ja: '役員・取締役・10%以上保有株主などの会社内部者が自社株を売買するとSEC Form 4で開示されます。買いは会社への自信、売りは分散・税金など様々な理由が考えられます。参考指標であり売買シグナルではありません。',
     },
   },
 };
