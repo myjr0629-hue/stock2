@@ -59,7 +59,8 @@ const b64url = (buf: Buffer | string) =>
 function apnsAuthToken(): string {
   const keyId = process.env.APNS_KEY_ID;
   const teamId = process.env.APNS_TEAM_ID;
-  let key = process.env.APNS_KEY_P8 || '';
+  // Accept a couple of name spellings (P8 vs PB are easy to confuse).
+  let key = process.env.APNS_KEY_P8 || process.env.APNS_KEY_PB || process.env.APNS_KEY || '';
   if (!keyId || !teamId || !key) throw new Error('APNS_KEY_ID / APNS_TEAM_ID / APNS_KEY_P8 not set');
   // Tolerate keys pasted with escaped newlines.
   if (key.includes('\\n')) key = key.replace(/\\n/g, '\n');
