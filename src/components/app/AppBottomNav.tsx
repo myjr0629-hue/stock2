@@ -85,6 +85,7 @@ export function AppBottomNav() {
             key={tab.id}
             className={`app-tabbar-tab ${isActive ? 'active' : ''}`}
             onClick={() => {
+              console.log('[nav-tap]', tab.id, 'active=' + isActive);
               if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
               if (!isActive) onTabSwitch();
               router.replace(tab.path);
