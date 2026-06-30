@@ -161,6 +161,46 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const [rlsi, setRlsi] = useState<number | null>(null);
 
     // ═══════════════════════════════════════════════════════════
+    // LOSSLESS COALESCING — every WS message is applied to a working-copy
+    // ref immediately (zero data loss / full accuracy), but React state is
+    // committed at most once per FLUSH_MS. Without this, the firehose of
+    // option trades/quotes re-rendered every consumer (incl. the huge Flow
+    // page) on EVERY message — thousands of renders that saturated the main
+    // thread and made taps unreliable on iOS WKWebView. 10Hz is visually
+    // real-time; the underlying numbers committed are exact.
+    // ═══════════════════════════════════════════════════════════
+    const FLUSH_MS = 100;
+    const pricesRef = useRef<Map<string, PriceUpdate>>(new Map());
+    const quotesRef = useRef<Map<string, QuoteUpdate>>(new Map());
+    const optionsTradesRef = useRef<OptionsTradeUpdate[]>([]);
+    const optionsQuotesRef = useRef<Map<string, OptionsQuoteUpdate>>(new Map());
+    const luldRef = useRef<LuldUpdate[]>([]);
+    const gexRef = useRef<Map<string, GexUpdate>>(new Map());
+    const alertsRef = useRef<AlertUpdate[]>([]);
+    const rlsiRef = useRef<number | null>(null);
+    const dirtyRef = useRef<Set<string>>(new Set());
+    const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const scheduleFlush = useCallback(() => {
+        if (flushTimerRef.current) return; // a flush is already pending
+        flushTimerRef.current = setTimeout(() => {
+            flushTimerRef.current = null;
+            const d = dirtyRef.current;
+            dirtyRef.current = new Set();
+            // Commit a fresh immutable snapshot of each dirtied stream — exactly
+            // the same values the per-message setState would have produced.
+            if (d.has('prices')) setPrices(new Map(pricesRef.current));
+            if (d.has('quotes')) setQuotes(new Map(quotesRef.current));
+            if (d.has('optionsTrades')) setOptionsTrades(optionsTradesRef.current.slice());
+            if (d.has('optionsQuotes')) setOptionsQuotes(new Map(optionsQuotesRef.current));
+            if (d.has('luld')) setLuldEvents(luldRef.current.slice());
+            if (d.has('gex')) setGexData(new Map(gexRef.current));
+            if (d.has('alerts')) setAlerts(alertsRef.current.slice());
+            if (d.has('rlsi')) setRlsi(rlsiRef.current);
+        }, FLUSH_MS);
+    }, []);
+
+    // ═══════════════════════════════════════════════════════════
     // PRICE WEBSOCKET — Real-time stock prices via Polygon
     // ═══════════════════════════════════════════════════════════
     const connectPriceWs = useCallback(() => {
@@ -191,37 +231,33 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                     const now = Date.now();
 
                     if (msg.type === 'prices') {
-                        setPrices(prev => {
-                            const next = new Map(prev);
-                            next.set(msg.ticker, {
-                                ticker: msg.ticker,
-                                price: msg.price || 0,
-                                changePct: msg.changePct || 0,
-                                volume: msg.volume || 0,
-                                ts: now,
-                            });
-                            return next;
+                        pricesRef.current.set(msg.ticker, {
+                            ticker: msg.ticker,
+                            price: msg.price || 0,
+                            changePct: msg.changePct || 0,
+                            volume: msg.volume || 0,
+                            ts: now,
                         });
+                        dirtyRef.current.add('prices');
+                        scheduleFlush();
                     }
 
                     if (msg.type === 'quote') {
-                        setQuotes(prev => {
-                            const next = new Map(prev);
-                            next.set(msg.ticker, {
-                                ticker: msg.ticker,
-                                bid: msg.bid || 0,
-                                bidSize: msg.bidSize || 0,
-                                ask: msg.ask || 0,
-                                askSize: msg.askSize || 0,
-                                spread: msg.spread || 0,
-                                ts: now,
-                            });
-                            return next;
+                        quotesRef.current.set(msg.ticker, {
+                            ticker: msg.ticker,
+                            bid: msg.bid || 0,
+                            bidSize: msg.bidSize || 0,
+                            ask: msg.ask || 0,
+                            askSize: msg.askSize || 0,
+                            spread: msg.spread || 0,
+                            ts: now,
                         });
+                        dirtyRef.current.add('quotes');
+                        scheduleFlush();
                     }
 
                     if (msg.type === 'optionsTrade') {
-                        setOptionsTrades(prev => [
+                        optionsTradesRef.current = [
                             {
                                 contract: msg.contract,
                                 underlying: msg.underlying,
@@ -234,33 +270,33 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                 tradeType: msg.tradeType,
                                 ts: now,
                             },
-                            ...prev.slice(0, MAX_OPTIONS_TRADES - 1),
-                        ]);
+                            ...optionsTradesRef.current.slice(0, MAX_OPTIONS_TRADES - 1),
+                        ];
+                        dirtyRef.current.add('optionsTrades');
+                        scheduleFlush();
                     }
 
                     if (msg.type === 'optionsQuote') {
-                        setOptionsQuotes(prev => {
-                            const next = new Map(prev);
-                            next.set(msg.contract, {
-                                contract: msg.contract,
-                                underlying: msg.underlying,
-                                expiry: msg.expiry,
-                                strike: msg.strike,
-                                optionType: msg.optionType,
-                                bid: msg.bid || 0,
-                                ask: msg.ask || 0,
-                                mid: msg.mid || 0,
-                                spread: msg.spread || 0,
-                                iv: msg.iv,
-                                ivPct: msg.ivPct,
-                                ts: now,
-                            });
-                            return next;
+                        optionsQuotesRef.current.set(msg.contract, {
+                            contract: msg.contract,
+                            underlying: msg.underlying,
+                            expiry: msg.expiry,
+                            strike: msg.strike,
+                            optionType: msg.optionType,
+                            bid: msg.bid || 0,
+                            ask: msg.ask || 0,
+                            mid: msg.mid || 0,
+                            spread: msg.spread || 0,
+                            iv: msg.iv,
+                            ivPct: msg.ivPct,
+                            ts: now,
                         });
+                        dirtyRef.current.add('optionsQuotes');
+                        scheduleFlush();
                     }
 
                     if (msg.type === 'luld') {
-                        setLuldEvents(prev => [
+                        luldRef.current = [
                             {
                                 ticker: msg.ticker,
                                 upperLimit: msg.upperLimit,
@@ -268,8 +304,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                 indicator: msg.indicator,
                                 ts: msg.ts || now,
                             },
-                            ...prev.slice(0, MAX_LULD_EVENTS - 1),
-                        ]);
+                            ...luldRef.current.slice(0, MAX_LULD_EVENTS - 1),
+                        ];
+                        dirtyRef.current.add('luld');
+                        scheduleFlush();
                     }
                 } catch { /* invalid JSON */ }
             };
@@ -315,44 +353,44 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
                     switch (msg.type) {
                         case 'gex':
-                            setGexData(prev => {
-                                const next = new Map(prev);
-                                next.set(msg.ticker, {
-                                    ticker: msg.ticker,
-                                    gex: msg.gex || 0,
-                                    gammaState: msg.gammaState || 'NEUTRAL',
-                                    ts: now,
-                                });
-                                return next;
+                            gexRef.current.set(msg.ticker, {
+                                ticker: msg.ticker,
+                                gex: msg.gex || 0,
+                                gammaState: msg.gammaState || 'NEUTRAL',
+                                ts: now,
                             });
+                            dirtyRef.current.add('gex');
+                            scheduleFlush();
                             break;
 
                         case 'alerts':
-                            setAlerts(prev => [
+                            alertsRef.current = [
                                 { ticker: msg.ticker, type: msg.alertType, message: msg.message, ts: now },
-                                ...prev.slice(0, MAX_ALERTS - 1),
-                            ]);
+                                ...alertsRef.current.slice(0, MAX_ALERTS - 1),
+                            ];
+                            dirtyRef.current.add('alerts');
+                            scheduleFlush();
                             break;
 
                         case 'rlsi':
                             if (typeof msg.rlsi === 'number') {
-                                setRlsi(msg.rlsi);
+                                rlsiRef.current = msg.rlsi;
+                                dirtyRef.current.add('rlsi');
+                                scheduleFlush();
                             }
                             break;
 
                         // Guardian WS might also send prices for guardian-specific tickers
                         case 'prices':
-                            setPrices(prev => {
-                                const next = new Map(prev);
-                                next.set(msg.ticker, {
-                                    ticker: msg.ticker,
-                                    price: msg.price || 0,
-                                    changePct: msg.changePct || 0,
-                                    volume: msg.volume || 0,
-                                    ts: now,
-                                });
-                                return next;
+                            pricesRef.current.set(msg.ticker, {
+                                ticker: msg.ticker,
+                                price: msg.price || 0,
+                                changePct: msg.changePct || 0,
+                                volume: msg.volume || 0,
+                                ts: now,
                             });
+                            dirtyRef.current.add('prices');
+                            scheduleFlush();
                             break;
                     }
                 } catch { /* invalid JSON */ }
@@ -389,6 +427,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }, 60000); // Check every 60s if market has opened
         return () => {
             clearInterval(marketCheckInterval);
+            if (flushTimerRef.current) { clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
             if (priceReconnectTimer.current) clearTimeout(priceReconnectTimer.current);
             if (guardianReconnectTimer.current) clearTimeout(guardianReconnectTimer.current);
             if (priceWsRef.current) { priceWsRef.current.close(); priceWsRef.current = null; }

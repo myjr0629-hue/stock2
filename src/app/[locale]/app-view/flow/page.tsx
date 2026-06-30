@@ -1574,7 +1574,12 @@ export default function AppFlowPage() {
   const aiOpiColor = opi >= 65 ? 'var(--green)' : opi >= 40 ? 'var(--amber)' : 'var(--red)';
 
   // Info popover helper components
-  const InfoBtn = ({ popKey }: { popKey: string }) => (
+  // Render FUNCTION (not a component) on purpose: a component defined inside
+  // render gets a new identity every render, so React unmounts/remounts its
+  // <button> — on the constantly-updating Flow page that replaced the node
+  // mid-tap and iOS WKWebView dropped the click. Inlining the element instead
+  // lets React reconcile (reuse) the same DOM node, so taps always land.
+  const renderInfoBtn = (popKey: string) => (
     <button
       className="info-btn"
       type="button"
@@ -2605,7 +2610,7 @@ export default function AppFlowPage() {
             <div className="app-card-head" style={{ marginBottom: 0 }}>
               <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
                 {t.opiGauge}
-                <InfoBtn popKey="opi" />
+                {renderInfoBtn("opi")}
                 <span style={{ 
                   fontSize: '8px', 
                   fontWeight: 900, 
@@ -2757,7 +2762,7 @@ export default function AppFlowPage() {
                 <div className="app-card-head" style={{ marginBottom: '10px', alignItems: 'center' }}>
                   <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {flowCopy.pressurePair}
-                    <InfoBtn popKey="composite" />
+                    {renderInfoBtn("composite")}
                   </span>
                   <span style={{
                     font: 'var(--f-micro)',
@@ -2804,7 +2809,7 @@ export default function AppFlowPage() {
                   <div style={{ padding: '11px 10px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.38)', border: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
                       <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800 }}>{flowCopy.squeezeProbability}</span>
-                      <InfoBtn popKey="squeeze" />
+                      {renderInfoBtn("squeeze")}
                     </div>
                     <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: sqColor, lineHeight: 1, marginTop: '7px' }}>
                       {squeezeProb}%
@@ -2957,7 +2962,7 @@ export default function AppFlowPage() {
                 {renderPopover('ruler', flowCopy.spotInfo, flowCopy.spotInfoTitle)}
                 <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '14px', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {flowCopy.spotTitle}
-                  <InfoBtn popKey="ruler" />
+                  {renderInfoBtn("ruler")}
                 </span>
                 
                 {/* Ruler track */}
@@ -3130,7 +3135,7 @@ export default function AppFlowPage() {
                 <div className="app-card-head" style={{ marginBottom: '12px', alignItems: 'center' }}>
                   <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     {flowCopy.optionsRegime}
-                    <InfoBtn popKey="gex" />
+                    {renderInfoBtn("gex")}
                   </span>
                   <span style={{
                     fontSize: '8px',
@@ -3371,7 +3376,7 @@ export default function AppFlowPage() {
                   <div className="app-card-head" style={{ marginBottom: '13px', alignItems: 'center' }}>
                     <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 850, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       AI VERDICT
-                      <InfoBtn popKey="ai-verdict" />
+                      {renderInfoBtn("ai-verdict")}
                     </span>
                     <span style={{ fontSize: '9px', fontWeight: 950, padding: '3px 8px', borderRadius: '12px', ...aiVerdictBadgeStyle, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                       {aiVerdictLabel}
@@ -3546,7 +3551,7 @@ export default function AppFlowPage() {
                   <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
                     <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       {whaleCopy.sectionTitle}
-                      <InfoBtn popKey="inst-flow" />
+                      {renderInfoBtn("inst-flow")}
                     </span>
                     <span style={{
                       fontSize: '8px',
@@ -3628,7 +3633,7 @@ export default function AppFlowPage() {
               <div className="app-card-head" style={{ marginBottom: '12px', alignItems: 'center' }}>
                 <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   {whaleCopy.psychology}
-                  <InfoBtn popKey="flow-psych" />
+                  {renderInfoBtn("flow-psych")}
                 </span>
                 <span style={{ fontSize: '8px', fontWeight: 950, padding: '3px 8px', borderRadius: '999px', color: psychologyAccent, background: `${psychologyAccent}16`, border: `1px solid ${psychologyAccent}28`, whiteSpace: 'nowrap' }}>
                   {psychologyLabel}
