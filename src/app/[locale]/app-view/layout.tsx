@@ -92,12 +92,20 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     document.documentElement.classList.add('is-app-view');
 
     let startY = 0;
+    let startedOnControl = false;
     const onTouchStart = (e: TouchEvent) => {
       startY = e.touches[0].clientY;
+      // Remember if the touch began on an interactive control. We must NEVER
+      // preventDefault during a tap on a control: on iOS that cancels the
+      // synthesized click, which made the bottom nav, page tabs and ⓘ buttons
+      // tap unreliably ("works off-centre, not dead-centre"). Android is unaffected.
+      const t = e.target as HTMLElement | null;
+      startedOnControl = !!t?.closest('button, a, [role="button"], [role="tab"], input, select, label, .info-btn');
     };
     const onTouchMove = (e: TouchEvent) => {
+      if (startedOnControl) return; // taps on controls are sacred — never block them
       const y = e.touches[0].clientY;
-      if (y <= startY) return; // only guard downward pulls (pull-to-refresh direction)
+      if (y - startY <= 10) return; // ignore tiny wobble of a tap; only act on a real drag
       // Block the pull only when the ACTUAL scroller under the finger is at its top.
       // Walk up to the nearest vertically-scrollable ancestor so custom scrollers that are
       // decoupled from .app-main (e.g. the market-movers list .viewport/.scroll) keep working.
