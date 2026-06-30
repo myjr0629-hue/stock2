@@ -1576,16 +1576,21 @@ export default function AppFlowPage() {
     : { background: 'rgba(239, 68, 68, 0.12)', color: 'var(--red)', border: '1px solid rgba(239, 68, 68, 0.25)' };
   const aiOpiColor = opi >= 65 ? 'var(--green)' : opi >= 40 ? 'var(--amber)' : 'var(--red)';
 
-  // Info popover helper components
+  // Info popover helper. Visual circle stays 18px; the tap area is expanded via a
+  // transparent `.info-btn::before` (inset -11px) so iOS — which, unlike Android,
+  // does NOT auto-expand small tap targets — can hit it reliably. The ::before is
+  // absolutely positioned, so it never affects layout.
   const InfoBtn = ({ popKey }: { popKey: string }) => (
     <button
       className="info-btn"
       type="button"
+      aria-label="info"
       onClick={(e) => {
         e.stopPropagation();
         setActivePopover(activePopover === popKey ? null : popKey);
       }}
       style={{
+        position: 'relative',
         width: 18,
         height: 18,
         borderRadius: '50%',
@@ -1639,11 +1644,12 @@ export default function AppFlowPage() {
           <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             {title}
           </span>
-          <button 
+          <button
             type="button"
+            className="popover-close"
             onClick={(e) => { e.stopPropagation(); setActivePopover(null); }}
             aria-label="Close info"
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', fontSize: 0, lineHeight: 0, backgroundImage: 'linear-gradient(45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%), linear-gradient(-45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%)' }}
+            style={{ position: 'relative', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', fontSize: 0, lineHeight: 0, backgroundImage: 'linear-gradient(45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%), linear-gradient(-45deg, transparent 45%, rgba(148,163,184,0.95) 46%, rgba(148,163,184,0.95) 54%, transparent 55%)' }}
           >
             ✕
           </button>
@@ -2364,6 +2370,16 @@ export default function AppFlowPage() {
 
       {/* ── STYLE TAG FOR CUSTOM PREMIUM SCROLLBAR & VITAL CARD GLOWS ── */}
       <style jsx global>{`
+        /* Expand the tap area of the small ⓘ / ✕ buttons without changing their
+           visual size. iOS WKWebView (unlike Android) does not auto-grow small tap
+           targets, so they were hard to tap. The ::before is absolutely positioned
+           and never affects layout. */
+        .info-btn::before,
+        .popover-close::before {
+          content: '';
+          position: absolute;
+          inset: -11px;
+        }
         .premium-card {
           background: rgba(30, 41, 59, 0.45);
           border: 1px solid rgba(255, 255, 255, 0.05);
