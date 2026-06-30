@@ -207,9 +207,17 @@
 .ack input {
   appearance: none;
   -webkit-appearance: none;
+  box-sizing: border-box;
   flex: 0 0 20px;
+  /* Hard-lock to a 20x20 square — iOS WKWebView otherwise stretches the
+     input vertically to the text height (height alone isn't respected). */
   width: 20px;
   height: 20px;
+  min-width: 20px;
+  max-width: 20px;
+  min-height: 20px;
+  max-height: 20px;
+  align-self: center;
   margin: 0;
   border-radius: 6px;
   border: 1.5px solid rgba(34, 211, 238, 0.55);
