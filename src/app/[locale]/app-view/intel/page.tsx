@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocale } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
@@ -1467,6 +1468,15 @@ export default function AppIntelPage() {
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [reportLoadingSector, setReportLoadingSector] = useState<string | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
+
+  // Lock background scroll while the full-screen sector report modal is open.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!expandedReport) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [expandedReport]);
   const [globalReportLoading, setGlobalReportLoading] = useState(false);
   const [stockAiAnalyses, setStockAiAnalyses] = useState<Record<string, StockAiAnalysis>>({});
   const [stockAiLoading, setStockAiLoading] = useState<Record<string, boolean>>({});
@@ -3302,9 +3312,58 @@ export default function AppIntelPage() {
                       </div>
                     </button>
 
-                    {/* ── Expanded Content ── */}
-                    {isExpanded && (
-                      <div style={{ padding: '0 16px 20px', animation: 'fadeSlideIn 0.2s ease' }}>
+                    {/* ── Expanded Content — full-screen report modal (portal) ── */}
+                    {isExpanded && typeof document !== 'undefined' && createPortal(
+                      <div
+                        onClick={() => setExpandedReport(null)}
+                        style={{
+                          position: 'fixed', inset: 0, zIndex: 4000,
+                          background: 'rgba(2,6,18,0.72)',
+                          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+                          animation: 'sheetFadeIn 0.18s ease'
+                        }}
+                      >
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: 'absolute', left: 0, right: 0, bottom: 0,
+                            top: 'max(env(safe-area-inset-top), 20px)',
+                            display: 'flex', flexDirection: 'column',
+                            background: 'var(--surface-1, #0b1220)',
+                            borderTopLeftRadius: '20px', borderTopRightRadius: '20px',
+                            border: `1px solid ${sec.color}30`, borderBottom: 'none',
+                            boxShadow: '0 -12px 48px rgba(0,0,0,0.5)',
+                            overflow: 'hidden',
+                            animation: 'sheetUp 0.26s cubic-bezier(0.22,1,0.36,1)'
+                          }}
+                        >
+                          {/* Grab handle */}
+                          <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', paddingTop: '8px' }}>
+                            <div style={{ width: '38px', height: '4px', borderRadius: '999px', background: 'rgba(255,255,255,0.18)' }} />
+                          </div>
+                          {/* Sticky modal header */}
+                          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                              <SectorIcon sectorKey={toCamelCase(sec.id)} color={sec.color} size={20} />
+                              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                  <span style={{ fontSize: '10px', fontWeight: 800, color: sentimentColor, background: sentimentBg, padding: '2px 7px', borderRadius: '5px', letterSpacing: '0.04em' }}>{cached.sentiment}</span>
+                                  <span style={{ fontSize: '10px', color: cached.source === 'global-report' ? '#f59e0b' : '#22d3ee', fontWeight: 700, letterSpacing: '0.02em' }}>{sourceLabel}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedReport(null)}
+                              aria-label="Close"
+                              style={{ flexShrink: 0, width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-dim)', WebkitTapHighlightColor: 'transparent' }}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                          </div>
+                          {/* Scrollable report body */}
+                          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '16px 16px calc(env(safe-area-inset-bottom) + 28px)' }}>
                         {isReportRefreshing && (
                           <div style={{
                             marginBottom: '12px',
@@ -3858,7 +3917,10 @@ export default function AppIntelPage() {
                             </div>
                           </div>
                         )}
-                      </div>
+                          </div>
+                        </div>
+                      </div>,
+                      document.body
                     )}
                   </div>
                 );

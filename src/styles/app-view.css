@@ -335,6 +335,14 @@ html.native-app body {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sheetFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 /* Ad slot */
 .app-ad-slot {
