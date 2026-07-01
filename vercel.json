@@ -102,7 +102,11 @@
         },
         {
             "path": "/api/cron/push?type=morning",
-            "schedule": "30 12 * * 1-5"
+            "schedule": "10 12 * * 1-5"
+        },
+        {
+            "path": "/api/cron/push?type=morning",
+            "schedule": "10 13 * * 1-5"
         },
         {
             "path": "/api/cron/push?type=closing",

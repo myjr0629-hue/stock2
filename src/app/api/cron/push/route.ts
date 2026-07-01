@@ -6,7 +6,7 @@
 // ============================================================================
 import { NextResponse } from 'next/server';
 import { sendPushByType } from '@/lib/push/send';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,22 +29,41 @@ export async function GET(request: Request) {
   }
 
   const type = searchParams.get('type') === 'morning' ? 'morning' : 'closing';
+  const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
-  // Verify the closing report was actually generated today before notifying. The
-  // snapshot cron sets this marker on success; the push fires ~15min after the last
-  // sector snapshot. If the pipeline was delayed/failed the marker is stale and we
-  // skip rather than send a premature or empty notification.
-  if (type === 'closing') {
+  // 1) Verify the report/brief was ACTUALLY generated TODAY before notifying — never
+  //    send a premature or empty push if generation was delayed or failed.
+  if (type === 'morning') {
+    // Morning brief is generated ~08:00 ET by the EC2 worker (guardian/briefing/generate),
+    // which stamps guardian:morning_briefing.generatedAt.
+    const brief = await getFromCache<{ generatedAt?: string }>('guardian:morning_briefing');
+    const genET = brief?.generatedAt
+      ? new Date(brief.generatedAt).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      : null;
+    if (genET !== todayET) {
+      console.warn(`[Cron/Push] morning brief not ready (gen=${genET}, today=${todayET}) — skipping`);
+      return NextResponse.json({ ok: false, skipped: true, reason: 'report-not-ready', type });
+    }
+  } else {
+    // Closing sector reports — the snapshot cron sets this marker on success.
     const ready = await getFromCache<string>('push:report-ready:closing');
-    const etDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-    if (ready !== etDate) {
-      console.warn(`[Cron/Push] closing report not ready (marker=${ready}, today=${etDate}) — skipping`);
+    if (ready !== todayET) {
+      console.warn(`[Cron/Push] closing report not ready (marker=${ready}, today=${todayET}) — skipping`);
       return NextResponse.json({ ok: false, skipped: true, reason: 'report-not-ready', type });
     }
   }
 
+  // 2) De-dupe: the morning cron fires at two UTC times (one per DST season, so the
+  //    push always lands ~10min after 08:00 ET), and Vercel may retry — only ever send
+  //    one push per type per ET day.
+  const sentKey = `push:sent:${type}:${todayET}`;
+  if (await getFromCache<string>(sentKey)) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'already-sent', type });
+  }
+
   try {
     const result = await sendPushByType(type);
+    await setInCache(sentKey, new Date().toISOString(), 60 * 60 * 18);
     console.log(`[Cron/Push] type=${type} sent=${result.sent}/${result.total} pruned=${result.pruned}`);
     return NextResponse.json({ ok: true, type, ...result });
   } catch (err: any) {

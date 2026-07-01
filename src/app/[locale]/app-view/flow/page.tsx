@@ -1892,10 +1892,20 @@ export default function AppFlowPage() {
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </button>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', font: 'var(--f-micro)', fontWeight: 800, color: '#10b981', letterSpacing: '0.05em' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
-            LIVE
-          </span>
+          {(() => {
+            // Reflect the ACTUAL session (was hardcoded LIVE even when closed).
+            const b = effectiveSession === 'REG' ? { label: 'LIVE', color: '#10b981' }
+              : effectiveSession === 'PRE' ? { label: 'PRE-MKT', color: '#f59e0b' }
+              : effectiveSession === 'POST' ? { label: 'POST-MKT', color: '#22d3ee' }
+              : { label: 'CLOSED', color: '#94a3b8' };
+            const pulse = effectiveSession === 'REG' || effectiveSession === 'PRE' || effectiveSession === 'POST';
+            return (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', font: 'var(--f-micro)', fontWeight: 800, color: b.color, letterSpacing: '0.05em' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: b.color, boxShadow: pulse ? `0 0 6px ${b.color}` : 'none' }} />
+                {b.label}
+              </span>
+            );
+          })()}
         </div>
       </header>
 
