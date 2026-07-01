@@ -2513,10 +2513,10 @@ export default function AppIntelPage() {
   const sessionBadge = marketStatus.session === 'regular'
     ? { text: 'LIVE', color: '#10b981', pulse: true }
     : marketStatus.session === 'pre'
-      ? { text: locale === 'ko' ? '프리마켓' : locale === 'ja' ? 'プレ' : 'PRE-MKT', color: '#f59e0b', pulse: true }
+      ? { text: 'PRE-MKT', color: '#f59e0b', pulse: true }
       : marketStatus.session === 'post'
-        ? { text: locale === 'ko' ? '애프터' : locale === 'ja' ? 'アフター' : 'POST-MKT', color: '#22d3ee', pulse: true }
-        : { text: locale === 'ko' ? '장마감' : locale === 'ja' ? '引け' : 'CLOSED', color: '#94a3b8', pulse: false };
+        ? { text: 'POST-MKT', color: '#22d3ee', pulse: true }
+        : { text: 'CLOSED', color: '#94a3b8', pulse: false };
 
   return (
     <div className={s.page} style={{
@@ -4977,14 +4977,13 @@ export default function AppIntelPage() {
                                     const extUp = extPct >= 0;
                                     const isPre = String(lq!.extendedLabel).toUpperCase().includes('PRE');
                                     const tagColor = isPre ? '#f59e0b' : '#22d3ee';
-                                    const tagText = isPre ? (locale === 'ko' ? '프리마켓' : locale === 'ja' ? 'プレ' : 'PRE') : (locale === 'ko' ? '애프터' : locale === 'ja' ? 'アフター' : 'POST');
+                                    // English PRE/POST in every language (product decision)
+                                    const tagText = isPre ? 'PRE' : 'POST';
                                     return (
-                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '7px', background: `${tagColor}1a`, border: `1px solid ${tagColor}3d` }}>
-                                        <span style={{ fontSize: '8.5px', fontWeight: 900, color: tagColor, letterSpacing: '0.04em' }}>{tagText}</span>
-                                        <span style={{ fontSize: '11px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{extPct.toFixed(2)}%</span>
-                                        {(lq!.extendedPrice ?? 0) > 0 && (
-                                          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono), monospace' }}>${(lq!.extendedPrice as number).toFixed(2)}</span>
-                                        )}
+                                      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', padding: '4px 10px', borderRadius: '8px', background: `${tagColor}1a`, border: `1px solid ${tagColor}3d`, marginLeft: 'auto' }}>
+                                        <span style={{ fontSize: '9px', fontWeight: 900, color: tagColor, letterSpacing: '0.05em' }}>{tagText}</span>
+                                        <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }}>${(lq!.extendedPrice as number).toFixed(2)}</span>
+                                        <span style={{ fontSize: '12px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{extPct.toFixed(2)}%</span>
                                       </span>
                                     );
                                   })()}
