@@ -2814,6 +2814,10 @@ export default function AppIntelPage() {
                 const edgeAlerts = (brief.edgeAlerts || []).slice(0, 3);
                 const dirColor = (d: string) => d === '↑' ? '#10b981' : d === '↓' ? '#ef4444' : 'var(--text-muted)';
                 const edgeTone = (t?: string) => t === 'EXTREME' ? { c: '#ef4444', bg: 'rgba(239,68,68,0.08)', b: 'rgba(239,68,68,0.18)' } : t === 'ANOMALY' ? { c: '#a78bfa', bg: 'rgba(167,139,250,0.08)', b: 'rgba(167,139,250,0.18)' } : { c: '#f59e0b', bg: 'rgba(245,158,11,0.08)', b: 'rgba(245,158,11,0.18)' };
+                const gamma = brief.gammaOptions;
+                const gammaInsight = gamma?.insight?.[L] || gamma?.insight?.en || '';
+                const gRegimeColor = gamma?.regime === 'LONG' ? '#10b981' : gamma?.regime === 'SHORT' ? '#ef4444' : '#f59e0b';
+                const keyLevels = (brief.outlook?.keyLevels || []).slice(0, 4);
                 // Aggregate W/L from all cached reports
                 const totalGainers = Object.values(reportCache).reduce((sum, r) => sum + (r.gainers || 0), 0);
                 const totalLosers = Object.values(reportCache).reduce((sum, r) => sum + (r.losers || 0), 0);
@@ -2875,6 +2879,29 @@ export default function AppIntelPage() {
 
                     {/* Body */}
                     <div style={{ padding: '12px 16px 16px' }}>
+                      {/* Options Snapshot — gamma / pcr / regime (visual strip) */}
+                      {gamma && (
+                        <div style={{ marginBottom: '12px', padding: '11px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <div style={{ flex: 1, textAlign: 'center' }}>
+                              <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '3px' }}>GEX</div>
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: gamma.regime === 'SHORT' ? '#ef4444' : gamma.regime === 'LONG' ? '#10b981' : '#f59e0b', fontFamily: 'var(--font-mono, monospace)' }}>{(gamma.totalGexLabel || '-').split(' ')[0]}</div>
+                            </div>
+                            <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.06)' }} />
+                            <div style={{ flex: 1, textAlign: 'center' }}>
+                              <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '3px' }}>PCR</div>
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-dim)', fontFamily: 'var(--font-mono, monospace)' }}>{typeof gamma.avgPcr === 'number' ? gamma.avgPcr.toFixed(2) : '-'}</div>
+                            </div>
+                            <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.06)' }} />
+                            <div style={{ flex: 1, textAlign: 'center' }}>
+                              <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '3px' }}>{locale === 'ko' ? '레짐' : locale === 'ja' ? 'レジーム' : 'REGIME'}</div>
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: gRegimeColor }}>{gamma.regime || '-'}</div>
+                            </div>
+                          </div>
+                          {gammaInsight && <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>{gammaInsight}</div>}
+                        </div>
+                      )}
+
                       {/* Sector Rotation Winners/Losers */}
                       {brief.sectorRotation && (brief.sectorRotation.winners?.length > 0 || brief.sectorRotation.losers?.length > 0) && (
                         <div style={{ marginBottom: '12px' }}>
@@ -3078,6 +3105,27 @@ export default function AppIntelPage() {
                           }}>
                             {brief.outlook.bias}
                           </span>
+                        </div>
+                      )}
+
+                      {/* Key Levels — support / resistance chips (visual) */}
+                      {keyLevels.length > 0 && (
+                        <div style={{ marginTop: '10px' }}>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: '7px' }}>
+                            {locale === 'ko' ? '핵심 레벨' : locale === 'ja' ? '主要レベル' : 'KEY LEVELS'}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {keyLevels.map((kl, i) => (
+                              <div key={i} style={{
+                                display: 'inline-flex', alignItems: 'baseline', gap: '5px',
+                                padding: '5px 10px', borderRadius: '7px',
+                                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)'
+                              }}>
+                                <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 600 }}>{kl.label}</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{kl.value}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
