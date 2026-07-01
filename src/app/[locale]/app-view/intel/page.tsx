@@ -857,6 +857,18 @@ function toCamelCase(id: string): string {
    PREMIUM HELPERS & LOGO RESOLVER
    ═══════════════════════════════════════════════════════════ */
 
+// Module-level ticker set so report modules (impact chain, etc.) can decide
+// whether a bare label is a real stock symbol before rendering a logo.
+const KNOWN_TICKER_SET = new Set([
+  'NVDA','AAPL','MSFT','TSLA','META','GOOGL','GOOG','AMZN','AMD','AVGO','MU','ARM','TSM','ASML',
+  'CEG','VST','GEV','PWR','CCJ','SMR','SERV','SYM','ISRG','TER','PL','RKLB',
+  'LLY','NVO','VRTX','REGN','VKTX','AMGN','CRWD','PANW','ZS','FTNT','NET','S',
+  'LMT','RTX','NOC','PLTR','LDOS','AXON','IONQ','QBTS','RGTI','QUBT','WOLF','QTWO',
+  'SQ','PYPL','AFRM','SOFI','COIN','HOOD','CRM','SNOW','DDOG','NOW','MDB','TEAM',
+  'SPY','QQQ','IWM','DIA','VOO','VTI'
+]);
+const isKnownTicker = (s: string): boolean => /^[A-Z]{1,5}$/.test(s) && KNOWN_TICKER_SET.has(s);
+
 function StockLogo({ symbol, size = 32 }: { symbol: string; size?: number }) {
   const [error, setError] = useState(false);
   const showTickerFallback = error || ['SPCX'].includes(symbol);
@@ -3041,7 +3053,8 @@ export default function AppIntelPage() {
                                       {chain.slice(0, 3).map((step, j) => (
                                         <React.Fragment key={j}>
                                           {j > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.6 }}>&#8594;</span>}
-                                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: 700, padding: '4px 8px', borderRadius: '7px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono, monospace)' }}>
+                                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, padding: '4px 8px', borderRadius: '7px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono, monospace)' }}>
+                                            {isKnownTicker(step.indicator) && <StockLogo symbol={step.indicator} size={14} />}
                                             {step.indicator}
                                             <span style={{ color: dirColor(step.direction), fontWeight: 900 }}>{step.direction}</span>
                                           </span>
