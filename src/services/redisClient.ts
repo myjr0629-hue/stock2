@@ -111,11 +111,24 @@ function getUpstashClient(): UpstashRedis | null {
  * Get cached value from Redis
  * Tries EC2 Proxy (ElastiCache) first (~15ms), falls back to Upstash (~30ms)
  */
+// The EC2 proxy occasionally mangles multi-byte UTF-8 (Korean/Japanese) into
+// U+FFFD replacement chars — the same value stored in Upstash stays clean. Detect
+// that corruption so we fall through to Upstash and users never see mojibake
+// (guardian AI briefs, sector names, etc.).
+function isMojibake(value: unknown): boolean {
+    if (value == null) return false;
+    try {
+        const s = typeof value === 'string' ? value : JSON.stringify(value);
+        return s.indexOf('\uFFFD') !== -1;
+    } catch { return false; }
+}
+
 export async function getFromCache<T>(key: string): Promise<T | null> {
     // Try EC2 Proxy first (ElastiCache via HTTP)
     if (ecProxyAvailable !== false) {
         const result = await ecProxyGet<T>(key);
-        if (result !== null) return result;
+        // Skip a corrupted EC2 value (mojibake) and let Upstash serve the clean copy.
+        if (result !== null && !isMojibake(result)) return result;
     }
 
     // Fallback to Upstash
@@ -152,11 +165,16 @@ export async function mgetFromCache<T>(keys: string[]): Promise<(T | null)[]> {
             );
             if (res.ok) {
                 const data = await res.json();
-                if (ecProxyAvailable === null) {
-                    ecProxyAvailable = true;
-                    console.log('[Redis] EC2 Proxy connected (via mget)');
+                const results = (data.results || []) as (T | null)[];
+                // If the EC2 proxy corrupted any multi-byte value, fall through to
+                // Upstash's clean copy rather than returning mojibake.
+                if (!results.some(isMojibake)) {
+                    if (ecProxyAvailable === null) {
+                        ecProxyAvailable = true;
+                        console.log('[Redis] EC2 Proxy connected (via mget)');
+                    }
+                    return results;
                 }
-                return (data.results || []) as (T | null)[];
             }
         } catch (e: any) {
             ecProxyAvailable = false;
