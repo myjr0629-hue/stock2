@@ -824,6 +824,8 @@ interface CrossSectorBrief {
     bias: string;
     catalysts: { ko: string[]; en: string[]; ja: string[] };
     risks: { ko: string[]; en: string[]; ja: string[] };
+    opportunities?: { ko: string[]; en: string[]; ja: string[] };
+    keyLevels?: { label: string; value: string }[];
   };
   gammaOptions?: {
     totalGexLabel: string;
@@ -831,6 +833,20 @@ interface CrossSectorBrief {
     regime: string;
     insight: { ko: string; en: string; ja: string };
   };
+  newsImpact?: {
+    items: {
+      headline: { ko: string; en: string; ja: string };
+      impact: { ko: string; en: string; ja: string };
+      sentiment?: string;
+      impactLevel?: string;
+      impactChain?: { indicator: string; direction: string; label: { ko: string; en: string; ja: string } }[];
+    }[];
+  };
+  edgeAlerts?: {
+    type?: string;
+    title: { ko: string; en: string; ja: string };
+    detail: { ko: string; en: string; ja: string };
+  }[];
 }
 
 function toCamelCase(id: string): string {
@@ -2792,6 +2808,12 @@ export default function AppIntelPage() {
                 const catalysts = brief.outlook?.catalysts?.[locale as 'ko' | 'en' | 'ja'] || brief.outlook?.catalysts?.en || [];
                 const risks = brief.outlook?.risks?.[locale as 'ko' | 'en' | 'ja'] || brief.outlook?.risks?.en || [];
                 const rotationInsight = brief.sectorRotation?.rotationInsight?.[locale as 'ko' | 'en' | 'ja'] || brief.sectorRotation?.rotationInsight?.en || '';
+                const L = (locale as 'ko' | 'en' | 'ja');
+                const opportunities = brief.outlook?.opportunities?.[L] || brief.outlook?.opportunities?.en || [];
+                const newsItems = (brief.newsImpact?.items || []).slice(0, 3);
+                const edgeAlerts = (brief.edgeAlerts || []).slice(0, 3);
+                const dirColor = (d: string) => d === '↑' ? '#10b981' : d === '↓' ? '#ef4444' : 'var(--text-muted)';
+                const edgeTone = (t?: string) => t === 'EXTREME' ? { c: '#ef4444', bg: 'rgba(239,68,68,0.08)', b: 'rgba(239,68,68,0.18)' } : t === 'ANOMALY' ? { c: '#a78bfa', bg: 'rgba(167,139,250,0.08)', b: 'rgba(167,139,250,0.18)' } : { c: '#f59e0b', bg: 'rgba(245,158,11,0.08)', b: 'rgba(245,158,11,0.18)' };
                 // Aggregate W/L from all cached reports
                 const totalGainers = Object.values(reportCache).reduce((sum, r) => sum + (r.gainers || 0), 0);
                 const totalLosers = Object.values(reportCache).reduce((sum, r) => sum + (r.losers || 0), 0);
@@ -2953,6 +2975,83 @@ export default function AppIntelPage() {
                               ))}
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Opportunities */}
+                      {opportunities.length > 0 && (
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: '#22d3ee', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                            {locale === 'ko' ? '기회 요인' : locale === 'ja' ? '機会' : 'OPPORTUNITIES'}
+                          </div>
+                          {opportunities.slice(0, 2).map((o, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
+                              <span style={{ color: '#22d3ee', fontSize: '5px', marginTop: '8px', flexShrink: 0 }}>&#9679;</span>
+                              <span style={{ fontSize: '13px', color: 'var(--text-dim)', lineHeight: 1.55 }}>{o}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* News Impact — causal impact chain */}
+                      {newsItems.length > 0 && (
+                        <div style={{ marginTop: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                            {locale === 'ko' ? '뉴스 임팩트' : locale === 'ja' ? 'ニュース影響' : 'NEWS IMPACT'}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {newsItems.map((n, i) => {
+                              const headline = n.headline?.[L] || n.headline?.en || '';
+                              const impact = n.impact?.[L] || n.impact?.en || '';
+                              const chain = n.impactChain || [];
+                              if (!headline) return null;
+                              return (
+                                <div key={i} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-dim)', lineHeight: 1.5, marginBottom: impact ? '4px' : '0' }}>{headline}</div>
+                                  {impact && <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: chain.length ? '8px' : '0' }}>{impact}</div>}
+                                  {chain.length > 0 && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                                      {chain.slice(0, 3).map((step, j) => (
+                                        <React.Fragment key={j}>
+                                          {j > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.6 }}>&#8594;</span>}
+                                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: 700, padding: '4px 8px', borderRadius: '7px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono, monospace)' }}>
+                                            {step.indicator}
+                                            <span style={{ color: dirColor(step.direction), fontWeight: 900 }}>{step.direction}</span>
+                                          </span>
+                                        </React.Fragment>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Edge Alerts */}
+                      {edgeAlerts.length > 0 && (
+                        <div style={{ marginTop: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                            {locale === 'ko' ? '엣지 알림' : locale === 'ja' ? 'エッジアラート' : 'EDGE ALERTS'}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {edgeAlerts.map((e, i) => {
+                              const tone = edgeTone(e.type);
+                              const title = e.title?.[L] || e.title?.en || '';
+                              const detail = e.detail?.[L] || e.detail?.en || '';
+                              if (!title) return null;
+                              return (
+                                <div key={i} style={{ padding: '10px 12px', background: tone.bg, borderRadius: '10px', border: `1px solid ${tone.b}` }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: detail ? '3px' : '0' }}>
+                                    <span style={{ fontSize: '12px', color: tone.c }}>&#9650;</span>
+                                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: tone.c }}>{title}</span>
+                                  </div>
+                                  {detail && <div style={{ fontSize: '12px', color: 'var(--text-dim)', lineHeight: 1.5, paddingLeft: '18px' }}>{detail}</div>}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
 
