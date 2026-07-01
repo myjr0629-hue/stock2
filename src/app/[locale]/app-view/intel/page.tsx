@@ -2456,6 +2456,17 @@ export default function AppIntelPage() {
   const totalCoverage = sectorSummaries.reduce((sum, item) => sum + item.quoteCount, 0);
   const sessionLabel = isMarketLive ? appCopy.live : marketStatus.session === 'closed' ? appCopy.closed : appCopy.offline;
 
+  // Session-accurate status badge — "LIVE" only means regular hours are running.
+  // Pre/post/closed each get their own label + color so the pill never claims LIVE
+  // while the visible screen is actually pre-market, after-hours or closed.
+  const sessionBadge = marketStatus.session === 'regular'
+    ? { text: 'LIVE', color: '#10b981', pulse: true }
+    : marketStatus.session === 'pre'
+      ? { text: locale === 'ko' ? '프리마켓' : locale === 'ja' ? 'プレ' : 'PRE-MKT', color: '#f59e0b', pulse: true }
+      : marketStatus.session === 'post'
+        ? { text: locale === 'ko' ? '애프터' : locale === 'ja' ? 'アフター' : 'POST-MKT', color: '#22d3ee', pulse: true }
+        : { text: locale === 'ko' ? '장마감' : locale === 'ja' ? '引け' : 'CLOSED', color: '#94a3b8', pulse: false };
+
   return (
     <div className={s.page} style={{
       paddingBottom: '90px',
@@ -2708,10 +2719,10 @@ export default function AppIntelPage() {
               )}
             </div>
 
-            {/* Pulsing Status Pill — market-session driven */}
+            {/* Pulsing Status Pill — market-session driven (session-accurate) */}
             <div style={{
-              background: isMarketLive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.05)',
-              border: isMarketLive ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.1)',
+              background: `${sessionBadge.color}14`,
+              border: `1px solid ${sessionBadge.color}33`,
               borderRadius: '20px',
               padding: '4px 10px',
               display: 'flex',
@@ -2723,18 +2734,18 @@ export default function AppIntelPage() {
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                background: isMarketLive ? '#10b981' : 'var(--text-muted)',
-                boxShadow: isMarketLive ? '0 0 6px #10b981' : 'none',
-                animation: isMarketLive ? 'appPulse 2s infinite' : 'none'
+                background: sessionBadge.color,
+                boxShadow: sessionBadge.pulse ? `0 0 6px ${sessionBadge.color}` : 'none',
+                animation: sessionBadge.pulse ? 'appPulse 2s infinite' : 'none'
               }} />
               <span style={{
                 font: 'var(--f-micro)',
                 fontSize: '9px',
                 fontWeight: 900,
-                color: isMarketLive ? '#10b981' : 'var(--text-muted)',
+                color: sessionBadge.color,
                 letterSpacing: '0.05em'
               }}>
-                {isMarketLive ? 'LIVE' : marketStatus.session === 'closed' ? 'CLOSED' : 'OFFLINE'}
+                {sessionBadge.text}
               </span>
             </div>
           </div>
@@ -3138,16 +3149,35 @@ export default function AppIntelPage() {
                             {locale === 'ko' ? '핵심 레벨' : locale === 'ja' ? '主要レベル' : 'KEY LEVELS'}
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {keyLevels.map((kl, i) => (
-                              <div key={i} style={{
-                                display: 'inline-flex', alignItems: 'baseline', gap: '5px',
-                                padding: '5px 10px', borderRadius: '7px',
-                                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)'
-                              }}>
-                                <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 600 }}>{kl.label}</span>
-                                <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{kl.value}</span>
-                              </div>
-                            ))}
+                            {keyLevels.map((kl, i) => {
+                              const lbl = kl.label || '';
+                              const isRes = /resist|저항|レジス/i.test(lbl);
+                              const isSup = /support|지지|サポ/i.test(lbl);
+                              const kind = isRes ? 'res' : isSup ? 'sup' : 'thr';
+                              const kColor = kind === 'res' ? '#ef4444' : kind === 'sup' ? '#10b981' : '#f59e0b';
+                              const kCaret = kind === 'res' ? '▲' : kind === 'sup' ? '▼' : '◆';
+                              const instrument = lbl.replace(/\s*(resistance|support|threshold|저항|지지|임계|レジスタンス|サポート|閾値)\s*/ig, '').trim() || lbl;
+                              const kindLabel = locale === 'ko'
+                                ? (kind === 'res' ? '저항' : kind === 'sup' ? '지지' : '임계')
+                                : locale === 'ja'
+                                  ? (kind === 'res' ? 'レジスタンス' : kind === 'sup' ? 'サポート' : '閾値')
+                                  : (kind === 'res' ? 'Resistance' : kind === 'sup' ? 'Support' : 'Threshold');
+                              return (
+                                <div key={i} style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                  padding: '6px 10px', borderRadius: '8px',
+                                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
+                                  borderLeft: `2px solid ${kColor}`
+                                }}>
+                                  <span style={{ fontSize: '9px', color: kColor, lineHeight: 1 }}>{kCaret}</span>
+                                  <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '1px' }}>
+                                    <span style={{ fontSize: '9px', color: kColor, fontWeight: 700, letterSpacing: '0.02em' }}>{kindLabel}</span>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>{instrument}</span>
+                                  </span>
+                                  <span style={{ fontSize: '13px', color: 'var(--text-dim)', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)', marginLeft: '2px' }}>{kl.value}</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -3357,7 +3387,7 @@ export default function AppIntelPage() {
                               type="button"
                               onClick={() => setExpandedReport(null)}
                               aria-label="Close"
-                              style={{ flexShrink: 0, width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-dim)', WebkitTapHighlightColor: 'transparent' }}
+                              style={{ appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', flexShrink: 0, width: '34px', height: '34px', minWidth: '34px', minHeight: '34px', maxWidth: '34px', maxHeight: '34px', aspectRatio: '1 / 1', padding: 0, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-dim)', WebkitTapHighlightColor: 'transparent' }}
                             >
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
