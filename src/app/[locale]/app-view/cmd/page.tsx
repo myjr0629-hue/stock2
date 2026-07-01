@@ -135,7 +135,7 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
     async function fetchChart() {
       setLoading(true);
       try {
-        const r = await fetch(`/api/chart?symbol=${ticker}&range=${range.toLowerCase()}`);
+        const r = await fetch(`/api/chart?symbol=${ticker}&range=${range.toLowerCase()}`, { cache: 'no-store' });
         if (!r.ok) throw new Error();
         const json = await r.json();
         if (!active) return;
@@ -772,11 +772,13 @@ function GexBarChart({
   gammaFlip,
   putFloor,
   callWall,
+  locale = 'en',
 }: {
   data: number[];
   gammaFlip?: number | null;
   putFloor?: number | null;
   callWall?: number | null;
+  locale?: string;
 }) {
   const maxAbs = Math.max(...data.map(Math.abs), 1);
   const negCount = data.filter((v) => v < 0).length;
@@ -1835,11 +1837,11 @@ function CmdPageContent() {
     async function fetchAll() {
       try {
         const [tickerRes, analystRes, fundRes, earningsRes, unifiedRes] = await Promise.allSettled([
-          fetch(`/api/live/ticker?t=${ticker}`).then(r => r.json()),
-          fetch(`/api/live/analyst?t=${ticker}`).then(r => r.json()),
-          fetch(`/api/live/fundamentals?t=${ticker}`).then(r => r.json()),
-          fetch(`/api/live/earnings?t=${ticker}`).then(r => r.json()),
-          fetch(`/api/command/unified?t=${ticker}&lang=${locale}`).then(r => r.json()),
+          fetch(`/api/live/ticker?t=${ticker}`, { cache: 'no-store' }).then(r => r.json()),
+          fetch(`/api/live/analyst?t=${ticker}`, { cache: 'no-store' }).then(r => r.json()),
+          fetch(`/api/live/fundamentals?t=${ticker}`, { cache: 'no-store' }).then(r => r.json()),
+          fetch(`/api/live/earnings?t=${ticker}`, { cache: 'no-store' }).then(r => r.json()),
+          fetch(`/api/command/unified?t=${ticker}&lang=${locale}`, { cache: 'no-store' }).then(r => r.json()),
         ]);
 
         if (cancelled) return;

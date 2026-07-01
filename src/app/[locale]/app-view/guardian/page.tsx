@@ -126,7 +126,7 @@ const MobileGuardianFlow = dynamic(() => import('@/components/guardian/mobile/Mo
 
 type TabKey = 'overview' | 'reality' | 'shield' | 'flow';
 
-const indexFetcher = (url: string) => fetch(url).then(r => r.json());
+const indexFetcher = (url: string) => fetch(url, { cache: 'no-store' }).then(r => r.json());
 interface IndexQuote { price: number; changePct: number; updatedAt: string; }
 interface IndexCloseData { nasdaq: IndexQuote | null; dow: IndexQuote | null; spx: IndexQuote | null; }
 

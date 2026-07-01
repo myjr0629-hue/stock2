@@ -962,7 +962,7 @@ export default function AppFlowPage() {
           const controller = new AbortController();
           const timer = window.setTimeout(() => controller.abort(), timeoutMs);
           try {
-            return await fetch(url, { signal: controller.signal });
+            return await fetch(url, { signal: controller.signal, cache: 'no-store' });
           } catch {
             return null;
           } finally {
@@ -970,7 +970,7 @@ export default function AppFlowPage() {
           }
         };
 
-        const res = await fetch(`/api/live/ticker?t=${ticker.toUpperCase()}`);
+        const res = await fetch(`/api/live/ticker?t=${ticker.toUpperCase()}`, { cache: 'no-store' });
         if (!res.ok) throw new Error();
         const data = await res.json();
 
