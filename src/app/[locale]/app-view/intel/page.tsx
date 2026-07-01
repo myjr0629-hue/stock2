@@ -8,6 +8,7 @@ import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelShare
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
+import { MetricInfo } from '@/components/app/MetricInfo';
 import s from '../dash/dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -3239,7 +3240,7 @@ export default function AppIntelPage() {
                               </div>
                             </div>
                             <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.56)' }}>
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px' }}>GEX</div>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>GEX<MetricInfo term="gex" locale={appLocale} size={9} /></div>
                               <div style={{ fontSize: '15px', color: cached.totalGex >= 0 ? '#10b981' : '#ef4444', fontWeight: 900, fontFamily: 'var(--font-mono, monospace)' }}>
                                 {formatGex(cached.totalGex)}
                               </div>
@@ -3477,7 +3478,7 @@ export default function AppIntelPage() {
                               border: '1px solid rgba(255,255,255,0.04)',
                               textAlign: 'center' as const
                             }}>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: '4px' }}>GEX</div>
+                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: '4px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>GEX<MetricInfo term="gex" locale={appLocale} size={9} /></div>
                               <div style={{ fontSize: '16px', fontWeight: 800, color: cached.totalGex >= 0 ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono, monospace)' }}>
                                 {formatGex(cached.totalGex)}
                               </div>
