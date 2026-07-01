@@ -3085,28 +3085,58 @@ export default function AppIntelPage() {
                         </div>
                       )}
 
-                      {/* Options Snapshot — gamma / pcr / regime (visual strip) */}
-                      {gamma && (
-                        <div style={{ marginBottom: '12px', padding: '11px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <div style={{ flex: 1, textAlign: 'center' }}>
-                              <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '3px' }}>GEX</div>
-                              <div style={{ fontSize: '13px', fontWeight: 800, color: gamma.regime === 'SHORT' ? '#ef4444' : gamma.regime === 'LONG' ? '#10b981' : '#f59e0b', fontFamily: 'var(--font-mono, monospace)' }}>{(gamma.totalGexLabel || '-').split(' ')[0]}</div>
+                      {/* Options Snapshot — regime gauge + PCR bar (visual, text insight kept) */}
+                      {gamma && (() => {
+                        const reg = gamma.regime || 'NEUTRAL';
+                        const gexVal = (gamma.totalGexLabel || '-').split(' ')[0];
+                        const tip = reg === 'SHORT' ? { x: 21.9, y: 36 } : reg === 'LONG' ? { x: 98.1, y: 36 } : { x: 60, y: 14 };
+                        const pcr = typeof gamma.avgPcr === 'number' ? gamma.avgPcr : null;
+                        const pcrPos = pcr != null ? Math.max(0, Math.min(1, (pcr - 0.5) / 1.0)) * 100 : 50;
+                        const pcrColor = pcr == null ? 'var(--text-muted)' : pcr > 1.05 ? '#ef4444' : pcr < 0.95 ? '#10b981' : '#f59e0b';
+                        return (
+                          <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              {/* Regime semicircle gauge */}
+                              <div style={{ width: '124px', flexShrink: 0, position: 'relative' }}>
+                                <svg viewBox="0 0 120 76" width="124" height="79">
+                                  <path d="M16 58 A44 44 0 0 1 38 19.9" fill="none" stroke="#ef4444" strokeWidth="7" strokeLinecap="round" opacity={reg === 'SHORT' ? 1 : 0.22} />
+                                  <path d="M38 19.9 A44 44 0 0 1 82 19.9" fill="none" stroke="#f59e0b" strokeWidth="7" strokeLinecap="round" opacity={reg === 'NEUTRAL' ? 1 : 0.22} />
+                                  <path d="M82 19.9 A44 44 0 0 1 104 58" fill="none" stroke="#10b981" strokeWidth="7" strokeLinecap="round" opacity={reg === 'LONG' ? 1 : 0.22} />
+                                  <line x1="60" y1="58" x2={tip.x} y2={tip.y} stroke={gRegimeColor} strokeWidth="2.6" strokeLinecap="round" />
+                                  <circle cx="60" cy="58" r="4" fill={gRegimeColor} />
+                                  <text x="16" y="72" fontSize="7" fill="#ef4444" fontWeight="700">SHORT</text>
+                                  <text x="88" y="72" fontSize="7" fill="#10b981" fontWeight="700">LONG</text>
+                                </svg>
+                                <div style={{ position: 'absolute', top: '30px', left: 0, right: 0, textAlign: 'center' }}>
+                                  <div style={{ fontSize: '13px', fontWeight: 900, color: gRegimeColor, lineHeight: 1 }}>{reg}</div>
+                                  <div style={{ fontSize: '8.5px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em', marginTop: '2px' }}>{locale === 'ko' ? '감마 레짐' : locale === 'ja' ? 'ガンマレジーム' : 'GAMMA REGIME'}</div>
+                                </div>
+                              </div>
+                              {/* GEX value + PCR bar */}
+                              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '2px' }}>GEX<MetricInfo term="gex" locale={appLocale} size={9} /></div>
+                                  <div style={{ fontSize: '15px', fontWeight: 800, color: gRegimeColor, fontFamily: 'var(--font-mono, monospace)' }}>{gexVal}</div>
+                                </div>
+                                <div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em' }}>PCR<MetricInfo term="pcr" locale={appLocale} size={9} /></span>
+                                    <span style={{ fontSize: '13px', fontWeight: 800, color: pcrColor, fontFamily: 'var(--font-mono, monospace)' }}>{pcr != null ? pcr.toFixed(2) : '-'}</span>
+                                  </div>
+                                  <div style={{ position: 'relative', height: '5px', borderRadius: '999px', background: 'linear-gradient(90deg, rgba(16,185,129,0.28), rgba(245,158,11,0.28), rgba(239,68,68,0.28))' }}>
+                                    <div style={{ position: 'absolute', top: '-2px', bottom: '-2px', left: `calc(${pcrPos}% - 2px)`, width: '4px', borderRadius: '999px', background: pcrColor, boxShadow: `0 0 5px ${pcrColor}` }} />
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7.5px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '3px', opacity: 0.7 }}>
+                                    <span>{locale === 'ko' ? '콜 우위' : 'CALL'}</span>
+                                    <span>{locale === 'ko' ? '풋 우위' : 'PUT'}</span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.06)' }} />
-                            <div style={{ flex: 1, textAlign: 'center' }}>
-                              <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '3px' }}>PCR</div>
-                              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-dim)', fontFamily: 'var(--font-mono, monospace)' }}>{typeof gamma.avgPcr === 'number' ? gamma.avgPcr.toFixed(2) : '-'}</div>
-                            </div>
-                            <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.06)' }} />
-                            <div style={{ flex: 1, textAlign: 'center' }}>
-                              <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '3px' }}>{locale === 'ko' ? '레짐' : locale === 'ja' ? 'レジーム' : 'REGIME'}</div>
-                              <div style={{ fontSize: '13px', fontWeight: 800, color: gRegimeColor }}>{gamma.regime || '-'}</div>
-                            </div>
+                            {gammaInsight && <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.55, marginTop: '10px', paddingTop: '9px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>{gammaInsight}</div>}
                           </div>
-                          {gammaInsight && <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>{gammaInsight}</div>}
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Sector Rotation Winners/Losers */}
                       {brief.sectorRotation && (brief.sectorRotation.winners?.length > 0 || brief.sectorRotation.losers?.length > 0) && (
