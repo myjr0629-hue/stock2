@@ -362,7 +362,9 @@
 }
 
 .row:active {
-  background: rgba(255, 255, 255, 0.035);
+  /* No background highlight: on iOS the :active bg lingered on the adjacent row
+     after the tap navigated away, looking like the wrong row was "selected".
+     The tap navigates immediately, so a subtle scale is enough feedback. */
   transform: scale(0.985);
 }
 

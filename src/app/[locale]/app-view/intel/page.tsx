@@ -4558,22 +4558,22 @@ export default function AppIntelPage() {
                                 {/* 2×5 Bento Grid Metrics */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '12px' }}>
                                   {[
-                                    { label: 'GEX', value: formatGex(stock.gex || 0), color: (stock.gex || 0) > 0 ? '#10b981' : (stock.gex || 0) < 0 ? '#ef4444' : '#94a3b8' },
-                                    { label: 'PCR', value: (stock.pcr || 0) > 0 ? (stock.pcr || 0).toFixed(2) : '-', color: (stock.pcr || 0) < 0.7 ? '#10b981' : (stock.pcr || 0) > 1.2 ? '#ef4444' : '#f8fafc' },
-                                    { label: 'SQUEEZE', value: (stock.squeezeScore || 0) > 0 ? `${Math.round(stock.squeezeScore || 0)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
-                                    { label: 'NET PREM', value: (stock.netPremium || 0) !== 0 ? `${(stock.netPremium || 0) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium || 0) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
-                                    { label: 'PUT FLOOR', value: stock.putFloor ? `$${stock.putFloor.toFixed(0)}` : '-', color: '#ef4444' },
-                                    { label: 'CALL WALL', value: stock.callWall ? `$${stock.callWall.toFixed(0)}` : '-', color: '#10b981' },
-                                    { label: 'WHALE', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
-                                    { label: 'DARK POOL', value: (stock.darkPoolPct || 0) > 0 ? `${Math.round(stock.darkPoolPct || 0)}%` : '-', color: (stock.darkPoolPct || 0) >= 45 ? '#a78bfa' : '#94a3b8' },
-                                    { label: 'IV SKEW', value: (stock.ivSkew || 0) !== 0 ? `${(stock.ivSkew || 0) > 0 ? '+' : ''}${(stock.ivSkew || 0).toFixed(1)}%` : '-', color: Math.abs(stock.ivSkew || 0) > 3 ? '#f59e0b' : '#94a3b8' },
-                                    { label: 'IMP MOVE', value: (stock.impliedMovePct || 0) > 0 ? `±${(stock.impliedMovePct || 0).toFixed(1)}%` : '-', color: (stock.impliedMovePct || 0) > 5 ? '#f59e0b' : '#94a3b8' },
+                                    { label: 'GEX', tip: 'gex', value: formatGex(stock.gex || 0), color: (stock.gex || 0) > 0 ? '#10b981' : (stock.gex || 0) < 0 ? '#ef4444' : '#94a3b8' },
+                                    { label: 'PCR', tip: 'pcr', value: (stock.pcr || 0) > 0 ? (stock.pcr || 0).toFixed(2) : '-', color: (stock.pcr || 0) < 0.7 ? '#10b981' : (stock.pcr || 0) > 1.2 ? '#ef4444' : '#f8fafc' },
+                                    { label: 'SQUEEZE', tip: 'squeeze', value: (stock.squeezeScore || 0) > 0 ? `${Math.round(stock.squeezeScore || 0)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
+                                    { label: 'NET PREM', tip: 'netPremium', value: (stock.netPremium || 0) !== 0 ? `${(stock.netPremium || 0) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium || 0) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
+                                    { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${stock.putFloor.toFixed(0)}` : '-', color: '#ef4444' },
+                                    { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${stock.callWall.toFixed(0)}` : '-', color: '#10b981' },
+                                    { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
+                                    { label: 'DARK POOL', tip: 'darkPool', value: (stock.darkPoolPct || 0) > 0 ? `${Math.round(stock.darkPoolPct || 0)}%` : '-', color: (stock.darkPoolPct || 0) >= 45 ? '#a78bfa' : '#94a3b8' },
+                                    { label: 'IV SKEW', tip: 'ivSkew', value: (stock.ivSkew || 0) !== 0 ? `${(stock.ivSkew || 0) > 0 ? '+' : ''}${(stock.ivSkew || 0).toFixed(1)}%` : '-', color: Math.abs(stock.ivSkew || 0) > 3 ? '#f59e0b' : '#94a3b8' },
+                                    { label: 'IMP MOVE', tip: 'impliedMove', value: (stock.impliedMovePct || 0) > 0 ? `±${(stock.impliedMovePct || 0).toFixed(1)}%` : '-', color: (stock.impliedMovePct || 0) > 5 ? '#f59e0b' : '#94a3b8' },
                                   ].map(m => (
                                     <div key={m.label} style={{
                                       background: 'rgba(0,0,0,0.2)', borderRadius: '10px',
                                       padding: '10px 12px', border: '1px solid rgba(255,255,255,0.04)'
                                     }}>
-                                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '4px' }}>{m.label}</div>
+                                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '4px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>{m.label}<MetricInfo term={m.tip as any} locale={appLocale} size={9} /></div>
                                       <div style={{ fontSize: '15px', fontWeight: 800, color: m.color, fontFamily: 'var(--font-mono), monospace' }}>{m.value}</div>
                                     </div>
                                   ))}

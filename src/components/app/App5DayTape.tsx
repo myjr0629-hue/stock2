@@ -71,8 +71,11 @@ export function App5DayTape({ ticker, locale = 'en' }: { ticker: string; locale?
     <div style={shell}>
       <div style={head}>
         <span style={titleStyle}>{title}</span>
-        <span style={{ fontSize: 11, fontWeight: 800, color: weekChg >= 0 ? GREEN : RED, fontVariantNumeric: 'tabular-nums' }}>
-          {ups}↑ {downs}↓ · {sumLabel} {weekChg >= 0 ? '+' : ''}{weekChg.toFixed(1)}%
+        <span style={{ fontSize: 11, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ color: GREEN }}>{ups}↑</span>{' '}
+          <span style={{ color: RED }}>{downs}↓</span>
+          <span style={{ color: 'var(--text-muted)' }}> · </span>
+          <span style={{ color: weekChg >= 0 ? GREEN : RED }}>{sumLabel} {weekChg >= 0 ? '+' : ''}{weekChg.toFixed(1)}%</span>
         </span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${days.length}, 1fr)`, gap: 6 }}>
