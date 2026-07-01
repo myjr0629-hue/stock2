@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { recordSectorDaily } from '@/lib/aws/historyMiddleware';
+import { setInCache } from '@/services/redisClient';
 
 const SECTORS = ['m7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse', 'cyber_shield', 'orbit_defense', 'quantum_edge', 'fintech_pulse', 'cloud_fortress'];
 
@@ -72,6 +73,17 @@ export async function GET(request: Request) {
     }
 
     const allSuccess = Object.values(results).every((r: any) => r.success);
+
+    // Record that today's closing sector report(s) were actually generated, so the
+    // closing push can verify a real report exists before notifying users (it fires
+    // ~15min after the last sector snapshot; a total pipeline failure leaves this
+    // marker stale and the push is skipped rather than sending a premature/empty one).
+    if (Object.values(results).some((r: any) => r.success)) {
+        try {
+            const etDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+            await setInCache('push:report-ready:closing', etDate, 60 * 60 * 8);
+        } catch { /* non-fatal */ }
+    }
 
     return NextResponse.json({
         success: allSuccess,

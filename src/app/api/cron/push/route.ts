@@ -6,6 +6,7 @@
 // ============================================================================
 import { NextResponse } from 'next/server';
 import { sendPushByType } from '@/lib/push/send';
+import { getFromCache } from '@/services/redisClient';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,19 @@ export async function GET(request: Request) {
   }
 
   const type = searchParams.get('type') === 'morning' ? 'morning' : 'closing';
+
+  // Verify the closing report was actually generated today before notifying. The
+  // snapshot cron sets this marker on success; the push fires ~15min after the last
+  // sector snapshot. If the pipeline was delayed/failed the marker is stale and we
+  // skip rather than send a premature or empty notification.
+  if (type === 'closing') {
+    const ready = await getFromCache<string>('push:report-ready:closing');
+    const etDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    if (ready !== etDate) {
+      console.warn(`[Cron/Push] closing report not ready (marker=${ready}, today=${etDate}) — skipping`);
+      return NextResponse.json({ ok: false, skipped: true, reason: 'report-not-ready', type });
+    }
+  }
 
   try {
     const result = await sendPushByType(type);
