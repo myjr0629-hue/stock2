@@ -74,11 +74,17 @@ export async function GET(request: Request) {
 
     const allSuccess = Object.values(results).every((r: any) => r.success);
 
-    // Record that today's closing sector report(s) were actually generated, so the
-    // closing push can verify a real report exists before notifying users (it fires
-    // ~15min after the last sector snapshot; a total pipeline failure leaves this
-    // marker stale and the push is skipped rather than sending a premature/empty one).
-    if (Object.values(results).some((r: any) => r.success)) {
+    // Record that today's closing sector reports are FULLY swept, so the closing push
+    // can verify real reports exist before notifying. The crons run one sector every
+    // 5min (21:00→21:45 UTC); cloud_fortress is last, so its success means the whole
+    // sweep is done. Only stamp the marker then (or on a full no-param sweep) — a
+    // mid-sweep or failed run leaves the marker stale and the push is skipped rather
+    // than firing on a partial report set.
+    const LAST_SECTOR = SECTORS[SECTORS.length - 1]; // cloud_fortress
+    const sweepComplete = sectorParam
+        ? (sectorParam === LAST_SECTOR && results[LAST_SECTOR]?.success)
+        : allSuccess;
+    if (sweepComplete) {
         try {
             const etDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
             await setInCache('push:report-ready:closing', etDate, 60 * 60 * 8);

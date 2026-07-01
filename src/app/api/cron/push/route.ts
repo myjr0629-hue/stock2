@@ -45,11 +45,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, skipped: true, reason: 'report-not-ready', type });
     }
   } else {
-    // Closing sector reports — the snapshot cron sets this marker on success.
+    // Closing push requires BOTH signals to be TODAY's, so it only fires once the full
+    // report set is genuinely published:
+    //  1) all 10 sector snapshots swept — snapshot cron stamps this after cloud_fortress
+    //  2) the comprehensive cross-sector brief (CROSS-SECTOR INTELLIGENCE) generated
+    // Version below must track getCacheKey() in api/intel/cross-sector-brief/route.ts.
     const ready = await getFromCache<string>('push:report-ready:closing');
     if (ready !== todayET) {
-      console.warn(`[Cron/Push] closing report not ready (marker=${ready}, today=${todayET}) — skipping`);
-      return NextResponse.json({ ok: false, skipped: true, reason: 'report-not-ready', type });
+      console.warn(`[Cron/Push] closing sectors not ready (marker=${ready}, today=${todayET}) — skipping`);
+      return NextResponse.json({ ok: false, skipped: true, reason: 'sectors-not-ready', type });
+    }
+    const brief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-v4:${todayET}`);
+    const briefET = brief?.generatedAt
+      ? new Date(brief.generatedAt).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      : null;
+    if (briefET !== todayET) {
+      console.warn(`[Cron/Push] comprehensive brief not ready (gen=${briefET}, today=${todayET}) — skipping`);
+      return NextResponse.json({ ok: false, skipped: true, reason: 'brief-not-ready', type });
     }
   }
 

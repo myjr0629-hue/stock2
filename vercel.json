@@ -49,6 +49,10 @@
             "schedule": "45 21 * * 1-5"
         },
         {
+            "path": "/api/cron/cross-sector-brief",
+            "schedule": "50 21 * * 1-5"
+        },
+        {
             "path": "/api/cron/market-feed",
             "schedule": "*/2 * * * *"
         },
