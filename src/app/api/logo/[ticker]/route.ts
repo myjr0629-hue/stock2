@@ -12,6 +12,12 @@ const PARQET = 'https://assets.parqet.com/logos/symbol';
 const LOGO_OVERRIDE: Record<string, string[]> = {
     SPCX: [`${FMP}/SPCX.png`], // Parqet returns the AXS fund-issuer logo here
 };
+// Hand-curated logos bundled in /public/logos (served at /logos/<file>) — used
+// FIRST for these tickers because the free providers only offer a poor asset
+// (e.g. AMZN: FMP = lone swoosh, Parqet = dark app tile). Filename per ticker.
+const CURATED: Record<string, string> = {
+    AMZN: 'AMZN.svg',
+};
 // Leveraged/inverse ETFs whose only "logo" is an issuer wordmark (Direxion/
 // ProShares) on a black tile — not a real brand mark. Skip straight to the
 // generated initial chip so they render premium and consistent, never a black
@@ -50,7 +56,7 @@ function chipResponse(symbol: string, cache: 'GEN' | 'HIT' = 'GEN'): Response {
 }
 
 export async function GET(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ ticker: string }> }
 ) {
     const { ticker } = await params;
@@ -64,9 +70,9 @@ export async function GET(
         return chipResponse(symbol);
     }
 
-    // v2 — bumped when the source order changed (Parqet-first) so stale FMP-only
-    // images (e.g. the lone Amazon swoosh) don't linger in cache.
-    const cacheKey = `logo:v2:${symbol}`;
+    // v3 — bumped when curated bundled logos were added (AMZN) so the old
+    // provider image doesn't linger in cache.
+    const cacheKey = `logo:v3:${symbol}`;
 
     // 1. Try Redis cache first
     try {
@@ -85,7 +91,14 @@ export async function GET(
     } catch { /* continue to origin */ }
 
     // 2. Fetch from origin — try each source in order, return the first hit.
-    const sources = LOGO_OVERRIDE[symbol] || [`${PARQET}/${symbol}?format=png`, `${FMP}/${symbol}.png`];
+    // Curated bundled logo (self-hosted) wins, then provider order.
+    const origin = new URL(request.url).origin;
+    const curatedFile = CURATED[symbol];
+    const sources = LOGO_OVERRIDE[symbol] || [
+        ...(curatedFile ? [`${origin}/logos/${curatedFile}`] : []),
+        `${PARQET}/${symbol}?format=png`,
+        `${FMP}/${symbol}.png`,
+    ];
     for (const url of sources) {
         try {
             const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
