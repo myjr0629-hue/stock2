@@ -40,8 +40,31 @@ const SECTOR_NAME_I18N: Record<string, Record<SectorLocale, string>> = {
     '클린에너지': { ko: '클린에너지', en: 'Clean Energy', ja: 'クリーンエネルギー' },
     '안전자산': { ko: '안전자산', en: 'Safe Haven', ja: '安全資産' },
 };
-function getSectorName(name: string, locale: string): string {
-    return SECTOR_NAME_I18N[name]?.[(locale as SectorLocale) || 'ko'] || name;
+// Look up by the STABLE backend sector id first. The feed occasionally delivers a
+// mojibake sector name (e.g. HACK arrives as "사��버보안" from a bad
+// cache write), and a name-keyed lookup then fell through to the raw broken
+// string. Sector ids are ASCII, so they never corrupt.
+const SECTOR_NAME_BY_ID: Record<string, Record<SectorLocale, string>> = {
+    XLK: SECTOR_NAME_I18N['기술주'],
+    XLC: SECTOR_NAME_I18N['커뮤니케이션'],
+    XLY: SECTOR_NAME_I18N['임의소비재'],
+    XLE: SECTOR_NAME_I18N['에너지'],
+    XLF: SECTOR_NAME_I18N['금융'],
+    XLV: SECTOR_NAME_I18N['헬스케어'],
+    XLI: SECTOR_NAME_I18N['산업재'],
+    XLB: SECTOR_NAME_I18N['소재'],
+    XLP: SECTOR_NAME_I18N['필수소비재'],
+    XLRE: SECTOR_NAME_I18N['부동산'],
+    XLU: SECTOR_NAME_I18N['유틸리티'],
+    AI_PWR: SECTOR_NAME_I18N['AI 전력망'],
+    SMH: SECTOR_NAME_I18N['반도체'],
+    HACK: SECTOR_NAME_I18N['사이버보안'],
+    ICLN: SECTOR_NAME_I18N['클린에너지'],
+    SAFE_HAVEN: SECTOR_NAME_I18N['안전자산'],
+};
+function getSectorName(id: string | undefined, name: string, locale: string): string {
+    const loc = (locale as SectorLocale) || 'ko';
+    return SECTOR_NAME_BY_ID[id || '']?.[loc] || SECTOR_NAME_I18N[name]?.[loc] || name;
 }
 
 // Sector intel texts — identical to desktop page.tsx L157-191
@@ -585,7 +608,7 @@ function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, loc
     return (
         <div className="flex flex-col">
             <div className="flex justify-between items-baseline mb-3">
-                <span className="text-lg font-bold text-white">{getSectorName(selectedSector.name, locale)}</span>
+                <span className="text-lg font-bold text-white">{getSectorName(selectedSector.id, selectedSector.name, locale)}</span>
                 <span className={`text-xl font-mono ${selectedSector.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                     {selectedSector.change > 0 ? "+" : ""}{selectedSector.change.toFixed(2)}%
                 </span>
@@ -694,7 +717,7 @@ function SectorIntelDefault({ data, locale, onSelect }: { data: any; locale: str
                 {sorted.map((s: any) => (
                     <button key={s.id} onClick={() => onSelect(s.id)}
                         className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all text-left group">
-                        <span className="text-[14px] font-medium text-slate-200 group-hover:text-cyan-300 transition-colors">{getSectorName(s.name, locale)}</span>
+                        <span className="text-[14px] font-medium text-slate-200 group-hover:text-cyan-300 transition-colors">{getSectorName(s.id, s.name, locale)}</span>
                         <span className={`text-[14px] font-mono font-bold ${s.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {s.change > 0 ? '+' : ''}{s.change.toFixed(2)}%
                         </span>
