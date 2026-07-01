@@ -14,7 +14,10 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 
-const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
+// Parqet returns the wrong AXS-issuer logo for SPCX; /api/logo (FMP) has the real
+// SpaceX mark. Route SPCX (and any known mismatch) through /api/logo everywhere.
+const LOGO_VIA_API = new Set(['SPCX']);
+const LOGO = (t: string) => LOGO_VIA_API.has(t) ? `/api/logo/${t}` : `https://assets.parqet.com/logos/symbol/${t}?format=png`;
 const APP_LOGO = (t: string) => `/api/logo/${t}`;
 
 function handleLogoFallback(event: SyntheticEvent<HTMLImageElement>, ticker: string) {
@@ -2071,7 +2074,7 @@ export default function AppFlowPage() {
                 flexShrink: 0
               }}>
                 <img
-                  src={`https://assets.parqet.com/logos/symbol/${sym}?format=png`}
+                  src={LOGO(sym)}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -2153,15 +2156,11 @@ export default function AppFlowPage() {
             <div className={s.heroIdentity}>
               <div className={s.heroLeft}>
                 <div className={s.heroLogo}>
-                  {ticker === 'SPCX' ? (
-                    <span className={s.heroLogoFallback}>SPCX</span>
-                  ) : (
-                    <img
-                      src={APP_LOGO(ticker)}
-                      alt={ticker}
-                      onError={(e) => handleLogoFallback(e, ticker)}
-                    />
-                  )}
+                  <img
+                    src={APP_LOGO(ticker)}
+                    alt={ticker}
+                    onError={(e) => handleLogoFallback(e, ticker)}
+                  />
                 </div>
                 <div className={s.heroNameGroup}>
                   <span className={s.heroTicker}>{ticker}</span>

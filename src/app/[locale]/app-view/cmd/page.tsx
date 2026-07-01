@@ -1400,7 +1400,10 @@ function TechnicalGammaMap({
 /* ═══════════════════════════════════════════
    RELATED PEERS (LIVE)
    ═══════════════════════════════════════════ */
-const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
+// Parqet returns the wrong AXS-issuer logo for SPCX; /api/logo (FMP) has the real
+// SpaceX mark. Route SPCX (and any known mismatch) through /api/logo everywhere.
+const LOGO_VIA_API = new Set(['SPCX']);
+const LOGO = (t: string) => LOGO_VIA_API.has(t) ? `/api/logo/${t}` : `https://assets.parqet.com/logos/symbol/${t}?format=png`;
 
 function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; currentPrice: number; locale: string }) {
   const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
@@ -2431,7 +2434,7 @@ function CmdPageContent() {
         <div className={s.headerCapsule}>
           <div className={s.headerLogoWrapper}>
             <img 
-              src={`https://assets.parqet.com/logos/symbol/${data.ticker}?format=png`} 
+              src={LOGO(data.ticker)} 
               alt={data.ticker}
               className={s.headerLogo}
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -2472,7 +2475,7 @@ function CmdPageContent() {
             >
               <div style={{ width: '16px', height: '16px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <img
-                  src={`https://assets.parqet.com/logos/symbol/${sym}?format=png`}
+                  src={LOGO(sym)}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -2501,7 +2504,7 @@ function CmdPageContent() {
           <div className={s.heroLeft}>
             <div className={s.heroLogo}>
               <img
-                src={`https://assets.parqet.com/logos/symbol/${data.ticker}?format=png`}
+                src={LOGO(data.ticker)}
                 alt={data.ticker}
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />

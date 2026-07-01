@@ -872,7 +872,8 @@ const isKnownTicker = (s: string): boolean => /^[A-Z]{1,5}$/.test(s) && KNOWN_TI
 
 function StockLogo({ symbol, size = 32 }: { symbol: string; size?: number }) {
   const [error, setError] = useState(false);
-  const showTickerFallback = error || ['SPCX'].includes(symbol);
+  // /api/logo (FMP) returns the correct SpaceX mark for SPCX, so no text fallback needed.
+  const showTickerFallback = error;
 
   if (showTickerFallback) {
     return (
