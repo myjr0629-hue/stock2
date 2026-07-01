@@ -1992,7 +1992,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
+  /* Tight padding so the logo fills the chip, minus a hair of safe area so it
+     never touches the rounded corners or clips. */
+  padding: 2px;
 }
 
 .heroLogo img {
