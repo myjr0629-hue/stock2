@@ -14,10 +14,9 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 
-// Parqet returns the wrong AXS-issuer logo for SPCX; /api/logo (FMP) has the real
-// SpaceX mark. Route SPCX (and any known mismatch) through /api/logo everywhere.
-const LOGO_VIA_API = new Set(['SPCX']);
-const LOGO = (t: string) => LOGO_VIA_API.has(t) ? `/api/logo/${t}` : `https://assets.parqet.com/logos/symbol/${t}?format=png`;
+// Single unified logo source — /api/logo picks the best provider per ticker
+// (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
+const LOGO = (t: string) => `/api/logo/${t}`;
 const APP_LOGO = (t: string) => `/api/logo/${t}`;
 
 function handleLogoFallback(event: SyntheticEvent<HTMLImageElement>, ticker: string) {
