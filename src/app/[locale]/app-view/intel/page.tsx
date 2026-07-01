@@ -2045,21 +2045,10 @@ export default function AppIntelPage() {
   const getSectorChange = (sectorId: string) => {
     const quotes = getSectorQuotes(sectorId);
 
-    // Option B: during pre/post, reflect extended-hours price moves per ticker
-    // (fall back to the regular change when a ticker has no extended print). Only
-    // the price change goes live here — options/flow metrics stay close-based.
-    // When the session is regular or closed, this is the plain regular change.
-    const useExtended = marketStatus.session === 'pre' || marketStatus.session === 'post';
-
+    // Regular-session change so the sector average always matches the individual
+    // stocks shown inside. Pre/post extended moves are surfaced as a SEPARATE
+    // PRE/POST badge (never mixed into the primary change) to avoid mismatch.
     if (quotes && quotes.length > 0) {
-      if (useExtended) {
-        const extVals = quotes.map(q => {
-          const hasExt = !!q.extendedLabel && (q.extendedPrice ?? 0) > 0 && typeof q.extendedChangePct === 'number';
-          if (hasExt) return q.extendedChangePct as number;
-          return (q.changePct !== undefined && q.changePct !== null) ? q.changePct : null;
-        }).filter((v): v is number => v !== null);
-        if (extVals.length > 0) return extVals.reduce((acc, v) => acc + v, 0) / extVals.length;
-      }
       const validQuotes = quotes.filter(q => q.changePct !== undefined && q.changePct !== null);
       if (validQuotes.length > 0) {
         const sum = validQuotes.reduce((acc, q) => acc + q.changePct, 0);
@@ -2617,9 +2606,9 @@ export default function AppIntelPage() {
                 flexShrink: 0,
                 padding: '6px 9px',
                 borderRadius: '999px',
-                background: isMarketLive ? 'rgba(16, 185, 129, 0.10)' : 'rgba(148, 163, 184, 0.08)',
-                border: isMarketLive ? '1px solid rgba(16, 185, 129, 0.24)' : '1px solid rgba(148, 163, 184, 0.16)',
-                color: isMarketLive ? '#10b981' : '#94a3b8',
+                background: `${sessionBadge.color}1a`,
+                border: `1px solid ${sessionBadge.color}3d`,
+                color: sessionBadge.color,
                 fontSize: '10px',
                 fontWeight: 900,
                 letterSpacing: '0.06em'
@@ -2628,11 +2617,11 @@ export default function AppIntelPage() {
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  background: isMarketLive ? '#10b981' : '#64748b',
-                  boxShadow: isMarketLive ? '0 0 8px #10b981' : 'none',
-                  animation: isMarketLive ? 'appPulse 2s infinite' : 'none'
+                  background: sessionBadge.color,
+                  boxShadow: sessionBadge.pulse ? `0 0 8px ${sessionBadge.color}` : 'none',
+                  animation: sessionBadge.pulse ? 'appPulse 2s infinite' : 'none'
                 }} />
-                {sessionLabel}
+                {sessionBadge.text}
               </div>
             </div>
           </div>
@@ -4940,11 +4929,11 @@ export default function AppIntelPage() {
                               <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
                                 <Sparkline data={stock.sparkline || []} isUp={isStockUp} />
                               </div>
-                              {/* Score + Change */}
+                              {/* Price + Change */}
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                                 <div style={{ textAlign: 'right' }}>
-                                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-mono), monospace' }}>
-                                    {Math.round(stock.score)}
+                                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', fontFamily: 'var(--font-mono), monospace' }}>
+                                    {(stock.closePrice ?? 0) > 0 ? `$${(stock.closePrice as number).toFixed(2)}` : '-'}
                                   </div>
                                   <div style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono), monospace', color: isStockUp ? '#10b981' : '#ef4444' }}>
                                     {isStockUp ? '+' : ''}{(stock.changePct || 0).toFixed(2)}%
@@ -4972,14 +4961,33 @@ export default function AppIntelPage() {
                                 background: 'rgba(255,255,255,0.015)',
                                 borderBottom: '1px solid rgba(255,255,255,0.06)'
                               }}>
-                                {/* Price Header */}
-                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '12px' }}>
+                                {/* Price Header — regular close + separate PRE/POST extended badge */}
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                                   <span style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }}>
                                     ${(stock.closePrice || 0).toFixed(2)}
                                   </span>
                                   <span style={{ fontSize: '14px', fontWeight: 700, color: isStockUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>
                                     {isStockUp ? '+' : ''}{(stock.changePct || 0).toFixed(2)}%
                                   </span>
+                                  {(() => {
+                                    const lq = selectedSector ? getSectorQuotes(selectedSector).find(q => q.ticker === stock.sym) : undefined;
+                                    const hasExt = !!lq && !!lq.extendedLabel && (lq.extendedPrice ?? 0) > 0 && typeof lq.extendedChangePct === 'number';
+                                    if (!hasExt) return null;
+                                    const extPct = lq!.extendedChangePct as number;
+                                    const extUp = extPct >= 0;
+                                    const isPre = String(lq!.extendedLabel).toUpperCase().includes('PRE');
+                                    const tagColor = isPre ? '#f59e0b' : '#22d3ee';
+                                    const tagText = isPre ? (locale === 'ko' ? '프리마켓' : locale === 'ja' ? 'プレ' : 'PRE') : (locale === 'ko' ? '애프터' : locale === 'ja' ? 'アフター' : 'POST');
+                                    return (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '7px', background: `${tagColor}1a`, border: `1px solid ${tagColor}3d` }}>
+                                        <span style={{ fontSize: '8.5px', fontWeight: 900, color: tagColor, letterSpacing: '0.04em' }}>{tagText}</span>
+                                        <span style={{ fontSize: '11px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{extPct.toFixed(2)}%</span>
+                                        {(lq!.extendedPrice ?? 0) > 0 && (
+                                          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono), monospace' }}>${(lq!.extendedPrice as number).toFixed(2)}</span>
+                                        )}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
 
                                 {/* 2×5 Bento Grid Metrics */}
