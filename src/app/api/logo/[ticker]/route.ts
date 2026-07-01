@@ -12,7 +12,42 @@ const PARQET = 'https://assets.parqet.com/logos/symbol';
 const LOGO_OVERRIDE: Record<string, string[]> = {
     SPCX: [`${FMP}/SPCX.png`], // Parqet returns the AXS fund-issuer logo here
 };
+// Leveraged/inverse ETFs whose only "logo" is an issuer wordmark (Direxion/
+// ProShares) on a black tile — not a real brand mark. Skip straight to the
+// generated initial chip so they render premium and consistent, never a black
+// tile or a blank bubble.
+const FORCE_INITIAL = new Set([
+    'SOXL', 'SOXS', 'SPXL', 'SPXS', 'TQQQ', 'SQQQ', 'UPRO', 'SPXU', 'TNA', 'TZA',
+    'UDOW', 'SDOW', 'LABU', 'LABD', 'FNGU', 'FNGD', 'TECL', 'TECS', 'YINN', 'YANG',
+    'BOIL', 'KOLD', 'NUGT', 'DUST', 'JNUG', 'JDST', 'UVXY', 'SVXY', 'TMF', 'TMV',
+]);
 const CACHE_TTL = 86400; // 24 hours
+
+// Deterministic premium fallback — a gradient chip with the ticker's letters, so
+// a logo ALWAYS renders (no blanks, no wrong/issuer marks) with a stable per-ticker color.
+function hashHue(s: string): number {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h % 360;
+}
+function initialChipSvg(symbol: string): string {
+    const label = symbol.slice(0, 4);
+    const hue = hashHue(symbol);
+    const c1 = `hsl(${hue} 60% 44%)`;
+    const c2 = `hsl(${(hue + 26) % 360} 58% 26%)`;
+    const fs = label.length >= 4 ? 25 : label.length === 3 ? 30 : label.length === 2 ? 36 : 42;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><rect width="100" height="100" rx="24" fill="url(#g)"/><text x="50" y="52" dominant-baseline="central" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-size="${fs}" font-weight="800" fill="#ffffff" letter-spacing="-1">${label}</text></svg>`;
+}
+function chipResponse(symbol: string, cache: 'GEN' | 'HIT' = 'GEN'): Response {
+    return new Response(initialChipSvg(symbol), {
+        status: 200,
+        headers: {
+            'Content-Type': 'image/svg+xml; charset=utf-8',
+            'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+            'X-Cache': cache,
+        },
+    });
+}
 
 export async function GET(
     _request: NextRequest,
@@ -22,6 +57,11 @@ export async function GET(
     const symbol = ticker.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!symbol) {
         return new Response(null, { status: 400 });
+    }
+
+    // Known logoless/issuer-wordmark tickers → premium initial chip immediately.
+    if (FORCE_INITIAL.has(symbol)) {
+        return chipResponse(symbol);
     }
 
     // v2 — bumped when the source order changed (Parqet-first) so stale FMP-only
@@ -74,6 +114,13 @@ export async function GET(
         } catch { /* try next source */ }
     }
 
-    // No source had a logo — transparent (204) so the chip just shows empty.
-    return new Response(null, { status: 204 });
+    // No source had a usable logo — premium initial chip so it NEVER shows blank.
+    // Cache the chip so we don't re-hit both providers on every miss.
+    try {
+        await setInCache(cacheKey, {
+            buffer: Buffer.from(initialChipSvg(symbol)).toString('base64'),
+            contentType: 'image/svg+xml; charset=utf-8',
+        }, CACHE_TTL);
+    } catch { /* non-critical */ }
+    return chipResponse(symbol);
 }
