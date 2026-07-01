@@ -787,7 +787,7 @@ function GexBarChart({
     <div style={{ marginBottom: 'var(--s3)' }}>
       <div className={s.gexHead}>
         <div>
-          <div className={s.cardTitle} style={{ marginBottom: 4 }}>GEX PROFILE</div>
+          <div className={s.cardTitle} style={{ marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>GEX PROFILE<MetricInfo term="gex" locale={locale} size={11} /></div>
           <p className={s.gexExplain}>Dealer gamma pressure by strike. Red = hedge pressure, green = stabilizing support.</p>
         </div>
         <span className={netBias >= 0 ? s.gexBiasPos : s.gexBiasNeg}>{biasLabel}</span>
@@ -2609,7 +2609,7 @@ function CmdPageContent() {
         {/* ── Row 4: Vitals Strip (RSI / VWAP / DAY RANGE) ── */}
         <div className={s.p2Vitals}>
           <div className={s.p2Vital}>
-            <div className={s.k}>RSI 14</div>
+            <div className={s.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>RSI 14<MetricInfo term="rsi" locale={locale} size={10} /></div>
             <div className={s.v}>{data.rsi14.toFixed(1)}</div>
             {(() => {
               const rsiColor = data.rsi14 >= 70 ? 'var(--red)' : data.rsi14 >= 55 ? 'var(--amber)' : data.rsi14 <= 35 ? 'var(--cyan)' : 'var(--green)';
@@ -2623,7 +2623,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.p2Vital}>
-            <div className={s.k}>VWAP</div>
+            <div className={s.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>VWAP<MetricInfo term="vwap" locale={locale} size={10} /></div>
             <div className={s.v}>${data.vwap.toFixed(2)}</div>
             {(() => {
               const vwapDiff = data.vwap > 0 ? ((displayPrice - data.vwap) / data.vwap) * 100 : 0;
