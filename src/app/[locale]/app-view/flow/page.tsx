@@ -434,13 +434,10 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
   };
 }
 
-const DEMO_DARK_POOL_TRADES = [
-  { id: 'dp-1', exchangeName: 'FINRA ADF', side: 'SELL', size: 1400, price: 209.19, premium: 292866, timeET: '11:31:05' },
-  { id: 'dp-2', exchangeName: 'FINRA ADF', side: 'SELL', size: 2100, price: 209.22, premium: 439362, timeET: '11:31:02' },
-  { id: 'dp-3', exchangeName: 'FINRA ADF', side: 'SELL', size: 2200, price: 209.26, premium: 460372, timeET: '11:31:00' },
-  { id: 'dp-4', exchangeName: 'FINRA ADF', side: 'SELL', size: 2000, price: 209.22, premium: 418440, timeET: '11:30:57' },
-  { id: 'dp-5', exchangeName: 'FINRA ADF', side: 'SELL', size: 1000, price: 209.23, premium: 209230, timeET: '11:30:04' },
-];
+// Last REAL dark-pool trades, cached at module scope so the (gated) preview
+// always holds real data across remounts — never the demo placeholder — and
+// unlocking reveals it instantly. Data is prefetched while the gate is locked.
+let lastGoodDarkPool: any[] | null = null;
 
 const WHALE_PREMIUM_FLOOR = 50000;
 
@@ -745,7 +742,7 @@ export default function AppFlowPage() {
   /* transactions state — removed (orphan: never read in JSX) */
   const [rawChain, setRawChain] = useState<any[]>([]);
   const [whaleTradesFeed, setWhaleTradesFeed] = useState<any[]>([]);
-  const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>([]);
+  const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>(lastGoodDarkPool ?? []);
   const [darkPoolMeta, setDarkPoolMeta] = useState<any>(null);
   const [whaleMeta, setWhaleMeta] = useState<any>(null);
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
@@ -1010,7 +1007,7 @@ export default function AppFlowPage() {
           optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 3500)
         ]);
 
-        let dpItems = DEMO_DARK_POOL_TRADES;
+        let dpItems: any[] | null = null;
         let dpMetaNext: any = null;
         if (dpRes && dpRes.ok) {
           const dpData = await dpRes.json();
@@ -1041,7 +1038,9 @@ export default function AppFlowPage() {
 
         if (cancelled) return;
 
-        setDarkPoolTrades(dpItems);
+        // Only commit real trades; if this round returned nothing, keep the last
+        // real values (behind the gate) instead of clearing or showing demo.
+        if (dpItems && dpItems.length > 0) { lastGoodDarkPool = dpItems; setDarkPoolTrades(dpItems); }
         setDarkPoolMeta(dpMetaNext);
         setWhaleTradesFeed(whaleItems);
         setWhaleMeta(whaleMetaNext);
@@ -1118,11 +1117,8 @@ export default function AppFlowPage() {
           }
         }
       } catch {
-        setRawChain([]);
-        setWhaleTradesFeed([]);
-        setWhaleMeta(null);
-        setDarkPoolMeta(null);
-        setDarkPoolTrades(DEMO_DARK_POOL_TRADES);
+        // Transient fetch error: keep the last real values (the gated preview
+        // stays populated with real data) rather than clearing or showing demo.
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -1137,21 +1133,6 @@ export default function AppFlowPage() {
   }, [ticker]);
 
   // Demo Sweeps & UOA for fallback
-  const DEMO_WHALES = useMemo(() => [
-    { time: '10:14:22', strike: 140, type: 'CALL', expiry: '', size: 1250, px: 2.45, premium: 306250, dir: 'ASK' as const },
-    { time: '10:11:58', strike: 145, type: 'CALL', expiry: '', size: 2100, px: 1.22, premium: 256200, dir: 'ASK' as const },
-    { time: '10:10:15', strike: 130, type: 'PUT', expiry: '06/26', size: 800, px: 3.10, premium: 248000, dir: 'BID' as const },
-    { time: '10:08:44', strike: 138, type: 'CALL', expiry: '06/12', size: 1100, px: 1.85, premium: 203500, dir: 'ASK' as const },
-    { time: '10:05:12', strike: 135, type: 'PUT', expiry: '06/12', size: 1400, px: 1.12, premium: 156800, dir: 'BID' as const },
-  ], []);
-
-  const DEMO_UOA = useMemo(() => [
-    { strike: 150, type: 'CALL', expiry: '', volume: 4800, oi: 1200, ratio: 4.0 },
-    { strike: 132, type: 'PUT', expiry: '06/12', volume: 3200, oi: 950, ratio: 3.37 },
-    { strike: 142, type: 'CALL', expiry: '', volume: 5500, oi: 2200, ratio: 2.5 },
-    { strike: 128, type: 'PUT', expiry: '06/26', volume: 1800, oi: 800, ratio: 2.25 },
-  ], []);
-
   // Compute real Whale Sweeps
   const whaleSweeps = useMemo(() => {
     const apiList = whaleTradesFeed.map((tx: any, i: number) => {
@@ -1179,7 +1160,7 @@ export default function AppFlowPage() {
     const baseList = apiList.length > 0
       ? apiList
       : (!rawChain || rawChain.length === 0)
-      ? DEMO_WHALES
+      ? []
       : rawChain.map((c: any, i: number) => {
           const strike = c.details?.strike_price || 0;
           const type = (c.details?.contract_type || 'call').toUpperCase();
@@ -1205,7 +1186,7 @@ export default function AppFlowPage() {
 
     const filtered = baseList.filter(tx => tx.premium >= WHALE_PREMIUM_FLOOR);
     return filtered.sort((a, b) => b.premium - a.premium);
-  }, [rawChain, DEMO_WHALES, whaleTradesFeed]);
+  }, [rawChain, whaleTradesFeed]);
 
   const filteredDarkPoolTrades = useMemo(() => {
     return darkPoolTrades.filter((tx: any) => tx.isBlock !== false && tx.premium >= 200000);
@@ -1286,7 +1267,7 @@ export default function AppFlowPage() {
 
   // Compute real UOA
   const uoaList = useMemo(() => {
-    if (!rawChain || rawChain.length === 0) return DEMO_UOA;
+    if (!rawChain || rawChain.length === 0) return [];
     const uoas = rawChain.map((c: any) => {
       const strike = c.details?.strike_price || 0;
       const type = (c.details?.contract_type || 'call').toUpperCase();
@@ -1305,8 +1286,8 @@ export default function AppFlowPage() {
       };
     }).filter(item => item.ratio >= 2.0 && item.volume > 500);
 
-    return uoas.length > 0 ? uoas.sort((a, b) => b.ratio - a.ratio) : DEMO_UOA;
-  }, [rawChain, DEMO_UOA]);
+    return uoas.length > 0 ? uoas.sort((a, b) => b.ratio - a.ratio) : [];
+  }, [rawChain]);
 
   // Handle Search submit
   const handleSearch = (e: React.FormEvent) => {

@@ -171,9 +171,8 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
           throw new Error('Empty data');
         }
       } catch {
-        if (active) {
-          setCandles(genCandles(rangeCount[range], priceRef.current, rangeSeed[range]));
-        }
+        // Never draw synthetic (fake) candles. Keep the last real candles on a
+        // transient error; if none have loaded yet the chart shows empty/loading.
       } finally {
         if (active) setLoading(false);
       }
