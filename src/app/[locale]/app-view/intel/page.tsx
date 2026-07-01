@@ -1157,7 +1157,7 @@ const APP_INTEL_COPY: Record<AppLocale, {
   ko: {
     title: '섹터 인텔리전스',
     kicker: 'INTEL',
-    subtitle: 'AI 섹터 리포트 · 옵션/알파/수급 흐름 통합',
+    subtitle: 'AI 섹터 리포트 · 옵션/컨텍스트/수급 흐름 통합',
     sectorTab: '섹터',
     reportTab: '장마감 리포트',
     live: 'LIVE',
@@ -1176,7 +1176,7 @@ const APP_INTEL_COPY: Record<AppLocale, {
   en: {
     title: 'Sector Intelligence',
     kicker: 'INTEL',
-    subtitle: 'AI sector reports · options, alpha and flow combined',
+    subtitle: 'AI sector reports · options, context and flow combined',
     sectorTab: 'Sector',
     reportTab: 'Closing Report',
     live: 'LIVE',
@@ -1195,7 +1195,7 @@ const APP_INTEL_COPY: Record<AppLocale, {
   ja: {
     title: 'セクターインテリジェンス',
     kicker: 'INTEL',
-    subtitle: 'AIセクターレポート · オプション/アルファ/フロー統合',
+    subtitle: 'AIセクターレポート · オプション/コンテキスト/フロー統合',
     sectorTab: 'セクター',
     reportTab: '引け後レポート',
     live: 'LIVE',
@@ -1838,9 +1838,9 @@ export default function AppIntelPage() {
         ? `${sectorCopy.name} セクターレポート`
         : `${sectorCopy.name} Sector Report`;
     const localizedReportSummary = appLocale === 'ko'
-      ? `${sectorCopy.name}는 ${lead.sym} 중심의 알파, 옵션 감마, 고래·다크풀 수급을 앱 화면에 맞게 압축한 섹터 리포트입니다.`
+      ? `${sectorCopy.name}는 ${lead.sym} 중심의 컨텍스트, 옵션 감마, 고래·다크풀 수급을 앱 화면에 맞게 압축한 섹터 리포트입니다.`
       : appLocale === 'ja'
-        ? `${sectorCopy.name}は、${lead.sym}を中心にアルファ、オプションガンマ、ホエール・ダークプールのフローをアプリ向けに要約したセクターレポートです。`
+        ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプションガンマ、ホエール・ダークプールのフローをアプリ向けに要約したセクターレポートです。`
         : `${sectorCopy.name} is a sector report compressed from ${lead.sym}-led alpha, options gamma, whale flow and dark-pool context.`;
     const localizedVerdict = appLocale === 'ko'
       ? `${localizedReportSummary} 현재 구도는 ${sentiment} 편향이며, ${dominantRegime} 감마, ${formatMoneyCompact(netPremium)} 순프리미엄, 평균 PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}가 핵심 확인 축입니다.`
@@ -2101,14 +2101,14 @@ export default function AppIntelPage() {
 
     const localeText = {
       ko: {
-        verdict: `${sectorCopy.name}는 ${topStock?.ticker || '주요 종목'} 중심으로 옵션/알파/수급 데이터가 먼저 정렬됩니다. 상세 스냅샷이 늦어져도 현재 앱 데이터 기준의 섹터 맥락을 즉시 보여줍니다.`,
+        verdict: `${sectorCopy.name}는 ${topStock?.ticker || '주요 종목'} 중심으로 옵션/컨텍스트/수급 데이터가 먼저 정렬됩니다. 상세 스냅샷이 늦어져도 현재 앱 데이터 기준의 섹터 맥락을 즉시 보여줍니다.`,
         catalysts: [
           `선도 종목 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
           `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
-        fallbackAnalysis: `${sectorCopy.thesis}. 실시간 스냅샷 보강 전까지 앱에 들어온 가격, 알파, 옵션 데이터를 기준으로 표시합니다.`
+        fallbackAnalysis: `${sectorCopy.thesis}. 실시간 스냅샷 보강 전까지 앱에 들어온 가격, 컨텍스트, 옵션 데이터를 기준으로 표시합니다.`
       },
       en: {
         verdict: `${sectorCopy.name} is organized from live app-held options, alpha and flow data, led by ${topStock?.ticker || 'key names'}. The sector context opens immediately while the full snapshot refreshes in the background.`,
@@ -2121,27 +2121,27 @@ export default function AppIntelPage() {
         fallbackAnalysis: `${sectorCopy.thesis}. Until the full snapshot arrives, this view uses the app's current price, alpha and options feed.`
       },
       ja: {
-        verdict: `${sectorCopy.name}は${topStock?.ticker || '主要銘柄'}を中心に、アプリ内のオプション、アルファ、フローデータから即時に構成されます。詳細スナップショットはバックグラウンドで更新されます。`,
+        verdict: `${sectorCopy.name}は${topStock?.ticker || '主要銘柄'}を中心に、アプリ内のオプション、コンテキスト、フローデータから即時に構成されます。詳細スナップショットはバックグラウンドで更新されます。`,
         catalysts: [
           `主導 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
           `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
-        fallbackAnalysis: `${sectorCopy.thesis}。詳細スナップショット取得前は、アプリに入っている価格、アルファ、オプションデータを基準に表示します。`
+        fallbackAnalysis: `${sectorCopy.thesis}。詳細スナップショット取得前は、アプリに入っている価格、コンテキスト、オプションデータを基準に表示します。`
       }
     }[appLocale];
 
     const safeLocaleText = {
       ko: {
-        verdict: `${sectorCopy.name}는 ${topStock?.ticker || '주요 종목'} 중심으로 옵션 감마, 알파, 수급 데이터가 먼저 정렬된 섹터 뷰입니다. 전체 웹 리포트가 갱신되기 전에도 현재 앱 데이터 기준의 방향성과 리스크 축을 즉시 보여줍니다.`,
+        verdict: `${sectorCopy.name}는 ${topStock?.ticker || '주요 종목'} 중심으로 옵션 감마, 컨텍스트, 수급 데이터가 먼저 정렬된 섹터 뷰입니다. 전체 웹 리포트가 갱신되기 전에도 현재 앱 데이터 기준의 방향성과 리스크 축을 즉시 보여줍니다.`,
         catalysts: [
           `주도 종목 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
           `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
-        fallbackAnalysis: `${sectorCopy.thesis}. 전체 리포트가 도착하기 전까지 현재 가격, 알파, 옵션 수급 피드를 기준으로 섹터 맥락을 표시합니다.`
+        fallbackAnalysis: `${sectorCopy.thesis}. 전체 리포트가 도착하기 전까지 현재 가격, 컨텍스트, 옵션 수급 피드를 기준으로 섹터 맥락을 표시합니다.`
       },
       en: {
         verdict: `${sectorCopy.name} is organized from live app-held options, alpha and flow data, led by ${topStock?.ticker || 'key names'}. The sector context opens immediately while the full snapshot refreshes in the background.`,
@@ -2154,14 +2154,14 @@ export default function AppIntelPage() {
         fallbackAnalysis: `${sectorCopy.thesis}. Until the full snapshot arrives, this view uses the app's current price, alpha and options feed.`
       },
       ja: {
-        verdict: `${sectorCopy.name}は、${topStock?.ticker || '主要銘柄'}を中心にオプションガンマ、アルファ、資金フローを先に整理したセクタービューです。完全なWebレポートが更新される前でも、現在のアプリデータに基づく方向感とリスク軸を表示します。`,
+        verdict: `${sectorCopy.name}は、${topStock?.ticker || '主要銘柄'}を中心にオプションガンマ、コンテキスト、資金フローを先に整理したセクタービューです。完全なWebレポートが更新される前でも、現在のアプリデータに基づく方向感とリスク軸を表示します。`,
         catalysts: [
           `主導銘柄 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
           `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
-        fallbackAnalysis: `${sectorCopy.thesis}。完全なレポートが届くまでは、現在価格、アルファ、オプションフローを基準にセクターの文脈を表示します。`
+        fallbackAnalysis: `${sectorCopy.thesis}。完全なレポートが届くまでは、現在価格、コンテキスト、オプションフローを基準にセクターの文脈を表示します。`
       }
     }[appLocale];
 
@@ -2209,9 +2209,9 @@ export default function AppIntelPage() {
         ? `${sectorCopy.name} セクター引け後レポート`
         : `${sectorCopy.name} Sector Closing Report`;
     const fallbackSummary = appLocale === 'ko'
-      ? `${sectorCopy.name}는 현재 앱에 들어온 알파, 옵션 감마, 고래·다크풀 수급을 기준으로 압축한 섹터 리포트입니다. 전체 웹 리포트가 갱신되기 전에도 핵심 방향과 리스크 축을 먼저 확인할 수 있습니다.`
+      ? `${sectorCopy.name}는 현재 앱에 들어온 컨텍스트, 옵션 감마, 고래·다크풀 수급을 기준으로 압축한 섹터 리포트입니다. 전체 웹 리포트가 갱신되기 전에도 핵심 방향과 리스크 축을 먼저 확인할 수 있습니다.`
       : appLocale === 'ja'
-        ? `${sectorCopy.name}は、現在アプリに入っているアルファ、オプション・ガンマ、ホエール/ダークプールのフローを基準に圧縮したセクターレポートです。完全なWebレポート更新前でも、主要な方向性とリスク軸を確認できます。`
+        ? `${sectorCopy.name}は、現在アプリに入っているコンテキスト、オプション・ガンマ、ホエール/ダークプールのフローを基準に圧縮したセクターレポートです。完全なWebレポート更新前でも、主要な方向性とリスク軸を確認できます。`
         : `${sectorCopy.name} is compressed from the app's current alpha, options gamma, whale and dark-pool flow. It keeps the sector bias and risk axes visible while the full web report refreshes.`;
     const fallbackVerdict = appLocale === 'ko'
       ? `${fallbackLead?.sym || sectorCopy.name}가 중심 관찰 축입니다. ${gainers}개 상승, ${losers}개 하락이며 ${dominantRegime} 감마와 평균 PCR ${fallbackAvgPcrText}를 기준으로 다음 세션의 반응을 확인해야 합니다.`
