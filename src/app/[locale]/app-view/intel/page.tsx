@@ -4980,10 +4980,10 @@ export default function AppIntelPage() {
                                     // English PRE/POST in every language (product decision)
                                     const tagText = isPre ? 'PRE' : 'POST';
                                     return (
-                                      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', padding: '4px 10px', borderRadius: '8px', background: `${tagColor}1a`, border: `1px solid ${tagColor}3d`, marginLeft: 'auto' }}>
-                                        <span style={{ fontSize: '9px', fontWeight: 900, color: tagColor, letterSpacing: '0.05em' }}>{tagText}</span>
-                                        <span style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }}>${(lq!.extendedPrice as number).toFixed(2)}</span>
-                                        <span style={{ fontSize: '12px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{extPct.toFixed(2)}%</span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '4px', padding: '2px 7px', borderRadius: '6px', background: `${tagColor}1a`, border: `1px solid ${tagColor}3d`, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                                        <span style={{ fontSize: '8px', fontWeight: 900, color: tagColor, letterSpacing: '0.04em' }}>{tagText}</span>
+                                        <span style={{ fontSize: '12px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }}>${(lq!.extendedPrice as number).toFixed(2)}</span>
+                                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{extPct.toFixed(2)}%</span>
                                       </span>
                                     );
                                   })()}
