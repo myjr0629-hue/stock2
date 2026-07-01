@@ -441,6 +441,11 @@ let lastGoodDarkPool: any[] | null = null;
 
 const WHALE_PREMIUM_FLOOR = 50000;
 
+// Quick-pick ticker chips (same set/behaviour as the Command page): the shared
+// recently-viewed list is prepended, then these popular names fill the rest —
+// so a searched ticker leads, with variety for when the user has nothing in mind.
+const POPULAR_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ'];
+
 const WHALE_DP_COPY = {
   ko: {
     sectionEyebrow: 'LEVEL 3 FLOW',
@@ -707,11 +712,30 @@ export default function AppFlowPage() {
 
   const [ticker, setTicker] = useState('NVDA');
   const [searchInput, setSearchInput] = useState('NVDA');
+  const [recentTickers, setRecentTickers] = useState<string[]>([]);
 
-  // Sync ticker to localStorage for Flow ↔ Command sync
+  // Sync ticker to localStorage (Flow ↔ Command) + maintain the shared
+  // recently-viewed list so the quick-pick chips lead with what was searched.
   useEffect(() => {
-    if (ticker) localStorage.setItem('app-active-ticker', ticker);
+    if (!ticker) return;
+    try {
+      localStorage.setItem('app-active-ticker', ticker);
+      const prev: string[] = JSON.parse(localStorage.getItem('app-recent-tickers') || '[]');
+      const next = [ticker, ...prev.filter((t) => t !== ticker)].slice(0, 6);
+      localStorage.setItem('app-recent-tickers', JSON.stringify(next));
+      setRecentTickers(next);
+    } catch { /* storage unavailable */ }
   }, [ticker]);
+
+  // Quick-pick chips: recently-viewed first, then popular (deduped) — same as Command.
+  const chipTickers = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const t of [...recentTickers, ...POPULAR_TICKERS]) {
+      if (t && !seen.has(t)) { seen.add(t); out.push(t); }
+    }
+    return out.slice(0, 12);
+  }, [recentTickers]);
   const [loading, setLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -1988,9 +2012,10 @@ export default function AppFlowPage() {
         </form>
       )}
 
-      {/* UNDERLYER TICKER TABS (M7 Ticker Logos with brand glows) */}
+      {/* UNDERLYER TICKER TABS — recently-viewed (searched) first, then popular,
+          matching the Command page's quick-pick behaviour. */}
       <div style={{ display: 'flex', gap: '10px', padding: '12px 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="no-scrollbar">
-        {['NVDA', 'TSLA', 'AAPL', 'SPY', 'QQQ'].map((sym) => {
+        {chipTickers.map((sym) => {
           const brand = BRAND_COLORS[sym] || { color: 'var(--cyan)', glow: 'rgba(6, 182, 212, 0.3)' };
           const isActive = ticker === sym;
           return (
