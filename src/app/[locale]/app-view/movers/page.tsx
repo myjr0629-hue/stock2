@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { Sparkline } from '@/components/app/Sparkline';
+import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import s from './movers.module.css';
@@ -60,33 +61,9 @@ function normalizeMover(item: any): MoverItem {
   };
 }
 
+// Delegates to the shared app logo so Movers matches every other surface.
 function StockLogo({ symbol }: { symbol: string }) {
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const sources = [
-    `/api/logo/${symbol}?v=2`,
-    `https://assets.parqet.com/logos/symbol/${symbol}?format=png`,
-  ];
-  const src = sources[sourceIndex];
-
-  if (!src) {
-    return (
-      <div className={s.logoFallback}>
-        {symbol.slice(0, 2)}
-      </div>
-    );
-  }
-
-  return (
-    <div className={s.logoBubble}>
-      <img
-        loading="lazy"
-        src={src}
-        alt={symbol}
-        className={s.logoImg}
-        onError={() => setSourceIndex((idx) => idx + 1)}
-      />
-    </div>
-  );
+  return <AppTickerLogo symbol={symbol} size={32} />;
 }
 
 function MoversPageContent() {

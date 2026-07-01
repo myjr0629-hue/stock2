@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { AdBanner } from '@/components/app/AdBanner';
+import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
@@ -1436,11 +1437,7 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
               onClick={() => router.push(`/app-view/cmd?t=${r.ticker}`)}
               className={s.peerRow}
             >
-              <div className={s.peerLogo}>
-                <span>{r.ticker?.slice(0, 2)}</span>
-                <img src={LOGO(r.ticker)} alt=""
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              </div>
+              <AppTickerLogo symbol={r.ticker} size={32} />
               <span className={s.peerTicker}>{r.ticker}</span>
               <span className={s.peerPrice}>
                 {displayPrice > 0 ? `$${displayPrice < 10 ? displayPrice.toFixed(2) : displayPrice < 1000 ? displayPrice.toFixed(1) : Math.round(displayPrice)}` : '—'}
@@ -2431,14 +2428,7 @@ function CmdPageContent() {
           </svg>
         </button>
         <div className={s.headerCapsule}>
-          <div className={s.headerLogoWrapper}>
-            <img 
-              src={LOGO(data.ticker)} 
-              alt={data.ticker}
-              className={s.headerLogo}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
+          <AppTickerLogo symbol={data.ticker} size={22} />
           <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <span className={s.headerTicker} style={{ fontSize: '15px' }}>{data.ticker}</span>
           </div>
@@ -2472,14 +2462,7 @@ function CmdPageContent() {
                 flexShrink: 0, outline: 'none',
               }}
             >
-              <div style={{ width: '16px', height: '16px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <img
-                  src={LOGO(sym)}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              </div>
+              <AppTickerLogo symbol={sym} size={18} />
               <span>{sym}</span>
             </button>
           );
@@ -2501,13 +2484,8 @@ function CmdPageContent() {
         {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
         <div className={s.heroIdentity}>
           <div className={s.heroLeft}>
-            <div className={s.heroLogo}>
-              <img
-                src={LOGO(data.ticker)}
-                alt={data.ticker}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            </div>
+            <AppTickerLogo symbol={data.ticker} size={44} />
+
             <div className={s.heroNameGroup}>
               <span className={s.heroTicker}>{data.ticker}</span>
               <span className={s.heroCompany}>{data.company}</span>

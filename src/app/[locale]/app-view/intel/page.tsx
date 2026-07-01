@@ -10,6 +10,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import s from '../dash/dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -870,63 +871,9 @@ const KNOWN_TICKER_SET = new Set([
 ]);
 const isKnownTicker = (s: string): boolean => /^[A-Z]{1,5}$/.test(s) && KNOWN_TICKER_SET.has(s);
 
+// Delegates to the shared app logo so Sector Intel matches every other surface.
 function StockLogo({ symbol, size = 32 }: { symbol: string; size?: number }) {
-  const [error, setError] = useState(false);
-  // /api/logo (FMP) returns the correct SpaceX mark for SPCX, so no text fallback needed.
-  const showTickerFallback = error;
-
-  if (showTickerFallback) {
-    return (
-      <div style={{
-        width: `${size}px`,
-        height: `${size}px`,
-        borderRadius: '50%',
-        background: 'radial-gradient(circle at 35% 25%, rgba(34,211,238,0.20), rgba(15,23,42,0.98) 68%)',
-        border: '1px solid rgba(34, 211, 238, 0.22)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#e0f2fe',
-        fontWeight: 800,
-        fontSize: size <= 24 ? '7px' : '9px',
-        fontFamily: 'var(--font-mono), monospace',
-        flexShrink: 0,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 0 14px rgba(34,211,238,0.10)'
-      }}>
-        {symbol.length > 4 ? symbol.slice(0, 4) : symbol}
-      </div>
-    );
-  }
-
-  return (
-    <div style={{
-      width: `${size}px`,
-      height: `${size}px`,
-      borderRadius: '50%',
-      background: 'radial-gradient(circle at 32% 24%, rgba(34, 211, 238, 0.18), rgba(8, 19, 36, 0.96) 54%, rgba(2, 6, 23, 0.98))',
-      border: '1px solid rgba(34, 211, 238, 0.20)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: size <= 24 ? '3px' : '4px',
-      overflow: 'hidden',
-      flexShrink: 0,
-      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 0 14px rgba(34,211,238,0.10)'
-    }}>
-      <img
-        loading="lazy"
-        src={`/api/logo/${symbol}?v=2`}
-        alt={symbol}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          filter: 'saturate(1.12) contrast(1.10) drop-shadow(0 0 2px rgba(226,232,240,0.55))'
-        }}
-        onError={() => setError(true)}
-      />
-    </div>
-  );
+  return <AppTickerLogo symbol={symbol} size={size} />;
 }
 
 // Category glyphs for the macro grid — line icons (Lucide-style) so each indicator

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, type SyntheticEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
+import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
@@ -2061,24 +2062,7 @@ export default function AppFlowPage() {
                 outline: 'none'
               }}
             >
-              <div style={{
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                overflow: 'hidden',
-                background: 'rgba(255,255,255,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <img
-                  src={LOGO(sym)}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              </div>
+              <AppTickerLogo symbol={sym} size={18} />
               <span>{sym}</span>
             </button>
           );
@@ -2154,13 +2138,7 @@ export default function AppFlowPage() {
             {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
             <div className={s.heroIdentity}>
               <div className={s.heroLeft}>
-                <div className={s.heroLogo}>
-                  <img
-                    src={APP_LOGO(ticker)}
-                    alt={ticker}
-                    onError={(e) => handleLogoFallback(e, ticker)}
-                  />
-                </div>
+                <AppTickerLogo symbol={ticker} size={44} />
                 <div className={s.heroNameGroup}>
                   <span className={s.heroTicker}>{ticker}</span>
                   <span className={s.heroCompany}>{companyName}</span>

@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { Sparkline } from '@/components/app/Sparkline';
+import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { AdBanner } from '@/components/app/AdBanner';
 import { ValueWall } from '@/components/app/ValueWall';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
@@ -328,24 +329,7 @@ function fgBadgeLabel(value: number): string {
 }
 
 function getTickerLogo(sym: string) {
-  return (
-    <img
-      src={`/api/logo/${sym}?v=2`}
-      alt=""
-      width={16}
-      height={16}
-      style={{ borderRadius: '50%', verticalAlign: 'middle', marginRight: 4, display: 'inline-block', objectFit: 'cover' }}
-      onError={(e) => {
-        const img = e.target as HTMLImageElement;
-        if (!img.dataset.fallback) {
-          img.dataset.fallback = '1';
-          img.src = `https://assets.parqet.com/logos/symbol/${sym}?format=svg`;
-        } else {
-          img.style.display = 'none';
-        }
-      }}
-    />
-  );
+  return <AppTickerLogo symbol={sym} size={16} style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }} />;
 }
 
 function getSymBadge(sym: string) {
