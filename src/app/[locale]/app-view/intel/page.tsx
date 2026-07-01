@@ -4984,10 +4984,11 @@ export default function AppIntelPage() {
                                   ].map(m => (
                                     <div key={m.label} style={{
                                       background: 'rgba(0,0,0,0.2)', borderRadius: '10px',
-                                      padding: '10px 12px', border: '1px solid rgba(255,255,255,0.04)'
+                                      padding: '10px 12px', border: '1px solid rgba(255,255,255,0.04)',
+                                      display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px'
                                     }}>
-                                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '4px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>{m.label}<MetricInfo term={m.tip as any} locale={appLocale} size={9} /></div>
-                                      <div style={{ fontSize: '15px', fontWeight: 800, color: m.color, fontFamily: 'var(--font-mono), monospace' }}>{m.value}</div>
+                                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'inline-flex', alignItems: 'center', gap: 3 }}>{m.label}<MetricInfo term={m.tip as any} locale={appLocale} size={9} /></div>
+                                      <div style={{ fontSize: '15px', fontWeight: 800, color: m.color, fontFamily: 'var(--font-mono), monospace', lineHeight: 1 }}>{m.value}</div>
                                     </div>
                                   ))}
                                 </div>
