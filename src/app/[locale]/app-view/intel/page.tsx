@@ -2325,6 +2325,100 @@ export default function AppIntelPage() {
     };
   };
 
+  // [UNIFIED SOURCE] All 10 sector closing reports come from the same per-sector
+  // post-market snapshot endpoint the web uses (/api/intel/snapshot?sector=X).
+  // Every sector is generated fresh (~5-min stagger), so there is no reason for the
+  // app to fall back to the stale 2-sector type=global report. Pure builder shared
+  // shape with loadSectorReport's snapshot mapping.
+  const buildSnapshotReport = useCallback((data: any, sectorId: string): SectorReportData | null => {
+    if (!data?.success || !data?.snapshot) return null;
+    const sectorCopy = SECTOR_APP_COPY[appLocale][sectorId] || SECTOR_APP_COPY.en[sectorId];
+    const summary = data.snapshot.sector_summary || {};
+    const briefing = summary.briefing || {};
+    const rawNewsDigest =
+      summary.newsDigest || summary.news_digest ||
+      data.snapshot.newsDigest || data.snapshot.news_digest || data.newsDigest;
+    const newsItems = normalizeNewsDigest(rawNewsDigest);
+    const sentiment = summary.outlook || data.snapshot.sentiment || 'NEUTRAL';
+    const localizedHeadline = locale === 'ko'
+      ? (briefing.headline || briefing.headlineEN || data.snapshot.verdict || '')
+      : locale === 'ja'
+        ? (briefing.headlineJP || briefing.headline || data.snapshot.verdict || '')
+        : (briefing.headlineEN || briefing.headline || data.snapshot.verdict || '');
+    const verdict = locale === 'ko'
+      ? (summary.next_day_briefing_kr || briefing.headline || data.snapshot.verdict || 'No verdict available.')
+      : locale === 'ja'
+        ? (briefing.headlineJP || briefing.headline || data.snapshot.verdict || 'No verdict available.')
+        : (briefing.headlineEN || briefing.headline || data.snapshot.verdict || 'No verdict available.');
+    const catalysts = locale === 'ko'
+      ? (briefing.watchpoints || data.snapshot.keyCatalysts || [])
+      : locale === 'ja'
+        ? (briefing.watchpointsJP || briefing.watchpoints || data.snapshot.keyCatalysts || [])
+        : (briefing.watchpointsEN || briefing.watchpoints || data.snapshot.keyCatalysts || []);
+    const bullets = locale === 'ko'
+      ? (briefing.bullets || [])
+      : locale === 'ja'
+        ? (briefing.bulletsJP || briefing.bullets || [])
+        : (briefing.bulletsEN || briefing.bullets || []);
+    const reportTitle = appLocale === 'ko'
+      ? `${sectorCopy.name} 섹터 장마감 리포트`
+      : appLocale === 'ja'
+        ? `${sectorCopy.name} セクター終値レポート`
+        : `${sectorCopy.name} Sector Closing Report`;
+    const reportHeadline = cleanReportText(localizedHeadline);
+    const reportSummary = cleanReportText(verdict || bullets[0] || '');
+    const dayOutlook = cleanReportText(catalysts[0] || bullets[1] || '');
+    const briefingBullets = Array.isArray(bullets) ? bullets.map(cleanReportText).filter(Boolean) : [];
+    const cleanCatalysts = Array.isArray(catalysts) ? catalysts.map(cleanReportText).filter(Boolean) : [];
+    const sourceNewsDigestLines = normalizeDigestLines(rawNewsDigest);
+    return {
+      sentiment,
+      verdict,
+      catalysts: cleanCatalysts,
+      bullets: briefingBullets,
+      gainers: summary.gainers ?? 0,
+      losers: summary.losers ?? 0,
+      avgPcr: summary.avg_pcr ?? 0,
+      totalGex: summary.total_gex ?? 0,
+      dominantRegime: summary.dominant_regime || 'NEUTRAL',
+      avgAlpha: summary.avg_alpha ?? 0,
+      snapshotTime: data.snapshot?.meta?.snapshot_timestamp || '',
+      source: 'sector-snapshot',
+      reportTitle,
+      reportHeadline,
+      reportSummary,
+      dayOutlook,
+      newsDigest: sourceNewsDigestLines.length ? sourceNewsDigestLines : briefingBullets,
+      briefingBullets,
+      newsItems,
+      newsSentimentOverall: summary.newsSentimentOverall || summary.news_sentiment_overall,
+      riskNotes: cleanCatalysts.slice(0, 3),
+      keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
+        sym: tick.ticker,
+        grade: tick.grade || 'B',
+        score: tick.alpha_score || tick.score || 55,
+        changePct: tick.change_pct || 0,
+        closePrice: tick.close_price || tick.closePrice || 0,
+        gex: tick.gex ?? 0,
+        pcr: tick.pcr ?? 0,
+        gammaRegime: tick.gamma_regime || tick.gammaRegime || 'NEUTRAL',
+        maxPain: tick.max_pain || tick.maxPain || 0,
+        callWall: tick.call_wall || tick.callWall || 0,
+        putFloor: tick.put_floor || tick.putFloor || 0,
+        rsi: tick.rsi ?? 0,
+        rvol: tick.rvol ?? 0,
+        sparkline: tick.sparkline || [],
+        analysisKr: tick.analysis_kr || tick.analysisKr || '',
+        netPremium: tick.net_premium ?? tick.netPremium ?? 0,
+        squeezeScore: tick.squeeze_score ?? tick.squeezeScore ?? 0,
+        ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
+        impliedMovePct: tick.implied_move_pct ?? tick.impliedMovePct ?? 0,
+        whaleIndex: tick.whale_index ?? tick.whaleIndex ?? 0,
+        darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? 0
+      }))
+    };
+  }, [locale, appLocale]);
+
   useEffect(() => {
     if (intelTab !== 'report') return;
 
@@ -2332,55 +2426,41 @@ export default function AppIntelPage() {
     const controller = new AbortController();
     setGlobalReportLoading(true);
 
-    const fillMissingWithAppSnapshot = (
-      globalReports: Record<string, SectorReportData>,
-      existingReports: Record<string, SectorReportData> = {}
-    ) => {
-      const nextReports: Record<string, SectorReportData> = { ...existingReports };
-      SECTOR_CONFIGS.forEach(sec => {
-        const existing = existingReports[sec.id];
-        const incoming = globalReports[sec.id];
-        if (incoming) {
-          nextReports[sec.id] = mergeSectorReportStable(existing, incoming);
-        } else if (!existing) {
-          nextReports[sec.id] = buildSectorReportFromQuotes(sec.id);
-        }
-      });
-      return nextReports;
-    };
+    // Instant fallback so cards render immediately; snapshot overwrites when it lands.
+    setReportCache(prev => {
+      const next = { ...prev };
+      SECTOR_CONFIGS.forEach(sec => { if (!next[sec.id]) next[sec.id] = buildSectorReportFromQuotes(sec.id); });
+      return next;
+    });
 
-    setReportCache(prev => fillMissingWithAppSnapshot({}, prev));
+    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
 
-    const timeoutId = window.setTimeout(() => {
-      controller.abort();
-    }, 8000);
-
-    fetch('/api/reports/latest?type=global', {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(res => res.ok ? res.json() : Promise.reject(new Error('global report unavailable')))
-      .then((report: GlobalReportPayload) => {
-        if (!active || !report) return;
-
-        const globalReports: Record<string, SectorReportData> = {};
-        SECTOR_CONFIGS.forEach(sec => {
-          const sectorReport = buildSectorReportFromGlobalReport(report, sec.id);
-          if (sectorReport) globalReports[sec.id] = sectorReport;
-        });
-
-        setReportCache(prev => fillMissingWithAppSnapshot(globalReports, prev));
-
-        if (selectedSector && globalReports[selectedSector]) {
-          setReportData(prev => mergeSectorReportStable(
-            prev || buildSectorReportFromQuotes(selectedSector),
-            globalReports[selectedSector]
-          ));
-        }
-      })
-      .catch(() => {
+    // Fetch all 10 per-sector closing snapshots in parallel — one unified source.
+    Promise.allSettled(
+      SECTOR_CONFIGS.map(sec =>
+        fetch(`/api/intel/snapshot?sector=${sec.id}`, { cache: 'no-store', signal: controller.signal })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => ({ id: sec.id, report: buildSnapshotReport(data, sec.id) }))
+      )
+    )
+      .then(results => {
         if (!active) return;
-        setReportCache(prev => fillMissingWithAppSnapshot({}, prev));
+        const fresh: Record<string, SectorReportData> = {};
+        results.forEach(r => {
+          if (r.status === 'fulfilled' && r.value?.report) fresh[r.value.id] = r.value.report;
+        });
+        if (Object.keys(fresh).length) {
+          setReportCache(prev => {
+            const next = { ...prev };
+            Object.entries(fresh).forEach(([id, rep]) => {
+              next[id] = mergeSectorReportStable(next[id], rep);
+            });
+            return next;
+          });
+          if (selectedSector && fresh[selectedSector]) {
+            setReportData(prev => mergeSectorReportStable(prev || buildSectorReportFromQuotes(selectedSector), fresh[selectedSector]));
+          }
+        }
       })
       .finally(() => {
         window.clearTimeout(timeoutId);
@@ -2392,7 +2472,7 @@ export default function AppIntelPage() {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [intelTab, selectedSector, buildSectorReportFromGlobalReport]);
+  }, [intelTab, selectedSector, buildSnapshotReport]);
 
   const sectorSummaries = SECTOR_CONFIGS.map(sec => {
     const quotes = getSectorQuotes(sec.id);
@@ -3190,11 +3270,11 @@ export default function AppIntelPage() {
                 const cached = reportCache[sec.id] || buildSectorReportFromQuotes(sec.id);
                 const englishName = TRANSLATIONS.en[sec.id] || sec.id;
                 const displayName = cached.reportTitle || englishName;
-                const sourceLabel = cached.source === 'global-report'
-                  ? (locale === 'ko' ? '장마감 리포트' : locale === 'ja' ? '引け後レポート' : 'CLOSE REPORT')
-                  : cached.source === 'sector-snapshot'
-                    ? (locale === 'ko' ? '리포트 데이터' : locale === 'ja' ? 'レポートデータ' : 'REPORT DATA')
-                    : (locale === 'ko' ? '앱 실시간' : locale === 'ja' ? 'アプリ速報' : 'APP LIVE');
+                // Unified source: every sector is a real post-market closing report.
+                // Only the rare quotes-fallback (snapshot fetch failed) reads "실시간".
+                const sourceLabel = cached.source === 'app-live'
+                  ? (locale === 'ko' ? '실시간' : locale === 'ja' ? '速報' : 'LIVE')
+                  : (locale === 'ko' ? '장마감 리포트' : locale === 'ja' ? '引け後レポート' : 'CLOSE REPORT');
                 const isExpanded = expandedReport === sec.id;
                 const sentimentColor = cached.sentiment.includes('BULL') ? '#10b981' : cached.sentiment.includes('BEAR') ? '#ef4444' : '#f59e0b';
                 const sentimentBg = cached.sentiment.includes('BULL') ? 'rgba(16, 185, 129, 0.1)' : cached.sentiment.includes('BEAR') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)';
@@ -3245,7 +3325,7 @@ export default function AppIntelPage() {
                 const fallbackMetricLines = (cached.bullets || []).map(cleanReportText).filter(Boolean).slice(0, 6);
                 const digestLines = newsItems.length ? [] : (sourceDigestLines.length ? sourceDigestLines : fallbackMetricLines);
                 const riskLines = (cached.riskNotes && cached.riskNotes.length > 0 ? cached.riskNotes : cached.catalysts || []).slice(0, 3);
-                const reportSourceText = cached.source === 'global-report' ? reportLabels.sourceWeb : reportLabels.sourceLive;
+                const reportSourceText = reportLabels.sourceLive;
                 const needsSnapshotRefresh =
                   (cached.source !== 'sector-snapshot' && newsItems.length === 0) ||
                   (cached.source !== 'global-report' && !hasRichReportPayload(cached));
@@ -3297,9 +3377,9 @@ export default function AppIntelPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
                           <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>{displayName}</span>
                           <span style={{
-                            color: cached.source === 'global-report' ? '#f59e0b' : '#22d3ee',
-                            background: cached.source === 'global-report' ? 'rgba(245, 158, 11, 0.10)' : 'rgba(34, 211, 238, 0.09)',
-                            border: cached.source === 'global-report' ? '1px solid rgba(245, 158, 11, 0.18)' : '1px solid rgba(34, 211, 238, 0.16)',
+                            color: cached.source !== 'app-live' ? '#f59e0b' : '#22d3ee',
+                            background: cached.source !== 'app-live' ? 'rgba(245, 158, 11, 0.10)' : 'rgba(34, 211, 238, 0.09)',
+                            border: cached.source !== 'app-live' ? '1px solid rgba(245, 158, 11, 0.18)' : '1px solid rgba(34, 211, 238, 0.16)',
                             borderRadius: '999px',
                             padding: '2px 7px',
                             fontSize: '10px',
@@ -3379,7 +3459,7 @@ export default function AppIntelPage() {
                                 <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                                   <span style={{ fontSize: '10px', fontWeight: 800, color: sentimentColor, background: sentimentBg, padding: '2px 7px', borderRadius: '5px', letterSpacing: '0.04em' }}>{cached.sentiment}</span>
-                                  <span style={{ fontSize: '10px', color: cached.source === 'global-report' ? '#f59e0b' : '#22d3ee', fontWeight: 700, letterSpacing: '0.02em' }}>{sourceLabel}</span>
+                                  <span style={{ fontSize: '10px', color: cached.source !== 'app-live' ? '#f59e0b' : '#22d3ee', fontWeight: 700, letterSpacing: '0.02em' }}>{sourceLabel}</span>
                                 </div>
                               </div>
                             </div>
@@ -3437,9 +3517,9 @@ export default function AppIntelPage() {
                               flexShrink: 0,
                               fontSize: '10px',
                               fontWeight: 900,
-                              color: cached.source === 'global-report' ? '#f59e0b' : '#22d3ee',
-                              border: cached.source === 'global-report' ? '1px solid rgba(245,158,11,0.28)' : '1px solid rgba(34,211,238,0.28)',
-                              background: cached.source === 'global-report' ? 'rgba(245,158,11,0.10)' : 'rgba(34,211,238,0.10)',
+                              color: cached.source !== 'app-live' ? '#f59e0b' : '#22d3ee',
+                              border: cached.source !== 'app-live' ? '1px solid rgba(245,158,11,0.28)' : '1px solid rgba(34,211,238,0.28)',
+                              background: cached.source !== 'app-live' ? 'rgba(245,158,11,0.10)' : 'rgba(34,211,238,0.10)',
                               borderRadius: '999px',
                               padding: '5px 8px',
                               whiteSpace: 'nowrap'
