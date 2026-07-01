@@ -928,6 +928,20 @@ function StockLogo({ symbol, size = 32 }: { symbol: string; size?: number }) {
   );
 }
 
+// Category glyphs for the macro grid — line icons (Lucide-style) so each indicator
+// reads at a glance instead of as a wall of text (volatility/equity/bond/commodity/fx).
+function MacroIcon({ category, size = 12 }: { category: string; size?: number }) {
+  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  switch (category) {
+    case 'volatility': return (<svg {...common}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>);
+    case 'equity': return (<svg {...common}><line x1="6" y1="20" x2="6" y2="14" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="18" y1="20" x2="18" y2="10" /></svg>);
+    case 'bond': return (<svg {...common}><line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /></svg>);
+    case 'commodity': return (<svg {...common}><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" /></svg>);
+    case 'fx': return (<svg {...common}><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>);
+    default: return (<svg {...common}><circle cx="12" cy="12" r="9" /></svg>);
+  }
+}
+
 function formatVerdictText(text: string) {
   if (!text) return null;
   
@@ -3013,32 +3027,60 @@ export default function AppIntelPage() {
 
                     {/* Body */}
                     <div style={{ padding: '12px 16px 16px' }}>
-                      {/* Macro snapshot — index/vol/bond/commodity + locale-gated FX chips */}
+                      {/* Macro snapshot — visual tile grid (icon + tinted by direction) */}
                       {macroChips.length > 0 && (
                         <div style={{ marginBottom: '12px' }}>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '7px' }}>
                             {macroChips.map((m, i) => {
                               const up = m.changePct >= 0;
-                              const c = up ? '#10b981' : '#ef4444';
+                              const flat = Math.abs(m.changePct) < 0.005;
+                              const c = flat ? 'var(--text-muted)' : up ? '#10b981' : '#ef4444';
                               const val = Math.abs(m.value) >= 1000
                                 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 })
                                 : m.value.toLocaleString(undefined, { maximumFractionDigits: 2 });
                               return (
-                                <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 9px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                  <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700 }}>{m.key}</span>
-                                  <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{val}</span>
-                                  <span style={{ fontSize: '9.5px', color: c, fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{up ? '+' : ''}{m.changePct.toFixed(2)}%</span>
+                                <div key={i} style={{
+                                  display: 'flex', alignItems: 'center', gap: '8px',
+                                  padding: '8px 10px', borderRadius: '11px',
+                                  background: flat ? 'rgba(255,255,255,0.025)' : up ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.045)',
+                                  border: '1px solid rgba(255,255,255,0.05)',
+                                  borderLeft: `2.5px solid ${c}`
+                                }}>
+                                  <div style={{ width: 24, height: 24, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: c, background: flat ? 'rgba(255,255,255,0.05)' : up ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.10)' }}>
+                                    <MacroIcon category={m.category} size={13} />
+                                  </div>
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.key}</div>
+                                    <div style={{ fontSize: '13.5px', color: 'var(--text)', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)', lineHeight: 1.2 }}>{val}</div>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                                    <span style={{ fontSize: '8px', color: c, lineHeight: 1 }}>{flat ? '' : up ? '▲' : '▼'}</span>
+                                    <span style={{ fontSize: '10px', color: c, fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{Math.abs(m.changePct).toFixed(2)}%</span>
+                                  </div>
                                 </div>
                               );
                             })}
                           </div>
-                          {vixTerm && (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', marginTop: '8px', padding: '5px 10px', borderRadius: '8px', background: vixTerm.state === 'BACKWARDATION' ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.06)', border: `1px solid ${vixTerm.state === 'BACKWARDATION' ? 'rgba(239,68,68,0.18)' : 'rgba(16,185,129,0.14)'}` }}>
-                              <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.05em', color: vixTerm.state === 'BACKWARDATION' ? '#ef4444' : '#10b981' }}>VIX TERM</span>
-                              <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>{vixTerm.vix} / {vixTerm.vix3m}</span>
-                              <span style={{ fontSize: '10px', fontWeight: 800, color: vixTerm.state === 'BACKWARDATION' ? '#ef4444' : '#10b981' }}>{vixTerm.state} ({vixTerm.ratio})</span>
-                            </div>
-                          )}
+                          {vixTerm && (() => {
+                            const back = vixTerm.state === 'BACKWARDATION';
+                            const vc = back ? '#ef4444' : '#10b981';
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '7px', padding: '9px 12px', borderRadius: '11px', background: `linear-gradient(90deg, ${back ? 'rgba(239,68,68,0.09)' : 'rgba(16,185,129,0.08)'}, rgba(255,255,255,0.01))`, border: `1px solid ${back ? 'rgba(239,68,68,0.16)' : 'rgba(16,185,129,0.14)'}` }}>
+                                <div style={{ width: 24, height: 24, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: vc, background: back ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)' }}>
+                                  <MacroIcon category="volatility" size={13} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>VIX TERM STRUCTURE</div>
+                                  <div style={{ fontSize: '12px', fontWeight: 800, color: vc, marginTop: '1px' }}>{vixTerm.state} <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', fontSize: '10px' }}>({vixTerm.ratio})</span></div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', flexShrink: 0, fontFamily: 'var(--font-mono, monospace)' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)' }}>{vixTerm.vix}</span>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>/</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)' }}>{vixTerm.vix3m}</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
