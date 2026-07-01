@@ -4541,7 +4541,10 @@ export default function AppIntelPage() {
                             {/* Expanded Detail — Bento Grid */}
                             {isExpanded && (
                               <div style={{
-                                padding: '12px 16px 16px',
+                                /* Slimmer side padding so the expanded stock content
+                                   uses the available width (was 16px → felt narrow vs
+                                   the top-level cards). */
+                                padding: '12px 8px 16px',
                                 background: 'rgba(255,255,255,0.015)',
                                 borderBottom: '1px solid rgba(255,255,255,0.06)'
                               }}>
