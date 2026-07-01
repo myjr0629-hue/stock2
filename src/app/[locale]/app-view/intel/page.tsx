@@ -915,7 +915,7 @@ function StockLogo({ symbol, size = 32 }: { symbol: string; size?: number }) {
     }}>
       <img
         loading="lazy"
-        src={`/api/logo/${symbol}`}
+        src={`/api/logo/${symbol}?v=2`}
         alt={symbol}
         style={{
           width: '100%',

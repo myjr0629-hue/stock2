@@ -16,8 +16,8 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
-const LOGO = (t: string) => `/api/logo/${t}`;
-const APP_LOGO = (t: string) => `/api/logo/${t}`;
+const LOGO = (t: string) => `/api/logo/${t}?v=2`;
+const APP_LOGO = (t: string) => `/api/logo/${t}?v=2`;
 
 function handleLogoFallback(event: SyntheticEvent<HTMLImageElement>, ticker: string) {
   const img = event.currentTarget;

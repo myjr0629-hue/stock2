@@ -49,7 +49,7 @@ function chipResponse(symbol: string, cache: 'GEN' | 'HIT' = 'GEN'): Response {
         status: 200,
         headers: {
             'Content-Type': 'image/svg+xml; charset=utf-8',
-            'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+            'Cache-Control': 'public, max-age=600, s-maxage=86400, stale-while-revalidate=86400',
             'X-Cache': cache,
         },
     });
@@ -83,7 +83,7 @@ export async function GET(
                 status: 200,
                 headers: {
                     'Content-Type': cached.contentType || 'image/png',
-                    'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+                    'Cache-Control': 'public, max-age=600, s-maxage=86400, stale-while-revalidate=86400',
                     'X-Cache': 'HIT',
                 },
             });
@@ -120,7 +120,7 @@ export async function GET(
                 status: 200,
                 headers: {
                     'Content-Type': contentType,
-                    'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+                    'Cache-Control': 'public, max-age=600, s-maxage=86400, stale-while-revalidate=86400',
                     'X-Cache': 'MISS',
                 },
             });

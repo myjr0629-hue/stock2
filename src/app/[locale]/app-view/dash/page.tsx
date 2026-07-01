@@ -330,7 +330,7 @@ function fgBadgeLabel(value: number): string {
 function getTickerLogo(sym: string) {
   return (
     <img
-      src={`/api/logo/${sym}`}
+      src={`/api/logo/${sym}?v=2`}
       alt=""
       width={16}
       height={16}

@@ -1402,7 +1402,7 @@ function TechnicalGammaMap({
    ═══════════════════════════════════════════ */
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
-const LOGO = (t: string) => `/api/logo/${t}`;
+const LOGO = (t: string) => `/api/logo/${t}?v=2`;
 
 function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; currentPrice: number; locale: string }) {
   const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);

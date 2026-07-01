@@ -63,7 +63,7 @@ function normalizeMover(item: any): MoverItem {
 function StockLogo({ symbol }: { symbol: string }) {
   const [sourceIndex, setSourceIndex] = useState(0);
   const sources = [
-    `/api/logo/${symbol}`,
+    `/api/logo/${symbol}?v=2`,
     `https://assets.parqet.com/logos/symbol/${symbol}?format=png`,
   ];
   const src = sources[sourceIndex];
