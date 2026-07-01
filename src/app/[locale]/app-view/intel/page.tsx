@@ -2044,8 +2044,22 @@ export default function AppIntelPage() {
 
   const getSectorChange = (sectorId: string) => {
     const quotes = getSectorQuotes(sectorId);
-    
+
+    // Option B: during pre/post, reflect extended-hours price moves per ticker
+    // (fall back to the regular change when a ticker has no extended print). Only
+    // the price change goes live here — options/flow metrics stay close-based.
+    // When the session is regular or closed, this is the plain regular change.
+    const useExtended = marketStatus.session === 'pre' || marketStatus.session === 'post';
+
     if (quotes && quotes.length > 0) {
+      if (useExtended) {
+        const extVals = quotes.map(q => {
+          const hasExt = !!q.extendedLabel && (q.extendedPrice ?? 0) > 0 && typeof q.extendedChangePct === 'number';
+          if (hasExt) return q.extendedChangePct as number;
+          return (q.changePct !== undefined && q.changePct !== null) ? q.changePct : null;
+        }).filter((v): v is number => v !== null);
+        if (extVals.length > 0) return extVals.reduce((acc, v) => acc + v, 0) / extVals.length;
+      }
       const validQuotes = quotes.filter(q => q.changePct !== undefined && q.changePct !== null);
       if (validQuotes.length > 0) {
         const sum = validQuotes.reduce((acc, q) => acc + q.changePct, 0);
