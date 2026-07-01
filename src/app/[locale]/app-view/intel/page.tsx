@@ -3163,7 +3163,8 @@ export default function AppIntelPage() {
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {catalysts.length > 0 && (
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, color: '#10b981', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h7l-1 8 10-12h-7z" /></svg>
                                 {locale === 'ko' ? '촉매' : 'CATALYSTS'}
                               </div>
                               {catalysts.slice(0, 2).map((c, i) => (
@@ -3175,7 +3176,8 @@ export default function AppIntelPage() {
                           )}
                           {risks.length > 0 && (
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, color: '#ef4444', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                 {locale === 'ko' ? '리스크' : 'RISKS'}
                               </div>
                               {risks.slice(0, 2).map((r, i) => (
@@ -3191,7 +3193,8 @@ export default function AppIntelPage() {
                       {/* Opportunities */}
                       {opportunities.length > 0 && (
                         <div style={{ marginTop: '12px' }}>
-                          <div style={{ fontSize: '11px', fontWeight: 700, color: '#22d3ee', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, color: '#22d3ee', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /></svg>
                             {locale === 'ko' ? '기회 요인' : locale === 'ja' ? '機会' : 'OPPORTUNITIES'}
                           </div>
                           {opportunities.slice(0, 2).map((o, i) => (
@@ -4091,6 +4094,11 @@ export default function AppIntelPage() {
                                         )}
                                       </div>
                                     </div>
+                                    {Array.isArray(stock.sparkline) && stock.sparkline.length >= 2 && (
+                                      <div style={{ width: '52px', flexShrink: 0 }}>
+                                        <Sparkline data={stock.sparkline} isUp={isUp} />
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
