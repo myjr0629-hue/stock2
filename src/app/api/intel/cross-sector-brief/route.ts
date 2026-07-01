@@ -43,7 +43,7 @@ function getDayOfWeekET(): string {
 }
 
 function getCacheKey(date: string) {
-    return `postmarket:cross-brief-v3:${date}`;
+    return `postmarket:cross-brief-v4:${date}`;
 }
 
 // ── Structured Types (V3 — Bloomberg-Grade) ──
@@ -362,10 +362,10 @@ ${JSON.stringify(sectorSummaries, null, 1)}
 - Oil Impact Chain: Oil price moves → inflation expectations → yield impact → growth stock sensitivity.
 - BTC as Risk Barometer: BTC correlating with NASDAQ = risk-on proxy. BTC diverging = crypto-specific flow.
 
-### 2. FX & International Context
-- USD/KRW context for Korean analysis: Strong dollar = foreign selling pressure on Korean equities, impact on export competitiveness.
-- USD/JPY context for Japanese analysis: Approaching intervention levels (155+), yen carry trade unwind risks, BOJ policy implications.
-- For English: DXY-equivalent strength assessment using the FX pairs.
+### 2. FX & International Context — STRICT locale scoping (NEVER cross-contaminate)
+- Korean (ko) ONLY: USD/KRW (원/달러) — strong dollar = foreign selling pressure on Korean equities, export competitiveness. The USD/KRW pair must appear ONLY in the "ko" text — NEVER in "en" or "ja".
+- Japanese (ja) ONLY: USD/JPY (円/ドル) — intervention levels (155+), yen carry unwind, BOJ policy. USD/JPY must appear ONLY in the "ja" text — NEVER in "en" or "ko".
+- English (en) ONLY: DXY / dollar-index strength (global). The "en" text must NEVER reference USD/KRW or USD/JPY — those are region-specific pairs for their own locale only.
 
 ### 3. News Impact Chain (MANDATORY for each news item)
 For each news item, provide an "impactChain" showing the causal propagation:

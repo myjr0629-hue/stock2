@@ -121,15 +121,27 @@ const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier in
 
 6. TONE: Professional institutional research — concise, authoritative, zero fluff
 
+7. STOCK-SPECIFIC DEPTH (not generic sector talk)
+   - Anchor the read in THIS company's own drivers — its product/earnings cycle, competitive position, or the specific news/filing provided. Reject interchangeable boilerplate that could describe any ticker. A reader must learn something true about THIS name.
+
+8. CATALYST TIMING (when the data supports it)
+   - If the news/filings reference a dated event (earnings, guidance, product launch, regulatory/8-K action) or the option structure implies an expiry/gamma inflection, name the catalyst and its timing context (e.g. "8-K 공시 직후", "실적 발표를 앞둔"). Describe scheduled/observed events only — NEVER predict their outcome.
+
+9. REGIME LINKAGE (one clause)
+   - Tie the single-name option structure to the prevailing backdrop it sits in — its sector's gamma regime and the broad risk-on/off tone — so the read is contextual, not isolated.
+
+10. CONVICTION BASIS (make it explicit)
+   - State whether the indicators ALIGN (reinforcing one structural story = high-conviction read) or DIVERGE (mixed signals = low-conviction/uncertain), since that alignment is exactly what a conviction score reflects. Frame as observed structure, never as a recommendation.
+
 ═══ OUTPUT FORMAT ═══
 Return ONLY valid JSON (no markdown fences):
 {
   "analyses": [
     {
       "ticker": "SYMBOL",
-      "ko": "한국어 기관급 분석 2-3문장 (150-200자). 번역체 금지, 네이티브 품질.",
-      "en": "English institutional analysis 2-3 sentences (100-150 words). Native quality.",
-      "ja": "日本語機関級分析 2-3文 (150-200文字). 翻訳調禁止、ネイティブ品質."
+      "ko": "한국어 기관급 분석 3-4문장 (200-300자). 종목 특화·촉매 타이밍·레짐 연계·컨빅션 근거 포함. 번역체 금지, 네이티브 품질.",
+      "en": "English institutional analysis 3-4 sentences (130-200 words). Stock-specific, catalyst timing, regime linkage, conviction basis. Native quality.",
+      "ja": "日本語機関級分析 3-4文 (200-300文字). 銘柄特化・カタリスト時期・レジーム連携・確信度根拠を含む. 翻訳調禁止、ネイティブ品質."
     }
   ]
 }
@@ -154,7 +166,7 @@ export async function POST(req: Request) {
 
         for (const s of stocks) {
             try {
-                const key = `cache:intel-analysis:v7:${s.ticker}`;
+                const key = `cache:intel-analysis:v8:${s.ticker}`;
                 const entry = await getFromCache<{ ko: string; en: string; ja: string; basePrice: number }>(key);
                 if (entry) {
                     // ±1% price invalidation
@@ -216,8 +228,11 @@ ${newsSection}
 CRITICAL:
 1. Cross-correlate ALL provided indicators — explain structural interactions, not values
 2. Weave news naturally into the structural narrative as cause-and-effect
-3. End each analysis with an actionable environment conclusion
-4. Return valid JSON only with all 3 languages per stock`;
+3. Keep it STOCK-SPECIFIC — this company's own drivers, not generic sector talk
+4. When the news/filings carry a dated catalyst (earnings, guidance, 8-K), name it and its timing context (observed/scheduled — never predict the outcome)
+5. Add one clause linking the name to its sector/market regime, and state whether the indicators ALIGN or DIVERGE (the conviction basis)
+6. End each analysis with an actionable environment conclusion
+7. Return valid JSON only with all 3 languages per stock`;
 
             // 3. Call Bedrock Claude (with retry + fallback)
             const bedrockResult = await callBedrock({
@@ -248,7 +263,7 @@ CRITICAL:
                 const a = freshAnalyses[s.ticker];
                 if (a) {
                     try {
-                        await setInCache(`cache:intel-analysis:v7:${s.ticker}`, {
+                        await setInCache(`cache:intel-analysis:v8:${s.ticker}`, {
                             ko: a.ko, en: a.en, ja: a.ja,
                             basePrice: s.price,
                             updatedAt: new Date().toISOString(),
