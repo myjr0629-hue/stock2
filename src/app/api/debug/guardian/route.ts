@@ -2,6 +2,21 @@
 import { NextResponse } from 'next/server';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 
+// Some AI-brief fields are baked with mojibake upstream (the EC2 Redis proxy mangles
+// multi-byte UTF-8 into U+FFFD before generation reads it). getFromCache now prefers
+// the clean Upstash copy, but fields corrupted at generation exist in both stores —
+// strip the replacement chars here so the app never renders garbled text.
+function stripMojibake<T>(v: T): T {
+    if (typeof v === 'string') return (v.indexOf('\uFFFD') !== -1 ? v.replace(/\uFFFD/g, '') : v) as T;
+    if (Array.isArray(v)) return v.map(stripMojibake) as unknown as T;
+    if (v && typeof v === 'object') {
+        const o: Record<string, unknown> = {};
+        for (const k in v) o[k] = stripMojibake((v as Record<string, unknown>)[k]);
+        return o as T;
+    }
+    return v;
+}
+
 // [S-56.4] Route Segment Config
 export const maxDuration = 60; // Allow 60s for AI generation (Hobby Limit)
 export const dynamic = 'force-dynamic';
@@ -20,7 +35,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             success: true,
-            data: context
+            data: stripMojibake(context)
         });
     } catch (error: any) {
         return NextResponse.json({
