@@ -44,7 +44,12 @@ export function MetricInfo({
         aria-label={title}
         onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         style={{
-          width: size, height: size, borderRadius: '50%', flex: '0 0 auto', padding: 0,
+          // Hard-pin the box so it stays a perfect circle everywhere. iOS WebKit
+          // gives <button> a native appearance that enforces min sizing and would
+          // otherwise squash this tiny circle into an oval — appearance:none kills it.
+          appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
+          width: size, height: size, minWidth: size, minHeight: size, maxWidth: size, maxHeight: size,
+          aspectRatio: '1 / 1', borderRadius: '50%', flex: '0 0 auto', flexShrink: 0, alignSelf: 'center', padding: 0, margin: 0,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           fontSize: Math.round(size * 0.62), fontWeight: 800, fontStyle: 'italic', lineHeight: 1,
           cursor: 'pointer', verticalAlign: 'middle',
