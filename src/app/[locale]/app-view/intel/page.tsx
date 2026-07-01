@@ -1468,6 +1468,8 @@ export default function AppIntelPage() {
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [reportLoadingSector, setReportLoadingSector] = useState<string | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
+  const [crossMacro, setCrossMacro] = useState<{ key: string; value: number; changePct: number; category: string }[]>([]);
+  const [vixTerm, setVixTerm] = useState<{ vix: number; vix3m: number; ratio: number; state: string } | null>(null);
 
   // Lock background scroll while the full-screen sector report modal is open.
   useEffect(() => {
@@ -1516,6 +1518,10 @@ export default function AppIntelPage() {
             setCrossBrief(data.structured);
           } else if (data.success && data.marketOverview) {
             setCrossBrief(data as any);
+          }
+          if (data.success) {
+            if (Array.isArray(data.macroIndicators)) setCrossMacro(data.macroIndicators);
+            if (data.vixTermStructure) setVixTerm(data.vixTermStructure);
           }
         }
       } catch { /* silent */ }
@@ -2913,16 +2919,31 @@ export default function AppIntelPage() {
               {/* ═══ CROSS SECTOR SUMMARY CARD ═══ */}
               {crossBrief && (() => {
                 const brief = crossBrief;
+                // Locale FX gating — USD/KRW is Korea-only, USD/JPY is Japan-only.
+                // The API returns both (and can bleed a KRW risk line into en/ja), so the
+                // app filters by the viewer's language: web already does this.
+                const fxKeyAllowed = (key: string) => {
+                  if (/USD\/KRW|\bKRW\b|₩/i.test(key)) return locale === 'ko';
+                  if (/USD\/JPY|\bJPY\b|¥/i.test(key)) return locale === 'ja';
+                  return true;
+                };
+                const fxTextAllowed = (t: string) => {
+                  const s = String(t || '');
+                  if (/USD\s*\/\s*KRW|원\s*\/\s*달러|원달러|\bKRW\b|₩/i.test(s) && locale !== 'ko') return false;
+                  if (/USD\s*\/\s*JPY|円\s*\/\s*ドル|\bJPY\b|¥/i.test(s) && locale !== 'ja') return false;
+                  return true;
+                };
                 const toneColor = brief.marketOverview.tone === 'BULLISH' ? '#10b981' : brief.marketOverview.tone === 'BEARISH' ? '#ef4444' : brief.marketOverview.tone === 'CAUTIOUS' ? '#f59e0b' : '#8b5cf6';
                 const toneBg = brief.marketOverview.tone === 'BULLISH' ? 'rgba(16,185,129,0.08)' : brief.marketOverview.tone === 'BEARISH' ? 'rgba(239,68,68,0.08)' : brief.marketOverview.tone === 'CAUTIOUS' ? 'rgba(245,158,11,0.08)' : 'rgba(139,92,246,0.08)';
                 const biasColor = brief.outlook?.bias === 'BULLISH' ? '#10b981' : brief.outlook?.bias === 'BEARISH' ? '#ef4444' : '#f59e0b';
                 const summary = brief.marketOverview.summary[locale as 'ko' | 'en' | 'ja'] || brief.marketOverview.summary.en;
-                const drivers = brief.marketOverview.keyDrivers[locale as 'ko' | 'en' | 'ja'] || brief.marketOverview.keyDrivers.en || [];
-                const catalysts = brief.outlook?.catalysts?.[locale as 'ko' | 'en' | 'ja'] || brief.outlook?.catalysts?.en || [];
-                const risks = brief.outlook?.risks?.[locale as 'ko' | 'en' | 'ja'] || brief.outlook?.risks?.en || [];
+                const drivers = (brief.marketOverview.keyDrivers[locale as 'ko' | 'en' | 'ja'] || brief.marketOverview.keyDrivers.en || []).filter(fxTextAllowed);
+                const catalysts = (brief.outlook?.catalysts?.[locale as 'ko' | 'en' | 'ja'] || brief.outlook?.catalysts?.en || []).filter(fxTextAllowed);
+                const risks = (brief.outlook?.risks?.[locale as 'ko' | 'en' | 'ja'] || brief.outlook?.risks?.en || []).filter(fxTextAllowed);
                 const rotationInsight = brief.sectorRotation?.rotationInsight?.[locale as 'ko' | 'en' | 'ja'] || brief.sectorRotation?.rotationInsight?.en || '';
                 const L = (locale as 'ko' | 'en' | 'ja');
-                const opportunities = brief.outlook?.opportunities?.[L] || brief.outlook?.opportunities?.en || [];
+                const opportunities = (brief.outlook?.opportunities?.[L] || brief.outlook?.opportunities?.en || []).filter(fxTextAllowed);
+                const macroChips = (crossMacro || []).filter(m => fxKeyAllowed(m.key));
                 const newsItems = (brief.newsImpact?.items || []).slice(0, 3);
                 const edgeAlerts = (brief.edgeAlerts || []).slice(0, 3);
                 const dirColor = (d: string) => d === '↑' ? '#10b981' : d === '↓' ? '#ef4444' : 'var(--text-muted)';
@@ -2992,6 +3013,35 @@ export default function AppIntelPage() {
 
                     {/* Body */}
                     <div style={{ padding: '12px 16px 16px' }}>
+                      {/* Macro snapshot — index/vol/bond/commodity + locale-gated FX chips */}
+                      {macroChips.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {macroChips.map((m, i) => {
+                              const up = m.changePct >= 0;
+                              const c = up ? '#10b981' : '#ef4444';
+                              const val = Math.abs(m.value) >= 1000
+                                ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                                : m.value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                              return (
+                                <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 9px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700 }}>{m.key}</span>
+                                  <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{val}</span>
+                                  <span style={{ fontSize: '9.5px', color: c, fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{up ? '+' : ''}{m.changePct.toFixed(2)}%</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {vixTerm && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', marginTop: '8px', padding: '5px 10px', borderRadius: '8px', background: vixTerm.state === 'BACKWARDATION' ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.06)', border: `1px solid ${vixTerm.state === 'BACKWARDATION' ? 'rgba(239,68,68,0.18)' : 'rgba(16,185,129,0.14)'}` }}>
+                              <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.05em', color: vixTerm.state === 'BACKWARDATION' ? '#ef4444' : '#10b981' }}>VIX TERM</span>
+                              <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>{vixTerm.vix} / {vixTerm.vix3m}</span>
+                              <span style={{ fontSize: '10px', fontWeight: 800, color: vixTerm.state === 'BACKWARDATION' ? '#ef4444' : '#10b981' }}>{vixTerm.state} ({vixTerm.ratio})</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Options Snapshot — gamma / pcr / regime (visual strip) */}
                       {gamma && (
                         <div style={{ marginBottom: '12px', padding: '11px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
