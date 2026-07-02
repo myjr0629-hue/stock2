@@ -5,8 +5,10 @@
 // [FIXED] Keeps existing data during refresh, no page reset
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { computeOnePipe, type MarketSession } from '@/hooks/useOnePipe';
+import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { Capacitor } from '@capacitor/core';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -19,6 +21,24 @@ const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'SPCX', 'LDOS', 'ASTS', 'LU
 const QUANTUM_EDGE_TICKERS = ['SMCI', 'SNOW', 'IONQ', 'DELL', 'AI', 'PATH', 'TWLO'];
 const FINTECH_PULSE_TICKERS = ['XYZ', 'PYPL', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'UPST'];
 const CLOUD_FORTRESS_TICKERS = ['CRM', 'NOW', 'DDOG', 'WDAY', 'MDB', 'TEAM', 'HUBS'];
+
+const ALL_INTEL_TICKERS = [
+    ...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS,
+    ...BIO_PULSE_TICKERS, ...CYBER_SHIELD_TICKERS, ...ORBIT_DEFENSE_TICKERS, ...QUANTUM_EDGE_TICKERS,
+    ...FINTECH_PULSE_TICKERS, ...CLOUD_FORTRESS_TICKERS,
+];
+
+// Normalize a raw session string to the MarketSession union computeOnePipe expects.
+// computeOnePipe's switch has no default price branch, so an unrecognized session would
+// yield price=0 — always normalize before calling it.
+function normalizeSession(s: string | undefined): MarketSession {
+    if (!s) return 'CLOSED';
+    const u = s.toUpperCase();
+    if (u === 'PRE' || u === 'PRE_MARKET' || u === 'PREMARKET') return 'PRE';
+    if (u === 'REG' || u === 'REGULAR' || u === 'OPEN') return 'REG';
+    if (u === 'POST' || u === 'POST_MARKET' || u === 'POSTMARKET') return 'POST';
+    return 'CLOSED';
+}
 
 // Types for shared data
 export interface IntelQuote {
@@ -419,7 +439,7 @@ export function useIntelSharedData(
 }
 
 export function useIntelSharedDataForApp(): IntelSharedData & { refresh: () => void } {
-    return useIntelSharedData(
+    const base = useIntelSharedData(
         undefined,
         undefined,
         undefined,
@@ -438,6 +458,81 @@ export function useIntelSharedDataForApp(): IntelSharedData & { refresh: () => v
             fullPollMs: 240000,
         }
     );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // [WS OVERLAY] App-only live prices (native WebView only).
+    // Layers real-time WebSocket price on top of the REST/ONE-PIPE quotes by
+    // routing wsPrice THROUGH computeOnePipe (untouched) — so the session split
+    // (REG main vs PRE/POST badge) and after-close retention (regularCloseToday)
+    // are preserved exactly. This lives in the APP wrapper only; the web Intel
+    // page uses the core useIntelSharedData directly and is completely unaffected.
+    // Not native / WS idle / off-market hours → returns base untouched (pure REST).
+    // ═══════════════════════════════════════════════════════════════════
+    const isNativeApp = typeof window !== 'undefined' && Capacitor.isNativePlatform();
+    const wsTickers = useMemo(() => (isNativeApp ? ALL_INTEL_TICKERS : undefined), [isNativeApp]);
+    const { prices: wsPrices } = useRealtimeData(wsTickers);
+
+    return useMemo(() => {
+        if (!isNativeApp || wsPrices.size === 0) return base;
+
+        const overlay = (arr: IntelQuote[]): IntelQuote[] => {
+            if (arr.length === 0) return arr;
+            let changed = false;
+            const next = arr.map(q => {
+                const ws = wsPrices.get(q.ticker);
+                const wsPrice = (ws?.price && ws.price > 0) ? ws.price : null;
+                if (wsPrice == null) return q;
+                const pipe = computeOnePipe({
+                    session: normalizeSession(q.session),
+                    pollPrice: q.price,
+                    pollPrevClose: q.prevClose,
+                    pollExtPrice: q.extendedPrice || 0,
+                    pollExtLabel: q.extendedLabel || '',
+                    pollChangePct: q.changePct,
+                    wsPrice,
+                    regularCloseToday: q.regularCloseToday ?? null,
+                });
+                const nextExt = pipe.extPrice ?? q.extendedPrice;
+                if (pipe.price === q.price && pipe.changePct === q.changePct && nextExt === q.extendedPrice) return q;
+                changed = true;
+                return {
+                    ...q,
+                    price: pipe.price,
+                    changePct: pipe.changePct,
+                    extendedPrice: nextExt,
+                    extendedChangePct: pipe.extChangePct ?? q.extendedChangePct,
+                    extendedLabel: pipe.extLabel || q.extendedLabel,
+                    priceFlash: pipe.price > q.price ? 'up' : pipe.price < q.price ? 'down' : (q.priceFlash ?? null),
+                };
+            });
+            return changed ? next : arr;
+        };
+
+        const m7 = overlay(base.m7);
+        const physicalAI = overlay(base.physicalAI);
+        const siliconCore = overlay(base.siliconCore);
+        const powerMatrix = overlay(base.powerMatrix);
+        const bioPulse = overlay(base.bioPulse);
+        const cyberShield = overlay(base.cyberShield);
+        const orbitDefense = overlay(base.orbitDefense);
+        const quantumEdge = overlay(base.quantumEdge);
+        const fintechPulse = overlay(base.fintechPulse);
+        const cloudFortress = overlay(base.cloudFortress);
+
+        // If no sector array actually changed, return base (same ref) so downstream memos bail.
+        if (
+            m7 === base.m7 && physicalAI === base.physicalAI && siliconCore === base.siliconCore &&
+            powerMatrix === base.powerMatrix && bioPulse === base.bioPulse && cyberShield === base.cyberShield &&
+            orbitDefense === base.orbitDefense && quantumEdge === base.quantumEdge &&
+            fintechPulse === base.fintechPulse && cloudFortress === base.cloudFortress
+        ) return base;
+
+        return {
+            ...base,
+            m7, physicalAI, siliconCore, powerMatrix, bioPulse,
+            cyberShield, orbitDefense, quantumEdge, fintechPulse, cloudFortress,
+        };
+    }, [base, wsPrices, isNativeApp]);
 }
 
 /**
