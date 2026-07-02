@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight, Activity, TrendingUp, TrendingDown } from 'lucide-react';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
-import { FlashPrice } from '@/components/ui/PriceDisplay';
 
 interface SectorStat {
     def: {
@@ -113,7 +112,7 @@ export function MobileCollapsibleHeatmap({ sectorStats, onTickerClick }: MobileC
                                                 </div>
 
                                                 <div className="flex flex-col items-end">
-                                                    <FlashPrice value={quote.price} className="text-sm font-mono text-white font-semibold" />
+                                                    <span className="text-sm font-mono text-white font-semibold">${quote.price.toFixed(2)}</span>
                                                     <span className={`text-[12px] font-mono font-bold ${quote.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                         {quote.changePct >= 0 ? '+' : ''}{quote.changePct.toFixed(2)}%
                                                     </span>

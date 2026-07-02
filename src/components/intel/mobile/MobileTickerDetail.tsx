@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
-import { usePriceFlash, getFlashStyle } from '@/components/ui/PriceDisplay';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
@@ -127,9 +126,6 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
     const up = q.changePct >= 0;
     const g = gradeInfo(q.alphaScore);
 
-    // Live price flash — green/rose blink on each tick (matches cmd), then fades to white.
-    const priceFlashStyle = getFlashStyle(usePriceFlash(q.price || 0)).style;
-
     // ── Bedrock AI Analysis fetch ──
     const [aiText, setAiText] = useState<string | null>(null);
     const [aiLoading, setAiLoading] = useState(true);
@@ -241,7 +237,7 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
                             <span className={g.t}>Ctx {q.alphaScore > 0 ? q.alphaScore.toFixed(1) : '-'}</span>
                         </div>
                     </div>
-                    <div className="text-[36px] font-bold tracking-tighter leading-none" style={priceFlashStyle}>${q.price.toFixed(2)}</div>
+                    <div className="text-[36px] font-bold text-white tracking-tighter leading-none">${q.price.toFixed(2)}</div>
                     {hasExt && (
                         <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg" style={{ background: 'rgba(139,92,246,0.15)' }}>
                             <span className="text-[10px] font-bold text-violet-300 tracking-wider">{q.extendedLabel}</span>

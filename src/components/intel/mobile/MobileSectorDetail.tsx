@@ -8,7 +8,6 @@
 import React, { useState } from 'react';
 import { type SectorDefBase } from '@/configs/intelSectors';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
-import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { ChevronLeft } from 'lucide-react';
 import { SectorIcon } from './SectorIcon';
 import { MobileSectorReport } from './MobileSectorReport';
@@ -235,7 +234,7 @@ export function MobileSectorDetail({ sector, stats, quotes, onBack, onTickerTap 
 
                                     {/* Price + Change — single line */}
                                     <div className="flex items-center gap-2 shrink-0">
-                                        <FlashPrice value={quote.price} className="text-[14px] font-semibold text-white font-mono" />
+                                        <span className="text-[14px] font-semibold text-white font-mono">${quote.price.toFixed(2)}</span>
                                         <span className={`text-[13px] font-semibold font-mono ${isTickerUp ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {isTickerUp ? '+' : ''}{quote.changePct.toFixed(2)}%
                                         </span>

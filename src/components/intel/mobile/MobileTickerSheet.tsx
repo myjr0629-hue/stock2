@@ -9,7 +9,6 @@
 import React from 'react';
 import { MobileBottomSheet } from '@/components/mobile/MobileBottomSheet';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
-import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { useRouter } from '@/i18n/routing';
 
 interface MobileTickerSheetProps {
@@ -75,7 +74,7 @@ export function MobileTickerSheet({ ticker, isOpen, onClose }: MobileTickerSheet
 
                     {/* Price + Change */}
                     <div className="text-right shrink-0">
-                        <FlashPrice value={ticker.price} className="text-[18px] font-bold text-white font-mono block" />
+                        <div className="text-[18px] font-bold text-white font-mono">${ticker.price.toFixed(2)}</div>
                         <div className={`text-[12px] font-semibold mt-0.5 ${isBullish ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {isBullish ? '+' : ''}{ticker.changePct.toFixed(2)}%
                         </div>
