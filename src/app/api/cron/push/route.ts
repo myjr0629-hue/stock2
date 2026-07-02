@@ -29,6 +29,21 @@ export async function GET(request: Request) {
   }
 
   const type = searchParams.get('type') === 'morning' ? 'morning' : 'closing';
+
+  // [TEST] ?test=1 (with a valid secret) bypasses the report-ready + de-dupe gates
+  // and sends immediately — lets us verify real delivery on demand without waiting
+  // for the 08:00/17:00 ET publication. Secret-guarded by the auth check above.
+  if (searchParams.get('test') === '1') {
+    try {
+      const result = await sendPushByType(type);
+      console.log(`[Cron/Push] TEST type=${type} sent=${result.sent}/${result.total} pruned=${result.pruned}`);
+      return NextResponse.json({ ok: true, test: true, type, ...result });
+    } catch (err: any) {
+      console.error('[Cron/Push] TEST send failed:', err?.message || err);
+      return NextResponse.json({ ok: false, error: err?.message || 'send failed' }, { status: 500 });
+    }
+  }
+
   const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
   // 1) Verify the report/brief was ACTUALLY generated TODAY before notifying — never

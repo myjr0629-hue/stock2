@@ -72,23 +72,26 @@ function apnsAuthToken(): string {
   return header + '.' + claims + '.' + b64url(sig);
 }
 
-// Send to a set of iOS APNs tokens over one HTTP/2 connection.
-// Returns successCount and the tokens APNs reports as permanently gone.
+const APNS_PROD_HOST = 'https://api.push.apple.com';
+const APNS_SANDBOX_HOST = 'https://api.sandbox.push.apple.com';
+
+// Send to a set of iOS APNs tokens over one HTTP/2 connection to `host`.
+// Splits failures: `badToken` = wrong APNs environment (retry the other gateway),
+// `gone` = permanently unregistered (safe to prune).
 async function sendApns(
+  host: string,
   tokens: string[],
   copy: { title: string; body: string },
   data: Record<string, string>,
-): Promise<{ sent: number; dead: string[] }> {
-  if (!tokens.length) return { sent: 0, dead: [] };
-  const host = process.env.APNS_SANDBOX === 'true'
-    ? 'https://api.sandbox.push.apple.com'
-    : 'https://api.push.apple.com';
+): Promise<{ sent: number; badToken: string[]; gone: string[] }> {
+  if (!tokens.length) return { sent: 0, badToken: [], gone: [] };
   const jwt = apnsAuthToken();
   const payload = JSON.stringify({ aps: { alert: { title: copy.title, body: copy.body }, sound: 'default' }, ...data });
 
   const client = http2.connect(host);
   let sent = 0;
-  const dead: string[] = [];
+  const badToken: string[] = [];
+  const gone: string[] = [];
   try {
     await Promise.all(tokens.map((token) => new Promise<void>((resolve) => {
       const req = client.request({
@@ -107,8 +110,10 @@ async function sendApns(
       req.on('end', () => {
         if (status === 200) {
           sent += 1;
-        } else if (status === 410 || /BadDeviceToken|Unregistered/.test(body)) {
-          dead.push(token);
+        } else if (/BadDeviceToken/.test(body)) {
+          badToken.push(token);            // wrong gateway (sandbox token → prod, or vice versa)
+        } else if (status === 410 || /Unregistered/.test(body)) {
+          gone.push(token);                // permanently gone → prune
         }
         resolve();
       });
@@ -119,7 +124,7 @@ async function sendApns(
   } finally {
     client.close();
   }
-  return { sent, dead };
+  return { sent, badToken, gone };
 }
 
 interface SendResult { total: number; sent: number; pruned: number; }
@@ -168,14 +173,27 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
     }
   }
 
-  // iOS via APNs directly
+  // iOS via APNs directly — try the primary gateway, then auto-fallback to the
+  // other environment for any token APNs reports as BadDeviceToken (a dev/sandbox
+  // token hitting the production gateway, or vice versa). This makes dev builds
+  // AND App Store builds both deliver without needing a per-token environment flag,
+  // and — critically — no longer prunes a live dev token just for being on the
+  // wrong gateway (only 410/Unregistered tokens are pruned).
+  const primaryHost = process.env.APNS_SANDBOX === 'true' ? APNS_SANDBOX_HOST : APNS_PROD_HOST;
+  const fallbackHost = primaryHost === APNS_PROD_HOST ? APNS_SANDBOX_HOST : APNS_PROD_HOST;
   for (const locale of LOCALES) {
     const toks = apns[locale];
     if (!toks.length) continue;
     const copy = PUSH_CONTENT[type][locale];
-    const r = await sendApns(toks, copy, { type, locale });
-    sent += r.sent;
-    deadTokens.push(...r.dead);
+    const first = await sendApns(primaryHost, toks, copy, { type, locale });
+    sent += first.sent;
+    deadTokens.push(...first.gone);
+    if (first.badToken.length) {
+      const retry = await sendApns(fallbackHost, first.badToken, copy, { type, locale });
+      sent += retry.sent;
+      deadTokens.push(...retry.gone);
+      deadTokens.push(...retry.badToken); // bad on BOTH gateways → truly dead
+    }
   }
 
   // Remove dead tokens — MUST await (Vercel may freeze right after returning).
