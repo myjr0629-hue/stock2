@@ -6,6 +6,12 @@ import styles from './ValueWall.module.css';
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
 
+// The paid ad-removal / Pro upsell (e.g. "$9.99/mo ad-free") is NOT shipped yet —
+// no billing is wired. Showing a non-purchasable price fails App Store 3.1.1 /
+// Play review, so hide the upsell line until IAP goes live. Flip to true when the
+// Pro subscription is implemented and store products are configured.
+const IAP_LIVE = false;
+
 type ValueWallLocale = 'ko' | 'en' | 'ja';
 
 const VALUE_WALL_COPY: Record<ValueWallLocale, {
@@ -240,13 +246,13 @@ export function ValueWall({
         </button>
 
         <div className={styles.metaRow}>
-          {socialProof && (
+          {socialProof && <span><b>{socialProof}</b></span>}
+          {IAP_LIVE && (
             <>
-              <span><b>{socialProof}</b></span>
-              <span>·</span>
+              {socialProof && <span>·</span>}
+              <span>{resolvedAdFreeLabel}</span>
             </>
           )}
-          <span>{resolvedAdFreeLabel}</span>
         </div>
         <div className={styles.legalNote}>{resolvedLegalNote}</div>
       </div>
