@@ -114,12 +114,76 @@ export function toYYYYMMDD_ET(date: Date): string {
     return date.toISOString().split("T")[0];
 }
 
+// ── US (NYSE) market holiday calendar — year-agnostic, synchronous ──────────
+// Fixed-date holidays observe the NYSE weekend shift (Sat -> preceding Fri,
+// Sun -> following Mon). Floating holidays use their weekday rules; Good Friday
+// via Computus. Used so getLastTradingDayET rolls back over holidays too.
+function _nthWeekday(y: number, m0: number, wd: number, n: number): number {
+    const first = new Date(Date.UTC(y, m0, 1));
+    const off = (wd - first.getUTCDay() + 7) % 7;
+    return 1 + off + (n - 1) * 7;
+}
+function _lastWeekday(y: number, m0: number, wd: number): number {
+    const last = new Date(Date.UTC(y, m0 + 1, 0));
+    const off = (last.getUTCDay() - wd + 7) % 7;
+    return last.getUTCDate() - off;
+}
+function _isoYMD(y: number, m0: number, d: number): string {
+    return `${y}-${String(m0 + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function _observed(y: number, m0: number, d: number): string {
+    const dt = new Date(Date.UTC(y, m0, d));
+    const dow = dt.getUTCDay();
+    if (dow === 6) dt.setUTCDate(dt.getUTCDate() - 1);      // Sat -> Fri
+    else if (dow === 0) dt.setUTCDate(dt.getUTCDate() + 1); // Sun -> Mon
+    return _isoYMD(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+}
+function _goodFriday(y: number): string {
+    // Computus (Gregorian) -> Easter Sunday, minus 2 days = Good Friday.
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100;
+    const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const mo0 = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+    const da = ((h + l - 7 * m + 114) % 31) + 1;
+    const dt = new Date(Date.UTC(y, mo0, da));
+    dt.setUTCDate(dt.getUTCDate() - 2);
+    return _isoYMD(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+}
+const _holidaysByYear: Record<number, Set<string>> = {};
+function _usMarketHolidays(y: number): Set<string> {
+    if (_holidaysByYear[y]) return _holidaysByYear[y];
+    const s = new Set<string>([
+        _observed(y, 0, 1),                    // New Year's Day
+        _isoYMD(y, 0, _nthWeekday(y, 0, 1, 3)),// MLK Jr. Day (3rd Mon Jan)
+        _isoYMD(y, 1, _nthWeekday(y, 1, 1, 3)),// Washington's Birthday (3rd Mon Feb)
+        _goodFriday(y),                        // Good Friday
+        _isoYMD(y, 4, _lastWeekday(y, 4, 1)),  // Memorial Day (last Mon May)
+        _observed(y, 5, 19),                   // Juneteenth
+        _observed(y, 6, 4),                    // Independence Day
+        _isoYMD(y, 8, _nthWeekday(y, 8, 1, 1)),// Labor Day (1st Mon Sep)
+        _isoYMD(y, 10, _nthWeekday(y, 10, 4, 4)),// Thanksgiving (4th Thu Nov)
+        _observed(y, 11, 25),                  // Christmas Day
+    ]);
+    _holidaysByYear[y] = s;
+    return s;
+}
+
+/** True if the given ET calendar date (YYYY-MM-DD) is a US market holiday (full close). */
+export function isUSMarketHolidayET(isoDate: string): boolean {
+    const y = parseInt(isoDate.slice(0, 4), 10);
+    return _usMarketHolidays(y).has(isoDate);
+}
+
 /**
- * Get the last trading day in YYYY-MM-DD format (ET)
- * - Saturday -> Friday
- * - Sunday -> Friday
- * - Before market open (9:30 AM ET) -> Previous trading day
- * - Note: Does not account for holidays (would need external holiday calendar)
+ * Get the last completed trading day in YYYY-MM-DD format (ET).
+ * Rolls back over weekends AND market holidays (e.g. a Fri holiday over a long
+ * weekend resolves to the prior Thu), so closed-market views keep showing the
+ * most recent real session's data until the next session opens.
+ * - Before market open (9:30 AM ET) -> previous trading day
  */
 export function getLastTradingDayET(nowET: Date = getETNow()): string {
     const dow = getETDayOfWeek(nowET);
@@ -150,6 +214,18 @@ export function getLastTradingDayET(nowET: Date = getETNow()): string {
         }
     }
     // Otherwise, today is a trading day during/after market hours
+
+    // Roll back over holidays (and any weekend a holiday's observed shift lands
+    // on) so we always resolve to the most recent COMPLETED trading session.
+    let guard = 0;
+    while (guard++ < 14) {
+        const dw = getETDayOfWeek(result);
+        if (dw === 0 || dw === 6 || isUSMarketHolidayET(toYYYYMMDD_ET(result))) {
+            result.setDate(result.getDate() - 1);
+            continue;
+        }
+        break;
+    }
 
     return toYYYYMMDD_ET(result);
 }
