@@ -108,6 +108,17 @@ class AdManagerService {
   private bannerSuppressed = false;
   private listeners: Map<string, Set<Function>> = new Map();
 
+  // --- Interstitial frequency governance (shared across ALL triggers) ---
+  // Every trigger (tab-switch, sector-report open, …) funnels through
+  // maybeShowInterstitial() so the user never sees back-to-back full-screen ads,
+  // and store policy (no ad on cold start, sane cadence) is respected globally.
+  private interstitialShownThisSession = 0;
+  private lastInterstitialAt = 0;
+  private readonly sessionStartedAt = Date.now();
+  private readonly INTERSTITIAL_COLD_START_GRACE_MS = 60_000;  // no ad in first minute
+  private readonly INTERSTITIAL_MIN_INTERVAL_MS = 180_000;     // ≥3 min between ads
+  private readonly INTERSTITIAL_MAX_PER_SESSION = 3;           // hard session cap
+
   // --- Initialization ---
   async init(customConfig?: Partial<AdConfig>) {
     if (this.initialized) return;
@@ -243,6 +254,30 @@ class AdManagerService {
       this.preloadInterstitial();
       return false;
     }
+  }
+
+  /** True only when a full-screen ad is policy/UX-safe to show right now. */
+  canShowInterstitial(): boolean {
+    if (!this.initialized || !this.interstitialLoaded) return false;
+    const now = Date.now();
+    if (now - this.sessionStartedAt < this.INTERSTITIAL_COLD_START_GRACE_MS) return false;
+    if (this.interstitialShownThisSession >= this.INTERSTITIAL_MAX_PER_SESSION) return false;
+    if (now - this.lastInterstitialAt < this.INTERSTITIAL_MIN_INTERVAL_MS) return false;
+    return true;
+  }
+
+  /**
+   * The ONE entry point every interstitial trigger should call. Applies the
+   * shared frequency governance, then shows the ad. Returns whether it showed.
+   */
+  async maybeShowInterstitial(): Promise<boolean> {
+    if (!this.canShowInterstitial()) return false;
+    const shown = await this.showInterstitial();
+    if (shown) {
+      this.interstitialShownThisSession++;
+      this.lastInterstitialAt = Date.now();
+    }
+    return shown;
   }
 
   // --- Rewarded Video (보상형, 프리미엄 지표 언락) ---

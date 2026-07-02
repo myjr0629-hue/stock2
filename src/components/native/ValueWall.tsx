@@ -226,7 +226,9 @@ export function useInterstitialOnNavigate(pathname: string) {
     setNavCount(count);
 
     if (count % SHOW_EVERY === 0 && count > 0) {
-      adManager.showInterstitial().catch(() => {});
+      // Route through the shared governor so this nav trigger respects the same
+      // cold-start grace / spacing / session cap as every other interstitial.
+      adManager.maybeShowInterstitial().catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);

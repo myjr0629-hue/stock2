@@ -1734,16 +1734,22 @@ export default function AppIntelPage() {
     setAdCount(newCount);
     sessionStorage.setItem('intel_ad_count', String(newCount));
 
-    // Show Interstitial Ad every 3 clicks
+    // Attempt an interstitial every 3 report opens. adManager applies the shared
+    // frequency caps (cold-start grace, ≥3 min spacing, per-session cap) so this
+    // never stacks with the tab-switch trigger.
     if (newCount % 3 === 0) {
       let adShown = false;
+      let isNative = false;
       try {
+        const { Capacitor } = await import('@capacitor/core');
+        isNative = Capacitor.isNativePlatform();
         const { adManager } = await import('@/services/adManager');
-        adShown = await adManager.showInterstitial();
-      } catch { /* not native */ }
+        adShown = await adManager.maybeShowInterstitial();
+      } catch { /* not native / ads unavailable */ }
 
-      if (!adShown) {
-        // Web fallback: show mockup modal
+      // Web-only: preview the ad slot with a mockup modal. On native, if the ad
+      // was capped/unavailable, just proceed straight to the report.
+      if (!adShown && !isNative) {
         setShowAdModal(true);
         setTimeout(() => {
           setShowAdModal(false);
