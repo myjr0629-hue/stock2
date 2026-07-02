@@ -166,6 +166,48 @@ export function AppFirstRunOnboarding() {
     };
   }, [mounted, visible]);
 
+  // Re-register the push token on EVERY app launch (not just onboarding). Onboarding
+  // runs once, so if the server pruned a device token (e.g. the old APNs env bug) or
+  // the token rotated, the device would never come back. This re-posts the current
+  // token each launch when permission is already granted (does NOT prompt — the first
+  // grant stays with onboarding). Idempotent. Native only → web/App Store unaffected.
+  useEffect(() => {
+    if (!mounted) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (!Capacitor.isNativePlatform() || cancelled) return;
+        const platform = Capacitor.getPlatform();
+        // @ts-ignore — @capacitor/push-notifications is installed at native build time
+        const PushMod: any = await import('@capacitor/push-notifications');
+        const PushNotifications = PushMod.PushNotifications;
+        const perm = await PushNotifications.checkPermissions();
+        if (perm?.receive !== 'granted' || cancelled) return;
+
+        const postToken = (token: string, attempt = 0) => {
+          if (!token) return;
+          try { window.localStorage.setItem('signumhq.push.token', token); } catch {}
+          fetch('/api/push/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, platform, locale: window.location.pathname.split('/')[1] || 'en' }),
+          })
+            .then(res => { if (!res.ok) throw new Error(`register ${res.status}`); })
+            .catch(() => { if (attempt < 4) setTimeout(() => postToken(token, attempt + 1), 2000 * (attempt + 1)); });
+        };
+
+        PushNotifications.addListener('registration', (token: { value: string }) => {
+          postToken(token.value);
+        });
+        await PushNotifications.register();
+      } catch {
+        // web preview / plugin unavailable
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mounted]);
+
   if (!mounted || !visible || isDocumentRoute) return null;
 
   const finish = async () => {
