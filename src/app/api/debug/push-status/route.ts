@@ -1,0 +1,77 @@
+// ============================================================================
+// /api/debug/push-status — read-only push readiness snapshot for launch checks.
+// Reports whether required env SECRETS are set (booleans only — NEVER values),
+// how many device tokens are registered, and whether today's report-ready
+// markers exist. Guarded by CRON_SECRET (same as the cron routes).
+//   GET /api/debug/push-status?secret=<CRON_SECRET>
+// ============================================================================
+import { NextRequest, NextResponse } from 'next/server';
+import { Redis } from '@upstash/redis';
+import { getFromCache } from '@/services/redisClient';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const has = (v?: string) => !!(v && v.trim().length > 0);
+
+export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  const { searchParams } = new URL(req.url);
+  const auth = req.headers.get('authorization');
+  const authorized = !cronSecret
+    || auth === `Bearer ${cronSecret}`
+    || searchParams.get('secret') === cronSecret;
+  if (process.env.NODE_ENV === 'production' && !authorized) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const etOf = (iso?: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) : null;
+
+  // Secret PRESENCE only — values are never read out.
+  const env = {
+    apnsKey: has(process.env.APNS_KEY_P8) || has(process.env.APNS_KEY_PB) || has(process.env.APNS_KEY),
+    apnsKeyId: has(process.env.APNS_KEY_ID),
+    apnsTeamId: has(process.env.APNS_TEAM_ID),
+    apnsSandbox: process.env.APNS_SANDBOX === 'true',
+    firebaseServiceAccount: has(process.env.FIREBASE_SERVICE_ACCOUNT),
+    cronSecret: has(process.env.CRON_SECRET),
+    upstash: has(process.env.UPSTASH_REDIS_REST_URL) || has(process.env.KV_REST_API_URL),
+  };
+
+  const tokens = { total: 0, ios: 0, android: 0, sampled: 0 };
+  try {
+    const redis = Redis.fromEnv();
+    const list: string[] = (await redis.smembers('push:token_list')) || [];
+    tokens.total = list.length;
+    for (const t of list.slice(0, 100)) {
+      const d = await redis.get<{ platform?: string }>(`push:tokens:${t}`);
+      const isIos = d?.platform === 'ios' || !t.includes(':');
+      if (isIos) tokens.ios++; else tokens.android++;
+      tokens.sampled++;
+    }
+  } catch { /* redis unavailable */ }
+
+  const morning = await getFromCache<{ generatedAt?: string }>('guardian:morning_briefing');
+  const closing = await getFromCache<string>('push:report-ready:closing');
+  const crossBrief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-v4:${todayET}`);
+  const sentMorning = await getFromCache<string>(`push:sent:morning:${todayET}`);
+  const sentClosing = await getFromCache<string>(`push:sent:closing:${todayET}`);
+
+  return NextResponse.json({
+    todayET,
+    env,
+    tokens,
+    markers: {
+      morningBriefGeneratedAtET: etOf(morning?.generatedAt),
+      morningReadyToday: etOf(morning?.generatedAt) === todayET,
+      closingMarker: closing,
+      closingReadyToday: closing === todayET,
+      crossBriefGeneratedAtET: etOf(crossBrief?.generatedAt),
+      crossBriefReadyToday: etOf(crossBrief?.generatedAt) === todayET,
+      alreadySentMorningToday: !!sentMorning,
+      alreadySentClosingToday: !!sentClosing,
+    },
+  });
+}
