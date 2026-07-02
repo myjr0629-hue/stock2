@@ -141,5 +141,25 @@ SIGNUM HQが選ばれる理由
 - **Initial buzz:** submit all 3 locales together; seed with a "featured today" internal-test group; ask early users for reviews in the first 72h (ranking weight). Keep the promo text fresh (updatable without re-review).
 - **A/B (later):** test subtitle variants ("options flow" vs "market intelligence") and screenshot order via App Store Connect / Play experiments.
 - **Compliance safety:** every locale's description ends with the "not investment advice" line — keep it; it protects review + legal.
-```
-```
+
+---
+
+## 5. First-launch maximization — researched (2026 ASO)
+
+**A. Metadata weight (confirmed):** Title + subtitle carry the most ranking weight (30 chars each on iOS). Apple indexes title + subtitle + the hidden 100-char keyword field, NOT the description. Play indexes title + short desc + full desc. → our titles/subtitles above already front-load the top keyword; keyword field uses space-separated singular words, no repeats, no commas.
+
+**B. Secondary-locale keyword doubling (high-value tactic):** For the US store, Apple ALSO indexes the **Spanish (Mexico) es-MX keyword field** — so we get a SECOND 100-char slot to place *additional English* keywords for US search. Do the same per primary market with its indexed secondary locale. → roughly doubles keyword coverage for free. **Action at registration:** fill es-MX keyword field with overflow English terms (e.g. `trading,quant,institutional,pre market,after hours,volatility,VIX,implied move,call wall,put floor`).
+
+**C. Launch velocity + "New App Boost":** New apps get a temporary ranking uplift (days→weeks). Strong first-48h install velocity (a few hundred+ installs) can reach page 1 even with light keyword work. → **concentrate installs into the first 24–72h**: launch all 3 markets simultaneously, announce everywhere at once (not staggered).
+
+**D. Engagement/retention velocity = the #1 signal now (2025+):** Speed/depth of meaningful interaction right after install outweighs raw download volume. Healthy band Apple rewards ≈ **Day-1 retention >35%, Day-7 >15%**. → onboarding must reach VALUE fast (open a live report immediately), and the in-app review prompt fires only after a positive moment (3rd report open), never on launch.
+
+**E. Screenshots (first 3 = ~80% of the decision, ~7-second call):**
+- Lead with OUTCOME/benefit copy, not feature lists ("See what moved the market — before the news does" > "AI sector reports").
+- **Capture screenshots DURING U.S. market hours (장중)** so live prices, green/red movement, and the LIVE badge are active — a live-data screenshot is far more compelling than a flat/closed one. Plan the capture session for regular-hours (9:30–16:00 ET).
+- Don't reuse 1:1 across iOS/Android; localize on-image captions per market (localized screenshots ≈ +67% organic in intl markets vs translate-only).
+- After launch, A/B test via **iOS Product Page Optimization** and **Play Store Listing Experiments** (10–25% typical CVR lift).
+
+**F. Broad audience span (general → advanced):** the current copy leans pro/institutional. At registration, balance the FIRST screenshot + first description line for a general user ("Understand the market in one screen"), then let screenshots 2–3 go deeper (gamma/flow) for advanced users. Refine this together, capture-by-capture.
+
+Sources: apptweak.com, asomobile.net, splitmetrics.com, mobileaction.co, appfigures/appdrift ASO 2026 guides.
