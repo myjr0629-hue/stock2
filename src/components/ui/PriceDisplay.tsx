@@ -160,14 +160,15 @@ export function getFlashStyle(flash: 'up' | 'down' | null) {
  * forcing white. Use for list/repeated prices (each instance tracks its own flash).
  * Same flash colors as getFlashStyle so it stays visually consistent across the app.
  */
-export function FlashPrice({ value, className, children }: { value: number; className?: string; children?: React.ReactNode }) {
+export function FlashPrice({ value, className, style, children }: { value: number; className?: string; style?: React.CSSProperties; children?: React.ReactNode }) {
     const flash = usePriceFlash(value || 0);
-    const style: React.CSSProperties = flash === 'up'
+    const flashStyle: React.CSSProperties = flash === 'up'
         ? { color: '#10b981', transition: 'color 0.05s ease-out' }
         : flash === 'down'
             ? { color: '#f43f5e', transition: 'color 0.05s ease-out' }
             : { transition: 'color 0.8s ease-in' };
-    return <span className={className} style={style}>{children ?? `$${(value || 0).toFixed(2)}`}</span>;
+    // Base style first, flash color/transition last so it wins when active; idle keeps the base color.
+    return <span className={className} style={{ ...style, ...flashStyle }}>{children ?? `$${(value || 0).toFixed(2)}`}</span>;
 }
 
 // ============================================

@@ -6,6 +6,7 @@ import { useLocale } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
+import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
@@ -4079,14 +4080,12 @@ export default function AppIntelPage() {
                                       {/* Price row */}
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         {(stock.closePrice ?? 0) > 0 && (
-                                          <span style={{
+                                          <FlashPrice value={stock.closePrice ?? 0} style={{
                                             fontSize: '14px',
                                             fontWeight: 700,
                                             color: 'var(--text-dim)',
                                             fontFamily: 'var(--font-mono, monospace)'
-                                          }}>
-                                            ${stock.closePrice?.toFixed(2)}
-                                          </span>
+                                          }} />
                                         )}
                                         <span style={{
                                           fontSize: '13px',
@@ -4941,9 +4940,9 @@ export default function AppIntelPage() {
                               {/* Price + Change */}
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                                 <div style={{ textAlign: 'right' }}>
-                                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', fontFamily: 'var(--font-mono), monospace' }}>
+                                  <FlashPrice value={stock.closePrice ?? 0} style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', fontFamily: 'var(--font-mono), monospace', display: 'block' }}>
                                     {(stock.closePrice ?? 0) > 0 ? `$${(stock.closePrice as number).toFixed(2)}` : '-'}
-                                  </div>
+                                  </FlashPrice>
                                   <div style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono), monospace', color: isStockUp ? '#10b981' : '#ef4444' }}>
                                     {isStockUp ? '+' : ''}{(stock.changePct || 0).toFixed(2)}%
                                   </div>
@@ -4972,9 +4971,7 @@ export default function AppIntelPage() {
                               }}>
                                 {/* Price Header — regular close + separate PRE/POST extended badge */}
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }}>
-                                    ${(stock.closePrice || 0).toFixed(2)}
-                                  </span>
+                                  <FlashPrice value={stock.closePrice || 0} style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }} />
                                   <span style={{ fontSize: '14px', fontWeight: 700, color: isStockUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>
                                     {isStockUp ? '+' : ''}{(stock.changePct || 0).toFixed(2)}%
                                   </span>
@@ -4991,7 +4988,7 @@ export default function AppIntelPage() {
                                     return (
                                       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '4px', padding: '2px 7px', borderRadius: '6px', background: `${tagColor}1a`, border: `1px solid ${tagColor}3d`, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
                                         <span style={{ fontSize: '8px', fontWeight: 900, color: tagColor, letterSpacing: '0.04em' }}>{tagText}</span>
-                                        <span style={{ fontSize: '12px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }}>${(lq!.extendedPrice as number).toFixed(2)}</span>
+                                        <FlashPrice value={lq!.extendedPrice as number} style={{ fontSize: '12px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }} />
                                         <span style={{ fontSize: '10.5px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{extPct.toFixed(2)}%</span>
                                       </span>
                                     );
