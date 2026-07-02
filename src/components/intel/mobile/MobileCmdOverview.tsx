@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
+import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { useLocale } from 'next-intl';
 import { ChevronDown, Loader2, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
@@ -347,9 +348,9 @@ function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPr
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                             </div>
                             <span className="text-[14px] font-bold text-white flex-1">{r.ticker}</span>
-                            <span className="text-[14px] font-mono text-slate-300 font-medium tabular-nums">
+                            <FlashPrice value={displayPrice} className="text-[14px] font-mono text-slate-300 font-medium tabular-nums">
                                 {displayPrice > 0 ? `$${displayPrice < 10 ? displayPrice.toFixed(2) : displayPrice < 1000 ? displayPrice.toFixed(1) : Math.round(displayPrice)}` : '—'}
-                            </span>
+                            </FlashPrice>
                             <span className={`text-[13px] font-bold font-mono tabular-nums min-w-[56px] text-right px-1 py-px rounded bg-slate-900/40 ${displayChange > 0 ? 'text-emerald-400' : displayChange < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
                                 {displayPrice > 0 ? `${displayChange > 0 ? '+' : ''}${displayChange.toFixed(2)}%` : '—'}
                             </span>
