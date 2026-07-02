@@ -93,6 +93,17 @@ function MoversPageContent() {
   const equityWsActive = !marketStatus.isHoliday && marketStatus.market === 'open'
     && (marketStatus.session === 'pre' || marketStatus.session === 'regular' || marketStatus.session === 'post');
 
+  // Session-accurate badge (mirrors the Intel screen): LIVE / PRE-MKT / POST-MKT / CLOSED.
+  // Previously this hard-coded "CLOSE" whenever the websocket was idle, which showed
+  // "CLOSE" during pre/post-market. Derive from the real market session instead.
+  const sessionBadge = marketStatus.session === 'regular'
+    ? { text: 'LIVE', color: '#10b981', pulse: true }
+    : marketStatus.session === 'pre'
+      ? { text: 'PRE-MKT', color: '#f59e0b', pulse: true }
+      : marketStatus.session === 'post'
+        ? { text: 'POST-MKT', color: '#22d3ee', pulse: true }
+        : { text: 'CLOSED', color: '#94a3b8', pulse: false };
+
   useEffect(() => {
     let active = true;
     async function fetchAllMovers() {
@@ -367,7 +378,16 @@ function MoversPageContent() {
               <span className={s.listEyebrow}>{activeMetric}</span>
               <h2 className={s.listTitle}>{activeTitle}</h2>
             </div>
-            <span className={s.sessionPill}>{equityWsActive ? 'LIVE' : t.lastSession}</span>
+            <span
+              className={s.sessionPill}
+              style={{
+                background: `${sessionBadge.color}1a`,
+                borderColor: `${sessionBadge.color}3d`,
+                color: sessionBadge.color,
+              }}
+            >
+              {sessionBadge.text}
+            </span>
           </div>
           {activeItems.map((item, index) => renderRow(item, index))}
         </div>
