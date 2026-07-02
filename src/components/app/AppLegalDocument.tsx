@@ -78,6 +78,10 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         body: '광고 제공을 위해 Google AdMob 등 제3자 SDK가 사용될 수 있으며, 해당 SDK는 광고 제공, 측정, 보안, 부정 사용 방지를 위해 필요한 정보를 처리할 수 있습니다.',
       },
       {
+        title: '데이터 보관 및 사용자 권리',
+        body: '본 앱은 계정 없이 작동하므로 사용자 프로필을 생성하지 않습니다. 광고 식별자와 진단 정보는 광고 측정 및 부정 사용 방지에 필요한 기간 동안만 보관된 후 삭제되거나 익명화됩니다. 사용자는 기기 설정에서 언제든지 광고 식별자를 초기화하거나 맞춤형 광고를 제한할 수 있으며, 문의와 관련해 제공된 정보의 열람 또는 삭제를 contact@signumhq.com 으로 요청할 수 있습니다.',
+      },
+      {
         title: '문의',
         body: '개인정보 관련 문의는 contact@signumhq.com 으로 연락해주세요.',
       },
@@ -138,6 +142,10 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         body: 'Third-party SDKs such as Google AdMob may be used for advertising. These SDKs may process information needed for ad delivery, measurement, security, and fraud prevention.',
       },
       {
+        title: 'Data retention and your rights',
+        body: 'Because the app works without an account, we do not build user profiles. Advertising identifiers and diagnostics are retained only as long as needed for ad measurement and fraud prevention, then deleted or anonymized. You can reset your advertising identifier or limit personalized ads in your device settings at any time, and you may request access to or deletion of any information provided in a support inquiry by emailing contact@signumhq.com.',
+      },
+      {
         title: 'Contact',
         body: 'For privacy questions, contact contact@signumhq.com.',
       },
@@ -196,6 +204,10 @@ const COPY: Record<LocaleKey, LegalCopy> = {
       {
         title: '第三者SDK',
         body: '広告配信のためにGoogle AdMobなどの第三者SDKが使用される場合があります。これらのSDKは広告配信、測定、セキュリティ、不正利用防止に必要な情報を処理することがあります。',
+      },
+      {
+        title: 'データ保管と利用者の権利',
+        body: '本アプリはアカウントなしで動作するため、利用者プロファイルを作成しません。広告識別子および診断情報は、広告測定と不正利用防止に必要な期間のみ保管され、その後削除または匿名化されます。利用者は端末設定でいつでも広告識別子をリセットしたりパーソナライズ広告を制限でき、お問い合わせで提供された情報の閲覧または削除を contact@signumhq.com までご請求いただけます。',
       },
       {
         title: 'お問い合わせ',
