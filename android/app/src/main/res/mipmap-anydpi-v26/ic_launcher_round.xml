@@ -4,6 +4,8 @@
         <inset android:drawable="@mipmap/ic_launcher_background" android:inset="0%" />
     </background>
     <foreground>
-        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="0%" />
+        <!-- Match iOS: inset the full-bleed S into the safe zone so round masks
+             don't crop it (logo ~68% centered with navy margin). -->
+        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16%" />
     </foreground>
 </adaptive-icon>

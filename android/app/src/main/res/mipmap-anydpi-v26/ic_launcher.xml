@@ -4,6 +4,9 @@
         <inset android:drawable="@mipmap/ic_launcher_background" android:inset="0%" />
     </background>
     <foreground>
-        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="0%" />
+        <!-- Inset the full-bleed S into the adaptive safe zone so the launcher mask
+             doesn't crop it — the logo then sits at ~68% centered with navy margin,
+             matching the iOS icon instead of appearing zoomed/clipped. -->
+        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16%" />
     </foreground>
 </adaptive-icon>
