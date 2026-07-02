@@ -379,7 +379,10 @@ function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): Ke
     grade: quote.grade || stock.grade,
     score: pickNumber(quote.alphaScore, stock.score) ?? stock.score,
     changePct: pickNumber(quote.changePct, stock.changePct) ?? stock.changePct,
-    closePrice: pickNumber(quote.regularCloseToday, quote.price, quote.prevClose, stock.closePrice) ?? stock.closePrice,
+    // quote.price is already session-aware (computeOnePipe): REG=live, POST/CLOSED=locked regular close.
+    // Prioritize it so the main price tracks live during regular hours instead of freezing on
+    // regularCloseToday (which stays pinned to the first poll and left the price frozen while changePct moved).
+    closePrice: pickNumber(quote.price, quote.regularCloseToday, quote.prevClose, stock.closePrice) ?? stock.closePrice,
     gex: pickNumber(quote.gex, stock.gex) ?? stock.gex,
     pcr: pickNumber(quote.pcr, stock.pcr) ?? stock.pcr,
     gammaRegime: quote.gammaRegime || stock.gammaRegime,
@@ -2180,7 +2183,7 @@ export default function AppIntelPage() {
         grade: q.grade || ((q.alphaScore || 0) >= 75 ? 'A' : (q.alphaScore || 0) >= 55 ? 'B' : 'C'),
         score: q.alphaScore || 50,
         changePct: q.changePct || 0,
-        closePrice: q.regularCloseToday || q.price || q.prevClose || 0,
+        closePrice: q.price || q.regularCloseToday || q.prevClose || 0, // q.price is session-aware (live in REG, locked close after); regularCloseToday-first froze the live price
         gex: q.gex || 0,
         pcr: q.pcr || 0,
         gammaRegime: q.gammaRegime || 'NEUTRAL',
