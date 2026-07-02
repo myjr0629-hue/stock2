@@ -930,6 +930,13 @@ function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?
       if (s >= 20) return '재무 취약';
       return '재무 위험';
     }
+    if (locale === 'ja') {
+      if (s >= 80) return '財務優秀';
+      if (s >= 60) return '財務良好';
+      if (s >= 40) return '財務普通';
+      if (s >= 20) return '財務脆弱';
+      return '財務危険';
+    }
     if (s >= 80) return 'Strong';
     if (s >= 60) return 'Good';
     if (s >= 40) return 'Average';
