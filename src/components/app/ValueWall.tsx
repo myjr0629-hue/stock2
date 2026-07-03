@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import styles from './ValueWall.module.css';
+import { IAP_LIVE } from '@/config/iap';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
 
-// The paid ad-removal / Pro upsell (e.g. "$9.99/mo ad-free") is NOT shipped yet —
-// no billing is wired. Showing a non-purchasable price fails App Store 3.1.1 /
-// Play review, so hide the upsell line until IAP goes live. Flip to true when the
-// Pro subscription is implemented and store products are configured.
-const IAP_LIVE = false;
+// IAP_LIVE is the single source of truth in src/config/iap.ts. While false, the
+// "$9.99/mo ad-free" upsell line stays hidden (a non-purchasable price fails App
+// Store 3.1.1 / Play review). See that file for the go-live checklist.
 
 type ValueWallLocale = 'ko' | 'en' | 'ja';
 

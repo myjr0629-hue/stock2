@@ -53,6 +53,7 @@
     "@remotion/paths": "^4.0.441",
     "@remotion/renderer": "^4.0.441",
     "@remotion/transitions": "^4.0.441",
+    "@revenuecat/purchases-capacitor": "^13.2.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
     "@types/three": "^0.182.0",
