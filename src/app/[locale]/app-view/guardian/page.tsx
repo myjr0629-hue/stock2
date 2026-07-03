@@ -14,6 +14,7 @@ import s from '../dash/dash.module.css';
 import { AdBanner } from '@/components/app/AdBanner';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
+import { MorningBrief } from '@/components/app/MorningBrief';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -172,6 +173,7 @@ function GuardianPageContent() {
   const locale = useLocale();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const briefParam = searchParams.get('brief'); // ?brief=1 → auto-open morning report (from push tap)
   const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
 
   const { data: globalData, loading, alerts, connectionMode, rlsi } = useGuardian();
@@ -570,12 +572,15 @@ function GuardianPageContent() {
       >
       <div style={{ marginTop: 0, display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px' }}>
         {activeTab === 'overview' && (
-          <MobileGuardianOverview
-            data={data}
-            loading={loading}
-            verdict={verdict}
-            session={session}
-          />
+          <>
+            <MorningBrief locale={locale} autoOpen={briefParam === '1'} />
+            <MobileGuardianOverview
+              data={data}
+              loading={loading}
+              verdict={verdict}
+              session={session}
+            />
+          </>
         )}
         {activeTab === 'reality' && (
           <MobileGuardianReality

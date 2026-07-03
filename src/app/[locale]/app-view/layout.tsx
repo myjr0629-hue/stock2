@@ -73,11 +73,14 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
           'pushNotificationActionPerformed',
           (action: { notification?: { data?: Record<string, string> } }) => {
             const type = action?.notification?.data?.type;
-            const target = type === 'morning' ? 'guardian' : type === 'closing' ? 'intel' : null;
-            if (!target) return;
             const seg = window.location.pathname.split('/')[1];
             const loc = ['ko', 'en', 'ja'].includes(seg) ? seg : 'en';
-            router.push(`/${loc}/app-view/${target}`);
+            if (type === 'morning') {
+              // Guardian overview → auto-open the AI morning-briefing report overlay.
+              router.push(`/${loc}/app-view/guardian?tab=overview&brief=1`);
+            } else if (type === 'closing') {
+              router.push(`/${loc}/app-view/intel`);
+            }
           },
         );
         remove = () => { try { handle.remove(); } catch {} };
