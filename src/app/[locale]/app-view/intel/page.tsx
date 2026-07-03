@@ -3106,7 +3106,7 @@ export default function AppIntelPage() {
                           </div>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             {/* Winners */}
-                            <div style={{ flex: 1, padding: '10px 12px', background: 'rgba(16,185,129,0.06)', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.1)' }}>
+                            <div style={{ flex: 1, minWidth: 0, padding: '10px 12px', background: 'rgba(16,185,129,0.06)', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.1)' }}>
                               <div style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', marginBottom: '6px', letterSpacing: '0.06em' }}>
                                 {locale === 'ko' ? '강세' : 'LEADERS'}
                               </div>
@@ -3115,7 +3115,7 @@ export default function AppIntelPage() {
                                 return (
                                   <div key={i} style={{ marginBottom: '7px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                                      <span style={{ fontSize: '13px', color: 'var(--text-dim)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.sector}</span>
+                                      <span style={{ fontSize: '13px', color: 'var(--text-dim)', fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.sector}</span>
                                       <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', flexShrink: 0, marginLeft: '6px' }}>{w.change}</span>
                                     </div>
                                     <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(16,185,129,0.12)', overflow: 'hidden' }}>
@@ -3126,7 +3126,7 @@ export default function AppIntelPage() {
                               })}
                             </div>
                             {/* Losers */}
-                            <div style={{ flex: 1, padding: '10px 12px', background: 'rgba(239,68,68,0.06)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.1)' }}>
+                            <div style={{ flex: 1, minWidth: 0, padding: '10px 12px', background: 'rgba(239,68,68,0.06)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.1)' }}>
                               <div style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444', marginBottom: '6px', letterSpacing: '0.06em' }}>
                                 {locale === 'ko' ? '약세' : 'LAGGARDS'}
                               </div>
@@ -3135,7 +3135,7 @@ export default function AppIntelPage() {
                                 return (
                                   <div key={i} style={{ marginBottom: '7px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                                      <span style={{ fontSize: '13px', color: 'var(--text-dim)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.sector}</span>
+                                      <span style={{ fontSize: '13px', color: 'var(--text-dim)', fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.sector}</span>
                                       <span style={{ fontSize: '12px', color: '#ef4444', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', flexShrink: 0, marginLeft: '6px' }}>{l.change}</span>
                                     </div>
                                     <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(239,68,68,0.12)', overflow: 'hidden' }}>
