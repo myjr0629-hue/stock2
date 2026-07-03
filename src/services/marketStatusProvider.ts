@@ -119,8 +119,16 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
             session = "closed";
         }
 
+        // [HOLIDAY] A non-trading holiday has no pre/regular/post — Polygon can still
+        // report "extended-hours" on a holiday morning, which the time-gate above would
+        // mis-map to 'pre'. Force 'closed' so downstream price logic shows the last real
+        // trading session (see src/services/lastSession.ts) instead of a broken PRE/POST.
+        if (isPolygonHoliday) {
+            session = "closed";
+        }
+
         const result: MarketStatusResult = {
-            market: isOpen ? "open" : isExtended ? "extended-hours" : "closed",
+            market: isPolygonHoliday ? "closed" : (isOpen ? "open" : isExtended ? "extended-hours" : "closed"),
             session,
             isHoliday: isPolygonHoliday,
             holidayName: holidayName || undefined,
