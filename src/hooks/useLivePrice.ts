@@ -49,8 +49,13 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
         }
     );
 
-    // [WS PRIORITY] Use WebSocket price if available and fresh
-    if (wsConnected && ticker) {
+    // [WS PRIORITY] Use WebSocket price if available and fresh.
+    // [HOLIDAY/CLOSED FIX] Skip the WS overlay entirely when the market is closed
+    // (holiday/weekend/overnight). On a closed day WS carries only the stale last
+    // print, and this branch would route it into extendedPrice — mirroring the
+    // regular close as a fake "POST $X +0.00%". When closed, use the polled quote
+    // (/api/live/quotes), which already holds the correct last-session POST.
+    if (wsConnected && ticker && !isGlobalClosed) {
         const wsPrice = wsGetPrice(ticker);
         if (wsPrice && wsPrice.price > 0) {
             // Merge WS real-time price with SWR extended session data
