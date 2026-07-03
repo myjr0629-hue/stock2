@@ -14,7 +14,10 @@ export interface MarketStatusResult extends MarketStatus {
 
 // In-memory cache
 let statusCache: { data: MarketStatusResult; timestamp: number } | null = null;
-const CACHE_TTL_MS = 60 * 1000; // 60s
+// 15s (was 60s): tightens the max session-transition lag at market open/close/pre/post
+// boundaries to ≤15s. Purely a refresh-cadence change — same status values, no feature
+// impact; only mild extra load on the (cheap, TTL-capped) Polygon marketstatus calls.
+const CACHE_TTL_MS = 15 * 1000; // 15s
 
 const HOLIDAYS: Record<string, string> = {
     // 2026 Holidays (Current Year)
