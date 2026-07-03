@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
+import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { getFromCache } from '@/services/redisClient';
 import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
@@ -127,6 +128,17 @@ export async function GET(request: Request) {
             }
         }
 
+        // [HOLIDAY] Reconstruct the last real session for tickers whose snapshot day
+        // bar is empty (day.c=0 on a market holiday) — otherwise the CLOSED branch
+        // collapses change% to 0 and the POST badge mirrors the regular price.
+        let reconMap: Record<string, LastSessionData> = {};
+        if (session === 'CLOSED') {
+            const holidayTickers = tickers.filter(t => !(snapshotMap[t]?.day?.c));
+            if (holidayTickers.length > 0) {
+                reconMap = await reconstructLastSession(holidayTickers);
+            }
+        }
+
         // ── Phase 2: Build unified quotes ──
         const quotes = tickers.map((ticker, i) => {
             const snap = snapshotMap[ticker];
@@ -201,6 +213,24 @@ export async function GET(request: Request) {
                     extendedPrice = truePmMap[ticker];
                     extendedLabel = 'PRE';
                     extendedChangePct = prevClose > 0 ? ((truePmMap[ticker] - prevClose) / prevClose) * 100 : 0;
+                }
+            }
+
+            // [HOLIDAY] Empty day bar → override with the reconstructed last trading
+            // session so we show that session's close + change% + after-hours (POST),
+            // instead of 0.00% and a POST badge that mirrors the regular price.
+            const recon = (session === 'CLOSED' && !(snap?.day?.c)) ? reconMap[ticker] : undefined;
+            if (recon) {
+                displayPrice = recon.regClose;
+                displayChangePct = recon.changePct;
+                if (recon.postPrice > 0) {
+                    extendedPrice = recon.postPrice;
+                    extendedLabel = 'POST';
+                    extendedChangePct = recon.postChangePct;
+                } else {
+                    extendedPrice = 0;
+                    extendedLabel = '';
+                    extendedChangePct = 0;
                 }
             }
 

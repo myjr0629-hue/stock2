@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 
 export const dynamic = 'force-dynamic'; // No caching allowed
 
@@ -109,6 +110,19 @@ export async function GET(request: Request) {
                 })
             );
         }
+        // [HOLIDAY] Reconstruct the last real session for tickers whose snapshot day
+        // bar is empty (day.c=0 on a market holiday) — see src/services/lastSession.ts.
+        // On weekends the snapshot keeps Friday's bar (day.c>0), so this never triggers there.
+        let reconMap: Record<string, LastSessionData> = {};
+        if (session === 'closed') {
+            const holidayTickers = results
+                .filter(r => r.snapshot && !(r.snapshot.day?.c))
+                .map(r => r.ticker);
+            if (holidayTickers.length > 0) {
+                reconMap = await reconstructLastSession(holidayTickers);
+            }
+        }
+
         results.forEach(({ ticker, snapshot: S, error }) => {
             if (error || !S) {
                 data[ticker] = { price: 0, changePercent: 0, error };
@@ -220,17 +234,32 @@ export async function GET(request: Request) {
                 extendedChangePct = cachedExt.postChangePct;
             }
 
+            // [HOLIDAY] Override with reconstructed last-session data when the snapshot
+            // day bar is empty (day.c=0 on a market holiday), so change% and POST reflect
+            // the last real session instead of collapsing to prevClose / 0.00% / a mirror.
+            const recon = (session === 'closed' && !dayClose) ? reconMap[ticker] : undefined;
+            const outPrice = recon ? recon.regClose : price;
+            const outPrevClose = recon ? recon.prevClose : prevClose;
+            const outChangePct = recon ? recon.changePct : changePercent;
+            const outExtPrice = recon
+                ? recon.postPrice
+                : (extendedPrice > 0 && extendedPrice !== price ? extendedPrice : 0);
+            const outExtLabel = recon
+                ? (recon.postPrice > 0 ? 'POST' : undefined)
+                : (extendedLabel || undefined);
+            const outExtChangePct = recon ? recon.postChangePct : extendedChangePct;
+
             data[ticker] = {
-                price,
-                previousClose: prevClose,
-                prevClose,
-                change: dayClose - prevDayClose,
-                changePercent,
-                regChangePct: changePercent,
-                extendedPrice: extendedPrice > 0 && extendedPrice !== price ? extendedPrice : 0,
-                extendedChange: extendedPrice > 0 ? extendedPrice - price : 0,
-                extendedChangePercent: extendedChangePct,
-                extendedLabel: extendedLabel || undefined,
+                price: outPrice,
+                previousClose: outPrevClose,
+                prevClose: outPrevClose,
+                change: outPrice - outPrevClose,
+                changePercent: outChangePct,
+                regChangePct: outChangePct,
+                extendedPrice: outExtPrice,
+                extendedChange: outExtPrice > 0 ? outExtPrice - outPrice : 0,
+                extendedChangePercent: outExtChangePct,
+                extendedLabel: outExtLabel,
                 volume: S.day?.v || 0,
                 session,
                 lastUpdate: Date.now()
