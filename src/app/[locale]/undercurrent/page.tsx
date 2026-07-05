@@ -51,6 +51,12 @@ const T: Record<Locale, Record<string, string>> = {
     ad: '광고 · 스폰서', adNative: '네이티브 광고 자리 — 콘텐츠와 같은 결',
     back: '뒤로', source: '출처',
     justNow: '방금 전', minAgo: '분 전', hrAgo: '시간 전', dayAgo: '일 전',
+    tabMacro: '매크로',
+    macroTitle: '세계 → 시장', macroSub: '시장을 흔드는 거시·지정학 속보',
+    macroReadTitle: '지금 매크로 기류',
+    riskOn: '위험선호', riskOff: '위험회피', mixed: '혼재',
+    ctx10Y: '10년물 금리', ctxFed: '동결 확률', ctxFG: '공포·탐욕', ctxFomc: 'FOMC까지',
+    macroTeaser: '시장을 흔드는 큰 그림',
     tabSearch: '검색',
     searchPh: '티커 검색 (예: NVDA)',
     popular: '인기 티커', recent: '최근 검색',
@@ -88,6 +94,12 @@ const T: Record<Locale, Record<string, string>> = {
     ad: 'Ad · Sponsored', adNative: 'Native ad slot — matches content style',
     back: 'Back', source: 'Source',
     justNow: 'just now', minAgo: 'm ago', hrAgo: 'h ago', dayAgo: 'd ago',
+    tabMacro: 'Macro',
+    macroTitle: 'World → Market', macroSub: 'Macro & geopolitical news shaking markets',
+    macroReadTitle: 'Macro undercurrent now',
+    riskOn: 'Risk-on', riskOff: 'Risk-off', mixed: 'Mixed',
+    ctx10Y: '10Y yield', ctxFed: 'Hold odds', ctxFG: 'Fear & Greed', ctxFomc: 'To FOMC',
+    macroTeaser: 'The big picture moving markets',
     tabSearch: 'Search',
     searchPh: 'Search ticker (e.g. NVDA)',
     popular: 'Popular tickers', recent: 'Recent',
@@ -125,6 +137,12 @@ const T: Record<Locale, Record<string, string>> = {
     ad: '広告 · スポンサー', adNative: 'ネイティブ広告枠 — コンテンツと同じトーン',
     back: '戻る', source: '出典',
     justNow: 'たった今', minAgo: '分前', hrAgo: '時間前', dayAgo: '日前',
+    tabMacro: 'マクロ',
+    macroTitle: '世界 → 市場', macroSub: '市場を揺らすマクロ・地政学ニュース',
+    macroReadTitle: 'いまのマクロ底流',
+    riskOn: 'リスクオン', riskOff: 'リスクオフ', mixed: '混在',
+    ctx10Y: '10年債利回り', ctxFed: '据え置き確率', ctxFG: '恐怖・強欲', ctxFomc: 'FOMCまで',
+    macroTeaser: '市場を動かす大きな流れ',
     tabSearch: '検索',
     searchPh: 'ティッカー検索 (例: NVDA)',
     popular: '人気ティッカー', recent: '最近の検索',
@@ -164,7 +182,23 @@ interface Feed {
   pulse?: { bullish: number; cautious: number; neutral: number; divergences: number };
   cards?: Card[];
 }
-type Tab = 'home' | 'div' | 'whale' | 'stories' | 'search';
+type Tab = 'home' | 'macro' | 'div' | 'whale' | 'stories' | 'search';
+
+interface MacroCard {
+  tag: string | null; plainTitle: string; whyItMatters: string | null;
+  marketImpact: 'risk-on' | 'risk-off' | 'mixed'; impactNote: string | null;
+  image: string | null; source: string | null; url: string | null; publishedAt: string | null;
+}
+interface MacroResult {
+  success: boolean;
+  context: {
+    yield10Y: number | null; yield10YChange: number | null;
+    fedNoChange: number | null; fedHike: number | null; fedEase: number | null;
+    daysUntilFomc: number | null; fearGreed: number | null; fearGreedRating: string | null;
+  };
+  macroRead: string | null;
+  cards: MacroCard[];
+}
 
 interface TickerResult {
   success: boolean;
@@ -233,6 +267,20 @@ function DivBadge({ t, small }: { t: Record<string, string>; small?: boolean }) 
     }}>
       {t.divergence}
     </span>
+  );
+}
+
+function ImpactBadge({ impact, t }: { impact: MacroCard['marketImpact']; t: Record<string, string> }) {
+  const s = impact === 'risk-on'
+    ? { label: t.riskOn, color: C.emerald, bg: C.emeraldBg }
+    : impact === 'risk-off'
+      ? { label: t.riskOff, color: '#fff', bg: C.diverge }
+      : { label: t.mixed, color: C.neutral, bg: C.neutralBg };
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', fontSize: 10.5, fontWeight: 800,
+      color: s.color, background: s.bg, padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
+    }}>{s.label}</span>
   );
 }
 
@@ -353,6 +401,16 @@ export default function UndercurrentPage() {
   const [searchErr, setSearchErr] = useState<'' | 'empty' | 'fail'>('');
   const [recents, setRecents] = useState<string[]>([]);
   const [storyTag, setStoryTag] = useState<string>(''); // '' = all (stories tab browse chips)
+  const [macro, setMacro] = useState<MacroResult | null>(null);
+
+  useEffect(() => {
+    let dead = false;
+    fetch(`/api/undercurrent/macro?locale=${loc}`)
+      .then((r) => r.json())
+      .then((d) => { if (!dead && d?.success) setMacro(d); })
+      .catch(() => { /* macro section simply hidden on failure */ });
+    return () => { dead = true; };
+  }, [loc]);
 
   useEffect(() => {
     try { setRecents(JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')); } catch { /* noop */ }
@@ -393,7 +451,7 @@ export default function UndercurrentPage() {
         try {
           const sp = new URLSearchParams(window.location.search);
           const tabP = sp.get('tab');
-          if (tabP === 'div' || tabP === 'whale' || tabP === 'stories' || tabP === 'search') setTab(tabP);
+          if (tabP === 'macro' || tabP === 'div' || tabP === 'whale' || tabP === 'stories' || tabP === 'search') setTab(tabP);
           const openP = (sp.get('open') || '').toUpperCase();
           if (openP) {
             const found = (d.cards || []).find((c: Card) => c.ticker === openP);
@@ -561,6 +619,7 @@ export default function UndercurrentPage() {
     }}>
       {([
         { k: 'home', label: t.tabHome, dot: null },
+        { k: 'macro', label: t.tabMacro, dot: macro?.cards?.length || null },
         { k: 'div', label: t.tabDiv, dot: divCards.length || null },
         { k: 'whale', label: t.tabWhale, dot: whaleCards.length || null },
         { k: 'stories', label: t.tabStories, dot: null },
@@ -633,6 +692,35 @@ export default function UndercurrentPage() {
                       <span style={{ color: C.diverge }}>● {t.pulseD} {feed.pulse.divergences}</span>
                     </span>
                   </section>
+                )}
+
+                {/* macro teaser — the big picture that shakes markets */}
+                {macro && macro.cards.length > 0 && (
+                  <button type="button" onClick={() => { setTab('macro'); window.scrollTo(0, 0); }} style={{
+                    font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', border: 'none',
+                    marginTop: 12, borderRadius: 18, padding: '13px 15px', boxShadow: C.shadow,
+                    background: `linear-gradient(135deg, ${C.ink}, #2A2E38)`, color: '#fff',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#9BE8C4' }}>{t.macroTitle.toUpperCase()}</span>
+                        <ImpactBadge impact={macro.cards[0].marketImpact} t={t} />
+                      </div>
+                      <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {macro.cards[0].plainTitle}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 650 as any, marginTop: 5 }}>
+                        {t.macroTeaser} · {macro.cards.length} →
+                      </div>
+                    </div>
+                    {typeof macro.context.yield10Y === 'number' && (
+                      <div style={{ flexShrink: 0, textAlign: 'center', background: 'rgba(255,255,255,0.09)', borderRadius: 12, padding: '8px 11px' }}>
+                        <div style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.6)' }}>{t.ctx10Y}</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{macro.context.yield10Y.toFixed(2)}%</div>
+                      </div>
+                    )}
+                  </button>
                 )}
 
                 {hero && (
@@ -725,6 +813,88 @@ export default function UndercurrentPage() {
                     </div>
                   </>
                 )}
+              </>
+            )}
+
+            {/* ── 매크로 TAB (world → market) ── */}
+            {tab === 'macro' && macro && (
+              <>
+                <SectionHead title={t.macroTitle} sub={t.macroSub} color={C.ink} />
+
+                {/* market context chips (OUR macro data) */}
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -18px', padding: '2px 18px 6px' }}>
+                  {typeof macro.context.yield10Y === 'number' && (
+                    <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctx10Y}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+                        {macro.context.yield10Y.toFixed(2)}%
+                        {typeof macro.context.yield10YChange === 'number' && macro.context.yield10YChange !== 0 && (
+                          <span style={{ fontSize: 11, fontWeight: 800, marginLeft: 4, color: macro.context.yield10YChange > 0 ? C.diverge : C.emerald }}>
+                            {macro.context.yield10YChange > 0 ? '+' : ''}{macro.context.yield10YChange.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {typeof macro.context.fedNoChange === 'number' && (
+                    <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxFed}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{Math.round(macro.context.fedNoChange)}%</div>
+                    </div>
+                  )}
+                  {typeof macro.context.fearGreed === 'number' && (
+                    <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxFG}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: macro.context.fearGreed < 30 ? C.diverge : macro.context.fearGreed > 70 ? C.emerald : C.ink }}>
+                        {Math.round(macro.context.fearGreed)}
+                      </div>
+                    </div>
+                  )}
+                  {typeof macro.context.daysUntilFomc === 'number' && (
+                    <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxFomc}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>D-{macro.context.daysUntilFomc}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* macroRead */}
+                {macro.macroRead && (
+                  <div style={{ marginTop: 10, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`, boxShadow: C.shadow, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.09em', color: C.emerald, marginBottom: 6 }}>{t.macroReadTitle.toUpperCase()}</div>
+                    <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.7, fontWeight: 550 as any }}>{macro.macroRead}</p>
+                  </div>
+                )}
+
+                {/* macro news rows */}
+                {macro.cards.map((c, i) => (
+                  <span key={i}>
+                    <article style={{
+                      marginTop: 11, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`,
+                      boxShadow: C.shadow, padding: 14, display: 'flex', gap: 13, alignItems: 'flex-start',
+                    }}>
+                      {c.image && (
+                        <div style={{ width: 92, height: 74, flexShrink: 0, borderRadius: 12, overflow: 'hidden', background: '#E8E4DC' }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5, flexWrap: 'wrap' }}>
+                          {c.tag && <span style={{ fontSize: 10.5, fontWeight: 800, color: C.faint }}>{c.tag}</span>}
+                          <FreshBadge iso={c.publishedAt} t={t} />
+                          <span style={{ marginLeft: 'auto' }}><ImpactBadge impact={c.marketImpact} t={t} /></span>
+                        </div>
+                        <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, lineHeight: 1.35, letterSpacing: '-0.01em' }}>{c.plainTitle}</h3>
+                        {c.impactNote && (
+                          <p style={{ margin: '6px 0 0', fontSize: 12.5, lineHeight: 1.55, color: C.sub }}>{c.impactNote}</p>
+                        )}
+                        {c.source && <div style={{ marginTop: 6, fontSize: 10.5, color: C.faint, fontWeight: 600 }}>{c.source}</div>}
+                      </div>
+                    </article>
+                    {i === 2 && <NativeAdSlot t={t} />}
+                  </span>
+                ))}
               </>
             )}
 
