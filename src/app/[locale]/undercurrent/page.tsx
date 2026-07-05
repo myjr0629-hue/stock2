@@ -51,6 +51,13 @@ const T: Record<Locale, Record<string, string>> = {
     ad: '광고 · 스폰서', adNative: '네이티브 광고 자리 — 콘텐츠와 같은 결',
     back: '뒤로', source: '출처',
     justNow: '방금 전', minAgo: '분 전', hrAgo: '시간 전', dayAgo: '일 전',
+    tabSearch: '검색',
+    searchPh: '티커 검색 (예: NVDA)',
+    popular: '인기 티커', recent: '최근 검색',
+    tickerReadTitle: '지금 이 종목의 돈', tickerNews: '이 종목의 뉴스',
+    searchEmpty: '검색 결과가 없어요. 티커를 확인해 주세요.',
+    searchBusy: '종목의 돈을 읽는 중…',
+    storiesAll: '전체',
     loading: '돈의 흐름을 읽는 중…',
     error: '불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
     disclaimer: '교육·정보 목적의 시장 데이터입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.',
@@ -81,6 +88,13 @@ const T: Record<Locale, Record<string, string>> = {
     ad: 'Ad · Sponsored', adNative: 'Native ad slot — matches content style',
     back: 'Back', source: 'Source',
     justNow: 'just now', minAgo: 'm ago', hrAgo: 'h ago', dayAgo: 'd ago',
+    tabSearch: 'Search',
+    searchPh: 'Search ticker (e.g. NVDA)',
+    popular: 'Popular tickers', recent: 'Recent',
+    tickerReadTitle: 'The money on this name now', tickerNews: 'News on this name',
+    searchEmpty: 'No results. Check the ticker.',
+    searchBusy: 'Reading the money on this name…',
+    storiesAll: 'All',
     loading: 'Reading the money flow…',
     error: 'Could not load. Please try again shortly.',
     disclaimer: 'Educational market information only. Not investment advice; accuracy not guaranteed.',
@@ -111,6 +125,13 @@ const T: Record<Locale, Record<string, string>> = {
     ad: '広告 · スポンサー', adNative: 'ネイティブ広告枠 — コンテンツと同じトーン',
     back: '戻る', source: '出典',
     justNow: 'たった今', minAgo: '分前', hrAgo: '時間前', dayAgo: '日前',
+    tabSearch: '検索',
+    searchPh: 'ティッカー検索 (例: NVDA)',
+    popular: '人気ティッカー', recent: '最近の検索',
+    tickerReadTitle: 'いまこの銘柄のお金', tickerNews: 'この銘柄のニュース',
+    searchEmpty: '結果がありません。ティッカーをご確認ください。',
+    searchBusy: 'この銘柄のマネーを読み取り中…',
+    storiesAll: 'すべて',
     loading: 'マネーフローを読み取り中…',
     error: '読み込めませんでした。しばらくして再試行してください。',
     disclaimer: '教育・情報目的の市場データです。投資助言ではなく、正確性は保証されません。',
@@ -143,7 +164,19 @@ interface Feed {
   pulse?: { bullish: number; cautious: number; neutral: number; divergences: number };
   cards?: Card[];
 }
-type Tab = 'home' | 'div' | 'whale' | 'stories';
+type Tab = 'home' | 'div' | 'whale' | 'stories' | 'search';
+
+interface TickerResult {
+  success: boolean;
+  ticker: string;
+  money: Money;
+  hasMoneyData: boolean;
+  tickerRead: string | null;
+  cards: Card[];
+}
+
+const POPULAR_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'AMD', 'PLTR', 'COIN'];
+const RECENT_KEY = 'uc_recent_tickers';
 
 function moodStyle(mood: Card['moneyMood']) {
   if (mood === 'bullish') return { color: C.emerald, bg: C.emeraldBg, arrow: '↑' };
@@ -313,6 +346,39 @@ export default function UndercurrentPage() {
   const [tab, setTab] = useState<Tab>('home');
   const [detail, setDetail] = useState<Card | null>(null);
   const [unlocked, setUnlocked] = useState<Record<string, boolean>>({});
+  // ── ticker search state ──
+  const [searchQ, setSearchQ] = useState('');
+  const [searchRes, setSearchRes] = useState<TickerResult | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [searchErr, setSearchErr] = useState<'' | 'empty' | 'fail'>('');
+  const [recents, setRecents] = useState<string[]>([]);
+  const [storyTag, setStoryTag] = useState<string>(''); // '' = all (stories tab browse chips)
+
+  useEffect(() => {
+    try { setRecents(JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')); } catch { /* noop */ }
+  }, []);
+
+  const runSearch = (raw: string) => {
+    const tk = raw.trim().toUpperCase();
+    if (!/^[A-Z]{1,5}$/.test(tk)) return;
+    setSearchQ(tk); setSearchBusy(true); setSearchErr(''); setSearchRes(null);
+    fetch(`/api/undercurrent/ticker?t=${tk}&locale=${loc}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.success && (d.cards?.length || d.hasMoneyData)) {
+          setSearchRes(d);
+          setRecents((prev) => {
+            const next = [tk, ...prev.filter((x) => x !== tk)].slice(0, 8);
+            try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* noop */ }
+            return next;
+          });
+        } else {
+          setSearchErr('empty');
+        }
+      })
+      .catch(() => setSearchErr('fail'))
+      .finally(() => setSearchBusy(false));
+  };
 
   useEffect(() => {
     let dead = false;
@@ -327,12 +393,14 @@ export default function UndercurrentPage() {
         try {
           const sp = new URLSearchParams(window.location.search);
           const tabP = sp.get('tab');
-          if (tabP === 'div' || tabP === 'whale' || tabP === 'stories') setTab(tabP);
+          if (tabP === 'div' || tabP === 'whale' || tabP === 'stories' || tabP === 'search') setTab(tabP);
           const openP = (sp.get('open') || '').toUpperCase();
           if (openP) {
             const found = (d.cards || []).find((c: Card) => c.ticker === openP);
             if (found) setDetail(found);
           }
+          const tP = (sp.get('t') || '').toUpperCase();
+          if (tP && /^[A-Z]{1,5}$/.test(tP)) { setTab('search'); runSearch(tP); }
         } catch { /* noop */ }
       })
       .catch(() => { if (!dead) setErr(true); });
@@ -496,6 +564,7 @@ export default function UndercurrentPage() {
         { k: 'div', label: t.tabDiv, dot: divCards.length || null },
         { k: 'whale', label: t.tabWhale, dot: whaleCards.length || null },
         { k: 'stories', label: t.tabStories, dot: null },
+        { k: 'search', label: t.tabSearch, dot: null },
       ] as { k: Tab; label: string; dot: number | null }[]).map((m) => {
         const active = tab === m.k;
         return (
@@ -706,16 +775,136 @@ export default function UndercurrentPage() {
               </>
             )}
 
-            {/* ── 스토리 TAB ── */}
-            {tab === 'stories' && (
+            {/* ── 스토리 TAB (tag browse chips = variety) ── */}
+            {tab === 'stories' && (() => {
+              const tags = Array.from(new Set(cards.map((c) => c.tag).filter(Boolean))) as string[];
+              const shown = storyTag ? cards.filter((c) => c.tag === storyTag) : cards;
+              return (
+                <>
+                  <SectionHead title={t.secStories} sub={t.secStoriesSub} color={C.ink} />
+                  {tags.length > 1 && (
+                    <div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '0 -18px', padding: '2px 18px 4px' }}>
+                      {['', ...tags].map((tg) => {
+                        const active = storyTag === tg;
+                        return (
+                          <button key={tg || '_all'} type="button" onClick={() => setStoryTag(tg)} style={{
+                            font: 'inherit', fontSize: 12, fontWeight: 750 as any, cursor: 'pointer', whiteSpace: 'nowrap',
+                            color: active ? '#fff' : C.ink, background: active ? C.ink : C.card,
+                            border: `1px solid ${active ? C.ink : C.line}`, padding: '6px 13px', borderRadius: 999,
+                          }}>
+                            {tg || t.storiesAll}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {shown.map((c, i) => (
+                    <span key={c.ticker}>
+                      <StoryRow c={c} />
+                      {(i === 2 || i === 6) && <NativeAdSlot t={t} />}
+                    </span>
+                  ))}
+                </>
+              );
+            })()}
+
+            {/* ── 검색 TAB (ticker lookup = our data on ANY name) ── */}
+            {tab === 'search' && (
               <>
-                <SectionHead title={t.secStories} sub={t.secStoriesSub} color={C.ink} />
-                {cards.map((c, i) => (
-                  <span key={c.ticker}>
-                    <StoryRow c={c} />
-                    {(i === 2 || i === 6) && <NativeAdSlot t={t} />}
-                  </span>
-                ))}
+                <form onSubmit={(e) => { e.preventDefault(); runSearch(searchQ); }} style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                  <input
+                    value={searchQ}
+                    onChange={(e) => setSearchQ(e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5))}
+                    placeholder={t.searchPh}
+                    autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+                    style={{
+                      font: 'inherit', flex: 1, fontSize: 15, fontWeight: 700, letterSpacing: '0.04em',
+                      background: C.card, border: `1px solid ${C.line}`, borderRadius: 14,
+                      padding: '13px 16px', color: C.ink, outline: 'none', boxShadow: C.shadow,
+                    }}
+                  />
+                  <button type="submit" disabled={!searchQ} style={{
+                    font: 'inherit', fontSize: 14, fontWeight: 800, cursor: 'pointer',
+                    color: '#fff', background: searchQ ? C.ink : C.faint, border: 'none',
+                    padding: '0 18px', borderRadius: 14,
+                  }}>→</button>
+                </form>
+
+                {/* popular + recent chips */}
+                {!searchRes && !searchBusy && (
+                  <>
+                    {recents.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: C.faint, letterSpacing: '0.05em', margin: '16px 2px 8px' }}>{t.recent}</div>
+                        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                          {recents.map((tk) => (
+                            <button key={tk} type="button" onClick={() => runSearch(tk)} style={{
+                              font: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
+                              color: C.ink, background: C.card, border: `1px solid ${C.line}`,
+                              padding: '7px 13px', borderRadius: 999,
+                            }}>{tk}</button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    <div style={{ fontSize: 11.5, fontWeight: 800, color: C.faint, letterSpacing: '0.05em', margin: '16px 2px 8px' }}>{t.popular}</div>
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                      {POPULAR_TICKERS.map((tk) => (
+                        <button key={tk} type="button" onClick={() => runSearch(tk)} style={{
+                          font: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
+                          color: C.emeraldDeep, background: C.emeraldBg, border: `1px solid rgba(11,138,92,0.2)`,
+                          padding: '7px 13px', borderRadius: 999,
+                        }}>{tk}</button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {searchBusy && (
+                  <div style={{ padding: '50px 0', textAlign: 'center' }}>
+                    <div style={{ width: 30, height: 30, margin: '0 auto 12px', borderRadius: '50%', border: `3px solid ${C.line}`, borderTopColor: C.emerald, animation: 'ucspin 0.9s linear infinite' }} />
+                    <div style={{ fontSize: 13.5, color: C.sub, fontWeight: 600 }}>{t.searchBusy}</div>
+                  </div>
+                )}
+                {searchErr && !searchBusy && (
+                  <div style={{ padding: '40px 0', textAlign: 'center', fontSize: 13.5, color: C.sub }}>
+                    {searchErr === 'empty' ? t.searchEmpty : t.error}
+                  </div>
+                )}
+
+                {/* result: money header + tickerRead + stories */}
+                {searchRes && !searchBusy && (
+                  <>
+                    <div style={{ marginTop: 16, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`, boxShadow: C.shadow, padding: '14px 16px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <span style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.01em' }}>{searchRes.ticker}</span>
+                        {typeof searchRes.money?.price === 'number' && (
+                          <span style={{ fontSize: 13.5, fontWeight: 750 as any, color: C.sub, fontVariantNumeric: 'tabular-nums' }}>${searchRes.money.price.toFixed(2)}</span>
+                        )}
+                      </div>
+                      {searchRes.tickerRead && (
+                        <div style={{ marginTop: 9, borderTop: `1px solid ${C.line}`, paddingTop: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: C.emerald, marginBottom: 5 }}>{t.tickerReadTitle.toUpperCase()}</div>
+                          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, fontWeight: 550 as any }}>{searchRes.tickerRead}</p>
+                        </div>
+                      )}
+                      {searchRes.hasMoneyData && (
+                        <DeepLayer c={{ money: searchRes.money } as Card} t={t} />
+                      )}
+                    </div>
+                    {searchRes.cards.length > 0 && (
+                      <>
+                        <SectionHead title={t.tickerNews} sub={t.secStoriesSub} color={C.ink} />
+                        {searchRes.cards.map((c, i) => (
+                          <span key={`${c.ticker}-${i}`}>
+                            <StoryRow c={c} />
+                            {i === 1 && <NativeAdSlot t={t} />}
+                          </span>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
               </>
             )}
 
