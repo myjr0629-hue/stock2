@@ -51,6 +51,12 @@ const T: Record<Locale, Record<string, string>> = {
     ad: '광고 · 스폰서', adNative: '네이티브 광고 자리 — 콘텐츠와 같은 결',
     back: '뒤로', source: '출처',
     justNow: '방금 전', minAgo: '분 전', hrAgo: '시간 전', dayAgo: '일 전',
+    breaking: '속보', breakingCenter: '속보 센터',
+    breakingSub: '최근 2시간 내 새 소식',
+    breakingEmpty: '지금은 새 속보가 없어요.',
+    pushSoon: '브레이킹 푸시 알림은 앱 버전에서 제공될 예정이에요.',
+    topics: '지금 토픽',
+    edMorning: '모닝 에디션', edAfternoon: '애프터눈 에디션', edEvening: '이브닝 에디션',
     tabMacro: '매크로',
     macroTitle: '세계 → 시장', macroSub: '시장을 흔드는 거시·지정학 속보',
     macroReadTitle: '지금 매크로 기류',
@@ -94,6 +100,12 @@ const T: Record<Locale, Record<string, string>> = {
     ad: 'Ad · Sponsored', adNative: 'Native ad slot — matches content style',
     back: 'Back', source: 'Source',
     justNow: 'just now', minAgo: 'm ago', hrAgo: 'h ago', dayAgo: 'd ago',
+    breaking: 'Breaking', breakingCenter: 'Breaking center',
+    breakingSub: 'New in the last 2 hours',
+    breakingEmpty: 'No fresh breaking news right now.',
+    pushSoon: 'Breaking push alerts are coming with the app version.',
+    topics: 'Topics now',
+    edMorning: 'Morning edition', edAfternoon: 'Afternoon edition', edEvening: 'Evening edition',
     tabMacro: 'Macro',
     macroTitle: 'World → Market', macroSub: 'Macro & geopolitical news shaking markets',
     macroReadTitle: 'Macro undercurrent now',
@@ -137,6 +149,12 @@ const T: Record<Locale, Record<string, string>> = {
     ad: '広告 · スポンサー', adNative: 'ネイティブ広告枠 — コンテンツと同じトーン',
     back: '戻る', source: '出典',
     justNow: 'たった今', minAgo: '分前', hrAgo: '時間前', dayAgo: '日前',
+    breaking: '速報', breakingCenter: '速報センター',
+    breakingSub: '直近2時間の新着',
+    breakingEmpty: 'いまは新しい速報がありません。',
+    pushSoon: '速報プッシュ通知はアプリ版で提供予定です。',
+    topics: 'いまのトピック',
+    edMorning: 'モーニング版', edAfternoon: 'アフタヌーン版', edEvening: 'イブニング版',
     tabMacro: 'マクロ',
     macroTitle: '世界 → 市場', macroSub: '市場を揺らすマクロ・地政学ニュース',
     macroReadTitle: 'いまのマクロ底流',
@@ -402,6 +420,7 @@ export default function UndercurrentPage() {
   const [recents, setRecents] = useState<string[]>([]);
   const [storyTag, setStoryTag] = useState<string>(''); // '' = all (stories tab browse chips)
   const [macro, setMacro] = useState<MacroResult | null>(null);
+  const [showBreaking, setShowBreaking] = useState(false);
 
   useEffect(() => {
     let dead = false;
@@ -440,7 +459,7 @@ export default function UndercurrentPage() {
 
   useEffect(() => {
     let dead = false;
-    fetch(`/api/undercurrent/feed?locale=${loc}&limit=8`)
+    fetch(`/api/undercurrent/feed?locale=${loc}&limit=12`)
       .then((r) => r.json())
       .then((d) => {
         if (dead) return;
@@ -478,6 +497,29 @@ export default function UndercurrentPage() {
     .sort((a, b) => (b.money?.darkPoolPct ?? 0) - (a.money?.darkPoolPct ?? 0));
   const connected = (base: Card | null) =>
     base ? cards.filter((c) => c !== base && (c.moneyMood === base.moneyMood || (c.divergence && base.divergence))).slice(0, 3) : [];
+
+  // ── breaking (fresh ≤ 2h across stories + macro) · topics (tag counts) · edition ──
+  const BREAKING_MIN = 120;
+  const ageMin = (iso: string | null) => {
+    if (!iso) return Infinity;
+    const ms = Date.now() - new Date(iso).getTime();
+    return Number.isFinite(ms) && ms >= 0 ? ms / 60000 : Infinity;
+  };
+  const breaking: { title: string; publishedAt: string | null; kind: 'story' | 'macro'; card?: Card }[] = [
+    ...cards.filter((c) => ageMin(c.publishedAt) <= BREAKING_MIN).map((c) => ({ title: c.plainTitle, publishedAt: c.publishedAt, kind: 'story' as const, card: c })),
+    ...(macro?.cards || []).filter((m) => ageMin(m.publishedAt) <= BREAKING_MIN).map((m) => ({ title: m.plainTitle, publishedAt: m.publishedAt, kind: 'macro' as const })),
+  ].sort((a, b) => ageMin(a.publishedAt) - ageMin(b.publishedAt)).slice(0, 6);
+
+  const topics = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of cards) if (c.tag) counts.set(c.tag, (counts.get(c.tag) || 0) + 1);
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }, [cards]);
+
+  const edition = useMemo(() => {
+    const h = new Date().getHours();
+    return h < 11 ? t.edMorning : h < 17 ? t.edAfternoon : t.edEvening;
+  }, [t]);
 
   const isFree = (c: Card) => c === hero; // hero's deep layer is the free taste
   const isOpen = (c: Card) => isFree(c) || unlocked[c.ticker];
@@ -666,15 +708,37 @@ export default function UndercurrentPage() {
               </div>
               <div style={{ fontSize: 12.5, color: C.sub, fontWeight: 500 }}>{t.tagline}</div>
             </div>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: C.faint, fontWeight: 600, whiteSpace: 'nowrap' }}>{dateStr}</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: C.faint, fontWeight: 600, whiteSpace: 'nowrap' }}>{dateStr}</div>
+                <div style={{ fontSize: 10, color: C.emerald, fontWeight: 800, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{edition}</div>
+              </div>
+              <button type="button" onClick={() => setShowBreaking(true)} aria-label={t.breakingCenter} style={{
+                position: 'relative', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer',
+                background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+                {breaking.length > 0 && (
+                  <span style={{ position: 'absolute', top: 6, right: 7, width: 8, height: 8, borderRadius: '50%', background: C.diverge, border: '1.5px solid #fff' }} className="mbz-pulse" />
+                )}
+              </button>
+            </div>
           </div>
         </header>
 
         {/* loading / error */}
         {!feed && !err && (
-          <div style={{ padding: '80px 0', textAlign: 'center' }}>
-            <div style={{ width: 34, height: 34, margin: '0 auto 14px', borderRadius: '50%', border: `3px solid ${C.line}`, borderTopColor: C.emerald, animation: 'ucspin 0.9s linear infinite' }} />
-            <div style={{ fontSize: 14, color: C.sub, fontWeight: 600 }}>{t.loading}</div>
+          <div aria-label={t.loading}>
+            <div className="uc-skel" style={{ height: 44, borderRadius: 16, marginTop: 14 }} />
+            <div className="uc-skel" style={{ height: 74, borderRadius: 18, marginTop: 12 }} />
+            <div className="uc-skel" style={{ aspectRatio: '16/9', borderRadius: 22, marginTop: 14 }} />
+            <div className="uc-skel" style={{ height: 96, borderRadius: 18, marginTop: 12 }} />
+            <div className="uc-skel" style={{ height: 96, borderRadius: 18, marginTop: 12 }} />
+            <div style={{ textAlign: 'center', fontSize: 13, color: C.faint, fontWeight: 600, marginTop: 18 }}>{t.loading}</div>
           </div>
         )}
         {err && <div style={{ padding: '80px 0', textAlign: 'center', fontSize: 14, color: C.sub }}>{t.error}</div>}
@@ -684,6 +748,32 @@ export default function UndercurrentPage() {
             {/* ── HOME ── */}
             {tab === 'home' && (
               <>
+                {/* breaking strip — first impression: what just happened */}
+                {breaking.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '14px -18px 0', padding: '0 18px' }}>
+                    <span style={{
+                      flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 6,
+                      fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: '#fff',
+                      background: C.diverge, padding: '8px 12px', borderRadius: 12,
+                    }}>
+                      <span className="mbz-pulse" style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff', display: 'inline-block' }} />
+                      {t.breaking.toUpperCase()}
+                    </span>
+                    {breaking.map((b, i) => (
+                      <button key={i} type="button" onClick={() => { if (b.kind === 'story' && b.card) openDetail(b.card); else { setTab('macro'); window.scrollTo(0, 0); } }} style={{
+                        font: 'inherit', cursor: 'pointer', flex: '0 0 auto', maxWidth: 250,
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                        fontSize: 12, fontWeight: 700, color: C.ink, textAlign: 'left',
+                        background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+                        padding: '8px 12px', borderRadius: 12,
+                      }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: C.diverge, whiteSpace: 'nowrap' }}>{freshness(b.publishedAt, t)?.label}</span>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {feed.pulse && (
                   <section style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: '11px 14px', boxShadow: C.shadow }}>
                     <span style={{ fontSize: 12, fontWeight: 800, color: C.sub }}>{t.pulseTitle}</span>
@@ -758,6 +848,25 @@ export default function UndercurrentPage() {
                       )}
                     </div>
                   </button>
+                )}
+
+                {/* topics now — tag pulse across today's stories */}
+                {topics.length > 1 && (
+                  <>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, color: C.faint, letterSpacing: '0.05em', margin: '18px 2px 8px' }}>{t.topics}</div>
+                    <div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '0 -18px', padding: '0 18px' }}>
+                      {topics.map(([tg, n]) => (
+                        <button key={tg} type="button" onClick={() => { setStoryTag(tg); setTab('stories'); window.scrollTo(0, 0); }} style={{
+                          font: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap',
+                          color: C.ink, background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+                          padding: '8px 13px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 6,
+                        }}>
+                          {tg}
+                          <span style={{ fontSize: 10, fontWeight: 900, color: '#fff', background: C.ink, borderRadius: 999, padding: '1.5px 6px' }}>{n}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
 
                 {/* preview rails → tabs */}
@@ -1088,6 +1197,52 @@ export default function UndercurrentPage() {
           </div>
         )}
       </div>
+      {showBreaking && (
+        <div role="dialog" aria-modal="true" aria-label={t.breakingCenter} onClick={() => setShowBreaking(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(23,25,30,0.45)',
+          backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }}>
+          <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
+            width: '100%', maxWidth: 560, maxHeight: '78vh', overflowY: 'auto',
+            background: C.bg, borderRadius: '22px 22px 0 0',
+            padding: '16px 18px calc(26px + env(safe-area-inset-bottom))',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="mbz-pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: C.diverge, display: 'inline-block' }} />
+              <span style={{ fontSize: 17, fontWeight: 900 }}>{t.breakingCenter}</span>
+              <span style={{ fontSize: 11.5, color: C.faint, fontWeight: 600 }}>{t.breakingSub}</span>
+              <button type="button" onClick={() => setShowBreaking(false)} aria-label={t.back} style={{
+                marginLeft: 'auto', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer',
+                background: C.card, border: `1px solid ${C.line}`, color: C.sub, fontSize: 15, lineHeight: 1,
+              }}>×</button>
+            </div>
+            {breaking.length === 0 && (
+              <div style={{ padding: '34px 0', textAlign: 'center', fontSize: 13.5, color: C.sub }}>{t.breakingEmpty}</div>
+            )}
+            {breaking.map((b, i) => (
+              <button key={i} type="button" onClick={() => { setShowBreaking(false); if (b.kind === 'story' && b.card) openDetail(b.card); else { setTab('macro'); window.scrollTo(0, 0); } }} style={{
+                font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%',
+                marginTop: 11, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`,
+                boxShadow: C.shadow, padding: '12px 14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, fontWeight: 900, color: C.diverge }}>{freshness(b.publishedAt, t)?.label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: C.faint }}>{b.kind === 'macro' ? t.tabMacro : t.tabStories}</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 750 as any, lineHeight: 1.4 }}>{b.title}</div>
+              </button>
+            ))}
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, background: C.card, border: `1px dashed rgba(23,25,30,0.18)`, borderRadius: 14, padding: '11px 13px' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+              </svg>
+              <span style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t.pushSoon}</span>
+            </div>
+          </div>
+        </div>
+      )}
       <TabBar />
       <style>{CSS_ANIM}</style>
     </div>
@@ -1099,5 +1254,17 @@ const CSS_ANIM = `
 @keyframes ucView { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @keyframes ucUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
 .uc-view { animation: ucView .26s ease; }
+.uc-view > * { animation: ucUp .34s ease backwards; }
+.uc-view > *:nth-child(1) { animation-delay: .02s; }
+.uc-view > *:nth-child(2) { animation-delay: .06s; }
+.uc-view > *:nth-child(3) { animation-delay: .10s; }
+.uc-view > *:nth-child(4) { animation-delay: .14s; }
+.uc-view > *:nth-child(5) { animation-delay: .18s; }
+.uc-view > *:nth-child(6) { animation-delay: .22s; }
 .uc-slideup { animation: ucUp .3s cubic-bezier(.2,.7,.3,1); }
+.uc-skel { background: linear-gradient(90deg, #ECE8E0 25%, #F5F2EB 50%, #ECE8E0 75%); background-size: 200% 100%; animation: ucShimmer 1.3s ease-in-out infinite; }
+@keyframes ucShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.mbz-pulse { animation: mbzPulse 1.6s ease-in-out infinite; }
+@keyframes mbzPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .uc-view, .uc-view > *, .uc-slideup, .uc-skel, .mbz-pulse { animation: none !important; } }
 `;
