@@ -494,7 +494,7 @@ export default function UndercurrentPage() {
       {c.image && (
         <div style={{ width: 92, height: 74, flexShrink: 0, borderRadius: 12, overflow: 'hidden', background: '#E8E4DC' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
         </div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -541,7 +541,7 @@ export default function UndercurrentPage() {
           {c.image && (
             <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', marginTop: 14, aspectRatio: '16/8', background: '#E8E4DC' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               {c.divergence && <div style={{ position: 'absolute', left: 12, top: 12 }}><DivBadge t={t} /></div>}
             </div>
           )}
@@ -728,7 +728,7 @@ export default function UndercurrentPage() {
                     {hero.image && (
                       <div style={{ position: 'relative', aspectRatio: '16/9', background: '#E8E4DC' }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={hero.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={hero.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                         <div style={{ position: 'absolute', left: 12, top: 12, display: 'flex', gap: 7 }}>
                           {hero.divergence && <DivBadge t={t} />}
                         </div>
@@ -769,7 +769,7 @@ export default function UndercurrentPage() {
                           <div style={{ position: 'relative', height: 110, background: '#E8E4DC' }}>
                             {c.image && (
                               /* eslint-disable-next-line @next/next/no-img-element */
-                              <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                             )}
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 30%, rgba(60,20,0,0.55))' }} />
                             <div style={{ position: 'absolute', left: 10, top: 10 }}><DivBadge t={t} small /></div>
@@ -876,7 +876,7 @@ export default function UndercurrentPage() {
                       {c.image && (
                         <div style={{ width: 92, height: 74, flexShrink: 0, borderRadius: 12, overflow: 'hidden', background: '#E8E4DC' }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                         </div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
