@@ -58,6 +58,13 @@ export default async function LocaleLayout({ children, params }: Props) {
     const customPathname = headersList.get('x-pathname') || '';
     const isAppView = nextUrl.includes('/app-view') || referer.includes('/app-view') || customPathname.includes('/app-view') || userAgent.includes('Capacitor');
 
+    // [UNDERCURRENT PROTO] The spin-off prototype route renders bare (no site
+    // header/footer) but must NOT get the is-app-view class (different theme).
+    // Pathname-scoped only (no referer matching) — every existing route keeps
+    // identical behavior (hideChrome === isAppView for them).
+    const isUndercurrent = nextUrl.includes('/undercurrent') || customPathname.includes('/undercurrent');
+    const hideChrome = isAppView || isUndercurrent;
+
     return (
         <NextIntlClientProvider messages={messages}>
             <div lang={locale} className={`flex flex-col min-h-screen ${locale === 'en' ? 'font-jakarta' : 'font-body'} ${isAppView ? 'is-app-view' : ''}`}>
@@ -68,7 +75,7 @@ export default async function LocaleLayout({ children, params }: Props) {
                             <DeactivationGuard>
                                 
                                 {/* 1. HEADER (Bifurcated) */}
-                                {!isAppView && (
+                                {!hideChrome && (
                                     isMobileDevice ? (
                                         <MobileHeader />
                                     ) : (
@@ -89,7 +96,7 @@ export default async function LocaleLayout({ children, params }: Props) {
                                 </WebSocketProvider>
 
                                 {/* 3. FOOTER / BOTTOM NAV (Bifurcated) */}
-                                {!isAppView && (
+                                {!hideChrome && (
                                     isMobileDevice ? (
                                         <>
                                             <MobileLegalFooter />
