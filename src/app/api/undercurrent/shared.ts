@@ -104,6 +104,15 @@ export async function fetchMoney(origin: string, ticker: string): Promise<MoneyD
   }
 }
 
+// Polygon sets image_url to the ARTICLE PAGE (text/html) for some publishers
+// (seen live: GlobeNewswire) — browsers then render a broken-image glyph.
+// Reject obvious non-image URLs; the client additionally hides onError.
+export function cleanImage(url?: string | null): string | null {
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  if (/\.html?(\?|#|$)/i.test(url)) return null;
+  return url;
+}
+
 export function hasRealMoney(m: MoneyData): boolean {
   return m.darkPoolPct !== null || m.oiPcr !== null || m.volumePcr !== null;
 }

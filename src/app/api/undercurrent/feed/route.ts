@@ -13,7 +13,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
   normLocale, isSpam, primaryTicker, fetchMoney, hasRealMoney,
-  buildSystem, storyPayload, invokeJSON, type NewsItem,
+  buildSystem, storyPayload, invokeJSON, cleanImage, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   const loc = normLocale(searchParams.get('locale'));
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '12', 10) || 12, 1), 16);
   const skipCache = searchParams.get('refresh') === '1';
-  const cacheKey = `undercurrent:feed:v4:${loc}`;
+  const cacheKey = `undercurrent:feed:v5:${loc}`;
 
   try {
     if (!skipCache) {
@@ -106,7 +106,7 @@ ${storyPayload(stories)}`;
         hasMoneyData: real,
         money: money[i],
         newsSentiment: stories[i].newsSentiment || null,
-        image: p.item.image_url || null,
+        image: cleanImage(p.item.image_url),
         source: p.item.publisher?.name || null,
         url: p.item.article_url || null,
         publishedAt: p.item.published_utc || null,

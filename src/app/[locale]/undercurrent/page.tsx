@@ -540,7 +540,8 @@ export default function UndercurrentPage() {
 
           {c.image && (
             <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', marginTop: 14, aspectRatio: '16/8', background: '#E8E4DC' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <span aria-hidden style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, fontWeight: 900, letterSpacing: '0.04em', color: 'rgba(23,25,30,0.10)' }}>{c.ticker}</span>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={c.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               {c.divergence && <div style={{ position: 'absolute', left: 12, top: 12 }}><DivBadge t={t} /></div>}
             </div>
@@ -727,6 +728,7 @@ export default function UndercurrentPage() {
                   <button type="button" onClick={() => openDetail(hero)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', padding: 0, border: 'none', marginTop: 14, background: C.card, borderRadius: 22, overflow: 'hidden', outline: `1px solid ${C.line}`, boxShadow: C.shadow }}>
                     {hero.image && (
                       <div style={{ position: 'relative', aspectRatio: '16/9', background: '#E8E4DC' }}>
+                        <span aria-hidden style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, fontWeight: 900, letterSpacing: '0.04em', color: 'rgba(23,25,30,0.10)' }}>{hero.ticker}</span>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={hero.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                         <div style={{ position: 'absolute', left: 12, top: 12, display: 'flex', gap: 7 }}>
@@ -743,6 +745,8 @@ export default function UndercurrentPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
                         {hero.tag && <span style={{ fontSize: 11.5, fontWeight: 800, color: C.sub, background: C.neutralBg, padding: '4px 10px', borderRadius: 999 }}>{hero.tag}</span>}
                         <span style={{ fontSize: 11.5, fontWeight: 700, color: C.faint }}>{hero.ticker}</span>
+                        {!hero.image && <FreshBadge iso={hero.publishedAt} t={t} />}
+                        {!hero.image && hero.divergence && <DivBadge t={t} small />}
                         <span style={{ marginLeft: 'auto' }}><MoodBadge mood={hero.moneyMood} t={t} /></span>
                       </div>
                       <h2 style={{ margin: 0, fontSize: 21, fontWeight: 850 as any, lineHeight: 1.3, letterSpacing: '-0.015em' }}>{hero.plainTitle}</h2>

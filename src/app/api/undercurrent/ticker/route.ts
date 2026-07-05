@@ -12,7 +12,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
-  invokeJSON, TICKER_RE, type NewsItem,
+  invokeJSON, TICKER_RE, cleanImage, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: 'invalid ticker' }, { status: 400 });
   }
 
-  const cacheKey = `undercurrent:ticker:v1:${ticker}:${loc}`;
+  const cacheKey = `undercurrent:ticker:v2:${ticker}:${loc}`;
   try {
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.success) {
@@ -103,7 +103,7 @@ ${storyPayload(stories)}`;
         hasMoneyData: real,
         money,
         newsSentiment: stories[i]?.newsSentiment || null,
-        image: item.image_url || null,
+        image: cleanImage(item.image_url),
         source: item.publisher?.name || null,
         url: item.article_url || null,
         publishedAt: item.published_utc || null,

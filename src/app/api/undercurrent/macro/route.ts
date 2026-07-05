@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { normLocale, isSpam, invokeJSON, langName, type NewsItem, type Locale } from '../shared';
+import { normLocale, isSpam, invokeJSON, langName, cleanImage, type NewsItem, type Locale } from '../shared';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -36,7 +36,7 @@ function fmpDateToIso(d?: string): string | null {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const loc: Locale = normLocale(searchParams.get('locale'));
-  const cacheKey = `undercurrent:macro:v1:${loc}`;
+  const cacheKey = `undercurrent:macro:v2:${loc}`;
 
   try {
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
         .map((n) => ({
           title: n.title || '',
           description: (n.text || '').slice(0, 300),
-          image: n.image || null,
+          image: cleanImage(n.image),
           url: n.url || null,
           publishedAt: fmpDateToIso(n.publishedDate),
           source: n.site || null,
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
         .map((n) => ({
           title: n.title,
           description: (n.description || '').slice(0, 300),
-          image: n.image_url || null,
+          image: cleanImage(n.image_url),
           url: n.article_url || null,
           publishedAt: n.published_utc || null,
           source: n.publisher?.name || null,
