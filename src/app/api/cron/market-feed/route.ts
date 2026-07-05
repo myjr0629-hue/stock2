@@ -53,7 +53,11 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         let prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
 
         // [BUGFIX] Yahoo Finance sometimes returns anomalous near-zero values (e.g., 1E-09) for ^VIX chartPreviousClose
-        if (prevClose < 0.01) {
+        // [WEEKEND/HOLIDAY FIX] For some indices (seen live: ^GSPC) Yahoo rolls previousClose to
+        // the CURRENT session while the market is closed (previousClose === price) → changePct
+        // collapses to a fake 0% (dashboard cash S&P showed +0.00% next to correct NASDAQ/DOW).
+        // Reuse the SAME daily-candles secondary fetch to recover the true prior-session close.
+        if (prevClose < 0.01 || Math.abs(price - prevClose) < 0.001) {
             // Default to `price` (0% change) if the secondary fetch fails for any reason
             prevClose = price;
             try {
