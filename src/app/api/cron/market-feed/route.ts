@@ -76,12 +76,16 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
                     const fallbackData = await fallbackRes.json();
                     const closes = fallbackData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
                     const validCloses = closes.filter((c: number | null) => c !== null && c > 0.01);
-                    if (validCloses.length >= 2) {
-                        // The last item is today's live price, second-to-last is yesterday's true close
-                        prevClose = validCloses[validCloses.length - 2];
-                    } else if (validCloses.length === 1) {
-                        prevClose = validCloses[0];
-                    }
+                    // Walk back past bars that are effectively the SAME session as `price`
+                    // (verified live: ^GSPC daily series ends [..., 7483.23, 7483.24] — Yahoo
+                    // appends a duplicate last-day bar, so a blind [len-2] still lands on the
+                    // same session and change collapses to 0%). Skip epsilon 0.01% keeps a
+                    // genuinely flat prior day (≥0.01% move) selectable.
+                    let idx = validCloses.length - 1;
+                    while (idx >= 0 && Math.abs(validCloses[idx] - price) / price < 0.0001) idx--;
+                    if (idx >= 0) {
+                        prevClose = validCloses[idx];
+                    } // else: every bar matches current price — keep prevClose = price (honest 0%)
                 }
             } catch (e) {
                 // Ignore as we already defaulted to `price`
