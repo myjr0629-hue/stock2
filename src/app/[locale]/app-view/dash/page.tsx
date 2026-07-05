@@ -95,6 +95,14 @@ const sortPulse = (arr: PulseItem[], order: string[]): PulseItem[] =>
 // these instead of the demo data; the demo arrays are only ever shown on the very
 // first load before the first successful fetch.
 let lastGoodIndices: PulseItem[] | null = null;
+
+function buildIndexItems(idx: any): PulseItem[] {
+  const items: PulseItem[] = [];
+  if (idx?.dow) items.push({ sym: 'DOW', px: idx.dow.price, chg: idx.dow.changePct, up: idx.dow.changePct >= 0, spark: DEMO_INDICES[0].spark });
+  if (idx?.nasdaq) items.push({ sym: 'NASDAQ', px: idx.nasdaq.price, chg: idx.nasdaq.changePct, up: idx.nasdaq.changePct >= 0, spark: DEMO_INDICES[1].spark });
+  if (idx?.spx) items.push({ sym: 'S&P 500', px: idx.spx.price, chg: idx.spx.changePct, up: idx.spx.changePct >= 0, spark: DEMO_INDICES[2].spark });
+  return items;
+}
 let lastGoodFutures: PulseItem[] | null = null;
 let lastGoodEtfs: PulseItem[] | null = null;
 
@@ -607,7 +615,7 @@ export default function AppDashPage() {
       futuresRow: 'Index Futures',
       cashRow: 'Cash Indices',
       etfRow: 'ETF / Volatility',
-      futuresOpen: 'Futures remain tracked on ET even outside regular hours.',
+      futuresOpen: 'Futures tracked live on ET.',
       regularOpen: 'Regular-session flow is updating live.',
       marketClosed: 'Last close + live futures.',
       riskOn: 'Risk-On Tilt',
@@ -629,7 +637,7 @@ export default function AppDashPage() {
       futuresRow: '指数先物',
       cashRow: '現物指数',
       etfRow: 'ETF / 変動性',
-      futuresOpen: '通常取引外でも先物フローはET基準で追跡されます。',
+      futuresOpen: '先物はET基準で追跡中。',
       regularOpen: '通常取引のリアルタイムフローを反映します。',
       marketClosed: '引け後データと先物フロー。',
       riskOn: 'Risk-On 優勢',
@@ -651,7 +659,7 @@ export default function AppDashPage() {
     futuresRow: 'Index Futures',
     cashRow: 'Cash Indices',
     etfRow: 'ETF / Volatility',
-    futuresOpen: 'Futures remain tracked on ET even outside regular hours.',
+    futuresOpen: 'Futures tracked live on ET.',
     regularOpen: 'Regular-session flow is updating live.',
     marketClosed: 'Last close + live futures.',
     riskOn: 'Risk-On Tilt',
@@ -689,7 +697,7 @@ export default function AppDashPage() {
       futuresRow: 'Index Futures',
       cashRow: 'Cash Indices',
       etfRow: 'ETF / Volatility',
-      futuresOpen: 'Futures remain tracked on ET even outside regular hours.',
+      futuresOpen: 'Futures tracked live on ET.',
       regularOpen: 'Regular-session flow is updating live.',
       marketClosed: 'Last close + live futures.',
       riskOn: 'Risk-On Tilt',
@@ -707,7 +715,7 @@ export default function AppDashPage() {
       futuresRow: '指数先物',
       cashRow: '現物指数',
       etfRow: 'ETF / ボラティリティ',
-      futuresOpen: '通常時間外も先物フローをET基準で追跡します。',
+      futuresOpen: '先物はET基準で追跡中。',
       regularOpen: '通常取引時間のフローをリアルタイムで反映します。',
       marketClosed: '引け後データと先物フロー。',
       riskOn: 'Risk-On 優勢',
@@ -1018,37 +1026,11 @@ export default function AppDashPage() {
         }
 
         // ── DOW, NASDAQ, S&P 500 Indices ──
+        let indicesApplied = false;
         if (indexRes && indexRes.status === 'fulfilled' && indexRes.value.ok) {
           try {
             const idx = await indexRes.value.json();
-            const items: PulseItem[] = [];
-            if (idx.dow) {
-              items.push({
-                sym: 'DOW',
-                px: idx.dow.price,
-                chg: idx.dow.changePct,
-                up: idx.dow.changePct >= 0,
-                spark: DEMO_INDICES[0].spark,
-              });
-            }
-            if (idx.nasdaq) {
-              items.push({
-                sym: 'NASDAQ',
-                px: idx.nasdaq.price,
-                chg: idx.nasdaq.changePct,
-                up: idx.nasdaq.changePct >= 0,
-                spark: DEMO_INDICES[1].spark,
-              });
-            }
-            if (idx.spx) {
-              items.push({
-                sym: 'S&P 500',
-                px: idx.spx.price,
-                chg: idx.spx.changePct,
-                up: idx.spx.changePct >= 0,
-                spark: DEMO_INDICES[2].spark,
-              });
-            }
+            const items = buildIndexItems(idx);
             // Always show the freshest Redis values (the latest close after hours),
             // as long as every price is valid (> 0). The previous logic fell back to
             // the prior state's value when not live + ~0 change — which on a remount
@@ -1058,10 +1040,27 @@ export default function AppDashPage() {
             if (items.length >= 2 && items.every(it => it.px > 0)) {
               lastGoodIndices = items;
               setIndices(items);
+              indicesApplied = true;
             }
           } catch {
             // fallback
           }
+        }
+        // [DEMO-BLEED FIX] If the first index-close fetch missed on a cold load
+        // (seen live: cash row rendered the DEMO placeholder 5,473/39,127), retry
+        // once — otherwise fake demo numbers stay on screen until the next cycle.
+        if (!indicesApplied && !lastGoodIndices) {
+          setTimeout(async () => {
+            try {
+              const r = await fetch('/api/market/index-close', { cache: 'no-store' });
+              if (!r.ok) return;
+              const items = buildIndexItems(await r.json());
+              if (items.length >= 2 && items.every(it => it.px > 0)) {
+                lastGoodIndices = items;
+                setIndices(items);
+              }
+            } catch { /* keep current screen state */ }
+          }, 2500);
         }
 
         // ── Build Macro Board from real data ──
