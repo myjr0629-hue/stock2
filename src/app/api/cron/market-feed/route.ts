@@ -57,7 +57,11 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         // the CURRENT session while the market is closed (previousClose === price) → changePct
         // collapses to a fake 0% (dashboard cash S&P showed +0.00% next to correct NASDAQ/DOW).
         // Reuse the SAME daily-candles secondary fetch to recover the true prior-session close.
-        if (prevClose < 0.01 || Math.abs(price - prevClose) < 0.001) {
+        // Relative threshold: verified live — ^GSPC returns chartPreviousClose 7483.23 vs
+        // price 7483.24 (same session, off by a hundredth) → absolute epsilon missed it.
+        // 0.1% is safe: a genuinely flat day also triggers the fallback, which recomputes
+        // from authoritative daily candles and yields the same (correct) tiny change.
+        if (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.001) {
             // Default to `price` (0% change) if the secondary fetch fails for any reason
             prevClose = price;
             try {
