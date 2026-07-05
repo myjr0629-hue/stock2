@@ -242,9 +242,10 @@ export function MorningBrief({ locale, autoOpen = false }: { locale: string; aut
           }}
         >
           <div
+            className="mb-sheet"
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: '100%', maxWidth: '640px', maxHeight: '92vh', overflowY: 'auto',
+              width: '100%', maxWidth: '640px', overflowY: 'auto',
               background: 'linear-gradient(180deg, #0b1220 0%, #070b14 100%)',
               border: '1px solid rgba(245,179,1,0.18)', borderBottom: 'none',
               borderRadius: '20px 20px 0 0', boxShadow: '0 -16px 48px rgba(0,0,0,0.6)',
@@ -327,6 +328,11 @@ export function MorningBrief({ locale, autoOpen = false }: { locale: string; aut
       )}
 
       <style>{`
+        /* Bottom-sheet height: dvh = the actually-visible viewport (fixes iOS WebView vh
+           overflowing past the visible area with contentInset, which pinned long English
+           content to the very top). 86 leaves a consistent top gap so short (ko) and long
+           (en) content both read as a detached sheet. vh line is the pre-dvh fallback. */
+        .mb-sheet { max-height: 86vh; max-height: 86dvh; }
         @keyframes mbPulseDot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.72); } }
         .mb-pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: ${GOLD}; box-shadow: 0 0 8px ${GOLD}; animation: mbPulseDot 1.7s ease-in-out infinite; flex-shrink: 0; }
         @media (prefers-reduced-motion: reduce) { .mb-pulse-dot { animation: none; } }
