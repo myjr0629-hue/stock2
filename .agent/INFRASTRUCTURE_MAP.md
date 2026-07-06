@@ -8492,3 +8492,63 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 4. **Native ValueWall 한국어**: `src/components/native/ValueWall.tsx`는 한국어 고정, 향후 3lang 필요
 5. **Turbopack 캐시**: dev 서버 실행 중 빌드 시 `.next` 삭제 필수
 
+
+---
+
+## 🧭 42. [2026-07-06] Context Score 전면 실증 진단 + 절대 스코어 로드맵 (전수 백테스트)
+
+> **필독 문서 (본 섹션은 요약)**: `.agent/CONTEXT_SCORE_DEEP_RESEARCH_2026-07.md` (전수 백테스트) + `.agent/ALPHA_FUSION_RESEARCH_2026-07.md` (융합 고도화 + 3단계 비교)
+> **분석 주체**: Claude (Fable 5), DynamoDB `signum-alpha-history` **전수 119,583건** (2,139종목, 2026-02-03~07-06) 직접 스캔·백테스트
+
+### 42.1 실증 결론 (마케팅 사용 금지 수치 포함)
+
+| 실측 항목 | 값 | 의미 |
+|-----------|-----|------|
+| 전 기간 크로스섹션 IC (T+3) | **+0.016 (t=0.73)** | 예측력 통계적 0 |
+| V8 인샘플 grid search | r=+0.1652 | — |
+| **V8 아웃오브샘플 (n=9,814)** | **r=-0.019** | 과적합 확정 (V5 87%→38.5%에 이은 2번째 붕괴) |
+| 70-79 밴드 시장조정 3D | **-0.56%** (V8시대 -1.6%, 적중 41.5%) | **고점수가 역예측** (inverted-U) |
+| 최고 성과 밴드 | 50-59 | — |
+| 점수 lag-1 자기상관 | **0.043** | 일별 노이즈 — "구조적 체력" 서사와 모순 |
+| 점수 분포 σ | V4.6 26.8 → V8 8.0 | 변별력 소멸 진행 |
+| IC 호라이즌 | IC1 -0.04 / IC3 +0.016 / IC5 +0.027 | 신호는 3~5일 실현, T+1 눌림 진입 우월 |
+| 팩터 원석 | GEX IC -0.073(t=-1.69), vwapDist -0.073, PCR -0.034 | 재료는 실재 |
+| 맞대결 (동일 10일) | 3팩터 랭크-z 합성 **+0.047** vs 현행 스코어 **-0.120(t=-2.85)** | 문제는 재료가 아닌 조리법 |
+
+### 42.2 근본 원인 5 (후속 에이전트 필수 숙지)
+
+1. **크로스섹션 정규화 부재** — 절대 임계값(RSI<35 등)은 시장 전체 이동 시 전 종목 동시 변동 → 스코어가 시장타이밍을 측정, 종목 선별력 0
+2. **목적함수 오설정** — pooled Pearson vs 원수익률 (시장 베타 지배) → 4월 폭락-반등 에피소드를 학습한 것이 V8
+3. **수제 스텝-게이트 과적합** — 수십 개 +N/cap 포인트의 자유도 → grid search가 노이즈 학습
+4. **검증 프로토콜 부재** — 인샘플 최적화→즉시 배포 루프 5회 반복
+5. **데이터 원장 분열** — 74% engineVersion 미기록, 입력벡터 0.4~16% (rsi∩gex 겹침 15건), Lambda/Vercel 라이터 스키마 상호배타
+
+### 42.3 ⚖️ 검증 헌법 (신규 — 위반 배포 금지)
+
+1. **목적함수**: 일별 크로스섹션 Spearman IC vs T+3 시장조정 수익률로 고정. 1시점 스냅샷/pooled r/인샘플 grid search 단독 근거 배포 **금지**
+2. **배포 조건**: 워크포워드 3분할 + 최소 2주 그림자 병행 기록 실측 우위
+3. **성과 주장**: OOS 트랙레코드만. 인샘플 적중률 수치 마케팅 사용 금지
+4. **스키마 불가침**: `signum-alpha-history` 필드 제거/개명 금지(추가만), engineVersion 필수 기록
+
+### 42.4 로드맵 (승인 대기 — Phase 0부터)
+
+- **Phase 0 (1주)**: Lambda·Vercel 기록 스키마 통일(전 입력벡터+버전+융합 팩터 필드) · `xsScore` 그림자 병행 기록 · 주간 IC 자동 리포트 크론
+- **Phase 1 (2~4주)**: 랭크-z 크로스섹션 정규화 → 60일 롤링 IC-가중 합성 → 시장 게이지 분리 → EMA(3-5d) 평활 → 등화회귀 보정("80점 = 최근 12주 상위10%·+X%·적중Y%" = **절대 스코어의 조작적 정의**)
+- **융합(퀀텀점프)**: ①ΔGEX/Δ스큐(히스토리 보유) ②애널리스트 리비전(일일 수집 중) ③내부자 자발매수(`is10b5` 보유) ④LLM 판정 저장(Bedrock 산출물 재활용) ⑤피어 상대화(RELATED) ⑥레짐 조건부 — 상세는 ALPHA_FUSION 문서
+- **목표**: IC 0(현행) → 0.04(Phase1) → 0.065~0.08(융합) · 상위 데실 +0.9~1.2%/3d · 적중 59~61% · 시장 위치 2점→8.5점/10
+
+### 42.5 [2026-07-05~06 세션] 인프라 변경 기록 (정밀)
+
+| 변경 | 내용 | 배포 상태 |
+|------|------|----------|
+| **signum-13f Lambda 신설** | 13-F **전수 인제스트** (분기 피드 전체 스캔→CUSIP 역색인, filing_date 3일 샤딩×동시8, 13F-HR만·수정신고 dedup·SH만). Redis `cache:13f:cusip:{cusip}` = top60 + 정확 집계(totalHolders/Shares/Value), TTL 14일. **NVDA 4→5,541 보유자** | ✅ Lambda 900s/3008MB, EventBridge `signum-13f-weekly` (일 06:00 UTC), 실행 검증 3.6분 |
+| 13f Vercel cron 폐기 | `/api/cron/13f-cache` no-op화 + vercel.json 제거 (구 15기관·3페이지 절단 버전이 덮어쓰지 못하도록) | ✅ |
+| 13f API 개선 | `/api/command/13f` 집계 필드 사용 + 미지명 하위운용사 CIK→SEC EDGAR 이름 해석(캐시), null-이름 크래시 가드(앱+웹 컴포넌트) | ✅ |
+| 빌더 이원화 | `scripts/build-13f-cache.js` = 무의존성(Upstash REST fetch)·`exports.handler` 겸용(로컬 CLI+Lambda 동일 파일), `scripts/deploy-13f.js` 배포 스크립트 | ✅ |
+| **DXY 실소스 전환** | UUP 프록시(×3.63, 주간장만) → 실제 `DX-Y.NYB` (market-feed cron → `yahoo:dxy` Redis → yahooFinanceHub → macroHubProvider, UUP 폴백 유지) | ✅ |
+| **Forward EPS/REV YoY (Option B)** | signum-fmp: analyst-estimates에서 현재-FY 추정치(`currentEps/currentRevenue`) 추출 → EARNINGS 패턴 → signum-harvest 통합캐시 복사 → unified API 노출 → 앱 cmd `▲+X% YoY` 배지 | ✅ fmp+harvest Lambda 재배포 |
+| 앱(웹 불가침 준수) | 5-Day Tape 카드(cmd, `/api/chart?range=1m` 재활용) · 13-F/내부자 툴팁+라벨 3lang · CandleChart 1D 색상=전일종가 대비(`changePct` prop) | ✅ Vercel |
+| 웹 | IV Skew `chartHeight=200` 고정(GEX 96px과 동일 방식 — viewBox는 렌더 크기를 결정하지 않음 교훈) | ✅ Vercel |
+
+> **미완(대기)**: Phase 0 착수 승인 · `alpha_track_records` 주입 크론 수리 · 다크풀/whale 이력 기록 커버리지 수리(0.4%)
+> **재현 자료**: 백테스트 스크립트/원본 JSONL은 세션 스크래치패드(휘발). 재추출 ~60초: DynamoDB 전수 스캔 (`.agent/CONTEXT_SCORE_DEEP_RESEARCH_2026-07.md` 말미 참조)
