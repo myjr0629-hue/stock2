@@ -8646,3 +8646,16 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 
 - 검증: 훅 4경로(일반 통과/불량 stdin fail-open/push 시 동기화+tsc/배포 시 동기화) 실측 통과. 로컬 tsc 0 에러 상태로 가동 시작 (`npm install`로 firebase-admin 해결).
 - 주의: 훅 설정 변경은 **세션 재시작 후** 적용됨.
+
+### 43.8 ✅ [2026-07-07] Financials vX → income-statements 마이그레이션 완료 (선셋 대응)
+
+> Massive(Polygon) `vX/reference/financials` 선셋(2026-06-22, 유예 중) → `stocks/financials/v1/income-statements` 교체. **기능·UI 무변화(like-for-like)** — FUNDAMENTAL 카드의 매출성장·마진 산출 로직 동일.
+
+| 항목 | 내용 |
+|------|------|
+| 교체 호출부 | **3곳**: harvest 크론(deploy-lambda-v7.js L956~) + 온디맨드 핸들러(L1830~) + Vercel 폴백(api/live/fundamentals L51~) — 초기 조사에서 2곳으로 알았으나 전수 grep으로 3번째 발견 |
+| 신규 문법 | `tickers=` (구 `ticker=`), **`sort=period_end.desc`** (신형 문법 — 구형 `order=desc&sort=` 는 무시되어 과거순 반환되는 함정), 필드 평면화: `revenue`, `consolidated_net_income_loss` |
+| 신구 대조 | 15종목: **13 완전일치** (NVDA +85.2%/71.5% 등) + 2건은 **구 데이터 결함을 신규가 수정** — DDOG(유령 0행 분기 → +21.7%가 아닌 +32.2%가 정답), SOFI(잘못된 매출 라인으로 마진 128.7% 불가능 수치 → 36.9%) |
+| 검증 | harvest 재배포 후 온디맨드 실호출 → unified-cache NVDA +85%/71.5% 동일 확인. 프로덕션 폴백 경로 `_source: polygon-fallback` 실값 확인 (파라미터는 `?t=`) |
+| 커밋 | `d3bad4127` (Vercel) + signum-harvest v9.0 재배포 |
+| 효과 | 선셋 완전 대응 + DDOG·SOFI 화면 수치가 정확한 값으로 교정됨 (정확성 원칙) |
