@@ -91,6 +91,8 @@ export interface GuardianContext {
 // === CACHE CONFIG (per-locale to prevent AI text cross-contamination) ===
 const _cachedContext: Record<Locale, GuardianContext | null> = { ko: null, en: null, ja: null };
 const _lastFetchTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
+// [LAST GOOD] Throttle for refreshing the long-TTL last-good snapshot copy
+const _lastGoodWriteTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 const CACHE_TTL_MS = 25 * 1000; // 25 seconds — matches 30s polling interval
 
 // [V12.0] Persistent AI verdict cache — Redis-based for deploy survival & EC2 sync
@@ -360,6 +362,12 @@ export class GuardianDataHub {
                             // Session matches and data is fresh, safe to return
                             _cachedContext[locale] = cached;
                             _lastFetchTime[locale] = now;
+                            // [LAST GOOD] Worker-written good snapshots also refresh the
+                            // long-TTL fallback copy (throttled to one write / 5min)
+                            if (now - _lastGoodWriteTime[locale] > 5 * 60 * 1000) {
+                                _lastGoodWriteTime[locale] = now;
+                                setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`, cached, 72 * 60 * 60).catch(() => { /* non-critical */ });
+                            }
                             console.log(`[Guardian V12.0] Redis SWR hit for ${locale} (RLSI: ${cached.rlsi.score?.toFixed?.(0) || 'N/A'}, session: ${cachedSession}, age: ${(dataAge/1000).toFixed(0)}s)`);
                             return cached;
                         }
@@ -899,8 +907,28 @@ export class GuardianDataHub {
                     const redisTtl = context.rlsi?.session === 'REG' ? 120 : 600; // 2min REG, 10min EXT
                     await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}${locale}`, { ...context, _source: 'vercel' }, redisTtl);
                 } catch { /* Redis write failure is non-critical */ }
+                // [LAST GOOD] Long-TTL copy so vendor outages can never blank the UI:
+                // when every fresh compute fails, this is the "직전 정상 데이터" we serve.
+                try {
+                    _lastGoodWriteTime[locale] = now;
+                    await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`, { ...context, _source: 'vercel-lastgood' }, 72 * 60 * 60);
+                } catch { /* non-critical */ }
             } else {
-                console.warn(`[Guardian] Degraded context (sectors empty) for ${locale} — NOT cached, serving once only.`);
+                // [LAST GOOD] Degraded compute (Polygon snapshot outage). Serving an
+                // empty map is worse than serving the last good snapshot — fall back.
+                const mem = _cachedContext[locale] as any;
+                if (mem?.sectors?.length) {
+                    console.warn(`[Guardian] Degraded compute for ${locale} — serving in-memory last-good instead.`);
+                    return mem;
+                }
+                try {
+                    const lastGood = await getFromCache<any>(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`);
+                    if (lastGood?.sectors?.length) {
+                        console.warn(`[Guardian] Degraded compute for ${locale} — serving Redis last-good (ts: ${lastGood.timestamp}).`);
+                        return lastGood;
+                    }
+                } catch { /* fall through to degraded */ }
+                console.warn(`[Guardian] Degraded context (sectors empty) for ${locale} — no last-good available, serving once only.`);
             }
 
             console.log("[Guardian] Context Refresh Complete.");
