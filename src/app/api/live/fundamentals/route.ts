@@ -48,9 +48,11 @@ export async function GET(req: NextRequest) {
                 // ── Tier 2: Polygon fallback (비유니버스 + DynamoDB 미적중) ──
                 console.log(`[live/fundamentals] ⚠️ DynamoDB miss for ${ticker} — falling back to Polygon`);
                 const { fetchMassive } = await import('@/services/massiveClient');
+                // vX/reference/financials sunset 2026-06-22 → stocks/financials/v1/income-statements
+                // (15-ticker old-vs-new value comparison passed 2026-07-07; flat field shape)
                 const [ratiosRes, vxFinRes] = await Promise.all([
                     fetchMassive(`/stocks/financials/v1/ratios`, { ticker, limit: '1' }, true).catch(() => null),
-                    fetchMassive(`/vX/reference/financials`, { ticker, limit: '5', timeframe: 'quarterly', order: 'desc', sort: 'period_of_report_date' }, true).catch(() => null),
+                    fetchMassive(`/stocks/financials/v1/income-statements`, { tickers: ticker, limit: '5', timeframe: 'quarterly', sort: 'period_end.desc' }, true).catch(() => null),
                 ]);
 
                 const ratios = ratiosRes?.results?.[0] || {};
@@ -72,18 +74,19 @@ export async function GET(req: NextRequest) {
                 let netMargin: number | null = null;
 
                 if (vxResults.length >= 1) {
-                    const latest = vxResults[0]?.financials?.income_statement;
+                    // v1 income-statements shape is flat: { revenue, consolidated_net_income_loss }
+                    const latest = vxResults[0];
                     if (latest) {
-                        const revLatest = latest.revenues?.value || 0;
-                        const netIncome = latest.net_income_loss?.value || 0;
+                        const revLatest = latest.revenue || 0;
+                        const netIncome = latest.consolidated_net_income_loss || 0;
                         if (revLatest > 0) netMargin = (netIncome / revLatest) * 100;
                     }
                     if (latest && vxResults.length >= 2) {
-                        const revLatest = latest.revenues?.value || 0;
+                        const revLatest = latest.revenue || 0;
                         let revPrev = 0;
                         const preferredIdx = vxResults.length >= 5 ? 4 : vxResults.length - 1;
                         for (let i = preferredIdx; i >= 1; i--) {
-                            const val = vxResults[i]?.financials?.income_statement?.revenues?.value;
+                            const val = vxResults[i]?.revenue;
                             if (val && val > 0) { revPrev = val; break; }
                         }
                         if (revPrev > 0 && revLatest > 0) {
