@@ -82,7 +82,8 @@ export async function GET(req: NextRequest) {
                 change: +change.toFixed(2),
                 volume: t.day?.v || 0
             };
-        });
+        }).filter((p: any) => p.price > 0); // degraded snapshot rows (price 0) would
+                                            // overwrite good client-side values — omit them
 
         return NextResponse.json({ prices }, {
             headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' }
