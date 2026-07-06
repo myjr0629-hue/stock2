@@ -12,7 +12,7 @@
 // Popup lists events with AI one-line summary + SEC source link.
 // ============================================================================
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 
 type Loc = 'ko' | 'en' | 'ja';
@@ -56,6 +56,12 @@ export function DisclosureBadge({ ticker, locale = 'en', variant }: {
 }) {
     const [events, setEvents] = useState<DiscEvent[]>([]);
     const [open, setOpen] = useState(false);
+    // iOS WebKit re-fires the opening tap as a ghost click ~300ms later at the
+    // same coordinates — it can instantly hit a link/backdrop in the popup that
+    // mounted underneath. Swallow any popup interaction right after opening.
+    const openedAtRef = useRef(0);
+    const ghost = () => Date.now() - openedAtRef.current < 450;
+    const openPopup = () => { openedAtRef.current = Date.now(); setOpen(true); };
 
     useEffect(() => {
         let alive = true;
@@ -71,7 +77,7 @@ export function DisclosureBadge({ ticker, locale = 'en', variant }: {
     if (shown.length === 0) return null;
 
     const popup = open && typeof document !== 'undefined' && createPortal(
-        <div style={overlay} onClick={() => setOpen(false)} role="dialog" aria-modal="true">
+        <div style={overlay} onClick={() => { if (!ghost()) setOpen(false); }} role="dialog" aria-modal="true">
             <style>{`@keyframes dbPop{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}@keyframes dbFade{from{opacity:0}to{opacity:1}}`}</style>
             <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
                 <div style={titleStyle}>{ticker.toUpperCase()} · {pick(T.title, locale)}</div>
@@ -90,6 +96,7 @@ export function DisclosureBadge({ ticker, locale = 'en', variant }: {
                             <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text)' }}>{pick(e.summary, locale)}</div>
                             {e.url && (
                                 <a href={e.url} target="_blank" rel="noopener noreferrer"
+                                   onClick={(ev) => { ev.stopPropagation(); if (ghost()) ev.preventDefault(); }}
                                    style={{ fontSize: 11, color: 'var(--text-dim)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
                                     {pick(T.source, locale)} ↗
                                 </a>
@@ -107,7 +114,7 @@ export function DisclosureBadge({ ticker, locale = 'en', variant }: {
         const e = shown[0];
         return (
             <>
-                <button type="button" onClick={() => setOpen(true)} style={badgePill}>
+                <button type="button" onClick={openPopup} style={badgePill}>
                     <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: '#fbbf24' }}>{pick(T.disclosure, locale)}</span>
                     <span style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-dim)', flexShrink: 0 }}>{fmtDate(e.date, locale)}</span>
                     <span style={{
@@ -124,7 +131,7 @@ export function DisclosureBadge({ ticker, locale = 'en', variant }: {
     // strip (Intel)
     return (
         <>
-            <button type="button" onClick={() => setOpen(true)} style={stripBox}>
+            <button type="button" onClick={openPopup} style={stripBox}>
                 <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-dim)', marginBottom: 6 }}>
                     {pick(T.title, locale)}
                 </div>
