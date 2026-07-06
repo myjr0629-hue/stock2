@@ -8552,3 +8552,33 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 
 > **미완(대기)**: Phase 0 착수 승인 · `alpha_track_records` 주입 크론 수리 · 다크풀/whale 이력 기록 커버리지 수리(0.4%)
 > **재현 자료**: 백테스트 스크립트/원본 JSONL은 세션 스크래치패드(휘발). 재추출 ~60초: DynamoDB 전수 스캔 (`.agent/CONTEXT_SCORE_DEEP_RESEARCH_2026-07.md` 말미 참조)
+
+### 42.6 ✅ [2026-07-06] XS 엔진 (signum-xs) 구축·배포 완료 — 절대 스코어 그림자 엔진 가동
+
+> **코드**: `scripts/xs-engine.js` (엔진 본체, 무의존 단일파일) + `scripts/deploy-xs.js` (배포)
+> **원칙 준수**: 기존 시스템 완전 무접촉 — READ는 `signum-unified-cache`(읽기 전용)만, WRITE는 자체 `signum-xs-history` 테이블 + `cache:xs:*` 키만. 제품 UI/현행 alphaScore 미변경 (그림자 모드).
+
+| 구성 | 내용 |
+|------|------|
+| Lambda | `signum-xs` (nodejs20.x, 600s/1536MB, 실측 2.6초) |
+| 스케줄 | EventBridge `signum-xs-daily` — **평일 22:10 UTC** (연중 장마감 후) |
+| 테이블 | `signum-xs-history` (PK ticker / SK date, on-demand). 행 종류: 일별 history · `_STATE_`(자기축적 링) · `_WEIGHTS_/_CURRENT_`(IC 이력) · `_REPORT_/{date}` |
+| 리포트 미러 | Redis `cache:xs:report` (최신 JSON, 90일 TTL) — 운영 확인용 |
+| 유니버스 | unified-cache 중 price>1 & mcap≥$300M → **1,860종목** (1일차 실측) |
+
+**엔진 설계 (XS-1.0.0) — 검증 헌법 §42.3 구조적 내장:**
+1. **크로스섹션 랭크-z**: 13팩터를 매일 유니버스 내 랭크로 정규화 (절대 임계값 전면 폐지)
+2. **자기축적 Δ팩터**: 자체 종가링(22)·GEX링(7)·애널리스트링(7)으로 revChg(D+2~)·revRet3(D+4~)·ΔGEX5(D+6~)·analystRev(D+6~) 자동 점등 — 외부 스키마 의존 0
+3. **IC-적응 가중**: 가중치 = 연구 프라이어(2026-07-06 백테스트 실측치) ⊕ 자체 T+3 라벨의 60일 롤링 팩터 IC (수축계수 15일, 팩터당 캡 30%) — 죽는 팩터 자동 감쇠
+4. **피어 상대화**: RELATED 그래프로 피어 평균 컴포지트 50% 차감
+5. **EMA(0.4) 평활 → 백분위 → xsScore(0-100)**
+6. **자가 보정**: 데실별 시장조정 T+3 알파·적중률 40일 롤링 → `_REPORT_` calibration = "절대 스코어"의 실측 정의
+7. **자체 라벨러**: 자기 종가링 기준 거래일 T+3 라벨 → 일별 컴포지트/팩터 IC 산출 (오버피팅 원천 차단: 라이브 OOS만 존재)
+
+**13팩터**: revChg·revRet3(리버설), gexInv·dGex5(감마), pcr, ivLow, squeeze, darkPool, shortVol, blockTrades, analystRev(리비전), smaExt, dtc — 프라이어 0인 팩터는 실측 IC로만 가중 획득.
+
+**타임라인**: D+4~ 라벨 시작 → D+6~ 전 팩터 점등 → ~2주 후 보정 테이블 유효 → **4주 후 현행 V8 vs XS 실전 IC 맞대결 판정 가능** (리포트가 매일 자동 축적).
+
+**운영 확인법**: Redis `GET cache:xs:report` 또는 DynamoDB `signum-xs-history` (`_REPORT_`, date). 재배포: `node scripts/deploy-xs.js`. 수동 실행: `DRY=1 node scripts/xs-engine.js` (무기록 검증).
+
+**v1.1 예약 (문서화만, 미구현)**: LLM 판정 팩터(deep-analysis 캐시 기회적 수집), 내부자 자발매수(벌크 소스 필요), 13-F QoQ(cusip 맵 필요), 레짐 조건부 가중.
