@@ -152,6 +152,9 @@ const badgePill: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 7, width: '100%', minWidth: 0,
     padding: '7px 11px', margin: '8px 0 0 0', borderRadius: 11, cursor: 'pointer',
     background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.22)',
+    // The cmd hero card has absolutely-positioned decorative layers (sparkline bg)
+    // that swallow taps — lift the badge above them.
+    position: 'relative', zIndex: 5,
 };
 const stripBox: CSSProperties = {
     appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
