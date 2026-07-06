@@ -8582,3 +8582,53 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 **운영 확인법**: Redis `GET cache:xs:report` 또는 DynamoDB `signum-xs-history` (`_REPORT_`, date). 재배포: `node scripts/deploy-xs.js`. 수동 실행: `DRY=1 node scripts/xs-engine.js` (무기록 검증).
 
 **v1.1 예약 (문서화만, 미구현)**: LLM 판정 팩터(deep-analysis 캐시 기회적 수집), 내부자 자발매수(벌크 소스 필요), 13-F QoQ(cusip 맵 필요), 레짐 조건부 가중.
+
+---
+
+## 📒 43. [세션 기록] 2026-06-30 ~ 07-06 (PC/Claude) — 분류별 전체 작업 로그
+
+> 같은 기간 맥 병행 작업(별도): Guardian 장마감 등락률 유지, undercurrent 프로토, market-feed 폴백, push 알림, Android 스플래시 — 본 로그는 PC 세션분만.
+
+### 43.1 📱 앱 전용 (웹 불가침 준수 — app-view/components·intel/mobile만)
+| 작업 | 커밋 | 파일 |
+|------|------|------|
+| 기업개요 일본어 수정 (ja가 description 읽도록) | `08b616f09` | cmd/page.tsx |
+| FORWARD EPS/REV **YoY 배지** (▲+X%, currentEps 대비) | `b364abc03` | cmd/page.tsx (파이프라인은 43.3) |
+| **5-Day Tape 카드** 신설 (차트↔애널리스트 사이, /api/chart?range=1m 재활용, 3lang) | `a8db2da81` | components/app/App5DayTape.tsx + cmd |
+| 5-Day 카드 폭 = 형제 `.card` 스타일 복제 / **1D 차트 현재가 색 = 전일종가 대비**(changePct prop, PRE/POST 포함) | `76f98ac5f` | App5DayTape + cmd CandleChart |
+| 13-F/내부자 **툴팁**(institutional13f·insiderActivity 용어 3lang) + Insider 라벨 현지화(내부자거래/内部者取引) | `5cb469ace` | metricGlossary.ts, MobileCmd13F.tsx, cmd |
+| 툴팁 ⓘ를 "기관·내부자 공시" **헤더 옆**으로 이동 (헤더를 MobileCmd13F 내부로) | `8113c080e` | MobileCmd13F.tsx, cmd |
+
+### 43.2 🖥️ 웹 전용
+| 작업 | 커밋 | 교훈 |
+|------|------|------|
+| IV Skew `wide` prop 시도 → **원상복구** | `9c0fba584` → `daddfac74` | **viewBox는 렌더 크기를 결정하지 않음** — 카드 크기는 컨테이너/CSS 레이어 |
+| IV Skew 차트 **고정 200px** (`chartHeight` prop, 웹만 전달·앱 미전달) — GEX(96px 고정)와 동일 방식 | `f782b23e4` | IVSkewCurve.tsx(옵션 prop) + LiveTickerDashboard |
+
+### 43.3 ☁️ AWS 인프라 (상세는 §42.5~42.6)
+| 작업 | 커밋 | 배포 |
+|------|------|------|
+| **13-F 전수 인제스트** (4→5,541 보유자) + API 집계/EDGAR 이름 해석 + null 크래시 가드 | `9c507c708`, `9de827492` | Vercel + Redis 재적재 |
+| **signum-13f Lambda + 주간 EventBridge** / Vercel cron 폐기 | `d2c051f26` | Lambda 실행 검증 3.6분 |
+| Option B: signum-fmp currentEps 추출 → harvest 복사 → unified 노출 | `b364abc03` | fmp+harvest Lambda 재배포 |
+| **signum-xs (XS-1.0.0) 엔진** — 테이블+Lambda+일일 크론, 1일차 1,860종목 검증 | `ca7a377a5` | §42.6 참조 |
+
+### 43.4 🔬 연구 (알파스코어)
+| 산출물 | 커밋 | 내용 |
+|--------|------|------|
+| `.agent/CONTEXT_SCORE_DEEP_RESEARCH_2026-07.md` | `57e45c133` | 전수 119,583건 백테스트 — IC≈0, V8 OOS 붕괴, inverted-U, 근본원인 5, 로드맵 |
+| `.agent/ALPHA_FUSION_RESEARCH_2026-07.md` + 맵 §42 | `cd94bcbe6` | 융합 팩터 8, 3단계 비교(2→7→8.5점), **검증 헌법**(§42.3) |
+
+### 43.5 📏 확립된 규칙 (후속 세션 필수)
+1. **배포 전 반드시 git fetch→최신 동기화** (작업 전 + 배포 전 각각)
+2. 검증 헌법 §42.3 — 인샘플 단독 근거 배포 금지, 그림자 2주+
+3. viewBox ≠ 렌더 크기 (웹 차트 크기는 컨테이너에서)
+4. XS 엔진은 그림자 모드 — **UI의 Context Score는 아직 V8**. 전환은 ~4주 실측 IC 맞대결 후 사용자 승인으로만
+5. 워킹트리의 `scripts/lambda-*`(배포 산출물)·`android/` gradle은 커밋 금지 대상
+
+### 43.6 ⏭ 미결/대기
+- [ ] **~4주 후**: `cache:xs:report` 실측 IC로 V8 vs XS 맞대결 보고 → UI 전환 승인 요청
+- [ ] XS v1.1: LLM 판정·내부자 자발매수·13F QoQ·레짐 가중 (§42.6 예약분)
+- [ ] `alpha_track_records` 주입 크론 수리
+- [ ] 앱: iOS 네이티브 바운스/스와이프 제거(맥 Xcode 필요), 실기기 검증
+- [ ] 로컬 tsc 오류: `src/lib/push/send.ts` firebase-admin 미설치(맥 작업분) — 빌드는 Vercel에서 통과 중
