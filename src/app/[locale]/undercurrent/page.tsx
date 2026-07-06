@@ -33,6 +33,7 @@ const T: Record<Locale, Record<string, string>> = {
     bullish: '돈: 강세', cautious: '돈: 경계', neutral: '돈: 중립',
     divergence: '뉴스 ≠ 돈',
     moneyTitle: '돈의 움직임',
+    filingsTitle: '회사가 직접 밝힌 것', filingsSub: '언론이 아닌 SEC 공식 문서(8-K)에 회사가 스스로 적어낸 사실',
     secDiv: '괴리 시그널', secDivSub: '뉴스와 돈이 반대로 움직이는 곳',
     secWhale: '큰손 레이더', secWhaleSub: '기관이 장외에서 조용히 움직인 비중',
     secStories: '오늘의 스토리', secStoriesSub: '돈의 반응과 함께 읽는 뉴스',
@@ -82,6 +83,7 @@ const T: Record<Locale, Record<string, string>> = {
     bullish: 'Money: bullish', cautious: 'Money: cautious', neutral: 'Money: neutral',
     divergence: 'News ≠ Money',
     moneyTitle: 'What the money is doing',
+    filingsTitle: 'Straight from the company', filingsSub: 'Facts the company itself filed with the SEC (8-K) — not the press',
     secDiv: 'Divergence signals', secDivSub: 'Where news and money point opposite ways',
     secWhale: 'Whale radar', secWhaleSub: 'Institutional off-exchange share',
     secStories: "Today's stories", secStoriesSub: 'News read together with the money',
@@ -131,6 +133,7 @@ const T: Record<Locale, Record<string, string>> = {
     bullish: 'マネー: 強気', cautious: 'マネー: 警戒', neutral: 'マネー: 中立',
     divergence: 'ニュース ≠ マネー',
     moneyTitle: 'お金の動き',
+    filingsTitle: '企業が自ら明かしたこと', filingsSub: '報道ではなくSEC公式文書(8-K)に企業自身が記した事実',
     secDiv: '乖離シグナル', secDivSub: 'ニュースとお金が逆方向の銘柄',
     secWhale: '大口レーダー', secWhaleSub: '機関投資家の場外取引シェア',
     secStories: '今日のストーリー', secStoriesSub: 'お金の反応と一緒に読むニュース',
@@ -411,6 +414,20 @@ export default function UndercurrentPage() {
   const [err, setErr] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
   const [detail, setDetail] = useState<Card | null>(null);
+  // 8-K official filings per ticker — "회사가 직접 밝힌 것" card in the detail view.
+  // null = not loaded yet; [] = loaded, none (section hidden). Reuses the shared
+  // /api/stocks/disclosures endpoint (12h server cache, ETF-skip).
+  const [filings, setFilings] = useState<Record<string, { date: string; label: Record<string, string>; summary: Record<string, string>; highImpact: boolean }[]>>({});
+  useEffect(() => {
+    const tk = detail?.ticker;
+    if (!tk || filings[tk]) return;
+    let alive = true;
+    fetch(`/api/stocks/disclosures?t=${tk}`)
+      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((j) => { if (alive) setFilings((f) => ({ ...f, [tk]: Array.isArray(j?.events) ? j.events.slice(0, 3) : [] })); })
+      .catch(() => { if (alive) setFilings((f) => ({ ...f, [tk]: [] })); });
+    return () => { alive = false; };
+  }, [detail?.ticker]); // eslint-disable-line react-hooks/exhaustive-deps
   const [unlocked, setUnlocked] = useState<Record<string, boolean>>({});
   // ── ticker search state ──
   const [searchQ, setSearchQ] = useState('');
@@ -602,6 +619,36 @@ export default function UndercurrentPage() {
                 {t.moneyTitle.toUpperCase()}
               </div>
               <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.7, fontWeight: 550 as any }}>{c.moneyRead}</p>
+            </div>
+          )}
+
+          {/* official 8-K filings — "회사가 직접 밝힌 것": the company's own SEC
+              record, set against the press story above and the money read. Hidden
+              entirely when the ticker has no recent filings. */}
+          {(filings[c.ticker]?.length ?? 0) > 0 && (
+            <div style={{ marginTop: 14, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`, boxShadow: C.shadow, padding: '14px 16px 15px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ fontSize: 13 }}>📜</span>
+                <span style={{ fontSize: 13.5, fontWeight: 850 as any }}>{t.filingsTitle}</span>
+              </div>
+              <div style={{ marginTop: 3, fontSize: 11, color: C.faint, fontWeight: 600 }}>{t.filingsSub}</div>
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {filings[c.ticker].map((ev, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                    <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 34 }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{ev.date.slice(5).replace('-', '/')}</div>
+                      <div style={{
+                        marginTop: 3, fontSize: 8.5, fontWeight: 900, padding: '2px 5px', borderRadius: 6,
+                        color: ev.highImpact ? '#fff' : C.sub,
+                        background: ev.highImpact ? C.diverge : '#ECE8E0',
+                      }}>{(ev.label[loc] || ev.label.en || '').split('·')[0].trim()}</div>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, fontWeight: 550 as any }}>
+                      {ev.summary[loc] || ev.summary.en}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
