@@ -23,7 +23,6 @@ interface DiscEvent {
 
 const T = {
     title: { ko: '중대 공시 (8-K)', en: 'MATERIAL DISCLOSURES (8-K)', ja: '重要開示 (8-K)' },
-    source: { ko: 'SEC 원문', en: 'SEC Filing', ja: 'SEC原文' },
     close: { ko: '닫기', en: 'Close', ja: '閉じる' },
     disclosure: { ko: '공시', en: 'FILING', ja: '開示' },
 };
@@ -94,13 +93,6 @@ export function DisclosureBadge({ ticker, locale = 'en', variant }: {
                                 }}>{pick(e.label, locale)}</span>
                             </div>
                             <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text)' }}>{pick(e.summary, locale)}</div>
-                            {e.url && (
-                                <a href={e.url} target="_blank" rel="noopener noreferrer"
-                                   onClick={(ev) => { ev.stopPropagation(); if (ghost()) ev.preventDefault(); }}
-                                   style={{ fontSize: 11, color: 'var(--text-dim)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                                    {pick(T.source, locale)} ↗
-                                </a>
-                            )}
                         </div>
                     ))}
                 </div>
