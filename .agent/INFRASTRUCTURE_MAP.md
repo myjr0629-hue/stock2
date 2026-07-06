@@ -8632,3 +8632,17 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - [ ] `alpha_track_records` 주입 크론 수리
 - [ ] 앱: iOS 네이티브 바운스/스와이프 제거(맥 Xcode 필요), 실기기 검증
 - [ ] 로컬 tsc 오류: `src/lib/push/send.ts` firebase-admin 미설치(맥 작업분) — 빌드는 Vercel에서 통과 중
+
+### 43.7 [2026-07-07] 품질 강제 인프라 — 훅 + 스킬 (모델 무관 성능 고정)
+
+> 목적: CLAUDE.md 행동규칙(교육) 위에 기계적 강제(훅)와 절차 표준화(스킬)를 얹어, 어떤 모델(Opus 4.8 등)·어떤 세션이든 동일 품질 보장. 레포에 커밋되어 **PC·맥 양쪽 자동 적용**.
+
+| 구성 | 파일 | 동작 |
+|------|------|------|
+| **훅** (PreToolUse/Bash) | `.claude/settings.json` + `scripts/hooks/pre-bash-guard.js` | `git push` 감지 → ①origin 대비 뒤처짐 검사(차단+동기화 안내) ②`tsc --noEmit` 실패 시 푸시 차단. `deploy-*.js` 실행 감지 → 동기화 검사. 그 외 명령은 즉시 통과(fail-open, 오프라인 시 경고만) |
+| **스킬 1** | `.claude/skills/deploy-lambda/` | Lambda 배포 6단계 (동기화→정적검증→DRY→배포→**실호출+데이터 실측**→기록) — 13-F "4개" 방치 같은 사고 차단 |
+| **스킬 2** | `.claude/skills/engine-audit/` | XS 엔진 점검·판정 기준표(🟢🟡🔴)·V8 맞대결 방법론·보고 양식 고정. §42.3 헌법 내장 |
+| **스킬 3** | `.claude/skills/migrate-check/` | 엔드포인트 교체 표준(실측 5항목 체크리스트 + **신구 값 대조 필수**). 대기 중인 Financials vX 마이그레이션 정보 포함 |
+
+- 검증: 훅 4경로(일반 통과/불량 stdin fail-open/push 시 동기화+tsc/배포 시 동기화) 실측 통과. 로컬 tsc 0 에러 상태로 가동 시작 (`npm install`로 firebase-admin 해결).
+- 주의: 훅 설정 변경은 **세션 재시작 후** 적용됨.

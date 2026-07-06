@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/pre-bash-guard.js",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}
