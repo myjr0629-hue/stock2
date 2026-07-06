@@ -17,6 +17,7 @@ import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { fetchSECFilings, buildSECXmlBlock } from '@/services/secFilingsService';
+import { getTickerDisclosures } from '@/services/disclosures';
 
 export const maxDuration = 60;
 
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
         let newsArticles: { title: string; age: string; sentiment: string; source: string; weight: string }[] = [];
         let secXmlBlock = '';
 
-        const [newsResult, secResult] = await Promise.allSettled([
+        const [newsResult, secResult, discResult] = await Promise.allSettled([
             // News fetch
             (async () => {
                 const newsData = await fetchMassive(
@@ -102,6 +103,8 @@ export async function POST(req: Request) {
             })(),
             // SEC filings fetch (8-K + 10-K)
             fetchSECFilings(ticker),
+            // Categorized 8-K disclosure events (taxonomy + one-line summaries, 12h cached)
+            getTickerDisclosures(ticker, 30),
         ]);
 
         if (newsResult.status === 'fulfilled') {
@@ -115,6 +118,16 @@ export async function POST(req: Request) {
             if (secXmlBlock) {
                 console.log(`[DeepAnalysis] SEC data: ${secResult.value.filings8k.length} 8-K, ${secResult.value.business10k ? '1' : '0'} 10-K`);
             }
+        }
+
+        // Categorized disclosure events → grounded "why it moved" evidence.
+        // Appended to the SEC block; degrades to nothing on failure/no events.
+        if (discResult.status === 'fulfilled' && discResult.value.events.length > 0) {
+            const evXml = discResult.value.events.map(e =>
+                `    <event date="${e.date}" category="${e.primary}${e.tertiary ? '/' + e.tertiary : ''}" high_impact="${e.highImpact}">${e.summary.en}</event>`
+            ).join('\n');
+            secXmlBlock += `\n<disclosure_events note="Categorized 8-K material corporate events (SEC taxonomy, last 30 days). Cite as factual evidence where relevant to price/flow behavior.">\n${evXml}\n</disclosure_events>`;
+            console.log(`[DeepAnalysis] Disclosure events: ${discResult.value.events.length}`);
         }
 
         // --- If news is scarce (< 2 articles in 7 days), fetch sector news ---

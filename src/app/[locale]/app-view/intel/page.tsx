@@ -11,6 +11,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import s from '../dash/dash.module.css';
 
@@ -5019,6 +5020,10 @@ export default function AppIntelPage() {
                                     </div>
                                   ))}
                                 </div>
+
+                                {/* 8-K disclosure strip — renders only when the stock has
+                                    recent material filings (never distorts layout) */}
+                                <DisclosureBadge ticker={stock.sym} locale={appLocale} variant="strip" />
 
                                 {/* Gamma Tunnel Visualization */}
                                 {stock.putFloor && stock.callWall && stock.closePrice && stock.putFloor > 0 && stock.callWall > 0 ? (

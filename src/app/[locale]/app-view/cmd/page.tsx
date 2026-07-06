@@ -12,6 +12,7 @@ import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
 import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 
@@ -2544,6 +2545,10 @@ function CmdPageContent() {
             </div>
           )}
         </div>
+
+        {/* ── 8-K disclosure badge: renders ONLY when a high-impact filing exists
+               within 7 days (empty-space insert — no layout impact otherwise) ── */}
+        <DisclosureBadge ticker={data.ticker} locale={locale} variant="badge" />
 
         {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
         <div className={s.heroMetrics}>

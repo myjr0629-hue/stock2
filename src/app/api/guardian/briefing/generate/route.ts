@@ -16,6 +16,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
+import { getOvernightHighlights } from '@/services/disclosures';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 
 export const maxDuration = 60;
@@ -238,6 +239,22 @@ export async function POST(req: Request) {
             console.warn('[Briefing Gen] SEC 8-K fetch failed:', e);
         }
 
+        // [8-K DISCLOSURES] High-impact categorized events from the coverage
+        // universe (last 3 days) → one "밤사이 주요 공시" sentence in the brief.
+        // Empty on failure/no events → the sentence is simply omitted.
+        let overnightDisclosures = '';
+        try {
+            const highlights = await getOvernightHighlights(3);
+            if (highlights.length > 0) {
+                overnightDisclosures = highlights
+                    .map(h => `${h.ticker} [${h.primary}${h.tertiary ? '/' + h.tertiary : ''}] (${h.date}): ${h.text}`)
+                    .join('\n');
+                console.log(`[Briefing Gen] Overnight disclosures: ${highlights.length}`);
+            }
+        } catch (e) {
+            console.warn('[Briefing Gen] Overnight disclosures fetch failed:', e);
+        }
+
         // 2.5. Fetch ALL market data from Redis (cron-updated every minute)
         let marketDataStr = '';
         try {
@@ -325,6 +342,7 @@ PART 1 (2 sentences): Market Overview
 
 PART 2 (2-3 sentences): News & Catalysts
 - MANDATORY: Pick the 2-3 most impactful headlines from <overnight_news> and weave them naturally into the narrative.
+- If <overnight_disclosures> is present, add EXACTLY ONE additional sentence summarizing those SEC 8-K material events (company + what happened). If absent, do not mention disclosures at all.
 - If there are economic calendar events, mention them as upcoming catalysts.
 - Connect the news to WHY the market is moving the way it is.
 
@@ -355,7 +373,10 @@ ${marketNews.length > 0 ? marketNews.map((n, i) => `${i + 1}. ${n}`).join('\n') 
 ${sec8kSection ? `
 <recent_sec_filings note="Major company 8-K filings from recent days">
 ${sec8kSection}
-</recent_sec_filings>` : ''}
+</recent_sec_filings>` : ''}${overnightDisclosures ? `
+<overnight_disclosures note="High-impact categorized 8-K events (leadership changes, M&A, distress) from covered large caps — summarize in ONE sentence in PART 2">
+${overnightDisclosures}
+</overnight_disclosures>` : ''}
 
 <style_examples>
 KO example: "수요일 개장 전 거래에서 S&P 500 선물이 5,650(+0.45%), NASDAQ 100 선물이 19,840(+0.72%)으로 상승 출발함. Fed 파월 의장의 '추가 금리 인하 검토 중' 발언이 전해지며 기술주 중심 매수세가 유입된 것으로 관찰됨. 한편 Nvidia가 차세대 AI칩 GB300 발표를 예고하며 반도체 섹터가 +1.2% 상승, 에너지 섹터는 원유 재고 증가 보도에 -0.8% 하락함. RLSI 62 수준에서 시장 건전성은 보통으로 관찰되며, VIX 18.5와 롱 감마(GEX +45) 환경에서 안정적 변동성이 나타남. 오늘 12:30 ET CPI 발표가 최대 변수로, 예상치 상회 시 변동성 확대 가능성이 관찰됨."
