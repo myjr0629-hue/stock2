@@ -81,6 +81,18 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
                 newData.verdict.title = prev.verdict.title || newData.verdict.title;
                 newData.verdict.description = prev.verdict.description || newData.verdict.description;
             }
+            // [MAP FLAP FIX] The 30s poll / WS snapshots sometimes deliver a DEGRADED
+            // payload with no sectors (verified live: /api/debug/guardian returning
+            // success:true with sectors:0, verdictTargetId:null). Wholesale replacement
+            // then wiped the Flow Topography Map bubbles + Sector Intel until the next
+            // good snapshot — the intermittent appear/disappear seen on web AND app.
+            // A degraded payload must never erase good sector data we already have.
+            if ((!Array.isArray(newData.sectors) || newData.sectors.length === 0) && prev?.sectors?.length) {
+                newData.sectors = prev.sectors;
+            }
+            if (!newData.verdictTargetId && prev?.verdictTargetId) {
+                newData.verdictTargetId = prev.verdictTargetId;
+            }
             return newData;
         });
         setLoading(false);

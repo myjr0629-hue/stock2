@@ -339,7 +339,11 @@ export class GuardianDataHub {
             try {
                 const redisKey = `${GUARDIAN_SNAPSHOT_PREFIX}${locale}`;
                 const cached = await getFromCache<any>(redisKey);
-                if (cached && cached.rlsi && cached.rlsi.score !== undefined) {
+                // [MAP FLAP FIX] A snapshot without sectors is a degraded compute
+                // (Polygon snapshot returned no tickers → sectorEngine flows:[]).
+                // Serving it blanks the Flow Topography Map + Sector Intel on every
+                // client for the full TTL — treat it as a cache miss and recompute.
+                if (cached && cached.rlsi && cached.rlsi.score !== undefined && Array.isArray(cached.sectors) && cached.sectors.length > 0) {
                     // [FIX] Session validation: if cached session differs from current, recompute
                     const cachedSession = cached.rlsi?.session;
                     if (cachedSession && cachedSession !== currentSession) {
@@ -878,16 +882,26 @@ export class GuardianDataHub {
                 timestamp: new Date().toISOString()
             };
 
-            if (!force) {
+            // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon
+            // snapshot failure). Caching it poisoned Redis for up to 10min and made the
+            // map/sector-intel vanish on every client until TTL expiry. A degraded
+            // compute may be served once, but the next request must recompute.
+            const hasSectors = Array.isArray(context.sectors) && context.sectors.length > 0;
+
+            if (!force && hasSectors) {
                 _cachedContext[locale] = context;
                 _lastFetchTime[locale] = now;
             }
 
             // [V12.0] Write back to Redis for EC2 Worker / other instances
-            try {
-                const redisTtl = context.rlsi?.session === 'REG' ? 120 : 600; // 2min REG, 10min EXT
-                await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}${locale}`, { ...context, _source: 'vercel' }, redisTtl);
-            } catch { /* Redis write failure is non-critical */ }
+            if (hasSectors) {
+                try {
+                    const redisTtl = context.rlsi?.session === 'REG' ? 120 : 600; // 2min REG, 10min EXT
+                    await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}${locale}`, { ...context, _source: 'vercel' }, redisTtl);
+                } catch { /* Redis write failure is non-critical */ }
+            } else {
+                console.warn(`[Guardian] Degraded context (sectors empty) for ${locale} — NOT cached, serving once only.`);
+            }
 
             console.log("[Guardian] Context Refresh Complete.");
             return context;
