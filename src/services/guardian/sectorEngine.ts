@@ -4,6 +4,8 @@
 import { fetchMassive } from "@/services/massiveClient";
 import { getAnalysisCacheForTickers, AnalysisCacheEntry } from "@/services/analysisCache";
 import { calculateWhaleIndex } from "@/services/alphaEngine";
+import { getMarketSession } from "@/services/guardian/rlsiEngine";
+import { getFromCache, setInCache } from "@/services/redisClient";
 
 // === TYPES ===
 // [V14.0] Institutional Flow Score per Sector
@@ -80,6 +82,68 @@ interface FiveDayCache {
 }
 let _fiveDayCache: FiveDayCache | null = null;
 const FIVE_DAY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// [LAST SESSION CHANGE] While no session is live (weekend/holiday/overnight),
+// the snapshot's prevDay IS the last session, so change-vs-prevClose computes
+// to ~0% for every ticker ("자료가 없나?" UX). Reconstruct the last completed
+// session's true day-over-day change from two grouped daily bars instead.
+interface LastSessionChanges {
+    d1: string;                       // last trading date
+    d0: string;                       // trading date before it
+    changes: Record<string, number>;  // ticker -> d1 close-over-d0 close %
+}
+let _lastChgCache: { data: LastSessionChanges; fetchedAt: number } | null = null;
+const LAST_CHG_MEM_TTL = 10 * 60 * 1000;
+
+async function fetchLastSessionChanges(
+    dates: string[],
+    neededTickers: Set<string>
+): Promise<LastSessionChanges | null> {
+    if (dates.length < 2) return null;
+    const d1 = dates[dates.length - 1];
+    const d0 = dates[dates.length - 2];
+
+    if (_lastChgCache && _lastChgCache.data.d1 === d1 && (Date.now() - _lastChgCache.fetchedAt < LAST_CHG_MEM_TTL)) {
+        return _lastChgCache.data;
+    }
+
+    const redisKey = `guardian:lastchg:${d1}`;
+    try {
+        const cached = await getFromCache<LastSessionChanges>(redisKey);
+        if (cached && cached.d1 === d1 && Object.keys(cached.changes).length > 0) {
+            _lastChgCache = { data: cached, fetchedAt: Date.now() };
+            return cached;
+        }
+    } catch { /* fall through to fetch */ }
+
+    try {
+        const [g1, g0] = await Promise.all([
+            fetchMassive(`/v2/aggs/grouped/locale/us/market/stocks/${d1}`, { adjusted: 'true' }),
+            fetchMassive(`/v2/aggs/grouped/locale/us/market/stocks/${d0}`, { adjusted: 'true' })
+        ]);
+        const prevCloses = new Map<string, number>();
+        for (const r of (g0?.results || [])) {
+            if (neededTickers.has(r.T) && r.c > 0) prevCloses.set(r.T, r.c);
+        }
+        const changes: Record<string, number> = {};
+        for (const r of (g1?.results || [])) {
+            const pc = prevCloses.get(r.T);
+            if (neededTickers.has(r.T) && pc && r.c > 0) {
+                changes[r.T] = ((r.c - pc) / pc) * 100;
+            }
+        }
+        if (Object.keys(changes).length === 0) return null;
+
+        const data: LastSessionChanges = { d1, d0, changes };
+        _lastChgCache = { data, fetchedAt: Date.now() };
+        try { await setInCache(redisKey, data, 6 * 60 * 60); } catch { /* non-critical */ }
+        console.log(`[SectorEngine] Last-session changes reconstructed: ${d1} vs ${d0} (${Object.keys(changes).length} tickers)`);
+        return data;
+    } catch (e: any) {
+        console.warn(`[SectorEngine] Last-session change fetch failed: ${e.message}`);
+        return null;
+    }
+}
 
 /**
  * [V6.0] Fetch 5-day historical data for all sector ETFs
@@ -519,7 +583,8 @@ export class SectorEngine {
                             c: currentPrice,
                             o: openPrice,
                             pc: prevClose,
-                            v: volume
+                            v: volume,
+                            hasDay: !!(t.day?.c && t.day?.v)
                         };
                     });
                     console.log(`[SectorEngine] Snapshot Success: ${currentSnapshot.length} items (using day.c + prevDay.c)`);
@@ -542,6 +607,22 @@ export class SectorEngine {
                 return { flows: [], vectors: [], source: "N/A", target: "N/A", sourceId: null, targetId: null, rotationIntensity: { score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [], breadth: 50, conviction: 'LOW', regime: 'MIXED' } };
             }
 
+            // [LAST SESSION CHANGE] While no session is live (weekend/holiday/overnight)
+            // every change-vs-prevClose collapses to ~0%. Keep showing the last
+            // completed session's real changes instead. PRE is excluded: premarket
+            // moves vs prev close are live data and must stay untouched.
+            const session = getMarketSession();
+            const dayDataCount = currentSnapshot.filter((s: any) => s.hasDay).length;
+            const staleRegime = session === 'CLOSED' || (session !== 'PRE' && dayDataCount === 0);
+            let lastChg: Record<string, number> = {};
+            if (staleRegime) {
+                const fiveDayForDates = await fiveDayPromise;
+                const ref = fiveDayForDates['XLK'] || Object.values(fiveDayForDates).find(v => v.dates.length >= 2);
+                const ls = ref ? await fetchLastSessionChanges(ref.dates, new Set(uniqueTickers)) : null;
+                if (ls) lastChg = ls.changes;
+                console.log(`[SectorEngine] Stale regime (session=${session}, dayBars=${dayDataCount}) — last-session changes ${Object.keys(lastChg).length > 0 ? `applied (${Object.keys(lastChg).length})` : 'unavailable, keeping snapshot calc'}`);
+            }
+
             // 3. Process Per Sector
             const sectorScores: SectorFlowRate[] = [];
             console.log("[Debug] SECTOR_MAP Keys:", Object.keys(SECTOR_MAP));
@@ -553,7 +634,11 @@ export class SectorEngine {
                 let sectorChange = 0;
                 let sectorVolume = 0;
 
-                if (sectorEtfData && sectorEtfData.pc > 0) {
+                if (staleRegime && lastChg[sectorId] != null) {
+                    // Last completed session's real ETF change
+                    sectorChange = lastChg[sectorId];
+                    if (sectorEtfData) sectorVolume = sectorEtfData.v;
+                } else if (sectorEtfData && sectorEtfData.pc > 0) {
                     // Use actual ETF change
                     sectorChange = ((sectorEtfData.c - sectorEtfData.pc) / sectorEtfData.pc) * 100;
                     sectorVolume = sectorEtfData.v;
@@ -569,7 +654,7 @@ export class SectorEngine {
                     return {
                         symbol: t,
                         price: s.c,
-                        change: ((s.c - s.pc) / s.pc) * 100,
+                        change: (staleRegime && lastChg[t] != null) ? lastChg[t] : ((s.c - s.pc) / s.pc) * 100,
                         volume: s.v
                     };
                 }).filter((item): item is { symbol: string; price: number; change: number; volume: number } => item !== null)
@@ -577,7 +662,8 @@ export class SectorEngine {
                     .slice(0, 5); // Top 5
 
                 // If ETF data missing (synthetic sectors), fallback to average of constituents
-                if (!sectorEtfData && constituents.length > 0) {
+                // (in stale regime the constituent changes are already last-session values)
+                if (!sectorEtfData && !(staleRegime && lastChg[sectorId] != null) && constituents.length > 0) {
                     sectorChange = constituents.reduce((acc, c) => acc + c.change, 0) / constituents.length;
                     sectorVolume = constituents.reduce((acc, c) => acc + c.volume, 0); // sum constituent volumes
                 }
