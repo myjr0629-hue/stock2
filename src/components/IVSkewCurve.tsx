@@ -32,9 +32,6 @@ interface IVSkewCurveProps {
     gammaFlip?: number;
     darkPool?: number;
     blockTradeCount?: number;
-    /** Web only: fixed chart pixel height (like GexTimeline). App omits this → keeps
-     *  the default h-full/meet rendering, so the app is unchanged. */
-    chartHeight?: number;
 }
 
 interface StrikeIV {
@@ -57,8 +54,7 @@ export default function IVSkewCurve({
     expiration,
     gammaFlip = 0,
     darkPool = 0,
-    blockTradeCount = 0,
-    chartHeight
+    blockTradeCount = 0
 }: IVSkewCurveProps) {
     const [hoverIdx, setHoverIdx] = useState<number | null>(null);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -449,9 +445,8 @@ export default function IVSkewCurve({
             <div className="relative p-2.5">
                 <svg
                     viewBox={`0 0 ${W} ${H}`}
-                    className={chartHeight ? 'w-full' : 'w-full h-full'}
-                    style={chartHeight ? { height: chartHeight, display: 'block' } : undefined}
-                    preserveAspectRatio={chartHeight ? 'none' : 'xMidYMid meet'}
+                    className="w-full h-full"
+                    preserveAspectRatio="xMidYMid meet"
                     onMouseMove={handleMouseMove}
                     onMouseLeave={() => setHoverIdx(null)}
                 >
