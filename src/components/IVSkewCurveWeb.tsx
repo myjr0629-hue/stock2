@@ -341,11 +341,13 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                 </div>
             </div>
 
-            {/* Chart */}
+            {/* Chart — max-height cap keeps the card height consistent with sibling
+                tabs (GEX Timeline / 13-F). Aspect ratio is preserved (meet), so the
+                chart scales down uniformly; it never stretches or distorts. */}
             <div className="relative z-10 flex-1 p-2">
                 <svg
                     viewBox={`0 0 ${W} ${H}`}
-                    className="w-full h-full"
+                    className="w-full max-h-[280px]"
                     preserveAspectRatio="xMidYMid meet"
                     onMouseMove={handleMouseMove}
                     onMouseLeave={() => setHoverIdx(null)}
