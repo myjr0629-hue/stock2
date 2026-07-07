@@ -741,39 +741,38 @@ export default function UndercurrentPage() {
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(84px + env(safe-area-inset-bottom))' }}>
 
-        {/* masthead */}
+        {/* masthead — two clean rows: (logo · wordmark · bell) / (tagline ─ date · edition).
+            The old single-row layout squeezed the by-line into a wrap and stacked the
+            date column beside the bell — cluttered on narrow screens. */}
         <header style={{ paddingTop: 'calc(20px + env(safe-area-inset-top))' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 34, height: 34, borderRadius: 10, background: C.ink, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/signum-sg-vectorized.svg" alt="SIGNUM" style={{ width: 20, height: 20 }} />
             </span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em' }}>Undercurrent</span>
-                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: C.faint }}>by SIGNUM HQ</span>
-              </div>
-              <div style={{ fontSize: 12.5, color: C.sub, fontWeight: 500 }}>{t.tagline}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, minWidth: 0, overflow: 'hidden' }}>
+              <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>Undercurrent</span>
+              <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: C.faint, whiteSpace: 'nowrap' }}>by SIGNUM HQ</span>
             </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 12, color: C.faint, fontWeight: 600, whiteSpace: 'nowrap' }}>{dateStr}</div>
-                <div style={{ fontSize: 10, color: C.emerald, fontWeight: 800, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{edition}</div>
-              </div>
-              <button type="button" onClick={() => setShowBreaking(true)} aria-label={t.breakingCenter} style={{
-                position: 'relative', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer',
-                background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadow,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-                </svg>
-                {breaking.length > 0 && (
-                  <span style={{ position: 'absolute', top: 6, right: 7, width: 8, height: 8, borderRadius: '50%', background: C.diverge, border: '1.5px solid #fff' }} className="mbz-pulse" />
-                )}
-              </button>
-            </div>
+            <button type="button" onClick={() => setShowBreaking(true)} aria-label={t.breakingCenter} style={{
+              position: 'relative', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', marginLeft: 'auto',
+              background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+              </svg>
+              {breaking.length > 0 && (
+                <span style={{ position: 'absolute', top: 6, right: 7, width: 8, height: 8, borderRadius: '50%', background: C.diverge, border: '1.5px solid #fff' }} className="mbz-pulse" />
+              )}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginTop: 5, paddingLeft: 44 }}>
+            <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.tagline}</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: C.faint, whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {dateStr} <span style={{ opacity: 0.45, margin: '0 2px' }}>·</span> <span style={{ color: C.emerald, fontWeight: 800, letterSpacing: '0.04em' }}>{edition}</span>
+            </span>
           </div>
         </header>
 
