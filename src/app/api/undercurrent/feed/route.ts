@@ -121,6 +121,30 @@ ${storyPayload(stories)}`;
       divergences: cards.filter((c) => c.divergence).length,
     };
 
+    // [SCOREBOARD] Persist today's divergence signals so the scoreboard can
+    // resolve them at D+3 close ("그때 돈이 맞았나") — the app's trust loop.
+    // Deduped by (ticker, ET date) across locales; capped at 200 signals.
+    try {
+      const divs = cards.filter((c) => c.divergence && c.money?.price);
+      if (divs.length) {
+        const KEY = 'undercurrent:scoreboard:signals:v1';
+        const doc = (await getFromCache<any[]>(KEY)) || [];
+        const dateET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        let changed = false;
+        for (const c of divs) {
+          if (doc.some((s) => s.ticker === c.ticker && s.dateET === dateET)) continue;
+          doc.push({
+            ticker: c.ticker, dateET, mood: c.moneyMood,
+            newsSentiment: c.newsSentiment || null,
+            priceAtSignal: c.money.price, title: c.plainTitle || '',
+            resolved: false,
+          });
+          changed = true;
+        }
+        if (changed) await setInCache(KEY, doc.slice(-200), 60 * 60 * 24 * 45);
+      }
+    } catch { /* non-critical */ }
+
     const payload = { success: true, locale: loc, count: cards.length, generatedAt: new Date().toISOString(), pulse, cards };
     setInCache(cacheKey, payload, FEED_TTL_SEC).catch(() => {});
     return NextResponse.json(payload);

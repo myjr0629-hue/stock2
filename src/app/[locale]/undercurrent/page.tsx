@@ -74,6 +74,21 @@ const T: Record<Locale, Record<string, string>> = {
     loading: '돈의 흐름을 읽는 중…',
     error: '불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
     disclaimer: '교육·정보 목적의 시장 데이터입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.',
+    covRead: '읽음', covToday: '오늘의 에디션',
+    closeDoneTitle: '오늘 치 끝!', closeDoneSub: '가볍게 닫으셔도 됩니다 — 새 소식은 다음 에디션에 담아둘게요.',
+    closeProgress: '아직 안 읽은 카드가 있어요', closeNext: '다음 에디션',
+    moreBrowse: '더 둘러보기',
+    sbTitle: '괴리 스코어보드', sbSub: '뉴스와 돈이 갈렸을 때, 사흘 뒤 누가 맞았나',
+    sbMoney: '돈', sbNews: '뉴스', sbFlat: '무승부', sbTracking: '추적 중',
+    sbMoneyWin: '돈이 맞았다', sbNewsWin: '뉴스가 맞았다', sbFlatRes: '무승부',
+    sbEmpty: '괴리 시그널을 추적하기 시작했어요. 첫 판정은 시그널 발생 3거래일 뒤에 나옵니다.',
+    sbD3: 'D+3 판정',
+    jdTitle: '이번 주 심판일', jdSub: '예정된 실적 발표 — 이야기가 숫자로 검증되는 날',
+    jdEarnings: '실적 발표', jdToday: '오늘', jdTomorrow: '내일',
+    insiderTitle: '내부자 매매 · 최근 30일',
+    insiderBuys: '매수', insiderSells: '매도', insiderNetBuy: '순매수', insiderNetSell: '순매도',
+    unlockFreeBtn: '오늘 첫 열람 무료 · 바로 열기',
+    unlockFreeNote: '하루 한 종목은 광고 없이 열립니다',
   },
   en: {
     tagline: 'The money moving behind the news',
@@ -124,6 +139,21 @@ const T: Record<Locale, Record<string, string>> = {
     loading: 'Reading the money flow…',
     error: 'Could not load. Please try again shortly.',
     disclaimer: 'Educational market information only. Not investment advice; accuracy not guaranteed.',
+    covRead: 'read', covToday: "Today's edition",
+    closeDoneTitle: "You're all caught up", closeDoneSub: 'Feel free to close the app — fresh stories land in the next edition.',
+    closeProgress: 'A few cards left to read', closeNext: 'Next edition',
+    moreBrowse: 'Keep browsing',
+    sbTitle: 'Divergence scoreboard', sbSub: 'When news and money split — who was right 3 days later',
+    sbMoney: 'Money', sbNews: 'News', sbFlat: 'Draw', sbTracking: 'Tracking',
+    sbMoneyWin: 'Money was right', sbNewsWin: 'News was right', sbFlatRes: 'Draw',
+    sbEmpty: 'Now tracking divergence signals. First verdicts arrive 3 trading days after each signal.',
+    sbD3: 'D+3 verdict',
+    jdTitle: "This week's judgment days", jdSub: 'Scheduled earnings — where the story meets the numbers',
+    jdEarnings: 'Earnings', jdToday: 'Today', jdTomorrow: 'Tomorrow',
+    insiderTitle: 'Insider trades · last 30 days',
+    insiderBuys: 'buys', insiderSells: 'sells', insiderNetBuy: 'net buying', insiderNetSell: 'net selling',
+    unlockFreeBtn: "Today's first unlock is free · open now",
+    unlockFreeNote: 'One ticker a day opens without an ad',
   },
   ja: {
     tagline: 'ニュースの裏で動くお金',
@@ -174,6 +204,21 @@ const T: Record<Locale, Record<string, string>> = {
     loading: 'マネーフローを読み取り中…',
     error: '読み込めませんでした。しばらくして再試行してください。',
     disclaimer: '教育・情報目的の市場データです。投資助言ではなく、正確性は保証されません。',
+    covRead: '既読', covToday: '今日のエディション',
+    closeDoneTitle: '今日の分はおしまい', closeDoneSub: 'アプリを閉じても大丈夫 — 新しい話は次のエディションでお届けします。',
+    closeProgress: 'まだ読んでいないカードがあります', closeNext: '次のエディション',
+    moreBrowse: 'もっと見る',
+    sbTitle: '乖離スコアボード', sbSub: 'ニュースとお金が割れた時、3日後どちらが正しかったか',
+    sbMoney: 'マネー', sbNews: 'ニュース', sbFlat: '引き分け', sbTracking: '追跡中',
+    sbMoneyWin: 'マネーが正しかった', sbNewsWin: 'ニュースが正しかった', sbFlatRes: '引き分け',
+    sbEmpty: '乖離シグナルの追跡を開始しました。最初の判定はシグナルから3営業日後に出ます。',
+    sbD3: 'D+3判定',
+    jdTitle: '今週の審判日', jdSub: '決算発表の予定 — 物語が数字で検証される日',
+    jdEarnings: '決算発表', jdToday: '今日', jdTomorrow: '明日',
+    insiderTitle: 'インサイダー売買 · 直近30日',
+    insiderBuys: '買い', insiderSells: '売り', insiderNetBuy: '純買い', insiderNetSell: '純売り',
+    unlockFreeBtn: '本日最初の閲覧は無料 · 今すぐ開く',
+    unlockFreeNote: '1日1銘柄は広告なしで開けます',
   },
 };
 
@@ -418,13 +463,19 @@ export default function UndercurrentPage() {
   // null = not loaded yet; [] = loaded, none (section hidden). Reuses the shared
   // /api/stocks/disclosures endpoint (12h server cache, ETF-skip).
   const [filings, setFilings] = useState<Record<string, { date: string; label: Record<string, string>; summary: Record<string, string>; highImpact: boolean }[]>>({});
+  // Insider Form-4 summary per ticker — the "회사·내부자의 행동" second layer
+  const [insiders, setInsiders] = useState<Record<string, { buyCount: number; sellCount: number; net30d: number; latest: { name: string; title: string; code: string; value: number; date: string } | null } | null>>({});
   useEffect(() => {
     const tk = detail?.ticker;
     if (!tk || filings[tk]) return;
     let alive = true;
-    fetch(`/api/stocks/disclosures?t=${tk}`)
+    fetch(`/api/stocks/disclosures?t=${tk}&insider=1`)
       .then((r) => (r.ok ? r.json() : { events: [] }))
-      .then((j) => { if (alive) setFilings((f) => ({ ...f, [tk]: Array.isArray(j?.events) ? j.events.slice(0, 3) : [] })); })
+      .then((j) => {
+        if (!alive) return;
+        setFilings((f) => ({ ...f, [tk]: Array.isArray(j?.events) ? j.events.slice(0, 3) : [] }));
+        setInsiders((m) => ({ ...m, [tk]: j?.insider && (j.insider.buyCount || j.insider.sellCount) ? j.insider : null }));
+      })
       .catch(() => { if (alive) setFilings((f) => ({ ...f, [tk]: [] })); });
     return () => { alive = false; };
   }, [detail?.ticker]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -538,18 +589,92 @@ export default function UndercurrentPage() {
     return h < 11 ? t.edMorning : h < 17 ? t.edAfternoon : t.edEvening;
   }, [t]);
 
+  // ── [EDITION] finishable daily edition: a FIXED set with an end state ──
+  // (research-validated format: Espresso/Yahoo News Digest/Finimize). The home
+  // tab shows exactly these items + a closing card; the full feed lives in
+  // the Stories tab. Read state persists per (local date, edition slot).
+  const editionSlot = useMemo(() => {
+    const h = new Date().getHours();
+    return h < 11 ? 'am' : h < 17 ? 'pm' : 'ev';
+  }, []);
+  const editionKey = `uc.ed.read.${new Date().toISOString().slice(0, 10)}.${editionSlot}`;
+  const [readMap, setReadMap] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try { setReadMap(JSON.parse(localStorage.getItem(editionKey) || '{}')); } catch { /* fresh */ }
+  }, [editionKey]);
+  const editionItems = useMemo(() => {
+    if (!cards.length) return [] as Card[];
+    const rest = cards.filter((c) => c !== hero);
+    const base = [hero, ...rest.slice(0, 4)].filter(Boolean) as Card[];
+    const divExtra = divCards.find((c) => !base.includes(c));
+    return divExtra ? [...base, divExtra] : base;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards]);
+  const readCount = editionItems.filter((c) => readMap[c.ticker]).length;
+  const editionDone = editionItems.length > 0 && readCount >= editionItems.length;
+  const markRead = (c: Card) => {
+    if (!editionItems.some((e) => e.ticker === c.ticker) || readMap[c.ticker]) return;
+    const next = { ...readMap, [c.ticker]: true };
+    setReadMap(next);
+    try { localStorage.setItem(editionKey, JSON.stringify(next)); } catch { /* full */ }
+  };
+  const nextEditionLabel = editionSlot === 'am' ? t.edAfternoon : editionSlot === 'pm' ? t.edEvening : t.edMorning;
+
+  // ── [SCOREBOARD] divergence trust loop: who was right 3 days later ──
+  const [scoreboard, setScoreboard] = useState<any>(null);
+  useEffect(() => {
+    fetch('/api/undercurrent/scoreboard')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j?.success) setScoreboard(j); })
+      .catch(() => {});
+  }, []);
+
+  // ── [JUDGMENT] this week's scheduled earnings (reason to come back) ──
+  const [judgment, setJudgment] = useState<{ ticker: string; date: string }[]>([]);
+  useEffect(() => {
+    fetch('/api/undercurrent/judgment')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (Array.isArray(j?.events)) setJudgment(j.events); })
+      .catch(() => {});
+  }, []);
+
+  // ── [GATE] deep layer: hero free + ONE free unlock per day, ads beyond ──
+  // (retention-first: no verified evidence that hard rewarded gates work in
+  // content apps, so the first daily unlock is frictionless)
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const [freeUsed, setFreeUsed] = useState(true);
+  useEffect(() => {
+    try { setFreeUsed(!!localStorage.getItem(`uc.freeUnlock.${dayKey}`)); } catch { /* keep true */ }
+  }, [dayKey]);
+  const consumeUnlock = (ticker: string) => {
+    if (!freeUsed) {
+      try { localStorage.setItem(`uc.freeUnlock.${dayKey}`, ticker); } catch { /* ignore */ }
+      setFreeUsed(true);
+    }
+    setUnlocked((u) => ({ ...u, [ticker]: true }));
+  };
+
   const isFree = (c: Card) => c === hero; // hero's deep layer is the free taste
   const isOpen = (c: Card) => isFree(c) || unlocked[c.ticker];
 
-  const openDetail = (c: Card) => { setDetail(c); window.scrollTo(0, 0); };
+  const openDetail = (c: Card) => { setDetail(c); markRead(c); window.scrollTo(0, 0); };
 
-  // ── shared story row ──
-  const StoryRow = ({ c }: { c: Card }) => (
+  // ── shared story row (num/read: edition checklist mode) ──
+  const StoryRow = ({ c, num, read }: { c: Card; num?: number; read?: boolean }) => (
     <button type="button" onClick={() => openDetail(c)} style={{
       font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%',
-      marginTop: 11, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`,
+      marginTop: 11, background: C.card, borderRadius: 18, border: `1px solid ${read ? 'rgba(11,61,44,0.25)' : C.line}`,
       boxShadow: C.shadow, padding: 14, display: 'flex', gap: 13, alignItems: 'flex-start',
+      opacity: read ? 0.82 : 1,
     }}>
+      {typeof num === 'number' && (
+        <span style={{
+          flexShrink: 0, width: 24, height: 24, borderRadius: '50%', marginTop: 2,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 12, fontWeight: 900, color: '#fff',
+          background: read ? C.emeraldDeep : C.ink,
+        }}>{read ? '✓' : num}</span>
+      )}
       {c.image && (
         <div style={{ width: 92, height: 74, flexShrink: 0, borderRadius: 12, overflow: 'hidden', background: '#E8E4DC' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -625,7 +750,7 @@ export default function UndercurrentPage() {
           {/* official 8-K filings — "회사가 직접 밝힌 것": the company's own SEC
               record, set against the press story above and the money read. Hidden
               entirely when the ticker has no recent filings. */}
-          {(filings[c.ticker]?.length ?? 0) > 0 && (
+          {((filings[c.ticker]?.length ?? 0) > 0 || insiders[c.ticker]) && (
             <div style={{ marginTop: 14, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`, boxShadow: C.shadow, padding: '14px 16px 15px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ fontSize: 13 }}>📜</span>
@@ -633,7 +758,7 @@ export default function UndercurrentPage() {
               </div>
               <div style={{ marginTop: 3, fontSize: 11, color: C.faint, fontWeight: 600 }}>{t.filingsSub}</div>
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {filings[c.ticker].map((ev, i) => (
+                {(filings[c.ticker] || []).map((ev, i) => (
                   <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
                     <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 34 }}>
                       <div style={{ fontSize: 10, fontWeight: 800, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{ev.date.slice(5).replace('-', '/')}</div>
@@ -648,6 +773,25 @@ export default function UndercurrentPage() {
                     </p>
                   </div>
                 ))}
+                {/* insider Form-4 line — what executives did with their own money */}
+                {insiders[c.ticker] && (() => {
+                  const ins = insiders[c.ticker]!;
+                  const netBuy = ins.net30d >= 0;
+                  return (
+                    <div style={{ borderTop: `1px dashed ${C.line}`, paddingTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: C.faint }}>{t.insiderTitle}</span>
+                      <span style={{
+                        fontSize: 10.5, fontWeight: 900, padding: '2px 8px', borderRadius: 999,
+                        color: netBuy ? '#fff' : C.diverge,
+                        background: netBuy ? C.emeraldDeep : C.divergeBg,
+                      }}>{netBuy ? t.insiderNetBuy : t.insiderNetSell}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: C.sub }}>
+                        {t.insiderBuys} {ins.buyCount} · {t.insiderSells} {ins.sellCount}
+                        {ins.latest ? ` · ${ins.latest.title || ins.latest.name} ${ins.latest.code === 'P' ? '▲' : '▼'} $${(Math.abs(ins.latest.value) / 1e6).toFixed(1)}M` : ''}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -671,14 +815,15 @@ export default function UndercurrentPage() {
                 }}>
                   <div style={{ fontSize: 14, fontWeight: 850 as any }}>{t.deepLockedTitle}</div>
                   <div style={{ fontSize: 11.5, color: C.sub, fontWeight: 600, maxWidth: 260 }}>{t.deepLockedDesc}</div>
-                  <button type="button" onClick={() => setUnlocked((u) => ({ ...u, [c.ticker]: true }))} style={{
+                  <button type="button" onClick={() => consumeUnlock(c.ticker)} style={{
                     font: 'inherit', cursor: 'pointer', marginTop: 4,
-                    fontSize: 13.5, fontWeight: 800, color: '#fff', background: C.ink,
+                    fontSize: 13.5, fontWeight: 800, color: '#fff',
+                    background: freeUsed ? C.ink : C.emeraldDeep,
                     border: 'none', padding: '11px 18px', borderRadius: 12,
                   }}>
-                    ▶ {t.unlockBtn}
+                    {freeUsed ? `▶ ${t.unlockBtn}` : `✓ ${t.unlockFreeBtn}`}
                   </button>
-                  <div style={{ fontSize: 10, color: C.faint }}>{t.unlockNote}</div>
+                  <div style={{ fontSize: 10, color: C.faint }}>{freeUsed ? t.unlockNote : t.unlockFreeNote}</div>
                 </div>
               </div>
             )}
@@ -820,44 +965,32 @@ export default function UndercurrentPage() {
                   </div>
                 )}
 
-                {feed.pulse && (
-                  <section style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: '11px 14px', boxShadow: C.shadow }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: C.sub }}>{t.pulseTitle}</span>
-                    <span style={{ marginLeft: 'auto', display: 'flex', gap: 11, fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
-                      <span style={{ color: C.emerald }}>● {t.pulseB} {feed.pulse.bullish}</span>
-                      <span style={{ color: C.amber }}>● {t.pulseC} {feed.pulse.cautious}</span>
-                      <span style={{ color: C.diverge }}>● {t.pulseD} {feed.pulse.divergences}</span>
-                    </span>
-                  </section>
-                )}
-
-                {/* macro teaser — the big picture that shakes markets */}
-                {macro && macro.cards.length > 0 && (
-                  <button type="button" onClick={() => { setTab('macro'); window.scrollTo(0, 0); }} style={{
-                    font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', border: 'none',
-                    marginTop: 12, borderRadius: 18, padding: '13px 15px', boxShadow: C.shadow,
-                    background: `linear-gradient(135deg, ${C.ink}, #2A2E38)`, color: '#fff',
-                    display: 'flex', alignItems: 'center', gap: 12,
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#9BE8C4' }}>{t.macroTitle.toUpperCase()}</span>
-                        <ImpactBadge impact={macro.cards[0].marketImpact} t={t} />
-                      </div>
-                      <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {macro.cards[0].plainTitle}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 650 as any, marginTop: 5 }}>
-                        {t.macroTeaser} · {macro.cards.length} →
-                      </div>
+                {/* ── [EDITION COVER] finishable edition: progress + market pulse ── */}
+                {editionItems.length > 0 && (
+                  <section style={{ marginTop: 14, background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: '12px 14px', boxShadow: C.shadow }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 900 }}>{t.covToday}</span>
+                      <span style={{ display: 'inline-flex', gap: 4 }}>
+                        {editionItems.map((c, i) => (
+                          <span key={i} style={{
+                            width: 7, height: 7, borderRadius: '50%',
+                            background: readMap[c.ticker] ? C.emeraldDeep : '#E3DED4',
+                            transition: 'background 0.3s ease',
+                          }} />
+                        ))}
+                      </span>
+                      <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 800, color: editionDone ? C.emeraldDeep : C.faint, fontVariantNumeric: 'tabular-nums' }}>
+                        {readCount}/{editionItems.length} {t.covRead}
+                      </span>
                     </div>
-                    {typeof macro.context.yield10Y === 'number' && (
-                      <div style={{ flexShrink: 0, textAlign: 'center', background: 'rgba(255,255,255,0.09)', borderRadius: 12, padding: '8px 11px' }}>
-                        <div style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.6)' }}>{t.ctx10Y}</div>
-                        <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{macro.context.yield10Y.toFixed(2)}%</div>
+                    {feed.pulse && (
+                      <div style={{ display: 'flex', gap: 11, fontSize: 11.5, fontWeight: 800, marginTop: 8, whiteSpace: 'nowrap' }}>
+                        <span style={{ color: C.emerald }}>● {t.pulseB} {feed.pulse.bullish}</span>
+                        <span style={{ color: C.amber }}>● {t.pulseC} {feed.pulse.cautious}</span>
+                        <span style={{ color: C.diverge }}>● {t.pulseD} {feed.pulse.divergences}</span>
                       </div>
                     )}
-                  </button>
+                  </section>
                 )}
 
                 {hero && (
@@ -893,6 +1026,104 @@ export default function UndercurrentPage() {
                         </div>
                       )}
                     </div>
+                  </button>
+                )}
+
+                {/* ── [EDITION LIST] items #2+ as a numbered, checkable list ── */}
+                {editionItems.slice(1).map((c, i) => (
+                  <StoryRow key={c.ticker + i} c={c} num={i + 2} read={!!readMap[c.ticker]} />
+                ))}
+
+                {/* ── [JUDGMENT DAYS] scheduled earnings this week ── */}
+                {judgment.length > 0 && (
+                  <section style={{ marginTop: 12, background: `linear-gradient(135deg, ${C.ink}, #2A2E38)`, color: '#fff', borderRadius: 18, padding: '13px 15px', boxShadow: C.shadow }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 900 }}>⚖️ {t.jdTitle}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 650 as any, color: 'rgba(255,255,255,0.55)' }}>{t.jdSub}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginTop: 10, paddingBottom: 2 }}>
+                      {judgment.map((e) => {
+                        const today = new Date().toISOString().slice(0, 10);
+                        const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+                        const dLabel = e.date === today ? t.jdToday : e.date === tomorrow ? t.jdTomorrow : e.date.slice(5).replace('-', '/');
+                        return (
+                          <button key={e.ticker + e.date} type="button" onClick={() => { setSearchQ(e.ticker); setTab('search'); window.scrollTo(0, 0); }} style={{
+                            font: 'inherit', cursor: 'pointer', flex: '0 0 auto', textAlign: 'left',
+                            background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: 12, padding: '8px 12px', color: '#fff',
+                          }}>
+                            <div style={{ fontSize: 13, fontWeight: 900 }}>{e.ticker}</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#9BE8C4', marginTop: 2 }}>{dLabel} · {t.jdEarnings}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {/* ── [CLOSING CARD] the finish line — done state + trust teaser ── */}
+                {editionItems.length > 0 && (
+                  <section style={{
+                    marginTop: 12, borderRadius: 18, padding: '16px 16px', textAlign: 'center',
+                    background: editionDone ? `linear-gradient(160deg, ${C.emeraldDeep}, #0B3D2C)` : C.card,
+                    color: editionDone ? '#fff' : C.ink,
+                    border: editionDone ? 'none' : `1px dashed ${C.line}`,
+                    boxShadow: C.shadow,
+                  }}>
+                    <div style={{ fontSize: 15.5, fontWeight: 900 }}>
+                      {editionDone ? `✦ ${t.closeDoneTitle}` : `${t.closeProgress} · ${readCount}/${editionItems.length}`}
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginTop: 5, color: editionDone ? 'rgba(255,255,255,0.75)' : C.sub }}>
+                      {editionDone ? t.closeDoneSub : t.secStoriesSub}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 800, marginTop: 8, color: editionDone ? '#9BE8C4' : C.faint }}>
+                      {t.closeNext}: {nextEditionLabel}
+                    </div>
+                    {scoreboard?.record && (scoreboard.record.money + scoreboard.record.news + scoreboard.record.flat) > 0 && (
+                      <button type="button" onClick={() => { setTab('div'); window.scrollTo(0, 0); }} style={{
+                        font: 'inherit', cursor: 'pointer', marginTop: 10, fontSize: 11.5, fontWeight: 800,
+                        color: editionDone ? '#fff' : C.diverge,
+                        background: editionDone ? 'rgba(255,255,255,0.12)' : C.divergeBg,
+                        border: 'none', borderRadius: 999, padding: '7px 14px',
+                      }}>
+                        {t.sbTitle}: {t.sbMoney} {scoreboard.record.money} · {t.sbNews} {scoreboard.record.news} →
+                      </button>
+                    )}
+                  </section>
+                )}
+
+                {/* ── 더 둘러보기 ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 2px 2px' }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: C.faint, letterSpacing: '0.05em' }}>{t.moreBrowse}</span>
+                  <span style={{ flex: 1, height: 1, background: C.line }} />
+                </div>
+
+                {/* macro teaser — the big picture that shakes markets */}
+                {macro && macro.cards.length > 0 && (
+                  <button type="button" onClick={() => { setTab('macro'); window.scrollTo(0, 0); }} style={{
+                    font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', border: 'none',
+                    marginTop: 12, borderRadius: 18, padding: '13px 15px', boxShadow: C.shadow,
+                    background: `linear-gradient(135deg, ${C.ink}, #2A2E38)`, color: '#fff',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#9BE8C4' }}>{t.macroTitle.toUpperCase()}</span>
+                        <ImpactBadge impact={macro.cards[0].marketImpact} t={t} />
+                      </div>
+                      <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {macro.cards[0].plainTitle}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 650 as any, marginTop: 5 }}>
+                        {t.macroTeaser} · {macro.cards.length} →
+                      </div>
+                    </div>
+                    {typeof macro.context.yield10Y === 'number' && (
+                      <div style={{ flexShrink: 0, textAlign: 'center', background: 'rgba(255,255,255,0.09)', borderRadius: 12, padding: '8px 11px' }}>
+                        <div style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.6)' }}>{t.ctx10Y}</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{macro.context.yield10Y.toFixed(2)}%</div>
+                      </div>
+                    )}
                   </button>
                 )}
 
@@ -1061,6 +1292,61 @@ export default function UndercurrentPage() {
             {tab === 'div' && (
               <>
                 <SectionHead title={t.secDiv} sub={t.secDivSub} color={C.diverge} />
+
+                {/* ── [SCOREBOARD] the trust loop: who was right 3 days later ── */}
+                {scoreboard && (
+                  <section style={{ marginTop: 12, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`, boxShadow: C.shadow, padding: '14px 16px 15px' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 900 }}>🏁 {t.sbTitle}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 650 as any, color: C.faint }}>{t.sbSub}</span>
+                    </div>
+                    {(scoreboard.record.money + scoreboard.record.news + scoreboard.record.flat) > 0 ? (
+                      <>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
+                          {[
+                            { label: t.sbMoney, n: scoreboard.record.money, color: '#fff', bg: C.emeraldDeep },
+                            { label: t.sbNews, n: scoreboard.record.news, color: '#fff', bg: C.diverge },
+                            { label: t.sbFlat, n: scoreboard.record.flat, color: C.sub, bg: '#ECE8E0' },
+                            { label: t.sbTracking, n: scoreboard.record.pending, color: C.sub, bg: '#ECE8E0' },
+                          ].map((x) => (
+                            <div key={x.label} style={{ flex: 1, textAlign: 'center', background: x.bg, color: x.color, borderRadius: 12, padding: '9px 4px' }}>
+                              <div style={{ fontSize: 19, fontWeight: 900, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{x.n}</div>
+                              <div style={{ fontSize: 9.5, fontWeight: 800, marginTop: 4, opacity: 0.85 }}>{x.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {(scoreboard.recent || []).length > 0 && (
+                          <div style={{ marginTop: 11, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                            {scoreboard.recent.slice(0, 5).map((r: any, i: number) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 700 }}>
+                                <span style={{ fontWeight: 900, minWidth: 44 }}>{r.ticker}</span>
+                                <span style={{ fontSize: 10.5, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{r.dateET.slice(5).replace('-', '/')}</span>
+                                <span style={{ fontVariantNumeric: 'tabular-nums', color: r.movePct >= 0 ? C.emerald : C.diverge }}>
+                                  {r.movePct >= 0 ? '+' : ''}{r.movePct}%
+                                </span>
+                                <span style={{
+                                  marginLeft: 'auto', fontSize: 10, fontWeight: 900, padding: '2.5px 8px', borderRadius: 999,
+                                  color: r.verdict === 'money' ? '#fff' : r.verdict === 'news' ? '#fff' : C.sub,
+                                  background: r.verdict === 'money' ? C.emeraldDeep : r.verdict === 'news' ? C.diverge : '#ECE8E0',
+                                }}>
+                                  {r.verdict === 'money' ? t.sbMoneyWin : r.verdict === 'news' ? t.sbNewsWin : t.sbFlatRes}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.6, color: C.sub, fontWeight: 600 }}>
+                        {t.sbEmpty}
+                        {scoreboard.record.pending > 0 && (
+                          <span style={{ fontWeight: 900, color: C.diverge }}> · {t.sbTracking} {scoreboard.record.pending}</span>
+                        )}
+                      </div>
+                    )}
+                  </section>
+                )}
+
                 {divCards.map((c, i) => (
                   <span key={c.ticker}>
                     <StoryRow c={c} />
