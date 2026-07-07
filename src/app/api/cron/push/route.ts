@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { sendPushByType } from '@/lib/push/send';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { fetchMassive } from '@/services/massiveClient';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, skipped: true, reason: 'report-not-ready', type });
     }
   } else {
+    // [HOLIDAY GUARD] The snapshot/brief crons run on weekday holidays too (they have
+    // no market-calendar awareness) and can stamp today's markers from stale data —
+    // which would push a "closing report" on a day with NO session (e.g. 7/3 observed
+    // Independence Day). Data-driven check: a real session leaves a SPY daily bar.
+    try {
+      const aggs = await fetchMassive(`/v2/aggs/ticker/SPY/range/1/day/${todayET}/${todayET}`, { adjusted: 'true', limit: '2' });
+      if (!aggs?.results?.length) {
+        console.warn(`[Cron/Push] no SPY session bar for ${todayET} (market holiday) — skipping closing push`);
+        return NextResponse.json({ ok: true, skipped: true, reason: 'market-holiday', type });
+      }
+    } catch { /* vendor check failed — fall through; the report gates below still protect */ }
+
     // Closing push requires BOTH signals to be TODAY's, so it only fires once the full
     // report set is genuinely published:
     //  1) all 10 sector snapshots swept — snapshot cron stamps this after cloud_fortress

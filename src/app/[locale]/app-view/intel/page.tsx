@@ -1435,6 +1435,7 @@ export default function AppIntelPage() {
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [reportLoadingSector, setReportLoadingSector] = useState<string | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
+  const [crossBriefGeneratedAt, setCrossBriefGeneratedAt] = useState<string>('');
   const [crossMacro, setCrossMacro] = useState<{ key: string; value: number; changePct: number; category: string }[]>([]);
   const [vixTerm, setVixTerm] = useState<{ vix: number; vix3m: number; ratio: number; state: string } | null>(null);
 
@@ -1489,6 +1490,7 @@ export default function AppIntelPage() {
           if (data.success) {
             if (Array.isArray(data.macroIndicators)) setCrossMacro(data.macroIndicators);
             if (data.vixTermStructure) setVixTerm(data.vixTermStructure);
+            if (data.generatedAt) setCrossBriefGeneratedAt(String(data.generatedAt));
           }
         }
       } catch { /* silent */ }
@@ -2954,6 +2956,17 @@ export default function AppIntelPage() {
                           <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', letterSpacing: '0.04em' }}>
                             {locale === 'ko' ? '크로스 섹터 요약' : locale === 'ja' ? 'クロスセクター概要' : 'CROSS SECTOR BRIEF'}
                           </span>
+                          {crossBriefGeneratedAt && (() => {
+                            // Closing report is anchored to the US session — show generation time in ET.
+                            const d = new Date(crossBriefGeneratedAt);
+                            if (isNaN(d.getTime())) return null;
+                            const s = d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+                            return (
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono), monospace', whiteSpace: 'nowrap' }}>
+                                {s} ET
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {(totalGainers > 0 || totalLosers > 0) && (
