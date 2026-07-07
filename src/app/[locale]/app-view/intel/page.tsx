@@ -2953,29 +2953,11 @@ export default function AppIntelPage() {
                             <line x1="2" y1="12" x2="22" y2="12" />
                             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                           </svg>
-                          <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', letterSpacing: '0.04em' }}>
+                          <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                             {locale === 'ko' ? '크로스 섹터 요약' : locale === 'ja' ? 'クロスセクター概要' : 'CROSS SECTOR BRIEF'}
                           </span>
-                          {crossBriefGeneratedAt && (() => {
-                            // Closing report is anchored to the US session — show generation time in ET.
-                            const d = new Date(crossBriefGeneratedAt);
-                            if (isNaN(d.getTime())) return null;
-                            const s = d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-                            return (
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono), monospace', whiteSpace: 'nowrap' }}>
-                                {s} ET
-                              </span>
-                            );
-                          })()}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {(totalGainers > 0 || totalLosers > 0) && (
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                              <span style={{ color: '#10b981' }}>{totalGainers}W</span>
-                              <span style={{ margin: '0 2px', opacity: 0.3 }}>/</span>
-                              <span style={{ color: '#ef4444' }}>{totalLosers}L</span>
-                            </span>
-                          )}
                           <span style={{
                             fontSize: '11px',
                             fontWeight: 800,
@@ -2989,6 +2971,31 @@ export default function AppIntelPage() {
                           </span>
                         </div>
                       </div>
+                      {/* Meta sub-row: generation time (ET, US-session anchored) + breadth */}
+                      {(crossBriefGeneratedAt || totalGainers > 0 || totalLosers > 0) && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '-4px 0 10px 26px' }}>
+                          {crossBriefGeneratedAt && (() => {
+                            const d = new Date(crossBriefGeneratedAt);
+                            if (isNaN(d.getTime())) return null;
+                            const s = d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+                            return (
+                              <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono), monospace', whiteSpace: 'nowrap' }}>
+                                {s} ET
+                              </span>
+                            );
+                          })()}
+                          {(totalGainers > 0 || totalLosers > 0) && (
+                            <>
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.4 }}>·</span>
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                <span style={{ color: '#10b981' }}>{totalGainers}W</span>
+                                <span style={{ margin: '0 2px', opacity: 0.3 }}>/</span>
+                                <span style={{ color: '#ef4444' }}>{totalLosers}L</span>
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
                       {/* Market Summary */}
                       <div style={{
                         fontSize: '14px',
@@ -3476,19 +3483,43 @@ export default function AppIntelPage() {
                         <SectorIcon sectorKey={toCamelCase(sec.id)} color={sec.color} size={20} />
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
                           <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>{displayName}</span>
-                          <span style={{
-                            color: cached.source !== 'app-live' ? '#f59e0b' : '#22d3ee',
-                            background: cached.source !== 'app-live' ? 'rgba(245, 158, 11, 0.10)' : 'rgba(34, 211, 238, 0.09)',
-                            border: cached.source !== 'app-live' ? '1px solid rgba(245, 158, 11, 0.18)' : '1px solid rgba(34, 211, 238, 0.16)',
-                            borderRadius: '999px',
-                            padding: '2px 7px',
-                            fontSize: '10px',
-                            lineHeight: 1,
-                            letterSpacing: '0.02em',
-                            whiteSpace: 'nowrap',
-                            fontWeight: 850
-                          }}>
-                            {sourceLabel}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{
+                              color: cached.source !== 'app-live' ? '#f59e0b' : '#22d3ee',
+                              background: cached.source !== 'app-live' ? 'rgba(245, 158, 11, 0.10)' : 'rgba(34, 211, 238, 0.09)',
+                              border: cached.source !== 'app-live' ? '1px solid rgba(245, 158, 11, 0.18)' : '1px solid rgba(34, 211, 238, 0.16)',
+                              borderRadius: '999px',
+                              padding: '2px 7px',
+                              fontSize: '10px',
+                              lineHeight: 1,
+                              letterSpacing: '0.02em',
+                              whiteSpace: 'nowrap',
+                              fontWeight: 850
+                            }}>
+                              {sourceLabel}
+                            </span>
+                            {/* Generation time — US-session anchored, always ET.
+                                snapshotTime is ISO (snapshot_timestamp) OR an already-
+                                ET-formatted string (meta.generatedAtET) — never parse
+                                the latter through Date (it would shift to local tz). */}
+                            {cached.snapshotTime && (() => {
+                              const raw = String(cached.snapshotTime);
+                              let s: string | null = null;
+                              if (raw.includes('T')) {
+                                const d = new Date(raw);
+                                if (!isNaN(d.getTime())) {
+                                  s = d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+                                }
+                              } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(raw)) {
+                                s = raw.replace(/^\d{4}-/, '').slice(0, 11); // "07-06 16:45" (already ET)
+                              }
+                              if (!s) return null;
+                              return (
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono), monospace', whiteSpace: 'nowrap' }}>
+                                  {s} ET
+                                </span>
+                              );
+                            })()}
                           </span>
                           {/* W/L mini row */}
                           {(cached.gainers > 0 || cached.losers > 0) && (
