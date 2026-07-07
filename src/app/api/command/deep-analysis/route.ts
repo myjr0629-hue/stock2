@@ -168,6 +168,13 @@ export async function POST(req: Request) {
         const priceChange = s.priceChange || 0;
         const priceChangeStr = priceChange >= 0 ? `+${priceChange.toFixed(2)}%` : `${priceChange.toFixed(2)}%`;
 
+        // [MOVE ATTRIBUTION] ±2%+ move → the analysis must answer "why is it moving
+        // this much?" — attributing to news/8-K events AND/OR structural options
+        // mechanics (and saying so explicitly when NO news exists). Server-side only:
+        // all three clients (web / app / mobile web) render `sections` dynamically,
+        // so the extra attribution section appears everywhere with zero UI changes.
+        const bigMove = Math.abs(priceChange) >= 2.0;
+
         const newsXml = newsArticles.length > 0
             ? newsArticles.map(n =>
                 `    <article age="${n.age}" sentiment="${n.sentiment}" source="${n.source}" weight="${n.weight}">${n.title}</article>`
@@ -223,6 +230,11 @@ ${newsXml}
 ${secXmlBlock ? '\n' + secXmlBlock : ''}
   
   <trigger_reason>${triggerReason}</trigger_reason>
+${bigMove ? `  <price_move_alert magnitude="${priceChangeStr}" direction="${priceChange >= 0 ? 'UP' : 'DOWN'}" session="${session}">
+    Sharp move detected. The reader's #1 question is WHY the stock is moving this much.
+    Attribute the move using the evidence in this document: weighted news headlines, SEC/8-K disclosure events, and structural options mechanics (gamma flip crossings, dealer hedging direction, net premium flow, put/call positioning).
+    If NO news or disclosure plausibly explains it, SAY SO explicitly and attribute to structural/flow factors.
+  </price_move_alert>` : ''}
 ${(() => {
     if (!insider) return '';
     const fmtVal = (n: number) => { const a = Math.abs(n); return a >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`; };
@@ -319,6 +331,14 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
    -> IMPORTANT: Do NOT make the entire section about these two scores. They should act as supporting evidence (e.g., "The SMA golden cross is further validated by a solid Context Score of 66...") alongside the existing deep technical/options indicators.
 - If news is scarce, focus on structural indicators and sector context.
 - If trigger_reason=PRICE_MOVE, explain WHAT likely caused it.
+- MOVE ATTRIBUTION (CRITICAL — only when <price_move_alert> is present):
+  → Add ONE EXTRA section as the FIRST section, titled: { "ko": "급변동 원인", "en": "Price Move Attribution", "ja": "急変動の要因" }.
+  → Its job: resolve the reader's question "why is this stock moving this much?" in 2-4 sentences.
+  → Attribute the move to concrete evidence, in priority order: ① news/8-K disclosure events (cite source + age, e.g., "로이터, 3시간 전"), ② structural options mechanics (gamma flip crossing, dealer short-gamma hedging amplification, net premium direction, put positioning), ③ sector/market-wide moves.
+  → If NO news or disclosure explains the move, state that explicitly (e.g., "특별한 뉴스·공시는 확인되지 않으며") and attribute to structural/flow factors — absence of news IS the answer the reader needs.
+  → Clearly separate CONFIRMED evidence (news that exists, structural readings) from INFERENCE (what likely amplified the move). Observation language only — never predict.
+  → The "currentState" headline must also lead with the move and its primary driver.
+  → The other 3 sections keep their usual roles (do NOT duplicate the attribution content in them).
 - SEC FILINGS (8-K/10-K): If provided in <sec_filings>, reference recent corporate events (8-K) as supporting context. Use 10-K business overview to understand the company's revenue structure and competitive positioning.
 - INSIDER ACTIVITY (Form 4): If <insider_activity> is present, weave insider trading patterns into your analysis. Key rules:
   → Voluntary (non-10b5-1) insider BUYING by C-suite (CEO, CFO, President) is a powerful bullish signal — highlight prominently.
