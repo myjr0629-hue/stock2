@@ -77,13 +77,21 @@ export async function GET(request: Request) {
     // report set is genuinely published:
     //  1) all 10 sector snapshots swept — snapshot cron stamps this after cloud_fortress
     //  2) the comprehensive cross-sector brief (CROSS-SECTOR INTELLIGENCE) generated
-    // Version below must track getCacheKey() in api/intel/cross-sector-brief/route.ts.
+    // [ROOT-CAUSE FIX] The brief has TWO producers writing DIFFERENT keys: the EC2/Lambda
+    // pipeline writes v3 (reliable — what the app's GET actually serves first) and the
+    // Vercel POST self-generator writes v4 (often dies on the 60s limit). Gating on v4
+    // alone meant the closing push NEVER fired even though the report was live in the
+    // app. Check the same chain the app serves: v4 → v3 → v2.
     const ready = await getFromCache<string>('push:report-ready:closing');
     if (ready !== todayET) {
       console.warn(`[Cron/Push] closing sectors not ready (marker=${ready}, today=${todayET}) — skipping`);
       return NextResponse.json({ ok: false, skipped: true, reason: 'sectors-not-ready', type });
     }
-    const brief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-v4:${todayET}`);
+    let brief: { generatedAt?: string } | null = null;
+    for (const v of ['v4', 'v3', 'v2']) {
+      brief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-${v}:${todayET}`);
+      if (brief?.generatedAt) break;
+    }
     const briefET = brief?.generatedAt
       ? new Date(brief.generatedAt).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
       : null;

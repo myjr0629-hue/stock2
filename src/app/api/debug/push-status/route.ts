@@ -60,7 +60,13 @@ export async function GET(req: NextRequest) {
 
   const morning = await getFromCache<{ generatedAt?: string }>('guardian:morning_briefing');
   const closing = await getFromCache<string>('push:report-ready:closing');
-  const crossBrief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-v4:${dateParam}`);
+  // Same key chain as the push gate AND the app's GET: v4 (Vercel POST) → v3 (Lambda) → v2
+  let crossBrief: { generatedAt?: string } | null = null;
+  let crossBriefKey: string | null = null;
+  for (const v of ['v4', 'v3', 'v2']) {
+    crossBrief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-${v}:${dateParam}`);
+    if (crossBrief?.generatedAt) { crossBriefKey = v; break; }
+  }
   const sentMorning = await getFromCache<string>(`push:sent:morning:${dateParam}`);
   const sentClosing = await getFromCache<string>(`push:sent:closing:${dateParam}`);
 
@@ -71,6 +77,7 @@ export async function GET(req: NextRequest) {
     closingMarker: closing,
     closingReadyToday: closing === todayET,
     crossBriefGeneratedAtET: etOf(crossBrief?.generatedAt),
+    crossBriefKey,
     crossBriefReadyForDate: etOf(crossBrief?.generatedAt) === dateParam,
     sentMorning: !!sentMorning,
     sentMorningAt: sentMorning || null,
