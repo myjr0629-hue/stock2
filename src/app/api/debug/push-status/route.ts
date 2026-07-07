@@ -21,11 +21,16 @@ export async function GET(req: NextRequest) {
   const authorized = !cronSecret
     || auth === `Bearer ${cronSecret}`
     || searchParams.get('secret') === cronSecret;
-  if (process.env.NODE_ENV === 'production' && !authorized) {
+  // [PROBE] ?probe=1 — public, markers-only view (booleans/dates, no env flags,
+  // no token counts). Lets delivery incidents be diagnosed without the secret.
+  const probeOnly = searchParams.get('probe') === '1';
+  if (process.env.NODE_ENV === 'production' && !authorized && !probeOnly) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  // ?date=YYYY-MM-DD — inspect a specific ET day's markers (e.g. yesterday's send)
+  const dateParam = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get('date') || '') ? searchParams.get('date')! : todayET;
   const etOf = (iso?: string | null) =>
     iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) : null;
 
@@ -55,23 +60,32 @@ export async function GET(req: NextRequest) {
 
   const morning = await getFromCache<{ generatedAt?: string }>('guardian:morning_briefing');
   const closing = await getFromCache<string>('push:report-ready:closing');
-  const crossBrief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-v4:${todayET}`);
-  const sentMorning = await getFromCache<string>(`push:sent:morning:${todayET}`);
-  const sentClosing = await getFromCache<string>(`push:sent:closing:${todayET}`);
+  const crossBrief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-v4:${dateParam}`);
+  const sentMorning = await getFromCache<string>(`push:sent:morning:${dateParam}`);
+  const sentClosing = await getFromCache<string>(`push:sent:closing:${dateParam}`);
+
+  const markers = {
+    date: dateParam,
+    morningBriefGeneratedAtET: etOf(morning?.generatedAt),
+    morningReadyToday: etOf(morning?.generatedAt) === todayET,
+    closingMarker: closing,
+    closingReadyToday: closing === todayET,
+    crossBriefGeneratedAtET: etOf(crossBrief?.generatedAt),
+    crossBriefReadyForDate: etOf(crossBrief?.generatedAt) === dateParam,
+    sentMorning: !!sentMorning,
+    sentMorningAt: sentMorning || null,
+    sentClosing: !!sentClosing,
+    sentClosingAt: sentClosing || null,
+  };
+
+  if (probeOnly && !authorized) {
+    return NextResponse.json({ todayET, markers });
+  }
 
   return NextResponse.json({
     todayET,
     env,
     tokens,
-    markers: {
-      morningBriefGeneratedAtET: etOf(morning?.generatedAt),
-      morningReadyToday: etOf(morning?.generatedAt) === todayET,
-      closingMarker: closing,
-      closingReadyToday: closing === todayET,
-      crossBriefGeneratedAtET: etOf(crossBrief?.generatedAt),
-      crossBriefReadyToday: etOf(crossBrief?.generatedAt) === todayET,
-      alreadySentMorningToday: !!sentMorning,
-      alreadySentClosingToday: !!sentClosing,
-    },
+    markers,
   });
 }
