@@ -27,7 +27,9 @@ import { TechnicalLevelsMap } from '@/components/TechnicalLevelsMap';
 import { GammaPressureGauge } from '@/components/GammaPressureGauge';
 import { AIDeepAnalysis } from '@/components/AIDeepAnalysis';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
-import IVSkewCurve from '@/components/IVSkewCurve';
+// Desktop web uses the pre-2026-06-19 original chart (IVSkewCurveWeb); the shared
+// IVSkewCurve stays app/mobile-only so app work can never change the web look again.
+import IVSkewCurve from '@/components/IVSkewCurveWeb';
 const Institutional13FPanel = dynamic(() => import('@/components/Institutional13FPanel'), { ssr: false, loading: () => <div className="min-h-[300px] flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" /></div> });
 const InsiderActivityPanel = dynamic(() => import('@/components/InsiderActivityPanel'), { ssr: false, loading: () => <div className="min-h-[300px] flex items-center justify-center"><div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" /></div> });
 import DualGaugeHUD from '@/components/ui/DualGaugeHUD';
