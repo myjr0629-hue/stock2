@@ -18,7 +18,7 @@
 //    Hero story's deep layer is free (taste of the reward).
 // ============================================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 type Locale = 'ko' | 'en' | 'ja';
@@ -473,6 +473,27 @@ export default function UndercurrentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // [SHELL] Android hardware back: detail → breaking sheet → minimize.
+  const backStateRef = useRef<{ detail: boolean; breaking: boolean }>({ detail: false, breaking: false });
+  useEffect(() => {
+    let remove: (() => void) | undefined;
+    (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const isNative = require('@capacitor/core').Capacitor.isNativePlatform();
+        if (!isNative) return;
+        const AppMod: any = await import('@capacitor/app');
+        const h = await AppMod.App.addListener('backButton', () => {
+          if (backStateRef.current.detail) { setDetail(null); return; }
+          if (backStateRef.current.breaking) { setShowBreaking(false); return; }
+          AppMod.App.minimizeApp();
+        });
+        remove = () => { try { h.remove(); } catch { /* noop */ } };
+      } catch { /* web */ }
+    })();
+    return () => { remove?.(); };
+  }, []);
+
   const [feed, setFeed] = useState<Feed | null>(null);
   const [err, setErr] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
@@ -507,6 +528,8 @@ export default function UndercurrentPage() {
   const [storyTag, setStoryTag] = useState<string>(''); // '' = all (stories tab browse chips)
   const [macro, setMacro] = useState<MacroResult | null>(null);
   const [showBreaking, setShowBreaking] = useState(false);
+  // keep the hardware-back handler's view of open layers current
+  useEffect(() => { backStateRef.current = { detail: !!detail, breaking: showBreaking }; }, [detail, showBreaking]);
 
   useEffect(() => {
     let dead = false;
