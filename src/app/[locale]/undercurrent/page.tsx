@@ -55,7 +55,7 @@ const T: Record<Locale, Record<string, string>> = {
     breaking: '속보', breakingCenter: '속보 센터',
     breakingSub: '최근 2시간 내 새 소식',
     breakingEmpty: '지금은 새 속보가 없어요.',
-    pushSoon: '브레이킹 푸시 알림은 앱 버전에서 제공될 예정이에요.',
+    pushSoon: '속보 푸시 알림은 곧 제공될 예정이에요.',
     topics: '지금 토픽',
     edMorning: '모닝 에디션', edAfternoon: '애프터눈 에디션', edEvening: '이브닝 에디션',
     tabMacro: '매크로',
@@ -127,7 +127,7 @@ const T: Record<Locale, Record<string, string>> = {
     breaking: 'Breaking', breakingCenter: 'Breaking center',
     breakingSub: 'New in the last 2 hours',
     breakingEmpty: 'No fresh breaking news right now.',
-    pushSoon: 'Breaking push alerts are coming with the app version.',
+    pushSoon: 'Breaking push alerts are coming soon.',
     topics: 'Topics now',
     edMorning: 'Morning edition', edAfternoon: 'Afternoon edition', edEvening: 'Evening edition',
     tabMacro: 'Macro',
@@ -199,7 +199,7 @@ const T: Record<Locale, Record<string, string>> = {
     breaking: '速報', breakingCenter: '速報センター',
     breakingSub: '直近2時間の新着',
     breakingEmpty: 'いまは新しい速報がありません。',
-    pushSoon: '速報プッシュ通知はアプリ版で提供予定です。',
+    pushSoon: '速報プッシュ通知は近日提供予定です。',
     topics: 'いまのトピック',
     edMorning: 'モーニング版', edAfternoon: 'アフタヌーン版', edEvening: 'イブニング版',
     tabMacro: 'マクロ',
@@ -295,6 +295,10 @@ interface TickerResult {
   tickerRead: string | null;
   cards: Card[];
 }
+
+// [STORE] flip to true only when real AdMob units are wired into the shell —
+// dashed placeholder ad boxes read as an unfinished app to store reviewers.
+const ADS_LIVE = false;
 
 const POPULAR_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'AMD', 'PLTR', 'COIN'];
 const RECENT_KEY = 'uc_recent_tickers';
@@ -1360,7 +1364,7 @@ export default function UndercurrentPage() {
                   </>
                 )}
 
-                <NativeAdSlot t={t} />
+                {ADS_LIVE && <NativeAdSlot t={t} />}
 
                 {whaleCards.length > 0 && (
                   <>
@@ -1466,7 +1470,7 @@ export default function UndercurrentPage() {
                         {c.source && <div style={{ marginTop: 6, fontSize: 10.5, color: C.faint, fontWeight: 600 }}>{c.source}</div>}
                       </div>
                     </article>
-                    {i === 2 && <NativeAdSlot t={t} />}
+                    {ADS_LIVE && i === 2 && <NativeAdSlot t={t} />}
                   </span>
                 ))}
               </>
@@ -1534,7 +1538,7 @@ export default function UndercurrentPage() {
                 {divCards.map((c, i) => (
                   <span key={c.ticker}>
                     <StoryRow c={c} />
-                    {i === 1 && <NativeAdSlot t={t} />}
+                    {ADS_LIVE && i === 1 && <NativeAdSlot t={t} />}
                   </span>
                 ))}
               </>
@@ -1568,7 +1572,7 @@ export default function UndercurrentPage() {
                         <div style={{ fontSize: 13.5, fontWeight: 750 as any, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{c.plainTitle}</div>
                       </div>
                     </button>
-                    {i === 2 && <NativeAdSlot t={t} />}
+                    {ADS_LIVE && i === 2 && <NativeAdSlot t={t} />}
                   </span>
                 ))}
               </>
@@ -1600,7 +1604,7 @@ export default function UndercurrentPage() {
                   {shown.map((c, i) => (
                     <span key={c.ticker}>
                       <StoryRow c={c} />
-                      {(i === 2 || i === 6) && <NativeAdSlot t={t} />}
+                      {ADS_LIVE && (i === 2 || i === 6) && <NativeAdSlot t={t} />}
                     </span>
                   ))}
                 </>
@@ -1698,7 +1702,7 @@ export default function UndercurrentPage() {
                         {searchRes.cards.map((c, i) => (
                           <span key={`${c.ticker}-${i}`}>
                             <StoryRow c={c} />
-                            {i === 1 && <NativeAdSlot t={t} />}
+                            {ADS_LIVE && i === 1 && <NativeAdSlot t={t} />}
                           </span>
                         ))}
                       </>
