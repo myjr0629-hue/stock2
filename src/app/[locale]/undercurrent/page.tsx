@@ -19,7 +19,7 @@
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: unknown): Locale => (l === 'en' || l === 'ja' ? l : 'ko');
@@ -453,6 +453,7 @@ function DeepLayer({ c, t }: { c: Card; t: Record<string, string> }) {
 // ────────────────────────────────────────────────────────────────────────────
 export default function UndercurrentPage() {
   const params = useParams();
+  const router = useRouter();
   const loc = normLocale((params as any)?.locale);
   const t = T[loc];
 
@@ -465,7 +466,9 @@ export default function UndercurrentPage() {
       const want = saved && ['ko', 'en', 'ja'].includes(saved) ? saved
         : ['ko', 'en', 'ja'].includes(dev) ? dev : 'en';
       if (want !== loc) {
-        window.location.replace(window.location.pathname.replace(`/${loc}/`, `/${want}/`) + window.location.search);
+        // Router navigation only — window.location is treated as a top-level
+        // navigation by Capacitor and opens an in-app Safari (SIGNUM lesson).
+        router.replace(`/${want}/undercurrent${window.location.search}`);
       } else {
         localStorage.setItem('undercurrent.locale', loc);
       }
