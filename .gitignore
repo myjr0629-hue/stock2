@@ -57,3 +57,5 @@ android-*.png
 *.err.log
 *.out.log
 .vercelignore
+ios/App/build-device/
+uc-app/ios/App/build/

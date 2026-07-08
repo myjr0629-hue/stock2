@@ -6,3 +6,5 @@ android/.gradle/
 android/app/build/
 android/build/
 *.log
+keystore.properties
+undercurrent-upload-key.jks

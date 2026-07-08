@@ -86,13 +86,22 @@ export default async function LocaleLayout({ children, params }: Props) {
                                     )
                                 )}
 
-                                {/* 2. MAIN CONTENT */}
+                                {/* 2. MAIN CONTENT
+                                    Undercurrent is a SEPARATE app with its own shell logic
+                                    (locale bootstrap, back handling, LIGHT theme, own ad stack).
+                                    NativeAppProvider is SIGNUM-app-only — inside the Undercurrent
+                                    shell it initialized SIGNUM's ads (surprise ATT prompt), forced
+                                    a dark status bar and double-handled Android back. Skip it. */}
                                 <WebSocketProvider>
-                                    <NativeAppProvider>
-                                        <NativePullToRefresh>
-                                            {children}
-                                        </NativePullToRefresh>
-                                    </NativeAppProvider>
+                                    {isUndercurrent ? (
+                                        children
+                                    ) : (
+                                        <NativeAppProvider>
+                                            <NativePullToRefresh>
+                                                {children}
+                                            </NativePullToRefresh>
+                                        </NativeAppProvider>
+                                    )}
                                 </WebSocketProvider>
 
                                 {/* 3. FOOTER / BOTTOM NAV (Bifurcated) */}
