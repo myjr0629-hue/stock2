@@ -42,8 +42,8 @@ const T: Record<Locale, Record<string, string>> = {
     deepTitle: '심층 머니 레이어',
     deepLockedTitle: '이 종목의 심층 데이터',
     deepLockedDesc: '기관 장외 비중 · 풋/콜 보험 · 스퀴즈 압력 · 옵션 가격 지도',
-    unlockBtn: '30초 영상 보고 열기',
-    unlockNote: '(시제품: 탭하면 열립니다)',
+    unlockBtn: '심층 데이터 열기',
+    unlockNote: '지금은 무료로 열람할 수 있어요',
     sigOff: '기관 장외 거래', sigPcr: '하락 보험(풋/콜)', sigSq: '스퀴즈 압력',
     bandNormal: '보통', bandHigh: '높음', bandVeryHigh: '매우 높음',
     pcrCall: '콜 우위 · 강세 성향', pcrBal: '균형', pcrPut: '풋 우위 · 방어적',
@@ -107,8 +107,8 @@ const T: Record<Locale, Record<string, string>> = {
     deepTitle: 'Deep money layer',
     deepLockedTitle: 'Deep data for this ticker',
     deepLockedDesc: 'Institutional share · put/call insurance · squeeze · option price map',
-    unlockBtn: 'Watch 30s video to unlock',
-    unlockNote: '(prototype: tap to open)',
+    unlockBtn: 'Open the deep data',
+    unlockNote: 'Free to open for now',
     sigOff: 'Institutional off-exchange', sigPcr: 'Downside insurance (put/call)', sigSq: 'Squeeze pressure',
     bandNormal: 'Normal', bandHigh: 'High', bandVeryHigh: 'Very high',
     pcrCall: 'Call-heavy · bullish lean', pcrBal: 'Balanced', pcrPut: 'Put-heavy · defensive',
@@ -172,8 +172,8 @@ const T: Record<Locale, Record<string, string>> = {
     deepTitle: 'ディープ・マネーレイヤー',
     deepLockedTitle: 'この銘柄のディープデータ',
     deepLockedDesc: '機関シェア · プット/コール保険 · スクイーズ · オプション価格マップ',
-    unlockBtn: '30秒動画を見て開く',
-    unlockNote: '(試作: タップで開きます)',
+    unlockBtn: 'ディープデータを開く',
+    unlockNote: '今は無料でご覧いただけます',
     sigOff: '機関の場外取引', sigPcr: '下落保険(プット/コール)', sigSq: 'スクイーズ圧力',
     bandNormal: '普通', bandHigh: '高い', bandVeryHigh: '非常に高い',
     pcrCall: 'コール優勢 · 強気', pcrBal: '均衡', pcrPut: 'プット優勢 · 防御的',
@@ -455,6 +455,24 @@ export default function UndercurrentPage() {
   const params = useParams();
   const loc = normLocale((params as any)?.locale);
   const t = T[loc];
+
+  // [SHELL] device-locale bootstrap — the native shell always opens /en/…;
+  // route once to the user's saved or device language (mirrors app-view).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('undercurrent.locale');
+      const dev = (navigator.language || 'en').slice(0, 2).toLowerCase();
+      const want = saved && ['ko', 'en', 'ja'].includes(saved) ? saved
+        : ['ko', 'en', 'ja'].includes(dev) ? dev : 'en';
+      if (want !== loc) {
+        window.location.replace(window.location.pathname.replace(`/${loc}/`, `/${want}/`) + window.location.search);
+      } else {
+        localStorage.setItem('undercurrent.locale', loc);
+      }
+    } catch { /* storage unavailable */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [feed, setFeed] = useState<Feed | null>(null);
   const [err, setErr] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
