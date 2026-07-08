@@ -9,5 +9,8 @@ import { AppLegalDocument } from '@/components/app/AppLegalDocument';
 export default function UndercurrentPrivacyPage() {
   const params = useParams();
   const loc = ((params as any)?.locale === 'en' || (params as any)?.locale === 'ja') ? (params as any).locale : 'ko';
-  return <AppLegalDocument locale={loc} doc="privacy" backHref={`/${loc}/undercurrent`} badgeText="UNDERCURRENT" />;
+  // backHref must be locale-LESS: AppLegalDocument uses next-intl's <Link> with
+  // localePrefix:'always', which prepends the current locale. Passing /${loc}/…
+  // double-prefixed it (/ko/ko/undercurrent) → broke back-nav out of the app.
+  return <AppLegalDocument locale={loc} doc="privacy" backHref="/undercurrent" badgeText="UNDERCURRENT" />;
 }

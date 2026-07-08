@@ -36,7 +36,7 @@ function fmpDateToIso(d?: string): string | null {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const loc: Locale = normLocale(searchParams.get('locale'));
-  const cacheKey = `undercurrent:macro:v3:${loc}`;
+  const cacheKey = `undercurrent:macro:v4:${loc}`;
 
   try {
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
@@ -120,7 +120,7 @@ RULES:
 - Output STRICT JSON only.`;
 
       const user = `Return {"macroRead":"...","cards":[...]} — one card per story IN ORDER:
-{"plainTitle":"<short accessible rewrite>","whyItMatters":"<one plain sentence for an ordinary person>","marketImpact":"risk-on|risk-off|mixed","impactNote":"<one plain sentence: why/how this shakes markets>","tag":"<1-2 word theme e.g. 금리/지정학/원자재/무역>"}
+{"plainTitle":"<short accessible rewrite>","whyItMatters":"<one plain sentence for an ordinary person>","marketImpact":"risk-on|risk-off|mixed","impactNote":"<one plain sentence: why/how this shakes markets>","tag":"<1-2 word theme IN ${langName[loc]}, e.g. rates/geopolitics/commodities/trade>"}
 
 MARKET CONTEXT: ${JSON.stringify(context)}
 

@@ -39,6 +39,7 @@ const T: Record<Locale, Record<string, string>> = {
     secWhale: '큰손 레이더', secWhaleSub: '기관이 장외에서 조용히 움직인 비중',
     secStories: '오늘의 스토리', secStoriesSub: '돈의 반응과 함께 읽는 뉴스',
     connected: '연결된 흐름', more: '더 보기',
+    share: '공유', shareCopied: '링크가 복사되었어요', viewTicker: '이 종목 전체 보기', backdropNow: '지금 시장',
     offExchange: '장외 거래 비중',
     deepTitle: '심층 머니 레이어',
     deepLockedTitle: '이 종목의 심층 데이터',
@@ -113,6 +114,7 @@ const T: Record<Locale, Record<string, string>> = {
     secWhale: 'Whale radar', secWhaleSub: 'Institutional off-exchange share',
     secStories: "Today's stories", secStoriesSub: 'News read together with the money',
     connected: 'Connected flows', more: 'See all',
+    share: 'Share', shareCopied: 'Link copied', viewTicker: 'See all on this ticker', backdropNow: 'The market now',
     offExchange: 'off-exchange share',
     deepTitle: 'Deep money layer',
     deepLockedTitle: 'Deep data for this ticker',
@@ -187,6 +189,7 @@ const T: Record<Locale, Record<string, string>> = {
     secWhale: '大口レーダー', secWhaleSub: '機関投資家の場外取引シェア',
     secStories: '今日のストーリー', secStoriesSub: 'お金の反応と一緒に読むニュース',
     connected: 'つながる流れ', more: 'すべて見る',
+    share: 'シェア', shareCopied: 'リンクをコピーしました', viewTicker: 'この銘柄をすべて見る', backdropNow: 'いまの市場',
     offExchange: '場外取引シェア',
     deepTitle: 'ディープ・マネーレイヤー',
     deepLockedTitle: 'この銘柄のディープデータ',
@@ -619,6 +622,7 @@ export default function UndercurrentPage() {
     return () => { alive = false; };
   }, [detail?.ticker]); // eslint-disable-line react-hooks/exhaustive-deps
   const [unlocked, setUnlocked] = useState<Record<string, boolean>>({});
+  const [shareToast, setShareToast] = useState(false); // clipboard-fallback confirmation
   // ── ticker search state ──
   const [searchQ, setSearchQ] = useState('');
   const [searchRes, setSearchRes] = useState<TickerResult | null>(null);
@@ -857,6 +861,30 @@ export default function UndercurrentPage() {
   // ads.ts enforces session grace / min gap / daily cap, so this is a no-op most of the time
   const closeDetail = () => { setDetail(null); if (adsAvailable()) maybeShowInterstitial(); };
 
+  // [INTERCONNECT] jump from a story to that ticker's full entity view (its own
+  // deep money layer + all its news) — the hub link of the web.
+  const gotoTicker = (tk: string) => { setDetail(null); setTab('search'); window.scrollTo(0, 0); runSearch(tk); };
+
+  // [SHARE] the divergence card is the viral unit. Web Share API (works in iOS
+  // WKWebView / Android WebView on a user gesture); clipboard + toast fallback.
+  const shareCard = async (c: Card) => {
+    const url = `https://www.signumhq.com/${loc}/undercurrent?open=${c.ticker}`;
+    const lead = c.divergence ? `${t.divergence} · ${c.ticker}` : c.ticker;
+    const body = (c.moneyRead || c.whyItMatters || '').trim();
+    const text = `${c.plainTitle}\n\n💰 ${lead}${body ? `\n${body}` : ''}\n\n— Undercurrent`;
+    try {
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        await (navigator as any).share({ title: c.plainTitle, text, url });
+        return;
+      }
+    } catch { return; /* user cancelled the native sheet — not an error */ }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setShareToast(true);
+      window.setTimeout(() => setShareToast(false), 1800);
+    } catch { /* no clipboard access — silently ignore */ }
+  };
+
   // ── [ADS] init + anchored banner once per session (native shell only) ──
   useEffect(() => {
     if (!adsAvailable()) return;
@@ -953,10 +981,31 @@ export default function UndercurrentPage() {
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               background: C.card, border: `1px solid ${C.line}`, fontSize: 17, fontWeight: 800, color: C.ink,
             }}>←</button>
-            <TickerLogo ticker={c.ticker} size={20} />
-            <span style={{ fontSize: 14, fontWeight: 900 }}>{c.ticker}</span>
+            {/* tappable ticker = hub link to the full entity view (interconnect) */}
+            <button type="button" onClick={() => gotoTicker(c.ticker)} aria-label={`${c.ticker} ${t.viewTicker}`} style={{
+              font: 'inherit', cursor: 'pointer', background: 'none', border: 'none', padding: 0,
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+            }}>
+              <TickerLogo ticker={c.ticker} size={20} />
+              <span style={{ fontSize: 14, fontWeight: 900 }}>{c.ticker}</span>
+            </button>
             <FreshBadge iso={c.publishedAt} t={t} />
-            <span style={{ marginLeft: 'auto' }}><MoodBadge mood={c.moneyMood} t={t} small /></span>
+            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <MoodBadge mood={c.moneyMood} t={t} small />
+              <button type="button" onClick={() => shareCard(c)} aria-label={t.share} style={{
+                font: 'inherit', cursor: 'pointer', borderRadius: '50%',
+                appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', padding: 0,
+                width: 34, height: 34, minWidth: 34, minHeight: 34, maxWidth: 34, maxHeight: 34,
+                aspectRatio: '1 / 1', flexShrink: 0,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: C.card, border: `1px solid ${C.line}`,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                  <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+                </svg>
+              </button>
+            </span>
           </header>
 
           {c.image && (
@@ -973,6 +1022,18 @@ export default function UndercurrentPage() {
           {c.source && (
             <div style={{ marginTop: 8, fontSize: 11.5, color: C.faint, fontWeight: 600 }}>{t.source} · {c.source}</div>
           )}
+
+          {/* [INTERCONNECT] explicit hub link: jump to this ticker's full entity view */}
+          <button type="button" onClick={() => gotoTicker(c.ticker)} style={{
+            font: 'inherit', cursor: 'pointer', marginTop: 12,
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+            borderRadius: 999, padding: '8px 14px',
+          }}>
+            <TickerLogo ticker={c.ticker} size={16} />
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>{c.ticker} · {t.viewTicker}</span>
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: C.emerald }}>→</span>
+          </button>
 
           {/* money read */}
           {c.moneyRead && (
@@ -1086,6 +1147,13 @@ export default function UndercurrentPage() {
 
           <UcFooter />
         </div>
+        {shareToast && (
+          <div style={{
+            position: 'fixed', left: '50%', bottom: 'calc(30px + env(safe-area-inset-bottom))',
+            transform: 'translateX(-50%)', zIndex: 80, background: C.ink, color: '#fff',
+            fontSize: 12.5, fontWeight: 800, padding: '10px 16px', borderRadius: 999, boxShadow: C.shadow,
+          }}>{t.shareCopied}</div>
+        )}
         <style>{CSS_ANIM}</style>
       </div>
     );
@@ -1248,6 +1316,47 @@ export default function UndercurrentPage() {
                   </div>
                 )}
 
+                {/* ── [MARKET BACKDROP] the weather before the stories: frame the
+                    whole edition with the macro backdrop up top (World→Market),
+                    then let readers dive into individual names below. Tap → macro. ── */}
+                {macro && (macro.macroRead || macro.cards.length > 0) && (
+                  <button type="button" onClick={() => { setTab('macro'); window.scrollTo(0, 0); }} style={{
+                    font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%',
+                    marginTop: 14, borderRadius: 18, padding: '13px 15px 14px', boxShadow: C.shadow,
+                    background: `linear-gradient(135deg, ${C.ink}, #2A2E38)`, color: '#fff', border: 'none',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#9BE8C4', display: 'inline-block' }} />
+                      <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '0.12em', color: '#9BE8C4' }}>{t.backdropNow.toUpperCase()}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>· {t.macroTitle}</span>
+                      {macro.cards[0] && <span style={{ marginLeft: 'auto' }}><ImpactBadge impact={macro.cards[0].marketImpact} t={t} /></span>}
+                    </div>
+                    {macro.macroRead ? (
+                      <p style={{ margin: '9px 0 0', fontSize: 14, lineHeight: 1.55, fontWeight: 600 as any, color: 'rgba(255,255,255,0.92)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{macro.macroRead}</p>
+                    ) : macro.cards[0] && (
+                      <p style={{ margin: '9px 0 0', fontSize: 14, lineHeight: 1.4, fontWeight: 700 as any, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{macro.cards[0].plainTitle}</p>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 11, flexWrap: 'wrap' }}>
+                      {typeof macro.context.yield10Y === 'number' && (
+                        <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px' }}>
+                          <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctx10Y} </span>{macro.context.yield10Y.toFixed(2)}%
+                        </span>
+                      )}
+                      {typeof macro.context.fedNoChange === 'number' && (
+                        <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px' }}>
+                          <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctxFed} </span>{Math.round(macro.context.fedNoChange)}%
+                        </span>
+                      )}
+                      {typeof macro.context.fearGreed === 'number' && (
+                        <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px' }}>
+                          <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctxFG} </span>{Math.round(macro.context.fearGreed)}
+                        </span>
+                      )}
+                      <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: '#9BE8C4', alignSelf: 'center' }}>{t.macroTeaser} →</span>
+                    </div>
+                  </button>
+                )}
+
                 {/* ── [EDITION COVER] finishable edition: progress + market pulse ── */}
                 {editionItems.length > 0 && (
                   <section style={{ marginTop: 14, background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: '12px 14px', boxShadow: C.shadow }}>
@@ -1382,34 +1491,7 @@ export default function UndercurrentPage() {
                   <span style={{ flex: 1, height: 1, background: C.line }} />
                 </div>
 
-                {/* macro teaser — the big picture that shakes markets */}
-                {macro && macro.cards.length > 0 && (
-                  <button type="button" onClick={() => { setTab('macro'); window.scrollTo(0, 0); }} style={{
-                    font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', border: 'none',
-                    marginTop: 12, borderRadius: 18, padding: '13px 15px', boxShadow: C.shadow,
-                    background: `linear-gradient(135deg, ${C.ink}, #2A2E38)`, color: '#fff',
-                    display: 'flex', alignItems: 'center', gap: 12,
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#9BE8C4' }}>{t.macroTitle.toUpperCase()}</span>
-                        <ImpactBadge impact={macro.cards[0].marketImpact} t={t} />
-                      </div>
-                      <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {macro.cards[0].plainTitle}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 650 as any, marginTop: 5 }}>
-                        {t.macroTeaser} · {macro.cards.length} →
-                      </div>
-                    </div>
-                    {typeof macro.context.yield10Y === 'number' && (
-                      <div style={{ flexShrink: 0, textAlign: 'center', background: 'rgba(255,255,255,0.09)', borderRadius: 12, padding: '8px 11px' }}>
-                        <div style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.6)' }}>{t.ctx10Y}</div>
-                        <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{macro.context.yield10Y.toFixed(2)}%</div>
-                      </div>
-                    )}
-                  </button>
-                )}
+                {/* (macro teaser moved to the TOP as the market backdrop — no dup here) */}
 
                 {/* topics now — tag pulse across today's stories */}
                 {topics.length > 1 && (
@@ -1885,7 +1967,7 @@ export default function UndercurrentPage() {
               <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>{t.stLang}</div>
               <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stLangSub}</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                {([['ko', '한국어'], ['en', 'English'], ['ja', '日本語']] as [Locale, string][]).map(([k, label]) => {
+                {([['en', 'English'], ['ja', '日本語'], ['ko', '한국어']] as [Locale, string][]).map(([k, label]) => {
                   const active = k === loc;
                   return (
                     <button key={k} type="button" onClick={() => {

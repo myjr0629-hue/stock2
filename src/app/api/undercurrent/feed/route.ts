@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   const loc = normLocale(searchParams.get('locale'));
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '12', 10) || 12, 1), 16);
   const skipCache = searchParams.get('refresh') === '1';
-  const cacheKey = `undercurrent:feed:v6:${loc}`;
+  const cacheKey = `undercurrent:feed:v7:${loc}`;
 
   try {
     if (!skipCache) {

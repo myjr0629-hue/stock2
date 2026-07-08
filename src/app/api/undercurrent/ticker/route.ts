@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: 'invalid ticker' }, { status: 400 });
   }
 
-  const cacheKey = `undercurrent:ticker:v3:${ticker}:${loc}`;
+  const cacheKey = `undercurrent:ticker:v4:${ticker}:${loc}`;
   try {
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.success) {

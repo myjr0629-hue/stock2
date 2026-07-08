@@ -186,20 +186,28 @@ export async function invokeJSON(system: string, user: string): Promise<any> {
 }
 
 // ── language enforcement ─────────────────────────────────────────────────────
-// The model sometimes keeps ENGLISH headlines when asked to "rewrite" them
-// (body text localizes fine, titles leak through — seen live on the ko feed).
-// Server-side guard: any text field lacking the locale's script gets translated
+// The model sometimes keeps text in the WRONG language for the target locale:
+//  - ko/ja: an English headline leaks through a "rewrite" (missing target script).
+//  - en:    a Korean/Japanese tag or phrase leaks BECAUSE our prompt examples are
+//           written in Korean (e.g. tag example 금리/지정학/원자재) — seen live on
+//           the EN macro feed showing "지정학/원자재". Previously en was skipped
+//           entirely, so these never got corrected.
+// Guard: any field whose text is NOT in the target locale's script gets translated
 // in ONE follow-up call. Mutates the given items in place; silent on failure.
-const SCRIPT_RE: Record<Locale, RegExp | null> = {
-  en: null,
+// CJK/kana/hangul = "foreign" for en (English content romanizes names, so any of
+// these characters signals an untranslated leak).
+const FOREIGN_FOR_EN = /[가-힣぀-ヿ一-鿿]/;
+const SCRIPT_RE: Record<Locale, RegExp> = {
   ko: /[가-힣]/,
   ja: /[぀-ヿ一-鿿]/,
+  en: FOREIGN_FOR_EN,
 };
 
 export function inLocaleLang(loc: Locale, s: string | null | undefined): boolean {
   if (!s) return true;
-  const re = SCRIPT_RE[loc];
-  return !re || re.test(s);
+  // en: leaked if it CONTAINS foreign script. ko/ja: leaked if it LACKS own script.
+  if (loc === 'en') return !FOREIGN_FOR_EN.test(s);
+  return SCRIPT_RE[loc].test(s);
 }
 
 export async function enforceLanguage(
@@ -207,7 +215,7 @@ export async function enforceLanguage(
   items: Record<string, any>[],
   fields: string[],
 ): Promise<void> {
-  if (loc === 'en') return;
+  // en is NO LONGER skipped — Korean/Japanese leaks into the EN feed get caught too.
   const jobs: { item: Record<string, any>; field: string; text: string }[] = [];
   for (const item of items) {
     for (const f of fields) {
