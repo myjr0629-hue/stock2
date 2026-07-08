@@ -260,6 +260,30 @@ const C = {
   shadow: '0 10px 30px rgba(23,25,30,0.07)',
 };
 
+// All edition/date logic is US-market (ET) based, so KO/JP readers see the SAME
+// edition boundary and calendar day as the market — not their local clock. Without
+// this a Seoul user at 01:00 KST (≈12:00 ET) saw "Morning edition" on the wrong day.
+function etNow(): { hour: number; isoDate: string } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour12: false, hour: '2-digit',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '';
+  let hour = parseInt(get('hour'), 10);
+  if (hour === 24) hour = 0; // Intl can emit '24' at ET midnight
+  return { hour, isoDate: `${get('year')}-${get('month')}-${get('day')}` };
+}
+
+// Bottom-nav line icons (inherit stroke from the parent <svg>). Keyed by Tab.
+const TAB_ICONS: Record<string, React.ReactElement> = {
+  home: <><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-4v-6H8v6H4a1 1 0 0 1-1-1z" /></>,
+  macro: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3c2.5 2.4 3.8 5.6 3.8 9s-1.3 6.6-3.8 9c-2.5-2.4-3.8-5.6-3.8-9S9.5 5.4 12 3z" /></>,
+  div: <><circle cx="6" cy="18" r="2.4" /><circle cx="18" cy="6" r="2.4" /><path d="M6 15.6V8a2 2 0 0 1 2-2h7.6" /><path d="m13 4 2.8 2L13 8" /></>,
+  whale: <><path d="M18 20V9" /><path d="M12 20V4" /><path d="M6 20v-6" /></>,
+  stories: <><path d="M3 5a1 1 0 0 1 1-1h5a2.5 2.5 0 0 1 2.5 2.5V20a2 2 0 0 0-2-2H4a1 1 0 0 1-1-1z" /><path d="M21 5a1 1 0 0 0-1-1h-5a2.5 2.5 0 0 0-2.5 2.5V20a2 2 0 0 1 2-2h5a1 1 0 0 0 1-1z" /></>,
+  search: <><circle cx="11" cy="11" r="7" /><path d="m20.5 20.5-4-4" /></>,
+};
+
 interface Money {
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
@@ -708,7 +732,8 @@ export default function UndercurrentPage() {
 
   const dateStr = useMemo(() => {
     const tag = loc === 'ko' ? 'ko-KR' : loc === 'ja' ? 'ja-JP' : 'en-US';
-    return new Date().toLocaleDateString(tag, { month: 'long', day: 'numeric', weekday: 'short' });
+    // ET calendar day (see etNow) — matches the edition boundary the market runs on.
+    return new Date().toLocaleDateString(tag, { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'America/New_York' });
   }, [loc]);
 
   const cards = feed?.cards || [];
@@ -739,7 +764,7 @@ export default function UndercurrentPage() {
   }, [cards]);
 
   const edition = useMemo(() => {
-    const h = new Date().getHours();
+    const h = etNow().hour;
     return h < 11 ? t.edMorning : h < 17 ? t.edAfternoon : t.edEvening;
   }, [t]);
 
@@ -748,10 +773,11 @@ export default function UndercurrentPage() {
   // tab shows exactly these items + a closing card; the full feed lives in
   // the Stories tab. Read state persists per (local date, edition slot).
   const editionSlot = useMemo(() => {
-    const h = new Date().getHours();
+    const h = etNow().hour;
     return h < 11 ? 'am' : h < 17 ? 'pm' : 'ev';
   }, []);
-  const editionKey = `uc.ed.read.${new Date().toISOString().slice(0, 10)}.${editionSlot}`;
+  // ET date so read-state resets at ET midnight (same day the edition is keyed to).
+  const editionKey = `uc.ed.read.${etNow().isoDate}.${editionSlot}`;
   const [readMap, setReadMap] = useState<Record<string, boolean>>({});
   useEffect(() => {
     try { setReadMap(JSON.parse(localStorage.getItem(editionKey) || '{}')); } catch { /* fresh */ }
@@ -1069,9 +1095,12 @@ export default function UndercurrentPage() {
   const TabBar = () => (
     <nav style={{
       position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60,
-      background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-      borderTop: `1px solid ${C.line}`, display: 'flex',
-      paddingBottom: 'env(safe-area-inset-bottom)',
+      // frosted glass: translucent so the feed shows through + heavy blur & saturation.
+      // (was 0.92 white = effectively opaque, so the blur never read as glass.)
+      background: 'rgba(252,250,246,0.72)',
+      backdropFilter: 'blur(22px) saturate(180%)', WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+      borderTop: '1px solid rgba(23,25,30,0.06)', boxShadow: '0 -6px 26px rgba(23,25,30,0.06)',
+      display: 'flex', paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
       {([
         { k: 'home', label: t.tabHome, dot: null },
@@ -1082,21 +1111,34 @@ export default function UndercurrentPage() {
         { k: 'search', label: t.tabSearch, dot: null },
       ] as { k: Tab; label: string; dot: number | null }[]).map((m) => {
         const active = tab === m.k;
+        const col = active ? C.emerald : C.faint;
         return (
           <button key={m.k} type="button" onClick={() => { setTab(m.k); window.scrollTo(0, 0); }} style={{
-            font: 'inherit', cursor: 'pointer', flex: 1, padding: '11px 0 9px',
-            background: 'none', border: 'none', color: active ? C.ink : C.faint,
+            font: 'inherit', cursor: 'pointer', flex: 1, position: 'relative',
+            padding: '9px 0 7px', background: 'none', border: 'none', color: col,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            transition: 'color 0.18s ease',
           }}>
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <span style={{ fontSize: 12.5, fontWeight: active ? 900 : 700 }}>{m.label}</span>
+            {/* active indicator bar */}
+            <span style={{
+              position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+              width: active ? 20 : 0, height: 2.5, borderRadius: 2, background: C.emerald,
+              transition: 'width 0.2s ease', opacity: active ? 1 : 0,
+            }} />
+            <span style={{ position: 'relative', display: 'inline-flex' }}>
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth={active ? 2.3 : 2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                {TAB_ICONS[m.k]}
+              </svg>
               {m.dot ? (
                 <span style={{
-                  position: 'absolute', top: -4, right: -14, fontSize: 8.5, fontWeight: 900, color: '#fff',
-                  background: m.k === 'div' ? C.diverge : C.emerald, borderRadius: 999, padding: '1.5px 5px',
+                  position: 'absolute', top: -5, right: -9, fontSize: 8.5, fontWeight: 900, color: '#fff',
+                  background: m.k === 'div' ? C.diverge : C.emerald, borderRadius: 999,
+                  minWidth: 15, textAlign: 'center', padding: '1px 4px', lineHeight: 1.3,
+                  border: '1.5px solid rgba(252,250,246,0.9)',
                 }}>{m.dot}</span>
               ) : null}
-            </div>
-            <div style={{ width: 4, height: 4, borderRadius: '50%', background: active ? C.ink : 'transparent', margin: '3px auto 0' }} />
+            </span>
+            <span style={{ fontSize: 10, fontWeight: active ? 800 : 600, letterSpacing: '0.01em' }}>{m.label}</span>
           </button>
         );
       })}
@@ -1116,9 +1158,11 @@ export default function UndercurrentPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/undercurrent-symbol.svg" alt="Undercurrent" style={{ width: 22, height: 22 }} />
             </span>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, minWidth: 0, overflow: 'hidden' }}>
-              <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>Undercurrent</span>
-              <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: C.faint, whiteSpace: 'nowrap' }}>by SIGNUM HQ</span>
+            {/* wordmark + attribution STACKED (was inline → "by SIGNUM HQ" clipped on
+                narrow phones once the two round buttons claimed their width). */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, overflow: 'hidden' }}>
+              <span style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.03em', whiteSpace: 'nowrap', lineHeight: 1.02 }}>Undercurrent</span>
+              <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '0.14em', color: C.faint, whiteSpace: 'nowrap', marginTop: 2 }}>BY SIGNUM HQ</span>
             </div>
             <button type="button" onClick={() => setShowSettings(true)} aria-label={t.stTitle} style={{
               borderRadius: '50%', cursor: 'pointer', marginLeft: 'auto',
@@ -1153,7 +1197,9 @@ export default function UndercurrentPage() {
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginTop: 5, paddingLeft: 44 }}>
             <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.tagline}</span>
             <span style={{ fontSize: 11.5, fontWeight: 600, color: C.faint, whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {dateStr} <span style={{ opacity: 0.45, margin: '0 2px' }}>·</span> <span style={{ color: C.emerald, fontWeight: 800, letterSpacing: '0.04em' }}>{edition}</span>
+              {dateStr}
+              <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '0.06em', color: C.faint, background: C.neutralBg, borderRadius: 5, padding: '1px 4px', margin: '0 3px', verticalAlign: '1px' }}>ET</span>
+              <span style={{ opacity: 0.45, margin: '0 1px' }}>·</span> <span style={{ color: C.emerald, fontWeight: 800, letterSpacing: '0.04em' }}>{edition}</span>
             </span>
           </div>
         </header>
