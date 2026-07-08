@@ -935,9 +935,9 @@ export default function UndercurrentPage() {
             date column beside the bell — cluttered on narrow screens. */}
         <header style={{ paddingTop: 'calc(20px + env(safe-area-inset-top))' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ width: 34, height: 34, borderRadius: 10, background: C.ink, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ width: 34, height: 34, borderRadius: 10, background: '#FCFAF6', border: `1px solid ${C.line}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/signum-sg-vectorized.svg" alt="SIGNUM" style={{ width: 20, height: 20 }} />
+              <img src="/undercurrent-symbol.svg" alt="Undercurrent" style={{ width: 22, height: 22 }} />
             </span>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, minWidth: 0, overflow: 'hidden' }}>
               <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>Undercurrent</span>
