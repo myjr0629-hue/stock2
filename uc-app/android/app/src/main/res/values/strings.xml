@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Undercurrent</string>
+    <string name="title_activity_main">Undercurrent</string>
+    <string name="package_name">com.signumhq.undercurrent</string>
+    <string name="custom_url_scheme">com.signumhq.undercurrent</string>
+</resources>
