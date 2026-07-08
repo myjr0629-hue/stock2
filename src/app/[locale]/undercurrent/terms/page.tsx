@@ -9,5 +9,5 @@ import { AppLegalDocument } from '@/components/app/AppLegalDocument';
 export default function UndercurrentTermsPage() {
   const params = useParams();
   const loc = ((params as any)?.locale === 'en' || (params as any)?.locale === 'ja') ? (params as any).locale : 'ko';
-  return <AppLegalDocument locale={loc} doc="terms" backHref={`/${loc}/undercurrent`} />;
+  return <AppLegalDocument locale={loc} doc="terms" backHref={`/${loc}/undercurrent`} badgeText="UNDERCURRENT" />;
 }

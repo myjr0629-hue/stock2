@@ -222,10 +222,11 @@ function resolveLocale(locale: string): LocaleKey {
   return 'en';
 }
 
-export function AppLegalDocument({ locale, doc, backHref }: { locale: string; doc: DocType; backHref?: string }) {
+export function AppLegalDocument({ locale, doc, backHref, badgeText }: { locale: string; doc: DocType; backHref?: string; badgeText?: string }) {
   const copy = COPY[resolveLocale(locale)];
   const sections = doc === 'privacy' ? copy.privacy : copy.terms;
   const title = doc === 'privacy' ? copy.privacyTitle : copy.termsTitle;
+  const badge = badgeText || copy.badge;
 
   return (
     <main className={styles.page}>
@@ -234,12 +235,12 @@ export function AppLegalDocument({ locale, doc, backHref }: { locale: string; do
           <Link href={(backHref || '/app-view/dash') as never} className={styles.back}>
             {copy.back}
           </Link>
-          <span className={styles.badge}>{copy.badge}</span>
+          <span className={styles.badge}>{badge}</span>
         </div>
 
         <article className={styles.card}>
           <header className={styles.hero}>
-            <span className={styles.badge}>{copy.badge}</span>
+            <span className={styles.badge}>{badge}</span>
             <h1 className={styles.title}>{title}</h1>
             <p className={styles.updated}>{copy.updated}</p>
           </header>
