@@ -89,6 +89,13 @@ const T: Record<Locale, Record<string, string>> = {
     insiderBuys: '매수', insiderSells: '매도', insiderNetBuy: '순매수', insiderNetSell: '순매도',
     unlockFreeBtn: '오늘 첫 열람 무료 · 바로 열기',
     unlockFreeNote: '하루 한 종목은 광고 없이 열립니다',
+    stTitle: '설정',
+    stLang: '언어', stLangSub: '앱 표시 언어',
+    stNotif: '속보 푸시 알림', stNotifSub: '곧 제공될 예정이에요', stSoon: '준비 중',
+    stRate: '앱 평가하기', stRateSub: '별점 한 번이 큰 힘이 됩니다',
+    stPolicy: '약관 및 정책',
+    stPrivacy: '개인정보처리방침', stTerms: '이용약관',
+    stVersion: '버전',
   },
   en: {
     tagline: 'The money moving behind the news',
@@ -154,6 +161,13 @@ const T: Record<Locale, Record<string, string>> = {
     insiderBuys: 'buys', insiderSells: 'sells', insiderNetBuy: 'net buying', insiderNetSell: 'net selling',
     unlockFreeBtn: "Today's first unlock is free · open now",
     unlockFreeNote: 'One ticker a day opens without an ad',
+    stTitle: 'Settings',
+    stLang: 'Language', stLangSub: 'App display language',
+    stNotif: 'Breaking push alerts', stNotifSub: 'Coming soon', stSoon: 'Soon',
+    stRate: 'Rate the app', stRateSub: 'A quick rating helps a lot',
+    stPolicy: 'Legal',
+    stPrivacy: 'Privacy Policy', stTerms: 'Terms of Service',
+    stVersion: 'Version',
   },
   ja: {
     tagline: 'ニュースの裏で動くお金',
@@ -219,6 +233,13 @@ const T: Record<Locale, Record<string, string>> = {
     insiderBuys: '買い', insiderSells: '売り', insiderNetBuy: '純買い', insiderNetSell: '純売り',
     unlockFreeBtn: '本日最初の閲覧は無料 · 今すぐ開く',
     unlockFreeNote: '1日1銘柄は広告なしで開けます',
+    stTitle: '設定',
+    stLang: '言語', stLangSub: 'アプリの表示言語',
+    stNotif: '速報プッシュ通知', stNotifSub: '近日提供予定です', stSoon: '準備中',
+    stRate: 'アプリを評価する', stRateSub: '評価が大きな励みになります',
+    stPolicy: '規約とポリシー',
+    stPrivacy: 'プライバシーポリシー', stTerms: '利用規約',
+    stVersion: 'バージョン',
   },
 };
 
@@ -332,6 +353,35 @@ function DivBadge({ t, small }: { t: Record<string, string>; small?: boolean }) 
       padding: small ? '3px 8px' : '5px 10px', borderRadius: 999, letterSpacing: '0.02em', whiteSpace: 'nowrap',
     }}>
       {t.divergence}
+    </span>
+  );
+}
+
+// ── real company symbol shown before the ticker (branding icon via our own
+//    proxy /api/undercurrent/logo; the raw URL needs our API key). Monogram
+//    fallback keeps layout identical when a name has no logo. ──
+function TickerLogo({ ticker, size = 18 }: { ticker: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  const box = {
+    width: size, height: size, minWidth: size, minHeight: size, borderRadius: '50%',
+    flexShrink: 0, overflow: 'hidden', background: '#fff', border: `1px solid ${C.line}`,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  } as const;
+  if (failed) {
+    return (
+      <span aria-hidden style={{ ...box, background: C.neutralBg, color: C.sub, fontSize: Math.round(size * 0.52), fontWeight: 900, lineHeight: 1 }}>
+        {ticker[0]}
+      </span>
+    );
+  }
+  return (
+    <span aria-hidden style={box}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/api/undercurrent/logo?t=${ticker}`} alt=""
+        onError={() => setFailed(true)}
+        style={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block' }}
+      />
     </span>
   );
 }
@@ -491,8 +541,8 @@ export default function UndercurrentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // [SHELL] Android hardware back: detail → breaking sheet → minimize.
-  const backStateRef = useRef<{ detail: boolean; breaking: boolean }>({ detail: false, breaking: false });
+  // [SHELL] Android hardware back: detail → settings → breaking sheet → minimize.
+  const backStateRef = useRef<{ detail: boolean; breaking: boolean; settings: boolean }>({ detail: false, breaking: false, settings: false });
   useEffect(() => {
     let remove: (() => void) | undefined;
     (async () => {
@@ -503,6 +553,7 @@ export default function UndercurrentPage() {
         const AppMod: any = await import('@capacitor/app');
         const h = await AppMod.App.addListener('backButton', () => {
           if (backStateRef.current.detail) { setDetail(null); return; }
+          if (backStateRef.current.settings) { setShowSettings(false); return; }
           if (backStateRef.current.breaking) { setShowBreaking(false); return; }
           AppMod.App.minimizeApp();
         });
@@ -546,8 +597,27 @@ export default function UndercurrentPage() {
   const [storyTag, setStoryTag] = useState<string>(''); // '' = all (stories tab browse chips)
   const [macro, setMacro] = useState<MacroResult | null>(null);
   const [showBreaking, setShowBreaking] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   // keep the hardware-back handler's view of open layers current
-  useEffect(() => { backStateRef.current = { detail: !!detail, breaking: showBreaking }; }, [detail, showBreaking]);
+  useEffect(() => { backStateRef.current = { detail: !!detail, breaking: showBreaking, settings: showSettings }; }, [detail, showBreaking, showSettings]);
+
+  // ── [REVIEW] native in-app rating (official OS sheet — StoreKit / Play Core).
+  // NEVER incentivized (store policy); asked at natural high points only, and
+  // the OS itself decides whether the sheet actually appears.
+  const [canRate, setCanRate] = useState(false);
+  useEffect(() => {
+    try {
+      const cap = (window as any).Capacitor;
+      setCanRate(!!(cap?.isNativePlatform?.() && cap?.Plugins?.InAppReview));
+    } catch { /* web */ }
+  }, []);
+  const requestReview = () => {
+    try {
+      const cap = (window as any).Capacitor;
+      const p = cap?.Plugins?.InAppReview;
+      if (cap?.isNativePlatform?.() && p?.requestReview) { p.requestReview().catch(() => {}); }
+    } catch { /* noop */ }
+  };
 
   useEffect(() => {
     let dead = false;
@@ -679,6 +749,21 @@ export default function UndercurrentPage() {
   };
   const nextEditionLabel = editionSlot === 'am' ? t.edAfternoon : editionSlot === 'pm' ? t.edEvening : t.edMorning;
 
+  // finishing an edition is the natural high point — ask for a rating on the
+  // 2nd and 7th finished edition (counted once per edition), native only
+  useEffect(() => {
+    if (!editionDone) return;
+    try {
+      const flag = `uc.ed.doneflag.${editionKey}`;
+      if (localStorage.getItem(flag)) return;
+      localStorage.setItem(flag, '1');
+      const n = (parseInt(localStorage.getItem('uc.ed.doneCount') || '0', 10) || 0) + 1;
+      localStorage.setItem('uc.ed.doneCount', String(n));
+      if (n === 2 || n === 7) setTimeout(requestReview, 1400);
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editionDone, editionKey]);
+
   // ── [SCOREBOARD] divergence trust loop: who was right 3 days later ──
   const [scoreboard, setScoreboard] = useState<any>(null);
   useEffect(() => {
@@ -742,6 +827,7 @@ export default function UndercurrentPage() {
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5, flexWrap: 'wrap' }}>
+          <TickerLogo ticker={c.ticker} size={16} />
           <span style={{ fontSize: 10.5, fontWeight: 800, color: C.faint }}>{c.tag ? `${c.tag} · ` : ''}{c.ticker}</span>
           <FreshBadge iso={c.publishedAt} t={t} />
           {c.divergence && <DivBadge t={t} small />}
@@ -756,6 +842,23 @@ export default function UndercurrentPage() {
         <div style={{ marginTop: 8 }}><MoodBadge mood={c.moneyMood} t={t} small /></div>
       </div>
     </button>
+  );
+
+  // ── shared footer: disclaimer + legal links (router nav only — top-level
+  //    navigation would kick the Capacitor shell into in-app Safari) ──
+  const linkBtnStyle = {
+    font: 'inherit', cursor: 'pointer', background: 'none', border: 'none', padding: 0,
+    fontSize: 11, fontWeight: 750 as any, color: C.sub, textDecoration: 'underline', textUnderlineOffset: 2,
+  } as const;
+  const UcFooter = () => (
+    <footer style={{ marginTop: 22 }}>
+      <div style={{ fontSize: 11, lineHeight: 1.6, color: C.faint, fontStyle: 'italic' }}>{t.disclaimer}</div>
+      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => router.push(`/${loc}/undercurrent/privacy`)} style={linkBtnStyle}>{t.stPrivacy}</button>
+        <button type="button" onClick={() => router.push(`/${loc}/undercurrent/terms`)} style={linkBtnStyle}>{t.stTerms}</button>
+        <span style={{ marginLeft: 'auto', fontSize: 10.5, color: C.faint, fontWeight: 600 }}>Undercurrent 1.0.0 · SIGNUM HQ, LLC</span>
+      </div>
+    </footer>
   );
 
   // ── DETAIL VIEW (slide-up page) ──
@@ -780,6 +883,7 @@ export default function UndercurrentPage() {
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               background: C.card, border: `1px solid ${C.line}`, fontSize: 17, fontWeight: 800, color: C.ink,
             }}>←</button>
+            <TickerLogo ticker={c.ticker} size={20} />
             <span style={{ fontSize: 14, fontWeight: 900 }}>{c.ticker}</span>
             <FreshBadge iso={c.publishedAt} t={t} />
             <span style={{ marginLeft: 'auto' }}><MoodBadge mood={c.moneyMood} t={t} small /></span>
@@ -900,7 +1004,7 @@ export default function UndercurrentPage() {
             </>
           )}
 
-          <footer style={{ marginTop: 22, fontSize: 11, lineHeight: 1.6, color: C.faint, fontStyle: 'italic' }}>{t.disclaimer}</footer>
+          <UcFooter />
         </div>
         <style>{CSS_ANIM}</style>
       </div>
@@ -962,8 +1066,21 @@ export default function UndercurrentPage() {
               <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>Undercurrent</span>
               <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: C.faint, whiteSpace: 'nowrap' }}>by SIGNUM HQ</span>
             </div>
+            <button type="button" onClick={() => setShowSettings(true)} aria-label={t.stTitle} style={{
+              borderRadius: '50%', cursor: 'pointer', marginLeft: 'auto',
+              appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', padding: 0,
+              width: 36, height: 36, minWidth: 36, minHeight: 36, maxWidth: 36, maxHeight: 36,
+              aspectRatio: '1 / 1',
+              background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
             <button type="button" onClick={() => setShowBreaking(true)} aria-label={t.breakingCenter} style={{
-              position: 'relative', borderRadius: '50%', cursor: 'pointer', marginLeft: 'auto',
+              position: 'relative', borderRadius: '50%', cursor: 'pointer',
               appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', padding: 0,
               width: 36, height: 36, minWidth: 36, minHeight: 36, maxWidth: 36, maxHeight: 36,
               aspectRatio: '1 / 1',
@@ -1079,6 +1196,7 @@ export default function UndercurrentPage() {
                     <div style={{ padding: '15px 17px 17px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
                         {hero.tag && <span style={{ fontSize: 11.5, fontWeight: 800, color: C.sub, background: C.neutralBg, padding: '4px 10px', borderRadius: 999 }}>{hero.tag}</span>}
+                        <TickerLogo ticker={hero.ticker} size={16} />
                         <span style={{ fontSize: 11.5, fontWeight: 700, color: C.faint }}>{hero.ticker}</span>
                         {!hero.image && <FreshBadge iso={hero.publishedAt} t={t} />}
                         {!hero.image && hero.divergence && <DivBadge t={t} small />}
@@ -1558,6 +1676,7 @@ export default function UndercurrentPage() {
                   <>
                     <div style={{ marginTop: 16, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`, boxShadow: C.shadow, padding: '14px 16px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <TickerLogo ticker={searchRes.ticker} size={26} />
                         <span style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.01em' }}>{searchRes.ticker}</span>
                         {typeof searchRes.money?.price === 'number' && (
                           <span style={{ fontSize: 13.5, fontWeight: 750 as any, color: C.sub, fontVariantNumeric: 'tabular-nums' }}>${searchRes.money.price.toFixed(2)}</span>
@@ -1589,9 +1708,7 @@ export default function UndercurrentPage() {
               </>
             )}
 
-            {cards.length > 0 && (
-              <footer style={{ marginTop: 22, fontSize: 11, lineHeight: 1.6, color: C.faint, fontStyle: 'italic' }}>{t.disclaimer}</footer>
-            )}
+            {cards.length > 0 && <UcFooter />}
           </div>
         )}
       </div>
@@ -1637,6 +1754,97 @@ export default function UndercurrentPage() {
                 <path d="M13.7 21a2 2 0 0 1-3.4 0" />
               </svg>
               <span style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{t.pushSoon}</span>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSettings && (
+        <div role="dialog" aria-modal="true" aria-label={t.stTitle} onClick={() => setShowSettings(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(23,25,30,0.45)',
+          backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }}>
+          <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
+            width: '100%', maxWidth: 560, maxHeight: '82vh', overflowY: 'auto',
+            background: C.bg, borderRadius: '22px 22px 0 0',
+            padding: '16px 18px calc(26px + env(safe-area-inset-bottom))',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 17, fontWeight: 900 }}>{t.stTitle}</span>
+              <button type="button" onClick={() => setShowSettings(false)} aria-label={t.back} style={{
+                marginLeft: 'auto', cursor: 'pointer', borderRadius: '50%',
+                appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', padding: 0,
+                width: 30, height: 30, minWidth: 30, minHeight: 30, maxWidth: 30, maxHeight: 30,
+                aspectRatio: '1 / 1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: C.card, border: `1px solid ${C.line}`, color: C.sub, fontSize: 15, lineHeight: 1,
+              }}>×</button>
+            </div>
+
+            {/* language */}
+            <div style={{ marginTop: 14, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadow, padding: '13px 15px' }}>
+              <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>{t.stLang}</div>
+              <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stLangSub}</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                {([['ko', '한국어'], ['en', 'English'], ['ja', '日本語']] as [Locale, string][]).map(([k, label]) => {
+                  const active = k === loc;
+                  return (
+                    <button key={k} type="button" onClick={() => {
+                      try { localStorage.setItem('undercurrent.locale', k); } catch { /* noop */ }
+                      if (k !== loc) {
+                        // router nav only — window.location would open in-app Safari (Capacitor)
+                        router.replace(`/${k}/undercurrent`);
+                      }
+                      setShowSettings(false);
+                    }} style={{
+                      font: 'inherit', flex: 1, cursor: 'pointer', fontSize: 13, fontWeight: active ? 900 : 700,
+                      color: active ? '#fff' : C.ink, background: active ? C.ink : C.bg,
+                      border: `1px solid ${active ? C.ink : C.line}`, borderRadius: 12, padding: '10px 0',
+                    }}>{label}</button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* notifications (native push lands with a later app version) */}
+            <div style={{ marginTop: 11, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadow, padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>{t.stNotif}</div>
+                <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stNotifSub}</div>
+              </div>
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: C.sub, background: C.neutralBg, padding: '4px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>{t.stSoon}</span>
+            </div>
+
+            {/* rate the app — native only, official OS review sheet, no rewards */}
+            {canRate && (
+              <button type="button" onClick={() => { requestReview(); setShowSettings(false); }} style={{
+                font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%',
+                marginTop: 11, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+                padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>★ {t.stRate}</div>
+                  <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stRateSub}</div>
+                </div>
+                <span style={{ color: C.faint, fontSize: 14 }}>→</span>
+              </button>
+            )}
+
+            {/* legal */}
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.faint, letterSpacing: '0.05em', margin: '16px 2px 8px' }}>{t.stPolicy}</div>
+            {([[t.stPrivacy, 'privacy'], [t.stTerms, 'terms']] as [string, string][]).map(([label, path]) => (
+              <button key={path} type="button" onClick={() => { setShowSettings(false); router.push(`/${loc}/undercurrent/${path}`); }} style={{
+                font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%',
+                marginTop: 8, background: C.card, borderRadius: 14, border: `1px solid ${C.line}`,
+                padding: '12px 15px', display: 'flex', alignItems: 'center', gap: 10,
+                fontSize: 13, fontWeight: 750 as any, color: C.ink,
+              }}>
+                {label}
+                <span style={{ marginLeft: 'auto', color: C.faint, fontSize: 14 }}>→</span>
+              </button>
+            ))}
+
+            <div style={{ marginTop: 16, textAlign: 'center', fontSize: 10.5, color: C.faint, fontWeight: 600 }}>
+              {t.stVersion} 1.0.0 · Undercurrent by SIGNUM HQ, LLC
             </div>
           </div>
         </div>

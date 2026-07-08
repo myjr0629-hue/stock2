@@ -5,6 +5,7 @@
   "description": "Undercurrent — native shell (Capacitor, remote webview)",
   "scripts": {},
   "dependencies": {
+    "@capacitor-community/in-app-review": "^8.0.0",
     "@capacitor/android": "^8.3.3",
     "@capacitor/app": "^8.0.0",
     "@capacitor/core": "^8.3.3",

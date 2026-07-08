@@ -222,7 +222,7 @@ function resolveLocale(locale: string): LocaleKey {
   return 'en';
 }
 
-export function AppLegalDocument({ locale, doc }: { locale: string; doc: DocType }) {
+export function AppLegalDocument({ locale, doc, backHref }: { locale: string; doc: DocType; backHref?: string }) {
   const copy = COPY[resolveLocale(locale)];
   const sections = doc === 'privacy' ? copy.privacy : copy.terms;
   const title = doc === 'privacy' ? copy.privacyTitle : copy.termsTitle;
@@ -231,7 +231,7 @@ export function AppLegalDocument({ locale, doc }: { locale: string; doc: DocType
     <main className={styles.page}>
       <div className={styles.shell}>
         <div className={styles.topbar}>
-          <Link href="/app-view/dash" className={styles.back}>
+          <Link href={(backHref || '/app-view/dash') as never} className={styles.back}>
             {copy.back}
           </Link>
           <span className={styles.badge}>{copy.badge}</span>
