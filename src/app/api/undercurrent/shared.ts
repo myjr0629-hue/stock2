@@ -128,6 +128,7 @@ HOW TO READ THE MONEY SIGNALS (be precise):
 
 RULES:
 - Write in ${langName[loc]}.
+- EVERY output field INCLUDING plainTitle must be written in ${langName[loc]}. Headlines usually arrive in English — TRANSLATE them into ${langName[loc]}; NEVER copy the original English wording. Keep tickers and company names as-is.
 - Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "dark pool", "max pain"). Translate: e.g. "기관들이 장외에서 이례적으로 많이 거래 중", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
 - Describe facts only — NEVER buy/sell/hold advice, NEVER price predictions.
 - moneyRead: ONE sentence, grounded ONLY in the given numbers. If signals are mixed or weak, say so honestly.
@@ -182,4 +183,46 @@ export async function invokeJSON(system: string, user: string): Promise<any> {
   const jsonStart = raw.indexOf('{');
   if (jsonStart > 0) raw = raw.slice(jsonStart);
   return JSON.parse(raw);
+}
+
+// ── language enforcement ─────────────────────────────────────────────────────
+// The model sometimes keeps ENGLISH headlines when asked to "rewrite" them
+// (body text localizes fine, titles leak through — seen live on the ko feed).
+// Server-side guard: any text field lacking the locale's script gets translated
+// in ONE follow-up call. Mutates the given items in place; silent on failure.
+const SCRIPT_RE: Record<Locale, RegExp | null> = {
+  en: null,
+  ko: /[가-힣]/,
+  ja: /[぀-ヿ一-鿿]/,
+};
+
+export function inLocaleLang(loc: Locale, s: string | null | undefined): boolean {
+  if (!s) return true;
+  const re = SCRIPT_RE[loc];
+  return !re || re.test(s);
+}
+
+export async function enforceLanguage(
+  loc: Locale,
+  items: Record<string, any>[],
+  fields: string[],
+): Promise<void> {
+  if (loc === 'en') return;
+  const jobs: { item: Record<string, any>; field: string; text: string }[] = [];
+  for (const item of items) {
+    for (const f of fields) {
+      const v = item?.[f];
+      if (typeof v === 'string' && v.trim() && !inLocaleLang(loc, v)) jobs.push({ item, field: f, text: v });
+    }
+  }
+  if (!jobs.length) return;
+  try {
+    const sys = `You translate financial news text into natural ${langName[loc]} for a general audience. Keep tickers, company names and numbers as-is. Output STRICT JSON only: {"t":["..."]} — exactly the same order and count as the input array.`;
+    const parsed = await invokeJSON(sys, JSON.stringify({ t: jobs.map((j) => j.text) }));
+    const out: any[] = Array.isArray(parsed?.t) ? parsed.t : [];
+    jobs.forEach((j, i) => {
+      const tr = out[i];
+      if (typeof tr === 'string' && tr.trim() && inLocaleLang(loc, tr)) j.item[j.field] = tr;
+    });
+  } catch { /* keep originals — better English than broken */ }
 }

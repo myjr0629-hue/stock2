@@ -13,7 +13,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
   normLocale, isSpam, primaryTicker, fetchMoney, hasRealMoney,
-  buildSystem, storyPayload, invokeJSON, cleanImage, type NewsItem,
+  buildSystem, storyPayload, invokeJSON, cleanImage, enforceLanguage, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   const loc = normLocale(searchParams.get('locale'));
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '12', 10) || 12, 1), 16);
   const skipCache = searchParams.get('refresh') === '1';
-  const cacheKey = `undercurrent:feed:v5:${loc}`;
+  const cacheKey = `undercurrent:feed:v6:${loc}`;
 
   try {
     if (!skipCache) {
@@ -112,6 +112,10 @@ ${storyPayload(stories)}`;
         publishedAt: p.item.published_utc || null,
       };
     });
+
+    // 4.5) language guard — translate any field the model left in English
+    // (titles leak through even with the system rule; body text rarely does)
+    await enforceLanguage(loc, cards, ['plainTitle', 'whyItMatters', 'moneyRead', 'tag']);
 
     // 5) feed-level pulse — the glanceable market mood (lock-in: re-check it)
     const pulse = {

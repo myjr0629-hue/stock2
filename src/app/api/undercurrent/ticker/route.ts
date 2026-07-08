@@ -12,7 +12,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
-  invokeJSON, TICKER_RE, cleanImage, type NewsItem,
+  invokeJSON, TICKER_RE, cleanImage, enforceLanguage, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: 'invalid ticker' }, { status: 400 });
   }
 
-  const cacheKey = `undercurrent:ticker:v2:${ticker}:${loc}`;
+  const cacheKey = `undercurrent:ticker:v3:${ticker}:${loc}`;
   try {
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.success) {
@@ -109,6 +109,11 @@ ${storyPayload(stories)}`;
         publishedAt: item.published_utc || null,
       };
     });
+
+    // language guard — the model can leave headlines (and rarely the read) in English
+    const trBox: Record<string, any> = { tickerRead };
+    await enforceLanguage(loc, [...cards, trBox], ['plainTitle', 'whyItMatters', 'moneyRead', 'tag', 'tickerRead']);
+    tickerRead = trBox.tickerRead;
 
     const payload = {
       success: true,

@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { normLocale, isSpam, invokeJSON, langName, cleanImage, type NewsItem, type Locale } from '../shared';
+import { normLocale, isSpam, invokeJSON, langName, cleanImage, enforceLanguage, type NewsItem, type Locale } from '../shared';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -36,7 +36,7 @@ function fmpDateToIso(d?: string): string | null {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const loc: Locale = normLocale(searchParams.get('locale'));
-  const cacheKey = `undercurrent:macro:v2:${loc}`;
+  const cacheKey = `undercurrent:macro:v3:${loc}`;
 
   try {
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
@@ -113,6 +113,7 @@ CONTEXT SIGNALS (read precisely, mention only what's given):
 
 RULES:
 - Write in ${langName[loc]}.
+- EVERY output field INCLUDING plainTitle must be written in ${langName[loc]}. Headlines usually arrive in English — TRANSLATE them; NEVER copy the original English wording.
 - Plain language for ordinary people; no jargon. Describe, NEVER advise; no predictions beyond what the numbers imply as positioning.
 - macroRead: 1-2 sentences on the CURRENT macro-money backdrop, grounded ONLY in the context numbers.
 - Per story: "marketImpact" = 'risk-on' | 'risk-off' | 'mixed' (how this news leans for risk assets), "impactNote" = one plain sentence WHY it moves markets / what it touches (rates, oil, supply chains…). Honest 'mixed' when unclear.
@@ -148,6 +149,11 @@ ${JSON.stringify(stories.map((s, i) => ({ n: i + 1, headline: s.title, summary: 
         publishedAt: s.publishedAt,
       };
     });
+
+    // language guard — translate anything the model left in English
+    const trBox: Record<string, any> = { macroRead };
+    await enforceLanguage(loc, [...cards, trBox], ['plainTitle', 'whyItMatters', 'impactNote', 'tag', 'macroRead']);
+    macroRead = trBox.macroRead;
 
     const payload = {
       success: true, locale: loc, context, macroRead,
