@@ -152,6 +152,25 @@ class AdManagerService {
     try {
       const { AdMob, AdmobConsentStatus } = await import('@capacitor-community/admob');
 
+      // ── ATT (iOS 14+) — MUST be the standalone plugin call. The old
+      // `initialize({ requestTrackingAuthorization: true })` option was REMOVED
+      // in plugin v5 and is silently ignored, so the ATT dialog never appeared
+      // (App Review 2.1 rejection, iOS 26.5.2, 2026-07-08). Request it explicitly
+      // BEFORE consent/initialize, with a short delay because iOS silently skips
+      // the dialog when asked while the app window is not active yet (launch/splash).
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.getPlatform() === 'ios') {
+          const att = await AdMob.trackingAuthorizationStatus();
+          if (att.status === 'notDetermined') {
+            await new Promise((r) => setTimeout(r, 900));
+            await AdMob.requestTrackingAuthorization();
+          }
+        }
+      } catch (attErr) {
+        console.warn('[AdManager] ATT request skipped:', attErr);
+      }
+
       // ── UMP consent (GDPR/EEA) — must run BEFORE initialize / loading ads. ──
       // Outside the EEA/UK the status resolves to NOT_REQUIRED and no form is shown.
       // Wrapped so a consent failure never blocks the app.
@@ -168,10 +187,9 @@ class AdManagerService {
       }
 
       await AdMob.initialize({
-        requestTrackingAuthorization: true,
         testingDevices: this.config.testMode ? ['EMULATOR'] : [],
         initializeForTesting: this.config.testMode,
-      } as any);
+      });
 
       // Pre-load interstitial and rewarded ads
       this.preloadInterstitial();
