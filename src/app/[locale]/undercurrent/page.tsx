@@ -410,22 +410,37 @@ function LevelMap({ m, t }: { m: Money; t: Record<string, string> }) {
   const min = Math.min(...vals), max = Math.max(...vals);
   const span = max - min || 1;
   const pos = (v: number) => 6 + ((v - min) / span) * 88; // %
+  const levels = pts.filter((p) => p.key !== 'now');
+  const now = pts.find((p) => p.key === 'now');
   return (
     <div style={{ marginTop: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: C.sub, marginBottom: 18 }}>{t.levels.toUpperCase()}</div>
-      <div style={{ position: 'relative', height: 46 }}>
+      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: C.sub, marginBottom: 16 }}>{t.levels.toUpperCase()}</div>
+      <div style={{ position: 'relative', height: now ? 64 : 48 }}>
         <div style={{ position: 'absolute', left: 0, right: 0, top: 21, height: 4, borderRadius: 99, background: 'linear-gradient(90deg, #DDEEE5, #EEECE6, #F3E3D2)' }} />
-        {pts.map((p) => (
+        {levels.map((p) => (
           <div key={p.key} style={{ position: 'absolute', left: `${pos(p.v)}%`, top: 0, transform: 'translateX(-50%)', textAlign: 'center' }}>
             <div style={{ fontSize: 9.5, fontWeight: 800, color: p.color, whiteSpace: 'nowrap' }}>{p.label}</div>
-            <div style={{
-              width: p.key === 'now' ? 13 : 9, height: p.key === 'now' ? 13 : 9, borderRadius: '50%',
-              background: p.color, margin: `${p.key === 'now' ? 4 : 6}px auto 3px`,
-              boxShadow: p.key === 'now' ? '0 0 0 4px rgba(23,25,30,0.12)' : 'none',
-            }} />
+            <div style={{ width: 9, height: 9, borderRadius: '50%', background: p.color, margin: '6px auto 3px' }} />
             <div style={{ fontSize: 9.5, fontWeight: 750 as any, color: C.sub, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>${Math.round(p.v)}</div>
           </div>
         ))}
+        {now && (
+          <>
+            {/* current-price marker sits ON the track; its label lives on its own
+                row below so it can never collide with a nearby level's text */}
+            <div style={{ position: 'absolute', left: `${pos(now.v)}%`, top: 17, transform: 'translateX(-50%)' }}>
+              <div style={{ width: 13, height: 13, borderRadius: '50%', background: now.color, boxShadow: '0 0 0 4px rgba(23,25,30,0.12)' }} />
+            </div>
+            <div style={{
+              position: 'absolute', top: 46,
+              left: `clamp(0%, calc(${pos(now.v)}% - 34px), calc(100% - 68px))`,
+              width: 68, textAlign: 'center',
+              fontSize: 10, fontWeight: 850 as any, color: now.color, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+            }}>
+              {now.label} ${Math.round(now.v)}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -758,7 +773,11 @@ export default function UndercurrentPage() {
             display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.line}`,
           }}>
             <button type="button" onClick={() => setDetail(null)} aria-label={t.back} style={{
-              font: 'inherit', cursor: 'pointer', width: 34, height: 34, borderRadius: '50%',
+              font: 'inherit', cursor: 'pointer', borderRadius: '50%',
+              appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', padding: 0,
+              width: 34, height: 34, minWidth: 34, minHeight: 34, maxWidth: 34, maxHeight: 34,
+              aspectRatio: '1 / 1', flexShrink: 0,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               background: C.card, border: `1px solid ${C.line}`, fontSize: 17, fontWeight: 800, color: C.ink,
             }}>←</button>
             <span style={{ fontSize: 14, fontWeight: 900 }}>{c.ticker}</span>
@@ -944,7 +963,10 @@ export default function UndercurrentPage() {
               <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: C.faint, whiteSpace: 'nowrap' }}>by SIGNUM HQ</span>
             </div>
             <button type="button" onClick={() => setShowBreaking(true)} aria-label={t.breakingCenter} style={{
-              position: 'relative', width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', marginLeft: 'auto',
+              position: 'relative', borderRadius: '50%', cursor: 'pointer', marginLeft: 'auto',
+              appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', padding: 0,
+              width: 36, height: 36, minWidth: 36, minHeight: 36, maxWidth: 36, maxHeight: 36,
+              aspectRatio: '1 / 1',
               background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadow,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
