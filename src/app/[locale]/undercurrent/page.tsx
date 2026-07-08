@@ -679,6 +679,7 @@ export default function UndercurrentPage() {
           }
           const tP = (sp.get('t') || '').toUpperCase();
           if (tP && /^[A-Z]{1,5}$/.test(tP)) { setTab('search'); runSearch(tP); }
+          if (sp.get('settings') === '1') setShowSettings(true);
         } catch { /* noop */ }
       })
       .catch(() => { if (!dead) setErr(true); });
