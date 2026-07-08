@@ -20,6 +20,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded } from './ads';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: unknown): Locale => (l === 'en' || l === 'ja' ? l : 'ko');
@@ -89,6 +90,8 @@ const T: Record<Locale, Record<string, string>> = {
     insiderBuys: '매수', insiderSells: '매도', insiderNetBuy: '순매수', insiderNetSell: '순매도',
     unlockFreeBtn: '오늘 첫 열람 무료 · 바로 열기',
     unlockFreeNote: '하루 한 종목은 광고 없이 열립니다',
+    unlockAdBtn: '광고 보고 무료로 열기',
+    adLoading: '광고 불러오는 중…',
     stTitle: '설정',
     stLang: '언어', stLangSub: '앱 표시 언어',
     stNotif: '속보 푸시 알림', stNotifSub: '곧 제공될 예정이에요', stSoon: '준비 중',
@@ -161,6 +164,8 @@ const T: Record<Locale, Record<string, string>> = {
     insiderBuys: 'buys', insiderSells: 'sells', insiderNetBuy: 'net buying', insiderNetSell: 'net selling',
     unlockFreeBtn: "Today's first unlock is free · open now",
     unlockFreeNote: 'One ticker a day opens without an ad',
+    unlockAdBtn: 'Watch an ad to unlock free',
+    adLoading: 'Loading ad…',
     stTitle: 'Settings',
     stLang: 'Language', stLangSub: 'App display language',
     stNotif: 'Breaking push alerts', stNotifSub: 'Coming soon', stSoon: 'Soon',
@@ -233,6 +238,8 @@ const T: Record<Locale, Record<string, string>> = {
     insiderBuys: '買い', insiderSells: '売り', insiderNetBuy: '純買い', insiderNetSell: '純売り',
     unlockFreeBtn: '本日最初の閲覧は無料 · 今すぐ開く',
     unlockFreeNote: '1日1銘柄は広告なしで開けます',
+    unlockAdBtn: '広告を見て無料で開く',
+    adLoading: '広告を読み込み中…',
     stTitle: '設定',
     stLang: '言語', stLangSub: 'アプリの表示言語',
     stNotif: '速報プッシュ通知', stNotifSub: '近日提供予定です', stSoon: '準備中',
@@ -295,10 +302,6 @@ interface TickerResult {
   tickerRead: string | null;
   cards: Card[];
 }
-
-// [STORE] flip to true only when real AdMob units are wired into the shell —
-// dashed placeholder ad boxes read as an unfinished app to store reviewers.
-const ADS_LIVE = false;
 
 const POPULAR_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'AMD', 'PLTR', 'COIN'];
 const RECENT_KEY = 'uc_recent_tickers';
@@ -556,7 +559,7 @@ export default function UndercurrentPage() {
         if (!isNative) return;
         const AppMod: any = await import('@capacitor/app');
         const h = await AppMod.App.addListener('backButton', () => {
-          if (backStateRef.current.detail) { setDetail(null); return; }
+          if (backStateRef.current.detail) { setDetail(null); if (adsAvailable()) maybeShowInterstitial(); return; }
           if (backStateRef.current.settings) { setShowSettings(false); return; }
           if (backStateRef.current.breaking) { setShowBreaking(false); return; }
           AppMod.App.minimizeApp();
@@ -807,6 +810,25 @@ export default function UndercurrentPage() {
   const isOpen = (c: Card) => isFree(c) || unlocked[c.ticker];
 
   const openDetail = (c: Card) => { setDetail(c); markRead(c); window.scrollTo(0, 0); };
+  // leaving a story is the ONE acceptable interstitial moment (never mid-read);
+  // ads.ts enforces session grace / min gap / daily cap, so this is a no-op most of the time
+  const closeDetail = () => { setDetail(null); if (adsAvailable()) maybeShowInterstitial(); };
+
+  // ── [ADS] init + anchored banner once per session (native shell only) ──
+  useEffect(() => {
+    if (!adsAvailable()) return;
+    initAds().then((ok) => { if (ok) showHomeBanner(62); });
+  }, []);
+
+  // rewarded unlock — beyond the daily free one, the deep layer is earned by an ad
+  const [adBusy, setAdBusy] = useState(false);
+  const unlockWithAd = (ticker: string) => {
+    if (adBusy) return;
+    setAdBusy(true);
+    showRewarded()
+      .then((ok) => { if (ok) setUnlocked((u) => ({ ...u, [ticker]: true })); })
+      .finally(() => setAdBusy(false));
+  };
 
   // ── shared story row (num/read: edition checklist mode) ──
   const StoryRow = ({ c, num, read }: { c: Card; num?: number; read?: boolean }) => (
@@ -880,7 +902,7 @@ export default function UndercurrentPage() {
             background: 'rgba(246,243,237,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
             display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.line}`,
           }}>
-            <button type="button" onClick={() => setDetail(null)} aria-label={t.back} style={{
+            <button type="button" onClick={closeDetail} aria-label={t.back} style={{
               font: 'inherit', cursor: 'pointer', borderRadius: '50%',
               appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', padding: 0,
               width: 34, height: 34, minWidth: 34, minHeight: 34, maxWidth: 34, maxHeight: 34,
@@ -987,15 +1009,25 @@ export default function UndercurrentPage() {
                 }}>
                   <div style={{ fontSize: 14, fontWeight: 850 as any }}>{t.deepLockedTitle}</div>
                   <div style={{ fontSize: 11.5, color: C.sub, fontWeight: 600, maxWidth: 260 }}>{t.deepLockedDesc}</div>
-                  <button type="button" onClick={() => consumeUnlock(c.ticker)} style={{
-                    font: 'inherit', cursor: 'pointer', marginTop: 4,
-                    fontSize: 13.5, fontWeight: 800, color: '#fff',
-                    background: freeUsed ? C.ink : C.emeraldDeep,
-                    border: 'none', padding: '11px 18px', borderRadius: 12,
-                  }}>
-                    {freeUsed ? `▶ ${t.unlockBtn}` : `✓ ${t.unlockFreeBtn}`}
-                  </button>
-                  <div style={{ fontSize: 10, color: C.faint }}>{freeUsed ? t.unlockNote : t.unlockFreeNote}</div>
+                  {(() => {
+                    // free daily unlock → direct; beyond it, rewarded ad when the
+                    // native ad stack is live; graceful direct unlock otherwise
+                    const viaAd = freeUsed && adsAvailable();
+                    return (
+                      <>
+                        <button type="button" disabled={adBusy} onClick={() => (viaAd ? unlockWithAd(c.ticker) : consumeUnlock(c.ticker))} style={{
+                          font: 'inherit', cursor: 'pointer', marginTop: 4,
+                          fontSize: 13.5, fontWeight: 800, color: '#fff',
+                          background: freeUsed ? C.ink : C.emeraldDeep,
+                          border: 'none', padding: '11px 18px', borderRadius: 12,
+                          opacity: adBusy ? 0.6 : 1,
+                        }}>
+                          {!freeUsed ? `✓ ${t.unlockFreeBtn}` : viaAd ? (adBusy ? t.adLoading : `▶ ${t.unlockAdBtn}`) : `▶ ${t.unlockBtn}`}
+                        </button>
+                        <div style={{ fontSize: 10, color: C.faint }}>{freeUsed ? t.unlockNote : t.unlockFreeNote}</div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
