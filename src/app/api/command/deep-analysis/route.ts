@@ -8,7 +8,7 @@
  * Features: Retry + Haiku fallback + concurrency control via bedrockClient.
  * 
  * Trigger: FIRST_VIEW | SCHEDULED | PRICE_MOVE | GAMMA_FLIP
- * Cache: Redis with session-aware TTL (key: ai-deep-analysis:${ticker})
+ * Cache: Redis with session-aware TTL (key: ai-deep-analysis:v2:${ticker})
  * POLICY: Observation-only language. No investment advice.
  */
 
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         }
 
         const session = snapshot?.session || 'CLOSED';
-        const cacheKey = `ai-deep-analysis:${ticker}`;
+        const cacheKey = `ai-deep-analysis:v2:${ticker}`;
 
         // --- Check Cache (unless PRICE_MOVE or GAMMA_FLIP forces refresh) ---
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'GAMMA_FLIP' || triggerReason === 'MANUAL_REFRESH';
@@ -519,7 +519,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
                 usedFallback: true,
             };
             // Cache fallback briefly (3 min) so repeated errors don't hammer Bedrock
-            const cacheKey = `ai-deep-analysis:${t}`;
+            const cacheKey = `ai-deep-analysis:v2:${t}`;
             await setInCache(cacheKey, fallback, 180).catch(() => {});
             return NextResponse.json(fallback);
         } catch {

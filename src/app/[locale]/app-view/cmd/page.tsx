@@ -1820,6 +1820,17 @@ function CmdPageContent() {
   const [aiLoading, setAiLoading] = useState(false);
   const [relatedData, setRelatedData] = useState<any[]>([]);
 
+  // [BUG FIX] switching tickers must NEVER show the previous ticker's AI
+  // analysis: clear the panel immediately (spinner shows until the new
+  // ticker's result lands), and track the live ticker so late responses
+  // from an earlier ticker can be dropped.
+  const aiTickerRef = useRef(ticker);
+  useEffect(() => {
+    aiTickerRef.current = ticker;
+    setAiInsightData(null);
+    setGexStats(null);
+  }, [ticker]);
+
   useEffect(() => {
     if (!ticker) return;
     let isMounted = true;
@@ -2150,7 +2161,12 @@ function CmdPageContent() {
   const [aiRefreshCooldown, setAiRefreshCooldown] = useState(false);
 
   const fetchAiAnalysis = useCallback((triggerReason: string = 'FIRST_VIEW') => {
-    if (!data) return;
+    // data must BELONG to the current ticker — right after a switch it still
+    // holds the previous ticker's numbers, and generating with those poisons
+    // the server cache under the NEW ticker (root cause of stale AI panels)
+    if (!data || (data as any).ticker !== ticker) return;
+    // the ticker this request is FOR — responses landing after a switch are dropped
+    const reqTicker = ticker;
     setAiLoading(true);
 
     const u = data.unified || {};
@@ -2199,17 +2215,19 @@ function CmdPageContent() {
     })
       .then(r => r.ok ? r.json() : null)
       .then(res => {
+        // stale guard: user switched tickers while this was in flight
+        if (aiTickerRef.current !== reqTicker) return;
         if (res) {
           setAiInsightData(res);
           setAiLastFetchedAt(Date.now());
           // Fallback auto-retry: if server returned a fallback result, retry after 15s
           if (res.isFallback) {
-            setTimeout(() => fetchAiAnalysis('FIRST_VIEW'), 15000);
+            setTimeout(() => { if (aiTickerRef.current === reqTicker) fetchAiAnalysis('FIRST_VIEW'); }, 15000);
           }
         }
       })
       .catch(() => {})
-      .finally(() => setAiLoading(false));
+      .finally(() => { if (aiTickerRef.current === reqTicker) setAiLoading(false); });
   }, [data, gexStats, locale, ticker]);
 
   useEffect(() => {
