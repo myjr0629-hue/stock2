@@ -608,6 +608,23 @@ export default function UndercurrentPage() {
   // keep the hardware-back handler's view of open layers current
   useEffect(() => { backStateRef.current = { detail: !!detail, breaking: showBreaking, settings: showSettings }; }, [detail, showBreaking, showSettings]);
 
+  // [iOS] while a bottom sheet is open, LOCK the body — otherwise touches inside
+  // the sheet rubber-band the page behind it and it settles displaced downward
+  // (reported: masthead pushed down after opening 설정). Standard fixed-body lock
+  // with scroll restore on close.
+  const sheetOpen = showSettings || showBreaking;
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const y = window.scrollY;
+    const b = document.body.style;
+    const prev = { position: b.position, top: b.top, left: b.left, right: b.right, overflow: b.overflow };
+    b.position = 'fixed'; b.top = `-${y}px`; b.left = '0'; b.right = '0'; b.overflow = 'hidden';
+    return () => {
+      b.position = prev.position; b.top = prev.top; b.left = prev.left; b.right = prev.right; b.overflow = prev.overflow;
+      window.scrollTo(0, y);
+    };
+  }, [sheetOpen]);
+
   // ── [REVIEW] native in-app rating (official OS sheet — StoreKit / Play Core).
   // NEVER incentivized (store policy); asked at natural high points only, and
   // the OS itself decides whether the sheet actually appears.
@@ -1756,7 +1773,7 @@ export default function UndercurrentPage() {
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         }}>
           <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
-            width: '100%', maxWidth: 560, maxHeight: '78vh', overflowY: 'auto',
+            width: '100%', maxWidth: 560, maxHeight: '78vh', overflowY: 'auto', overscrollBehavior: 'contain',
             background: C.bg, borderRadius: '22px 22px 0 0',
             padding: '16px 18px calc(26px + env(safe-area-inset-bottom))',
           }}>
@@ -1802,7 +1819,7 @@ export default function UndercurrentPage() {
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         }}>
           <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
-            width: '100%', maxWidth: 560, maxHeight: '82vh', overflowY: 'auto',
+            width: '100%', maxWidth: 560, maxHeight: '82vh', overflowY: 'auto', overscrollBehavior: 'contain',
             background: C.bg, borderRadius: '22px 22px 0 0',
             padding: '16px 18px calc(26px + env(safe-area-inset-bottom))',
           }}>
