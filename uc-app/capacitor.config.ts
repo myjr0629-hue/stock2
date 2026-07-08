@@ -13,7 +13,7 @@ const config: CapacitorConfig = {
   },
 
   ios: {
-    contentInset: 'always',
+    contentInset: 'never', // CSS env() owns safe areas; 'always' left the scroll offset displaced after sheet rubber-band
     backgroundColor: '#F6F3ED',
     scheme: 'undercurrent',
     preferredContentMode: 'mobile',
