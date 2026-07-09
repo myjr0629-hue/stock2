@@ -59,3 +59,4 @@ android-*.png
 .vercelignore
 ios/App/build-device/
 uc-app/ios/App/build/
+uc-app/ios/App/build-device/
