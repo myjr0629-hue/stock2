@@ -2446,6 +2446,8 @@ function CmdPageContent() {
         <div className={s.glowAmber} />
       </div>
 
+      {/* ── PINNED TOP BAR: header + ticker quick-pick chips pin together ── */}
+      <div className={s.topBar}>
       {/* ── HEADER ── */}
       <div className={s.header}>
         <button className={s.headerBtn} onClick={() => router.back()} aria-label="Back">
@@ -2494,6 +2496,8 @@ function CmdPageContent() {
           );
         })}
       </div>
+      </div>
+      {/* ── /PINNED TOP BAR ── */}
 
       <div
         className={`${s.p2Card} ${s.connectedP2Card} ${s.animateIn} ${s.delay1}`}
