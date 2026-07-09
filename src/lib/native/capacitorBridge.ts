@@ -173,7 +173,10 @@ const REVIEW_MILESTONES = [3, 8];
 export function maybePromptReview(delayMs = 2500): void {
   if (!canRequestReview()) return;
   try {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (local-agnostic key)
+    // Local calendar date (NOT toISOString, which is UTC — that would split one
+    // KST/JST day into two across the UTC-midnight boundary and over-count "days").
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const days: string[] = JSON.parse(localStorage.getItem(REVIEW_DAYS_KEY) || '[]');
     if (!days.includes(today)) {
       days.push(today);
