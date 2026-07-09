@@ -36,12 +36,15 @@ function fmpDateToIso(d?: string): string | null {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const loc: Locale = normLocale(searchParams.get('locale'));
+  const skipCache = searchParams.get('refresh') === '1';
   const cacheKey = `undercurrent:macro:v4:${loc}`;
 
   try {
-    const cached = await getFromCache<any>(cacheKey).catch(() => null);
-    if (cached?.success) {
-      return NextResponse.json({ ...cached, _cached: true });
+    if (!skipCache) {
+      const cached = await getFromCache<any>(cacheKey).catch(() => null);
+      if (cached?.success) {
+        return NextResponse.json({ ...cached, _cached: true });
+      }
     }
 
     // 1) macro news (FMP general) + OUR market-wide money context, in parallel
