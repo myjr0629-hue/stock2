@@ -107,6 +107,7 @@ class AdManagerService {
   private rewardedLoaded = false;
   private bannerSuppressed = false;
   private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
+  private wantBanner = false; // desired banner visibility once Pro status is known (set by setPro)
   private listeners: Map<string, Set<Function>> = new Map();
 
   // --- Interstitial frequency governance (shared across ALL triggers) ---
@@ -198,6 +199,10 @@ class AdManagerService {
 
       this.initialized = true;
       console.log('[AdManager] ✅ Initialized successfully');
+      // Apply the banner state requested via setPro() before init finished. The
+      // banner is intentionally NOT shown here unconditionally — it appears only
+      // once Pro status is known (wantBanner), so a subscriber never sees a flash.
+      if (this.wantBanner) await this.showBanner();
     } catch (err) {
       console.error('[AdManager] ❌ Init failed:', err);
     }
@@ -243,15 +248,18 @@ class AdManagerService {
     }
   }
 
-  /** Pro (ad-free) subscriber → hide the banner and stop interstitials. Idempotent. */
+  /**
+   * Pro (ad-free) status. Drives banner visibility so the banner is shown ONLY once
+   * Pro status is known (never on cold-start before it resolves → no flash for
+   * subscribers). Non-Pro → show banner; Pro → hide. Also gates interstitials.
+   * Safe to call before init() (the desired state is applied when init finishes).
+   */
   async setPro(isPro: boolean) {
-    if (this.proActive === isPro) return;
-    this.proActive = isPro; // set BEFORE showBanner() so a non-Pro re-show isn't blocked
-    if (isPro) {
-      await this.hideBanner();
-    } else if (!this.bannerSuppressed) {
-      await this.showBanner();
-    }
+    this.proActive = isPro;
+    this.wantBanner = !isPro && !this.bannerSuppressed;
+    if (!this.initialized) return; // init() applies wantBanner when it finishes
+    if (this.wantBanner) await this.showBanner();
+    else await this.hideBanner();
   }
 
   // --- Interstitial Ad (전면, 페이지 전환 시) ---

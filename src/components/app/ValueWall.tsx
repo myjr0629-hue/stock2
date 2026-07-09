@@ -229,7 +229,10 @@ export function ValueWall({
     try {
       const res = await purchase();
       if (res.ok && res.isPro) { onUnlock?.(); return; }
-      if (!res.cancelled) setProError(true); // user-cancel is silent
+      // Only real failures surface an error. user-cancel is silent; a rare
+      // "purchased but entitlement not yet active" (ok:true) is left to the
+      // customer-info listener to open the wall — not flagged as an error.
+      if (!res.ok && !res.cancelled) setProError(true);
     } finally {
       setPurchasing(false);
     }
@@ -241,7 +244,8 @@ export function ValueWall({
     setProError(false);
     try {
       const res = await restore();
-      if (res.ok && res.isPro) onUnlock?.();
+      if (res.ok && res.isPro) { onUnlock?.(); return; }
+      setProError(true); // failure OR nothing-to-restore → always give feedback
     } finally {
       setPurchasing(false);
     }

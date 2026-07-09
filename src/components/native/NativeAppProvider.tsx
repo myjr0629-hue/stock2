@@ -52,14 +52,17 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
   const [transitionDirection, setTransitionDirection] = useState<'forward' | 'back'>('forward');
   const [prevPathname, setPrevPathname] = useState(pathname);
   const [mounted, setMounted] = useState(false);
-  // Pro (ad-free) status — inert while IAP_LIVE=false (isPro stays false, no ad change).
-  const { isPro } = useProStatus();
+  // Pro (ad-free) status — inert while IAP_LIVE=false (isPro=false, ready=true instantly).
+  const { isPro, ready: proReady } = useProStatus();
 
-  // Suppress banner + interstitials for Pro subscribers (reactive to purchase/restore).
+  // Single driver of banner visibility: only once Pro status is KNOWN (proReady) do we
+  // decide show (non-Pro) vs hide (Pro). This is why init() no longer shows the banner
+  // itself — it defers to setPro so a subscriber never sees a cold-start banner flash.
+  // Also gates interstitials. setPro is safe before adManager.init() completes.
   useEffect(() => {
-    if (!_isNative) return;
+    if (!_isNative || !proReady) return;
     import('@/services/adManager').then(({ adManager }) => adManager.setPro(isPro)).catch(() => {});
-  }, [isPro]);
+  }, [isPro, proReady]);
 
   // --- 앱 첫 진입 시 모바일 전용 뷰(/app-view/dash)로 리다이렉트 ---
   useEffect(() => {
@@ -148,11 +151,13 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.add('native-app');
       document.documentElement.classList.add(`native-${_platform}`);
 
-      // --- AdManager 초기화 + 배너 광고 시작 ---
+      // --- AdManager 초기화 (배너 노출은 setPro 이펙트가 Pro 확정 후 결정) ---
       try {
         const { adManager } = await import('@/services/adManager');
         await adManager.init();
-        await adManager.showBanner();
+        // NOTE: no showBanner() here — the setPro(isPro) effect above owns banner
+        // visibility so a Pro subscriber never sees a cold-start flash. init() applies
+        // the pending wantBanner state itself if setPro already ran.
       } catch (e) {
         console.warn('[NativeAppProvider] AdManager init skipped:', e);
       }
