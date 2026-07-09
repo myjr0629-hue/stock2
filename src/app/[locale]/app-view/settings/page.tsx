@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { IAP_LIVE } from '@/config/iap';
+import { useProStatus } from '@/hooks/useProStatus';
+import { openExternalUrl } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
 
 // ── Translations ──
@@ -24,6 +27,15 @@ const T: Record<string, {
   cacheCancel: string;
   cacheConfirm: string;
   cacheToast: string;
+  proTitle: string;
+  proUpgradeSub: string;
+  proActiveSub: string;
+  proCta: string;
+  proRestore: string;
+  proManage: string;
+  proActiveBadge: string;
+  proRestoredToast: string;
+  proErrorToast: string;
 }> = {
   ko: {
     title: '설정',
@@ -43,6 +55,15 @@ const T: Record<string, {
     cacheCancel: '취소',
     cacheConfirm: '초기화',
     cacheToast: '캐시가 초기화되었습니다',
+    proTitle: 'SIGNUM Pro',
+    proUpgradeSub: '광고 없이 · 월 $9.99',
+    proActiveSub: '광고 없이 이용 중',
+    proCta: '업그레이드',
+    proRestore: '구매 복원',
+    proManage: '구독 관리',
+    proActiveBadge: '활성',
+    proRestoredToast: '구매가 복원되었습니다',
+    proErrorToast: '구매를 완료하지 못했어요',
   },
   en: {
     title: 'Settings',
@@ -62,6 +83,15 @@ const T: Record<string, {
     cacheCancel: 'Cancel',
     cacheConfirm: 'Clear',
     cacheToast: 'Cache cleared successfully',
+    proTitle: 'SIGNUM Pro',
+    proUpgradeSub: 'Ad-free · $9.99/mo',
+    proActiveSub: 'Ad-free is active',
+    proCta: 'Upgrade',
+    proRestore: 'Restore purchase',
+    proManage: 'Manage subscription',
+    proActiveBadge: 'Active',
+    proRestoredToast: 'Purchase restored',
+    proErrorToast: "Couldn't complete the purchase",
   },
   ja: {
     title: '設定',
@@ -79,6 +109,15 @@ const T: Record<string, {
     cacheDialogTitle: 'キャッシュクリア',
     cacheDialogText: 'キャッシュデータが削除されます。アプリが再読み込みされます。',
     cacheCancel: 'キャンセル',
+    proTitle: 'SIGNUM Pro',
+    proUpgradeSub: '広告なし · 月$9.99',
+    proActiveSub: '広告なしで利用中',
+    proCta: 'アップグレード',
+    proRestore: '購入を復元',
+    proManage: 'サブスク管理',
+    proActiveBadge: '有効',
+    proRestoredToast: '購入を復元しました',
+    proErrorToast: '購入を完了できませんでした',
     cacheConfirm: 'クリア',
     cacheToast: 'キャッシュをクリアしました',
   },
@@ -122,6 +161,35 @@ export default function SettingsPage() {
   const [toastMsg, setToastMsg] = useState('');
   const [mounted, setMounted] = useState(false);
   const [closing, setClosing] = useState(false);
+
+  // Pro (ad-free) — inert while IAP_LIVE=false (isPro false, no SDK, card hidden).
+  const { isPro, purchase, restore } = useProStatus();
+  const [proBusy, setProBusy] = useState(false);
+
+  const handleProUpgrade = useCallback(async () => {
+    if (proBusy || isPro) return;
+    setProBusy(true);
+    try {
+      const res = await purchase();
+      if (!res.ok && !res.cancelled) setToastMsg(t.proErrorToast);
+    } finally { setProBusy(false); }
+  }, [purchase, proBusy, isPro, t]);
+
+  const handleProRestore = useCallback(async () => {
+    if (proBusy) return;
+    setProBusy(true);
+    try {
+      const res = await restore();
+      setToastMsg(res.ok && res.isPro ? t.proRestoredToast : t.proErrorToast);
+    } finally { setProBusy(false); }
+  }, [restore, proBusy, t]);
+
+  const handleManageSub = useCallback(() => {
+    const isIOS = typeof document !== 'undefined' && document.documentElement.classList.contains('native-ios');
+    openExternalUrl(isIOS
+      ? 'https://apps.apple.com/account/subscriptions'
+      : 'https://play.google.com/store/account/subscriptions');
+  }, []);
 
   // Swipe-down tracking
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -251,6 +319,45 @@ export default function SettingsPage() {
 
         {/* Content */}
         <div className={s.content}>
+          {/* ── SIGNUM Pro (ad-free) — only when IAP is live (non-purchasable price
+                fails App Store 3.1.1). Upgrade / status / restore / manage. ── */}
+          {IAP_LIVE && (
+            <div className={s.card}>
+              <div
+                className={s.row}
+                onClick={isPro ? undefined : handleProUpgrade}
+                style={{ cursor: isPro ? 'default' : 'pointer' }}
+              >
+                <div className={s.rowLeft}>
+                  <div className={s.rowIcon} style={{ color: '#04140f', background: 'linear-gradient(135deg,#10b981,#06b6d4)' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className={s.rowLabel}>{t.proTitle}</div>
+                    <div className={s.rowSub}>{isPro ? t.proActiveSub : t.proUpgradeSub}</div>
+                  </div>
+                </div>
+                {isPro
+                  ? <span className={s.rowValue} style={{ color: '#10b981', fontWeight: 700 }}>✓ {t.proActiveBadge}</span>
+                  : <span className={s.rowChevron}>{proBusy ? '···' : `${t.proCta} ›`}</span>}
+              </div>
+              <div
+                className={s.row}
+                onClick={isPro ? handleManageSub : handleProRestore}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className={s.rowLeft}>
+                  <div className={s.rowLabel} style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
+                    {isPro ? t.proManage : t.proRestore}
+                  </div>
+                </div>
+                <span className={s.rowChevron}>›</span>
+              </div>
+            </div>
+          )}
+
           {/* ── Language (Accordion) ── */}
           <div className={s.card}>
             <div className={s.row} onClick={() => setLangOpen(!langOpen)}>

@@ -106,6 +106,7 @@ class AdManagerService {
   private interstitialLoaded = false;
   private rewardedLoaded = false;
   private bannerSuppressed = false;
+  private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
   private listeners: Map<string, Set<Function>> = new Map();
 
   // --- Interstitial frequency governance (shared across ALL triggers) ---
@@ -205,7 +206,7 @@ class AdManagerService {
   // --- Banner Ad (하단 고정) ---
   async showBanner() {
     if (!this.initialized) return;
-    if (this.bannerSuppressed) return;
+    if (this.bannerSuppressed || this.proActive) return;
     try {
       const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
       const { Capacitor } = await import('@capacitor/core');
@@ -238,6 +239,17 @@ class AdManagerService {
     if (suppressed) {
       await this.hideBanner();
     } else {
+      await this.showBanner();
+    }
+  }
+
+  /** Pro (ad-free) subscriber → hide the banner and stop interstitials. Idempotent. */
+  async setPro(isPro: boolean) {
+    if (this.proActive === isPro) return;
+    this.proActive = isPro; // set BEFORE showBanner() so a non-Pro re-show isn't blocked
+    if (isPro) {
+      await this.hideBanner();
+    } else if (!this.bannerSuppressed) {
       await this.showBanner();
     }
   }
@@ -289,6 +301,7 @@ class AdManagerService {
    * shared frequency governance, then shows the ad. Returns whether it showed.
    */
   async maybeShowInterstitial(): Promise<boolean> {
+    if (this.proActive) return false;
     if (!this.canShowInterstitial()) return false;
     const shown = await this.showInterstitial();
     if (shown) {

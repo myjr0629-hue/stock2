@@ -214,6 +214,46 @@
 }
 .cta:active { transform: scale(0.97); filter: brightness(1.08); }
 
+/* Paid Pro upgrade — secondary to the amber free-ad CTA (emerald = premium/ad-free). */
+.proCta {
+  position: relative;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: min(268px, 88%);
+  max-width: 100%;
+  height: 40px; min-height: 40px;
+  margin-top: 8px;
+  padding: 0 20px;
+  border: none; cursor: pointer; border-radius: 11px;
+  background: linear-gradient(135deg, #10b981, #06b6d4);
+  color: #04140f;
+  font: 800 12.5px/1.15 'Inter'; letter-spacing: 0.01em;
+  white-space: normal; text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 8px 24px rgba(16,185,129,0.30), inset 0 1px 0 rgba(255,255,255,0.28);
+  transition: transform .12s ease, filter .12s ease;
+}
+.proCta svg { flex: 0 0 auto; }
+.proCta:disabled { opacity: 0.6; cursor: default; }
+.proCta:active { transform: scale(0.97); filter: brightness(1.08); }
+.compactVault .proCta { height: 38px; min-height: 38px; font-size: 12px; margin-top: 6px; }
+
+.proRestore {
+  margin-top: 7px;
+  background: none; border: none; cursor: pointer;
+  font: 600 11px/1.3 'Inter'; letter-spacing: 0.01em;
+  color: var(--text-muted);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.proRestore:disabled { opacity: 0.5; cursor: default; }
+
+.proError {
+  margin-top: 7px;
+  font: 600 11px/1.35 'Inter';
+  color: #f87171;
+  max-width: 280px; text-align: center;
+}
+
 /* 소셜 프루프 + 구독 대안 */
 .metaRow {
   display: flex;

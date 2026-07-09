@@ -7,6 +7,7 @@
 
 import React, { useEffect, useState, useCallback, createContext, useContext } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useProStatus } from '@/hooks/useProStatus';
 
 // ---------------------------------------------------------------------------
 // Native Detection (SSR-safe)
@@ -51,6 +52,14 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
   const [transitionDirection, setTransitionDirection] = useState<'forward' | 'back'>('forward');
   const [prevPathname, setPrevPathname] = useState(pathname);
   const [mounted, setMounted] = useState(false);
+  // Pro (ad-free) status — inert while IAP_LIVE=false (isPro stays false, no ad change).
+  const { isPro } = useProStatus();
+
+  // Suppress banner + interstitials for Pro subscribers (reactive to purchase/restore).
+  useEffect(() => {
+    if (!_isNative) return;
+    import('@/services/adManager').then(({ adManager }) => adManager.setPro(isPro)).catch(() => {});
+  }, [isPro]);
 
   // --- 앱 첫 진입 시 모바일 전용 뷰(/app-view/dash)로 리다이렉트 ---
   useEffect(() => {

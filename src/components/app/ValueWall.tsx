@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import styles from './ValueWall.module.css';
 import { IAP_LIVE } from '@/config/iap';
+import { useProStatus } from '@/hooks/useProStatus';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -17,6 +18,9 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
   defaultSubtitle: ReactNode;
   ctaLabel: string;
   adFreeLabel: string;
+  proCta: string;
+  proErrorLabel: string;
+  proRestoreLabel: string;
   previewChipLabel: string;
   legalNote: ReactNode;
   modalEyebrow: string;
@@ -33,6 +37,9 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     defaultSubtitle: <>광고를 시청하면 프리미엄 리서치 데이터를 1시간 동안 확인할 수 있습니다.</>,
     ctaLabel: '광고 보고 1시간 잠금해제',
     adFreeLabel: '또는 월 $9.99로 광고 제거',
+    proCta: 'SIGNUM Pro · 광고 없이 · 월 $9.99',
+    proErrorLabel: '구매를 완료하지 못했어요. 다시 시도해주세요.',
+    proRestoreLabel: '구매 복원',
     previewChipLabel: '무료 미리보기',
     legalNote: <>교육 및 리서치용 시장 데이터입니다. 투자 조언이나 매수/매도 권유가 아니며, 정확성 또는 수익을 보장하지 않습니다.</>,
     modalEyebrow: '보상형 광고',
@@ -49,6 +56,9 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     defaultSubtitle: <>Watch an ad to unlock premium research data for 1 hour.</>,
     ctaLabel: 'Watch & Unlock · 1HR',
     adFreeLabel: 'or $9.99/mo ad-free',
+    proCta: 'SIGNUM Pro · Go ad-free · $9.99/mo',
+    proErrorLabel: "Couldn't complete the purchase. Please try again.",
+    proRestoreLabel: 'Restore purchase',
     previewChipLabel: 'Free preview',
     legalNote: <>Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.</>,
     modalEyebrow: 'Rewarded Ad',
@@ -65,6 +75,9 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     defaultSubtitle: <>広告を視聴すると、プレミアムリサーチデータを1時間確認できます。</>,
     ctaLabel: '広告を見て1時間解除',
     adFreeLabel: 'または月$9.99で広告なし',
+    proCta: 'SIGNUM Pro · 広告なし · 月$9.99',
+    proErrorLabel: '購入を完了できませんでした。もう一度お試しください。',
+    proRestoreLabel: '購入を復元',
     previewChipLabel: '無料プレビュー',
     legalNote: <>教育およびリサーチ用の市場データです。投資助言や売買推奨ではなく、正確性または収益を保証しません。</>,
     modalEyebrow: 'リワード広告',
@@ -159,17 +172,23 @@ export function ValueWall({
   onUnlock,
   compact = false,
   ctaLabel,
-  adFreeLabel,
   previewChipLabel,
   legalNote,
   inset = false,
 }: ValueWallProps) {
+  // NOTE: adFreeLabel prop is kept in ValueWallProps for caller compat but no longer
+  // rendered — the paid upgrade is now the proCta button below the free ad CTA.
   const [showAd, setShowAd] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
+  const [proError, setProError] = useState(false);
   const { unlocked, unlock } = useUnlockState();
+  // Pro (paid, ad-free) is inert while IAP_LIVE=false: isPro stays false, no SDK.
+  const { isPro, purchase, restore } = useProStatus();
+  // A Pro subscriber bypasses the wall permanently (no ad, no timer).
+  const isUnlocked = unlocked || isPro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
   const resolvedCtaLabel = ctaLabel || copy.ctaLabel;
-  const resolvedAdFreeLabel = adFreeLabel || copy.adFreeLabel;
   const resolvedPreviewChipLabel = previewChipLabel || copy.previewChipLabel;
   const resolvedLegalNote = legalNote || copy.legalNote;
   const preview = lockedPreview !== undefined ? lockedPreview : children;
@@ -202,7 +221,33 @@ export function ValueWall({
     setShowAd(true);
   }, [finishUnlock, unlocking]);
 
-  if (unlocked) {
+  // Buy the ad-free Pro subscription. On success, isPro flips the wall open (isUnlocked).
+  const handleProPurchase = useCallback(async () => {
+    if (purchasing) return;
+    setPurchasing(true);
+    setProError(false);
+    try {
+      const res = await purchase();
+      if (res.ok && res.isPro) { onUnlock?.(); return; }
+      if (!res.cancelled) setProError(true); // user-cancel is silent
+    } finally {
+      setPurchasing(false);
+    }
+  }, [purchase, purchasing, onUnlock]);
+
+  const handleRestore = useCallback(async () => {
+    if (purchasing) return;
+    setPurchasing(true);
+    setProError(false);
+    try {
+      const res = await restore();
+      if (res.ok && res.isPro) onUnlock?.();
+    } finally {
+      setPurchasing(false);
+    }
+  }, [restore, purchasing, onUnlock]);
+
+  if (isUnlocked) {
     return (
       <div className={`${styles.revealed} ${compact ? styles.revealedCompact : ''} ${inset ? styles.inset : ''}`}>
         {children}
@@ -244,14 +289,25 @@ export function ValueWall({
           <span>{unlocking ? copy.modalWaitPrefix : resolvedCtaLabel}</span>
         </button>
 
+        {/* Paid ad-free Pro upgrade. Inert while IAP_LIVE=false (a non-purchasable
+            price fails App Store 3.1.1); the free ad path above always stays. */}
+        {IAP_LIVE && (
+          <>
+            <button className={styles.proCta} onClick={handleProPurchase} disabled={purchasing || unlocking}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
+              </svg>
+              <span>{purchasing ? copy.modalWaitPrefix : copy.proCta}</span>
+            </button>
+            {proError && <div className={styles.proError} role="alert">{copy.proErrorLabel}</div>}
+            <button className={styles.proRestore} onClick={handleRestore} disabled={purchasing}>
+              {copy.proRestoreLabel}
+            </button>
+          </>
+        )}
+
         <div className={styles.metaRow}>
           {socialProof && <span><b>{socialProof}</b></span>}
-          {IAP_LIVE && (
-            <>
-              {socialProof && <span>·</span>}
-              <span>{resolvedAdFreeLabel}</span>
-            </>
-          )}
         </div>
         <div className={styles.legalNote}>{resolvedLegalNote}</div>
       </div>
