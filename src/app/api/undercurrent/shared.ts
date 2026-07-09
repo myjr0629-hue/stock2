@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 
 export const BEDROCK_MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
@@ -233,4 +234,72 @@ export async function enforceLanguage(
       if (typeof tr === 'string' && tr.trim() && inLocaleLang(loc, tr)) j.item[j.field] = tr;
     });
   } catch { /* keep originals — better English than broken */ }
+}
+
+// ── SWR (stale-while-revalidate) cache ───────────────────────────────────────
+// The UX rule: a NORMAL request must NEVER block on the ~20s AI generation. If
+// ANY value is cached (even logically stale), serve it instantly; the CLIENT then
+// fires a refresh=1 request (its own serverless lifetime — no waitUntil needed) to
+// regenerate for the next visitor. Only a truly EMPTY cache (first-ever request,
+// eviction, or key-version bump) blocks — kept rare by a long physical TTL + a
+// one-time deploy warm. Generation errors serve the last-known-good stale value
+// (never a 500 when we have anything). Best-effort single-flight lock prevents a
+// regeneration stampede; setInCache already blocks null/error payloads (no poison).
+const SWR_PHYSICAL_SEC = 6 * 60 * 60; // keep keys alive far past logical freshness
+
+function swrAgeSec(generatedAt: unknown): number {
+  const ms = typeof generatedAt === 'number' ? generatedAt
+    : typeof generatedAt === 'string' ? Date.parse(generatedAt) : NaN;
+  return Number.isFinite(ms) ? (Date.now() - ms) / 1000 : Infinity;
+}
+
+async function swrAcquireLock(key: string): Promise<boolean> {
+  // NOT atomic (no SET NX in this Redis layer) — best-effort. Worst case on a race
+  // is a duplicate generation (wasteful, never incorrect: last write wins and bad
+  // payloads are rejected by setInCache). Lock auto-expires so a dead gen can't wedge.
+  const lk = `${key}:swrlock`;
+  const held = await getFromCache<number>(lk).catch(() => null);
+  if (held) return false;
+  await setInCache(lk, Date.now(), 90).catch(() => {});
+  return true;
+}
+
+export type SwrResult<T> = { body: T; stale: boolean; error?: boolean };
+
+// Returns the payload to serve + whether it is stale (client should bg-refresh),
+// or null when there is nothing to serve (caller returns an error status).
+export async function serveSWR<T extends Record<string, any>>(opts: {
+  key: string;
+  freshSec: number;
+  refresh: boolean;            // refresh=1 → force (re)generation (client bg-refresh / manual warm)
+  generate: () => Promise<T>;  // must resolve a truthy payload or throw; generatedAt is stamped here
+}): Promise<SwrResult<T> | null> {
+  const { key, freshSec, refresh, generate } = opts;
+  const cached = await getFromCache<any>(key).catch(() => null);
+
+  // NORMAL request with anything cached → serve instantly, never block.
+  if (!refresh && cached) {
+    return { body: cached, stale: swrAgeSec(cached.generatedAt) >= freshSec };
+  }
+
+  // Here: refresh=1, OR cold (nothing cached). (Re)generate under a best-effort lock.
+  const gotLock = await swrAcquireLock(key);
+  if (!gotLock) {
+    if (cached) return { body: cached, stale: true }; // holder is regenerating; serve stale
+    await new Promise((r) => setTimeout(r, 1800));     // cold + contended: wait briefly, then read
+    const c2 = await getFromCache<any>(key).catch(() => null);
+    if (c2) return { body: c2, stale: swrAgeSec(c2.generatedAt) >= freshSec };
+    // still nothing — fall through and generate without the lock (last resort)
+  }
+  try {
+    const fresh = await generate();
+    (fresh as any).generatedAt = new Date().toISOString();
+    await setInCache(key, fresh, SWR_PHYSICAL_SEC).catch(() => {});
+    return { body: fresh, stale: false };
+  } catch (e) {
+    if (cached) return { body: cached, stale: true, error: true }; // serve-stale-on-error
+    return null; // truly nothing to serve
+  } finally {
+    if (gotLock) await deleteFromCache(`${key}:swrlock`).catch(() => {});
+  }
 }

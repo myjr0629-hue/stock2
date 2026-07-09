@@ -673,9 +673,32 @@ export default function UndercurrentPage() {
 
   useEffect(() => {
     let dead = false;
+    const KEY = `uc.swr.macro.${loc}`;
+    // [SWR] paint last session's macro instantly (backdrop/tab never wait on gen).
+    try {
+      const s = localStorage.getItem(KEY);
+      if (s) { const c = JSON.parse(s); if (c?.success) setMacro(c); }
+    } catch { /* ignore */ }
+
+    const bgRefresh = () => {
+      fetch(`/api/undercurrent/macro?locale=${loc}&refresh=1`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (dead || !d?.success) return;
+          setMacro(d);
+          try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* quota */ }
+        })
+        .catch(() => { /* keep what we have */ });
+    };
+
     fetch(`/api/undercurrent/macro?locale=${loc}`)
       .then((r) => r.json())
-      .then((d) => { if (!dead && d?.success) setMacro(d); })
+      .then((d) => {
+        if (dead || !d?.success) return;
+        setMacro(d);
+        try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* quota */ }
+        if (d._stale) bgRefresh();
+      })
       .catch(() => { /* macro section simply hidden on failure */ });
     return () => { dead = true; };
   }, [loc]);
@@ -708,12 +731,34 @@ export default function UndercurrentPage() {
 
   useEffect(() => {
     let dead = false;
+    const KEY = `uc.swr.feed.${loc}`;
+    // [SWR] instant-paint from last session so the user never faces a blank/20s wait.
+    let painted = false;
+    try {
+      const s = localStorage.getItem(KEY);
+      if (s) { const c = JSON.parse(s); if (c?.cards?.length) { setFeed(c); painted = true; } }
+    } catch { /* ignore */ }
+
+    // background regen when the server served a logically-stale copy (refresh=1 →
+    // this request owns its own serverless lifetime, so the ~20s gen completes safely).
+    const bgRefresh = () => {
+      fetch(`/api/undercurrent/feed?locale=${loc}&limit=12&refresh=1`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (dead || !d?.success || !d.cards?.length) return;
+          setFeed(d);
+          try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* quota */ }
+        })
+        .catch(() => { /* keep what we have */ });
+    };
+
     fetch(`/api/undercurrent/feed?locale=${loc}&limit=12`)
       .then((r) => r.json())
       .then((d) => {
         if (dead) return;
-        if (!d?.success) { setErr(true); return; }
+        if (!d?.success || !d.cards?.length) { if (!painted) setErr(true); return; }
         setFeed(d);
+        try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* quota */ }
         // Deep links (?tab=div|whale|stories, ?open=TICKER) — used by future push
         // notifications and by the simulator verification loop (no tap injection).
         try {
@@ -729,8 +774,9 @@ export default function UndercurrentPage() {
           if (tP && /^[A-Z]{1,5}$/.test(tP)) { setTab('search'); runSearch(tP); }
           if (sp.get('settings') === '1') setShowSettings(true);
         } catch { /* noop */ }
+        if (d._stale) bgRefresh(); // freshen for this and the next visitor
       })
-      .catch(() => { if (!dead) setErr(true); });
+      .catch(() => { if (!dead && !painted) setErr(true); });
     return () => { dead = true; };
   }, [loc]);
 

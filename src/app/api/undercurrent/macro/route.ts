@@ -10,8 +10,8 @@
 
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
-import { getFromCache, setInCache } from '@/services/redisClient';
-import { normLocale, isSpam, invokeJSON, langName, cleanImage, enforceLanguage, type NewsItem, type Locale } from '../shared';
+import { getFromCache } from '@/services/redisClient';
+import { normLocale, isSpam, invokeJSON, langName, cleanImage, enforceLanguage, serveSWR, type NewsItem, type Locale } from '../shared';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -39,14 +39,8 @@ export async function GET(request: Request) {
   const skipCache = searchParams.get('refresh') === '1';
   const cacheKey = `undercurrent:macro:v4:${loc}`;
 
-  try {
-    if (!skipCache) {
-      const cached = await getFromCache<any>(cacheKey).catch(() => null);
-      if (cached?.success) {
-        return NextResponse.json({ ...cached, _cached: true });
-      }
-    }
-
+  // SWR: normal requests serve cache instantly (stale ok); client triggers refresh=1.
+  const generate = async () => {
     // 1) macro news (FMP general) + OUR market-wide money context, in parallel
     const fmpKey = process.env.FMP_API_KEY;
     const [fmpRes, treasuryRes, fedRes, fearGreed] = await Promise.all([
@@ -158,12 +152,13 @@ ${JSON.stringify(stories.map((s, i) => ({ n: i + 1, headline: s.title, summary: 
     await enforceLanguage(loc, [...cards, trBox], ['plainTitle', 'whyItMatters', 'impactNote', 'tag', 'macroRead']);
     macroRead = trBox.macroRead;
 
-    const payload = {
-      success: true, locale: loc, context, macroRead,
-      count: cards.length, cards, generatedAt: new Date().toISOString(),
-    };
-    setInCache(cacheKey, payload, TTL_SEC).catch(() => {});
-    return NextResponse.json(payload);
+    return { success: true, locale: loc, context, macroRead, count: cards.length, cards };
+  };
+
+  try {
+    const res = await serveSWR({ key: cacheKey, freshSec: TTL_SEC, refresh: skipCache, generate });
+    if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
+    return NextResponse.json({ ...res.body, _cached: true, _stale: res.stale });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'failed' }, { status: 500 });
   }

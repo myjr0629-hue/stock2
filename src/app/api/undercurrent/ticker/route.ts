@@ -9,10 +9,9 @@
 
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
-import { getFromCache, setInCache } from '@/services/redisClient';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
-  invokeJSON, TICKER_RE, cleanImage, enforceLanguage, type NewsItem,
+  invokeJSON, TICKER_RE, cleanImage, enforceLanguage, serveSWR, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -30,13 +29,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: 'invalid ticker' }, { status: 400 });
   }
 
+  const skipCache = searchParams.get('refresh') === '1';
   const cacheKey = `undercurrent:ticker:v4:${ticker}:${loc}`;
-  try {
-    const cached = await getFromCache<any>(cacheKey).catch(() => null);
-    if (cached?.success) {
-      return NextResponse.json({ ...cached, _cached: true });
-    }
 
+  // SWR: repeat lookups serve cache instantly (stale ok); client triggers refresh=1.
+  const generate = async () => {
     // 1) this ticker's news + our money data, in parallel
     const [news, money] = await Promise.all([
       fetchMassive(
@@ -115,7 +112,7 @@ ${storyPayload(stories)}`;
     await enforceLanguage(loc, [...cards, trBox], ['plainTitle', 'whyItMatters', 'moneyRead', 'tag', 'tickerRead']);
     tickerRead = trBox.tickerRead;
 
-    const payload = {
+    return {
       success: true,
       locale: loc,
       ticker,
@@ -124,10 +121,13 @@ ${storyPayload(stories)}`;
       tickerRead: real ? tickerRead : null,
       count: cards.length,
       cards,
-      generatedAt: new Date().toISOString(),
     };
-    setInCache(cacheKey, payload, TTL_SEC).catch(() => {});
-    return NextResponse.json(payload);
+  };
+
+  try {
+    const res = await serveSWR({ key: cacheKey, freshSec: TTL_SEC, refresh: skipCache, generate });
+    if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
+    return NextResponse.json({ ...res.body, _cached: true, _stale: res.stale });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'failed' }, { status: 500 });
   }

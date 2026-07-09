@@ -13,7 +13,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
   normLocale, isSpam, primaryTicker, fetchMoney, hasRealMoney,
-  buildSystem, storyPayload, invokeJSON, cleanImage, enforceLanguage, type NewsItem,
+  buildSystem, storyPayload, invokeJSON, cleanImage, enforceLanguage, serveSWR, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -28,14 +28,9 @@ export async function GET(request: Request) {
   const skipCache = searchParams.get('refresh') === '1';
   const cacheKey = `undercurrent:feed:v7:${loc}`;
 
-  try {
-    if (!skipCache) {
-      const cached = await getFromCache<any>(cacheKey).catch(() => null);
-      if (cached?.cards?.length) {
-        return NextResponse.json({ ...cached, _cached: true });
-      }
-    }
-
+  // SWR: a normal request never blocks on generation — stale is served instantly and
+  // the client triggers a refresh=1 regeneration. Only an empty cache generates inline.
+  const generate = async () => {
     // 1) recent market news (tickers + per-ticker sentiment + image built-in)
     const news = await fetchMassive(
       '/v2/reference/news',
@@ -58,7 +53,8 @@ export async function GET(request: Request) {
       if (picked.length >= limit) break;
     }
     if (picked.length === 0) {
-      return NextResponse.json({ success: false, error: 'no usable news after spam filter', cards: [] });
+      // transient (spam-filtered out) — throw so SWR serves the last good feed if any
+      throw new Error('no usable news after spam filter');
     }
 
     // 2) overlay OUR per-ticker money data (parallel; Redis-cached upstream)
@@ -149,10 +145,14 @@ ${storyPayload(stories)}`;
       }
     } catch { /* non-critical */ }
 
-    const payload = { success: true, locale: loc, count: cards.length, generatedAt: new Date().toISOString(), pulse, cards };
-    setInCache(cacheKey, payload, FEED_TTL_SEC).catch(() => {});
-    return NextResponse.json(payload);
+    return { success: true, locale: loc, count: cards.length, pulse, cards };
+  };
+
+  try {
+    const res = await serveSWR({ key: cacheKey, freshSec: FEED_TTL_SEC, refresh: skipCache, generate });
+    if (!res) return NextResponse.json({ success: false, error: 'unavailable', cards: [] }, { status: 503 });
+    return NextResponse.json({ ...res.body, _cached: true, _stale: res.stale });
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e?.message || 'failed' }, { status: 500 });
+    return NextResponse.json({ success: false, error: e?.message || 'failed', cards: [] }, { status: 500 });
   }
 }
