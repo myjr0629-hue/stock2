@@ -86,6 +86,10 @@ export async function GET(request: Request) {
         }));
     }
 
+    // Both news upstreams empty (transient) → THROW so SWR serves the last good macro
+    // instead of caching an empty payload over it (empty-over-good poisoning).
+    if (stories.length === 0) throw new Error('no macro stories');
+
     const context = {
       yield10Y: typeof treasuryRes?.yield10Y === 'number' ? treasuryRes.yield10Y : null,
       yield10YChange: typeof treasuryRes?.change === 'number' ? treasuryRes.change : null,

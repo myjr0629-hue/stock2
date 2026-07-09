@@ -286,10 +286,15 @@ export async function serveSWR<T extends Record<string, any>>(opts: {
   const gotLock = await swrAcquireLock(key);
   if (!gotLock) {
     if (cached) return { body: cached, stale: true }; // holder is regenerating; serve stale
-    await new Promise((r) => setTimeout(r, 1800));     // cold + contended: wait briefly, then read
-    const c2 = await getFromCache<any>(key).catch(() => null);
-    if (c2) return { body: c2, stale: swrAgeSec(c2.generatedAt) >= freshSec };
-    // still nothing — fall through and generate without the lock (last resort)
+    // cold + contended: POLL for the lock holder's result up to the generation budget
+    // (a single short wait would expire long before the ~20s gen writes the key, so
+    // every waiter would fall through and generate — the very stampede we prevent here).
+    for (let i = 0; i < 18; i++) {                     // 18 × 1.5s = 27s (> gen, < maxDuration 60)
+      await new Promise((r) => setTimeout(r, 1500));
+      const c2 = await getFromCache<any>(key).catch(() => null);
+      if (c2) return { body: c2, stale: swrAgeSec(c2.generatedAt) >= freshSec };
+    }
+    // holder never wrote (died/failed) — fall through and generate ourselves (last resort)
   }
   try {
     const fresh = await generate();

@@ -49,6 +49,10 @@ export async function GET(request: Request) {
     const items: NewsItem[] = (news?.results || []).filter((n: NewsItem) => !isSpam(n)).slice(0, MAX_STORIES);
     const real = hasRealMoney(money);
 
+    // Nothing to show (no news AND no real money) → THROW so SWR keeps the last good
+    // snapshot for this ticker rather than caching a barren one over it for 6h.
+    if (items.length === 0 && !real) throw new Error('no ticker data');
+
     // 2) AI: overall tickerRead + per-story cards (single call)
     const stories = items.map((item) => {
       const ins = (item.insights || []).find((x) => x.ticker === ticker);

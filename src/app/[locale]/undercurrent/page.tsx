@@ -625,6 +625,7 @@ export default function UndercurrentPage() {
   const [shareToast, setShareToast] = useState(false); // clipboard-fallback confirmation
   // ── ticker search state ──
   const [searchQ, setSearchQ] = useState('');
+  const lastSearchRef = useRef(''); // guards the _stale bg-refresh swap against a newer search
   const [searchRes, setSearchRes] = useState<TickerResult | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchErr, setSearchErr] = useState<'' | 'empty' | 'fail'>('');
@@ -674,10 +675,15 @@ export default function UndercurrentPage() {
   useEffect(() => {
     let dead = false;
     const KEY = `uc.swr.macro.${loc}`;
+    setMacro(null);      // drop previous locale's macro; repaint from THIS locale below
     // [SWR] paint last session's macro instantly (backdrop/tab never wait on gen).
     try {
       const s = localStorage.getItem(KEY);
-      if (s) { const c = JSON.parse(s); if (c?.success) setMacro(c); }
+      if (s) {
+        const c = JSON.parse(s);
+        const okAge = Date.now() - Date.parse(c?.generatedAt || 0) < 24 * 60 * 60 * 1000;
+        if (c?.success && okAge) setMacro(c);
+      }
     } catch { /* ignore */ }
 
     const bgRefresh = () => {
@@ -710,7 +716,18 @@ export default function UndercurrentPage() {
   const runSearch = (raw: string) => {
     const tk = raw.trim().toUpperCase();
     if (!/^[A-Z]{1,5}$/.test(tk)) return;
+    lastSearchRef.current = tk;
     setSearchQ(tk); setSearchBusy(true); setSearchErr(''); setSearchRes(null);
+    // [SWR] freshen a logically-stale ticker in the background (won't block the result,
+    // and only swaps in if the user hasn't searched something else since).
+    const bgRefreshTicker = () => {
+      fetch(`/api/undercurrent/ticker?t=${tk}&locale=${loc}&refresh=1`)
+        .then((r) => r.json())
+        .then((d2) => {
+          if (lastSearchRef.current === tk && d2?.success && (d2.cards?.length || d2.hasMoneyData)) setSearchRes(d2);
+        })
+        .catch(() => { /* keep what we have */ });
+    };
     fetch(`/api/undercurrent/ticker?t=${tk}&locale=${loc}`)
       .then((r) => r.json())
       .then((d) => {
@@ -721,6 +738,7 @@ export default function UndercurrentPage() {
             try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* noop */ }
             return next;
           });
+          if (d._stale) bgRefreshTicker();
         } else {
           setSearchErr('empty');
         }
@@ -732,11 +750,18 @@ export default function UndercurrentPage() {
   useEffect(() => {
     let dead = false;
     const KEY = `uc.swr.feed.${loc}`;
+    setErr(false);       // clear any prior error so it can't stick across loc-change / remount
+    setFeed(null);       // drop the previous locale's cards; repaint from THIS locale below
     // [SWR] instant-paint from last session so the user never faces a blank/20s wait.
     let painted = false;
     try {
       const s = localStorage.getItem(KEY);
-      if (s) { const c = JSON.parse(s); if (c?.cards?.length) { setFeed(c); painted = true; } }
+      if (s) {
+        const c = JSON.parse(s);
+        // only paint reasonably-fresh cache (< 24h) — never flash week-old content
+        const okAge = Date.now() - Date.parse(c?.generatedAt || 0) < 24 * 60 * 60 * 1000;
+        if (c?.cards?.length && okAge) { setFeed(c); painted = true; }
+      }
     } catch { /* ignore */ }
 
     // background regen when the server served a logically-stale copy (refresh=1 →
@@ -793,7 +818,7 @@ export default function UndercurrentPage() {
     .filter((c) => (c.money?.darkPoolPct ?? 0) >= 40)
     .sort((a, b) => (b.money?.darkPoolPct ?? 0) - (a.money?.darkPoolPct ?? 0));
   const connected = (base: Card | null) =>
-    base ? cards.filter((c) => c !== base && (c.moneyMood === base.moneyMood || (c.divergence && base.divergence))).slice(0, 3) : [];
+    base ? cards.filter((c) => c.ticker !== base.ticker && (c.moneyMood === base.moneyMood || (c.divergence && base.divergence))).slice(0, 3) : [];
 
   // ── breaking (fresh ≤ 2h across stories + macro) · topics (tag counts) · edition ──
   const BREAKING_MIN = 120;
@@ -899,7 +924,9 @@ export default function UndercurrentPage() {
     setUnlocked((u) => ({ ...u, [ticker]: true }));
   };
 
-  const isFree = (c: Card) => c === hero; // hero's deep layer is the free taste
+  // Free by TICKER, not object identity — an SWR feed swap replaces card objects, so
+  // `c === hero` would re-lock the hero's already-open deep layer mid-read.
+  const isFree = (c: Card) => !!hero && c.ticker === hero.ticker; // hero's deep layer is the free taste
   const isOpen = (c: Card) => isFree(c) || unlocked[c.ticker];
 
   const openDetail = (c: Card) => { setDetail(c); markRead(c); window.scrollTo(0, 0); };
@@ -1329,7 +1356,7 @@ export default function UndercurrentPage() {
             <div style={{ textAlign: 'center', fontSize: 13, color: C.faint, fontWeight: 600, marginTop: 18 }}>{t.loading}</div>
           </div>
         )}
-        {err && <div style={{ padding: '80px 0', textAlign: 'center', fontSize: 14, color: C.sub }}>{t.error}</div>}
+        {err && !feed && <div style={{ padding: '80px 0', textAlign: 'center', fontSize: 14, color: C.sub }}>{t.error}</div>}
 
         {feed && (
           <div key={tab} className="uc-view">
