@@ -75,12 +75,20 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
             const type = action?.notification?.data?.type;
             const seg = window.location.pathname.split('/')[1];
             const loc = ['ko', 'en', 'ja'].includes(seg) ? seg : 'en';
-            if (type === 'morning') {
+            const target = type === 'morning'
               // Guardian overview → auto-open the AI morning-briefing report overlay.
-              router.push(`/${loc}/app-view/guardian?tab=overview&brief=1`);
-            } else if (type === 'closing') {
-              router.push(`/${loc}/app-view/intel`);
-            }
+              ? `/${loc}/app-view/guardian?tab=overview&brief=1`
+              : type === 'closing'
+                ? `/${loc}/app-view/intel`
+                : null;
+            if (!target) return;
+            // Persist the target so a COLD-start tap survives the root→/dash launch
+            // redirect that would otherwise clobber this navigation. The plugin buffers
+            // this action (retainUntilConsumed:true), so on cold start it fires only once
+            // the app-view layout has mounted — i.e. right after the dash redirect. The
+            // consumer in NativeAppProvider (alive since the root) re-applies the target.
+            try { sessionStorage.setItem('signumhq.pendingDeepLink', target); } catch { /* storage off */ }
+            router.push(target);
           },
         );
         remove = () => { try { handle.remove(); } catch {} };

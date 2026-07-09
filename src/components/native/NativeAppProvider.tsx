@@ -74,6 +74,32 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, mounted, router]);
 
+  // --- Cold-start push deep-link: honor a tapped notification even when the
+  // root→/dash launch redirect pre-empts the in-view listener's navigation. The
+  // push handler (app-view/layout) persists the target; this provider lives since
+  // the root, so we briefly poll for it after launch and replace to it if we aren't
+  // already there. Fully inert unless a push was tapped (no key → nothing happens);
+  // warm taps already navigated, so the path matches and we just clear the key. ---
+  useEffect(() => {
+    if (!_isNative || !mounted) return;
+    const KEY = 'signumhq.pendingDeepLink';
+    let tries = 0;
+    const id = setInterval(() => {
+      tries += 1;
+      let target: string | null = null;
+      try { target = sessionStorage.getItem(KEY); } catch { /* storage off */ }
+      if (target) {
+        try { sessionStorage.removeItem(KEY); } catch {}
+        const targetPath = target.split('?')[0];
+        if (!window.location.pathname.startsWith(targetPath)) router.replace(target);
+        clearInterval(id);
+      } else if (tries >= 16) {
+        clearInterval(id); // ~2.4s window, then stop polling
+      }
+    }, 150);
+    return () => clearInterval(id);
+  }, [mounted, router]);
+
   // --- 앱 초기화 (한 번만) ---
   useEffect(() => {
     setMounted(true);
