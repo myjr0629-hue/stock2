@@ -94,6 +94,34 @@ Do ALL of these on a real device before flipping `IAP_LIVE` or submitting:
 
 ---
 
+## ASO refinement — DO THIS at the v1.1 submission (user-requested 2026-07-10)
+
+Metadata is editable with each version, so v1.1 is the moment to reinforce the store listing
+for the initial-buff. Current live listing is already solid (verified 2026-07-10):
+- Name: `SIGNUM HQ: Stock Market Intel` (strong — name is the #1 search-weighted field).
+- Subtitle (US): `Stocks, options & AI insights` (strong — #2 field, 3 keywords).
+- Description: strong converter. NOTE: iOS does NOT index the description for search (unlike
+  Play) — it only drives conversion. So keyword effort goes to name + subtitle + keyword field.
+
+**The one field to actually improve = the hidden 100-char Keyword field** (per localization,
+not public). Rule: do NOT repeat words already in that locale's name/subtitle (wasted chars);
+pack differentiated high-intent terms. Ready-to-paste (each <100 chars, no space after commas):
+
+- **en** (US/UK/global-English):
+  `options flow,dark pool,gamma,GEX,max pain,unusual,whale,premarket,put call,trading,investing,ticker`
+- **ja**:
+  `米国株,オプション,ダークプール,ガンマ,決算,相場,投資,デイトレ,出来高,ティッカー,プレマーケット,先物,ボラティリティ,マックスペイン,空売り,クジラ`
+- **ko**:
+  `미국주식,옵션,다크풀,감마,실적,급등주,프리마켓,투자,종목,선물,변동성,세력,공매도,옵션플로우,고래`
+
+(`米国株`/`미국주식` = "US stocks" — highest-intent term for the JP/KR audience; keep it.)
+Compare with whatever is currently in each locale's keyword field and swap if these are denser.
+Also consider a secondary category (Business) and refreshing Promotional text (editable anytime,
+no review) for launch messaging.
+
+**Bigger buff lever than keywords** for a brand-new app = ratings + download velocity → that's
+exactly why the v1.1 in-app review prompt matters. Micro-tuning keywords is secondary to that.
+
 ## Gotchas / invariants
 
 - `IAP_LIVE` must stay airtight: every subscription entry point is `{IAP_LIVE && ...}`.
