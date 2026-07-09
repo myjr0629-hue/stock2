@@ -1,19 +1,19 @@
 # Launch Promotion Plan — SIGNUM HQ + Undercurrent
 
 Two parts: (1) Apple **featuring nomination** pitch text per app (paste into App Store Connect),
-(2) **community promotion plan** — where self-promo is actually allowed, per region, and how to
-seed without getting banned (the web-failure trap = auto-posting where nobody asked). Created
-2026-07-10. Companion to [[marketing-pipeline-rebuild-planned]] and the growth research.
+(2) **community/channel plan** aligned with the verified growth research. Created 2026-07-10.
+Authoritative strategy source = memory [[marketing-pipeline-rebuild-planned]] (distilled from
+deep-research wf_196b0914-0f4, 18 confirmed findings). This doc is the executable companion.
 
 ---
 
 ## PART 1 — Apple Featuring Nomination (free, form-only, no downside)
 
-**Where:** App Store Connect → the app → **"Featuring" / Nominate your app** form (Apple's
-editorial team reads it when curating Today / New Apps We Love / category pages). Submit
-**2–3 weeks before** the window you want (e.g. before a market event, or right at v1.1). No
-guarantee, but zero cost. Editors reward: polished design, novel concept, localization, good
-UX, timeliness.
+**Where:** App Store Connect → the app → **"Featuring" / Nominate your app** form. Apple's
+editorial team reads it when curating Today / New Apps We Love / category pages. Submit
+**2–3 weeks before** the window you want (e.g. a market event, or v1.1 launch). No guarantee, but
+zero cost / zero downside. Editors reward: polished design, novel concept, localization, UX, timeliness.
+**Do it for EVERY app, and re-nominate at each major update** (a new version = a fresh reason to look).
 
 ### SIGNUM HQ — pitch (paste into the free-text "about" field)
 
@@ -29,8 +29,8 @@ UX, timeliness.
 > every market-moving day legible. Upcoming: v1.1 adds an ad-free subscription and morning/closing
 > push briefings.
 
-Key fields to fill: Category **Finance**; Localizations **en, ja, ko**; "What's new" → tie to v1.1
-or a market event; highlight **AI-generated daily briefings** + **institutional data decoded**.
+Fields: Category **Finance**; Localizations **en, ja, ko**; "What's new" → tie to v1.1 or a market
+event; highlight **AI daily briefings** + **institutional data decoded**.
 
 ### Undercurrent — pitch
 
@@ -41,77 +41,69 @@ or a market event; highlight **AI-generated daily briefings** + **institutional 
 > Trilingual (en/ja/ko), free.
 >
 > **Why feature it:** a fresh editorial format (a daily "edition" with a cover, fixed structure and
-> a completion arc), a distinctive hook (divergence scoreboard with D+1/D+3 verdicts), and a
-> design language that stands apart from typical finance apps. Great for a "New Apps We Love" or a
-> money/news story collection.
+> a completion arc), a distinctive hook (divergence scoreboard with D+1/D+3 verdicts), and a design
+> language that stands apart from typical finance apps. Great for "New Apps We Love" or a money/news story.
 
-Key fields: Category **Finance** (or **News** secondary); Localizations **en, ja, ko**; highlight
-the **daily edition format** + **divergence signature**.
-
-> Do the SAME for every app going forward (nomination is free per app). Re-nominate at each major
-> update — a new version is a fresh reason for editors to look.
+Fields: Category **Finance** (+ **News** secondary); Localizations **en, ja, ko**; highlight the
+**daily edition format** + **divergence signature**.
 
 ---
 
-## PART 2 — Community Promotion Plan
+## PART 2 — Channel & Community Plan (research-aligned)
 
-**Golden rule (the web-failure lesson):** big finance communities BAN link-drop self-promo. The
-play is **value-first + self-promo only where explicitly allowed + human-seeded, not automated**.
-Post as a person sharing something useful, not a bot dropping a link. One genuine post > 100 auto-posts.
+**Core direction (verified):** *one brand · one human channel (X/FinTwit) · automation as a video
+amplifier · content is ALWAYS a "reveal" (폭로) of what smart money / institutions did · convert via
+Custom Product Pages + per-channel UTM.* Automation alone created ZERO audience on the web — a HUMAN
+seed is non-negotiable.
 
-**⚠️ Rules change — verify each community's current self-promo policy before posting.** Stances
-below are directional, not guaranteed. A focused research pass can confirm + surface niche spots.
+**Golden rule:** value-first, never link-drop. Post as a person sharing a genuinely useful data
+moment, not a bot dropping a download link. One real post > 100 auto-posts.
 
-### 🇺🇸 US / English
+### The engine (do this, in order)
+1. **X / FinTwit = the one human channel.** ~15–30 min/day: post ONE reveal-style data moment
+   (e.g. `$NVDA dark pool 63% · GEX −8M · Max Pain $580`, branded card from the Remotion engine) +
+   reply FAST to ~5 target FinTwit accounts (being early beats being clever). This human presence is
+   the SEED. Link in REPLIES, never the post body (body links get reach-penalized).
+2. **Model = Unusual Whales:** a faceless *authoritative* brand (SIGNUM = the insider source, not a
+   person). Every piece answers "what did smart money / institutions / insiders just do."
+3. **Automation = short-form video support:** the 40 Remotion templates → TikTok/Reels/Shorts, built
+   around a decisive **3-second hook**. ⚠️ Only the 3-sec-hook is verified — video length, cadence,
+   "optimal Shorts length" were REFUTED → **A/B test, don't hardcode.**
+4. **Convert with Custom Product Pages (CPP) + UTM** — a tailored App Store page per channel
+   (underexploited, high-leverage).
+5. **Product Hunt** = a one-time launch event (prep assets the day before, rally first upvoters).
+6. **Apple featuring** (Part 1) — free, do it.
 
-| Venue | Self-promo? | How to approach | Priority |
-|---|---|---|---|
-| **Product Hunt** | ✅ Built for launches | One-time launch day, prep assets, rally first upvoters | ★★★ (one-shot) |
-| **Reddit r/SideProject, r/iosapps, r/apps, r/alphaandbeta, r/TestFlight** | ✅ Allowed | Honest "I built this" post + ask for feedback | ★★ |
-| **Reddit r/options, r/thetagang, r/algotrading** | ⚠️ Value-first only | Share a real data insight/screenshot; link only if asked | ★★ |
-| **r/stocks, r/investing, r/wallstreetbets** | ⛔ No promo (strict) | Participate for presence only; never link-drop | — |
-| **X / FinTwit** | ✅ Native channel | Cashtags, reply-game, daily "signal cards" (Remotion) | ★★★ (ongoing) |
-| **Hacker News (Show HN)** | ✅ If data/tech angle | Frame the data engine, not the marketing | ★ |
-| **Indie Hackers** | ✅ Allowed | Build-in-public story | ★ |
+### Region notes (verified)
+- **🇺🇸 US:** X/FinTwit (above) is primary. **Reddit = value-first only, and build karma 4–8 weeks
+  BEFORE any promotion** — no link-drops, no launch-day spam. (⚠️ Specific subreddit lists were
+  REFUTED in research — don't trust a canned list; earn standing in whatever subs you actually use.)
+- **🇯🇵 Japan:** the **in-app stock-social community model** (株友 / STREAM etc.) + X **#米国株**
+  community (very active for JP US-stock retail). note.com value articles secondary.
+- **🇰🇷 Korea:** ⚠️ **HOLD aggressive US-stock promo** — research flagged an active FSS (금감원)
+  crackdown on US-stock promotion running through ~Q1/March 2026. **Today is 2026-07 — likely past,
+  but VERIFY the crackdown has lifted before any aggressive KR US-stock push.** Until confirmed, keep
+  KR to value-first, non-solicitation content only.
 
-### 🇰🇷 Korea
+### Do NOT rely on (refuted by verification)
+Specific subreddit lists · "optimal Shorts length 20–45s" · any fixed posting cadence · the
+90-min / 10–15-DM daily ritual. Treat these as things to test, not follow.
 
-| Venue | Self-promo? | How to approach | Priority |
-|---|---|---|---|
-| **디시인사이드 미국주식 갤러리** | ⚠️ Tolerated, brutal audience | Post genuine 분석/데이터, thick skin; link soft | ★★ |
-| **네이버 카페 (미국주식 카페)** | ⚠️ Only 홍보 게시판 | Find cafes with a 홍보/앱소개 board; respect it | ★★ |
-| **텔레그램 / 카톡 오픈채팅 (미국주식 방)** | ⚠️ Varies | Join active US-stock rooms that allow; value-first | ★★ |
-| **클리앙 / 뽐뿌 / 루리웹** | ⛔ Generally strict | Skip unless a clear 소개 board exists | — |
-| **X 한국 주식 계정** | ✅ Native | Korean signal cards, 미국주식 hashtag | ★★ |
-
-### 🇯🇵 Japan
-
-| Venue | Self-promo? | How to approach | Priority |
-|---|---|---|---|
-| **X 米国株 community** | ✅ Native, very active | JP signal cards, #米国株 #投資, reply-game | ★★★ |
-| **note.com** | ✅ Allowed | Write value articles (市場解説), link the app | ★★ |
-| **5ch 株板 / 米国株スレ** | ⚠️ Tolerated if you contribute | Value-first, harsh audience | ★ |
-| **みんかぶ / Yahoo!ファイナンス掲示板** | ⛔ Mostly no | Skip | — |
-
-### Method & cadence (avoid the bot-look)
-1. **Human seed FIRST** (week 1): personal network installs + ~10 honest ratings; 1 genuine post
-   in 2–3 allowed venues per region. This unlocks the store's velocity amplification.
-2. **Product Hunt** as a one-time launch event (prep the day before).
-3. **Then** let the existing content engine (40 Remotion video templates → TikTok/Reels/Shorts,
-   caption engine, 13 Buffer channels) run on X/short-form — but ONLY after the human seed, and
-   blended with real human replies. Pure automation from zero = the failure to not repeat.
-4. **Localize the message**, don't just translate — 米国株/미국주식 audiences want the US-market angle.
-
-### What's already automated (compounds passively)
-- v1.1 in-app rating prompt → ratings signal
-- morning/closing push → retention signal
-- ad-free early experience → good first impressions
-These feed the store algorithm without extra work.
+### Already automated (compounds passively, no extra work)
+- v1.1 in-app rating prompt → ratings signal · morning/closing push → retention signal ·
+  ad-free early experience → good first impressions. These feed the store's velocity amplification.
 
 ---
+
+## The single biggest feature-lever (from research)
+An in-app **congressional / insider-trade tracker feed** = the highest-leverage viral hook for a
+"reveal what smart money did" brand (Unusual Whales' engine). **Needs a compliance check first.**
+Not a launch task — a growth-phase product bet worth scoping.
 
 ## Next steps (when ready)
-- [ ] Nominate SIGNUM + UC for featuring (paste Part 1) — do at/after v1.1, re-do each update.
-- [ ] Pick the specific allowed venues per region (optional focused research to confirm rules + find niches).
+- [ ] Nominate SIGNUM + UC for featuring (paste Part 1) — at/after v1.1, re-do each update.
+- [ ] Stand up the ONE human X channel + daily reveal cadence (human seed before any automation).
+- [ ] Build Custom Product Pages + per-channel UTM.
 - [ ] Prep Product Hunt launch assets.
-- [ ] Draft the value-first seed posts (en/ko/ja) — honest, not salesy.
+- [ ] Confirm KR FSS crackdown status before any aggressive KR US-stock promo.
+- [ ] (Optional focused research) verify current self-promo rules for the exact venues you pick.
