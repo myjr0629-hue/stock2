@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { IAP_LIVE } from '@/config/iap';
 import { useProStatus } from '@/hooks/useProStatus';
-import { openExternalUrl } from '@/lib/native/capacitorBridge';
+import { openExternalUrl, canRequestReview, requestAppReview } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
 
 // ── Translations ──
@@ -20,6 +20,8 @@ const T: Record<string, {
   closingSub: string;
   cache: string;
   cacheSub: string;
+  rate: string;
+  rateSub: string;
   terms: string;
   privacy: string;
   cacheDialogTitle: string;
@@ -48,6 +50,8 @@ const T: Record<string, {
     closingSub: '장마감 후 분석 리포트 알림',
     cache: '캐시 초기화',
     cacheSub: '임시 데이터를 삭제합니다',
+    rate: '앱 평가하기',
+    rateSub: 'App Store에서 별점 남기기',
     terms: '이용약관',
     privacy: '개인정보 처리방침',
     cacheDialogTitle: '캐시 초기화',
@@ -76,6 +80,8 @@ const T: Record<string, {
     closingSub: 'Post-market analysis alert',
     cache: 'Clear Cache',
     cacheSub: 'Delete temporary data',
+    rate: 'Rate SIGNUM HQ',
+    rateSub: 'Leave a rating on the App Store',
     terms: 'Terms of Service',
     privacy: 'Privacy Policy',
     cacheDialogTitle: 'Clear Cache',
@@ -104,6 +110,8 @@ const T: Record<string, {
     closingSub: '引け後の分析レポート通知',
     cache: 'キャッシュクリア',
     cacheSub: '一時データを削除します',
+    rate: 'アプリを評価',
+    rateSub: 'App Storeで評価する',
     terms: '利用規約',
     privacy: 'プライバシーポリシー',
     cacheDialogTitle: 'キャッシュクリア',
@@ -166,6 +174,10 @@ export default function SettingsPage() {
   const { isPro, purchase, restore } = useProStatus();
   const [proBusy, setProBusy] = useState(false);
 
+  // In-app review — only show the row when the native plugin is present in the
+  // binary (current v1.0 shell lacks it → row stays hidden until the v1.1 build).
+  const [canRate, setCanRate] = useState(false);
+
   const handleProUpgrade = useCallback(async () => {
     if (proBusy || isPro) return;
     setProBusy(true);
@@ -200,6 +212,7 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true);
     setPrefs(loadPrefs());
+    setCanRate(canRequestReview());
   }, []);
 
   const updatePrefs = useCallback((patch: Partial<typeof prefs>) => {
@@ -456,6 +469,23 @@ export default function SettingsPage() {
               </div>
               <span className={s.rowChevron}>›</span>
             </div>
+            {/* Rate app — shown only when the native review plugin is in the binary (v1.1+). */}
+            {canRate && (
+              <div className={s.row} onClick={() => { requestAppReview(); }}>
+                <div className={s.rowLeft}>
+                  <div className={s.rowIcon} style={{ color: '#04140f', background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className={s.rowLabel}>{t.rate}</div>
+                    <div className={s.rowSub}>{t.rateSub}</div>
+                  </div>
+                </div>
+                <span className={s.rowChevron}>›</span>
+              </div>
+            )}
             <div className={s.row} onClick={() => router.push(`/${locale}/app-view/terms`)}>
               <div className={s.rowLeft}>
                 <div className={`${s.rowIcon} ${s.rowIconLegal}`}>

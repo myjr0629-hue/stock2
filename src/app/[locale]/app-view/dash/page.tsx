@@ -10,6 +10,7 @@ import { AdBanner } from '@/components/app/AdBanner';
 import { ValueWall } from '@/components/app/ValueWall';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -508,6 +509,10 @@ export default function AppDashPage() {
   const { prices: wsPrices, getPrice: wsGetPrice } = useRealtimeData(wsSymbols);
   const [flashStates, setFlashStates] = useState<Record<string, 'up' | 'down'>>({});
   const prevPricesRef = useRef<Record<string, number>>({});
+
+  // Ask retained users for a rating (3rd/8th distinct day of use). No-op unless the
+  // native review plugin is in the binary → completely inert in the current v1.0 shell.
+  useEffect(() => { maybePromptReview(); }, []);
 
   useEffect(() => {
     wsSymbols.forEach(sym => {

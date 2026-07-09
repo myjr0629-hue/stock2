@@ -139,6 +139,57 @@ export function getSafeAreaInsets(): { top: number; bottom: number } {
 }
 
 // ---------------------------------------------------------------------------
+// In-App Review (네이티브 별점) — @capacitor-community/in-app-review
+// 런타임 브리지로만 호출하므로, 플러그인이 바이너리에 없으면(=현재 v1.0 셸)
+// 자동 no-op. v1.1 바이너리(플러그인 포함)에서만 프롬프트가 뜬다.
+// 애플/구글이 자체적으로 노출 빈도를 제한한다(StoreKit ≤3회/년).
+// ---------------------------------------------------------------------------
+export function canRequestReview(): boolean {
+  if (!isNativeApp) return false;
+  try {
+    return !!(window as any).Capacitor?.Plugins?.InAppReview?.requestReview;
+  } catch {
+    return false;
+  }
+}
+
+export async function requestAppReview(): Promise<boolean> {
+  if (!canRequestReview()) return false;
+  try {
+    await (window as any).Capacitor.Plugins.InAppReview.requestReview();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 진짜로 유지된(retained) 사용자에게만 노출: 앱을 사용한 "서로 다른 날"이
+// 3일째·8일째 될 때 한 번씩. 네이티브가 추가로 throttle하므로 천장 아래로 조용히 유지된다.
+// 첫 실행/온보딩 중에는 절대 뜨지 않는다(누적 사용일 기준이므로).
+const REVIEW_DAYS_KEY = 'signumhq.review.days';
+const REVIEW_DONE_KEY = 'signumhq.review.prompted';
+const REVIEW_MILESTONES = [3, 8];
+
+export function maybePromptReview(delayMs = 2500): void {
+  if (!canRequestReview()) return;
+  try {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (local-agnostic key)
+    const days: string[] = JSON.parse(localStorage.getItem(REVIEW_DAYS_KEY) || '[]');
+    if (!days.includes(today)) {
+      days.push(today);
+      localStorage.setItem(REVIEW_DAYS_KEY, JSON.stringify(days.slice(-30)));
+    }
+    const prompted: number[] = JSON.parse(localStorage.getItem(REVIEW_DONE_KEY) || '[]');
+    const hit = REVIEW_MILESTONES.find(m => days.length >= m && !prompted.includes(m));
+    if (hit == null) return;
+    prompted.push(hit);
+    localStorage.setItem(REVIEW_DONE_KEY, JSON.stringify(prompted));
+    // Delay so the prompt lands after the user is settled on the dashboard, not mid-transition.
+    setTimeout(() => { requestAppReview(); }, delayMs);
+  } catch { /* storage unavailable → skip */ }
+}
+
+// ---------------------------------------------------------------------------
 // Open External URL (앱 내 브라우저)
 // ---------------------------------------------------------------------------
 export async function openExternalUrl(url: string) {
