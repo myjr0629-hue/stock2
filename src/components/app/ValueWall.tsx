@@ -20,6 +20,7 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
   adFreeLabel: string;
   proCta: string;
   proErrorLabel: string;
+  proNothingLabel: string;
   proRestoreLabel: string;
   previewChipLabel: string;
   legalNote: ReactNode;
@@ -39,6 +40,7 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     adFreeLabel: '또는 월 $9.99로 광고 제거',
     proCta: 'SIGNUM Pro · 광고 없이 · 월 $9.99',
     proErrorLabel: '구매를 완료하지 못했어요. 다시 시도해주세요.',
+    proNothingLabel: '복원할 구매 내역이 없어요.',
     proRestoreLabel: '구매 복원',
     previewChipLabel: '무료 미리보기',
     legalNote: <>교육 및 리서치용 시장 데이터입니다. 투자 조언이나 매수/매도 권유가 아니며, 정확성 또는 수익을 보장하지 않습니다.</>,
@@ -58,6 +60,7 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     adFreeLabel: 'or $9.99/mo ad-free',
     proCta: 'SIGNUM Pro · Go ad-free · $9.99/mo',
     proErrorLabel: "Couldn't complete the purchase. Please try again.",
+    proNothingLabel: 'No previous purchase to restore.',
     proRestoreLabel: 'Restore purchase',
     previewChipLabel: 'Free preview',
     legalNote: <>Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.</>,
@@ -77,6 +80,7 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     adFreeLabel: 'または月$9.99で広告なし',
     proCta: 'SIGNUM Pro · 広告なし · 月$9.99',
     proErrorLabel: '購入を完了できませんでした。もう一度お試しください。',
+    proNothingLabel: '復元できる購入履歴がありません。',
     proRestoreLabel: '購入を復元',
     previewChipLabel: '無料プレビュー',
     legalNote: <>教育およびリサーチ用の市場データです。投資助言や売買推奨ではなく、正確性または収益を保証しません。</>,
@@ -182,6 +186,7 @@ export function ValueWall({
   const [unlocking, setUnlocking] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [proError, setProError] = useState(false);
+  const [proNothing, setProNothing] = useState(false); // successful restore that found no entitlement
   const { unlocked, unlock } = useUnlockState();
   // Pro (paid, ad-free) is inert while IAP_LIVE=false: isPro stays false, no SDK.
   const { isPro, purchase, restore } = useProStatus();
@@ -226,6 +231,7 @@ export function ValueWall({
     if (purchasing) return;
     setPurchasing(true);
     setProError(false);
+    setProNothing(false);
     try {
       const res = await purchase();
       if (res.ok && res.isPro) { onUnlock?.(); return; }
@@ -242,10 +248,14 @@ export function ValueWall({
     if (purchasing) return;
     setPurchasing(true);
     setProError(false);
+    setProNothing(false);
     try {
       const res = await restore();
       if (res.ok && res.isPro) { onUnlock?.(); return; }
-      setProError(true); // failure OR nothing-to-restore → always give feedback
+      // Distinguish a successful no-op restore (nothing bought yet → neutral notice)
+      // from a real failure (→ error). Both used to show the error message.
+      if (res.ok) setProNothing(true);
+      else setProError(true);
     } finally {
       setPurchasing(false);
     }
@@ -304,6 +314,7 @@ export function ValueWall({
               <span>{purchasing ? copy.modalWaitPrefix : copy.proCta}</span>
             </button>
             {proError && <div className={styles.proError} role="alert">{copy.proErrorLabel}</div>}
+            {proNothing && <div className={styles.proError} style={{ color: 'var(--text-muted)' }} role="status">{copy.proNothingLabel}</div>}
             <button className={styles.proRestore} onClick={handleRestore} disabled={purchasing}>
               {copy.proRestoreLabel}
             </button>

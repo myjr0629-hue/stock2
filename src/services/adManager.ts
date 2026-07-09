@@ -107,7 +107,8 @@ class AdManagerService {
   private rewardedLoaded = false;
   private bannerSuppressed = false;
   private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
-  private wantBanner = false; // desired banner visibility once Pro status is known (set by setPro)
+  private proKnown = false; // true once Pro status has been reported at least once (setPro called)
+  private wantBanner = false; // derived desired banner visibility (recomputeWantBanner)
   private listeners: Map<string, Set<Function>> = new Map();
 
   // --- Interstitial frequency governance (shared across ALL triggers) ---
@@ -239,13 +240,19 @@ class AdManagerService {
     } catch {}
   }
 
+  // Single source of truth for whether the banner SHOULD be visible. Derived from
+  // every input so no path (setPro / setBannerSuppressed) can leave a stale flag:
+  // show only once Pro status is known AND the user isn't Pro AND nothing suppresses.
+  private recomputeWantBanner() {
+    this.wantBanner = this.proKnown && !this.proActive && !this.bannerSuppressed;
+  }
+
   async setBannerSuppressed(suppressed: boolean) {
     this.bannerSuppressed = suppressed;
-    if (suppressed) {
-      await this.hideBanner();
-    } else {
-      await this.showBanner();
-    }
+    this.recomputeWantBanner();
+    if (!this.initialized) return; // init() applies wantBanner when it finishes
+    if (suppressed) await this.hideBanner();
+    else if (this.wantBanner) await this.showBanner();
   }
 
   /**
@@ -256,7 +263,8 @@ class AdManagerService {
    */
   async setPro(isPro: boolean) {
     this.proActive = isPro;
-    this.wantBanner = !isPro && !this.bannerSuppressed;
+    this.proKnown = true;
+    this.recomputeWantBanner();
     if (!this.initialized) return; // init() applies wantBanner when it finishes
     if (this.wantBanner) await this.showBanner();
     else await this.hideBanner();

@@ -37,6 +37,7 @@ const T: Record<string, {
   proManage: string;
   proActiveBadge: string;
   proRestoredToast: string;
+  proNothingToRestoreToast: string;
   proErrorToast: string;
 }> = {
   ko: {
@@ -67,6 +68,7 @@ const T: Record<string, {
     proManage: '구독 관리',
     proActiveBadge: '활성',
     proRestoredToast: '구매가 복원되었습니다',
+    proNothingToRestoreToast: '복원할 구매 내역이 없어요',
     proErrorToast: '구매를 완료하지 못했어요',
   },
   en: {
@@ -97,6 +99,7 @@ const T: Record<string, {
     proManage: 'Manage subscription',
     proActiveBadge: 'Active',
     proRestoredToast: 'Purchase restored',
+    proNothingToRestoreToast: 'No previous purchase to restore',
     proErrorToast: "Couldn't complete the purchase",
   },
   ja: {
@@ -125,6 +128,7 @@ const T: Record<string, {
     proManage: 'サブスク管理',
     proActiveBadge: '有効',
     proRestoredToast: '購入を復元しました',
+    proNothingToRestoreToast: '復元できる購入履歴がありません',
     proErrorToast: '購入を完了できませんでした',
     cacheConfirm: 'クリア',
     cacheToast: 'キャッシュをクリアしました',
@@ -192,7 +196,8 @@ export default function SettingsPage() {
     setProBusy(true);
     try {
       const res = await restore();
-      setToastMsg(res.ok && res.isPro ? t.proRestoredToast : t.proErrorToast);
+      // 3-way: restored (ok+Pro) / nothing to restore (ok, no entitlement) / real failure.
+      setToastMsg(res.ok && res.isPro ? t.proRestoredToast : res.ok ? t.proNothingToRestoreToast : t.proErrorToast);
     } finally { setProBusy(false); }
   }, [restore, proBusy, t]);
 
