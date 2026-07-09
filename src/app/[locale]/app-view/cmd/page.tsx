@@ -1794,6 +1794,13 @@ function CmdPageContent() {
     } catch { /* storage unavailable */ }
   }, [ticker]);
 
+  // Reset scroll to the top on every ticker switch. Same-route ?t= navigation keeps
+  // the .app-main scroll position, so opening a ticker from a spot scrolled to the
+  // bottom (e.g. the PEERS list) otherwise landed mid-page (below the price header).
+  useEffect(() => {
+    (document.querySelector('.app-main') as HTMLElement | null)?.scrollTo({ top: 0 });
+  }, [ticker]);
+
   // Quick-pick chips: recently-viewed first, then popular (deduped).
   const chipTickers = useMemo(() => {
     const seen = new Set<string>();
