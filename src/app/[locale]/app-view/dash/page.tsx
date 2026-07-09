@@ -1626,9 +1626,12 @@ export default function AppDashPage() {
             </button>
           </div>
         </div>
-        <span 
-          className={s.sectionAction} 
+        <span
+          className={s.sectionAction}
+          role="button"
+          tabIndex={0}
           onClick={() => router.push('/app-view/movers')}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}
           style={{ cursor: 'pointer' }}
         >
           VIEW ALL &gt;

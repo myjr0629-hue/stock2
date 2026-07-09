@@ -171,8 +171,8 @@ export async function GET(req: NextRequest) {
 
     try {
         // We will try to fetch the cache of all movers.
-        const cacheKey = 'market:movers:all:v3';
-        const lastGoodKey = 'market:movers:last_good:v3';
+        const cacheKey = 'market:movers:all:v4';
+        const lastGoodKey = 'market:movers:last_good:v4';
         let cachedData = await getFromCache<any>(cacheKey);
 
         if (!hasMoverSet(cachedData)) {
@@ -215,12 +215,18 @@ export async function GET(req: NextRequest) {
                 .sort(byTradingValue)
                 .slice(0, 30);
 
-            // During holidays/closed sessions the dedicated mover endpoints can be empty.
-            // In that case, derive prior-session gainers/losers from the full snapshot.
-            const gainers = (sourceGainers.length > 0 ? sourceGainers : rankingUniverse.filter((m: any) => m.changePercent > 0).sort(byGainers))
-                .slice(0, 30);
-            const losers = (sourceLosers.length > 0 ? sourceLosers : rankingUniverse.filter((m: any) => m.changePercent < 0).sort(byLosers))
-                .slice(0, 30);
+            // The dedicated /gainers /losers snapshots return only ~20 rows each, and
+            // isTradableCommonStock trims warrants/units/low-liquidity names down to well
+            // under 20 (seen live: 17 gainers, 8 losers). Top up from the full universe
+            // (deduped by ticker) so each list reliably fills the requested Top-20 — and
+            // this also covers holidays/closed sessions where the dedicated endpoints are empty.
+            const topUp = (curated: any[], pool: any[], cmp: (a: any, b: any) => number) => {
+                const seen = new Set(curated.map((m: any) => m.ticker));
+                const extra = pool.filter((m: any) => !seen.has(m.ticker));
+                return [...curated, ...extra].sort(cmp).slice(0, 30);
+            };
+            const gainers = topUp(sourceGainers, rankingUniverse.filter((m: any) => m.changePercent > 0), byGainers);
+            const losers = topUp(sourceLosers, rankingUniverse.filter((m: any) => m.changePercent < 0), byLosers);
 
             cachedData = { gainers, losers, value, ts: Date.now() };
 
