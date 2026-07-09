@@ -1827,13 +1827,15 @@ function CmdPageContent() {
   const [aiLoading, setAiLoading] = useState(false);
   const [relatedData, setRelatedData] = useState<any[]>([]);
 
-  // [BUG FIX] switching tickers must NEVER show the previous ticker's AI
-  // analysis: clear the panel immediately (spinner shows until the new
-  // ticker's result lands), and track the live ticker so late responses
-  // from an earlier ticker can be dropped.
+  // [BUG FIX] switching tickers must reset the view: always land back on OVERVIEW
+  // (not the previously-open AI/QUANT/HOLDERS tab), and NEVER show the previous
+  // ticker's AI analysis — clear the panel immediately (spinner shows until the new
+  // ticker's result lands), and track the live ticker so late responses from an
+  // earlier ticker can be dropped.
   const aiTickerRef = useRef(ticker);
   useEffect(() => {
     aiTickerRef.current = ticker;
+    setActiveTab('overview');
     setAiInsightData(null);
     setGexStats(null);
   }, [ticker]);
