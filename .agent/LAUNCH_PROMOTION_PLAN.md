@@ -124,6 +124,7 @@ Not a launch task — a growth-phase product bet worth scoping.
 | **Threads (en)** | 보조 — 주 2~3회 | 도달 억제 덜함, 텍스트+이미지 궁합 |
 | TikTok/Reels/Shorts | **동결 → Phase 2 영상으로 부활** | Remotion 영상 준비되면 |
 | Pinterest/Bluesky/기타 | 동결 | 리테일 밀도 낮음, 관리비용만 듦 |
+| Threads (kor) | **은퇴 — 블럭 확인(2026-07-11)** | 복구/우회 시도 안 함 |
 
 ### Phase 0 — 계정 재활 (지금~2주): 버퍼 사용 금지, 100% 수동
 - **하루 1포스트/채널**: 토스에 올린 그 캡처로 en/ja 글 (Claude가 캡처 숫자 읽고 3언어 세트 작성)
@@ -137,6 +138,8 @@ Not a launch task — a growth-phase product bet worth scoping.
   새 핸들 개설(브랜드 유지, 예: @signumhq_app), 재활 시도 종료. 미련 금지.
 
 ### Phase 1 — 버퍼 복귀 (재활 확인 후): "생성기"가 아니라 "예약기"로
+- **API 경로 확정**: `bufferClient.createPost({draft:true, channelIds, mediaUrl, scheduledAt})` —
+  Claude가 씨앗 키트를 버퍼 **초안함**에 자동 적재, 발행 버튼만 사람이 누름(자동 발송 금지).
 - 주 1회 배치: Claude가 실데이터로 폭로형 포스트 5~7개 초안(en/ja 각각 네이티브 작성, 번역투 금지)
   → **사람이 훑고 승인** → 버퍼는 시간대 최적 예약만 (US장중 ET 오전 / JP 밤 22~24시 JST).
 - 철칙: 채널당 1일 1포스트 상한 · 동일문 크로스포스팅 금지(채널별 변형) · 본문 링크 금지 ·
