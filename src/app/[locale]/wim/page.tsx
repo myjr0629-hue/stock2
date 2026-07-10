@@ -180,6 +180,83 @@ function termDemo(term: MetricTerm, lab: LabData | null): Demo | null {
       return null; // institutional13f / insiderActivity → chart + prose (no live numbers yet)
   }
 }
+// per-card micro-infographic: the term's REAL data as a tiny visual (not text)
+function MiniViz({ term, lab }: { term: MetricTerm; lab: LabData | null }) {
+  const demo = termDemo(term, lab);
+  const spark = lab?.spark;
+  const H = 46; const W = 132;
+  // chart-type terms: real sparkline + the real level line(s), no labels (micro)
+  if (demo?.levels && demo.levels.length > 0 && spark && spark.closes.length >= 8) {
+    const closes = spark.closes;
+    const lvls = demo.levels.slice(0, 2);
+    const lo0 = Math.min(...closes); const hi0 = Math.max(...closes);
+    const near = lvls.filter((l) => l.value > lo0 * 0.85 && l.value < hi0 * 1.15);
+    const lo = Math.min(lo0, ...near.map((l) => l.value));
+    const hi = Math.max(hi0, ...near.map((l) => l.value));
+    const span = hi - lo || 1;
+    const x = (i: number) => (i / Math.max(1, closes.length - 1)) * W;
+    const y = (v: number) => H - 4 - ((v - lo) / span) * (H - 8);
+    const path = closes.map((c, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(c).toFixed(1)}`).join(' ');
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }} aria-hidden>
+        <path d={path} fill="none" stroke={P.hero} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+        {near.map((l) => (
+          <line key={l.label} x1="0" x2={W} y1={y(l.value)} y2={y(l.value)} stroke={l.color} strokeWidth="1.4" strokeDasharray="3 3" />
+        ))}
+      </svg>
+    );
+  }
+  // vwap: sparkline + real vwap dashes
+  if (demo?.vwapOn && spark && spark.vwap && spark.closes.length >= 8) {
+    const closes = spark.closes; const vw = spark.vwap;
+    const lo = Math.min(...closes, ...vw); const hi = Math.max(...closes, ...vw); const span = hi - lo || 1;
+    const x = (i: number, n: number) => (i / Math.max(1, n - 1)) * W;
+    const y = (v: number) => H - 4 - ((v - lo) / span) * (H - 8);
+    const p1 = closes.map((c, i) => `${i === 0 ? 'M' : 'L'}${x(i, closes.length).toFixed(1)},${y(c).toFixed(1)}`).join(' ');
+    const p2 = vw.map((c, i) => `${i === 0 ? 'M' : 'L'}${x(i, vw.length).toFixed(1)},${y(c).toFixed(1)}`).join(' ');
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }} aria-hidden>
+        <path d={p1} fill="none" stroke={P.hero} strokeWidth="2" strokeLinecap="round" />
+        <path d={p2} fill="none" stroke={P.amber} strokeWidth="1.5" strokeDasharray="4 3" />
+      </svg>
+    );
+  }
+  // gauge terms: radial arc with the real reading
+  if (demo?.gauge) {
+    const pct = Math.max(0.03, Math.min(1, demo.gauge.pct));
+    const R = 17; const C = Math.PI * R; // half-circle arc
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: H }}>
+        <svg width="52" height="34" viewBox="0 0 44 26" aria-hidden>
+          <path d="M4 24 A18 18 0 0 1 40 24" fill="none" stroke="rgba(108,92,231,0.15)" strokeWidth="5" strokeLinecap="round" />
+          <path d="M4 24 A18 18 0 0 1 40 24" fill="none" stroke={demo.gauge.color} strokeWidth="5" strokeLinecap="round"
+            strokeDasharray={`${C * pct} ${C}`} />
+        </svg>
+        <div style={{ fontSize: 17, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: demo.gauge.color }}>{demo.tiles[0]?.v}</div>
+      </div>
+    );
+  }
+  // value-only terms: the real number, big
+  if (demo?.tiles && demo.tiles.length > 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: H, flexWrap: 'wrap' }}>
+        {demo.tiles.slice(0, 2).map((tile) => (
+          <div key={tile.k}>
+            <div style={{ fontSize: 7.5, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>{tile.k}</div>
+            <div style={{ fontSize: 16, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: tile.color || P.ink }}>{tile.v}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  // no live data yet: quiet placeholder mark
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', height: H, color: P.faint }}>
+      <Ic name="book" size={20} sw={1.6} />
+    </div>
+  );
+}
+
 // short live value for search chips / library cards
 function termValue(term: MetricTerm, lab: LabData | null): string | null {
   const d = termDemo(term, lab);
@@ -1052,17 +1129,25 @@ export default function WimPage() {
                     <span style={{ fontSize: 12.5, fontWeight: 900, color }}>{'●'.repeat(depth)} {label}</span>
                     <span style={{ fontSize: 10.5, fontWeight: 800, color: P.faint }}>{learned}/{terms.length} {t.learned}</span>
                   </div>
-                  <div className="no-sb" style={{ display: 'flex', gap: 9, overflowX: 'auto', margin: '8px -16px 0', padding: '2px 16px 6px', WebkitOverflowScrolling: 'touch' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 9 }}>
                     {terms.map((term) => {
                       const seen = !!seenTerms[term];
                       return (
-                        <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 136px', borderRadius: 16, padding: '11px 12px', outline: seen ? `1.5px solid ${color}66` : 'none' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', color, background: `${color}1A`, borderRadius: 6, padding: '3px 7px' }}>{['I', 'II', 'III'][depth - 1]}</span>{seen && <Ic name="check" size={13} color={color} sw={2.6} />}</div>
-                          <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 850 as any, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', borderRadius: 18, padding: '11px 12px 10px', outline: seen ? `1.5px solid ${color}55` : 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.1em', color, background: `${color}1A`, borderRadius: 6, padding: '2px 7px' }}>{['I', 'II', 'III'][depth - 1]}</span>
+                            {seen && <Ic name="check" size={13} color={color} sw={2.6} />}
+                          </div>
+                          <div style={{ margin: '8px 0 4px' }}>
+                            <MiniViz term={term} lab={lab} />
+                          </div>
+                          <div style={{ fontSize: 11.5, fontWeight: 850 as any, lineHeight: 1.3, color: P.ink, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {METRIC_GLOSSARY[term].title[loc]}
                           </div>
-                          {termValue(term, lab) && (
-                            <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 900, color: P.heroDeep, fontVariantNumeric: 'tabular-nums' }}>{termValue(term, lab)}</div>
+                          {lab && (
+                            <div style={{ marginTop: 4, fontSize: 8.5, fontWeight: 800, letterSpacing: '0.05em', color: P.faint }}>
+                              {lab.ticker} · LIVE
+                            </div>
                           )}
                         </button>
                       );
