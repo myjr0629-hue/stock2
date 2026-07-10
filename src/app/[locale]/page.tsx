@@ -492,8 +492,8 @@ export default function Page() {
             </Link>
           </div>
 
-          {/* App install helper — QR for desktop, store note for mobile */}
-          <div className="hidden md:inline-flex items-center gap-4 mb-8 px-5 py-3.5 rounded-xl bg-[#0a1628]/60 border border-white/10 text-left">
+          {/* App install helper — QR for desktop (own row, centered), store note for mobile */}
+          <div className="hidden md:flex w-fit mx-auto items-center gap-4 mb-8 px-5 py-3.5 rounded-xl bg-[#0a1628]/60 border border-white/10 text-left">
             <div className="bg-white p-1.5 rounded-lg shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/images/app-qr.svg" alt="SIGNUM HQ app install QR" width={76} height={76} />
