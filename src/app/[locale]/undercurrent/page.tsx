@@ -40,6 +40,7 @@ const T: Record<Locale, Record<string, string>> = {
     secStories: '오늘의 스토리', secStoriesSub: '돈의 반응과 함께 읽는 뉴스',
     connected: '연결된 흐름', more: '더 보기',
     share: '공유', shareCopied: '링크가 복사되었어요', viewTicker: '이 종목 전체 보기', backdropNow: '지금 시장',
+    pxToday: '오늘', pxSince: '보도 후',
     offExchange: '장외 거래 비중',
     deepTitle: '심층 머니 레이어',
     deepLockedTitle: '이 종목의 심층 데이터',
@@ -115,6 +116,7 @@ const T: Record<Locale, Record<string, string>> = {
     secStories: "Today's stories", secStoriesSub: 'News read together with the money',
     connected: 'Connected flows', more: 'See all',
     share: 'Share', shareCopied: 'Link copied', viewTicker: 'See all on this ticker', backdropNow: 'The market now',
+    pxToday: 'today', pxSince: 'since the news',
     offExchange: 'off-exchange share',
     deepTitle: 'Deep money layer',
     deepLockedTitle: 'Deep data for this ticker',
@@ -190,6 +192,7 @@ const T: Record<Locale, Record<string, string>> = {
     secStories: '今日のストーリー', secStoriesSub: 'お金の反応と一緒に読むニュース',
     connected: 'つながる流れ', more: 'すべて見る',
     share: 'シェア', shareCopied: 'リンクをコピーしました', viewTicker: 'この銘柄をすべて見る', backdropNow: 'いまの市場',
+    pxToday: '本日', pxSince: '報道後',
     offExchange: '場外取引シェア',
     deepTitle: 'ディープ・マネーレイヤー',
     deepLockedTitle: 'この銘柄のディープデータ',
@@ -623,6 +626,25 @@ export default function UndercurrentPage() {
       .catch(() => { if (alive) setFilings((f) => ({ ...f, [tk]: [] })); });
     return () => { alive = false; };
   }, [detail?.ticker]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Quiet price strip for the detail sheet: current price + day% + "% since the news"
+  // (reference = first bar after publishedAt — see /api/undercurrent/price). Editorial,
+  // no live ticks; cleared on story switch so a previous ticker's price never flashes.
+  const [detailPx, setDetailPx] = useState<{ price: number; dayPct: number | null; sincePct: number | null } | null>(null);
+  useEffect(() => {
+    setDetailPx(null);
+    const tk = detail?.ticker;
+    if (!tk) return;
+    let alive = true;
+    const q = detail?.publishedAt ? `&since=${encodeURIComponent(detail.publishedAt)}` : '';
+    fetch(`/api/undercurrent/price?t=${tk}${q}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j?.success || typeof j.price !== 'number') return;
+        setDetailPx({ price: j.price, dayPct: typeof j.dayPct === 'number' ? j.dayPct : null, sincePct: typeof j.sincePct === 'number' ? j.sincePct : null });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [detail?.ticker, detail?.publishedAt]); // eslint-disable-line react-hooks/exhaustive-deps
   const [unlocked, setUnlocked] = useState<Record<string, boolean>>({});
   const [shareToast, setShareToast] = useState(false); // clipboard-fallback confirmation
   // ── ticker search state ──
@@ -1082,6 +1104,34 @@ export default function UndercurrentPage() {
               </button>
             </span>
           </header>
+
+          {/* quiet price strip — the money's live scoreboard for this story:
+              current price · today% · "% since the news" (divergence, live) */}
+          {detailPx && (
+            <div style={{
+              marginTop: 12, display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap',
+              background: C.card, border: `1px solid ${C.line}`, borderRadius: 13,
+              padding: '9px 13px', boxShadow: C.shadow, fontVariantNumeric: 'tabular-nums',
+            }}>
+              <span style={{ fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em' }}>
+                ${detailPx.price >= 1000 ? detailPx.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : detailPx.price.toFixed(2)}
+              </span>
+              {detailPx.dayPct != null && (
+                <span style={{ fontSize: 12, fontWeight: 800, color: detailPx.dayPct >= 0 ? C.emerald : C.diverge }}>
+                  {detailPx.dayPct >= 0 ? '+' : ''}{detailPx.dayPct.toFixed(2)}%
+                  <span style={{ marginLeft: 3, fontWeight: 700, color: C.faint }}>{t.pxToday}</span>
+                </span>
+              )}
+              {detailPx.sincePct != null && (
+                <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: C.faint }}>
+                  {t.pxSince}{' '}
+                  <span style={{ fontWeight: 900, color: detailPx.sincePct >= 0 ? C.emerald : C.diverge }}>
+                    {detailPx.sincePct >= 0 ? '+' : ''}{detailPx.sincePct.toFixed(2)}%
+                  </span>
+                </span>
+              )}
+            </div>
+          )}
 
           {c.image && (
             <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', marginTop: 14, aspectRatio: '16/8', background: '#E8E4DC' }}>
