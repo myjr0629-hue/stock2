@@ -49,6 +49,9 @@ const MIN_DOLLAR_VOLUME = 150_000_000; // liquidity floor for non-famous movers
 function dateET(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 }
+function etDateOf(ms: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(ms));
+}
 
 // 조언·예측 어휘 스캔 — 교육앱 절대선. 하나라도 걸리면 유닛 폐기.
 const FORBIDDEN = /매수|매도|추천|목표가를 제시|사세요|파세요|will rise|will fall|should buy|should sell|buy now|sell now|買うべき|売るべき|上がるだろう|下がるだろう/i;
@@ -70,14 +73,18 @@ export async function GET(request: Request) {
   const cacheKey = `wim:units:v2:${today}`;
 
   const generate = async () => {
-    // 1) real movers — liquid names first (dollar-volume sorted upstream), sane % band
-    const [gRes, lRes] = await Promise.all([
+    // 1) real movers — three sources: value (top dollar-volume = the household names,
+    // where NVDA/MU-type movers actually live; the gainers/losers top-30 is usually
+    // microcap noise), plus gainers/losers for the big swings
+    const [vRes, gRes, lRes] = await Promise.all([
+      fetch(`${origin}/api/market/movers?type=value&limit=30`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch(`${origin}/api/market/movers?type=gainers&limit=30`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch(`${origin}/api/market/movers?type=losers&limit=30`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
     type Mover = { ticker: string; price: number; changePercent: number; value?: number };
     // movers route returns { movers: [...] } (object), not a bare array
     const all: Mover[] = [
+      ...(((vRes?.movers ?? vRes) || []) as Mover[]),
       ...(((gRes?.movers ?? gRes) || []) as Mover[]),
       ...(((lRes?.movers ?? lRes) || []) as Mover[]),
     ].filter((m) => /^[A-Z]{1,5}$/.test(m.ticker) && Math.abs(m.changePercent) <= 30);
@@ -104,13 +111,19 @@ export async function GET(request: Request) {
         fetchMassive('/v2/reference/news', { ticker: m.ticker, limit: '6', order: 'desc', sort: 'published_utc' }, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
         fetchMoney(origin, m.ticker).catch(() => null),
         fetchMassive(`/v3/reference/tickers/${m.ticker}`, {}, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
-        fetchMassive(`/v2/aggs/ticker/${m.ticker}/range/5/minute/${today}/${today}`, { adjusted: 'true', sort: 'asc', limit: '500' }, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
+        // pull ~6 days and keep only the LAST session's bars — before the ET open,
+        // "today's" calendar date has no bars yet, but the move being quizzed is the
+        // LAST session's move, so its chart is the right chart (holiday-safe too)
+        fetchMassive(`/v2/aggs/ticker/${m.ticker}/range/5/minute/${new Date(Date.now() - 6 * 86400_000).toISOString().slice(0, 10)}/${today}`, { adjusted: 'true', sort: 'asc', limit: '5000' }, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
       ]);
       const headlines = ((news?.results || []) as NewsItem[])
         .filter((n) => !isSpam(n))
         .slice(0, 3)
         .map((n) => n.title);
-      const bars = (aggs?.results || []) as { c?: number; vw?: number }[];
+      const barsAll = (aggs?.results || []) as { c?: number; vw?: number; t?: number }[];
+      const lastDay = barsAll.length && typeof barsAll[barsAll.length - 1].t === 'number'
+        ? etDateOf(barsAll[barsAll.length - 1].t as number) : null;
+      const bars = lastDay ? barsAll.filter((b) => typeof b.t === 'number' && etDateOf(b.t) === lastDay) : [];
       const closes = bars.map((b) => b.c).filter((x): x is number => typeof x === 'number' && x > 0);
       const vwaps = bars.map((b) => b.vw).filter((x): x is number => typeof x === 'number' && x > 0);
       const spark = closes.length >= 8
