@@ -82,7 +82,7 @@ const T: Record<Lang, Record<string, string>> = {
     tagline: "Today's market, a 30-second lesson",
     todaysSet: "Today's questions", done: 'done', ofToday: 'learned today',
     weekDays: 'M,T,W,T,F,S,S',
-    streakLine1: 'This week', streakLine2: 'days of learning',
+    streakLine1: 'This week', streakLine2: ' days of learning',
     keepGoing: 'Nice — keep it going!', startToday: "Wake your brain up with today's set",
     level: 'Level', xp: 'XP', toNext: 'to next level',
     lv1: 'Rookie Detective', lv2: 'Junior Detective', lv3: 'Senior Detective', lv4: 'Lead Detective', lv5: 'Desk-grade Detective',
