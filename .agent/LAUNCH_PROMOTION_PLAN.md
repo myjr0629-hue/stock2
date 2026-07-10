@@ -110,7 +110,22 @@ Not a launch task — a growth-phase product bet worth scoping.
 
 ---
 
-## PART 3 — Buffer/SNS 재활 운용 설계 (2026-07-11, 토스 검증 이후)
+## PART 3 — SNS 전면 리셋 운용 설계 (2026-07-11 확정)
+
+**★ 계정 결정 (사용자 확정)**: 기존 계정 재활 포기 — **블루스카이만 유지**, X(en)·X(ja)·Threads(en)는
+**새 계정 개설** (기존 1,000포스트 스팸 이력+블럭+반응0 = 벌점 계정에 3주 태울 가치 없음. 기존 핸들은
+삭제하지 말고 휴면 보관). 새 핸들 후보: @signumhq_app / @signum_hq / @SignumHQ_intel. 계정 개설=사람,
+개설 후 버퍼 재연결.
+
+**★ 콘텐츠 DNA (기존과 다른 10가지의 핵심)**: 일기예보→사건 보도. ①티커 1개·숫자 1개·긴장 1줄
+②사건 트리거(이상 신호 있을 때만, 무사건=침묵) ③1~3/일 ④캡처는 해당 지표 카드 크롭(풀스크린 금지)
+⑤사람 목소리(예측·조언 0, 무미건조도 0) ⑥5포맷: 사건형("$TSLA $560M net CALL premium. That's not
+hedging — that's conviction")/영수증형("SOXL -5%. Max pain was $190 all week. The magnet won.")/
+괴리형(News says X, money says Y)/미니수업형(오늘 실사례로 30초 개념)/질문형(Accumulation or
+distribution — what's your read?) ⑦답글이 본체 ⑧링크는 답글·바이오 ⑨발사 버튼=사람 ⑩측정=포스트당
+노출+UTM, 되는 포맷 더블다운.
+
+### (구버전 참고: 이하 초안 — 위 확정본이 우선)
 
 **전제**: 자동 스프레이는 정지됨(f5c91ef4). 버퍼는 도구일 뿐 — 실패 원인은 ①13채널 동일문 블라스트
 ②컴플라이언스 스크럽으로 죽은 문장 ③본문 링크 ④사람 부재. 토스에서 검증된 공식(실데이터 캡처 +
