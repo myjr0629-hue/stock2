@@ -84,7 +84,11 @@ const T: Record<Lang, Record<string, string>> = {
     adBanner: '광고 영역', adInterstitial: '광고 후 계속됩니다',
     realChart: '오늘 실제 5분봉', realData: '실데이터', vwapLine: 'VWAP 라인',
     onRealChart: '오늘 실제 차트 위에서 보기', rsiNow: '현재 RSI(14)',
-    langBtn: '한국어',
+    tabHome: '홈', tabLib: '사전', tabSearch: '검색', tabMe: '기록',
+    heroCase: '오늘의 대표 사건', caseFiles: '사건 파일', solve: '수사하기', solved: '해결',
+    settings: '설정', language: '언어', searchPh: '지표·용어 검색 (예: 다크풀, RSI)',
+    noResults: '결과가 없어요', myStats: '내 수사 기록', statSolved: '푼 사건', statCorrect: '정답', statTerms: '배운 용어',
+    todayRecord: '오늘의 수사', langBtn: '한국어',
     empty: '오늘 문제를 준비하고 있어요 — 잠시 후 다시 열어주세요.',
     play: '풀기', replay: '다시 보기',
   },
@@ -112,7 +116,11 @@ const T: Record<Lang, Record<string, string>> = {
     adBanner: 'Ad space', adInterstitial: 'Continuing after the ad',
     realChart: "Today's real 5-min bars", realData: 'real data', vwapLine: 'VWAP line',
     onRealChart: "See it on today's real chart", rsiNow: 'Current RSI(14)',
-    langBtn: 'English',
+    tabHome: 'Home', tabLib: 'Library', tabSearch: 'Search', tabMe: 'Record',
+    heroCase: "Today's top case", caseFiles: 'Case files', solve: 'Investigate', solved: 'Solved',
+    settings: 'Settings', language: 'Language', searchPh: 'Search indicators (e.g. dark pool, RSI)',
+    noResults: 'No results', myStats: 'My case record', statSolved: 'Cases', statCorrect: 'Correct', statTerms: 'Terms learned',
+    todayRecord: "Today's investigation", langBtn: 'English',
     empty: "Preparing today's questions — check back shortly.",
     play: 'Play', replay: 'Review',
   },
@@ -140,7 +148,11 @@ const T: Record<Lang, Record<string, string>> = {
     adBanner: '広告スペース', adInterstitial: '広告のあと続きます',
     realChart: '今日の実5分足', realData: '実データ', vwapLine: 'VWAPライン',
     onRealChart: '今日の実チャートで見る', rsiNow: '現在のRSI(14)',
-    langBtn: '日本語',
+    tabHome: 'ホーム', tabLib: '辞典', tabSearch: '検索', tabMe: '記録',
+    heroCase: '今日のトップ事件', caseFiles: '事件ファイル', solve: '捜査する', solved: '解決',
+    settings: '設定', language: '言語', searchPh: '指標を検索（例：ダークプール、RSI）',
+    noResults: '該当なし', myStats: '捜査記録', statSolved: '解いた事件', statCorrect: '正解', statTerms: '学んだ用語',
+    todayRecord: '今日の捜査', langBtn: '日本語',
     empty: '今日の問題を準備中 — 少し後にまた開いてください。',
     play: '解く', replay: '復習',
   },
@@ -164,12 +176,15 @@ function weekdayIdx(): number { return (new Date().getDay() + 6) % 7; } // Mon=0
 // NEUTRAL violet (no up/down colors — compliance), optional real VWAP overlay
 // and real options levels (max pain / call wall / put floor) as annotated lines.
 function RealChart({
-  closes, vwap, levels, height = 96, minmax = true,
+  closes, vwap, levels, height = 96, minmax = true, tone = 'light',
 }: {
   closes: number[]; vwap?: number[] | null;
   levels?: { label: string; value: number; color: string }[];
-  height?: number; minmax?: boolean;
+  height?: number; minmax?: boolean; tone?: 'light' | 'dark';
 }) {
+  const stroke = tone === 'dark' ? '#E9E4FF' : P.hero;
+  const fillId = tone === 'dark' ? 'wimFillD' : 'wimFill';
+  const axis = tone === 'dark' ? 'rgba(255,255,255,0.65)' : P.faint;
   const W = 320; const H = height;
   const usable = levels?.filter((l) => typeof l.value === 'number' && l.value > 0) || [];
   const lo0 = Math.min(...closes); const hi0 = Math.max(...closes);
@@ -189,13 +204,13 @@ function RealChart({
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height, display: 'block' }} aria-hidden>
       <defs>
-        <linearGradient id="wimFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={P.hero} stopOpacity="0.28" />
-          <stop offset="100%" stopColor={P.hero} stopOpacity="0.02" />
+        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={tone === 'dark' ? '#FFFFFF' : P.hero} stopOpacity={tone === 'dark' ? '0.30' : '0.28'} />
+          <stop offset="100%" stopColor={tone === 'dark' ? '#FFFFFF' : P.hero} stopOpacity="0.02" />
         </linearGradient>
       </defs>
-      <path d={area} fill="url(#wimFill)" />
-      <path d={path} fill="none" stroke={P.hero} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={area} fill={`url(#${fillId})`} />
+      <path d={path} fill="none" stroke={stroke} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
       {vwPath && <path d={vwPath} fill="none" stroke={P.amber} strokeWidth="1.6" strokeDasharray="5 4" opacity="0.9" />}
       {near.map((l) => (
         <g key={l.label}>
@@ -205,8 +220,8 @@ function RealChart({
       ))}
       {minmax && (
         <g>
-          <text x="4" y="11" fontSize="9" fontWeight="800" fill={P.faint}>${hi0.toFixed(hi0 >= 100 ? 0 : 2)}</text>
-          <text x="4" y={H - 3} fontSize="9" fontWeight="800" fill={P.faint}>${lo0.toFixed(lo0 >= 100 ? 0 : 2)}</text>
+          <text x="4" y="11" fontSize="9" fontWeight="800" fill={axis}>${hi0.toFixed(hi0 >= 100 ? 0 : 2)}</text>
+          <text x="4" y={H - 3} fontSize="9" fontWeight="800" fill={axis}>${lo0.toFixed(lo0 >= 100 ? 0 : 2)}</text>
         </g>
       )}
     </svg>
@@ -400,6 +415,10 @@ export default function WimPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [setDoneShown, setSetDoneShown] = useState(false);
   const [glossOpen, setGlossOpen] = useState<MetricTerm | null>(null);
+  // v3: glass shell — bottom tabs, settings sheet (language lives here), indicator search
+  const [homeTab, setHomeTab] = useState<'home' | 'lib' | 'search' | 'me'>('home');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState('');
 
   // ── boot: restore local state + fetch today's set (instant-paint + SWR refresh) ──
   useEffect(() => {
@@ -513,11 +532,6 @@ export default function WimPage() {
       setSeenTerms(ns); persist('wim.terms', JSON.stringify(ns));
     }
   }, [seenTerms, persist]);
-
-  const switchLang = useCallback(() => {
-    const next: Lang = loc === 'ko' ? 'en' : loc === 'en' ? 'ja' : 'ko';
-    router.replace(`/${next}/wim`);
-  }, [loc, router]);
 
   const weekLabels = t.weekDays.split(',');
 
@@ -709,176 +723,369 @@ export default function WimPage() {
     );
   }
 
-  // ════════════════════════ HOME ════════════════════════
+  // ════════════════════════ HOME (v3: glass shell · bottom tabs · case files) ════════════════════════
+  const heroU = units.find((u) => !done[u.id]) || units[0] || null;
+  const heroIdx = heroU ? units.indexOf(heroU) : -1;
+  const glass = {
+    background: 'rgba(255,255,255,0.60)',
+    backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255,255,255,0.85)',
+    boxShadow: '0 12px 34px rgba(76,63,175,0.13)',
+  } as const;
+  const glassDark = {
+    background: 'linear-gradient(150deg, rgba(83,68,214,0.92), rgba(108,92,231,0.86))',
+    backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255,255,255,0.28)',
+    boxShadow: '0 16px 40px rgba(76,63,175,0.30)',
+  } as const;
+  const solvedCount = Object.keys(done).length;
+  const correctToday = units.filter((u) => done[u.id] && u.correctCategoryIds.includes(done[u.id])).length;
+  const termsCount = Object.keys(seenTerms).filter((k) => seenTerms[k]).length;
+  const q = searchQ.trim().toLowerCase();
+  const searchResults = (Object.keys(METRIC_GLOSSARY) as MetricTerm[]).filter((term) => {
+    if (!q) return false;
+    const e = METRIC_GLOSSARY[term];
+    return `${e.title.ko} ${e.title.en} ${e.title.ja} ${e.body[loc]}`.toLowerCase().includes(q);
+  }).slice(0, 12);
+
   return (
-    <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif" }}>
-      <style>{`@keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}} .wim-skel{background:linear-gradient(90deg,#EFEBFF 25%,#F8F6FF 50%,#EFEBFF 75%);background-size:200% 100%;animation:wimSh 1.4s infinite} @keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${WIM_ADS_LIVE ? 96 : 44}px + env(safe-area-inset-bottom))` }}>
+    <div style={{ minHeight: '100vh', color: P.ink, fontFamily: "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif", background: 'linear-gradient(178deg, #D9D0FF 0%, #EDE8FF 36%, #F8F6FF 100%)', position: 'relative' }}>
+      <style>{`
+        @keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+        @keyframes wimFloat1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(24px,-30px) scale(1.12)}}
+        @keyframes wimFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,22px) scale(0.92)}}
+        @keyframes wimFloat3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(18px,26px) scale(1.08)}}
+        .wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite}
+        @keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .no-sb::-webkit-scrollbar{display:none}
+      `}</style>
 
-        {/* masthead — violet hero */}
-        <header style={{ margin: '0 -18px', padding: '0 18px', background: `linear-gradient(160deg, ${P.hero}, ${P.heroDeep})`, borderRadius: '0 0 30px 30px', color: '#fff', paddingTop: 'calc(18px + env(safe-area-inset-top))', paddingBottom: 22, boxShadow: P.shadow }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ width: 40, height: 40, borderRadius: 14, background: 'rgba(255,255,255,0.16)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 21 }}>🔍</span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.05 }}>Why&apos;d It Move?</div>
-              <div style={{ fontSize: 10.5, fontWeight: 700, opacity: 0.75, marginTop: 2 }}>{t.tagline}</div>
-            </div>
-            <button type="button" onClick={switchLang} style={{ font: 'inherit', marginLeft: 'auto', flexShrink: 0, background: 'rgba(255,255,255,0.16)', color: '#fff', border: 'none', borderRadius: 99, padding: '7px 13px', fontSize: 11.5, fontWeight: 900, cursor: 'pointer' }}>
-              🌐 {t.langBtn}
-            </button>
-          </div>
+      {/* floating gradient blobs — depth behind the glass */}
+      <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '-6%', right: '-14%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,122,89,0.34), transparent 68%)', filter: 'blur(14px)', animation: 'wimFloat1 13s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', top: '30%', left: '-16%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(25,184,147,0.26), transparent 68%)', filter: 'blur(16px)', animation: 'wimFloat2 16s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', bottom: '4%', right: '-10%', width: 340, height: 340, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,92,231,0.30), transparent 66%)', filter: 'blur(18px)', animation: 'wimFloat3 18s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', top: '8%', left: '20%', width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,173,31,0.30), transparent 66%)', filter: 'blur(12px)', animation: 'wimFloat2 11s ease-in-out infinite' }} />
+      </div>
 
-          {/* Calm-style streak ring + week dots */}
-          <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.10)', borderRadius: 20, padding: '14px 15px' }}>
-            <StreakRing days={streakDays} t={t} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-              {weekLabels.map((d, i) => {
-                const on = week[i]; const isToday = i === weekdayIdx();
-                return (
-                  <div key={i} style={{ textAlign: 'center' }}>
-                    <div style={{
-                      width: 30, height: 30, borderRadius: '50%',
-                      background: on ? '#fff' : 'rgba(255,255,255,0.14)',
-                      border: isToday && !on ? '2px solid rgba(255,255,255,0.7)' : 'none',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 14, fontWeight: 900, color: on ? P.hero : 'rgba(255,255,255,0.7)',
-                    }}>{on ? '✓' : ''}</div>
-                    <div style={{ fontSize: 9, fontWeight: 800, opacity: 0.75, marginTop: 4 }}>{d}</div>
-                  </div>
-                );
-              })}
-            </div>
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 560, margin: '0 auto', padding: `0 16px calc(${WIM_ADS_LIVE ? 158 : 104}px + env(safe-area-inset-bottom))` }}>
+
+        {/* glass masthead */}
+        <header style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + env(safe-area-inset-top))' }}>
+          <span style={{ ...glass, width: 42, height: 42, borderRadius: 15, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 21 }}>🔍</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.05 }}>Why&apos;d It Move?</div>
+            <div style={{ fontSize: 10, fontWeight: 750 as any, color: P.sub, marginTop: 2 }}>{t.tagline}</div>
           </div>
+          <button type="button" onClick={() => setSettingsOpen(true)} aria-label={t.settings} style={{ ...glass, font: 'inherit', marginLeft: 'auto', flexShrink: 0, width: 40, height: 40, borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16 }}>
+            ⚙️
+          </button>
         </header>
 
-        {/* XP / level (7REWARDS-style) */}
-        <section style={{ marginTop: 14, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '13px 16px', animation: 'wimUp 0.3s ease' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 900 }}>🕵️ {levelNames[levelIdx]}</span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: P.faint }}>{t.level} {levelIdx + 1}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 900, color: P.hero }}>{xp} {t.xp}</span>
-          </div>
-          <div style={{ marginTop: 9, height: 10, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
-            <div style={{ width: `${levelPct * 100}%`, height: '100%', background: `linear-gradient(90deg, ${P.amber}, ${P.coral})`, borderRadius: 99, transition: 'width 0.5s ease' }} />
-          </div>
-          <div style={{ marginTop: 6, fontSize: 10.5, fontWeight: 700, color: P.faint }}>
-            {XP_PER_LEVEL - (xp % XP_PER_LEVEL)} {t.xp} {t.toNext}
-          </div>
-        </section>
-
-        {/* TODAY'S SET */}
-        <section style={{ marginTop: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900, letterSpacing: '-0.01em' }}>⚡ {t.todaysSet}</h2>
-            <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 900, color: doneCount === units.length && units.length > 0 ? P.mint : P.faint }}>
-              {doneCount}/{units.length || '–'} {t.done}
-            </span>
-          </div>
-
-          {!today && !failed && (
-            <div>
-              <div className="wim-skel" style={{ height: 76, borderRadius: 20, marginTop: 12 }} />
-              <div className="wim-skel" style={{ height: 76, borderRadius: 20, marginTop: 10 }} />
-              <div className="wim-skel" style={{ height: 76, borderRadius: 20, marginTop: 10 }} />
-            </div>
-          )}
-          {failed && !today && (
-            <div style={{ marginTop: 12, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, padding: '18px 16px', fontSize: 13, fontWeight: 700, color: P.sub, textAlign: 'center' }}>{t.empty}</div>
-          )}
-
-          {units.map((u, i) => {
-            const isDone = !!done[u.id];
-            const lvLabel = u.difficultyLevel === 1 ? t.quizLv1 : u.difficultyLevel === 2 ? t.quizLv2 : t.quizLv3;
-            const lvColor = u.difficultyLevel === 1 ? P.mint : u.difficultyLevel === 2 ? P.amber : P.hero;
-            return (
-              <button
-                key={u.id} type="button" onClick={() => startQuiz(i)}
-                style={{
-                  font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%',
-                  marginTop: i === 0 ? 12 : 10, background: '#fff', borderRadius: 20,
-                  border: `1.5px solid ${isDone ? P.mintSoft : P.line}`, boxShadow: P.shadow,
-                  padding: '14px 15px', display: 'flex', alignItems: 'center', gap: 12,
-                  opacity: 1, animation: 'wimUp 0.3s ease',
-                }}
-              >
-                <TickerLogo ticker={u.ticker} size={38} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 14.5, fontWeight: 900 }}>{u.ticker}</span>
-                    <span style={{ fontSize: 9.5, fontWeight: 900, color: lvColor, background: `${lvColor}1A`, borderRadius: 99, padding: '2px 8px' }}>{lvLabel}</span>
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: P.sub, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    ±{u.moveMagnitude}% · {u.prompt[loc]}
-                  </div>
+        {/* ── TAB: HOME ── */}
+        {homeTab === 'home' && (
+          <>
+            {/* hero: today's top case — the REAL chart IS the graphic */}
+            {heroU && heroU.spark && heroU.spark.closes.length >= 8 ? (
+              <section style={{ ...glassDark, marginTop: 16, borderRadius: 26, padding: '16px 16px 12px', color: '#fff', animation: 'wimUp 0.35s ease' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#FFD66B' }}>🗂 {t.heroCase.toUpperCase()}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: '#7EE0AE', background: 'rgba(25,184,147,0.25)', borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
                 </div>
-                {u.spark && u.spark.closes.length >= 8 && <MiniSpark closes={u.spark.closes} />}
-                <span style={{
-                  flexShrink: 0, fontSize: 11.5, fontWeight: 900, borderRadius: 99, padding: '7px 13px',
-                  background: isDone ? P.mintSoft : P.hero, color: isDone ? P.mint : '#fff',
-                }}>{isDone ? `✓ ${t.replay}` : `▶ ${t.play}`}</span>
-              </button>
-            );
-          })}
-
-          {setDoneShown && doneCount === units.length && units.length > 0 && (
-            <div style={{ marginTop: 12, background: P.mintSoft, border: `1.5px solid ${P.mint}`, borderRadius: 20, padding: '15px 16px', textAlign: 'center', animation: 'wimUp 0.35s ease' }}>
-              <div style={{ fontSize: 15, fontWeight: 900, color: P.mint }}>🏆 {t.setDone}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: P.sub, marginTop: 4 }}>{t.setDoneSub}</div>
-            </div>
-          )}
-        </section>
-
-        {/* CURRICULUM — Kahoot-style shelves, basics → institutional */}
-        <section style={{ marginTop: 24 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900, letterSpacing: '-0.01em' }}>📚 {t.curriculum}</h2>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: P.faint, marginTop: 3 }}>{t.curriculumSub}</div>
-          {([1, 2, 3] as const).map((depth) => {
-            const terms = DEPTH_TERMS[depth];
-            const label = depth === 1 ? t.depth1 : depth === 2 ? t.depth2 : t.depth3;
-            const color = depth === 1 ? P.mint : depth === 2 ? P.amber : P.hero;
-            const learned = terms.filter((x) => seenTerms[x]).length;
-            return (
-              <div key={depth} style={{ marginTop: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 900, color }}>{'●'.repeat(depth)} {label}</span>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, color: P.faint }}>{learned}/{terms.length} {t.learned}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11 }}>
+                  <TickerLogo ticker={heroU.ticker} size={40} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.01em' }}>{heroU.ticker}</div>
+                    {heroU.companyName && <div style={{ fontSize: 10.5, fontWeight: 650 as any, opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{heroU.companyName}</div>}
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 900, background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '6px 12px' }}>±{heroU.moveMagnitude}%</span>
                 </div>
-                <div style={{ display: 'flex', gap: 9, overflowX: 'auto', margin: '8px -18px 0', padding: '2px 18px 6px', WebkitOverflowScrolling: 'touch' }}>
-                  {terms.map((term) => {
-                    const seen = !!seenTerms[term];
+                <div style={{ margin: '10px -6px 0' }}>
+                  <RealChart closes={heroU.spark.closes} height={116} tone="dark" />
+                </div>
+                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', width: '100%', marginTop: 10, background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(0,0,0,0.18)' }}>
+                  🕵️ {heroU.prompt[loc]} · {t.solve} →
+                </button>
+              </section>
+            ) : !failed && !today ? (
+              <div className="wim-skel" style={{ height: 230, borderRadius: 26, marginTop: 16 }} />
+            ) : null}
+            {failed && !today && (
+              <div style={{ ...glass, marginTop: 16, borderRadius: 20, padding: '18px 16px', fontSize: 13, fontWeight: 700, color: P.sub, textAlign: 'center' }}>{t.empty}</div>
+            )}
+
+            {/* case files — horizontal glass cards, each with its REAL chart */}
+            {units.length > 0 && (
+              <section style={{ marginTop: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
+                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>🗃 {t.caseFiles}</h2>
+                  <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: doneCount === units.length ? P.mint : P.faint }}>{doneCount}/{units.length} {t.done}</span>
+                </div>
+                <div className="no-sb" style={{ display: 'flex', gap: 11, overflowX: 'auto', margin: '10px -16px 0', padding: '2px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+                  {units.map((u, i) => {
+                    const isDone = !!done[u.id];
+                    const lvLabel = u.difficultyLevel === 1 ? t.quizLv1 : u.difficultyLevel === 2 ? t.quizLv2 : t.quizLv3;
+                    const lvColor = u.difficultyLevel === 1 ? P.mint : u.difficultyLevel === 2 ? P.amber : P.hero;
                     return (
-                      <button
-                        key={term} type="button" onClick={() => markTerm(term)}
-                        style={{
-                          font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 138px',
-                          background: '#fff', borderRadius: 16, border: `1.5px solid ${seen ? `${color}55` : P.line}`,
-                          boxShadow: P.shadow, padding: '12px 12px',
-                        }}
-                      >
-                        <div style={{ fontSize: 17 }}>{seen ? '✅' : depth === 1 ? '🌱' : depth === 2 ? '🔬' : '🏛️'}</div>
-                        <div style={{ marginTop: 7, fontSize: 12, fontWeight: 850 as any, lineHeight: 1.3, color: P.ink, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {METRIC_GLOSSARY[term].title[loc]}
+                      <button key={u.id} type="button" onClick={() => startQuiz(i)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 168px', scrollSnapAlign: 'start', borderRadius: 20, padding: '12px 12px 11px', animation: 'wimUp 0.3s ease' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <TickerLogo ticker={u.ticker} size={26} />
+                          <span style={{ fontSize: 13.5, fontWeight: 900 }}>{u.ticker}</span>
+                          <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: lvColor, background: `${lvColor}1F`, borderRadius: 99, padding: '2px 7px' }}>{lvLabel}</span>
+                        </div>
+                        <div style={{ margin: '8px -4px 0' }}>
+                          {u.spark && u.spark.closes.length >= 8
+                            ? <RealChart closes={u.spark.closes} height={54} minmax={false} />
+                            : <div style={{ height: 54 }} />}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', marginTop: 7 }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 900, color: P.heroDeep }}>±{u.moveMagnitude}%</span>
+                          <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 900, borderRadius: 99, padding: '4px 10px', background: isDone ? P.mintSoft : P.hero, color: isDone ? P.mint : '#fff' }}>
+                            {isDone ? `✓ ${t.solved}` : `▶ ${t.play}`}
+                          </span>
                         </div>
                       </button>
                     );
                   })}
                 </div>
-              </div>
-            );
-          })}
-        </section>
+              </section>
+            )}
 
-        {/* footer: disclaimer */}
-        <footer style={{ marginTop: 26, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.6 }}>
+            {/* streak + XP — one compact glass band */}
+            <section style={{ ...glass, marginTop: 10, borderRadius: 22, padding: '13px 15px', animation: 'wimUp 0.35s ease' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ position: 'relative', width: 54, height: 54, flexShrink: 0 }}>
+                  <svg width="54" height="54" viewBox="0 0 54 54">
+                    <circle cx="27" cy="27" r="21" fill="none" stroke={P.heroSoft} strokeWidth="7" />
+                    <circle cx="27" cy="27" r="21" fill="none" stroke={P.amber} strokeWidth="7" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 21 * Math.max(0.02, Math.min(1, streakDays / 7))} ${2 * Math.PI * 21}`} transform="rotate(-90 27 27)" />
+                  </svg>
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 900 }}>{streakDays}</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 900 }}>{t.streakLine1} <span style={{ color: P.hero }}>{streakDays}</span>{t.streakLine2}</div>
+                  <div style={{ display: 'flex', gap: 5, marginTop: 6 }}>
+                    {weekLabels.map((d, i) => {
+                      const on = week[i]; const isToday = i === weekdayIdx();
+                      return (
+                        <div key={i} style={{ width: 20, height: 20, borderRadius: '50%', background: on ? P.hero : 'rgba(108,92,231,0.14)', border: isToday && !on ? `1.5px solid ${P.hero}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, fontWeight: 900, color: on ? '#fff' : P.faint }}>
+                          {on ? '✓' : d}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 11 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 900 }}>🕵️ {levelNames[levelIdx]}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 900, color: P.hero }}>{xp} {t.xp}</span>
+              </div>
+              <div style={{ marginTop: 6, height: 8, background: 'rgba(108,92,231,0.14)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ width: `${levelPct * 100}%`, height: '100%', background: `linear-gradient(90deg, ${P.amber}, ${P.coral})`, borderRadius: 99, transition: 'width 0.5s ease' }} />
+              </div>
+            </section>
+
+            {setDoneShown && doneCount === units.length && units.length > 0 && (
+              <div style={{ ...glass, marginTop: 10, borderRadius: 20, padding: '14px 16px', textAlign: 'center', animation: 'wimUp 0.35s ease' }}>
+                <div style={{ fontSize: 14.5, fontWeight: 900, color: P.mint }}>🏆 {t.setDone}</div>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.setDoneSub}</div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── TAB: LIBRARY (concept shelves — real-chart sheets) ── */}
+        {homeTab === 'lib' && (
+          <section style={{ marginTop: 16, animation: 'wimUp 0.3s ease' }}>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900 }}>📚 {t.curriculum}</h2>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.curriculumSub}</div>
+            {([1, 2, 3] as const).map((depth) => {
+              const terms = DEPTH_TERMS[depth];
+              const label = depth === 1 ? t.depth1 : depth === 2 ? t.depth2 : t.depth3;
+              const color = depth === 1 ? P.mint : depth === 2 ? P.amber : P.hero;
+              const learned = terms.filter((x) => seenTerms[x]).length;
+              return (
+                <div key={depth} style={{ marginTop: 15 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 900, color }}>{'●'.repeat(depth)} {label}</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: P.faint }}>{learned}/{terms.length} {t.learned}</span>
+                  </div>
+                  <div className="no-sb" style={{ display: 'flex', gap: 9, overflowX: 'auto', margin: '8px -16px 0', padding: '2px 16px 6px', WebkitOverflowScrolling: 'touch' }}>
+                    {terms.map((term) => {
+                      const seen = !!seenTerms[term];
+                      return (
+                        <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 136px', borderRadius: 16, padding: '11px 12px', outline: seen ? `1.5px solid ${color}66` : 'none' }}>
+                          <div style={{ fontSize: 17 }}>{seen ? '✅' : depth === 1 ? '🌱' : depth === 2 ? '🔬' : '🏛️'}</div>
+                          <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 850 as any, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {METRIC_GLOSSARY[term].title[loc]}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+        )}
+
+        {/* ── TAB: SEARCH (indicator search → real-chart sheet) ── */}
+        {homeTab === 'search' && (
+          <section style={{ marginTop: 16, animation: 'wimUp 0.3s ease' }}>
+            <div style={{ ...glass, display: 'flex', alignItems: 'center', gap: 9, borderRadius: 17, padding: '12px 14px' }}>
+              <span style={{ fontSize: 15 }}>🔍</span>
+              <input
+                value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder={t.searchPh}
+                style={{ font: 'inherit', flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, fontWeight: 700, color: P.ink }}
+              />
+              {searchQ && (
+                <button type="button" onClick={() => setSearchQ('')} style={{ font: 'inherit', border: 'none', background: P.heroSoft, color: P.heroDeep, borderRadius: '50%', width: 22, height: 22, fontSize: 11, fontWeight: 900, cursor: 'pointer' }}>✕</button>
+              )}
+            </div>
+            {q === '' && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 13 }}>
+                {(Object.keys(METRIC_GLOSSARY) as MetricTerm[]).slice(0, 14).map((term) => (
+                  <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', cursor: 'pointer', borderRadius: 99, padding: '8px 13px', fontSize: 11.5, fontWeight: 850 as any, color: P.ink }}>
+                    {METRIC_GLOSSARY[term].title[loc]}
+                  </button>
+                ))}
+              </div>
+            )}
+            {q !== '' && searchResults.length === 0 && (
+              <div style={{ ...glass, marginTop: 13, borderRadius: 16, padding: '16px', textAlign: 'center', fontSize: 12.5, fontWeight: 700, color: P.sub }}>{t.noResults}</div>
+            )}
+            {searchResults.map((term) => (
+              <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', marginTop: 10, borderRadius: 16, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 16 }}>{seenTerms[term] ? '✅' : '📖'}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 900 }}>{METRIC_GLOSSARY[term].title[loc]}</div>
+                  <div style={{ fontSize: 11, fontWeight: 650 as any, color: P.sub, marginTop: 2, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{METRIC_GLOSSARY[term].body[loc]}</div>
+                </div>
+                <span style={{ marginLeft: 'auto', color: P.hero, fontWeight: 900 }}>›</span>
+              </button>
+            ))}
+          </section>
+        )}
+
+        {/* ── TAB: ME (case record) ── */}
+        {homeTab === 'me' && (
+          <section style={{ marginTop: 16, animation: 'wimUp 0.3s ease' }}>
+            <div style={{ ...glassDark, borderRadius: 24, padding: '16px 15px', color: '#fff' }}>
+              <StreakRing days={streakDays} t={t} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+                {weekLabels.map((d, i) => {
+                  const on = week[i]; const isToday = i === weekdayIdx();
+                  return (
+                    <div key={i} style={{ textAlign: 'center' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: on ? '#fff' : 'rgba(255,255,255,0.14)', border: isToday && !on ? '2px solid rgba(255,255,255,0.7)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: on ? P.hero : 'rgba(255,255,255,0.7)' }}>{on ? '✓' : ''}</div>
+                      <div style={{ fontSize: 8.5, fontWeight: 800, opacity: 0.75, marginTop: 3 }}>{d}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <h2 style={{ margin: '16px 0 0', fontSize: 15.5, fontWeight: 900 }}>🗂 {t.myStats}</h2>
+            <div style={{ display: 'flex', gap: 9, marginTop: 10 }}>
+              {[
+                { n: solvedCount, label: t.statSolved, emoji: '🗃' },
+                { n: correctToday, label: t.statCorrect, emoji: '🎯' },
+                { n: termsCount, label: t.statTerms, emoji: '📚' },
+              ].map((s) => (
+                <div key={s.label} style={{ ...glass, flex: 1, borderRadius: 18, padding: '13px 8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 15 }}>{s.emoji}</div>
+                  <div style={{ fontSize: 21, fontWeight: 900, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{s.n}</div>
+                  <div style={{ fontSize: 9.5, fontWeight: 800, color: P.sub, marginTop: 2 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ ...glass, marginTop: 12, borderRadius: 18, padding: '13px 15px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 900 }}>🕵️ {levelNames[levelIdx]}</span>
+                <span style={{ fontSize: 10.5, fontWeight: 800, color: P.faint }}>{t.level} {levelIdx + 1}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 900, color: P.hero }}>{xp} {t.xp}</span>
+              </div>
+              <div style={{ marginTop: 8, height: 9, background: 'rgba(108,92,231,0.14)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ width: `${levelPct * 100}%`, height: '100%', background: `linear-gradient(90deg, ${P.amber}, ${P.coral})`, borderRadius: 99 }} />
+              </div>
+              <div style={{ marginTop: 5, fontSize: 10, fontWeight: 700, color: P.faint }}>{XP_PER_LEVEL - (xp % XP_PER_LEVEL)} {t.xp} {t.toNext}</div>
+            </div>
+
+            {units.some((u) => done[u.id]) && (
+              <>
+                <h2 style={{ margin: '16px 0 0', fontSize: 15.5, fontWeight: 900 }}>📅 {t.todayRecord}</h2>
+                {units.filter((u) => done[u.id]).map((u) => {
+                  const ok = u.correctCategoryIds.includes(done[u.id]);
+                  return (
+                    <div key={u.id} style={{ ...glass, marginTop: 9, borderRadius: 16, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <TickerLogo ticker={u.ticker} size={26} />
+                      <span style={{ fontSize: 13, fontWeight: 900 }}>{u.ticker}</span>
+                      <span style={{ fontSize: 11, fontWeight: 750 as any, color: P.sub }}>±{u.moveMagnitude}%</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 15 }}>{ok ? '🎯' : '💪'}</span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </section>
+        )}
+
+        <footer style={{ marginTop: 24, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.6 }}>
           {units[0]?.disclaimer?.[loc] || (loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.')}
           <div style={{ marginTop: 4, opacity: 0.8 }}>Why&apos;d It Move? · prototype · by SIGNUM HQ</div>
         </footer>
       </div>
 
-      {/* ① bottom banner ad slot — inert until WIM_ADS_LIVE */}
+      {/* ① bottom banner ad slot — inert until WIM_ADS_LIVE (sits above the tab bar) */}
       {WIM_ADS_LIVE && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, height: 'calc(62px + env(safe-area-inset-bottom))', background: '#fff', borderTop: `1.5px solid ${P.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: P.faint, zIndex: 50 }}>
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(84px + env(safe-area-inset-bottom))', height: 56, background: 'rgba(255,255,255,0.9)', borderTop: `1px solid ${P.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: P.faint, zIndex: 49 }}>
           {t.adBanner}
+        </div>
+      )}
+
+      {/* glass bottom tab bar */}
+      <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 24, boxShadow: '0 14px 36px rgba(76,63,175,0.22)', display: 'flex', padding: 6 }}>
+        {([
+          { id: 'home', emoji: '🗂', label: t.tabHome },
+          { id: 'lib', emoji: '📚', label: t.tabLib },
+          { id: 'search', emoji: '🔍', label: t.tabSearch },
+          { id: 'me', emoji: '🕵️', label: t.tabMe },
+        ] as const).map((tb) => {
+          const active = homeTab === tb.id;
+          return (
+            <button key={tb.id} type="button" onClick={() => { setHomeTab(tb.id); window.scrollTo(0, 0); }} style={{
+              font: 'inherit', flex: 1, border: 'none', cursor: 'pointer', borderRadius: 18, padding: '9px 0 8px',
+              background: active ? `linear-gradient(150deg, ${P.hero}, ${P.heroDeep})` : 'transparent',
+              color: active ? '#fff' : P.sub, transition: 'background 0.2s ease',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+            }}>
+              <span style={{ fontSize: 17, filter: active ? 'none' : 'grayscale(0.4)' }}>{tb.emoji}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 900 }}>{tb.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* settings sheet — language lives here now */}
+      {settingsOpen && (
+        <div onClick={() => setSettingsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(26px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease' }}>
+            <div style={{ fontSize: 16, fontWeight: 900 }}>⚙️ {t.settings}</div>
+            <div style={{ marginTop: 14, fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>{t.language.toUpperCase()}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              {([['en', 'English'], ['ja', '日本語'], ['ko', '한국어']] as const).map(([code, name]) => (
+                <button key={code} type="button" onClick={() => { setSettingsOpen(false); if (code !== loc) router.replace(`/${code}/wim`); }} style={{
+                  font: 'inherit', flex: 1, cursor: 'pointer', borderRadius: 14, padding: '11px 0', fontSize: 12.5, fontWeight: 900,
+                  border: `1.5px solid ${code === loc ? P.hero : P.line}`,
+                  background: code === loc ? P.hero : '#fff', color: code === loc ? '#fff' : P.ink,
+                }}>{name}</button>
+              ))}
+            </div>
+            <div style={{ marginTop: 14, fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.6 }}>
+              {loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.'}
+            </div>
+            <button type="button" onClick={() => setSettingsOpen(false)} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
+          </div>
         </div>
       )}
 
