@@ -1652,8 +1652,8 @@ export default function UndercurrentPage() {
                     </div>
                     <div style={{ display: 'flex', gap: 11, overflowX: 'auto', margin: '0 -18px', padding: '2px 18px 6px', scrollSnapType: 'x mandatory' }}>
                       {whaleCards.slice(0, 6).map((c) => (
-                        {/* 190px (was 172): the 20px logo + gap must coexist with the divergence
-                            badge — at 172 the badge overlapped the ticker text. */}
+                        // 190px (was 172): the 20px logo + gap must coexist with the divergence
+                        // badge — at 172 the badge overlapped the ticker text.
                         <button key={c.ticker} type="button" onClick={() => openDetail(c)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', padding: '14px 15px', flex: '0 0 190px', scrollSnapAlign: 'start', borderRadius: 18, border: 'none', background: `linear-gradient(160deg, ${C.emeraldDeep}, #0B3D2C)`, color: '#fff', boxShadow: C.shadow }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
