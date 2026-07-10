@@ -242,6 +242,7 @@
     "volAnalysis": "出来高分析",
     "volBuyRatio": "買い量比率",
     "breadthAnalysisPending": "レギュラーセッション中にBreadth分析が行われます",
+    "breadthRegOnly": "本場専用",
     "insightPending": "レギュラーセッション中にリアルタイム分析が行われます",
     "vixBackwardationDesc": "VIX先物期間構造の逆転（バックワーデーション）観測。表面的値動きに関わらず、機関の下落ヘッジポジショニングが急増中。",
     "riskOffDesc": "リスク資産から債券・金など安全資産へ資金が強く移動中。安全資産への流入加速観測。",

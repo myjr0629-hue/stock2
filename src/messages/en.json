@@ -242,6 +242,7 @@
     "volAnalysis": "Volume Analysis",
     "volBuyRatio": "Buy Volume Ratio",
     "breadthAnalysisPending": "Breadth analysis available during regular session",
+    "breadthRegOnly": "REG ONLY",
     "insightPending": "Real-time analysis available during regular session",
     "vixBackwardationDesc": "VIX term structure in backwardation. Institutional downside hedge positioning surging regardless of surface price action.",
     "riskOffDesc": "Capital rotating aggressively from equities to safe havens (Bonds & Gold). Safe-haven inflow acceleration observed.",

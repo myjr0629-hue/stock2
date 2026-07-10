@@ -242,6 +242,7 @@
     "volAnalysis": "거래량 분석",
     "volBuyRatio": "매수량 비율",
     "breadthAnalysisPending": "본장에서 Breadth 분석이 진행됩니다",
+    "breadthRegOnly": "본장 전용",
     "insightPending": "본장에서 실시간 분석이 진행됩니다",
     "vixBackwardationDesc": "VIX 선물 기간구조 역전(Backwardation) 관측. 표면적 주가와 무관하게 기관 하락 헤지 포지셔닝이 급증하고 있습니다.",
     "riskOffDesc": "위험자산에서 채권·금 등 안전자산으로 자금이 강하게 이동 중. 안전자산 유입 가속 관측.",

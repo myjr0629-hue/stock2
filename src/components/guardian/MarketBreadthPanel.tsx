@@ -228,6 +228,13 @@ export default function RLSIInsightPanel({
 
     const cfg = signalConfig[breadthSignal] || signalConfig.NEUTRAL;
 
+    // Breadth is a REGULAR-session metric: advancers/decliners only accumulate after
+    // the open. During PRE (and closed/holiday) the upstream serves neutral defaults
+    // (50/50, A/D 1.00, vol 50) — rendering those with a real interpretation sentence
+    // misleads (user-reported). POST keeps the completed session's real reading.
+    const breadthIsDefault = breadthPct === 50 && adRatio === 1 && volumeBreadth === 50;
+    const breadthLive = isMarketActive && (session === 'REG' || session === 'POST') && !breadthIsDefault;
+
     const sentimentBorder = sentiment === 'BULLISH' ? 'border-emerald-500/20' :
         sentiment === 'BEARISH' ? 'border-rose-500/20' : 'border-slate-700/50';
 
@@ -507,11 +514,16 @@ export default function RLSIInsightPanel({
                         </GuardianTooltip>
                     </div>
                     <div className="flex items-center gap-2">
-                        {isDivergent && (
+                        {isDivergent && breadthLive && (
                             <div className="flex items-center gap-1">
                                 <AlertTriangle className="w-3 h-3 text-rose-400" />
                                 <span className="text-[12px] font-black text-rose-400 tracking-wider font-jakarta">DIV</span>
                             </div>
+                        )}
+                        {!breadthLive && (
+                            <span className="text-[10.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-jakarta text-amber-400 bg-amber-500/10 border border-amber-500/25">
+                                {t('breadthRegOnly')}
+                            </span>
                         )}
                         <span
                             className="text-[12px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-jakarta"
@@ -521,18 +533,18 @@ export default function RLSIInsightPanel({
                                 border: `1px solid ${cfg.color}25`
                             }}
                         >
-                            {breadthSignal}
+                            {breadthLive ? breadthSignal : '—'}
                         </span>
                     </div>
                 </div>
 
-                {/* Big Score — Wave Tank */}
-                <div className="flex-none">
+                {/* Big Score — Wave Tank (dimmed when the reading isn't a live REG-session one) */}
+                <div className="flex-none" style={!breadthLive ? { opacity: 0.4, filter: 'saturate(0.5)' } : undefined}>
                     <BreadthLiquid breadthPct={breadthPct} signal={breadthSignal} loading={loading} signalColor={cfg.color} advancingLabel={t('advancing')} decliningLabel={t('declining')} />
                 </div>
 
                 {/* A/D Ratio + Volume Breadth — Card Style */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-none">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-none" style={!breadthLive ? { opacity: 0.4, filter: 'saturate(0.5)' } : undefined}>
                     {/* A/D Ratio Card — Glassmorphism */}
                     <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5 shadow-lg">
                         <div className="flex items-center justify-between mb-1">
@@ -574,9 +586,10 @@ export default function RLSIInsightPanel({
                     </div>
                 </div>
 
-                {/* Interpretation — Easy to understand */}
+                {/* Interpretation — only for a LIVE regular-session reading; otherwise the
+                    pending notice (defaults like 50/50 must never read as real analysis) */}
                 <div className="rounded-lg bg-slate-800/20 border border-slate-700/20 p-2.5 flex-none">
-                    {isMarketActive ? (
+                    {breadthLive ? (
                         <>
                             <div className="flex items-start gap-1.5">
                                 <Lightbulb className="w-3.5 h-3.5 text-amber-400/70 mt-0.5 flex-shrink-0" />
