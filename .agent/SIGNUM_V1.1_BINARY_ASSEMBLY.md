@@ -112,7 +112,11 @@ pack differentiated high-intent terms. Ready-to-paste (each <100 chars, no space
 - **ja**:
   `米国株,オプション,ダークプール,ガンマ,決算,相場,投資,デイトレ,出来高,ティッカー,プレマーケット,先物,ボラティリティ,マックスペイン,空売り,クジラ`
 - **ko**:
-  `미국주식,옵션,다크풀,감마,실적,급등주,프리마켓,투자,종목,선물,변동성,세력,공매도,옵션플로우,고래`
+  `시그넘,미국주식,옵션,다크풀,감마,실적,급등주,프리마켓,투자,종목,선물,변동성,세력,공매도,옵션플로우,고래`
+  (⚠️ 실사용 확인 2026-07-10: 토스 게시판 유입 사용자가 "시그넘HQ" 한글 검색 시 미노출 — 영문
+  `signumhq`로만 검색됨. 한글 브랜드명 `시그넘`을 키워드 1순위로. ja도 동일 이슈 가능 → `シグナム` 추가:)
+- **ja (보강)**:
+  `シグナム,米国株,オプション,ダークプール,ガンマ,決算,相場,投資,デイトレ,出来高,ティッカー,プレマーケット,先物,マックスペイン,空売り,クジラ`
 
 (`米国株`/`미국주식` = "US stocks" — highest-intent term for the JP/KR audience; keep it.)
 Compare with whatever is currently in each locale's keyword field and swap if these are denser.
