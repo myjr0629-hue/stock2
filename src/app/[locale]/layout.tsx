@@ -63,7 +63,10 @@ export default async function LocaleLayout({ children, params }: Props) {
     // Pathname-scoped only (no referer matching) — every existing route keeps
     // identical behavior (hideChrome === isAppView for them).
     const isUndercurrent = nextUrl.includes('/undercurrent') || customPathname.includes('/undercurrent');
-    const hideChrome = isAppView || isUndercurrent;
+    // [WIM PROTO] Why'd It Move? — same isolation as Undercurrent (bare shell,
+    // own bright theme, no SIGNUM chrome/ad stack). Pathname-scoped only.
+    const isWim = nextUrl.includes('/wim') || customPathname.includes('/wim');
+    const hideChrome = isAppView || isUndercurrent || isWim;
 
     return (
         <NextIntlClientProvider messages={messages}>
@@ -93,7 +96,7 @@ export default async function LocaleLayout({ children, params }: Props) {
                                     shell it initialized SIGNUM's ads (surprise ATT prompt), forced
                                     a dark status bar and double-handled Android back. Skip it. */}
                                 <WebSocketProvider>
-                                    {isUndercurrent ? (
+                                    {isUndercurrent || isWim ? (
                                         children
                                     ) : (
                                         <NativeAppProvider>
