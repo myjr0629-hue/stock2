@@ -30,6 +30,22 @@ export const maxDuration = 60;
 const FRESH_SEC = 4 * 60 * 60; // regenerate at most every 4h within the day
 const MAX_UNITS = 5;
 
+// Issue/household names get PRIORITY when they moved — the education hook is
+// "a stock you know did something today", not an unknown microcap. (User call.)
+const WELL_KNOWN = new Set([
+  'NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'GOOG', 'META', 'AVGO', 'AMD',
+  'PLTR', 'COIN', 'MSTR', 'SMCI', 'INTC', 'MU', 'QCOM', 'ORCL', 'CRM', 'NFLX',
+  'DIS', 'BA', 'JPM', 'GS', 'BAC', 'MS', 'WMT', 'COST', 'TGT', 'NKE', 'SBUX',
+  'MCD', 'KO', 'PEP', 'PFE', 'MRNA', 'LLY', 'UNH', 'XOM', 'CVX', 'OXY', 'F',
+  'GM', 'RIVN', 'LCID', 'UBER', 'LYFT', 'ABNB', 'DASH', 'SHOP', 'SQ', 'PYPL',
+  'SOFI', 'HOOD', 'RBLX', 'SNAP', 'PINS', 'SPOT', 'ARM', 'TSM', 'BABA', 'NIO',
+  'JD', 'PDD', 'GME', 'AMC', 'CVNA', 'DKNG', 'CELH', 'ANET', 'ADBE', 'NOW',
+  'SNOW', 'CRWD', 'PANW', 'NET', 'DDOG', 'MDB', 'ZS', 'TXN', 'AMAT', 'LRCX',
+  'KLAC', 'ASML', 'IBM', 'CSCO', 'T', 'VZ', 'CMCSA', 'V', 'MA', 'AXP', 'CAT',
+  'DE', 'GE', 'LMT', 'RTX', 'NOC', 'HON', 'UPS', 'FDX', 'DAL', 'UAL', 'AAL',
+]);
+const MIN_DOLLAR_VOLUME = 150_000_000; // liquidity floor for non-famous movers
+
 function dateET(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 }
@@ -50,7 +66,8 @@ export async function GET(request: Request) {
   const { origin, searchParams } = new URL(request.url);
   const refresh = searchParams.get('refresh') === '1';
   const today = dateET();
-  const cacheKey = `wim:units:v1:${today}`;
+  // v2: well-known-first selection + real intraday chart (5-min closes + VWAP) per unit
+  const cacheKey = `wim:units:v2:${today}`;
 
   const generate = async () => {
     // 1) real movers — liquid names first (dollar-volume sorted upstream), sane % band
@@ -59,34 +76,47 @@ export async function GET(request: Request) {
       fetch(`${origin}/api/market/movers?type=losers&limit=30`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
     type Mover = { ticker: string; price: number; changePercent: number; value?: number };
-    const sane = (m: Mover) => Math.abs(m.changePercent) >= 2 && Math.abs(m.changePercent) <= 30 && /^[A-Z]{1,5}$/.test(m.ticker);
-    const byValue = (a: Mover, b: Mover) => (b.value || 0) - (a.value || 0);
     // movers route returns { movers: [...] } (object), not a bare array
-    const gainers = (((gRes?.movers ?? gRes) || []) as Mover[]).filter(sane).sort(byValue);
-    const losers = (((lRes?.movers ?? lRes) || []) as Mover[]).filter(sane).sort(byValue);
+    const all: Mover[] = [
+      ...(((gRes?.movers ?? gRes) || []) as Mover[]),
+      ...(((lRes?.movers ?? lRes) || []) as Mover[]),
+    ].filter((m) => /^[A-Z]{1,5}$/.test(m.ticker) && Math.abs(m.changePercent) <= 30);
+    // TIER 1: household/issue names that actually moved today (≥1.5%), biggest move first
+    const famous = all
+      .filter((m) => WELL_KNOWN.has(m.ticker) && Math.abs(m.changePercent) >= 1.5)
+      .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
+    // TIER 2: liquid movers (dollar-volume floor keeps microcap noise out), ≥2%
+    const liquid = all
+      .filter((m) => !WELL_KNOWN.has(m.ticker) && Math.abs(m.changePercent) >= 2 && (m.value || 0) >= MIN_DOLLAR_VOLUME)
+      .sort((a, b) => (b.value || 0) - (a.value || 0));
     const picked: Mover[] = [];
     const seen = new Set<string>();
-    // interleave 3 gainers / 2 losers by liquidity (education wants recognizable names)
-    for (const list of [gainers.slice(0, 3), losers.slice(0, 2), gainers.slice(3, 8), losers.slice(2, 6)]) {
-      for (const m of list) {
-        if (picked.length >= MAX_UNITS) break;
-        if (!seen.has(m.ticker)) { seen.add(m.ticker); picked.push(m); }
-      }
+    for (const m of [...famous, ...liquid]) {
+      if (picked.length >= MAX_UNITS) break;
+      if (!seen.has(m.ticker)) { seen.add(m.ticker); picked.push(m); }
     }
     if (picked.length === 0) throw new Error('no movers today');
 
-    // 2) per mover: news + institutional money + company name, in parallel
+    // 2) per mover: news + institutional money + company name + REAL intraday chart
+    //    (5-min bars: close + per-bar VWAP — the "this is real data" proof the UI shows)
     const enriched = await Promise.all(picked.map(async (m) => {
-      const [news, money, ref] = await Promise.all([
+      const [news, money, ref, aggs] = await Promise.all([
         fetchMassive('/v2/reference/news', { ticker: m.ticker, limit: '6', order: 'desc', sort: 'published_utc' }, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
         fetchMoney(origin, m.ticker).catch(() => null),
         fetchMassive(`/v3/reference/tickers/${m.ticker}`, {}, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
+        fetchMassive(`/v2/aggs/ticker/${m.ticker}/range/5/minute/${today}/${today}`, { adjusted: 'true', sort: 'asc', limit: '500' }, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
       ]);
       const headlines = ((news?.results || []) as NewsItem[])
         .filter((n) => !isSpam(n))
         .slice(0, 3)
         .map((n) => n.title);
-      return { ...m, headlines, money, companyName: ref?.results?.name || '' };
+      const bars = (aggs?.results || []) as { c?: number; vw?: number }[];
+      const closes = bars.map((b) => b.c).filter((x): x is number => typeof x === 'number' && x > 0);
+      const vwaps = bars.map((b) => b.vw).filter((x): x is number => typeof x === 'number' && x > 0);
+      const spark = closes.length >= 8
+        ? { closes, vwap: vwaps.length === closes.length ? vwaps : null }
+        : null;
+      return { ...m, headlines, money, spark, companyName: ref?.results?.name || '' };
     }));
 
     // 3) ONE AI call: attribute + explain + institutional deep-read, ×3 languages
@@ -151,7 +181,10 @@ ${JSON.stringify(enriched.map((m, i) => ({
         money: m.money && (m.money.darkPoolPct != null || m.money.volumePcr != null) ? {
           darkPoolPct: m.money.darkPoolPct, volumePcr: m.money.volumePcr,
           squeezeScore: m.money.squeezeScore, maxPain: m.money.maxPain,
+          callWall: m.money.callWall, putFloor: m.money.putFloor,
         } : null,
+        price: m.price,
+        spark: m.spark, // real intraday 5-min closes (+ per-bar VWAP) — chart payload
         attributionPriority: i + 1,
         difficultyLevel: CAUSE_BANK[cat].level,
         disclaimer: DISCLAIMER,

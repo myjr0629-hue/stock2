@@ -35,10 +35,18 @@ interface Unit {
   moveMagnitude: number; prompt: Loc; choices: Choice[]; correctCategoryIds: string[];
   explanation: Loc; evidence?: { newsHeadline?: Loc };
   deepRead: Loc | null;
-  money: { darkPoolPct: number | null; volumePcr: number | null; squeezeScore: number | null; maxPain: number | null } | null;
+  money: { darkPoolPct: number | null; volumePcr: number | null; squeezeScore: number | null; maxPain: number | null; callWall?: number | null; putFloor?: number | null } | null;
+  price?: number;
+  spark?: { closes: number[]; vwap: number[] | null } | null;
   difficultyLevel: 1 | 2 | 3; disclaimer: Loc;
 }
 interface Today { success: boolean; dateET: string; units: Unit[] }
+
+// cause-category icons (visual anchors for the choice buttons / less text-wall)
+const CAT_EMOJI: Record<string, string> = {
+  own_earnings: '📢', peer_sector_news: '🌊', analyst_action: '🎯', filing_8k: '🧾',
+  sector_rotation: '🔄', macro: '🏦', options_structure: '⚙️', insti_flow: '🐋',
+};
 
 // ── palette (bright violet playground) ──
 const P = {
@@ -74,6 +82,8 @@ const T: Record<Lang, Record<string, string>> = {
     learned: '학습함', close: '확인',
     quizLv1: '기초', quizLv2: '중급', quizLv3: '기관급',
     adBanner: '광고 영역', adInterstitial: '광고 후 계속됩니다',
+    realChart: '오늘 실제 5분봉', realData: '실데이터', vwapLine: 'VWAP 라인',
+    onRealChart: '오늘 실제 차트 위에서 보기', rsiNow: '현재 RSI(14)',
     langBtn: '한국어',
     empty: '오늘 문제를 준비하고 있어요 — 잠시 후 다시 열어주세요.',
     play: '풀기', replay: '다시 보기',
@@ -100,6 +110,8 @@ const T: Record<Lang, Record<string, string>> = {
     learned: 'learned', close: 'Got it',
     quizLv1: 'Basic', quizLv2: 'Mid', quizLv3: 'Pro',
     adBanner: 'Ad space', adInterstitial: 'Continuing after the ad',
+    realChart: "Today's real 5-min bars", realData: 'real data', vwapLine: 'VWAP line',
+    onRealChart: "See it on today's real chart", rsiNow: 'Current RSI(14)',
     langBtn: 'English',
     empty: "Preparing today's questions — check back shortly.",
     play: 'Play', replay: 'Review',
@@ -126,6 +138,8 @@ const T: Record<Lang, Record<string, string>> = {
     learned: '学習済み', close: '閉じる',
     quizLv1: '基礎', quizLv2: '中級', quizLv3: '機関級',
     adBanner: '広告スペース', adInterstitial: '広告のあと続きます',
+    realChart: '今日の実5分足', realData: '実データ', vwapLine: 'VWAPライン',
+    onRealChart: '今日の実チャートで見る', rsiNow: '現在のRSI(14)',
     langBtn: '日本語',
     empty: '今日の問題を準備中 — 少し後にまた開いてください。',
     play: '解く', replay: '復習',
@@ -145,6 +159,159 @@ const XP_PER_LEVEL = 100;
 
 // local weekday index (NOT UTC — a KST learning day must count as that day)
 function weekdayIdx(): number { return (new Date().getDay() + 6) % 7; } // Mon=0..Sun=6
+
+// ── RealChart: the "this is real data" proof. Actual 5-min closes, drawn in
+// NEUTRAL violet (no up/down colors — compliance), optional real VWAP overlay
+// and real options levels (max pain / call wall / put floor) as annotated lines.
+function RealChart({
+  closes, vwap, levels, height = 96, minmax = true,
+}: {
+  closes: number[]; vwap?: number[] | null;
+  levels?: { label: string; value: number; color: string }[];
+  height?: number; minmax?: boolean;
+}) {
+  const W = 320; const H = height;
+  const usable = levels?.filter((l) => typeof l.value === 'number' && l.value > 0) || [];
+  const lo0 = Math.min(...closes); const hi0 = Math.max(...closes);
+  // include level lines in scale only if they're near the price range (±12%) — a far
+  // max-pain shouldn't flatten the real price action
+  const near = usable.filter((l) => l.value > lo0 * 0.88 && l.value < hi0 * 1.12);
+  const lo = Math.min(lo0, ...near.map((l) => l.value));
+  const hi = Math.max(hi0, ...near.map((l) => l.value));
+  const span = hi - lo || 1;
+  const x = (i: number, n: number) => (i / Math.max(1, n - 1)) * W;
+  const y = (v: number) => H - 14 - ((v - lo) / span) * (H - 26);
+  const path = closes.map((c, i) => `${i === 0 ? 'M' : 'L'}${x(i, closes.length).toFixed(1)},${y(c).toFixed(1)}`).join(' ');
+  const area = `${path} L${W},${H} L0,${H} Z`;
+  const vwPath = vwap && vwap.length === closes.length
+    ? vwap.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i, vwap.length).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+    : null;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height, display: 'block' }} aria-hidden>
+      <defs>
+        <linearGradient id="wimFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={P.hero} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={P.hero} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#wimFill)" />
+      <path d={path} fill="none" stroke={P.hero} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+      {vwPath && <path d={vwPath} fill="none" stroke={P.amber} strokeWidth="1.6" strokeDasharray="5 4" opacity="0.9" />}
+      {near.map((l) => (
+        <g key={l.label}>
+          <line x1="0" x2={W} y1={y(l.value)} y2={y(l.value)} stroke={l.color} strokeWidth="1.4" strokeDasharray="4 4" opacity="0.85" />
+          <text x={W - 4} y={y(l.value) - 4} textAnchor="end" fontSize="9.5" fontWeight="800" fill={l.color}>{l.label} ${l.value}</text>
+        </g>
+      ))}
+      {minmax && (
+        <g>
+          <text x="4" y="11" fontSize="9" fontWeight="800" fill={P.faint}>${hi0.toFixed(hi0 >= 100 ? 0 : 2)}</text>
+          <text x="4" y={H - 3} fontSize="9" fontWeight="800" fill={P.faint}>${lo0.toFixed(lo0 >= 100 ? 0 : 2)}</text>
+        </g>
+      )}
+    </svg>
+  );
+}
+
+// tiny inline spark for list cards
+function MiniSpark({ closes }: { closes: number[] }) {
+  const W = 72; const H = 30;
+  const lo = Math.min(...closes); const hi = Math.max(...closes); const span = hi - lo || 1;
+  const pts = closes.map((c, i) => `${((i / Math.max(1, closes.length - 1)) * W).toFixed(1)},${(H - 3 - ((c - lo) / span) * (H - 6)).toFixed(1)}`).join(' ');
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H, display: 'block', flexShrink: 0 }} aria-hidden>
+      <polyline points={pts} fill="none" stroke={P.hero} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.85" />
+    </svg>
+  );
+}
+
+// RSI(14) from real closes — client-side, standard Wilder smoothing
+function rsi14(closes: number[]): number | null {
+  if (closes.length < 16) return null;
+  let g = 0, l = 0;
+  for (let i = 1; i <= 14; i++) { const d = closes[i] - closes[i - 1]; if (d >= 0) g += d; else l -= d; }
+  let ag = g / 14, al = l / 14;
+  for (let i = 15; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    ag = (ag * 13 + Math.max(0, d)) / 14;
+    al = (al * 13 + Math.max(0, -d)) / 14;
+  }
+  if (al === 0) return 100;
+  return Math.round(100 - 100 / (1 + ag / al));
+}
+
+// ── GlossarySheet: a concept explained ON today's REAL chart (not a text toggle).
+// vwap → real VWAP overlay · maxPain/callWall/putFloor → the real level drawn on the
+// real chart · rsi → RSI(14) computed from today's real closes · darkPool → real %.
+function GlossarySheet({
+  term, units, loc, t, onClose,
+}: {
+  term: MetricTerm; units: Unit[]; loc: Lang; t: Record<string, string>; onClose: () => void;
+}) {
+  const entry = METRIC_GLOSSARY[term];
+  // find a unit that can DEMONSTRATE this term with real data
+  const withSpark = units.filter((u) => u.spark && u.spark.closes.length >= 16);
+  let demo: { u: Unit; levels?: { label: string; value: number; color: string }[]; vwap?: boolean; rsi?: number | null; dp?: number | null } | null = null;
+  if (term === 'vwap') {
+    const u = withSpark.find((x) => x.spark?.vwap && x.spark.vwap.length === x.spark.closes.length);
+    if (u) demo = { u, vwap: true };
+  } else if (term === 'maxPain' || term === 'callWall' || term === 'putFloor') {
+    const key = term as 'maxPain' | 'callWall' | 'putFloor';
+    const color = term === 'maxPain' ? P.amber : term === 'callWall' ? P.coral : P.mint;
+    const label = term === 'maxPain' ? 'MAX PAIN' : term === 'callWall' ? 'CALL WALL' : 'PUT FLOOR';
+    const u = withSpark.find((x) => x.money && typeof (x.money as any)[key] === 'number' && (x.money as any)[key] > 0);
+    if (u) demo = { u, levels: [{ label, value: (u.money as any)[key], color }] };
+  } else if (term === 'rsi') {
+    const u = withSpark[0];
+    if (u && u.spark) demo = { u, rsi: rsi14(u.spark.closes) };
+  } else if (term === 'darkPool') {
+    const u = units.find((x) => x.money?.darkPoolPct != null);
+    if (u) demo = { u, dp: u.money!.darkPoolPct };
+  }
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: '#fff', borderRadius: '22px 22px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease', maxHeight: '78vh', overflowY: 'auto' }}>
+        <div style={{ fontSize: 16, fontWeight: 900, color: P.ink }}>{entry.title[loc]}</div>
+        {demo && (
+          <div style={{ marginTop: 12, background: P.bg, borderRadius: 16, padding: '10px 8px 6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px' }}>
+              <TickerLogo ticker={demo.u.ticker} size={17} />
+              <span style={{ fontSize: 10.5, fontWeight: 900, color: P.ink }}>{demo.u.ticker}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 800, color: P.faint }}>· {t.onRealChart}</span>
+              <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '2px 8px' }}>● {t.realData.toUpperCase()}</span>
+            </div>
+            {demo.dp == null ? (
+              <RealChart
+                closes={demo.u.spark!.closes}
+                vwap={demo.vwap ? demo.u.spark!.vwap : null}
+                levels={demo.levels}
+                height={118}
+              />
+            ) : (
+              <div style={{ padding: '6px 8px 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontSize: 26, fontWeight: 900, color: P.hero, fontVariantNumeric: 'tabular-nums' }}>{Math.round(demo.dp)}%</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: P.sub }}>{entry.title[loc]}</span>
+                </div>
+                <div style={{ marginTop: 8, height: 12, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(100, Math.max(3, demo.dp))}%`, height: '100%', background: `linear-gradient(90deg, ${P.hero}, ${P.heroDeep})`, borderRadius: 99 }} />
+                </div>
+              </div>
+            )}
+            {demo.vwap && (
+              <div style={{ padding: '5px 8px 4px', fontSize: 9.5, fontWeight: 800, color: P.amber }}>― ― {t.vwapLine}</div>
+            )}
+            {demo.rsi != null && (
+              <div style={{ padding: '5px 8px 4px', fontSize: 10.5, fontWeight: 900, color: P.heroDeep }}>{t.rsiNow}: {demo.rsi}</div>
+            )}
+          </div>
+        )}
+        <p style={{ margin: '11px 0 0', fontSize: 13.5, lineHeight: 1.7, color: P.sub, fontWeight: 600 as any }}>{entry.body[loc]}</p>
+        <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
+      </div>
+    </div>
+  );
+}
 
 // ticker logo via the existing proxy (monogram fallback)
 function TickerLogo({ ticker, size = 22 }: { ticker: string; size?: number }) {
@@ -394,6 +561,17 @@ export default function WimPage() {
             <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: P.heroSoft, color: P.heroDeep, borderRadius: 99, padding: '6px 13px', fontSize: 12.5, fontWeight: 900 }}>
               ±{u.moveMagnitude}% · {t.moved}
             </div>
+            {/* THE differentiator: the actual chart of what really happened today */}
+            {u.spark && u.spark.closes.length >= 8 && (
+              <div style={{ marginTop: 12, background: P.bg, borderRadius: 16, padding: '10px 8px 6px', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: P.mint, display: 'inline-block' }} />
+                  <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.08em', color: P.sub }}>{t.realChart.toUpperCase()}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '2px 8px' }}>● {t.realData.toUpperCase()}</span>
+                </div>
+                <RealChart closes={u.spark.closes} height={104} />
+              </div>
+            )}
             <h1 style={{ margin: '13px 0 2px', fontSize: 21, fontWeight: 900, letterSpacing: '-0.02em' }}>{u.prompt[loc]}</h1>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: P.sub }}>{t.whatHappened}</div>
           </div>
@@ -420,6 +598,7 @@ export default function WimPage() {
                   onTouchStart={(e) => { if (!revealed) (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(2px)'; }}
                   onTouchEnd={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
                 >
+                  <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 12, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{CAT_EMOJI[c.categoryId] || '❓'}</span>
                   <span style={{ flex: 1 }}>{c.label[loc]}</span>
                   {revealed && isAnswer && <span style={{ fontSize: 18 }}>✅</span>}
                   {revealed && isPick && !isAnswer && <span style={{ fontSize: 18 }}>🤔</span>}
@@ -468,6 +647,20 @@ export default function WimPage() {
                   {deepOpen && (
                     <div style={{ marginTop: 11, animation: 'wimUp 0.3s ease' }}>
                       {u.deepRead && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, fontWeight: 600 as any, opacity: 0.96 }}>{u.deepRead[loc]}</p>}
+                      {/* real options levels ON the real chart — the desk's actual map */}
+                      {u.spark && u.spark.closes.length >= 8 && u.money && (u.money.maxPain != null || u.money.callWall != null || u.money.putFloor != null) && (
+                        <div style={{ marginTop: 10, background: 'rgba(255,255,255,0.95)', borderRadius: 14, padding: '8px 6px 4px' }}>
+                          <RealChart
+                            closes={u.spark.closes}
+                            height={110}
+                            levels={[
+                              ...(u.money.maxPain != null ? [{ label: 'MAX PAIN', value: u.money.maxPain, color: P.amber }] : []),
+                              ...(u.money.callWall != null ? [{ label: 'CALL WALL', value: u.money.callWall as number, color: P.coral }] : []),
+                              ...(u.money.putFloor != null ? [{ label: 'PUT FLOOR', value: u.money.putFloor as number, color: P.mint }] : []),
+                            ]}
+                          />
+                        </div>
+                      )}
                       {u.money && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
                           {u.money.darkPoolPct != null && (
@@ -511,15 +704,7 @@ export default function WimPage() {
         </div>
 
         {/* glossary bottom sheet (shared with home) */}
-        {glossOpen && (
-          <div onClick={() => setGlossOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: '#fff', borderRadius: '22px 22px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease' }}>
-              <div style={{ fontSize: 16, fontWeight: 900, color: P.ink }}>{METRIC_GLOSSARY[glossOpen].title[loc]}</div>
-              <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.7, color: P.sub, fontWeight: 600 as any }}>{METRIC_GLOSSARY[glossOpen].body[loc]}</p>
-              <button type="button" onClick={() => setGlossOpen(null)} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
-            </div>
-          </div>
-        )}
+        {glossOpen && <GlossarySheet term={glossOpen} units={units} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
       </div>
     );
   }
@@ -626,6 +811,7 @@ export default function WimPage() {
                     ±{u.moveMagnitude}% · {u.prompt[loc]}
                   </div>
                 </div>
+                {u.spark && u.spark.closes.length >= 8 && <MiniSpark closes={u.spark.closes} />}
                 <span style={{
                   flexShrink: 0, fontSize: 11.5, fontWeight: 900, borderRadius: 99, padding: '7px 13px',
                   background: isDone ? P.mintSoft : P.hero, color: isDone ? P.mint : '#fff',
@@ -696,16 +882,8 @@ export default function WimPage() {
         </div>
       )}
 
-      {/* glossary bottom sheet */}
-      {glossOpen && (
-        <div onClick={() => setGlossOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: '#fff', borderRadius: '22px 22px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease' }}>
-            <div style={{ fontSize: 16, fontWeight: 900, color: P.ink }}>{METRIC_GLOSSARY[glossOpen].title[loc]}</div>
-            <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.7, color: P.sub, fontWeight: 600 as any }}>{METRIC_GLOSSARY[glossOpen].body[loc]}</p>
-            <button type="button" onClick={() => setGlossOpen(null)} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
-          </div>
-        </div>
-      )}
+      {/* glossary bottom sheet — concept ON today's real chart */}
+      {glossOpen && <GlossarySheet term={glossOpen} units={units} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
     </div>
   );
 }
