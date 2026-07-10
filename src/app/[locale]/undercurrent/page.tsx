@@ -64,7 +64,7 @@ const T: Record<Locale, Record<string, string>> = {
     macroTitle: '세계 → 시장', macroSub: '시장을 흔드는 거시·지정학 속보',
     macroReadTitle: '지금 매크로 기류',
     riskOn: '위험선호', riskOff: '위험회피', mixed: '혼재',
-    ctx10Y: '10년물 금리', ctxFed: '동결 확률', ctxFG: '공포·탐욕', ctxFomc: 'FOMC까지',
+    ctx10Y: '10년물 금리', ctxFed: '동결 확률', ctxFG: '공포·탐욕', ctxFomc: 'FOMC까지', ctxNasdaq: '나스닥', ctxDow: '다우',
     macroTeaser: '시장을 흔드는 큰 그림',
     tabSearch: '검색',
     searchPh: '티커 검색 (예: NVDA)',
@@ -139,7 +139,7 @@ const T: Record<Locale, Record<string, string>> = {
     macroTitle: 'World → Market', macroSub: 'Macro & geopolitical news shaking markets',
     macroReadTitle: 'Macro undercurrent now',
     riskOn: 'Risk-on', riskOff: 'Risk-off', mixed: 'Mixed',
-    ctx10Y: '10Y yield', ctxFed: 'Hold odds', ctxFG: 'Fear & Greed', ctxFomc: 'To FOMC',
+    ctx10Y: '10Y yield', ctxFed: 'Hold odds', ctxFG: 'Fear & Greed', ctxFomc: 'To FOMC', ctxNasdaq: 'NASDAQ', ctxDow: 'Dow',
     macroTeaser: 'The big picture moving markets',
     tabSearch: 'Search',
     searchPh: 'Search ticker (e.g. NVDA)',
@@ -214,7 +214,7 @@ const T: Record<Locale, Record<string, string>> = {
     macroTitle: '世界 → 市場', macroSub: '市場を揺らすマクロ・地政学ニュース',
     macroReadTitle: 'いまのマクロ底流',
     riskOn: 'リスクオン', riskOff: 'リスクオフ', mixed: '混在',
-    ctx10Y: '10年債利回り', ctxFed: '据え置き確率', ctxFG: '恐怖・強欲', ctxFomc: 'FOMCまで',
+    ctx10Y: '10年債利回り', ctxFed: '据え置き確率', ctxFG: '恐怖・強欲', ctxFomc: 'FOMCまで', ctxNasdaq: 'ナスダック', ctxDow: 'ダウ',
     macroTeaser: '市場を動かす大きな流れ',
     tabSearch: '検索',
     searchPh: 'ティッカー検索 (例: NVDA)',
@@ -313,6 +313,8 @@ interface MacroCard {
 interface MacroResult {
   success: boolean;
   context: {
+    nasdaq?: number | null; nasdaqChangePct?: number | null;
+    dow?: number | null; dowChangePct?: number | null;
     yield10Y: number | null; yield10YChange: number | null;
     fedNoChange: number | null; fedHike: number | null; fedEase: number | null;
     daysUntilFomc: number | null; fearGreed: number | null; fearGreedRating: string | null;
@@ -1295,9 +1297,11 @@ export default function UndercurrentPage() {
             date column beside the bell — cluttered on narrow screens. */}
         <header style={{ paddingTop: 'calc(20px + env(safe-area-inset-top))' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ width: 34, height: 34, borderRadius: 10, background: '#FCFAF6', border: `1px solid ${C.line}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {/* 40px box / 30px mark — the white box + border made the old 22px mark read
+                too small next to the 21px wordmark. */}
+            <span style={{ width: 40, height: 40, borderRadius: 12, background: '#FCFAF6', border: `1px solid ${C.line}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/undercurrent-symbol.svg" alt="Undercurrent" style={{ width: 22, height: 22 }} />
+              <img src="/undercurrent-symbol.svg" alt="Undercurrent" style={{ width: 30, height: 30 }} />
             </span>
             {/* wordmark + attribution STACKED (was inline → "by SIGNUM HQ" clipped on
                 narrow phones once the two round buttons claimed their width). */}
@@ -1335,9 +1339,12 @@ export default function UndercurrentPage() {
               )}
             </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginTop: 5, paddingLeft: 44 }}>
-            <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.tagline}</span>
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: C.faint, whiteSpace: 'nowrap', flexShrink: 0 }}>
+          {/* flexWrap (not ellipsis-squeeze): the EN tagline is long, so on narrow screens
+              the date·edition block wraps to its own right-aligned line instead of
+              truncating the tagline to "The money mov…". ko/ja stay one line. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '2px 10px', marginTop: 5, paddingLeft: 50 }}>
+            <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.tagline}</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: C.faint, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 'auto' }}>
               {dateStr}
               <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: '0.06em', color: C.faint, background: C.neutralBg, borderRadius: 5, padding: '1px 4px', margin: '0 3px', verticalAlign: '1px' }}>ET</span>
               <span style={{ opacity: 0.45, margin: '0 1px' }}>·</span> <span style={{ color: C.emerald, fontWeight: 800, letterSpacing: '0.04em' }}>{edition}</span>
@@ -1410,6 +1417,26 @@ export default function UndercurrentPage() {
                       <p style={{ margin: '9px 0 0', fontSize: 14, lineHeight: 1.4, fontWeight: 700 as any, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{macro.cards[0].plainTitle}</p>
                     )}
                     <div style={{ display: 'flex', gap: 8, marginTop: 11, flexWrap: 'wrap' }}>
+                      {typeof macro.context.nasdaq === 'number' && (
+                        <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px', fontVariantNumeric: 'tabular-nums' }}>
+                          <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctxNasdaq} </span>{Math.round(macro.context.nasdaq).toLocaleString('en-US')}
+                          {typeof macro.context.nasdaqChangePct === 'number' && (
+                            <span style={{ marginLeft: 3, color: macro.context.nasdaqChangePct >= 0 ? '#7EE0AE' : '#FFA694' }}>
+                              {macro.context.nasdaqChangePct >= 0 ? '+' : ''}{macro.context.nasdaqChangePct.toFixed(1)}%
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {typeof macro.context.dow === 'number' && (
+                        <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px', fontVariantNumeric: 'tabular-nums' }}>
+                          <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctxDow} </span>{Math.round(macro.context.dow).toLocaleString('en-US')}
+                          {typeof macro.context.dowChangePct === 'number' && (
+                            <span style={{ marginLeft: 3, color: macro.context.dowChangePct >= 0 ? '#7EE0AE' : '#FFA694' }}>
+                              {macro.context.dowChangePct >= 0 ? '+' : ''}{macro.context.dowChangePct.toFixed(1)}%
+                            </span>
+                          )}
+                        </span>
+                      )}
                       {typeof macro.context.yield10Y === 'number' && (
                         <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px' }}>
                           <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctx10Y} </span>{macro.context.yield10Y.toFixed(2)}%
@@ -1626,9 +1653,12 @@ export default function UndercurrentPage() {
                     <div style={{ display: 'flex', gap: 11, overflowX: 'auto', margin: '0 -18px', padding: '2px 18px 6px', scrollSnapType: 'x mandatory' }}>
                       {whaleCards.slice(0, 6).map((c) => (
                         <button key={c.ticker} type="button" onClick={() => openDetail(c)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', padding: '14px 15px', flex: '0 0 172px', scrollSnapAlign: 'start', borderRadius: 18, border: 'none', background: `linear-gradient(160deg, ${C.emeraldDeep}, #0B3D2C)`, color: '#fff', boxShadow: C.shadow }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <span style={{ fontSize: 12.5, fontWeight: 900 }}>{c.ticker}</span>
-                            {c.divergence && <span style={{ fontSize: 9.5, fontWeight: 800, color: '#FFD9C4', background: 'rgba(194,65,12,0.55)', padding: '2px 7px', borderRadius: 999 }}>{t.divergence}</span>}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                              <TickerLogo ticker={c.ticker} size={20} />
+                              <span style={{ fontSize: 12.5, fontWeight: 900 }}>{c.ticker}</span>
+                            </span>
+                            {c.divergence && <span style={{ fontSize: 9.5, fontWeight: 800, color: '#FFD9C4', background: 'rgba(194,65,12,0.55)', padding: '2px 7px', borderRadius: 999, flexShrink: 0 }}>{t.divergence}</span>}
                           </div>
                           <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em', margin: '10px 0 1px', fontVariantNumeric: 'tabular-nums' }}>
                             {Math.round(c.money?.darkPoolPct ?? 0)}<span style={{ fontSize: 15, fontWeight: 800, opacity: 0.75 }}>%</span>
@@ -1650,8 +1680,34 @@ export default function UndercurrentPage() {
               <>
                 <SectionHead title={t.macroTitle} sub={t.macroSub} color={C.ink} />
 
-                {/* market context chips (OUR macro data) */}
+                {/* market context chips (OUR macro data) — indices first: the basics */}
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -18px', padding: '2px 18px 6px' }}>
+                  {typeof macro.context.nasdaq === 'number' && (
+                    <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxNasdaq}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+                        {Math.round(macro.context.nasdaq).toLocaleString('en-US')}
+                        {typeof macro.context.nasdaqChangePct === 'number' && (
+                          <span style={{ fontSize: 11, fontWeight: 800, marginLeft: 4, color: macro.context.nasdaqChangePct >= 0 ? C.emerald : C.diverge }}>
+                            {macro.context.nasdaqChangePct >= 0 ? '+' : ''}{macro.context.nasdaqChangePct.toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {typeof macro.context.dow === 'number' && (
+                    <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxDow}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+                        {Math.round(macro.context.dow).toLocaleString('en-US')}
+                        {typeof macro.context.dowChangePct === 'number' && (
+                          <span style={{ fontSize: 11, fontWeight: 800, marginLeft: 4, color: macro.context.dowChangePct >= 0 ? C.emerald : C.diverge }}>
+                            {macro.context.dowChangePct >= 0 ? '+' : ''}{macro.context.dowChangePct.toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {typeof macro.context.yield10Y === 'number' && (
                     <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
                       <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctx10Y}</div>
@@ -1816,6 +1872,7 @@ export default function UndercurrentPage() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                          <TickerLogo ticker={c.ticker} size={22} />
                           <span style={{ fontSize: 12.5, fontWeight: 900 }}>{c.ticker}</span>
                           <FreshBadge iso={c.publishedAt} t={t} />
                           {c.divergence && <DivBadge t={t} small />}

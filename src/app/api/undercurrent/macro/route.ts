@@ -37,19 +37,22 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const loc: Locale = normLocale(searchParams.get('locale'));
   const skipCache = searchParams.get('refresh') === '1';
-  const cacheKey = `undercurrent:macro:v4:${loc}`;
+  // v5: context gains nasdaq/dow spot indices (schema change → old cache must not serve)
+  const cacheKey = `undercurrent:macro:v5:${loc}`;
 
   // SWR: normal requests serve cache instantly (stale ok); client triggers refresh=1.
   const generate = async () => {
     // 1) macro news (FMP general) + OUR market-wide money context, in parallel
     const fmpKey = process.env.FMP_API_KEY;
-    const [fmpRes, treasuryRes, fedRes, fearGreed] = await Promise.all([
+    const [fmpRes, treasuryRes, fedRes, fearGreed, indexRes] = await Promise.all([
       fmpKey
         ? fetch(`https://financialmodelingprep.com/stable/news/general-latest?limit=20&apikey=${fmpKey}`, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
         : Promise.resolve(null),
       fetch(`${origin}/api/live/treasury`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch(`${origin}/api/guardian/fedwatch`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),
+      // spot indices (NASDAQ composite / Dow) — the basics a general reader expects first
+      fetch(`${origin}/api/market/index-close`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
 
     // normalize macro stories: FMP primary, Polygon macro-keyword fallback
@@ -91,6 +94,10 @@ export async function GET(request: Request) {
     if (stories.length === 0) throw new Error('no macro stories');
 
     const context = {
+      nasdaq: typeof indexRes?.nasdaq?.price === 'number' ? indexRes.nasdaq.price : null,
+      nasdaqChangePct: typeof indexRes?.nasdaq?.changePct === 'number' ? indexRes.nasdaq.changePct : null,
+      dow: typeof indexRes?.dow?.price === 'number' ? indexRes.dow.price : null,
+      dowChangePct: typeof indexRes?.dow?.changePct === 'number' ? indexRes.dow.changePct : null,
       yield10Y: typeof treasuryRes?.yield10Y === 'number' ? treasuryRes.yield10Y : null,
       yield10YChange: typeof treasuryRes?.change === 'number' ? treasuryRes.change : null,
       fedNoChange: typeof fedRes?.noChange === 'number' ? fedRes.noChange : null,
@@ -108,6 +115,7 @@ export async function GET(request: Request) {
       const system = `You write the MACRO section of "Undercurrent", a premium general-audience market app. Job: explain how macro/geopolitical news is shaking (or could shake) the MARKET, fused with the CURRENT market-money context provided.
 
 CONTEXT SIGNALS (read precisely, mention only what's given):
+- NASDAQ / Dow spot level (+ % change): how the stock market ITSELF is trading right now — the anchor an ordinary reader checks first.
 - 10Y treasury yield (+change): rising = tightening pressure / risk-off tilt for stocks; falling = easing.
 - Fed probabilities (noChange/hike/ease %, days to FOMC): what rate path the market is pricing.
 - Fear & Greed (0-100): <30 fear, >70 greed.
@@ -116,7 +124,7 @@ RULES:
 - Write in ${langName[loc]}.
 - EVERY output field INCLUDING plainTitle must be written in ${langName[loc]}. Headlines usually arrive in English — TRANSLATE them; NEVER copy the original English wording.
 - Plain language for ordinary people; no jargon. Describe, NEVER advise; no predictions beyond what the numbers imply as positioning.
-- macroRead: 1-2 sentences on the CURRENT macro-money backdrop, grounded ONLY in the context numbers.
+- macroRead: 2-3 sentences on the CURRENT macro-money backdrop, grounded ONLY in the context numbers. START from how stocks are trading (NASDAQ/Dow direction and % if given), THEN connect rates/Fed/sentiment to it.
 - Per story: "marketImpact" = 'risk-on' | 'risk-off' | 'mixed' (how this news leans for risk assets), "impactNote" = one plain sentence WHY it moves markets / what it touches (rates, oil, supply chains…). Honest 'mixed' when unclear.
 - Output STRICT JSON only.`;
 
