@@ -162,14 +162,14 @@ export function storyPayload(stories: {
   );
 }
 
-export async function invokeJSON(system: string, user: string): Promise<any> {
+export async function invokeJSON(system: string, user: string, maxTokens = 4096): Promise<any> {
   const command = new InvokeModelCommand({
     modelId: BEDROCK_MODEL,
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({
       anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 4096,
+      max_tokens: maxTokens,
       temperature: 0.3,
       system,
       messages: [{ role: 'user', content: user }],
