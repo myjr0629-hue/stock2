@@ -42,10 +42,44 @@ interface Unit {
 }
 interface Today { success: boolean; dateET: string; units: Unit[] }
 
-// cause-category icons (visual anchors for the choice buttons / less text-wall)
-const CAT_EMOJI: Record<string, string> = {
-  own_earnings: '📢', peer_sector_news: '🌊', analyst_action: '🎯', filing_8k: '🧾',
-  sector_rotation: '🔄', macro: '🏦', options_structure: '⚙️', insti_flow: '🐋',
+// ── premium icon system: one consistent 1.8px-stroke glyph set (NO emojis) ──
+const ICON_PATHS: Record<string, string> = {
+  search: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm5.2 12.2L21 21',
+  gear: 'M12 8.5A3.5 3.5 0 1 1 12 15.5 3.5 3.5 0 0 1 12 8.5Zm8-.5-1.9-.6a6.7 6.7 0 0 0-.6-1.4l.9-1.8-1.6-1.6-1.8.9c-.4-.3-.9-.5-1.4-.6L13 1h-2l-.6 1.9c-.5.1-1 .3-1.4.6l-1.8-.9L5.6 4.2l.9 1.8c-.3.4-.5.9-.6 1.4L4 8v2l1.9.6c.1.5.3 1 .6 1.4l-.9 1.8 1.6 1.6 1.8-.9c.4.3.9.5 1.4.6L11 17h2l.6-1.9c.5-.1 1-.3 1.4-.6l1.8.9 1.6-1.6-.9-1.8c.3-.4.5-.9.6-1.4L20 10V8Z',
+  folder: 'M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2.5h8.5A1.5 1.5 0 0 1 21 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-10Z',
+  book: 'M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-15ZM9 3v18',
+  badge: 'M12 3a4.2 4.2 0 1 1 0 8.4A4.2 4.2 0 0 1 12 3ZM4.5 21c.6-4 3.6-6 7.5-6s6.9 2 7.5 6',
+  play: 'M8.5 5.5 18 12l-9.5 6.5v-13Z',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
+  chart: 'M4.5 20V11M10.5 20V5M16.5 20v-6M2.5 20h19',
+  flame: 'M12 2.8c.9 3.4 4.8 4.7 4.8 9a4.8 4.8 0 1 1-9.6 0c0-1.9.9-3 1.9-4.6.5 1.6 1.7 2 2.7 1.4-.9-1.8-.8-3.9.2-5.8Z',
+  shield: 'M12 2.5 19.5 5v6c0 4.8-3.2 8.6-7.5 10.5C7.7 19.6 4.5 15.8 4.5 11V5L12 2.5Z',
+  arrowR: 'M4.5 12h15M14 6.5l5.5 5.5-5.5 5.5',
+  close: 'M6 6l12 12M18 6 6 18',
+  clock: 'M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17Zm0 4V12l3.5 2',
+  doc: 'M6.5 2.5H14l4.5 4.5v13a1.5 1.5 0 0 1-1.5 1.5H6.5A1.5 1.5 0 0 1 5 20V4a1.5 1.5 0 0 1 1.5-1.5ZM13.5 3v5h5M8.5 13h7M8.5 17h7',
+  megaphone: 'M3.5 10.5v3.5l4.5.8L18 20V4L8 9.2l-4.5 1.3ZM18 9a3 3 0 0 1 0 6',
+  wave: 'M2.5 12.5c2.4-4.4 4.7-4.4 7 0s4.7 4.4 7 0 3.6-3.6 5-1.5',
+  target: 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm0 4.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6Z',
+  rotate: 'M20.5 12a8.5 8.5 0 1 1-2.6-6.1M21 3.5v5h-5',
+  bank: 'M3.5 9.5 12 4l8.5 5.5M5.5 10v8M12 10v8M18.5 10v8M3.5 20.5h17',
+  layers: 'M12 3.5 21 8.5 12 13.5 3 8.5 12 3.5ZM4.5 13 12 17l7.5-4',
+  flow: 'M4.5 17.5a2 2 0 1 0 .01 0ZM11.5 12a2.6 2.6 0 1 0 .01 0ZM18.2 5.6a3.2 3.2 0 1 0 .01 0Z',
+  lock: 'M7 11V8a5 5 0 0 1 10 0v3M5.5 11h13v9.5h-13V11Z',
+  spark: 'M12 2.5 13.8 9l6.7 1.8-6.7 1.7L12 19.2l-1.8-6.7L3.5 10.8 10.2 9 12 2.5Z',
+};
+function Ic({ name, size = 18, color = 'currentColor', sw = 1.8, fill = false }: { name: string; size?: number; color?: string; sw?: number; fill?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill ? color : 'none'} stroke={fill ? 'none' : color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0, display: 'block' }}>
+      <path d={ICON_PATHS[name] || ''} />
+    </svg>
+  );
+}
+
+// cause-category glyphs for the choice buttons (consistent stroke icons, not emojis)
+const CAT_ICON: Record<string, string> = {
+  own_earnings: 'megaphone', peer_sector_news: 'wave', analyst_action: 'target', filing_8k: 'doc',
+  sector_rotation: 'rotate', macro: 'bank', options_structure: 'layers', insti_flow: 'flow',
 };
 
 // ── palette (bright violet playground) ──
@@ -560,7 +594,7 @@ export default function WimPage() {
           </div>
 
           {!everPlayed && !revealed && (
-            <div style={{ marginTop: 10, textAlign: 'center', fontSize: 12, fontWeight: 800, color: P.hero, background: P.heroSoft, borderRadius: 99, padding: '7px 12px' }}>🔍 {t.warmup}</div>
+            <div style={{ marginTop: 10, textAlign: 'center', fontSize: 12, fontWeight: 800, color: P.hero, background: P.heroSoft, borderRadius: 99, padding: '7px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, margin: '10px auto 0' }}><Ic name="clock" size={13} color={P.hero} /> {t.warmup}</div>
           )}
 
           {/* mover card — NO direction arrows/colors (compliance): magnitude only */}
@@ -612,10 +646,10 @@ export default function WimPage() {
                   onTouchStart={(e) => { if (!revealed) (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(2px)'; }}
                   onTouchEnd={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
                 >
-                  <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 12, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{CAT_EMOJI[c.categoryId] || '❓'}</span>
+                  <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 12, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: P.heroDeep }}><Ic name={CAT_ICON[c.categoryId] || 'target'} size={17} /></span>
                   <span style={{ flex: 1 }}>{c.label[loc]}</span>
-                  {revealed && isAnswer && <span style={{ fontSize: 18 }}>✅</span>}
-                  {revealed && isPick && !isAnswer && <span style={{ fontSize: 18 }}>🤔</span>}
+                  {revealed && isAnswer && <Ic name="check" size={18} color={P.mint} sw={2.6} />}
+                  {revealed && isPick && !isAnswer && <Ic name="close" size={16} color={P.coral} sw={2.4} />}
                 </button>
               );
             })}
@@ -625,7 +659,7 @@ export default function WimPage() {
           {revealed && (
             <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
               <div style={{ marginTop: 16, textAlign: 'center', fontSize: 20, fontWeight: 900, color: wasCorrect ? P.mint : P.coral }}>
-                {wasCorrect ? `🎉 ${t.correct} +${XP_CORRECT}XP` : `💪 ${t.notQuite} +${XP_TRIED}XP`}
+                {wasCorrect ? `${t.correct} +${XP_CORRECT}XP` : `${t.notQuite} +${XP_TRIED}XP`}
               </div>
 
               <div style={{ marginTop: 12, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '15px 16px' }}>
@@ -633,7 +667,7 @@ export default function WimPage() {
                 <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.7, fontWeight: 600 as any }}><Bold text={u.explanation[loc]} /></p>
                 {u.evidence?.newsHeadline && (
                   <div style={{ marginTop: 11, display: 'flex', gap: 7, alignItems: 'flex-start', background: P.bg, borderRadius: 12, padding: '9px 11px' }}>
-                    <span style={{ fontSize: 13 }}>🧾</span>
+                    <span style={{ color: P.faint, marginTop: 1 }}><Ic name="doc" size={14} /></span>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>{t.receipt.toUpperCase()}</div>
                       <div style={{ fontSize: 12.5, fontWeight: 700, color: P.sub, lineHeight: 1.45 }}>{u.evidence.newsHeadline[loc]}</div>
@@ -646,7 +680,7 @@ export default function WimPage() {
               {(u.deepRead || u.money) && (
                 <div style={{ marginTop: 12, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, borderRadius: 20, padding: '15px 16px', color: '#fff', boxShadow: P.shadow }}>
                   <button type="button" onClick={() => setDeepOpen(!deepOpen)} style={{ font: 'inherit', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <span style={{ fontSize: 17 }}>🏛️</span>
+                    <span style={{ color: '#FFD66B' }}><Ic name="bank" size={18} /></span>
                     <span style={{ flex: 1 }}>
                       <span style={{ display: 'block', fontSize: 13.5, fontWeight: 900 }}>{t.deepTitle}</span>
                       <span style={{ display: 'block', fontSize: 10.5, fontWeight: 650, opacity: 0.8, marginTop: 1 }}>{t.deepSub}</span>
@@ -655,7 +689,7 @@ export default function WimPage() {
                   </button>
                   {!deepOpen && (
                     <div style={{ marginTop: 9, fontSize: 10.5, fontWeight: 800, opacity: 0.85 }}>
-                      {WIM_ADS_LIVE ? `▶ ${t.deepLocked}` : `✨ ${t.deepFree}`}
+                      {WIM_ADS_LIVE ? t.deepLocked : t.deepFree}
                     </div>
                   )}
                   {deepOpen && (
@@ -762,23 +796,23 @@ export default function WimPage() {
 
       {/* floating gradient blobs — depth behind the glass */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-6%', right: '-14%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,122,89,0.34), transparent 68%)', filter: 'blur(14px)', animation: 'wimFloat1 13s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', top: '30%', left: '-16%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(25,184,147,0.26), transparent 68%)', filter: 'blur(16px)', animation: 'wimFloat2 16s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', bottom: '4%', right: '-10%', width: 340, height: 340, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,92,231,0.30), transparent 66%)', filter: 'blur(18px)', animation: 'wimFloat3 18s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', top: '8%', left: '20%', width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,173,31,0.30), transparent 66%)', filter: 'blur(12px)', animation: 'wimFloat2 11s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', top: '-6%', right: '-14%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,122,89,0.20), transparent 68%)', filter: 'blur(14px)', animation: 'wimFloat1 13s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', top: '30%', left: '-16%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(25,184,147,0.16), transparent 68%)', filter: 'blur(16px)', animation: 'wimFloat2 16s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', bottom: '4%', right: '-10%', width: 340, height: 340, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,92,231,0.20), transparent 66%)', filter: 'blur(18px)', animation: 'wimFloat3 18s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', top: '8%', left: '20%', width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,173,31,0.18), transparent 66%)', filter: 'blur(12px)', animation: 'wimFloat2 11s ease-in-out infinite' }} />
       </div>
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 560, margin: '0 auto', padding: `0 16px calc(${WIM_ADS_LIVE ? 158 : 104}px + env(safe-area-inset-bottom))` }}>
 
         {/* glass masthead */}
         <header style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + env(safe-area-inset-top))' }}>
-          <span style={{ ...glass, width: 42, height: 42, borderRadius: 15, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 21 }}>🔍</span>
+          <span style={{ ...glass, width: 42, height: 42, borderRadius: 15, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 21 }}><Ic name="search" size={20} color={P.heroDeep} sw={2} /></span>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.05 }}>Why&apos;d It Move?</div>
             <div style={{ fontSize: 10, fontWeight: 750 as any, color: P.sub, marginTop: 2 }}>{t.tagline}</div>
           </div>
           <button type="button" onClick={() => setSettingsOpen(true)} aria-label={t.settings} style={{ ...glass, font: 'inherit', marginLeft: 'auto', flexShrink: 0, width: 40, height: 40, borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16 }}>
-            ⚙️
+            <Ic name="gear" size={18} color={P.ink} sw={1.5} />
           </button>
         </header>
 
@@ -789,7 +823,7 @@ export default function WimPage() {
             {heroU && heroU.spark && heroU.spark.closes.length >= 8 ? (
               <section style={{ ...glassDark, marginTop: 16, borderRadius: 26, padding: '16px 16px 12px', color: '#fff', animation: 'wimUp 0.35s ease' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#FFD66B' }}>🗂 {t.heroCase.toUpperCase()}</span>
+                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#FFD66B' , display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color="#FFD66B" /> {t.heroCase.toUpperCase()}</span>
                   <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: '#7EE0AE', background: 'rgba(25,184,147,0.25)', borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11 }}>
@@ -804,7 +838,7 @@ export default function WimPage() {
                   <RealChart closes={heroU.spark.closes} height={116} tone="dark" />
                 </div>
                 <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', width: '100%', marginTop: 10, background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(0,0,0,0.18)' }}>
-                  🕵️ {heroU.prompt[loc]} · {t.solve} →
+                  {heroU.prompt[loc]} · {t.solve} →
                 </button>
               </section>
             ) : !failed && !today ? (
@@ -818,7 +852,7 @@ export default function WimPage() {
             {units.length > 0 && (
               <section style={{ marginTop: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
-                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>🗃 {t.caseFiles}</h2>
+                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 , display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="folder" size={16} color={P.heroDeep} /> {t.caseFiles}</h2>
                   <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: doneCount === units.length ? P.mint : P.faint }}>{doneCount}/{units.length} {t.done}</span>
                 </div>
                 <div className="no-sb" style={{ display: 'flex', gap: 11, overflowX: 'auto', margin: '10px -16px 0', padding: '2px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
@@ -841,7 +875,7 @@ export default function WimPage() {
                         <div style={{ display: 'flex', alignItems: 'center', marginTop: 7 }}>
                           <span style={{ fontSize: 11.5, fontWeight: 900, color: P.heroDeep }}>±{u.moveMagnitude}%</span>
                           <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 900, borderRadius: 99, padding: '4px 10px', background: isDone ? P.mintSoft : P.hero, color: isDone ? P.mint : '#fff' }}>
-                            {isDone ? `✓ ${t.solved}` : `▶ ${t.play}`}
+                            {isDone ? `✓ ${t.solved}` : t.play}
                           </span>
                         </div>
                       </button>
@@ -876,7 +910,7 @@ export default function WimPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 11 }}>
-                <span style={{ fontSize: 11.5, fontWeight: 900 }}>🕵️ {levelNames[levelIdx]}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Ic name="shield" size={13} color={P.hero} /> {levelNames[levelIdx]}</span>
                 <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 900, color: P.hero }}>{xp} {t.xp}</span>
               </div>
               <div style={{ marginTop: 6, height: 8, background: 'rgba(108,92,231,0.14)', borderRadius: 99, overflow: 'hidden' }}>
@@ -886,7 +920,7 @@ export default function WimPage() {
 
             {setDoneShown && doneCount === units.length && units.length > 0 && (
               <div style={{ ...glass, marginTop: 10, borderRadius: 20, padding: '14px 16px', textAlign: 'center', animation: 'wimUp 0.35s ease' }}>
-                <div style={{ fontSize: 14.5, fontWeight: 900, color: P.mint }}>🏆 {t.setDone}</div>
+                <div style={{ fontSize: 14.5, fontWeight: 900, color: P.mint , display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Ic name="check" size={15} color={P.mint} sw={2.4} /> {t.setDone}</div>
                 <div style={{ fontSize: 11.5, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.setDoneSub}</div>
               </div>
             )}
@@ -896,7 +930,7 @@ export default function WimPage() {
         {/* ── TAB: LIBRARY (concept shelves — real-chart sheets) ── */}
         {homeTab === 'lib' && (
           <section style={{ marginTop: 16, animation: 'wimUp 0.3s ease' }}>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900 }}>📚 {t.curriculum}</h2>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900 , display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="book" size={16} color={P.heroDeep} /> {t.curriculum}</h2>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.curriculumSub}</div>
             {([1, 2, 3] as const).map((depth) => {
               const terms = DEPTH_TERMS[depth];
@@ -914,7 +948,7 @@ export default function WimPage() {
                       const seen = !!seenTerms[term];
                       return (
                         <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 136px', borderRadius: 16, padding: '11px 12px', outline: seen ? `1.5px solid ${color}66` : 'none' }}>
-                          <div style={{ fontSize: 17 }}>{seen ? '✅' : depth === 1 ? '🌱' : depth === 2 ? '🔬' : '🏛️'}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', color, background: `${color}1A`, borderRadius: 6, padding: '3px 7px' }}>{['I', 'II', 'III'][depth - 1]}</span>{seen && <Ic name="check" size={13} color={color} sw={2.6} />}</div>
                           <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 850 as any, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {METRIC_GLOSSARY[term].title[loc]}
                           </div>
@@ -932,7 +966,7 @@ export default function WimPage() {
         {homeTab === 'search' && (
           <section style={{ marginTop: 16, animation: 'wimUp 0.3s ease' }}>
             <div style={{ ...glass, display: 'flex', alignItems: 'center', gap: 9, borderRadius: 17, padding: '12px 14px' }}>
-              <span style={{ fontSize: 15 }}>🔍</span>
+              <span style={{ color: P.faint }}><Ic name="search" size={16} /></span>
               <input
                 value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder={t.searchPh}
                 style={{ font: 'inherit', flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, fontWeight: 700, color: P.ink }}
@@ -955,7 +989,7 @@ export default function WimPage() {
             )}
             {searchResults.map((term) => (
               <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', marginTop: 10, borderRadius: 16, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 16 }}>{seenTerms[term] ? '✅' : '📖'}</span>
+                <span style={{ color: seenTerms[term] ? P.mint : P.faint }}><Ic name={seenTerms[term] ? 'check' : 'book'} size={16} sw={2} /></span>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 900 }}>{METRIC_GLOSSARY[term].title[loc]}</div>
                   <div style={{ fontSize: 11, fontWeight: 650 as any, color: P.sub, marginTop: 2, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{METRIC_GLOSSARY[term].body[loc]}</div>
@@ -984,15 +1018,15 @@ export default function WimPage() {
               </div>
             </div>
 
-            <h2 style={{ margin: '16px 0 0', fontSize: 15.5, fontWeight: 900 }}>🗂 {t.myStats}</h2>
+            <h2 style={{ margin: '16px 0 0', fontSize: 15.5, fontWeight: 900 , display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="folder" size={15} color={P.heroDeep} /> {t.myStats}</h2>
             <div style={{ display: 'flex', gap: 9, marginTop: 10 }}>
               {[
-                { n: solvedCount, label: t.statSolved, emoji: '🗃' },
-                { n: correctToday, label: t.statCorrect, emoji: '🎯' },
-                { n: termsCount, label: t.statTerms, emoji: '📚' },
+                { n: solvedCount, label: t.statSolved, icon: 'folder' },
+                { n: correctToday, label: t.statCorrect, icon: 'target' },
+                { n: termsCount, label: t.statTerms, icon: 'book' },
               ].map((s) => (
                 <div key={s.label} style={{ ...glass, flex: 1, borderRadius: 18, padding: '13px 8px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 15 }}>{s.emoji}</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', color: P.hero }}><Ic name={s.icon} size={16} /></div>
                   <div style={{ fontSize: 21, fontWeight: 900, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{s.n}</div>
                   <div style={{ fontSize: 9.5, fontWeight: 800, color: P.sub, marginTop: 2 }}>{s.label}</div>
                 </div>
@@ -1001,7 +1035,7 @@ export default function WimPage() {
 
             <div style={{ ...glass, marginTop: 12, borderRadius: 18, padding: '13px 15px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 900 }}>🕵️ {levelNames[levelIdx]}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Ic name="shield" size={14} color={P.hero} /> {levelNames[levelIdx]}</span>
                 <span style={{ fontSize: 10.5, fontWeight: 800, color: P.faint }}>{t.level} {levelIdx + 1}</span>
                 <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 900, color: P.hero }}>{xp} {t.xp}</span>
               </div>
@@ -1013,7 +1047,7 @@ export default function WimPage() {
 
             {units.some((u) => done[u.id]) && (
               <>
-                <h2 style={{ margin: '16px 0 0', fontSize: 15.5, fontWeight: 900 }}>📅 {t.todayRecord}</h2>
+                <h2 style={{ margin: '16px 0 0', fontSize: 15.5, fontWeight: 900 , display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="clock" size={15} color={P.heroDeep} /> {t.todayRecord}</h2>
                 {units.filter((u) => done[u.id]).map((u) => {
                   const ok = u.correctCategoryIds.includes(done[u.id]);
                   return (
@@ -1021,7 +1055,7 @@ export default function WimPage() {
                       <TickerLogo ticker={u.ticker} size={26} />
                       <span style={{ fontSize: 13, fontWeight: 900 }}>{u.ticker}</span>
                       <span style={{ fontSize: 11, fontWeight: 750 as any, color: P.sub }}>±{u.moveMagnitude}%</span>
-                      <span style={{ marginLeft: 'auto', fontSize: 15 }}>{ok ? '🎯' : '💪'}</span>
+                      <span style={{ marginLeft: 'auto', color: ok ? P.mint : P.coral }}><Ic name={ok ? 'check' : 'close'} size={15} sw={2.4} /></span>
                     </div>
                   );
                 })}
@@ -1046,10 +1080,10 @@ export default function WimPage() {
       {/* glass bottom tab bar */}
       <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 24, boxShadow: '0 14px 36px rgba(76,63,175,0.22)', display: 'flex', padding: 6 }}>
         {([
-          { id: 'home', emoji: '🗂', label: t.tabHome },
-          { id: 'lib', emoji: '📚', label: t.tabLib },
-          { id: 'search', emoji: '🔍', label: t.tabSearch },
-          { id: 'me', emoji: '🕵️', label: t.tabMe },
+          { id: 'home', icon: 'folder', label: t.tabHome },
+          { id: 'lib', icon: 'book', label: t.tabLib },
+          { id: 'search', icon: 'search', label: t.tabSearch },
+          { id: 'me', icon: 'badge', label: t.tabMe },
         ] as const).map((tb) => {
           const active = homeTab === tb.id;
           return (
@@ -1059,7 +1093,7 @@ export default function WimPage() {
               color: active ? '#fff' : P.sub, transition: 'background 0.2s ease',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
             }}>
-              <span style={{ fontSize: 17, filter: active ? 'none' : 'grayscale(0.4)' }}>{tb.emoji}</span>
+              <Ic name={tb.icon} size={18} color={active ? '#fff' : P.sub} sw={active ? 2 : 1.7} />
               <span style={{ fontSize: 9.5, fontWeight: 900 }}>{tb.label}</span>
             </button>
           );
@@ -1070,7 +1104,7 @@ export default function WimPage() {
       {settingsOpen && (
         <div onClick={() => setSettingsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(26px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease' }}>
-            <div style={{ fontSize: 16, fontWeight: 900 }}>⚙️ {t.settings}</div>
+            <div style={{ fontSize: 16, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 7 }}><Ic name="gear" size={16} sw={1.5} /> {t.settings}</div>
             <div style={{ marginTop: 14, fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>{t.language.toUpperCase()}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               {([['en', 'English'], ['ja', '日本語'], ['ko', '한국어']] as const).map(([code, name]) => (
