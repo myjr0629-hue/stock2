@@ -108,12 +108,12 @@ function buildPulseText(
 
   const insight = guardianInsight || gexFallback[lang];
 
-  // 클린 CTA URL
-  const ctaUrl = 'https://www.signumhq.com/intel-guardian';
+  // CTA: app-first funnel — /app smart link (?from= tag for install attribution)
+  const ctaUrl = 'https://www.signumhq.com/app?from=pulse';
   const ctaLabels: Record<Lang, string> = {
-    en: `📊 Full analysis → ${ctaUrl}`,
-    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
-    ja: `📊 詳細分析 → ${ctaUrl}`,
+    en: `📱 Full analysis in the free app → ${ctaUrl}`,
+    ko: `📱 무료 앱에서 전체 분석 → ${ctaUrl}`,
+    ja: `📱 無料アプリで詳細分析 → ${ctaUrl}`,
   };
 
   return {

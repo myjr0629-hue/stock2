@@ -91,8 +91,8 @@ function buildCloseText(
   // JA verdict가 없으면 KO → EN fallback
   const tacticalInsight = guardian[lang] || (lang === 'ja' ? guardian.ko : '') || guardian.en || '';
 
-  // ── CTA: 클린 URL (UTM 없음) ──
-  const ctaUrl = 'https://www.signumhq.com/intel-guardian';
+  // ── CTA: app-first funnel — /app smart link (?from= tag for install attribution) ──
+  const ctaUrl = 'https://www.signumhq.com/app?from=close';
 
   // ── 헤드라인 (1줄) ──
   const headlines: Record<Lang, string> = {
@@ -117,16 +117,16 @@ function buildCloseText(
 
   // ── CTA 라벨 (클린 URL) ──
   const ctaLabels: Record<Lang, string> = {
-    en: `📊 Full analysis → ${ctaUrl}`,
-    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
-    ja: `📊 詳細分析 → ${ctaUrl}`,
+    en: `📱 Full analysis in the free app → ${ctaUrl}`,
+    ko: `📱 무료 앱에서 전체 분석 → ${ctaUrl}`,
+    ja: `📱 無料アプリで詳細分析 → ${ctaUrl}`,
   };
 
   // Threads: URL 없이 브랜드 멘션만 (Meta URL 차단 방지)
   const ctaThreads: Record<Lang, string> = {
-    en: '📊 Full analysis → signumhq.com/intel-guardian',
-    ko: '📊 전체 분석 보기 → signumhq.com/intel-guardian',
-    ja: '📊 詳細分析 → signumhq.com/intel-guardian',
+    en: '📱 Full analysis in the free app → signumhq.com/app',
+    ko: '📱 무료 앱에서 전체 분석 → signumhq.com/app',
+    ja: '📱 無料アプリで詳細分析 → signumhq.com/app',
   };
 
   // RLSI 점수 표시

@@ -209,12 +209,12 @@ function buildSpotlightText(
 
   const insight = aiInsight[lang] || (lang === 'ja' ? aiInsight.ko : '') || fallback[lang];
 
-  // 클린 CTA URL (종목 페이지)
-  const ctaUrl = `https://www.signumhq.com/ticker?ticker=${ticker}`;
+  // CTA: app-first funnel — /app smart link (?from= tag for install attribution)
+  const ctaUrl = 'https://www.signumhq.com/app?from=spotlight';
   const ctaLabels: Record<Lang, string> = {
-    en: `📊 Full analysis → ${ctaUrl}`,
-    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
-    ja: `📊 詳細分析 → ${ctaUrl}`,
+    en: `📱 Track $${ticker} in the free app → ${ctaUrl}`,
+    ko: `📱 무료 앱에서 $${ticker} 추적 → ${ctaUrl}`,
+    ja: `📱 無料アプリで$${ticker}を追跡 → ${ctaUrl}`,
   };
 
   return {

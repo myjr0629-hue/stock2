@@ -86,19 +86,19 @@ function buildMorningText(
   // Guardian TACTICAL INSIGHT — JA 없으면 KO → EN fallback
   const insight = guardian[lang] || (lang === 'ja' ? guardian.ko : '') || guardian.en || '';
 
-  // 클린 CTA URL (UTM 없음)
-  const ctaUrl = 'https://www.signumhq.com/intel-guardian';
+  // CTA: app-first funnel — /app smart link (?from= tag for install attribution)
+  const ctaUrl = 'https://www.signumhq.com/app?from=morning';
   const ctaLabels: Record<Lang, string> = {
-    en: `📊 Full analysis → ${ctaUrl}`,
-    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
-    ja: `📊 詳細分析 → ${ctaUrl}`,
+    en: `📱 Full analysis in the free app → ${ctaUrl}`,
+    ko: `📱 무료 앱에서 전체 분석 → ${ctaUrl}`,
+    ja: `📱 無料アプリで詳細分析 → ${ctaUrl}`,
   };
 
   // Threads용 (URL 없이)
   const ctaThreads: Record<Lang, string> = {
-    en: '📊 Full analysis → signumhq.com/intel-guardian',
-    ko: '📊 전체 분석 보기 → signumhq.com/intel-guardian',
-    ja: '📊 詳細分析 → signumhq.com/intel-guardian',
+    en: '📱 Full analysis in the free app → signumhq.com/app',
+    ko: '📱 무료 앱에서 전체 분석 → signumhq.com/app',
+    ja: '📱 無料アプリで詳細分析 → signumhq.com/app',
   };
 
   return {

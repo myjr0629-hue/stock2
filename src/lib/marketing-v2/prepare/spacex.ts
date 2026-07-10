@@ -93,12 +93,12 @@ function buildSpacexText(
     ja: `📰 ${newsHeadline}\n📊 TSLA $${tsla.price.toFixed(2)} (${changeDir}${tsla.changePercent.toFixed(2)}%) | DP ${tsla.darkPoolPercent.toFixed(1)}%`,
   };
 
-  // 클린 CTA URL (UTM 없음)
-  const ctaUrl = 'https://www.signumhq.com/intel-guardian';
+  // CTA: app-first funnel — /app smart link (?from= tag for install attribution)
+  const ctaUrl = 'https://www.signumhq.com/app?from=spacex';
   const ctaLabels: Record<Lang, string> = {
-    en: `📊 Full analysis → ${ctaUrl}`,
-    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
-    ja: `📊 詳細分析 → ${ctaUrl}`,
+    en: `📱 Full analysis in the free app → ${ctaUrl}`,
+    ko: `📱 무료 앱에서 전체 분석 → ${ctaUrl}`,
+    ja: `📱 無料アプリで詳細分析 → ${ctaUrl}`,
   };
 
   // insight: 번역된 본문에서 추가 내용

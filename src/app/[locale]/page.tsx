@@ -472,22 +472,39 @@ export default function Page() {
             {t('home.fomoSubheadline')}<br /><span className="text-cyan-400 font-bold">{t('home.fomoHighlight')}</span>
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 mb-8">
+          {/* CTA Buttons — app-first funnel (App Store live 2026-07). /app = device-aware store smart link */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 mb-6">
+            <a href="/app?from=home"
+              className="group px-9 py-4 bg-white text-black rounded-md font-extrabold text-sm uppercase tracking-wider font-jakarta
+                hover:brightness-90 transition-all
+                flex items-center gap-2.5 shadow-[0_0_40px_rgba(255,255,255,0.18)] border border-white/20">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 -mt-0.5" fill="currentColor" aria-hidden="true">
+                <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.03 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+              </svg>
+              {t('home.appStoreCta')}
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </a>
             <Link href="/ticker?ticker=NVDA"
-              className="group px-10 py-4 bg-gradient-to-r from-[#d97706] to-[#b45309]
-                text-black rounded-md font-extrabold text-sm uppercase tracking-wider font-jakarta
-                hover:brightness-110 transition-all 
-                flex items-center gap-2 shadow-[0_0_40px_rgba(217,119,6,0.3)] border border-[#f59e0b]/20">
-              {t('home.enterCommand')} <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link href="/how-it-works"
-              className="px-10 py-4 bg-[#0a1628]/50 border border-[#1e293b] 
+              className="px-10 py-4 bg-[#0a1628]/50 border border-[#1e293b]
                 text-[#38bdf8] rounded-md font-bold text-sm uppercase tracking-wider font-jakarta
                 hover:bg-[#0a1628] hover:border-[#38bdf8]/30 transition-all">
-              {t('home.howItWorks')}
+              {t('home.webCta')}
             </Link>
           </div>
+
+          {/* App install helper — QR for desktop, store note for mobile */}
+          <div className="hidden md:inline-flex items-center gap-4 mb-8 px-5 py-3.5 rounded-xl bg-[#0a1628]/60 border border-white/10 text-left">
+            <div className="bg-white p-1.5 rounded-lg shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/images/app-qr.svg" alt="SIGNUM HQ app install QR" width={76} height={76} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-200">{t('home.appQrHint')}</p>
+              <p className="text-xs text-slate-400 mt-1">{t('home.appFreeNote')}</p>
+              <p className="text-[11px] text-slate-500 mt-1">{t('home.androidSoon')}</p>
+            </div>
+          </div>
+          <p className="md:hidden text-xs text-slate-500 mb-8">{t('home.appFreeNote')} · {t('home.androidSoon')}</p>
 
           <div className="inline-flex items-center gap-2 text-sm text-slate-400">
             <Zap className="w-4 h-4 text-amber-400" />

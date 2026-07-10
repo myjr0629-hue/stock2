@@ -173,12 +173,12 @@ function buildEventText(lang: Lang, event: EventInput, date: string, aiAnalysis:
 
   const insight = aiAnalysis[lang] || (lang === 'ja' ? aiAnalysis.ko : '') || fallback[lang];
 
-  // 클린 CTA URL
-  const ctaUrl = `https://www.signumhq.com/ticker?ticker=${event.ticker}`;
+  // CTA: app-first funnel — /app smart link (?from= tag for install attribution)
+  const ctaUrl = 'https://www.signumhq.com/app?from=event';
   const ctaLabels: Record<Lang, string> = {
-    en: `📊 Full analysis → ${ctaUrl}`,
-    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
-    ja: `📊 詳細分析 → ${ctaUrl}`,
+    en: `📱 Track $${event.ticker} in the free app → ${ctaUrl}`,
+    ko: `📱 무료 앱에서 $${event.ticker} 추적 → ${ctaUrl}`,
+    ja: `📱 無料アプリで$${event.ticker}を追跡 → ${ctaUrl}`,
   };
 
   return {

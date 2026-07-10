@@ -55,11 +55,11 @@ export async function prepareEducation(opts: { date?: string; dryRun?: boolean; 
   const text: ContentPackage['text'] = {};
   for (const lang of ALL_LANGS) {
     const t = topicContent[lang];
-    // CTA: 클린 URL (UTM 파라미터 없이)
+    // CTA: app-first funnel — /app smart link (?from= tag for install attribution)
     const ctaLabels: Record<Lang, string> = {
-      en: `📊 Full analysis → https://www.signumhq.com/how-it-works`,
-      ko: `📊 전체 분석 보기 → https://www.signumhq.com/how-it-works`,
-      ja: `📊 詳細分析 → https://www.signumhq.com/how-it-works`,
+      en: `📱 Learn more in the free app → https://www.signumhq.com/app?from=education`,
+      ko: `📱 무료 앱에서 더 배우기 → https://www.signumhq.com/app?from=education`,
+      ja: `📱 無料アプリでもっと学ぶ → https://www.signumhq.com/app?from=education`,
     };
     text[lang] = {
       headline: applyCompliance(`📚 ${t.title}`),
@@ -68,7 +68,7 @@ export async function prepareEducation(opts: { date?: string; dryRun?: boolean; 
       full: applyCompliance(`📚 ${t.title}\n\n${t.body}`),
       disclaimer: DISCLAIMER[lang],
       cta: ctaLabels[lang],
-      ctaFull: `https://www.signumhq.com/how-it-works`,
+      ctaFull: `https://www.signumhq.com/app?from=education`,
     };
   }
 

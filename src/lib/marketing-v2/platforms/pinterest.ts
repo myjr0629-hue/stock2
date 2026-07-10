@@ -79,23 +79,10 @@ export class PinterestAdapter extends BaseAdapter {
     const tags = this.getHashtags(pkg, lang);
     const description = this.buildText(pkg, lang);
 
-    // ── Destination link (슬롯별 랜딩 페이지, 클린 URL) ──
-    let destinationUrl: string;
-    switch (pkg.slot) {
-      case 'spacex':
-        destinationUrl = `https://www.signumhq.com/ticker?ticker=TSLA`;
-        break;
-      case 'education':
-        destinationUrl = `https://www.signumhq.com/how-it-works`;
-        break;
-      case 'spotlight':
-        const spotTicker = pkg.metrics?.ticker || 'AAPL';
-        destinationUrl = `https://www.signumhq.com/ticker?ticker=${spotTicker}`;
-        break;
-      default:
-        destinationUrl = `https://www.signumhq.com/intel-guardian`;
-        break;
-    }
+    // ── Destination link — app-first funnel (/app smart link, per-slot from tag) ──
+    // Pinterest is the one channel where destination links are rewarded, so send
+    // pinners straight to the store via the device-aware /app redirect.
+    const destinationUrl = `https://www.signumhq.com/app?from=pin_${pkg.slot || 'default'}`;
 
     // ── Pin description (Buffer enforces 500 char max) ──
     const descWithTags = tags ? `${description}\n\n${tags}` : description;

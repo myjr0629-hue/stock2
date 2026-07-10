@@ -41,5 +41,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     // Match all pathnames except API, static files, Next.js internals, auth callback, templates
-    matcher: ['/((?!api|_next|_vercel|auth|marketing|templates|.*\\..*).*)' , '/']
+    // `app$` = /app store smart link (src/app/app/route.ts) — must bypass i18n locale rewriting
+    matcher: ['/((?!api|app$|_next|_vercel|auth|marketing|templates|.*\\..*).*)' , '/']
 };

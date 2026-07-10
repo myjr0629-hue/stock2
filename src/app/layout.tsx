@@ -39,6 +39,10 @@ export const metadata: Metadata = {
   title: "SIGNUM HQ",
   description: "Institutional Intelligence, Democratized — GEX · Dark Pool · Options Flow · AI Verdicts",
   manifest: '/manifest.json',
+  // iOS Safari Smart App Banner (App Store id — live since 2026-07). WKWebView(native app) ignores this.
+  itunes: {
+    appId: '6783130444',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
