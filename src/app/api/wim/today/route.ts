@@ -61,8 +61,9 @@ export async function GET(request: Request) {
     type Mover = { ticker: string; price: number; changePercent: number; value?: number };
     const sane = (m: Mover) => Math.abs(m.changePercent) >= 2 && Math.abs(m.changePercent) <= 30 && /^[A-Z]{1,5}$/.test(m.ticker);
     const byValue = (a: Mover, b: Mover) => (b.value || 0) - (a.value || 0);
-    const gainers = ((gRes || []) as Mover[]).filter(sane).sort(byValue);
-    const losers = ((lRes || []) as Mover[]).filter(sane).sort(byValue);
+    // movers route returns { movers: [...] } (object), not a bare array
+    const gainers = (((gRes?.movers ?? gRes) || []) as Mover[]).filter(sane).sort(byValue);
+    const losers = (((lRes?.movers ?? lRes) || []) as Mover[]).filter(sane).sort(byValue);
     const picked: Mover[] = [];
     const seen = new Set<string>();
     // interleave 3 gainers / 2 losers by liquidity (education wants recognizable names)
