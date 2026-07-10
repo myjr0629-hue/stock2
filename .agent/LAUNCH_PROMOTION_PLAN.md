@@ -107,3 +107,50 @@ Not a launch task — a growth-phase product bet worth scoping.
 - [ ] Prep Product Hunt launch assets.
 - [ ] Confirm KR FSS crackdown status before any aggressive KR US-stock promo.
 - [ ] (Optional focused research) verify current self-promo rules for the exact venues you pick.
+
+---
+
+## PART 3 — Buffer/SNS 재활 운용 설계 (2026-07-11, 토스 검증 이후)
+
+**전제**: 자동 스프레이는 정지됨(f5c91ef4). 버퍼는 도구일 뿐 — 실패 원인은 ①13채널 동일문 블라스트
+②컴플라이언스 스크럽으로 죽은 문장 ③본문 링크 ④사람 부재. 토스에서 검증된 공식(실데이터 캡처 +
+실숫자 2~3개 + 담백 한 줄 → 즉시 "무슨 앱?")을 영어/일본어로 이식한다.
+
+### 채널 트리아지 (13 → 3+동결)
+| 채널 | 처분 | 이유 |
+|---|---|---|
+| **X (en)** | 주력 — 수동 재활 | 미국 리테일 본진, 리서치 1순위 |
+| **X (ja)** | 주력 — 수동 재활 | #米国株 커뮤니티, 일본 리테일 밤에 미국장 시청 |
+| **Threads (en)** | 보조 — 주 2~3회 | 도달 억제 덜함, 텍스트+이미지 궁합 |
+| TikTok/Reels/Shorts | **동결 → Phase 2 영상으로 부활** | Remotion 영상 준비되면 |
+| Pinterest/Bluesky/기타 | 동결 | 리테일 밀도 낮음, 관리비용만 듦 |
+
+### Phase 0 — 계정 재활 (지금~2주): 버퍼 사용 금지, 100% 수동
+- **하루 1포스트/채널**: 토스에 올린 그 캡처로 en/ja 글 (Claude가 캡처 숫자 읽고 3언어 세트 작성)
+  - X 형식: `$TSLA options are leaning hard into calls today — $560M net call premium, price
+    holding above the gamma flip ($402.5). Max pain sits at $400.` + 캡처. **링크 금지(본문)**.
+  - 답글에만: `it's an app called SIGNUM HQ (App Store)` — 물어보는 사람에게만.
+- **답글 게임이 본체**: 팔로워 0 계정의 포스트는 안 보임. Unusual Whales·주요 FinTwit 계정 글에
+  우리 데이터로 빠른 답글 5개/일 → 그 팔로워들이 봄. ja는 米国株 큰 계정에 동일.
+- **측정**: 포스트당 노출수 추적. 회복 신호 = 주차별 노출 우상향.
+- **⚠️ 결정 게이트(3주)**: X(en) 노출이 3주 후에도 포스트당 <50이면 계정 사망 판정 →
+  새 핸들 개설(브랜드 유지, 예: @signumhq_app), 재활 시도 종료. 미련 금지.
+
+### Phase 1 — 버퍼 복귀 (재활 확인 후): "생성기"가 아니라 "예약기"로
+- 주 1회 배치: Claude가 실데이터로 폭로형 포스트 5~7개 초안(en/ja 각각 네이티브 작성, 번역투 금지)
+  → **사람이 훑고 승인** → 버퍼는 시간대 최적 예약만 (US장중 ET 오전 / JP 밤 22~24시 JST).
+- 철칙: 채널당 1일 1포스트 상한 · 동일문 크로스포스팅 금지(채널별 변형) · 본문 링크 금지 ·
+  답글은 여전히 사람.
+- 이전과의 차이 = 버퍼가 콘텐츠를 만들지 않는다. 만드는 건 데이터+Claude, 거르는 건 사람.
+
+### Phase 2 — 영상 증폭 (Phase 1 안착 후)
+- Remotion 40템플릿 → 주 3개 쇼츠(TikTok/Reels/Shorts 부활). **3초 훅**만 검증된 원칙:
+  "NVDA dark pool just hit 63%" 식 첫 화면. 길이·케이던스는 A/B (고정값 리서치에서 반증됨).
+- 버퍼로 예약, 성과 상위 훅 유형에 더블다운.
+
+### Phase 3 — 전환 계측
+- 채널별 Custom Product Page + UTM. 답글 링크에 UTM. ASC 유입경로로 설치 귀속 → 되는 채널에 집중.
+
+### 운영 리듬 (솔로 기준, 일 20~30분)
+아침(KST): 토스 반응 답글 → 밤(미국장): 캡처 1회 → Claude가 ko/en/ja 3종 작성 → 토스 수동 + X(en/ja)
+수동 → FinTwit/米国株 답글 5개. 주말: 주간 노출 리뷰.
