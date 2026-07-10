@@ -82,6 +82,110 @@ const CAT_ICON: Record<string, string> = {
   sector_rotation: 'rotate', macro: 'bank', options_structure: 'layers', insti_flow: 'flow',
 };
 
+// ── LAB: one real snapshot (from /api/wim/lab) that demonstrates EVERY concept ──
+interface LabData {
+  ticker: string; price: number | null;
+  spark: { closes: number[]; vwap: number[] | null } | null;
+  gex: { netGex: number | null; gammaFlip: number | null; regime: string | null };
+  levels: { callWall: number | null; putFloor: number | null; maxPain: number | null };
+  pcr: number | null; darkPoolPct: number | null; blockCount: number | null;
+  shortVolPct: number | null; smartFlow: number | null;
+  vol: { regime: string | null; regimeScore: number | null; iv: number | null };
+  squeeze: { siPercent: number | null; daysToCover: number | null; riskScore: number | null; status: string | null };
+  sma: { sma50: number | null; sma200: number | null; cross: string | null; phase: string | null };
+  alpha: { score: number | null; grade: string | null };
+  fund: { score: number | null; grade: string | null; sector: string | null };
+}
+const fmtM = (n: number) => {
+  const a = Math.abs(n);
+  if (a >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
+  return String(Math.round(n));
+};
+interface Demo {
+  levels?: { label: string; value: number; color: string }[];
+  vwapOn?: boolean;
+  tiles: { k: string; v: string; color?: string }[];
+  gauge?: { pct: number; label: string; color: string };
+}
+// every glossary term → how to DEMONSTRATE it with the real snapshot
+function termDemo(term: MetricTerm, lab: LabData | null): Demo | null {
+  if (!lab) return null;
+  const L = lab.levels; const G = lab.gex;
+  switch (term) {
+    case 'gex': case 'gexTimeline':
+      if (G.netGex == null) return null;
+      return {
+        levels: G.gammaFlip != null ? [{ label: 'GAMMA FLIP', value: G.gammaFlip, color: P.amber }] : [],
+        tiles: [
+          { k: 'NET GEX', v: fmtM(G.netGex), color: G.netGex >= 0 ? P.mint : P.coral },
+          ...(G.regime ? [{ k: 'REGIME', v: G.regime }] : []),
+        ],
+      };
+    case 'gammaFlip':
+      if (G.gammaFlip == null) return null;
+      return { levels: [{ label: 'GAMMA FLIP', value: G.gammaFlip, color: P.amber }], tiles: [{ k: 'FLIP LEVEL', v: `$${G.gammaFlip}` }, ...(G.regime ? [{ k: 'REGIME', v: G.regime }] : [])] };
+    case 'callWall':
+      if (L.callWall == null) return null;
+      return { levels: [{ label: 'CALL WALL', value: L.callWall, color: P.coral }], tiles: [{ k: 'CALL WALL', v: `$${L.callWall}`, color: P.coral }] };
+    case 'putFloor':
+      if (L.putFloor == null) return null;
+      return { levels: [{ label: 'PUT FLOOR', value: L.putFloor, color: P.mint }], tiles: [{ k: 'PUT FLOOR', v: `$${L.putFloor}`, color: P.mint }] };
+    case 'maxPain':
+      if (L.maxPain == null) return null;
+      return { levels: [{ label: 'MAX PAIN', value: L.maxPain, color: P.amber }], tiles: [{ k: 'MAX PAIN', v: `$${L.maxPain}`, color: P.amber }] };
+    case 'darkPool':
+      if (lab.darkPoolPct == null) return null;
+      return { tiles: [{ k: 'DARK POOL', v: `${lab.darkPoolPct.toFixed(1)}%` }, ...(lab.blockCount != null ? [{ k: 'BLOCKS', v: String(lab.blockCount) }] : [])], gauge: { pct: Math.min(1, lab.darkPoolPct / 100), label: 'OFF-EXCHANGE SHARE', color: P.hero } };
+    case 'blockTrades':
+      if (lab.blockCount == null) return null;
+      return { tiles: [{ k: 'BLOCK TRADES', v: String(lab.blockCount) }, ...(lab.darkPoolPct != null ? [{ k: 'DARK POOL', v: `${lab.darkPoolPct.toFixed(1)}%` }] : [])] };
+    case 'whale':
+      if (lab.smartFlow == null && lab.blockCount == null) return null;
+      return { tiles: [...(lab.smartFlow != null ? [{ k: 'SMART FLOW', v: String(lab.smartFlow) }] : []), ...(lab.blockCount != null ? [{ k: 'BLOCKS', v: String(lab.blockCount) }] : [])], gauge: lab.smartFlow != null ? { pct: Math.min(1, lab.smartFlow / 100), label: 'SMART FLOW', color: P.hero } : undefined };
+    case 'ivRank': case 'impliedMove': case 'ivSkew':
+      if (lab.vol.iv == null) return null;
+      return { tiles: [{ k: 'CURRENT IV', v: `${lab.vol.iv}` }, ...(lab.vol.regime ? [{ k: 'VOL REGIME', v: lab.vol.regime }] : [])], gauge: { pct: Math.min(1, (lab.vol.iv || 0) / 100), label: 'IMPLIED VOLATILITY', color: P.amber } };
+    case 'netPremium': case 'opi': case 'pcr':
+      if (lab.pcr == null) return null;
+      return { tiles: [{ k: 'PUT/CALL', v: lab.pcr.toFixed(2), color: lab.pcr >= 1 ? P.coral : P.mint }, ...(lab.smartFlow != null ? [{ k: 'SMART FLOW', v: String(lab.smartFlow) }] : [])], gauge: { pct: Math.min(1, lab.pcr / 2), label: 'PUT/CALL RATIO', color: lab.pcr >= 1 ? P.coral : P.mint } };
+    case 'squeeze':
+      if (lab.squeeze.riskScore == null) return null;
+      return { tiles: [{ k: 'SQUEEZE', v: String(lab.squeeze.riskScore) }, ...(lab.squeeze.siPercent != null ? [{ k: 'SHORT INT', v: `${lab.squeeze.siPercent}%` }] : []), ...(lab.squeeze.daysToCover != null ? [{ k: 'DAYS TO COVER', v: String(lab.squeeze.daysToCover) }] : [])], gauge: { pct: Math.min(1, (lab.squeeze.riskScore || 0) / 100), label: `SQUEEZE RISK · ${lab.squeeze.status || ''}`, color: P.coral } };
+    case 'shortInterest':
+      if (lab.squeeze.siPercent == null && lab.shortVolPct == null) return null;
+      return { tiles: [...(lab.squeeze.siPercent != null ? [{ k: 'SHORT INT', v: `${lab.squeeze.siPercent}%` }] : []), ...(lab.shortVolPct != null ? [{ k: 'SHORT VOL', v: `${lab.shortVolPct.toFixed(1)}%` }] : []), ...(lab.squeeze.daysToCover != null ? [{ k: 'DAYS TO COVER', v: String(lab.squeeze.daysToCover) }] : [])] };
+    case 'volRegime':
+      if (lab.vol.regime == null) return null;
+      return { tiles: [{ k: 'REGIME', v: lab.vol.regime }, ...(lab.vol.regimeScore != null ? [{ k: 'SCORE', v: String(lab.vol.regimeScore) }] : [])], gauge: lab.vol.regimeScore != null ? { pct: Math.min(1, lab.vol.regimeScore / 100), label: 'REGIME SCORE', color: P.amber } : undefined };
+    case 'conviction':
+      if (lab.alpha.score == null) return null;
+      return { tiles: [{ k: 'ALPHA SCORE', v: String(lab.alpha.score) }, ...(lab.alpha.grade ? [{ k: 'GRADE', v: lab.alpha.grade }] : [])], gauge: { pct: Math.min(1, lab.alpha.score / 100), label: 'CONVICTION', color: P.hero } };
+    case 'trendPhase':
+      if (lab.sma.sma50 == null || lab.sma.sma200 == null) return null;
+      return { levels: [{ label: 'SMA50', value: lab.sma.sma50, color: P.amber }, { label: 'SMA200', value: lab.sma.sma200, color: P.mint }], tiles: [...(lab.sma.cross ? [{ k: 'CROSS', v: lab.sma.cross, color: lab.sma.cross === 'GOLDEN' ? P.mint : P.coral }] : []), ...(lab.sma.phase ? [{ k: 'PHASE', v: lab.sma.phase }] : [])] };
+    case 'fundamental':
+      if (lab.fund.score == null) return null;
+      return { tiles: [{ k: 'SCORE', v: String(lab.fund.score) }, ...(lab.fund.grade ? [{ k: 'GRADE', v: lab.fund.grade }] : [])], gauge: { pct: Math.min(1, lab.fund.score / 100), label: 'FUNDAMENTAL', color: P.mint } };
+    case 'rsi': {
+      const r = lab.spark ? rsi14(lab.spark.closes) : null;
+      if (r == null) return null;
+      return { tiles: [{ k: 'RSI(14)', v: String(r), color: r >= 70 ? P.coral : r <= 30 ? P.mint : undefined }], gauge: { pct: Math.min(1, r / 100), label: 'RSI(14)', color: r >= 70 ? P.coral : r <= 30 ? P.mint : P.hero } };
+    }
+    case 'vwap':
+      if (!lab.spark?.vwap) return null;
+      return { vwapOn: true, tiles: [{ k: 'VWAP', v: `$${lab.spark.vwap[lab.spark.vwap.length - 1].toFixed(2)}` }] };
+    default:
+      return null; // institutional13f / insiderActivity → chart + prose (no live numbers yet)
+  }
+}
+// short live value for search chips / library cards
+function termValue(term: MetricTerm, lab: LabData | null): string | null {
+  const d = termDemo(term, lab);
+  return d?.tiles?.[0] ? d.tiles[0].v : null;
+}
+
 // ── palette (bright violet playground) ──
 const P = {
   bg: '#F6F4FF', card: '#FFFFFF', ink: '#262240', sub: '#5A5580', faint: '#928DB8',
@@ -289,73 +393,66 @@ function rsi14(closes: number[]): number | null {
   return Math.round(100 - 100 / (1 + ag / al));
 }
 
-// ── GlossarySheet: a concept explained ON today's REAL chart (not a text toggle).
-// vwap → real VWAP overlay · maxPain/callWall/putFloor → the real level drawn on the
-// real chart · rsi → RSI(14) computed from today's real closes · darkPool → real %.
+// ── GlossarySheet v2: every concept demonstrated on REAL material — the real
+// last-session chart with the term's real level/overlay drawn on it, plus the
+// term's real numbers as stat tiles and a gauge. Prose is the caption, not the lesson.
 function GlossarySheet({
-  term, units, loc, t, onClose,
+  term, lab, loc, t, onClose,
 }: {
-  term: MetricTerm; units: Unit[]; loc: Lang; t: Record<string, string>; onClose: () => void;
+  term: MetricTerm; lab: LabData | null; loc: Lang; t: Record<string, string>; onClose: () => void;
 }) {
   const entry = METRIC_GLOSSARY[term];
-  // find a unit that can DEMONSTRATE this term with real data
-  const withSpark = units.filter((u) => u.spark && u.spark.closes.length >= 16);
-  let demo: { u: Unit; levels?: { label: string; value: number; color: string }[]; vwap?: boolean; rsi?: number | null; dp?: number | null } | null = null;
-  if (term === 'vwap') {
-    const u = withSpark.find((x) => x.spark?.vwap && x.spark.vwap.length === x.spark.closes.length);
-    if (u) demo = { u, vwap: true };
-  } else if (term === 'maxPain' || term === 'callWall' || term === 'putFloor') {
-    const key = term as 'maxPain' | 'callWall' | 'putFloor';
-    const color = term === 'maxPain' ? P.amber : term === 'callWall' ? P.coral : P.mint;
-    const label = term === 'maxPain' ? 'MAX PAIN' : term === 'callWall' ? 'CALL WALL' : 'PUT FLOOR';
-    const u = withSpark.find((x) => x.money && typeof (x.money as any)[key] === 'number' && (x.money as any)[key] > 0);
-    if (u) demo = { u, levels: [{ label, value: (u.money as any)[key], color }] };
-  } else if (term === 'rsi') {
-    const u = withSpark[0];
-    if (u && u.spark) demo = { u, rsi: rsi14(u.spark.closes) };
-  } else if (term === 'darkPool') {
-    const u = units.find((x) => x.money?.darkPoolPct != null);
-    if (u) demo = { u, dp: u.money!.darkPoolPct };
-  }
+  const demo = termDemo(term, lab);
+  const spark = lab?.spark || null;
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: '#fff', borderRadius: '22px 22px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease', maxHeight: '78vh', overflowY: 'auto' }}>
-        <div style={{ fontSize: 16, fontWeight: 900, color: P.ink }}>{entry.title[loc]}</div>
-        {demo && (
-          <div style={{ marginTop: 12, background: P.bg, borderRadius: 16, padding: '10px 8px 6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px' }}>
-              <TickerLogo ticker={demo.u.ticker} size={17} />
-              <span style={{ fontSize: 10.5, fontWeight: 900, color: P.ink }}>{demo.u.ticker}</span>
-              <span style={{ fontSize: 9.5, fontWeight: 800, color: P.faint }}>· {t.onRealChart}</span>
-              <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '2px 8px' }}>● {t.realData.toUpperCase()}</span>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease', maxHeight: '80vh', overflowY: 'auto' }}>
+        <div style={{ fontSize: 16.5, fontWeight: 900, color: P.ink, letterSpacing: '-0.01em' }}>{entry.title[loc]}</div>
+
+        {lab && (demo || spark) && (
+          <div style={{ marginTop: 12, background: P.bg, borderRadius: 18, padding: '11px 10px 8px', border: `1px solid ${P.line}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px 7px' }}>
+              <TickerLogo ticker={lab.ticker} size={17} />
+              <span style={{ fontSize: 10.5, fontWeight: 900, color: P.ink }}>{lab.ticker}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 750 as any, color: P.faint }}>· {t.onRealChart}</span>
+              <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, letterSpacing: '0.06em', color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '2px 8px' }}>● {t.realData.toUpperCase()}</span>
             </div>
-            {demo.dp == null ? (
+            {spark && spark.closes.length >= 8 && (
               <RealChart
-                closes={demo.u.spark!.closes}
-                vwap={demo.vwap ? demo.u.spark!.vwap : null}
-                levels={demo.levels}
-                height={118}
+                closes={spark.closes}
+                vwap={demo?.vwapOn ? spark.vwap : null}
+                levels={demo?.levels}
+                height={116}
               />
-            ) : (
-              <div style={{ padding: '6px 8px 10px' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: 26, fontWeight: 900, color: P.hero, fontVariantNumeric: 'tabular-nums' }}>{Math.round(demo.dp)}%</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: P.sub }}>{entry.title[loc]}</span>
+            )}
+            {demo?.vwapOn && (
+              <div style={{ padding: '4px 6px 0', fontSize: 9.5, fontWeight: 800, color: P.amber }}>― ― {t.vwapLine}</div>
+            )}
+            {demo?.tiles && demo.tiles.length > 0 && (
+              <div style={{ display: 'flex', gap: 7, marginTop: 9, flexWrap: 'wrap' }}>
+                {demo.tiles.map((tile) => (
+                  <div key={tile.k} style={{ flex: '1 1 30%', minWidth: 88, background: '#fff', border: `1px solid ${P.line}`, borderRadius: 13, padding: '9px 10px' }}>
+                    <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.09em', color: P.faint }}>{tile.k}</div>
+                    <div style={{ fontSize: 16, fontWeight: 900, marginTop: 2, fontVariantNumeric: 'tabular-nums', color: tile.color || P.ink }}>{tile.v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {demo?.gauge && (
+              <div style={{ marginTop: 9, padding: '0 2px 4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8.5, fontWeight: 900, letterSpacing: '0.08em', color: P.faint, marginBottom: 4 }}>
+                  <span>{demo.gauge.label}</span>
+                  <span style={{ color: demo.gauge.color }}>{Math.round(demo.gauge.pct * 100)}</span>
                 </div>
-                <div style={{ marginTop: 8, height: 12, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min(100, Math.max(3, demo.dp))}%`, height: '100%', background: `linear-gradient(90deg, ${P.hero}, ${P.heroDeep})`, borderRadius: 99 }} />
+                <div style={{ height: 8, background: 'rgba(108,92,231,0.12)', borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.max(3, demo.gauge.pct * 100)}%`, height: '100%', background: demo.gauge.color, borderRadius: 99, transition: 'width 0.5s ease' }} />
                 </div>
               </div>
             )}
-            {demo.vwap && (
-              <div style={{ padding: '5px 8px 4px', fontSize: 9.5, fontWeight: 800, color: P.amber }}>― ― {t.vwapLine}</div>
-            )}
-            {demo.rsi != null && (
-              <div style={{ padding: '5px 8px 4px', fontSize: 10.5, fontWeight: 900, color: P.heroDeep }}>{t.rsiNow}: {demo.rsi}</div>
-            )}
           </div>
         )}
-        <p style={{ margin: '11px 0 0', fontSize: 13.5, lineHeight: 1.7, color: P.sub, fontWeight: 600 as any }}>{entry.body[loc]}</p>
+
+        <p style={{ margin: '12px 0 0', fontSize: 13.5, lineHeight: 1.7, color: P.sub, fontWeight: 600 as any }}>{entry.body[loc]}</p>
         <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
       </div>
     </div>
@@ -453,6 +550,8 @@ export default function WimPage() {
   const [homeTab, setHomeTab] = useState<'home' | 'lib' | 'search' | 'me'>('home');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
+  // one real snapshot that powers every concept demo (hero ticker of the day)
+  const [lab, setLab] = useState<LabData | null>(null);
 
   // ── boot: restore local state + fetch today's set (instant-paint + SWR refresh) ──
   useEffect(() => {
@@ -497,6 +596,16 @@ export default function WimPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const units = today?.units || [];
+  // fetch the lab snapshot once the day's hero ticker is known (fallback NVDA)
+  const labTicker = units[0]?.ticker || 'NVDA';
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/wim/lab?t=${labTicker}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive && j?.success) setLab(j); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [labTicker]);
   const doneCount = units.filter((u) => done[u.id]).length;
   const streakDays = week.filter(Boolean).length;
   const levelIdx = Math.min(4, Math.floor(xp / XP_PER_LEVEL));
@@ -752,7 +861,7 @@ export default function WimPage() {
         </div>
 
         {/* glossary bottom sheet (shared with home) */}
-        {glossOpen && <GlossarySheet term={glossOpen} units={units} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
+        {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
       </div>
     );
   }
@@ -952,6 +1061,9 @@ export default function WimPage() {
                           <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 850 as any, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {METRIC_GLOSSARY[term].title[loc]}
                           </div>
+                          {termValue(term, lab) && (
+                            <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 900, color: P.heroDeep, fontVariantNumeric: 'tabular-nums' }}>{termValue(term, lab)}</div>
+                          )}
                         </button>
                       );
                     })}
@@ -978,8 +1090,9 @@ export default function WimPage() {
             {q === '' && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 13 }}>
                 {(Object.keys(METRIC_GLOSSARY) as MetricTerm[]).slice(0, 14).map((term) => (
-                  <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', cursor: 'pointer', borderRadius: 99, padding: '8px 13px', fontSize: 11.5, fontWeight: 850 as any, color: P.ink }}>
+                  <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', cursor: 'pointer', borderRadius: 99, padding: '8px 13px', fontSize: 11.5, fontWeight: 850 as any, color: P.ink, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     {METRIC_GLOSSARY[term].title[loc]}
+                    {termValue(term, lab) && <span style={{ fontSize: 10.5, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '2px 8px', fontVariantNumeric: 'tabular-nums' }}>{termValue(term, lab)}</span>}
                   </button>
                 ))}
               </div>
@@ -994,7 +1107,10 @@ export default function WimPage() {
                   <div style={{ fontSize: 13, fontWeight: 900 }}>{METRIC_GLOSSARY[term].title[loc]}</div>
                   <div style={{ fontSize: 11, fontWeight: 650 as any, color: P.sub, marginTop: 2, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{METRIC_GLOSSARY[term].body[loc]}</div>
                 </div>
-                <span style={{ marginLeft: 'auto', color: P.hero, fontWeight: 900 }}>›</span>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {termValue(term, lab) && <span style={{ fontSize: 11, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '3px 9px', fontVariantNumeric: 'tabular-nums' }}>{termValue(term, lab)}</span>}
+                  <span style={{ color: P.hero, fontWeight: 900 }}>›</span>
+                </span>
               </button>
             ))}
           </section>
@@ -1124,7 +1240,7 @@ export default function WimPage() {
       )}
 
       {/* glossary bottom sheet — concept ON today's real chart */}
-      {glossOpen && <GlossarySheet term={glossOpen} units={units} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
+      {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
     </div>
   );
 }
