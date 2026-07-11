@@ -21,26 +21,19 @@ export interface BufferChannel {
   lang: 'en' | 'ko' | 'ja';
 }
 
-// Verified channel IDs from Buffer API (2026-03-31)
+// Verified channel IDs from Buffer API (2026-07-11 — full reset, see .agent/LAUNCH_PROMOTION_PLAN.md §4-6.5)
+// Old 13-channel fleet retired; Buffer holds drafts + schedules only, a human presses publish.
 const CHANNEL_MAP: BufferChannel[] = [
   // --- Tier 1: Core conversion channels ---
-  { id: '69a92ae13f3b94a121198602', name: 'SignumHQ',       service: 'twitter',   tier: 1, lang: 'en' },
-  { id: '69ca785caf47dacb696d62f3', name: 'SignumHQ_KR',    service: 'twitter',   tier: 1, lang: 'ko' },
+  { id: '6a518928404834462892924a', name: 'signumhq',  service: 'twitter', tier: 1, lang: 'en' }, // NEW @signumhq (2026-07-11, Premium+)
+  // X (ja): add here when the account is created — translated/localized pair posts only.
 
   // --- Tier 2: Brand awareness ---
-  { id: '69ca6aa3af47dacb696d24c0', name: 'signumhq_official', service: 'instagram', tier: 2, lang: 'en' },
-  { id: '69ca6b08af47dacb696d263d', name: 'signumhq_official', service: 'threads',   tier: 2, lang: 'en' },
-  { id: '6a06eff0090476fb99216fba', name: 'signumhq_kor',      service: 'instagram', tier: 2, lang: 'ko' },
-  // { id: '6a06f0ac090476fb99217454', name: 'signumhq_kor',      service: 'threads',   tier: 2, lang: 'ko' },
-  { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ',        service: 'bluesky',   tier: 2, lang: 'en' },
-  { id: '69ca9432af47dacb696deb5c', name: 'Pinterest',          service: 'pinterest', tier: 2, lang: 'en' },
+  { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ', service: 'bluesky', tier: 2, lang: 'en' },
 
-  // --- Tier 3: Future expansion ---
-  { id: '69ca78a7af47dacb696d6446', name: 'SignumHQ_JP',       service: 'twitter',   tier: 3, lang: 'ja' },
-  { id: '6a06f2cb090476fb99217ed3', name: 'signumhq_jpn',       service: 'instagram', tier: 3, lang: 'ja' },
-  { id: '6a06f344090476fb992180db', name: 'signumhq_jpn',       service: 'threads',   tier: 3, lang: 'ja' },
-  { id: '69ca95e7af47dacb696df35a', name: 'signumhq',           service: 'tiktok',    tier: 3, lang: 'en' },
-  { id: '69ca9615af47dacb696df427', name: 'SIGNUM HQ',          service: 'youtube',   tier: 3, lang: 'en' },
+  // --- Tier 3: Video phase (still connected in Buffer, not dispatch targets yet) ---
+  { id: '69ca95e7af47dacb696df35a', name: 'signumhq',  service: 'tiktok',  tier: 3, lang: 'en' },
+  { id: '69ca9615af47dacb696df427', name: 'SIGNUM HQ', service: 'youtube', tier: 3, lang: 'en' },
 ];
 
 // ---------------------------------------------------------------------------

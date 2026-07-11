@@ -7,30 +7,21 @@
 import { Channel, Platform, Lang } from './types';
 
 const CHANNELS: Channel[] = [
-  // ── X (Twitter) — 재차단 방지: 3슬롯 제한 + 5~45분 지터 + 다국어 30분 시차 ──
-  { id: '69a92ae13f3b94a121198602', name: 'SignumHQ',          platform: 'twitter',   lang: 'en', enabled: true },
-  { id: '69ca785caf47dacb696d62f3', name: 'SignumHQ_KR',       platform: 'twitter',   lang: 'ko', enabled: true },
-  { id: '69ca78a7af47dacb696d6446', name: 'SignumHQ_JP',       platform: 'twitter',   lang: 'ja', enabled: true },
+  // ══ 2026-07-11 전면 리셋 (.agent/LAUNCH_PROMOTION_PLAN.md §4-6.5) ══
+  // 옛 13채널 스프레이 은퇴 (X 동일문 다계정 정책 집행이 도달 0의 원인으로 판명).
+  // Buffer = 초안+예약 전용, 발행은 항상 사람. 아래 목록 = Buffer API 실측(2026-07-11)과 일치.
 
-  // ── Instagram ──
-  { id: '69ca6aa3af47dacb696d24c0', name: 'signumhq_official', platform: 'instagram', lang: 'en', enabled: true },
-  { id: '6a06eff0090476fb99216fba', name: 'signumhq_kor',       platform: 'instagram', lang: 'ko', enabled: false }, // 정지 상태 (2026-05-16)
-  { id: '6a06f2cb090476fb99217ed3', name: 'signumhq_jpn',      platform: 'instagram', lang: 'ja', enabled: false }, // 정지 상태 (2026-05-16)
+  // ── X (Twitter) — 새 플래그십 @signumhq (2026-07-11 개설, Premium+) ──
+  { id: '6a518928404834462892924a', name: 'signumhq', platform: 'twitter', lang: 'en', enabled: true },
 
-  // ── Threads ──
-  { id: '69ca6b08af47dacb696d263d', name: 'signumhq_official', platform: 'threads',   lang: 'en', enabled: true },
-  { id: '6a06f0ac090476fb99217454', name: 'signumhq_kor',       platform: 'threads',   lang: 'ko', enabled: false }, // 정지 상태 (2026-06-01)
-  { id: '6a06f344090476fb992180db', name: 'signumhq_jpn',      platform: 'threads',   lang: 'ja', enabled: true },
+  // ── X (ja) — 계정 개설 시 추가 (en/ja 쌍은 번역·현지화 작성만 — X 정책 명시 허용) ──
 
-  // ── Bluesky ──
-  { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ',         platform: 'bluesky',   lang: 'en', enabled: true },
+  // ── Bluesky (구 플릿에서 유일하게 유지 — 깨끗한 계정) ──
+  { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ', platform: 'bluesky', lang: 'en', enabled: true },
 
-  // ── Pinterest ──
-  { id: '69ca9432af47dacb696deb5c', name: 'Pinterest',          platform: 'pinterest', lang: 'en', enabled: true },
-
-  // ── TikTok / YouTube (미사용) ──
-  // { id: '69ca95e7af47dacb696df35a', name: 'signumhq',         platform: 'tiktok',    lang: 'en', enabled: false },
-  // { id: '69ca9615af47dacb696df427', name: 'SIGNUM HQ',        platform: 'youtube',   lang: 'en', enabled: false },
+  // ── 영상 페이즈 대기 (Buffer에 연결돼 있으나 디스패치 대상 아님; Platform 타입 밖) ──
+  // youtube 'SIGNUM HQ' id: 69ca9615af47dacb696df427
+  // tiktok  'signumhq'  id: 69ca95e7af47dacb696df35a
 ];
 
 // Telegram은 Buffer 외 직접 API — 마케팅 채널 아님 (사용자 직접 알림 전용)
