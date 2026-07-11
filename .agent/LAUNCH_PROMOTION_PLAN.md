@@ -382,6 +382,37 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
 3. **seed-kit 크론 구축** (§4-6.5 아키텍처: Vercel 사건탐지+7중 안전장치 / 글쓰기 루틴 / 주간 성적표) — 트리거 충족됨, 착수 대기
 4. Bluesky 미응답 59개 답글 처리 (사람)
 
+### 4-6.9. ★ 포스팅 콘텐츠 연구 (2026-07-11 실측 — 무엇을 올릴 것인가, 실행 레시피)
+
+> 어떤 머신·어떤 에이전트든 이 절만 읽으면 그날 포스트를 만들 수 있게 자체 완결로 기록.
+> 원칙: **"그날 리테일이 이미 보고 있는 종목(트렌딩)에, 그들이 못 보는 층(딜러 포지셔닝·다크풀·
+> 어트리뷰션)을 한 숫자로 얹는다."** 이 교차점이 우리 파이프라인만 매일 자동 생산 가능한 포스트.
+
+**실측 근거 (2026-07-11):**
+- Stocktwits 트렌딩 실호출: 개별 대형주(AMD 워처 56만·BA 20만·PYPL 17만) + **SQQQ·TQQQ 동시
+  트렌딩**(=리테일이 방향 싸움 중 = GEX가 답하는 질문). 트렌딩 API:
+  `api.stocktwits.com/api/2/trending/symbols.json` (curl_cffi impersonate 필요).
+- 기존 실측: "왜 떨어졌나" 설명 영상 158만 뷰(yt-dlp) · 토스 3/3 "무슨 앱?" · 자사 Bluesky에
+  GEX 레짐 논쟁 답글 실존(crossvol) — 딜러 포지셔닝 담론은 답글을 부름.
+- 재료 인벤토리(Redis 실측): 티커별 구조(GEX·MaxPain·다크풀·PCR, `/api/live/options/structure?t=`)
+  ✔ / `guardian:news:digest`(뉴스+시장맥락) ✔ / 무브 어트리뷰션(±2% 자동) ✔ / OG 카드 템플릿 ✔.
+
+**포스트 우선순위 (관심도 실측 × 독점성 × 알고리즘 보상) + 예문:**
+| # | 포맷 | 트리거 | 예문(en, 이 톤 그대로) |
+|---|---|---|---|
+| 1 | **사건형 Why'd It Move** | **트렌딩 ∩ ±2% 무브 ∩ 어트리뷰션 존재** | "$AMD +4.2% today and it wasn't the news. Dealers flipped long gamma at $178 and dark pool prints ran 61% — someone positioned before the move." |
+| 2 | **영수증형** (MaxPain 자석) | 종가≈MaxPain 수렴일, **매주 금 OPEX 고정** | "$SPY closed $624. Max pain sat at $625 all week. The magnet won — again." |
+| 3 | **괴리형** (News ≠ Money) | guardian 다이제스트 헤드라인 vs 플로우 역방향 | "Headlines love $BA today. The tape doesn't: put premium 2:1 over calls, dark pool 58%. One of these is wrong." |
+| 4 | **데일리 앵커** (감마 자석 레벨) | 매 거래일 같은 시간 | "$SPY gamma flip today: $620. Above = dealers dampen moves. Below = they chase. We're $4 above." |
+| 5 | **질문형/미니수업형** | 판단 애매한 실데이터(축적? 분산?) | "$PYPL: 3 days of dark pool accumulation while price went nowhere. Accumulation or distribution — what's your read?" (미니수업형은 교육앱 WIM 재료로 이중 사용) |
+
+**주간 리듬 (X en 기준, §4-6.5 캡 내):** 장중 사건형 1 → 마감 후 영수증/괴리형 1 (1~3/일 상한) ·
+금=OPEX 영수증 고정 · 일=주간 딜러 포지셔닝 프리뷰 · Stocktwits=해당 티커 스트림에 순수 데이터
+1/일(50포스트 적립, 앱 언급 0) · ja는 같은 사건 일본어 네이티브 작성.
+
+**금지 재확인:** 예측·매수매도 단어 0 · 본문 링크 0 · **XS(cache:xs:report) 스코어/성과 노출 절대 금지**
+(그림자 모드+검증헌법 §42.3 — 미검증 성과 주장 불가) · 모든 포스트 유니크.
+
 ### 4-7. 남은 미해결 (다음 리서치 or 실측으로)
 
 - FinTwit 급성장 계정의 포스트 레벨 전술 (Q2 전멸) → 실측 + UW/SpotGamma 계정 직접 관찰로 대체
