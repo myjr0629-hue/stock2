@@ -347,6 +347,41 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
 - **50포스트 이후 → 홍보 ≤10%(1:10)**: 그때부터 가끔 앱 언급.
 - 전략 = "신뢰 적립 먼저, 홍보 나중." 미국 장중(ET) 종목 스트림에 값진 관찰 꾸준히. 가입/로그인 요구 링크 절대 금지.
 
+### 4-6.8. ★ 실행 상태 로그 — 2026-07-11 (PC 세션, 양머신 공유용)
+
+**새 X(en) @signumhq — 개설·세팅 완료 (실측 확인):**
+- 계정 개설(7/11) + **Premium+ 가입 완료** ("Verified since July 2026"). 표시 이름 SIGNUM HQ.
+- 프로필 완료: 헤더 배너 ✅ / Bio(영문 156자) ✅ / Location `US Markets` ✅ / Website `signumhq.com/app?from=x_bio` ✅ / 표시 언어 English ✅
+- **프로필 사진만 대기**: 이름/사진 변경 → X 인증 리뷰 발동, 리뷰 중 이름·사진 잠금 (정상 절차).
+  배지 복귀 후 업로드할 파일 = **`.agent/assets/x-avatar-512.png`** (네이비+흰S, 리포에 커밋됨).
+  배너 원본도 `.agent/assets/x-banner-1500x500.png` — **X(ja) 계정에도 동일 에셋 사용**.
+- 기본 팔로우 17개(테크 CEO) 전부 언팔 → 금융 시드 팔로우 완료: unusual_whales · KobeissiLetter ·
+  CheddarFlow · spotgamma · Barchart · DeItaone · FirstSquawk (+마켓뉴스 브랜드) — FinTwit 그래프 시딩.
+- Country는 South Korea 유지 권고(결제 KRW 구독과 결합, 도달과 무관). Automation 라벨 절대 켜지 말 것.
+- **Premium+ 다운그레이드 리마인더**: PC Claude 예약작업 `x-premium-downgrade-reminder` (2026-08-13
+  09:00 KST, 1회성) — ⚠️ **PC에만 존재** (맥에는 없음). 내용: 2번째 결제 직후 Premium 다운그레이드 예약
+  + Premium+ 기간 노출 데이터 캡처(자체 A/B용).
+
+**버퍼 — 채널 정리 완료 (API 실측 2026-07-11):**
+- 연결 4개: **twitter `signumhq` id `6a518928404834462892924a`(신규)** · bluesky `69ca84bb…`(유지) ·
+  youtube `69ca9615…` · tiktok `69ca95e7…` (영상 페이즈 대기 — 과금 절감 원하면 해제 가능)
+- 옛 13채널(X3·IG3·Threads3·Pinterest) 연결 해제 확인. 코드 레지스트리도 실측과 일치시킴
+  (marketing-v2 channels.ts + 레거시 bufferClient.ts, 커밋 `892cc9584`).
+- **Bluesky에 미응답 댓글 59개 발견** — crossvol.bsky.social 등에서 진지한 GEX/VIX 논의 답글이
+  달리는 중 = 구 플릿에서 유일하게 실인게이지먼트 있는 채널. **사람이 답글 처리할 가치 있음** (답글 게임의 공짜 출발점).
+
+**웹 앱퍼스트 퍼널 — 배포·프로덕션 검증 완료 (PC, 7/10~11):**
+- 커밋 `a6f242a71`(스마트 앱 배너 itunes.appId=6783130444 + `/app` 기기별 스마트링크 + 홈 히어로
+  앱퍼스트(스토어 버튼·QR) + 마케팅 CTA 전부 `signumhq.com/app?from=<campaign>`) + `88adad395`(QR 중앙 정렬).
+- 프로덕션 실측: 홈 메타 ✅ / `/app` iOS→App Store·Android→홈·데스크톱→스토어웹 ✅ / QR 200 ✅.
+- App Store 실ID **6783130444** (라이브, v1.0, 무료 — iTunes lookup 실측).
+
+**다음 순서 (어느 머신이든 이어가기):**
+1. 배지 복귀 → 아바타 업로드 → **첫 포스트** (미국장 KST 22:30~, 사건보도 포맷, Claude가 실데이터 3안 작성)
+2. X(ja) 개설(+Premium+, 웹 결제) → 버퍼 연결 → channels.ts/bufferClient.ts에 ja 1줄 추가
+3. **seed-kit 크론 구축** (§4-6.5 아키텍처: Vercel 사건탐지+7중 안전장치 / 글쓰기 루틴 / 주간 성적표) — 트리거 충족됨, 착수 대기
+4. Bluesky 미응답 59개 답글 처리 (사람)
+
 ### 4-7. 남은 미해결 (다음 리서치 or 실측으로)
 
 - FinTwit 급성장 계정의 포스트 레벨 전술 (Q2 전멸) → 실측 + UW/SpotGamma 계정 직접 관찰로 대체
