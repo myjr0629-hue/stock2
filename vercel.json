@@ -1,6 +1,18 @@
 {
     "crons": [
         {
+            "path": "/api/cron/uc-warm",
+            "schedule": "*/15 8-23 * * 1-5"
+        },
+        {
+            "path": "/api/cron/uc-warm",
+            "schedule": "*/30 0-7 * * 1-5"
+        },
+        {
+            "path": "/api/cron/uc-warm",
+            "schedule": "7 * * * 0,6"
+        },
+        {
             "path": "/api/cron/report?type=final",
             "schedule": "0 14 * * 1-5"
         },

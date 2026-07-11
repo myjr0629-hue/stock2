@@ -9,12 +9,11 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server';
-import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
-  normLocale, isSpam, primaryTicker, fetchMoney, hasRealMoney,
-  buildSystem, storyPayload, invokeJSON, cleanImage, enforceLanguage, serveSWR, type NewsItem,
+  normLocale, buildSystem, storyPayload, invokeJSON, enforceLanguage, serveSWR,
 } from '../shared';
+import { getFreshCore } from '../feedCore';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -31,45 +30,19 @@ export async function GET(request: Request) {
   // SWR: a normal request never blocks on generation — stale is served instantly and
   // the client triggers a refresh=1 regeneration. Only an empty cache generates inline.
   const generate = async () => {
-    // 1) recent market news (tickers + per-ticker sentiment + image built-in)
-    const news = await fetchMassive(
-      '/v2/reference/news',
-      { limit: '80', order: 'desc', sort: 'published_utc' },
-      false,
-      undefined,
-      { cache: 'no-store' as RequestCache },
-    );
-    const results: NewsItem[] = news?.results || [];
+    // 1+2) locale-independent core: curated news + money overlay, built ONCE and
+    // shared across ko/en/ja (see feedCore.ts). A stale core block-refreshes there.
+    const core = await getFreshCore(origin);
+    const stories = core.stories.slice(0, limit);
 
-    // spam filter → one story per ticker (variety across tickers)
-    const seen = new Set<string>();
-    const picked: { item: NewsItem; ticker: string }[] = [];
-    for (const item of results) {
-      if (isSpam(item)) continue;
-      const t = primaryTicker(item);
-      if (!t || seen.has(t)) continue;
-      seen.add(t);
-      picked.push({ item, ticker: t });
-      if (picked.length >= limit) break;
+    // AI-skip: identical core (same stories, same money numbers) ⇒ the previous
+    // localization is still the right output — re-serve it as fresh instead of
+    // burning an AI call. Fires on quiet cycles (nights/weekends), never during
+    // active markets (prices move ⇒ sig changes).
+    const prev = await getFromCache<any>(cacheKey).catch(() => null);
+    if (prev?._coreSig && prev._coreSig === core.sig && Array.isArray(prev.cards) && prev.cards.length) {
+      return { ...prev }; // serveSWR re-stamps generatedAt
     }
-    if (picked.length === 0) {
-      // transient (spam-filtered out) — throw so SWR serves the last good feed if any
-      throw new Error('no usable news after spam filter');
-    }
-
-    // 2) overlay OUR per-ticker money data (parallel; Redis-cached upstream)
-    const money = await Promise.all(picked.map((p) => fetchMoney(origin, p.ticker)));
-
-    const stories = picked.map((p, i) => {
-      const ins = (p.item.insights || []).find((x) => x.ticker === p.ticker);
-      return {
-        ticker: p.ticker,
-        title: p.item.title,
-        description: p.item.description,
-        newsSentiment: ins?.sentiment,
-        money: money[i],
-      };
-    });
 
     // 3) AI compares news vs money
     const user = `Return {"cards":[...]} — one card per story IN ORDER:
@@ -87,25 +60,25 @@ ${storyPayload(stories)}`;
     const parsed = await invokeJSON(buildSystem(loc), user);
     const aiCards: any[] = parsed?.cards || [];
 
-    // 4) merge AI verdicts + metadata; only trust divergence when money was real
-    const cards = picked.map((p, i) => {
+    // 4) merge AI verdicts + core metadata; only trust divergence when money was real
+    const cards = stories.map((s, i) => {
       const a = aiCards[i] || {};
-      const real = hasRealMoney(money[i]);
+      const real = s.hasMoneyData;
       return {
-        ticker: p.ticker,
+        ticker: s.ticker,
         tag: a.tag || null,
-        plainTitle: a.plainTitle || p.item.title,
+        plainTitle: a.plainTitle || s.title,
         whyItMatters: a.whyItMatters || null,
         moneyRead: real ? a.moneyRead || null : null,
         moneyMood: real ? a.moneyMood || 'neutral' : 'neutral',
         divergence: real ? Boolean(a.divergence) : false,
         hasMoneyData: real,
-        money: money[i],
-        newsSentiment: stories[i].newsSentiment || null,
-        image: cleanImage(p.item.image_url),
-        source: p.item.publisher?.name || null,
-        url: p.item.article_url || null,
-        publishedAt: p.item.published_utc || null,
+        money: s.money,
+        newsSentiment: s.newsSentiment || null,
+        image: s.image,
+        source: s.source,
+        url: s.url,
+        publishedAt: s.publishedAt,
       };
     });
 
@@ -145,7 +118,8 @@ ${storyPayload(stories)}`;
       }
     } catch { /* non-critical */ }
 
-    return { success: true, locale: loc, count: cards.length, pulse, cards };
+    // _coreSig powers the AI-skip above (never rendered by the client)
+    return { success: true, locale: loc, count: cards.length, pulse, cards, _coreSig: core.sig };
   };
 
   try {

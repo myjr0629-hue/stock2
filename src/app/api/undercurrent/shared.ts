@@ -79,14 +79,14 @@ function find(obj: any, key: string, depth = 0): unknown {
   return undefined;
 }
 
-export async function fetchMoney(origin: string, ticker: string): Promise<MoneyData> {
+export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_000): Promise<MoneyData> {
   const empty: MoneyData = {
     darkPoolPct: null, oiPcr: null, volumePcr: null, squeezeScore: null,
     maxPain: null, callWall: null, putFloor: null, price: null,
   };
   try {
     const res = await fetch(`${origin}/api/live/ticker?t=${ticker}&skip_alpha=1`, {
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return empty;
     const d = await res.json();
@@ -139,7 +139,7 @@ RULES:
 }
 
 export function storyPayload(stories: {
-  ticker: string; title: string; description?: string; newsSentiment?: string; money: MoneyData;
+  ticker: string; title: string; description?: string; newsSentiment?: string | null; money: MoneyData;
 }[]): string {
   return JSON.stringify(
     stories.map((s, i) => ({
