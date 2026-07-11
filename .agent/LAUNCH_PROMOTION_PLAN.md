@@ -69,6 +69,9 @@ moment, not a bot dropping a download link. One real post > 100 auto-posts.
 3. **Automation = short-form video support:** the 40 Remotion templates → TikTok/Reels/Shorts, built
    around a decisive **3-second hook**. ⚠️ Only the 3-sec-hook is verified — video length, cadence,
    "optimal Shorts length" were REFUTED → **A/B test, don't hardcode.**
+   ⚠️ **네이밍 예약**: "Why'd It Move?"라는 문구는 **3번째 앱(교육 퀴즈앱, WIM) 전용 이름** —
+   SIGNUM 채널의 시리즈명·해시태그·쇼 이름으로 사용 금지 (사용자 확정 2026-07-11). 영상 시리즈명이
+   필요하면 별도 이름을 새로 정할 것.
 4. **Convert with Custom Product Pages (CPP) + UTM** — a tailored App Store page per channel
    (underexploited, high-leverage).
 5. **Product Hunt** = a one-time launch event (prep assets the day before, rally first upvoters).
@@ -400,7 +403,7 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
 **포스트 우선순위 (관심도 실측 × 독점성 × 알고리즘 보상) + 예문:**
 | # | 포맷 | 트리거 | 예문(en, 이 톤 그대로) |
 |---|---|---|---|
-| 1 | **사건형 Why'd It Move** | **트렌딩 ∩ ±2% 무브 ∩ 어트리뷰션 존재** | "$AMD +4.2% today and it wasn't the news. Dealers flipped long gamma at $178 and dark pool prints ran 61% — someone positioned before the move." |
+| 1 | **사건형 (무브 어트리뷰션)** | **트렌딩 ∩ ±2% 무브 ∩ 어트리뷰션 존재** | "$AMD +4.2% today and it wasn't the news. Dealers flipped long gamma at $178 and dark pool prints ran 61% — someone positioned before the move." |
 | 2 | **영수증형** (MaxPain 자석) | 종가≈MaxPain 수렴일, **매주 금 OPEX 고정** | "$SPY closed $624. Max pain sat at $625 all week. The magnet won — again." |
 | 3 | **괴리형** (News ≠ Money) | guardian 다이제스트 헤드라인 vs 플로우 역방향 | "Headlines love $BA today. The tape doesn't: put premium 2:1 over calls, dark pool 58%. One of these is wrong." |
 | 4 | **데일리 앵커** (감마 자석 레벨) | 매 거래일 같은 시간 | "$SPY gamma flip today: $620. Above = dealers dampen moves. Below = they chase. We're $4 above." |
@@ -411,7 +414,8 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
 1/일(50포스트 적립, 앱 언급 0) · ja는 같은 사건 일본어 네이티브 작성.
 
 **금지 재확인:** 예측·매수매도 단어 0 · 본문 링크 0 · **XS(cache:xs:report) 스코어/성과 노출 절대 금지**
-(그림자 모드+검증헌법 §42.3 — 미검증 성과 주장 불가) · 모든 포스트 유니크.
+(그림자 모드+검증헌법 §42.3 — 미검증 성과 주장 불가) · 모든 포스트 유니크 ·
+**"Why'd It Move?" 문구 사용 금지** — 3번째 앱(교육 퀴즈앱 WIM)의 예약된 이름, SIGNUM 포스팅에 쓰지 않는다.
 
 ### 4-7. 남은 미해결 (다음 리서치 or 실측으로)
 
