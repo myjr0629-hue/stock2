@@ -72,6 +72,8 @@ const ICON_PATHS: Record<string, string> = {
   updown: 'M7.5 9.5 12 5l4.5 4.5M7.5 14.5 12 19l4.5-4.5',
   chevUp: 'M5.5 14.5 12 8l6.5 6.5',
   chevDown: 'M5.5 9.5 12 16l6.5-6.5',
+  replay: 'M6.5 5.5v13M18 5.5 9.5 12l8.5 6.5v-13Z',
+  pause: 'M8.5 5.5v13M15.5 5.5v13',
 };
 function Ic({ name, size = 18, color = 'currentColor', sw = 1.8, fill = false }: { name: string; size?: number; color?: string; sw?: number; fill?: boolean }) {
   return (
@@ -341,6 +343,24 @@ const T: Record<Lang, Record<string, string>> = {
     senseMeanSma: '50일 평균선은 최근 두 달여의 평균 가격 — 종가가 그 위였는지가 추세의 온도계처럼 읽혀요.',
     senseHigher: '높다', senseLower: '낮다', senseActual: '실제 값', senseVs: '기준',
     senseSummary: '숫자 감각 결과', senseBonus: '전부 정답! 보너스',
+    loadingData: '실데이터 불러오는 중',
+    teaserReplay: '리플레이 미스터리', teaserReplaySub: '오늘 세션을 되감아 단서 찾기',
+    replayHint: '차트가 스스로 그려져요 — 멈추면 질문에 답하세요',
+    replayCheckpoint: '체크포인트',
+    replayQMove: '방금 무슨 일이 일어났나요?',
+    replayOptDown: '급락이 나왔다', replayOptUp: '급등이 나왔다', replayOptFlat: '거의 안 움직였다',
+    replayFactMove: '이 5분봉의 변화: {v}%',
+    replayQVwap: '이 시점 가격은 VWAP(평균 체결가) 대비 어디였나요?',
+    replayOptAbove: 'VWAP 위', replayOptBelow: 'VWAP 아래',
+    replayFactVwap: '가격 ${p} · VWAP ${v}',
+    replayQDay: '오늘 이 종목의 하루를 한 줄로 하면?',
+    replayOptDayUp: '크게 오른 날', replayOptDayDown: '크게 내린 날', replayOptDayQuiet: '조용한 날',
+    replayFactDay: '첫 봉 대비 마지막 봉: {v}%',
+    replayContinue: '이어서 재생',
+    replayFinale: '사건의 전말', replayOpenQuiz: '전체 수사 열기',
+    replayPause: '일시정지', replayResume: '재생',
+    almanacTitle: '개념 도감', almanacSub: '개념을 맞힌 날의 실제 차트가 카드로 남아요',
+    almanacToast: '도감에 새 카드 — {n}',
   },
   en: {
     tagline: "Today's market, a 30-second lesson",
@@ -403,6 +423,24 @@ const T: Record<Lang, Record<string, string>> = {
     senseMeanSma: 'The 50-day average is roughly two months of prices — whether the close sat above it reads like a trend thermometer.',
     senseHigher: 'Higher', senseLower: 'Lower', senseActual: 'Actual', senseVs: 'vs',
     senseSummary: 'Number Sense results', senseBonus: 'Perfect run! Bonus',
+    loadingData: 'Loading real data',
+    teaserReplay: 'Replay Mystery', teaserReplaySub: 'Rewind the session, read the clues',
+    replayHint: 'The chart draws itself — answer when it pauses',
+    replayCheckpoint: 'Checkpoint',
+    replayQMove: 'What just happened?',
+    replayOptDown: 'A sharp drop printed', replayOptUp: 'A sharp pop printed', replayOptFlat: 'Barely moved',
+    replayFactMove: 'That 5-min bar: {v}%',
+    replayQVwap: 'Where was price versus VWAP (average traded price) here?',
+    replayOptAbove: 'Above VWAP', replayOptBelow: 'Below VWAP',
+    replayFactVwap: 'Price ${p} · VWAP ${v}',
+    replayQDay: "This ticker's day in one line?",
+    replayOptDayUp: 'A big up day', replayOptDayDown: 'A big down day', replayOptDayQuiet: 'A quiet day',
+    replayFactDay: 'First bar to last: {v}%',
+    replayContinue: 'Resume replay',
+    replayFinale: 'The full story', replayOpenQuiz: 'Open the full case',
+    replayPause: 'Pause', replayResume: 'Play',
+    almanacTitle: 'Concept Almanac', almanacSub: "Each concept you nail is saved with that day's real chart",
+    almanacToast: 'New almanac card — {n}',
   },
   ja: {
     tagline: '今日の市場が出す問題、30秒レッスン',
@@ -465,6 +503,24 @@ const T: Record<Lang, Record<string, string>> = {
     senseMeanSma: '50日平均線は約2か月の平均価格 — 終値がその上だったかがトレンドの温度計のように読まれます。',
     senseHigher: '上', senseLower: '下', senseActual: '実際の値', senseVs: '基準',
     senseSummary: '数字感覚結果', senseBonus: '全問正解！ボーナス',
+    loadingData: '実データを読み込み中',
+    teaserReplay: 'リプレイミステリー', teaserReplaySub: 'セッションを巻き戻して手掛かり探し',
+    replayHint: 'チャートがひとりでに描かれる — 止まったら質問に答えて',
+    replayCheckpoint: 'チェックポイント',
+    replayQMove: '今、何が起きた？',
+    replayOptDown: '急落が出た', replayOptUp: '急騰が出た', replayOptFlat: 'ほぼ動かなかった',
+    replayFactMove: 'この5分足の変化: {v}%',
+    replayQVwap: 'この時点の価格はVWAP（平均約定価格）に対してどこだった？',
+    replayOptAbove: 'VWAPの上', replayOptBelow: 'VWAPの下',
+    replayFactVwap: '価格 ${p} · VWAP ${v}',
+    replayQDay: 'この銘柄の一日を一言でいうと？',
+    replayOptDayUp: '大きく上げた日', replayOptDayDown: '大きく下げた日', replayOptDayQuiet: '静かな日',
+    replayFactDay: '最初の足から最後の足まで: {v}%',
+    replayContinue: '再生を続ける',
+    replayFinale: '事件の全貌', replayOpenQuiz: '本格捜査を開く',
+    replayPause: '一時停止', replayResume: '再生',
+    almanacTitle: '概念図鑑', almanacSub: '概念を当てた日の実チャートがカードとして残る',
+    almanacToast: '図鑑に新しいカード — {n}',
   },
 };
 
@@ -478,6 +534,12 @@ const DEPTH_TERMS: Record<1 | 2 | 3, MetricTerm[]> = {
 const XP_CORRECT = 20;
 const XP_TRIED = 10;
 const XP_PER_LEVEL = 100;
+
+// ── W3 concept almanac: 10 collectible concepts the plays/glossary already touch.
+// A card is earned by proving the concept (top-tier play answer) or reading its
+// glossary sheet; each card keeps the day's real chart it was earned on.
+const ALMANAC_TERMS: MetricTerm[] = ['maxPain', 'callWall', 'putFloor', 'vwap', 'darkPool', 'pcr', 'shortInterest', 'gammaFlip', 'rsi', 'trendPhase'];
+interface AlmanacEntry { dateET: string; ticker: string; closes: number[] }
 
 // local weekday index (NOT UTC — a KST learning day must count as that day)
 function weekdayIdx(): number { return (new Date().getDay() + 6) % 7; } // Mon=0..Sun=6
@@ -739,7 +801,7 @@ function StreakRing({ days, t }: { days: number; t: Record<string, string> }) {
 
 // ── W2 plays: shared overlay chrome ──
 const WIM_FONT = "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif";
-const PLAY_KEYFRAMES = '@keyframes wimPop{0%{transform:scale(0.86);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}} @keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}} .wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite} @keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}}';
+const PLAY_KEYFRAMES = '@keyframes wimPop{0%{transform:scale(0.86);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}} @keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}} .wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite} @keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}} @keyframes wimSpin{to{transform:rotate(360deg)}}';
 const fmtPx = (v: number) => (v >= 1000 ? v.toFixed(0) : v >= 100 ? v.toFixed(1) : v.toFixed(2));
 
 // top bar shared by both plays — same skeleton as the quiz overlay's (back + progress + chip)
@@ -769,6 +831,17 @@ function PlayEmpty({ t, onClose }: { t: Record<string, string>; onClose: () => v
   );
 }
 
+// visible loading card — a cold lab fetch can take seconds, and the old shimmer
+// skeleton was nearly invisible on the lavender canvas (W2 verification finding)
+function PlayLoading({ label }: { label: string }) {
+  return (
+    <div style={{ marginTop: 24, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '34px 18px', textAlign: 'center', animation: 'wimUp 0.3s ease' }}>
+      <div style={{ width: 34, height: 34, margin: '0 auto', borderRadius: '50%', border: `3.5px solid ${P.heroSoft}`, borderTopColor: P.hero, animation: 'wimSpin 0.9s linear infinite' }} />
+      <div style={{ marginTop: 12, fontSize: 13, fontWeight: 800, color: P.sub }}>{label}</div>
+    </div>
+  );
+}
+
 // ── P3 LEVEL HUNT: drag a horizontal line onto the real last-session chart to
 // guess where today's ALREADY-COMPUTED options levels (max pain / call wall /
 // put floor) actually sat. Proximity scored; each reveal teaches the concept
@@ -776,12 +849,13 @@ function PlayEmpty({ t, onClose }: { t: Record<string, string>; onClose: () => v
 interface HuntRound { key: string; value: number; label: string; color: string; prompt: string; meaning: string }
 interface HuntResult { label: string; color: string; actual: number; guess: number; distPct: number; gain: number }
 
-function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onComplete, onClose, disclaimer }: {
+function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCollect, onComplete, onClose, disclaimer }: {
   ticker: string;
   fallbackCloses: number[] | null;
   requestLab: (tk: string) => Promise<LabData | null>;
   t: Record<string, string>;
   onAward: (gain: number) => void;
+  onCollect: (term: MetricTerm) => void;
   onComplete: () => boolean; // returns true when this completion newly unlocked the overlay
   onClose: () => void;
   disclaimer: string;
@@ -867,6 +941,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCompl
     setResults([...results, { label: cur.label, color: cur.color, actual: cur.value, guess, distPct, gain }]);
     setRevealed(true);
     onAward(gain);
+    if (gain >= XP_CORRECT) onCollect(cur.key as MetricTerm);
   };
   const nextRound = () => {
     if (ri + 1 < rounds.length) {
@@ -894,12 +969,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCompl
           chip={playable && phase === 'play' ? `${ri + 1}/${rounds.length}` : null}
         />
 
-        {!loaded && (
-          <div style={{ marginTop: 14 }}>
-            <div className="wim-skel" style={{ height: 110, borderRadius: 22 }} />
-            <div className="wim-skel" style={{ height: 280, borderRadius: 22, marginTop: 12 }} />
-          </div>
-        )}
+        {!loaded && <PlayLoading label={t.loadingData} />}
         {loaded && !playable && <PlayEmpty t={t} onClose={onClose} />}
 
         {playable && phase === 'play' && cur && (
@@ -1036,41 +1106,42 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCompl
 // ── P4 NUMBER SENSE: quick-fire higher/lower on today's real readings — builds
 // a feel for each metric's normal range. Questions come from non-null lab
 // fields across today's unit tickers; all values are last-session, resolved.
-interface SenseQ { ticker: string; label: string; actual: number; thresholdLabel: string; prefix: string; suffix: string; decimals: number; meaning: string; answerHigher: boolean }
+interface SenseQ { ticker: string; term: MetricTerm; label: string; actual: number; thresholdLabel: string; prefix: string; suffix: string; decimals: number; meaning: string; answerHigher: boolean }
 
 function buildSenseQs(lb: LabData, t: Record<string, string>): SenseQ[] {
   const out: SenseQ[] = [];
   const tk = lb.ticker;
   if (lb.darkPoolPct != null) {
     const v = Math.round(lb.darkPoolPct * 10) / 10;
-    if (v !== 50) out.push({ ticker: tk, label: t.senseQDark.replace('{t}', tk), actual: v, thresholdLabel: '50%', prefix: '', suffix: '%', decimals: 1, meaning: t.senseMeanDark, answerHigher: v > 50 });
+    if (v !== 50) out.push({ ticker: tk, term: 'darkPool', label: t.senseQDark.replace('{t}', tk), actual: v, thresholdLabel: '50%', prefix: '', suffix: '%', decimals: 1, meaning: t.senseMeanDark, answerHigher: v > 50 });
   }
   if (lb.pcr != null) {
     const v = Math.round(lb.pcr * 100) / 100;
-    if (v !== 1) out.push({ ticker: tk, label: t.senseQPcr.replace('{t}', tk), actual: v, thresholdLabel: '1.0', prefix: '', suffix: '', decimals: 2, meaning: t.senseMeanPcr, answerHigher: v > 1 });
+    if (v !== 1) out.push({ ticker: tk, term: 'pcr', label: t.senseQPcr.replace('{t}', tk), actual: v, thresholdLabel: '1.0', prefix: '', suffix: '', decimals: 2, meaning: t.senseMeanPcr, answerHigher: v > 1 });
   }
   if (lb.shortVolPct != null) {
     const v = Math.round(lb.shortVolPct * 10) / 10;
-    if (v !== 40) out.push({ ticker: tk, label: t.senseQShort.replace('{t}', tk), actual: v, thresholdLabel: '40%', prefix: '', suffix: '%', decimals: 1, meaning: t.senseMeanShort, answerHigher: v > 40 });
+    if (v !== 40) out.push({ ticker: tk, term: 'shortInterest', label: t.senseQShort.replace('{t}', tk), actual: v, thresholdLabel: '40%', prefix: '', suffix: '%', decimals: 1, meaning: t.senseMeanShort, answerHigher: v > 40 });
   }
   if (lb.vol.regimeScore != null) {
     const v = Math.round(lb.vol.regimeScore);
-    if (v !== 50) out.push({ ticker: tk, label: t.senseQVol.replace('{t}', tk), actual: v, thresholdLabel: '50', prefix: '', suffix: '', decimals: 0, meaning: t.senseMeanVol, answerHigher: v > 50 });
+    if (v !== 50) out.push({ ticker: tk, term: 'volRegime', label: t.senseQVol.replace('{t}', tk), actual: v, thresholdLabel: '50', prefix: '', suffix: '', decimals: 0, meaning: t.senseMeanVol, answerHigher: v > 50 });
   }
   if (lb.price != null && lb.sma.sma50 != null) {
     const d = lb.price >= 1000 ? 0 : lb.price >= 100 ? 1 : 2;
     const v = Number(lb.price.toFixed(d));
     const s = lb.sma.sma50;
-    if (v !== Number(s.toFixed(d))) out.push({ ticker: tk, label: t.senseQSma.replace('{t}', tk), actual: v, thresholdLabel: `SMA50 $${fmtPx(s)}`, prefix: '$', suffix: '', decimals: d, meaning: t.senseMeanSma, answerHigher: v > s });
+    if (v !== Number(s.toFixed(d))) out.push({ ticker: tk, term: 'trendPhase', label: t.senseQSma.replace('{t}', tk), actual: v, thresholdLabel: `SMA50 $${fmtPx(s)}`, prefix: '$', suffix: '', decimals: d, meaning: t.senseMeanSma, answerHigher: v > s });
   }
   return out;
 }
 
-function NumberSensePlay({ tickers, requestLab, t, onAward, onClose, disclaimer }: {
+function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onClose, disclaimer }: {
   tickers: string[];
   requestLab: (tk: string) => Promise<LabData | null>;
   t: Record<string, string>;
   onAward: (gain: number) => void;
+  onCollect: (term: MetricTerm) => void;
   onClose: () => void;
   disclaimer: string;
 }) {
@@ -1110,6 +1181,7 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onClose, disclaimer 
     const ok = higher === q.answerHigher;
     if (ok) setScore(score + 1);
     onAward(ok ? XP_TRIED : 0);
+    if (ok) onCollect(q.term);
   };
   const next = () => {
     if (!qs) return;
@@ -1137,12 +1209,7 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onClose, disclaimer 
           chip={playable && phase === 'play' ? `${score}/${qs.length}` : null}
         />
 
-        {!loaded && (
-          <div style={{ marginTop: 14 }}>
-            <div className="wim-skel" style={{ height: 130, borderRadius: 22 }} />
-            <div className="wim-skel" style={{ height: 110, borderRadius: 22, marginTop: 12 }} />
-          </div>
-        )}
+        {!loaded && <PlayLoading label={t.loadingData} />}
         {loaded && !playable && <PlayEmpty t={t} onClose={onClose} />}
 
         {playable && phase === 'play' && q && (
@@ -1226,6 +1293,294 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onClose, disclaimer 
   );
 }
 
+// ── P2 REPLAY MYSTERY: the FINISHED session redraws itself bar by bar (auto-play
+// + scrubber). Play pauses at data-computed checkpoints and asks what can be read
+// off the already-drawn portion — resolved bars only, never "what comes next"
+// (compliance §7). The finale reveals the unit's real cause story and hands off
+// to the full quiz for that unit.
+interface ReplayCp { idx: number; kind: 'move' | 'vwap' | 'day'; q: string; opts: string[]; correct: number; fact: string }
+
+function ReplayPlay({ unit, loc, t, onAward, onCollect, onOpenQuiz, onClose, disclaimer }: {
+  unit: Unit | null;
+  loc: Lang;
+  t: Record<string, string>;
+  onAward: (gain: number) => void;
+  onCollect: (term: MetricTerm) => void;
+  onOpenQuiz: () => void;
+  onClose: () => void;
+  disclaimer: string;
+}) {
+  const closes = useMemo(() => (unit?.spark && unit.spark.closes.length >= 60 ? unit.spark.closes : null), [unit]);
+  const vwap = useMemo(() => (closes && unit?.spark?.vwap && unit.spark.vwap.length === closes.length ? unit.spark.vwap : null), [closes, unit]);
+  const n = closes?.length || 0;
+
+  const [vi, setVi] = useState(2); // visible bar count — the chart "draws itself" as this grows
+  const [playing, setPlaying] = useState(true);
+  const [cpOpen, setCpOpen] = useState<number | null>(null);
+  const [answers, setAnswers] = useState<Record<number, { pick: number; ok: boolean }>>({});
+  const [phase, setPhase] = useState<'play' | 'finale'>('play');
+  const [cw, setCw] = useState(320);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const scrubbing = useRef(false);
+
+  // 2-3 checkpoints computed from the data itself — every answer is decidable
+  // from the drawn bars: (a) the session's single biggest 5-min move, (b) the
+  // first sustained VWAP cross after it (fallback: a clear-gap bar late in the
+  // session), (c) the finished day in one line
+  const cps = useMemo<ReplayCp[]>(() => {
+    if (!closes) return [];
+    const len = closes.length;
+    const out: ReplayCp[] = [];
+    let bi = 1; let bd = 0;
+    for (let i = 1; i <= len - 3; i++) { const d = Math.abs(closes[i] - closes[i - 1]); if (d > bd) { bd = d; bi = i; } }
+    const delta = closes[bi] - closes[bi - 1];
+    const movePct = (delta / closes[bi - 1]) * 100;
+    const moveCorrect = Math.abs(movePct) < 0.2 ? 2 : delta > 0 ? 1 : 0;
+    out.push({ idx: bi, kind: 'move', q: t.replayQMove, opts: [t.replayOptDown, t.replayOptUp, t.replayOptFlat], correct: moveCorrect, fact: t.replayFactMove.replace('{v}', `${movePct >= 0 ? '+' : ''}${movePct.toFixed(2)}`) });
+    if (vwap) {
+      const side = (i: number) => closes[i] - vwap[i];
+      let cross = -1;
+      for (let j = bi + 1; j <= len - 4; j++) {
+        if (side(j) !== 0 && side(j - 1) !== 0 && Math.sign(side(j)) !== Math.sign(side(j - 1))
+          && Math.sign(side(j + 1)) === Math.sign(side(j)) && Math.sign(side(j + 2)) === Math.sign(side(j))) { cross = j + 2; break; }
+      }
+      const seed = cross !== -1 ? cross : Math.round(len * 0.72);
+      // the paused bar needs a visible price-vs-VWAP gap or the question is a coin flip
+      const clear = (k: number) => Math.abs(closes[k] - vwap[k]) / closes[k] >= 0.0005;
+      let found = -1;
+      for (let k = Math.max(bi + 1, seed); k <= len - 2; k++) if (clear(k)) { found = k; break; }
+      if (found === -1) for (let k = Math.min(len - 2, seed); k > bi; k--) if (clear(k)) { found = k; break; }
+      if (found !== -1) {
+        out.push({ idx: found, kind: 'vwap', q: t.replayQVwap, opts: [t.replayOptAbove, t.replayOptBelow], correct: closes[found] > vwap[found] ? 0 : 1, fact: t.replayFactVwap.replace('{p}', fmtPx(closes[found])).replace('{v}', fmtPx(vwap[found])) });
+      }
+    }
+    const dayPct = ((closes[len - 1] - closes[0]) / closes[0]) * 100;
+    const dayCorrect = Math.abs(dayPct) < 1 ? 2 : dayPct > 0 ? 0 : 1;
+    out.push({ idx: len - 1, kind: 'day', q: t.replayQDay, opts: [t.replayOptDayUp, t.replayOptDayDown, t.replayOptDayQuiet], correct: dayCorrect, fact: t.replayFactDay.replace('{v}', `${dayPct >= 0 ? '+' : ''}${dayPct.toFixed(1)}`) });
+    return out;
+  }, [closes, vwap, t]);
+
+  // one fixed price domain for the whole replay (all bars are resolved) — no
+  // rescaling jumps while the line grows
+  const domain = useMemo(() => {
+    if (!closes) return null;
+    const vals = vwap ? [...closes, ...vwap] : closes;
+    const lo0 = Math.min(...vals); const hi0 = Math.max(...vals);
+    const pad = (hi0 - lo0 || Math.abs(hi0) * 0.02 || 1) * 0.05;
+    return { lo: lo0 - pad, hi: hi0 + pad };
+  }, [closes, vwap]);
+
+  useEffect(() => {
+    const measure = () => { if (wrapRef.current) setCw(wrapRef.current.clientWidth || 320); };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [phase]);
+
+  // auto-play: one bar every ~35ms while not paused and no question is open
+  useEffect(() => {
+    if (!playing || cpOpen != null || phase !== 'play' || !n) return;
+    const id = setInterval(() => setVi((v) => Math.min(n, v + 1)), 35);
+    return () => clearInterval(id);
+  }, [playing, cpOpen, phase, n]);
+
+  // checkpoint gate: reaching an unanswered checkpoint (by auto-play OR scrub)
+  // clamps the drawing there, pauses, and opens the question
+  useEffect(() => {
+    if (!closes || phase !== 'play' || cpOpen != null) return;
+    const nxt = cps.findIndex((_, i) => !answers[i]);
+    if (nxt === -1) return;
+    if (vi - 1 >= cps[nxt].idx) {
+      setVi(cps[nxt].idx + 1);
+      setCpOpen(nxt);
+      setPlaying(false);
+    }
+  }, [vi, closes, phase, cpOpen, cps, answers]);
+
+  const nextCp = cps.findIndex((_, i) => !answers[i]);
+  const maxVi = nextCp === -1 ? n : cps[nextCp].idx + 1;
+  const viFromX = (clientX: number) => {
+    const el = trackRef.current;
+    if (!el || !n) return;
+    const r = el.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientX - r.left) / (r.width || 1)));
+    setVi(Math.max(2, Math.min(maxVi, Math.round(frac * n))));
+  };
+
+  const pickCp = (oi: number) => {
+    if (cpOpen == null || answers[cpOpen]) return;
+    const cp = cps[cpOpen];
+    const ok = oi === cp.correct;
+    setAnswers({ ...answers, [cpOpen]: { pick: oi, ok } });
+    onAward(ok ? XP_TRIED : 0);
+    if (ok && cp.kind === 'vwap') onCollect('vwap');
+  };
+  const continueCp = () => {
+    if (cpOpen == null) return;
+    const last = cpOpen === cps.length - 1;
+    setCpOpen(null);
+    if (last) { setPhase('finale'); window.scrollTo(0, 0); }
+    else setPlaying(true);
+  };
+
+  const CH = 240;
+  const lo = domain ? domain.lo : 0;
+  const span = domain ? (domain.hi - domain.lo || 1) : 1;
+  const yOf = (v: number) => CH - 16 - ((v - lo) / span) * (CH - 32);
+  const x = (i: number) => (i / Math.max(1, n - 1)) * cw;
+  const drawn = closes ? closes.slice(0, vi) : [];
+  const linePath = drawn.map((c, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${yOf(c).toFixed(1)}`).join(' ');
+  const vwPath = vwap ? vwap.slice(0, vi).map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ') : null;
+
+  const playable = !!unit && !!closes && !!domain && cps.length > 0;
+  const score = Object.values(answers).filter((a) => a.ok).length;
+  const cp = cpOpen != null ? cps[cpOpen] : null;
+  const cpAns = cpOpen != null ? answers[cpOpen] : undefined;
+
+  return (
+    <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
+      <style>{PLAY_KEYFRAMES}</style>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+        <PlayTopBar
+          onClose={onClose}
+          backLabel={t.backHome}
+          prog={!playable ? 0.1 : phase === 'finale' ? 1 : vi / n}
+          chip={playable && phase === 'play' ? `${Object.keys(answers).length}/${cps.length}` : null}
+        />
+
+        {!playable && <PlayEmpty t={t} onClose={onClose} />}
+
+        {playable && unit && closes && domain && (
+          <>
+            {/* the session chart, drawing itself — fixed domain, resolved bars only */}
+            <div style={{ marginTop: 14, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px 10px', animation: 'wimUp 0.3s ease' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TickerLogo ticker={unit.ticker} size={28} />
+                <span style={{ fontSize: 14.5, fontWeight: 900 }}>{unit.ticker}</span>
+                <span style={{ fontSize: 9.5, fontWeight: 800, color: P.faint }}>{unit.dateET}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
+              </div>
+              {phase === 'play' && cpOpen == null && (
+                <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 750 as any, color: P.hero, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <Ic name="replay" size={13} color={P.hero} /> {t.replayHint}
+                </div>
+              )}
+              <div ref={wrapRef} style={{ marginTop: 8 }}>
+                <svg viewBox={`0 0 ${cw} ${CH}`} style={{ width: '100%', height: CH, display: 'block' }} aria-hidden>
+                  <defs>
+                    <linearGradient id="wimReplayFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={P.hero} stopOpacity="0.22" />
+                      <stop offset="100%" stopColor={P.hero} stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  <path d={`${linePath} L${x(vi - 1).toFixed(1)},${CH} L0,${CH} Z`} fill="url(#wimReplayFill)" />
+                  <path d={linePath} fill="none" stroke={P.hero} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+                  {vwPath && <path d={vwPath} fill="none" stroke={P.amber} strokeWidth="1.6" strokeDasharray="5 4" opacity="0.9" />}
+                  {cps.map((c, i) => (answers[i]
+                    ? <circle key={c.kind} cx={x(c.idx).toFixed(1)} cy={yOf(closes[c.idx]).toFixed(1)} r="3.5" fill={P.amber} stroke="#fff" strokeWidth="1.2" />
+                    : null))}
+                  <circle cx={x(vi - 1).toFixed(1)} cy={yOf(closes[vi - 1]).toFixed(1)} r="4.5" fill={P.heroDeep} stroke="#fff" strokeWidth="1.6" />
+                  <text x={cw - 4} y="12" textAnchor="end" fontSize="9" fontWeight="800" fill={P.faint}>${fmtPx(domain.hi)}</text>
+                  <text x={cw - 4} y={CH - 4} textAnchor="end" fontSize="9" fontWeight="800" fill={P.faint}>${fmtPx(domain.lo)}</text>
+                </svg>
+              </div>
+              {vwPath && (
+                <div style={{ padding: '2px 2px 0', fontSize: 9.5, fontWeight: 800, color: P.amber }}>― ― {t.vwapLine}</div>
+              )}
+              {phase === 'play' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, padding: '0 2px 2px' }}>
+                  <button
+                    type="button" disabled={cpOpen != null} onClick={() => setPlaying((p) => !p)}
+                    aria-label={playing ? t.replayPause : t.replayResume}
+                    style={{ font: 'inherit', width: 38, height: 38, borderRadius: '50%', border: 'none', background: P.ink, opacity: cpOpen != null ? 0.45 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: cpOpen != null ? 'default' : 'pointer', flexShrink: 0 }}
+                  >
+                    <Ic name={playing ? 'pause' : 'play'} size={16} color="#fff" sw={2.2} />
+                  </button>
+                  {/* scrubber — touch-action none + pointer capture so dragging never scrolls (iOS) */}
+                  <div
+                    ref={trackRef}
+                    onPointerDown={(e) => {
+                      if (cpOpen != null || phase !== 'play') return;
+                      scrubbing.current = true;
+                      setPlaying(false);
+                      try { (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId); } catch { /* older webview */ }
+                      viFromX(e.clientX);
+                    }}
+                    onPointerMove={(e) => { if (scrubbing.current && cpOpen == null) viFromX(e.clientX); }}
+                    onPointerUp={() => { scrubbing.current = false; }}
+                    onPointerCancel={() => { scrubbing.current = false; }}
+                    style={{ position: 'relative', flex: 1, height: 32, display: 'flex', alignItems: 'center', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', cursor: cpOpen != null ? 'default' : 'ew-resize' }}
+                  >
+                    <div style={{ width: '100%', height: 5, borderRadius: 99, background: P.heroSoft, overflow: 'hidden' }}>
+                      <div style={{ width: `${(vi / n) * 100}%`, height: '100%', background: P.hero, borderRadius: 99 }} />
+                    </div>
+                    <div style={{ position: 'absolute', left: `calc(${((vi / n) * 100).toFixed(2)}% - 8px)`, width: 16, height: 16, borderRadius: '50%', background: P.heroDeep, border: '2.5px solid #fff', boxShadow: '0 2px 6px rgba(38,34,64,0.35)', pointerEvents: 'none' }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* checkpoint question — asks only about what is already on screen */}
+            {cp && (
+              <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
+                <div style={{ marginTop: 12, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px' }}>
+                  <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', color: P.hero }}>{t.replayCheckpoint.toUpperCase()} {(cpOpen as number) + 1}/{cps.length}</div>
+                  <h2 style={{ margin: '7px 0 0', fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.35 }}>{cp.q}</h2>
+                  <div style={{ marginTop: 11, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {cp.opts.map((o, oi) => {
+                      const revealedNow = !!cpAns;
+                      const isPick = cpAns?.pick === oi;
+                      const isAnswer = cp.correct === oi;
+                      const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.coralSoft : '#fff';
+                      const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.coral : P.line;
+                      return (
+                        <button key={o} type="button" disabled={revealedNow} onClick={() => pickCp(oi)} style={{ font: 'inherit', textAlign: 'left', cursor: revealedNow ? 'default' : 'pointer', background: bg, border: `2px solid ${border}`, borderRadius: 15, padding: '12px 13px', fontSize: 13.5, fontWeight: 800, color: P.ink, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8, boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)' }}>
+                          <span style={{ flex: 1 }}>{o}</span>
+                          {revealedNow && isAnswer && <Ic name="check" size={16} color={P.mint} sw={2.6} />}
+                          {revealedNow && isPick && !isAnswer && <Ic name="close" size={14} color={P.coral} sw={2.4} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {cpAns && (
+                    <div style={{ animation: 'wimUp 0.3s ease' }}>
+                      <div style={{ marginTop: 12, textAlign: 'center', fontSize: 16, fontWeight: 900, color: cpAns.ok ? P.mint : P.coral }}>
+                        {cpAns.ok ? `${t.correct} +${XP_TRIED}XP` : t.notQuite}
+                      </div>
+                      <div style={{ marginTop: 5, textAlign: 'center', fontSize: 12, fontWeight: 800, color: P.sub, fontVariantNumeric: 'tabular-nums' }}>{cp.fact}</div>
+                      <button type="button" onClick={continueCp} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.ink, color: '#fff', border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>
+                        {cpOpen === cps.length - 1 ? `${t.seeResults} →` : `${t.replayContinue} →`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* finale — the real cause story behind the day just replayed */}
+            {phase === 'finale' && (
+              <div style={{ animation: 'wimUp 0.35s ease' }}>
+                <div style={{ marginTop: 12, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '15px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '0.1em', color: P.hero }}>{t.replayFinale.toUpperCase()}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '4px 10px', fontVariantNumeric: 'tabular-nums' }}>{score}/{cps.length} · +{score * XP_TRIED} {t.xp}</span>
+                  </div>
+                  <p style={{ margin: '9px 0 0', fontSize: 14.5, lineHeight: 1.7, fontWeight: 600 as any }}><Bold text={unit.explanation[loc]} /></p>
+                  <button type="button" onClick={onOpenQuiz} style={{ font: 'inherit', width: '100%', marginTop: 13, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 13.5, fontWeight: 900, cursor: 'pointer' }}>{t.replayOpenQuiz} →</button>
+                </div>
+                <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>{t.backHome}</button>
+              </div>
+            )}
+          </>
+        )}
+
+        <div style={{ marginTop: 18, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.5 }}>{disclaimer}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function WimPage() {
   const params = useParams();
   const router = useRouter();
@@ -1260,9 +1615,13 @@ export default function WimPage() {
   const labFlight = useRef<Record<string, Promise<LabData | null>>>({});
   const [labs, setLabs] = useState<Record<string, LabData>>({});
   // W2: play overlays + overlay-unlock stage 1 (levels layer on the hero chart)
-  const [playOpen, setPlayOpen] = useState<'hunt' | 'sense' | null>(null);
+  const [playOpen, setPlayOpen] = useState<'hunt' | 'sense' | 'replay' | null>(null);
   const [unlockLevels, setUnlockLevels] = useState(false);
   const [unlockToast, setUnlockToast] = useState(false);
+  // W3: concept almanac — collected concept cards, each stamped with the day's chart
+  const almanacRef = useRef<Record<string, AlmanacEntry>>({});
+  const [almanac, setAlmanac] = useState<Record<string, AlmanacEntry>>({});
+  const [almToast, setAlmToast] = useState<MetricTerm | null>(null);
 
   // ── boot: restore local state + fetch today's set (instant-paint + SWR refresh) ──
   useEffect(() => {
@@ -1272,6 +1631,8 @@ export default function WimPage() {
       setSeenTerms(JSON.parse(localStorage.getItem('wim.terms') || '{}'));
       setEverPlayed(localStorage.getItem('wim.played') === '1');
       setUnlockLevels(localStorage.getItem('wim.unlock.levels') === '1');
+      const alm = JSON.parse(localStorage.getItem('wim.almanac') || '{}');
+      if (alm && typeof alm === 'object' && !Array.isArray(alm)) { almanacRef.current = alm; setAlmanac(alm); }
       const wk = JSON.parse(localStorage.getItem('wim.week') || 'null');
       const wkKey = localStorage.getItem('wim.weekKey') || '';
       // reset the week dots every Monday
@@ -1396,13 +1757,36 @@ export default function WimPage() {
     window.scrollTo(0, 0);
   }, [stopTimer, setDoneShown]);
 
+  // ── W3: almanac collect — first proof of a concept (top-tier play answer or a
+  // glossary read) mints its card with a downsampled copy of the day's hero spark
+  const collectAlmanac = useCallback((term: MetricTerm) => {
+    if (!ALMANAC_TERMS.includes(term) || almanacRef.current[term]) return;
+    const srcU = units.find((u) => !done[u.id] && (u.spark?.closes.length || 0) >= 8) || units.find((u) => (u.spark?.closes.length || 0) >= 8) || null;
+    const src = srcU?.spark?.closes || labsRef.current[labTicker]?.spark?.closes || [];
+    const step = Math.max(1, Math.ceil(src.length / 40));
+    const closes = src.filter((_, i) => i % step === 0 || i === src.length - 1).map((v) => Math.round(v * 100) / 100);
+    const next = { ...almanacRef.current, [term]: { dateET: today?.dateET || '', ticker: srcU?.ticker || labTicker, closes } };
+    almanacRef.current = next;
+    setAlmanac(next);
+    persist('wim.almanac', JSON.stringify(next));
+    setAlmToast(term);
+  }, [units, done, labTicker, today, persist]);
+
+  // the collect toast is short-lived and rides on whichever screen is open
+  useEffect(() => {
+    if (!almToast) return;
+    const id = setTimeout(() => setAlmToast(null), 2500);
+    return () => clearTimeout(id);
+  }, [almToast]);
+
   const markTerm = useCallback((term: MetricTerm) => {
     setGlossOpen(term);
+    collectAlmanac(term);
     if (!seenTerms[term]) {
       const ns = { ...seenTerms, [term]: true };
       setSeenTerms(ns); persist('wim.terms', JSON.stringify(ns));
     }
-  }, [seenTerms, persist]);
+  }, [seenTerms, persist, collectAlmanac]);
 
   const weekLabels = t.weekDays.split(',');
 
@@ -1415,6 +1799,9 @@ export default function WimPage() {
     : heroSessionRaw.includes('post') || heroSessionRaw.includes('after') ? 'post' : 'reg';
   const heroTicker = heroU?.ticker || null;
   const heroLab = heroTicker ? labs[heroTicker] || null : null;
+  // W3: replay wants a dense session — hero unit, else any unit with ≥60 bars
+  const replayU = heroU && (heroU.spark?.closes.length || 0) >= 60 ? heroU
+    : units.find((u) => (u.spark?.closes.length || 0) >= 60) || null;
 
   // ── W2: play bookkeeping — XP + learning-day dot (same rules as record()) ──
   const awardPlayXp = useCallback((gain: number) => {
@@ -1435,7 +1822,7 @@ export default function WimPage() {
     return true;
   }, [unlockLevels, persist]);
 
-  const openPlay = useCallback((id: 'hunt' | 'sense') => { setPlayOpen(id); window.scrollTo(0, 0); }, []);
+  const openPlay = useCallback((id: 'hunt' | 'sense' | 'replay') => { setPlayOpen(id); window.scrollTo(0, 0); }, []);
 
   // once unlocked, the home hero chart needs the hero ticker's lab levels
   useEffect(() => {
@@ -1450,6 +1837,16 @@ export default function WimPage() {
   }, [unlockToast, playOpen, activeIdx]);
 
   const disclaimerText = units[0]?.disclaimer?.[loc] || (loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.');
+
+  // W3: almanac collect toast — rendered on every screen (plays, quiz, home)
+  const almToastNode = almToast ? (
+    <div style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top))', left: 16, right: 16, zIndex: 97, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
+      <div style={{ maxWidth: 520, display: 'flex', alignItems: 'center', gap: 9, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, color: '#fff', borderRadius: 16, padding: '11px 15px', boxShadow: '0 14px 34px rgba(76,63,175,0.35)' }}>
+        <Ic name="spark" size={16} color="#FFD66B" />
+        <span style={{ fontSize: 12, fontWeight: 900 }}>{t.almanacToast.replace('{n}', METRIC_GLOSSARY[almToast].title[loc])}</span>
+      </div>
+    </div>
+  ) : null;
 
   // ════════════════════════ QUIZ OVERLAY ════════════════════════
   if (activeIdx != null && units[activeIdx]) {
@@ -1635,35 +2032,61 @@ export default function WimPage() {
 
         {/* glossary bottom sheet (shared with home) */}
         {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
+        {almToastNode}
       </div>
     );
   }
 
-  // ════════════════════════ PLAY OVERLAYS (W2: P3 level hunt · P4 number sense) ════════════════════════
+  // ════════════════════════ PLAY OVERLAYS (P3 level hunt · P4 number sense · P2 replay) ════════════════════════
   if (playOpen === 'hunt' && heroU) {
     return (
-      <LevelHuntPlay
-        ticker={heroU.ticker}
-        fallbackCloses={heroU.spark?.closes || null}
-        requestLab={requestLab}
-        t={t}
-        onAward={awardPlayXp}
-        onComplete={onHuntComplete}
-        onClose={() => setPlayOpen(null)}
-        disclaimer={disclaimerText}
-      />
+      <>
+        <LevelHuntPlay
+          ticker={heroU.ticker}
+          fallbackCloses={heroU.spark?.closes || null}
+          requestLab={requestLab}
+          t={t}
+          onAward={awardPlayXp}
+          onCollect={collectAlmanac}
+          onComplete={onHuntComplete}
+          onClose={() => setPlayOpen(null)}
+          disclaimer={disclaimerText}
+        />
+        {almToastNode}
+      </>
     );
   }
   if (playOpen === 'sense' && units.length > 0) {
     return (
-      <NumberSensePlay
-        tickers={Array.from(new Set(units.slice(0, 3).map((u) => u.ticker)))}
-        requestLab={requestLab}
-        t={t}
-        onAward={awardPlayXp}
-        onClose={() => setPlayOpen(null)}
-        disclaimer={disclaimerText}
-      />
+      <>
+        <NumberSensePlay
+          tickers={Array.from(new Set(units.slice(0, 3).map((u) => u.ticker)))}
+          requestLab={requestLab}
+          t={t}
+          onAward={awardPlayXp}
+          onCollect={collectAlmanac}
+          onClose={() => setPlayOpen(null)}
+          disclaimer={disclaimerText}
+        />
+        {almToastNode}
+      </>
+    );
+  }
+  if (playOpen === 'replay') {
+    return (
+      <>
+        <ReplayPlay
+          unit={replayU}
+          loc={loc}
+          t={t}
+          onAward={awardPlayXp}
+          onCollect={collectAlmanac}
+          onOpenQuiz={() => { setPlayOpen(null); if (replayU) startQuiz(units.indexOf(replayU)); }}
+          onClose={() => setPlayOpen(null)}
+          disclaimer={disclaimerText}
+        />
+        {almToastNode}
+      </>
     );
   }
 
@@ -1802,6 +2225,7 @@ export default function WimPage() {
                   {([
                     { id: 'hunt' as const, icon: 'crosshair', title: t.teaserHunt, sub: t.teaserHuntSub },
                     { id: 'sense' as const, icon: 'updown', title: t.teaserSense, sub: t.teaserSenseSub },
+                    { id: 'replay' as const, icon: 'replay', title: t.teaserReplay, sub: t.teaserReplaySub },
                   ]).map((tz) => (
                     <button key={tz.id} type="button" onClick={() => openPlay(tz.id)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', animation: 'wimUp 0.3s ease' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1932,6 +2356,40 @@ export default function WimPage() {
         {/* ── TAB: ME (case record) ── */}
         {homeTab === 'me' && (
           <section style={{ marginTop: 16, animation: 'wimUp 0.3s ease' }}>
+            {/* W3: concept almanac — collected cards carry the real chart of the day they were earned */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="spark" size={15} color={P.heroDeep} /> {t.almanacTitle}</h2>
+              <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '3px 10px', fontVariantNumeric: 'tabular-nums' }}>{ALMANAC_TERMS.filter((tm) => almanac[tm]).length}/{ALMANAC_TERMS.length}</span>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.almanacSub}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, margin: '10px 0 16px' }}>
+              {ALMANAC_TERMS.map((term) => {
+                const ent = almanac[term];
+                if (!ent) {
+                  return (
+                    <div key={term} style={{ borderRadius: 18, padding: '11px 12px 10px', border: `1.5px dashed ${P.line}`, background: 'rgba(255,255,255,0.35)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', color: P.faint }}><Ic name="lock" size={13} /></div>
+                      <div style={{ height: 38, margin: '8px 0 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.faint, opacity: 0.6 }}><Ic name="spark" size={18} sw={1.5} /></div>
+                      <div style={{ fontSize: 11.5, fontWeight: 850 as any, lineHeight: 1.3, color: P.faint, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{METRIC_GLOSSARY[term].title[loc]}</div>
+                    </div>
+                  );
+                }
+                return (
+                  <button key={term} type="button" onClick={() => markTerm(term)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', borderRadius: 18, padding: '11px 12px 10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.06em', color: P.heroDeep, background: P.heroSoft, borderRadius: 6, padding: '2px 7px', fontVariantNumeric: 'tabular-nums' }}>{ent.dateET}</span>
+                      <Ic name="check" size={13} color={P.mint} sw={2.6} />
+                    </div>
+                    <div style={{ margin: '8px -2px 4px' }}>
+                      {ent.closes.length >= 2 ? <MiniSpark closes={ent.closes} w={150} h={38} /> : <div style={{ height: 38 }} />}
+                    </div>
+                    <div style={{ fontSize: 11.5, fontWeight: 850 as any, lineHeight: 1.3, color: P.ink, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{METRIC_GLOSSARY[term].title[loc]}</div>
+                    <div style={{ marginTop: 3, fontSize: 8.5, fontWeight: 800, letterSpacing: '0.05em', color: P.faint }}>{ent.ticker}</div>
+                  </button>
+                );
+              })}
+            </div>
+
             <div style={{ ...glassDark, borderRadius: 24, padding: '16px 15px', color: '#fff' }}>
               <StreakRing days={streakDays} t={t} />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
@@ -1998,6 +2456,9 @@ export default function WimPage() {
           <div style={{ marginTop: 4, opacity: 0.8 }}>Why&apos;d It Move? · prototype · by SIGNUM HQ</div>
         </footer>
       </div>
+
+      {/* W3: almanac collect toast */}
+      {almToastNode}
 
       {/* one-time overlay-unlock toast — the hero chart grew a new layer */}
       {unlockToast && (
