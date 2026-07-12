@@ -556,6 +556,7 @@ function CountUp({ value, decimals = 1, duration = 600 }: { value: number; decim
   const [prog, setProg] = useState(0);
   useEffect(() => {
     let raf = 0;
+    setProg(0); // re-animate when the value changes (multi-round plays reuse one instance)
     const t0 = performance.now();
     const tick = (now: number) => {
       const p = Math.min(1, (now - t0) / duration);
@@ -563,7 +564,10 @@ function CountUp({ value, decimals = 1, duration = 600 }: { value: number; decim
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    // rAF is throttled/paused in background tabs and iOS low-power mode - without this
+    // fallback the number can sit at 0 forever (observed live). Settle regardless.
+    const settle = setTimeout(() => setProg(1), duration + 100);
+    return () => { cancelAnimationFrame(raf); clearTimeout(settle); };
   }, [value, duration]);
   if (prog >= 1) return <>{value}</>;
   const eased = 1 - Math.pow(1 - prog, 3);
