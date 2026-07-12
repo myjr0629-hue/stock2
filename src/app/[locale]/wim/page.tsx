@@ -74,6 +74,7 @@ const ICON_PATHS: Record<string, string> = {
   chevDown: 'M5.5 9.5 12 16l6.5-6.5',
   replay: 'M6.5 5.5v13M18 5.5 9.5 12l8.5 6.5v-13Z',
   pause: 'M8.5 5.5v13M15.5 5.5v13',
+  chain: 'M9.5 14.5 14.5 9.5M8.5 11.5l-2.3 2.3a3.8 3.8 0 0 0 5.4 5.4l2.3-2.3M15.5 12.5l2.3-2.3a3.8 3.8 0 0 0-5.4-5.4l-2.3 2.3',
 };
 function Ic({ name, size = 18, color = 'currentColor', sw = 1.8, fill = false }: { name: string; size?: number; color?: string; sw?: number; fill?: boolean }) {
   return (
@@ -361,6 +362,29 @@ const T: Record<Lang, Record<string, string>> = {
     replayPause: '일시정지', replayResume: '재생',
     almanacTitle: '개념 도감', almanacSub: '개념을 맞힌 날의 실제 차트가 카드로 남아요',
     almanacToast: '도감에 새 카드 — {n}',
+    teaserDomino: '거시 도미노', teaserDominoSub: '오늘의 금리에서 섹터까지, 파급의 사슬',
+    dominoHeader: '오늘의 거시 이벤트',
+    dominoChainTitle: '파급 도미노', dominoChainSub: '도미노를 하나씩 탭해 사슬을 열어보세요',
+    dominoTapOpen: '탭해서 열기', dominoNext: '다음 도미노',
+    dominoN1: '기준금리 → 국채금리', dominoN2: '국채금리 → 달러·할인율',
+    dominoN3: '할인율 → 성장주 밸류에이션', dominoN4: '섹터 로테이션',
+    dominoQ1: '중앙은행이 기준금리를 올리면, 새로 발행되는 국채의 금리는 통상?',
+    dominoQ1a: '높아진다', dominoQ1b: '낮아진다',
+    dominoM1: '기준금리는 모든 금리의 출발점 — 정책 금리가 움직이면 국채 금리도 같은 방향을 따라가는 경향이 있어요.',
+    dominoQ2: '국채 금리가 오르면, 미래 이익의 현재가치는?',
+    dominoQ2a: '커진다', dominoQ2b: '작아진다',
+    dominoM2: '금리는 미래의 돈을 오늘 가치로 바꾸는 할인율이에요 — 금리가 높을수록 같은 미래 이익의 오늘 가치는 작게 계산되고, 높은 금리가 달러 자산의 매력을 키우는 모습도 과거에 자주 관찰됐어요.',
+    dominoQ3: '이익 대부분이 먼 미래에 있는 성장주와 당장 이익을 내는 가치주, 할인율 상승에 통상 더 민감했던 쪽은?',
+    dominoQ3a: '성장주', dominoQ3b: '가치주',
+    dominoM3: '금리가 오르면 먼 미래 이익의 현재가치가 더 크게 줄어들어, 성장주 밸류에이션 부담이 커지는 경향이 있어요.',
+    dominoQ4: '금리가 오르던 시기, 예대마진 확대의 덕을 보는 경향이 관찰된 섹터는?',
+    dominoQ4a: '은행', dominoQ4b: '유틸리티',
+    dominoM4: '같은 금리 움직임도 섹터마다 다르게 스며들어요 — 과거에는 은행 등 금융이 상대적으로 견디고, 배당 중심의 유틸리티는 채권과 경쟁하며 무거워지는 경향이 관찰됐어요. 이런 돈의 이동을 섹터 로테이션이라 불러요.',
+    dominoHoldProb: '동결 확률', dominoHikeProb: '인상 확률', dominoNextFomc: '다음 FOMC',
+    dominoEstimate: '예상', dominoPrevious: '이전',
+    dominoFinale: '사슬 완성', dominoRecap: '오늘의 숫자',
+    reviewChip: '복습',
+    weekendTitle: '주말 리뷰', weekendSub: '이번 주 마지막 세션을 다시 보고, 배운 개념을 복습하세요',
   },
   en: {
     tagline: "Today's market, a 30-second lesson",
@@ -441,6 +465,29 @@ const T: Record<Lang, Record<string, string>> = {
     replayPause: 'Pause', replayResume: 'Play',
     almanacTitle: 'Concept Almanac', almanacSub: "Each concept you nail is saved with that day's real chart",
     almanacToast: 'New almanac card — {n}',
+    teaserDomino: 'Macro Domino', teaserDominoSub: 'From rates to sectors — the ripple chain',
+    dominoHeader: "Today's macro event",
+    dominoChainTitle: 'The domino chain', dominoChainSub: 'Tap each domino to open the chain',
+    dominoTapOpen: 'Tap to open', dominoNext: 'Next domino',
+    dominoN1: 'Policy rate → Treasury yields', dominoN2: 'Yields → Dollar & discount rate',
+    dominoN3: 'Discount rate → Growth valuations', dominoN4: 'Sector rotation',
+    dominoQ1: 'When the central bank raises its policy rate, yields on newly issued Treasuries usually…',
+    dominoQ1a: 'Move higher', dominoQ1b: 'Move lower',
+    dominoM1: 'The policy rate is the anchor for every other rate — Treasury yields have tended to follow its direction.',
+    dominoQ2: 'When Treasury yields rise, the present value of future profits…',
+    dominoQ2a: 'Gets larger', dominoQ2b: 'Gets smaller',
+    dominoM2: "A yield works as the discount rate that turns future money into today's value — the higher it is, the smaller the same future profit is worth today. Higher yields have also often coincided with a firmer dollar.",
+    dominoQ3: 'Growth stocks (profits far in the future) vs value stocks (profits now) — which has usually been more sensitive to a rising discount rate?',
+    dominoQ3a: 'Growth', dominoQ3b: 'Value',
+    dominoM3: 'When rates rise, far-future profits lose more of their present value — growth valuations have tended to feel it first.',
+    dominoQ4: 'In past rising-rate stretches, which sector has tended to benefit from wider lending margins?',
+    dominoQ4a: 'Banks', dominoQ4b: 'Utilities',
+    dominoM4: 'The same rate move lands differently across sectors — banks have often held up while dividend-heavy utilities competed with bonds. Money shifting between sectors like this is called sector rotation.',
+    dominoHoldProb: 'Hold odds', dominoHikeProb: 'Hike odds', dominoNextFomc: 'Next FOMC',
+    dominoEstimate: 'Est.', dominoPrevious: 'Prev.',
+    dominoFinale: 'Chain complete', dominoRecap: "Today's numbers",
+    reviewChip: 'Review',
+    weekendTitle: 'Weekend review', weekendSub: "Rewind the week's last session and revisit what you learned",
   },
   ja: {
     tagline: '今日の市場が出す問題、30秒レッスン',
@@ -521,6 +568,29 @@ const T: Record<Lang, Record<string, string>> = {
     replayPause: '一時停止', replayResume: '再生',
     almanacTitle: '概念図鑑', almanacSub: '概念を当てた日の実チャートがカードとして残る',
     almanacToast: '図鑑に新しいカード — {n}',
+    teaserDomino: 'マクロドミノ', teaserDominoSub: '金利からセクターへ、波及の連鎖',
+    dominoHeader: '今日のマクロイベント',
+    dominoChainTitle: '波及ドミノ', dominoChainSub: 'ドミノをひとつずつタップして連鎖を開こう',
+    dominoTapOpen: 'タップで開く', dominoNext: '次のドミノ',
+    dominoN1: '政策金利 → 国債利回り', dominoN2: '利回り → ドル・割引率',
+    dominoN3: '割引率 → グロース株バリュエーション', dominoN4: 'セクターローテーション',
+    dominoQ1: '中央銀行が政策金利を上げると、新しく発行される国債の利回りは通常？',
+    dominoQ1a: '高くなる', dominoQ1b: '低くなる',
+    dominoM1: '政策金利はあらゆる金利の出発点 — 国債利回りも同じ方向へ動く傾向が観察されてきました。',
+    dominoQ2: '国債利回りが上がると、将来利益の現在価値は？',
+    dominoQ2a: '大きくなる', dominoQ2b: '小さくなる',
+    dominoM2: '金利は将来のお金を今日の価値に換算する割引率 — 金利が高いほど、同じ将来利益の今日の価値は小さく計算されます。高い金利がドル資産の魅力を高める様子も過去によく観察されました。',
+    dominoQ3: '利益の大半が遠い将来にあるグロース株と、いま利益を出すバリュー株 — 割引率の上昇に通常より敏感だったのは？',
+    dominoQ3a: 'グロース株', dominoQ3b: 'バリュー株',
+    dominoM3: '金利が上がると遠い将来の利益ほど現在価値が大きく目減りし、グロース株のバリュエーション負担が重くなる傾向があります。',
+    dominoQ4: '金利が上がっていた時期、貸出利ざやの拡大が追い風になる傾向が観察されたセクターは？',
+    dominoQ4a: '銀行', dominoQ4b: '公益事業',
+    dominoM4: '同じ金利の動きもセクターごとに染み込み方が違います — 過去には銀行など金融が相対的に持ちこたえ、配当中心の公益事業は債券と競合して重くなる傾向が観察されました。こうした資金の移動をセクターローテーションと呼びます。',
+    dominoHoldProb: '据え置き確率', dominoHikeProb: '利上げ確率', dominoNextFomc: '次のFOMC',
+    dominoEstimate: '予想', dominoPrevious: '前回',
+    dominoFinale: '連鎖完成', dominoRecap: '今日の数字',
+    reviewChip: '復習',
+    weekendTitle: '週末レビュー', weekendSub: '今週最後のセッションを見直して、学んだ概念を復習しよう',
   },
 };
 
@@ -543,6 +613,20 @@ interface AlmanacEntry { dateET: string; ticker: string; closes: number[] }
 
 // local weekday index (NOT UTC — a KST learning day must count as that day)
 function weekdayIdx(): number { return (new Date().getDay() + 6) % 7; } // Mon=0..Sun=6
+
+// ── W4 ET clock helpers (client mirror of the server's lastTradingDayET mapping) ──
+function etTodayStr(ms = Date.now()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(ms));
+}
+function isWeekendET(): boolean {
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date());
+  return wd === 'Sat' || wd === 'Sun';
+}
+
+// ── W4 SRS-lite: per-term wrong/right tally + last-touched ET day. A term is
+// "due for review" when it has been missed more than hit AND wasn't already
+// touched today — NumberSense quietly front-loads up to 2 such terms per session.
+interface SrsEntry { wrong: number; right: number; last: string }
 
 // ── RealChart: the "this is real data" proof. Actual 5-min closes, drawn in
 // NEUTRAL violet (no up/down colors — compliance), optional real VWAP overlay
@@ -849,13 +933,14 @@ function PlayLoading({ label }: { label: string }) {
 interface HuntRound { key: string; value: number; label: string; color: string; prompt: string; meaning: string }
 interface HuntResult { label: string; color: string; actual: number; guess: number; distPct: number; gain: number }
 
-function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCollect, onComplete, onClose, disclaimer }: {
+function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCollect, onSrs, onComplete, onClose, disclaimer }: {
   ticker: string;
   fallbackCloses: number[] | null;
   requestLab: (tk: string) => Promise<LabData | null>;
   t: Record<string, string>;
   onAward: (gain: number) => void;
   onCollect: (term: MetricTerm) => void;
+  onSrs: (term: string, ok: boolean) => void;
   onComplete: () => boolean; // returns true when this completion newly unlocked the overlay
   onClose: () => void;
   disclaimer: string;
@@ -941,6 +1026,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
     setResults([...results, { label: cur.label, color: cur.color, actual: cur.value, guess, distPct, gain }]);
     setRevealed(true);
     onAward(gain);
+    onSrs(cur.key, gain > 0);
     if (gain >= XP_CORRECT) onCollect(cur.key as MetricTerm);
   };
   const nextRound = () => {
@@ -1106,7 +1192,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
 // ── P4 NUMBER SENSE: quick-fire higher/lower on today's real readings — builds
 // a feel for each metric's normal range. Questions come from non-null lab
 // fields across today's unit tickers; all values are last-session, resolved.
-interface SenseQ { ticker: string; term: MetricTerm; label: string; actual: number; thresholdLabel: string; prefix: string; suffix: string; decimals: number; meaning: string; answerHigher: boolean }
+interface SenseQ { ticker: string; term: MetricTerm; label: string; actual: number; thresholdLabel: string; prefix: string; suffix: string; decimals: number; meaning: string; answerHigher: boolean; review?: boolean }
 
 function buildSenseQs(lb: LabData, t: Record<string, string>): SenseQ[] {
   const out: SenseQ[] = [];
@@ -1136,12 +1222,14 @@ function buildSenseQs(lb: LabData, t: Record<string, string>): SenseQ[] {
   return out;
 }
 
-function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onClose, disclaimer }: {
+function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, isReviewDue, onClose, disclaimer }: {
   tickers: string[];
   requestLab: (tk: string) => Promise<LabData | null>;
   t: Record<string, string>;
   onAward: (gain: number) => void;
   onCollect: (term: MetricTerm) => void;
+  onSrs: (term: string, ok: boolean) => void;
+  isReviewDue: (term: string) => boolean;
   onClose: () => void;
   disclaimer: string;
 }) {
@@ -1164,7 +1252,14 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onClose, 
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
-      setQs(pool.slice(0, 5));
+      // W4 SRS-lite: terms missed more than hit (and not touched today) jump to the
+      // front — stable partition, capped at 2 so it never feels like a punishment loop
+      const due: SenseQ[] = []; const rest: SenseQ[] = [];
+      pool.forEach((pq) => {
+        if (due.length < 2 && isReviewDue(pq.term) && !due.some((d) => d.term === pq.term)) due.push({ ...pq, review: true });
+        else rest.push(pq);
+      });
+      setQs([...due, ...rest].slice(0, 5));
     });
     return () => { alive = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1181,6 +1276,7 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onClose, 
     const ok = higher === q.answerHigher;
     if (ok) setScore(score + 1);
     onAward(ok ? XP_TRIED : 0);
+    onSrs(q.term, ok);
     if (ok) onCollect(q.term);
   };
   const next = () => {
@@ -1219,6 +1315,7 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onClose, 
                 <TickerLogo ticker={q.ticker} size={30} />
                 <span style={{ fontSize: 15.5, fontWeight: 900 }}>{q.ticker}</span>
                 <span style={{ fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
+                {q.review && <span style={{ fontSize: 9, fontWeight: 900, color: P.amber, background: P.amberSoft, borderRadius: 99, padding: '3px 9px' }}>{t.reviewChip}</span>}
               </div>
               <h1 style={{ margin: '13px 0 0', fontSize: 19, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.4 }}>{q.label}</h1>
             </div>
@@ -1300,12 +1397,13 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onClose, 
 // to the full quiz for that unit.
 interface ReplayCp { idx: number; kind: 'move' | 'vwap' | 'day'; q: string; opts: string[]; correct: number; fact: string }
 
-function ReplayPlay({ unit, loc, t, onAward, onCollect, onOpenQuiz, onClose, disclaimer }: {
+function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClose, disclaimer }: {
   unit: Unit | null;
   loc: Lang;
   t: Record<string, string>;
   onAward: (gain: number) => void;
   onCollect: (term: MetricTerm) => void;
+  onSrs: (term: string, ok: boolean) => void;
   onOpenQuiz: () => void;
   onClose: () => void;
   disclaimer: string;
@@ -1414,6 +1512,7 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onOpenQuiz, onClose, dis
     const ok = oi === cp.correct;
     setAnswers({ ...answers, [cpOpen]: { pick: oi, ok } });
     onAward(ok ? XP_TRIED : 0);
+    if (cp.kind === 'vwap') onSrs('vwap', ok);
     if (ok && cp.kind === 'vwap') onCollect('vwap');
   };
   const continueCp = () => {
@@ -1581,6 +1680,300 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onOpenQuiz, onClose, dis
   );
 }
 
+// ── P5 MACRO DOMINO: today's REAL macro picture (FedWatch odds · Treasury curve ·
+// econ calendar) rendered as a tap-through domino chain — policy rate → yields/
+// discount rate → growth valuations → sector rotation. Every number is an
+// already-published reading; every micro-question is conceptual and timeless;
+// mechanisms are worded as historical tendencies, never forecasts (compliance §7).
+interface FedWatchData { ease: number; noChange: number; hike: number; daysUntilFomc: number | null }
+interface EconEvent { date: string; time: string; event: string; impact: string; category: string; actual: number | null; estimate: number | null; previous: number | null; unit?: string | null }
+interface TreasuryData { yield10Y: number | null; yield2Y: number | null; yield30Y: number | null }
+interface DominoStat { k: string; v: number; decimals: number; prefix?: string; suffix?: string }
+interface DominoNode { title: string; q: string; opts: [string, string]; correct: 0 | 1; mech: string; stats: DominoStat[] }
+
+// one stat tile (CountUp only while the reveal is fresh — settled text afterwards)
+function DominoStatTile({ s, animate, onDark }: { s: DominoStat; animate: boolean; onDark?: boolean }) {
+  return (
+    <div style={{ background: onDark ? 'rgba(255,255,255,0.16)' : P.bg, borderRadius: 12, padding: '8px 11px', minWidth: 76 }}>
+      <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.08em', color: onDark ? 'rgba(255,255,255,0.75)' : P.faint }}>{s.k.toUpperCase()}</div>
+      <div style={{ marginTop: 2, fontSize: 17, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: onDark ? '#fff' : P.heroDeep }}>
+        {s.prefix || ''}{animate ? <CountUp value={s.v} decimals={s.decimals} /> : s.v.toFixed(s.decimals)}{s.suffix || ''}
+      </div>
+    </div>
+  );
+}
+
+function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
+  t: Record<string, string>;
+  onAward: (gain: number) => void;
+  onClose: () => void;
+  disclaimer: string;
+}) {
+  const [fw, setFw] = useState<FedWatchData | null>(null);
+  const [headEvent, setHeadEvent] = useState<EconEvent | null>(null);
+  const [ty, setTy] = useState<TreasuryData | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [ni, setNi] = useState(0); // the one open (unanswered) node
+  const [qOpen, setQOpen] = useState(false);
+  const [answers, setAnswers] = useState<Record<number, { pick: number; ok: boolean }>>({});
+  const [phase, setPhase] = useState<'play' | 'finale'>('play');
+
+  // fetch the three same-origin macro feeds; headline pick = nearest HIGH-impact
+  // event today/tomorrow ET → nearest fed-category event → FOMC countdown card
+  // (all resolved schedule facts and already-published readings, no forecasting)
+  useEffect(() => {
+    let alive = true;
+    const j = (u: string) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    Promise.all([j('/api/guardian/fedwatch'), j('/api/guardian/economic-calendar'), j('/api/live/treasury')]).then(([f, c, y]) => {
+      if (!alive) return;
+      if (f && typeof f.noChange === 'number') setFw(f as FedWatchData);
+      if (c && Array.isArray(c.events)) {
+        const days = [etTodayStr(), etTodayStr(Date.now() + 86_400_000)];
+        const soon = (c.events as EconEvent[]).filter((e) => days.includes(e.date));
+        setHeadEvent(soon.find((e) => e.impact === 'HIGH') || soon.find((e) => e.category === 'fed') || null);
+      }
+      if (y && typeof y.yield10Y === 'number') setTy(y as TreasuryData);
+      setLoaded(true);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  const nodes = useMemo<DominoNode[]>(() => [
+    {
+      title: t.dominoN1, q: t.dominoQ1, opts: [t.dominoQ1a, t.dominoQ1b], correct: 0, mech: t.dominoM1,
+      stats: fw ? [
+        { k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%' },
+        ...(fw.daysUntilFomc != null ? [{ k: t.dominoNextFomc, v: fw.daysUntilFomc, decimals: 0, prefix: 'D-' }] : []),
+      ] : [],
+    },
+    {
+      title: t.dominoN2, q: t.dominoQ2, opts: [t.dominoQ2a, t.dominoQ2b], correct: 1, mech: t.dominoM2,
+      stats: [
+        ...(ty?.yield10Y != null ? [{ k: '10Y', v: ty.yield10Y, decimals: 2, suffix: '%' }] : []),
+        ...(ty?.yield2Y != null ? [{ k: '2Y', v: ty.yield2Y, decimals: 2, suffix: '%' }] : []),
+      ],
+    },
+    {
+      title: t.dominoN3, q: t.dominoQ3, opts: [t.dominoQ3a, t.dominoQ3b], correct: 0, mech: t.dominoM3,
+      stats: ty?.yield10Y != null && ty?.yield2Y != null
+        ? [{ k: '10Y−2Y', v: Math.round((ty.yield10Y - ty.yield2Y) * 100) / 100, decimals: 2, suffix: '%p' }]
+        : [],
+    },
+    {
+      title: t.dominoN4, q: t.dominoQ4, opts: [t.dominoQ4a, t.dominoQ4b], correct: 0, mech: t.dominoM4,
+      stats: fw ? [{ k: t.dominoHikeProb, v: fw.hike, decimals: 1, suffix: '%' }] : [],
+    },
+  ], [t, fw, ty]);
+
+  const playable = loaded && (!!fw || !!ty);
+  const answered = Object.keys(answers).length;
+  const score = Object.values(answers).filter((a) => a.ok).length;
+
+  const pick = (oi: number) => {
+    if (answers[ni] || phase !== 'play') return;
+    const ok = oi === nodes[ni].correct;
+    setAnswers({ ...answers, [ni]: { pick: oi, ok } });
+    onAward(ok ? XP_TRIED : 0);
+  };
+  const nextNode = () => {
+    if (ni + 1 < nodes.length) { setNi(ni + 1); setQOpen(false); }
+    else setPhase('finale');
+  };
+
+  // finale recap: the day's macro numbers in one strip (only what actually loaded)
+  const recap: DominoStat[] = [
+    ...(ty?.yield10Y != null ? [{ k: '10Y', v: ty.yield10Y, decimals: 2, suffix: '%' }] : []),
+    ...(ty?.yield2Y != null ? [{ k: '2Y', v: ty.yield2Y, decimals: 2, suffix: '%' }] : []),
+    ...(fw ? [{ k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%' }] : []),
+    ...(fw?.daysUntilFomc != null ? [{ k: t.dominoNextFomc, v: fw.daysUntilFomc, decimals: 0, prefix: 'D-' }] : []),
+  ];
+
+  const numDec = (v: number) => (Number.isInteger(v) ? 0 : 1);
+
+  return (
+    <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
+      <style>{PLAY_KEYFRAMES}</style>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+        <PlayTopBar
+          onClose={onClose}
+          backLabel={t.backHome}
+          prog={!playable ? 0.1 : phase === 'finale' ? 1 : (answered + (qOpen ? 0.4 : 0)) / nodes.length}
+          chip={playable && phase === 'play' ? `${answered}/${nodes.length}` : null}
+        />
+
+        {!loaded && <PlayLoading label={t.loadingData} />}
+        {loaded && !playable && <PlayEmpty t={t} onClose={onClose} />}
+
+        {playable && (
+          <>
+            {/* headline card — today's real macro item, big numbers roll up */}
+            <div style={{ marginTop: 14, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, borderRadius: 22, padding: '15px 16px', color: '#fff', boxShadow: P.shadow, animation: 'wimUp 0.3s ease' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <Ic name="bank" size={14} color="#FFD66B" />
+                <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.1em', color: '#FFD66B' }}>{t.dominoHeader.toUpperCase()}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: '#7EE0AE', background: 'rgba(25,184,147,0.25)', borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
+              </div>
+              {headEvent ? (
+                <>
+                  <div style={{ marginTop: 10, fontSize: 17.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.3 }}>{headEvent.event}</div>
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '4px 10px' }}>{headEvent.date} · {headEvent.time} ET</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '0.05em', background: headEvent.impact === 'HIGH' ? P.amber : 'rgba(255,255,255,0.16)', color: headEvent.impact === 'HIGH' ? P.ink : '#fff', borderRadius: 99, padding: '4px 10px' }}>{headEvent.impact}</span>
+                  </div>
+                  {(headEvent.estimate != null || headEvent.previous != null) && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                      {headEvent.estimate != null && <DominoStatTile s={{ k: t.dominoEstimate, v: headEvent.estimate, decimals: numDec(headEvent.estimate), suffix: headEvent.unit || '' }} animate onDark />}
+                      {headEvent.previous != null && <DominoStatTile s={{ k: t.dominoPrevious, v: headEvent.previous, decimals: numDec(headEvent.previous), suffix: headEvent.unit || '' }} animate onDark />}
+                    </div>
+                  )}
+                </>
+              ) : fw ? (
+                <>
+                  <div style={{ marginTop: 10, fontSize: 12, fontWeight: 800, opacity: 0.85 }}>{t.dominoNextFomc}</div>
+                  <div style={{ marginTop: 2, fontSize: 34, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+                    {fw.daysUntilFomc != null ? <>D-<CountUp value={fw.daysUntilFomc} decimals={0} /></> : '—'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                    <DominoStatTile s={{ k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%' }} animate onDark />
+                    <DominoStatTile s={{ k: t.dominoHikeProb, v: fw.hike, decimals: 1, suffix: '%' }} animate onDark />
+                  </div>
+                </>
+              ) : (
+                <div style={{ marginTop: 10, fontSize: 34, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+                  10Y <CountUp value={ty?.yield10Y || 0} decimals={2} />%
+                </div>
+              )}
+            </div>
+
+            {/* chain header */}
+            {phase === 'play' && (
+              <div style={{ marginTop: 16, padding: '0 2px' }}>
+                <div style={{ fontSize: 14.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="chain" size={15} color={P.heroDeep} sw={2} /> {t.dominoChainTitle}</div>
+                <div style={{ marginTop: 2, fontSize: 11, fontWeight: 700, color: P.sub }}>{t.dominoChainSub}</div>
+              </div>
+            )}
+
+            {/* the domino chain — nodes reveal one by one, question before mechanism */}
+            {nodes.map((nd, i) => {
+              const ans = answers[i];
+              const isOpen = phase === 'play' && i === ni;
+              const isLocked = !ans && !isOpen;
+              const connector = (
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: 2.5, height: 16, borderRadius: 99, background: answers[i - 1] ? P.hero : P.line }} />
+                </div>
+              );
+              if (isLocked) {
+                return (
+                  <div key={nd.title}>
+                    {i > 0 && connector}
+                    <div style={{ borderRadius: 20, border: `1.5px dashed ${P.line}`, background: 'rgba(255,255,255,0.45)', padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 26, height: 26, borderRadius: 9, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: P.faint }}>{i + 1}</span>
+                      <span style={{ fontSize: 13, fontWeight: 850 as any, color: P.faint }}>{nd.title}</span>
+                      <span style={{ marginLeft: 'auto', color: P.faint }}><Ic name="lock" size={14} /></span>
+                    </div>
+                  </div>
+                );
+              }
+              if (ans && !isOpen) {
+                return (
+                  <div key={nd.title}>
+                    {i > 0 && connector}
+                    <div style={{ background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '13px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ width: 26, height: 26, borderRadius: 9, background: P.hero, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff' }}>{i + 1}</span>
+                        <span style={{ fontSize: 13.5, fontWeight: 900 }}>{nd.title}</span>
+                        <span style={{ marginLeft: 'auto', color: ans.ok ? P.mint : P.coral }}><Ic name={ans.ok ? 'check' : 'close'} size={14} sw={2.4} /></span>
+                      </div>
+                      {nd.stats.length > 0 && (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                          {nd.stats.map((s) => <DominoStatTile key={s.k} s={s} animate={false} />)}
+                        </div>
+                      )}
+                      <p style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.6, fontWeight: 650 as any, color: P.sub }}>{nd.mech}</p>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={nd.title}>
+                  {i > 0 && connector}
+                  <div style={{ background: '#fff', borderRadius: 20, border: `1.5px solid ${P.hero}55`, boxShadow: P.shadow, padding: '14px 15px', animation: 'wimUp 0.3s ease' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 26, height: 26, borderRadius: 9, background: P.hero, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff' }}>{i + 1}</span>
+                      <span style={{ fontSize: 14, fontWeight: 900 }}>{nd.title}</span>
+                    </div>
+                    {!qOpen && (
+                      <button type="button" onClick={() => setQOpen(true)} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 13.5, fontWeight: 900, cursor: 'pointer' }}>{t.dominoTapOpen} →</button>
+                    )}
+                    {qOpen && (
+                      <div style={{ animation: 'wimUp 0.25s ease' }}>
+                        <h2 style={{ margin: '11px 0 0', fontSize: 15.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.4 }}>{nd.q}</h2>
+                        <div style={{ display: 'flex', gap: 9, marginTop: 11 }}>
+                          {nd.opts.map((o, oi) => {
+                            const revealedNow = !!ans;
+                            const isPick = ans?.pick === oi;
+                            const isAnswer = nd.correct === oi;
+                            const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.coralSoft : '#fff';
+                            const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.coral : P.line;
+                            return (
+                              <button key={o} type="button" disabled={revealedNow} onClick={() => pick(oi)} style={{ font: 'inherit', flex: 1, cursor: revealedNow ? 'default' : 'pointer', background: bg, border: `2px solid ${border}`, borderRadius: 15, padding: '13px 8px', fontSize: 13.5, fontWeight: 900, color: P.ink, lineHeight: 1.35, boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)' }}>
+                                {o}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {ans && (
+                          <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
+                            <div style={{ marginTop: 12, textAlign: 'center', fontSize: 16, fontWeight: 900, color: ans.ok ? P.mint : P.coral }}>
+                              {ans.ok ? `${t.correct} +${XP_TRIED}XP` : t.notQuite}
+                            </div>
+                            {nd.stats.length > 0 && (
+                              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                {nd.stats.map((s) => <DominoStatTile key={s.k} s={s} animate />)}
+                              </div>
+                            )}
+                            <p style={{ margin: '11px 0 0', fontSize: 13, lineHeight: 1.65, fontWeight: 650 as any, color: P.sub }}>{nd.mech}</p>
+                            <button type="button" onClick={nextNode} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.ink, color: '#fff', border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>
+                              {i + 1 < nodes.length ? `${t.dominoNext} →` : `${t.seeResults} →`}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* finale — chain summary + the day's numbers in one strip */}
+            {phase === 'finale' && (
+              <div style={{ animation: 'wimUp 0.35s ease' }}>
+                <div style={{ marginTop: 16, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '20px 18px', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', color: P.heroDeep }}><Ic name="chain" size={26} sw={2} /></div>
+                  <div style={{ marginTop: 8, fontSize: 17, fontWeight: 900 }}>{t.dominoFinale}</div>
+                  <div style={{ marginTop: 3, fontSize: 13, fontWeight: 900, color: P.hero, fontVariantNumeric: 'tabular-nums' }}>{score}/{nodes.length} · +{score * XP_TRIED} {t.xp}</div>
+                  {recap.length > 0 && (
+                    <>
+                      <div style={{ marginTop: 14, fontSize: 9.5, fontWeight: 900, letterSpacing: '0.1em', color: P.faint }}>{t.dominoRecap.toUpperCase()}</div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {recap.map((s) => <DominoStatTile key={s.k} s={s} animate={false} />)}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>{t.backHome}</button>
+              </div>
+            )}
+          </>
+        )}
+
+        <div style={{ marginTop: 18, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.5 }}>{disclaimer}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function WimPage() {
   const params = useParams();
   const router = useRouter();
@@ -1615,7 +2008,10 @@ export default function WimPage() {
   const labFlight = useRef<Record<string, Promise<LabData | null>>>({});
   const [labs, setLabs] = useState<Record<string, LabData>>({});
   // W2: play overlays + overlay-unlock stage 1 (levels layer on the hero chart)
-  const [playOpen, setPlayOpen] = useState<'hunt' | 'sense' | 'replay' | null>(null);
+  const [playOpen, setPlayOpen] = useState<'hunt' | 'sense' | 'replay' | 'domino' | null>(null);
+  // W4: SRS-lite store (per-term wrong/right/last) + ET weekend flag (P6 review mode)
+  const srsRef = useRef<Record<string, SrsEntry>>({});
+  const weekendET = useMemo(() => isWeekendET(), []);
   const [unlockLevels, setUnlockLevels] = useState(false);
   const [unlockToast, setUnlockToast] = useState(false);
   // W3: concept almanac — collected concept cards, each stamped with the day's chart
@@ -1633,6 +2029,8 @@ export default function WimPage() {
       setUnlockLevels(localStorage.getItem('wim.unlock.levels') === '1');
       const alm = JSON.parse(localStorage.getItem('wim.almanac') || '{}');
       if (alm && typeof alm === 'object' && !Array.isArray(alm)) { almanacRef.current = alm; setAlmanac(alm); }
+      const srs = JSON.parse(localStorage.getItem('wim.srs') || '{}');
+      if (srs && typeof srs === 'object' && !Array.isArray(srs)) srsRef.current = srs;
       const wk = JSON.parse(localStorage.getItem('wim.week') || 'null');
       const wkKey = localStorage.getItem('wim.weekKey') || '';
       // reset the week dots every Monday
@@ -1812,6 +2210,19 @@ export default function WimPage() {
     setWeek(w); persist('wim.week', JSON.stringify(w));
   }, [week, persist]);
 
+  // ── W4 SRS-lite: record every hunt/sense/replay judgement per term; a term is
+  // due when missed more than hit and not already touched today (retrieval spacing)
+  const srsRecord = useCallback((term: string, ok: boolean) => {
+    const prev = srsRef.current[term] || { wrong: 0, right: 0, last: '' };
+    const next = { ...srsRef.current, [term]: { wrong: prev.wrong + (ok ? 0 : 1), right: prev.right + (ok ? 1 : 0), last: etTodayStr() } };
+    srsRef.current = next;
+    persist('wim.srs', JSON.stringify(next));
+  }, [persist]);
+  const isReviewDue = useCallback((term: string): boolean => {
+    const e = srsRef.current[term];
+    return !!e && e.wrong > e.right && e.last !== etTodayStr();
+  }, []);
+
   // overlay unlock stage 1: first-ever Level Hunt completion opens the max-pain
   // layer on the home hero chart, forever (spec §3 "차트가 자라난다")
   const onHuntComplete = useCallback((): boolean => {
@@ -1822,7 +2233,7 @@ export default function WimPage() {
     return true;
   }, [unlockLevels, persist]);
 
-  const openPlay = useCallback((id: 'hunt' | 'sense' | 'replay') => { setPlayOpen(id); window.scrollTo(0, 0); }, []);
+  const openPlay = useCallback((id: 'hunt' | 'sense' | 'replay' | 'domino') => { setPlayOpen(id); window.scrollTo(0, 0); }, []);
 
   // once unlocked, the home hero chart needs the hero ticker's lab levels
   useEffect(() => {
@@ -2037,7 +2448,7 @@ export default function WimPage() {
     );
   }
 
-  // ════════════════════════ PLAY OVERLAYS (P3 level hunt · P4 number sense · P2 replay) ════════════════════════
+  // ════════════════════════ PLAY OVERLAYS (P3 level hunt · P4 number sense · P2 replay · P5 macro domino) ════════════════════════
   if (playOpen === 'hunt' && heroU) {
     return (
       <>
@@ -2048,6 +2459,7 @@ export default function WimPage() {
           t={t}
           onAward={awardPlayXp}
           onCollect={collectAlmanac}
+          onSrs={srsRecord}
           onComplete={onHuntComplete}
           onClose={() => setPlayOpen(null)}
           disclaimer={disclaimerText}
@@ -2065,6 +2477,8 @@ export default function WimPage() {
           t={t}
           onAward={awardPlayXp}
           onCollect={collectAlmanac}
+          onSrs={srsRecord}
+          isReviewDue={isReviewDue}
           onClose={() => setPlayOpen(null)}
           disclaimer={disclaimerText}
         />
@@ -2081,7 +2495,21 @@ export default function WimPage() {
           t={t}
           onAward={awardPlayXp}
           onCollect={collectAlmanac}
+          onSrs={srsRecord}
           onOpenQuiz={() => { setPlayOpen(null); if (replayU) startQuiz(units.indexOf(replayU)); }}
+          onClose={() => setPlayOpen(null)}
+          disclaimer={disclaimerText}
+        />
+        {almToastNode}
+      </>
+    );
+  }
+  if (playOpen === 'domino') {
+    return (
+      <>
+        <MacroDominoPlay
+          t={t}
+          onAward={awardPlayXp}
           onClose={() => setPlayOpen(null)}
           disclaimer={disclaimerText}
         />
@@ -2106,6 +2534,29 @@ export default function WimPage() {
   const solvedCount = Object.keys(done).length;
   const correctToday = units.filter((u) => done[u.id] && u.correctCategoryIds.includes(done[u.id])).length;
   const termsCount = Object.keys(seenTerms).filter((k) => seenTerms[k]).length;
+  // W4/P6 deck ordering — weekday: quiz cases lead, plays follow; ET weekend:
+  // replay-led review order (replay → number sense → level hunt → domino) up front
+  const playDefs: { id: 'hunt' | 'sense' | 'replay' | 'domino'; icon: string; title: string; sub: string }[] = [
+    { id: 'hunt', icon: 'crosshair', title: t.teaserHunt, sub: t.teaserHuntSub },
+    { id: 'sense', icon: 'updown', title: t.teaserSense, sub: t.teaserSenseSub },
+    { id: 'replay', icon: 'replay', title: t.teaserReplay, sub: t.teaserReplaySub },
+    { id: 'domino', icon: 'chain', title: t.teaserDomino, sub: t.teaserDominoSub },
+  ];
+  const weekendRank: Record<string, number> = { replay: 0, sense: 1, hunt: 2, domino: 3 };
+  const deckPlays = weekendET ? [...playDefs].sort((a, b) => weekendRank[a.id] - weekendRank[b.id]) : playDefs;
+  const playCards = deckPlays.map((tz) => (
+    <button key={tz.id} type="button" onClick={() => openPlay(tz.id)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', animation: 'wimUp 0.3s ease' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ width: 28, height: 28, borderRadius: 10, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: P.heroDeep }}><Ic name={tz.icon} size={16} sw={2} /></span>
+        <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.hero, background: P.heroSoft, borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
+      </div>
+      <div style={{ marginTop: 12, fontSize: 14.5, fontWeight: 900, color: P.ink }}>{tz.title}</div>
+      <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: P.sub, lineHeight: 1.45 }}>{tz.sub}</div>
+      <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+        <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: P.hero, color: '#fff' }}>{t.play}</span>
+      </div>
+    </button>
+  ));
   const q = searchQ.trim().toLowerCase();
   const searchResults = (Object.keys(METRIC_GLOSSARY) as MetricTerm[]).filter((term) => {
     if (!q) return false;
@@ -2178,6 +2629,16 @@ export default function WimPage() {
                 <div style={{ marginTop: 9 }}>
                   <SessionStrip active={heroSession} labels={[t.sessionPre, t.sessionReg, t.sessionPost]} />
                 </div>
+                {/* P6: ET weekend — compact review banner above the CTA */}
+                {weekendET && (
+                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 9, background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.22)', borderRadius: 14, padding: '9px 12px' }}>
+                    <Ic name="replay" size={15} color="#FFD66B" />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 900, color: '#FFD66B' }}>{t.weekendTitle}</div>
+                      <div style={{ marginTop: 1, fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4 }}>{t.weekendSub}</div>
+                    </div>
+                  </div>
+                )}
                 <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', width: '100%', marginTop: 11, background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(0,0,0,0.18)' }}>
                   {heroU.prompt[loc]} · {t.solve} →
                 </button>
@@ -2197,6 +2658,8 @@ export default function WimPage() {
                   <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: doneCount === units.length ? P.mint : P.faint }}>{doneCount}/{units.length} {t.done}</span>
                 </div>
                 <div className="no-sb" style={{ display: 'flex', alignItems: 'stretch', gap: 12, overflowX: 'auto', margin: '10px -16px 0', padding: '2px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+                  {/* P6: on ET weekends the plays lead the deck (review mode) */}
+                  {weekendET && playCards}
                   {units.map((u, i) => {
                     const isDone = !!done[u.id];
                     const lvLabel = u.difficultyLevel === 1 ? t.quizLv1 : u.difficultyLevel === 2 ? t.quizLv2 : t.quizLv3;
@@ -2222,23 +2685,7 @@ export default function WimPage() {
                       </button>
                     );
                   })}
-                  {([
-                    { id: 'hunt' as const, icon: 'crosshair', title: t.teaserHunt, sub: t.teaserHuntSub },
-                    { id: 'sense' as const, icon: 'updown', title: t.teaserSense, sub: t.teaserSenseSub },
-                    { id: 'replay' as const, icon: 'replay', title: t.teaserReplay, sub: t.teaserReplaySub },
-                  ]).map((tz) => (
-                    <button key={tz.id} type="button" onClick={() => openPlay(tz.id)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', animation: 'wimUp 0.3s ease' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 28, height: 28, borderRadius: 10, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: P.heroDeep }}><Ic name={tz.icon} size={16} sw={2} /></span>
-                        <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.hero, background: P.heroSoft, borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
-                      </div>
-                      <div style={{ marginTop: 12, fontSize: 14.5, fontWeight: 900, color: P.ink }}>{tz.title}</div>
-                      <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: P.sub, lineHeight: 1.45 }}>{tz.sub}</div>
-                      <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-                        <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: P.hero, color: '#fff' }}>{t.play}</span>
-                      </div>
-                    </button>
-                  ))}
+                  {!weekendET && playCards}
                 </div>
               </section>
             )}
