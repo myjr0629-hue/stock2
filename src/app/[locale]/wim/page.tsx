@@ -38,6 +38,7 @@ interface Unit {
   money: { darkPoolPct: number | null; volumePcr: number | null; squeezeScore: number | null; maxPain: number | null; callWall?: number | null; putFloor?: number | null } | null;
   price?: number;
   spark?: { closes: number[]; vwap: number[] | null } | null;
+  session?: string; // 'PRE' | 'REG' | 'POST' — which session carried the move (server-provided)
   difficultyLevel: 1 | 2 | 3; disclaimer: Loc;
 }
 interface Today { success: boolean; dateET: string; units: Unit[] }
@@ -67,6 +68,8 @@ const ICON_PATHS: Record<string, string> = {
   flow: 'M4.5 17.5a2 2 0 1 0 .01 0ZM11.5 12a2.6 2.6 0 1 0 .01 0ZM18.2 5.6a3.2 3.2 0 1 0 .01 0Z',
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M5.5 11h13v9.5h-13V11Z',
   spark: 'M12 2.5 13.8 9l6.7 1.8-6.7 1.7L12 19.2l-1.8-6.7L3.5 10.8 10.2 9 12 2.5Z',
+  crosshair: 'M12 2.5v3.5M12 18v3.5M2.5 12H6M18 12h3.5M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z',
+  updown: 'M7.5 9.5 12 5l4.5 4.5M7.5 14.5 12 19l4.5-4.5',
 };
 function Ic({ name, size = 18, color = 'currentColor', sw = 1.8, fill = false }: { name: string; size?: number; color?: string; sw?: number; fill?: boolean }) {
   return (
@@ -306,6 +309,11 @@ const T: Record<Lang, Record<string, string>> = {
     todayRecord: '오늘의 수사', langBtn: '한국어',
     empty: '오늘 문제를 준비하고 있어요 — 잠시 후 다시 열어주세요.',
     play: '풀기', replay: '다시 보기',
+    playDeck: '오늘의 플레이',
+    comingSoon: '곧 열림',
+    teaserHunt: '레벨 헌트', teaserHuntSub: '실제 차트 위에서 기관 레벨 찾기',
+    teaserSense: '숫자 감각', teaserSenseSub: '오늘 지표, 위였을까 아래였을까',
+    sessionPre: '프리', sessionReg: '본장', sessionPost: '애프터',
   },
   en: {
     tagline: "Today's market, a 30-second lesson",
@@ -338,6 +346,11 @@ const T: Record<Lang, Record<string, string>> = {
     todayRecord: "Today's investigation", langBtn: 'English',
     empty: "Preparing today's questions — check back shortly.",
     play: 'Play', replay: 'Review',
+    playDeck: "Today's plays",
+    comingSoon: 'Coming soon',
+    teaserHunt: 'Level Hunt', teaserHuntSub: 'Spot the institutional levels on a real chart',
+    teaserSense: 'Number Sense', teaserSenseSub: "Was today's reading higher or lower?",
+    sessionPre: 'PRE', sessionReg: 'REG', sessionPost: 'POST',
   },
   ja: {
     tagline: '今日の市場が出す問題、30秒レッスン',
@@ -370,6 +383,11 @@ const T: Record<Lang, Record<string, string>> = {
     todayRecord: '今日の捜査', langBtn: '日本語',
     empty: '今日の問題を準備中 — 少し後にまた開いてください。',
     play: '解く', replay: '復習',
+    playDeck: '今日のプレイ',
+    comingSoon: '近日公開',
+    teaserHunt: 'レベルハント', teaserHuntSub: '実チャートの上で機関レベルを探す',
+    teaserSense: '数字感覚', teaserSenseSub: '今日の指標、上だった？下だった？',
+    sessionPre: 'プレ', sessionReg: 'ザラ場', sessionPost: 'アフター',
   },
 };
 
@@ -443,15 +461,54 @@ function RealChart({
   );
 }
 
-// tiny inline spark for list cards
-function MiniSpark({ closes }: { closes: number[] }) {
-  const W = 72; const H = 30;
+// tiny inline spark for list/deck cards (w/h shape the viewBox so strokes never distort)
+function MiniSpark({ closes, w = 72, h = 30 }: { closes: number[]; w?: number; h?: number }) {
+  const W = w; const H = h;
   const lo = Math.min(...closes); const hi = Math.max(...closes); const span = hi - lo || 1;
   const pts = closes.map((c, i) => `${((i / Math.max(1, closes.length - 1)) * W).toFixed(1)},${(H - 3 - ((c - lo) / span) * (H - 6)).toFixed(1)}`).join(' ');
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H, display: 'block', flexShrink: 0 }} aria-hidden>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: H, display: 'block', flexShrink: 0 }} aria-hidden>
       <polyline points={pts} fill="none" stroke={P.hero} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.85" />
     </svg>
+  );
+}
+
+// count-up number for the hero ±% badge — rolls 0 → value on mount (~600ms, ease-out),
+// no library (rAF); settles on the exact raw value so the final frame matches the data
+function CountUp({ value, decimals = 1, duration = 600 }: { value: number; decimals?: number; duration?: number }) {
+  const [prog, setProg] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / duration);
+      setProg(p);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  if (prog >= 1) return <>{value}</>;
+  const eased = 1 - Math.pow(1 - prog, 3);
+  return <>{(value * eased).toFixed(decimals)}</>;
+}
+
+// PRE·REG·POST heat strip — a thin 3-segment session bar; the lit segment is where
+// today's (already finished) move happened. Designed for the dark hero canvas.
+function SessionStrip({ active, labels }: { active: 'pre' | 'reg' | 'post'; labels: [string, string, string] }) {
+  const segs: ('pre' | 'reg' | 'post')[] = ['pre', 'reg', 'post'];
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      {segs.map((s, i) => {
+        const on = s === active;
+        return (
+          <div key={s} style={{ flex: s === 'reg' ? 2.2 : 1, textAlign: 'center', minWidth: 0 }}>
+            <div style={{ height: 4, borderRadius: 99, background: on ? '#FFD66B' : 'rgba(255,255,255,0.20)' }} />
+            <div style={{ marginTop: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.08em', color: on ? '#FFD66B' : 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{labels[i]}</div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -946,6 +1003,10 @@ export default function WimPage() {
   // ════════════════════════ HOME (v3: glass shell · bottom tabs · case files) ════════════════════════
   const heroU = units.find((u) => !done[u.id]) || units[0] || null;
   const heroIdx = heroU ? units.indexOf(heroU) : -1;
+  // which session carried the hero move (server field; default REG when absent)
+  const heroSessionRaw = (heroU?.session || '').toLowerCase();
+  const heroSession: 'pre' | 'reg' | 'post' = heroSessionRaw.includes('pre') ? 'pre'
+    : heroSessionRaw.includes('post') || heroSessionRaw.includes('after') ? 'post' : 'reg';
   const glass = {
     background: 'rgba(255,255,255,0.60)',
     backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
@@ -1018,90 +1079,89 @@ export default function WimPage() {
                     <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.01em' }}>{heroU.ticker}</div>
                     {heroU.companyName && <div style={{ fontSize: 10.5, fontWeight: 650 as any, opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{heroU.companyName}</div>}
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 900, background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '6px 12px' }}>±{heroU.moveMagnitude}%</span>
+                  <span style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums', background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '6px 13px' }}>±<CountUp value={heroU.moveMagnitude} />%</span>
                 </div>
-                <div style={{ margin: '10px -6px 0' }}>
-                  <RealChart closes={heroU.spark.closes} height={116} tone="dark" />
+                <div style={{ margin: '12px -16px 0' }}>
+                  <RealChart closes={heroU.spark.closes} height={150} tone="dark" />
                 </div>
-                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', width: '100%', marginTop: 10, background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(0,0,0,0.18)' }}>
+                <div style={{ marginTop: 9 }}>
+                  <SessionStrip active={heroSession} labels={[t.sessionPre, t.sessionReg, t.sessionPost]} />
+                </div>
+                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', width: '100%', marginTop: 11, background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(0,0,0,0.18)' }}>
                   {heroU.prompt[loc]} · {t.solve} →
                 </button>
               </section>
             ) : !failed && !today ? (
-              <div className="wim-skel" style={{ height: 230, borderRadius: 26, marginTop: 16 }} />
+              <div className="wim-skel" style={{ height: 290, borderRadius: 26, marginTop: 16 }} />
             ) : null}
             {failed && !today && (
               <div style={{ ...glass, marginTop: 16, borderRadius: 20, padding: '18px 16px', fontSize: 13, fontWeight: 700, color: P.sub, textAlign: 'center' }}>{t.empty}</div>
             )}
 
-            {/* case files — horizontal glass cards, each with its REAL chart */}
+            {/* today's play deck — bigger snap cards (real spark each) + W2 teasers */}
             {units.length > 0 && (
               <section style={{ marginTop: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
-                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 , display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="folder" size={16} color={P.heroDeep} /> {t.caseFiles}</h2>
+                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 , display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="play" size={16} color={P.heroDeep} /> {t.playDeck}</h2>
                   <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: doneCount === units.length ? P.mint : P.faint }}>{doneCount}/{units.length} {t.done}</span>
                 </div>
-                <div className="no-sb" style={{ display: 'flex', gap: 11, overflowX: 'auto', margin: '10px -16px 0', padding: '2px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+                <div className="no-sb" style={{ display: 'flex', alignItems: 'stretch', gap: 12, overflowX: 'auto', margin: '10px -16px 0', padding: '2px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
                   {units.map((u, i) => {
                     const isDone = !!done[u.id];
                     const lvLabel = u.difficultyLevel === 1 ? t.quizLv1 : u.difficultyLevel === 2 ? t.quizLv2 : t.quizLv3;
                     const lvColor = u.difficultyLevel === 1 ? P.mint : u.difficultyLevel === 2 ? P.amber : P.hero;
                     return (
-                      <button key={u.id} type="button" onClick={() => startQuiz(i)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 168px', scrollSnapAlign: 'start', borderRadius: 20, padding: '12px 12px 11px', animation: 'wimUp 0.3s ease' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <TickerLogo ticker={u.ticker} size={26} />
-                          <span style={{ fontSize: 13.5, fontWeight: 900 }}>{u.ticker}</span>
+                      <button key={u.id} type="button" onClick={() => startQuiz(i)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', animation: 'wimUp 0.3s ease' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <TickerLogo ticker={u.ticker} size={28} />
+                          <span style={{ fontSize: 14.5, fontWeight: 900 }}>{u.ticker}</span>
                           <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: lvColor, background: `${lvColor}1F`, borderRadius: 99, padding: '2px 7px' }}>{lvLabel}</span>
                         </div>
-                        <div style={{ margin: '8px -4px 0' }}>
+                        <div style={{ margin: '10px -3px 0' }}>
                           {u.spark && u.spark.closes.length >= 8
-                            ? <RealChart closes={u.spark.closes} height={54} minmax={false} />
-                            : <div style={{ height: 54 }} />}
+                            ? <MiniSpark closes={u.spark.closes} w={186} h={58} />
+                            : <div style={{ height: 58 }} />}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', marginTop: 7 }}>
-                          <span style={{ fontSize: 11.5, fontWeight: 900, color: P.heroDeep }}>±{u.moveMagnitude}%</span>
-                          <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 900, borderRadius: 99, padding: '4px 10px', background: isDone ? P.mintSoft : P.hero, color: isDone ? P.mint : '#fff' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginTop: 9 }}>
+                          <span style={{ fontSize: 13, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep }}>±{u.moveMagnitude}%</span>
+                          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: isDone ? P.mintSoft : P.hero, color: isDone ? P.mint : '#fff' }}>
                             {isDone ? `✓ ${t.solved}` : t.play}
                           </span>
                         </div>
                       </button>
                     );
                   })}
+                  {[
+                    { id: 'hunt', icon: 'crosshair', title: t.teaserHunt, sub: t.teaserHuntSub },
+                    { id: 'sense', icon: 'updown', title: t.teaserSense, sub: t.teaserSenseSub },
+                  ].map((tz) => (
+                    <div key={tz.id} aria-disabled style={{ ...glass, border: '1.5px dashed rgba(108,92,231,0.35)', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', opacity: 0.92, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: 10, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: P.heroDeep }}><Ic name={tz.icon} size={16} sw={2} /></span>
+                        <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.amber, background: P.amberSoft, borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.comingSoon}</span>
+                      </div>
+                      <div style={{ marginTop: 12, fontSize: 14.5, fontWeight: 900, color: P.ink }}>{tz.title}</div>
+                      <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: P.sub, lineHeight: 1.45 }}>{tz.sub}</div>
+                      <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end', color: P.faint }}>
+                        <Ic name="lock" size={14} sw={2} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </section>
             )}
 
-            {/* streak + XP — one compact glass band */}
-            <section style={{ ...glass, marginTop: 10, borderRadius: 22, padding: '13px 15px', animation: 'wimUp 0.35s ease' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ position: 'relative', width: 54, height: 54, flexShrink: 0 }}>
-                  <svg width="54" height="54" viewBox="0 0 54 54">
-                    <circle cx="27" cy="27" r="21" fill="none" stroke={P.heroSoft} strokeWidth="7" />
-                    <circle cx="27" cy="27" r="21" fill="none" stroke={P.amber} strokeWidth="7" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 21 * Math.max(0.02, Math.min(1, streakDays / 7))} ${2 * Math.PI * 21}`} transform="rotate(-90 27 27)" />
-                  </svg>
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 900 }}>{streakDays}</div>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 900 }}>{t.streakLine1} <span style={{ color: P.hero }}>{streakDays}</span>{t.streakLine2}</div>
-                  <div style={{ display: 'flex', gap: 5, marginTop: 6 }}>
-                    {weekLabels.map((d, i) => {
-                      const on = week[i]; const isToday = i === weekdayIdx();
-                      return (
-                        <div key={i} style={{ width: 20, height: 20, borderRadius: '50%', background: on ? P.hero : 'rgba(108,92,231,0.14)', border: isToday && !on ? `1.5px solid ${P.hero}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, fontWeight: 900, color: on ? '#fff' : P.faint }}>
-                          {on ? '✓' : d}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+            {/* streak + XP — single compact row (ring · this-week line · XP chip); dots/level bar live in Me */}
+            <section style={{ ...glass, marginTop: 10, borderRadius: 22, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 11, animation: 'wimUp 0.35s ease' }}>
+              <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="17" fill="none" stroke={P.heroSoft} strokeWidth="6" />
+                  <circle cx="22" cy="22" r="17" fill="none" stroke={P.amber} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 17 * Math.max(0.02, Math.min(1, streakDays / 7))} ${2 * Math.PI * 17}`} transform="rotate(-90 22 22)" />
+                </svg>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900 }}>{streakDays}</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 11 }}>
-                <span style={{ fontSize: 11.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Ic name="shield" size={13} color={P.hero} /> {levelNames[levelIdx]}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 900, color: P.hero }}>{xp} {t.xp}</span>
-              </div>
-              <div style={{ marginTop: 6, height: 8, background: 'rgba(108,92,231,0.14)', borderRadius: 99, overflow: 'hidden' }}>
-                <div style={{ width: `${levelPct * 100}%`, height: '100%', background: `linear-gradient(90deg, ${P.amber}, ${P.coral})`, borderRadius: 99, transition: 'width 0.5s ease' }} />
-              </div>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 900 }}>{t.streakLine1} <span style={{ color: P.hero }}>{streakDays}</span>{t.streakLine2}</div>
+              <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '6px 11px' }}><Ic name="shield" size={13} color={P.heroDeep} /> {xp} {t.xp}</span>
             </section>
 
             {setDoneShown && doneCount === units.length && units.length > 0 && (
