@@ -19,7 +19,7 @@
 // disclaimer everywhere. No prediction mechanics.
 // ============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
 
@@ -75,6 +75,7 @@ const ICON_PATHS: Record<string, string> = {
   replay: 'M6.5 5.5v13M18 5.5 9.5 12l8.5 6.5v-13Z',
   pause: 'M8.5 5.5v13M15.5 5.5v13',
   chain: 'M9.5 14.5 14.5 9.5M8.5 11.5l-2.3 2.3a3.8 3.8 0 0 0 5.4 5.4l2.3-2.3M15.5 12.5l2.3-2.3a3.8 3.8 0 0 0-5.4-5.4l-2.3 2.3',
+  flag: 'M6.5 21V3.5M6.5 4.5H17l-2.4 3.2L17 10.9H6.5',
 };
 function Ic({ name, size = 18, color = 'currentColor', sw = 1.8, fill = false }: { name: string; size?: number; color?: string; sw?: number; fill?: boolean }) {
   return (
@@ -385,6 +386,7 @@ const T: Record<Lang, Record<string, string>> = {
     dominoFinale: '사슬 완성', dominoRecap: '오늘의 숫자',
     reviewChip: '복습',
     weekendTitle: '주말 리뷰', weekendSub: '이번 주 마지막 세션을 다시 보고, 배운 개념을 복습하세요',
+    unlockDramaLabel: '새 층 해제',
   },
   en: {
     tagline: "Today's market, a 30-second lesson",
@@ -488,6 +490,7 @@ const T: Record<Lang, Record<string, string>> = {
     dominoFinale: 'Chain complete', dominoRecap: "Today's numbers",
     reviewChip: 'Review',
     weekendTitle: 'Weekend review', weekendSub: "Rewind the week's last session and revisit what you learned",
+    unlockDramaLabel: 'New layer unlocked',
   },
   ja: {
     tagline: '今日の市場が出す問題、30秒レッスン',
@@ -591,6 +594,7 @@ const T: Record<Lang, Record<string, string>> = {
     dominoFinale: '連鎖完成', dominoRecap: '今日の数字',
     reviewChip: '復習',
     weekendTitle: '週末レビュー', weekendSub: '今週最後のセッションを見直して、学んだ概念を復習しよう',
+    unlockDramaLabel: '新しい層を解放',
   },
 };
 
@@ -698,23 +702,25 @@ function MiniSpark({ closes, w = 72, h = 30 }: { closes: number[]; w?: number; h
 
 // count-up number for the hero ±% badge — rolls 0 → value on mount (~600ms, ease-out),
 // no library (rAF); settles on the exact raw value so the final frame matches the data
-function CountUp({ value, decimals = 1, duration = 600 }: { value: number; decimals?: number; duration?: number }) {
+function CountUp({ value, decimals = 1, duration = 600, delay = 0 }: { value: number; decimals?: number; duration?: number; delay?: number }) {
   const [prog, setProg] = useState(0);
   useEffect(() => {
     let raf = 0;
     setProg(0); // re-animate when the value changes (multi-round plays reuse one instance)
-    const t0 = performance.now();
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / duration);
-      setProg(p);
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
+    const start = setTimeout(() => {
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - t0) / duration);
+        setProg(p);
+        if (p < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }, delay);
     // rAF is throttled/paused in background tabs and iOS low-power mode - without this
     // fallback the number can sit at 0 forever (observed live). Settle regardless.
-    const settle = setTimeout(() => setProg(1), duration + 100);
-    return () => { cancelAnimationFrame(raf); clearTimeout(settle); };
-  }, [value, duration]);
+    const settle = setTimeout(() => setProg(1), delay + duration + 100);
+    return () => { clearTimeout(start); cancelAnimationFrame(raf); clearTimeout(settle); };
+  }, [value, duration, delay]);
   if (prog >= 1) return <>{value}</>;
   const eased = 1 - Math.pow(1 - prog, 3);
   return <>{(value * eased).toFixed(decimals)}</>;
@@ -885,8 +891,92 @@ function StreakRing({ days, t }: { days: number; t: Record<string, string> }) {
 
 // ── W2 plays: shared overlay chrome ──
 const WIM_FONT = "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif";
-const PLAY_KEYFRAMES = '@keyframes wimPop{0%{transform:scale(0.86);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}} @keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}} .wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite} @keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}} @keyframes wimSpin{to{transform:rotate(360deg)}}';
+// ── W5-A: ONE keyframe/style block for the whole app (home, quiz, every play —
+// each rendered tree injects it exactly once). All motion is CSS one-shots or
+// ambient loops: NO per-frame React state (iOS webview re-render floods have
+// broken taps before — CountUp is the only sanctioned rAF animator).
+const WIM_KEYFRAMES = [
+  '@keyframes wimPop{0%{transform:scale(0.86);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}',
+  '@keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}',
+  '@keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}}',
+  '.wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite}',
+  '@keyframes wimSpin{to{transform:rotate(360deg)}}',
+  '@keyframes wimFloat1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(24px,-30px) scale(1.12)}}',
+  '@keyframes wimFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,22px) scale(0.92)}}',
+  '@keyframes wimFloat3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(18px,26px) scale(1.08)}}',
+  '.no-sb::-webkit-scrollbar{display:none}',
+  // open/close: overlay slides up 24px over a fading backdrop; close = quick fade
+  '@keyframes wimFadeIn{from{opacity:0}to{opacity:1}}',
+  '@keyframes wimFadeOut{from{opacity:1}to{opacity:0}}',
+  '@keyframes wimSlideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}',
+  // correct/wrong moments: violet stroke burst · spring judgment chip · floating XP ·
+  // gentle shake + amber (never red) outline flash on the chosen wrong button
+  '@keyframes wimBurst{0%{transform:scale(0.35);opacity:0.95}100%{transform:scale(1.25);opacity:0}}',
+  '@keyframes wimJudge{0%{transform:scale(0.6);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}',
+  '@keyframes wimXpFloat{0%{transform:translateY(0);opacity:0}18%{opacity:1}100%{transform:translateY(-24px);opacity:0}}',
+  '@keyframes wimShake{0%,100%{transform:translateX(0)}15%{transform:translateX(-5px)}35%{transform:translateX(4px)}55%{transform:translateX(-3px)}75%{transform:translateX(2px)}}',
+  '@keyframes wimFlashAmber{0%{box-shadow:0 0 0 0 rgba(255,173,31,0)}35%{box-shadow:0 0 0 3.5px rgba(255,173,31,0.65)}100%{box-shadow:0 0 0 0 rgba(255,173,31,0)}}',
+  // level-hunt reveal: the real level draws itself left→right (pathLength-normalized
+  // dashoffset), then dissolves into the resting dashed line; the guess line pulses once
+  '@keyframes wimDrawLine{0%{stroke-dashoffset:100;opacity:1}83%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:0}}',
+  '@keyframes wimPulseOnce{0%{opacity:1}50%{opacity:0.4}100%{opacity:0.55}}',
+  // replay: soft pulsing halo on the leading dot of the self-drawing chart
+  '@keyframes wimHalo{0%,100%{transform:scale(1);opacity:0.4}50%{transform:scale(2);opacity:0.05}}',
+  // domino physics: the next card tilts in and settles when the chain reaches it
+  '@keyframes wimTilt{0%{transform:rotate(-1.2deg) translateY(-6px)}100%{transform:rotate(0deg) translateY(0)}}',
+  // unlock drama: the mini chart draws and stays, the MAX PAIN line sweeps in,
+  // and the whole moment collapses toward the home hero at the end
+  '@keyframes wimDrawKeep{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}',
+  '@keyframes wimSweepIn{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}',
+  '@keyframes wimDramaOut{to{transform:translateY(-30vh) scale(0.12);opacity:0}}',
+  // deck micro-interactions: press-down scale + a rare shimmer sweep on the NEW chip
+  '.wim-press{transition:transform 0.12s ease}.wim-press:active{transform:scale(0.97)}',
+  '.wim-new{position:relative;overflow:hidden}.wim-new::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:50%;background:linear-gradient(105deg,rgba(255,255,255,0) 0%,rgba(255,255,255,0.75) 50%,rgba(255,255,255,0) 100%);animation:wimShimmer 6s linear infinite}',
+  '@keyframes wimShimmer{0%{transform:translateX(0)}40%{transform:translateX(340%)}100%{transform:translateX(340%)}}',
+  // accessibility: every animation collapses to its end state instantly
+  '@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:0.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}}',
+].join(' ');
+const EASE_OUT = 'cubic-bezier(0.22,1,0.36,1)';
+// wrong-moment: 3 horizontal oscillations + amber outline flash (never red)
+const WRONG_ANIM = 'wimShake 0.3s ease, wimFlashAmber 0.5s ease';
 const fmtPx = (v: number) => (v >= 1000 ? v.toFixed(0) : v >= 100 ? v.toFixed(1) : v.toFixed(2));
+
+// ── W5-A correct-moment: 8 thin violet strokes burst outward from the tapped
+// answer while the earned XP floats up 24px and fades. Pure CSS one-shots
+// (fill:forwards parks them invisible) — mounted once at reveal, zero cleanup.
+function CorrectBurst({ gain, xpLabel = 'XP' }: { gain: number; xpLabel?: string }) {
+  return (
+    <span aria-hidden style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+      <svg width="96" height="96" viewBox="-48 -48 96 96" style={{ position: 'absolute', overflow: 'visible', animation: 'wimBurst 450ms ease-out forwards' }}>
+        {Array.from({ length: 8 }).map((_, i) => {
+          const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+          const c = Math.cos(a); const s = Math.sin(a);
+          return <line key={i} x1={(c * 14).toFixed(1)} y1={(s * 14).toFixed(1)} x2={(c * 34).toFixed(1)} y2={(s * 34).toFixed(1)} stroke={P.hero} strokeWidth="2" strokeLinecap="round" />;
+        })}
+      </svg>
+      {gain > 0 && (
+        <span style={{ position: 'absolute', top: -12, animation: 'wimXpFloat 700ms ease-out forwards', fontSize: 12.5, fontWeight: 900, color: P.heroDeep, fontVariantNumeric: 'tabular-nums', textShadow: '0 1px 0 rgba(255,255,255,0.9)', opacity: 0 }}>+{gain} {xpLabel}</span>
+      )}
+    </span>
+  );
+}
+
+// ── W5-A open/close chrome shared by every full-screen play + the quiz:
+// backdrop fades in while the sheet slides up 24px (260ms); closing is a quick
+// 150ms fade (the parent unmounts after it). Never blocks interaction.
+function PlayShell({ closing, children }: { closing: boolean; children: ReactNode }) {
+  return (
+    <div style={closing ? { animation: 'wimFadeOut 0.15s ease both', pointerEvents: 'none' } : undefined}>
+      <style>{WIM_KEYFRAMES}</style>
+      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'rgba(38,34,64,0.30)', animation: 'wimFadeIn 0.26s ease both' }} />
+      {/* no fill-mode on purpose: a lingering transform would become the containing
+          block for fixed children (glossary sheet, toasts) and break their anchoring */}
+      <div style={{ position: 'relative', zIndex: 1, animation: `wimSlideUp 0.26s ${EASE_OUT}` }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // top bar shared by both plays — same skeleton as the quiz overlay's (back + progress + chip)
 function PlayTopBar({ onClose, backLabel, prog, chip }: { onClose: () => void; backLabel: string; prog: number; chip?: string | null }) {
@@ -1046,7 +1136,6 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <style>{PLAY_KEYFRAMES}</style>
       <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
         <PlayTopBar
           onClose={onClose}
@@ -1060,7 +1149,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
 
         {playable && phase === 'play' && cur && (
           <>
-            <div style={{ marginTop: 14, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px', animation: 'wimUp 0.3s ease' }}>
+            <div style={{ marginTop: 14, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px', animation: `wimUp 0.26s ${EASE_OUT} 90ms both` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TickerLogo ticker={ticker} size={28} />
                 <span style={{ fontSize: 14.5, fontWeight: 900 }}>{ticker}</span>
@@ -1075,7 +1164,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
             </div>
 
             {/* the LARGE draggable chart — touch-action none so dragging never scrolls */}
-            <div style={{ marginTop: 12, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '10px 8px 8px', animation: 'wimUp 0.35s ease' }}>
+            <div style={{ marginTop: 12, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '10px 8px 8px', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
               <div
                 ref={wrapRef}
                 onPointerDown={(e) => {
@@ -1106,12 +1195,15 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
                   ))}
                   {revealed && curResult && (
                     <g>
-                      <line x1="0" x2={cw} y1={yOf(curResult.actual)} y2={yOf(curResult.actual)} stroke={curResult.color} strokeWidth="1.8" strokeDasharray="5 4" />
-                      <text x="4" y={yOf(curResult.actual) - 5} fontSize="10.5" fontWeight="800" fill={curResult.color}>{curResult.label} ${fmtPx(curResult.actual)}</text>
+                      {/* resting dashed line fades in as the draw stroke lands */}
+                      <line x1="0" x2={cw} y1={yOf(curResult.actual)} y2={yOf(curResult.actual)} stroke={curResult.color} strokeWidth="1.8" strokeDasharray="5 4" style={{ animation: 'wimFadeIn 0.2s ease 0.42s both' }} />
+                      {/* the reveal: the actual level DRAWS itself left→right (500ms), then dissolves */}
+                      <line x1="0" x2={cw} y1={yOf(curResult.actual)} y2={yOf(curResult.actual)} stroke={curResult.color} strokeWidth="1.8" pathLength={100} strokeDasharray="100 100" style={{ animation: 'wimDrawLine 0.6s ease-out both' }} />
+                      <text x="4" y={yOf(curResult.actual) - 5} fontSize="10.5" fontWeight="800" fill={curResult.color} style={{ animation: 'wimFadeIn 0.25s ease 0.45s both' }}>{curResult.label} ${fmtPx(curResult.actual)}</text>
                     </g>
                   )}
                   {guess != null && (
-                    <line x1="0" x2={cw} y1={yOf(guess)} y2={yOf(guess)} stroke={P.heroDeep} strokeWidth="2" opacity={revealed ? 0.55 : 1} />
+                    <line x1="0" x2={cw} y1={yOf(guess)} y2={yOf(guess)} stroke={P.heroDeep} strokeWidth="2" opacity={revealed ? 0.55 : 1} style={revealed ? { animation: 'wimPulseOnce 0.6s ease both' } : undefined} />
                   )}
                   <text x={cw - 4} y="12" textAnchor="end" fontSize="9" fontWeight="800" fill={P.faint}>${fmtPx(lo + span)}</text>
                   <text x={cw - 4} y={CH - 4} textAnchor="end" fontSize="9" fontWeight="800" fill={P.faint}>${fmtPx(lo)}</text>
@@ -1129,8 +1221,12 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
             )}
             {revealed && curResult && (
               <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
-                <div style={{ marginTop: 14, textAlign: 'center', fontSize: 19, fontWeight: 900, color: curResult.gain >= XP_CORRECT ? P.mint : curResult.gain > 0 ? P.amber : P.sub }}>
-                  {curResult.gain >= XP_CORRECT ? t.huntGreat : curResult.gain > 0 ? t.huntNear : t.huntMiss}{curResult.gain > 0 ? ` +${curResult.gain}XP` : ''}
+                {/* judgment chip: spring pop-in + stroke burst when the guess scored */}
+                <div style={{ marginTop: 14, textAlign: 'center' }}>
+                  <span style={{ position: 'relative', display: 'inline-block', padding: '0 6px', fontSize: 19, fontWeight: 900, color: curResult.gain >= XP_CORRECT ? P.mint : curResult.gain > 0 ? P.amber : P.sub, animation: 'wimJudge 0.35s ease both' }}>
+                    {curResult.gain > 0 && <CorrectBurst gain={0} />}
+                    {curResult.gain >= XP_CORRECT ? t.huntGreat : curResult.gain > 0 ? t.huntNear : t.huntMiss}{curResult.gain > 0 ? ` +${curResult.gain}XP` : ''}
+                  </span>
                 </div>
                 <div style={{ marginTop: 10, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
@@ -1144,7 +1240,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
                       <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.09em', color: P.faint }}>{t.yourLine.toUpperCase()}</div>
                       <div style={{ fontSize: 24, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>${fmtPx(curResult.guess)}</div>
                     </div>
-                    <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '5px 11px', fontVariantNumeric: 'tabular-nums' }}>{t.huntDiff} {curResult.distPct.toFixed(1)}%</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '5px 11px', fontVariantNumeric: 'tabular-nums' }}>{t.huntDiff} <CountUp value={Number(curResult.distPct.toFixed(1))} decimals={1} duration={500} delay={450} />%</span>
                   </div>
                   <p style={{ margin: '11px 0 0', fontSize: 13, lineHeight: 1.65, fontWeight: 650 as any, color: P.sub }}>{cur.meaning}</p>
                 </div>
@@ -1296,7 +1392,6 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, is
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <style>{PLAY_KEYFRAMES}</style>
       <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
         <PlayTopBar
           onClose={onClose}
@@ -1310,7 +1405,7 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, is
 
         {playable && phase === 'play' && q && (
           <>
-            <div style={{ marginTop: 16, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '18px 16px', textAlign: 'center', animation: 'wimUp 0.3s ease' }}>
+            <div style={{ marginTop: 16, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '18px 16px', textAlign: 'center', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <TickerLogo ticker={q.ticker} size={30} />
                 <span style={{ fontSize: 15.5, fontWeight: 900 }}>{q.ticker}</span>
@@ -1321,26 +1416,28 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, is
             </div>
 
             {/* two big buttons — violet both ways (no direction hype colors) */}
-            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 14, animation: `wimUp 0.26s ${EASE_OUT} 90ms both` }}>
               {[true, false].map((h) => {
                 const isPick = picked === h;
                 const isAnswer = q.answerHigher === h;
                 const revealedNow = picked != null;
-                const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.coralSoft : '#fff';
-                const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.coral : P.line;
+                const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.amberSoft : '#fff';
+                const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.amber : P.line;
                 return (
                   <button
                     key={String(h)} type="button" disabled={revealedNow} onClick={() => pick(h)}
                     style={{
-                      font: 'inherit', flex: 1, cursor: revealedNow ? 'default' : 'pointer',
+                      font: 'inherit', flex: 1, cursor: revealedNow ? 'default' : 'pointer', position: 'relative',
                       background: bg, border: `2px solid ${border}`, borderRadius: 20, padding: '18px 0',
                       fontSize: 16, fontWeight: 900, color: P.ink,
                       boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                      animation: revealedNow && isPick && !isAnswer ? WRONG_ANIM : undefined,
                     }}
                   >
                     <Ic name={h ? 'chevUp' : 'chevDown'} size={22} color={P.heroDeep} sw={2.4} />
                     {h ? t.senseHigher : t.senseLower}
+                    {revealedNow && isPick && isAnswer && <CorrectBurst gain={XP_TRIED} />}
                   </button>
                 );
               })}
@@ -1348,7 +1445,7 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, is
 
             {picked != null && (
               <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
-                <div style={{ marginTop: 14, textAlign: 'center', fontSize: 18, fontWeight: 900, color: picked === q.answerHigher ? P.mint : P.coral }}>
+                <div style={{ marginTop: 14, textAlign: 'center', fontSize: 18, fontWeight: 900, color: picked === q.answerHigher ? P.mint : P.amber, animation: 'wimJudge 0.35s ease both' }}>
                   {picked === q.answerHigher ? `${t.correct} +${XP_TRIED}XP` : t.notQuite}
                 </div>
                 <div style={{ marginTop: 10, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '16px', textAlign: 'center' }}>
@@ -1539,7 +1636,6 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <style>{PLAY_KEYFRAMES}</style>
       <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
         <PlayTopBar
           onClose={onClose}
@@ -1553,7 +1649,7 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
         {playable && unit && closes && domain && (
           <>
             {/* the session chart, drawing itself — fixed domain, resolved bars only */}
-            <div style={{ marginTop: 14, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px 10px', animation: 'wimUp 0.3s ease' }}>
+            <div style={{ marginTop: 14, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px 10px', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TickerLogo ticker={unit.ticker} size={28} />
                 <span style={{ fontSize: 14.5, fontWeight: 900 }}>{unit.ticker}</span>
@@ -1565,7 +1661,7 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
                   <Ic name="replay" size={13} color={P.hero} /> {t.replayHint}
                 </div>
               )}
-              <div ref={wrapRef} style={{ marginTop: 8 }}>
+              <div ref={wrapRef} style={{ marginTop: 8, position: 'relative' }}>
                 <svg viewBox={`0 0 ${cw} ${CH}`} style={{ width: '100%', height: CH, display: 'block' }} aria-hidden>
                   <defs>
                     <linearGradient id="wimReplayFill" x1="0" y1="0" x2="0" y2="1">
@@ -1579,10 +1675,14 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
                   {cps.map((c, i) => (answers[i]
                     ? <circle key={c.kind} cx={x(c.idx).toFixed(1)} cy={yOf(closes[c.idx]).toFixed(1)} r="3.5" fill={P.amber} stroke="#fff" strokeWidth="1.2" />
                     : null))}
+                  {/* soft pulsing halo around the leading dot (ambient CSS loop) */}
+                  <circle cx={x(vi - 1).toFixed(1)} cy={yOf(closes[vi - 1]).toFixed(1)} r="9" fill={P.heroDeep} style={{ animation: 'wimHalo 1.6s ease-in-out infinite', transformBox: 'fill-box', transformOrigin: 'center' }} />
                   <circle cx={x(vi - 1).toFixed(1)} cy={yOf(closes[vi - 1]).toFixed(1)} r="4.5" fill={P.heroDeep} stroke="#fff" strokeWidth="1.6" />
                   <text x={cw - 4} y="12" textAnchor="end" fontSize="9" fontWeight="800" fill={P.faint}>${fmtPx(domain.hi)}</text>
                   <text x={cw - 4} y={CH - 4} textAnchor="end" fontSize="9" fontWeight="800" fill={P.faint}>${fmtPx(domain.lo)}</text>
                 </svg>
+                {/* "time freezes": the drawn chart dims slightly while a question is open */}
+                <div aria-hidden style={{ position: 'absolute', inset: 0, background: P.ink, opacity: cpOpen != null ? 0.12 : 0, transition: 'opacity 0.24s ease', pointerEvents: 'none', borderRadius: 10 }} />
               </div>
               {vwPath && (
                 <div style={{ padding: '2px 2px 0', fontSize: 9.5, fontWeight: 800, color: P.amber }}>― ― {t.vwapLine}</div>
@@ -1620,9 +1720,9 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
               )}
             </div>
 
-            {/* checkpoint question — asks only about what is already on screen */}
+            {/* checkpoint question — slides in from the bottom while the chart freezes */}
             {cp && (
-              <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
+              <div style={{ animation: `wimUp 0.24s ${EASE_OUT} both` }}>
                 <div style={{ marginTop: 12, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px' }}>
                   <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', color: P.hero }}>{t.replayCheckpoint.toUpperCase()} {(cpOpen as number) + 1}/{cps.length}</div>
                   <h2 style={{ margin: '7px 0 0', fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.35 }}>{cp.q}</h2>
@@ -1631,20 +1731,21 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
                       const revealedNow = !!cpAns;
                       const isPick = cpAns?.pick === oi;
                       const isAnswer = cp.correct === oi;
-                      const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.coralSoft : '#fff';
-                      const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.coral : P.line;
+                      const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.amberSoft : '#fff';
+                      const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.amber : P.line;
                       return (
-                        <button key={o} type="button" disabled={revealedNow} onClick={() => pickCp(oi)} style={{ font: 'inherit', textAlign: 'left', cursor: revealedNow ? 'default' : 'pointer', background: bg, border: `2px solid ${border}`, borderRadius: 15, padding: '12px 13px', fontSize: 13.5, fontWeight: 800, color: P.ink, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8, boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)' }}>
+                        <button key={o} type="button" disabled={revealedNow} onClick={() => pickCp(oi)} style={{ font: 'inherit', textAlign: 'left', cursor: revealedNow ? 'default' : 'pointer', position: 'relative', background: bg, border: `2px solid ${border}`, borderRadius: 15, padding: '12px 13px', fontSize: 13.5, fontWeight: 800, color: P.ink, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8, boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)', animation: revealedNow && isPick && !isAnswer ? WRONG_ANIM : undefined }}>
                           <span style={{ flex: 1 }}>{o}</span>
                           {revealedNow && isAnswer && <Ic name="check" size={16} color={P.mint} sw={2.6} />}
-                          {revealedNow && isPick && !isAnswer && <Ic name="close" size={14} color={P.coral} sw={2.4} />}
+                          {revealedNow && isPick && !isAnswer && <Ic name="close" size={14} color={P.amber} sw={2.4} />}
+                          {revealedNow && isPick && isAnswer && <CorrectBurst gain={XP_TRIED} />}
                         </button>
                       );
                     })}
                   </div>
                   {cpAns && (
                     <div style={{ animation: 'wimUp 0.3s ease' }}>
-                      <div style={{ marginTop: 12, textAlign: 'center', fontSize: 16, fontWeight: 900, color: cpAns.ok ? P.mint : P.coral }}>
+                      <div style={{ marginTop: 12, textAlign: 'center', fontSize: 16, fontWeight: 900, color: cpAns.ok ? P.mint : P.amber, animation: 'wimJudge 0.35s ease both' }}>
                         {cpAns.ok ? `${t.correct} +${XP_TRIED}XP` : t.notQuite}
                       </div>
                       <div style={{ marginTop: 5, textAlign: 'center', fontSize: 12, fontWeight: 800, color: P.sub, fontVariantNumeric: 'tabular-nums' }}>{cp.fact}</div>
@@ -1792,7 +1893,6 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <style>{PLAY_KEYFRAMES}</style>
       <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
         <PlayTopBar
           onClose={onClose}
@@ -1807,7 +1907,7 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
         {playable && (
           <>
             {/* headline card — today's real macro item, big numbers roll up */}
-            <div style={{ marginTop: 14, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, borderRadius: 22, padding: '15px 16px', color: '#fff', boxShadow: P.shadow, animation: 'wimUp 0.3s ease' }}>
+            <div style={{ marginTop: 14, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, borderRadius: 22, padding: '15px 16px', color: '#fff', boxShadow: P.shadow, animation: `wimUp 0.26s ${EASE_OUT} both` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <Ic name="bank" size={14} color="#FFD66B" />
                 <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.1em', color: '#FFD66B' }}>{t.dominoHeader.toUpperCase()}</span>
@@ -1847,7 +1947,7 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
 
             {/* chain header */}
             {phase === 'play' && (
-              <div style={{ marginTop: 16, padding: '0 2px' }}>
+              <div style={{ marginTop: 16, padding: '0 2px', animation: `wimUp 0.26s ${EASE_OUT} 90ms both` }}>
                 <div style={{ fontSize: 14.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="chain" size={15} color={P.heroDeep} sw={2} /> {t.dominoChainTitle}</div>
                 <div style={{ marginTop: 2, fontSize: 11, fontWeight: 700, color: P.sub }}>{t.dominoChainSub}</div>
               </div>
@@ -1860,7 +1960,10 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
               const isLocked = !ans && !isOpen;
               const connector = (
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <div style={{ width: 2.5, height: 16, borderRadius: 99, background: answers[i - 1] ? P.hero : P.line }} />
+                  <div style={{ width: 2.5, height: 18, borderRadius: 99, background: P.line, overflow: 'hidden' }}>
+                    {/* domino physics: the segment FILLS downward when the node above completes */}
+                    <div style={{ width: '100%', height: '100%', borderRadius: 99, background: P.hero, transform: answers[i - 1] ? 'scaleY(1)' : 'scaleY(0)', transformOrigin: 'top', transition: 'transform 0.4s ease' }} />
+                  </div>
                 </div>
               );
               if (isLocked) {
@@ -1883,7 +1986,7 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ width: 26, height: 26, borderRadius: 9, background: P.hero, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff' }}>{i + 1}</span>
                         <span style={{ fontSize: 13.5, fontWeight: 900 }}>{nd.title}</span>
-                        <span style={{ marginLeft: 'auto', color: ans.ok ? P.mint : P.coral }}><Ic name={ans.ok ? 'check' : 'close'} size={14} sw={2.4} /></span>
+                        <span style={{ marginLeft: 'auto', color: ans.ok ? P.mint : P.amber }}><Ic name={ans.ok ? 'check' : 'close'} size={14} sw={2.4} /></span>
                       </div>
                       {nd.stats.length > 0 && (
                         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
@@ -1898,7 +2001,8 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
               return (
                 <div key={nd.title}>
                   {i > 0 && connector}
-                  <div style={{ background: '#fff', borderRadius: 20, border: `1.5px solid ${P.hero}55`, boxShadow: P.shadow, padding: '14px 15px', animation: 'wimUp 0.3s ease' }}>
+                  {/* the next domino "falls" into place: tiny tilt + settle as it opens */}
+                  <div style={{ background: '#fff', borderRadius: 20, border: `1.5px solid ${P.hero}55`, boxShadow: P.shadow, padding: '14px 15px', animation: `wimTilt 0.3s ${EASE_OUT} both` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ width: 26, height: 26, borderRadius: 9, background: P.hero, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff' }}>{i + 1}</span>
                       <span style={{ fontSize: 14, fontWeight: 900 }}>{nd.title}</span>
@@ -1914,18 +2018,19 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
                             const revealedNow = !!ans;
                             const isPick = ans?.pick === oi;
                             const isAnswer = nd.correct === oi;
-                            const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.coralSoft : '#fff';
-                            const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.coral : P.line;
+                            const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.amberSoft : '#fff';
+                            const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.amber : P.line;
                             return (
-                              <button key={o} type="button" disabled={revealedNow} onClick={() => pick(oi)} style={{ font: 'inherit', flex: 1, cursor: revealedNow ? 'default' : 'pointer', background: bg, border: `2px solid ${border}`, borderRadius: 15, padding: '13px 8px', fontSize: 13.5, fontWeight: 900, color: P.ink, lineHeight: 1.35, boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)' }}>
+                              <button key={o} type="button" disabled={revealedNow} onClick={() => pick(oi)} style={{ font: 'inherit', flex: 1, cursor: revealedNow ? 'default' : 'pointer', position: 'relative', background: bg, border: `2px solid ${border}`, borderRadius: 15, padding: '13px 8px', fontSize: 13.5, fontWeight: 900, color: P.ink, lineHeight: 1.35, boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)', animation: revealedNow && isPick && !isAnswer ? WRONG_ANIM : undefined }}>
                                 {o}
+                                {revealedNow && isPick && isAnswer && <CorrectBurst gain={XP_TRIED} />}
                               </button>
                             );
                           })}
                         </div>
                         {ans && (
                           <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
-                            <div style={{ marginTop: 12, textAlign: 'center', fontSize: 16, fontWeight: 900, color: ans.ok ? P.mint : P.coral }}>
+                            <div style={{ marginTop: 12, textAlign: 'center', fontSize: 16, fontWeight: 900, color: ans.ok ? P.mint : P.amber, animation: 'wimJudge 0.35s ease both' }}>
                               {ans.ok ? `${t.correct} +${XP_TRIED}XP` : t.notQuite}
                             </div>
                             {nd.stats.length > 0 && (
@@ -2009,11 +2114,17 @@ export default function WimPage() {
   const [labs, setLabs] = useState<Record<string, LabData>>({});
   // W2: play overlays + overlay-unlock stage 1 (levels layer on the hero chart)
   const [playOpen, setPlayOpen] = useState<'hunt' | 'sense' | 'replay' | 'domino' | null>(null);
+  // W5-A: closing a play/quiz fades the sheet out (150ms one-shot timer) before unmount
+  const [playClosing, setPlayClosing] = useState(false);
+  const [quizClosing, setQuizClosing] = useState(false);
+  const quizCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // W4: SRS-lite store (per-term wrong/right/last) + ET weekend flag (P6 review mode)
   const srsRef = useRef<Record<string, SrsEntry>>({});
   const weekendET = useMemo(() => isWeekendET(), []);
   const [unlockLevels, setUnlockLevels] = useState(false);
   const [unlockToast, setUnlockToast] = useState(false);
+  // W5-A: first-unlock full-screen drama (plays on home, then hands off to the toast)
+  const [unlockDrama, setUnlockDrama] = useState(false);
   // W3: concept almanac — collected concept cards, each stamped with the day's chart
   const almanacRef = useRef<Record<string, AlmanacEntry>>({});
   const [almanac, setAlmanac] = useState<Record<string, AlmanacEntry>>({});
@@ -2104,6 +2215,8 @@ export default function WimPage() {
   // ── quiz timer (8s, first-ever play = off, timeout just reveals — no penalty) ──
   const stopTimer = useCallback(() => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } }, []);
   const startQuiz = useCallback((idx: number) => {
+    if (quizCloseTimer.current) { clearTimeout(quizCloseTimer.current); quizCloseTimer.current = null; }
+    setQuizClosing(false);
     setActiveIdx(idx); setPicked(null); setDeepOpen(false); setRemain(8);
     stopTimer();
     if (everPlayed) {
@@ -2146,13 +2259,19 @@ export default function WimPage() {
   }, [picked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeQuiz = useCallback((finishedAll: boolean) => {
-    stopTimer(); setActiveIdx(null); setPicked(null); setDeepOpen(false);
+    stopTimer();
+    // W5-A: quick 150ms fade, then unmount (one-shot timer — no per-frame state)
+    setQuizClosing(true);
+    quizCloseTimer.current = setTimeout(() => {
+      quizCloseTimer.current = null;
+      setQuizClosing(false); setActiveIdx(null); setPicked(null); setDeepOpen(false);
+      window.scrollTo(0, 0);
+    }, 150);
     if (finishedAll && !setDoneShown) {
       setSetDoneShown(true);
       // ② interstitial slot — fires here when ads go live (one per set, capped)
       // if (WIM_ADS_LIVE) showWimInterstitial();
     }
-    window.scrollTo(0, 0);
   }, [stopTimer, setDoneShown]);
 
   // ── W3: almanac collect — first proof of a concept (top-tier play answer or a
@@ -2229,11 +2348,16 @@ export default function WimPage() {
     if (unlockLevels) return false;
     setUnlockLevels(true);
     persist('wim.unlock.levels', '1');
-    setUnlockToast(true);
+    setUnlockDrama(true); // W5-A: full-screen drama first — it hands off to the toast
     return true;
   }, [unlockLevels, persist]);
 
-  const openPlay = useCallback((id: 'hunt' | 'sense' | 'replay' | 'domino') => { setPlayOpen(id); window.scrollTo(0, 0); }, []);
+  const openPlay = useCallback((id: 'hunt' | 'sense' | 'replay' | 'domino') => { setPlayClosing(false); setPlayOpen(id); window.scrollTo(0, 0); }, []);
+  // W5-A: closing a play = 150ms fade-out, then unmount (single one-shot timer)
+  const closePlay = useCallback(() => {
+    setPlayClosing(true);
+    window.setTimeout(() => { setPlayOpen(null); setPlayClosing(false); window.scrollTo(0, 0); }, 150);
+  }, []);
 
   // once unlocked, the home hero chart needs the hero ticker's lab levels
   useEffect(() => {
@@ -2246,6 +2370,25 @@ export default function WimPage() {
     const id = setTimeout(() => setUnlockToast(false), 4000);
     return () => clearTimeout(id);
   }, [unlockToast, playOpen, activeIdx]);
+
+  // W5-A unlock drama: a 1.4s full-screen moment on the home screen (tap to skip),
+  // a 0.3s collapse toward the hero, then the classic toast takes over
+  const endUnlockDrama = useCallback(() => { setUnlockDrama(false); setUnlockToast(true); }, []);
+  useEffect(() => {
+    if (!unlockDrama || playOpen != null || activeIdx != null) return;
+    const id = setTimeout(endUnlockDrama, 1700);
+    return () => clearTimeout(id);
+  }, [unlockDrama, playOpen, activeIdx, endUnlockDrama]);
+
+  // W5-A: miniature chart for the unlock drama — the hero's real session when available
+  const dramaPath = useMemo(() => {
+    const src = heroU?.spark?.closes;
+    if (!src || src.length < 8) return 'M0,74 C30,70 45,40 70,44 C95,48 105,86 140,80 C175,74 185,30 220,34 C250,37 265,58 280,52';
+    const step = Math.max(1, Math.floor(src.length / 48));
+    const pts = src.filter((_, i) => i % step === 0 || i === src.length - 1);
+    const lo = Math.min(...pts); const hi = Math.max(...pts); const span = hi - lo || 1;
+    return pts.map((v, i) => `${i === 0 ? 'M' : 'L'}${((i / Math.max(1, pts.length - 1)) * 280).toFixed(1)},${(112 - ((v - lo) / span) * 96).toFixed(1)}`).join(' ');
+  }, [heroU]);
 
   const disclaimerText = units[0]?.disclaimer?.[loc] || (loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.');
 
@@ -2267,8 +2410,8 @@ export default function WimPage() {
     const isLast = activeIdx >= units.length - 1;
     const allDoneAfter = units.every((x) => x.id === u.id ? true : !!done[x.id]);
     return (
-      <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif" }}>
-        <style>{`@keyframes wimPop{0%{transform:scale(0.86);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}} @keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+      <PlayShell closing={quizClosing}>
+      <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
         <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
           {/* top bar: close + progress + countdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + env(safe-area-inset-top))' }}>
@@ -2288,7 +2431,7 @@ export default function WimPage() {
           )}
 
           {/* mover card — NO direction arrows/colors (compliance): magnitude only */}
-          <div style={{ marginTop: 16, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '20px 18px', textAlign: 'center', animation: 'wimUp 0.35s ease' }}>
+          <div style={{ marginTop: 16, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '20px 18px', textAlign: 'center', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
               <TickerLogo ticker={u.ticker} size={34} />
               <div style={{ textAlign: 'left', minWidth: 0 }}>
@@ -2315,23 +2458,24 @@ export default function WimPage() {
           </div>
 
           {/* choices — full-width vertical stack (CJK-safe), 3D press */}
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10, animation: `wimUp 0.26s ${EASE_OUT} 90ms both` }}>
             {u.choices.map((c) => {
               const isPick = picked === c.categoryId;
               const isAnswer = u.correctCategoryIds.includes(c.categoryId);
-              const bg = !revealed ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.coralSoft : '#fff';
-              const border = !revealed ? P.line : isAnswer ? P.mint : isPick ? P.coral : P.line;
+              const bg = !revealed ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.amberSoft : '#fff';
+              const border = !revealed ? P.line : isAnswer ? P.mint : isPick ? P.amber : P.line;
               return (
                 <button
                   key={c.id} type="button" disabled={revealed}
                   onClick={() => answer(u, c.categoryId)}
                   style={{
-                    font: 'inherit', textAlign: 'left', cursor: revealed ? 'default' : 'pointer',
+                    font: 'inherit', textAlign: 'left', cursor: revealed ? 'default' : 'pointer', position: 'relative',
                     background: bg, border: `2px solid ${border}`, borderRadius: 18,
                     padding: '14px 15px', fontSize: 14, fontWeight: 750 as any, color: P.ink, lineHeight: 1.4,
                     boxShadow: revealed ? 'none' : '0 3px 0 rgba(76,63,175,0.12)',
                     transition: 'transform 0.08s ease, box-shadow 0.08s ease',
                     display: 'flex', alignItems: 'center', gap: 10,
+                    animation: revealed && isPick && !isAnswer ? WRONG_ANIM : undefined,
                   }}
                   onTouchStart={(e) => { if (!revealed) (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(2px)'; }}
                   onTouchEnd={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
@@ -2339,7 +2483,8 @@ export default function WimPage() {
                   <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 12, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: P.heroDeep }}><Ic name={CAT_ICON[c.categoryId] || 'target'} size={17} /></span>
                   <span style={{ flex: 1 }}>{c.label[loc]}</span>
                   {revealed && isAnswer && <Ic name="check" size={18} color={P.mint} sw={2.6} />}
-                  {revealed && isPick && !isAnswer && <Ic name="close" size={16} color={P.coral} sw={2.4} />}
+                  {revealed && isPick && !isAnswer && <Ic name="close" size={16} color={P.amber} sw={2.4} />}
+                  {revealed && isPick && isAnswer && <CorrectBurst gain={XP_CORRECT} />}
                 </button>
               );
             })}
@@ -2348,7 +2493,7 @@ export default function WimPage() {
           {/* reveal */}
           {revealed && (
             <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
-              <div style={{ marginTop: 16, textAlign: 'center', fontSize: 20, fontWeight: 900, color: wasCorrect ? P.mint : P.coral }}>
+              <div style={{ marginTop: 16, textAlign: 'center', fontSize: 20, fontWeight: 900, color: wasCorrect ? P.mint : P.amber, animation: 'wimJudge 0.35s ease both' }}>
                 {wasCorrect ? `${t.correct} +${XP_CORRECT}XP` : `${t.notQuite} +${XP_TRIED}XP`}
               </div>
 
@@ -2433,7 +2578,9 @@ export default function WimPage() {
                 onClick={() => { if (isLast || allDoneAfter) closeQuiz(true); else startQuiz(activeIdx + 1); }}
                 style={{ font: 'inherit', width: '100%', marginTop: 15, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}
               >
-                {isLast || allDoneAfter ? `🏁 ${t.finish}` : `${t.next} →`}
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  {isLast || allDoneAfter ? <><Ic name="flag" size={16} color="#fff" sw={2.2} /> {t.finish}</> : `${t.next} →`}
+                </span>
               </button>
             </div>
           )}
@@ -2445,13 +2592,14 @@ export default function WimPage() {
         {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
         {almToastNode}
       </div>
+      </PlayShell>
     );
   }
 
   // ════════════════════════ PLAY OVERLAYS (P3 level hunt · P4 number sense · P2 replay · P5 macro domino) ════════════════════════
   if (playOpen === 'hunt' && heroU) {
     return (
-      <>
+      <PlayShell closing={playClosing}>
         <LevelHuntPlay
           ticker={heroU.ticker}
           fallbackCloses={heroU.spark?.closes || null}
@@ -2461,16 +2609,16 @@ export default function WimPage() {
           onCollect={collectAlmanac}
           onSrs={srsRecord}
           onComplete={onHuntComplete}
-          onClose={() => setPlayOpen(null)}
+          onClose={closePlay}
           disclaimer={disclaimerText}
         />
         {almToastNode}
-      </>
+      </PlayShell>
     );
   }
   if (playOpen === 'sense' && units.length > 0) {
     return (
-      <>
+      <PlayShell closing={playClosing}>
         <NumberSensePlay
           tickers={Array.from(new Set(units.slice(0, 3).map((u) => u.ticker)))}
           requestLab={requestLab}
@@ -2479,16 +2627,16 @@ export default function WimPage() {
           onCollect={collectAlmanac}
           onSrs={srsRecord}
           isReviewDue={isReviewDue}
-          onClose={() => setPlayOpen(null)}
+          onClose={closePlay}
           disclaimer={disclaimerText}
         />
         {almToastNode}
-      </>
+      </PlayShell>
     );
   }
   if (playOpen === 'replay') {
     return (
-      <>
+      <PlayShell closing={playClosing}>
         <ReplayPlay
           unit={replayU}
           loc={loc}
@@ -2497,24 +2645,24 @@ export default function WimPage() {
           onCollect={collectAlmanac}
           onSrs={srsRecord}
           onOpenQuiz={() => { setPlayOpen(null); if (replayU) startQuiz(units.indexOf(replayU)); }}
-          onClose={() => setPlayOpen(null)}
+          onClose={closePlay}
           disclaimer={disclaimerText}
         />
         {almToastNode}
-      </>
+      </PlayShell>
     );
   }
   if (playOpen === 'domino') {
     return (
-      <>
+      <PlayShell closing={playClosing}>
         <MacroDominoPlay
           t={t}
           onAward={awardPlayXp}
-          onClose={() => setPlayOpen(null)}
+          onClose={closePlay}
           disclaimer={disclaimerText}
         />
         {almToastNode}
-      </>
+      </PlayShell>
     );
   }
 
@@ -2545,10 +2693,10 @@ export default function WimPage() {
   const weekendRank: Record<string, number> = { replay: 0, sense: 1, hunt: 2, domino: 3 };
   const deckPlays = weekendET ? [...playDefs].sort((a, b) => weekendRank[a.id] - weekendRank[b.id]) : playDefs;
   const playCards = deckPlays.map((tz) => (
-    <button key={tz.id} type="button" onClick={() => openPlay(tz.id)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', animation: 'wimUp 0.3s ease' }}>
+    <button key={tz.id} type="button" className="wim-press" onClick={() => openPlay(tz.id)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', animation: 'wimUp 0.3s ease' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ width: 28, height: 28, borderRadius: 10, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: P.heroDeep }}><Ic name={tz.icon} size={16} sw={2} /></span>
-        <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.hero, background: P.heroSoft, borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
+        <span className="wim-new" style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.hero, background: P.heroSoft, borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
       </div>
       <div style={{ marginTop: 12, fontSize: 14.5, fontWeight: 900, color: P.ink }}>{tz.title}</div>
       <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: P.sub, lineHeight: 1.45 }}>{tz.sub}</div>
@@ -2566,15 +2714,7 @@ export default function WimPage() {
 
   return (
     <div style={{ minHeight: '100vh', color: P.ink, fontFamily: "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif", background: 'linear-gradient(178deg, #D9D0FF 0%, #EDE8FF 36%, #F8F6FF 100%)', position: 'relative' }}>
-      <style>{`
-        @keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes wimFloat1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(24px,-30px) scale(1.12)}}
-        @keyframes wimFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,22px) scale(0.92)}}
-        @keyframes wimFloat3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(18px,26px) scale(1.08)}}
-        .wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite}
-        @keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}}
-        .no-sb::-webkit-scrollbar{display:none}
-      `}</style>
+      <style>{WIM_KEYFRAMES}</style>
 
       {/* floating gradient blobs — depth behind the glass */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
@@ -2665,7 +2805,7 @@ export default function WimPage() {
                     const lvLabel = u.difficultyLevel === 1 ? t.quizLv1 : u.difficultyLevel === 2 ? t.quizLv2 : t.quizLv3;
                     const lvColor = u.difficultyLevel === 1 ? P.mint : u.difficultyLevel === 2 ? P.amber : P.hero;
                     return (
-                      <button key={u.id} type="button" onClick={() => startQuiz(i)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', animation: 'wimUp 0.3s ease' }}>
+                      <button key={u.id} type="button" className="wim-press" onClick={() => startQuiz(i)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', animation: 'wimUp 0.3s ease' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <TickerLogo ticker={u.ticker} size={28} />
                           <span style={{ fontSize: 14.5, fontWeight: 900 }}>{u.ticker}</span>
@@ -2906,6 +3046,22 @@ export default function WimPage() {
 
       {/* W3: almanac collect toast */}
       {almToastNode}
+
+      {/* W5-A unlock drama — first hunt completion: 1.4s full-screen moment (dark
+          scrim → the real mini chart draws itself → MAX PAIN dashes sweep in), then
+          it collapses toward the hero and hands off to the toast. Tap to skip. */}
+      {unlockDrama && (
+        <div onClick={endUnlockDrama} role="button" aria-label={t.close} style={{ position: 'fixed', inset: 0, zIndex: 98, background: 'rgba(11,15,26,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', animation: 'wimFadeIn 0.2s ease both' }}>
+          <div style={{ width: 'min(78vw, 340px)', textAlign: 'center', animation: 'wimDramaOut 0.3s ease 1.4s forwards' }}>
+            <svg viewBox="0 0 280 120" style={{ width: '100%', display: 'block', overflow: 'visible' }} aria-hidden>
+              <path d={dramaPath} fill="none" stroke="#E9E4FF" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" pathLength={100} strokeDasharray="100 100" style={{ animation: 'wimDrawKeep 0.55s ease-out 0.15s both' }} />
+              <line x1="0" x2="280" y1="38" y2="38" stroke="#FFD66B" strokeWidth="1.8" strokeDasharray="6 5" style={{ animation: 'wimSweepIn 0.35s ease-out 0.7s both' }} />
+              <text x="276" y="30" textAnchor="end" fontSize="11" fontWeight="900" fill="#FFD66B" style={{ animation: 'wimFadeIn 0.3s ease 0.85s both' }}>MAX PAIN</text>
+            </svg>
+            <div style={{ marginTop: 14, fontSize: 15, fontWeight: 900, color: '#fff', letterSpacing: '0.02em', animation: 'wimFadeIn 0.3s ease 0.95s both' }}>MAX PAIN — {t.unlockDramaLabel}</div>
+          </div>
+        </div>
+      )}
 
       {/* one-time overlay-unlock toast — the hero chart grew a new layer */}
       {unlockToast && (
