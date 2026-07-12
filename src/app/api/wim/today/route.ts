@@ -52,6 +52,17 @@ function dateET(): string {
 function etDateOf(ms: number): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(ms));
 }
+// Weekend fix (2026-07-13, WIM_V2_SPEC §5): on ET Sat/Sun the movers pipeline is empty,
+// so generating under the weekend date produced 3 degraded units + a blank hero. The
+// market's "today" on a weekend IS Friday — key and generate under the last trading day,
+// so weekends serve Friday's full cache. (Market holidays not mapped — the value-movers
+// source still carries last-session data there; revisit only if a holiday blank shows.)
+function lastTradingDayET(): string {
+  const now = Date.now();
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date(now));
+  const backDays = wd === 'Sat' ? 1 : wd === 'Sun' ? 2 : 0;
+  return etDateOf(now - backDays * 86_400_000);
+}
 
 // 조언·예측 어휘 스캔 — 교육앱 절대선. 하나라도 걸리면 유닛 폐기.
 const FORBIDDEN = /매수|매도|추천|목표가를 제시|사세요|파세요|will rise|will fall|should buy|should sell|buy now|sell now|買うべき|売るべき|上がるだろう|下がるだろう/i;
@@ -68,7 +79,7 @@ function locFull(l: any): l is Loc {
 export async function GET(request: Request) {
   const { origin, searchParams } = new URL(request.url);
   const refresh = searchParams.get('refresh') === '1';
-  const today = dateET();
+  const today = lastTradingDayET(); // weekend → Friday (see lastTradingDayET)
   // v2: well-known-first selection + real intraday chart (5-min closes + VWAP) per unit
   const cacheKey = `wim:units:v2:${today}`;
 

@@ -44,6 +44,32 @@ async function warm(baseUrl: string, path: string): Promise<{ ok: boolean; ms: n
   }
 }
 
+// WIM warm (2026-07-13, WIM_V2_SPEC §5): wim/today is locale-independent (one cache for
+// ko/en/ja) but was pull-only — first visitor of a new ET day ate a ~40s cold generation
+// (blank hero). Two-step warm keeps the 4h freshness contract WITHOUT forcing a regen
+// every 15min (the unit AI call is 8k-token — refresh=1 each cycle would burn ~$ for
+// identical content): serve normally, regenerate only when the body says it is stale.
+async function warmWim(baseUrl: string): Promise<{ ok: boolean; ms: number; note?: string }> {
+  const t0 = Date.now();
+  try {
+    const res = await fetch(`${baseUrl}/api/wim/today`, {
+      signal: AbortSignal.timeout(58_000),
+      cache: 'no-store',
+      headers: {
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+          : {}),
+      },
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || body?.success === false) return { ok: false, ms: Date.now() - t0, note: `HTTP ${res.status}` };
+    if (body?._stale) return await warm(baseUrl, '/api/wim/today?refresh=1'); // >4h old → regenerate
+    return { ok: true, ms: Date.now() - t0 }; // fresh (or cold path just generated inline)
+  } catch (e: any) {
+    return { ok: false, ms: Date.now() - t0, note: e?.message || 'fetch failed' };
+  }
+}
+
 export async function GET(req: NextRequest) {
   // Security: CRON_SECRET check (same pattern as the other cron routes)
   const cronSecret = process.env.CRON_SECRET;
@@ -65,14 +91,16 @@ export async function GET(req: NextRequest) {
   // 1) feed ko — awaited alone so the shared core is rebuilt exactly once
   out['feed:ko'] = await warm(baseUrl, '/api/undercurrent/feed?locale=ko&limit=12&refresh=1');
 
-  // 2) feed en/ja (reuse the fresh core) + macro ×3 — all parallel
+  // 2) feed en/ja (reuse the fresh core) + macro ×3 + wim (locale-independent) — all parallel
   const wave = await Promise.all([
     ...(['en', 'ja'] as const).map((l) => warm(baseUrl, `/api/undercurrent/feed?locale=${l}&limit=12&refresh=1`)),
     ...LOCALES.map((l) => warm(baseUrl, `/api/undercurrent/macro?locale=${l}&refresh=1`)),
+    warmWim(baseUrl),
   ]);
   out['feed:en'] = wave[0];
   out['feed:ja'] = wave[1];
   LOCALES.forEach((l, i) => { out[`macro:${l}`] = wave[2 + i]; });
+  out['wim:today'] = wave[5];
 
   const failures = Object.entries(out).filter(([, v]) => !v.ok).map(([k]) => k);
   const summary = { success: failures.length === 0, failures, targets: out, totalMs: Date.now() - startTime };
