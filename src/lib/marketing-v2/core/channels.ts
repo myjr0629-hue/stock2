@@ -14,7 +14,8 @@ const CHANNELS: Channel[] = [
   // ── X (Twitter) — 새 플래그십 @signumhq (2026-07-11 개설, Premium+) ──
   { id: '6a518928404834462892924a', name: 'signumhq', platform: 'twitter', lang: 'en', enabled: true },
 
-  // ── X (ja) — 계정 개설 시 추가 (en/ja 쌍은 번역·현지화 작성만 — X 정책 명시 허용) ──
+  // ── X (ja) — @signumhq_jp (2026-07-11 개설, Premium+). en/ja 쌍은 번역·현지화 작성만 — X 정책 명시 허용 ──
+  { id: '6a53936480cc80cdcaa625d0', name: 'signumhq_jp', platform: 'twitter', lang: 'ja', enabled: true },
 
   // ── Bluesky (구 플릿에서 유일하게 유지 — 깨끗한 계정) ──
   { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ', platform: 'bluesky', lang: 'en', enabled: true },

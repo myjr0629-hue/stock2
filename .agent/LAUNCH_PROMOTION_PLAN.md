@@ -355,9 +355,17 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
 **새 X(en) @signumhq — 개설·세팅 완료 (실측 확인):**
 - 계정 개설(7/11) + **Premium+ 가입 완료** ("Verified since July 2026"). 표시 이름 SIGNUM HQ.
 - 프로필 완료: 헤더 배너 ✅ / Bio(영문 156자) ✅ / Location `US Markets` ✅ / Website `signumhq.com/app?from=x_bio` ✅ / 표시 언어 English ✅
-- **프로필 사진만 대기**: 이름/사진 변경 → X 인증 리뷰 발동, 리뷰 중 이름·사진 잠금 (정상 절차).
-  배지 복귀 후 업로드할 파일 = **`.agent/assets/x-avatar-512.png`** (네이비+흰S, 리포에 커밋됨).
-  배너 원본도 `.agent/assets/x-banner-1500x500.png` — **X(ja) 계정에도 동일 에셋 사용**.
+- ~~프로필 사진만 대기~~ → **리뷰 해제 완료, 프로필 사진 업로드 완료 (7/11 오후)**. 에셋 원본 =
+  `.agent/assets/x-avatar-512.png` + `x-banner-1500x500.png` (리포 커밋, en/ja 공용).
+
+**새 X(ja) @signumhq_jp — 개설·세팅·버퍼 연결까지 완료 (7/11 오후, 실측 확인):**
+- 표시 이름 **SIGNUM HQ Japan** (en과 구분 — 사칭 검사 마찰 예방). 핸들 @signumhq_jp.
+- **순서 교훈 적용 성공**: 프로필(사진·배너·Bio·Location `米国市場`·Website `signumhq.com/app?from=x_bio_jp`)
+  완성 → **마지막에 Premium+ 결제** → 리뷰 잠금 없이 배지 즉시 부여. (en 계정은 반대 순서라 하루 잠김 —
+  이후 계정 개설 시 반드시 이 순서로.)
+- 팔로우 시딩: 일본 米国株 코어(tapazou29·momiage0088·komcdspxl·utbuffett·FukuroStocks·KessanMan·
+  USStockhanako 등) + 미국 데이터 소스 — 일본 금융 그래프 분류 확인 (추천란에 일본 금융 계정 뜸).
+- 다운그레이드 리마인더(8/13)가 en/ja 모두 커버. **8/13 전까지 두 계정 이름·사진 변경 금지** (리뷰 재발동 방지).
 - 기본 팔로우 17개(테크 CEO) 전부 언팔 → 금융 시드 팔로우 완료: unusual_whales · KobeissiLetter ·
   CheddarFlow · spotgamma · Barchart · DeItaone · FirstSquawk (+마켓뉴스 브랜드) — FinTwit 그래프 시딩.
 - Country는 South Korea 유지 권고(결제 KRW 구독과 결합, 도달과 무관). Automation 라벨 절대 켜지 말 것.
@@ -365,11 +373,13 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
   09:00 KST, 1회성) — ⚠️ **PC에만 존재** (맥에는 없음). 내용: 2번째 결제 직후 Premium 다운그레이드 예약
   + Premium+ 기간 노출 데이터 캡처(자체 A/B용).
 
-**버퍼 — 채널 정리 완료 (API 실측 2026-07-11):**
-- 연결 4개: **twitter `signumhq` id `6a518928404834462892924a`(신규)** · bluesky `69ca84bb…`(유지) ·
-  youtube `69ca9615…` · tiktok `69ca95e7…` (영상 페이즈 대기 — 과금 절감 원하면 해제 가능)
+**버퍼 — 채널 정리 완료 (API 실측 2026-07-11, ja 연결 후 최종):**
+- 연결 5개: **twitter `signumhq` id `6a518928404834462892924a`** · **twitter `signumhq_jp` id
+  `6a53936480cc80cdcaa625d0`** · bluesky `69ca84bb…`(유지) · youtube `69ca9615…` · tiktok `69ca95e7…`
+  (영상 페이즈 대기 — 과금 절감 원하면 해제 가능)
 - 옛 13채널(X3·IG3·Threads3·Pinterest) 연결 해제 확인. 코드 레지스트리도 실측과 일치시킴
-  (marketing-v2 channels.ts + 레거시 bufferClient.ts, 커밋 `892cc9584`).
+  (marketing-v2 channels.ts + 레거시 bufferClient.ts — en/Bluesky `892cc9584`, ja 추가는 이 커밋).
+- **★ 확정 플랜의 계정 인프라(X en + X ja + Bluesky) 완성** — 남은 건 콘텐츠 운영뿐.
 - **Bluesky에 미응답 댓글 59개 발견** — crossvol.bsky.social 등에서 진지한 GEX/VIX 논의 답글이
   달리는 중 = 구 플릿에서 유일하게 실인게이지먼트 있는 채널. **사람이 답글 처리할 가치 있음** (답글 게임의 공짜 출발점).
 
@@ -380,8 +390,9 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
 - App Store 실ID **6783130444** (라이브, v1.0, 무료 — iTunes lookup 실측).
 
 **다음 순서 (어느 머신이든 이어가기):**
-1. 배지 복귀 → 아바타 업로드 → **첫 포스트** (미국장 KST 22:30~, 사건보도 포맷, Claude가 실데이터 3안 작성)
-2. X(ja) 개설(+Premium+, 웹 결제) → 버퍼 연결 → channels.ts/bufferClient.ts에 ja 1줄 추가
+1. ~~배지 복귀 → 아바타 업로드~~ ✅ / ~~X(ja) 개설 → 버퍼 연결 → 코드 반영~~ ✅ (7/11 완료)
+2. **첫 포스트 — 월요일 밤 미국장 개장(KST 22:30~)**: en/ja 동시, 사건보도 포맷(§4-6.9 레시피),
+   Claude가 실데이터 3안씩 작성 → 사람이 발행. 이것이 다음 액션.
 3. **seed-kit 크론 구축** (§4-6.5 아키텍처: Vercel 사건탐지+7중 안전장치 / 글쓰기 루틴 / 주간 성적표) — 트리거 충족됨, 착수 대기
 4. Bluesky 미응답 59개 답글 처리 (사람)
 

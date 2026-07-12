@@ -26,7 +26,7 @@ export interface BufferChannel {
 const CHANNEL_MAP: BufferChannel[] = [
   // --- Tier 1: Core conversion channels ---
   { id: '6a518928404834462892924a', name: 'signumhq',  service: 'twitter', tier: 1, lang: 'en' }, // NEW @signumhq (2026-07-11, Premium+)
-  // X (ja): add here when the account is created — translated/localized pair posts only.
+  { id: '6a53936480cc80cdcaa625d0', name: 'signumhq_jp', service: 'twitter', tier: 1, lang: 'ja' }, // NEW @signumhq_jp (2026-07-11, Premium+) — translated/localized pair posts only
 
   // --- Tier 2: Brand awareness ---
   { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ', service: 'bluesky', tier: 2, lang: 'en' },
