@@ -70,6 +70,8 @@ const ICON_PATHS: Record<string, string> = {
   spark: 'M12 2.5 13.8 9l6.7 1.8-6.7 1.7L12 19.2l-1.8-6.7L3.5 10.8 10.2 9 12 2.5Z',
   crosshair: 'M12 2.5v3.5M12 18v3.5M2.5 12H6M18 12h3.5M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z',
   updown: 'M7.5 9.5 12 5l4.5 4.5M7.5 14.5 12 19l4.5-4.5',
+  chevUp: 'M5.5 14.5 12 8l6.5 6.5',
+  chevDown: 'M5.5 9.5 12 16l6.5-6.5',
 };
 function Ic({ name, size = 18, color = 'currentColor', sw = 1.8, fill = false }: { name: string; size?: number; color?: string; sw?: number; fill?: boolean }) {
   return (
@@ -314,6 +316,31 @@ const T: Record<Lang, Record<string, string>> = {
     teaserHunt: '레벨 헌트', teaserHuntSub: '실제 차트 위에서 기관 레벨 찾기',
     teaserSense: '숫자 감각', teaserSenseSub: '오늘 지표, 위였을까 아래였을까',
     sessionPre: '프리', sessionReg: '본장', sessionPost: '애프터',
+    newPlay: '신규', nextRound: '다음 라운드', seeResults: '결과 보기',
+    noData: '오늘은 이 데이터가 없어요', noDataSub: '다음 장이 끝나면 다시 열어봐요',
+    unlockToast: '차트에 새 층이 열렸어요 — 맥스페인',
+    huntPromptMaxPain: '이 종목의 맥스페인(옵션 자석 가격)은 어디일까?',
+    huntPromptCallWall: '콜월(콜이 가장 쌓인 천장)은 어디였을까?',
+    huntPromptPutFloor: '풋플로어(풋이 가장 쌓인 바닥)는 어디였을까?',
+    huntMeanMaxPain: '맥스페인은 옵션 보유자 전체의 손실이 가장 커지는 가격 — 만기 근처에서 가격이 이 부근을 맴도는 모습이 자주 관찰돼요.',
+    huntMeanCallWall: '콜월은 콜 옵션이 가장 많이 쌓인 행사가 — 그 근처에서 위쪽 움직임이 무거워지는 모습이 관찰되곤 해요.',
+    huntMeanPutFloor: '풋플로어는 풋 옵션이 가장 많이 쌓인 행사가 — 아래에서 받침대처럼 작동하는 모습이 관찰되곤 해요.',
+    huntDragHint: '차트를 위아래로 드래그해 선을 놓아보세요',
+    huntConfirm: '이 위치로 확정',
+    huntGreat: '대박! 거의 정확해요', huntNear: '좋아요, 꽤 가까웠어요', huntMiss: '괜찮아요 — 이제 이 레벨이 보여요',
+    huntDiff: '차이', huntSummary: '레벨 헌트 결과', yourLine: '내 선',
+    senseQDark: '{t} 다크풀 비중은 50%보다 높았을까?',
+    senseQPcr: '{t} 풋/콜 비율은 1.0보다 높았을까?',
+    senseQShort: '{t} 숏볼륨 비중은 40%보다 높았을까?',
+    senseQVol: '{t} 변동성 레짐 점수는 50보다 높았을까?',
+    senseQSma: '{t} 마지막 종가는 50일 평균선보다 위였을까?',
+    senseMeanDark: '다크풀은 거래소 밖에서 조용히 체결된 물량 — 보통 30~50% 사이를 오가요.',
+    senseMeanPcr: '풋/콜 비율이 1.0을 넘으면 콜보다 풋 쪽에 더 많은 포지션이 쌓였다는 뜻이에요.',
+    senseMeanShort: '숏볼륨은 당일 거래 중 쇼트(빌려서 파는 거래)로 체결된 비중 — 40%대가 흔한 수준이에요.',
+    senseMeanVol: '변동성 레짐 점수는 지금 변동성이 역사적으로 어느 위치인지 0~100으로 보여줘요.',
+    senseMeanSma: '50일 평균선은 최근 두 달여의 평균 가격 — 종가가 그 위였는지가 추세의 온도계처럼 읽혀요.',
+    senseHigher: '높다', senseLower: '낮다', senseActual: '실제 값', senseVs: '기준',
+    senseSummary: '숫자 감각 결과', senseBonus: '전부 정답! 보너스',
   },
   en: {
     tagline: "Today's market, a 30-second lesson",
@@ -351,6 +378,31 @@ const T: Record<Lang, Record<string, string>> = {
     teaserHunt: 'Level Hunt', teaserHuntSub: 'Spot the institutional levels on a real chart',
     teaserSense: 'Number Sense', teaserSenseSub: "Was today's reading higher or lower?",
     sessionPre: 'PRE', sessionReg: 'REG', sessionPost: 'POST',
+    newPlay: 'NEW', nextRound: 'Next round', seeResults: 'See results',
+    noData: 'No data for this today', noDataSub: 'Check back after the next session',
+    unlockToast: 'A new layer opened on your chart — max pain',
+    huntPromptMaxPain: 'Where did max pain (the options magnet price) sit?',
+    huntPromptCallWall: 'Where was the call wall (the heaviest call strike)?',
+    huntPromptPutFloor: 'Where was the put floor (the heaviest put strike)?',
+    huntMeanMaxPain: 'Max pain is the price where option holders as a group lose the most — price has often been observed hovering near it into expiry.',
+    huntMeanCallWall: 'The call wall is the strike with the heaviest call stack — upward moves have often looked heavy around it.',
+    huntMeanPutFloor: 'The put floor is the strike with the heaviest put stack — it has often looked like a shelf underneath price.',
+    huntDragHint: 'Drag up or down to place your line',
+    huntConfirm: 'Lock it in',
+    huntGreat: 'Bullseye — nearly exact!', huntNear: 'Nice — pretty close', huntMiss: 'No worries — now you can see this level',
+    huntDiff: 'off by', huntSummary: 'Level Hunt results', yourLine: 'Your line',
+    senseQDark: "Was {t}'s dark-pool share above 50%?",
+    senseQPcr: "Was {t}'s put/call ratio above 1.0?",
+    senseQShort: "Was {t}'s short-volume share above 40%?",
+    senseQVol: "Was {t}'s volatility-regime score above 50?",
+    senseQSma: "Did {t}'s last close finish above its 50-day average?",
+    senseMeanDark: 'Dark pool is volume matched away from the exchange — it usually swings between 30 and 50%.',
+    senseMeanPcr: 'A put/call ratio above 1.0 means more positioning stacked into puts than calls.',
+    senseMeanShort: "Short volume is the share of the day's trades done as short sales — the 40s are a common zone.",
+    senseMeanVol: 'The volatility-regime score places current volatility on a 0-100 historical scale.',
+    senseMeanSma: 'The 50-day average is roughly two months of prices — whether the close sat above it reads like a trend thermometer.',
+    senseHigher: 'Higher', senseLower: 'Lower', senseActual: 'Actual', senseVs: 'vs',
+    senseSummary: 'Number Sense results', senseBonus: 'Perfect run! Bonus',
   },
   ja: {
     tagline: '今日の市場が出す問題、30秒レッスン',
@@ -388,6 +440,31 @@ const T: Record<Lang, Record<string, string>> = {
     teaserHunt: 'レベルハント', teaserHuntSub: '実チャートの上で機関レベルを探す',
     teaserSense: '数字感覚', teaserSenseSub: '今日の指標、上だった？下だった？',
     sessionPre: 'プレ', sessionReg: 'ザラ場', sessionPost: 'アフター',
+    newPlay: '新着', nextRound: '次のラウンド', seeResults: '結果を見る',
+    noData: '今日はこのデータがありません', noDataSub: '次のセッション後にまた開いてみて',
+    unlockToast: 'チャートに新しいレイヤーが開いた — マックスペイン',
+    huntPromptMaxPain: 'マックスペイン（オプションの磁石価格）はどこだった？',
+    huntPromptCallWall: 'コールウォール（コールが最も積まれた壁）はどこだった？',
+    huntPromptPutFloor: 'プットフロア（プットが最も積まれた床）はどこだった？',
+    huntMeanMaxPain: 'マックスペインはオプション保有者全体の損失が最大になる価格 — 満期前に価格がこの付近に寄る様子がよく観察されます。',
+    huntMeanCallWall: 'コールウォールはコールが最も積み上がった行使価格 — その付近で上値が重くなる様子が観察されがちです。',
+    huntMeanPutFloor: 'プットフロアはプットが最も積み上がった行使価格 — 下から棚のように支える様子が観察されがちです。',
+    huntDragHint: '上下にドラッグして線を置こう',
+    huntConfirm: 'ここで確定',
+    huntGreat: 'お見事！ほぼ的中', huntNear: 'いいね、かなり近い', huntMiss: '大丈夫 — これでこのレベルが見えました',
+    huntDiff: 'ズレ', huntSummary: 'レベルハント結果', yourLine: '自分の線',
+    senseQDark: '{t}のダークプール比率は50%より上だった？',
+    senseQPcr: '{t}のプット/コール比は1.0より上だった？',
+    senseQShort: '{t}のショート出来高比率は40%より上だった？',
+    senseQVol: '{t}のボラ・レジームスコアは50より上だった？',
+    senseQSma: '{t}の直近終値は50日平均線より上だった？',
+    senseMeanDark: 'ダークプールは取引所の外で静かに約定した出来高 — 普段は30〜50%の間を行き来します。',
+    senseMeanPcr: 'プット/コール比が1.0を超えると、コールよりプットに多くのポジションが積まれたという意味です。',
+    senseMeanShort: 'ショート出来高はその日の取引のうち空売りの割合 — 40%台がよくある水準です。',
+    senseMeanVol: 'ボラ・レジームスコアは現在の変動率が歴史的にどの位置かを0〜100で示します。',
+    senseMeanSma: '50日平均線は約2か月の平均価格 — 終値がその上だったかがトレンドの温度計のように読まれます。',
+    senseHigher: '上', senseLower: '下', senseActual: '実際の値', senseVs: '基準',
+    senseSummary: '数字感覚結果', senseBonus: '全問正解！ボーナス',
   },
 };
 
@@ -656,6 +733,495 @@ function StreakRing({ days, t }: { days: number; t: Record<string, string> }) {
   );
 }
 
+// ── W2 plays: shared overlay chrome ──
+const WIM_FONT = "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif";
+const PLAY_KEYFRAMES = '@keyframes wimPop{0%{transform:scale(0.86);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}} @keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}} .wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite} @keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}}';
+const fmtPx = (v: number) => (v >= 1000 ? v.toFixed(0) : v >= 100 ? v.toFixed(1) : v.toFixed(2));
+
+// top bar shared by both plays — same skeleton as the quiz overlay's (back + progress + chip)
+function PlayTopBar({ onClose, backLabel, prog, chip }: { onClose: () => void; backLabel: string; prog: number; chip?: string | null }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + env(safe-area-inset-top))' }}>
+      <button type="button" onClick={onClose} aria-label={backLabel} style={{ font: 'inherit', width: 38, height: 38, borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer', flexShrink: 0 }}>←</button>
+      <div style={{ flex: 1, height: 8, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{ width: `${Math.min(100, Math.max(0, prog * 100))}%`, height: '100%', background: P.hero, borderRadius: 99, transition: 'width 0.4s ease' }} />
+      </div>
+      {chip ? (
+        <div style={{ minWidth: 38, height: 38, borderRadius: 19, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 900, color: P.heroDeep, padding: '0 10px', fontVariantNumeric: 'tabular-nums' }}>{chip}</div>
+      ) : <div style={{ width: 38 }} />}
+    </div>
+  );
+}
+
+// friendly no-data state — the lab has no usable fields today, award nothing
+function PlayEmpty({ t, onClose }: { t: Record<string, string>; onClose: () => void }) {
+  return (
+    <div style={{ marginTop: 24, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '28px 18px', textAlign: 'center', animation: 'wimUp 0.35s ease' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', color: P.faint }}><Ic name="search" size={26} /></div>
+      <div style={{ marginTop: 10, fontSize: 15.5, fontWeight: 900, color: P.ink }}>{t.noData}</div>
+      <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: P.sub }}>{t.noDataSub}</div>
+      <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 16, background: P.ink, color: '#fff', border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.backHome}</button>
+    </div>
+  );
+}
+
+// ── P3 LEVEL HUNT: drag a horizontal line onto the real last-session chart to
+// guess where today's ALREADY-COMPUTED options levels (max pain / call wall /
+// put floor) actually sat. Proximity scored; each reveal teaches the concept
+// in one line. Resolved data only — nothing here is a forecast.
+interface HuntRound { key: string; value: number; label: string; color: string; prompt: string; meaning: string }
+interface HuntResult { label: string; color: string; actual: number; guess: number; distPct: number; gain: number }
+
+function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onComplete, onClose, disclaimer }: {
+  ticker: string;
+  fallbackCloses: number[] | null;
+  requestLab: (tk: string) => Promise<LabData | null>;
+  t: Record<string, string>;
+  onAward: (gain: number) => void;
+  onComplete: () => boolean; // returns true when this completion newly unlocked the overlay
+  onClose: () => void;
+  disclaimer: string;
+}) {
+  const [lab, setLab] = useState<LabData | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [ri, setRi] = useState(0);
+  const [guess, setGuess] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [results, setResults] = useState<HuntResult[]>([]);
+  const [phase, setPhase] = useState<'play' | 'summary'>('play');
+  const [newUnlock, setNewUnlock] = useState(false);
+  const [cw, setCw] = useState(320);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const dragging = useRef(false);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    let alive = true;
+    requestLab(ticker).then((l) => { if (alive) { setLab(l); setLoaded(true); } });
+    return () => { alive = false; };
+  }, [ticker, requestLab]);
+
+  const rounds = useMemo<HuntRound[]>(() => {
+    if (!lab) return [];
+    const L = lab.levels;
+    const out: HuntRound[] = [];
+    if (L.maxPain != null) out.push({ key: 'maxPain', value: Math.round(L.maxPain * 100) / 100, label: 'MAX PAIN', color: P.amber, prompt: t.huntPromptMaxPain, meaning: t.huntMeanMaxPain });
+    if (L.callWall != null) out.push({ key: 'callWall', value: Math.round(L.callWall * 100) / 100, label: 'CALL WALL', color: P.coral, prompt: t.huntPromptCallWall, meaning: t.huntMeanCallWall });
+    if (L.putFloor != null) out.push({ key: 'putFloor', value: Math.round(L.putFloor * 100) / 100, label: 'PUT FLOOR', color: P.mint, prompt: t.huntPromptPutFloor, meaning: t.huntMeanPutFloor });
+    return out;
+  }, [lab, t]);
+
+  const closes = useMemo(() => {
+    if (lab?.spark && lab.spark.closes.length >= 8) return lab.spark.closes;
+    if (fallbackCloses && fallbackCloses.length >= 8) return fallbackCloses;
+    return null;
+  }, [lab, fallbackCloses]);
+
+  // one fixed price domain for all rounds (closes ∪ every level, padded) so the
+  // answer is always reachable and round-to-round rescaling never leaks a hint
+  const domain = useMemo(() => {
+    if (!closes || rounds.length === 0) return null;
+    const vals = [...closes, ...rounds.map((r) => r.value)];
+    const lo0 = Math.min(...vals); const hi0 = Math.max(...vals);
+    const pad = (hi0 - lo0 || Math.abs(hi0) * 0.02 || 1) * 0.08;
+    return { lo: lo0 - pad, hi: hi0 + pad };
+  }, [closes, rounds]);
+
+  useEffect(() => {
+    if (closes && guess == null) setGuess(closes[closes.length - 1]);
+  }, [closes, guess]);
+
+  useEffect(() => {
+    const measure = () => { if (wrapRef.current) setCw(wrapRef.current.clientWidth || 320); };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [loaded, phase]);
+
+  // pixel↔price mapping (1:1 viewBox — the SVG's viewBox tracks the measured width)
+  const CH = 264;
+  const lo = domain ? domain.lo : 0;
+  const span = domain ? (domain.hi - domain.lo || 1) : 1;
+  const yOf = (v: number) => CH - 16 - ((v - lo) / span) * (CH - 32);
+  const priceOf = (py: number) => lo + ((CH - 16 - py) / (CH - 32)) * span;
+  const setFromY = (clientY: number) => {
+    const el = wrapRef.current;
+    if (!el || !domain) return;
+    const v = priceOf(clientY - el.getBoundingClientRect().top);
+    setGuess(Math.min(domain.hi, Math.max(domain.lo, v)));
+  };
+
+  const cur = rounds[ri];
+  const curResult = results[ri];
+  const totalGain = results.reduce((s, r) => s + r.gain, 0);
+  const playable = loaded && !!closes && rounds.length > 0 && !!domain;
+
+  const confirm = () => {
+    if (guess == null || revealed || !cur) return;
+    const distPct = (Math.abs(guess - cur.value) / cur.value) * 100;
+    const gain = distPct <= 1 ? XP_CORRECT : distPct <= 3 ? XP_TRIED : 0;
+    setResults([...results, { label: cur.label, color: cur.color, actual: cur.value, guess, distPct, gain }]);
+    setRevealed(true);
+    onAward(gain);
+  };
+  const nextRound = () => {
+    if (ri + 1 < rounds.length) {
+      setRi(ri + 1);
+      setRevealed(false);
+      if (closes) setGuess(closes[closes.length - 1]);
+    } else {
+      if (!completedRef.current) { completedRef.current = true; setNewUnlock(onComplete()); }
+      setPhase('summary');
+    }
+    window.scrollTo(0, 0);
+  };
+
+  const x = (i: number) => (i / Math.max(1, (closes?.length || 1) - 1)) * cw;
+  const linePath = closes ? closes.map((c, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${yOf(c).toFixed(1)}`).join(' ') : '';
+
+  return (
+    <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
+      <style>{PLAY_KEYFRAMES}</style>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+        <PlayTopBar
+          onClose={onClose}
+          backLabel={t.backHome}
+          prog={!playable ? 0.1 : phase === 'summary' ? 1 : (ri + (revealed ? 1 : 0.4)) / rounds.length}
+          chip={playable && phase === 'play' ? `${ri + 1}/${rounds.length}` : null}
+        />
+
+        {!loaded && (
+          <div style={{ marginTop: 14 }}>
+            <div className="wim-skel" style={{ height: 110, borderRadius: 22 }} />
+            <div className="wim-skel" style={{ height: 280, borderRadius: 22, marginTop: 12 }} />
+          </div>
+        )}
+        {loaded && !playable && <PlayEmpty t={t} onClose={onClose} />}
+
+        {playable && phase === 'play' && cur && (
+          <>
+            <div style={{ marginTop: 14, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px', animation: 'wimUp 0.3s ease' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TickerLogo ticker={ticker} size={28} />
+                <span style={{ fontSize: 14.5, fontWeight: 900 }}>{ticker}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
+              </div>
+              <h1 style={{ margin: '10px 0 0', fontSize: 17.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.35 }}>{cur.prompt}</h1>
+              {!revealed && (
+                <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 750 as any, color: P.hero, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <Ic name="crosshair" size={13} color={P.hero} /> {t.huntDragHint}
+                </div>
+              )}
+            </div>
+
+            {/* the LARGE draggable chart — touch-action none so dragging never scrolls */}
+            <div style={{ marginTop: 12, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '10px 8px 8px', animation: 'wimUp 0.35s ease' }}>
+              <div
+                ref={wrapRef}
+                onPointerDown={(e) => {
+                  if (revealed || !domain) return;
+                  dragging.current = true;
+                  try { (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId); } catch { /* older webview */ }
+                  setFromY(e.clientY);
+                }}
+                onPointerMove={(e) => { if (dragging.current && !revealed) setFromY(e.clientY); }}
+                onPointerUp={() => { dragging.current = false; }}
+                onPointerCancel={() => { dragging.current = false; }}
+                style={{ position: 'relative', height: CH, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', cursor: revealed ? 'default' : 'ns-resize' }}
+              >
+                <svg viewBox={`0 0 ${cw} ${CH}`} style={{ width: '100%', height: CH, display: 'block' }} aria-hidden>
+                  <defs>
+                    <linearGradient id="wimHuntFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={P.hero} stopOpacity="0.22" />
+                      <stop offset="100%" stopColor={P.hero} stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  <path d={`${linePath} L${cw},${CH} L0,${CH} Z`} fill="url(#wimHuntFill)" />
+                  <path d={linePath} fill="none" stroke={P.hero} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+                  {results.slice(0, ri).map((r) => (
+                    <g key={r.label} opacity="0.45">
+                      <line x1="0" x2={cw} y1={yOf(r.actual)} y2={yOf(r.actual)} stroke={r.color} strokeWidth="1.3" strokeDasharray="4 4" />
+                      <text x="4" y={yOf(r.actual) - 4} fontSize="9" fontWeight="800" fill={r.color}>{r.label}</text>
+                    </g>
+                  ))}
+                  {revealed && curResult && (
+                    <g>
+                      <line x1="0" x2={cw} y1={yOf(curResult.actual)} y2={yOf(curResult.actual)} stroke={curResult.color} strokeWidth="1.8" strokeDasharray="5 4" />
+                      <text x="4" y={yOf(curResult.actual) - 5} fontSize="10.5" fontWeight="800" fill={curResult.color}>{curResult.label} ${fmtPx(curResult.actual)}</text>
+                    </g>
+                  )}
+                  {guess != null && (
+                    <line x1="0" x2={cw} y1={yOf(guess)} y2={yOf(guess)} stroke={P.heroDeep} strokeWidth="2" opacity={revealed ? 0.55 : 1} />
+                  )}
+                  <text x={cw - 4} y="12" textAnchor="end" fontSize="9" fontWeight="800" fill={P.faint}>${fmtPx(lo + span)}</text>
+                  <text x={cw - 4} y={CH - 4} textAnchor="end" fontSize="9" fontWeight="800" fill={P.faint}>${fmtPx(lo)}</text>
+                </svg>
+                {guess != null && (
+                  <div style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.min(CH - 26, yOf(guess) - 13)), display: 'flex', justifyContent: 'flex-end', paddingRight: 6, pointerEvents: 'none' }}>
+                    <span style={{ background: P.heroDeep, color: '#fff', borderRadius: 8, padding: '4px 9px', fontSize: 11.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', boxShadow: '0 3px 10px rgba(38,34,64,0.35)' }}>${fmtPx(guess)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {!revealed && (
+              <button type="button" onClick={confirm} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>{t.huntConfirm}</button>
+            )}
+            {revealed && curResult && (
+              <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
+                <div style={{ marginTop: 14, textAlign: 'center', fontSize: 19, fontWeight: 900, color: curResult.gain >= XP_CORRECT ? P.mint : curResult.gain > 0 ? P.amber : P.sub }}>
+                  {curResult.gain >= XP_CORRECT ? t.huntGreat : curResult.gain > 0 ? t.huntNear : t.huntMiss}{curResult.gain > 0 ? ` +${curResult.gain}XP` : ''}
+                </div>
+                <div style={{ marginTop: 10, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.09em', color: curResult.color }}>{curResult.label}</div>
+                      <div style={{ fontSize: 24, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: curResult.color }}>
+                        $<CountUp value={curResult.actual} decimals={curResult.actual >= 1000 ? 0 : curResult.actual >= 100 ? 1 : 2} />
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.09em', color: P.faint }}>{t.yourLine.toUpperCase()}</div>
+                      <div style={{ fontSize: 24, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>${fmtPx(curResult.guess)}</div>
+                    </div>
+                    <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '5px 11px', fontVariantNumeric: 'tabular-nums' }}>{t.huntDiff} {curResult.distPct.toFixed(1)}%</span>
+                  </div>
+                  <p style={{ margin: '11px 0 0', fontSize: 13, lineHeight: 1.65, fontWeight: 650 as any, color: P.sub }}>{cur.meaning}</p>
+                </div>
+                <button type="button" onClick={nextRound} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>
+                  {ri + 1 < rounds.length ? `${t.nextRound} →` : `${t.seeResults} →`}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {playable && phase === 'summary' && (
+          <div style={{ animation: 'wimUp 0.35s ease' }}>
+            <div style={{ marginTop: 18, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '20px 18px', textAlign: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', color: P.heroDeep }}><Ic name="crosshair" size={26} sw={2} /></div>
+              <div style={{ marginTop: 8, fontSize: 17, fontWeight: 900 }}>{t.huntSummary}</div>
+              <div style={{ marginTop: 3, fontSize: 13, fontWeight: 900, color: P.hero, fontVariantNumeric: 'tabular-nums' }}>+{totalGain} {t.xp}</div>
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {results.map((r) => (
+                  <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 8, background: P.bg, borderRadius: 13, padding: '9px 12px' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: r.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 11.5, fontWeight: 900 }}>{r.label}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: P.sub, fontVariantNumeric: 'tabular-nums' }}>{t.huntDiff} {r.distPct.toFixed(1)}%</span>
+                    <span style={{ fontSize: 11, fontWeight: 900, color: r.gain > 0 ? P.mint : P.faint, fontVariantNumeric: 'tabular-nums' }}>+{r.gain}XP</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {newUnlock && (
+              <div style={{ marginTop: 12, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, borderRadius: 18, padding: '13px 15px', color: '#fff', display: 'flex', alignItems: 'center', gap: 10, boxShadow: P.shadow, animation: 'wimPop 0.45s ease' }}>
+                <Ic name="layers" size={18} color="#FFD66B" />
+                <span style={{ fontSize: 12.5, fontWeight: 900, lineHeight: 1.4 }}>{t.unlockToast}</span>
+              </div>
+            )}
+            <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>{t.backHome}</button>
+          </div>
+        )}
+
+        <div style={{ marginTop: 18, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.5 }}>{disclaimer}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── P4 NUMBER SENSE: quick-fire higher/lower on today's real readings — builds
+// a feel for each metric's normal range. Questions come from non-null lab
+// fields across today's unit tickers; all values are last-session, resolved.
+interface SenseQ { ticker: string; label: string; actual: number; thresholdLabel: string; prefix: string; suffix: string; decimals: number; meaning: string; answerHigher: boolean }
+
+function buildSenseQs(lb: LabData, t: Record<string, string>): SenseQ[] {
+  const out: SenseQ[] = [];
+  const tk = lb.ticker;
+  if (lb.darkPoolPct != null) {
+    const v = Math.round(lb.darkPoolPct * 10) / 10;
+    if (v !== 50) out.push({ ticker: tk, label: t.senseQDark.replace('{t}', tk), actual: v, thresholdLabel: '50%', prefix: '', suffix: '%', decimals: 1, meaning: t.senseMeanDark, answerHigher: v > 50 });
+  }
+  if (lb.pcr != null) {
+    const v = Math.round(lb.pcr * 100) / 100;
+    if (v !== 1) out.push({ ticker: tk, label: t.senseQPcr.replace('{t}', tk), actual: v, thresholdLabel: '1.0', prefix: '', suffix: '', decimals: 2, meaning: t.senseMeanPcr, answerHigher: v > 1 });
+  }
+  if (lb.shortVolPct != null) {
+    const v = Math.round(lb.shortVolPct * 10) / 10;
+    if (v !== 40) out.push({ ticker: tk, label: t.senseQShort.replace('{t}', tk), actual: v, thresholdLabel: '40%', prefix: '', suffix: '%', decimals: 1, meaning: t.senseMeanShort, answerHigher: v > 40 });
+  }
+  if (lb.vol.regimeScore != null) {
+    const v = Math.round(lb.vol.regimeScore);
+    if (v !== 50) out.push({ ticker: tk, label: t.senseQVol.replace('{t}', tk), actual: v, thresholdLabel: '50', prefix: '', suffix: '', decimals: 0, meaning: t.senseMeanVol, answerHigher: v > 50 });
+  }
+  if (lb.price != null && lb.sma.sma50 != null) {
+    const d = lb.price >= 1000 ? 0 : lb.price >= 100 ? 1 : 2;
+    const v = Number(lb.price.toFixed(d));
+    const s = lb.sma.sma50;
+    if (v !== Number(s.toFixed(d))) out.push({ ticker: tk, label: t.senseQSma.replace('{t}', tk), actual: v, thresholdLabel: `SMA50 $${fmtPx(s)}`, prefix: '$', suffix: '', decimals: d, meaning: t.senseMeanSma, answerHigher: v > s });
+  }
+  return out;
+}
+
+function NumberSensePlay({ tickers, requestLab, t, onAward, onClose, disclaimer }: {
+  tickers: string[];
+  requestLab: (tk: string) => Promise<LabData | null>;
+  t: Record<string, string>;
+  onAward: (gain: number) => void;
+  onClose: () => void;
+  disclaimer: string;
+}) {
+  const [qs, setQs] = useState<SenseQ[] | null>(null);
+  const [idx, setIdx] = useState(0);
+  const [picked, setPicked] = useState<boolean | null>(null); // true = higher
+  const [score, setScore] = useState(0);
+  const [phase, setPhase] = useState<'play' | 'summary'>('play');
+  const bonusRef = useRef(false);
+
+  // fetch every unit ticker's lab in parallel (cache-first), pool the non-null
+  // questions, shuffle, keep 5 — fewer than 3 usable → friendly empty state
+  useEffect(() => {
+    let alive = true;
+    Promise.all(tickers.map((tk) => requestLab(tk))).then((arr) => {
+      if (!alive) return;
+      const pool: SenseQ[] = [];
+      arr.forEach((lb) => { if (lb) pool.push(...buildSenseQs(lb, t)); });
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      setQs(pool.slice(0, 5));
+    });
+    return () => { alive = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loaded = qs != null;
+  const playable = loaded && qs.length >= 3;
+  const q = playable && phase === 'play' ? qs[idx] : null;
+  const perfect = playable && qs.length === 5 && score === 5;
+  const totalGain = score * XP_TRIED + (perfect ? XP_CORRECT : 0);
+
+  const pick = (higher: boolean) => {
+    if (!q || picked != null) return;
+    setPicked(higher);
+    const ok = higher === q.answerHigher;
+    if (ok) setScore(score + 1);
+    onAward(ok ? XP_TRIED : 0);
+  };
+  const next = () => {
+    if (!qs) return;
+    if (idx + 1 < qs.length) {
+      setIdx(idx + 1);
+      setPicked(null);
+    } else {
+      if (!bonusRef.current) {
+        bonusRef.current = true;
+        if (qs.length === 5 && score === 5) onAward(XP_CORRECT);
+      }
+      setPhase('summary');
+    }
+    window.scrollTo(0, 0);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
+      <style>{PLAY_KEYFRAMES}</style>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+        <PlayTopBar
+          onClose={onClose}
+          backLabel={t.backHome}
+          prog={!playable ? 0.1 : phase === 'summary' ? 1 : (idx + (picked != null ? 1 : 0.4)) / qs.length}
+          chip={playable && phase === 'play' ? `${score}/${qs.length}` : null}
+        />
+
+        {!loaded && (
+          <div style={{ marginTop: 14 }}>
+            <div className="wim-skel" style={{ height: 130, borderRadius: 22 }} />
+            <div className="wim-skel" style={{ height: 110, borderRadius: 22, marginTop: 12 }} />
+          </div>
+        )}
+        {loaded && !playable && <PlayEmpty t={t} onClose={onClose} />}
+
+        {playable && phase === 'play' && q && (
+          <>
+            <div style={{ marginTop: 16, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '18px 16px', textAlign: 'center', animation: 'wimUp 0.3s ease' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <TickerLogo ticker={q.ticker} size={30} />
+                <span style={{ fontSize: 15.5, fontWeight: 900 }}>{q.ticker}</span>
+                <span style={{ fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
+              </div>
+              <h1 style={{ margin: '13px 0 0', fontSize: 19, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.4 }}>{q.label}</h1>
+            </div>
+
+            {/* two big buttons — violet both ways (no direction hype colors) */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              {[true, false].map((h) => {
+                const isPick = picked === h;
+                const isAnswer = q.answerHigher === h;
+                const revealedNow = picked != null;
+                const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.coralSoft : '#fff';
+                const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.coral : P.line;
+                return (
+                  <button
+                    key={String(h)} type="button" disabled={revealedNow} onClick={() => pick(h)}
+                    style={{
+                      font: 'inherit', flex: 1, cursor: revealedNow ? 'default' : 'pointer',
+                      background: bg, border: `2px solid ${border}`, borderRadius: 20, padding: '18px 0',
+                      fontSize: 16, fontWeight: 900, color: P.ink,
+                      boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    <Ic name={h ? 'chevUp' : 'chevDown'} size={22} color={P.heroDeep} sw={2.4} />
+                    {h ? t.senseHigher : t.senseLower}
+                  </button>
+                );
+              })}
+            </div>
+
+            {picked != null && (
+              <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
+                <div style={{ marginTop: 14, textAlign: 'center', fontSize: 18, fontWeight: 900, color: picked === q.answerHigher ? P.mint : P.coral }}>
+                  {picked === q.answerHigher ? `${t.correct} +${XP_TRIED}XP` : t.notQuite}
+                </div>
+                <div style={{ marginTop: 10, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', color: P.faint }}>{t.senseActual.toUpperCase()}</div>
+                  <div style={{ marginTop: 2, fontSize: 34, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep }}>
+                    {q.prefix}<CountUp value={q.actual} decimals={q.decimals} />{q.suffix}
+                  </div>
+                  <div style={{ marginTop: 3, fontSize: 11.5, fontWeight: 800, color: P.faint }}>{t.senseVs} {q.thresholdLabel}</div>
+                  <p style={{ margin: '11px 0 0', fontSize: 13, lineHeight: 1.65, fontWeight: 650 as any, color: P.sub, textAlign: 'left' }}>{q.meaning}</p>
+                </div>
+                <button type="button" onClick={next} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>
+                  {idx + 1 < qs.length ? `${t.nextRound} →` : `${t.seeResults} →`}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {playable && phase === 'summary' && (
+          <div style={{ animation: 'wimUp 0.35s ease' }}>
+            <div style={{ marginTop: 18, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '22px 18px', textAlign: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', color: P.heroDeep }}><Ic name="updown" size={26} sw={2} /></div>
+              <div style={{ marginTop: 8, fontSize: 17, fontWeight: 900 }}>{t.senseSummary}</div>
+              <div style={{ marginTop: 8, fontSize: 38, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep }}>{score}/{qs.length}</div>
+              <div style={{ marginTop: 4, fontSize: 13, fontWeight: 900, color: P.hero, fontVariantNumeric: 'tabular-nums' }}>+{totalGain} {t.xp}</div>
+              {perfect && (
+                <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: P.amberSoft, color: P.amber, borderRadius: 99, padding: '6px 13px', fontSize: 12, fontWeight: 900 }}>
+                  <Ic name="spark" size={14} color={P.amber} /> {t.senseBonus} +{XP_CORRECT}XP
+                </div>
+              )}
+            </div>
+            <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>{t.backHome}</button>
+          </div>
+        )}
+
+        <div style={{ marginTop: 18, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.5 }}>{disclaimer}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function WimPage() {
   const params = useParams();
   const router = useRouter();
@@ -684,8 +1250,15 @@ export default function WimPage() {
   const [homeTab, setHomeTab] = useState<'home' | 'lib' | 'search' | 'me'>('home');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
-  // one real snapshot that powers every concept demo (hero ticker of the day)
-  const [lab, setLab] = useState<LabData | null>(null);
+  // real lab snapshots, cached per ticker (hero powers the concept demos; the
+  // W2 plays request their own tickers through the same cache)
+  const labsRef = useRef<Record<string, LabData>>({});
+  const labFlight = useRef<Record<string, Promise<LabData | null>>>({});
+  const [labs, setLabs] = useState<Record<string, LabData>>({});
+  // W2: play overlays + overlay-unlock stage 1 (levels layer on the hero chart)
+  const [playOpen, setPlayOpen] = useState<'hunt' | 'sense' | null>(null);
+  const [unlockLevels, setUnlockLevels] = useState(false);
+  const [unlockToast, setUnlockToast] = useState(false);
 
   // ── boot: restore local state + fetch today's set (instant-paint + SWR refresh) ──
   useEffect(() => {
@@ -694,6 +1267,7 @@ export default function WimPage() {
       setDone(JSON.parse(localStorage.getItem('wim.done') || '{}'));
       setSeenTerms(JSON.parse(localStorage.getItem('wim.terms') || '{}'));
       setEverPlayed(localStorage.getItem('wim.played') === '1');
+      setUnlockLevels(localStorage.getItem('wim.unlock.levels') === '1');
       const wk = JSON.parse(localStorage.getItem('wim.week') || 'null');
       const wkKey = localStorage.getItem('wim.weekKey') || '';
       // reset the week dots every Monday
@@ -730,16 +1304,32 @@ export default function WimPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const units = today?.units || [];
+  // cache-first lab fetch, deduped in-flight — every consumer (concept demos,
+  // hero overlay, both plays) shares one snapshot per ticker
+  const requestLab = useCallback((tk: string): Promise<LabData | null> => {
+    const hit = labsRef.current[tk];
+    if (hit) return Promise.resolve(hit);
+    const inflight = labFlight.current[tk];
+    if (inflight) return inflight;
+    const p = fetch(`/api/wim/lab?t=${tk}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        delete labFlight.current[tk];
+        if (j?.success) {
+          labsRef.current = { ...labsRef.current, [tk]: j as LabData };
+          setLabs(labsRef.current);
+          return j as LabData;
+        }
+        return null;
+      })
+      .catch(() => { delete labFlight.current[tk]; return null; });
+    labFlight.current[tk] = p;
+    return p;
+  }, []);
   // fetch the lab snapshot once the day's hero ticker is known (fallback NVDA)
   const labTicker = units[0]?.ticker || 'NVDA';
-  useEffect(() => {
-    let alive = true;
-    fetch(`/api/wim/lab?t=${labTicker}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive && j?.success) setLab(j); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [labTicker]);
+  const lab = labs[labTicker] || null;
+  useEffect(() => { void requestLab(labTicker); }, [labTicker, requestLab]);
   const doneCount = units.filter((u) => done[u.id]).length;
   const streakDays = week.filter(Boolean).length;
   const levelIdx = Math.min(4, Math.floor(xp / XP_PER_LEVEL));
@@ -811,6 +1401,51 @@ export default function WimPage() {
   }, [seenTerms, persist]);
 
   const weekLabels = t.weekDays.split(',');
+
+  // ── W2: hero unit (hoisted — home AND the play overlays need it) ──
+  const heroU = units.find((u) => !done[u.id]) || units[0] || null;
+  const heroIdx = heroU ? units.indexOf(heroU) : -1;
+  // which session carried the hero move (server field; default REG when absent)
+  const heroSessionRaw = (heroU?.session || '').toLowerCase();
+  const heroSession: 'pre' | 'reg' | 'post' = heroSessionRaw.includes('pre') ? 'pre'
+    : heroSessionRaw.includes('post') || heroSessionRaw.includes('after') ? 'post' : 'reg';
+  const heroTicker = heroU?.ticker || null;
+  const heroLab = heroTicker ? labs[heroTicker] || null : null;
+
+  // ── W2: play bookkeeping — XP + learning-day dot (same rules as record()) ──
+  const awardPlayXp = useCallback((gain: number) => {
+    if (gain > 0) {
+      setXp((prev) => { const n = prev + gain; persist('wim.xp', String(n)); return n; });
+    }
+    const w = [...week]; w[weekdayIdx()] = true;
+    setWeek(w); persist('wim.week', JSON.stringify(w));
+  }, [week, persist]);
+
+  // overlay unlock stage 1: first-ever Level Hunt completion opens the max-pain
+  // layer on the home hero chart, forever (spec §3 "차트가 자라난다")
+  const onHuntComplete = useCallback((): boolean => {
+    if (unlockLevels) return false;
+    setUnlockLevels(true);
+    persist('wim.unlock.levels', '1');
+    setUnlockToast(true);
+    return true;
+  }, [unlockLevels, persist]);
+
+  const openPlay = useCallback((id: 'hunt' | 'sense') => { setPlayOpen(id); window.scrollTo(0, 0); }, []);
+
+  // once unlocked, the home hero chart needs the hero ticker's lab levels
+  useEffect(() => {
+    if (unlockLevels && heroTicker) void requestLab(heroTicker);
+  }, [unlockLevels, heroTicker, requestLab]);
+
+  // the unlock toast shows once on the home screen, then fades
+  useEffect(() => {
+    if (!unlockToast || playOpen != null || activeIdx != null) return;
+    const id = setTimeout(() => setUnlockToast(false), 4000);
+    return () => clearTimeout(id);
+  }, [unlockToast, playOpen, activeIdx]);
+
+  const disclaimerText = units[0]?.disclaimer?.[loc] || (loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.');
 
   // ════════════════════════ QUIZ OVERLAY ════════════════════════
   if (activeIdx != null && units[activeIdx]) {
@@ -1000,13 +1635,35 @@ export default function WimPage() {
     );
   }
 
+  // ════════════════════════ PLAY OVERLAYS (W2: P3 level hunt · P4 number sense) ════════════════════════
+  if (playOpen === 'hunt' && heroU) {
+    return (
+      <LevelHuntPlay
+        ticker={heroU.ticker}
+        fallbackCloses={heroU.spark?.closes || null}
+        requestLab={requestLab}
+        t={t}
+        onAward={awardPlayXp}
+        onComplete={onHuntComplete}
+        onClose={() => setPlayOpen(null)}
+        disclaimer={disclaimerText}
+      />
+    );
+  }
+  if (playOpen === 'sense' && units.length > 0) {
+    return (
+      <NumberSensePlay
+        tickers={Array.from(new Set(units.slice(0, 3).map((u) => u.ticker)))}
+        requestLab={requestLab}
+        t={t}
+        onAward={awardPlayXp}
+        onClose={() => setPlayOpen(null)}
+        disclaimer={disclaimerText}
+      />
+    );
+  }
+
   // ════════════════════════ HOME (v3: glass shell · bottom tabs · case files) ════════════════════════
-  const heroU = units.find((u) => !done[u.id]) || units[0] || null;
-  const heroIdx = heroU ? units.indexOf(heroU) : -1;
-  // which session carried the hero move (server field; default REG when absent)
-  const heroSessionRaw = (heroU?.session || '').toLowerCase();
-  const heroSession: 'pre' | 'reg' | 'post' = heroSessionRaw.includes('pre') ? 'pre'
-    : heroSessionRaw.includes('post') || heroSessionRaw.includes('after') ? 'post' : 'reg';
   const glass = {
     background: 'rgba(255,255,255,0.60)',
     backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
@@ -1082,7 +1739,14 @@ export default function WimPage() {
                   <span style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums', background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '6px 13px' }}>±<CountUp value={heroU.moveMagnitude} />%</span>
                 </div>
                 <div style={{ margin: '12px -16px 0' }}>
-                  <RealChart closes={heroU.spark.closes} height={150} tone="dark" />
+                  <RealChart
+                    closes={heroU.spark.closes}
+                    height={150}
+                    tone="dark"
+                    levels={unlockLevels && heroLab && heroLab.levels.maxPain != null
+                      ? [{ label: 'MAX PAIN', value: heroLab.levels.maxPain, color: '#FFD66B' }]
+                      : undefined}
+                  />
                 </div>
                 <div style={{ marginTop: 9 }}>
                   <SessionStrip active={heroSession} labels={[t.sessionPre, t.sessionReg, t.sessionPost]} />
@@ -1131,21 +1795,21 @@ export default function WimPage() {
                       </button>
                     );
                   })}
-                  {[
-                    { id: 'hunt', icon: 'crosshair', title: t.teaserHunt, sub: t.teaserHuntSub },
-                    { id: 'sense', icon: 'updown', title: t.teaserSense, sub: t.teaserSenseSub },
-                  ].map((tz) => (
-                    <div key={tz.id} aria-disabled style={{ ...glass, border: '1.5px dashed rgba(108,92,231,0.35)', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', opacity: 0.92, display: 'flex', flexDirection: 'column' }}>
+                  {([
+                    { id: 'hunt' as const, icon: 'crosshair', title: t.teaserHunt, sub: t.teaserHuntSub },
+                    { id: 'sense' as const, icon: 'updown', title: t.teaserSense, sub: t.teaserSenseSub },
+                  ]).map((tz) => (
+                    <button key={tz.id} type="button" onClick={() => openPlay(tz.id)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', animation: 'wimUp 0.3s ease' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ width: 28, height: 28, borderRadius: 10, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: P.heroDeep }}><Ic name={tz.icon} size={16} sw={2} /></span>
-                        <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.amber, background: P.amberSoft, borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.comingSoon}</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.hero, background: P.heroSoft, borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
                       </div>
                       <div style={{ marginTop: 12, fontSize: 14.5, fontWeight: 900, color: P.ink }}>{tz.title}</div>
                       <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: P.sub, lineHeight: 1.45 }}>{tz.sub}</div>
-                      <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end', color: P.faint }}>
-                        <Ic name="lock" size={14} sw={2} />
+                      <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                        <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: P.hero, color: '#fff' }}>{t.play}</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </section>
@@ -1330,6 +1994,16 @@ export default function WimPage() {
           <div style={{ marginTop: 4, opacity: 0.8 }}>Why&apos;d It Move? · prototype · by SIGNUM HQ</div>
         </footer>
       </div>
+
+      {/* one-time overlay-unlock toast — the hero chart grew a new layer */}
+      {unlockToast && (
+        <div style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top))', left: 16, right: 16, zIndex: 96, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
+          <div style={{ maxWidth: 520, display: 'flex', alignItems: 'center', gap: 9, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, color: '#fff', borderRadius: 16, padding: '11px 15px', boxShadow: '0 14px 34px rgba(76,63,175,0.35)' }}>
+            <Ic name="layers" size={16} color="#FFD66B" />
+            <span style={{ fontSize: 12, fontWeight: 900 }}>{t.unlockToast}</span>
+          </div>
+        </div>
+      )}
 
       {/* ① bottom banner ad slot — inert until WIM_ADS_LIVE (sits above the tab bar) */}
       {WIM_ADS_LIVE && (
