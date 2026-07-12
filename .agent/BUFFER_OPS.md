@@ -19,17 +19,19 @@
 | 채널 | Buffer ID | 상태 |
 |---|---|---|
 | X (en) `@signumhq` | `6a518928404834462892924a` | ✅ 활성 — Premium+ (2026-07-11 가입) |
-| X (ja) `@signumhq_jp` | `TBD — 연결됨(07-12), ID 확인 필요` | ✅ 연결 — Premium+ (2026-07-12 가입) |
+| X (ja) `@signumhq_jp` | `6a53936480cc80cdcaa625d0` | ✅ 활성 — Premium+ (2026-07-12 가입) |
 | Bluesky `SIGNUM HQ` | `69ca84bbaf47dacb696d9d0f` | ✅ 유지 (구 플릿 유일 생존; 미응답 댓글 59) |
 | YouTube `SIGNUM HQ` | `69ca9615af47dacb696df427` | 💤 영상 페이즈 대기 |
 | TikTok `signumhq` | `69ca95e7af47dacb696df35a` | 💤 영상 페이즈 대기 |
 
 - 옛 13채널(X3·IG3·Threads3·Pinterest)은 **연결 해제됨** — 재연결 금지.
 - 옛 X 계정들은 휴면 보관(삭제 금지 — 핸들 자산).
-- **ja ID 확인 방법**: Buffer 웹에서 채널 클릭 → 주소창 URL의 24자리 영숫자. 또는 PC(토큰 보유)에서
-  `GET https://api.bufferapp.com/1/profiles.json?access_token=$BUFFER_ACCESS_TOKEN`.
-  확인 즉시 ①이 표 ②`src/lib/marketing/bufferClient.ts` CHANNEL_MAP ③`src/lib/marketing-v2/core/channels.ts`
-  세 곳을 같은 커밋으로 갱신.
+- ~~ja ID 확인 필요~~ → **확인 완료** (2026-07-12 PC, GraphQL 실측) — 코드 2곳(bufferClient CHANNEL_MAP,
+  channels.ts)은 커밋 `639d94196`에 반영됨, 이 표는 본 커밋으로 일치.
+- **향후 채널 ID 확인 방법 (표준)**: GraphQL만 사용 — `POST https://api.buffer.com`
+  body `{ channels(input:{organizationId:"$BUFFER_ORGANIZATION_ID"}) { id name service } }`,
+  헤더 `Authorization: Bearer $BUFFER_ACCESS_TOKEN`. ⚠️ 레거시 REST(`api.bufferapp.com/1/*`)는
+  폐기된 API — 사용 금지. 확인 즉시 ①이 표 ②CHANNEL_MAP ③channels.ts 세 곳을 같은 커밋으로 갱신.
 
 ## 2. 토큰/환경
 
@@ -76,3 +78,23 @@ await createPost({
   그날 처리(2번째 할인 결제 확인 → Premium 변경 예약). Mac에 중복 리마인더 만들지 말 것.
 - 카드 이미지 엔진(3종 디자인: 히어로 숫자/레벨 사다리/괴리 대면 + VERDICT)은 미구현 — 구현 시
   이 문서에 URL 패턴 기록. 그전까지 이미지는 사용자 캡처 크롭.
+
+## 6. PC 세션 검토 의견 (2026-07-12, 사용자 요청으로 기록)
+
+**총평: 승인.** §0 절대 규칙이 가드레일(§4-0 실패 공식·§4-1 7중 안전장치)과 1:1 일치하고,
+"첫 2주 수동 검증 → 승자 포맷 확정 후 seed-kit 구축" 순서도 지지 — 측정 전 자동화 금지는
+검증 헌법과 같은 철학이며, seed-kit을 승자 포맷에 맞춰 지으면 재작업이 없다.
+
+**이 커밋에서 반영한 수정 2건:**
+1. ja 채널 ID `TBD` → 실측값 `6a53936480cc80cdcaa625d0` (코드 반영은 `639d94196`에서 선행 완료).
+2. ID 확인 방법의 레거시 REST(`api.bufferapp.com/1`)는 폐기 API라 작동 안 함 → GraphQL 표준으로 교체.
+
+**명확화 제안 1건 (규칙 충돌 아님, 운용 판단):** §3 "여러 채널에 같은 text 금지"는 X(en)↔X(ja)에는
+절대 규칙이 맞지만, §4-6.5 크로스플랫폼 규칙상 **X↔Bluesky 간 같은 사건·카드 재사용은 합법**
+(X 중복금지는 X 내부 규칙). 단순함을 위해 "전 채널 유니크"를 기본값으로 유지하는 데 동의하되,
+Bluesky는 en 텍스트 경미 변형 재사용까지 허용해도 정책 위반이 아님을 기록해 둔다 — 운영 부담이
+커지면 이 완화 조항을 쓸 것.
+
+**운용 시 주의 재강조:** Mac은 토큰이 없으므로 `createPost` 실행은 PC 세션 담당(§2). 초안 적재
+로그는 §4-6.8에 날짜·머신 표기로 남길 것. 다운그레이드 리마인더는 PC 단독(중복 생성 금지) —
+8/13 전 두 계정 이름·사진 변경 금지(리뷰 재발동).
