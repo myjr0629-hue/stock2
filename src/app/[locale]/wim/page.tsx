@@ -76,6 +76,8 @@ const ICON_PATHS: Record<string, string> = {
   pause: 'M8.5 5.5v13M15.5 5.5v13',
   chain: 'M9.5 14.5 14.5 9.5M8.5 11.5l-2.3 2.3a3.8 3.8 0 0 0 5.4 5.4l2.3-2.3M15.5 12.5l2.3-2.3a3.8 3.8 0 0 0-5.4-5.4l-2.3 2.3',
   flag: 'M6.5 21V3.5M6.5 4.5H17l-2.4 3.2L17 10.9H6.5',
+  snow: 'M12 3v18M9.6 4.6 12 6.2l2.4-1.6M9.6 19.4 12 17.8l2.4 1.6M4.2 7.5l15.6 9M19.8 7.5l-15.6 9',
+  share: 'M12 14V3M8.5 6.5 12 3l3.5 3.5M7 10.5H5.5A1.5 1.5 0 0 0 4 12v7.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5H17',
 };
 function Ic({ name, size = 18, color = 'currentColor', sw = 1.8, fill = false }: { name: string; size?: number; color?: string; sw?: number; fill?: boolean }) {
   return (
@@ -387,6 +389,19 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: '복습',
     weekendTitle: '주말 리뷰', weekendSub: '이번 주 마지막 세션을 다시 보고, 배운 개념을 복습하세요',
     unlockDramaLabel: '새 층 해제',
+    beltTitle: '벨트 지도', beltSub: '계급이 오를수록 차트에 보이는 층이 늘어요',
+    beltNow: '현재',
+    beltUnlockBase: '오늘의 사건 + 플레이 4종',
+    beltUnlockLevels: '맥스페인 오버레이 — 헌트 완주로 해제',
+    beltSoon: '새 층 · 곧',
+    freezeToast: '스트릭 프리즈가 하루를 지켜줬어요 (남은 프리즈 {n})',
+    freezeLabel: '스트릭 프리즈',
+    share: '공유',
+    shareFooter: '오늘 시장으로 배우는 30초',
+    ob1: '매일 밤, 오늘 시장이 문제를 냅니다',
+    ob2: '차트를 만지며 단서를 찾으세요',
+    ob3: '배울수록 차트에 층이 열립니다',
+    obNext: '다음', obStart: '시작하기', obSkip: '건너뛰기',
   },
   en: {
     tagline: "Today's market, a 30-second lesson",
@@ -491,6 +506,19 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: 'Review',
     weekendTitle: 'Weekend review', weekendSub: "Rewind the week's last session and revisit what you learned",
     unlockDramaLabel: 'New layer unlocked',
+    beltTitle: 'Belt map', beltSub: 'Higher ranks open more layers on your chart',
+    beltNow: 'NOW',
+    beltUnlockBase: 'Daily case + 4 plays',
+    beltUnlockLevels: 'Max-pain overlay — unlocked via Level Hunt',
+    beltSoon: 'New layer · soon',
+    freezeToast: 'A Streak Freeze protected your day ({n} left)',
+    freezeLabel: 'Streak Freeze',
+    share: 'Share',
+    shareFooter: "30 seconds of learning from today's market",
+    ob1: "Every night, today's market writes the questions",
+    ob2: 'Touch the chart, find the clues',
+    ob3: 'The more you learn, the more layers open on your chart',
+    obNext: 'Next', obStart: 'Start', obSkip: 'Skip',
   },
   ja: {
     tagline: '今日の市場が出す問題、30秒レッスン',
@@ -595,6 +623,19 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: '復習',
     weekendTitle: '週末レビュー', weekendSub: '今週最後のセッションを見直して、学んだ概念を復習しよう',
     unlockDramaLabel: '新しい層を解放',
+    beltTitle: 'ベルトマップ', beltSub: '階級が上がるほどチャートに見える層が増える',
+    beltNow: '現在',
+    beltUnlockBase: '今日の事件＋プレイ4種',
+    beltUnlockLevels: 'マックスペイン層 — ハント完走で解除',
+    beltSoon: '新しい層・近日',
+    freezeToast: 'ストリークフリーズが1日を守りました（残り{n}）',
+    freezeLabel: 'ストリークフリーズ',
+    share: '共有',
+    shareFooter: '今日の市場で学ぶ30秒',
+    ob1: '毎晩、今日の市場が問題を出します',
+    ob2: 'チャートに触れて手掛かりを探そう',
+    ob3: '学ぶほどチャートに層が開く',
+    obNext: '次へ', obStart: 'はじめる', obSkip: 'スキップ',
   },
 };
 
@@ -941,6 +982,75 @@ const EASE_OUT = 'cubic-bezier(0.22,1,0.36,1)';
 const WRONG_ANIM = 'wimShake 0.3s ease, wimFlashAmber 0.5s ease';
 const fmtPx = (v: number) => (v >= 1000 ? v.toFixed(0) : v >= 100 ? v.toFixed(1) : v.toFixed(2));
 
+// ── W5-B share card: a 1080×1350 dark-navy PNG built entirely client-side
+// (SVG string → <img> → canvas → blob → navigator.share / download). Facts
+// only — wordmark, date, ticker, ±%, score dots, the day's real spark. No
+// advice or prediction copy ever enters this card (compliance invariant).
+async function buildShareCard(opts: {
+  dateET: string; ticker: string; movePct: number | null;
+  scoreFilled: number; scoreTotal: number; closes: number[] | null; footer: string;
+}): Promise<void> {
+  const W = 1080; const H = 1350;
+  const gold = '#FFD66B'; const violet = '#8B7CF7';
+  const dim = 'rgba(255,255,255,0.55)'; const faint = 'rgba(255,255,255,0.20)';
+  // the day's spark, downsampled to ≤48 points for a clean polyline
+  let sparkEl = `<line x1="120" y1="810" x2="${W - 120}" y2="810" stroke="${faint}" stroke-width="4" stroke-dasharray="4 14"/>`;
+  if (opts.closes && opts.closes.length >= 8) {
+    const src = opts.closes;
+    const step = Math.max(1, Math.ceil(src.length / 48));
+    const pts = src.filter((_, i) => i % step === 0 || i === src.length - 1);
+    const lo = Math.min(...pts); const hi = Math.max(...pts); const span = hi - lo || 1;
+    const poly = pts.map((v, i) => `${(120 + (i / Math.max(1, pts.length - 1)) * (W - 240)).toFixed(1)},${(920 - ((v - lo) / span) * 280).toFixed(1)}`).join(' ');
+    sparkEl = `<polyline points="${poly}" fill="none" stroke="${violet}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+  const total = Math.max(1, Math.min(10, opts.scoreTotal));
+  const filled = Math.max(0, Math.min(total, opts.scoreFilled));
+  const dotGap = 66; const dotsW = (total - 1) * dotGap;
+  const dots = Array.from({ length: total }).map((_, i) => {
+    const cx = W / 2 - dotsW / 2 + i * dotGap;
+    return `<circle cx="${cx.toFixed(1)}" cy="1060" r="17" fill="${i < filled ? gold : 'none'}" stroke="${i < filled ? gold : faint}" stroke-width="5"/>`;
+  }).join('');
+  const font = 'font-family="-apple-system,Helvetica,Arial,sans-serif"';
+  const svg = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
+    `<rect width="${W}" height="${H}" fill="#0B0F1A"/>`,
+    `<rect x="56" y="56" width="${W - 112}" height="${H - 112}" rx="48" fill="none" stroke="rgba(139,124,247,0.35)" stroke-width="3"/>`,
+    `<text x="120" y="196" ${font} font-size="50" font-weight="900" fill="#FFFFFF" letter-spacing="3">WHY'D IT MOVE?</text>`,
+    `<text x="${W - 120}" y="196" text-anchor="end" ${font} font-size="38" font-weight="800" fill="${dim}">${opts.dateET}</text>`,
+    `<text x="120" y="430" ${font} font-size="140" font-weight="900" fill="#FFFFFF" letter-spacing="2">${opts.ticker}</text>`,
+    opts.movePct != null ? `<text x="120" y="540" ${font} font-size="70" font-weight="900" fill="${gold}">±${opts.movePct}%</text>` : '',
+    sparkEl,
+    dots,
+    `<text x="${W / 2}" y="1226" text-anchor="middle" ${font} font-size="33" font-weight="700" fill="${dim}">Why'd It Move? · ${opts.footer}</text>`,
+    '</svg>',
+  ].join('');
+  const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(new Error('svg-load')); img.src = svgUrl; });
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0, W, H);
+    const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!png) return;
+    const file = new File([png], `wim-${opts.dateET || 'today'}.png`, { type: 'image/png' });
+    const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+    if (typeof nav.share === 'function' && nav.canShare && nav.canShare({ files: [file] })) {
+      // user cancelling the sheet is fine — never force a download afterwards
+      try { await nav.share({ files: [file] }); } catch { /* cancelled */ }
+      return;
+    }
+    const dl = URL.createObjectURL(png);
+    const a = document.createElement('a');
+    a.href = dl; a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(dl), 5000);
+  } catch { /* rasterization unavailable — quietly skip */ }
+  finally { URL.revokeObjectURL(svgUrl); }
+}
+
 // ── W5-A correct-moment: 8 thin violet strokes burst outward from the tapped
 // answer while the earned XP floats up 24px and fades. Pure CSS one-shots
 // (fill:forwards parks them invisible) — mounted once at reveal, zero cleanup.
@@ -1023,7 +1133,7 @@ function PlayLoading({ label }: { label: string }) {
 interface HuntRound { key: string; value: number; label: string; color: string; prompt: string; meaning: string }
 interface HuntResult { label: string; color: string; actual: number; guess: number; distPct: number; gain: number }
 
-function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCollect, onSrs, onComplete, onClose, disclaimer }: {
+function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCollect, onSrs, onComplete, onShare, onClose, disclaimer }: {
   ticker: string;
   fallbackCloses: number[] | null;
   requestLab: (tk: string) => Promise<LabData | null>;
@@ -1032,6 +1142,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
   onCollect: (term: MetricTerm) => void;
   onSrs: (term: string, ok: boolean) => void;
   onComplete: () => boolean; // returns true when this completion newly unlocked the overlay
+  onShare: (filled: number, total: number) => void; // W5-B share card (bullseye runs only)
   onClose: () => void;
   disclaimer: string;
 }) {
@@ -1274,6 +1385,12 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
                 <Ic name="layers" size={18} color="#FFD66B" />
                 <span style={{ fontSize: 12.5, fontWeight: 900, lineHeight: 1.4 }}>{t.unlockToast}</span>
               </div>
+            )}
+            {/* W5-B: a bullseye run earns the brag card — share the day, not a forecast */}
+            {results.some((r) => r.gain >= XP_CORRECT) && (
+              <button type="button" onClick={() => onShare(results.filter((r) => r.gain > 0).length, results.length)} style={{ font: 'inherit', width: '100%', marginTop: 14, background: '#fff', color: P.heroDeep, border: `1.5px solid ${P.line}`, borderRadius: 18, padding: '14px 0', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', boxShadow: P.shadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Ic name="share" size={16} color={P.heroDeep} sw={2} /> {t.share}
+              </button>
             )}
             <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>{t.backHome}</button>
           </div>
@@ -2129,6 +2246,15 @@ export default function WimPage() {
   const almanacRef = useRef<Record<string, AlmanacEntry>>({});
   const [almanac, setAlmanac] = useState<Record<string, AlmanacEntry>>({});
   const [almToast, setAlmToast] = useState<MetricTerm | null>(null);
+  // W5-B: streak freeze (2 forgiveness tokens — verified retention device) +
+  // which current-week day a freeze preserved (visual only, never counted) +
+  // the consumed-freeze toast + first-ever-boot onboarding sheet
+  const [freezeLeft, setFreezeLeft] = useState(2);
+  const [preservedWeek, setPreservedWeek] = useState<boolean[]>([false, false, false, false, false, false, false]);
+  const [freezeToast, setFreezeToast] = useState<number | null>(null);
+  const [onboard, setOnboard] = useState(false);
+  const [obPanel, setObPanel] = useState(0);
+  const [obClosing, setObClosing] = useState(false);
 
   // ── boot: restore local state + fetch today's set (instant-paint + SWR refresh) ──
   useEffect(() => {
@@ -2148,8 +2274,47 @@ export default function WimPage() {
       const now = new Date();
       const monday = new Date(now); monday.setDate(now.getDate() - weekdayIdx());
       const mondayKey = `${monday.getFullYear()}-${monday.getMonth() + 1}-${monday.getDate()}`;
-      if (Array.isArray(wk) && wkKey === mondayKey) setWeek(wk);
+      const sameWeek = Array.isArray(wk) && wkKey === mondayKey;
+      if (sameWeek) setWeek(wk);
       else { localStorage.setItem('wim.weekKey', mondayKey); localStorage.setItem('wim.week', JSON.stringify([false, false, false, false, false, false, false])); }
+      // ── W5-B onboarding: first boot ever shows the 3-panel intro sheet once
+      if (localStorage.getItem('wim.onboard') !== '1') setOnboard(true);
+      // ── W5-B streak freeze: every user holds 2 forgiveness tokens. If exactly
+      // ONE day was missed (yesterday blank, the day before learned — read from
+      // the same wim.week array the streak already uses, plus last week's array
+      // on the Tuesday boundary before the Monday reset wipes it), consume one
+      // token and mark yesterday as PRESERVED. Preserved days never increment
+      // the learned-day count — they only keep the chain visually unbroken.
+      const fzRaw = localStorage.getItem('wim.freeze');
+      let freezes = fzRaw == null ? 2 : parseInt(fzRaw, 10);
+      if (!Number.isFinite(freezes) || freezes < 0) freezes = 2;
+      if (fzRaw == null) localStorage.setItem('wim.freeze', '2');
+      const pvRaw = JSON.parse(localStorage.getItem('wim.weekFreeze') || 'null');
+      let preserved: boolean[] = sameWeek && Array.isArray(pvRaw)
+        ? [...Array(7)].map((_, i) => pvRaw[i] === true)
+        : [false, false, false, false, false, false, false];
+      const ti = weekdayIdx();
+      let gapIdx = -1;
+      if (sameWeek && ti >= 2 && wk[ti - 2] === true && wk[ti - 1] !== true) gapIdx = ti - 1;
+      // Tuesday boundary: the stored array is LAST week's (no visit on Monday) —
+      // Sunday was learned, Monday is the single missed day of the fresh week
+      if (!sameWeek && ti === 1 && Array.isArray(wk)) {
+        const prevMonday = new Date(monday); prevMonday.setDate(monday.getDate() - 7);
+        const prevMondayKey = `${prevMonday.getFullYear()}-${prevMonday.getMonth() + 1}-${prevMonday.getDate()}`;
+        if (wkKey === prevMondayKey && wk[6] === true) gapIdx = 0;
+      }
+      if (gapIdx >= 0 && freezes > 0 && !preserved[gapIdx]) {
+        preserved = [...preserved];
+        preserved[gapIdx] = true; // the preserved flag also blocks re-consumption on later boots
+        freezes -= 1;
+        localStorage.setItem('wim.freeze', String(freezes));
+        localStorage.setItem('wim.weekFreeze', JSON.stringify(preserved));
+        setFreezeToast(freezes);
+      } else if (!sameWeek) {
+        localStorage.setItem('wim.weekFreeze', JSON.stringify(preserved));
+      }
+      setFreezeLeft(freezes);
+      setPreservedWeek(preserved);
     } catch { /* storage unavailable */ }
     let hadCache = false;
     try {
@@ -2371,6 +2536,21 @@ export default function WimPage() {
     return () => clearTimeout(id);
   }, [unlockToast, playOpen, activeIdx]);
 
+  // W5-B: the consumed-freeze toast rides the home screen for 5s — it can only
+  // fire once per gap because the preserved flag persists in wim.weekFreeze
+  useEffect(() => {
+    if (freezeToast == null || onboard || playOpen != null || activeIdx != null) return;
+    const id = setTimeout(() => setFreezeToast(null), 5000);
+    return () => clearTimeout(id);
+  }, [freezeToast, onboard, playOpen, activeIdx]);
+
+  // W5-B onboarding close: mark seen, quick fade, unmount (PlayShell pattern)
+  const closeOnboard = useCallback(() => {
+    persist('wim.onboard', '1');
+    setObClosing(true);
+    window.setTimeout(() => { setOnboard(false); setObClosing(false); }, 150);
+  }, [persist]);
+
   // W5-A unlock drama: a 1.4s full-screen moment on the home screen (tap to skip),
   // a 0.3s collapse toward the hero, then the classic toast takes over
   const endUnlockDrama = useCallback(() => { setUnlockDrama(false); setUnlockToast(true); }, []);
@@ -2401,6 +2581,44 @@ export default function WimPage() {
       </div>
     </div>
   ) : null;
+
+  // ════════════════════════ W5-B FIRST-RUN ONBOARDING (once ever, skippable) ════════════════════════
+  if (onboard) {
+    const obPanels = [
+      { icon: 'chart', title: t.ob1 },
+      { icon: 'crosshair', title: t.ob2 },
+      { icon: 'layers', title: t.ob3 },
+    ];
+    const pn = obPanels[Math.min(obPanel, obPanels.length - 1)];
+    const obAdvance = () => { if (obClosing) return; if (obPanel < obPanels.length - 1) setObPanel(obPanel + 1); else closeOnboard(); };
+    return (
+      <PlayShell closing={obClosing}>
+        <div onClick={obAdvance} style={{ minHeight: '100vh', fontFamily: WIM_FONT, color: '#fff', background: `linear-gradient(165deg, ${P.heroDeep} 0%, ${P.hero} 55%, #8E7FF0 100%)`, cursor: 'pointer' }}>
+          <div style={{ maxWidth: 520, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '0 24px calc(28px + env(safe-area-inset-bottom))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', paddingTop: 'calc(18px + env(safe-area-inset-top))' }}>
+              <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '-0.01em', opacity: 0.9 }}>Why&apos;d It Move?</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); closeOnboard(); }} style={{ font: 'inherit', marginLeft: 'auto', background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 99, padding: '7px 14px', fontSize: 11.5, fontWeight: 900, cursor: 'pointer' }}>{t.obSkip}</button>
+            </div>
+            {/* the active panel — remounts per step so the one-shot rise replays */}
+            <div key={obPanel} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', animation: `wimUp 0.3s ${EASE_OUT} both` }}>
+              <span style={{ width: 96, height: 96, borderRadius: 34, background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.30)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Ic name={pn.icon} size={44} color="#fff" sw={1.5} />
+              </span>
+              <h1 style={{ margin: '24px 0 0', fontSize: 23, fontWeight: 900, lineHeight: 1.45, letterSpacing: '-0.01em', maxWidth: 320 }}>{pn.title}</h1>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginBottom: 16 }}>
+              {obPanels.map((_, i) => (
+                <span key={i} style={{ width: i === obPanel ? 20 : 7, height: 7, borderRadius: 99, background: i === obPanel ? '#fff' : 'rgba(255,255,255,0.35)', transition: 'width 0.25s ease' }} />
+              ))}
+            </div>
+            <button type="button" onClick={(e) => { e.stopPropagation(); obAdvance(); }} style={{ font: 'inherit', width: '100%', background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 18, padding: '15px 0', fontSize: 15, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(0,0,0,0.18)' }}>
+              {obPanel < obPanels.length - 1 ? `${t.obNext} →` : t.obStart}
+            </button>
+          </div>
+        </div>
+      </PlayShell>
+    );
+  }
 
   // ════════════════════════ QUIZ OVERLAY ════════════════════════
   if (activeIdx != null && units[activeIdx]) {
@@ -2609,6 +2827,9 @@ export default function WimPage() {
           onCollect={collectAlmanac}
           onSrs={srsRecord}
           onComplete={onHuntComplete}
+          onShare={(filled, total) => {
+            void buildShareCard({ dateET: today?.dateET || heroU.dateET, ticker: heroU.ticker, movePct: heroU.moveMagnitude, scoreFilled: filled, scoreTotal: total, closes: heroU.spark?.closes || null, footer: t.shareFooter });
+          }}
           onClose={closePlay}
           disclaimer={disclaimerText}
         />
@@ -2840,6 +3061,8 @@ export default function WimPage() {
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900 }}>{streakDays}</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 900 }}>{t.streakLine1} <span style={{ color: P.hero }}>{streakDays}</span>{t.streakLine2}</div>
+              {/* W5-B: remaining streak freezes — the forgiveness tokens guarding the ring */}
+              <span title={t.freezeLabel} aria-label={t.freezeLabel} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep, background: 'rgba(108,92,231,0.10)', border: `1px solid ${P.line}`, borderRadius: 99, padding: '5px 9px' }}><Ic name="snow" size={13} color={P.heroDeep} sw={2} /> {freezeLeft}</span>
               <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '6px 11px' }}><Ic name="shield" size={13} color={P.heroDeep} /> {xp} {t.xp}</span>
             </section>
 
@@ -2847,6 +3070,17 @@ export default function WimPage() {
               <div style={{ ...glass, marginTop: 10, borderRadius: 20, padding: '14px 16px', textAlign: 'center', animation: 'wimUp 0.35s ease' }}>
                 <div style={{ fontSize: 14.5, fontWeight: 900, color: P.mint , display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Ic name="check" size={15} color={P.mint} sw={2.4} /> {t.setDone}</div>
                 <div style={{ fontSize: 11.5, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.setDoneSub}</div>
+                {/* W5-B: brag card for the finished set — today's facts only, rendered on-device */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const u = units[0];
+                    void buildShareCard({ dateET: today?.dateET || u.dateET, ticker: u.ticker, movePct: u.moveMagnitude, scoreFilled: correctToday, scoreTotal: units.length, closes: u.spark?.closes || null, footer: t.shareFooter });
+                  }}
+                  style={{ font: 'inherit', marginTop: 11, background: P.hero, color: '#fff', border: 'none', borderRadius: 99, padding: '9px 20px', fontSize: 12.5, fontWeight: 900, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+                >
+                  <Ic name="share" size={14} color="#fff" sw={2} /> {t.share}
+                </button>
               </div>
             )}
           </>
@@ -2977,14 +3211,63 @@ export default function WimPage() {
               })}
             </div>
 
+            {/* W5-B belt map — the existing XP rank ladder as a vertical progression map.
+                Unlock labels stay truthful: base plays exist, max-pain layer opens via the
+                hunt (not XP), everything higher is honestly marked "soon". */}
+            <div style={{ ...glass, borderRadius: 22, padding: '14px 15px', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="flag" size={15} color={P.heroDeep} /> {t.beltTitle}</h2>
+                <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '3px 10px', fontVariantNumeric: 'tabular-nums' }}>{levelIdx + 1}/{levelNames.length}</span>
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.beltSub}</div>
+              <div style={{ marginTop: 12 }}>
+                {levelNames.map((name, i) => {
+                  const passed = i < levelIdx;
+                  const current = i === levelIdx;
+                  const icon = ['search', 'crosshair', 'layers', 'flow', 'bank'][i];
+                  const unlockLabel = i === 0 ? t.beltUnlockBase : i === 1 ? t.beltUnlockLevels : t.beltSoon;
+                  const unlockDone = (i === 0) || (i === 1 && unlockLevels);
+                  return (
+                    <div key={name} style={{ display: 'flex', gap: 11, alignItems: 'stretch' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 30, flexShrink: 0 }}>
+                        <span style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: current ? `linear-gradient(150deg, ${P.hero}, ${P.heroDeep})` : passed ? P.heroSoft : 'transparent', border: passed || current ? 'none' : `1.5px dashed ${P.line}` }}>
+                          {passed
+                            ? <Ic name="check" size={14} color={P.heroDeep} sw={2.6} />
+                            : <Ic name={icon} size={15} color={current ? '#fff' : P.faint} sw={current ? 2 : 1.7} />}
+                        </span>
+                        {i < levelNames.length - 1 && <span style={{ flex: 1, width: 2, minHeight: 10, borderRadius: 99, background: passed ? 'rgba(108,92,231,0.45)' : P.line, margin: '3px 0' }} />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0, paddingBottom: i < levelNames.length - 1 ? 12 : 0 }}>
+                        <div style={{ background: current ? P.heroSoft : 'transparent', borderRadius: 12, padding: current ? '8px 11px' : '2px 0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 900, color: passed || current ? P.ink : P.faint }}>{name}</span>
+                            {current && <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.08em', color: '#fff', background: P.hero, borderRadius: 99, padding: '2px 7px' }}>{t.beltNow}</span>}
+                            <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: passed || current ? P.heroDeep : P.faint }}>{i * XP_PER_LEVEL} {t.xp}</span>
+                          </div>
+                          <div style={{ marginTop: 2, fontSize: 10, fontWeight: 750 as any, color: passed || current ? P.sub : P.faint, display: 'flex', alignItems: 'center', gap: 5 }}>
+                            {unlockDone ? <Ic name="check" size={10} color={P.mint} sw={2.6} /> : <Ic name={i === 1 ? 'crosshair' : 'lock'} size={10} color={P.faint} sw={1.8} />}
+                            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{unlockLabel}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div style={{ ...glassDark, borderRadius: 24, padding: '16px 15px', color: '#fff' }}>
               <StreakRing days={streakDays} t={t} />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
                 {weekLabels.map((d, i) => {
                   const on = week[i]; const isToday = i === weekdayIdx();
+                  const frozen = !on && preservedWeek[i];
                   return (
                     <div key={i} style={{ textAlign: 'center' }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: on ? '#fff' : 'rgba(255,255,255,0.14)', border: isToday && !on ? '2px solid rgba(255,255,255,0.7)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: on ? P.hero : 'rgba(255,255,255,0.7)' }}>{on ? '✓' : ''}</div>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: on ? '#fff' : frozen ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.14)', border: isToday && !on ? '2px solid rgba(255,255,255,0.7)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: on ? P.hero : 'rgba(255,255,255,0.7)' }}>
+                        {/* a frozen day shows the snow glyph — preserved, never counted */}
+                        {on ? '✓' : frozen ? <Ic name="snow" size={13} color="rgba(255,255,255,0.95)" sw={2.2} /> : ''}
+                      </div>
                       <div style={{ fontSize: 8.5, fontWeight: 800, opacity: 0.75, marginTop: 3 }}>{d}</div>
                     </div>
                   );
@@ -3069,6 +3352,16 @@ export default function WimPage() {
           <div style={{ maxWidth: 520, display: 'flex', alignItems: 'center', gap: 9, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, color: '#fff', borderRadius: 16, padding: '11px 15px', boxShadow: '0 14px 34px rgba(76,63,175,0.35)' }}>
             <Ic name="layers" size={16} color="#FFD66B" />
             <span style={{ fontSize: 12, fontWeight: 900 }}>{t.unlockToast}</span>
+          </div>
+        </div>
+      )}
+
+      {/* W5-B one-time freeze toast — a token quietly saved yesterday's chain */}
+      {freezeToast != null && !unlockToast && (
+        <div style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top))', left: 16, right: 16, zIndex: 96, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
+          <div style={{ maxWidth: 520, display: 'flex', alignItems: 'center', gap: 9, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, color: '#fff', borderRadius: 16, padding: '11px 15px', boxShadow: '0 14px 34px rgba(76,63,175,0.35)' }}>
+            <Ic name="snow" size={16} color="#FFD66B" sw={2} />
+            <span style={{ fontSize: 12, fontWeight: 900 }}>{t.freezeToast.replace('{n}', String(freezeToast))}</span>
           </div>
         </div>
       )}
