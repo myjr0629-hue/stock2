@@ -402,6 +402,27 @@ const T: Record<Lang, Record<string, string>> = {
     ob2: '차트를 만지며 단서를 찾으세요',
     ob3: '배울수록 차트에 층이 열립니다',
     obNext: '다음', obStart: '시작하기', obSkip: '건너뛰기',
+    pulse10Y: '미 10년물', pulseHold: 'FOMC 동결확률', pulseFomc: '다음 FOMC', pulseMover: '오늘의 무버',
+    heroEyebrow: '오늘의 무브',
+    heroHeadline: '{c}, 오늘 ±{v}% 움직임',
+    resumeTitle: '이어서 학습',
+    resumeLine: '오늘의 문제 {a}/{b} — 이어서 풀기',
+    tracksTitle: '커리큘럼 트랙', tracksSub: '네 갈래 길로 배우는 오늘의 시장',
+    track1: '차트 읽기', track2: '기관의 흔적', track3: '거시의 흐름', track4: '뉴스 읽는 법',
+    trackDiff1: '입문~중급', trackDiff2: '중급~고급', trackDiff3: '입문~고급', trackDiff4: '입문',
+    trackNew: '새 트랙',
+    trackNext1: '다음: 리플레이로 오늘 세션 되감기',
+    trackNext2: '다음: 레벨 헌트로 맥스페인 찾기',
+    trackNext3: '다음: 오늘의 금리 도미노 완성하기',
+    trackNext4: '다음: 오늘 헤드라인의 진짜 원인 찾기',
+    dailyRail: '오늘의 데이터로 배우기', dailyRailSub: '방금 끝난 세션이 오늘의 교재예요',
+    conceptOfDay: '오늘의 개념',
+    collectionLabel: '컬렉션',
+    colTitle1: '옵션 구조 3종 세트', colSub1: '맥스페인 · 콜월 · 풋플로어',
+    colTitle2: '군중 심리 읽기', colSub2: '풋/콜 · 다크풀 · 숏볼륨',
+    colTitle3: '금리의 파급 사슬', colSub3: '10년물에서 섹터까지',
+    colOpen: '열어보기',
+    dictRowSub: '{n}개 용어, 전부 실데이터로 배워요',
   },
   en: {
     tagline: "Today's market, a 30-second lesson",
@@ -519,6 +540,27 @@ const T: Record<Lang, Record<string, string>> = {
     ob2: 'Touch the chart, find the clues',
     ob3: 'The more you learn, the more layers open on your chart',
     obNext: 'Next', obStart: 'Start', obSkip: 'Skip',
+    pulse10Y: 'US 10Y', pulseHold: 'FOMC hold odds', pulseFomc: 'Next FOMC', pulseMover: "Today's mover",
+    heroEyebrow: "Today's move",
+    heroHeadline: '{c}: a ±{v}% day',
+    resumeTitle: 'Continue learning',
+    resumeLine: "Today's set {a}/{b} — pick it back up",
+    tracksTitle: 'Learning tracks', tracksSub: "Four paths into today's market",
+    track1: 'Chart Reading', track2: 'Institutional Footprints', track3: 'Macro Currents', track4: 'Reading the News',
+    trackDiff1: 'Intro–Mid', trackDiff2: 'Mid–Advanced', trackDiff3: 'Intro–Advanced', trackDiff4: 'Intro',
+    trackNew: 'New track',
+    trackNext1: "Next: rewind today's session in Replay",
+    trackNext2: 'Next: hunt down max pain in Level Hunt',
+    trackNext3: "Next: complete today's rate domino",
+    trackNext4: "Next: find what really moved today's headline",
+    dailyRail: "Learn from today's data", dailyRailSub: 'The session that just ended is the textbook',
+    conceptOfDay: 'Concept of the day',
+    collectionLabel: 'Collection',
+    colTitle1: 'The options structure trio', colSub1: 'Max pain · call wall · put floor',
+    colTitle2: 'Reading the crowd', colSub2: 'Put/call · dark pool · short volume',
+    colTitle3: 'The rate ripple chain', colSub3: 'From the 10-year to sectors',
+    colOpen: 'Open it',
+    dictRowSub: '{n} terms, each shown on real data',
   },
   ja: {
     tagline: '今日の市場が出す問題、30秒レッスン',
@@ -636,6 +678,27 @@ const T: Record<Lang, Record<string, string>> = {
     ob2: 'チャートに触れて手掛かりを探そう',
     ob3: '学ぶほどチャートに層が開く',
     obNext: '次へ', obStart: 'はじめる', obSkip: 'スキップ',
+    pulse10Y: '米10年債', pulseHold: 'FOMC据え置き確率', pulseFomc: '次のFOMC', pulseMover: '今日のムーバー',
+    heroEyebrow: '今日のムーブ',
+    heroHeadline: '{c}、今日±{v}%の動き',
+    resumeTitle: 'つづきから学ぶ',
+    resumeLine: '今日の問題 {a}/{b} — つづきを解く',
+    tracksTitle: '学習トラック', tracksSub: '4つの道で学ぶ今日の市場',
+    track1: 'チャートを読む', track2: '機関の痕跡', track3: 'マクロの流れ', track4: 'ニュースの読み方',
+    trackDiff1: '入門〜中級', trackDiff2: '中級〜上級', trackDiff3: '入門〜上級', trackDiff4: '入門',
+    trackNew: '新トラック',
+    trackNext1: '次: リプレイで今日のセッションを巻き戻す',
+    trackNext2: '次: レベルハントでマックスペインを探す',
+    trackNext3: '次: 今日の金利ドミノを完成させる',
+    trackNext4: '次: 今日のヘッドラインの本当の原因を探る',
+    dailyRail: '今日のデータで学ぶ', dailyRailSub: '終わったばかりのセッションが今日の教材',
+    conceptOfDay: '今日の概念',
+    collectionLabel: 'コレクション',
+    colTitle1: 'オプション構造3点セット', colSub1: 'マックスペイン · コールウォール · プットフロア',
+    colTitle2: '群衆心理を読む', colSub2: 'プット/コール · ダークプール · ショート出来高',
+    colTitle3: '金利の波及チェーン', colSub3: '10年債からセクターまで',
+    colOpen: '開いてみる',
+    dictRowSub: '全{n}用語、実データで学ぶ',
   },
 };
 
@@ -655,6 +718,24 @@ const XP_PER_LEVEL = 100;
 // glossary sheet; each card keeps the day's real chart it was earned on.
 const ALMANAC_TERMS: MetricTerm[] = ['maxPain', 'callWall', 'putFloor', 'vwap', 'darkPool', 'pcr', 'shortInterest', 'gammaFlip', 'rsi', 'trendPhase'];
 interface AlmanacEntry { dateET: string; ticker: string; closes: number[] }
+
+// ── W6-A curriculum tracks: the app's education breadth as four SATURATED-LIGHT
+// collection tiles (spec table — names/colors fixed: violet/gold/teal/coral,
+// bright colored cards with dark ink of the same family, AA-safe). Progress
+// ring = that track's almanac terms collected; macro/news carry no glossary
+// terms yet → an honest "new track" chip instead of a fake 0-ring. Each track
+// maps its ONE highlighted next step to a play that already exists (full
+// track-detail views are W6-B).
+// W6-A S6: deterministic weekly rotation index — evaluated once at module load
+// (not during render: react purity rule), stable for the whole visit
+const WEEK_EPOCH_IDX = Math.floor(Date.now() / 604_800_000);
+interface TrackDef { id: 'chart' | 'insti' | 'macro' | 'news'; icon: string; terms: MetricTerm[]; bg: string; deep: string; chip: string }
+const TRACKS: TrackDef[] = [
+  { id: 'chart', icon: 'chart', terms: ['rsi', 'vwap', 'trendPhase'], bg: '#E4DCFF', deep: '#4A38C2', chip: 'rgba(74,56,194,0.13)' },
+  { id: 'insti', icon: 'bank', terms: ['maxPain', 'callWall', 'putFloor', 'darkPool', 'pcr', 'shortInterest', 'gammaFlip'], bg: '#FFE3AD', deep: '#8A5B00', chip: 'rgba(138,91,0,0.13)' },
+  { id: 'macro', icon: 'flow', terms: [], bg: '#C4EDE3', deep: '#0E6B57', chip: 'rgba(14,107,87,0.13)' },
+  { id: 'news', icon: 'megaphone', terms: [], bg: '#FFD8CB', deep: '#A83A1D', chip: 'rgba(168,58,29,0.13)' },
+];
 
 // local weekday index (NOT UTC — a KST learning day must count as that day)
 function weekdayIdx(): number { return (new Date().getDay() + 6) % 7; } // Mon=0..Sun=6
@@ -681,13 +762,14 @@ function RealChart({
 }: {
   closes: number[]; vwap?: number[] | null;
   levels?: { label: string; value: number; color: string }[];
-  height?: number; minmax?: boolean; tone?: 'light' | 'dark';
+  height?: number; minmax?: boolean; tone?: 'light' | 'dark' | 'lumi';
 }) {
-  // dark = the hero's navy scene: a LUMINOUS line built from layered strokes
-  // (wide violet halo → soft lilac mid → near-white core). Pure SVG strokes,
-  // no filter/blur — iOS webview safe (W5-C art direction).
-  const stroke = tone === 'dark' ? '#F4F1FF' : P.hero;
-  const fillId = tone === 'dark' ? 'wimFillD' : 'wimFill';
+  // dark = W5-C navy scene: a LUMINOUS line built from layered strokes (wide
+  // violet halo → soft lilac mid → near-white core). lumi = the same 3-layer
+  // technique re-tuned for the W6 LIGHT hero (soft violet halo → deep violet
+  // core). Pure SVG strokes, no filter/blur — iOS webview safe.
+  const stroke = tone === 'dark' ? '#F4F1FF' : tone === 'lumi' ? '#4C3FAF' : P.hero;
+  const fillId = tone === 'dark' ? 'wimFillD' : tone === 'lumi' ? 'wimFillL' : 'wimFill';
   const axis = tone === 'dark' ? 'rgba(255,255,255,0.72)' : P.faint;
   const W = 320; const H = height;
   const usable = levels?.filter((l) => typeof l.value === 'number' && l.value > 0) || [];
@@ -718,6 +800,12 @@ function RealChart({
         <>
           <path d={path} fill="none" stroke="#8B7CF7" strokeWidth="7" strokeLinejoin="round" strokeLinecap="round" opacity="0.22" />
           <path d={path} fill="none" stroke="#B7A8FF" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" opacity="0.32" />
+        </>
+      )}
+      {tone === 'lumi' && (
+        <>
+          <path d={path} fill="none" stroke="#8B7CF7" strokeWidth="7" strokeLinejoin="round" strokeLinecap="round" opacity="0.16" />
+          <path d={path} fill="none" stroke="#9C8DF5" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" opacity="0.30" />
         </>
       )}
       <path d={path} fill="none" stroke={stroke} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
@@ -779,17 +867,22 @@ function CountUp({ value, decimals = 1, duration = 600, delay = 0 }: { value: nu
 }
 
 // PRE·REG·POST heat strip — a thin 3-segment session bar; the lit segment is where
-// today's (already finished) move happened. Designed for the dark hero canvas.
-function SessionStrip({ active, labels }: { active: 'pre' | 'reg' | 'post'; labels: [string, string, string] }) {
+// today's (already finished) move happened. tone="light" = W6 editorial hero
+// (gold bar + deep-gold label for AA on cream); "dark" keeps the W5-C palette.
+function SessionStrip({ active, labels, tone = 'dark' }: { active: 'pre' | 'reg' | 'post'; labels: [string, string, string]; tone?: 'dark' | 'light' }) {
   const segs: ('pre' | 'reg' | 'post')[] = ['pre', 'reg', 'post'];
+  const onBar = tone === 'dark' ? '#FFD66B' : '#F2B93B';
+  const onLabel = tone === 'dark' ? '#FFD66B' : '#8A5B00';
+  const offBar = tone === 'dark' ? 'rgba(255,255,255,0.20)' : 'rgba(38,34,64,0.10)';
+  const offLabel = tone === 'dark' ? 'rgba(255,255,255,0.72)' : P.faint;
   return (
     <div style={{ display: 'flex', gap: 6 }}>
       {segs.map((s, i) => {
         const on = s === active;
         return (
           <div key={s} style={{ flex: s === 'reg' ? 2.2 : 1, textAlign: 'center', minWidth: 0 }}>
-            <div style={{ height: 4, borderRadius: 99, background: on ? '#FFD66B' : 'rgba(255,255,255,0.20)' }} />
-            <div style={{ marginTop: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.08em', color: on ? '#FFD66B' : 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{labels[i]}</div>
+            <div style={{ height: 4, borderRadius: 99, background: on ? onBar : offBar }} />
+            <div style={{ marginTop: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.08em', color: on ? onLabel : offLabel, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{labels[i]}</div>
           </div>
         );
       })}
@@ -970,8 +1063,8 @@ const WIM_KEYFRAMES = [
   '@keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}',
   '@keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}}',
   '.wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite}',
-  // W5-C: the hero skeleton matches the dark navy scene — no white flash before paint
-  '.wim-skel-navy{background:linear-gradient(90deg,#0B0F1A 25%,#151C30 50%,#0B0F1A 75%);background-size:200% 100%;animation:wimSh 1.4s infinite}',
+  // W6-A: the hero skeleton matches the LIGHT editorial scene (W5-C navy variant retired)
+  '.wim-skel-cream{background:linear-gradient(90deg,#F1ECFA 25%,#FFFFFF 50%,#F1ECFA 75%);background-size:200% 100%;animation:wimSh 1.4s infinite}',
   '@keyframes wimSpin{to{transform:rotate(360deg)}}',
   '@keyframes wimFloat1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(24px,-30px) scale(1.12)}}',
   '@keyframes wimFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,22px) scale(0.92)}}',
@@ -1937,6 +2030,23 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
 interface FedWatchData { ease: number; noChange: number; hike: number; daysUntilFomc: number | null }
 interface EconEvent { date: string; time: string; event: string; impact: string; category: string; actual: number | null; estimate: number | null; previous: number | null; unit?: string | null }
 interface TreasuryData { yield10Y: number | null; yield2Y: number | null; yield30Y: number | null }
+
+// ── W6-A shared macro feeds: the domino play's three same-origin GETs hoisted
+// behind ONE module-level in-flight promise — the home S1 pulse strip and the
+// play read the same fetch (no duplicate requests per page load, no new APIs)
+interface MacroFeeds { fw: FedWatchData | null; ty: TreasuryData | null; events: EconEvent[] }
+let macroFlight: Promise<MacroFeeds> | null = null;
+function fetchMacroFeeds(): Promise<MacroFeeds> {
+  if (!macroFlight) {
+    const j = (u: string) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    macroFlight = Promise.all([j('/api/guardian/fedwatch'), j('/api/guardian/economic-calendar'), j('/api/live/treasury')]).then(([f, c, y]) => ({
+      fw: f && typeof f.noChange === 'number' ? (f as FedWatchData) : null,
+      ty: y && typeof y.yield10Y === 'number' ? (y as TreasuryData) : null,
+      events: c && Array.isArray(c.events) ? (c.events as EconEvent[]) : [],
+    }));
+  }
+  return macroFlight;
+}
 interface DominoStat { k: string; v: number; decimals: number; prefix?: string; suffix?: string }
 interface DominoNode { title: string; q: string; opts: [string, string]; correct: 0 | 1; mech: string; stats: DominoStat[] }
 
@@ -1967,21 +2077,19 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
   const [answers, setAnswers] = useState<Record<number, { pick: number; ok: boolean }>>({});
   const [phase, setPhase] = useState<'play' | 'finale'>('play');
 
-  // fetch the three same-origin macro feeds; headline pick = nearest HIGH-impact
-  // event today/tomorrow ET → nearest fed-category event → FOMC countdown card
+  // W6-A: the three macro feeds now arrive via the shared page-wide fetch (S1
+  // pulse strip already warmed it); headline pick = nearest HIGH-impact event
+  // today/tomorrow ET → nearest fed-category event → FOMC countdown card
   // (all resolved schedule facts and already-published readings, no forecasting)
   useEffect(() => {
     let alive = true;
-    const j = (u: string) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    Promise.all([j('/api/guardian/fedwatch'), j('/api/guardian/economic-calendar'), j('/api/live/treasury')]).then(([f, c, y]) => {
+    fetchMacroFeeds().then(({ fw: f, ty: y, events }) => {
       if (!alive) return;
-      if (f && typeof f.noChange === 'number') setFw(f as FedWatchData);
-      if (c && Array.isArray(c.events)) {
-        const days = [etTodayStr(), etTodayStr(Date.now() + 86_400_000)];
-        const soon = (c.events as EconEvent[]).filter((e) => days.includes(e.date));
-        setHeadEvent(soon.find((e) => e.impact === 'HIGH') || soon.find((e) => e.category === 'fed') || null);
-      }
-      if (y && typeof y.yield10Y === 'number') setTy(y as TreasuryData);
+      if (f) setFw(f);
+      const days = [etTodayStr(), etTodayStr(Date.now() + 86_400_000)];
+      const soon = events.filter((e) => days.includes(e.date));
+      setHeadEvent(soon.find((e) => e.impact === 'HIGH') || soon.find((e) => e.category === 'fed') || null);
+      if (y) setTy(y);
       setLoaded(true);
     });
     return () => { alive = false; };
@@ -2269,6 +2377,8 @@ export default function WimPage() {
   // W4: SRS-lite store (per-term wrong/right/last) + ET weekend flag (P6 review mode)
   const srsRef = useRef<Record<string, SrsEntry>>({});
   const weekendET = useMemo(() => isWeekendET(), []);
+  // W6-A S1: live pulse strip data — the shared page-wide macro fetch
+  const [pulse, setPulse] = useState<{ fw: FedWatchData | null; ty: TreasuryData | null } | null>(null);
   const [unlockLevels, setUnlockLevels] = useState(false);
   const [unlockToast, setUnlockToast] = useState(false);
   // W5-A: first-unlock full-screen drama (plays on home, then hands off to the toast)
@@ -2400,6 +2510,12 @@ export default function WimPage() {
   const labTicker = units[0]?.ticker || 'NVDA';
   const lab = labs[labTicker] || null;
   useEffect(() => { void requestLab(labTicker); }, [labTicker, requestLab]);
+  // W6-A S1: warm the shared macro feeds once — pills render whatever loaded
+  useEffect(() => {
+    let alive = true;
+    fetchMacroFeeds().then(({ fw, ty }) => { if (alive) setPulse({ fw, ty }); });
+    return () => { alive = false; };
+  }, []);
   const doneCount = units.filter((u) => done[u.id]).length;
   const streakDays = week.filter(Boolean).length;
   const levelIdx = Math.min(4, Math.floor(xp / XP_PER_LEVEL));
@@ -2515,6 +2631,18 @@ export default function WimPage() {
   // W3: replay wants a dense session — hero unit, else any unit with ≥60 bars
   const replayU = heroU && (heroU.spark?.closes.length || 0) >= 60 ? heroU
     : units.find((u) => (u.spark?.closes.length || 0) >= 60) || null;
+
+  // W6-A S5: concept of the day — deterministic pick (dateET hash) among the
+  // glossary terms that can demo themselves with live lab values right now
+  const termOfDay = useMemo<MetricTerm | null>(() => {
+    if (!lab) return null;
+    const pool = (Object.keys(METRIC_GLOSSARY) as MetricTerm[]).filter((tm) => termDemo(tm, lab) != null);
+    if (pool.length === 0) return null;
+    const key = today?.dateET || etTodayStr();
+    let h = 0;
+    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return pool[h % pool.length];
+  }, [lab, today]);
 
   // ── W2: play bookkeeping — XP + learning-day dot (same rules as record()) ──
   const awardPlayXp = useCallback((gain: number) => {
@@ -2931,13 +3059,10 @@ export default function WimPage() {
     border: '1px solid rgba(255,255,255,0.28)',
     boxShadow: '0 16px 40px rgba(76,63,175,0.30)',
   } as const;
-  // W5-C: the deck's mini dark scenes — same navy canvas as the hero (one visual
-  // system), a pre-blurred violet glow baked into the background (no filter:blur)
-  const deckScene = {
-    background: 'radial-gradient(120% 90% at 82% 10%, rgba(108,92,231,0.30), transparent 62%), #0B0F1A',
-    border: '1px solid rgba(139,124,247,0.22)',
-    boxShadow: '0 14px 30px rgba(11,15,26,0.30)',
-  } as const;
+  // W6-A S1: thin pulse pills — hairline light chips, label + tabular value
+  const pulsePill = { display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(38,34,64,0.08)', borderRadius: 99, padding: '6px 11px', whiteSpace: 'nowrap' } as const;
+  const pulseK = { fontSize: 9, fontWeight: 900, letterSpacing: '0.05em', color: P.faint } as const;
+  const pulseV = { fontSize: 11, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.ink } as const;
   const solvedCount = Object.keys(done).length;
   const correctToday = units.filter((u) => done[u.id] && u.correctCategoryIds.includes(done[u.id])).length;
   const termsCount = Object.keys(seenTerms).filter((k) => seenTerms[k]).length;
@@ -2951,19 +3076,54 @@ export default function WimPage() {
   ];
   const weekendRank: Record<string, number> = { replay: 0, sense: 1, hunt: 2, domino: 3 };
   const deckPlays = weekendET ? [...playDefs].sort((a, b) => weekendRank[a.id] - weekendRank[b.id]) : playDefs;
-  const playCards = deckPlays.map((tz) => (
-    <button key={tz.id} type="button" className="wim-press" onClick={() => openPlay(tz.id)} style={{ ...deckScene, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', color: '#fff', animation: 'wimUp 0.3s ease' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 28, height: 28, borderRadius: 10, background: 'rgba(139,124,247,0.22)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#C9BEFF' }}><Ic name={tz.icon} size={16} sw={2} /></span>
-        <span className="wim-new" style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: '#C9BEFF', background: 'rgba(139,124,247,0.24)', borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
+  // W6-A S5: the play deck re-merchandised as LIGHT colored tint cards — one
+  // tint per learning-track family (Blinkit tile energy, zero dark scenes)
+  const PLAY_TINT: Record<'hunt' | 'sense' | 'replay' | 'domino', { bg: string; deep: string }> = {
+    replay: { bg: '#ECE6FF', deep: '#4A38C2' },
+    hunt: { bg: '#FFEFC9', deep: '#8A5B00' },
+    domino: { bg: '#D7F3EA', deep: '#0E6B57' },
+    sense: { bg: '#FFE2D6', deep: '#A83A1D' },
+  };
+  const playCards = deckPlays.map((tz, i) => {
+    const tint = PLAY_TINT[tz.id];
+    return (
+      <button key={tz.id} type="button" className="wim-press" onClick={() => openPlay(tz.id)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 196px', scrollSnapAlign: 'start', background: tint.bg, color: tint.deep, border: 'none', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 22px rgba(38,34,64,0.07)', animation: `wimUp 0.3s ${EASE_OUT} ${i * 40}ms both` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+          <span style={{ width: 28, height: 28, borderRadius: 10, background: 'rgba(255,255,255,0.55)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Ic name={tz.icon} size={16} color={tint.deep} sw={2} /></span>
+          <span className="wim-new" style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, background: 'rgba(255,255,255,0.6)', borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
+        </div>
+        <div style={{ marginTop: 11, fontSize: 14.5, fontWeight: 900 }}>{tz.title}</div>
+        <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 750 as any, opacity: 0.8, lineHeight: 1.45 }}>{tz.sub}</div>
+        <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+          <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: P.ink, color: '#fff' }}>{t.play}</span>
+        </div>
+      </button>
+    );
+  });
+  // W6-A S5: concept-of-the-day card — the term's live micro-viz, tap → glossary
+  const conceptCard = termOfDay ? (
+    <button key="cod" type="button" className="wim-press" onClick={() => markTerm(termOfDay)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 196px', scrollSnapAlign: 'start', background: '#FFFFFF', border: '1px solid rgba(38,34,64,0.07)', borderRadius: 18, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 20px rgba(76,63,175,0.09)', animation: `wimUp 0.3s ${EASE_OUT} 160ms both` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%' }}>
+        <span style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.08em', color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '3px 9px' }}>{t.conceptOfDay.toUpperCase()}</span>
+        {lab && <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.mint }}>● {lab.ticker}</span>}
       </div>
-      <div style={{ marginTop: 12, fontSize: 14.5, fontWeight: 900, color: '#fff' }}>{tz.title}</div>
-      <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.72)', lineHeight: 1.45 }}>{tz.sub}</div>
-      <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-        <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: '#fff', color: P.heroDeep }}>{t.play}</span>
+      <div style={{ margin: '10px 0 2px', width: '100%' }}>
+        <MiniViz term={termOfDay} lab={lab} />
+      </div>
+      <div style={{ fontSize: 13.5, fontWeight: 900, lineHeight: 1.3, color: P.ink }}>{METRIC_GLOSSARY[termOfDay].title[loc]}</div>
+      <div style={{ marginTop: 'auto', paddingTop: 9, display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+        <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: P.heroSoft, color: P.heroDeep }}>{t.colOpen}</span>
       </div>
     </button>
-  ));
+  ) : null;
+  // W6-A S6: one editorial collection teaser, rotating weekly (deterministic) —
+  // every theme opens content that already exists (no new views this phase)
+  const collections = [
+    { title: t.colTitle1, sub: t.colSub1, icon: 'layers', bg: '#FFEFC9', deep: '#8A5B00', open: () => openPlay('hunt') },
+    { title: t.colTitle2, sub: t.colSub2, icon: 'updown', bg: '#ECE6FF', deep: '#4A38C2', open: () => openPlay('sense') },
+    { title: t.colTitle3, sub: t.colSub3, icon: 'chain', bg: '#D7F3EA', deep: '#0E6B57', open: () => openPlay('domino') },
+  ];
+  const col = collections[WEEK_EPOCH_IDX % collections.length];
   const q = searchQ.trim().toLowerCase();
   const searchResults = (Object.keys(METRIC_GLOSSARY) as MetricTerm[]).filter((term) => {
     if (!q) return false;
@@ -2972,7 +3132,7 @@ export default function WimPage() {
   }).slice(0, 12);
 
   return (
-    <div style={{ minHeight: '100vh', color: P.ink, fontFamily: "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif", background: 'linear-gradient(178deg, #E9E3FF 0%, #F4F1FF 38%, #FBFAFF 100%)', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', color: P.ink, fontFamily: "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif", background: 'linear-gradient(180deg, #FAF7F2 0%, #F8F4F4 26%, #F3EEFB 52%, #F8F6FD 74%, #FFFFFF 100%)', position: 'relative' }}>
       <style>{WIM_KEYFRAMES}</style>
 
       {/* floating gradient blobs — depth behind the glass (W5-C: pre-blurred
@@ -3001,126 +3161,114 @@ export default function WimPage() {
         {/* ── TAB: HOME ── */}
         {homeTab === 'home' && (
           <>
-            {/* hero: today's top case as a DARK NAVY SCENE (W5-C art direction) —
-                luminous chart line, the real brand logo as a translucent layer
-                behind a navy scrim, two pre-blurred glows for depth, and the CTA
-                floating OUT of the card's bottom edge (declutters the slab) */}
+            {/* ── S1 · live pulse strip — thin pills bleeding off-screen (real
+                numbers only: 10Y, FOMC hold odds, next FOMC, today's mover) ── */}
+            {(pulse?.ty?.yield10Y != null || pulse?.fw != null || heroU != null) && (
+              <div className="no-sb" style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '12px -16px 0', padding: '2px 16px', WebkitOverflowScrolling: 'touch', animation: 'wimUp 0.3s ease' }}>
+                {pulse?.ty?.yield10Y != null && (
+                  <span style={pulsePill}><span style={pulseK}>{t.pulse10Y}</span><span style={pulseV}>{pulse.ty.yield10Y.toFixed(2)}%</span></span>
+                )}
+                {pulse?.fw != null && (
+                  <span style={pulsePill}><span style={pulseK}>{t.pulseHold}</span><span style={pulseV}>{pulse.fw.noChange.toFixed(1)}%</span></span>
+                )}
+                {pulse?.fw?.daysUntilFomc != null && (
+                  <span style={pulsePill}><span style={pulseK}>{t.pulseFomc}</span><span style={pulseV}>D-{pulse.fw.daysUntilFomc}</span></span>
+                )}
+                {heroU != null && (
+                  <span style={pulsePill}><span style={pulseK}>{t.pulseMover}</span><span style={pulseV}>{heroU.ticker} ±{heroU.moveMagnitude}%</span></span>
+                )}
+              </div>
+            )}
+
+            {/* ── S2 · hero "today's move" — LIGHT editorial scene (W6-A replaces
+                the W5-C navy slab): cream→soft-violet wash, the company + move
+                as the unit headline, the luminous chart re-tuned for light, the
+                streak ring riding top-right, CTA still floating over the edge ── */}
             {heroU && heroU.spark && heroU.spark.closes.length >= 8 ? (
-              <section style={{ position: 'relative', marginTop: 14, paddingBottom: 25, animation: 'wimUp 0.35s ease' }}>
-                <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 26, padding: '15px 16px 40px', color: '#fff', background: '#0B0F1A', border: '1px solid rgba(139,124,247,0.24)', boxShadow: '0 24px 50px rgba(11,15,26,0.42), 0 6px 18px rgba(11,15,26,0.28)' }}>
-                  {/* depth: violet + warm radial glows behind the chart (gradients only, no filter) */}
-                  <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(92% 64% at 16% 82%, rgba(108,92,231,0.36), transparent 64%), radial-gradient(64% 50% at 88% 24%, rgba(255,173,31,0.13), transparent 68%)' }} />
-                  {/* real-brand layer: the mover's logo, large + translucent, right side */}
-                  <LogoWatermark key={heroU.ticker} ticker={heroU.ticker} size={180} right={-24} top={4} opacity={0.12} />
-                  {/* navy scrim over the logo — the chart and labels stay readable */}
-                  <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(78deg, rgba(11,15,26,0.94) 0%, rgba(11,15,26,0.58) 52%, rgba(11,15,26,0.22) 100%)' }} />
+              <section style={{ position: 'relative', marginTop: 12, paddingBottom: 25, animation: 'wimUp 0.35s ease' }}>
+                <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 28, padding: '16px 16px 42px', background: 'linear-gradient(155deg, #FFFFFF 0%, #F7F3FF 48%, #EFE8FF 100%)', border: '1px solid rgba(108,92,231,0.13)', boxShadow: '0 20px 44px rgba(76,63,175,0.13), 0 4px 14px rgba(76,63,175,0.06)' }}>
+                  {/* soft depth washes — violet low-left, warm amber up-right (gradients only) */}
+                  <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(88% 60% at 12% 86%, rgba(108,92,231,0.10), transparent 62%), radial-gradient(56% 44% at 90% 12%, rgba(255,173,31,0.10), transparent 66%)' }} />
+                  {/* the mover's real logo — quiet watermark on light; a white scrim keeps the ink readable */}
+                  <LogoWatermark key={heroU.ticker} ticker={heroU.ticker} size={170} right={-22} top={10} opacity={0.08} />
+                  <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(78deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.4) 55%, rgba(255,255,255,0) 100%)' }} />
                   <div style={{ position: 'relative' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#FFD66B' , display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color="#FFD66B" /> {t.heroCase.toUpperCase()}</span>
-                      <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: '#7EE0AE', background: 'rgba(25,184,147,0.25)', borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                      <TickerLogo ticker={heroU.ticker} size={40} />
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.01em' }}>{heroU.ticker}</div>
-                        {heroU.companyName && <div style={{ fontSize: 10.5, fontWeight: 650 as any, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{heroU.companyName}</div>}
+                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: P.heroDeep, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color={P.heroDeep} /> {t.heroEyebrow.toUpperCase()}</span>
+                        <h1 style={{ margin: '9px 0 0', fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.28, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {t.heroHeadline.replace('{c}', heroU.companyName || heroU.ticker).replace('{v}', String(heroU.moveMagnitude))}
+                        </h1>
                       </div>
-                      <span style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#FFD66B', background: 'rgba(255,214,107,0.12)', border: '1px solid rgba(255,214,107,0.30)', borderRadius: 99, padding: '5px 12px' }}>±<CountUp value={heroU.moveMagnitude} />%</span>
+                      {/* streak ring + freeze count — progress woven into the hero (S2 per spec) */}
+                      <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                        <div style={{ position: 'relative', width: 40, height: 40 }}>
+                          <svg width="40" height="40" viewBox="0 0 40 40">
+                            <circle cx="20" cy="20" r="15.5" fill="none" stroke="rgba(108,92,231,0.16)" strokeWidth="5" />
+                            <circle cx="20" cy="20" r="15.5" fill="none" stroke={P.amber} strokeWidth="5" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 15.5 * Math.max(0.02, Math.min(1, streakDays / 7))} ${2 * Math.PI * 15.5}`} transform="rotate(-90 20 20)" />
+                          </svg>
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900 }}>{streakDays}</div>
+                        </div>
+                        {freezeLeft > 0 && (
+                          <span title={t.freezeLabel} aria-label={t.freezeLabel} style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 900, color: P.heroDeep }}><Ic name="snow" size={10} color={P.heroDeep} sw={2.4} /> {freezeLeft}</span>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ margin: '12px -16px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 11 }}>
+                      <TickerLogo ticker={heroU.ticker} size={30} />
+                      <span style={{ fontSize: 13.5, fontWeight: 900 }}>{heroU.ticker}</span>
+                      <span style={{ fontSize: 14, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#8A5B00', background: 'rgba(255,173,31,0.16)', border: '1px solid rgba(255,173,31,0.35)', borderRadius: 99, padding: '4px 11px' }}>±<CountUp value={heroU.moveMagnitude} />%</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
+                    </div>
+                    <div style={{ margin: '10px -16px 0' }}>
                       <RealChart
                         closes={heroU.spark.closes}
                         height={150}
-                        tone="dark"
+                        tone="lumi"
                         levels={unlockLevels && heroLab && heroLab.levels.maxPain != null
-                          ? [{ label: 'MAX PAIN', value: heroLab.levels.maxPain, color: '#FFD66B' }]
+                          ? [{ label: 'MAX PAIN', value: heroLab.levels.maxPain, color: '#C98A00' }]
                           : undefined}
                       />
                     </div>
                     <div style={{ marginTop: 9 }}>
-                      <SessionStrip active={heroSession} labels={[t.sessionPre, t.sessionReg, t.sessionPost]} />
+                      <SessionStrip active={heroSession} labels={[t.sessionPre, t.sessionReg, t.sessionPost]} tone="light" />
                     </div>
-                    {/* P6: ET weekend — one slim translucent pill ON the scene (no box-in-box) */}
+                    {/* P6: ET weekend — one slim tinted pill ON the scene (no box-in-box) */}
                     {weekendET && (
-                      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 99, padding: '7px 13px' }}>
-                        <Ic name="replay" size={13} color="#FFD66B" />
-                        <span style={{ fontSize: 11, fontWeight: 900, color: '#FFD66B', whiteSpace: 'nowrap', flexShrink: 0 }}>{t.weekendTitle}</span>
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.78)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{t.weekendSub}</span>
+                      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, background: 'rgba(108,92,231,0.08)', border: '1px solid rgba(108,92,231,0.16)', borderRadius: 99, padding: '7px 13px' }}>
+                        <Ic name="replay" size={13} color={P.heroDeep} />
+                        <span style={{ fontSize: 11, fontWeight: 900, color: P.heroDeep, whiteSpace: 'nowrap', flexShrink: 0 }}>{t.weekendTitle}</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: P.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{t.weekendSub}</span>
                       </div>
                     )}
                   </div>
                 </div>
-                {/* the CTA floats over the card's bottom edge — half in, half out */}
-                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', position: 'absolute', left: 18, right: 18, bottom: 0, background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 99, padding: '15px 18px', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', boxShadow: '0 12px 28px rgba(11,15,26,0.32), 0 3px 8px rgba(11,15,26,0.22)' }}>
+                {/* the CTA floats over the card's bottom edge — ink pill (dark stays ink-only) */}
+                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', position: 'absolute', left: 18, right: 18, bottom: 0, background: P.ink, color: '#fff', border: 'none', borderRadius: 99, padding: '15px 18px', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', boxShadow: '0 12px 26px rgba(38,34,64,0.28), 0 3px 8px rgba(38,34,64,0.16)' }}>
                   {heroU.prompt[loc]} · {t.solve} →
                 </button>
               </section>
             ) : !failed && !today ? (
-              <div className="wim-skel-navy" style={{ height: 315, borderRadius: 26, marginTop: 14 }} />
+              <div className="wim-skel-cream" style={{ height: 330, borderRadius: 28, marginTop: 12, border: '1px solid rgba(108,92,231,0.10)' }} />
             ) : null}
             {failed && !today && (
               <div style={{ ...glass, marginTop: 16, borderRadius: 20, padding: '18px 16px', fontSize: 13, fontWeight: 700, color: P.sub, textAlign: 'center' }}>{t.empty}</div>
             )}
 
-            {/* today's play deck — bigger snap cards (real spark each) + W2 teasers */}
-            {units.length > 0 && (
-              <section style={{ marginTop: 18 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
-                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 , display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="play" size={16} color={P.heroDeep} /> {t.playDeck}</h2>
-                  <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: doneCount === units.length ? P.mint : P.faint }}>{doneCount}/{units.length} {t.done}</span>
-                </div>
-                <div className="no-sb" style={{ display: 'flex', alignItems: 'stretch', gap: 12, overflowX: 'auto', margin: '10px -16px 0', padding: '2px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
-                  {/* P6: on ET weekends the plays lead the deck (review mode) */}
-                  {weekendET && playCards}
-                  {units.map((u, i) => {
-                    const isDone = !!done[u.id];
-                    const lvLabel = u.difficultyLevel === 1 ? t.quizLv1 : u.difficultyLevel === 2 ? t.quizLv2 : t.quizLv3;
-                    // difficulty chips re-tuned for the dark canvas (bright variants, AA-safe)
-                    const lvColor = u.difficultyLevel === 1 ? '#7EE0AE' : u.difficultyLevel === 2 ? '#FFD66B' : '#C9BEFF';
-                    return (
-                      <button key={u.id} type="button" className="wim-press" onClick={() => startQuiz(i)} style={{ ...deckScene, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', color: '#fff', position: 'relative', overflow: 'hidden', animation: 'wimUp 0.3s ease' }}>
-                        {/* mini real-brand layer — faint logo behind the spark, fails to nothing */}
-                        <LogoWatermark ticker={u.ticker} size={84} right={-14} top={24} opacity={0.09} />
-                        <div style={{ position: 'relative' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <TickerLogo ticker={u.ticker} size={28} />
-                            <span style={{ fontSize: 14.5, fontWeight: 900 }}>{u.ticker}</span>
-                            <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: lvColor, background: 'rgba(255,255,255,0.10)', borderRadius: 99, padding: '2px 7px' }}>{lvLabel}</span>
-                          </div>
-                          <div style={{ margin: '10px -3px 0' }}>
-                            {u.spark && u.spark.closes.length >= 8
-                              ? <MiniSpark closes={u.spark.closes} w={186} h={58} tone="dark" />
-                              : <div style={{ height: 58 }} />}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', marginTop: 9 }}>
-                            <span style={{ fontSize: 13, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#fff' }}>±{u.moveMagnitude}%</span>
-                            <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: isDone ? 'rgba(25,184,147,0.22)' : '#fff', color: isDone ? '#7EE0AE' : P.heroDeep }}>
-                              {isDone ? `✓ ${t.solved}` : t.play}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {!weekendET && playCards}
-                </div>
-              </section>
+            {/* ── S3 · continue learning — one compact resume row, only while
+                today's set is mid-progress (hidden when untouched or done) ── */}
+            {units.length > 0 && doneCount > 0 && doneCount < units.length && heroU && (
+              <button type="button" className="wim-press" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(38,34,64,0.07)', borderRadius: 17, padding: '11px 13px', boxShadow: '0 6px 16px rgba(76,63,175,0.07)', animation: 'wimUp 0.3s ease' }}>
+                <TickerLogo ticker={heroU.ticker} size={26} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 12.5, fontWeight: 900 }}>{t.resumeLine.replace('{a}', String(doneCount)).replace('{b}', String(units.length))}</span>
+                  <span style={{ display: 'block', marginTop: 5, height: 5, background: 'rgba(108,92,231,0.12)', borderRadius: 99, overflow: 'hidden' }}>
+                    <span style={{ display: 'block', width: `${(doneCount / units.length) * 100}%`, height: '100%', background: P.hero, borderRadius: 99 }} />
+                  </span>
+                </span>
+                <span style={{ color: P.hero, fontWeight: 900 }}>›</span>
+              </button>
             )}
-
-            {/* streak + XP — single compact row (ring · this-week line · XP chip); dots/level bar live in Me */}
-            <section style={{ ...glass, marginTop: 10, borderRadius: 22, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 11, animation: 'wimUp 0.35s ease' }}>
-              <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
-                <svg width="44" height="44" viewBox="0 0 44 44">
-                  <circle cx="22" cy="22" r="17" fill="none" stroke={P.heroSoft} strokeWidth="6" />
-                  <circle cx="22" cy="22" r="17" fill="none" stroke={P.amber} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 17 * Math.max(0.02, Math.min(1, streakDays / 7))} ${2 * Math.PI * 17}`} transform="rotate(-90 22 22)" />
-                </svg>
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900 }}>{streakDays}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 900 }}>{t.streakLine1} <span style={{ color: P.hero }}>{streakDays}</span>{t.streakLine2}</div>
-              {/* W5-B: remaining streak freezes — the forgiveness tokens guarding the ring */}
-              <span title={t.freezeLabel} aria-label={t.freezeLabel} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep, background: 'rgba(108,92,231,0.10)', border: `1px solid ${P.line}`, borderRadius: 99, padding: '5px 9px' }}><Ic name="snow" size={13} color={P.heroDeep} sw={2} /> {freezeLeft}</span>
-              <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '6px 11px' }}><Ic name="shield" size={13} color={P.heroDeep} /> {xp} {t.xp}</span>
-            </section>
 
             {setDoneShown && doneCount === units.length && units.length > 0 && (
               <div style={{ ...glass, marginTop: 10, borderRadius: 20, padding: '14px 16px', textAlign: 'center', animation: 'wimUp 0.35s ease' }}>
@@ -3139,6 +3287,89 @@ export default function WimPage() {
                 </button>
               </div>
             )}
+
+            {/* ── S4 · curriculum tracks 2×2 — saturated LIGHT collection tiles on a
+                full-bleed violet wash band (feathered edges — color flows, no border
+                cuts); XP chip rides the header (progress lives IN the feed) ── */}
+            <section style={{ margin: '22px -16px 0', padding: '16px 16px 26px', background: 'linear-gradient(180deg, rgba(108,92,231,0) 0%, rgba(108,92,231,0.06) 22%, rgba(108,92,231,0.06) 78%, rgba(108,92,231,0) 100%)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 2px' }}>
+                <h2 style={{ margin: 0, fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em' }}>{t.tracksTitle}</h2>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep, background: 'rgba(255,255,255,0.8)', borderRadius: 99, padding: '5px 10px' }}><Ic name="shield" size={12} color={P.heroDeep} /> {xp} {t.xp}</span>
+              </div>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: P.sub, marginTop: 3, padding: '0 2px' }}>{t.tracksSub}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11, marginTop: 12 }}>
+                {TRACKS.map((tr, i) => {
+                  const total = tr.terms.length;
+                  const got = tr.terms.filter((tm) => almanac[tm]).length;
+                  const onTap = tr.id === 'chart' ? () => openPlay('replay')
+                    : tr.id === 'insti' ? () => openPlay('hunt')
+                    : tr.id === 'macro' ? () => openPlay('domino')
+                    : () => { if (heroIdx >= 0) startQuiz(heroIdx); };
+                  return (
+                    <button key={tr.id} type="button" className="wim-press" onClick={onTap} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', background: tr.bg, color: tr.deep, border: 'none', borderRadius: 20, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minHeight: 128, boxShadow: '0 10px 22px rgba(38,34,64,0.08)', animation: `wimUp 0.3s ${EASE_OUT} ${i * 40}ms both` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%' }}>
+                        <span style={{ width: 30, height: 30, borderRadius: 11, background: 'rgba(255,255,255,0.55)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Ic name={tr.icon} size={16} color={tr.deep} sw={2} /></span>
+                        {total > 0 ? (
+                          <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                            <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
+                              <circle cx="11" cy="11" r="8.5" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="3.5" />
+                              <circle cx="11" cy="11" r="8.5" fill="none" stroke={tr.deep} strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 8.5 * (got > 0 ? Math.max(0.05, got / total) : 0)} ${2 * Math.PI * 8.5}`} transform="rotate(-90 11 11)" />
+                            </svg>
+                            <span style={{ fontSize: 9.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{got}/{total}</span>
+                          </span>
+                        ) : (
+                          <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, letterSpacing: '0.04em', background: 'rgba(255,255,255,0.6)', borderRadius: 99, padding: '3px 8px' }}>{t.trackNew}</span>
+                        )}
+                      </div>
+                      <div style={{ marginTop: 10, fontSize: 14.5, fontWeight: 900, letterSpacing: '-0.01em' }}>{t[`track${i + 1}`]}</div>
+                      <span style={{ marginTop: 5, fontSize: 8.5, fontWeight: 900, background: tr.chip, borderRadius: 99, padding: '3px 8px' }}>{t[`trackDiff${i + 1}`]}</span>
+                      <div style={{ marginTop: 'auto', paddingTop: 9, fontSize: 10, fontWeight: 800, lineHeight: 1.4, opacity: 0.85, display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+                        <span style={{ marginTop: 1, flexShrink: 0 }}><Ic name="arrowR" size={10} color={tr.deep} sw={2.4} /></span>
+                        <span>{t[`trackNext${i + 1}`]}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* ── S5 · learn from today's data — a rail bleeding off both screen
+                edges, pulled UP over the S4 wash boundary (sections flow into each
+                other instead of stacking); tint play cards + concept of the day ── */}
+            <section style={{ marginTop: -14 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="play" size={15} color={P.heroDeep} /> {t.dailyRail}</h2>
+                {units.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 900, color: doneCount === units.length ? P.mint : P.faint }}>{doneCount}/{units.length} {t.done}</span>}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: P.sub, marginTop: 2, padding: '0 2px' }}>{t.dailyRailSub}</div>
+              <div className="no-sb" style={{ display: 'flex', alignItems: 'stretch', gap: 11, overflowX: 'auto', margin: '10px -16px 0', padding: '2px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+                {playCards}
+                {conceptCard}
+              </div>
+            </section>
+
+            {/* ── S6 · rotating collection teaser + slim dictionary entry — the
+                exploration slot, slightly inset (its own scale, not another brick) ── */}
+            <section style={{ margin: '18px 4px 0' }}>
+              <button type="button" className="wim-press" onClick={col.open} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', background: `linear-gradient(140deg, #FFFFFF 0%, ${col.bg} 90%)`, border: '1px solid rgba(38,34,64,0.06)', borderRadius: 26, padding: '16px 17px', color: col.deep, boxShadow: '0 14px 30px rgba(38,34,64,0.09)', display: 'flex', alignItems: 'center', gap: 13, animation: 'wimUp 0.3s ease' }}>
+                <span style={{ width: 46, height: 46, borderRadius: 16, background: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(38,34,64,0.07)', flexShrink: 0 }}><Ic name={col.icon} size={22} color={col.deep} sw={1.8} /></span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 8.5, fontWeight: 900, letterSpacing: '0.1em' }}>{t.collectionLabel.toUpperCase()}</span>
+                  <span style={{ display: 'block', marginTop: 3, fontSize: 15.5, fontWeight: 900, letterSpacing: '-0.01em', color: P.ink }}>{col.title}</span>
+                  <span style={{ display: 'block', marginTop: 2, fontSize: 10.5, fontWeight: 750 as any, opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{col.sub}</span>
+                </span>
+                <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 900, background: P.ink, color: '#fff', borderRadius: 99, padding: '6px 13px' }}>{t.colOpen}</span>
+              </button>
+              {/* the full library lives in the lib tab — this is just the doorway */}
+              <button type="button" onClick={() => { setHomeTab('lib'); window.scrollTo(0, 0); }} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(38,34,64,0.06)', borderRadius: 16, padding: '11px 14px' }}>
+                <Ic name="book" size={16} color={P.heroDeep} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 12.5, fontWeight: 900, color: P.ink }}>{t.curriculum}</span>
+                  <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: P.sub }}>{t.dictRowSub.replace('{n}', String(Object.keys(METRIC_GLOSSARY).length))}</span>
+                </span>
+                <span style={{ color: P.hero, fontWeight: 900 }}>›</span>
+              </button>
+            </section>
           </>
         )}
 
