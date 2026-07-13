@@ -232,6 +232,84 @@
 
 비용 증분: X API ~$7-25/월 · Reddit API $0 · EC2 기존 인스턴스 재사용 · Bedrock 기존. 신규 고정비 0.
 
+### C-2.7. ★ 실측 검증 + 자격증명 셋업 상태 (2026-07-14 PC 세션 — 양머신 핸드오프 정본)
+
+> ⚠️ 맥 세션 필독: 아래는 **전부 실호출로 검증**한 결과 + 사장님과 함께 완료한 셋업. 중복 작업 금지.
+> 이 절만 읽으면 어느 머신이든 X API·Stocktwits·Reddit 상태를 정확히 알고 이어받는다.
+
+**① 채널별 읽기 접근 — 실호출 검증 완료 (HTTP·데이터 실측)**
+
+| 채널 | 읽기 방법 | 실측 결과 | 쓰기(게시) |
+|---|---|---|---|
+| **X** | `X_BEARER_TOKEN` app-only | ✅ **`api.x.com`/2/users/by/username 200** (@signumhq, 팔로워 1). 베이스=**api.x.com**(twitter.com 아님) | X API 클릭게시 (OAuth2 유저토큰) |
+| **Stocktwits** | 공개 API 무인증 | ✅ `api.stocktwits.com/api/2/streams/symbol/{T}.json` **200** (정상 UA 필수 — 빈 UA는 403). body에 message·user.followers·sentiment·likes·replies·cursor | ❌ 쓰기 API 없음 → **수동 붙여넣기** |
+| **Reddit** | 공식 OAuth(권장)·insane-search(폴백) | 무인증 `.json`/`.rss`=**403**(plain)·**429**(과폴링). curl_cffi(insane-search)로 **r/options 25글 실수신**(MU 옵션글 포함). **OAuth 토큰엔드포인트 401=살아있음**(자격증명만 요구) | ❌ 사람 재작성+게시 (R4 AI금지·블랙리스트 비가역) |
+
+- **결론**: X 읽기 당장 작동 / Stocktwits 읽기 가장 깨끗(무키·무등록) / Reddit은 상시엔 **공식 OAuth app-only** 권장(무인증 스크랩은 429로 불안정).
+
+**② X API 자격증명 — 셋업 완료 (사장님+PC, 실검증)**
+
+- 개발자 콘솔 `console.x.com` = **SIGNUM HQ 프로젝트, pay-per-use, 크레딧 $25 충전**.
+- **앱 = @signumhq(미국) 소유** (앱ID 33193341). 앱권한 **Read and write** · 유형 **웹앱/봇(기밀 클라이언트)** ·
+  콜백 `https://www.signumhq.com/api/admin/x-oauth/callback` · OAuth 2.0 활성.
+- **Vercel env (Production+Preview) 3개 등록·검증**: `X_CLIENT_ID` · `X_CLIENT_SECRET`(⚠️채팅 노출 후 **재발급 새 값**으로 교체 완료) · `X_BEARER_TOKEN`.
+- 검증 방법: 임시 프로브 라우트(`/api/admin/x-test`) 배포→200 확인→**제거**(커밋 `ab61930c1` 추가, `0a951a027` 삭제). 프로덕션에 흔적 0.
+- 비용 실측: read $0.005·write $0.015, `since_id`로 읽기 절감 → **월 ~$12~33**, 종량제 상한 200만읽기의 0.3%. 지출상한 권장 $50.
+- **미검증(다음)**: **쓰기(답글 게시)** — OAuth2 유저토큰 필요 → 연결 페이지 빌드 후 US/JP 승인해야 첫 검증.
+
+**③ 도구 재고 확정 (결제/등록 관점)**
+
+| 도구 | 상태 | 비고 |
+|---|---|---|
+| X API | ✅ 발급·읽기검증 완료 | 유일 유료(월$12~33). 쓰기는 연결 후 |
+| Buffer | ✅ 기존(env 토큰) | X **오리지널 포스트** 예약용. **답글은 Buffer 불가**(§5.2 댓글 API 0) |
+| Stocktwits 읽기 | ✅ 무키 | 공개 API |
+| Reddit 공식 API | 🔲 무료 앱 등록 권장(app-only 읽기) | 미등록 시 insane-search 폴백 |
+| Bluesky AT API | ✅ 무키 | 답글 인박스 |
+| Bedrock·EC2·S3·Redis·Supabase·insane-search | ✅ 기존 | 글생성·캡처·프록시·데이터·인증·폴백 |
+
+**④ 쓰기(게시) 최종 지도 — 헷갈림 방지**
+
+| 채널 | 게시 방법 | 사람 동작 |
+|---|---|---|
+| X 오리지널 | Buffer draft | 발행 버튼 |
+| **X 답글** | **X API**(OAuth2 유저토큰) | 콘솔 [게시] 클릭 1번 |
+| Stocktwits | 수동 | 링크 나가서 붙여넣기 |
+| Toss | 수동(폰) | 붙여넣기 |
+| **Reddit** | 수동 | 링크 나가서 **재작성**+게시 |
+| Bluesky | 수동 | 발행 |
+
+- **X 두 계정 = 앱 1개로 커버**: @signumhq(소유)+@signumhq_jp 각각 OAuth 승인 1번 → 토큰 2개. Buffer가 이미 두 계정 하는 것과 동일 구조. 청구는 1 프로젝트 합산.
+
+**⑤ Reddit 운용안 (확정)**
+
+- 계정: **게시=본인 계정 1개(사람만 행동)** / **읽기=별도 app-only 클라이언트**(계정 무관, 평판 분리).
+- 4단계: **R0 카르마 빌딩**(지금~4주, 금융 서브 r/options·thetagang·stocks 본인 진짜 참여 — ⚠️r/AskReddit·aww 파밍=가짜페르소나 DNA 금지) → **R1 밸류 댓글**(콘솔 발굴·초안→사람 재작성·게시) → **R2 소유 r/SignumHQ** → **R3 Reddit Ads $500(선택)**.
+- 읽기=공식 API app-only(상시 안정) / insane-search=폴백. 게시=항상 사람 재작성. 서브당 1댓글/일 캡.
+- 성격: 느린 신뢰·권위 채널(첫 트래픽 3~6개월). X/Stocktwits의 보조. 억지 금지.
+
+**⑥ Stocktwits 운용안 (확정)**
+
+- 읽기(공개 API)로 $NVDA·$MU 스트림 스캔 → 팔로워·답글 붙은 글 스코어링 → 밸류 답글 초안 →
+  콘솔 [원글 열기]+[복사] → 사람 붙여넣기. **캐시태그 스트림=팔로워0도 노출** → 콜드스타트 유리.
+- Vercel 과폴링 throttle 시 EC2 워커 프록시 경유(추정 대비).
+
+**⑦ 조회수 대책 (X-JP 1~2뷰 실사례 — 지난 세션 연결)**
+
+- 진단: 1,000개 사태와 **다른 병 = 콜드스타트(관객 0)**. Premium+는 오리지널 도달이 아니라 **답글 부스트**("largest reply prioritization")에서 값. → 여기서 "포스팅 더"가 유일 재발위험(§4-6.10 볼륨불변).
+- 콘솔 성과탭 히어로 지표 = 조회수 **아님** → 답글수/일·프로필클릭·팔로워증감·답글퍼널. "볼 숫자"를 못박아 패닉·볼륨증량 차단.
+
+**⑧ 다음 빌드 순서 (맥/PC 어느 쪽이든, 중복 금지)**
+
+1. **X OAuth 연결 페이지** `/admin/x-oauth/connect` — US/JP 승인→토큰 저장→**쓰기 첫 검증** (env: `X_USER_TOKEN_EN/JP`+refresh, 연결 플로우가 기록)
+2. **답글 엔진** — 스캔(검증완료)·스코어링·초안·클릭게시·내포스트 인박스
+3. `/app` 유입 3줄 패치 + EC2 워커 localStorage 패치(캡처 언블록)
+4. 콘솔 뼈대(라이트 Donezo 테마 §C-2.5 시안스펙, 서버 인증 게이트 404) + 생성 탭
+5. Reddit 무료 앱 등록 + 발굴 크론 · Stocktwits 발굴 · 성과탭 · 사건탐지 크론
+
+> **핸드오프 규칙**: 이 절이 마케팅 자동화 실행 정본. 착수 전 pull → 위 순서 중 **안 된 것부터**. 완료분은
+> 이 표에 ✅+커밋해시로 갱신하고 push. 작업 무관 파일(lambda·android·package-lock)은 커밋 금지(§43.5).
+
 ### C-3. 불변 원칙 (전 층 관통)
 자동=탐지·초안·카드·발굴 / 사람=발행·답글·팔로우·AI티 제거. 7중 안전장치 유지. 볼륨 캡 채널당 3/일. 링크는 답글·바이오·딥링크만. 예측/매수매도 0. XS 스코어 노출 0. "Why'd It Move?"=교육앱 예약명(SIGNUM 미사용).
 
