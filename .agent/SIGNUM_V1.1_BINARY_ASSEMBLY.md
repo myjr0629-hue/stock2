@@ -65,6 +65,27 @@ with current v1.0 users).
 
 ---
 
+## ✅ RevenueCat 사전 셋업 진행 상태 (2026-07-13, Mac 세션에서 사용자와 함께 완료)
+
+RevenueCat 프로젝트 "SIGNUM HQ" (기존에 계정·iOS 앱은 이미 있었음 — iOS: `com.signumhq.app`,
+App Store 연동됨). **오늘 완료한 것:**
+- **Android 앱(Play Store) 추가**: RevenueCat Apps에 `SIGNUM HQ (Play Store)` / `com.signumhq.app`,
+  App ID `appd4dec97703`. 서비스계정 JSON 업로드 완료.
+- **GCP 서비스 계정 생성**: 프로젝트 `signumhq-app`(=운영/Firebase 프로젝트)에
+  `revenuecat@signumhq-app.iam.gserviceaccount.com` + JSON 키(파일 `signumhq-app-d6db45751c90.json`,
+  사용자 로컬 보관 — 리포/채팅에 절대 넣지 말 것). Google Play Android Developer API + Cloud Pub/Sub
+  API 둘 다 이미 Enabled 확인.
+- **Play Console 권한 부여**: 위 서비스계정을 Users&permissions에 초대, Account permissions =
+  ①View financial data, orders, and cancellation survey responses ②Manage orders and subscriptions
+  2개만 부여. 상태 Active. **→ 구글 권한 전파 타이머 시작(24~36h). 그 사이 RevenueCat 자격증명 경고는
+  정상, 전파 완료되면 자동 초록불.**
+- **RevenueCat 공개 API 키 2개(iOS/Android)**: Apps 화면 "Show key"에 있음 — v1.1 조립 시 Vercel env
+  (`NEXT_PUBLIC_RC_IOS_KEY`/`_ANDROID_KEY`, 정확한 이름은 src/config/iap.ts 확인)에 넣을 것. Custom URL
+  Scheme(rc-d4dec97703)은 딥링크용 선택사항.
+
+**아직 안 한 것 (v1.1 조립일):** Entitlement `pro` 생성 + 양쪽 상품 연결(iOS 상품은 등록됨,
+Android 상품 `pro_monthly`는 결제빌드 업로드 후에야 생성 가능 — 아래 참조). SDK는 이미 코드에 있음.
+
 ## ⚠️ Play 구독 상품 등록 — v1.0 상태에선 불가 (2026-07-13 실측)
 
 Play Console → Monetize → Subscriptions가 "Upload a new APK"를 요구함: **결제 라이브러리
