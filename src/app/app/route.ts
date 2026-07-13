@@ -6,15 +6,15 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const APP_STORE_URL =
   'https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444';
-// TODO(Android launch): swap to Play Store URL once com.signumhq.app passes review.
-// const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.signumhq.app';
+// Play listing live since 2026-07-13 (com.signumhq.app returns 200).
+const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.signumhq.app';
 
 export function GET(request: NextRequest) {
   const ua = request.headers.get('user-agent') || '';
 
-  // Android: Play listing still in review — land on the web home (usable product) for now.
   if (/android/i.test(ua)) {
-    return NextResponse.redirect(new URL('/', request.url), 302);
+    return NextResponse.redirect(PLAY_STORE_URL, 302);
   }
 
   // iOS opens the native App Store sheet; desktop lands on the App Store web page.

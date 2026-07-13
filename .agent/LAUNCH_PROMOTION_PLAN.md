@@ -405,10 +405,11 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
    Claude가 실데이터 3안씩 작성 → 사람이 발행. 이것이 다음 액션.
 3. **seed-kit 크론 구축** (§4-6.5 아키텍처: Vercel 사건탐지+7중 안전장치 / 글쓰기 루틴 / 주간 성적표) — 트리거 충족됨, 착수 대기
 4. Bluesky 미응답 59개 답글 처리 (사람)
-5. **★ Google Play 승인 당일 체크리스트** (승인은 자동 게시 — Managed publishing OFF 확인됨):
-   ① AdMob → SIGNUM HQ Android → **"Add store"로 Play 리스팅 연결** (실측 2026-07-13: 스토어 미연결이
-   안드 AdMob 검증이 시작조차 못 하는 원인 — "Add store to lift limit") ② `/app` 라우트 Android 분기를
-   Play Store URL로 전환 (src/app/app/route.ts 내 TODO 주석) ③ UC 승인 시 애플 피처링 지명 제출.
+5. **★ Google Play 승인 당일 체크리스트 — SIGNUM 발동됨 (2026-07-13 게시 확인, play 200 실측)**:
+   ① AdMob → SIGNUM HQ Android → **"Add store"로 Play 리스팅 연결** — 👤 **사용자 할 일, 남음**
+   (스토어 미연결이 안드 AdMob 검증이 시작조차 못 하는 원인 — "Add store to lift limit")
+   ② ~~`/app` 라우트 Android 분기 Play 전환~~ ✅ (PC, 이 커밋) + 홈 히어로 문구 "준비 중"→"출시" 3lang
+   ③ UC 승인 시(아직 심사 중, play 404 확인) 동일 체크리스트 반복 + 애플 피처링 지명 제출.
 
 ### 4-6.9. ★ 포스팅 콘텐츠 연구 (2026-07-11 실측 — 무엇을 올릴 것인가, 실행 레시피)
 
