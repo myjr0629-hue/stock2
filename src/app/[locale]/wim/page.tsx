@@ -423,6 +423,32 @@ const T: Record<Lang, Record<string, string>> = {
     colTitle3: '금리의 파급 사슬', colSub3: '10년물에서 섹터까지',
     colOpen: '열어보기',
     dictRowSub: '{n}개 용어, 전부 실데이터로 배워요',
+    newsDaily: '오늘의 뉴스 수업',
+    newsStep1: '헤드라인이 말하는 것',
+    newsStep2: '돈이 말한 것',
+    newsStep3: '오늘의 질문',
+    newsQuiet: '이날 옵션·다크풀 데이터가 조용했어요 — 뉴스가 늘 돈을 움직이는 건 아니에요',
+    newsQuietSub: '그 자체가 오늘의 수업이에요',
+    newsQTone: '헤드라인의 톤과 돈의 방향이 같았나요?',
+    newsQToneA: '같았다', newsQToneB: '달랐다',
+    newsToneReveal: '헤드라인 톤과 돈의 방향이 같은 날도, 갈라지는 날도 있어요 — 갈라진 날이야말로 뉴스만 읽어서는 안 보이던 부분이에요.',
+    newsQFact: "헤드라인은 '사실'과 '해석' 중 무엇이 더 많았나요?",
+    newsQFactA: '사실이 많았다', newsQFactB: '해석이 많았다',
+    newsFactReveal: '정답이 없는 질문이에요 — 헤드라인을 사실(일어난 일)과 해석(누군가의 판단)으로 갈라 읽는 습관 자체가 뉴스 읽기의 핵심이에요.',
+    tonePos: '긍정 쪽', toneNeg: '부정 쪽', toneFlat: '중립',
+    moodBull: '낙관 쪽', moodCaut: '신중 쪽', moodFlat: '중립',
+    toneLabel: '헤드라인 톤', moodLabel: '돈의 방향',
+    trackNextLabel: '다음 한 걸음',
+    trackTermsTitle: '트랙 용어',
+    trackTermsSoon: '용어는 곧 추가돼요',
+    trackCta1: '리플레이로 오늘 세션 되감기',
+    trackCta2: '레벨 헌트로 맥스페인 찾기',
+    trackCta3: '오늘의 금리 도미노 완성하기',
+    trackCta4: '오늘 헤드라인의 진짜 원인 찾기',
+    trackDesc1: '캔들·거래량·VWAP — 차트의 기본 신호를 읽는 길',
+    trackDesc2: '다크풀·옵션 구조 — 기관이 남긴 발자국을 따라가는 길',
+    trackDesc3: '금리에서 섹터까지 — 시장 전체를 움직이는 큰 물줄기',
+    trackDesc4: '헤드라인과 돈의 실제 반응을 나란히 놓고 읽는 길',
   },
   en: {
     tagline: "Today's market, a 30-second lesson",
@@ -561,6 +587,32 @@ const T: Record<Lang, Record<string, string>> = {
     colTitle3: 'The rate ripple chain', colSub3: 'From the 10-year to sectors',
     colOpen: 'Open it',
     dictRowSub: '{n} terms, each shown on real data',
+    newsDaily: "Today's news lesson",
+    newsStep1: 'What the headline said',
+    newsStep2: 'What the money said',
+    newsStep3: "Today's question",
+    newsQuiet: 'Options and dark-pool data stayed quiet that day — news does not always move the money',
+    newsQuietSub: "That itself is today's lesson",
+    newsQTone: "Did the headline's tone and the money's direction line up?",
+    newsQToneA: 'They lined up', newsQToneB: 'They split',
+    newsToneReveal: 'Some days tone and money point the same way, some days they split — the split days are exactly what headlines alone never showed.',
+    newsQFact: 'Was the headline mostly facts, or mostly interpretation?',
+    newsQFactA: 'Mostly facts', newsQFactB: 'Mostly interpretation',
+    newsFactReveal: "No wrong answer here — the habit of splitting a headline into facts (what happened) and interpretation (someone's judgment) is the core of reading news.",
+    tonePos: 'Leaned positive', toneNeg: 'Leaned negative', toneFlat: 'Neutral',
+    moodBull: 'Leaned upbeat', moodCaut: 'Leaned cautious', moodFlat: 'Neutral',
+    toneLabel: 'Headline tone', moodLabel: "Money's direction",
+    trackNextLabel: 'Next step',
+    trackTermsTitle: 'Track terms',
+    trackTermsSoon: 'Terms are coming soon',
+    trackCta1: "Rewind today's session in Replay",
+    trackCta2: 'Hunt down max pain in Level Hunt',
+    trackCta3: "Complete today's rate domino",
+    trackCta4: "Find what really moved today's headline",
+    trackDesc1: 'Candles, volume, VWAP — reading the basic signals on a chart',
+    trackDesc2: 'Dark pools and options structure — following the footprints institutions leave',
+    trackDesc3: 'From rates to sectors — the big currents that move the whole market',
+    trackDesc4: "Headlines read side by side with the money's actual reaction",
   },
   ja: {
     tagline: '今日の市場が出す問題、30秒レッスン',
@@ -699,6 +751,32 @@ const T: Record<Lang, Record<string, string>> = {
     colTitle3: '金利の波及チェーン', colSub3: '10年債からセクターまで',
     colOpen: '開いてみる',
     dictRowSub: '全{n}用語、実データで学ぶ',
+    newsDaily: '今日のニュースレッスン',
+    newsStep1: 'ヘッドラインが語ったこと',
+    newsStep2: 'お金が語ったこと',
+    newsStep3: '今日の質問',
+    newsQuiet: 'この日はオプション・ダークプールのデータが静かでした — ニュースがいつもお金を動かすとは限りません',
+    newsQuietSub: 'それ自体が今日のレッスンです',
+    newsQTone: 'ヘッドラインのトーンとお金の方向は一致していた？',
+    newsQToneA: '一致していた', newsQToneB: '割れていた',
+    newsToneReveal: 'トーンとお金が同じ方向の日もあれば、割れる日もあります — 割れた日こそ、ヘッドラインだけでは見えなかった部分です。',
+    newsQFact: 'ヘッドラインは「事実」と「解釈」、どちらが多かった？',
+    newsQFactA: '事実が多かった', newsQFactB: '解釈が多かった',
+    newsFactReveal: '正解のない質問です — ヘッドラインを事実（起きたこと）と解釈（誰かの判断）に分けて読む習慣こそ、ニュースの読み方の核心です。',
+    tonePos: 'ポジティブ寄り', toneNeg: 'ネガティブ寄り', toneFlat: '中立',
+    moodBull: '楽観寄り', moodCaut: '慎重寄り', moodFlat: '中立',
+    toneLabel: 'ヘッドラインのトーン', moodLabel: 'お金の方向',
+    trackNextLabel: '次の一歩',
+    trackTermsTitle: 'トラック用語',
+    trackTermsSoon: '用語はまもなく追加',
+    trackCta1: 'リプレイで今日のセッションを巻き戻す',
+    trackCta2: 'レベルハントでマックスペインを探す',
+    trackCta3: '今日の金利ドミノを完成させる',
+    trackCta4: '今日のヘッドラインの本当の原因を探る',
+    trackDesc1: 'ローソク足・出来高・VWAP — チャートの基本シグナルを読む道',
+    trackDesc2: 'ダークプール・オプション構造 — 機関が残した足跡をたどる道',
+    trackDesc3: '金利からセクターまで — 市場全体を動かす大きな流れ',
+    trackDesc4: 'ヘッドラインとお金の実際の反応を並べて読む道',
   },
 };
 
@@ -2335,6 +2413,170 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
   );
 }
 
+// ── W6-B NEWS→MONEY LESSON: one Undercurrent feed story a day becomes a
+// three-step reading lesson — ① what the headline said, ② what the money
+// actually printed (or honestly: it stayed quiet — that too is the lesson),
+// ③ one two-choice question always decidable from what is already on screen.
+// Everything rendered is a past-tense observation of finished data; this
+// teaches READING the news, never trading on it (compliance §7).
+interface UcMoney { darkPoolPct: number | null; volumePcr: number | null; squeezeScore: number | null; maxPain: number | null; price: number | null }
+interface UcCard {
+  ticker: string; plainTitle: string; whyItMatters: string | null;
+  moneyRead: string | null; moneyMood: string; hasMoneyData: boolean;
+  money: UcMoney | null; newsSentiment: string | null; image: string | null;
+  source: string | null;
+}
+
+// real news photo with a graceful exit — a broken/blocked image hides the whole
+// block instead of leaving a broken-glass frame on the editorial card
+function NewsImage({ src, height }: { src: string; height: number }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img src={src} alt="" onError={() => setFailed(true)} style={{ width: '100%', height, objectFit: 'cover', display: 'block' }} />
+  );
+}
+
+function NewsLessonPlay({ card, unitPct, t, onAward, onClose, disclaimer }: {
+  card: UcCard;
+  unitPct: number | null; // today's unit ±% when the story's ticker is in the set
+  t: Record<string, string>;
+  onAward: (gain: number) => void;
+  onClose: () => void;
+  disclaimer: string;
+}) {
+  const [step, setStep] = useState(0); // furthest revealed step (0..2) — earlier cards stay on screen
+  const [pick, setPick] = useState<number | null>(null);
+
+  // tone-vs-money is only a fair question when BOTH sides actually leaned one
+  // way; otherwise the timeless facts-vs-interpretation question steps in
+  // (self-reflective — both answers are accepted, the reveal explains why)
+  const toneDir = card.newsSentiment === 'positive' ? 1 : card.newsSentiment === 'negative' ? -1 : 0;
+  const moodDir = !card.hasMoneyData ? 0 : card.moneyMood === 'bullish' ? 1 : card.moneyMood === 'cautious' ? -1 : 0;
+  const decidable = toneDir !== 0 && moodDir !== 0;
+  const correct = decidable ? (toneDir === moodDir ? 0 : 1) : null;
+
+  const answer = (oi: number) => {
+    if (pick != null) return;
+    setPick(oi);
+    // completing the lesson = a learning attempt (same tried-XP rule as the quiz)
+    onAward(XP_TRIED);
+  };
+
+  const toneChip = card.newsSentiment === 'positive' ? t.tonePos : card.newsSentiment === 'negative' ? t.toneNeg : t.toneFlat;
+  const moodChip = !card.hasMoneyData ? t.moodFlat : card.moneyMood === 'bullish' ? t.moodBull : card.moneyMood === 'cautious' ? t.moodCaut : t.moodFlat;
+  const m = card.money;
+  const tiles: DominoStat[] = m && card.hasMoneyData ? [
+    ...(m.darkPoolPct != null ? [{ k: t.dp, v: Math.round(m.darkPoolPct * 10) / 10, decimals: 1, suffix: '%' }] : []),
+    ...(m.volumePcr != null ? [{ k: t.pcr, v: Math.round(m.volumePcr * 100) / 100, decimals: 2 }] : []),
+    ...(m.squeezeScore != null ? [{ k: t.squeeze, v: Math.round(m.squeezeScore), decimals: 0 }] : []),
+    ...(m.maxPain != null ? [{ k: t.maxPain, v: m.maxPain, decimals: m.maxPain >= 1000 ? 0 : m.maxPain >= 100 ? 1 : 2, prefix: '$' }] : []),
+  ] : [];
+
+  const stepKicker = (n: number, label: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <span style={{ width: 22, height: 22, borderRadius: 8, background: '#FFD8CB', color: '#A83A1D', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900 }}>{n}</span>
+      <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.08em', color: '#A83A1D' }}>{label.toUpperCase()}</span>
+    </div>
+  );
+  const nextBtn = (to: number) => (
+    <button type="button" onClick={() => setStep(to)} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '14px 0', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>{t.obNext} →</button>
+  );
+  const opts = decidable ? [t.newsQToneA, t.newsQToneB] : [t.newsQFactA, t.newsQFactB];
+
+  return (
+    <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+        <PlayTopBar
+          onClose={onClose}
+          backLabel={t.backHome}
+          prog={(step + (pick != null ? 1 : 0.4)) / 3}
+          chip={`${Math.min(step + 1, 3)}/3`}
+        />
+
+        {/* step 1 — the headline exactly as the reader met it: real photo, tone chip */}
+        <div style={{ marginTop: 14, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, overflow: 'hidden', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
+          {card.image && <NewsImage src={card.image} height={150} />}
+          <div style={{ padding: '13px 15px 14px' }}>
+            {stepKicker(1, t.newsStep1)}
+            <h1 style={{ margin: '9px 0 0', fontSize: 17.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.4 }}>{card.plainTitle}</h1>
+            {card.whyItMatters && <p style={{ margin: '8px 0 0', fontSize: 12.5, lineHeight: 1.6, fontWeight: 650 as any, color: P.sub }}>{card.whyItMatters}</p>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 11, flexWrap: 'wrap' }}>
+              <TickerLogo ticker={card.ticker} size={22} />
+              <span style={{ fontSize: 12, fontWeight: 900 }}>{card.ticker}</span>
+              {unitPct != null && <span style={{ fontSize: 10.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#8A5B00', background: 'rgba(255,173,31,0.16)', borderRadius: 99, padding: '3px 9px' }}>±{unitPct}%</span>}
+              <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 900, color: '#A83A1D', background: '#FFD8CB', borderRadius: 99, padding: '3px 9px' }}>{t.toneLabel} · {toneChip}</span>
+            </div>
+            {card.source && <div style={{ marginTop: 7, fontSize: 9.5, fontWeight: 800, color: P.faint }}>{card.source}</div>}
+          </div>
+        </div>
+        {step === 0 && nextBtn(1)}
+
+        {/* step 2 — what the money actually printed (or honestly: it was quiet) */}
+        {step >= 1 && (
+          <div style={{ marginTop: 12, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '13px 15px 14px', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
+            {stepKicker(2, t.newsStep2)}
+            {card.hasMoneyData ? (
+              <>
+                {card.moneyRead && <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.65, fontWeight: 700, color: P.ink }}>{card.moneyRead}</p>}
+                {tiles.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                    {tiles.map((s) => <DominoStatTile key={s.k} s={s} animate />)}
+                  </div>
+                )}
+                <div style={{ marginTop: 10 }}>
+                  <span style={{ fontSize: 9.5, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '3px 9px' }}>{t.moodLabel} · {moodChip}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.65, fontWeight: 700, color: P.ink }}>{t.newsQuiet}</p>
+                <p style={{ margin: '6px 0 0', fontSize: 11.5, lineHeight: 1.55, fontWeight: 750 as any, color: P.hero }}>{t.newsQuietSub}</p>
+              </>
+            )}
+          </div>
+        )}
+        {step === 1 && nextBtn(2)}
+
+        {/* step 3 — one two-choice question, answerable from the cards above */}
+        {step >= 2 && (
+          <div style={{ marginTop: 12, background: '#fff', borderRadius: 22, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '13px 15px 15px', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
+            {stepKicker(3, t.newsStep3)}
+            <h2 style={{ margin: '9px 0 0', fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.4 }}>{decidable ? t.newsQTone : t.newsQFact}</h2>
+            <div style={{ display: 'flex', gap: 9, marginTop: 11 }}>
+              {opts.map((o, oi) => {
+                const revealedNow = pick != null;
+                const isPick = pick === oi;
+                // reflective question: the picked answer IS the accepted one
+                const isAnswer = correct == null ? isPick : correct === oi;
+                const bg = !revealedNow ? '#fff' : isAnswer ? P.mintSoft : isPick ? P.amberSoft : '#fff';
+                const border = !revealedNow ? P.line : isAnswer ? P.mint : isPick ? P.amber : P.line;
+                return (
+                  <button key={o} type="button" disabled={revealedNow} onClick={() => answer(oi)} style={{ font: 'inherit', flex: 1, cursor: revealedNow ? 'default' : 'pointer', position: 'relative', background: bg, border: `2px solid ${border}`, borderRadius: 15, padding: '13px 8px', fontSize: 13.5, fontWeight: 900, color: P.ink, lineHeight: 1.35, boxShadow: revealedNow ? 'none' : '0 3px 0 rgba(76,63,175,0.12)', animation: revealedNow && isPick && !isAnswer ? WRONG_ANIM : undefined }}>
+                    {o}
+                    {revealedNow && isPick && isAnswer && <CorrectBurst gain={XP_TRIED} />}
+                  </button>
+                );
+              })}
+            </div>
+            {pick != null && (
+              <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
+                <div style={{ marginTop: 12, textAlign: 'center', fontSize: 16, fontWeight: 900, color: correct == null || pick === correct ? P.mint : P.amber, animation: 'wimJudge 0.35s ease both' }}>
+                  {correct == null || pick === correct ? `${t.correct} +${XP_TRIED}XP` : `${t.notQuite} +${XP_TRIED}XP`}
+                </div>
+                <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.65, fontWeight: 650 as any, color: P.sub }}>{decidable ? t.newsToneReveal : t.newsFactReveal}</p>
+                <button type="button" onClick={onClose} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.ink, color: '#fff', border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>{t.backHome}</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ marginTop: 18, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.5 }}>{disclaimer}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function WimPage() {
   const params = useParams();
   const router = useRouter();
@@ -2369,7 +2611,11 @@ export default function WimPage() {
   const labFlight = useRef<Record<string, Promise<LabData | null>>>({});
   const [labs, setLabs] = useState<Record<string, LabData>>({});
   // W2: play overlays + overlay-unlock stage 1 (levels layer on the hero chart)
-  const [playOpen, setPlayOpen] = useState<'hunt' | 'sense' | 'replay' | 'domino' | null>(null);
+  const [playOpen, setPlayOpen] = useState<'hunt' | 'sense' | 'replay' | 'domino' | 'news' | null>(null);
+  // W6-B: today's news→money lesson card (UC feed) + the S4 track detail sheet
+  const [ucCard, setUcCard] = useState<UcCard | null>(null);
+  const [trackOpen, setTrackOpen] = useState<TrackDef['id'] | null>(null);
+  const [trackClosing, setTrackClosing] = useState(false);
   // W5-A: closing a play/quiz fades the sheet out (150ms one-shot timer) before unmount
   const [playClosing, setPlayClosing] = useState(false);
   const [quizClosing, setQuizClosing] = useState(false);
@@ -2516,6 +2762,21 @@ export default function WimPage() {
     fetchMacroFeeds().then(({ fw, ty }) => { if (alive) setPulse({ fw, ty }); });
     return () => { alive = false; };
   }, []);
+  // W6-B S5.5: one news→money story a day — the same-origin UC feed serves
+  // instantly from cache; prefer a photo card whose money data is real (richer
+  // lesson), fall back to any photo card, vanish quietly when neither exists
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/undercurrent/feed?locale=${loc}&limit=12`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !Array.isArray(j?.cards)) return;
+        const withPhoto = (j.cards as UcCard[]).filter((c) => c && c.image && c.ticker && c.plainTitle);
+        setUcCard(withPhoto.find((c) => c.hasMoneyData) || withPhoto[0] || null);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [loc]);
   const doneCount = units.filter((u) => done[u.id]).length;
   const streakDays = week.filter(Boolean).length;
   const levelIdx = Math.min(4, Math.floor(xp / XP_PER_LEVEL));
@@ -2676,11 +2937,17 @@ export default function WimPage() {
     return true;
   }, [unlockLevels, persist]);
 
-  const openPlay = useCallback((id: 'hunt' | 'sense' | 'replay' | 'domino') => { setPlayClosing(false); setPlayOpen(id); window.scrollTo(0, 0); }, []);
+  const openPlay = useCallback((id: 'hunt' | 'sense' | 'replay' | 'domino' | 'news') => { setPlayClosing(false); setPlayOpen(id); window.scrollTo(0, 0); }, []);
   // W5-A: closing a play = 150ms fade-out, then unmount (single one-shot timer)
   const closePlay = useCallback(() => {
     setPlayClosing(true);
     window.setTimeout(() => { setPlayOpen(null); setPlayClosing(false); window.scrollTo(0, 0); }, 150);
+  }, []);
+  // W6-B: the track detail sheet opens/closes with the same PlayShell rhythm
+  const openTrack = useCallback((id: TrackDef['id']) => { setTrackClosing(false); setTrackOpen(id); window.scrollTo(0, 0); }, []);
+  const closeTrack = useCallback(() => {
+    setTrackClosing(true);
+    window.setTimeout(() => { setTrackOpen(null); setTrackClosing(false); window.scrollTo(0, 0); }, 150);
   }, []);
 
   // once unlocked, the home hero chart needs the hero ticker's lab levels
@@ -3045,6 +3312,104 @@ export default function WimPage() {
       </PlayShell>
     );
   }
+  if (playOpen === 'news' && ucCard) {
+    return (
+      <PlayShell closing={playClosing}>
+        <NewsLessonPlay
+          card={ucCard}
+          unitPct={units.find((u) => u.ticker === ucCard.ticker)?.moveMagnitude ?? null}
+          t={t}
+          onAward={awardPlayXp}
+          onClose={closePlay}
+          disclaimer={disclaimerText}
+        />
+        {almToastNode}
+      </PlayShell>
+    );
+  }
+
+  // ════════════════════════ W6-B TRACK DETAIL SHEET (S4 tile → one screen, no nesting) ════════════════════════
+  if (trackOpen) {
+    const ti = TRACKS.findIndex((x) => x.id === trackOpen);
+    const tr = TRACKS[ti];
+    const total = tr.terms.length;
+    const got = tr.terms.filter((tm) => almanac[tm]).length;
+    // the ONE next step — identical mapping to what the W6-A tiles fired directly
+    const launch = () => {
+      setTrackOpen(null); setTrackClosing(false);
+      if (tr.id === 'chart') openPlay('replay');
+      else if (tr.id === 'insti') openPlay('hunt');
+      else if (tr.id === 'macro') openPlay('domino');
+      else if (heroIdx >= 0) startQuiz(heroIdx);
+    };
+    return (
+      <PlayShell closing={trackClosing}>
+        <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
+          <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+            <PlayTopBar
+              onClose={closeTrack}
+              backLabel={t.backHome}
+              prog={total > 0 ? got / total : 0}
+              chip={total > 0 ? `${got}/${total}` : null}
+            />
+
+            {/* track color header — the tile's saturated-light scene, expanded */}
+            <div style={{ marginTop: 14, background: tr.bg, color: tr.deep, borderRadius: 24, padding: '16px 16px 15px', boxShadow: '0 12px 26px rgba(38,34,64,0.09)', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 38, height: 38, borderRadius: 13, background: 'rgba(255,255,255,0.55)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Ic name={tr.icon} size={19} color={tr.deep} sw={2} /></span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.01em' }}>{t[`track${ti + 1}`]}</div>
+                  <span style={{ display: 'inline-block', marginTop: 3, fontSize: 8.5, fontWeight: 900, background: tr.chip, borderRadius: 99, padding: '3px 8px' }}>{t[`trackDiff${ti + 1}`]}</span>
+                </div>
+              </div>
+              <p style={{ margin: '10px 0 0', fontSize: 12, lineHeight: 1.6, fontWeight: 800, opacity: 0.9 }}>{t[`trackDesc${ti + 1}`]}</p>
+            </div>
+
+            {/* THE one next step — a single big CTA (no wall of equal choices) */}
+            <button type="button" onClick={launch} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.ink, color: '#fff', border: 'none', borderRadius: 18, padding: '14px 16px', textAlign: 'left', cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)', display: 'flex', alignItems: 'center', gap: 10, animation: `wimUp 0.26s ${EASE_OUT} 60ms both` }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', opacity: 0.7 }}>{t.trackNextLabel.toUpperCase()}</span>
+                <span style={{ display: 'block', marginTop: 3, fontSize: 14, fontWeight: 900, lineHeight: 1.35 }}>{t[`trackCta${ti + 1}`]}</span>
+              </span>
+              <span style={{ flexShrink: 0, fontWeight: 900 }}>→</span>
+            </button>
+
+            {/* term list — collected rows carry their earn date, the rest wait
+                dimmed; every row opens the glossary sheet (reading collects it) */}
+            {total > 0 ? (
+              <div style={{ marginTop: 16, animation: `wimUp 0.26s ${EASE_OUT} 110ms both` }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
+                  <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 900 }}>{t.trackTermsTitle}</h2>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 900, color: P.faint, fontVariantNumeric: 'tabular-nums' }}>{got}/{total}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 9 }}>
+                  {tr.terms.map((term) => {
+                    const ent = almanac[term];
+                    return (
+                      <button key={term} type="button" onClick={() => markTerm(term)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: `1.5px solid ${P.line}`, borderRadius: 15, padding: '11px 13px', opacity: ent ? 1 : 0.55, boxShadow: ent ? P.shadow : 'none' }}>
+                        <span style={{ color: ent ? P.mint : P.faint }}><Ic name={ent ? 'check' : 'book'} size={15} sw={ent ? 2.6 : 1.8} /></span>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 900, color: P.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{METRIC_GLOSSARY[term].title[loc]}</span>
+                        {ent && <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '3px 8px', fontVariantNumeric: 'tabular-nums' }}>{ent.dateET}</span>}
+                        <span style={{ color: P.hero, fontWeight: 900 }}>›</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 16, textAlign: 'center', fontSize: 11.5, fontWeight: 800, color: P.faint, animation: `wimUp 0.26s ${EASE_OUT} 110ms both` }}>{t.trackTermsSoon}</div>
+            )}
+
+            <div style={{ marginTop: 18, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.5 }}>{disclaimerText}</div>
+          </div>
+
+          {/* the glossary sheet + collect toast ride on top of the track sheet */}
+          {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
+          {almToastNode}
+        </div>
+      </PlayShell>
+    );
+  }
 
   // ════════════════════════ HOME (v3: glass shell · bottom tabs · case files) ════════════════════════
   const glass = {
@@ -3124,6 +3489,9 @@ export default function WimPage() {
     { title: t.colTitle3, sub: t.colSub3, icon: 'chain', bg: '#D7F3EA', deep: '#0E6B57', open: () => openPlay('domino') },
   ];
   const col = collections[WEEK_EPOCH_IDX % collections.length];
+  // W6-B S5.5: when today's set actually contains the story's ticker, the card
+  // wears that unit's ±% badge (real reaction next to the real headline)
+  const ucUnitPct = ucCard ? units.find((u) => u.ticker === ucCard.ticker)?.moveMagnitude ?? null : null;
   const q = searchQ.trim().toLowerCase();
   const searchResults = (Object.keys(METRIC_GLOSSARY) as MetricTerm[]).filter((term) => {
     if (!q) return false;
@@ -3301,10 +3669,9 @@ export default function WimPage() {
                 {TRACKS.map((tr, i) => {
                   const total = tr.terms.length;
                   const got = tr.terms.filter((tm) => almanac[tm]).length;
-                  const onTap = tr.id === 'chart' ? () => openPlay('replay')
-                    : tr.id === 'insti' ? () => openPlay('hunt')
-                    : tr.id === 'macro' ? () => openPlay('domino')
-                    : () => { if (heroIdx >= 0) startQuiz(heroIdx); };
+                  // W6-B: tiles open the track detail sheet — the play mapping
+                  // now lives behind the sheet's single next-step CTA
+                  const onTap = () => openTrack(tr.id);
                   return (
                     <button key={tr.id} type="button" className="wim-press" onClick={onTap} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', background: tr.bg, color: tr.deep, border: 'none', borderRadius: 20, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minHeight: 128, boxShadow: '0 10px 22px rgba(38,34,64,0.08)', animation: `wimUp 0.3s ${EASE_OUT} ${i * 40}ms both` }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%' }}>
@@ -3347,6 +3714,30 @@ export default function WimPage() {
                 {conceptCard}
               </div>
             </section>
+
+            {/* ── S5.5 · news→money daily lesson — ONE editorial photo card (the
+                Shangri-La beat of the feed: real news image, real ticker, coral
+                news-track chip) opening the three-step reading mini-lesson ── */}
+            {ucCard && (
+              <section style={{ margin: '18px 0 0' }}>
+                <button type="button" className="wim-press" onClick={() => openPlay('news')} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', background: '#fff', border: '1px solid rgba(38,34,64,0.06)', borderRadius: 24, overflow: 'hidden', boxShadow: '0 14px 30px rgba(38,34,64,0.10)', padding: 0, animation: 'wimUp 0.3s ease' }}>
+                  {ucCard.image && <NewsImage src={ucCard.image} height={150} />}
+                  <span style={{ display: 'block', padding: '12px 15px 14px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <span style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>{t.newsDaily.toUpperCase()}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: '#A83A1D', background: '#FFD8CB', borderRadius: 99, padding: '3px 9px' }}>{t.track4}</span>
+                    </span>
+                    <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', margin: '9px 0 0', fontSize: 16, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.35, color: P.ink }}>{ucCard.plainTitle}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 10 }}>
+                      <TickerLogo ticker={ucCard.ticker} size={22} />
+                      <span style={{ fontSize: 11.5, fontWeight: 900, color: P.ink }}>{ucCard.ticker}</span>
+                      {ucUnitPct != null && <span style={{ fontSize: 10.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#8A5B00', background: 'rgba(255,173,31,0.16)', borderRadius: 99, padding: '3px 9px' }}>±{ucUnitPct}%</span>}
+                      <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 11, fontWeight: 900, background: P.ink, color: '#fff', borderRadius: 99, padding: '6px 13px' }}>{t.colOpen}</span>
+                    </span>
+                  </span>
+                </button>
+              </section>
+            )}
 
             {/* ── S6 · rotating collection teaser + slim dictionary entry — the
                 exploration slot, slightly inset (its own scale, not another brick) ── */}
