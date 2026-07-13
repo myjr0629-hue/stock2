@@ -560,13 +560,22 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
 - 무사건일엔 **데일리 앵커 1개만** (SPY 감마플립/맥스페인 — "같은 카드·같은 시간" 프랜차이즈).
 - 답글 게임(큰 계정 3개/계정 + 내 포스트 답글 전원 반응)은 매일, 발행과 별개로.
 
-**★ 1호 포스트 확정 (2026-07-13 실데이터, 영수증형):**
-- 근거: MSFT 종가 $385.10 vs 맥스페인 $390.0 (거리 1.3% = 자석에 붙어 마감). 유명주+검증가능+깔끔.
-- en: `$MSFT closed at $385. Max pain sat at $390 all week — price drifted right into the magnet by Friday. The options market wrote the ending days ago.`
-- ja: `$MSFT、終値385ドル。今週のマックスペインは390ドル ― 金曜にはぴたりとその磁石に吸い寄せられた。オプション市場は、結末を何日も前に書いていた。`
-- 카드 = 앱 Command MSFT 옵션 레벨(맥스페인 라인) 크롭. 본문 링크 0. 답글에만 "SIGNUM HQ — App Store & Google Play".
-- 발행: 다음 미국장 아침 ET 예약(버퍼) 또는 사장님 판단 시각. **첫날 1개만** — 반응 관찰.
-- 왜 영수증형 첫 포스트인가: 예측 아닌 사후검증 = 신뢰 심기. UW·SpotGamma·10-K Diver 성장의 공통 DNA(리서치 검증).
+**★ 1호 포스트 확정 (2026-07-13, 본장 개장 대비 — 영수증형, §4-6.12 정찰 반영):**
+- 근거: GOOG 금요일 종가 $354.36 vs 맥스페인 $350.0 (거리 1.2% = OPEX 자석에 붙어 마감). 유명주+검증가능.
+  (MSFT는 피드 로테이션으로 교체 — GOOG이 현 가장 깔끔한 핀.)
+- **en (edge 주입, CheddarFlow 영수증 구조: 숫자→판정→반응 1줄):**
+  `$GOOG closed at $354 Friday. Max pain sat at $350 all week — and price pinned right to it.
+  The options market set that level days ago. The price chart never showed you.`
+- **ja (KessanMan 캐주얼 반응체 — 문학투 폐기, voice는 사용자 확인):**
+  `$GOOG、金曜終値354ドル。マックスペインは350ドル。
+  一週間ずっと350に引っ張られて、そのまま着地。オプション市場、もう答え書いてたわけね。
+  株価チャートだけ見てたら気づかないやつ。`
+- 카드 = 레벨 사다리(02-level-ladder) 변형: CLOSE $354(골드) vs MAX PAIN $350 대비. 또는 앱 Command GOOG 옵션레벨 크롭.
+  본문 링크 0 · 답글에만 "SIGNUM HQ — App Store & Google Play".
+- **타이밍 (개장 대비 판단)**: 영수증은 사후 콘텐츠라 데이터 신선도 무관 → **개장 즈음이 오히려 적기**
+  (미국 오디언스 접속). "개장 때 포스팅 금지"는 라이브 사건형에만 적용. en=지금~개장 직후, ja=일본 밤 동일 창구.
+- **발행 경로**: Mac은 Buffer 토큰 없음(§2) → 사용자 직접 X 발행 OR PC 세션이 Buffer 초안함 적재.
+  첫날 1개(en)로 반응 관찰, ja는 같은 사건 동시 or 직후.
 
 **30일 목표(측정):** 포스트당 노출 실측 → 일요일 판정 매트릭스(§4-6.10). 되는 포맷 더블다운,
 2주 연속 바닥이면 데드맨(전면정지+보고). "더 많이"는 금지 처방.
