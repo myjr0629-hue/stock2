@@ -55,6 +55,12 @@
 4. **본문 링크 금지.** 링크는 발행 후 답글/바이오에만.
 5. 구실패 DNA 감지 시 초안 폐기: 이모지 3+, 지표 4+ 나열, "Market Pulse" 류 다이제스트 헤더.
 6. 예측·매수매도 단어 0 · XS 스코어 노출 금지 · "Why'd It Move?" 문구 금지(3번앱 예약명).
+7. **예측성 "프레이밍"도 금지** (2026-07-14 실사례로 추가) — 단어뿐 아니라 방향 암시 표현 전부 금지:
+   "on a knife's edge", "balancing on the line that flips", "price is headed toward", "about to break"
+   등 = 미래 암시 → 삭제. **전부 현재/사후 사실 서술로.** OK 예: "sits at \$207 · gamma flip \$205 ·
+   dealers long gamma above the flip = regime that dampens moves"(현재 사실). 시그니처 훅
+   "the chart doesn't show it"(사후 서술)은 허용. ⚠️ 어제 MU("price is headed")·오늘 NVDA("knife's
+   edge") 두 초안 모두 이 위반 → PC가 잡아 교정. **양머신 공통 셀프린트 항목.**
 
 ## 1. 라이브 채널 (실측 2026-07-12)
 

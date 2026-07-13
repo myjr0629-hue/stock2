@@ -429,6 +429,10 @@ X 자동화 규칙 원문: **"동일하거나 실질적으로 유사한 포스�
   맥 초안의 예측표현("price is headed")은 PC가 서술형으로 교정 후 발행. GOOG 영수증은 내일 ET아침 이월.
 - **오늘 발사 총계**: 토스(SOXL) 1 + X-US(MU) 1 + X-JP(MU) 1 = 채널당 1, 전 채널 캡 안. Bluesky 미러 선택.
 - 다음: 발행 후 60분 답글 상주(내 포스트 답글 100%) + 답글 게임(UW·SpotGamma·米国株 계정, 메모리 셀오프 테마).
+- **2026-07-14 (맥 적재→사용자) — X 2호 = NVDA 데이터형** (앱 캡처, gamma flip $205/max pain $200/
+  call wall $220). ⚠️초안에 예측 프레이밍("knife's edge")→ PC 검수로 지적 → 사용자 서술형 재발행 완료
+  ("sits at $207 · dealers long gamma above flip = regime that dampens · the chart doesn't show it").
+  교훈: 예측 "프레이밍"도 금지(BUFFER_OPS §0-7 신규). 배경 = 반도체 셀오프 세계 톱뉴스(KOSPI −9%).
 
 ### 4-6.9. ★ 포스팅 콘텐츠 연구 (2026-07-11 실측 — 무엇을 올릴 것인가, 실행 레시피)
 
