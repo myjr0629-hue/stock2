@@ -104,7 +104,8 @@ An in-app **congressional / insider-trade tracker feed** = the highest-leverage 
 Not a launch task — a growth-phase product bet worth scoping.
 
 ## Next steps (when ready)
-- [ ] Nominate SIGNUM + UC for featuring (paste Part 1) — at/after v1.1, re-do each update.
+- [x] Nominate SIGNUM for featuring — **제출 완료 (2026-07-13, 사용자).** 애플은 결과를 통지하지
+  않음(선정되면 어느 날 노출이 튐 — ASC 노출 수로 감지). **v1.1 등 메이저 업데이트마다 재지명** (UC는 승인 후 제출).
 - [ ] Stand up the ONE human X channel + daily reveal cadence (human seed before any automation).
 - [ ] Build Custom Product Pages + per-channel UTM.
 - [ ] Prep Product Hunt launch assets.
