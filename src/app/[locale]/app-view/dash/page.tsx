@@ -480,6 +480,14 @@ export default function AppDashPage() {
   const [indices, setIndices] = useState<PulseItem[]>(lastGoodIndices ?? DEMO_INDICES);
   const [futures, setFutures] = useState<PulseItem[]>(lastGoodFutures ?? DEMO_FUTURES);
   const [etfs, setEtfs] = useState<PulseItem[]>(lastGoodEtfs ?? DEMO_ETFS);
+  // "Ready" = the FIRST real fetch has landed for that row. Until then we render a
+  // skeleton, NEVER the DEMO placeholder numbers. Root fix for the cold-load bug where
+  // the cash row showed fake 17,863/5,473 on first launch and only corrected after a
+  // navigation round-trip (the module-cached lastGood* seeded the numbers on remount,
+  // not on first mount). Seed ready=true only when we already hold real cached values.
+  const [indicesReady, setIndicesReady] = useState<boolean>(!!lastGoodIndices);
+  const [futuresReady, setFuturesReady] = useState<boolean>(!!lastGoodFutures);
+  const [etfsReady, setEtfsReady] = useState<boolean>(!!lastGoodEtfs);
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
   const [movers, setMovers] = useState<MoverItem[]>([]);
@@ -813,6 +821,9 @@ export default function AppDashPage() {
   const riskTone = riskScore >= 58 ? copy.riskOn : riskScore <= 42 ? copy.riskOff : copy.mixed;
   const futuresTone = futuresAvg > 0.15 ? copy.bullish : futuresAvg < -0.15 ? copy.bearish : copy.neutral;
   const cashTone = cashAvg > 0.15 ? copy.bullish : cashAvg < -0.15 ? copy.bearish : copy.neutral;
+  // The market-state hero (선물/현물/리스크) is derived entirely from the index+futures
+  // feeds, so it must not show numbers computed from DEMO seeds before those land.
+  const regimeReady = indicesReady && futuresReady;
   const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : copy.closed;
   const pulseStatusNote = isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : copy.marketClosed;
   const pulseStatusClass = isLive ? '' : (futuresLive || volatilityLive) ? s.futuresOpen : s.closed;
@@ -1045,6 +1056,7 @@ export default function AppDashPage() {
             if (items.length >= 2 && items.every(it => it.px > 0)) {
               lastGoodIndices = items;
               setIndices(items);
+              setIndicesReady(true);
               indicesApplied = true;
             }
           } catch {
@@ -1063,6 +1075,7 @@ export default function AppDashPage() {
               if (items.length >= 2 && items.every(it => it.px > 0)) {
                 lastGoodIndices = items;
                 setIndices(items);
+                setIndicesReady(true);
               }
             } catch { /* keep current screen state */ }
           }, 2500);
@@ -1106,6 +1119,7 @@ export default function AppDashPage() {
             if (futItems.length >= 2) {
               lastGoodFutures = futItems;
               setFutures(futItems);
+              setFuturesReady(true);
             }
 
             const macroItems: MacroItem[] = [];
@@ -1282,6 +1296,9 @@ export default function AppDashPage() {
             lastGoodEtfs = next;
             return next;
           });
+          // Only mark ready when SPY/QQQ carry real quote prices (VIX always has a
+          // factor value); otherwise keep the skeleton rather than flashing a fallback.
+          if ((spyQuote.price ?? 0) > 0 && (qqqQuote.price ?? 0) > 0) setEtfsReady(true);
         }
 
         // ── Briefing ──
@@ -1435,23 +1452,23 @@ export default function AppDashPage() {
       <div className={s.regimeStrip}>
         <div className={s.regimePrimary}>
           <span className={s.regimeKicker}>{copy.regime}</span>
-          <strong className={riskScore >= 58 ? s.regimePositive : riskScore <= 42 ? s.regimeNegative : s.regimeNeutral}>
-            {riskTone}
+          <strong className={!regimeReady ? s.regimeNeutral : riskScore >= 58 ? s.regimePositive : riskScore <= 42 ? s.regimeNegative : s.regimeNeutral}>
+            {regimeReady ? riskTone : '—'}
           </strong>
           <span className={s.regimeNote}>{pulseStatusNote}</span>
         </div>
         <div className={s.regimeMetrics}>
           <div className={`${s.regimeMetric} ${futuresAvg > 0.15 ? s.metricUp : futuresAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.futures}</span>
-            <b className={futuresAvg >= 0 ? s.pos : s.neg}>{futuresTone} {fmtChg(futuresAvg)}</b>
+            <b className={futuresAvg >= 0 ? s.pos : s.neg}>{regimeReady ? `${futuresTone} ${fmtChg(futuresAvg)}` : '—'}</b>
           </div>
           <div className={`${s.regimeMetric} ${cashAvg > 0.15 ? s.metricUp : cashAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.cash}</span>
-            <b className={cashAvg >= 0 ? s.pos : s.neg}>{cashTone} {fmtChg(cashAvg)}</b>
+            <b className={cashAvg >= 0 ? s.pos : s.neg}>{regimeReady ? `${cashTone} ${fmtChg(cashAvg)}` : '—'}</b>
           </div>
           <div className={`${s.regimeMetric} ${s.regimeMetricCenter} ${riskScore >= 58 ? s.metricUp : riskScore <= 42 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.risk}</span>
-            <b>{Math.round(riskScore)}</b>
+            <b>{regimeReady ? Math.round(riskScore) : '—'}</b>
           </div>
         </div>
       </div>
@@ -1480,7 +1497,7 @@ export default function AppDashPage() {
               <em className={futuresLive ? s.metaLive : ''}>{futuresLive ? copy.futuresLive : copy.closed}</em>
             </div>
             <div className={s.pulseRow}>
-              {futures.map((p) => (
+              {!futuresReady ? [0, 1, 2].map((i) => <div key={`skf-${i}`} className={s.skelPulse} />) : futures.map((p) => (
                 <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
                   <div className={s.pulseCardSymRow}>
                     {getSymBadge(p.sym)}
@@ -1503,7 +1520,7 @@ export default function AppDashPage() {
               <em className={isLive ? s.metaLive : isMarketHoliday ? s.metaHoliday : ''}>{isLive ? copy.regularLive : isMarketHoliday ? copy.holiday : copy.closed}</em>
             </div>
             <div className={s.pulseRow}>
-              {sortPulse(indices, PULSE_INDEX_ORDER).map((p) => {
+              {!indicesReady ? [0, 1, 2].map((i) => <div key={`ski-${i}`} className={s.skelPulse} />) : sortPulse(indices, PULSE_INDEX_ORDER).map((p) => {
                 // Cash index row is Redis/index-close based. ETF proxies must not overwrite index change.
                 const displayChg = p.chg;
                 const isUp = displayChg >= 0;
@@ -1535,7 +1552,7 @@ export default function AppDashPage() {
               <em className={etfRowLive ? s.metaLive : ''}>{etfRowStatus}</em>
             </div>
             <div className={s.pulseRow}>
-              {sortPulse(etfs, PULSE_ETF_ORDER).map((p) => {
+              {!etfsReady ? [0, 1, 2].map((i) => <div key={`ske-${i}`} className={s.skelPulse} />) : sortPulse(etfs, PULSE_ETF_ORDER).map((p) => {
                 const wsData = wsGetPrice(p.sym);
                 const useWs = shouldUseWsQuote(p.sym, wsData);
                 
