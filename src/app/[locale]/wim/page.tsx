@@ -683,9 +683,12 @@ function RealChart({
   levels?: { label: string; value: number; color: string }[];
   height?: number; minmax?: boolean; tone?: 'light' | 'dark';
 }) {
-  const stroke = tone === 'dark' ? '#E9E4FF' : P.hero;
+  // dark = the hero's navy scene: a LUMINOUS line built from layered strokes
+  // (wide violet halo → soft lilac mid → near-white core). Pure SVG strokes,
+  // no filter/blur — iOS webview safe (W5-C art direction).
+  const stroke = tone === 'dark' ? '#F4F1FF' : P.hero;
   const fillId = tone === 'dark' ? 'wimFillD' : 'wimFill';
-  const axis = tone === 'dark' ? 'rgba(255,255,255,0.65)' : P.faint;
+  const axis = tone === 'dark' ? 'rgba(255,255,255,0.72)' : P.faint;
   const W = 320; const H = height;
   const usable = levels?.filter((l) => typeof l.value === 'number' && l.value > 0) || [];
   const lo0 = Math.min(...closes); const hi0 = Math.max(...closes);
@@ -706,11 +709,17 @@ function RealChart({
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height, display: 'block' }} aria-hidden>
       <defs>
         <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={tone === 'dark' ? '#FFFFFF' : P.hero} stopOpacity={tone === 'dark' ? '0.30' : '0.28'} />
-          <stop offset="100%" stopColor={tone === 'dark' ? '#FFFFFF' : P.hero} stopOpacity="0.02" />
+          <stop offset="0%" stopColor={tone === 'dark' ? '#8B7CF7' : P.hero} stopOpacity={tone === 'dark' ? '0.26' : '0.28'} />
+          <stop offset="100%" stopColor={tone === 'dark' ? '#8B7CF7' : P.hero} stopOpacity="0.02" />
         </linearGradient>
       </defs>
       <path d={area} fill={`url(#${fillId})`} />
+      {tone === 'dark' && (
+        <>
+          <path d={path} fill="none" stroke="#8B7CF7" strokeWidth="7" strokeLinejoin="round" strokeLinecap="round" opacity="0.22" />
+          <path d={path} fill="none" stroke="#B7A8FF" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" opacity="0.32" />
+        </>
+      )}
       <path d={path} fill="none" stroke={stroke} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
       {vwPath && <path d={vwPath} fill="none" stroke={P.amber} strokeWidth="1.6" strokeDasharray="5 4" opacity="0.9" />}
       {near.map((l) => (
@@ -729,14 +738,16 @@ function RealChart({
   );
 }
 
-// tiny inline spark for list/deck cards (w/h shape the viewBox so strokes never distort)
-function MiniSpark({ closes, w = 72, h = 30 }: { closes: number[]; w?: number; h?: number }) {
+// tiny inline spark for list/deck cards (w/h shape the viewBox so strokes never distort);
+// tone="dark" = W5-C mini dark scene: layered violet halo under a near-white core
+function MiniSpark({ closes, w = 72, h = 30, tone = 'light' }: { closes: number[]; w?: number; h?: number; tone?: 'light' | 'dark' }) {
   const W = w; const H = h;
   const lo = Math.min(...closes); const hi = Math.max(...closes); const span = hi - lo || 1;
   const pts = closes.map((c, i) => `${((i / Math.max(1, closes.length - 1)) * W).toFixed(1)},${(H - 3 - ((c - lo) / span) * (H - 6)).toFixed(1)}`).join(' ');
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: H, display: 'block', flexShrink: 0 }} aria-hidden>
-      <polyline points={pts} fill="none" stroke={P.hero} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.85" />
+      {tone === 'dark' && <polyline points={pts} fill="none" stroke="#8B7CF7" strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" opacity="0.30" />}
+      <polyline points={pts} fill="none" stroke={tone === 'dark' ? '#F4F1FF' : P.hero} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity={tone === 'dark' ? '0.95' : '0.85'} />
     </svg>
   );
 }
@@ -778,7 +789,7 @@ function SessionStrip({ active, labels }: { active: 'pre' | 'reg' | 'post'; labe
         return (
           <div key={s} style={{ flex: s === 'reg' ? 2.2 : 1, textAlign: 'center', minWidth: 0 }}>
             <div style={{ height: 4, borderRadius: 99, background: on ? '#FFD66B' : 'rgba(255,255,255,0.20)' }} />
-            <div style={{ marginTop: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.08em', color: on ? '#FFD66B' : 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{labels[i]}</div>
+            <div style={{ marginTop: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.08em', color: on ? '#FFD66B' : 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{labels[i]}</div>
           </div>
         );
       })}
@@ -886,6 +897,24 @@ function TickerLogo({ ticker, size = 22 }: { ticker: string; size?: number }) {
   );
 }
 
+// W5-C real-brand layer: the ticker's logo rendered LARGE and translucent behind
+// the dark hero/deck scenes (UC-proven "오라클의 하루" technique). Same proxy as
+// TickerLogo; when the logo fails to load it renders nothing — the scene stays
+// clean. Always sits under a navy scrim so chart/text contrast never degrades.
+function LogoWatermark({ ticker, size = 180, right = -26, top = 6, opacity = 0.12 }: {
+  ticker: string; size?: number; right?: number; top?: number; opacity?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      src={`/api/undercurrent/logo?t=${ticker}`} alt="" aria-hidden
+      onError={() => setFailed(true)}
+      style={{ position: 'absolute', right, top, width: size, height: size, objectFit: 'contain', opacity, pointerEvents: 'none', userSelect: 'none' }}
+    />
+  );
+}
+
 // **bold** parser for explanations
 function Bold({ text }: { text: string }) {
   const parts = text.split(/\*\*(.+?)\*\*/g);
@@ -941,6 +970,8 @@ const WIM_KEYFRAMES = [
   '@keyframes wimUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}',
   '@keyframes wimSh{0%{background-position:200% 0}100%{background-position:-200% 0}}',
   '.wim-skel{background:linear-gradient(90deg,rgba(255,255,255,0.55) 25%,rgba(255,255,255,0.85) 50%,rgba(255,255,255,0.55) 75%);background-size:200% 100%;animation:wimSh 1.4s infinite}',
+  // W5-C: the hero skeleton matches the dark navy scene — no white flash before paint
+  '.wim-skel-navy{background:linear-gradient(90deg,#0B0F1A 25%,#151C30 50%,#0B0F1A 75%);background-size:200% 100%;animation:wimSh 1.4s infinite}',
   '@keyframes wimSpin{to{transform:rotate(360deg)}}',
   '@keyframes wimFloat1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(24px,-30px) scale(1.12)}}',
   '@keyframes wimFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,22px) scale(0.92)}}',
@@ -2900,6 +2931,13 @@ export default function WimPage() {
     border: '1px solid rgba(255,255,255,0.28)',
     boxShadow: '0 16px 40px rgba(76,63,175,0.30)',
   } as const;
+  // W5-C: the deck's mini dark scenes — same navy canvas as the hero (one visual
+  // system), a pre-blurred violet glow baked into the background (no filter:blur)
+  const deckScene = {
+    background: 'radial-gradient(120% 90% at 82% 10%, rgba(108,92,231,0.30), transparent 62%), #0B0F1A',
+    border: '1px solid rgba(139,124,247,0.22)',
+    boxShadow: '0 14px 30px rgba(11,15,26,0.30)',
+  } as const;
   const solvedCount = Object.keys(done).length;
   const correctToday = units.filter((u) => done[u.id] && u.correctCategoryIds.includes(done[u.id])).length;
   const termsCount = Object.keys(seenTerms).filter((k) => seenTerms[k]).length;
@@ -2914,15 +2952,15 @@ export default function WimPage() {
   const weekendRank: Record<string, number> = { replay: 0, sense: 1, hunt: 2, domino: 3 };
   const deckPlays = weekendET ? [...playDefs].sort((a, b) => weekendRank[a.id] - weekendRank[b.id]) : playDefs;
   const playCards = deckPlays.map((tz) => (
-    <button key={tz.id} type="button" className="wim-press" onClick={() => openPlay(tz.id)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', animation: 'wimUp 0.3s ease' }}>
+    <button key={tz.id} type="button" className="wim-press" onClick={() => openPlay(tz.id)} style={{ ...deckScene, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', color: '#fff', animation: 'wimUp 0.3s ease' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 28, height: 28, borderRadius: 10, background: P.heroSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: P.heroDeep }}><Ic name={tz.icon} size={16} sw={2} /></span>
-        <span className="wim-new" style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.hero, background: P.heroSoft, borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
+        <span style={{ width: 28, height: 28, borderRadius: 10, background: 'rgba(139,124,247,0.22)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#C9BEFF' }}><Ic name={tz.icon} size={16} sw={2} /></span>
+        <span className="wim-new" style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: '#C9BEFF', background: 'rgba(139,124,247,0.24)', borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
       </div>
-      <div style={{ marginTop: 12, fontSize: 14.5, fontWeight: 900, color: P.ink }}>{tz.title}</div>
-      <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: P.sub, lineHeight: 1.45 }}>{tz.sub}</div>
+      <div style={{ marginTop: 12, fontSize: 14.5, fontWeight: 900, color: '#fff' }}>{tz.title}</div>
+      <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.72)', lineHeight: 1.45 }}>{tz.sub}</div>
       <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-        <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: P.hero, color: '#fff' }}>{t.play}</span>
+        <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: '#fff', color: P.heroDeep }}>{t.play}</span>
       </div>
     </button>
   ));
@@ -2934,78 +2972,91 @@ export default function WimPage() {
   }).slice(0, 12);
 
   return (
-    <div style={{ minHeight: '100vh', color: P.ink, fontFamily: "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif", background: 'linear-gradient(178deg, #D9D0FF 0%, #EDE8FF 36%, #F8F6FF 100%)', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', color: P.ink, fontFamily: "-apple-system,'SF Pro Rounded','Hiragino Sans','Apple SD Gothic Neo',sans-serif", background: 'linear-gradient(178deg, #E9E3FF 0%, #F4F1FF 38%, #FBFAFF 100%)', position: 'relative' }}>
       <style>{WIM_KEYFRAMES}</style>
 
-      {/* floating gradient blobs — depth behind the glass */}
+      {/* floating gradient blobs — depth behind the glass (W5-C: pre-blurred
+          radial-gradients only — the old filter:blur layers cost iOS webview frames) */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-6%', right: '-14%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,122,89,0.20), transparent 68%)', filter: 'blur(14px)', animation: 'wimFloat1 13s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', top: '30%', left: '-16%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(25,184,147,0.16), transparent 68%)', filter: 'blur(16px)', animation: 'wimFloat2 16s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', bottom: '4%', right: '-10%', width: 340, height: 340, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,92,231,0.20), transparent 66%)', filter: 'blur(18px)', animation: 'wimFloat3 18s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', top: '8%', left: '20%', width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,173,31,0.18), transparent 66%)', filter: 'blur(12px)', animation: 'wimFloat2 11s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', top: '-6%', right: '-14%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,122,89,0.16), transparent 62%)', animation: 'wimFloat1 13s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', top: '30%', left: '-16%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(25,184,147,0.13), transparent 62%)', animation: 'wimFloat2 16s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', bottom: '4%', right: '-10%', width: 340, height: 340, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,92,231,0.16), transparent 60%)', animation: 'wimFloat3 18s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', top: '8%', left: '20%', width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,173,31,0.14), transparent 60%)', animation: 'wimFloat2 11s ease-in-out infinite' }} />
       </div>
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 560, margin: '0 auto', padding: `0 16px calc(${WIM_ADS_LIVE ? 158 : 104}px + env(safe-area-inset-bottom))` }}>
 
-        {/* glass masthead */}
-        <header style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + env(safe-area-inset-top))' }}>
-          <span style={{ ...glass, width: 42, height: 42, borderRadius: 15, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 21 }}><Ic name="search" size={20} color={P.heroDeep} sw={2} /></span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.05 }}>Why&apos;d It Move?</div>
-            <div style={{ fontSize: 10, fontWeight: 750 as any, color: P.sub, marginTop: 2 }}>{t.tagline}</div>
+        {/* glass masthead — W5-C: compressed one-liner (smaller mark, tighter row) */}
+        <header style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
+          <span style={{ ...glass, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Ic name="search" size={17} color={P.heroDeep} sw={2} /></span>
+          <div style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8, overflow: 'hidden' }}>
+            <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>Why&apos;d It Move?</div>
+            <div style={{ fontSize: 9.5, fontWeight: 750 as any, color: P.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tagline}</div>
           </div>
-          <button type="button" onClick={() => setSettingsOpen(true)} aria-label={t.settings} style={{ ...glass, font: 'inherit', marginLeft: 'auto', flexShrink: 0, width: 40, height: 40, borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16 }}>
-            <Ic name="gear" size={18} color={P.ink} sw={1.5} />
+          <button type="button" onClick={() => setSettingsOpen(true)} aria-label={t.settings} style={{ ...glass, font: 'inherit', marginLeft: 'auto', flexShrink: 0, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <Ic name="gear" size={16} color={P.ink} sw={1.5} />
           </button>
         </header>
 
         {/* ── TAB: HOME ── */}
         {homeTab === 'home' && (
           <>
-            {/* hero: today's top case — the REAL chart IS the graphic */}
+            {/* hero: today's top case as a DARK NAVY SCENE (W5-C art direction) —
+                luminous chart line, the real brand logo as a translucent layer
+                behind a navy scrim, two pre-blurred glows for depth, and the CTA
+                floating OUT of the card's bottom edge (declutters the slab) */}
             {heroU && heroU.spark && heroU.spark.closes.length >= 8 ? (
-              <section style={{ ...glassDark, marginTop: 16, borderRadius: 26, padding: '16px 16px 12px', color: '#fff', animation: 'wimUp 0.35s ease' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#FFD66B' , display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color="#FFD66B" /> {t.heroCase.toUpperCase()}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: '#7EE0AE', background: 'rgba(25,184,147,0.25)', borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11 }}>
-                  <TickerLogo ticker={heroU.ticker} size={40} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.01em' }}>{heroU.ticker}</div>
-                    {heroU.companyName && <div style={{ fontSize: 10.5, fontWeight: 650 as any, opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{heroU.companyName}</div>}
-                  </div>
-                  <span style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums', background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '6px 13px' }}>±<CountUp value={heroU.moveMagnitude} />%</span>
-                </div>
-                <div style={{ margin: '12px -16px 0' }}>
-                  <RealChart
-                    closes={heroU.spark.closes}
-                    height={150}
-                    tone="dark"
-                    levels={unlockLevels && heroLab && heroLab.levels.maxPain != null
-                      ? [{ label: 'MAX PAIN', value: heroLab.levels.maxPain, color: '#FFD66B' }]
-                      : undefined}
-                  />
-                </div>
-                <div style={{ marginTop: 9 }}>
-                  <SessionStrip active={heroSession} labels={[t.sessionPre, t.sessionReg, t.sessionPost]} />
-                </div>
-                {/* P6: ET weekend — compact review banner above the CTA */}
-                {weekendET && (
-                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 9, background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.22)', borderRadius: 14, padding: '9px 12px' }}>
-                    <Ic name="replay" size={15} color="#FFD66B" />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 11.5, fontWeight: 900, color: '#FFD66B' }}>{t.weekendTitle}</div>
-                      <div style={{ marginTop: 1, fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4 }}>{t.weekendSub}</div>
+              <section style={{ position: 'relative', marginTop: 14, paddingBottom: 25, animation: 'wimUp 0.35s ease' }}>
+                <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 26, padding: '15px 16px 40px', color: '#fff', background: '#0B0F1A', border: '1px solid rgba(139,124,247,0.24)', boxShadow: '0 24px 50px rgba(11,15,26,0.42), 0 6px 18px rgba(11,15,26,0.28)' }}>
+                  {/* depth: violet + warm radial glows behind the chart (gradients only, no filter) */}
+                  <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(92% 64% at 16% 82%, rgba(108,92,231,0.36), transparent 64%), radial-gradient(64% 50% at 88% 24%, rgba(255,173,31,0.13), transparent 68%)' }} />
+                  {/* real-brand layer: the mover's logo, large + translucent, right side */}
+                  <LogoWatermark key={heroU.ticker} ticker={heroU.ticker} size={180} right={-24} top={4} opacity={0.12} />
+                  {/* navy scrim over the logo — the chart and labels stay readable */}
+                  <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(78deg, rgba(11,15,26,0.94) 0%, rgba(11,15,26,0.58) 52%, rgba(11,15,26,0.22) 100%)' }} />
+                  <div style={{ position: 'relative' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#FFD66B' , display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color="#FFD66B" /> {t.heroCase.toUpperCase()}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: '#7EE0AE', background: 'rgba(25,184,147,0.25)', borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                      <TickerLogo ticker={heroU.ticker} size={40} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.01em' }}>{heroU.ticker}</div>
+                        {heroU.companyName && <div style={{ fontSize: 10.5, fontWeight: 650 as any, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{heroU.companyName}</div>}
+                      </div>
+                      <span style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#FFD66B', background: 'rgba(255,214,107,0.12)', border: '1px solid rgba(255,214,107,0.30)', borderRadius: 99, padding: '5px 12px' }}>±<CountUp value={heroU.moveMagnitude} />%</span>
+                    </div>
+                    <div style={{ margin: '12px -16px 0' }}>
+                      <RealChart
+                        closes={heroU.spark.closes}
+                        height={150}
+                        tone="dark"
+                        levels={unlockLevels && heroLab && heroLab.levels.maxPain != null
+                          ? [{ label: 'MAX PAIN', value: heroLab.levels.maxPain, color: '#FFD66B' }]
+                          : undefined}
+                      />
+                    </div>
+                    <div style={{ marginTop: 9 }}>
+                      <SessionStrip active={heroSession} labels={[t.sessionPre, t.sessionReg, t.sessionPost]} />
+                    </div>
+                    {/* P6: ET weekend — one slim translucent pill ON the scene (no box-in-box) */}
+                    {weekendET && (
+                      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 99, padding: '7px 13px' }}>
+                        <Ic name="replay" size={13} color="#FFD66B" />
+                        <span style={{ fontSize: 11, fontWeight: 900, color: '#FFD66B', whiteSpace: 'nowrap', flexShrink: 0 }}>{t.weekendTitle}</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.78)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{t.weekendSub}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', width: '100%', marginTop: 11, background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(0,0,0,0.18)' }}>
+                </div>
+                {/* the CTA floats over the card's bottom edge — half in, half out */}
+                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', position: 'absolute', left: 18, right: 18, bottom: 0, background: '#fff', color: P.heroDeep, border: 'none', borderRadius: 99, padding: '15px 18px', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', boxShadow: '0 12px 28px rgba(11,15,26,0.32), 0 3px 8px rgba(11,15,26,0.22)' }}>
                   {heroU.prompt[loc]} · {t.solve} →
                 </button>
               </section>
             ) : !failed && !today ? (
-              <div className="wim-skel" style={{ height: 290, borderRadius: 26, marginTop: 16 }} />
+              <div className="wim-skel-navy" style={{ height: 315, borderRadius: 26, marginTop: 14 }} />
             ) : null}
             {failed && !today && (
               <div style={{ ...glass, marginTop: 16, borderRadius: 20, padding: '18px 16px', fontSize: 13, fontWeight: 700, color: P.sub, textAlign: 'center' }}>{t.empty}</div>
@@ -3024,24 +3075,29 @@ export default function WimPage() {
                   {units.map((u, i) => {
                     const isDone = !!done[u.id];
                     const lvLabel = u.difficultyLevel === 1 ? t.quizLv1 : u.difficultyLevel === 2 ? t.quizLv2 : t.quizLv3;
-                    const lvColor = u.difficultyLevel === 1 ? P.mint : u.difficultyLevel === 2 ? P.amber : P.hero;
+                    // difficulty chips re-tuned for the dark canvas (bright variants, AA-safe)
+                    const lvColor = u.difficultyLevel === 1 ? '#7EE0AE' : u.difficultyLevel === 2 ? '#FFD66B' : '#C9BEFF';
                     return (
-                      <button key={u.id} type="button" className="wim-press" onClick={() => startQuiz(i)} style={{ ...glass, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', animation: 'wimUp 0.3s ease' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <TickerLogo ticker={u.ticker} size={28} />
-                          <span style={{ fontSize: 14.5, fontWeight: 900 }}>{u.ticker}</span>
-                          <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: lvColor, background: `${lvColor}1F`, borderRadius: 99, padding: '2px 7px' }}>{lvLabel}</span>
-                        </div>
-                        <div style={{ margin: '10px -3px 0' }}>
-                          {u.spark && u.spark.closes.length >= 8
-                            ? <MiniSpark closes={u.spark.closes} w={186} h={58} />
-                            : <div style={{ height: 58 }} />}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', marginTop: 9 }}>
-                          <span style={{ fontSize: 13, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep }}>±{u.moveMagnitude}%</span>
-                          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: isDone ? P.mintSoft : P.hero, color: isDone ? P.mint : '#fff' }}>
-                            {isDone ? `✓ ${t.solved}` : t.play}
-                          </span>
+                      <button key={u.id} type="button" className="wim-press" onClick={() => startQuiz(i)} style={{ ...deckScene, font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 212px', scrollSnapAlign: 'start', borderRadius: 22, padding: '13px 13px 12px', color: '#fff', position: 'relative', overflow: 'hidden', animation: 'wimUp 0.3s ease' }}>
+                        {/* mini real-brand layer — faint logo behind the spark, fails to nothing */}
+                        <LogoWatermark ticker={u.ticker} size={84} right={-14} top={24} opacity={0.09} />
+                        <div style={{ position: 'relative' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <TickerLogo ticker={u.ticker} size={28} />
+                            <span style={{ fontSize: 14.5, fontWeight: 900 }}>{u.ticker}</span>
+                            <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: lvColor, background: 'rgba(255,255,255,0.10)', borderRadius: 99, padding: '2px 7px' }}>{lvLabel}</span>
+                          </div>
+                          <div style={{ margin: '10px -3px 0' }}>
+                            {u.spark && u.spark.closes.length >= 8
+                              ? <MiniSpark closes={u.spark.closes} w={186} h={58} tone="dark" />
+                              : <div style={{ height: 58 }} />}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', marginTop: 9 }}>
+                            <span style={{ fontSize: 13, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#fff' }}>±{u.moveMagnitude}%</span>
+                            <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 900, borderRadius: 99, padding: '5px 12px', background: isDone ? 'rgba(25,184,147,0.22)' : '#fff', color: isDone ? '#7EE0AE' : P.heroDeep }}>
+                              {isDone ? `✓ ${t.solved}` : t.play}
+                            </span>
+                          </div>
                         </div>
                       </button>
                     );
