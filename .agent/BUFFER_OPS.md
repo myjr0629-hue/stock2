@@ -208,6 +208,10 @@ PNG 렌더할 필요 없음**(MU/GOOG는 예전에 수동 렌더해 `public/card
 - 레벨 실측 소스: `/api/live/options/structure?t=<TICKER>` (underlyingPrice·maxPain·gammaFlipLevel·levels.callWall/putFloor).
 - Buffer 첨부: `createPost`/`editPost`의 `assets:[{image:{url:"<위 URL>"}}]`.
 
-**② 앱 실화면 캡처.** 미국(en)·일본(ja) 포스트엔 **해당 로케일 UI** 캡처 필수(한글 UI를 US/JP에
-올리면 신뢰 하락). 다음부터 Mac 세션이 iOS 시뮬레이터로 티커별 Command 화면을 en/ja 직접 캡처
-→ 드래프트 첨부 예정(사용자 요청, 2026-07-14). 카드(①)가 더 편한 날은 ① 사용.
+**② 앱 실화면 캡처 — 서버측(EC2 워커)이 정답** (2026-07-14 PC 실측, `MARKETING_ENGINE_REBUILD.md`
+C-2.6). `app-view/*`는 **무로그인 공개 렌더** → EC2 캡처 워커 `POST ws.signumhq.com/capture
+{url,width,height,delay}`로 티커·로케일별 PNG 반환(실호출 검증됨). URL =
+`signumhq.com/{ko|en|ja}/app-view/cmd?t=<TICKER>`. 유일 장애 = 온보딩 동의 모달(워커에 localStorage
+주입 파라미터 추가 ~10줄 필요·재배포). ⚠️ **이전에 여기 적었던 "Mac 시뮬레이터 캡처"는 폐기** —
+머신 무관 서버측이 정답(콘솔 생성 탭 [캡처 생성] 버튼으로 통합 예정). **로케일 UI 일치 원칙은 유지**
+(en 포스트=영어 UI, ja=일본어 UI; 한글 UI를 US/JP에 올리면 신뢰 하락). 카드(①)가 더 편한 날은 ① 사용.
