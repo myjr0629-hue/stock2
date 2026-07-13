@@ -65,6 +65,18 @@ with current v1.0 users).
 
 ---
 
+## ⚠️ Play 구독 상품 등록 — v1.0 상태에선 불가 (2026-07-13 실측)
+
+Play Console → Monetize → Subscriptions가 "Upload a new APK"를 요구함: **결제 라이브러리
+(com.android.vending.BILLING)가 포함된 빌드가 올라와 있어야 구독 상품 생성 가능** — 애플(바이너리
+없이 상품 생성 가능, 이미 완료)과 반대. 따라서 Android 상품 등록은 v1.1 조립 절차의 일부:
+1. Step 1(RevenueCat 플러그인 추가)+Step 2(버전 범프) 후 `bundleRelease` AAB 생성
+2. **내부 테스트 트랙에 업로드** (프로덕션 아님) → Subscriptions 메뉴 잠금 해제
+3. 구독 생성: ID `pro_monthly` · Base plan `monthly`(자동갱신) · $9.99 · 3언어 문구(ASC 재사용)
+4. RevenueCat entitlement `pro`에 양쪽 상품 연결 → 내부 테스트 트랙에서 실기기 결제 테스트(Step 3)
+5. 통과 후 같은 AAB를 프로덕션으로 승격 + iOS 제출 (Step 4)
+RevenueCat 프로젝트 생성·iOS 연결·Play 서비스계정 연동은 빌드와 무관 — AdMob 대기 중 선처리 가능.
+
 ## Native step 3 — device test (StoreKit sandbox + real push) — THE GATE
 
 Do ALL of these on a real device before flipping `IAP_LIVE` or submitting:
