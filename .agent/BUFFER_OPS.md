@@ -197,3 +197,17 @@ Bluesky는 en 텍스트 경미 변형 재사용까지 허용해도 정책 위반
 **운용 시 주의 재강조:** Mac은 토큰이 없으므로 `createPost` 실행은 PC 세션 담당(§2). 초안 적재
 로그는 §4-6.8에 날짜·머신 표기로 남길 것. 다운그레이드 리마인더는 PC 단독(중복 생성 금지) —
 8/13 전 두 계정 이름·사진 변경 금지(리뷰 재발동).
+
+## 7. 포스트 이미지 소스 (2026-07-14)
+
+**① 레벨 카드 자동 생성기 — `/api/og/level` (신규, 커밋 `7fec48ec`).** 티커·레벨만 URL 파라미터로
+넘기면 1200×675 레벨사다리 카드(다크/골드, 02-level-ladder 디자인) PNG를 즉석 반환 → **손으로
+PNG 렌더할 필요 없음**(MU/GOOG는 예전에 수동 렌더해 `public/cards/`에 커밋했지만 이제 불필요).
+- 예: `https://signumhq.com/api/og/level?ticker=NVDA&price=207.83&priceLabel=LAST&callWall=220&gammaFlip=205&maxPain=200&putFloor=180`
+- 제공한 레벨만 그려지고 값 내림차순 정렬, `price` 행이 골드 강조. `date`·`note`·`lang` 옵션.
+- 레벨 실측 소스: `/api/live/options/structure?t=<TICKER>` (underlyingPrice·maxPain·gammaFlipLevel·levels.callWall/putFloor).
+- Buffer 첨부: `createPost`/`editPost`의 `assets:[{image:{url:"<위 URL>"}}]`.
+
+**② 앱 실화면 캡처.** 미국(en)·일본(ja) 포스트엔 **해당 로케일 UI** 캡처 필수(한글 UI를 US/JP에
+올리면 신뢰 하락). 다음부터 Mac 세션이 iOS 시뮬레이터로 티커별 Command 화면을 en/ja 직접 캡처
+→ 드래프트 첨부 예정(사용자 요청, 2026-07-14). 카드(①)가 더 편한 날은 ① 사용.
