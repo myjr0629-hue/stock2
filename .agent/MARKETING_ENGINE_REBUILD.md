@@ -307,6 +307,16 @@
 4. 콘솔 뼈대(라이트 Donezo 테마 §C-2.5 시안스펙, 서버 인증 게이트 404) + 생성 탭
 5. Reddit 무료 앱 등록 + 발굴 크론 · Stocktwits 발굴 · 성과탭 · 사건탐지 크론
 
+**진행 로그 (완료분 — 맥 필독, 중복 금지):**
+- ✅ **Phase 1 = 콘솔 뼈대 + 인증 게이트** (커밋 `afba8951d`, 2026-07-14 PC). 파일:
+  `src/app/[locale]/admin/marketing/{page.tsx,MarketingConsole.tsx,marketing-console.css}` +
+  `src/lib/marketing-console/auth.ts`. 경로 `/[locale]/admin/marketing`(ko/en/ja).
+  - 게이트: 서버 Supabase 세션 → `getMarketingAdmin()` → 미인증 `notFound()`(404 은닉). **body-email 없음.**
+  - 관리자 allowlist env = `MARKETING_ADMIN_EMAILS`(없으면 `NEXT_PUBLIC_ADMIN_EMAILS` 폴백).
+  - 독립 라이트 테마(`.mkc-*`), SIGNUM 다크와 컴포넌트/CSS 공유 0. 6탭 셸(Today만 스캐폴드, 나머지 phase-gated).
+  - 실측: 미인증 404(로컬+프로덕션), tsc 0, 컴파일 클린. **인증 렌더 뷰는 사용자 로그인 인수테스트 대기.**
+- ⏭ 다음: X OAuth 연결 페이지(순서1) → 답글 엔진(순서2) → 생성 탭(순서4 잔여).
+
 > **핸드오프 규칙**: 이 절이 마케팅 자동화 실행 정본. 착수 전 pull → 위 순서 중 **안 된 것부터**. 완료분은
 > 이 표에 ✅+커밋해시로 갱신하고 push. 작업 무관 파일(lambda·android·package-lock)은 커밋 금지(§43.5).
 
