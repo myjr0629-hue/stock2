@@ -79,8 +79,13 @@
 
 - `BUFFER_ACCESS_TOKEN` = Vercel 프로덕션 env (서버 코드에서만 사용).
 - **PC**: 로컬 env 사본 보유 → Buffer API 직접 조회 가능.
-- **Mac**: 로컬 토큰 없음, Vercel env 다운로드는 권한 차단 → API 확인이 필요하면 PC 세션에 넘기거나
-  사용자에게 채널 URL을 요청. 토큰을 채팅/커밋에 노출 금지.
+- **Mac**: 원래 로컬 토큰 없었으나 → **2026-07-13 사용자가 Buffer Personal API Key를 세션에 제공**.
+  세션 스크래치패드(리포 밖, git 미추적)에만 보관, **리포/커밋에 절대 노출 금지**. 이 키로 채널조회 +
+  초안 적재(saveToDraft:true) 가능 실측 완료. GraphQL 엔드포인트 `https://api.buffer.com`,
+  org id `69a92687c9f20bfac044a189`, createPost 뮤테이션(bufferClient.ts와 동일 input) + `saveToDraft:true`.
+  ⚠️ **위생**: 채팅에 붙여진 키라 여유 될 때 Buffer Settings→API에서 rotate 권장(그 키 6권한, 발행권 포함 여부 확인).
+  다음 세션에서 이 키 재사용하려면 사용자가 다시 제공해야 함(스크래치패드는 세션 격리).
+- ⚠️ 토큰을 채팅/커밋에 재노출 금지 (기존 규칙 유지).
 
 ## 3. API 사용법 (코드 경로)
 
