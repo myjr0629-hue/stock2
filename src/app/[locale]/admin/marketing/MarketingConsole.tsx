@@ -408,7 +408,6 @@ function XOpsTab() {
   const [drafts, setDrafts] = useState<Record<string, { text: string; grounded: boolean; loading: boolean }>>({});
   const [copied, setCopied] = useState<string | null>(null);
   const [conn, setConn] = useState<XConn | null>(null);
-  const [posted, setPosted] = useState<Record<string, string>>({});
   const [rec, setRec] = useState<{ recommended: RecItem[]; session: MktSession; scannedCount: number } | null>(null);
   const [recLoading, setRecLoading] = useState(false);
   const [inbox, setInbox] = useState<InboxItem[] | null>(null);
@@ -444,30 +443,6 @@ function XOpsTab() {
       .then((j) => { if (j.ok) setInbox(j.items || []); })
       .catch(() => {});
   }, [acctKey, acctConnected]);
-
-  const publishText = async (t: ScanTweet, text: string) => {
-    setPosted((p) => ({ ...p, [t.id]: '게시 중…' }));
-    try {
-      const r = await fetch('/api/admin/mkt/x/post', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acct: acctKey, replyToId: t.id, text, author: t.author }),
-      });
-      const raw = await r.text();
-      let j: { ok?: boolean; error?: string; restricted?: boolean } | null = null;
-      try { j = JSON.parse(raw); } catch { /* non-JSON (platform error) */ }
-      if (j?.ok) setPosted((p) => ({ ...p, [t.id]: '게시됨 ✓' }));
-      else if (j?.restricted) {
-        setPosted((p) => ({ ...p, [t.id]: `@${t.author} 답글 제한 — 추천에서 제외됨` }));
-        recommend(); // refresh queue; the learned author drops out
-      } else setPosted((p) => ({ ...p, [t.id]: `실패(${r.status}): ${j?.error || raw.slice(0, 100) || '응답 없음'}` }));
-    } catch (e) { setPosted((p) => ({ ...p, [t.id]: `게시 실패: ${(e as Error).message}` })); }
-  };
-
-  const publish = async (t: ScanTweet) => {
-    const d = drafts[t.id];
-    if (!d?.text) return;
-    await publishText(t, d.text);
-  };
 
   const scan = useCallback(async () => {
     setLoading(true); setError(null);
@@ -527,8 +502,13 @@ function XOpsTab() {
           <div className="mkc-panel-title" style={{ fontSize: 13 }}>API 상태 (실측)</div>
           <div className="mkc-row"><span className="grow">읽기 (Bearer · api.x.com)</span><span className="mkc-pill g">실작동</span></div>
           <div className="mkc-row"><span className="grow">초안 (Bedrock · grounded)</span><span className="mkc-pill g">실작동</span></div>
-          <div className="mkc-row"><span className="grow">쓰기 (답글 게시)</span><span className={`mkc-pill ${acctConnected ? 'g' : 'a'}`}>{acctConnected ? '실작동' : '연결 후'}</span></div>
+          <div className="mkc-row"><span className="grow">API 콜드 답글</span><span className="mkc-pill r">X 정책상 불가 (수동)</span></div>
         </div>
+      </div>
+
+      <div className="mkc-warn" style={{ marginBottom: 4, marginTop: 14 }}>
+        <span className="mkc-warn-ic">ⓘ</span>
+        <span><strong>X가 2026년 API 자동 답글을 전면 차단했습니다</strong> (스팸 방지 · 전 요금제 · 원저자가 우리를 멘션/인용한 경우만 API 답글 가능). 그래서 콘솔은 <strong>어디에 달지 자동 선별 + 실데이터 초안 자동 작성</strong>까지 하고, 마지막은 <strong>[복사 + 원글 열기] → 손으로 붙여넣기</strong>. 수동 답글은 정상 작동합니다.</span>
       </div>
 
       {/* ★ 추천 큐 (자동 선별 + 자동 초안) */}
@@ -561,12 +541,10 @@ function XOpsTab() {
               <div className="mkc-target-src" style={{ marginTop: 6 }}>{t.text}</div>
               <div className="mkc-target-draft">답글 초안 <span className="mkc-pill g" style={{ marginLeft: 4 }}>실데이터 grounded</span><div style={{ marginTop: 4 }}>{t.draft}</div></div>
               <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
-                <button className="mkc-btn-sm pri" onClick={() => publishText(t, t.draft)} disabled={!acctConnected || !!posted[t.id]}
-                  title={!acctConnected ? '먼저 계정 연결' : `${ACCT_LABEL[acctKey]}로 게시`}>
-                  {posted[t.id] ? posted[t.id] : acctConnected ? `게시 (${ACCT_LABEL[acctKey]})` : '게시 (연결 필요)'}
+                <button className="mkc-btn-sm pri" onClick={() => { copy(t.id, t.draft); window.open(t.url, '_blank'); }}>
+                  {copied === t.id ? '복사됨 ✓ · 원글에 붙여넣기' : '복사 + 원글 열기'}
                 </button>
-                <a className="mkc-btn-sm out" href={t.url} target="_blank" rel="noreferrer">원글 열기</a>
-                <button className="mkc-btn-sm sec" onClick={() => copy(t.id, t.draft)}>{copied === t.id ? '복사됨 ✓' : '초안 복사'}</button>
+                <button className="mkc-btn-sm sec" onClick={() => copy(t.id, t.draft)}>{copied === t.id ? '복사됨 ✓' : '초안만 복사'}</button>
               </div>
             </div>
           </div>
@@ -608,13 +586,11 @@ function XOpsTab() {
                   </div>
                 )}
                 <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
-                  <button className="mkc-btn-sm pri" onClick={() => publish(t)} disabled={!acctConnected || !d?.text || !!posted[t.id] || t.canReply === false}
-                    title={t.canReply === false ? '작성자가 답글을 제한한 글 — 게시 불가' : !acctConnected ? '먼저 계정 연결' : !d?.text ? '먼저 초안 생성' : `${ACCT_LABEL[acctKey]}로 게시`}>
-                    {posted[t.id] ? posted[t.id] : t.canReply === false ? '답글 제한됨' : acctConnected ? `게시 (${ACCT_LABEL[acctKey]})` : '게시 (연결 필요)'}
-                  </button>
+                  {!d?.text
+                    ? <button className="mkc-btn-sm pri" onClick={() => genDraft(t)} disabled={d?.loading}>{d?.loading ? '생성 중…' : '초안 생성'}</button>
+                    : <button className="mkc-btn-sm pri" onClick={() => { copy(t.id, d.text); window.open(t.url, '_blank'); }}>{copied === t.id ? '복사됨 ✓ · 붙여넣기' : '복사 + 원글 열기'}</button>}
+                  {d?.text && <button className="mkc-btn-sm sec" onClick={() => genDraft(t)} disabled={d?.loading}>{d?.loading ? '…' : '재생성'}</button>}
                   <a className="mkc-btn-sm out" href={t.url} target="_blank" rel="noreferrer">원글 열기</a>
-                  <button className="mkc-btn-sm sec" onClick={() => genDraft(t)} disabled={d?.loading}>{d?.loading ? '생성 중…' : d?.text ? '초안 재생성' : '초안 생성'}</button>
-                  {d?.text && <button className="mkc-btn-sm sec" onClick={() => copy(t.id, d.text)}>{copied === t.id ? '복사됨 ✓' : '초안 복사'}</button>}
                 </div>
               </div>
               <div className="mkc-target-side">효과 점수<br /><strong style={{ fontSize: 16, color: 'var(--mkc-green-deep)' }}>{t.score}</strong></div>
