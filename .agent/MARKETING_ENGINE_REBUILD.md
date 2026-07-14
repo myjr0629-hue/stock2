@@ -343,7 +343,17 @@
   - 자산: og/level 카드 라이브 미리보기 + X 계정 연결상태 실측.
 - **6탭 상태**: 오늘🟢·생성🟢(자동추천)·X운용🟢(추천큐+게시+인박스)·레딧🟡(온디맨드/승인시자동)·성과🟢(수동입력+자동진단)·자산🟢(라이브카드+계정).
 - ⏭ 남은 것: `?from=` 유입 자동화(=`src/app/app/route.ts` 3줄 패치, **웹 파일이라 사용자 승인 필요**) · 캡처 파이프라인(EC2 워커 localStorage 패치) · VERDICT 채점 파이프라인(데이터소스) · 사건탐지 크론(자동 큐적재).
-- **X OAuth 연결 완료(실측)**: en=@signumhq·jp=@signumhq_jp 둘 다 connected. 게시 활성.
+- **X OAuth 연결 완료(실측)**: en=@signumhq·jp=@signumhq_jp 둘 다 connected.
+- 🔴 **[치명적·문서확정] X가 2026 API 프로그래매틱 답글을 전면 차단** (출처: @XDevelopers 공식 발표
+  `x.com/XDevelopers/status/2026084506822730185` + devcommunity). "자동 답글 스팸 방지 — POST /2/tweets
+  답글은 **원저자가 우리를 @멘션/인용한 경우에만** 허용. Free·Basic·Pro·**Pay-Per-Use 전부 적용.**"
+  - 실측으로도 확인: API 콜드 답글(큰계정+소형계정 전부) 403 "not been mentioned or otherwise engaged".
+    **수동 답글(사람)은 정상**(Citrini 실증). 자기 글 답글 API는 됨(201).
+  - ⚠️ **교훈**: "신생계정 성숙 필요"는 **틀린 추측이었음** — 실제는 X 플랫폼 정책(전 계정·전 요금제). 문서
+    먼저 확인 안 하고 추측으로 단정한 실패 사례. **API 능력 주장 전 반드시 공식 문서 확인.**
+  - ∴ **답글 게임 자동 게시 = 불가(누구도)**. 콘솔 X운용은 **자동 선별+실데이터 초안 자동작성 → [복사+원글열기]
+    → 사람 수동 붙여넣기**로 전환(커밋 `8f5502b9b`). X API 잔여 가치 = 읽기/모니터링 + (드물게) 인박스 응대
+    (우리를 멘션한 사람에겐 API 답글 가능). 오리지널 포스트는 Buffer.
 
 **환경변수 (마케팅 콘솔):** `X_CLIENT_ID`·`X_CLIENT_SECRET`·`X_BEARER_TOKEN`(설정됨) · `MARKETING_ADMIN_EMAILS`(옵션, 없으면 `NEXT_PUBLIC_ADMIN_EMAILS` 폴백) · `NEXT_PUBLIC_SITE_URL`(옵션, 기본 signumhq.com) · Reddit 발굴 시 `REDDIT_CLIENT_ID`·`REDDIT_SECRET`(미설정). Buffer/Redis/Bedrock/EC2는 기존.
 
