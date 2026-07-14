@@ -29,7 +29,6 @@ const TAB_META: Record<TabKey, { title: string; sub: string }> = {
   assets: { title: '자산', sub: 'VERDICT 스코어보드 · 포스트 카드 4종 · pSEO 레벨페이지 · 계정 상태' },
 };
 
-const SAMPLE = () => <span className="mkc-sample">샘플·미연결</span>;
 
 export default function MarketingConsole({ adminEmail }: { adminEmail: string }) {
   const [tab, setTab] = useState<TabKey>('today');
@@ -633,18 +632,27 @@ function XOpsTab() {
   );
 }
 
-/* ===================== ④ 레딧 ===================== */
+/* ===================== ④ 레딧 (실 스캔 / 온디맨드) ===================== */
+interface RedThread { id: string; sub: string; title: string; author: string; score: number; numComments: number; permalink: string; ticker: string | null; relevance: number }
+
 function RedditTab() {
-  const threads = [
-    { sub: 'r/options', title: 'Anyone else watching MU into earnings? Chart looks scary', draft: 'MU\'s still 10%+ above max pain ($845) and 17% above gamma flip ($795). The tape sold off but dealer positioning didn\'t flip — worth checking the options structure, not just the candle.', age: '1시간', gate: '통과' },
-    { sub: 'r/thetagang', title: 'Selling puts on SOXL after the drop — thoughts on levels?', draft: 'Net premium on SOXL is -$22M, put-dominant, and it\'s sitting 9% above max pain (190). That gap is the kind of level put sellers usually watch — structure-wise it\'s stretched.', age: '3시간', gate: '통과' },
-  ];
+  const [data, setData] = useState<{ configured: boolean; threads: RedThread[]; error?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/admin/mkt/reddit/scan', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => setData({ configured: j.configured, threads: j.threads || [], error: j.error }))
+      .catch((e) => setData({ configured: false, threads: [], error: String(e) }))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <>
       {/* R0 카르마 */}
       <div className="mkc-section"><h2>R0 · 카르마 빌딩 현황</h2><span className="mkc-section-note">금융 서브 본인 참여 (자동 파밍 금지)</span></div>
       <div className="mkc-cols-3">
-        <div className="mkc-stat"><div className="l">댓글 카르마</div><div className="v">— <span className="mkc-sample">미연결</span></div><div className="mkc-progress"><span style={{ width: '0%' }} /></div><div className="d">목표: 서브 게이트 100~500</div></div>
+        <div className="mkc-stat"><div className="l">댓글 카르마</div><div className="v">— <span className="mkc-sample">본인계정 미연동</span></div><div className="mkc-progress"><span style={{ width: '0%' }} /></div><div className="d">목표: 서브 게이트 100~500</div></div>
         <div className="mkc-stat"><div className="l">계정 나이</div><div className="v">—</div><div className="d">많은 서브가 30일+ 요구</div></div>
         <div className="mkc-stat"><div className="l">사용 계정</div><div className="v">1개</div><div className="d">게시=본인 · 읽기=별도 app-only</div></div>
       </div>
@@ -666,40 +674,87 @@ function RedditTab() {
       </div>
 
       {/* 발굴 */}
-      <div className="mkc-section">
-        <h2>스레드 발굴 · 밸류 코멘트 초안</h2>
-        <span className="mkc-section-note">"우리 데이터가 답이 되는 글" — 읽기: 공식 API(app-only) / insane-search 폴백</span>
-        <span className="mkc-section-right">{SAMPLE()}</span>
-      </div>
+      <div className="mkc-section"><h2>스레드 발굴 · 밸류 코멘트 초안</h2><span className="mkc-section-note">"우리 데이터가 답이 되는 글"</span></div>
       <div className="mkc-warn red" style={{ marginBottom: 12 }}>
         <span className="mkc-warn-ic">⚠</span>
-        <span><strong>게시 전 사람이 실질 재작성 필수.</strong> r/Daytrading R4 = AI 생성 명시 금지 · 밴 시 도메인 블랙리스트 비가역. 콘솔은 초안만 제공, 게시는 링크 나가서 재작성 후 사람이.</span>
+        <span><strong>게시 전 사람이 실질 재작성 필수.</strong> r/Daytrading R4 = AI 생성 명시 금지 · 밴 시 도메인 블랙리스트 비가역. 콘솔은 발굴만, 게시는 링크 나가서 재작성 후 사람이.</span>
       </div>
-      <div className="mkc-card-box">
-        {threads.map((t, i) => (
-          <div className="mkc-target" key={i}>
-            <div className="mkc-target-main">
-              <div className="mkc-draft-head">
-                <span className="mkc-ch rdt">{t.sub}</span>
-                <span className="mkc-draft-meta">글 나이 {t.age} · 게이트 {t.gate}</span>
-              </div>
-              <div className="mkc-target-src" style={{ marginTop: 6 }}>원글: {t.title}</div>
-              <div className="mkc-target-draft">밸류 초안 (앱 언급 0): {t.draft}</div>
-              <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
-                <button className="mkc-btn-sm out">원글 열기</button>
-                <button className="mkc-btn-sm sec">초안 복사</button>
-              </div>
-            </div>
-            <div className="mkc-target-side">서브당<br />1댓글/일 캡</div>
+
+      {loading && <div className="mkc-card-box"><div className="mkc-todo">서브 스캔 중…</div></div>}
+
+      {data && !data.configured && (
+        <div className="mkc-card-box">
+          <div className="mkc-todo">
+            <strong>Reddit 자동 발굴 = 미연동 (온디맨드 사용)</strong>
+            공식 Data API는 승인 게이트가 있어 콘솔 자동 발굴은 보류 상태입니다. 지금은 <strong>세션에서 "레딧 지금 찾아줘"</strong>라고 하면
+            insane-search로 r/options·thetagang을 스캔해 "우리 데이터가 답인 글"을 찾아 밸류 초안을 드립니다 (승인 불필요).<br />
+            <span className="mkc-muted" style={{ fontSize: 11.5 }}>승인+키(REDDIT_CLIENT_ID/SECRET)를 넣으면 이 자리에 실 스레드가 자동으로 뜹니다.</span>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {data?.configured && (
+        <div className="mkc-card-box">
+          {data.threads.length === 0 && <div className="mkc-todo">지금 우리 데이터가 답이 될 만한 글이 없습니다.</div>}
+          {data.threads.map((t) => (
+            <div className="mkc-target" key={t.id}>
+              <div className="mkc-target-main">
+                <div className="mkc-draft-head">
+                  <span className="mkc-ch rdt">r/{t.sub}</span>
+                  {t.ticker && <span className="mkc-pill g">${t.ticker}</span>}
+                  <span className="mkc-draft-meta">관련도 {t.relevance} · ↑{t.score} · 💬{t.numComments}</span>
+                </div>
+                <div className="mkc-target-src" style={{ marginTop: 6 }}>{t.title}</div>
+                <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
+                  <a className="mkc-btn-sm out" href={t.permalink} target="_blank" rel="noreferrer">원글 열기 (재작성 후 게시)</a>
+                </div>
+              </div>
+              <div className="mkc-target-side">서브당<br />1댓글/일 캡</div>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
 
-/* ===================== ⑤ 성과 ===================== */
+/* ===================== ⑤ 성과 (실 저장/조회) ===================== */
+interface MetricsData {
+  manual: { impressions?: number; profileClicks?: number; followerDelta?: number; installs?: number; repliesPosted?: number; weekOf?: string } | null;
+  hits: Record<string, number>;
+}
+
 function MetricsTab() {
+  const [data, setData] = useState<MetricsData | null>(null);
+  const [form, setForm] = useState({ impressions: '', profileClicks: '', followerDelta: '', installs: '', repliesPosted: '' });
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  const load = () => fetch('/api/admin/mkt/metrics', { cache: 'no-store' }).then((r) => r.json()).then((j) => {
+    if (j.ok) { setData({ manual: j.manual, hits: j.hits || {} });
+      if (j.manual) setForm({
+        impressions: String(j.manual.impressions ?? ''), profileClicks: String(j.manual.profileClicks ?? ''),
+        followerDelta: String(j.manual.followerDelta ?? ''), installs: String(j.manual.installs ?? ''), repliesPosted: String(j.manual.repliesPosted ?? ''),
+      });
+    }
+  }).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    setSaveMsg('저장 중…');
+    try {
+      const r = await fetch('/api/admin/mkt/metrics', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(Object.entries(form).map(([k, v]) => [k, Number(v) || 0]))),
+      });
+      const j = await r.json();
+      setSaveMsg(j.ok ? '저장됨 ✓' : `실패: ${j.error}`);
+      if (j.ok) load();
+    } catch { setSaveMsg('저장 실패'); }
+  };
+
+  const m = data?.manual;
+  const totalHits = data ? Object.values(data.hits).reduce((a, b) => a + b, 0) : 0;
+
   return (
     <>
       <div className="mkc-warn" style={{ marginBottom: 14 }}>
@@ -708,83 +763,75 @@ function MetricsTab() {
       </div>
 
       <div className="mkc-cols-4">
-        <div className="mkc-stat"><div className="l">답글 게시 / 일</div><div className="v">— <span className="mkc-sample">미연결</span></div><div className="d">목표 3~6 (큰 계정 스레드)</div></div>
-        <div className="mkc-stat"><div className="l">프로필 클릭</div><div className="v">—</div><div className="d">첫 2주 수동 입력</div></div>
-        <div className="mkc-stat"><div className="l">팔로워 증감</div><div className="v">—</div><div className="d">주간 대사</div></div>
-        <div className="mkc-stat"><div className="l">?from= 유입 히트</div><div className="v">—</div><div className="d">/app 패치 후 자동</div></div>
-      </div>
-
-      {/* 퍼널 */}
-      <div className="mkc-section"><h2>유입 퍼널 (채널별)</h2><span className="mkc-section-note">노출 → 프로필클릭 → ?from= 히트 → 설치</span><span className="mkc-section-right">{SAMPLE()}</span></div>
-      <div className="mkc-card-box">
-        <div className="mkc-funnel">
-          {[
-            { l: '노출', w: '100%', v: '—' },
-            { l: '프로필 클릭', w: '32%', v: '—' },
-            { l: '?from= 히트', w: '14%', v: '—' },
-            { l: '설치', w: '6%', v: '—' },
-          ].map((f) => (
-            <div className="mkc-funnel-row" key={f.l}>
-              <span className="fl">{f.l}</span>
-              <span className="mkc-funnel-bar"><span style={{ width: f.w }} /></span>
-              <span className="fv">{f.v}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 10 }}>정직한 한계: 히트만 자동. 노출·프로필클릭·설치는 첫 2주 수동 입력 (X 애널리틱스·스토어 대사).</div>
+        <div className="mkc-stat"><div className="l">답글 게시 (주간)</div><div className="v">{m?.repliesPosted ?? '—'}</div><div className="d">목표 3~6/일 (큰 계정 스레드)</div></div>
+        <div className="mkc-stat"><div className="l">프로필 클릭</div><div className="v">{m?.profileClicks ?? '—'}</div><div className="d">수동 입력</div></div>
+        <div className="mkc-stat"><div className="l">팔로워 증감</div><div className="v">{m?.followerDelta ?? '—'}</div><div className="d">주간 대사</div></div>
+        <div className="mkc-stat"><div className="l">?from= 유입 히트 (오늘)</div><div className="v">{totalHits || '—'}</div><div className="d">/app 패치 후 자동</div></div>
       </div>
 
       {/* 주간 판정 매트릭스 */}
-      <div className="mkc-section"><h2>주간 판정 매트릭스</h2><span className="mkc-section-note">매주 일요일 자동 진단</span></div>
+      <div className="mkc-section"><h2>주간 판정 매트릭스</h2><span className="mkc-section-note">일요일 진단 기준</span></div>
       <div className="mkc-card-box">
         {[
-          { sym: '노출 있음 + 답글 0', dx: '콘텐츠 실패', rx: '그 포맷 폐기' },
-          { sym: '노출 <50 지속', dx: '유통 실패', rx: '답글 게임 증량 · 볼륨 유지' },
-          { sym: '답글 있는데 팔로우 0', dx: '프로필/핀 문제', rx: '바이오·고정포스트 정비' },
-          { sym: '2주 연속 전 지표 바닥', dx: '데드맨 발동', rx: '전면 정지 + 보고 · "더 많이" 금지' },
-        ].map((m) => (
-          <div className="mkc-row" key={m.sym}>
-            <span className="grow"><strong>{m.sym}</strong></span>
-            <span className="mkc-muted" style={{ flex: '0 0 130px' }}>{m.dx}</span>
-            <span className="mkc-pill n" style={{ flex: '0 0 auto' }}>{m.rx}</span>
+          { sym: '노출 있음 + 답글 0', dx: '콘텐츠 실패', rx: '그 포맷 폐기', hit: (m?.impressions ?? 0) > 0 && (m?.repliesPosted ?? 0) === 0 },
+          { sym: '노출 <50 지속', dx: '유통 실패', rx: '답글 게임 증량 · 볼륨 유지', hit: (m?.impressions ?? 999) < 50 },
+          { sym: '답글 있는데 팔로우 0', dx: '프로필/핀 문제', rx: '바이오·고정포스트 정비', hit: (m?.repliesPosted ?? 0) > 0 && (m?.followerDelta ?? 0) === 0 },
+          { sym: '2주 연속 전 지표 바닥', dx: '데드맨 발동', rx: '전면 정지 + 보고 · "더 많이" 금지', hit: false },
+        ].map((mx) => (
+          <div className="mkc-row" key={mx.sym}>
+            <span className="grow"><strong>{mx.sym}</strong> {mx.hit && <span className="mkc-pill r" style={{ marginLeft: 6 }}>현재 해당</span>}</span>
+            <span className="mkc-muted" style={{ flex: '0 0 120px' }}>{mx.dx}</span>
+            <span className="mkc-pill n" style={{ flex: '0 0 auto' }}>{mx.rx}</span>
           </div>
         ))}
+        <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 8 }}>아래 주간 지표를 입력하면 자동 진단 칩이 켜집니다.</div>
       </div>
 
-      {/* 수동 입력 */}
-      <div className="mkc-section"><h2>수동 입력 (첫 2주)</h2><span className="mkc-section-note">X API 지표 자동화 전까지</span></div>
-      <div className="mkc-card-box mkc-cols-3" style={{ boxShadow: 'none', padding: 0, background: 'transparent' }}>
-        <div className="mkc-field"><label>X 노출 (주간)</label><input className="mkc-input" placeholder="0" /></div>
-        <div className="mkc-field"><label>프로필 클릭 (주간)</label><input className="mkc-input" placeholder="0" /></div>
-        <div className="mkc-field"><label>신규 설치 (주간)</label><input className="mkc-input" placeholder="0" /></div>
+      {/* 수동 입력 (실 저장) */}
+      <div className="mkc-section"><h2>주간 지표 입력</h2><span className="mkc-section-note">X 애널리틱스·스토어 대사 {m?.weekOf ? `· 마지막 저장 주 ${m.weekOf}` : ''}</span></div>
+      <div className="mkc-card-box">
+        <div className="mkc-cols-3">
+          <div className="mkc-field"><label>답글 게시 수 (주간)</label><input className="mkc-input" value={form.repliesPosted} onChange={(e) => setForm({ ...form, repliesPosted: e.target.value })} placeholder="0" /></div>
+          <div className="mkc-field"><label>X 노출 (주간)</label><input className="mkc-input" value={form.impressions} onChange={(e) => setForm({ ...form, impressions: e.target.value })} placeholder="0" /></div>
+          <div className="mkc-field"><label>프로필 클릭 (주간)</label><input className="mkc-input" value={form.profileClicks} onChange={(e) => setForm({ ...form, profileClicks: e.target.value })} placeholder="0" /></div>
+          <div className="mkc-field"><label>팔로워 증감 (주간)</label><input className="mkc-input" value={form.followerDelta} onChange={(e) => setForm({ ...form, followerDelta: e.target.value })} placeholder="0" /></div>
+          <div className="mkc-field"><label>신규 설치 (주간)</label><input className="mkc-input" value={form.installs} onChange={(e) => setForm({ ...form, installs: e.target.value })} placeholder="0" /></div>
+          <div className="mkc-field"><label>&nbsp;</label><button className="mkc-btn mkc-btn-primary" style={{ height: 38 }} onClick={save}>저장</button></div>
+        </div>
+        {saveMsg && <div className="mkc-muted" style={{ fontSize: 12 }}>{saveMsg}</div>}
       </div>
     </>
   );
 }
 
-/* ===================== ⑥ 자산 ===================== */
+/* ===================== ⑥ 자산 (실 상태 + 라이브 카드) ===================== */
 function AssetsTab() {
+  const [conn, setConn] = useState<XConn | null>(null);
+  const [cardTicker, setCardTicker] = useState('NVDA');
+  useEffect(() => {
+    fetch('/api/admin/mkt/x/status', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.ok) setConn({ en: j.en, jp: j.jp }); }).catch(() => {});
+  }, []);
+
   return (
     <>
       {/* VERDICT */}
-      <div className="mkc-section"><h2>VERDICT 스코어보드</h2><span className="mkc-section-note">스스로 채점하는 공개 기록 = 복사 불가 자산</span><span className="mkc-section-right">{SAMPLE()}</span></div>
+      <div className="mkc-section"><h2>VERDICT 스코어보드</h2><span className="mkc-section-note">스스로 채점하는 공개 기록 = 복사 불가 자산</span></div>
       <div className="mkc-cols-3">
-        <div className="mkc-card-box">
-          <div className="mkc-gauge"><div className="g-num">—</div><div className="g-lab">이번주 적중률</div></div>
-        </div>
+        <div className="mkc-card-box"><div className="mkc-gauge"><div className="g-num">—</div><div className="g-lab">이번주 적중률</div></div></div>
         <div className="mkc-stat"><div className="l">이번 달 전적</div><div className="v">— / —</div><div className="d">손실도 공개 유지</div></div>
         <div className="mkc-stat"><div className="l">전체 누적</div><div className="v">— / —</div><div className="d">시간-잠금 장부</div></div>
       </div>
+      <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 6 }}>VERDICT 채점 파이프라인(괴리 플래그 → 3일 후 자동 판정)은 별도 빌드 — 데이터 소스 확정 후 연결.</div>
 
-      {/* 카드 4종 */}
-      <div className="mkc-section"><h2>포스트 카드 4종</h2><span className="mkc-section-note">.agent/assets/card-designs</span></div>
-      <div className="mkc-cols-4">
-        {['히어로 숫자', '레벨 사다리', '괴리 대면', 'VERDICT 스탬프'].map((c) => (
-          <div className="mkc-card-box" key={c}>
-            <div className="mkc-panel-title" style={{ fontSize: 12.5 }}>{c}</div>
-            <div className="mkc-todo" style={{ padding: 14, marginTop: 8 }}>미리보기 연결 · Phase 5</div>
-          </div>
-        ))}
+      {/* 카드 라이브 미리보기 */}
+      <div className="mkc-section">
+        <h2>포스트 카드 (라이브)</h2><span className="mkc-section-note">/api/og/level 실시간 렌더</span>
+        <span className="mkc-section-right"><input className="mkc-input" style={{ padding: '6px 10px', width: 120 }} value={cardTicker} onChange={(e) => setCardTicker(e.target.value.toUpperCase())} placeholder="티커" /></span>
+      </div>
+      <div className="mkc-card-box">
+        <img alt="og card" style={{ width: '100%', maxWidth: 600, borderRadius: 10, border: '1px solid var(--mkc-line)' }}
+          src={`/api/og/level?ticker=${cardTicker || 'NVDA'}`} />
+        <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 6 }}>레벨 값은 생성 탭에서 실데이터로 채워 첨부. 여기선 티커 카드 렌더 확인용.</div>
       </div>
 
       {/* pSEO + 계정 상태 */}
@@ -792,19 +839,15 @@ function AssetsTab() {
         <div className="mkc-card-box">
           <div className="mkc-panel-title" style={{ fontSize: 13 }}>pSEO 레벨 페이지</div>
           <p className="mkc-panel-sub">일일 티커 레벨 페이지 + 임베드 위젯</p>
-          <div className="mkc-row"><span className="grow">상태</span><span className="mkc-pill n">Phase 5 예정</span></div>
+          <div className="mkc-row"><span className="grow">상태</span><span className="mkc-pill n">예정</span></div>
         </div>
         <div className="mkc-card-box">
-          <div className="mkc-panel-title" style={{ fontSize: 13 }}>계정 상태</div>
-          <div className="mkc-row"><span className="grow"><span className="mkc-dot on" /> @signumhq · Premium+</span><span className="mkc-pill g">활성</span></div>
-          <div className="mkc-row"><span className="grow"><span className="mkc-dot on" /> @signumhq_jp · Premium+</span><span className="mkc-pill g">활성</span></div>
-          <div className="mkc-row"><span className="grow">다운그레이드 리마인더</span><span className="mkc-pill a">8/13 (PC 예약)</span></div>
+          <div className="mkc-panel-title" style={{ fontSize: 13 }}>계정 상태 (실측)</div>
+          <div className="mkc-row"><span className="grow"><span className={`mkc-dot ${conn?.en.connected ? 'on' : 'off'}`} /> @signumhq{conn?.en.username ? ` · @${conn.en.username}` : ''}</span><span className={`mkc-pill ${conn?.en.connected ? 'g' : 'n'}`}>{conn?.en.connected ? 'API 연결됨' : '연결 대기'}</span></div>
+          <div className="mkc-row"><span className="grow"><span className={`mkc-dot ${conn?.jp.connected ? 'on' : 'off'}`} /> @signumhq_jp{conn?.jp.username ? ` · @${conn.jp.username}` : ''}</span><span className={`mkc-pill ${conn?.jp.connected ? 'g' : 'n'}`}>{conn?.jp.connected ? 'API 연결됨' : '연결 대기'}</span></div>
+          <div className="mkc-row"><span className="grow">Premium+ 다운그레이드 리마인더</span><span className="mkc-pill a">8/13 (PC 예약)</span></div>
         </div>
       </div>
     </>
   );
-}
-
-function SampleInline() {
-  return <span className="mkc-sample" style={{ marginLeft: 6 }}>샘플</span>;
 }
