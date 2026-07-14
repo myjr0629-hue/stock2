@@ -351,6 +351,9 @@ function ago(iso: string): string {
   return h < 24 ? `${h}시간` : `${Math.round(h / 24)}일`;
 }
 
+interface XConn { en: { connected: boolean; username?: string }; jp: { connected: boolean; username?: string } }
+const ACCT_LABEL: Record<'en' | 'jp', string> = { en: '@signumhq', jp: '@signumhq_jp' };
+
 function XOpsTab() {
   const [lang, setLang] = useState<'en' | 'ja'>('en');
   const [tweets, setTweets] = useState<ScanTweet[]>([]);
@@ -358,6 +361,32 @@ function XOpsTab() {
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, { text: string; grounded: boolean; loading: boolean }>>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const [conn, setConn] = useState<XConn | null>(null);
+  const [posted, setPosted] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch('/api/admin/mkt/x/status', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => { if (j.ok) setConn({ en: j.en, jp: j.jp }); })
+      .catch(() => {});
+  }, []);
+
+  const acctKey = lang === 'ja' ? 'jp' : 'en';
+  const acctConnected = conn ? conn[acctKey].connected : false;
+
+  const publish = async (t: ScanTweet) => {
+    const d = drafts[t.id];
+    if (!d?.text) return;
+    setPosted((p) => ({ ...p, [t.id]: '게시 중…' }));
+    try {
+      const r = await fetch('/api/admin/mkt/x/post', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acct: acctKey, replyToId: t.id, text: d.text }),
+      });
+      const j = await r.json();
+      setPosted((p) => ({ ...p, [t.id]: j.ok ? '게시됨 ✓' : `실패: ${j.error}` }));
+    } catch { setPosted((p) => ({ ...p, [t.id]: '게시 실패' })); }
+  };
 
   const scan = useCallback(async () => {
     setLoading(true); setError(null);
@@ -399,15 +428,25 @@ function XOpsTab() {
       <div className="mkc-section"><h2>계정 연결 상태</h2><span className="mkc-section-note">OAuth 승인 = 답글 게시 활성 조건</span></div>
       <div className="mkc-cols-2">
         <div className="mkc-card-box">
-          <div className="mkc-row"><span className="grow"><span className="mkc-dot off" /> @signumhq (US)</span><span className="mkc-pill a">연결 대기 (Phase 3)</span></div>
-          <div className="mkc-row"><span className="grow"><span className="mkc-dot off" /> @signumhq_jp (JP)</span><span className="mkc-pill a">연결 대기 (Phase 3)</span></div>
-          <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 8 }}>연결 페이지에서 승인하면 [게시]가 활성화됩니다. 지금은 읽기·초안까지 실작동.</div>
+          <div className="mkc-row">
+            <span className="grow"><span className={`mkc-dot ${conn?.en.connected ? 'on' : 'off'}`} /> @signumhq (US){conn?.en.username ? ` · @${conn.en.username}` : ''}</span>
+            {conn?.en.connected
+              ? <span className="mkc-pill g">연결됨</span>
+              : <a className="mkc-btn-sm pri" href="/api/admin/x-oauth/start?acct=en">연결</a>}
+          </div>
+          <div className="mkc-row">
+            <span className="grow"><span className={`mkc-dot ${conn?.jp.connected ? 'on' : 'off'}`} /> @signumhq_jp (JP){conn?.jp.username ? ` · @${conn.jp.username}` : ''}</span>
+            {conn?.jp.connected
+              ? <span className="mkc-pill g">연결됨</span>
+              : <a className="mkc-btn-sm pri" href="/api/admin/x-oauth/start?acct=jp">연결</a>}
+          </div>
+          <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 8 }}>[연결] 클릭 → X 승인 → 돌아오면 [게시] 활성화. 계정당 1회 (이후 자동 갱신).</div>
         </div>
         <div className="mkc-card-box">
           <div className="mkc-panel-title" style={{ fontSize: 13 }}>API 상태 (실측)</div>
           <div className="mkc-row"><span className="grow">읽기 (Bearer · api.x.com)</span><span className="mkc-pill g">실작동</span></div>
           <div className="mkc-row"><span className="grow">초안 (Bedrock · grounded)</span><span className="mkc-pill g">실작동</span></div>
-          <div className="mkc-row"><span className="grow">쓰기 (답글 게시)</span><span className="mkc-pill a">연결 후</span></div>
+          <div className="mkc-row"><span className="grow">쓰기 (답글 게시)</span><span className={`mkc-pill ${acctConnected ? 'g' : 'a'}`}>{acctConnected ? '실작동' : '연결 후'}</span></div>
         </div>
       </div>
 
@@ -445,7 +484,10 @@ function XOpsTab() {
                   </div>
                 )}
                 <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
-                  <button className="mkc-btn-sm pri" disabled title="계정 연결(Phase 3) 후 활성">게시 (연결 필요)</button>
+                  <button className="mkc-btn-sm pri" onClick={() => publish(t)} disabled={!acctConnected || !d?.text || !!posted[t.id]}
+                    title={!acctConnected ? '먼저 계정 연결' : !d?.text ? '먼저 초안 생성' : `${ACCT_LABEL[acctKey]}로 게시`}>
+                    {posted[t.id] ? posted[t.id] : acctConnected ? `게시 (${ACCT_LABEL[acctKey]})` : '게시 (연결 필요)'}
+                  </button>
                   <a className="mkc-btn-sm out" href={t.url} target="_blank" rel="noreferrer">원글 열기</a>
                   <button className="mkc-btn-sm sec" onClick={() => genDraft(t)} disabled={d?.loading}>{d?.loading ? '생성 중…' : d?.text ? '초안 재생성' : '초안 생성'}</button>
                   {d?.text && <button className="mkc-btn-sm sec" onClick={() => copy(t.id, d.text)}>{copied === t.id ? '복사됨 ✓' : '초안 복사'}</button>}
