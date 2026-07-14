@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './marketing-console.css';
 
 // ============================================================================
@@ -283,55 +283,124 @@ function GenerateTab() {
   );
 }
 
-/* ===================== ③ X 운용 ===================== */
+/* ===================== ③ X 운용 (실 데이터 연결) ===================== */
+interface ScanTweet {
+  id: string; author: string; text: string; createdAt: string;
+  likes: number; replies: number; retweets: number; impressions: number;
+  score: number; ticker: string | null; url: string;
+}
+
+function ago(iso: string): string {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (m < 60) return `${m}분`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `${h}시간` : `${Math.round(h / 24)}일`;
+}
+
 function XOpsTab() {
-  const targets = [
-    { acct: '@unusual_whales', src: '"$NVDA dark pool volume just hit 71% — massive off-exchange flow"', draft: '71.9% off-exchange today — retail sees the tape, not this layer. Gamma flip sits at $205, dealers long above it.', vel: '↑ 급상승', age: '18분' },
-    { acct: '@spotgamma', src: '"SPX gamma flip level in focus as dealers hedge"', draft: 'Same read on $SOXL — 9% above max pain (190), net premium -$22M put-heavy. Structure led the chart.', vel: '↑ 상승', age: '42분' },
-    { acct: '@KobeissiLetter', src: '"Semiconductors selling off hard across the board"', draft: '$MU -6.9% but still 10%+ above max pain ($845) and 17% above gamma flip ($795). The tape sold off — structure didn\'t.', vel: '→ 보통', age: '1시간' },
-  ];
+  const [lang, setLang] = useState<'en' | 'ja'>('en');
+  const [tweets, setTweets] = useState<ScanTweet[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, { text: string; grounded: boolean; loading: boolean }>>({});
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const scan = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const r = await fetch(`/api/admin/mkt/x/scan?lang=${lang}`, { cache: 'no-store' });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || '스캔 실패');
+      setTweets(j.tweets || []);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [lang]);
+
+  useEffect(() => { scan(); }, [scan]);
+
+  const genDraft = async (t: ScanTweet) => {
+    setDrafts((d) => ({ ...d, [t.id]: { text: '', grounded: false, loading: true } }));
+    try {
+      const r = await fetch('/api/admin/mkt/x/draft', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tweet: t, lang }),
+      });
+      const j = await r.json();
+      setDrafts((d) => ({ ...d, [t.id]: { text: j.draft || '(우리 데이터 없음 — 수동 작성)', grounded: !!j.grounded, loading: false } }));
+    } catch {
+      setDrafts((d) => ({ ...d, [t.id]: { text: '초안 생성 실패', grounded: false, loading: false } }));
+    }
+  };
+
+  const copy = async (id: string, text: string) => {
+    try { await navigator.clipboard.writeText(text); setCopied(id); setTimeout(() => setCopied(null), 1500); } catch { /* noop */ }
+  };
+
   return (
     <>
       {/* 연결 상태 */}
       <div className="mkc-section"><h2>계정 연결 상태</h2><span className="mkc-section-note">OAuth 승인 = 답글 게시 활성 조건</span></div>
       <div className="mkc-cols-2">
         <div className="mkc-card-box">
-          <div className="mkc-row"><span className="grow"><span className="mkc-dot off" /> @signumhq (US)</span><a className="mkc-btn-sm pri" href="#" onClick={(e) => e.preventDefault()}>연결</a></div>
-          <div className="mkc-row"><span className="grow"><span className="mkc-dot off" /> @signumhq_jp (JP)</span><a className="mkc-btn-sm pri" href="#" onClick={(e) => e.preventDefault()}>연결</a></div>
-          <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 8 }}>연결 페이지 = X OAuth 승인 (Phase 3). 읽기(Bearer)는 이미 검증됨.</div>
+          <div className="mkc-row"><span className="grow"><span className="mkc-dot off" /> @signumhq (US)</span><span className="mkc-pill a">연결 대기 (Phase 3)</span></div>
+          <div className="mkc-row"><span className="grow"><span className="mkc-dot off" /> @signumhq_jp (JP)</span><span className="mkc-pill a">연결 대기 (Phase 3)</span></div>
+          <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 8 }}>연결 페이지에서 승인하면 [게시]가 활성화됩니다. 지금은 읽기·초안까지 실작동.</div>
         </div>
         <div className="mkc-card-box">
           <div className="mkc-panel-title" style={{ fontSize: 13 }}>API 상태 (실측)</div>
-          <div className="mkc-row"><span className="grow">읽기 (Bearer · api.x.com)</span><span className="mkc-pill g">200 검증</span></div>
-          <div className="mkc-row"><span className="grow">쓰기 (답글 게시)</span><span className="mkc-pill a">연결 후 검증</span></div>
-          <div className="mkc-row"><span className="grow">이번 달 예상 비용</span><span className="mkc-pill n">~$12~33</span></div>
+          <div className="mkc-row"><span className="grow">읽기 (Bearer · api.x.com)</span><span className="mkc-pill g">실작동</span></div>
+          <div className="mkc-row"><span className="grow">초안 (Bedrock · grounded)</span><span className="mkc-pill g">실작동</span></div>
+          <div className="mkc-row"><span className="grow">쓰기 (답글 게시)</span><span className="mkc-pill a">연결 후</span></div>
         </div>
       </div>
 
       {/* 답글 타깃 */}
       <div className="mkc-section">
         <h2>답글 타깃 리스트</h2>
-        <span className="mkc-section-note">타깃 계정 최신글 스캔 → 효과·관련성 스코어링 → 글별 유니크 초안</span>
-        <span className="mkc-section-right">{SAMPLE()}</span>
+        <span className="mkc-section-note">타깃 계정 최신글 실시간 스캔 → 효과 스코어링. 초안은 우리 실데이터 grounded</span>
+        <span className="mkc-section-right" style={{ display: 'flex', gap: 8 }}>
+          <button className={`mkc-btn-sm ${lang === 'en' ? 'pri' : 'sec'}`} onClick={() => setLang('en')}>US 타깃</button>
+          <button className={`mkc-btn-sm ${lang === 'ja' ? 'pri' : 'sec'}`} onClick={() => setLang('ja')}>JP 타깃</button>
+          <button className="mkc-btn-sm out" onClick={scan} disabled={loading}>{loading ? '스캔 중…' : '다시 스캔'}</button>
+        </span>
       </div>
+
+      {error && <div className="mkc-warn red" style={{ marginBottom: 12 }}><span className="mkc-warn-ic">⚠</span><span>스캔 오류: {error}</span></div>}
+      {loading && tweets.length === 0 && <div className="mkc-card-box"><div className="mkc-todo">타깃 계정 실시간 스캔 중…</div></div>}
+      {!loading && tweets.length === 0 && !error && <div className="mkc-card-box"><div className="mkc-todo">최근 7일 내 타깃 글이 없습니다.</div></div>}
+
       <div className="mkc-card-box">
-        {targets.map((t, i) => (
-          <div className="mkc-target" key={i}>
-            <div className="mkc-target-main">
-              <div className="mkc-panel-title" style={{ fontSize: 13 }}>{t.acct}</div>
-              <div className="mkc-target-src">원글: {t.src}</div>
-              <div className="mkc-target-draft">답글 초안: {t.draft}</div>
-              <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
-                <button className="mkc-btn-sm pri">게시 (X API)</button>
-                <button className="mkc-btn-sm out">원글 열기</button>
-                <button className="mkc-btn-sm sec">재생성</button>
+        {tweets.map((t) => {
+          const d = drafts[t.id];
+          return (
+            <div className="mkc-target" key={t.id}>
+              <div className="mkc-target-main">
+                <div className="mkc-draft-head">
+                  <span className="mkc-ch xen">@{t.author}</span>
+                  {t.ticker && <span className="mkc-pill g">${t.ticker}</span>}
+                  <span className="mkc-draft-meta">글 나이 {ago(t.createdAt)} · ♥ {t.likes} · 💬 {t.replies} · 👁 {t.impressions.toLocaleString()}</span>
+                </div>
+                <div className="mkc-target-src" style={{ marginTop: 6 }}>{t.text}</div>
+                {d?.text && (
+                  <div className="mkc-target-draft">
+                    답글 초안 {d.grounded ? <span className="mkc-pill g" style={{ marginLeft: 4 }}>실데이터 grounded</span> : <span className="mkc-pill a" style={{ marginLeft: 4 }}>수동 필요</span>}
+                    <div style={{ marginTop: 4 }}>{d.text}</div>
+                  </div>
+                )}
+                <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
+                  <button className="mkc-btn-sm pri" disabled title="계정 연결(Phase 3) 후 활성">게시 (연결 필요)</button>
+                  <a className="mkc-btn-sm out" href={t.url} target="_blank" rel="noreferrer">원글 열기</a>
+                  <button className="mkc-btn-sm sec" onClick={() => genDraft(t)} disabled={d?.loading}>{d?.loading ? '생성 중…' : d?.text ? '초안 재생성' : '초안 생성'}</button>
+                  {d?.text && <button className="mkc-btn-sm sec" onClick={() => copy(t.id, d.text)}>{copied === t.id ? '복사됨 ✓' : '초안 복사'}</button>}
+                </div>
               </div>
+              <div className="mkc-target-side">효과 점수<br /><strong style={{ fontSize: 16, color: 'var(--mkc-green-deep)' }}>{t.score}</strong></div>
             </div>
-            <div className="mkc-target-side">
-              효과 {t.vel}<br />글 나이 {t.age}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* 내 포스트 인박스 */}
