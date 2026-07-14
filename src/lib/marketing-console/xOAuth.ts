@@ -189,6 +189,50 @@ export async function fetchInbox(acct: Acct): Promise<{ ok: boolean; items?: Inb
   }
 }
 
+// ---- Reply diagnostic: try replying to N tweets, report + delete successes -
+// Definitively answers "can this account reply to these tweets?" Rejected
+// replies post nothing (zero residue); accepted ones are deleted immediately.
+export async function diagnoseReplies(
+  acct: Acct,
+  targets: { id: string; author: string }[]
+): Promise<Record<string, unknown>[]> {
+  const token = await validAccessToken(acct);
+  if (!token) return [{ error: 'no valid token' }];
+
+  const out: Record<string, unknown>[] = [];
+  for (const tgt of targets) {
+    try {
+      const res = await fetch('https://api.x.com/2/tweets', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `re: ${Date.now().toString(36)}`, reply: { in_reply_to_tweet_id: tgt.id } }),
+        signal: AbortSignal.timeout(12000),
+      });
+      const j = (await res.json().catch(() => ({}))) as { data?: { id: string }; detail?: string; title?: string; errors?: Array<{ message?: string }> };
+      const id = j.data?.id;
+      let deleted = false;
+      if (id) {
+        try {
+          const del = await fetch(`https://api.x.com/2/tweets/${id}`, {
+            method: 'DELETE', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000),
+          });
+          deleted = del.ok;
+        } catch { /* note stray */ }
+      }
+      out.push({
+        author: tgt.author,
+        status: res.status,
+        replyWorks: res.ok && Boolean(id),
+        error: j.detail || j.title || j.errors?.[0]?.message || null,
+        stray: id && !deleted ? id : null,
+      });
+    } catch (e) {
+      out.push({ author: tgt.author, error: (e as Error).message });
+    }
+  }
+  return out;
+}
+
 // ---- Post a reply (with one retry for transient failures) -----------------
 export async function postReply(
   acct: Acct,
