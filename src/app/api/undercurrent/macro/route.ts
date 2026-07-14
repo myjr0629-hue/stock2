@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache } from '@/services/redisClient';
-import { normLocale, isSpam, invokeJSON, langName, cleanImage, enforceLanguage, serveSWR, type NewsItem, type Locale } from '../shared';
+import { normLocale, isSpam, invokeJSON, langName, cleanImage, enforceLanguage, serveSWR, publicBase, type NewsItem, type Locale } from '../shared';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -37,8 +37,10 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const loc: Locale = normLocale(searchParams.get('locale'));
   const skipCache = searchParams.get('refresh') === '1';
-  // v5: context gains nasdaq/dow spot indices (schema change → old cache must not serve)
-  const cacheKey = `undercurrent:macro:v5:${loc}`;
+  // v6: flush caches built while the self-calls (treasury/fedwatch/index-close) failed on the
+  // protected cron origin (same bug as feedCore.fetchMoney) → 2026-07-14
+  const cacheKey = `undercurrent:macro:v6:${loc}`;
+  const base = publicBase(origin); // self-calls must hit the public domain, never the request/cron origin
 
   // SWR: normal requests serve cache instantly (stale ok); client triggers refresh=1.
   const generate = async () => {
@@ -48,11 +50,11 @@ export async function GET(request: Request) {
       fmpKey
         ? fetch(`https://financialmodelingprep.com/stable/news/general-latest?limit=20&apikey=${fmpKey}`, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
         : Promise.resolve(null),
-      fetch(`${origin}/api/live/treasury`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`${origin}/api/guardian/fedwatch`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${base}/api/live/treasury`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${base}/api/guardian/fedwatch`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),
       // spot indices (NASDAQ composite / Dow) — the basics a general reader expects first
-      fetch(`${origin}/api/market/index-close`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${base}/api/market/index-close`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
 
     // normalize macro stories: FMP primary, Polygon macro-keyword fallback

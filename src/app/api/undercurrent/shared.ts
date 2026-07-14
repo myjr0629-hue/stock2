@@ -79,21 +79,24 @@ function find(obj: any, key: string, depth = 0): unknown {
   return undefined;
 }
 
+// [FIX 2026-07-14] Internal self-calls (a route fetching its own /api/...) must hit the public
+// production domain, NEVER the request-derived origin. The uc-warm cron builds at its invocation
+// URL — a protected *.vercel.app deployment URL — so a self-call there returns 401/redirect and
+// fails silently (empty). Use the request origin only when it is already the public signumhq host;
+// otherwise fall back to the canonical www host (public, unauthenticated, normalized to non-redirect).
+export function publicBase(origin: string): string {
+  const norm = (u: string) => u.replace('https://signumhq.com', 'https://www.signumhq.com');
+  return /^https:\/\/(www\.)?signumhq\.com/.test(origin)
+    ? norm(origin)
+    : norm(process.env.NEXT_PUBLIC_BASE_URL || 'https://www.signumhq.com');
+}
+
 export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_000): Promise<MoneyData> {
   const empty: MoneyData = {
     darkPoolPct: null, oiPcr: null, volumePcr: null, squeezeScore: null,
     maxPain: null, callWall: null, putFloor: null, price: null,
   };
-  // [FIX 2026-07-14] The money self-call MUST hit the public production domain — never a
-  // request-derived origin. The uc-warm cron builds the core at its invocation URL
-  // (`req.url.split('/api/')[0]`), which is a protected *.vercel.app deployment URL; a self-call
-  // there returns 401/redirect → `!res.ok` → empty money for EVERY ticker → the whole UC "money
-  // layer" (큰손·괴리·mood) goes dark, and that empty core gets cached and served to all users.
-  // Use the request origin only when it is already the public signumhq domain; otherwise fall
-  // back to the canonical www host (public, unauthenticated, non-redirecting).
-  const base = /^https:\/\/(www\.)?signumhq\.com/.test(origin)
-    ? origin.replace('https://signumhq.com', 'https://www.signumhq.com')
-    : (process.env.NEXT_PUBLIC_BASE_URL || 'https://www.signumhq.com').replace('https://signumhq.com', 'https://www.signumhq.com');
+  const base = publicBase(origin); // never the request origin — see publicBase note above
   try {
     const res = await fetch(`${base}/api/live/ticker?t=${ticker}&skip_alpha=1`, {
       signal: AbortSignal.timeout(timeoutMs),
