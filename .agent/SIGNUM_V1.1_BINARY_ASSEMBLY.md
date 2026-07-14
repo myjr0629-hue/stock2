@@ -65,6 +65,27 @@ with current v1.0 users).
 
 ---
 
+## Native step 2.5 — Android WebView 하드닝 (2026-07-14, 사용자 요청)
+
+두 개의 Android-전용 WebView 이슈를 이 바이너리에서 근본 해결. **iOS는 무관**(WKWebView가 알아서 처리).
+
+**(a) ★ 큰 폰트 사용자 레이아웃 깨짐 → `textZoom = 100` 고정 (사용자 확정 = "가장 깔끔")**
+- 증상: 시스템 글꼴 크기를 크게 설정한 사용자에게 고정 px 레이아웃(헤더·카드·행)이 넘침·겹침·잘림.
+- 원인: **Android WebView는 시스템 글꼴 배율을 웹 콘텐츠에 곱함**(iOS 웹뷰는 기본 무시 → 그래서 안드만 터짐).
+- 수정: `android/app/src/main/java/.../MainActivity.java` `onCreate`에서 bridge 준비 후
+  **`this.bridge.getWebView().getSettings().setTextZoom(100);`** 한 줄 → 시스템 배율 무시, CSS px 그대로.
+- 트레이드오프: 큰글씨 접근성 선호를 무시(레이아웃 우선) = 밀집 데이터앱의 표준 선택. **웹만으로는 불가**(네이티브 전용 — `text-size-adjust`로 못 막음).
+
+**(b) 상태바 세이프에어리어 — 항구책 (선택, 관련 항목)**
+- 현재: `native-app.css`의 `html.native-android .app-viewport { padding-top: max(env, 24px) }` = 무업데이트 웹 임시책(배포됨). Android WebView가 `env(safe-area-inset-top)=0` 보고라 **24px는 추측값** → 기종별 오차 가능.
+- 항구책: `@capacitor-community/safe-area` 플러그인 추가(`npm i` + `npx cap sync android` + 초기화) → 실 WindowInsets를 CSS 변수로 주입 → 추측 제거. 추가 후 `.app-viewport`의 24px 하드코딩을 그 변수로 교체.
+
+**검증**: 안드로이드 **에뮬레이터(또는 실기기)** 에서 ①시스템 글꼴 최대 ②다른 상태바 높이/컷아웃 기종으로 확인. iOS 시뮬처럼 **안드 에뮬을 검증 루프에 편입**할 것(2026-07-14 논의 — 안드는 파편화라 "보면서" 확인이 iOS보다 더 필요).
+
+> ⚠️ **UC(Undercurrent) Android 빌드도 동일 두 이슈 해당** — 같은 리모트 웹뷰 구조. UC 네이티브 업데이트 시 (a)textZoom + (b)세이프에어리어(UC 루트 `.uc-slideup`) 함께 적용.
+
+---
+
 ## ✅ RevenueCat 사전 셋업 진행 상태 (2026-07-13, Mac 세션에서 사용자와 함께 완료)
 
 RevenueCat 프로젝트 "SIGNUM HQ" (기존에 계정·iOS 앱은 이미 있었음 — iOS: `com.signumhq.app`,
