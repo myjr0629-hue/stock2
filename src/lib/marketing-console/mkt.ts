@@ -128,6 +128,24 @@ export async function recordSkeleton(text: string): Promise<void> {
   await setInCache(SKEL_KEY, list.slice(0, 100), 72 * 3600 + 3600);
 }
 
+// ---- Replied-to tracking (mark a target as answered → no duplicate replies) -
+// Keyed by tweet/message id; kept ~7 days (a reply-worthy post falls out of the
+// scan window by then). Prevents replying to the same post twice.
+const REPLIED_KEY = 'mkt:replied';
+export async function getRepliedIds(): Promise<Set<string>> {
+  const list = (await getFromCache<{ id: string; at: number }[]>(REPLIED_KEY)) || [];
+  const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+  return new Set(list.filter((e) => e.at > cutoff).map((e) => e.id));
+}
+export async function markReplied(id: string): Promise<void> {
+  if (!id) return;
+  const list = (await getFromCache<{ id: string; at: number }[]>(REPLIED_KEY)) || [];
+  const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+  const fresh = list.filter((e) => e.at > cutoff && e.id !== id);
+  fresh.unshift({ id, at: Date.now() });
+  await setInCache(REPLIED_KEY, fresh.slice(0, 500), 8 * 24 * 3600);
+}
+
 // ---- Kill switch (hard stop for all publishing/draft paths) ----------------
 const KILL_KEY = 'mkt:killswitch';
 export async function getKillSwitch(): Promise<boolean> {

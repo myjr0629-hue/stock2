@@ -458,6 +458,17 @@ function XOpsTab() {
   const [rec, setRec] = useState<{ recommended: RecItem[]; session: MktSession; scannedCount: number } | null>(null);
   const [recLoading, setRecLoading] = useState(false);
   const [inbox, setInbox] = useState<InboxItem[] | null>(null);
+  const [replied, setReplied] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch('/api/admin/mkt/replied', { cache: 'no-store' })
+      .then((r) => r.json()).then((j) => { if (j.ok) setReplied(new Set(j.ids)); }).catch(() => {});
+  }, []);
+
+  const markDone = async (id: string, where: string) => {
+    setReplied((p) => { const n = new Set(p); n.add(id); return n; });
+    try { await fetch('/api/admin/mkt/replied', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, where }) }); } catch { /* noop */ }
+  };
 
   const acctKey = lang === 'ja' ? 'jp' : 'en';
   const acctConnected = conn ? conn[acctKey].connected : false;
@@ -576,11 +587,13 @@ function XOpsTab() {
         {rec && rec.recommended.length === 0 && !recLoading && (
           <div className="mkc-todo">지금 답글할 만한 글이 없습니다 (스캔 {rec.scannedCount}건 중 우리 데이터로 grounding 가능한 고효과 글 0). 잠시 후 재선별.</div>
         )}
-        {rec?.recommended.map((t, i) => (
-          <div className="mkc-target" key={t.id} style={{ background: i === 0 ? 'var(--mkc-green-soft)' : undefined, borderRadius: 10, padding: i === 0 ? 12 : undefined, marginBottom: i === 0 ? 6 : 0 }}>
+        {rec?.recommended.map((t, i) => {
+          const done = replied.has(t.id);
+          return (
+          <div className="mkc-target" key={t.id} style={{ background: done ? '#f2f4f6' : (i === 0 ? 'var(--mkc-green-soft)' : undefined), opacity: done ? 0.6 : 1, borderRadius: 10, padding: i === 0 ? 12 : undefined, marginBottom: i === 0 ? 6 : 0 }}>
             <div className="mkc-target-main">
               <div className="mkc-draft-head">
-                {i === 0 && <span className="mkc-pill g">최우선</span>}
+                {done ? <span className="mkc-pill g">게시함 ✓</span> : i === 0 ? <span className="mkc-pill g">최우선</span> : null}
                 <span className="mkc-ch xen">@{t.author}</span>
                 {t.ticker && <span className="mkc-pill g">${t.ticker}</span>}
                 <span className="mkc-draft-meta">효과 {t.score} · ♥ {t.likes} · 👁 {t.impressions.toLocaleString()} · {ago(t.createdAt)}</span>
@@ -588,14 +601,15 @@ function XOpsTab() {
               <div className="mkc-target-src" style={{ marginTop: 6 }}>{t.text}</div>
               <div className="mkc-target-draft">답글 초안 <span className="mkc-pill g" style={{ marginLeft: 4 }}>실데이터 grounded</span><div style={{ marginTop: 4 }}>{t.draft}</div></div>
               <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
-                <button className="mkc-btn-sm pri" onClick={() => { copy(t.id, t.draft); window.open(t.url, '_blank'); }}>
+                <button className="mkc-btn-sm pri" onClick={() => { copy(t.id, t.draft); window.open(t.url, '_blank'); }} disabled={done}>
                   {copied === t.id ? '복사됨 ✓ · 원글에 붙여넣기' : '복사 + 원글 열기'}
                 </button>
-                <button className="mkc-btn-sm sec" onClick={() => copy(t.id, t.draft)}>{copied === t.id ? '복사됨 ✓' : '초안만 복사'}</button>
+                <button className="mkc-btn-sm sec" onClick={() => copy(t.id, t.draft)} disabled={done}>{copied === t.id ? '복사됨 ✓' : '초안만 복사'}</button>
+                <button className={`mkc-btn-sm ${done ? 'sec' : 'out'}`} onClick={() => markDone(t.id, `x-${acctKey}`)} disabled={done}>{done ? '게시함 ✓' : '✓ 게시 완료'}</button>
               </div>
             </div>
           </div>
-        ))}
+        ); })}
       </div>
 
       {/* 답글 타깃 (전체 스캔) */}
@@ -675,6 +689,7 @@ function RedditTab() {
   const [stLoading, setStLoading] = useState(true);
   const [stDrafts, setStDrafts] = useState<Record<number, { text: string; loading: boolean }>>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const [replied, setReplied] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/api/admin/mkt/reddit/scan', { cache: 'no-store' })
@@ -687,10 +702,16 @@ function RedditTab() {
       .then((j) => setSt({ messages: j.messages || [], error: j.error }))
       .catch((e) => setSt({ messages: [], error: String(e) }))
       .finally(() => setStLoading(false));
+    fetch('/api/admin/mkt/replied', { cache: 'no-store' })
+      .then((r) => r.json()).then((j) => { if (j.ok) setReplied(new Set(j.ids)); }).catch(() => {});
   }, []);
 
   const copy = async (k: string, text: string) => {
     try { await navigator.clipboard.writeText(text); setCopied(k); setTimeout(() => setCopied(null), 1500); } catch { /* noop */ }
+  };
+  const markDone = async (id: string, where: string) => {
+    setReplied((p) => { const n = new Set(p); n.add(id); return n; });
+    try { await fetch('/api/admin/mkt/replied', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, where }) }); } catch { /* noop */ }
   };
   const genStDraft = async (m: StMsg) => {
     setStDrafts((d) => ({ ...d, [m.id]: { text: '', loading: true } }));
@@ -714,10 +735,12 @@ function RedditTab() {
         <div className="mkc-card-box">
           {st.messages.map((m) => {
             const d = stDrafts[m.id];
+            const done = replied.has(`st${m.id}`);
             return (
-              <div className="mkc-target" key={m.id}>
+              <div className="mkc-target" key={m.id} style={{ opacity: done ? 0.6 : 1, background: done ? '#f2f4f6' : undefined, borderRadius: done ? 10 : undefined }}>
                 <div className="mkc-target-main">
                   <div className="mkc-draft-head">
+                    {done && <span className="mkc-pill g">게시함 ✓</span>}
                     <span className="mkc-ch st">${m.ticker}</span>
                     {m.sentiment && <span className={`mkc-pill ${m.sentiment === 'Bullish' ? 'g' : 'r'}`}>{m.sentiment}</span>}
                     <span className="mkc-draft-meta">@{m.user} · 팔로워 {m.followers.toLocaleString()} · ♥ {m.likes} · 💬 {m.replies}</span>
@@ -726,9 +749,10 @@ function RedditTab() {
                   {d?.text && <div className="mkc-target-draft">답글 초안: {d.text}</div>}
                   <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
                     {!d?.text
-                      ? <button className="mkc-btn-sm pri" onClick={() => genStDraft(m)} disabled={d?.loading}>{d?.loading ? '생성 중…' : '초안 생성'}</button>
-                      : <button className="mkc-btn-sm pri" onClick={() => { copy(`st${m.id}`, d.text); window.open(m.url, '_blank'); }}>{copied === `st${m.id}` ? '복사됨 ✓ · 붙여넣기' : '복사 + 원글 열기'}</button>}
+                      ? <button className="mkc-btn-sm pri" onClick={() => genStDraft(m)} disabled={d?.loading || done}>{d?.loading ? '생성 중…' : '초안 생성'}</button>
+                      : <button className="mkc-btn-sm pri" onClick={() => { copy(`st${m.id}`, d.text); window.open(m.url, '_blank'); }} disabled={done}>{copied === `st${m.id}` ? '복사됨 ✓ · 붙여넣기' : '복사 + 원글 열기'}</button>}
                     <a className="mkc-btn-sm out" href={m.url} target="_blank" rel="noreferrer">원글 열기</a>
+                    <button className={`mkc-btn-sm ${done ? 'sec' : 'out'}`} onClick={() => markDone(`st${m.id}`, 'stocktwits')} disabled={done}>{done ? '게시함 ✓' : '✓ 게시 완료'}</button>
                   </div>
                 </div>
                 <div className="mkc-target-side">효과<br /><strong style={{ color: 'var(--mkc-green-deep)' }}>{m.score}</strong></div>
