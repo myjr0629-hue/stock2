@@ -9,6 +9,7 @@ import { analyzeGemsTicker } from '@/services/stockTypes';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 import { CentralDataHub } from '@/services/centralDataHub';
+import { publicBase } from '@/lib/net/publicBase';
 
 const SECTOR_TICKERS = ['XYZ', 'PYPL', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'UPST'];
 const SECTOR_LABEL = 'FintechPulse';
@@ -52,7 +53,7 @@ async function callInternalGet(handler: Function, url: string): Promise<any> {
 
 export async function GET(request: Request) {
     const startTime = Date.now();
-    const baseUrl = request.url.split('/api/')[0];
+    const baseUrl = publicBase(request.url.split('/api/')[0]);
 
     try {
         // ?먥븧??[CACHE WARMER] Cache-first fast path ?먥븧??

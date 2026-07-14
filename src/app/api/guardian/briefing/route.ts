@@ -10,6 +10,7 @@
 
 import { NextResponse, NextRequest } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { publicBase } from '@/lib/net/publicBase';
 
 export const maxDuration = 60;
 
@@ -110,7 +111,7 @@ export async function GET(req: NextRequest) {
                 const MAX_RETRIES = 2;
                 for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                     try {
-                        const baseUrl = req.nextUrl.origin || req.url.split('/api/')[0];
+                        const baseUrl = publicBase(req.nextUrl.origin || req.url.split('/api/')[0]);
 
                         const res = await fetch(`${baseUrl}/api/guardian/briefing/generate`, {
                             method: 'POST',

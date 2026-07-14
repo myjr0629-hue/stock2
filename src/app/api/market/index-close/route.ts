@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
+import { publicBase } from '@/lib/net/publicBase';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,7 @@ async function triggerCronIfNeeded(quotes: (YahooQuote | null)[], requestUrl: st
         console.log('[index-close] Redis cache is empty or stale. Triggering background market-feed cron...');
         try {
             const urlObj = new URL(requestUrl);
-            const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+            const baseUrl = publicBase(`${urlObj.protocol}//${urlObj.host}`);
             fetch(`${baseUrl}/api/cron/market-feed`, {
                 headers: {
                     'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '',

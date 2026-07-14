@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
+import { publicBase } from '@/lib/net/publicBase';
 
 // Physical AI Tickers (fixed list)
 const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG'];
@@ -49,7 +50,7 @@ async function callInternalGet(handler: Function, url: string): Promise<any> {
 
 export async function GET(request: Request) {
     const startTime = Date.now();
-    const baseUrl = request.url.split('/api/')[0];
+    const baseUrl = publicBase(request.url.split('/api/')[0]);
 
     try {
         // Parallel fetch: Price data + Watchlist batch analysis

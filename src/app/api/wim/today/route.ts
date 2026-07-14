@@ -17,6 +17,7 @@
 
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
+import { publicBase } from '@/lib/net/publicBase';
 import {
   isSpam, invokeJSON, fetchMoney, serveSWR, type NewsItem,
 } from '../../undercurrent/shared';
@@ -77,7 +78,8 @@ function locFull(l: any): l is Loc {
 }
 
 export async function GET(request: Request) {
-  const { origin, searchParams } = new URL(request.url);
+  const { origin: reqOrigin, searchParams } = new URL(request.url);
+  const origin = publicBase(reqOrigin);
   const refresh = searchParams.get('refresh') === '1';
   const today = lastTradingDayET(); // weekend → Friday (see lastTradingDayET)
   // v2: well-known-first selection + real intraday chart (5-min closes + VWAP) per unit

@@ -4,6 +4,7 @@
 // ==========================================================================
 
 import { NextResponse } from 'next/server';
+import { publicBase } from '@/lib/net/publicBase';
 
 export const maxDuration = 60;
 
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
     const startTime = Date.now();
 
     try {
-        const baseUrl = request.url.split('/api/')[0];
+        const baseUrl = publicBase(request.url.split('/api/')[0]);
         const bypassHeaders: Record<string, string> = {
             'Content-Type': 'application/json',
         };

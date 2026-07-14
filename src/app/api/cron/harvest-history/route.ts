@@ -13,6 +13,7 @@ import {
     saveGexSnapshot, saveRlsiSnapshot, saveBatchSectorDaily, saveBatchAlphaDaily,
     type GexHistoryItem, type RlsiHistoryItem, type SectorDailyItem, type AlphaHistoryItem
 } from '@/lib/aws/historyStore';
+import { publicBase } from '@/lib/net/publicBase';
 
 // [Phase 2] Full universe tickers — matches Lambda harvest scope
 const HARVEST_TICKERS = [
@@ -50,7 +51,7 @@ export const maxDuration = 60;
 export async function GET(request: Request) {
     const start = Date.now();
     const results: Record<string, any> = {};
-    const baseUrl = request.url.split('/api/')[0];
+    const baseUrl = publicBase(request.url.split('/api/')[0]);
 
     try {
         // ====== 1. Harvest GEX data for full universe ======

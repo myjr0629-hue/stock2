@@ -11,6 +11,7 @@ import { callBedrock } from '@/services/bedrockClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
+import { publicBase } from '@/lib/net/publicBase';
 
 export const maxDuration = 60; // Bedrock AI analysis needs 30s+
 
@@ -129,7 +130,7 @@ export async function GET(req: Request) {
             // Retry up to 2 attempts with 10s delay
             for (let attempt = 1; attempt <= 2; attempt++) {
                 try {
-                    const baseUrl = new URL(req.url).origin;
+                    const baseUrl = publicBase(new URL(req.url).origin);
                     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
                     if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
                         headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;

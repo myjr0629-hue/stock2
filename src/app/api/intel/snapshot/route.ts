@@ -11,6 +11,7 @@ import { fetchStockNews } from '@/services/newsHubProvider';
 import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
+import { publicBase } from '@/lib/net/publicBase';
 
 export const maxDuration = 60;
 
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const baseUrl = request.url.split('/api/')[0];
+        const baseUrl = publicBase(request.url.split('/api/')[0]);
         const tickers = SECTOR_TICKERS[sector];
 
         // ── Fetch current live data: fast (prices) + watchlist/batch (alpha/RSI/RVOL) ──

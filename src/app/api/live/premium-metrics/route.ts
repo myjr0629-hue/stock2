@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
+import { publicBase } from '@/lib/net/publicBase';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
         ? localeQuery
         : 'ko';
         
-    const origin = req.nextUrl.origin || req.url.split('/api/')[0];
+    const origin = publicBase(req.nextUrl.origin || req.url.split('/api/')[0]);
 
     try {
         // 1. Volatility Regime & Gamma Squeeze Risk (Internal fetch to volatility-regime)

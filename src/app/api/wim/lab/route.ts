@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
+import { publicBase } from '@/lib/net/publicBase';
 import { serveSWR } from '../../undercurrent/shared';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,8 @@ function etDateOf(ms: number): string {
 }
 
 export async function GET(request: Request) {
-  const { origin, searchParams } = new URL(request.url);
+  const { origin: reqOrigin, searchParams } = new URL(request.url);
+  const origin = publicBase(reqOrigin);
   const ticker = (searchParams.get('t') || 'NVDA').toUpperCase().trim();
   if (!/^[A-Z][A-Z.\-]{0,7}$/.test(ticker)) {
     return NextResponse.json({ success: false, error: 'bad ticker' }, { status: 400 });
