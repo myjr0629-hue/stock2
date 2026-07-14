@@ -23,10 +23,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'replyToId·text 필요' }, { status: 400 });
   }
 
-  const result = await postReply(acct, body.replyToId, text);
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
+  try {
+    const result = await postReply(acct, body.replyToId, text);
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
+    }
+    await appendAudit(gate.admin.email, 'x-reply-posted', `${acct} → ${body.replyToId}`);
+    return NextResponse.json({ ok: true, id: result.id });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: `post 예외: ${(e as Error).message}` }, { status: 502 });
   }
-  await appendAudit(gate.admin.email, 'x-reply-posted', `${acct} → ${body.replyToId}`);
-  return NextResponse.json({ ok: true, id: result.id });
 }

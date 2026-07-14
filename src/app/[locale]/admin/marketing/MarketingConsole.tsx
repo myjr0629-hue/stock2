@@ -451,9 +451,12 @@ function XOpsTab() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acct: acctKey, replyToId: t.id, text }),
       });
-      const j = await r.json();
-      setPosted((p) => ({ ...p, [t.id]: j.ok ? '게시됨 ✓' : `실패: ${j.error}` }));
-    } catch { setPosted((p) => ({ ...p, [t.id]: '게시 실패' })); }
+      const raw = await r.text();
+      let j: { ok?: boolean; error?: string } | null = null;
+      try { j = JSON.parse(raw); } catch { /* non-JSON (platform error) */ }
+      if (j?.ok) setPosted((p) => ({ ...p, [t.id]: '게시됨 ✓' }));
+      else setPosted((p) => ({ ...p, [t.id]: `실패(${r.status}): ${j?.error || raw.slice(0, 100) || '응답 없음'}` }));
+    } catch (e) { setPosted((p) => ({ ...p, [t.id]: `게시 실패: ${(e as Error).message}` })); }
   };
 
   const publish = async (t: ScanTweet) => {
