@@ -191,32 +191,69 @@ function TodayTab() {
   );
 }
 
-/* ===================== ② 생성 ===================== */
+/* ===================== ② 생성 (실 데이터 연결) ===================== */
+interface LintCheck { key: string; label: string; ok: boolean }
+interface GenDraft {
+  channel: 'toss' | 'stocktwits' | 'x_en' | 'x_ja';
+  label: string; lang: string; text: string;
+  lint: { pass: boolean; checks: LintCheck[] };
+}
+interface GenResult { ticker: string; grounded: boolean; levels: Record<string, number> | null; drafts: GenDraft[] }
+
+const CH_CLASS: Record<string, string> = { toss: 'toss', stocktwits: 'st', x_en: 'xen', x_ja: 'xja' };
+
 function GenerateTab() {
-  const drafts = [
-    { ch: 'toss', chLabel: '토스 · ko', voice: '주주 관찰체', body: '$SOXL 오늘 -13.7%. 옵션판은 이미 수준을 낮춰뒀어요 — 넷 프리미엄 -$2,200만 풋 우세, 맥스페인 190 괴리 9%+. 저는 오늘도 그냥 들고 갑니다.', action: '복사' },
-    { ch: 'st', chLabel: 'Stocktwits · en', voice: '캐주얼 en', body: '$SOXL down hard but the options tape priced it in — net premium -$22M put-heavy, max pain 190 (9%+ gap). Structure said it before the chart did.', action: '복사' },
-    { ch: 'xen', chLabel: 'X · en', voice: 'SpotGamma 레인', body: '$SOXL sits 9% above max pain (190) after the drop. Net premium -$22M, put-dominant. Dealers positioned for this — the chart is just catching up.', action: '버퍼 초안 적재' },
-    { ch: 'xja', chLabel: 'X · ja', voice: 'KessanMan式', body: '$SOXL、急落だけど オプション市場はとっくに水準を下げてた。ネットプレミアム -$2,200万のプット優勢、マックスペイン190。地図は前からあったわけね。', action: '버퍼 초안 적재' },
-  ] as const;
+  const [ticker, setTicker] = useState('NVDA');
+  const [eventType, setEventType] = useState('event');
+  const [gen, setGen] = useState<GenResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [pushMsg, setPushMsg] = useState<Record<string, string>>({});
+
+  const run = async () => {
+    setLoading(true); setError(null); setGen(null); setPushMsg({});
+    try {
+      const r = await fetch('/api/admin/mkt/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker, eventType }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || '생성 실패');
+      if (!j.grounded) { setError(`${j.ticker}: 우리 옵션 데이터가 없어 grounding 불가 — 다른 티커를 시도하세요.`); }
+      setGen(j);
+    } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
+  };
+
+  const copy = async (k: string, text: string) => {
+    try { await navigator.clipboard.writeText(text); setCopied(k); setTimeout(() => setCopied(null), 1500); } catch { /* noop */ }
+  };
+
+  const push = async (d: GenDraft) => {
+    setPushMsg((m) => ({ ...m, [d.channel]: '적재 중…' }));
+    try {
+      const r = await fetch('/api/admin/mkt/buffer/push', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelKey: d.channel, text: d.text }),
+      });
+      const j = await r.json();
+      setPushMsg((m) => ({ ...m, [d.channel]: j.ok ? `버퍼 초안 적재됨 (${j.count}/${j.cap})` : `실패: ${j.error}` }));
+    } catch { setPushMsg((m) => ({ ...m, [d.channel]: '적재 실패' })); }
+  };
 
   return (
     <>
       {/* 입력 */}
-      <div className="mkc-section"><h2>1. 소스 입력</h2><span className="mkc-section-note">캡처 업로드 또는 티커 지정</span></div>
+      <div className="mkc-section"><h2>1. 소스 입력</h2><span className="mkc-section-note">티커 → 우리 실 옵션데이터로 grounded</span></div>
       <div className="mkc-card-box">
-        <div className="mkc-dropzone">
-          <strong>앱 캡처 이미지를 여기에 드롭</strong>
-          Bedrock 비전이 숫자를 판독합니다. 또는 아래에서 티커·로케일을 지정하면 서버가 자동 캡처 (EC2 워커 · Phase 2).
-        </div>
-        <div className="mkc-inline" style={{ marginTop: 14 }}>
+        <div className="mkc-inline">
           <div className="mkc-field" style={{ margin: 0 }}>
             <label>티커</label>
-            <input className="mkc-input" placeholder="예: NVDA" defaultValue="SOXL" />
+            <input className="mkc-input" value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} placeholder="예: NVDA" />
           </div>
           <div className="mkc-field" style={{ margin: 0 }}>
             <label>사건 유형</label>
-            <select className="mkc-select" defaultValue="event">
+            <select className="mkc-select" value={eventType} onChange={(e) => setEventType(e.target.value)}>
               <option value="event">사건형 (단일 티커·이상 숫자 1개)</option>
               <option value="receipt">영수증형 (VERDICT 사후검증)</option>
               <option value="anchor">데일리 앵커 (같은 카드·같은 시각)</option>
@@ -225,58 +262,75 @@ function GenerateTab() {
           </div>
           <div className="mkc-field" style={{ margin: 0 }}>
             <label>&nbsp;</label>
-            <button className="mkc-btn mkc-btn-primary" style={{ height: 38 }}>4채널 초안 생성</button>
+            <button className="mkc-btn mkc-btn-primary" style={{ height: 38 }} onClick={run} disabled={loading}>{loading ? '생성 중…' : '4채널 초안 생성'}</button>
           </div>
         </div>
         <div className="mkc-warn" style={{ marginTop: 12 }}>
           <span className="mkc-warn-ic">ⓘ</span>
-          <span>판독된 숫자는 우리 Redis(`/api/live/options/structure`) 값과 대조 후 사용. 불일치 시 수동 입력 폴백.</span>
+          <span>숫자는 우리 <code>/api/live/options/structure</code> 실값만 사용 (조작 0). 예측어·앱명·링크는 린트가 차단.</span>
         </div>
       </div>
 
+      {error && <div className="mkc-warn red" style={{ marginBottom: 12 }}><span className="mkc-warn-ic">⚠</span><span>{error}</span></div>}
+      {gen?.grounded && gen.levels && (
+        <div className="mkc-card-box" style={{ marginBottom: 12 }}>
+          <span className="mkc-pill g">grounded</span>
+          <span style={{ marginLeft: 10, fontSize: 12.5 }} className="mkc-muted">
+            {Object.entries(gen.levels).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${k} ${v}`).join(' · ')}
+          </span>
+        </div>
+      )}
+
       {/* 초안 4종 */}
-      <div className="mkc-section">
-        <h2>2. 채널별 초안 4종</h2>
-        <span className="mkc-section-note">채널별 네이티브 보이스 · 페르소나 없음(단일 운영자 목소리)</span>
-        <span className="mkc-section-right">{SAMPLE()}</span>
-      </div>
-      <div className="mkc-cols-2">
-        {drafts.map((d) => (
-          <div className="mkc-draft" key={d.ch}>
-            <div className="mkc-draft-head">
-              <span className={`mkc-ch ${d.ch}`}>{d.chLabel}</span>
-              <span className="mkc-draft-meta">보이스: {d.voice}</span>
-            </div>
-            <div className="mkc-draft-body">{d.body}</div>
-            <div className="mkc-lints">
-              <span className="mkc-pill g">링크 0 ✓</span>
-              <span className="mkc-pill g">이모지 ≤2 ✓</span>
-              <span className="mkc-pill g">지표 ≤3 ✓</span>
-              <span className="mkc-pill g">금지어 ✓</span>
-              <span className="mkc-pill g">예측 프레이밍 ✓</span>
-              {d.ch === 'xja' && <span className="mkc-pill g">en≠ja ✓</span>}
-            </div>
-            <div className="mkc-draft-actions">
-              <button className="mkc-btn-sm pri">{d.action}</button>
-              <button className="mkc-btn-sm out">카드 첨부</button>
-              <button className="mkc-btn-sm sec">재생성</button>
-            </div>
+      {gen && gen.drafts.length > 0 && (
+        <>
+          <div className="mkc-section"><h2>2. 채널별 초안 4종</h2><span className="mkc-section-note">채널별 네이티브 보이스 · 페르소나 없음(단일 운영자 목소리)</span></div>
+          <div className="mkc-cols-2">
+            {gen.drafts.map((d) => (
+              <div className="mkc-draft" key={d.channel}>
+                <div className="mkc-draft-head">
+                  <span className={`mkc-ch ${CH_CLASS[d.channel]}`}>{d.label}</span>
+                  <span className="mkc-draft-meta">{d.lint.pass ? <span className="mkc-pill g">린트 통과</span> : <span className="mkc-pill r">린트 실패</span>}</span>
+                </div>
+                <div className="mkc-draft-body">{d.text || '(빈 초안 — 재생성)'}</div>
+                <div className="mkc-lints">
+                  {d.lint.checks.map((c) => (
+                    <span key={c.key} className={`mkc-pill ${c.ok ? 'g' : 'r'}`}>{c.label} {c.ok ? '✓' : '✗'}</span>
+                  ))}
+                </div>
+                <div className="mkc-draft-actions">
+                  <button className="mkc-btn-sm pri" onClick={() => copy(d.channel, d.text)} disabled={!d.text}>{copied === d.channel ? '복사됨 ✓' : '복사'}</button>
+                  {(d.channel === 'x_en' || d.channel === 'x_ja') && (
+                    <button className="mkc-btn-sm out" onClick={() => push(d)} disabled={!d.text || !d.lint.pass} title={!d.lint.pass ? '린트 통과해야 적재 가능' : ''}>버퍼 초안 적재</button>
+                  )}
+                </div>
+                {pushMsg[d.channel] && <div className="mkc-muted" style={{ fontSize: 11.5 }}>{pushMsg[d.channel]}</div>}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       {/* 카드 */}
-      <div className="mkc-section"><h2>3. 카드 이미지</h2><span className="mkc-section-note">og 레벨 카드 + 앱 실캡처</span></div>
+      <div className="mkc-section"><h2>3. 카드 이미지</h2><span className="mkc-section-note">og 레벨 카드 (실작동) + 앱 실캡처</span></div>
       <div className="mkc-cols-2">
         <div className="mkc-card-box">
           <div className="mkc-panel-title" style={{ fontSize: 13 }}>레벨 사다리 카드</div>
-          <p className="mkc-panel-sub">/api/og/level — 티커·레벨 넣으면 1200×675 PNG</p>
-          <div className="mkc-todo" style={{ padding: '18px' }}>미리보기 · Phase 2 연결</div>
+          <p className="mkc-panel-sub">/api/og/level — 티커·레벨 넣으면 1200×675 PNG (실작동)</p>
+          {gen?.grounded && gen.levels ? (
+            <img
+              alt="level card"
+              style={{ width: '100%', borderRadius: 10, marginTop: 8, border: '1px solid var(--mkc-line)' }}
+              src={`/api/og/level?ticker=${gen.ticker}${gen.levels.price ? `&price=${gen.levels.price}` : ''}${gen.levels.maxPain ? `&maxPain=${gen.levels.maxPain}` : ''}${gen.levels.gammaFlip ? `&gammaFlip=${gen.levels.gammaFlip}` : ''}${gen.levels.callWall ? `&callWall=${gen.levels.callWall}` : ''}${gen.levels.putFloor ? `&putFloor=${gen.levels.putFloor}` : ''}`}
+            />
+          ) : (
+            <div className="mkc-todo" style={{ padding: 18 }}>티커 생성하면 카드가 여기 표시됩니다</div>
+          )}
         </div>
         <div className="mkc-card-box">
           <div className="mkc-panel-title" style={{ fontSize: 13 }}>앱 실캡처 (로케일별)</div>
           <p className="mkc-panel-sub">EC2 워커 → /{'{'}ko|en|ja{'}'}/app-view/cmd?t=TICKER</p>
-          <div className="mkc-todo" style={{ padding: '18px' }}>미리보기 · Phase 2 연결</div>
+          <div className="mkc-todo" style={{ padding: 18 }}>캡처 파이프라인 연결 예정 (워커 localStorage 패치)</div>
         </div>
       </div>
     </>
