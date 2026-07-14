@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireMktAdmin, appendAudit, bumpVolume, getVolume, X_CHANNELS, DAILY_CAP, getKillSwitch } from '@/lib/marketing-console/mkt';
+import { requireMktAdmin, appendAudit, bumpVolume, getVolume, X_CHANNELS, DAILY_CAP, getKillSwitch, isDuplicateSkeleton, recordSkeleton } from '@/lib/marketing-console/mkt';
 import { createPost } from '@/lib/marketing/bufferClient';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +39,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Anti-1000-post: block repeated template skeletons within 72h.
+  if (await isDuplicateSkeleton(text)) {
+    return NextResponse.json(
+      { ok: false, error: '중복 구조 차단 — 72h 내 같은 템플릿(숫자만 다름). 다른 포맷/사건으로.' },
+      { status: 409 }
+    );
+  }
+
   try {
     const res = await createPost({
       channelIds: [meta.id],
@@ -50,6 +58,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: res.error || 'buffer 실패' }, { status: 502 });
     }
     const bumped = await bumpVolume(meta.channel);
+    await recordSkeleton(text);
     await appendAudit(gate.admin.email, 'buffer-draft', `${body.channelKey} (${bumped.count}/${DAILY_CAP})`);
     return NextResponse.json({ ok: true, postId: res.postId, count: bumped.count, cap: DAILY_CAP });
   } catch (e) {

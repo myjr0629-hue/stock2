@@ -103,6 +103,31 @@ export function jpSession(): JpSession {
   return { jstHour, label: '대기(JST 낮)', goodToPost: false, note: '일본 낮 = 미국장 마감 후 = 저활동' };
 }
 
+// ---- Template-skeleton dedup (anti-1000-post: no repeated structure) -------
+// Strip tickers/numbers/dates → the reusable "skeleton". Same skeleton within
+// 72h = templated repetition (the disaster's fingerprint) → block.
+export function skeleton(text: string): string {
+  return text
+    .replace(/\$[A-Za-z]{1,5}\b/g, '$T')
+    .replace(/\d[\d,]*\.?\d*\s?[%$kKmMbB]?/g, '#')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .trim();
+}
+const SKEL_KEY = 'mkt:skeletons';
+export async function isDuplicateSkeleton(text: string): Promise<boolean> {
+  const sk = skeleton(text);
+  const list = (await getFromCache<{ sk: string; at: number }[]>(SKEL_KEY)) || [];
+  const cutoff = Date.now() - 72 * 3600 * 1000;
+  return list.some((e) => e.at > cutoff && e.sk === sk);
+}
+export async function recordSkeleton(text: string): Promise<void> {
+  const sk = skeleton(text);
+  const list = (await getFromCache<{ sk: string; at: number }[]>(SKEL_KEY)) || [];
+  list.unshift({ sk, at: Date.now() });
+  await setInCache(SKEL_KEY, list.slice(0, 100), 72 * 3600 + 3600);
+}
+
 // ---- Kill switch (hard stop for all publishing/draft paths) ----------------
 const KILL_KEY = 'mkt:killswitch';
 export async function getKillSwitch(): Promise<boolean> {
