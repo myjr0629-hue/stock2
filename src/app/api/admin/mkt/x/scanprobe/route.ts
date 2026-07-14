@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { X_TARGETS } from '@/lib/marketing-console/mkt';
 
-// TEMPORARY bisect probe — self-contained scan (no local imports) to confirm the
-// scan+parse logic works, isolating the crash to the import chain. Delete after.
+// TEMPORARY bisect probe — imports ONLY mkt (not xApi/bedrock). If this 502s,
+// the crash is in the mkt import chain (redis/supabase); if it works, xApi/bedrock. Delete after.
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
   const token = process.env.X_BEARER_TOKEN;
   if (!token) return NextResponse.json({ ok: false, error: 'no token' });
 
-  const handles = ['unusual_whales', 'spotgamma', 'KobeissiLetter', 'CheddarFlow', 'Barchart'];
+  const handles = X_TARGETS.map((t) => t.handle);
   const from = handles.map((h) => `from:${h}`).join(' OR ');
   const q = encodeURIComponent(`(${from}) -is:retweet -is:reply`);
   const fields =
