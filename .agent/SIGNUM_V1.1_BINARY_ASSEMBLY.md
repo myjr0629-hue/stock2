@@ -76,13 +76,30 @@ with current v1.0 users).
   **`this.bridge.getWebView().getSettings().setTextZoom(100);`** 한 줄 → 시스템 배율 무시, CSS px 그대로.
 - 트레이드오프: 큰글씨 접근성 선호를 무시(레이아웃 우선) = 밀집 데이터앱의 표준 선택. **웹만으로는 불가**(네이티브 전용 — `text-size-adjust`로 못 막음).
 
-**(b) 상태바 세이프에어리어 — 항구책 (선택, 관련 항목)**
-- 현재: `native-app.css`의 `html.native-android .app-viewport { padding-top: max(env, 24px) }` = 무업데이트 웹 임시책(배포됨). Android WebView가 `env(safe-area-inset-top)=0` 보고라 **24px는 추측값** → 기종별 오차 가능.
-- 항구책: `@capacitor-community/safe-area` 플러그인 추가(`npm i` + `npx cap sync android` + 초기화) → 실 WindowInsets를 CSS 변수로 주입 → 추측 제거. 추가 후 `.app-viewport`의 24px 하드코딩을 그 변수로 교체.
+**(b) ★ 상태바 세이프에어리어 픽셀-정확화 → `@capacitor-community/safe-area` 플러그인 (사용자 확정 = "완벽하게")**
+- 현재(임시책, 배포됨): `native-app.css` `html.native-android .app-viewport { padding-top: max(env, 24px) }`. Android WebView가 `env(safe-area-inset-top)=0` 보고라 **24px는 추측값** → 실기기 관찰: 사용자 폰에서 상태바 아래 **살짝 갭**(폰마다 다름). 충돌은 이미 막았지만 픽셀-정확 아님.
+- **항구책 실행 순서 (실측 인셋 주입)**:
+  1. `npm i @capacitor-community/safe-area`
+  2. `npx cap sync android` (iOS도) → 플러그인 네이티브 등록 확인.
+  3. 초기화(플러그인 문서 기준, `NativeAppProvider.tsx` 부팅 시) → 플러그인이 **`--safe-area-inset-top/right/bottom/left`** CSS 변수를 그 기기의 **실 WindowInsets**로 주입.
+  4. **native-app.css 교체**: `html.native-android .app-viewport { padding-top: var(--safe-area-inset-top, 24px); }` — 24px 하드코딩 **삭제**, 실측 변수 사용(24px는 폴백만). 하단 인셋(`--safe-area-bottom` 등)도 이 변수로 통일 검토.
+  5. `capacitorBridge.ts`의 `getSafeAreaInsets()`가 읽는 `--sat`/`--sab`(현재 미설정 → 폴백만 탐)도 이 변수와 정합시켜 실제화.
+- 결과: **상태바 20~40px·컷아웃·제스처 어떤 기종에서도 상태바 바로 아래에서 정확히 시작.** 추측 완전 제거.
 
-**검증**: 안드로이드 **에뮬레이터(또는 실기기)** 에서 ①시스템 글꼴 최대 ②다른 상태바 높이/컷아웃 기종으로 확인. iOS 시뮬처럼 **안드 에뮬을 검증 루프에 편입**할 것(2026-07-14 논의 — 안드는 파편화라 "보면서" 확인이 iOS보다 더 필요).
+**완료 조건 (Definition of Done — 전부 통과해야 "완벽"):**
+- [ ] 상태바 높이 **다른 2기종 이상**(예: Pixel + 컷아웃 삼성) 실기기/에뮬 → 상단 갭·물림 0, 상태바 바로 아래 시작.
+- [ ] 시스템 글꼴 **최대 배율**에서 dash·cmd·intel·flow·settings·온보딩 넘침/겹침/잘림 0.
+- [ ] 하단 탭바·홈인디케이터 인셋 회귀 0.
+- [ ] iOS 회귀 0(시뮬 확인 — WKWebView라 영향 없어야 정상).
+- [ ] 안드로이드 **에뮬레이터를 검증 루프에 편입**(iOS 시뮬처럼 스샷 보며) — 파편화라 안드는 "보면서" 확인이 필수.
 
-> ⚠️ **UC(Undercurrent) Android 빌드도 동일 두 이슈 해당** — 같은 리모트 웹뷰 구조. UC 네이티브 업데이트 시 (a)textZoom + (b)세이프에어리어(UC 루트 `.uc-slideup`) 함께 적용.
+**출시 전략 (2026-07-14 확정):**
+- 두 픽스는 **작은 네이티브 변경** → **다음 안드로이드 바이너리에 번들**(별도 인프라 0).
+- **권장: v1.1(구독) 바이너리에 함께 제출** = 릴리즈 사이클 1회로 처리. iOS는 이 두 이슈 무관 → iOS 재제출 강제 아님.
+- 옵션: v1.1이 크게 지연되고 큰글씨 깨짐 민원이 늘면 → **Android-only 패치**(구독 제외, textZoom+safe-area만) 를 먼저 출시 가능.
+- 상태바 충돌 자체는 이미 웹으로 막아둠(무업데이트) → 이 업데이트 목적 = **"픽셀-정확 + 큰폰트 안전" 완성**. 기능 급하진 않음.
+
+> ⚠️ **UC(Undercurrent) Android 빌드도 동일 두 이슈 해당** — 같은 리모트 웹뷰 구조. UC 네이티브 업데이트 시 (a)textZoom + (b)세이프에어리어(UC 루트 `.uc-slideup`에 동일 적용) 함께. 위 DoD 그대로 준용.
 
 ---
 
