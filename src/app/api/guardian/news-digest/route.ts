@@ -358,7 +358,17 @@ export async function GET(req: NextRequest) {
     const existingItems = existingDigest?.items || [];
     const allItems = [...newItems, ...existingItems]; // New first (higher priority)
     const uniqueItems = deduplicateItems(allItems);
-    const displayItems = uniqueItems
+
+    // [FIX 2026-07-14] Never surface a translation-failed item. When an AI batch falls back
+    // (summaryKR/JP = raw English), those items would render English under KO/JA UI. Drop them
+    // from the display+cache so the News Pulse is only ever properly localized — a shorter list
+    // beats a wrong-language one, and dropping them (vs caching) means they get re-fetched and
+    // retried next cycle instead of sticking forever. Safety: if fewer than 3 survive (e.g. a
+    // transient outage), keep the unfiltered set rather than emptying the pulse.
+    const HAS_KO = /[가-힣]/;          // Hangul
+    const HAS_JA = /[ぁ-ゟ゠-ヿ]/;      // kana (hiragana/katakana) — Japanese always has it; English/Korean don't
+    const localized = uniqueItems.filter(it => HAS_KO.test(it.summaryKR || '') && HAS_JA.test(it.summaryJP || ''));
+    const displayItems = (localized.length >= 3 ? localized : uniqueItems)
         .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
         .slice(0, DISPLAY_SIZE)
         .map(it => ({ ...it, ageMinutes: getAgeMinutes(it.publishedAt) }));
