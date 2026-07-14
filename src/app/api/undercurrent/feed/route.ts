@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const loc = normLocale(searchParams.get('locale'));
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '12', 10) || 12, 1), 16);
   const skipCache = searchParams.get('refresh') === '1';
-  const cacheKey = `undercurrent:feed:v7:${loc}`;
+  const cacheKey = `undercurrent:feed:v8:${loc}`; // v8: flush feeds built from the poisoned empty-money core (2026-07-14)
 
   // SWR: a normal request never blocks on generation — stale is served instantly and
   // the client triggers a refresh=1 regeneration. Only an empty cache generates inline.

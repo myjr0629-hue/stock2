@@ -26,7 +26,7 @@ import {
   type NewsItem, type MoneyData,
 } from './shared';
 
-const CORE_KEY = 'undercurrent:feedcore:v1';
+const CORE_KEY = 'undercurrent:feedcore:v2'; // v2: flush cores poisoned by the empty-money self-call bug (2026-07-14)
 const CORE_FRESH_SEC = 15 * 60;         // same freshness contract as the feed
 const CORE_PHYSICAL_SEC = 6 * 60 * 60;  // keep last-known-good far past freshness
 const PICK = 12;                        // stories in the core (client always asks 12)

@@ -84,9 +84,20 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
     darkPoolPct: null, oiPcr: null, volumePcr: null, squeezeScore: null,
     maxPain: null, callWall: null, putFloor: null, price: null,
   };
+  // [FIX 2026-07-14] The money self-call MUST hit the public production domain — never a
+  // request-derived origin. The uc-warm cron builds the core at its invocation URL
+  // (`req.url.split('/api/')[0]`), which is a protected *.vercel.app deployment URL; a self-call
+  // there returns 401/redirect → `!res.ok` → empty money for EVERY ticker → the whole UC "money
+  // layer" (큰손·괴리·mood) goes dark, and that empty core gets cached and served to all users.
+  // Use the request origin only when it is already the public signumhq domain; otherwise fall
+  // back to the canonical www host (public, unauthenticated, non-redirecting).
+  const base = /^https:\/\/(www\.)?signumhq\.com/.test(origin)
+    ? origin.replace('https://signumhq.com', 'https://www.signumhq.com')
+    : (process.env.NEXT_PUBLIC_BASE_URL || 'https://www.signumhq.com').replace('https://signumhq.com', 'https://www.signumhq.com');
   try {
-    const res = await fetch(`${origin}/api/live/ticker?t=${ticker}&skip_alpha=1`, {
+    const res = await fetch(`${base}/api/live/ticker?t=${ticker}&skip_alpha=1`, {
       signal: AbortSignal.timeout(timeoutMs),
+      redirect: 'follow',
     });
     if (!res.ok) return empty;
     const d = await res.json();

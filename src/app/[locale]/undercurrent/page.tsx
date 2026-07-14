@@ -37,6 +37,7 @@ const T: Record<Locale, Record<string, string>> = {
     filingsTitle: '회사가 직접 밝힌 것', filingsSub: '언론이 아닌 SEC 공식 문서(8-K)에 회사가 스스로 적어낸 사실',
     secDiv: '괴리 시그널', secDivSub: '뉴스와 돈이 반대로 움직이는 곳',
     secWhale: '큰손 레이더', secWhaleSub: '기관이 장외에서 조용히 움직인 비중',
+    whaleEmpty: '지금은 두드러진 장외 큰손 움직임이 없어요. 데이터는 장중에 계속 갱신됩니다.',
     secStories: '오늘의 스토리', secStoriesSub: '돈의 반응과 함께 읽는 뉴스',
     connected: '연결된 흐름', more: '더 보기',
     share: '공유', shareCopied: '링크가 복사되었어요', viewTicker: '이 종목 전체 보기', backdropNow: '지금 시장',
@@ -113,6 +114,7 @@ const T: Record<Locale, Record<string, string>> = {
     filingsTitle: 'Straight from the company', filingsSub: 'Facts the company itself filed with the SEC (8-K) — not the press',
     secDiv: 'Divergence signals', secDivSub: 'Where news and money point opposite ways',
     secWhale: 'Whale radar', secWhaleSub: 'Institutional off-exchange share',
+    whaleEmpty: 'No standout off-exchange activity right now. Data refreshes through the session.',
     secStories: "Today's stories", secStoriesSub: 'News read together with the money',
     connected: 'Connected flows', more: 'See all',
     share: 'Share', shareCopied: 'Link copied', viewTicker: 'See all on this ticker', backdropNow: 'The market now',
@@ -189,6 +191,7 @@ const T: Record<Locale, Record<string, string>> = {
     filingsTitle: '企業が自ら明かしたこと', filingsSub: '報道ではなくSEC公式文書(8-K)に企業自身が記した事実',
     secDiv: '乖離シグナル', secDivSub: 'ニュースとお金が逆方向の銘柄',
     secWhale: '大口レーダー', secWhaleSub: '機関投資家の場外取引シェア',
+    whaleEmpty: '今、目立った場外の大口の動きはありません。データは取引時間中に更新されます。',
     secStories: '今日のストーリー', secStoriesSub: 'お金の反応と一緒に読むニュース',
     connected: 'つながる流れ', more: 'すべて見る',
     share: 'シェア', shareCopied: 'リンクをコピーしました', viewTicker: 'この銘柄をすべて見る', backdropNow: 'いまの市場',
@@ -838,9 +841,13 @@ export default function UndercurrentPage() {
   const cards = feed?.cards || [];
   const hero = cards.find((c) => c.divergence) || cards[0];
   const divCards = cards.filter((c) => c.divergence);
-  const whaleCards = [...cards]
-    .filter((c) => (c.money?.darkPoolPct ?? 0) >= 40)
+  // 큰손: strong off-exchange (>=40) first; if none clear the bar, still show the day's top
+  // off-exchange names so the radar is never blank when money data exists (rich, not empty).
+  const whaleAll = [...cards]
+    .filter((c) => c.money?.darkPoolPct != null)
     .sort((a, b) => (b.money?.darkPoolPct ?? 0) - (a.money?.darkPoolPct ?? 0));
+  const whaleStrong = whaleAll.filter((c) => (c.money?.darkPoolPct ?? 0) >= 40);
+  const whaleCards = whaleStrong.length ? whaleStrong : whaleAll.slice(0, 6);
   const connected = (base: Card | null) =>
     base ? cards.filter((c) => c.ticker !== base.ticker && (c.moneyMood === base.moneyMood || (c.divergence && base.divergence))).slice(0, 3) : [];
 
@@ -1935,6 +1942,14 @@ export default function UndercurrentPage() {
                     {ADS_LIVE && i === 2 && <NativeAdSlot t={t} />}
                   </span>
                 ))}
+                {whaleCards.length === 0 && (
+                  <div style={{
+                    marginTop: 11, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`,
+                    boxShadow: C.shadow, padding: '20px 16px', fontSize: 13, lineHeight: 1.6, color: C.sub, fontWeight: 600,
+                  }}>
+                    {t.whaleEmpty}
+                  </div>
+                )}
               </>
             )}
 
