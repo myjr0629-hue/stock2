@@ -38,10 +38,11 @@ async function xGet<T>(path: string): Promise<T> {
   const res = await fetch(`${X_BASE}${path}`, {
     headers: { Authorization: `Bearer ${bearer()}` },
     cache: 'no-store',
+    signal: AbortSignal.timeout(9000),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`X API ${res.status}: ${body.slice(0, 160)}`);
+    throw new Error(`X API ${res.status}: ${body.slice(0, 200)}`);
   }
   return (await res.json()) as T;
 }
