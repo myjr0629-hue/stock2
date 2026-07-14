@@ -3,7 +3,7 @@ import { scanTargets } from '@/lib/marketing-console/xApi';
 import { X_TARGETS } from '@/lib/marketing-console/mkt';
 
 // TEMPORARY probe — verifies X recent-search works with our Bearer + pay-per-use
-// access level. Probe-gated (no data beyond public tweets). Delete after verifying.
+// access level. Probe-gated (public tweets only). Delete after verifying.
 export const dynamic = 'force-dynamic';
 const PROBE = 'signum-xscan-2026';
 
