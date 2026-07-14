@@ -189,6 +189,49 @@ export async function fetchInbox(acct: Acct): Promise<{ ok: boolean; items?: Inb
   }
 }
 
+// ---- Write diagnostic (posts a throwaway tweet, deletes it immediately) ----
+// Reveals the exact X write error (scope / auth / rate) without leaving residue.
+export async function diagnoseWrite(acct: Acct): Promise<Record<string, unknown>> {
+  const token = await validAccessToken(acct);
+  if (!token) return { stage: 'token', ok: false, detail: 'no valid access token (connect/refresh failed)' };
+
+  const text = `⚙︎ ${Date.now().toString(36)}`; // minimal + unique (avoid dup-detect)
+  let postStatus = 0;
+  let postBody: { data?: { id: string }; detail?: string; title?: string; errors?: Array<{ message?: string }> } | null = null;
+  try {
+    const res = await fetch('https://api.x.com/2/tweets', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(12000),
+    });
+    postStatus = res.status;
+    postBody = await res.json().catch(() => null);
+  } catch (e) {
+    return { stage: 'post-threw', ok: false, detail: (e as Error).message };
+  }
+
+  const id = postBody?.data?.id;
+  let deleted = false;
+  if (id) {
+    try {
+      const del = await fetch(`https://api.x.com/2/tweets/${id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000),
+      });
+      deleted = del.ok;
+    } catch { /* leave note in result */ }
+  }
+  return {
+    stage: 'done',
+    ok: postStatus === 200 || postStatus === 201,
+    postStatus,
+    error: postBody?.detail || postBody?.title || postBody?.errors?.[0]?.message || null,
+    posted: Boolean(id),
+    deleted,
+    strayId: id && !deleted ? id : null,
+  };
+}
+
 // ---- Post a reply ---------------------------------------------------------
 export async function postReply(
   acct: Acct,
