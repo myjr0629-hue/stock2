@@ -189,74 +189,7 @@ export async function fetchInbox(acct: Acct): Promise<{ ok: boolean; items?: Inb
   }
 }
 
-// ---- Write diagnostic (posts a throwaway tweet, deletes it immediately) ----
-// Reveals the exact X write error (scope / auth / rate) without leaving residue.
-export async function diagnoseWrite(acct: Acct): Promise<Record<string, unknown>> {
-  const token = await validAccessToken(acct);
-  if (!token) return { stage: 'token', ok: false, detail: 'no valid access token (connect/refresh failed)' };
-
-  const text = `⚙︎ ${Date.now().toString(36)}`; // minimal + unique (avoid dup-detect)
-  let postStatus = 0;
-  let postBody: { data?: { id: string }; detail?: string; title?: string; errors?: Array<{ message?: string }> } | null = null;
-  try {
-    const res = await fetch('https://api.x.com/2/tweets', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-      signal: AbortSignal.timeout(12000),
-    });
-    postStatus = res.status;
-    postBody = await res.json().catch(() => null);
-  } catch (e) {
-    return { stage: 'post-threw', ok: false, detail: (e as Error).message };
-  }
-
-  const id = postBody?.data?.id;
-
-  // Now test the REPLY shape (what the console actually does) by replying to A.
-  let replyStatus = 0;
-  let replyBody: typeof postBody = null;
-  let replyId: string | undefined;
-  if (id) {
-    try {
-      const rr = await fetch('https://api.x.com/2/tweets', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: `↩︎ ${Date.now().toString(36)}`, reply: { in_reply_to_tweet_id: id } }),
-        signal: AbortSignal.timeout(12000),
-      });
-      replyStatus = rr.status;
-      replyBody = await rr.json().catch(() => null);
-      replyId = replyBody?.data?.id;
-    } catch (e) {
-      replyBody = { detail: (e as Error).message };
-    }
-  }
-
-  // Cleanup both.
-  const strays: string[] = [];
-  for (const tid of [replyId, id]) {
-    if (!tid) continue;
-    try {
-      const del = await fetch(`https://api.x.com/2/tweets/${tid}`, {
-        method: 'DELETE', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000),
-      });
-      if (!del.ok) strays.push(tid);
-    } catch { strays.push(tid); }
-  }
-
-  return {
-    stage: 'done',
-    standaloneStatus: postStatus,
-    standaloneError: postBody?.detail || postBody?.title || null,
-    replyStatus,
-    replyError: replyBody?.detail || replyBody?.title || replyBody?.errors?.[0]?.message || null,
-    replyWorks: replyStatus === 200 || replyStatus === 201,
-    strays,
-  };
-}
-
-// ---- Post a reply ---------------------------------------------------------
+// ---- Post a reply (with one retry for transient failures) -----------------
 export async function postReply(
   acct: Acct,
   replyToId: string,
@@ -264,17 +197,30 @@ export async function postReply(
 ): Promise<{ ok: boolean; id?: string; error?: string }> {
   const token = await validAccessToken(acct);
   if (!token) return { ok: false, error: '계정 미연결 또는 토큰 만료 — 연결 페이지에서 재승인' };
-  try {
-    const res = await fetch('https://api.x.com/2/tweets', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, reply: { in_reply_to_tweet_id: replyToId } }),
-      signal: AbortSignal.timeout(12000),
-    });
-    const j = (await res.json()) as { data?: { id: string }; detail?: string; title?: string };
-    if (!res.ok) return { ok: false, error: j.detail || j.title || `X ${res.status}` };
-    return { ok: true, id: j.data?.id };
-  } catch (e) {
-    return { ok: false, error: (e as Error).message };
+
+  const attempt = async (): Promise<{ ok: boolean; id?: string; error?: string; retryable: boolean }> => {
+    try {
+      const res = await fetch('https://api.x.com/2/tweets', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, reply: { in_reply_to_tweet_id: replyToId } }),
+        signal: AbortSignal.timeout(12000),
+      });
+      const j = (await res.json().catch(() => ({}))) as { data?: { id: string }; detail?: string; title?: string };
+      if (res.ok) return { ok: true, id: j.data?.id, retryable: false };
+      // 429/5xx are transient; 4xx (scope/dup/reply-restricted) are not.
+      const retryable = res.status === 429 || res.status >= 500;
+      return { ok: false, error: j.detail || j.title || `X ${res.status}`, retryable };
+    } catch (e) {
+      // network/timeout → retryable once
+      return { ok: false, error: (e as Error).message, retryable: true };
+    }
+  };
+
+  let r = await attempt();
+  if (!r.ok && r.retryable) {
+    await new Promise((res) => setTimeout(res, 1200));
+    r = await attempt();
   }
+  return { ok: r.ok, id: r.id, error: r.error };
 }
