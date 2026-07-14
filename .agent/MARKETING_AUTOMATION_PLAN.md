@@ -169,7 +169,8 @@ TRS(0~100) = (0.50·리테일어텐션 + 0.50·데이터엣지) × 신선도 × 
 - ✅ **JP 시간대 세션** (`jpSession()` JST — 밤=미국장=답글최적) → 추천큐가 JP 타깃일 때 일본 시간대 "게시 적기" 표시.
 - ✅ **Stocktwits 발굴** (`stocktwits.ts` 공개 API 스캔 + `/api/admin/mkt/stocktwits/scan` + 커뮤니티 탭에 실 스캔·grounded 초안·복사→원글열기). 레딧 탭 → "커뮤니티(레딧·ST)" 개명.
 - ✅ **자기검수: 스켈레톤 dedup** (`skeleton()`/`isDuplicateSkeleton()`/`recordSkeleton()` + buffer/push 72h 중복차단, 409). 1000개 사태 물리 차단. 커밋 `f3af3bf0b`.
-- ✅ **Bluesky AT 발행 라이브러리** (`bluesky.ts` bskyPost/bskyStatus + `/api/admin/mkt/bluesky/status`) — ⏳ **키 필요**: `BLUESKY_HANDLE`·`BLUESKY_APP_PASSWORD`(앱 비밀번호) 넣으면 자동 발행 활성. 없으면 configured:false.
+- ✅ **Bluesky 연결·발행 완료** (`bluesky.ts` + `/api/admin/mkt/bluesky/{status,post}`). env `BLUESKY_HANDLE`·`BLUESKY_APP_PASSWORD`(앱비번) 설정·**연결 검증됨**(signumhq.bsky.social, connected:true). 생성 탭 x_en 초안에 **[Bluesky 발행(라이브)]** 버튼(킬스위치·캡·중복 게이트). 자산 탭에 연결상태. 커밋 `5f79ad77e`.
+- ✅ **`?from=` 유입 추적** (맥, `08fb29283`): `/app` 스마트링크가 `?from=` 히트 카운트 → 성과 탭 퍼널 데이터 살아남. (웹파일이라 맥이 처리)
 - **콘솔(마케팅 페이지) = 6탭 실작동 + 총지휘소 통제(킬스위치) + 채널별 발굴/초안/복사→수동 완비.** 검증: 전 라우트 배포·게이트 401/404 정상.
 - ⏭ 남음(백엔드 자율엔진, §10 결정+키 필요): 이벤트 탐지 크론·TRS 데이터배선·자동발행 스케줄·Bluesky 자동(키 후)·X 내글 응대. `?from=`는 웹파일이라 대표 승인 후.
 
