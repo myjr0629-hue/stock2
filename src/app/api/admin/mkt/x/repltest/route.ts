@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     const results = await diagnoseReplies('en', picks.map((p) => ({ id: p.id, author: p.author })));
     // merge impressions for context
     const merged = results.map((r, i) => ({ ...r, impressions: picks[i]?.impressions }));
-    const worked = merged.filter((r) => r.replyWorks).length;
+    const worked = merged.filter((r) => (r as { replyWorks?: boolean }).replyWorks === true).length;
     return NextResponse.json({ ok: true, tested: picks.length, worked, results: merged });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 502 });
