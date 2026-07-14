@@ -315,7 +315,17 @@
   - 관리자 allowlist env = `MARKETING_ADMIN_EMAILS`(없으면 `NEXT_PUBLIC_ADMIN_EMAILS` 폴백).
   - 독립 라이트 테마(`.mkc-*`), SIGNUM 다크와 컴포넌트/CSS 공유 0. 6탭 셸(Today만 스캐폴드, 나머지 phase-gated).
   - 실측: 미인증 404(로컬+프로덕션), tsc 0, 컴파일 클린. **인증 렌더 뷰는 사용자 로그인 인수테스트 대기.**
-- ⏭ 다음: X OAuth 연결 페이지(순서1) → 답글 엔진(순서2) → 생성 탭(순서4 잔여).
+- ✅ **Phase 1.5 = 전체 한글화 + 6탭 세분화** (커밋 `0574a5e34`). 미연결 데이터는 "샘플" 표기.
+- ✅ **Phase 2a = X 답글 엔진 (읽기+초안, 실검증)** (커밋 `0e9364c2b`, 2026-07-14 PC). 파일:
+  `src/lib/marketing-console/{mkt.ts,xScan.ts,xApi.ts}` + `src/app/api/admin/mkt/x/{scan,draft}/route.ts`.
+  - `mkt.ts`: Redis 키·볼륨캡(3/일)·감사로그·타깃 계정/서브·`requireMktAdmin()` API 게이트(401).
+  - `xScan.ts`: **bedrock 없는** 읽기 헬퍼(recent-search 스캔·효과 스코어·ticker 탐지·구조 grounding).
+  - `xApi.ts`: `draftReply` = Bedrock, **우리 실 옵션레벨로만 grounded**(숫자 조작 0). 예측어·앱명·링크 0.
+  - **실검증**: scan 200(실트윗 10), draft 200($DRAM에 maxPain65·gammaFlip49·price57.3 grounded), API 게이트 401, 페이지 404.
+  - **⚠ 버그 교훈 (재발방지)**: ①`_`시작 폴더 = Next 라우팅 제외(404). ②bedrock(aws-sdk) import 라우트는
+    **`export const maxDuration=60` 필수**(없으면 콜드스타트 타임아웃→플랫폼 502). 읽기 경로는 bedrock import 금지(분리).
+  - **X 운용 탭 실배선**: 실시간 스캔·원글열기(실URL)·초안생성(grounded)·복사·US/JP 토글. **게시=OAuth 연결 후(순서1)**.
+- ⏭ 다음: **X OAuth 연결 페이지(순서1)** → 생성 탭 캡처·Bedrock(순서4) → Stocktwits/Reddit 발굴 → 성과·모니터링 실연결.
 
 > **핸드오프 규칙**: 이 절이 마케팅 자동화 실행 정본. 착수 전 pull → 위 순서 중 **안 된 것부터**. 완료분은
 > 이 표에 ✅+커밋해시로 갱신하고 push. 작업 무관 파일(lambda·android·package-lock)은 커밋 금지(§43.5).
