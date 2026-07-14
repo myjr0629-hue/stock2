@@ -98,75 +98,87 @@ export default function MarketingConsole({ adminEmail }: { adminEmail: string })
   );
 }
 
-/* ===================== ① 오늘 ===================== */
+/* ===================== ① 오늘 (실 모니터링) ===================== */
+interface AuditEntry { at: number; who: string; action: string; detail?: string }
+interface Overview {
+  etDate: string; cap: number;
+  volumes: { xUS: number; xJP: number; bluesky: number };
+  connections: { en: { connected: boolean }; jp: { connected: boolean } };
+  audit: AuditEntry[];
+}
+
+function auditLabel(a: string): string {
+  const m: Record<string, string> = {
+    generate: '초안 생성', 'buffer-draft': '버퍼 적재', 'x-oauth-connect': '계정 연결',
+    'x-reply-posted': 'X 답글 게시',
+  };
+  return m[a] || a;
+}
+
 function TodayTab() {
+  const [ov, setOv] = useState<Overview | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/mkt/overview', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => { if (j.ok) setOv(j); else setErr(j.error || '로드 실패'); })
+      .catch((e) => setErr(String(e)));
+  }, []);
+
+  const cap = ov?.cap ?? 3;
+  const v = ov?.volumes ?? { xUS: 0, xJP: 0, bluesky: 0 };
+  const bothConnected = ov ? ov.connections.en.connected && ov.connections.jp.connected : false;
+
   return (
     <>
+      {err && <div className="mkc-warn red" style={{ marginBottom: 12 }}><span className="mkc-warn-ic">⚠</span><span>{err}</span></div>}
       <div className="mkc-kpis">
         <div className="mkc-kpi is-hero">
-          <span className="mkc-kpi-label">볼륨 캡 · X-US</span>
-          <span className="mkc-kpi-value">0 / 3</span>
-          <span className="mkc-kpi-note">하루 상한 3 — 성과 나빠도 절대 안 늘림</span>
+          <span className="mkc-kpi-label">볼륨 캡 · X-US ({ov?.etDate || 'ET'})</span>
+          <span className="mkc-kpi-value">{v.xUS} / {cap}</span>
+          <span className="mkc-kpi-note">하루 상한 {cap} — 성과 나빠도 절대 안 늘림 (서버 강제)</span>
         </div>
         <div className="mkc-kpi">
-          <span className="mkc-kpi-label">승인 대기 초안</span>
-          <span className="mkc-kpi-value">—</span>
-          <span className="mkc-kpi-note">생성 엔진 연결 시 집계 · Phase 2</span>
+          <span className="mkc-kpi-label">X-JP 볼륨</span>
+          <span className="mkc-kpi-value">{v.xJP} / {cap}</span>
+          <span className="mkc-kpi-note">US와 같은 사건, ja 네이티브</span>
         </div>
         <div className="mkc-kpi">
-          <span className="mkc-kpi-label">감지 사건</span>
-          <span className="mkc-kpi-value">—</span>
-          <span className="mkc-kpi-note">사건 탐지 크론 · Phase 5</span>
+          <span className="mkc-kpi-label">계정 연결</span>
+          <span className="mkc-kpi-value">{ov ? (Number(ov.connections.en.connected) + Number(ov.connections.jp.connected)) : 0} / 2</span>
+          <span className="mkc-kpi-note">{bothConnected ? '게시 활성' : 'X 운용 탭에서 연결'}</span>
         </div>
         <div className="mkc-kpi">
-          <span className="mkc-kpi-label">유입 히트 (?from=)</span>
-          <span className="mkc-kpi-value">—</span>
-          <span className="mkc-kpi-note">/app 패치 · Phase 3</span>
+          <span className="mkc-kpi-label">최근 활동 (감사)</span>
+          <span className="mkc-kpi-value">{ov?.audit.length ?? 0}</span>
+          <span className="mkc-kpi-note">모든 생성·적재·게시 기록됨</span>
         </div>
-      </div>
-
-      {/* 채널별 볼륨 현황 */}
-      <div className="mkc-section">
-        <h2>채널별 오늘 현황</h2>
-        <span className="mkc-section-note">사건 밀도가 볼륨을 정한다 (시계 아님)</span>
-        <span className="mkc-section-right">{SAMPLE()}</span>
-      </div>
-      <div className="mkc-cols-3">
-        {[
-          { ch: 'X-US · @signumhq', cur: 0, note: '평시 1 · 사건일 2 · 무사건 0~1' },
-          { ch: 'X-JP · @signumhq_jp', cur: 0, note: 'US와 같은 사건, ja 네이티브' },
-          { ch: 'Bluesky', cur: 0, note: 'X 미러 1 (재사용 합법)' },
-        ].map((c) => (
-          <div className="mkc-card-box" key={c.ch}>
-            <div className="mkc-panel-title" style={{ fontSize: 13 }}>{c.ch}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, margin: '6px 0' }}>
-              {c.cur} <span style={{ fontSize: 14, color: 'var(--mkc-ink-2)' }}>/ 3</span>
-            </div>
-            <div className="mkc-muted" style={{ fontSize: 11.5 }}>{c.note}</div>
-          </div>
-        ))}
       </div>
 
       <div className="mkc-grid" style={{ marginTop: 14 }}>
-        {/* 액션 큐 */}
+        {/* 감사 로그 (실데이터) */}
         <div className="mkc-panel">
-          <h3 className="mkc-panel-title">액션 큐 <SampleInline /></h3>
-          <p className="mkc-panel-sub">승인 대기 초안 (우선순위 순)</p>
-          <div className="mkc-todo">
-            <strong>생성 엔진 연결 시 여기에 뜸 · Phase 2</strong>
-            캡처 → 숫자 판독 → 4채널 초안이 이곳에 적재되어 원클릭 승인.
-          </div>
+          <h3 className="mkc-panel-title">감사 로그</h3>
+          <p className="mkc-panel-sub">"몰래 1,000개"가 물리적으로 불가능한 이유</p>
+          {ov && ov.audit.length === 0 && <div className="mkc-todo" style={{ padding: 16 }}>아직 활동 없음 — 생성·적재·게시하면 여기 기록됩니다.</div>}
+          {ov?.audit.map((a, i) => (
+            <div className="mkc-row" key={i}>
+              <span className="grow">{auditLabel(a.action)} {a.detail ? <span className="mkc-muted">· {a.detail}</span> : null}</span>
+              <span className="mkc-muted" style={{ fontSize: 11 }}>{new Date(a.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          ))}
         </div>
 
-        {/* 데드맨 & 가드레일 */}
+        {/* 데드맨 & 가드레일 (실 상태) */}
         <div className="mkc-panel">
           <h3 className="mkc-panel-title">데드맨 &amp; 가드레일</h3>
           <p className="mkc-panel-sub">7중 안전장치 상태</p>
           <div className="mkc-row"><span className="grow">자동 발행 경로</span><span className="mkc-pill g">없음 (초안 전용)</span></div>
           <div className="mkc-row"><span className="grow">페르소나 UI</span><span className="mkc-pill g">부재</span></div>
-          <div className="mkc-row"><span className="grow">볼륨 캡 (채널당 3/일)</span><span className="mkc-pill g">강제</span></div>
-          <div className="mkc-row"><span className="grow">데드맨 (2주 연속 바닥)</span><span className="mkc-pill n">추적 대기</span></div>
-          <div className="mkc-row"><span className="grow">감사 로그</span><span className="mkc-pill n">Phase 3</span></div>
+          <div className="mkc-row"><span className="grow">볼륨 캡 (채널당 {cap}/일)</span><span className="mkc-pill g">서버 강제</span></div>
+          <div className="mkc-row"><span className="grow">감사 로그</span><span className="mkc-pill g">기록 중</span></div>
+          <div className="mkc-row"><span className="grow">데드맨 (2주 연속 바닥)</span><span className="mkc-pill n">성과 데이터 후</span></div>
         </div>
 
         {/* 답글 타이머 */}
@@ -175,7 +187,7 @@ function TodayTab() {
           <p className="mkc-panel-sub">발행 후 60분 상주 창</p>
           <div className="mkc-timer">--:--:--</div>
           <span style={{ color: '#9db3a6', fontSize: 12 }}>
-            포스트 발행 표시 시 시작 (Phase 3). 내 포스트 답글 100% 반응 = 최상위 레버.
+            포스트 발행 표시 시 시작. 내 포스트 답글 100% 반응 = 최상위 레버.
           </span>
         </div>
       </div>
