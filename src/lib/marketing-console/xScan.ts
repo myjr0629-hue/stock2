@@ -115,6 +115,36 @@ export async function scanTargets(handles: string[], max = 10): Promise<ScanTwee
   return out.sort((a, b) => (Number(b.canReply) - Number(a.canReply)) || (b.score - a.score));
 }
 
+/** Broad cashtag search across ALL accounts (not just our targets). */
+export async function searchTickers(cashtags: string[], max = 20): Promise<ScanTweet[]> {
+  if (!cashtags.length) return [];
+  const q = cashtags.map((c) => `$${c}`).join(' OR ');
+  const query = encodeURIComponent(`(${q}) -is:retweet -is:reply lang:en`);
+  const fields =
+    'tweet.fields=public_metrics,created_at,author_id,reply_settings&expansions=author_id&user.fields=username';
+  const data = await xGet<{
+    data?: Array<{ id: string; text: string; created_at: string; author_id: string; reply_settings?: string; public_metrics?: { like_count: number; reply_count: number; retweet_count: number; impression_count?: number } }>;
+    includes?: { users?: Array<{ id: string; username: string }> };
+  }>(`/2/tweets/search/recent?query=${query}&max_results=${Math.min(max, 100)}&${fields}`);
+  const users = new Map((data.includes?.users || []).map((u) => [u.id, u.username]));
+  const now = Date.now();
+  const out: ScanTweet[] = (data.data || []).map((t) => {
+    const pm = t.public_metrics || { like_count: 0, reply_count: 0, retweet_count: 0 };
+    const ageMin = (now - new Date(t.created_at).getTime()) / 60000;
+    const ticker = detectTicker(t.text);
+    const author = users.get(t.author_id) || t.author_id;
+    const replySettings = t.reply_settings || 'everyone';
+    return {
+      id: t.id, author, text: t.text, createdAt: t.created_at,
+      likes: pm.like_count, replies: pm.reply_count, retweets: pm.retweet_count,
+      impressions: pm.impression_count ?? 0, ticker,
+      score: scoreTweet(pm.like_count, pm.reply_count, ageMin, Boolean(ticker)),
+      url: `https://x.com/${author}/status/${t.id}`, replySettings, canReply: replySettings === 'everyone',
+    };
+  });
+  return out.sort((a, b) => b.score - a.score);
+}
+
 export interface Levels {
   price?: number;
   maxPain?: number;
