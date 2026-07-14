@@ -25,8 +25,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const all = await scanTargets(targets, 20);
-    // Filter: only tweets that mention a ticker we can ground + non-trivial reach.
-    const candidates = all.filter((t) => t.ticker && (t.likes + t.replies > 0 || t.impressions > 500));
+    // Filter: repliable (author allows replies) + mentions a ticker we can ground + non-trivial reach.
+    const candidates = all.filter(
+      (t) => t.canReply && t.ticker && (t.likes + t.replies > 0 || t.impressions > 500)
+    );
     const picks = candidates.slice(0, topN);
 
     // Auto-draft the picks (grounded). Drop ones we have no data for.

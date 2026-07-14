@@ -24,6 +24,8 @@ export interface ScanTweet {
   score: number;
   ticker: string | null;
   url: string;
+  replySettings: string; // 'everyone' | 'mentionedUsers' | 'following' | 'subscribers' | ...
+  canReply: boolean;     // true only when anyone can reply
 }
 
 function bearer(): string {
@@ -67,13 +69,14 @@ export async function scanTargets(handles: string[], max = 10): Promise<ScanTwee
   const from = handles.map((h) => `from:${h}`).join(' OR ');
   const query = encodeURIComponent(`(${from}) -is:retweet -is:reply`);
   const fields =
-    'tweet.fields=public_metrics,created_at,author_id&expansions=author_id&user.fields=username';
+    'tweet.fields=public_metrics,created_at,author_id,reply_settings&expansions=author_id&user.fields=username';
   const data = await xGet<{
     data?: Array<{
       id: string;
       text: string;
       created_at: string;
       author_id: string;
+      reply_settings?: string;
       public_metrics?: {
         like_count: number;
         reply_count: number;
@@ -91,6 +94,7 @@ export async function scanTargets(handles: string[], max = 10): Promise<ScanTwee
     const ageMin = (now - new Date(t.created_at).getTime()) / 60000;
     const ticker = detectTicker(t.text);
     const author = users.get(t.author_id) || t.author_id;
+    const replySettings = t.reply_settings || 'everyone';
     return {
       id: t.id,
       author,
@@ -103,9 +107,12 @@ export async function scanTargets(handles: string[], max = 10): Promise<ScanTwee
       ticker,
       score: scoreTweet(pm.like_count, pm.reply_count, ageMin, Boolean(ticker)),
       url: `https://x.com/${author}/status/${t.id}`,
+      replySettings,
+      canReply: replySettings === 'everyone',
     };
   });
-  return out.sort((a, b) => b.score - a.score);
+  // Repliable tweets first, then by score.
+  return out.sort((a, b) => (Number(b.canReply) - Number(a.canReply)) || (b.score - a.score));
 }
 
 export interface Levels {

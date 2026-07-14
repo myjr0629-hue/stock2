@@ -384,6 +384,7 @@ interface ScanTweet {
   id: string; author: string; text: string; createdAt: string;
   likes: number; replies: number; retweets: number; impressions: number;
   score: number; ticker: string | null; url: string;
+  replySettings?: string; canReply?: boolean;
 }
 
 function ago(iso: string): string {
@@ -593,6 +594,7 @@ function XOpsTab() {
                 <div className="mkc-draft-head">
                   <span className="mkc-ch xen">@{t.author}</span>
                   {t.ticker && <span className="mkc-pill g">${t.ticker}</span>}
+                  {t.canReply === false && <span className="mkc-pill r">답글 제한(작성자 설정)</span>}
                   <span className="mkc-draft-meta">글 나이 {ago(t.createdAt)} · ♥ {t.likes} · 💬 {t.replies} · 👁 {t.impressions.toLocaleString()}</span>
                 </div>
                 <div className="mkc-target-src" style={{ marginTop: 6 }}>{t.text}</div>
@@ -603,9 +605,9 @@ function XOpsTab() {
                   </div>
                 )}
                 <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
-                  <button className="mkc-btn-sm pri" onClick={() => publish(t)} disabled={!acctConnected || !d?.text || !!posted[t.id]}
-                    title={!acctConnected ? '먼저 계정 연결' : !d?.text ? '먼저 초안 생성' : `${ACCT_LABEL[acctKey]}로 게시`}>
-                    {posted[t.id] ? posted[t.id] : acctConnected ? `게시 (${ACCT_LABEL[acctKey]})` : '게시 (연결 필요)'}
+                  <button className="mkc-btn-sm pri" onClick={() => publish(t)} disabled={!acctConnected || !d?.text || !!posted[t.id] || t.canReply === false}
+                    title={t.canReply === false ? '작성자가 답글을 제한한 글 — 게시 불가' : !acctConnected ? '먼저 계정 연결' : !d?.text ? '먼저 초안 생성' : `${ACCT_LABEL[acctKey]}로 게시`}>
+                    {posted[t.id] ? posted[t.id] : t.canReply === false ? '답글 제한됨' : acctConnected ? `게시 (${ACCT_LABEL[acctKey]})` : '게시 (연결 필요)'}
                   </button>
                   <a className="mkc-btn-sm out" href={t.url} target="_blank" rel="noreferrer">원글 열기</a>
                   <button className="mkc-btn-sm sec" onClick={() => genDraft(t)} disabled={d?.loading}>{d?.loading ? '생성 중…' : d?.text ? '초안 재생성' : '초안 생성'}</button>
