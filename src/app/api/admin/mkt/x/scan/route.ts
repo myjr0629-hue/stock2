@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireMktAdmin } from '@/lib/marketing-console/mkt';
-import { scanTargets } from '@/lib/marketing-console/xApi';
-import { X_TARGETS, X_TARGETS_JP } from '@/lib/marketing-console/mkt';
+import { requireMktAdmin, X_TARGETS, X_TARGETS_JP } from '@/lib/marketing-console/mkt';
+import { scanTargets } from '@/lib/marketing-console/xScan';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 // Real scan of target accounts' recent posts (X app-only Bearer read).
 export async function GET(req: NextRequest) {

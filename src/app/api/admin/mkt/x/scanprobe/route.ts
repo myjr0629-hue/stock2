@@ -1,40 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { X_TARGETS } from '@/lib/marketing-console/mkt';
+import { scanTargets } from '@/lib/marketing-console/xScan';
 
-// TEMPORARY bisect probe — imports ONLY mkt (not xApi/bedrock). If this 502s,
-// the crash is in the mkt import chain (redis/supabase); if it works, xApi/bedrock. Delete after.
+// TEMPORARY probe — verifies the real scan route's import chain (xScan, no bedrock).
+// Delete after verifying.
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 export async function GET(req: NextRequest) {
   if (req.nextUrl.searchParams.get('probe') !== 'signum-xscan-2026') {
     return new NextResponse('Not found', { status: 404 });
   }
-  const token = process.env.X_BEARER_TOKEN;
-  if (!token) return NextResponse.json({ ok: false, error: 'no token' });
-
-  const handles = X_TARGETS.map((t) => t.handle);
-  const from = handles.map((h) => `from:${h}`).join(' OR ');
-  const q = encodeURIComponent(`(${from}) -is:retweet -is:reply`);
-  const fields =
-    'tweet.fields=public_metrics,created_at,author_id&expansions=author_id&user.fields=username';
   try {
-    const res = await fetch(
-      `https://api.x.com/2/tweets/search/recent?query=${q}&max_results=10&${fields}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: AbortSignal.timeout(9000) }
-    );
-    const status = res.status;
-    const json = (await res.json()) as {
-      data?: Array<{ id: string; text: string; author_id: string; public_metrics?: Record<string, number> }>;
-      includes?: { users?: Array<{ id: string; username: string }> };
-    };
-    const users = new Map((json.includes?.users || []).map((u) => [u.id, u.username]));
-    const sample = (json.data || []).slice(0, 3).map((t) => ({
-      author: users.get(t.author_id) || t.author_id,
-      likes: t.public_metrics?.like_count ?? 0,
-      text: t.text.slice(0, 70),
-    }));
-    return NextResponse.json({ ok: res.ok, status, count: json.data?.length ?? 0, sample });
+    const tweets = await scanTargets(X_TARGETS.map((t) => t.handle), 8);
+    return NextResponse.json({
+      ok: true,
+      count: tweets.length,
+      sample: tweets.slice(0, 3).map((t) => ({
+        author: t.author,
+        ticker: t.ticker,
+        score: t.score,
+        likes: t.likes,
+        impressions: t.impressions,
+        text: t.text.slice(0, 70),
+      })),
+    });
   } catch (e) {
-    return NextResponse.json({ ok: false, phase: 'threw', error: (e as Error).message });
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 502 });
   }
 }

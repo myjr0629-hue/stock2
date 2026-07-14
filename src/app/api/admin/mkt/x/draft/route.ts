@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMktAdmin } from '@/lib/marketing-console/mkt';
-import { draftReply, type ScanTweet } from '@/lib/marketing-console/xApi';
+import { draftReply } from '@/lib/marketing-console/xApi';
+import { type ScanTweet } from '@/lib/marketing-console/xScan';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Bedrock cold-start + inference (match deep-analysis)
 
 // Generate a grounded reply draft for one scanned tweet (Bedrock + our real levels).
 export async function POST(req: NextRequest) {
