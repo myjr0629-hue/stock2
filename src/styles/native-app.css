@@ -225,6 +225,17 @@ html.native-android .native-bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 8px) !important;
 }
 
+/* ── Android 상단 상태바 세이프에어리어 (2026-07-14 버그픽스) ──
+   targetSDK 36 = 엣지투엣지 강제 → WebView가 상태바 뒤까지 그림.
+   그런데 Android WebView는 env(safe-area-inset-top)을 0으로 보고(알려진 버그) →
+   메인 앱뷰 콘텐츠가 상태바에 물림. iOS는 웹뷰가 상태바 아래서 시작해 문제 없음.
+   온보딩(AppFirstRunOnboarding)은 이미 max(22px, env(top))로 처리돼 안 겹쳤고,
+   .app-viewport만 이 처리가 빠져 있었음 → 동일 패턴 적용.
+   env()가 언젠가 정상 보고하면 실값 사용(self-healing), 아니면 24px 바닥값. */
+html.native-android .app-viewport {
+  padding-top: max(env(safe-area-inset-top, 0px), 24px);
+}
+
 /* ---------------------------------------------------------------------------
    8. Native Touch Interactions
    --------------------------------------------------------------------------- */
