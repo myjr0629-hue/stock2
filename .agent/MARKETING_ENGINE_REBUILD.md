@@ -325,7 +325,19 @@
   - **⚠ 버그 교훈 (재발방지)**: ①`_`시작 폴더 = Next 라우팅 제외(404). ②bedrock(aws-sdk) import 라우트는
     **`export const maxDuration=60` 필수**(없으면 콜드스타트 타임아웃→플랫폼 502). 읽기 경로는 bedrock import 금지(분리).
   - **X 운용 탭 실배선**: 실시간 스캔·원글열기(실URL)·초안생성(grounded)·복사·US/JP 토글. **게시=OAuth 연결 후(순서1)**.
-- ⏭ 다음: **X OAuth 연결 페이지(순서1)** → 생성 탭 캡처·Bedrock(순서4) → Stocktwits/Reddit 발굴 → 성과·모니터링 실연결.
+- ✅ **Phase 2b = 생성 엔진** (커밋 `a0d43228b`). `generate.ts`(4채널 grounded + 린트) + `/api/admin/mkt/generate`(maxDuration=60).
+  생성 탭 실배선: 티커→실 옵션데이터 grounded 4채널 초안 + 실시간 린트칩 + og/level 카드 미리보기(실작동) + 복사 + 버퍼 적재.
+  실검증: NVDA 4채널 grounded(maxPain200·gammaFlip207.5·price203.25), 린트 전부 통과.
+- ✅ **Phase 2c = Buffer 적재** (같은 커밋). `/api/admin/mkt/buffer/push` — draft:true 불변, **볼륨캡 서버 강제(4번째 429)**, 감사 로그.
+- ✅ **Phase 3 = X OAuth 연결 + 답글 게시** (커밋 `64cd2294a`). `xOAuth.ts`(PKCE 기밀클라이언트·토큰 저장/갱신 Redis·postReply) +
+  `/api/admin/x-oauth/{start,callback}`(등록된 redirect URI와 일치) + `/api/admin/mkt/x/{status,post}`.
+  X 운용 탭: 실 연결상태 + [연결] 버튼(X 승인) + [게시](현재 lang 계정으로 답글, 미연결 시 비활성). 모든 게시 감사 기록, 자동 루프 부재.
+  ⏳ **사용자 액션 필요**: 콘솔 X운용 탭에서 @signumhq·@signumhq_jp [연결] 각 1회 → 게시 end-to-end 완성.
+- ✅ **모니터링 = 오늘 탭 실연결** (커밋 `f9a1a8da4`). `/api/admin/mkt/overview` — ET일 볼륨카운트·감사로그·연결상태. 실 KPI + 감사 로그 패널.
+- **전 라우트 게이트 실측**: API 미인증 401 · 페이지/oauth-start 404 · POST전용 405. 정상.
+- ⏭ 다음: Stocktwits 발굴 탭 · Reddit 발굴(app-only 등록 권장) · 성과 탭 실연결(`?from=` = /app 패치 승인 필요) · 자산(VERDICT·카드) · 캡처 파이프라인(EC2 워커 localStorage 패치) · 사건탐지 크론.
+
+**환경변수 (마케팅 콘솔):** `X_CLIENT_ID`·`X_CLIENT_SECRET`·`X_BEARER_TOKEN`(설정됨) · `MARKETING_ADMIN_EMAILS`(옵션, 없으면 `NEXT_PUBLIC_ADMIN_EMAILS` 폴백) · `NEXT_PUBLIC_SITE_URL`(옵션, 기본 signumhq.com) · Reddit 발굴 시 `REDDIT_CLIENT_ID`·`REDDIT_SECRET`(미설정). Buffer/Redis/Bedrock/EC2는 기존.
 
 > **핸드오프 규칙**: 이 절이 마케팅 자동화 실행 정본. 착수 전 pull → 위 순서 중 **안 된 것부터**. 완료분은
 > 이 표에 ✅+커밋해시로 갱신하고 push. 작업 무관 파일(lambda·android·package-lock)은 커밋 금지(§43.5).
