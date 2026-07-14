@@ -450,13 +450,16 @@ function XOpsTab() {
     try {
       const r = await fetch('/api/admin/mkt/x/post', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acct: acctKey, replyToId: t.id, text }),
+        body: JSON.stringify({ acct: acctKey, replyToId: t.id, text, author: t.author }),
       });
       const raw = await r.text();
-      let j: { ok?: boolean; error?: string } | null = null;
+      let j: { ok?: boolean; error?: string; restricted?: boolean } | null = null;
       try { j = JSON.parse(raw); } catch { /* non-JSON (platform error) */ }
       if (j?.ok) setPosted((p) => ({ ...p, [t.id]: '게시됨 ✓' }));
-      else setPosted((p) => ({ ...p, [t.id]: `실패(${r.status}): ${j?.error || raw.slice(0, 100) || '응답 없음'}` }));
+      else if (j?.restricted) {
+        setPosted((p) => ({ ...p, [t.id]: `@${t.author} 답글 제한 — 추천에서 제외됨` }));
+        recommend(); // refresh queue; the learned author drops out
+      } else setPosted((p) => ({ ...p, [t.id]: `실패(${r.status}): ${j?.error || raw.slice(0, 100) || '응답 없음'}` }));
     } catch (e) { setPosted((p) => ({ ...p, [t.id]: `게시 실패: ${(e as Error).message}` })); }
   };
 

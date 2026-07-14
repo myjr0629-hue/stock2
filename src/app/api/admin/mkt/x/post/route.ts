@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireMktAdmin, appendAudit } from '@/lib/marketing-console/mkt';
+import { requireMktAdmin, appendAudit, isReplyRestrictedError, markRestrictedAuthor } from '@/lib/marketing-console/mkt';
 import { postReply, type Acct } from '@/lib/marketing-console/xOAuth';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const gate = await requireMktAdmin();
     if ('error' in gate) return gate.error;
 
-    let body: { acct?: string; replyToId?: string; text?: string };
+    let body: { acct?: string; replyToId?: string; text?: string; author?: string };
     try {
       body = await req.json();
     } catch {
@@ -30,7 +30,10 @@ export async function POST(req: NextRequest) {
 
     const result = await postReply(acct, body.replyToId, text);
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: 200 });
+      // Learn: if the author restricts replies, remember them so they drop out of recommendations.
+      const restricted = isReplyRestrictedError(result.error);
+      if (restricted && body.author) await markRestrictedAuthor(body.author);
+      return NextResponse.json({ ok: false, error: result.error, restricted }, { status: 200 });
     }
     // Audit is best-effort; never let it delay/fail the response.
     try { await appendAudit(gate.admin.email, 'x-reply-posted', `${acct} → ${body.replyToId}`); } catch { /* ignore */ }

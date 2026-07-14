@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireMktAdmin, X_TARGETS, X_TARGETS_JP, marketSession } from '@/lib/marketing-console/mkt';
+import { requireMktAdmin, X_TARGETS, X_TARGETS_JP, marketSession, getRestrictedAuthors } from '@/lib/marketing-console/mkt';
 import { scanTargets, type ScanTweet } from '@/lib/marketing-console/xScan';
 import { draftReply } from '@/lib/marketing-console/xApi';
 
@@ -24,10 +24,12 @@ export async function POST(req: NextRequest) {
   const targets = (lang === 'ja' ? X_TARGETS_JP : X_TARGETS).map((t) => t.handle);
 
   try {
-    const all = await scanTargets(targets, 20);
-    // Filter: repliable (author allows replies) + mentions a ticker we can ground + non-trivial reach.
+    const [all, restricted] = await Promise.all([scanTargets(targets, 20), getRestrictedAuthors()]);
+    // Filter: exclude authors known to reject our replies (learned from real failures)
+    // + mentions a ticker we can ground + non-trivial reach. (reply_settings is
+    // unreliable from search, so failure-learning is the real gate.)
     const candidates = all.filter(
-      (t) => t.canReply && t.ticker && (t.likes + t.replies > 0 || t.impressions > 500)
+      (t) => !restricted.has(t.author.toLowerCase()) && t.ticker && (t.likes + t.replies > 0 || t.impressions > 500)
     );
     const picks = candidates.slice(0, topN);
 

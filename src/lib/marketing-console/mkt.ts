@@ -114,6 +114,32 @@ export async function bumpVolume(channel: string): Promise<{ ok: boolean; count:
   return { ok: true, count: next };
 }
 
+// ---- Reply-restriction learning -------------------------------------------
+// reply_settings from the search API is unreliable (reports "everyone" for
+// tweets that still reject our reply). The only reliable signal is a real
+// failure, so we remember authors whose replies were rejected and exclude them.
+const RESTRICTED_KEY = 'mkt:x:restricted-authors';
+
+export function isReplyRestrictedError(msg: string | undefined): boolean {
+  if (!msg) return false;
+  return /not allowed|not been mentioned|not engaged|cannot reply|reply.*restricted/i.test(msg);
+}
+
+export async function markRestrictedAuthor(author: string): Promise<void> {
+  if (!author) return;
+  const a = author.toLowerCase().replace(/^@/, '');
+  const set = (await getFromCache<string[]>(RESTRICTED_KEY)) || [];
+  if (!set.includes(a)) {
+    set.push(a);
+    await setInCache(RESTRICTED_KEY, set.slice(-500), 60 * 60 * 24); // 24h, re-checks daily
+  }
+}
+
+export async function getRestrictedAuthors(): Promise<Set<string>> {
+  const set = (await getFromCache<string[]>(RESTRICTED_KEY)) || [];
+  return new Set(set.map((a) => a.toLowerCase().replace(/^@/, '')));
+}
+
 // ---- Audit log (append-only, capped) --------------------------------------
 export interface AuditEntry {
   at: number;
