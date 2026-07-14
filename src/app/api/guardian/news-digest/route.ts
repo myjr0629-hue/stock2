@@ -15,7 +15,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 
-const REDIS_KEY = 'guardian:news:digest';
+const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 const REDIS_TTL = 20 * 60; // 20 min (buffer over 15 min cron interval)
 const BATCH_SIZE = 5;       // AI processes 5 items per call (~25s, safe within timeout)
 const DISPLAY_SIZE = 10;    // UI shows 10 items total (accumulated from 2 batches)
@@ -224,7 +224,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             modelId: MODELS.HAIKU_35,
             system: SYSTEM_PROMPT,
             userPrompt,
-            maxTokens: 4096,   // 5 items × 3 langs ≈ 3K tokens — safe within 4096
+            maxTokens: 8192,   // 5 items × 3 langs × (summary+analysis); KR/JP are token-heavy → 4096 truncated → parse failed → English fallback
             temperature: 0.3,
             timeoutMs: 45000,  // 45s — plenty for 5 items
             jsonPrefill: false,
@@ -232,12 +232,26 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             label: 'NewsDigest-Batch5',
         });
 
-        let json = bedrockResult.text;
-        if (!json.startsWith('[')) json = '[' + json;
-        json = json.replace(/```json/g, '').replace(/```/g, '').trim();
-        if (!json || json === '[') throw new Error('Empty Claude response');
-
-        const parsed = JSON.parse(json) as any[];
+        // [FIX 2026-07-14] Robust extraction. The old parser prepended '[' whenever the text
+        // didn't start with '[', which corrupted any response with a preamble ("Here is the
+        // array: [...]") → JSON.parse threw → the catch below silently wrote ENGLISH into
+        // summaryKR/JP for the whole batch, and that English got cached/accumulated (why the
+        // News Pulse showed English in Korean/Japanese). Also 4096 tokens truncated big KR/JP
+        // batches → same failure. Now: strip fences, slice from the first '[', and if the array
+        // is truncated recover up to the last complete object instead of failing the batch.
+        let json = bedrockResult.text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const start = json.indexOf('[');
+        if (start < 0) throw new Error('No JSON array in Claude response');
+        json = json.slice(start);
+        let parsed: any[];
+        try {
+            parsed = JSON.parse(json) as any[];
+        } catch {
+            const lastObj = json.lastIndexOf('}');
+            if (lastObj < 0) throw new Error('Unparseable Claude response');
+            parsed = JSON.parse(json.slice(0, lastObj + 1) + ']') as any[];
+        }
+        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty Claude response');
         console.log(`[NewsDigest] Claude: ${parsed.length} items in ${Date.now() - t0}ms (model: ${bedrockResult.model})`);
 
         return parsed.map((item, i) => {
