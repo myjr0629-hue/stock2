@@ -297,6 +297,18 @@ function GenerateTab() {
     } catch { setPushMsg((m) => ({ ...m, [d.channel]: '적재 실패' })); }
   };
 
+  const pushBsky = async (d: GenDraft) => {
+    setPushMsg((m) => ({ ...m, [`bsky_${d.channel}`]: 'Bluesky 발행 중…' }));
+    try {
+      const r = await fetch('/api/admin/mkt/bluesky/post', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: d.text }),
+      });
+      const j = await r.json();
+      setPushMsg((m) => ({ ...m, [`bsky_${d.channel}`]: j.ok ? `Bluesky 발행됨 ✓ (${j.count}/${j.cap})` : `실패: ${j.error}` }));
+    } catch { setPushMsg((m) => ({ ...m, [`bsky_${d.channel}`]: 'Bluesky 발행 실패' })); }
+  };
+
   return (
     <>
       {/* 입력 */}
@@ -376,8 +388,12 @@ function GenerateTab() {
                   {(d.channel === 'x_en' || d.channel === 'x_ja') && (
                     <button className="mkc-btn-sm out" onClick={() => push(d)} disabled={!d.text || !d.lint.pass} title={!d.lint.pass ? '린트 통과해야 적재 가능' : ''}>버퍼 초안 적재</button>
                   )}
+                  {d.channel === 'x_en' && (
+                    <button className="mkc-btn-sm sec" onClick={() => pushBsky(d)} disabled={!d.text || !d.lint.pass} title="Bluesky는 즉시 라이브 발행 (제약 없음)">Bluesky 발행 (라이브)</button>
+                  )}
                 </div>
                 {pushMsg[d.channel] && <div className="mkc-muted" style={{ fontSize: 11.5 }}>{pushMsg[d.channel]}</div>}
+                {pushMsg[`bsky_${d.channel}`] && <div className="mkc-muted" style={{ fontSize: 11.5, color: 'var(--mkc-green-deep)' }}>{pushMsg[`bsky_${d.channel}`]}</div>}
               </div>
             ))}
           </div>
@@ -880,9 +896,11 @@ function MetricsTab() {
 /* ===================== ⑥ 자산 (실 상태 + 라이브 카드) ===================== */
 function AssetsTab() {
   const [conn, setConn] = useState<XConn | null>(null);
+  const [bsky, setBsky] = useState<{ connected: boolean; handle?: string } | null>(null);
   const [cardTicker, setCardTicker] = useState('NVDA');
   useEffect(() => {
     fetch('/api/admin/mkt/x/status', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.ok) setConn({ en: j.en, jp: j.jp }); }).catch(() => {});
+    fetch('/api/admin/mkt/bluesky/status', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.ok) setBsky({ connected: j.connected, handle: j.handle }); }).catch(() => {});
   }, []);
 
   return (
@@ -918,6 +936,7 @@ function AssetsTab() {
           <div className="mkc-panel-title" style={{ fontSize: 13 }}>계정 상태 (실측)</div>
           <div className="mkc-row"><span className="grow"><span className={`mkc-dot ${conn?.en.connected ? 'on' : 'off'}`} /> @signumhq{conn?.en.username ? ` · @${conn.en.username}` : ''}</span><span className={`mkc-pill ${conn?.en.connected ? 'g' : 'n'}`}>{conn?.en.connected ? 'API 연결됨' : '연결 대기'}</span></div>
           <div className="mkc-row"><span className="grow"><span className={`mkc-dot ${conn?.jp.connected ? 'on' : 'off'}`} /> @signumhq_jp{conn?.jp.username ? ` · @${conn.jp.username}` : ''}</span><span className={`mkc-pill ${conn?.jp.connected ? 'g' : 'n'}`}>{conn?.jp.connected ? 'API 연결됨' : '연결 대기'}</span></div>
+          <div className="mkc-row"><span className="grow"><span className={`mkc-dot ${bsky?.connected ? 'on' : 'off'}`} /> Bluesky{bsky?.handle ? ` · ${bsky.handle}` : ''}</span><span className={`mkc-pill ${bsky?.connected ? 'g' : 'n'}`}>{bsky?.connected ? '자동발행 준비' : '연결 대기'}</span></div>
           <div className="mkc-row"><span className="grow">Premium+ 다운그레이드 리마인더</span><span className="mkc-pill a">8/13 (PC 예약)</span></div>
         </div>
       </div>
