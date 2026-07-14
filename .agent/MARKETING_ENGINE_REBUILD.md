@@ -335,7 +335,15 @@
   ⏳ **사용자 액션 필요**: 콘솔 X운용 탭에서 @signumhq·@signumhq_jp [연결] 각 1회 → 게시 end-to-end 완성.
 - ✅ **모니터링 = 오늘 탭 실연결** (커밋 `f9a1a8da4`). `/api/admin/mkt/overview` — ET일 볼륨카운트·감사로그·연결상태. 실 KPI + 감사 로그 패널.
 - **전 라우트 게이트 실측**: API 미인증 401 · 페이지/oauth-start 404 · POST전용 405. 정상.
-- ⏭ 다음: Stocktwits 발굴 탭 · Reddit 발굴(app-only 등록 권장) · 성과 탭 실연결(`?from=` = /app 패치 승인 필요) · 자산(VERDICT·카드) · 캡처 파이프라인(EC2 워커 localStorage 패치) · 사건탐지 크론.
+- ✅ **Phase 4 = 자동 선별 지능** (커밋 `68f98728e`). `marketSession()`(게시 적기) + `/x/recommend`(스캔→필터→상위3 자동초안) +
+  `/generate/suggest`(괴리 큰 종목 자동추천, 실측 AAPL 8.1%) + `/x/inbox`(멘션 수집). X운용 추천큐+인박스, 생성 자동종목추천.
+- ✅ **Phase 5 = 레딧·성과·자산 배선** (커밋 `c1664fad8`). 6탭 전부 실 데이터:
+  - 레딧: `reddit.ts`+`/reddit/scan` — app-only OAuth 실스캔(키+승인 시) / 없으면 온디맨드(세션 insane-search) 안내. ⚠️Reddit Data API는 2026 **수동 승인 게이트**(Responsible Builder Policy) — 승인 마찰로 콘솔 자동화 보류, 온디맨드 우선.
+  - 성과: `/metrics` — 주간 콜드스타트 지표 실저장/조회(Redis) + `?from=` 히트 + 자동진단 매트릭스 칩.
+  - 자산: og/level 카드 라이브 미리보기 + X 계정 연결상태 실측.
+- **6탭 상태**: 오늘🟢·생성🟢(자동추천)·X운용🟢(추천큐+게시+인박스)·레딧🟡(온디맨드/승인시자동)·성과🟢(수동입력+자동진단)·자산🟢(라이브카드+계정).
+- ⏭ 남은 것: `?from=` 유입 자동화(=`src/app/app/route.ts` 3줄 패치, **웹 파일이라 사용자 승인 필요**) · 캡처 파이프라인(EC2 워커 localStorage 패치) · VERDICT 채점 파이프라인(데이터소스) · 사건탐지 크론(자동 큐적재).
+- **X OAuth 연결 완료(실측)**: en=@signumhq·jp=@signumhq_jp 둘 다 connected. 게시 활성.
 
 **환경변수 (마케팅 콘솔):** `X_CLIENT_ID`·`X_CLIENT_SECRET`·`X_BEARER_TOKEN`(설정됨) · `MARKETING_ADMIN_EMAILS`(옵션, 없으면 `NEXT_PUBLIC_ADMIN_EMAILS` 폴백) · `NEXT_PUBLIC_SITE_URL`(옵션, 기본 signumhq.com) · Reddit 발굴 시 `REDDIT_CLIENT_ID`·`REDDIT_SECRET`(미설정). Buffer/Redis/Bedrock/EC2는 기존.
 
