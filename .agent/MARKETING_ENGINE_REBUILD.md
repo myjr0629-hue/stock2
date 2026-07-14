@@ -346,7 +346,8 @@
   - 성과: `/metrics` — 주간 콜드스타트 지표 실저장/조회(Redis) + `?from=` 히트 + 자동진단 매트릭스 칩.
   - 자산: og/level 카드 라이브 미리보기 + X 계정 연결상태 실측.
 - **6탭 상태**: 오늘🟢·생성🟢(자동추천)·X운용🟢(추천큐+게시+인박스)·레딧🟡(온디맨드/승인시자동)·성과🟢(수동입력+자동진단)·자산🟢(라이브카드+계정).
-- ⏭ 남은 것: `?from=` 유입 자동화(=`src/app/app/route.ts` 3줄 패치, **웹 파일이라 사용자 승인 필요**) · 캡처 파이프라인(EC2 워커 localStorage 패치) · VERDICT 채점 파이프라인(데이터소스) · 사건탐지 크론(자동 큐적재).
+- ✅ **`?from=` 유입 자동화 완료** (Mac, 커밋 아래): `src/app/app/route.ts`가 `after()`로 `mkt:attr:hit:<from>:<etDate>` 카운트(리다이렉트 지연 0, 태그 새니타이즈 `[a-z0-9_]{1,24}`, 45일 TTL, best-effort). metrics탭 CHANNELS는 5개(x_bio/x_reply/toss/stocktwits/reddit)만 표시하나 **패치는 모든 from 값 기록** — 콘텐츠태그(morning/pulse/… )도 보려면 metrics CHANNELS만 확장하면 됨.
+- ⏭ 남은 것: 캡처 파이프라인(EC2 워커 localStorage 패치) · VERDICT 채점 파이프라인(데이터소스) · 사건탐지 크론(자동 큐적재).
 - **X OAuth 연결 완료(실측)**: en=@signumhq·jp=@signumhq_jp 둘 다 connected.
 - 🔴 **[치명적·문서확정] X가 2026 API 프로그래매틱 답글을 전면 차단** (출처: @XDevelopers 공식 발표
   `x.com/XDevelopers/status/2026084506822730185` + devcommunity). "자동 답글 스팸 방지 — POST /2/tweets

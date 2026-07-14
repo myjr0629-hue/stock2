@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
-// Measurement: every hit is logged by Vercel with its ?from=<channel> tag intact.
+// Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
+// key the marketing-console metrics tab reads) via after(), so the store redirect stays
+// instant and Redis latency/outages can never delay or break it.
 // Middleware matcher excludes `app$` so this route is never locale-rewritten by next-intl.
 
 const APP_STORE_URL =
@@ -10,8 +13,37 @@ const APP_STORE_URL =
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.signumhq.app';
 
+// ET market-day key component — MUST stay identical to mkt.ts etDate() / K.attrHit()
+// so the metrics tab reads the same keys we write here. Replicated (not imported) to keep
+// this public redirect route free of the admin-auth module mkt.ts pulls in.
+function etDate(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+// Attribution is best-effort: the `from` tag is bounded (no arbitrary key-space growth),
+// the write is TTL'd, and any failure is swallowed so measurement never affects the redirect.
+async function recordHit(fromRaw: string | null): Promise<void> {
+  const from = (fromRaw || '').toLowerCase();
+  if (!/^[a-z0-9_]{1,24}$/.test(from)) return; // ignore missing / malformed tags
+  try {
+    const key = `mkt:attr:hit:${from}:${etDate()}`;
+    const current = (await getFromCache<number>(key)) || 0;
+    await setInCache(key, current + 1, 60 * 60 * 24 * 45); // 45-day TTL auto-cleans old daily keys
+  } catch {
+    /* swallow — a metrics write must never break the store redirect */
+  }
+}
+
 export function GET(request: NextRequest) {
   const ua = request.headers.get('user-agent') || '';
+
+  // Count the hit AFTER the response is sent (zero added latency to the redirect).
+  after(() => recordHit(request.nextUrl.searchParams.get('from')));
 
   if (/android/i.test(ua)) {
     return NextResponse.redirect(PLAY_STORE_URL, 302);
