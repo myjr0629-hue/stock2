@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
+import { publicBase } from '@/lib/net/publicBase';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 const REDIS_TTL = 20 * 60; // 20 min (buffer over 15 min cron interval)
@@ -319,7 +320,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Step 2: Fetch fresh articles from BOTH sources
-    const baseUrl = req.url.split('/api/')[0];
+    const baseUrl = publicBase(req.url.split('/api/')[0]); // self-call must hit public domain, not the protected cron origin
     const t0 = Date.now();
     const [polygonArticles, fmpArticles, macroContext] = await Promise.all([
         fetchMarketNews(30),
