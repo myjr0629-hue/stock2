@@ -212,23 +212,47 @@ export async function diagnoseWrite(acct: Acct): Promise<Record<string, unknown>
   }
 
   const id = postBody?.data?.id;
-  let deleted = false;
+
+  // Now test the REPLY shape (what the console actually does) by replying to A.
+  let replyStatus = 0;
+  let replyBody: typeof postBody = null;
+  let replyId: string | undefined;
   if (id) {
     try {
-      const del = await fetch(`https://api.x.com/2/tweets/${id}`, {
+      const rr = await fetch('https://api.x.com/2/tweets', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `↩︎ ${Date.now().toString(36)}`, reply: { in_reply_to_tweet_id: id } }),
+        signal: AbortSignal.timeout(12000),
+      });
+      replyStatus = rr.status;
+      replyBody = await rr.json().catch(() => null);
+      replyId = replyBody?.data?.id;
+    } catch (e) {
+      replyBody = { detail: (e as Error).message };
+    }
+  }
+
+  // Cleanup both.
+  const strays: string[] = [];
+  for (const tid of [replyId, id]) {
+    if (!tid) continue;
+    try {
+      const del = await fetch(`https://api.x.com/2/tweets/${tid}`, {
         method: 'DELETE', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000),
       });
-      deleted = del.ok;
-    } catch { /* leave note in result */ }
+      if (!del.ok) strays.push(tid);
+    } catch { strays.push(tid); }
   }
+
   return {
     stage: 'done',
-    ok: postStatus === 200 || postStatus === 201,
-    postStatus,
-    error: postBody?.detail || postBody?.title || postBody?.errors?.[0]?.message || null,
-    posted: Boolean(id),
-    deleted,
-    strayId: id && !deleted ? id : null,
+    standaloneStatus: postStatus,
+    standaloneError: postBody?.detail || postBody?.title || null,
+    replyStatus,
+    replyError: replyBody?.detail || replyBody?.title || replyBody?.errors?.[0]?.message || null,
+    replyWorks: replyStatus === 200 || replyStatus === 201,
+    strays,
   };
 }
 
