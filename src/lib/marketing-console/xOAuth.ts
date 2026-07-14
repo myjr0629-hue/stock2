@@ -143,6 +143,52 @@ async function validAccessToken(acct: Acct): Promise<string | null> {
   return stored.access_token;
 }
 
+// ---- Inbox: replies/mentions to our own posts -----------------------------
+export interface InboxItem {
+  id: string;
+  text: string;
+  authorId: string;
+  author: string;
+  createdAt: string;
+  url: string;
+}
+
+export async function fetchInbox(acct: Acct): Promise<{ ok: boolean; items?: InboxItem[]; error?: string }> {
+  const token = await validAccessToken(acct);
+  if (!token) return { ok: false, error: '계정 미연결' };
+  try {
+    const me = await fetch('https://api.x.com/2/users/me', {
+      headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000),
+    });
+    if (!me.ok) return { ok: false, error: `users/me ${me.status}` };
+    const meJson = (await me.json()) as { data?: { id: string } };
+    const uid = meJson.data?.id;
+    if (!uid) return { ok: false, error: 'user id 없음' };
+
+    const url =
+      `https://api.x.com/2/users/${uid}/mentions?max_results=20` +
+      `&tweet.fields=created_at,author_id&expansions=author_id&user.fields=username`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(9000) });
+    if (!res.ok) return { ok: false, error: `mentions ${res.status}` };
+    const j = (await res.json()) as {
+      data?: Array<{ id: string; text: string; author_id: string; created_at: string }>;
+      includes?: { users?: Array<{ id: string; username: string }> };
+    };
+    const users = new Map((j.includes?.users || []).map((u) => [u.id, u.username]));
+    const items: InboxItem[] = (j.data || []).map((t) => ({
+      id: t.id,
+      text: t.text,
+      authorId: t.author_id,
+      author: users.get(t.author_id) || t.author_id,
+      createdAt: t.created_at,
+      url: `https://x.com/${users.get(t.author_id) || 'i'}/status/${t.id}`,
+    }));
+    return { ok: true, items };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 // ---- Post a reply ---------------------------------------------------------
 export async function postReply(
   acct: Acct,

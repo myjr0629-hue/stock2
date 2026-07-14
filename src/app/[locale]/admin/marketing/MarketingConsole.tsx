@@ -222,6 +222,20 @@ function GenerateTab() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [pushMsg, setPushMsg] = useState<Record<string, string>>({});
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestion, setSuggestion] = useState<{ best: { ticker: string; reason: string } | null; ranked: { ticker: string; reason: string; notability: number }[]; session: MktSession } | null>(null);
+
+  const suggest = async () => {
+    setSuggesting(true);
+    try {
+      const r = await fetch('/api/admin/mkt/generate/suggest', { cache: 'no-store' });
+      const j = await r.json();
+      if (j.ok) {
+        setSuggestion({ best: j.best, ranked: j.ranked || [], session: j.session });
+        if (j.best?.ticker) setTicker(j.best.ticker);
+      }
+    } catch { /* noop */ } finally { setSuggesting(false); }
+  };
 
   const run = async () => {
     setLoading(true); setError(null); setGen(null); setPushMsg({});
@@ -256,7 +270,24 @@ function GenerateTab() {
   return (
     <>
       {/* 입력 */}
-      <div className="mkc-section"><h2>1. 소스 입력</h2><span className="mkc-section-note">티커 → 우리 실 옵션데이터로 grounded</span></div>
+      <div className="mkc-section">
+        <h2>1. 소스 입력</h2><span className="mkc-section-note">티커 → 우리 실 옵션데이터로 grounded</span>
+        <span className="mkc-section-right" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {suggestion?.session && <span className={`mkc-pill ${suggestion.session.goodToPost ? 'g' : 'a'}`} title={suggestion.session.note}>{suggestion.session.label}</span>}
+          <button className="mkc-btn-sm pri" onClick={suggest} disabled={suggesting}>{suggesting ? '분석 중…' : '🎯 지금 최적 종목 추천'}</button>
+        </span>
+      </div>
+      {suggestion?.best && (
+        <div className="mkc-card-box" style={{ marginBottom: 12 }}>
+          <div className="mkc-panel-title" style={{ fontSize: 13 }}>추천: <span style={{ color: 'var(--mkc-green-deep)' }}>${suggestion.best.ticker}</span> <span className="mkc-muted" style={{ fontWeight: 400 }}>— {suggestion.best.reason}</span></div>
+          <div className="mkc-lints" style={{ marginTop: 8 }}>
+            {suggestion.ranked.map((r) => (
+              <span key={r.ticker} className={`mkc-pill ${r.ticker === suggestion.best?.ticker ? 'g' : 'n'}`} style={{ cursor: 'pointer' }} onClick={() => setTicker(r.ticker)} title={r.reason}>${r.ticker} · {r.reason}</span>
+            ))}
+          </div>
+          <div className="mkc-muted" style={{ fontSize: 11.5, marginTop: 6 }}>괴리 큰 종목일수록 "차트가 안 보여주는" 훅이 강함. 클릭하면 티커에 반영.</div>
+        </div>
+      )}
       <div className="mkc-card-box">
         <div className="mkc-inline">
           <div className="mkc-field" style={{ margin: 0 }}>
@@ -365,6 +396,9 @@ function ago(iso: string): string {
 
 interface XConn { en: { connected: boolean; username?: string }; jp: { connected: boolean; username?: string } }
 const ACCT_LABEL: Record<'en' | 'jp', string> = { en: '@signumhq', jp: '@signumhq_jp' };
+interface MktSession { session: string; label: string; goodToPost: boolean; note: string }
+interface RecItem extends ScanTweet { draft: string; grounded: boolean }
+interface InboxItem { id: string; text: string; author: string; createdAt: string; url: string }
 
 function XOpsTab() {
   const [lang, setLang] = useState<'en' | 'ja'>('en');
@@ -375,6 +409,12 @@ function XOpsTab() {
   const [copied, setCopied] = useState<string | null>(null);
   const [conn, setConn] = useState<XConn | null>(null);
   const [posted, setPosted] = useState<Record<string, string>>({});
+  const [rec, setRec] = useState<{ recommended: RecItem[]; session: MktSession; scannedCount: number } | null>(null);
+  const [recLoading, setRecLoading] = useState(false);
+  const [inbox, setInbox] = useState<InboxItem[] | null>(null);
+
+  const acctKey = lang === 'ja' ? 'jp' : 'en';
+  const acctConnected = conn ? conn[acctKey].connected : false;
 
   useEffect(() => {
     fetch('/api/admin/mkt/x/status', { cache: 'no-store' })
@@ -383,21 +423,44 @@ function XOpsTab() {
       .catch(() => {});
   }, []);
 
-  const acctKey = lang === 'ja' ? 'jp' : 'en';
-  const acctConnected = conn ? conn[acctKey].connected : false;
+  const recommend = useCallback(async () => {
+    setRecLoading(true);
+    try {
+      const r = await fetch('/api/admin/mkt/x/recommend', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang, top: 3 }),
+      });
+      const j = await r.json();
+      if (j.ok) setRec({ recommended: j.recommended || [], session: j.session, scannedCount: j.scannedCount });
+    } catch { /* noop */ } finally { setRecLoading(false); }
+  }, [lang]);
 
-  const publish = async (t: ScanTweet) => {
-    const d = drafts[t.id];
-    if (!d?.text) return;
+  useEffect(() => { recommend(); }, [recommend]);
+
+  useEffect(() => {
+    if (!acctConnected) { setInbox(null); return; }
+    fetch(`/api/admin/mkt/x/inbox?acct=${acctKey}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => { if (j.ok) setInbox(j.items || []); })
+      .catch(() => {});
+  }, [acctKey, acctConnected]);
+
+  const publishText = async (t: ScanTweet, text: string) => {
     setPosted((p) => ({ ...p, [t.id]: '게시 중…' }));
     try {
       const r = await fetch('/api/admin/mkt/x/post', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acct: acctKey, replyToId: t.id, text: d.text }),
+        body: JSON.stringify({ acct: acctKey, replyToId: t.id, text }),
       });
       const j = await r.json();
       setPosted((p) => ({ ...p, [t.id]: j.ok ? '게시됨 ✓' : `실패: ${j.error}` }));
     } catch { setPosted((p) => ({ ...p, [t.id]: '게시 실패' })); }
+  };
+
+  const publish = async (t: ScanTweet) => {
+    const d = drafts[t.id];
+    if (!d?.text) return;
+    await publishText(t, d.text);
   };
 
   const scan = useCallback(async () => {
@@ -462,10 +525,52 @@ function XOpsTab() {
         </div>
       </div>
 
-      {/* 답글 타깃 */}
+      {/* ★ 추천 큐 (자동 선별 + 자동 초안) */}
       <div className="mkc-section">
-        <h2>답글 타깃 리스트</h2>
-        <span className="mkc-section-note">타깃 계정 최신글 실시간 스캔 → 효과 스코어링. 초안은 우리 실데이터 grounded</span>
+        <h2>🎯 지금 답글 추천</h2>
+        <span className="mkc-section-note">효과·시점·우리데이터로 자동 선별 + 초안까지 자동 — 사람은 검토·게시만</span>
+        <span className="mkc-section-right" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {rec?.session && (
+            <span className={`mkc-pill ${rec.session.goodToPost ? 'g' : 'a'}`} title={rec.session.note}>
+              {rec.session.goodToPost ? '게시 적기' : '대기'} · {rec.session.label}
+            </span>
+          )}
+          <button className="mkc-btn-sm out" onClick={recommend} disabled={recLoading}>{recLoading ? '선별 중…' : '재선별'}</button>
+        </span>
+      </div>
+      <div className="mkc-card-box">
+        {recLoading && (!rec || rec.recommended.length === 0) && <div className="mkc-todo">타깃 스캔 → 효과 선별 → 초안 자동 생성 중…</div>}
+        {rec && rec.recommended.length === 0 && !recLoading && (
+          <div className="mkc-todo">지금 답글할 만한 글이 없습니다 (스캔 {rec.scannedCount}건 중 우리 데이터로 grounding 가능한 고효과 글 0). 잠시 후 재선별.</div>
+        )}
+        {rec?.recommended.map((t, i) => (
+          <div className="mkc-target" key={t.id} style={{ background: i === 0 ? 'var(--mkc-green-soft)' : undefined, borderRadius: 10, padding: i === 0 ? 12 : undefined, marginBottom: i === 0 ? 6 : 0 }}>
+            <div className="mkc-target-main">
+              <div className="mkc-draft-head">
+                {i === 0 && <span className="mkc-pill g">최우선</span>}
+                <span className="mkc-ch xen">@{t.author}</span>
+                {t.ticker && <span className="mkc-pill g">${t.ticker}</span>}
+                <span className="mkc-draft-meta">효과 {t.score} · ♥ {t.likes} · 👁 {t.impressions.toLocaleString()} · {ago(t.createdAt)}</span>
+              </div>
+              <div className="mkc-target-src" style={{ marginTop: 6 }}>{t.text}</div>
+              <div className="mkc-target-draft">답글 초안 <span className="mkc-pill g" style={{ marginLeft: 4 }}>실데이터 grounded</span><div style={{ marginTop: 4 }}>{t.draft}</div></div>
+              <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
+                <button className="mkc-btn-sm pri" onClick={() => publishText(t, t.draft)} disabled={!acctConnected || !!posted[t.id]}
+                  title={!acctConnected ? '먼저 계정 연결' : `${ACCT_LABEL[acctKey]}로 게시`}>
+                  {posted[t.id] ? posted[t.id] : acctConnected ? `게시 (${ACCT_LABEL[acctKey]})` : '게시 (연결 필요)'}
+                </button>
+                <a className="mkc-btn-sm out" href={t.url} target="_blank" rel="noreferrer">원글 열기</a>
+                <button className="mkc-btn-sm sec" onClick={() => copy(t.id, t.draft)}>{copied === t.id ? '복사됨 ✓' : '초안 복사'}</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 답글 타깃 (전체 스캔) */}
+      <div className="mkc-section">
+        <h2>답글 타깃 리스트 (전체)</h2>
+        <span className="mkc-section-note">타깃 계정 최신글 실시간 스캔 → 효과 스코어링. 추천 외 글 수동 검토용</span>
         <span className="mkc-section-right" style={{ display: 'flex', gap: 8 }}>
           <button className={`mkc-btn-sm ${lang === 'en' ? 'pri' : 'sec'}`} onClick={() => setLang('en')}>US 타깃</button>
           <button className={`mkc-btn-sm ${lang === 'ja' ? 'pri' : 'sec'}`} onClick={() => setLang('ja')}>JP 타깃</button>
@@ -511,13 +616,18 @@ function XOpsTab() {
         })}
       </div>
 
-      {/* 내 포스트 인박스 */}
-      <div className="mkc-section"><h2>내 포스트 답글 인박스</h2><span className="mkc-section-note">전원 반응 = 작성자 반응 최상위 레버 (60분 상주 폐지)</span></div>
+      {/* 내 포스트 인박스 (실 데이터) */}
+      <div className="mkc-section"><h2>내 포스트 답글 인박스 · {ACCT_LABEL[acctKey]}</h2><span className="mkc-section-note">전원 반응 = 작성자 반응 최상위 레버</span></div>
       <div className="mkc-card-box">
-        <div className="mkc-todo">
-          <strong>OAuth 연결 후 자동 수집 · Phase 3</strong>
-          내 포스트에 달린 답글을 read로 자동 수집 → 여기서 100% 체크리스트로 응대.
-        </div>
+        {!acctConnected && <div className="mkc-todo">계정 연결 후 자동 수집됩니다.</div>}
+        {acctConnected && inbox === null && <div className="mkc-todo">멘션·답글 수집 중…</div>}
+        {acctConnected && inbox !== null && inbox.length === 0 && <div className="mkc-todo">아직 내 포스트에 달린 답글·멘션이 없습니다. (콜드스타트 — 답글 게임이 시작점)</div>}
+        {inbox?.map((m) => (
+          <div className="mkc-row" key={m.id}>
+            <span className="grow"><strong>@{m.author}</strong> <span className="mkc-muted">{m.text.slice(0, 100)}</span></span>
+            <a className="mkc-btn-sm out" href={m.url} target="_blank" rel="noreferrer">응대</a>
+          </div>
+        ))}
       </div>
     </>
   );

@@ -48,6 +48,39 @@ export function etDate(): string {
   }).format(new Date());
 }
 
+// ---- Market session (posting-timing intelligence) -------------------------
+export interface MarketSession {
+  session: 'pre' | 'open' | 'after' | 'closed' | 'weekend';
+  label: string;
+  goodToPost: boolean; // is now a high-value posting window?
+  note: string;
+}
+
+export function marketSession(): MarketSession {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', weekday: 'short', hour12: false,
+  }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || '';
+  const hour = parseInt(get('hour'), 10);
+  const min = parseInt(get('minute'), 10);
+  const wd = get('weekday');
+  const t = hour * 60 + min; // ET minutes since midnight
+
+  if (wd === 'Sat' || wd === 'Sun') {
+    return { session: 'weekend', label: '주말', goodToPost: false, note: '주말 = 침묵 (일요일 딥 아티팩트만 선택)' };
+  }
+  if (t >= 570 && t < 960) {
+    return { session: 'open', label: '미국장 개장', goodToPost: true, note: '장중 = 사건형 답글 최적 (이상치 순간 즉시)' };
+  }
+  if (t >= 240 && t < 570) {
+    return { session: 'pre', label: '프리마켓', goodToPost: false, note: '프리마켓 데이터 얇음 = 발행 금지 (§4-6.9)' };
+  }
+  if (t >= 960 && t < 1200) {
+    return { session: 'after', label: '애프터마켓', goodToPost: true, note: '영수증/앵커 작성 → ET 아침 예약 발행' };
+  }
+  return { session: 'closed', label: '장 마감', goodToPost: false, note: '마감 데이터로 밤 작성 → 아침 예약이 정석' };
+}
+
 // ---- Redis keys -----------------------------------------------------------
 export const K = {
   vol: (channel: string) => `mkt:vol:${channel}:${etDate()}`,
