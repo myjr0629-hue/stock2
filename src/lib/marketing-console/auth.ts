@@ -25,9 +25,13 @@ export interface MarketingAdmin {
 export async function getMarketingAdmin(): Promise<MarketingAdmin | null> {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Supabase auth.getUser() has no built-in timeout; race it so a slow/hung
+    // auth backend fails fast (→ 401) instead of stalling the function to a 502.
+    const result = await Promise.race([
+      supabase.auth.getUser(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('auth timeout')), 7000)),
+    ]);
+    const user = result?.data?.user;
     if (!user) return null;
 
     const email = (user.email || '').toLowerCase();
