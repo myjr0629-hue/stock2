@@ -81,6 +81,37 @@ export function marketSession(): MarketSession {
   return { session: 'closed', label: '장 마감', goodToPost: false, note: '마감 데이터로 밤 작성 → 아침 예약이 정석' };
 }
 
+// ---- JP posting window (JST) — @signumhq_jp targets US stocks, so its prime
+// window is JST evening/night which overlaps the US market open. ----------------
+export interface JpSession {
+  jstHour: number;
+  label: string;
+  goodToPost: boolean;
+  note: string;
+}
+export function jpSession(): JpSession {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Tokyo', hour: '2-digit', weekday: 'short', hour12: false,
+  }).formatToParts(new Date());
+  const jstHour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+  const wd = parts.find((p) => p.type === 'weekday')?.value || '';
+  if (wd === 'Sat' || wd === 'Sun') return { jstHour, label: '주말(JST)', goodToPost: false, note: '주말 침묵' };
+  // US regular session (09:30-16:00 ET) ≈ JST 22:30-05:00 (winter) — prime for 米国株 JP audience.
+  if (jstHour >= 22 || jstHour < 5) return { jstHour, label: '미국장 시간(JST 밤)', goodToPost: true, note: 'JST 밤 = 미국장 = 일본 米国株 계정 활발 (답글 최적)' };
+  if (jstHour >= 20 && jstHour < 22) return { jstHour, label: '프리(JST 저녁)', goodToPost: true, note: '미국장 개장 직전 — 답글 워밍업' };
+  if (jstHour >= 7 && jstHour < 10) return { jstHour, label: '아침 체크(JST)', goodToPost: true, note: '전날 미국장 마감 리뷰' };
+  return { jstHour, label: '대기(JST 낮)', goodToPost: false, note: '일본 낮 = 미국장 마감 후 = 저활동' };
+}
+
+// ---- Kill switch (hard stop for all publishing/draft paths) ----------------
+const KILL_KEY = 'mkt:killswitch';
+export async function getKillSwitch(): Promise<boolean> {
+  return (await getFromCache<string>(KILL_KEY)) === '1';
+}
+export async function setKillSwitch(on: boolean): Promise<void> {
+  await setInCache(KILL_KEY, on ? '1' : '0');
+}
+
 // ---- Redis keys -----------------------------------------------------------
 export const K = {
   vol: (channel: string) => `mkt:vol:${channel}:${etDate()}`,

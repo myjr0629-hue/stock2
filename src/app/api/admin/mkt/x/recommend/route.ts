@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireMktAdmin, X_TARGETS, X_TARGETS_JP, marketSession, getRestrictedAuthors } from '@/lib/marketing-console/mkt';
+import { requireMktAdmin, X_TARGETS, X_TARGETS_JP, marketSession, jpSession, getRestrictedAuthors } from '@/lib/marketing-console/mkt';
 import { scanTargets, type ScanTweet } from '@/lib/marketing-console/xScan';
 import { draftReply } from '@/lib/marketing-console/xApi';
 
@@ -43,10 +43,13 @@ export async function POST(req: NextRequest) {
     );
     const recommended = drafted.filter(Boolean);
 
+    const session = lang === 'ja'
+      ? (() => { const j = jpSession(); return { session: 'jp', label: j.label, goodToPost: j.goodToPost, note: j.note }; })()
+      : marketSession();
     return NextResponse.json({
       ok: true,
       lang,
-      session: marketSession(),
+      session,
       recommended,
       scannedCount: all.length,
       candidateCount: candidates.length,

@@ -15,7 +15,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'today', label: '오늘' },
   { key: 'generate', label: '생성' },
   { key: 'x', label: 'X 운용' },
-  { key: 'reddit', label: '레딧' },
+  { key: 'reddit', label: '커뮤니티' },
   { key: 'metrics', label: '성과' },
   { key: 'assets', label: '자산' },
 ];
@@ -24,7 +24,7 @@ const TAB_META: Record<TabKey, { title: string; sub: string }> = {
   today: { title: '오늘', sub: '감지 사건 · 승인 대기 초안 · 채널별 볼륨 캡 · 데드맨 · 할 일 롤업' },
   generate: { title: '생성', sub: '캡처 업로드 → 숫자 판독 → 채널별 네이티브 글 4종 + 카드 + 린트 검사' },
   x: { title: 'X 운용', sub: '답글 타깃 스캔 · 초안 큐 · 60분 답글 타이머 · 내 포스트 인박스 (@signumhq / @signumhq_jp)' },
-  reddit: { title: '레딧', sub: '스레드 발굴 · 밸류 코멘트 초안 · 카르마/계정나이 트래커 (게시는 사람 재작성)' },
+  reddit: { title: '커뮤니티 (레딧 · Stocktwits)', sub: '발굴 + 초안 자동 → 복사 → 원글 열어 붙여넣기 (게시 수동). 레딧은 재작성 필수' },
   metrics: { title: '성과', sub: '콜드스타트 퍼널 — 답글수·프로필클릭·팔로워증감 (조회수는 히어로 지표 아님)' },
   assets: { title: '자산', sub: 'VERDICT 스코어보드 · 포스트 카드 4종 · pSEO 레벨페이지 · 계정 상태' },
 };
@@ -117,13 +117,29 @@ function auditLabel(a: string): string {
 function TodayTab() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [kill, setKill] = useState<boolean | null>(null);
+  const [killBusy, setKillBusy] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/mkt/overview', { cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => { if (j.ok) setOv(j); else setErr(j.error || '로드 실패'); })
       .catch((e) => setErr(String(e)));
+    fetch('/api/admin/mkt/killswitch', { cache: 'no-store' })
+      .then((r) => r.json()).then((j) => { if (j.ok) setKill(j.on); }).catch(() => {});
   }, []);
+
+  const toggleKill = async () => {
+    setKillBusy(true);
+    try {
+      const r = await fetch('/api/admin/mkt/killswitch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ on: !kill }),
+      });
+      const j = await r.json();
+      if (j.ok) setKill(j.on);
+    } catch { /* noop */ } finally { setKillBusy(false); }
+  };
 
   const cap = ov?.cap ?? 3;
   const v = ov?.volumes ?? { xUS: 0, xJP: 0, bluesky: 0 };
@@ -132,6 +148,21 @@ function TodayTab() {
   return (
     <>
       {err && <div className="mkc-warn red" style={{ marginBottom: 12 }}><span className="mkc-warn-ic">⚠</span><span>{err}</span></div>}
+
+      {/* 킬스위치 — 총지휘소 통제 */}
+      <div className="mkc-card-box" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 14, borderLeft: `4px solid ${kill ? 'var(--mkc-red)' : 'var(--mkc-green)'}` }}>
+        <div style={{ flex: 1 }}>
+          <div className="mkc-panel-title" style={{ fontSize: 14 }}>
+            {kill === null ? '킬스위치 로딩…' : kill ? '🔴 전체 발행 정지됨 (킬스위치 ON)' : '🟢 발행 정상 (킬스위치 OFF)'}
+          </div>
+          <div className="mkc-muted" style={{ fontSize: 12 }}>ON이면 모든 발행·버퍼 적재가 거부됩니다 (크론·수동 전부). 계정 위험·오작동 시 즉시 정지.</div>
+        </div>
+        <button className={`mkc-btn ${kill ? 'mkc-btn-primary' : 'mkc-btn-ghost'}`} onClick={toggleKill} disabled={killBusy || kill === null}
+          style={kill ? {} : { color: 'var(--mkc-red)', borderColor: 'var(--mkc-red)' }}>
+          {killBusy ? '…' : kill ? '발행 재개' : '전체 정지'}
+        </button>
+      </div>
+
       <div className="mkc-kpis">
         <div className="mkc-kpi is-hero">
           <span className="mkc-kpi-label">볼륨 캡 · X-US ({ov?.etDate || 'ET'})</span>
@@ -619,9 +650,15 @@ function XOpsTab() {
 /* ===================== ④ 레딧 (실 스캔 / 온디맨드) ===================== */
 interface RedThread { id: string; sub: string; title: string; author: string; score: number; numComments: number; permalink: string; ticker: string | null; relevance: number }
 
+interface StMsg { id: number; ticker: string; body: string; user: string; followers: number; sentiment: string | null; likes: number; replies: number; url: string; score: number }
+
 function RedditTab() {
   const [data, setData] = useState<{ configured: boolean; threads: RedThread[]; error?: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [st, setSt] = useState<{ messages: StMsg[]; error?: string } | null>(null);
+  const [stLoading, setStLoading] = useState(true);
+  const [stDrafts, setStDrafts] = useState<Record<number, { text: string; loading: boolean }>>({});
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/mkt/reddit/scan', { cache: 'no-store' })
@@ -629,10 +666,62 @@ function RedditTab() {
       .then((j) => setData({ configured: j.configured, threads: j.threads || [], error: j.error }))
       .catch((e) => setData({ configured: false, threads: [], error: String(e) }))
       .finally(() => setLoading(false));
+    fetch('/api/admin/mkt/stocktwits/scan', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => setSt({ messages: j.messages || [], error: j.error }))
+      .catch((e) => setSt({ messages: [], error: String(e) }))
+      .finally(() => setStLoading(false));
   }, []);
+
+  const copy = async (k: string, text: string) => {
+    try { await navigator.clipboard.writeText(text); setCopied(k); setTimeout(() => setCopied(null), 1500); } catch { /* noop */ }
+  };
+  const genStDraft = async (m: StMsg) => {
+    setStDrafts((d) => ({ ...d, [m.id]: { text: '', loading: true } }));
+    try {
+      const r = await fetch('/api/admin/mkt/x/draft', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tweet: { id: String(m.id), text: m.body, ticker: m.ticker, author: m.user }, lang: 'en' }),
+      });
+      const j = await r.json();
+      setStDrafts((d) => ({ ...d, [m.id]: { text: j.draft || '(우리 데이터 없음 — 수동)', loading: false } }));
+    } catch { setStDrafts((d) => ({ ...d, [m.id]: { text: '초안 실패', loading: false } })); }
+  };
 
   return (
     <>
+      {/* Stocktwits 발굴 (실 스캔) */}
+      <div className="mkc-section"><h2>Stocktwits 발굴</h2><span className="mkc-section-note">$티커 스트림 실시간 스캔 → 고효과 글 + grounded 초안 → 복사→붙여넣기 (게시 수동)</span></div>
+      {stLoading && <div className="mkc-card-box"><div className="mkc-todo">스트림 스캔 중…</div></div>}
+      {st && st.messages.length === 0 && !stLoading && <div className="mkc-card-box"><div className="mkc-todo">지금 답글할 만한 글이 없습니다{st.error ? ` (${st.error})` : ''}.</div></div>}
+      {st && st.messages.length > 0 && (
+        <div className="mkc-card-box">
+          {st.messages.map((m) => {
+            const d = stDrafts[m.id];
+            return (
+              <div className="mkc-target" key={m.id}>
+                <div className="mkc-target-main">
+                  <div className="mkc-draft-head">
+                    <span className="mkc-ch st">${m.ticker}</span>
+                    {m.sentiment && <span className={`mkc-pill ${m.sentiment === 'Bullish' ? 'g' : 'r'}`}>{m.sentiment}</span>}
+                    <span className="mkc-draft-meta">@{m.user} · 팔로워 {m.followers.toLocaleString()} · ♥ {m.likes} · 💬 {m.replies}</span>
+                  </div>
+                  <div className="mkc-target-src" style={{ marginTop: 6 }}>{m.body}</div>
+                  {d?.text && <div className="mkc-target-draft">답글 초안: {d.text}</div>}
+                  <div className="mkc-draft-actions" style={{ marginTop: 8 }}>
+                    {!d?.text
+                      ? <button className="mkc-btn-sm pri" onClick={() => genStDraft(m)} disabled={d?.loading}>{d?.loading ? '생성 중…' : '초안 생성'}</button>
+                      : <button className="mkc-btn-sm pri" onClick={() => { copy(`st${m.id}`, d.text); window.open(m.url, '_blank'); }}>{copied === `st${m.id}` ? '복사됨 ✓ · 붙여넣기' : '복사 + 원글 열기'}</button>}
+                    <a className="mkc-btn-sm out" href={m.url} target="_blank" rel="noreferrer">원글 열기</a>
+                  </div>
+                </div>
+                <div className="mkc-target-side">효과<br /><strong style={{ color: 'var(--mkc-green-deep)' }}>{m.score}</strong></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* R0 카르마 */}
       <div className="mkc-section"><h2>R0 · 카르마 빌딩 현황</h2><span className="mkc-section-note">금융 서브 본인 참여 (자동 파밍 금지)</span></div>
       <div className="mkc-cols-3">

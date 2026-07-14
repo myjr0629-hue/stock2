@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireMktAdmin, appendAudit, bumpVolume, getVolume, X_CHANNELS, DAILY_CAP } from '@/lib/marketing-console/mkt';
+import { requireMktAdmin, appendAudit, bumpVolume, getVolume, X_CHANNELS, DAILY_CAP, getKillSwitch } from '@/lib/marketing-console/mkt';
 import { createPost } from '@/lib/marketing/bufferClient';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 400 });
+  }
+  if (await getKillSwitch()) {
+    return NextResponse.json({ ok: false, error: '킬스위치 ON — 전체 발행 정지 상태' }, { status: 423 });
   }
   const meta = body.channelKey ? BUFFER_CH[body.channelKey] : undefined;
   const text = (body.text || '').trim();
