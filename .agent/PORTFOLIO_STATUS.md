@@ -42,5 +42,10 @@
 - **AdMob 재신청**(세금승인→프로필→재신청) = SIGNUM 즉시 + UC(1.0.1 후) **양쪽 광고 열쇠**.
 - 백업: 계속 거절 시 AppLovin MAX(애드몹 없이 수익화 가능).
 
+## ▶ 내일 시작점 (2026-07-16)
+1. **런치 초안 완성** — 대표님 "왜 만들었나" 한 줄 받으면 → 창업서사 en/ko/ja + UC(디스콰이엇/PH/note) + SIGNUM(디스콰이엇/Qiita/Zenn) 초안 9개 완성. 정본=`LAUNCH_KIT.md`. (발행=사람, 준비=Claude)
+2. **애드몹 교착** — 세금 W-8BEN vs W-9(US LLC) **회계사 확인**이 유력 원인. 그 전엔 재제출 X. 백업=AppLovin MAX.
+3. **SEO 관찰** — GSC에서 색인/노출 확인(자동 복리 중, 며칠~주).
+
 ## 정본 문서 인덱스
-- `SIGNUM_V1.1_BINARY_ASSEMBLY.md` · `UC_1.0.1_ASSEMBLY.md` · `UC_GROWTH_PLAN.md` · `MARKETING_ACTIVE_OUTREACH_PLAN.md`(SIGNUM 직접아웃리치) · `MARKETING_AUTOMATION_PLAN.md`(Windows, 오가닉소셜) · `MARKETING_ENGINE_REBUILD.md`(콘솔 빌드상태)
+- `AUTOMATED_TRAFFIC_ENGINE.md`(트래픽 아키텍처) · `LAUNCH_KIT.md`(런치 초안) · `SIGNUM_V1.1_BINARY_ASSEMBLY.md` · `UC_1.0.1_ASSEMBLY.md` · `UC_GROWTH_PLAN.md` · `MARKETING_ACTIVE_OUTREACH_PLAN.md`(SIGNUM 직접아웃리치) · `MARKETING_AUTOMATION_PLAN.md`(Windows, 오가닉소셜) · `MARKETING_ENGINE_REBUILD.md`(콘솔 빌드상태)
