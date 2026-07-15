@@ -103,6 +103,22 @@
         {
             "path": "/api/cron/push?type=closing",
             "schedule": "40 22 * * 1-5"
+        },
+        {
+            "path": "/api/cron/mkt-autopilot",
+            "schedule": "37 13 * * 1-5"
+        },
+        {
+            "path": "/api/cron/mkt-autopilot",
+            "schedule": "47 16 * * 1-5"
+        },
+        {
+            "path": "/api/cron/mkt-autopilot",
+            "schedule": "8 19 * * 1-5"
+        },
+        {
+            "path": "/api/cron/mkt-autopilot",
+            "schedule": "13 20 * * 1-5"
         }
     ]
 }

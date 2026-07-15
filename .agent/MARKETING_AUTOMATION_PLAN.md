@@ -172,7 +172,8 @@ TRS(0~100) = (0.50·리테일어텐션 + 0.50·데이터엣지) × 신선도 × 
 - ✅ **Bluesky 연결·발행 완료** (`bluesky.ts` + `/api/admin/mkt/bluesky/{status,post}`). env `BLUESKY_HANDLE`·`BLUESKY_APP_PASSWORD`(앱비번) 설정·**연결 검증됨**(signumhq.bsky.social, connected:true). 생성 탭 x_en 초안에 **[Bluesky 발행(라이브)]** 버튼(킬스위치·캡·중복 게이트). 자산 탭에 연결상태. 커밋 `5f79ad77e`.
 - ✅ **`?from=` 유입 추적** (맥, `08fb29283`): `/app` 스마트링크가 `?from=` 히트 카운트 → 성과 탭 퍼널 데이터 살아남. (웹파일이라 맥이 처리)
 - **콘솔(마케팅 페이지) = 6탭 실작동 + 총지휘소 통제(킬스위치) + 채널별 발굴/초안/복사→수동 완비.** 검증: 전 라우트 배포·게이트 401/404 정상.
-- ⏭ 남음(백엔드 자율엔진, §10 결정+키 필요): 이벤트 탐지 크론·TRS 데이터배선·자동발행 스케줄·Bluesky 자동(키 후)·X 내글 응대. `?from=`는 웹파일이라 대표 승인 후.
+- ✅ **자율발행 엔진(오리지널) — 대표 지시 "완벽한 자동화"(2026-07-15) 착수.** `autopilot.ts`: 종목선별(suggest 스코어 재사용)→grounded 생성→**전 §6 게이트**(킬스위치·데드맨3연속·캡3·90분간격·스켈레톤72h·grounded린트)→채널별 **off/shadow/live**. shadow=Buffer draft(`dryRun:false,draft:true`), live=자동게시(X=Buffer `draft:false`, Bluesky=AT API). 크론 `/api/cron/mkt-autopilot`×4(§2.2 ET 지터: 09:37·12:47·15:08·16:13 ET). 제어 `/api/admin/mkt/autopilot` + Today 탭 "자동화 조종석"(채널 토글+데드맨). **기본값 전 채널 off → 배포만으로 아무것도 발행 안 함**; go-live=콘솔 1클릭. 메모리 가드레일 rule#1(자동발행 금지)은 이 지시로 철회, 게이트 하드코딩으로 대체.
+- ⏭ 남음: **Bluesky 자동 답글 엔진(bluesky-reply, 조종석에 자리만)** · 이벤트 탐지 크론(14 트리거, 현재는 suggest 7종목 스코어) · TRS 데이터배선 · X 내글 응대. `?from=`는 웹파일이라 대표 승인 후(맥 완료).
 
 ---
 

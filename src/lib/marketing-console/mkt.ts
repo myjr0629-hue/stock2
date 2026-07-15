@@ -188,6 +188,72 @@ export async function bumpVolume(channel: string): Promise<{ ok: boolean; count:
   return { ok: true, count: next };
 }
 
+// ---- Autopilot automation control -----------------------------------------
+// Per-channel automation mode. Going live is a DELIBERATE console switch, never
+// a default — this reconciles the 2026-07 disaster guardrail (which banned an
+// auto-publish path) with the directive to fully automate: the path exists but
+// is off until a human flips it, and EVERY §6 gate (cap/interval/dedup/deadman/
+// killswitch) applies in every mode, so a 1000-post spray is structurally
+// impossible even when live.
+//   off    = no auto action
+//   shadow = auto-generate + gate, land in Buffer DRAFT (human still publishes)
+//   live   = auto-generate + gate, actually publish
+export type AutoMode = 'off' | 'shadow' | 'live';
+export const AUTO_CHANNELS = ['x-us', 'x-jp', 'bluesky-post', 'bluesky-reply'] as const;
+export type AutoChannel = (typeof AUTO_CHANNELS)[number];
+const AUTO_KEY = 'mkt:auto:modes';
+
+export async function getAutoModes(): Promise<Record<AutoChannel, AutoMode>> {
+  const stored = (await getFromCache<Record<string, AutoMode>>(AUTO_KEY)) || {};
+  const out = {} as Record<AutoChannel, AutoMode>;
+  for (const ch of AUTO_CHANNELS) {
+    out[ch] = stored[ch] === 'shadow' || stored[ch] === 'live' ? stored[ch] : 'off';
+  }
+  return out;
+}
+export async function setAutoMode(channel: AutoChannel, mode: AutoMode): Promise<void> {
+  const stored = (await getFromCache<Record<string, AutoMode>>(AUTO_KEY)) || {};
+  stored[channel] = mode;
+  await setInCache(AUTO_KEY, stored); // persistent config (no TTL)
+}
+
+// ---- Min-interval between auto-posts per channel (§2.1: originals ≥90 min) -
+const LAST_KEY = (channel: string) => `mkt:auto:last:${channel}`;
+export const MIN_INTERVAL_MS = 90 * 60 * 1000;
+export async function getLastAutoPost(channel: string): Promise<number> {
+  return (await getFromCache<number>(LAST_KEY(channel))) || 0;
+}
+export async function markAutoPost(channel: string): Promise<void> {
+  await setInCache(LAST_KEY(channel), Date.now(), 60 * 60 * 30);
+}
+
+// ---- Deadman switch (§6.2): auto-halt on repeated gate failures ------------
+export interface DeadmanState { fails: number; trippedAt?: number; reason?: string }
+export async function getDeadman(): Promise<DeadmanState> {
+  return (await getFromCache<DeadmanState>(K.deadman())) || { fails: 0 };
+}
+export async function recordGateResult(pass: boolean): Promise<DeadmanState> {
+  const st = await getDeadman();
+  if (pass) {
+    st.fails = 0; st.trippedAt = undefined; st.reason = undefined;
+  } else {
+    st.fails = (st.fails || 0) + 1;
+    if (st.fails >= 3 && !st.trippedAt) {
+      st.trippedAt = Date.now();
+      st.reason = '3연속 게이트 실패 — 생성기 루핑 의심(수동 재개 필요)';
+    }
+  }
+  await setInCache(K.deadman(), st);
+  return st;
+}
+export async function deadmanTripped(): Promise<{ tripped: boolean; reason?: string }> {
+  const st = await getDeadman();
+  return { tripped: Boolean(st.trippedAt), reason: st.reason };
+}
+export async function resetDeadman(): Promise<void> {
+  await setInCache(K.deadman(), { fails: 0 });
+}
+
 // ---- Reply-restriction learning -------------------------------------------
 // reply_settings from the search API is unreliable (reports "everyone" for
 // tweets that still reject our reply). The only reliable signal is a real

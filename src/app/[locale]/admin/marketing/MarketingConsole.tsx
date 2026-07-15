@@ -110,15 +110,34 @@ function auditLabel(a: string): string {
   const m: Record<string, string> = {
     generate: '초안 생성', 'buffer-draft': '버퍼 적재', 'x-oauth-connect': '계정 연결',
     'x-reply-posted': 'X 답글 게시',
+    'auto-publish': '🤖 자동 발행', 'auto-draft': '🤖 자동 초안', 'autopilot-mode': '자동화 모드 변경',
+    'deadman-reset': '데드맨 재개', 'reply-marked': '답글 게시함 체크',
   };
   return m[a] || a;
 }
+
+interface AutoState {
+  modes: Record<string, 'off' | 'shadow' | 'live'>;
+  deadman: { tripped: boolean; fails: number; reason?: string };
+}
+const AUTO_LABELS: Record<string, string> = {
+  'x-us': 'X 미국 오리지널 (@signumhq)',
+  'x-jp': 'X 일본 오리지널 (@signumhq_jp)',
+  'bluesky-post': 'Bluesky 오리지널',
+  'bluesky-reply': 'Bluesky 자동 답글',
+};
+const AUTO_MODE_LABEL: Record<string, string> = { off: '정지', shadow: '초안', live: '발행' };
 
 function TodayTab() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [kill, setKill] = useState<boolean | null>(null);
   const [killBusy, setKillBusy] = useState(false);
+  const [auto, setAuto] = useState<AutoState | null>(null);
+  const [autoBusy, setAutoBusy] = useState<string>('');
+
+  const loadAuto = () => fetch('/api/admin/mkt/autopilot', { cache: 'no-store' })
+    .then((r) => r.json()).then((j) => { if (j.ok) setAuto({ modes: j.modes, deadman: j.deadman }); }).catch(() => {});
 
   useEffect(() => {
     fetch('/api/admin/mkt/overview', { cache: 'no-store' })
@@ -127,7 +146,24 @@ function TodayTab() {
       .catch((e) => setErr(String(e)));
     fetch('/api/admin/mkt/killswitch', { cache: 'no-store' })
       .then((r) => r.json()).then((j) => { if (j.ok) setKill(j.on); }).catch(() => {});
+    loadAuto();
   }, []);
+
+  const setMode = async (channel: string, mode: string) => {
+    setAutoBusy(channel);
+    try {
+      const r = await fetch('/api/admin/mkt/autopilot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel, mode }),
+      });
+      const j = await r.json();
+      if (j.ok) setAuto((p) => p ? { ...p, modes: { ...p.modes, [channel]: mode as 'off' | 'shadow' | 'live' } } : p);
+    } catch { /* noop */ } finally { setAutoBusy(''); }
+  };
+  const resetDeadman = async () => {
+    setAutoBusy('deadman');
+    try { await fetch('/api/admin/mkt/autopilot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resetDeadman: true }) }); await loadAuto(); } catch { /* noop */ } finally { setAutoBusy(''); }
+  };
 
   const toggleKill = async () => {
     setKillBusy(true);
@@ -161,6 +197,45 @@ function TodayTab() {
           style={kill ? {} : { color: 'var(--mkc-red)', borderColor: 'var(--mkc-red)' }}>
           {killBusy ? '…' : kill ? '발행 재개' : '전체 정지'}
         </button>
+      </div>
+
+      {/* 자동화 조종석 — 채널별 off / shadow / live */}
+      <div className="mkc-card-box" style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+          <div className="mkc-panel-title" style={{ fontSize: 14 }}>자동화 조종석</div>
+          <div className="mkc-muted" style={{ fontSize: 12 }}>초안=Buffer 초안만 적재(사람 발행) · 발행=자동 게시. 캡 {cap}/일·90분 간격·중복차단·데드맨이 항상 강제됩니다.</div>
+        </div>
+        {auto?.deadman.tripped && (
+          <div className="mkc-warn red" style={{ margin: '8px 0' }}>
+            <span className="mkc-warn-ic">⚠</span>
+            <span style={{ flex: 1 }}>데드맨 정지: {auto.deadman.reason || '연속 게이트 실패'} — 원인 확인 후 재개</span>
+            <button className="mkc-btn mkc-btn-ghost" onClick={resetDeadman} disabled={autoBusy === 'deadman'}>재개</button>
+          </div>
+        )}
+        {['x-us', 'x-jp', 'bluesky-post', 'bluesky-reply'].map((chn) => {
+          const cur = auto?.modes[chn] || 'off';
+          const pending = chn === 'bluesky-reply'; // engine ships next — control disabled for now
+          return (
+            <div className="mkc-row" key={chn} style={{ alignItems: 'center' }}>
+              <span className="grow">{AUTO_LABELS[chn]}{pending && <span className="mkc-muted" style={{ fontSize: 11 }}> · 엔진 준비 중</span>}</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['off', 'shadow', 'live'] as const).map((m) => {
+                  const on = cur === m;
+                  const col = m === 'live' ? 'var(--mkc-red)' : m === 'shadow' ? 'var(--mkc-green)' : 'var(--mkc-muted)';
+                  return (
+                    <button key={m}
+                      className={`mkc-btn ${on ? 'mkc-btn-primary' : 'mkc-btn-ghost'}`}
+                      style={{ padding: '4px 12px', fontSize: 12, ...(on ? { background: col, borderColor: col } : { color: col, borderColor: col }) }}
+                      disabled={(pending && m !== 'off') || autoBusy === chn || !auto}
+                      onClick={() => setMode(chn, m)}>
+                      {AUTO_MODE_LABEL[m]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mkc-kpis">
@@ -204,11 +279,11 @@ function TodayTab() {
         <div className="mkc-panel">
           <h3 className="mkc-panel-title">데드맨 &amp; 가드레일</h3>
           <p className="mkc-panel-sub">7중 안전장치 상태</p>
-          <div className="mkc-row"><span className="grow">자동 발행 경로</span><span className="mkc-pill g">없음 (초안 전용)</span></div>
-          <div className="mkc-row"><span className="grow">페르소나 UI</span><span className="mkc-pill g">부재</span></div>
+          <div className="mkc-row"><span className="grow">자동화 경로</span><span className={`mkc-pill ${auto && Object.values(auto.modes).some((m) => m === 'live') ? 'a' : 'g'}`}>{auto ? (Object.values(auto.modes).some((m) => m === 'live') ? '발행(live) 가동' : Object.values(auto.modes).some((m) => m === 'shadow') ? '초안(shadow) 가동' : '전 채널 정지') : '…'}</span></div>
+          <div className="mkc-row"><span className="grow">90분 간격 · 정각 회피</span><span className="mkc-pill g">서버 강제</span></div>
           <div className="mkc-row"><span className="grow">볼륨 캡 (채널당 {cap}/일)</span><span className="mkc-pill g">서버 강제</span></div>
-          <div className="mkc-row"><span className="grow">감사 로그</span><span className="mkc-pill g">기록 중</span></div>
-          <div className="mkc-row"><span className="grow">데드맨 (2주 연속 바닥)</span><span className="mkc-pill n">성과 데이터 후</span></div>
+          <div className="mkc-row"><span className="grow">중복 구조 차단 (72h)</span><span className="mkc-pill g">서버 강제</span></div>
+          <div className="mkc-row"><span className="grow">데드맨 (3연속 게이트 실패)</span><span className={`mkc-pill ${auto?.deadman.tripped ? 'r' : 'g'}`}>{auto?.deadman.tripped ? '정지됨' : `가동 (실패 ${auto?.deadman.fails ?? 0})`}</span></div>
         </div>
 
         {/* 답글 타이머 */}
