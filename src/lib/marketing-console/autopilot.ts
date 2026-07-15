@@ -9,18 +9,21 @@
 // ============================================================================
 
 import {
-  X_CHANNELS, DAILY_CAP, ST_TICKERS,
-  getKillSwitch, getVolume, bumpVolume,
+  X_CHANNELS, DAILY_CAP, REPLY_CAP, ST_TICKERS,
+  getKillSwitch, getVolume, bumpVolume, bumpVolumeCapped,
   isDuplicateSkeleton, recordSkeleton, appendAudit,
   getAutoModes, getLastAutoPost, markAutoPost, MIN_INTERVAL_MS,
   deadmanTripped, recordGateResult,
+  getRepliedIds, markReplied,
   marketSession, jpSession,
   type AutoMode, type AutoChannel,
 } from './mkt';
-import { fetchStructure, extractLevels, type Levels } from './xScan';
-import { generateDrafts, type Channel as GenChannel } from './generate';
+import { fetchStructure, extractLevels, type Levels, type ScanTweet } from './xScan';
+import { generateDrafts, lint, type Channel as GenChannel } from './generate';
+import { draftReply } from './xApi';
 import { createPost } from '@/lib/marketing/bufferClient';
-import { bskyPost } from './bluesky';
+import { bskyPost, bskySearchTargets, bskyReply } from './bluesky';
+import { getConnection, fetchInbox, postReply, type Acct } from './xOAuth';
 
 // Verified Buffer channel IDs (BUFFER_OPS §1).
 const BUFFER_CH: Record<string, string> = {
@@ -175,5 +178,105 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
       out.push({ channel: p.ch, mode, action: 'fail', ok: false, detail });
     }
   }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Reply automation. Bluesky cold replies are fully allowed (no restriction) →
+// find groundable posts, draft, auto-reply. X only allows API replies to users
+// who mentioned us (self-reply), so X uses the mentions inbox. Both grounded +
+// gated + deduped (never reply to the same post twice) + daily-capped.
+// ---------------------------------------------------------------------------
+function asTweet(id: string, author: string, text: string, ticker: string | null): ScanTweet {
+  return {
+    id, author, text, ticker, createdAt: '', likes: 0, replies: 0, retweets: 0,
+    impressions: 0, score: 0, url: '', replySettings: 'everyone', canReply: true,
+  };
+}
+
+const BSKY_PER_TICK = 3; // grounded Bluesky replies attempted per run
+const X_PER_TICK = 2;    // self-replies per account per run
+
+export async function runAutopilotReplies(): Promise<AutoResult[]> {
+  const out: AutoResult[] = [];
+  if (await getKillSwitch()) return [{ channel: 'reply', mode: 'off', action: 'halt', ok: false, detail: '킬스위치 ON' }];
+  const dm = await deadmanTripped();
+  if (dm.tripped) return [{ channel: 'reply', mode: 'off', action: 'halt', ok: false, detail: `데드맨: ${dm.reason}` }];
+
+  const modes = await getAutoModes();
+  const replied = await getRepliedIds();
+
+  // ---- Bluesky cold replies (fully automatable) ----
+  const bMode = modes['bluesky-reply'];
+  if (bMode !== 'off') {
+    const capCh = 'bluesky-reply';
+    let vol = await getVolume(capCh);
+    if (vol >= REPLY_CAP) {
+      out.push({ channel: 'bluesky-reply', mode: bMode, action: 'skip', ok: false, detail: `캡 ${vol}/${REPLY_CAP}` });
+    } else {
+      const targets = (await bskySearchTargets(30))
+        .filter((t) => t.ticker && !replied.has(t.uri))
+        .sort((a, b) => b.likes - a.likes)
+        .slice(0, BSKY_PER_TICK);
+      if (targets.length === 0) {
+        out.push({ channel: 'bluesky-reply', mode: bMode, action: 'skip', ok: false, detail: '적합 답글 대상 없음' });
+      }
+      for (const t of targets) {
+        if (vol >= REPLY_CAP) break;
+        const d = await draftReply(asTweet(t.uri, t.author, t.text, t.ticker), 'en');
+        if (!d.grounded || !d.draft) { out.push({ channel: 'bluesky-reply', mode: bMode, action: 'block', ok: false, detail: `grounded 실패 $${t.ticker}` }); continue; }
+        if (!lint(d.draft, 'en').pass) { await recordGateResult(false); out.push({ channel: 'bluesky-reply', mode: bMode, action: 'block', ok: false, detail: '린트 실패' }); continue; }
+        if (bMode === 'shadow') {
+          await markReplied(t.uri);
+          await appendAudit('autopilot', 'auto-reply-draft', `bluesky @${t.author} $${t.ticker}: ${d.draft.slice(0, 80)}`);
+          out.push({ channel: 'bluesky-reply', mode: bMode, action: 'drafted', ok: true, detail: `@${t.author} $${t.ticker}` });
+          continue;
+        }
+        const r = await bskyReply(t, d.draft);
+        if (r.ok) {
+          await markReplied(t.uri);
+          const b = await bumpVolumeCapped(capCh, REPLY_CAP); vol = b.count;
+          await recordGateResult(true);
+          await appendAudit('autopilot', 'auto-reply', `bluesky @${t.author} $${t.ticker} (${vol}/${REPLY_CAP})`);
+          out.push({ channel: 'bluesky-reply', mode: bMode, action: 'published', ok: true, detail: `@${t.author} $${t.ticker}` });
+        } else {
+          out.push({ channel: 'bluesky-reply', mode: bMode, action: 'fail', ok: false, detail: r.error });
+        }
+      }
+    }
+  }
+
+  // ---- X self-replies (only API-allowed replies: users who mentioned us) ----
+  // No Buffer-draft path for replies, so X self-reply acts only when the account's
+  // channel is 'live'; shadow/off = skip (nothing to stage).
+  for (const acct of ['en', 'jp'] as Acct[]) {
+    const chMode = modes[acct === 'en' ? 'x-us' : 'x-jp'];
+    if (chMode !== 'live') continue;
+    const capCh = acct === 'en' ? 'x-us-reply' : 'x-jp-reply';
+    let vol = await getVolume(capCh);
+    if (vol >= REPLY_CAP) continue;
+    const conn = await getConnection(acct);
+    if (!conn.connected) { out.push({ channel: capCh, mode: chMode, action: 'skip', ok: false, detail: '계정 미연결' }); continue; }
+    const inbox = await fetchInbox(acct);
+    if (!inbox.ok || !inbox.items) { out.push({ channel: capCh, mode: chMode, action: 'skip', ok: false, detail: inbox.error || '멘션 없음' }); continue; }
+    const { detectTicker } = await import('./xScan');
+    const cands = inbox.items.filter((m) => !replied.has(m.id) && detectTicker(m.text)).slice(0, X_PER_TICK);
+    for (const m of cands) {
+      if (vol >= REPLY_CAP) break;
+      const tk = detectTicker(m.text);
+      const d = await draftReply(asTweet(m.id, m.author, m.text, tk), acct === 'jp' ? 'ja' : 'en');
+      if (!d.grounded || !d.draft || !lint(d.draft, acct === 'jp' ? 'ja' : 'en').pass) { out.push({ channel: capCh, mode: chMode, action: 'block', ok: false, detail: 'grounded/린트 실패' }); continue; }
+      const r = await postReply(acct, m.id, d.draft);
+      if (r.ok) {
+        await markReplied(m.id);
+        const b = await bumpVolumeCapped(capCh, REPLY_CAP); vol = b.count;
+        await appendAudit('autopilot', 'auto-reply', `${capCh} @${m.author} $${tk} (${vol}/${REPLY_CAP})`);
+        out.push({ channel: capCh, mode: chMode, action: 'published', ok: true, detail: `@${m.author} $${tk}` });
+      } else {
+        out.push({ channel: capCh, mode: chMode, action: 'fail', ok: false, detail: r.error });
+      }
+    }
+  }
+
   return out;
 }

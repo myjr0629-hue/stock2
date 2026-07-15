@@ -7,7 +7,7 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server';
-import { runAutopilotOriginals } from '@/lib/marketing-console/autopilot';
+import { runAutopilotOriginals, runAutopilotReplies } from '@/lib/marketing-console/autopilot';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Bedrock generation on the hot path
@@ -24,7 +24,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const results = await runAutopilotOriginals();
+    // Originals first, then replies (each self-gates; a failure in one doesn't
+    // block the other).
+    const [originals, replies] = await Promise.all([
+      runAutopilotOriginals().catch((e) => [{ channel: 'originals', mode: 'off' as const, action: 'fail' as const, ok: false, detail: (e as Error).message }]),
+      runAutopilotReplies().catch((e) => [{ channel: 'replies', mode: 'off' as const, action: 'fail' as const, ok: false, detail: (e as Error).message }]),
+    ]);
+    const results = [...originals, ...replies];
     return NextResponse.json({
       ok: true,
       timestamp: new Date().toISOString(),

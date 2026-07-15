@@ -34,7 +34,8 @@ export const REDDIT_SUBS: { sub: string; role: string; caution?: string }[] = [
 export const ST_TICKERS = ['NVDA', 'MU', 'TSLA', 'SOXL', 'AAPL', 'SPY', 'QQQ'];
 
 // ---- Volume caps ----------------------------------------------------------
-export const DAILY_CAP = 3; // 채널당 하루 상한 (절대) — §0-2
+export const DAILY_CAP = 3; // 오리지널: 채널당 하루 상한 (절대) — §0-2
+export const REPLY_CAP = 8; // 답글: 채널당 하루 상한 (§2.1 10~20 목표, 보수적 시작)
 export const X_CHANNELS = { en: 'x-us', ja: 'x-jp', bsky: 'bluesky' } as const;
 
 // ---- ET date (caps reset on ET calendar day) ------------------------------
@@ -179,13 +180,18 @@ export async function getAllVolumes(): Promise<Record<string, number>> {
   return { [X_CHANNELS.en]: en, [X_CHANNELS.ja]: ja, [X_CHANNELS.bsky]: bsky };
 }
 
-/** Increment a channel's daily count. Returns { ok, count }. Rejects at DAILY_CAP. */
-export async function bumpVolume(channel: string): Promise<{ ok: boolean; count: number }> {
+/** Increment a channel's daily count against a custom cap. Returns { ok, count }. */
+export async function bumpVolumeCapped(channel: string, cap: number): Promise<{ ok: boolean; count: number }> {
   const cur = await getVolume(channel);
-  if (cur >= DAILY_CAP) return { ok: false, count: cur };
+  if (cur >= cap) return { ok: false, count: cur };
   const next = cur + 1;
   await setInCache(K.vol(channel), next, 60 * 60 * 30); // ~30h TTL covers the ET day
   return { ok: true, count: next };
+}
+
+/** Increment a channel's daily count. Returns { ok, count }. Rejects at DAILY_CAP. */
+export async function bumpVolume(channel: string): Promise<{ ok: boolean; count: number }> {
+  return bumpVolumeCapped(channel, DAILY_CAP);
 }
 
 // ---- Autopilot automation control -----------------------------------------

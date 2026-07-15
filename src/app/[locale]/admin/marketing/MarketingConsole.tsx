@@ -111,6 +111,7 @@ function auditLabel(a: string): string {
     generate: '초안 생성', 'buffer-draft': '버퍼 적재', 'x-oauth-connect': '계정 연결',
     'x-reply-posted': 'X 답글 게시',
     'auto-publish': '🤖 자동 발행', 'auto-draft': '🤖 자동 초안', 'autopilot-mode': '자동화 모드 변경',
+    'auto-reply': '🤖 자동 답글', 'auto-reply-draft': '🤖 답글 초안',
     'deadman-reset': '데드맨 재개', 'reply-marked': '답글 게시함 체크',
   };
   return m[a] || a;
@@ -214,10 +215,10 @@ function TodayTab() {
         )}
         {['x-us', 'x-jp', 'bluesky-post', 'bluesky-reply'].map((chn) => {
           const cur = auto?.modes[chn] || 'off';
-          const pending = chn === 'bluesky-reply'; // engine ships next — control disabled for now
+          const isReply = chn === 'bluesky-reply';
           return (
             <div className="mkc-row" key={chn} style={{ alignItems: 'center' }}>
-              <span className="grow">{AUTO_LABELS[chn]}{pending && <span className="mkc-muted" style={{ fontSize: 11 }}> · 엔진 준비 중</span>}</span>
+              <span className="grow">{AUTO_LABELS[chn]}{isReply && <span className="mkc-muted" style={{ fontSize: 11 }}> · 하루 {8}개 캡</span>}</span>
               <div style={{ display: 'flex', gap: 6 }}>
                 {(['off', 'shadow', 'live'] as const).map((m) => {
                   const on = cur === m;
@@ -226,7 +227,7 @@ function TodayTab() {
                     <button key={m}
                       className={`mkc-btn ${on ? 'mkc-btn-primary' : 'mkc-btn-ghost'}`}
                       style={{ padding: '4px 12px', fontSize: 12, ...(on ? { background: col, borderColor: col } : { color: col, borderColor: col }) }}
-                      disabled={(pending && m !== 'off') || autoBusy === chn || !auto}
+                      disabled={autoBusy === chn || !auto}
                       onClick={() => setMode(chn, m)}>
                       {AUTO_MODE_LABEL[m]}
                     </button>
