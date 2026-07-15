@@ -32,6 +32,20 @@ const BUFFER_CH: Record<string, string> = {
   bluesky: '69ca84bbaf47dacb696d9d0f',
 };
 
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
+
+// Build the hosted level-ladder card URL (Buffer fetches it as the post image).
+// Same /api/og/level card the console uses — grounded, no fabricated numbers.
+function ogCardUrl(ticker: string, lv: Levels): string {
+  const q = new URLSearchParams({ ticker });
+  if (typeof lv.price === 'number') q.set('price', String(lv.price));
+  if (typeof lv.maxPain === 'number') q.set('maxPain', String(lv.maxPain));
+  if (typeof lv.gammaFlip === 'number') q.set('gammaFlip', String(lv.gammaFlip));
+  if (typeof lv.callWall === 'number') q.set('callWall', String(lv.callWall));
+  if (typeof lv.putFloor === 'number') q.set('putFloor', String(lv.putFloor));
+  return `${SITE}/api/og/level?${q.toString()}`;
+}
+
 export interface TickerPick { ticker: string; reason: string; notability: number; levels: Levels }
 
 // Scan the watchlist, rank by how notable the options structure is right now
@@ -125,6 +139,7 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
     return out;
   }
   const gen = await generateDrafts(pick.ticker, pick.reason);
+  const ogUrl = ogCardUrl(pick.ticker, pick.levels); // level card image for every channel
 
   for (const p of active) {
     const mode = modes[p.ch];
@@ -155,12 +170,14 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
     let detail = '';
     try {
       if (p.bluesky && mode === 'live') {
+        // Direct AT-Protocol post (image embed is a follow-up; text posts fine).
         const r = await bskyPost(text);
         ok = r.ok; detail = r.ok ? 'bluesky published' : (r.error || 'bsky 실패');
       } else {
         // X live/shadow AND bluesky shadow all go through Buffer (draft flag differs).
         // dryRun MUST be false or Buffer never actually receives the post.
-        const r = await createPost({ channelIds: [p.bufferId], text, dryRun: false, draft: mode !== 'live' });
+        // mediaUrl = hosted level card → Buffer attaches it as the post image.
+        const r = await createPost({ channelIds: [p.bufferId], text, mediaUrl: ogUrl, dryRun: false, draft: mode !== 'live' });
         ok = r.success; detail = r.success ? (mode === 'live' ? 'published' : 'draft 적재') : (r.error || 'buffer 실패');
       }
     } catch (e) {
