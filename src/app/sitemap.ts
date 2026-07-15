@@ -9,11 +9,37 @@ const LOCALES = ['en', 'ko', 'ja'] as const;
 
 const STATIC_PATHS = ['', '/undercurrent', '/how-it-works', '/pricing'];
 
-// Curated high-search / high-attention tickers (v1). Expand programmatically later.
+// Curated high-search / high-attention, liquid + optioned US tickers (v2, ~165).
+// All names that reliably have news + money data (avoids soft-404s). Expand toward
+// the full universe later once indexing/traffic proves out.
 const FLOW_TICKERS = [
-  'NVDA', 'TSLA', 'AAPL', 'AMD', 'MSFT', 'GOOGL', 'META', 'AMZN', 'AVGO', 'MU',
-  'SPY', 'QQQ', 'NFLX', 'PLTR', 'SMCI', 'COIN', 'SOFI', 'INTC', 'CRM', 'ORCL',
-  'ADBE', 'QCOM', 'ARM', 'DELL', 'MARA', 'SOXL', 'TQQQ', 'IWM', 'GLD', 'TLT',
+  // mega / semis / tech
+  'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'AVGO', 'ORCL',
+  'CRM', 'ADBE', 'AMD', 'NFLX', 'INTC', 'QCOM', 'CSCO', 'TXN', 'IBM', 'MU',
+  'AMAT', 'LRCX', 'KLAC', 'ADI', 'MRVL', 'ARM', 'SMCI', 'DELL', 'HPQ', 'PANW',
+  'CRWD', 'SNOW', 'NOW', 'INTU', 'ANET', 'WDC', 'STX', 'ON', 'MCHP', 'NXPI',
+  'ASML', 'TSM',
+  // high-attention / growth / meme
+  'PLTR', 'COIN', 'MARA', 'RIOT', 'MSTR', 'SOFI', 'HOOD', 'RIVN', 'LCID', 'NIO',
+  'RBLX', 'U', 'DKNG', 'ABNB', 'UBER', 'LYFT', 'SHOP', 'PYPL', 'ROKU', 'PINS',
+  'SNAP', 'DASH', 'AFRM', 'UPST', 'CVNA', 'GME', 'AMC', 'CHWY', 'F', 'GM',
+  // financials
+  'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'SCHW', 'BLK', 'V', 'MA', 'AXP', 'COF',
+  // healthcare
+  'LLY', 'UNH', 'JNJ', 'PFE', 'MRK', 'ABBV', 'TMO', 'ABT', 'BMY', 'MRNA',
+  'AMGN', 'GILD', 'CVS', 'ISRG', 'VRTX', 'REGN',
+  // consumer
+  'WMT', 'COST', 'HD', 'LOW', 'NKE', 'SBUX', 'MCD', 'DIS', 'KO', 'PEP', 'PG',
+  'TGT', 'CMG', 'LULU', 'BKNG',
+  // energy / industrials
+  'XOM', 'CVX', 'COP', 'OXY', 'SLB', 'BA', 'CAT', 'GE', 'HON', 'LMT', 'RTX',
+  'DE', 'UPS', 'FDX', 'UNP',
+  // clean / telecom / media / china / other
+  'ENPH', 'FSLR', 'PLUG', 'CHPT', 'QS', 'T', 'VZ', 'TMUS', 'CMCSA', 'WBD',
+  'BABA', 'JD', 'PDD', 'ZM', 'NET', 'DDOG', 'MDB',
+  // ETFs (heavily optioned)
+  'SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'VOO', 'ARKK', 'SOXL', 'SOXX', 'SMH',
+  'TQQQ', 'SQQQ', 'TLT', 'GLD', 'SLV', 'USO', 'XLE', 'XLF', 'XLK', 'XLV',
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
