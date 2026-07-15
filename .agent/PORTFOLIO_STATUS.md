@@ -31,6 +31,7 @@
 ## 3) 홍보 — 정본 `UC_GROWTH_PLAN.md` + `MARKETING_ACTIVE_OUTREACH_PLAN.md`
 > ★ **규칙: 돈 드는 홍보(창작자 스폰서·유료광고)는 AdMob 수익 붙은 다음.** 그 전엔 무료만.
 ### 무료 · 지금 (저노력·바이너리 무관)
+- ✅ **자동 트래픽 엔진 #1 = LIVE** (c11eacc3): `robots.txt`+`sitemap.xml`(없었음→신설) + `/[locale]/flow/[ticker]` SEO/GEO 페이지(30티커×3언어·머니데이터+괴리+FAQ JSON-LD+설치CTA `?from=seo`·시간당 ISR·앱UI 무관). 실화면 검증됨(NVDA 46%/$200/$215/$180). 정본=`AUTOMATED_TRAFFIC_ENGINE.md`. ⏳**사용자 액션: sitemap을 Google Search Console 제출**(색인 가속). 다음: 티커 확장 + 엔진 #2(공유카드)·#3(뉴스레터).
 - 괴리 숏폼 자동엔진(**오가닉**, Remotion ~$0.02/편) · 괴리카드 SEO/공유 · UC 스토어 스샷#1=괴리카드+"same engine" 라인 · SIGNUM→UC 소프트카드 · SIGNUM 원앤던(창업서사·PH·디스콰이엇) · (창작자 60초 스크립트/브리프 **미리 작성=무료**)
 ### 유료 · AdMob 수익 후
 - 창작자 스폰서십(예산) · ASA(News 키워드) · UAC
