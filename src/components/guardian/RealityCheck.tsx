@@ -326,17 +326,26 @@ function NewsPulseContent({
     formatAge: (minutes: number) => string;
 }) {
     const [currentIdx, setCurrentIdx] = React.useState(0);
+    const [navNonce, setNavNonce] = React.useState(0); // bumps on manual nav → restarts the auto-rotate timer
+    const touchStartX = React.useRef<number | null>(null);
     const displayItems = items.slice(0, 10);
     const total = displayItems.length;
 
-    // Auto-rotation: 8 seconds per item
+    // Manual navigation (swipe / dot tap): move by dir and restart the auto-rotate countdown.
+    const go = React.useCallback((dir: 1 | -1) => {
+        setCurrentIdx(prev => (prev + dir + total) % total);
+        setNavNonce(n => n + 1);
+    }, [total]);
+
+    // Auto-rotation: 10s per item. navNonce in deps → a manual swipe/tap restarts the
+    // countdown so the card doesn't jump away immediately after the user interacts.
     React.useEffect(() => {
         if (total <= 1) return;
         const timer = setInterval(() => {
             setCurrentIdx(prev => (prev + 1) % total);
         }, 10000);
         return () => clearInterval(timer);
-    }, [total]);
+    }, [total, navNonce]);
 
     // Reset index when items change
     React.useEffect(() => { setCurrentIdx(0); }, [items.length]);
@@ -367,11 +376,20 @@ function NewsPulseContent({
             {/* Single News Card */}
             <div
                 key={`${item.id}-${currentIdx}`}
+                onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+                onTouchEnd={(e) => {
+                    if (touchStartX.current == null || total <= 1) return;
+                    const dx = e.changedTouches[0].clientX - touchStartX.current;
+                    touchStartX.current = null;
+                    if (Math.abs(dx) < 40) return;        // ignore taps / tiny drags
+                    go(dx < 0 ? 1 : -1);                   // swipe left → next, swipe right → prev
+                }}
                 className={`relative rounded-lg p-3 transition-all duration-500 overflow-hidden ${isBreaking
                     ? 'border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]'
                     : 'border border-slate-600/50'
                     }`}
                 style={{
+                    touchAction: 'pan-y',
                     background: isBreaking
                         ? 'linear-gradient(135deg, rgba(244,63,94,0.06) 0%, rgba(15,23,42,0.95) 50%, rgba(244,63,94,0.04) 100%)'
                         : 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(15,23,42,0.95) 40%, rgba(6,182,212,0.04) 100%)',
@@ -458,7 +476,7 @@ function NewsPulseContent({
                     {displayItems.map((_, idx) => (
                         <button
                             key={idx}
-                            onClick={() => setCurrentIdx(idx)}
+                            onClick={() => { setCurrentIdx(idx); setNavNonce(n => n + 1); }}
                             className={`rounded-full transition-all duration-300 ${idx === currentIdx
                                 ? 'w-4 h-1.5 bg-indigo-400'
                                 : 'w-1.5 h-1.5 bg-slate-600 hover:bg-slate-500'
