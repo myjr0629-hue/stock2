@@ -7,13 +7,13 @@
 | 앱 | iOS | Android | 광고 | 수익 |
 |---|---|---|---|---|
 | SIGNUM | ✅ 라이브 | ✅ 라이브 | 실ID·계정미승인=no-fill | $0 |
-| UC | ✅ 승인(24h내) | ⏳ in review | 휴면(ADS_LIVE=false) | $0 |
+| UC | ✅ 라이브 | ✅ **라이브(7/15)** | 휴면(ADS_LIVE=false) | $0 |
 | WIM | 웹만 | 웹만 | inert | $0 |
 - 설치(2026-07-15): SIGNUM iOS ~10 / Android ~0. 콜드스타트. 리스팅 전환 30%(건강) → **병목=트래픽(노출)**.
 - `?from=` 유입측정 = 라이브(커밋 08fb2928). health 피드 = 그린.
 
 ## 1) 앱 작업 — 업데이트 없이 (웹, 즉시)
-- **SIGNUM→UC 소프트 하우스카드** — ✅ **배포**(c30073c4): 설정 화면 카드 + `/app-uc` 스마트링크(`?from=signum_app`). iOS+웹 표시·**네이티브 Android 숨김**(UC Play 미승인 404 방지). ⏰ **UC Android 라이브 시 `!native-android` 게이트 1줄 제거**(settings/page.tsx `setShowUc`) — 웹, 무업데이트
+- **SIGNUM↔UC 크로스링크** — ✅ **배포 완료**: 설정 화면 UC 카드 + `/app-uc` 스마트링크(`?from=signum_app`) + 맥락링크(뉴스펄스→UC `?from=signum_news` / UC심층레이어→SIGNUM `?from=uc_ticker`). **UC Android 라이브(7/15) → 카드 게이트 해제, 전 플랫폼 표시.** 비대칭 준수(UC→SIGNUM 최소).
 - **맥락 상호링크**: SIGNUM 뉴스→UC 스토리(`?open=T`) / UC 티커→SIGNUM 구조(`cmd ?t=T`, **최소**) — [미착수]
 - ⚠️ **단방향 원칙**: UC→SIGNUM **하우스카드 금지**(대중→프로 = 1성리뷰). 상세 `UC_GROWTH_PLAN.md §5`.
 - 앱-투-앱 딥링크: 스토어폴백=웹 / 앱바로열기=네이티브(업데이트).

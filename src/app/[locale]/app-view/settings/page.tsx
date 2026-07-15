@@ -185,9 +185,9 @@ export default function SettingsPage() {
   // In-app review — only show the row when the native plugin is present in the
   // binary (current v1.0 shell lacks it → row stays hidden until the v1.1 build).
   const [canRate, setCanRate] = useState(false);
-  // Companion-app cross-promo (Undercurrent) — shown on iOS + web; hidden on native
-  // Android until UC's Play listing is live (in review) to avoid a 404 on tap.
-  const [showUc, setShowUc] = useState(true);
+  // Companion-app cross-promo (Undercurrent) — UC is live on iOS + Android (Play approved
+  // 2026-07-15), so the card shows on every platform.
+  const [showUc] = useState(true);
 
   const handleProUpgrade = useCallback(async () => {
     if (proBusy || isPro) return;
@@ -230,7 +230,6 @@ export default function SettingsPage() {
     setMounted(true);
     setPrefs(loadPrefs());
     setCanRate(canRequestReview());
-    setShowUc(!document.documentElement.classList.contains('native-android'));
   }, []);
 
   const updatePrefs = useCallback((patch: Partial<typeof prefs>) => {
