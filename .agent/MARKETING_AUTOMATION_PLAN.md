@@ -173,7 +173,9 @@ TRS(0~100) = (0.50·리테일어텐션 + 0.50·데이터엣지) × 신선도 × 
 - ✅ **`?from=` 유입 추적** (맥, `08fb29283`): `/app` 스마트링크가 `?from=` 히트 카운트 → 성과 탭 퍼널 데이터 살아남. (웹파일이라 맥이 처리)
 - **콘솔(마케팅 페이지) = 6탭 실작동 + 총지휘소 통제(킬스위치) + 채널별 발굴/초안/복사→수동 완비.** 검증: 전 라우트 배포·게이트 401/404 정상.
 - ✅ **자율발행 엔진(오리지널) — 대표 지시 "완벽한 자동화"(2026-07-15) 착수.** `autopilot.ts`: 종목선별(suggest 스코어 재사용)→grounded 생성→**전 §6 게이트**(킬스위치·데드맨3연속·캡3·90분간격·스켈레톤72h·grounded린트)→채널별 **off/shadow/live**. shadow=Buffer draft(`dryRun:false,draft:true`), live=자동게시(X=Buffer `draft:false`, Bluesky=AT API). 크론 `/api/cron/mkt-autopilot`×4(§2.2 ET 지터: 09:37·12:47·15:08·16:13 ET). 제어 `/api/admin/mkt/autopilot` + Today 탭 "자동화 조종석"(채널 토글+데드맨). **기본값 전 채널 off → 배포만으로 아무것도 발행 안 함**; go-live=콘솔 1클릭. 메모리 가드레일 rule#1(자동발행 금지)은 이 지시로 철회, 게이트 하드코딩으로 대체.
-- ⏭ 남음: **Bluesky 자동 답글 엔진(bluesky-reply, 조종석에 자리만)** · 이벤트 탐지 크론(14 트리거, 현재는 suggest 7종목 스코어) · TRS 데이터배선 · X 내글 응대. `?from=`는 웹파일이라 대표 승인 후(맥 완료).
+- ✅ **Bluesky 자동 답글 + X 내글 자동응대 — 대표 지시 "다 자동화"(2026-07-15).** `bluesky.ts`: `bskySearchTargets`(finance/티커 검색→grounding 대상) + `bskyReply`(AT reply refs). `autopilot.ts` `runAutopilotReplies`: Bluesky 콜드답글(찾기→grounded→린트→shadow 로그/live 게시) + X 내글 멘션 자동응대(X 예외 허용, 채널 live 시). replied-set 중복차단·`REPLY_CAP=8`/일. 크론이 오리지널+답글 병행. 조종석 bluesky-reply(off/shadow/live) 활성. **현 상태: 4채널 전부 shadow 가동**(x-us·x-jp·bluesky-post·bluesky-reply). 실측: 구조API✓·Bedrock생성✓·Buffer초안 status:"draft"✓·모드 round-trip✓·크론 배포·게이트 401✓.
+- **자동화 완료 표면**: X·Bluesky 오리지널 + Bluesky 콜드답글 + X 내글 응대 = 자동. **수동 잔존(플랫폼 정책): X 콜드답글·Stocktwits·Reddit 게시**(발굴+초안은 자동).
+- ⏭ 남음(품질 튜닝): detectTicker JP 이름매핑 확장 · 이벤트 탐지 크론(14 트리거, 현재 suggest 7종목) · TRS 데이터배선 · JP 타깃 미국주 계정 교체.
 
 ---
 
