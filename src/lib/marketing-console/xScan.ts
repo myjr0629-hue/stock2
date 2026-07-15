@@ -47,12 +47,39 @@ async function xGet<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Company names → ticker. Lets us ground JP/EN posts that name a US stock in
+// prose (テスラ / "Tesla") instead of a $cashtag — the JP 米国株 voice rarely
+// uses cashtags, which is why JP drafts kept falling back to "수동 작성".
+const NAME_TO_TICKER: Array<[RegExp, string]> = [
+  [/tesla|テスラ/i, 'TSLA'],
+  [/nvidia|エヌビディア|エヌビ/i, 'NVDA'],
+  [/\bapple\b|アップル/i, 'AAPL'],
+  [/microsoft|マイクロソフト/i, 'MSFT'],
+  [/amazon|アマゾン/i, 'AMZN'],
+  [/google|alphabet|グーグル|アルファベット/i, 'GOOGL'],
+  [/\bmeta\b|メタ・?プラット|メタ株/i, 'META'],
+  [/netflix|ネットフリックス|ネトフリ/i, 'NFLX'],
+  [/palantir|パランティア/i, 'PLTR'],
+  [/broadcom|ブロードコム/i, 'AVGO'],
+  [/micron|マイクロン/i, 'MU'],
+  [/coinbase|コインベース/i, 'COIN'],
+  [/microstrategy|マイクロストラテジー/i, 'MSTR'],
+  [/super\s?micro|スーパーマイクロ/i, 'SMCI'],
+];
+
 export function detectTicker(text: string): string | null {
+  // 1) $CASHTAG that we cover
   const cash = text.match(/\$([A-Za-z]{1,5})\b/);
   if (cash && KNOWN_TICKERS.has(cash[1].toUpperCase())) return cash[1].toUpperCase();
+  // 2) bare uppercase ticker we cover (e.g. "NVDA")
   for (const m of text.matchAll(/\b([A-Z]{2,5})\b/g)) {
     if (KNOWN_TICKERS.has(m[1])) return m[1];
   }
+  // 3) company name in prose (EN or JP kana) → ticker
+  for (const [re, tk] of NAME_TO_TICKER) {
+    if (re.test(text)) return tk;
+  }
+  // 4) any other $cashtag (unknown coverage — caller still checks grounding)
   return cash ? cash[1].toUpperCase() : null;
 }
 
