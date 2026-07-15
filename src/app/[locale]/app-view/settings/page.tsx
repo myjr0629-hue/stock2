@@ -39,6 +39,7 @@ const T: Record<string, {
   proRestoredToast: string;
   proNothingToRestoreToast: string;
   proErrorToast: string;
+  ucSub: string;
 }> = {
   ko: {
     title: '설정',
@@ -70,6 +71,7 @@ const T: Record<string, {
     proRestoredToast: '구매가 복원되었습니다',
     proNothingToRestoreToast: '복원할 구매 내역이 없어요',
     proErrorToast: '구매를 완료하지 못했어요',
+    ucSub: '뉴스 뒤의 돈 · 무료',
   },
   en: {
     title: 'Settings',
@@ -101,6 +103,7 @@ const T: Record<string, {
     proRestoredToast: 'Purchase restored',
     proNothingToRestoreToast: 'No previous purchase to restore',
     proErrorToast: "Couldn't complete the purchase",
+    ucSub: 'The news behind the money · Free',
   },
   ja: {
     title: '設定',
@@ -132,6 +135,7 @@ const T: Record<string, {
     proErrorToast: '購入を完了できませんでした',
     cacheConfirm: 'クリア',
     cacheToast: 'キャッシュをクリアしました',
+    ucSub: 'ニュースの裏側のお金 · 無料',
   },
 };
 
@@ -181,6 +185,9 @@ export default function SettingsPage() {
   // In-app review — only show the row when the native plugin is present in the
   // binary (current v1.0 shell lacks it → row stays hidden until the v1.1 build).
   const [canRate, setCanRate] = useState(false);
+  // Companion-app cross-promo (Undercurrent) — shown on iOS + web; hidden on native
+  // Android until UC's Play listing is live (in review) to avoid a 404 on tap.
+  const [showUc, setShowUc] = useState(true);
 
   const handleProUpgrade = useCallback(async () => {
     if (proBusy || isPro) return;
@@ -208,6 +215,11 @@ export default function SettingsPage() {
       : 'https://play.google.com/store/account/subscriptions');
   }, []);
 
+  // Cross-promo → Undercurrent store (device-aware smart link, ?from tagged for attribution).
+  const handleOpenUc = useCallback(() => {
+    openExternalUrl('https://www.signumhq.com/app-uc?from=signum_app');
+  }, []);
+
   // Swipe-down tracking
   const sheetRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
@@ -218,6 +230,7 @@ export default function SettingsPage() {
     setMounted(true);
     setPrefs(loadPrefs());
     setCanRate(canRequestReview());
+    setShowUc(!document.documentElement.classList.contains('native-android'));
   }, []);
 
   const updatePrefs = useCallback((patch: Partial<typeof prefs>) => {
@@ -515,6 +528,25 @@ export default function SettingsPage() {
               <span className={s.rowChevron}>›</span>
             </div>
           </div>
+
+          {/* ── Companion app: Undercurrent (cross-promo). iOS + web only; hidden on
+                native Android until UC's Play listing is live (avoids a 404 on tap). ── */}
+          {showUc && (
+            <div className={s.card}>
+              <div className={s.row} onClick={handleOpenUc} style={{ cursor: 'pointer' }}>
+                <div className={s.rowLeft}>
+                  <div className={s.rowIcon} style={{ background: '#F6F3ED', padding: 4 }}>
+                    <img src="/undercurrent-symbol.svg" alt="Undercurrent" width={18} height={18} style={{ objectFit: 'contain', display: 'block' }} />
+                  </div>
+                  <div>
+                    <div className={s.rowLabel}>Undercurrent</div>
+                    <div className={s.rowSub}>{t.ucSub}</div>
+                  </div>
+                </div>
+                <span className={s.rowChevron}>›</span>
+              </div>
+            </div>
+          )}
 
           {/* Version */}
           <div className={s.versionBox}>
