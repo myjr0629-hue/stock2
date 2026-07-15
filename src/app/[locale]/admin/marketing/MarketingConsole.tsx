@@ -165,6 +165,16 @@ function TodayTab() {
     setAutoBusy('deadman');
     try { await fetch('/api/admin/mkt/autopilot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resetDeadman: true }) }); await loadAuto(); } catch { /* noop */ } finally { setAutoBusy(''); }
   };
+  const [runResult, setRunResult] = useState<string>('');
+  const runNow = async (which: 'originals' | 'replies' | 'all') => {
+    setAutoBusy('run'); setRunResult('실행 중…');
+    try {
+      const r = await fetch('/api/admin/mkt/autopilot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ run: which }) });
+      const j = await r.json();
+      if (j.ok) setRunResult(`${j.posted}건 처리 · ` + (j.results || []).map((x: { channel: string; action: string; detail?: string }) => `${x.channel}:${x.action}${x.detail ? `(${x.detail})` : ''}`).join(' · '));
+      else setRunResult(j.error || '실패');
+    } catch (e) { setRunResult(String(e)); } finally { setAutoBusy(''); }
+  };
 
   const toggleKill = async () => {
     setKillBusy(true);
@@ -237,6 +247,11 @@ function TodayTab() {
             </div>
           );
         })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--mkc-line, #e5e7eb)' }}>
+          <button className="mkc-btn mkc-btn-ghost" style={{ fontSize: 12 }} disabled={autoBusy === 'run' || !auto} onClick={() => runNow('replies')}>답글 지금 실행</button>
+          <button className="mkc-btn mkc-btn-ghost" style={{ fontSize: 12 }} disabled={autoBusy === 'run' || !auto} onClick={() => runNow('all')}>전체 지금 실행</button>
+          {runResult && <span className="mkc-muted" style={{ fontSize: 11, flex: 1 }}>{runResult}</span>}
+        </div>
       </div>
 
       <div className="mkc-kpis">

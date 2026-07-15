@@ -5,9 +5,10 @@ import {
   getDeadman, resetDeadman, getAllVolumes, DAILY_CAP,
   type AutoMode, type AutoChannel,
 } from '@/lib/marketing-console/mkt';
+import { runAutopilotOriginals, runAutopilotReplies } from '@/lib/marketing-console/autopilot';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 15;
+export const maxDuration = 60; // manual run triggers Bedrock generation
 
 const VALID_MODES: AutoMode[] = ['off', 'shadow', 'live'];
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   const gate = await requireMktAdmin();
   if ('error' in gate) return gate.error;
 
-  let body: { channel?: string; mode?: string; resetDeadman?: boolean };
+  let body: { channel?: string; mode?: string; resetDeadman?: boolean; run?: 'originals' | 'replies' | 'all' };
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 400 }); }
 
   // Manual deadman reset (after fixing whatever tripped it).
@@ -38,6 +39,19 @@ export async function POST(req: NextRequest) {
     await resetDeadman();
     await appendAudit(gate.admin.email, 'deadman-reset', '');
     return NextResponse.json({ ok: true, reset: true });
+  }
+
+  // Manual run — fire the engine once now (same gates as the cron). Lets the
+  // operator verify autonomy immediately instead of waiting for the next window.
+  if (body.run) {
+    const which = body.run;
+    await appendAudit(gate.admin.email, 'autopilot-run', which);
+    const [originals, replies] = await Promise.all([
+      which === 'replies' ? Promise.resolve([]) : runAutopilotOriginals().catch((e) => [{ channel: 'originals', mode: 'off' as const, action: 'fail' as const, ok: false, detail: (e as Error).message }]),
+      which === 'originals' ? Promise.resolve([]) : runAutopilotReplies().catch((e) => [{ channel: 'replies', mode: 'off' as const, action: 'fail' as const, ok: false, detail: (e as Error).message }]),
+    ]);
+    const results = [...originals, ...replies];
+    return NextResponse.json({ ok: true, ran: which, posted: results.filter((r) => r.ok).length, results });
   }
 
   const channel = body.channel as AutoChannel;
