@@ -52,7 +52,7 @@ const T: Record<Locale, Record<string, string>> = {
     bandNormal: '보통', bandHigh: '높음', bandVeryHigh: '매우 높음',
     pcrCall: '콜 우위 · 강세 성향', pcrBal: '균형', pcrPut: '풋 우위 · 방어적',
     sqLow: '낮음', sqMid: '중간', sqHigh: '높음',
-    levels: '옵션 가격 지도', lvFloor: '방어선', lvMagnet: '자석', lvWall: '저항선', lvNow: '현재',
+    levels: '옵션 가격 지도', lvFloor: '방어선', lvMagnet: '자석', lvWall: '저항선', lvNow: '현재', ucDeeper: 'SIGNUM에서 전체 옵션 구조 →',
     ad: '광고 · 스폰서', adNative: '네이티브 광고 자리 — 콘텐츠와 같은 결',
     back: '뒤로', source: '출처',
     justNow: '방금 전', minAgo: '분 전', hrAgo: '시간 전', dayAgo: '일 전',
@@ -129,7 +129,7 @@ const T: Record<Locale, Record<string, string>> = {
     bandNormal: 'Normal', bandHigh: 'High', bandVeryHigh: 'Very high',
     pcrCall: 'Call-heavy · bullish lean', pcrBal: 'Balanced', pcrPut: 'Put-heavy · defensive',
     sqLow: 'Low', sqMid: 'Medium', sqHigh: 'High',
-    levels: 'Option price map', lvFloor: 'Floor', lvMagnet: 'Magnet', lvWall: 'Wall', lvNow: 'Now',
+    levels: 'Option price map', lvFloor: 'Floor', lvMagnet: 'Magnet', lvWall: 'Wall', lvNow: 'Now', ucDeeper: 'Full options structure in SIGNUM →',
     ad: 'Ad · Sponsored', adNative: 'Native ad slot — matches content style',
     back: 'Back', source: 'Source',
     justNow: 'just now', minAgo: 'm ago', hrAgo: 'h ago', dayAgo: 'd ago',
@@ -206,7 +206,7 @@ const T: Record<Locale, Record<string, string>> = {
     bandNormal: '普通', bandHigh: '高い', bandVeryHigh: '非常に高い',
     pcrCall: 'コール優勢 · 強気', pcrBal: '均衡', pcrPut: 'プット優勢 · 防御的',
     sqLow: '低い', sqMid: '中間', sqHigh: '高い',
-    levels: 'オプション価格マップ', lvFloor: '防衛線', lvMagnet: '磁石', lvWall: '抵抗線', lvNow: '現在',
+    levels: 'オプション価格マップ', lvFloor: '防衛線', lvMagnet: '磁石', lvWall: '抵抗線', lvNow: '現在', ucDeeper: 'SIGNUMで全オプション構造 →',
     ad: '広告 · スポンサー', adNative: 'ネイティブ広告枠 — コンテンツと同じトーン',
     back: '戻る', source: '出典',
     justNow: 'たった今', minAgo: '分前', hrAgo: '時間前', dayAgo: '日前',
@@ -553,6 +553,16 @@ function DeepLayer({ c, t }: { c: Card; t: Record<string, string> }) {
         <SignalRow name={t.sigSq} value={String(Math.round(m.squeezeScore))} band={bandSq(m.squeezeScore, t)} />
       )}
       <LevelMap m={m} t={t} />
+      {/* UC → SIGNUM: soft "go deeper" for users already viewing the options layer.
+          One-way + minimal per the portfolio verdict — never a promo card. */}
+      <a
+        href="https://www.signumhq.com/app?from=uc_ticker"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ display: 'block', marginTop: 16, textAlign: 'center', fontSize: 11, fontWeight: 700, color: C.sub, textDecoration: 'none', letterSpacing: '0.01em' }}
+      >
+        {t.ucDeeper}
+      </a>
     </div>
   );
 }

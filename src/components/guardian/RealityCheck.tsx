@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Activity, AlertTriangle, TrendingUp, Radar, Newspaper, Radio, Globe, Flag, BarChart3, Zap, Shield, Clock } from "lucide-react";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { useGuardianNews, type NewsDigestItem } from "@/hooks/useGuardianNews";
+import { openExternalUrl } from "@/lib/native/capacitorBridge";
 import { useTranslations, useLocale } from 'next-intl';
 import { MiniGauge, DualGauge } from "./MiniGauge";
 import { GuardianTooltip } from './GuardianTooltip';
@@ -102,6 +103,7 @@ export function RealityCheck({
             loading: { ko: '뉴스 분석 중...', en: 'Analyzing news...', ja: 'ニュース分析中...' },
             noNews: { ko: '뉴스를 불러오는 중...', en: 'Loading news...', ja: 'ニュースを読み込み中...' },
             impact: { ko: '임팩트', en: 'Impact', ja: 'インパクト' },
+            ucNews: { ko: '뉴스 뒤의 돈, Undercurrent에서 →', en: 'The money behind the news — Undercurrent →', ja: 'ニュースの裏のお金 — Undercurrent →' },
         };
         return map[key]?.[locale] || map[key]?.en || key;
     };
@@ -466,6 +468,13 @@ function NewsPulseContent({
                 </div>
             )}
 
+            {/* SIGNUM → Undercurrent cross-promo (companion news app, one-way). */}
+            <button
+                onClick={() => openExternalUrl('https://www.signumhq.com/app-uc?from=signum_news')}
+                className="mt-2 w-full text-center text-[11px] font-semibold text-indigo-300/70 hover:text-indigo-300 transition-colors"
+            >
+                {bt('ucNews')}
+            </button>
 
         </div>
     );

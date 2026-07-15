@@ -39,8 +39,9 @@
 - 폰트 크게 보는 사용자 레이아웃 깨짐 방지. uc-app Android WebView `settings.textZoom=100`(MainActivity 또는 상응).
 - ⚠️ **네이티브 빌드로 실검증 필수(blind 금지)** — SIGNUM v1.1 assembly와 **같이 구현·검증**(둘 다 없음).
 
-### C. Android safe-area-top 확인 [신규]
-- UC Android edge-to-edge 상단 충돌 여부 에뮬/실기 확인. SIGNUM 수정은 `.app-viewport` 전용이라 **UC 레이아웃(masthead)엔 별도 바닥값 필요할 수 있음**. (참고: memory android-webview-safe-area-top)
+### C. Android 상단 위치(safe-area/status-bar) 수정 [확정 — SIGNUM v1.1과 동일]
+- **UC Android도 SIGNUM과 같은 리모트 웹뷰 구조 → 같은 "상단 물림" 이슈 해당** (SIGNUM `SIGNUM_V1.1_BINARY_ASSEMBLY.md §2.5`의 "상단 위치" 수정과 동일 건). 지금은 UC 미승인이라 실기 확인 불가하나 **구조가 같으므로 UC 1.0.1에 포함 확정**(사용자 지시 2026-07-15).
+- 실행: SIGNUM v1.1과 **같이** — `@capacitor-community/safe-area` 플러그인 + UC 루트(`.uc-slideup`/masthead)에 실측 인셋 적용, `textZoom=100`(§B)과 한 세션. **UC 승인 후 안드로이드 에뮬로 상단 갭·물림 0 실확인.** (참고: memory android-webview-safe-area-top)
 
 ### D. 푸시 [결정 필요]
 - 현재 UC 푸시 **없음**(@capacitor/push-notifications 부재, "준비 중" 표기만). 딥링크는 ready.
