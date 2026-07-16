@@ -472,39 +472,78 @@ export default function Page() {
             {t('home.fomoSubheadline')}<br /><span className="text-cyan-400 font-bold">{t('home.fomoHighlight')}</span>
           </p>
 
-          {/* CTA Buttons — app-first funnel (App Store live 2026-07). /app = device-aware store smart link */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 mb-6">
-            <a href="/app?from=home"
-              className="group px-9 py-4 bg-white text-black rounded-md font-extrabold text-sm uppercase tracking-wider font-jakarta
-                hover:brightness-90 transition-all
-                flex items-center gap-2.5 shadow-[0_0_40px_rgba(255,255,255,0.18)] border border-white/20">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 -mt-0.5" fill="currentColor" aria-hidden="true">
+          {/* CTA — dual store badges (App Store + Google Play), SIGNUM app */}
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
+            <a href="https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444"
+              target="_blank" rel="noopener noreferrer"
+              aria-label="Download SIGNUM HQ on the App Store"
+              className="flex items-center gap-2.5 h-[54px] px-5 rounded-xl bg-black border border-white/25 hover:border-white/50 transition-colors">
+              <svg viewBox="0 0 24 24" className="w-7 h-7 shrink-0" fill="#fff" aria-hidden="true">
                 <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.03 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
               </svg>
-              {t('home.appStoreCta')}
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              <span className="flex flex-col items-start leading-none">
+                <span className="text-[10px] text-white/70">{t('home.appStoreLead')}</span>
+                <span className="text-[18px] font-semibold text-white mt-0.5 font-jakarta">App Store</span>
+              </span>
             </a>
+            <a href="https://play.google.com/store/apps/details?id=com.signumhq.app"
+              target="_blank" rel="noopener noreferrer"
+              aria-label="Get SIGNUM HQ on Google Play"
+              className="flex items-center gap-2.5 h-[54px] px-5 rounded-xl bg-black border border-white/25 hover:border-white/50 transition-colors">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 shrink-0" aria-hidden="true">
+                <defs>
+                  <linearGradient id="gplay-badge" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#00D2FF" />
+                    <stop offset="35%" stopColor="#00E676" />
+                    <stop offset="70%" stopColor="#FFD500" />
+                    <stop offset="100%" stopColor="#FF3D3D" />
+                  </linearGradient>
+                </defs>
+                <path d="M8 5v14l11-7z" fill="url(#gplay-badge)" />
+              </svg>
+              <span className="flex flex-col items-start leading-none">
+                <span className="text-[10px] text-white/70">{t('home.googlePlayLead')}</span>
+                <span className="text-[18px] font-semibold text-white mt-0.5 font-jakarta">Google Play</span>
+              </span>
+            </a>
+          </div>
+
+          {/* Secondary — try on web */}
+          <div className="mb-7">
             <Link href="/ticker?ticker=NVDA"
-              className="px-10 py-4 bg-[#0a1628]/50 border border-[#1e293b]
-                text-[#38bdf8] rounded-md font-bold text-sm uppercase tracking-wider font-jakarta
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-[#0a1628]/50 border border-[#1e293b]
+                text-[#38bdf8] text-sm font-bold uppercase tracking-wider font-jakarta
                 hover:bg-[#0a1628] hover:border-[#38bdf8]/30 transition-all">
               {t('home.webCta')}
+              <ArrowRight size={14} />
             </Link>
           </div>
 
-          {/* App install helper — QR for desktop (own row, centered), store note for mobile */}
-          <div className="hidden md:flex w-fit mx-auto items-center gap-4 mb-8 px-5 py-3.5 rounded-xl bg-[#0a1628]/60 border border-white/10 text-left">
-            <div className="bg-white p-1.5 rounded-lg shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/images/app-qr.svg" alt="SIGNUM HQ app install QR" width={76} height={76} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-200">{t('home.appQrHint')}</p>
-              <p className="text-xs text-slate-400 mt-1">{t('home.appFreeNote')}</p>
-              <p className="text-[11px] text-slate-500 mt-1">{t('home.androidSoon')}</p>
-            </div>
+          {/* Companion apps — SIGNUM + Undercurrent, both free on iOS & Android */}
+          <div className="w-fit max-w-full mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-3 mb-8 px-5 py-3.5 rounded-xl bg-[#0a1628]/60 border border-white/10">
+            <span className="text-[11px] font-semibold text-slate-400 tracking-wide">{t('home.appFamilyNote')}</span>
+            <a href="/app?from=home" className="flex items-center gap-2.5 group">
+              <span className="w-10 h-10 rounded-[11px] bg-[#0c2033] border border-cyan-500/20 flex items-center justify-center shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width={24} height={24} />
+              </span>
+              <span className="flex flex-col leading-tight text-left">
+                <span className="text-[13px] font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">SIGNUM HQ</span>
+                <span className="text-[10px] text-slate-500">{t('home.signumTagline')}</span>
+              </span>
+            </a>
+            <span className="hidden sm:block w-px h-9 bg-white/10" />
+            <a href="/app-uc?from=home" className="flex items-center gap-2.5 group">
+              <span className="w-10 h-10 rounded-[11px] bg-[#1c1206] border border-amber-500/20 flex items-center justify-center shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/undercurrent-symbol.svg" alt="Undercurrent" width={24} height={24} />
+              </span>
+              <span className="flex flex-col leading-tight text-left">
+                <span className="text-[13px] font-bold text-slate-100 group-hover:text-amber-300 transition-colors">Undercurrent</span>
+                <span className="text-[10px] text-slate-500">{t('home.ucTagline')}</span>
+              </span>
+            </a>
           </div>
-          <p className="md:hidden text-xs text-slate-500 mb-8">{t('home.appFreeNote')} · {t('home.androidSoon')}</p>
 
           <div className="inline-flex items-center gap-2 text-sm text-slate-400">
             <Zap className="w-4 h-4 text-amber-400" />
