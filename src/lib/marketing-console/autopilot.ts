@@ -165,28 +165,18 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
       continue;
     }
 
-    // Bluesky has NO reliable Buffer-draft state — Buffer publishes a Bluesky
-    // "draft" immediately (verified 2026-07-15). So Bluesky shadow = LOG ONLY,
-    // never post; only Bluesky live actually posts (direct AT Protocol).
-    if (p.bluesky && mode === 'shadow') {
-      await markAutoPost(p.ch); // respect the 90-min interval so we don't re-log every tick
-      await appendAudit('autopilot', 'auto-draft', `bluesky(shadow-로그) $${pick.ticker}: ${text.slice(0, 90)}`);
-      out.push({ channel: p.ch, mode, action: 'drafted', ok: true, detail: `$${pick.ticker} (로그만)` });
-      continue;
-    }
-
     // All gates passed → act per mode.
     let ok = false;
     let detail = '';
     try {
-      if (p.bluesky) {
-        // live — direct AT-Protocol post (image embed is a follow-up).
+      if (p.bluesky && mode === 'live') {
+        // Bluesky live → direct AT-Protocol post (image embed is a follow-up).
         const r = await bskyPost(text);
         ok = r.ok; detail = r.ok ? 'bluesky published' : (r.error || 'bsky 실패');
       } else {
-        // X: Buffer drafts DO hold (verified), so shadow=draft / live=publish.
-        // dryRun MUST be false or Buffer never actually receives the post.
-        // mediaUrl = hosted level card → Buffer attaches it as the post image.
+        // X (shadow=draft / live=publish) AND Bluesky shadow → Buffer. Drafts now
+        // hold correctly (createPost omits dueAt for drafts, mode 'shareNow'), so
+        // shadow no longer silently publishes. mediaUrl = hosted level card.
         const r = await createPost({ channelIds: [p.bufferId], text, mediaUrl: ogUrl, dryRun: false, draft: mode !== 'live' });
         ok = r.success; detail = r.success ? (mode === 'live' ? 'published' : 'draft 적재') : (r.error || 'buffer 실패');
       }

@@ -312,15 +312,23 @@ export async function createPost(opts: {
 
   for (const channelId of channelIds) {
     try {
-      // Publish immediately: set dueAt to 30s from now so Buffer fires it right away
-      const publishAt = scheduledAt || new Date(Date.now() + 30_000).toISOString();
       const input: Record<string, any> = {
         channelId,
         text: text || '',
         schedulingType: 'automatic',
-        mode: 'customScheduled',
-        dueAt: publishAt,
       };
+      if (draft) {
+        // TRUE held draft — must NOT set dueAt. A draft WITH a dueAt is a
+        // *scheduled* post and Buffer auto-publishes it at that time (verified
+        // 2026-07-15: "drafts" went live). mode 'shareNow' + saveToDraft keeps it
+        // unscheduled in the Drafts tab (dueAt: null) until a human publishes.
+        input.mode = 'shareNow';
+        input.saveToDraft = true;
+      } else {
+        // Publish: dueAt 30s out so Buffer fires it right away.
+        input.mode = 'customScheduled';
+        input.dueAt = scheduledAt || new Date(Date.now() + 30_000).toISOString();
+      }
 
       // Image assets (new schema structure — assets must be a List of AssetInput)
       if (mediaUrls && mediaUrls.length > 0) {
@@ -328,11 +336,6 @@ export async function createPost(opts: {
         input.assets = mediaUrls.map(url => ({ image: { url } }));
       } else if (mediaUrl) {
         input.assets = [{ image: { url: mediaUrl } }];
-      }
-
-      // Draft support (official Buffer field)
-      if (draft) {
-        input.saveToDraft = true;
       }
 
       // Instagram-specific metadata (required for IG posts/stories/reels)
