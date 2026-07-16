@@ -520,27 +520,27 @@ export default function Page() {
           </div>
 
           {/* Companion apps — SIGNUM + Undercurrent, both free on iOS & Android */}
-          <div className="w-fit max-w-full mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-3 mb-8 px-5 py-3.5 rounded-xl bg-[#0a1628]/60 border border-white/10">
-            <span className="text-[11px] font-semibold text-slate-400 tracking-wide">{t('home.appFamilyNote')}</span>
+          <div className="w-fit max-w-full mx-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mb-8 px-5 py-4 rounded-xl bg-[#0a1628]/60 border border-white/10">
+            <span className="text-xs font-semibold text-slate-300 tracking-wide">{t('home.appFamilyNote')}</span>
             <a href="/app?from=home" className="flex items-center gap-2.5 group">
-              <span className="w-10 h-10 rounded-[11px] bg-[#0c2033] border border-cyan-500/20 flex items-center justify-center shrink-0">
+              <span className="w-11 h-11 rounded-[12px] bg-[#0b1d30] border border-cyan-500/25 flex items-center justify-center shrink-0 shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width={24} height={24} />
+                <img src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width={26} height={26} />
               </span>
               <span className="flex flex-col leading-tight text-left">
-                <span className="text-[13px] font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">SIGNUM HQ</span>
-                <span className="text-[10px] text-slate-500">{t('home.signumTagline')}</span>
+                <span className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">SIGNUM HQ</span>
+                <span className="text-[11px] text-slate-400">{t('home.signumTagline')}</span>
               </span>
             </a>
             <span className="hidden sm:block w-px h-9 bg-white/10" />
             <a href="/app-uc?from=home" className="flex items-center gap-2.5 group">
-              <span className="w-10 h-10 rounded-[11px] bg-[#1c1206] border border-amber-500/20 flex items-center justify-center shrink-0">
+              <span className="w-11 h-11 rounded-[12px] bg-[#F6F3ED] flex items-center justify-center shrink-0 shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/undercurrent-symbol.svg" alt="Undercurrent" width={24} height={24} />
+                <img src="/undercurrent-symbol.svg" alt="Undercurrent" width={28} height={28} />
               </span>
               <span className="flex flex-col leading-tight text-left">
-                <span className="text-[13px] font-bold text-slate-100 group-hover:text-amber-300 transition-colors">Undercurrent</span>
-                <span className="text-[10px] text-slate-500">{t('home.ucTagline')}</span>
+                <span className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">Undercurrent</span>
+                <span className="text-[11px] text-slate-400">{t('home.ucTagline')}</span>
               </span>
             </a>
           </div>
