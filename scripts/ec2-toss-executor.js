@@ -122,29 +122,35 @@ function collectCandidates(node, out, keyHint) {
   if ((/^[0-9][0-9\-]{4,23}$/.test(s) || (keyHint && /^[A-Za-z0-9\-_]{4,32}$/.test(s))) && !out.includes(s)) out.push(s);
 }
 
+async function validateAccount(t, id) {
+  const v = await httpsJson(`${TOSS}/api/v1/buying-power?currency=USD`, {
+    headers: { Authorization: `Bearer ${t}`, 'X-Tossinvest-Account': String(id) }, timeoutMs: 10_000,
+  });
+  return v.status < 400;
+}
+function saveAccount(c) {
+  acct = c;
+  try { fs.mkdirSync(path.dirname(ACCT_FILE), { recursive: true }); fs.writeFileSync(ACCT_FILE, JSON.stringify({ acct: c, at: new Date().toISOString() })); } catch { /* best effort */ }
+}
 async function account() {
-  if (ENV.TOSS_ACCOUNT) return ENV.TOSS_ACCOUNT;
   if (acct) return acct;
   const t = await token();
-  const r = await httpsJson(`${TOSS}/api/v1/accounts`, {
-    headers: { Authorization: `Bearer ${t}` }, timeoutMs: 10_000,
-  });
+  // 1) operator-provided value — USE ONLY IF Toss accepts it (a wrong number
+  //    must never poison every call; fall through to auto-resolve if rejected).
+  if (ENV.TOSS_ACCOUNT && await validateAccount(t, ENV.TOSS_ACCOUNT)) { saveAccount(ENV.TOSS_ACCOUNT); return acct; }
+  if (ENV.TOSS_ACCOUNT) console.log('[toss-exec] TOSS_ACCOUNT rejected by Toss — auto-resolving from /accounts');
+  // 2) fetch the account list WITHOUT the account header (this is the listing
+  //    call itself — attaching a bad header was what 400'd it) and validate each
+  //    candidate id against a real buying-power call.
+  const r = await httpsJson(`${TOSS}/api/v1/accounts`, { headers: { Authorization: `Bearer ${t}` }, timeoutMs: 10_000 });
   let j; try { j = JSON.parse(r.text); } catch { j = {}; }
-  console.log('[toss-exec] accounts payload:', r.text.slice(0, 500)); // pm2 logs — shape reference
+  console.log('[toss-exec] accounts payload:', r.text.slice(0, 600)); // pm2 logs — shape reference
   const cands = [];
   collectCandidates(j, cands, false);
-  if (!cands.length) throw new Error('account resolve: no candidates in ' + r.text.slice(0, 160));
+  if (!cands.length) throw new Error('account resolve: no candidates in ' + r.text.slice(0, 200));
   for (const c of cands) {
-    const v = await httpsJson(`${TOSS}/api/v1/buying-power?currency=USD`, {
-      headers: { Authorization: `Bearer ${t}`, 'X-Tossinvest-Account': c }, timeoutMs: 10_000,
-    });
-    if (v.status < 400) {
-      acct = c;
-      try { fs.mkdirSync(path.dirname(ACCT_FILE), { recursive: true }); fs.writeFileSync(ACCT_FILE, JSON.stringify({ acct: c, at: new Date().toISOString() })); } catch { /* best effort */ }
-      console.log('[toss-exec] account resolved ✓ (validated via buying-power)');
-      return acct;
-    }
-    console.log('[toss-exec] candidate rejected (' + v.status + '):', c.slice(0, 4) + '***');
+    if (await validateAccount(t, c)) { saveAccount(c); console.log('[toss-exec] account resolved ✓', String(c).slice(0, 4) + '***'); return acct; }
+    console.log('[toss-exec] candidate rejected:', String(c).slice(0, 4) + '***');
   }
   throw new Error('account resolve: all ' + cands.length + ' candidates rejected');
 }
@@ -246,7 +252,9 @@ http.createServer((req, res) => {
 
       const t = await token();
       const headers = { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' };
-      if (!/^\/api\/v1\/(prices|orderbook|trades|candles|stocks|price-limits|rankings|market-indicators|exchange-rate|market-calendar)/.test(p)) {
+      // /accounts is the listing call itself — NEVER attach the account header
+      // (a wrong header 400'd the very call used to discover the account).
+      if (!/^\/api\/v1\/(accounts|prices|orderbook|trades|candles|stocks|price-limits|rankings|market-indicators|exchange-rate|market-calendar)/.test(p)) {
         headers['X-Tossinvest-Account'] = await account();
       }
       const qs = query
