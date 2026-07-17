@@ -51,7 +51,12 @@ interface VerdictRes {
 interface XrayRow {
   symbol: string; name: string | null; currency: string; qty: number | null; px: number | null; avg: number | null;
   evalAmt: number | null; plPct: number | null; xsScore: number | null; expect: Expect | null; struct: StructRead; label: string;
+  stance: { t: string; cls: string };
   metrics: { squeeze: number | null; darkPool: number | null; shortVol: number | null; pcr: number | null; iv: number | null; netGex: number | null } | null;
+}
+interface PickRow {
+  rank: number; symbol: string; score: number; price: number | null;
+  expect: Expect | null; struct: StructRead; label: string; z: Record<string, number> | null;
 }
 interface LabRes {
   ok: boolean;
@@ -61,6 +66,7 @@ interface LabRes {
 
 const NAV_ITEMS = [
   { key: 'overview', label: '개요', icon: '◧' },
+  { key: 'picks', label: '선별 픽', icon: '★' },
   { key: 'trade', label: '트레이딩', icon: '⇄' },
   { key: 'xray', label: '포지션 X-Ray', icon: '◉' },
   { key: 'lab', label: '엔진 랩', icon: '∑' },
@@ -69,9 +75,11 @@ const NAV_ITEMS = [
 type NavKey = typeof NAV_ITEMS[number]['key'];
 
 const LABEL_KO: Record<string, { t: string; cls: string }> = {
-  EDGE: { t: '구조 우위', cls: 'edge' },
+  STRONG_EDGE: { t: '강한 우위', cls: 'edge strong' },
+  EDGE: { t: '우위', cls: 'edge' },
   NEUTRAL: { t: '중립', cls: 'neutral' },
-  AGAINST: { t: '구조 열위', cls: 'against' },
+  AGAINST: { t: '열위', cls: 'against' },
+  STRONG_AGAINST: { t: '강한 열위', cls: 'against strong' },
   NO_DATA: { t: '데이터 없음', cls: 'nodata' },
 };
 const Z_LABEL: Record<string, string> = {
@@ -123,6 +131,9 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const [xrayErr, setXrayErr] = useState('');
   const [lab, setLab] = useState<LabRes | null>(null);
   const [labErr, setLabErr] = useState('');
+  const [picks, setPicks] = useState<PickRow[] | null>(null);
+  const [picksErr, setPicksErr] = useState('');
+  const [picksMeta, setPicksMeta] = useState<{ engineDate: string | null; labeled: number | null } | null>(null);
 
   const [tab, setTab] = useState<'order' | 'cond'>('order');
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
@@ -195,6 +206,14 @@ export default function TradeConsole({ operator }: { operator: string }) {
     fetch('/api/admin/trade/lab', { cache: 'no-store' }).then((r) => r.json())
       .then((j) => { if (j.ok) setLab(j); else setLabErr('로드 실패'); }).catch((e) => setLabErr(String(e)));
   }, []);
+  const loadPicks = useCallback(() => {
+    setPicksErr('');
+    fetch('/api/admin/trade/picks', { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => {
+        if (j.ok) { setPicks(j.rows || []); setPicksMeta({ engineDate: j.engineDate ?? null, labeled: j.labeled ?? null }); }
+        else setPicksErr('로드 실패');
+      }).catch((e) => setPicksErr(String(e)));
+  }, []);
 
   /* ── real-time lanes (pause when hidden) ── */
   useEffect(() => {
@@ -229,6 +248,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
   /* lazy loads per section */
   useEffect(() => { if (nav === 'xray' && !xray && st?.executor.configured) loadXray(); }, [nav, xray, st?.executor.configured, loadXray]);
   useEffect(() => { if (nav === 'lab' && !lab) loadLab(); }, [nav, lab, loadLab]);
+  useEffect(() => { loadPicks(); }, [loadPicks]); // engine-only, no executor needed
 
   /* ── derived (q/mk render-guarded: never show another symbol's data) ── */
   const connected = Boolean(st?.executor.up && st.executor.configured);
@@ -295,7 +315,16 @@ export default function TradeConsole({ operator }: { operator: string }) {
     const r = await fetch('/api/admin/trade/conditional', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel', conditionalOrderId: id }) });
     const j = await r.json(); say(j.ok ? '✅ 해제' : '❌ 실패'); loadPortfolio();
   };
-  const pickSymbol = (t: string | null) => { if (!t) return; setSymbol(t); setSymInput(t); setNav('trade'); };
+  const pickSymbol = (t: string | null, opt?: { buy?: boolean }) => {
+    if (!t) return;
+    setSymbol(t); setSymInput(t);
+    if (opt?.buy) {
+      // clean buy ticket — no leftover limit price/qty/confirm from a previous symbol
+      setTab('order'); setSide('BUY'); setOrderType('MARKET'); setMode('amount');
+      setPrice(''); setConfirming(false); setCConfirm(false);
+    }
+    setNav('trade');
+  };
 
   /* level ladder rows (sorted desc, price highlighted) */
   const ladder: { label: string; v: number; hi?: boolean }[] = [];
@@ -351,14 +380,31 @@ export default function TradeConsole({ operator }: { operator: string }) {
       </section>
       <section className="tc-duo">
         <div className="tc-card">
-          <div className="tc-card-label">오늘의 XS 픽 <span className="hint">자동엔진 선별 · 클릭=트레이딩</span></div>
-          <div className="tc-pickrow">
-            {(st?.paper?.newOrders ?? []).map((o, i) => {
-              const t = String(o).split(':')[0];
-              return <button className="tc-chip" key={i} onClick={() => pickSymbol(t)}>{t}</button>;
-            })}
-            {(!st?.paper?.newOrders || st.paper.newOrders.length === 0) && <span className="tc-empty">다음 엔진 사이클 대기</span>}
+          <div className="tc-vhead">
+            <div className="tc-card-label">엔진 선별 TOP 3 <span className="hint">{picksMeta?.engineDate ?? ''} · 클릭=매수 티켓</span></div>
+            <button className="tc-ghost sm" onClick={() => setNav('picks')}>전체 픽 →</button>
           </div>
+          {(picks ?? []).slice(0, 3).map((p) => {
+            const L = LABEL_KO[p.label] ?? LABEL_KO.NO_DATA;
+            return (
+              <div className="tc-orow" key={p.symbol} style={{ cursor: 'pointer' }} onClick={() => pickSymbol(p.symbol, { buy: true })}>
+                <span className="badge cond">#{p.rank}</span>
+                <b>{p.symbol}</b>
+                <span className="info">XS {fmt(p.score, 1)}{p.expect ? ` · 실측 ${p.expect.adjF3 >= 0 ? '+' : ''}${p.expect.adjF3}%/3일${p.expect.days < 15 ? ' (검증 축적 중)' : ''}` : ''}</span>
+                <span className={`tc-vlabel sm ${L.cls}`}>{L.t}</span>
+              </div>
+            );
+          })}
+          {!picks && <span className="tc-empty">{picksErr || '로딩…'}</span>}
+          {picks && picks.length === 0 && <span className="tc-empty">엔진 리포트 대기</span>}
+          {(st?.paper?.newOrders?.length ?? 0) > 0 && (
+            <div className="tc-pickrow" style={{ marginTop: 10 }}>
+              {(st?.paper?.newOrders ?? []).map((o, i) => {
+                const t = String(o).split(':')[0];
+                return <button className="tc-chip" key={i} onClick={() => pickSymbol(t)}>{t} <em>페이퍼 진입</em></button>;
+              })}
+            </div>
+          )}
         </div>
         <div className="tc-card">
           <div className="tc-card-label">미국 랭킹
@@ -381,6 +427,42 @@ export default function TradeConsole({ operator }: { operator: string }) {
     </>
   );
 
+  const Picks = (
+    <section className="tc-col1">
+      <div className="tc-card">
+        <div className="tc-vhead">
+          <div className="tc-card-label">엔진 선별 TOP 10 <span className="hint">XS {picksMeta?.engineDate ?? ''} · 실측 보정 {picksMeta?.labeled ?? '—'}라벨</span></div>
+          <button className="tc-ghost sm" onClick={loadPicks}>새로고침</button>
+        </div>
+        {!picks && <div className="tc-empty">{picksErr ? `⚠ ${picksErr} — 새로고침을 눌러주세요` : '로딩…'}</div>}
+        {picks && picksErr && <div className="tc-mini-err">⚠ 새로고침 실패 — 아래는 이전 데이터</div>}
+        {picks && picks.length === 0 && <div className="tc-empty">엔진 리포트 대기 (매 거래일 산출)</div>}
+        {(picks ?? []).map((p) => {
+          const L = LABEL_KO[p.label] ?? LABEL_KO.NO_DATA;
+          return (
+            <div className={`tc-pickcard ${p.rank <= 3 ? 'top3' : ''}`} key={p.symbol}>
+              <span className="rank">#{p.rank}</span>
+              <div className="mid" onClick={() => pickSymbol(p.symbol)}>
+                <div className="top">
+                  <b className="sym">{p.symbol}</b>
+                  <span className="score">XS {fmt(p.score, 1)}</span>
+                  <span className={`tc-vlabel sm ${L.cls}`}>{L.t}</span>
+                  {p.price != null && <span className="px">${fmt(p.price)}</span>}
+                </div>
+                <div className="sub">
+                  {p.expect && <span className={p.expect.adjF3 >= 0 ? 'up' : 'dn'}>실측 {p.expect.adjF3 >= 0 ? '+' : ''}{p.expect.adjF3}%/3일 · 적중 {p.expect.hit}% ({p.expect.days}일{p.expect.days < 15 ? ' · 검증 축적 중' : ''})</span>}
+                  {p.struct.flags.slice(0, 3).map((f, i) => <span className="fl" key={i}>{f}</span>)}
+                </div>
+              </div>
+              <button className="tc-go buy slim" onClick={() => pickSymbol(p.symbol, { buy: true })}>매수 티켓</button>
+            </div>
+          );
+        })}
+        <div className="tc-caps">선별 = XS 전 유니버스 상위 10 · 기대치 = 해당 점수대의 과거 실측(3일 시장조정 알파·적중률) · 주문은 티켓에서 2단 확인</div>
+      </div>
+    </section>
+  );
+
   const VerdictCard = verdict && (
     <div className="tc-card verdict">
       <div className="tc-vhead">
@@ -395,7 +477,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
             <div className="tc-vexpect">
               데실 {verdict.expect.decile} 실측<br />
               <b className={verdict.expect.adjF3 >= 0 ? 'up' : 'dn'}>{verdict.expect.adjF3 >= 0 ? '+' : ''}{verdict.expect.adjF3}%</b>/3일 · 적중 {verdict.expect.hit}%
-              <span className="d">({verdict.expect.days}일 표본)</span>
+              <span className="d">({verdict.expect.days}일 표본{verdict.expect.days < 15 ? ' · 검증 축적 중' : ''})</span>
             </div>
           )}
         </div>
@@ -604,12 +686,13 @@ export default function TradeConsole({ operator }: { operator: string }) {
                 {r.metrics?.shortVol != null && <span>숏볼 {fmt(r.metrics.shortVol, 0)}%</span>}
                 {r.metrics?.darkPool != null && <span>다크풀 {fmt(r.metrics.darkPool, 0)}%</span>}
               </div>
+              <div className={`tc-stance ${r.stance?.cls ?? 'mid'}`}>{r.stance?.t ?? '판단 보류'}</div>
               {note && <div className="tc-xnote">{note}</div>}
             </div>
           );
         })}
         {xray && xray.rows.length === 0 && <div className="tc-empty">보유 없음</div>}
-        <div className="tc-caps">판독은 자사 엔진 실측 데이터 기반 관찰이며 투자 자문이 아닙니다 · 판단과 책임은 운영자 본인</div>
+        <div className="tc-caps">판독·스탠스 = SIGNUM 엔진 실측 데이터 기반 단호 판정 · 실행은 운영자 결정</div>
       </div>
     </section>
   );
@@ -762,6 +845,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
 
         <main className="tc-body">
           {nav === 'overview' && Overview}
+          {nav === 'picks' && Picks}
           {nav === 'trade' && Trade}
           {nav === 'xray' && Xray}
           {nav === 'lab' && Lab}
@@ -769,7 +853,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
         </main>
 
         <footer className="tc-foot">
-          수동 = 운영자 판단·2단 확인 · 자동 실전(C)은 3게이트 통과 시에만 · 킬스위치 = 즉시 전 주문 차단 · 판독은 자사 엔진 데이터 기반 관찰 (투자 자문 아님)
+          수동 = 2단 확인 · 자동 실전(C)은 3게이트 통과 시에만 · 킬스위치 = 즉시 전 주문 차단 · 판정·스탠스 = SIGNUM 엔진 실측 기반 (운영자 전용 콘솔)
         </footer>
       </div>
     </div>

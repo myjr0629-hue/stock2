@@ -250,6 +250,27 @@
 /* #dc2626 on the dark card is 3.5:1 — below AA for the loss figure */
 .tc-card.dark .tc-delta.dn { color: #f87171; }
 
+/* ═══ picks + stance ═══ */
+.tc-vlabel.sm { font-size: 10.5px; padding: 4px 10px; }
+.tc-vlabel.edge.strong { background: var(--green); color: #fff; }
+.tc-vlabel.against.strong { background: var(--red); color: #fff; }
+.tc-pickcard { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f1efe8; }
+.tc-pickcard:last-of-type { border-bottom: 0; }
+.tc-pickcard .rank { width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: #f4f2ec; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.tc-pickcard.top3 .rank { background: var(--dark); color: #fff; }
+.tc-pickcard .mid { flex: 1; min-width: 0; cursor: pointer; }
+.tc-pickcard .top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tc-pickcard .sym { font-size: 16px; font-weight: 800; }
+.tc-pickcard .score { font-size: 12.5px; font-weight: 800; color: var(--coral); }
+.tc-pickcard .px { font-size: 12.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+.tc-pickcard .sub { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--sub); margin-top: 3px; }
+.tc-pickcard .sub .fl { background: #faf9f5; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+.tc-go.slim { width: auto; padding: 10px 18px; font-size: 12.5px; flex-shrink: 0; }
+.tc-stance { margin-top: 8px; display: inline-block; font-size: 12px; font-weight: 800; padding: 6px 12px; border-radius: 10px; }
+.tc-stance.pos { background: var(--green-soft); color: var(--green); }
+.tc-stance.neg { background: var(--red-soft); color: var(--red); }
+.tc-stance.mid { background: #f4f2ec; color: var(--sub); }
+
 /* ═══ responsive shell ═══ */
 @media (max-width: 920px) {
   .tc-shell { flex-direction: column; gap: 14px; }

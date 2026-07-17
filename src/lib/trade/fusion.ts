@@ -118,15 +118,49 @@ export function readStructure(px: number | null, m: UnifiedMetrics | null): Stru
   return out;
 }
 
-/** Deterministic label from score + structure (rule-based, explainable). */
-export function verdictLabel(score: number | null, s: StructRead): 'EDGE' | 'NEUTRAL' | 'AGAINST' | 'NO_DATA' {
+/** Deterministic 5-band verdict from score decile + structure + MEASURED calibration.
+ *  Calibration only moves the label once its sample is reliable (>=15 daily labels);
+ *  a reliably-NEGATIVE top-decile measurement voids the rank premium instead of
+ *  letting the label claim an edge the engine's own data contradicts. */
+export type VerdictBand = 'STRONG_EDGE' | 'EDGE' | 'NEUTRAL' | 'AGAINST' | 'STRONG_AGAINST' | 'NO_DATA';
+export const CALIB_MIN_DAYS = 15;
+
+export function verdictLabel(
+  score: number | null,
+  s: StructRead,
+  expect?: { decile: number; adjF3: number; days: number } | null,
+): VerdictBand {
   if (score == null) return 'NO_DATA';
   let pts = 0;
-  if (score >= 80) pts += 2; else if (score >= 60) pts += 1; else if (score < 30) pts -= 2; else if (score < 50) pts -= 1;
+  const dec = Math.floor(score / 10);
+  if (dec >= 9) pts += 3; else if (dec >= 8) pts += 2; else if (dec >= 6) pts += 1;
+  else if (dec <= 2) pts -= 2; else if (dec <= 4) pts -= 1;
+  if (expect && expect.days >= CALIB_MIN_DAYS) {
+    if (expect.adjF3 >= 0.3) pts += 2; else if (expect.adjF3 > 0) pts += 1;
+    else if (expect.adjF3 <= -0.3) pts -= 2; else if (expect.adjF3 < 0) pts -= 1;
+    if (expect.adjF3 <= 0 && dec >= 8 && pts > 0) pts = 0; // rank premium unvalidated
+  }
   if (s.maxPainGapPct != null && s.maxPainGapPct > 12) pts -= 1; // far above pin
   if (s.maxPainGapPct != null && s.maxPainGapPct < -8) pts += 1; // far below pin
   if (s.flipSide === 'below') pts -= 1;
+  if (pts >= 4) return 'STRONG_EDGE';
   if (pts >= 2) return 'EDGE';
+  if (pts <= -3) return 'STRONG_AGAINST';
   if (pts <= -2) return 'AGAINST';
   return 'NEUTRAL';
+}
+
+/** Decisive holding stance — operator-private console, engine-derived, no hedging. */
+export function stanceFrom(label: VerdictBand, plPct: number | null): { t: string; cls: 'pos' | 'neg' | 'mid' } {
+  switch (label) {
+    case 'STRONG_EDGE': return { t: '보유 유지 — 엔진 강한 우위', cls: 'pos' };
+    case 'EDGE': return { t: '보유 유지 — 엔진 우위', cls: 'pos' };
+    case 'AGAINST':
+      return { t: plPct != null && plPct < 0 ? '축소 검토 — 열위 + 손실, 반등 근거 없음' : '축소 검토 — 엔진 열위', cls: 'neg' };
+    case 'STRONG_AGAINST':
+      return { t: '청산 우선 검토 — 강한 열위', cls: 'neg' };
+    case 'NO_DATA': return { t: '판단 보류 — 엔진 데이터 없음', cls: 'mid' };
+    default:
+      return { t: plPct != null && plPct < 0 ? '중립 — 손절선(조건주문) 점검' : '중립 — 이익 보호선 점검', cls: 'mid' };
+  }
 }

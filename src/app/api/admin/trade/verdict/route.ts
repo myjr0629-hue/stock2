@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   ]);
   const struct = readStructure(livePx, metrics);
   const expect = expectFromScore(xs.score, rep);
-  const label = verdictLabel(xs.score, struct);
+  const label = verdictLabel(xs.score, struct, expect);
 
   return NextResponse.json({
     ok: true, symbol,
