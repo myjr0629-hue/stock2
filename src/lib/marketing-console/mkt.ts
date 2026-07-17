@@ -96,6 +96,10 @@ export function jpSession(): JpSession {
   }).formatToParts(new Date());
   const jstHour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
   const wd = parts.find((p) => p.type === 'weekday')?.value || '';
+  // JST Sat 00-05시는 미국 금요장이 아직 열려 있는 프라임 타임 — 주말 취급 금지.
+  if (wd === 'Sat' && jstHour < 6) {
+    return { jstHour, label: '미국 금요장(JST 토 새벽)', goodToPost: true, note: 'JST 토 새벽 = 미국 금요장 진행 중' };
+  }
   if (wd === 'Sat' || wd === 'Sun') return { jstHour, label: '주말(JST)', goodToPost: false, note: '주말 침묵' };
   // US regular session (09:30-16:00 ET) ≈ JST 22:30-05:00 (winter) — prime for 米国株 JP audience.
   if (jstHour >= 22 || jstHour < 5) return { jstHour, label: '미국장 시간(JST 밤)', goodToPost: true, note: 'JST 밤 = 미국장 = 일본 米国株 계정 활발 (답글 최적)' };
