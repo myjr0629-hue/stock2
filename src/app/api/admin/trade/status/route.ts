@@ -53,9 +53,12 @@ export async function GET() {
     }
   }
 
-  // §42.3-5 real-money gates (0/3 → C-stage locked)
+  // §42.3-5 real-money gates (0/3 → C-stage locked).
+  // NOTE: the engine's calibration deciles are sorted ASCENDING by score, so
+  // key '9' is the TOP decile (key '0' is the bottom — an earlier version
+  // mislabeled this and showed the wrong gate state).
   const calib = xsReport?.calibration || {};
-  const topDecile = calib['0'];
+  const topDecile = calib['9'];
   const gates = {
     ic: { pass: false, note: '롤링 IC ≥ +0.03 (라벨 15일+) — 3파전 판정 대기' },
     duel: { pass: false, note: '라벨 20일+ V8 맞대결 우위 대기' },

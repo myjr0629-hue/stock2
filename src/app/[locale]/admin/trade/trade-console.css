@@ -137,6 +137,26 @@
 .tc-jrow .jt { color: #b6b1a3; font-size: 11px; }
 .tc-foot { text-align: center; font-size: 11px; color: #b6b1a3; margin-top: 20px; line-height: 1.8; }
 
+/* real-time */
+@keyframes tcFlashUp { 0% { color: var(--green); text-shadow: 0 0 14px rgba(14,159,110,0.55); } 100% { color: inherit; text-shadow: none; } }
+@keyframes tcFlashDn { 0% { color: var(--red); text-shadow: 0 0 14px rgba(220,38,38,0.55); } 100% { color: inherit; text-shadow: none; } }
+.tc-quote .px.flash-up { animation: tcFlashUp 0.6s ease-out; }
+.tc-quote .px.flash-dn { animation: tcFlashDn 0.6s ease-out; }
+.tc-live { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 800; color: var(--green); letter-spacing: 0.5px; }
+.tc-live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: tcPulse 2s infinite; }
+@keyframes tcPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.tc-bookwrap { display: flex; gap: 18px; align-items: flex-start; }
+.tc-book { min-width: 150px; }
+.tc-book.grow { flex: 1; }
+.tc-bookrow { display: flex; justify-content: space-between; font-size: 12.5px; font-variant-numeric: tabular-nums; padding: 3px 8px; border-radius: 7px; }
+.tc-bookrow.ask { background: var(--red-soft); }
+.tc-bookrow.ask .p { color: var(--red); font-weight: 800; }
+.tc-bookrow.bid { background: var(--green-soft); }
+.tc-bookrow.bid .p { color: var(--green); font-weight: 800; }
+.tc-bookrow .v { color: var(--sub); }
+.tc-bookrow + .tc-bookrow { margin-top: 3px; }
+.tc-bookmid { text-align: center; font-size: 13px; font-weight: 800; padding: 4px 0; font-variant-numeric: tabular-nums; }
+
 /* workbench extras */
 .tc-spark { margin-left: auto; }
 .tc-metarow { display: flex; gap: 8px; flex-wrap: wrap; }

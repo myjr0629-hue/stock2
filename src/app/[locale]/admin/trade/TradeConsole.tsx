@@ -28,12 +28,18 @@ interface Holding { symbol: string | null; name: string | null; currency: string
 interface PortfolioSummary { usdValue: number | null; krwValue: number | null; plRate: number | null; dayRate: number | null }
 interface MarketRes {
   ok: boolean; symbol: string;
-  quote: { px: number | null; chgPct: number | null; name: string | null; priceStatus: number };
+  quote: { px: number | null; chgPct: number | null; prevClose: number | null; name: string | null; priceStatus: number };
   closes: number[];
-  trades: { px: number | null; qty: number | null; at: string | null }[];
   limits: { upper: number | null; lower: number | null };
   sellable: number | null; warnings: (string | null)[];
   levels: { price: number | null; maxPain: number | null; gammaFlip: number | null; callWall: number | null; putFloor: number | null } | null;
+}
+interface BookRow { px: number | null; vol: number | null }
+interface QuoteRes {
+  ok: boolean; symbol: string; px: number | null;
+  asks: BookRow[]; bids: BookRow[];
+  trades: { px: number | null; qty: number | null; at: string | null }[];
+  at: number;
 }
 interface RankRow { symbol: string | null; name: string | null; px: number | null; chgPct: number | null }
 type OrderRow = Record<string, unknown>;
@@ -69,7 +75,12 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const [symbol, setSymbol] = useState('NVDA');
   const [symInput, setSymInput] = useState('NVDA');
   const [mkt, setMkt] = useState<MarketRes | null>(null);
+  const [quote, setQuote] = useState<QuoteRes | null>(null);
+  const [flash, setFlash] = useState<'up' | 'dn' | ''>('');
+  const [lastTick, setLastTick] = useState<number | null>(null);
   const symRef = useRef(symbol);
+  const prevPxRef = useRef<number | null>(null);
+  const visRef = useRef(true);
 
   const [tab, setTab] = useState<'order' | 'cond'>('order');
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
@@ -111,21 +122,54 @@ export default function TradeConsole({ operator }: { operator: string }) {
       .then((r) => r.json())
       .then((j) => { if (j.ok && symRef.current === s) setMkt(j); }).catch(() => {});
   }, []);
+  const loadQuote = useCallback((s: string) => {
+    fetch(`/api/admin/trade/quote?symbol=${encodeURIComponent(s)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j: QuoteRes) => {
+        if (!j.ok || symRef.current !== s) return;
+        const prev = prevPxRef.current;
+        if (j.px != null && prev != null && j.px !== prev) {
+          setFlash(j.px > prev ? 'up' : 'dn');
+          setTimeout(() => setFlash(''), 600);
+        }
+        if (j.px != null) prevPxRef.current = j.px;
+        setQuote(j);
+        setLastTick(Date.now());
+      }).catch(() => {});
+  }, []);
   const loadRanks = useCallback((t: string) => {
     fetch(`/api/admin/trade/rankings?type=${t}`, { cache: 'no-store' }).then((r) => r.json())
       .then((j) => { if (j.ok) setRanks(j.rows || []); }).catch(() => {});
   }, []);
 
-  useEffect(() => { loadStatus(); const iv = setInterval(loadStatus, 30_000); return () => clearInterval(iv); }, [loadStatus]);
+  /* ── real-time lanes: quote 4s · portfolio/orders 15s · market 30s · status 30s.
+     Polling pauses while the tab is hidden (rate-limit + battery hygiene). ── */
   useEffect(() => {
-    if (st?.executor.up && st.executor.configured) { loadPortfolio(); loadSymbol(symRef.current); loadRanks(rankType); }
-  }, [st?.executor.up, st?.executor.configured, loadPortfolio, loadSymbol, loadRanks, rankType]);
+    const onVis = () => {
+      visRef.current = !document.hidden;
+      if (visRef.current && st?.executor.configured) { loadQuote(symRef.current); loadPortfolio(); loadStatus(); }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [st?.executor.configured, loadQuote, loadPortfolio, loadStatus]);
+
+  useEffect(() => { loadStatus(); const iv = setInterval(() => { if (visRef.current) loadStatus(); }, 30_000); return () => clearInterval(iv); }, [loadStatus]);
+  useEffect(() => {
+    if (st?.executor.up && st.executor.configured) { loadPortfolio(); loadSymbol(symRef.current); loadQuote(symRef.current); loadRanks(rankType); }
+  }, [st?.executor.up, st?.executor.configured, loadPortfolio, loadSymbol, loadQuote, loadRanks, rankType]);
+  useEffect(() => {
+    if (!st?.executor.configured) return;
+    const iv = setInterval(() => { if (visRef.current) loadPortfolio(); }, 15_000);
+    return () => clearInterval(iv);
+  }, [st?.executor.configured, loadPortfolio]);
   useEffect(() => {
     symRef.current = symbol;
-    if (st?.executor.configured) loadSymbol(symbol);
-    const iv = setInterval(() => { if (symRef.current && st?.executor.configured) loadSymbol(symRef.current); }, 10_000);
-    return () => clearInterval(iv);
-  }, [symbol, st?.executor.configured, loadSymbol]);
+    prevPxRef.current = null;
+    if (st?.executor.configured) { loadSymbol(symbol); loadQuote(symbol); }
+    const slow = setInterval(() => { if (visRef.current && symRef.current && st?.executor.configured) loadSymbol(symRef.current); }, 30_000);
+    const fast = setInterval(() => { if (visRef.current && symRef.current && st?.executor.configured) loadQuote(symRef.current); }, 4_000);
+    return () => { clearInterval(slow); clearInterval(fast); };
+  }, [symbol, st?.executor.configured, loadSymbol, loadQuote]);
 
   const toggleKill = async () => {
     if (!st) return;
@@ -187,8 +231,11 @@ export default function TradeConsole({ operator }: { operator: string }) {
 
   /* ── derived ── */
   const connected = Boolean(st?.executor.up && st.executor.configured);
-  const livePx = mkt?.quote.px ?? null;
-  const chgPct = mkt?.quote.chgPct ?? null;
+  const livePx = quote?.px ?? mkt?.quote.px ?? null;
+  const prevCloseD = mkt?.quote.prevClose ?? null;
+  const chgPct = livePx != null && prevCloseD != null && prevCloseD > 0
+    ? ((livePx - prevCloseD) / prevCloseD) * 100
+    : (mkt?.quote.chgPct ?? null);
   const fxRate = st?.fxRate ?? null;
   const usSession = st?.usSession ?? null;
   const usOpen = usSession != null && usSession !== '휴장' && usSession !== '장외';
@@ -266,8 +313,9 @@ export default function TradeConsole({ operator }: { operator: string }) {
                 <input className="tc-syminput" value={symInput} onChange={(e) => setSymInput(e.target.value.toUpperCase())} maxLength={6} placeholder="티커" />
               </form>
               <div className="tc-quote">
-                <span className="px">${fmt(livePx)}</span>
+                <span className={`px ${flash ? `flash-${flash}` : ''}`}>${fmt(livePx)}</span>
                 {chgPct != null && <span className={`chg ${chgPct >= 0 ? 'up' : 'dn'}`}>{chgPct >= 0 ? '+' : ''}{fmt(chgPct)}%</span>}
+                <span className="tc-live"><span className="dot" />{lastTick ? `${Math.max(0, Math.round((Date.now() - lastTick) / 1000))}s` : 'LIVE'}</span>
               </div>
               {mkt?.closes && mkt.closes.length > 1 && <Spark data={mkt.closes} />}
             </div>
@@ -295,16 +343,28 @@ export default function TradeConsole({ operator }: { operator: string }) {
               </div>
             )}
 
-            {mkt?.trades && mkt.trades.length > 0 && (
-              <div>
-                <div className="tc-card-label">최근 체결</div>
-                <div className="tc-trades">
-                  {mkt.trades.slice(0, 8).map((t, i) => (
-                    <span className="tc-trade" key={i}>${fmt(t.px)} <em>×{fmt(t.qty, 0)}</em></span>
+            {(quote?.asks?.length || quote?.bids?.length) ? (
+              <div className="tc-bookwrap">
+                <div className="tc-book">
+                  <div className="tc-card-label">호가</div>
+                  {quote!.asks.slice().reverse().map((a, i) => (
+                    <div className="tc-bookrow ask" key={'a' + i}><span className="p">${fmt(a.px)}</span><span className="v">{fmt(a.vol, 0)}</span></div>
+                  ))}
+                  <div className="tc-bookmid">${fmt(livePx)}</div>
+                  {quote!.bids.map((b, i) => (
+                    <div className="tc-bookrow bid" key={'b' + i}><span className="p">${fmt(b.px)}</span><span className="v">{fmt(b.vol, 0)}</span></div>
                   ))}
                 </div>
+                <div className="tc-book grow">
+                  <div className="tc-card-label">실시간 체결 <span className="hint">4초 갱신</span></div>
+                  <div className="tc-trades">
+                    {(quote?.trades ?? []).slice(0, 8).map((t, i) => (
+                      <span className="tc-trade" key={i}>${fmt(t.px)} <em>×{fmt(t.qty, 0)}</em></span>
+                    ))}
+                  </div>
+                </div>
               </div>
-            )}
+            ) : null}
 
             <div>
               <div className="tc-card-label">미국 랭킹

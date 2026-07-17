@@ -25,11 +25,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: '심볼 형식 오류' }, { status: 400 });
   }
 
-  const [price, candles1m, candles1d, trades, limits, info, sellable, warnings, structure] = await Promise.all([
+  const [price, candles1m, candles1d, limits, info, sellable, warnings, structure] = await Promise.all([
     callToss({ path: '/api/v1/prices', query: { symbols: symbol } }),
     callToss({ path: '/api/v1/candles', query: { symbol, interval: '1m', count: '60' } }),
     callToss({ path: '/api/v1/candles', query: { symbol, interval: '1d', count: '2' } }),
-    callToss({ path: '/api/v1/trades', query: { symbol, count: '12' } }),
     callToss({ path: '/api/v1/price-limits', query: { symbol } }),
     callToss({ path: '/api/v1/stocks', query: { symbols: symbol } }),
     callToss({ path: '/api/v1/sellable-quantity', query: { symbol } }),
@@ -48,9 +47,6 @@ export async function GET(req: NextRequest) {
   // 1m sparkline closes — spec returns newest-first; reverse to oldest→newest
   const mRows = (candles1m.data as { result?: { candles?: { closePrice?: string }[] } })?.result?.candles ?? [];
   const closes = mRows.map((c) => num(c.closePrice)).filter((v): v is number => v != null).reverse();
-
-  const tradeRows = ((trades.data as { result?: { price?: string; volume?: string; timestamp?: string }[] })?.result ?? [])
-    .slice(0, 12).map((t) => ({ px: num(t.price), qty: num(t.volume), at: t.timestamp ?? null }));
 
   const lim = (limits.data as { result?: { upperLimitPrice?: string | null; lowerLimitPrice?: string | null } })?.result;
   const stock = (info.data as { result?: { name?: string; market?: string; status?: string }[] })?.result?.[0];
@@ -71,7 +67,6 @@ export async function GET(req: NextRequest) {
     ok: true, symbol,
     quote: { px, chgPct, prevClose, name: stock?.name ?? null, market: stock?.market ?? null, priceStatus: price.status },
     closes,
-    trades: tradeRows,
     limits: { upper: num(lim?.upperLimitPrice), lower: num(lim?.lowerLimitPrice) },
     sellable: num((sellable.data as { result?: { sellableQuantity?: string } })?.result?.sellableQuantity),
     warnings: warnList,
