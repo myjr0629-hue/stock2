@@ -33,7 +33,9 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, BatchGetCommand, BatchWriteCommand, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 
-const ENGINE_VERSION = 'XS-1.0.0';
+// 1.1.0: main xsScore path is IDENTICAL to 1.0.0 — the bump only adds shadow
+// variant instrumentation (frozen / anti composites, see FROZEN_PRIORS note).
+const ENGINE_VERSION = 'XS-1.1.0';
 const TABLE = 'signum-xs-history';
 const SOURCE_TABLE = 'signum-unified-cache';
 const DRY = process.env.DRY === '1';
@@ -64,6 +66,17 @@ const FACTORS = [
     { key: 'smaExt', label: 'SMA overextension (inv)', prior: 0, minDays: 1 },     // -(sma distance) (adaptive)
     { key: 'dtc', label: 'Days-to-cover', prior: 0, minDays: 1 },          // +daysToCover (adaptive)
 ];
+// ── v1.1 shadow variants (instrumentation ONLY — main xsScore untouched) ────
+// Motivation (2026-07-17 walk-forward lab, V8 price history, 63 OOS days):
+// trailing-IC adaptive weighting came out systematically inverted at T+3
+// (adaptive IC -0.025 / faster-chasing -0.044 vs no-adaptation +0.005; factor-IC
+// autocorrelation negative 10/12). Two live variants let real labels adjudicate:
+//   frozen = priors only, adaptation OFF (squeeze gets a literature-level prior
+//            so the frozen sleeve isn't blind to short-squeeze structure)
+//   anti   = the adaptive term sign-flipped (bets factor ICs mean-revert)
+// Their daily/rolling ICs are recorded under report.variants — no score output.
+const FROZEN_PRIORS = { revChg: 0.012, revRet3: 0.015, gexInv: 0.020, dGex5: 0.010, pcr: 0.010, ivLow: 0.008, analystRev: 0.020, squeeze: 0.010 };
+
 const IC_WINDOW = 60;         // rolling days kept per factor
 const PRIOR_WEIGHT_DAYS = 15; // shrinkage: prior dominates until ~15 labeled days
 const WEIGHT_CAP = 0.30;      // no factor may exceed 30% of total |weight|
@@ -229,6 +242,23 @@ async function run() {
     sumAbs = Object.values(weights).reduce((s, w) => s + Math.abs(w), 0) || 1;
     for (const k in weights) weights[k] /= sumAbs;
 
+    // 6b. v1.1 variant weights (shadow instrumentation; same cap/normalize)
+    const weightsFrozen = {};
+    for (const { key } of FACTORS) weightsFrozen[key] = FROZEN_PRIORS[key] || 0;
+    const weightsAnti = {};
+    for (const { key, prior } of FACTORS) {
+        const ics = icHist[key] || [];
+        const realized = ics.length ? mean(ics) : 0;
+        const k = ics.length / (ics.length + PRIOR_WEIGHT_DAYS);
+        weightsAnti[key] = (1 - k) * prior - k * realized; // adaptive term flipped
+    }
+    for (const wv of [weightsFrozen, weightsAnti]) {
+        let sa = Object.values(wv).reduce((s, w) => s + Math.abs(w), 0) || 1;
+        for (const k in wv) wv[k] = Math.max(-WEIGHT_CAP, Math.min(WEIGHT_CAP, wv[k] / sa));
+        sa = Object.values(wv).reduce((s, w) => s + Math.abs(w), 0) || 1;
+        for (const k in wv) wv[k] /= sa;
+    }
+
     // 7. Raw composite (weighted mean over available z, weight-renormalized)
     const rawMap = new Map();
     for (const t of tickers) {
@@ -239,6 +269,20 @@ async function run() {
             num_ += weights[key] * z[key]; den += Math.abs(weights[key]); cnt++;
         }
         if (cnt >= MIN_FACTORS && den > 0) rawMap.set(t, num_ / den);
+    }
+
+    // 7b. v1.1 variant raw composites (same z's, variant weights)
+    const rawVar = new Map(); // ticker → { f: frozen, a: anti }
+    for (const t of tickers) {
+        const z = Z.get(t);
+        let nf = 0, df = 0, na = 0, da = 0, cnt = 0;
+        for (const { key } of FACTORS) {
+            if (z[key] === undefined) continue;
+            cnt++;
+            if (weightsFrozen[key]) { nf += weightsFrozen[key] * z[key]; df += Math.abs(weightsFrozen[key]); }
+            if (weightsAnti[key]) { na += weightsAnti[key] * z[key]; da += Math.abs(weightsAnti[key]); }
+        }
+        if (cnt >= MIN_FACTORS) rawVar.set(t, { f: df > 0 ? nf / df : null, a: da > 0 ? na / da : null });
     }
 
     // 8. Peer residualization (50% of peer-mean removed)
@@ -280,16 +324,29 @@ async function run() {
         if (!cPast || !(cPast.c > 0)) continue;
         const f3 = (snaps.get(t).price - cPast.c) / cPast.c * 100;
         if (Math.abs(f3) > 30) continue;
-        labelRows.push({ t, d: zPast.d, z: zPast.z, raw: zPast.raw, xs: zPast.xs, f3 });
+        labelRows.push({ t, d: zPast.d, z: zPast.z, raw: zPast.raw, rawF: zPast.rawF, rawA: zPast.rawA, xs: zPast.xs, f3 });
         zPast.f3 = f3; // mark consumed
     }
     let dayIC = null;
     const factorICs = {};
+    const varIcHist = wdoc?.varIcHist || { frozen: [], anti: [] };
+    let dayICF = null, dayICA = null;
     if (labelRows.length >= MIN_UNIVERSE) {
         const mkt = mean(labelRows.map(r => r.f3));
         const adj = labelRows.map(r => r.f3 - mkt);
         // composite IC
         dayIC = spearman(labelRows.map(r => r.raw), adj);
+        // v1.1 variant ICs (rows carry rawF/rawA only after variants deployed)
+        const subF = labelRows.map((r, i) => ({ v: r.rawF, a: adj[i] })).filter(x => Number.isFinite(x.v));
+        if (subF.length >= MIN_UNIVERSE) {
+            dayICF = spearman(subF.map(x => x.v), subF.map(x => x.a));
+            if (dayICF != null) varIcHist.frozen = [...(varIcHist.frozen || []), dayICF].slice(-IC_WINDOW);
+        }
+        const subA = labelRows.map((r, i) => ({ v: r.rawA, a: adj[i] })).filter(x => Number.isFinite(x.v));
+        if (subA.length >= MIN_UNIVERSE) {
+            dayICA = spearman(subA.map(x => x.v), subA.map(x => x.a));
+            if (dayICA != null) varIcHist.anti = [...(varIcHist.anti || []), dayICA].slice(-IC_WINDOW);
+        }
         // factor ICs → rolling icHist
         for (const { key } of FACTORS) {
             const sub = labelRows.map((r, i) => ({ z: r.z?.[key], a: adj[i] })).filter(x => Number.isFinite(x.z));
@@ -332,7 +389,7 @@ async function run() {
         const closes = [...(st.closes || []).filter(x => x.d !== today), { d: today, c: round(s.price, 4) }].slice(-CLOSE_RING);
         const gexes = [...(st.gexes || []).filter(x => x.d !== today), { d: today, g: s.netGex ?? null }].slice(-GEX_RING);
         const bulls = [...(st.bulls || []).filter(x => x.d !== today), { d: today, b: s.bullishPct ?? null }].slice(-ANALYST_RING);
-        const zring = [...(st.zring || []).filter(x => x.d !== today), { d: today, z: compactZ(zOut), raw: round(rawMap.get(t), 5), xs: xs.get(t) }].slice(-Z_RING);
+        const zring = [...(st.zring || []).filter(x => x.d !== today), { d: today, z: compactZ(zOut), raw: round(rawMap.get(t), 5), rawF: round(rawVar.get(t)?.f ?? null, 5), rawA: round(rawVar.get(t)?.a ?? null, 5), xs: xs.get(t) }].slice(-Z_RING);
         stateItems.push({ ticker: t, date: '_STATE_', closes, gexes, bulls, zring, ema: round(emaMap.get(t), 5), emaDate: today, updatedAt: nowIso });
     }
 
@@ -343,6 +400,10 @@ async function run() {
         rollingIC: Object.fromEntries(Object.entries(icHist).map(([k, v]) => [k, round(mean(v), 4)])),
         rollingDays: Object.fromEntries(Object.entries(icHist).map(([k, v]) => [k, v.length])),
         weights: mapRound(weights, 4),
+        variants: {
+            frozen: { dayIC: round(dayICF, 4), rolling: round(mean(varIcHist.frozen || []), 4), days: (varIcHist.frozen || []).length },
+            anti: { dayIC: round(dayICA, 4), rolling: round(mean(varIcHist.anti || []), 4), days: (varIcHist.anti || []).length },
+        },
         calibration: Object.fromEntries(Object.entries(calibHist).map(([d, v]) => [d, { adjF3: round(mean(v), 3), hit: round(mean(hitHist[d] || []), 1), days: v.length }])),
         top10: [...xs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([t, v]) => `${t}:${v}`),
         bottom10: [...xs.entries()].sort((a, b) => a[1] - b[1]).slice(0, 10).map(([t, v]) => `${t}:${v}`),
@@ -352,6 +413,7 @@ async function run() {
     if (DRY) {
         console.log('[XS DRY] scored:', rawMap.size, 'labeled:', labelRows.length);
         console.log('[XS DRY] weights:', JSON.stringify(report.weights));
+        console.log('[XS DRY] variants:', JSON.stringify(report.variants));
         console.log('[XS DRY] top10:', report.top10.join(' '));
         console.log('[XS DRY] bottom10:', report.bottom10.join(' '));
         return report;
@@ -359,7 +421,7 @@ async function run() {
 
     // batch write (25/req) with unprocessed retry
     const allWrites = [...historyItems, ...stateItems,
-        { ticker: '_WEIGHTS_', date: '_CURRENT_', icHist, calibHist, hitHist, weights, updatedAt: nowIso },
+        { ticker: '_WEIGHTS_', date: '_CURRENT_', icHist, calibHist, hitHist, weights, varIcHist, updatedAt: nowIso },
         { ticker: '_REPORT_', date: today, ...report, updatedAt: nowIso },
     ];
     let written = 0;
