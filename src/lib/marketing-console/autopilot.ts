@@ -241,9 +241,16 @@ export async function runAutopilotReplies(): Promise<AutoResult[]> {
     if (vol >= REPLY_CAP) {
       out.push({ channel: 'bluesky-reply', mode: bMode, action: 'skip', ok: false, detail: `캡 ${vol}/${REPLY_CAP}` });
     } else {
+      const seenAuthors = new Set<string>();
       const targets = (await bskySearchTargets(30))
         .filter((t) => t.ticker && !replied.has(t.uri))
         .sort((a, b) => b.likes - a.likes)
+        .filter((t) => { // one reply per author per tick (no pestering)
+          const a = t.author.toLowerCase();
+          if (seenAuthors.has(a)) return false;
+          seenAuthors.add(a);
+          return true;
+        })
         .slice(0, BSKY_PER_TICK);
       if (targets.length === 0) {
         out.push({ channel: 'bluesky-reply', mode: bMode, action: 'skip', ok: false, detail: '적합 답글 대상 없음' });

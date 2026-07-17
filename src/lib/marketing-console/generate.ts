@@ -104,10 +104,33 @@ Write the four posts now as strict JSON with keys toss, stocktwits, x_en, x_ja:`
     return { ticker, grounded: true, levels, drafts: [] };
   }
 
-  const drafts: ChannelDraft[] = CHANNELS.map((c) => {
+  let drafts: ChannelDraft[] = CHANNELS.map((c) => {
     const t = (parsed[c.channel] || '').trim();
     return { channel: c.channel, label: c.label, lang: c.lang, text: t, lint: lint(t, c.lang) };
   });
+
+  // REPAIR PASS — the model routinely packs 4+ numbers ("린트 실패: metrics"),
+  // which blocked every original on 2026-07-16/17. One corrective rewrite for
+  // the failing channels only; if it still fails lint, the gate blocks as before.
+  const failing = drafts.filter((d) => d.text && !d.lint.pass);
+  if (failing.length) {
+    try {
+      const fixPrompt = `These social posts failed compliance checks. Rewrite ONLY these, fixing the violations:
+${failing.map((d) => `- ${d.channel} (${d.lint.checks.filter((c) => !c.ok).map((c) => c.key).join(',')}): "${d.text}"`).join('\n')}
+
+HARD RULES: max 3 numeric values TOTAL per post (count every number). No links. Max 2 emoji. No prediction words. No buy/sell words. Under 240 chars. Keep the same language and voice per channel. Use ONLY these verified numbers: ${factLines}
+Return STRICT JSON with ONLY the rewritten channels as keys: {${failing.map((d) => `"${d.channel}":"..."`).join(',')}}`;
+      const { text: fixed } = await callBedrock({
+        system, userPrompt: fixPrompt, maxTokens: 700, temperature: 0.3, jsonPrefill: true, label: 'mkt-generate-repair',
+      });
+      const rep = JSON.parse(fixed) as Record<string, string>;
+      drafts = drafts.map((d) => {
+        const t = (rep[d.channel] || '').trim();
+        if (!d.lint.pass && t) return { ...d, text: t, lint: lint(t, d.lang) };
+        return d;
+      });
+    } catch { /* repair is best-effort; gate still enforces */ }
+  }
 
   return { ticker, grounded: true, levels, drafts };
 }
