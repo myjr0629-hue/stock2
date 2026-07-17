@@ -8598,6 +8598,14 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **부수 발견 (수리 대상)**: ①`signum-alpha-history`에 **유령 거래일 7일**(주말 3+공휴일 3+부분복제 1 — 금요종가 복제 행, 03-21/22·04-25·05-02·05-25·06-19·07-03). harvest 라이터가 비거래일에 기록하는 버그 — 모든 백테스트 오염원, 별도 수리 필요. ②V8 alphaScore 2026-02-03~04월중순 30일 전종목 상수(측정불가 구간). ③V8 벤치마크 확정: 유효 53일 IC +0.001(≈0), 최근 20라벨일 **+0.043**(=맞대결 기준선). ④smaExt "IC양수·가중음수"는 버그 아님(가중은 전일까지 IC로 계산되는 설계상 1일 지연 — 수치 재현으로 확정).
 - **재현 자료**: factorlab.js·variants.js·audit*.js·nullsim.js (세션 스크래치패드, 휘발) — 데이터 재추출은 signum-alpha-history 전수 스캔 ~3초.
 
+### 42.8 ✅ [2026-07-17] XS 자동매매 실검증 트랙 개시 — 사전등록 확정 + 페이퍼 엔진 배포 (Stage A)
+
+- **사전등록**: `.agent/XS_AUTOTRADE_PREREG.md` **CONFIRMED** (대표 확정: 채널=토스 Open API·나중 연결 / C단계 자본 $1,000 / 규칙 §2 원안). §2~4 사후 변경 금지. 단계: A 페이퍼(즉시) → B 증권사 모의 → C 소액 실전(**3게이트 통과 시만**, 현재 0/3).
+- **전략(동결)**: XS 상위데실 ∩ mcap≥$2B ∩ price≥$5 → 상위 10종목 동일가중 · 익일 시가 진입 · 진입 후 3번째 거래일 종가 청산 · 3트랑슈 롤링(종목당 NAV/30) · 손절 없음 · 주간 -3% 킬(청산+정지, 수동 재개) · `trade:killswitch` 지원 · 유령거래일 가드(중앙값 |1d chg|>0.05%).
+- **인프라**: Lambda `signum-xs-paper` (nodejs20.x, 300s/768MB) — `scripts/xs-paper-engine.js` + `scripts/deploy-xs-paper.js`. EventBridge `signum-xs-paper-daily` 평일 **22:40 UTC** (signum-xs +30분). 테이블 `signum-trade-journal` (PK pk/SK sk: STATE·POS·ORDERS·TRADE·NAV) 신설. 리포트 미러 `cache:xs:paper`. READ 전용: unified-cache·xs-history·alpha-history. **브로커 API·자격증명 0** (Stage A는 자체 가상체결, 슬리피지=0 — 실체결 마찰은 Stage B에서 측정).
+- **검증**: DRY 실행 (2,197 스냅샷·거래일 가드 1.855%·주문 사이징 $33.33=NAV/30 정상), 07-16 상위데실 픽(BB:100…)·SPY 벤치마크 행 실측 확인. 첫 실기록은 다음 평일 22:40 UTC 런부터 (오늘 스코어 → 내일 시가 체결 → NAV 곡선 축적).
+- **운영 확인**: Redis `GET cache:xs:paper` 또는 `signum-trade-journal` (pk=NAV 날짜별 / pk=STATE). 재배포 `node scripts/deploy-xs-paper.js`. 수동 정지 `trade:killswitch=1`.
+
 ---
 
 ## 📒 43. [세션 기록] 2026-06-30 ~ 07-06 (PC/Claude) — 분류별 전체 작업 로그
