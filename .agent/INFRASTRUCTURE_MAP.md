@@ -8606,6 +8606,14 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **검증**: DRY 실행 (2,197 스냅샷·거래일 가드 1.855%·주문 사이징 $33.33=NAV/30 정상), 07-16 상위데실 픽(BB:100…)·SPY 벤치마크 행 실측 확인. 첫 실기록은 다음 평일 22:40 UTC 런부터 (오늘 스코어 → 내일 시가 체결 → NAV 곡선 축적).
 - **운영 확인**: Redis `GET cache:xs:paper` 또는 `signum-trade-journal` (pk=NAV 날짜별 / pk=STATE). 재배포 `node scripts/deploy-xs-paper.js`. 수동 정지 `trade:killswitch=1`.
 
+### 42.9 🖥️ [2026-07-17] 트레이드 콘솔 + 토스 주문 실행기 구축 (배포·키 연결 대기)
+
+- **매매 페이지**: `/admin/trade` — **pick8775@gmail.com 단독 하드코딩 게이트** (`src/lib/trade/auth.ts`, env로도 확장 불가·비운영자 404). 프리미엄 다크. 구성: 실계좌(보유·매수가능·주문내역·취소) / 수동 주문 티켓(2단 확인, 시장가·지정가·금액·수량) / 자동매매 트랙(A페이퍼 NAV·내일 픽·픽 클릭→티켓 채우기·3게이트 상태·엔진 3파전) / 킬스위치 / 감사로그.
+- **주문 경로 (토스 IP 허용제 대응)**: Vercel(고정IP 없음) → **HMAC 서명**(EXECUTOR_SECRET, ±30s 리플레이 가드) → **EC2 52.23.98.13:8090 실행기**(`scripts/ec2-toss-executor.js`, pm2 `signum-toss-exec`) → 토스 OpenAPI. 실행기 방어: 경로 allowlist·**1회 $2,000/일 40건 하드캡**(Vercel 측 동일 캡과 이중)·clientOrderId 멱등키 강제·키는 EC2 `.env.toss`(chmod 600)에만.
+- **키 절차 (자격증명은 채팅·레포 절대 금지)**: ①WTS 허용 IP에 52.23.98.13 추가 ②`node scripts/deploy-toss-executor.js`(SG 8090 오픈+pm2 배포) ③`node scripts/setup-toss-keys.js`(운영자가 터미널에 직접 입력→EC2 전송, EXECUTOR_SECRET 자동생성) ④Vercel env `EXECUTOR_URL`/`EXECUTOR_SECRET` 추가·재배포.
+- **토스 API 실측 확정** (openapi.json 직접 파싱): OAuth2 client_credentials(`/oauth2/token`) · 주문 `/api/v1/orders`(BUY/SELL·LIMIT/MARKET·quantity 또는 orderAmount$·`X-Tossinvest-Account` 헤더) · 취소/정정/조건주문 · holdings/buying-power · **모의투자 API 없음**(→PREREG B단계를 "1주 배관 테스트"로 수정 등록).
+- **상태**: 코드 완성·tsc 통과·푸시(Vercel 자동배포). **EC2 실행기 배포와 키 설치는 스크립트 실행 대기**(SSH가 세션 권한상 차단 — 운영자 실행 또는 권한 허용 후 진행). 페이지는 키 연결 전에도 페이퍼 트랙·게이트 모니터링 가동.
+
 ---
 
 ## 📒 43. [세션 기록] 2026-06-30 ~ 07-06 (PC/Claude) — 분류별 전체 작업 로그
