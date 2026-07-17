@@ -14,8 +14,8 @@ export const maxDuration = 30;
 const SYMBOL_RE = /^[A-Z]{1,6}(\.[A-Z])?$/;
 
 interface OrderReq {
-  action?: 'create' | 'cancel';
-  orderId?: string;          // cancel
+  action?: 'create' | 'cancel' | 'modify';
+  orderId?: string;          // cancel/modify
   symbol?: string;
   side?: 'BUY' | 'SELL';
   orderType?: 'LIMIT' | 'MARKET';
@@ -37,6 +37,23 @@ export async function POST(req: NextRequest) {
     if (!b.orderId) return NextResponse.json({ ok: false, error: 'orderId 필요' }, { status: 400 });
     const r = await callToss({ path: `/api/v1/orders/${encodeURIComponent(b.orderId)}/cancel`, method: 'POST', body: {} });
     await tradeJournal({ at: Date.now(), who: gate.admin.email, action: 'order-cancel', detail: b.orderId, orderId: b.orderId });
+    return NextResponse.json({ ok: r.status < 400, status: r.status, result: r.data });
+  }
+
+  // ── modify (price/quantity of an open order) ──────────────────────────────
+  if (b.action === 'modify') {
+    if (!b.orderId) return NextResponse.json({ ok: false, error: 'orderId 필요' }, { status: 400 });
+    if (await getTradeKill()) return NextResponse.json({ ok: false, error: '🔴 킬스위치 ON' }, { status: 423 });
+    const mQty = b.quantity != null ? Number(b.quantity) : null;
+    const mPx = b.price != null ? Number(b.price) : null;
+    if (mQty != null && mPx != null && mQty * mPx > TRADE_MAX_ORDER_USD) {
+      return NextResponse.json({ ok: false, error: `1회 한도 $${TRADE_MAX_ORDER_USD} 초과` }, { status: 422 });
+    }
+    const body: Record<string, unknown> = { orderType: b.orderType || 'LIMIT' };
+    if (b.quantity != null) body.quantity = String(b.quantity);
+    if (b.price != null) body.price = String(b.price);
+    const r = await callToss({ path: `/api/v1/orders/${encodeURIComponent(b.orderId)}/modify`, method: 'POST', body });
+    await tradeJournal({ at: Date.now(), who: gate.admin.email, action: 'order-modify', detail: `${b.orderId} ${b.quantity ? `×${b.quantity}` : ''}${b.price ? ` @${b.price}` : ''}`, orderId: b.orderId });
     return NextResponse.json({ ok: r.status < 400, status: r.status, result: r.data });
   }
 

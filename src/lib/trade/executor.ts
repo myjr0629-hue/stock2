@@ -16,7 +16,7 @@ export function executorConfigured(): boolean {
 
 export interface TossCall {
   path: string;
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'DELETE';
   query?: Record<string, string>;
   body?: Record<string, unknown>;
 }

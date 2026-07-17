@@ -20,6 +20,18 @@ export async function GET() {
     getFromCache<{ date?: string; dayIC?: number; labeled?: number; calibration?: Record<string, { adjF3: number; hit: number; days: number }>; variants?: Record<string, { rolling: number | null; days: number }> }>('cache:xs:report'),
   ]);
 
+  // FX + US market calendar via Toss (only when the executor is wired up)
+  let fx: unknown = null, usCalendar: unknown = null;
+  if (health.up && health.configured) {
+    const { callToss } = await import('@/lib/trade/executor');
+    const [fxR, calR] = await Promise.all([
+      callToss({ path: '/api/v1/exchange-rate', query: { baseCurrency: 'USD', quoteCurrency: 'KRW' } }),
+      callToss({ path: '/api/v1/market-calendar/US' }),
+    ]);
+    if (fxR.status < 400) fx = fxR.data;
+    if (calR.status < 400) usCalendar = calR.data;
+  }
+
   // §42.3-5 real-money gates (0/3 → C-stage locked)
   const calib = xsReport?.calibration || {};
   const topDecile = calib['0'];
@@ -33,6 +45,7 @@ export async function GET() {
     ok: true,
     executor: { up: health.up, configured: executorConfigured() && health.configured },
     kill,
+    fx, usCalendar,
     paper: paper || null,
     xs: xsReport ? { date: xsReport.date, labeled: xsReport.labeled, variants: xsReport.variants || null } : null,
     gates,

@@ -31,11 +31,16 @@ const REPLAY_WINDOW_MS = 30_000;
 
 // Toss paths the executor will proxy — everything else is refused.
 const ALLOW = [
-  { m: 'GET', re: /^\/api\/v1\/(accounts|holdings|orders|buying-power|sellable-quantity|commissions|prices|orderbook|exchange-rate)$/ },
+  { m: 'GET', re: /^\/api\/v1\/(accounts|holdings|orders|buying-power|sellable-quantity|commissions|prices|orderbook|trades|candles|stocks|exchange-rate|rankings|conditional-orders)$/ },
   { m: 'GET', re: /^\/api\/v1\/orders\/[A-Za-z0-9\-_]+$/ },
+  { m: 'GET', re: /^\/api\/v1\/conditional-orders\/[A-Za-z0-9\-_]+$/ },
+  { m: 'GET', re: /^\/api\/v1\/stocks\/[A-Za-z0-9.]+\/warnings$/ },
   { m: 'GET', re: /^\/api\/v1\/market-calendar\/(KR|US)$/ },
   { m: 'POST', re: /^\/api\/v1\/orders$/ },
-  { m: 'POST', re: /^\/api\/v1\/orders\/[A-Za-z0-9\-_]+\/cancel$/ },
+  { m: 'POST', re: /^\/api\/v1\/orders\/[A-Za-z0-9\-_]+\/(cancel|modify)$/ },
+  { m: 'POST', re: /^\/api\/v1\/conditional-orders$/ },
+  { m: 'POST', re: /^\/api\/v1\/conditional-orders\/[A-Za-z0-9\-_]+\/modify$/ },
+  { m: 'DELETE', re: /^\/api\/v1\/conditional-orders\/[A-Za-z0-9\-_]+$/ },
 ];
 
 function loadEnv() {
@@ -114,21 +119,38 @@ function verify(req, raw) {
 }
 
 // ── order guard (last line of defense) ──────────────────────────────────────
+// Handles both regular orders (side/quantity/orderAmount/price) and conditional
+// orders (type SINGLE/OCO/OTO with first/second legs).
 function guardOrder(body) {
+  if (!body.clientOrderId) return 'clientOrderId(멱등키) 누락';
+  const qty = body.quantity != null ? Number(body.quantity) : null;
+
+  // conditional order shape
+  if (body.first) {
+    const legs = [body.first, body.second].filter(Boolean);
+    for (const leg of legs) {
+      if (leg.orderSide !== 'BUY' && leg.orderSide !== 'SELL') return '조건주문 방향 오류';
+      const px = Number(leg.orderPrice ?? leg.triggerPrice);
+      if (!(px > 0) || !(qty > 0)) return '조건주문 수량/가격 오류';
+      const notional = qty * px;
+      if (notional > MAX_ORDER_USD) return `조건주문 한도 초과 ($${notional.toFixed(0)} > $${MAX_ORDER_USD})`;
+    }
+    return null;
+  }
+
+  // regular order shape
   if (body.side !== 'BUY' && body.side !== 'SELL') return '주문 방향 오류';
   const amt = body.orderAmount != null ? Number(body.orderAmount) : null;
-  const qty = body.quantity != null ? Number(body.quantity) : null;
   const px = body.price != null ? Number(body.price) : null;
   let notional = null;
   if (amt != null) notional = amt;
   else if (qty != null && px != null) notional = qty * px;
   // MARKET+quantity: notional unknown here — Vercel side estimates with live
-  // price and passes estNotional for the cap check.
+  // price and passes estPx for the cap check.
   else if (qty != null && body.estPx != null) notional = qty * Number(body.estPx);
   if (notional == null) return 'notional 산정 불가 — estPx 필요';
   if (!(notional > 0)) return 'notional 0';
   if (notional > MAX_ORDER_USD) return `1회 한도 초과 ($${notional.toFixed(0)} > $${MAX_ORDER_USD})`;
-  if (!body.clientOrderId) return 'clientOrderId(멱등키) 누락';
   return null;
 }
 
@@ -150,9 +172,9 @@ http.createServer((req, res) => {
       const { path: p, method = 'GET', query, body } = JSON.parse(raw || '{}');
       if (!ALLOW.some((a) => a.m === method && a.re.test(p))) return send(403, { error: `path not allowed: ${method} ${p}` });
 
-      // order-creation guards
+      // order-creation guards (regular + conditional both count against caps)
       let outBody = body;
-      if (method === 'POST' && p === '/api/v1/orders') {
+      if (method === 'POST' && (p === '/api/v1/orders' || p === '/api/v1/conditional-orders')) {
         const g = guardOrder(body || {});
         if (g) return send(422, { error: `executor guard: ${g}` });
         const c = bumpOrderCount();
@@ -163,13 +185,13 @@ http.createServer((req, res) => {
 
       const t = await token();
       const headers = { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' };
-      if (!/^\/api\/v1\/(prices|orderbook|exchange-rate|market-calendar)/.test(p)) {
+      if (!/^\/api\/v1\/(prices|orderbook|trades|candles|stocks|rankings|exchange-rate|market-calendar)/.test(p)) {
         headers['X-Tossinvest-Account'] = await account();
       }
       const qs = query ? '?' + new URLSearchParams(query).toString() : '';
       const r = await fetch(`${TOSS}${p}${qs}`, {
         method, headers,
-        body: method === 'GET' ? undefined : JSON.stringify(outBody ?? {}),
+        body: method === 'POST' ? JSON.stringify(outBody ?? {}) : undefined,
         signal: AbortSignal.timeout(15_000),
       });
       const text = await r.text();
