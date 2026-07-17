@@ -141,26 +141,33 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
   const gen = await generateDrafts(pick.ticker, pick.reason);
   const ogUrl = ogCardUrl(pick.ticker, pick.levels); // level card image for every channel
 
+  // Deadman counts ONE result per RUN (not per channel): a single bad Bedrock
+  // generation blocking all 3 channels must not insta-trip the 3-strike breaker
+  // (that's what halted everything on 2026-07-16). Quality pass on ANY channel
+  // resets the streak; dup-blocks are not quality failures.
+  let runQualityFail = false, runQualityPass = false;
+
   for (const p of active) {
     const mode = modes[p.ch];
     const draft = gen.drafts.find((d) => d.channel === p.draftKey);
     const text = (draft?.text || '').trim();
 
-    // Grounded gate — no real levels or empty draft = block (counts toward deadman).
+    // Grounded gate — no real levels or empty draft = block.
     if (!gen.grounded || !draft || !text) {
-      await recordGateResult(false);
+      runQualityFail = true;
       out.push({ channel: p.ch, mode, action: 'block', ok: false, detail: 'grounded 실패/빈 초안' });
       continue;
     }
     // Quality/compliance lint (§6.1 items 1-2): links, emoji, metric count, prediction, buy/sell, length.
     if (!draft.lint.pass) {
-      await recordGateResult(false);
+      runQualityFail = true;
       const failed = draft.lint.checks.filter((c) => !c.ok).map((c) => c.key).join(',');
       out.push({ channel: p.ch, mode, action: 'block', ok: false, detail: `린트 실패: ${failed}` });
       continue;
     }
-    // Skeleton dedup (§6.1 item 4) — same template within 72h = the disaster's fingerprint.
-    if (await isDuplicateSkeleton(text)) {
+    // Skeleton dedup (§6.1 item 4) — per-channel scope so cross-channel mirrors
+    // (x-us and bluesky share the EN text) don't block each other.
+    if (await isDuplicateSkeleton(text, p.ch)) {
       out.push({ channel: p.ch, mode, action: 'block', ok: false, detail: '중복 구조 차단(72h)' });
       continue;
     }
@@ -185,16 +192,19 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
     }
 
     if (ok) {
+      runQualityPass = true;
       await bumpVolume(p.volKey);
-      await recordSkeleton(text);
+      await recordSkeleton(text, p.ch);
       await markAutoPost(p.ch);
-      await recordGateResult(true);
       await appendAudit('autopilot', mode === 'live' ? 'auto-publish' : 'auto-draft', `${p.ch} $${pick.ticker} — ${detail}`);
       out.push({ channel: p.ch, mode, action: mode === 'live' ? 'published' : 'drafted', ok: true, detail: `$${pick.ticker}` });
     } else {
       out.push({ channel: p.ch, mode, action: 'fail', ok: false, detail });
     }
   }
+  // one deadman sample per run
+  if (runQualityPass) await recordGateResult(true);
+  else if (runQualityFail) await recordGateResult(false);
   return out;
 }
 
@@ -242,7 +252,8 @@ export async function runAutopilotReplies(): Promise<AutoResult[]> {
         if (vol >= REPLY_CAP) break;
         const d = await draftReply(asTweet(t.uri, t.author, t.text, t.ticker), 'en');
         if (!d.grounded || !d.draft) { out.push({ channel: 'bluesky-reply', mode: bMode, action: 'block', ok: false, detail: `grounded 실패 $${t.ticker}` }); continue; }
-        if (!lint(d.draft, 'en').pass) { await recordGateResult(false); out.push({ channel: 'bluesky-reply', mode: bMode, action: 'block', ok: false, detail: '린트 실패' }); continue; }
+        // reply lint failures don't feed the deadman (originals runs are its signal)
+        if (!lint(d.draft, 'en').pass) { out.push({ channel: 'bluesky-reply', mode: bMode, action: 'block', ok: false, detail: '린트 실패' }); continue; }
         if (bMode === 'shadow') {
           await markReplied(t.uri);
           await appendAudit('autopilot', 'auto-reply-draft', `bluesky @${t.author} $${t.ticker}: ${d.draft.slice(0, 80)}`);

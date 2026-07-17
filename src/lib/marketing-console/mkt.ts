@@ -116,17 +116,20 @@ export function skeleton(text: string): string {
     .trim();
 }
 const SKEL_KEY = 'mkt:skeletons';
-export async function isDuplicateSkeleton(text: string): Promise<boolean> {
+// scope: '' = global (manual buffer pushes), or a channel key so the SAME text
+// posted to x-us and bluesky (different audiences) doesn't self-block — the
+// dedup exists to stop repeats WITHIN a channel, not mirrors across channels.
+export async function isDuplicateSkeleton(text: string, scope = ''): Promise<boolean> {
   const sk = skeleton(text);
-  const list = (await getFromCache<{ sk: string; at: number }[]>(SKEL_KEY)) || [];
+  const list = (await getFromCache<{ sk: string; at: number; sc?: string }[]>(SKEL_KEY)) || [];
   const cutoff = Date.now() - 72 * 3600 * 1000;
-  return list.some((e) => e.at > cutoff && e.sk === sk);
+  return list.some((e) => e.at > cutoff && e.sk === sk && (e.sc || '') === scope);
 }
-export async function recordSkeleton(text: string): Promise<void> {
+export async function recordSkeleton(text: string, scope = ''): Promise<void> {
   const sk = skeleton(text);
-  const list = (await getFromCache<{ sk: string; at: number }[]>(SKEL_KEY)) || [];
-  list.unshift({ sk, at: Date.now() });
-  await setInCache(SKEL_KEY, list.slice(0, 100), 72 * 3600 + 3600);
+  const list = (await getFromCache<{ sk: string; at: number; sc?: string }[]>(SKEL_KEY)) || [];
+  list.unshift({ sk, at: Date.now(), sc: scope });
+  await setInCache(SKEL_KEY, list.slice(0, 150), 72 * 3600 + 3600);
 }
 
 // ---- Replied-to tracking (mark a target as answered → no duplicate replies) -

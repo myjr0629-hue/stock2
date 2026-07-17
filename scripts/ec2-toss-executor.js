@@ -16,9 +16,33 @@
 // ============================================================================
 
 const http = require('http');
+const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+
+// The EC2 box may run an older Node without global fetch — use https directly.
+function httpsJson(urlStr, opts) {
+  const { method = 'GET', headers = {}, body = null, timeoutMs = 15000 } = opts || {};
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr);
+    const data = body == null ? null : (typeof body === 'string' ? body : JSON.stringify(body));
+    const req = https.request({
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      method,
+      headers: Object.assign({}, headers, data ? { 'Content-Length': Buffer.byteLength(data) } : {}),
+    }, (res) => {
+      let buf = '';
+      res.on('data', (c) => { buf += c; });
+      res.on('end', () => resolve({ status: res.statusCode || 0, text: buf }));
+    });
+    req.on('error', reject);
+    req.setTimeout(timeoutMs, () => req.destroy(new Error('toss timeout')));
+    if (data) req.write(data);
+    req.end();
+  });
+}
 
 const PORT = 8090;
 const TOSS = 'https://openapi.tossinvest.com';
@@ -59,19 +83,17 @@ let ENV = loadEnv();
 let tok = { access: null, exp: 0 };
 async function token() {
   if (tok.access && Date.now() < tok.exp - 60_000) return tok.access;
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: ENV.TOSS_CLIENT_ID,
-    client_secret: ENV.TOSS_CLIENT_SECRET,
-  });
-  const r = await fetch(`${TOSS}/oauth2/token`, {
+  const form = 'grant_type=client_credentials'
+    + '&client_id=' + encodeURIComponent(ENV.TOSS_CLIENT_ID)
+    + '&client_secret=' + encodeURIComponent(ENV.TOSS_CLIENT_SECRET);
+  const r = await httpsJson(`${TOSS}/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-    signal: AbortSignal.timeout(10_000),
+    body: form,
+    timeoutMs: 10_000,
   });
-  const j = await r.json();
-  if (!r.ok || !j.access_token) throw new Error(`token ${r.status}: ${JSON.stringify(j).slice(0, 160)}`);
+  let j; try { j = JSON.parse(r.text); } catch { j = {}; }
+  if (r.status >= 400 || !j.access_token) throw new Error(`token ${r.status}: ${r.text.slice(0, 160)}`);
   tok = { access: j.access_token, exp: Date.now() + (Number(j.expires_in) || 3600) * 1000 };
   return tok.access;
 }
@@ -82,10 +104,10 @@ async function account() {
   if (ENV.TOSS_ACCOUNT) return ENV.TOSS_ACCOUNT;
   if (acct) return acct;
   const t = await token();
-  const r = await fetch(`${TOSS}/api/v1/accounts`, {
-    headers: { Authorization: `Bearer ${t}` }, signal: AbortSignal.timeout(10_000),
+  const r = await httpsJson(`${TOSS}/api/v1/accounts`, {
+    headers: { Authorization: `Bearer ${t}` }, timeoutMs: 10_000,
   });
-  const j = await r.json();
+  let j; try { j = JSON.parse(r.text); } catch { j = {}; }
   const list = j?.result ?? j?.accounts ?? j;
   const first = Array.isArray(list) ? list[0] : (Array.isArray(list?.accounts) ? list.accounts[0] : null);
   acct = first?.accountNo ?? first?.accountNumber ?? first?.account ?? (typeof first === 'string' ? first : null);
@@ -188,14 +210,15 @@ http.createServer((req, res) => {
       if (!/^\/api\/v1\/(prices|orderbook|trades|candles|stocks|rankings|exchange-rate|market-calendar)/.test(p)) {
         headers['X-Tossinvest-Account'] = await account();
       }
-      const qs = query ? '?' + new URLSearchParams(query).toString() : '';
-      const r = await fetch(`${TOSS}${p}${qs}`, {
+      const qs = query
+        ? '?' + Object.entries(query).map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(String(v))).join('&')
+        : '';
+      const r = await httpsJson(`${TOSS}${p}${qs}`, {
         method, headers,
-        body: method === 'POST' ? JSON.stringify(outBody ?? {}) : undefined,
-        signal: AbortSignal.timeout(15_000),
+        body: method === 'POST' ? JSON.stringify(outBody || {}) : null,
+        timeoutMs: 15_000,
       });
-      const text = await r.text();
-      let j; try { j = JSON.parse(text); } catch { j = { raw: text.slice(0, 400) }; }
+      let j; try { j = JSON.parse(r.text); } catch { j = { raw: r.text.slice(0, 400) }; }
       return send(r.status, j);
     } catch (e) {
       return send(500, { error: String(e.message || e).slice(0, 300) });
