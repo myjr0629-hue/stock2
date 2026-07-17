@@ -19,6 +19,33 @@ const USER = 'ec2-user';
 const DIR = '/home/ec2-user/toss-executor';
 const SSH = `-i ${PEM} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes`;
 
+// 결과를 메모장으로도 보여준다 (터미널에서 못 찾는 문제 방지). 파일은 gitignore 대상.
+const fs = require('fs');
+function showResult(execSecret) {
+  const txt = [
+    'Vercel → Settings → Environment Variables 에 아래 2개를 추가하고 Redeploy 하세요.',
+    '',
+    'EXECUTOR_URL=http://' + EC2_IP + ':8090',
+    'EXECUTOR_SECRET=' + execSecret,
+    '',
+    '(이 파일은 복사 후 삭제해도 됩니다. git에는 올라가지 않습니다.)',
+  ].join('\r\n');
+  fs.writeFileSync('vercel-env-toss.txt', txt);
+  console.log('\n=== ✅ 값을 메모장으로 열었습니다 (vercel-env-toss.txt) ===');
+  console.log('  EXECUTOR_URL    = http://' + EC2_IP + ':8090');
+  console.log('  EXECUTOR_SECRET = ' + execSecret);
+  try { require('child_process').exec('notepad vercel-env-toss.txt'); } catch { /* 수동으로 열기 */ }
+}
+
+// 복구 모드: 키 재입력 없이 EC2에 저장된 EXECUTOR_SECRET을 가져와 보여준다.
+if (process.argv.includes('--recover')) {
+  const out = execSync(`ssh ${'-i signum-websocket-key.pem -o StrictHostKeyChecking=no -o IdentitiesOnly=yes'} ec2-user@52.23.98.13 "grep EXECUTOR_SECRET /home/ec2-user/toss-executor/.env.toss"`).toString();
+  const m = out.match(/EXECUTOR_SECRET=(\S+)/);
+  if (!m) { console.error('❌ EC2에서 EXECUTOR_SECRET을 찾지 못했습니다 — 전체 설치를 다시 실행하세요.'); process.exit(1); }
+  showResult(m[1]);
+  process.exit(0);
+}
+
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q) => new Promise((res) => rl.question(q, res));
 
@@ -56,8 +83,5 @@ async function askUntil(q, prefix) {
   const health = await fetch(`http://${EC2_IP}:8090/health`, { signal: AbortSignal.timeout(8000) }).then((r) => r.json()).catch((e) => ({ error: e.message }));
   console.log('health:', JSON.stringify(health));
 
-  console.log('\n=== ✅ 설치 완료. 이제 Vercel 환경변수 2개를 추가하세요 ===');
-  console.log('  EXECUTOR_URL    = http://' + EC2_IP + ':8090');
-  console.log('  EXECUTOR_SECRET = ' + execSecret);
-  console.log('(Vercel → Settings → Environment Variables → 추가 후 Redeploy)');
+  showResult(execSecret);
 })();
