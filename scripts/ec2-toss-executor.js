@@ -123,10 +123,15 @@ function collectCandidates(node, out, keyHint) {
 }
 
 async function validateAccount(t, id) {
-  const v = await httpsJson(`${TOSS}/api/v1/buying-power?currency=USD`, {
+  // Validate with /holdings (no extra params). Reject a candidate ONLY on a
+  // definitive account error — any other failure (entitlement, params, 5xx)
+  // means the header itself was accepted, which is all we're testing here.
+  // (Previous version rejected on ANY 4xx and threw away the REAL accountNo.)
+  const v = await httpsJson(`${TOSS}/api/v1/holdings`, {
     headers: { Authorization: `Bearer ${t}`, 'X-Tossinvest-Account': String(id) }, timeoutMs: 10_000,
   });
-  return v.status < 400;
+  if (v.status < 400) return true;
+  return !/account-not-found/i.test(v.text);
 }
 function saveAccount(c) {
   acct = c;
