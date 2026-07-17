@@ -13,7 +13,10 @@ export async function GET(req: NextRequest) {
   if ('error' in gate) return gate.error;
   const status = req.nextUrl.searchParams.get('status') === 'CLOSED' ? 'CLOSED' : 'OPEN';
   const r = await callToss({ path: '/api/v1/conditional-orders', query: { status } });
-  return NextResponse.json({ ok: r.status < 400, status: r.status, list: r.data });
+  // Toss envelope: { result: { conditionalOrders: [...] } } — unwrap to a plain array
+  const raw = r.data as { result?: { conditionalOrders?: unknown[] } } | unknown[] | null;
+  const list = Array.isArray(raw) ? raw : (raw?.result?.conditionalOrders ?? []);
+  return NextResponse.json({ ok: r.status < 400, status: r.status, list });
 }
 
 interface Leg { orderSide?: 'BUY' | 'SELL'; triggerPrice?: string; orderPrice?: string }

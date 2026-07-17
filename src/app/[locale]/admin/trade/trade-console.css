@@ -168,3 +168,95 @@
 .tc-chip em { font-style: normal; font-size: 11px; font-weight: 700; }
 .tc-orow.done { opacity: 0.55; }
 .tc-tbl .nm { font-weight: 600; font-size: 11px; color: var(--sub); }
+
+/* ═══ shell + side nav ═══ */
+.tc-shell { display: flex; gap: 20px; align-items: stretch; }
+.tc-side { width: 216px; flex-shrink: 0; position: sticky; top: 22px; align-self: flex-start; display: flex; flex-direction: column; gap: 24px; background: var(--card); border-radius: 24px; padding: 22px 16px; box-shadow: 0 2px 14px rgba(23,25,30,0.05); min-height: calc(100vh - 62px); }
+.tc-nav { display: flex; flex-direction: column; gap: 4px; }
+.tc-nav button { display: flex; align-items: center; gap: 11px; width: 100%; border: 0; background: transparent; text-align: left; font-size: 13.5px; font-weight: 800; color: var(--sub); padding: 12px 14px; border-radius: 14px; cursor: pointer; transition: all .15s; font-family: inherit; }
+.tc-nav button:hover { background: #f4f2ec; color: var(--ink); }
+.tc-nav button.act { background: var(--dark); color: #fff; box-shadow: 0 6px 18px rgba(23,25,30,0.22); }
+.tc-nav .ic { width: 20px; text-align: center; font-size: 15px; opacity: 0.85; }
+.tc-nav .badge { margin-left: auto; font-size: 10.5px; font-weight: 800; background: var(--coral); color: #fff; border-radius: 999px; padding: 2px 8px; }
+.tc-sidefoot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.tc-sidefoot .tc-killbtn { width: 100%; }
+.tc-op { font-size: 10.5px; color: #b6b1a3; text-align: center; word-break: break-all; }
+.tc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tc-top.slim { padding: 12px 18px; }
+.tc-top.slim .tc-pills { margin-left: 0; margin-right: auto; }
+.tc-col1 { display: flex; flex-direction: column; gap: 16px; }
+
+/* ═══ SIGNUM VERDICT ═══ */
+.tc-card.verdict { background: linear-gradient(150deg, #fff 60%, #f7f4ee); border: 1.5px solid var(--line); box-shadow: none; padding: 18px 20px; }
+.tc-vhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tc-vlabel { font-size: 12px; font-weight: 800; padding: 6px 14px; border-radius: 999px; letter-spacing: 0.3px; flex-shrink: 0; }
+.tc-vlabel.edge { background: var(--green-soft); color: var(--green); }
+.tc-vlabel.neutral { background: #f4f2ec; color: var(--sub); }
+.tc-vlabel.against { background: var(--red-soft); color: var(--red); }
+.tc-vlabel.nodata { background: #f4f2ec; color: #b6b1a3; }
+.tc-vbody { display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap; margin-top: 6px; }
+.tc-vscore { min-width: 130px; }
+.tc-vscore .s { display: block; font-size: 46px; font-weight: 800; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+.tc-vscore .l { font-size: 11px; font-weight: 800; color: var(--sub); letter-spacing: 0.5px; }
+.tc-vexpect { margin-top: 10px; font-size: 12px; color: var(--sub); line-height: 1.55; }
+.tc-vexpect b { font-size: 14px; }
+.tc-vexpect .d { color: #b6b1a3; margin-left: 4px; }
+.tc-ladder { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 2px; }
+.tc-ladder .row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; padding: 5px 10px; border-radius: 10px; }
+.tc-ladder .row .l { width: 74px; font-weight: 800; color: var(--sub); flex-shrink: 0; }
+.tc-ladder .row .line { flex: 1; border-top: 1.5px dashed var(--line); }
+.tc-ladder .row .v { font-weight: 800; font-variant-numeric: tabular-nums; }
+.tc-ladder .row .g { font-size: 11px; font-weight: 700; width: 52px; text-align: right; }
+.tc-ladder .row.hi { background: var(--dark); color: #fff; }
+.tc-ladder .row.hi .l { color: #cfcabd; }
+.tc-ladder .row.hi .line { border-color: rgba(255,255,255,0.25); }
+.tc-zstrip { display: flex; gap: 6px; overflow-x: auto; margin-top: 14px; padding-bottom: 4px; }
+.tc-zstrip .z { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 9.5px; font-weight: 700; color: var(--sub); background: #faf9f5; border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; min-width: 52px; }
+.tc-zstrip .z b { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.tc-zstrip .z.hot { background: var(--green-soft); border-color: transparent; }
+.tc-zstrip .z.hot b { color: var(--green); }
+.tc-zstrip .z.cold { background: var(--red-soft); border-color: transparent; }
+.tc-zstrip .z.cold b { color: var(--red); }
+.tc-vflags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+/* ═══ position X-Ray ═══ */
+.tc-xrow { padding: 14px 0; border-bottom: 1px solid #f1efe8; }
+.tc-xrow:last-of-type { border-bottom: 0; }
+.tc-xtop { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; cursor: pointer; }
+.tc-xtop .sym { font-size: 17px; font-weight: 800; }
+.tc-xtop .nm { font-size: 12px; color: var(--sub); }
+.tc-xtop .pl { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; margin-left: auto; }
+.tc-xtop .xs { font-size: 12px; font-weight: 800; color: var(--ink); background: #f4f2ec; border-radius: 999px; padding: 4px 11px; }
+.tc-xtop .exp { font-size: 11.5px; font-weight: 700; }
+.tc-xmeta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--sub); margin-top: 7px; }
+.tc-xnote { margin-top: 9px; font-size: 12.5px; line-height: 1.65; background: #faf9f5; border-left: 3px solid var(--coral); border-radius: 0 12px 12px 0; padding: 9px 13px; }
+
+/* ═══ factor IC bars ═══ */
+.tc-icbars { margin-top: 14px; display: flex; flex-direction: column; gap: 5px; }
+.tc-icbar { display: flex; align-items: center; gap: 9px; font-size: 11.5px; }
+.tc-icbar .k { width: 64px; font-weight: 800; color: var(--sub); flex-shrink: 0; }
+.tc-icbar .track { flex: 1; height: 7px; border-radius: 999px; background: #f1efe8; overflow: hidden; }
+.tc-icbar .fill { display: block; height: 100%; border-radius: 999px; }
+.tc-icbar .fill.up { background: var(--green); }
+.tc-icbar .fill.dn { background: var(--red); }
+.tc-icbar .v { width: 52px; text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* grid items default to min-content width — without min-width:0 the 13-chip
+   z-strip (748px min-content) locks columns and crushes the order ticket */
+.tc-hero > .tc-card, .tc-work > .tc-card, .tc-duo > .tc-card { min-width: 0; }
+.tc-zstrip { max-width: 100%; }
+.tc-spark { max-width: 100%; }
+.tc-spark.fluid { display: block; width: 100%; height: auto; margin-left: 0; }
+/* #dc2626 on the dark card is 3.5:1 — below AA for the loss figure */
+.tc-card.dark .tc-delta.dn { color: #f87171; }
+
+/* ═══ responsive shell ═══ */
+@media (max-width: 920px) {
+  .tc-shell { flex-direction: column; gap: 14px; }
+  .tc-side { position: static; width: 100%; min-height: 0; padding: 14px; gap: 12px; }
+  .tc-nav { flex-direction: row; overflow-x: auto; }
+  .tc-nav button { width: auto; white-space: nowrap; padding: 10px 14px; }
+  .tc-nav .badge { margin-left: 6px; }
+  .tc-sidefoot { margin-top: 0; flex-direction: row; align-items: center; justify-content: space-between; }
+  .tc-sidefoot .tc-killbtn { width: auto; }
+}
