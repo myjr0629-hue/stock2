@@ -22,20 +22,24 @@ const SSH = `-i ${PEM} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes`;
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q) => new Promise((res) => rl.question(q, res));
 
+// 붙여넣기에 줄바꿈·공백이 섞여도 안전하게: 형식이 맞을 때까지 다시 묻는다.
+async function askUntil(q, prefix) {
+  for (;;) {
+    const v = (await ask(q)).replace(/\s+/g, '').trim();
+    if (v.startsWith(prefix) && v.length > prefix.length + 8) return v;
+    console.log(`  ⚠️ ${prefix}… 로 시작하는 전체 값을 붙여넣어 주세요. 다시 →`);
+  }
+}
+
 (async () => {
-  console.log('=== 토스 Open API 키 설치 ===');
+  console.log('=== 토스 Open API 키 설치 (재실행 = 처음부터 덮어쓰기) ===');
   console.log('WTS(토스증권 PC) 설정 > Open API 에서 발급한 값을 입력하세요.');
   console.log('⚠️ 먼저 같은 화면의 [허용 IP 관리]에 ' + EC2_IP + ' 를 추가했는지 확인!\n');
 
-  const clientId = (await ask('Client Id (tsck_live_...): ')).trim();
-  const clientSecret = (await ask('Client Secret (tssk_live_...): ')).trim();
+  const clientId = await askUntil('Client Id (tsck_live_...): ', 'tsck_');
+  const clientSecret = await askUntil('Client Secret (tssk_live_...): ', 'tssk_');
   const acctNo = (await ask('계좌번호 (엔터 = 첫 계좌 자동): ')).trim();
   rl.close();
-
-  if (!clientId.startsWith('tsck_') || !clientSecret.startsWith('tssk_')) {
-    console.error('❌ 형식이 다릅니다 (tsck_/tssk_ 접두사). 중단.');
-    process.exit(1);
-  }
 
   const execSecret = 'exsec_' + crypto.randomBytes(32).toString('hex');
   const env = [
