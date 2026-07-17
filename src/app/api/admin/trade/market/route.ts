@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTradeAdmin } from '@/lib/trade/auth';
 import { callToss } from '@/lib/trade/executor';
-import { pickNum, pickStr, pickList, PX_PATTERNS, CHG_PATTERNS, NAME_PATTERNS } from '@/lib/trade/normalize';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-// Everything about ONE symbol, normalized server-side: Toss quote + candles
-// (sparkline) + trades + price-limits + stock info + sellable + warnings,
-// fused with SIGNUM options-structure levels.
+// Symbol workbench data — parsed EXACTLY per the Toss OpenAPI spec (v1.2.4):
+// prices → result[0].lastPrice (NO change field → derive vs prev 1d close)
+// candles → result.candles[] {closePrice,...} (newest first)
+// trades → result[] {price, volume, timestamp}
+// price-limits → result.{upperLimitPrice, lowerLimitPrice}
+// stocks → result[0].{name, market, status}
+// sellable-quantity → result.sellableQuantity
+// warnings → result[] {warningType, ...}
+// Fused with SIGNUM options-structure levels.
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
+const num = (v: unknown): number | null => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 
 export async function GET(req: NextRequest) {
   const gate = await requireTradeAdmin();
@@ -19,9 +25,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: '심볼 형식 오류' }, { status: 400 });
   }
 
-  const [price, candles, trades, limits, info, sellable, warnings, structure] = await Promise.all([
+  const [price, candles1m, candles1d, trades, limits, info, sellable, warnings, structure] = await Promise.all([
     callToss({ path: '/api/v1/prices', query: { symbols: symbol } }),
     callToss({ path: '/api/v1/candles', query: { symbol, interval: '1m', count: '60' } }),
+    callToss({ path: '/api/v1/candles', query: { symbol, interval: '1d', count: '2' } }),
     callToss({ path: '/api/v1/trades', query: { symbol, count: '12' } }),
     callToss({ path: '/api/v1/price-limits', query: { symbol } }),
     callToss({ path: '/api/v1/stocks', query: { symbols: symbol } }),
@@ -31,26 +38,22 @@ export async function GET(req: NextRequest) {
       .then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]);
 
-  // normalized quote
-  const px = pickNum(price.data, PX_PATTERNS, 0.01, 1e6);
-  const chgPct = pickNum(price.data, CHG_PATTERNS, -80, 80);
-  const name = pickStr(info.data, NAME_PATTERNS) ?? pickStr(price.data, NAME_PATTERNS);
+  const px = num((price.data as { result?: { lastPrice?: string }[] })?.result?.[0]?.lastPrice);
 
-  // sparkline closes (oldest→newest)
-  const candleRows = pickList(candles.data);
-  const closes = candleRows
-    .map((c) => pickNum(c, [/^close$/i, /price/i], 0.01, 1e6))
-    .filter((v): v is number => v != null);
+  // change% vs previous daily close (prices carries no change field per spec)
+  const dRows = (candles1d.data as { result?: { candles?: { closePrice?: string; timestamp?: string }[] } })?.result?.candles ?? [];
+  const prevClose = dRows.length >= 2 ? num(dRows[1]?.closePrice) : null;
+  const chgPct = px != null && prevClose != null && prevClose > 0 ? ((px - prevClose) / prevClose) * 100 : null;
 
-  // recent trades (price + qty + time-ish)
-  const tradeRows = pickList(trades.data).slice(0, 12).map((t) => ({
-    px: pickNum(t, PX_PATTERNS, 0.01, 1e6),
-    qty: pickNum(t, [/quantity|volume|qty|size/i], 0, 1e9),
-    at: pickStr(t, [/time|at|date/i]),
-  }));
+  // 1m sparkline closes — spec returns newest-first; reverse to oldest→newest
+  const mRows = (candles1m.data as { result?: { candles?: { closePrice?: string }[] } })?.result?.candles ?? [];
+  const closes = mRows.map((c) => num(c.closePrice)).filter((v): v is number => v != null).reverse();
 
-  const upper = pickNum(limits.data, [/upper|max|high|ceil/i], 0.01, 1e6);
-  const lower = pickNum(limits.data, [/lower|min|low|floor/i], 0.01, 1e6);
+  const tradeRows = ((trades.data as { result?: { price?: string; volume?: string; timestamp?: string }[] })?.result ?? [])
+    .slice(0, 12).map((t) => ({ px: num(t.price), qty: num(t.volume), at: t.timestamp ?? null }));
+
+  const lim = (limits.data as { result?: { upperLimitPrice?: string | null; lowerLimitPrice?: string | null } })?.result;
+  const stock = (info.data as { result?: { name?: string; market?: string; status?: string }[] })?.result?.[0];
 
   const s = structure as { underlyingPrice?: number; gex?: { maxPain?: number; gammaFlipLevel?: number; callWall?: number; putFloor?: number }; maxPain?: number; gammaFlipLevel?: number } | null;
   const levels = s ? {
@@ -61,15 +64,16 @@ export async function GET(req: NextRequest) {
     putFloor: s.gex?.putFloor ?? null,
   } : null;
 
-  const warnList = pickList(warnings.data).map((w) => pickStr(w, [/title|message|name|type/i])).filter(Boolean);
+  const warnList = ((warnings.data as { result?: { warningType?: string }[] })?.result ?? [])
+    .map((w) => w.warningType).filter(Boolean);
 
   return NextResponse.json({
     ok: true, symbol,
-    quote: { px, chgPct, name, priceStatus: price.status },
+    quote: { px, chgPct, prevClose, name: stock?.name ?? null, market: stock?.market ?? null, priceStatus: price.status },
     closes,
     trades: tradeRows,
-    limits: { upper, lower },
-    sellable: pickNum(sellable.data, [/sellable|quantity|qty/i], 0, 1e9),
+    limits: { upper: num(lim?.upperLimitPrice), lower: num(lim?.lowerLimitPrice) },
+    sellable: num((sellable.data as { result?: { sellableQuantity?: string } })?.result?.sellableQuantity),
     warnings: warnList,
     levels,
   });

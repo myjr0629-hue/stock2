@@ -20,11 +20,12 @@ interface Paper { date?: string; nav?: number; cash?: number; posValue?: number;
 interface Journal { at: number; who: string; action: string; detail: string }
 interface StatusRes {
   ok: boolean; executor: { up: boolean; configured: boolean }; kill: boolean;
-  fx: unknown; usCalendar: unknown; paper: Paper | null;
+  fxRate: number | null; usSession: string | null; paper: Paper | null;
   xs: { date?: string; labeled?: number; variants?: Record<string, { rolling: number | null; days: number }> } | null;
   gates: Gates; journal: Journal[];
 }
-interface Holding { symbol: string | null; name: string | null; qty: number | null; avg: number | null; px: number | null; evalAmt: number | null; plPct: number | null }
+interface Holding { symbol: string | null; name: string | null; currency: string; qty: number | null; avg: number | null; px: number | null; evalAmt: number | null; plPct: number | null; dayPct: number | null }
+interface PortfolioSummary { usdValue: number | null; krwValue: number | null; plRate: number | null; dayRate: number | null }
 interface MarketRes {
   ok: boolean; symbol: string;
   quote: { px: number | null; chgPct: number | null; name: string | null; priceStatus: number };
@@ -36,18 +37,6 @@ interface MarketRes {
 }
 interface RankRow { symbol: string | null; name: string | null; px: number | null; chgPct: number | null }
 type OrderRow = Record<string, unknown>;
-
-function deepNum(o: unknown, re: RegExp): number | null {
-  if (o == null) return null;
-  if (typeof o !== 'object') return null;
-  for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
-    if (re.test(k)) { const n = Number(v); if (Number.isFinite(n)) return n; }
-  }
-  for (const v of Object.values(o as Record<string, unknown>)) {
-    if (v && typeof v === 'object') { const r = deepNum(v, re); if (r != null) return r; }
-  }
-  return null;
-}
 
 function Spark({ data }: { data: number[] }) {
   if (data.length < 2) return null;
@@ -65,7 +54,9 @@ function Spark({ data }: { data: number[] }) {
 export default function TradeConsole({ operator }: { operator: string }) {
   const [st, setSt] = useState<StatusRes | null>(null);
   const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [buyPower, setBuyPower] = useState<number | null>(null);
+  const [buyPowerKrw, setBuyPowerKrw] = useState<number | null>(null);
   const [openOrders, setOpenOrders] = useState<OrderRow[]>([]);
   const [closedOrders, setClosedOrders] = useState<OrderRow[]>([]);
   const [conds, setConds] = useState<OrderRow[]>([]);
@@ -105,7 +96,9 @@ export default function TradeConsole({ operator }: { operator: string }) {
     fetch('/api/admin/trade/portfolio', { cache: 'no-store' }).then((r) => r.json())
       .then((j) => {
         setHoldings(Array.isArray(j.rows) ? j.rows : []);
-        setBuyPower(j.buyingPower ?? null);
+        setSummary(j.summary ?? null);
+        setBuyPower(j.buyingPowerUsd ?? null);
+        setBuyPowerKrw(j.buyingPowerKrw ?? null);
         setPortErr(j.holdingsStatus >= 400 ? `계좌 조회 실패 (${j.holdingsStatus}) ${JSON.stringify(j.rawError).slice(0, 160)}` : '');
       }).catch((e) => setPortErr(String(e)));
     fetch('/api/admin/trade/orders', { cache: 'no-store' }).then((r) => r.json())
@@ -196,11 +189,11 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const connected = Boolean(st?.executor.up && st.executor.configured);
   const livePx = mkt?.quote.px ?? null;
   const chgPct = mkt?.quote.chgPct ?? null;
-  const fxRate = deepNum(st?.fx, /rate|price/i);
-  const usStateRaw = st?.usCalendar ? JSON.stringify(st.usCalendar) : '';
-  const usOpen = /REGULAR|OPEN/i.test(usStateRaw) && !/CLOSED/i.test(usStateRaw.slice(0, 200));
+  const fxRate = st?.fxRate ?? null;
+  const usSession = st?.usSession ?? null;
+  const usOpen = usSession != null && usSession !== '휴장' && usSession !== '장외';
   const notional = mode === 'amount' ? Number(amount) : Number(qty) * Number(price || livePx || 0);
-  const holdValue = holdings.reduce((s, h) => s + (h.evalAmt ?? 0), 0);
+  const usdTotal = (summary?.usdValue ?? 0) + (buyPower ?? 0);
   const paperRet = st?.paper?.nav != null ? (st.paper.nav - 1000) / 10 : null;
   const gatesPassed = st ? Number(st.gates.ic.pass) + Number(st.gates.duel.pass) + Number(st.gates.calib.pass) : 0;
   const today = new Date();
@@ -218,7 +211,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
           <span className="tc-dayrest">{today.toLocaleDateString('ko-KR', { weekday: 'short', month: 'long' })}</span>
         </div>
         <div className="tc-pills">
-          <span className={`tc-pill ${usOpen ? 'live' : ''}`}>미국장 {st?.usCalendar ? (usOpen ? '개장' : '휴장/장외') : '—'}</span>
+          <span className={`tc-pill ${usOpen ? 'live' : ''}`}>미국장 {usSession ?? '—'}</span>
           <span className="tc-pill">$1 = ₩{fmt(fxRate, 0)}</span>
           <span className={`tc-pill ${connected ? 'live' : 'warn'}`}>{connected ? '토스 연결됨' : st?.executor.up ? '키 미설치' : '실행기 오프라인'}</span>
         </div>
@@ -235,10 +228,15 @@ export default function TradeConsole({ operator }: { operator: string }) {
         <section className="tc-hero">
           <div className="tc-card dark">
             <div className="tc-card-label">실계좌 · 토스증권</div>
-            <div className="tc-big">${fmt(holdValue + (buyPower ?? 0))}</div>
+            <div className="tc-big">${fmt(usdTotal)}
+              {summary?.plRate != null && <span className={`tc-delta ${summary.plRate >= 0 ? 'up' : 'dn'}`}>{summary.plRate >= 0 ? '+' : ''}{fmt(summary.plRate)}%</span>}
+            </div>
             <div className="tc-kv"><span>매수 가능 (USD)</span><strong>${fmt(buyPower)}</strong></div>
-            <div className="tc-kv"><span>보유 평가</span><strong>${fmt(holdValue)}</strong></div>
-            <div className="tc-kv"><span>보유 종목</span><strong>{holdings.length}</strong></div>
+            <div className="tc-kv"><span>보유 평가 (USD)</span><strong>${fmt(summary?.usdValue)}</strong></div>
+            {(summary?.krwValue ?? 0) > 0 || (buyPowerKrw ?? 0) > 0 ? (
+              <div className="tc-kv"><span>원화 (평가+예수)</span><strong>₩{fmt((summary?.krwValue ?? 0) + (buyPowerKrw ?? 0), 0)}</strong></div>
+            ) : null}
+            <div className="tc-kv"><span>보유 종목 {summary?.dayRate != null ? `· 오늘 ${summary.dayRate >= 0 ? '+' : ''}${fmt(summary.dayRate)}%` : ''}</span><strong>{holdings.length}</strong></div>
           </div>
           <div className="tc-card">
             <div className="tc-card-label">자동매매 · 페이퍼 $1,000</div>
@@ -423,15 +421,18 @@ export default function TradeConsole({ operator }: { operator: string }) {
               <table className="tc-tbl">
                 <thead><tr><th>종목</th><th>수량</th><th>평단</th><th>평가</th><th>손익</th></tr></thead>
                 <tbody>
-                  {holdings.map((h, i) => (
-                    <tr key={i} onClick={() => pickSymbol(h.symbol)}>
-                      <td className="sym">{h.symbol}{h.name && <span className="nm"> {h.name}</span>}</td>
-                      <td>{fmt(h.qty, 4)}</td>
-                      <td>${fmt(h.avg)}</td>
-                      <td>${fmt(h.evalAmt)}</td>
-                      <td className={(h.plPct ?? 0) >= 0 ? 'up' : 'dn'}>{h.plPct != null ? `${h.plPct >= 0 ? '+' : ''}${fmt(h.plPct)}%` : '—'}</td>
-                    </tr>
-                  ))}
+                  {holdings.map((h, i) => {
+                    const cur = h.currency === 'KRW' ? '₩' : '$';
+                    return (
+                      <tr key={i} onClick={() => pickSymbol(h.symbol)}>
+                        <td className="sym">{h.symbol}{h.name && <span className="nm"> {h.name}</span>}</td>
+                        <td>{fmt(h.qty, 4)}</td>
+                        <td>{cur}{fmt(h.avg)}</td>
+                        <td>{cur}{fmt(h.evalAmt)}</td>
+                        <td className={(h.plPct ?? 0) >= 0 ? 'up' : 'dn'}>{h.plPct != null ? `${h.plPct >= 0 ? '+' : ''}${fmt(h.plPct)}%` : '—'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

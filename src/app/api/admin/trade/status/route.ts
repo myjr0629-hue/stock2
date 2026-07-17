@@ -20,16 +20,37 @@ export async function GET() {
     getFromCache<{ date?: string; dayIC?: number; labeled?: number; calibration?: Record<string, { adjF3: number; hit: number; days: number }>; variants?: Record<string, { rolling: number | null; days: number }> }>('cache:xs:report'),
   ]);
 
-  // FX + US market calendar via Toss (only when the executor is wired up)
-  let fx: unknown = null, usCalendar: unknown = null;
+  // FX + US market session via Toss (only when the executor is wired up).
+  // Session computed EXACTLY from the spec'd calendar windows (KST times).
+  let fxRate: number | null = null;
+  let usSession: string | null = null;
   if (health.up && health.configured) {
     const { callToss } = await import('@/lib/trade/executor');
     const [fxR, calR] = await Promise.all([
       callToss({ path: '/api/v1/exchange-rate', query: { baseCurrency: 'USD', quoteCurrency: 'KRW' } }),
       callToss({ path: '/api/v1/market-calendar/US' }),
     ]);
-    if (fxR.status < 400) fx = fxR.data;
-    if (calR.status < 400) usCalendar = calR.data;
+    const rate = Number((fxR.data as { result?: { rate?: string } })?.result?.rate);
+    if (Number.isFinite(rate)) fxRate = rate;
+    interface Session { startTime?: string; endTime?: string }
+    interface UsDay { dayMarket?: Session | null; preMarket?: Session | null; regularMarket?: Session | null; afterMarket?: Session | null }
+    const cal = (calR.data as { result?: { today?: UsDay; previousBusinessDay?: UsDay } })?.result;
+    const now = Date.now();
+    const inWin = (s?: Session | null) => Boolean(s?.startTime && s?.endTime && now >= Date.parse(s.startTime) && now < Date.parse(s.endTime));
+    const labelOf = (d?: UsDay): string | null => {
+      if (!d) return null;
+      if (inWin(d.regularMarket)) return '정규장';
+      if (inWin(d.preMarket)) return '프리마켓';
+      if (inWin(d.afterMarket)) return '애프터마켓';
+      if (inWin(d.dayMarket)) return '데이마켓';
+      return null;
+    };
+    if (cal) {
+      // regular/after sessions of "today" can spill past midnight KST — check
+      // the previous business day's windows too before declaring closed.
+      usSession = labelOf(cal.today) ?? labelOf(cal.previousBusinessDay)
+        ?? (cal.today && !cal.today.regularMarket ? '휴장' : '장외');
+    }
   }
 
   // §42.3-5 real-money gates (0/3 → C-stage locked)
@@ -45,7 +66,7 @@ export async function GET() {
     ok: true,
     executor: { up: health.up, configured: executorConfigured() && health.configured },
     kill,
-    fx, usCalendar,
+    fxRate, usSession,
     paper: paper || null,
     xs: xsReport ? { date: xsReport.date, labeled: xsReport.labeled, variants: xsReport.variants || null } : null,
     gates,

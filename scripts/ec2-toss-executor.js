@@ -144,18 +144,19 @@ async function account() {
   //    must never poison every call; fall through to auto-resolve if rejected).
   if (ENV.TOSS_ACCOUNT && await validateAccount(t, ENV.TOSS_ACCOUNT)) { saveAccount(ENV.TOSS_ACCOUNT); return acct; }
   if (ENV.TOSS_ACCOUNT) console.log('[toss-exec] TOSS_ACCOUNT rejected by Toss — auto-resolving from /accounts');
-  // 2) fetch the account list WITHOUT the account header (this is the listing
-  //    call itself — attaching a bad header was what 400'd it) and validate each
-  //    candidate id against a real buying-power call.
+  // 2) fetch the account list WITHOUT the account header. Per the Toss spec,
+  //    X-Tossinvest-Account = result[].accountSeq (an int64 like 1) — NOT the
+  //    human accountNo. That mismatch was the entire account-not-found saga.
   const r = await httpsJson(`${TOSS}/api/v1/accounts`, { headers: { Authorization: `Bearer ${t}` }, timeoutMs: 10_000 });
   let j; try { j = JSON.parse(r.text); } catch { j = {}; }
   console.log('[toss-exec] accounts payload:', r.text.slice(0, 600)); // pm2 logs — shape reference
-  const cands = [];
-  collectCandidates(j, cands, false);
+  const list = Array.isArray(j.result) ? j.result : [];
+  const cands = list.map((a) => a && a.accountSeq).filter((v) => v != null).map(String);
+  collectCandidates(j, cands, false); // fallbacks after the spec'd field
   if (!cands.length) throw new Error('account resolve: no candidates in ' + r.text.slice(0, 200));
   for (const c of cands) {
-    if (await validateAccount(t, c)) { saveAccount(c); console.log('[toss-exec] account resolved ✓', String(c).slice(0, 4) + '***'); return acct; }
-    console.log('[toss-exec] candidate rejected:', String(c).slice(0, 4) + '***');
+    if (await validateAccount(t, c)) { saveAccount(c); console.log('[toss-exec] account resolved ✓ seq=' + c); return acct; }
+    console.log('[toss-exec] candidate rejected:', String(c).slice(0, 4));
   }
   throw new Error('account resolve: all ' + cands.length + ' candidates rejected');
 }

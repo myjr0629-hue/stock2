@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { requireTradeAdmin } from '@/lib/trade/auth';
 import { callToss } from '@/lib/trade/executor';
-import { pickList } from '@/lib/trade/normalize';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-// Toss requires status on GET /orders (OPEN|CLOSED) — fetch both: open orders
-// for actions, recent closed for history.
+// Orders per Toss spec: status=OPEN returns ALL pending orders (result.orders[]).
+// status=CLOSED is documented as "현재 400 closed-not-supported" — call it, but
+// treat that failure as an empty history rather than an error.
+interface TossOrders { result?: { orders?: Record<string, unknown>[] } }
+
 export async function GET() {
   const gate = await requireTradeAdmin();
   if ('error' in gate) return gate.error;
@@ -18,8 +20,9 @@ export async function GET() {
   return NextResponse.json({
     ok: open.status < 400,
     openStatus: open.status,
-    open: pickList(open.data),
-    closed: pickList(closed.data),
+    open: (open.data as TossOrders)?.result?.orders ?? [],
+    closed: closed.status < 400 ? ((closed.data as TossOrders)?.result?.orders ?? []) : [],
+    closedSupported: closed.status < 400,
     rawError: open.status >= 400 ? open.data : undefined,
   });
 }
