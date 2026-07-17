@@ -34,6 +34,18 @@ function countMetrics(text: string): number {
   return nums.length;
 }
 
+// Language purity — a JP post leaked the Korean word "맥스페인" live on
+// @signumhq_jp (2026-07-18). Mixed-script posts are brand-killing for a
+// native-voice account, so purity is a hard gate, not a prompt suggestion.
+const HANGUL_RE = /[가-힯㄰-㆏ᄀ-ᇿ]/;
+const KANA_RE = /[぀-ヿ]/;
+const CJK_RE = /[一-鿿]/;
+function langPure(text: string, lang: 'ko' | 'en' | 'ja'): boolean {
+  if (lang === 'ja') return !HANGUL_RE.test(text);                    // 일본어 글에 한글 금지
+  if (lang === 'en') return !HANGUL_RE.test(text) && !KANA_RE.test(text) && !CJK_RE.test(text); // 영문 글은 라틴 문자만
+  return !KANA_RE.test(text);                                          // 한국어 글에 가나 금지
+}
+
 export function lint(text: string, lang: 'ko' | 'en' | 'ja'): LintResult {
   const emojiCount = (text.match(EMOJI_RE) || []).length;
   const metrics = countMetrics(text);
@@ -43,6 +55,7 @@ export function lint(text: string, lang: 'ko' | 'en' | 'ja'): LintResult {
     { key: 'metrics', label: '지표 ≤3', ok: metrics <= 3 },
     { key: 'predict', label: '예측 프레이밍', ok: !PREDICT_RE.test(text) },
     { key: 'buysell', label: '매수매도어', ok: !BUYSELL_RE.test(text) },
+    { key: 'lang', label: '언어 순수성', ok: langPure(text, lang) },
     { key: 'len', label: lang === 'en' ? '길이 ≤240' : '길이 적정', ok: text.length <= 240 },
   ];
   return { pass: checks.every((c) => c.ok), checks };
@@ -81,6 +94,7 @@ ABSOLUTE RULES (violation is unacceptable — brand is "accurate, no prediction"
 - Use ONLY the provided numbers. NEVER invent/estimate any number. Max 3 numbers per post.
 - NO prediction or direction hints (no will / headed / about to break / knife's edge / 향하 / 간다 / 目標). Present or past facts only.
 - NO buy/sell language. NO app name. NO links. Emoji max 1.
+- LANGUAGE PURITY (hard rule): "toss" = 100% Korean. "stocktwits" and "x_en" = 100% English (Latin script only). "x_ja" = 100% Japanese — NEVER include Korean Hangul or English sentences (ticker symbols like SOXL and digits are fine). Financial terms in x_ja use katakana: マックスペイン, ガンマフリップ, コールウォール.
 - One or two short sentences per post. Frame: options structure showed it before the chart.`;
 
   const userPrompt = `Ticker: $${ticker}
@@ -118,7 +132,8 @@ Write the four posts now as strict JSON with keys toss, stocktwits, x_en, x_ja:`
       const fixPrompt = `These social posts failed compliance checks. Rewrite ONLY these, fixing the violations:
 ${failing.map((d) => `- ${d.channel} (${d.lint.checks.filter((c) => !c.ok).map((c) => c.key).join(',')}): "${d.text}"`).join('\n')}
 
-HARD RULES: max 3 numeric values TOTAL per post (count every number). No links. Max 2 emoji. No prediction words. No buy/sell words. Under 240 chars. Keep the same language and voice per channel. Use ONLY these verified numbers: ${factLines}
+HARD RULES: max 3 numeric values TOTAL per post (count every number). No links. Max 2 emoji. No prediction words. No buy/sell words. Under 240 chars. Use ONLY these verified numbers: ${factLines}
+LANGUAGE PURITY: toss = 100% Korean · stocktwits/x_en = 100% English (Latin only) · x_ja = 100% Japanese, NEVER any Korean Hangul (use マックスペイン/ガンマフリップ, ticker symbols and digits allowed).
 Return STRICT JSON with ONLY the rewritten channels as keys: {${failing.map((d) => `"${d.channel}":"..."`).join(',')}}`;
       const { text: fixed } = await callBedrock({
         system, userPrompt: fixPrompt, maxTokens: 700, temperature: 0.3, jsonPrefill: true, label: 'mkt-generate-repair',

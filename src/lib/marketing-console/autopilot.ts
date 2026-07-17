@@ -60,10 +60,12 @@ export async function pickBestTicker(): Promise<TickerPick | null> {
       const maxPainGap = typeof lv.maxPain === 'number' ? Math.abs(price - lv.maxPain) / price : 0;
       const flipGap = typeof lv.gammaFlip === 'number' ? Math.abs(price - lv.gammaFlip) / price : 0;
       const notability = maxPainGap * 100 + (flipGap < 0.01 ? 3 : 0);
+      // English only — this string feeds the generation prompt, and Korean here
+      // leaked Hangul into a live @signumhq_jp post (2026-07-18 incident).
       const reason =
-        maxPainGap >= 0.03 ? `맥스페인 ${(maxPainGap * 100).toFixed(1)}% 괴리`
-          : flipGap < 0.01 ? '감마플립 근접(긴장)'
-            : '구조 관찰';
+        maxPainGap >= 0.03 ? `max-pain divergence ${(maxPainGap * 100).toFixed(1)}%`
+          : flipGap < 0.01 ? 'gamma-flip proximity'
+            : 'structure watch';
       return { ticker, reason, notability, levels: lv };
     })
   );
