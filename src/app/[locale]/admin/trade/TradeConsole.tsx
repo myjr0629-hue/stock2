@@ -2,47 +2,19 @@
 
 // ============================================================================
 // SIGNUM TRADE — operator-only console (premium light "financial dashboard").
-// Full Toss surface: live quote/orderbook, orders (create/modify/cancel),
-// conditional orders (stop/take-profit/OCO), sellable qty, FX, US calendar,
-// buy warnings — fused with SIGNUM edge data (options levels, XS picks, paper
-// track, real-money gates). Every money action is two-step confirmed + capped.
+// All data arrives NORMALIZED from our API routes (see lib/trade/normalize.ts)
+// so this component renders exact fields — no shape guessing in the UI.
+// Full Toss surface: quote/candles/trades/limits, orders (create/modify/cancel),
+// conditional orders, rankings, sellable, FX, US calendar — fused with SIGNUM
+// edge (options levels, XS picks, paper track, gates). 2-step confirm + caps.
 // ============================================================================
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './trade-console.css';
 
-/* ── helpers ── */
-const num = (v: unknown): number | null => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const fmt = (v: unknown, d = 2): string => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: d }) : '—'; };
-// Toss response shapes vary (result / list / bare) — dig defensively.
-const dig = (o: unknown, ...keys: string[]): unknown => {
-  let c: unknown = o;
-  for (const k of keys) { if (c && typeof c === 'object' && k in (c as Record<string, unknown>)) c = (c as Record<string, unknown>)[k]; else return undefined; }
-  return c;
-};
-const firstOf = (o: unknown): Record<string, unknown> | null => {
-  const r = (dig(o, 'result') ?? o) as unknown;
-  if (Array.isArray(r)) return (r[0] as Record<string, unknown>) ?? null;
-  const inner = (dig(r, 'prices') ?? dig(r, 'items') ?? dig(r, 'list')) as unknown;
-  if (Array.isArray(inner)) return (inner[0] as Record<string, unknown>) ?? null;
-  return (r as Record<string, unknown>) ?? null;
-};
-const pick = (o: Record<string, unknown> | null, ...names: string[]): number | null => {
-  if (!o) return null;
-  for (const n of names) { const v = num(o[n]); if (v != null) return v; }
-  return null;
-};
-const listOf = (o: unknown): Record<string, unknown>[] => {
-  const r = (dig(o, 'result') ?? o) as unknown;
-  if (Array.isArray(r)) return r as Record<string, unknown>[];
-  for (const k of ['items', 'list', 'orders', 'holdings', 'conditionalOrders']) {
-    const v = dig(r, k);
-    if (Array.isArray(v)) return v as Record<string, unknown>[];
-  }
-  return [];
-};
 
-/* ── types ── */
+/* ── API types (normalized by our routes) ── */
 interface Gates { ic: { pass: boolean; note: string }; duel: { pass: boolean; note: string }; calib: { pass: boolean; note: string } }
 interface Paper { date?: string; nav?: number; cash?: number; posValue?: number; positions?: number; newOrders?: string[]; halted?: boolean; haltReason?: string | null }
 interface Journal { at: number; who: string; action: string; detail: string }
@@ -52,28 +24,62 @@ interface StatusRes {
   xs: { date?: string; labeled?: number; variants?: Record<string, { rolling: number | null; days: number }> } | null;
   gates: Gates; journal: Journal[];
 }
-interface Levels { price: number | null; maxPain: number | null; gammaFlip: number | null; callWall: number | null; putFloor: number | null }
+interface Holding { symbol: string | null; name: string | null; qty: number | null; avg: number | null; px: number | null; evalAmt: number | null; plPct: number | null }
+interface MarketRes {
+  ok: boolean; symbol: string;
+  quote: { px: number | null; chgPct: number | null; name: string | null; priceStatus: number };
+  closes: number[];
+  trades: { px: number | null; qty: number | null; at: string | null }[];
+  limits: { upper: number | null; lower: number | null };
+  sellable: number | null; warnings: (string | null)[];
+  levels: { price: number | null; maxPain: number | null; gammaFlip: number | null; callWall: number | null; putFloor: number | null } | null;
+}
+interface RankRow { symbol: string | null; name: string | null; px: number | null; chgPct: number | null }
+type OrderRow = Record<string, unknown>;
+
+function deepNum(o: unknown, re: RegExp): number | null {
+  if (o == null) return null;
+  if (typeof o !== 'object') return null;
+  for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+    if (re.test(k)) { const n = Number(v); if (Number.isFinite(n)) return n; }
+  }
+  for (const v of Object.values(o as Record<string, unknown>)) {
+    if (v && typeof v === 'object') { const r = deepNum(v, re); if (r != null) return r; }
+  }
+  return null;
+}
+
+function Spark({ data }: { data: number[] }) {
+  if (data.length < 2) return null;
+  const w = 220, h = 44;
+  const mn = Math.min(...data), mx = Math.max(...data), rg = mx - mn || 1;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - mn) / rg) * (h - 4) - 2}`).join(' ');
+  const up = data[data.length - 1] >= data[0];
+  return (
+    <svg width={w} height={h} className="tc-spark" aria-hidden>
+      <polyline fill="none" stroke={up ? '#0e9f6e' : '#dc2626'} strokeWidth="2" points={pts} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export default function TradeConsole({ operator }: { operator: string }) {
   const [st, setSt] = useState<StatusRes | null>(null);
-  const [holdings, setHoldings] = useState<Record<string, unknown>[]>([]);
+  const [holdings, setHoldings] = useState<Holding[]>([]);
   const [buyPower, setBuyPower] = useState<number | null>(null);
-  const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
-  const [conds, setConds] = useState<Record<string, unknown>[]>([]);
+  const [openOrders, setOpenOrders] = useState<OrderRow[]>([]);
+  const [closedOrders, setClosedOrders] = useState<OrderRow[]>([]);
+  const [conds, setConds] = useState<OrderRow[]>([]);
+  const [ranks, setRanks] = useState<RankRow[]>([]);
+  const [rankType, setRankType] = useState('MARKET_TRADING_AMOUNT');
   const [portErr, setPortErr] = useState('');
   const [busy, setBusy] = useState('');
   const [toast, setToast] = useState('');
 
-  /* symbol workbench */
   const [symbol, setSymbol] = useState('NVDA');
   const [symInput, setSymInput] = useState('NVDA');
-  const [quote, setQuote] = useState<Record<string, unknown> | null>(null);
-  const [levels, setLevels] = useState<Levels | null>(null);
-  const [sellable, setSellable] = useState<number | null>(null);
-  const [warn, setWarn] = useState('');
+  const [mkt, setMkt] = useState<MarketRes | null>(null);
   const symRef = useRef(symbol);
 
-  /* ticket */
   const [tab, setTab] = useState<'order' | 'cond'>('order');
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
   const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT'>('MARKET');
@@ -82,7 +88,6 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const [qty, setQty] = useState('1');
   const [price, setPrice] = useState('');
   const [confirming, setConfirming] = useState(false);
-  /* conditional ticket */
   const [cSide, setCSide] = useState<'SELL' | 'BUY'>('SELL');
   const [cQty, setCQty] = useState('1');
   const [cTrig, setCTrig] = useState('');
@@ -92,7 +97,6 @@ export default function TradeConsole({ operator }: { operator: string }) {
 
   const say = (m: string) => { setToast(m); setTimeout(() => setToast(''), 6000); };
 
-  /* ── loaders ── */
   const loadStatus = useCallback(() => {
     fetch('/api/admin/trade/status', { cache: 'no-store' }).then((r) => r.json())
       .then((j) => { if (j.ok) setSt(j); }).catch(() => {});
@@ -100,33 +104,29 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const loadPortfolio = useCallback(() => {
     fetch('/api/admin/trade/portfolio', { cache: 'no-store' }).then((r) => r.json())
       .then((j) => {
-        setHoldings(listOf(j?.holdings));
-        const bp = firstOf(j?.buyingPower);
-        setBuyPower(pick(bp, 'buyingPower', 'amount', 'availableAmount', 'orderableAmount'));
-        setPortErr(j?.holdingsStatus >= 400 ? `계좌 조회 실패 (${j.holdingsStatus}) ${JSON.stringify(j.holdings).slice(0, 140)}` : '');
+        setHoldings(Array.isArray(j.rows) ? j.rows : []);
+        setBuyPower(j.buyingPower ?? null);
+        setPortErr(j.holdingsStatus >= 400 ? `계좌 조회 실패 (${j.holdingsStatus}) ${JSON.stringify(j.rawError).slice(0, 160)}` : '');
       }).catch((e) => setPortErr(String(e)));
     fetch('/api/admin/trade/orders', { cache: 'no-store' }).then((r) => r.json())
-      .then((j) => setOrders(listOf(j?.orders))).catch(() => {});
+      .then((j) => { setOpenOrders(j.open || []); setClosedOrders(j.closed || []); }).catch(() => {});
     fetch('/api/admin/trade/conditional', { cache: 'no-store' }).then((r) => r.json())
-      .then((j) => setConds(listOf(j?.list))).catch(() => {});
+      .then((j) => setConds(Array.isArray(j.list) ? j.list : [])).catch(() => {});
   }, []);
   const loadSymbol = useCallback((s: string) => {
     fetch(`/api/admin/trade/market?symbol=${encodeURIComponent(s)}`, { cache: 'no-store' })
       .then((r) => r.json())
-      .then((j) => {
-        if (!j.ok || symRef.current !== s) return;
-        setQuote(firstOf(j.price));
-        setLevels(j.levels);
-        setSellable(pick(firstOf(j.sellable), 'sellableQuantity', 'quantity', 'sellable'));
-        const w = listOf(j.warnings).map((x) => String(x.title ?? x.message ?? x.name ?? '')).filter(Boolean);
-        setWarn(w.join(' · '));
-      }).catch(() => {});
+      .then((j) => { if (j.ok && symRef.current === s) setMkt(j); }).catch(() => {});
+  }, []);
+  const loadRanks = useCallback((t: string) => {
+    fetch(`/api/admin/trade/rankings?type=${t}`, { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => { if (j.ok) setRanks(j.rows || []); }).catch(() => {});
   }, []);
 
   useEffect(() => { loadStatus(); const iv = setInterval(loadStatus, 30_000); return () => clearInterval(iv); }, [loadStatus]);
   useEffect(() => {
-    if (st?.executor.up && st.executor.configured) { loadPortfolio(); loadSymbol(symRef.current); }
-  }, [st?.executor.up, st?.executor.configured, loadPortfolio, loadSymbol]);
+    if (st?.executor.up && st.executor.configured) { loadPortfolio(); loadSymbol(symRef.current); loadRanks(rankType); }
+  }, [st?.executor.up, st?.executor.configured, loadPortfolio, loadSymbol, loadRanks, rankType]);
   useEffect(() => {
     symRef.current = symbol;
     if (st?.executor.configured) loadSymbol(symbol);
@@ -134,7 +134,6 @@ export default function TradeConsole({ operator }: { operator: string }) {
     return () => clearInterval(iv);
   }, [symbol, st?.executor.configured, loadSymbol]);
 
-  /* ── actions ── */
   const toggleKill = async () => {
     if (!st) return;
     setBusy('kill');
@@ -149,7 +148,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
     try {
       const body: Record<string, string> = { symbol, side, orderType };
       if (mode === 'amount') body.orderAmount = amount;
-      else { body.quantity = qty; if (orderType === 'LIMIT') body.price = price; else body.estPx = price || String(livePx ?? 0); }
+      else { body.quantity = qty; if (orderType === 'LIMIT') body.price = price; else body.estPx = price || String(mkt?.quote.px ?? 0); }
       const r = await fetch('/api/admin/trade/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json();
       if (j.ok) { say(`✅ 주문 접수 — ${symbol} ${side === 'BUY' ? '매수' : '매도'}`); loadPortfolio(); loadStatus(); }
@@ -165,19 +164,24 @@ export default function TradeConsole({ operator }: { operator: string }) {
       };
       const r = await fetch('/api/admin/trade/conditional', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json();
-      if (j.ok) { say(`✅ 조건주문 등록 — ${symbol} 트리거 $${cTrig}`); loadPortfolio(); loadStatus(); }
+      if (j.ok) { say(`✅ 조건주문 등록 — ${symbol} 트리거 $${cTrig}`); loadPortfolio(); }
       else say(`❌ ${j.error || JSON.stringify(j.result).slice(0, 160)}`);
     } catch (e) { say('❌ ' + String(e)); } finally { setBusy(''); }
   };
   const cancelOrder = async (orderId: string) => {
     if (!window.confirm(`주문 ${orderId} 취소?`)) return;
-    setBusy('cancel');
-    try {
-      const r = await fetch('/api/admin/trade/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel', orderId }) });
-      const j = await r.json();
-      say(j.ok ? '✅ 취소 접수' : `❌ ${JSON.stringify(j.result ?? j.error).slice(0, 120)}`);
-      loadPortfolio();
-    } finally { setBusy(''); }
+    const r = await fetch('/api/admin/trade/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel', orderId }) });
+    const j = await r.json();
+    say(j.ok ? '✅ 취소 접수' : `❌ ${JSON.stringify(j.result ?? j.error).slice(0, 120)}`);
+    loadPortfolio();
+  };
+  const modifyOrder = async (orderId: string) => {
+    const np = window.prompt('새 지정가($)를 입력하세요:');
+    if (!np || !(Number(np) > 0)) return;
+    const r = await fetch('/api/admin/trade/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'modify', orderId, orderType: 'LIMIT', price: np }) });
+    const j = await r.json();
+    say(j.ok ? '✅ 정정 접수' : `❌ ${JSON.stringify(j.result ?? j.error).slice(0, 120)}`);
+    loadPortfolio();
   };
   const cancelCond = async (id: string) => {
     if (!window.confirm(`조건주문 ${id} 해제?`)) return;
@@ -186,17 +190,17 @@ export default function TradeConsole({ operator }: { operator: string }) {
     say(j.ok ? '✅ 조건 해제' : '❌ 실패');
     loadPortfolio();
   };
-  const pickSymbol = (t: string) => { setSymbol(t); setSymInput(t); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const pickSymbol = (t: string | null) => { if (!t) return; setSymbol(t); setSymInput(t); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   /* ── derived ── */
   const connected = Boolean(st?.executor.up && st.executor.configured);
-  const livePx = pick(quote, 'close', 'price', 'last', 'tradePrice', 'currentPrice');
-  const chgPct = pick(quote, 'changeRate', 'changePercent', 'changePct', 'rate');
-  const fxRate = pick(firstOf(st?.fx), 'rate', 'exchangeRate', 'price', 'basePrice');
-  const usOpenRaw = firstOf(st?.usCalendar);
-  const usState = String(usOpenRaw?.status ?? usOpenRaw?.marketStatus ?? usOpenRaw?.state ?? '').toUpperCase();
+  const livePx = mkt?.quote.px ?? null;
+  const chgPct = mkt?.quote.chgPct ?? null;
+  const fxRate = deepNum(st?.fx, /rate|price/i);
+  const usStateRaw = st?.usCalendar ? JSON.stringify(st.usCalendar) : '';
+  const usOpen = /REGULAR|OPEN/i.test(usStateRaw) && !/CLOSED/i.test(usStateRaw.slice(0, 200));
   const notional = mode === 'amount' ? Number(amount) : Number(qty) * Number(price || livePx || 0);
-  const holdValue = holdings.reduce((s, h) => s + (pick(h, 'evaluationAmount', 'evalAmount', 'marketValue') ?? 0), 0);
+  const holdValue = holdings.reduce((s, h) => s + (h.evalAmt ?? 0), 0);
   const paperRet = st?.paper?.nav != null ? (st.paper.nav - 1000) / 10 : null;
   const gatesPassed = st ? Number(st.gates.ic.pass) + Number(st.gates.duel.pass) + Number(st.gates.calib.pass) : 0;
   const today = new Date();
@@ -214,7 +218,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
           <span className="tc-dayrest">{today.toLocaleDateString('ko-KR', { weekday: 'short', month: 'long' })}</span>
         </div>
         <div className="tc-pills">
-          <span className={`tc-pill ${usState.includes('OPEN') ? 'live' : ''}`}>미국장 {usState ? (usState.includes('OPEN') ? '개장' : usState.includes('CLOS') ? '휴장' : usState) : '—'}</span>
+          <span className={`tc-pill ${usOpen ? 'live' : ''}`}>미국장 {st?.usCalendar ? (usOpen ? '개장' : '휴장/장외') : '—'}</span>
           <span className="tc-pill">$1 = ₩{fmt(fxRate, 0)}</span>
           <span className={`tc-pill ${connected ? 'live' : 'warn'}`}>{connected ? '토스 연결됨' : st?.executor.up ? '키 미설치' : '실행기 오프라인'}</span>
         </div>
@@ -224,21 +228,17 @@ export default function TradeConsole({ operator }: { operator: string }) {
       </header>
 
       {toast && <div className="tc-toast">{toast}</div>}
-      {!connected && st && (
-        <div className="tc-connect">
-          <strong>연결 마무리 필요:</strong> 터미널에서 <code>node scripts/deploy-toss-executor.js</code> 실행(실행기 갱신) 후 새로고침하세요. 이미 하셨다면 Vercel Redeploy 반영을 1~2분 기다려주세요.
-        </div>
-      )}
+      {portErr && <div className="tc-connect"><strong>계좌 연결 문제:</strong> {portErr} — 실행기 갱신(<code>node scripts/deploy-toss-executor.js</code>) 후 새로고침 해보세요.</div>}
 
       <main className="tc-body">
-        {/* ═══ hero row ═══ */}
+        {/* ═══ hero ═══ */}
         <section className="tc-hero">
           <div className="tc-card dark">
             <div className="tc-card-label">실계좌 · 토스증권</div>
             <div className="tc-big">${fmt(holdValue + (buyPower ?? 0))}</div>
-            <div className="tc-kv"><span>매수 가능</span><strong>${fmt(buyPower)}</strong></div>
+            <div className="tc-kv"><span>매수 가능 (USD)</span><strong>${fmt(buyPower)}</strong></div>
             <div className="tc-kv"><span>보유 평가</span><strong>${fmt(holdValue)}</strong></div>
-            {portErr && <div className="tc-mini-err">{portErr}</div>}
+            <div className="tc-kv"><span>보유 종목</span><strong>{holdings.length}</strong></div>
           </div>
           <div className="tc-card">
             <div className="tc-card-label">자동매매 · 페이퍼 $1,000</div>
@@ -260,7 +260,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
           </div>
         </section>
 
-        {/* ═══ workbench: symbol + ticket ═══ */}
+        {/* ═══ workbench ═══ */}
         <section className="tc-work">
           <div className="tc-card grow">
             <div className="tc-symrow">
@@ -271,14 +271,21 @@ export default function TradeConsole({ operator }: { operator: string }) {
                 <span className="px">${fmt(livePx)}</span>
                 {chgPct != null && <span className={`chg ${chgPct >= 0 ? 'up' : 'dn'}`}>{chgPct >= 0 ? '+' : ''}{fmt(chgPct)}%</span>}
               </div>
-              {sellable != null && sellable > 0 && <span className="tc-pill">매도 가능 {fmt(sellable, 4)}주</span>}
+              {mkt?.closes && mkt.closes.length > 1 && <Spark data={mkt.closes} />}
             </div>
-            {warn && <div className="tc-warnline">⚠ {warn}</div>}
-            {levels && (levels.maxPain != null || levels.gammaFlip != null) && (
-              <div className="tc-levels">
+            <div className="tc-metarow">
+              {mkt?.quote.name && <span className="tc-pill">{mkt.quote.name}</span>}
+              {mkt?.limits.upper != null && <span className="tc-pill">상한 ${fmt(mkt.limits.upper)}</span>}
+              {mkt?.limits.lower != null && <span className="tc-pill">하한 ${fmt(mkt.limits.lower)}</span>}
+              {mkt?.sellable != null && mkt.sellable > 0 && <span className="tc-pill live">매도가능 {fmt(mkt.sellable, 4)}주</span>}
+            </div>
+            {mkt?.warnings && mkt.warnings.length > 0 && <div className="tc-warnline">⚠ {mkt.warnings.join(' · ')}</div>}
+
+            {mkt?.levels && (mkt.levels.maxPain != null || mkt.levels.gammaFlip != null) && (
+              <div>
                 <div className="tc-card-label">SIGNUM 옵션 구조 <span className="hint">우리 엔진 실데이터</span></div>
                 <div className="tc-lvgrid">
-                  {([['콜월', levels.callWall], ['감마플립', levels.gammaFlip], ['맥스페인', levels.maxPain], ['풋플로어', levels.putFloor]] as const).map(([l, v], i) => (
+                  {([['콜월', mkt.levels.callWall], ['감마플립', mkt.levels.gammaFlip], ['맥스페인', mkt.levels.maxPain], ['풋플로어', mkt.levels.putFloor]] as const).map(([l, v], i) => (
                     v != null ? (
                       <div className="tc-lv" key={i}>
                         <span className="l">{l}</span><span className="v">${fmt(v)}</span>
@@ -289,9 +296,39 @@ export default function TradeConsole({ operator }: { operator: string }) {
                 </div>
               </div>
             )}
+
+            {mkt?.trades && mkt.trades.length > 0 && (
+              <div>
+                <div className="tc-card-label">최근 체결</div>
+                <div className="tc-trades">
+                  {mkt.trades.slice(0, 8).map((t, i) => (
+                    <span className="tc-trade" key={i}>${fmt(t.px)} <em>×{fmt(t.qty, 0)}</em></span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div className="tc-card-label">미국 랭킹
+                <span className="hint">
+                  {([['MARKET_TRADING_AMOUNT', '거래대금'], ['TOP_GAINERS', '상승'], ['TOP_LOSERS', '하락']] as const).map(([t, l]) => (
+                    <button key={t} className={`tc-mini ${rankType === t ? 'act' : ''}`} onClick={() => { setRankType(t); loadRanks(t); }}>{l}</button>
+                  ))}
+                </span>
+              </div>
+              <div className="tc-pickrow">
+                {ranks.map((r, i) => (
+                  <button className={`tc-chip ${symbol === r.symbol ? 'act' : ''}`} key={i} onClick={() => pickSymbol(r.symbol)}>
+                    {r.symbol}{r.chgPct != null && <em className={r.chgPct >= 0 ? 'up' : 'dn'}> {r.chgPct >= 0 ? '+' : ''}{fmt(r.chgPct, 1)}%</em>}
+                  </button>
+                ))}
+                {ranks.length === 0 && <span className="tc-empty">{connected ? '로딩…' : '연결 후 표시'}</span>}
+              </div>
+            </div>
+
             {Array.isArray(st?.paper?.newOrders) && st.paper.newOrders.length > 0 && (
-              <div className="tc-picks">
-                <div className="tc-card-label">오늘의 XS 픽 <span className="hint">클릭 = 심볼 선택</span></div>
+              <div>
+                <div className="tc-card-label">오늘의 XS 픽 <span className="hint">자동엔진 선별 · 클릭=선택</span></div>
                 <div className="tc-pickrow">
                   {st.paper.newOrders.map((o, i) => {
                     const t = String(o).split(':')[0];
@@ -311,7 +348,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
             {tab === 'order' ? (
               <>
                 <div className="tc-seg2">
-                  <button className={side === 'BUY' ? 'act buy' : ''} onClick={() => { setSide('BUY'); }}>매수</button>
+                  <button className={side === 'BUY' ? 'act buy' : ''} onClick={() => setSide('BUY')}>매수</button>
                   <button className={side === 'SELL' ? 'act sell' : ''} onClick={() => { setSide('SELL'); setMode('qty'); }}>매도</button>
                 </div>
                 <div className="tc-seg2">
@@ -364,7 +401,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
                     onClick={() => setCConfirm(true)}>조건 등록</button>
                 ) : (
                   <div className="tc-confirmbox">
-                    <p>{symbol} {fmt(Number(cTrig))}$ 도달 시 {cQty}주 {cSide === 'SELL' ? '매도' : '매수'} ({cMode})<br /><b>실계좌 조건주문입니다.</b></p>
+                    <p>{symbol} ${fmt(Number(cTrig))} 도달 시 {cQty}주 {cSide === 'SELL' ? '매도' : '매수'} ({cMode})<br /><b>실계좌 조건주문입니다.</b></p>
                     <div className="row">
                       <button className={`tc-go ${cSide === 'BUY' ? 'buy' : 'sell'}`} onClick={submitCond} disabled={busy === 'cond'}>{busy === 'cond' ? '전송 중…' : '확정'}</button>
                       <button className="tc-ghost" onClick={() => setCConfirm(false)}>취소</button>
@@ -386,36 +423,33 @@ export default function TradeConsole({ operator }: { operator: string }) {
               <table className="tc-tbl">
                 <thead><tr><th>종목</th><th>수량</th><th>평단</th><th>평가</th><th>손익</th></tr></thead>
                 <tbody>
-                  {holdings.map((h, i) => {
-                    const plr = pick(h, 'profitLossRate', 'plRate', 'returnRate');
-                    const sym = String(h.symbol ?? h.ticker ?? h.name ?? '—');
-                    return (
-                      <tr key={i} onClick={() => pickSymbol(sym)}>
-                        <td className="sym">{sym}</td>
-                        <td>{fmt(pick(h, 'quantity', 'qty'), 4)}</td>
-                        <td>${fmt(pick(h, 'averagePrice', 'avgPrice', 'purchasePrice'))}</td>
-                        <td>${fmt(pick(h, 'evaluationAmount', 'evalAmount', 'marketValue'))}</td>
-                        <td className={plr != null && plr >= 0 ? 'up' : 'dn'}>{plr != null ? `${plr >= 0 ? '+' : ''}${fmt(plr)}%` : '—'}</td>
-                      </tr>
-                    );
-                  })}
+                  {holdings.map((h, i) => (
+                    <tr key={i} onClick={() => pickSymbol(h.symbol)}>
+                      <td className="sym">{h.symbol}{h.name && <span className="nm"> {h.name}</span>}</td>
+                      <td>{fmt(h.qty, 4)}</td>
+                      <td>${fmt(h.avg)}</td>
+                      <td>${fmt(h.evalAmt)}</td>
+                      <td className={(h.plPct ?? 0) >= 0 ? 'up' : 'dn'}>{h.plPct != null ? `${h.plPct >= 0 ? '+' : ''}${fmt(h.plPct)}%` : '—'}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
           </div>
           <div className="tc-card">
             <div className="tc-card-label">주문 · 조건주문</div>
-            {orders.length === 0 && conds.length === 0 && <div className="tc-empty">{connected ? '없음' : '연결 후 표시'}</div>}
-            {orders.slice(0, 8).map((o, i) => {
-              const stx = String(o.status ?? '');
-              const oid = String(o.orderId ?? '');
+            {openOrders.length === 0 && conds.length === 0 && closedOrders.length === 0 && <div className="tc-empty">{connected ? '없음' : '연결 후 표시'}</div>}
+            {openOrders.slice(0, 8).map((o, i) => {
+              const oid = String(o.orderId ?? o.id ?? '');
               return (
                 <div className="tc-orow" key={'o' + i}>
                   <span className={`badge ${o.side === 'BUY' ? 'buy' : 'sell'}`}>{o.side === 'BUY' ? '매수' : '매도'}</span>
                   <b>{String(o.symbol ?? '')}</b>
                   <span className="info">{String(o.orderType ?? '')} {o.quantity ? `×${o.quantity}` : ''} {o.price ? `@$${o.price}` : ''}</span>
-                  <span className="stt">{stx}</span>
-                  {oid && !/FILL|CANCEL|DONE|COMPLET/i.test(stx) && <button className="tc-ghost sm" onClick={() => cancelOrder(oid)}>취소</button>}
+                  {oid && <>
+                    <button className="tc-ghost sm" onClick={() => modifyOrder(oid)}>정정</button>
+                    <button className="tc-ghost sm" onClick={() => cancelOrder(oid)}>취소</button>
+                  </>}
                 </div>
               );
             })}
@@ -423,7 +457,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
               const first = (c.first ?? {}) as Record<string, unknown>;
               const cid = String(c.conditionalOrderId ?? c.id ?? '');
               return (
-                <div className="tc-orow cond" key={'c' + i}>
+                <div className="tc-orow" key={'c' + i}>
                   <span className="badge cond">조건</span>
                   <b>{String(c.symbol ?? '')}</b>
                   <span className="info">{String(first.orderSide ?? '')} 트리거 ${String(first.triggerPrice ?? '')} ×{String(c.quantity ?? '')}</span>
@@ -431,6 +465,14 @@ export default function TradeConsole({ operator }: { operator: string }) {
                 </div>
               );
             })}
+            {closedOrders.slice(0, 5).map((o, i) => (
+              <div className="tc-orow done" key={'d' + i}>
+                <span className={`badge ${o.side === 'BUY' ? 'buy' : 'sell'}`}>{o.side === 'BUY' ? '매수' : '매도'}</span>
+                <b>{String(o.symbol ?? '')}</b>
+                <span className="info">{String(o.orderType ?? '')} {o.quantity ? `×${o.quantity}` : ''} {o.price ? `@$${o.price}` : ''}</span>
+                <span className="stt">{String(o.status ?? '종료')}</span>
+              </div>
+            ))}
           </div>
         </section>
 

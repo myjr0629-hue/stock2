@@ -55,7 +55,9 @@ const REPLAY_WINDOW_MS = 30_000;
 
 // Toss paths the executor will proxy — everything else is refused.
 const ALLOW = [
-  { m: 'GET', re: /^\/api\/v1\/(accounts|holdings|orders|buying-power|sellable-quantity|commissions|prices|orderbook|trades|candles|stocks|exchange-rate|rankings|conditional-orders)$/ },
+  { m: 'GET', re: /^\/api\/v1\/(accounts|holdings|orders|buying-power|sellable-quantity|commissions|prices|orderbook|trades|candles|stocks|price-limits|exchange-rate|rankings|conditional-orders)$/ },
+  { m: 'GET', re: /^\/api\/v1\/market-indicators\/prices$/ },
+  { m: 'GET', re: /^\/api\/v1\/market-indicators\/[A-Za-z0-9.^-]+\/(candles|investor-trading)$/ },
   { m: 'GET', re: /^\/api\/v1\/orders\/[A-Za-z0-9\-_]+$/ },
   { m: 'GET', re: /^\/api\/v1\/conditional-orders\/[A-Za-z0-9\-_]+$/ },
   { m: 'GET', re: /^\/api\/v1\/stocks\/[A-Za-z0-9.]+\/warnings$/ },
@@ -98,8 +100,28 @@ async function token() {
   return tok.access;
 }
 
-// ── account number cache (first account unless TOSS_ACCOUNT is set) ─────────
+// ── account number: SELF-HEALING resolution ────────────────────────────────
+// The accounts response shape is undocumented and a wrong guess returns
+// account-not-found on every account API (2026-07-17 incident). So: collect
+// EVERY plausible candidate value from the /accounts payload and validate each
+// against a real call (buying-power) — the first one Toss accepts wins, and is
+// cached to disk so we never probe again.
+const ACCT_FILE = path.join(path.dirname(ENV_FILE), 'account-cache.json');
 let acct = null;
+try { acct = JSON.parse(fs.readFileSync(ACCT_FILE, 'utf8')).acct || null; } catch { /* first run */ }
+
+function collectCandidates(node, out, keyHint) {
+  if (out.length > 12 || node == null) return;
+  if (Array.isArray(node)) { for (const x of node) collectCandidates(x, out, keyHint); return; }
+  if (typeof node === 'object') {
+    for (const [k, v] of Object.entries(node)) collectCandidates(v, out, /acc|계좌|number|no$|id$/i.test(k));
+    return;
+  }
+  const s = String(node).trim();
+  // plausible account identifiers: digitish strings 5-24 chars, or any value under an account-ish key
+  if ((/^[0-9][0-9\-]{4,23}$/.test(s) || (keyHint && /^[A-Za-z0-9\-_]{4,32}$/.test(s))) && !out.includes(s)) out.push(s);
+}
+
 async function account() {
   if (ENV.TOSS_ACCOUNT) return ENV.TOSS_ACCOUNT;
   if (acct) return acct;
@@ -108,11 +130,23 @@ async function account() {
     headers: { Authorization: `Bearer ${t}` }, timeoutMs: 10_000,
   });
   let j; try { j = JSON.parse(r.text); } catch { j = {}; }
-  const list = j?.result ?? j?.accounts ?? j;
-  const first = Array.isArray(list) ? list[0] : (Array.isArray(list?.accounts) ? list.accounts[0] : null);
-  acct = first?.accountNo ?? first?.accountNumber ?? first?.account ?? (typeof first === 'string' ? first : null);
-  if (!acct) throw new Error('account resolve failed: ' + JSON.stringify(j).slice(0, 200));
-  return acct;
+  console.log('[toss-exec] accounts payload:', r.text.slice(0, 500)); // pm2 logs — shape reference
+  const cands = [];
+  collectCandidates(j, cands, false);
+  if (!cands.length) throw new Error('account resolve: no candidates in ' + r.text.slice(0, 160));
+  for (const c of cands) {
+    const v = await httpsJson(`${TOSS}/api/v1/buying-power?currency=USD`, {
+      headers: { Authorization: `Bearer ${t}`, 'X-Tossinvest-Account': c }, timeoutMs: 10_000,
+    });
+    if (v.status < 400) {
+      acct = c;
+      try { fs.mkdirSync(path.dirname(ACCT_FILE), { recursive: true }); fs.writeFileSync(ACCT_FILE, JSON.stringify({ acct: c, at: new Date().toISOString() })); } catch { /* best effort */ }
+      console.log('[toss-exec] account resolved ✓ (validated via buying-power)');
+      return acct;
+    }
+    console.log('[toss-exec] candidate rejected (' + v.status + '):', c.slice(0, 4) + '***');
+  }
+  throw new Error('account resolve: all ' + cands.length + ' candidates rejected');
 }
 
 // ── daily order counter (file-persisted, survives restarts) ─────────────────
@@ -185,7 +219,12 @@ http.createServer((req, res) => {
     try {
       if (req.method === 'GET' && req.url === '/health') {
         ENV = loadEnv();
-        return send(200, { ok: true, configured: Boolean(ENV.TOSS_CLIENT_ID && ENV.TOSS_CLIENT_SECRET && ENV.EXECUTOR_SECRET), ts: Date.now() });
+        return send(200, {
+          ok: true,
+          configured: Boolean(ENV.TOSS_CLIENT_ID && ENV.TOSS_CLIENT_SECRET && ENV.EXECUTOR_SECRET),
+          accountResolved: Boolean(acct || ENV.TOSS_ACCOUNT),
+          ts: Date.now(),
+        });
       }
       if (req.method !== 'POST' || req.url !== '/toss') return send(404, { error: 'not found' });
       if (!verify(req, raw)) return send(401, { error: 'unauthorized' });
@@ -207,7 +246,7 @@ http.createServer((req, res) => {
 
       const t = await token();
       const headers = { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' };
-      if (!/^\/api\/v1\/(prices|orderbook|trades|candles|stocks|rankings|exchange-rate|market-calendar)/.test(p)) {
+      if (!/^\/api\/v1\/(prices|orderbook|trades|candles|stocks|price-limits|rankings|market-indicators|exchange-rate|market-calendar)/.test(p)) {
         headers['X-Tossinvest-Account'] = await account();
       }
       const qs = query

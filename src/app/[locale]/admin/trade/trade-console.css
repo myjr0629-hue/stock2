@@ -136,3 +136,15 @@
 .tc-jrow .jd { flex: 1; }
 .tc-jrow .jt { color: #b6b1a3; font-size: 11px; }
 .tc-foot { text-align: center; font-size: 11px; color: #b6b1a3; margin-top: 20px; line-height: 1.8; }
+
+/* workbench extras */
+.tc-spark { margin-left: auto; }
+.tc-metarow { display: flex; gap: 8px; flex-wrap: wrap; }
+.tc-trades { display: flex; gap: 8px; flex-wrap: wrap; }
+.tc-trade { font-size: 12px; font-weight: 700; background: #faf9f5; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-variant-numeric: tabular-nums; }
+.tc-trade em { font-style: normal; color: var(--sub); font-weight: 600; }
+.tc-mini { border: 0; background: transparent; font-size: 11px; font-weight: 800; color: #b6b1a3; cursor: pointer; padding: 2px 7px; border-radius: 8px; }
+.tc-mini.act { background: var(--dark); color: #fff; }
+.tc-chip em { font-style: normal; font-size: 11px; font-weight: 700; }
+.tc-orow.done { opacity: 0.55; }
+.tc-tbl .nm { font-weight: 600; font-size: 11px; color: var(--sub); }
