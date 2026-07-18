@@ -8734,3 +8734,15 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 | 콘솔 | 사이드메뉴 3영역 그룹(자동 AUTO/수동 MANUAL/시뮬레이션 SIM) + '오토 엔진' 도메인 페이지(모드 배너·엔진 계정·동결 규칙·실시간 의사결정 로그 15초·일일 리포트) + `/api/admin/trade/auto` (401 fail-closed) |
 | 검증 | 시뮬레이션 **37/37** (실제 엔진 모듈 구동 — 코호트/진입창/스프레드/캘리브 게이트/감마 반로트/3거래일/휴장일/반일장/북스톱/주간킬+월요 재가동/킬스위치 문자열 라운드트립/스태킹/ASCII). 리서치 워크플로(외부 레퍼런스 2 + 내부 감사 2 + 종합) + 적대 리뷰 9에이전트 확정 5건 전부 수정(킬스위치 Boolean('0') 오독·비원자 저장·휴장일 미인지×2·모바일 내비) |
 | ⏭ 배포 절차 (운영자) | ① EC2 `.env.toss`에 `UPSTASH_REDIS_REST_URL/TOKEN` 2줄 추가 ② `node scripts/deploy-auto-engine.js` ③ 콘솔 [자동→오토 엔진]에서 심장박동 확인. 실전(C) 승격은 PREREG §4 게이트 전부 통과 + 운영자 승인 + 별도 커밋으로만 |
+
+### 43.13 ✅ [2026-07-18] 지휘소 업그레이드 — 실시간 차트·투입자본 설정·세션 스트립 (커밋 f94283e21)
+
+> RT-1.0.0 엔진은 **운영자가 직접 배포 완료, EC2에서 가동 중 실측** (RT-1.0.1 재배포 필요 — 자본 설정 기능).
+
+| 구성 | 내용 |
+|------|------|
+| 실시간 차트 | `TradeChart.tsx` (lightweight-charts): 1분봉 캔들(`/market` candles — 스펙 실측 {timestamp,openPrice,highPrice,lowPrice,closePrice,volume}) + **SIGNUM 레벨 프라이스라인**(콜월/감마플립/맥스페인/풋플로어) + 4초 시세를 현재 분봉에 실시간 반영. KST 축 표기, 심볼 전환시에만 fitContent(줌 보존), 장외 정적 시세로 유령 바 생성 차단 |
+| 투입 자본 설정 | 콘솔 [오토 엔진] → `POST /api/admin/trade/auto {capital}` ($100–1M) → `trade:auto:config` → 엔진 RT-1.0.1이 다음 틱 적용. **킬 기준선 동반 이동**(입출금이 -2%/-3% 스톱 격발 불가), 인출은 가용현금 센트 내림 클램프, 엔진 Upstash 폴백(프록시 기록 실패 대비). NAV 일일 이력(`trade:auto:navhist`) + 콘솔 곡선 |
+| 세션 인지 (스펙 실측) | 주문 API에 세션 파라미터 **없음**(서버가 시각 판정, 422 order-hours-closed+retryAfterAt). 캘린더가 4세션(dayMarket=Blue Ocean 한국낮/pre/regular/after, ~23h50m) 반환 — status 라우트가 타임라인 배열 제공, 콘솔 SessionBar(now 마커). 티켓 경고: 금액 주문·소수점 시장가 매도 = 정규장 전용(422 명문), 소수점 지정가 = 무효 폼 |
+| 검증 | 시뮬 43/43 (자본 입금 기준선 이동·인출 클램프·navhist 포함), 적대 리뷰 5에이전트 확정 3건 수정(차트 UTC 축→KST·소수점 경고 오발동·자본 설정 무성공 보고) + 마이너 3건(fitContent 줌 초기화·NaN 캔들 필터·유령 바), tsc 0, 로컬 401/404 |
+| ⏭ | 운영자: `node scripts/deploy-auto-engine.js` 재실행(RT-1.0.1 반영— 자본 설정·NAV 이력 활성) |
