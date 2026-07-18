@@ -29,7 +29,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const VERSION = 'RT-1.0.1'; // 1.0.1: operator-settable capital + NAV history (rules unchanged)
+const VERSION = 'RT-1.0.2'; // 1.0.2: exec-quality stats + shadow vol-sizing measurement (rules unchanged)
 const MODE = 'PAPER'; // hard-coded; no LIVE branch exists in this file
 const CAPITAL = 1000;
 const PICKS = 10;            // cohort size (mirrors daily track)
@@ -211,6 +211,7 @@ function defaultState() {
     lastReportDate: null, prevCloseNav: CAPITAL,
     tradesToday: 0, tradesDate: null,
     navHist: [], // [{d, nav}] daily closes, capped 120
+    exec: { fills: 0, lapses: 0, sumSpreadBps: 0 }, // execution-quality tally
     log: [],
   };
 }
@@ -282,6 +283,8 @@ function paperBuy(t, usd, ask, cohortDate, spreadBps) {
     cohortDate, tradingDaysHeld: 0, lastCountedDate: CLOCK.now().date, spreadBps,
   });
   S.cash = round(S.cash - qty * ask, 4);
+  if (!S.exec) S.exec = { fills: 0, lapses: 0, sumSpreadBps: 0 };
+  S.exec.fills += 1; S.exec.sumSpreadBps += spreadBps;
   bumpTrades();
   log('ENTRY', { t, px: ask, qty, reason: `cohort ${cohortDate} spread ${spreadBps}bps` });
 }
@@ -321,6 +324,31 @@ async function refreshCohort() {
   }
   S.cohort = { date: paper.date, symbols, entered: [], done: false };
   log('INFO', { reason: `cohort staged ${paper.date}: ${symbols.join(' ')}` });
+  await shadowSizing(symbols);
+}
+
+// SHADOW measurement only (rules unchanged): what inverse-volatility (1/ATR%)
+// weights WOULD allocate vs the frozen equal weight — journaled per cohort so
+// 15d+ of records can adjudicate vol-targeting (research R8) out-of-sample.
+async function shadowSizing(symbols) {
+  try {
+    const atr = [];
+    for (const t of symbols) {
+      const r = await IO.toss('/api/v1/candles', { symbol: t, interval: '1d', count: '15' });
+      const rows = (r.json && r.json.result && r.json.result.candles) || [];
+      let sum = 0, n = 0;
+      for (const c of rows.slice(0, 14)) {
+        const h = Number(c.highPrice), l = Number(c.lowPrice), cl = Number(c.closePrice);
+        if (h > 0 && l > 0 && cl > 0 && h >= l) { sum += (h - l) / cl; n += 1; }
+      }
+      if (n >= 5) atr.push({ t, v: sum / n });
+    }
+    if (atr.length < 3) return;
+    const inv = atr.map((a) => ({ t: a.t, w: 1 / Math.max(a.v, 0.001) }));
+    const tot = inv.reduce((s, x) => s + x.w, 0);
+    const pairs = inv.map((x) => `${x.t}:${((x.w / tot) * 100).toFixed(1)}%`).join(' ');
+    log('INFO', { reason: `shadow vol-sizing (eq ${(100 / symbols.length).toFixed(1)}% each): ${pairs}` });
+  } catch { /* measurement only — never blocks staging */ }
 }
 
 // SPY dealer-gamma regime (risk overlay ONLY — evidence: vol-state variable).
@@ -460,7 +488,11 @@ async function tick() {
     // entry window closed → unfilled cohort names lapse (journaled once)
     if (S.cohort && !S.cohort.done && et.hm >= entryTo) {
       const lapsed = S.cohort.symbols.filter((t) => !S.cohort.entered.includes(t));
-      if (lapsed.length) log('INFO', { reason: `lapsed (window closed): ${lapsed.join(' ')}` });
+      if (lapsed.length) {
+        if (!S.exec) S.exec = { fills: 0, lapses: 0, sumSpreadBps: 0 };
+        S.exec.lapses += lapsed.length;
+        log('INFO', { reason: `lapsed (window closed): ${lapsed.join(' ')}` });
+      }
       S.cohort.done = true;
     }
   }
@@ -489,6 +521,7 @@ async function tick() {
     nav: round(nav, 2), cash: round(S.cash, 2),
     positions: S.positions.map((p) => ({ t: p.t, qty: p.qty, entryPx: p.entryPx, entryAt: p.entryAt })),
     universeDate: S.cohort ? S.cohort.date : null, updatedAt: Date.now(),
+    execQuality: S.exec ? { fills: S.exec.fills, lapses: S.exec.lapses, avgSpreadBps: S.exec.fills ? Math.round(S.exec.sumSpreadBps / S.exec.fills) : null } : null,
   }, 7 * 86_400);
   await IO.rSet('trade:auto:log', S.log.slice(0, 60), 7 * 86_400);
   saveState();

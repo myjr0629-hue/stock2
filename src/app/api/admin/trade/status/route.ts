@@ -35,7 +35,7 @@ export async function GET() {
     if (Number.isFinite(rate)) fxRate = rate;
     interface Session { startTime?: string; endTime?: string }
     interface UsDay { dayMarket?: Session | null; preMarket?: Session | null; regularMarket?: Session | null; afterMarket?: Session | null }
-    const cal = (calR.data as { result?: { today?: UsDay; previousBusinessDay?: UsDay } })?.result;
+    const cal = (calR.data as { result?: { today?: UsDay; previousBusinessDay?: UsDay; nextBusinessDay?: UsDay } })?.result;
     const now = Date.now();
     const inWin = (s?: Session | null) => Boolean(s?.startTime && s?.endTime && now >= Date.parse(s.startTime) && now < Date.parse(s.endTime));
     const labelOf = (d?: UsDay): string | null => {
@@ -60,8 +60,9 @@ export async function GET() {
           if (s?.startTime && s?.endTime) usSessions.push({ key: k, start: Date.parse(s.startTime), end: Date.parse(s.endTime) });
         }
       };
-      push(cal.previousBusinessDay); push(cal.today);
-      usSessions = usSessions.filter((s) => s.end > now - 3600_000 && s.start < now + 26 * 3600_000).sort((a, b) => a.start - b.start);
+      push(cal.previousBusinessDay); push(cal.today); push(cal.nextBusinessDay);
+      // keep the live window + everything upcoming (weekend shows Monday's sessions)
+      usSessions = usSessions.filter((s) => s.end > now - 3600_000).sort((a, b) => a.start - b.start).slice(0, 10);
     }
   }
 

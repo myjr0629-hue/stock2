@@ -15,6 +15,8 @@ import TradeChart from './TradeChart';
 import './trade-console.css';
 
 const fmt = (v: unknown, d = 2): string => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: d }) : '—'; };
+const fmtCompact = (n: number): string => (n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(Math.round(n)));
+const KO_SESS: Record<string, string> = { day: '데이마켓', pre: '프리마켓', regular: '정규장', after: '애프터마켓' };
 
 /* ── types ── */
 interface Gates { ic: { pass: boolean; note: string }; duel: { pass: boolean; note: string }; calib: { pass: boolean; note: string } }
@@ -41,7 +43,7 @@ interface MarketRes {
 }
 interface BookRow { px: number | null; vol: number | null }
 interface QuoteRes { ok: boolean; symbol: string; px: number | null; asks: BookRow[]; bids: BookRow[]; trades: { px: number | null; qty: number | null; at: string | null }[]; at: number }
-interface RankRow { symbol: string | null; px: number | null; chgPct: number | null }
+interface RankRow { rank: number; symbol: string | null; px: number | null; chgPct: number | null; volume: number | null; amount: number | null }
 type OrderRow = Record<string, unknown>;
 interface Expect { decile: number; adjF3: number; hit: number; days: number }
 interface StructRead { maxPainGapPct: number | null; flipSide: 'above' | 'below' | null; toCallWallPct: number | null; toPutFloorPct: number | null; flags: string[] }
@@ -65,7 +67,7 @@ interface PickRow {
 interface AutoPosition { t: string; qty: number; entryPx: number; entryAt: number; stopPx?: number | null }
 interface AutoRes {
   ok: boolean; deployed: boolean;
-  state: { mode: string; ver: string; capital: number; nav: number; cash: number; positions: AutoPosition[]; universeDate: string | null; updatedAt: number } | null;
+  state: { mode: string; ver: string; capital: number; nav: number; cash: number; positions: AutoPosition[]; universeDate: string | null; updatedAt: number; execQuality?: { fills: number; lapses: number; avgSpreadBps: number | null } | null } | null;
   heartbeatAgeSec: number | null; stale: boolean;
   log: { at: number; type: string; t?: string; px?: number; qty?: number; reason?: string }[];
   report: { date: string; nav: number; dayRet: number | null; trades: number; note?: string } | null;
@@ -106,17 +108,29 @@ const Z_LABEL: Record<string, string> = {
 // 24h US session strip (데이→프리→정규→애프터, 실제 캘린더 창) with a now-marker.
 // Toss covers ~23h50m/day: day market = Blue Ocean ATS during Korean daytime.
 function SessionBar({ sessions }: { sessions: { key: string; start: number; end: number }[] }) {
-  if (!sessions.length) return null;
   const now = Date.now();
-  const min = Math.min(...sessions.map((s) => s.start));
-  const max = Math.max(...sessions.map((s) => s.end));
+  const KO: Record<string, string> = { day: '데이', pre: '프리', regular: '정규장', after: '애프터' };
+  // live window: the surrounding ~24h; outside any window (weekend/holiday)
+  // show the upcoming session as a countdown line instead of an empty strip
+  const win = sessions.filter((s) => s.end > now - 2 * 3600_000 && s.start < now + 24 * 3600_000);
+  if (!win.length) {
+    const next = sessions.find((s) => s.start > now);
+    if (!next) return null;
+    const hrs = Math.round((next.start - now) / 3600_000);
+    return (
+      <div className="tc-sessions-idle">
+        휴장 — 다음 세션: <b>{KO_SESS[next.key] ?? next.key}</b> {new Date(next.start).toLocaleString('ko-KR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} KST (약 {hrs}시간 후)
+      </div>
+    );
+  }
+  const min = Math.min(...win.map((s) => s.start));
+  const max = Math.max(...win.map((s) => s.end));
   const span = max - min;
   if (!(span > 0)) return null;
   const pct = (v: number) => `${(((v - min) / span) * 100).toFixed(2)}%`;
-  const KO: Record<string, string> = { day: '데이', pre: '프리', regular: '정규장', after: '애프터' };
   return (
-    <div className="tc-sessions" title="토스 미국주식 세션 (데이마켓 = 한국 낮 Blue Ocean ATS)">
-      {sessions.map((s, i) => (
+    <div className="tc-sessions" title="토스 미국주식 세션 (데이마켓 = 한국 낮 Blue Ocean ATS · 총 ~23시간 50분)">
+      {win.map((s, i) => (
         <span key={i} className={`seg ${s.key} ${now >= s.start && now < s.end ? 'now' : ''}`}
           style={{ left: pct(s.start), width: `${(((s.end - s.start) / span) * 100).toFixed(2)}%` }}>
           {KO[s.key] ?? s.key}
@@ -315,6 +329,8 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const fxRate = st?.fxRate ?? null;
   const usSession = st?.usSession ?? null;
   const usOpen = usSession != null && usSession !== '휴장' && usSession !== '장외';
+  const nextSess = (st?.usSessions ?? []).find((s) => s.start > Date.now()) ?? null;
+  const sessCls = usSession === '데이마켓' ? 'day' : usOpen ? 'live' : '';
   const effPx = orderType === 'LIMIT' ? Number(price || 0) : Number(price || livePx || 0);
   const notional = mode === 'amount' ? Number(amount) : Number(qty) * effPx;
   const usdTotal = (summary?.usdValue ?? 0) + (buyPower ?? 0);
@@ -481,14 +497,22 @@ export default function TradeConsole({ operator }: { operator: string }) {
               ))}
             </span>
           </div>
-          <div className="tc-pickrow">
-            {ranks.map((r, i) => (
-              <button className="tc-chip" key={i} onClick={() => pickSymbol(r.symbol)}>
-                {r.symbol}{r.chgPct != null && <em className={r.chgPct >= 0 ? 'up' : 'dn'}> {r.chgPct >= 0 ? '+' : ''}{fmt(r.chgPct, 1)}%</em>}
-              </button>
-            ))}
-            {ranks.length === 0 && <span className="tc-empty">{connected ? '로딩…' : '연결 후 표시'}</span>}
-          </div>
+          {ranks.length > 0 ? (
+            <table className="tc-tbl">
+              <thead><tr><th>#</th><th>심볼</th><th>현재가</th><th>등락</th><th>거래대금</th></tr></thead>
+              <tbody>
+                {ranks.map((r) => (
+                  <tr key={`${r.rank}-${r.symbol}`} onClick={() => pickSymbol(r.symbol)}>
+                    <td>{r.rank}</td>
+                    <td className="sym">{r.symbol}</td>
+                    <td>${fmt(r.px)}</td>
+                    <td className={r.chgPct != null && r.chgPct >= 0 ? 'up' : 'dn'}>{r.chgPct != null ? `${r.chgPct >= 0 ? '+' : ''}${fmt(r.chgPct, 1)}%` : '—'}</td>
+                    <td>{r.amount != null ? `$${fmtCompact(r.amount)}` : r.volume != null ? fmtCompact(r.volume) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <span className="tc-empty">{connected ? '로딩…' : '연결 후 표시'}</span>}
         </div>
       </section>
     </>
@@ -527,6 +551,9 @@ export default function TradeConsole({ operator }: { operator: string }) {
           )}
           <div className="tc-kv"><span>현금</span><strong>${fmt(auto?.state?.cash)}</strong></div>
           <div className="tc-kv"><span>유니버스 기준</span><strong>{auto?.state?.universeDate ?? '—'}</strong></div>
+          {auto?.state?.execQuality && (
+            <div className="tc-kv"><span>실행 품질</span><strong>체결 {auto.state.execQuality.fills} · 소멸 {auto.state.execQuality.lapses}{auto.state.execQuality.avgSpreadBps != null ? ` · 평균 스프레드 ${auto.state.execQuality.avgSpreadBps}bps` : ''}</strong></div>
+          )}
           {autoPos.map((p, i) => (
             <div className="tc-kv" key={i}><span>{p.t} ×{fmt(p.qty, 4)}</span><strong>@${fmt(p.entryPx)}{p.stopPx ? ` · 스톱 $${fmt(p.stopPx)}` : ''}</strong></div>
           ))}
@@ -671,7 +698,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
               <span className={`px ${flash ? `flash-${flash}` : ''}`}>${fmt(livePx)}</span>
               {chgPct != null && <span className={`chg ${chgPct >= 0 ? 'up' : 'dn'}`}>{chgPct >= 0 ? '+' : ''}{fmt(chgPct)}%</span>}
               <span className="tc-live"><span className="dot" />{lastTick ? `${Math.max(0, Math.round((Date.now() - lastTick) / 1000))}s` : 'LIVE'}</span>
-              <span className={`tc-pill ${usOpen ? 'live' : ''}`}>{usSession ?? '세션 —'}</span>
+              <span className={`tc-pill ${sessCls}`}>{usSession ?? '세션 —'}</span>
             </div>
           </div>
           <div className="tc-metarow">
@@ -687,14 +714,27 @@ export default function TradeConsole({ operator }: { operator: string }) {
           {(q?.asks?.length || q?.bids?.length) ? (
             <div className="tc-bookwrap">
               <div className="tc-book">
-                <div className="tc-card-label">호가</div>
-                {q!.asks.slice().reverse().map((a, i) => (
-                  <div className="tc-bookrow ask" key={'a' + i}><span className="p">${fmt(a.px)}</span><span className="v">{fmt(a.vol, 0)}</span></div>
-                ))}
-                <div className="tc-bookmid">${fmt(livePx)}</div>
-                {q!.bids.map((b, i) => (
-                  <div className="tc-bookrow bid" key={'b' + i}><span className="p">${fmt(b.px)}</span><span className="v">{fmt(b.vol, 0)}</span></div>
-                ))}
+                <div className="tc-card-label">호가 <span className="hint">막대 = 잔량 깊이</span></div>
+                {(() => {
+                  const maxVol = Math.max(1, ...q!.asks.map((x) => x.vol ?? 0), ...q!.bids.map((x) => x.vol ?? 0));
+                  return (
+                    <>
+                      {q!.asks.slice().reverse().map((a, i) => (
+                        <div className="tc-bookrow ask" key={'a' + i}>
+                          <span className="depth" style={{ width: `${(((a.vol ?? 0) / maxVol) * 100).toFixed(1)}%` }} />
+                          <span className="p">${fmt(a.px)}</span><span className="v">{fmt(a.vol, 0)}</span>
+                        </div>
+                      ))}
+                      <div className="tc-bookmid">${fmt(livePx)}</div>
+                      {q!.bids.map((b, i) => (
+                        <div className="tc-bookrow bid" key={'b' + i}>
+                          <span className="depth" style={{ width: `${(((b.vol ?? 0) / maxVol) * 100).toFixed(1)}%` }} />
+                          <span className="p">${fmt(b.px)}</span><span className="v">{fmt(b.vol, 0)}</span>
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()}
               </div>
               <div className="tc-book grow">
                 <div className="tc-card-label">실시간 체결 <span className="hint">4초</span></div>
@@ -714,6 +754,9 @@ export default function TradeConsole({ operator }: { operator: string }) {
             <button className={tab === 'order' ? 'act' : ''} onClick={() => setTab('order')}>일반 주문</button>
             <button className={tab === 'cond' ? 'act' : ''} onClick={() => setTab('cond')}>조건 주문</button>
           </div>
+          {usSession === '데이마켓' && (
+            <div className="tc-warnline day">데이마켓 (Blue Ocean ATS) — 유동성 얇음·지정가 권장 · 미체결 주문은 익일 09:50 KST 자동취소</div>
+          )}
           {tab === 'order' ? (
             <>
               <div className="tc-seg2">
@@ -1006,7 +1049,9 @@ export default function TradeConsole({ operator }: { operator: string }) {
       <div className="tc-main">
         <header className="tc-top slim">
           <div className="tc-pills">
-            <span className={`tc-pill ${usOpen ? 'live' : ''}`}>미국장 {usSession ?? '—'}</span>
+            <span className={`tc-pill ${sessCls}`}>
+              {usOpen ? `미국장 ${usSession}` : `미국장 ${usSession ?? '—'}${nextSess ? ` · 다음 ${KO_SESS[nextSess.key] ?? nextSess.key} ${new Date(nextSess.start).toLocaleString('ko-KR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}`}
+            </span>
             <span className="tc-pill">$1 = ₩{fmt(fxRate, 0)}</span>
             <span className={`tc-pill ${connected ? 'live' : 'warn'}`}>{connected ? '토스 연결됨' : st?.executor.up ? '키 미설치' : '실행기 오프라인'}</span>
             {st?.xs && <span className="tc-pill">XS 라벨 {st.xs.labeled ?? '—'}</span>}

@@ -10,7 +10,7 @@ export const maxDuration = 30;
 // TOP_GAINERS / TOP_LOSERS do not support duration=realtime → use 1d.
 const TYPES = new Set(['MARKET_TRADING_AMOUNT', 'MARKET_TRADING_VOLUME', 'TOP_GAINERS', 'TOP_LOSERS']);
 
-interface TossRankings { result?: { rankings?: { symbol?: string; price?: { lastPrice?: string; changeRate?: string | null } }[] } }
+interface TossRankings { result?: { rankings?: { rank?: number; symbol?: string; price?: { lastPrice?: string; changeRate?: string | null }; tradingVolume?: string; tradingAmount?: string }[] } }
 
 export async function GET(req: NextRequest) {
   const gate = await requireTradeAdmin();
@@ -23,10 +23,14 @@ export async function GET(req: NextRequest) {
     path: '/api/v1/rankings',
     query: { type, marketCountry: 'US', duration, count: '12' },
   });
-  const rows = ((r.data as TossRankings)?.result?.rankings ?? []).map((x) => ({
+  const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+  const rows = ((r.data as TossRankings)?.result?.rankings ?? []).map((x, i) => ({
+    rank: x.rank ?? i + 1,
     symbol: x.symbol ?? null,
-    px: Number.isFinite(Number(x.price?.lastPrice)) ? Number(x.price!.lastPrice) : null,
+    px: num(x.price?.lastPrice),
     chgPct: x.price?.changeRate != null && Number.isFinite(Number(x.price.changeRate)) ? Number(x.price.changeRate) * 100 : null,
+    volume: num(x.tradingVolume),
+    amount: num(x.tradingAmount),
   })).filter((x) => x.symbol && /^[A-Z]{1,6}$/.test(String(x.symbol)));
 
   return NextResponse.json({ ok: r.status < 400, status: r.status, type, rows });
