@@ -58,21 +58,31 @@ interface PickRow {
   rank: number; symbol: string; score: number; price: number | null;
   expect: Expect | null; struct: StructRead; label: string; z: Record<string, number> | null;
 }
+interface AutoPosition { t: string; qty: number; entryPx: number; entryAt: number; stopPx?: number | null }
+interface AutoRes {
+  ok: boolean; deployed: boolean;
+  state: { mode: string; ver: string; capital: number; nav: number; cash: number; positions: AutoPosition[]; universeDate: string | null; updatedAt: number } | null;
+  heartbeatAgeSec: number | null; stale: boolean;
+  log: { at: number; type: string; t?: string; px?: number; qty?: number; reason?: string }[];
+  report: { date: string; nav: number; dayRet: number | null; trades: number; note?: string } | null;
+}
 interface LabRes {
   ok: boolean;
   report: { date?: string; labeled?: number; calibration: Record<string, { adjF3: number; hit: number; days: number }> | null; variants: Record<string, { rolling: number | null; days: number }> | null; rollingIC: Record<string, number> | null; weights: Record<string, number> | null; top10: string[] | null } | null;
   paper: { nav: { date: unknown; nav: unknown }[]; positions: Record<string, unknown>[]; trades: Record<string, unknown>[] };
 }
 
-const NAV_ITEMS = [
-  { key: 'overview', label: '개요', icon: '◧' },
-  { key: 'picks', label: '선별 픽', icon: '★' },
-  { key: 'trade', label: '트레이딩', icon: '⇄' },
-  { key: 'xray', label: '포지션 X-Ray', icon: '◉' },
-  { key: 'lab', label: '엔진 랩', icon: '∑' },
-  { key: 'journal', label: '저널', icon: '≡' },
-] as const;
-type NavKey = typeof NAV_ITEMS[number]['key'];
+type NavKey = 'overview' | 'auto' | 'picks' | 'trade' | 'xray' | 'lab' | 'journal';
+// The console has three clearly-separated characters: 자동 (the engine trades,
+// humans only hold the kill switch), 수동 (operator judgment + 2-step confirm),
+// 시뮬레이션 (paper/validation track). Grouped nav makes the boundary visible.
+const NAV_GROUPS: { title: string | null; items: { key: NavKey; label: string; icon: string }[] }[] = [
+  { title: null, items: [{ key: 'overview', label: '개요', icon: '◧' }] },
+  { title: '자동 AUTO', items: [{ key: 'auto', label: '오토 엔진', icon: '⚙' }, { key: 'picks', label: '선별 픽', icon: '★' }] },
+  { title: '수동 MANUAL', items: [{ key: 'trade', label: '트레이딩', icon: '⇄' }, { key: 'xray', label: '포지션 X-Ray', icon: '◉' }] },
+  { title: '시뮬레이션 SIM', items: [{ key: 'lab', label: '엔진 랩', icon: '∑' }] },
+  { title: null, items: [{ key: 'journal', label: '저널', icon: '≡' }] },
+];
 
 const LABEL_KO: Record<string, { t: string; cls: string }> = {
   STRONG_EDGE: { t: '강한 우위', cls: 'edge strong' },
@@ -134,6 +144,8 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const [picks, setPicks] = useState<PickRow[] | null>(null);
   const [picksErr, setPicksErr] = useState('');
   const [picksMeta, setPicksMeta] = useState<{ engineDate: string | null; labeled: number | null } | null>(null);
+  const [auto, setAuto] = useState<AutoRes | null>(null);
+  const [autoErr, setAutoErr] = useState('');
 
   const [tab, setTab] = useState<'order' | 'cond'>('order');
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
@@ -214,6 +226,12 @@ export default function TradeConsole({ operator }: { operator: string }) {
         else setPicksErr('로드 실패');
       }).catch((e) => setPicksErr(String(e)));
   }, []);
+  const loadAuto = useCallback(() => {
+    setAutoErr('');
+    fetch('/api/admin/trade/auto', { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => { if (j.ok) setAuto(j); else setAutoErr('로드 실패'); })
+      .catch((e) => setAutoErr(String(e)));
+  }, []);
 
   /* ── real-time lanes (pause when hidden) ── */
   useEffect(() => {
@@ -248,7 +266,13 @@ export default function TradeConsole({ operator }: { operator: string }) {
   /* lazy loads per section */
   useEffect(() => { if (nav === 'xray' && !xray && st?.executor.configured) loadXray(); }, [nav, xray, st?.executor.configured, loadXray]);
   useEffect(() => { if (nav === 'lab' && !lab) loadLab(); }, [nav, lab, loadLab]);
-  useEffect(() => { loadPicks(); }, [loadPicks]); // engine-only, no executor needed
+  useEffect(() => { loadPicks(); loadAuto(); }, [loadPicks, loadAuto]); // engine-only, no executor needed
+  useEffect(() => {
+    if (nav !== 'auto') return;
+    loadAuto();
+    const iv = setInterval(() => { if (visRef.current) loadAuto(); }, 15_000);
+    return () => clearInterval(iv);
+  }, [nav, loadAuto]);
 
   /* ── derived (q/mk render-guarded: never show another symbol's data) ── */
   const connected = Boolean(st?.executor.up && st.executor.configured);
@@ -425,6 +449,79 @@ export default function TradeConsole({ operator }: { operator: string }) {
         </div>
       </section>
     </>
+  );
+
+  const autoPos = auto?.state?.positions ?? [];
+  const autoRet = auto?.state && auto.state.capital > 0 ? ((auto.state.nav - auto.state.capital) / auto.state.capital) * 100 : null;
+  const LOG_BADGE: Record<string, string> = { ENTRY: 'buy', EXIT: 'sell', KILL: 'sell', REBALANCE: 'cond' };
+  const Auto = (
+    <section className="tc-col1">
+      <div className={`tc-automode ${!auto?.deployed ? 'off' : auto.stale ? 'stale' : auto.state?.mode === 'OFF' ? 'halt' : 'run'}`}>
+        {!auto && <span>{autoErr ? `⚠ ${autoErr}` : '로딩…'}</span>}
+        {auto && !auto.deployed && (
+          <><b>REALTIME-1 미가동</b><span>EC2 배포 대기 (또는 프록시 연결 불가) — 가동되면 이 화면에서 선별→배분→진입→청산 전 과정이 실시간으로 흐릅니다</span></>
+        )}
+        {auto?.deployed && auto.state && (
+          <>
+            <b>REALTIME-1 {auto.state.ver} · {auto.state.mode === 'PAPER' ? '페이퍼 가동 중' : auto.state.mode === 'LIVE' ? '실전 가동 중' : '정지'}</b>
+            <span>{auto.stale ? `⚠ 심장박동 끊김 (${auto.heartbeatAgeSec}s 전)` : `심장박동 ${auto.heartbeatAgeSec}s 전 · 정상`}</span>
+          </>
+        )}
+      </div>
+      <div className="tc-duo">
+        <div className="tc-card dark">
+          <div className="tc-card-label">엔진 계정{auto?.state?.mode === 'PAPER' ? ' (가상)' : ''}</div>
+          <div className="tc-big">${fmt(auto?.state?.nav ?? auto?.state?.capital ?? 0)}
+            {autoRet != null && <span className={`tc-delta ${autoRet >= 0 ? 'up' : 'dn'}`}>{autoRet >= 0 ? '+' : ''}{autoRet.toFixed(2)}%</span>}
+          </div>
+          <div className="tc-kv"><span>투입 자본</span><strong>${fmt(auto?.state?.capital)}</strong></div>
+          <div className="tc-kv"><span>현금</span><strong>${fmt(auto?.state?.cash)}</strong></div>
+          <div className="tc-kv"><span>유니버스 기준</span><strong>{auto?.state?.universeDate ?? '—'}</strong></div>
+          {autoPos.map((p, i) => (
+            <div className="tc-kv" key={i}><span>{p.t} ×{fmt(p.qty, 4)}</span><strong>@${fmt(p.entryPx)}{p.stopPx ? ` · 스톱 $${fmt(p.stopPx)}` : ''}</strong></div>
+          ))}
+          {auto?.deployed && autoPos.length === 0 && <div className="tc-kv"><span>포지션 없음</span><strong /></div>}
+        </div>
+        <div className="tc-card accent">
+          <div className="tc-card-label">운영 원칙 — 인간 개입 배제</div>
+          <div className="tc-rules">
+            <p>선별·배분·진입·청산 전 과정을 엔진이 실시간 판단합니다. 운영자 개입 수단은 <b>킬스위치 하나</b>뿐입니다.</p>
+            <ul>
+              <li>선별: 데일리 XS 코호트 그대로 승계 — 인간 취향 0%</li>
+              <li>배분: 종목당 NAV/30 · 일 10종목 · 3거래일 롤링</li>
+              <li>진입: 개장 창(ET 09:30–10:00) ask 체결 · 스프레드 50bps 가드</li>
+              <li>리스크: 일중 -2% 북스톱 + 주간 -3% 킬 — 15초 실시간 평가</li>
+              <li>정합: 실측 보정이 음수 확정(≥15일)이면 진입 거부</li>
+              <li>승격: 쌍둥이 페이퍼 실측 3게이트 통과 시에만 실전(C)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div className="tc-duo">
+        <div className="tc-card">
+          <div className="tc-card-label">실시간 의사결정 로그 <span className="hint">15초 갱신</span></div>
+          {(auto?.log ?? []).map((l, i) => (
+            <div className="tc-orow" key={i}>
+              <span className={`badge ${LOG_BADGE[l.type] ?? 'cond'}`}>{l.type}</span>
+              <b>{l.t ?? ''}</b>
+              <span className="info">{l.px != null ? `$${fmt(l.px)}` : ''}{l.qty != null ? ` ×${fmt(l.qty, 4)}` : ''} {l.reason ?? ''}</span>
+              <span className="stt">{new Date(l.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          ))}
+          {(auto?.log ?? []).length === 0 && <div className="tc-empty">{auto?.deployed ? '의사결정 대기' : '엔진 미가동'}</div>}
+        </div>
+        <div className="tc-card">
+          <div className="tc-card-label">일일 리포트 <span className="hint">엔진 자동 생성</span></div>
+          {auto?.report ? (
+            <>
+              <div className="tc-kv"><span>{auto.report.date}</span><strong>NAV ${fmt(auto.report.nav)}{auto.report.dayRet != null ? ` (${auto.report.dayRet >= 0 ? '+' : ''}${fmt(auto.report.dayRet)}%)` : ''}</strong></div>
+              <div className="tc-kv"><span>체결</span><strong>{auto.report.trades}건</strong></div>
+              {auto.report.note && <div className="tc-xnote">{auto.report.note}</div>}
+            </>
+          ) : <div className="tc-empty">리포트 대기 (장 마감 후 자동 생성)</div>}
+        </div>
+      </div>
+    </section>
   );
 
   const Picks = (
@@ -811,11 +908,17 @@ export default function TradeConsole({ operator }: { operator: string }) {
           <div><div className="tc-title">SIGNUM</div><div className="tc-sub">Trade</div></div>
         </div>
         <nav className="tc-nav">
-          {NAV_ITEMS.map((n) => (
-            <button key={n.key} className={nav === n.key ? 'act' : ''} onClick={() => setNav(n.key)}>
-              <span className="ic">{n.icon}</span>{n.label}
-              {n.key === 'xray' && holdings.length > 0 && <span className="badge">{holdings.length}</span>}
-            </button>
+          {NAV_GROUPS.map((g, gi) => (
+            <div className="tc-navgrp" key={gi}>
+              {g.title && <div className="tc-navtitle">{g.title}</div>}
+              {g.items.map((n) => (
+                <button key={n.key} className={nav === n.key ? 'act' : ''} onClick={() => setNav(n.key)}>
+                  <span className="ic">{n.icon}</span>{n.label}
+                  {n.key === 'xray' && holdings.length > 0 && <span className="badge">{holdings.length}</span>}
+                  {n.key === 'auto' && auto?.deployed && auto.state?.mode === 'PAPER' && !auto.stale && <span className="badge on">P</span>}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="tc-sidefoot">
@@ -845,6 +948,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
 
         <main className="tc-body">
           {nav === 'overview' && Overview}
+          {nav === 'auto' && Auto}
           {nav === 'picks' && Picks}
           {nav === 'trade' && Trade}
           {nav === 'xray' && Xray}

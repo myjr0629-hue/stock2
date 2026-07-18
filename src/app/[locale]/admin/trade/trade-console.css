@@ -271,11 +271,31 @@
 .tc-stance.neg { background: var(--red-soft); color: var(--red); }
 .tc-stance.mid { background: #f4f2ec; color: var(--sub); }
 
+/* ═══ auto domain ═══ */
+.tc-navgrp { display: flex; flex-direction: column; gap: 4px; }
+.tc-navgrp + .tc-navgrp { margin-top: 10px; }
+.tc-navtitle { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #b6b1a3; padding: 0 14px 2px; }
+.tc-nav .badge.on { background: var(--green); }
+.tc-automode { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; border-radius: 20px; padding: 16px 22px; font-size: 13px; }
+.tc-automode b { font-size: 15px; font-weight: 800; }
+.tc-automode.off { background: #f4f2ec; color: var(--sub); }
+.tc-automode.run { background: var(--green-soft); color: var(--green); }
+.tc-automode.stale { background: var(--coral-soft); color: #9a3412; }
+.tc-automode.halt { background: var(--red-soft); color: var(--red); }
+.tc-rules { font-size: 13px; line-height: 1.7; }
+.tc-rules p { margin: 0 0 8px; }
+.tc-rules ul { margin: 0; padding-left: 18px; }
+.tc-rules li { margin: 3px 0; }
+
 /* ═══ responsive shell ═══ */
 @media (max-width: 920px) {
   .tc-shell { flex-direction: column; gap: 14px; }
   .tc-side { position: static; width: 100%; min-height: 0; padding: 14px; gap: 12px; }
   .tc-nav { flex-direction: row; overflow-x: auto; }
+  /* grouped nav flattens back into one horizontal scrolling row on mobile */
+  .tc-navgrp { flex-direction: row; align-items: center; gap: 4px; }
+  .tc-navgrp + .tc-navgrp { margin-top: 0; margin-left: 8px; }
+  .tc-navtitle { display: none; }
   .tc-nav button { width: auto; white-space: nowrap; padding: 10px 14px; }
   .tc-nav .badge { margin-left: 6px; }
   .tc-sidefoot { margin-top: 0; flex-direction: row; align-items: center; justify-content: space-between; }
