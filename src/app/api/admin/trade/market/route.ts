@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   const [price, candles1m, candles1d, limits, info, sellable, warnings, structure] = await Promise.all([
     callToss({ path: '/api/v1/prices', query: { symbols: symbol } }),
-    callToss({ path: '/api/v1/candles', query: { symbol, interval: '1m', count: '60' } }),
+    callToss({ path: '/api/v1/candles', query: { symbol, interval: '1m', count: '120' } }),
     callToss({ path: '/api/v1/candles', query: { symbol, interval: '1d', count: '2' } }),
     callToss({ path: '/api/v1/price-limits', query: { symbol } }),
     callToss({ path: '/api/v1/stocks', query: { symbols: symbol } }),
@@ -44,9 +44,17 @@ export async function GET(req: NextRequest) {
   const prevClose = dRows.length >= 2 ? num(dRows[1]?.closePrice) : null;
   const chgPct = px != null && prevClose != null && prevClose > 0 ? ((px - prevClose) / prevClose) * 100 : null;
 
-  // 1m sparkline closes — spec returns newest-first; reverse to oldest→newest
-  const mRows = (candles1m.data as { result?: { candles?: { closePrice?: string }[] } })?.result?.candles ?? [];
-  const closes = mRows.map((c) => num(c.closePrice)).filter((v): v is number => v != null).reverse();
+  // 1m candles — spec-exact fields {timestamp, openPrice, highPrice, lowPrice,
+  // closePrice, volume}, newest-first; reverse to oldest→newest for the chart
+  interface CandleRow { timestamp?: string; openPrice?: string; highPrice?: string; lowPrice?: string; closePrice?: string; volume?: string }
+  const mRows = ((candles1m.data as { result?: { candles?: CandleRow[] } })?.result?.candles ?? []).slice().reverse();
+  const closes = mRows.map((c) => num(c.closePrice)).filter((v): v is number => v != null);
+  const candles = mRows
+    .map((c) => ({
+      t: c.timestamp ? Math.floor(Date.parse(c.timestamp) / 1000) : null,
+      o: num(c.openPrice), h: num(c.highPrice), l: num(c.lowPrice), c: num(c.closePrice), v: num(c.volume),
+    }))
+    .filter((c) => Number.isFinite(c.t) && c.o != null && c.h != null && c.l != null && c.c != null);
 
   const lim = (limits.data as { result?: { upperLimitPrice?: string | null; lowerLimitPrice?: string | null } })?.result;
   const stock = (info.data as { result?: { name?: string; market?: string; status?: string }[] })?.result?.[0];
@@ -67,6 +75,7 @@ export async function GET(req: NextRequest) {
     ok: true, symbol,
     quote: { px, chgPct, prevClose, name: stock?.name ?? null, market: stock?.market ?? null, priceStatus: price.status },
     closes,
+    candles,
     limits: { upper: num(lim?.upperLimitPrice), lower: num(lim?.lowerLimitPrice) },
     sellable: num((sellable.data as { result?: { sellableQuantity?: string } })?.result?.sellableQuantity),
     warnings: warnList,

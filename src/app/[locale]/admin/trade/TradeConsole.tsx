@@ -11,6 +11,7 @@
 // ============================================================================
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import TradeChart from './TradeChart';
 import './trade-console.css';
 
 const fmt = (v: unknown, d = 2): string => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: d }) : '—'; };
@@ -21,7 +22,9 @@ interface Paper { date?: string; nav?: number; cash?: number; posValue?: number;
 interface Journal { at: number; who: string; action: string; detail: string }
 interface StatusRes {
   ok: boolean; executor: { up: boolean; configured: boolean }; kill: boolean;
-  fxRate: number | null; usSession: string | null; paper: Paper | null;
+  fxRate: number | null; usSession: string | null;
+  usSessions: { key: string; start: number; end: number }[];
+  paper: Paper | null;
   xs: { date?: string; labeled?: number; variants?: Record<string, { rolling: number | null; days: number }> } | null;
   gates: Gates; journal: Journal[];
 }
@@ -31,6 +34,7 @@ interface MarketRes {
   ok: boolean; symbol: string;
   quote: { px: number | null; chgPct: number | null; prevClose: number | null; name: string | null; priceStatus: number };
   closes: number[];
+  candles: { t: number; o: number; h: number; l: number; c: number; v: number | null }[];
   limits: { upper: number | null; lower: number | null };
   sellable: number | null; warnings: (string | null)[];
   levels: { price: number | null; maxPain: number | null; gammaFlip: number | null; callWall: number | null; putFloor: number | null } | null;
@@ -65,6 +69,8 @@ interface AutoRes {
   heartbeatAgeSec: number | null; stale: boolean;
   log: { at: number; type: string; t?: string; px?: number; qty?: number; reason?: string }[];
   report: { date: string; nav: number; dayRet: number | null; trades: number; note?: string } | null;
+  navHist: { d: string; nav: number }[];
+  config: { capital: number; at: number } | null;
 }
 interface LabRes {
   ok: boolean;
@@ -96,6 +102,30 @@ const Z_LABEL: Record<string, string> = {
   revChg: '1D반전', revRet3: '3D반전', gexInv: '감마', dGex5: 'ΔGEX', pcr: 'PCR', ivLow: 'IV',
   squeeze: '스퀴즈', darkPool: '다크풀', shortVol: '숏볼륨', blockTrades: '블록', analystRev: '리비전', smaExt: 'SMA', dtc: 'DTC',
 };
+
+// 24h US session strip (데이→프리→정규→애프터, 실제 캘린더 창) with a now-marker.
+// Toss covers ~23h50m/day: day market = Blue Ocean ATS during Korean daytime.
+function SessionBar({ sessions }: { sessions: { key: string; start: number; end: number }[] }) {
+  if (!sessions.length) return null;
+  const now = Date.now();
+  const min = Math.min(...sessions.map((s) => s.start));
+  const max = Math.max(...sessions.map((s) => s.end));
+  const span = max - min;
+  if (!(span > 0)) return null;
+  const pct = (v: number) => `${(((v - min) / span) * 100).toFixed(2)}%`;
+  const KO: Record<string, string> = { day: '데이', pre: '프리', regular: '정규장', after: '애프터' };
+  return (
+    <div className="tc-sessions" title="토스 미국주식 세션 (데이마켓 = 한국 낮 Blue Ocean ATS)">
+      {sessions.map((s, i) => (
+        <span key={i} className={`seg ${s.key} ${now >= s.start && now < s.end ? 'now' : ''}`}
+          style={{ left: pct(s.start), width: `${(((s.end - s.start) / span) * 100).toFixed(2)}%` }}>
+          {KO[s.key] ?? s.key}
+        </span>
+      ))}
+      {now >= min && now <= max && <span className="mark" style={{ left: pct(now) }} />}
+    </div>
+  );
+}
 
 function Spark({ data, w = 220, h = 44, fluid = false }: { data: number[]; w?: number; h?: number; fluid?: boolean }) {
   if (data.length < 2) return null;
@@ -147,6 +177,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const [auto, setAuto] = useState<AutoRes | null>(null);
   const [autoErr, setAutoErr] = useState('');
 
+  const [capInput, setCapInput] = useState('');
   const [tab, setTab] = useState<'order' | 'cond'>('order');
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
   const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT'>('MARKET');
@@ -339,6 +370,18 @@ export default function TradeConsole({ operator }: { operator: string }) {
     const r = await fetch('/api/admin/trade/conditional', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel', conditionalOrderId: id }) });
     const j = await r.json(); say(j.ok ? '✅ 해제' : '❌ 실패'); loadPortfolio();
   };
+  const setCapital = async () => {
+    const v = Number(capInput);
+    if (!(v >= 100 && v <= 1_000_000)) { say('❌ 투입 자본은 $100–$1,000,000 범위'); return; }
+    if (!window.confirm(`오토 엔진 투입 자본을 $${v.toLocaleString('en-US')} 로 변경합니다 (가상 트랙). 진행할까요?`)) return;
+    setBusy('capital');
+    try {
+      const r = await fetch('/api/admin/trade/auto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ capital: v }) });
+      const j = await r.json();
+      if (j.ok) { say(`✅ 자본 $${v.toLocaleString('en-US')} 설정 — 엔진이 다음 틱에 적용`); setCapInput(''); loadAuto(); }
+      else say(`❌ ${j.error || '설정 실패'}`);
+    } catch (e) { say('❌ ' + String(e)); } finally { setBusy(''); }
+  };
   const pickSymbol = (t: string | null, opt?: { buy?: boolean }) => {
     if (!t) return;
     setSymbol(t); setSymInput(t);
@@ -475,6 +518,13 @@ export default function TradeConsole({ operator }: { operator: string }) {
             {autoRet != null && <span className={`tc-delta ${autoRet >= 0 ? 'up' : 'dn'}`}>{autoRet >= 0 ? '+' : ''}{autoRet.toFixed(2)}%</span>}
           </div>
           <div className="tc-kv"><span>투입 자본</span><strong>${fmt(auto?.state?.capital)}</strong></div>
+          <div className="tc-caprow">
+            <input className="tc-field slim" type="number" min={100} max={1000000} placeholder="자본 변경 ($100–1M)" value={capInput} onChange={(e) => setCapInput(e.target.value)} />
+            <button className="tc-ghost sm" onClick={setCapital} disabled={busy === 'capital' || !auto?.deployed}>설정</button>
+          </div>
+          {auto?.config && auto.state && auto.config.capital !== auto.state.capital && (
+            <div className="tc-mini-err">설정 대기: ${fmt(auto.config.capital)} — 엔진 다음 틱에 적용</div>
+          )}
           <div className="tc-kv"><span>현금</span><strong>${fmt(auto?.state?.cash)}</strong></div>
           <div className="tc-kv"><span>유니버스 기준</span><strong>{auto?.state?.universeDate ?? '—'}</strong></div>
           {autoPos.map((p, i) => (
@@ -511,7 +561,10 @@ export default function TradeConsole({ operator }: { operator: string }) {
           {(auto?.log ?? []).length === 0 && <div className="tc-empty">{auto?.deployed ? '의사결정 대기' : '엔진 미가동'}</div>}
         </div>
         <div className="tc-card">
-          <div className="tc-card-label">일일 리포트 <span className="hint">엔진 자동 생성</span></div>
+          <div className="tc-card-label">NAV 곡선 · 일일 리포트 <span className="hint">엔진 자동 생성</span></div>
+          {auto?.navHist && auto.navHist.length > 1 && (
+            <div style={{ marginBottom: 10 }}><Spark data={auto.navHist.map((n) => n.nav)} w={420} h={70} fluid /></div>
+          )}
           {auto?.report ? (
             <>
               <div className="tc-kv"><span>{auto.report.date}</span><strong>NAV ${fmt(auto.report.nav)}{auto.report.dayRet != null ? ` (${auto.report.dayRet >= 0 ? '+' : ''}${fmt(auto.report.dayRet)}%)` : ''}</strong></div>
@@ -618,14 +671,18 @@ export default function TradeConsole({ operator }: { operator: string }) {
               <span className={`px ${flash ? `flash-${flash}` : ''}`}>${fmt(livePx)}</span>
               {chgPct != null && <span className={`chg ${chgPct >= 0 ? 'up' : 'dn'}`}>{chgPct >= 0 ? '+' : ''}{fmt(chgPct)}%</span>}
               <span className="tc-live"><span className="dot" />{lastTick ? `${Math.max(0, Math.round((Date.now() - lastTick) / 1000))}s` : 'LIVE'}</span>
+              <span className={`tc-pill ${usOpen ? 'live' : ''}`}>{usSession ?? '세션 —'}</span>
             </div>
-            {mk?.closes && mk.closes.length > 1 && <Spark data={mk.closes} />}
           </div>
           <div className="tc-metarow">
             {mk?.quote.name && <span className="tc-pill">{mk.quote.name}</span>}
             {mk?.sellable != null && mk.sellable > 0 && <span className="tc-pill live">매도가능 {fmt(mk.sellable, 4)}주</span>}
             {(mk?.warnings ?? []).map((w, i) => <span className="tc-pill warn" key={i}>⚠ {w}</span>)}
           </div>
+          <SessionBar sessions={st?.usSessions ?? []} />
+          {mk?.candles && mk.candles.length > 5 && (
+            <TradeChart symbol={symbol} candles={mk.candles} livePx={q?.px ?? null} liveAt={q?.at ?? null} levels={mk.levels} />
+          )}
           {VerdictCard}
           {(q?.asks?.length || q?.bids?.length) ? (
             <div className="tc-bookwrap">
@@ -671,6 +728,15 @@ export default function TradeConsole({ operator }: { operator: string }) {
                 <button className={mode === 'amount' ? 'act' : ''} disabled={orderType === 'LIMIT' || side === 'SELL'} onClick={() => setMode('amount')}>금액 $</button>
                 <button className={mode === 'qty' ? 'act' : ''} onClick={() => setMode('qty')}>수량</button>
               </div>
+              {mode === 'amount' && usSession !== '정규장' && (
+                <div className="tc-warnline">금액(소수점) 주문은 정규장 전용 (스펙 422 amount-order-outside-regular-hours) — 현재 {usSession ?? '장외'}에서는 수량 주문을 사용하세요</div>
+              )}
+              {mode === 'qty' && Number(qty) > 0 && !Number.isInteger(Number(qty)) && orderType === 'LIMIT' && (
+                <div className="tc-warnline">지정가 주문은 정수 수량만 가능합니다 (소수점은 시장가 매도·금액 매수 전용)</div>
+              )}
+              {mode === 'qty' && Number(qty) > 0 && !Number.isInteger(Number(qty)) && orderType === 'MARKET' && side === 'SELL' && usSession !== '정규장' && (
+                <div className="tc-warnline">소수점 수량 시장가 매도는 정규장 전용 — 정수 수량으로 조정하세요</div>
+              )}
               {mode === 'amount'
                 ? <input className="tc-field" type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="주문 금액 USD" />
                 : <>
@@ -856,7 +922,15 @@ export default function TradeConsole({ operator }: { operator: string }) {
           </div>
         </div>
         <div className="tc-card">
-          <div className="tc-card-label">페이퍼 체결 이력</div>
+          <div className="tc-card-label">페이퍼 체결 이력 <span className="hint">막대 = 건별 손익%</span></div>
+          {(lab?.paper.trades ?? []).length > 0 && (
+            <div className="tc-pnlbars">
+              {(lab?.paper.trades ?? []).slice(0, 20).slice().reverse().map((t, i) => {
+                const p = Number(t.pnlPct) || 0;
+                return <span key={i} className={`bar ${p >= 0 ? 'up' : 'dn'}`} style={{ height: `${Math.min(40, Math.abs(p) * 8 + 4)}px` }} title={`${String(t.sym)} ${p >= 0 ? '+' : ''}${p}%`} />;
+              })}
+            </div>
+          )}
           {(lab?.paper.trades ?? []).slice(0, 10).map((t, i) => (
             <div className="tc-orow" key={i}>
               <span className={`badge ${Number(t.pnl) >= 0 ? 'buy' : 'sell'}`}>{Number(t.pnl) >= 0 ? '+' : ''}{fmt(t.pnlPct, 1)}%</span>

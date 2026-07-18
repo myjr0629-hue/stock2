@@ -24,6 +24,7 @@ export async function GET() {
   // Session computed EXACTLY from the spec'd calendar windows (KST times).
   let fxRate: number | null = null;
   let usSession: string | null = null;
+  let usSessions: { key: string; start: number; end: number }[] = [];
   if (health.up && health.configured) {
     const { callToss } = await import('@/lib/trade/executor');
     const [fxR, calR] = await Promise.all([
@@ -50,6 +51,17 @@ export async function GET() {
       // the previous business day's windows too before declaring closed.
       usSession = labelOf(cal.today) ?? labelOf(cal.previousBusinessDay)
         ?? (cal.today && !cal.today.regularMarket ? '휴장' : '장외');
+      // session timeline for the console strip (day/pre/regular/after ×2 days,
+      // filtered to a live window; times are epoch ms from the KST ISO strings)
+      const push = (d?: UsDay | null) => {
+        if (!d) return;
+        const m: [string, Session | null | undefined][] = [['day', d.dayMarket], ['pre', d.preMarket], ['regular', d.regularMarket], ['after', d.afterMarket]];
+        for (const [k, s] of m) {
+          if (s?.startTime && s?.endTime) usSessions.push({ key: k, start: Date.parse(s.startTime), end: Date.parse(s.endTime) });
+        }
+      };
+      push(cal.previousBusinessDay); push(cal.today);
+      usSessions = usSessions.filter((s) => s.end > now - 3600_000 && s.start < now + 26 * 3600_000).sort((a, b) => a.start - b.start);
     }
   }
 
@@ -69,7 +81,7 @@ export async function GET() {
     ok: true,
     executor: { up: health.up, configured: executorConfigured() && health.configured },
     kill,
-    fxRate, usSession,
+    fxRate, usSession, usSessions,
     paper: paper || null,
     xs: xsReport ? { date: xsReport.date, labeled: xsReport.labeled, variants: xsReport.variants || null } : null,
     gates,

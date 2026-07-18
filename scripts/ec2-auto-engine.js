@@ -29,7 +29,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const VERSION = 'RT-1.0.0';
+const VERSION = 'RT-1.0.1'; // 1.0.1: operator-settable capital + NAV history (rules unchanged)
 const MODE = 'PAPER'; // hard-coded; no LIVE branch exists in this file
 const CAPITAL = 1000;
 const PICKS = 10;            // cohort size (mirrors daily track)
@@ -210,6 +210,7 @@ function defaultState() {
     dayDate: null, dayStartNav: CAPITAL,
     lastReportDate: null, prevCloseNav: CAPITAL,
     tradesToday: 0, tradesDate: null,
+    navHist: [], // [{d, nav}] daily closes, capped 120
     log: [],
   };
 }
@@ -336,6 +337,7 @@ async function gammaRegime() {
 
 // ── the loop ────────────────────────────────────────────────────────────────
 let lastKill = null;
+let lastCfgProbe = 0;
 async function tick() {
   const et = CLOCK.now();
   const day = await calendarDay(et);              // null on holidays/weekends → fail-closed
@@ -355,6 +357,31 @@ async function tick() {
       S.weekMonday = monday;
       S.weekStartNav = await navAtMarks();
       if (S.haltedUntil && S.haltedUntil <= et.date) { S.haltedUntil = null; S.haltReason = null; log('INFO', { reason: 'weekly kill released - rearming' }); }
+    }
+  }
+
+  // operator capital setting (trade:auto:config) — the ONE allowed parameter
+  // besides the kill switch; never stock-picking. MUST apply BEFORE marks so
+  // this tick's NAV already includes the cash move; baselines shift by the
+  // same delta so a deposit/withdrawal can never trip the -2%/-3% stops.
+  // Vercel dual-writes ElastiCache+Upstash; if the proxy write failed we still
+  // find the config in Upstash (throttled probe — not every tick).
+  let cfg = await IO.rGet('trade:auto:config');
+  if (!cfg && Date.now() - lastCfgProbe > 300_000) {
+    lastCfgProbe = Date.now();
+    cfg = await IO.upstashGet('trade:auto:config');
+  }
+  const newCap = cfg && Number(cfg.capital);
+  if (Number.isFinite(newCap) && newCap >= 100 && newCap <= 1_000_000 && newCap !== S.capital) {
+    let delta = round(newCap - S.capital, 2);
+    if (delta < 0 && S.cash + delta < 0) delta = -Math.floor(S.cash * 100) / 100; // withdraw at most free cash (floor to cent — never overdraw); rest drains as positions close
+    if (delta !== 0) {
+      S.capital = round(S.capital + delta, 2);
+      S.cash = round(S.cash + delta, 4);
+      S.dayStartNav = round(S.dayStartNav + delta, 4);
+      S.weekStartNav = round(S.weekStartNav + delta, 4);
+      S.prevCloseNav = round(S.prevCloseNav + delta, 4);
+      log('INFO', { reason: `capital set to $${S.capital} (cash ${delta >= 0 ? '+' : ''}$${delta})` });
     }
   }
 
@@ -448,6 +475,9 @@ async function tick() {
       note: `pos ${S.positions.length} cash $${round(S.cash, 2)}${S.haltedUntil ? ` halted(${S.haltReason})` : ''}${S.lockedDate === et.date ? ' day-locked' : ''} cohort ${S.cohort ? S.cohort.date : '-'}`,
     };
     await IO.rSet('trade:auto:report', report, 30 * 86_400);
+    S.navHist.push({ d: et.date, nav: round(nav, 2) });
+    if (S.navHist.length > 120) S.navHist.shift();
+    await IO.rSet('trade:auto:navhist', S.navHist, 90 * 86_400);
     S.lastReportDate = et.date;
     S.prevCloseNav = nav;
     log('INFO', { reason: `daily report NAV $${report.nav} (${dayRet != null ? (dayRet >= 0 ? '+' : '') + dayRet + '%' : '-'})` });

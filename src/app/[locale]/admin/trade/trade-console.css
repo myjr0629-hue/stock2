@@ -287,6 +287,25 @@
 .tc-rules ul { margin: 0; padding-left: 18px; }
 .tc-rules li { margin: 3px 0; }
 
+/* ═══ US session strip (데이/프리/정규/애프터 + now marker) ═══ */
+.tc-sessions { position: relative; height: 30px; border-radius: 999px; background: #f4f2ec; overflow: hidden; }
+.tc-sessions .seg { position: absolute; top: 3px; bottom: 3px; border-radius: 999px; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; color: #b6b1a3; background: #ece9e1; overflow: hidden; white-space: nowrap; }
+.tc-sessions .seg.regular { background: var(--green-soft); color: var(--green); }
+.tc-sessions .seg.day { background: #efe9fd; color: #7c3aed; }
+.tc-sessions .seg.now { box-shadow: inset 0 0 0 2px var(--coral); }
+.tc-sessions .mark { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--coral); z-index: 2; }
+
+/* ═══ chart + capital + pnl bars ═══ */
+.tc-chart { width: 100%; height: 280px; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: #faf9f5; }
+.tc-caprow { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.tc-field.slim { margin-bottom: 0; padding: 9px 12px; font-size: 13px; flex: 1; }
+.tc-card.dark .tc-field.slim { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: #f2efe9; }
+.tc-card.dark .tc-ghost { background: transparent; border-color: rgba(255,255,255,0.25); color: #f2efe9; }
+.tc-pnlbars { display: flex; align-items: flex-end; gap: 3px; height: 46px; margin-bottom: 10px; padding: 0 2px; }
+.tc-pnlbars .bar { width: 10px; border-radius: 3px 3px 0 0; display: inline-block; }
+.tc-pnlbars .bar.up { background: var(--green); }
+.tc-pnlbars .bar.dn { background: var(--red); }
+
 /* ═══ responsive shell ═══ */
 @media (max-width: 920px) {
   .tc-shell { flex-direction: column; gap: 14px; }
