@@ -31,7 +31,14 @@ export const REDDIT_SUBS: { sub: string; role: string; caution?: string }[] = [
   { sub: 'investing', role: '카르마 겸용' },
 ];
 
-export const ST_TICKERS = ['NVDA', 'MU', 'TSLA', 'SOXL', 'AAPL', 'SPY', 'QQQ'];
+// Attention pool — liquid, heavily-optioned names retail actually talks about.
+// pickBestTicker samples a rotating subset each tick and ranks by structure
+// notability, so the pool can be wide without a fetch storm.
+export const ST_TICKERS = [
+  'NVDA', 'MU', 'TSLA', 'SOXL', 'AAPL', 'SPY', 'QQQ',
+  'AMD', 'META', 'AMZN', 'MSFT', 'GOOGL', 'AVGO', 'NFLX', 'SMCI', 'ARM', 'TSM',
+  'PLTR', 'COIN', 'MSTR', 'HOOD', 'GME', 'IWM', 'MARA', 'RIVN', 'SOFI',
+];
 
 // ---- Volume caps ----------------------------------------------------------
 export const DAILY_CAP = 3; // 오리지널: 채널당 하루 상한 (절대) — §0-2
@@ -228,6 +235,22 @@ export async function setAutoMode(channel: AutoChannel, mode: AutoMode): Promise
   const stored = (await getFromCache<Record<string, AutoMode>>(AUTO_KEY)) || {};
   stored[channel] = mode;
   await setInCache(AUTO_KEY, stored); // persistent config (no TTL)
+}
+
+// ---- Recent-ticker rotation (48h): 같은 종목 반복 포스팅 방지 + 풀 순환.
+// pickBestTicker가 최근 포스팅된 종목을 후순위로 민다(전부 최근이면 최고점 허용).
+const RECENT_TICKERS_KEY = 'mkt:recent:tickers';
+export async function getRecentTickers(): Promise<Set<string>> {
+  const list = (await getFromCache<{ t: string; at: number }[]>(RECENT_TICKERS_KEY)) || [];
+  const cutoff = Date.now() - 48 * 3600 * 1000;
+  return new Set(list.filter((e) => e.at > cutoff).map((e) => e.t));
+}
+export async function markRecentTicker(ticker: string): Promise<void> {
+  const list = (await getFromCache<{ t: string; at: number }[]>(RECENT_TICKERS_KEY)) || [];
+  const cutoff = Date.now() - 48 * 3600 * 1000;
+  const fresh = list.filter((e) => e.at > cutoff && e.t !== ticker);
+  fresh.unshift({ t: ticker, at: Date.now() });
+  await setInCache(RECENT_TICKERS_KEY, fresh.slice(0, 40), 49 * 3600);
 }
 
 // ---- Min-interval between auto-posts per channel (§2.1: originals ≥90 min) -

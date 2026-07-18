@@ -42,10 +42,18 @@
 - **AdMob 재신청**(세금승인→프로필→재신청) = SIGNUM 즉시 + UC(1.0.1 후) **양쪽 광고 열쇠**.
 - 백업: 계속 거절 시 AppLovin MAX(애드몹 없이 수익화 가능).
 
-## ▶ 내일 시작점 (2026-07-16)
-1. **런치 초안 완성** — 대표님 "왜 만들었나" 한 줄 받으면 → 창업서사 en/ko/ja + UC(디스콰이엇/PH/note) + SIGNUM(디스콰이엇/Qiita/Zenn) 초안 9개 완성. 정본=`LAUNCH_KIT.md`. (발행=사람, 준비=Claude)
-2. **애드몹 교착** — 세금 W-8BEN vs W-9(US LLC) **회계사 확인**이 유력 원인. 그 전엔 재제출 X. 백업=AppLovin MAX.
-3. **SEO 관찰** — GSC에서 색인/노출 확인(자동 복리 중, 며칠~주).
+## ▶ 완료 (2026-07-16)
+- ✅ **UC App Store 피처링 요청 제출** (7/16~9/16 창, 관련앱 연결, 애플 검토 중).
+- ✅ **딥리서치: 마케팅 타이밍/시퀀스 검증** → 정본 `LAUNCH_KIT.md §7`.
+- **핵심 교정**: 시딩은 며칠 X → **4~6주(최소 30일)**. 원앤던은 시딩 후 발사(진공에 쏘면 낭비). 무료 마케팅 지금 시작(애드몹 무관), 유료는 수익 후.
+
+## ▶ 내일 시작점 (2026-07-17)
+1. **SIGNUM 피처링 요청** — UC와 같은 방식, 단 프로/데이터 각도 피치 별도(내가 작성). ASC에서 대표님 제출.
+2. **콜드스타트 시딩 시계 START** (게이팅=계정 나이). 앱별 좁은 청중 1개 + 주1편 + Reddit 가치우선(신뢰 베이스라인 30일+/카르마200~500). 정본 `LAUNCH_KIT.md §7` 90일 순서.
+3. **런치 초안 완성** — 대표님 "왜 만들었나" 한 줄 받으면 → 창업서사 en/ko/ja + UC(디스콰이엇/PH/note) + SIGNUM(디스콰이엇/Qiita/Zenn) 9개 완성.
+4. **애드몹 교착** — 세금 W-8BEN vs W-9(US LLC) **회계사 확인**이 유력 원인. 그 전엔 재제출 X. 백업=AppLovin MAX.
+5. **SEO 관찰** — GSC 색인/노출(자동 복리, 며칠~주).
+6. **미해결(리서치 공백)**: KR/JP 커뮤니티 검증 실패 → 직접 가입해 규칙 확인 후 착수. 크로스앱 리퍼럴/괴리 공유카드 루프 = 전술 미확정.
 
 ## 정본 문서 인덱스
 - `AUTOMATED_TRAFFIC_ENGINE.md`(트래픽 아키텍처) · `LAUNCH_KIT.md`(런치 초안) · `SIGNUM_V1.1_BINARY_ASSEMBLY.md` · `UC_1.0.1_ASSEMBLY.md` · `UC_GROWTH_PLAN.md` · `MARKETING_ACTIVE_OUTREACH_PLAN.md`(SIGNUM 직접아웃리치) · `MARKETING_AUTOMATION_PLAN.md`(Windows, 오가닉소셜) · `MARKETING_ENGINE_REBUILD.md`(콘솔 빌드상태)

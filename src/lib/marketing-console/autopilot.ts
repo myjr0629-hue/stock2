@@ -15,7 +15,8 @@ import {
   getAutoModes, getLastAutoPost, markAutoPost, MIN_INTERVAL_MS,
   deadmanTripped, recordGateResult,
   getRepliedIds, markReplied,
-  marketSession, jpSession,
+  marketSession, jpSession, etDate,
+  getRecentTickers, markRecentTicker,
   type AutoMode, type AutoChannel,
 } from './mkt';
 import { fetchStructure, extractLevels, type Levels, type ScanTweet } from './xScan';
@@ -36,8 +37,16 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
 
 // Build the hosted level-ladder card URL (Buffer fetches it as the post image).
 // Same /api/og/level card the console uses — grounded, no fabricated numbers.
-function ogCardUrl(ticker: string, lv: Levels): string {
-  const q = new URLSearchParams({ ticker });
+// v2: per-channel language + rotating visual theme (deterministic by
+// ticker+date+channel) so the feed doesn't look like one repeated template.
+const OG_THEMES = ['gold', 'ocean', 'ember'] as const;
+function pickTheme(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return OG_THEMES[h % OG_THEMES.length];
+}
+function ogCardUrl(ticker: string, lv: Levels, lang: 'en' | 'ja' = 'en', theme = 'gold'): string {
+  const q = new URLSearchParams({ ticker, lang, theme });
   if (typeof lv.price === 'number') q.set('price', String(lv.price));
   if (typeof lv.maxPain === 'number') q.set('maxPain', String(lv.maxPain));
   if (typeof lv.gammaFlip === 'number') q.set('gammaFlip', String(lv.gammaFlip));
@@ -46,33 +55,75 @@ function ogCardUrl(ticker: string, lv: Levels): string {
   return `${SITE}/api/og/level?${q.toString()}`;
 }
 
+// ---- 분산 발행 페이서 -------------------------------------------------------
+// 고정 크론 시각 대신 30분 슬롯마다 확률로 발행을 결정해, 하루 캡(3)이 채널
+// 활동창 전체에 매일 다른 시각으로 흩어지게 한다. target = CAP × 창 경과율.
+// 뒤처지면(behind≥1) 즉시 발행해 쿼터를 보장, 그 외엔 behind×0.5 확률(지터).
+// 캡·90분 간격·세션창 게이트가 그대로 중첩되므로 과발행은 불가능하다.
+function windowFraction(ch: string): number {
+  if (ch === 'x-jp') {
+    // JST 활동창(jpSession good): 07-10 + 20-05 = 12h, 07시 시작 순서.
+    const jst = parseInt(
+      new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tokyo', hour: '2-digit', hour12: false }).format(new Date()),
+      10
+    );
+    const seq = [7, 8, 9, 20, 21, 22, 23, 0, 1, 2, 3, 4];
+    const idx = seq.indexOf(jst);
+    return idx < 0 ? 1 : (idx + 0.5) / seq.length;
+  }
+  // x-us / bluesky-post: ET 09:30~20:00 (open+after 창과 일치)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date());
+  const g = (t: string) => parseInt(parts.find((p) => p.type === t)?.value || '0', 10);
+  const t = g('hour') * 60 + g('minute');
+  return Math.min(1, Math.max(0, (t - 570) / (1200 - 570)));
+}
+function paceGate(ch: string, vol: number): { post: boolean; detail: string } {
+  const target = DAILY_CAP * windowFraction(ch);
+  const behind = target - vol;
+  if (behind >= 1) return { post: true, detail: 'catch-up' };
+  if (behind > 0 && Math.random() < behind * 0.5) return { post: true, detail: 'jitter' };
+  return { post: false, detail: `페이싱 대기(target ${target.toFixed(1)}, 발행 ${vol})` };
+}
+
 export interface TickerPick { ticker: string; reason: string; notability: number; levels: Levels }
 
 // Scan the watchlist, rank by how notable the options structure is right now
 // (max-pain gap % is the strongest "the chart doesn't show it" hook; gamma-flip
 // proximity adds tension). Same scoring the console's /generate/suggest uses.
 export async function pickBestTicker(): Promise<TickerPick | null> {
+  // 확장 풀(26)에서 매 틱 셔플 12개만 샘플 — fetch 폭주 없이 풀 전체를 순환.
+  // 최근 48h 포스팅 종목은 후순위(전부 최근이면 최고점 허용) → 종목 다양성.
+  const recent = await getRecentTickers();
+  const pool = [...ST_TICKERS].sort(() => Math.random() - 0.5).slice(0, 12);
   const scored = await Promise.all(
-    ST_TICKERS.map(async (ticker): Promise<TickerPick | null> => {
+    pool.map(async (ticker): Promise<TickerPick | null> => {
       const lv = extractLevels(await fetchStructure(ticker));
       if (!lv || typeof lv.price !== 'number' || lv.price <= 0) return null;
       const price = lv.price;
       const maxPainGap = typeof lv.maxPain === 'number' ? Math.abs(price - lv.maxPain) / price : 0;
       const flipGap = typeof lv.gammaFlip === 'number' ? Math.abs(price - lv.gammaFlip) / price : 0;
-      const notability = maxPainGap * 100 + (flipGap < 0.01 ? 3 : 0);
+      const wallGap = typeof lv.callWall === 'number' ? Math.abs(price - lv.callWall) / price : 1;
+      const floorGap = typeof lv.putFloor === 'number' ? Math.abs(price - lv.putFloor) / price : 1;
+      // Level-test drama: price pressing a wall/floor is a story in itself.
+      const notability =
+        maxPainGap * 100 + (flipGap < 0.01 ? 3 : 0) + (wallGap < 0.005 ? 2 : 0) + (floorGap < 0.005 ? 2 : 0);
       // English only — this string feeds the generation prompt, and Korean here
       // leaked Hangul into a live @signumhq_jp post (2026-07-18 incident).
       const reason =
         maxPainGap >= 0.03 ? `max-pain divergence ${(maxPainGap * 100).toFixed(1)}%`
-          : flipGap < 0.01 ? 'gamma-flip proximity'
-            : 'structure watch';
+          : wallGap < 0.005 ? 'call-wall test'
+            : floorGap < 0.005 ? 'put-floor test'
+              : flipGap < 0.01 ? 'gamma-flip proximity'
+                : 'structure watch';
       return { ticker, reason, notability, levels: lv };
     })
   );
   const ranked = scored
     .filter((x): x is TickerPick => x !== null)
     .sort((a, b) => b.notability - a.notability);
-  return ranked[0] || null;
+  return ranked.find((x) => !recent.has(x.ticker)) || ranked[0] || null;
 }
 
 export interface AutoResult {
@@ -113,11 +164,14 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
   const plan: ChannelPlan[] = [
     { ch: 'x-us', volKey: X_CHANNELS.en, draftKey: 'x_en', bufferId: BUFFER_CH['x-us'], good: us.goodToPost },
     { ch: 'x-jp', volKey: X_CHANNELS.ja, draftKey: 'x_ja', bufferId: BUFFER_CH['x-jp'], good: jp.goodToPost },
-    { ch: 'bluesky-post', volKey: X_CHANNELS.bsky, draftKey: 'x_en', bufferId: BUFFER_CH.bluesky, good: true, bluesky: true },
+    // Bluesky audience is EN/US-market — pace it on the US window (was 24/7).
+    { ch: 'bluesky-post', volKey: X_CHANNELS.bsky, draftKey: 'x_en', bufferId: BUFFER_CH.bluesky, good: us.goodToPost, bluesky: true },
   ];
 
   // Only spend a Bedrock generation if at least one channel is active AND eligible
-  // right now (mode≠off, in a good window, under cap, past the interval).
+  // right now (mode≠off, in a good window, under cap, past the interval, and the
+  // pacer's slot lottery says now — that last one is what spreads posts across
+  // the day instead of firing at fixed cron minutes).
   const active: ChannelPlan[] = [];
   const out: AutoResult[] = [];
   for (const p of plan) {
@@ -128,6 +182,8 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
     if (vol >= DAILY_CAP) { out.push({ channel: p.ch, mode, action: 'skip', ok: false, detail: `캡 ${vol}/${DAILY_CAP}` }); continue; }
     const since = Date.now() - (await getLastAutoPost(p.ch));
     if (since < MIN_INTERVAL_MS) { out.push({ channel: p.ch, mode, action: 'skip', ok: false, detail: `간격 미달 ${Math.round(since / 60000)}m<90m` }); continue; }
+    const pace = paceGate(p.ch, vol);
+    if (!pace.post) { out.push({ channel: p.ch, mode, action: 'skip', ok: false, detail: pace.detail }); continue; }
     active.push(p);
   }
   if (active.length === 0) {
@@ -140,8 +196,9 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
     out.push({ channel: '*', mode: 'off', action: 'skip', ok: false, detail: '적합 종목 없음(데이터 부족)' });
     return out;
   }
-  const gen = await generateDrafts(pick.ticker, pick.reason);
-  const ogUrl = ogCardUrl(pick.ticker, pick.levels); // level card image for every channel
+  // Autopilot only consumes x_en/x_ja — don't burn Bedrock tokens on the
+  // console-manual channels (toss/stocktwits).
+  const gen = await generateDrafts(pick.ticker, pick.reason, ['x_en', 'x_ja']);
 
   // Deadman counts ONE result per RUN (not per channel): a single bad Bedrock
   // generation blocking all 3 channels must not insta-trip the 3-strike breaker
@@ -174,7 +231,13 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
       continue;
     }
 
-    // All gates passed → act per mode.
+    // All gates passed → act per mode. Card: per-channel language (ja for x-jp)
+    // + rotating theme so consecutive posts don't look like one repeated template.
+    const ogUrl = ogCardUrl(
+      pick.ticker, pick.levels,
+      p.ch === 'x-jp' ? 'ja' : 'en',
+      pickTheme(pick.ticker + etDate() + p.ch)
+    );
     let ok = false;
     let detail = '';
     try {
@@ -198,6 +261,7 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
       await bumpVolume(p.volKey);
       await recordSkeleton(text, p.ch);
       await markAutoPost(p.ch);
+      await markRecentTicker(pick.ticker); // 48h 종목 회전
       await appendAudit('autopilot', mode === 'live' ? 'auto-publish' : 'auto-draft', `${p.ch} $${pick.ticker} — ${detail}`);
       out.push({ channel: p.ch, mode, action: mode === 'live' ? 'published' : 'drafted', ok: true, detail: `$${pick.ticker}` });
     } else {

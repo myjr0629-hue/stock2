@@ -106,23 +106,11 @@
         },
         {
             "path": "/api/cron/mkt-originals",
-            "schedule": "37 13 * * 1-5"
-        },
-        {
-            "path": "/api/cron/mkt-originals",
-            "schedule": "47 16 * * 1-5"
-        },
-        {
-            "path": "/api/cron/mkt-originals",
-            "schedule": "8 19 * * 1-5"
-        },
-        {
-            "path": "/api/cron/mkt-originals",
-            "schedule": "13 20 * * 1-5"
+            "schedule": "3,33 * * * 1-5"
         },
         {
             "path": "/api/cron/mkt-replies",
-            "schedule": "17 13-23 * * 1-5"
+            "schedule": "17 * * * 1-5"
         }
     ]
 }

@@ -73,7 +73,12 @@ export interface BskyTarget {
 }
 
 // Search terms that surface US-equity/options chatter we can ground.
-const BSKY_QUERIES = ['$NVDA', '$TSLA', '$SPY', 'max pain', 'gamma exposure', 'options flow', 'dark pool'];
+// Cashtags first (highest ground-ability) — aligned with the expanded ST_TICKERS
+// attention pool; concept terms catch discussions with no cashtag.
+const BSKY_QUERIES = [
+  '$NVDA', '$TSLA', '$SPY', '$QQQ', '$AMD', '$PLTR', '$COIN', '$MSTR', '$SMCI',
+  'max pain', 'gamma exposure', 'options flow', 'dark pool', '0DTE', 'call wall',
+];
 
 /** Find recent reply-worthy Bluesky posts that mention a ticker we can ground. */
 export async function bskySearchTargets(limit = 30): Promise<BskyTarget[]> {

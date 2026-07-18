@@ -25,6 +25,26 @@ const C = {
   foot: '#48515F',
 };
 
+// Accent themes (?theme=gold|ocean|ember) — the autopilot rotates these so the
+// feed doesn't read as one repeated template. Layout/typography unchanged.
+const THEMES: Record<string, { accent: string; accentLine: string; glow: string; hiBg: string }> = {
+  gold: {
+    accent: '#E7C25A', accentLine: '#D4AF37', glow: 'rgba(231,194,90,0.11)',
+    hiBg: 'linear-gradient(90deg, rgba(231,194,90,0.16), rgba(231,194,90,0.05) 55%, transparent)',
+  },
+  ocean: {
+    accent: '#4FD1E8', accentLine: '#22B8D4', glow: 'rgba(34,211,238,0.13)',
+    hiBg: 'linear-gradient(90deg, rgba(34,211,238,0.15), rgba(34,211,238,0.05) 55%, transparent)',
+  },
+  ember: {
+    accent: '#FF8A70', accentLine: '#F0644A', glow: 'rgba(255,138,112,0.12)',
+    hiBg: 'linear-gradient(90deg, rgba(255,138,112,0.15), rgba(255,138,112,0.05) 55%, transparent)',
+  },
+};
+
+// Note text stays English for every lang: the embedded font is Inter (Latin
+// only) — CJK strings would render as tofu on the edge runtime. Level labels
+// are universal trading terms, so the card is brand-consistent across locales.
 const LABELS: Record<string, Record<string, string>> = {
   en: { CALL_WALL: 'CALL WALL', GAMMA_FLIP: 'GAMMA FLIP', MAX_PAIN: 'MAX PAIN', PUT_FLOOR: 'PUT FLOOR', LAST: 'LAST', note: 'Live options levels' },
   ja: { CALL_WALL: 'CALL WALL', GAMMA_FLIP: 'GAMMA FLIP', MAX_PAIN: 'MAX PAIN', PUT_FLOOR: 'PUT FLOOR', LAST: 'LAST', note: 'Live options levels' },
@@ -46,6 +66,7 @@ export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const ticker = (p.get('ticker') || 'SPY').toUpperCase();
   const lang = p.get('lang') || 'en';
+  const th = THEMES[p.get('theme') || 'gold'] || THEMES.gold;
   const L = LABELS[lang] || LABELS.en;
   const priceLabel = (p.get('priceLabel') || L.LAST).toUpperCase();
   const dateStr = p.get('date') || new Date().toISOString().split('T')[0];
@@ -78,7 +99,7 @@ export async function GET(req: NextRequest) {
           justifyContent: 'space-between',
           backgroundColor: C.bg,
           backgroundImage:
-            'radial-gradient(ellipse 90% 70% at 82% 8%, rgba(231,194,90,0.11), transparent 55%), radial-gradient(ellipse 70% 60% at 8% 96%, rgba(34,211,238,0.06), transparent 55%)',
+            `radial-gradient(ellipse 90% 70% at 82% 8%, ${th.glow}, transparent 55%), radial-gradient(ellipse 70% 60% at 8% 96%, rgba(34,211,238,0.06), transparent 55%)`,
           padding: '52px 72px',
           fontFamily: 'Inter, sans-serif',
           position: 'relative',
@@ -135,16 +156,14 @@ export async function GET(req: NextRequest) {
                 gap: '22px',
                 padding: '9px 16px',
                 borderRadius: '10px',
-                ...(r.hi
-                  ? { backgroundImage: 'linear-gradient(90deg, rgba(231,194,90,0.16), rgba(231,194,90,0.05) 55%, transparent)' }
-                  : {}),
+                ...(r.hi ? { backgroundImage: th.hiBg } : {}),
               }}
             >
               <span
                 style={{
                   display: 'flex',
                   width: '188px',
-                  color: r.hi ? C.gold : C.label,
+                  color: r.hi ? th.accent : C.label,
                   fontSize: '21px',
                   fontWeight: r.hi ? 700 : 500,
                   letterSpacing: '2px',
@@ -157,7 +176,7 @@ export async function GET(req: NextRequest) {
                   display: 'flex',
                   flex: 1,
                   height: '1px',
-                  borderTop: `${r.hi ? 3 : 1.5}px solid ${r.hi ? C.goldLine : C.line}`,
+                  borderTop: `${r.hi ? 3 : 1.5}px solid ${r.hi ? th.accentLine : C.line}`,
                 }}
               />
               <span style={{ display: 'flex', width: '76px', justifyContent: 'flex-end', color: C.gap, fontSize: '17px' }}>
@@ -168,7 +187,7 @@ export async function GET(req: NextRequest) {
                   display: 'flex',
                   width: '160px',
                   justifyContent: 'flex-end',
-                  color: r.hi ? C.gold : C.value,
+                  color: r.hi ? th.accent : C.value,
                   fontSize: r.hi ? '46px' : '30px',
                   fontWeight: r.hi ? 800 : 500,
                 }}

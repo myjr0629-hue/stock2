@@ -75,8 +75,10 @@ export interface GenerateResult {
   drafts: ChannelDraft[];
 }
 
-/** Generate 4-channel drafts grounded in our real levels. */
-export async function generateDrafts(ticker: string, eventType: string): Promise<GenerateResult> {
+/** Generate grounded channel drafts. `only` restricts channels (autopilot passes
+ * ['x_en','x_ja'] — no Bedrock tokens wasted on console-manual channels). */
+export async function generateDrafts(ticker: string, eventType: string, only?: Channel[]): Promise<GenerateResult> {
+  const chans = only?.length ? CHANNELS.filter((c) => only.includes(c.channel)) : CHANNELS;
   const structure = await fetchStructure(ticker);
   const levels = extractLevels(structure);
   if (!levels) {
@@ -88,8 +90,9 @@ export async function generateDrafts(ticker: string, eventType: string): Promise
     .map(([k, v]) => `${k}=${v}`)
     .join(' · ');
 
+  const jsonShape = `{${chans.map((c) => `"${c.channel}":"..."`).join(',')}}`;
   const system = `You write social posts for @signumhq, an educational options-data brand.
-Produce ONE post per channel. Return STRICT JSON: {"toss":"...","stocktwits":"...","x_en":"...","x_ja":"..."}.
+Produce ONE post per channel. Return STRICT JSON: ${jsonShape}.
 ABSOLUTE RULES (violation is unacceptable — brand is "accurate, no prediction"):
 - Use ONLY the provided numbers. NEVER invent/estimate any number. Max 3 numbers per post.
 - NO prediction or direction hints (no will / headed / about to break / knife's edge / 향하 / 간다 / 目標). Present or past facts only.
@@ -101,7 +104,7 @@ ABSOLUTE RULES (violation is unacceptable — brand is "accurate, no prediction"
 Event type: ${eventType}
 Our verified levels (use ONLY these): ${factLines}
 
-Write the four posts now as strict JSON with keys toss, stocktwits, x_en, x_ja:`;
+Write the ${chans.length} post(s) now as strict JSON with keys ${chans.map((c) => c.channel).join(', ')}:`;
 
   let parsed: Record<string, string> = {};
   try {
@@ -118,7 +121,7 @@ Write the four posts now as strict JSON with keys toss, stocktwits, x_en, x_ja:`
     return { ticker, grounded: true, levels, drafts: [] };
   }
 
-  let drafts: ChannelDraft[] = CHANNELS.map((c) => {
+  let drafts: ChannelDraft[] = chans.map((c) => {
     const t = (parsed[c.channel] || '').trim();
     return { channel: c.channel, label: c.label, lang: c.lang, text: t, lint: lint(t, c.lang) };
   });
