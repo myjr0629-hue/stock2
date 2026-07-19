@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 // Release signing — credentials live ONLY in android/keystore.properties (gitignored)
-// and the upload keystore at ~/android-tools/undercurrent-upload-key.jks. NEVER commit either.
+// and the upload keystore at ~/android-tools/wim-upload-key.jks. NEVER commit either.
 def keystoreProps = new Properties()
 def keystorePropsFile = rootProject.file('keystore.properties')
 if (keystorePropsFile.exists()) {

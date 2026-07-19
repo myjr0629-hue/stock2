@@ -8,3 +8,4 @@ android/build/
 *.log
 keystore.properties
 undercurrent-upload-key.jks
+wim-upload-key.jks
