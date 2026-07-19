@@ -3646,7 +3646,7 @@ export default function WimPage() {
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: P.heroDeep, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color={P.heroDeep} /> {t.heroEyebrow.toUpperCase()}</span>
-                        <h1 style={{ margin: '9px 0 0', fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.28, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        <h1 style={{ margin: '9px 0 0', fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.28, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                           {t.heroHeadline.replace('{c}', shortCompanyName(heroU.companyName, heroU.ticker)).replace('{v}', String(heroU.moveMagnitude))}
                         </h1>
                       </div>
@@ -3696,7 +3696,7 @@ export default function WimPage() {
                 {/* the CTA floats over the card's bottom edge — ink pill (dark stays ink-only) */}
                 <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', position: 'absolute', left: 18, right: 18, bottom: 0, background: P.ink, color: '#fff', border: 'none', borderRadius: 26, padding: '13px 18px', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', lineHeight: 1.3, boxShadow: '0 12px 26px rgba(38,34,64,0.28), 0 3px 8px rgba(38,34,64,0.16)' }}>
                   <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {heroU.prompt[loc]} · {t.solve} →
+                    {heroU.prompt[loc]} · {t.solve}{' '}→
                   </span>
                 </button>
               </section>
