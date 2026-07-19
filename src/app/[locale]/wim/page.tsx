@@ -387,6 +387,8 @@ const T: Record<Lang, Record<string, string>> = {
     dominoEstimate: '예상', dominoPrevious: '이전',
     dominoFinale: '사슬 완성', dominoRecap: '오늘의 숫자',
     reviewChip: '복습',
+    drillFocus: '집중 드릴',
+    drillFocusSub: '같은 지표 · 다른 종목',
     weekendTitle: '주말 리뷰', weekendSub: '이번 주 마지막 세션을 다시 보고, 배운 개념을 복습하세요',
     unlockDramaLabel: '새 층 해제',
     beltTitle: '벨트 지도', beltSub: '계급이 오를수록 차트에 보이는 층이 늘어요',
@@ -551,6 +553,8 @@ const T: Record<Lang, Record<string, string>> = {
     dominoEstimate: 'Est.', dominoPrevious: 'Prev.',
     dominoFinale: 'Chain complete', dominoRecap: "Today's numbers",
     reviewChip: 'Review',
+    drillFocus: 'Focus drill',
+    drillFocusSub: 'Same metric · new tickers',
     weekendTitle: 'Weekend review', weekendSub: "Rewind the week's last session and revisit what you learned",
     unlockDramaLabel: 'New layer unlocked',
     beltTitle: 'Belt map', beltSub: 'Higher ranks open more layers on your chart',
@@ -715,6 +719,8 @@ const T: Record<Lang, Record<string, string>> = {
     dominoEstimate: '予想', dominoPrevious: '前回',
     dominoFinale: '連鎖完成', dominoRecap: '今日の数字',
     reviewChip: '復習',
+    drillFocus: '集中ドリル',
+    drillFocusSub: '同じ指標 · 別の銘柄',
     weekendTitle: '週末レビュー', weekendSub: '今週最後のセッションを見直して、学んだ概念を復習しよう',
     unlockDramaLabel: '新しい層を解放',
     beltTitle: 'ベルトマップ', beltSub: '階級が上がるほどチャートに見える層が増える',
@@ -1649,10 +1655,11 @@ function buildSenseQs(lb: LabData, t: Record<string, string>): SenseQ[] {
   return out;
 }
 
-function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, isReviewDue, onClose, disclaimer }: {
+function NumberSensePlay({ tickers, requestLab, t, loc, onAward, onCollect, onSrs, isReviewDue, onClose, disclaimer }: {
   tickers: string[];
   requestLab: (tk: string) => Promise<LabData | null>;
   t: Record<string, string>;
+  loc: 'ko' | 'en' | 'ja';
   onAward: (gain: number) => void;
   onCollect: (term: MetricTerm) => void;
   onSrs: (term: string, ok: boolean) => void;
@@ -1665,6 +1672,7 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, is
   const [picked, setPicked] = useState<boolean | null>(null); // true = higher
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<'play' | 'summary'>('play');
+  const [focusTerm, setFocusTerm] = useState<MetricTerm | null>(null);
   const bonusRef = useRef(false);
 
   // fetch every unit ticker's lab in parallel (cache-first), pool the non-null
@@ -1679,8 +1687,33 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, is
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
-      // W4 SRS-lite: terms missed more than hit (and not touched today) jump to the
-      // front — stable partition, capped at 2 so it never feels like a punishment loop
+      // ── 집중 드릴 (제품 정의 §2): ONE indicator across DIFFERENT tickers in a
+      // row — repetition on live values is how the concept sticks. Focus term =
+      // the weakest SRS-due term when it can sustain a run, else a date-rotating
+      // pick among terms with ≥3 distinct tickers; mixed set stays the fallback.
+      const byTerm = new Map<MetricTerm, SenseQ[]>();
+      pool.forEach((pq) => { const a = byTerm.get(pq.term) || []; a.push(pq); byTerm.set(pq.term, a); });
+      const sustains = (k: MetricTerm) => new Set((byTerm.get(k) || []).map((x) => x.ticker)).size >= 3;
+      const candidates = [...byTerm.keys()].filter(sustains);
+      const dueCand = candidates.find((k) => isReviewDue(k));
+      const dk = etTodayStr(); let h = 0;
+      for (let i = 0; i < dk.length; i++) h = (h * 31 + dk.charCodeAt(i)) >>> 0;
+      const focus = dueCand || (candidates.length ? candidates[h % candidates.length] : null);
+      if (focus) {
+        const seen = new Set<string>();
+        const run = (byTerm.get(focus) || []).filter((x) => {
+          if (seen.has(x.ticker)) return false;
+          seen.add(x.ticker);
+          return true;
+        }).slice(0, 5);
+        if (run.length >= 3) {
+          setFocusTerm(focus);
+          setQs(run.map((x) => (dueCand && x.term === dueCand ? { ...x, review: true } : x)));
+          return;
+        }
+      }
+      // W4 SRS-lite fallback (mixed): terms missed more than hit (and not touched
+      // today) jump to the front — capped at 2 so it never feels like punishment
       const due: SenseQ[] = []; const rest: SenseQ[] = [];
       pool.forEach((pq) => {
         if (due.length < 2 && isReviewDue(pq.term) && !due.some((d) => d.term === pq.term)) due.push({ ...pq, review: true });
@@ -1736,7 +1769,16 @@ function NumberSensePlay({ tickers, requestLab, t, onAward, onCollect, onSrs, is
 
         {playable && phase === 'play' && q && (
           <>
-            <div style={{ marginTop: 16, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '18px 16px', textAlign: 'center', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
+            {/* 집중 드릴 배너 — 오늘은 이 지표 하나를 여러 종목으로 (제품 정의 §2) */}
+            {focusTerm && (
+              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, background: P.heroSoft, border: '1px solid rgba(108,92,231,0.18)', borderRadius: 14, padding: '9px 13px', animation: `wimUp 0.24s ${EASE_OUT} both` }}>
+                <Ic name="chart" size={14} color={P.heroDeep} sw={2} />
+                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 900, color: P.heroDeep }}>{t.drillFocus}</span>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11.5, fontWeight: 900, color: P.ink }}>{METRIC_GLOSSARY[focusTerm].title[loc]}</span>
+                <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 9.5, fontWeight: 800, color: P.faint }}>{t.drillFocusSub}</span>
+              </div>
+            )}
+            <div style={{ marginTop: focusTerm ? 10 : 16, background: '#fff', borderRadius: 24, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '18px 16px', textAlign: 'center', animation: `wimUp 0.26s ${EASE_OUT} both` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <TickerLogo ticker={q.ticker} size={30} />
                 <span style={{ fontSize: 15.5, fontWeight: 900 }}>{q.ticker}</span>
@@ -3306,9 +3348,10 @@ export default function WimPage() {
     return (
       <PlayShell closing={playClosing}>
         <NumberSensePlay
-          tickers={Array.from(new Set(units.slice(0, 3).map((u) => u.ticker)))}
+          tickers={Array.from(new Set(units.slice(0, 5).map((u) => u.ticker)))}
           requestLab={requestLab}
           t={t}
+          loc={loc}
           onAward={awardPlayXp}
           onCollect={collectAlmanac}
           onSrs={srsRecord}
