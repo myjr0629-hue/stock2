@@ -2517,9 +2517,15 @@ interface UcCard {
 // the first two words when the legal name would eat the whole clamp.
 function shortCompanyName(name: string | null | undefined, ticker: string): string {
   if (!name) return ticker;
-  const cleaned = name.replace(/[,.]?\s+(Inc|Corp|Corporation|Company|Co|Ltd|Limited|plc|Holdings|Holding|Group|SA|NV|AG|ADR)\.?$/i, '').trim();
-  if (cleaned.length <= 24) return cleaned || ticker;
-  return cleaned.split(/\s+/).slice(0, 2).join(' ');
+  // legal tails come in layers ("Meta Platforms, Inc. Class A") — strip class
+  // suffixes first, then the corporate form, then any punctuation left behind
+  // (the headline template adds its own comma; ",," shipped live on 2026-07-20).
+  const cleaned = name
+    .replace(/\s+Class\s+[A-C]$/i, '')
+    .replace(/[,.]?\s+(Inc|Corp|Corporation|Company|Co|Ltd|Limited|plc|Holdings|Holding|Group|SA|NV|AG|ADR)\.?$/i, '')
+    .trim();
+  const base = cleaned.length <= 24 ? cleaned : cleaned.split(/\s+/).slice(0, 2).join(' ');
+  return base.replace(/[,.\s]+$/, '') || ticker;
 }
 
 // real news photo with a graceful exit — a broken/blocked image hides the whole
@@ -3779,7 +3785,7 @@ export default function WimPage() {
                 </div>
                 {/* the CTA floats over the card's bottom edge — ink pill (dark stays ink-only) */}
                 <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', position: 'absolute', left: 18, right: 18, bottom: 0, background: P.ink, color: '#fff', border: 'none', borderRadius: 26, padding: '13px 18px', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', lineHeight: 1.3, boxShadow: '0 12px 26px rgba(38,34,64,0.28), 0 3px 8px rgba(38,34,64,0.16)' }}>
-                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all' }}>
                     {heroU.prompt[loc]} · {t.solve}{' '}→
                   </span>
                 </button>
