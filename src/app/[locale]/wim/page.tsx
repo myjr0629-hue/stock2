@@ -8,7 +8,7 @@
 //
 // IDENTITY (deliberately unlike SIGNUM's dark terminal and UC's cream
 // editorial): bright violet playground — soft lavender paper, bouncy rounded
-// cards, a detective mascot, confetti on correct answers.
+// cards, and a quiet correct-answer burst (no mascot, no confetti — W5-A).
 //
 // ADS (structure now, inert until WIM_ADS_LIVE): ① bottom banner slot,
 // ② interstitial after finishing the daily set, ③ rewarded gate on the
@@ -46,6 +46,7 @@ interface Today { success: boolean; dateET: string; units: Unit[] }
 // ── premium icon system: one consistent 1.8px-stroke glyph set (NO emojis) ──
 const ICON_PATHS: Record<string, string> = {
   search: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm5.2 12.2L21 21',
+  globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm-8.4 6h16.8M3.6 15h16.8M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9s1.3-6.4 3.8-9Z',
   gear: 'M12 8.5A3.5 3.5 0 1 1 12 15.5 3.5 3.5 0 0 1 12 8.5Zm8-.5-1.9-.6a6.7 6.7 0 0 0-.6-1.4l.9-1.8-1.6-1.6-1.8.9c-.4-.3-.9-.5-1.4-.6L13 1h-2l-.6 1.9c-.5.1-1 .3-1.4.6l-1.8-.9L5.6 4.2l.9 1.8c-.3.4-.5.9-.6 1.4L4 8v2l1.9.6c.1.5.3 1 .6 1.4l-.9 1.8 1.6 1.6 1.8-.9c.4.3.9.5 1.4.6L11 17h2l.6-1.9c.5-.1 1-.3 1.4-.6l1.8.9 1.6-1.6-.9-1.8c.3-.4.5-.9.6-1.4L20 10V8Z',
   folder: 'M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2.5h8.5A1.5 1.5 0 0 1 21 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-10Z',
   book: 'M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-15ZM9 3v18',
@@ -318,7 +319,6 @@ const T: Record<Lang, Record<string, string>> = {
     empty: '오늘 문제를 준비하고 있어요 — 잠시 후 다시 열어주세요.',
     play: '풀기', replay: '다시 보기',
     playDeck: '오늘의 플레이',
-    comingSoon: '곧 열림',
     teaserHunt: '레벨 헌트', teaserHuntSub: '실제 차트 위에서 기관 레벨 찾기',
     teaserSense: '숫자 감각', teaserSenseSub: '오늘 지표, 위였을까 아래였을까',
     sessionPre: '프리', sessionReg: '본장', sessionPost: '애프터',
@@ -389,6 +389,12 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: '복습',
     drillFocus: '집중 드릴',
     drillFocusSub: '같은 지표 · 다른 종목',
+    calTitle: '직감 정확도',
+    calSub: '최근 30일 · {a}번의 판단 중 {b}번 적중',
+    calEmpty: '다섯 번 이상 풀면 나의 정확도 곡선이 열려요',
+    statLine: '학습자 {p}%가 맞혔어요',
+    statEarly: '이른 풀이 — 오늘 {n}번째예요',
+    liveNow: '지금',
     weekendTitle: '주말 리뷰', weekendSub: '이번 주 마지막 세션을 다시 보고, 배운 개념을 복습하세요',
     unlockDramaLabel: '새 층 해제',
     beltTitle: '벨트 지도', beltSub: '계급이 오를수록 차트에 보이는 층이 늘어요',
@@ -484,7 +490,6 @@ const T: Record<Lang, Record<string, string>> = {
     empty: "Preparing today's questions — check back shortly.",
     play: 'Play', replay: 'Review',
     playDeck: "Today's plays",
-    comingSoon: 'Coming soon',
     teaserHunt: 'Level Hunt', teaserHuntSub: 'Spot the institutional levels on a real chart',
     teaserSense: 'Number Sense', teaserSenseSub: "Was today's reading higher or lower?",
     sessionPre: 'PRE', sessionReg: 'REG', sessionPost: 'POST',
@@ -555,6 +560,12 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: 'Review',
     drillFocus: 'Focus drill',
     drillFocusSub: 'Same metric · new tickers',
+    calTitle: 'Gut accuracy',
+    calSub: 'Last 30 days · {b} of {a} calls landed',
+    calEmpty: 'Answer five or more to unlock your accuracy curve',
+    statLine: '{p}% of learners got this one',
+    statEarly: 'Early solve — #{n} today',
+    liveNow: 'Now',
     weekendTitle: 'Weekend review', weekendSub: "Rewind the week's last session and revisit what you learned",
     unlockDramaLabel: 'New layer unlocked',
     beltTitle: 'Belt map', beltSub: 'Higher ranks open more layers on your chart',
@@ -650,7 +661,6 @@ const T: Record<Lang, Record<string, string>> = {
     empty: '今日の問題を準備中 — 少し後にまた開いてください。',
     play: '解く', replay: '復習',
     playDeck: '今日のプレイ',
-    comingSoon: '近日公開',
     teaserHunt: 'レベルハント', teaserHuntSub: '実チャートの上で機関レベルを探す',
     teaserSense: '数字感覚', teaserSenseSub: '今日の指標、上だった？下だった？',
     sessionPre: 'プレ', sessionReg: 'ザラ場', sessionPost: 'アフター',
@@ -721,6 +731,12 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: '復習',
     drillFocus: '集中ドリル',
     drillFocusSub: '同じ指標 · 別の銘柄',
+    calTitle: '直感の精度',
+    calSub: '直近30日 · {a}回中{b}回的中',
+    calEmpty: '5回以上解くと精度カーブが開きます',
+    statLine: '学習者の{p}%が正解しました',
+    statEarly: '早解き — 本日{n}人目です',
+    liveNow: '現在',
     weekendTitle: '週末レビュー', weekendSub: '今週最後のセッションを見直して、学んだ概念を復習しよう',
     unlockDramaLabel: '新しい層を解放',
     beltTitle: 'ベルトマップ', beltSub: '階級が上がるほどチャートに見える層が増える',
@@ -1005,17 +1021,32 @@ const MARKET_LEVEL_TERMS = new Set<MetricTerm>([
 // last-session chart with the term's real level/overlay drawn on it, plus the
 // term's real numbers as stat tiles and a gauge. Prose is the caption, not the lesson.
 function GlossarySheet({
-  term, lab, loc, t, onClose,
+  term, lab, loc, t, onClose, live,
 }: {
   term: MetricTerm; lab: LabData | null; loc: Lang; t: Record<string, string>; onClose: () => void;
+  live?: { yield10Y: number | null; holdPct: number | null; fomcDays: number | null };
 }) {
   const entry = METRIC_GLOSSARY[term];
   const demo = termDemo(term, lab);
   const spark = lab?.spark || null;
+  // 살아있는 용어집(A급 ③): 시장 레벨 용어는 정의 옆에 오늘의 실측값을 붙인다.
+  // 실데이터 소스가 있는 용어만(없으면 표시 안 함 — 가짜 숫자 금지).
+  const liveLine =
+    term === 'rate10y' && live?.yield10Y != null ? `${live.yield10Y.toFixed(2)}%`
+      : term === 'fomc' && live?.holdPct != null
+        ? `${t.pulseHold} ${live.holdPct.toFixed(1)}%${live.fomcDays != null ? ` · D-${live.fomcDays}` : ''}`
+        : null;
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease', maxHeight: '80vh', overflowY: 'auto' }}>
         <div style={{ fontSize: 16.5, fontWeight: 900, color: P.ink, letterSpacing: '-0.01em' }}>{entry.title[loc]}</div>
+        {liveLine && (
+          <div style={{ marginTop: 8 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '4px 11px', fontVariantNumeric: 'tabular-nums' }}>
+              ● {t.liveNow} · {liveLine}
+            </span>
+          </div>
+        )}
 
         {lab && (demo || spark) && !MARKET_LEVEL_TERMS.has(term) && (
           <div style={{ marginTop: 12, background: P.bg, borderRadius: 18, padding: '11px 10px 8px', border: `1px solid ${P.line}` }}>
@@ -2689,6 +2720,10 @@ export default function WimPage() {
   const weekendET = useMemo(() => isWeekendET(), []);
   // W6-A S1: live pulse strip data — the shared page-wide macro fetch
   const [pulse, setPulse] = useState<{ fw: FedWatchData | null; ty: TreasuryData | null } | null>(null);
+  // 예감 기록(A급 ①): {dateET: [tried, correct]} 30일 롤링 — 모든 플레이의 정오답 스트림
+  const [cal, setCal] = useState<Record<string, [number, number]>>({});
+  // 전세계 정답률(A급 ②): 현재 문제의 글로벌 통계 (reveal 후 표시)
+  const [gStat, setGStat] = useState<{ n: number; pct: number | null } | null>(null);
   const [unlockLevels, setUnlockLevels] = useState(false);
   const [unlockToast, setUnlockToast] = useState(false);
   // W5-A: first-unlock full-screen drama (plays on home, then hands off to the toast)
@@ -2717,6 +2752,8 @@ export default function WimPage() {
       setUnlockLevels(localStorage.getItem('wim.unlock.levels') === '1');
       const alm = JSON.parse(localStorage.getItem('wim.almanac') || '{}');
       if (alm && typeof alm === 'object' && !Array.isArray(alm)) { almanacRef.current = alm; setAlmanac(alm); }
+      const calRaw = JSON.parse(localStorage.getItem('wim.cal') || '{}');
+      if (calRaw && typeof calRaw === 'object' && !Array.isArray(calRaw)) setCal(calRaw);
       const srs = JSON.parse(localStorage.getItem('wim.srs') || '{}');
       if (srs && typeof srs === 'object' && !Array.isArray(srs)) srsRef.current = srs;
       const wk = JSON.parse(localStorage.getItem('wim.week') || 'null');
@@ -2859,7 +2896,7 @@ export default function WimPage() {
   const startQuiz = useCallback((idx: number) => {
     if (quizCloseTimer.current) { clearTimeout(quizCloseTimer.current); quizCloseTimer.current = null; }
     setQuizClosing(false);
-    setActiveIdx(idx); setPicked(null); setDeepOpen(false); setRemain(8);
+    setActiveIdx(idx); setPicked(null); setDeepOpen(false); setRemain(8); setGStat(null);
     stopTimer();
     if (everPlayed) {
       timerRef.current = setInterval(() => {
@@ -2871,6 +2908,24 @@ export default function WimPage() {
     }
     window.scrollTo(0, 0);
   }, [everPlayed, stopTimer]);
+
+  // 예감 기록(A급 ①) — 모든 플레이의 정오답을 일별 적산해 "직감 정확도" 곡선을
+  // 만든다. 자기 채점 데이터이지 예측이 아니다. 30일 롤링, localStorage 영속.
+  const recordCal = useCallback((ok: boolean) => {
+    setCal((prev) => {
+      const day = etTodayStr();
+      const next: Record<string, [number, number]> = { ...prev };
+      const cur = next[day] || [0, 0];
+      next[day] = [cur[0] + 1, cur[1] + (ok ? 1 : 0)];
+      const cutoff = Date.now() - 30 * 86_400_000;
+      for (const k of Object.keys(next)) {
+        const ms = Date.parse(`${k}T12:00:00Z`);
+        if (Number.isFinite(ms) && ms < cutoff) delete next[k];
+      }
+      persist('wim.cal', JSON.stringify(next));
+      return next;
+    });
+  }, [persist]);
 
   // shared bookkeeping: XP + done + week dot + first-play flag (answer AND timeout)
   const record = useCallback((u: Unit, categoryId: string) => {
@@ -2884,7 +2939,19 @@ export default function WimPage() {
     const w = [...week]; w[weekdayIdx()] = true;
     setWeek(w); persist('wim.week', JSON.stringify(w));
     if (!everPlayed) { setEverPlayed(true); persist('wim.played', '1'); }
-  }, [done, xp, week, everPlayed, persist]);
+    recordCal(correct);
+    // 전세계 정답률(A급 ②) — fire-and-forget 집계 후 이 문제의 글로벌 통계 표시.
+    // 실패는 조용히 무시(통계는 장식이지 기능이 아니다).
+    const d = u.dateET || today?.dateET || etTodayStr();
+    setGStat(null);
+    fetch('/api/wim/stats', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ u: u.id, d, ok: correct }),
+    }).then(() => fetch(`/api/wim/stats?u=${encodeURIComponent(u.id)}&d=${encodeURIComponent(d)}`))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j && typeof j.n === 'number') setGStat(j); })
+      .catch(() => {});
+  }, [done, xp, week, everPlayed, persist, recordCal, today]);
 
   const answer = useCallback((u: Unit, categoryId: string) => {
     if (picked) return;
@@ -3002,7 +3069,8 @@ export default function WimPage() {
     const next = { ...srsRef.current, [term]: { wrong: prev.wrong + (ok ? 0 : 1), right: prev.right + (ok ? 1 : 0), last: etTodayStr() } };
     srsRef.current = next;
     persist('wim.srs', JSON.stringify(next));
-  }, [persist]);
+    recordCal(ok); // 플레이(헌트/센스/리플레이) 판정도 직감 정확도 스트림에 합산
+  }, [persist, recordCal]);
   const isReviewDue = useCallback((term: string): boolean => {
     const e = srsRef.current[term];
     return !!e && e.wrong > e.right && e.last !== etTodayStr();
@@ -3221,6 +3289,15 @@ export default function WimPage() {
               <div style={{ marginTop: 16, textAlign: 'center', fontSize: 20, fontWeight: 900, color: wasCorrect ? P.mint : P.amber, animation: 'wimJudge 0.35s ease both' }}>
                 {wasCorrect ? `${t.correct} +${XP_CORRECT}XP` : `${t.notQuite} +${XP_TRIED}XP`}
               </div>
+              {/* 전세계 정답률(A급 ②) — 5명 이상 쌓였을 때만 %, 그 전엔 이른-풀이 라인 */}
+              {gStat && gStat.n > 0 && (
+                <div style={{ marginTop: 7, textAlign: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '5px 12px' }}>
+                    <Ic name="globe" size={12} color={P.heroDeep} sw={2} />
+                    {gStat.pct != null ? t.statLine.replace('{p}', String(gStat.pct)) : t.statEarly.replace('{n}', String(gStat.n))}
+                  </span>
+                </div>
+              )}
 
               <div style={{ marginTop: 12, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '15px 16px' }}>
                 <div style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '0.1em', color: P.hero, marginBottom: 7 }}>{t.theWhy.toUpperCase()}</div>
@@ -3314,7 +3391,7 @@ export default function WimPage() {
         </div>
 
         {/* glossary bottom sheet (shared with home) */}
-        {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
+        {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: pulse?.ty?.yield10Y ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
         {almToastNode}
       </div>
       </PlayShell>
@@ -3486,7 +3563,7 @@ export default function WimPage() {
           </div>
 
           {/* the glossary sheet + collect toast ride on top of the track sheet */}
-          {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
+          {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: pulse?.ty?.yield10Y ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
           {almToastNode}
         </div>
       </PlayShell>
@@ -3939,6 +4016,38 @@ export default function WimPage() {
         {/* ── TAB: ME (case record) ── */}
         {homeTab === 'me' && (
           <section style={{ marginTop: 16, animation: 'wimUp 0.3s ease' }}>
+            {/* 예감 기록(A급 ①) — 직감 정확도: 30일 롤링 자기 채점 곡선. 5회 미만이면
+                정직한 잠금 상태(가짜 100% 금지). */}
+            {(() => {
+              const days = Object.keys(cal).sort();
+              const tot = days.reduce((s, k) => s + cal[k][0], 0);
+              const cor = days.reduce((s, k) => s + cal[k][1], 0);
+              const pct = tot >= 5 ? Math.round((cor / tot) * 100) : null;
+              const last14 = days.slice(-14);
+              return (
+                <div style={{ ...glass, borderRadius: 22, padding: '14px 15px', marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="crosshair" size={15} color={P.heroDeep} /> {t.calTitle}</h2>
+                    {pct != null && <span style={{ marginLeft: 'auto', fontSize: 16, fontWeight: 900, color: P.heroDeep, fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>}
+                  </div>
+                  {pct != null ? (
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.calSub.replace('{a}', String(tot)).replace('{b}', String(cor))}</div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 34, marginTop: 10 }}>
+                        {last14.map((k) => {
+                          const [dt, dc] = cal[k];
+                          const p = dt > 0 ? dc / dt : 0;
+                          return <div key={k} title={k} style={{ flex: 1, height: `${Math.max(12, p * 100)}%`, borderRadius: 4, background: p >= 0.5 ? P.hero : 'rgba(108,92,231,0.25)' }} />;
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: P.sub, marginTop: 3 }}>{t.calEmpty}</div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* W3: concept almanac — collected cards carry the real chart of the day they were earned */}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 7 }}><Ic name="spark" size={15} color={P.heroDeep} /> {t.almanacTitle}</h2>
@@ -4182,7 +4291,7 @@ export default function WimPage() {
       )}
 
       {/* glossary bottom sheet — concept ON today's real chart */}
-      {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} onClose={() => setGlossOpen(null)} />}
+      {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: pulse?.ty?.yield10Y ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
     </div>
   );
 }
