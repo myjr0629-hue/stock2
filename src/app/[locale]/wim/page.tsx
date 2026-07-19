@@ -1342,7 +1342,7 @@ function PlayShell({ closing, children }: { closing: boolean; children: ReactNod
 // top bar shared by both plays — same skeleton as the quiz overlay's (back + progress + chip)
 function PlayTopBar({ onClose, backLabel, prog, chip }: { onClose: () => void; backLabel: string; prog: number; chip?: string | null }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + env(safe-area-inset-top))' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
       <button type="button" onClick={onClose} aria-label={backLabel} style={{ font: 'inherit', width: 38, height: 38, borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer', flexShrink: 0 }}>←</button>
       <div style={{ flex: 1, height: 8, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
         <div style={{ width: `${Math.min(100, Math.max(0, prog * 100))}%`, height: '100%', background: P.hero, borderRadius: 99, transition: 'width 0.4s ease' }} />
@@ -2686,6 +2686,29 @@ export default function WimPage() {
 
   const [today, setToday] = useState<Today | null>(null);
   const [failed, setFailed] = useState(false);
+  // [SHELL] route once to the saved or device language — the native shell enters
+  // at /en/wim for every user (mirrors the UC pattern; router nav only, because
+  // window.location is a top-level nav that opens in-app Safari under Capacitor).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('wim.locale');
+      const dev = (navigator.language || 'en').slice(0, 2).toLowerCase();
+      const want = saved && ['ko', 'en', 'ja'].includes(saved) ? saved
+        : ['ko', 'en', 'ja'].includes(dev) ? dev : 'en';
+      if (want !== loc) router.replace(`/${want}/wim${window.location.search}`);
+      else localStorage.setItem('wim.locale', loc);
+    } catch { /* storage unavailable */ }
+    try {
+      // [SHELL] Capacitor Android: the WebView reports env(safe-area-inset-top)=0
+      // (known bug) while edge-to-edge draws under the status bar. Every top inset
+      // in this page reads max(env(top), var(--wim-top-floor, 0px)) — set the floor.
+      const cap = (window as any).Capacitor;
+      if (cap?.isNativePlatform?.() && cap?.getPlatform?.() === 'android') {
+        document.documentElement.style.setProperty('--wim-top-floor', '24px');
+      }
+    } catch { /* web */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // on-device learner state
   const [xp, setXp] = useState(0);
@@ -3105,6 +3128,39 @@ export default function WimPage() {
     window.setTimeout(() => { setTrackOpen(null); setTrackClosing(false); window.scrollTo(0, 0); }, 150);
   }, []);
 
+  // [SHELL] Android hardware back: 최상단 시트부터 순서대로 닫고, 홈 탭이면 앱
+  // 최소화 (UC 패턴 그대로 — 리스너는 마운트 1회, 상태는 ref 미러로 판독).
+  const backRef = useRef({ gloss: false, settings: false, quiz: false, play: false, track: false, tab: 'home' as string });
+  useEffect(() => {
+    backRef.current = {
+      gloss: glossOpen != null, settings: settingsOpen, quiz: activeIdx != null,
+      play: playOpen != null, track: trackOpen != null, tab: homeTab,
+    };
+  }, [glossOpen, settingsOpen, activeIdx, playOpen, trackOpen, homeTab]);
+  useEffect(() => {
+    let remove: (() => void) | undefined;
+    (async () => {
+      try {
+        const cap = (window as any).Capacitor;
+        if (!cap?.isNativePlatform?.()) return;
+        const AppMod: any = await import('@capacitor/app');
+        const h = await AppMod.App.addListener('backButton', () => {
+          const b = backRef.current;
+          if (b.gloss) { setGlossOpen(null); return; }
+          if (b.settings) { setSettingsOpen(false); return; }
+          if (b.quiz) { closeQuiz(false); return; }
+          if (b.play) { closePlay(); return; }
+          if (b.track) { closeTrack(); return; }
+          if (b.tab !== 'home') { setHomeTab('home'); window.scrollTo(0, 0); return; }
+          AppMod.App.minimizeApp();
+        });
+        remove = () => { try { h.remove(); } catch { /* noop */ } };
+      } catch { /* web */ }
+    })();
+    return () => { remove?.(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // once unlocked, the home hero chart needs the hero ticker's lab levels
   useEffect(() => {
     if (unlockLevels && heroTicker) void requestLab(heroTicker);
@@ -3155,7 +3211,7 @@ export default function WimPage() {
 
   // W3: almanac collect toast — rendered on every screen (plays, quiz, home)
   const almToastNode = almToast ? (
-    <div style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top))', left: 16, right: 16, zIndex: 97, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
+    <div style={{ position: 'fixed', top: 'calc(14px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))', left: 16, right: 16, zIndex: 97, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
       <div style={{ maxWidth: 520, display: 'flex', alignItems: 'center', gap: 9, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, color: '#fff', borderRadius: 16, padding: '11px 15px', boxShadow: '0 14px 34px rgba(76,63,175,0.35)' }}>
         <Ic name="spark" size={16} color="#FFD66B" />
         <span style={{ fontSize: 12, fontWeight: 900 }}>{t.almanacToast.replace('{n}', METRIC_GLOSSARY[almToast].title[loc])}</span>
@@ -3176,7 +3232,7 @@ export default function WimPage() {
       <PlayShell closing={obClosing}>
         <div onClick={obAdvance} style={{ minHeight: '100vh', fontFamily: WIM_FONT, color: '#fff', background: `linear-gradient(165deg, ${P.heroDeep} 0%, ${P.hero} 55%, #8E7FF0 100%)`, cursor: 'pointer' }}>
           <div style={{ maxWidth: 520, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '0 24px calc(28px + env(safe-area-inset-bottom))' }}>
-            <div style={{ display: 'flex', alignItems: 'center', paddingTop: 'calc(18px + env(safe-area-inset-top))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', paddingTop: 'calc(18px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
               <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '-0.01em', opacity: 0.9 }}>Why&apos;d It Move?</span>
               <button type="button" onClick={(e) => { e.stopPropagation(); closeOnboard(); }} style={{ font: 'inherit', marginLeft: 'auto', background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 99, padding: '7px 14px', fontSize: 11.5, fontWeight: 900, cursor: 'pointer' }}>{t.obSkip}</button>
             </div>
@@ -3213,7 +3269,7 @@ export default function WimPage() {
       <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
         <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
           {/* top bar: close + progress + countdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + env(safe-area-inset-top))' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
             <button type="button" onClick={() => closeQuiz(false)} aria-label={t.backHome} style={{ font: 'inherit', width: 38, height: 38, borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer' }}>←</button>
             <div style={{ flex: 1, height: 8, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
               <div style={{ width: `${((activeIdx + (revealed ? 1 : 0.4)) / units.length) * 100}%`, height: '100%', background: P.hero, borderRadius: 99, transition: 'width 0.4s ease' }} />
@@ -3680,7 +3736,7 @@ export default function WimPage() {
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 560, margin: '0 auto', padding: `0 16px calc(${WIM_ADS_LIVE ? 158 : 104}px + env(safe-area-inset-bottom))` }}>
 
         {/* glass masthead — W5-C: compressed one-liner (smaller mark, tighter row) */}
-        <header style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
+        <header style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 'calc(12px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
           {/* 브랜드 마크 — W 모노그램(차트 스윙 W + 골드 캔들 심지), design/wim-logo C안 */}
           <span aria-hidden style={{ ...glass, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="20" height="20" viewBox="0 0 240 240" style={{ display: 'block' }}>
@@ -4232,7 +4288,7 @@ export default function WimPage() {
 
       {/* one-time overlay-unlock toast — the hero chart grew a new layer */}
       {unlockToast && (
-        <div style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top))', left: 16, right: 16, zIndex: 96, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
+        <div style={{ position: 'fixed', top: 'calc(14px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))', left: 16, right: 16, zIndex: 96, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
           <div style={{ maxWidth: 520, display: 'flex', alignItems: 'center', gap: 9, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, color: '#fff', borderRadius: 16, padding: '11px 15px', boxShadow: '0 14px 34px rgba(76,63,175,0.35)' }}>
             <Ic name="layers" size={16} color="#FFD66B" />
             <span style={{ fontSize: 12, fontWeight: 900 }}>{t.unlockToast}</span>
@@ -4242,7 +4298,7 @@ export default function WimPage() {
 
       {/* W5-B one-time freeze toast — a token quietly saved yesterday's chain */}
       {freezeToast != null && !unlockToast && (
-        <div style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top))', left: 16, right: 16, zIndex: 96, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
+        <div style={{ position: 'fixed', top: 'calc(14px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))', left: 16, right: 16, zIndex: 96, display: 'flex', justifyContent: 'center', pointerEvents: 'none', animation: 'wimUp 0.3s ease' }}>
           <div style={{ maxWidth: 520, display: 'flex', alignItems: 'center', gap: 9, background: `linear-gradient(135deg, ${P.heroDeep}, ${P.hero})`, color: '#fff', borderRadius: 16, padding: '11px 15px', boxShadow: '0 14px 34px rgba(76,63,175,0.35)' }}>
             <Ic name="snow" size={16} color="#FFD66B" sw={2} />
             <span style={{ fontSize: 12, fontWeight: 900 }}>{t.freezeToast.replace('{n}', String(freezeToast))}</span>
