@@ -1,0 +1,181 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WIM Logo Concepts</title>
+<style>
+  body { margin:0; font-family:-apple-system,'SF Pro',Inter,sans-serif; background:#EFEBFF; padding:34px 40px 60px; }
+  h1 { font-size:22px; font-weight:900; letter-spacing:-0.02em; color:#262240; margin:0 0 4px; }
+  .sub { font-size:12px; font-weight:700; color:#8B85A8; margin-bottom:26px; }
+  .row { display:flex; gap:22px; margin-bottom:30px; }
+  .concept { flex:1; background:#fff; border-radius:26px; padding:20px 20px 18px; box-shadow:0 16px 40px rgba(76,63,175,0.12); }
+  .cname { font-size:14px; font-weight:900; color:#262240; }
+  .cdesc { font-size:10.5px; font-weight:700; color:#8B85A8; margin:2px 0 14px; line-height:1.5; }
+  .stage { display:flex; gap:12px; align-items:center; }
+  .tile { width:150px; height:150px; border-radius:34px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .darkcol { display:flex; flex-direction:column; gap:10px; }
+  .mini { width:64px; height:64px; border-radius:15px; display:flex; align-items:center; justify-content:center; }
+  .tiny { width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; }
+  .lockup { margin-top:13px; display:flex; align-items:center; gap:9px; }
+  .lockup b { font-size:15px; font-weight:900; letter-spacing:-0.02em; color:#262240; }
+</style>
+
+<h1>Why'd It Move? — 로고 시안 3종</h1>
+<div class="sub">프리미엄 방향: 파인 스트로크 · 바이올렛 그라디언트 · 골드 심지 액센트 · 아이콘/락업 겸용</div>
+
+<!-- ══════════ A. THE LENS — 렌즈 속 상승 캔들 ══════════ -->
+<svg width="0" height="0">
+  <defs>
+    <linearGradient id="ringA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B7BFF"/><stop offset="1" stop-color="#4A38C2"/>
+    </linearGradient>
+    <linearGradient id="candA" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#6C5CE7"/><stop offset="1" stop-color="#8B7BFF"/>
+    </linearGradient>
+    <linearGradient id="tileBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B49D6"/><stop offset="1" stop-color="#3B2BA8"/>
+    </linearGradient>
+    <clipPath id="lensClip"><circle cx="104" cy="100" r="56"/></clipPath>
+  </defs>
+</svg>
+
+<div class="row">
+  <div class="concept">
+    <div class="cname">A · The Lens</div>
+    <div class="cdesc">돋보기 렌즈 안에 실제 캔들 3개가 상승 — "수사"와 "실데이터"를 한 장면에. 골드 심지가 시선 포인트.</div>
+    <div class="stage">
+      <div class="tile" style="background:linear-gradient(150deg,#FFFFFF,#F1ECFF)">
+        <svg width="118" height="118" viewBox="0 0 240 240">
+          <circle cx="104" cy="100" r="56" fill="#F7F4FF"/>
+          <g clip-path="url(#lensClip)">
+            <line x1="84" y1="86" x2="84" y2="140" stroke="#C9BFF5" stroke-width="3" stroke-linecap="round"/>
+            <rect x="76" y="98" width="16" height="30" rx="4" fill="url(#candA)" opacity="0.55"/>
+            <line x1="112" y1="66" x2="112" y2="128" stroke="#B7A9F2" stroke-width="3" stroke-linecap="round"/>
+            <rect x="104" y="78" width="16" height="34" rx="4" fill="url(#candA)" opacity="0.8"/>
+            <line x1="140" y1="44" x2="140" y2="112" stroke="#FFAD1F" stroke-width="3.5" stroke-linecap="round"/>
+            <rect x="132" y="58" width="16" height="36" rx="4" fill="url(#candA)"/>
+          </g>
+          <circle cx="104" cy="100" r="62" fill="none" stroke="url(#ringA)" stroke-width="11"/>
+          <line x1="149" y1="145" x2="192" y2="188" stroke="url(#ringA)" stroke-width="15" stroke-linecap="round"/>
+          <circle cx="82" cy="62" r="10" fill="none" stroke="#FFFFFF" stroke-width="5" opacity="0.55"/>
+        </svg>
+      </div>
+      <div class="darkcol">
+        <div class="mini" style="background:#262240">
+          <svg width="44" height="44" viewBox="0 0 240 240">
+            <circle cx="104" cy="100" r="56" fill="rgba(255,255,255,0.07)"/>
+            <g clip-path="url(#lensClip)">
+              <line x1="112" y1="66" x2="112" y2="128" stroke="#8B7BFF" stroke-width="4" stroke-linecap="round"/>
+              <rect x="104" y="78" width="16" height="34" rx="4" fill="#8B7BFF"/>
+              <line x1="140" y1="44" x2="140" y2="112" stroke="#FFAD1F" stroke-width="4" stroke-linecap="round"/>
+              <rect x="132" y="58" width="16" height="36" rx="4" fill="#A99BFF"/>
+            </g>
+            <circle cx="104" cy="100" r="62" fill="none" stroke="#FFFFFF" stroke-width="11"/>
+            <line x1="149" y1="145" x2="192" y2="188" stroke="#FFFFFF" stroke-width="15" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="tiny" style="background:linear-gradient(150deg,#5B49D6,#3B2BA8)">
+          <svg width="26" height="26" viewBox="0 0 240 240">
+            <circle cx="104" cy="100" r="60" fill="none" stroke="#fff" stroke-width="16"/>
+            <line x1="150" y1="146" x2="194" y2="190" stroke="#fff" stroke-width="20" stroke-linecap="round"/>
+            <rect x="120" y="62" width="20" height="42" rx="5" fill="#FFAD1F"/>
+            <rect x="88" y="84" width="20" height="40" rx="5" fill="#fff" opacity="0.85"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="lockup">
+      <svg width="26" height="26" viewBox="0 0 240 240">
+        <circle cx="104" cy="100" r="56" fill="#F1ECFF"/>
+        <circle cx="104" cy="100" r="62" fill="none" stroke="url(#ringA)" stroke-width="12"/>
+        <line x1="149" y1="145" x2="192" y2="188" stroke="url(#ringA)" stroke-width="16" stroke-linecap="round"/>
+        <rect x="94" y="76" width="15" height="34" rx="4" fill="#6C5CE7"/>
+        <rect x="118" y="60" width="15" height="36" rx="4" fill="#6C5CE7"/>
+        <line x1="125" y1="44" x2="125" y2="60" stroke="#FFAD1F" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+      <b>Why'd It Move?</b>
+    </div>
+  </div>
+
+  <!-- ══════════ B. THE QUESTION CANDLE — 물음표가 된 차트 ══════════ -->
+  <div class="concept">
+    <div class="cname">B · The Question Candle</div>
+    <div class="cdesc">물음표 곡선 = 차트 라인, 점 = 골드 캔들. 앱 이름 그 자체("왜 움직였지?")를 기호 하나로.</div>
+    <div class="stage">
+      <div class="tile" style="background:linear-gradient(150deg,#FFFFFF,#F1ECFF)">
+        <svg width="118" height="118" viewBox="0 0 240 240">
+          <path d="M76 88c0-28 20-46 46-46s44 17 44 42c0 22-13 32-27 41-11 7-17 13-17 27"
+                fill="none" stroke="url(#ringA)" stroke-width="17" stroke-linecap="round"/>
+          <line x1="122" y1="170" x2="122" y2="214" stroke="#FFAD1F" stroke-width="4" stroke-linecap="round"/>
+          <rect x="111" y="180" width="22" height="24" rx="6" fill="#FFAD1F"/>
+          <circle cx="187" cy="60" r="7" fill="#19B893"/>
+        </svg>
+      </div>
+      <div class="darkcol">
+        <div class="mini" style="background:#262240">
+          <svg width="44" height="44" viewBox="0 0 240 240">
+            <path d="M76 88c0-28 20-46 46-46s44 17 44 42c0 22-13 32-27 41-11 7-17 13-17 27"
+                  fill="none" stroke="#FFFFFF" stroke-width="17" stroke-linecap="round"/>
+            <line x1="122" y1="170" x2="122" y2="214" stroke="#FFAD1F" stroke-width="5" stroke-linecap="round"/>
+            <rect x="111" y="180" width="22" height="24" rx="6" fill="#FFAD1F"/>
+          </svg>
+        </div>
+        <div class="tiny" style="background:linear-gradient(150deg,#5B49D6,#3B2BA8)">
+          <svg width="26" height="26" viewBox="0 0 240 240">
+            <path d="M76 88c0-28 20-46 46-46s44 17 44 42c0 22-13 32-27 41-11 7-17 13-17 27"
+                  fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round"/>
+            <rect x="108" y="178" width="28" height="28" rx="8" fill="#FFAD1F"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="lockup">
+      <svg width="26" height="26" viewBox="0 0 240 240">
+        <path d="M76 88c0-28 20-46 46-46s44 17 44 42c0 22-13 32-27 41-11 7-17 13-17 27"
+              fill="none" stroke="url(#ringA)" stroke-width="18" stroke-linecap="round"/>
+        <rect x="110" y="180" width="24" height="26" rx="7" fill="#FFAD1F"/>
+      </svg>
+      <b>Why'd It Move?</b>
+    </div>
+  </div>
+
+  <!-- ══════════ C. W MONOGRAM — 캔들이 그리는 W ══════════ -->
+  <div class="concept">
+    <div class="cname">C · The W Monogram</div>
+    <div class="cdesc">W 획을 차트 스윙으로 — 마지막 획 끝에 골드 심지. 가장 아이코닉·타일 최적, 모노그램 확장성.</div>
+    <div class="stage">
+      <div class="tile" style="background:linear-gradient(150deg,#5B49D6,#3B2BA8)">
+        <svg width="118" height="118" viewBox="0 0 240 240">
+          <path d="M52 74 L88 166 L120 100 L152 166 L188 76"
+                fill="none" stroke="#FFFFFF" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="188" y1="76" x2="188" y2="46" stroke="#FFAD1F" stroke-width="8" stroke-linecap="round"/>
+          <circle cx="188" cy="76" r="10" fill="#FFAD1F"/>
+        </svg>
+      </div>
+      <div class="darkcol">
+        <div class="mini" style="background:linear-gradient(150deg,#FFFFFF,#EFEAFF)">
+          <svg width="44" height="44" viewBox="0 0 240 240">
+            <path d="M52 74 L88 166 L120 100 L152 166 L188 76"
+                  fill="none" stroke="url(#ringA)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="188" y1="76" x2="188" y2="46" stroke="#FFAD1F" stroke-width="8" stroke-linecap="round"/>
+            <circle cx="188" cy="76" r="10" fill="#FFAD1F"/>
+          </svg>
+        </div>
+        <div class="tiny" style="background:#262240">
+          <svg width="26" height="26" viewBox="0 0 240 240">
+            <path d="M52 74 L88 166 L120 100 L152 166 L188 76"
+                  fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="188" cy="76" r="13" fill="#FFAD1F"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="lockup">
+      <svg width="26" height="26" viewBox="0 0 240 240">
+        <path d="M52 74 L88 166 L120 100 L152 166 L188 76"
+              fill="none" stroke="url(#ringA)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="188" cy="76" r="12" fill="#FFAD1F"/>
+      </svg>
+      <b>Why'd It Move?</b>
+    </div>
+  </div>
+</div>
+</html>
