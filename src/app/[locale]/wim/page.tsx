@@ -794,7 +794,12 @@ const XP_PER_LEVEL = 100;
 // ── W3 concept almanac: 10 collectible concepts the plays/glossary already touch.
 // A card is earned by proving the concept (top-tier play answer) or reading its
 // glossary sheet; each card keeps the day's real chart it was earned on.
-const ALMANAC_TERMS: MetricTerm[] = ['maxPain', 'callWall', 'putFloor', 'vwap', 'darkPool', 'pcr', 'shortInterest', 'gammaFlip', 'rsi', 'trendPhase'];
+const ALMANAC_TERMS: MetricTerm[] = [
+  'maxPain', 'callWall', 'putFloor', 'vwap', 'darkPool', 'pcr', 'shortInterest', 'gammaFlip', 'rsi', 'trendPhase',
+  // macro + news-reading curriculum (glossary read = collect, same as the rest)
+  'rate10y', 'fomc', 'cpi', 'jobsReport', 'yieldCurve', 'dollarIndex', 'vix',
+  'guidance', 'consensus', 'sectorRotation', 'riskOnOff',
+];
 interface AlmanacEntry { dateET: string; ticker: string; closes: number[] }
 
 // ── W6-A curriculum tracks: the app's education breadth as four SATURATED-LIGHT
@@ -811,8 +816,8 @@ interface TrackDef { id: 'chart' | 'insti' | 'macro' | 'news'; icon: string; ter
 const TRACKS: TrackDef[] = [
   { id: 'chart', icon: 'chart', terms: ['rsi', 'vwap', 'trendPhase'], bg: '#E4DCFF', deep: '#4A38C2', chip: 'rgba(74,56,194,0.13)' },
   { id: 'insti', icon: 'bank', terms: ['maxPain', 'callWall', 'putFloor', 'darkPool', 'pcr', 'shortInterest', 'gammaFlip'], bg: '#FFE3AD', deep: '#8A5B00', chip: 'rgba(138,91,0,0.13)' },
-  { id: 'macro', icon: 'flow', terms: [], bg: '#C4EDE3', deep: '#0E6B57', chip: 'rgba(14,107,87,0.13)' },
-  { id: 'news', icon: 'megaphone', terms: [], bg: '#FFD8CB', deep: '#A83A1D', chip: 'rgba(168,58,29,0.13)' },
+  { id: 'macro', icon: 'flow', terms: ['rate10y', 'fomc', 'cpi', 'vix', 'yieldCurve', 'dollarIndex', 'jobsReport'], bg: '#C4EDE3', deep: '#0E6B57', chip: 'rgba(14,107,87,0.13)' },
+  { id: 'news', icon: 'megaphone', terms: ['guidance', 'consensus', 'sectorRotation', 'riskOnOff'], bg: '#FFD8CB', deep: '#A83A1D', chip: 'rgba(168,58,29,0.13)' },
 ];
 
 // local weekday index (NOT UTC — a KST learning day must count as that day)
@@ -983,6 +988,13 @@ function rsi14(closes: number[]): number | null {
   return Math.round(100 - 100 / (1 + ag / al));
 }
 
+// macro/news-track terms describe the MARKET, not one ticker — a random ticker's
+// chart under them demonstrates nothing, so the demo block hides itself for these.
+const MARKET_LEVEL_TERMS = new Set<MetricTerm>([
+  'rate10y', 'fomc', 'cpi', 'jobsReport', 'yieldCurve', 'dollarIndex', 'vix',
+  'guidance', 'consensus', 'sectorRotation', 'riskOnOff',
+]);
+
 // ── GlossarySheet v2: every concept demonstrated on REAL material — the real
 // last-session chart with the term's real level/overlay drawn on it, plus the
 // term's real numbers as stat tiles and a gauge. Prose is the caption, not the lesson.
@@ -999,7 +1011,7 @@ function GlossarySheet({
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease', maxHeight: '80vh', overflowY: 'auto' }}>
         <div style={{ fontSize: 16.5, fontWeight: 900, color: P.ink, letterSpacing: '-0.01em' }}>{entry.title[loc]}</div>
 
-        {lab && (demo || spark) && (
+        {lab && (demo || spark) && !MARKET_LEVEL_TERMS.has(term) && (
           <div style={{ marginTop: 12, background: P.bg, borderRadius: 18, padding: '11px 10px 8px', border: `1px solid ${P.line}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px 7px' }}>
               <TickerLogo ticker={lab.ticker} size={17} />

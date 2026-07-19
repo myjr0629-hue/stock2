@@ -39,7 +39,20 @@ export type MetricTerm =
   | 'trendPhase'
   | 'fundamental'
   | 'institutional13f'
-  | 'insiderActivity';
+  | 'insiderActivity'
+  // macro track (WIM curriculum — reusable app-wide)
+  | 'rate10y'
+  | 'fomc'
+  | 'cpi'
+  | 'jobsReport'
+  | 'yieldCurve'
+  | 'dollarIndex'
+  | 'vix'
+  // news-reading track (WIM curriculum)
+  | 'guidance'
+  | 'consensus'
+  | 'sectorRotation'
+  | 'riskOnOff';
 
 export const CLOSE_LABEL: Record<Lang, string> = { ko: '확인', en: 'Got it', ja: '閉じる' };
 
@@ -242,6 +255,96 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
       ko: '임원·이사·10% 이상 주주 등 회사 내부자가 자사 주식을 매매하면 SEC Form 4로 공시됩니다. 내부자의 매수는 회사에 대한 자신감으로 해석될 수 있고, 매도는 분산투자·세금 등 다양한 이유가 있을 수 있습니다. 참고 지표일 뿐 매매 신호가 아닙니다.',
       en: "When a company's officers, directors, or 10%+ owners buy or sell its stock, it's disclosed via SEC Form 4. Insider buying can signal confidence, while selling may have many reasons (diversification, taxes, etc.). It's a reference signal, not a trade recommendation.",
       ja: '役員・取締役・10%以上保有株主などの会社内部者が自社株を売買するとSEC Form 4で開示されます。買いは会社への自信、売りは分散・税金など様々な理由が考えられます。参考指標であり売買シグナルではありません。',
+    },
+  },
+  // ── macro track ──────────────────────────────────────────────────────────
+  rate10y: {
+    title: { ko: '미 10년물 금리', en: 'US 10-Year Yield', ja: '米10年債利回り' },
+    body: {
+      ko: '미국 10년 만기 국채의 수익률로, 전 세계 자산 가격의 "기준 금리"처럼 쓰입니다. 이 금리가 오르면 성장주의 미래 이익 할인율이 커져 주가에 부담으로 관찰되고, 내리면 그 반대가 관찰되곤 합니다.',
+      en: 'The yield on 10-year US Treasuries — the reference rate for pricing assets worldwide. When it rises, future earnings are discounted more heavily (often observed as pressure on growth stocks); when it falls, the reverse is observed.',
+      ja: '米国10年国債の利回りで、世界中の資産価格の「基準金利」の役割を果たします。上昇すると将来利益の割引率が大きくなりグロース株の重しとして観測され、低下時はその逆が観測されます。',
+    },
+  },
+  fomc: {
+    title: { ko: 'FOMC (연준 금리 결정)', en: 'FOMC (Fed Rate Decision)', ja: 'FOMC（米金利決定会合）' },
+    body: {
+      ko: '미국 연방준비제도가 기준금리를 결정하는 회의로 연 8회 열립니다. 결정 자체보다 "다음에 뭘 할지"에 대한 힌트(성명서·점도표·기자회견)에 시장이 크게 반응하는 것이 관찰됩니다.',
+      en: 'The Federal Reserve meeting that sets the US policy rate, held eight times a year. Markets are often observed reacting less to the decision itself than to hints about what comes next (statement, dot plot, press conference).',
+      ja: '米連邦準備制度が政策金利を決める会合で年8回開催されます。決定そのものより「次に何をするか」のヒント（声明・ドットチャート・会見）に市場が大きく反応する傾向が観測されます。',
+    },
+  },
+  cpi: {
+    title: { ko: 'CPI (소비자물가지수)', en: 'CPI (Consumer Price Index)', ja: 'CPI（消費者物価指数）' },
+    body: {
+      ko: '미국의 대표 인플레이션 지표로 매월 발표됩니다. 예상보다 높으면 "금리를 더 오래 높게"라는 해석과 함께 주가·채권이 함께 흔들리는 날이 관찰되고, 예상보다 낮으면 안도 랠리가 관찰되곤 합니다.',
+      en: "The main US inflation gauge, released monthly. Hotter-than-expected prints are often observed shaking both stocks and bonds ('higher for longer'), while cooler prints are observed sparking relief rallies.",
+      ja: '米国の代表的なインフレ指標で毎月発表されます。予想より高いと「金利は高く長く」との解釈で株と債券が同時に揺れる日が観測され、予想より低いと安堵のラリーが観測されることがあります。',
+    },
+  },
+  jobsReport: {
+    title: { ko: '고용보고서 (NFP)', en: 'Jobs Report (NFP)', ja: '雇用統計（NFP）' },
+    body: {
+      ko: '매월 첫 금요일에 나오는 미국 비농업 고용지표입니다. "너무 뜨거우면 금리 걱정, 너무 차가우면 경기 걱정" — 시장이 같은 숫자를 두 방향으로 읽는 대표적인 날로 관찰됩니다.',
+      en: 'US nonfarm payrolls, released the first Friday of each month. A classic case of one number read two ways: too hot brings rate worries, too cold brings recession worries — both reactions are regularly observed.',
+      ja: '毎月第1金曜に発表される米非農業部門雇用者数です。「熱すぎれば金利懸念、冷たすぎれば景気懸念」— 同じ数字が二方向に読まれる代表的な日として観測されます。',
+    },
+  },
+  yieldCurve: {
+    title: { ko: '수익률 곡선 (장단기 금리차)', en: 'Yield Curve', ja: 'イールドカーブ（長短金利差）' },
+    body: {
+      ko: '만기별 국채 금리를 이은 곡선입니다. 보통은 장기금리가 더 높지만, 단기가 더 높아지는 "역전"은 과거 침체에 앞서 나타난 사례가 관찰되어 시장이 주시하는 신호입니다.',
+      en: 'The line connecting Treasury yields across maturities. Long rates are usually higher; an "inversion" (short above long) has been observed preceding past recessions, so markets watch it closely.',
+      ja: '満期ごとの国債利回りを結んだ曲線です。通常は長期金利が高いものの、短期が上回る「逆イールド」は過去の景気後退に先行した事例が観測されており、市場が注視するシグナルです。',
+    },
+  },
+  dollarIndex: {
+    title: { ko: '달러 인덱스 (DXY)', en: 'Dollar Index (DXY)', ja: 'ドル指数（DXY）' },
+    body: {
+      ko: '주요 6개 통화 대비 달러의 상대 강도입니다. 달러가 강해지면 미국 기업의 해외 매출 환산액이 줄고 신흥국 자금이 빠지는 압력이 관찰되어, 위험자산과 반대로 움직이는 날이 많습니다.',
+      en: "The dollar's strength against six major currencies. A stronger dollar shrinks translated overseas revenue for US firms and pressures emerging-market flows — it is often observed moving opposite risk assets.",
+      ja: '主要6通貨に対するドルの相対的な強さです。ドル高は米企業の海外売上の目減りや新興国からの資金流出圧力として観測され、リスク資産と逆に動く日が多く見られます。',
+    },
+  },
+  vix: {
+    title: { ko: 'VIX (변동성 지수)', en: 'VIX (Volatility Index)', ja: 'VIX（恐怖指数）' },
+    body: {
+      ko: 'S&P500 옵션 가격에서 역산한 "앞으로 30일 예상 변동성"입니다. 시장이 불안할수록 옵션(보험료)이 비싸져 VIX가 뛰는 것이 관찰되어 흔히 공포지수라 불립니다. 20 아래는 평온, 30 위는 긴장 구간으로 통용됩니다.',
+      en: "Expected 30-day volatility implied by S&P 500 option prices. When markets get nervous, option 'insurance' gets pricier and the VIX is observed jumping — hence 'the fear index.' Below 20 reads calm; above 30 reads stressed.",
+      ja: 'S&P500オプション価格から逆算した「今後30日の予想変動率」です。市場が不安になるほどオプション（保険料）が高くなりVIXが跳ねる様子が観測され、恐怖指数と呼ばれます。20未満は平穏、30超は緊張圏とされます。',
+    },
+  },
+  // ── news-reading track ───────────────────────────────────────────────────
+  guidance: {
+    title: { ko: '가이던스 (실적 전망)', en: 'Guidance', ja: 'ガイダンス（業績見通し）' },
+    body: {
+      ko: '기업이 스스로 제시하는 다음 분기·연간 실적 전망입니다. 지난 분기 성적보다 이 "앞으로" 숫자에 주가가 더 크게 반응하는 사례가 자주 관찰됩니다 — 실적이 좋아도 가이던스가 낮으면 하락하는 식입니다.',
+      en: "A company's own forecast for the next quarter or year. Prices are frequently observed reacting more to this forward number than to the quarter just reported — a beat can still fall on soft guidance.",
+      ja: '企業自身が示す来四半期・通期の業績見通しです。直前の実績よりこの「先行き」の数字に株価が大きく反応する事例が頻繁に観測されます — 好決算でもガイダンスが弱ければ下落する形です。',
+    },
+  },
+  consensus: {
+    title: { ko: '컨센서스와 서프라이즈', en: 'Consensus & Surprise', ja: 'コンセンサスとサプライズ' },
+    body: {
+      ko: '애널리스트 전망치의 평균이 컨센서스, 실제 발표가 그보다 좋으면/나쁘면 어닝 서프라이즈/쇼크입니다. 주가는 "절대 성적"이 아니라 "기대 대비 차이"에 반응하는 것이 반복적으로 관찰됩니다.',
+      en: "The average analyst estimate is the consensus; beating or missing it is a surprise or shock. Prices are repeatedly observed reacting to the gap versus expectations, not to the absolute result.",
+      ja: 'アナリスト予想の平均がコンセンサス、実績がそれを上回れば/下回ればサプライズ/ショックです。株価は「絶対的な成績」ではなく「期待との差」に反応することが繰り返し観測されます。',
+    },
+  },
+  sectorRotation: {
+    title: { ko: '섹터 로테이션', en: 'Sector Rotation', ja: 'セクターローテーション' },
+    body: {
+      ko: '자금이 한 업종에서 다른 업종으로 옮겨 다니는 흐름입니다. 개별 기업 뉴스 없이도 "반도체 전체가 빠지고 헬스케어 전체가 오르는" 날은 로테이션이 원인인 경우가 관찰됩니다.',
+      en: 'Money migrating from one sector to another. On days when all of semis fall while all of healthcare rises with no company-specific news, rotation is often the observed driver.',
+      ja: '資金がある業種から別の業種へ移動する流れです。個別ニュースがないのに「半導体全体が下がりヘルスケア全体が上がる」日は、ローテーションが要因として観測されることがあります。',
+    },
+  },
+  riskOnOff: {
+    title: { ko: '리스크온 / 리스크오프', en: 'Risk-On / Risk-Off', ja: 'リスクオン／リスクオフ' },
+    body: {
+      ko: '시장 전체의 위험 선호 모드입니다. 리스크온에는 성장주·고베타가, 리스크오프에는 국채·달러·방어주가 강한 패턴이 관찰됩니다. 개별 종목 뉴스보다 이 "모드"가 그날 색깔을 정하는 날이 많습니다.',
+      en: "The market's overall risk appetite. Risk-on days are observed favoring growth and high-beta names; risk-off favors Treasuries, the dollar, and defensives. Many days are colored by this mode more than by any single stock's news.",
+      ja: '市場全体のリスク選好モードです。リスクオンではグロースや高ベータ銘柄、リスクオフでは国債・ドル・ディフェンシブが強い傾向が観測されます。個別ニュースよりこの「モード」がその日の色を決める日が多くあります。',
     },
   },
 };
