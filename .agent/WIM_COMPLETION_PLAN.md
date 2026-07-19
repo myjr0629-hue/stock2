@@ -31,7 +31,7 @@
 > 구현체 = `src/app/[locale]/wim/page.tsx` 단일 4104줄 클라이언트 + API 3개(today/causeBank/lab) + uc-warm 크론 warmWim. 정본 스펙 = `WIM_V2_SPEC.md`(W0~W6-B 완료 로그 = `WIM_V2_WORKLOG.md`). **네이티브 셸(wim-app/) = 부재**(의도된 웹퍼스트 — 셸·제출은 앞 2앱 안착 후 로드맵 유지).
 
 ### 실화면 결함의 코드 원인 (수정 지점)
-- **[P0-1] 홈 중단 파손**: 플레이 레일/카드 그리드 — 히어로는 full-bleed `margin:-16px` + 절대배치 CTA(page.tsx:3615), CTA `whiteSpace:nowrap`+ellipsis(:3615-3616) → ko/ja 절단. 카드 2열이 375px 미대응(오버플로). 스크롤 타임아웃 = rAF/리스너 무거움(자동화 탭 rAF 스로틀 이슈 워크로그 :13 기록됨).
+- **[P0-1 정정 (오진 방지)]**: S5 "오늘의 데이터로 배우기"는 **의도된 가로 스와이프 레일**(page.tsx:3712 overflowX:auto+scrollSnap) — 우측 카드 절단은 피크 디자인, 버그 아님. **거대 빈 공간은 자동화 탭 rAF 스로틀 아티팩트 의심**(워크로그 :13 기왕증) → **iOS 시뮬 실기기 검증으로 진위 확정 필요**(verify-uc-on-simulator 규칙). **확실한 실결함은 절단들**: ①CTA(:3615-3616 nowrap+ellipsis, `{prompt} · {t.solve}` 길어서 절단 → 티커+수사하기로 축약이 안전) ②히어로 종목명 3줄 절단(짧은 이름 우선) ③헤더 부제 절단 ④매크로 칩 우측 절단(스크롤 힌트 없음).
 - **[P0-2] 뉴스-티커 불일치**: today 파이프라인 movers→뉴스 매칭 — 확신 없는 매칭이면 티커 배지 숨김(fail-closed)으로 수정.
 - **[P1-3] 세션 스트립 = 장식**: API가 `session:'REG'` 하드코딩(today/route.ts:198) → 실제 ET 세션 계산으로 배선.
 - **[P1-4] 커리큘럼 절반 빈 껍데기**: TRACKS macro/news terms=[](page.tsx:813-814), 용어집 25개 전부 기술/옵션 — **거시 용어(금리·Fed·CPI·고용 등) 추가**로 2트랙 채우기(가짜 0링 금지 원칙 유지).
