@@ -95,4 +95,6 @@
 - ✅ 2026-07-20 **W-P1 A급 3종 배포·실화면 검증** (e7cc6008): ①직감 정확도(30일 롤링·기록탭 카드·빈상태 정직 잠금 — 실화면 확인) ②전세계 정답률(/api/wim/stats 신설·reveal 칩·n<5=이른풀이) ③살아있는 용어집(10Y·FOMC 실측 칩) + 죽은키/주석 정리. 도감 21개 확인.
 - ✅ 2026-07-20 **W-P2 로고 확정·자산 완료** (02389186·725a4774): 시안 3종 중 **C·W 모노그램 대표 선택** → iOS 1024(full-bleed)·Android adaptive fg 432(투명)·180 PNG + 원본 SVG = design/wim-logo/. 골드 심지 그라디언트 버그(수직선 objectBoundingBox) 수정 완료. **인앱 마스트헤드에 W 마크 적용**(실화면 확인).
 - ✅ 2026-07-20 마감 수정 (a35b9493): 회사명 ",," 중복(계층형 법인 접미 "Class A") + CTA keep-all.
-- 다음: 사전 탭에 거시 용어 노출 여부 확인(termDemo 없는 용어의 lib 탭 처리) → 3언어 시뮬 최종 QA → **W-P3 셸**(wim-app Capacitor) → W-P4 스토어 자료.
+- ✅ 2026-07-20 **W-P3 셸 완성·검증** (69bc1cd0 + 로컬): wim-app/ = uc-app 완전 복제·개명(com.signumhq.wim, "Why'd It Move"), W 아이콘/스플래시 74+7 생성, cap sync OK. **iOS 시뮬 빌드 성공 + 실행 실증**(풀스크린·온보딩 렌더·홈스크린 아이콘 3형제 확인). 웹 셸 훅 3종 배포(a3c7879e): 로케일 셀프라우팅(**셸에서 실증** — /en 진입→ko 표시)·안드로이드 백스택·상단 인셋 플로어(--wim-top-floor).
+- ✅ 2026-07-20 **W-P4 준비물**: `WIM_STORE_KIT.md`(이름/설명/키워드 3언어·프라이버시 "수집 안 함"·심사노트·스샷 플랜) + **Android 서명 AAB 빌드 성공**(wim-app/android/app/build/outputs/bundle/release/app-release.aab, 신규 wim-upload-key.jks — 비번은 gitignored keystore.properties에만).
+- **남은 것 (제출 직전, 대표님 개입 필요)**: ①iOS Archive/업로드(Xcode 서명 Team 선택 — UC 절차 동일) + 실기기 스모크 ②스토어 스크린샷 제작(플랜=STORE_KIT §6, 시뮬 6.9"/6.5") ③ASC·Play Console 앱 생성+자료 입력+제출(=대표님 계정 액션) ④사전 탭 거시 용어 노출 확인·3언어 최종 QA(경미).
