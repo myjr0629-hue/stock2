@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 432 432">
+  <!-- Android adaptive FOREGROUND — transparent, glyph inside the 66% safe zone. -->
+  <defs>
+    <linearGradient id="wick" gradientUnits="userSpaceOnUse" x1="0" y1="322" x2="0" y2="196">
+      <stop offset="0" stop-color="#FFAD1F"/>
+      <stop offset="1" stop-color="#FFD37A"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(216 216) scale(0.30) translate(-512 -512)">
+    <path d="M222 318 L376 706 L512 428 L648 706 L802 326"
+          fill="none" stroke="#FFFFFF" stroke-width="82"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="802" y1="322" x2="802" y2="196" stroke="url(#wick)" stroke-width="34" stroke-linecap="round"/>
+    <circle cx="802" cy="322" r="46" fill="#FFAD1F"/>
+  </g>
+</svg>

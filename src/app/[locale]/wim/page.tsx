@@ -3675,7 +3675,14 @@ export default function WimPage() {
 
         {/* glass masthead — W5-C: compressed one-liner (smaller mark, tighter row) */}
         <header style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
-          <span style={{ ...glass, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Ic name="search" size={17} color={P.heroDeep} sw={2} /></span>
+          {/* 브랜드 마크 — W 모노그램(차트 스윙 W + 골드 캔들 심지), design/wim-logo C안 */}
+          <span aria-hidden style={{ ...glass, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 240 240" style={{ display: 'block' }}>
+              <path d="M52 84 L88 176 L120 110 L152 176 L188 86" fill="none" stroke={P.heroDeep} strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="188" y1="82" x2="188" y2="44" stroke="#FFAD1F" strokeWidth="14" strokeLinecap="round" />
+              <circle cx="188" cy="86" r="16" fill="#FFAD1F" />
+            </svg>
+          </span>
           <div style={{ minWidth: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>Why&apos;d It Move?</div>
             <div style={{ marginTop: 2, fontSize: 9.5, fontWeight: 750 as any, color: P.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tagline}</div>
