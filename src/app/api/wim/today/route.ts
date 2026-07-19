@@ -18,6 +18,7 @@
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { publicBase } from '@/lib/net/publicBase';
+import { getFromCache } from '@/services/redisClient';
 import {
   isSpam, invokeJSON, fetchMoney, serveSWR, type NewsItem,
 } from '../../undercurrent/shared';
@@ -226,7 +227,19 @@ ${JSON.stringify(enriched.map((m, i) => ({
 
   try {
     const res = await serveSWR({ key: cacheKey, freshSec: FRESH_SEC, refresh, generate });
-    if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
+    if (!res) {
+      // Weekday market holiday: lastTradingDayET only maps Sat/Sun, so the holiday
+      // date keys a cache that never existed and movers come back empty → serveSWR
+      // has nothing to stale-serve (returns null). Walk back up to 4 days and serve
+      // the most recent prior session's cache instead of a blank hero (flagged).
+      for (let back = 1; back <= 4; back++) {
+        const prior = await getFromCache<Record<string, any>>(`wim:units:v2:${etDateOf(Date.now() - back * 86_400_000)}`).catch(() => null);
+        if (prior && Array.isArray(prior.units) && prior.units.length > 0) {
+          return NextResponse.json({ ...prior, _stale: true, _holidayFallback: true });
+        }
+      }
+      return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
+    }
     return NextResponse.json({ ...res.body, _stale: res.stale });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'failed' }, { status: 500 });

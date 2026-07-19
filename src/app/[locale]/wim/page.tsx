@@ -2427,6 +2427,16 @@ interface UcCard {
   source: string | null;
 }
 
+// Company names arrive at legal length ("Taiwan Semiconductor Manufacturing
+// Company Limited") — the hero reads like a headline, so strip suffixes and keep
+// the first two words when the legal name would eat the whole clamp.
+function shortCompanyName(name: string | null | undefined, ticker: string): string {
+  if (!name) return ticker;
+  const cleaned = name.replace(/[,.]?\s+(Inc|Corp|Corporation|Company|Co|Ltd|Limited|plc|Holdings|Holding|Group|SA|NV|AG|ADR)\.?$/i, '').trim();
+  if (cleaned.length <= 24) return cleaned || ticker;
+  return cleaned.split(/\s+/).slice(0, 2).join(' ');
+}
+
 // real news photo with a graceful exit — a broken/blocked image hides the whole
 // block instead of leaving a broken-glass frame on the editorial card
 function NewsImage({ src, height }: { src: string; height: number }) {
@@ -2772,7 +2782,12 @@ export default function WimPage() {
       .then((j) => {
         if (!alive || !Array.isArray(j?.cards)) return;
         const withPhoto = (j.cards as UcCard[]).filter((c) => c && c.image && c.ticker && c.plainTitle);
-        setUcCard(withPhoto.find((c) => c.hasMoneyData) || withPhoto[0] || null);
+        // fail-closed pairing: a crypto-led headline wearing an equity ticker badge
+        // reads as a data bug (seen live: Ethereum title + HOOD logo). Skip those;
+        // if nothing coherent remains the card vanishes quietly (by design).
+        const CRYPTO_RE = /비트코인|이더리움|암호화폐|가상자산|코인|bitcoin|ethereum|crypto|ビットコイン|イーサリアム|仮想通貨|暗号資産|\bBTC\b|\bETH\b|\bXRP\b|솔라나|solana|ソラナ/i;
+        const coherent = withPhoto.filter((c) => !CRYPTO_RE.test(c.plainTitle));
+        setUcCard(coherent.find((c) => c.hasMoneyData) || coherent[0] || null);
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -2884,9 +2899,21 @@ export default function WimPage() {
   const heroU = units.find((u) => !done[u.id]) || units[0] || null;
   const heroIdx = heroU ? units.indexOf(heroU) : -1;
   // which session carried the hero move (server field; default REG when absent)
-  const heroSessionRaw = (heroU?.session || '').toLowerCase();
-  const heroSession: 'pre' | 'reg' | 'post' = heroSessionRaw.includes('pre') ? 'pre'
-    : heroSessionRaw.includes('post') || heroSessionRaw.includes('after') ? 'post' : 'reg';
+  // The units API caches session as a constant ('REG'), so the strip would never
+  // light PRE/POST from payload data — compute it from the live ET clock instead
+  // (weekend/after-close shows POST: the last finished session of the shown day).
+  const heroSession: 'pre' | 'reg' | 'post' = useMemo(() => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false, weekday: 'short',
+    }).formatToParts(new Date());
+    const g = (k: string) => parts.find((x) => x.type === k)?.value || '';
+    const wd = g('weekday');
+    const m = parseInt(g('hour'), 10) * 60 + parseInt(g('minute'), 10);
+    if (wd === 'Sat' || wd === 'Sun') return 'post';
+    if (m >= 240 && m < 570) return 'pre';
+    if (m >= 570 && m < 960) return 'reg';
+    return 'post';
+  }, []);
   const heroTicker = heroU?.ticker || null;
   const heroLab = heroTicker ? labs[heroTicker] || null : null;
   // W3: replay wants a dense session — hero unit, else any unit with ≥60 bars
@@ -3517,9 +3544,9 @@ export default function WimPage() {
         {/* glass masthead — W5-C: compressed one-liner (smaller mark, tighter row) */}
         <header style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
           <span style={{ ...glass, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Ic name="search" size={17} color={P.heroDeep} sw={2} /></span>
-          <div style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8, overflow: 'hidden' }}>
-            <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>Why&apos;d It Move?</div>
-            <div style={{ fontSize: 9.5, fontWeight: 750 as any, color: P.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tagline}</div>
+          <div style={{ minWidth: 0, overflow: 'hidden' }}>
+            <div style={{ fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>Why&apos;d It Move?</div>
+            <div style={{ marginTop: 2, fontSize: 9.5, fontWeight: 750 as any, color: P.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tagline}</div>
           </div>
           <button type="button" onClick={() => setSettingsOpen(true)} aria-label={t.settings} style={{ ...glass, font: 'inherit', marginLeft: 'auto', flexShrink: 0, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <Ic name="gear" size={16} color={P.ink} sw={1.5} />
@@ -3564,8 +3591,8 @@ export default function WimPage() {
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: P.heroDeep, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color={P.heroDeep} /> {t.heroEyebrow.toUpperCase()}</span>
-                        <h1 style={{ margin: '9px 0 0', fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.28, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {t.heroHeadline.replace('{c}', heroU.companyName || heroU.ticker).replace('{v}', String(heroU.moveMagnitude))}
+                        <h1 style={{ margin: '9px 0 0', fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.28, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {t.heroHeadline.replace('{c}', shortCompanyName(heroU.companyName, heroU.ticker)).replace('{v}', String(heroU.moveMagnitude))}
                         </h1>
                       </div>
                       {/* streak ring + freeze count — progress woven into the hero (S2 per spec) */}
@@ -3612,8 +3639,10 @@ export default function WimPage() {
                   </div>
                 </div>
                 {/* the CTA floats over the card's bottom edge — ink pill (dark stays ink-only) */}
-                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', position: 'absolute', left: 18, right: 18, bottom: 0, background: P.ink, color: '#fff', border: 'none', borderRadius: 99, padding: '15px 18px', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', boxShadow: '0 12px 26px rgba(38,34,64,0.28), 0 3px 8px rgba(38,34,64,0.16)' }}>
-                  {heroU.prompt[loc]} · {t.solve} →
+                <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', position: 'absolute', left: 18, right: 18, bottom: 0, background: P.ink, color: '#fff', border: 'none', borderRadius: 26, padding: '13px 18px', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', lineHeight: 1.3, boxShadow: '0 12px 26px rgba(38,34,64,0.28), 0 3px 8px rgba(38,34,64,0.16)' }}>
+                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {heroU.prompt[loc]} · {t.solve} →
+                  </span>
                 </button>
               </section>
             ) : !failed && !today ? (
