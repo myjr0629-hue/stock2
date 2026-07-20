@@ -152,8 +152,13 @@ function temperature(labs: Lab[]): { score: number; pcr: number | null; gexPos: 
   return { score: Math.round(Math.max(5, Math.min(95, score))), pcr, gexPos, dp, sv };
 }
 
+// ETFs have no company logo — go straight to the letter badge instead of ever
+// showing a broken-image glyph (seen live on QQQ/SPY rows, 2026-07-20).
+const ETF_SET = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'VOO', 'ARKK', 'SOXL', 'SOXX', 'SMH', 'TQQQ', 'SQQQ', 'TLT', 'GLD', 'SLV', 'USO', 'XLE', 'XLF', 'XLK', 'XLV']);
+
 function TickerLogo({ ticker, size = 30 }: { ticker: string; size?: number }) {
-  const [failed, setFailed] = useState(false);
+  const [errored, setErrored] = useState(false);
+  const failed = errored || ETF_SET.has(ticker);
   const box = {
     width: size, height: size, minWidth: size, borderRadius: '50%', flexShrink: 0,
     overflow: 'hidden', background: '#fff', border: `1.5px solid ${C.line}`,
@@ -166,7 +171,7 @@ function TickerLogo({ ticker, size = 30 }: { ticker: string; size?: number }) {
   return (
     <span aria-hidden style={box}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/api/undercurrent/logo?t=${ticker}`} alt="" onError={() => setFailed(true)} style={{ width: '74%', height: '74%', objectFit: 'contain', display: 'block' }} />
+      <img src={`/api/undercurrent/logo?t=${ticker}`} alt="" onError={() => setErrored(true)} style={{ width: '74%', height: '74%', objectFit: 'contain', display: 'block' }} />
     </span>
   );
 }
