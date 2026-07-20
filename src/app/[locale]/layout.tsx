@@ -66,7 +66,9 @@ export default async function LocaleLayout({ children, params }: Props) {
     // [WIM PROTO] Why'd It Move? — same isolation as Undercurrent (bare shell,
     // own bright theme, no SIGNUM chrome/ad stack). Pathname-scoped only.
     const isWim = nextUrl.includes('/wim') || customPathname.includes('/wim');
-    const hideChrome = isAppView || isUndercurrent || isWim;
+    // [RADAR PROTO] 기관 레이더 — same bare isolation (own dark theme).
+    const isRadar = nextUrl.includes('/radar') || customPathname.includes('/radar');
+    const hideChrome = isAppView || isUndercurrent || isWim || isRadar;
 
     return (
         <NextIntlClientProvider messages={messages}>
@@ -96,7 +98,7 @@ export default async function LocaleLayout({ children, params }: Props) {
                                     shell it initialized SIGNUM's ads (surprise ATT prompt), forced
                                     a dark status bar and double-handled Android back. Skip it. */}
                                 <WebSocketProvider>
-                                    {isUndercurrent || isWim ? (
+                                    {isUndercurrent || isWim || isRadar ? (
                                         children
                                     ) : (
                                         <NativeAppProvider>
