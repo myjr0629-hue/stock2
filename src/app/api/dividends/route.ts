@@ -65,12 +65,25 @@ export async function GET(request: Request) {
       .reduce((s, x) => s + (x.cash as number), 0);
     const ttmYieldPct = ttmSum > 0 && price != null ? (ttmSum / price) * 100 : null;
 
+    // Next ex-date: prefer an already-DECLARED future date; else PROJECT from the
+    // last ex-date + payout interval (labeled estimated — issuers declare the real
+    // date only ~weeks ahead, so a calendar needs a projection to stay useful).
+    const declaredNext = items.find((x) => x.exDate && Date.parse(x.exDate) >= now)?.exDate ?? null;
+    let nextExDate = declaredNext;
+    let nextExEstimated = false;
+    if (!nextExDate && latest?.exDate && perYear > 0) {
+      const intervalMs = Math.round(365 / perYear) * 86_400_000;
+      let d = Date.parse(`${latest.exDate}T00:00:00-05:00`);
+      while (Number.isFinite(d) && d < now) d += intervalMs;
+      if (Number.isFinite(d)) { nextExDate = new Date(d).toISOString().slice(0, 10); nextExEstimated = true; }
+    }
+
     return {
       success: true, ticker, price,
       current: {
         cash: latest?.cash ?? null, freq: latest?.freq ?? null, freqLabel: latest?.freqLabel ?? null,
         annualPerShare: annual, yieldPct, ttmPerShare: ttmSum || null, ttmYieldPct, type: latest?.type ?? null,
-        nextExDate: items.find((x) => x.exDate && Date.parse(x.exDate) >= now)?.exDate ?? null,
+        nextExDate, nextExEstimated,
         lastExDate: latest?.exDate ?? null, payDate: latest?.payDate ?? null,
       },
       history: items,

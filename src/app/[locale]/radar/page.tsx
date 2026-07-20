@@ -30,7 +30,7 @@ interface Lab {
 interface DivData {
   ticker: string; price: number | null; yieldPct: number | null; ttmYieldPct: number | null;
   freqLabel: string | null; cash: number | null; annualPerShare: number | null;
-  nextExDate: string | null; lastExDate: string | null; payDate: string | null;
+  nextExDate: string | null; nextExEstimated: boolean; lastExDate: string | null; payDate: string | null;
 }
 
 const T: Record<Lang, Record<string, string>> = {
@@ -59,7 +59,7 @@ const T: Record<Lang, Record<string, string>> = {
     hlTitle: '오늘의 시장 하이라이트', hlSub: '실데이터로 뽑은',
     hlDark: '다크풀 활발', hlSqueeze: '스퀴즈 압력', hlLevel: '레벨 근접', seeMore: '더 보기',
     divHomeTitle: '이번 주 배당락', divHomeSub: '워치리스트·인기 배당 종목', divHomeNone: '다가오는 배당락 일정이 없어요',
-    dday: 'D-{n}', ddayToday: '오늘', exDate: '배당락', payDate: '지급',
+    dday: 'D-{n}', ddayToday: '오늘', exDate: '배당락', payDate: '지급', est: '예상',
     divTitle: '배당 정보', divSub: '수익률·달력·계산기 · 정보 제공용',
     rankYield: '배당수익률 랭킹', rankYieldSub: '최근 12개월 기준', perYear: '연 {n}회',
     fMonthly: '월배당', fQuarterly: '분기', fSemi: '반기', fAnnual: '연배당', fWeekly: '주배당', fOne: '일시',
@@ -99,7 +99,7 @@ const T: Record<Lang, Record<string, string>> = {
     hlTitle: 'Market highlights', hlSub: 'ranked on real data',
     hlDark: 'Dark-pool active', hlSqueeze: 'Squeeze pressure', hlLevel: 'Near a level', seeMore: 'More',
     divHomeTitle: 'This week ex-dividend', divHomeSub: 'watchlist & popular payers', divHomeNone: 'No upcoming ex-dates',
-    dday: 'D-{n}', ddayToday: 'Today', exDate: 'Ex-date', payDate: 'Pay',
+    dday: 'D-{n}', ddayToday: 'Today', exDate: 'Ex-date', payDate: 'Pay', est: 'est.',
     divTitle: 'Dividends', divSub: 'Yield · calendar · calculator · info only',
     rankYield: 'Yield ranking', rankYieldSub: 'trailing 12 months', perYear: '{n}×/yr',
     fMonthly: 'Monthly', fQuarterly: 'Quarterly', fSemi: 'Semi-annual', fAnnual: 'Annual', fWeekly: 'Weekly', fOne: 'One-time',
@@ -139,7 +139,7 @@ const T: Record<Lang, Record<string, string>> = {
     hlTitle: '今日の市場ハイライト', hlSub: '実データで抽出',
     hlDark: 'ダークプール活発', hlSqueeze: 'スクイーズ圧力', hlLevel: 'レベル接近', seeMore: 'もっと',
     divHomeTitle: '今週の配当落ち', divHomeSub: 'ウォッチリスト・人気配当銘柄', divHomeNone: '直近の配当落ち予定なし',
-    dday: 'D-{n}', ddayToday: '本日', exDate: '配当落ち', payDate: '支払',
+    dday: 'D-{n}', ddayToday: '本日', exDate: '配当落ち', payDate: '支払', est: '予想',
     divTitle: '配当情報', divSub: '利回り · カレンダー · 計算機 · 情報提供用',
     rankYield: '配当利回りランキング', rankYieldSub: '直近12か月ベース', perYear: '年{n}回',
     fMonthly: '毎月', fQuarterly: '四半期', fSemi: '半期', fAnnual: '毎年', fWeekly: '毎週', fOne: '一時',
@@ -315,7 +315,7 @@ export default function RadarPage() {
     try {
       const r = await fetch(`/api/dividends?t=${encodeURIComponent(tk)}`); if (!r.ok) return null;
       const j = await r.json(); if (!j?.success) return null;
-      return { ticker: tk, price: j.price ?? null, yieldPct: j.current?.yieldPct ?? null, ttmYieldPct: j.current?.ttmYieldPct ?? null, freqLabel: j.current?.freqLabel ?? null, cash: j.current?.cash ?? null, annualPerShare: j.current?.annualPerShare ?? null, nextExDate: j.current?.nextExDate ?? null, lastExDate: j.current?.lastExDate ?? null, payDate: j.current?.payDate ?? null };
+      return { ticker: tk, price: j.price ?? null, yieldPct: j.current?.yieldPct ?? null, ttmYieldPct: j.current?.ttmYieldPct ?? null, freqLabel: j.current?.freqLabel ?? null, cash: j.current?.cash ?? null, annualPerShare: j.current?.annualPerShare ?? null, nextExDate: j.current?.nextExDate ?? null, nextExEstimated: !!j.current?.nextExEstimated, lastExDate: j.current?.lastExDate ?? null, payDate: j.current?.payDate ?? null };
     } catch { return null; }
   }, []);
   const loadLabs = useCallback(async (tickers: string[]) => {
@@ -511,7 +511,7 @@ export default function RadarPage() {
                   {homeExSoon.map(({ d, dd }) => (
                     <button key={d.ticker} type="button" onClick={() => { setTab('div'); window.scrollTo(0, 0); }} style={{ font: 'inherit', width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, background: C.card, border: 'none', borderRadius: 18, padding: '12px 14px', boxShadow: C.shadow }}>
                       <TickerLogo ticker={d.ticker} size={32} />
-                      <span style={{ flex: 1, minWidth: 0 }}><span style={{ display: 'block', fontSize: 13, fontWeight: 900 }}>{d.ticker}</span><span style={{ display: 'block', fontSize: 10.5, fontWeight: 750, color: C.sub }}>{t.exDate} {d.nextExDate} · {d.ttmYieldPct != null ? `${d.ttmYieldPct.toFixed(1)}%` : ''}</span></span>
+                      <span style={{ flex: 1, minWidth: 0 }}><span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ fontSize: 13, fontWeight: 900 }}>{d.ticker}</span>{d.nextExEstimated && <span style={{ fontSize: 8, fontWeight: 850, color: C.faint, background: 'rgba(148,167,184,0.14)', borderRadius: 6, padding: '1px 6px' }}>{t.est}</span>}</span><span style={{ display: 'block', fontSize: 10.5, fontWeight: 750, color: C.sub }}>{t.exDate} {d.nextExDate} · {d.ttmYieldPct != null ? `${d.ttmYieldPct.toFixed(1)}%` : ''}</span></span>
                       <span style={{ fontSize: 11, fontWeight: 900, color: (dd as number) <= 2 ? C.amberDeep : C.cyanDeep, background: (dd as number) <= 2 ? C.amberSoft : C.cyanSoft, borderRadius: 99, padding: '5px 11px', flexShrink: 0 }}>{ddayChip(dd as number)}</span>
                     </button>
                   ))}
@@ -623,7 +623,7 @@ export default function RadarPage() {
                   {exCalendar.slice(0, 8).map(({ d, dd }) => (
                     <div key={d.ticker} style={{ display: 'flex', alignItems: 'center', gap: 11, background: C.card, borderRadius: 16, padding: '11px 14px', boxShadow: C.shadow }}>
                       <TickerLogo ticker={d.ticker} size={30} />
-                      <span style={{ flex: 1, minWidth: 0 }}><span style={{ display: 'block', fontSize: 12.5, fontWeight: 900 }}>{d.ticker}</span><span style={{ display: 'block', fontSize: 10, fontWeight: 750, color: C.sub }}>{t.exDate} {d.nextExDate}{d.cash != null ? ` · $${d.cash.toFixed(3)}` : ''}</span></span>
+                      <span style={{ flex: 1, minWidth: 0 }}><span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ fontSize: 12.5, fontWeight: 900 }}>{d.ticker}</span>{d.nextExEstimated && <span style={{ fontSize: 8, fontWeight: 850, color: C.faint, background: 'rgba(148,167,184,0.14)', borderRadius: 6, padding: '1px 6px' }}>{t.est}</span>}</span><span style={{ display: 'block', fontSize: 10, fontWeight: 750, color: C.sub }}>{t.exDate} {d.nextExDate}{d.cash != null ? ` · $${d.cash.toFixed(3)}` : ''}</span></span>
                       <span style={{ fontSize: 11, fontWeight: 900, color: (dd as number) <= 2 ? C.amberDeep : C.cyanDeep, background: (dd as number) <= 2 ? C.amberSoft : C.cyanSoft, borderRadius: 99, padding: '5px 11px' }}>{ddayChip(dd as number)}</span>
                     </div>
                   ))}
