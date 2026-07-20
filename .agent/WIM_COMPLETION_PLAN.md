@@ -98,4 +98,14 @@
 - ✅ 2026-07-20 **W-P3 셸 완성·검증** (69bc1cd0 + 로컬): wim-app/ = uc-app 완전 복제·개명(com.signumhq.wim, "Why'd It Move"), W 아이콘/스플래시 74+7 생성, cap sync OK. **iOS 시뮬 빌드 성공 + 실행 실증**(풀스크린·온보딩 렌더·홈스크린 아이콘 3형제 확인). 웹 셸 훅 3종 배포(a3c7879e): 로케일 셀프라우팅(**셸에서 실증** — /en 진입→ko 표시)·안드로이드 백스택·상단 인셋 플로어(--wim-top-floor).
 - ✅ 2026-07-20 **W-P4 준비물**: `WIM_STORE_KIT.md`(이름/설명/키워드 3언어·프라이버시 "수집 안 함"·심사노트·스샷 플랜) + **Android 서명 AAB 빌드 성공**(wim-app/android/app/build/outputs/bundle/release/app-release.aab, 신규 wim-upload-key.jks — 비번은 gitignored keystore.properties에만).
 - ✅ 2026-07-20 **아이콘 패스 + 빈 화면 고도화** (대표 지적 반영): ①마스트헤드 W 40px 확대 ②설정=슬라이더(튠) 정밀 글리프 ③내비 라벨일치 프리미엄 아이콘(홈=집·사전=펼친책·기록=저널+상승선)+aria — **셸 실화면 검증됨**. ④빈 하단 활용: 숫자감각=문제 종목 실세션 차트+“이 지표란?” 힌트(추측 단계만, 리빌 시 스왑) / 트랙 시트=“오늘의 실측” 섹션(차트트랙=VWAP차트+VWAP/SMA50/PHASE, 기관=MAX PAIN 라인+다크풀/PC, 거시=10Y/동결확률/D-day, 뉴스=오늘의 수업 카드) — 실값 없으면 섹션째 숨김(가짜 금지).
+## ★ 제출일 시작점 (대표 결정 2026-07-20 밤: "잘 킵, 내일이나 올리자")
+> 상태 = **제출 직전 동결.** 코드/빌드/자료 전부 커밋·검증 완료. 제출일에 아래 순서 그대로:
+1. **[Claude] 스토어 스크린샷 15장** — 방법 = `WIM_STORE_KIT.md §6`(브라우저 네이티브 해상도 줌캡처: iOS 1320×2868 zoom3 / Play 1080×2160 zoom2.4545), 장면 5종 × ko/en/ja. 겸사 en/ja 최종 스팟 QA.
+2. **[Claude] 최신 무브 재확인** — 히어로가 그날 실데이터로 정상 갱신됐는지 1분 체크.
+3. **[대표님] iOS**: Xcode `wim-app/ios/App/App.xcodeproj` 열기 → Team=Signum Hq LLC 서명 선택 → Product▸Archive → Organizer 업로드. (실기기 스모크 권장)
+4. **[대표님] ASC**: 새 앱(com.signumhq.wim, 번들ID 등록 포함) → `WIM_STORE_KIT.md` §1~5 복붙 → 스샷 업로드 → 빌드 연결 → 제출.
+5. **[대표님] Play**: 새 앱 → 킷 복붙 → **AAB 업로드**(`wim-app/android/app/build/outputs/bundle/release/app-release.aab`, 재빌드 필요시 `source ~/android-tools/env.sh && cd wim-app/android && ./gradlew bundleRelease`) → 국가(US/JP/KR+) → 제출.
+- 키: iOS 서명=대표님 Xcode / Android 업로드키=`~/android-tools/wim-upload-key.jks`(비번=`wim-app/android/keystore.properties`, gitignored).
+- 광고: v1 = 광고 없음으로 제출(프라이버시 "수집 안 함"). 애드몹 승인 후 1.0.1에서 활성화(UC 6단계 체크리스트 준수).
+
 - **남은 것 (제출 직전, 대표님 개입 필요)**: ①iOS Archive/업로드(Xcode 서명 Team 선택 — UC 절차 동일) + 실기기 스모크 ②스토어 스크린샷 제작(플랜=STORE_KIT §6, 시뮬 6.9"/6.5") ③ASC·Play Console 앱 생성+자료 입력+제출(=대표님 계정 액션) ④사전 탭 거시 용어 노출 확인·3언어 최종 QA(경미).
