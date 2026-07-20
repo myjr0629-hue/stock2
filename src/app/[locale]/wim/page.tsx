@@ -47,6 +47,11 @@ interface Today { success: boolean; dateET: string; units: Unit[] }
 const ICON_PATHS: Record<string, string> = {
   search: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm5.2 12.2L21 21',
   globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm-8.4 6h16.8M3.6 15h16.8M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9s1.3-6.4 3.8-9Z',
+  // ── premium tab/system glyphs (2026-07-20 icon pass — label-true semantics) ──
+  home: 'M4.5 11 12 4.6 19.5 11M6.3 9.6v9a1.4 1.4 0 0 0 1.4 1.4h8.6a1.4 1.4 0 0 0 1.4-1.4v-9M10.2 20v-4.7a1.8 1.8 0 0 1 3.6 0V20',
+  book2: 'M12 6.6C10.6 5.1 8.6 4.3 5.6 4.3c-.9 0-1.6.6-1.6 1.4v11.4c0 .8.7 1.4 1.6 1.4 3 0 5 .8 6.4 2.3 1.4-1.5 3.4-2.3 6.4-2.3.9 0 1.6-.6 1.6-1.4V5.7c0-.8-.7-1.4-1.6-1.4-3 0-5 .8-6.4 2.3Zm0 0v14.2',
+  journal: 'M6.5 3.5h11A1.5 1.5 0 0 1 19 5v14a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V5a1.5 1.5 0 0 1 1.5-1.5ZM8.6 3.5v17M11.4 14.6l2-2.6 1.7 1.4 2.3-3',
+  tune: 'M4 7h6.5M13.5 7H20M4 12h4.5M11.5 12H20M4 17h8.5M15.5 17H20M12 5.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6ZM10 10.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6ZM14 15.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Z',
   gear: 'M12 8.5A3.5 3.5 0 1 1 12 15.5 3.5 3.5 0 0 1 12 8.5Zm8-.5-1.9-.6a6.7 6.7 0 0 0-.6-1.4l.9-1.8-1.6-1.6-1.8.9c-.4-.3-.9-.5-1.4-.6L13 1h-2l-.6 1.9c-.5.1-1 .3-1.4.6l-1.8-.9L5.6 4.2l.9 1.8c-.3.4-.5.9-.6 1.4L4 8v2l1.9.6c.1.5.3 1 .6 1.4l-.9 1.8 1.6 1.6 1.8-.9c.4.3.9.5 1.4.6L11 17h2l.6-1.9c.5-.1 1-.3 1.4-.6l1.8.9 1.6-1.6-.9-1.8c.3-.4.5-.9.6-1.4L20 10V8Z',
   folder: 'M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2.5h8.5A1.5 1.5 0 0 1 21 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-10Z',
   book: 'M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-15ZM9 3v18',
@@ -3738,19 +3743,19 @@ export default function WimPage() {
         {/* glass masthead — W5-C: compressed one-liner (smaller mark, tighter row) */}
         <header style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 'calc(12px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
           {/* 브랜드 마크 — W 모노그램(차트 스윙 W + 골드 캔들 심지), design/wim-logo C안 */}
-          <span aria-hidden style={{ ...glass, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="20" height="20" viewBox="0 0 240 240" style={{ display: 'block' }}>
-              <path d="M52 84 L88 176 L120 110 L152 176 L188 86" fill="none" stroke={P.heroDeep} strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="188" y1="82" x2="188" y2="44" stroke="#FFAD1F" strokeWidth="14" strokeLinecap="round" />
-              <circle cx="188" cy="86" r="16" fill="#FFAD1F" />
+          <span aria-hidden style={{ ...glass, width: 40, height: 40, borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="27" height="27" viewBox="0 0 240 240" style={{ display: 'block' }}>
+              <path d="M40 84 L82 180 L120 106 L158 180 L200 86" fill="none" stroke={P.heroDeep} strokeWidth="28" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="200" y1="80" x2="200" y2="40" stroke="#FFAD1F" strokeWidth="15" strokeLinecap="round" />
+              <circle cx="200" cy="86" r="17" fill="#FFAD1F" />
             </svg>
           </span>
           <div style={{ minWidth: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>Why&apos;d It Move?</div>
             <div style={{ marginTop: 2, fontSize: 9.5, fontWeight: 750 as any, color: P.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tagline}</div>
           </div>
-          <button type="button" onClick={() => setSettingsOpen(true)} aria-label={t.settings} style={{ ...glass, font: 'inherit', marginLeft: 'auto', flexShrink: 0, width: 34, height: 34, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <Ic name="gear" size={16} color={P.ink} sw={1.5} />
+          <button type="button" onClick={() => setSettingsOpen(true)} aria-label={t.settings} style={{ ...glass, font: 'inherit', marginLeft: 'auto', flexShrink: 0, width: 40, height: 40, borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <Ic name="tune" size={18} color={P.ink} sw={1.8} />
           </button>
         </header>
 
@@ -4316,20 +4321,20 @@ export default function WimPage() {
       {/* glass bottom tab bar */}
       <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 24, boxShadow: '0 14px 36px rgba(76,63,175,0.22)', display: 'flex', padding: 6 }}>
         {([
-          { id: 'home', icon: 'folder', label: t.tabHome },
-          { id: 'lib', icon: 'book', label: t.tabLib },
+          { id: 'home', icon: 'home', label: t.tabHome },
+          { id: 'lib', icon: 'book2', label: t.tabLib },
           { id: 'search', icon: 'search', label: t.tabSearch },
-          { id: 'me', icon: 'badge', label: t.tabMe },
+          { id: 'me', icon: 'journal', label: t.tabMe },
         ] as const).map((tb) => {
           const active = homeTab === tb.id;
           return (
-            <button key={tb.id} type="button" onClick={() => { setHomeTab(tb.id); window.scrollTo(0, 0); }} style={{
+            <button key={tb.id} type="button" aria-label={tb.label} onClick={() => { setHomeTab(tb.id); window.scrollTo(0, 0); }} style={{
               font: 'inherit', flex: 1, border: 'none', cursor: 'pointer', borderRadius: 18, padding: '9px 0 8px',
               background: active ? `linear-gradient(150deg, ${P.hero}, ${P.heroDeep})` : 'transparent',
               color: active ? '#fff' : P.sub, transition: 'background 0.2s ease',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
             }}>
-              <Ic name={tb.icon} size={18} color={active ? '#fff' : P.sub} sw={active ? 2 : 1.7} />
+              <Ic name={tb.icon} size={19} color={active ? '#fff' : P.sub} sw={active ? 2 : 1.7} />
               <span style={{ fontSize: 9.5, fontWeight: 900 }}>{tb.label}</span>
             </button>
           );
@@ -4340,7 +4345,7 @@ export default function WimPage() {
       {settingsOpen && (
         <div onClick={() => setSettingsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(26px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease' }}>
-            <div style={{ fontSize: 16, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 7 }}><Ic name="gear" size={16} sw={1.5} /> {t.settings}</div>
+            <div style={{ fontSize: 16, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 7 }}><Ic name="tune" size={16} sw={1.8} /> {t.settings}</div>
             <div style={{ marginTop: 14, fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>{t.language.toUpperCase()}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               {([['en', 'English'], ['ja', '日本語'], ['ko', '한국어']] as const).map(([code, name]) => (
