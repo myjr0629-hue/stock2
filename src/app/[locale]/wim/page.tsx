@@ -394,6 +394,9 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: '복습',
     drillFocus: '집중 드릴',
     drillFocusSub: '같은 지표 · 다른 종목',
+    senseChart: '오늘 실제 세션',
+    senseHint: '이 지표란?',
+    trackLiveTitle: '오늘의 실측',
     calTitle: '직감 정확도',
     calSub: '최근 30일 · {a}번의 판단 중 {b}번 적중',
     calEmpty: '다섯 번 이상 풀면 나의 정확도 곡선이 열려요',
@@ -565,6 +568,9 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: 'Review',
     drillFocus: 'Focus drill',
     drillFocusSub: 'Same metric · new tickers',
+    senseChart: "Today's real session",
+    senseHint: 'What is this metric?',
+    trackLiveTitle: 'Today, measured',
     calTitle: 'Gut accuracy',
     calSub: 'Last 30 days · {b} of {a} calls landed',
     calEmpty: 'Answer five or more to unlock your accuracy curve',
@@ -736,6 +742,9 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: '復習',
     drillFocus: '集中ドリル',
     drillFocusSub: '同じ指標 · 別の銘柄',
+    senseChart: '本日の実セッション',
+    senseHint: 'この指標とは？',
+    trackLiveTitle: '本日の実測',
     calTitle: '直感の精度',
     calSub: '直近30日 · {a}回中{b}回的中',
     calEmpty: '5回以上解くと精度カーブが開きます',
@@ -1709,6 +1718,7 @@ function NumberSensePlay({ tickers, requestLab, t, loc, onAward, onCollect, onSr
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<'play' | 'summary'>('play');
   const [focusTerm, setFocusTerm] = useState<MetricTerm | null>(null);
+  const [labMap, setLabMap] = useState<Record<string, LabData>>({});
   const bonusRef = useRef(false);
 
   // fetch every unit ticker's lab in parallel (cache-first), pool the non-null
@@ -1717,6 +1727,9 @@ function NumberSensePlay({ tickers, requestLab, t, loc, onAward, onCollect, onSr
     let alive = true;
     Promise.all(tickers.map((tk) => requestLab(tk))).then((arr) => {
       if (!alive) return;
+      const m: Record<string, LabData> = {};
+      arr.forEach((lb, i) => { if (lb) m[tickers[i]] = lb; });
+      setLabMap(m);
       const pool: SenseQ[] = [];
       arr.forEach((lb) => { if (lb) pool.push(...buildSenseQs(lb, t)); });
       for (let i = pool.length - 1; i > 0; i--) {
@@ -1851,6 +1864,29 @@ function NumberSensePlay({ tickers, requestLab, t, loc, onAward, onCollect, onSr
                 );
               })}
             </div>
+
+            {/* 빈 하단 활용(2026-07-20): 문제 종목의 실제 세션 차트 + 지표 힌트 —
+                맨숫자 추측이 아니라 맥락 속에서 감을 기른다 (실데이터 원칙).
+                추측 단계에만 표시 — 정답 후엔 리빌 카드가 그 자리를 이어받는다. */}
+            {picked == null && labMap[q.ticker]?.spark && (labMap[q.ticker].spark as NonNullable<LabData['spark']>).closes.length >= 8 && (
+              <div style={{ marginTop: 14, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '11px 10px 5px', animation: `wimUp 0.3s ${EASE_OUT} both` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 5px 6px' }}>
+                  <TickerLogo ticker={q.ticker} size={16} />
+                  <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.05em', color: P.faint }}>{t.senseChart.toUpperCase()}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '2px 8px' }}>● {t.realData.toUpperCase()}</span>
+                </div>
+                <RealChart closes={(labMap[q.ticker].spark as NonNullable<LabData['spark']>).closes} height={92} />
+              </div>
+            )}
+            {picked == null && METRIC_GLOSSARY[q.term] && (
+              <div style={{ marginTop: 10, display: 'flex', gap: 9, background: P.heroSoft, borderRadius: 16, padding: '11px 13px', alignItems: 'flex-start', animation: `wimUp 0.3s ${EASE_OUT} 60ms both` }}>
+                <span style={{ color: P.heroDeep, marginTop: 1 }}><Ic name="book2" size={15} sw={1.9} /></span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: P.heroDeep }}>{t.senseHint} · {METRIC_GLOSSARY[q.term].title[loc]}</div>
+                  <div style={{ marginTop: 3, fontSize: 11.5, lineHeight: 1.6, fontWeight: 650 as any, color: P.sub, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{METRIC_GLOSSARY[q.term].body[loc]}</div>
+                </div>
+              </div>
+            )}
 
             {picked != null && (
               <div style={{ animation: 'wimPop 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
@@ -3625,6 +3661,72 @@ export default function WimPage() {
             ) : (
               <div style={{ marginTop: 16, textAlign: 'center', fontSize: 11.5, fontWeight: 800, color: P.faint, animation: `wimUp 0.26s ${EASE_OUT} 110ms both` }}>{t.trackTermsSoon}</div>
             )}
+
+            {/* 오늘의 실측 — 트랙의 개념을 오늘 데이터로 즉시 증명 (빈 하단 활용, 2026-07-20).
+                실값이 없으면 섹션째 숨김(가짜 숫자 금지). */}
+            {(() => {
+              const tile = (label: string, val: string | null) => (val == null ? null : (
+                <div key={label} style={{ flex: 1, minWidth: 0, background: '#fff', border: `1.5px solid ${P.line}`, borderRadius: 14, padding: '9px 6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.06em', color: P.faint, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+                  <div style={{ marginTop: 2, fontSize: 14.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: P.heroDeep, whiteSpace: 'nowrap' }}>{val}</div>
+                </div>
+              ));
+              let tiles: (ReactNode | null)[] = [];
+              let chart: ReactNode = null;
+              if (tr.id === 'macro') {
+                tiles = [
+                  tile(t.pulse10Y, pulse?.ty?.yield10Y != null ? `${pulse.ty.yield10Y.toFixed(2)}%` : null),
+                  tile(t.pulseHold, pulse?.fw?.noChange != null ? `${pulse.fw.noChange.toFixed(1)}%` : null),
+                  tile(t.pulseFomc, pulse?.fw?.daysUntilFomc != null ? `D-${pulse.fw.daysUntilFomc}` : null),
+                ];
+              } else if (tr.id === 'news') {
+                if (ucCard) {
+                  chart = (
+                    <button type="button" className="wim-press" onClick={() => { setTrackOpen(null); setTrackClosing(false); openPlay('news'); }} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: `1.5px solid ${P.line}`, borderRadius: 16, padding: '12px 13px' }}>
+                      <TickerLogo ticker={ucCard.ticker} size={26} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 12, fontWeight: 900, color: P.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ucCard.plainTitle}</span>
+                        <span style={{ display: 'block', marginTop: 2, fontSize: 9.5, fontWeight: 800, color: P.faint }}>{ucCard.ticker}</span>
+                      </span>
+                      <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 900, background: P.ink, color: '#fff', borderRadius: 99, padding: '5px 11px' }}>{t.colOpen}</span>
+                    </button>
+                  );
+                }
+              } else if (heroLab) {
+                const lvl = tr.id === 'insti' && heroLab.levels.maxPain != null
+                  ? [{ label: 'MAX PAIN', value: heroLab.levels.maxPain, color: '#C98A00' }] : undefined;
+                if (heroLab.spark && heroLab.spark.closes.length >= 8) {
+                  chart = <RealChart closes={heroLab.spark.closes} vwap={tr.id === 'chart' ? heroLab.spark.vwap : null} levels={lvl} height={92} />;
+                }
+                const vwapLast = heroLab.spark?.vwap?.length ? heroLab.spark.vwap[heroLab.spark.vwap.length - 1] : null;
+                tiles = tr.id === 'chart'
+                  ? [
+                    tile('VWAP', vwapLast != null ? `$${vwapLast.toFixed(2)}` : null),
+                    tile('SMA50', heroLab.sma.sma50 != null ? `$${heroLab.sma.sma50.toFixed(0)}` : null),
+                    tile('PHASE', heroLab.sma.phase || null),
+                  ]
+                  : [
+                    tile('MAX PAIN', heroLab.levels.maxPain != null ? `$${heroLab.levels.maxPain}` : null),
+                    tile('DARK POOL', heroLab.darkPoolPct != null ? `${Math.round(heroLab.darkPoolPct)}%` : null),
+                    tile('P/C', heroLab.pcr != null ? heroLab.pcr.toFixed(2) : null),
+                  ];
+              }
+              const liveTiles = tiles.filter(Boolean);
+              if (!chart && liveTiles.length === 0) return null;
+              return (
+                <div style={{ marginTop: 16, animation: `wimUp 0.26s ${EASE_OUT} 150ms both` }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
+                    <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 900 }}>{t.trackLiveTitle}</h2>
+                    {heroLab && tr.id !== 'macro' && tr.id !== 'news' && <span style={{ fontSize: 10.5, fontWeight: 900, color: P.faint }}>{heroLab.ticker}</span>}
+                    <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
+                  </div>
+                  {chart && (tr.id === 'news'
+                    ? <div style={{ marginTop: 9 }}>{chart}</div>
+                    : <div style={{ marginTop: 9, background: '#fff', border: `1.5px solid ${P.line}`, borderRadius: 18, padding: '10px 8px 5px', overflow: 'hidden' }}>{chart}</div>)}
+                  {liveTiles.length > 0 && <div style={{ display: 'flex', gap: 8, marginTop: 9 }}>{liveTiles}</div>}
+                </div>
+              );
+            })()}
 
             <div style={{ marginTop: 18, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.5 }}>{disclaimerText}</div>
           </div>
