@@ -630,7 +630,7 @@ export default function RadarPage() {
             {/* yield ranking + frequency filter */}
             <div style={{ marginTop: 16 }}>{sectionHead(t.rankYield, t.rankYieldSub)}</div>
             <div style={{ display: 'flex', gap: 7, marginTop: 10, overflowX: 'auto' }} className="no-sb">
-              {([['all', t.fAll], ['monthly', t.fMonthly], ['quarterly', t.fQuarterly], ['other', t.fOther]] as const).map(([k, label]) => (
+              {([['all', t.fAll], ['monthly', t.fMonthly], ['quarterly', t.fQuarterly]] as const).map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setDivFilter(k)} style={{ font: 'inherit', flexShrink: 0, cursor: 'pointer', border: 'none', borderRadius: 99, padding: '7px 15px', fontSize: 11.5, fontWeight: 850, background: divFilter === k ? C.mintDeep : C.card, color: divFilter === k ? '#fff' : C.sub, boxShadow: divFilter === k ? '0 6px 16px rgba(4,120,87,0.22)' : C.shadow }}>{label}</button>
               ))}
             </div>
