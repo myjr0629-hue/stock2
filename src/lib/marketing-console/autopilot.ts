@@ -242,9 +242,10 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
     let detail = '';
     try {
       if (p.bluesky && mode === 'live') {
-        // Bluesky live → direct AT-Protocol post (image embed is a follow-up).
-        const r = await bskyPost(text);
-        ok = r.ok; detail = r.ok ? 'bluesky published' : (r.error || 'bsky 실패');
+        // Bluesky live → direct AT-Protocol post. The level card is uploaded as a
+        // blob + embedded (bsky doesn't OG-fetch, and our posts carry no link).
+        const r = await bskyPost(text, ogUrl);
+        ok = r.ok; detail = r.ok ? (r.withImage ? 'bluesky published +card' : 'bluesky published (no card)') : (r.error || 'bsky 실패');
       } else {
         // X (shadow=draft / live=publish) AND Bluesky shadow → Buffer. Drafts now
         // hold correctly (createPost omits dueAt for drafts, mode 'shareNow'), so
