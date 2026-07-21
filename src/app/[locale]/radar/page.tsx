@@ -62,7 +62,7 @@ const T: Record<Lang, Record<string, string>> = {
     dday: 'D-{n}', ddayToday: '오늘', exDate: '배당락', payDate: '지급', est: '예상',
     divTitle: '배당 정보', divSub: '수익률·달력·계산기 · 정보 제공용',
     rankYield: '배당수익률 랭킹', rankYieldSub: '최근 12개월 기준', perYear: '연 {n}회',
-    fMonthly: '월배당', fQuarterly: '분기', fSemi: '반기', fAnnual: '연배당', fWeekly: '주배당', fOne: '일시',
+    fMonthly: '월배당', fQuarterly: '분기', fSemi: '반기', fAnnual: '연배당', fWeekly: '주배당', fOne: '일시', fOther: '반기·연',
     calcTitle: '인컴 계산기', calcSub: '얼마 넣으면 얼마 받을까 (정보용, 조언 아님)',
     calcPick: '종목', calcAmount: '투자 금액', calcYear: '예상 연 배당', calcMonth: '월 환산', calcYieldOn: '적용 수익률',
     calTitle: '배당락 캘린더', calSub: '다가오는 배당락일',
@@ -102,7 +102,7 @@ const T: Record<Lang, Record<string, string>> = {
     dday: 'D-{n}', ddayToday: 'Today', exDate: 'Ex-date', payDate: 'Pay', est: 'est.',
     divTitle: 'Dividends', divSub: 'Yield · calendar · calculator · info only',
     rankYield: 'Yield ranking', rankYieldSub: 'trailing 12 months', perYear: '{n}×/yr',
-    fMonthly: 'Monthly', fQuarterly: 'Quarterly', fSemi: 'Semi-annual', fAnnual: 'Annual', fWeekly: 'Weekly', fOne: 'One-time',
+    fMonthly: 'Monthly', fQuarterly: 'Quarterly', fSemi: 'Semi-annual', fAnnual: 'Annual', fWeekly: 'Weekly', fOne: 'One-time', fOther: 'Semi/annual',
     calcTitle: 'Income calculator', calcSub: 'how much you would receive (info, not advice)',
     calcPick: 'Ticker', calcAmount: 'Amount invested', calcYear: 'Est. annual income', calcMonth: 'per month', calcYieldOn: 'yield applied',
     calTitle: 'Ex-dividend calendar', calSub: 'upcoming ex-dates',
@@ -142,7 +142,7 @@ const T: Record<Lang, Record<string, string>> = {
     dday: 'D-{n}', ddayToday: '本日', exDate: '配当落ち', payDate: '支払', est: '予想',
     divTitle: '配当情報', divSub: '利回り · カレンダー · 計算機 · 情報提供用',
     rankYield: '配当利回りランキング', rankYieldSub: '直近12か月ベース', perYear: '年{n}回',
-    fMonthly: '毎月', fQuarterly: '四半期', fSemi: '半期', fAnnual: '毎年', fWeekly: '毎週', fOne: '一時',
+    fMonthly: '毎月', fQuarterly: '四半期', fSemi: '半期', fAnnual: '毎年', fWeekly: '毎週', fOne: '一時', fOther: '半期・毎年',
     calcTitle: 'インカム計算機', calcSub: 'いくら投資すればいくら受け取れるか（情報用・助言ではありません）',
     calcPick: '銘柄', calcAmount: '投資額', calcYear: '年間配当（概算）', calcMonth: '月換算', calcYieldOn: '適用利回り',
     calTitle: '配当落ちカレンダー', calSub: '直近の配当落ち日',
@@ -266,12 +266,35 @@ function Gauge({ score, band }: { score: number; band: string }) {
   );
 }
 
-const NAV_ICON: Record<Tab, string> = {
-  home: 'M4.5 11 12 4.6 19.5 11M6.3 9.6v9a1.4 1.4 0 0 0 1.4 1.4h8.6a1.4 1.4 0 0 0 1.4-1.4v-9',
-  radar: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4.6a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8ZM12 12l6-6',
-  div: 'M12 3.4c-3 0-5.4 1.3-5.4 3.2S9 9.8 12 9.8s5.4 1.3 5.4 3.2-2.4 3.2-5.4 3.2m0-12.8v17.2m0-17.2c1.8 0 3.4.5 4.4 1.3M12 20.4c-1.8 0-3.4-.5-4.4-1.3',
-  me: 'M12 3.6a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM5 20c.6-3.8 3.4-5.8 7-5.8s6.4 2 7 5.8',
-};
+// premium duotone tab glyphs (thematic: gauge / radar-sweep / coin / person)
+function NavGlyph({ tab, color }: { tab: Tab; color: string }) {
+  const s = { display: 'block' as const };
+  if (tab === 'home') return (
+    <svg width="21" height="21" viewBox="0 0 24 24" style={s}>
+      <path d="M4.2 15.6a7.8 7.8 0 0 1 15.6 0" fill="none" stroke={color} strokeWidth="2.1" strokeLinecap="round" opacity="0.38" />
+      <path d="M12 15.6 L16.7 10.6" stroke={color} strokeWidth="2.3" strokeLinecap="round" />
+      <circle cx="12" cy="15.6" r="2.1" fill={color} />
+    </svg>);
+  if (tab === 'radar') return (
+    <svg width="21" height="21" viewBox="0 0 24 24" style={s}>
+      <circle cx="12" cy="12" r="8.4" fill="none" stroke={color} strokeWidth="1.6" opacity="0.32" />
+      <circle cx="12" cy="12" r="4.6" fill="none" stroke={color} strokeWidth="1.7" opacity="0.62" />
+      <path d="M12 12 L18.4 5.6" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="1.8" fill={color} />
+      <circle cx="16.2" cy="15.4" r="1.7" fill="#F59E0B" />
+    </svg>);
+  if (tab === 'div') return (
+    <svg width="21" height="21" viewBox="0 0 24 24" style={s}>
+      <circle cx="12" cy="12" r="8.2" fill="none" stroke={color} strokeWidth="1.7" />
+      <path d="M12 6.8v10.4" stroke={color} strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M14.7 9.1c-.6-.7-1.6-1.1-2.7-1.1-1.6 0-2.6.8-2.6 1.9 0 2.6 5.5 1.3 5.5 3.9 0 1.1-1 2-2.9 2-1.3 0-2.4-.5-3-1.2" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+    </svg>);
+  return (
+    <svg width="21" height="21" viewBox="0 0 24 24" style={s}>
+      <circle cx="12" cy="8.2" r="3.6" fill={color} />
+      <path d="M5.4 19.6c.7-4 3.5-6 6.6-6s5.9 2 6.6 6a1 1 0 0 1-1 1.2H6.4a1 1 0 0 1-1-1.2Z" fill={color} />
+    </svg>);
+}
 
 export default function RadarPage() {
   const params = useParams<{ locale: string }>();
@@ -292,6 +315,7 @@ export default function RadarPage() {
   const [calcTk, setCalcTk] = useState('SCHD');
   const [calcAmt, setCalcAmt] = useState('10000');
   const [simTk, setSimTk] = useState('JEPI');
+  const [divFilter, setDivFilter] = useState<'all' | 'monthly' | 'quarterly' | 'other'>('all');
 
   const freqLoc = (fl: string | null) => fl == null ? '' : ({ monthly: t.fMonthly, quarterly: t.fQuarterly, 'semi-annual': t.fSemi, annual: t.fAnnual, weekly: t.fWeekly, 'one-time': t.fOne, 'bi-monthly': t.fMonthly, 'semi-monthly': t.fMonthly } as Record<string, string>)[fl] || fl;
 
@@ -364,7 +388,9 @@ export default function RadarPage() {
   const rankLevelList = useMemo(() => [...uni].map((l) => ({ l, h: nearestLevel(l) })).filter((x) => x.h).sort((a, b) => Math.abs((a.h as LevelHit).distPct) - Math.abs((b.h as LevelHit).distPct)).slice(0, 5), [uni]);
 
   const divList = useMemo(() => DIV_UNIVERSE.map((tk) => divs[tk]).filter((d): d is DivData => !!d), [divs]);
+  const freqCat = (fl: string | null) => fl === 'monthly' || fl === 'bi-monthly' || fl === 'semi-monthly' || fl === 'weekly' ? 'monthly' : fl === 'quarterly' ? 'quarterly' : 'other';
   const yieldRank = useMemo(() => [...divList].filter((d) => d.ttmYieldPct != null).sort((a, b) => (b.ttmYieldPct as number) - (a.ttmYieldPct as number)), [divList]);
+  const yieldShown = useMemo(() => divFilter === 'all' ? yieldRank : yieldRank.filter((d) => freqCat(d.freqLabel) === divFilter), [yieldRank, divFilter]);
   const exCalendar = useMemo(() => [...divList].map((d) => ({ d, dd: daysUntil(d.nextExDate) })).filter((x) => x.dd != null && (x.dd as number) >= 0).sort((a, b) => (a.dd as number) - (b.dd as number)), [divList]);
   const homeExSoon = exCalendar.filter((x) => (x.dd as number) <= 10).slice(0, 4);
   const calcDiv = divs[calcTk];
@@ -601,11 +627,16 @@ export default function RadarPage() {
               <div style={{ marginTop: 8, fontSize: 9.5, fontWeight: 700, color: C.mintDeep, opacity: 0.75, textAlign: 'center' }}>{t.calcYieldOn}: {calcY != null ? `${calcY.toFixed(2)}% · ${freqLoc(calcDiv?.freqLabel ?? null)}` : '…'}</div>
             </div>
 
-            {/* yield ranking */}
+            {/* yield ranking + frequency filter */}
             <div style={{ marginTop: 16 }}>{sectionHead(t.rankYield, t.rankYieldSub)}</div>
+            <div style={{ display: 'flex', gap: 7, marginTop: 10, overflowX: 'auto' }} className="no-sb">
+              {([['all', t.fAll], ['monthly', t.fMonthly], ['quarterly', t.fQuarterly], ['other', t.fOther]] as const).map(([k, label]) => (
+                <button key={k} type="button" onClick={() => setDivFilter(k)} style={{ font: 'inherit', flexShrink: 0, cursor: 'pointer', border: 'none', borderRadius: 99, padding: '7px 15px', fontSize: 11.5, fontWeight: 850, background: divFilter === k ? C.mintDeep : C.card, color: divFilter === k ? '#fff' : C.sub, boxShadow: divFilter === k ? '0 6px 16px rgba(4,120,87,0.22)' : C.shadow }}>{label}</button>
+              ))}
+            </div>
             <div style={{ marginTop: 10, background: C.card, borderRadius: 20, padding: '4px 14px', boxShadow: C.shadow }}>
-              {yieldRank.length === 0 ? <div style={{ padding: '18px 0', textAlign: 'center', color: C.faint, fontSize: 11, fontWeight: 700 }}>{t.loading}</div>
-                : yieldRank.map((d, i) => (
+              {yieldShown.length === 0 ? <div style={{ padding: '18px 0', textAlign: 'center', color: C.faint, fontSize: 11, fontWeight: 700 }}>{yieldRank.length === 0 ? t.loading : '—'}</div>
+                : yieldShown.map((d, i) => (
                   <div key={d.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderTop: i === 0 ? 'none' : `1px solid ${C.line}` }}>
                     <span style={{ width: 16, fontSize: 11, fontWeight: 900, color: C.faint }}>{i + 1}</span>
                     <TickerLogo ticker={d.ticker} size={30} />
@@ -681,9 +712,19 @@ export default function RadarPage() {
                 </span>
               ))}
             </div>
-            <button type="button" onClick={() => setLangOpen(true)} style={{ font: 'inherit', width: '100%', textAlign: 'left', cursor: 'pointer', marginTop: 18, background: C.card, border: 'none', borderRadius: 16, padding: '15px 16px', boxShadow: C.shadow, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 850 }}>{t.langTitle}</span><span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 850, color: C.cyanDeep }}>{loc === 'en' ? 'English' : loc === 'ja' ? '日本語' : '한국어'} ›</span>
-            </button>
+            {/* language — switch right here in settings (inline, one tap) */}
+            <div style={{ marginTop: 18 }}>{sectionHead(t.langTitle, '')}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              {(['ko', 'en', 'ja'] as Lang[]).map((l) => {
+                const active = l === loc;
+                const name = l === 'en' ? 'English' : l === 'ja' ? '日本語' : '한국어';
+                return (
+                  <a key={l} href={`/${l}/radar`} style={{ flex: 1, textAlign: 'center', textDecoration: 'none', borderRadius: 16, padding: '14px 0', fontSize: 13, fontWeight: 850, background: active ? `linear-gradient(150deg, ${C.cyan}, ${C.cyanDeep})` : C.card, color: active ? '#fff' : C.ink, boxShadow: active ? '0 8px 18px rgba(15,181,203,0.28)' : C.shadow }}>
+                    {name}{active && ' ✓'}
+                  </a>
+                );
+              })}
+            </div>
           </section>
         )}
 
@@ -697,8 +738,8 @@ export default function RadarPage() {
             const active = tab === k;
             const label = k === 'home' ? t.tabHome : k === 'radar' ? t.tabRadar : k === 'div' ? t.tabDiv : t.tabMe;
             return (
-              <button key={k} type="button" aria-label={label} onClick={() => { setTab(k); window.scrollTo(0, 0); }} style={{ font: 'inherit', flex: 1, border: 'none', cursor: 'pointer', borderRadius: 16, padding: '9px 0 7px', background: active ? `linear-gradient(150deg, ${C.cyan}, ${C.cyanDeep})` : 'transparent', color: active ? '#fff' : C.sub, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, transition: 'background 0.2s ease' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? '#fff' : C.sub} strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round"><path d={NAV_ICON[k]} /></svg>
+              <button key={k} type="button" aria-label={label} onClick={() => { setTab(k); window.scrollTo(0, 0); }} style={{ font: 'inherit', flex: 1, border: 'none', cursor: 'pointer', borderRadius: 16, padding: '9px 0 7px', background: active ? `linear-gradient(150deg, ${C.cyan}, ${C.cyanDeep})` : 'transparent', color: active ? '#fff' : C.sub, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, transition: 'background 0.2s ease', boxShadow: active ? '0 8px 18px rgba(15,181,203,0.32)' : 'none' }}>
+                <NavGlyph tab={k} color={active ? '#fff' : C.sub} />
                 <span style={{ fontSize: 9.5, fontWeight: 900 }}>{label}</span>
               </button>
             );
