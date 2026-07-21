@@ -80,10 +80,16 @@ function windowFraction(ch: string): number {
   return Math.min(1, Math.max(0, (t - 570) / (1200 - 570)));
 }
 function paceGate(ch: string, vol: number): { post: boolean; detail: string } {
-  const target = DAILY_CAP * windowFraction(ch);
+  // Front-loaded target: BASELINE(0.4) at window open so the first post fires near
+  // the OPEN (x-us: US open 09:30 ET; x-jp: JP window start) rather than only in
+  // the late-window catch-up. Without this, x-us clustered at ~13:00 ET = KST 02:00
+  // (unseen) while x-jp fired at its evening peak — the perceived US-vs-JP gap.
+  // Still capped at DAILY_CAP with the 90-min interval, so no spray.
+  const BASELINE = 0.4;
+  const target = DAILY_CAP * (BASELINE + (1 - BASELINE) * windowFraction(ch));
   const behind = target - vol;
   if (behind >= 1) return { post: true, detail: 'catch-up' };
-  if (behind > 0 && Math.random() < behind * 0.5) return { post: true, detail: 'jitter' };
+  if (behind > 0 && Math.random() < behind * 0.6) return { post: true, detail: 'jitter' };
   return { post: false, detail: `페이싱 대기(target ${target.toFixed(1)}, 발행 ${vol})` };
 }
 
