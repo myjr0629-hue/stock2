@@ -2947,7 +2947,11 @@ export default function WimPage() {
         // reads as a data bug (seen live: Ethereum title + HOOD logo). Skip those;
         // if nothing coherent remains the card vanishes quietly (by design).
         const CRYPTO_RE = /비트코인|이더리움|암호화폐|가상자산|코인|bitcoin|ethereum|crypto|ビットコイン|イーサリアム|仮想通貨|暗号資産|\bBTC\b|\bETH\b|\bXRP\b|솔라나|solana|ソラナ/i;
-        const coherent = withPhoto.filter((c) => !CRYPTO_RE.test(c.plainTitle));
+        // observer-tone gate: this is an EDUCATION app, so a forward-looking headline
+        // ("PLTR 급등 예상 / expected to surge") must not lead the news lesson. Targeted
+        // predictive phrases only (not bare 예상/予想 — factual "beat expectations" stays).
+        const PREDICT_RE = /급등\s*예상|급락\s*예상|상승\s*예상|하락\s*예상|오를\s*전망|내릴\s*전망|급등할|전망이다|것으로\s*예상|expected to (rise|surge|rally|jump|climb|fall|drop|gain|soar)|poised to|set to (rise|surge|rally|jump)|could (surge|rally|soar|jump|climb)|likely to (rise|surge|rally|climb)|forecast(ed)? to|projected to|急騰.{0,3}予想|上昇.{0,3}予想|急落.{0,3}予想|上がる見通し|下がる見通し|だろう/i;
+        const coherent = withPhoto.filter((c) => !CRYPTO_RE.test(c.plainTitle) && !PREDICT_RE.test(c.plainTitle));
         setUcCard(coherent.find((c) => c.hasMoneyData) || coherent[0] || null);
       })
       .catch(() => {});
@@ -4451,7 +4455,17 @@ export default function WimPage() {
             <div style={{ marginTop: 14, fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>{t.language.toUpperCase()}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               {([['en', 'English'], ['ja', '日本語'], ['ko', '한국어']] as const).map(([code, name]) => (
-                <button key={code} type="button" onClick={() => { setSettingsOpen(false); if (code !== loc) router.replace(`/${code}/wim`); }} style={{
+                <button key={code} type="button" onClick={() => {
+                  setSettingsOpen(false);
+                  if (code !== loc) {
+                    // Persist BEFORE navigating: the mount-time self-routing effect
+                    // reads wim.locale and would otherwise bounce right back to the
+                    // old locale (the switcher looked broken — every user stuck on
+                    // their first language). Write first so the effect agrees.
+                    try { localStorage.setItem('wim.locale', code); } catch { /* storage off */ }
+                    router.replace(`/${code}/wim`);
+                  }
+                }} style={{
                   font: 'inherit', flex: 1, cursor: 'pointer', borderRadius: 14, padding: '11px 0', fontSize: 12.5, fontWeight: 900,
                   border: `1.5px solid ${code === loc ? P.hero : P.line}`,
                   background: code === loc ? P.hero : '#fff', color: code === loc ? '#fff' : P.ink,

@@ -77,6 +77,17 @@ function locFull(l: any): l is Loc {
     && typeof l.en === 'string' && l.en.trim() !== ''
     && typeof l.ja === 'string' && l.ja.trim() !== '';
 }
+// Forward-looking framing sometimes survives verbatim from a real source headline
+// (seen live: "PLTR 급등 예상" / "expected to surge after earnings"). This app is
+// observer-tone only, so a predictive headline must not show. Scan is HEADLINE-only
+// and fail-SOFT — we drop just the headline chip and keep the unit (its explanation
+// is AI-authored under observer rules and already clean). Targeted phrases (not bare
+// 예상/予想) so factual "beat expectations / 予想を上回る" past-facts still pass.
+const PREDICTIVE = /급등\s*예상|급락\s*예상|상승\s*예상|하락\s*예상|오를\s*전망|내릴\s*전망|급등할|전망이다|것으로\s*예상|expected to (rise|surge|rally|jump|climb|fall|drop|gain|soar)|poised to|set to (rise|surge|rally|jump)|could (surge|rally|soar|jump|climb)|likely to (rise|surge|rally|climb)|forecast(ed)? to|projected to|急騰.{0,3}予想|上昇.{0,3}予想|急落.{0,3}予想|上がる見通し|下がる見通し|だろう/i;
+function headlineClean(l: Loc | null | undefined): boolean {
+  if (!l) return true;
+  return !PREDICTIVE.test(`${l.ko} ${l.en} ${l.ja}`);
+}
 
 export async function GET(request: Request) {
   const { origin: reqOrigin, searchParams } = new URL(request.url);
@@ -154,7 +165,7 @@ STRICT RULES:
 - OBSERVER tone. Describe what happened and why. NEVER advise, recommend, or predict (no buy/sell/should/will rise/target).
 - Attribute each move to exactly ONE cause category from the catalog (the id string).
 - "explanation": ≤2 short sentences in plain language a beginner gets, the causal driver wrapped in **bold**. Written natively in EACH of Korean, English, Japanese (not literal translations of each other — natural in each).
-- "headline": translate the single most causal headline into each language (or null if none is causal).
+- "headline": restate the single most causal news as a SHORT FACTUAL observation of what was reported (past/present tense), written natively in each language. NEVER carry over forecasts, price targets, or "expected to / will / 予想 / 급등 예상" style predictions from the source wording. If the only news is speculative or forward-looking, return null.
 - "deepRead": 1-2 sentences of the INSTITUTIONAL view grounded ONLY in the money numbers given (dark-pool share, put/call, squeeze score, max pain) — what a desk would notice. Observer tone, no advice. Null if numbers are absent.
 - Output STRICT JSON only.
 
@@ -205,7 +216,7 @@ ${JSON.stringify(enriched.map((m, i) => ({
         choices: choiceIds.map((cid) => ({ id: cid, categoryId: cid, label: CAUSE_BANK[cid].label })),
         correctCategoryIds: [cat],
         explanation: a.explanation as Loc,
-        evidence: locFull(a.headline) ? { newsHeadline: a.headline as Loc } : undefined,
+        evidence: locFull(a.headline) && headlineClean(a.headline) ? { newsHeadline: a.headline as Loc } : undefined,
         deepRead: locFull(a.deepRead) ? (a.deepRead as Loc) : null,
         money: m.money && (m.money.darkPoolPct != null || m.money.volumePcr != null) ? {
           darkPoolPct: m.money.darkPoolPct, volumePcr: m.money.volumePcr,
