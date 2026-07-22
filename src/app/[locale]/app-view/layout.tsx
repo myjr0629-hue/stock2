@@ -7,6 +7,7 @@ import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { usePathname } from '@/i18n/routing';
+import { resolveAppLocale } from '@/lib/appLocale';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
 
@@ -34,18 +35,10 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     const seg = path.split('/')[1];
     const current = SUPPORTED.includes(seg) ? seg : 'en';
 
-    // The user's EXPLICIT in-app choice wins; otherwise use the device language.
-    // We deliberately IGNORE the NEXT_LOCALE cookie: next-intl auto-sets it to the
-    // loaded /en/ locale, which would otherwise pin the app to English forever.
-    let desired = '';
-    try {
-      const saved = localStorage.getItem('signumhq.app.locale');
-      if (saved && SUPPORTED.includes(saved)) desired = saved;
-    } catch { /* storage unavailable */ }
-    if (!desired) {
-      const dev = (navigator.language || 'en').slice(0, 2).toLowerCase();
-      desired = SUPPORTED.includes(dev) ? dev : 'en';
-    }
+    // The user's EXPLICIT in-app choice wins; otherwise device language, else 'en'.
+    // Single source of truth (resolveAppLocale) — same resolution the push deep-link
+    // uses, so the app never disagrees with itself about which locale to be in.
+    const desired = resolveAppLocale();
 
     if (desired !== current) {
       const rest = path.replace(/^\/(ko|en|ja)(?=\/|$)/, '') || '/app-view/dash';
@@ -73,8 +66,11 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
           'pushNotificationActionPerformed',
           (action: { notification?: { data?: Record<string, string> } }) => {
             const type = action?.notification?.data?.type;
-            const seg = window.location.pathname.split('/')[1];
-            const loc = ['ko', 'en', 'ja'].includes(seg) ? seg : 'en';
+            // Resolve the deep-link locale from the SAVED choice, NEVER from
+            // window.location: on a cold-start push tap the path is still the shell's
+            // boot /en (server.url), so reading it opened the report in English even
+            // for Korean users. This was the market-close-report language bug.
+            const loc = resolveAppLocale();
             const target = type === 'morning'
               // Guardian overview → auto-open the AI morning-briefing report overlay.
               ? `/${loc}/app-view/guardian?tab=overview&brief=1`

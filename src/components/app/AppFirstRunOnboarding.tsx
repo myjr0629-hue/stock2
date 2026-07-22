@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { usePathname } from '@/i18n/routing';
+import { resolveAppLocale } from '@/lib/appLocale';
 import styles from './AppFirstRunOnboarding.module.css';
 
 type OnboardingCopy = {
@@ -191,7 +192,7 @@ export function AppFirstRunOnboarding() {
           fetch('/api/push/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, platform, locale: window.location.pathname.split('/')[1] || 'en' }),
+            body: JSON.stringify({ token, platform, locale: resolveAppLocale() }),
           })
             .then(res => { if (!res.ok) throw new Error(`register ${res.status}`); })
             .catch(() => { if (attempt < 4) setTimeout(() => postToken(token, attempt + 1), 2000 * (attempt + 1)); });
@@ -244,7 +245,7 @@ export function AppFirstRunOnboarding() {
             body: JSON.stringify({
               token,
               platform,
-              locale: window.location.pathname.split('/')[1] || 'en',
+              locale: resolveAppLocale(),
             }),
           })
             .then(res => {

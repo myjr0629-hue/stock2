@@ -8,6 +8,7 @@
 import React, { useEffect, useState, useCallback, createContext, useContext } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useProStatus } from '@/hooks/useProStatus';
+import { resolveAppLocale } from '@/lib/appLocale';
 
 // ---------------------------------------------------------------------------
 // Native Detection (SSR-safe)
@@ -69,8 +70,9 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
     if (!_isNative || !mounted) return;
 
     if (pathname === '/' || pathname === '/ko' || pathname === '/en' || pathname === '/ja') {
-      const targetLocale = pathname === '/' ? 'en' : pathname.split('/')[1] || 'en';
-      router.replace(`/${targetLocale}/app-view/dash`);
+      // Go straight to the user's saved locale (not the boot /en) — avoids an
+      // English flash and keeps every native nav target on one source of truth.
+      router.replace(`/${resolveAppLocale()}/app-view/dash`);
     }
   }, [pathname, mounted, router]);
 

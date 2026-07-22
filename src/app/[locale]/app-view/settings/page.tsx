@@ -254,6 +254,21 @@ export default function SettingsPage() {
     // Remember the user's EXPLICIT choice so the native app honors it over the
     // device language on the next cold launch (see app-view/layout.tsx).
     try { localStorage.setItem('signumhq.app.locale', code); } catch { /* storage unavailable */ }
+    // Keep the PUSH-notification language in sync with the chosen locale: re-register
+    // the stored device token so future report pushes arrive in this language too.
+    // (Registration otherwise happens only at onboarding, so a later switch would
+    // leave the server sending the old language.) Native-only; no-op on web.
+    try {
+      const token = localStorage.getItem('signumhq.push.token');
+      const cap = require('@capacitor/core').Capacitor;
+      if (token && cap?.isNativePlatform?.()) {
+        fetch('/api/push/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, platform: cap.getPlatform?.() || 'unknown', locale: code }),
+        }).catch(() => {});
+      }
+    } catch { /* plugin unavailable / web */ }
     const currentPath = window.location.pathname;
     const newPath = currentPath.replace(/^\/(ko|en|ja)/, `/${code}`);
     router.push(newPath);
