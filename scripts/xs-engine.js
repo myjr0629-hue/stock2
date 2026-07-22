@@ -35,7 +35,7 @@ const { DynamoDBDocumentClient, ScanCommand, BatchGetCommand, BatchWriteCommand,
 
 // 1.1.0: main xsScore path is IDENTICAL to 1.0.0 — the bump only adds shadow
 // variant instrumentation (frozen / anti composites, see FROZEN_PRIORS note).
-const ENGINE_VERSION = 'XS-1.1.0';
+const ENGINE_VERSION = 'XS-1.2.0'; // 1.2.0: +clean shadow variant, Z_RING 30 — live score path IDENTICAL to 1.1.0
 const TABLE = 'signum-xs-history';
 const SOURCE_TABLE = 'signum-unified-cache';
 const DRY = process.env.DRY === '1';
@@ -76,6 +76,12 @@ const FACTORS = [
 //   anti   = the adaptive term sign-flipped (bets factor ICs mean-revert)
 // Their daily/rolling ICs are recorded under report.variants — no score output.
 const FROZEN_PRIORS = { revChg: 0.012, revRet3: 0.015, gexInv: 0.020, dGex5: 0.010, pcr: 0.010, ivLow: 0.008, analystRev: 0.020, squeeze: 0.010 };
+// v1.2 "clean" variant (PREREGISTERED 2026-07-22, obs-level lab): drops the five
+// factors with negative live evidence (revRet3 — D9-loser toxicity t=-3.46,
+// shortVol IC t=-2.33, ivLow, pcr, dGex5) and keeps the positive-evidence set at
+// the exact C2 recipe that went 3/3 positive days in-sample. Weights are FROZEN
+// (no adaptation) so the race tests one clean hypothesis. Shadow scoring only.
+const CLEAN_WEIGHTS = { revChg: 0.19, squeeze: 0.15, smaExt: 0.12, gexInv: 0.09, analystRev: 0.08, dtc: 0.02 };
 
 const IC_WINDOW = 60;         // rolling days kept per factor
 const PRIOR_WEIGHT_DAYS = 15; // shrinkage: prior dominates until ~15 labeled days
@@ -85,7 +91,10 @@ const PEER_RESIDUAL = 0.5;    // subtract 50% of peer-mean raw composite
 const MIN_FACTORS = 4;        // per-ticker minimum available factors to score
 const MIN_UNIVERSE = 40;      // minimum scored tickers for a valid day
 const MCAP_MIN = 3e8;
-const CLOSE_RING = 22, GEX_RING = 7, ANALYST_RING = 7, Z_RING = 6;
+// Z_RING 30 (was 6): labeled observations used to rotate out after ~3 days,
+// killing observation-level research. 30 keeps a month of z+label archaeology
+// (~7KB/ticker state growth — harmless).
+const CLOSE_RING = 22, GEX_RING = 7, ANALYST_RING = 7, Z_RING = 30;
 
 // ── small stats ──────────────────────────────────────────────────────────────
 const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
@@ -252,7 +261,9 @@ async function run() {
         const k = ics.length / (ics.length + PRIOR_WEIGHT_DAYS);
         weightsAnti[key] = (1 - k) * prior - k * realized; // adaptive term flipped
     }
-    for (const wv of [weightsFrozen, weightsAnti]) {
+    const weightsClean = {};
+    for (const { key } of FACTORS) weightsClean[key] = CLEAN_WEIGHTS[key] || 0;
+    for (const wv of [weightsFrozen, weightsAnti, weightsClean]) {
         let sa = Object.values(wv).reduce((s, w) => s + Math.abs(w), 0) || 1;
         for (const k in wv) wv[k] = Math.max(-WEIGHT_CAP, Math.min(WEIGHT_CAP, wv[k] / sa));
         sa = Object.values(wv).reduce((s, w) => s + Math.abs(w), 0) || 1;
@@ -271,18 +282,19 @@ async function run() {
         if (cnt >= MIN_FACTORS && den > 0) rawMap.set(t, num_ / den);
     }
 
-    // 7b. v1.1 variant raw composites (same z's, variant weights)
-    const rawVar = new Map(); // ticker → { f: frozen, a: anti }
+    // 7b. variant raw composites (same z's, variant weights)
+    const rawVar = new Map(); // ticker → { f: frozen, a: anti, c: clean }
     for (const t of tickers) {
         const z = Z.get(t);
-        let nf = 0, df = 0, na = 0, da = 0, cnt = 0;
+        let nf = 0, df = 0, na = 0, da = 0, nc = 0, dc = 0, cnt = 0;
         for (const { key } of FACTORS) {
             if (z[key] === undefined) continue;
             cnt++;
             if (weightsFrozen[key]) { nf += weightsFrozen[key] * z[key]; df += Math.abs(weightsFrozen[key]); }
             if (weightsAnti[key]) { na += weightsAnti[key] * z[key]; da += Math.abs(weightsAnti[key]); }
+            if (weightsClean[key]) { nc += weightsClean[key] * z[key]; dc += Math.abs(weightsClean[key]); }
         }
-        if (cnt >= MIN_FACTORS) rawVar.set(t, { f: df > 0 ? nf / df : null, a: da > 0 ? na / da : null });
+        if (cnt >= MIN_FACTORS) rawVar.set(t, { f: df > 0 ? nf / df : null, a: da > 0 ? na / da : null, c: dc > 0 ? nc / dc : null });
     }
 
     // 8. Peer residualization (50% of peer-mean removed)
@@ -324,13 +336,14 @@ async function run() {
         if (!cPast || !(cPast.c > 0)) continue;
         const f3 = (snaps.get(t).price - cPast.c) / cPast.c * 100;
         if (Math.abs(f3) > 30) continue;
-        labelRows.push({ t, d: zPast.d, z: zPast.z, raw: zPast.raw, rawF: zPast.rawF, rawA: zPast.rawA, xs: zPast.xs, f3 });
+        labelRows.push({ t, d: zPast.d, z: zPast.z, raw: zPast.raw, rawF: zPast.rawF, rawA: zPast.rawA, rawC: zPast.rawC, xs: zPast.xs, f3 });
         zPast.f3 = f3; // mark consumed
     }
     let dayIC = null;
     const factorICs = {};
-    const varIcHist = wdoc?.varIcHist || { frozen: [], anti: [] };
-    let dayICF = null, dayICA = null;
+    const varIcHist = wdoc?.varIcHist || { frozen: [], anti: [], clean: [] };
+    if (!varIcHist.clean) varIcHist.clean = [];
+    let dayICF = null, dayICA = null, dayICC = null;
     if (labelRows.length >= MIN_UNIVERSE) {
         const mkt = mean(labelRows.map(r => r.f3));
         const adj = labelRows.map(r => r.f3 - mkt);
@@ -346,6 +359,11 @@ async function run() {
         if (subA.length >= MIN_UNIVERSE) {
             dayICA = spearman(subA.map(x => x.v), subA.map(x => x.a));
             if (dayICA != null) varIcHist.anti = [...(varIcHist.anti || []), dayICA].slice(-IC_WINDOW);
+        }
+        const subC = labelRows.map((r, i) => ({ v: r.rawC, a: adj[i] })).filter(x => Number.isFinite(x.v));
+        if (subC.length >= MIN_UNIVERSE) {
+            dayICC = spearman(subC.map(x => x.v), subC.map(x => x.a));
+            if (dayICC != null) varIcHist.clean = [...(varIcHist.clean || []), dayICC].slice(-IC_WINDOW);
         }
         // factor ICs → rolling icHist
         for (const { key } of FACTORS) {
@@ -389,7 +407,7 @@ async function run() {
         const closes = [...(st.closes || []).filter(x => x.d !== today), { d: today, c: round(s.price, 4) }].slice(-CLOSE_RING);
         const gexes = [...(st.gexes || []).filter(x => x.d !== today), { d: today, g: s.netGex ?? null }].slice(-GEX_RING);
         const bulls = [...(st.bulls || []).filter(x => x.d !== today), { d: today, b: s.bullishPct ?? null }].slice(-ANALYST_RING);
-        const zring = [...(st.zring || []).filter(x => x.d !== today), { d: today, z: compactZ(zOut), raw: round(rawMap.get(t), 5), rawF: round(rawVar.get(t)?.f ?? null, 5), rawA: round(rawVar.get(t)?.a ?? null, 5), xs: xs.get(t) }].slice(-Z_RING);
+        const zring = [...(st.zring || []).filter(x => x.d !== today), { d: today, z: compactZ(zOut), raw: round(rawMap.get(t), 5), rawF: round(rawVar.get(t)?.f ?? null, 5), rawA: round(rawVar.get(t)?.a ?? null, 5), rawC: round(rawVar.get(t)?.c ?? null, 5), xs: xs.get(t) }].slice(-Z_RING);
         stateItems.push({ ticker: t, date: '_STATE_', closes, gexes, bulls, zring, ema: round(emaMap.get(t), 5), emaDate: today, updatedAt: nowIso });
     }
 
@@ -403,6 +421,7 @@ async function run() {
         variants: {
             frozen: { dayIC: round(dayICF, 4), rolling: round(mean(varIcHist.frozen || []), 4), days: (varIcHist.frozen || []).length },
             anti: { dayIC: round(dayICA, 4), rolling: round(mean(varIcHist.anti || []), 4), days: (varIcHist.anti || []).length },
+            clean: { dayIC: round(dayICC, 4), rolling: round(mean(varIcHist.clean || []), 4), days: (varIcHist.clean || []).length },
         },
         calibration: Object.fromEntries(Object.entries(calibHist).map(([d, v]) => [d, { adjF3: round(mean(v), 3), hit: round(mean(hitHist[d] || []), 1), days: v.length }])),
         top10: [...xs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([t, v]) => `${t}:${v}`),
