@@ -92,13 +92,23 @@ const NAV_GROUPS: { title: string | null; items: { key: NavKey; label: string; i
   { title: null, items: [{ key: 'journal', label: '저널', icon: '≡' }] },
 ];
 
+// Action-explicit labels (operator directive): the verdict must read as a
+// direction, not an adjective. Long-only console → "열위" = don't buy / sell if held.
 const LABEL_KO: Record<string, { t: string; cls: string }> = {
-  STRONG_EDGE: { t: '강한 우위', cls: 'edge strong' },
-  EDGE: { t: '우위', cls: 'edge' },
-  NEUTRAL: { t: '중립', cls: 'neutral' },
-  AGAINST: { t: '열위', cls: 'against' },
-  STRONG_AGAINST: { t: '강한 열위', cls: 'against strong' },
+  STRONG_EDGE: { t: '강한 매수 우위', cls: 'edge strong' },
+  EDGE: { t: '매수 우위', cls: 'edge' },
+  NEUTRAL: { t: '중립 · 관망', cls: 'neutral' },
+  AGAINST: { t: '매수 부적합', cls: 'against' },
+  STRONG_AGAINST: { t: '강한 매도 우위', cls: 'against strong' },
   NO_DATA: { t: '데이터 없음', cls: 'nodata' },
+};
+const ACTION_KO: Record<string, string> = {
+  STRONG_EDGE: '판정: 신규 매수 후보 (강) — 점수 상위 + 구조 순풍',
+  EDGE: '판정: 신규 매수 후보',
+  NEUTRAL: '판정: 관망 — 우위 근거 없음',
+  AGAINST: '판정: 신규 매수 부적합',
+  STRONG_AGAINST: '판정: 신규 매수 금지 · 보유 중이면 매도/축소 검토',
+  NO_DATA: '판정 불가 — 엔진 데이터 없음',
 };
 const Z_LABEL: Record<string, string> = {
   revChg: '1D반전', revRet3: '3D반전', gexInv: '감마', dGex5: 'ΔGEX', pcr: 'PCR', ivLow: 'IV',
@@ -646,6 +656,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
         <div className="tc-card-label">SIGNUM VERDICT <span className="hint">엔진 {verdict.engineDate ?? ''} 기준</span></div>
         {vLabel && <span className={`tc-vlabel ${vLabel.cls}`}>{vLabel.t}</span>}
       </div>
+      <div className="tc-action">{ACTION_KO[verdict.label] ?? ''}</div>
       <div className="tc-vbody">
         <div className="tc-vscore">
           <span className="s">{verdict.xs.score != null ? fmt(verdict.xs.score, 1) : '—'}</span>

@@ -201,6 +201,7 @@
 .tc-vlabel.neutral { background: #f4f2ec; color: var(--sub); }
 .tc-vlabel.against { background: var(--red-soft); color: var(--red); }
 .tc-vlabel.nodata { background: #f4f2ec; color: #b6b1a3; }
+.tc-action { font-size: 13px; font-weight: 800; margin: 4px 0 6px; color: var(--ink); }
 .tc-vbody { display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap; margin-top: 6px; }
 .tc-vscore { min-width: 130px; }
 .tc-vscore .s { display: block; font-size: 46px; font-weight: 800; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
