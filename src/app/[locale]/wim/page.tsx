@@ -4409,9 +4409,9 @@ export default function WimPage() {
         <footer style={{ marginTop: 24, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.6 }}>
           {units[0]?.disclaimer?.[loc] || (loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.')}
           <div style={{ marginTop: 8, display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', fontWeight: 700 }}>
-            <a href={`https://www.signumhq.com/${loc}/privacy`} target="_blank" rel="noopener noreferrer" style={{ color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '개인정보 처리방침' : loc === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</a>
+            <button type="button" onClick={() => { setSettingsOpen(false); router.push(`/${loc}/wim/privacy`); }} style={{ font: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '개인정보 처리방침' : loc === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</button>
             <span style={{ color: P.line }}>·</span>
-            <a href={`https://www.signumhq.com/${loc}/terms`} target="_blank" rel="noopener noreferrer" style={{ color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '이용약관' : loc === 'ja' ? '利用規約' : 'Terms of Use'}</a>
+            <button type="button" onClick={() => { setSettingsOpen(false); router.push(`/${loc}/wim/terms`); }} style={{ font: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '이용약관' : loc === 'ja' ? '利用規約' : 'Terms of Use'}</button>
           </div>
           <div style={{ marginTop: 6, opacity: 0.8 }}>Why&apos;d It Move? · by SIGNUM HQ</div>
         </footer>
@@ -4546,9 +4546,9 @@ export default function WimPage() {
               {loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.'}
             </div>
             <div style={{ marginTop: 12, display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', fontSize: 10.5, fontWeight: 700 }}>
-              <a href={`https://www.signumhq.com/${loc}/privacy`} target="_blank" rel="noopener noreferrer" style={{ color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '개인정보 처리방침' : loc === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</a>
+              <button type="button" onClick={() => { setSettingsOpen(false); router.push(`/${loc}/wim/privacy`); }} style={{ font: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '개인정보 처리방침' : loc === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</button>
               <span style={{ color: P.line }}>·</span>
-              <a href={`https://www.signumhq.com/${loc}/terms`} target="_blank" rel="noopener noreferrer" style={{ color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '이용약관' : loc === 'ja' ? '利用規約' : 'Terms of Use'}</a>
+              <button type="button" onClick={() => { setSettingsOpen(false); router.push(`/${loc}/wim/terms`); }} style={{ font: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '이용약관' : loc === 'ja' ? '利用規約' : 'Terms of Use'}</button>
             </div>
             <button type="button" onClick={() => setSettingsOpen(false)} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
           </div>
