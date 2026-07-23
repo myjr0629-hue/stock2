@@ -3857,12 +3857,16 @@ export default function WimPage() {
 
         {/* glass masthead — W5-C: compressed one-liner (smaller mark, tighter row) */}
         <header style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 'calc(12px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
-          {/* 브랜드 마크 — W 모노그램(차트 스윙 W + 골드 캔들 심지), design/wim-logo C안 */}
-          <span aria-hidden style={{ ...glass, width: 40, height: 40, borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="27" height="27" viewBox="0 0 240 240" style={{ display: 'block' }}>
-              <path d="M40 84 L82 180 L120 106 L158 180 L200 86" fill="none" stroke={P.heroDeep} strokeWidth="28" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="200" y1="80" x2="200" y2="40" stroke="#FFAD1F" strokeWidth="15" strokeLinecap="round" />
-              <circle cx="200" cy="86" r="17" fill="#FFAD1F" />
+          {/* 브랜드 마크 — 앱 아이콘 미니 버전(보라 배지 + 흰 물음표 + 골드 스파크라인·노드) */}
+          <span aria-hidden style={{ width: 40, height: 40, borderRadius: 13, display: 'inline-flex', flexShrink: 0, boxShadow: '0 4px 12px rgba(84,68,214,0.30)' }}>
+            <svg width="40" height="40" viewBox="0 0 40 40" style={{ display: 'block' }}>
+              <defs>
+                <linearGradient id="wimMarkBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#7160EE" /><stop offset="1" stopColor="#4A37B6" /></linearGradient>
+              </defs>
+              <rect width="40" height="40" rx="13" fill="url(#wimMarkBg)" />
+              <path d="M5 33 L12 30 L17 34 L25 31 L31 19 L35 9" fill="none" stroke="#FFB13A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="35" cy="9" r="2.8" fill="#FFB13A" />
+              <text x="20" y="30" textAnchor="middle" fontFamily="Helvetica, 'Helvetica Neue', Arial, sans-serif" fontWeight="700" fontSize="27" fill="#fff">?</text>
             </svg>
           </span>
           <div style={{ minWidth: 0, overflow: 'hidden' }}>
