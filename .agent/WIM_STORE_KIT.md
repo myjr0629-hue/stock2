@@ -2,12 +2,17 @@
 
 > **제출 준비 완료 자료.** 제출 버튼은 대표님. 번들: iOS `com.signumhq.wim` / Android `com.signumhq.wim` (셸=wim-app/, Capacitor 8 원격 웹뷰 → signumhq.com/en/wim → 디바이스 로케일 자동 라우팅).
 
-## 1. 앱 이름 / 부제
+## 1. 앱 이름 / 부제 (★ ASO 검색량 최우선 — 브랜드 + 고검색 키워드)
 | | ko | en | ja |
 |---|---|---|---|
-| **이름(30자)** | Why'd It Move? 마켓 퀴즈 | Why'd It Move? — Market Quiz | Why'd It Move? 米国株クイズ |
-| **부제(30자)** | 오늘 시장이 낸 문제, 3분 수사 | Today's market, as a daily quiz | 今日の市場が出す問題を3分で捜査 |
+| **이름(30자)** | Why'd It Move? 미국주식 퀴즈 | Why'd It Move?: Stock Quiz | Why'd It Move? 米国株クイズ |
+| **부제(30자)** | 주식공부·차트·경제 30초 학습 | Learn stocks with real charts | 米国株・投資・経済を30秒学習 |
 | 홈스크린 표시명 | Why'd It Move (셸 고정) | 동일 | 동일 |
+
+> **원칙(대표 지시 "모든 부분 노출 극대화")**: 아무도 "Why'd It Move?"로 검색 안 함 → **이름·부제·키워드가 서로 겹치지 않게** 각각 다른 고검색 키워드를 실어 커버리지 최대화.
+> - 이름 = 브랜드 + 최고 검색어(미국주식/米国株/Stock). 부제 = 2차 검색어(주식공부·차트·경제). 키워드 100자 = 이름·부제와 **중복 없는** 나머지 검색어.
+> - 설명문 첫 문장도 키워드 문장으로 시작. 카테고리 Education(1)+Finance(2)로 양쪽 노출.
+> - **상호 노출**: WIM 설정 → SIGNUM/UC 링크(완료). 역방향(SIGNUM/UC 설정 → WIM 링크)도 추가 권장 = 포트폴리오 교차 트래픽. + 쇼츠(승인 후).
 
 ## 2. 설명문 (스토어 본문)
 ### ko
