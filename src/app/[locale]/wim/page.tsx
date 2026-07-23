@@ -2769,6 +2769,15 @@ export default function WimPage() {
   // v3: glass shell — bottom tabs, settings sheet (language lives here), indicator search
   const [homeTab, setHomeTab] = useState<'home' | 'lib' | 'search' | 'me'>('home');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Native in-app review — the @capacitor-community/in-app-review plugin is bundled
+  // in the WIM shell; web is a clean no-op. (Mirrors the UC pattern.)
+  const [canRate, setCanRate] = useState(false);
+  useEffect(() => {
+    try { const cap = (window as any).Capacitor; setCanRate(!!(cap?.isNativePlatform?.() && cap?.Plugins?.InAppReview)); } catch { /* web */ }
+  }, []);
+  const requestReview = () => {
+    try { const cap = (window as any).Capacitor; const p = cap?.Plugins?.InAppReview; if (cap?.isNativePlatform?.() && p?.requestReview) p.requestReview().catch(() => {}); } catch { /* noop */ }
+  };
   const [searchQ, setSearchQ] = useState('');
   // real lab snapshots, cached per ticker (hero powers the concept demos; the
   // W2 plays request their own tickers through the same cache)
@@ -4425,7 +4434,7 @@ export default function WimPage() {
       )}
 
       {/* glass bottom tab bar */}
-      <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 24, boxShadow: '0 14px 36px rgba(76,63,175,0.22)', display: 'flex', padding: 6 }}>
+      <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(28px) saturate(1.4)', WebkitBackdropFilter: 'blur(28px) saturate(1.4)', border: '1px solid rgba(255,255,255,0.95)', borderRadius: 26, boxShadow: '0 16px 40px rgba(76,63,175,0.26), inset 0 1px 0 rgba(255,255,255,0.7)', display: 'flex', padding: 6, gap: 2 }}>
         {([
           { id: 'home', icon: 'home', label: t.tabHome },
           { id: 'lib', icon: 'book2', label: t.tabLib },
@@ -4437,11 +4446,14 @@ export default function WimPage() {
             <button key={tb.id} type="button" aria-label={tb.label} onClick={() => { setHomeTab(tb.id); window.scrollTo(0, 0); }} style={{
               font: 'inherit', flex: 1, border: 'none', cursor: 'pointer', borderRadius: 18, padding: '9px 0 8px',
               background: active ? `linear-gradient(150deg, ${P.hero}, ${P.heroDeep})` : 'transparent',
-              color: active ? '#fff' : P.sub, transition: 'background 0.2s ease',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              color: active ? '#fff' : P.sub,
+              boxShadow: active ? '0 8px 18px rgba(84,68,214,0.34)' : 'none',
+              transform: active ? 'translateY(-1px)' : 'none',
+              transition: 'background 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, color 0.2s ease',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             }}>
               <Ic name={tb.icon} size={19} color={active ? '#fff' : P.sub} sw={active ? 2 : 1.7} />
-              <span style={{ fontSize: 9.5, fontWeight: 900 }}>{tb.label}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: active ? '0.01em' : 0, opacity: active ? 1 : 0.9 }}>{tb.label}</span>
             </button>
           );
         })}
@@ -4472,7 +4484,35 @@ export default function WimPage() {
                 }}>{name}</button>
               ))}
             </div>
-            <div style={{ marginTop: 14, fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.6 }}>
+            {/* rate this app — native in-app review (only shown in the shell) */}
+            {canRate && (
+              <button type="button" onClick={() => { requestReview(); setSettingsOpen(false); }} style={{ font: 'inherit', width: '100%', marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: P.amberSoft, color: '#8A5B00', border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 13.5, fontWeight: 900, cursor: 'pointer' }}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="#F5A623" aria-hidden><path d="M12 2.2l2.95 6.32 6.85.86-5.06 4.72 1.34 6.9L12 18.5l-6.03 3.5 1.34-6.9L2.25 9.38l6.85-.86z"/></svg>
+                {loc === 'ko' ? '앱 평가하기' : loc === 'ja' ? 'アプリを評価' : 'Rate this app'}
+              </button>
+            )}
+
+            {/* our other apps — cross-promotion (opens the store via smart link) */}
+            <div style={{ marginTop: 16, fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>
+              {loc === 'ko' ? '우리의 다른 앱' : loc === 'ja' ? '姉妹アプリ' : 'OUR OTHER APPS'}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              {[
+                { url: 'https://www.signumhq.com/app?from=wim', name: 'SIGNUM HQ', tag: loc === 'ko' ? '시장 인텔리전스' : loc === 'ja' ? 'マーケットインテリジェンス' : 'Market intelligence', bg: '#0E1424', fg: '#E8B84B' },
+                { url: 'https://www.signumhq.com/app-uc?from=wim', name: 'Undercurrent', tag: loc === 'ko' ? '뉴스 × 머니 브리프' : loc === 'ja' ? 'ニュース×マネー' : 'News × money brief', bg: '#0F2E44', fg: '#5FD0E0' },
+              ].map((app) => (
+                <a key={app.name} href={app.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none', background: '#fff', border: `1px solid ${P.line}`, borderRadius: 14, padding: '11px 13px' }}>
+                  <span style={{ width: 34, height: 34, borderRadius: 10, background: app.bg, color: app.fg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, flexShrink: 0 }}>{app.name[0]}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 13.5, fontWeight: 900, color: P.ink }}>{app.name}</span>
+                    <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: P.sub }}>{app.tag}</span>
+                  </span>
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke={P.faint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M7 17L17 7M9 7h8v8" /></svg>
+                </a>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 16, fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.6 }}>
               {loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.'}
             </div>
             <button type="button" onClick={() => setSettingsOpen(false)} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
