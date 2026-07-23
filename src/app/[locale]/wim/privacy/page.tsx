@@ -10,5 +10,5 @@ import { AppLegalDocument } from '@/components/app/AppLegalDocument';
 export default function WimPrivacyPage() {
   const params = useParams();
   const loc = ((params as any)?.locale === 'en' || (params as any)?.locale === 'ja') ? (params as any).locale : 'ko';
-  return <AppLegalDocument locale={loc} doc="privacy" backHref="/wim" badgeText="WHY'D IT MOVE?" />;
+  return <AppLegalDocument locale={loc} doc="privacy" backHref="/wim" badgeText="WHY'D IT MOVE?" variant="wim" />;
 }

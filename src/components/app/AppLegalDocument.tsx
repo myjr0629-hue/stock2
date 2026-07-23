@@ -20,6 +20,11 @@ type LegalCopy = {
   privacyTitle: string;
   terms: Section[];
   privacy: Section[];
+  // WIM (Why'd It Move?) variant — v1 has NO ads, NO push, NO account, NO
+  // tracking; learning is stored on-device only. The shared SIGNUM/UC copy above
+  // is ad-based and would be FALSE for WIM (and contradicts its "Data Not
+  // Collected" store declaration), so WIM renders this accurate variant instead.
+  wim: { updated: string; terms: Section[]; privacy: Section[] };
 };
 
 const COPY: Record<LocaleKey, LegalCopy> = {
@@ -86,6 +91,65 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         body: '개인정보 관련 문의는 contact@signumhq.com 으로 연락해주세요.',
       },
     ],
+    wim: {
+      updated: '최종 업데이트: 2026년 7월',
+      terms: [
+        {
+          title: '서비스 성격',
+          body: 'Why’d It Move?는 실제 시장 데이터로 시장을 배우는 교육용 퀴즈 앱입니다. 문제, 해설, 점수, AI 설명은 학습 목적의 정보이며 투자 조언이나 매수/매도 권유가 아닙니다.',
+        },
+        {
+          title: '무료 이용',
+          body: '본 앱은 계정 가입 없이 무료로 제공됩니다. 현재 버전에는 광고와 인앱 구매가 없습니다.',
+        },
+        {
+          title: '앱스토어 및 업데이트',
+          body: '이용자는 본 앱을 Apple App Store 및 Google Play Store의 규정에 따라 다운로드하여 사용할 수 있습니다. 보안과 안정성을 위해 최신 버전 업데이트가 요구될 수 있습니다.',
+        },
+        {
+          title: '학습 기록과 책임',
+          items: [
+            '학습 진행, 정답 기록, 스트릭 등은 기기에만 저장되며 앱을 삭제하면 함께 삭제됩니다.',
+            '시장 데이터는 외부 제공자, 네트워크, 캐시 상태에 따라 지연되거나 누락될 수 있습니다.',
+            '과거 데이터와 퀴즈 결과는 미래의 수익이나 손실 회피를 보장하지 않으며, 모든 투자 판단과 결과에 대한 책임은 사용자 본인에게 있습니다.',
+          ],
+        },
+        {
+          title: '문의',
+          body: '서비스나 앱 이용 관련 문의는 contact@signumhq.com 으로 보내주세요.',
+        },
+      ],
+      privacy: [
+        {
+          title: '계정 없음 · 개인정보를 수집하지 않습니다',
+          body: '본 앱은 계정이 없으며 이름·이메일 등 개인을 식별하는 정보를 수집하지 않습니다. 학습 기록(푼 문제, 정답, 스트릭, 열람한 용어)은 오직 기기 내부에만 저장됩니다.',
+        },
+        {
+          title: '서버와 주고받는 정보',
+          body: '퀴즈와 시장 데이터를 불러오기 위해 당사 서버에 표준 네트워크 요청이 전송됩니다. 이 과정에서 앱 버전·언어·기기 OS 같은 기술 정보가 포함될 수 있으나 개인을 식별하지 않습니다.',
+        },
+        {
+          title: '광고·추적 없음',
+          body: '현재 버전은 광고를 게재하지 않으며, 광고 식별자(IDFA/AAID), 사용자 추적, 분석 SDK를 사용하지 않습니다.',
+        },
+        {
+          title: '푸시 알림 없음',
+          body: '현재 버전은 푸시 알림을 사용하지 않습니다.',
+        },
+        {
+          title: '문의 시 제공되는 정보',
+          body: '이메일 등으로 문의하시는 경우 제공하신 이메일 주소와 문의 내용은 답변 목적으로만 사용됩니다.',
+        },
+        {
+          title: '데이터 보관 및 이용자 권리',
+          body: '기기에 저장된 학습 기록은 앱 삭제 또는 기기 설정에서 언제든 지울 수 있습니다. 문의와 관련해 제공된 정보의 열람 또는 삭제는 contact@signumhq.com 으로 요청할 수 있습니다.',
+        },
+        {
+          title: '문의',
+          body: '개인정보 관련 문의는 contact@signumhq.com 으로 연락해주세요.',
+        },
+      ],
+    },
   },
   en: {
     back: 'Back',
@@ -150,6 +214,65 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         body: 'For privacy questions, contact contact@signumhq.com.',
       },
     ],
+    wim: {
+      updated: 'Last updated: July 2026',
+      terms: [
+        {
+          title: 'Nature of the service',
+          body: 'Why’d It Move? is an educational quiz app that teaches markets using real market data. Questions, explanations, scores, and AI notes are educational information — not investment advice or buy/sell recommendations.',
+        },
+        {
+          title: 'Free to use',
+          body: 'The app is provided for free without an account. This version contains no ads and no in-app purchases.',
+        },
+        {
+          title: 'Stores and updates',
+          body: 'You may download and use the app under Apple App Store and Google Play Store rules. Updates may be required for security and stability.',
+        },
+        {
+          title: 'Your records and responsibility',
+          items: [
+            'Learning progress, answer records, and streaks are stored only on your device and are removed when you delete the app.',
+            'Market data may be delayed, missing, or incomplete depending on providers, networks, or cache state.',
+            'Past data and quiz results do not guarantee future returns or loss avoidance; you are solely responsible for your own investment decisions and outcomes.',
+          ],
+        },
+        {
+          title: 'Support',
+          body: 'For service or app questions, contact contact@signumhq.com.',
+        },
+      ],
+      privacy: [
+        {
+          title: 'No account, no personal data collected',
+          body: 'The app has no account and does not collect personally identifying information such as your name or email. Your learning records (solved questions, correct answers, streaks, viewed terms) are stored only on your device.',
+        },
+        {
+          title: 'Information exchanged with our servers',
+          body: 'To load quizzes and market data, standard network requests are sent to our servers. These may include technical information such as app version, language, and device OS, and do not identify you personally.',
+        },
+        {
+          title: 'No ads or tracking',
+          body: 'This version does not display ads and does not use advertising identifiers (IDFA/AAID), user tracking, or analytics SDKs.',
+        },
+        {
+          title: 'No push notifications',
+          body: 'This version does not use push notifications.',
+        },
+        {
+          title: 'Information you provide in inquiries',
+          body: 'If you contact us, the email address and message you provide are used only to respond to your inquiry.',
+        },
+        {
+          title: 'Data retention and your rights',
+          body: 'Learning records stored on your device can be cleared at any time by deleting the app or via device settings. To access or delete information provided in a support inquiry, email contact@signumhq.com.',
+        },
+        {
+          title: 'Contact',
+          body: 'For privacy questions, contact contact@signumhq.com.',
+        },
+      ],
+    },
   },
   ja: {
     back: '戻る',
@@ -214,6 +337,65 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         body: 'プライバシーに関するお問い合わせは contact@signumhq.com までご連絡ください。',
       },
     ],
+    wim: {
+      updated: '最終更新: 2026年7月',
+      terms: [
+        {
+          title: 'サービスの性質',
+          body: 'Why’d It Move?は、実際の市場データで市場を学ぶ教育用クイズアプリです。問題、解説、スコア、AIの説明は学習目的の情報であり、投資助言や売買推奨ではありません。',
+        },
+        {
+          title: '無料での利用',
+          body: '本アプリはアカウント登録なしで無料で提供されます。現在のバージョンには広告およびアプリ内課金はありません。',
+        },
+        {
+          title: 'ストアとアップデート',
+          body: '利用者はApple App StoreおよびGoogle Play Storeの規約に従って本アプリをダウンロードし、利用できます。セキュリティと安定性のため、最新バージョンへの更新が必要になる場合があります。',
+        },
+        {
+          title: '学習記録と責任',
+          items: [
+            '学習の進捗、正解記録、ストリークなどは端末内にのみ保存され、アプリを削除すると一緒に削除されます。',
+            '市場データは外部提供者、ネットワーク、キャッシュ状態により遅延、欠落、不完全となる場合があります。',
+            '過去のデータやクイズ結果は将来の収益や損失回避を保証せず、すべての投資判断とその結果に関する責任は利用者本人にあります。',
+          ],
+        },
+        {
+          title: 'お問い合わせ',
+          body: 'サービスやアプリ利用に関するお問い合わせは contact@signumhq.com までご連絡ください。',
+        },
+      ],
+      privacy: [
+        {
+          title: 'アカウントなし・個人情報を収集しません',
+          body: '本アプリにはアカウントがなく、氏名やメールアドレスなど個人を識別する情報を収集しません。学習記録(解いた問題、正解、ストリーク、閲覧した用語)は端末内にのみ保存されます。',
+        },
+        {
+          title: 'サーバーとやり取りする情報',
+          body: 'クイズや市場データを取得するため、当社サーバーへ標準的なネットワークリクエストが送信されます。この際、アプリバージョン・言語・端末OSなどの技術情報が含まれる場合がありますが、個人を識別しません。',
+        },
+        {
+          title: '広告・トラッキングなし',
+          body: '現在のバージョンは広告を表示せず、広告識別子(IDFA/AAID)、ユーザートラッキング、分析SDKを使用しません。',
+        },
+        {
+          title: 'プッシュ通知なし',
+          body: '現在のバージョンはプッシュ通知を使用しません。',
+        },
+        {
+          title: 'お問い合わせで提供される情報',
+          body: 'お問い合わせいただく場合、提供されたメールアドレスと内容は返信の目的にのみ使用されます。',
+        },
+        {
+          title: 'データの保管と利用者の権利',
+          body: '端末に保存された学習記録は、アプリの削除または端末設定からいつでも消去できます。お問い合わせに関する情報の閲覧・削除は contact@signumhq.com までご請求いただけます。',
+        },
+        {
+          title: 'お問い合わせ',
+          body: 'プライバシーに関するお問い合わせは contact@signumhq.com までご連絡ください。',
+        },
+      ],
+    },
   },
 };
 
@@ -222,10 +404,14 @@ function resolveLocale(locale: string): LocaleKey {
   return 'en';
 }
 
-export function AppLegalDocument({ locale, doc, backHref, badgeText }: { locale: string; doc: DocType; backHref?: string; badgeText?: string }) {
+export function AppLegalDocument({ locale, doc, backHref, badgeText, variant }: { locale: string; doc: DocType; backHref?: string; badgeText?: string; variant?: 'default' | 'wim' }) {
   const copy = COPY[resolveLocale(locale)];
-  const sections = doc === 'privacy' ? copy.privacy : copy.terms;
+  const isWim = variant === 'wim';
+  const sections = doc === 'privacy'
+    ? (isWim ? copy.wim.privacy : copy.privacy)
+    : (isWim ? copy.wim.terms : copy.terms);
   const title = doc === 'privacy' ? copy.privacyTitle : copy.termsTitle;
+  const updated = isWim ? copy.wim.updated : copy.updated;
   const badge = badgeText || copy.badge;
 
   return (
@@ -242,7 +428,7 @@ export function AppLegalDocument({ locale, doc, backHref, badgeText }: { locale:
           <header className={styles.hero}>
             <span className={styles.badge}>{badge}</span>
             <h1 className={styles.title}>{title}</h1>
-            <p className={styles.updated}>{copy.updated}</p>
+            <p className={styles.updated}>{updated}</p>
           </header>
 
           <div className={styles.body}>
