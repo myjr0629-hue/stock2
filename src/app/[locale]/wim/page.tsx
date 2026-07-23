@@ -3286,8 +3286,16 @@ export default function WimPage() {
       <PlayShell closing={obClosing}>
         <div onClick={obAdvance} style={{ minHeight: '100vh', fontFamily: WIM_FONT, color: '#fff', background: `linear-gradient(165deg, ${P.heroDeep} 0%, ${P.hero} 55%, #8E7FF0 100%)`, cursor: 'pointer' }}>
           <div style={{ maxWidth: 520, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '0 24px calc(28px + env(safe-area-inset-bottom))' }}>
-            <div style={{ display: 'flex', alignItems: 'center', paddingTop: 'calc(18px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
-              <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '-0.01em', opacity: 0.9 }}>Why&apos;d It Move?</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 'calc(18px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
+              <span aria-hidden style={{ width: 28, height: 28, flexShrink: 0, display: 'inline-flex' }}>
+                <svg width="28" height="28" viewBox="0 0 40 40" style={{ display: 'block' }}>
+                  <rect width="40" height="40" rx="13" fill="rgba(255,255,255,0.18)" />
+                  <path d="M5 33 L12 30 L17 34 L25 31 L31 19 L35 9" fill="none" stroke="#FFB13A" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="35" cy="9" r="2.8" fill="#FFB13A" />
+                  <text x="20" y="30" textAnchor="middle" fontFamily="Helvetica, 'Helvetica Neue', Arial, sans-serif" fontWeight="700" fontSize="27" fill="#fff">?</text>
+                </svg>
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '-0.01em', opacity: 0.95 }}>Why&apos;d It Move?</span>
               <button type="button" onClick={(e) => { e.stopPropagation(); closeOnboard(); }} style={{ font: 'inherit', marginLeft: 'auto', background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 99, padding: '7px 14px', fontSize: 11.5, fontWeight: 900, cursor: 'pointer' }}>{t.obSkip}</button>
             </div>
             {/* the active panel — remounts per step so the one-shot rise replays */}
