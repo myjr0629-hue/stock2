@@ -1,4 +1,4 @@
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -56,7 +56,13 @@ export default async function LocaleLayout({ children, params }: Props) {
     const nextUrl = headersList.get('x-middleware-request-next-url') || '';
     const referer = headersList.get('referer') || '';
     const customPathname = headersList.get('x-pathname') || '';
-    const isAppView = nextUrl.includes('/app-view') || referer.includes('/app-view') || customPathname.includes('/app-view') || userAgent.includes('Capacitor');
+    // The native SIGNUM shell sets a `sig_native` cookie (NativeAppProvider). It is a
+    // stable, header-independent app signal that survives client (RSC) re-renders —
+    // critical because the iOS WKWebView UA lacks "Capacitor", so a cross-locale
+    // push deep-link re-render could otherwise re-evaluate isAppView from ambiguous
+    // headers and flash the web site chrome. Web users never set this cookie.
+    const nativeCookie = (await cookies()).get('sig_native')?.value === '1';
+    const isAppView = nextUrl.includes('/app-view') || referer.includes('/app-view') || customPathname.includes('/app-view') || userAgent.includes('Capacitor') || nativeCookie;
 
     // [UNDERCURRENT PROTO] The spin-off prototype route renders bare (no site
     // header/footer) but must NOT get the is-app-view class (different theme).

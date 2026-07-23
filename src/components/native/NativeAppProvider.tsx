@@ -107,6 +107,17 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
     setMounted(true);
     if (!_isNative) return;
 
+    // Mark this session as the native SIGNUM app so the SERVER root layout keeps
+    // the app chrome hidden across EVERY render — including a cross-locale client
+    // (RSC) re-render triggered by a cold-start push deep-link (e.g. boot /en →
+    // saved /ko). The iOS WKWebView UA does NOT contain "Capacitor" (no
+    // appendUserAgent), so isAppView otherwise leans on request headers that can be
+    // ambiguous on an RSC re-render — which flashed the WEB site chrome ("웹페이지")
+    // when a market-close push opened /ko/app-view/intel. The cookie is a stable,
+    // header-independent signal sent with every same-origin request incl. RSC fetches.
+    // Web users never run this branch (isNativePlatform=false), so they are unaffected.
+    try { document.cookie = 'sig_native=1; path=/; max-age=31536000; samesite=lax'; } catch {}
+
     (async () => {
       try {
         // 상태바 설정
