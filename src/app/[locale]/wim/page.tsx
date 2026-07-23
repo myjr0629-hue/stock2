@@ -2967,6 +2967,19 @@ export default function WimPage() {
     return () => { alive = false; };
   }, [loc]);
   const doneCount = units.filter((u) => done[u.id]).length;
+  // Auto-prompt for a native review at a genuinely positive moment — finishing the
+  // whole daily set — from the 2nd completion onward. The OS throttles the actual
+  // dialog so it never nags; session-guarded + cross-session gated by a counter.
+  const reviewAskedRef = useRef(false);
+  useEffect(() => {
+    if (!canRate || reviewAskedRef.current) return;
+    if (units.length === 0 || doneCount < units.length) return;
+    reviewAskedRef.current = true;
+    let n = 0;
+    try { n = (parseInt(localStorage.getItem('wim.completions') || '0', 10) || 0) + 1; localStorage.setItem('wim.completions', String(n)); } catch { /* storage off */ }
+    if (n >= 2) window.setTimeout(requestReview, 1400);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canRate, doneCount, units.length]);
   const streakDays = week.filter(Boolean).length;
   const levelIdx = Math.min(4, Math.floor(xp / XP_PER_LEVEL));
   const levelNames = [t.lv1, t.lv2, t.lv3, t.lv4, t.lv5];
@@ -4395,7 +4408,12 @@ export default function WimPage() {
 
         <footer style={{ marginTop: 24, textAlign: 'center', fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.6 }}>
           {units[0]?.disclaimer?.[loc] || (loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.')}
-          <div style={{ marginTop: 4, opacity: 0.8 }}>Why&apos;d It Move? · prototype · by SIGNUM HQ</div>
+          <div style={{ marginTop: 8, display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', fontWeight: 700 }}>
+            <a href={`https://www.signumhq.com/${loc}/privacy`} target="_blank" rel="noopener noreferrer" style={{ color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '개인정보 처리방침' : loc === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</a>
+            <span style={{ color: P.line }}>·</span>
+            <a href={`https://www.signumhq.com/${loc}/terms`} target="_blank" rel="noopener noreferrer" style={{ color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '이용약관' : loc === 'ja' ? '利用規約' : 'Terms of Use'}</a>
+          </div>
+          <div style={{ marginTop: 6, opacity: 0.8 }}>Why&apos;d It Move? · by SIGNUM HQ</div>
         </footer>
       </div>
 
@@ -4510,11 +4528,11 @@ export default function WimPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
               {[
-                { url: 'https://www.signumhq.com/app?from=wim', name: 'SIGNUM HQ', tag: loc === 'ko' ? '시장 인텔리전스' : loc === 'ja' ? 'マーケットインテリジェンス' : 'Market intelligence', bg: '#0E1424', fg: '#E8B84B' },
-                { url: 'https://www.signumhq.com/app-uc?from=wim', name: 'Undercurrent', tag: loc === 'ko' ? '뉴스 × 머니 브리프' : loc === 'ja' ? 'ニュース×マネー' : 'News × money brief', bg: '#0F2E44', fg: '#5FD0E0' },
+                { url: 'https://www.signumhq.com/app?from=wim', name: 'SIGNUM HQ', tag: loc === 'ko' ? '시장 인텔리전스' : loc === 'ja' ? 'マーケットインテリジェンス' : 'Market intelligence', icon: '/app-icons/signum.png' },
+                { url: 'https://www.signumhq.com/app-uc?from=wim', name: 'Undercurrent', tag: loc === 'ko' ? '뉴스 × 머니 브리프' : loc === 'ja' ? 'ニュース×マネー' : 'News × money brief', icon: '/app-icons/uc.png' },
               ].map((app) => (
                 <a key={app.name} href={app.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none', background: '#fff', border: `1px solid ${P.line}`, borderRadius: 14, padding: '11px 13px' }}>
-                  <span style={{ width: 34, height: 34, borderRadius: 10, background: app.bg, color: app.fg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, flexShrink: 0 }}>{app.name[0]}</span>
+                  <img src={app.icon} alt="" width="34" height="34" style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, objectFit: 'cover' }} />
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 13.5, fontWeight: 900, color: P.ink }}>{app.name}</span>
                     <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: P.sub }}>{app.tag}</span>
