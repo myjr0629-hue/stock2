@@ -4515,7 +4515,12 @@ export default function WimPage() {
             <div style={{ marginTop: 16, fontSize: 10, color: P.faint, fontWeight: 600, lineHeight: 1.6 }}>
               {loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.'}
             </div>
-            <button type="button" onClick={() => setSettingsOpen(false)} style={{ font: 'inherit', width: '100%', marginTop: 14, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
+            <div style={{ marginTop: 12, display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', fontSize: 10.5, fontWeight: 700 }}>
+              <a href={`https://www.signumhq.com/${loc}/privacy`} target="_blank" rel="noopener noreferrer" style={{ color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '개인정보 처리방침' : loc === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</a>
+              <span style={{ color: P.line }}>·</span>
+              <a href={`https://www.signumhq.com/${loc}/terms`} target="_blank" rel="noopener noreferrer" style={{ color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '이용약관' : loc === 'ja' ? '利用規約' : 'Terms of Use'}</a>
+            </div>
+            <button type="button" onClick={() => setSettingsOpen(false)} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.heroSoft, color: P.heroDeep, border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer' }}>{t.close}</button>
           </div>
         </div>
       )}
