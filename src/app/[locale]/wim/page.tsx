@@ -3346,12 +3346,12 @@ export default function WimPage() {
         <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
           {/* top bar: close + progress + countdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
-            <button type="button" onClick={() => closeQuiz(false)} aria-label={t.backHome} style={{ font: 'inherit', width: 38, height: 38, borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer' }}>←</button>
+            <button type="button" onClick={() => closeQuiz(false)} aria-label={t.backHome} style={{ font: 'inherit', width: 38, height: 38, minWidth: 38, flexShrink: 0, borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
             <div style={{ flex: 1, height: 8, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
               <div style={{ width: `${((activeIdx + (revealed ? 1 : 0.4)) / units.length) * 100}%`, height: '100%', background: P.hero, borderRadius: 99, transition: 'width 0.4s ease' }} />
             </div>
             {everPlayed && !revealed ? (
-              <div style={{ width: 38, height: 38, borderRadius: '50%', background: remain <= 3 ? P.coralSoft : P.heroSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, color: remain <= 3 ? P.coral : P.hero }}>
+              <div style={{ width: 38, height: 38, minWidth: 38, flexShrink: 0, borderRadius: '50%', background: remain <= 3 ? P.coralSoft : P.heroSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, color: remain <= 3 ? P.coral : P.hero }}>
                 {remain}
               </div>
             ) : <div style={{ width: 38 }} />}
@@ -4465,7 +4465,7 @@ export default function WimPage() {
       )}
 
       {/* glass bottom tab bar */}
-      <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(28px) saturate(1.4)', WebkitBackdropFilter: 'blur(28px) saturate(1.4)', border: '1px solid rgba(255,255,255,0.95)', borderRadius: 26, boxShadow: '0 16px 40px rgba(76,63,175,0.26), inset 0 1px 0 rgba(255,255,255,0.7)', display: 'flex', padding: 6, gap: 2 }}>
+      <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.52))', backdropFilter: 'blur(36px) saturate(1.9)', WebkitBackdropFilter: 'blur(36px) saturate(1.9)', border: '1px solid rgba(255,255,255,0.75)', borderRadius: 28, boxShadow: '0 20px 46px rgba(76,63,175,0.22), 0 2px 10px rgba(76,63,175,0.10), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(120,100,220,0.06)', display: 'flex', padding: 6, gap: 2 }}>
         {([
           { id: 'home', icon: 'home', label: t.tabHome },
           { id: 'lib', icon: 'book2', label: t.tabLib },
