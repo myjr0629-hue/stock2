@@ -73,19 +73,20 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
     let asked = false;
     try { asked = localStorage.getItem('wim.push.asked') === '1'; } catch { /* storage off */ }
     if (asked) return;
-    wdbg({ step: 'effect-fire', completed });
+    const set1 = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* noop */ } };
+    set1('wim.push.perm', 'effect-fired:' + completed);
     (async () => {
       const P = await getPush();
-      wdbg({ step: 'got-push', got: !!P });
+      set1('wim.push.perm', 'got-push:' + !!P);
       if (!P) return;
       try {
         const perm = await P.checkPermissions();
-        wdbg({ step: 'checkPermissions', perm });
+        set1('wim.push.perm', 'perm:' + JSON.stringify(perm));
         if (perm?.receive === 'prompt' || perm?.receive === 'prompt-with-rationale') {
           askedRef.current = true;
           setOpen(true);
         }
-      } catch (e) { wdbg({ step: 'checkPerm-error', error: String(e) }); }
+      } catch (e) { set1('wim.push.perm', 'ERR:' + String(e)); }
     })();
   }, [completed]);
 
