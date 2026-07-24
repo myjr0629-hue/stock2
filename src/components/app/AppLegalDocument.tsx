@@ -133,8 +133,8 @@ const COPY: Record<LocaleKey, LegalCopy> = {
           body: '현재 버전은 광고를 게재하지 않으며, 광고 식별자(IDFA/AAID), 사용자 추적, 분석 SDK를 사용하지 않습니다.',
         },
         {
-          title: '푸시 알림 없음',
-          body: '현재 버전은 푸시 알림을 사용하지 않습니다.',
+          title: '푸시 알림',
+          body: '오늘의 새 퀴즈가 준비되면 하루 한 번 알려드리기 위해 기기 푸시 토큰을 사용합니다. 알림은 앱에서 동의하신 경우에만 켜지며, 기기 설정에서 언제든 끌 수 있습니다.',
         },
         {
           title: '문의 시 제공되는 정보',
@@ -256,8 +256,8 @@ const COPY: Record<LocaleKey, LegalCopy> = {
           body: 'This version does not display ads and does not use advertising identifiers (IDFA/AAID), user tracking, or analytics SDKs.',
         },
         {
-          title: 'No push notifications',
-          body: 'This version does not use push notifications.',
+          title: 'Push notifications',
+          body: 'A device push token is used to send one daily alert when a new quiz is ready. Notifications turn on only when you opt in, and you can disable them anytime in your device settings.',
         },
         {
           title: 'Information you provide in inquiries',
@@ -379,8 +379,8 @@ const COPY: Record<LocaleKey, LegalCopy> = {
           body: '現在のバージョンは広告を表示せず、広告識別子(IDFA/AAID)、ユーザートラッキング、分析SDKを使用しません。',
         },
         {
-          title: 'プッシュ通知なし',
-          body: '現在のバージョンはプッシュ通知を使用しません。',
+          title: 'プッシュ通知',
+          body: '新しいクイズが準備できたときに1日1回お知らせするため、端末のプッシュトークンを使用します。通知はアプリで同意した場合のみ有効になり、端末設定でいつでもオフにできます。',
         },
         {
           title: 'お問い合わせで提供される情報',
