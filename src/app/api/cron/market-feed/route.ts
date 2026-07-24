@@ -57,11 +57,16 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         // the CURRENT session while the market is closed (previousClose === price) → changePct
         // collapses to a fake 0% (dashboard cash S&P showed +0.00% next to correct NASDAQ/DOW).
         // Reuse the SAME daily-candles secondary fetch to recover the true prior-session close.
-        // Relative threshold: verified live — ^GSPC returns chartPreviousClose 7483.23 vs
-        // price 7483.24 (same session, off by a hundredth) → absolute epsilon missed it.
-        // 0.1% is safe: a genuinely flat day also triggers the fallback, which recomputes
-        // from authoritative daily candles and yields the same (correct) tiny change.
-        if (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.001) {
+        // ⚠️ 2026-07-24 ROOT-CAUSE FIX: the old trigger (< 0.1%) FALSE-POSITIVED on ordinary
+        // near-flat days. Live bug: ES=F prevClose 7445 vs price 7443.5 (0.02%) is a real -0.02%
+        // day, NOT a roll — but it tripped the 0.1% gate, discarded Yahoo's correct 7445, and the
+        // daily series was MISSING the latest session (07/22→07/24, no 07/23) so the walk-back
+        // grabbed a 3-session-old 7540 bar → fabricated a -1.28% drop (S&P500 F, and intermittently
+        // NASDAQ100 F, showed a crash while the real futures were flat). A genuine roll is ~0.0001%;
+        // a flat day is ~0.02% — two orders of magnitude apart. Tighten to 0.005% so real flat days
+        // keep Yahoo's authoritative previousClose and only true rolls reconstruct from candles.
+        const yahooPrev = prevClose > 0.01 ? prevClose : null; // usually ≈ price inside the block (rolled)
+        if (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005) {
             // Default to `price` (0% change) if the secondary fetch fails for any reason
             prevClose = price;
             try {
@@ -84,7 +89,13 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
                     let idx = validCloses.length - 1;
                     while (idx >= 0 && Math.abs(validCloses[idx] - price) / price < 0.0001) idx--;
                     if (idx >= 0) {
-                        prevClose = validCloses[idx];
+                        const dailyPick = validCloses[idx];
+                        // Guard the missing-session daily series: if Yahoo gave a usable
+                        // previousClose that DISAGREES with the daily pick by >0.5%, the daily
+                        // series is missing the latest bar → trust Yahoo's previousClose instead.
+                        prevClose = (yahooPrev && Math.abs(dailyPick - yahooPrev) / yahooPrev > 0.005)
+                            ? yahooPrev
+                            : dailyPick;
                     } // else: every bar matches current price — keep prevClose = price (honest 0%)
                 }
             } catch (e) {
