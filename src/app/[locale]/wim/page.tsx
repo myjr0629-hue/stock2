@@ -421,6 +421,7 @@ const T: Record<Lang, Record<string, string>> = {
     obNext: '다음', obStart: '시작하기', obSkip: '건너뛰기',
     pulse10Y: '미 10년물', pulseHold: 'FOMC 동결확률', pulseFomc: '다음 FOMC', pulseMover: '오늘의 무버',
     heroEyebrow: '오늘의 무브',
+    moversRail: '오늘 크게 움직인 종목', moversCount: '종목',
     heroHeadline: '{c}, 오늘 ±{v}% 움직임',
     resumeTitle: '이어서 학습',
     resumeLine: '오늘의 문제 {a}/{b} — 이어서 풀기',
@@ -595,6 +596,7 @@ const T: Record<Lang, Record<string, string>> = {
     obNext: 'Next', obStart: 'Start', obSkip: 'Skip',
     pulse10Y: 'US 10Y', pulseHold: 'FOMC hold odds', pulseFomc: 'Next FOMC', pulseMover: "Today's mover",
     heroEyebrow: "Today's move",
+    moversRail: 'Big movers today', moversCount: 'stocks',
     heroHeadline: '{c}: a ±{v}% day',
     resumeTitle: 'Continue learning',
     resumeLine: "Today's set {a}/{b} — pick it back up",
@@ -769,6 +771,7 @@ const T: Record<Lang, Record<string, string>> = {
     obNext: '次へ', obStart: 'はじめる', obSkip: 'スキップ',
     pulse10Y: '米10年債', pulseHold: 'FOMC据え置き確率', pulseFomc: '次のFOMC', pulseMover: '今日のムーバー',
     heroEyebrow: '今日のムーブ',
+    moversRail: '今日大きく動いた銘柄', moversCount: '銘柄',
     heroHeadline: '{c}、今日±{v}%の動き',
     resumeTitle: 'つづきから学ぶ',
     resumeLine: '今日の問題 {a}/{b} — つづきを解く',
@@ -3229,6 +3232,50 @@ export default function WimPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── auto-refresh: while the app stays open, pull a fresh edition on resume /
+  // tab-visible / every 10 min so the movers + charts update WITHOUT a restart.
+  // Never swaps mid-session (quiz or play open); throttled to 5 min; writes only
+  // when the set actually changed (dateET or per-unit spark-length signature),
+  // so an unchanged pull is a silent no-op. (listener mounts once, state via ref)
+  const liveRef = useRef<{ today: Today | null; busy: boolean }>({ today: null, busy: false });
+  useEffect(() => { liveRef.current = { today, busy: activeIdx != null || playOpen != null }; }, [today, activeIdx, playOpen]);
+  const lastRefreshRef = useRef(0);
+  useEffect(() => {
+    lastRefreshRef.current = Date.now(); // boot already fetched fresh — hold 5 min
+    const sig = (x: Today | null) => x ? `${x.dateET}|${x.units.map((u) => `${u.id}:${u.spark?.closes?.length || 0}`).join(',')}` : '';
+    const refresh = () => {
+      if (liveRef.current.busy) return;
+      const now = Date.now();
+      if (now - lastRefreshRef.current < 5 * 60 * 1000) return;
+      lastRefreshRef.current = now;
+      fetch('/api/wim/today?refresh=1')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!j?.success || !j.units?.length) return;
+          if (sig(j) !== sig(liveRef.current.today)) {
+            setToday(j);
+            try { localStorage.setItem('wim.today', JSON.stringify(j)); } catch { /* noop */ }
+          }
+        })
+        .catch(() => { /* keep showing what we have */ });
+    };
+    const onVis = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVis);
+    const iv = window.setInterval(refresh, 10 * 60 * 1000);
+    let remove: (() => void) | undefined;
+    (async () => {
+      try {
+        const cap = (window as any).Capacitor;
+        if (!cap?.isNativePlatform?.()) return;
+        const AppMod: any = await import('@capacitor/app');
+        const h = await AppMod.App.addListener('appStateChange', (s: { isActive: boolean }) => { if (s.isActive) refresh(); });
+        remove = () => { try { h.remove(); } catch { /* noop */ } };
+      } catch { /* web */ }
+    })();
+    return () => { document.removeEventListener('visibilitychange', onVis); window.clearInterval(iv); remove?.(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // once unlocked, the home hero chart needs the hero ticker's lab levels
   useEffect(() => {
     if (unlockLevels && heroTicker) void requestLab(heroTicker);
@@ -3815,7 +3862,7 @@ export default function WimPage() {
   const playCards = deckPlays.map((tz, i) => {
     const tint = PLAY_TINT[tz.id];
     return (
-      <button key={tz.id} type="button" className="wim-press" onClick={() => openPlay(tz.id)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 196px', scrollSnapAlign: 'start', background: tint.bg, color: tint.deep, border: 'none', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 22px rgba(38,34,64,0.07)', animation: `wimUp 0.3s ${EASE_OUT} ${i * 40}ms both` }}>
+      <button key={tz.id} type="button" className="wim-press" onClick={() => openPlay(tz.id)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 166px', scrollSnapAlign: 'start', background: tint.bg, color: tint.deep, border: 'none', borderRadius: 22, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 22px rgba(38,34,64,0.07)', animation: `wimUp 0.3s ${EASE_OUT} ${i * 40}ms both` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
           <span style={{ width: 28, height: 28, borderRadius: 10, background: 'rgba(255,255,255,0.55)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Ic name={tz.icon} size={16} color={tint.deep} sw={2} /></span>
           <span className="wim-new" style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, background: 'rgba(255,255,255,0.6)', borderRadius: 99, padding: '2px 8px', letterSpacing: '0.04em' }}>{t.newPlay}</span>
@@ -3830,7 +3877,7 @@ export default function WimPage() {
   });
   // W6-A S5: concept-of-the-day card — the term's live micro-viz, tap → glossary
   const conceptCard = termOfDay ? (
-    <button key="cod" type="button" className="wim-press" onClick={() => markTerm(termOfDay)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 196px', scrollSnapAlign: 'start', background: '#FFFFFF', border: '1px solid rgba(38,34,64,0.07)', borderRadius: 18, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 20px rgba(76,63,175,0.09)', animation: `wimUp 0.3s ${EASE_OUT} 160ms both` }}>
+    <button key="cod" type="button" className="wim-press" onClick={() => markTerm(termOfDay)} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: '0 0 166px', scrollSnapAlign: 'start', background: '#FFFFFF', border: '1px solid rgba(38,34,64,0.07)', borderRadius: 18, padding: '13px 13px 12px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 20px rgba(76,63,175,0.09)', animation: `wimUp 0.3s ${EASE_OUT} 160ms both` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%' }}>
         <span style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.08em', color: P.heroDeep, background: P.heroSoft, borderRadius: 99, padding: '3px 9px' }}>{t.conceptOfDay.toUpperCase()}</span>
         {lab && <span style={{ marginLeft: 'auto', fontSize: 8.5, fontWeight: 900, color: P.mint }}>● {lab.ticker}</span>}
@@ -3997,6 +4044,33 @@ export default function WimPage() {
             ) : null}
             {failed && !today && (
               <div style={{ ...glass, marginTop: 16, borderRadius: 20, padding: '18px 16px', fontSize: 13, fontWeight: 700, color: P.sub, textAlign: 'center' }}>{t.empty}</div>
+            )}
+
+            {/* ── S2.5 · today's OTHER movers — the day is more than one stock. A
+                swipeable rail of every mover in today's set; tap any to jump
+                straight into that ticker's question (reuses the same units). ── */}
+            {units.length > 1 && (
+              <section style={{ marginTop: 6, animation: 'wimUp 0.3s ease' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
+                  <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color={P.heroDeep} /> {t.moversRail}</h2>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: P.faint }}>{units.length} {t.moversCount}</span>
+                </div>
+                <div className="no-sb" style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '9px -16px 0', padding: '3px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+                  {units.map((u, i) => {
+                    const solved = !!done[u.id];
+                    return (
+                      <button key={u.id} type="button" className="wim-press" onClick={() => startQuiz(i)} style={{ font: 'inherit', flex: '0 0 132px', scrollSnapAlign: 'start', cursor: 'pointer', textAlign: 'left', background: '#fff', border: `1px solid ${solved ? 'rgba(25,184,147,0.4)' : 'rgba(38,34,64,0.07)'}`, borderRadius: 18, padding: '12px 12px 11px', display: 'flex', flexDirection: 'column', gap: 9, boxShadow: '0 8px 18px rgba(38,34,64,0.06)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <TickerLogo ticker={u.ticker} size={28} />
+                          {solved && <span style={{ marginLeft: 'auto', display: 'inline-flex' }}><Ic name="check" size={15} color={P.mint} sw={2.6} /></span>}
+                        </span>
+                        <span style={{ fontSize: 13.5, fontWeight: 900, color: P.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.ticker}</span>
+                        <span style={{ alignSelf: 'flex-start', fontSize: 12.5, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#8A5B00', background: 'rgba(255,173,31,0.16)', border: '1px solid rgba(255,173,31,0.32)', borderRadius: 99, padding: '3px 10px' }}>±{u.moveMagnitude}%</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
             )}
 
             {/* ── S3 · continue learning — one compact resume row, only while
@@ -4492,7 +4566,7 @@ export default function WimPage() {
 
       {/* settings sheet — language lives here now */}
       {/* [WIM PUSH] soft opt-in after the first full completion (inert on web / no plugin) */}
-      <WimPushOptIn loc={loc} completed={units.length > 0 && doneCount >= units.length} />
+      <WimPushOptIn loc={loc} completed={doneCount >= 1} />
 
       {settingsOpen && (
         <div onClick={() => setSettingsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
