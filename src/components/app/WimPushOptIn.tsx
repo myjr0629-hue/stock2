@@ -70,17 +70,18 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
     try { asked = localStorage.getItem('wim.push.asked') === '1'; } catch { /* storage off */ }
     if (asked) return;
     (async () => {
+      const dbg = (o: any) => { try { localStorage.setItem('wim.push.debug', JSON.stringify({ t: Date.now(), ...o })); } catch { /* noop */ } };
       const P = await getPush();
-      console.log('[WIMPUSH] getPush=', !!P, 'native=', (window as any).Capacitor?.isNativePlatform?.());
+      dbg({ step: 'getPush', got: !!P, native: (window as any).Capacitor?.isNativePlatform?.() });
       if (!P) return;
       try {
         const perm = await P.checkPermissions();
-        console.log('[WIMPUSH] checkPermissions=', JSON.stringify(perm));
+        dbg({ step: 'checkPermissions', perm });
         if (perm?.receive === 'prompt' || perm?.receive === 'prompt-with-rationale') {
           askedRef.current = true;
           setOpen(true);
         }
-      } catch (e) { console.log('[WIMPUSH] checkPermissions ERROR', String(e)); }
+      } catch (e) { dbg({ step: 'error', error: String(e) }); }
     })();
   }, [completed]);
 
