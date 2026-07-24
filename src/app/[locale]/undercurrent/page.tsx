@@ -18,7 +18,7 @@
 //    Hero story's deep layer is free (taste of the reward).
 // ============================================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded } from './ads';
 
@@ -308,6 +308,7 @@ interface Feed {
   success: boolean;
   pulse?: { bullish: number; cautious: number; neutral: number; divergences: number };
   cards?: Card[];
+  generatedAt?: string;
 }
 type Tab = 'home' | 'macro' | 'div' | 'whale' | 'stories' | 'search';
 
@@ -327,6 +328,7 @@ interface MacroResult {
   };
   macroRead: string | null;
   cards: MacroCard[];
+  generatedAt?: string;
 }
 
 interface TickerResult {
@@ -669,6 +671,19 @@ export default function UndercurrentPage() {
   const [recents, setRecents] = useState<string[]>([]);
   const [storyTag, setStoryTag] = useState<string>(''); // '' = all (stories tab browse chips)
   const [macro, setMacro] = useState<MacroResult | null>(null);
+
+  // [AUTO-REFRESH] The feed/macro used to be fetched ONCE on mount, so a session
+  // kept open — or an app resumed from background (webview isn't reloaded) — froze
+  // on the edition it first loaded. These refs let a lightweight background refresh
+  // (resume / tab-visible / periodic) swap in a NEWER edition without clearing the
+  // screen. Web-only, so it ships without an app update.
+  const feedGenRef = useRef<string>('');
+  const macroGenRef = useRef<string>('');
+  const lastRefreshRef = useRef<number>(0);
+  const locRef = useRef(loc);
+  useEffect(() => { locRef.current = loc; }, [loc]);
+  useEffect(() => { if (feed?.generatedAt) feedGenRef.current = feed.generatedAt; }, [feed]);
+  useEffect(() => { if (macro?.generatedAt) macroGenRef.current = macro.generatedAt; }, [macro]);
   const [showBreaking, setShowBreaking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // keep the hardware-back handler's view of open layers current
@@ -841,6 +856,67 @@ export default function UndercurrentPage() {
       .catch(() => { if (!dead && !painted) setErr(true); });
     return () => { dead = true; };
   }, [loc]);
+
+  // [AUTO-REFRESH] Pull the freshest edition on resume / tab-visible / periodically,
+  // swapping in ONLY a strictly-newer generatedAt (no blank flash, no yank while the
+  // reader has an article open, throttled so resume+visibility don't double-fetch).
+  const refreshContent = useCallback(() => {
+    if (backStateRef.current.detail) return;            // don't swap out from under a reader
+    const now = Date.now();
+    if (now - lastRefreshRef.current < 90_000) return;  // throttle: ≥90s between refreshes
+    lastRefreshRef.current = now;
+    const loc0 = loc;
+    fetch(`/api/undercurrent/feed?locale=${loc0}&limit=12`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (locRef.current !== loc0 || !d?.success || !d.cards?.length) return;
+        const dGen = Date.parse(d.generatedAt || '') || 0;
+        const curGen = Date.parse(feedGenRef.current) || 0;
+        if (dGen > curGen) {
+          feedGenRef.current = d.generatedAt || feedGenRef.current;
+          setFeed(d);
+          try { localStorage.setItem(`uc.swr.feed.${loc0}`, JSON.stringify(d)); } catch { /* quota */ }
+        }
+      })
+      .catch(() => { /* keep the current edition */ });
+    fetch(`/api/undercurrent/macro?locale=${loc0}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (locRef.current !== loc0 || !d?.success) return;
+        const dGen = Date.parse(d.generatedAt || '') || 0;
+        const curGen = Date.parse(macroGenRef.current) || 0;
+        if (dGen > curGen) {
+          macroGenRef.current = d.generatedAt || macroGenRef.current;
+          setMacro(d);
+          try { localStorage.setItem(`uc.swr.macro.${loc0}`, JSON.stringify(d)); } catch { /* quota */ }
+        }
+      })
+      .catch(() => { /* keep current */ });
+  }, [loc]);
+
+  useEffect(() => {
+    let removeApp: (() => void) | undefined;
+    (async () => {
+      try {
+        // native-only: refresh the instant the app is brought back to the foreground
+        const AppMod: any = await import('@capacitor/app');
+        const h = await AppMod.App.addListener('appStateChange', (s: { isActive: boolean }) => {
+          if (s?.isActive) refreshContent();
+        });
+        removeApp = () => { try { h.remove(); } catch {} };
+      } catch { /* web / plugin unavailable */ }
+    })();
+    // browser/webview: refresh when the tab/webview becomes visible again
+    const onVis = () => { if (!document.hidden) refreshContent(); };
+    document.addEventListener('visibilitychange', onVis);
+    // kept-open sessions: poll every 5 min while foregrounded (throttle guards spam)
+    const id = window.setInterval(() => { if (!document.hidden) refreshContent(); }, 300_000);
+    return () => {
+      removeApp?.();
+      document.removeEventListener('visibilitychange', onVis);
+      clearInterval(id);
+    };
+  }, [refreshContent]);
 
   const dateStr = useMemo(() => {
     const tag = loc === 'ko' ? 'ko-KR' : loc === 'ja' ? 'ja-JP' : 'en-US';
