@@ -25,6 +25,7 @@ import { MobileLegalFooter } from '@/components/mobile/MobileLegalFooter';
 // Native App (Capacitor — no-op on web)
 import { NativeAppProvider } from '@/components/native/NativeAppProvider';
 import { NativePullToRefresh } from '@/components/native/NativePullToRefresh';
+import { ChunkErrorRecovery } from '@/components/ChunkErrorRecovery';
 
 export function generateStaticParams() {
     return locales.map((locale) => ({ locale }));
@@ -79,6 +80,7 @@ export default async function LocaleLayout({ children, params }: Props) {
     return (
         <NextIntlClientProvider messages={messages}>
             <div lang={locale} className={`flex flex-col min-h-screen ${locale === 'en' ? 'font-jakarta' : 'font-body'} ${isAppView ? 'is-app-view' : ''}`}>
+                <ChunkErrorRecovery />
                 <ConsentGuard>
                     <TierProvider>
                         <DeviceProvider isMobile={isMobileDevice}>
