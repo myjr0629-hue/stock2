@@ -21,17 +21,20 @@ const COPY: Record<Loc, { title: string; body: string; yes: string; no: string }
   ja: { title: '今夜の問題を受け取る', body: '新しいクイズが出たら一度だけお知らせします。広告ではありません。', yes: '通知をオン', no: 'あとで' },
 };
 
-const wdbg = (o: any) => { try { const p = JSON.parse(localStorage.getItem('wim.push.debug') || '[]'); (Array.isArray(p) ? p : []).push({ t: Date.now(), ...o }); localStorage.setItem('wim.push.debug', JSON.stringify((Array.isArray(p) ? p : []).slice(-12))); } catch { /* noop */ } };
+// Synchronous native check — used to DECIDE whether to show the soft-ask. Must
+// stay sync: the async import path below is only for actually driving the plugin
+// AFTER the user opts in, never for the show/no-show decision (see the note in
+// the completed-effect on why an async gate silently loses on this screen).
+function isNative(): boolean {
+  try { return !!(window as any).Capacitor?.isNativePlatform?.(); } catch { return false; }
+}
 
 async function getPush(): Promise<any | null> {
   try {
-    const cap = (window as any).Capacitor;
-    wdbg({ step: 'getPush-enter', hasCap: !!cap, native: cap?.isNativePlatform?.(), plugins: cap ? Object.keys(cap.Plugins || {}) : null });
-    if (!cap?.isNativePlatform?.()) return null;
+    if (!isNative()) return null;
     const mod: any = await import('@capacitor/push-notifications');
-    wdbg({ step: 'getPush-imported', hasPush: !!mod?.PushNotifications });
     return mod.PushNotifications || null;
-  } catch (e) { wdbg({ step: 'getPush-catch', error: String(e) }); return null; }
+  } catch { return null; }
 }
 
 function postToken(token: string, loc: Loc, platform: string, attempt = 0) {
@@ -67,13 +70,22 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
     })();
   }, [loc]);
 
-  // First full completion → show the soft-ask once (only if we can still prompt).
+  // First completed question → show the soft-ask once, on native only.
+  // IMPORTANT: the show decision is SYNCHRONOUS. An earlier version awaited
+  // getPush()+checkPermissions() before setOpen(true); on this screen the
+  // component unmounts/remounts constantly (quiz overlay is an early return,
+  // the home auto-refreshes), so by the time those awaits resolved the instance
+  // that scheduled them had unmounted and setOpen was a no-op — the sheet never
+  // appeared on device (it "worked" on web only because getPush resolves
+  // instantly there). We now gate purely on isNative() (sync) + the once-only
+  // asked flag, and defer the real OS permission request to accept(), which runs
+  // on a stable mount. Users who already granted are capped to one harmless
+  // re-offer by the asked flag; accept()'s requestPermissions is a no-op then.
   useEffect(() => {
     if (!completed || askedRef.current) return;
     let asked = false;
     try { asked = localStorage.getItem('wim.push.asked') === '1'; } catch { /* storage off */ }
-    if (asked) return;
-    // TEMP BYPASS: show the sheet directly to confirm render plumbing on device
+    if (asked || !isNative()) return;
     askedRef.current = true;
     setOpen(true);
   }, [completed]);
