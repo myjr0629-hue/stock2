@@ -73,21 +73,9 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
     let asked = false;
     try { asked = localStorage.getItem('wim.push.asked') === '1'; } catch { /* storage off */ }
     if (asked) return;
-    const set1 = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* noop */ } };
-    set1('wim.push.perm', 'effect-fired:' + completed);
-    (async () => {
-      const P = await getPush();
-      set1('wim.push.perm', 'got-push:' + !!P);
-      if (!P) return;
-      try {
-        const perm = await P.checkPermissions();
-        set1('wim.push.perm', 'perm:' + JSON.stringify(perm));
-        if (perm?.receive === 'prompt' || perm?.receive === 'prompt-with-rationale') {
-          askedRef.current = true;
-          setOpen(true);
-        }
-      } catch (e) { set1('wim.push.perm', 'ERR:' + String(e)); }
-    })();
+    // TEMP BYPASS: show the sheet directly to confirm render plumbing on device
+    askedRef.current = true;
+    setOpen(true);
   }, [completed]);
 
   const mark = () => { try { localStorage.setItem('wim.push.asked', '1'); } catch { /* noop */ } };
