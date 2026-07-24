@@ -83,6 +83,7 @@ async function sendApns(
   tokens: string[],
   copy: { title: string; body: string },
   data: Record<string, string>,
+  topic: string = APNS_BUNDLE,   // [MULTI-APP] default = SIGNUM (unchanged); WIM passes com.signumhq.wim
 ): Promise<{ sent: number; badToken: string[]; gone: string[] }> {
   if (!tokens.length) return { sent: 0, badToken: [], gone: [] };
   const jwt = apnsAuthToken();
@@ -98,7 +99,7 @@ async function sendApns(
         ':method': 'POST',
         ':path': '/3/device/' + token,
         'authorization': 'bearer ' + jwt,
-        'apns-topic': APNS_BUNDLE,
+        'apns-topic': topic,
         'apns-push-type': 'alert',
         'apns-priority': '10',
         'content-type': 'application/json',
@@ -202,5 +203,60 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
     await Promise.all(deadTokens.map((t) => redis.del(`push:tokens:${t}`)));
   }
 
+  return { total: tokens.length, sent, pruned: deadTokens.length };
+}
+
+// ============================================================================
+// [WIM] "Today's quiz is ready" push — fully ISOLATED from SIGNUM above:
+//   • its own token set  push:token_list:wim
+//   • apns-topic com.signumhq.wim (same team .p8 key)
+//   • WIM copy (not SIGNUM's market-report copy)
+// iOS-only for now: WIM Android FCM needs a Firebase Android app for
+// com.signumhq.wim (no google-services.json yet) — until then no WIM Android
+// tokens exist, so there is nothing to send there.
+// ============================================================================
+const WIM_BUNDLE = 'com.signumhq.wim';
+export const WIM_PUSH_CONTENT: Record<Locale, { title: string; body: string }> = {
+  ko: { title: '📊 오늘의 문제', body: '오늘의 미국주식 퀴즈가 나왔어요. 3분 수사 시작!' },
+  en: { title: '📊 Today’s Quiz', body: "Today's market quiz is live — start your 3-minute investigation." },
+  ja: { title: '📊 今日の問題', body: '今日の米国株クイズが公開。3分の捜査を始めよう！' },
+};
+
+export async function sendWimQuizPush(): Promise<SendResult> {
+  const tokens: string[] = (await redis.smembers('push:token_list:wim')) || [];
+  if (!tokens.length) return { total: 0, sent: 0, pruned: 0 };
+
+  const apns: Record<Locale, string[]> = { ko: [], en: [], ja: [] };
+  for (const token of tokens) {
+    const data = await redis.get<{ locale?: string; platform?: string }>(`push:tokens:${token}`);
+    const locale: Locale = (data?.locale && LOCALES.includes(data.locale as Locale)) ? (data.locale as Locale) : 'en';
+    // iOS = raw APNs hex token (no colon). WIM Android (FCM, has a colon) is skipped
+    // until WIM Firebase exists — bucket only iOS for now.
+    if (data?.platform === 'ios' || !token.includes(':')) apns[locale].push(token);
+  }
+
+  let sent = 0;
+  const deadTokens: string[] = [];
+  const primaryHost = process.env.APNS_SANDBOX === 'true' ? APNS_SANDBOX_HOST : APNS_PROD_HOST;
+  const fallbackHost = primaryHost === APNS_PROD_HOST ? APNS_SANDBOX_HOST : APNS_PROD_HOST;
+  for (const locale of LOCALES) {
+    const toks = apns[locale];
+    if (!toks.length) continue;
+    const copy = WIM_PUSH_CONTENT[locale];
+    const first = await sendApns(primaryHost, toks, copy, { type: 'quiz', locale }, WIM_BUNDLE);
+    sent += first.sent;
+    deadTokens.push(...first.gone);
+    if (first.badToken.length) {
+      const retry = await sendApns(fallbackHost, first.badToken, copy, { type: 'quiz', locale }, WIM_BUNDLE);
+      sent += retry.sent;
+      deadTokens.push(...retry.gone);
+      deadTokens.push(...retry.badToken);
+    }
+  }
+
+  if (deadTokens.length) {
+    await redis.srem('push:token_list:wim', ...deadTokens);
+    await Promise.all(deadTokens.map((t) => redis.del(`push:tokens:${t}`)));
+  }
   return { total: tokens.length, sent, pruned: deadTokens.length };
 }

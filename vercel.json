@@ -69,6 +69,10 @@
             "schedule": "*/2 * * * *"
         },
         {
+            "path": "/api/cron/wim-push",
+            "schedule": "45 21 * * 1-5"
+        },
+        {
             "path": "/api/cron/track-verify",
             "schedule": "30 21 * * 1-5"
         },

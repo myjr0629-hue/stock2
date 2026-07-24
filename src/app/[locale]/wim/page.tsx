@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
+import { WimPushOptIn } from '@/components/app/WimPushOptIn';
 
 // ── ads master switch (mirror of UC ADS_LIVE discipline) ──
 const WIM_ADS_LIVE = false;
@@ -4490,6 +4491,9 @@ export default function WimPage() {
       </nav>
 
       {/* settings sheet — language lives here now */}
+      {/* [WIM PUSH] soft opt-in after the first full completion (inert on web / no plugin) */}
+      <WimPushOptIn loc={loc} completed={units.length > 0 && doneCount >= units.length} />
+
       {settingsOpen && (
         <div onClick={() => setSettingsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(26px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease' }}>
