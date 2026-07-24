@@ -1358,7 +1358,7 @@ function PlayShell({ closing, children }: { closing: boolean; children: ReactNod
 function PlayTopBar({ onClose, backLabel, prog, chip }: { onClose: () => void; backLabel: string; prog: number; chip?: string | null }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
-      <button type="button" onClick={onClose} aria-label={backLabel} style={{ font: 'inherit', width: 38, height: 38, borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer', flexShrink: 0 }}>←</button>
+      <button type="button" onClick={onClose} aria-label={backLabel} style={{ font: 'inherit', width: 38, height: 38, minWidth: 38, minHeight: 38, padding: 0, WebkitAppearance: 'none', appearance: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer', flexShrink: 0 }}>←</button>
       <div style={{ flex: 1, height: 8, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
         <div style={{ width: `${Math.min(100, Math.max(0, prog * 100))}%`, height: '100%', background: P.hero, borderRadius: 99, transition: 'width 0.4s ease' }} />
       </div>
@@ -2138,7 +2138,7 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
                   <button
                     type="button" disabled={cpOpen != null} onClick={() => setPlaying((p) => !p)}
                     aria-label={playing ? t.replayPause : t.replayResume}
-                    style={{ font: 'inherit', width: 38, height: 38, borderRadius: '50%', border: 'none', background: P.ink, opacity: cpOpen != null ? 0.45 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: cpOpen != null ? 'default' : 'pointer', flexShrink: 0 }}
+                    style={{ font: 'inherit', width: 38, height: 38, minWidth: 38, minHeight: 38, padding: 0, WebkitAppearance: 'none', appearance: 'none', borderRadius: '50%', border: 'none', background: P.ink, opacity: cpOpen != null ? 0.45 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: cpOpen != null ? 'default' : 'pointer', flexShrink: 0 }}
                   >
                     <Ic name={playing ? 'pause' : 'play'} size={16} color="#fff" sw={2.2} />
                   </button>
@@ -3346,7 +3346,7 @@ export default function WimPage() {
         <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
           {/* top bar: close + progress + countdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
-            <button type="button" onClick={() => closeQuiz(false)} aria-label={t.backHome} style={{ font: 'inherit', width: 38, height: 38, minWidth: 38, flexShrink: 0, borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
+            <button type="button" onClick={() => closeQuiz(false)} aria-label={t.backHome} style={{ font: 'inherit', width: 38, height: 38, minWidth: 38, minHeight: 38, flexShrink: 0, padding: 0, WebkitAppearance: 'none', appearance: 'none', borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
             <div style={{ flex: 1, height: 8, background: P.heroSoft, borderRadius: 99, overflow: 'hidden' }}>
               <div style={{ width: `${((activeIdx + (revealed ? 1 : 0.4)) / units.length) * 100}%`, height: '100%', background: P.hero, borderRadius: 99, transition: 'width 0.4s ease' }} />
             </div>
@@ -4196,7 +4196,7 @@ export default function WimPage() {
                 style={{ font: 'inherit', flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, fontWeight: 700, color: P.ink }}
               />
               {searchQ && (
-                <button type="button" onClick={() => setSearchQ('')} style={{ font: 'inherit', border: 'none', background: P.heroSoft, color: P.heroDeep, borderRadius: '50%', width: 22, height: 22, fontSize: 11, fontWeight: 900, cursor: 'pointer' }}>✕</button>
+                <button type="button" onClick={() => setSearchQ('')} style={{ font: 'inherit', border: 'none', background: P.heroSoft, color: P.heroDeep, borderRadius: '50%', width: 22, height: 22, minWidth: 22, minHeight: 22, padding: 0, WebkitAppearance: 'none', appearance: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, fontWeight: 900, cursor: 'pointer' }}>✕</button>
               )}
             </div>
             {q === '' && (

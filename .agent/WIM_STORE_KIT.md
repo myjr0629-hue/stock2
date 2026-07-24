@@ -98,14 +98,18 @@ Why'd It Move? is a daily market-education quiz app by SIGNUM HQ LLC (our third 
 - Education only: the app explains market concepts with real historical/current data. It never gives buy/sell recommendations; a disclaimer ("not investment advice") is shown in-app.
 - To test: launch → (optional onboarding) → tap the big "investigate" button on the hero card → answer the 4-choice quiz → see explanation + data layer. The four bottom tabs (Home/Dictionary/Search/Records) are all reachable without any setup.
 
-## 6. 스크린샷 플랜 (3언어 × 5장)
-| # | 장면 | 카피(ko 예) |
-|---|---|---|
-| 1 | 홈 히어로(실차트+수사하기) | "오늘 시장이 낸 문제" |
-| 2 | 퀴즈 4지선다 | "왜 움직였는지, 수사하세요" |
-| 3 | 정답+근거기사+딥레이어 | "정답 뒤에 기관급 데이터" |
-| 4 | 커리큘럼 4트랙 | "차트부터 거시까지, 4갈래" |
-| 5 | 사전(살아있는 용어) 또는 도감 | "매일 바뀌는 사전" |
+## 6. 스크린샷 플랜 (3언어 × 5장) — ★ 언어별 트래픽 최적화 카피 (번역 아님)
+> 원칙(대표 지시): 각 시장 **고검색 키워드를 카피 앞단에** 심고(검색 인덱싱·연관성) + **전환 훅**(왜 깔지). ko=미국주식·서학개미·수급/차트, en=stocks·investing·real data, ja=米国株·新NISA·実データ. 카피는 스크린샷 상단 프레임 텍스트로 얹음.
+
+| # | 장면 | ko (미국주식·서학개미) | en (stocks·investing) | ja (米国株·新NISA) |
+|---|---|---|---|---|
+| 1 | 홈 히어로(실차트+수사하기) | **오늘 급등락한 미국주식,<br>왜 움직였나** | **Today's biggest stock<br>move — explained** | **今日動いた米国株、<br>その理由は？** |
+| 2 | 퀴즈 4지선다 | **수급·차트·거시를<br>4지선다로 학습** | **Learn flow, charts &<br>macro — one tap** | **需給・チャート・マクロを<br>4択で学ぶ** |
+| 3 | 정답+근거+딥레이어 | **정답 뒤엔 기관급 데이터<br>(다크풀·옵션)** | **Institutional data<br>behind every answer** | **解説の先に機関級データ<br>（ダークプール）** |
+| 4 | 커리큘럼 4트랙 | **차트→기관→거시→뉴스<br>4갈래 커리큘럼** | **Charts → institutions<br>→ macro → news** | **チャート→機関→マクロ<br>→ニュースを体系学習** |
+| 5 | 사전(살아있는 용어) | **매일 바뀌는<br>살아있는 투자 용어사전** | **A living glossary,<br>updated with today's data** | **毎日更新される<br>「生きた」投資用語集** |
+
+> **설명문 첫 줄도 키워드 프론트로딩**(Play 인덱싱): ko="미국주식을 퀴즈로 배우는…", en="Learn US stocks through a daily quiz…", ja="米国株をクイズで学ぶ…" (섹션 2 설명문 첫 문장과 정합 유지).
 - **제작법(확정 — 브라우저 스크린샷 공장)**: 인앱 브라우저 뷰포트를 스토어 네이티브 해상도로 설정 + `document.documentElement.style.zoom` 주입 → 레이아웃은 폰 CSS폭, 캡처는 풀해상도(선명). 인터랙션(퀴즈 진입 등)도 브라우저로 조작 가능.
   - iOS 6.9": **1320×2868, zoom=3** (레이아웃 440px) — ASC 6.9" 규격
   - Play 폰: **1080×2160, zoom=2.4545** (비율 2:1 ≤ Play 한도)
