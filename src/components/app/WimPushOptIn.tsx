@@ -21,13 +21,17 @@ const COPY: Record<Loc, { title: string; body: string; yes: string; no: string }
   ja: { title: '今夜の問題を受け取る', body: '新しいクイズが出たら一度だけお知らせします。広告ではありません。', yes: '通知をオン', no: 'あとで' },
 };
 
+const wdbg = (o: any) => { try { const p = JSON.parse(localStorage.getItem('wim.push.debug') || '[]'); (Array.isArray(p) ? p : []).push({ t: Date.now(), ...o }); localStorage.setItem('wim.push.debug', JSON.stringify((Array.isArray(p) ? p : []).slice(-12))); } catch { /* noop */ } };
+
 async function getPush(): Promise<any | null> {
   try {
     const cap = (window as any).Capacitor;
+    wdbg({ step: 'getPush-enter', hasCap: !!cap, native: cap?.isNativePlatform?.(), plugins: cap ? Object.keys(cap.Plugins || {}) : null });
     if (!cap?.isNativePlatform?.()) return null;
     const mod: any = await import('@capacitor/push-notifications');
+    wdbg({ step: 'getPush-imported', hasPush: !!mod?.PushNotifications });
     return mod.PushNotifications || null;
-  } catch { return null; }
+  } catch (e) { wdbg({ step: 'getPush-catch', error: String(e) }); return null; }
 }
 
 function postToken(token: string, loc: Loc, platform: string, attempt = 0) {
@@ -69,19 +73,19 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
     let asked = false;
     try { asked = localStorage.getItem('wim.push.asked') === '1'; } catch { /* storage off */ }
     if (asked) return;
+    wdbg({ step: 'effect-fire', completed });
     (async () => {
-      const dbg = (o: any) => { try { localStorage.setItem('wim.push.debug', JSON.stringify({ t: Date.now(), ...o })); } catch { /* noop */ } };
       const P = await getPush();
-      dbg({ step: 'getPush', got: !!P, native: (window as any).Capacitor?.isNativePlatform?.() });
+      wdbg({ step: 'got-push', got: !!P });
       if (!P) return;
       try {
         const perm = await P.checkPermissions();
-        dbg({ step: 'checkPermissions', perm });
+        wdbg({ step: 'checkPermissions', perm });
         if (perm?.receive === 'prompt' || perm?.receive === 'prompt-with-rationale') {
           askedRef.current = true;
           setOpen(true);
         }
-      } catch (e) { dbg({ step: 'error', error: String(e) }); }
+      } catch (e) { wdbg({ step: 'checkPerm-error', error: String(e) }); }
     })();
   }, [completed]);
 
