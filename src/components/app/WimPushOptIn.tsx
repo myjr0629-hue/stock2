@@ -71,14 +71,16 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
     if (asked) return;
     (async () => {
       const P = await getPush();
+      console.log('[WIMPUSH] getPush=', !!P, 'native=', (window as any).Capacitor?.isNativePlatform?.());
       if (!P) return;
       try {
         const perm = await P.checkPermissions();
+        console.log('[WIMPUSH] checkPermissions=', JSON.stringify(perm));
         if (perm?.receive === 'prompt' || perm?.receive === 'prompt-with-rationale') {
           askedRef.current = true;
           setOpen(true);
         }
-      } catch { /* noop */ }
+      } catch (e) { console.log('[WIMPUSH] checkPermissions ERROR', String(e)); }
     })();
   }, [completed]);
 
