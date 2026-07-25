@@ -114,7 +114,7 @@ Why'd It Move? is a daily market-education quiz app by SIGNUM HQ LLC (our third 
   - iOS 6.9": **1320×2868, zoom=3** (레이아웃 440px) — ASC 6.9" 규격
   - Play 폰: **1080×2160, zoom=2.4545** (비율 2:1 ≤ Play 한도)
   - 로케일: /ko/wim /en/wim /ja/wim 직접 진입(각 5장: 홈히어로·퀴즈·정답딥레이어·트랙·사전)
-  - 상태: ko/en/ja 캡처 ⏳ 미제작(다음 배치)
+  - 상태: ✅ **2026-07-25 30장 생성·검증 완료** — 헤드리스 puppeteer 공장(`wim-app/make-store-shots.js`), 출력=`wim-app/store-screenshots/{ios-6.9,play-phone}/{ko,en,ja}/{1-home..5-dictionary}.png`. iOS=1320×2868(ASC 6.9"), Play=1080×2160(2:1). 캡션 밴드=§6 카피(언어별 트래픽 최적화). **함정**: 이 맥이 ko 로케일이라 셸 셀프라우팅이 /en·/ja를 /ko로 되돌림 → 스크립트가 `wim.locale`+Accept-Language를 URL 로케일로 강제(해결). ko/en/ja 앱언어·5장면 전부 실이미지 확인. **대표는 ASC/Play에 이 파일들 업로드만.**
 
 ## 7. 남은 절차 (제출 직전 체크)
 1. ⏳ iOS 시뮬 빌드 검증(진행 중) → 실기기 스모크(대표님 아이폰, Xcode 서명: Team=Signum Hq LLC 선택만)
