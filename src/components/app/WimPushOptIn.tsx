@@ -119,48 +119,53 @@ export function WimPushToggle({ loc }: { loc: Loc }) {
   useEffect(() => {
     if (!isNative()) return;
     setNative(true);
-    // optimistic paint from the stored pref, then reconcile with the real OS state
+    // The stored pref is the source of truth for the switch. We only ask the OS
+    // to DOWNGRADE it (a revoked permission must show as off) — never to turn it
+    // on, and never as a preconditon for painting, because this plugin call can
+    // hang indefinitely (observed on the iOS simulator: checkPermissions never
+    // settles). A hung promise must leave the UI usable, not frozen.
     setOn(get1(PREF) === '1');
     (async () => {
       const P = await getPush();
       if (!P) return;
       try {
         const perm = await P.checkPermissions();
-        const granted = perm?.receive === 'granted';
-        setDenied(perm?.receive === 'denied');
-        // OS permission is the ceiling: no permission → the switch cannot be on.
-        // Treat a pre-existing grant with no stored pref as ON (the user accepted
-        // the soft-ask before this switch existed).
-        setOn(granted && get1(PREF) !== '0');
-      } catch { /* leave the optimistic value */ }
+        if (perm?.receive === 'denied') { setDenied(true); setOn(false); set1(PREF, '0'); }
+        else if (perm?.receive === 'granted' && get1(PREF) !== '0') { setOn(true); set1(PREF, '1'); }
+      } catch { /* leave the pref-based value */ }
     })();
   }, []);
 
-  const toggle = async () => {
+  // Optimistic: flip the switch and persist the pref SYNCHRONOUSLY, then do the
+  // plugin/network work fire-and-forget. Awaiting the plugin before updating
+  // state made the switch look dead (see the hang above); the OS prompt still
+  // appears when the plugin gets to it, and a hard denial corrects the switch.
+  const toggle = () => {
     if (busy) return;
+    const next = !on;
+    setOn(next);
+    set1(PREF, next ? '1' : '0');
+    set1('wim.push.asked', '1'); // an explicit choice here counts as being asked
     setBusy(true);
-    try {
-      if (on) {
-        setOn(false); set1(PREF, '0');
-        await unregister();
-      } else {
+    (async () => {
+      try {
+        if (!next) { await unregister(); return; }
         const P = await getPush();
-        if (!P) { setBusy(false); return; }
-        let perm: any = null;
-        try { perm = await P.checkPermissions(); } catch { /* noop */ }
-        if (perm?.receive !== 'granted') {
-          try { perm = await P.requestPermissions(); } catch { /* noop */ }
-        }
+        if (!P) return;
+        // requestPermissions covers both cases: it prompts when undecided and
+        // resolves straight to 'granted' when the user already allowed it.
+        const perm = await P.requestPermissions();
         if (perm?.receive === 'granted') {
-          setDenied(false); setOn(true); set1(PREF, '1'); set1('wim.push.asked', '1');
-          await register(P, loc);
+          setDenied(false);
+          if (get1(PREF) === '1') await register(P, loc); // still on after the await
         } else {
-          // iOS only prompts once — after a denial the user must flip it in the
-          // OS settings, so surface that instead of a switch that won't move.
+          // iOS prompts only once — after a denial the switch cannot turn itself
+          // on, so show the device-settings hint instead of a dead control.
           setDenied(true); setOn(false); set1(PREF, '0');
         }
-      }
-    } finally { setBusy(false); }
+      } catch { /* keep the optimistic state; nothing was registered */ }
+      finally { setBusy(false); }
+    })();
   };
 
   if (!native) return null;
@@ -229,12 +234,15 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
 
   const mark = () => set1('wim.push.asked', '1');
   const accept = async () => {
-    setOpen(false); mark();
+    // Record the choice synchronously (same reason as the settings switch: the
+    // plugin call below can hang, and the settings row must already read "on").
+    setOpen(false); mark(); set1(PREF, '1');
     const P = await getPush();
     if (!P) return;
     try {
       const perm = await P.requestPermissions();
-      if (perm?.receive === 'granted') { set1(PREF, '1'); register(P, loc); }
+      if (perm?.receive === 'granted') register(P, loc);
+      else set1(PREF, '0');
     } catch { /* noop */ }
   };
   const later = () => { setOpen(false); mark(); set1(PREF, '0'); };

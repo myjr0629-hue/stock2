@@ -46,6 +46,9 @@ export async function GET(req: NextRequest) {
   };
 
   const tokens = { total: 0, ios: 0, android: 0, sampled: 0 };
+  // WIM keeps its own token set (see push/register) — counted separately so the
+  // notification switch can be verified without sending anyone a push.
+  const wimTokens = { total: 0, ios: 0, android: 0 };
   try {
     const redis = Redis.fromEnv();
     const list: string[] = (await redis.smembers('push:token_list')) || [];
@@ -55,6 +58,12 @@ export async function GET(req: NextRequest) {
       const isIos = d?.platform === 'ios' || !t.includes(':');
       if (isIos) tokens.ios++; else tokens.android++;
       tokens.sampled++;
+    }
+    const wimList: string[] = (await redis.smembers('push:token_list:wim')) || [];
+    wimTokens.total = wimList.length;
+    for (const t of wimList.slice(0, 100)) {
+      const d = await redis.get<{ platform?: string }>(`push:tokens:${t}`);
+      if (d?.platform === 'ios' || !t.includes(':')) wimTokens.ios++; else wimTokens.android++;
     }
   } catch { /* redis unavailable */ }
 
@@ -93,6 +102,7 @@ export async function GET(req: NextRequest) {
     todayET,
     env,
     tokens,
+    wimTokens,
     markers,
   });
 }
