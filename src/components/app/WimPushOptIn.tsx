@@ -113,7 +113,6 @@ export function WimPushToggle({ loc }: { loc: Loc }) {
   const [native, setNative] = useState(false);
   const [on, setOn] = useState(false);
   const [denied, setDenied] = useState(false);
-  const [busy, setBusy] = useState(false);
   const c = TOGGLE_COPY[loc] || TOGGLE_COPY.en;
 
   useEffect(() => {
@@ -140,16 +139,23 @@ export function WimPushToggle({ loc }: { loc: Loc }) {
   // plugin/network work fire-and-forget. Awaiting the plugin before updating
   // state made the switch look dead (see the hang above); the OS prompt still
   // appears when the plugin gets to it, and a hard denial corrects the switch.
+  // No in-flight lock: a "busy" flag that only clears when the plugin promise
+  // settles would leave the switch permanently disabled whenever that promise
+  // hangs (exactly what happened on the simulator after the first tap). Instead
+  // the switch is always live, and each async branch re-reads the persisted pref
+  // right before its side effect so a fast on→off→on can't register a device the
+  // user just turned off (or vice versa).
   const toggle = () => {
-    if (busy) return;
     const next = !on;
     setOn(next);
     set1(PREF, next ? '1' : '0');
     set1('wim.push.asked', '1'); // an explicit choice here counts as being asked
-    setBusy(true);
     (async () => {
       try {
-        if (!next) { await unregister(); return; }
+        if (!next) {
+          if (get1(PREF) === '0') await unregister();
+          return;
+        }
         const P = await getPush();
         if (!P) return;
         // requestPermissions covers both cases: it prompts when undecided and
@@ -158,13 +164,12 @@ export function WimPushToggle({ loc }: { loc: Loc }) {
         if (perm?.receive === 'granted') {
           setDenied(false);
           if (get1(PREF) === '1') await register(P, loc); // still on after the await
-        } else {
+        } else if (get1(PREF) === '1') {
           // iOS prompts only once — after a denial the switch cannot turn itself
           // on, so show the device-settings hint instead of a dead control.
           setDenied(true); setOn(false); set1(PREF, '0');
         }
       } catch { /* keep the optimistic state; nothing was registered */ }
-      finally { setBusy(false); }
     })();
   };
 
@@ -173,8 +178,8 @@ export function WimPushToggle({ loc }: { loc: Loc }) {
     <>
       <div style={{ marginTop: 16, fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: '#8A85A0' }}>{c.section.toUpperCase()}</div>
       <button
-        type="button" onClick={toggle} role="switch" aria-checked={on} aria-label={c.label} disabled={busy}
-        style={{ font: 'inherit', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: '#fff', border: '1px solid #E4E0F2', borderRadius: 14, padding: '11px 13px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
+        type="button" onClick={toggle} role="switch" aria-checked={on} aria-label={c.label}
+        style={{ font: 'inherit', width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', background: '#fff', border: '1px solid #E4E0F2', borderRadius: 14, padding: '11px 13px', cursor: 'pointer' }}
       >
         <span style={{ width: 34, height: 34, borderRadius: 11, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: on ? 'linear-gradient(135deg,#6E5DEC,#43319F)' : '#F1EEFA' }}>
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke={on ? '#fff' : '#8A85A0'} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
