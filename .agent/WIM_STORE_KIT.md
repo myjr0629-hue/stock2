@@ -86,14 +86,18 @@ Free. No account. Educational information only — not investment advice.
 ## 4. 카테고리 / 등급 / 프라이버시
 - **카테고리**: 1차 교육(Education) · 2차 금융(Finance) — 양 스토어 동일
 - **연령 등급**: 4+ (iOS) / 전체이용가 (Play). 무제한 웹 액세스 아님(자사 콘텐츠 웹뷰). v1 광고 없음 → 광고 문항 "아니오"
-- **App Privacy (iOS)**: **"데이터 수집 안 함" (Data Not Collected)** — 계정 없음·추적 없음·광고 없음·분석 SDK 없음. 학습 기록은 기기 localStorage에만 저장 ※UC와 다름(UC=광고로 추적 예). WIM 1.0.1에서 광고 붙이면 그때 갱신
-- **Play 데이터 보안**: 수집 없음 / 공유 없음 / 전송 중 암호화(HTTPS) 예
+- **App Privacy (iOS)** ⚠️ **2026-07-25 갱신 — 푸시 추가로 "수집 안 함"은 더 이상 사실이 아님**: 알림 동의 시 **APNs 디바이스 토큰을 우리 서버(Upstash)로 전송**하므로 다음과 같이 선언해야 함.
+  - **Identifiers → Device ID**: 수집 **예** / 용도 **App Functionality**(알림 발송 전용) / **사용자 신원에 연결 안 함**(계정 없음) / **추적에 사용 안 함**
+  - 그 외 전부 수집 안 함(계정·분석 SDK·광고 없음, 학습 기록은 기기 localStorage에만). **"추적(Tracking)"은 아니오 유지** — 광고·데이터브로커 없음
+  - 앱 내 **설정 › 알림 스위치로 끄면 서버의 토큰이 삭제**됨(삭제 요청 수단으로 설명 가능). 1.0.1에서 광고 붙이면 그때 재갱신
+- **Play 데이터 보안**: v1.0 Android는 **google-services.json 미설정 → FCM 토큰이 생성·전송되지 않음**이라 현행 "수집 없음 / 공유 없음 / 전송 중 암호화 예" 그대로 정확함. **1.0.1에서 Android 푸시를 켜는 즉시 "기기 또는 기타 ID → 앱 기능" 수집으로 갱신 필수**(안 하면 정책 위반)
 - **광고 문항**: iOS "광고 없음" / Play "광고 포함 안 함" (v1 기준. 1.0.1 광고 활성화 시 양쪽 갱신 필수 — UC 체크리스트 §광고 6단계 참조)
 
 ## 5. 심사 노트 (Review Notes, en — 양 스토어 공용)
 Why'd It Move? is a daily market-education quiz app by SIGNUM HQ LLC (our third app; SIGNUM HQ and Undercurrent are live under the same architecture).
 - Content loads from our own domain (signumhq.com) inside a Capacitor shell with native features: splash, status bar, haptics, in-app review prompt, Android hardware-back handling, device-locale routing (en/ko/ja).
 - No account, no login — everything works immediately on first launch. Learning progress is stored on-device only.
+- Notifications are optional and opt-in: after the user finishes a question we show an in-app explainer first, and only if they accept do we request the OS permission. It is a single daily "today's quiz is ready" alert — no marketing pushes. The user can turn it off at any time in Settings › Notifications inside the app, which also deletes the stored device token on our side.
 - No ads in this version. No purchases.
 - Education only: the app explains market concepts with real historical/current data. It never gives buy/sell recommendations; a disclaimer ("not investment advice") is shown in-app.
 - To test: launch → (optional onboarding) → tap the big "investigate" button on the hero card → answer the 4-choice quiz → see explanation + data layer. The four bottom tabs (Home/Dictionary/Search/Records) are all reachable without any setup.
