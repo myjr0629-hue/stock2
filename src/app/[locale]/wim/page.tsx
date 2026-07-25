@@ -22,7 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
-import { WimPushOptIn } from '@/components/app/WimPushOptIn';
+import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
 
 // ── ads master switch (mirror of UC ADS_LIVE discipline) ──
 const WIM_ADS_LIVE = false;
@@ -4592,6 +4592,9 @@ export default function WimPage() {
                 }}>{name}</button>
               ))}
             </div>
+            {/* [WIM PUSH] daily-quiz notification switch (native only — self-hides on web) */}
+            <WimPushToggle loc={loc} />
+
             {/* rate this app — native in-app review (only shown in the shell) */}
             {canRate && (
               <button type="button" onClick={() => { requestReview(); setSettingsOpen(false); }} style={{ font: 'inherit', width: '100%', marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: P.amberSoft, color: '#8A5B00', border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 13.5, fontWeight: 900, cursor: 'pointer' }}>

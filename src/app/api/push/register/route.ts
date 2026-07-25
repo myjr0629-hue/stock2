@@ -38,3 +38,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
+
+// Unregister — the in-app notification switch turns push OFF without sending the
+// user to the OS settings. We drop the token from BOTH per-app lists (a token is
+// only ever in one, and removing from the other is a harmless no-op) plus its
+// record, so the next cron send simply never sees this device.
+export async function DELETE(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const { token } = body as { token?: string };
+
+    if (!token || typeof token !== 'string') {
+      return NextResponse.json({ error: 'Missing token' }, { status: 400 });
+    }
+
+    await redis.srem('push:token_list:wim', token);
+    await redis.srem('push:token_list', token);
+    await redis.del(`push:tokens:${token}`);
+
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    console.error('[Push Unregister]', e);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  }
+}
