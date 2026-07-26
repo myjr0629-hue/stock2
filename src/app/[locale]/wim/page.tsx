@@ -4627,6 +4627,8 @@ export default function WimPage() {
               {loc === 'ko' ? '교육용 시장 정보입니다. 투자 조언이 아니며 정확성을 보장하지 않습니다.' : loc === 'ja' ? '教育目的の市場情報です。投資助言ではなく、正確性は保証されません。' : 'Educational market information only. Not investment advice; accuracy not guaranteed.'}
             </div>
             <div style={{ marginTop: 12, display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', fontSize: 10.5, fontWeight: 700 }}>
+              <button type="button" onClick={() => { setSettingsOpen(false); router.push(`/${loc}/wim/support`); }} style={{ font: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '고객 지원' : loc === 'ja' ? 'サポート' : 'Support'}</button>
+              <span style={{ color: P.line }}>·</span>
               <button type="button" onClick={() => { setSettingsOpen(false); router.push(`/${loc}/wim/privacy`); }} style={{ font: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '개인정보 처리방침' : loc === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}</button>
               <span style={{ color: P.line }}>·</span>
               <button type="button" onClick={() => { setSettingsOpen(false); router.push(`/${loc}/wim/terms`); }} style={{ font: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: P.faint, textDecoration: 'none' }}>{loc === 'ko' ? '이용약관' : loc === 'ja' ? '利用規約' : 'Terms of Use'}</button>
