@@ -113,3 +113,35 @@
 - 광고: v1 = 광고 없음으로 제출(프라이버시 "수집 안 함"). 애드몹 승인 후 1.0.1에서 활성화(UC 6단계 체크리스트 준수).
 
 - **남은 것 (제출 직전, 대표님 개입 필요)**: ①iOS Archive/업로드(Xcode 서명 Team 선택 — UC 절차 동일) + 실기기 스모크 ②스토어 스크린샷 제작(플랜=STORE_KIT §6, 시뮬 6.9"/6.5") ③ASC·Play Console 앱 생성+자료 입력+제출(=대표님 계정 액션) ④사전 탭 거시 용어 노출 확인·3언어 최종 QA(경미).
+
+---
+
+## ★★★ iOS 제출 런북 (2026-07-27 — Claude 몫 전부 완료, 계정 액션만 남음)
+
+### Claude가 끝낸 것 (검증 근거 포함)
+| 항목 | 상태 |
+|---|---|
+| 웹 앱 3언어 + 무버 레일 + 앱 켠 채 자동갱신 + 알림 스위치 | ✅ 시뮬 실화면 검증 |
+| 푸시(APNs, `com.signumhq.wim` 격리) + 소프트옵트인 + 설정 ON/OFF + 토큰 삭제 | ✅ 시뮬 + 실기기(대표 권한창 확인) |
+| **iOS 아카이브** | ✅ `~/Library/Developer/Xcode/Archives/2026-07-27/WhydItMove.xcarchive` (15MB, com.signumhq.wim, **1.0 (2)**, iOS 15.0+, iPhone 전용, aps 엔타이틀먼트 포함) |
+| 스토어 스크린샷 30장 | ✅ `wim-app/store-screenshots/ios-6.9/{ko,en,ja}/` (1320×2868) |
+| 스토어 텍스트 3언어 + 개인정보 라벨 정정 | ✅ `WIM_STORE_KIT.md` §1~5 |
+| Android 서명 AAB | ✅ `wim-app/android/app/build/outputs/bundle/release/app-release.aab` |
+
+> **서명 참고(중요)**: 아카이브는 `Apple Development` 서명 상태다. 이 맥에 배포 인증서가 없어서인데 — **이전에 승인된 Undercurrent 아카이브도 똑같이 Development 서명이었다.** Organizer의 *Distribute App* 단계에서 배포 인증서로 **자동 재서명**되므로 그대로 업로드하면 된다(그때 Apple ID 인증 필요 = 대표님만 가능한 이유).
+> **번들ID 확인됨**: `25RG9GSHHZ.com.signumhq.wim` 개발 프로비저닝 프로파일이 이미 존재 → App ID 등록·푸시 권한 활성 상태(예전 "번들ID가 없다" 이슈 해소).
+
+### 대표님 계정 액션 (순서대로)
+1. **Xcode ▸ Window ▸ Organizer** → Archives 탭에 **"App" 1.0 (2)** (2026-07-27) 선택
+   → *Distribute App* → **App Store Connect** → *Upload* → 자동 서명 그대로 → 업로드(2FA).
+   *(재빌드하고 싶으면 Product ▸ Archive를 눌러도 결과 동일)*
+2. **ASC ▸ 앱 추가**: 플랫폼 iOS / 이름은 아래 §1 / 기본 언어 **English** / 번들ID **com.signumhq.wim** / SKU 예 `wim-001`.
+3. **정보 입력** = `WIM_STORE_KIT.md` §1~5 복붙. **로케일은 한 번에 하나씩 저장**(저장이 원자적이라 동시 입력 시 핑퐁 — [[ios-appstore-localization-quirks]]).
+4. **App Privacy**: **Identifiers → Device ID = 수집 예 / 용도 App Functionality / 신원 연결 아니오 / 추적 아니오.** 나머지 전부 수집 안 함. *(푸시 토큰 때문 — "수집 안 함"으로 내면 허위 신고)*
+5. **연령 4+ / 카테고리 교육(1차)·금융(2차) / 광고 없음**, 개인정보처리방침 URL = `https://www.signumhq.com/en/wim/privacy`.
+6. 스크린샷 업로드(6.9" 5장; ko/ja 로케일에도 각 5장) → 빌드 연결 → **심사 제출**.
+7. Play는 iOS 통과 확인 후 진행(배치 제출 = 4.3 트리거 회피).
+
+### 제출 후 알아둘 것
+- 개발 빌드로 등록된 푸시 토큰은 **샌드박스 토큰** → TestFlight/스토어 빌드에서는 새 프로덕션 토큰이 등록된다(정상). 
+- Android 푸시는 `google-services.json` 없어 v1.0에서 비활성 → **1.0.1에서 켜는 즉시 Play 데이터보안을 "기기 ID 수집"으로 갱신 필수.**
