@@ -79,9 +79,23 @@ Free. No account. Educational information only — not investment advice.
 無料・アカウント不要。教育目的の情報であり、投資助言ではありません。
 
 ## 3. 키워드 (iOS 100자)
-- ko: `주식,미국주식,주식공부,투자공부,경제공부,퀴즈,차트,서학개미,금융교육,매매일지`
-- en: `stocks,stock market,quiz,learn investing,trading,charts,finance,education,daily,market news`
-- ja: `米国株,株,投資,勉強,クイズ,チャート,金融,経済,学習,新NISA`
+
+> **★ ASO 설계 규칙 (2026-07-27 재설계 — 이전 안은 중복으로 30자 이상 낭비)**
+> ① iOS 검색 인덱싱은 **이름·부제·키워드 3곳뿐**(설명문은 iOS 검색에 안 잡힘 / Play는 잡힘)
+> ② 애플이 **단어를 조합해 구문을 만듦** → `stock market`을 통째로 넣지 말고 `stock`(이름)+`market`(키워드)로 분산
+> ③ **세 곳 간 단어 중복 = 100% 낭비.** 키워드 필드에는 이름·부제에 없는 단어만
+> ④ 쉼표 뒤 **공백 금지**(공백도 1자), 단수/복수는 볼륨 큰 것만 중복 허용
+> ⑤ 로케일 추가 = 인덱싱 필드 추가 → ko/ja 반드시 등록
+
+**en (100/100자)** — 이름=`Why'd It Move?: Stock Quiz`, 부제=`Learn investing, charts & news` 기준, 중복 0
+```
+market,stocks,trading,course,beginner,money,economy,earnings,nasdaq,trivia,ticker,study,game,finance
+```
+- 조합으로 커버되는 검색어: `stock market` · `stock trading` · `learn investing` · `investing course` · `market news` · `beginner investing` · `stock game` · `finance quiz` · `nasdaq stocks` · `earnings charts` 등
+- 제외한 이유: `app/free/best`(무의미) · `chart/news/learn/investing`(부제 중복) · `stock/quiz`(이름 중복)
+
+- ko(재설계 예정): `미국주식,주식공부,투자공부,경제공부,서학개미,금융,재테크,차트,수급,나스닥,초보,퀴즈` 계열에서 이름·부제 중복 제거 후 확정
+- ja(재설계 예정): `米国株,投資,経済,勉強,初心者,チャート,金融,新NISA,ナスダック,決算` 계열에서 동일 처리
 
 ## 4. 카테고리 / 등급 / 프라이버시
 - **카테고리**: 1차 교육(Education) · 2차 금융(Finance) — 양 스토어 동일
