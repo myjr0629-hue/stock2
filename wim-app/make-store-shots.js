@@ -36,6 +36,7 @@ const SCENES = ['home', 'quiz', 'answer', 'curriculum', 'dictionary'];
 
 const DEVICES = [
   { name: 'ios-6.9', w: 440, h: 956, dsf: 3 },      // -> 1320x2868 (ASC 6.9")
+  { name: 'ios-6.5', w: 428, h: 926, dsf: 3 },      // -> 1284x2778 (ASC 6.5" slot)
   { name: 'play-phone', w: 440, h: 880, dsf: 2.4545 }, // -> 1080x2160 (Play 2:1)
 ];
 
@@ -108,6 +109,11 @@ async function setupScene(page, scene) {
         // Force the shell's locale self-routing to keep the URL locale (this Mac is
         // ko, so navigator.language would otherwise bounce /en and /ja back to /ko).
         await page.evaluateOnNewDocument((loc) => {
+          // Pages share one browser context, so the quiz answered while shooting
+          // scene 3 leaked into every later capture (movers rail showed all-solved
+          // checkmarks on a "first launch" shot). Wipe before each document loads
+          // so every screenshot is a genuine fresh-install state.
+          try { localStorage.clear(); } catch (e) {}
           try { localStorage.setItem('wim.onboard', '1'); localStorage.setItem('wim.locale', loc); } catch (e) {}
           try {
             Object.defineProperty(navigator, 'language', { get: () => (loc === 'ko' ? 'ko-KR' : loc === 'ja' ? 'ja-JP' : 'en-US') });
