@@ -49,10 +49,6 @@ const TOGGLE_COPY: Record<Loc, { section: string; label: string; on: string; off
 // stay sync: the async import path below is only for actually driving the plugin
 // AFTER the user opts in, never for the show/no-show decision (see the note in
 // the completed-effect on why an async gate silently loses on this screen).
-function isNative(): boolean {
-  try { return !!(window as any).Capacitor?.isNativePlatform?.(); } catch { return false; }
-}
-
 // Push is iOS-only for now: the Android shell has no google-services.json, so
 // FCM never issues a token and the plugin call is a no-op. Showing the opt-in
 // or the settings switch on Android would give the user a control that looks
@@ -66,7 +62,11 @@ function isPushCapable(): boolean {
 
 async function getPush(): Promise<any | null> {
   try {
-    if (!isNative()) return null;
+    // Gate on isPushCapable, not isNative: on Android the plugin resolves to a
+    // proxy that throws ("PushNotifications.then() is not implemented on
+    // android") the moment it is awaited, which surfaced as an uncaught promise
+    // rejection in the shell. Never reach for the plugin where it cannot work.
+    if (!isPushCapable()) return null;
     const mod: any = await import('@capacitor/push-notifications');
     return mod.PushNotifications || null;
   } catch { return null; }
@@ -118,7 +118,7 @@ async function unregister() {
 
 // [WIM PUSH] Settings row — turn the daily notification on/off inside the app.
 // Shown on native only (web has no push). Same synchronous-gate rule as the
-// soft-ask: visibility is decided by isNative() on mount, never behind an await;
+// soft-ask: visibility is decided by isPushCapable() on mount, never behind an await;
 // the async permission read only REFINES the switch afterwards.
 export function WimPushToggle({ loc }: { loc: Loc }) {
   const [native, setNative] = useState(false);
@@ -217,7 +217,7 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
   // Re-register on every launch when permission is granted — unless the user
   // turned the settings switch OFF (re-registering would silently undo it).
   useEffect(() => {
-    if (get1(PREF) === '0') return;
+    if (!isPushCapable() || get1(PREF) === '0') return;
     (async () => {
       const P = await getPush();
       if (!P) return;
@@ -235,7 +235,7 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
   // the home auto-refreshes), so by the time those awaits resolved the instance
   // that scheduled them had unmounted and setOpen was a no-op — the sheet never
   // appeared on device (it "worked" on web only because getPush resolves
-  // instantly there). We now gate purely on isNative() (sync) + the once-only
+  // instantly there). We now gate purely on isPushCapable() (sync) + the once-only
   // asked flag, and defer the real OS permission request to accept(), which runs
   // on a stable mount. Users who already granted are capped to one harmless
   // re-offer by the asked flag; accept()'s requestPermissions is a no-op then.
