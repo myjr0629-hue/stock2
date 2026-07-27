@@ -174,3 +174,25 @@ Why'd It Move? is a daily market-education quiz app by SIGNUM HQ LLC (our third 
 3. ASC: 새 앱 생성(com.signumhq.wim) → 위 자료 입력 → 빌드 업로드(Xcode Organizer) → 심사 제출
 4. Play Console: 새 앱 → 자료 입력 → AAB 업로드 → 국가(US/JP/KR+) → 제출
 5. 제출 = 대표님 계정 액션. 빌드·업로드까지는 준비 완료 상태로 인계
+
+## 8. ★ 1.0.1 전환 체크리스트 (광고 활성화 + Android 푸시) — 2026-07-28 등록 중 확정
+> v1.0은 **광고 휴면 + Android 푸시 없음** 상태로 Play에 등록했다. 아래는 **v1.0 신고 내용을 사실로 만드는 조건들**이며, 1.0.1에서 하나라도 빠뜨리면 **선언 불일치 = 정책 위반**이다.
+
+**v1.0 실측 근거 (2026-07-28, 제출 AAB `app-release.aab` 직접 검사)**
+- 광고: `WIM_ADS_LIVE=false`(`src/app/[locale]/wim/page.tsx:28`) · 모든 슬롯이 이 플래그로 감싸짐 · **WIM 페이지는 admob 플러그인을 import조차 안 함** · Manifest App ID는 구글 **테스트 ID** `ca-app-pub-3940256099942544~3347511713` · `AD_ID`/`ACCESS_ADSERVICES_AD_ID` 권한은 `tools:node="remove"`로 제거됨 → **Play "광고 포함: 아니요" 정확**
+- 푸시: `android/app/google-services.json` **부재** → build.gradle 조건부 `apply plugin`이 안 걸림 → AAB 내 `google_app_id`·`gcm_defaultSenderId`·`google_api_key` **0개**(firebase 항목은 라이브러리 메타파일 6개뿐) → FirebaseApp 초기화 불가 → **FCM 토큰 생성 자체가 불가** → **Play "데이터 수집 없음" 정확**
+  - ※ iOS는 APNs 토큰을 서버로 보내므로 ASC에는 **Identifiers → Device ID 수집 "예"**. **양 스토어 답이 다른 것이 정상이며 각각 사실**이다.
+
+**광고를 켤 때 (AdMob 세금 승인 이후) — 4개 전부**
+1. `WIM_ADS_LIVE = true`
+2. Manifest `com.google.android.gms.ads.APPLICATION_ID` → **실 AdMob App ID**
+3. Manifest의 `tools:node="remove"` **두 줄 삭제** (광고 ID 권한 복원)
+4. Play **Ads 문항 → "예"** + **데이터 보안 → 광고 ID 수집** 갱신 / ASC도 동일 갱신
+   - ⚠️ AdMob 재제출은 **W-8BEN 승인 전까지 금지** ([[admob-rejection-cycle-tax-is-gate]])
+
+**Android 푸시를 켤 때**
+5. `android/app/google-services.json` 추가 (gitignore 확인)
+6. Play **데이터 보안 → "기기 또는 기타 ID" 수집 / 용도 = 앱 기능** 으로 갱신
+7. 실기기 콜드스타트 푸시 수신 검증 후에만 배포 ([[never-ship-live-app-changes-unverified]])
+
+**v1.0에서 그대로 두는 것**: Sign in details = **No**(로그인·결제·잠긴 콘텐츠 없음, 1.0.1에서도 동일) · Target age = **18+ 단독, 미성년 차단 미체크** · 콘텐츠 등급 = 전 지역 최저(Everyone/PEGI 3/USK 0/3+, descriptor 없음)
