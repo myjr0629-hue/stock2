@@ -1056,7 +1056,7 @@ function GlossarySheet({
         : null;
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(24px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease', maxHeight: '80vh', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(24px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', animation: 'wimUp 0.25s ease', maxHeight: '80vh', overflowY: 'auto' }}>
         <div style={{ fontSize: 16.5, fontWeight: 900, color: P.ink, letterSpacing: '-0.01em' }}>{entry.title[loc]}</div>
         {liveLine && (
           <div style={{ marginTop: 8 }}>
@@ -1516,7 +1516,7 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
         <PlayTopBar
           onClose={onClose}
           backLabel={t.backHome}
@@ -1809,7 +1809,7 @@ function NumberSensePlay({ tickers, requestLab, t, loc, onAward, onCollect, onSr
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
         <PlayTopBar
           onClose={onClose}
           backLabel={t.backHome}
@@ -2085,7 +2085,7 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
         <PlayTopBar
           onClose={onClose}
           backLabel={t.backHome}
@@ -2357,7 +2357,7 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
         <PlayTopBar
           onClose={onClose}
           backLabel={t.backHome}
@@ -2632,7 +2632,7 @@ function NewsLessonPlay({ card, unitPct, t, onAward, onClose, disclaimer }: {
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
         <PlayTopBar
           onClose={onClose}
           backLabel={t.backHome}
@@ -2744,12 +2744,18 @@ export default function WimPage() {
       else localStorage.setItem('wim.locale', loc);
     } catch { /* storage unavailable */ }
     try {
-      // [SHELL] Capacitor Android: the WebView reports env(safe-area-inset-top)=0
-      // (known bug) while edge-to-edge draws under the status bar. Every top inset
-      // in this page reads max(env(top), var(--wim-top-floor, 0px)) — set the floor.
+      // [SHELL] Capacitor Android: the WebView reports env(safe-area-inset-*)=0 while
+      // targetSdk 35+ draws edge-to-edge under the system bars. Every inset in this
+      // page reads max(env(...), var(--wim-*-floor, 0px)); MainActivity measures the
+      // REAL bar heights and publishes those floors, because bar heights differ per
+      // device (24dp vs a 48dp cutout, gesture bar vs 3-button nav) and a hardcoded
+      // guess is wrong on most of them. This 24px is only a pre-injection stopgap so
+      // the very first paint is never clipped — the native value replaces it.
       const cap = (window as any).Capacitor;
       if (cap?.isNativePlatform?.() && cap?.getPlatform?.() === 'android') {
-        document.documentElement.style.setProperty('--wim-top-floor', '24px');
+        const d = document.documentElement;
+        if (!d.style.getPropertyValue('--wim-top-floor')) d.style.setProperty('--wim-top-floor', '24px');
+        if (!d.style.getPropertyValue('--wim-bottom-floor')) d.style.setProperty('--wim-bottom-floor', '16px');
       }
     } catch { /* web */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3346,7 +3352,7 @@ export default function WimPage() {
     return (
       <PlayShell closing={obClosing}>
         <div onClick={obAdvance} style={{ minHeight: '100vh', fontFamily: WIM_FONT, color: '#fff', background: `linear-gradient(165deg, ${P.heroDeep} 0%, ${P.hero} 55%, #8E7FF0 100%)`, cursor: 'pointer' }}>
-          <div style={{ maxWidth: 520, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '0 24px calc(28px + env(safe-area-inset-bottom))' }}>
+          <div style={{ maxWidth: 520, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '0 24px calc(28px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 'calc(18px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
               <span aria-hidden style={{ width: 28, height: 28, flexShrink: 0, display: 'inline-flex' }}>
                 <svg width="28" height="28" viewBox="0 0 40 40" style={{ display: 'block' }}>
@@ -3390,7 +3396,7 @@ export default function WimPage() {
     return (
       <PlayShell closing={quizClosing}>
       <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-        <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+        <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
           {/* top bar: close + progress + countdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 'calc(16px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
             <button type="button" onClick={() => closeQuiz(false)} aria-label={t.backHome} style={{ font: 'inherit', width: 38, height: 38, minWidth: 38, minHeight: 38, flexShrink: 0, padding: 0, WebkitAppearance: 'none', appearance: 'none', borderRadius: '50%', border: `1.5px solid ${P.line}`, background: '#fff', fontSize: 16, fontWeight: 900, color: P.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
@@ -3689,7 +3695,7 @@ export default function WimPage() {
     return (
       <PlayShell closing={trackClosing}>
         <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
-          <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + env(safe-area-inset-bottom))' }}>
+          <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
             <PlayTopBar
               onClose={closeTrack}
               backLabel={t.backHome}
@@ -3922,7 +3928,7 @@ export default function WimPage() {
         <div style={{ position: 'absolute', top: '8%', left: '20%', width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,173,31,0.14), transparent 60%)', animation: 'wimFloat2 11s ease-in-out infinite' }} />
       </div>
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 560, margin: '0 auto', padding: `0 16px calc(${WIM_ADS_LIVE ? 158 : 104}px + env(safe-area-inset-bottom))` }}>
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 560, margin: '0 auto', padding: `0 16px calc(${WIM_ADS_LIVE ? 158 : 104}px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))` }}>
 
         {/* glass masthead — W5-C: compressed one-liner (smaller mark, tighter row) */}
         <header style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 'calc(12px + max(env(safe-area-inset-top), var(--wim-top-floor, 0px)))' }}>
@@ -4533,13 +4539,13 @@ export default function WimPage() {
 
       {/* ① bottom banner ad slot — inert until WIM_ADS_LIVE (sits above the tab bar) */}
       {WIM_ADS_LIVE && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(84px + env(safe-area-inset-bottom))', height: 56, background: 'rgba(255,255,255,0.9)', borderTop: `1px solid ${P.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: P.faint, zIndex: 49 }}>
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(84px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', height: 56, background: 'rgba(255,255,255,0.9)', borderTop: `1px solid ${P.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: P.faint, zIndex: 49 }}>
           {t.adBanner}
         </div>
       )}
 
       {/* glass bottom tab bar */}
-      <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.52))', backdropFilter: 'blur(36px) saturate(1.9)', WebkitBackdropFilter: 'blur(36px) saturate(1.9)', border: '1px solid rgba(255,255,255,0.75)', borderRadius: 28, boxShadow: '0 20px 46px rgba(76,63,175,0.22), 0 2px 10px rgba(76,63,175,0.10), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(120,100,220,0.06)', display: 'flex', padding: 6, gap: 2 }}>
+      <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.52))', backdropFilter: 'blur(36px) saturate(1.9)', WebkitBackdropFilter: 'blur(36px) saturate(1.9)', border: '1px solid rgba(255,255,255,0.75)', borderRadius: 28, boxShadow: '0 20px 46px rgba(76,63,175,0.22), 0 2px 10px rgba(76,63,175,0.10), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(120,100,220,0.06)', display: 'flex', padding: 6, gap: 2 }}>
         {([
           { id: 'home', icon: 'home', label: t.tabHome },
           { id: 'lib', icon: 'book2', label: t.tabLib },
@@ -4570,7 +4576,7 @@ export default function WimPage() {
 
       {settingsOpen && (
         <div onClick={() => setSettingsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(38,34,64,0.45)', display: 'flex', alignItems: 'flex-end' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(26px + env(safe-area-inset-bottom))', animation: 'wimUp 0.25s ease' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(26px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', animation: 'wimUp 0.25s ease' }}>
             <div style={{ fontSize: 16, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 7 }}><Ic name="tune" size={16} sw={1.8} /> {t.settings}</div>
             <div style={{ marginTop: 14, fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: P.faint }}>{t.language.toUpperCase()}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>

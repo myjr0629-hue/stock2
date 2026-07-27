@@ -53,6 +53,17 @@ function isNative(): boolean {
   try { return !!(window as any).Capacitor?.isNativePlatform?.(); } catch { return false; }
 }
 
+// Push is iOS-only for now: the Android shell has no google-services.json, so
+// FCM never issues a token and the plugin call is a no-op. Showing the opt-in
+// or the settings switch on Android would give the user a control that looks
+// live and does nothing. Flip this on in 1.0.1 together with Firebase.
+function isPushCapable(): boolean {
+  try {
+    const cap = (window as any).Capacitor;
+    return !!cap?.isNativePlatform?.() && cap?.getPlatform?.() === 'ios';
+  } catch { return false; }
+}
+
 async function getPush(): Promise<any | null> {
   try {
     if (!isNative()) return null;
@@ -116,7 +127,7 @@ export function WimPushToggle({ loc }: { loc: Loc }) {
   const c = TOGGLE_COPY[loc] || TOGGLE_COPY.en;
 
   useEffect(() => {
-    if (!isNative()) return;
+    if (!isPushCapable()) return;
     setNative(true);
     // The stored pref is the source of truth for the switch. We only ask the OS
     // to DOWNGRADE it (a revoked permission must show as off) — never to turn it
@@ -232,7 +243,7 @@ export function WimPushOptIn({ loc, completed }: { loc: Loc; completed: boolean 
     if (!completed || askedRef.current) return;
     let asked = false;
     try { asked = localStorage.getItem('wim.push.asked') === '1'; } catch { /* storage off */ }
-    if (asked || !isNative()) return;
+    if (asked || !isPushCapable()) return;
     askedRef.current = true;
     setOpen(true);
   }, [completed]);
