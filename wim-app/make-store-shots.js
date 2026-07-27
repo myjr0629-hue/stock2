@@ -38,22 +38,32 @@ const DEVICES = [
   { name: 'ios-6.9', w: 440, h: 956, dsf: 3 },      // -> 1320x2868 (ASC 6.9")
   { name: 'ios-6.5', w: 428, h: 926, dsf: 3 },      // -> 1284x2778 (ASC 6.5" slot)
   { name: 'play-phone', w: 440, h: 880, dsf: 2.4545 }, // -> 1080x2160 (Play 2:1)
+  // Play marks both tablet slots required. Render at a tablet CSS width (the app
+  // column is max-width 560 and centred, so this is honestly what a tablet shows)
+  // and scale up to an exact 9:16 so Play's aspect check can't argue.
+  { name: 'play-tablet-7', w: 540, h: 960, dsf: 2 },   // -> 1080x1920
+  { name: 'play-tablet-10', w: 720, h: 1280, dsf: 2 }, // -> 1440x2560
 ];
+
+// Optional device filter: `node make-store-shots.js tablet` shoots only tablets.
+const ONLY = process.argv[2];
+const RUN = ONLY ? DEVICES.filter((d) => d.name.includes(ONLY)) : DEVICES;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function injectCaption(page, html) {
-  await page.evaluate((html) => {
+async function injectCaption(page, html, scale = 1) {
+  await page.evaluate(([html, scale]) => {
+    const H = Math.round(150 * scale), F = Math.round(23 * scale);
     const old = document.getElementById('__wimcap'); if (old) old.remove();
     const band = document.createElement('div');
     band.id = '__wimcap';
-    band.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:150px;z-index:2147483647;background:linear-gradient(135deg,#6E5DEC,#43319F);display:flex;align-items:center;justify-content:center;text-align:center;padding:0 22px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;box-shadow:0 6px 20px rgba(67,49,159,0.28);';
-    band.innerHTML = '<div style="color:#fff;font-size:23px;font-weight:900;line-height:1.3;letter-spacing:-0.02em;">' + html + '</div>';
+    band.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:' + H + 'px;z-index:2147483647;background:linear-gradient(135deg,#6E5DEC,#43319F);display:flex;align-items:center;justify-content:center;text-align:center;padding:0 22px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;box-shadow:0 6px 20px rgba(67,49,159,0.28);';
+    band.innerHTML = '<div style="color:#fff;font-size:' + F + 'px;font-weight:900;line-height:1.3;letter-spacing:-0.02em;">' + html + '</div>';
     document.body.appendChild(band);
-    document.body.style.paddingTop = '150px';
+    document.body.style.paddingTop = H + 'px';
     // hide any scrollbars
     document.documentElement.style.overflow = 'hidden';
-  }, html);
+  }, [html, scale]);
 }
 
 async function setupScene(page, scene) {
@@ -99,7 +109,7 @@ async function setupScene(page, scene) {
 
 (async () => {
   const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--hide-scrollbars'] });
-  for (const dev of DEVICES) {
+  for (const dev of RUN) {
     for (const loc of ['ko', 'en', 'ja']) {
       for (let i = 0; i < SCENES.length; i++) {
         const scene = SCENES[i];
@@ -126,7 +136,7 @@ async function setupScene(page, scene) {
         } catch (e) { await sleep(1500); }
         await sleep(2600);
         try { await setupScene(page, scene); } catch (e) { console.log('setup fail', loc, scene, String(e)); }
-        await injectCaption(page, COPY[loc][i]);
+        await injectCaption(page, COPY[loc][i], dev.w / 440);
         await sleep(400);
         const dir = path.join(OUT, dev.name, loc);
         fs.mkdirSync(dir, { recursive: true });
