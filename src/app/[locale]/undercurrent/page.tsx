@@ -1139,10 +1139,10 @@ export default function UndercurrentPage() {
     const conn = connected(c);
     return (
       <div className="uc-slideup" style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
-        <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(46px + env(safe-area-inset-bottom))' }}>
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(46px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))' }}>
           <header style={{
             position: 'sticky', top: 0, zIndex: 40, margin: '0 -18px', padding: '12px 18px',
-            paddingTop: 'calc(12px + env(safe-area-inset-top))',
+            paddingTop: 'calc(12px + max(env(safe-area-inset-top), var(--uc-top-floor, 0px)))',
             background: 'rgba(246,243,237,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
             display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.line}`,
           }}>
@@ -1350,7 +1350,7 @@ export default function UndercurrentPage() {
         </div>
         {shareToast && (
           <div style={{
-            position: 'fixed', left: '50%', bottom: 'calc(30px + env(safe-area-inset-bottom))',
+            position: 'fixed', left: '50%', bottom: 'calc(30px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))',
             transform: 'translateX(-50%)', zIndex: 80, background: C.ink, color: '#fff',
             fontSize: 12.5, fontWeight: 800, padding: '10px 16px', borderRadius: 999, boxShadow: C.shadow,
           }}>{t.shareCopied}</div>
@@ -1369,7 +1369,7 @@ export default function UndercurrentPage() {
       background: 'rgba(252,250,246,0.72)',
       backdropFilter: 'blur(22px) saturate(180%)', WebkitBackdropFilter: 'blur(22px) saturate(180%)',
       borderTop: '1px solid rgba(23,25,30,0.06)', boxShadow: '0 -6px 26px rgba(23,25,30,0.06)',
-      display: 'flex', paddingBottom: 'env(safe-area-inset-bottom)',
+      display: 'flex', paddingBottom: 'max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px))',
     }}>
       {([
         { k: 'home', label: t.tabHome, dot: null },
@@ -1416,12 +1416,12 @@ export default function UndercurrentPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(84px + env(safe-area-inset-bottom))' }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(84px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))' }}>
 
         {/* masthead — two clean rows: (logo · wordmark · bell) / (tagline ─ date · edition).
             The old single-row layout squeezed the by-line into a wrap and stacked the
             date column beside the bell — cluttered on narrow screens. */}
-        <header style={{ paddingTop: 'calc(20px + env(safe-area-inset-top))' }}>
+        <header style={{ paddingTop: 'calc(20px + max(env(safe-area-inset-top), var(--uc-top-floor, 0px)))' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* 40px box / 30px mark — the white box + border made the old 22px mark read
                 too small next to the 21px wordmark. */}
@@ -2163,7 +2163,7 @@ export default function UndercurrentPage() {
           <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
             width: '100%', maxWidth: 560, maxHeight: '78vh', overflowY: 'auto', overscrollBehavior: 'contain',
             background: C.bg, borderRadius: '22px 22px 0 0',
-            padding: '16px 18px calc(26px + env(safe-area-inset-bottom))',
+            padding: '16px 18px calc(26px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="mbz-pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: C.diverge, display: 'inline-block' }} />
@@ -2209,7 +2209,7 @@ export default function UndercurrentPage() {
           <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
             width: '100%', maxWidth: 560, maxHeight: '82vh', overflowY: 'auto', overscrollBehavior: 'contain',
             background: C.bg, borderRadius: '22px 22px 0 0',
-            padding: '16px 18px calc(26px + env(safe-area-inset-bottom))',
+            padding: '16px 18px calc(26px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 17, fontWeight: 900 }}>{t.stTitle}</span>
