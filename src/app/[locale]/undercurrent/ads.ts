@@ -15,22 +15,30 @@
 // completely on web / when the plugin or ADS_LIVE flag is off, so the store
 // build stays clean until AdMob is approved.
 //
-// ACTIVATION CHECKLIST (post AdMob approval):
-//  1. Replace TEST unit IDs below with real ones (web deploy — no app update).
-//  2. Replace the sample GADApplicationIdentifier (iOS Info.plist) and
-//     com.google.android.gms.ads.APPLICATION_ID (AndroidManifest) with the real
-//     AdMob App IDs → needs ONE binary update.
-//  3. Flip ADS_LIVE to true, set ADS_TESTING to false.
+// ACTIVATION CHECKLIST — see `.agent/ADS_ACTIVATION_MASTER_PLAN.md`
+//  1. ✅ Real unit IDs (2026-07-28).
+//  2. UC 1.0.1 binary: real GADApplicationIdentifier (~6307534807) + restore
+//     NSUserTrackingUsageDescription in uc-app iOS Info.plist; real
+//     com.google.android.gms.ads.APPLICATION_ID (~1198944282) + DELETE the two
+//     AD_ID `tools:node="remove"` lines in AndroidManifest.
+//  3. Flip ADS_LIVE to true — LAST, and in the SAME change window as the store
+//     declarations (ASC App Privacy tracking = yes / Play Ads + advertising-ID +
+//     Data safety). Flipping it early puts a live app out of sync with what both
+//     stores say it does.
 // ============================================================================
 
 export const ADS_LIVE = false;    // master switch (also hides placeholder slots)
-const ADS_TESTING = true;         // keep true until real unit IDs are in
+const ADS_TESTING = false;        // real units below — never request test ads against them
 
-// Google's published TEST unit IDs — safe to ship, replaced at activation.
+// REAL AdMob units (account ca-app-pub-1716731715414173, created 2026-07-28).
+// Partner bidding is off on all six, so AdMob mediation and Google/DV360 demand
+// stay available — that demand is the floor under our eCPM.
+// Nothing here runs while ADS_LIVE is false: every call site is behind
+// adsAvailable(), so the SDK is not even initialized.
 const UNITS = {
-  banner: { ios: 'ca-app-pub-3940256099942544/2934735716', android: 'ca-app-pub-3940256099942544/6300978111' },
-  interstitial: { ios: 'ca-app-pub-3940256099942544/4411468910', android: 'ca-app-pub-3940256099942544/1033173712' },
-  rewarded: { ios: 'ca-app-pub-3940256099942544/1712485313', android: 'ca-app-pub-3940256099942544/5224354917' },
+  banner: { ios: 'ca-app-pub-1716731715414173/6846022634', android: 'ca-app-pub-1716731715414173/5046424029' },
+  interstitial: { ios: 'ca-app-pub-1716731715414173/3485930345', android: 'ca-app-pub-1716731715414173/7900084009' },
+  rewarded: { ios: 'ca-app-pub-1716731715414173/4152410686', android: 'ca-app-pub-1716731715414173/4415868633' },
 };
 
 // business guardrails for the interstitial

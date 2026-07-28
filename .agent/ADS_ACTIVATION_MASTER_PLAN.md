@@ -36,9 +36,10 @@ UC 광고 유닛 (2026-07-28 생성, Partner bidding 전부 미체크 = AdMob �
   UC-iOS-Banner        ca-app-pub-1716731715414173/6846022634
   UC-iOS-Interstitial  ca-app-pub-1716731715414173/3485930345
   UC-iOS-Rewarded      ca-app-pub-1716731715414173/4152410686   (reward: deep_unlock ×1)
-  UC-Android-Banner        (생성 예정)
-  UC-Android-Interstitial  (생성 예정)
-  UC-Android-Rewarded      (생성 예정)
+  UC-Android-Banner        ca-app-pub-1716731715414173/5046424029
+  UC-Android-Interstitial  ca-app-pub-1716731715414173/7900084009
+  UC-Android-Rewarded      ca-app-pub-1716731715414173/4415868633   (reward: deep_unlock ×1)
+  → 6개 전부 `src/app/[locale]/undercurrent/ads.ts` 에 반영 완료 (ADS_LIVE=false 유지)
 WIM     미등록 (심사 통과 후 등록)
 ```
 
