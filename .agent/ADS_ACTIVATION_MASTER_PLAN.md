@@ -67,9 +67,16 @@ WIM     미등록 (심사 통과 후 등록)
 ## 5. 실행 계획
 
 ### A. 대표님만 가능 (콘솔)
-1. **UC 광고 유닛 6개 생성** — iOS/Android 각각 배너·전면·리워드. 이름 규칙 `UC-iOS-Banner` 식.
-2. **CMP 메시지 생성** — Privacy & messaging → GDPR 메시지, 앱 4개(SIGNUM×2, UC×2) 전부. 미국 주법(CCPA) 메시지도 같이.
-3. **AdMob 앱 설정 확인** — 4개 앱 모두 `Child-directed treatment` = **아니오** 유지.
+1. ✅ **UC 광고 유닛 6개 생성 완료** (2026-07-28) — §2에 ID 기록. Partner bidding 전부 미체크.
+2. ✅ **CMP 완료** (2026-07-28) — 둘 다 **Published**, 앱 4개 적용:
+   - `SIGNUM + UC — GDPR` (32개 언어). **Do not consent = ON**(전 EEA 국가) — 동의율보다 계정 리스크 회피를 택함.
+     Settings: 파트너 자동포함 198 · **광고 소스 자동추가 ON**(단가 레버) · Legitimate interest + 기본ON ✅ ·
+     RTB 크리에이티브 검사/Consent mode/Special feature 2/Consent syncing 전부 OFF · 자체목적 0
+   - `SIGNUM + UC — US states` (3개 언어, opt-out). Settings: active ad partners 331. 미국은 opt-out이라 동의율 영향 없음.
+   - ⚠️ **메시지는 UMP SDK를 호출해야 표시된다** → 코드(B-1/B-2)가 들어가기 전까지 사용자에게 안 뜸. 정상.
+   - ⚠️ 함정: 메시지 편집기는 **앱·URL 넣고 바로 `Save draft` 하지 않으면 초안이 날아간다**(실제로 1회 유실).
+   - ⚠️ `Do not consent`를 미설정으로 두면 **Publish 버튼이 회색으로 잠긴다**(필수값).
+3. **AdMob 앱 설정 확인** — 4개 앱 모두 `Child-directed treatment` = **아니오** 유지. ← 남은 콘솔 작업
 4. (승인 후) **선언 갱신** — ASC App Privacy·연령등급 / Play Ads·광고ID·데이터안전.
 5. (승인 후) **WIM AdMob 등록** — 심사 통과 후.
 
