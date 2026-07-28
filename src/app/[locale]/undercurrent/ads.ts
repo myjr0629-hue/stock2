@@ -65,16 +65,60 @@ export function adsAvailable(): boolean {
 }
 
 let initialized = false;
+// Whether Google wants us to offer a "change your privacy choices" entry point
+// (true for EEA/UK/CH users once a consent form has been shown). Read by the
+// settings screen so the row only appears where it is actually meaningful.
+let privacyOptionsRequired = false;
+
 export async function initAds(): Promise<boolean> {
   const ad = plugin();
   if (!ad || initialized) return initialized;
   try {
-    // ATT first (iOS 14+): personalized vs limited ads — the OS sheet appears once
-    try { await ad.requestTrackingAuthorization?.(); } catch { /* android / declined */ }
+    // ── ATT (iOS 14+) — must be the STANDALONE call. The old
+    // `initialize({ requestTrackingAuthorization: true })` option was removed in
+    // plugin v5 and is now silently ignored, so the dialog never appeared and
+    // SIGNUM ate an App Review 2.1 rejection for it (2026-07-08). The delay is
+    // also load-bearing: iOS skips the sheet if asked while the app window is
+    // not active yet (launch/splash).
+    try {
+      if (platform() === 'ios') {
+        const att = await ad.trackingAuthorizationStatus?.();
+        if (att?.status === 'notDetermined') {
+          await new Promise((r) => setTimeout(r, 900));
+          await ad.requestTrackingAuthorization?.();
+        }
+      }
+    } catch { /* android, or the user already answered */ }
+
+    // ── UMP consent (EEA/UK/CH) — MUST run before initialize/loading ads.
+    // Without it those users only ever get non-personalised ads, which is where
+    // the highest eCPM in our footprint is lost. Outside those regions the status
+    // resolves to NOT_REQUIRED and nothing is shown. Never let it block the app.
+    try {
+      const info = await ad.requestConsentInfo?.();
+      if (info?.isConsentFormAvailable && info?.status === 'REQUIRED') {
+        await ad.showConsentForm?.();
+      }
+      privacyOptionsRequired = info?.privacyOptionsRequirementStatus === 'REQUIRED';
+    } catch { /* consent unavailable — carry on with non-personalised ads */ }
+
     await ad.initialize({ initializeForTesting: ADS_TESTING });
     initialized = true;
   } catch { /* SDK init failed — stay silent, app works ad-free */ }
   return initialized;
+}
+
+/** True when Google requires a privacy-options entry point for this user. */
+export function needsPrivacyOptions(): boolean {
+  return ADS_LIVE && privacyOptionsRequired;
+}
+
+/** Re-open the consent form so a user can change or withdraw their choice.
+ *  Google requires this to be reachable from the app once consent was collected. */
+export async function openPrivacyOptions(): Promise<void> {
+  const ad = plugin();
+  if (!ad) return;
+  try { await ad.showPrivacyOptionsForm?.(); } catch { /* nothing to show */ }
 }
 
 // ── banner: anchored bottom, pushed up above the fixed tab bar ──
