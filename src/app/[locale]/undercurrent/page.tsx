@@ -53,7 +53,6 @@ const T: Record<Locale, Record<string, string>> = {
     pcrCall: '콜 우위 · 강세 성향', pcrBal: '균형', pcrPut: '풋 우위 · 방어적',
     sqLow: '낮음', sqMid: '중간', sqHigh: '높음',
     levels: '옵션 가격 지도', lvFloor: '방어선', lvMagnet: '자석', lvWall: '저항선', lvNow: '현재', ucDeeper: 'SIGNUM에서 전체 옵션 구조 →',
-    ad: '광고 · 스폰서', adNative: '네이티브 광고 자리 — 콘텐츠와 같은 결',
     back: '뒤로', source: '출처',
     justNow: '방금 전', minAgo: '분 전', hrAgo: '시간 전', dayAgo: '일 전',
     breaking: '속보', breakingCenter: '속보 센터',
@@ -130,7 +129,6 @@ const T: Record<Locale, Record<string, string>> = {
     pcrCall: 'Call-heavy · bullish lean', pcrBal: 'Balanced', pcrPut: 'Put-heavy · defensive',
     sqLow: 'Low', sqMid: 'Medium', sqHigh: 'High',
     levels: 'Option price map', lvFloor: 'Floor', lvMagnet: 'Magnet', lvWall: 'Wall', lvNow: 'Now', ucDeeper: 'Full options structure in SIGNUM →',
-    ad: 'Ad · Sponsored', adNative: 'Native ad slot — matches content style',
     back: 'Back', source: 'Source',
     justNow: 'just now', minAgo: 'm ago', hrAgo: 'h ago', dayAgo: 'd ago',
     breaking: 'Breaking', breakingCenter: 'Breaking center',
@@ -207,7 +205,6 @@ const T: Record<Locale, Record<string, string>> = {
     pcrCall: 'コール優勢 · 強気', pcrBal: '均衡', pcrPut: 'プット優勢 · 防御的',
     sqLow: '低い', sqMid: '中間', sqHigh: '高い',
     levels: 'オプション価格マップ', lvFloor: '防衛線', lvMagnet: '磁石', lvWall: '抵抗線', lvNow: '現在', ucDeeper: 'SIGNUMで全オプション構造 →',
-    ad: '広告 · スポンサー', adNative: 'ネイティブ広告枠 — コンテンツと同じトーン',
     back: '戻る', source: '出典',
     justNow: 'たった今', minAgo: '分前', hrAgo: '時間前', dayAgo: '日前',
     breaking: '速報', breakingCenter: '速報センター',
@@ -456,20 +453,6 @@ function SectionHead({ title, sub, color }: { title: string; sub: string; color:
   );
 }
 
-function NativeAdSlot({ t }: { t: Record<string, string> }) {
-  return (
-    <div style={{
-      marginTop: 11, background: C.card, borderRadius: 18, border: `1px dashed rgba(23,25,30,0.18)`,
-      padding: 14, display: 'flex', gap: 12, alignItems: 'center',
-    }}>
-      <div style={{ width: 44, height: 44, borderRadius: 12, background: C.neutralBg, flexShrink: 0 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: C.faint, marginBottom: 3 }}>{t.ad.toUpperCase()}</div>
-        <div style={{ fontSize: 13, fontWeight: 650 as any, color: C.sub }}>{t.adNative}</div>
-      </div>
-    </div>
-  );
-}
 
 // ── deep money layer (the rewarded-unlock content) ──
 function bandOff(v: number, t: Record<string, string>) {
@@ -1785,7 +1768,6 @@ export default function UndercurrentPage() {
                   </>
                 )}
 
-                {ADS_LIVE && <NativeAdSlot t={t} />}
 
                 {whaleCards.length > 0 && (
                   <>
@@ -1922,7 +1904,6 @@ export default function UndercurrentPage() {
                         {c.source && <div style={{ marginTop: 6, fontSize: 10.5, color: C.faint, fontWeight: 600 }}>{c.source}</div>}
                       </div>
                     </article>
-                    {ADS_LIVE && i === 2 && <NativeAdSlot t={t} />}
                   </span>
                 ))}
               </>
@@ -1990,7 +1971,6 @@ export default function UndercurrentPage() {
                 {divCards.map((c, i) => (
                   <span key={c.ticker}>
                     <StoryRow c={c} />
-                    {ADS_LIVE && i === 1 && <NativeAdSlot t={t} />}
                   </span>
                 ))}
               </>
@@ -2025,7 +2005,6 @@ export default function UndercurrentPage() {
                         <div style={{ fontSize: 13.5, fontWeight: 750 as any, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{c.plainTitle}</div>
                       </div>
                     </button>
-                    {ADS_LIVE && i === 2 && <NativeAdSlot t={t} />}
                   </span>
                 ))}
                 {whaleCards.length === 0 && (
@@ -2065,7 +2044,6 @@ export default function UndercurrentPage() {
                   {shown.map((c, i) => (
                     <span key={c.ticker}>
                       <StoryRow c={c} />
-                      {ADS_LIVE && (i === 2 || i === 6) && <NativeAdSlot t={t} />}
                     </span>
                   ))}
                 </>
@@ -2163,7 +2141,6 @@ export default function UndercurrentPage() {
                         {searchRes.cards.map((c, i) => (
                           <span key={`${c.ticker}-${i}`}>
                             <StoryRow c={c} />
-                            {ADS_LIVE && i === 1 && <NativeAdSlot t={t} />}
                           </span>
                         ))}
                       </>
