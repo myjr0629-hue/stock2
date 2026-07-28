@@ -217,12 +217,14 @@ html.native-ios .app-header {
    --------------------------------------------------------------------------- */
 
 html.native-android {
-  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  /* env() is 0 in the Android WebView, so fall back to the natively measured
+     gesture/nav-bar height when the shell provides it (v1.1+). */
+  --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--sig-bottom-floor, 0px));
 }
 
 /* Android 네비게이션 바 색상 매칭 */
 html.native-android .native-bottom-nav {
-  padding-bottom: env(safe-area-inset-bottom, 8px) !important;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--sig-bottom-floor, 8px)) !important;
 }
 
 /* ── Android 상단 상태바 세이프에어리어 (2026-07-14 버그픽스) ──
@@ -233,7 +235,11 @@ html.native-android .native-bottom-nav {
    .app-viewport만 이 처리가 빠져 있었음 → 동일 패턴 적용.
    env()가 언젠가 정상 보고하면 실값 사용(self-healing), 아니면 24px 바닥값. */
 html.native-android .app-viewport {
-  padding-top: max(env(safe-area-inset-top, 0px), 24px);
+  /* v1.1+ publishes the device's REAL status-bar/cutout height as --sig-top-floor
+     (MainActivity). The 24px stays as the fallback on purpose: this stylesheet is
+     shared with users still on v1.0, who have no native publisher and must keep
+     behaving exactly as before. */
+  padding-top: max(env(safe-area-inset-top, 0px), var(--sig-top-floor, 24px));
 }
 
 /* ---------------------------------------------------------------------------

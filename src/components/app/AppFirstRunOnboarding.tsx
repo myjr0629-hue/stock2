@@ -228,9 +228,11 @@ export function AppFirstRunOnboarding() {
         const PushMod: any = await import('@capacitor/push-notifications');
         const PushNotifications = PushMod.PushNotifications;
 
-        // Server only accepts FCM registration tokens. On Android the
-        // 'registration' event already yields an FCM token; on iOS it yields the
-        // raw APNs token, so there we fetch the FCM token via @capacitor-community/fcm.
+        // The server routes by platform: Android sends the FCM token that the
+        // 'registration' event yields, iOS sends the raw APNs hex token and the
+        // server pushes to APNs directly with the .p8 key. (FCM->iOS silently
+        // failed in this Capacitor+Firebase setup, which is why iOS was moved off
+        // it — @capacitor-community/fcm is no longer used on either platform.)
         const postToken = (token: string, attempt = 0) => {
           if (!token) return;
           try {
