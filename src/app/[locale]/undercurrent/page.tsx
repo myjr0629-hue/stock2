@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded } from './ads';
+import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions } from './ads';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: unknown): Locale => (l === 'en' || l === 'ja' ? l : 'ko');
@@ -94,6 +94,7 @@ const T: Record<Locale, Record<string, string>> = {
     unlockFreeNote: '하루 한 종목은 광고 없이 열립니다',
     unlockAdBtn: '광고 보고 무료로 열기',
     adLoading: '광고 불러오는 중…',
+    stAdPriv: '광고 개인정보 설정', stAdPrivSub: '맞춤 광고 동의를 언제든 바꿀 수 있어요',
     stTitle: '설정',
     stLang: '언어', stLangSub: '앱 표시 언어',
     stNotif: '속보 푸시 알림', stNotifSub: '곧 제공될 예정이에요', stSoon: '준비 중',
@@ -170,6 +171,7 @@ const T: Record<Locale, Record<string, string>> = {
     unlockFreeNote: 'One ticker a day opens without an ad',
     unlockAdBtn: 'Watch an ad to unlock free',
     adLoading: 'Loading ad…',
+    stAdPriv: 'Ad privacy settings', stAdPrivSub: 'Change your personalised-ads choice at any time',
     stTitle: 'Settings',
     stLang: 'Language', stLangSub: 'App display language',
     stNotif: 'Breaking push alerts', stNotifSub: 'Coming soon', stSoon: 'Soon',
@@ -246,6 +248,7 @@ const T: Record<Locale, Record<string, string>> = {
     unlockFreeNote: '1日1銘柄は広告なしで開けます',
     unlockAdBtn: '広告を見て無料で開く',
     adLoading: '広告を読み込み中…',
+    stAdPriv: '広告のプライバシー設定', stAdPrivSub: 'パーソナライズ広告の同意はいつでも変更できます',
     stTitle: '設定',
     stLang: '言語', stLangSub: 'アプリの表示言語',
     stNotif: '速報プッシュ通知', stNotifSub: '近日提供予定です', stSoon: '準備中',
@@ -693,6 +696,7 @@ export default function UndercurrentPage() {
   // NEVER incentivized (store policy); asked at natural high points only, and
   // the OS itself decides whether the sheet actually appears.
   const [canRate, setCanRate] = useState(false);
+  const [canPrivacy, setCanPrivacy] = useState(false);
   useEffect(() => {
     try {
       const cap = (window as any).Capacitor;
@@ -1061,7 +1065,13 @@ export default function UndercurrentPage() {
   // ── [ADS] init + anchored banner once per session (native shell only) ──
   useEffect(() => {
     if (!adsAvailable()) return;
-    initAds().then((ok) => { if (ok) showHomeBanner(62); });
+    initAds().then((ok) => {
+      if (!ok) return;
+      showHomeBanner(62);
+      // Only EEA/UK/CH users who were shown a consent form need this row —
+      // elsewhere it would be a dead setting, so it is state, not a constant.
+      setCanPrivacy(needsPrivacyOptions());
+    });
   }, []);
 
   // rewarded unlock — beyond the daily free one, the deep layer is earned by an ad
@@ -2266,6 +2276,22 @@ export default function UndercurrentPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>★ {t.stRate}</div>
                   <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stRateSub}</div>
+                </div>
+                <span style={{ color: C.faint, fontSize: 14 }}>→</span>
+              </button>
+            )}
+
+            {/* ad privacy — Google requires a way back into the consent form once it
+                has been shown. Only rendered where it is meaningful (EEA/UK/CH). */}
+            {canPrivacy && (
+              <button type="button" onClick={() => { openPrivacyOptions(); setShowSettings(false); }} style={{
+                font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%',
+                marginTop: 11, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+                padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>{t.stAdPriv}</div>
+                  <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stAdPrivSub}</div>
                 </div>
                 <span style={{ color: C.faint, fontSize: 14 }}>→</span>
               </button>
