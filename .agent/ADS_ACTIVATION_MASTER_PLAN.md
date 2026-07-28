@@ -30,7 +30,15 @@
 ```
 계정  ca-app-pub-1716731715414173
 SIGNUM  iOS ~4757602262 / Android ~8198575283      (유닛 각 3개 = 실 ID, 코드에 반영됨)
-UC      iOS ~6307534807 / Android ~1198944282      (유닛 미생성 — §5-A)
+UC      iOS ~6307534807 / Android ~1198944282
+
+UC 광고 유닛 (2026-07-28 생성, Partner bidding 전부 미체크 = AdMob 수요 유지)
+  UC-iOS-Banner        ca-app-pub-1716731715414173/6846022634
+  UC-iOS-Interstitial  ca-app-pub-1716731715414173/3485930345
+  UC-iOS-Rewarded      ca-app-pub-1716731715414173/4152410686   (reward: deep_unlock ×1)
+  UC-Android-Banner        (생성 예정)
+  UC-Android-Interstitial  (생성 예정)
+  UC-Android-Rewarded      (생성 예정)
 WIM     미등록 (심사 통과 후 등록)
 ```
 
