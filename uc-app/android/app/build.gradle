@@ -35,6 +35,13 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Verification builds install ALONGSIDE the Play version instead of
+            // demanding it be uninstalled (their signatures can never match — the
+            // store copy is signed by Google's Play App Signing key). Release
+            // builds are untouched.
+            applicationIdSuffix '.debug'
+        }
         release {
             if (keystorePropsFile.exists()) {
                 signingConfig signingConfigs.release

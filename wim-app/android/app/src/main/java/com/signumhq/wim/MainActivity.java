@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.webkit.WebView;
 
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -25,8 +26,8 @@ import com.getcapacitor.BridgeActivity;
  */
 public class MainActivity extends BridgeActivity {
 
-    private int topDp = 0;
-    private int bottomDp = 0;
+    private int barsTopPx = 0;
+    private int barsBottomPx = 0;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
@@ -37,9 +38,8 @@ public class MainActivity extends BridgeActivity {
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
             Insets bars = windowInsets.getInsets(
                     WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-            float density = getResources().getDisplayMetrics().density;
-            topDp = Math.round(bars.top / density);
-            bottomDp = Math.round(bars.bottom / density);
+            barsTopPx = bars.top;
+            barsBottomPx = bars.bottom;
             publishInsets();
             return windowInsets;
         });
@@ -57,12 +57,36 @@ public class MainActivity extends BridgeActivity {
         publishInsets();
     }
 
+    /**
+     * Publish only the part of each system bar the WebView is NOT already clear of.
+     *
+     * The window always reports the full bar height, but the WebView may already start
+     * below the status bar depending on the Android version and what Capacitor does
+     * with the decor. Publishing the window's number there adds the bar height a
+     * SECOND time — caught on an Android 15 emulator, where the masthead dropped
+     * ~135px too low. Measure where the WebView actually sits and hand the page only
+     * the remainder, which is 0 when the platform has already handled it.
+     */
     private void publishInsets() {
         if (getBridge() == null || getBridge().getWebView() == null) return;
+        final WebView wv = getBridge().getWebView();
+        if (wv.getHeight() <= 0) return;   // not laid out yet — a later republish covers it
+
+        final int[] loc = new int[2];
+        wv.getLocationOnScreen(loc);
+        final int screenPx = getResources().getDisplayMetrics().heightPixels;
+
+        final int clearTopPx = loc[1];
+        final int clearBottomPx = screenPx - (loc[1] + wv.getHeight());
+
+        final float density = getResources().getDisplayMetrics().density;
+        final int topDp = Math.round(Math.max(0, barsTopPx - clearTopPx) / density);
+        final int bottomDp = Math.round(Math.max(0, barsBottomPx - clearBottomPx) / density);
+
         final String js =
                 "(function(){var d=document.documentElement;if(!d)return;" +
                 "d.style.setProperty('--wim-top-floor','" + topDp + "px');" +
                 "d.style.setProperty('--wim-bottom-floor','" + bottomDp + "px');})();";
-        getBridge().getWebView().evaluateJavascript(js, null);
+        wv.evaluateJavascript(js, null);
     }
 }
