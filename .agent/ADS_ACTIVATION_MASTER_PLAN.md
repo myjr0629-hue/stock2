@@ -264,3 +264,27 @@ WIM 심사통과│ WIM AdMob 등록 → 1.0.1 (광고 + Android 푸시)
 **설정 화면 버전 표기가 아직 옛 값**이다(SIGNUM `v1.0.0`, UC `1.0.0`). 지금 바꾸면 **아직 업데이트 안 한 사용자에게 거짓 표시**가 되므로, **각 앱이 스토어에 라이브된 뒤** 웹 배포로 바꾼다.
 - SIGNUM: `src/app/[locale]/app-view/settings/page.tsx` `versionNum` → `v1.1.0`
 - UC: `src/app/[locale]/undercurrent/page.tsx` 하단 `{t.stVersion} 1.0.0` → `1.0.1`
+
+## 17. ★ 제출 진행 체크리스트 (2026-07-29 시작) — 여기 보고 이어서 진행
+빌드·검증 완료. 산출물 = `~/Desktop/업데이트 제출 (UC 1.0.1 + SIGNUM v1.1)/` (AAB 2개 + 안내문).
+AAB 실측: UC(pkg·`~1198944282`·AD_ID·서명 ✅ 7.3MB) / SIGNUM(pkg·`~8198575283`·AD_ID·서명 ✅ 16.5MB)
+
+| # | 작업 | 담당 | 상태 |
+|---|---|---|---|
+| 1 | UC 안드로이드 AAB 업로드 (versionCode 3) | 대표 | ⬜ 진행 중 |
+| 2 | SIGNUM 안드로이드 AAB 업로드 (versionCode 2) | 대표 | ⬜ |
+| 3 | UC iOS Archive → ASC (1.0.1 / build 3) | 대표 | ⬜ |
+| 4 | SIGNUM iOS Archive → ASC (1.1 / build 2) | 대표 | ⬜ |
+
+**진행 원칙(대표 확인)**: 안드로이드 2개 먼저(파일 준비 완료·업로드 단순) → 그 심사가 도는 동안 iOS Archive.
+UC를 SIGNUM보다 먼저(SIGNUM이 사용자·수익 모두 크므로 검증된 절차로 나중에).
+
+**이번 제출에서 절대 바꾸지 않는 것**: 스토어 광고/추적 신고. 이번 바이너리는 광고 OFF라 **현재 신고가 사실**이다.
+바꾸는 시점은 §10 — AdMob 승인 후 `ADS_LIVE=true` 배포와 **같은 순간**. 미리 바꾸면 "광고 있다고 신고했는데 없음"이 되어 위반.
+
+**출시 노트 3언어**는 Desktop 안내문에 태그 포함으로 준비됨(UC=레이아웃/글꼴 수정, SIGNUM=+별점 추가).
+
+**출시 후 대기 항목**: 설정 화면 버전 표기(SIGNUM `v1.0.0`→`v1.1.0` @ `app-view/settings/page.tsx` versionNum,
+UC `1.0.0`→`1.0.1` @ `undercurrent/page.tsx` 하단). **스토어 라이브 확인 후** 웹 배포로.
+
+**미확인 1건**: SIGNUM Play "광고 포함" 체크박스 실제 값 — 광고 켜는 날 콘솔에서 확인 필요.
