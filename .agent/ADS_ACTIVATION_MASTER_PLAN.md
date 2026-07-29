@@ -274,7 +274,14 @@ AAB 실측: UC(pkg·`~1198944282`·AD_ID·서명 ✅ 7.3MB) / SIGNUM(pkg·`~8198
 | 1 | UC 안드로이드 AAB (versionCode 3) | 대표 | ✅ **제출** |
 | 2 | SIGNUM 안드로이드 AAB (versionCode 2) | 대표 | ✅ **제출** |
 | 3 | UC iOS (1.0.1 / build 3) | 대표 | ✅ **제출** (2026-07-29 21:47, 제출ID 3d925ee3-830b-48dd-b390-ca113e44de8d) |
-| 4 | SIGNUM iOS (1.1 / build 2) | 대표 | 🔵 아카이브 준비됨 → Distribute만 |
+| 4 | SIGNUM iOS (1.1 / build 2) | 대표 | ✅ **제출** (2026-07-29 22:03, 제출ID f2f33f0a-1070-4d13-8fe3-ae60c564a5d9) |
+
+### ✅ 2026-07-29 — 4건 전부 제출 완료. 이제 심사 대기.
+- iOS 아카이브는 **내가 `xcodebuild archive`로 만들어 `~/Library/Developer/Xcode/Archives/<날짜>/`에 배치**하면
+  대표는 Organizer에서 **Distribute만** 누르면 된다. Archive를 대표가 돌릴 필요 없다(다음에도 이렇게 할 것).
+- **SIGNUM 1.0 심사 노트는 원래 비어 있었다** — 대신 첨부파일 `signum-att-verification.mp4`(7/8 ATT 리젝 소명 영상)가 있었다.
+  1.1에는 영상 재첨부 불필요(ATT 동작 동일).
+- **새 iOS 버전은 프로모션 텍스트가 승계되지 않는다**(UC·SIGNUM 둘 다 빈 칸이었음). 매번 수동 복원 필요.
 
 **★ 제출 중 두 번 걸린 것 — 다음에도 반드시 걸린다**
 내가 "이번엔 스토어 신고를 바꾸지 말자"고 했으나, **광고 권한/문구를 복원한 것 자체가 신고를 강제**했다. 두 번 다 미리 못 봤다.
