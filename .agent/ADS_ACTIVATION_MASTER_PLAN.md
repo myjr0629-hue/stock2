@@ -175,3 +175,41 @@ WIM 심사통과│ WIM AdMob 등록 → 1.0.1 (광고 + Android 푸시)
 - 2026-07-29 `bca5c07a` **UC 가짜 네이티브 광고 자리 6개 + 컴포넌트 + ko/en/ja 문구 제거** (플러그인에 네이티브 포맷 없음 → 영원히 못 채움. 현 빌드엔 no-op)
 - ✅ 실측 확인: **SIGNUM은 UMP·ATT가 이미 구현돼 있었다** (`adManager.ts` init). 승인 즉시 오늘 만든 CMP가 그대로 뜬다.
 - ⏳ 미배포 (WIM 심사 중 + UC는 1.0.1과 함께 나갈 예정)
+
+
+## 14. v1.1 / 1.0.1 조립 결과 (2026-07-29)
+
+### SIGNUM v1.1 (`89c77867`) — 1.0→1.1, build 1→2, versionCode 1→2
+- ✅ `@capacitor-community/in-app-review` 탑재 → **별점이 비로소 동작**(웹 코드는 1.0부터 있었으나 플러그인이 없어 무동작)
+- ✅ Android 인셋 네이티브 실측(`--sig-top-floor`/`--sig-bottom-floor`) + `textZoom=100`
+  - ⚠️ CSS 폴백은 **기존 24px 유지**. signumhq.com은 **1.0 사용자와 공유**되므로 네이티브 발행기가 없는 그들의 동작이 바뀌면 안 됨.
+- ✅ 광고: 손댄 것 없음(이미 실 ID·ATT·UMP 완비)
+
+**빌드 중 발견한 실제 문제 2건**
+1. `cap sync`가 **`@capacitor-community/fcm`을 되살림** — 1.0 Android 빌드는 이걸 일부러 제외했었다.
+   **양쪽 플랫폼 모두 호출 0**(iOS는 직접 APNs, Android는 `@capacitor/push-notifications`+google-services.json),
+   게다가 그 플러그인 build.gradle이 빌드를 깨뜨림 → **패키지째 제거**(재발 방지). 낡은 주석도 정정.
+2. 이어서 in-app-review도 같은 이유로 실패 → **SIGNUM만 AGP 9.2.1 / Gradle 9.4.1** 이었고,
+   **AGP 9가 `getDefaultProguardFile('proguard-android.txt')`를 제거**했음. Capacitor 커뮤니티 플러그인들이 아직 그 API 사용.
+   → **AGP 8.13.0 / Gradle 8.14.3** 으로 정렬(= UC가 같은 저장소·같은 플러그인으로 프로덕션 중인 조합). **빌드 성공(399 tasks)**.
+   ⚠️ **AGP를 다시 9로 올리지 말 것** — 플러그인들이 대응할 때까지.
+
+### 구독 부품 판단 (대표 확인, 2026-07-29)
+`cap sync`가 RevenueCat을 양쪽에 넣음. **그대로 두기로 결정.**
+- **기능은 v1.2 그대로** — 사용자에게 보이는 것 0. 코드 실측: `IAP_LIVE=false`(`src/config/iap.ts:16`),
+  `initRevenueCat()` 첫 줄 `if (!IAP_LIVE) return false`, 유일 호출처 `useProStatus`도 `if (!IAP_LIVE) return`,
+  플러그인은 동적 import → **한 줄도 실행되지 않음**.
+- **이유**: 빼면 v1.2 때 바이너리를 또 올리고 심사를 또 받아야 함. 넣어두면 §11의 관문
+  ("Play는 결제 플러그인 든 바이너리를 올려야 구독 상품 생성을 열어줌")이 v1.1로 해제됨.
+- **대가**: Play 스토어에 "인앱 구매" 라벨이 붙음(아직 살 것은 없음). 이 트레이드를 수용.
+
+### UC 1.0.1 (`091e10c0`·`442572b5`·`a1668dc6` 외) — 1.0→1.0.1, build 2→3, versionCode 2→3
+- ✅ 실 유닛 6개 · UMP 동의 흐름 이식 · 가짜 네이티브 광고 자리 6개 제거
+- ✅ iOS 실 App ID + **ATT 문구 복원** / Android 실 App ID + **AD_ID 권한 복원**
+- ✅ Android 인셋 실측(`--uc-top-floor`/`--uc-bottom-floor`) + `textZoom=100` — **JDK21 컴파일 성공**
+- ✅ 설정 화면 "광고 개인정보" 행(ko/en/ja)
+- ⛔ **푸시는 1.0.2로 미룸**(대표 결정) — 가장 큰 작업이라, 광고 준비를 사용자 폰에 먼저 깔기 위해
+
+### 남은 것
+- UC·SIGNUM **에뮬레이터/시뮬 실화면 검증** → 그다음 제출
+- 설정 화면 버전 표기(SIGNUM `v1.0.0`→`v1.1.0`, UC `1.0.0`→`1.0.1`)는 **바이너리가 라이브 되는 배포와 같은 타이밍**에
