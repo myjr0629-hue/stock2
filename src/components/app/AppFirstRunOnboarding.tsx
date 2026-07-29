@@ -231,8 +231,12 @@ export function AppFirstRunOnboarding() {
         // The server routes by platform: Android sends the FCM token that the
         // 'registration' event yields, iOS sends the raw APNs hex token and the
         // server pushes to APNs directly with the .p8 key. (FCM->iOS silently
-        // failed in this Capacitor+Firebase setup, which is why iOS was moved off
-        // it — @capacitor-community/fcm is no longer used on either platform.)
+        // failed in this Capacitor+Firebase setup, which is why iOS moved off it.)
+        // @capacitor-community/fcm is therefore dead weight in both binaries, but
+        // AppDelegate.swift still imports FirebaseCore/FirebaseMessaging through it,
+        // so dropping the package breaks the iOS build. Removing it means editing
+        // the push-registration path of a live app — worth doing, but only with a
+        // real-device push test, which a simulator cannot give us. Left in place.
         const postToken = (token: string, attempt = 0) => {
           if (!token) return;
           try {
