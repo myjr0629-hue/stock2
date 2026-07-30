@@ -29,6 +29,10 @@ import com.getcapacitor.BridgeActivity;
  */
 public class MainActivity extends BridgeActivity {
 
+    /** Upper bound for the system font scale inside the WebView. Above this the
+     *  fixed-height chrome starts to overflow; below it the user's choice stands. */
+    private static final int MAX_TEXT_ZOOM = 115;
+
     private int barsTopPx = 0;
     private int barsBottomPx = 0;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -37,13 +41,16 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Pin the WebView's text scale. Android's system font-size slider otherwise
-        // multiplies every px in the page, which overflows the fixed-height cards and
-        // the tab bar for anyone running "large" text — a layout break we cannot
-        // reproduce at default settings and would never see in review.
+        // CAP the WebView's text scale rather than pinning it. Android's system
+        // font-size slider multiplies every px in the page, and past a point that
+        // overflows the fixed-height cards and the tab bar — a break invisible at
+        // default settings. But pinning to 100 silently discards the choice of every
+        // user who enlarged their text for a reason (seen on a real Galaxy A32: the
+        // page rendered visibly smaller than the store build). Honour the setting up
+        // to a bound the layout survives. Matches SIGNUM.
         if (getBridge() != null && getBridge().getWebView() != null) {
             WebSettings ws = getBridge().getWebView().getSettings();
-            ws.setTextZoom(100);
+            ws.setTextZoom(Math.min(ws.getTextZoom(), MAX_TEXT_ZOOM));
         }
 
         final View root = getWindow().getDecorView();
