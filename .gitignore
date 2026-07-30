@@ -62,3 +62,5 @@ uc-app/ios/App/build/
 uc-app/ios/App/build-device/
 vercel-env-toss.txt
 wim-app/ios/App/simbuild/
+
+scripts/*.zip
