@@ -99,6 +99,7 @@ const T: Record<Locale, Record<string, string>> = {
     stLang: '언어', stLangSub: '앱 표시 언어',
     stNotif: '속보 푸시 알림', stNotifSub: '곧 제공될 예정이에요', stSoon: '준비 중',
     stRate: '앱 평가하기', stRateSub: '별점 한 번이 큰 힘이 됩니다',
+    stSignum: 'SIGNUM HQ', stSignumSub: '기관이 남긴 흔적을 읽는다 · 무료',
     stPolicy: '약관 및 정책',
     stPrivacy: '개인정보처리방침', stTerms: '이용약관',
     stVersion: '버전',
@@ -176,6 +177,7 @@ const T: Record<Locale, Record<string, string>> = {
     stLang: 'Language', stLangSub: 'App display language',
     stNotif: 'Breaking push alerts', stNotifSub: 'Coming soon', stSoon: 'Soon',
     stRate: 'Rate the app', stRateSub: 'A quick rating helps a lot',
+    stSignum: 'SIGNUM HQ', stSignumSub: 'Read the tape institutions leave behind · Free',
     stPolicy: 'Legal',
     stPrivacy: 'Privacy Policy', stTerms: 'Terms of Service',
     stVersion: 'Version',
@@ -253,6 +255,7 @@ const T: Record<Locale, Record<string, string>> = {
     stLang: '言語', stLangSub: 'アプリの表示言語',
     stNotif: '速報プッシュ通知', stNotifSub: '近日提供予定です', stSoon: '準備中',
     stRate: 'アプリを評価する', stRateSub: '評価が大きな励みになります',
+    stSignum: 'SIGNUM HQ', stSignumSub: '機関が残した痕跡を読む · 無料',
     stPolicy: '規約とポリシー',
     stPrivacy: 'プライバシーポリシー', stTerms: '利用規約',
     stVersion: 'バージョン',
@@ -2280,6 +2283,47 @@ export default function UndercurrentPage() {
                 <span style={{ color: C.faint, fontSize: 14 }}>→</span>
               </button>
             )}
+
+            {/* ── Companion app: SIGNUM HQ (cross-promo, mirrors SIGNUM's own UC row).
+                Target is the /app SMART LINK, never a store URL directly: that route
+                reads the User-Agent and 302s to Play on Android, App Store otherwise,
+                so this one href is correct on both platforms and survives any store-URL
+                change without an app update. ?from= is counted into the marketing
+                console's attribution keys.
+
+                Plain <a target="_blank">, NOT openExternalUrl(): that helper needs
+                @capacitor/browser, which is NOT in the UC binary (deps are admob,
+                in-app-review, app, core, haptics, splash-screen, status-bar) — it would
+                fall through to window.open. This is the same mechanism UC's shipped
+                ticker-footer SIGNUM link already uses, so it is proven in this shell.
+
+                WIM is deliberately absent — still in review on both stores, so a tap
+                would 404 (대표 지시 2026-07-30). */}
+            <a
+              href="https://www.signumhq.com/app?from=uc_app"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowSettings(false)}
+              style={{
+                font: 'inherit', color: C.ink, textDecoration: 'none', textAlign: 'left', cursor: 'pointer', width: '100%',
+                marginTop: 11, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+                padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box',
+              }}
+            >
+              {/* the SG mark is a white-fill SVG (built for dark surfaces), so it needs
+                  its own dark chip here — on UC's light card it would be invisible bare */}
+              <span aria-hidden style={{
+                width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: '#0B1220',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <img src="/signum-sg-vectorized.svg" alt="" width={19} height={19} style={{ objectFit: 'contain', display: 'block' }} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>{t.stSignum}</div>
+                <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stSignumSub}</div>
+              </div>
+              <span style={{ color: C.faint, fontSize: 14 }}>→</span>
+            </a>
 
             {/* ad privacy — Google requires a way back into the consent form once it
                 has been shown. Only rendered where it is meaningful (EEA/UK/CH). */}
