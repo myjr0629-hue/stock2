@@ -18,7 +18,7 @@
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { publicBase } from '@/lib/net/publicBase';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
 import {
   isSpam, invokeJSON, fetchMoney, serveSWR, type NewsItem,
 } from '../../undercurrent/shared';
@@ -96,6 +96,17 @@ export async function GET(request: Request) {
   const today = lastTradingDayET(); // weekend → Friday (see lastTradingDayET)
   // v2: well-known-first selection + real intraday chart (5-min closes + VWAP) per unit
   const cacheKey = `wim:units:v2:${today}`;
+  // The day's QUIZ SET must be immutable. Regeneration (SWR turnover at FRESH_SEC,
+  // or an explicit ?refresh=1) re-runs news/charts/AI — and before this it ALSO
+  // re-picked the tickers from the LIVE movers lists, so the roster churned under
+  // the user inside one ET day (measured 2026-07-30: MSFT+AMZN → MSFT+META+AMD
+  // minutes apart). That broke three things at once: a solved ticker could leave
+  // the set and orphan its done[`<date>:<ticker>`] key (progress/XP wrong), the
+  // hero could swap mid-look, and a freshly-added ticker with <8 intraday bars
+  // arrived with spark:null — which blanked the whole hero section, CTA included.
+  // Pin the roster to the ET date; regeneration now refreshes the SAME tickers.
+  const rosterKey = `wim:roster:v2:${today}`;
+  const ROSTER_TTL_SEC = 3 * 86_400; // outlives the day so weekend/holiday reuse hits
 
   const generate = async () => {
     // 1) real movers — three sources: value (top dollar-volume = the household names,
@@ -113,19 +124,41 @@ export async function GET(request: Request) {
       ...(((gRes?.movers ?? gRes) || []) as Mover[]),
       ...(((lRes?.movers ?? lRes) || []) as Mover[]),
     ].filter((m) => /^[A-Z]{1,5}$/.test(m.ticker) && Math.abs(m.changePercent) <= 30);
-    // TIER 1: household/issue names that actually moved today (≥1.5%), biggest move first
-    const famous = all
-      .filter((m) => WELL_KNOWN.has(m.ticker) && Math.abs(m.changePercent) >= 1.5)
-      .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
-    // TIER 2: liquid movers (dollar-volume floor keeps microcap noise out), ≥2%
-    const liquid = all
-      .filter((m) => !WELL_KNOWN.has(m.ticker) && Math.abs(m.changePercent) >= 2 && (m.value || 0) >= MIN_DOLLAR_VOLUME)
-      .sort((a, b) => (b.value || 0) - (a.value || 0));
-    const picked: Mover[] = [];
-    const seen = new Set<string>();
-    for (const m of [...famous, ...liquid]) {
-      if (picked.length >= MAX_UNITS) break;
-      if (!seen.has(m.ticker)) { seen.add(m.ticker); picked.push(m); }
+    const bySym = new Map(all.map((m) => [m.ticker, m]));
+
+    // Roster already pinned for this ET date → reuse those tickers with their
+    // CURRENT quote. A ticker that has since dropped out of the movers lists falls
+    // back to the quote captured when it was picked — it still moved today, which
+    // is the whole lesson, so it must not silently disappear from the set.
+    type RosterCache = { tickers: string[]; snap: Record<string, { price: number; changePercent: number }> };
+    const roster = await getFromCache<RosterCache>(rosterKey).catch(() => null);
+    let picked: Mover[] = [];
+    if (roster?.tickers?.length) {
+      picked = roster.tickers
+        .map((t) => bySym.get(t) || (roster.snap?.[t] ? { ticker: t, ...roster.snap[t] } : null))
+        .filter((m): m is Mover => !!m);
+    }
+
+    if (picked.length === 0) {
+      // TIER 1: household/issue names that actually moved today (≥1.5%), biggest move first
+      const famous = all
+        .filter((m) => WELL_KNOWN.has(m.ticker) && Math.abs(m.changePercent) >= 1.5)
+        .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
+      // TIER 2: liquid movers (dollar-volume floor keeps microcap noise out), ≥2%
+      const liquid = all
+        .filter((m) => !WELL_KNOWN.has(m.ticker) && Math.abs(m.changePercent) >= 2 && (m.value || 0) >= MIN_DOLLAR_VOLUME)
+        .sort((a, b) => (b.value || 0) - (a.value || 0));
+      const seen = new Set<string>();
+      for (const m of [...famous, ...liquid]) {
+        if (picked.length >= MAX_UNITS) break;
+        if (!seen.has(m.ticker)) { seen.add(m.ticker); picked.push(m); }
+      }
+      if (picked.length > 0) {
+        await setInCache(rosterKey, {
+          tickers: picked.map((m) => m.ticker),
+          snap: Object.fromEntries(picked.map((m) => [m.ticker, { price: m.price, changePercent: m.changePercent }])),
+        } satisfies RosterCache, ROSTER_TTL_SEC).catch(() => {});
+      }
     }
     if (picked.length === 0) throw new Error('no movers today');
 

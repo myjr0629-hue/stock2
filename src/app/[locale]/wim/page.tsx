@@ -871,6 +871,16 @@ function isWeekendET(): boolean {
   const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date());
   return wd === 'Sat' || wd === 'Sun';
 }
+// Exact mirror of the server's lastTradingDayET() (api/wim/today): the market day
+// a payload belongs to. Sat→Fri, Sun→Fri. Used to reject a cached edition from an
+// earlier day — WITHOUT the weekend mapping a Saturday boot would compare against
+// Saturday and throw away the perfectly valid Friday set the server just served.
+function lastTradingDayETClient(): string {
+  const now = Date.now();
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date(now));
+  const back = wd === 'Sat' ? 1 : wd === 'Sun' ? 2 : 0;
+  return etTodayStr(now - back * 86_400_000);
+}
 
 // ── W4 SRS-lite: per-term wrong/right tally + last-touched ET day. A term is
 // "due for review" when it has been missed more than hit AND wasn't already
@@ -2898,7 +2908,15 @@ export default function WimPage() {
       const cached = localStorage.getItem('wim.today');
       if (cached) {
         const j = JSON.parse(cached);
-        if (j?.units?.length) { setToday(j); hadCache = true; }
+        // MUST match the market day this cache was built for. Without the check a
+        // failed/offline fetch silently served an OLD day's movers as "오늘 크게
+        // 움직인 종목" (seen live: CVNA on screen hours after it left the set), and
+        // hadCache=true also suppressed setFailed — so the lie never surfaced.
+        // Yesterday's set is worthless to a today-only quiz: drop it and let the
+        // skeleton → real data (or the honest empty state) run instead.
+        const fresh = j?.dateET === lastTradingDayETClient();
+        if (j?.units?.length && fresh) { setToday(j); hadCache = true; }
+        else if (!fresh) localStorage.removeItem('wim.today');
       }
     } catch { /* storage unavailable */ }
 
@@ -3123,7 +3141,16 @@ export default function WimPage() {
   const weekLabels = t.weekDays.split(',');
 
   // ── W2: hero unit (hoisted — home AND the play overlays need it) ──
-  const heroU = units.find((u) => !done[u.id]) || units[0] || null;
+  // The hero owns the chart, so PREFER an unsolved unit that actually has one —
+  // the server ships spark:null whenever a mover has <8 intraday 5-min bars, and
+  // picking such a unit used to blank the entire hero section (see the render).
+  // Order: unsolved+chart → unsolved → any chart → first. Never null while units
+  // exist, so the "start the quiz" CTA can never disappear.
+  const hasSpark = (u: Unit) => !!u.spark && u.spark.closes.length >= 8;
+  const heroU = units.find((u) => !done[u.id] && hasSpark(u))
+    || units.find((u) => !done[u.id])
+    || units.find(hasSpark)
+    || units[0] || null;
   const heroIdx = heroU ? units.indexOf(heroU) : -1;
   // which session carried the hero move (server field; default REG when absent)
   // The units API caches session as a constant ('REG'), so the strip would never
@@ -3254,13 +3281,26 @@ export default function WimPage() {
       const now = Date.now();
       if (now - lastRefreshRef.current < 5 * 60 * 1000) return;
       lastRefreshRef.current = now;
-      fetch('/api/wim/today?refresh=1')
+      const apply = (j: any) => {
+        if (!j?.success || !j.units?.length) return;
+        if (sig(j) !== sig(liveRef.current.today)) {
+          setToday(j);
+          try { localStorage.setItem('wim.today', JSON.stringify(j)); } catch { /* noop */ }
+        }
+      };
+      // Plain GET first — serveSWR answers from cache instantly. Escalate to
+      // ?refresh=1 ONLY when the server flags the edition past FRESH_SEC. The old
+      // code forced a regeneration every 10 min per open app, which re-ran the ~20s
+      // AI call each time and (before the roster was pinned server-side) re-rolled
+      // the day's tickers underneath the user.
+      fetch('/api/wim/today')
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => {
-          if (!j?.success || !j.units?.length) return;
-          if (sig(j) !== sig(liveRef.current.today)) {
-            setToday(j);
-            try { localStorage.setItem('wim.today', JSON.stringify(j)); } catch { /* noop */ }
+          apply(j);
+          if (j?._stale) {
+            return fetch('/api/wim/today?refresh=1')
+              .then((r) => (r.ok ? r.json() : null))
+              .then(apply);
           }
         })
         .catch(() => { /* keep showing what we have */ });
@@ -3979,7 +4019,13 @@ export default function WimPage() {
                 the W5-C navy slab): cream→soft-violet wash, the company + move
                 as the unit headline, the luminous chart re-tuned for light, the
                 streak ring riding top-right, CTA still floating over the edge ── */}
-            {heroU && heroU.spark && heroU.spark.closes.length >= 8 ? (
+            {/* Gate on the UNIT, never on its chart. This used to require a valid
+                spark, so a hero whose 5-min bars came back thin (spark:null) fell
+                through to `null` and the entire scene vanished — headline, streak
+                ring AND the quiz CTA — while the movers rail below stayed. On a
+                one-mover day that left the app with no way to start a quiz at all.
+                A missing chart now drops only the chart. */}
+            {heroU ? (
               <section style={{ position: 'relative', marginTop: 12, paddingBottom: 25, animation: 'wimUp 0.35s ease' }}>
                 <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 28, padding: '16px 16px 42px', background: 'linear-gradient(155deg, #FFFFFF 0%, #F7F3FF 48%, #EFE8FF 100%)', border: '1px solid rgba(108,92,231,0.13)', boxShadow: '0 20px 44px rgba(76,63,175,0.13), 0 4px 14px rgba(76,63,175,0.06)' }}>
                   {/* soft depth washes — violet low-left, warm amber up-right (gradients only) */}
@@ -4015,16 +4061,18 @@ export default function WimPage() {
                       <span style={{ fontSize: 14, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#8A5B00', background: 'rgba(255,173,31,0.16)', border: '1px solid rgba(255,173,31,0.35)', borderRadius: 99, padding: '4px 11px' }}>±<CountUp value={heroU.moveMagnitude} />%</span>
                       <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
                     </div>
-                    <div style={{ margin: '10px -16px 0' }}>
-                      <RealChart
-                        closes={heroU.spark.closes}
-                        height={150}
-                        tone="lumi"
-                        levels={unlockLevels && heroLab && heroLab.levels.maxPain != null
-                          ? [{ label: 'MAX PAIN', value: heroLab.levels.maxPain, color: '#C98A00' }]
-                          : undefined}
-                      />
-                    </div>
+                    {hasSpark(heroU) && heroU.spark && (
+                      <div style={{ margin: '10px -16px 0' }}>
+                        <RealChart
+                          closes={heroU.spark.closes}
+                          height={150}
+                          tone="lumi"
+                          levels={unlockLevels && heroLab && heroLab.levels.maxPain != null
+                            ? [{ label: 'MAX PAIN', value: heroLab.levels.maxPain, color: '#C98A00' }]
+                            : undefined}
+                        />
+                      </div>
+                    )}
                     <div style={{ marginTop: 9 }}>
                       <SessionStrip active={heroSession} labels={[t.sessionPre, t.sessionReg, t.sessionPost]} tone="light" />
                     </div>
