@@ -64,3 +64,5 @@ vercel-env-toss.txt
 wim-app/ios/App/simbuild/
 
 scripts/*.zip
+mcp/video-analyst/.env
+mcp/video-analyst/node_modules/

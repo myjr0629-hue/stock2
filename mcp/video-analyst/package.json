@@ -1,0 +1,9 @@
+{
+  "name": "video-analyst-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reverse-engineers reference short-form videos into a Remotion-ready motion spec via the Gemini API.",
+  "bin": { "video-analyst-mcp": "./index.mjs" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.0.0" }
+}

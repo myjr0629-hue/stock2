@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "video-analyst": {
+      "command": "node",
+      "args": [
+        "mcp/video-analyst/index.mjs"
+      ]
+    }
+  }
+}
