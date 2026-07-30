@@ -263,7 +263,34 @@ ${JSON.stringify(enriched.map((m, i) => ({
         disclaimer: DISCLAIMER,
         compliancePassed: true,
       };
-    }).filter(Boolean);
+    }).filter((u): u is NonNullable<typeof u> => u !== null);
+
+    // A regeneration must never SHRINK or RESHUFFLE the day's set. Pinning the
+    // roster is not enough: the AI intermittently returns an incomplete item
+    // (truncation/omission) and locFull above drops that unit, so the SURVIVORS
+    // differed run to run even off one fixed roster — measured on production
+    // 2026-07-30, three calls a minute apart: CVNA+META → MSFT+AMD → META+AMD.
+    // Backfill every roster ticker the AI missed this time from the edition
+    // already cached for the same ET day, refreshing only its volatile fields.
+    const prior = await getFromCache<{ units?: any[] }>(cacheKey).catch(() => null);
+    if (Array.isArray(prior?.units) && prior.units.length) {
+      const priorByTicker = new Map(prior.units.map((u: any) => [u.ticker, u]));
+      const have = new Set(units.map((u) => u.ticker));
+      for (const m of enriched) {
+        if (have.has(m.ticker)) continue;
+        const old = priorByTicker.get(m.ticker);
+        if (!old) continue;
+        units.push({
+          ...old,
+          moveMagnitude: Math.round(Math.abs(m.changePercent) * 10) / 10,
+          price: m.price,
+          spark: m.spark ?? old.spark, // keep the last good chart if today's bars are thin
+        });
+      }
+      // restore roster order so attributionPriority (and the hero) stay put
+      const order = new Map(picked.map((m, i) => [m.ticker, i]));
+      units.sort((a, b) => (order.get(a.ticker) ?? 99) - (order.get(b.ticker) ?? 99));
+    }
 
     if (units.length === 0) throw new Error('no units survived'); // SWR keeps last good day
     return { success: true, dateET: today, count: units.length, units };
