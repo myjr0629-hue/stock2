@@ -910,11 +910,14 @@ async function harvestDetails() {
     const batch = UNIVERSE.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
       try {
-        // Parallel fetch: reference + financial ratios + vX financials
+        // Parallel fetch: reference + financial ratios + income statements
+        // (vX/reference/financials sunset 2026-06-22 → stocks/financials/v1/income-statements.
+        //  15-ticker old-vs-new value comparison passed 2026-07-07; new endpoint also fixes
+        //  old-data defects: DDOG phantom zero-row, SOFI wrong revenue line.)
         const [refData, ratiosData, vxData] = await Promise.all([
           httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000).catch(() => null),
           httpsGet('https://api.polygon.io/stocks/financials/v1/ratios?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000).catch(() => null),
-          httpsGet('https://api.polygon.io/vX/reference/financials?ticker='+ticker+'&limit=5&timeframe=quarterly&order=desc&sort=period_of_report_date&apiKey='+POLYGON_KEY, 5000).catch(() => null),
+          httpsGet('https://api.polygon.io/stocks/financials/v1/income-statements?tickers='+ticker+'&limit=5&timeframe=quarterly&sort=period_end.desc&apiKey='+POLYGON_KEY, 5000).catch(() => null),
         ]);
         
         const r = refData?.results;
@@ -932,22 +935,23 @@ async function harvestDetails() {
         let fcfYield = null;
         if (fcfRaw !== null && mktCap !== null && mktCap > 0) fcfYield = (fcfRaw / mktCap) * 100;
         
-        // --- vX Financials (revenue growth, net margin) ---
+        // --- Income Statements (revenue growth, net margin) ---
+        // v1 shape is flat: { revenue, consolidated_net_income_loss } (vX was nested).
         const vxResults = vxData?.results || [];
         let revenueGrowth = null, netMargin = null;
         if (vxResults.length >= 1) {
-          const latest = vxResults[0]?.financials?.income_statement;
+          const latest = vxResults[0];
           if (latest) {
-            const revLatest = latest.revenues?.value || 0;
-            const netIncome = latest.net_income_loss?.value || 0;
+            const revLatest = latest.revenue || 0;
+            const netIncome = latest.consolidated_net_income_loss || 0;
             if (revLatest > 0) netMargin = (netIncome / revLatest) * 100;
           }
           if (latest && vxResults.length >= 2) {
-            const revLatest = latest.revenues?.value || 0;
+            const revLatest = latest.revenue || 0;
             let revPrev = 0;
             const preferredIdx = vxResults.length >= 5 ? 4 : vxResults.length - 1;
             for (let j = preferredIdx; j >= 1; j--) {
-              const val = vxResults[j]?.financials?.income_statement?.revenues?.value;
+              const val = vxResults[j]?.revenue;
               if (val && val > 0) { revPrev = val; break; }
             }
             if (revPrev > 0 && revLatest > 0) revenueGrowth = ((revLatest - revPrev) / Math.abs(revPrev)) * 100;
@@ -1778,13 +1782,14 @@ exports.handler = async (event) => {
         }
       } catch (e) { console.log('[ON-DEMAND] Options err: ' + e.message); }
       
-      // 3. Fundamentals (full scoring: reference + ratios + vX financials)
+      // 3. Fundamentals (full scoring: reference + ratios + income statements)
+      // (vX/reference/financials sunset → stocks/financials/v1/income-statements, flat shape)
       let fundamentals = null, overview = null;
       try {
         const [refData, ratiosData, vxData] = await Promise.all([
           httpsGet('https://api.polygon.io/v3/reference/tickers/' + ticker + '?apiKey=' + POLYGON_KEY, 5000).catch(() => null),
           httpsGet('https://api.polygon.io/stocks/financials/v1/ratios?ticker=' + ticker + '&limit=1&apiKey=' + POLYGON_KEY, 5000).catch(() => null),
-          httpsGet('https://api.polygon.io/vX/reference/financials?ticker=' + ticker + '&limit=5&timeframe=quarterly&order=desc&sort=period_of_report_date&apiKey=' + POLYGON_KEY, 5000).catch(() => null),
+          httpsGet('https://api.polygon.io/stocks/financials/v1/income-statements?tickers=' + ticker + '&limit=5&timeframe=quarterly&sort=period_end.desc&apiKey=' + POLYGON_KEY, 5000).catch(() => null),
         ]);
         const r = refData?.results;
         const ratios = ratiosData?.results?.[0] || {};
@@ -1800,12 +1805,12 @@ exports.handler = async (event) => {
         const vxResults = vxData?.results || [];
         let revenueGrowth = null, netMargin = null;
         if (vxResults.length >= 1) {
-          const latest = vxResults[0]?.financials?.income_statement;
-          if (latest) { const revL = latest.revenues?.value||0, ni = latest.net_income_loss?.value||0; if(revL>0) netMargin=(ni/revL)*100; }
+          const latest = vxResults[0];
+          if (latest) { const revL = latest.revenue||0, ni = latest.consolidated_net_income_loss||0; if(revL>0) netMargin=(ni/revL)*100; }
           if (latest && vxResults.length >= 2) {
-            const revL = latest.revenues?.value || 0;
+            const revL = latest.revenue || 0;
             let revP = 0; const pi = vxResults.length >= 5 ? 4 : vxResults.length - 1;
-            for (let j = pi; j >= 1; j--) { const v = vxResults[j]?.financials?.income_statement?.revenues?.value; if(v && v > 0){revP=v;break;} }
+            for (let j = pi; j >= 1; j--) { const v = vxResults[j]?.revenue; if(v && v > 0){revP=v;break;} }
             if (revP > 0 && revL > 0) revenueGrowth = ((revL - revP) / Math.abs(revP)) * 100;
           }
         }
@@ -2224,7 +2229,7 @@ exports.handler = async (event) => {
         if (e) {
           const today2 = new Date().toISOString().slice(0,10);
           const daysUntil = e.nextDate ? Math.ceil((new Date(e.nextDate).getTime()-new Date(today2).getTime())/86400000) : 0;
-          detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year, forwardEps:e.forwardEps||null, forwardRevenue:e.forwardRevenue||null, forwardYear:e.forwardYear||null };
+          detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year, forwardEps:e.forwardEps||null, forwardRevenue:e.forwardRevenue||null, forwardYear:e.forwardYear||null, currentEps:e.currentEps??null, currentRevenue:e.currentRevenue??null };
         }
         // Only overwrite fundamentals/overview/related if not already set by harvestDetails (Polygon fresh data)
         if (!detailsMap[ticker].fundamentals) {
