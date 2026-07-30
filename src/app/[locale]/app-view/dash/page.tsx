@@ -823,6 +823,10 @@ export default function AppDashPage() {
   const cashTone = cashAvg > 0.15 ? copy.bullish : cashAvg < -0.15 ? copy.bearish : copy.neutral;
   // The market-state hero (선물/현물/리스크) is derived entirely from the index+futures
   // feeds, so it must not show numbers computed from DEMO seeds before those land.
+  // Gate each cell on the feed it actually needs: a futures miss used to blank 현물 too,
+  // even though the index feed had landed — one slow request took the whole strip down.
+  // The headline and the risk score are composites of BOTH feeds, so they still wait for
+  // both rather than publish a score computed off a demo half.
   const regimeReady = indicesReady && futuresReady;
   const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : copy.closed;
   const pulseStatusNote = isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : copy.marketClosed;
@@ -1081,45 +1085,58 @@ export default function AppDashPage() {
           }, 2500);
         }
 
+        // Futures readiness rides on ONE request (/api/market/macro) and, unlike the
+        // indices row above, never had a cold-load retry — so a single miss left
+        // futuresReady false with no second chance. Extracted here so the retry added
+        // after this block can rebuild from a fresh response without duplicating the
+        // mapping.
+        const buildFuturesItems = (fac: any): PulseItem[] => {
+          const globexLive = isCmeGlobexActive('equity', isMarketHoliday);
+          const out: PulseItem[] = [];
+          if (fac?.nasdaq100) {
+            out.push({
+              sym: 'NASDAQ100 F',
+              px: fac.nasdaq100.level ?? 19850.50,
+              chg: fac.nasdaq100.chgPct ?? 0.45,
+              up: (fac.nasdaq100.chgPct ?? 0) >= 0,
+              spark: DEMO_FUTURES[0].spark,
+              ...feedMetaForItem(fac.nasdaq100, globexLive, { requireFresh: false }),
+            });
+          }
+          if (fac?.spx) {
+            out.push({
+              sym: 'S&P500 F',
+              px: fac.spx.level ?? 5490.25,
+              chg: fac.spx.chgPct ?? 0.30,
+              up: (fac.spx.chgPct ?? 0) >= 0,
+              spark: DEMO_FUTURES[1].spark,
+              ...feedMetaForItem(fac.spx, globexLive, { requireFresh: false }),
+            });
+          }
+          if (fac?.rut) {
+            out.push({
+              sym: 'Russell2k F',
+              px: fac.rut.level ?? 2120.40,
+              chg: fac.rut.chgPct ?? 0.15,
+              up: (fac.rut.chgPct ?? 0) >= 0,
+              spark: DEMO_FUTURES[2].spark,
+              ...feedMetaForItem(fac.rut, globexLive, { requireFresh: false }),
+            });
+          }
+          return out;
+        };
+
         // ── Build Macro Board from real data ──
+        let futuresApplied = false;
         if (f) {
           try {
             // Populate Futures Row
-            const futItems: PulseItem[] = [];
-            if (f.nasdaq100) {
-              futItems.push({
-                sym: 'NASDAQ100 F',
-                px: f.nasdaq100.level ?? 19850.50,
-                chg: f.nasdaq100.chgPct ?? 0.45,
-                up: (f.nasdaq100.chgPct ?? 0) >= 0,
-                spark: DEMO_FUTURES[0].spark,
-                ...feedMetaForItem(f.nasdaq100, isCmeGlobexActive('equity', isMarketHoliday), { requireFresh: false }),
-              });
-            }
-            if (f.spx) {
-              futItems.push({
-                sym: 'S&P500 F',
-                px: f.spx.level ?? 5490.25,
-                chg: f.spx.chgPct ?? 0.30,
-                up: (f.spx.chgPct ?? 0) >= 0,
-                spark: DEMO_FUTURES[1].spark,
-                ...feedMetaForItem(f.spx, isCmeGlobexActive('equity', isMarketHoliday), { requireFresh: false }),
-              });
-            }
-            if (f.rut) {
-              futItems.push({
-                sym: 'Russell2k F',
-                px: f.rut.level ?? 2120.40,
-                chg: f.rut.chgPct ?? 0.15,
-                up: (f.rut.chgPct ?? 0) >= 0,
-                spark: DEMO_FUTURES[2].spark,
-                ...feedMetaForItem(f.rut, isCmeGlobexActive('equity', isMarketHoliday), { requireFresh: false }),
-              });
-            }
+            const futItems = buildFuturesItems(f);
             if (futItems.length >= 2) {
               lastGoodFutures = futItems;
               setFutures(futItems);
               setFuturesReady(true);
+              futuresApplied = true;
             }
 
             const macroItems: MacroItem[] = [];
@@ -1228,6 +1245,33 @@ export default function AppDashPage() {
           } catch {
             // fallback stays
           }
+        }
+
+        // [COLD-START FIX] App launch fires seven requests at once while the WebView and
+        // the connection are still warming, and /api/market/macro is the one that slips
+        // most often. It had no retry, so a single miss left futuresReady false for the
+        // whole session — and because the market-state strip gated on indicesReady AND
+        // futuresReady, that blanked 선물/현물/리스크 to '—' even though the index feed
+        // had landed fine. Leaving the tab and returning "fixed" it only because
+        // lastGoodFutures lives at module scope and a later mount refetched successfully.
+        // Retry on a short backoff instead of leaving it to chance.
+        if (!futuresApplied && !lastGoodFutures) {
+          [1200, 3500, 8000].forEach((delay) => {
+            setTimeout(async () => {
+              if (lastGoodFutures) return; // an earlier attempt (or the poll) already won
+              try {
+                const r = await fetch('/api/market/macro');
+                if (!r.ok) return;
+                const snap = await r.json();
+                const items = buildFuturesItems(snap?.factors);
+                if (items.length >= 2 && !lastGoodFutures) {
+                  lastGoodFutures = items;
+                  setFutures(items);
+                  setFuturesReady(true);
+                }
+              } catch { /* keep current screen state */ }
+            }, delay);
+          });
         }
 
         // ── Sector Heatmap & Top Movers from quotesRes ──
@@ -1460,11 +1504,11 @@ export default function AppDashPage() {
         <div className={s.regimeMetrics}>
           <div className={`${s.regimeMetric} ${futuresAvg > 0.15 ? s.metricUp : futuresAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.futures}</span>
-            <b className={futuresAvg >= 0 ? s.pos : s.neg}>{regimeReady ? `${futuresTone} ${fmtChg(futuresAvg)}` : '—'}</b>
+            <b className={futuresAvg >= 0 ? s.pos : s.neg}>{futuresReady ? `${futuresTone} ${fmtChg(futuresAvg)}` : '—'}</b>
           </div>
           <div className={`${s.regimeMetric} ${cashAvg > 0.15 ? s.metricUp : cashAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.cash}</span>
-            <b className={cashAvg >= 0 ? s.pos : s.neg}>{regimeReady ? `${cashTone} ${fmtChg(cashAvg)}` : '—'}</b>
+            <b className={cashAvg >= 0 ? s.pos : s.neg}>{indicesReady ? `${cashTone} ${fmtChg(cashAvg)}` : '—'}</b>
           </div>
           <div className={`${s.regimeMetric} ${s.regimeMetricCenter} ${riskScore >= 58 ? s.metricUp : riskScore <= 42 ? s.metricDown : s.metricFlat}`}>
             <span>{copy.risk}</span>
