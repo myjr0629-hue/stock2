@@ -35,7 +35,14 @@ const { DynamoDBDocumentClient, ScanCommand, BatchGetCommand, BatchWriteCommand,
 
 // 1.1.0: main xsScore path is IDENTICAL to 1.0.0 — the bump only adds shadow
 // variant instrumentation (frozen / anti composites, see FROZEN_PRIORS note).
-const ENGINE_VERSION = 'XS-1.2.0'; // 1.2.0: +clean shadow variant, Z_RING 30 — live score path IDENTICAL to 1.1.0
+// 2.0.0 (2026-08-03, 레이스 10일차 판정): MAIN = ensemble mean of the three
+// fixed variants (frozen/anti/clean) — every fixed variant beat the adaptive
+// main on recon(18d) + live race(5-8d) + gate history, while the single leader
+// kept flipping weekly (anti→clean), so the ensemble is the only structure the
+// data supports. The old adaptive composite is demoted to a tracked shadow
+// (variants.adaptive). Calibration/hit histories RESET at this flip — the new
+// main earns its own gate record from day one.
+const ENGINE_VERSION = 'XS-2.0.0';
 const TABLE = 'signum-xs-history';
 const SOURCE_TABLE = 'signum-unified-cache';
 const DRY = process.env.DRY === '1';
@@ -193,8 +200,13 @@ async function run() {
         wdoc = r.Item || null;
     } catch { /* first run */ }
     const icHist = wdoc?.icHist || {}; // factorKey → [daily ICs]
-    const calibHist = wdoc?.calibHist || {}; // decile → [daily mean adjF3]
-    const hitHist = wdoc?.hitHist || {};     // decile → [daily hit rates]
+    // Gate clock: calibration/hit histories belong to a specific MAIN definition.
+    // On a main flip (XS-2.0 ensemble switch) they reset — the new main must earn
+    // its own gate record; factor icHist / variant histories are unaffected.
+    const mainFlipped = (wdoc?.mainVer || null) !== ENGINE_VERSION;
+    const calibHist = mainFlipped ? {} : (wdoc?.calibHist || {}); // decile → [daily mean adjF3]
+    const hitHist = mainFlipped ? {} : (wdoc?.hitHist || {});     // decile → [daily hit rates]
+    if (mainFlipped) console.log(`[XS] main flipped → ${ENGINE_VERSION}: calibration gate clock RESET`);
 
     // 4. Per-ticker raw factor values (self-accumulated deltas from state rings)
     const F = new Map(); // ticker → {factorKey: value}
@@ -270,31 +282,31 @@ async function run() {
         for (const k in wv) wv[k] /= sa;
     }
 
-    // 7. Raw composite (weighted mean over available z, weight-renormalized)
-    const rawMap = new Map();
+    // 7. Variant raw composites (same z's, variant weights) + adaptive shadow
+    const rawVar = new Map(); // ticker → { f: frozen, a: anti, c: clean, d: adaptive(shadow, 구메인) }
     for (const t of tickers) {
         const z = Z.get(t);
-        let num_ = 0, den = 0, cnt = 0;
-        for (const { key } of FACTORS) {
-            if (z[key] === undefined) continue;
-            num_ += weights[key] * z[key]; den += Math.abs(weights[key]); cnt++;
-        }
-        if (cnt >= MIN_FACTORS && den > 0) rawMap.set(t, num_ / den);
-    }
-
-    // 7b. variant raw composites (same z's, variant weights)
-    const rawVar = new Map(); // ticker → { f: frozen, a: anti, c: clean }
-    for (const t of tickers) {
-        const z = Z.get(t);
-        let nf = 0, df = 0, na = 0, da = 0, nc = 0, dc = 0, cnt = 0;
+        let nf = 0, df = 0, na = 0, da = 0, nc = 0, dc = 0, nd = 0, dd = 0, cnt = 0;
         for (const { key } of FACTORS) {
             if (z[key] === undefined) continue;
             cnt++;
             if (weightsFrozen[key]) { nf += weightsFrozen[key] * z[key]; df += Math.abs(weightsFrozen[key]); }
             if (weightsAnti[key]) { na += weightsAnti[key] * z[key]; da += Math.abs(weightsAnti[key]); }
             if (weightsClean[key]) { nc += weightsClean[key] * z[key]; dc += Math.abs(weightsClean[key]); }
+            if (weights[key]) { nd += weights[key] * z[key]; dd += Math.abs(weights[key]); }
         }
-        if (cnt >= MIN_FACTORS) rawVar.set(t, { f: df > 0 ? nf / df : null, a: da > 0 ? na / da : null, c: dc > 0 ? nc / dc : null });
+        if (cnt >= MIN_FACTORS) rawVar.set(t, {
+            f: df > 0 ? nf / df : null, a: da > 0 ? na / da : null,
+            c: dc > 0 ? nc / dc : null, d: dd > 0 ? nd / dd : null,
+        });
+    }
+
+    // 7b. MAIN raw = ensemble mean of the fixed variants (>=2 of 3 required).
+    // Downstream (peer residualization → EMA → percentile) unchanged.
+    const rawMap = new Map();
+    for (const [t, v] of rawVar) {
+        const parts = [v.f, v.a, v.c].filter(x => x !== null);
+        if (parts.length >= 2) rawMap.set(t, mean(parts));
     }
 
     // 8. Peer residualization (50% of peer-mean removed)
@@ -336,14 +348,15 @@ async function run() {
         if (!cPast || !(cPast.c > 0)) continue;
         const f3 = (snaps.get(t).price - cPast.c) / cPast.c * 100;
         if (Math.abs(f3) > 30) continue;
-        labelRows.push({ t, d: zPast.d, z: zPast.z, raw: zPast.raw, rawF: zPast.rawF, rawA: zPast.rawA, rawC: zPast.rawC, xs: zPast.xs, f3 });
+        labelRows.push({ t, d: zPast.d, z: zPast.z, raw: zPast.raw, rawF: zPast.rawF, rawA: zPast.rawA, rawC: zPast.rawC, rawD: zPast.rawD, xs: zPast.xs, f3 });
         zPast.f3 = f3; // mark consumed
     }
     let dayIC = null;
     const factorICs = {};
-    const varIcHist = wdoc?.varIcHist || { frozen: [], anti: [], clean: [] };
+    const varIcHist = wdoc?.varIcHist || { frozen: [], anti: [], clean: [], adaptive: [] };
     if (!varIcHist.clean) varIcHist.clean = [];
-    let dayICF = null, dayICA = null, dayICC = null;
+    if (!varIcHist.adaptive) varIcHist.adaptive = [];
+    let dayICF = null, dayICA = null, dayICC = null, dayICD = null;
     if (labelRows.length >= MIN_UNIVERSE) {
         const mkt = mean(labelRows.map(r => r.f3));
         const adj = labelRows.map(r => r.f3 - mkt);
@@ -364,6 +377,11 @@ async function run() {
         if (subC.length >= MIN_UNIVERSE) {
             dayICC = spearman(subC.map(x => x.v), subC.map(x => x.a));
             if (dayICC != null) varIcHist.clean = [...(varIcHist.clean || []), dayICC].slice(-IC_WINDOW);
+        }
+        const subD = labelRows.map((r, i) => ({ v: r.rawD, a: adj[i] })).filter(x => Number.isFinite(x.v));
+        if (subD.length >= MIN_UNIVERSE) {
+            dayICD = spearman(subD.map(x => x.v), subD.map(x => x.a));
+            if (dayICD != null) varIcHist.adaptive = [...(varIcHist.adaptive || []), dayICD].slice(-IC_WINDOW);
         }
         // factor ICs → rolling icHist
         for (const { key } of FACTORS) {
@@ -407,7 +425,7 @@ async function run() {
         const closes = [...(st.closes || []).filter(x => x.d !== today), { d: today, c: round(s.price, 4) }].slice(-CLOSE_RING);
         const gexes = [...(st.gexes || []).filter(x => x.d !== today), { d: today, g: s.netGex ?? null }].slice(-GEX_RING);
         const bulls = [...(st.bulls || []).filter(x => x.d !== today), { d: today, b: s.bullishPct ?? null }].slice(-ANALYST_RING);
-        const zring = [...(st.zring || []).filter(x => x.d !== today), { d: today, z: compactZ(zOut), raw: round(rawMap.get(t), 5), rawF: round(rawVar.get(t)?.f ?? null, 5), rawA: round(rawVar.get(t)?.a ?? null, 5), rawC: round(rawVar.get(t)?.c ?? null, 5), xs: xs.get(t) }].slice(-Z_RING);
+        const zring = [...(st.zring || []).filter(x => x.d !== today), { d: today, z: compactZ(zOut), raw: round(rawMap.get(t), 5), rawF: round(rawVar.get(t)?.f ?? null, 5), rawA: round(rawVar.get(t)?.a ?? null, 5), rawC: round(rawVar.get(t)?.c ?? null, 5), rawD: round(rawVar.get(t)?.d ?? null, 5), xs: xs.get(t) }].slice(-Z_RING);
         stateItems.push({ ticker: t, date: '_STATE_', closes, gexes, bulls, zring, ema: round(emaMap.get(t), 5), emaDate: today, updatedAt: nowIso });
     }
 
@@ -422,6 +440,7 @@ async function run() {
             frozen: { dayIC: round(dayICF, 4), rolling: round(mean(varIcHist.frozen || []), 4), days: (varIcHist.frozen || []).length },
             anti: { dayIC: round(dayICA, 4), rolling: round(mean(varIcHist.anti || []), 4), days: (varIcHist.anti || []).length },
             clean: { dayIC: round(dayICC, 4), rolling: round(mean(varIcHist.clean || []), 4), days: (varIcHist.clean || []).length },
+            adaptive: { dayIC: round(dayICD, 4), rolling: round(mean(varIcHist.adaptive || []), 4), days: (varIcHist.adaptive || []).length },
         },
         calibration: Object.fromEntries(Object.entries(calibHist).map(([d, v]) => [d, { adjF3: round(mean(v), 3), hit: round(mean(hitHist[d] || []), 1), days: v.length }])),
         top10: [...xs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([t, v]) => `${t}:${v}`),
@@ -440,7 +459,7 @@ async function run() {
 
     // batch write (25/req) with unprocessed retry
     const allWrites = [...historyItems, ...stateItems,
-        { ticker: '_WEIGHTS_', date: '_CURRENT_', icHist, calibHist, hitHist, weights, varIcHist, updatedAt: nowIso },
+        { ticker: '_WEIGHTS_', date: '_CURRENT_', icHist, calibHist, hitHist, weights, varIcHist, mainVer: ENGINE_VERSION, updatedAt: nowIso },
         { ticker: '_REPORT_', date: today, ...report, updatedAt: nowIso },
     ];
     let written = 0;

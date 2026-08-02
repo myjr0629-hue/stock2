@@ -946,7 +946,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
           <div className="tc-card-label">엔진 3파전 + 팩터 IC <span className="hint">{lab?.report?.date ?? ''}</span></div>
           <div className="tc-varrow">
             {lab?.report?.variants ? Object.entries(lab.report.variants).map(([k, v]) => (
-              <div className="tc-var" key={k}><span className="k">{k === 'frozen' ? '동결' : k === 'anti' ? '반적응' : k === 'clean' ? '클린(v1.2)' : k}</span><span className="v">{v.rolling ?? '—'}</span><span className="d">{v.days}일</span></div>
+              <div className="tc-var" key={k}><span className="k">{k === 'frozen' ? '동결' : k === 'anti' ? '반적응' : k === 'clean' ? '클린' : k === 'adaptive' ? '적응(구메인)' : k}</span><span className="v">{v.rolling ?? '—'}</span><span className="d">{v.days}일</span></div>
             )) : <span className="tc-empty">변형 라벨 축적 중</span>}
           </div>
           {lab?.report?.rollingIC && (
