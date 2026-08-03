@@ -160,17 +160,28 @@ const T: Record<Locale, Record<string, string>> = {
 
 const pct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
 
-/** 알림 본문 / 카드 요약 — 한 줄. */
-export function buildHeadline(signal: MoveSignal, loc: Locale): string {
+/**
+ * 알림 본문 / 카드 요약 — 한 줄.
+ * [FIX 2026-08-03] 1차 구현에 결함 셋이 있었다:
+ *   ① 일본어가 한국어 분기를 타고 문자열 치환으로 때워졌다
+ *   ② 영어 문장에 창 길이 30이 하드코딩(TUNING과 어긋날 수 있다)
+ *   ③ 어순이 어색했다 — "NVDA 30분 +3.35% 급등"
+ * 언어별로 따로 쓴다. 문장은 각 언어에서 «자연스러운 어순»을 따른다.
+ */
+export function buildHeadline(signal: MoveSignal, loc: Locale, windowMin = 30): string {
   const t = T[loc];
-  const kindWord = signal.kind === 'REVERSAL'
-    ? (signal.changePct > 0 ? t.revUp : t.revDown)
-    : (signal.changePct > 0 ? t.spikeUp : t.spikeDown);
-  if (loc === 'en') {
-    return `${signal.symbol} ${kindWord} ${pct(signal.changePct)} in ${30} min`;
+  const s = signal.symbol;
+  const p = pct(signal.changePct);
+  const up = signal.changePct > 0;
+
+  if (signal.kind === 'REVERSAL') {
+    if (loc === 'ko') return `${s} ${up ? '하락세 뒤집고' : '상승세 꺾이며'} ${windowMin}분간 ${p}`;
+    if (loc === 'ja') return `${s} ${up ? '下落から反転' : '上昇から反落'}、${windowMin}分で ${p}`;
+    return `${s} ${up ? 'reversed higher' : 'reversed lower'} — ${p} in ${windowMin} min`;
   }
-  return `${signal.symbol} 30분 ${pct(signal.changePct)} ${kindWord}`
-    .replace('30분', loc === 'ja' ? '30分' : '30분');
+  if (loc === 'ko') return `${s} ${windowMin}분간 ${p} ${up ? t.spikeUp : t.spikeDown}`;
+  if (loc === 'ja') return `${s} ${windowMin}分で ${p} ${up ? t.spikeUp : t.spikeDown}`;
+  return `${s} ${up ? t.spikeUp : t.spikeDown} ${p} in ${windowMin} min`;
 }
 
 /**

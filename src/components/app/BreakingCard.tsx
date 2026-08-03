@@ -15,6 +15,7 @@
 // ============================================================================
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 
 type Loc = 'ko' | 'en' | 'ja';
@@ -83,8 +84,16 @@ export function BreakingCard({ locale }: { locale: string }) {
   const t = T[loc];
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // 실화면 검증용: 페이지 URL에 ?preview=1 이 있을 때만 preview를 요청한다.
+  // 사용자 URL엔 절대 붙지 않으므로 일반 사용자에게는 영향이 없다.
+  // («화면에서 검증한다» 원칙 — 레이어만 보고 완료라고 하지 않는다)
+  const sp = useSearchParams();
+  const previewQS = sp?.get('preview') === '1'
+    ? `&preview=1&symbol=${encodeURIComponent(sp.get('symbol') || 'NVDA')}`
+    : '';
+
   const { data } = useSWR<BreakingResp>(
-    `/api/guardian/breaking?locale=${loc}`,
+    `/api/guardian/breaking?locale=${loc}${previewQS}`,
     fetcher,
     { revalidateOnFocus: true, refreshInterval: 120_000, dedupingInterval: 30_000 },
   );
