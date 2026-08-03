@@ -27,6 +27,147 @@ import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
 // ── ads master switch (mirror of UC ADS_LIVE discipline) ──
 const WIM_ADS_LIVE = false;
 
+// ============================================================================
+// 지표 라벨 → 용어집 키 (2026-08-03)
+// ----------------------------------------------------------------------------
+// 아이러니한 상태였다: `METRIC_GLOSSARY`(34개 용어 · ko/en/ja 완비)와
+// `<MetricInfo/>`가 **프로 트레이더용 SIGNUM**(Intel·Command·13F·GEX)에는 붙어
+// 있는데, **초보 교육 앱인 WIM에는 0곳**이었다. 맥스페인이 뭔지 모르는 사람이
+// 맥스페인 위치를 찍어야 했다. 교육 앱에서 모르면 찍고, 찍으면 안 배운다.
+//
+// ⚠️ `MetricInfo`를 그대로 쓰지 않는 이유: 그 컴포넌트는 `var(--cyan)` 등
+// SIGNUM 다크 토큰에 의존하는데 `app-tokens.css`는 `app-view/`에서만 import된다
+// (실측). WIM에 넣으면 변수 미정의로 테두리·배경이 사라진 투명 버튼이 된다.
+// → **데이터(METRIC_GLOSSARY)는 재사용하고 어포던스만 라이트 테마로 새로 만든다.**
+//
+// 라벨에서 역참조하므로 지표 타일을 만드는 20여 개 return문을 건드리지 않는다.
+// 대문자·괄호·접미사는 정규화해서 맞춘다(예: 'RSI(14)' → 'rsi').
+const LABEL_TERM: Record<string, MetricTerm> = {
+  'MAX PAIN': 'maxPain',
+  'CALL WALL': 'callWall',
+  'PUT FLOOR': 'putFloor',
+  'GAMMA FLIP': 'gammaFlip',
+  'FLIP LEVEL': 'gammaFlip',
+  'NET GEX': 'gex',
+  'DARK POOL': 'darkPool',
+  'OFF-EXCHANGE SHARE': 'darkPool',
+  BLOCKS: 'blockTrades',
+  'BLOCK TRADES': 'blockTrades',
+  'SMART FLOW': 'netPremium',
+  'CURRENT IV': 'ivRank',
+  'IMPLIED VOLATILITY': 'ivRank',
+  'VOL REGIME': 'volRegime',
+  REGIME: 'volRegime',
+  'REGIME SCORE': 'volRegime',
+  'PUT/CALL': 'pcr',
+  'PUT/CALL RATIO': 'pcr',
+  SQUEEZE: 'squeeze',
+  'SQUEEZE RISK': 'squeeze',
+  'SHORT INT': 'shortInterest',
+  'SHORT VOL': 'shortInterest',
+  'DAYS TO COVER': 'shortInterest',
+  'ALPHA SCORE': 'conviction',
+  CONVICTION: 'conviction',
+  RSI: 'rsi',
+  VWAP: 'vwap',
+  PHASE: 'trendPhase',
+  CROSS: 'trendPhase',
+  FUNDAMENTAL: 'fundamental',
+  // 매크로 도미노 — 이 셋은 언어 중립 라벨이라 역참조가 통한다
+  '10Y': 'rate10y',
+  '2Y': 'rate10y',
+  '10Y−2Y': 'yieldCurve',
+  '10Y-2Y': 'yieldCurve',
+};
+
+/** 'RSI(14)' · 'SQUEEZE RISK · HIGH' 처럼 꾸밈이 붙은 라벨도 맞춘다. */
+function termForLabel(label: string): MetricTerm | null {
+  const raw = (label || '').trim().toUpperCase();
+  if (LABEL_TERM[raw]) return LABEL_TERM[raw];
+  const base = raw.split('·')[0].replace(/\(.*?\)/g, '').trim();
+  return LABEL_TERM[base] ?? null;
+}
+
+/**
+ * WIM 라이트 테마 ⓘ. 용어 정의는 METRIC_GLOSSARY(관찰형 서술)를 그대로 쓴다.
+ * 게이팅 없음 — 대표 지시(2026-08-03): "정보를 주는 것이 목적이니 무엇을 해야 할지
+ * 모르게 하는 것보다 낫다." 오답 뒤에 여는 설계는 게임 문법이지 교육 문법이 아니다.
+ */
+function WimInfo({ term, loc, size = 15 }: { term: MetricTerm; loc: Lang; size?: number }) {
+  const [open, setOpen] = useState(false);
+  const entry = METRIC_GLOSSARY[term];
+  if (!entry) return null;
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={entry.title[loc]}
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen(true); }}
+        style={{
+          // 원형 고정 — iOS WebKit의 <button> 기본 min-height가 작은 원을 타원으로
+          // 찌그러뜨린다(기존 사례와 동일). appearance:none + 명시 크기로 못 박는다.
+          appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
+          width: size, height: size, minWidth: size, minHeight: size,
+          borderRadius: '50%', flexShrink: 0, padding: 0, margin: 0,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: Math.round(size * 0.66), fontWeight: 900, fontStyle: 'italic', lineHeight: 1,
+          fontFamily: 'inherit', cursor: 'pointer', verticalAlign: 'middle',
+          color: open ? '#fff' : P.heroDeep,
+          background: open ? P.heroDeep : P.heroSoft,
+          border: `1px solid ${open ? P.heroDeep : 'rgba(108,92,231,0.35)'}`,
+        }}
+      >i</button>
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(24,20,44,0.42)',
+            backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 22,
+            animation: 'wimFadeIn 0.16s ease',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 340, background: '#fff', borderRadius: 22,
+              border: `1px solid ${P.line}`, boxShadow: '0 24px 60px rgba(38,34,64,0.3)',
+              padding: '18px 18px 14px', animation: 'wimUp 0.22s ease',
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.01em' }}>{entry.title[loc]}</div>
+            <div style={{ marginTop: 9, fontSize: 13, lineHeight: 1.62, color: P.sub, fontWeight: 600 }}>
+              {entry.body[loc]}
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              style={{
+                font: 'inherit', width: '100%', marginTop: 15, background: P.heroSoft, color: P.heroDeep,
+                border: 'none', borderRadius: 14, padding: '11px 0', fontSize: 13.5, fontWeight: 900, cursor: 'pointer',
+              }}
+            >{CLOSE_TXT[loc]}</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+const CLOSE_TXT: Record<Lang, string> = { ko: '알겠어요', en: 'Got it', ja: 'わかりました' };
+
+/** 라벨 옆에 ⓘ를 붙인다. 매핑이 없으면 라벨만 그대로 — 절대 깨지지 않는다. */
+function LabelWithInfo({ label, loc, size = 13 }: { label: string; loc: Lang; size?: number }) {
+  const term = termForLabel(label);
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+      <span style={{ minWidth: 0 }}>{label}</span>
+      {term && <WimInfo term={term} loc={loc} size={size} />}
+    </span>
+  );
+}
+
 type Lang = 'ko' | 'en' | 'ja';
 type Loc = { ko: string; en: string; ja: string };
 
@@ -1099,7 +1240,9 @@ function GlossarySheet({
               <div style={{ display: 'flex', gap: 7, marginTop: 9, flexWrap: 'wrap' }}>
                 {demo.tiles.map((tile) => (
                   <div key={tile.k} style={{ flex: '1 1 30%', minWidth: 88, background: '#fff', border: `1px solid ${P.line}`, borderRadius: 13, padding: '9px 10px' }}>
-                    <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.09em', color: P.faint }}>{tile.k}</div>
+                    <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.09em', color: P.faint }}>
+                      <LabelWithInfo label={tile.k} loc={loc} size={12} />
+                    </div>
                     <div style={{ fontSize: 16, fontWeight: 900, marginTop: 2, fontVariantNumeric: 'tabular-nums', color: tile.color || P.ink }}>{tile.v}</div>
                   </div>
                 ))}
@@ -1108,7 +1251,7 @@ function GlossarySheet({
             {demo?.gauge && (
               <div style={{ marginTop: 9, padding: '0 2px 4px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8.5, fontWeight: 900, letterSpacing: '0.08em', color: P.faint, marginBottom: 4 }}>
-                  <span>{demo.gauge.label}</span>
+                  <LabelWithInfo label={demo.gauge.label} loc={loc} size={12} />
                   <span style={{ color: demo.gauge.color }}>{Math.round(demo.gauge.pct * 100)}</span>
                 </div>
                 <div style={{ height: 8, background: 'rgba(108,92,231,0.12)', borderRadius: 99, overflow: 'hidden' }}>
@@ -1412,11 +1555,12 @@ function PlayLoading({ label }: { label: string }) {
 interface HuntRound { key: string; value: number; label: string; color: string; prompt: string; meaning: string }
 interface HuntResult { label: string; color: string; actual: number; guess: number; distPct: number; gain: number }
 
-function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onCollect, onSrs, onComplete, onShare, onClose, disclaimer }: {
+function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, loc, onAward, onCollect, onSrs, onComplete, onShare, onClose, disclaimer }: {
   ticker: string;
   fallbackCloses: number[] | null;
   requestLab: (tk: string) => Promise<LabData | null>;
   t: Record<string, string>;
+  loc: Lang;   // 용어 팝업(WimInfo)이 3언어 정의를 고르는 데 필요
   onAward: (gain: number) => void;
   onCollect: (term: MetricTerm) => void;
   onSrs: (term: string, ok: boolean) => void;
@@ -1545,7 +1689,16 @@ function LevelHuntPlay({ ticker, fallbackCloses, requestLab, t, onAward, onColle
                 <span style={{ fontSize: 14.5, fontWeight: 900 }}>{ticker}</span>
                 <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
               </div>
-              <h1 style={{ margin: '10px 0 0', fontSize: 17.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.35 }}>{cur.prompt}</h1>
+              {/* [2026-08-03] 문제 옆 용어 설명. cur.key('maxPain'·'callWall'·'putFloor')가
+                  METRIC_GLOSSARY 키와 그대로 일치한다 — 매핑 없이 바로 쓴다.
+                  게이팅 없음: 맥스페인이 뭔지 모르는 사람이 맥스페인 위치를 찍는 상황이
+                  교육 앱에서 가장 나쁘다. */}
+              <h1 style={{ margin: '10px 0 0', fontSize: 17.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.35 }}>
+                {cur.prompt}
+                <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginLeft: 6 }}>
+                  <WimInfo term={cur.key as MetricTerm} loc={loc} size={17} />
+                </span>
+              </h1>
               {!revealed && (
                 <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 750 as any, color: P.hero, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                   <Ic name="crosshair" size={13} color={P.hero} /> {t.huntDragHint}
@@ -2184,7 +2337,16 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
               <div style={{ animation: `wimUp 0.24s ${EASE_OUT} both` }}>
                 <div style={{ marginTop: 12, background: '#fff', borderRadius: 20, border: `1.5px solid ${P.line}`, boxShadow: P.shadow, padding: '14px 15px' }}>
                   <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', color: P.hero }}>{t.replayCheckpoint.toUpperCase()} {(cpOpen as number) + 1}/{cps.length}</div>
-                  <h2 style={{ margin: '7px 0 0', fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.35 }}>{cp.q}</h2>
+                  {/* [2026-08-03] VWAP 문항에만 용어 설명. 리플레이 문항은 'move'·'vwap'·'day'
+                      세 종류인데 VWAP만 사전 지식을 요구한다 — 나머지는 차트만 보면 답이 나온다. */}
+                  <h2 style={{ margin: '7px 0 0', fontSize: 16.5, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.35 }}>
+                    {cp.q}
+                    {cp.kind === 'vwap' && (
+                      <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginLeft: 6 }}>
+                        <WimInfo term="vwap" loc={loc} size={16} />
+                      </span>
+                    )}
+                  </h2>
                   <div style={{ marginTop: 11, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {cp.opts.map((o, oi) => {
                       const revealedNow = !!cpAns;
@@ -2265,14 +2427,21 @@ function fetchMacroFeeds(): Promise<MacroFeeds> {
   }
   return macroFlight;
 }
-interface DominoStat { k: string; v: number; decimals: number; prefix?: string; suffix?: string }
+// `term`은 선택 — 라벨이 현지화 문자열(t.dominoHoldProb 등)이라 라벨 역참조가 통하지 않는
+// 항목에 용어 팝업을 붙이기 위한 명시 지정이다. 없으면 ⓘ 없이 라벨만 그린다.
+interface DominoStat { k: string; v: number; decimals: number; prefix?: string; suffix?: string; term?: MetricTerm }
 interface DominoNode { title: string; q: string; opts: [string, string]; correct: 0 | 1; mech: string; stats: DominoStat[] }
 
 // one stat tile (CountUp only while the reveal is fresh — settled text afterwards)
-function DominoStatTile({ s, animate, onDark }: { s: DominoStat; animate: boolean; onDark?: boolean }) {
+function DominoStatTile({ s, animate, onDark, loc }: { s: DominoStat; animate: boolean; onDark?: boolean; loc: Lang }) {
+  // 명시 term 우선, 없으면 라벨 역참조('10Y'·'2Y'·'10Y−2Y'처럼 언어 중립인 것들)
+  const term = s.term ?? termForLabel(s.k);
   return (
     <div style={{ background: onDark ? 'rgba(255,255,255,0.16)' : P.bg, borderRadius: 12, padding: '8px 11px', minWidth: 76 }}>
-      <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.08em', color: onDark ? 'rgba(255,255,255,0.75)' : P.faint }}>{s.k.toUpperCase()}</div>
+      <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.08em', color: onDark ? 'rgba(255,255,255,0.75)' : P.faint, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        {s.k.toUpperCase()}
+        {term && !onDark && <WimInfo term={term} loc={loc} size={12} />}
+      </div>
       <div style={{ marginTop: 2, fontSize: 17, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: onDark ? '#fff' : P.heroDeep }}>
         {s.prefix || ''}{animate ? <CountUp value={s.v} decimals={s.decimals} /> : s.v.toFixed(s.decimals)}{s.suffix || ''}
       </div>
@@ -2280,8 +2449,9 @@ function DominoStatTile({ s, animate, onDark }: { s: DominoStat; animate: boolea
   );
 }
 
-function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
+function MacroDominoPlay({ t, loc, onAward, onClose, disclaimer }: {
   t: Record<string, string>;
+  loc: Lang;   // 용어 팝업(WimInfo)이 3언어 정의를 고르는 데 필요
   onAward: (gain: number) => void;
   onClose: () => void;
   disclaimer: string;
@@ -2317,8 +2487,8 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
     {
       title: t.dominoN1, q: t.dominoQ1, opts: [t.dominoQ1a, t.dominoQ1b], correct: 0, mech: t.dominoM1,
       stats: fw ? [
-        { k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%' },
-        ...(fw.daysUntilFomc != null ? [{ k: t.dominoNextFomc, v: fw.daysUntilFomc, decimals: 0, prefix: 'D-' }] : []),
+        { k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%', term: 'fomc' as MetricTerm },
+        ...(fw.daysUntilFomc != null ? [{ k: t.dominoNextFomc, v: fw.daysUntilFomc, decimals: 0, prefix: 'D-', term: 'fomc' as MetricTerm }] : []),
       ] : [],
     },
     {
@@ -2336,7 +2506,7 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
     },
     {
       title: t.dominoN4, q: t.dominoQ4, opts: [t.dominoQ4a, t.dominoQ4b], correct: 0, mech: t.dominoM4,
-      stats: fw ? [{ k: t.dominoHikeProb, v: fw.hike, decimals: 1, suffix: '%' }] : [],
+      stats: fw ? [{ k: t.dominoHikeProb, v: fw.hike, decimals: 1, suffix: '%', term: 'fomc' as MetricTerm }] : [],
     },
   ], [t, fw, ty]);
 
@@ -2359,8 +2529,8 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
   const recap: DominoStat[] = [
     ...(ty?.yield10Y != null ? [{ k: '10Y', v: ty.yield10Y, decimals: 2, suffix: '%' }] : []),
     ...(ty?.yield2Y != null ? [{ k: '2Y', v: ty.yield2Y, decimals: 2, suffix: '%' }] : []),
-    ...(fw ? [{ k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%' }] : []),
-    ...(fw?.daysUntilFomc != null ? [{ k: t.dominoNextFomc, v: fw.daysUntilFomc, decimals: 0, prefix: 'D-' }] : []),
+    ...(fw ? [{ k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%', term: 'fomc' as MetricTerm }] : []),
+    ...(fw?.daysUntilFomc != null ? [{ k: t.dominoNextFomc, v: fw.daysUntilFomc, decimals: 0, prefix: 'D-', term: 'fomc' as MetricTerm }] : []),
   ];
 
   const numDec = (v: number) => (Number.isInteger(v) ? 0 : 1);
@@ -2396,8 +2566,8 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
                   </div>
                   {(headEvent.estimate != null || headEvent.previous != null) && (
                     <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                      {headEvent.estimate != null && <DominoStatTile s={{ k: t.dominoEstimate, v: headEvent.estimate, decimals: numDec(headEvent.estimate), suffix: headEvent.unit || '' }} animate onDark />}
-                      {headEvent.previous != null && <DominoStatTile s={{ k: t.dominoPrevious, v: headEvent.previous, decimals: numDec(headEvent.previous), suffix: headEvent.unit || '' }} animate onDark />}
+                      {headEvent.estimate != null && <DominoStatTile s={{ k: t.dominoEstimate, v: headEvent.estimate, decimals: numDec(headEvent.estimate), suffix: headEvent.unit || '' }} animate onDark loc={loc} />}
+                      {headEvent.previous != null && <DominoStatTile s={{ k: t.dominoPrevious, v: headEvent.previous, decimals: numDec(headEvent.previous), suffix: headEvent.unit || '' }} animate onDark loc={loc} />}
                     </div>
                   )}
                 </>
@@ -2408,8 +2578,8 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
                     {fw.daysUntilFomc != null ? <>D-<CountUp value={fw.daysUntilFomc} decimals={0} /></> : '—'}
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                    <DominoStatTile s={{ k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%' }} animate onDark />
-                    <DominoStatTile s={{ k: t.dominoHikeProb, v: fw.hike, decimals: 1, suffix: '%' }} animate onDark />
+                    <DominoStatTile s={{ k: t.dominoHoldProb, v: fw.noChange, decimals: 1, suffix: '%', term: 'fomc' as MetricTerm }} animate onDark loc={loc} />
+                    <DominoStatTile s={{ k: t.dominoHikeProb, v: fw.hike, decimals: 1, suffix: '%', term: 'fomc' as MetricTerm }} animate onDark loc={loc} />
                   </div>
                 </>
               ) : (
@@ -2464,7 +2634,7 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
                       </div>
                       {nd.stats.length > 0 && (
                         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                          {nd.stats.map((s) => <DominoStatTile key={s.k} s={s} animate={false} />)}
+                          {nd.stats.map((s) => <DominoStatTile key={s.k} s={s} animate={false} loc={loc} />)}
                         </div>
                       )}
                       <p style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.6, fontWeight: 650 as any, color: P.sub }}>{nd.mech}</p>
@@ -2509,7 +2679,7 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
                             </div>
                             {nd.stats.length > 0 && (
                               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                {nd.stats.map((s) => <DominoStatTile key={s.k} s={s} animate />)}
+                                {nd.stats.map((s) => <DominoStatTile key={s.k} s={s} animate loc={loc} />)}
                               </div>
                             )}
                             <p style={{ margin: '11px 0 0', fontSize: 13, lineHeight: 1.65, fontWeight: 650 as any, color: P.sub }}>{nd.mech}</p>
@@ -2536,7 +2706,7 @@ function MacroDominoPlay({ t, onAward, onClose, disclaimer }: {
                     <>
                       <div style={{ marginTop: 14, fontSize: 9.5, fontWeight: 900, letterSpacing: '0.1em', color: P.faint }}>{t.dominoRecap.toUpperCase()}</div>
                       <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                        {recap.map((s) => <DominoStatTile key={s.k} s={s} animate={false} />)}
+                        {recap.map((s) => <DominoStatTile key={s.k} s={s} animate={false} loc={loc} />)}
                       </div>
                     </>
                   )}
@@ -2593,10 +2763,11 @@ function NewsImage({ src, height }: { src: string; height: number }) {
   );
 }
 
-function NewsLessonPlay({ card, unitPct, t, onAward, onClose, disclaimer }: {
+function NewsLessonPlay({ card, unitPct, t, loc, onAward, onClose, disclaimer }: {
   card: UcCard;
   unitPct: number | null; // today's unit ±% when the story's ticker is in the set
   t: Record<string, string>;
+  loc: Lang;   // 용어 팝업(WimInfo)이 3언어 정의를 고르는 데 필요
   onAward: (gain: number) => void;
   onClose: () => void;
   disclaimer: string;
@@ -2677,7 +2848,7 @@ function NewsLessonPlay({ card, unitPct, t, onAward, onClose, disclaimer }: {
                 {card.moneyRead && <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.65, fontWeight: 700, color: P.ink }}>{card.moneyRead}</p>}
                 {tiles.length > 0 && (
                   <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                    {tiles.map((s) => <DominoStatTile key={s.k} s={s} animate />)}
+                    {tiles.map((s) => <DominoStatTile key={s.k} s={s} animate loc={loc} />)}
                   </div>
                 )}
                 <div style={{ marginTop: 10 }}>
@@ -3638,6 +3809,7 @@ export default function WimPage() {
           fallbackCloses={heroU.spark?.closes || null}
           requestLab={requestLab}
           t={t}
+          loc={loc}
           onAward={awardPlayXp}
           onCollect={collectAlmanac}
           onSrs={srsRecord}
@@ -3694,6 +3866,7 @@ export default function WimPage() {
       <PlayShell closing={playClosing}>
         <MacroDominoPlay
           t={t}
+          loc={loc}
           onAward={awardPlayXp}
           onClose={closePlay}
           disclaimer={disclaimerText}
@@ -3709,6 +3882,7 @@ export default function WimPage() {
           card={ucCard}
           unitPct={units.find((u) => u.ticker === ucCard.ticker)?.moveMagnitude ?? null}
           t={t}
+          loc={loc}
           onAward={awardPlayXp}
           onClose={closePlay}
           disclaimer={disclaimerText}
