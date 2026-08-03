@@ -11,13 +11,12 @@
 import { NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
 import { etDate } from '@/services/breaking/sigmaEngine';
-import type { BreakingItem } from '@/app/api/cron/breaking-detect/route';
+import { FEED_KEY, HEARTBEAT_KEY, type BreakingItem, type BreakingHeartbeat } from '@/services/breaking/types';
 import type { Locale } from '@/services/breaking/whyBuilder';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const FEED_KEY = (d: string) => `breaking:feed:v1:${d}`;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -30,7 +29,10 @@ export async function GET(request: Request) {
     && searchParams.get('secret') === process.env.CRON_SECRET;
 
   const today = etDate();
-  const feed = (await getFromCache<BreakingItem[]>(FEED_KEY(today))) ?? [];
+  const [feed, heartbeat] = await Promise.all([
+    getFromCache<BreakingItem[]>(FEED_KEY(today)).then((v) => v ?? []),
+    getFromCache<BreakingHeartbeat>(HEARTBEAT_KEY),
+  ]);
 
   // 섀도 항목은 일반 요청에 노출하지 않는다.
   const visible = debug ? feed : feed.filter((f) => f.mode === 'live');
@@ -58,7 +60,13 @@ export async function GET(request: Request) {
     }));
 
   return NextResponse.json(
-    { items, date: today, count: items.length },
+    {
+      items, date: today, count: items.length,
+      // 생존 신호만. 감지 내용은 담기지 않는다.
+      detector: heartbeat
+        ? { lastRunISO: heartbeat.atISO, scanned: heartbeat.scanned, regularSession: heartbeat.regularSession }
+        : null,
+    },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

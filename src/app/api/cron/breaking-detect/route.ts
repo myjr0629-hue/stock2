@@ -23,7 +23,11 @@ import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getSigmaProfile, etDate } from '@/services/breaking/sigmaEngine';
 import { detectForSymbol, isRegularSessionNow, TUNING, type MoveSignal } from '@/services/breaking/detectMove';
-import { buildWhyContext, buildWhyText, buildHeadline, type Locale, type WhyContext } from '@/services/breaking/whyBuilder';
+import { buildWhyContext, buildWhyText, buildHeadline, type Locale } from '@/services/breaking/whyBuilder';
+import {
+  FEED_KEY, SHADOW_KEY, HEARTBEAT_KEY, DAY_KEY, SPIKE_KEY, LASTPUB_KEY, COOL_KEY,
+  type BreakingItem,
+} from '@/services/breaking/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,25 +56,6 @@ const GLOBAL_GAP_MS = 60 * 60 * 1000;
 const MAX_DAILY_SPIKE = 2;
 const LOCALES: Locale[] = ['ko', 'en', 'ja'];
 
-const dayKey = (d: string) => `breaking:day:v1:${d}`;
-const spikeKey = (d: string) => `breaking:dayspike:v1:${d}`;
-const lastPubKey = (d: string) => `breaking:lastpub:v1:${d}`;
-const coolKey = (sym: string) => `breaking:cool:v1:${sym}`;
-/** 앱이 읽는 «오늘의 속보» 목록 */
-export const FEED_KEY = (d: string) => `breaking:feed:v1:${d}`;
-/** 섀도 모드 관측 로그 — 임계 튜닝 근거로 쌓는다 */
-const SHADOW_KEY = (d: string) => `breaking:shadow:v1:${d}`;
-
-export interface BreakingItem {
-  id: string;
-  signal: MoveSignal;
-  /** 언어별 조립 결과 */
-  copy: Record<Locale, { headline: string; why: string }>;
-  context: Record<Locale, WhyContext>;
-  createdAt: string;
-  /** 섀도에서 잡힌 건지, 실제 발송된 건지 */
-  mode: 'shadow' | 'live';
-}
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -89,10 +74,24 @@ export async function GET(request: Request) {
   const mode: 'shadow' | 'live' = live ? 'live' : 'shadow';
 
   if (!force && !isRegularSessionNow()) {
+    if (!dry) {
+      await setInCache(HEARTBEAT_KEY, {
+        atISO: new Date().toISOString(), mode, scanned: 0, regularSession: false,
+      }, 3 * 3600).catch(() => null);
+    }
     return NextResponse.json({ ok: true, skipped: true, reason: 'not-regular-session' });
   }
 
   const today = etDate();
+
+  // 생존 신호는 «게이트보다 먼저» 남긴다 — 장외 스킵도 "돌았다"로 세야
+  // 크론이 죽었는지 그냥 조용한 건지 구분할 수 있다.
+  if (!dry) {
+    await setInCache(HEARTBEAT_KEY, {
+      atISO: new Date().toISOString(),
+      mode, scanned: 0, regularSession: isRegularSessionNow(),
+    }, 3 * 3600).catch(() => null);
+  }
 
   // ── 1) 감지 ──────────────────────────────────────────────────────────────
   // σ 프로파일을 먼저 병렬로 데운다(당일 캐시라 첫 호출만 비용 발생).
@@ -122,14 +121,21 @@ export async function GET(request: Request) {
     await setInCache(SHADOW_KEY(today), prev.slice(-400), 3 * 86400);
   }
 
+  if (!dry) {
+    await setInCache(HEARTBEAT_KEY, {
+      atISO: new Date().toISOString(),
+      mode, scanned: all.length, regularSession: true,
+    }, 3 * 3600).catch(() => null);
+  }
+
   if (pool.length === 0) {
     return NextResponse.json({ ok: true, mode, scanned: all.length, detected: 0, published: 0 });
   }
 
   // ── 2) 쿨다운·일일 상한 ─────────────────────────────────────────────────
-  const dailyCount = (await getFromCache<number>(dayKey(today))) ?? 0;
-  const dailySpike = (await getFromCache<number>(spikeKey(today))) ?? 0;
-  const lastPubAt = (await getFromCache<number>(lastPubKey(today))) ?? 0;
+  const dailyCount = (await getFromCache<number>(DAY_KEY(today))) ?? 0;
+  const dailySpike = (await getFromCache<number>(SPIKE_KEY(today))) ?? 0;
+  const lastPubAt = (await getFromCache<number>(LASTPUB_KEY(today))) ?? 0;
   const published: BreakingItem[] = [];
   let count = dailyCount;
   let spikes = dailySpike;
@@ -142,7 +148,7 @@ export async function GET(request: Request) {
     // SPIKE 상한 — 마지막 한 자리는 REVERSAL 몫
     if (signal.kind === 'SPIKE' && spikes >= MAX_DAILY_SPIKE) continue;
 
-    const cooledAt = await getFromCache<number>(coolKey(signal.symbol));
+    const cooledAt = await getFromCache<number>(COOL_KEY(signal.symbol));
     if (cooledAt && Date.now() - cooledAt < COOLDOWN_MS) continue;
 
     // ── 3) «왜» 조립 (3언어, AI 호출 없음) ────────────────────────────────
@@ -169,7 +175,7 @@ export async function GET(request: Request) {
     lastAt = Date.now();
 
     if (!dry) {
-      await setInCache(coolKey(signal.symbol), Date.now(), 6 * 3600);
+      await setInCache(COOL_KEY(signal.symbol), Date.now(), 6 * 3600);
     }
   }
 
@@ -178,9 +184,9 @@ export async function GET(request: Request) {
     // 같은 id는 덮어쓴다(크론 재시도 대비)
     const merged = [...feed.filter((f) => !published.some((p) => p.id === f.id)), ...published];
     await setInCache(FEED_KEY(today), merged.slice(-10), 26 * 3600);
-    await setInCache(dayKey(today), count, 26 * 3600);
-    await setInCache(spikeKey(today), spikes, 26 * 3600);
-    await setInCache(lastPubKey(today), lastAt, 26 * 3600);
+    await setInCache(DAY_KEY(today), count, 26 * 3600);
+    await setInCache(SPIKE_KEY(today), spikes, 26 * 3600);
+    await setInCache(LASTPUB_KEY(today), lastAt, 26 * 3600);
   }
 
   // ── 4) 실전 모드에서만 푸시 (아직 미배선 — 3단계에서 붙인다) ─────────────
