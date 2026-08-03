@@ -22,7 +22,7 @@
 import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getSigmaProfile, etDate } from '@/services/breaking/sigmaEngine';
-import { detectForSymbol, isRegularSessionNow, TUNING, type MoveSignal } from '@/services/breaking/detectMove';
+import { detectForSymbol, fetchLiveTicks, isRegularSessionNow, TUNING, type MoveSignal } from '@/services/breaking/detectMove';
 import { buildWhyContext, buildWhyText, buildHeadline, type Locale } from '@/services/breaking/whyBuilder';
 import {
   FEED_KEY, SHADOW_KEY, HEARTBEAT_KEY, DAY_KEY, SPIKE_KEY, LASTPUB_KEY, COOL_KEY,
@@ -96,10 +96,14 @@ export async function GET(request: Request) {
   // ── 1) 감지 ──────────────────────────────────────────────────────────────
   // σ 프로파일을 먼저 병렬로 데운다(당일 캐시라 첫 호출만 비용 발생).
   const all = [...INDEX_SYMBOLS, ...STOCK_SYMBOLS];
-  const profiles = await Promise.all(all.map((s) => getSigmaProfile(s).catch(() => null)));
+  const [profiles, ticks] = await Promise.all([
+    Promise.all(all.map((s) => getSigmaProfile(s).catch(() => null))),
+    // 실시간 끝점 — 스냅샷 1콜로 전 종목. 집계 13~15분 지연을 우회한다.
+    fetchLiveTicks(all).catch(() => ({} as Record<string, { price: number; atMs: number }>)),
+  ]);
 
   const detected = (await Promise.all(
-    all.map((s, i) => detectForSymbol(s, profiles[i]).catch(() => null)),
+    all.map((s, i) => detectForSymbol(s, profiles[i], ticks[s]).catch(() => null)),
   )).filter(Boolean) as MoveSignal[];
 
   // 지수가 발동했으면 개별종목은 버린다 — "시장 전체"가 이미 답이다.
