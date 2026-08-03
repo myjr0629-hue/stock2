@@ -23,12 +23,17 @@ const getRegularChangePercent = (t: any): number => {
     const prevClose = toNumber(t.prevDay?.c);
     const dayClose = toNumber(t.day?.c);
 
-    if (dayClose > 0 && prevClose > 0 && dayClose !== prevClose) {
+    // [FIX 2026-07-31] `!== prevClose` 두 조건 제거 — 보합(0.00%)은 결측이 아니다.
+    // 정확히 보합인 종목이 이 두 분기를 다 빠져나가 `todaysChangePerc`로 떨어졌는데,
+    // 그 값은 시간외를 포함해 **보합 종목을 0이 아닌 등락률로 둔갑**시켰다.
+    // 이 함수는 WIM 퀴즈 로스터도 먹이므로 잘못된 등락률이 그대로 문제로 나간다.
+    if (dayClose > 0 && prevClose > 0) {
         return ((dayClose - prevClose) / prevClose) * 100;
     }
 
+    // 여기부터는 day 바가 아직 없을 때(장 초반·결측)의 폴백이다.
     const liveLast = toNumber(t.lastTrade?.p) || toNumber(t.min?.c);
-    if (liveLast > 0 && prevClose > 0 && liveLast !== prevClose) {
+    if (liveLast > 0 && prevClose > 0) {
         return ((liveLast - prevClose) / prevClose) * 100;
     }
 

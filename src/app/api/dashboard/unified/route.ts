@@ -743,7 +743,10 @@ async function buildResponseFromAnalysisCache(
         } else if (session === 'REG') {
             changePercent = prevClose > 0 && price > 0 ? ((price - prevClose) / prevClose) * 100 : null;
         } else {
-            changePercent = (dayClose > 0 && prevClose > 0 && dayClose !== prevClose) ? ((dayClose - prevClose) / prevClose) * 100 : null;
+            // [FIX 2026-07-31] `dayClose !== prevClose` 제거 — 보합(0.00%)은 «답»이지 결측이 아니다.
+            // 같은 오판이 live/quotes·intel/fast·movers·calcPriceDisplay·IntelClientPage에도 있었고,
+            // 실측 SOXL 7/31(114.72 → 114.72, 0.00%)에서 7/30의 +24.71%가 화면에 남았다.
+            changePercent = (dayClose > 0 && prevClose > 0) ? ((dayClose - prevClose) / prevClose) * 100 : null;
         }
 
         // Squeeze risk label from score

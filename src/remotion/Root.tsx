@@ -87,11 +87,25 @@ import { MarketPressureBriefV36 } from '../shorts/remotion/templates/MarketPress
 import { createMockMarketPressureBriefV36Input } from '../shorts/data/mockMarketPressureBriefV36';
 import { MarketPressureBriefV37 } from '../shorts/remotion/templates/MarketPressureBriefV37';
 import { createMockMarketPressureBriefV37Input } from '../shorts/data/mockMarketPressureBriefV37';
+import { BriefingV1, BRIEFING_DURATION } from './compositions/BriefingV1';
+import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      {/* ══ 신규 라인 — 「SIGNUM 브리핑」. 정본 .agent/VIDEO_ENGINE_SPEC.md ══
+          기존 V10–V37 42종은 폐기 결정(대표 지시). 이것이 데일리 3편의 본체다. */}
+      <Composition
+        id="BriefingV1"
+        component={BriefingV1 as React.ComponentType<any>}
+        durationInFrames={BRIEFING_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={SAMPLE_BRIEFING}
+      />
+
       {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}
       <Composition
         id="MarketPressureBriefV37-NVDA"

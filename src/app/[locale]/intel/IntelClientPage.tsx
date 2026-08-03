@@ -1084,8 +1084,12 @@ function processTickerData(data: any): any {
         const prevClose = data.prices?.prevRegularClose || data.prevClose;
         if (regularClose && regularClose > 0) {
             displayPrice = regularClose;
-            const isNewTradingDay = prevClose && Math.abs(regularClose - prevClose) > 0.001;
-            if (isNewTradingDay && prevClose > 0) {
+            // [FIX 2026-07-31] "가격이 전일과 다르다"를 «새 세션 데이터가 있다»의 대용으로 쓰던
+            // isNewTradingDay 판정을 제거했다. 보합일에는 두 값이 같아 판정이 거짓이 되고,
+            // else의 `prevChangePct` — 이름 그대로 **어제의 등락률** — 이 표시됐다.
+            // 실측 SOXL 7/31: 114.72 → 114.72(0.00%)인데 7/30의 +24.71%가 화면에 남음.
+            // 두 값이 모두 유효하면 항상 계산한다. 같으면 식이 자연히 0을 낸다.
+            if (prevClose > 0) {
                 displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
             } else {
                 displayChangePct = data.prices?.prevChangePct || data.display?.changePctPct || 0;

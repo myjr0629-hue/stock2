@@ -171,7 +171,11 @@ export async function GET(request: Request) {
                 if (agg && agg.prevClose > 0 && agg.prevPrevClose > 0) {
                     // Use historical aggregates: yesterday's close vs day-before-yesterday's close
                     displayChangePct = ((agg.prevClose - agg.prevPrevClose) / agg.prevPrevClose) * 100;
-                } else if (todayClose > 0 && prevClose > 0 && todayClose !== prevClose) {
+                // [FIX 2026-07-31] `todayClose !== prevClose` 제거 — 보합(0.00%)은 결측이 아니다.
+                // 그 조건이 거짓이 되면 아래 `cached.prices.prevChangePct`(= **어제의 등락률**)로
+                // 떨어져 화면에 전날 숫자가 남았다. 실측 SOXL 7/31: 114.72 → 114.72(0.00%)인데
+                // 7/30의 +24.71%가 표시됨.
+                } else if (todayClose > 0 && prevClose > 0) {
                     displayChangePct = ((todayClose - prevClose) / prevClose) * 100;
                 } else if (cached?.prices?.prevChangePct) {
                     displayChangePct = cached.prices.prevChangePct;

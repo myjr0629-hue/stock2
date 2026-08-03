@@ -147,7 +147,16 @@ export async function GET(request: Request) {
                 changePercent = manualCalc !== 0 ? manualCalc : todaysChangePerc;
             } else {
                 // PRE / POST / CLOSED
-                if (dayClose > 0 && prevDayClose > 0 && dayClose !== prevDayClose) {
+                // [FIX 2026-07-31] `dayClose !== prevDayClose` 조건을 제거했다.
+                // 그 조건은 **진짜 보합(0.00%)을 «데이터 없음»으로 오판**했다. 실측: SOXL이
+                // 7/30 114.72(+24.71%) → 7/31 114.72(0.00%)로 마감하자 day.c === prevDay.c가 되어
+                // changePercent가 null이 됐고, null을 "다른 데서 가져오라"는 신호로 쓰는 클라이언트가
+                // **7/30의 +24.71%를 7/31 자리에 그대로 표시**했다.
+                // 원래 의도한 방어는 아래 주석대로 day.c=0(결측)이며 그건 `dayClose > 0`이 잡는다.
+                // 휴일 미러(day 바가 prevDay를 복사)는 이 함수가 아니라 [HOLIDAY] recon 블록의
+                // `session === 'closed' && !dayClose`가 잡으므로 여기서 중복 방어할 이유가 없다.
+                if (dayClose > 0 && prevDayClose > 0) {
+                    // 두 값이 같으면 식이 자연히 0을 낸다 — 보합은 유효한 답이지 결측이 아니다.
                     changePercent = ((dayClose - prevDayClose) / prevDayClose) * 100;
                 } else {
                     // [FIX 2026-05-06] PRE 마켓에서 day.c=0이면 todaysChangePerc 사용 금지

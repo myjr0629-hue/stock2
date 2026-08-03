@@ -208,8 +208,10 @@ export async function GET(request: Request) {
                 const prevClose = data.prices?.prevRegularClose || data.prevClose;
                 if (regularClose && regularClose > 0) {
                     displayPrice = regularClose;
-                    const isNewTradingDay = prevClose && Math.abs(regularClose - prevClose) > 0.001;
-                    if (isNewTradingDay && prevClose > 0) {
+                    // [FIX 2026-07-31] 보합(0.00%)을 «데이터 없음»으로 오판하던 isNewTradingDay 제거.
+                    // 거짓이 되면 else의 prevChangePct(= 어제의 등락률)가 화면에 남았다.
+                    // 실측 SOXL 7/31: 114.72 → 114.72(0.00%)인데 7/30의 +24.71%가 표시됨.
+                    if (prevClose > 0) {
                         displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
                     } else {
                         displayChangePct = data.prices?.prevChangePct || data.display?.changePctPct || 0;

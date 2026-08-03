@@ -103,7 +103,13 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         // POST-market / CLOSED: Main price MUST be today's regular close.
         if (regularCloseToday && regularCloseToday > 0) {
             displayPrice = regularCloseToday;
-            if (resolvedPrevClose > 0 && Math.abs(regularCloseToday - resolvedPrevClose) > 0.001) {
+            // [FIX 2026-07-31] `Math.abs(...) > 0.001` 조건을 제거했다.
+            // 오늘 종가가 전일 종가와 «같다»는 것은 0.00% 보합이라는 **답**이지 결측이 아닌데,
+            // 그 조건이 거짓이 되면서 else의 `prevChangePct` — 이름 그대로 **어제의 등락률** —
+            // 로 떨어졌다. 실측: SOXL 7/30 114.72(+24.71%) → 7/31 114.72(0.00%)에서
+            // **7/30의 +24.71%가 7/31 화면에 그대로 표시**됐다.
+            // 두 값이 모두 유효하면 언제나 계산한다. 같으면 식이 0을 낸다.
+            if (resolvedPrevClose > 0) {
                 displayChangePct = ((regularCloseToday - resolvedPrevClose) / resolvedPrevClose) * 100;
             } else {
                 displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;

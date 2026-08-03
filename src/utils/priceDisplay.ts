@@ -124,12 +124,10 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
             }
             // Calculate change from prevClose (matches Command page)
             if (displayPrice > 0 && prevClose && prevClose > 0) {
-                const isNewTradingDay = Math.abs(displayPrice - prevClose) > 0.001;
-                if (isNewTradingDay) {
-                    displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
-                } else {
-                    displayChangePct = prevChangePct ?? intradayChangePct ?? changePercent ?? 0;
-                }
+                // [FIX 2026-07-31] 보합(0.00%)을 «데이터 없음»으로 오판하던 isNewTradingDay 제거.
+                // 바깥 if가 이미 displayPrice>0 && prevClose>0 을 보장하므로 항상 계산하면 된다.
+                // 같으면 식이 0을 낸다. 실측 SOXL 7/31: 어제의 +24.71%가 화면에 남았다.
+                displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
             }
             // Badge = POST price
             if (extended?.postPrice && extended.postPrice > 0) {
@@ -150,12 +148,10 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
             }
             // Calculate change from prevClose (matches Command page)
             if (displayPrice > 0 && prevClose && prevClose > 0) {
-                const isNewTradingDay = Math.abs(displayPrice - prevClose) > 0.001;
-                if (isNewTradingDay) {
-                    displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
-                } else {
-                    displayChangePct = prevChangePct ?? intradayChangePct ?? changePercent ?? 0;
-                }
+                // [FIX 2026-07-31] 보합(0.00%)을 «데이터 없음»으로 오판하던 isNewTradingDay 제거.
+                // 바깥 if가 이미 displayPrice>0 && prevClose>0 을 보장하므로 항상 계산하면 된다.
+                // 같으면 식이 0을 낸다. 실측 SOXL 7/31: 어제의 +24.71%가 화면에 남았다.
+                displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
             }
             // Badge = POST price if available
             if (extended?.postPrice && extended.postPrice > 0) {
