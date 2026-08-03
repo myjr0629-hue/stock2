@@ -133,6 +133,21 @@ market,stocks,trading,course,beginner,money,economy,earnings,nasdaq,trivia,ticke
 5. **스크린샷도 언어별 업로드.** 안 하면 그 언어권에 영어 스샷이 노출되어 전환율이 떨어짐.
 
 ## 4. 카테고리 / 등급 / 프라이버시
+
+### ★ IARC 콘텐츠 등급 — 확정 (2026-08-02)
+```
+Global Rating ID : 8b9b266a-4e50-8626-8910-3f70402fc5e0
+Product          : Why'd It Move?: Stock Quiz
+Company          : Signum HQ        Storefront : Google Play
+```
+- **이 ID를 보관한다.** 다른 **IARC 가맹 스토어**(원스토어·갤럭시스토어 등)에 올릴 때
+  "Global Rating ID / IARC Certificate ID"란에 넣으면 **등급 설문을 다시 하지 않는다.**
+- ⚠️ **재설문이 필요한 경우 = 설문 답이 바뀌는 변경.** **1.0.1 광고 활성화가 여기 해당한다**
+  (광고 문항 "아니오"→"예"). **광고를 켜면 IARC 설문을 다시 돌려 새 등급을 받아야 한다.**
+- IARC **미가맹 스토어와 실물 제품에는 쓸 수 없다.**
+- 등급이 잘못돼 보이면 rating check 요청 가능(착수 1~3영업일).
+
+### 카테고리·등급
 - **카테고리**: 1차 교육(Education) · 2차 금융(Finance) — 양 스토어 동일
 - **연령 등급**: 4+ (iOS) / 전체이용가 (Play). 무제한 웹 액세스 아님(자사 콘텐츠 웹뷰). v1 광고 없음 → 광고 문항 "아니오"
 - **App Privacy (iOS)** ⚠️ **2026-07-25 갱신 — 푸시 추가로 "수집 안 함"은 더 이상 사실이 아님**: 알림 동의 시 **APNs 디바이스 토큰을 우리 서버(Upstash)로 전송**하므로 다음과 같이 선언해야 함.

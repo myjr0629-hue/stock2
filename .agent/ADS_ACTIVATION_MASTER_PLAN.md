@@ -4,6 +4,63 @@
 > 메모리(광고 6단계, admob-rejection-cycle, android-webview-safe-area-top)를 여기로 합쳤다.
 > 개별 문서는 세부 구현 참조용으로 남긴다.
 
+## 0-A. ★ 최신 상태 (2026-08-03 월, 실측)
+
+### 스토어
+| 앱 | Android (Play) | iOS (App Store) |
+|---|---|---|
+| SIGNUM | ✅ 라이브 | ✅ 라이브 |
+| UC | ✅ 라이브 | ✅ 라이브 |
+| **WIM** | ✅ **2026-08-02 승인·라이브** | ⏳ **심사 중** (7/25 제출) |
+
+**WIM Android 라이브 실측 확인** — `play.google.com/store/apps/details?id=com.signumhq.wim`이
+정식 리스팅 반환(`itemprop="name">Why'd It Move?: Stock Quiz`, `"name":"Signum HQ"`, Rated for/Downloads).
+**WIM iOS는 `itunes.apple.com/lookup?bundleId=com.signumhq.wim` 결과 0건** = 아직 미등재.
+
+**IARC 콘텐츠 등급 확정 (2026-08-02)**
+```
+Global Rating ID : 8b9b266a-4e50-8626-8910-3f70402fc5e0
+Product          : Why'd It Move?: Stock Quiz  /  Signum HQ  /  Google Play
+```
+→ **이 ID는 보관한다.** 다른 IARC 가맹 스토어(원스토어·갤럭시스토어 등)에 올릴 때 이 ID를 넣으면
+등급 설문을 다시 하지 않는다. 단 **설문 답이 바뀔 정도의 변경(예: 광고 추가)은 재설문 대상**이다.
+
+### AdMob — 앱 단위 심사 중 (계정 관문은 통과)
+4개 앱 전부 `Getting ready` / `Limited ad serving` / `Review in progress`, 각 `3 active` 유닛.
+
+- ⚠️ **`Limited ad serving`은 0이 아니다.** 완전 차단이 아니라 **감량 송출** → `ADS_LIVE`를 켜면
+  지금도 수익이 발생한다. 검수 완료 시 물량 제한이 풀린다.
+- ✅ **`app-ads.txt` 정상 확인** — `signumhq.com/app-ads.txt` HTTP 200,
+  `google.com, pub-1716731715414173, DIRECT, f08c47fec0942fa0` (광고 유닛 ID와 퍼블리셔 일치).
+  이게 없으면 검수가 길어지는데 이미 있다. **우리 쪽에서 더 할 게 없다.**
+- 세금 승인 7/28 → 8/3 기준 **6일 경과.** 길지 않다. **대기.**
+
+### ★ 대표 판단 (2026-08-03)
+**"월요일이니 며칠 더 기다려본다."** → iOS 승인과 AdMob 검수 완료를 기다린 뒤 한 번에 처리한다.
+
+### 대기 중 — 재개 시 여기서 시작
+
+**A. 지금도 가능한 것 (웹 배포, 앱 무관)** — 대표 판단으로 보류 중
+| # | 작업 | 비고 |
+|---|---|---|
+| A-1 | **`/app-wim` 스마트링크** 신설 (`/app`·`/app-uc`와 동형: UA로 Play/App Store 302 + `?from=` 집계) | ⚠️ **미들웨어 matcher에 `app-wim$` 예외 추가 필수** (`/app-uc` 주석 참조) |
+| A-2 | UC·SIGNUM 설정에 **WIM 행** 추가 | ⚠️ **iOS 미승인 → iOS에서는 숨김.** `/app-uc`가 반대 상황에서 쓴 그 패턴 그대로. iOS 승인되면 자동 치유 |
+
+**B. iOS 승인 + AdMob 검수 완료 후 (한 창에서 같이)**
+| # | 작업 | 비고 |
+|---|---|---|
+| B-1 | WIM 광고 배선 — `wim/page.tsx`가 `wim/ads.ts`를 부르게 | 현재 `ads.ts`는 main에 있으나 **호출 0곳**(실측) |
+| B-2 | WIM iOS `NSUserTrackingUsageDescription` + Android `AD_ID` 복원 | **바이너리 필요** |
+| B-3 | **선언 연쇄 2건** — Play 광고ID 선언 + "광고 포함", ASC App Privacy 추적 | UC 때 둘 다 제출을 막았다. WIM도 동일하게 온다 |
+| B-4 | `ADS_LIVE` / `WIM_ADS_LIVE` 플래그 on + 스토어 선언을 **같은 창에서** | |
+
+**왜 B를 나중에 묶는가**
+1. 광고를 켜면 `AD_ID` 권한 때문에 **바이너리 변경**이 필요한데, iOS 승인 전에 Android만 새로 올리면 두 스토어 버전이 엇갈린다
+2. AdMob이 아직 `Limited`라 지금 켜서 얻는 수익이 미미하다
+3. **선언 연쇄는 제출을 막는다** — 한 번에 처리하는 편이 왕복이 적다
+
+---
+
 ## 0. 오늘 바뀐 것 (2026-07-28)
 - ✅ **W-8BEN 세금 승인** (결제 프로필 8577-9659-8972, 조약세율 적용: Other copyright 10% / Services 0%)
 - ✅ **AdMob 계정 재제출** 완료 → 계정 심사 중
@@ -12,7 +69,9 @@
 
 ## 1. 실측 현황 (코드 직접 확인, 추측 아님)
 
-| | **SIGNUM** (라이브) | **UC** (라이브) | **WIM** (양쪽 심사중) |
+> ⚠️ 아래 표의 WIM 열은 2026-07-28 기준. **Android는 8/2 승인·라이브**(§0-A 참조).
+
+| | **SIGNUM** (라이브) | **UC** (라이브) | **WIM** (Android 라이브 / iOS 심사중) |
 |---|---|---|---|
 | AdMob App ID (iOS) | `~4757602262` **실** ✅ | 샘플 ❌ → **`~6307534807`** | 샘플 ❌ |
 | AdMob App ID (Android) | `~8198575283` **실** ✅ | 샘플 ❌ → **`~1198944282`** | 샘플 ❌ |
