@@ -240,6 +240,29 @@ export const sections: PrivacySection[] = [
         ),
     },
     {
+        icon: Target,
+        color: 'text-amber-400',
+        title: 'Article 8-2. Advertising',
+        content: (
+            <div className="space-y-3">
+                <ol className="list-decimal list-inside space-y-3">
+                    <li>
+                        <strong>Third-Party Ad Serving:</strong> Our mobile applications display advertisements served by <strong>Google AdMob</strong>. Google may use cookies, device identifiers, and similar technologies to serve and measure ads.
+                    </li>
+                    <li>
+                        <strong>Advertising Identifiers:</strong> On iOS, the <strong>IDFA</strong> may be used when you grant permission through the App Tracking Transparency prompt. On Android, the <strong>Advertising ID (AAID)</strong> may be used for ad delivery, measurement, and fraud prevention.
+                    </li>
+                    <li>
+                        <strong>Personalized Ads:</strong> Ads may be personalized based on this information. You can limit or reset personalized advertising at any time in your device settings, or by declining the tracking prompt on iOS.
+                    </li>
+                    <li>
+                        <strong>Learn More:</strong> Google&apos;s use of advertising data is described in <strong>Google&apos;s Privacy &amp; Terms</strong> (policies.google.com/technologies/partner-sites).
+                    </li>
+                </ol>
+            </div>
+        ),
+    },
+    {
         icon: Lock,
         color: 'text-rose-400',
         title: 'Article 9. Security Measures',

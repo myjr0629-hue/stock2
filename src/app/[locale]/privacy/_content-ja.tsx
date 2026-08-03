@@ -217,6 +217,29 @@ export const sections: PrivacySection[] = [
         ),
     },
     {
+        icon: Target,
+        color: 'text-amber-400',
+        title: '第8条の2（広告）',
+        content: (
+            <div className="space-y-3">
+                <ol className="list-decimal list-inside space-y-3">
+                    <li>
+                        <strong>第三者による広告配信:</strong> 当社のモバイルアプリでは <strong>Google AdMob</strong> が配信する広告を表示します。Google は広告の配信および測定のために Cookie、端末識別子および類似技術を使用する場合があります。
+                    </li>
+                    <li>
+                        <strong>広告識別子:</strong> iOS では App Tracking Transparency の許可時に <strong>IDFA</strong> が、Android では <strong>広告 ID（AAID）</strong> が、広告配信・測定・不正防止の目的で使用される場合があります。
+                    </li>
+                    <li>
+                        <strong>パーソナライズ広告:</strong> 上記情報に基づきパーソナライズ広告が表示される場合があります。端末の設定でいつでもパーソナライズ広告を制限または広告 ID をリセットでき、iOS ではトラッキングの許可を拒否できます。
+                    </li>
+                    <li>
+                        <strong>詳細:</strong> Google による広告データの利用は <strong>Google のプライバシーポリシーと利用規約</strong>（policies.google.com/technologies/partner-sites）に記載されています。
+                    </li>
+                </ol>
+            </div>
+        ),
+    },
+    {
         icon: Lock,
         color: 'text-rose-400',
         title: '第9条（個人情報の安全性確保措置）',

@@ -217,6 +217,29 @@ export const sections: PrivacySection[] = [
         ),
     },
     {
+        icon: Target,
+        color: 'text-amber-400',
+        title: '제8조의2 (광고)',
+        content: (
+            <div className="space-y-3">
+                <ol className="list-decimal list-inside space-y-3">
+                    <li>
+                        <strong>제3자 광고 게재:</strong> 당사 모바일 앱은 <strong>Google AdMob</strong>이 제공하는 광고를 게재합니다. Google은 광고 게재 및 측정을 위해 쿠키, 기기 식별자 및 유사 기술을 사용할 수 있습니다.
+                    </li>
+                    <li>
+                        <strong>광고 식별자:</strong> iOS에서는 앱 추적 투명성(ATT) 동의 시 <strong>IDFA</strong>가, Android에서는 <strong>광고 ID(AAID)</strong>가 광고 게재·측정·부정클릭 방지 목적으로 사용될 수 있습니다.
+                    </li>
+                    <li>
+                        <strong>맞춤형 광고:</strong> 위 정보를 기반으로 맞춤형 광고가 표시될 수 있습니다. 기기 설정에서 언제든지 맞춤형 광고를 제한하거나 광고 ID를 재설정할 수 있으며, iOS에서는 추적 동의를 거부할 수 있습니다.
+                    </li>
+                    <li>
+                        <strong>자세히 보기:</strong> Google의 광고 데이터 사용은 <strong>Google 개인정보처리방침 및 약관</strong>(policies.google.com/technologies/partner-sites)에 설명되어 있습니다.
+                    </li>
+                </ol>
+            </div>
+        ),
+    },
+    {
         icon: Lock,
         color: 'text-rose-400',
         title: '제9조 (개인정보의 안전성 확보 조치)',
