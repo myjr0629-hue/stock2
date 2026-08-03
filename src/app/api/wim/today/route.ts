@@ -179,9 +179,36 @@ export async function GET(request: Request) {
         .slice(0, 3)
         .map((n) => n.title);
       const barsAll = (aggs?.results || []) as { c?: number; vw?: number; t?: number }[];
-      const lastDay = barsAll.length && typeof barsAll[barsAll.length - 1].t === 'number'
-        ? etDateOf(barsAll[barsAll.length - 1].t as number) : null;
-      const bars = lastDay ? barsAll.filter((b) => typeof b.t === 'number' && etDateOf(b.t) === lastDay) : [];
+      // [FIX 2026-08-03] 세션을 «마지막 봉의 날짜»로 정하면 프리마켓에 무너진다.
+      // 이전 주석은 "before the ET open, today's calendar date has no bars yet"를 전제했는데
+      // **5분봉은 프리마켓을 포함한다.** 실측: 2026-08-03(월) ET 04:43(프리 43분 경과)에 이미
+      // 오늘 봉이 존재 → lastDay가 오늘이 되어 **금요일 세션 전체를 버리고** 프리마켓 몇 개만
+      // 남겼고, 8개 미만이라 spark=null → 차트 소멸. 8개를 넘겼다면 더 나빴다:
+      // "RBLX -26.9%"(7/31 금요일 움직임)를 묻는 문제 아래에 **오늘 새벽의 평평한 조각**이
+      // 그려져 문제와 차트가 서로 모순됐을 것이다.
+      //
+      // 규칙: **정규장(09:30–16:00 ET) 봉만 남기고 그중 가장 최근 날짜를 쓴다.**
+      // 이러면 어느 세션에서도 «문제가 묻는 그 세션»과 차트가 일치한다.
+      //   프리마켓 → 오늘 정규장 봉 0개 → 직전 거래일 자동 선택
+      //   장중     → 오늘 정규장 봉이 쌓임 → 오늘(퀴즈도 오늘 움직임이라 일치)
+      //   애프터·마감·주말·휴일 → 마지막으로 열린 정규장
+      const etHM = (ms: number) => {
+        const p = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false,
+        }).formatToParts(new Date(ms));
+        const h = Number(p.find((x) => x.type === 'hour')?.value ?? 0);
+        const mi = Number(p.find((x) => x.type === 'minute')?.value ?? 0);
+        return h * 60 + mi;
+      };
+      const REG_OPEN = 9 * 60 + 30, REG_CLOSE = 16 * 60;
+      const regularBars = barsAll.filter((b) => {
+        if (typeof b.t !== 'number') return false;
+        const t = etHM(b.t);
+        return t >= REG_OPEN && t < REG_CLOSE;   // 프리·애프터 제외
+      });
+      const lastDay = regularBars.length
+        ? etDateOf(regularBars[regularBars.length - 1].t as number) : null;
+      const bars = lastDay ? regularBars.filter((b) => etDateOf(b.t as number) === lastDay) : [];
       const closes = bars.map((b) => b.c).filter((x): x is number => typeof x === 'number' && x > 0);
       const vwaps = bars.map((b) => b.vw).filter((x): x is number => typeof x === 'number' && x > 0);
       const spark = closes.length >= 8
