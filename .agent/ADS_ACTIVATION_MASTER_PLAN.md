@@ -28,12 +28,24 @@ Product          : Why'd It Move?: Stock Quiz  /  Signum HQ  /  Google Play
 ### AdMob — 앱 단위 심사 중 (계정 관문은 통과)
 4개 앱 전부 `Getting ready` / `Limited ad serving` / `Review in progress`, 각 `3 active` 유닛.
 
-- ⚠️ **`Limited ad serving`은 0이 아니다.** 완전 차단이 아니라 **감량 송출** → `ADS_LIVE`를 켜면
-  지금도 수익이 발생한다. 검수 완료 시 물량 제한이 풀린다.
-- ✅ **`app-ads.txt` 정상 확인** — `signumhq.com/app-ads.txt` HTTP 200,
+- ✅ **`app-ads.txt` 정상 — 직접 확인함.** `signumhq.com/app-ads.txt` HTTP 200,
   `google.com, pub-1716731715414173, DIRECT, f08c47fec0942fa0` (광고 유닛 ID와 퍼블리셔 일치).
   이게 없으면 검수가 길어지는데 이미 있다. **우리 쪽에서 더 할 게 없다.**
+- ⚠️ **`Limited ad serving`이 실제로 무엇을 허용하는지는 «확인되지 않았다».**
+  나는 한때 "0이 아니라 감량 송출이니 켜면 지금도 수익"이라고 적었는데 **그건 검증 없는 해석이었다**
+  (검색해도 근거가 안 나왔는데 단정했다). **판별 방법은 AdMob → Reports의 노출수(Impressions)뿐이고
+  그건 대표만 볼 수 있다.** 0이면 안 나가는 것, 0보다 크면 나가는 것.
 - 세금 승인 7/28 → 8/3 기준 **6일 경과.** 길지 않다. **대기.**
+
+### ⚠️ 광고가 나가려면 관문이 «둘»이다 — 혼동 금지
+| 관문 | 현재 | 통제 주체 |
+|---|---|---|
+| **① 우리 스위치** | `ADS_LIVE = false` (UC) · `WIM_ADS_LIVE = false` (WIM, `ads.ts`·`page.tsx` 양쪽) — **실측** | **우리** |
+| **② AdMob 앱 심사** | `Review in progress` | 구글 |
+
+**①이 꺼져 있어 구글이 오늘 승인해도 광고는 0개다.** 요청 자체를 안 한다.
+반대로 ①만 켜도 ②가 안 끝났으면 얼마나 나갈지 모른다(위 미확인 항목).
+→ **승인 대기 후 ①을 켠다. SIGNUM은 웹 배포만으로 즉시 송출, UC·WIM은 바이너리 필요.**
 
 ### ★ 대표 판단 (2026-08-03)
 **"월요일이니 며칠 더 기다려본다."** → iOS 승인과 AdMob 검수 완료를 기다린 뒤 한 번에 처리한다.
