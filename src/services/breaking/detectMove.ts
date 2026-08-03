@@ -179,6 +179,51 @@ export async function detectForSymbol(
   return null;
 }
 
+/**
+ * σ 게이트를 «건너뛰고» 지금의 실제 움직임을 그대로 신호로 만든다.
+ * 검증 전용(=/api/guardian/breaking?preview=1). 크론은 절대 이걸 쓰지 않는다.
+ * 목적: 실제 발동은 며칠에 한 번이라 카드 UI를 검증할 수 없는데, 가짜 데이터로
+ * 검증하면 «가짜는 언제나 예쁘게 나오므로» 검증이 아니게 된다. 그래서 숫자는
+ * 전부 실측으로 두고 «알릴 만큼 크지 않을 뿐»인 상태를 그대로 렌더해 본다.
+ */
+export async function detectForSymbolRaw(symbol: string): Promise<MoveSignal | null> {
+  const sigma = await getSigmaProfile(symbol);
+  if (!sigma) return null;
+  const bars = await fetchRegularBars(symbol);
+  const W = TUNING.WINDOW;
+  if (bars.length < W + 2) return null;
+
+  const last = bars[bars.length - 1];
+  const head = bars[bars.length - 1 - W];
+  if (!head?.c || !last?.c) return null;
+
+  const changePct = ((last.c - head.c) / head.c) * 100;
+  const sigW = sigmaForWindow(sigma, W);
+  const winVol = bars.slice(-W).reduce((a, b) => a + (b.v || 0), 0) / W;
+  const baselinePerMin = sigma.avgVolume / 390;
+  const dayOpen = bars[0].o || bars[0].c;
+
+  // 직전 다리가 반대면 REVERSAL로 «표기»한다(임계 무시) — 두 레이아웃을 다 본다.
+  const pIdx = bars.length - 1 - W - TUNING.PRIOR_WINDOW;
+  const priorPct = pIdx >= 0 && bars[pIdx]?.c
+    ? ((head.c - bars[pIdx].c) / bars[pIdx].c) * 100 : undefined;
+  const isRev = priorPct != null && priorPct * changePct < 0;
+
+  return {
+    symbol,
+    kind: isRev ? 'REVERSAL' : 'SPIKE',
+    changePct,
+    sigmaMult: sigW > 0 ? Math.abs(changePct) / sigW : 0,
+    priorPct: isRev ? priorPct : undefined,
+    volumeMult: baselinePerMin > 0 ? winVol / baselinePerMin : 0,
+    price: last.c,
+    dayChangePct: dayOpen ? ((last.c - dayOpen) / dayOpen) * 100 : 0,
+    atET: etStamp(last.t),
+    atISO: new Date(last.t).toISOString(),
+    priority: 0,
+  };
+}
+
 /** 정규장 중인지 — 크론이 장외에 헛도는 걸 막는다. */
 export function isRegularSessionNow(now: Date = new Date()): boolean {
   const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' })

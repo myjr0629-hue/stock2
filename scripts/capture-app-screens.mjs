@@ -24,12 +24,12 @@ const BASE = 'https://www.signumhq.com';
 // iPhone 15 Pro 논리 해상도. @3x로 찍어 리모션에서 축소해도 선명하게.
 const VIEWPORT = { width: 402, height: 874, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
 
-const SHOTS = [
+const SHOTS = (process.env.SHOTS ? JSON.parse(process.env.SHOTS) : [
   { name: 'signum-dash', path: '/en/app-view/dash', wait: 11000 },
   { name: 'signum-cmd', path: '/en/app-view/cmd?t=SOXL', wait: 14000 },
   { name: 'wim-home', path: '/en/wim', wait: 11000 },
   { name: 'uc-home', path: '/en/undercurrent', wait: 11000 },
-];
+]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
