@@ -15,6 +15,7 @@ import { AdBanner } from '@/components/app/AdBanner';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { MorningBrief } from '@/components/app/MorningBrief';
+import { BreakingCard } from '@/components/app/BreakingCard';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -574,6 +575,9 @@ function GuardianPageContent() {
         {activeTab === 'overview' && (
           <>
             <MorningBrief locale={locale} autoOpen={briefParam === '1'} />
+            {/* 급변동 속보 — 모닝브리프 바로 아래(대표 요청).
+                섀도 모드에서는 API가 빈 배열을 주므로 아무것도 렌더하지 않는다. */}
+            <BreakingCard locale={locale} />
             <MobileGuardianOverview
               data={data}
               loading={loading}

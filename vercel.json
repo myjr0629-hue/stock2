@@ -1,120 +1,124 @@
 {
-    "crons": [
-        {
-            "path": "/api/cron/uc-warm",
-            "schedule": "*/15 8-23 * * 1-5"
-        },
-        {
-            "path": "/api/cron/uc-warm",
-            "schedule": "*/30 0-7 * * 1-5"
-        },
-        {
-            "path": "/api/cron/uc-warm",
-            "schedule": "7 * * * 0,6"
-        },
-        {
-            "path": "/api/cron/report?type=final",
-            "schedule": "0 14 * * 1-5"
-        },
-        {
-            "path": "/api/cron/report?type=live",
-            "schedule": "30 15 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=m7",
-            "schedule": "0 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=physical_ai",
-            "schedule": "5 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=silicon_core",
-            "schedule": "10 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=power_matrix",
-            "schedule": "15 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=bio_pulse",
-            "schedule": "20 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=cyber_shield",
-            "schedule": "25 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=orbit_defense",
-            "schedule": "30 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=quantum_edge",
-            "schedule": "35 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=fintech_pulse",
-            "schedule": "40 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/snapshot?sector=cloud_fortress",
-            "schedule": "45 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/cross-sector-brief",
-            "schedule": "50 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/market-feed",
-            "schedule": "*/2 * * * *"
-        },
-        {
-            "path": "/api/cron/wim-push",
-            "schedule": "45 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/track-verify",
-            "schedule": "30 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/economic-calendar",
-            "schedule": "*/30 13-21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/economic-calendar",
-            "schedule": "0 */4 * * *"
-        },
-        {
-            "path": "/api/cron/warm-news-digest",
-            "schedule": "*/15 * * * *"
-        },
-        {
-            "path": "/api/cron/push?type=morning",
-            "schedule": "10 12 * * 1-5"
-        },
-        {
-            "path": "/api/cron/push?type=morning",
-            "schedule": "10 13 * * 1-5"
-        },
-        {
-            "path": "/api/cron/push?type=closing",
-            "schedule": "0 22 * * 1-5"
-        },
-        {
-            "path": "/api/cron/push?type=closing",
-            "schedule": "20 22 * * 1-5"
-        },
-        {
-            "path": "/api/cron/push?type=closing",
-            "schedule": "40 22 * * 1-5"
-        },
-        {
-            "path": "/api/cron/mkt-originals",
-            "schedule": "3,33 * * * 1-5"
-        },
-        {
-            "path": "/api/cron/mkt-replies",
-            "schedule": "17 * * * 1-5"
-        }
-    ]
+  "crons": [
+    {
+      "path": "/api/cron/uc-warm",
+      "schedule": "*/15 8-23 * * 1-5"
+    },
+    {
+      "path": "/api/cron/uc-warm",
+      "schedule": "*/30 0-7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/uc-warm",
+      "schedule": "7 * * * 0,6"
+    },
+    {
+      "path": "/api/cron/report?type=final",
+      "schedule": "0 14 * * 1-5"
+    },
+    {
+      "path": "/api/cron/report?type=live",
+      "schedule": "30 15 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=m7",
+      "schedule": "0 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=physical_ai",
+      "schedule": "5 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=silicon_core",
+      "schedule": "10 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=power_matrix",
+      "schedule": "15 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=bio_pulse",
+      "schedule": "20 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=cyber_shield",
+      "schedule": "25 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=orbit_defense",
+      "schedule": "30 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=quantum_edge",
+      "schedule": "35 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=fintech_pulse",
+      "schedule": "40 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot?sector=cloud_fortress",
+      "schedule": "45 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/cross-sector-brief",
+      "schedule": "50 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/market-feed",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/wim-push",
+      "schedule": "45 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/track-verify",
+      "schedule": "30 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/economic-calendar",
+      "schedule": "*/30 13-21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/economic-calendar",
+      "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/cron/warm-news-digest",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/push?type=morning",
+      "schedule": "10 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron/push?type=morning",
+      "schedule": "10 13 * * 1-5"
+    },
+    {
+      "path": "/api/cron/push?type=closing",
+      "schedule": "0 22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/push?type=closing",
+      "schedule": "20 22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/push?type=closing",
+      "schedule": "40 22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/mkt-originals",
+      "schedule": "3,33 * * * 1-5"
+    },
+    {
+      "path": "/api/cron/mkt-replies",
+      "schedule": "17 * * * 1-5"
+    },
+    {
+      "path": "/api/cron/breaking-detect",
+      "schedule": "*/3 13-20 * * 1-5"
+    }
+  ]
 }
