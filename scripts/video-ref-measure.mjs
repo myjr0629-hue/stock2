@@ -163,15 +163,31 @@ function entranceTimeline(buf, n, fps, cutFrame, seconds = 4) {
 }
 
 // ── 5) 우리 것과의 정량 비교 (자가검수 게이트에 그대로 쓰는 지표) ───────────
-function vitals(buf, n, fps, cutCount) {
+function vitals(buf, n, fps, cutCount, cutFrames = []) {
   let bright = 0, lit = 0;
   for (let i = 0; i < n; i++) {
     const f = frame(buf, i); let s = 0, L = 0;
     for (let k = 0; k < S; k++) { s += f[k]; if (f[k] > 40) L++; }
     bright += s / S; lit += L / S;
   }
+  // ★ 샷별 평균 밝기 — «평균이 숨기는 분포»를 드러낸다
+  const bounds = [0, ...cutFrames, n];
+  const shotBrightness = [];
+  for (let b = 0; b < bounds.length - 1; b++) {
+    const a = bounds[b], z = bounds[b + 1];
+    if (z - a < 2) continue;
+    let sum = 0;
+    for (let i = a; i < z; i++) {
+      const f = frame(buf, i); let t = 0;
+      for (let k = 0; k < S; k++) t += f[k];
+      sum += t / S;
+    }
+    shotBrightness.push(+(sum / (z - a)).toFixed(1));
+  }
+
   const secs = n / fps;
   return {
+    shotBrightness,
     seconds: +secs.toFixed(1),
     meanBrightness: +(bright / n).toFixed(1),      // 레퍼런스 81.4 / 우리 실패작 5.2
     litPixelPct: +((lit / n) * 100).toFixed(1),    // 레퍼런스 50.6% / 우리 실패작 2.8%
@@ -181,13 +197,29 @@ function vitals(buf, n, fps, cutCount) {
 }
 
 /** 발행 전 검수 게이트. 2026-07-31 실패작(밝기 5.2·화소 2.8%·컷 0)이 여기서 걸린다. */
-export const GATE = { meanBrightness: 25, litPixelPct: 15, cutsPer30s: 4 };
+// [FIX 2026-08-04] «평균»이 분포를 숨겼다.
+// V1 실측: 씬별 밝기 23·235·26·56·235·29·214·25 → 평균 91.8로 게이트 통과.
+// 그런데 실제로 보면 «어두운 영상에 흰 화면이 세 번 번쩍»이었다(대표 지적).
+// 나는 게이트 숫자를 맞추는 데 최적화했고, 그 숫자가 나를 속였다.
+// → 씬별 «하한»과 씬 간 «격차 상한»을 추가한다. 통짜 평균만으로는 판정 불가.
+export const GATE = {
+  meanBrightness: 25,   // 전체 평균 하한 (검정 렌더 방지 — 실패작 5.2)
+  litPixelPct: 15,      // 밝은 화소 비율 하한
+  cutsPer30s: 4,        // 컷 밀도 하한
+  shotMinBrightness: 18,// ★ 어떤 샷도 이보다 어두우면 안 된다
+  shotMaxSpread: 110,   // ★ 가장 밝은 샷 − 가장 어두운 샷. 넘으면 «번쩍»이다
+};
 export function gateCheck(v) {
   const fails = [];
   if (v.meanBrightness < GATE.meanBrightness) fails.push(`평균밝기 ${v.meanBrightness} < ${GATE.meanBrightness}`);
   if (v.litPixelPct < GATE.litPixelPct) fails.push(`밝은화소 ${v.litPixelPct}% < ${GATE.litPixelPct}%`);
   const need = Math.max(1, Math.round((v.seconds / 30) * GATE.cutsPer30s));
   if (v.cuts < need) fails.push(`컷 ${v.cuts} < ${need}`);
+  if (Array.isArray(v.shotBrightness) && v.shotBrightness.length) {
+    const lo = Math.min(...v.shotBrightness), hi = Math.max(...v.shotBrightness);
+    if (lo < GATE.shotMinBrightness) fails.push(`가장 어두운 샷 ${lo.toFixed(1)} < ${GATE.shotMinBrightness}`);
+    if (hi - lo > GATE.shotMaxSpread) fails.push(`샷 간 밝기 격차 ${(hi - lo).toFixed(0)} > ${GATE.shotMaxSpread}`);
+  }
   return { pass: fails.length === 0, fails };
 }
 
@@ -204,7 +236,7 @@ const { buf, n } = dumpGray(file, work);
 const fps = meta.fps;
 
 const cutList = cuts(buf, n, fps);
-const v = vitals(buf, n, fps, cutList.length);
+const v = vitals(buf, n, fps, cutList.length, cutList.map((c) => c.frame));
 const gate = gateCheck(v);
 
 console.log('\n══ 기본 ══');
@@ -214,6 +246,11 @@ console.log('\n══ 활력 지표 (발행 검수) ══');
 console.log(`  평균 밝기   ${v.meanBrightness} /255      (레퍼런스 81.4 / 실패작 5.2)`);
 console.log(`  밝은 화소   ${v.litPixelPct}%            (레퍼런스 50.6% / 실패작 2.8%)`);
 console.log(`  컷          ${v.cuts}회 ${v.secPerCut ? `→ ${v.secPerCut}초당 1` : '→ 컷 없음'}`);
+if (v.shotBrightness?.length) {
+  const lo = Math.min(...v.shotBrightness), hi = Math.max(...v.shotBrightness);
+  console.log(`  샷별 밝기  ${v.shotBrightness.join(' · ')}`);
+  console.log(`             최소 ${lo} · 최대 ${hi} · 격차 ${(hi - lo).toFixed(0)}   (하한 ${GATE.shotMinBrightness} / 격차상한 ${GATE.shotMaxSpread})`);
+}
 console.log(`  ${gate.pass ? '✅ GATE PASS' : '❌ GATE FAIL — ' + gate.fails.join(' / ')}`);
 
 console.log('\n══ 컷 ══');

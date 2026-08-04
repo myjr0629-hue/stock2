@@ -88,6 +88,8 @@ import { createMockMarketPressureBriefV36Input } from '../shorts/data/mockMarket
 import { MarketPressureBriefV37 } from '../shorts/remotion/templates/MarketPressureBriefV37';
 import { createMockMarketPressureBriefV37Input } from '../shorts/data/mockMarketPressureBriefV37';
 import { BriefingV1, BRIEFING_DURATION } from './compositions/BriefingV1';
+import { BriefingV2, BRIEFING2_DURATION } from './compositions/BriefingV2';
+import { SAMPLE_BRIEFING_2 } from './data/sampleBriefing2';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
@@ -104,6 +106,17 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={SAMPLE_BRIEFING}
+      />
+
+      {/* V2 — 이야기 구조 + 상시 자막 + 밝기 밴드 고정. V1의 «수치나열·번쩍임» 재설계 */}
+      <Composition
+        id="BriefingV2"
+        component={BriefingV2 as React.ComponentType<any>}
+        durationInFrames={BRIEFING2_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={SAMPLE_BRIEFING_2}
       />
 
       {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}
