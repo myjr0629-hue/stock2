@@ -65,6 +65,42 @@ export interface PriceDisplayResult {
  * No side effects, no hooks, no API calls.
  * Identical logic to LiveTickerDashboard.tsx L757-862 (now single source of truth).
  */
+
+/**
+ * [FIX 2026-08-04 · 프로덕션 회귀 수정]
+ * 종가 대비 등락률을 «안전하게» 계산한다.
+ *
+ * 배경 — 두 개의 서로 다른 결함이 겹쳐 있었다:
+ *  ① 7/31 이전: `Math.abs(today - prev) > 0.001` 가드가 «진짜 보합(0.00%)»을 결측으로 오판해
+ *     어제의 등락률을 오늘 화면에 그대로 남겼다(SOXL 7/31 실측: 7/30의 +24.71%가 표시).
+ *  ② 8/3 그 가드를 걷어내자 **가려져 있던 데이터 오염**이 드러났다:
+ *     `/api/live/ticker`가 **오늘 종가를 prevClose 자리에** 넣어 보낸다.
+ *     실측 SNDK 8/4: prevClose 1288.03 == regularCloseToday 1288.03, 그런데 prevChangePct 6.03.
+ *     → (1288.03-1288.03)/1288.03 = **0.00%** 가 전 종목에 표시됐다.
+ *     (같은 순간 `/api/live/quotes`는 prevClose 1214.83으로 정상 — 두 엔드포인트가 어긋난다)
+ *
+ * 두 경우는 «구분 가능»하다. prevChangePct가 모순을 드러낸다:
+ *   · 진짜 보합      → 계산값 ≈ 0 이고 prevChangePct 도 ≈ 0   → 0.00% 가 정답
+ *   · prevClose 오염 → 계산값 = 0 인데 prevChangePct 는 6.03  → prevChangePct 가 정답
+ * "어제 대비 6.03% 움직였다"면서 어제 종가가 오늘과 같을 수는 없다.
+ *
+ * ⚠️ 근본 원인은 서버(`/api/live/ticker`)다. 이건 클라이언트 방어선이며,
+ *    서버가 고쳐져도 이 함수는 그대로 옳게 동작한다(계산값을 그냥 쓴다).
+ */
+export function safeChangePct(
+    todayClose: number,
+    prevClose: number,
+    prevChangePct?: number | null,
+): number {
+    if (!(todayClose > 0) || !(prevClose > 0)) return prevChangePct ?? 0;
+    const computed = ((todayClose - prevClose) / prevClose) * 100;
+    const looksFlat = Math.abs(computed) < 0.005;
+    const contradicts = prevChangePct != null && Math.abs(prevChangePct) >= 0.01;
+    // 계산값이 0인데 «어제 대비 움직였다»는 값이 따로 있으면 prevClose 가 오염된 것이다.
+    if (looksFlat && contradicts) return prevChangePct as number;
+    return computed;
+}
+
 export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     const {
         livePrice,
@@ -110,7 +146,7 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
             // **7/30의 +24.71%가 7/31 화면에 그대로 표시**됐다.
             // 두 값이 모두 유효하면 언제나 계산한다. 같으면 식이 0을 낸다.
             if (resolvedPrevClose > 0) {
-                displayChangePct = ((regularCloseToday - resolvedPrevClose) / resolvedPrevClose) * 100;
+                displayChangePct = safeChangePct(regularCloseToday, resolvedPrevClose, prevChangePct);
             } else {
                 displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
             }

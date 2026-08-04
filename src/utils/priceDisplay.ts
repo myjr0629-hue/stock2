@@ -1,6 +1,8 @@
 // [CENTRALIZED] Price Display Logic - Single Source of Truth
 // Matches Command page (LiveTickerDashboard.tsx) behavior exactly
 
+import { safeChangePct } from './calcPriceDisplay';
+
 export interface PriceDisplayInput {
     underlyingPrice: number | null;
     prevClose: number | null;
@@ -127,7 +129,7 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
                 // [FIX 2026-07-31] 보합(0.00%)을 «데이터 없음»으로 오판하던 isNewTradingDay 제거.
                 // 바깥 if가 이미 displayPrice>0 && prevClose>0 을 보장하므로 항상 계산하면 된다.
                 // 같으면 식이 0을 낸다. 실측 SOXL 7/31: 어제의 +24.71%가 화면에 남았다.
-                displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
+                displayChangePct = safeChangePct(displayPrice, prevClose, prevChangePct ?? intradayChangePct ?? changePercent);
             }
             // Badge = POST price
             if (extended?.postPrice && extended.postPrice > 0) {
@@ -151,7 +153,7 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
                 // [FIX 2026-07-31] 보합(0.00%)을 «데이터 없음»으로 오판하던 isNewTradingDay 제거.
                 // 바깥 if가 이미 displayPrice>0 && prevClose>0 을 보장하므로 항상 계산하면 된다.
                 // 같으면 식이 0을 낸다. 실측 SOXL 7/31: 어제의 +24.71%가 화면에 남았다.
-                displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
+                displayChangePct = safeChangePct(displayPrice, prevClose, prevChangePct ?? intradayChangePct ?? changePercent);
             }
             // Badge = POST price if available
             if (extended?.postPrice && extended.postPrice > 0) {
