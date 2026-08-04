@@ -207,7 +207,15 @@ export const GATE = {
   litPixelPct: 15,      // 밝은 화소 비율 하한
   cutsPer30s: 4,        // 컷 밀도 하한
   shotMinBrightness: 18,// ★ 어떤 샷도 이보다 어두우면 안 된다
-  shotMaxSpread: 110,   // ★ 가장 밝은 샷 − 가장 어두운 샷. 넘으면 «번쩍»이다
+  // [FIX 2026-08-04] `shotMaxSpread: 110` 은 **틀린 기준이었다.**
+  // 레퍼런스 원본을 직접 측정하니 격차가 220 이라 «레퍼런스가 내 게이트에서 탈락»했다.
+  // 원인: 레퍼런스 뒤쪽 흰 배경 «법적 고지 카드»(한국 금융광고 의무사항) 때문.
+  // 디자인 결함이 아니다. 진짜 문제는 «전역 격차»가 아니라 «번갈아 번쩍이는 것»이다.
+  //   레퍼런스 인접 점프: 45·39·12·10·15·2·**210**·27·18·87 → 큰 점프 1회 (끝에서 한 번)
+  //   내 V1  인접 점프: **212·209**·30·**179·206·185·189**   → 큰 점프 6회 (계속 번쩍)
+  // → 전역 min/max 가 아니라 «인접 샷 점프가 큰 횟수»를 센다.
+  shotJumpThreshold: 150,
+  maxBigJumps: 2,
 };
 export function gateCheck(v) {
   const fails = [];
@@ -216,9 +224,13 @@ export function gateCheck(v) {
   const need = Math.max(1, Math.round((v.seconds / 30) * GATE.cutsPer30s));
   if (v.cuts < need) fails.push(`컷 ${v.cuts} < ${need}`);
   if (Array.isArray(v.shotBrightness) && v.shotBrightness.length) {
-    const lo = Math.min(...v.shotBrightness), hi = Math.max(...v.shotBrightness);
+    const lo = Math.min(...v.shotBrightness);
     if (lo < GATE.shotMinBrightness) fails.push(`가장 어두운 샷 ${lo.toFixed(1)} < ${GATE.shotMinBrightness}`);
-    if (hi - lo > GATE.shotMaxSpread) fails.push(`샷 간 밝기 격차 ${(hi - lo).toFixed(0)} > ${GATE.shotMaxSpread}`);
+    let jumps = 0;
+    for (let i = 1; i < v.shotBrightness.length; i++) {
+      if (Math.abs(v.shotBrightness[i] - v.shotBrightness[i - 1]) > GATE.shotJumpThreshold) jumps++;
+    }
+    if (jumps > GATE.maxBigJumps) fails.push(`밝기 급변 ${jumps}회 > ${GATE.maxBigJumps} (번쩍임)`);
   }
   return { pass: fails.length === 0, fails };
 }
@@ -249,7 +261,11 @@ console.log(`  컷          ${v.cuts}회 ${v.secPerCut ? `→ ${v.secPerCut}초�
 if (v.shotBrightness?.length) {
   const lo = Math.min(...v.shotBrightness), hi = Math.max(...v.shotBrightness);
   console.log(`  샷별 밝기  ${v.shotBrightness.join(' · ')}`);
-  console.log(`             최소 ${lo} · 최대 ${hi} · 격차 ${(hi - lo).toFixed(0)}   (하한 ${GATE.shotMinBrightness} / 격차상한 ${GATE.shotMaxSpread})`);
+  let jm = 0;
+  for (let i = 1; i < v.shotBrightness.length; i++) {
+    if (Math.abs(v.shotBrightness[i] - v.shotBrightness[i - 1]) > GATE.shotJumpThreshold) jm++;
+  }
+  console.log(`             최소 ${lo} · 최대 ${hi} · 밝기 급변 ${jm}회   (하한 ${GATE.shotMinBrightness} / 급변 최대 ${GATE.maxBigJumps})`);
 }
 console.log(`  ${gate.pass ? '✅ GATE PASS' : '❌ GATE FAIL — ' + gate.fails.join(' / ')}`);
 

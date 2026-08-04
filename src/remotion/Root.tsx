@@ -92,6 +92,8 @@ import { BriefingV2, BRIEFING2_DURATION } from './compositions/BriefingV2';
 import { SAMPLE_BRIEFING_2 } from './data/sampleBriefing2';
 import { BriefingV3, BRIEFING3_DURATION } from './compositions/BriefingV3';
 import { SAMPLE_BRIEFING_3 } from './data/sampleBriefing3';
+import { BriefingV4, BRIEFING4_DURATION } from './compositions/BriefingV4';
+import { SAMPLE_BRIEFING_4 } from './data/sampleBriefing4';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
@@ -131,6 +133,17 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={SAMPLE_BRIEFING_3}
+      />
+
+      {/* V4 — 완성본. 커리오시티 루프 + 리텐션 루프백 + 상시 자막 + 실사 배경 */}
+      <Composition
+        id="BriefingV4"
+        component={BriefingV4 as React.ComponentType<any>}
+        durationInFrames={BRIEFING4_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={SAMPLE_BRIEFING_4}
       />
 
       {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}
