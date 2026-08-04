@@ -96,6 +96,8 @@ import { BriefingV4, BRIEFING4_DURATION } from './compositions/BriefingV4';
 import { SAMPLE_BRIEFING_4 } from './data/sampleBriefing4';
 import { BriefingV5, BRIEFING5_DURATION } from './compositions/BriefingV5';
 import { SAMPLE_BRIEFING_5 } from './data/sampleBriefing5';
+import { BriefingV6, BRIEFING6_DURATION } from './compositions/BriefingV6';
+import { SAMPLE_BRIEFING_6 } from './data/sampleBriefing6';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
@@ -157,6 +159,17 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={SAMPLE_BRIEFING_5}
+      />
+
+      {/* V6 — 경제사냥꾼 차용: 고정배너·날짜·자막3초·핵심어색·빨간네모·질문CTA */}
+      <Composition
+        id="BriefingV6"
+        component={BriefingV6 as React.ComponentType<any>}
+        durationInFrames={BRIEFING6_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={SAMPLE_BRIEFING_6}
       />
 
       {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}
