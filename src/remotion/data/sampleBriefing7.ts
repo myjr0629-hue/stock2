@@ -115,12 +115,11 @@ export const SAMPLE_BRIEFING_7: Briefing7Props = {
       block: {
         kind: 'levels',
         src: 'shorts/appshots/mu-cmd.png',
-        focus: { x: 0.05, y: 0.196, w: 0.90 },
-        items: [
-          { k: 'MAX PAIN', v: '$855', sub: '+2.99% gap' },
-          { k: 'GAMMA FLIP', v: '$850', sub: 'price 3.59% above' },
-          { k: 'TOTAL PREMIUM', v: '$126.4M', sub: 'call dominant' },
-        ],
+        // 프리셋 사용 — 가격 헤더 + 옵션 타일이 한 화면에. 빨간 네모는 GAMMA FLIP 칸.
+        focus: { x: 0.04, y: 0.185, w: 0.92 },
+        box: { x: 0.355, y: 0.268, w: 0.285, h: 0.085 },
+        // 화면 자체가 세 수치를 다 보여준다 -> 카드로 또 쓰면 중복. 비워서 화면을 키운다.
+        items: [],
       },
     },
 

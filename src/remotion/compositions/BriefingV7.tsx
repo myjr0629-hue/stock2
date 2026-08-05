@@ -31,6 +31,7 @@ import {
   useCurrentFrame, useVideoConfig, Easing,
 } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Inter';
+import { AppShot, SHOT_PRESET } from '../components/AppShot';
 
 const { fontFamily } = loadFont();
 const FPS = 30;
@@ -50,7 +51,7 @@ type Block =
   | { kind: 'news'; source: string; at: string; headline: string; body: string }
   | { kind: 'quote'; label: string; price: string; pct: string; up: boolean; series: number[] }
   | { kind: 'rows'; rows: Array<{ t: string; pct: string; up: boolean; note: string }> }
-  | { kind: 'levels'; src: string; focus: { x: number; y: number; w: number }; items: Array<{ k: string; v: string; sub: string }> };
+  | { kind: 'levels'; src: string; focus?: { x: number; y: number; w: number }; box?: { x: number; y: number; w: number; h: number }; items: Array<{ k: string; v: string; sub: string }> };
 
 export interface Briefing7Props {
   dateBadge: string;         // ★ 훅의 날짜 — "언제 뉴스인지"
@@ -238,22 +239,20 @@ function RowsCard({ rows }: any) {
 }
 
 // ── ④ 우리 고급 자원 — 앱 화면 + 수치를 «나란히». 잘리지 않게 높이를 계산 ──
-function LevelsCard({ src, focus, items }: any) {
+function LevelsCard({ src, focus, items, box }: any) {
   const p = useIn(4, 16);
-  const sc = 1 / focus.w;
-  const SHOT_H = Math.round(BLOCK_H * 0.46);
+  const r = useIn(16, 12);
+  // [FIX 2026-08-05] 여기 있던 «퍼센트 top» 코드가 V1~V7 내내 앱화면을 잘리게 했다.
+  // 공용 컴포넌트(components/AppShot)로 뺐다. 픽셀 계산이라 원하는 영역이 정확히 나온다.
+  const W = 1080 - PAD * 2;
+  // 화면이 이미 수치를 보여주면 카드는 중복이다 -> 화면에 자리를 다 준다
+  const hasCards = Array.isArray(items) && items.length > 0;
+  const SHOT_H = Math.round(BLOCK_H * (hasCards ? 0.52 : 0.98));
   return (
     <div style={{ opacity: p, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 }}>
-      <div style={{
-        width: '100%', height: SHOT_H, borderRadius: 20, overflow: 'hidden', position: 'relative',
-        border: `1px solid ${C.line}`, boxShadow: '0 22px 60px rgba(0,0,0,0.6)',
-      }}>
-        <Img src={staticFile(src)} style={{
-          position: 'absolute', width: `${sc * 100}%`,
-          left: `${-focus.x * sc * 100}%`, top: `${-focus.y * sc * 100}%`,
-          filter: 'brightness(1.28) contrast(1.10)',
-        }} />
-      </div>
+      <AppShot src={src} focus={focus ?? SHOT_PRESET.headerAndTiles}
+        width={W} height={SHOT_H} box={box} boxOpacity={r} />
+      {hasCards && (
       <div style={{ display: 'flex', gap: 12 }}>
         {items.map((it: any, i: number) => {
           const q = useIn(14 + i * 6, 12);
@@ -266,6 +265,7 @@ function LevelsCard({ src, focus, items }: any) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }
