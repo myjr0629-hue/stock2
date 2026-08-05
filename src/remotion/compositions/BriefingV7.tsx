@@ -51,6 +51,7 @@ type Block =
   | { kind: 'news'; source: string; at: string; headline: string; body: string }
   | { kind: 'quote'; label: string; price: string; pct: string; up: boolean; series: number[] }
   | { kind: 'rows'; rows: Array<{ t: string; pct: string; up: boolean; note: string }> }
+  | { kind: 'logos'; items: Array<{ t: string; pct: string; up: boolean }> }
   | { kind: 'levels'; src: string; focus?: { x: number; y: number; w: number }; box?: { x: number; y: number; w: number; h: number }; items: Array<{ k: string; v: string; sub: string }> };
 
 export interface Briefing7Props {
@@ -239,6 +240,34 @@ function RowsCard({ rows }: any) {
 }
 
 // ── ④ 우리 고급 자원 — 앱 화면 + 수치를 «나란히». 잘리지 않게 높이를 계산 ──
+// ── 로고 스트립 — «사람이 아는 것이 더 무섭다». 티커 글자보다 로고가 즉시 읽힌다 ──
+function LogoRow({ items }: any) {
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 16 }}>
+      {items.map((it: any, i: number) => {
+        const p = useIn(4 + i * 8, 14);
+        return (
+          <Card key={it.t} style={{ opacity: p, transform: `translateX(${(1 - p) * -16}px)`, padding: '20px 26px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+              <div style={{
+                width: 86, height: 86, borderRadius: 20, background: 'rgba(255,255,255,0.94)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <Img src={staticFile(`shorts/logos/${it.t}.png`)} style={{ width: 62, height: 62, objectFit: 'contain' }} />
+              </div>
+              <span style={{ fontFamily, fontSize: 52, fontWeight: 900, color: C.ink, letterSpacing: '-0.02em' }}>{it.t}</span>
+              <span style={{
+                marginLeft: 'auto', fontFamily, fontSize: 56, fontWeight: 900,
+                color: it.up ? C.up : C.down, letterSpacing: '-0.03em',
+              }}>{it.pct}</span>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 function LevelsCard({ src, focus, items, box }: any) {
   const p = useIn(4, 16);
   const r = useIn(16, 12);
@@ -296,6 +325,7 @@ export const BriefingV7: React.FC<Briefing7Props> = (p) => {
             {sc.block.kind === 'news' && <NewsCard {...sc.block} />}
             {sc.block.kind === 'quote' && <QuoteCard {...sc.block} />}
             {sc.block.kind === 'rows' && <RowsCard {...sc.block} />}
+            {sc.block.kind === 'logos' && <LogoRow items={sc.block.items} />}
             {sc.block.kind === 'levels' && <LevelsCard {...sc.block} />}
           </div>
           <Caption text={sc.caption} ask={sc.ask} />

@@ -116,7 +116,9 @@ export const SAMPLE_BRIEFING_7: Briefing7Props = {
         kind: 'levels',
         src: 'shorts/appshots/mu-cmd.png',
         // 프리셋 사용 — 가격 헤더 + 옵션 타일이 한 화면에. 빨간 네모는 GAMMA FLIP 칸.
-        focus: { x: 0.04, y: 0.185, w: 0.92 },
+        // y=0.160 이 «카드 상단 경계»와 정확히 맞는다(후보 4개를 실제로 잘라 비교해 확정).
+        // 0.185 는 회사명 줄 중간을 잘라 위가 잘려 보였다.
+        focus: { x: 0.04, y: 0.158, w: 0.92 },
         box: { x: 0.355, y: 0.268, w: 0.285, h: 0.085 },
         // 화면 자체가 세 수치를 다 보여준다 -> 카드로 또 쓰면 중복. 비워서 화면을 키운다.
         items: [],
@@ -127,16 +129,17 @@ export const SAMPLE_BRIEFING_7: Briefing7Props = {
     {
       bg: 'shorts/broll/v25_scene3_reveal.png',
       pan: 'right',
-      eyebrow: 'Under the surface',
-      head: '1,004 dark pool prints.\n242 whale trades.',
-      caption: 'Our engine read the whole book and scored it at -59, confidence 92%.',
+      eyebrow: 'Not just one name',
+      head: 'The whole memory shelf\nmoved together',
+      caption: 'Micron, Nvidia and Sandisk all closed green on the same session.',
       ask: 'The chart showed one thing. The book showed another.',
+      // 로고 스트립 — 티커 글자보다 로고가 즉시 읽힌다(대표 지적: 사람이 아는 것이 더 무섭다)
       block: {
-        kind: 'rows',
-        rows: [
-          { t: 'DARK POOL', pct: '1,004', up: false, note: 'off-exchange prints' },
-          { t: 'WHALES', pct: '242', up: true, note: 'large option trades' },
-          { t: 'VERDICT', pct: '-59', up: false, note: 'confidence 92%' },
+        kind: 'logos',
+        items: [
+          { t: 'MU', pct: '+6.23%', up: true },
+          { t: 'NVDA', pct: '+1.76%', up: true },
+          { t: 'SNDK', pct: '+6.03%', up: true },
         ],
       },
     },
