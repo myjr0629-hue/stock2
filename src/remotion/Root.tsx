@@ -100,6 +100,8 @@ import { BriefingV6, BRIEFING6_DURATION } from './compositions/BriefingV6';
 import { SAMPLE_BRIEFING_6 } from './data/sampleBriefing6';
 import { BriefingV7, BRIEFING7_DURATION } from './compositions/BriefingV7';
 import { SAMPLE_BRIEFING_7 } from './data/sampleBriefing7';
+import { Briefing, durationOf } from './kit/Briefing';
+import { SCRIPT_T1 } from './kit/scripts';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
@@ -183,6 +185,17 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={SAMPLE_BRIEFING_7}
+      />
+
+      {/* ★ 정본 템플릿 — 대본(kit/scripts)만 바꾸면 다른 영상이 된다 */}
+      <Composition
+        id="Briefing"
+        component={Briefing as React.ComponentType<any>}
+        durationInFrames={durationOf(SCRIPT_T1)}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={SCRIPT_T1}
       />
 
       {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}
