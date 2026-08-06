@@ -18,12 +18,24 @@ html.is-app-view body {
 .app-viewport {
   --app-tabbar-height: 72px;
   /* 탭바를 화면 하단에서 «띄우는» 양 (2026-08-06, 떠 있는 섬 전환).
-     광고 배너 슬롯과 본문 하단 여백이 이 값에서 파생된다. */
+     광고 배너 슬롯과 본문 하단 여백이 이 값에서 파생된다.
+     플랫폼별로 다르다 — 아래 native-app.css 에서 안드로이드만 덮어쓴다.
+     (iOS 는 홈 인디케이터가 아래를 이미 비워 12 가 알맞고, 안드로이드는
+      내비바가 바로 붙어 있어 같은 12 면 더 떠 보인다.) */
   --app-tabbar-lift: 12px;
   /* 안드로이드 웹뷰는 env(safe-area-inset-bottom)을 0으로 보고한다(알려진 버그).
      v1.1+ 셸이 MainActivity에서 실측 제스처바 높이를 --sig-bottom-floor 로 게시한다.
-     v1.0 사용자는 변수가 없어 0 → 지금 동작과 동일(회귀 없음). */
-  --app-bottom-safe: max(env(safe-area-inset-bottom), var(--sig-bottom-floor, 0px));
+     v1.0 사용자는 변수가 없어 0 → 이전 동작과 동일(회귀 없음).
+
+     ★★ env() 는 반드시 @supports 로 감싼다 (2026-08-06 회귀).
+     커스텀 프로퍼티는 파싱 단계에서 토큰을 그대로 받아들이므로, env() 를 모르는
+     구형 웹뷰에서도 이 선언 자체는 «통과»한다. 그런데 실제로 치환되는 순간
+     `calc(12px + max(env(...), 0px))` 이 «계산값 무효»가 되고, bottom 은
+     initial 인 **auto** 로 떨어진다. var() 가 낀 무효는 앞선 선언으로 폴백되지
+     않는다. 그러면 position:fixed 탭바가 문서 흐름 위치 —즉 화면 «중간»— 에 뜬다.
+     (이전 코드는 bottom:0 리터럴이라 env() 를 몰라도 안전하게 깨졌다.
+      내가 그 안전망을 없앤 것이다.) */
+  --app-bottom-safe: var(--sig-bottom-floor, 0px);
   --app-anchor-ad-height: 50px;
   --app-anchor-ad-gap: 8px;
   width: 100vw;
@@ -47,6 +59,15 @@ html.is-app-view body {
   user-select: none;
   overscroll-behavior: none;
   -webkit-overscroll-behavior: none;
+}
+
+/* env() 를 «실제로 이해하는» 웹뷰에서만 세이프영역을 태운다.
+   모르는 웹뷰는 위의 --sig-bottom-floor 폴백(구형 셸이면 0px)을 그대로 쓰고,
+   bottom / padding-bottom 이 무효가 되지 않는다. */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .app-viewport {
+    --app-bottom-safe: max(env(safe-area-inset-bottom), var(--sig-bottom-floor, 0px));
+  }
 }
 
 html[lang^="en"] .app-viewport,

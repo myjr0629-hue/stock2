@@ -240,6 +240,16 @@ html.native-android {
   --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--sig-bottom-floor, 0px));
 }
 
+/* ── 탭바 섬: 안드로이드는 더 낮게 (2026-08-06, 대표 지적) ──────────────────
+   iOS 는 홈 인디케이터가 웹뷰 아래를 이미 비워 두므로 12 가 알맞다.
+   안드로이드는 내비바(제스처 24dp / 3버튼 48dp)가 웹뷰 바로 아래 붙어 있어
+   같은 12 를 주면 «더 떠 보인다». 6 으로 낮춘다.
+   ⚠️ 0 으로 두지 않는다 — 엣지투엣지로 내비바 아래까지 그리는 기기에서는
+      --sig-bottom-floor 위로 최소한의 숨 쉴 틈이 필요하다. */
+html.native-android .app-viewport {
+  --app-tabbar-lift: 6px;
+}
+
 /* Android 네비게이션 바 색상 매칭 */
 html.native-android .native-bottom-nav {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--sig-bottom-floor, 8px)) !important;
