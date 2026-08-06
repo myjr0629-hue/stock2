@@ -1,5 +1,8 @@
 # SIGNUM v1.1 — Native Binary Assembly (turnkey)
 
+> ⏭️ **v1.1은 제출·심사 중이다. 다음 바이너리 할 일은 `SIGNUM_V1.2_BINARY_TODO.md`.**
+> (안드로이드 하단 흰 줄 제거 · 셸 인셋 clamp · iOS·안드로이드 동시 제출 방침)
+
 **Status as of 2026-07-10:** All *web* pieces of v1.1 are DONE, deployed, and dormant.
 This doc is the remaining *native binary* work — it needs a real device and cannot be
 finished from the web alone. Do it in ONE pass when ready to ship v1.1.
