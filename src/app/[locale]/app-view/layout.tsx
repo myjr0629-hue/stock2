@@ -8,6 +8,7 @@ import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
+import { watchBottomSafe } from '@/utils/androidBottomInset';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
 
@@ -134,27 +135,17 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
   //    눌러쓴다. screen.height 가 실제보다 작게 보고되는 기기에서는 조건이 성립하지
   //    않아 아무 일도 일어나지 않는다(= 지금 동작 유지). 반대로 잘못 0 을 넣어
   //    탭바가 내비바 밑으로 숨는 일은 생기지 않는다.
+  //
+  // ★ 2026-08-06 실기기 실측(UC 진단 표시)로 원인이 하나 더 나왔다:
+  //   셸이 --*-bottom-floor 를 **물리 픽셀**로 게시하는 빌드가 있다(126px = 48dp×2.625).
+  //   같은 화면에서 env() 는 48px 로 정확했다. 그래서 «env() 우선 + 셸 값은 단위 보정»
+  //   규칙을 utils/androidBottomInset 으로 뽑아 UC 와 공유한다.
   useEffect(() => {
-    const sync = () => {
-      if (!document.documentElement.classList.contains('native-android')) return;
+    if (!document.documentElement.classList.contains('native-android')) return;
+    return watchBottomSafe('--sig-bottom-floor', (px) => {
       const vp = document.querySelector('.app-viewport') as HTMLElement | null;
-      if (!vp) return;
-      const disp = window.screen?.height ?? 0;
-      const view = window.innerHeight ?? 0;
-      // 8px 은 반올림·브라우저 UI 오차를 흡수하는 하한
-      if (disp > 0 && view > 0 && disp - view >= 8) {
-        vp.style.setProperty('--app-bottom-safe', '0px');
-      }
-    };
-    // 네이티브가 인셋을 늦게(300/1200/3000ms) 게시하므로 그 뒤로도 몇 번 확인한다.
-    const timers = [0, 400, 1400, 3200].map((d) => window.setTimeout(sync, d));
-    window.addEventListener('resize', sync);
-    document.addEventListener('visibilitychange', sync);
-    return () => {
-      timers.forEach(clearTimeout);
-      window.removeEventListener('resize', sync);
-      document.removeEventListener('visibilitychange', sync);
-    };
+      if (vp) vp.style.setProperty('--app-bottom-safe', `${px}px`);
+    });
   }, []);
 
   // Tag html element for app-only CSS (fallback for :has() on older WebViews)

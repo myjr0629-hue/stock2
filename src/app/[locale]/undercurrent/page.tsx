@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions } from './ads';
+import { watchBottomSafe } from '@/utils/androidBottomInset';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: unknown): Locale => (l === 'en' || l === 'ja' ? l : 'ko');
@@ -662,32 +663,23 @@ export default function UndercurrentPage() {
     return () => { timers.forEach(clearTimeout); clearInterval(iv); };
   }, []);
 
-  // ── 안드로이드 이중 인셋 가드 (SIGNUM app-view 와 «같은» 규칙) ─────────────
-  // --uc-bottom-floor 는 네이티브 셸이 게시하는데, «웹뷰가 내비바 아래까지 그릴
-  // 때만» 더해야 맞는 값이다. 이미 인셋된 웹뷰에도 내비바 높이를 실어 보내면
-  // 이중 인셋이 되어 탭바가 화면 중간에 뜬 것처럼 보인다.
-  // 대표 실기기 2026-08-06: SIGNUM 은 이 가드를 넣자 제자리로 내려왔는데
-  // UC 는 가드가 없어 그대로 떠 있었다 — WIM 과 위치가 다른 이유가 이것.
-  //
-  // ⚠️ 판단이 안 서면 «건드리지 않는다». 화면보다 웹뷰가 확실히 작을 때만 0 으로
-  //    눌러쓴다. 잘못 0 을 넣어 탭바가 내비바 밑으로 숨는 방향으로는 가지 않는다.
+  // ── 안드로이드 하단 세이프영역 «재계산» ────────────────────────────────────
+  // 실기기 실측(2026-08-06, 삼성): 셸이 --uc-bottom-floor 를 126px 로 게시했다.
+  // 그건 48dp × dpr 2.625 = **밀도로 안 나눈 물리 픽셀**이고, 같은 화면에서
+  // env() 는 48px 로 «정확히» 나오고 있었다. CSS 의 max(env, floor) 가 126 을
+  // 골라 탭바가 140px 떠 있었다 (WIM 은 셸 빌드가 달라 정상값이 와서 멀쩡했다).
+  // → 셸을 믿지 않고 utils/androidBottomInset 의 규칙으로 다시 정한다.
+  //   기기별 하드코딩 없이 «모든» 안드로이드에서 성립하는 순서다.
   useEffect(() => {
-    const sync = () => {
-      const disp = window.screen?.height ?? 0;
-      const view = window.innerHeight ?? 0;
-      if (disp > 0 && view > 0 && disp - view >= 8) {
-        document.documentElement.style.setProperty('--uc-safe', '0px');
-      }
-    };
-    // 네이티브가 인셋을 늦게(300/1200/3000ms) 게시하므로 그 뒤로도 몇 번 확인한다.
-    const timers = [0, 400, 1400, 3200].map((d) => window.setTimeout(sync, d));
-    window.addEventListener('resize', sync);
-    document.addEventListener('visibilitychange', sync);
-    return () => {
-      timers.forEach(clearTimeout);
-      window.removeEventListener('resize', sync);
-      document.removeEventListener('visibilitychange', sync);
-    };
+    let isAndroid = false;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      isAndroid = require('@capacitor/core').Capacitor?.getPlatform?.() === 'android';
+    } catch { /* web */ }
+    if (!isAndroid) return;   // iOS 는 CSS 의 env() 경로가 정확하다 — 건드리지 않는다
+    return watchBottomSafe('--uc-bottom-floor', (px) => {
+      document.documentElement.style.setProperty('--uc-safe', `${px}px`);
+    });
   }, []);
 
   const [feed, setFeed] = useState<Feed | null>(null);
