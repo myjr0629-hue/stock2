@@ -198,6 +198,18 @@ html.native-ios .font-num {
 }
 
 /* (b) 글래스모피즘 강화 — 크롬(탭바/헤더)만. 데이터 카드는 선명 유지(가독성). */
+/* ★★ 2026-08-06 실측 — SIGNUM iOS 만 capacitor `contentInset: 'always'` 다.
+   WKWebView 가 홈 인디케이터 영역을 **이미** 인셋해 두는데(웹뷰 아래 35pt 는
+   네이티브 배경색이 칠해진다), 그 웹뷰 «안에서» env(safe-area-inset-bottom) 은
+   여전히 35px 을 보고한다. 그대로 쓰면 35+35 = 이중 인셋.
+   섬 전환 후 실측: 섬 아래가 82pt 나 비어 «화면 중간에 떠 있는» 꼴이 됐다.
+   (섬 이전에도 이 값이 탭바 «안쪽» 패딩으로 들어가 바 아래에 죽은 35pt 띠를
+    만들고 있었다 — 대표가 말한 «하단이 닫혀 있다»의 정체.)
+   UC/WIM 은 contentInset:'never' 라 env() 를 그대로 써야 맞는다. 여기만 0. */
+html.native-ios .app-viewport {
+  --app-bottom-safe: 0px;
+}
+
 /* ⚠️ 2026-08-06 — 탭바가 «떠 있는 섬»(라운드 26)이 되면서 여기도 같이 고쳤다.
    예전 값은 border-top / 위쪽 그림자였는데, 라운드 요소에 border-top 만 주면
    위 한 조각만 그려져 섬이 잘려 보인다. 4면 border + 아래로 떨어지는 그림자로. */
