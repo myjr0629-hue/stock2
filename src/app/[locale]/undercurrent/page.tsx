@@ -629,6 +629,34 @@ export default function UndercurrentPage() {
     } catch { /* web */ }
   }, []);
 
+  // ── 안드로이드 이중 인셋 가드 (SIGNUM app-view 와 «같은» 규칙) ─────────────
+  // --uc-bottom-floor 는 네이티브 셸이 게시하는데, «웹뷰가 내비바 아래까지 그릴
+  // 때만» 더해야 맞는 값이다. 이미 인셋된 웹뷰에도 내비바 높이를 실어 보내면
+  // 이중 인셋이 되어 탭바가 화면 중간에 뜬 것처럼 보인다.
+  // 대표 실기기 2026-08-06: SIGNUM 은 이 가드를 넣자 제자리로 내려왔는데
+  // UC 는 가드가 없어 그대로 떠 있었다 — WIM 과 위치가 다른 이유가 이것.
+  //
+  // ⚠️ 판단이 안 서면 «건드리지 않는다». 화면보다 웹뷰가 확실히 작을 때만 0 으로
+  //    눌러쓴다. 잘못 0 을 넣어 탭바가 내비바 밑으로 숨는 방향으로는 가지 않는다.
+  useEffect(() => {
+    const sync = () => {
+      const disp = window.screen?.height ?? 0;
+      const view = window.innerHeight ?? 0;
+      if (disp > 0 && view > 0 && disp - view >= 8) {
+        document.documentElement.style.setProperty('--uc-safe', '0px');
+      }
+    };
+    // 네이티브가 인셋을 늦게(300/1200/3000ms) 게시하므로 그 뒤로도 몇 번 확인한다.
+    const timers = [0, 400, 1400, 3200].map((d) => window.setTimeout(sync, d));
+    window.addEventListener('resize', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      timers.forEach(clearTimeout);
+      window.removeEventListener('resize', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, []);
+
   const [feed, setFeed] = useState<Feed | null>(null);
   const [err, setErr] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
@@ -1175,7 +1203,7 @@ export default function UndercurrentPage() {
     const conn = connected(c);
     return (
       <div className="uc-slideup" style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
-        <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(46px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))' }}>
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(46px + var(--uc-safe, 0px))' }}>
           <header style={{
             position: 'sticky', top: 0, zIndex: 40, margin: '0 -18px', padding: '12px 18px',
             paddingTop: 'calc(12px + max(env(safe-area-inset-top), var(--uc-top-floor, 0px)))',
@@ -1386,7 +1414,7 @@ export default function UndercurrentPage() {
         </div>
         {shareToast && (
           <div style={{
-            position: 'fixed', left: '50%', bottom: 'calc(30px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))',
+            position: 'fixed', left: '50%', bottom: 'calc(30px + var(--uc-safe, 0px))',
             transform: 'translateX(-50%)', zIndex: 80, background: C.ink, color: '#fff',
             fontSize: 12.5, fontWeight: 800, padding: '10px 16px', borderRadius: 999, boxShadow: C.shadow,
           }}>{t.shareCopied}</div>
@@ -1407,7 +1435,7 @@ export default function UndercurrentPage() {
     <nav style={{
       position: 'fixed', left: 12, right: 12, zIndex: 60,
       // --uc-lift: 안드로이드에서만 6px 로 낮춘다(위 useEffect). 기본 12px.
-      bottom: `calc(var(--uc-lift, ${TABBAR_LIFT}px) + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))`,
+      bottom: `calc(var(--uc-lift, ${TABBAR_LIFT}px) + var(--uc-safe, 0px))`,
       maxWidth: 536, margin: '0 auto',
       // frosted glass: translucent so the feed shows through + heavy blur & saturation.
       background: 'linear-gradient(180deg, rgba(255,255,255,0.80), rgba(252,250,246,0.60))',
@@ -1467,7 +1495,7 @@ export default function UndercurrentPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${TABBAR_RESERVE}px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))` }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${TABBAR_RESERVE}px + var(--uc-safe, 0px))` }}>
 
         {/* masthead — two clean rows: (logo · wordmark · bell) / (tagline ─ date · edition).
             The old single-row layout squeezed the by-line into a wrap and stacked the
@@ -2214,7 +2242,7 @@ export default function UndercurrentPage() {
           <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
             width: '100%', maxWidth: 560, maxHeight: '78vh', overflowY: 'auto', overscrollBehavior: 'contain',
             background: C.bg, borderRadius: '22px 22px 0 0',
-            padding: '16px 18px calc(26px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))',
+            padding: '16px 18px calc(26px + var(--uc-safe, 0px))',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="mbz-pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: C.diverge, display: 'inline-block' }} />
@@ -2260,7 +2288,7 @@ export default function UndercurrentPage() {
           <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
             width: '100%', maxWidth: 560, maxHeight: '82vh', overflowY: 'auto', overscrollBehavior: 'contain',
             background: C.bg, borderRadius: '22px 22px 0 0',
-            padding: '16px 18px calc(26px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))',
+            padding: '16px 18px calc(26px + var(--uc-safe, 0px))',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 17, fontWeight: 900 }}>{t.stTitle}</span>
@@ -2406,6 +2434,16 @@ export default function UndercurrentPage() {
 }
 
 const CSS_ANIM = `
+/* ── 하단 세이프영역 «단일 출처» --uc-safe (2026-08-06) ──────────────────────
+   전에는 6군데에 max(env(...), var(--uc-bottom-floor)) 를 각각 박아 뒀다.
+   ① 값을 한 곳에서 못 고치고 ② 런타임 보정을 걸 자리가 없었다.
+   ★ env() 는 @supports 로 감싼다 — 커스텀 프로퍼티는 파싱은 통과하지만,
+     env() 를 모르는 웹뷰에서 치환되는 순간 calc 가 «계산값 무효»가 되고
+     bottom 이 auto 로 떨어져 fixed 탭바가 문서 흐름 위치에 뜬다. */
+:root { --uc-safe: var(--uc-bottom-floor, 0px); }
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  :root { --uc-safe: max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)); }
+}
 @keyframes ucspin { to { transform: rotate(360deg); } }
 @keyframes ucView { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @keyframes ucUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
