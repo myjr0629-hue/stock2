@@ -93,7 +93,9 @@ export function AppBottomNav() {
           >
             <TabIcon name={tab.icon} active={isActive} />
             <span className="app-tabbar-label">{label}</span>
-            {isActive && <span className="app-tabbar-glow" />}
+            {/* 활성 표시는 «시안 틴트 알약»(.app-tabbar-tab.active)이 담당한다.
+                예전엔 아래쪽 시안 점(.app-tabbar-glow)이었는데, 알약 안에 점이
+                또 들어가면 중복이라 2026-08-06 섬 전환 때 뺐다. */}
           </button>
         );
       })}

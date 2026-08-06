@@ -17,6 +17,13 @@ html.is-app-view body {
 
 .app-viewport {
   --app-tabbar-height: 72px;
+  /* 탭바를 화면 하단에서 «띄우는» 양 (2026-08-06, 떠 있는 섬 전환).
+     광고 배너 슬롯과 본문 하단 여백이 이 값에서 파생된다. */
+  --app-tabbar-lift: 12px;
+  /* 안드로이드 웹뷰는 env(safe-area-inset-bottom)을 0으로 보고한다(알려진 버그).
+     v1.1+ 셸이 MainActivity에서 실측 제스처바 높이를 --sig-bottom-floor 로 게시한다.
+     v1.0 사용자는 변수가 없어 0 → 지금 동작과 동일(회귀 없음). */
+  --app-bottom-safe: max(env(safe-area-inset-bottom), var(--sig-bottom-floor, 0px));
   --app-anchor-ad-height: 50px;
   --app-anchor-ad-gap: 8px;
   width: 100vw;
@@ -66,11 +73,12 @@ html[lang^="ja"] .app-viewport,
   overscroll-behavior: none;
   touch-action: pan-y pinch-zoom;
   padding-bottom: calc(
+    var(--app-tabbar-lift) +
     var(--app-tabbar-height) +
     var(--app-anchor-ad-height) +
     var(--app-anchor-ad-gap) +
     18px +
-    env(safe-area-inset-bottom)
+    var(--app-bottom-safe)
   );
   scrollbar-width: none;
 }
@@ -368,7 +376,7 @@ html.native-app body {
 .app-anchor-ad {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--app-tabbar-height) + env(safe-area-inset-bottom));
+  bottom: calc(var(--app-tabbar-lift) + var(--app-tabbar-height) + var(--app-anchor-ad-gap) + var(--app-bottom-safe));
   z-index: 998;
   transform: translateX(-50%);
   width: min(100% - 32px, 398px);
@@ -479,81 +487,93 @@ html.native-app body {
   background: var(--bg) !important;
 }
 
-/* App Bottom Tabbar (Global Styles for App Wrapper) */
+/* ── App Bottom Tabbar — 「떠 있는 섬」 (2026-08-06, WIM/UC 방식 이식) ─────────
+   이전: bottom:0 전폭 바 + border-top 실선.
+         화면 아래를 «뚜껑»처럼 닫아 콘텐츠가 거기서 끊겨 보였다(대표 지적).
+   지금: 좌우·하단을 띄운 라운드 글래스 섬. 앱 배경이 섬 아래로 계속 흐른다.
+   주의: 라운드 요소에 border-top 만 주면 위쪽 한 조각만 그려져 깨져 보인다 →
+         테두리는 반드시 border(4면) 로 준다. native-app.css 의 iOS 오버라이드도 동일. */
 .app-tabbar {
   position: fixed;
-  bottom: 0;
+  bottom: calc(var(--app-tabbar-lift) + var(--app-bottom-safe));
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
-  max-width: 430px;
-  height: calc(var(--app-tabbar-height) + env(safe-area-inset-bottom));
+  width: calc(100% - 24px);
+  max-width: 406px;
+  height: var(--app-tabbar-height);
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
-  background: rgba(5, 10, 20, 0.92);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.03), 0 -8px 32px rgba(0, 0, 0, 0.6);
+  padding: 6px 5px;
+  background: linear-gradient(180deg, rgba(11, 19, 33, 0.86), rgba(5, 10, 20, 0.74));
+  backdrop-filter: blur(34px) saturate(190%);
+  -webkit-backdrop-filter: blur(34px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 26px;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.62),
+    0 2px 10px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   z-index: 999;
 }
 
 html.native-app .app-tabbar {
-  bottom: 0;
   z-index: 2100;
 }
 
 html.native-app .app-main {
   padding-bottom: calc(
+    var(--app-tabbar-lift) +
     var(--app-tabbar-height) +
     var(--app-anchor-ad-height) +
     var(--app-anchor-ad-gap) +
     24px +
-    env(safe-area-inset-bottom)
+    var(--app-bottom-safe)
   );
 }
 
 .app-tabbar-tab {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
   background: none;
   border: none;
-  padding: 6px 12px;
+  border-radius: 20px;
+  padding: 7px 2px 6px;
   cursor: pointer;
   position: relative;
-  transition: transform 0.1s ease, opacity 0.15s ease;
-  min-width: 56px;
+  transition: background 0.22s ease, box-shadow 0.22s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+
+/* 활성 = 시안 틴트 알약. 다크에서 «꽉 찬» 네온 블록은 싸구려로 읽혀서,
+   유리 위에 시안 헤어라인 + 옅은 틴트로 간다(SIGNUM 톤 유지). */
+.app-tabbar-tab.active {
+  background: linear-gradient(150deg, rgba(34, 211, 238, 0.20), rgba(34, 211, 238, 0.07));
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.42),
+    0 5px 14px rgba(34, 211, 238, 0.14);
 }
 
 .app-tabbar-tab:active {
-  transform: scale(0.88);
-  opacity: 0.7;
+  transform: scale(0.92);
+  opacity: 0.75;
 }
 
 .app-tabbar-label {
   font: 600 10px/1 'Inter', sans-serif;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: var(--text-muted);
+  white-space: nowrap;
   transition: color 0.2s ease;
 }
 
 .app-tabbar-tab.active .app-tabbar-label {
   color: var(--cyan);
-}
-
-.app-tabbar-glow {
-  position: absolute;
-  bottom: 2px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--cyan);
-  box-shadow: 0 0 6px rgba(34, 211, 238, 0.8), 0 0 12px rgba(34, 211, 238, 0.4);
+  font-weight: 800;
 }
 
 /* Premium scrollbar hiding */

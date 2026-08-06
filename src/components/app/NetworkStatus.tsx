@@ -32,7 +32,9 @@ export function NetworkStatus() {
   return (
     <div style={{
       position: 'fixed',
-      bottom: 120,
+      // 탭바 섬(하단 12 + 높이 72 + 세이프) 위로 띄운다. 섬 전환 전에는 120이
+      // 14px 여유였는데, 섬이 12 올라가면서 2px 로 붙어 버렸다 (2026-08-06).
+      bottom: 140,
       left: '50%',
       transform: 'translateX(-50%)',
       zIndex: 1000,

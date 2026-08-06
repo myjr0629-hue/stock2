@@ -198,12 +198,18 @@ html.native-ios .font-num {
 }
 
 /* (b) 글래스모피즘 강화 — 크롬(탭바/헤더)만. 데이터 카드는 선명 유지(가독성). */
+/* ⚠️ 2026-08-06 — 탭바가 «떠 있는 섬»(라운드 26)이 되면서 여기도 같이 고쳤다.
+   예전 값은 border-top / 위쪽 그림자였는데, 라운드 요소에 border-top 만 주면
+   위 한 조각만 그려져 섬이 잘려 보인다. 4면 border + 아래로 떨어지는 그림자로. */
 html.native-ios .app-tabbar {
-  background: rgba(5, 10, 20, 0.72);
+  background: linear-gradient(180deg, rgba(11, 19, 33, 0.78), rgba(5, 10, 20, 0.64));
   backdrop-filter: blur(46px) saturate(200%);
   -webkit-backdrop-filter: blur(46px) saturate(200%);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.06), 0 -10px 40px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.58),
+    0 2px 10px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 html.native-ios .app-header {
   background: rgba(5, 10, 20, 0.60);

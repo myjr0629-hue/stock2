@@ -216,7 +216,12 @@ class AdManagerService {
     try {
       const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
       const { Capacitor } = await import('@capacitor/core');
-      const bottomMargin = Capacitor.getPlatform() === 'ios' ? 104 : 74;
+      // 배너는 탭바 «위»에 앉아야 한다. 2026-08-06 탭바가 떠 있는 섬이 되면서
+      // 하단에서 --app-tabbar-lift(12) 만큼 더 올라갔고, 섬과 배너 사이 간격 8을 더한다.
+      // 기존 값(iOS 104 / Android 74)의 차이는 iOS 홈 인디케이터(≈34)라 그 관계는 유지.
+      const TABBAR_LIFT = 12;
+      const BANNER_GAP = 8;
+      const bottomMargin = (Capacitor.getPlatform() === 'ios' ? 104 : 74) + TABBAR_LIFT + BANNER_GAP;
 
       await AdMob.showBanner({
         adId: this.config.bannerId,
