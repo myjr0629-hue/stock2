@@ -272,6 +272,14 @@ const C = {
   shadow: '0 10px 30px rgba(23,25,30,0.07)',
 };
 
+// ── 하단 탭바 «섬» 기하 (2026-08-06, WIM 방식) ──────────────────────────────
+// 한 곳에서만 정의한다. 콘텐츠 하단 여백과 AdMob 배너 마진이 전부 여기서 파생되므로
+// 탭바 높이를 바꾸면 나머지가 자동으로 따라간다 (예전엔 84 / 62 가 따로 박혀 있었다).
+const TABBAR_LIFT = 12;                                  // 섬과 세이프영역 사이 간격
+const TABBAR_H = 61;                                     // 섬 실제 높이(패딩+아이콘+라벨+테두리)
+const TABBAR_RESERVE = TABBAR_LIFT + TABBAR_H + 24;      // 스크롤 콘텐츠가 비워둘 하단 여백
+const BANNER_MARGIN = TABBAR_LIFT + TABBAR_H + 10;       // AdMob 배너가 섬 «위»에 앉는 높이
+
 // All edition/date logic is US-market (ET) based, so KO/JP readers see the SAME
 // edition boundary and calendar day as the market — not their local clock. Without
 // this a Seoul user at 01:00 KST (≈12:00 ET) saw "Morning edition" on the wrong day.
@@ -1070,7 +1078,7 @@ export default function UndercurrentPage() {
     if (!adsAvailable()) return;
     initAds().then((ok) => {
       if (!ok) return;
-      showHomeBanner(62);
+      showHomeBanner(BANNER_MARGIN);
       // Only EEA/UK/CH users who were shown a consent form need this row —
       // elsewhere it would be a dead setting, so it is state, not a constant.
       setCanPrivacy(needsPrivacyOptions());
@@ -1374,15 +1382,23 @@ export default function UndercurrentPage() {
   }
 
   // ── TAB VIEWS ──
+  // 2026-08-06 — 「떠 있는 섬」형 탭바 (WIM 방식 이식)
+  //   이전: left/right/bottom 0 의 전폭 바 + borderTop 실선.
+  //         화면 아래를 «뚜껑»처럼 닫아, 피드가 끊겨 보였다(대표 지적).
+  //   지금: 좌우·하단을 띄운 라운드 섬. 배경이 섬 아래로 계속 흐른다.
+  // 안전영역: iOS 는 env(), 안드로이드 웹뷰는 env()가 0 이라 네이티브가 내려주는
+  //          --uc-bottom-floor 를 max() 로 받는다 (MainActivity 가 게시).
   const TabBar = () => (
     <nav style={{
-      position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60,
+      position: 'fixed', left: 12, right: 12, zIndex: 60,
+      bottom: `calc(${TABBAR_LIFT}px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))`,
+      maxWidth: 536, margin: '0 auto',
       // frosted glass: translucent so the feed shows through + heavy blur & saturation.
-      // (was 0.92 white = effectively opaque, so the blur never read as glass.)
-      background: 'rgba(252,250,246,0.72)',
-      backdropFilter: 'blur(22px) saturate(180%)', WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-      borderTop: '1px solid rgba(23,25,30,0.06)', boxShadow: '0 -6px 26px rgba(23,25,30,0.06)',
-      display: 'flex', paddingBottom: 'max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px))',
+      background: 'linear-gradient(180deg, rgba(255,255,255,0.80), rgba(252,250,246,0.60))',
+      backdropFilter: 'blur(32px) saturate(1.85)', WebkitBackdropFilter: 'blur(32px) saturate(1.85)',
+      border: '1px solid rgba(255,255,255,0.78)', borderRadius: 26,
+      boxShadow: '0 18px 40px rgba(23,25,30,0.15), 0 2px 8px rgba(23,25,30,0.06), inset 0 1px 0 rgba(255,255,255,0.92)',
+      display: 'flex', padding: 5, gap: 1,
     }}>
       {([
         { k: 'home', label: t.tabHome, dot: null },
@@ -1393,34 +1409,36 @@ export default function UndercurrentPage() {
         { k: 'search', label: t.tabSearch, dot: null },
       ] as { k: Tab; label: string; dot: number | null }[]).map((m) => {
         const active = tab === m.k;
-        const col = active ? C.emerald : C.faint;
+        // 활성 탭은 «채워진 알약». 섬 위에서는 상단 인디케이터 바가 읽히지 않는다.
+        const col = active ? '#FFFFFF' : C.sub;
         return (
-          <button key={m.k} type="button" onClick={() => { setTab(m.k); window.scrollTo(0, 0); }} style={{
-            font: 'inherit', cursor: 'pointer', flex: 1, position: 'relative',
-            padding: '9px 0 7px', background: 'none', border: 'none', color: col,
+          <button key={m.k} type="button" aria-label={m.label} onClick={() => { setTab(m.k); window.scrollTo(0, 0); }} style={{
+            font: 'inherit', cursor: 'pointer', flex: 1, position: 'relative', minWidth: 0,
+            padding: '8px 0 7px', border: 'none', borderRadius: 21, color: col,
+            background: active ? `linear-gradient(150deg, ${C.emerald}, ${C.emeraldDeep})` : 'transparent',
+            boxShadow: active ? '0 8px 18px rgba(11,138,92,0.30)' : 'none',
+            transform: active ? 'translateY(-1px)' : 'none',
+            transition: 'background 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, color 0.18s ease',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            transition: 'color 0.18s ease',
           }}>
-            {/* active indicator bar */}
-            <span style={{
-              position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-              width: active ? 20 : 0, height: 2.5, borderRadius: 2, background: C.emerald,
-              transition: 'width 0.2s ease', opacity: active ? 1 : 0,
-            }} />
             <span style={{ position: 'relative', display: 'inline-flex' }}>
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth={active ? 2.3 : 2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth={active ? 2.2 : 1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 {TAB_ICONS[m.k]}
               </svg>
               {m.dot ? (
                 <span style={{
-                  position: 'absolute', top: -5, right: -9, fontSize: 8.5, fontWeight: 900, color: '#fff',
+                  position: 'absolute', top: -5, right: -8, fontSize: 8.5, fontWeight: 900, color: '#fff',
                   background: m.k === 'div' ? C.diverge : C.emerald, borderRadius: 999,
                   minWidth: 15, textAlign: 'center', padding: '1px 4px', lineHeight: 1.3,
-                  border: '1.5px solid rgba(252,250,246,0.9)',
+                  border: '1.5px solid rgba(255,255,255,0.95)',
                 }}>{m.dot}</span>
               ) : null}
             </span>
-            <span style={{ fontSize: 10, fontWeight: active ? 800 : 600, letterSpacing: '0.01em' }}>{m.label}</span>
+            {/* 6탭이라 폭이 좁다 — 'Diverge'/'ストーリー'가 줄바꿈되지 않게 nowrap 고정 */}
+            <span style={{
+              fontSize: 9, fontWeight: active ? 900 : 700, letterSpacing: '0.005em',
+              whiteSpace: 'nowrap', opacity: active ? 1 : 0.92,
+            }}>{m.label}</span>
           </button>
         );
       })}
@@ -1429,7 +1447,7 @@ export default function UndercurrentPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(84px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))' }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${TABBAR_RESERVE}px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))` }}>
 
         {/* masthead — two clean rows: (logo · wordmark · bell) / (tagline ─ date · edition).
             The old single-row layout squeezed the by-line into a wrap and stacked the
