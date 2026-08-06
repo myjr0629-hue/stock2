@@ -1,0 +1,148 @@
+MU
+MU
+NVDA
+TSLA
+AAPL
+MSFT
+GOOGL
+AMZN
+META
+SPY
+QQQ
+MU
+Micron Technology, Inc.
+▲ TICK
+MARKET OPEN
+8/6, 11:59 ET
+$900.41
+▲ +0.81%
+PRE CLOSE
+$853.00
+-4.50%
+MAX PAIN
+i
+$870
++3.50% gap
+GAMMA FLIP
+i
+$900.00
+above (+0.05%)
+TOTAL PREMIUM
+i
+$271.1M
+Call dominant
+RSI 14
+i
+53.0
+Stable
+VWAP
+i
+$879.52
+above +2.38%
+DAY RANGE
+LOW $827.0
+HIGH $913.3
+OVERVIEW
+AI ✱
+QUANT ✱
+HOLDERS ✱
+PRICE HISTORY
+LINE
+CANDLE
+NBBOEst. $899.93 ×100
+Spread 0.106%
+$900.89 ×100
+$913.33
+$870.16
+$827.00
+VWAP 879.52
+$900.41
+SMA 7
+SMA 20
+VWAP
+1D
+1W
+1M
+3M
+1Y
+5-DAY
+4↑ 1↓ · Week +3.9%
+FRI
+-5.9%
+MON
++0.8%
+TUE
++7.6%
+WED
++0.1%
+THU
++1.7%
+ANALYST CONSENSUS
+Buy
+81%
+81% bullish consensus from 70 analysts
+Buy 57
+Hold 11
+Sell 2
+12M TARGET
+$1575.91
++75.0%
+High $2200
+Low $1100
+FUNDAMENTAL
+A
+84
+/100
+Strong
+PE
+21.8
+ROE
+50.1%
+D/E
+0.06
+REV
++345.7%
+MARGIN
+68.1%
+EARNINGS
+D-46
+46d
+September 21, 2026
+AMC
+Est EPS
+$32.25
+Q4 FY26
+FORWARD (FY27)
+EPS
+$154.67
+REV
+$249.5B
+COMPANY OVERVIEW
+
+Micron is one of the largest semiconductor companies in the world, specializing in memory and storage chips. Its primary revenue stream comes from dynamic random access memory, or DRAM, and it also has minority exposure to not-and or NAND, flash chips.
+
+RELATED PEERS
+NVDA
+$218.0
+-0.57%
+AMD
+$491.5
++1.95%
+AVGO
+$422.8
++1.09%
+INTC
+$100.6
+-0.44%
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

@@ -1,0 +1,158 @@
+Live Options Flow
+LIVE
+MU
+NVDA
+TSLA
+AAPL
+MSFT
+GOOGL
+AMZN
+META
+SPY
+QQQ
+MU
+Micron Technology, Inc.
+▲ TICK
+MARKET OPEN
+8/6, 11:59 ET
+$899.85
+▲ +0.75%
+PRE CLOSE
+$853.00
+-4.50%
+MAX PAIN
+$870
++3.43% gap
+GAMMA FLIP
+$900.00
+below (-0.02%)
+TOTAL PREMIUM
+$251.8M
+Call dominant
+RSI 14
+53.0
+Neutral
+VWAP
+$879.52
+above +2.31%
+DAY RANGE
+LOW $827.0
+HIGH $913.3
+OVERVIEW
+AI INTEL
+WHALE & DP
+STRIKE
+OPTIONS FLOW OVERVIEW
+HIGH CONVICTION
+Compressed balance zone
+Premium and P/C are in balance, so range control and regime change matter more than direction.
+Premium Flow
+Call dominant
+Gamma Map
+Below gamma flip
+Risk State
+Stable
+Track which side prints stronger first between Put Floor and Call Wall.
+OPTIONS PRESSURE INDEX (OPI)
+i
+INTRADAY
+BEARISH
+14.0
+OPI SCORE
+OPI FACTOR RAIL
+P/C Pressure
+1.36
+Premium Bias
+58% Call
+Gamma Position
+-0.0%
+VOLUME P/C RATIO
+1.36
+UNDERLYING OPI
+14 (BEARISH)
+VOLATILITY REGIME
+STABLE
+PRESSURE PAIR
+i
+Neutral Mixed
+Composite Index
+0
+Pressure Read
+Compressed balance zone
+Squeeze Probability
+i
+64%
+Moderate
+C/P RATIO
+VOLUME
+1.36
+Call dominant
+C 182K / P 134K
+OI
+0.58
+Put dominant
+C 138K / P 238K
+TOTAL PREMIUM
+$251.8M
+Net Premium
++$251.8M
+Source
+LIVE FLOW
+Call bullish bet
+57.6%
+Put bearish bet
+42.4%
+Call Share
+57.6%
+Put Share
+42.4%
+SPOT PRICE POSITION
+i
+$899.85
+(98%)
+PUT FLOOR (Support)
+$800
+CALL WALL (Resistance)
+$900
+Spot
+$899.85
+Gamma Flip
+$900.00
+Flip Distance
+-0.0%
+OPTIONS MARKET & GEX REGIME
+i
+SHORT GAMMA (VOLATILE)
+Vol Effect
+Vol amplifying
+Flip Distance
+-0.0%
+IV RANK
+97%
+IV SKEW
+1.0%
+VOLUME P/C
+1.36
+GAMMA FLIP
+$900
+At IV Rank 97% and P/C 1.36, the current options structure is near Call dominant.
+FREE PREVIEW · GEX REGIME
+SHORT GAMMA (VOLATILE)
+Free preview
+Unlock GEX Regime
+Watch an ad to unlock IV Rank, Gamma Flip, and volatility regime context for 1 hour.
+Watch ad to unlock 1HR
+14.2K unlocked today
+Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

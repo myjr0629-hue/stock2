@@ -35,16 +35,34 @@ export interface ShotBox {
   x: number; y: number; w: number; h: number;   // 이미지 기준 비율
 }
 
+/**
+ * ★ 콜아웃 — «여기를 보라» 강조의 정본 (2026-08-07)
+ * 대표 지적 2건을 규칙으로 굳힌다:
+ *  ① 빨간 박스가 GAMMA FLIP 값 글자를 «덮어» 오히려 안 읽혔다
+ *     → 박스는 타일 «바깥» 여백에 앉는다 (outset 12px).
+ *  ② "빨간 박스는 어떤 의미인지 모르겠다" — 설명 없는 강조는 노이즈다
+ *     → label 이 **필수**다. 라벨 없는 박스는 타입에서 막는다.
+ */
+export interface ShotCallout {
+  box: ShotBox;
+  /** 박스가 가리키는 것의 이름. 예: 'GAMMA FLIP $930' — 없으면 박스도 못 그린다 */
+  label: string;
+}
+
 export function AppShot({
-  src, focus, width, height, box, boxOpacity = 1, radius = 20, brighten = 1.26,
+  src, focus, width, height, box, boxOpacity = 1, callout, calloutOpacity = 1,
+  radius = 20, brighten = 1.26,
 }: {
   src: string;
   focus: ShotFocus;
   /** 패널의 실제 픽셀 폭 — 부모가 알려줘야 계산이 맞는다 */
   width: number;
   height: number;
+  /** @deprecated 라벨 없는 박스 — 구판(V6/V7) 호환용. 신규는 callout 을 쓸 것 */
   box?: ShotBox;
   boxOpacity?: number;
+  callout?: ShotCallout;
+  calloutOpacity?: number;
   radius?: number;
   brighten?: number;
 }) {
@@ -52,6 +70,17 @@ export function AppShot({
   const imgH = imgW * ASPECT;
   const left = -focus.x * imgW;
   const top = -focus.y * imgH;
+
+  // 콜아웃 기하 — 값 글자를 덮지 않도록 타일 밖으로 내민다
+  const OUT = 12;
+  const co = callout ? {
+    l: left + callout.box.x * imgW - OUT,
+    t: top + callout.box.y * imgH - OUT,
+    w: callout.box.w * imgW + OUT * 2,
+    h: callout.box.h * imgH + OUT * 2,
+  } : null;
+  const labelAbove = co ? co.t > 74 : true;   // 위 공간이 없으면 아래로
+  const labelLeft = co ? Math.max(8, Math.min(co.l, width - 360)) : 0;
 
   return (
     <div style={{
@@ -72,6 +101,29 @@ export function AppShot({
           border: '5px solid #FF5C74', borderRadius: 12,
           boxShadow: '0 0 26px rgba(255,92,116,0.55)', opacity: boxOpacity,
         }} />
+      )}
+      {co && callout && (
+        <div style={{ position: 'absolute', inset: 0, opacity: calloutOpacity }}>
+          <div style={{
+            position: 'absolute', left: co.l, top: co.t, width: co.w, height: co.h,
+            border: '4px solid #FFB020', borderRadius: 16,
+            boxShadow: '0 0 24px rgba(255,176,32,0.45), inset 0 0 18px rgba(255,176,32,0.10)',
+          }} />
+          {/* 라벨 → 박스 연결선 */}
+          <div style={{
+            position: 'absolute', left: labelLeft + 30,
+            top: labelAbove ? co.t - 14 : co.t + co.h,
+            width: 4, height: 14, background: '#FFB020', borderRadius: 2,
+          }} />
+          <span style={{
+            position: 'absolute', left: labelLeft,
+            top: labelAbove ? co.t - 62 : co.t + co.h + 14,
+            fontFamily: 'Inter, -apple-system, sans-serif', fontSize: 27, fontWeight: 900,
+            color: '#0A0E16', background: '#FFB020', borderRadius: 10,
+            padding: '8px 16px', letterSpacing: '-0.01em', whiteSpace: 'nowrap',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
+          }}>{callout.label}</span>
+        </div>
       )}
     </div>
   );

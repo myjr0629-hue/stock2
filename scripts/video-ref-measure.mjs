@@ -216,9 +216,16 @@ export const GATE = {
   // → 전역 min/max 가 아니라 «인접 샷 점프가 큰 횟수»를 센다.
   shotJumpThreshold: 150,
   maxBigJumps: 2,
+  // [2026-08-07] 길이 게이트 — 26.8초판은 4단 중 CTA가 눌렸다(kit/spec LENGTH).
+  // 표준 42초, 허용 36~50. 훅 검증용 짧은 판을 일부러 만들 때는 --short 로 우회.
+  minSeconds: 36,
+  maxSeconds: 50,
 };
 export function gateCheck(v) {
   const fails = [];
+  const short = process.argv.includes('--short');
+  if (!short && v.seconds < GATE.minSeconds) fails.push(`길이 ${v.seconds}s < ${GATE.minSeconds}s (CTA가 눌린다)`);
+  if (v.seconds > GATE.maxSeconds) fails.push(`길이 ${v.seconds}s > ${GATE.maxSeconds}s`);
   if (v.meanBrightness < GATE.meanBrightness) fails.push(`평균밝기 ${v.meanBrightness} < ${GATE.meanBrightness}`);
   if (v.litPixelPct < GATE.litPixelPct) fails.push(`밝은화소 ${v.litPixelPct}% < ${GATE.litPixelPct}%`);
   const need = Math.max(1, Math.round((v.seconds / 30) * GATE.cutsPer30s));

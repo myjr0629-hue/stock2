@@ -1,0 +1,183 @@
+SIGNUMHQ
+DARK POOL INTEL
+SIGNAL
+Ingredion reported Q2 2026 results with 31% decline in reported operating income and 5% decline in adjusted operating income year-over-year, with diluted EPS of $1.78 (reported) and $2.82 (adjusted).
+1h
+MARKET STATE
+Risk-Off Watch
+Regular-session flow is updating live.
+FUTURES
+Neutral -0.12%
+CASH
+Bearish -0.32%
+RISK
+38
+|
+MARKET PULSE
+LIVE
+INDEX FUTURES
+FUTURES LIVE
+FUT
+NASDAQ100 F
+29,556
+▼ -0.20%
+FUT
+S&P500 F
+7,735.25
+▼ -0.18%
+FUT
+RUSSELL2K F
+3,026.30
+▲ +0.03%
+CASH INDICES
+LIVE
+NDX
+NASDAQ
+26,346
+▼ -0.07%
+500
+S&P 500
+7,707.43
+▼ -0.21%
+DJI
+DOW
+53,979
+▼ -0.68%
+ETF / VOLATILITY
+LIVE
+100
+QQQ
+$715.55
+▼ -0.24%
+500
+SPY
+$768.29
+▼ -0.20%
+C
+VIX
+15.49
+▼ -2.02%
+|
+MACRO BOARD
+BTC
+$64.6K
+-0.02%
+GOLD
+$4,308
++0.06%
+OIL
+$76.9
++2.26%
+SOX
+12,178
++1.41%
+US 10Y
+4.66%
++0.87
+DXY
+100.0
++0.28
+2S10S
++0.46
+NORMAL
+F&G
+61.1
+GREED
+TOP MOVERS
+Value
+Gainers
+Losers
+VIEW ALL >
+ MU
++0.78%
+$900.17
+ SPCX
++2.41%
+$110.88
+ SNDK
+-4.75%
+$1286.38
+ NVDA
+-0.53%
+$218.05
+SECTOR HEATMAP
+REGULAR
+Tech
+-0.1%
+Energy
++1.7%
+Cons. Disc
+-0.5%
+Materials
+-0.7%
+Industrials
+-0.5%
+Finance
+-0.5%
+Healthcare
+-0.5%
+Utilities
+-0.5%
+✨
+LIVE NEWS PULSE
+Brief
+Live
+Simulations Plus cut fiscal 2025 revenue guidance from $90-93M to $76-80M citing budget reductions and project delays, triggering securities investigation by Johnson Fistel over accounting disclosures.
+→
+Artificial intelligence is fundamentally restructuring bioinformatics, with AI tools like AlphaFold compressing drug discovery timelines and attracting billions in venture capital investment.
+→
+Commerce.com reported Q2 2026 results with flat revenue growth (0.1%), declining subscriptions, margin compression, and reduced guidance, validating Rezolve Ai's concerns about standalone viability.
+→
+Ingredion reported Q2 adjusted EPS of $2.82, down 1.7% YoY from $2.87, with net sales rising 1% to $1.85B, indicating margin compression despite modest revenue growth.
+→
+Ingredion reported Q2 2026 results with 31% decline in reported operating income and 5% decline in adjusted operating income year-over-year, with diluted EPS of $1.78 (reported) and $2.82 (adjusted).
+→
+View Live Market Monitor →
+VOLATILITY REGIME
+Compression / expansion
+Calm
+16%
+
+Tracks whether market volatility is compressing or expanding.
+
+DARK POOL VOLUME
+Institutional prints
+58.3%
+DP 3.9M
+
+Surfaces large off-exchange flow hidden from the open book.
+
+SQUEEZE RISK
+Short-term pressure
+Medium
+23%
+
+Monitors gamma and positioning pressure behind fast moves.
+
+ROTATION INTENSITY
+Capital rotation
+Risk-On Tilt
+Rotation 100
+
+Shows whether money is rotating toward risk or defense.
+
+Free preview · Institutional pulse
+Calm · 1 of 4
+Free preview
+Institutional Market Pulse
+Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.
+Watch ad to unlock 1HR
+14.2K unlocked today
+Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

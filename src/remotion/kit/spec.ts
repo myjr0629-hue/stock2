@@ -72,11 +72,24 @@ export const CAPTION = {
  */
 export const PACE = {
   hookSec: 3.0,
-  beatSec: 3.2,        // 일반 컷
+  // [2026-08-07 조사반영] 교차 확인된 권고 대역 2~4초의 중앙. 3.2→3.0.
+  beatSec: 3.0,        // 일반 컷
+  // 증거 컷 4.5초는 전 소스 권고(≤3초) 초과 → 씬 «내부» 펀치인으로 분할한다(Briefing).
   proofSec: 4.5,       // 앱 화면·차트처럼 «읽을 게 있는» 컷
-  ctaSec: 4.0,
-  loopSec: 2.5,
+  // [2026-08-07 조사반영] CTA는 페이오프 직후 «즉시 컷»이 정석, 영상 내 CTA ≤2초.
+  // 4→2. 남는 시간은 늘리지 않는다 — one idea ends, video ends.
+  ctaSec: 2.0,
+  loopSec: 2.5,        // 루프백(엔딩→오프닝 회귀)은 유지 — 리플레이가 조회수로 집계된다
 } as const;
+
+/**
+ * ── 총 길이 (2026-08-07 확정) ───────────────────────────────────────────────
+ * 26.8초(KIT 1차)는 4단 중 CTA가 눌렸다. 4단(훅·전개·증거·CTA)이 다 사는
+ * 최소치가 38~48초 → 표준 42초. 발행 게이트도 이 범위를 강제한다.
+ * 대본 산수: 훅3 + CTA4 + 루프2.5 = 9.5초 고정 → 본문 비트 ≈ 32.5초
+ * = 일반컷(3.2s)·증거컷(4.5s) 섞어 «8비트 안팎».
+ */
+export const LENGTH = { targetSec: 42, minSec: 36, maxSec: 50 } as const;
 
 /**
  * ── 4단 대본 프레임 (팔란티어편 실측 비율) ─────────────────────────────────
@@ -111,6 +124,7 @@ export type BeatRole =
   | 'verdict'     // 판정·결론
   | 'brand';      // 아웃트로
 
+/** (구판 — AI broll 이미지 매핑. 절차 배경 도입 후 폴백/액센트로만 유지) */
 export const BG_FOR: Record<BeatRole, string> = {
   market: 'shorts/broll/v25_scene6_dashboard.png',   // 트레이딩 플로어
   chips: 'shorts/broll/product_reveal.png',          // 회로기판
@@ -121,6 +135,28 @@ export const BG_FOR: Record<BeatRole, string> = {
   verdict: 'shorts/broll/v25_scene1_hook.png',       // 골든 실드
   brand: 'shorts/broll/v25_scene7_outro.png',        // 골든 광선
 };
+
+/**
+ * ── ★ 절차 배경 사전 (2026-08-07) — 배경 자체가 데이터 ──────────────────────
+ * 대표 방침: "리모션만으로 완벽한 틀. 뉴스 이미지 금지."
+ * 스톡·AI 이미지는 «분위기»만 맞지만, 절차 배경은 내용과 100% 일치한다:
+ * 돈 이야기 컷의 배경은 가격 곡선이고, 모순 컷의 배경은 풋/콜 사다리다.
+ * 값 = kit/Backdrop 의 BackdropSpec. img/video 는 액센트(훅·아웃트로)로만.
+ * 힉스필드 수확분(8/8~)이 오면 video 항목이 늘어난다.
+ */
+export const BACKDROP_FOR = {
+  market: { kind: 'grid', accent: 'cool' },
+  chips: { kind: 'ticks', accent: 'cool' },
+  money: { kind: 'series', accent: 'cool' },
+  conflict: { kind: 'strikes', accent: 'clash' },
+  evidence: { kind: 'grid', accent: 'amber' },
+  depth: { kind: 'ticks', accent: 'hot' },
+  verdict: { kind: 'series', accent: 'amber' },
+  brand: { kind: 'img', src: 'shorts/broll/v25_scene7_outro.png' },
+} as const;
+
+/** 훅 전용 — 유일하게 «움직이는 실사» (kling 5.04s, 지금까지 안 쓰이던 자산) */
+export const HOOK_BACKDROP = { kind: 'video', src: 'shorts/broll/kling_terminal.mp4' } as const;
 
 /** 검수 게이트와 같은 기준(scripts/video-ref-measure.mjs) */
 export const GATE_HINT = {

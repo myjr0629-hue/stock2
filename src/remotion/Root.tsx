@@ -101,7 +101,7 @@ import { SAMPLE_BRIEFING_6 } from './data/sampleBriefing6';
 import { BriefingV7, BRIEFING7_DURATION } from './compositions/BriefingV7';
 import { SAMPLE_BRIEFING_7 } from './data/sampleBriefing7';
 import { Briefing, durationOf } from './kit/Briefing';
-import { SCRIPT_T1 } from './kit/scripts';
+import { SCRIPT_T1, SCRIPT_FLIP } from './kit/scripts';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
@@ -196,6 +196,17 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={SCRIPT_T1}
+      />
+
+      {/* ★ 42초판 — 절차 배경 + 콜아웃 + 컨센서스 인용 (2026-08-06 실측 대본) */}
+      <Composition
+        id="BriefingFlip"
+        component={Briefing as React.ComponentType<any>}
+        durationInFrames={durationOf(SCRIPT_FLIP)}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={SCRIPT_FLIP}
       />
 
       {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}

@@ -22,8 +22,9 @@ import {
   useCurrentFrame, useVideoConfig, Easing,
 } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Inter';
-import { AppShot, type ShotFocus, type ShotBox } from '../components/AppShot';
-import { CANVAS, SAFE, CAPTION, PACE, C, BG_FOR, type BeatRole } from './spec';
+import { AppShot, type ShotFocus, type ShotCallout } from '../components/AppShot';
+import { Backdrop, type BackdropSpec, type BackdropData } from './Backdrop';
+import { CANVAS, SAFE, CAPTION, PACE, C, BACKDROP_FOR, HOOK_BACKDROP, type BeatRole } from './spec';
 
 const { fontFamily } = loadFont();
 const F = (s: number) => Math.round(s * CANVAS.fps);
@@ -38,7 +39,10 @@ export type Visual =
   | { kind: 'rows'; rows: Array<{ k: string; v: string; up: boolean; note?: string }> }
   | { kind: 'logos'; items: Array<{ t: string; pct: string; up: boolean }> }
   | { kind: 'source'; outlet: string; at: string; headline: string; body?: string }
-  | { kind: 'shot'; src: string; focus: ShotFocus; box?: ShotBox }
+  /** ★ 리서치 인용 슬롯 (대본 4단의 «권위» 단계) — 앱 내 애널리스트 컨센서스.
+      제3자 의견의 «집계»를 사실로 보여준다. 우리 의견으로 섞지 않는다. */
+  | { kind: 'consensus'; rating: string; pct: string; n: string; up: boolean; note?: string }
+  | { kind: 'shot'; src: string; focus: ShotFocus; callout?: ShotCallout }
   | { kind: 'chart'; series: number[]; label: string; value: string; pct: string; up: boolean };
 
 export interface Beat {
@@ -54,8 +58,8 @@ export interface Beat {
   visual?: Visual;
   /** 길이. 없으면 role 로 자동 */
   sec?: number;
-  /** 배경 덮어쓰기. 없으면 role 이 고른다 */
-  bg?: string;
+  /** 배경 덮어쓰기 — 문자열이면 이미지 경로, 아니면 절차 배경 명세 */
+  bg?: string | BackdropSpec;
 }
 
 export interface BriefingProps {
@@ -67,26 +71,27 @@ export interface BriefingProps {
   outro: { app: string; line: string; ask: string };
   /** 마지막이 첫 화면으로 이어지는 루프백 문장 */
   loop: string;
+  /** 절차 배경이 쓸 실데이터 (seed=티커, series=당일 시계열 등) */
+  data?: BackdropData;
 }
+
+/** beat.bg → BackdropSpec 정규화 (문자열 = 구판 이미지 경로) */
+const bgOf = (b: Beat): BackdropSpec =>
+  typeof b.bg === 'string' ? { kind: 'img', src: b.bg } : (b.bg ?? BACKDROP_FOR[b.role]);
 
 const secFor = (b: Beat) =>
   b.sec ?? (b.visual?.kind === 'shot' || b.visual?.kind === 'source' ? PACE.proofSec : PACE.beatSec);
 
-// ── 배경 ────────────────────────────────────────────────────────────────────
-function Bg({ src, dur }: { src: string; dur: number }) {
-  const t = interpolate(useCurrentFrame(), [0, dur], [0, 1], { extrapolateRight: 'clamp' });
-  return (
-    <AbsoluteFill style={{ overflow: 'hidden', background: '#05070C' }}>
-      <Img src={staticFile(src)} style={{
-        width: '100%', height: '100%', objectFit: 'cover',
-        transform: `scale(${1.05 + t * 0.09})`,
-        filter: 'saturate(0.82) contrast(1.06) brightness(1.02)',
-      }} />
-      <AbsoluteFill style={{
-        background: 'linear-gradient(180deg, rgba(4,7,13,0.86) 0%, rgba(4,7,13,0.40) 24%, rgba(4,7,13,0.28) 52%, rgba(4,7,13,0.82) 100%)',
-      }} />
-    </AbsoluteFill>
-  );
+// (배경은 kit/Backdrop 이 전담한다 — 이미지·영상·절차 모드 공용)
+
+// ── 컷 플래시 (2026-08-07) ─────────────────────────────────────────────────
+// 실측: 절차 배경끼리는 같은 다크 팔레트라 밝기 차가 작아 컷이 «병합»돼 읽혔다
+// (12초짜리 샷으로 잡힘). V2~V3 교훈 — 검출기에 안 잡히면 사람 눈에도 한 컷이다.
+// 비트 시작 5프레임에 옅은 플래시를 넣어 경계를 눈(과 검출기)에 새긴다.
+function CutFlash() {
+  const o = interpolate(useCurrentFrame(), [0, 6], [0.2, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  return <AbsoluteFill style={{ background: '#EAF2FF', opacity: o, pointerEvents: 'none' }} />;
 }
 
 // ── 고정 배너 (제목 + 날짜) ─────────────────────────────────────────────────
@@ -249,6 +254,29 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
     </Card></div>
   );
 
+  // ★ 리서치 인용 — 대본 4단 «뉴스→설명→인용→우리 해석»의 3번째 슬롯.
+  //   제3자 의견의 집계(사실)로 표시한다. 우리 판단으로 섞지 않는다.
+  if (v.kind === 'consensus') {
+    const bar = useIn(8, 20);
+    const pctNum = parseFloat(v.pct) || 0;
+    return (
+      <div style={box}><Card style={{ padding: '26px 30px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <span style={{ fontFamily, fontSize: 17, fontWeight: 900, color: '#0A0E16', background: C.head, borderRadius: 6, padding: '4px 10px', letterSpacing: '0.08em' }}>CONSENSUS</span>
+          <span style={{ fontFamily, fontSize: 19, fontWeight: 700, color: C.faint }}>{v.n} analysts · aggregated</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 20 }}>
+          <span style={{ fontFamily, fontSize: 92, fontWeight: 900, color: v.up ? C.cool : C.hot, letterSpacing: '-0.045em', lineHeight: 1.02 }}>{v.rating}</span>
+          <span style={{ fontFamily, fontSize: 60, fontWeight: 900, color: C.ink, letterSpacing: '-0.03em' }}>{v.pct}</span>
+        </div>
+        <div style={{ marginTop: 16, height: 16, borderRadius: 8, background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+          <div style={{ width: `${Math.min(100, pctNum) * bar}%`, height: '100%', borderRadius: 8, background: `linear-gradient(90deg, ${v.up ? C.cool : C.hot}, ${C.head})` }} />
+        </div>
+        {v.note && <div style={{ marginTop: 12, fontFamily, fontSize: 23, fontWeight: 700, color: C.faint }}>{v.note}</div>}
+      </Card></div>
+    );
+  }
+
   if (v.kind === 'chart') {
     const d = useIn(6, 26);
     const W = w, H = Math.min(300, h - 140), B = 14;
@@ -273,11 +301,15 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
     );
   }
 
-  // shot
-  const r = useIn(14, 10);
+  // shot — 콜아웃(라벨 있는 강조)만 허용. 라벨 없는 빨간 박스는 타입에서 막았다.
+  // [2026-08-07 조사반영] 4.5초 증거 컷은 권고(≤3초) 초과 → 2초 시점 «내부 펀치인»
+  // (100→106%, 0.4초)으로 씬을 둘로 나눈다. 콜아웃도 같은 순간에 켜져 시선을 다시 잡는다.
+  const r = useIn(58, 12);
+  const punch = interpolate(useCurrentFrame(), [58, 70], [1, 1.06],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: ease });
   return (
-    <div style={{ opacity: p, height: '100%', display: 'flex', alignItems: 'center' }}>
-      <AppShot src={v.src} focus={v.focus} box={v.box} boxOpacity={r} width={w} height={h} />
+    <div style={{ opacity: p, height: '100%', display: 'flex', alignItems: 'center', transform: `scale(${punch})`, transformOrigin: '50% 42%' }}>
+      <AppShot src={v.src} focus={v.focus} callout={v.callout} calloutOpacity={r} width={w} height={h} />
     </div>
   );
 }
@@ -306,22 +338,25 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
   const loopFrom = durationInFrames - loopF;
   const ctaLen = Math.max(F(1), loopFrom - ctaFrom);
 
-  const hookBg = BG_FOR[p.hook.role ?? 'market'];
+  // 훅은 유일하게 «움직이는 실사»(kling 5.04s 영상) — role 지정 시 그 역할의 절차 배경
+  const hookBg: BackdropSpec = p.hook.role ? BACKDROP_FOR[p.hook.role] : HOOK_BACKDROP;
+  const data = p.data ?? {};
 
   return (
     <AbsoluteFill style={{ background: '#05070C' }}>
       {/* 훅 */}
       <Sequence durationInFrames={hookF}>
-        <Bg src={hookBg} dur={hookF} />
+        <Backdrop spec={hookBg} dur={hookF} data={data} />
         <AbsoluteFill style={{ justifyContent: 'center', padding: `0 ${PAD}px`, paddingTop: 120 }}>
           <HookBlock line={p.hook.line} sub={p.hook.sub} date={p.date} />
         </AbsoluteFill>
       </Sequence>
 
-      {/* 비트 */}
+      {/* 비트 — 톤을 교대로 줘서 인접 컷의 밝기 차를 만든다 (컷이 «읽히게») */}
       {spans.map(({ b, from, len }, i) => (
         <Sequence key={i} from={from} durationInFrames={len}>
-          <Bg src={b.bg ?? BG_FOR[b.role]} dur={len} />
+          <Backdrop spec={bgOf(b)} dur={len} data={data} tone={i % 2 === 0 ? 1 : 1.6} />
+          <CutFlash />
           <Head n={i + 1} eyebrow={b.eyebrow} head={b.head} />
           {b.visual && (
             <div style={{ position: 'absolute', left: PAD, right: PAD, top: VIS_TOP, height: VIS_H }}>
@@ -334,7 +369,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
 
       {/* CTA */}
       <Sequence from={ctaFrom} durationInFrames={ctaLen}>
-        <Bg src={BG_FOR.brand} dur={ctaLen} />
+        <Backdrop spec={BACKDROP_FOR.brand} dur={ctaLen} data={data} />
         <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', padding: '0 60px' }}>
           <CtaBlock {...p.outro} />
         </AbsoluteFill>
@@ -342,7 +377,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
 
       {/* 루프백 — 첫 화면으로 이어진다 */}
       <Sequence from={loopFrom} durationInFrames={loopF}>
-        <Bg src={hookBg} dur={loopF} />
+        <Backdrop spec={hookBg} dur={loopF} data={data} />
         <AbsoluteFill style={{ justifyContent: 'center', padding: `0 ${PAD}px`, paddingTop: 120 }}>
           <Rise><div style={{
             fontFamily, fontSize: 78, lineHeight: 1.16, fontWeight: 900, color: C.ink,
@@ -363,7 +398,10 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
 };
 
 function HookBlock({ line, sub, date }: { line: string; sub: string; date: string }) {
-  const a = useIn(0, 6), b = useIn(3, 9);
+  // [2026-08-07 조사반영] Shorts 는 커스텀 썸네일이 없다 — «프레임 0 이 썸네일»이다.
+  // 훅 문장은 페이드 없이 프레임 0 부터 완전히 보인다. 배지·서브만 미세하게 뜬다.
+  const a = useIn(0, 5);
+  const b = 1;
   return (
     <div>
       <div style={{
