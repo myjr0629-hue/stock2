@@ -14,7 +14,7 @@
 // 출력:  <outDir>/{signum-dash,signum-cmd,wim-home,uc-home}.png  (1206x2622 @3x)
 // ============================================================================
 
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import puppeteer from 'puppeteer';
 
@@ -84,10 +84,30 @@ for (const shot of SHOTS) {
   }
   await sleep(2500);   // 게이트 통과 후 실데이터가 채워질 시간
 
+  // ── 웹 전용 크롬 제거 (2026-08-06) ────────────────────────────────────────
+  // .app-anchor-ad 는 «웹에서만» 렌더되는 광고 자리표시자다(네이티브에선 AdMob이
+  // 그린다). 그대로 찍으면 영상 속 앱 화면에 «SPONSOR» 배너가 박혀서,
+  // 실제 앱에 없는 것이 홍보 영상에 나온다. 캡처 직전에 숨긴다.
+  await page.evaluate(() => {
+    for (const sel of ['.app-anchor-ad', '[aria-label="Sponsored"]']) {
+      document.querySelectorAll(sel).forEach((el) => { el.style.display = 'none'; });
+    }
+  }).catch(() => {});
+  await sleep(300);
+
   const file = join(OUT, `${shot.name}.png`);
   await page.screenshot({ path: file });
+
+  // ── ★ 화면과 «같은 순간»의 텍스트를 함께 남긴다 ───────────────────────────
+  // 라이브 시세라 몇 분만 지나도 숫자가 바뀐다. 대본을 나중에 쓰면 화면과 대본의
+  // 숫자가 어긋난다(실제로 T1이 그렇게 죽었다: 대본 $881.17 / 화면 $868.53,
+  // 감마플립은 방향까지 반대였다). PNG 옆에 그 순간의 innerText 를 통째로 저장하고
+  // **대본은 이 파일만 보고 쓴다.** 선택자에 의존하지 않아 UI가 바뀌어도 안 깨진다.
+  const text = await page.evaluate(() => document.body.innerText).catch(() => '');
+  writeFileSync(join(OUT, `${shot.name}.txt`), text, 'utf8');
+
   const { w, h } = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
-  console.log(`  ✔ ${shot.name.padEnd(12)} ${w}x${h} @${VIEWPORT.deviceScaleFactor}x  → ${file}`);
+  console.log(`  ✔ ${shot.name.padEnd(12)} ${w}x${h} @${VIEWPORT.deviceScaleFactor}x  → ${file}  (+ .txt)`);
   await page.close();
 }
 
