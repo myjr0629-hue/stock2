@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 const REDIS_KEY = 'fedwatch:latest';
 const REDIS_FALLBACK_KEY = 'fedwatch:fallback'; // Long-lived fallback for weekends
@@ -77,13 +77,18 @@ export async function GET() {
             });
         }
 
-        // Tier 3: DynamoDB permanent fallback — data never expires
+        // Tier 3: DynamoDB permanent fallback — data never expires.
+        // Table key is composite (pattern + timestamp): Query newest-first.
         try {
-            const ddbResult = await ddbClient.send(new GetCommand({
+            const ddbResult = await ddbClient.send(new QueryCommand({
                 TableName: 'signum-pattern-db',
-                Key: { pattern: 'FEDWATCH:latest' },
+                KeyConditionExpression: '#p = :p',
+                ExpressionAttributeNames: { '#p': 'pattern' },
+                ExpressionAttributeValues: { ':p': 'FEDWATCH:latest' },
+                ScanIndexForward: false,
+                Limit: 1,
             }));
-            const ddbData = ddbResult.Item;
+            const ddbData = ddbResult.Items?.[0];
             if (ddbData && typeof ddbData.noChange === 'number' && hasMeaningfulData(ddbData)) {
                 // Re-populate Redis from DynamoDB so next calls are fast
                 const restored = {

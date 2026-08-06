@@ -8758,6 +8758,16 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 | 금요일(07-17) 알파 실측 | dayIC +0.146(단일일), **7일 보정 역전: 스피어만 -0.855, D9 -0.808%/D0 +0.502%** — 적응 가중은 이미 revRet3(-0.125 IC)·shortVol에 음수 가중 대응. 3파전 라벨 0일(T+3 → 화요일부터). 페이퍼 10주문 스테이징(월요일 체결 예정). 튜닝 0 — calib-contra 게이트가 15일 음수 확정 시 자동 차단 |
 | ⏭ | 운영자: `node scripts/deploy-auto-engine.js` 재실행 → RT-1.0.2 (자본설정+NAV이력+실행품질+섀도사이징 활성) |
 
+### 43.17 ✅ [2026-08-07] FedWatch DDB 아카이브 수리 — 저장을 서버측 이식, Actions AWS 의존 제거
+
+| 항목 | 내용 |
+|------|------|
+| 발단 | GH Actions "FedWatch Scraper #395" 실패 메일 → 조사 결과 실패 자체는 GitHub 러너 배정 장애(자가 회복, Redis 08-06 신선). **덤 발견: DDB 계층이 역대 단 1회(3/22 수동 실행)만 기록** — Actions에서 한 번도 성공한 적 없음(에러 삼킴 try/catch) |
+| 원인 (실측) | ①읽기 2곳(GET tier-3 폴백, 스크래퍼 1주전 조회)이 복합키 테이블(pattern+timestamp)에 단일키 Get → 무조건 ValidationException ②Actions DDB 쓰기 = AWS secrets 문제 추정(쓰기 형식은 정상 — 3/22 로컬 성공이 증거). 스크래퍼가 넣던 prev\*는 서버가 어차피 Redis 직전값으로 대체 → 제거 손실 0 |
+| 구현 | `fedwatch-store` POST가 Redis 저장 후 DDB 2행(FEDWATCH:latest 스트림 + FEDWATCH:{date} 이력) 서버측 기록(비치명 catch). `fedwatch` GET tier-3 = Query 최신1건(desc)로 교체. 스크래퍼에서 AWS SDK·saveToDynamoDB·get1WeekAgoData 전부 제거, 워크플로에서 AWS secrets env·SDK 설치 제거 → **Actions는 puppeteer만** |
+| 검증 | tsc 0 · node --check OK · 배포 후 프로덕션 E2E(스토어 POST → DDB Query 신규 행 확인) — 결과는 세션 로그 참조 |
+| 미해결 | `fedwatch-store` POST 무인증(누구나 페이로드 형식만 맞으면 덮어쓰기 가능) — 공유 시크릿 헤더 도입 검토 필요(GH secret 추가 병행) |
+
 ### 43.16 ✅ [2026-08-03] XS-2.0.0 — 메인 = 고정 3종 앙상블 승격 (레이스 10일차 판정)
 
 | 항목 | 내용 |

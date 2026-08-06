@@ -1,19 +1,12 @@
 /**
- * CME FedWatch Scraper → Redis + DynamoDB
- * Run this locally or on a schedule
- * 
+ * CME FedWatch Scraper → POST to signumhq.com/api/guardian/fedwatch-store
+ * (the server persists to Redis + DynamoDB — this script needs no AWS creds)
+ *
  * Usage: node scripts/scrape-fedwatch.js
  */
 const puppeteer = require('puppeteer');
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
-
-// --- DynamoDB ---
-const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }), {
-    marshallOptions: { removeUndefinedValues: true }
-});
 
 // --- Redis (via Vercel API) ---
 async function saveToRedis(data) {
@@ -40,35 +33,6 @@ async function saveToRedis(data) {
         });
     } catch (e) {
         console.warn('[Redis] Save failed:', e.message);
-    }
-}
-
-// --- DynamoDB Save ---
-async function saveToDynamoDB(data) {
-    try {
-        await ddbClient.send(new PutCommand({
-            TableName: 'signum-pattern-db',
-            Item: {
-                pattern: 'FEDWATCH:latest',
-                timestamp: Date.now(),
-                ...data,
-            }
-        }));
-        console.log('[DynamoDB] Saved to signum-pattern-db FEDWATCH:latest');
-
-        // Also save to history table
-        const dateKey = new Date().toISOString().slice(0, 10);
-        await ddbClient.send(new PutCommand({
-            TableName: 'signum-pattern-db',
-            Item: {
-                pattern: `FEDWATCH:${dateKey}`,
-                timestamp: Date.now(),
-                ...data,
-            }
-        }));
-        console.log(`[DynamoDB] Saved history FEDWATCH:${dateKey}`);
-    } catch (e) {
-        console.error('[DynamoDB] Error:', e.message);
     }
 }
 
@@ -249,55 +213,16 @@ async function scrapeFedWatch() {
     }
 }
 
-// --- 1W Change: Read 7-day-old record from DynamoDB ---
-async function get1WeekAgoData() {
-    try {
-        const d = new Date();
-        // Try 7 days ago, then 6, then 8 (in case of weekends/holidays)
-        for (const offset of [7, 6, 8, 5, 9]) {
-            const past = new Date(d);
-            past.setDate(past.getDate() - offset);
-            const dateKey = past.toISOString().slice(0, 10);
-            const result = await ddbClient.send(new GetCommand({
-                TableName: 'signum-pattern-db',
-                Key: { pattern: `FEDWATCH:${dateKey}` },
-            }));
-            if (result.Item && typeof result.Item.noChange === 'number') {
-                console.log(`[1W Change] Found data from ${dateKey} (D-${offset})`);
-                return result.Item;
-            }
-        }
-        console.log('[1W Change] No historical data found (D-5 to D-9)');
-        return null;
-    } catch (e) {
-        console.warn('[1W Change] DynamoDB read error:', e.message);
-        return null;
-    }
-}
-
 // --- Main ---
 (async () => {
     try {
         const data = await scrapeFedWatch();
         if (!data) { console.error('Extraction failed'); process.exit(1); }
 
-        // 0) Fetch 1W ago data for change comparison
-        console.log('\n[1W Change] Fetching historical data...');
-        const prev = await get1WeekAgoData();
-        if (prev) {
-            data.prevEase = prev.ease ?? null;
-            data.prevNoChange = prev.noChange ?? null;
-            data.prevHike = prev.hike ?? null;
-            console.log(`[1W Change] prev: EASE=${data.prevEase}%, HOLD=${data.prevNoChange}%, HIKE=${data.prevHike}%`);
-        }
-
-        // 1) Save to Redis (via Vercel API)
-        console.log('\nSaving to Redis...');
+        // Save via server API (server writes Redis + DynamoDB archive,
+        // and computes prev* delta fields from its own previous value)
+        console.log('\nSaving via fedwatch-store...');
         await saveToRedis(data);
-
-        // 2) Save to DynamoDB
-        console.log('Saving to DynamoDB...');
-        await saveToDynamoDB(data);
 
         console.log('\nAll saves complete!');
     } catch (e) {
