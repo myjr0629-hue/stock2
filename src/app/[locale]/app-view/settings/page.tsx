@@ -208,6 +208,37 @@ export default function SettingsPage() {
     } finally { setProBusy(false); }
   }, [restore, proBusy, t]);
 
+  // ── 하단 정렬 진단 (안드로이드 네이티브 전용, 임시) ───────────────────────
+  // 실기기에서만 나는 문제라 «앱 안에 숫자를 찍어» 받는 게 최단거리다(UC 에서 검증됨).
+  const [bottomDiag, setBottomDiag] = useState('');
+  useEffect(() => {
+    let isAndroid = false;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      isAndroid = require('@capacitor/core').Capacitor?.getPlatform?.() === 'android';
+    } catch { /* web */ }
+    if (!isAndroid) return;
+    const read = () => {
+      const vp = document.querySelector('.app-viewport') as HTMLElement | null;
+      const cs = getComputedStyle(document.documentElement);
+      const vcs = vp ? getComputedStyle(vp) : null;
+      const nav = document.querySelector('.app-tabbar');
+      const r = nav?.getBoundingClientRect();
+      setBottomDiag([
+        `inner ${window.innerWidth}x${window.innerHeight}`,
+        `screen ${window.screen?.width}x${window.screen?.height}`,
+        `dpr ${window.devicePixelRatio}`,
+        `floor ${cs.getPropertyValue('--sig-bottom-floor').trim() || '-'}`,
+        `safe ${(vcs?.getPropertyValue('--app-bottom-safe') || '').trim() || '-'}`,
+        `lift ${(vcs?.getPropertyValue('--app-tabbar-lift') || '').trim() || '-'}`,
+        r ? `nav h=${Math.round(r.height)} bottom=${Math.round(r.bottom)} gapToVh=${Math.round(window.innerHeight - r.bottom)}` : 'nav=hidden(설정화면)',
+      ].join(' · '));
+    };
+    const timers = [0, 600, 1600, 3400].map((d) => window.setTimeout(read, d));
+    const iv = window.setInterval(read, 4000);
+    return () => { timers.forEach(clearTimeout); clearInterval(iv); };
+  }, []);
+
   const handleManageSub = useCallback(() => {
     const isIOS = typeof document !== 'undefined' && document.documentElement.classList.contains('native-ios');
     openExternalUrl(isIOS
@@ -567,6 +598,19 @@ export default function SettingsPage() {
             <div className={s.versionLogo}>SIGNUM<span>HQ</span></div>
             <div className={s.versionNum}>v1.0.0</div>
           </div>
+
+          {/* ── 하단 정렬 진단 (안드로이드 네이티브 전용, 임시) ──────────────
+              에뮬레이터와 실기기가 달라 추측으로 여러 번 틀렸다. UC 에 같은 줄을
+              넣어 원인(셸이 내비바 높이를 부풀려 게시)을 한 번에 잡았다.
+              SIGNUM 도 같은 방식으로 확인한다. 원인 확정 후 제거. */}
+          {bottomDiag && (
+            <div style={{
+              marginTop: 12, padding: '8px 10px', borderRadius: 10,
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+              fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 9.5, lineHeight: 1.5,
+              color: 'var(--text-muted)', wordBreak: 'break-all', textAlign: 'left',
+            }}>{bottomDiag}</div>
+          )}
         </div>
 
         {/* Cache Dialog */}

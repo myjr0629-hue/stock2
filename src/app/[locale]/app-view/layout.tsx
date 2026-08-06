@@ -140,8 +140,20 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
   //   셸이 --*-bottom-floor 를 **물리 픽셀**로 게시하는 빌드가 있다(126px = 48dp×2.625).
   //   같은 화면에서 env() 는 48px 로 정확했다. 그래서 «env() 우선 + 셸 값은 단위 보정»
   //   규칙을 utils/androidBottomInset 으로 뽑아 UC 와 공유한다.
+  //
+  // 🐛 2026-08-06 회귀 — 여기서 `classList.contains('native-android')` 로 판정했더니
+  //   **아무것도 안 돌았다.** 그 클래스는 NativeAppProvider 가 비동기 import 후에
+  //   붙이는데, 이 이펙트는 마운트 시점에 «한 번» 검사하고 early return 했기 때문.
+  //   (예전 코드는 검사가 sync() 안에 있어서 늦게 붙어도 잡혔다. 공용 함수로 빼면서
+  //    검사를 밖으로 올린 것이 실수.) → Capacitor.getPlatform() 은 동기라 안전하다.
+  //   에뮬레이터는 CSS 기본값이 이미 0 이라 «가드가 안 돌아도» 똑같이 보여 못 잡았다.
   useEffect(() => {
-    if (!document.documentElement.classList.contains('native-android')) return;
+    let isAndroid = false;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      isAndroid = require('@capacitor/core').Capacitor?.getPlatform?.() === 'android';
+    } catch { /* web */ }
+    if (!isAndroid) return;
     return watchBottomSafe('--sig-bottom-floor', (px) => {
       const vp = document.querySelector('.app-viewport') as HTMLElement | null;
       if (vp) vp.style.setProperty('--app-bottom-safe', `${px}px`);
