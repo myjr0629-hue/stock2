@@ -614,15 +614,17 @@ export default function UndercurrentPage() {
     return () => { remove?.(); };
   }, []);
 
-  // 탭바 섬을 안드로이드에서 더 낮게 (2026-08-06, 대표 지적 — SIGNUM 과 동일 규칙).
-  // iOS 는 홈 인디케이터가 웹뷰 아래를 이미 비우지만, 안드로이드는 내비바가 웹뷰
-  // 바로 아래 붙어 있어 같은 12 를 주면 더 떠 보인다.
+  // 탭바 섬의 안드로이드 띄움 값 (2026-08-06).
+  //   1차로 6px 을 넣었더니 대표 실기기에서 «너무 붙는다» → WIM 이 가장 이상적이라는
+  //   판정. WIM 은 14px 을 쓴다. 같은 공식·같은 바닥값(--*-bottom-floor)이므로
+  //   숫자를 WIM 과 맞추면 하단이 똑같이 떨어진다.
+  //   ⚠️ 에뮬레이터는 내비바가 불투명이라 이 차이가 잘 안 보인다 — 실기기 기준이 정본.
   useEffect(() => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const cap = require('@capacitor/core').Capacitor;
       if (cap?.getPlatform?.() === 'android') {
-        document.documentElement.style.setProperty('--uc-lift', '6px');
+        document.documentElement.style.setProperty('--uc-lift', '14px');
       }
     } catch { /* web */ }
   }, []);
