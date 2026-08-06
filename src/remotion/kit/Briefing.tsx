@@ -73,6 +73,8 @@ export interface BriefingProps {
   loop: string;
   /** 절차 배경이 쓸 실데이터 (seed=티커, series=당일 시계열 등) */
   data?: BackdropData;
+  /** 하단 티커 테이프 — 캡처 .txt 와 같은 순간의 시장 값들 (플랫폼 UI에 덮여도 되는 존) */
+  tape?: Array<{ t: string; v: string; up?: boolean }>;
 }
 
 /** beat.bg → BackdropSpec 정규화 (문자열 = 구판 이미지 경로) */
@@ -94,22 +96,62 @@ function CutFlash() {
   return <AbsoluteFill style={{ background: '#EAF2FF', opacity: o, pointerEvents: 'none' }} />;
 }
 
-// ── 고정 배너 (제목 + 날짜) ─────────────────────────────────────────────────
+// ── 고정 배너 (실로고 + 제목 + 날짜) ────────────────────────────────────────
+// [2026-08-07 대표 피드백] 실제 SIGNUM 로고를 쓴다 (public/app-icons/signum.png)
+const LOGO = 'app-icons/signum.png';
+
 function Banner({ title, date }: { title: string; date: string }) {
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 40 }}>
       <div style={{
         background: 'linear-gradient(180deg, rgba(11,18,32,0.97), rgba(8,13,24,0.92))',
-        borderBottom: `2px solid ${C.head}`, padding: '24px 40px 16px',
+        borderBottom: `2px solid ${C.head}`, padding: '26px 40px 18px',
+        display: 'flex', alignItems: 'center', gap: 20,
       }}>
-        <div style={{ fontFamily, fontSize: 44, lineHeight: 1.14, fontWeight: 900, color: C.head, letterSpacing: '-0.03em', whiteSpace: 'pre-line' }}>
-          {title}
-        </div>
-        <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontFamily, fontSize: 21, fontWeight: 800, color: C.ink }}>SIGNUM HQ</span>
-          <span style={{ fontFamily, fontSize: 21, fontWeight: 800, color: C.faint }}>{date}</span>
+        <Img src={staticFile(LOGO)} style={{ width: 88, height: 88, borderRadius: 22, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily, fontSize: 44, lineHeight: 1.14, fontWeight: 900, color: C.head, letterSpacing: '-0.03em', whiteSpace: 'pre-line' }}>
+            {title}
+          </div>
+          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily, fontSize: 21, fontWeight: 800, color: C.ink }}>SIGNUM HQ</span>
+            <span style={{ fontFamily, fontSize: 21, fontWeight: 800, color: C.faint }}>{date}</span>
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── 하단 존 (2026-08-07 대표 피드백: «아래쪽이 텅 비어 있다») ────────────────
+// SAFE.bottom(1440) 아래 25%는 플랫폼 UI가 덮는 자리라 «중요 정보»는 못 놓는다.
+// 대신 덮여도 되는 것: 브랜드 워터마크 + 티커 테이프. 빈 화면이 아니라
+// 라이브 터미널처럼 보이게 하는 앰비언트 존이다. 테이프 값도 캡처 실측.
+function BottomZone({ tape }: { tape?: Array<{ t: string; v: string; up?: boolean }> }) {
+  const f = useCurrentFrame();
+  const items = tape ?? [];
+  return (
+    <div style={{ position: 'absolute', left: 0, right: 0, top: SAFE.bottom, bottom: 0, zIndex: 30, pointerEvents: 'none' }}>
+      <div style={{ position: 'absolute', top: 104, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, opacity: 0.62 }}>
+        <Img src={staticFile(LOGO)} style={{ width: 48, height: 48, borderRadius: 12 }} />
+        <span style={{ fontFamily, fontSize: 26, fontWeight: 900, letterSpacing: '0.16em', color: 'rgba(224,232,246,0.92)' }}>SIGNUM HQ</span>
+      </div>
+      {items.length > 0 && (
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 92, overflow: 'hidden',
+          borderTop: '1px solid rgba(255,255,255,0.10)', borderBottom: '1px solid rgba(255,255,255,0.10)',
+          background: 'rgba(6,10,18,0.55)',
+        }}>
+          <div style={{ display: 'flex', whiteSpace: 'nowrap', transform: `translateX(${-(f * 2.2)}px)`   /* mod 래핑은 내용폭≠주기라 이음매가 튄다 — 60s(3960px)도 4반복(~8000px)이 덮는다 */, padding: '13px 0' }}>
+            {[0, 1, 2, 3].map((rep) => items.map((it, i) => (
+              <span key={`${rep}-${i}`} style={{ fontFamily, fontSize: 24, fontWeight: 800, padding: '0 28px', display: 'inline-flex', gap: 10 }}>
+                <span style={{ color: C.ink }}>{it.t}</span>
+                <span style={{ color: it.up == null ? C.faint : it.up ? C.cool : C.hot }}>{it.v}</span>
+              </span>
+            )))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -159,7 +201,7 @@ function Say({ text, ask }: { text: string; ask?: string }) {
 function Head({ n, eyebrow, head }: { n: number; eyebrow?: string; head: string }) {
   const a = useIn(1, 8), b = useIn(4, 10);
   return (
-    <div style={{ position: 'absolute', top: SAFE.top - 210, left: 44, right: 44 }}>
+    <div style={{ position: 'absolute', top: SAFE.top - 174, left: 44, right: 44 }}>
       <div style={{ opacity: a, display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontFamily, fontSize: 27, fontWeight: 900, color: C.head, letterSpacing: '0.05em' }}>
           {String(n).padStart(2, '0')}
@@ -318,7 +360,7 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
 export const Briefing: React.FC<BriefingProps> = (p) => {
   const { durationInFrames } = useVideoConfig();
   const PAD = 44;
-  const VIS_TOP = SAFE.top + 16;
+  const VIS_TOP = SAFE.top + 40;   // [2026-08-07] 배너-헤드 «딱 붙음» 해소로 헤드가 내려온 만큼
   // 자막 실측 높이: 본문 2줄(74*1.22*2=180) + 패딩 40 + 질문(2줄 52*1.2=125 + 패딩 32 + 여백 12)
   const CAP_BLOCK_H = 180 + 40 + 125 + 32 + 12;   // 389
   const CAP_TOP = SAFE.bottom - 24 - CAP_BLOCK_H;
@@ -386,6 +428,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
         </AbsoluteFill>
       </Sequence>
 
+      <BottomZone tape={p.tape} />
       <Banner title={p.title} date={p.date} />
 
       <AbsoluteFill style={{ justifyContent: 'flex-end', alignItems: 'center', pointerEvents: 'none' }}>
@@ -424,6 +467,7 @@ function CtaBlock({ app, line, ask }: { app: string; line: string; ask: string }
   return (
     <div style={{ textAlign: 'center' }}>
       <div style={{ opacity: a }}>
+        <Img src={staticFile(LOGO)} style={{ width: 124, height: 124, borderRadius: 30, margin: '0 auto 18px', display: 'block', boxShadow: '0 14px 40px rgba(0,0,0,0.5)' }} />
         <div style={{ fontFamily, fontSize: 72, fontWeight: 900, color: C.head, letterSpacing: '-0.035em' }}>{app}</div>
         <div style={{ fontFamily, marginTop: 10, fontSize: 26, fontWeight: 700, color: C.ink }}>{line}</div>
         <div style={{ marginTop: 20, display: 'inline-block', fontFamily, fontSize: 24, fontWeight: 900, color: '#0A0E16', background: C.head, borderRadius: 999, padding: '12px 34px' }}>

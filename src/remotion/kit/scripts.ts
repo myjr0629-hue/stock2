@@ -115,6 +115,12 @@ export const SCRIPT_FLIP: BriefingProps = {
   title: 'MU pinned at $900.\nPrice meets the gamma flip.',
   date: 'AUG 6 · LIVE SESSION',
   data: { seed: 'MU' },
+  tape: [
+    { t: 'NASDAQ', v: '-0.07%', up: false }, { t: 'S&P 500', v: '-0.21%', up: false },
+    { t: 'DOW', v: '-0.68%', up: false }, { t: 'VIX', v: '15.49', up: false },
+    { t: 'BTC', v: '$64.6K', up: false }, { t: 'GOLD', v: '$4,308', up: true },
+    { t: 'OIL', v: '$76.9', up: true }, { t: 'SOX', v: '+1.41%', up: true },
+  ],
   hook: {
     line: 'Micron is sitting on\nits gamma flip.',
     sub: '$900.02 vs $900.00',
@@ -228,5 +234,146 @@ export const SCRIPT_FLIP: BriefingProps = {
     app: 'SIGNUM HQ',
     line: 'The tape institutions leave behind',
     ask: 'Which layer do you\nread first?',
+  },
+};
+
+
+// ============================================================================
+// SCRIPT_CLOSE — 「빨간 마감, 차분해진 옵션」 ★ T4 장마감 레짐 브리핑 1호
+// ----------------------------------------------------------------------------
+// 대표 지시(2026-08-07): "종목 템플릿만이 아니라 레짐·시장분석 장마감 리포트 —
+// 뉴스와 흐름을 통해 «하나의 스토리» 느낌이 나게."
+// ★ 모든 숫자 출처 = public/shorts/appshots/close-dash.{png,txt} (8/6 장마감 후 캡처)
+// 스토리 줄기(one idea): 지수는 빨갛게 닫혔는데 공포 게이지(VIX)는 -4.17% 급락했다.
+//   가지: 레짐 판정(Mixed·RISK 43) → 섹터(에너지 주도) → 뉴스(사운드하운드 실적)
+//        → 무버(MU, $900 핀에서 페이드 — 전편과 이어지는 서사) → 매크로 → 야간 선물
+//   수렴: 탐욕 59.7 vs 리스크 43 — 두 다이얼이 어긋난 채 하루가 닫혔다.
+// ============================================================================
+export const SCRIPT_CLOSE: BriefingProps = {
+  title: 'Red close, calmer options.\nThe session in one story.',
+  date: 'AUG 6 · MARKET CLOSE',
+  data: { seed: 'CLOSE' },
+  tape: [
+    { t: 'NASDAQ', v: '-0.06%', up: false }, { t: 'S&P 500', v: '-0.18%', up: false },
+    { t: 'DOW', v: '-0.85%', up: false }, { t: 'VIX', v: '15.15', up: false },
+    { t: 'US 10Y', v: '4.67%', up: true }, { t: 'OIL', v: '$78.1', up: true },
+    { t: 'GOLD', v: '$4,304', up: true }, { t: 'BTC', v: '$64.2K', up: false },
+  ],
+  hook: {
+    line: 'The market closed red.\nFear fell anyway.',
+    sub: 'VIX -4.17% into the close',
+  },
+  loop: 'Red tape. Calm options.\nThat was the close.',
+
+  beats: [
+    {
+      role: 'market',
+      eyebrow: 'The scoreboard',
+      head: 'All three\nclosed red',
+      say: 'Every benchmark slipped today.',
+      ask: 'Then why did fear sink?',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'NASDAQ', v: '-0.06%', up: false },
+          { k: 'S&P 500', v: '-0.18%', up: false },
+          { k: 'DOW', v: '-0.85%', up: false },
+        ],
+      },
+    },
+    {
+      role: 'conflict',
+      eyebrow: 'The odd one out',
+      head: 'VIX dropped\n4.17% today',
+      say: 'Stocks red. Fear gauge down 4%.',
+      ask: 'Red tape, calmer options. Why?',
+      visual: { kind: 'versus', aK: 'DOW', aV: '-0.85%', bK: 'VIX', bV: '-4.17%' },
+    },
+    {
+      role: 'evidence',
+      eyebrow: 'The regime, on screen',
+      head: 'Mixed tape.\nRisk dial: 43.',
+      say: 'The engine calls it a mixed tape.',
+      ask: 'So where was the strength?',
+      // 좌표는 close-dash.png 에 PIL 로 실측·검증 (dash_co.png)
+      visual: {
+        kind: 'shot',
+        src: 'shorts/appshots/close-dash.png',
+        focus: { x: 0.03, y: 0.045, w: 0.94 },
+        callout: { box: { x: 0.74, y: 0.157, w: 0.185, h: 0.05 }, label: 'RISK 43' },
+      },
+    },
+    {
+      role: 'money',
+      eyebrow: 'Under the surface',
+      head: 'Energy led.\nMaterials lagged.',
+      say: 'The sector map split in two.',
+      ask: 'Who made the loudest move?',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'ENERGY', v: '+1.6%', up: true },
+          { k: 'TECH', v: '+0.1%', up: true, note: 'post session' },
+          { k: 'MATERIALS', v: '-1.4%', up: false },
+        ],
+      },
+    },
+    {
+      role: 'depth',
+      eyebrow: 'The tape of the day',
+      head: 'Earnings did\nthe talking',
+      say: 'Record revenue. A 10% pop.',   // 원문장은 «one» 외톨이 줄을 만들었다
+      ask: "And the session's $900 star?",
+      visual: {
+        kind: 'source', outlet: 'SIGNUM News Pulse', at: 'today',
+        headline: 'SoundHound AI surged 10.11% after record Q2 revenue of $61.9M',
+        body: 'Smaller-than-expected loss; 2026 guidance raised to $245M.',
+      },
+    },
+    {
+      role: 'chips',
+      eyebrow: 'The pin did not hold',
+      head: 'Micron faded\nto $888.90',
+      say: 'MU slipped off the $900 line.',
+      ask: 'What did the macro board say?',
+      visual: {
+        kind: 'logos',
+        items: [
+          { t: 'SPCX', pct: '+5.41%', up: true },
+          { t: 'NVDA', pct: '+0.15%', up: true },
+          { t: 'MU', pct: '-0.48%', up: false },
+        ],
+      },
+    },
+    {
+      role: 'money',
+      eyebrow: 'The macro board',
+      head: 'Yields up.\nOil up. Gold flat.',
+      say: 'The 10-year pushed to 4.67%.',
+      ask: 'And the overnight tape?',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'US 10Y', v: '4.67%', up: true, note: '+1.15bp' },
+          { k: 'OIL', v: '$78.1', up: true, note: '+1.04%' },
+          { k: 'GOLD', v: '$4,304', up: true, note: '+0.11%' },
+        ],
+      },
+    },
+    {
+      role: 'verdict',
+      eyebrow: 'Two dials, one tape',
+      head: 'Greed 59.7.\nRisk 43.',
+      say: 'The dials disagree at the close.',
+      ask: 'Which one matched the tape?',
+      sec: 4.5,
+      visual: { kind: 'versus', aK: 'FEAR & GREED', aV: '59.7 GREED', bK: 'RISK DIAL', bV: '43' },
+    },
+  ],
+
+  outro: {
+    app: 'SIGNUM HQ',
+    line: 'The tape institutions leave behind',
+    ask: 'Which dial would you\nread first?',
   },
 };

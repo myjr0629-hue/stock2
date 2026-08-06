@@ -101,7 +101,7 @@ import { SAMPLE_BRIEFING_6 } from './data/sampleBriefing6';
 import { BriefingV7, BRIEFING7_DURATION } from './compositions/BriefingV7';
 import { SAMPLE_BRIEFING_7 } from './data/sampleBriefing7';
 import { Briefing, durationOf } from './kit/Briefing';
-import { SCRIPT_T1, SCRIPT_FLIP } from './kit/scripts';
+import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE } from './kit/scripts';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
@@ -207,6 +207,17 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={SCRIPT_FLIP}
+      />
+
+      {/* ★ T4 장마감 레짐 브리핑 — 뉴스+흐름 «하나의 스토리» (8/6 마감 실측) */}
+      <Composition
+        id="BriefingClose"
+        component={Briefing as React.ComponentType<any>}
+        durationInFrames={durationOf(SCRIPT_CLOSE)}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={SCRIPT_CLOSE}
       />
 
       {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}

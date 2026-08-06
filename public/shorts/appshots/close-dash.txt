@@ -1,0 +1,183 @@
+SIGNUMHQ
+DARK POOL INTEL
+SIGNAL
+Global gRNA (guide RNA) market projected to grow from $518M in 2024 to $2,950M by 2034, representing 19% CAGR driven by cancer research, infectious disease, and genetic disorder applications.
+2h
+MARKET STATE
+Mixed Tape
+Futures tracked live on ET.
+FUTURES
+Neutral +0.11%
+CASH
+Bearish -0.36%
+RISK
+43
+|
+MARKET PULSE
+FUTURES LIVE
+INDEX FUTURES
+FUTURES LIVE
+FUT
+NASDAQ100 F
+29,578
+▲ +0.31%
+FUT
+S&P500 F
+7,738.50
+▲ +0.05%
+FUT
+RUSSELL2K F
+3,008.20
+▼ -0.03%
+CASH INDICES
+CLOSED
+NDX
+NASDAQ
+26,348
+▼ -0.06%
+500
+S&P 500
+7,709.96
+▼ -0.18%
+DJI
+DOW
+53,885
+▼ -0.85%
+ETF / VOLATILITY
+LIVE
+100
+QQQ
+$716.50
+▼ -0.11%
+500
+SPY
+$768.71
+▼ -0.14%
+C
+VIX
+15.15
+▼ -4.17%
+|
+MACRO BOARD
+BTC
+$64.2K
+-0.65%
+GOLD
+$4,304
++0.11%
+OIL
+$78.1
++1.04%
+SOX
+12,049
++0.33%
+US 10Y
+4.67%
++1.15
+DXY
+100.0
++0.04
+2S10S
++0.49
+NORMAL
+F&G
+59.7
+GREED
+TOP MOVERS
+Value
+Gainers
+Losers
+VIEW ALL >
+ MU
+-0.48%
+$888.90
+500 SPY
+-0.14%
+$768.71
+ SPCX
++5.41%
+$114.13
+ NVDA
++0.15%
+$219.54
+SECTOR HEATMAP
+POST
+Tech
++0.1%
+Energy
++1.6%
+Cons. Disc
+-0.5%
+Materials
+-1.4%
+Industrials
+-0.8%
+Finance
+-0.3%
+Healthcare
++0.1%
+Utilities
+-0.6%
+✨
+LIVE NEWS PULSE
+Brief
+Live
+SoundHound AI stock surged 10.11% to $7.08 after posting record Q2 revenue of $61.9M (45% growth), achieving smaller-than-expected loss, and raising 2026 guidance to $245M.
+→
+Biogen Inc. completed acquisition of RayThera Inc., a privately held biotechnology company specializing in small-molecule immunology therapies, adding multiple assets to its pipeline.
+→
+S&P Global stock declined 16% YTD and 6% in past month, driven by concerns about higher interest rates impacting its ratings business, trading at 25x earnings post-earnings drop.
+→
+SoundHound AI surged 10.11% after boosting full-year 2026 revenue guidance to $230-260M, driven by strong Q2 results with narrowed losses and better-than-expected performance.
+→
+Global gRNA (guide RNA) market projected to grow from $518M in 2024 to $2,950M by 2034, representing 19% CAGR driven by cancer research, infectious disease, and genetic disorder applications.
+→
+View Live Market Monitor →
+VOLATILITY REGIME
+Compression / expansion
+Coiling
+26%
+
+Tracks whether market volatility is compressing or expanding.
+
+DARK POOL VOLUME
+Institutional prints
+52.8%
+DP 13.6M
+
+Surfaces large off-exchange flow hidden from the open book.
+
+SQUEEZE RISK
+Short-term pressure
+Medium
+40%
+
+Monitors gamma and positioning pressure behind fast moves.
+
+ROTATION INTENSITY
+Capital rotation
+Risk-On Tilt
+Rotation 100
+
+Shows whether money is rotating toward risk or defense.
+
+Free preview · Institutional pulse
+Coiling · 1 of 4
+Free preview
+Institutional Market Pulse
+Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.
+Watch ad to unlock 1HR
+14.2K unlocked today
+Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

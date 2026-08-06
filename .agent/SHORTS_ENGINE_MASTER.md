@@ -28,8 +28,9 @@
 | 장중 비정기 | **T3 이벤트/지표** | 지표 발표·급변(브레이킹 엔진 연동 예정) | **후순위** (대표: 기본 틀 먼저) |
 | 16:10~17:00 / 05:10~06:00 | **★ T4 장마감 브리핑** | 종가·섹터·크로스브리프, 당일 주인공 종목 옵션 북, 컨센서스 | **템플릿 완성 — 대본만 그날 캡처로** |
 
-> 오늘 만든 `SCRIPT_FLIP`(장중 실측판)이 파이프라인 전체 검증판이다.
-> T4 는 마감 후 §2 런북을 그대로 돌리면 나온다 — 코드 변경 0.
+> ✅ **T4 1호 완료** (`SCRIPT_CLOSE` · BriefingClose · 8/6 마감 실측): «빨간 마감, 차분해진 옵션»
+> — 지수 마감→VIX 역설→레짐 화면(RISK 43 콜아웃)→섹터→뉴스 인용(News Pulse)→무버(MU 페이드,
+> 전편과 서사 연결)→매크로→다이얼 불일치(F&G 59.7 vs RISK 43). 장중판은 `SCRIPT_FLIP`.
 
 ## 2. 파이프라인 런북 (복붙용)
 
@@ -74,6 +75,13 @@ src/remotion/components/AppShot.tsx
 scripts/capture-app-screens.mjs   헤드리스 캡처 + 같은 순간 .txt + 웹전용 광고 숨김
 scripts/video-ref-measure.mjs     발행 게이트 (길이 게이트 포함)
 ```
+
+### 레이아웃 정본 추가 (2026-08-07 대표 피드백)
+- **실로고**(`public/app-icons/signum.png`)를 배너·CTA·하단 워터마크 3곳에 사용
+- 상단: 배너-헤드 간격 확보 (Head top = SAFE.top-174, VIS_TOP = SAFE.top+40)
+- **하단 존**(SAFE.bottom 아래 25%): 플랫폼 UI에 덮여도 되는 것만 — 워터마크 + 티커 테이프
+  (`props.tape`, 값은 캡처 .txt 실측). 테이프는 mod 래핑 금지(이음매 점프) — 선형 이동 + 4반복.
+- 로고 프록시: 없는 티커 로고는 `curl signumhq.com/api/logo/<T> > public/shorts/logos/<T>.png`
 
 ## 4. 자산 역할 (대표 확정)
 
