@@ -629,6 +629,39 @@ export default function UndercurrentPage() {
     } catch { /* web */ }
   }, []);
 
+  // ── 하단 정렬 진단 문자열 (안드로이드 네이티브 전용, 설정 시트 맨 아래 표시) ──
+  // 에뮬레이터에서는 정상인데 실기기에서만 탭바가 뜨는 문제를 «추측»으로 세 번 틀렸다.
+  // 실기기의 실제 숫자를 읽지 않으면 못 고친다. 원인 확정 후 이 블록은 제거한다.
+  const [diag, setDiag] = useState('');
+  useEffect(() => {
+    let isAndroid = false;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      isAndroid = require('@capacitor/core').Capacitor?.getPlatform?.() === 'android';
+    } catch { /* web */ }
+    if (!isAndroid) return;
+    const read = () => {
+      const cs = getComputedStyle(document.documentElement);
+      const v = (k: string) => (cs.getPropertyValue(k).trim() || '-');
+      const nav = document.querySelector('nav');
+      const r = nav?.getBoundingClientRect();
+      setDiag([
+        `inner ${window.innerWidth}x${window.innerHeight}`,
+        `screen ${window.screen?.width}x${window.screen?.height}`,
+        `dpr ${window.devicePixelRatio}`,
+        `floor ${v('--uc-bottom-floor')}`,
+        `safe ${v('--uc-safe')}`,
+        `lift ${v('--uc-lift')}`,
+        r ? `nav h=${Math.round(r.height)} bottom=${Math.round(r.bottom)} gapToVh=${Math.round(window.innerHeight - r.bottom)}` : 'nav=?',
+      ].join(' · '));
+    };
+    // 설정 시트를 열 때마다 최신 값을 다시 읽도록 주기적으로 갱신한다
+    // (showSettings 는 아직 선언 전이라 의존성으로 못 쓴다 — 인터벌로 대체).
+    const timers = [0, 600, 1600, 3400].map((d) => window.setTimeout(read, d));
+    const iv = window.setInterval(read, 4000);
+    return () => { timers.forEach(clearTimeout); clearInterval(iv); };
+  }, []);
+
   // ── 안드로이드 이중 인셋 가드 (SIGNUM app-view 와 «같은» 규칙) ─────────────
   // --uc-bottom-floor 는 네이티브 셸이 게시하는데, «웹뷰가 내비바 아래까지 그릴
   // 때만» 더해야 맞는 값이다. 이미 인셋된 웹뷰에도 내비바 높이를 실어 보내면
@@ -2424,6 +2457,19 @@ export default function UndercurrentPage() {
             <div style={{ marginTop: 16, textAlign: 'center', fontSize: 10.5, color: C.faint, fontWeight: 600 }}>
               {t.stVersion} 1.0.0 · Undercurrent by SIGNUM HQ, LLC
             </div>
+
+            {/* ── 하단 정렬 진단 (안드로이드 네이티브에서만) ─────────────────
+                실기기와 에뮬레이터가 달라서, 숫자를 눈으로 안 보면 계속 추측이 된다.
+                탭바가 실제로 어디에 있는지·어떤 값이 들어갔는지를 그대로 찍는다.
+                원인 확정 후 제거한다. */}
+            {diag && (
+              <div style={{
+                marginTop: 10, padding: '8px 10px', borderRadius: 10,
+                background: 'rgba(23,25,30,0.05)', border: `1px solid ${C.line}`,
+                fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 9.5, lineHeight: 1.5,
+                color: C.sub, wordBreak: 'break-all', textAlign: 'left',
+              }}>{diag}</div>
+            )}
           </div>
         </div>
       )}
