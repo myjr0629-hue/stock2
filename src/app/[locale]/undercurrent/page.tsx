@@ -1398,7 +1398,10 @@ export default function UndercurrentPage() {
       backdropFilter: 'blur(32px) saturate(1.85)', WebkitBackdropFilter: 'blur(32px) saturate(1.85)',
       border: '1px solid rgba(255,255,255,0.78)', borderRadius: 26,
       boxShadow: '0 18px 40px rgba(23,25,30,0.15), 0 2px 8px rgba(23,25,30,0.06), inset 0 1px 0 rgba(255,255,255,0.92)',
-      display: 'flex', padding: 5, gap: 1,
+      // 실측(iPhone 17 Pro): padding 5 로는 활성 알약이 섬의 3면에 거의 닿아
+      // «비어져 나온» 것처럼 읽혔다. 6 으로 올리고 버튼 세로 패딩을 1씩 줄여
+      // 섬 전체 높이(TABBAR_H)는 유지한다.
+      display: 'flex', padding: 6, gap: 2,
     }}>
       {([
         { k: 'home', label: t.tabHome, dot: null },
@@ -1414,9 +1417,10 @@ export default function UndercurrentPage() {
         return (
           <button key={m.k} type="button" aria-label={m.label} onClick={() => { setTab(m.k); window.scrollTo(0, 0); }} style={{
             font: 'inherit', cursor: 'pointer', flex: 1, position: 'relative', minWidth: 0,
-            padding: '8px 0 7px', border: 'none', borderRadius: 21, color: col,
+            padding: '7px 0 6px', border: 'none', borderRadius: 19, color: col,
             background: active ? `linear-gradient(150deg, ${C.emerald}, ${C.emeraldDeep})` : 'transparent',
-            boxShadow: active ? '0 8px 18px rgba(11,138,92,0.30)' : 'none',
+            // 그림자를 좁게 — 넓으면 후광이 섬 테두리에 닿아 «새어 나온» 것처럼 보인다
+            boxShadow: active ? '0 5px 13px rgba(11,138,92,0.26)' : 'none',
             transform: active ? 'translateY(-1px)' : 'none',
             transition: 'background 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, color 0.18s ease',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
