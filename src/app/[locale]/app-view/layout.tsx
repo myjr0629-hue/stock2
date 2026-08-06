@@ -124,6 +124,39 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     return () => { disposed = true; document.removeEventListener('click', onTap, true); };
   }, []);
 
+  // ── 안드로이드: 이미 인셋된 웹뷰에 내비바 높이를 «또» 더하는 것을 막는다 ──────
+  // --sig-bottom-floor 는 네이티브 셸이 게시하는데, «웹뷰가 시스템 바 아래까지
+  // 그릴 때만» 더해야 맞는 값이다. 셸 버전에 따라 이미 인셋된 웹뷰에도 내비바
+  // 높이를 실어 보내면 이중 인셋이 되어 탭바가 화면 중간에 뜬 것처럼 보인다.
+  // (같은 폰에서 WIM(최신 셸)은 정상인데 SIGNUM 만 떠 보인 정황 — 2026-08-06)
+  //
+  // ⚠️ 판단이 안 서면 «건드리지 않는다». 화면보다 웹뷰가 확실히 작을 때만 0 으로
+  //    눌러쓴다. screen.height 가 실제보다 작게 보고되는 기기에서는 조건이 성립하지
+  //    않아 아무 일도 일어나지 않는다(= 지금 동작 유지). 반대로 잘못 0 을 넣어
+  //    탭바가 내비바 밑으로 숨는 일은 생기지 않는다.
+  useEffect(() => {
+    const sync = () => {
+      if (!document.documentElement.classList.contains('native-android')) return;
+      const vp = document.querySelector('.app-viewport') as HTMLElement | null;
+      if (!vp) return;
+      const disp = window.screen?.height ?? 0;
+      const view = window.innerHeight ?? 0;
+      // 8px 은 반올림·브라우저 UI 오차를 흡수하는 하한
+      if (disp > 0 && view > 0 && disp - view >= 8) {
+        vp.style.setProperty('--app-bottom-safe', '0px');
+      }
+    };
+    // 네이티브가 인셋을 늦게(300/1200/3000ms) 게시하므로 그 뒤로도 몇 번 확인한다.
+    const timers = [0, 400, 1400, 3200].map((d) => window.setTimeout(sync, d));
+    window.addEventListener('resize', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      timers.forEach(clearTimeout);
+      window.removeEventListener('resize', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, []);
+
   // Tag html element for app-only CSS (fallback for :has() on older WebViews)
   // + block pull-to-refresh at JS level
   useEffect(() => {

@@ -614,6 +614,19 @@ export default function UndercurrentPage() {
     return () => { remove?.(); };
   }, []);
 
+  // 탭바 섬을 안드로이드에서 더 낮게 (2026-08-06, 대표 지적 — SIGNUM 과 동일 규칙).
+  // iOS 는 홈 인디케이터가 웹뷰 아래를 이미 비우지만, 안드로이드는 내비바가 웹뷰
+  // 바로 아래 붙어 있어 같은 12 를 주면 더 떠 보인다.
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const cap = require('@capacitor/core').Capacitor;
+      if (cap?.getPlatform?.() === 'android') {
+        document.documentElement.style.setProperty('--uc-lift', '6px');
+      }
+    } catch { /* web */ }
+  }, []);
+
   const [feed, setFeed] = useState<Feed | null>(null);
   const [err, setErr] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
@@ -1391,7 +1404,8 @@ export default function UndercurrentPage() {
   const TabBar = () => (
     <nav style={{
       position: 'fixed', left: 12, right: 12, zIndex: 60,
-      bottom: `calc(${TABBAR_LIFT}px + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))`,
+      // --uc-lift: 안드로이드에서만 6px 로 낮춘다(위 useEffect). 기본 12px.
+      bottom: `calc(var(--uc-lift, ${TABBAR_LIFT}px) + max(env(safe-area-inset-bottom), var(--uc-bottom-floor, 0px)))`,
       maxWidth: 536, margin: '0 auto',
       // frosted glass: translucent so the feed shows through + heavy blur & saturation.
       background: 'linear-gradient(180deg, rgba(255,255,255,0.80), rgba(252,250,246,0.60))',
