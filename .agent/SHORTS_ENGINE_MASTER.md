@@ -129,10 +129,15 @@ scripts/video-ref-measure.mjs     발행 게이트 (길이 게이트 포함)
 
 ## 7. 내일 키 도착 시 착지 지점
 
-**ElevenLabs** — `.env.local` 에 `ELEVENLABS_API_KEY` (대표가 직접. 채팅 금지)
-1. `scripts/tts-beats.mjs` 신설: SCRIPT_XXX 의 `hook.line→say[]→outro.ask` 순서로 TTS → `public/shorts/audio/<script>/<n>.mp3`
-2. Briefing 에 `<Audio>` 트랙 + **낭독 실측 길이가 컷 길이의 정답이 된다** (msFor 추정치 대체)
-3. 보이스: 영어 남성 저음 1개 고정(브랜드 일관성) — 선정은 대표 확인
+**ElevenLabs** — ✅ **연결 완료 (2026-08-07)**
+- 키 위치: `.env.local` `ELEVENLABS_API_KEY` (⚠️ 처음 발급 키가 «권한 없음» 401 —
+  키 생성 시 **Text to Speech 권한**을 켜야 한다. 재발급으로 해결)
+- `scripts/tts-beats.mjs`: `node scripts/tts-beats.mjs CLOSE` →
+  `public/shorts/audio/close/*.mp3` + `src/remotion/kit/voice-close.ts` 자동 생성.
+  같은 문장은 재굽지 않음(캐시=.txt 대조) → 크레딧 절약. 대본만 바꾸면 바뀐 문장만 굽는다.
+- Briefing `voice` prop: **낭독 실측 + 0.35s 숨**이 컷 길이의 정답 (timingOf).
+  1호 실측: 낭독 45.1s → 영상 48.6s (상한 50s 아래 — 낭독 합계가 46s 넘으면 대본을 줄인다)
+- 보이스 = **Daniel**(onwK4e9ZLuTAKqWW03F9, 앵커 톤) 고정 — 교체는 대표 승인 후 tts-beats 만
 
 **Higgsfield** — MCP `mcp.higgsfield.ai/mcp` (API 키 불필요, 계정 연결)
 1. 연결 확인 → Seedance 2.5 가용 확인(8/8 개시) → §6 수확 시작

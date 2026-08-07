@@ -9,6 +9,7 @@
 // ============================================================================
 
 import type { BriefingProps } from './Briefing';
+import { VOICE_CLOSE } from './voice-close';
 
 const MU_SERIES = [
   843, 846, 851, 850, 856, 859, 861, 859, 865, 867,
@@ -250,6 +251,7 @@ export const SCRIPT_FLIP: BriefingProps = {
 //   수렴: 탐욕 59.7 vs 리스크 43 — 두 다이얼이 어긋난 채 하루가 닫혔다.
 // ============================================================================
 export const SCRIPT_CLOSE: BriefingProps = {
+  voice: VOICE_CLOSE,
   title: 'Red close, calmer options.\nThe session in one story.',
   date: 'AUG 6 · MARKET CLOSE',
   data: { seed: 'CLOSE' },
@@ -285,8 +287,8 @@ export const SCRIPT_CLOSE: BriefingProps = {
       role: 'conflict',
       eyebrow: 'The odd one out',
       head: 'VIX dropped\n4.17% today',
-      say: 'Stocks red. Fear gauge down 4%.',
-      ask: 'Red tape, calmer options. Why?',
+      say: 'Stocks red. Fear down 4%.',
+      ask: 'Calmer options. Why?',   // 낭독 6.6s → 압축 (컷이 7초로 늘어졌다)
       visual: { kind: 'versus', aK: 'DOW', aV: '-0.85%', bK: 'VIX', bV: '-4.17%' },
     },
     {

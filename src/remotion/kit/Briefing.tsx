@@ -18,7 +18,7 @@
 // ============================================================================
 
 import {
-  AbsoluteFill, Img, Sequence, interpolate, staticFile,
+  AbsoluteFill, Audio, Img, Sequence, interpolate, staticFile,
   useCurrentFrame, useVideoConfig, Easing,
 } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Inter';
@@ -75,14 +75,43 @@ export interface BriefingProps {
   data?: BackdropData;
   /** 하단 티커 테이프 — 캡처 .txt 와 같은 순간의 시장 값들 (플랫폼 UI에 덮여도 되는 존) */
   tape?: Array<{ t: string; v: string; up?: boolean }>;
+  /** ★ ElevenLabs 음성 트랙 (scripts/tts-beats.mjs 가 생성).
+      낭독 «실측» 길이가 컷 길이의 정답이 된다 — 글자수 추정(msFor)을 대체. */
+  voice?: VoiceTrack;
+}
+
+export interface VoiceSeg { f: string; sec: number }
+export interface VoiceTrack {
+  base: string;                      // staticFile 기준 폴더 (예: 'shorts/audio/close')
+  hook?: VoiceSeg;
+  beats: Array<VoiceSeg | null>;     // beats[i] 와 1:1
+  outro?: VoiceSeg;
+  loop?: VoiceSeg;
 }
 
 /** beat.bg → BackdropSpec 정규화 (문자열 = 구판 이미지 경로) */
 const bgOf = (b: Beat): BackdropSpec =>
   typeof b.bg === 'string' ? { kind: 'img', src: b.bg } : (b.bg ?? BACKDROP_FOR[b.role]);
 
-const secFor = (b: Beat) =>
+const baseSecFor = (b: Beat) =>
   b.sec ?? (b.visual?.kind === 'shot' || b.visual?.kind === 'source' ? PACE.proofSec : PACE.beatSec);
+
+/** 음성이 있으면 «낭독 실측 + 0.5s 숨»이 하한이 된다 */
+const secFor = (b: Beat, seg?: VoiceSeg | null) =>
+  seg ? Math.max(baseSecFor(b), seg.sec + 0.35) : baseSecFor(b);   // 낭독 + 짧은 숨
+
+/** 훅/CTA/루프 길이 — 음성이 스펙 기본값보다 길면 음성을 따른다 */
+export function timingOf(p: BriefingProps) {
+  const v = p.voice;
+  const hookSec = v?.hook ? Math.max(PACE.hookSec, v.hook.sec + 0.25) : PACE.hookSec;
+  const beatSecs = p.beats.map((b, i) => secFor(b, v?.beats?.[i]));
+  const ctaSec = v?.outro ? Math.max(PACE.ctaSec, v.outro.sec + 0.3) : PACE.ctaSec;
+  const loopSec = v?.loop ? Math.max(PACE.loopSec, v.loop.sec + 0.2) : PACE.loopSec;
+  return { hookSec, beatSecs, ctaSec, loopSec };
+}
+
+const Say2 = ({ v, seg }: { v?: VoiceTrack; seg?: VoiceSeg | null }) =>
+  v && seg ? <Audio src={staticFile(`${v.base}/${seg.f}`)} /> : null;
 
 // (배경은 kit/Backdrop 이 전담한다 — 이미지·영상·절차 모드 공용)
 
@@ -367,13 +396,13 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
   const VIS_H = Math.max(320, CAP_TOP - VIS_TOP - 20);
   const VIS_W = CANVAS.w - PAD * 2;
 
-  const hookF = F(PACE.hookSec);
-  const loopF = F(PACE.loopSec);
-  const ctaF = F(PACE.ctaSec);
+  const T = timingOf(p);
+  const hookF = F(T.hookSec);
+  const loopF = F(T.loopSec);
 
   let cursor = hookF;
-  const spans = p.beats.map((b) => {
-    const from = cursor; const len = F(secFor(b)); cursor += len;
+  const spans = p.beats.map((b, i) => {
+    const from = cursor; const len = F(T.beatSecs[i]); cursor += len;
     return { b, from, len };
   });
   const ctaFrom = cursor;
@@ -389,6 +418,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       {/* 훅 */}
       <Sequence durationInFrames={hookF}>
         <Backdrop spec={hookBg} dur={hookF} data={data} />
+        <Say2 v={p.voice} seg={p.voice?.hook} />
         <AbsoluteFill style={{ justifyContent: 'center', padding: `0 ${PAD}px`, paddingTop: 120 }}>
           <HookBlock line={p.hook.line} sub={p.hook.sub} date={p.date} />
         </AbsoluteFill>
@@ -399,6 +429,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
         <Sequence key={i} from={from} durationInFrames={len}>
           <Backdrop spec={bgOf(b)} dur={len} data={data} tone={i % 2 === 0 ? 1 : 1.6} />
           <CutFlash />
+          <Say2 v={p.voice} seg={p.voice?.beats?.[i]} />
           <Head n={i + 1} eyebrow={b.eyebrow} head={b.head} />
           {b.visual && (
             <div style={{ position: 'absolute', left: PAD, right: PAD, top: VIS_TOP, height: VIS_H }}>
@@ -412,6 +443,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       {/* CTA */}
       <Sequence from={ctaFrom} durationInFrames={ctaLen}>
         <Backdrop spec={BACKDROP_FOR.brand} dur={ctaLen} data={data} />
+        <Say2 v={p.voice} seg={p.voice?.outro} />
         <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', padding: '0 60px' }}>
           <CtaBlock {...p.outro} />
         </AbsoluteFill>
@@ -420,6 +452,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       {/* 루프백 — 첫 화면으로 이어진다 */}
       <Sequence from={loopFrom} durationInFrames={loopF}>
         <Backdrop spec={hookBg} dur={loopF} data={data} />
+        <Say2 v={p.voice} seg={p.voice?.loop} />
         <AbsoluteFill style={{ justifyContent: 'center', padding: `0 ${PAD}px`, paddingTop: 120 }}>
           <Rise><div style={{
             fontFamily, fontSize: 78, lineHeight: 1.16, fontWeight: 900, color: C.ink,
@@ -486,8 +519,9 @@ function Rise({ children }: { children: React.ReactNode }) {
   return <div style={{ opacity: p, transform: `translateY(${(1 - p) * 16}px)` }}>{children}</div>;
 }
 
-/** 대본 길이에서 총 프레임을 계산 — 컴포지션 등록 시 사용 */
+/** 대본 길이에서 총 프레임을 계산 — 컴포지션 등록 시 사용 (음성 길이 반영) */
 export function durationOf(p: BriefingProps) {
-  const body = p.beats.reduce((a, b) => a + F(secFor(b)), 0);
-  return F(PACE.hookSec) + body + F(PACE.ctaSec) + F(PACE.loopSec);
+  const T = timingOf(p);
+  const body = T.beatSecs.reduce((a, s2) => a + F(s2), 0);
+  return F(T.hookSec) + body + F(T.ctaSec) + F(T.loopSec);
 }
