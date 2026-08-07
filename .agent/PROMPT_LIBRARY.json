@@ -1,0 +1,258 @@
+{
+ "items": [
+  {
+   "key": "NVDA",
+   "label_ko": "엔비디아 · AI 데이터센터",
+   "video_prompt": "Rows of gleaming server racks with green status lights pulse inside a vast, brightly lit AI datacenter, white floors reflecting cool daylight from high clerestory windows, coolant pipes glinting, a technician walking a spotless aisle; premium cinematic look, crisp high-key lighting; one continuous slow dolly forward down the central aisle, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A vast, brightly lit AI datacenter aisle lined with gleaming server racks and glowing green status lights, white floors reflecting daylight from tall clerestory windows, coolant pipes glinting, airy high-key atmosphere, deep perspective; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "MU",
+   "label_ko": "마이크론 · 메모리 반도체 팹",
+   "video_prompt": "A robotic arm lifts an iridescent silicon wafer inside a spotless memory chip fab, engineers in white cleanroom suits moving along gleaming equipment bays, bright white light flooding the bay, rainbow reflections shimmering across the wafer surface; premium cinematic look, crisp high-key lighting; one continuous slow orbit around the robotic arm, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "An iridescent silicon wafer held by a robotic arm in a spotless memory chip fab, engineers in white cleanroom suits among gleaming equipment bays, bright white light, rainbow reflections on the wafer, airy high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "AAPL",
+   "label_ko": "애플 · 프리미엄 리테일",
+   "video_prompt": "Shoppers examine generic unbranded smartphones and wireless earbuds resting on white curved display islands in a bright minimalist consumer-electronics boutique, soft daylight from a wide skylight washing over pale terrazzo floors, pastel accent walls and green plants, staff in plain shirts assisting; premium cinematic look, airy high-key lighting; one continuous slow lateral tracking shot past the display islands, no cuts; vertical framing. No subtitles, no on-screen text, no logos; interior must not resemble any real retail chain's store design.",
+   "image_prompt": "Generic unbranded smartphones and earbuds displayed on white curved display islands in a bright minimalist consumer-electronics boutique, soft daylight from a wide skylight over pale terrazzo floors, pastel accent walls and green plants, airy high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos; interior must not resemble any real retail chain's store design.",
+   "fixed": "Trade-dress violation: 'long light-wood tables + floor-to-ceiling glass facade' in a premium tech retail interior is Apple's registered store-design trademark, and 'generic smartphones' in that setting will render as iPhones in an Apple Store lookalike."
+  },
+  {
+   "key": "MSFT",
+   "label_ko": "마이크로소프트 · 클라우드 캠퍼스",
+   "video_prompt": "Sunlight floods a modern cloud-computing campus office as engineers collaborate around a glass-walled atrium, white staircases and living green walls glowing in daylight, laptops open at angles where screens stay unreadable; premium cinematic look, airy high-key lighting; one continuous slow crane rise up through the atrium, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A modern cloud-computing campus office atrium filled with daylight, engineers collaborating beside glass walls, white staircases and living green walls, laptops angled so screens are unreadable, bright airy high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "GOOGL",
+   "label_ko": "알파벳 · 서버 홀",
+   "video_prompt": "Inside a vast sunlit server hall, colorful cable bundles arc between tall white server racks under wide skylights, a technician pushing a service cart along the bright aisle, tiny status lights twinkling; premium cinematic look, crisp high-key lighting; one continuous slow push-in toward the glowing racks, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Colorful cable bundles arcing between tall white server racks in a vast sunlit server hall, wide skylights pouring daylight onto clean floors, tiny status lights twinkling, deep perspective, bright airy atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "AMZN",
+   "label_ko": "아마존 · 로봇 물류창고",
+   "video_prompt": "Autonomous mobile robots glide across the polished floor of a vast robotic logistics warehouse, carrying stacked tote bins beneath towering shelving, daylight pouring through high skylights, conveyor lines humming in the bright distance; premium cinematic look, airy high-key lighting; one continuous slow aerial drift forward above the robot fleet, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Autonomous mobile robots carrying tote bins across the polished floor of a vast robotic logistics warehouse, towering shelving on both sides, daylight flooding through high skylights, bright airy industrial atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "META",
+   "label_ko": "메타 · VR 연구실",
+   "video_prompt": "A researcher wearing a generic white virtual-reality headset gestures through the air in a bright product lab, sunlight from tall windows washing over prototype benches and translucent lenses, colleagues observing with delight; premium cinematic look, airy high-key lighting; one continuous slow orbit around the researcher, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A researcher wearing a generic white virtual-reality headset reaching into the air in a bright product lab, sunlight from tall windows over prototype benches and translucent lenses, colleagues watching, airy high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "TSLA",
+   "label_ko": "테슬라 · 전기차 조립라인",
+   "video_prompt": "Robotic arms weld an unbranded electric car body gliding along a bright assembly line, sparks glittering like confetti in daylight from wide factory skylights, white floors and clean steel platforms shining; premium cinematic look, crisp high-key lighting; one continuous lateral tracking shot following the car body down the line, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Robotic arms assembling an unbranded electric car body on a bright factory line, sparks glittering in daylight from wide skylights, white floors and clean steel platforms, deep perspective down the line, airy industrial atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "AMD",
+   "label_ko": "AMD · 칩 설계 랩",
+   "video_prompt": "An engineer holds a shimmering silicon wafer up to bright window light in a chip design lab, magnified circuit patterns glinting like a tiny city, white benches with microscopes and probe stations gleaming; premium cinematic look, crisp high-key lighting; one continuous slow push-in toward the wafer's sparkling surface, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "An engineer holding a shimmering silicon wafer up to bright window light in a chip design lab, circuit patterns glinting like a tiny city, white benches with microscopes and probe stations, crisp high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "AVGO",
+   "label_ko": "브로드컴 · 광섬유 네트워크",
+   "video_prompt": "Glowing fiber-optic strands fan out like a luminous bouquet from generic network switch hardware in a bright white connectivity lab, pinpoints of colored light dancing along the fibers, daylight from broad windows keeping every surface crisp; premium cinematic look, airy high-key lighting; one continuous slow orbit around the glowing fiber bundle, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Glowing fiber-optic strands fanning out like a luminous bouquet from generic network switch hardware in a bright white lab, pinpoints of colored light along the fibers, daylight keeping every surface crisp, airy high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "NFLX",
+   "label_ko": "넷플릭스 · 영화 스튜디오",
+   "video_prompt": "Film crew members adjust big softbox lights over a colorful studio set, golden beams crossing the bright soundstage, a director framing a shot with raised hands, vivid props and painted backdrops glowing in warm light; premium cinematic look, airy high-key lighting; one continuous slow jib-down toward the set floor, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A film crew adjusting big softbox lights over a colorful studio set, golden beams crossing the bright soundstage, a director framing a shot with raised hands, vivid props and painted backdrops in warm light; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "XOM",
+   "label_ko": "엑슨모빌 · 해상 시추선 골든아워",
+   "video_prompt": "An offshore oil platform stands over calm turquoise sea at golden hour, flare stack shimmering warm against a peach sky, a service vessel cutting a white wake below, steel towers glowing amber in low sunlight; premium cinematic look, warm bright golden-hour lighting; one continuous slow aerial pull-back revealing the full rig, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "An offshore oil platform over calm turquoise sea at golden hour, flare stack shimmering against a peach sky, steel towers glowing amber, a service vessel trailing a white wake, warm bright atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "JPM",
+   "label_ko": "JP모건 · 은행 트레이딩 플로어",
+   "video_prompt": "Traders in crisp shirts confer and gesture on a bright bank trading floor filmed from behind the desks so only the plain matte backs of monitors are visible, morning sunlight pouring through floor-to-ceiling windows over a city skyline, papers and coffee cups on clean white desks, quick energetic energy everywhere; premium cinematic look, airy high-key lighting; one continuous slow steadicam glide along the window line, no cuts; vertical framing. No subtitles, no on-screen text, no visible screen faces.",
+   "image_prompt": "Traders conferring on a bright bank trading floor seen from behind the desks so only plain matte monitor backs are visible, morning sunlight through floor-to-ceiling windows over a city skyline, clean white desks with papers and coffee cups, energetic gestures, airy high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos, no visible screen faces.",
+   "fixed": "Text/UI risk: rows of trading-floor monitors are the scene's defining feature; 'softly out of focus' is routinely ignored by generators, which will paint fake tickers, charts and numbers across dozens of screens."
+  },
+  {
+   "key": "GS",
+   "label_ko": "골드만삭스 · 투자은행 로비",
+   "video_prompt": "Businesspeople in tailored suits cross a grand investment bank lobby of white marble and brass, morning sun streaming through towering windows and casting long elegant shadows across the polished floor, revolving doors flashing light; premium cinematic look, bright airy lighting; one continuous slow tilt-up from the marble floor to the soaring atrium, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Businesspeople in tailored suits crossing a grand investment bank lobby of white marble and brass, morning sun streaming through towering windows, long elegant shadows on the polished floor, bright airy atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "LLY",
+   "label_ko": "일라이릴리 · 제약 연구소",
+   "video_prompt": "A scientist pipettes glowing samples into glass vials in a sunlit pharmaceutical research lab, white benches lined with flasks of colorful liquids, colleagues examining trays near tall bright windows, everything gleaming and clinical; premium cinematic look, crisp high-key lighting; one continuous slow push-in toward the pipette and vials, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A scientist pipetting samples into glass vials in a sunlit pharmaceutical research lab, white benches lined with flasks of colorful liquids, tall bright windows, gleaming clinical surfaces, crisp high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "UNH",
+   "label_ko": "유나이티드헬스 · 현대식 병원",
+   "video_prompt": "Nurses and doctors walk through a light-filled modern hospital atrium with white curved balconies and indoor trees, sunlight cascading from a glass roof, a smiling patient wheeled past reception, calm and hopeful mood; premium cinematic look, airy high-key lighting; one continuous slow dolly forward through the atrium, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A light-filled modern hospital atrium with white curved balconies and indoor trees, sunlight cascading from a glass roof, nurses and doctors walking below, calm hopeful mood, airy high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "BA",
+   "label_ko": "보잉 · 항공기 조립 격납고",
+   "video_prompt": "An unbranded commercial jet fuselage rests on gleaming scaffolding inside an enormous aircraft assembly hangar, daylight flooding through giant open doors and skylights, engineers in hi-vis vests inspecting the polished aluminum skin; premium cinematic look, bright airy lighting; one continuous slow aerial drift along the fuselage from nose to tail, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "An unbranded commercial jet fuselage on scaffolding inside an enormous aircraft assembly hangar, daylight flooding through giant open doors and skylights, engineers in hi-vis vests below, polished aluminum gleaming, bright airy atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "CAT",
+   "label_ko": "캐터필러 · 광산 덤프트럭",
+   "video_prompt": "Colossal unbranded mining haul trucks in neutral grey-steel livery climb a terraced open-pit mine road under a brilliant blue sky, dust drifting gold in midday sun, tires taller than the workers waving them through, ochre rock faces glowing; premium cinematic look, bright natural lighting; one continuous slow aerial rise revealing the vast pit, no cuts; vertical framing. No subtitles, no on-screen text, no logos or brand liveries on the machines.",
+   "image_prompt": "Colossal unbranded mining haul trucks in neutral grey-steel livery on a terraced open-pit mine road under a brilliant blue sky, gold dust drifting in midday sun, tires towering over workers, ochre rock faces glowing, bright natural light; photorealistic editorial photography, vertical composition. No text, no logos or brand liveries on the machines.",
+   "fixed": "Brand risk: 'giant yellow mining haul trucks' for the Caterpillar ticker invokes trademarked Caterpillar Yellow trade dress, and generators will almost certainly render CAT-branded trucks with logos."
+  },
+  {
+   "key": "COST",
+   "label_ko": "코스트코 · 창고형 매장",
+   "video_prompt": "Shoppers push oversized carts down a towering warehouse store aisle stacked with plain unbranded bulk packages, skylights pouring daylight over steel pallet racks, a forklift lifting a pallet in the bright distance; premium cinematic look, airy high-key lighting; one continuous slow dolly forward down the aisle, no cuts; vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Shoppers with oversized carts in a towering warehouse store aisle stacked with plain unbranded bulk packages, skylights pouring daylight over steel pallet racks, deep bright perspective, airy high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "PLTR",
+   "label_ko": "팔란티어 · 관제센터",
+   "video_prompt": "Analysts stand at clean white desks in a bright mission control room facing a wall-sized installation of soft glowing light points drifting like a constellation — pure abstract light with no charts, letters, maps, or numbers — daylight streaming from tall side windows across polished floors, focused teamwork; premium cinematic look, crisp high-key lighting; one continuous slow push-in toward the glowing constellation wall, no cuts; vertical framing. No subtitles, no on-screen text, no readable screens or dashboards.",
+   "image_prompt": "Analysts at clean white desks in a bright mission control room facing a wall-sized installation of soft glowing light points arranged like a constellation, pure abstract light with no charts, letters, maps, or numbers, daylight from tall side windows, crisp high-key atmosphere; photorealistic editorial photography, vertical composition. No text, no logos, no readable screens or dashboards.",
+   "fixed": "Text/UI risk: the camera pushes in on a huge wall of displays, guaranteeing screen content fills the frame; 'abstract unreadable light' will not stop generators from rendering dashboard UI, maps and numbers on a display wall."
+  },
+  {
+   "key": "tech",
+   "label_ko": "기술",
+   "video_prompt": "A young engineer in a white lab coat assembles a translucent robotic prototype on a glass workbench, in an airy modern innovation lab with floor-to-ceiling windows flooding the room with crisp morning daylight, unreadable displays softly out of focus behind her, photorealistic cinematic style with clean high-key lighting, one continuous slow dolly-in camera move, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A young engineer in a white lab coat examining a translucent robotic prototype on a glass workbench in a bright innovation lab, floor-to-ceiling windows pouring in crisp morning daylight, blurred unreadable displays in the background, airy high-key lighting, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "semis",
+   "label_ko": "반도체",
+   "video_prompt": "A gloved technician in a white cleanroom suit lifts a rainbow-reflecting silicon wafer toward bright overhead panels for inspection, inside a pristine sunlit semiconductor cleanroom with rows of gleaming white equipment, iridescent reflections dancing across the wafer surface, photorealistic cinematic style with crisp high-key lighting, one continuous slow orbit camera move, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A cleanroom technician in a white suit holding an iridescent silicon wafer up to bright inspection light, rainbow reflections across its mirrored surface, rows of gleaming equipment in soft focus behind, pristine white semiconductor cleanroom glowing with crisp high-key illumination, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "energy",
+   "label_ko": "에너지",
+   "video_prompt": "Endless rows of solar panels tilt to catch golden-hour sunlight across a vast desert field, a distant oil pump-jack slowly nodding against a bright amber sky, heat shimmer rising from the warm ground, photorealistic cinematic style with warm radiant lighting, one continuous rising drone camera move, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Vast rows of solar panels gleaming under golden-hour sunlight in a desert field, a distant oil pump-jack against a bright amber sky, heat shimmer rising from the warm ground between the rows, lens flare and warm radiant light across the panels, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "financials",
+   "label_ko": "금융",
+   "video_prompt": "Sunlight glints off glass-and-steel bank towers as low clouds drift across their mirrored facades, a busy financial district plaza below with professionals crossing in sharp morning light under a clear blue sky, photorealistic cinematic style with crisp daylight, one continuous slow tilt-up camera move from plaza to tower peaks, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Towering glass bank skyscrapers reflecting a clear blue morning sky, sunlight flaring off mirrored facades, wispy clouds drifting across the reflections, professionals crossing a bustling financial district plaza below, sharp crisp daylight and confident vertical lines, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "healthcare",
+   "label_ko": "헬스케어",
+   "video_prompt": "A scientist in a white coat pipettes vivid blue liquid into rows of glass vials at a spotless bench, in a bright modern research lab with sunlight streaming through large windows, microscopes and steel equipment gleaming around her, photorealistic cinematic style with airy high-key lighting, one continuous slow lateral dolly camera move, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A scientist in a white lab coat pipetting vivid blue liquid into glass vials, bright modern research laboratory bathed in daylight from large windows, gleaming microscopes in soft focus, steel equipment and spotless white benches surrounding her, airy high-key lighting, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "consumer",
+   "label_ko": "소비재",
+   "video_prompt": "Crowds of shoppers carrying colorful paper bags stroll past open-air market stalls piled with fresh fruit and flowers, striped awnings glowing in bright afternoon sunlight along a lively pedestrian street, cafe tables and flower stands lining the way, photorealistic cinematic style with vibrant daylight color, one continuous forward tracking camera move through the crowd, no cuts, vertical framing. No subtitles, no on-screen text, no signs or lettering anywhere.",
+   "image_prompt": "Shoppers with colorful paper bags strolling past open-air market stalls of fresh fruit and flowers, striped awnings glowing in warm afternoon light, cafe tables and flower stands lining the sidewalk under a clear blue sky, cheerful bustling energy, photorealistic editorial photography, vertical composition. No text, no signs, no lettering, no logos.",
+   "fixed": "Explicitly requests storefront signage in both prompts ('generic signage blurred beyond reading'). Instructing a generative model to render signage-but-blurred is unreliable; photoreal shopping-street generations frequently produce legible or semi-legible sign text, violating the no-readable-text rule. Fix removes signage entirely by shifting to an open-air market street where the scene reads 'consumer' without any text-bearing surfaces."
+  },
+  {
+   "key": "industrials",
+   "label_ko": "산업재",
+   "video_prompt": "Orange robotic arms swing in precise rhythm along a modern automated assembly line, clean machinery under bright skylights flooding a vast factory floor with daylight, workers in hi-vis vests overseeing from a walkway, photorealistic cinematic style with crisp industrial lighting, one continuous slow dolly alongside the line, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Rows of orange robotic arms on a clean automated assembly line under bright factory skylights, daylight streaming across polished floors, gleaming steel machinery stretching deep into the vast hall, a worker in hi-vis vest observing, crisp industrial daylight, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "utilities",
+   "label_ko": "유틸리티",
+   "video_prompt": "Giant white wind turbines spin steadily across rolling green hills under a clear blue midday sky, high-voltage transmission towers marching toward the horizon, sunlight flashing off the rotating blades, photorealistic cinematic style with vivid natural daylight, one continuous ascending drone camera move past a turbine, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "White wind turbines towering over rolling green hills beneath a clear blue sky, high-voltage transmission lines receding to the horizon, sunlight gleaming on turbine blades, white clouds drifting and wildflowers dotting the grassy foreground, vivid natural daylight, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "materials",
+   "label_ko": "소재",
+   "video_prompt": "Molten orange steel pours from a giant ladle sending bright sparks cascading like fireworks, inside a vast steel mill lit by tall daylight windows and the glow of hot metal, a worker in a reflective silver suit watching from a safe distance, photorealistic cinematic style with bright dramatic illumination, one continuous slow push-in camera move, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Molten steel pouring in a bright cascade of orange sparks inside a spacious steel mill, daylight streaming through tall industrial windows mixing with the metal's glow, sparks arcing like fireworks against bright haze, a worker in a silver protective suit in the distance, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "communication",
+   "label_ko": "커뮤니케이션",
+   "video_prompt": "Strands of glowing fiber-optic cables sparkle like threads of light as a technician's hands guide them into a bright white network hub, a sunlit broadcast tower rising against a clear blue sky through the window behind, photorealistic cinematic style with clean high-key lighting, one continuous slow push-in camera move, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Glowing fiber-optic strands fanned out in a technician's hands like threads of light, each strand sparkling with a pinpoint of color, bright white network facility with daylight from wide windows, a broadcast tower against blue sky outside, clean high-key lighting, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "risk_on",
+   "label_ko": "리스크 온",
+   "video_prompt": "A fleet of racing sailboats with huge billowing spinnakers in vivid orange, yellow and red surges forward at full speed across sparkling open water, spray flying from the bows under a brilliant midday sun, sails straining with wind and momentum, exhilarating full-speed-ahead energy, photorealistic cinematic style with radiant sunlit color, one continuous low aerial chase camera move alongside the lead boat, no cuts, vertical framing. No subtitles, no on-screen text, no numbers or lettering on sails or hulls.",
+   "image_prompt": "Racing sailboats under huge billowing spinnakers in vivid orange, yellow and red charging across sparkling sunlit water, spray bursting from the bows, sails full of wind under a brilliant blue sky, exhilarating full-speed-ahead energy, photorealistic editorial photography, vertical composition. No text, no logos, no numbers or lettering on sails or hulls.",
+   "fixed": "Too generic to read in 1 second: 'golden sunrise, commuters striding across a financial plaza between glass towers' is visually near-identical to both the jobs prompt (commuter crowd on sunlit plaza) and the financials prompt (glass towers over plaza), and the scene reads 'morning commute', not 'risk-on'. Fix uses a distinct full-speed metaphor — racing sailboats under billowing spinnakers — which reads 'charging ahead / appetite for risk' instantly and pairs cleanly against the risk_off ships-to-harbor scene. Bans sail numbers to avoid rendered digits."
+  },
+  {
+   "key": "risk_off",
+   "label_ko": "리스크 오프",
+   "video_prompt": "Towering white-gray storm clouds gather over a bright daylight harbor as cargo ships steam steadily toward the safety of port, sunlight still breaking across choppy blue-green water, gulls wheeling in the gusty wind, photorealistic cinematic style with dramatic well-lit skies, one continuous slow aerial pull-back camera move, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Cargo ships heading toward a harbor as dramatic storm clouds mass in a bright daylight sky, shafts of sun striking choppy blue-green water, wind-blown whitecaps, gulls wheeling above cranes waiting at the docks, vivid well-lit storm drama, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "volatility_spike",
+   "label_ko": "변동성 급등",
+   "video_prompt": "Massive turquoise ocean waves rear up and crash in explosions of white spray under bright stormy daylight, sunlight piercing through the wave crests making them glow, sea mist drifting across a rocky coastline, photorealistic cinematic style with luminous high-contrast daylight, one continuous slow-motion push-in camera move toward the breaking wave, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A towering turquoise wave crashing in a burst of white spray under bright stormy daylight, sunlight glowing through the translucent wave crest, spray droplets sparkling in midair, sea mist over a rocky shore, luminous high-contrast light, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "rebound",
+   "label_ko": "반등",
+   "video_prompt": "Brilliant golden sunbeams break through parting storm clouds above a waking city skyline, light sweeping across rooftops and glass towers as the sky shifts from gray to radiant amber, birds lifting into the warming air, photorealistic cinematic style with triumphant golden lighting, one continuous slow tilt-up camera move into the emerging sun, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Golden sunbeams bursting through parting clouds over a city skyline at dawn, gray sky giving way to radiant amber light sweeping across glass towers, crepuscular rays fanning wide, rooftops catching the first warm glow, hopeful triumphant atmosphere, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "selloff",
+   "label_ko": "매도세",
+   "video_prompt": "Crimson and orange autumn leaves rain down steadily from tall maples in a sunlit park, drifting past walkers and settling in red carpets on bright pathways, golden afternoon light glowing through the falling foliage, photorealistic cinematic style with warm luminous daylight, one continuous slow downward tilt camera move following the leaves, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Red maple leaves falling thickly through bright golden afternoon light in a sunlit park, tall maples glowing crimson, a lone walker beneath the drifting descent, scarlet foliage carpeting the path below, luminous backlit leaves against a clear sky, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "fed",
+   "label_ko": "연준",
+   "video_prompt": "Morning sunlight rakes across the towering marble columns of a neoclassical government building, long shadows sliding along the stone facade as the portico glows warm white against a crisp blue sky, photorealistic cinematic style with stately golden morning light, one continuous slow upward tilt camera move along the columns, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Massive marble columns of a neoclassical government building glowing in warm morning sunlight, long crisp shadows across the stone steps, carved capitals and fluted stone rendered in fine detail, clear blue sky above the portico, stately golden light, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "cpi_inflation",
+   "label_ko": "물가·인플레이션",
+   "video_prompt": "A shopper pauses in a brightly lit supermarket aisle, lifting a plain carton of eggs and studying it with a thoughtful frown, their other hand resting on a lightly filled cart, shelves of colorful produce glowing under clean white light bouncing off polished floors, photorealistic cinematic style with fresh high-key retail lighting, one continuous slow push-in camera move toward the shopper, no cuts, vertical framing. No subtitles, no on-screen text, no price tags, no labels.",
+   "image_prompt": "A shopper in a brightly lit supermarket aisle examining a plain carton of eggs with a thoughtful, concerned expression, a lightly filled shopping cart beside them, colorful produce glowing on clean unmarked shelves, crisp white light on polished floors, fresh high-key retail lighting, photorealistic editorial photography, vertical composition. No text, no price tags, no labels, no logos.",
+   "fixed": "Both prompts explicitly ask for price tags ('small price tags glinting', 'shelf-edge price tags blurred out of focus'). Price tags are number-bearing objects; even 'out of focus' the model is likely to render readable digits, directly violating the no-readable-numbers rule. Fix removes all tags/labels and conveys rising prices through a shopper scrutinizing groceries (eggs, an iconic inflation symbol) with a lightly filled cart."
+  },
+  {
+   "key": "jobs",
+   "label_ko": "고용",
+   "video_prompt": "A dense crowd of morning commuters in business attire streams across a wide sunlit city plaza, coffee cups and briefcases in hand, long crisp shadows radiating in low golden light between office towers, purposeful energetic pace, photorealistic cinematic style with bright morning daylight, one continuous overhead crane-down camera move into the crowd, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Morning commuters crossing a sunlit plaza in long golden light, seen from slightly above, dozens of crisp shadows stretching across pale stone, briefcases and brisk purposeful strides between office towers, a rhythm of motion and warm light, bright energetic daylight, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "earnings_season",
+   "label_ko": "실적 시즌",
+   "video_prompt": "Warm spotlights sweep across a bright modern press-conference stage as crew position a wooden podium crowned with a cluster of plain unbranded microphones, rows of empty seats and folded camera tripods waiting in soft daylight pouring through tall glass walls, anticipation in the air, photorealistic cinematic style with clean bright lighting, one continuous slow dolly toward the podium, no cuts, vertical framing. No subtitles, no on-screen text, no screens or displays, no logos.",
+   "image_prompt": "An empty sunlit press-conference stage with a wooden podium crowned by a cluster of plain unbranded microphones, warm spotlights glowing overhead, rows of empty seats and daylight flooding through tall glass walls, cables coiled neatly on the polished floor, anticipatory atmosphere before a major announcement, photorealistic editorial photography, vertical composition. No text, no screens, no logos.",
+   "fixed": "Both prompts feature a 'wide blank presentation screen glowing softly white'. Screens are the highest-risk surface for generated slide text, charts, and UI; 'blank' instructions are unreliable and models routinely fill glowing screens with legible content. Fix replaces the screen with a podium crowned by unbranded microphones, which also reads 'announcement season' more clearly than an empty screen."
+  },
+  {
+   "key": "ai_boom",
+   "label_ko": "AI 붐",
+   "video_prompt": "Engineers walk between long rows of white server racks pulsing with tiny blue status lights, inside a vast bright data hall lit by clean white ceiling panels and daylight from high clerestory windows, cool air shimmering above the aisle, photorealistic cinematic style with luminous high-key lighting, one continuous forward tracking camera move down the server aisle, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "Two engineers walking down a gleaming aisle of white server racks dotted with tiny blue lights, vast bright data hall lit by white ceiling panels and high daylight windows, polished floor reflecting the racks in a long clean perspective, luminous high-key lighting, photorealistic editorial photography, vertical composition. No text, no logos."
+  },
+  {
+   "key": "consumer_strength",
+   "label_ko": "소비 호조",
+   "video_prompt": "A vibrant daytime shopping district buzzes with crowds weaving between open-air stalls and gleaming storefronts, shoppers laughing with full bags under strings of bright pennants, sunshine saturating the colorful facades, photorealistic cinematic style with lively saturated daylight, one continuous slow aerial glide camera move above the street, no cuts, vertical framing. No subtitles, no on-screen text.",
+   "image_prompt": "A bustling daytime shopping district packed with cheerful shoppers carrying full bags, sunlit colorful storefronts and open-air stalls, strings of pennants overhead, cafe terraces spilling onto the sidewalk under a clear sky, bright saturated afternoon light, joyful commercial energy, photorealistic editorial photography, vertical composition. No text, no logos."
+  }
+ ]
+}
