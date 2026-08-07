@@ -163,6 +163,27 @@ function Spark({ data, w = 220, h = 44, fluid = false }: { data: number[]; w?: n
   );
 }
 
+/* Compound-growth stats from a daily NAV series (measured, not promised):
+ * per-day geometric growth g, compound vs simple(no-reinvest) NAV delta,
+ * and doubling time at the measured rate. */
+function compoundStats(hist: { d: string; nav: number }[] | null | undefined) {
+  if (!hist || hist.length < 2) return null;
+  const first = hist[0], last = hist[hist.length - 1];
+  if (!(first.nav > 0) || !(last.nav > 0)) return null;
+  const n = hist.length - 1;
+  const g = Math.pow(last.nav / first.nav, 1 / n) - 1;
+  let simpleSum = 0;
+  for (let i = 1; i < hist.length; i++) simpleSum += (hist[i].nav - hist[i - 1].nav) / hist[i - 1].nav;
+  return {
+    days: n,
+    g,
+    total: last.nav / first.nav - 1,
+    lastNav: last.nav,
+    simpleNav: first.nav * (1 + simpleSum),
+    doubleDays: g > 0 ? Math.ceil(Math.log(2) / Math.log(1 + g)) : null,
+  };
+}
+
 export default function TradeConsole({ operator }: { operator: string }) {
   const [nav, setNav] = useState<NavKey>('overview');
   const [st, setSt] = useState<StatusRes | null>(null);
@@ -200,6 +221,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const [picksMeta, setPicksMeta] = useState<{ engineDate: string | null; labeled: number | null } | null>(null);
   const [auto, setAuto] = useState<AutoRes | null>(null);
   const [autoErr, setAutoErr] = useState('');
+  const [realNav, setRealNav] = useState<{ d: string; nav: number }[]>([]);
 
   const [capInput, setCapInput] = useState('');
   const [tab, setTab] = useState<'order' | 'cond'>('order');
@@ -230,6 +252,7 @@ export default function TradeConsole({ operator }: { operator: string }) {
       .then((j) => {
         setHoldings(Array.isArray(j.rows) ? j.rows : []);
         setSummary(j.summary ?? null);
+        setRealNav(Array.isArray(j.navHist) ? j.navHist : []);
         setBuyPower(j.buyingPowerUsd ?? null);
         setBuyPowerKrw(j.buyingPowerKrw ?? null);
         setPortErr(j.holdingsStatus >= 400 ? `계좌 조회 실패 (${j.holdingsStatus})` : '');
@@ -345,6 +368,8 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const notional = mode === 'amount' ? Number(amount) : Number(qty) * effPx;
   const usdTotal = (summary?.usdValue ?? 0) + (buyPower ?? 0);
   const paperRet = st?.paper?.nav != null ? (st.paper.nav - 1000) / 10 : null;
+  const pc = compoundStats(auto?.navHist);
+  const rc = compoundStats(realNav);
   const gatesPassed = st ? Number(st.gates.ic.pass) + Number(st.gates.duel.pass) + Number(st.gates.calib.pass) : 0;
   const vLabel = verdict ? LABEL_KO[verdict.label] ?? LABEL_KO.NO_DATA : null;
 
@@ -471,6 +496,57 @@ export default function TradeConsole({ operator }: { operator: string }) {
           ))}
         </div>
       </section>
+      <section className="tc-duo">
+        <div className="tc-card">
+          <div className="tc-card-label">복리 엔진 · 페이퍼 실측{pc ? ` (${pc.days}거래일)` : ''}</div>
+          {auto?.navHist && auto.navHist.length > 1 && pc ? (
+            <>
+              <div style={{ marginBottom: 10 }}><Spark data={auto.navHist.map((n) => n.nav)} w={420} h={64} fluid /></div>
+              <div className="tc-kv"><span>누적 수익 (복리)</span><strong className={pc.total >= 0 ? 'up' : 'dn'}>{pc.total >= 0 ? '+' : ''}{(pc.total * 100).toFixed(2)}%</strong></div>
+              <div className="tc-kv"><span>실측 일복리율</span><strong>{pc.g >= 0 ? '+' : ''}{(pc.g * 100).toFixed(3)}%/일</strong></div>
+              <div className="tc-kv"><span>재투자 없었다면</span><strong>${fmt(pc.simpleNav)} <span className="hint">→ 복리 프리미엄 +${fmt(pc.lastNav - pc.simpleNav)}</span></strong></div>
+              <div className="tc-kv"><span>현재 속도로 자본 2배</span><strong>{pc.doubleDays ? `약 ${pc.doubleDays}거래일` : '—'}</strong></div>
+            </>
+          ) : <span className="tc-empty">NAV 이력 축적 중 (엔진이 매일 기록)</span>}
+        </div>
+        <div className="tc-card">
+          <div className="tc-card-label">실계좌 복리 트랙 <span className="hint">접속 시 일별 자동 기록</span></div>
+          {realNav.length > 1 && rc ? (
+            <>
+              <div style={{ marginBottom: 10 }}><Spark data={realNav.map((n) => n.nav)} w={420} h={64} fluid /></div>
+              <div className="tc-kv"><span>기록 구간 수익 (복리)</span><strong className={rc.total >= 0 ? 'up' : 'dn'}>{rc.total >= 0 ? '+' : ''}{(rc.total * 100).toFixed(2)}%</strong></div>
+              <div className="tc-kv"><span>실측 일복리율</span><strong>{rc.g >= 0 ? '+' : ''}{(rc.g * 100).toFixed(3)}%/일</strong></div>
+              <div className="tc-kv"><span>현재 속도로 자본 2배</span><strong>{rc.doubleDays ? `약 ${rc.doubleDays}거래일` : '—'}</strong></div>
+            </>
+          ) : (
+            <>
+              <div className="tc-big ink">${fmt(usdTotal)}</div>
+              <span className="tc-empty">복리 곡선 기록 {realNav.length === 1 ? '1일차 — 내일부터 곡선이 그려집니다' : '시작 대기'}</span>
+            </>
+          )}
+        </div>
+      </section>
+      {pc && pc.g > 0 && (
+        <section className="tc-card" style={{ marginBottom: 14 }}>
+          <div className="tc-card-label">복리 프로젝션 <span className="hint">실측 페이퍼 일복리율의 단순 연장 · 추정치 · 게이트 판정({st?.gates?.ic?.pass ? '통과' : '대기'}) 전 참고용 — 수익 보장 아님</span></div>
+          <table className="tc-tbl">
+            <thead><tr><th>기간</th><th>보수 (실측의 ½)</th><th>실측 유지 시</th><th>실계좌 ${fmt(usdTotal, 0)} 환산</th></tr></thead>
+            <tbody>
+              {([[21, '1개월'], [63, '3개월'], [126, '6개월'], [252, '1년']] as const).map(([d, l]) => {
+                const half = Math.pow(1 + pc.g / 2, d), full = Math.pow(1 + pc.g, d);
+                return (
+                  <tr key={d}>
+                    <td>{l} ({d}거래일)</td>
+                    <td>${fmt(1000 * half, 0)} <span className="hint">{((half - 1) * 100).toFixed(0)}%</span></td>
+                    <td className="up">${fmt(1000 * full, 0)} <span className="hint">+{((full - 1) * 100).toFixed(0)}%</span></td>
+                    <td>{usdTotal > 0 ? `$${fmt(usdTotal * full, 0)}` : '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
       <section className="tc-duo">
         <div className="tc-card">
           <div className="tc-vhead">

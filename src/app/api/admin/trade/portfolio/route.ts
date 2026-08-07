@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireTradeAdmin } from '@/lib/trade/auth';
 import { callToss } from '@/lib/trade/executor';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -56,13 +57,34 @@ export async function GET() {
     dayRate: num(h?.dailyProfitLoss?.rate) != null ? Number(h!.dailyProfitLoss!.rate) * 100 : null,
   };
 
+  const buyingPowerUsd = num((bpUsd.data as { result?: { cashBuyingPower?: string } })?.result?.cashBuyingPower);
+  const buyingPowerKrw = num((bpKrw.data as { result?: { cashBuyingPower?: string } })?.result?.cashBuyingPower);
+
+  // Real-account compound track: sample total USD NAV (holdings + cash) once
+  // per day (latest reading wins) so the console can draw the real compounding
+  // curve alongside the paper track. Kept 2 years, best-effort.
+  let navHist: { d: string; nav: number }[] = [];
+  try {
+    const usdTotal = (summary.usdValue ?? 0) + (buyingPowerUsd ?? 0);
+    navHist = (await getFromCache<{ d: string; nav: number }[]>('trade:real:navhist')) ?? [];
+    if (usdTotal > 0 && holdings.status < 400) {
+      const today = new Date().toISOString().slice(0, 10);
+      const point = { d: today, nav: Math.round(usdTotal * 100) / 100 };
+      const i = navHist.findIndex((x) => x.d === today);
+      if (i < 0) navHist.push(point); else navHist[i] = point;
+      navHist = navHist.slice(-730);
+      await setInCache('trade:real:navhist', navHist, 3 * 365 * 86400);
+    }
+  } catch { /* history is best-effort — never block the snapshot */ }
+
   return NextResponse.json({
     ok: holdings.status < 400,
     holdingsStatus: holdings.status,
     rows,
     summary,
-    buyingPowerUsd: num((bpUsd.data as { result?: { cashBuyingPower?: string } })?.result?.cashBuyingPower),
-    buyingPowerKrw: num((bpKrw.data as { result?: { cashBuyingPower?: string } })?.result?.cashBuyingPower),
+    buyingPowerUsd,
+    buyingPowerKrw,
+    navHist,
     rawError: holdings.status >= 400 ? holdings.data : undefined,
   });
 }
