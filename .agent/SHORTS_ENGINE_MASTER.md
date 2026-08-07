@@ -132,13 +132,18 @@ scripts/video-ref-measure.mjs     발행 게이트 (길이 게이트 포함)
    광고 마감 노하우: ①어두운 시네 컷은 CutFlash 5f + 스크린블렌드 리프트(#9FB8D8 8.5%)로
    게이트 통과 ②씬0 클레임은 instant(프레임0=쇼츠 썸네일) ③앱 줌은 문장을 자르지 않는 폭으로
 5. 라이선스·생성일 기록 남길 것 (reused-content 방어)
-6. ★ **무제한은 웹 UI 전용 (실측 확정)** — MCP 는 `use_unlim` 거부 + 크레딧 과금
-   (시덴스 2.5 = 32.5크레딧/5s. 광고 3클립 = 97.5 지출, 잔액 1,017.5).
-   **대량 수확 = 웹 자동화**(§7 노하우), MCP = 잡 회수·소량 정밀 생성용.
-   MCP `supports_unlim` 모델 20종(실측 2026-08-08): 영상 Seedance 2.0/2.0 Mini·Kling v3.0·
-   Gemini Omni Flash·Wan 2.7 / 이미지 NB2·NB Pro·NB·GPT Image 2·Soul 2.0·Seedream 4.5/5L/5P·
-   FLUX.2·Kling O1 / 오디오 Seed Audio·TTS V2(엔진선택형)·Inworld·Mirelo SFX —
-   단 계정 `unlim.available=false` 라 지금은 전부 크레딧. 수확 전마다 재확인.
+6. ★ **무제한은 웹 UI 전용 (실측 2회 + 결정적 증거로 확정)** — MCP 는 `use_unlim` 거부 +
+   크레딧 과금 (시덴스 2.5 = 32.5크레딧/5s. 광고 3클립 = 97.5 지출, 잔액 1,017.5).
+   결정타(2026-08-08): 구독 페이지에 **Nano Banana 2 Unlimited 가 Active 인 상태에서**
+   MCP `use_unlim` 이 거부됨(이미지 NB2·영상 SD2.0 Mini 둘 다, 거부는 무과금) —
+   웹 수당은 MCP 로 전파되지 않는다. **대량 수확 = 웹 자동화**(§7 노하우), MCP = 잡 회수·소량용.
+7. ★ **웹 무제한 보유 인벤토리 (구독 페이지 실화면 2026-08-08)** — 시덴스만이 아니다:
+   · 영상: **Seedance 2.5** (33일, 720p, ~9/9) — 무제한 1회 생성 상한 ≈15s(대표 확인, 첫 제출 때 실측)
+   · 이미지 한정: **Nano Banana 2 (2k)** — ⚠️ **8/14 마감 (7일 한정)** → 이미지 수확 최우선
+   · 이미지 연중(자동갱신): FLUX.2 Pro(1k) · GPT Image · Seedream 4.5 · Seedream 5.0 Lite ·
+     Kling O1 Image · Nano Banana → 백드롭/훅 이미지의 상시 무제한 공급원
+   수확 파이프라인: 웹 제출(무제한) → MCP 잡 리스트로 result_url 회수(무과금, 오늘 광고
+   3클립이 이 경로) → curl 다운로드. MCP 회수 불가 시 웹 다운로드 폴백(`_min.webp` 노하우).
 
 ## 7. 내일 키 도착 시 착지 지점
 
