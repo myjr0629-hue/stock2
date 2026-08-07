@@ -144,6 +144,28 @@ scripts/video-ref-measure.mjs     발행 게이트 (길이 게이트 포함)
      Kling O1 Image · Nano Banana → 백드롭/훅 이미지의 상시 무제한 공급원
    수확 파이프라인: 웹 제출(무제한) → MCP 잡 리스트로 result_url 회수(무과금, 오늘 광고
    3클립이 이 경로) → curl 다운로드. MCP 회수 불가 시 웹 다운로드 폴백(`_min.webp` 노하우).
+8. ★ **웹 자동화 E2E 완전 검증 (2026-08-08) — 실전 투입 가능 판정.** 3종 풀사이클 통과:
+   ① 영상 t2v: 컴포저 → Unlimited ON → 9:16/720p/5s 제출 → 완성 → MCP 회수 → 다운로드 ✅
+   ② 이미지 NB2: ∞ Unlimited ON → 9:16 제출 → 완성 → 회수 ✅ (`hf_whale_aerial.png`, 품질 A급)
+   ③ Extend: 소스=라이브러리 클립 장착 → 모델 자동 «2.5 Extend» 전환 → Unlimited ON → 제출 ✅
+   **전 과정 무과금 실증: 잔액 1,017.5 불변.**
+   **운영 런북 (순서 고정):**
+   1) 작업창 브라우저 `/flow/video/prompt?model=seedance_2_5` (이미지=`/flow/image/prompt`)
+   2) 로그인 확인 — 랜딩에 «Sign up» 보이면 대표 호출 (세션은 앱 재시작 때 리셋됨. 컴포저가
+      열려도 **Unlimited 토글이 안 보이면 로그아웃 상태**다)
+   3) 프롬프트 = ref 클릭 → 실타이핑 (form_input 무효). 이미지 컴포저는 타이핑 시 «확장
+      에디터»가 덮일 수 있음 → 접기 버튼(ref)으로 접고 진행
+   4) 모델·비율 등 드롭다운 = **read_page 로 option ref 잡아 클릭** (좌표 클릭은 패널 리사이즈
+      때 빗나감 — 실측 2회)
+   5) ★ **Unlimited 토글 ON → Generate 버튼이 «Unlimited» 배지인지 «확인 후» 클릭.**
+      크레딧 숫자가 보이면 절대 클릭 금지 (과금 가드)
+   6) 회수 = MCP `show_generations` (계정 전체 히스토리 + rawUrl/minUrl) → curl.
+      업로드 = MCP `media_upload` → PUT → `media_confirm` (i2v 참조용 media_id)
+   7) 패널은 자동화 동안 **열어둬야 함** (숨기면 computer 액션 타임아웃 — 실측)
+   **주의:** 이미지 «Uploads» 픽커 탭에 MCP 업로드분이 안 보였음(참조는 media_id 로 가능) ·
+   NB2 백엔드 SKU=nano_banana_flash · 플로어 클립처럼 «스크린 흐림» 지시도 흐릿한 데이터
+   표가 그려질 수 있음 — 광고 사용 전 클립별 판독 불가 확인 필수 · Extend 는 elements
+   참조를 이미지/오디오 50개까지 받음(로고 스틸 연계 여지)
 
 ## 7. 내일 키 도착 시 착지 지점
 
