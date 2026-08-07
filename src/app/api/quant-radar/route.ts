@@ -61,7 +61,9 @@ export async function GET(request: Request) {
         const cachedMap = await getAnalysisCacheForTickers(UNIVERSE).catch(() => ({}));
 
         // Convert map to list and filter valid cache hits
-        let entries = Object.values(cachedMap).filter((entry): entry is AnalysisCacheEntry => {
+        // [XS-2.0] alphaSnapshot can be null (engine failure) — such tickers are excluded from the radar
+        type RadarEntry = AnalysisCacheEntry & { alphaSnapshot: NonNullable<AnalysisCacheEntry['alphaSnapshot']> };
+        let entries = Object.values(cachedMap).filter((entry): entry is RadarEntry => {
             if (!entry || !entry.ticker || !entry.alphaSnapshot) return false;
             return true;
         });

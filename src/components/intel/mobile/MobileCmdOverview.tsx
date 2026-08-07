@@ -70,7 +70,8 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
             smartFlow: { value: q.whaleIndex || 0, trend: q.whaleIndex >= 60 ? 'INFLOW' : 'NEUTRAL' },
             sma: { cross: sma.cross || 'NONE', sma50: sma.sma50 || 0, sma200: sma.sma200 || 0, trendPhase: sma.phase || 'UNKNOWN' },
             vwap: 0, vwapDistance: '0%',
-            conviction: { score: q.alphaScore || 50, grade: q.grade || 'C' },
+            // [XS-2.0] No score → conviction null (deep-analysis prompt renders N/A, never a fake 50)
+            conviction: q.alphaScore ? { score: q.alphaScore, grade: q.grade || '' } : null,
             structure: {
                 netGex: s.netGex || q.gex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,
                 squeezeRisk: vol.squeezeRisk || 'LOW', squeezeScore: vol.squeezeScore || q.squeezeScore || 0,

@@ -28,7 +28,7 @@ export interface M7Quote {
     extendedChangePct: number;
     extendedLabel: string;
     session: string;
-    alphaScore: number;
+    alphaScore: number | null;
     grade: string;
     maxPain: number;
     callWall: number;
@@ -134,8 +134,8 @@ export async function GET(request: Request) {
                     extendedChangePct,
                     extendedLabel,
                     session,
-                    alphaScore: analysis.alphaSnapshot.score,
-                    grade: analysis.alphaSnapshot.grade,
+                    alphaScore: analysis.alphaSnapshot?.score ?? null,
+                    grade: analysis.alphaSnapshot?.grade || '-',
                     maxPain: analysis.maxPain || 0,
                     callWall: analysis.callWall || 0,
                     putFloor: analysis.putFloor || 0,

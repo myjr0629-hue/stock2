@@ -123,7 +123,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             // ── [ONE-PIPE] 가격은 useOnePipe에서 ──
             const pipe = onePipePrices.get(item.ticker);
 
-            if (apiData?.alphaSnapshot && apiData?.realtime) {
+            // [XS-2.0] alphaSnapshot may be null (engine failure) — keep realtime data, leave score fields undefined
+            if (apiData?.realtime) {
                 return {
                     ...item,
                     currentPrice: pipe?.price || apiData.realtime.price || 0,
@@ -132,11 +133,11 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     extChangePct: pipe?.extChangePct ?? undefined,
                     extLabel: pipe?.extLabel === 'PRE CLOSE' ? undefined : (pipe?.extLabel as 'PRE' | 'POST' | undefined),
                     session: pipe?.session?.toLowerCase() || apiData.realtime.session,
-                    alphaScore: apiData.alphaSnapshot.score,
-                    alphaGrade: apiData.alphaSnapshot.grade,
-                    action: apiData.alphaSnapshot.action,
-                    confidence: apiData.alphaSnapshot.confidence,
-                    triggers: apiData.alphaSnapshot.triggers,
+                    alphaScore: apiData.alphaSnapshot?.score,
+                    alphaGrade: apiData.alphaSnapshot?.grade,
+                    action: apiData.alphaSnapshot?.action,
+                    confidence: apiData.alphaSnapshot?.confidence,
+                    triggers: apiData.alphaSnapshot?.triggers,
                     whaleIndex: apiData.realtime.whaleIndex,
                     whaleConfidence: apiData.realtime.whaleConfidence,
                     rsi: apiData.realtime.rsi,

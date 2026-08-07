@@ -245,7 +245,7 @@ const SECTOR_CONFIGS: SectorConfig[] = [
 interface KeyStockPremiumData {
   sym: string;
   grade: string;
-  score: number;
+  score: number | null;
   changePct?: number;
   closePrice?: number;
   gex?: number;
@@ -265,6 +265,9 @@ interface KeyStockPremiumData {
   whaleIndex?: number;
   darkPoolPct?: number;
 }
+
+// [XS-2.0] Score may be null (engine gave none) — render '—' instead of a made-up number
+const formatScoreText = (score: number | null | undefined): string => (score != null ? score.toFixed(0) : '—');
 
 interface AppNewsDigestItem {
   headline?: string;
@@ -785,8 +788,10 @@ function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
 
   return {
     sym: ticker,
-    grade: String(item.grade || item.contextGrade || item.qualityTier || v71.grade || (alphaScore && alphaScore >= 70 ? 'A' : alphaScore && alphaScore < 45 ? 'C' : 'B')),
-    score: alphaScore ?? 50,
+    // [XS-2.0] No fabricated grade/score: derive grade only from a real score, else '—'
+    grade: String(item.grade || item.contextGrade || item.qualityTier || v71.grade
+      || (alphaScore != null ? (alphaScore >= 70 ? 'A' : alphaScore < 45 ? 'C' : 'B') : '—')),
+    score: alphaScore ?? null,
     changePct: pickFiniteNumber(price.changePct, price.changePercent, item.changePct, item.change_percent, v71.changePct) ?? 0,
     closePrice: pickFiniteNumber(price.last, price.price, price.close, item.price, item.closePrice, item.close_price, v71.price) ?? 0,
     gex: gex ?? 0,
@@ -1862,26 +1867,26 @@ export default function AppIntelPage() {
         : `${localizedReportSummary} Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and average PCR ${avgPcr ? avgPcr.toFixed(2) : '-'} are the primary confirmation axes.`;
     const localizedCatalysts = appLocale === 'ko'
       ? [
-        `주도 종목 ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+        `주도 종목 ${lead.sym} / Context ${formatScoreText(lead.score)} / ${formatPercentCompact(lead.changePct || 0)}`,
         `섹터 GEX ${formatGex(totalGex)} / 감마 ${dominantRegime}`,
         `순프리미엄 ${formatMoneyCompact(netPremium)} / 평균 PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
         `고래 ${avgWhale ? Math.round(avgWhale) : '-'} / 다크풀 ${formatPlainPercent(avgDarkPool)} / 스퀴즈 ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
       ]
       : appLocale === 'ja'
         ? [
-          `主導銘柄 ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+          `主導銘柄 ${lead.sym} / Context ${formatScoreText(lead.score)} / ${formatPercentCompact(lead.changePct || 0)}`,
           `セクターGEX ${formatGex(totalGex)} / ガンマ ${dominantRegime}`,
           `ネットプレミアム ${formatMoneyCompact(netPremium)} / 平均PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Dark Pool ${formatPlainPercent(avgDarkPool)} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ]
         : [
-          `Lead ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+          `Lead ${lead.sym} / Context ${formatScoreText(lead.score)} / ${formatPercentCompact(lead.changePct || 0)}`,
           `Sector GEX ${formatGex(totalGex)} / Gamma ${dominantRegime}`,
           `Net Premium ${formatMoneyCompact(netPremium)} / Avg PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Dark Pool ${formatPlainPercent(avgDarkPool)} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ];
     const bullets = keyStocksData.slice(0, 5).map(stock => {
-      const line = `${stock.sym} ${formatPercentCompact(stock.changePct || 0)} / Context ${stock.score.toFixed(0)} / GEX ${formatGex(stock.gex || 0)} / PCR ${stock.pcr ? stock.pcr.toFixed(2) : '-'}`;
+      const line = `${stock.sym} ${formatPercentCompact(stock.changePct || 0)} / Context ${formatScoreText(stock.score)} / GEX ${formatGex(stock.gex || 0)} / PCR ${stock.pcr ? stock.pcr.toFixed(2) : '-'}`;
       return stock.analysisKr ? `${line} - ${stock.analysisKr}` : line;
     });
 
@@ -1905,10 +1910,10 @@ export default function AppIntelPage() {
         ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプション・ガンマ、ホエール/ダークプールのフローを圧縮したセクターレポートです。現在のバイアスは${sentiment}、ガンマは${dominantRegime}、ネットプレミアムは${formatMoneyCompact(netPremium)}、平均PCRは${avgPcrText}です。`
         : `${sectorCopy.name} compresses ${lead.sym}-led context, options gamma, whale flow and dark-pool activity into one sector report. Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and ${avgPcrText} average PCR are the main confirmation axes.`;
     const appReportVerdict = appLocale === 'ko'
-      ? `${lead.sym}가 섹터 기준점 역할을 하며 ${leadMove} 움직임과 Context ${lead.score.toFixed(0)}를 기록했습니다. ${topGainer.sym}는 ${topGainerMove}로 상대 강도를 보였고, ${topLoser.sym}는 ${topLoserMove}로 압력 구간을 형성했습니다.`
+      ? `${lead.sym}가 섹터 기준점 역할을 하며 ${leadMove} 움직임과 Context ${formatScoreText(lead.score)}를 기록했습니다. ${topGainer.sym}는 ${topGainerMove}로 상대 강도를 보였고, ${topLoser.sym}는 ${topLoserMove}로 압력 구간을 형성했습니다.`
       : appLocale === 'ja'
-        ? `${lead.sym}がセクターの基準点となり、${leadMove}、Context ${lead.score.toFixed(0)}を示しています。${topGainer.sym}は${topGainerMove}で相対的な強さ、${topLoser.sym}は${topLoserMove}で圧力ゾーンを形成しています。`
-        : `${lead.sym} is the sector anchor with a ${leadMove} move and Context ${lead.score.toFixed(0)}. ${topGainer.sym} shows relative strength at ${topGainerMove}, while ${topLoser.sym} marks the pressure pocket at ${topLoserMove}.`;
+        ? `${lead.sym}がセクターの基準点となり、${leadMove}、Context ${formatScoreText(lead.score)}を示しています。${topGainer.sym}は${topGainerMove}で相対的な強さ、${topLoser.sym}は${topLoserMove}で圧力ゾーンを形成しています。`
+        : `${lead.sym} is the sector anchor with a ${leadMove} move and Context ${formatScoreText(lead.score)}. ${topGainer.sym} shows relative strength at ${topGainerMove}, while ${topLoser.sym} marks the pressure pocket at ${topLoserMove}.`;
     const appReportDayOutlook = appLocale === 'ko'
       ? `${gainers}개 상승 / ${losers}개 하락. ${dominantRegime} 감마와 평균 PCR ${avgPcrText}를 기준으로 다음 세션에서는 콜월·풋플로어 근처의 반응을 우선 확인해야 합니다.`
       : appLocale === 'ja'
@@ -1925,9 +1930,9 @@ export default function AppIntelPage() {
       const gex = formatGex(stock.gex || 0);
       const wall = stock.callWall ? `CW $${stock.callWall.toFixed(0)}` : '';
       const floor = stock.putFloor ? `PF $${stock.putFloor.toFixed(0)}` : '';
-      if (appLocale === 'ko') return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
-      if (appLocale === 'ja') return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
-      return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+      if (appLocale === 'ko') return `${stock.sym} ${move} / Context ${formatScoreText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+      if (appLocale === 'ja') return `${stock.sym} ${move} / Context ${formatScoreText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+      return `${stock.sym} ${move} / Context ${formatScoreText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
     });
     const appRiskNotes = [
       appLocale === 'ko'
@@ -2243,7 +2248,7 @@ export default function AppIntelPage() {
       const move = formatPercentCompact(stock.changePct || 0);
       const pcr = stock.pcr ? stock.pcr.toFixed(2) : '-';
       const gex = formatGex(stock.gex || 0);
-      return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}`;
+      return `${stock.sym} ${move} / Context ${formatScoreText(stock.score)} / GEX ${gex} / PCR ${pcr}`;
     });
     const fallbackRisks = [
       appLocale === 'ko'
@@ -4112,7 +4117,7 @@ export default function AppIntelPage() {
                                         }}>
                                           {stock.grade}
                                         </span>
-                                        {stock.score > 0 && (
+                                        {stock.score != null && stock.score > 0 && (
                                           <span style={{
                                             fontSize: '12px',
                                             fontWeight: 600,

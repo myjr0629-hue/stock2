@@ -709,7 +709,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 // V4.6 Alpha recalculation (same as CACHE HIT path)
                 const sessionMap2: Record<string, AlphaSession> = { pre: 'PRE', regular: 'REG', post: 'POST', closed: 'CLOSED' };
                 const alphaSession2: AlphaSession = sessionMap2[currentSession] || 'CLOSED';
-                let alphaSnapshot2: any = { score: 50, grade: 'C', action: 'HOLD' };
+                // [XS-2.0] Engine failure → null snapshot (consumers render '—'), never a fabricated {50,'C'}
+                let alphaSnapshot2: any = null;
                 try {
                     const ar = calculateAlphaScore({
                         ticker: ticker.toUpperCase(),
@@ -752,7 +753,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                         triggers: [],
                         engineVersion: ar.engineVersion,
                     };
-                } catch { /* use default */ }
+                } catch { /* leave null — no fabricated snapshot */ }
 
                 // Write to Redis cache for next time (CACHE HIT path)
                 dynamoAnalysis.alphaSnapshot = alphaSnapshot2;

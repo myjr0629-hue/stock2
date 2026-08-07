@@ -50,15 +50,13 @@ export function PhysicalAITacticalDeck({ items, selectedTicker, onSelect }: { it
                     const tacticalKey = item.decisionSSOT?.tacticalConclusion?.key;
                     const tacticalDirection = item.decisionSSOT?.tacticalConclusion?.direction;
 
-                    // [V4.4] Calculate displayScore from evidence when alphaScore is missing
-                    // Uses price change as primary signal: +3% = 70, 0% = 50, -3% = 30
-                    const displayScore = item.alphaScore || Math.round(50 + (change * 6.67));
-                    const clampedScore = Math.max(20, Math.min(90, displayScore));
+                    // [XS-2.0] Never fabricate a score — show '—' when the engine gave none
+                    const displayScore = item.alphaScore ? Math.round(item.alphaScore) : null;
 
                     // Amber Industrial Theme
                     const borderColor = isSelected ? "border-amber-500" : "border-slate-800 hover:border-amber-700/50";
                     const bgGlow = isSelected ? "bg-amber-900/20" : "bg-[#0a0f18]";
-                    const scoreColor = clampedScore && clampedScore >= 60 ? "text-amber-400" : "text-slate-500";
+                    const scoreColor = displayScore != null && displayScore >= 60 ? "text-amber-400" : "text-slate-500";
                     const tacticalColor = tacticalDirection === 'BULLISH' ? 'text-amber-400'
                         : tacticalDirection === 'BEARISH' ? 'text-rose-500'
                             : tacticalDirection === 'CAUTION' ? 'text-yellow-500'
@@ -93,7 +91,7 @@ export function PhysicalAITacticalDeck({ items, selectedTicker, onSelect }: { it
                                     </div>
                                     {/* Alpha Score Badge */}
                                     <div className="absolute -right-2 -bottom-1 bg-[#050914] border border-amber-900/50 text-xs font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5 shadow-sm">
-                                        <span className={scoreColor}>{clampedScore}</span>
+                                        <span className={scoreColor}>{displayScore ?? '—'}</span>
                                     </div>
                                 </div>
 

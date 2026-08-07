@@ -24,7 +24,8 @@ export interface AnalysisCacheEntry {
     ticker: string;
     timestamp: number; // ms since epoch
 
-    // Alpha Engine result
+    // Alpha Engine result — null when the engine failed for this ticker
+    // [XS-2.0] Never fabricate a snapshot; consumers must render '—' for null
     alphaSnapshot: {
         score: number;
         grade: string;
@@ -37,7 +38,7 @@ export interface AnalysisCacheEntry {
         gatesApplied?: any;
         engineVersion?: string;
         capturedAt: string;
-    };
+    } | null;
 
     // Analysis indicators (from realtime block)
     rsi: number | null;

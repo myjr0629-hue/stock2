@@ -37,7 +37,7 @@ export interface AlphaCardProps {
     price: number;
     changePct: number;
     volume?: number;
-    alphaScore: number;
+    alphaScore: number | null;
     scoreBreakdown?: {
         momentum: number;
         options: number;
@@ -93,15 +93,16 @@ const GRADE_COLORS: Record<string, { stroke: string; glow: string; text: string;
 };
 const DEFAULT_GRADE_COLOR = GRADE_COLORS.C;
 
-function ScoreRing({ score, grade, size = 64, strokeWidth = 4 }: { score: number; grade?: string; size?: number; strokeWidth?: number }) {
+function ScoreRing({ score, grade, size = 64, strokeWidth = 4 }: { score: number | null; grade?: string; size?: number; strokeWidth?: number }) {
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
-    const pct = Math.min(100, Math.max(0, score));
+    // [XS-2.0] score can be null (engine gave none) — empty ring + '—', never a fake number
+    const pct = score != null ? Math.min(100, Math.max(0, score)) : 0;
     const offset = circumference - (pct / 100) * circumference;
     const center = size / 2;
 
-    const c = GRADE_COLORS[grade || ''] || DEFAULT_GRADE_COLOR;
-    const label = grade || (score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 55 ? 'B' : score >= 40 ? 'C' : score >= 25 ? 'D' : 'F');
+    const c = score != null ? (GRADE_COLORS[grade || ''] || DEFAULT_GRADE_COLOR) : DEFAULT_GRADE_COLOR;
+    const label = score == null ? '' : grade || (score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 55 ? 'B' : score >= 40 ? 'C' : score >= 25 ? 'D' : 'F');
 
     return (
         <div className="relative" style={{ width: size, height: size }}>
@@ -124,7 +125,7 @@ function ScoreRing({ score, grade, size = 64, strokeWidth = 4 }: { score: number
                 />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className={cn("font-black leading-none font-jakarta", c.text, size >= 60 ? "text-[20px]" : "text-[15px]")}>{score.toFixed(1)}</span>
+                <span className={cn("font-black leading-none font-jakarta", c.text, size >= 60 ? "text-[20px]" : "text-[15px]")}>{score != null ? score.toFixed(1) : '—'}</span>
                 <span className={cn("font-bold opacity-80 mt-0.5 font-jakarta", c.text, "text-xs")}>{label}</span>
             </div>
         </div>

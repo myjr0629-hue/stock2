@@ -2199,7 +2199,8 @@ function CmdPageContent() {
       sma: { cross: sma.cross || 'NONE', sma50: sma.sma50 || 0, sma200: sma.sma200 || 0, trendPhase: sma.phase || 'UNKNOWN' },
       vwap: u.structure?.underlyingPrice || 0,
       vwapDistance: '0%',
-      conviction: { score: u.alpha?.score || 50, grade: u.alpha?.grade || 'C' },
+      // [XS-2.0] No score → conviction null (deep-analysis prompt renders N/A, never a fake 50)
+      conviction: u.alpha?.score ? { score: u.alpha.score, grade: u.alpha.grade || '' } : null,
       structure: {
         netGex: s.netGex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,
         squeezeRisk: vol.squeezeRisk || 'LOW', squeezeScore: vol.squeezeScore || 0,

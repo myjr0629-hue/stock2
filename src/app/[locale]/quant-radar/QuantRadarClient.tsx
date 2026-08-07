@@ -741,9 +741,13 @@ export function QuantRadarClient() {
 
     // One-click clipboard copy utility for bracket orders (Localized)
     const copyBracketToClipboard = (item: TickerData, entryPrice: number, tp: number, sl: number) => {
-        const score = item.alphaSnapshot?.score || 50;
-        const grade = item.alphaSnapshot?.grade || 'B';
-        
+        // [XS-2.0] Never print a fabricated score/grade in the order guide — show '—' when absent
+        const score = item.alphaSnapshot?.score ?? null;
+        const grade = item.alphaSnapshot?.grade ?? null;
+        const scoreTextKo = score != null ? `${score}점 (Alpha Grade: ${grade || '-'})` : '—';
+        const scoreTextJa = score != null ? `${score}点 (Alpha Grade: ${grade || '-'})` : '—';
+        const scoreTextEn = score != null ? `${score} pts (Alpha Grade: ${grade || '-'})` : '—';
+
         let text = "";
         if (locale === 'ko') {
             text = `[시그넘 ${item.ticker} 초보자 맞춤형 주문 가이드]\n` +
@@ -752,7 +756,7 @@ export function QuantRadarClient() {
                 `3. 매수 지정가격: $${entryPrice.toFixed(2)} 이하\n` +
                 `4. 익절 예약 가격 (Take Profit): $${tp.toFixed(2)} (+3.5%)\n` +
                 `5. 손절 예약 가격 (Stop Loss): $${sl.toFixed(2)} (-1.5%)\n` +
-                `6. 오토 스코어: ${score}점 (Alpha Grade: ${grade})`;
+                `6. 오토 스코어: ${scoreTextKo}`;
         } else if (locale === 'ja') {
             text = `[SIGNUM ${item.ticker} 初心者向け注文ガイド]\n` +
                 `1. 購入銘柄: ${item.ticker}\n` +
@@ -760,7 +764,7 @@ export function QuantRadarClient() {
                 `3. 指値購入価格: $${entryPrice.toFixed(2)} 以下\n` +
                 `4. 利食い予約価格 (Take Profit): $${tp.toFixed(2)} (+3.5%)\n` +
                 `5. 損切り予約価格 (Stop Loss): $${sl.toFixed(2)} (-1.5%)\n` +
-                `6. オートスコア: ${score}点 (Alpha Grade: ${grade})`;
+                `6. オートスコア: ${scoreTextJa}`;
         } else {
             text = `[SIGNUM ${item.ticker} Beginner Order Guide]\n` +
                 `1. Target Ticker: ${item.ticker}\n` +
@@ -768,7 +772,7 @@ export function QuantRadarClient() {
                 `3. Limit Purchase Price: $${entryPrice.toFixed(2)} or lower\n` +
                 `4. Take Profit (TP): $${tp.toFixed(2)} (+3.5%)\n` +
                 `5. Stop Loss (SL): $${sl.toFixed(2)} (-1.5%)\n` +
-                `6. Auto Score: ${score} pts (Alpha Grade: ${grade})`;
+                `6. Auto Score: ${scoreTextEn}`;
         }
         
         navigator.clipboard.writeText(text).then(() => {
