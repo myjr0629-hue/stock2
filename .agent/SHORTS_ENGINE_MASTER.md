@@ -162,6 +162,9 @@ scripts/video-ref-measure.mjs     발행 게이트 (길이 게이트 포함)
    6) 회수 = MCP `show_generations` (계정 전체 히스토리 + rawUrl/minUrl) → curl.
       업로드 = MCP `media_upload` → PUT → `media_confirm` (i2v 참조용 media_id)
    7) 패널은 자동화 동안 **열어둬야 함** (숨기면 computer 액션 타임아웃 — 실측)
+   ③-검증: Extend 결과 = 소스 종점에서 정확히 이어짐(연속성 A급) · 9:16 유지 ·
+   **단 히스토리 메타데이터가 16:9 로 오기록됨 — 판정은 반드시 실파일 ffprobe 로** ·
+   Extend 소요 ~6분(t2v 5s 는 ~3분) · 최종 무과금 재확인(잔액 1,017.5 · 총 4회 검증)
    **주의:** 이미지 «Uploads» 픽커 탭에 MCP 업로드분이 안 보였음(참조는 media_id 로 가능) ·
    NB2 백엔드 SKU=nano_banana_flash · 플로어 클립처럼 «스크린 흐림» 지시도 흐릿한 데이터
    표가 그려질 수 있음 — 광고 사용 전 클립별 판독 불가 확인 필수 · Extend 는 elements
