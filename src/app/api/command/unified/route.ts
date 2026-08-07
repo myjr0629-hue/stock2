@@ -48,6 +48,14 @@ async function injectAlphaBypass(data: any, ticker: string) {
     try {
         const { getAnalysisCache } = await import('@/services/analysisCache');
         const ac = await getAnalysisCache(ticker);
+        // [XS 2026-08-07] a pre-switch V8 alpha may survive inside the stored
+        // payload when cache:analysis misses — always re-apply the XS override
+        // to whatever alpha the payload carries before the SSOT swap below.
+        if (data.alpha) {
+            const { xsSnapshotOverride, ensureXsScores } = await import('@/services/xsScores');
+            await ensureXsScores();
+            data.alpha = xsSnapshotOverride(ticker, data.alpha);
+        }
         if (ac) {
             // [FIX 2026-05-04] ALWAYS use cache:analysis alphaSnapshot as SSOT
             // This ensures Command = Watchlist = Portfolio score

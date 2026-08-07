@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { getBuildMeta } from '@/services/buildMeta';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedMovePct, computeIVSkew, type AlphaSession } from '@/services/alphaEngine';
+import { ensureXsScores } from '@/services/xsScores';
 import { CentralDataHub } from "@/services/centralDataHub";
 import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
@@ -97,6 +98,11 @@ export async function GET(req: NextRequest) {
     const ticker = t.toUpperCase();
     // [PERF] Flow page skip_alpha mode — skips 5 alpha-only APIs + alpha calculation
     const skipAlpha = req.nextUrl.searchParams.get('skip_alpha') === '1';
+
+    // XS display switch: warm the XS map BEFORE any alpha computation — a cold
+    // serverless instance would otherwise compute raw V8 and cache it into
+    // flow:ticker:* for 60s (score-consistency directive 2026-08-07).
+    await ensureXsScores();
 
     // [PERF] Check Redis cache first — returns in ~0.1s if cache hit
     // Use separate cache key for skip_alpha to avoid serving incomplete data to full callers

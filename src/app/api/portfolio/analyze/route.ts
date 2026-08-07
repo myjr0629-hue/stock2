@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { getStockData, getOptionsData } from '@/services/stockApi';
+import { ensureXsScores, xsSnapshotOverride } from '@/services/xsScores';
 import { getStructureData } from '@/services/structureService'; // [FIX] Direct import
 
 // Simplified Alpha calculation for portfolio holdings
@@ -140,16 +141,19 @@ export async function GET(request: Request) {
         // [FIX] Use Gamma Flip from structure API for consistency
         const gammaFlipFromStructure = structureRes?.gammaFlipLevel || null;
 
+        // Score-consistency directive: this route's heuristic score must never
+        // diverge from the XS Context Score shown everywhere else.
+        await ensureXsScores();
         const result = {
             ticker: tickerUpper,
-            alphaSnapshot: {
+            alphaSnapshot: xsSnapshotOverride(tickerUpper, {
                 score,
                 grade,
                 action,
                 confidence: Math.round(confidence),
                 triggers, // Signal reasoning
                 capturedAt: new Date().toISOString()
-            },
+            }),
             // Real-time indicators
             realtime: {
                 price: stockData.price || 0,

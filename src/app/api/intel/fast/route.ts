@@ -10,6 +10,7 @@ import { reconstructLastSession, type LastSessionData } from '@/services/lastSes
 import { getFromCache } from '@/services/redisClient';
 import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
+import { xsSnapshotOverride } from '@/services/xsScores';
 import { fetchTruePreMarket } from '@/services/marketDataLight';
 
 // Sector ticker maps
@@ -276,9 +277,11 @@ export async function GET(request: Request) {
                 if (gex > 0) gammaRegime = 'LONG';
                 else if (gex < 0) gammaRegime = 'SHORT';
             } else if (cached) {
-                // Full cached data from /api/live/ticker
-                alphaScore = cached.alpha?.score || 0;
-                grade = cached.alpha?.grade || '-';
+                // Full cached data from /api/live/ticker — re-apply the XS
+                // override in case a stale/cold-start V8 entry is cached
+                const cAlpha = cached.alpha ? xsSnapshotOverride(ticker, cached.alpha) : null;
+                alphaScore = cAlpha?.score || 0;
+                grade = cAlpha?.grade || '-';
                 maxPain = cached.flow?.maxPain || 0;
                 callWall = cached.flow?.callWall || 0;
                 putFloor = cached.flow?.putFloor || 0;

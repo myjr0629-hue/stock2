@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { getStockData, getOptionsData } from '@/services/stockApi';
+import { ensureXsScores, xsSnapshotOverride } from '@/services/xsScores';
 import { getStructureData } from '@/services/structureService'; // [FIX] Direct import
 
 export async function GET(request: Request) {
@@ -137,16 +138,18 @@ export async function GET(request: Request) {
         const iv = opts?.gems?.iv || opts?.iv || null;
 
         // === RESPONSE ===
+        // Score-consistency directive: heuristic score must not diverge from XS
+        await ensureXsScores();
         const result = {
             ticker: tickerUpper,
-            alphaSnapshot: {
+            alphaSnapshot: xsSnapshotOverride(tickerUpper, {
                 score,
                 grade,
                 action,
                 confidence: Math.round(confidence),
                 triggers,
                 capturedAt: new Date().toISOString()
-            },
+            }),
             realtime: {
                 price: stockData.price || 0,
                 changePct,
