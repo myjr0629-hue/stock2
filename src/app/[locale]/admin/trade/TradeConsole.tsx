@@ -222,6 +222,12 @@ export default function TradeConsole({ operator }: { operator: string }) {
   const [auto, setAuto] = useState<AutoRes | null>(null);
   const [autoErr, setAutoErr] = useState('');
   const [realNav, setRealNav] = useState<{ d: string; nav: number }[]>([]);
+  const [plan, setPlan] = useState<{
+    date: string | null; capital: number; slot: number;
+    rows: { rank: number; symbol: string; score: number; px: number | null; spreadBps: number | null; eligible: boolean; reasons: string[]; amount: number }[];
+    totals: { deployToday: number; reservedD1D2: number; cashBuffer: number };
+    mechanics: string; error?: string;
+  } | null>(null);
 
   const [capInput, setCapInput] = useState('');
   const [tab, setTab] = useState<'order' | 'cond'>('order');
@@ -310,6 +316,11 @@ export default function TradeConsole({ operator }: { operator: string }) {
       .then((j) => { if (j.ok) setAuto(j); else setAutoErr('로드 실패'); })
       .catch((e) => setAutoErr(String(e)));
   }, []);
+  const loadPlan = useCallback(() => {
+    fetch('/api/admin/trade/plan', { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => { if (j.ok) setPlan(j); else setPlan({ date: null, capital: 0, slot: 0, rows: [], totals: { deployToday: 0, reservedD1D2: 0, cashBuffer: 0 }, mechanics: '', error: j.error || '플랜 로드 실패' }); })
+      .catch(() => {});
+  }, []);
 
   /* ── real-time lanes (pause when hidden) ── */
   useEffect(() => {
@@ -323,8 +334,8 @@ export default function TradeConsole({ operator }: { operator: string }) {
   }, [st?.executor.configured, loadQuote, loadPortfolio, loadStatus]);
   useEffect(() => { loadStatus(); const iv = setInterval(() => { if (visRef.current) loadStatus(); }, 30_000); return () => clearInterval(iv); }, [loadStatus]);
   useEffect(() => {
-    if (st?.executor.up && st.executor.configured) { loadPortfolio(); loadSymbol(symRef.current); loadQuote(symRef.current); loadVerdict(symRef.current); }
-  }, [st?.executor.up, st?.executor.configured, loadPortfolio, loadSymbol, loadQuote, loadVerdict]);
+    if (st?.executor.up && st.executor.configured) { loadPortfolio(); loadSymbol(symRef.current); loadQuote(symRef.current); loadVerdict(symRef.current); loadPlan(); }
+  }, [st?.executor.up, st?.executor.configured, loadPortfolio, loadSymbol, loadQuote, loadVerdict, loadPlan]);
   useEffect(() => {
     if (st?.executor.up && st.executor.configured) loadRanks(rankType);
   }, [rankType, st?.executor.up, st?.executor.configured, loadRanks]);
@@ -547,6 +558,36 @@ export default function TradeConsole({ operator }: { operator: string }) {
           </table>
         </section>
       )}
+      <section className="tc-card" style={{ marginBottom: 14 }}>
+        <div className="tc-vhead">
+          <div className="tc-card-label">실전 포트폴리오 플랜 <span className="hint">{plan && !plan.error ? `자본 $${fmt(plan.capital, 0)} · 슬롯 $${fmt(plan.slot)} × 30 · ${plan.date ?? ''}` : '미리보기'}</span></div>
+          <button className="tc-ghost sm" onClick={() => setNav('auto')}>자본 설정 →</button>
+        </div>
+        {plan && !plan.error && plan.rows.length > 0 ? (
+          <>
+            <table className="tc-tbl">
+              <thead><tr><th>#</th><th>심볼</th><th>XS</th><th>현재가</th><th>스프레드</th><th>실전 적합</th><th>주문 금액</th></tr></thead>
+              <tbody>
+                {plan.rows.map((r) => (
+                  <tr key={r.symbol} onClick={() => pickSymbol(r.symbol)} style={{ cursor: 'pointer' }}>
+                    <td>{r.rank}</td>
+                    <td className="sym">{r.symbol}</td>
+                    <td>{fmt(r.score, 1)}</td>
+                    <td>{r.px != null ? `$${fmt(r.px)}` : '—'}</td>
+                    <td>{r.spreadBps != null ? `${fmt(r.spreadBps, 1)}bps` : '—'}</td>
+                    <td>{r.eligible ? <span className="up">✓</span> : <span className="dn" title={r.reasons.join(' · ')}>✕ {r.reasons[0] ?? ''}</span>}</td>
+                    <td>{r.amount > 0 ? `$${fmt(r.amount)}` : '현금 유지'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="tc-kv" style={{ marginTop: 8 }}><span>오늘 투입</span><strong>${fmt(plan.totals.deployToday)}</strong></div>
+            <div className="tc-kv"><span>D+1·D+2 코호트 예비</span><strong>${fmt(plan.totals.reservedD1D2)}</strong></div>
+            <div className="tc-kv"><span>현금 버퍼</span><strong>${fmt(plan.totals.cashBuffer)}</strong></div>
+            <div className="hint" style={{ marginTop: 6 }}>{plan.mechanics} · 부적합 슬롯은 그날 현금 유지(재배분 없음 — 페이퍼 트윈과 측정 연속성) · <b>C게이트 통과 + 수동 스위치 후 이 플랜 그대로 자동 발주</b></div>
+          </>
+        ) : <span className="tc-empty">{plan?.error ?? (connected ? '플랜 계산 중…' : '토스 연결 후 표시')}</span>}
+      </section>
       <section className="tc-duo">
         <div className="tc-card">
           <div className="tc-vhead">
