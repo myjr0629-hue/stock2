@@ -152,7 +152,23 @@ export const BACKDROP_FOR = {
   evidence: { kind: 'grid', accent: 'amber' },
   depth: { kind: 'ticks', accent: 'hot' },
   verdict: { kind: 'series', accent: 'amber' },
-  brand: { kind: 'img', src: 'shorts/broll/v25_scene7_outro.png' },
+  // [2026-08-07] 힉스필드 1차 수확분으로 업그레이드 (NB Pro, 브랜드 톤 통일)
+  brand: { kind: 'img', src: 'shorts/broll/hf/hf_gold_tunnel.png' },
+} as const;
+
+/**
+ * ── 힉스필드 수확 라이브러리 (2026-08-07 1차 · NB Pro · 각 ✦2, 총 12크레딧) ──
+ * 역할별 «액센트» 이미지 — 훅/아웃트로/특수 비트에서 bg 로 지정해 쓴다.
+ * ⚠️ hf_darkpool 은 AI 가 그린 «가짜 시세 숫자»(¥23,000·+4.5% 등)가 보인다 —
+ *    숫자 나오는 비트 뒤에 깔면 «같은 지표 숫자 두 개 금지» 규칙과 충돌. 사용 주의.
+ */
+export const HF = {
+  terminalNight: 'shorts/broll/hf/hf_terminal_night.png', // 다크 터미널룸 (훅 대안)
+  clash: 'shorts/broll/hf/hf_clash.png',                  // 레드↔틸 대치 (conflict 액센트)
+  wafer: 'shorts/broll/hf/hf_wafer.png',                  // 반도체 웨이퍼 (chips 액센트)
+  dawn: 'shorts/broll/hf/hf_dawn.png',                    // 새벽 스카이라인 (★T2 장시작전 훅)
+  goldTunnel: 'shorts/broll/hf/hf_gold_tunnel.png',       // 골드 터널 (브랜드 아웃트로 정본)
+  darkpoolRisky: 'shorts/broll/hf/hf_darkpool.png',       // ⚠️ 가짜 숫자 — 기본 사용 금지
 } as const;
 
 /** 훅 전용 — 유일하게 «움직이는 실사» (kling 5.04s, 지금까지 안 쓰이던 자산) */

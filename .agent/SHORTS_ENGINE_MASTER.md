@@ -139,8 +139,19 @@ scripts/video-ref-measure.mjs     발행 게이트 (길이 게이트 포함)
   1호 실측: 낭독 45.1s → 영상 48.6s (상한 50s 아래 — 낭독 합계가 46s 넘으면 대본을 줄인다)
 - 보이스 = **Daniel**(onwK4e9ZLuTAKqWW03F9, 앵커 톤) 고정 — 교체는 대표 승인 후 tts-beats 만
 
-**Higgsfield** — MCP `mcp.higgsfield.ai/mcp` (API 키 불필요, 계정 연결)
-1. 연결 확인 → Seedance 2.5 가용 확인(8/8 개시) → §6 수확 시작
+**Higgsfield** — ✅ **Plus 가입 + 1차 수확 완료 (2026-08-07)**
+- MCP: claude.ai 커넥터 연결됨(웹 채팅용) + **Claude Code 에도 등록됨**(~/.claude.json,
+  다음 세션부터 도구로 뜸 — 첫 호출 때 브라우저 인증 한 번)
+- 이 세션은 작업창 브라우저로 웹 UI 를 몰아 수확했다. 실측 노하우:
+  · 랜딩(/ai/image)의 모델·비율 칩은 «장식» — 클릭 무반응. 프롬프트+Generate 만 동작
+  · 프롬프트는 form_input 이 아니라 **ref 클릭 → 실타이핑** (React 상태 때문)
+  · 결과 원본은 403, **`_min.webp`(896×1200)는 인증 없이 다운로드** 가능
+    (img src 의 cloudfront url 파라미터에서 추출)
+  · **병렬 제출**이 됨 — 기다리지 말고 연속 Generate (Plus 6병렬)
+  · NB Pro ✦2/장. 1차 6장 = 12크레딧 (잔여 ~1,190)
+- 수확분 = `public/shorts/broll/hf/` + spec.ts `HF` 상수 (⚠️ darkpool 은 가짜 숫자 — 사용 금지 표기)
+- 골드 터널이 브랜드 아웃트로 정본으로 승격 (BACKDROP_FOR.brand)
+- **8/8 시덴스 2.5 열리면**: §6 계획대로 «영상» 수확 (MCP 로 하는 게 훨씬 효율적 — 다음 세션)
 
 ## 8. 절대 규칙 (누적 — 위반 시 발행 금지)
 
