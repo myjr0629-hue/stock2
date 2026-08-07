@@ -10,6 +10,7 @@
 // ============================================================================
 
 import type { AdPromoProps } from './AdPromo';
+import { VOICE_ADSIGNUM } from './voice-adsignum';
 
 /** 각 씬의 낭독 문장 — scenes[i] 와 1:1 (tts 생성기 입력) */
 export const AD_SIGNUM_VO = [
@@ -23,6 +24,7 @@ export const AD_SIGNUM_VO = [
 ];
 
 export const AD_SIGNUM: AdPromoProps = {
+  voice: VOICE_ADSIGNUM,
   scenes: [
     // ── 훅: 고래 메타포 (기관 = 심해의 고래) ─────────────────────────────────
     {
@@ -69,7 +71,7 @@ export const AD_SIGNUM: AdPromoProps = {
     {
       kind: 'app',
       src: 'shorts/appshots/ad-flow.png',
-      focus: { x: 0.20, y: 0.52, w: 0.60 },     // 줌인: Bullish flow dominance 패널 (선검증)
+      focus: { x: 0.05, y: 0.52, w: 0.90 },     // Bullish flow dominance 패널 전폭 (문장 잘림 방지)
       title: 'The verdict,\nin one line.',
       sub: 'AI reads the whole book',
       sec: 4.5,

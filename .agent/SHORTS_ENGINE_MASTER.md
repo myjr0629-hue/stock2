@@ -118,14 +118,27 @@ scripts/video-ref-measure.mjs     발행 게이트 (길이 게이트 포함)
 - 증거 약→강 정렬 규칙을 대본 작성 지침에 명문화
 - 42초는 «상한» 개념 — 아이디어가 30초에 끝나면 30초로 출고
 
-## 6. Seedance 수확 주간 계획 (8/8~8/15)
+## 6. Seedance 수확 주간 계획 (8/8~9/9, 실측 33일)
 
 1. 프롬프트 20종 준비: ①SIGNUM 로고 리빌(금·다크) ②터미널/차트룸 앰비언스 ③데이터 스트림
    ④세 앱 아이콘 모션 ⑤앱 목업 손 위 클립 — 각 5~10s · 9:16
+   프롬프트 문법 정본 = `.agent/SEEDANCE_PROMPT_GUIDE.md` (공식 문서 조사판)
 2. 생성 30~50클립 → `public/shorts/broll/video/` + 파일명 규약 `sd25_<주제>_<n>.mp4`
 3. `BACKDROP_FOR` 의 video 항목 확장 + 훅/브랜드 로테이션
-4. **앱 홍보영상 1편**(대표 지시): 실앱 캡처 + Seedance 전환컷 조합, 같은 게이트 통과 후 납품
+4. ✅ **SIGNUM 광고 1편 완성 (2026-08-08)** — `out/ad-signum.mp4` 30.5s · GATE PASS
+   레시피: `kit/AdPromo.tsx`(광고 템플릿) + `kit/ads.ts`(AD_SIGNUM 7씬: 시네3·실앱3·엔드카드)
+   + 시덴스 3클립(sd25_whale/trader/phone_glow, 화면 비노출 각도) + Adam 보이스 7줄
+   (`node scripts/tts-ads.mjs SIGNUM` → voice-adsignum.ts 자동). UC/WIM 은 대본만 갈아끼우면 됨.
+   광고 마감 노하우: ①어두운 시네 컷은 CutFlash 5f + 스크린블렌드 리프트(#9FB8D8 8.5%)로
+   게이트 통과 ②씬0 클레임은 instant(프레임0=쇼츠 썸네일) ③앱 줌은 문장을 자르지 않는 폭으로
 5. 라이선스·생성일 기록 남길 것 (reused-content 방어)
+6. ★ **무제한은 웹 UI 전용 (실측 확정)** — MCP 는 `use_unlim` 거부 + 크레딧 과금
+   (시덴스 2.5 = 32.5크레딧/5s. 광고 3클립 = 97.5 지출, 잔액 1,017.5).
+   **대량 수확 = 웹 자동화**(§7 노하우), MCP = 잡 회수·소량 정밀 생성용.
+   MCP `supports_unlim` 모델 20종(실측 2026-08-08): 영상 Seedance 2.0/2.0 Mini·Kling v3.0·
+   Gemini Omni Flash·Wan 2.7 / 이미지 NB2·NB Pro·NB·GPT Image 2·Soul 2.0·Seedream 4.5/5L/5P·
+   FLUX.2·Kling O1 / 오디오 Seed Audio·TTS V2(엔진선택형)·Inworld·Mirelo SFX —
+   단 계정 `unlim.available=false` 라 지금은 전부 크레딧. 수확 전마다 재확인.
 
 ## 7. 내일 키 도착 시 착지 지점
 
@@ -151,7 +164,8 @@ scripts/video-ref-measure.mjs     발행 게이트 (길이 게이트 포함)
   · NB Pro ✦2/장. 1차 6장 = 12크레딧 (잔여 ~1,190)
 - 수확분 = `public/shorts/broll/hf/` + spec.ts `HF` 상수 (⚠️ darkpool 은 가짜 숫자 — 사용 금지 표기)
 - 골드 터널이 브랜드 아웃트로 정본으로 승격 (BACKDROP_FOR.brand)
-- **8/8 시덴스 2.5 열리면**: §6 계획대로 «영상» 수확 (MCP 로 하는 게 훨씬 효율적 — 다음 세션)
+- **8/8 시덴스 2.5 열림** → §6 계획대로 «영상» 수확. ⚠️ 단 무제한은 **웹 UI 전용**(§6-6 실측)
+  — MCP 로 돌리면 크레딧이 나간다. 대량 수확은 웹 자동화로.
 
 ## 8. 절대 규칙 (누적 — 위반 시 발행 금지)
 

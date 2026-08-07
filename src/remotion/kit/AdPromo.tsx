@@ -72,8 +72,9 @@ export function adDurationOf(p: AdPromoProps) {
 }
 
 // ── 조각들 ──────────────────────────────────────────────────────────────────
-const Claim: React.FC<{ title: string; sub?: string }> = ({ title, sub }) => {
-  const a = useIn(2, 9);
+const Claim: React.FC<{ title: string; sub?: string; instant?: boolean }> = ({ title, sub, instant }) => {
+  const anim = useIn(2, 9);
+  const a = instant ? 1 : anim;   // 첫 씬 = 쇼츠 썸네일(프레임 0) → 훅 문장이 즉시 보여야 한다
   return (
     <div style={{ position: 'absolute', top: 150, left: 52, right: 52, zIndex: 20 }}>
       <div style={{
@@ -104,14 +105,24 @@ const CineBg: React.FC<{ src: string; clipSec: number }> = ({ src, clipSec }) =>
     <Loop durationInFrames={Math.max(1, F(clipSec) - 2)} layout="none">
       <OffthreadVideo muted src={staticFile(src)} style={{
         position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-        filter: 'saturate(0.9) contrast(1.04)',
+        filter: 'saturate(0.9) contrast(1.04) brightness(1.1)',
       }} />
     </Loop>
     <AbsoluteFill style={{
-      background: 'linear-gradient(180deg, rgba(4,7,13,0.55) 0%, rgba(4,7,13,0.10) 30%, rgba(4,7,13,0.12) 62%, rgba(4,7,13,0.72) 100%)',
+      background: 'linear-gradient(180deg, rgba(4,7,13,0.45) 0%, rgba(4,7,13,0.08) 30%, rgba(4,7,13,0.10) 62%, rgba(4,7,13,0.62) 100%)',
     }} />
+    {/* 스크린블렌드 앰비언트 리프트 — 무디톤 유지하며 검수 밝기 하한(샷≥18) 확보 */}
+    <AbsoluteFill style={{ background: '#9FB8D8', opacity: 0.085, mixBlendMode: 'screen' }} />
   </AbsoluteFill>
 );
+
+// 씬 경계 5프레임 화이트 플래시 — 어두운 동일계열 배경끼리의 컷을 «보이게» 한다
+// (브리핑과 동일 기법: 컷 감지·시청 리듬 둘 다 살린다)
+const CutFlash: React.FC = () => {
+  const f = useCurrentFrame();
+  const o = interpolate(f, [0, 1, 5], [0, 0.5, 0], { extrapolateRight: 'clamp' });
+  return <AbsoluteFill style={{ background: '#EAF2FF', opacity: o, zIndex: 50, pointerEvents: 'none' }} />;
+};
 
 // ── 본체 ────────────────────────────────────────────────────────────────────
 export const AdPromo: React.FC<AdPromoProps> = (p) => {
@@ -131,7 +142,7 @@ export const AdPromo: React.FC<AdPromoProps> = (p) => {
 
           {s.kind === 'cine' && (<>
             <CineBg src={s.src} clipSec={s.clipSec} />
-            <Claim title={s.title} sub={s.sub} />
+            <Claim title={s.title} sub={s.sub} instant={i === 0} />
           </>)}
 
           {s.kind === 'app' && (
@@ -141,6 +152,8 @@ export const AdPromo: React.FC<AdPromoProps> = (p) => {
           {s.kind === 'brand' && (
             <BrandCard s={s} />
           )}
+
+          {i > 0 && <CutFlash />}
         </Sequence>
       ))}
 

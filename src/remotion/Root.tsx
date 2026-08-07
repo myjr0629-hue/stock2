@@ -102,6 +102,8 @@ import { BriefingV7, BRIEFING7_DURATION } from './compositions/BriefingV7';
 import { SAMPLE_BRIEFING_7 } from './data/sampleBriefing7';
 import { Briefing, durationOf } from './kit/Briefing';
 import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE } from './kit/scripts';
+import { AdPromo, adDurationOf } from './kit/AdPromo';
+import { AD_SIGNUM } from './kit/ads';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
@@ -218,6 +220,17 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={SCRIPT_CLOSE}
+      />
+
+      {/* ★ 앱 광고 — 시덴스 시네마틱 + 실앱 UI + 실로고 (kit/ads) */}
+      <Composition
+        id="AdSignum"
+        component={AdPromo as React.ComponentType<any>}
+        durationInFrames={adDurationOf(AD_SIGNUM)}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={AD_SIGNUM}
       />
 
       {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}
