@@ -26,8 +26,10 @@ const KEY = (env.match(/ELEVENLABS_API_KEY=(\S+)/) || [])[1];
 if (!KEY) { console.error('.env.local 에 ELEVENLABS_API_KEY 가 없다'); process.exit(1); }
 
 // ── 보이스 (브랜드 고정 1개 — 변경은 대표 승인 후 여기만) ────────────────────
-// Daniel: 딥·뉴스 앵커 톤. 기관 브리핑에 맞다. (프리메이드, 상업 사용 가능)
-const VOICE_ID = 'onwK4e9ZLuTAKqWW03F9';
+// [2026-08-07 대표 지시: «가장 사람들이 좋아하는 목소리»] 보이스 라이브러리 실측:
+// Adam - Engaging, Friendly = 남성 1위 (1y 사용 29억 자 · 채택 56.4만 = 전체 1위).
+// 워크스페이스에 추가된 ID(s3TPKV...). 이전 Daniel(onwK4e9ZLuTAKqWW03F9)에서 교체.
+const VOICE_ID = 's3TPKV1kjDlVtZbl4Ksh';
 const MODEL = 'eleven_multilingual_v2';
 const SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.25 };
 
