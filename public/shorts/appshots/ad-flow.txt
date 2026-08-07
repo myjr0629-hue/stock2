@@ -1,0 +1,157 @@
+Live Options Flow
+LIVE
+NVDA
+TSLA
+AAPL
+MSFT
+GOOGL
+AMZN
+META
+SPY
+QQQ
+NVDA
+Nvidia Corp
+▲ TICK
+MARKET OPEN
+8/7, 09:45 ET
+$222.27
+▲ +1.50%
+PRE CLOSE
+$221.60
++1.19%
+MAX PAIN
+$203
++9.76% gap
+GAMMA FLIP
+$202.50
+above (+9.76%)
+TOTAL PREMIUM
+$19.7M
+Call dominant
+RSI 14
+63.1
+Warm
+VWAP
+$221.53
+above +0.33%
+DAY RANGE
+LOW $220.7
+HIGH $223.1
+OVERVIEW
+AI INTEL
+WHALE & DP
+STRIKE
+OPTIONS FLOW OVERVIEW
+HIGH CONVICTION
+Bullish flow dominance
+The composite flow score is leaning bullish. Even when OPI is neutral, whale positioning, smart money, and UOA can carry the top-level verdict.
+Premium Flow
+Call dominant
+Gamma Map
+Above gamma flip
+Risk State
+Stable
+Confirm momentum on a Call Wall break, and watch for speed loss if price loses gamma flip.
+OPTIONS PRESSURE INDEX (OPI)
+i
+INTRADAY
+BULLISH
+72.0
+OPI SCORE
+OPI FACTOR RAIL
+P/C Pressure
+2.04
+Premium Bias
+67% Call
+Gamma Position
++9.8%
+VOLUME P/C RATIO
+2.04
+UNDERLYING OPI
+72 (BULLISH)
+VOLATILITY REGIME
+STABLE
+PRESSURE PAIR
+i
+Strong Bullish
+Composite Index
++47
+Pressure Read
+Bullish flow dominance
+Squeeze Probability
+i
+67%
+Moderate
+C/P RATIO
+VOLUME
+2.04
+Strong Call
+C 132K / P 65K
+OI
+1.76
+Call dominant
+C 642K / P 364K
+TOTAL PREMIUM
+$19.7M
+Net Premium
++$19.7M
+Source
+LIVE FLOW
+Call bullish bet
+67.2%
+Put bearish bet
+32.8%
+Call Share
+67.2%
+Put Share
+32.8%
+SPOT PRICE POSITION
+i
+$222.27
+(91%)
+PUT FLOOR (Support)
+$220
+CALL WALL (Resistance)
+$223
+Spot
+$222.27
+Gamma Flip
+$202.50
+Flip Distance
++9.8%
+OPTIONS MARKET & GEX REGIME
+i
+LONG GAMMA (STABLE)
+Vol Effect
+Vol absorbing
+Flip Distance
++9.8%
+IV RANK
+88%
+IV SKEW
+1.1%
+VOLUME P/C
+2.04
+GAMMA FLIP
+$203
+At IV Rank 88% and P/C 2.04, the current options structure is near Call dominant.
+FREE PREVIEW · GEX REGIME
+LONG GAMMA (STABLE)
+Free preview
+Unlock GEX Regime
+Watch an ad to unlock IV Rank, Gamma Flip, and volatility regime context for 1 hour.
+Watch ad to unlock 1HR
+14.2K unlocked today
+Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

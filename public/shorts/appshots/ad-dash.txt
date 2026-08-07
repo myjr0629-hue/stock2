@@ -1,0 +1,183 @@
+SIGNUMHQ
+DARK POOL INTEL
+ECON
+XRP price catalysts have largely played out, with XRP ETF inflows of $1.4B falling far short of JPMorgan's $4-8B estimate.
+2h
+MARKET STATE
+Mixed Tape
+Regular-session flow is updating live.
+FUTURES
+Bullish +0.67%
+CASH
+Bullish +0.56%
+RISK
+57
+|
+MARKET PULSE
+LIVE
+INDEX FUTURES
+FUTURES LIVE
+FUT
+NASDAQ100 F
+29,804
+▲ +1.07%
+FUT
+S&P500 F
+7,760.75
+▲ +0.34%
+FUT
+RUSSELL2K F
+3,026.80
+▲ +0.59%
+CASH INDICES
+LIVE
+NDX
+NASDAQ
+26,605
+▲ +0.97%
+500
+S&P 500
+7,744.48
+▲ +0.45%
+DJI
+DOW
+54,017
+▲ +0.25%
+ETF / VOLATILITY
+LIVE
+100
+QQQ
+$721.72
+▲ +0.99%
+500
+SPY
+$771.86
+▲ +0.43%
+C
+VIX
+15.29
+▲ +0.92%
+|
+MACRO BOARD
+BTC
+$65.3K
++1.55%
+GOLD
+$4,413
++2.64%
+OIL
+$77.0
+-0.35%
+SOX
+12,388
++2.82%
+US 10Y
+4.63%
+-0.92
+DXY
+99.6
+-0.37
+2S10S
++0.45
+NORMAL
+F&G
+59.3
+GREED
+TOP MOVERS
+Value
+Gainers
+Losers
+VIEW ALL >
+ MU
++0.69%
+$887.54
+ SPCX
++4.23%
+$119.79
+100 QQQ
++0.99%
+$721.72
+500 SPY
++0.43%
+$771.86
+SECTOR HEATMAP
+PRE
+Tech
++1.6%
+Energy
+-1.5%
+Cons. Disc
++1.1%
+Materials
++0.8%
+Industrials
++0.5%
+Finance
+-0.5%
+Healthcare
+-0.3%
+Utilities
+-0.4%
+✨
+LIVE NEWS PULSE
+Brief
+Live
+Vireo Growth secured a $65M senior secured asset-based revolving credit facility (expandable to $105M) led by Bank of Montreal to support acquisitions.
+→
+Copart CEO Jeffrey Liaw sold 27,745 shares for ~$846K on July 28 under a pre-planned Rule 10b5-1 trading plan, reducing direct holdings by 22%.
+→
+Check Point Software's Chief Revenue Officer sold 10,272 shares (29% of direct holdings) for ~$1.3M on August 4, following a 36% stock decline.
+→
+iShares Semiconductor ETF (SOXX) declined 21.2% in July following a 112.8% rally in H1 2026, driven by short-seller Michael Burry's bearish stance and multiple headwinds.
+→
+XRP price catalysts have largely played out, with XRP ETF inflows of $1.4B falling far short of JPMorgan's $4-8B estimate.
+→
+View Live Market Monitor →
+VOLATILITY REGIME
+Compression / expansion
+Loaded
+67%
+
+Tracks whether market volatility is compressing or expanding.
+
+DARK POOL VOLUME
+Institutional prints
+34.3%
+DP 593.1K
+
+Surfaces large off-exchange flow hidden from the open book.
+
+SQUEEZE RISK
+Short-term pressure
+High
+62%
+
+Monitors gamma and positioning pressure behind fast moves.
+
+ROTATION INTENSITY
+Capital rotation
+Risk-On Tilt
+Rotation 89
+
+Shows whether money is rotating toward risk or defense.
+
+Free preview · Institutional pulse
+Loaded · 1 of 4
+Free preview
+Institutional Market Pulse
+Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.
+Watch ad to unlock 1HR
+14.2K unlocked today
+Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

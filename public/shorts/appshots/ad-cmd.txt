@@ -1,0 +1,147 @@
+NVDA
+NVDA
+TSLA
+AAPL
+MSFT
+GOOGL
+AMZN
+META
+SPY
+QQQ
+NVDA
+Nvidia Corp
+▼ TICK
+MARKET OPEN
+8/7, 09:44 ET
+$222.29
+▲ +1.51%
+PRE CLOSE
+$221.60
++1.19%
+MAX PAIN
+i
+$203
++9.77% gap
+GAMMA FLIP
+i
+$202.50
+above (+9.77%)
+TOTAL PREMIUM
+i
+$51.7M
+Call dominant
+RSI 14
+i
+63.1
+Warm
+VWAP
+i
+$221.53
+above +0.34%
+DAY RANGE
+LOW $220.7
+HIGH $223.1
+OVERVIEW
+AI ✱
+QUANT ✱
+HOLDERS ✱
+PRICE HISTORY
+LINE
+CANDLE
+NBBOEst. $222.13 ×100
+Spread 0.140%
+$222.45 ×100
+$223.13
+$221.16
+$219.20
+VWAP 221.53
+$222.29
+SMA 7
+SMA 20
+VWAP
+1D
+1W
+1M
+3M
+1Y
+5-DAY
+4↑ 1↓ · Week +10.9%
+MON
++2.9%
+TUE
++2.6%
+WED
++3.4%
+THU
+-0.1%
+FRI
++1.6%
+ANALYST CONSENSUS
+Buy
+76%
+76% bullish consensus from 79 analysts
+Buy 60
+Hold 16
+Sell 3
+12M TARGET
+$319.48
++43.7%
+High $500
+Low $218
+FUNDAMENTAL
+A
+80
+/100
+Strong
+PE
+29.6
+ROE
+81.7%
+D/E
+0.04
+REV
++85.2%
+MARGIN
+71.5%
+EARNINGS
+D-19
+19d
+August 26, 2026
+AMC
+Est EPS
+$2.13
+Q2 FY27
+FORWARD (FY27)
+EPS
+$9.00
+REV
+$393.4B
+COMPANY OVERVIEW
+
+Nvidia is a leading developer of graphics processing units. Traditionally, GPUs were used to enhance the experience on computing platforms, most notably in gaming applications on PCs.
+
+RELATED PEERS
+GOOGL
+$356.1
+-0.47%
+AMD
+$490.2
++0.18%
+META
+$589.3
+-0.09%
+MSFT
+$503.8
++0.79%
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel
