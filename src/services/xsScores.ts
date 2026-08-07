@@ -49,6 +49,28 @@ function gradeFor(score: number): Grade {
     return 'F';
 }
 
+/** Await a fresh map when called from an async context (read-side override). */
+export async function ensureXsScores(): Promise<void> {
+    primeXsScores();
+    if (loading) await loading;
+}
+
+/**
+ * Override for cached alphaSnapshot objects (written by the harvest Lambda,
+ * which stamps V8 values — the second supply line beside calculateAlphaScore).
+ */
+export function xsSnapshotOverride<T extends { score?: number; grade?: string; engineVersion?: string }>(ticker: string, snap: T): T {
+    if (process.env.XS_DISPLAY === 'off') return snap;
+    const s = map?.[ticker.toUpperCase()];
+    if (typeof s !== 'number' || !Number.isFinite(s)) return snap;
+    return {
+        ...snap,
+        score: Math.round(s * 10) / 10,
+        grade: gradeFor(s),
+        engineVersion: `XS-2.0.0/${asOf}+v8struct`,
+    };
+}
+
 /** Synchronous override applied at the single V8 result chokepoint. */
 export function xsOverride<T extends { score: number; grade: Grade; ticker: string; engineVersion: string }>(result: T): T {
     primeXsScores();

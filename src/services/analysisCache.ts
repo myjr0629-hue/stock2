@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { getFromCache, setInCache, mgetFromCache } from '@/services/redisClient';
+import { xsSnapshotOverride, ensureXsScores } from '@/services/xsScores';
 
 // Cache key prefix — separate namespace from flow:ticker:* (used by live/ticker)
 const ANALYSIS_CACHE_PREFIX = 'cache:analysis:';
@@ -96,7 +97,17 @@ export async function getAnalysisCache(
     ticker: string
 ): Promise<AnalysisCacheEntry | null> {
     const key = `${ANALYSIS_CACHE_PREFIX}${ticker.toUpperCase()}`;
-    return getFromCache<AnalysisCacheEntry>(key);
+    const entry = await getFromCache<AnalysisCacheEntry>(key);
+    await ensureXsScores();
+    return applyXs(ticker, entry);
+}
+
+// XS-2.0 display switch: the harvest Lambda keeps stamping V8 values into
+// this cache, so the override must sit on the READ side (single point for
+// every alphaSnapshot consumer — command/unified, ticker SSR, intel routes).
+function applyXs<T extends AnalysisCacheEntry | null>(ticker: string, entry: T): T {
+    if (!entry || !entry.alphaSnapshot) return entry;
+    return { ...entry, alphaSnapshot: xsSnapshotOverride(ticker, entry.alphaSnapshot) };
 }
 
 /**
@@ -115,8 +126,9 @@ export async function getAnalysisCacheForTickers(
         const keys = tickers.map(t => `${ANALYSIS_CACHE_PREFIX}${t.toUpperCase()}`);
         const values = await mgetFromCache<AnalysisCacheEntry>(keys);
 
+        await ensureXsScores();
         values.forEach((data, i) => {
-            if (data) results[tickers[i].toUpperCase()] = data;
+            if (data) results[tickers[i].toUpperCase()] = applyXs(tickers[i], data);
         });
     } catch (e) {
         // Fallback: MGET failed → use original individual GETs (zero-regression guarantee)
