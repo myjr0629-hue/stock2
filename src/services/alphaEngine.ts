@@ -23,6 +23,7 @@ import {
     getVIXTermScore,
     getSafeHavenScore,
 } from './alphaEngineV2';
+import { xsOverride } from './xsScores';
 
 // ============================================================================
 // TYPES — Input & Output
@@ -308,7 +309,11 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
     // 6. Session adjustment flag
     const sessionAdjusted = input.session !== 'REG';
 
-    return {
+    // XS-2.0 display switch (2026-08-07): the returned score/grade become the
+    // XS engine's daily score when available; V8 pillars/why stay as structure
+    // diagnostics. Single chokepoint — every route/service/cron flows through
+    // here. Rollback: env XS_DISPLAY=off.
+    return xsOverride({
         score: finalScore,
         grade,
         action,
@@ -331,7 +336,7 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
         session: input.session,
         calculatedAt: new Date().toISOString(),
         engineVersion: ENGINE_VERSION,
-    };
+    });
 }
 
 

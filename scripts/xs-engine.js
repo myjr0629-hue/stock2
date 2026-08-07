@@ -143,6 +143,11 @@ async function run() {
     console.log(`[XS] ${ENGINE_VERSION} run ${today} ${DRY ? '(DRY)' : ''}`);
 
     // 1. Scan unified-cache (read-only source of truth for today's snapshot)
+    // Zombie guard (2026-08-07): delisted/renamed tickers keep frozen cache
+    // rows forever (harvest never rewrites symbols absent from the snapshot
+    // feed — e.g. BK→BNY left BK frozen since 05-21 yet scored daily). A row
+    // whose updatedAt is older than 4 days cannot be a live listing.
+    const STALE_CUTOFF = Date.now() - 4 * 86400000;
     const snaps = new Map(); // ticker → snapshot
     let lastKey;
     do {
@@ -150,6 +155,7 @@ async function run() {
         for (const it of (res.Items || [])) {
             const ticker = it.pk;
             if (!ticker || typeof ticker !== 'string' || ticker.includes(':')) continue;
+            if (!(Date.parse(it.updatedAt || '') > STALE_CUTOFF)) continue; // zombie/garbage row
             const d = typeof it.data === 'string' ? safeParse(it.data) : it.data;
             if (!d) continue;
             const price = num(d.structure?.underlyingPrice);
@@ -329,63 +335,103 @@ async function run() {
     const xs = new Map(); // ticker → 0-100
     for (const [t, z] of pct) xs.set(t, Math.round(((z + 1) / 2) * 1000) / 10);
 
-    // 10. LABELING + IC UPDATE — from state rings alone (T-3 z vs realized f3)
-    // f3(T-3) = close_today / close_{T-3} - 1, market-adjusted by universe mean.
-    const labelRows = [];
+    // 10. LABELING + IC UPDATE — labeler L2 (2026-08-07).
+    // f3(d) = officialClose(d+3 sessions) / officialClose(d) - 1, from Polygon
+    // grouped-daily ADJUSTED closes (split/dividend-safe), never from the
+    // engine's own snapshot prices. Every due entry labels every run (no
+    // oldest-first queue → nothing can block → no horizon drift). No
+    // informative censoring: only a |f3|>150 corruption guard (logged, marked
+    // nl so it can never re-enter). Entries whose ticker is absent from the
+    // official D or D+3 session (delisted/renamed) are marked nl once that
+    // session's data is final.
+    const POLY_KEY = (process.env.POLYGON_API_KEY || '').trim();
+    const polyDays = []; // [{d, closes: Map t→adjClose}] trading days only, oldest→newest
+    if (POLY_KEY) {
+        for (let back = 16; back >= 0; back--) {
+            const d = new Date(Date.parse(`${today}T12:00:00Z`) - back * 86400000).toISOString().slice(0, 10);
+            const dow = new Date(`${d}T12:00:00Z`).getUTCDay();
+            if (dow === 0 || dow === 6) continue;
+            try {
+                const g = await (await fetch(`https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${d}?adjusted=true&apiKey=${POLY_KEY}`)).json();
+                if (g && g.resultsCount > 100) {
+                    const m = new Map();
+                    for (const gr of g.results) if (gr.c > 0) m.set(gr.T, gr.c);
+                    polyDays.push({ d, closes: m });
+                }
+            } catch (e) { console.log(`[XS] grouped fetch fail ${d}: ${e.message}`); }
+            await sleep(150);
+        }
+    } else console.log('[XS] POLYGON_API_KEY missing — labeling skipped this run');
+    const dayIdx = new Map(polyDays.map((x, i) => [x.d, i]));
+    const labelByDay = new Map(); // score-day → label rows (one cohort per day)
     for (const t of tickers) {
         const st = states.get(t);
         if (!st) continue;
-        const closes = (st.closes || []).filter(x => x.d !== today);
-        const zring = st.zring || []; // [{d, z:{...}, raw}] oldest→newest
-        if (closes.length < 1) continue;
-        // T+3 in TRADING sessions, counted on the engine's own close ring:
-        // label entry d when 2 newer closes exist (today's run = 3rd session after d).
-        const zPast = zring.find(x => x.f3 === undefined
-            && closes.filter(c => c.d > x.d).length >= 2
-            && daysBetween(x.d, today) <= 12);
-        if (!zPast) continue;
-        const cPast = closes.find(x => x.d === zPast.d);
-        if (!cPast || !(cPast.c > 0)) continue;
-        const f3 = (snaps.get(t).price - cPast.c) / cPast.c * 100;
-        if (Math.abs(f3) > 30) continue;
-        labelRows.push({ t, d: zPast.d, z: zPast.z, raw: zPast.raw, rawF: zPast.rawF, rawA: zPast.rawA, rawC: zPast.rawC, rawD: zPast.rawD, xs: zPast.xs, f3 });
-        zPast.f3 = f3; // mark consumed
+        for (const x of (st.zring || [])) {
+            if (x.f3 !== undefined || x.nl) continue;
+            if (daysBetween(x.d, today) > 12) continue;
+            const i = dayIdx.get(x.d);
+            if (i === undefined) continue;      // official data for d not fetched/published
+            const j = i + 3;                    // exactly 3 trading sessions after d
+            if (j >= polyDays.length) continue; // D+3 session not closed/published yet
+            const c0 = polyDays[i].closes.get(t), c3 = polyDays[j].closes.get(t);
+            if (!(c0 > 0) || !(c3 > 0)) { x.nl = 1; continue; }
+            const f3 = (c3 / c0 - 1) * 100;
+            if (Math.abs(f3) > 150) { console.log(`[XS] corrupt-guard ${t} ${x.d} f3=${f3.toFixed(1)}`); x.nl = 1; continue; }
+            x.f3 = round(f3, 4); // mark consumed (persisted via stateItems)
+            const rows = labelByDay.get(x.d) || [];
+            rows.push({ t, d: x.d, z: x.z, raw: x.raw, rawF: x.rawF, rawA: x.rawA, rawC: x.rawC, rawD: x.rawD, xs: x.xs, f3: x.f3 });
+            labelByDay.set(x.d, rows);
+        }
     }
+    // Per-cohort IC/calibration update: each score-day is its own cross-section
+    // with its own market mean (catch-up runs may label 2+ cohorts — they must
+    // never be pooled into one Spearman). Chronological order preserves the
+    // rolling-history semantics; day* report fields carry the newest cohort.
     let dayIC = null;
     const factorICs = {};
     const varIcHist = wdoc?.varIcHist || { frozen: [], anti: [], clean: [], adaptive: [] };
     if (!varIcHist.clean) varIcHist.clean = [];
     if (!varIcHist.adaptive) varIcHist.adaptive = [];
     let dayICF = null, dayICA = null, dayICC = null, dayICD = null;
-    if (labelRows.length >= MIN_UNIVERSE) {
-        const mkt = mean(labelRows.map(r => r.f3));
-        const adj = labelRows.map(r => r.f3 - mkt);
+    // labels are always stored; aggregates push ONCE per cohort day (a late
+    // remnant of an already-pushed cohort must not double-count that day)
+    const icDays = new Set(Array.isArray(wdoc?.icDays) ? wdoc.icDays : []);
+    let labeledTotal = 0;
+    for (const rows of labelByDay.values()) labeledTotal += rows.length;
+    for (const cohortDay of [...labelByDay.keys()].sort()) {
+        const rows = labelByDay.get(cohortDay);
+        if (rows.length < MIN_UNIVERSE) continue;
+        if (icDays.has(cohortDay)) continue;
+        icDays.add(cohortDay);
+        const mkt = mean(rows.map(r => r.f3));
+        const adj = rows.map(r => r.f3 - mkt);
         // composite IC
-        dayIC = spearman(labelRows.map(r => r.raw), adj);
-        // v1.1 variant ICs (rows carry rawF/rawA only after variants deployed)
-        const subF = labelRows.map((r, i) => ({ v: r.rawF, a: adj[i] })).filter(x => Number.isFinite(x.v));
+        dayIC = spearman(rows.map(r => r.raw), adj);
+        // variant ICs (rows carry rawF/rawA/rawC/rawD only after each deploy)
+        const subF = rows.map((r, i) => ({ v: r.rawF, a: adj[i] })).filter(x => Number.isFinite(x.v));
         if (subF.length >= MIN_UNIVERSE) {
             dayICF = spearman(subF.map(x => x.v), subF.map(x => x.a));
             if (dayICF != null) varIcHist.frozen = [...(varIcHist.frozen || []), dayICF].slice(-IC_WINDOW);
         }
-        const subA = labelRows.map((r, i) => ({ v: r.rawA, a: adj[i] })).filter(x => Number.isFinite(x.v));
+        const subA = rows.map((r, i) => ({ v: r.rawA, a: adj[i] })).filter(x => Number.isFinite(x.v));
         if (subA.length >= MIN_UNIVERSE) {
             dayICA = spearman(subA.map(x => x.v), subA.map(x => x.a));
             if (dayICA != null) varIcHist.anti = [...(varIcHist.anti || []), dayICA].slice(-IC_WINDOW);
         }
-        const subC = labelRows.map((r, i) => ({ v: r.rawC, a: adj[i] })).filter(x => Number.isFinite(x.v));
+        const subC = rows.map((r, i) => ({ v: r.rawC, a: adj[i] })).filter(x => Number.isFinite(x.v));
         if (subC.length >= MIN_UNIVERSE) {
             dayICC = spearman(subC.map(x => x.v), subC.map(x => x.a));
             if (dayICC != null) varIcHist.clean = [...(varIcHist.clean || []), dayICC].slice(-IC_WINDOW);
         }
-        const subD = labelRows.map((r, i) => ({ v: r.rawD, a: adj[i] })).filter(x => Number.isFinite(x.v));
+        const subD = rows.map((r, i) => ({ v: r.rawD, a: adj[i] })).filter(x => Number.isFinite(x.v));
         if (subD.length >= MIN_UNIVERSE) {
             dayICD = spearman(subD.map(x => x.v), subD.map(x => x.a));
             if (dayICD != null) varIcHist.adaptive = [...(varIcHist.adaptive || []), dayICD].slice(-IC_WINDOW);
         }
         // factor ICs → rolling icHist
         for (const { key } of FACTORS) {
-            const sub = labelRows.map((r, i) => ({ z: r.z?.[key], a: adj[i] })).filter(x => Number.isFinite(x.z));
+            const sub = rows.map((r, i) => ({ z: r.z?.[key], a: adj[i] })).filter(x => Number.isFinite(x.z));
             if (sub.length >= MIN_UNIVERSE) {
                 const ic = spearman(sub.map(x => x.z), sub.map(x => x.a));
                 if (ic != null) {
@@ -395,7 +441,7 @@ async function run() {
             }
         }
         // decile calibration from labeled xs
-        const withXs = labelRows.filter(r => Number.isFinite(r.xs));
+        const withXs = rows.filter(r => Number.isFinite(r.xs));
         if (withXs.length >= MIN_UNIVERSE) {
             const sorted = [...withXs].sort((a, b) => a.xs - b.xs);
             for (let dec = 0; dec < 10; dec++) {
@@ -431,7 +477,7 @@ async function run() {
 
     const report = {
         date: today, ver: ENGINE_VERSION, universe: snaps.size, scored: rawMap.size,
-        labeled: labelRows.length, dayIC: dayIC != null ? round(dayIC, 4) : null,
+        labeled: labeledTotal, labeler: 'L2', dayIC: dayIC != null ? round(dayIC, 4) : null,
         factorICs: mapRound(factorICs, 4),
         rollingIC: Object.fromEntries(Object.entries(icHist).map(([k, v]) => [k, round(mean(v), 4)])),
         rollingDays: Object.fromEntries(Object.entries(icHist).map(([k, v]) => [k, v.length])),
@@ -449,7 +495,7 @@ async function run() {
     };
 
     if (DRY) {
-        console.log('[XS DRY] scored:', rawMap.size, 'labeled:', labelRows.length);
+        console.log('[XS DRY] scored:', rawMap.size, 'labeled:', labeledTotal);
         console.log('[XS DRY] weights:', JSON.stringify(report.weights));
         console.log('[XS DRY] variants:', JSON.stringify(report.variants));
         console.log('[XS DRY] top10:', report.top10.join(' '));
@@ -459,7 +505,7 @@ async function run() {
 
     // batch write (25/req) with unprocessed retry
     const allWrites = [...historyItems, ...stateItems,
-        { ticker: '_WEIGHTS_', date: '_CURRENT_', icHist, calibHist, hitHist, weights, varIcHist, mainVer: ENGINE_VERSION, updatedAt: nowIso },
+        { ticker: '_WEIGHTS_', date: '_CURRENT_', icHist, calibHist, hitHist, weights, varIcHist, mainVer: ENGINE_VERSION, icDays: [...icDays].sort().slice(-90), updatedAt: nowIso },
         { ticker: '_REPORT_', date: today, ...report, updatedAt: nowIso },
     ];
     let written = 0;
@@ -475,7 +521,10 @@ async function run() {
         }
     }
     await redisSet('cache:xs:report', report, 90 * 86400);
-    console.log(`[XS] wrote ${written} items | scored=${rawMap.size} labeled=${labelRows.length} dayIC=${report.dayIC} | ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+    // Full per-ticker score map for the product's Context Score display
+    // (consumed by src/services/xsScores.ts via cache:xs:scores).
+    await redisSet('cache:xs:scores', { date: today, scores: Object.fromEntries(xs) }, 7 * 86400);
+    console.log(`[XS] wrote ${written} items | scored=${rawMap.size} labeled=${labeledTotal} dayIC=${report.dayIC} | ${((Date.now() - t0) / 1000).toFixed(0)}s`);
     return report;
 }
 

@@ -86,6 +86,12 @@ async function deploy() {
   const roleArn = harvest.Configuration.Role;
   console.log('Role:', roleArn);
 
+  // Labeler L2 needs official closes: take the Polygon key from the harvest
+  // Lambda's env (single source of truth) unless provided locally.
+  env.POLYGON_API_KEY = (process.env.POLYGON_API_KEY
+    || harvest.Configuration.Environment?.Variables?.POLYGON_API_KEY || '').trim();
+  if (!env.POLYGON_API_KEY) throw new Error('POLYGON_API_KEY unavailable (harvest env empty?) — labeling would be disabled');
+
   if (exists) {
     await lambda.send(new UpdateFunctionCodeCommand({ FunctionName: FUNCTION_NAME, ZipFile: zipBuffer }));
     await new Promise(r => setTimeout(r, 5000));
