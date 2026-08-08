@@ -754,6 +754,14 @@ export default function UndercurrentPage() {
   useEffect(() => { if (macro?.generatedAt) macroGenRef.current = macro.generatedAt; }, [macro]);
   const [showBreaking, setShowBreaking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // 바이너리 실버전 (@capacitor/app — UC 바이너리에 포함). 하드코딩 1.0.0 이 1.0.1
+  // 바이너리와 어긋나던 표기 수정 (2026-08-08, SIGNUM 과 같은 클래스의 버그). 웹=폴백.
+  const [ucVer, setUcVer] = useState('1.0.1');
+  useEffect(() => {
+    try {
+      (window as any).Capacitor?.Plugins?.App?.getInfo?.().then((i: any) => { if (i?.version) setUcVer(i.version); });
+    } catch { /* web */ }
+  }, []);
   // keep the hardware-back handler's view of open layers current
   useEffect(() => { backStateRef.current = { detail: !!detail, breaking: showBreaking, settings: showSettings }; }, [detail, showBreaking, showSettings]);
 
@@ -1219,7 +1227,7 @@ export default function UndercurrentPage() {
       <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <button type="button" onClick={() => router.push(`/${loc}/undercurrent/privacy`)} style={linkBtnStyle}>{t.stPrivacy}</button>
         <button type="button" onClick={() => router.push(`/${loc}/undercurrent/terms`)} style={linkBtnStyle}>{t.stTerms}</button>
-        <span style={{ marginLeft: 'auto', fontSize: 10.5, color: C.faint, fontWeight: 600 }}>Undercurrent 1.0.0 · SIGNUM HQ, LLC</span>
+        <span style={{ marginLeft: 'auto', fontSize: 10.5, color: C.faint, fontWeight: 600 }}>Undercurrent {ucVer} · SIGNUM HQ, LLC</span>
       </div>
     </footer>
   );
@@ -2469,7 +2477,7 @@ export default function UndercurrentPage() {
             ))}
 
             <div style={{ marginTop: 16, textAlign: 'center', fontSize: 10.5, color: C.faint, fontWeight: 600 }}>
-              {t.stVersion} 1.0.0 · Undercurrent by SIGNUM HQ, LLC
+              {t.stVersion} {ucVer} · Undercurrent by SIGNUM HQ, LLC
             </div>
 
             {/* ── 하단 정렬 진단 (안드로이드 네이티브에서만) ─────────────────
