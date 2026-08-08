@@ -267,6 +267,11 @@ export default function SettingsPage() {
     setMounted(true);
     setPrefs(loadPrefs());
     getNativeAppVersion().then(v => { if (v) setAppVersion(v); });
+    // iOS WKWebView 에서 :active 프레스 상태를 확실히 활성화하는 관용구(no-op 터치 리스너).
+    // 기본 탭 하이라이트를 끈 대신 :active 가 유일한 피드백이라 필수.
+    const noop = () => {};
+    document.addEventListener('touchstart', noop, { passive: true });
+    return () => document.removeEventListener('touchstart', noop);
   }, []);
 
   const updatePrefs = useCallback((patch: Partial<typeof prefs>) => {

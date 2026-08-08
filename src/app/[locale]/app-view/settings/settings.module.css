@@ -32,6 +32,14 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  /* iOS WebKit: 스크롤된 overflow 컨테이너 안에서 기본 탭 하이라이트가
+     scrollTop 만큼 아래 행에 그려지는 버그(2026-08-08 실기기 «전 행이 한 줄
+     아래 반투명 선택») → 기본 하이라이트를 끄고 :active 로만 피드백한다. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet * {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sheetClosing {
@@ -94,7 +102,7 @@
 }
 
 .row:last-child { border-bottom: none; }
-.row:active { background: rgba(34, 211, 238, 0.04); }
+.row:active { background: rgba(34, 211, 238, 0.08); }  /* 기본 하이라이트 제거 후 유일한 프레스 피드백 — 살짝 강화 */
 
 .rowLeft {
   display: flex;
