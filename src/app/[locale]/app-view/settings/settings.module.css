@@ -102,7 +102,9 @@
 }
 
 .row:last-child { border-bottom: none; }
-.row:active { background: rgba(34, 211, 238, 0.10); }  /* 기본 하이라이트 제거 후 유일한 프레스 피드백 */
+/* 프레스 오버레이는 «없음»이 정답 (대표 확정 2026-08-08, UC 방식) —
+   iOS contentInset 구성에서 어떤 오버레이든 어긋나 보일 수 있어 아예 그리지 않는다.
+   기본 탭 하이라이트는 native-app.css 의 html.native-ios 전역 차단이 담당. */
 
 .rowLeft {
   display: flex;
@@ -199,7 +201,6 @@
 }
 
 .langItem:last-child { border-bottom: none; }
-.langItem:active { background: rgba(34, 211, 238, 0.06); }
 
 .langItemActive {
   background: rgba(34, 211, 238, 0.04);
