@@ -101,6 +101,7 @@ const T: Record<Locale, Record<string, string>> = {
     stNotif: '속보 푸시 알림', stNotifSub: '곧 제공될 예정이에요', stSoon: '준비 중',
     stRate: '앱 평가하기', stRateSub: '별점 한 번이 큰 힘이 됩니다',
     stSignum: 'SIGNUM HQ', stSignumSub: '기관이 남긴 흔적을 읽는다 · 무료',
+    stWim: "Why'd It Move?", stWimSub: '오늘 왜 움직였는지 퀴즈로 · 무료',
     stPolicy: '약관 및 정책',
     stPrivacy: '개인정보처리방침', stTerms: '이용약관',
     stVersion: '버전',
@@ -179,6 +180,7 @@ const T: Record<Locale, Record<string, string>> = {
     stNotif: 'Breaking push alerts', stNotifSub: 'Coming soon', stSoon: 'Soon',
     stRate: 'Rate the app', stRateSub: 'A quick rating helps a lot',
     stSignum: 'SIGNUM HQ', stSignumSub: 'Read the tape institutions leave behind · Free',
+    stWim: "Why'd It Move?", stWimSub: 'Daily market-move quiz · Free',
     stPolicy: 'Legal',
     stPrivacy: 'Privacy Policy', stTerms: 'Terms of Service',
     stVersion: 'Version',
@@ -257,6 +259,7 @@ const T: Record<Locale, Record<string, string>> = {
     stNotif: '速報プッシュ通知', stNotifSub: '近日提供予定です', stSoon: '準備中',
     stRate: 'アプリを評価する', stRateSub: '評価が大きな励みになります',
     stSignum: 'SIGNUM HQ', stSignumSub: '機関が残した痕跡を読む · 無料',
+    stWim: "Why'd It Move?", stWimSub: '値動きの理由をクイズで · 無料',
     stPolicy: '規約とポリシー',
     stPrivacy: 'プライバシーポリシー', stTerms: '利用規約',
     stVersion: 'バージョン',
@@ -2388,8 +2391,8 @@ export default function UndercurrentPage() {
                 fall through to window.open. This is the same mechanism UC's shipped
                 ticker-footer SIGNUM link already uses, so it is proven in this shell.
 
-                WIM is deliberately absent — still in review on both stores, so a tap
-                would 404 (대표 지시 2026-07-30). */}
+                WIM row added 2026-08-08 — live on both stores (iOS id6794356135,
+                Play com.signumhq.wim), served through the /app-wim smart link. */}
             <a
               href="https://www.signumhq.com/app?from=uc_app"
               target="_blank"
@@ -2412,6 +2415,25 @@ export default function UndercurrentPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>{t.stSignum}</div>
                 <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stSignumSub}</div>
+              </div>
+              <span style={{ color: C.faint, fontSize: 14 }}>→</span>
+            </a>
+
+            <a
+              href="https://www.signumhq.com/app-wim?from=uc_app"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowSettings(false)}
+              style={{
+                font: 'inherit', color: C.ink, textDecoration: 'none', textAlign: 'left', cursor: 'pointer', width: '100%',
+                marginTop: 11, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadow,
+                padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box',
+              }}
+            >
+              <img src="/app-icons/wim.png" alt="" width={30} height={30} style={{ borderRadius: 9, flexShrink: 0, objectFit: 'contain', display: 'block' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 850 as any }}>{t.stWim}</div>
+                <div style={{ fontSize: 11, color: C.faint, fontWeight: 600, marginTop: 2 }}>{t.stWimSub}</div>
               </div>
               <span style={{ color: C.faint, fontSize: 14 }}>→</span>
             </a>
