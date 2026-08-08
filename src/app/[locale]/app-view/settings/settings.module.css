@@ -102,7 +102,7 @@
 }
 
 .row:last-child { border-bottom: none; }
-.row:active { background: rgba(34, 211, 238, 0.08); }  /* 기본 하이라이트 제거 후 유일한 프레스 피드백 — 살짝 강화 */
+.row:active { background: rgba(34, 211, 238, 0.10); }  /* 기본 하이라이트 제거 후 유일한 프레스 피드백 */
 
 .rowLeft {
   display: flex;

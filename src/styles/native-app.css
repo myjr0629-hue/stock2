@@ -171,6 +171,14 @@ html.native-ios .native-bottom-nav {
   padding-bottom: env(safe-area-inset-bottom, 34px) !important;
 }
 
+/* iOS WKWebView 기본 탭 하이라이트 전역 차단 — SIGNUM iOS 는 contentInset:'always'
+   구성이라 WebKit 이 하이라이트 오버레이를 인셋만큼 어긋난 위치(≈한 행 아래)에
+   그린다(2026-08-08 실기기: 설정 시트 전 행에서 재현). 프레스 피드백은 각 요소의
+   :active 로만 — 그건 요소 자신에 그려져 좌표가 어긋날 수 없다. */
+html.native-ios * {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
 /* ===========================================================================
    6.1 iOS Premium Polish — native-ios 전용 (안드로이드/웹 영향 0)
    롤백: 이 6.1 블록 전체를 삭제하면 원복됨.
