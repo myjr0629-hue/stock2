@@ -11,46 +11,39 @@ iOS v1.1 결과가 나온 뒤, 다음 묶음을 **양 스토어 같은 날** 제
 
 ---
 
-## 1. 🔴 안드로이드 하단 «흰 줄» 제거 — 네이티브 전용 (웹으로 불가)
+## 1. 🟢 안드로이드 하단 «흰 줄» — **범위 축소 (2026-08-08 대표 실기기 실측)**
 
-### 증상
-다크 UI인 SIGNUM 하단에 흰 띠가 보인다. UC·WIM은 안 보인다.
+### ★ 신규 실측 — 급하지 않다, 별도 업데이트 불필요
+- 대표 기기(**Android 13**): 흰 띠 보임 ← 기존 보고
+- 타인 기기(**Android 16**): **흰 띠 없음, iOS처럼 정상**
+- 이유: **Android 15(API 35)+ 는 엣지투엣지 강제** — targetSdk 35 앱은 시스템 내비바가
+  투명해져 앱 위에 겹쳐 그려진다. 즉 **Android ≤14 에서만 남는 구형 OS 한정 증상**이고,
+  OS 점유율이 15+ 로 이동할수록 자연 소멸한다.
+- **대표 결정: 이것 때문에 업데이트하지 않는다.** 다른 이유로 v1.2 를 낼 때 동봉만.
 
-### 원인 (실측)
+### 증상/원인 (기존 실측 유지 — Android ≤14 한정)
 ```
 안드로이드 시스템 내비게이션 바   (250, 250, 250)   ← 세 앱 전부 동일
 SIGNUM 바로 위 앱 화면          (  7,  11,  19)   → 흰/검 경계가 그대로 보임
 UC     바로 위 앱 화면          (233, 233, 234)   → 흰/흰이라 안 보임
 ```
-**우리 레이아웃 문제가 아니다.** 같은 시스템 바가 다크 UI 위에서만 눈에 띈다.
 내비바는 **웹뷰 바깥**이라 CSS·JS가 못 닿는다 → 네이티브에서만 해결.
 
-### 조치 — `android/app/src/main/java/com/signumhq/app/MainActivity.java`
+### 조치 (동봉 시) — 저위험 1줄 방식으로 «격하»
+구형 OS 만 남았으므로 엣지투엣지 전환(레이아웃 변경 + lift 재조정 = 리스크) 대신:
 ```java
-import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsControllerCompat;
-
-// onCreate() 안, super.onCreate() 직후
-WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
-        .setAppearanceLightNavigationBars(false);   // 내비 아이콘을 밝게
+// MainActivity onCreate(), super.onCreate() 직후 — Android ≤14 에서만 효과
+getWindow().setNavigationBarColor(android.graphics.Color.parseColor("#050a14"));
+new androidx.core.view.WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
+        .setAppearanceLightNavigationBars(false);   // 아이콘 밝게
 ```
-⚠️ targetSdk 35+ 는 `android:navigationBarColor` 를 **무시**한다. styles.xml 로 색을
-지정하는 방식은 쓰지 말 것. 위 조합이 정답.
+- Android 15+ 는 이 호출을 무시(이미 정상) → **레이아웃·인셋·웹 lift 전부 불변**, 부작용 0.
+- 기존 안(엣지투엣지 + lift 6→14px)은 폐기 — 하단 인셋으로 여러 번 데인 영역이라
+  구형 OS 미관을 위해 감수할 리스크가 아니다.
 
-### 동반 조정 (웹, 같은 시점에 배포)
-엣지투엣지가 되면 웹뷰가 내비바 아래까지 그리게 되어 하단 계산이 바뀐다.
-`src/styles/native-app.css` 의
-```css
-html.native-android .app-viewport { --app-tabbar-lift: 6px; }
-```
-를 **14px** 로 올린다 (WIM 기준 = 대표가 «가장 이상적»이라 판정한 값).
-지금 6px 인 이유는 웹뷰가 내비바 «위»에서 끝나기 때문이다.
-
-### 검증
-- 실기기(삼성) 3버튼 · 제스처 내비 둘 다
-- 하단 띠가 앱 배경색과 이어지는지, 탭바가 WIM과 같은 높이인지
-- **에뮬레이터만으로 판정하지 말 것** — 이 문제는 에뮬에서 재현이 안 된다
+### 검증 (동봉 시)
+- **Android 13~14 실기기/에뮬**에서 내비바가 앱 배경색으로 이어지는지
+- Android 15+ 기기에서 아무 변화 없는지 (무시 확인)
 
 ---
 
