@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio, Sun, FileText } from "lucide-react";
+import { createPortal } from "react-dom";
+import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio, Sun, FileText, Maximize2 } from "lucide-react";
+import { hapticImpact } from "@/lib/native/capacitorBridge";
 import { useTranslations, useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
 import { renderColoredText } from './TypewriterText';
@@ -166,6 +168,8 @@ export default function RLSIInsightPanel({
     const [activeTab, setActiveTab] = useState<"briefing" | "tactical">("tactical");
     const [briefingData, setBriefingData] = useState<any>(null);
     const [briefingLoading, setBriefingLoading] = useState(false);
+    // 전문 팝업 (대표 요청 2026-08-08: 폰에서 좁은 스크롤 박스 대신 8-K 팝업처럼 크게)
+    const [fullView, setFullView] = useState<"briefing" | "tactical" | null>(null);
 
     // Auto-switch to briefing ONLY when briefing data is fetched + valid + PRE session
     useEffect(() => {
@@ -356,7 +360,14 @@ export default function RLSIInsightPanel({
 
             {/* ── Tab Content ── */}
             <div className={`rounded-lg backdrop-blur-sm border ${activeTab === "tactical" ? sentimentBorder : 'border-amber-500/15'} p-2.5 mb-2.5 flex-none`}
+                onClick={() => {
+                    const body = activeTab === 'tactical' ? insightDesc : briefingData?.briefing;
+                    if (!body) return;
+                    hapticImpact('light');
+                    setFullView(activeTab);
+                }}
                 style={{
+                    cursor: (activeTab === 'tactical' ? insightDesc : briefingData?.briefing) ? 'pointer' : undefined,
                     background: activeTab === "tactical"
                         ? (sentiment === 'BULLISH'
                             ? 'linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(15,23,42,0.4) 100%)'
@@ -383,6 +394,7 @@ export default function RLSIInsightPanel({
                                     }`}>
                                     <img src="/signum-sg-vectorized.svg" alt="AI" width={13} height={13} style={{ objectFit: 'contain' as const, filter: 'drop-shadow(0 0 2px rgba(245,158,11,0.3))', animation: 'aiLogoPulse 2.5s ease-in-out infinite' }} />
                                     {insightTitle}
+                                    <Maximize2 size={11} className="ml-auto text-slate-500/80" />
                                 </div>
                                 {/* [V13.0] Visual divergence label — makes divergence status immediately felt */}
                                 {isDivergent && (insightTitle?.includes('DIVERGENCE') || alignmentStatus === 'DIVERGENCE') && (
@@ -412,6 +424,7 @@ export default function RLSIInsightPanel({
                                     }`}>
                                     <img src="/signum-sg-vectorized.svg" alt="AI" width={13} height={13} style={{ objectFit: 'contain' as const, filter: 'drop-shadow(0 0 2px rgba(245,158,11,0.3))', animation: 'aiLogoPulse 2.5s ease-in-out infinite' }} />
                                     {insightTitle}
+                                    <Maximize2 size={11} className="ml-auto text-slate-500/80" />
                                 </div>
                                 <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" style={{ fontFamily: 'Pretendard, sans-serif', maxHeight: '145px' }}>
                                     {renderColoredText(insightDesc)}
@@ -444,11 +457,12 @@ export default function RLSIInsightPanel({
                             </div>
                         ) : briefingData?.briefing ? (
                             <>
-                                <div className="text-xs font-bold mb-1.5 uppercase tracking-wide text-amber-300">
+                                <div className="text-xs font-bold mb-1.5 uppercase tracking-wide text-amber-300 flex items-center">
                                     🌅 MORNING BRIEFING
                                     <span className="ml-2 text-xs font-normal text-slate-400 font-mono">
                                         {briefingData.date}
                                     </span>
+                                    <Maximize2 size={11} className="ml-auto text-slate-500/80" />
                                 </div>
                                 <div 
                                     className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" 
@@ -618,6 +632,67 @@ export default function RLSIInsightPanel({
                     )}
                 </div>
             </div>
+
+            {/* ─── 전문 팝업 — Intel 8-K 모달과 같은 문법 (대표 요청 2026-08-08) ─── */}
+            {fullView && typeof document !== 'undefined' && createPortal(
+                <div
+                    onClick={() => setFullView(null)}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 10050,
+                        background: 'rgba(2, 6, 16, 0.72)',
+                        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '24px 20px',
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            width: 'min(100%, 440px)', maxHeight: '76dvh',
+                            display: 'flex', flexDirection: 'column',
+                            borderRadius: 18, padding: '18px 16px 14px',
+                            background: 'linear-gradient(180deg, rgba(17, 27, 46, 0.99), rgba(9, 16, 32, 0.99))',
+                            border: '1px solid rgba(148, 163, 184, 0.18)',
+                            boxShadow: '0 24px 64px rgba(0, 0, 0, 0.6)',
+                        }}
+                    >
+                        <div className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 mb-2.5 flex-none"
+                            style={{ color: fullView === 'briefing' ? '#fcd34d' : (sentiment === 'BULLISH' ? '#6ee7b7' : sentiment === 'BEARISH' ? '#fda4af' : '#fff') }}>
+                            <img src="/signum-sg-vectorized.svg" alt="AI" width={13} height={13} style={{ objectFit: 'contain' }} />
+                            {fullView === 'briefing' ? '🌅 MORNING BRIEFING' : (insightTitle || 'TACTICAL INSIGHT')}
+                            {fullView === 'briefing' && briefingData?.date && (
+                                <span className="text-xs font-normal text-slate-400 font-mono normal-case">{briefingData.date}</span>
+                            )}
+                        </div>
+                        <div className="text-[13.5px] text-white/85 whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5"
+                            style={{ fontFamily: 'Pretendard, sans-serif', lineHeight: 1.68, overscrollBehavior: 'contain' }}>
+                            {renderColoredText(fullView === 'briefing' ? (briefingData?.briefing || '') : insightDesc)}
+                        </div>
+                        {fullView === 'tactical' && !isMarketActive && (
+                            <div className="text-xs text-amber-500/60 font-mono mt-2 flex-none font-jakarta">Last session analysis</div>
+                        )}
+                        {fullView === 'briefing' && briefingData?.generatedAt && (
+                            <div className="text-xs text-amber-500/60 font-mono mt-2 flex-none font-jakarta">
+                                Generated {new Date(briefingData.generatedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} ET
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setFullView(null)}
+                            className="flex-none"
+                            style={{
+                                marginTop: 14, width: '100%', padding: '11px 0',
+                                borderRadius: 12, border: '1px solid rgba(103, 232, 249, 0.35)',
+                                background: 'transparent', color: '#67e8f9',
+                                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                            }}
+                        >
+                            {locale === 'ko' ? '닫기' : locale === 'ja' ? '閉じる' : 'Close'}
+                        </button>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 }
