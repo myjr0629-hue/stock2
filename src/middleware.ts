@@ -50,6 +50,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     // Match all pathnames except API, static files, Next.js internals, auth callback, templates
-    // `app$`/`app-uc$` = store smart links (src/app/{app,app-uc}/route.ts) — must bypass i18n locale rewriting
-    matcher: ['/((?!api|app$|app-uc$|_next|_vercel|auth|marketing|templates|.*\\..*).*)' , '/']
+    // `app$`/`app-uc$`/`app-wim$` = store smart links (src/app/{app,app-uc,app-wim}/route.ts) — must bypass i18n locale rewriting
+    matcher: ['/((?!api|app$|app-uc$|app-wim$|_next|_vercel|auth|marketing|templates|.*\\..*).*)' , '/']
 };

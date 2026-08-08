@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { IAP_LIVE } from '@/config/iap';
 import { useProStatus } from '@/hooks/useProStatus';
-import { openExternalUrl, canRequestReview, requestAppReview } from '@/lib/native/capacitorBridge';
+import { openExternalUrl, openStoreReview, getNativeAppVersion, platform as nativePlatform } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
 
 // ── Translations ──
@@ -40,6 +40,7 @@ const T: Record<string, {
   proNothingToRestoreToast: string;
   proErrorToast: string;
   ucSub: string;
+  wimSub: string;
 }> = {
   ko: {
     title: '설정',
@@ -72,6 +73,7 @@ const T: Record<string, {
     proNothingToRestoreToast: '복원할 구매 내역이 없어요',
     proErrorToast: '구매를 완료하지 못했어요',
     ucSub: '뉴스 뒤의 돈 · 무료',
+    wimSub: '오늘 왜 움직였는지 퀴즈로 · 무료',
   },
   en: {
     title: 'Settings',
@@ -104,6 +106,7 @@ const T: Record<string, {
     proNothingToRestoreToast: 'No previous purchase to restore',
     proErrorToast: "Couldn't complete the purchase",
     ucSub: 'The news behind the money · Free',
+    wimSub: 'Daily market-move quiz · Free',
   },
   ja: {
     title: '設定',
@@ -136,6 +139,7 @@ const T: Record<string, {
     cacheConfirm: 'クリア',
     cacheToast: 'キャッシュをクリアしました',
     ucSub: 'ニュースの裏側のお金 · 無料',
+    wimSub: '値動きの理由をクイズで · 無料',
   },
 };
 
@@ -182,12 +186,11 @@ export default function SettingsPage() {
   const { isPro, purchase, restore } = useProStatus();
   const [proBusy, setProBusy] = useState(false);
 
-  // In-app review — only show the row when the native plugin is present in the
-  // binary (current v1.0 shell lacks it → row stays hidden until the v1.1 build).
-  const [canRate, setCanRate] = useState(false);
-  // Companion-app cross-promo (Undercurrent) — UC is live on iOS + Android (Play approved
-  // 2026-07-15), so the card shows on every platform.
-  const [showUc] = useState(true);
+  // 바이너리 실제 버전 (@capacitor/app). 플러그인 없으면 라이브 스토어 버전으로 폴백
+  // — 하드코딩 v1.0.0 이 v1.1 바이너리와 어긋났던 문제(2026-08-08)의 해결.
+  const [appVersion, setAppVersion] = useState('1.1');
+  // Companion-app cross-promo — UC·WIM 모두 iOS/Android 라이브 (2026-08-08 전 앱 승인).
+  const [showCompanions] = useState(true);
 
   const handleProUpgrade = useCallback(async () => {
     if (proBusy || isPro) return;
@@ -246,9 +249,12 @@ export default function SettingsPage() {
       : 'https://play.google.com/store/account/subscriptions');
   }, []);
 
-  // Cross-promo → Undercurrent store (device-aware smart link, ?from tagged for attribution).
+  // Cross-promo → 형제 앱 스토어 (device-aware smart link, ?from tagged for attribution).
   const handleOpenUc = useCallback(() => {
     openExternalUrl('https://www.signumhq.com/app-uc?from=signum_app');
+  }, []);
+  const handleOpenWim = useCallback(() => {
+    openExternalUrl('https://www.signumhq.com/app-wim?from=signum_app');
   }, []);
 
   // Swipe-down tracking
@@ -260,7 +266,7 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true);
     setPrefs(loadPrefs());
-    setCanRate(canRequestReview());
+    getNativeAppVersion().then(v => { if (v) setAppVersion(v); });
   }, []);
 
   const updatePrefs = useCallback((patch: Partial<typeof prefs>) => {
@@ -532,23 +538,24 @@ export default function SettingsPage() {
               </div>
               <span className={s.rowChevron}>›</span>
             </div>
-            {/* Rate app — shown only when the native review plugin is in the binary (v1.1+). */}
-            {canRate && (
-              <div className={s.row} onClick={() => { requestAppReview(); }}>
-                <div className={s.rowLeft}>
-                  <div className={s.rowIcon} style={{ color: '#04140f', background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className={s.rowLabel}>{t.rate}</div>
-                    <div className={s.rowSub}>{t.rateSub}</div>
-                  </div>
+            {/* Rate app — 항상 렌더(조건부 삽입이 마운트 후 레이아웃을 밀어 iOS 터치
+                어긋남 보고의 유력 원인이었다). 탭 = openStoreReview: iOS 는 스토어
+                리뷰 딥링크(항상 시트가 뜸 — 조용한 SKStoreReviewController 는 애플이
+                억제해 «안 눌리는» 것처럼 보였음), Android 는 인앱 시트→Play 폴백. */}
+            <div className={s.row} onClick={() => { openStoreReview(); }}>
+              <div className={s.rowLeft}>
+                <div className={s.rowIcon} style={{ color: '#04140f', background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
+                  </svg>
                 </div>
-                <span className={s.rowChevron}>›</span>
+                <div>
+                  <div className={s.rowLabel}>{t.rate}</div>
+                  <div className={s.rowSub}>{nativePlatform === 'android' ? t.rateSub.replace('App Store', 'Google Play') : t.rateSub}</div>
+                </div>
               </div>
-            )}
+              <span className={s.rowChevron}>›</span>
+            </div>
             <div className={s.row} onClick={() => router.push(`/${locale}/app-view/terms`)}>
               <div className={s.rowLeft}>
                 <div className={`${s.rowIcon} ${s.rowIconLegal}`}>
@@ -574,9 +581,8 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* ── Companion app: Undercurrent (cross-promo). iOS + web only; hidden on
-                native Android until UC's Play listing is live (avoids a 404 on tap). ── */}
-          {showUc && (
+          {/* ── Companion apps (cross-promo) — UC·WIM 모두 iOS/Android 라이브. ── */}
+          {showCompanions && (
             <div className={s.card}>
               <div className={s.row} onClick={handleOpenUc} style={{ cursor: 'pointer' }}>
                 <div className={s.rowLeft}>
@@ -590,13 +596,25 @@ export default function SettingsPage() {
                 </div>
                 <span className={s.rowChevron}>›</span>
               </div>
+              <div className={s.row} onClick={handleOpenWim} style={{ cursor: 'pointer' }}>
+                <div className={s.rowLeft}>
+                  <div className={s.rowIcon} style={{ background: '#F4F1FF', padding: 3 }}>
+                    <img src="/app-icons/wim.png" alt="Why'd It Move?" width={20} height={20} style={{ objectFit: 'contain', display: 'block', borderRadius: 5 }} />
+                  </div>
+                  <div>
+                    <div className={s.rowLabel}>Why&apos;d It Move?</div>
+                    <div className={s.rowSub}>{t.wimSub}</div>
+                  </div>
+                </div>
+                <span className={s.rowChevron}>›</span>
+              </div>
             </div>
           )}
 
-          {/* Version */}
+          {/* Version — 바이너리 실제 버전 (@capacitor/app, 폴백=라이브 스토어 버전) */}
           <div className={s.versionBox}>
             <div className={s.versionLogo}>SIGNUM<span>HQ</span></div>
-            <div className={s.versionNum}>v1.0.0</div>
+            <div className={s.versionNum}>v{appVersion}</div>
           </div>
 
           {/* ── 하단 정렬 진단 (안드로이드 네이티브 전용, 임시) ──────────────
