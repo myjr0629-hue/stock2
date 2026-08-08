@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { IAP_LIVE } from '@/config/iap';
 import { useProStatus } from '@/hooks/useProStatus';
-import { openExternalUrl, openStoreReview, getNativeAppVersion, platform as nativePlatform } from '@/lib/native/capacitorBridge';
+import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
 
 // ── Translations ──
@@ -251,9 +251,11 @@ export default function SettingsPage() {
 
   // Cross-promo → 형제 앱 스토어 (device-aware smart link, ?from tagged for attribution).
   const handleOpenUc = useCallback(() => {
+    hapticImpact('light');
     openExternalUrl('https://www.signumhq.com/app-uc?from=signum_app');
   }, []);
   const handleOpenWim = useCallback(() => {
+    hapticImpact('light');
     openExternalUrl('https://www.signumhq.com/app-wim?from=signum_app');
   }, []);
 
@@ -442,7 +444,7 @@ export default function SettingsPage() {
 
           {/* ── Language (Accordion) ── */}
           <div className={s.card}>
-            <div className={s.row} onClick={() => setLangOpen(!langOpen)}>
+            <div className={s.row} onClick={() => { hapticImpact('light'); setLangOpen(!langOpen); }}>
               <div className={s.rowLeft}>
                 <div className={`${s.rowIcon} ${s.rowIconLang}`}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -467,7 +469,7 @@ export default function SettingsPage() {
                 <button
                   key={lang.code}
                   className={`${s.langItem} ${locale === lang.code ? s.langItemActive : ''}`}
-                  onClick={() => handleLangChange(lang.code)}
+                  onClick={() => { hapticImpact('light'); handleLangChange(lang.code); }}
                 >
                   <span className={s.langFlag}>{lang.flag}</span>
                   <span className={s.langName}>{lang.name}</span>
@@ -483,7 +485,7 @@ export default function SettingsPage() {
 
           {/* ── Notifications ── */}
           <div className={s.card}>
-            <div className={s.row} onClick={() => updatePrefs({ enabled: !prefs.enabled })}>
+            <div className={s.row} onClick={() => { hapticImpact('light'); updatePrefs({ enabled: !prefs.enabled }); }}>
               <div className={s.rowLeft}>
                 <div className={`${s.rowIcon} ${s.rowIconNotif}`}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -506,7 +508,7 @@ export default function SettingsPage() {
                 </div>
                 <button
                   className={`${s.toggle} ${prefs.morning ? s.toggleOn : ''}`}
-                  onClick={() => updatePrefs({ morning: !prefs.morning })}
+                  onClick={() => { hapticImpact('light'); updatePrefs({ morning: !prefs.morning }); }}
                 />
               </div>
               <div className={s.subRow}>
@@ -516,7 +518,7 @@ export default function SettingsPage() {
                 </div>
                 <button
                   className={`${s.toggle} ${prefs.closing ? s.toggleOn : ''}`}
-                  onClick={() => updatePrefs({ closing: !prefs.closing })}
+                  onClick={() => { hapticImpact('light'); updatePrefs({ closing: !prefs.closing }); }}
                 />
               </div>
             </div>
@@ -524,7 +526,7 @@ export default function SettingsPage() {
 
           {/* ── General ── */}
           <div className={s.card}>
-            <div className={s.row} onClick={() => setShowCacheDialog(true)}>
+            <div className={s.row} onClick={() => { hapticImpact('light'); setShowCacheDialog(true); }}>
               <div className={s.rowLeft}>
                 <div className={`${s.rowIcon} ${s.rowIconCache}`}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -542,7 +544,7 @@ export default function SettingsPage() {
                 어긋남 보고의 유력 원인이었다). 탭 = openStoreReview: iOS 는 스토어
                 리뷰 딥링크(항상 시트가 뜸 — 조용한 SKStoreReviewController 는 애플이
                 억제해 «안 눌리는» 것처럼 보였음), Android 는 인앱 시트→Play 폴백. */}
-            <div className={s.row} onClick={() => { openStoreReview(); }}>
+            <div className={s.row} onClick={() => { hapticImpact('light'); openStoreReview(); }}>
               <div className={s.rowLeft}>
                 <div className={s.rowIcon} style={{ color: '#04140f', background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -556,7 +558,7 @@ export default function SettingsPage() {
               </div>
               <span className={s.rowChevron}>›</span>
             </div>
-            <div className={s.row} onClick={() => router.push(`/${locale}/app-view/terms`)}>
+            <div className={s.row} onClick={() => { hapticImpact('light'); router.push(`/${locale}/app-view/terms`); }}>
               <div className={s.rowLeft}>
                 <div className={`${s.rowIcon} ${s.rowIconLegal}`}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -568,7 +570,7 @@ export default function SettingsPage() {
               </div>
               <span className={s.rowChevron}>›</span>
             </div>
-            <div className={s.row} onClick={() => router.push(`/${locale}/app-view/privacy`)}>
+            <div className={s.row} onClick={() => { hapticImpact('light'); router.push(`/${locale}/app-view/privacy`); }}>
               <div className={s.rowLeft}>
                 <div className={`${s.rowIcon} ${s.rowIconLegal}`}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
