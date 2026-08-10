@@ -390,7 +390,7 @@ export const SCRIPT_CLOSE: BriefingProps = {
 // ═══════════════════════════════════════════════════════════════════════════
 export const SCRIPT_T2: BriefingProps = {
   voice: VOICE_T2,
-  title: 'Greed is back at 64.\nThe machine reads 50.',
+  title: 'Green board, quiet fear.\nOne dial disagrees.',
   date: 'AUG 10 · BEFORE THE OPEN',
   data: { seed: 'T2-0810' },
   tape: [
@@ -400,25 +400,27 @@ export const SCRIPT_T2: BriefingProps = {
     { t: 'NQ100 F', v: '+1.18%', up: true }, { t: 'R2K F', v: '+1.08%', up: true },
   ],
   hook: {
-    line: 'Futures lean higher\nbefore Monday’s bell.',
-    sub: 'Greed returned. Did conviction?',
+    line: 'Every index closed\nhigher on Friday.',
+    sub: 'Volatility closed lower too.',
+    syms: ['SP500', 'NASDAQ', 'DOW'],
+    stamp: 'AUG 10 · 7:32 AM ET',
     bg: { kind: 'video', src: 'shorts/broll/video/sd25_riskon_morning.mp4', loopFrames: 148 },
   },
-  loop: 'Greed 64. Machine 50.\nClock D-39.',
+  loop: 'Every index moved.\nThe machine did not.',
 
   beats: [
     {
       role: 'market',
       eyebrow: 'The board this morning',
       head: 'Index futures\nall lean green',
-      say: 'Index futures are green across the board.',
-      ask: 'What did Friday leave behind?',
+      say: 'This morning the futures board is green.',
+      ask: 'So what did Friday actually close at?',
       visual: {
         kind: 'rows',
         rows: [
-          { k: 'NASDAQ100 F', v: '+1.18%', up: true },
-          { k: 'S&P500 F', v: '+0.58%', up: true },
-          { k: 'RUSSELL2K F', v: '+1.08%', up: true },
+          { k: 'NASDAQ100 F', v: '+1.18%', up: true, sym: 'NASDAQ' },
+          { k: 'S&P500 F', v: '+0.58%', up: true, sym: 'SP500' },
+          { k: 'RUSSELL2K F', v: '+1.08%', up: true, sym: 'RUSSELL' },
         ],
       },
     },
@@ -431,9 +433,9 @@ export const SCRIPT_T2: BriefingProps = {
       visual: {
         kind: 'rows',
         rows: [
-          { k: 'NASDAQ', v: '+1.30%', up: true },
-          { k: 'S&P 500', v: '+0.62%', up: true },
-          { k: 'DOW', v: '+0.28%', up: true },
+          { k: 'NASDAQ', v: '+1.30%', up: true, sym: 'NASDAQ' },
+          { k: 'S&P 500', v: '+0.62%', up: true, sym: 'SP500' },
+          { k: 'DOW', v: '+0.28%', up: true, sym: 'DOW' },
         ],
       },
     },
@@ -457,7 +459,7 @@ export const SCRIPT_T2: BriefingProps = {
       say: 'Volatility sleeps under fifteen.',
       ask: 'Then where is the tension?',
       bg: { kind: 'video', src: 'shorts/broll/video/sd25_calm_sea.mp4', loopFrames: 148 },
-      visual: { kind: 'stat', label: 'VIX · VOLATILITY', value: '14.90', sub: '-1.65% · last close', up: false },
+      visual: { kind: 'stat', label: 'VIX · VOLATILITY', value: '14.90', sub: '-1.65% · as of Aug 8 close', up: false, sym: 'VIX' },
     },
     {
       role: 'evidence',
@@ -478,7 +480,7 @@ export const SCRIPT_T2: BriefingProps = {
       head: 'Crowd greedy.\nMachine neutral.',
       say: 'The machine index holds at fifty.',
       ask: 'Greed says go. The machine says wait.',
-      visual: { kind: 'versus', aK: 'FEAR&GREED', aV: '64 GREED', bK: 'RLSI', bV: '50 NEUTRAL' },
+      visual: { kind: 'versus', aK: 'FEAR&GREED', aV: '64 GREED', bK: 'RLSI', bV: '50 NEUTRAL', aSym: 'FEARGREED', bSym: 'RLSI' },
     },
     {
       role: 'depth',
@@ -487,7 +489,7 @@ export const SCRIPT_T2: BriefingProps = {
       say: 'FedWatch: fifty-seven percent odds of a hold.',
       ask: 'Thirty-nine days on the clock.',
       bg: { kind: 'video', src: 'shorts/broll/video/sd25_fed_columns.mp4', loopFrames: 148 },
-      visual: { kind: 'stat', label: 'FEDWATCH · FOMC D-39', value: '57%', sub: 'hold odds · vs hike 43%', up: true },
+      visual: { kind: 'stat', label: 'FEDWATCH · FOMC D-39', value: '57%', sub: 'hold odds · vs hike 43%', up: true, sym: 'FED' },
     },
   ],
 

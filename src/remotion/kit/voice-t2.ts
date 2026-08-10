@@ -3,9 +3,9 @@ import type { VoiceTrack } from './Briefing';
 
 export const VOICE_T2: VoiceTrack = {
   base: 'shorts/audio/t2',
-  hook: { f: 'hook.mp3', sec: 2.17 },
+  hook: { f: 'hook.mp3', sec: 2.09 },
   beats: [
-    { f: '00.mp3', sec: 3.76 },
+    { f: '00.mp3', sec: 4.02 },
     { f: '01.mp3', sec: 4.08 },
     { f: '02.mp3', sec: 4.36 },
     { f: '03.mp3', sec: 3.19 },
@@ -14,5 +14,5 @@ export const VOICE_T2: VoiceTrack = {
     { f: '06.mp3', sec: 4.18 },
   ],
   outro: { f: 'outro.mp3', sec: 2.4 },
-  loop: { f: 'loop.mp3', sec: 2.74 },
+  loop: { f: 'loop.mp3', sec: 2.51 },
 };

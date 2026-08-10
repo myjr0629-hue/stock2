@@ -25,6 +25,8 @@ import { loadFont } from '@remotion/google-fonts/Inter';
 import { AppShot, type ShotFocus, type ShotCallout } from '../components/AppShot';
 import { Backdrop, type BackdropSpec, type BackdropData } from './Backdrop';
 import { CANVAS, SAFE, CAPTION, PACE, C, BACKDROP_FOR, HOOK_BACKDROP, type BeatRole } from './spec';
+import { TickerMark, SymbolHero } from '../components/TickerMark';
+import { SYM, resolveSymbol } from './symbols';
 
 const { fontFamily } = loadFont();
 const F = (s: number) => Math.round(s * CANVAS.fps);
@@ -34,9 +36,10 @@ const useIn = (d = 0, dur = 10) => interpolate(useCurrentFrame(), [d, d + dur], 
 
 // ── 비트 = 영상의 최소 단위 ────────────────────────────────────────────────
 export type Visual =
-  | { kind: 'stat'; label: string; value: string; sub: string; up: boolean }
-  | { kind: 'versus'; aK: string; aV: string; bK: string; bV: string }
-  | { kind: 'rows'; rows: Array<{ k: string; v: string; up: boolean; note?: string }> }
+  /** sym: 심볼로 그릴 라벨. 생략하면 label/k 에서 자동 해석 (§4 — 숫자 옆엔 늘 심볼) */
+  | { kind: 'stat'; label: string; value: string; sub: string; up: boolean; sym?: string }
+  | { kind: 'versus'; aK: string; aV: string; bK: string; bV: string; aSym?: string; bSym?: string }
+  | { kind: 'rows'; rows: Array<{ k: string; v: string; up: boolean; note?: string; sym?: string }> }
   | { kind: 'logos'; items: Array<{ t: string; pct: string; up: boolean }> }
   | { kind: 'source'; outlet: string; at: string; headline: string; body?: string }
   /** ★ 리서치 인용 슬롯 (대본 4단의 «권위» 단계) — 앱 내 애널리스트 컨센서스.
@@ -66,7 +69,8 @@ export interface BriefingProps {
   /** 고정 배너 훅 제목 — 중간 유입자도 3초 안에 뭘 보는지 알게 */
   title: string;
   date: string;
-  hook: { line: string; sub: string; role?: BeatRole; bg?: string | BackdropSpec };
+  /** hook.syms = 프레임0 지배 요소. 1개면 단독, 2~3개면 클러스터 (§1-3) */
+  hook: { line: string; sub: string; role?: BeatRole; bg?: string | BackdropSpec; syms?: string[]; stamp?: string };
   beats: Beat[];
   outro: { app: string; line: string; ask: string };
   /** 마지막이 첫 화면으로 이어지는 루프백 문장 */
@@ -260,25 +264,33 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
   const box: React.CSSProperties = { opacity: p, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 };
 
   if (v.kind === 'stat') return (
-    <div style={box}><Card style={{ padding: '28px 30px' }}>
-      <div style={{ fontFamily, fontSize: 23, fontWeight: 800, color: C.faint, letterSpacing: '0.1em' }}>{v.label}</div>
-      <div style={{ fontFamily, fontSize: 96, fontWeight: 900, color: v.up ? C.cool : C.hot, letterSpacing: '-0.045em', lineHeight: 1.04 }}>{v.value}</div>
-      <div style={{ fontFamily, fontSize: 25, fontWeight: 700, color: C.ink, marginTop: 2 }}>{v.sub}</div>
+    <div style={box}><Card style={{ padding: '26px 30px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+        <TickerMark t={v.sym ?? v.label} size={SYM.stat} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily, fontSize: 23, fontWeight: 800, color: C.faint, letterSpacing: '0.1em' }}>{v.label}</div>
+          <div style={{ fontFamily, fontSize: 92, fontWeight: 900, color: v.up ? C.cool : C.hot, letterSpacing: '-0.045em', lineHeight: 1.04 }}>{v.value}</div>
+        </div>
+      </div>
+      <div style={{ fontFamily, fontSize: 25, fontWeight: 700, color: C.ink, marginTop: 6 }}>{v.sub}</div>
     </Card></div>
   );
 
   if (v.kind === 'versus') {
-    const B = ({ k, val, col, d }: any) => {
+    const B = ({ k, val, col, d, sym }: any) => {
       const q = useIn(d, 12);
       return (
-        <Card style={{ flex: 1, opacity: q, padding: '24px 22px' }}>
-          <div style={{ fontFamily, fontSize: 20, fontWeight: 800, color: C.faint, letterSpacing: '0.08em' }}>{k}</div>
-          <div style={{ fontFamily, fontSize: 58, fontWeight: 900, color: col, letterSpacing: '-0.04em', lineHeight: 1.1, marginTop: 4 }}>{val}</div>
+        <Card style={{ flex: 1, opacity: q, padding: '22px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+            <TickerMark t={sym ?? k} size={SYM.chip} />
+            <div style={{ fontFamily, fontSize: 20, fontWeight: 800, color: C.faint, letterSpacing: '0.08em' }}>{k}</div>
+          </div>
+          <div style={{ fontFamily, fontSize: 58, fontWeight: 900, color: col, letterSpacing: '-0.04em', lineHeight: 1.1 }}>{val}</div>
         </Card>
       );
     };
     return <div style={{ ...box, flexDirection: 'row', alignItems: 'center' }}>
-      <B k={v.aK} val={v.aV} col={C.cool} d={3} /><B k={v.bK} val={v.bV} col={C.hot} d={11} />
+      <B k={v.aK} val={v.aV} col={C.cool} d={3} sym={v.aSym} /><B k={v.bK} val={v.bV} col={C.hot} d={11} sym={v.bSym} />
     </div>;
   }
 
@@ -287,9 +299,10 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
       const q = useIn(3 + i * 7, 12);
       return (
         <Card key={r.k} style={{ opacity: q, transform: `translateX(${(1 - q) * -14}px)`, padding: '20px 26px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <span style={{ fontFamily, fontSize: 46, fontWeight: 900, color: C.ink, letterSpacing: '-0.025em' }}>{r.k}</span>
-            <span style={{ fontFamily, fontSize: 50, fontWeight: 900, color: r.up ? C.cool : C.hot, letterSpacing: '-0.03em' }}>{r.v}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <TickerMark t={r.sym ?? r.k} size={SYM.chip} />
+            <span style={{ fontFamily, fontSize: 44, fontWeight: 900, color: C.ink, letterSpacing: '-0.025em' }}>{r.k}</span>
+            <span style={{ marginLeft: 'auto', fontFamily, fontSize: 50, fontWeight: 900, color: r.up ? C.cool : C.hot, letterSpacing: '-0.03em' }}>{r.v}</span>
           </div>
           {r.note && <div style={{ marginTop: 4, fontFamily, fontSize: 21, fontWeight: 700, color: C.faint }}>{r.note}</div>}
         </Card>
@@ -303,9 +316,7 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
       return (
         <Card key={it.t} style={{ opacity: q, transform: `translateX(${(1 - q) * -14}px)`, padding: '18px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <div style={{ width: 78, height: 78, borderRadius: 18, background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Img src={staticFile(`shorts/logos/${it.t}.png`)} style={{ width: 56, height: 56, objectFit: 'contain' }} />
-            </div>
+            <TickerMark t={it.t} size={SYM.card} />
             <span style={{ fontFamily, fontSize: 46, fontWeight: 900, color: C.ink, letterSpacing: '-0.02em' }}>{it.t}</span>
             <span style={{ marginLeft: 'auto', fontFamily, fontSize: 50, fontWeight: 900, color: it.up ? C.cool : C.hot, letterSpacing: '-0.03em' }}>{it.pct}</span>
           </div>
@@ -422,7 +433,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
         <Backdrop spec={hookBg} dur={hookF} data={data} />
         <Say2 v={p.voice} seg={p.voice?.hook} />
         <AbsoluteFill style={{ justifyContent: 'center', padding: `0 ${PAD}px`, paddingTop: 120 }}>
-          <HookBlock line={p.hook.line} sub={p.hook.sub} date={p.date} />
+          <HookBlock line={p.hook.line} sub={p.hook.sub} date={p.hook.stamp ?? p.date} syms={p.hook.syms} />
         </AbsoluteFill>
       </Sequence>
 
@@ -463,11 +474,16 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
         </AbsoluteFill>
       </Sequence>
 
-      <BottomZone tape={p.tape} />
-      <Banner title={p.title} date={p.date} />
+      {/* [§1-2] 훅 구간에는 배너·테이프를 그리지 않는다 — 프레임0에서 «1초에 읽히는
+          블록»은 심볼+훅 두 개뿐이어야 한다. 본문부터 등장한다. */}
+      <Sequence from={hookF}>
+        <BottomZone tape={p.tape} />
+        <Banner title={p.title} date={p.date} />
+      </Sequence>
 
+      {/* 면책은 프레임0부터 상시 — 가독성 하한(26px / opacity .85) */}
       <AbsoluteFill style={{ justifyContent: 'flex-end', alignItems: 'center', pointerEvents: 'none' }}>
-        <div style={{ fontFamily, marginBottom: 26, fontSize: 18, fontWeight: 700, color: 'rgba(214,224,240,0.62)' }}>
+        <div style={{ fontFamily, marginBottom: 26, fontSize: 26, fontWeight: 700, color: 'rgba(224,234,248,0.85)' }}>
           Informational only. Not investment advice.
         </div>
       </AbsoluteFill>
@@ -475,13 +491,20 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
   );
 };
 
-function HookBlock({ line, sub, date }: { line: string; sub: string; date: string }) {
+function HookBlock({ line, sub, date, syms }: { line: string; sub: string; date: string; syms?: string[] }) {
   // [2026-08-07 조사반영] Shorts 는 커스텀 썸네일이 없다 — «프레임 0 이 썸네일»이다.
   // 훅 문장은 페이드 없이 프레임 0 부터 완전히 보인다. 배지·서브만 미세하게 뜬다.
+  // [2026-08-10 §1-3] 심볼 히어로 — 문장보다 먼저 읽히는 «무엇인지»의 답.
+  //   프레임 0 부터 불투명 (로고 페이드인 금지).
   const a = useIn(0, 5);
   const b = 1;
   return (
     <div>
+      {syms && syms.length > 0 && (
+        <div style={{ marginBottom: 26, display: 'flex', justifyContent: 'flex-start' }}>
+          <SymbolHero syms={syms} size={SYM.hero} />
+        </div>
+      )}
       <div style={{
         display: 'inline-block', opacity: a, marginBottom: 18,
         fontFamily, fontSize: 24, fontWeight: 900, color: '#0A0E16',
@@ -489,7 +512,7 @@ function HookBlock({ line, sub, date }: { line: string; sub: string; date: strin
       }}>{date}</div>
       <div style={{
         opacity: b, transform: `translateY(${(1 - b) * 12}px)`,
-        fontFamily, fontSize: 84, lineHeight: 1.12, fontWeight: 900, color: C.ink,
+        fontFamily, fontSize: syms && syms.length ? 72 : 84, lineHeight: 1.12, fontWeight: 900, color: C.ink,
         letterSpacing: '-0.038em', whiteSpace: 'pre-line', textShadow: '0 6px 30px rgba(0,0,0,0.76)',
       }}>{line}</div>
       <div style={{ marginTop: 16, opacity: b, fontFamily, fontSize: 44, fontWeight: 900, color: C.head, letterSpacing: '-0.025em' }}>{sub}</div>
