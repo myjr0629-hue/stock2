@@ -25,6 +25,7 @@ type LegalCopy = {
   // is ad-based and would be FALSE for WIM (and contradicts its "Data Not
   // Collected" store declaration), so WIM renders this accurate variant instead.
   wim: { updated: string; terms: Section[]; privacy: Section[] };
+  uc: { updated: string; terms: Section[]; privacy: Section[] };
 };
 
 const COPY: Record<LocaleKey, LegalCopy> = {
@@ -91,6 +92,72 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         body: '개인정보 관련 문의는 contact@signumhq.com 으로 연락해주세요.',
       },
     ],
+    // Undercurrent 변형 — UC 1.0.1 실측 기준(2026-08-10): 계정 없음 · 광고 미게재
+    // (ADS_LIVE=false) · 푸시 플러그인 없음(앱 내 «곧 제공» 표기) · 인앱 구매 없음 ·
+    // 인앱 평가만 존재. 공용 SIGNUM 카피는 광고·푸시를 전제하므로 UC 에는 «거짓»이다.
+    uc: {
+      updated: '최종 업데이트: 2026년 8월',
+      terms: [
+        {
+          title: '서비스 성격',
+          body: 'Undercurrent는 뉴스와 돈의 흐름을 나란히 보여주는 리서치·교육용 모바일 앱입니다. 에디션, 괴리 스코어, AI 요약은 정보 제공 목적이며 투자 조언이나 매수/매도 권유가 아닙니다.',
+        },
+        {
+          title: '무료 이용',
+          body: '본 앱은 계정 가입 없이 무료로 제공됩니다. 현재 버전에는 인앱 구매가 없으며 광고도 게재하지 않습니다.',
+        },
+        {
+          title: '앱스토어 및 업데이트',
+          body: '이용자는 본 앱을 Apple App Store 및 Google Play Store의 규정에 따라 다운로드하여 사용할 수 있습니다. 보안과 안정성을 위해 최신 버전 업데이트가 요구될 수 있습니다.',
+        },
+        {
+          title: '데이터와 책임',
+          items: [
+            '시장 데이터와 뉴스는 외부 제공자, 네트워크, 캐시 상태에 따라 지연되거나 누락될 수 있습니다.',
+            '괴리 판정과 과거 기록은 미래의 수익이나 손실 회피를 보장하지 않습니다.',
+            '모든 투자 판단과 그 결과에 대한 책임은 사용자 본인에게 있습니다.',
+          ],
+        },
+        {
+          title: '문의',
+          body: '서비스나 앱 이용 관련 문의는 contact@signumhq.com 으로 보내주세요.',
+        },
+      ],
+      privacy: [
+        {
+          title: '계정 없음 · 개인정보를 수집하지 않습니다',
+          body: '본 앱은 계정이 없으며 이름·이메일 등 개인을 식별하는 정보를 수집하지 않습니다. 읽은 에디션과 언어 설정 같은 이용 상태는 기기 내부에만 저장되며 앱을 삭제하면 함께 삭제됩니다.',
+        },
+        {
+          title: '서버와 주고받는 정보',
+          body: '에디션과 시장 데이터를 불러오기 위해 당사 서버에 표준 네트워크 요청이 전송됩니다. 이 과정에서 앱 버전·언어·기기 OS 같은 기술 정보가 포함될 수 있으나 개인을 식별하지 않습니다.',
+        },
+        {
+          title: '광고·추적 없음',
+          body: '현재 버전은 광고를 게재하지 않으며 광고 식별자(IDFA/AAID)를 수집하거나 사용자 추적을 하지 않습니다. 향후 광고를 도입하는 경우 본 방침과 스토어의 개인정보 선언을 먼저 갱신하고 안내드립니다.',
+        },
+        {
+          title: '푸시 알림 없음',
+          body: '현재 버전은 푸시 알림을 보내지 않으며 푸시 토큰을 수집하지 않습니다. 앱 내 «곧 제공» 표기는 향후 계획을 뜻하며, 실제 도입 시 별도 동의를 받고 본 방침을 갱신합니다.',
+        },
+        {
+          title: '앱 평가 요청',
+          body: '앱 내 평가 요청은 Apple·Google이 제공하는 표준 기능을 사용하며, 이 과정에서 당사가 이용자의 평가 내용이나 개인정보를 수집하지 않습니다. 평가에 대한 보상은 제공하지 않습니다.',
+        },
+        {
+          title: '문의 시 제공되는 정보',
+          body: '이메일 등으로 문의하시는 경우 제공하신 이메일 주소와 문의 내용은 답변 목적으로만 사용됩니다.',
+        },
+        {
+          title: '데이터 보관 및 이용자 권리',
+          body: '기기에 저장된 이용 상태는 앱 삭제 또는 기기 설정에서 언제든 지울 수 있습니다. 문의와 관련해 제공된 정보의 열람 또는 삭제는 contact@signumhq.com 으로 요청할 수 있습니다.',
+        },
+        {
+          title: '문의',
+          body: '개인정보 관련 문의는 contact@signumhq.com 으로 연락해주세요.',
+        },
+      ],
+    },
     wim: {
       updated: '최종 업데이트: 2026년 7월',
       terms: [
@@ -214,6 +281,69 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         body: 'For privacy questions, contact contact@signumhq.com.',
       },
     ],
+    uc: {
+      updated: 'Last updated: August 2026',
+      terms: [
+        {
+          title: 'What this app is',
+          body: 'Undercurrent is a research and education app that puts the news next to the money. Editions, divergence scores and AI summaries are informational only and are not investment advice or a recommendation to buy or sell.',
+        },
+        {
+          title: 'Free to use',
+          body: 'The app is free and requires no account. This version contains no in-app purchases and serves no ads.',
+        },
+        {
+          title: 'App stores and updates',
+          body: 'You may download and use this app under the terms of the Apple App Store and Google Play Store. Updating to the latest version may be required for security and stability.',
+        },
+        {
+          title: 'Data and responsibility',
+          items: [
+            'Market data and news can be delayed or incomplete depending on third-party providers, network conditions and caching.',
+            'Divergence outcomes and past records do not guarantee future gains or the avoidance of losses.',
+            'You are solely responsible for your own investment decisions and their results.',
+          ],
+        },
+        {
+          title: 'Contact',
+          body: 'For questions about the service, email contact@signumhq.com.',
+        },
+      ],
+      privacy: [
+        {
+          title: 'No account, no personal data',
+          body: 'The app has no accounts and does not collect personally identifying information such as your name or email. Usage state such as which editions you have read and your language preference is stored only on your device and is removed when you delete the app.',
+        },
+        {
+          title: 'What is sent to our servers',
+          body: 'Standard network requests are sent to our servers to load editions and market data. These may include technical details such as app version, language and device OS, none of which identify you personally.',
+        },
+        {
+          title: 'No ads, no tracking',
+          body: 'This version serves no advertising, collects no advertising identifiers (IDFA/AAID), and does not track users. If advertising is introduced later, this policy and the store privacy declarations will be updated first.',
+        },
+        {
+          title: 'No push notifications',
+          body: 'This version does not send push notifications and does not collect push tokens. The in-app "coming soon" label refers to a future plan; if it ships, we will ask for consent separately and update this policy.',
+        },
+        {
+          title: 'Rating prompt',
+          body: 'The in-app rating prompt uses the standard Apple and Google mechanisms. We do not receive your review content or personal data through it, and no reward is offered for leaving a rating.',
+        },
+        {
+          title: 'Information you send us',
+          body: 'If you contact us by email, the address and the contents of your message are used only to answer you.',
+        },
+        {
+          title: 'Retention and your rights',
+          body: 'Usage state stored on your device can be cleared at any time by deleting the app or clearing app data. To access or delete information you sent us, email contact@signumhq.com.',
+        },
+        {
+          title: 'Contact',
+          body: 'For privacy questions, email contact@signumhq.com.',
+        },
+      ],
+    },
     wim: {
       updated: 'Last updated: July 2026',
       terms: [
@@ -337,6 +467,69 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         body: 'プライバシーに関するお問い合わせは contact@signumhq.com までご連絡ください。',
       },
     ],
+    uc: {
+      updated: '最終更新: 2026年8月',
+      terms: [
+        {
+          title: 'サービスの性質',
+          body: 'Undercurrent はニュースとお金の流れを並べて見るリサーチ・教育用アプリです。エディション、乖離スコア、AI要約は情報提供が目的であり、投資助言や売買の推奨ではありません。',
+        },
+        {
+          title: '無料での利用',
+          body: '本アプリはアカウント登録なしで無料で提供されます。現行バージョンにアプリ内購入はなく、広告も表示しません。',
+        },
+        {
+          title: 'アプリストアと更新',
+          body: 'Apple App Store および Google Play ストアの規定に従って本アプリをダウンロードし利用できます。セキュリティと安定性のため最新版への更新が必要になる場合があります。',
+        },
+        {
+          title: 'データと責任',
+          items: [
+            '市場データとニュースは、外部提供元・ネットワーク・キャッシュの状態により遅延または欠落することがあります。',
+            '乖離の判定や過去の記録は、将来の利益や損失回避を保証するものではありません。',
+            'すべての投資判断とその結果についての責任は利用者ご自身にあります。',
+          ],
+        },
+        {
+          title: 'お問い合わせ',
+          body: 'サービスに関するお問い合わせは contact@signumhq.com までご連絡ください。',
+        },
+      ],
+      privacy: [
+        {
+          title: 'アカウントなし・個人情報を収集しません',
+          body: '本アプリにアカウントはなく、氏名やメールアドレスなど個人を特定する情報を収集しません。読んだエディションや言語設定などの利用状態は端末内にのみ保存され、アプリを削除すると消去されます。',
+        },
+        {
+          title: 'サーバーとのやり取り',
+          body: 'エディションと市場データを取得するため、当社サーバーへ標準的なネットワークリクエストが送信されます。アプリのバージョン・言語・OS などの技術情報が含まれる場合がありますが、個人を特定しません。',
+        },
+        {
+          title: '広告・トラッキングなし',
+          body: '現行バージョンは広告を表示せず、広告識別子（IDFA/AAID）の収集やユーザーのトラッキングを行いません。将来的に広告を導入する場合は、本方針とストアのプライバシー申告を先に更新しご案内します。',
+        },
+        {
+          title: 'プッシュ通知なし',
+          body: '現行バージョンはプッシュ通知を送信せず、プッシュトークンを収集しません。アプリ内の「近日提供」表示は今後の予定を示すもので、実装時には別途同意を取得し本方針を更新します。',
+        },
+        {
+          title: '評価のお願い',
+          body: 'アプリ内の評価リクエストは Apple・Google の標準機能を使用します。その過程で当社がレビュー内容や個人情報を取得することはなく、評価に対する報酬も提供しません。',
+        },
+        {
+          title: 'お問い合わせ時にご提供いただく情報',
+          body: 'メール等でお問い合わせいただいた場合、ご提供のメールアドレスと内容は回答の目的にのみ使用します。',
+        },
+        {
+          title: 'データの保管と利用者の権利',
+          body: '端末に保存された利用状態は、アプリの削除または端末設定からいつでも消去できます。お問い合わせに関して提供された情報の開示・削除は contact@signumhq.com へご請求ください。',
+        },
+        {
+          title: 'お問い合わせ',
+          body: 'プライバシーに関するお問い合わせは contact@signumhq.com までご連絡ください。',
+        },
+      ],
+    },
     wim: {
       updated: '最終更新: 2026年7月',
       terms: [
@@ -404,14 +597,16 @@ function resolveLocale(locale: string): LocaleKey {
   return 'en';
 }
 
-export function AppLegalDocument({ locale, doc, backHref, badgeText, variant }: { locale: string; doc: DocType; backHref?: string; badgeText?: string; variant?: 'default' | 'wim' }) {
+export function AppLegalDocument({ locale, doc, backHref, badgeText, variant }: { locale: string; doc: DocType; backHref?: string; badgeText?: string; variant?: 'default' | 'wim' | 'uc' }) {
   const copy = COPY[resolveLocale(locale)];
-  const isWim = variant === 'wim';
+  // 앱별 «사실과 일치하는» 문서를 고른다. 기본(default) 카피는 SIGNUM 전용이며
+  // 광고·푸시를 전제하므로 UC/WIM 에 쓰면 거짓 진술이 된다 (2026-08-10 실측 수정).
+  const set = variant === 'wim' ? copy.wim : variant === 'uc' ? copy.uc : null;
   const sections = doc === 'privacy'
-    ? (isWim ? copy.wim.privacy : copy.privacy)
-    : (isWim ? copy.wim.terms : copy.terms);
+    ? (set ? set.privacy : copy.privacy)
+    : (set ? set.terms : copy.terms);
   const title = doc === 'privacy' ? copy.privacyTitle : copy.termsTitle;
-  const updated = isWim ? copy.wim.updated : copy.updated;
+  const updated = set ? set.updated : copy.updated;
   const badge = badgeText || copy.badge;
 
   return (

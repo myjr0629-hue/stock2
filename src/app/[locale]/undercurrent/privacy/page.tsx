@@ -12,5 +12,5 @@ export default function UndercurrentPrivacyPage() {
   // backHref must be locale-LESS: AppLegalDocument uses next-intl's <Link> with
   // localePrefix:'always', which prepends the current locale. Passing /${loc}/…
   // double-prefixed it (/ko/ko/undercurrent) → broke back-nav out of the app.
-  return <AppLegalDocument locale={loc} doc="privacy" backHref="/undercurrent" badgeText="UNDERCURRENT" />;
+  return <AppLegalDocument locale={loc} doc="privacy" backHref="/undercurrent" badgeText="UNDERCURRENT" variant="uc" />;
 }
