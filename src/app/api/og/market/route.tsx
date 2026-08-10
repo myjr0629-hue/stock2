@@ -136,6 +136,47 @@ export async function GET(req: NextRequest) {
   const format = searchParams.get('format') || 'og';
 
   const { width: W, height: H } = FORMAT_SIZES[format] || FORMAT_SIZES.og;
+
+  // ── 데이터 없음 = «숫자를 그리지 않는다» (2026-08-10 감사 S2-1) ─────────────
+  // layout.tsx 의 트위터 카드가 파라미터 없이 이 라우트를 부르고 있었고, 그때
+  // spy/vix/dp 기본값 '0' 이 그대로 렌더돼 «S&P 500 +0.00% · VIX 0.0 CALM · DARK POOL 0»
+  // 이 «영구히» 공유됐다(라이브 실측). 값이 하나도 안 오면 브랜드 카드로 폴백한다.
+  const hasData = ['spy', 'vix', 'dp', 'ticker', 'event'].some((k) => searchParams.get(k) !== null);
+  if (!hasData) {
+    return new ImageResponse(
+      (
+        <div style={B({
+          width: `${W}px`, height: `${H}px`, flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: '26px',
+          backgroundColor: C.bg,
+          backgroundImage: `radial-gradient(ellipse 120% 80% at 70% 20%, rgba(34,211,238,0.10) 0%, transparent 55%), radial-gradient(ellipse 80% 60% at 20% 80%, rgba(99,102,241,0.08) 0%, transparent 55%)`,
+          fontFamily: 'Inter, system-ui, sans-serif',
+        })}>
+          <div style={B({ alignItems: 'center', gap: '18px' })}>
+            <div style={B({
+              width: '76px', height: '76px', borderRadius: '20px',
+              alignItems: 'center', justifyContent: 'center',
+              backgroundImage: 'linear-gradient(135deg, #22d3ee, #6366f1)',
+              fontSize: '40px', fontWeight: 900, color: '#04070d',
+            })}>S</div>
+            <div style={B({
+              fontSize: '62px', fontWeight: 900, color: '#eaf2ff', letterSpacing: '-0.03em',
+            })}>SIGNUM HQ</div>
+          </div>
+          <div style={B({ fontSize: '30px', fontWeight: 700, color: C.cyan, letterSpacing: '0.02em' })}>
+            Institutional Intelligence, Democratized
+          </div>
+          <div style={B({ fontSize: '22px', fontWeight: 600, color: 'rgba(200,215,235,0.62)', textAlign: 'center' })}>
+            Options flow · Dark pool · Gamma exposure · AI market briefings
+          </div>
+          <div style={B({ marginTop: '10px', fontSize: '20px', fontWeight: 700, color: 'rgba(180,200,225,0.5)' })}>
+            signumhq.com
+          </div>
+        </div>
+      ),
+      { width: W, height: H },
+    );
+  }
   const l = L[lang] || L.en;
   const title = l[type] || l.pulse;
   const gt = gexTheme(gex);
