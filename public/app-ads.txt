@@ -1,7 +1,8 @@
 # app-ads.txt for SIGNUM HQ (com.signumhq.app · com.signumhq.undercurrent · com.signumhq.wim)
 # Reference: https://developers.google.com/admob/android/app-ads-txt
-# 정본은 도메인 루트(www.signumhq.com/app-ads.txt). WIM 은 스토어 개발자 웹사이트가
-# 경로(/en/wim)로 등록돼 있어 크롤러가 그 경로를 그대로 칠 경우를 대비해 사본을 둔다
-# (public/{en,ko,ja}/wim/app-ads.txt · public/wim/app-ads.txt — 이 파일과 항상 동일해야 함).
+# 규격상 정본 위치는 «도메인 루트» 여기 하나뿐이다. 서브패스 사본은 두지 않는다
+# (2026-08-10 시도했다가 되돌림 — 규격 밖이고 배포도 안 올라갔다).
+# WIM 이 애드몹 app-ads.txt 검증에 실패하는 이유는 스토어 «개발자 웹사이트»가
+# https://www.signumhq.com/en/wim (경로 포함)이기 때문 → 베어 도메인으로 고치는 게 정답.
 #
 google.com, pub-1716731715414173, DIRECT, f08c47fec0942fa0
