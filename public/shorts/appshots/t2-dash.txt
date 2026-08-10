@@ -1,0 +1,183 @@
+SIGNUMHQ
+DARK POOL INTEL
+ECON
+Rackspace Technology (NASDAQ: RXT) faces securities fraud class action lawsuit alleging materially false statements regarding enterprise AI initiatives, with September 28, 2026 deadline for investor participation.
+1h
+MARKET STATE
+Risk-On Tilt
+Last close + live futures.
+FUTURES
+Bullish +0.95%
+CASH
+Bullish +0.73%
+RISK
+72
+|
+MARKET PULSE
+CLOSED
+INDEX FUTURES
+CLOSED
+FUT
+NASDAQ100 F
+29,835
+▲ +1.18%
+FUT
+S&P500 F
+7,779.75
+▲ +0.58%
+FUT
+RUSSELL2K F
+3,041.60
+▲ +1.08%
+CASH INDICES
+CLOSED
+NDX
+NASDAQ
+26,691
+▲ +1.30%
+500
+S&P 500
+7,757.64
+▲ +0.62%
+DJI
+DOW
+54,037
+▲ +0.28%
+ETF / VOLATILITY
+CLOSED
+100
+QQQ
+$723.03
+▲ +1.17%
+500
+SPY
+$773.26
+▲ +0.61%
+C
+VIX
+14.90
+▼ -1.65%
+|
+MACRO BOARD
+BTC
+$65.2K
++0.41%
+GOLD
+$4,400
++2.33%
+OIL
+$78.2
++1.15%
+SOX
+12,357
++2.56%
+US 10Y
+4.66%
+-0.21
+DXY
+99.5
+-0.06
+2S10S
++0.41
+NORMAL
+F&G
+63.7
+GREED
+TOP MOVERS
+Value
+Gainers
+Losers
+VIEW ALL >
+500 SPY
++0.61%
+$773.26
+ SPCX
++15.83%
+$133.11
+ MU
+-0.44%
+$877.57
+ NVDA
++2.27%
+$223.96
+SECTOR HEATMAP
+CLOSED
+Tech
++1.4%
+Energy
+-1.1%
+Cons. Disc
++1.5%
+Materials
++1.3%
+Industrials
++0.2%
+Finance
+-0.4%
+Healthcare
++0.7%
+Utilities
++0.5%
+✨
+LIVE NEWS PULSE
+Brief
+Live
+Usana Health Sciences crashed 30% on Q2 miss with adjusted EPS of $0.07 and sales of $223M, significantly below expectations.
+→
+Shopify repositioned as agentic AI commerce infrastructure winner after defining protocol layer for conversational commerce.
+→
+Gartner surged 22.9% after Q2 earnings beat consensus by $0.64 EPS and $50M revenue, signaling strong enterprise software demand.
+→
+Pitney Bowes demonstrates margin expansion and surging free cash flow despite revenue decline, signaling operational efficiency gains.
+→
+Rackspace Technology (NASDAQ: RXT) faces securities fraud class action lawsuit alleging materially false statements regarding enterprise AI initiatives, with September 28, 2026 deadline for investor participation.
+→
+View Live Market Monitor →
+VOLATILITY REGIME
+Compression / expansion
+Loaded
+69%
+
+Tracks whether market volatility is compressing or expanding.
+
+DARK POOL VOLUME
+Institutional prints
+23.9%
+DP 1.0M
+
+Surfaces large off-exchange flow hidden from the open book.
+
+SQUEEZE RISK
+Short-term pressure
+High
+56%
+
+Monitors gamma and positioning pressure behind fast moves.
+
+ROTATION INTENSITY
+Capital rotation
+Risk-On Tilt
+Rotation 100
+
+Shows whether money is rotating toward risk or defense.
+
+Free preview · Institutional pulse
+Loaded · 1 of 4
+Free preview
+Institutional Market Pulse
+Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.
+Watch ad to unlock 1HR
+14.2K unlocked today
+Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

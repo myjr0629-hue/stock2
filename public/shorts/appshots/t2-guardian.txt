@@ -1,0 +1,131 @@
+GUARDIAN
+CLOSED
+Macro Risk Sentinel
+RLSI
+50
+RISK STRIP
+FEAR&GREED
+64
+GREED
+VIX
+14.9
+-1.7%
+S&P 500 F
++0.58%
+7,780
+NASDAQ 100
++1.18%
+29,835
+AI Overview
+Reality
+Shield
+Flow
+GRAVITY GAUGE
+CLOSED
+RLSI
+MOMENTUM
+59
+Stable
+PARTICIPATION
+87
+Robust
+PRICE TREND
+86
+Robust
+ROTATION
+100
+Robust
+SENTIMENT
+64
+Healthy
+Bullish ×4
+SCORE TIMELINE
+78 pts
+55
+41
+P95
+P75
+P25
+P5
+02:22
+03:43
+NOW
+─
+Sentiment ranging (±0.0pt) · Range 46~50 · Steady flow
+FEDWATCH
+FOMC D-39
+57%
+HOLD
+HOLD
+57%
+▲1.1
+HIKE
+43%
+▼1.1
+BRIEFING
+WHAT-IF
+RLSI INSIGHT
+· Regular Session Only
+ALIGNMENT OK
+BRIEFING
+TACTICAL
+TACTICAL INSIGHT
+[Diagnosis] Off-hours - market inactive
+
+[Conclusion] Analysis resumes after pre-market 04:00 ET
+Last session analysis
+MARKET BREADTH
+REG ONLY
+—
+73
+%
+73%
+27%
+▲ ADV
+50%
+▼ DEC
+A/D RATIO
+Adv ÷ Dec
+2.91: 1
+Buy Dominant
+VOLUME ANALYSIS
+Buy Volume Ratio
+71.0%
+Strong Positive Flow
+Breadth analysis available during regular session
+FOMC PATH & LIQUIDITY
+FOMCD-39
+BASE
+Pause Base Case
+
+Current probabilities point to a hold as the base case.
+
+PROB
+57.0%
+CUT
+0.0%
+1W Chg 0.0%
+PAUSE
+57.0%
+1W Chg +1.1%
+HIKE
+43.0%
+1W Chg -1.1%
+LIQUIDITY
+19
+DRY
+SAFE HAVEN
+2.62
+FLIGHT
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

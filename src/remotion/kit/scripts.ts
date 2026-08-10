@@ -10,6 +10,7 @@
 
 import type { BriefingProps } from './Briefing';
 import { VOICE_CLOSE } from './voice-close';
+import { VOICE_T2 } from './voice-t2';
 
 const MU_SERIES = [
   843, 846, 851, 850, 856, 859, 861, 859, 865, 867,
@@ -377,5 +378,122 @@ export const SCRIPT_CLOSE: BriefingProps = {
     app: 'SIGNUM HQ',
     line: 'The tape institutions leave behind',
     ask: 'Which dial would you\nread first?',
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCRIPT_T2 — 장시작 전 모닝브리핑 1호 (2026-08-10 KST 새벽 캡처 실측)
+// 숫자 출처: public/shorts/appshots/t2-dash.txt · t2-guardian.txt (같은 순간)
+// 서사: 탐욕(F&G 64)은 돌아왔는데 머신(RLSI 50)은 중립 — 그리고 Fed 시계 D-39.
+// 배경: BRIGHT 캐넌 v2 — 훅=아침 금융가(영상), VIX=거울 바다(영상), Fed=기둥(영상)
+// 콜아웃 좌표: PIL 선검증 (co_dash2.png · co_guardian2.png, 2026-08-10)
+// ═══════════════════════════════════════════════════════════════════════════
+export const SCRIPT_T2: BriefingProps = {
+  voice: VOICE_T2,
+  title: 'Greed is back at 64.\nThe machine reads 50.',
+  date: 'AUG 10 · BEFORE THE OPEN',
+  data: { seed: 'T2-0810' },
+  tape: [
+    { t: 'NASDAQ', v: '+1.30%', up: true }, { t: 'S&P 500', v: '+0.62%', up: true },
+    { t: 'DOW', v: '+0.28%', up: true }, { t: 'VIX', v: '14.90', up: false },
+    { t: 'QQQ', v: '$723.03', up: true }, { t: 'SPY', v: '$773.26', up: true },
+    { t: 'NQ100 F', v: '+1.18%', up: true }, { t: 'R2K F', v: '+1.08%', up: true },
+  ],
+  hook: {
+    line: 'Futures lean higher\nbefore Monday’s bell.',
+    sub: 'Greed returned. Did conviction?',
+    bg: { kind: 'video', src: 'shorts/broll/video/sd25_riskon_morning.mp4', loopFrames: 148 },
+  },
+  loop: 'Greed 64. Machine 50.\nClock D-39.',
+
+  beats: [
+    {
+      role: 'market',
+      eyebrow: 'The board this morning',
+      head: 'Index futures\nall lean green',
+      say: 'Index futures are green across the board.',
+      ask: 'What did Friday leave behind?',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'NASDAQ100 F', v: '+1.18%', up: true },
+          { k: 'S&P500 F', v: '+0.58%', up: true },
+          { k: 'RUSSELL2K F', v: '+1.08%', up: true },
+        ],
+      },
+    },
+    {
+      role: 'money',
+      eyebrow: 'The handoff',
+      head: 'Friday closed\nhigher everywhere',
+      say: 'Friday closed green. Nasdaq up one point three.',
+      ask: 'And the mood this morning?',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'NASDAQ', v: '+1.30%', up: true },
+          { k: 'S&P 500', v: '+0.62%', up: true },
+          { k: 'DOW', v: '+0.28%', up: true },
+        ],
+      },
+    },
+    {
+      role: 'evidence',
+      eyebrow: 'Straight from the screen',
+      head: 'The machine tilts\nRisk-On · 72',
+      say: 'The machine tilts Risk-On. Risk reads 72.',
+      ask: 'So everyone is calm?',
+      visual: {
+        kind: 'shot',
+        src: 'shorts/appshots/t2-dash.png',
+        focus: { x: 0.03, y: 0.100, w: 0.94 },
+        callout: { box: { x: 0.742, y: 0.151, w: 0.185, h: 0.056 }, label: 'RISK 72' },
+      },
+    },
+    {
+      role: 'depth',
+      eyebrow: 'The volatility dial',
+      head: 'VIX sleeps\nunder fifteen',
+      say: 'Volatility sleeps under fifteen.',
+      ask: 'Then where is the tension?',
+      bg: { kind: 'video', src: 'shorts/broll/video/sd25_calm_sea.mp4', loopFrames: 148 },
+      visual: { kind: 'stat', label: 'VIX · VOLATILITY', value: '14.90', sub: '-1.65% · last close', up: false },
+    },
+    {
+      role: 'evidence',
+      eyebrow: 'The crowd dial',
+      head: 'Fear & Greed\nprints 64',
+      say: 'Fear and Greed prints 64. Greed.',
+      ask: 'But the neutral dial?',
+      visual: {
+        kind: 'shot',
+        src: 'shorts/appshots/t2-guardian.png',
+        focus: { x: 0.04, y: 0.098, w: 0.92 },
+        callout: { box: { x: 0.070, y: 0.137, w: 0.205, h: 0.060 }, label: 'GREED 64' },
+      },
+    },
+    {
+      role: 'conflict',
+      eyebrow: 'Two dials disagree',
+      head: 'Crowd greedy.\nMachine neutral.',
+      say: 'The machine index holds at fifty.',
+      ask: 'Greed says go. The machine says wait.',
+      visual: { kind: 'versus', aK: 'FEAR&GREED', aV: '64 GREED', bK: 'RLSI', bV: '50 NEUTRAL' },
+    },
+    {
+      role: 'depth',
+      eyebrow: 'The clock above it all',
+      head: 'FedWatch leans\n57% to a hold',
+      say: 'FedWatch: fifty-seven percent odds of a hold.',
+      ask: 'Thirty-nine days on the clock.',
+      bg: { kind: 'video', src: 'shorts/broll/video/sd25_fed_columns.mp4', loopFrames: 148 },
+      visual: { kind: 'stat', label: 'FEDWATCH · FOMC D-39', value: '57%', sub: 'hold odds · vs hike 43%', up: true },
+    },
+  ],
+
+  outro: {
+    app: 'SIGNUM HQ',
+    line: 'The tape institutions leave behind',
+    ask: 'Greed, or neutral —\nwhich dial reads true?',
   },
 };

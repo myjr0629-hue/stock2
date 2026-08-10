@@ -101,7 +101,7 @@ import { SAMPLE_BRIEFING_6 } from './data/sampleBriefing6';
 import { BriefingV7, BRIEFING7_DURATION } from './compositions/BriefingV7';
 import { SAMPLE_BRIEFING_7 } from './data/sampleBriefing7';
 import { Briefing, durationOf } from './kit/Briefing';
-import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE } from './kit/scripts';
+import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE, SCRIPT_T2 } from './kit/scripts';
 import { AdPromo, adDurationOf } from './kit/AdPromo';
 import { AD_SIGNUM } from './kit/ads';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
@@ -220,6 +220,17 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={SCRIPT_CLOSE}
+      />
+
+      {/* ★ T2 장시작전 모닝브리핑 (kit/scripts SCRIPT_T2) */}
+      <Composition
+        id="BriefingT2"
+        component={Briefing as React.ComponentType<any>}
+        durationInFrames={durationOf(SCRIPT_T2)}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={SCRIPT_T2}
       />
 
       {/* ★ 앱 광고 — 시덴스 시네마틱 + 실앱 UI + 실로고 (kit/ads) */}

@@ -66,7 +66,7 @@ export interface BriefingProps {
   /** 고정 배너 훅 제목 — 중간 유입자도 3초 안에 뭘 보는지 알게 */
   title: string;
   date: string;
-  hook: { line: string; sub: string; role?: BeatRole };
+  hook: { line: string; sub: string; role?: BeatRole; bg?: string | BackdropSpec };
   beats: Beat[];
   outro: { app: string; line: string; ask: string };
   /** 마지막이 첫 화면으로 이어지는 루프백 문장 */
@@ -410,7 +410,9 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
   const ctaLen = Math.max(F(1), loopFrom - ctaFrom);
 
   // 훅은 유일하게 «움직이는 실사»(kling 5.04s 영상) — role 지정 시 그 역할의 절차 배경
-  const hookBg: BackdropSpec = p.hook.role ? BACKDROP_FOR[p.hook.role] : HOOK_BACKDROP;
+  const hookBg: BackdropSpec = p.hook.bg
+    ? (typeof p.hook.bg === 'string' ? { kind: 'img', src: p.hook.bg } : p.hook.bg)
+    : p.hook.role ? BACKDROP_FOR[p.hook.role] : HOOK_BACKDROP;
   const data = p.data ?? {};
 
   return (
