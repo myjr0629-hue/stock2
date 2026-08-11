@@ -1,0 +1,134 @@
+GUARDIAN
+CLOSED
+Macro Risk Sentinel
+RLSI
+44
+RISK STRIP
+FEAR&GREED
+64
+GREED
+VIX
+15.5
++3.8%
+S&P 500 F
+-0.03%
+7,775
+NASDAQ 100
+-0.33%
+29,737
+AI Overview
+Reality
+Shield
+Flow
+AI Morning Brief
+· 8:10 AM ET generated
+Report
+→
+GRAVITY GAUGE
+CLOSED
+RLSI
+MOMENTUM
+45
+Caution
+PARTICIPATION
+32
+Caution
+PRICE TREND
+29
+Weak
+ROTATION
+100
+Robust
+SENTIMENT
+64
+Healthy
+Bullish ×2
+Bearish ×2
+SCORE TIMELINE
+78 pts
+54
+39
+P95
+P75
+P25
+P5
+02:09
+03:34
+NOW
+─
+Sentiment ranging (±1.2pt) · Range 44~49 · Steady flow
+FEDWATCH
+FOMC D-36
+51.2%
+HIKE
+HOLD
+48.8%
+▲0.5
+HIKE
+51.2%
+▼0.5
+BRIEFING
+WHAT-IF
+RLSI INSIGHT
+· Regular Session Only
+ALIGNMENT OK
+BRIEFING
+TACTICAL
+TACTICAL INSIGHT
+Equity markets noted modest declines amid mixed signals: semiconductor weakness contrasts with infrastructure optimism (Morgan Stanley facilitating $1.5T initiative, Hanwha's naval shipbuilding expansion), creating sector-level divergence rather than broad conviction. Gold's +0.86% gain and TLT's -0.80% decline suggest modest risk-off positioning despite Fear & Greed at 64, indicating investors rotating defensively while maintaining greed bias. Short gamma positioning (-25 GEX) with 45% squeeze potential indicates options markets compressed near 7,723, with support at 7,580 and resistance at 7,800 — watch for volatility expansion if equity flows test these levels given RLSI at neutral 46 and VIX stability at 15.5.
+Last session analysis
+MARKET BREADTH
+REG ONLY
+—
+38
+%
+38%
+62%
+▲ ADV
+50%
+▼ DEC
+A/D RATIO
+Adv ÷ Dec
+0.64: 1
+Overwhelming Sell
+VOLUME ANALYSIS
+Buy Volume Ratio
+49.3%
+Balanced
+Breadth analysis available during regular session
+FOMC PATH & LIQUIDITY
+FOMCD-36
+RISK
+Hike Risk Leads
+
+Market probabilities are leaning toward additional tightening risk.
+
+PROB
+51.2%
+CUT
+0.0%
+1W Chg 0.0%
+PAUSE
+48.8%
+1W Chg +0.5%
+HIKE
+51.2%
+1W Chg -0.5%
+LIQUIDITY
+50
+FAVORABLE
+SAFE HAVEN
+0.18
+STABLE
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

@@ -1,0 +1,1 @@
+Fear and Greed still prints 64. The machine reads 44.

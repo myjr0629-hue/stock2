@@ -66,3 +66,11 @@ wim-app/ios/App/simbuild/
 scripts/*.zip
 mcp/video-analyst/.env
 mcp/video-analyst/node_modules/
+
+# 힉스필드 수확 원본 — 재인코딩 전 파일. 절대 커밋하지 않는다(1편당 ~4MB).
+public/shorts/bg/.raw/
+
+# 배경 라이브러리 최종본 — 100편이면 ~152MB.
+# git/Vercel 에 올릴지(LFS·S3·로컬전용) 대표 결정 전까지 추적하지 않는다.
+# 렌더는 로컬에서 도므로 없어도 파이프라인은 돈다.
+public/shorts/bg/**/*.mp4

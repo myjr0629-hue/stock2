@@ -101,15 +101,43 @@ import { SAMPLE_BRIEFING_6 } from './data/sampleBriefing6';
 import { BriefingV7, BRIEFING7_DURATION } from './compositions/BriefingV7';
 import { SAMPLE_BRIEFING_7 } from './data/sampleBriefing7';
 import { Briefing, durationOf } from './kit/Briefing';
-import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE, SCRIPT_T2 } from './kit/scripts';
+import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE, SCRIPT_T2, SCRIPT_T4, SCRIPT_T2B } from './kit/scripts';
+import { cutFor, type Platform } from './kit/variants';
 import { AdPromo, adDurationOf } from './kit/AdPromo';
 import { AD_SIGNUM } from './kit/ads';
+import { EndCard } from './kit/EndCard';
+import { ENDCARD_FRAMES, type AppKey } from './kit/endcards';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      {/* ══ 앱 홍보 엔드카드 3앱 × (105f 기본 / 210f 확장) — 정본 §6 ══
+          105f 는 브리핑 꼬리에 붙이는 판, 210f 는 X·웹 히어로·광고 헤드 전용. */}
+      {(['signum', 'uc', 'wim'] as AppKey[]).flatMap((app) => ([
+        <Composition
+          key={`ec-${app}`}
+          id={`EndCard-${app}`}
+          component={EndCard as React.ComponentType<any>}
+          durationInFrames={ENDCARD_FRAMES.short}
+          fps={30}
+          width={1080}
+          height={1920}
+          defaultProps={{ app }}
+        />,
+        <Composition
+          key={`ec-${app}-long`}
+          id={`EndCard-${app}-7s`}
+          component={EndCard as React.ComponentType<any>}
+          durationInFrames={ENDCARD_FRAMES.long}
+          fps={30}
+          width={1080}
+          height={1920}
+          defaultProps={{ app, frames: ENDCARD_FRAMES.long }}
+        />,
+      ]))}
+
       {/* ══ 신규 라인 — 「SIGNUM 브리핑」. 정본 .agent/VIDEO_ENGINE_SPEC.md ══
           기존 V10–V37 42종은 폐기 결정(대표 지시). 이것이 데일리 3편의 본체다. */}
       <Composition
@@ -221,17 +249,26 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={SCRIPT_CLOSE}
       />
-
-      {/* ★ T2 장시작전 모닝브리핑 (kit/scripts SCRIPT_T2) */}
-      <Composition
-        id="BriefingT2"
-        component={Briefing as React.ComponentType<any>}
-        durationInFrames={durationOf(SCRIPT_T2)}
-        fps={30}
-        width={1080}
-        height={1920}
-        defaultProps={SCRIPT_T2}
-      />
+      {/* ★ 브리핑 — 대본 × 플랫폼 3벌 (kit/variants)
+          하나의 대본·하나의 낭독에서 잘라 쓴다. YT 는 시청시간, TT 는 완주율 최적.
+          T2 = 장시작전 모닝 · T4 = 장마감 클로징 */}
+      {([['T2', SCRIPT_T2], ['T4', SCRIPT_T4], ['T2B', SCRIPT_T2B]] as const).flatMap(([tag, src]) =>
+        (['yt', 'tt', 'reels'] as Platform[]).map((pf) => {
+          const cut = cutFor(src, pf);
+          const id = pf === 'yt' ? `Briefing${tag}` : `Briefing${tag}-${pf}`;
+          return (
+            <Composition
+              key={id}
+              id={id}
+              component={Briefing as React.ComponentType<any>}
+              durationInFrames={durationOf(cut)}
+              fps={30}
+              width={1080}
+              height={1920}
+              defaultProps={cut}
+            />
+          );
+        }))}
 
       {/* ★ 앱 광고 — 시덴스 시네마틱 + 실앱 UI + 실로고 (kit/ads) */}
       <Composition

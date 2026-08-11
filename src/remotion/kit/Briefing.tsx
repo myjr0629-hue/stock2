@@ -26,6 +26,7 @@ import { AppShot, type ShotFocus, type ShotCallout } from '../components/AppShot
 import { Backdrop, type BackdropSpec, type BackdropData } from './Backdrop';
 import { CANVAS, SAFE, CAPTION, PACE, C, BACKDROP_FOR, HOOK_BACKDROP, type BeatRole } from './spec';
 import { TickerMark, SymbolHero } from '../components/TickerMark';
+import { TickerField } from '../components/TickerField';
 import { SYM, resolveSymbol } from './symbols';
 
 const { fontFamily } = loadFont();
@@ -63,6 +64,14 @@ export interface Beat {
   sec?: number;
   /** 배경 덮어쓰기 — 문자열이면 이미지 경로, 아니면 절차 배경 명세 */
   bg?: string | BackdropSpec;
+  /**
+   * ★ 우선순위 — «짧은 판»을 만들 때 무엇을 남길지 (kit/variants.ts)
+   *   1 = 이야기의 뼈대. 빼면 말이 안 된다
+   *   2 = 근거를 두껍게 한다. 빼도 이야기는 선다
+   *   3 = 보너스 레이어. 긴 판에서만
+   * 없으면 2로 본다.
+   */
+  prio?: 1 | 2 | 3;
 }
 
 export interface BriefingProps {
@@ -79,12 +88,30 @@ export interface BriefingProps {
   data?: BackdropData;
   /** 하단 티커 테이프 — 캡처 .txt 와 같은 순간의 시장 값들 (플랫폼 UI에 덮여도 되는 존) */
   tape?: Array<{ t: string; v: string; up?: boolean }>;
+  /**
+   * ★ 그날 주목 종목 — «실제 로고»가 배경에 흩뿌려진다 (components/TickerField).
+   * 일반 시청자는 숫자보다 심볼을 먼저 본다(대표 지시 2026-08-11).
+   * 로고 파일이 없는 티커는 조용히 빠진다 — 배경에 글자는 넣지 않는다.
+   */
+  field?: string[];
+  /** 면책 밴드 상단 라벨 */
+  readLabel?: string;
+  /** 면책 본문 — «의견»이 들어가는 영상은 이 문구가 더 길어진다 */
+  disclaimer?: string;
   /** ★ ElevenLabs 음성 트랙 (scripts/tts-beats.mjs 가 생성).
       낭독 «실측» 길이가 컷 길이의 정답이 된다 — 글자수 추정(msFor)을 대체. */
   voice?: VoiceTrack;
 }
 
-export interface VoiceSeg { f: string; sec: number }
+export interface VoiceSeg {
+  f: string;
+  /** 이 비트의 «전체» 낭독 길이 (say + 숨 + ask) */
+  sec: number;
+  /** say 만의 실측 길이 — ask 자막이 «말이 나오는 순간»에 뜨게 하는 기준 */
+  saySec?: number;
+  /** ask 는 별도 파일이다. 합쳐 구우면 자막 시점을 알 수 없다. */
+  ask?: { f: string; sec: number };
+}
 export interface VoiceTrack {
   base: string;                      // staticFile 기준 폴더 (예: 'shorts/audio/close')
   hook?: VoiceSeg;
@@ -114,8 +141,21 @@ export function timingOf(p: BriefingProps) {
   return { hookSec, beatSecs, ctaSec, loopSec };
 }
 
-const Say2 = ({ v, seg }: { v?: VoiceTrack; seg?: VoiceSeg | null }) =>
-  v && seg ? <Audio src={staticFile(`${v.base}/${seg.f}`)} /> : null;
+const Say2 = ({ v, seg }: { v?: VoiceTrack; seg?: VoiceSeg | null }) => {
+  const { fps } = useVideoConfig();
+  if (!v || !seg) return null;
+  return (
+    <>
+      <Audio src={staticFile(`${v.base}/${seg.f}`)} />
+      {seg.ask && (
+        // say 실측 + 숨(0.18s) 지점에서 시작 — 자막도 «같은 프레임»에 바뀐다
+        <Sequence from={Math.round(((seg.saySec ?? 0) + 0.18) * fps)}>
+          <Audio src={staticFile(`${v.base}/${seg.ask.f}`)} />
+        </Sequence>
+      )}
+    </>
+  );
+};
 
 // (배경은 kit/Backdrop 이 전담한다 — 이미지·영상·절차 모드 공용)
 
@@ -190,9 +230,11 @@ function BottomZone({ tape }: { tape?: Array<{ t: string; v: string; up?: boolea
 }
 
 // ── 자막 — ★ 안전영역 안, 74px, 26자 2줄 ───────────────────────────────────
-function Say({ text, ask }: { text: string; ask?: string }) {
+function Say({ text, ask, askAt }: { text: string; ask?: string; askAt?: number }) {
   const p = useIn(0, 6);          // 조사: 오디오보다 0.1~0.3초 먼저
-  const q = useIn(22, 9);
+  // ★ ask 자막은 «말이 시작되는 프레임»에 뜬다. 고정 22프레임이던 구판은
+  //   낭독이 앞 문장을 읽는 동안 자막만 먼저 떠서 최대 2초가 어긋났다(2026-08-11 실측).
+  const q = useIn(Math.max(0, (askAt ?? 22) - 4), 9);   // 4프레임(0.13s) 선행 = 조사 권장치
   const lines = CAPTION.wrap(text);
   return (
     <div style={{
@@ -431,6 +473,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       {/* 훅 */}
       <Sequence durationInFrames={hookF}>
         <Backdrop spec={hookBg} dur={hookF} data={data} />
+        {p.field?.length ? <TickerField tickers={p.field} seed={`${p.date}|hook`} opacity={0.16} exclude={p.hook.syms} /> : null}
         <Say2 v={p.voice} seg={p.voice?.hook} />
         <AbsoluteFill style={{ justifyContent: 'center', padding: `0 ${PAD}px`, paddingTop: 120 }}>
           <HookBlock line={p.hook.line} sub={p.hook.sub} date={p.hook.stamp ?? p.date} syms={p.hook.syms} />
@@ -438,10 +481,26 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       </Sequence>
 
       {/* 비트 — 톤을 교대로 줘서 인접 컷의 밝기 차를 만든다 (컷이 «읽히게») */}
-      {spans.map(({ b, from, len }, i) => (
+      {spans.map(({ b, from, len }, i) => {
+        // ★ 속도감 — 비트 안에서 «ask 가 말해지는 순간»에 한 번 더 컷한다.
+        //   대표 지시(2026-08-11): "쇼츠는 속도감이 있어야 한다".
+        //   컷 지점을 낭독 전환점과 «같은 프레임»에 두면 속도감과 싱크를 한 번에 얻는다.
+        //   (임의 지점에 컷을 넣으면 말과 그림이 따로 논다)
+        const sg = p.voice?.beats?.[i];
+        const askAtF = sg?.saySec ? Math.round((sg.saySec + 0.18) * CANVAS.fps) : undefined;
+        const toneA = i % 2 === 0 ? 1 : 1.6;
+        const toneB = i % 2 === 0 ? 1.6 : 1;
+        return (
         <Sequence key={i} from={from} durationInFrames={len}>
-          <Backdrop spec={bgOf(b)} dur={len} data={data} tone={i % 2 === 0 ? 1 : 1.6} />
+          <Backdrop spec={bgOf(b)} dur={len} data={data} tone={toneA} />
+          {p.field?.length ? <TickerField tickers={p.field} seed={`${p.date}|${i}`} /> : null}
           <CutFlash />
+          {askAtF !== undefined && askAtF + 6 < len && (
+            <Sequence from={askAtF} durationInFrames={len - askAtF}>
+              <Backdrop spec={bgOf(b)} dur={len - askAtF} data={data} tone={toneB} />
+              <CutFlash />
+            </Sequence>
+          )}
           <Say2 v={p.voice} seg={p.voice?.beats?.[i]} />
           <Head n={i + 1} eyebrow={b.eyebrow} head={b.head} />
           {b.visual && (
@@ -449,9 +508,10 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
               <Vis v={b.visual} w={VIS_W} h={VIS_H} />
             </div>
           )}
-          <Say text={b.say} ask={b.ask} />
+          <Say text={b.say} ask={b.ask} askAt={askAtF} />
         </Sequence>
-      ))}
+        );
+      })}
 
       {/* CTA */}
       <Sequence from={ctaFrom} durationInFrames={ctaLen}>
@@ -481,12 +541,18 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
         <Banner title={p.title} date={p.date} />
       </Sequence>
 
-      {/* 면책은 프레임0부터 상시 — 가독성 하한(26px / opacity .85) */}
-      <AbsoluteFill style={{ justifyContent: 'flex-end', alignItems: 'center', pointerEvents: 'none' }}>
-        <div style={{ fontFamily, marginBottom: 26, fontSize: 26, fontWeight: 700, color: 'rgba(224,234,248,0.85)' }}>
-          Informational only. Not investment advice.
-        </div>
-      </AbsoluteFill>
+      {/* ── 면책 — «노란 줄 하나», 화면 맨 아래 ──────────────────────────────
+          대표 지시(2026-08-11): "면책 문구는 노란색 줄 하나만 있으면 될 듯하고,
+          하단으로 내려. 겹치잖아." 박스·2단 구성은 워터마크·테이프와 겹쳤다. */}
+      <div style={{
+        position: 'absolute', left: 40, right: 40, bottom: 22,
+        textAlign: 'center', pointerEvents: 'none',
+        fontFamily, fontSize: 24, fontWeight: 800, letterSpacing: '0.01em',
+        color: 'rgba(255,176,32,0.92)',
+        textShadow: '0 2px 10px rgba(0,0,0,0.9)',
+      }}>
+        {p.disclaimer ?? 'Educational only. Not investment advice. Our read, not a forecast.'}
+      </div>
     </AbsoluteFill>
   );
 };
@@ -501,7 +567,7 @@ function HookBlock({ line, sub, date, syms }: { line: string; sub: string; date:
   return (
     <div>
       {syms && syms.length > 0 && (
-        <div style={{ marginBottom: 26, display: 'flex', justifyContent: 'flex-start' }}>
+        <div style={{ marginBottom: 26, display: 'flex', justifyContent: 'center' }}>
           <SymbolHero syms={syms} size={SYM.hero} />
         </div>
       )}

@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "date": "2026-08-11",
+    "why": "T2B 모닝브리핑 «비트별» 전용 배경. 순서 = 영상 순서(훅→비트08).",
+    "rule": "피사체 상단·하단 여백 — 자막과 싸우지 않게 프롬프트에 명시",
+    "naming": "brief-01 = 훅, brief-02 = 비트0, ... brief-10 = 비트08"
+  },
+  "Z_brief": [
+    "Extreme macro of a silicon wafer with a fine crack spreading across its mirror surface in ultra slow motion, rainbow diffraction on the polished face, bright clean laboratory light, slow push-in. Cinematic hyperreal, high key. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "An enormous semiconductor fabrication plant under construction on a bright sunlit plain, steel frame rising, tower cranes and trucks working, hard blue sky, slow aerial rise. Cinematic hyperreal, high key. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Tilt-shift miniature: a tiny model chip factory under construction on a bright white tabletop, minuscule cranes and trucks moving, toy-like shallow focus, slow aerial push-in. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Extreme macro across a silicon die, microscopic circuit canyons and vias lit like an aerial city at dusk, one sector going dark, shallow depth, slow lateral tracking. Photoreal macro, bright. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Photoreal fantasy: two enormous polished steel arrows the size of buildings crossing in opposite directions above a bright sunlit plain, slow orbit. High key, clean. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A robotic arm lifting a mirror-polished silicon wafer inside a brilliant white cleanroom, rainbow diffraction sweeping across the wafer, slow macro orbit. Cinematic hyperreal, high key. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Interior of an EUV lithography machine, brilliant violet plasma pulsing between precision mirrors, ultra-clean machined surfaces and gold-plated optics, slow push-in. Cinematic hyperreal, high key. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A perfectly still bright reflecting pool inside a sunlit modern atrium of white stone, the surface almost motionless, slow push-in. Cinematic hyperreal, high key. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "3D Pixar-style animation, cinematic lighting: a chubby stylized bull and a small precise robot stand facing each other on a bright pastel floor, soft glossy materials, slow orbit. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Photoreal fantasy: a single beam of daylight splitting through a prism into two distinct paths above a bright white floor, clean and minimal, slow push-in. Vertical 9:16 framing, subject centred in the upper half with clean empty space in the lower half for captions. No subtitles, no on-screen text, no logos, no brand marks."
+  ]
+}

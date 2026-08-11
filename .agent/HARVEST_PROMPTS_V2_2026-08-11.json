@@ -1,0 +1,147 @@
+{
+  "_meta": {
+    "date": "2026-08-11",
+    "why": "대표 지시 «더 만들어 다양하게» — 1차(102편)는 실사·애니·판타지 3결뿐이었다. 2차는 «화풍»을 넓힌다.",
+    "model": "seedance_2_5 (web unlimited, 5s / 720p / 9:16)",
+    "storage": "맥 로컬 전용 — public/shorts/bg/ (.gitignore 처리됨, Vercel 로 안 나간다)",
+    "rules": [
+      "AI 는 로고·앱UI·숫자를 그리지 않는다 (전 프롬프트에 no on-screen text)",
+      "기본은 밝게. 어두운 건 «레짐 은유»에서만 의도적으로 쓴다",
+      "카메라 무브 1개 · 세로 9:16 명시",
+      "훅에는 다큐를 쓰지 않는다 (kit/backdrops.ts ALLOW 가 코드로 강제)"
+    ]
+  },
+  "S_stylized": [
+    "Claymation stop-motion style: a handmade clay city block slowly rises and rearranges itself on a bright pastel tabletop, visible fingerprints in the clay, slow push-in.",
+    "Papercraft stop-motion: a skyline built from folded white paper unfolds upward on a bright pastel background, crisp paper edges catching soft light, slow tilt up.",
+    "Origami stop-motion: a flat sheet of gold paper folds itself into a soaring bird on a bright white surface, precise creases, slow orbit.",
+    "Felt and yarn stop-motion: soft handmade wool clouds drift across a bright blue felt sky above tiny knitted hills, gentle lateral dolly.",
+    "Miniature diorama with tilt-shift: a tiny bright harbour with model cranes and ships, real water rippling, slow aerial push-in.",
+    "Claymation stop-motion: a clay figure pushes an enormous clay sphere up a bright pastel slope, textured surfaces, slow side tracking shot.",
+    "Papercraft stop-motion: layered paper waves ripple across a bright cream backdrop in sequence like a moving graph of paper, slow lateral dolly.",
+    "Plasticine stop-motion: bright colored blobs merge and split rhythmically on a clean white stage, glossy surfaces, locked camera slowly pushing in.",
+    "Wooden toy stop-motion: hand-carved blocks in bright primary colors stack themselves into a tower on a sunlit floor, slow tilt up.",
+    "Stop-motion of bright ceramic tiles flipping one after another across a white floor in a spreading wave, top-down camera slowly rising."
+  ],
+  "S_graphic": [
+    "Bold graphic motion design: enormous flat geometric shapes in bright coral, cream and navy slide past each other in crisp layers, single continuous lateral motion.",
+    "Isometric 3D render: a bright pastel city grid where one block rises higher than the rest, clean matte materials, slow orbit.",
+    "Blueprint animation: glowing white technical linework of a skyscraper draws itself over a deep blue field, precise and geometric, slow push-in.",
+    "Neon graphic abstraction: bright magenta and cyan light tubes bending and reconnecting in clean black space, single continuous orbit.",
+    "Kinetic paper-cut layers in bright cream and orange sliding apart to reveal depth, crisp shadow edges, slow forward dolly.",
+    "Isometric 3D render: bright translucent glass blocks stacking themselves into a stepped pyramid on a pastel plane, slow orbit.",
+    "Flat vector motion: a field of bright circles pulses outward in a ripple across a cream background, single continuous top-down rise.",
+    "Bright gradient mesh flowing and folding like liquid silk in coral and gold, abstract and clean, single continuous lateral drift.",
+    "Wireframe globe of thin glowing lines rotating over a bright white field, precise geometry, slow orbit.",
+    "Bold graphic motion: bright vertical bars of varying heights sliding into alignment across a cream field, single continuous lateral motion."
+  ],
+  "S_painterly": [
+    "Watercolour animation: bright washes of gold and blue bleeding across wet paper into the shape of a sunlit skyline, visible paper grain, slow push-in.",
+    "Ink wash animation: a single black brushstroke sweeps across bright rice paper and blooms into a mountain range, slow lateral dolly.",
+    "Oil painting come to life: thick bright impasto strokes of a sunrise sea moving slowly, palette knife texture, slow push-in.",
+    "Watercolour animation: bright droplets of pigment falling into clear water and blooming into soft clouds, slow macro push-in.",
+    "Gouache animation: a bright flat-colour city of coral and cream buildings where windows light up one by one, slow tilt up.",
+    "Charcoal sketch animation: rough bright white lines drawing a rising curve across grey paper, smudged edges, slow lateral tracking.",
+    "Ink wash animation: bright golden koi forming from spreading ink on wet paper and swimming away, slow orbit.",
+    "Pastel chalk animation: soft bright strokes of dawn colours building a horizon on textured paper, slow push-in."
+  ],
+  "S_retro": [
+    "1980s retro-futurism: a bright chrome grid horizon under a peach and violet gradient sky, sun disc rising, slow forward dolly.",
+    "Vintage 16mm film look: a bright sunlit city street in warm faded colour with soft grain and gate weave, slow lateral dolly.",
+    "1990s VHS aesthetic: bright daytime skyline with soft chroma bleed and scanline shimmer, slow tilt up.",
+    "Retro sci-fi control room in bright cream and orange with analogue dials and blank rounded screens, slow lateral dolly.",
+    "Vintage travel-poster motion: bright flat-colour mountains and sun with subtle paper texture, slow push-in.",
+    "1970s film look: golden sunlit office interior with warm halation and dust in the beams, slow forward dolly.",
+    "Retro-futuristic monorail gliding through a bright pastel city of curved towers, slow side tracking shot.",
+    "Vintage arcade aesthetic: bright chunky pixel landscape scrolling smoothly under a big pixel sun, single continuous lateral motion."
+  ],
+  "S_nature": [
+    "Extreme macro of frost crystals growing across a bright window pane in accelerated motion, backlit by blue morning light, slow push-in.",
+    "Time-lapse of bright cumulus clouds building over a sunlit valley, shadows racing across the fields, slow aerial rise.",
+    "Extreme macro of a dandelion seedhead releasing all its seeds at once into bright sunlight, ultra slow motion, slow push-in.",
+    "A bright forest canopy seen from directly below, sunlight strobing through the leaves as the camera drifts, slow forward dolly.",
+    "Ultra slow motion of a bright wave curling and collapsing into white foam under hard midday sun, slow lateral tracking.",
+    "Time-lapse of a bright flower opening fully against a clean white background, slow push-in.",
+    "Aerial over a bright turquoise glacier lake with braided rivers of meltwater, slow forward glide.",
+    "Extreme macro of raindrops striking a bright leaf in ultra slow motion, each impact crowning, slow push-in.",
+    "Time-lapse of bright autumn colour sweeping across a forested hillside, slow aerial rise.",
+    "A murmuration of starlings folding through bright evening air above open fields, slow aerial follow."
+  ],
+  "S_human": [
+    "Close-up of hands sliding a stack of bright white cards across a clean wooden table and fanning them out, shallow depth, slow macro push-in.",
+    "A bright crowded crosswalk seen from directly above, hundreds of people flowing in two directions in daylight, slow top-down rise.",
+    "Close-up of a hand turning a heavy brass dial on a bright polished surface, precise mechanical motion, slow macro push-in.",
+    "A stadium crowd rising in a bright daylight wave, colour rippling around the bowl, slow aerial orbit.",
+    "Close-up of hands stacking bright wooden blocks into a tower on a sunlit table, the last block hesitating, slow macro push-in.",
+    "A lone runner crossing a bright empty plaza at sunrise, long shadow trailing, slow side tracking shot.",
+    "Close-up of a hand pressing a single bright key on a clean mechanical keyboard, shallow depth, ultra slow motion macro push-in.",
+    "A busy bright market street from a low angle, feet and produce crates moving past, slow forward dolly.",
+    "Close-up of hands unfolding a large bright paper map on a sunlit table, creases relaxing, slow macro push-in.",
+    "A crowded bright train platform where everyone stands still and one figure walks through, slow lateral tracking."
+  ],
+  "S_regime": [
+    "A vast bright plain where a single line of golden light races toward the horizon and keeps climbing, slow aerial follow. Photoreal, high key.",
+    "An enormous bright staircase of white stone rising into clear sky, each step catching more sunlight than the last, slow upward dolly.",
+    "A wide bright river suddenly reversing direction, surface patterns inverting, slow aerial rise. Photoreal.",
+    "Two enormous weather fronts of bright cloud colliding over a sunlit plain without breaking, slow aerial orbit. Photoreal.",
+    "A perfectly still bright lake surface that begins to vibrate with fine ripples from below, extreme wide, slow push-in. Photoreal.",
+    "An enormous bright glass wall cracking in slow motion while sunlight floods through the fracture, slow push-in. Photoreal.",
+    "A single bright thread of light stretching across a dark blue void until it snaps and recoils, extreme macro, slow lateral tracking.",
+    "A bright desert horizon where a dust wall approaches at speed under a blue sky, slow forward dolly. Photoreal.",
+    "An enormous set of bright stone gates swinging open onto a sunlit plain, slow forward dolly through them. Photoreal.",
+    "Bright coloured sand pouring into a clear cylinder and separating into distinct layers, extreme macro, slow push-in.",
+    "A calm bright sea suddenly dropping away to reveal the seabed, water walls holding on both sides, slow aerial rise. Photoreal fantasy.",
+    "An enormous bright pendulum swinging through a sunlit marble hall, slowing toward centre, slow orbit. Photoreal."
+  ],
+  "S_logo_plate2": [
+    "A bright brushed-gold ring floating and slowly rotating in clean white space with a completely empty centre, slow orbit. Photoreal product lighting. No logos, no symbols.",
+    "A blank white rounded-square tile rising out of a bright pool of milk-white liquid, surface settling, slow push-in. Photoreal. No logos, no symbols.",
+    "Three blank glass panes standing in a bright studio at staggered depths, light sweeping across their empty faces, slow lateral dolly. Photoreal. No logos, no symbols.",
+    "A bright marble plinth with an empty circular recess on top, soft daylight from above, slow orbit. Photoreal. No logos, no symbols.",
+    "A blank white banner of silk rippling slowly in bright empty space, its surface completely plain, slow lateral dolly. Photoreal. No logos, no symbols.",
+    "A bright honeycomb grid of empty hexagonal cells on a clean white wall, light sweeping across it, slow lateral dolly. Photoreal. No logos, no symbols.",
+    "A blank white disc spinning slowly on a bright seamless floor and settling flat, slow top-down rise. Photoreal. No logos, no symbols.",
+    "A bright cluster of empty floating frames of thin gold, drifting and aligning into a grid, slow forward dolly. Photoreal. No logos, no symbols."
+  ],
+  "_research": {
+    "date": "2026-08-11",
+    "question": "조회수가 목표 — 실제로 스크롤을 멈추는 화풍은 무엇인가",
+    "sources": [
+      "https://videolens.cc/en/blog/viral-short-video-styles",
+      "https://autofaceless.ai/blog/short-form-video-statistics-2026",
+      "https://virvid.ai/blog/ai-video-formats-driving-crazy-engagement-in-2026"
+    ],
+    "findings": [
+      "검증된 21개 «바이럴 화풍» 목록에 우리가 안 갖고 있던 것: Pixar 3D(가장 많이 쓰이는 AI 카툰 화풍), 매크로 3D 크리처, 니들펠트, 믹스드미디어(2D 선화 + 실사 배경), 뫼비우스 맥시멀리즘, 팝아트 두들, 90s OVA 애니, 시네마틱 하이퍼리얼(실사 질감 + 초현실 피사체)",
+      "틸트시프트 미니어처·클레이·페이퍼컷·기블리/신카이·수묵·임파스토는 이미 v1/v2 에 있음 → 유지",
+      "⚠️ 길이: 50~60초 숏츠가 조회수 최상(평균 410만·완주율 76%). 우리 T2 는 39.4초 → 상향 검토 필요",
+      "내러티브가 리스트형보다 리텐션 40~60% 우위 → 대본은 이야기 구조 유지"
+    ]
+  },
+  "S_viral_verified": [
+    "3D Pixar-style animation, cinematic lighting, soft clay-like surfaces: a tiny round character stands at the foot of an enormous bright staircase that climbs into blue sky, slow tilt up. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "3D Pixar-style animation, cinematic lighting: a chubby stylized bull and bear made of soft glossy material stand nose to nose on a bright pastel plain, wind moving the grass, slow orbit. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "3D Pixar-style animation: a tiny character pushes a giant glowing coin up a sunlit pastel hill, expressive strain, slow side tracking shot. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "3D Pixar-style animation, cinematic lighting: an enormous friendly rocket sits on a bright green field as tiny characters look up, clouds racing, slow tilt up. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Extreme macro 3D of a fluffy white round creature perched on a dewy green leaf in bright morning light, rim lighting, tiny breathing motion, slow macro push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Extreme macro 3D of a small iridescent beetle walking across a bright polished circuit surface, rim light, shallow depth, slow macro tracking. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Extreme macro 3D of a tiny fuzzy creature riding a floating dandelion seed through bright sunlit air, slow tracking follow. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Needle-felted wool stop-motion: a soft handmade city of felt towers under a felt sun, fuzzy fiber texture, gentle handmade wobble, slow lateral dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Needle-felted wool stop-motion: a fuzzy felt bull and a fuzzy felt bear sit back to back on a bright felt hill, slow push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Mixed media: a simple 2D hand-drawn line-art figure walks along the ledge of a real photographic sunlit skyscraper, drawn lines wobbling, slow lateral tracking. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Mixed media: 2D hand-drawn arrows and squiggles animate over a real photographic bright city street, chalk-like strokes, slow forward dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Mixed media: a 2D line-art hand reaches into a real photographic bright harbour scene and lifts a container, slow push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Moebius-style surreal desert dreamscape, clean linework and maximalist intricate detail, pastel sky with two suns, a lone traveller crossing vast dunes, slow lateral tracking. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Moebius-style intricate linework: an impossible bright city of stacked arches and floating platforms under a pale sky, slow forward dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Moebius-style clean linework: an enormous mechanical flower opening on a bright alien plain, intricate detail, slow orbit. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Pop-art doodle animation: bold black outlines and bright flat colours, a naive-drawn city where buildings bounce to a rhythm on a geometric background, slow lateral motion. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Pop-art doodle animation: bold outlines, bright colours, a giant cartoon hand flipping a coin above a flat graphic skyline, slow push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "90s retro anime style, clean hand-drawn cel shading, classic OVA aesthetic: a lone figure on a bright rooftop as a wall of clouds rolls over the city, slow tilt up. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "90s retro anime style, classic OVA cel shading: a bright morning street with power lines and vending machines, a bicycle passing, slow lateral dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "90s retro anime style, cel shading, warm nostalgic palette: an office window at golden hour with curtains breathing, city beyond, slow push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Cinematic hyperreal, film-grade photorealistic texture on an absurd subject: an enormous ripe orange sits in the middle of a bright empty city intersection, slow orbit. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Cinematic hyperreal: a full-size sailing ship resting perfectly still on a bright desert salt flat under a hard blue sky, slow aerial rise. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Cinematic hyperreal: an enormous chrome sphere resting in a sunlit wheat field, reflecting the whole landscape, slow push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos.",
+    "Cinematic hyperreal: a staircase of solid water rising out of a bright calm sea, sunlight refracting through each step, slow orbit. Vertical 9:16 framing. No subtitles, no on-screen text, no logos."
+  ]
+}

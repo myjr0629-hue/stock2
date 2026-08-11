@@ -1,0 +1,183 @@
+SIGNUMHQ
+DARK POOL INTEL
+SIGNAL
+Iovance Biotherapeutics posted Q2 revenue of $99.3M (+66% YoY), driven by FDA-approved cancer treatment Amtagvi; strong earnings supported stock rally.
+5h
+MARKET STATE
+Mixed Tape
+Futures tracked live on ET.
+FUTURES
+Bearish -0.15%
+CASH
+Bearish -0.16%
+RISK
+42
+|
+MARKET PULSE
+FUTURES LIVE
+INDEX FUTURES
+FUTURES LIVE
+FUT
+NASDAQ100 F
+29,737
+▼ -0.33%
+FUT
+S&P500 F
+7,774.50
+▼ -0.03%
+FUT
+RUSSELL2K F
+3,022.10
+▼ -0.10%
+CASH INDICES
+CLOSED
+NDX
+NASDAQ
+26,605
+▼ -0.32%
+500
+S&P 500
+7,753.11
+▼ -0.06%
+DJI
+DOW
+53,976
+▼ -0.11%
+ETF / VOLATILITY
+CLOSED
+100
+QQQ
+$720.87
+▼ -0.30%
+500
+SPY
+$773.03
+▼ -0.03%
+C
+VIX
+15.46
+▲ +3.76%
+|
+MACRO BOARD
+BTC
+$63.9K
++0.02%
+GOLD
+$4,466
++1.05%
+OIL
+$82.1
+-0.01%
+SOX
+11,994
+-2.94%
+US 10Y
+4.70%
++0.84
+DXY
+99.8
+-0.05
+2S10S
++0.51
+NORMAL
+F&G
+64.4
+GREED
+TOP MOVERS
+Value
+Gainers
+Losers
+VIEW ALL >
+500 SPY
+-0.03%
+$773.03
+ NVDA
+-2.86%
+$217.55
+ MU
+-1.89%
+$861.00
+ SPCX
++4.23%
+$138.74
+SECTOR HEATMAP
+CLOSED
+Tech
+-0.9%
+Energy
++4.7%
+Cons. Disc
+-0.2%
+Materials
++0.6%
+Industrials
+-0.3%
+Finance
++0.4%
+Healthcare
++1.7%
+Utilities
+-1.1%
+✨
+LIVE NEWS PULSE
+Brief
+Live
+Semiconductor equipment makers (ASML, Applied Materials) have outperformed chip designers (Nvidia, Broadcom) over the past year amid AI infrastructure buildout cycle.
+→
+AMD stock declined 18% in July amid broader semiconductor sector weakness driven by concerns over excessive AI spending by tech companies and potential reduced returns on AI infrastructure investments.
+→
+AI capex boom lifting margins for Magnificent Seven but not translating to broader market margin expansion, suggesting uneven profit distribution across equity market.
+→
+Upcoming inflation data over the next month will determine whether the Fed raises rates in September or maintains its current pause, with the chairman committed to bringing inflation down.
+→
+Iovance Biotherapeutics posted Q2 revenue of $99.3M (+66% YoY), driven by FDA-approved cancer treatment Amtagvi; strong earnings supported stock rally.
+→
+View Live Market Monitor →
+VOLATILITY REGIME
+Compression / expansion
+Loaded
+70%
+
+Tracks whether market volatility is compressing or expanding.
+
+DARK POOL VOLUME
+Institutional prints
+60.6%
+DP 16.8M
+
+Surfaces large off-exchange flow hidden from the open book.
+
+SQUEEZE RISK
+Short-term pressure
+High
+60%
+
+Monitors gamma and positioning pressure behind fast moves.
+
+ROTATION INTENSITY
+Capital rotation
+Risk-On Tilt
+Rotation 100
+
+Shows whether money is rotating toward risk or defense.
+
+Free preview · Institutional pulse
+Loaded · 1 of 4
+Free preview
+Institutional Market Pulse
+Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.
+Watch ad to unlock 1HR
+14.2K unlocked today
+Educational market-data research only. Not investment advice or a buy/sell recommendation. Accuracy and returns are not guaranteed.
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

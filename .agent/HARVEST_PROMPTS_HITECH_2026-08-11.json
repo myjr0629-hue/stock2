@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "date": "2026-08-11",
+    "why": "대표 지적 «금융 테크 하이테크 종목들, 세련되고 흥미롭게». 범용 추상 B롤 64편 폐기 후 재작성.",
+    "rule": "소재(WHAT)=금융·테크·하이테크만 · 스타일(HOW)=흥미를 만드는 장치. 정본=.agent/HIGGSFIELD_HARVEST_PIPELINE.md §7",
+    "storage": "맥 로컬 public/shorts/bg/ (.gitignore)"
+  },
+  "T_tech": [
+    "Interior of an EUV lithography machine, brilliant violet plasma pulsing between precision mirrors, ultra-clean machined surfaces and gold-plated optics, slow push-in. Cinematic hyperreal, high key. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A robotic arm lifting a mirror-polished silicon wafer inside a brilliant white cleanroom, rainbow diffraction sweeping across the wafer, slow macro orbit. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Extreme macro across a silicon die, microscopic circuit canyons and vias lit like an aerial city at noon, shallow depth, slow lateral tracking. Photoreal macro, bright. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A liquid-cooled GPU rack with coolant flowing through transparent tubes, bright clean server hall, condensation on the manifolds, slow lateral dolly. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Extreme macro of a fiber optic bundle, each strand carrying a travelling pulse of light, bright clean background, slow push-in. Photoreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A technician in a bright server hall pulling a glowing module from a rack, cool clean light, shallow depth, slow lateral tracking. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A humanoid robot standing in a brilliant white laboratory as calibration lights sweep across its joints and sensors, slow orbit. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Industrial robotic arms assembling a machine in perfect synchronisation under bright factory light, sparks of clean light, slow lateral tracking. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "An EV battery pack being lowered precisely into a vehicle chassis in bright factory light, robotic motion, slow top-down descent. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Lidar point-cloud visualisation sweeping across a sunlit street and resolving the shapes of cars and people, bright and graphic, slow forward dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A rocket engine static fire test at midday, brilliant exhaust plume against blue sky and steel test structure, slow lateral dolly. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A satellite unfolding its solar arrays high above a brilliantly lit blue Earth, sunlight flaring off the panels, slow orbit. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A quantum computer's golden dilution refrigerator suspended in a bright clean laboratory, layered gold discs and coiled tubing, slow vertical rise. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Extreme macro of superconducting coils frosted with condensation under bright laboratory light, vapour curling away, slow push-in. Photoreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "An undersea fibre optic cable spooling off a ship deck into bright turquoise water, sunlight on the swell, slow aerial rise. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "A bright rooftop array of satellite dishes and antennas under a hard blue sky, slow aerial orbit. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Molten metal pouring in a bright foundry, sparks arcing outward in slow motion, slow lateral tracking. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Carbon fibre sheets being laid by machine under bright light, the weave pattern in extreme macro, slow push-in. Photoreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks."
+  ],
+  "T_finance": [
+    "The facade of a classical stock exchange building at golden hour, tall columns catching low sun, slow low-angle push-in. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Extreme macro of stacked gold bars under bright studio light, sharp specular highlights travelling across the milled surfaces, slow lateral dolly. Photoreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "An enormous polished steel vault door rotating open in a bright marble hall, daylight spilling through the widening gap, slow push-in. Cinematic hyperreal. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Bold graphic motion design: bright translucent layers stacking into a deep ladder over a clean cream field, precise and abstract, slow lateral dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks."
+  ],
+  "T_stylized": [
+    "Anime style, crisp cel shading, vivid colours: a vast chip fab where wafer carriers glide overhead on ceiling rails through brilliant white light, single continuous forward tracking shot. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Tilt-shift miniature: a semiconductor fab rendered as a tiny model, minuscule robots moving between machines, bright daylight, slow aerial push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Anime style, vivid cel shading: an endless hall of glowing white server towers with heat shimmering in the air, single continuous forward tracking shot. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Isometric 3D render: a bright pastel data center cutaway showing racks, cooling loops and power spines in clean matte materials, slow orbit. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "3D Pixar-style animation, cinematic lighting: a small friendly robot polishing an enormous glowing microchip on a bright pastel floor, slow push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Anime style, bright vivid palette: a trading floor rendered as a vast sunlit hall of glass desks with people moving between them, slow crane upward. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Moebius-style intricate linework: a colossal chip fab as an impossible cathedral of pipes, gantries and rails under a pale sky, slow forward dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Claymation stop-motion: a handmade clay robot assembling a clay microchip on a bright pastel workbench, visible fingerprints, slow push-in. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Papercraft stop-motion: a data centre built from folded white paper, server racks unfolding in sequence on a bright pastel background, slow lateral dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "3D Pixar-style animation: a tiny character rides a glowing data packet along a fibre optic highway through bright open space, slow tracking follow. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "90s retro anime style, classic OVA cel shading: a lone engineer walking through a bright humming server corridor, warm nostalgic palette, slow forward dolly. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks.",
+    "Mixed media: a 2D hand-drawn line-art figure walks across the roof of a real photographic sunlit data centre, drawn lines wobbling, slow lateral tracking. Vertical 9:16 framing. No subtitles, no on-screen text, no logos, no brand marks."
+  ]
+}

@@ -1,0 +1,128 @@
+GUARDIAN
+PRE
+Macro Risk Sentinel
+RLSI
+45
+RISK STRIP
+FEAR&GREED
+65
+GREED
+VIX
+15.5
++0.2%
+S&P 500 F
++0.15%
+7,788
+NASDAQ 100
++0.32%
+29,833
+AI Overview
+Reality
+Shield
+Flow
+GRAVITY GAUGE
+PRE-MARKET ESTIMATE
+RLSI
+MOMENTUM
+53
+Stable
+PARTICIPATION
+50
+Stable
+PRICE TREND
+71
+Healthy
+ROTATION
+100
+Robust
+SENTIMENT
+65
+Healthy
+Bullish ×3
+SCORE TIMELINE
+78 pts
+54
+39
+P95
+P75
+P25
+P5
+02:09
+03:34
+NOW
+─
+Sentiment ranging (±1.2pt) · Range 44~49 · Steady flow
+FEDWATCH
+FOMC D-36
+51.2%
+HIKE
+HOLD
+48.8%
+▲0.5
+HIKE
+51.2%
+▼0.5
+BRIEFING
+WHAT-IF
+RLSI INSIGHT
+· Pre-Market
+ALIGNMENT OK
+BRIEFING
+TACTICAL
+TACTICAL INSIGHT
+Small business confidence gains and selective earnings beats (Sea, e-commerce strength) are offsetting concerns about bond yields as a headwind to equity valuations, evidenced by modest equity gains (+0.33% NASDAQ, +0.15% S&P 500) paired with gold strength (+0.57%) and bond weakness (TLT -0.13%, US10Y at 4.70%). The cross-asset picture suggests cautious positioning: Fear & Greed at 65 (greed) and VIX at 15.5 indicate contained volatility, yet negative gamma (-25 GEX) and high squeeze (45%) note potential for sharp moves if support (7,580) or resistance (7,800) levels breach. RLSI at 45 and modest breadth gains suggest the market is consolidating rather than accelerating, with bond yield trajectory and small-cap resilience as key variables to monitor.
+MARKET BREADTH
+REG ONLY
+—
+50
+%
+50%
+50%
+▲ ADV
+50%
+▼ DEC
+A/D RATIO
+Adv ÷ Dec
+1.00: 1
+Balanced
+VOLUME ANALYSIS
+Buy Volume Ratio
+50.0%
+Balanced
+Breadth analysis available during regular session
+FOMC PATH & LIQUIDITY
+FOMCD-36
+RISK
+Hike Risk Leads
+
+Market probabilities are leaning toward additional tightening risk.
+
+PROB
+51.2%
+CUT
+0.0%
+1W Chg 0.0%
+PAUSE
+48.8%
+1W Chg +0.5%
+HIKE
+51.2%
+1W Chg -0.5%
+LIQUIDITY
+50
+FAVORABLE
+SAFE HAVEN
+-0.28
+STABLE
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

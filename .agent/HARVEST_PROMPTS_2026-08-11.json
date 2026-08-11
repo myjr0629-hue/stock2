@@ -1,0 +1,140 @@
+{
+  "_meta": {
+    "date": "2026-08-11",
+    "model": "seedance_2_5 (web unlimited, 5s / 720p / 9:16)",
+    "canon": ".agent/SEEDANCE_PROMPT_GUIDE.md §0 BRIGHT + .agent/SHORTS_FRAMEWORK_V3.md §5",
+    "principle": "잘 만들어도 안 보면 소용없다 — 훅에는 다큐를 쓰지 않는다. 다큐는 증거 구간에만.",
+    "rules": [
+      "AI 는 로고·앱UI·숫자를 그리지 않는다 (전 프롬프트에 no logos / no on-screen text)",
+      "밝게 (high key). 다크는 대본이 명시 요구할 때만",
+      "카메라 무브는 1개만",
+      "세로 9:16 명시"
+    ]
+  },
+
+  "A_morning": [
+    "Sunrise over a Manhattan-style skyline, golden light flooding between glass towers, thousands of windows igniting one by one like a circuit powering up, slow aerial rise. Photoreal, bright high-key, vertical framing. No subtitles, no on-screen text.",
+    "A vast open office waking at dawn, rows of empty white desks and monitors switching on in soft waves of light, bright airy architecture, camera slowly craning upward. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "An enormous polished golden bell hanging in a sunlit atrium of white marble and glass, the instant it is struck rings of visible light ripple outward through the bright air, slow push-in. Ethereal, high key, vertical framing. No subtitles, no on-screen text.",
+    "Aerial at sunrise over a harbor packed with container ships, first light hitting stacked containers in bright saturated colors, mist burning off the water, slow forward glide. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "Time-lapse of dawn light sweeping across a bright minimal desk with a steaming coffee cup, dust motes drifting through the beams, warm clean interior, slow dolly right. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A city waking from above at golden hour, streets filling with streaks of traffic light in accelerated motion, crisp bright sky, slow aerial descent toward the avenues. Photoreal timelapse, vertical framing. No subtitles, no on-screen text.",
+    "Anime style, hand-drawn cel shading: a young commuter runs up subway stairs into blinding golden morning light of a huge city, coat streaming behind, vivid saturated colors, single continuous forward tracking shot. Bright, vertical framing. No subtitles, no on-screen text.",
+    "Anime style, vivid cel shading: a bright city skyline at sunrise seen from a rooftop, clouds racing across a huge blue sky, birds scattering upward, slow tilt up. Vertical framing. No subtitles, no on-screen text.",
+    "First sunlight striking the glass facade of a modern exchange building, reflections igniting column by column across the surface, bright clear morning, slow lateral dolly. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A bright white paper calendar page lifting and turning in a sunlit room, sunlight raking across the fibers of the paper, extreme close-up, slow push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text."
+  ],
+
+  "B_hook": [
+    "Extreme macro shot of a silicon wafer surface, circuit traces glowing like a vast illuminated city seen from orbit, iridescent rainbow diffraction sweeping across the mirror surface, bright clean laboratory light, slow push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "A single droplet of water frozen in mid-air above a bright white surface, ultra slow motion, rainbow caustics dancing beneath it while everything else stays perfectly still, extreme macro push-in. Bright studio light, vertical framing. No subtitles, no on-screen text.",
+    "An entire miniature city rests on an open human palm in bright daylight, tiny cars moving along its streets, tilt-shift shallow depth, gentle handheld drift. Photoreal miniature, vertical framing. No subtitles, no on-screen text.",
+    "Gravity reverses inside a bright modern office: loose paper sheets, pens and a chair drift upward past floor-to-ceiling windows full of daylight, camera rises slowly following them. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "Extreme macro of liquid mercury beads on a bright white surface suddenly rushing together into one perfect mirror sphere, crisp reflections, ultra slow motion, slow push-in. High key studio light, vertical framing. No subtitles, no on-screen text.",
+    "Thousands of white dominoes arranged in a spiral on a bright white floor, the fall beginning at the center and racing outward, top-down camera rising slowly. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "Extreme macro of a hairline crack spreading across a bright mirrored surface that reflects blue sky, crystalline fracture detail in ultra slow motion, slow push-in. Vertical framing. No subtitles, no on-screen text.",
+    "A hot air balloon inflating in extreme slow motion at sunrise, brilliant fabric filling the frame with saturated color, low angle looking upward, bright sky. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "Extreme macro of a match head igniting against a clean white background in bright daylight, sparks blooming outward in ultra slow motion, slow push-in. Vertical framing. No subtitles, no on-screen text.",
+    "A perfectly balanced stack of smooth white stones on a bright salt flat under a huge blue sky, the top stone trembling, wind streaking past, slow orbit around the stack. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "Ultra slow motion of a heavy steel ball dropping into a shallow pool of bright white liquid, the crown splash rising in perfect symmetry, high key studio light, locked low angle slowly pushing in. Vertical framing. No subtitles, no on-screen text.",
+    "Thousands of tiny mirrored cubes suspended in bright empty space suddenly rotate in unison, a wave of reflected sunlight sweeping across the whole field, slow lateral dolly. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "An avalanche of bright white sand pouring down a dune in ultra slow motion under a hard blue sky, grains catching the sun like sparks, slow push-in. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "Extreme macro of a soap bubble's surface, swirling iridescent color storms crawling across it, the moment before it bursts, bright backlight, slow push-in. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A vast field of white flags on a bright plain all snapping in the same direction, then one flag turning against the wind, slow aerial glide. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "A single elevator cable under bright industrial lighting, one strand snapping and unwinding in ultra slow motion, extreme macro, slow push-in. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "Ultra slow motion of a glass of clear water on a bright white table with concentric ripples pulsing across its surface from an unseen tremor, extreme close-up, locked camera pushing in. Vertical framing. No subtitles, no on-screen text.",
+    "A colossal wave of clear water curls over a bright sunlit beach but freezes solid at its peak, sunlight refracting through the frozen crest, slow arc around it. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "Extreme macro of a bright red thread being pulled taut across a white surface until it vibrates, ultra shallow depth of field, slow lateral tracking. High key, vertical framing. No subtitles, no on-screen text.",
+    "A flock of thousands of white birds forming a dense murmuration against a brilliant blue sky, the shape suddenly splitting into two, slow aerial follow. Photoreal, vertical framing. No subtitles, no on-screen text."
+  ],
+
+  "C_anime": [
+    "Anime style, hand-drawn cel shading, vivid saturated colors: a lone figure stands on a bright rooftop above a vast sunlit metropolis as a stream of paper planes rushes past, wind moving their hair, slow rise revealing the city. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, crisp cel shading: a bullet train races through a sunlit countryside toward a distant glittering city, motion lines and bright lens flares, single continuous side tracking shot. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, bright vivid palette: an enormous wave made of golden light curls over a coastal city skyline and freezes at its peak, dramatic clouds, slow arc around. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, hand-drawn cel shading: a girl in a bright office atrium looks up as hundreds of translucent glowing panels rise around her like a rising tide of light, slow tilt upward. Vivid, high key, vertical framing. No subtitles, no on-screen text.",
+    "Anime style, vivid saturated colors: a colossal robot stands motionless in a bright harbor of container cranes while gulls circle, clouds racing overhead, slow push-in from below. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, crisp cel shading: a courier bike weaves through a sunlit downtown intersection at speed, dust and paper swirling in the slipstream, single continuous chase shot. Bright, vertical framing. No subtitles, no on-screen text.",
+    "Anime style, bright vivid palette: a vast library of floating luminous cubes stretching into a blue sky, one cube igniting brighter than the rest, slow forward dolly between them. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, hand-drawn cel shading: a rocket lifts off in brilliant daylight seen from a grassy field, exhaust blooming white against a huge blue sky, slow tilt up following it. Vivid, vertical framing. No subtitles, no on-screen text.",
+    "Anime style, vivid saturated colors: an oil refinery on a bright coastline with steam plumes catching the sun, pipes gleaming, slow lateral dolly. Clean and graphic, vertical framing. No subtitles, no on-screen text.",
+    "Anime style, crisp cel shading: a hospital corridor flooded with bright morning light, curtains breathing in the breeze, a single figure walking away from camera, slow forward dolly. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, bright vivid palette: an enormous vault door of polished gold slowly rotating open in a sunlit marble hall, beams of light spilling through the widening gap, slow push-in. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, hand-drawn cel shading: a data center corridor rendered as an endless bright hall of glowing white towers, air shimmering with heat, single continuous forward tracking shot. Vivid, vertical framing. No subtitles, no on-screen text.",
+    "Anime style, vivid saturated colors: a farmer stands in a bright wheat field as a sudden wind flattens the crop in a rolling wave toward the horizon, slow push-in from behind. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, crisp cel shading: an electric car glides silently through a sunlit desert highway, heat haze rippling, mountains beyond, single continuous side tracking shot. Bright, vertical framing. No subtitles, no on-screen text.",
+    "Anime style, bright vivid palette: a giant koi made of flowing water swims through the sky above a sunlit city, scales catching the light, slow orbit. Vertical framing. No subtitles, no on-screen text.",
+    "Anime style, hand-drawn cel shading: an astronaut floats above a brilliantly lit blue Earth, sunlight flaring across the visor, slow drift and rotation. Vivid, vertical framing. No subtitles, no on-screen text."
+  ],
+
+  "D_fantasy": [
+    "An enormous glowing hourglass standing in a sunlit desert, luminous sand falling upward instead of down, slow orbit around the glass. Bright, ethereal, photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A staircase of translucent glass steps ascending into a bright cloudscape, sunlight refracting into soft rainbows on each step, slow upward dolly. Ethereal, high key, vertical framing. No subtitles, no on-screen text.",
+    "A tree made entirely of clear glass standing on a bright salt flat, sunlight fracturing through its branches into moving prisms, slow orbit. Photoreal fantasy, vertical framing. No subtitles, no on-screen text.",
+    "An island floating in a brilliant blue sky with waterfalls pouring off its edges into open air, sunlit clouds below, slow aerial approach. Photoreal fantasy, vertical framing. No subtitles, no on-screen text.",
+    "A vast set of golden scales the size of a building standing in a sunlit marble plaza, the two pans drifting slowly toward balance, slow push-in. Bright, ethereal, vertical framing. No subtitles, no on-screen text.",
+    "A whale made of soft white cloud swimming slowly through a bright blue sky above a sunlit sea, light passing through its body, slow tracking follow. Photoreal fantasy, vertical framing. No subtitles, no on-screen text.",
+    "An endless field of luminous white lanterns rising into a bright dawn sky above a calm lake, reflections doubling the light, slow tilt upward. Ethereal, vertical framing. No subtitles, no on-screen text.",
+    "A giant compass needle of polished brass hovering above a sunlit stone floor, spinning fast then locking to a single direction, slow orbit. Bright photoreal fantasy, vertical framing. No subtitles, no on-screen text.",
+    "A river of liquid light flowing uphill through a bright green valley under a huge sky, slow aerial follow along its course. Ethereal photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A cathedral-sized chamber of white marble where thousands of tiny lights drift upward like embers of daylight, slow tilt up. Bright, ethereal, vertical framing. No subtitles, no on-screen text.",
+    "An enormous door of pure light standing alone on a bright grassy plain, slowly opening to reveal more light, slow push-in. Ethereal photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A colossal clock face made of clear ice lying flat on a bright snowfield, sunlight melting a channel along its hands, slow aerial rise. Photoreal fantasy, vertical framing. No subtitles, no on-screen text."
+  ],
+
+  "E_sector_doc": [
+    "A modern semiconductor cleanroom in brilliant white light, technicians in white suits moving between polished machines, reflective floors, slow lateral dolly. Photoreal documentary, high key, vertical framing. No subtitles, no on-screen text.",
+    "A hyperscale data center hall in bright cool light, endless rows of server cabinets with soft indicator glow, cold aisle vanishing into distance, slow forward dolly. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "An automotive assembly line in bright factory light, robotic arms moving in synchronized arcs around a car body, sparks of clean light, slow lateral tracking. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "An oil refinery at midday under a clear blue sky, silver pipework and steam plumes catching hard sunlight, slow aerial glide. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A container terminal at midday, gantry cranes lifting bright containers against a blue sky, ships lined along the quay, slow aerial push-in. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A pharmaceutical laboratory in bright clean light, robotic pipettes moving across trays of clear vials, glass and steel surfaces, slow macro dolly. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A modern hospital corridor flooded with daylight, staff moving briskly past tall windows, clean bright architecture, slow forward dolly. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A solar farm stretching to the horizon under a hard blue sky, panels tracking the sun in unison, slow aerial rise. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "Offshore wind turbines standing in a bright calm sea, blades turning slowly, sunlight glittering on the water, slow aerial orbit. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A modern bank headquarters lobby in white stone and glass, daylight pouring through a tall atrium, people crossing the floor, slow crane upward. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A busy retail warehouse in bright overhead light, conveyor belts carrying packages in steady streams, slow lateral tracking. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A wheat harvest at midday, combine harvesters cutting golden rows under a huge bright sky, dust rising in the light, slow aerial follow. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A rocket standing on its launch pad in brilliant morning light, vapor venting from its sides, service tower beside it, slow tilt upward. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A copper mine terrace in bright daylight, haul trucks crawling along the switchbacks, rock faces in warm tones, slow aerial rise. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "An airport apron at midday, aircraft being serviced under a clear sky, ground crews moving in bright hi-vis, slow lateral dolly. Photoreal documentary, vertical framing. No subtitles, no on-screen text.",
+    "A luxury goods atelier in bright natural light, hands working leather and metal at a clean wooden bench, extreme shallow depth, slow macro push-in. Photoreal documentary, vertical framing. No subtitles, no on-screen text."
+  ],
+
+  "F_logo_plate": [
+    "A blank glossy white square panel floating and slowly rotating in a bright sunlit studio void, soft gradient backdrop, specular highlights sweeping across its empty surface, slow orbit. Photoreal product lighting, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "An empty circular pedestal of polished white stone standing in a bright airy hall, a soft beam of daylight falling onto its blank top surface, slow push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "Nine blank white cards floating in a loose grid in bright empty space, drifting gently and catching soft light on their empty faces, slow lateral dolly. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "A bright tunnel of soft white light panels receding into the distance with a clean empty center, gentle forward motion, slow forward dolly. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "A single sheet of clear glass standing upright in a bright white studio, dust and light refracting along its edges, its face completely empty, slow orbit. Photoreal, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "A shallow pool of still white liquid in bright studio light with a single expanding ripple ring at the center, top-down camera slowly rising. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "A blank brushed-metal plate suspended in bright empty space, light sweeping across its clean surface revealing fine grain, slow lateral dolly. Photoreal product lighting, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "Three empty white pedestals of different heights on a bright seamless studio floor, soft shadows, slow arc around them. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "A curtain of soft white light particles parting in the middle of a bright void to open an empty clean space, slow push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "A blank white cube slowly rotating in bright empty space, each face catching a different soft highlight, slow orbit. Photoreal product lighting, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "Concentric rings of soft light expanding outward across a bright seamless white floor from an empty center point, top-down camera slowly rising. Photoreal, vertical framing. No subtitles, no on-screen text, no logos, no symbols.",
+    "A bright white archway standing alone on a seamless studio floor with clean empty space framed inside it, slow forward dolly through the opening. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos, no symbols."
+  ],
+
+  "G_endcard_plate": [
+    "A bright minimal desk of pale stone under soft morning light with a completely empty center, faint window light patterns drifting across it, very slow push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos.",
+    "A clean seamless white studio backdrop with a soft warm gradient and slow drifting light bloom, entirely empty frame, very slow push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos.",
+    "Soft white clouds drifting past a brilliant blue sky filling the whole frame, gentle continuous motion, slow upward drift. Photoreal, bright, vertical framing. No subtitles, no on-screen text, no logos.",
+    "A bright modern interior with a large window, sheer curtains breathing in the breeze, empty pale wall in the center of frame, very slow lateral dolly. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos.",
+    "Sunlit water surface seen from just above, gentle caustic patterns rippling across the whole frame in bright daylight, slow lateral drift. Photoreal, vertical framing. No subtitles, no on-screen text, no logos.",
+    "A soft field of pale gold particles drifting slowly through bright empty space with a clean center, very slow push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text, no logos."
+  ],
+
+  "H_stinger": [
+    "A sheet of bright white light sweeping fast across a clean seamless backdrop from left to right, brief bloom, single continuous whip motion. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "White paper sheets exploding outward toward the camera against a bright background in ultra slow motion, single continuous push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "A rapid whip pan across a bright sunlit wall, motion blur streaking the light into bands, single continuous whip motion. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A burst of fine white powder erupting toward camera in bright studio light, ultra slow motion, single continuous push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "Clear water surging across the lens in bright daylight and clearing instantly, single continuous forward motion. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A bright prism refracting sunlight into a fast-moving rainbow band that sweeps across the frame, single continuous lateral motion. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "Thin white venetian blinds snapping open in bright morning light, hard light bars racing across the frame, single continuous motion. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "A soft white cloud rushing past the camera at speed in brilliant daylight, brief whiteout then clearing, single continuous forward motion. Photoreal, vertical framing. No subtitles, no on-screen text.",
+    "Glass shards of bright light reassembling into a smooth clean surface in ultra slow motion, single continuous push-in. Photoreal, high key, vertical framing. No subtitles, no on-screen text.",
+    "A field of white feathers lifting all at once in bright daylight and clearing the frame, single continuous upward motion. Photoreal, vertical framing. No subtitles, no on-screen text."
+  ]
+}

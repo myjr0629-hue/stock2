@@ -42,12 +42,17 @@ if (!script) { console.error(`SCRIPT_${NAME} 를 kit/scripts.ts 에서 찾지 �
 
 // ── 낭독 목록 (자막과 같은 문자열 — \n 만 공백으로) ─────────────────────────
 const flat = (t) => (t || '').replace(/\n/g, ' ').trim();
+// ★ say 와 ask 를 «한 파일»로 굽지 않는다.
+//   합쳐 구우면 ask 자막이 언제 나와야 하는지 알 수 없어 «고정 프레임»으로 띄우게 되고,
+//   그러면 자막이 낭독보다 2초 먼저 뜬다(2026-08-11 실측 결함). 따로 구워 «실측 초»로 맞춘다.
 const segs = [
   { id: 'hook', text: flat(script.hook.line) },
-  ...script.beats.map((b, i) => ({
-    id: String(i).padStart(2, '0'),
-    text: [flat(b.say), flat(b.ask)].filter(Boolean).join(' '),
-  })),
+  ...script.beats.flatMap((b, i) => {
+    const n = String(i).padStart(2, '0');
+    const out = [{ id: n, text: flat(b.say) }];
+    if (flat(b.ask)) out.push({ id: `${n}a`, text: flat(b.ask) });
+    return out;
+  }),
   { id: 'outro', text: flat(script.outro.ask) },
   { id: 'loop', text: flat(script.loop) },
 ];
@@ -85,7 +90,14 @@ for (const seg of segs) {
 // ── 템플릿용 트랙 파일 생성 ─────────────────────────────────────────────────
 const lc = NAME.toLowerCase();
 const seg = (id) => { const r = results.find((x) => x.id === id); return `{ f: '${id}.mp3', sec: ${r.sec} }`; };
-const beatSegs = results.filter((r) => /^\d+$/.test(r.id)).map((r) => seg(r.id)).join(',\n    ');
+const GAP = 0.18;   // say 끝 ↔ ask 시작 사이의 숨. 자막 전환도 이 시점에 맞춘다.
+const beatSegs = results.filter((r) => /^\d+$/.test(r.id)).map((r) => {
+  const a = results.find((x) => x.id === `${r.id}a`);
+  const total = a ? Math.round((r.sec + GAP + a.sec) * 100) / 100 : r.sec;
+  return a
+    ? `{ f: '${r.id}.mp3', sec: ${total}, saySec: ${r.sec}, ask: { f: '${r.id}a.mp3', sec: ${a.sec} } }`
+    : `{ f: '${r.id}.mp3', sec: ${r.sec} }`;
+}).join(',\n    ');
 const ts = `// 자동 생성 — scripts/tts-beats.mjs ${NAME} (수동 편집 금지, 재생성으로만 갱신)
 import type { VoiceTrack } from './Briefing';
 
@@ -100,6 +112,6 @@ export const VOICE_${NAME}: VoiceTrack = {
 };
 `;
 writeFileSync(`src/remotion/kit/voice-${lc}.ts`, ts);
-const total = results.reduce((a, r) => a + r.sec, 0);
+const total = results.reduce((a, r) => a + r.sec, 0);   // 숨 제외 순수 낭독
 console.log(`\n낭독 합계 ${total.toFixed(1)}s → src/remotion/kit/voice-${lc}.ts 생성`);
 console.log(`다음: scripts.ts 의 SCRIPT_${NAME} 에  voice: VOICE_${NAME}  연결 후 렌더`);

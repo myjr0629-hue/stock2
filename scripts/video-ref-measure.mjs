@@ -216,10 +216,12 @@ export const GATE = {
   // → 전역 min/max 가 아니라 «인접 샷 점프가 큰 횟수»를 센다.
   shotJumpThreshold: 150,
   maxBigJumps: 2,
-  // [2026-08-07] 길이 게이트 — 26.8초판은 4단 중 CTA가 눌렸다(kit/spec LENGTH).
-  // 표준 42초, 허용 36~50. 훅 검증용 짧은 판을 일부러 만들 때는 --short 로 우회.
-  minSeconds: 36,
-  maxSeconds: 50,
+  // [2026-08-11 개정] 길이 게이트 — 플랫폼별 최적이 다르다(kit/variants.ts WINDOW).
+  //   YT 48~58 · TikTok 28~38 · Reels 30~45  → 게이트는 «합집합» 28~58 을 본다.
+  //   플랫폼 창 검사는 variantReport 가 따로 한다. 여기서는 «너무 짧다»만 막는다.
+  //   훅 검증용 초단편은 --short 로 우회.
+  minSeconds: 28,
+  maxSeconds: 58,
 };
 export function gateCheck(v) {
   const fails = [];

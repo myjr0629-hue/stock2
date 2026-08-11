@@ -1,0 +1,292 @@
+INTEL
+Sector Intelligence
+
+AI sector reports · options, context and flow combined
+
+CLOSED
+LEADERS
+Cloud Fortress
++3.9%
+LAGGARDS
+Silicon Core
+-2.4%
+COVERAGE
+70
+Key Names
+AVG MOVE
+1.7%
+Live + Snapshot
+Sector
+Closing Report
+M7 Tech
+
+Tracks AI leadership and options gamma dynamics across mega-cap technology.
+
++0.0%
+AI READ
+Tracks gamma-flip support and mega-cap technology flow in one context.
+GAMMA PULSE
++88
+LEAD NAME
+AAPL
+-1.6%
+GEX
+-261.47M
+PCR
+0.63
+NET PREM
++$162.5M
+Coverage 7
+NVDA -2.9%
+AAPL -1.6%
+MSFT +1.2%
++4
+D.POOL 64%
+WHALE 79
+SQUEEZE 27%
+Silicon Core
+
+Chips, equipment and memory ecosystem powering AI training and inference.
+
+-2.4%
+AI READ
+Watches whether semiconductor momentum and options flow reinforce each other.
+GAMMA PULSE
++62
+LEAD NAME
+ARM
+-5.2%
+GEX
+-16.64M
+PCR
+1.23
+NET PREM
++$28.4M
+Coverage 7
+AMD -2.9%
+AVGO -1.3%
+MU -1.9%
++3
+D.POOL 56%
+WHALE 61
+SQUEEZE 27%
+Power Matrix
+
+Datacenter power, nuclear, grid and energy infrastructure flow.
+
+-1.0%
+AI READ
+Checks power-infrastructure flow against rate and volatility constraints.
+GAMMA PULSE
++12
+LEAD NAME
+CCJ
+-0.1%
+GEX
+-4.39M
+PCR
+1.29
+NET PREM
++$1.3M
+Coverage 7
+CEG +0.2%
+VST +1.6%
+GEV +0.1%
++3
+D.POOL 51%
+WHALE 60
+SQUEEZE 28%
+●
+Physical AI
+
+Robotics, automation and space infrastructure tied to real-world AI deployment.
+
+-1.2%
+AI READ
+Monitors short-term momentum softness and reactions near key support zones.
+GAMMA PULSE
+-35
+LEAD NAME
+PL
+-3.5%
+GEX
+-33.41M
+PCR
+0.74
+NET PREM
++$61.6M
+Coverage 7
+SERV -3.2%
+SYM -0.2%
+ISRG +3.9%
++3
+D.POOL 55%
+WHALE 63
+SQUEEZE 23%
+Bio Pulse
+
+GLP-1, gene therapy and large-cap biotech positioning.
+
++2.2%
+AI READ
+Observes whether biotech flow expansion persists around catalyst events.
+GAMMA PULSE
++45
+LEAD NAME
+VKTX
++0.5%
+GEX
+-9.33M
+PCR
+1.23
+NET PREM
++$20.6M
+Coverage 7
+LLY +3.9%
+NVO +1.0%
+VRTX +5.6%
++3
+D.POOL 48%
+WHALE 64
+SQUEEZE 25%
+Cyber Shield
+
+Security infrastructure and institutional positioning for the AI cloud era.
+
++3.9%
+AI READ
+Reads security-sector pressure through hedge ratio and resistance response.
+GAMMA PULSE
+-15
+LEAD NAME
+PANW
++5.8%
+GEX
+-16.78M
+PCR
+1.20
+NET PREM
++$35.7M
+Coverage 7
+CRWD +5.0%
+PANW +5.8%
+FTNT +2.9%
++3
+D.POOL 55%
+WHALE 73
+SQUEEZE 32%
+Orbit Defense
+
+Satellites, defense, LEO networks and government spending cycles.
+
++0.7%
+AI READ
+Tracks whether defense budget and space-infrastructure catalysts enter flow.
+GAMMA PULSE
++5
+LEAD NAME
+ASTS
+-4.4%
+GEX
+-34.67M
+PCR
+1.00
+NET PREM
++$130.7M
+Coverage 7
+LMT +2.6%
+RTX +0.5%
+AXON +4.4%
++3
+D.POOL 52%
+WHALE 66
+SQUEEZE 16%
+Quantum Edge
+
+High-volatility quantum names, momentum and risk regime.
+
++1.1%
+AI READ
+Checks flow concentration and risk spread in a high-volatility theme.
+GAMMA PULSE
+-75
+LEAD NAME
+SMCI
++1.1%
+GEX
+-63.85M
+PCR
+0.75
+NET PREM
++$28.0M
+Coverage 7
+IONQ -4.3%
+RGTI
+QBTS
+D.POOL 57%
+WHALE 70
+SQUEEZE 26%
+Fintech Pulse
+
+AI credit scoring, brokerage and next-generation financial platforms.
+
+-0.8%
+AI READ
+Observes credit-risk and short-volume pressure inside fintech flow.
+GAMMA PULSE
+-42
+LEAD NAME
+SOFI
+-1.4%
+GEX
+-62.72M
+PCR
+0.46
+NET PREM
++$6.1M
+Coverage 7
+PYPL +0.0%
+SOFI -1.4%
+AFRM +0.4%
++2
+D.POOL 54%
+WHALE 59
+SQUEEZE 33%
+Cloud Fortress
+
+SaaS, data lakes and enterprise AI deployment infrastructure.
+
++3.9%
+AI READ
+Reads SaaS renewal stability and AI-infrastructure demand in context.
+GAMMA PULSE
++28
+LEAD NAME
+MDB
++4.5%
+GEX
+-14.85M
+PCR
+1.25
+NET PREM
++$27.4M
+Coverage 7
+SNOW
+DDOG +11.5%
+NET
++2
+D.POOL 52%
+WHALE 70
+SQUEEZE 26%
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel

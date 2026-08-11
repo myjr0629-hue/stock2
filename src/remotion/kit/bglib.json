@@ -1,0 +1,136 @@
+{
+  "brief": [
+    {
+      "key": "brief-01-extreme-macro-silicon-wafer",
+      "src": "shorts/bg/brief/brief-01-extreme-macro-silicon-wafer.mp4",
+      "topics": [
+        "semis",
+        "pharma"
+      ]
+    }
+  ],
+  "endcard": [
+    {
+      "key": "endcard-01-bright-minimal-desk-pale",
+      "src": "shorts/bg/endcard/endcard-01-bright-minimal-desk-pale.mp4",
+      "topics": [
+        "materials"
+      ]
+    },
+    {
+      "key": "endcard-02-clean-seamless-white-studio",
+      "src": "shorts/bg/endcard/endcard-02-clean-seamless-white-studio.mp4",
+      "topics": [
+        "materials"
+      ]
+    }
+  ],
+  "finance": [
+    {
+      "key": "finance-01-facade-classical-stock-exchange",
+      "src": "shorts/bg/finance/finance-01-facade-classical-stock-exchange.mp4",
+      "topics": [
+        "bank"
+      ]
+    },
+    {
+      "key": "finance-03-enormous-polished-steel-vault",
+      "src": "shorts/bg/finance/finance-03-enormous-polished-steel-vault.mp4",
+      "topics": [
+        "bank"
+      ]
+    }
+  ],
+  "hook": [
+    {
+      "key": "hook-01-extreme-macro-shot-silicon",
+      "src": "shorts/bg/hook/hook-01-extreme-macro-shot-silicon.mp4",
+      "topics": [
+        "semis",
+        "pharma",
+        "materials",
+        "city"
+      ]
+    },
+    {
+      "key": "hook-05-extreme-macro-liquid-mercury",
+      "src": "shorts/bg/hook/hook-05-extreme-macro-liquid-mercury.mp4",
+      "topics": []
+    }
+  ],
+  "morning": [
+    {
+      "key": "morning-01-sunrise-manhattanstyle-skyline-golden",
+      "src": "shorts/bg/morning/morning-01-sunrise-manhattanstyle-skyline-golden.mp4",
+      "topics": [
+        "materials",
+        "city",
+        "sky"
+      ]
+    },
+    {
+      "key": "morning-02-vast-open-office-waking",
+      "src": "shorts/bg/morning/morning-02-vast-open-office-waking.mp4",
+      "topics": [
+        "materials"
+      ]
+    },
+    {
+      "key": "morning-03-enormous-polished-golden-bell",
+      "src": "shorts/bg/morning/morning-03-enormous-polished-golden-bell.mp4",
+      "topics": [
+        "bank"
+      ]
+    },
+    {
+      "key": "morning-04-aerial-sunrise-harbor-packed",
+      "src": "shorts/bg/morning/morning-04-aerial-sunrise-harbor-packed.mp4",
+      "topics": [
+        "shipping",
+        "materials"
+      ]
+    },
+    {
+      "key": "morning-05-timelapse-dawn-light-sweeping",
+      "src": "shorts/bg/morning/morning-05-timelapse-dawn-light-sweeping.mp4",
+      "topics": [
+        "materials"
+      ]
+    },
+    {
+      "key": "morning-06-city-waking-above-golden",
+      "src": "shorts/bg/morning/morning-06-city-waking-above-golden.mp4",
+      "topics": [
+        "materials",
+        "city",
+        "sky"
+      ]
+    }
+  ],
+  "stylized": [
+    {
+      "key": "stylized-01-anime-style-crisp-cel",
+      "src": "shorts/bg/stylized/stylized-01-anime-style-crisp-cel.mp4",
+      "topics": [
+        "semis"
+      ]
+    },
+    {
+      "key": "stylized-02-tiltshift-miniature-semiconductor-fab",
+      "src": "shorts/bg/stylized/stylized-02-tiltshift-miniature-semiconductor-fab.mp4",
+      "topics": [
+        "semis"
+      ]
+    }
+  ],
+  "tech": [
+    {
+      "key": "tech-11-rocket-engine-static-fire",
+      "src": "shorts/bg/tech/tech-11-rocket-engine-static-fire.mp4",
+      "topics": [
+        "space",
+        "sky"
+      ]
+    }
+  ]
+}
