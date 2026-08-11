@@ -10,6 +10,7 @@
 
 import type { BriefingProps } from './Briefing';
 import { VOICE_CLOSE } from './voice-close';
+import { VOICE_CLOSE811 } from './voice-close811';
 import { VOICE_T2 } from './voice-t2';
 import { VOICE_T4 } from './voice-t4';
 import { VOICE_T2B } from './voice-t2b';
@@ -575,6 +576,314 @@ export const SCRIPT_T2: BriefingProps = {
 //
 // 속도감(대표 지시): say 는 «한 문장», ask 는 «한 마디». 비트당 3초대를 목표로 한다.
 // ============================================================================
+// ============================================================================
+// SCRIPT_CLOSE811 — 「지수는 빠졌는데 반도체는 올랐다」 · 2026-08-11 ET 마감 실측
+// ----------------------------------------------------------------------------
+// ★ 숫자 출처 — 두 갈래로 나뉜다. 섞지 않는다.
+//   [A] 캡처 c812-dash.txt 중 «CLOSED» 로 표시된 것과 우리 고유 지표만 쓴다:
+//       NASDAQ 26,445 -0.60% · S&P 500 7,728.20 -0.32% · DOW 53,792 -0.34%
+//       다크풀 42.7% (11.4M) · F&G 60.8 GREED · RISK 51
+//   [B] 개별 종목·섹터는 Polygon 공식 종가로 «다시 확인한 값»만 쓴다 (2026-08-12 실조회):
+//       SOXX +0.91% · MU 868.52 +0.87% · NVDA 217.50 -0.02%
+//       XLE +1.25% · XLU +1.16% · XLK -0.12% · XLI +0.60% · XLV -0.26%
+//
+//   ⛔ 캡처의 TOP MOVERS 블록은 쓰지 않는다 — 두 가지 이유로 위험하다:
+//      ① 마감 후에도 «시간외» 값이 흐른다. 실제로 NVDA 를 +0.23% 로 표시했지만
+//         공식 종가는 -0.02% 였다. 그대로 썼으면 "엔비디아도 올랐다"는 거짓말이 나갔다.
+//      ② 소형·마이너 종목이 섞여 들어온다 (대표 지시 2026-08-12).
+//   ⛔ SECTOR HEATMAP 도 「POST」 표기가 붙어 있으면 시간외다. 실제로 유틸리티를 1위로
+//      보여줬지만 공식 종가 1위는 에너지였다(+1.25% vs +1.16%). 섹터는 ETF 종가로 다시 잰다.
+//   ⛔ VIX 도 뺐다 — 우리 Polygon 플랜은 I:VIX 를 주지 않아 «독립 검증»이 불가능하다.
+//      검증 못 하는 숫자는 화면에 올리지 않는다.
+//
+//   ⇒ 규칙: 캡처는 «무엇을 말할지»를 고르는 데 쓰고, 화면에 나가는 개별 수치는
+//     반드시 1차 출처로 다시 잰다. 캡처의 라이브 블록을 그대로 옮기면 거짓말이 나간다.
+//
+// ★ 인사이트 = 직접 계산 (Polygon 일봉, 2021-01 ~ 2026-08-04, QQQ/SOXX 대용):
+//   조건 «지수 하락 + 반도체 상승» = 103건
+//     · 반도체 5일 뒤 상승 58%  (대조군 56%)  → 우위 사실상 없음
+//     · 지수  5일 뒤 상승 54%  (대조군 58%)  → 오히려 평균보다 나쁘다
+//     · 반도체 5일 중앙 수익률 +0.36% (대조군 +0.64%)
+//   ⇒ «반도체가 지수를 이긴 날은 바닥 신호»라는 통념이 데이터로 깨진다.
+//     우위가 없을 때 그걸 그대로 말하는 것도 소재다 (kit/insight.ts noEdgeBeat).
+//
+// 컴플라이언스: 과거 빈도 서술만. 미래형 동사 0. 「SIGNUM READ」로 사실과 해석 분리.
+// ============================================================================
+export const SCRIPT_CLOSE811: BriefingProps = {
+  voice: VOICE_CLOSE811,
+  title: 'Red close.\nGreen chips.',
+  date: 'AUG 11 · AFTER THE CLOSE',
+  data: { seed: 'CLOSE811' },
+  disclaimer: 'Educational only · Not investment advice · Our read, not a forecast',
+  field: ['NVDA', 'MU', 'SPY', 'AAPL'],
+  tape: [
+    { t: 'NASDAQ', v: '-0.60%', up: false }, { t: 'S&P 500', v: '-0.32%', up: false },
+    { t: 'DOW', v: '-0.34%', up: false }, { t: 'SEMIS', v: '+0.91%', up: true },
+    { t: 'MU', v: '+0.87%', up: true }, { t: 'NVDA', v: '-0.02%', up: false },
+    { t: 'DARK POOL', v: '42.7%', up: true }, { t: 'US10Y', v: '4.68%', up: false },
+  ],
+  hook: {
+    line: 'The Nasdaq fell.\nChips went up.',
+    sub: 'Nvidia did not move at all.',
+    syms: ['NVDA'],
+    stamp: 'AUG 11 · AFTER THE CLOSE',
+  },
+  loop: 'Two tapes closed today.\nOnly one was red.',
+
+  beats: [
+    {
+      // prio 2 — 훅이 이미 «지수가 빠졌다»를 말한다. 짧은 판에서는 이 확인 비트를 버려야
+      // 틱톡 창(28~38s)에 들어간다. prio 1 로 두면 40.4s 가 나와 창을 넘는다(실측).
+      role: 'market', prio: 2,
+      eyebrow: 'The board',
+      head: 'All three\nclosed red',
+      say: 'Nasdaq down zero point six. S&P down zero point three.',
+      ask: 'So it was a risk-off day?',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'NASDAQ', v: '-0.60%', up: false, sym: 'NASDAQ' },
+          { k: 'S&P 500', v: '-0.32%', up: false, sym: 'SP500' },
+          { k: 'DOW', v: '-0.34%', up: false, sym: 'DOW' },
+        ],
+      },
+    },
+    {
+      role: 'conflict', prio: 1,
+      eyebrow: 'Except for one shelf',
+      head: 'Semiconductors\nclosed up 0.9%',
+      say: 'Semiconductors closed up nine tenths of a percent. Micron finished up almost one.',
+      ask: 'And the biggest chip name did nothing.',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'SEMIS', v: '+0.91%', up: true, sym: 'SEMIS' },
+          { k: 'MU', v: '+0.87%', up: true, sym: 'MU' },
+          { k: 'NVDA', v: '-0.02%', up: false, sym: 'NVDA' },
+        ],
+      },
+    },
+    {
+      // ★ 우리 고유 데이터 — 공개 시세로는 볼 수 없는 층. 이게 채널이 파는 것이다.
+      role: 'depth', prio: 2,
+      eyebrow: 'The layer a red board hides',
+      head: 'Dark pool took\n42.7% of volume',
+      say: 'Almost forty-three percent of volume never touched the public exchange.',
+      ask: 'The board is red. The prints are not public.',
+      visual: { kind: 'stat', label: 'DARK POOL SHARE', value: '42.7%', sub: 'institutional prints, 11.4M', up: true },
+    },
+    {
+      role: 'money', prio: 2,
+      eyebrow: 'Where the money went',
+      head: 'Energy and utilities\nled the tape',
+      say: 'Energy led. Utilities second. Technology finished slightly red.',
+      ask: 'Oil and defense on top of a red board.',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'ENERGY', v: '+1.25%', up: true },
+          { k: 'UTILITIES', v: '+1.16%', up: true },
+          { k: 'TECHNOLOGY', v: '-0.12%', up: false },
+        ],
+      },
+    },
+    {
+      role: 'conflict', prio: 2,
+      eyebrow: 'Crowd versus machine',
+      head: 'Greed 60.8.\nRisk dial 51.',
+      say: 'Fear and Greed prints sixty point eight. Our risk dial reads fifty-one.',
+      ask: 'The crowd is warmer than the machine.',
+      visual: { kind: 'versus', aK: 'FEAR&GREED', aV: '60.8 GREED', bK: 'RISK DIAL', bV: '51', aSym: 'FEARGREED', bSym: 'RISK' },
+    },
+    {
+      // ★★ 인사이트 비트 — 우위가 «없다»는 것을 세어서 보여준다 (kit/insight.ts noEdgeBeat 형식)
+      role: 'evidence', prio: 1,
+      eyebrow: 'SIGNUM BASE RATE',
+      head: 'We counted\n103 of them',
+      say: 'We checked every session like this since 2021. One hundred and three.',
+      ask: 'Chips were higher 58 percent of the time.',
+      visual: {
+        kind: 'rows',
+        rows: [
+          // sym 을 «반드시» 준다. 안 주면 resolveSymbol 이 키 앞 4글자를 잘라
+          // 「EVEN」「ANYG」 같은 깨진 배지를 만든다 (2026-08-12 프레임 검수에서 발견).
+          { k: 'EVENTS SINCE 2021', v: '103', up: true, sym: 'RISK' },
+          { k: 'CHIPS HIGHER IN 5D', v: '58%', up: true, sym: 'SEMIS' },
+          { k: 'ANY GIVEN DAY', v: '56%', up: false, sym: 'SEMIS' },
+        ],
+      },
+    },
+    {
+      // ★ 통념이 깨지는 지점 — 지수는 오히려 «평균보다» 나빴다
+      role: 'depth', prio: 1,
+      eyebrow: 'The part that breaks it',
+      head: 'The index did\nworse, not better',
+      say: 'And the index itself was higher only 54 percent, against 58 on any day.',
+      ask: 'The bounce signal is not a signal.',
+      visual: {
+        kind: 'versus',
+        aK: 'AFTER THIS SETUP', aV: '54%', aSym: 'NASDAQ',
+        bK: 'ANY GIVEN DAY', bV: '58%', bSym: 'NASDAQ',
+      },
+    },
+    {
+      // ★ 의견 비트 — 사실과 시각·청각 양쪽으로 분리한다
+      role: 'verdict', prio: 1,
+      eyebrow: 'SIGNUM READ',
+      head: 'The split is real.\nThe edge is not.',
+      say: 'Our read: the split is real. The edge is not.',
+      ask: 'One hundred and three times. A coin flip.',
+      visual: { kind: 'stat', label: 'SIGNUM READ · AUG 11', value: 'NO EDGE', sub: '103 events, 58% vs 56% baseline', up: false, sym: 'RISK' },
+    },
+  ],
+
+  outro: {
+    app: 'SIGNUM HQ',
+    line: 'The tape institutions leave behind',
+    ask: 'Green chips, red board —\nwhich one would you trade?',
+  },
+};
+
+// ============================================================================
+// SCRIPT_OIL — 「원유가 이끈 날」 · 인사이트 비트를 «먼저» 정하고 쓴 1호 대본
+// ----------------------------------------------------------------------------
+// 이 대본이 다른 이유: 소재를 고르고 인사이트를 찾은 게 아니라, **계산을 먼저 돌리고**
+// 우위가 나온 조건을 소재로 삼았다. `node scripts/morning-edge.mjs` 12개 조건 중
+// 판정선(표본 40+ · 대조군 대비 8%p+)을 넘은 유일한 조건이 «원유 하루 +4%» 였다.
+//
+// ★ 화면·낭독에 나가는 모든 숫자의 출처 (2026-08-12 Polygon 실조회, 일봉 종가 기준):
+//   최신 세션 2026-08-11 — USO +1.34% · XLE +1.25% · XLK -0.12% · SPY -0.32%
+//                          에너지-기술 격차 +1.37%p
+//   베이스레이트 — 원유 하루 +4% 이상, 2021-01 ~ 2026-07-29, **50건**
+//     · 5거래일 뒤 에너지 상승 66% (대조군 57%)
+//     · 에너지 중앙 수익률 +1.85% (대조군 +0.58%)
+//     · 에너지 > S&P 64% · 초과 중앙 +1.72%p (대조군 초과 중앙 -0.05%p)
+//     · 최근 2건은 반대로 갔다 — 07-23 -0.7% · 07-29 -2.3%  ← 반증 조건으로 대본에 넣는다
+//
+// 컴플라이언스: 과거 빈도의 서술만. 미래형 동사 0. 「SIGNUM READ」 로 사실과 해석 분리.
+// ============================================================================
+export const SCRIPT_OIL: BriefingProps = {
+  title: 'Oil led.\nNobody was watching.',
+  date: 'AUG 11 · THE SESSION',
+  data: { seed: 'OIL-0811' },
+  disclaimer: 'Educational only · Not investment advice · Our read, not a forecast',
+  field: ['XOM', 'CVX', 'NVDA', 'SPY'],
+  tape: [
+    { t: 'OIL', v: '+1.34%', up: true }, { t: 'ENERGY', v: '+1.25%', up: true },
+    { t: 'TECH', v: '-0.12%', up: false }, { t: 'S&P 500', v: '-0.32%', up: false },
+    { t: 'GOLD', v: '$4,466', up: true }, { t: 'VIX', v: '15.46', up: true },
+  ],
+  hook: {
+    line: 'Energy beat tech\nby 1.4 points.',
+    sub: 'On a day the S&P went down.',
+    syms: ['XOM'],
+    stamp: 'AUG 11 · THE SESSION',
+  },
+  loop: 'The shock is the headline.\nThe rotation is the trade.',
+
+  beats: [
+    {
+      role: 'market', prio: 1,
+      eyebrow: 'What the board showed',
+      head: 'The index fell.\nEnergy did not.',
+      say: 'The S&P closed down. Energy closed up one and a quarter percent.',
+      ask: 'One day, or a pattern?',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'ENERGY', v: '+1.25%', up: true },
+          { k: 'TECH', v: '-0.12%', up: false },
+          { k: 'S&P 500', v: '-0.32%', up: false },
+        ],
+      },
+    },
+    {
+      role: 'money', prio: 2,
+      eyebrow: 'What moved it',
+      head: 'Oil closed up\n1.34%',
+      say: 'Crude closed up one point three four percent.',
+      ask: 'And what does everyone say that means?',
+      visual: { kind: 'stat', label: 'CRUDE OIL', value: '+1.34%', sub: 'session close, Aug 11', up: true },
+    },
+    {
+      role: 'conflict', prio: 1,
+      eyebrow: 'The obvious read',
+      head: 'Oil up means\nstocks down',
+      say: 'Higher oil means higher costs. Higher costs mean lower stocks.',
+      ask: 'That is the story. Is it true?',
+      visual: { kind: 'versus', aK: 'THE STORY', aV: 'OIL UP', bK: 'THE STORY', bV: 'STOCKS DOWN' },
+    },
+    {
+      // ★★ 인사이트 비트 — kit/insight.ts baseRateBeat 과 같은 형식. 이게 상품이다.
+      role: 'evidence', prio: 1,
+      eyebrow: 'SIGNUM BASE RATE',
+      head: 'We counted\n50 of them',
+      say: 'We checked every oil shock since 2021. Fifty of them.',
+      ask: 'Sixty-six percent were higher five days later.',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'EVENTS SINCE 2021', v: '50', up: true },
+          { k: 'ENERGY HIGHER IN 5D', v: '66%', up: true },
+          { k: 'ANY GIVEN DAY', v: '57%', up: false },
+        ],
+      },
+    },
+    {
+      // ★ 더 날카로운 숫자 — 절대 상승률이 아니라 «초과 수익»
+      role: 'depth', prio: 1,
+      eyebrow: 'The sharper number',
+      head: 'Energy beat the S&P\n64% of the time',
+      say: 'Energy beat the index sixty-four percent of the time, by one point seven points.',
+      ask: 'On any given day that edge is zero.',
+      visual: {
+        kind: 'versus',
+        aK: 'AFTER AN OIL SHOCK', aV: '+1.72%p',
+        bK: 'ANY GIVEN DAY', bV: '-0.05%p',
+      },
+    },
+    {
+      // ★ 반증 조건 — 우리 주장이 틀리는 모습을 «우리가 먼저» 보여준다
+      role: 'conflict', prio: 2,
+      eyebrow: 'Where it failed',
+      head: 'The last two\nwent the other way',
+      say: 'The last two events went the other way. Minus zero point seven, then minus two point three.',
+      ask: 'A base rate is not a promise.',
+      visual: {
+        kind: 'rows',
+        rows: [
+          { k: 'JUL 13 · OIL +8.4%', v: '+2.1%', up: true },
+          { k: 'JUL 23 · OIL +5.9%', v: '-0.7%', up: false },
+          { k: 'JUL 29 · OIL +7.3%', v: '-2.3%', up: false },
+        ],
+      },
+    },
+    {
+      role: 'evidence', prio: 2,
+      eyebrow: 'The part that surprises',
+      head: 'The index itself\nrose 64%',
+      say: 'And the index itself was higher sixty-four percent of the time.',
+      ask: 'The oil scare did not sink the market.',
+      visual: { kind: 'stat', label: 'S&P HIGHER IN 5 DAYS', value: '64%', sub: '50 oil shocks since 2021', up: true },
+    },
+    {
+      // ★ 의견 비트 — 사실과 시각·청각 양쪽으로 분리한다
+      role: 'verdict', prio: 1,
+      eyebrow: 'SIGNUM READ',
+      head: 'The shock was never\nthe trade',
+      say: 'Our read: the shock was never the trade. The rotation was.',
+      ask: 'Fifty times. Not a forecast.',
+      visual: { kind: 'stat', label: 'SIGNUM READ · AUG 11', value: 'ROTATION', sub: 'energy over index, 50-event base rate', up: true },
+    },
+  ],
+
+  outro: {
+    app: 'SIGNUM HQ',
+    line: 'The tape institutions leave behind',
+    ask: 'The scare, or the rotation —\nwhich one did you read?',
+  },
+};
+
 export const SCRIPT_T4: BriefingProps = {
   voice: VOICE_T4,
   title: 'Flat close.\nBroken underneath.',

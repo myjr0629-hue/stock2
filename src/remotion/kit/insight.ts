@@ -32,6 +32,12 @@ export interface BaseRate {
   sinceYear: number;
   /** 무엇의 수익률인지 — 화면 라벨. 예: 'ENERGY (XLE)' */
   subject: string;
+  /**
+   * 행 배지에 쓸 심볼 키 (kit/symbols resolveSymbol 가 아는 값). 예: 'SEMIS' · 'SP500'.
+   * ⚠️ 생략하면 안 된다 — resolveSymbol 은 매칭 실패 시 키 «앞 4글자»를 잘라 배지를 만들어
+   *    「EVEN」「ANYG」 같은 깨진 조각이 화면에 나간다 (2026-08-12 프레임 검수에서 실제 발생).
+   */
+  sym?: string;
   /** 조건군 중앙 수익률 (%) — 있으면 한 줄 더 붙는다 */
   hitMedian?: number;
 }
@@ -65,9 +71,9 @@ export function baseRateBeat(br: BaseRate): Beat {
     visual: {
       kind: 'rows',
       rows: [
-        { k: 'EVENTS SINCE ' + br.sinceYear, v: String(br.events), up: true },
-        { k: `${dir.toUpperCase()} IN ${br.forwardDays} DAYS`, v: `${Math.round(br.hitPct)}%`, up: edge >= 0 },
-        { k: 'ANY GIVEN DAY', v: `${Math.round(br.controlPct)}%`, up: false },
+        { k: 'EVENTS SINCE ' + br.sinceYear, v: String(br.events), up: true, sym: 'RISK' },
+        { k: `${dir.toUpperCase()} IN ${br.forwardDays} DAYS`, v: `${Math.round(br.hitPct)}%`, up: edge >= 0, sym: br.sym ?? 'RISK' },
+        { k: 'ANY GIVEN DAY', v: `${Math.round(br.controlPct)}%`, up: false, sym: br.sym ?? 'RISK' },
       ],
     },
   } as Beat;
@@ -88,8 +94,8 @@ export function noEdgeBeat(br: BaseRate): Beat {
     ask: 'The pattern everyone quotes is a coin flip.',
     visual: {
       kind: 'versus',
-      aK: 'AFTER THE EVENT', aV: `${Math.round(br.hitPct)}%`,
-      bK: 'ANY GIVEN DAY', bV: `${Math.round(br.controlPct)}%`,
+      aK: 'AFTER THE EVENT', aV: `${Math.round(br.hitPct)}%`, aSym: br.sym ?? 'RISK',
+      bK: 'ANY GIVEN DAY', bV: `${Math.round(br.controlPct)}%`, bSym: br.sym ?? 'RISK',
     },
   } as Beat;
 }

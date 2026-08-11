@@ -101,7 +101,7 @@ import { SAMPLE_BRIEFING_6 } from './data/sampleBriefing6';
 import { BriefingV7, BRIEFING7_DURATION } from './compositions/BriefingV7';
 import { SAMPLE_BRIEFING_7 } from './data/sampleBriefing7';
 import { Briefing, durationOf } from './kit/Briefing';
-import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE, SCRIPT_T2, SCRIPT_T4, SCRIPT_T2B } from './kit/scripts';
+import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE, SCRIPT_T2, SCRIPT_T4, SCRIPT_T2B, SCRIPT_CLOSE811 } from './kit/scripts';
 import { cutFor, type Platform } from './kit/variants';
 import { AdPromo, adDurationOf } from './kit/AdPromo';
 import { AD_SIGNUM } from './kit/ads';
@@ -252,7 +252,8 @@ export const RemotionRoot: React.FC = () => {
       {/* ★ 브리핑 — 대본 × 플랫폼 3벌 (kit/variants)
           하나의 대본·하나의 낭독에서 잘라 쓴다. YT 는 시청시간, TT 는 완주율 최적.
           T2 = 장시작전 모닝 · T4 = 장마감 클로징 */}
-      {([['T2', SCRIPT_T2], ['T4', SCRIPT_T4], ['T2B', SCRIPT_T2B]] as const).flatMap(([tag, src]) =>
+      {([['T2', SCRIPT_T2], ['T4', SCRIPT_T4], ['T2B', SCRIPT_T2B],
+         ['CLOSE811', SCRIPT_CLOSE811]] as const).flatMap(([tag, src]) =>
         (['yt', 'tt', 'reels'] as Platform[]).map((pf) => {
           const cut = cutFor(src, pf);
           const id = pf === 'yt' ? `Briefing${tag}` : `Briefing${tag}-${pf}`;

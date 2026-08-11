@@ -1,0 +1,132 @@
+GUARDIAN
+AFTER
+Macro Risk Sentinel
+RLSI
+48
+RISK STRIP
+FEAR&GREED
+61
+GREED
+VIX
+15.3
+-1.2%
+S&P 500 F
++0.08%
+7,754
+NASDAQ 100
++0.09%
+29,652
+AI Overview
+Reality
+Shield
+Flow
+AI Morning Brief
+· 8:10 AM ET generated
+Report
+→
+GRAVITY GAUGE
+AFTER
+RLSI
+MOMENTUM
+75
+Healthy
+PARTICIPATION
+47
+Stable
+PRICE TREND
+40
+Caution
+ROTATION
+97
+Robust
+SENTIMENT
+61
+Healthy
+Bullish ×3
+Bearish ×1
+SCORE TIMELINE
+78 pts
+53
+38
+P95
+P75
+P25
+P5
+02:14
+03:39
+NOW
+─
+Sentiment ranging (±0.8pt) · Range 43~48 · Steady flow
+FEDWATCH
+FOMC D-35
+52%
+HOLD
+HOLD
+52%
+▲1.9
+HIKE
+48%
+▼1.9
+BRIEFING
+WHAT-IF
+RLSI INSIGHT
+· Post-Market
+ALIGNMENT OK
+BRIEFING
+TACTICAL
+TACTICAL INSIGHT
+Investors are recalibrating positioning ahead of CPI data while navigating mixed signals on Fed policy—commentary suggesting potential rate hikes contrasts with modest equity gains and a neutral gamma structure, indicating cautious consolidation rather than directional conviction. The cross-asset picture reflects this hesitation: bonds gained 0.13% despite higher yields (4.68%), gold declined 0.22%, and the dollar held steady at 99.8, suggesting capital is neither fleeing to safety nor rotating aggressively into risk. With RLSI at 48 (neutral), VIX at 15.3, and the squeeze at 50% (elevated), the market appears range-bound between 7,700-7,800 support and resistance, awaiting inflation data to clarify the Fed's actual path forward.
+MARKET BREADTH
+NEUTRAL
+51
+%
+51%
+49%
+▲ ADV
+50%
+▼ DEC
+A/D RATIO
+Adv ÷ Dec
+1.16: 1
+Balanced
+VOLUME ANALYSIS
+Buy Volume Ratio
+59.1%
+Positive Flow Dominant
+Advancing 51% vs Declining 49% — Mixed signals with possible sector concentration zone.
+FOMC PATH & LIQUIDITY
+FOMCD-35
+BASE
+Pause Base Case
+
+Current probabilities point to a hold as the base case.
+
+PROB
+52.0%
+CUT
+0.0%
+1W Chg 0.0%
+PAUSE
+52.0%
+1W Chg +1.9%
+HIKE
+48.0%
+1W Chg -1.9%
+LIQUIDITY
+50
+FAVORABLE
+SAFE HAVEN
+-0.10
+STABLE
+App Terms
+App Privacy
+Support: contact@signumhq.com
+
+Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.
+
+© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.
+Dashboard
+Guardian
+Command
+Flow
+Intel
