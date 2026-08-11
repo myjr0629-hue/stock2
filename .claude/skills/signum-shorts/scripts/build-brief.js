@@ -1,4 +1,4 @@
-// SIGNUM Daily Brief v3 — "AI IS EATING COPPER", ~50s, ElevenLabs SIGNUM voice,
+﻿// SIGNUM Daily Brief v3 ??"AI IS EATING COPPER", ~50s, ElevenLabs SIGNUM voice,
 // symbolic clips, ticker card with real company logos, two dated catalysts.
 const { execSync } = require('child_process');
 const fs = require('fs');
@@ -19,18 +19,19 @@ const RED = '&H0000E8&', GREEN = '&H49BB2E&', AMBER = '&H1878E8&';
 const VO_LEAD = 0.15;
 
 // 1. VO + timeline
+const NB = 10;
 const words = [], voT = [];
-for (let i = 1; i <= 9; i++) {
+for (let i = 1; i <= NB; i++) {
   run(`ffmpeg -v quiet -y -i "${VO}/vo${i}.mp3" -ar 48000 -ac 2 "${WORK}/vo${i}.wav"`);
   const w = JSON.parse(fs.readFileSync(`${VO}/vo${i}.json`, 'utf8'));
   words.push(w); voT.push(w[w.length - 1].t1);
 }
-// Shorts loop instantly — dead air at the tail costs replays, so the outro
+// Shorts loop instantly ??dead air at the tail costs replays, so the outro
 // holds only long enough to read the two dates (VO ends 2.5s in).
-const MIN_B = [0, 0, 0, 0, 0, 0, 0, 0, 4.5];
+const MIN_B = [0, 0, 0, 0, 0, 0, 0, 0, 0, 5.6];
 const beats = [];
 let t = 0;
-for (let i = 0; i < 9; i++) {
+for (let i = 0; i < NB; i++) {
   const d = Math.max(MIN_B[i], Math.round((voT[i] + 0.38) * 100) / 100);
   beats.push({ i: i + 1, start: t, durB: d });
   t += d;
@@ -39,16 +40,19 @@ const TOTAL = t;
 console.log('total', TOTAL.toFixed(2) + 's | beats', beats.map((b) => b.durB.toFixed(1)).join('/'));
 
 // 2. shots
+// 1 hook · 2 price · 3 buyer · 4 27k tons · 5 the gap · 6 shortage ·
+// 7 our tickers · 8 our check · 9 mean-reversion warning · 10 verdict (outro)
 const SHOTS = [
   { b: 1, cuts: [[`${C5}/1.mp4`, 0.2, 1.0, 1.0, 'symbol']] },
   { b: 2, cuts: [[`${C5}/3.mp4`, 0.3, 1.0, 1.0, 'symbol']] },
-  { b: 3, cuts: [[`${C5}/2.mp4`, 0.3, 1.0, 1.0, 'symbol']] },
-  { b: 4, cuts: [[`${C5}/5.mp4`, 0.2, 1.0, 0.55, 'symbol'], [`${C5}/4.mp4`, 0.4, 1.0, 0.45, 'symbol']] },
-  { b: 5, cuts: [[`${C5}/6.mp4`, 0.3, 1.0, 1.0, 'real']] },
-  { b: 6, cuts: [[`${C3}/1.mp4`, 0.5, 1.0, 0.5, 'real'], [`${C3}/2.mp4`, 0.6, 1.0, 0.5, 'real']] },
-  { b: 7, cuts: [[`${C3}/5.mp4`, 0.4, 1.0, 1.0, 'real']] },
-  { b: 8, cuts: [[`${C4}/4.mp4`, 0.3, 1.0, 0.5, 'fantasy'], [`${C4}/3.mp4`, 0.4, 1.0, 0.5, 'fantasy']] },
-  { b: 9, cuts: [[`${C3}/6.mp4`, 0.0, 1.0, 1.0, 'white']] },
+  { b: 3, cuts: [[`${C4}/2.mp4`, 0.3, 1.0, 1.0, 'fantasy']] },
+  { b: 4, cuts: [[`${C5}/2.mp4`, 0.3, 1.0, 1.0, 'symbol']] },
+  { b: 5, cuts: [[`${C5}/5.mp4`, 0.2, 1.0, 0.55, 'symbol'], [`${C5}/4.mp4`, 0.4, 1.0, 0.45, 'symbol']] },
+  { b: 6, cuts: [[`${C5}/6.mp4`, 0.3, 1.0, 1.0, 'real']] },
+  { b: 7, cuts: [[`${C3}/1.mp4`, 0.5, 1.0, 0.5, 'real'], [`${C3}/2.mp4`, 0.6, 1.0, 0.5, 'real']] },
+  { b: 8, cuts: [[`${C3}/1.mp4`, 2.8, 0.7, 1.0, 'real']] },
+  { b: 9, cuts: [[`${C4}/5.mp4`, 0.4, 1.0, 1.0, 'real']] },
+  { b: 10, cuts: [[`${C3}/6.mp4`, 0.0, 1.0, 1.0, 'white']] },
 ];
 const GRADE = {
   symbol: 'eq=saturation=1.24:contrast=1.10:gamma=1.01,unsharp=5:5:0.5',
@@ -72,9 +76,9 @@ run(`ffmpeg -v quiet -y -i "${AS}/app_signum.png" -vf "scale=138:138" "${WORK}/a
 run(`ffmpeg -v quiet -y -i "${AS}/app_uc.png" -vf "scale=138:138" "${WORK}/app2.png"`);
 run(`ffmpeg -v quiet -y -i "${AS}/badge_ios.png" -vf "scale=250:-1" "${WORK}/badge1.png"`);
 run(`ffmpeg -v quiet -y -i "${AS}/badge_play.png" -vf "scale=250:-1" "${WORK}/badge2.png"`);
-// (WIM tile intentionally omitted — icon to be added from the Mac later)
+// (WIM tile intentionally omitted ??icon to be added from the Mac later)
 // Ticker marks: source icons are opaque squares, so give each a white tile with
-// padding — otherwise they read as dark specks on the white data card.
+// padding ??otherwise they read as dark specks on the white data card.
 for (const t of ['FCX', 'SCCO', 'NVDA']) {
   run(`ffmpeg -v quiet -y -i "${LOGO}/${t}.png" -vf "scale=60:60:force_original_aspect_ratio=decrease,pad=72:72:(ow-iw)/2:(oh-ih)/2:color=white,drawbox=x=0:y=0:w=72:h=72:color=0xCFCFCF:t=2" "${WORK}/t_${t}.png"`);
 }
@@ -101,10 +105,9 @@ for (const s of SHOTS) {
     const DT = "fontfile='C\\:/Windows/Fonts/ariblk.ttf'";
     // Brand assets are burned into every SEGMENT: a still-image overlay applied
     // once over a long concatenated timeline drops out partway through.
-    if (s.b === 9) {
+    if (s.b === NB) {
       // outro plate: three app tiles across the top, brand lockup at the bottom
-      // outro plate: app row (rounded icons + name + tagline) → store badges →
-      // dates (ASS) → wordmark. Mirrors the site's app promo styling.
+      // outro plate: app row (rounded icons + name + tagline) ??store badges ??      // dates (ASS) ??wordmark. Mirrors the site's app promo styling.
       const fc = `[0:v]${vf}[bg];`
         + `[bg][1:v]overlay=x=196:y=224[a1];[a1][2:v]overlay=x=616:y=224[a2];`
         + `[a2][3:v]overlay=x=254:y=470[b1];[b1][4:v]overlay=x=576:y=470[b2];`
@@ -118,16 +121,17 @@ for (const s of SHOTS) {
         + `drawtext=${DT}:text='signumhq.com':fontcolor=0x707070:fontsize=30:x=(w-tw)/2:y=1310[vout]`;
       run(`ffmpeg -v quiet -y -ss ${srcStart} -t ${tt} -i "${file}" -i "${WORK}/app1.png" -i "${WORK}/app2.png" -i "${WORK}/badge1.png" -i "${WORK}/badge2.png" -filter_complex "${fc}" -map "[vout]" -an -c:v libx264 -preset fast -crf 16 "${out}"`);
     } else {
-      // Ticker marks are NOT burned here — the ASS data card renders after the
+      // Ticker marks are NOT burned here ??the ASS data card renders after the
       // segments and would wash them out. They go on in the final compose.
       const ins = `-i "${WORK}/logo_w.png"`;
       // brand bug: dark plate keeps the mark readable over any footage
-      let fc = `[0:v]${vf},drawbox=x=668:y=1650:w=400:h=118:color=black@0.42:t=fill[v0];`
-        + `[v0][1:v]overlay=x=696:y=1665[b0];`;
+      let fc = `[0:v]${vf},drawbox=x=628:y=1622:w=440:h=152:color=black@0.44:t=fill[v0];`
+        + `[v0][1:v]overlay=x=660:y=1640[b0];`;
       const last = 'b0';
-      // date is drawn in ASS instead — the masthead band renders after the
+      // date is drawn in ASS instead ??the masthead band renders after the
       // segments and would otherwise dim a burned-in date
-      fc += `[${last}]drawtext=${DT}:text='SIGNUMHQ':fontcolor=white:fontsize=40:x=800:y=1688[vout]`;
+      fc += `[${last}]drawtext=${DT}:text='SIGNUMHQ':fontcolor=white:fontsize=40:x=764:y=1663,`
+        + `drawtext=${DT}:text='NOT INVESTMENT ADVICE':fontcolor=white@0.78:fontsize=21:x=660:y=1733[vout]`;
       run(`ffmpeg -v quiet -y -ss ${srcStart} -t ${tt} -i "${file}" ${ins} -filter_complex "${fc}" -map "[vout]" -an -c:v libx264 -preset fast -crf 16 "${out}"`);
     }
     segFiles.push(out);
@@ -142,7 +146,7 @@ run(`ffmpeg -v quiet -y -i "${C5}/1.mp4" -i "${C4}/3.mp4" -i "${C3}/1.mp4" -filt
 const voIn = beats.map((b) => `-i "${WORK}/vo${b.i}.wav"`).join(' ');
 const delays = beats.map((b, k) => `[${k + 1}:a]adelay=${Math.round((b.start + VO_LEAD) * 1000)}|${Math.round((b.start + VO_LEAD) * 1000)},volume=2.0[v${k}]`).join(';');
 const mixIn = beats.map((_, k) => `[v${k}]`).join('');
-run(`ffmpeg -v quiet -y -i "${WORK}/ambient.wav" ${voIn} -filter_complex "${delays};[0:a]${mixIn}amix=inputs=10:duration=first:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11" -ar 48000 "${WORK}/mix.wav"`);
+run(`ffmpeg -v quiet -y -i "${WORK}/ambient.wav" ${voIn} -filter_complex "${delays};[0:a]${mixIn}amix=inputs=11:duration=first:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11" -ar 48000 "${WORK}/mix.wav"`);
 
 // 4. ASS
 const ts = (s) => { const m = Math.floor(s / 60), sec = s % 60; return `0:${String(m).padStart(2, '0')}:${sec.toFixed(2).padStart(5, '0')}`; };
@@ -168,17 +172,17 @@ A.push('Style: Row,Arial Black,50,&H00201510,&H00201510,&H00FFFFFF,&H00FFFFFF,-1
 A.push('', '[Events]');
 A.push('Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text');
 
-// COVER (0 → COVER_END): the first frame is the de-facto Shorts thumbnail, so
+// COVER (0 ??COVER_END): the first frame is the de-facto Shorts thumbnail, so
 // the opening sentence is rendered as a full-bleed title card over the hook
 // shot, then hands off to the masthead + karaoke captions.
 const COVER_END = 1.45;
 A.push(`Dialogue: 1,${ts(0)},${ts(COVER_END)},Band,,0,0,0,,{\\an7\\pos(0,0)\\fad(0,220)\\p1\\1c&H000000&\\1a&H6E&\\bord0}m 0 0 l 1080 0 1080 1920 0 1920{\\p0}`);
 A.push(`Dialogue: 3,${ts(0)},${ts(COVER_END)},Cap,,0,0,0,,{\\an5\\pos(540,760)\\fad(0,200)\\fs118\\bord12}AI IS EATING`);
 A.push(`Dialogue: 3,${ts(0)},${ts(COVER_END)},Cap,,0,0,0,,{\\an5\\pos(540,910)\\fad(0,200)\\fs140\\bord12\\1c${RED}}COPPER`);
-// present from frame 0 — the very first frame is what Shorts grabs
+// present from frame 0 ??the very first frame is what Shorts grabs
 A.push(`Dialogue: 3,${ts(0)},${ts(COVER_END)},Cap,,0,0,0,,{\\an5\\pos(540,1060)\\fad(0,200)\\fs64\\bord8\\1c${GREEN}}+49% IN A YEAR`);
 
-const outroStart = beats[8].start;
+const outroStart = beats[NB - 1].start;
 const BANDS = [[0, 248, '&H26&'], [248, 274, '&H3A&'], [274, 298, '&H56&'], [298, 320, '&H76&'],
   [320, 340, '&H98&'], [340, 358, '&HB6&'], [358, 374, '&HD2&'], [374, 388, '&HE8&']];
 for (const [y0, y1, alpha] of BANDS) {
@@ -192,14 +196,15 @@ A.push(`Dialogue: 2,${ts(COVER_END - 0.1)},${ts(outroStart)},Title,,0,0,0,,{\\an
 // captions
 const CAPS = [
   // beat 1: first sentence lives in the cover card, so karaoke starts at word 4
-  { b: 1, style: 'CapBig', y: 1210, color: { 3: RED }, skip: 4 },
-  { b: 2, style: 'Cap', y: 1250, color: { 8: GREEN, 9: GREEN } },
-  { b: 3, style: 'Cap', y: 1250, color: { 7: AMBER, 8: AMBER } },
-  { b: 4, style: 'Cap', y: 1270, color: { 11: AMBER, 18: RED, 19: RED } },
-  { b: 5, style: 'Cap', y: 1250, color: { 6: RED, 7: RED } },
-  { b: 6, style: 'Cap', y: 1270, color: { 18: GREEN } },
-  { b: 7, style: 'Cap', y: 1260, color: { 3: RED } },
-  { b: 8, style: 'Cap', y: 1260, color: { 5: AMBER, 6: AMBER } },
+  { b: 1, style: 'CapBig', y: 1210, color: {}, skip: 6 },
+  { b: 2, style: 'Cap', y: 1250, color: { 11: GREEN, 12: GREEN } },
+  { b: 3, style: 'CapBig', y: 1220, color: { 3: RED } },
+  { b: 4, style: 'Cap', y: 1250, color: { 7: AMBER, 8: AMBER } },
+  { b: 5, style: 'Cap', y: 1270, color: { 11: AMBER, 18: RED, 19: RED } },
+  { b: 6, style: 'Cap', y: 1250, color: { 6: RED, 7: RED } },
+  { b: 7, style: 'Cap', y: 1270, color: { 8: GREEN } },
+  { b: 8, style: 'Cap', y: 1260, color: { 3: AMBER } },
+  { b: 9, style: 'Cap', y: 1260, color: { 7: RED, 8: RED } },
 ];
 for (const c of CAPS) {
   const b = beats[c.b - 1];
@@ -259,12 +264,12 @@ card(2, (t0, t1, y) => {
   txt(t0, t1, 'Num', 760, y + 148, '+49%');
   txt(t0, t1, 'Lbl', 760, y + 238, '1 YEAR · $14,000+/TON', '\\fs30');
 });
-card(3, (t0, t1, y) => {
+card(4, (t0, t1, y) => {
   txt(t0, t1, 'ChipD', 300, y + 66, 'PER 1 GIGAWATT');
   txt(t0, t1, 'Num', 540, y + 180, '27,000 TONS');
   txt(t0, t1, 'Lbl', 540, y + 272, 'OF COPPER · ONE AI DATA CENTER');
 });
-card(4, (t0, t1, y) => {
+card(5, (t0, t1, y) => {
   txt(t0, t1, 'Lbl', 540, y + 56, 'TIME TO BUILD');
   txt(t0, t1, 'Row', 300, y + 145, 'DATA CENTER');
   txt(t0, t1, 'Num', 760, y + 145, '20 MO', '\\fs84');
@@ -272,13 +277,13 @@ card(4, (t0, t1, y) => {
   txt(t0, t1, 'Row', 300, y + 265, 'COPPER MINE');
   txt(t0, t1, 'NumR', 760, y + 265, '17.9 YRS', '\\fs84');
 }, 540, 370);
-card(5, (t0, t1, y) => {
+card(6, (t0, t1, y) => {
   txt(t0, t1, 'ChipR', 320, y + 66, '2026 DEFICIT');
   txt(t0, t1, 'NumR', 540, y + 180, '150,000 TONS', '\\fs92');
   txt(t0, t1, 'Lbl', 540, y + 272, 'AND WIDENING THROUGH 2028 · ICSG');
 });
 // ticker card (logos are burned into the footage at x=186)
-card(6, (t0, t1) => {
+card(7, (t0, t1) => {
   txt(t0, t1, 'Lbl', 540, 552, 'SINCE JULY 1');
   TICK.forEach(([sym, name, pct, y]) => {
     const isN = sym === 'NVDA';
@@ -288,32 +293,32 @@ card(6, (t0, t1) => {
   });
   A.push(`Dialogue: 5,${ts(t0)},${ts(t1)},Panel,,0,0,0,,{\\an7\\pos(150,858)\\fad(180,120)\\p1\\1c&HC8C8C8&\\bord0}m 0 0 l 780 0 780 3 0 3{\\p0}`);
 }, 500, 460);
-// catalyst cards
-card(7, (t0, t1, y) => {
-  txt(t0, t1, 'ChipR', 340, y + 66, 'CHECKPOINT 1');
-  txt(t0, t1, 'Num', 540, y + 175, 'TOMORROW', '\\fs92');
-  txt(t0, t1, 'Lbl', 540, y + 268, 'US CPI · HOT → DOLLAR UP → COPPER COOLS');
-});
-card(8, (t0, t1, y) => {
-  txt(t0, t1, 'ChipD', 340, y + 66, 'CHECKPOINT 2');
-  txt(t0, t1, 'Num', 540, y + 175, 'OCTOBER', '\\fs92');
-  txt(t0, t1, 'Lbl', 540, y + 268, 'CAPEX GUIDANCE · $725B PROMISED');
-});
+// B9 ??OUR BASE RATE: the number that argues against chasing our own story
+card(9, (t0, t1, y) => {
+  txt(t0, t1, 'ChipD', 400, y + 60, 'SIGNUM RESEARCH · 1,357 WINDOWS', '\\fs28');
+  txt(t0, t1, 'Row', 300, y + 148, 'MINERS LEAD');
+  txt(t0, t1, 'Num', 800, y + 148, '42%', '\\fs76');
+  A.push(`Dialogue: 5,${ts(t0)},${ts(t1)},Panel,,0,0,0,,{\\an7\\pos(150,${y + 198})\\fad(180,120)\\p1\\1c&HC8C8C8&\\bord0}m 0 0 l 780 0 780 3 0 3{\\p0}`);
+  txt(t0, t1, 'Row', 300, y + 258, 'NEXT MONTH');
+  txt(t0, t1, 'NumR', 800, y + 258, '-4.1%p', '\\fs76');
+  txt(t0, t1, 'Lbl', 540, y + 334, 'MEDIAN GIVE-BACK vs NVDA · SINCE 2021', '\\fs26');
+}, 520, 390);
 // outro
-const b9 = beats[8];
-A.push(`Dialogue: 3,${ts(b9.start + 0.1)},${ts(TOTAL)},Cap,,0,0,0,,{\\an5\\pos(540,720)\\fad(150,0)\\1c&H201510&\\3c&HFFFFFF&\\bord6\\fs76}MARK TWO DATES`);
-[['TOMORROW  ·  US CPI', 870], ['OCTOBER  ·  CAPEX GUIDANCE', 980]].forEach(([s, y], i) => {
-  A.push(`Dialogue: 3,${ts(b9.start + 0.45 + i * 0.5)},${ts(TOTAL)},Row,,0,0,0,,{\\an5\\pos(540,${y})\\fad(150,0)}${s}`);
+const b10 = beats[9];
+A.push(`Dialogue: 3,${ts(b10.start + 0.1)},${ts(TOTAL)},Cap,,0,0,0,,{\\an5\\pos(540,700)\\fad(150,0)\\1c&H201510&\\3c&HFFFFFF&\\bord6\\fs62}STRUCTURE IS NOT THE TRADE`);
+[['OCTOBER  ·  CAPEX GUIDANCE', 850], ['COPPER ABOVE $14,000', 950]].forEach(([s, y], i) => {
+  A.push(`Dialogue: 3,${ts(b10.start + 0.45 + i * 0.5)},${ts(TOTAL)},Row,,0,0,0,,{\\an5\\pos(540,${y})\\fad(150,0)\\fs46}${s}`);
 });
+A.push(`Dialogue: 3,${ts(b10.start + 0.5)},${ts(TOTAL)},Lbl,,0,0,0,,{\\an5\\pos(540,1050)\\fad(150,0)\\fs26}HISTORICAL BASE RATES · NOT INVESTMENT ADVICE`);
 fs.writeFileSync(`${WORK}/caps.ass`, A.join('\n'), 'utf8');
 
 // 5. compose
 const oS = outroStart.toFixed(3);
 const assPath = `${WORK}/caps.ass`.replace(/\\/g, '/').replace(':', '\\:');
 // Ticker marks go ON TOP of the ASS data card. Image inputs are looped into
-// full-length streams (`-loop 1 -t`) — a bare still frame silently drops out
+// full-length streams (`-loop 1 -t`) ??a bare still frame silently drops out
 // partway through a long timeline.
-const b6 = beats[5];
+const b6 = beats[6];   // ticker beat (7th)
 const t6a = (b6.start + 0.45).toFixed(2), t6b = (b6.start + b6.durB - 0.05).toFixed(2);
 const markRows = TICK.filter((r) => r[0] !== 'COPX');
 const markIns = markRows.map((r) => `-loop 1 -framerate 24 -t ${TOTAL.toFixed(2)} -i "${WORK}/t_${r[0]}.png"`).join(' ');
@@ -327,7 +332,8 @@ markRows.forEach((r, k) => {
 mf = mf.slice(0, -1);
 // -t trims the concat rounding tail so the loop point is exact
 run(`ffmpeg -v quiet -y -i "${WORK}/video.mp4" ${markIns} -i "${WORK}/mix.wav" -filter_complex "${mf}" -map "[vout]" -map ${markRows.length + 1}:a -t ${TOTAL.toFixed(2)} -c:v libx264 -preset slow -crf 17 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart "${SP}/signum_copper_60s.mp4"`);
-// Ship a standalone cover still too — Shorts pick a frame automatically, but a
+// Ship a standalone cover still too ??Shorts pick a frame automatically, but a
 // custom upload (where available) should use the same designed composition.
 run(`ffmpeg -v quiet -y -ss 0.60 -i "${SP}/signum_copper_60s.mp4" -vframes 1 "${SP}/signum_copper_thumb.png"`);
 console.log('DONE', dur(`${SP}/signum_copper_60s.mp4`).toFixed(2) + 's · thumbnail exported');
+
