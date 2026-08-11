@@ -31,11 +31,15 @@ export const TickerField: React.FC<{
   tickers: string[];
   /** 같은 영상 안에서 배치를 고정하는 시드 */
   seed?: string;
-  /** 기본 0.13 — 더 올리면 자막과 싸운다 */
+  /**
+   * 기본 0.075 — 더 올리면 자막·데이터와 싸운다.
+   * [2026-08-12 윈도우 프레임 검수] 0.13 + 흰 판 0.9 조합이 데이터 행(`71 · HEALTHY`) 위에
+   * 겹쳐 읽기를 방해했다. 배경은 «있다»는 것만 알리면 된다 — 읽히면 이미 너무 진하다.
+   */
   opacity?: number;
   /** 히어로로 이미 크게 쓰고 있는 심볼 — 배경에 또 뿌리면 «중복»으로 보인다 */
   exclude?: string[];
-}> = ({ tickers, seed = '', opacity = 0.13, exclude }) => {
+}> = ({ tickers, seed = '', opacity = 0.075, exclude }) => {
   const f = useCurrentFrame();
   const skip = new Set((exclude ?? []).map((x) => x.toUpperCase()));
   const marks = tickers
@@ -71,7 +75,8 @@ export const TickerField: React.FC<{
               transform: `translateY(${drift}px) rotate(${spin}deg)`,
               opacity,
               borderRadius: Math.round(size * 0.24),
-              background: 'rgba(255,255,255,0.9)',
+              // 흰 판이 진하면 로고가 «타일»처럼 떠서 데이터 카드와 경쟁한다. 판만 더 눕힌다.
+              background: 'rgba(255,255,255,0.55)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               filter: 'saturate(1.05)',
             }}

@@ -16,6 +16,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { tmpdir } from 'node:os';
 
 const NAME = (process.argv[2] || '').toUpperCase();
 if (!NAME) { console.error('사용: node scripts/tts-beats.mjs <CLOSE|FLIP|...>'); process.exit(1); }
@@ -34,9 +36,14 @@ const MODEL = 'eleven_multilingual_v2';
 const SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.25 };
 
 // ── 대본 로드 — scripts.ts 를 esbuild 로 즉석 번들해 require ─────────────────
-execFileSync('npx', ['esbuild', 'src/remotion/kit/scripts.ts', '--bundle', '--platform=node',
-  '--format=cjs', '--outfile=/tmp/signum-scripts.cjs', '--log-level=silent']);
-const mod = await import('file:///tmp/signum-scripts.cjs');
+// npx 로 부르지 않는다 — 윈도우에서는 npx.cmd 라 Node 20+ 가 EINVAL 로 거부한다.
+// 로컬 esbuild 의 JS 진입점을 node 로 직접 실행하면 세 OS 에서 똑같이 동작한다.
+// /tmp 도 없으므로 임시 경로는 os.tmpdir() 로 잡는다.
+const ESBUILD = join('node_modules', 'esbuild', 'bin', 'esbuild');
+const BUNDLE = join(tmpdir(), 'signum-scripts.cjs');
+execFileSync(process.execPath, [ESBUILD, 'src/remotion/kit/scripts.ts', '--bundle', '--platform=node',
+  '--format=cjs', `--outfile=${BUNDLE}`, '--log-level=silent']);
+const mod = await import(pathToFileURL(BUNDLE).href);
 const script = mod[`SCRIPT_${NAME}`] ?? mod.default?.[`SCRIPT_${NAME}`];
 if (!script) { console.error(`SCRIPT_${NAME} 를 kit/scripts.ts 에서 찾지 못했다`); process.exit(1); }
 
@@ -61,10 +68,13 @@ const outDir = join('public/shorts/audio', NAME.toLowerCase());
 mkdirSync(outDir, { recursive: true });
 
 // ── ffprobe (리모션 번들) 로 실측 길이 ──────────────────────────────────────
-const FFPROBE = 'node_modules/@remotion/compositor-darwin-arm64/ffprobe';
+// 컴포지터는 플랫폼별 패키지다. 맥만 dylib 경로를 잡아줘야 하고, 윈도우는 exe 옆 DLL 을 찾는다.
+const IS_WIN = process.platform === 'win32';
+const COMP = join('node_modules', '@remotion', IS_WIN ? 'compositor-win32-x64-msvc' : 'compositor-darwin-arm64');
+const FFPROBE = join(COMP, IS_WIN ? 'ffprobe.exe' : 'ffprobe');
 const durOf = (f) => parseFloat(execFileSync(FFPROBE,
   ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', f],
-  { env: { ...process.env, DYLD_LIBRARY_PATH: 'node_modules/@remotion/compositor-darwin-arm64' } }
+  { env: IS_WIN ? { ...process.env } : { ...process.env, DYLD_LIBRARY_PATH: COMP } }
 ).toString());
 
 const results = [];

@@ -210,6 +210,29 @@ const GridBg: React.FC<{ data: BackdropData; accent: BackdropAccent }> = ({ data
   );
 };
 
+/**
+ * ── 클립 부재 폴백 (2026-08-12, 윈도우 실측으로 추가) ────────────────────────
+ * 배경 클립(public/shorts/bg/**)은 .gitignore 라 머신마다 «있을 수도, 없을 수도» 있다.
+ * 그런데 대본과 bglib.json 은 커밋되므로, 클립을 못 받은 머신에서는 없는 파일을
+ * 가리키게 되고 OffthreadVideo 가 404 → **프레임 0 에서 렌더가 통째로 죽는다.**
+ * (BriefingT4 실측: `Received a status code of 404 ... morning-06-city-waking-above-golden.mp4`)
+ *
+ * REMOTION_BG=off 로 돌리면 shorts/bg/** 배경만 절차 배경으로 갈아끼운다.
+ * 레이아웃·자막·타이밍·밝기 검수는 이 상태로 전부 가능하다. 클립이 오면 스위치를 뗀다.
+ * 절차 배경 종류는 src 해시로 고르므로 컷마다 달라지고, 같은 대본이면 항상 같다(재현성).
+ */
+const BG_OFF = process.env.REMOTION_BG === 'off';
+const FALLBACK_KINDS = ['series', 'strikes', 'ticks', 'grid'] as const;
+
+function bgAvailable(spec: BackdropSpec): BackdropSpec {
+  if (!BG_OFF) return spec;
+  if (spec.kind !== 'video' && spec.kind !== 'img') return spec;
+  if (!spec.src.startsWith('shorts/bg/')) return spec;   // 커밋된 자산(broll·hf)은 그대로 쓴다
+  let h = 2166136261;
+  for (let i = 0; i < spec.src.length; i++) { h ^= spec.src.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return { kind: FALLBACK_KINDS[(h >>> 0) % FALLBACK_KINDS.length] };
+}
+
 // ── 본체 ────────────────────────────────────────────────────────────────────
 export const Backdrop: React.FC<{
   spec: BackdropSpec;
@@ -217,8 +240,9 @@ export const Backdrop: React.FC<{
   data?: BackdropData;
   /** 인접 컷과 밝기 차를 만들어 컷이 «읽히게» 한다 (Briefing이 교대로 줌) */
   tone?: number;
-}> = ({ spec, dur, data = {}, tone = 1 }) => {
+}> = ({ spec: rawSpec, dur, data = {}, tone = 1 }) => {
   const f = useCurrentFrame();
+  const spec = bgAvailable(rawSpec);
   const inner = (() => {
     switch (spec.kind) {
       case 'img': {

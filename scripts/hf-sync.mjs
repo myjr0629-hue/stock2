@@ -21,8 +21,11 @@ const LIBS = [
 ].map((f) => path.join(ROOT, f));
 const OUT = path.join(ROOT, 'public/shorts/bg');
 const RAW = path.join(OUT, '.raw');
-const BIN = path.join(ROOT, 'node_modules/@remotion/compositor-darwin-arm64');
-const FFMPEG = path.join(BIN, 'ffmpeg');
+// 컴포지터 번들은 플랫폼별 패키지다. 맥만 dylib 경로를 잡아줘야 한다(윈도우는 exe 옆 DLL).
+const IS_WIN = process.platform === 'win32';
+const BIN = path.join(ROOT, `node_modules/@remotion/compositor-${IS_WIN ? 'win32-x64-msvc' : 'darwin-arm64'}`);
+const FFMPEG = path.join(BIN, IS_WIN ? 'ffmpeg.exe' : 'ffmpeg');
+const FFENV = IS_WIN ? { ...process.env } : { ...process.env, DYLD_LIBRARY_PATH: BIN };
 
 const manifestPath = process.argv[2];
 if (!manifestPath) {

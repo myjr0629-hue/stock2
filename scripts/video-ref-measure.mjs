@@ -25,15 +25,22 @@
 // ============================================================================
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdtempSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdtempSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmpdir, homedir } from 'node:os';
 
-const COMP = new URL('../node_modules/@remotion/compositor-darwin-arm64/', import.meta.url).pathname;
-const FFMPEG = join(COMP, 'ffmpeg');
-const FFPROBE = join(COMP, 'ffprobe');
-const YTDLP = join(homedir(), '.local/bin/yt-dlp_macos');
-const ENV = { ...process.env, DYLD_LIBRARY_PATH: COMP };
+// 컴포지터 번들은 플랫폼별로 패키지가 다르다 (맥=darwin-arm64 / 윈도우=win32-x64-msvc).
+// 맥은 dylib 탐색 경로를 같은 폴더로 잡아줘야 실행되고, 윈도우는 exe 옆 DLL을 스스로 찾는다.
+const IS_WIN = process.platform === 'win32';
+const COMP_PKG = IS_WIN ? 'compositor-win32-x64-msvc' : 'compositor-darwin-arm64';
+const COMP_URL = new URL(`../node_modules/@remotion/${COMP_PKG}/`, import.meta.url);
+const COMP = IS_WIN ? fileURLToPath(COMP_URL) : COMP_URL.pathname;
+const EXE = IS_WIN ? '.exe' : '';
+const FFMPEG = join(COMP, `ffmpeg${EXE}`);
+const FFPROBE = join(COMP, `ffprobe${EXE}`);
+const YTDLP = join(homedir(), IS_WIN ? '.local/bin/yt-dlp.exe' : '.local/bin/yt-dlp_macos');
+const ENV = IS_WIN ? { ...process.env } : { ...process.env, DYLD_LIBRARY_PATH: COMP };
 
 // 프록시 해상도. 작게 잡을수록 빠르고, 컷·이동 판정에는 이 정도로 충분하다.
 const W = 64, H = 114, S = W * H;
@@ -53,8 +60,8 @@ function resolveInput(arg, work) {
   // 최고 화질로. px 측정값이 그대로 1080x1920 컴포지션 좌표가 되므로 저화질이면 전부 어긋난다.
   // 병합은 하지 않는다(ffmpeg PATH 불필요) — 측정에는 비디오 트랙만 있으면 된다.
   sh(YTDLP, ['--no-warnings', '-f', 'bestvideo[height<=1920]', '-o', out, arg], { stdio: 'inherit' });
-  const found = sh('/bin/sh', ['-c', `ls ${join(work, 'ref.')}*`]).toString().trim().split('\n')[0];
-  return found;
+  const found = readdirSync(work).filter((f) => f.startsWith('ref.')).sort()[0];
+  return join(work, found);
 }
 
 function probe(file) {
@@ -70,12 +77,13 @@ function probe(file) {
 
 /** 전 프레임을 그레이스케일로 덤프. 최소 빌드에 rawvideo 먹서가 없어 image2pipe를 쓴다. */
 function dumpGray(file, work) {
-  const out = join(work, 'gray.raw');
-  sh('/bin/sh', ['-c',
-    `DYLD_LIBRARY_PATH='${COMP}' '${FFMPEG}' -hide_banner -loglevel error -i '${file}' ` +
-    `-vf scale=${W}:${H} -pix_fmt gray -c:v rawvideo -f image2pipe - > '${out}'`,
+  // 셸 리다이렉션을 쓰지 않는다 — 윈도우에는 /bin/sh 가 없다.
+  // execFileSync 가 stdout 을 그대로 Buffer 로 준다(ENV 는 sh() 안에서 플랫폼별로 처리).
+  const buf = sh(FFMPEG, [
+    '-hide_banner', '-loglevel', 'error', '-i', file,
+    '-vf', `scale=${W}:${H}`, '-pix_fmt', 'gray', '-c:v', 'rawvideo', '-f', 'image2pipe', '-',
   ]);
-  const buf = readFileSync(out);
+  writeFileSync(join(work, 'gray.raw'), buf);   // --keep 디버깅용
   return { buf, n: Math.floor(buf.length / S) };
 }
 
