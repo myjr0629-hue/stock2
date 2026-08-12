@@ -27,19 +27,15 @@
 //     stores say it does.
 // ============================================================================
 
-export const ADS_LIVE = false;    // master switch (also hides placeholder slots)
-const ADS_TESTING = false;        // real units below — never request test ads against them
+import { unitsFor, hasRealUnits } from '@/config/admob';
 
-// REAL AdMob units (account ca-app-pub-1716731715414173, created 2026-07-28).
-// Partner bidding is off on all six, so AdMob mediation and Google/DV360 demand
-// stay available — that demand is the floor under our eCPM.
-// Nothing here runs while ADS_LIVE is false: every call site is behind
-// adsAvailable(), so the SDK is not even initialized.
-const UNITS = {
-  banner: { ios: 'ca-app-pub-1716731715414173/6846022634', android: 'ca-app-pub-1716731715414173/5046424029' },
-  interstitial: { ios: 'ca-app-pub-1716731715414173/3485930345', android: 'ca-app-pub-1716731715414173/7900084009' },
-  rewarded: { ios: 'ca-app-pub-1716731715414173/4152410686', android: 'ca-app-pub-1716731715414173/4415868633' },
-};
+export const ADS_LIVE = false;    // master switch (also hides placeholder slots)
+const ADS_TESTING = !hasRealUnits('uc');   // 실유닛이면 테스트 광고를 절대 요청하지 않는다
+
+// 유닛 ID 정본은 src/config/admob.ts 하나뿐이다 — 계정을 갈아탈 때 여기를 안 고쳐도 된다.
+// Partner bidding 은 6개 전부 off. 애드몹 미디에이션과 Google/DV360 수요가 eCPM 바닥을 받친다.
+// ADS_LIVE 가 false 인 동안은 아무것도 실행되지 않는다 (모든 호출부가 adsAvailable() 뒤에 있다).
+const UNITS = unitsFor('uc');
 
 // business guardrails for the interstitial
 const SESSION_GRACE_MS = 90_000;      // never within the first 90s of a session

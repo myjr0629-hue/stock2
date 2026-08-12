@@ -1,3 +1,4 @@
+import { unitsFor, hasRealUnits } from '@/config/admob';
 // ============================================================================
 // AdManager — SIGNUM HQ 모바일 광고 관리 서비스
 // 3단계 광고 파이프라인: Banner / Interstitial / Rewarded Video
@@ -29,34 +30,24 @@ interface UnlockState {
 }
 
 // ---------------------------------------------------------------------------
-// Test Ad Unit IDs (Google AdMob 공식 테스트 ID)
-// 실제 배포 시 AdMob에서 발급받은 실제 ID로 교체
+// 유닛 ID 정본은 src/config/admob.ts 하나뿐이다 (2026-08-13).
+// 애드몹 계정을 갈아탈 때 그 파일 하나만 고치면 3앱이 동시에 따라온다.
+// 유닛 ID 는 플랫폼별로 다르므로 런타임에 Capacitor.getPlatform() 으로 고른다.
+// 이 값들은 «공개 식별자»다 — 비밀이 아니다.
 // ---------------------------------------------------------------------------
-const TEST_AD_IDS: AdConfig = {
-  bannerId: 'ca-app-pub-3940256099942544/6300978111',
-  interstitialId: 'ca-app-pub-3940256099942544/1033173712',
-  rewardedId: 'ca-app-pub-3940256099942544/5224354917',
-  testMode: true,
-};
+const SIGNUM_UNITS = unitsFor('signum');
+const SIGNUM_REAL = hasRealUnits('signum');
 
-// ---------------------------------------------------------------------------
-// Production Ad Unit IDs (AdMob account ca-app-pub-1716731715414173).
-// Ad unit IDs are PLATFORM-SPECIFIC, so they are selected at runtime by
-// Capacitor.getPlatform() in init(). These are public identifiers, not secrets.
-// ---------------------------------------------------------------------------
-const PROD_AD_IDS_IOS: AdConfig = {
-  bannerId: 'ca-app-pub-1716731715414173/1878755113',
-  interstitialId: 'ca-app-pub-1716731715414173/9818357259',
-  rewardedId: 'ca-app-pub-1716731715414173/5712012740',
-  testMode: false,
-};
+const pick = (p: 'ios' | 'android'): AdConfig => ({
+  bannerId: SIGNUM_UNITS.banner[p],
+  interstitialId: SIGNUM_UNITS.interstitial[p],
+  rewardedId: SIGNUM_UNITS.rewarded[p],
+  testMode: !SIGNUM_REAL,
+});
 
-const PROD_AD_IDS_ANDROID: AdConfig = {
-  bannerId: 'ca-app-pub-1716731715414173/9374101756',
-  interstitialId: 'ca-app-pub-1716731715414173/5687540555',
-  rewardedId: 'ca-app-pub-1716731715414173/6011395643',
-  testMode: false,
-};
+const TEST_AD_IDS: AdConfig = pick('android');
+const PROD_AD_IDS_IOS: AdConfig = pick('ios');
+const PROD_AD_IDS_ANDROID: AdConfig = pick('android');
 
 // Pick the right ad unit IDs for the current platform. Set
 // NEXT_PUBLIC_ADMOB_TEST_MODE=true to force Google test ads in QA builds.

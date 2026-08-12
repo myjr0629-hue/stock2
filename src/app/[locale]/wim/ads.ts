@@ -35,15 +35,13 @@
 //     Data safety = collects advertising ID; ASC App Privacy tracking = yes.
 // ============================================================================
 
-export const WIM_ADS_LIVE = false;  // master switch (also hides the banner slot)
-const ADS_TESTING = true;           // keep true until real unit ids are in
+import { unitsFor, hasRealUnits } from '@/config/admob';
 
-// Google's published TEST unit ids — safe to ship, replaced at activation.
-const UNITS = {
-  banner: { ios: 'ca-app-pub-3940256099942544/2934735716', android: 'ca-app-pub-3940256099942544/6300978111' },
-  interstitial: { ios: 'ca-app-pub-3940256099942544/4411468910', android: 'ca-app-pub-3940256099942544/1033173712' },
-  rewarded: { ios: 'ca-app-pub-3940256099942544/1712485313', android: 'ca-app-pub-3940256099942544/5224354917' },
-};
+export const WIM_ADS_LIVE = false;  // master switch (also hides the banner slot)
+const ADS_TESTING = !hasRealUnits('wim');   // 실유닛이 생기면 자동으로 false 가 된다
+
+// 유닛 ID 정본은 src/config/admob.ts. WIM 은 아직 실유닛이 없어 테스트 유닛으로 폴백된다.
+const UNITS = unitsFor('wim');
 
 // ── business guardrails (WIM_DIRECTION §4) ──
 const NEW_LEARNER_QUIET_DAYS = 3;   // no interstitial at all for the first 3 days
