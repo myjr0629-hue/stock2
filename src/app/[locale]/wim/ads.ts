@@ -37,6 +37,12 @@
 
 import { unitsFor, hasRealUnits } from '@/config/admob';
 
+// ⛔ WIM_ADS_LIVE 를 true 로 바꾸기 «전에» 반드시 개인정보처리방침부터 고친다.
+//    현재 /{locale}/wim/privacy 는 «No ads or tracking — This version does not
+//    display ads and does not use advertising identifiers (IDFA/AAID)» 라고
+//    명시하고 있다(2026-08-18 실서비스 확인). 방침을 그대로 둔 채 광고를 켜면
+//    스토어 데이터 안전성 선언·방침·실동작이 «서로 모순»이 되어 심사 리스크가 된다.
+//    순서: 방침 3개국어 수정 → 스토어 데이터 안전성/App Privacy 갱신 → 이 플래그.
 export const WIM_ADS_LIVE = false;  // master switch (also hides the banner slot)
 const ADS_TESTING = !hasRealUnits('wim');   // 실유닛이 생기면 자동으로 false 가 된다
 
