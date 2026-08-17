@@ -24,5 +24,15 @@ export const RC_API_KEY_ANDROID = process.env.NEXT_PUBLIC_RC_ANDROID_KEY ?? '';
 // dashboard entitlement identifier exactly (Product catalog → Entitlements).
 export const PRO_ENTITLEMENT_ID = 'pro';
 
-// Store product identifier for the $9.99/mo subscription (App Store + Play mirror).
+// ── 상품 식별자 (App Store + Play 미러) ─────────────────────────────────────
+// 월간은 ASC 에 이미 생성돼 있다(132개국·3개국어). 연간은 신설 예정.
+//
+// 가격 정본 (2026-08-18 확정):
+//   월간 $9.99  — 내리지 않는다. $4.99 로 내리면 손익분기가 51명 → 101명이 된다.
+//   연간 $34.99 — 업계 앵커는 «월간의 3.5배»(중앙값 $34.80). 6배($59.99)는 안 팔린다.
+//                 (RevenueCat State of Subscription Apps 2026)
 export const PRO_MONTHLY_PRODUCT_ID = 'com.signumhq.app.pro.monthly';
+export const PRO_ANNUAL_PRODUCT_ID = 'com.signumhq.app.pro.annual';
+
+/** 구독 플랜 — 페이월이 두 개를 «나란히» 보여주고 사용자가 고른다 */
+export type PlanId = 'monthly' | 'annual';
