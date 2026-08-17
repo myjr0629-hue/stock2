@@ -1,4 +1,3 @@
-import { unitsFor, hasRealUnits } from '@/config/admob';
 // ============================================================================
 // AdManager — SIGNUM HQ 모바일 광고 관리 서비스
 // 3단계 광고 파이프라인: Banner / Interstitial / Rewarded Video
@@ -6,6 +5,8 @@ import { unitsFor, hasRealUnits } from '@/config/admob';
 // ============================================================================
 
 'use client';
+
+import { unitsFor, hasRealUnits } from '@/config/admob';
 
 // ---------------------------------------------------------------------------
 // Types
