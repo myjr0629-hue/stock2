@@ -27,10 +27,15 @@ export const PRO_ENTITLEMENT_ID = 'pro';
 // ── 상품 식별자 (App Store + Play 미러) ─────────────────────────────────────
 // 월간은 ASC 에 이미 생성돼 있다(132개국·3개국어). 연간은 신설 예정.
 //
-// 가격 정본 (2026-08-18 확정):
+// 가격 정본 (2026-08-18 확정 · 심층조사로 연간가 상향):
 //   월간 $9.99  — 내리지 않는다. $4.99 로 내리면 손익분기가 51명 → 101명이 된다.
-//   연간 $34.99 — 업계 앵커는 «월간의 3.5배»(중앙값 $34.80). 6배($59.99)는 안 팔린다.
-//                 (RevenueCat State of Subscription Apps 2026)
+//   연간 $49.99 — 월간의 5.0배("58% 할인"). 실측 중앙값 밴드는 3~5배다:
+//                 RevenueCat 2025(Airbridge 경유) 4.49배 · Business 카테고리 4.95배 ·
+//                 Adapty SOIS 2026 2.96배. 시장데이터 앱은 리텐션이 중앙값보다 높아
+//                 밴드 상단이 방어된다. 10배($99.99)는 «연간이 17% 할인»이 되어
+//                 모바일에서 아무도 안 하는 구성이다.
+//                 ※ 8/17 판(3.5배 → $34.99)은 이 값으로 대체됨.
+//                 근거 정본: .agent/GROWTH_EXECUTION_PLAN_2026-08-18.md §5
 export const PRO_MONTHLY_PRODUCT_ID = 'com.signumhq.app.pro.monthly';
 export const PRO_ANNUAL_PRODUCT_ID = 'com.signumhq.app.pro.annual';
 
