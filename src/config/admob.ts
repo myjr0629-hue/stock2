@@ -83,6 +83,27 @@ export function hasRealUnits(app: AppKey): boolean {
   return REAL_UNIT_IDS[app] !== null;
 }
 
+/**
+ * ★ 이 앱이 «광고를 요청해도 되는가» — 모든 광고 호출의 최상위 관문.
+ *
+ * 2026-08-18 실사고에서 나온 규칙이다. 8/17 에 구 계정 폐쇄로 REAL_UNIT_IDS 를
+ * 전부 null 로 되돌렸는데, 그 폴백이 «구글 테스트 유닛»이라 **라이브 SIGNUM 앱에
+ * "Test mode" 배너가 실사용자에게 그대로 나갔다**(대표가 실기기에서 발견).
+ * 그전에는 (죽은) 실유닛을 요청해 노필로 조용히 안 보였을 뿐이라 증상이 없었다.
+ *
+ * 테스트 유닛 폴백은 «죽은 유닛 요청»은 막아줬지만 «프로덕션 테스트 광고»라는
+ * 더 나쁜 문을 열었다. 그래서 관문을 하나 더 둔다:
+ *   실유닛이 없으면 → 광고를 **아예 요청하지 않는다**. 수익이 0인데 화면을
+ *   가리고 "Test mode" 를 사용자에게 보여줄 이유가 없다.
+ *
+ * 개발·QA 에서 테스트 광고를 «보고 싶을 때»만 NEXT_PUBLIC_ADMOB_TEST_MODE=true
+ * 로 명시적으로 연다. 기본값이 «닫힘»이어야 사고가 안 난다.
+ */
+export function adsAllowed(app: AppKey): boolean {
+  if (process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true') return true;
+  return hasRealUnits(app);
+}
+
 /** app-ads.txt 에 들어가야 하는 줄 — 파일과 코드가 어긋나는 사고를 막는다 */
 export const APP_ADS_TXT_LINE =
   `google.com, ${PUBLISHER.replace('ca-app-', '')}, DIRECT, f08c47fec0942fa0`;

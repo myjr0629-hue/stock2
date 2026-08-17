@@ -6,7 +6,7 @@
 
 'use client';
 
-import { unitsFor, hasRealUnits } from '@/config/admob';
+import { unitsFor, hasRealUnits, adsAllowed } from '@/config/admob';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,6 +118,19 @@ class AdManagerService {
   async init(customConfig?: Partial<AdConfig>) {
     if (this.initialized) return;
     if (typeof window === 'undefined') return;
+
+    // ⛔ 실유닛이 없으면 여기서 끝낸다 — 플러그인도 안 부르고, 배너·전면·보상형
+    //    어느 것도 요청하지 않는다. 아래 모든 노출 경로가 this.initialized 를
+    //    보고 있으므로 이 한 줄이 광고 전체를 끈다.
+    //
+    //    2026-08-18: 이게 없어서 구 계정 폐쇄(유닛 전부 null) 뒤 «구글 테스트
+    //    배너»가 라이브 SIGNUM 앱에 그대로 나갔다. 수익 0인데 화면만 가렸다.
+    //    SIGNUM 은 UC(ADS_LIVE)·WIM(WIM_ADS_LIVE) 과 달리 마스터 스위치가
+    //    없었는데, 그 빈자리를 config/admob.ts 의 adsAllowed() 가 메운다.
+    if (!adsAllowed('signum')) {
+      console.log('[AdManager] 실유닛 없음 — 광고 비활성 (테스트 광고를 프로덕션에 내보내지 않는다)');
+      return;
+    }
 
     // Check if running in Capacitor native + select platform-specific ad IDs
     try {

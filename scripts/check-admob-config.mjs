@@ -38,4 +38,16 @@ for (const [name, f, key] of [
   console.log(`  ${name.padEnd(6)} ${key.padEnd(13)} ${m ? m[1] : '?'}`);
 }
 
-if (!ok || strays.length) process.exit(1);
+// ── SIGNUM 은 마스터 스위치가 «없어서» 사고가 났다 (2026-08-18) ──────────────
+// 유닛이 전부 null 인데 테스트 유닛으로 폴백해 라이브 앱에 "Test mode" 배너가
+// 나갔다. 이제 adsAllowed() 가 그 자리를 메우므로, 그 관문이 init() 에 «실제로»
+// 걸려 있는지 기계가 본다. 누가 지우면 여기서 걸린다.
+const am = fs.readFileSync(path.join(ROOT, 'src/services/adManager.ts'), 'utf8');
+const gated = /if \(!adsAllowed\('signum'\)\)/.test(am);
+console.log(`  SIGNUM adsAllowed 관문  ${gated ? '있음 ✓' : '⚠️ 없음 — 테스트 광고가 프로덕션에 나갈 수 있다'}`);
+
+// 실유닛 상태 — null 이면 «광고 없음»이 정상이고, 그게 의도인지 눈으로 확인시킨다
+const nulls = ['signum', 'uc', 'wim'].filter((k) => new RegExp(`^\\s*${k}: null,`, 'm').test(cfg));
+console.log(`  실유닛 미발급     ${nulls.length ? nulls.join(', ') + ' → 광고 요청 안 함' : '없음 (전부 발급됨)'}`);
+
+if (!ok || strays.length || !gated) process.exit(1);
