@@ -18,6 +18,7 @@ import {
   PRO_ENTITLEMENT_ID,
   PRO_MONTHLY_PRODUCT_ID,
   PRO_ANNUAL_PRODUCT_ID,
+  LAUNCH_PLANS,
   type PlanId,
 } from '@/config/iap';
 
@@ -105,18 +106,25 @@ export async function getProOffers(): Promise<PlanOffer[]> {
     );
   };
 
+  // ★ LAUNCH_PLANS 에 있는 것만 그린다. 출시 시점엔 월간 하나다(config/iap.ts 참조).
+  //   스토어에 연간 상품이 살아 있어도 여기서 걸러지면 페이월엔 안 뜬다.
   const out: PlanOffer[] = [];
-  for (const plan of ['monthly', 'annual'] as PlanId[]) {
+  for (const plan of LAUNCH_PLANS) {
     const pkg = match(plan);
     if (pkg) out.push({ plan, pkg, priceString: pkg.product?.priceString ?? '' });
   }
   return out;
 }
 
-/** 단일 플랜 조회 — 페이월이 한 가지만 필요할 때 */
+/**
+ * 단일 플랜 조회 — 페이월이 한 가지만 필요할 때.
+ *
+ * ⚠️ «못 찾으면 첫 번째 상품»으로 넘어가지 않는다. 그렇게 하면 연간을 눌렀는데
+ *    월간이 결제되는 사고가 조용히 난다. 없으면 없다고 답한다.
+ */
 export async function getProPackage(plan: PlanId = 'monthly'): Promise<PurchasesPackage | null> {
   const offers = await getProOffers();
-  return offers.find((o) => o.plan === plan)?.pkg ?? offers[0]?.pkg ?? null;
+  return offers.find((o) => o.plan === plan)?.pkg ?? null;
 }
 
 /** Current Pro status straight from RevenueCat (source of truth). */

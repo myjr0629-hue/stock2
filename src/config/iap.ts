@@ -39,5 +39,25 @@ export const PRO_ENTITLEMENT_ID = 'pro';
 export const PRO_MONTHLY_PRODUCT_ID = 'com.signumhq.app.pro.monthly';
 export const PRO_ANNUAL_PRODUCT_ID = 'com.signumhq.app.pro.annual';
 
-/** 구독 플랜 — 페이월이 두 개를 «나란히» 보여주고 사용자가 고른다 */
+/** 구독 플랜 식별자 */
 export type PlanId = 'monthly' | 'annual';
+
+/**
+ * ★ 출시 시점에 페이월이 «실제로 그리는» 플랜. 2026-08-18 대표 결정: **월간만**.
+ *
+ * 왜 연간을 뺐나 — 두 가지가 아직 사실이 아니기 때문이다:
+ *   1. 연간의 판매 논리는 «광고 제거»인데 **광고가 아직 안 나간다**(애드몹 개인 계정
+ *      본인확인 심사 중, 유닛 12개 전부 null → 테스트 폴백). 존재하지 않는 혜택을
+ *      1년치로 파는 건 애플 3.1.2 / Play 기만행위에 그대로 걸린다.
+ *   2. 카드가 하나면 페이월이 단순해지고 심사 표면적이 줄어든다. MAU 15에서
+ *      연간/월간 믹스를 «측정»할 수도 없다 — 지금 넣어도 읽을 데이터가 안 나온다.
+ *
+ * 연간을 켜는 조건(순서대로):
+ *   애드몹 승인 → 실유닛 12개 배선 → 광고가 실제로 노출됨을 실화면으로 확인
+ *   → 그때 'annual' 을 이 배열에 추가하고 ASC/Play 에 상품 생성.
+ *   가격 근거는 .agent/GROWTH_EXECUTION_PLAN_2026-08-18.md §5 ($49.99 = 월간의 5.0배).
+ *
+ * ⚠️ 배열만 고치면 된다. 연간 배선(상품ID·패키지 매칭·구매 경로)은 이미 다 있고,
+ *    여기 없으면 getProOffers 가 걸러내므로 페이월에 안 뜬다.
+ */
+export const LAUNCH_PLANS: readonly PlanId[] = ['monthly'];
