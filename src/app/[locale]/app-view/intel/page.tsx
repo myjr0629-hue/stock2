@@ -8,6 +8,7 @@ import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
 import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
 import { MetricInfo } from '@/components/app/MetricInfo';
@@ -1735,6 +1736,11 @@ export default function AppIntelPage() {
     };
   }, [selectedSector, reportData, stockAiAnalyses]);
 
+  // 리포트를 «실제로 연» 순간이 SIGNUM 의 성공 순간이다. 여기서만 평점을 청한다.
+  // 4·11회를 쓰는 이유: 아래 전면광고가 3회마다 뜨므로, 3의 배수를 고르면 시트와
+  // 전면광고가 겹친다.
+  const markReportOpened = useReviewPrompt({ storageKey: 'signum.reportOpens' });
+
   // Trigger Interstitial Ad logic on report click
   const handleSectorClick = async (sectorId: string) => {
     const newCount = adCount + 1;
@@ -1763,6 +1769,7 @@ export default function AppIntelPage() {
           setSelectedSector(sectorId);
           setExpandedStock(null);
           loadSectorReport(sectorId);
+          markReportOpened();
         }, 2500);
         return;
       }
@@ -1770,6 +1777,7 @@ export default function AppIntelPage() {
     setSelectedSector(sectorId);
     setExpandedStock(null);
     loadSectorReport(sectorId);
+    markReportOpened();
   };
 
   const getSectorQuotes = useCallback((sectorId: string): IntelQuote[] => {
