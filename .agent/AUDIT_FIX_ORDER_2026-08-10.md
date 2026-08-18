@@ -62,7 +62,12 @@
 — **바꾸기**: Play Console → SIGNUM → 데이터 보안 → «사용자가 데이터 삭제를 요청할 수 있음» 체크 + 삭제 요청 연락처 `contact@signumhq.com` 기재.
 — **검증**: `play.google.com/store/apps/datasafety?id=com.signumhq.app` 에서 해당 문장 소멸.
 
-**S1-11. [웹배포]** `$R/src/app/api/debug/guardian/route.ts:28` — 유료 상품 데이터가 무인증으로 공개 (정책 아님 · 데이터 유출)
+**S1-11. ⛔ 이 지적은 «틀렸다» — 적용하면 프로덕션이 죽는다 (2026-08-19 실증)**
+— 2026-08-18 에 이 지적대로 `requireDebugAuth()` 를 넣었더니 **가디언 화면이 통째로 죽었다**(RLSI 0 · 지표 전부 «---» · Breadth 50/50). `GuardianProvider.tsx:105` 가 이 라우트를 앱의 데이터 공급원으로 쓴다. 경로가 `/api/debug/` 아래라 디버그로 보였을 뿐이다.
+— **가드를 넣지 말 것.** 앱에 계정이 없고 가디언은 전 사용자 무료 화면이라 이 값들은 이미 UI 로 공개된다. 페이월이 생기는 날 «앱 인증»으로 풀어야 할 문제지 가드로 막을 문제가 아니다.
+— 교훈: 감사 지적은 «가설»이다. 적용 전에 소비자를 grep 한다.
+
+~~**S1-11. [웹배포]** `$R/src/app/api/debug/guardian/route.ts:28` — 유료 상품 데이터가 무인증으로 공개~~
 — `curl https://www.signumhq.com/api/debug/guardian` → **200 / 약 24KB**, `rlsi.score·level·regime·zScore·gexIndex·mcClellanOsc·breadthPct·squeezeRisk` 등 내부 계산값 전량 반환. 같은 디렉터리의 나머지 10개 라우트는 전부 403/401로 차단돼 있다(가드 헬퍼가 이미 존재).
 — **바꾸기**: `$R/src/app/api/debug/kv/route.ts:4-8`과 동일하게 2줄 추가 — 파일 상단에 `import { requireDebugAuth } from '@/lib/debugAuth';`, `export async function GET(request: Request) {` 첫 줄에 `const authError = requireDebugAuth(); if (authError) return authError;`.
 — **검증**: `curl -s -o /dev/null -w '%{http_code}' https://www.signumhq.com/api/debug/guardian` → **403**. `x-debug-secret` 헤더를 넣으면 200.
