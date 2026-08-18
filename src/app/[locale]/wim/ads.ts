@@ -104,6 +104,9 @@ function daysSinceInstall(): number {
 }
 
 let initialized = false;
+/** 구글이 이 사용자에게 «개인정보 옵션» 진입점을 요구하는가 (UMP) */
+let privacyOptionsRequired = false;
+
 export async function initWimAds(): Promise<boolean> {
   stampInstall();  // starts the new-learner quiet period even before ads are live
   const ad = plugin();
@@ -112,10 +115,37 @@ export async function initWimAds(): Promise<boolean> {
     // ATT first on iOS 14+ (personalized vs limited ads). The OS sheet shows once.
     // Android and a declining user both land in the catch and are fine.
     try { await ad.requestTrackingAuthorization?.(); } catch { /* android / declined */ }
+
+    // ── UMP 동의 (GDPR/EEA·UK) — initialize «앞»에 와야 한다 ─────────────────
+    // 2026-08-18 실측으로 WIM 에만 이 흐름이 통째로 빠져 있었다(SIGNUM·UC 는 있음).
+    // 유럽 사용자에게 동의 없이 맞춤광고를 내보내면 애드몹 정책 위반이다.
+    // EEA 밖에서는 status 가 NOT_REQUIRED 로 떨어져 폼이 뜨지 않는다.
+    // 동의 실패가 앱을 막으면 안 되므로 통째로 감싼다.
+    try {
+      const info = await ad.requestConsentInfo?.();
+      if (info?.isConsentFormAvailable && info?.status === 'REQUIRED') {
+        await ad.showConsentForm?.();
+      }
+      privacyOptionsRequired = info?.privacyOptionsRequirementStatus === 'REQUIRED';
+    } catch { /* consent unavailable — carry on with non-personalised ads */ }
+
     await ad.initialize({ initializeForTesting: ADS_TESTING });
     initialized = true;
   } catch { /* SDK init failed — stay silent, the app simply runs ad-free */ }
   return initialized;
+}
+
+/** 구글이 이 사용자에게 «개인정보 옵션» 진입점을 요구하는가 */
+export function wimNeedsPrivacyOptions(): boolean {
+  return WIM_ADS_LIVE && privacyOptionsRequired;
+}
+
+/** 동의를 «바꾸거나 철회»할 수 있게 폼을 다시 연다.
+ *  동의를 한 번 받았으면 구글은 이 경로가 앱 안에서 «상시» 닿을 것을 요구한다. */
+export async function openWimPrivacyOptions(): Promise<void> {
+  const ad = plugin();
+  if (!ad) return;
+  try { await ad.showPrivacyOptionsForm?.(); } catch { /* nothing to show */ }
 }
 
 // ── banner: anchored bottom, lifted above the fixed tab bar ──

@@ -24,6 +24,7 @@ const T: Record<string, {
   rateSub: string;
   terms: string;
   privacy: string;
+  adPrivacy: string;
   cacheDialogTitle: string;
   cacheDialogText: string;
   cacheCancel: string;
@@ -57,6 +58,7 @@ const T: Record<string, {
     rateSub: 'App Store에서 별점 남기기',
     terms: '이용약관',
     privacy: '개인정보 처리방침',
+    adPrivacy: '광고 개인정보 설정',
     cacheDialogTitle: '캐시 초기화',
     cacheDialogText: '캐시된 데이터가 삭제됩니다. 앱이 다시 로드됩니다.',
     cacheCancel: '취소',
@@ -90,6 +92,7 @@ const T: Record<string, {
     rateSub: 'Leave a rating on the App Store',
     terms: 'Terms of Service',
     privacy: 'Privacy Policy',
+    adPrivacy: 'Ad privacy settings',
     cacheDialogTitle: 'Clear Cache',
     cacheDialogText: 'Cached data will be deleted. The app will reload.',
     cacheCancel: 'Cancel',
@@ -123,6 +126,7 @@ const T: Record<string, {
     rateSub: 'App Storeで評価する',
     terms: '利用規約',
     privacy: 'プライバシーポリシー',
+    adPrivacy: '広告プライバシー設定',
     cacheDialogTitle: 'キャッシュクリア',
     cacheDialogText: 'キャッシュデータが削除されます。アプリが再読み込みされます。',
     cacheCancel: 'キャンセル',
@@ -181,6 +185,21 @@ export default function SettingsPage() {
   const [toastMsg, setToastMsg] = useState('');
   const [mounted, setMounted] = useState(false);
   const [closing, setClosing] = useState(false);
+  // 구글 UMP: 동의를 «받은» 사용자에게는 철회 진입점이 상시 보여야 한다.
+  // 요건이 없는 지역(EEA 밖)에서는 false 라 행 자체가 렌더되지 않는다.
+  const [showAdPrivacy, setShowAdPrivacy] = useState(false);
+
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const { adManager } = await import('@/services/adManager');
+        // init 은 NativeAppProvider 가 이미 돌린다. 여기선 결과만 읽는다.
+        if (!dead) setShowAdPrivacy(adManager.needsPrivacyOptions());
+      } catch { /* 웹 / 광고 비활성 — 행을 숨긴 채로 둔다 */ }
+    })();
+    return () => { dead = true; };
+  }, []);
 
   // Pro (ad-free) — inert while IAP_LIVE=false (isPro false, no SDK, card hidden).
   const { isPro, purchase, restore } = useProStatus();
@@ -581,6 +600,27 @@ export default function SettingsPage() {
               </div>
               <span className={s.rowChevron}>›</span>
             </div>
+            {showAdPrivacy && (
+              <div
+                className={s.row}
+                onClick={async () => {
+                  hapticImpact('light');
+                  const { adManager } = await import('@/services/adManager');
+                  await adManager.openPrivacyOptions();
+                }}
+              >
+                <div className={s.rowLeft}>
+                  <div className={`${s.rowIcon} ${s.rowIconLegal}`}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="1.8" />
+                      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.6 7a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H7a1.7 1.7 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V7a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div className={s.rowLabel}>{t.adPrivacy}</div>
+                </div>
+                <span className={s.rowChevron}>›</span>
+              </div>
+            )}
           </div>
 
           {/* ── Companion apps (cross-promo) — UC·WIM 모두 iOS/Android 라이브. ── */}

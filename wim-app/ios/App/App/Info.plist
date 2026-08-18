@@ -47,6 +47,8 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Why&apos;d It Move? uses the device advertising identifier to deliver and measure ads. Quiz content is educational and is not investment advice.</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-9554397112094712~6742792269</string>
 	<key>SKAdNetworkItems</key>

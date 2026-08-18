@@ -98,6 +98,7 @@ class AdManagerService {
   private interstitialLoaded = false;
   private rewardedLoaded = false;
   private bannerSuppressed = false;
+  private privacyOptionsRequired = false; // 구글 UMP 가 «철회 진입점»을 요구하는가
   private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
   private proKnown = false; // true once Pro status has been reported at least once (setPro called)
   private wantBanner = false; // derived desired banner visibility (recomputeWantBanner)
@@ -190,6 +191,12 @@ class AdManagerService {
         ) {
           await AdMob.showConsentForm();
         }
+        // ★ 동의를 받은 뒤에는 «철회 진입점»이 앱 안에 상시 있어야 한다(구글 UMP 요건).
+        //   2026-08-10 감사 S1-5: SIGNUM 배포 번들에 showPrivacyOptionsForm 이 0건이라
+        //   동의만 받고 되돌릴 길이 없었다. 광고를 켜기 «전에» 메워야 하는 구멍이다.
+        this.privacyOptionsRequired =
+          (consentInfo as { privacyOptionsRequirementStatus?: string })
+            .privacyOptionsRequirementStatus === 'REQUIRED';
       } catch (consentErr) {
         console.warn('[AdManager] UMP consent flow skipped:', consentErr);
       }
@@ -248,6 +255,22 @@ class AdManagerService {
       const { AdMob } = await import('@capacitor-community/admob');
       await AdMob.hideBanner();
     } catch {}
+  }
+
+  /** 구글이 이 사용자에게 «광고 개인정보 설정» 진입점을 요구하는가 */
+  needsPrivacyOptions(): boolean {
+    return this.initialized && this.privacyOptionsRequired;
+  }
+
+  /** 동의를 바꾸거나 철회할 수 있게 구글 폼을 다시 연다 */
+  async openPrivacyOptions(): Promise<void> {
+    if (!this.initialized) return;
+    try {
+      const { AdMob } = await import('@capacitor-community/admob');
+      await (AdMob as { showPrivacyOptionsForm?: () => Promise<void> }).showPrivacyOptionsForm?.();
+    } catch (err) {
+      console.warn('[AdManager] privacy options form unavailable:', err);
+    }
   }
 
   // Single source of truth for whether the banner SHOULD be visible. Derived from
