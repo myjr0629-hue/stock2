@@ -24,8 +24,8 @@ android {
         applicationId "com.signumhq.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1"
+        versionCode 3
+        versionName "1.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // AdMob: production Android App ID (개인 게시자 ca-app-pub-9554397112094712, 2026-08-18 교체).
         // Env override kept for flexibility; defaults to the real production ID.
