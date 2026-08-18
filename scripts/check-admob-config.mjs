@@ -50,4 +50,27 @@ console.log(`  SIGNUM adsAllowed 관문  ${gated ? '있음 ✓' : '⚠️ 없음
 const nulls = ['signum', 'uc', 'wim'].filter((k) => new RegExp(`^\\s*${k}: null,`, 'm').test(cfg));
 console.log(`  실유닛 미발급     ${nulls.length ? nulls.join(', ') + ' → 광고 요청 안 함' : '없음 (전부 발급됨)'}`);
 
-if (!ok || strays.length || !gated) process.exit(1);
+// ── ★ 바이너리 안의 «앱 ID» 가 현재 게시자와 같은가 (2026-08-18) ─────────────
+// 유닛 ID 만 보고 「웹 배포면 끝」이라고 적어뒀다가, 스토어의 바이너리 6개가
+// 폐쇄된 계정의 앱 ID 를 들고 있는 걸 뒤늦게 발견했다. 기계가 대신 본다.
+const APP_ID_FILES = [
+  ['SIGNUM  android', 'android/app/build.gradle'],
+  ['SIGNUM  ios    ', 'ios/App/App/Info.plist'],
+  ['UC      android', 'uc-app/android/app/src/main/AndroidManifest.xml'],
+  ['UC      ios    ', 'uc-app/ios/App/App/Info.plist'],
+  ['WIM     android', 'wim-app/android/app/src/main/AndroidManifest.xml'],
+  ['WIM     ios    ', 'wim-app/ios/App/App/Info.plist'],
+];
+let appIdBad = 0;
+console.log('  ── 바이너리 앱 ID ──');
+for (const [name, f] of APP_ID_FILES) {
+  const full = path.join(ROOT, f);
+  if (!fs.existsSync(full)) { console.log(`  ${name}  ⚠️ 파일 없음 (${f})`); appIdBad++; continue; }
+  const m = /ca-app-pub-\d+~\d+/.exec(fs.readFileSync(full, 'utf8'));
+  const val = m ? m[0] : null;
+  const good = val && val.startsWith(pub + '~');
+  if (!good) appIdBad++;
+  console.log(`  ${name}  ${val ?? '없음'} ${good ? '✓' : '⚠️ 게시자 불일치'}`);
+}
+
+if (!ok || strays.length || !gated || appIdBad) process.exit(1);

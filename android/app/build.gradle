@@ -27,9 +27,9 @@ android {
         versionCode 2
         versionName "1.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        // AdMob: production Android App ID (account ca-app-pub-1716731715414173).
+        // AdMob: production Android App ID (개인 게시자 ca-app-pub-9554397112094712, 2026-08-18 교체).
         // Env override kept for flexibility; defaults to the real production ID.
-        def adMobAppId = System.getenv("ADMOB_ANDROID_APP_ID") ?: "ca-app-pub-1716731715414173~8198575283"
+        def adMobAppId = System.getenv("ADMOB_ANDROID_APP_ID") ?: "ca-app-pub-9554397112094712~1354734212"
         manifestPlaceholders = [adMobAppId: adMobAppId]
         if (gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") } &&
                 adMobAppId == "ca-app-pub-3940256099942544~3347511713") {

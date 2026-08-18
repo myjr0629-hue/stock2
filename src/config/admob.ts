@@ -55,6 +55,11 @@ export type Platform = 'ios' | 'android';
 export type Slot = 'banner' | 'interstitial' | 'rewarded';
 export type AppKey = 'signum' | 'uc' | 'wim';
 
+/**
+ * 유닛 표. 같은 모양을 두 군데서 쓰는데 «담기는 값»이 다르다 —
+ *   TEST_UNITS        : 전체 ID (`ca-app-pub-…/1234`)
+ *   UNITS_2026_08_18  : 슬래시 «뒤» 숫자만 (`1234`) — 접두사는 unitsFor 가 붙인다
+ */
 type UnitTable = Record<Slot, Record<Platform, string>>;
 
 /**
@@ -68,17 +73,44 @@ const TEST_UNITS: UnitTable = {
 };
 
 /**
- * 앱별 «실» 유닛 — 숫자 부분만 담는다. 게시자 접두사는 PUBLISHER 가 붙인다.
- * null = 아직 발급 안 됨 → 자동으로 테스트 유닛으로 폴백한다.
+ * ★ 2026-08-18 개인 계정에서 발급받은 «실» 유닛 18개. 값은 여기 보존한다.
+ *
+ * ⛔ 아직 REAL_UNIT_IDS 에 연결하지 «않는다». 스토어에 올라가 있는 바이너리 6개가
+ *    폐쇄된 회사 계정의 앱 ID 를 들고 있기 때문이다. 앱 ID 와 유닛 ID 의 게시자가
+ *    어긋난 채로 광고를 요청하면 노필이 나거나 정책 문제가 된다.
+ *    새 앱 ID 를 담은 바이너리가 «라이브가 된 뒤» 아래 REAL_UNIT_IDS 를 이걸로 바꾼다.
+ *    (절차 정본 = 파일 상단 주석 + .agent/SIGNUM_V1.2_BINARY_TODO.md §0)
  */
-const REAL_UNIT_IDS: Record<AppKey, Record<Slot, Record<Platform, string>> | null> = {
-  // ⚠️ 2026-08-17: 구 계정 폐쇄로 «12개 유닛이 전부 죽었다». 새 계정 승인 후
-  //    앱 3개를 등록하고 유닛을 재발급받아 여기 채운다. 그전까지는 null =
-  //    구글 테스트 유닛 폴백이라 «죽은 유닛을 요청하는» 사고가 구조적으로 안 난다.
-  //
-  //    구 유닛(폐기, 복구 불가):
-  //      signum banner 1878755113/9374101756 · int 9818357259/5687540555 · rew 5712012740/6011395643
-  //      uc     banner 6846022634/5046424029 · int 3485930345/7900084009 · rew 4152410686/4415868633
+const UNITS_2026_08_18: Record<AppKey, UnitTable> = {
+  signum: {
+    banner: { ios: '2475761692', android: '5676640109' },
+    interstitial: { ios: '5496676704', android: '3872603840' },
+    rewarded: { ios: '7237133789', android: '3681032159' },
+  },
+  uc: {
+    banner: { ios: '3829155637', android: '5840291635' },
+    interstitial: { ios: '3461540300', android: '9288582059' },
+    rewarded: { ios: '9244350024', android: '5501329953' },
+  },
+  wim: {
+    banner: { ios: '8406745226', android: '3401830554' },
+    interstitial: { ios: '5780581884', android: '9584095526' },
+    rewarded: { ios: '2058472067', android: '9392523836' },
+  },
+};
+
+/**
+ * 앱별 «실» 유닛 — 숫자 부분만 담는다. 게시자 접두사는 PUBLISHER 가 붙인다.
+ * null = 아직 «켜지 않음» → adsAllowed() 가 광고 요청 자체를 막는다.
+ */
+const REAL_UNIT_IDS: Record<AppKey, UnitTable | null> = {
+  // ⛔ 유닛은 다 발급됐다(위 UNITS_2026_08_18). 여기가 null 인 이유는 «유닛이 없어서»가
+  //    아니라 «바이너리가 아직 옛 앱 ID 를 들고 있어서»다. 순서:
+  //      1. 네이티브 6개 파일의 앱 ID 교체 (완료, 2026-08-18)
+  //      2. 바이너리 6개 재빌드 + 스토어 제출 + 라이브 확인   ← 지금 여기
+  //      3. 아래 세 줄을 UNITS_2026_08_18.<app> 으로 교체
+  //      4. UC/WIM 개인정보처리방침 + 스토어 데이터 안전성 갱신 (2번 전에)
+  //      5. ADS_LIVE / WIM_ADS_LIVE → true, 웹 배포
   signum: null,
   uc: null,
   wim: null,
