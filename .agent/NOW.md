@@ -12,7 +12,7 @@
 
 | | 할 것 | 어디 | 왜 지금 |
 |---|---|---|---|
-| A1 | UC → 앱 콘텐츠 → **광고 ID 사용 = 예**, 데이터 보안에 「기기 또는 기타 ID」 | play.google.com/console | 바이너리에 AD_ID 가 병합되는데 선언은 「수집 없음」 (감사 S1-3) |
+| ~~A1~~ | ~~UC 광고 ID 선언~~ ✅ **이미 Yes + Advertising or marketing** — 콘솔이 매니페스트에 AD_ID 있음을 직접 확인. 할 일 없음 | — |
 | A2 | SIGNUM → 데이터 보안 → **「데이터 삭제 요청 가능」 체크** + `contact@signumhq.com` | play.google.com/console | 자사 방침은 「이메일로 삭제 요청 가능」인데 Play 는 「불가」 (감사 S1-10) |
 | A3 | **지급** 섹션에 미완성 항목 없는지 확인 | apps.admob.com | 회사 계정을 죽인 게 세금·결제 프로필이었다 |
 
@@ -33,6 +33,9 @@
 
 ---
 
+> **콘솔 경로**: `Monitor and improve → Policy and programs → App content → Actioned 탭`
+> (`Test and release` 아래가 아니다. 직접 URL 은 통하지 않는다 — 앱 목록으로 튕긴다)
+
 ## C. 광고 켜기 — 순서 고정 (하나라도 건너뛰면 정책 위반으로 나간다)
 
 ```
@@ -41,7 +44,9 @@
 ✅ adsAllowed() 관문 — 실유닛 없으면 광고 요청 자체를 안 한다
 ✅ SIGNUM UMP 철회 진입점 · WIM UMP 동의 흐름 · WIM ATT 문자열
 ✅ B1  방침 6블록 (광고 스위치와 묶음)
-⬜ A1·A2  스토어 선언 정합
+⬜ A2  SIGNUM 데이터 삭제 선언
+⬜ E-1 «광고를 켜는 날» 함께: UC Ads = Yes + UC Data safety 에 Device or other IDs
+       (지금 바꾸면 광고가 안 나오는데 «광고 포함» 배지만 붙어 사실과 어긋난다)
 ⬜ D   바이너리 6개 재빌드·제출 → 라이브 확인
 ⬜ E   REAL_UNIT_IDS 를 UNITS_2026_08_18 로 + ADS_LIVE/WIM_ADS_LIVE → 웹 배포
 ```
