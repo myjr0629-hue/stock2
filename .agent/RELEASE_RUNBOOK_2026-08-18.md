@@ -59,7 +59,17 @@ ja: Androidナビゲーションバー周りのレイアウト・安定性の改
 
 ---
 
-## ② iOS — 대표님 Xcode 에서만 가능
+## ② iOS — ✅ **완료 (2026-08-19, CLI 로 전부 자동화됨)**
+
+> 아래 «Xcode 에서만 가능»은 **오진이었다.** Xcode 에 애플 계정이 로그인돼 있으면
+> `-allowProvisioningUpdates` 가 클라우드 관리 배포 인증서를 자동으로 쓴다.
+> 그건 `security find-identity` 에 안 나와서 «없다»고 잘못 판단했다.
+> 전체 명령·API 키 위치는 메모리 `ios-build-upload-is-fully-automatable` 참조.
+>
+> 업로드 완료: SIGNUM `1.2 build 3` (25edb7c9…) · UC `1.0.2 build 4` (6e94a60c…)
+
+<details><summary>당시 판단(보관)</summary>
+
 
 이 머신에는 **Apple Development 인증서만** 있고 배포 인증서·프로비저닝 프로파일이
 없어 아카이브가 불가능하다. 대신 **Release 컴파일은 두 앱 다 통과**시켜 뒀으므로
@@ -81,6 +91,8 @@ ASC → 앱 → «+ 버전 또는 플랫폼» → 1.2 (UC 는 1.0.2)
 → 빌드 선택 → «이번 버전의 새로운 기능» 에 위 릴리스 노트
 → 심사에 제출
 ```
+
+</details>
 
 ### ⚠️ WIM 마케팅 URL — **다음에 WIM 을 낼 때** 같이
 현재 애플의 WIM 마케팅 URL 이 `https://www.signumhq.com/en/wim` 인데 베어 도메인이어야
