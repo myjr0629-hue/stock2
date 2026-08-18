@@ -46,7 +46,7 @@ async function getData(locale: string, ticker: string): Promise<TickerData | nul
 type Strings = {
   kicker: string; sub: (t: string) => string; money: string; read: string; news: string;
   divergence: string; whatT: string; whatB: string; glossT: string; gloss: [string, string][];
-  ctaT: string; ctaUc: string; ctaSg: string; disc: string;
+  ctaT: string; ctaUc: string; ctaSg: string; ctaWim: string; disc: string;
   lbl: Record<string, string>;
 };
 const L: Record<string, Strings> = {
@@ -65,6 +65,7 @@ const L: Record<string, Strings> = {
     ],
     ctaT: 'See it live, free', ctaUc: 'Get Undercurrent — the news behind the money',
     ctaSg: 'Or go deeper with SIGNUM HQ — the pro options terminal',
+    ctaWim: "New to this? Why'd It Move? turns today's move into a 60-second lesson",
     disc: 'Data, scores and interpretations are for information and education only — not investment advice or a buy/sell recommendation. All decisions and outcomes are your own.',
     lbl: { darkPool: 'Dark-pool volume', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
   },
@@ -83,6 +84,7 @@ const L: Record<string, Strings> = {
     ],
     ctaT: '실시간으로 무료로 보기', ctaUc: 'Undercurrent 받기 — 뉴스 뒤의 돈',
     ctaSg: '또는 SIGNUM HQ로 더 깊이 — 프로 옵션 터미널',
+    ctaWim: "처음이라면 — Why'd It Move? 가 오늘의 움직임을 60초 문제로 만들어 줍니다",
     disc: '데이터·점수·해석은 정보·교육용이며 투자자문이나 매수/매도 권유가 아닙니다. 모든 판단과 결과의 책임은 본인에게 있습니다.',
     lbl: { darkPool: '다크풀 비중', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
   },
@@ -101,6 +103,7 @@ const L: Record<string, Strings> = {
     ],
     ctaT: 'リアルタイムで無料で見る', ctaUc: 'Undercurrentを入手 — ニュースの裏側のお金',
     ctaSg: 'またはSIGNUM HQでさらに深く — プロ向けオプション端末',
+    ctaWim: "はじめてなら — Why'd It Move? が今日の値動きを60秒の問題にします",
     disc: 'データ・スコア・解釈は情報・教育目的であり、投資助言や売買推奨ではありません。すべての判断と結果は利用者ご自身の責任です。',
     lbl: { darkPool: 'ダークプール比率', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
   },
@@ -231,6 +234,10 @@ export default async function FlowTickerPage(
         <div style={{ fontSize: 16, fontWeight: 900, textAlign: 'center', marginBottom: 10 }}>{l.ctaT}</div>
         <a href="https://www.signumhq.com/app-uc?from=seo" style={S.cta} rel="noopener">{l.ctaUc} →</a>
         <a href="https://www.signumhq.com/app?from=seo" style={S.cta2} rel="noopener">{l.ctaSg} →</a>
+        {/* WIM — 2026-08-18 실측: /app-wim 링크가 사이트 «전체»에 0회였다. 즉 WIM 은
+            웹에서 설치될 경로가 아예 없었다. 티커 페이지는 「왜 움직였나」가 주제라
+            Why'd It Move? 와 정확히 겹치므로 여기가 가장 자연스러운 자리다. */}
+        <a href="https://www.signumhq.com/app-wim?from=seo" style={S.cta2} rel="noopener">{l.ctaWim} →</a>
       </section>
 
       <section>

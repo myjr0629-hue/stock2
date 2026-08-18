@@ -12,7 +12,9 @@ const META: Record<string, { title: string; desc: string }> = {
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   const m = META[locale] || META.en;
-  return { title: m.title, description: m.desc };
+  // ★ 스마트앱배너 — 루트 layout 이 전 페이지에 SIGNUM(6783130444)을 박고 있어서
+  //   /wim 을 아이폰 사파리로 연 사람에게 «엉뚱한 앱»을 권하고 있었다(2026-08-18 실측).
+  return { title: m.title, description: m.desc, itunes: { appId: '6794356135' } };
 }
 
 export default function WimLayout({ children }: { children: ReactNode }) {
