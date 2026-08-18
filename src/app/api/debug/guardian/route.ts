@@ -1,6 +1,5 @@
 
 import { NextResponse } from 'next/server';
-import { requireDebugAuth } from '@/lib/debugAuth';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 
 // Some AI-brief fields are baked with mojibake upstream (the EC2 Redis proxy mangles
@@ -27,12 +26,21 @@ export const dynamic = 'force-dynamic';
 // No vendor names or API keys are exposed in the response (computed RLSI/sector/verdict data only).
 
 export async function GET(request: Request) {
-    // ⛔ 이 라우트는 rlsi/gexIndex/regime 등 «유료 상품의 내부 계산값»을 통째로
-    //    반환한다. 같은 디렉터리의 다른 라우트는 전부 가드가 있는데 여기만 빠져
-    //    있었고, 2026-08-10 감사에서 지적된 뒤 8일간 무인증 200(28KB)으로 열려
-    //    있었다(2026-08-18 실측). 가드는 «전부에» 있어야 한다.
-    const authError = requireDebugAuth();
-    if (authError) return authError;
+    // ⛔⛔ 여기에 requireDebugAuth() 를 넣지 마라. 넣었다가 프로덕션을 끊었다.
+    //
+    // 경로가 /api/debug/ 아래라 «디버그 엔드포인트»처럼 보이지만, 실제로는
+    // **가디언 화면의 데이터 공급원**이다 — src/components/guardian/GuardianProvider.tsx
+    // 의 refresh() 가 이걸 부른다. 2026-08-18 에 감사 지적(S1-11)만 보고 가드를
+    // 넣었더니 403 → 프로바이더가 0 으로 폴백 → RLSI 0 · 지표 전부 «---» ·
+    // Breadth 50/50 으로 가디언 페이지가 통째로 죽었다(대표가 실기기에서 발견).
+    //
+    // «같은 디렉터리의 다른 라우트엔 다 가드가 있다»는 건 이 라우트가 그들과
+    // 같은 성격이라는 뜻이 아니었다. 소비자를 안 보고 디렉터리 이름만 봤다.
+    //
+    // 공개가 맞는 이유: 앱에 계정·로그인이 없고 가디언 화면은 전 사용자에게
+    // 무료로 열려 있다. 즉 이 값들은 이미 앱 UI 로 공개되는 것과 같다.
+    // ★ 페이월이 실제로 생기는 날에는 «가드»가 아니라 «앱 인증»으로 풀어야 한다.
+    //   그때까지 이 라우트는 공개다.
 
     try {
         const { searchParams } = new URL(request.url);
