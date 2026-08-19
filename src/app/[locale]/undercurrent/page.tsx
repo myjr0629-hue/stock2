@@ -1531,7 +1531,7 @@ export default function UndercurrentPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${TABBAR_RESERVE}px + var(--uc-safe, 0px))` }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${TABBAR_RESERVE}px + var(--uc-safe, 0px) + var(--uc-ad-h, 0px))` }}>
 
         {/* masthead — two clean rows: (logo · wordmark · bell) / (tagline ─ date · edition).
             The old single-row layout squeezed the by-line into a wrap and stacked the

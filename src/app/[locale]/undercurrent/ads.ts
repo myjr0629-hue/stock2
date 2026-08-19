@@ -97,6 +97,18 @@ export async function initAds(): Promise<boolean> {
     } catch { /* consent unavailable — carry on with non-personalised ads */ }
 
     await ad.initialize({ initializeForTesting: ADS_TESTING });
+
+    // 배너 «실제» 높이를 레이아웃에 알린다. UC 의 콘텐츠 하단 여백(TABBAR_RESERVE)에는
+    // 배너 몫이 아예 없었다 → 끝까지 스크롤하면 마지막 카드가 배너에 가렸다.
+    // 적응형 배너는 기기·화면폭마다 높이가 달라(실측 iOS 63 / Android 64) 상수로는 못 맞춘다.
+    try {
+      ad.addListener?.('bannerAdSizeChanged', (info: { height?: number }) => {
+        const h = Number(info?.height);
+        if (!Number.isFinite(h) || h <= 0) return;
+        document.documentElement.style.setProperty('--uc-ad-h', `${Math.round(h)}px`);
+      });
+    } catch { /* 이벤트 없는 버전 — 여백 0 으로 기존 동작 유지 */ }
+
     initialized = true;
   } catch { /* SDK init failed — stay silent, app works ad-free */ }
   return initialized;
@@ -117,6 +129,28 @@ export async function openPrivacyOptions(): Promise<void> {
 
 // ── banner: anchored bottom, pushed up above the fixed tab bar ──
 let bannerShown = false;
+
+/** CSS 변수를 px 숫자로 읽는다 (없으면 fallback) */
+function cssPx(name: string, fallback: number): number {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : fallback;
+  } catch { return fallback; }
+}
+
+/**
+ * ⛔ 2026-08-19 실측 버그. 호출부가 주는 marginPx 는 «탭바 섬 위» 기준으로 계산된 값인데,
+ *    플러그인의 마진 «기준선»이 플랫폼마다 다르다(원본 확인):
+ *      · iOS     safeAreaLayoutGuide.bottom 기준 → 세이프가 이미 빠져 있다 → 그대로 맞다
+ *      · Android 컨테이너(=화면) 바닥 기준, 엣지투엣지라 내비바 «아래»까지 → 내비바만큼 더해야 한다
+ *    안 더한 탓에 안드로이드에서 배너가 탭바를 덮었다(SIGNUM 은 36dp, UC 는 38dp 겹침).
+ */
+function resolveMargin(marginPx: number): number {
+  if (platform() !== 'android') return marginPx;
+  return Math.round(marginPx + cssPx('--uc-safe', 0));
+}
+
 export async function showHomeBanner(marginPx: number): Promise<boolean> {
   const ad = plugin();
   if (!ad || !(await initAds())) return false;
@@ -125,7 +159,7 @@ export async function showHomeBanner(marginPx: number): Promise<boolean> {
       adId: UNITS.banner[platform()],
       adSize: 'ADAPTIVE_BANNER',
       position: 'BOTTOM_CENTER',
-      margin: marginPx,
+      margin: resolveMargin(marginPx),
       isTesting: ADS_TESTING,
     });
     bannerShown = true;

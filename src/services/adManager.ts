@@ -96,6 +96,40 @@ function resolveDefaultAdConfig(): AdConfig {
 const UNLOCK_KEY = 'signum_ad_unlock';
 const AD_STATS_KEY = 'signum_ad_stats';
 
+/**
+ * 배너를 «CSS 가 비워둔 자리»에 정확히 앉힌다 — 상수로 두지 않는 이유가 있다.
+ *
+ * ⛔ 2026-08-19 양 플랫폼 실측으로 잡은 버그. 기존 값은 iOS 124 / Android 94 였고
+ *    «iOS 104 는 홈 인디케이터 34 를 포함한 값»이라는 주석이 붙어 있었다. 둘 다 틀렸다.
+ *    플러그인 원본을 열어 보면 마진의 «기준선»이 플랫폼마다 다르다:
+ *      · iOS     BannerExecutor.swift → `toItem: view.safeAreaLayoutGuide, attribute: .bottom`
+ *                즉 세이프에어리어가 «이미» 빠져 있다. 여기에 34 를 또 더해 이중 차감이 됐다.
+ *      · Android BannerExecutor.java  → 컨테이너 바닥 기준(엣지투엣지라 내비바 «아래»까지).
+ *                내비바 높이를 안 더해 배너가 탭바를 덮었다.
+ *    실측(2026-08-19): iOS 배너 하단이 화면 바닥에서 158pt(있어야 할 곳 126pt, +32 높음),
+ *    Android 96dp(있어야 할 곳 140dp, −44 낮아 탭바를 36dp 가림).
+ *
+ * 그래서 숫자를 고치는 대신 «레이아웃이 실제로 쓰는 변수»에서 계산한다. 이러면 탭바 높이나
+ * 리프트를 바꿔도 배너가 저절로 따라오고, 두 값이 어긋날 방법이 없다.
+ * 기준선 차이만 플랫폼 분기로 남긴다 — 그건 플러그인의 사실이지 우리 선택이 아니다.
+ */
+function computeBannerMargin(platform: string): number {
+  const px = (name: string, fallback: number): number => {
+    try {
+      const el = document.querySelector('.app-viewport') || document.documentElement;
+      const v = getComputedStyle(el).getPropertyValue(name).trim();
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : fallback;
+    } catch { return fallback; }
+  };
+  const lift = px('--app-tabbar-lift', 12);
+  const tabbar = px('--app-tabbar-height', 72);
+  const gap = px('--app-anchor-ad-gap', 8);
+  const safe = px('--app-bottom-safe', 0);
+  // iOS 는 세이프에어리어가 기준선에서 이미 빠졌으므로 더하지 않는다.
+  return Math.round(lift + tabbar + gap + (platform === 'android' ? safe : 0));
+}
+
 // ---------------------------------------------------------------------------
 // Ad Manager Singleton
 // ---------------------------------------------------------------------------
@@ -208,10 +242,24 @@ class AdManagerService {
         console.warn('[AdManager] UMP consent flow skipped:', consentErr);
       }
 
+      const { BannerAdPluginEvents } = await import('@capacitor-community/admob');
       await AdMob.initialize({
         testingDevices: this.config.testMode ? ['EMULATOR'] : [],
         initializeForTesting: this.config.testMode,
       });
+
+      // 배너 «실제» 높이를 레이아웃에 알려준다. --app-anchor-ad-height 는 50px 고정이었는데
+      // 적응형 배너의 실측 높이는 iOS 63pt / Android 64dp 였다(2026-08-19). 14 만큼 덜 비워
+      // 끝까지 스크롤하면 마지막 콘텐츠가 배너에 가렸다. 기기·화면폭마다 다른 값이라
+      // 상수로는 맞출 수 없어, 플러그인이 알려주는 값을 그대로 쓴다.
+      try {
+        AdMob.addListener(BannerAdPluginEvents.SizeChanged, (info: { height?: number }) => {
+          const h = Number(info?.height);
+          if (!Number.isFinite(h) || h <= 0) return;
+          const el = (document.querySelector('.app-viewport') as HTMLElement) || document.documentElement;
+          el.style.setProperty('--app-anchor-ad-height', `${Math.round(h)}px`);
+        });
+      } catch { /* 이벤트가 없는 플러그인 버전 — 기본 50px 로 동작 */ }
 
       // Pre-load interstitial and rewarded ads
       this.preloadInterstitial();
@@ -235,12 +283,7 @@ class AdManagerService {
     try {
       const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
       const { Capacitor } = await import('@capacitor/core');
-      // 배너는 탭바 «위»에 앉아야 한다. 2026-08-06 탭바가 떠 있는 섬이 되면서
-      // 하단에서 --app-tabbar-lift(12) 만큼 더 올라갔고, 섬과 배너 사이 간격 8을 더한다.
-      // 기존 값(iOS 104 / Android 74)의 차이는 iOS 홈 인디케이터(≈34)라 그 관계는 유지.
-      const TABBAR_LIFT = 12;
-      const BANNER_GAP = 8;
-      const bottomMargin = (Capacitor.getPlatform() === 'ios' ? 104 : 74) + TABBAR_LIFT + BANNER_GAP;
+      const bottomMargin = computeBannerMargin(Capacitor.getPlatform());
 
       await AdMob.showBanner({
         adId: this.config.bannerId,
