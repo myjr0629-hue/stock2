@@ -186,9 +186,34 @@ export async function resumeBanner(): Promise<void> {
   try { await ad.resumeBanner(); bannerShown = true; } catch { /* noop */ }
 }
 
+// ── 보상형 언락 — 「광고를 봤다」는 사실을 1시간 기억한다 ────────────────────
+// 2026-08-19 대표 지적: 종목마다 매번 광고를 봐야 했다(언락이 React state 라
+// 티커별이고 저장도 안 됐다). SIGNUM 은 처음부터 1시간 전역 언락이었다 — 그쪽에 맞춘다.
+export const DEEP_UNLOCK_MS = 60 * 60 * 1000;
+const DEEP_UNLOCK_KEY = 'uc.deepUnlockUntil';
+
+/** 보상형 시청 성공 시각을 기록한다(= 1시간 언락 시작). */
+export function markDeepUnlocked(): void {
+  try { localStorage.setItem(DEEP_UNLOCK_KEY, String(Date.now() + DEEP_UNLOCK_MS)); } catch { /* noop */ }
+}
+/** 지금 심층 데이터가 열려 있는가 (티커 무관, 1시간). */
+export function isDeepUnlocked(): boolean {
+  try { return (parseInt(localStorage.getItem(DEEP_UNLOCK_KEY) || '0', 10) || 0) > Date.now(); }
+  catch { return false; }
+}
+/** 남은 언락 시간(ms) — UI 안내용. */
+export function deepUnlockRemainingMs(): number {
+  try { return Math.max(0, (parseInt(localStorage.getItem(DEEP_UNLOCK_KEY) || '0', 10) || 0) - Date.now()); }
+  catch { return 0; }
+}
+
 // ── interstitial: detail-close moment, guarded by caps ──
 function interAllowed(): boolean {
   if (Date.now() - sessionStart < SESSION_GRACE_MS) return false;
+  // ★ 보상형을 본 사용자에게는 1시간 동안 전면광고를 띄우지 않는다 (2026-08-19, 대표 지시).
+  //   구글 권장이 «사용자당 시간당 전면 1회»이고, 보상형을 본 참여 사용자에게 전면을
+  //   곧바로 얹는 건 광고 피로의 대표 사례다. SIGNUM 과 같은 규칙을 쓴다.
+  if (isDeepUnlocked()) return false;
   try {
     const day = new Date().toISOString().slice(0, 10);
     const last = parseInt(localStorage.getItem('uc.ads.inter.last') || '0', 10) || 0;

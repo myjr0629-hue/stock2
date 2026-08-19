@@ -453,6 +453,12 @@ class AdManagerService {
   canShowInterstitial(): boolean {
     if (!this.initialized || !this.interstitialLoaded) return false;
     const now = Date.now();
+    // ★ 보상형을 본 사용자에게는 1시간 동안 전면광고를 띄우지 않는다 (2026-08-19, 대표 지시).
+    //   「광고를 봐서 데이터를 열었는데 전면광고까지 보면 과하다」 — 업계 기준과도 맞는다:
+    //   구글 권장은 «사용자당 시간당 전면 1회»이고, 보상형을 본 참여 사용자에게 곧바로
+    //   전면을 얹는 건 광고 피로의 대표 사례로 꼽힌다.
+    //   언락 자체가 「사용자가 주의를 지불했다」는 신호라 그대로 재사용한다(1시간 동일).
+    if (this.isPremiumUnlocked()) return false;
     if (now - this.sessionStartedAt < this.INTERSTITIAL_COLD_START_GRACE_MS) return false;
     if (this.interstitialShownThisSession >= this.INTERSTITIAL_MAX_PER_SESSION) return false;
     if (now - this.lastInterstitialAt < this.INTERSTITIAL_MIN_INTERVAL_MS) return false;
