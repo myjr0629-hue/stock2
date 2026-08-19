@@ -149,7 +149,12 @@ function cssPx(name: string, fallback: number): number {
  */
 function resolveMargin(marginPx: number): number {
   if (platform() !== 'android') return marginPx;
-  return Math.round(marginPx + cssPx('--uc-safe', 0));
+  // marginPx 는 «상수» TABBAR_LIFT(12) 로 계산돼 들어온다. 그런데 안드로이드는 실제 lift 가
+  // 6px 이라(native-app.css 오버라이드) 그대로 쓰면 6dp 만큼 더 뜬다 — 실측으로 확인.
+  // 탭바가 실제로 쓰는 값으로 바꿔치기한다.
+  const LIFT_IN_CONST = 12;
+  const liftReal = cssPx('--uc-lift', LIFT_IN_CONST);
+  return Math.round(marginPx - LIFT_IN_CONST + liftReal + cssPx('--uc-safe', 0));
 }
 
 export async function showHomeBanner(marginPx: number): Promise<boolean> {

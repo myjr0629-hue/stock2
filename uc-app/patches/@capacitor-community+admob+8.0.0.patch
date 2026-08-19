@@ -1,0 +1,56 @@
+diff --git a/node_modules/@capacitor-community/admob/android/build.gradle b/node_modules/@capacitor-community/admob/android/build.gradle
+index 1056a18..13d21f7 100644
+--- a/node_modules/@capacitor-community/admob/android/build.gradle
++++ b/node_modules/@capacitor-community/admob/android/build.gradle
+@@ -37,7 +37,7 @@ android {
+     buildTypes {
+         release {
+             minifyEnabled false
+-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
++            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+         }
+     }
+     lintOptions {
+diff --git a/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java b/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
+index c629139..2e1058c 100644
+--- a/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
++++ b/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
+@@ -103,23 +103,21 @@ public class BannerExecutor extends Executor {
+                     break;
+             }
+ 
+-            // set Safe Area only for Android 15+
+-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+-                View rootView = activitySupplier.get().getWindow().getDecorView();
+-                rootView.setOnApplyWindowInsetsListener((v, insets) -> {
+-                    int bottomInset = insets.getSystemWindowInsetBottom();
+-                    int topInset = insets.getSystemWindowInsetTop();
+-
+-                    if ("TOP_CENTER".equals(adOptions.position)) {
+-                        mAdViewLayoutParams.setMargins(0, topInset, 0, 0);
+-                    } else {
+-                        mAdViewLayoutParams.setMargins(0, 0, 0, bottomInset);
+-                    }
+-
+-                    mAdViewLayout.setLayoutParams(mAdViewLayoutParams);
+-                    return insets;
+-                });
+-            }
++            // ⛔ SIGNUM HQ patch (2026-08-19) — 이 블록(Android 15+ 전용 인셋 리스너)을 끈다.
++            //
++            //    원본은 SDK_INT >= 35 일 때만 DecorView 에 인셋 리스너를 걸고, 그 안에서
++            //    setMargins(0, 0, 0, bottomInset) 으로 «우리가 넘긴 margin 을 덮어썼다».
++            //    그래서 Android 15/16 에서만 margin 이 무시되고 배너가 앱 하단 탭바를 덮는다.
++            //    (업스트림 이슈 capacitor-community/admob#390, 미해결)
++            //    실측(2026-08-19, API 35 에뮬): margin 94→96dp · 134→102dp · 300→배너 소멸.
++            //
++            //    우리 웹 레이어는 이미 「탭바 위 + 세이프영역」을 전부 계산해 margin 하나로
++            //    넘긴다(services/adManager.ts computeBannerMargin). 플러그인이 거기에 인셋을
++            //    또 얹으면 이중 계산이 되고, 덮어쓰면 계산이 통째로 버려진다.
++            //    이 리스너를 없애면 margin 의 의미가 «컨테이너(=화면) 바닥 기준»으로
++            //    안드로이드 전 버전에서 동일해진다 — ≤14 의 동작과 같아진다.
++            //
++            //    되돌리려면 patches/@capacitor-community+admob+8.0.0.patch 를 지우면 된다.
+ 
+             mAdViewLayout.setLayoutParams(mAdViewLayoutParams);
+ 
