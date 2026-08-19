@@ -147,8 +147,14 @@ function cssPx(name: string, fallback: number): number {
  *    안 더한 탓에 안드로이드에서 배너가 탭바를 덮었다(SIGNUM 은 36dp, UC 는 38dp 겹침).
  */
 function resolveMargin(marginPx: number): number {
-  if (platform() !== 'android') return marginPx;
-  return Math.round(marginPx + cssPx('--uc-safe', 0));
+  if (platform() !== 'android') return marginPx;   // iOS 기준선 = 세이프에어리어 → 그대로 맞다
+  // 안드로이드: 배너는 화면 기준, 탭바는 WebView 기준이라 「WebView 바닥이 화면에서 뜬 거리」를
+  // 더해야 한다. 웹은 그걸 알 수 없다(--uc-bottom-floor 는 «콘텐츠가 추가로 비울 양»이라 0).
+  // 근거·한계는 services/adManager.ts 의 androidOutsideGapPx() 주석에 정리해 뒀다.
+  const outside = cssPx('--uc-bottom-outside', 0);
+  const gap = outside > 0 ? outside
+            : Math.max(0, (window.screen?.height ?? 0) - (window.innerHeight ?? 0));
+  return Math.round(marginPx + Math.min(gap, 56));
 }
 
 export async function showHomeBanner(marginPx: number): Promise<boolean> {

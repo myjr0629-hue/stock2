@@ -113,21 +113,52 @@ const AD_STATS_KEY = 'signum_ad_stats';
  * 리프트를 바꿔도 배너가 저절로 따라오고, 두 값이 어긋날 방법이 없다.
  * 기준선 차이만 플랫폼 분기로 남긴다 — 그건 플러그인의 사실이지 우리 선택이 아니다.
  */
+/** 레이아웃 CSS 변수를 px 숫자로 읽는다 (.app-viewport 기준, 없으면 fallback) */
+function px(name: string, fallback: number): number {
+  try {
+    const el = document.querySelector('.app-viewport') || document.documentElement;
+    const v = getComputedStyle(el).getPropertyValue(name).trim();
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : fallback;
+  } catch { return fallback; }
+}
+
 function computeBannerMargin(platform: string): number {
-  const px = (name: string, fallback: number): number => {
-    try {
-      const el = document.querySelector('.app-viewport') || document.documentElement;
-      const v = getComputedStyle(el).getPropertyValue(name).trim();
-      const n = parseFloat(v);
-      return Number.isFinite(n) ? n : fallback;
-    } catch { return fallback; }
-  };
   const lift = px('--app-tabbar-lift', 12);
   const tabbar = px('--app-tabbar-height', 72);
   const gap = px('--app-anchor-ad-gap', 8);
-  const safe = px('--app-bottom-safe', 0);
-  // iOS 는 세이프에어리어가 기준선에서 이미 빠졌으므로 더하지 않는다.
-  return Math.round(lift + tabbar + gap + (platform === 'android' ? safe : 0));
+  // iOS 는 기준선이 세이프에어리어라 여기서 끝난다. 실측으로 확인했다.
+  if (platform !== 'android') return Math.round(lift + tabbar + gap);
+  return Math.round(lift + tabbar + gap + androidOutsideGapPx());
+}
+
+/**
+ * 안드로이드에서 «WebView 바닥이 화면 바닥에서 얼마나 떠 있는가»(dp).
+ *
+ * 배너는 화면 기준, 탭바는 WebView 기준이라 이 값만큼 어긋난다. 그런데 웹은 이걸
+ * 직접 알 수 없다 — 실측으로 전부 막혔다(2026-08-19, 에뮬 CDP 로 확인):
+ *   env(safe-area-inset-bottom)=0 · screenY=0 · screen.availHeight=screen.height
+ *   --sig-bottom-floor=0  ← 셸은 「콘텐츠가 «추가로» 비울 양」을 게시한다.
+ *     MainActivity.publishInsets(): max(0, barsBottom − clearBottom)/density
+ *     웹뷰가 이미 인셋돼 있으면 barsBottom==clearBottom 이라 0 이 맞다.
+ *     배너에 필요한 건 그 clearBottom «자체»인데 게시되지 않는다.
+ *
+ * ⇒ 정확한 해법은 네이티브 한 줄(clearBottom 을 --sig-bottom-outside 로 같이 게시)이고
+ *   그건 다음 바이너리다. 정본 = .agent/SIGNUM_V1.2_BINARY_TODO.md
+ *
+ * 그때까지의 근사. screen−inner 는 「상태바+내비바」라 항상 과대추정이므로,
+ * 안드로이드 하단 바가 넘을 수 없는 56dp 로 자른다(androidBottomInset.ts 와 같은 상한).
+ * 과대 → 배너가 살짝 «뜬다». 과소 → 배너가 탭바를 «덮는다».
+ * 덮는 쪽이 기능 손상이므로 뜨는 쪽으로 실패하게 둔다. 셸이 값을 주면 이 함수는 사라진다.
+ */
+function androidOutsideGapPx(): number {
+  try {
+    const outside = px('--sig-bottom-outside', 0);
+    if (outside > 0) return Math.min(outside, 56);   // 셸이 주면 그게 정답
+    const diff = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
+    if (!Number.isFinite(diff) || diff <= 0) return 0;
+    return Math.min(diff, 56);
+  } catch { return 0; }
 }
 
 // ---------------------------------------------------------------------------
