@@ -183,3 +183,44 @@ final int outsideDp = Math.round(clearBottomPx / density);
 
 ⚠️ 근사는 과대추정이라 배너가 살짝 «뜬다». 과소추정하면 탭바를 «덮는다».
    덮는 쪽이 기능 손상이라 뜨는 쪽으로 실패하게 뒀다 — 되돌리지 말 것.
+
+
+### 3-B. Android 15+ 는 «플러그인 버그»가 따로 있다 — patch-package 로 고친다
+
+`node_modules/@capacitor-community/admob/android/.../banner/BannerExecutor.java`:
+
+```java
+// set Safe Area only for Android 15+
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {   // API 35+
+    rootView.setOnApplyWindowInsetsListener((v, insets) -> {
+        ...
+        mAdViewLayoutParams.setMargins(0, 0, 0, bottomInset);   // ★ 우리 margin 을 «지운다»
+        mAdViewLayout.setLayoutParams(mAdViewLayoutParams);
+        return insets;
+    });
+}
+...
+int densityMargin = (int) (adOptions.margin * density);
+mAdViewLayoutParams.setMargins(margin, densityMargin, margin, densityMargin);
+```
+
+인셋 리스너가 나중에 발화하면서 `margin` 을 `bottomInset` 으로 덮어쓴다. 그래서
+**Android 15+ 에서는 margin 을 무엇으로 주든 배너가 같은 자리(≈100dp)에 앉아 탭바를 덮는다.**
+실측으로 확인했다(에뮬 API 35): margin 94 → 96dp, margin 134 → 102dp, margin 300 → 배너 소멸.
+업스트림 이슈 = capacitor-community/admob#390 (열려 있음, 수정본 없음).
+≤14 에는 이 분기가 없어 margin 이 정상 동작한다 — 대표 기기(13)와 내 에뮬(15)이 달랐던 이유.
+
+**패치 (patches/@capacitor-community+admob+8.0.0.patch 에 추가)**
+
+```java
+-            // set Safe Area only for Android 15+
++            final int densityMargin = (int) (adOptions.margin * density);   // ← 리스너보다 «먼저» 계산
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                 ...
+-                        mAdViewLayoutParams.setMargins(0, 0, 0, bottomInset);
++                        mAdViewLayoutParams.setMargins(0, 0, 0, bottomInset + densityMargin);
+```
+(아래쪽 `int densityMargin = ...` 선언은 중복이 되므로 제거)
+
+⚠️ 네이티브라 웹 배포로 안 나간다. 이 패치가 들어간 바이너리가 라이브가 되기 전까지
+   Android 15+ 사용자는 배너가 탭바를 덮는다. 우선순위 높음.
