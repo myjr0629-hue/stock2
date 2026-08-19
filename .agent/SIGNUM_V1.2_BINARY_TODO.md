@@ -138,3 +138,48 @@ final int clearTopPx    = Math.max(0, loc[1]);
 
 ## 4. 계속 추가할 것
 이 문서는 **다음 바이너리의 단일 목록**이다. v1.2에 담을 게 생기면 여기 적는다.
+
+
+---
+
+## ★ 3. 안드로이드 배너 위치 — 셸이 `clearBottom` 을 같이 게시해야 한다 (2026-08-19)
+
+**증상**: 안드로이드에서 AdMob 배너가 탭바를 36dp 덮었다(아이콘이 가려짐). iOS 는 반대로
+32pt 떠서 벌어졌다. 대표가 실기기 스크린샷으로 지적 → 양 플랫폼 실측으로 원인 분리.
+
+**원인**: 플러그인의 마진 «기준선»이 플랫폼마다 다르다(원본 확인).
+- iOS `BannerExecutor.swift` → `toItem: view.safeAreaLayoutGuide, attribute: .bottom`
+- Android `BannerExecutor.java` → 컨테이너(=화면) 바닥. 엣지투엣지라 내비바 «아래»까지.
+
+iOS 는 웹에서 완전히 고쳤다(세이프에어리어 이중 차감 제거, 158pt → 131.7pt 실측).
+**안드로이드는 웹에서 고칠 수 없다.** 배너는 화면 기준인데 탭바는 WebView 기준이고,
+「WebView 바닥이 화면 바닥에서 뜬 거리」를 웹이 알 방법이 «전부» 막혀 있다(에뮬 CDP 실측):
+
+```
+env(safe-area-inset-bottom) 0 · screenY 0 · screen.availHeight == screen.height
+--sig-bottom-floor 0 · innerH 815 vs screenH 915
+```
+
+`MainActivity.publishInsets()` 는 이렇게 게시한다:
+```java
+clearBottomPx = Math.max(0, screenPx - (loc[1] + wv.getHeight()));   // = 126px (48dp)
+bottomDp      = Math.round(Math.max(0, barsBottomPx - clearBottomPx) / density);  // = 0
+```
+즉 「콘텐츠가 «추가로» 비울 양」을 게시한다. 웹뷰가 이미 인셋돼 있으면 0 이 **맞는 값**이다.
+배너에 필요한 건 그 `clearBottomPx` **자체**인데 계산만 하고 버린다.
+
+### 할 일 — 세 앱 MainActivity 공통, 한 줄
+
+```java
+final int outsideDp = Math.round(clearBottomPx / density);
+// ... publishInsets() 의 js 문자열에 한 줄 추가:
+"d.style.setProperty('--sig-bottom-outside','" + outsideDp + "px');"
+```
+(UC 는 `--uc-bottom-outside`, WIM 은 `--wim-bottom-outside`)
+
+**웹은 이미 준비돼 있다.** `services/adManager.ts` 의 `androidOutsideGapPx()` 와
+`undercurrent/ads.ts` 의 `resolveMargin()` 이 이 변수를 «있으면 우선» 쓰고,
+없으면 `min(screen−inner, 56)` 로 근사한다. 셸이 값을 주기 시작하면 근사는 자동으로 꺼진다.
+
+⚠️ 근사는 과대추정이라 배너가 살짝 «뜬다». 과소추정하면 탭바를 «덮는다».
+   덮는 쪽이 기능 손상이라 뜨는 쪽으로 실패하게 뒀다 — 되돌리지 말 것.
