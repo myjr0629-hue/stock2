@@ -129,48 +129,18 @@ function computeBannerMargin(platform: string): number {
   const gap = px('--app-anchor-ad-gap', 8);
   const safe = px('--app-bottom-safe', 0);
 
-  // 탭바 상단은 화면 바닥에서 (lift + safe + tabbar + outside) 위에 있다.
+  // 탭바 상단은 «웹뷰 바닥»에서 (lift + safe + tabbar) 위에 있다.
   // 배너 하단은 그보다 gap 만큼 더 위여야 한다. 남는 건 «마진의 기준선»뿐이다.
-  //   iOS     기준선 = safeAreaLayoutGuide.bottom → safe 가 이미 빠져 있다
-  //   Android 기준선 = 화면 바닥                  → safe 와 outside 를 «둘 다» 더한다
-  if (platform !== 'android') return Math.round(lift + tabbar + gap);
-  return Math.round(lift + safe + tabbar + gap + androidOutsideGapPx(safe));
-}
-
-/**
- * 안드로이드에서 «WebView 바닥이 화면 바닥에서 뜬 거리»(dp).
- *
- * ★ 왜 기기마다 다른가 (2026-08-19 조사·실측):
- *   Android 15(API 35)+ 는 targetSdk 35+ 앱에 엣지투엣지를 «강제»하고,
- *   targetSdk 36 에서는 opt-out 자체가 폐지됐다. 우리는 targetSdk 36 이다.
- *     · Android 15+  웹뷰가 내비바 «아래»까지 그림 → outside = 0, 내비바는 safe 에 들어온다
- *     · Android ≤14  강제 대상이 아님 → 웹뷰가 내비바 «위»에서 끝남 → outside = 내비바, safe = 0
- *   그래서 (safe + outside) 는 어느 쪽이든 «내비바 높이»가 된다.
- *   대표 실기기는 Android 13, 내 에뮬은 15 라 둘이 다르게 나왔던 것이다.
- *
- * ⛔ ≤14 경로에서 outside 를 웹이 «알 수 없다». 전부 막힌 걸 CDP 로 실측했다:
- *   env(safe-area-inset-bottom)=0 · screenY=0 · screen.availHeight==height ·
- *   --sig-bottom-floor=0 (셸은 「콘텐츠가 추가로 비울 양」을 게시하므로 0 이 맞다)
- *   플러그인에도 인셋 옵션이 없다(AdOptions 는 margin 뿐).
- *
- * ⇒ 정확한 해법은 셸이 clearBottom 을 --sig-bottom-outside 로 같이 게시하는 것.
- *   그 값이 오면 아래 추정은 «자동으로» 꺼진다. 정본 = .agent/SIGNUM_V1.2_BINARY_TODO.md §3
- */
-function androidOutsideGapPx(safe: number): number {
-  try {
-    const published = px('--sig-bottom-outside', -1);
-    if (published >= 0) return Math.min(published, 64);   // 셸이 주면 그게 정답
-
-    // 엣지투엣지(15+)면 내비바가 이미 safe 로 들어와 있다 → 더할 것이 없다.
-    if (safe > 0) return 0;
-
-    // ≤14 경로. screen−inner 는 «상태바+내비바»라 그대로 쓰면 상태바만큼 과대해져
-    // 배너가 뜬다(대표 Android 13 실기기에서 확인). 웹뷰가 인셋됐다는 «사실»만 취하고
-    // 크기는 안드로이드 표준 내비게이션 바 높이를 쓴다.
-    const inset = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
-    if (!Number.isFinite(inset) || inset < 8) return 0;   // 인셋 아님 = 더할 것 없음
-    return 48;
-  } catch { return 0; }
+  //
+  // ★ 2026-08-20 양 플랫폼 실측으로 확정. 기준선이 다르다:
+  //   iOS     safeAreaLayoutGuide.bottom → 세이프가 이미 빠져 있다 → safe 를 더하면 이중.
+  //           실측: 마진 92 → 배너 하단 131.7pt (목표 126, 탭바와 8pt) ✓
+  //   Android 플러그인 컨테이너 바닥. 이 컨테이너는 «이미 내비바만큼 인셋»돼 있다.
+  //           실측(API 35, 패치 적용): 마진 134 → 배너 하단 181.7dp = 134 + 내비바 48.
+  //           즉 화면 바닥 기준이 아니다. 내비바를 따로 더하면 그만큼 배너가 뜬다
+  //           — 대표 Android 13 실기기에서 SIGNUM 만 벌어져 보이던 원인이 이것이다.
+  //           웹뷰 바닥과 컨테이너 바닥이 같으므로 safe 는 그대로 더한다.
+  return Math.round(lift + tabbar + gap + (platform === 'android' ? safe : 0));
 }
 
 /**
@@ -180,14 +150,12 @@ function androidOutsideGapPx(safe: number): number {
  */
 export function bannerGeometryDiag(platform: string): string {
   const safe = px('--app-bottom-safe', 0);
-  const outside = platform === 'android' ? androidOutsideGapPx(safe) : 0;
   const inset = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
   return [
     `lift ${px('--app-tabbar-lift', 12)}`,
     `tab ${px('--app-tabbar-height', 72)}`,
     `gap ${px('--app-anchor-ad-gap', 8)}`,
     `safe ${safe}`,
-    `outside ${outside}`,
     `inset ${inset}`,
     `adH ${px('--app-anchor-ad-height', 50)}`,
     `→ margin ${computeBannerMargin(platform)}`,

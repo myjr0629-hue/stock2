@@ -140,24 +140,16 @@ function cssPx(name: string, fallback: number): number {
 }
 
 /**
- * 호출부의 marginPx 는 «탭바 섬 위» 기준(lift + 탭바높이 + 간격)이다. 여기에 플랫폼별
- * «기준선» 차이를 더한다. 근거·실측·한계는 services/adManager.ts 의
- * computeBannerMargin() / androidOutsideGapPx() 주석에 한 곳으로 정리해 뒀다. 요약:
+ * 호출부의 marginPx 는 «탭바 섬 위» 기준(lift + 탭바높이 + 간격)이다.
+ * 여기에 플랫폼별 «기준선» 차이만 반영한다. 근거·실측은 services/adManager.ts 의
+ * computeBannerMargin() 주석에 한 곳으로 정리해 뒀다. 요약:
  *   iOS     기준선 = safeAreaLayoutGuide.bottom → 세이프가 이미 빠져 있어 그대로 맞다
- *   Android 기준선 = 화면 바닥 → safe(엣지투엣지면 내비바) + outside(≤14면 내비바) 를 더한다
+ *   Android 기준선 = 플러그인 컨테이너 바닥. 이 컨테이너는 «이미 내비바만큼 인셋»이라
+ *           내비바를 따로 더하면 그만큼 배너가 뜬다(실측으로 확인). safe 만 더한다.
  */
 function resolveMargin(marginPx: number): number {
   if (platform() !== 'android') return marginPx;
-  const safe = cssPx('--uc-safe', 0);
-  const published = cssPx('--uc-bottom-outside', -1);
-  let outside: number;
-  if (published >= 0) outside = Math.min(published, 64);
-  else if (safe > 0) outside = 0;                       // 15+ 엣지투엣지 → 내비바는 safe 에 있다
-  else {
-    const inset = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
-    outside = Number.isFinite(inset) && inset >= 8 ? 48 : 0;   // ≤14 → 표준 내비바 높이
-  }
-  return Math.round(marginPx + safe + outside);
+  return Math.round(marginPx + cssPx('--uc-safe', 0));
 }
 
 export async function showHomeBanner(marginPx: number): Promise<boolean> {
