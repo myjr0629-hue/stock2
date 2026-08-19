@@ -240,6 +240,10 @@ export default function SettingsPage() {
       isAndroid = require('@capacitor/core').Capacitor?.getPlatform?.() === 'android';
     } catch { /* web */ }
     if (!isAndroid) return;
+    let bannerDiag = 'banner=?';
+    import('@/services/adManager')
+      .then(({ bannerGeometryDiag }) => { bannerDiag = bannerGeometryDiag('android'); })
+      .catch(() => {});
     const read = () => {
       const vp = document.querySelector('.app-viewport') as HTMLElement | null;
       const cs = getComputedStyle(document.documentElement);
@@ -254,6 +258,7 @@ export default function SettingsPage() {
         `safe ${(vcs?.getPropertyValue('--app-bottom-safe') || '').trim() || '-'}`,
         `lift ${(vcs?.getPropertyValue('--app-tabbar-lift') || '').trim() || '-'}`,
         r ? `nav h=${Math.round(r.height)} bottom=${Math.round(r.bottom)} gapToVh=${Math.round(window.innerHeight - r.bottom)}` : 'nav=hidden(설정화면)',
+        bannerDiag,
       ].join(' · '));
     };
     const timers = [0, 600, 1600, 3400].map((d) => window.setTimeout(read, d));

@@ -127,38 +127,71 @@ function computeBannerMargin(platform: string): number {
   const lift = px('--app-tabbar-lift', 12);
   const tabbar = px('--app-tabbar-height', 72);
   const gap = px('--app-anchor-ad-gap', 8);
-  // iOS 는 기준선이 세이프에어리어라 여기서 끝난다. 실측으로 확인했다.
+  const safe = px('--app-bottom-safe', 0);
+
+  // 탭바 상단은 화면 바닥에서 (lift + safe + tabbar + outside) 위에 있다.
+  // 배너 하단은 그보다 gap 만큼 더 위여야 한다. 남는 건 «마진의 기준선»뿐이다.
+  //   iOS     기준선 = safeAreaLayoutGuide.bottom → safe 가 이미 빠져 있다
+  //   Android 기준선 = 화면 바닥                  → safe 와 outside 를 «둘 다» 더한다
   if (platform !== 'android') return Math.round(lift + tabbar + gap);
-  return Math.round(lift + tabbar + gap + androidOutsideGapPx());
+  return Math.round(lift + safe + tabbar + gap + androidOutsideGapPx(safe));
 }
 
 /**
- * 안드로이드에서 «WebView 바닥이 화면 바닥에서 얼마나 떠 있는가»(dp).
+ * 안드로이드에서 «WebView 바닥이 화면 바닥에서 뜬 거리»(dp).
  *
- * 배너는 화면 기준, 탭바는 WebView 기준이라 이 값만큼 어긋난다. 그런데 웹은 이걸
- * 직접 알 수 없다 — 실측으로 전부 막혔다(2026-08-19, 에뮬 CDP 로 확인):
- *   env(safe-area-inset-bottom)=0 · screenY=0 · screen.availHeight=screen.height
- *   --sig-bottom-floor=0  ← 셸은 「콘텐츠가 «추가로» 비울 양」을 게시한다.
- *     MainActivity.publishInsets(): max(0, barsBottom − clearBottom)/density
- *     웹뷰가 이미 인셋돼 있으면 barsBottom==clearBottom 이라 0 이 맞다.
- *     배너에 필요한 건 그 clearBottom «자체»인데 게시되지 않는다.
+ * ★ 왜 기기마다 다른가 (2026-08-19 조사·실측):
+ *   Android 15(API 35)+ 는 targetSdk 35+ 앱에 엣지투엣지를 «강제»하고,
+ *   targetSdk 36 에서는 opt-out 자체가 폐지됐다. 우리는 targetSdk 36 이다.
+ *     · Android 15+  웹뷰가 내비바 «아래»까지 그림 → outside = 0, 내비바는 safe 에 들어온다
+ *     · Android ≤14  강제 대상이 아님 → 웹뷰가 내비바 «위»에서 끝남 → outside = 내비바, safe = 0
+ *   그래서 (safe + outside) 는 어느 쪽이든 «내비바 높이»가 된다.
+ *   대표 실기기는 Android 13, 내 에뮬은 15 라 둘이 다르게 나왔던 것이다.
  *
- * ⇒ 정확한 해법은 네이티브 한 줄(clearBottom 을 --sig-bottom-outside 로 같이 게시)이고
- *   그건 다음 바이너리다. 정본 = .agent/SIGNUM_V1.2_BINARY_TODO.md
+ * ⛔ ≤14 경로에서 outside 를 웹이 «알 수 없다». 전부 막힌 걸 CDP 로 실측했다:
+ *   env(safe-area-inset-bottom)=0 · screenY=0 · screen.availHeight==height ·
+ *   --sig-bottom-floor=0 (셸은 「콘텐츠가 추가로 비울 양」을 게시하므로 0 이 맞다)
+ *   플러그인에도 인셋 옵션이 없다(AdOptions 는 margin 뿐).
  *
- * 그때까지의 근사. screen−inner 는 「상태바+내비바」라 항상 과대추정이므로,
- * 안드로이드 하단 바가 넘을 수 없는 56dp 로 자른다(androidBottomInset.ts 와 같은 상한).
- * 과대 → 배너가 살짝 «뜬다». 과소 → 배너가 탭바를 «덮는다».
- * 덮는 쪽이 기능 손상이므로 뜨는 쪽으로 실패하게 둔다. 셸이 값을 주면 이 함수는 사라진다.
+ * ⇒ 정확한 해법은 셸이 clearBottom 을 --sig-bottom-outside 로 같이 게시하는 것.
+ *   그 값이 오면 아래 추정은 «자동으로» 꺼진다. 정본 = .agent/SIGNUM_V1.2_BINARY_TODO.md §3
  */
-function androidOutsideGapPx(): number {
+function androidOutsideGapPx(safe: number): number {
   try {
-    const outside = px('--sig-bottom-outside', 0);
-    if (outside > 0) return Math.min(outside, 56);   // 셸이 주면 그게 정답
-    const diff = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
-    if (!Number.isFinite(diff) || diff <= 0) return 0;
-    return Math.min(diff, 56);
+    const published = px('--sig-bottom-outside', -1);
+    if (published >= 0) return Math.min(published, 64);   // 셸이 주면 그게 정답
+
+    // 엣지투엣지(15+)면 내비바가 이미 safe 로 들어와 있다 → 더할 것이 없다.
+    if (safe > 0) return 0;
+
+    // ≤14 경로. screen−inner 는 «상태바+내비바»라 그대로 쓰면 상태바만큼 과대해져
+    // 배너가 뜬다(대표 Android 13 실기기에서 확인). 웹뷰가 인셋됐다는 «사실»만 취하고
+    // 크기는 안드로이드 표준 내비게이션 바 높이를 쓴다.
+    const inset = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
+    if (!Number.isFinite(inset) || inset < 8) return 0;   // 인셋 아님 = 더할 것 없음
+    return 48;
   } catch { return 0; }
+}
+
+/**
+ * 설정 화면 진단용 — 배너 위치 계산에 «실제로» 들어간 값들.
+ * 에뮬로 재현이 안 되는 기기 차이(안드로이드 버전별 엣지투엣지)를 한 장의 스크린샷으로
+ * 받기 위한 창구다. 숫자를 추측하지 않으려고 만든다.
+ */
+export function bannerGeometryDiag(platform: string): string {
+  const safe = px('--app-bottom-safe', 0);
+  const outside = platform === 'android' ? androidOutsideGapPx(safe) : 0;
+  const inset = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
+  return [
+    `lift ${px('--app-tabbar-lift', 12)}`,
+    `tab ${px('--app-tabbar-height', 72)}`,
+    `gap ${px('--app-anchor-ad-gap', 8)}`,
+    `safe ${safe}`,
+    `outside ${outside}`,
+    `inset ${inset}`,
+    `adH ${px('--app-anchor-ad-height', 50)}`,
+    `→ margin ${computeBannerMargin(platform)}`,
+  ].join(' · ');
 }
 
 // ---------------------------------------------------------------------------
