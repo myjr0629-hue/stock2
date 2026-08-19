@@ -104,15 +104,21 @@ const UNITS_2026_08_18: Record<AppKey, UnitTable> = {
  * null = 아직 «켜지 않음» → adsAllowed() 가 광고 요청 자체를 막는다.
  */
 const REAL_UNIT_IDS: Record<AppKey, UnitTable | null> = {
-  // ⛔ 유닛은 다 발급됐다(위 UNITS_2026_08_18). 여기가 null 인 이유는 «유닛이 없어서»가
-  //    아니라 «바이너리가 아직 옛 앱 ID 를 들고 있어서»다. 순서:
-  //      1. 네이티브 6개 파일의 앱 ID 교체 (완료, 2026-08-18)
-  //      2. 바이너리 6개 재빌드 + 스토어 제출 + 라이브 확인   ← 지금 여기
-  //      3. 아래 세 줄을 UNITS_2026_08_18.<app> 으로 교체
-  //      4. UC/WIM 개인정보처리방침 + 스토어 데이터 안전성 갱신 (2번 전에)
-  //      5. ADS_LIVE / WIM_ADS_LIVE → true, 웹 배포
-  signum: null,
-  uc: null,
+  // ✅ 2026-08-19 SIGNUM / UC 켬. 켜기의 «유일한» 조건이었던 「새 앱 ID 를 담은 바이너리가
+  //    스토어에 라이브」가 이날 충족됐다. 근거는 기억이 아니라 대조다 — 스토어에 표시된
+  //    버전·빌드번호가 저장소 값과 4개 전부 일치했다:
+  //      SIGNUM iOS 1.2 (빌드 3)   · SIGNUM Android 1.2 (vc 3)
+  //      UC     iOS 1.0.2 (빌드 4) · UC     Android 1.0.2 (vc 4)
+  //    스토어 선언도 «같은 창»에서 맞췄다(어긋난 채로 광고를 내면 정책 위반):
+  //      Play — SIGNUM 광고=예(기존) / UC 광고=예 + 데이터 보안(기기 ID 수집·공유,
+  //             용도=광고·부정방지) 제출
+  //      ASC  — 양쪽 모두 「기기 ID · 추적 목적으로 사용됨」 게시됨
+  signum: UNITS_2026_08_18.signum,
+  uc: UNITS_2026_08_18.uc,
+  // ⛔ WIM 만 계속 null. 라이브 바이너리가 1.0(빌드 2)로 애드몹 이전 «전»에 만든 것이라
+  //    폐쇄된 회사 계정의 앱 ID 를 들고 있다. 유닛만 켜면 앱 ID 와 게시자가 어긋나
+  //    노필이나 정책 문제가 된다. 새 바이너리가 라이브가 된 뒤에 켠다.
+  //    (WIM 은 애초에 광고 «연동 코드»도 없다 — wim/ads.ts 를 아무도 import 하지 않는다)
   wim: null,
 };
 
@@ -125,6 +131,18 @@ export function unitsFor(app: AppKey): UnitTable {
     interstitial: { ios: `${PUBLISHER}/${ids.interstitial.ios}`, android: `${PUBLISHER}/${ids.interstitial.android}` },
     rewarded: { ios: `${PUBLISHER}/${ids.rewarded.ios}`, android: `${PUBLISHER}/${ids.rewarded.android}` },
   };
+}
+
+/**
+ * ★ 구글 공식 «테스트» 유닛을 꺼내는 유일한 경로 (2026-08-19).
+ *
+ * 실유닛을 채우자마자 unitsFor() 는 더 이상 테스트 유닛을 돌려주지 않는다.
+ * 그런데 QA 는 여전히 테스트 광고를 봐야 한다 — 실유닛에 테스트 트래픽을 태우면
+ * «무효 트래픽»으로 애드몹 계정이 정지된다(수익이 아니라 계정을 잃는다).
+ * 그래서 강제 테스트 경로는 반드시 이 함수를 통해 테스트 유닛을 집어야 한다.
+ */
+export function testUnits(): UnitTable {
+  return TEST_UNITS;
 }
 
 /** 이 앱이 «실» 유닛을 쓰고 있는가 — 테스트 광고 요청 여부를 여기서 판단한다 */

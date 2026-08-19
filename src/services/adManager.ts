@@ -6,7 +6,7 @@
 
 'use client';
 
-import { unitsFor, hasRealUnits, adsAllowed } from '@/config/admob';
+import { unitsFor, hasRealUnits, adsAllowed, testUnits } from '@/config/admob';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,41 +46,48 @@ const pick = (p: 'ios' | 'android'): AdConfig => ({
   testMode: !SIGNUM_REAL,
 });
 
-const TEST_AD_IDS: AdConfig = pick('android');
 const PROD_AD_IDS_IOS: AdConfig = pick('ios');
 const PROD_AD_IDS_ANDROID: AdConfig = pick('android');
+
+/**
+ * 강제 테스트 모드용 설정 — «구글 테스트 유닛»을 쓴다.
+ *
+ * ⛔ 2026-08-19 정정. 예전에는 여기서 unitsFor() 결과를 그대로 썼는데, 실유닛을
+ *    채우는 순간 그게 «실유닛 + 테스트 요청»이 되어버린다. 그건 무효 트래픽이고,
+ *    수익이 아니라 애드몹 계정을 잃는 길이다. 테스트 경로는 반드시 테스트 유닛으로.
+ */
+function testAdConfig(p: 'ios' | 'android'): AdConfig {
+  const t = testUnits();
+  return {
+    bannerId: t.banner[p],
+    interstitialId: t.interstitial[p],
+    rewardedId: t.rewarded[p],
+    testMode: true,
+  };
+}
 
 // Pick the right ad unit IDs for the current platform. Set
 // NEXT_PUBLIC_ADMOB_TEST_MODE=true to force Google test ads in QA builds.
 function resolvePlatformAdConfig(platform: string): AdConfig {
+  const p: 'ios' | 'android' = platform === 'ios' ? 'ios' : 'android';
   if (process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true') {
-    return { ...TEST_AD_IDS };
+    return testAdConfig(p);
   }
-  return platform === 'ios' ? { ...PROD_AD_IDS_IOS } : { ...PROD_AD_IDS_ANDROID };
+  return p === 'ios' ? { ...PROD_AD_IDS_IOS } : { ...PROD_AD_IDS_ANDROID };
 }
 
+/**
+ * init() 전까지 쓰이는 «빈» 자리표시자.
+ *
+ * ⛔ 예전에는 여기서 환경변수를 읽고, 없으면 실유닛을 집으면서 testMode 만 true 로
+ *    올렸다. 「실유닛 + 테스트 요청」 — 8/18 에 라이브 앱에 "Test mode" 배너를
+ *    내보낸 것과 정확히 같은 짝이다. 환경변수 3개는 어디에도 설정된 적이 없어
+ *    사실상 «항상» 그 분기로 갔다.
+ *    이제는 아무 유닛도 담지 않는다. init() 이 resolvePlatformAdConfig() 로 덮어쓰며,
+ *    혹시 init() 이 안 돌면 아래 «ID 없음» 가드가 광고를 아예 끈다.
+ */
 function resolveDefaultAdConfig(): AdConfig {
-  const explicitTestMode = process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true';
-  const config: AdConfig = {
-    bannerId: process.env.NEXT_PUBLIC_ADMOB_BANNER_ID || '',
-    interstitialId: process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_ID || '',
-    rewardedId: process.env.NEXT_PUBLIC_ADMOB_REWARDED_ID || '',
-    testMode: explicitTestMode,
-  };
-  const missingIds = !config.bannerId || !config.interstitialId || !config.rewardedId;
-
-  // Always fall back to test IDs when real IDs are not configured.
-  // Native apps load the production URL but still need AdMob to initialize.
-  if (explicitTestMode || missingIds) {
-    return {
-      bannerId: config.bannerId || TEST_AD_IDS.bannerId,
-      interstitialId: config.interstitialId || TEST_AD_IDS.interstitialId,
-      rewardedId: config.rewardedId || TEST_AD_IDS.rewardedId,
-      testMode: true,
-    };
-  }
-
-  return config;
+  return { bannerId: '', interstitialId: '', rewardedId: '', testMode: false };
 }
 
 // ---------------------------------------------------------------------------

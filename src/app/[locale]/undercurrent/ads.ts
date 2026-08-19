@@ -15,21 +15,19 @@
 // completely on web / when the plugin or ADS_LIVE flag is off, so the store
 // build stays clean until AdMob is approved.
 //
-// ACTIVATION CHECKLIST — see `.agent/ADS_ACTIVATION_MASTER_PLAN.md`
-//  1. ✅ Real unit IDs (2026-07-28).
-//  2. UC 1.0.1 binary: real GADApplicationIdentifier (~6307534807) + restore
-//     NSUserTrackingUsageDescription in uc-app iOS Info.plist; real
-//     com.google.android.gms.ads.APPLICATION_ID (~1198944282) + DELETE the two
-//     AD_ID `tools:node="remove"` lines in AndroidManifest.
-//  3. Flip ADS_LIVE to true — LAST, and in the SAME change window as the store
-//     declarations (ASC App Privacy tracking = yes / Play Ads + advertising-ID +
-//     Data safety). Flipping it early puts a live app out of sync with what both
-//     stores say it does.
+// ACTIVATION — 완료 (2026-08-19). 남은 체크리스트가 아니라 «기록»이다.
+//  1. ✅ 실유닛 (config/admob.ts 의 UNITS_2026_08_18.uc)
+//  2. ✅ 바이너리: iOS 1.0.2(빌드 4) / Android 1.0.2(vc 4) 라이브. 새 게시자 앱 ID
+//        (iOS ~4983038360 / Android ~7167861342), NSUserTrackingUsageDescription 있음,
+//        AndroidManifest 에 AD_ID 제거 지시 없음(=play-services-ads 가 병합) — 전부 실측 확인.
+//  3. ✅ ADS_LIVE=true 를 스토어 선언과 «같은 창»에서 켰다:
+//        Play 광고=예 + 데이터 보안(기기 ID 수집·공유) 제출 / ASC 「기기 ID·추적」 게시됨.
+// ⚠️ 되돌릴 때도 같은 규칙이 적용된다 — 코드만 끄고 선언을 두면 스토어 표시가 거짓이 된다.
 // ============================================================================
 
 import { unitsFor, hasRealUnits } from '@/config/admob';
 
-export const ADS_LIVE = false;    // master switch (also hides placeholder slots)
+export const ADS_LIVE = true;     // master switch (also hides placeholder slots)
 const ADS_TESTING = !hasRealUnits('uc');   // 실유닛이면 테스트 광고를 절대 요청하지 않는다
 
 // 유닛 ID 정본은 src/config/admob.ts 하나뿐이다 — 계정을 갈아탈 때 여기를 안 고쳐도 된다.
