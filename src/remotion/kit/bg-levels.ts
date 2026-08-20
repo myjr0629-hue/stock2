@@ -9,6 +9,8 @@
 //   잘 되어 있는 것은 건드리지 않고, 어긋난 것만 되돌린다.
 
 export const BG_LEVEL: Record<string, number> = {
+  'ani-bull-bear.mp4': 93,       // 2026-08-21 대표 제공 — 황소·곰 대치 (시장 레짐)
+  'ani-surf-megacap.mp4': 115,   // 2026-08-21 대표 제공 — 메가캡 서핑 (누가 파도를 타나)
   'gold-btc-race.mp4': 139,      // 2026-08-21 대표 제공 — 금괴 vs 비트코인 «경쟁→악수→동행»
   'gold-vault-bars.mp4': 85,     // 2026-08-21 대표 제공 — 금고 안 금괴
   'c811-00-exchange.mp4': 104,
