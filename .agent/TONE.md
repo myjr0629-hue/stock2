@@ -37,25 +37,88 @@ node scripts/market-wants.mjs us     # 또는 jp
 
 ---
 
-## 1. 미국 — 만들 순서 (2026-08-21 실측)
+## 1. 미국 — 만들 순서 (2026-08-21 · 질의 59개 실측)
+
+⛔ **앞선 조사는 12개 질의로 좁았다.** 시장·경제 전반 59개로 다시 쟀고 순위가 바뀌었다.
 
 | # | 검색어 | 수요 | 여지 | 소형중앙 | 점수 |
 |---|---|---|---|---|---|
-| 1 | `mortgage rates explained` | 69,035 | 88% | 69,035 | 4.23 |
-| 2 | `is the ai bubble popping` | 53,718 | 67% | 53,718 | 3.15 |
-| 3 | `why is the dollar falling` | 1,395 | 56% | 167 | 1.77 |
-| 4 | `is my money safe in the bank` | 122 | 81% | 29 | 1.7 |
-| 5 | `what happens if the fed cuts rates` | 756 | 56% | 423 | 1.62 |
-| 6 | `why companies are laying off` | 14,841 | 38% | 520 | 1.56 |
-| 7 | `why gold is going up` | 64,907 | 31% | 580 | 1.5 |
-| 8 | `stock market crash coming` | 29,702 | 31% | 39 | 1.4 |
-| 9 | `are we in a recession` | 21,897 | 31% | 1,408 | 1.36 |
-| 10 | `nvidia stock` | 7,744 | 31% | 114 | 1.22 |
-| 11 | `is it too late to buy bitcoin` | 11 | 88% | 8 | 0.94 |
-| 12 | `best stocks to buy now` | 4,435 | 19% | 1,299 | 0.68 |
+| 1 | `index funds explained` | 7,809 | 94% | 7,198 | 3.65 |
+| 2 | `mortgage rates explained` | 47,676 | 75% | 47,676 | 3.51 |
+| 3 | `options trading explained` | 37,547 | 71% | 37,547 | 3.27 |
+| 4 | `wealth gap explained` | 34,280 | 71% | 28,294 | 3.24 |
+| 5 | `is the ai bubble popping` | 49,448 | 67% | 49,448 | 3.13 |
+| 6 | `market makers explained` | 24,829 | 69% | 9,587 | 3.02 |
+| 7 | `bond yields explained` | 64,208 | 63% | 64,208 | 3 |
+| 8 | `ai stocks explained` | 2,837 | 87% | 987 | 2.99 |
+| 9 | `will ai take my job` | 29,127 | 63% | 602 | 2.79 |
+| 10 | `how to start investing` | 6,265 | 69% | 2,825 | 2.61 |
+| 11 | `gdp explained simply` | 2,792 | 75% | 2,221 | 2.58 |
+| 12 | `government shutdown economy` | 1,155 | 81% | 1,090 | 2.49 |
+| 13 | `bitcoin explained simply` | 96,976 | 50% | 10,502 | 2.49 |
+| 14 | `semiconductor stocks explained` | 371 | 94% | 257 | 2.41 |
+| 15 | `interest rates explained` | 199,447 | 44% | 10,457 | 2.32 |
+| 16 | `federal reserve explained` | 40,137 | 50% | 1,656 | 2.3 |
+| 17 | `tariffs explained` | 2,136 | 69% | 1,094 | 2.29 |
+| 18 | `inflation explained` | 142,562 | 44% | 10,029 | 2.25 |
+| 19 | `when will the market recover` | 189 | 94% | 173 | 2.14 |
+| 20 | `401k explained` | 6,049 | 56% | 5,063 | 2.13 |
+| 21 | `stock buyback explained` | 9,221 | 53% | 957 | 2.11 |
+| 22 | `national debt explained` | 5,335 | 56% | 608 | 2.1 |
 
-**⇒ 다음 3편: `mortgage rates explained` → `is the ai bubble popping` → `why is the dollar falling`**
-⛔ 금(7위)·엔비디아(10위)·「지금 살 종목」(12위)은 **당분간 만들지 않는다.**
+### ★ 우리 전문 분야가 상위에 있다 — 지금까지 이걸 안 썼다
+
+| 검색어 | 수요 | 여지 | 소형중앙 |
+|---|---|---|---|
+| **`options trading explained`** | **37,547** | **71%** | **37,547** |
+| **`market makers explained`** | 24,829 | 69% | 9,587 |
+| **`bond yields explained`** | **64,208** | **63%** | **64,208** |
+| `stock buyback explained` | 9,221 | 53% | 957 |
+
+우리는 **옵션 플로우 플랫폼**을 운영한다. 3위·6위가 정확히 우리 자리다.
+그런데 우리가 만든 옵션 영상 제목은 `Why Your Option Expired Worthless` —
+검색어 `options trading explained` 를 담지 않았다. **소재는 맞았는데 이름을 안 붙였다.**
+
+### ⛔ 만들지 말 것 (수요는 있으나 자리가 없다)
+
+| 검색어 | 수요 | 여지 | 소형중앙 |
+|---|---|---|---|
+| `what happens if the fed cuts rates` | 3,428 | 38% | 423 |
+| `tesla stock` | 8,615 | 33% | 3,310 |
+| `unemployment rate rising` | 207 | 50% | 134 |
+| `housing market crash` | 24,536 | 25% | 10,335 |
+| `why companies are laying off` | 22,239 | 25% | 97,043 |
+| `job market is bad` | 7,396 | 25% | 120 |
+| `jobs report explained` | 15 | 75% | 7 |
+| `is it a bubble stock market` | 55,780 | 14% | 14,389,645 |
+
+`why gold is going up` 수요 132,769 · **여지 31% · 소형중앙 256.**
+**2026-08-21 GOLD821 이 여기였다.** 조회 10회의 구조적 이유다.
+
+> ⚠️ `is it a bubble stock market` 의 소형중앙 14,389,645 는 **표본 왜곡**이다
+> (소형 채널 한 곳의 1,400만 영상 하나가 중앙값을 끌었다). n 이 작을 때 중앙값은 튄다 — 항상 `여지` 와 같이 본다.
+
+---
+
+## 1-B. 일본 — 만들 순서 (질의 12개)
+
+| # | 검색어 | 수요 | 여지 | 소형중앙 | 점수 |
+|---|---|---|---|---|---|
+| 1 | `純金 インゴット` | 236,947 | 81% | 166,552 | 4.37 |
+| 2 | `米国株 危ない` | 2,573 | 100% | 2,573 | 3.41 |
+| 3 | `年金 いくら もらえる` | 4,508 | 88% | 2,712 | 3.2 |
+| 4 | `金価格 上昇 理由` | 43,045 | 69% | 11,839 | 3.19 |
+| 5 | `ゴールド 買い時` | 247,287 | 50% | 232,909 | 2.7 |
+| 6 | `日本経済 これから` | 4,523 | 69% | 449 | 2.51 |
+| 7 | `円安 理由` | 14,403 | 38% | 34,046 | 1.56 |
+| 8 | `住宅ローン 金利 上昇` | 10,165 | 38% | 6,066 | 1.5 |
+| 9 | `トヨタ 株価` | 6,697 | 38% | 1,562 | 1.43 |
+| 10 | `新NISA 失敗` | 18 | 100% | 18 | 1.28 |
+| 11 | `円安 いつまで` | 23,781 | 13% | 109,086 | 0.55 |
+| 12 | `利上げ 影響` | 7,821 | 6% | 10,087 | 0.24 |
+
+**1위 `純金 インゴット`(실물 금괴) 소형중앙 166,552.** 미국 1위(7,198)의 23배다.
+일본은 «실물»을 본다 — `.agent/JP_MARKET.md` 참조.
 
 ---
 

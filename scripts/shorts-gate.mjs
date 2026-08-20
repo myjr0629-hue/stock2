@@ -267,7 +267,7 @@ for (const it of items) {
     for (const r of checkInsight(it, readFileSync('src/remotion/kit/scripts.ts', 'utf8'))) R.push(r);
   if (it.scriptTag) {
     const src = readFileSync('src/remotion/kit/scripts.ts', 'utf8');
-    for (const r of checkScript(it.scriptTag, src)) R.push(r);
+    for (const r of checkScript(it.scriptTag, src, it.lang || 'en')) R.push(r);
     // ⛔ 2026-08-21: cutFor 가 길이 상한을 맞추려 «뒤에서부터» 비트를 버린다.
     //    결론·인사이트가 통째로 사라져도 렌더는 정상이라 영상 검사로는 못 잡는다.
     const a = auditCut(it.scriptTag, 'yt');

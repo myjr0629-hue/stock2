@@ -23,7 +23,14 @@
 import { readFileSync } from 'node:fs';
 
 // ── 규격의 근거는 전부 위 표. 숫자를 통과시키려고 낮추지 않는다 ──────────────
-const CAP_CHARS   = 38;          // 자막 2줄 상한 (초과 시 3줄 → 밴드 이탈)
+// ⛔ 자막 한 줄 상한은 «언어마다 다르다» (2026-08-21 실측)
+//   영어 38자: 한 줄이 약 2.0초. 우리 CAPTION.maxCharsPerLine=21 × 2줄.
+//   일본어 18자: 두 방법이 일치했다 —
+//     ① 우리 TTS(ElevenLabs multilingual v2) 실측 초당 5.92자 → 3.0초 = 18자
+//     ② 일본 레퍼런스 15편의 자막 큐 지속 중앙 2.98초 × 5.92 = 18자
+//   영어 38자를 일본어에 쓰면 «한 줄이 6.4초» 가 된다.
+const CAP_BY_LANG = { en: 38, ja: 18, ko: 20 };
+const CAP_CHARS   = CAP_BY_LANG.en;
 const NUM_MAX     = 3.2;         // 레퍼런스 중앙 1.0%, 최고 6.3%. 우리 상한을 3.2 로
 const PRON_MIN    = 2.5;         // 레퍼런스 중앙 3.9%, 최저 0%. 하한을 2.5 로
 const WPC         = [5.0, 7.6];  // 레퍼런스 5.1~7.3 에 여유
@@ -32,7 +39,8 @@ const HOOK_WORDS  = 12;          // 레퍼런스 훅은 전부 한 호흡
 const PRON = new Set(['you', 'your', "you're", 'yourself', 'we', 'us', 'our', "we're", "we've"]);
 const HOOK_OPEN = /^(hold on|okay|look|wait|no,|but |forget|stop|everyone|nobody)/i;
 
-export function checkScript(tag, src) {
+export function checkScript(tag, src, lang = 'en') {
+  const cap = CAP_BY_LANG[lang] ?? CAP_CHARS;
   const i = src.indexOf(`export const SCRIPT_${tag}`);
   if (i < 0) return [{ name: '대본 존재', pass: false, got: `SCRIPT_${tag} 없음`, want: 'scripts.ts' }];
   const end = src.indexOf('\nexport const SCRIPT_', i + 10);
@@ -72,10 +80,10 @@ export function checkScript(tag, src) {
   ok('단어/큐', wpc >= WPC[0] && wpc <= WPC[1], wpc.toFixed(1), `${WPC[0]}~${WPC[1]} (레퍼런스 5.1~7.3)`);
 
   // ⑤ 자막 줄수 — 기존 script-lint 규칙을 흡수
-  const over = cues.filter((c) => c[1].length > CAP_CHARS);
+  const over = cues.filter((c) => c[1].length > cap);
   ok('자막 2줄 유지', over.length === 0,
-    over.length ? `${over.length}줄 초과 (최장 ${Math.max(...over.map((c) => c[1].length))}자)` : `최장 ${Math.max(...cues.map((c) => c[1].length))}자`,
-    `모든 줄 <= ${CAP_CHARS}자`);
+    over.length ? `${over.length}줄 초과 (최장 ${Math.max(...over.map((c) => c[1].length))}자, ${lang} 상한 ${cap})` : `최장 ${Math.max(...cues.map((c) => c[1].length))}자`,
+    `모든 줄 <= ${cap}자 (${lang})`);
 
   return R;
 }
