@@ -25,6 +25,8 @@ import { join } from 'node:path';
 import { checkTitle } from './title-check.mjs';
 import { checkTopic } from './topic-check.mjs';
 import { checkScript } from './script-check.mjs';
+import { checkInsight } from './insight-check.mjs';
+import { auditCut } from './cut-audit.mjs';
 
 const FFDIR = 'C:/Users/seamo/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-8.1.1-full_build/bin';
 const FFMPEG = join(FFDIR, 'ffmpeg.exe');
@@ -257,9 +259,19 @@ for (const it of items) {
   // ⛔ 게이트는 «영상만»이 아니다 (대표 지시 2026-08-21).
   //    소재 → 대본 → 영상 → 메타 네 층을 전부 통과해야 업로드한다.
   if (arg.endsWith('.json')) for (const r of checkTopic(it)) R.push(r);
+  // ⛔ 인사이트는 «선택»이 아니다 (대표 지시 2026-08-21):
+  //    "강력한 인사이트를 줘야 무엇인가 얻어가지 상황설명만 하는것이 아니라"
+  if (arg.endsWith('.json'))
+    for (const r of checkInsight(it, readFileSync('src/remotion/kit/scripts.ts', 'utf8'))) R.push(r);
   if (it.scriptTag) {
     const src = readFileSync('src/remotion/kit/scripts.ts', 'utf8');
     for (const r of checkScript(it.scriptTag, src)) R.push(r);
+    // ⛔ 2026-08-21: cutFor 가 길이 상한을 맞추려 «뒤에서부터» 비트를 버린다.
+    //    결론·인사이트가 통째로 사라져도 렌더는 정상이라 영상 검사로는 못 잡는다.
+    const a = auditCut(it.scriptTag, 'yt');
+    ok('잘린 비트', !a.error && a.dropped && a.dropped.length === 0,
+      a.error ? '검사 실패' : (a.dropped.length ? `${a.dropped.length}개 사라짐: ${a.dropped.map((d) => d.say).join(' / ')}` : `${a.kept}/${a.total}비트 · ${a.cutSec}s`),
+      '대본에 쓴 비트가 영상에 전부 있어야 한다');
   } else if (arg.endsWith('.json')) {
     R.push({ name: '대본 태그', pass: false, got: '없음', want: 'plan 에 scriptTag 를 넣어야 대본을 잰다' });
   }

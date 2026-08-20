@@ -21,9 +21,21 @@ import { timingOf } from './Briefing';
 
 export type Platform = 'yt' | 'tt' | 'reels';
 
-/** 플랫폼별 목표 창 (초) */
+/**
+ * 플랫폼별 목표 창 (초)
+ *
+ * ★ 2026-08-12 개정 — 조사값을 «우리 실측»으로 덮었다.
+ *   원래 yt 는 48~58 이었다(외부 조사: 유튜브는 «시청 시간»을 본다).
+ *   그런데 우리 채널 첫 실측이 정반대였다:
+ *     34초 영상 → 157회 · 54초 영상 → 6회   (같은 날, 같은 채널)
+ *   그 조사값은 «이미 시청자가 있는 채널» 기준으로 보인다.
+ *   구독자 0인 채널은 시청 «시간»을 벌기 전에 **완주율로 신뢰부터 얻어야** 한다.
+ *   완주율이 올라 노출이 붙은 뒤에 다시 길게 가는 건 그때 판단한다.
+ *
+ *   ⚠️ 이 값을 되돌리려면 «실측 근거»를 같이 바꿀 것. 조사 문서만 보고 되돌리지 말 것.
+ */
 export const WINDOW: Record<Platform, { target: number; min: number; max: number }> = {
-  yt: { target: 54, min: 48, max: 58 },     // 시청 시간 최적
+  yt: { target: 34, min: 28, max: 40 },     // 완주율 우선 (실측 개정)
   tt: { target: 34, min: 28, max: 38 },     // 완주율 최적
   reels: { target: 38, min: 30, max: 45 },  // 교육형 루프 최적
 };
@@ -34,7 +46,13 @@ export function totalSecOf(p: BriefingProps): number {
   return t.hookSec + t.beatSecs.reduce((a, b) => a + b, 0) + t.ctaSec + t.loopSec;
 }
 
-const prioOf = (b: Beat) => b.prio ?? 2;
+/**
+ * ⛔ 2026-08-21: cutFor 가 GOLD821 의 «결론» 비트를 통째로 잘라먹었다.
+ *   뒤에서부터 버리는 규칙 + 결론이 마지막 = 가장 중요한 한 마디가 사라진다.
+ *   게이트는 «영상»을 재므로 이걸 잡지 못했다 (렌더는 정상, 내용만 없음).
+ *   ⇒ role 'verdict' 와 insight 를 나르는 비트는 prio 1 로 본다. 절대 안 버린다.
+ */
+const prioOf = (b: Beat) => (b.role === 'verdict' ? 1 : (b.prio ?? 2));
 
 /**
  * 플랫폼 목표 창에 맞게 «비트를 골라» 짧은 판을 만든다.
@@ -65,6 +83,40 @@ export function cutFor(p: BriefingProps, platform: Platform): BriefingProps {
       // 너무 짧아졌으면 되돌린다
       if (secOf(keep) < win.min) { keep.splice(idx, 0, i); }
     }
+  }
+  return withBeats(p, keep);
+}
+
+/**
+ * ★ leanCut — 「완주율 사냥」용 초단축 판 (2026-08-13)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 【왜 cutFor 로는 안 되나】
+ *   cutFor 는 prio 1 을 «절대» 안 버린다 — 이야기를 지키려는 규칙이다.
+ *   그런데 PRE813 은 prio 1 이 4개라 아무리 잘라도 23초가 하한이다.
+ *   확대 관문(완주율 70%)에 닿으려면 실측 시청 13초 기준 **18.6초 이하**여야 한다.
+ *
+ * 【그래서 규칙을 바꾼다】
+ *   여기서는 «이야기의 완결»보다 «관문 통과»가 목적이다. 앞에서부터 채우다가
+ *   창을 넘으면 멈춘다. 뒤 비트는 버린다 — 어차피 13초에서 시청자가 나간다면
+ *   뒤 비트는 «아무도 못 본 채로 완주율만 깎는» 무게추다.
+ *
+ * 【최소 보장】 훅 + 비트 2개. 그 아래로는 이야기가 아니라 토막이 된다.
+ * ⚠️ CTA 제거·루프 단축은 Casual 의 `lean` 이 맡는다. 여기서는 «비트 선택»만.
+ */
+export function leanCut(p: BriefingProps, maxSec = 19, minBeats = 2): BriefingProps {
+  const t = timingOf(p);
+  // ⚠️ hookTight 를 여기서도 반영해야 한다. 안 하면 훅을 3.0초로 잡아 «실제보다 길게»
+  //    계산하고, 그 0.6초 때문에 마지막 비트가 억울하게 잘린다 (2026-08-13 실측).
+  const tight = (p as { hookTight?: boolean }).hookTight && p.voice?.hook;
+  const hookSec = tight ? p.voice!.hook!.sec + 0.25 : t.hookSec;
+  const fixed = hookSec + 1.4;                   // lean 루프 1.4초, CTA 0 (Casual.casualTiming)
+  const keep: number[] = [];
+  let sec = fixed;
+  for (let i = 0; i < p.beats.length; i++) {
+    const next = sec + t.beatSecs[i];
+    if (keep.length >= minBeats && next > maxSec) break;
+    keep.push(i);
+    sec = next;
   }
   return withBeats(p, keep);
 }

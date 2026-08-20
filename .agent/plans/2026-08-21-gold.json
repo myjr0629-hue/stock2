@@ -4,11 +4,13 @@
   "thumb": "E:/SIGNUM_UPLOAD/2026-08-21/GOLD821_thumb.jpg",
   "class": "concept",
   "scriptTag": "GOLD821",
-  "title": "Why Gold Is Going Up But Not To A Record",
+  "title": "Why Gold Is Going Up Is Not What You Think",
   "evidence": [
    "GLD 일봉 255개 (FMP stable/historical-price-eod/full, 2025-08-15~2026-08-20)",
    "UUP 일봉 255개 · GLD-UUP 일간수익률 피어슨 상관 -0.39 (n=254, 자체 계산)",
-   "고점 $495.90 (2026-01-29) · 현재 $414.54 · 고점대비 -16.4%"
+   "고점 $495.90 (2026-01-29) · 현재 $414.54 · 고점대비 -16.4%",
+   "GLD-IBIT 42일 상관 0.62 = 213개 창 중 94백분위 (1년 중앙 0.26)",
+   "달러+비트코인 2요인 설명력 R² 연간 19% → 최근42일 50%"
   ],
   "homonymPct": 0,
   "freshnessDays": 1,
@@ -28,6 +30,17 @@
   ],
   "description": "https://www.signumhq.com - FREE market intel.\n\nGold is up 34.8% over the past year and 12.8% in the past month. But it still closed 16.4% below its January 29 high of $495.90.\n\nWe ran the correlation ourselves: GLD versus the dollar (UUP), daily returns, 254 trading days. The result is -0.39 - negative, but far from a one-to-one link. A weaker dollar helps gold. It has not been enough to make a new record.\n\nData: GLD and UUP daily closes, Aug 15 2025 to Aug 20 2026.\nEducational only. Not investment advice.\n\n#gold #stockmarket #investing",
   "pinnedComment": "Numbers in this video, all from daily closes (Aug 2025 - Aug 2026):\n- Gold (GLD) 1Y +34.8% - past month +12.8%\n- Jan 29 high $495.90 -> today $414.54 = -16.4%\n- GLD vs dollar (UUP) daily-return correlation -0.39 over 254 days\n\nWe built the app that runs these checks for you - free on iOS and Android:\nhttps://www.signumhq.com/app",
-  "privacy": "private"
+  "privacy": "private",
+  "insight": {
+   "claim": "Gold has started moving with bitcoin, not against risk",
+   "metric": "GLD vs IBIT 42일 롤링 상관 (일간수익률)",
+   "value": 0.62,
+   "baseline": 0.26,
+   "n": 42,
+   "percentile": 94,
+   "pValue": 0.005,
+   "computedBy": "FMP stable/historical-price-eod/full 2025-08-15~2026-08-20, GLD/IBIT/UUP 255봉. 42일 롤링 상관 213창 · Fisher z 검정 (최근42 0.62 vs 이전212 0.23, z=2.81, p=0.005). 원본 .agent/_gold_why.json",
+   "saidAs": "Gold now moves with bitcoin."
+  }
  }
 ]

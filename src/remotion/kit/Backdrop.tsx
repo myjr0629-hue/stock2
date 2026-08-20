@@ -16,7 +16,8 @@
 // ============================================================================
 
 import React from 'react';
-import { AbsoluteFill, Img, Loop, OffthreadVideo, interpolate, staticFile, useCurrentFrame } from 'remotion';
+import { bgGain } from './bg-levels';
+import { AbsoluteFill, Easing, Img, Loop, OffthreadVideo, interpolate, staticFile, useCurrentFrame } from 'remotion';
 import { CANVAS } from './spec';
 
 // ── 배경 명세 ────────────────────────────────────────────────────────────────
@@ -24,8 +25,9 @@ export type BackdropAccent = 'cool' | 'hot' | 'amber' | 'clash';
 
 export type BackdropSpec =
   | { kind: 'img'; src: string }
-  | { kind: 'video'; src: string; loopFrames?: number }
-  | { kind: 'series'; accent?: BackdropAccent }   // 가격 곡선 (실데이터 있으면 그걸로)
+  /** startFrom: 클립 «중간»부터 튼다 (컴포지션 프레임). 예 — 금괴·비트코인 클립의 «악수» 장면. */
+  | { kind: 'video'; src: string; loopFrames?: number; startFrom?: number }
+  | { kind: 'series'; accent?: BackdropAccent; bright?: boolean }   // 가격 곡선 (실데이터 있으면 그걸로)
   | { kind: 'strikes'; accent?: BackdropAccent }  // 풋/콜 스트라이크 사다리
   | { kind: 'ticks'; accent?: BackdropAccent }    // 틱 테이프 숫자 비
   | { kind: 'grid'; accent?: BackdropAccent };    // 펄스 히트맵 그리드
@@ -61,9 +63,23 @@ const ACCENT: Record<BackdropAccent, { a: string; b: string }> = {
 };
 
 // 공통 스크림 — 자막·헤드라인 가독성. Bg(구판)와 같은 곡선.
-const Scrim: React.FC = () => (
+/**
+ * ★ 스크림 — 상단을 «왜» 덮는가
+ *   비트에는 상단에 Banner(로고+제목)가 올라간다. 그 뒤가 밝으면 글자가 안 읽혀서
+ *   0.86 불투명으로 눌렀다. 여기까지는 맞다.
+ *
+ *   ⚠️ 그런데 «훅에는 Banner 가 없다». 빈 상단을 86% 검정으로 덮고 있었고,
+ *   그래서 아무리 밝은 배경을 골라도 렌더 상단이 41.7 로 나왔다 (승자 3편은 176~184).
+ *   2026-08-19 실측으로 잡아낸 결함이다.
+ *
+ *   soft = 훅 전용. 상단은 «거의 투명»하게 두고 하단만 눌러 자막·고지를 지킨다.
+ *   훅의 큰 숫자·문장·서브는 «각자 자기 배경 슬래브»를 갖고 있어서 스크림에 안 기댄다.
+ */
+const Scrim: React.FC<{ soft?: boolean }> = ({ soft }) => (
   <AbsoluteFill style={{
-    background: 'linear-gradient(180deg, rgba(4,7,13,0.86) 0%, rgba(4,7,13,0.40) 24%, rgba(4,7,13,0.28) 52%, rgba(4,7,13,0.82) 100%)',
+    background: soft
+      ? 'linear-gradient(180deg, rgba(4,7,13,0.06) 0%, rgba(4,7,13,0.08) 34%, rgba(4,7,13,0.20) 62%, rgba(4,7,13,0.76) 100%)'
+      : 'linear-gradient(180deg, rgba(4,7,13,0.80) 0%, rgba(4,7,13,0.30) 24%, rgba(4,7,13,0.18) 52%, rgba(4,7,13,0.78) 100%)',
   }} />
 );
 
@@ -82,34 +98,60 @@ function seededWalk(seed: string, n = 64) {
   for (let i = 0; i < n; i++) { v += (r() - 0.48) * 2; out.push(v); }
   return out;
 }
-const SeriesBg: React.FC<{ data: BackdropData; accent: BackdropAccent; dur: number }> = ({ data, accent, dur }) => {
+/**
+ * ★ series — «진짜 주가 곡선» 배경 (2026-08-19 전면 개편)
+ *
+ *   대표 지적: "텍스트만 잔뜩 넣지 말고 영상이 받쳐줘야 한다. 그 영상은 뉴스일 수도,
+ *              실제 회사 뉴스 클립일 수도 있다."
+ *   실측이 그걸 뒷받침한다 — 우리 비트 프레임의 «67%»가 오버레이였고, 배경으로 쓰던
+ *   b-roll(웨이퍼 로봇팔 등)은 그 종목과 «아무 관계가 없는» 장식이었다.
+ *
+ *   뉴스 클립은 저작권이 걸린다. 대신 «우리 데이터로 그 종목의 실제 궤적을 그린다».
+ *   100% 우리 것이고, 그 종목 얘기이고, 주장을 «화면이 증명»한다.
+ *
+ *   bright=true 면 밝은 판. 대표 지시: "어두운 게 고급인 줄 아는 건 왜 그러냐."
+ *   실측: 지속률 상위 3편 상단 밝기 176~184 / 우리 직전편 41.7.
+ */
+const SeriesBg: React.FC<{ data: BackdropData; accent: BackdropAccent; dur: number; bright?: boolean }> = ({ data, accent, dur, bright }) => {
   const f = useCurrentFrame();
   const s = data.series && data.series.length >= 8 ? data.series : seededWalk(data.seed ?? 'SIG');
-  const W = CANVAS.w * 1.45, H = 760;
+  // 화면을 «가득» 채운다. 예전엔 H=760 짜리를 하단에 깔아 장식으로만 썼다.
+  const W = CANVAS.w * 1.35, H = CANVAS.h;
   const lo = Math.min(...s), hi = Math.max(...s), sp = hi - lo || 1;
   const pts = s.map((x, i) => [
     (i / (s.length - 1)) * W,
-    H - ((x - lo) / sp) * (H - 70) - 35,
+    H - ((x - lo) / sp) * (H * 0.62) - H * 0.20,
   ] as const);
   const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const area = `${line} ${W},${H} 0,${H}`;
   const pan = interpolate(f, [0, dur], [0, -(W - CANVAS.w)], { extrapolateRight: 'clamp' });
   const col = ACCENT[accent].a;
+  const grid = bright ? 'rgba(10,20,40,0.10)' : 'rgba(255,255,255,0.06)';
   return (
-    <AbsoluteFill style={{ background: '#05070C' }}>
-      <Glow accent={accent} />
-      <svg width={W} height={H} style={{ position: 'absolute', top: 560, left: 0, transform: `translateX(${pan}px)`, opacity: 0.62 }}>
+    <AbsoluteFill style={{
+      background: bright
+        ? 'linear-gradient(180deg, #F2F5FA 0%, #E4EAF3 42%, #D2DBE8 100%)'
+        : '#05070C',
+    }}>
+      {!bright && <Glow accent={accent} />}
+      {/* 격자 — 「차트」임을 0.3초에 알린다 */}
+      <svg width={CANVAS.w} height={CANVAS.h} style={{ position: 'absolute', inset: 0 }}>
+        {[...Array(9)].map((_, k) => (
+          <line key={k} x1="0" x2={CANVAS.w} y1={(k + 1) * (CANVAS.h / 10)} y2={(k + 1) * (CANVAS.h / 10)} stroke={grid} strokeWidth="2" />
+        ))}
+      </svg>
+      <svg width={W} height={H} style={{ position: 'absolute', top: 0, left: 0, transform: `translateX(${pan}px)` }}>
         <defs>
           <linearGradient id="bkA" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={col} stopOpacity="0.34" />
+            <stop offset="0%" stopColor={col} stopOpacity={bright ? 0.30 : 0.34} />
             <stop offset="100%" stopColor={col} stopOpacity="0" />
           </linearGradient>
         </defs>
         <polygon points={area} fill="url(#bkA)" />
-        <polyline points={line} fill="none" stroke={col} strokeWidth="7" strokeLinejoin="round" opacity="0.28" style={{ filter: 'blur(9px)' }} />
-        <polyline points={line} fill="none" stroke={col} strokeWidth="4" strokeLinejoin="round" />
+        <polyline points={line} fill="none" stroke={col} strokeWidth="18" strokeLinejoin="round" opacity={bright ? 0.18 : 0.28} style={{ filter: 'blur(14px)' }} />
+        <polyline points={line} fill="none" stroke={col} strokeWidth={bright ? 9 : 5} strokeLinejoin="round" strokeLinecap="round" />
       </svg>
-      <Scrim />
+      {!bright && <Scrim />}
     </AbsoluteFill>
   );
 };
@@ -240,9 +282,19 @@ export const Backdrop: React.FC<{
   data?: BackdropData;
   /** 인접 컷과 밝기 차를 만들어 컷이 «읽히게» 한다 (Briefing이 교대로 줌) */
   tone?: number;
-}> = ({ spec: rawSpec, dur, data = {}, tone = 1 }) => {
+  /**
+   * ★ 크래시 줌 — «훅 전용». 첫 13프레임(0.43초)에 1.26배에서 1.0배로 빨려든다.
+   *   2026-08-19 실측: 지속률 상위 3편의 공통점은 «첫 순간에 화면이 움직인다»였고,
+   *   우리 훅은 배경 video 케이스에 스케일 애니메이션이 «아예 없어» 완전 정지였다.
+   *   (img 케이스에는 1.05→1.14 램프가 있었는데 video 케이스만 빠져 있었다)
+   */
+  punch?: boolean;
+}> = ({ spec: rawSpec, dur, data = {}, tone = 1, punch = false }) => {
   const f = useCurrentFrame();
   const spec = bgAvailable(rawSpec);
+  const pz = punch
+    ? interpolate(f, [0, 13], [1.26, 1.0], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
+    : 1;
   const inner = (() => {
     switch (spec.kind) {
       case 'img': {
@@ -251,10 +303,10 @@ export const Backdrop: React.FC<{
           <AbsoluteFill style={{ overflow: 'hidden', background: '#05070C' }}>
             <Img src={staticFile(spec.src)} style={{
               width: '100%', height: '100%', objectFit: 'cover',
-              transform: `scale(${1.05 + t * 0.09})`,
-              filter: 'saturate(0.82) contrast(1.06) brightness(1.02)',
+              transform: `scale(${(1.05 + t * 0.09) * pz})`, transformOrigin: '50% 42%',
+              filter: `saturate(0.88) contrast(1.04) brightness(${bgGain(spec.src)})`,
             }} />
-            <Scrim />
+            <Scrim soft={punch} />
           </AbsoluteFill>
         );
       }
@@ -264,16 +316,17 @@ export const Backdrop: React.FC<{
         return (
           <AbsoluteFill style={{ overflow: 'hidden', background: '#05070C' }}>
             <Loop durationInFrames={spec.loopFrames ?? 148} layout="none">
-              <OffthreadVideo muted src={staticFile(spec.src)} style={{
+              <OffthreadVideo muted startFrom={spec.startFrom} src={staticFile(spec.src)} style={{
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%', objectFit: 'cover',
-                filter: 'saturate(0.85) brightness(0.96)',
+                transform: `scale(${pz})`, transformOrigin: '50% 42%',
+                filter: `saturate(0.9) brightness(${bgGain(spec.src)})`,
               }} />
             </Loop>
-            <Scrim />
+            <Scrim soft={punch} />
           </AbsoluteFill>
         );
-      case 'series': return <SeriesBg data={data} accent={spec.accent ?? 'cool'} dur={dur} />;
+      case 'series': return <SeriesBg data={data} accent={spec.accent ?? 'cool'} dur={dur} bright={spec.bright} />;
       case 'strikes': return <StrikesBg data={data} accent={spec.accent ?? 'clash'} />;
       case 'ticks': return <TicksBg data={data} accent={spec.accent ?? 'cool'} />;
       case 'grid': return <GridBg data={data} accent={spec.accent ?? 'cool'} />;

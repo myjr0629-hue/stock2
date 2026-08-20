@@ -4416,7 +4416,7 @@ export const SCRIPT_GOLD821: BriefingProps = {
     line: 'Gold is not\nat a record.',
     sub: 'Everyone asks why it keeps rising.',
     role: 'market',
-    bg: { kind: 'video', src: 'shorts/bg/video/golden-bell.mp4', loopFrames: 150 },   // 실측 밝기 147 -> bgGain 163
+    bg: { kind: 'video', src: 'shorts/bg/video/gold-btc-race.mp4', loopFrames: 240 },   // 대표 제공 · 밝기 139 · 첫 프레임=썸네일
   },
   loop: 'Up a month.\nDown from January.',
 
@@ -4438,17 +4438,8 @@ export const SCRIPT_GOLD821: BriefingProps = {
       eyebrow: 'What the tape actually says',
       head: 'Still 16.4% below\nthe January high',
       say: 'It is well below its January high.',
-      ask: 'So what are you actually looking at?',
+      ask: 'The move you noticed is recent.',
       visual: { kind: 'versus', aK: 'FROM JAN 29 PEAK', aV: '-16.4%', bK: 'LAST 1 MONTH', bV: '+12.8%' },
-    },
-    {
-      role: 'money',
-      bg: { kind: 'video', src: 'shorts/bg/video/steel-spheres.mp4', loopFrames: 150 },   // 실측 밝기 178
-      eyebrow: 'The move you noticed',
-      head: '+12.8% since\nJuly 20',
-      say: 'The move you noticed is one month old.',
-      ask: 'And it has a partner.',
-      visual: { kind: 'stat', label: 'GLD · SINCE JUL 20', value: '+12.8%', sub: '$367.60 to $414.54 · 255 daily bars', up: true },
     },
     {
       role: 'depth',
@@ -4471,29 +4462,51 @@ export const SCRIPT_GOLD821: BriefingProps = {
     },
     {
       role: 'chips',
-      bg: { kind: 'video', src: 'shorts/bg/video/mini-construction.mp4', loopFrames: 150 },   // 실측 밝기 168
-      eyebrow: 'It is not gold alone',
-      head: 'Silver and miners\nmoved the same way',
-      say: 'Silver and miners moved with it.',
-      ask: 'So this is not a gold-only story.',
-      visual: { kind: 'rows', rows: [
-        { k: 'GLD vs SLV', v: '0.83', up: true, note: 'daily-return correlation' },
-        { k: 'GLD vs GDX', v: '0.85', up: true, note: 'gold miners, same window' },
-        { k: 'GLD vs SPY', v: '0.31', up: false, note: 'stocks moved on their own' },
-      ] },
-    },
-    {
-      role: 'chips',
       bg: { kind: 'video', src: 'shorts/bg/video/golden-bell.mp4', loopFrames: 150 },   // 실측 밝기 147 -> bgGain 163
       eyebrow: 'But that is not the whole story',
       head: 'A weak dollar alone\ndoes not make a record',
       say: 'But a weak dollar is not enough.',
-      ask: 'Gold still sits under its high.',
+      ask: 'Something else changed this summer.',
       visual: { kind: 'rows', rows: [
         { k: 'GOLD 1Y', v: '+34.8%', up: true, note: 'Aug 2025 to Aug 2026' },
         { k: 'DOLLAR 1Y', v: '+2.8%', up: true, note: 'UUP · same window' },
         { k: 'OFF PEAK', v: '-16.4%', up: false, note: 'vs Jan 29 close $495.90' },
       ] },
+    },
+    {
+      role: 'depth',
+      prio: 1,   // 인사이트 — cutFor 가 버리지 못하게 (2026-08-21)
+      bg: { kind: 'video', src: 'shorts/bg/video/gold-btc-race.mp4', loopFrames: 111, startFrom: 189 },   // ★ «악수» 장면 (6.3s~10.0s, 루프 없음) — 인사이트를 그림으로
+      eyebrow: 'What actually changed',
+      head: 'Gold now moves\nwith bitcoin',
+      say: 'Gold now moves with bitcoin.',
+      ask: 'They rise and fall together now.',
+      visual: { kind: 'stat', label: 'GLD vs BITCOIN · 42-DAY CORRELATION', value: '0.62',
+        sub: 'one year median 0.26 - our own calculation', up: true },
+    },
+    {
+      role: 'evidence',
+      prio: 1,   // 인사이트 — cutFor 가 버리지 못하게 (2026-08-21)
+      bg: { kind: 'video', src: 'shorts/bg/video/fiber-one-lit.mp4', loopFrames: 150 },   // 실측 밝기 157
+      eyebrow: 'We checked every window this year',
+      head: 'Tightest in\ntwelve months',
+      say: 'That link is the tightest all year.',
+      ask: 'We checked every window since August.',
+      visual: { kind: 'rows', rows: [
+        { k: 'TODAY', v: '0.62', up: true, note: '94th percentile of 213 windows' },
+        { k: 'YEAR MEDIAN', v: '0.26', up: false, note: 'same 42-day measure' },
+        { k: 'SIX WEEKS AGO', v: '0.38', up: false, note: 'it has climbed every month' },
+      ] },
+    },
+    {
+      role: 'verdict',
+      prio: 1,   // 인사이트 — cutFor 가 버리지 못하게 (2026-08-21)
+      bg: { kind: 'video', src: 'shorts/bg/video/golden-bell.mp4', loopFrames: 150 },   // 실측 밝기 147
+      eyebrow: 'So what is this rally',
+      head: 'Not a fear trade.\nA currency trade.',
+      say: 'So this is not a fear trade.',
+      ask: 'You are watching a currency bet.',
+      visual: { kind: 'versus', aK: 'EXPLAINED A YEAR AGO', aV: '19%', bK: 'EXPLAINED NOW', bV: '50%' },
     },
   ],
 
