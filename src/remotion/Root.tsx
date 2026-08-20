@@ -8,6 +8,7 @@ import { PhoneAd, phoneAdDuration } from './kit/PhoneAd';
 import { AppAd, AppAdTag, APPAD_DURATION, APPAD_DURATION_SOLO, APPAD_TAG_DURATION, APPAD_FPS } from './kit/AppAd';
 import { Thumb, THUMB_AMD819 } from './kit/Thumb';
 import { OutroCard, OUTRO_FRAMES, OUTRO_FPS } from './kit/Outro';
+import { Trailer, TRAILER_FPS, TRAILER_FRAMES } from './kit/Trailer';
 import { Concept2, C2_DURATION, C2_FPS } from './kit/Concept2';
 import { Concept, CONCEPT_DURATION, CONCEPT_FPS } from './kit/Concept';
 import { PHONEAD_SIGNUM } from './kit/phonead-signum';
@@ -958,6 +959,15 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={createMockMarketPressureBriefV26Input()}
+      />
+      {/* 채널 트레일러 — 「왜 구독해야 하는가」. 쇼츠가 아니므로 30초 상한 대상 아님 */}
+      <Composition
+        id="Trailer"
+        component={Trailer}
+        durationInFrames={TRAILER_FRAMES}
+        fps={TRAILER_FPS}
+        width={1080}
+        height={1920}
       />
       <Composition
         id="OutroCard"
