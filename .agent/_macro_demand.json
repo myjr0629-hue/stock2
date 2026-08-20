@@ -1,0 +1,77 @@
+[
+ {
+  "query": "how the stock market works",
+  "median": 42562.5,
+  "max": 8567344
+ },
+ {
+  "query": "quantitative easing explained",
+  "median": 35716.0,
+  "max": 1625798
+ },
+ {
+  "query": "etf vs stock",
+  "median": 29475.5,
+  "max": 727692
+ },
+ {
+  "query": "compound interest explained",
+  "median": 26466.0,
+  "max": 2046855
+ },
+ {
+  "query": "how the fed works",
+  "median": 24648.0,
+  "max": 497118
+ },
+ {
+  "query": "yield curve inversion explained",
+  "median": 14508,
+  "max": 1132346
+ },
+ {
+  "query": "short selling explained",
+  "median": 14113.5,
+  "max": 2267926
+ },
+ {
+  "query": "dividend investing explained",
+  "median": 7147.0,
+  "max": 1099737
+ },
+ {
+  "query": "inflation explained simply",
+  "median": 2244.0,
+  "max": 1748026
+ },
+ {
+  "query": "stock split explained",
+  "median": 1826.0,
+  "max": 64743
+ },
+ {
+  "query": "what happens when interest rates rise",
+  "median": 1824.5,
+  "max": 675198
+ },
+ {
+  "query": "what causes a recession",
+  "median": 1762.0,
+  "max": 500334
+ },
+ {
+  "query": "why bond yields matter",
+  "median": 228,
+  "max": 101382
+ },
+ {
+  "query": "how earnings reports move stocks",
+  "median": 69,
+  "max": 71705
+ },
+ {
+  "query": "fed rate cut explained",
+  "median": 16.5,
+  "max": 497118
+ }
+]

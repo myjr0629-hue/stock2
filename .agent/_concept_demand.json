@@ -1,0 +1,37 @@
+[
+ {
+  "concept": "RSI",
+  "query": "rsi indicator explained",
+  "median": 33947.5
+ },
+ {
+  "concept": "VWAP",
+  "query": "what is vwap trading",
+  "median": 26831
+ },
+ {
+  "concept": "마켓메이커",
+  "query": "market makers explained",
+  "median": 15881.5
+ },
+ {
+  "concept": "콜월/풋플로어",
+  "query": "call wall put floor",
+  "median": 12628.5
+ },
+ {
+  "concept": "고래플로우",
+  "query": "unusual options activity",
+  "median": 1170.0
+ },
+ {
+  "concept": "감마스퀴즈",
+  "query": "gamma squeeze explained",
+  "median": 984.0
+ },
+ {
+  "concept": "다크풀",
+  "query": "dark pool trading explained",
+  "median": 404.5
+ }
+]

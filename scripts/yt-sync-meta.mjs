@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+// yt-sync-meta — 이미 올린 영상의 제목·설명·태그를 plan.json 과 «다시 맞춘다»
+//   사용: node scripts/yt-sync-meta.mjs <plan.json> <videoId>
+// ⛔ 영상 파일은 교체할 수 없다(유튜브 사양). 메타데이터만 동기화한다.
+import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+const [, , PLAN, ID] = process.argv;
+if (!PLAN || !ID) { console.error('사용: yt-sync-meta <plan.json> <videoId>'); process.exit(1); }
+// 게이트를 먼저 통과해야 한다 — 메타 수정도 규격 밖으로 나갈 수 없다
+if (spawnSync(process.execPath, ['scripts/shorts-gate.mjs', PLAN], { stdio: 'inherit' }).status !== 0) {
+  console.error('  게이트 불통과 — 동기화 중단'); process.exit(1);
+}
+const env = readFileSync('.env.local', 'utf8');
+const g = (k) => (env.match(new RegExp(`^${k}=(.*)$`, 'm')) || [])[1]?.trim();
+const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({ client_id: g('YT_CLIENT_ID'), client_secret: g('YT_CLIENT_SECRET'),
+    refresh_token: g('YT_REFRESH_TOKEN'), grant_type: 'refresh_token' }) });
+const { access_token } = await r.json();
+const it = JSON.parse(readFileSync(PLAN, 'utf8'))[0];
+const cur = await (await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${ID}`,
+  { headers: { Authorization: `Bearer ${access_token}` } })).json();
+const sn = cur.items?.[0]?.snippet;
+if (!sn) { console.error('영상을 못 찾았다'); process.exit(1); }
+const up = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet', { method: 'PUT',
+  headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id: ID, snippet: { categoryId: sn.categoryId, title: it.title,
+    description: it.description, tags: it.tags, defaultLanguage: 'en', defaultAudioLanguage: 'en' } }) });
+const j = await up.json();
+if (!up.ok) { console.error('실패', JSON.stringify(j).slice(0, 300)); process.exit(1); }
+console.log(`  ${ID} 메타 동기화 완료`);
+console.log(`  설명 첫 줄: ${j.snippet.description.split('\n')[0]}`);

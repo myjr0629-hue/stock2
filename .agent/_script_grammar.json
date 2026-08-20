@@ -1,0 +1,79 @@
+[
+ {
+  "ch": "Your Rich BFF",
+  "v": 835584,
+  "dur": 88.71,
+  "wpm": 244.84274602637814,
+  "nw": 362,
+  "you": 4.41988950276243,
+  "num": 0.5524861878453038,
+  "typ": "선언",
+  "lead": "Inflation this, inflation that. Babe, you are worried about the wrong thing because this bad job market and these high costs are going to cause something"
+ },
+ {
+  "ch": "Man Carrying Thing",
+  "v": 709501,
+  "dur": 92.31,
+  "wpm": 243.09392265193372,
+  "nw": 374,
+  "you": 2.941176470588235,
+  "num": 0.0,
+  "typ": "반박",
+  "lead": "Hold on. Let me get this straight. You're an expert in the economy and stuff, right? stuff, right? earned my PhD and stuff. what I mean."
+ },
+ {
+  "ch": "Raging Moderates",
+  "v": 692849,
+  "dur": 40.27,
+  "wpm": 180.2830891482493,
+  "nw": 121,
+  "you": 4.958677685950414,
+  "num": 3.3057851239669422,
+  "typ": "선언",
+  "lead": "You never like to predict a recession cuz people like me have predicted nine of the last three recessions. I believe you're going to see a"
+ },
+ {
+  "ch": "One Minute Economics",
+  "v": 377118,
+  "dur": 75.59,
+  "wpm": 162.71993649953697,
+  "nw": 205,
+  "you": 0.0,
+  "num": 6.341463414634147,
+  "typ": "선언",
+  "lead": "The dot-com bubble started around 1997, peaked in 2000, and ultimately burst by 2002. 2002. As the name suggests, the bubble revolved around speculative investments in"
+ },
+ {
+  "ch": "Kyla Scanlon",
+  "v": 350597,
+  "dur": 144.75,
+  "wpm": 198.13471502590673,
+  "nw": 478,
+  "you": 1.882845188284519,
+  "num": 0.0,
+  "typ": "질문",
+  "lead": "Are we going to enter a recession this year? Torsten Slok of Apollo has a really good analysis where he talks about how AI, industrial renaissance,"
+ },
+ {
+  "ch": "Man Carrying Thing",
+  "v": 333262,
+  "dur": 87.51,
+  "wpm": 185.12170037709976,
+  "nw": 270,
+  "you": 4.074074074074074,
+  "num": 1.4814814814814816,
+  "typ": "반박",
+  "lead": "Okay. Yeah. The AI bubble. Everyone wants to know. Is it real? Is there an AI bubble in the economy? And is it going to bring"
+ },
+ {
+  "ch": "CBC News",
+  "v": 322276,
+  "dur": 157.31,
+  "wpm": 195.28319877948002,
+  "nw": 512,
+  "you": 3.90625,
+  "num": 0.9765625,
+  "typ": "선언",
+  "lead": "Gold is valuable, but right now it's crazy valuable, worth more today than it ever has in history. And it's made these astronomical gains in a"
+ }
+]

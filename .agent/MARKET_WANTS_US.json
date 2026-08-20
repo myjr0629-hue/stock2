@@ -1,0 +1,138 @@
+{
+ "market": "us",
+ "measuredAt": "2026-08-21",
+ "rows": [
+  {
+   "q": "mortgage rates explained",
+   "demand": 69035,
+   "n": 16,
+   "room": 88,
+   "roomN": "14/16",
+   "smallMed": 69035,
+   "fresh": null,
+   "score": 4.23,
+   "top": "Should I get a fixed or variable rate mortgage"
+  },
+  {
+   "q": "is the ai bubble popping",
+   "demand": 53718,
+   "n": 15,
+   "room": 67,
+   "roomN": "10/15",
+   "smallMed": 53718,
+   "fresh": null,
+   "score": 3.15,
+   "top": "“AI bubble will pop………....any day now.”"
+  },
+  {
+   "q": "why is the dollar falling",
+   "demand": 1395,
+   "n": 16,
+   "room": 56,
+   "roomN": "9/16",
+   "smallMed": 167,
+   "fresh": null,
+   "score": 1.77,
+   "top": "Why Is the Indian Rupee Falling in 2026? | Rup"
+  },
+  {
+   "q": "is my money safe in the bank",
+   "demand": 122,
+   "n": 16,
+   "room": 81,
+   "roomN": "13/16",
+   "smallMed": 29,
+   "fresh": null,
+   "score": 1.7,
+   "top": "A Warning For Safe Deposit Box Owners"
+  },
+  {
+   "q": "what happens if the fed cuts rates",
+   "demand": 756,
+   "n": 16,
+   "room": 56,
+   "roomN": "9/16",
+   "smallMed": 423,
+   "fresh": null,
+   "score": 1.62,
+   "top": "How Interest Rates Are Set: The Fed's New Tool"
+  },
+  {
+   "q": "why companies are laying off",
+   "demand": 14841,
+   "n": 16,
+   "room": 38,
+   "roomN": "6/16",
+   "smallMed": 520,
+   "fresh": null,
+   "score": 1.56,
+   "top": "Former Amazon employees speak out on layoffs"
+  },
+  {
+   "q": "why gold is going up",
+   "demand": 64907,
+   "n": 16,
+   "room": 31,
+   "roomN": "5/16",
+   "smallMed": 580,
+   "fresh": null,
+   "score": 1.5,
+   "top": "What's Causing the Gold Price To Change..."
+  },
+  {
+   "q": "stock market crash coming",
+   "demand": 29702,
+   "n": 16,
+   "room": 31,
+   "roomN": "5/16",
+   "smallMed": 39,
+   "fresh": null,
+   "score": 1.4,
+   "top": "Stock Market Crash of 2008"
+  },
+  {
+   "q": "are we in a recession",
+   "demand": 21897,
+   "n": 16,
+   "room": 31,
+   "roomN": "5/16",
+   "smallMed": 1408,
+   "fresh": null,
+   "score": 1.36,
+   "top": "What we have right now is WORSE than inflation"
+  },
+  {
+   "q": "nvidia stock",
+   "demand": 7744,
+   "n": 16,
+   "room": 31,
+   "roomN": "5/16",
+   "smallMed": 114,
+   "fresh": null,
+   "score": 1.22,
+   "top": "Nvidia's web of AI investments"
+  },
+  {
+   "q": "is it too late to buy bitcoin",
+   "demand": 11,
+   "n": 16,
+   "room": 88,
+   "roomN": "14/16",
+   "smallMed": 8,
+   "fresh": null,
+   "score": 0.94,
+   "top": "Too Late To Buy Bitcoin?"
+  },
+  {
+   "q": "best stocks to buy now",
+   "demand": 4435,
+   "n": 16,
+   "room": 19,
+   "roomN": "3/16",
+   "smallMed": 1299,
+   "fresh": null,
+   "score": 0.68,
+   "top": "4/5ths Of India’s Most Tracked Stocks Now Sign"
+  }
+ ]
+}

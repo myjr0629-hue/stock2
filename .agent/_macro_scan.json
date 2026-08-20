@@ -1,0 +1,68 @@
+[
+ {
+  "cat": "달러·금",
+  "query": "why gold is going up",
+  "median": 84262.0,
+  "max": 2395139
+ },
+ {
+  "cat": "암호화폐",
+  "query": "bitcoin explained simply",
+  "median": 78237.0,
+  "max": 3055469
+ },
+ {
+  "cat": "버블·붕괴",
+  "query": "is the ai bubble popping",
+  "median": 48136.0,
+  "max": 709501
+ },
+ {
+  "cat": "지정학",
+  "query": "china economy explained",
+  "median": 44698.5,
+  "max": 2821028
+ },
+ {
+  "cat": "부동산·금리",
+  "query": "mortgage rates explained",
+  "median": 42874.5,
+  "max": 3110026
+ },
+ {
+  "cat": "부의 격차",
+  "query": "wealth gap explained",
+  "median": 37925.5,
+  "max": 1641702
+ },
+ {
+  "cat": "경기·침체",
+  "query": "are we in a recession",
+  "median": 23096.0,
+  "max": 835584
+ },
+ {
+  "cat": "고용",
+  "query": "why companies are laying off",
+  "median": 13082.0,
+  "max": 415551
+ },
+ {
+  "cat": "물가·생활",
+  "query": "cost of living crisis explained",
+  "median": 2769.0,
+  "max": 183815
+ },
+ {
+  "cat": "매크로·연준",
+  "query": "what higher rates do to stocks",
+  "median": 1549.5,
+  "max": 202447
+ },
+ {
+  "cat": "AI 산업",
+  "query": "nvidia ai demand explained",
+  "median": 713,
+  "max": 1382930
+ }
+]

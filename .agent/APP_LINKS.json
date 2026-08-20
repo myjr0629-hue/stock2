@@ -1,0 +1,23 @@
+{
+  "verifiedAt": "2026-08-21",
+  "note": "⛔ https://www.signumhq.com 은 «웹사이트»다. 앱 주소가 아니다. 앱 주소는 /app 이다.",
+  "primary": "https://www.signumhq.com/app",
+  "why": "src/app/app/route.ts 의 기기 판별 스마트 링크. iPhone→App Store · Android→Play · Desktop→App Store. 짧고 브랜드가 남고 리다이렉트 로그로 추적된다. 스토어 링크를 두 줄로 쓰는 것보다 이게 낫다.",
+  "app": {
+    "name": "SIGNUM HQ: Stock Market Intel",
+    "seller": "Signum Hq, LLC",
+    "price": "Free",
+    "version": "1.2",
+    "smart": "https://www.signumhq.com/app",
+    "ios": "https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444",
+    "android": "https://play.google.com/store/apps/details?id=com.signumhq.app"
+  },
+  "sisterApp": {
+    "name": "Undercurrent — News & Money",
+    "smart": "https://www.signumhq.com/app-uc",
+    "ios": "https://apps.apple.com/app/undercurrent-news-money/id6788779895",
+    "android": "https://play.google.com/store/apps/details?id=com.signumhq.undercurrent"
+  },
+  "site": "https://www.signumhq.com",
+  "howVerified": "curl -A 로 iPhone/Android/Desktop UA 별 302 리다이렉트 목적지를 각각 실측"
+}

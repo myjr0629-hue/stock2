@@ -1,0 +1,97 @@
+{
+ "measuredAt": "2026-08-20",
+ "method": "레퍼런스 2,150편 중 «태그 있는» 1,187편 → 조회 상위 절반 → 4개 채널 이상이 공유하는 태그. 인도장·비라틴 제외",
+ "note": "조회수가 검증이다. 검증된 계급의 «공통 어휘»를 쓰고 거기에 우리 색(개체·수요문구)을 얹는다",
+ "canon": [
+  {
+   "tag": "stock market",
+   "channels": 17,
+   "uses": 142
+  },
+  {
+   "tag": "finance",
+   "channels": 9,
+   "uses": 154
+  },
+  {
+   "tag": "investing",
+   "channels": 8,
+   "uses": 72
+  },
+  {
+   "tag": "news",
+   "channels": 6,
+   "uses": 125
+  },
+  {
+   "tag": "stocks",
+   "channels": 6,
+   "uses": 57
+  },
+  {
+   "tag": "finance news",
+   "channels": 5,
+   "uses": 132
+  },
+  {
+   "tag": "world news",
+   "channels": 5,
+   "uses": 94
+  },
+  {
+   "tag": "stock market news",
+   "channels": 5,
+   "uses": 75
+  },
+  {
+   "tag": "financial education",
+   "channels": 5,
+   "uses": 5
+  },
+  {
+   "tag": "business",
+   "channels": 4,
+   "uses": 126
+  },
+  {
+   "tag": "money",
+   "channels": 4,
+   "uses": 99
+  },
+  {
+   "tag": "breaking news",
+   "channels": 4,
+   "uses": 93
+  },
+  {
+   "tag": "business news",
+   "channels": 4,
+   "uses": 87
+  },
+  {
+   "tag": "cnbc",
+   "channels": 4,
+   "uses": 78
+  },
+  {
+   "tag": "money tips",
+   "channels": 4,
+   "uses": 77
+  },
+  {
+   "tag": "wealth management",
+   "channels": 4,
+   "uses": 9
+  },
+  {
+   "tag": "investing for beginners",
+   "channels": 4,
+   "uses": 7
+  },
+  {
+   "tag": "value investing",
+   "channels": 4,
+   "uses": 5
+  }
+ ]
+}
