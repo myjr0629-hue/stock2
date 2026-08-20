@@ -153,6 +153,10 @@ export default async function FlowTickerPage(
   const m = data.money || ({} as Money);
   const cards = (data.cards || []).filter((c) => c.plainTitle);
   const pcr = m.oiPcr ?? m.volumePcr;
+  // JSON-LD 용 (generateMetadata 와 같은 값을 컴포넌트 스코프에서도 쓴다)
+  const base = publicBase();
+  const url = `${base}/${locale}/flow/${ticker}`;
+  const desc = (data.tickerRead || l.sub(ticker)).slice(0, 200);
 
   const metrics: [string, string][] = [];
   if (m.price != null) metrics.push([l.lbl.price, money$(m.price)!]);
@@ -168,9 +172,47 @@ export default async function FlowTickerPage(
   if (m.darkPoolPct != null) faq.push({ q: `What is ${ticker}'s dark-pool activity?`, a: `${ticker}'s dark-pool volume is about ${Math.round(m.darkPoolPct)}%.` });
   if (m.maxPain != null) faq.push({ q: `Where is ${ticker}'s max pain?`, a: `${ticker}'s max pain is around ${money$(m.maxPain)}.` });
   if (m.callWall != null || m.putFloor != null) faq.push({ q: `What are ${ticker}'s option walls?`, a: `${[m.callWall != null ? `call wall ${money$(m.callWall)}` : '', m.putFloor != null ? `put floor ${money$(m.putFloor)}` : ''].filter(Boolean).join(', ')}.` });
-  const jsonLd = faq.length
-    ? { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) }
-    : null;
+  // ⛔ 2026-08-20: 여기는 FAQPage 하나만 내보내고 있었다. 구글은 FAQ 리치결과를
+  //    검색 갤러리에서 사실상 걷어냈으므로(일반 사이트엔 미표시) 노출 기여가 0이다.
+  //    그래서 «지금도 지원되는» 타입으로 갈아끼운다:
+  //      Dataset        — 이 페이지의 본체는 «데이터»다. 구글 데이터셋 검색 대상.
+  //      BreadcrumbList — 검색결과에 경로가 붙어 CTR 이 오른다.
+  //      Organization   — 브랜드 엔티티(sameAs 로 스토어·SNS 를 묶는다)
+  //    FAQ 항목은 LLM 추출용으로 Dataset.description 에 문장으로 남긴다(마크업이 아니라 텍스트).
+  const brand = `${base}/#org`;
+  const jsonLd: Record<string, unknown>[] = [
+    {
+      '@context': 'https://schema.org', '@type': 'Dataset', '@id': `${url}#dataset`,
+      name: `${ticker} options flow, dark pool and max pain`,
+      description: [desc, ...faq.map((f) => `${f.q} ${f.a}`)].join(' ').slice(0, 1200),
+      url,
+      isAccessibleForFree: true,
+      creator: { '@id': brand },
+      variableMeasured: metrics.map(([k]) => k),
+      inLanguage: locale,
+    },
+    {
+      '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Undercurrent', item: `${base}/${locale}/undercurrent` },
+        { '@type': 'ListItem', position: 2, name: ticker, item: url },
+      ],
+    },
+    {
+      '@context': 'https://schema.org', '@type': 'Organization', '@id': brand,
+      name: 'SIGNUM HQ', url: base, logo: `${base}/icons/icon-192x192.png`,
+      sameAs: [
+        'https://x.com/signumhq',
+        'https://x.com/signumhq_jp',
+        'https://apps.apple.com/app/id6783130444',
+        'https://apps.apple.com/app/id6788779895',
+        'https://apps.apple.com/app/id6794356135',
+        'https://play.google.com/store/apps/details?id=com.signumhq.app',
+        'https://play.google.com/store/apps/details?id=com.signumhq.undercurrent',
+        'https://play.google.com/store/apps/details?id=com.signumhq.wim',
+      ],
+    },
+  ];
 
   const S = {
     wrap: { maxWidth: 720, margin: '0 auto', padding: '32px 20px 64px', fontFamily: 'Pretendard, system-ui, sans-serif', color: '#17191E', lineHeight: 1.6 } as const,
@@ -193,7 +235,7 @@ export default async function FlowTickerPage(
 
   return (
     <main style={S.wrap}>
-      {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
+      {jsonLd.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
 
       <div style={S.kicker}>Undercurrent · {l.kicker}</div>
       <h1 style={S.h1}>{ticker} — {l.money}</h1>

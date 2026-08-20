@@ -7,7 +7,9 @@ import { publicBase } from '@/lib/net/publicBase';
 // workflow script). x-default + per-locale URLs help Google pick the right language.
 const LOCALES = ['en', 'ko', 'ja'] as const;
 
-const STATIC_PATHS = ['', '/undercurrent', '/how-it-works', '/pricing'];
+// ⛔ 2026-08-20: '/wim' 이 빠져 있었다. 라이브 200 인데 sitemap 에 없어 3개 로케일 전부
+//    검색엔진에 «존재하지 않는» 페이지였다. /app·/app-uc·/app-wim 은 404(리다이렉트 전용)라 넣지 않는다.
+const STATIC_PATHS = ['', '/undercurrent', '/wim', '/how-it-works', '/pricing'];
 
 // Curated high-search / high-attention, liquid + optioned US tickers (v2, ~165).
 // All names that reliably have news + money data (avoids soft-404s). Expand toward
