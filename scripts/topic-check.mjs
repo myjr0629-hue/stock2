@@ -61,7 +61,21 @@ export function checkTopic(it) {
     ok('동음이의 오염', it.homonymPct <= HOMONYM_MAX, `${it.homonymPct}%`,
       `<= ${HOMONYM_MAX}% (예: "ai bubble" 은 게임 밈 21% 섞임)`);
 
-  // ⑤ 신선도 — 뉴스성 소재만
+  // ⑤ 종목 해석 — 매크로 소재에도 «종목»이 붙어야 한다 (대표 지시 2026-08-21)
+  //   "종목관련한 그런 것이 조금더 높은것같다 내용에 종목에 관한것이 분명 있어서
+  //    해석을 넣는것이 좋을것같다"
+  //   우리 채널 실측 (7/1~8/21): 제목에 종목명 있는 6편 조회중앙 86 · 평균시청률 88%
+  //                            없는 15편 조회중앙 40 · 47%
+  //   ⚠ 순위합 z=1.09(조회) / 1.48(시청률) — n=6 vs 15 라 «유의 아님». 방향만 일관되다.
+  //   ⇒ 막지는 않고 «없으면 표시»한다. 표본이 쌓이면 그때 강제로 바꾼다.
+  const TICKERS = /\b(AMD|NVDA|Nvidia|Micron|MU|SanDisk|SNDK|Broadcom|AVGO|Walmart|Meta|Google|Apple|Tesla|Intel|Samsung|Hynix|Amazon|Microsoft|Netflix|Palantir|GLD|SPY|QQQ|TSLA|AAPL|MSFT|AMZN|GOOGL|IBIT|UUP|SLV|GDX)/i;
+  const inTitle = TICKERS.test(it.title || '');
+  const inBody = TICKERS.test([].concat(it.evidence || []).join(' ') + ' ' + (it.insight?.claim || ''));
+  R.push({ name: '종목 해석', pass: inTitle || inBody,
+    got: inTitle ? '제목에 종목명' : (inBody ? '근거에만 (제목엔 없음)' : '없음'),
+    want: '종목명이 제목에 있으면 좋다 (있는 편 조회중앙 86·시청률 88% vs 없는 편 40·47%, n=21 관찰)' });
+
+  // ⑥ 신선도 — 뉴스성 소재만
   if (it.freshnessDays !== undefined && it.freshnessDays !== null)
     ok('근거 신선도', it.freshnessDays <= MAX_FRESHNESS_DAYS, `${it.freshnessDays}일 전`,
       `<= ${MAX_FRESHNESS_DAYS}일 (뉴스성 소재)`);

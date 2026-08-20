@@ -29,7 +29,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const VERSION = 'RT-1.0.2'; // 1.0.2: exec-quality stats + shadow vol-sizing measurement (rules unchanged)
+const VERSION = 'RT-2.0.0'; // 2.0.0: REAL-order adapter (C-stage) — paper twin unchanged; real actions mirror paper decisions, dual-locked (gate-verified arm key + killswitch)
+const REAL_MAX_LOT_USD = 2000; // aligned with the executor's per-order hard cap
+const REAL_ENTRY_BUDGET = 28;  // of the executor's 40/day: entries stop at 28 so exits/kill-flatten always fit
 const MODE = 'PAPER'; // hard-coded; no LIVE branch exists in this file
 const CAPITAL = 1000;
 const PICKS = 10;            // cohort size (mirrors daily track)
@@ -101,6 +103,21 @@ async function toss(p, query) {
   });
 }
 
+// executor (HMAC) — POST passthrough for REAL orders. The executor is the
+// last line of defense: path allowlist, $2k/order cap, 40/day cap, and a
+// mandatory clientOrderId (idempotency) are enforced THERE, not trusted here.
+async function tossPost(p, body) {
+  const env = loadEnv();
+  if (!env.EXECUTOR_SECRET) throw new Error('EXECUTOR_SECRET not installed');
+  const raw = JSON.stringify({ path: p, method: 'POST', body });
+  const ts = String(Date.now());
+  const sign = crypto.createHmac('sha256', env.EXECUTOR_SECRET).update(ts + '.' + raw).digest('hex');
+  return httpJson(EXEC_URL, {
+    method: 'POST', body: raw,
+    headers: { 'Content-Type': 'application/json', 'X-Exec-Ts': ts, 'X-Exec-Sign': sign },
+  });
+}
+
 // ── redis: local proxy (ElastiCache) — ASCII values only ────────────────────
 async function rGet(key) {
   try {
@@ -137,7 +154,7 @@ async function upstashGet(key) {
 }
 
 // Injection points — the simulator overrides these; production uses the real ones.
-const IO = { toss, rGet, rSet, upstashGet };
+const IO = { toss, tossPost, rGet, rSet, upstashGet };
 const FILES = { state: STATE_FILE };
 
 // ── ET clock (fallback: month-based EDT/EST offset if ICU lacks timezones) ──
@@ -301,6 +318,84 @@ function flattenAll(px, reason, type) {
   }
 }
 
+// ── REAL-order adapter (C-stage, RT-2.0.0) ──────────────────────────────────
+// Mirrors paper decisions into the real account. Dual-locked: the arm key
+// trade:auto:real {mode:'armed', capital} is written ONLY by the console after
+// server-side 3-gate verification; killswitch/halts/locks gate every real
+// action identically to paper (hooks live inside the same guarded blocks).
+// Paper stays the measurement twin — real fills never feed paper state.
+// Deterministic clientOrderId = idempotent: a retry can never double-order.
+let REAL = { mode: 'off', capital: 0 };
+async function refreshReal() {
+  let r = await IO.rGet('trade:auto:real');
+  if (!r) r = await IO.upstashGet('trade:auto:real');
+  const cap = r && Number(r.capital);
+  REAL = (r && r.mode === 'armed' && Number.isFinite(cap) && cap >= 100)
+    ? { mode: 'armed', capital: Math.min(cap, 60_000) } : { mode: 'off', capital: 0 };
+}
+const realArmed = () => REAL.mode === 'armed';
+function realBook() {
+  if (!S.realBook) S.realBook = { positions: [], ordDate: null, ordersToday: 0 };
+  const today = CLOCK.now().date;
+  if (S.realBook.ordDate !== today) { S.realBook.ordDate = today; S.realBook.ordersToday = 0; }
+  return S.realBook;
+}
+async function realOrder(body, tag) {
+  const rb = realBook();
+  rb.ordersToday += 1;
+  try {
+    const r = await IO.tossPost('/api/v1/orders', body);
+    const ok = r.status < 400;
+    log(ok ? tag : 'REAL-ERR', { t: body.symbol, reason: `${body.side} ${body.orderAmount ? '$' + body.orderAmount : body.quantity + 'sh'} ${body.clientOrderId} -> ${r.status}${ok ? '' : ' ' + JSON.stringify(r.json || {}).slice(0, 120)}` });
+    return ok;
+  } catch (e) {
+    log('REAL-ERR', { t: body.symbol, reason: String(e && e.message || e).slice(0, 120) });
+    return false;
+  }
+}
+async function realBuy(t, cohortDate, half) {
+  const rb = realBook();
+  if (rb.ordersToday >= REAL_ENTRY_BUDGET) { logSkip(t, `real order budget ${REAL_ENTRY_BUDGET} reached - exits reserved`); return; }
+  let lot = Math.floor((REAL.capital / (PICKS * TRANCHES)) * (half ? 0.5 : 1) * 100) / 100;
+  if (lot > REAL_MAX_LOT_USD) lot = REAL_MAX_LOT_USD;
+  if (lot < 1) { logSkip(t, 'real lot < $1'); return; }
+  const ok = await realOrder({
+    clientOrderId: `rt-${cohortDate}-${t}-B`.slice(0, 40), symbol: t, side: 'BUY',
+    orderType: 'MARKET', orderAmount: String(lot),
+  }, 'REAL-ENTRY');
+  if (ok) rb.positions.push({ t, cohortDate, amount: lot, at: Date.now() });
+}
+async function realSellFor(t, cohortDate, tag) {
+  const rb = realBook();
+  const mine = rb.positions.filter((p) => p.t === t);
+  if (!mine.length) return;
+  const rec = mine.find((p) => p.cohortDate === cohortDate) || mine[0];
+  try {
+    const h = await IO.toss('/api/v1/holdings');
+    const items = (h.json && h.json.result && h.json.result.items) || [];
+    const row = items.find((x) => x.symbol === t);
+    const heldQty = Number(row && row.quantity);
+    if (!Number.isFinite(heldQty) || heldQty <= 0) {
+      log('REAL-ERR', { t, reason: 'no real holding to exit (drift) - record dropped' });
+      rb.positions = rb.positions.filter((p) => p !== rec);
+      return;
+    }
+    const totalAmt = mine.reduce((s, p) => s + p.amount, 0);
+    const qty = mine.length === 1 ? heldQty : Math.floor(heldQty * (rec.amount / totalAmt) * 1e6) / 1e6;
+    if (qty <= 0) { rb.positions = rb.positions.filter((p) => p !== rec); return; }
+    const ok = await realOrder({
+      clientOrderId: `rt-${rec.cohortDate}-${t}-S`.slice(0, 40),
+      symbol: t, side: 'SELL', orderType: 'MARKET', quantity: String(qty),
+    }, tag);
+    if (ok) rb.positions = rb.positions.filter((p) => p !== rec);
+  } catch (e) {
+    log('REAL-ERR', { t, reason: 'exit ' + String(e && e.message || e).slice(0, 100) });
+  }
+}
+async function realFlatten(tag) {
+  for (const rec of [...realBook().positions]) await realSellFor(rec.t, rec.cohortDate, tag);
+}
+
 // ── cohort staging: consume the daily track's cohort verbatim ───────────────
 async function refreshCohort() {
   const paper = await IO.upstashGet('cache:xs:paper');
@@ -413,6 +508,8 @@ async function tick() {
     }
   }
 
+  await refreshReal(); // C-stage arm state (off unless gate-verified key exists)
+
   // marks: one batch quote call for held + pending cohort names
   const held = S.positions.map((p) => p.t);
   const pending = (S.cohort && !S.cohort.done) ? S.cohort.symbols.filter((t) => !S.cohort.entered.includes(t)) : [];
@@ -440,6 +537,7 @@ async function tick() {
     // ① intraday book stop: flatten + lock for the day
     if (S.lockedDate !== et.date && S.dayStartNav > 0 && ((nav - S.dayStartNav) / S.dayStartNav) * 100 <= DAY_STOP_PCT) {
       flattenAll(px, `day book stop ${DAY_STOP_PCT}%`, 'KILL');
+      if (realArmed()) await realFlatten('REAL-KILL');
       S.lockedDate = et.date;
       log('KILL', { reason: `day stop ${DAY_STOP_PCT}% - locked for ${et.date}` });
     }
@@ -448,6 +546,7 @@ async function tick() {
     nav = markNav(px);
     if (!S.haltedUntil && S.weekStartNav > 0 && ((nav - S.weekStartNav) / S.weekStartNav) * 100 <= WEEK_KILL_PCT) {
       flattenAll(px, `week kill ${WEEK_KILL_PCT}%`, 'KILL');
+      if (realArmed()) await realFlatten('REAL-KILL');
       S.haltedUntil = nextMonday(et.date);
       S.haltReason = `week kill ${WEEK_KILL_PCT}%`;
       log('KILL', { reason: `${S.haltReason} - halted until ${S.haltedUntil}` });
@@ -461,6 +560,7 @@ async function tick() {
         const ob = await book(pos.t);
         const fill = ob.bid || px.get(pos.t) || pos.entryPx;
         paperSell(pos, fill, `${HOLD_TRADING_DAYS}d time exit`, 'EXIT');
+        if (realArmed()) await realSellFor(pos.t, pos.cohortDate, 'REAL-EXIT');
       }
     }
 
@@ -483,6 +583,7 @@ async function tick() {
         if (spreadBps > SPREAD_MAX_BPS) { logSkip(t, `spread ${spreadBps}bps > ${SPREAD_MAX_BPS}`); continue; }
         paperBuy(t, lot, ob.ask, S.cohort.date, spreadBps);
         S.cohort.entered.push(t);
+        if (realArmed()) await realBuy(t, S.cohort.date, regime === 'NEG');
       }
     }
     // entry window closed → unfilled cohort names lapse (journaled once)
@@ -518,6 +619,9 @@ async function tick() {
   // ⑥ heartbeat + mirrors (console reads these)
   await IO.rSet('trade:auto:state', {
     mode: S.haltedUntil ? 'OFF' : MODE, ver: VERSION, capital: S.capital,
+    real: realArmed()
+      ? { armed: true, capital: REAL.capital, positions: S.realBook ? S.realBook.positions.length : 0, ordersToday: S.realBook ? S.realBook.ordersToday : 0 }
+      : { armed: false },
     nav: round(nav, 2), cash: round(S.cash, 2),
     positions: S.positions.map((p) => ({ t: p.t, qty: p.qty, entryPx: p.entryPx, entryAt: p.entryAt })),
     universeDate: S.cohort ? S.cohort.date : null, updatedAt: Date.now(),
@@ -569,6 +673,6 @@ module.exports = {
 
 if (require.main === module) {
   loadStateFromDisk();
-  console.log(`[auto] REALTIME-1 ${VERSION} starting — MODE=${MODE} (no live-order code path exists)`);
+  console.log(`[auto] REALTIME-1 ${VERSION} starting — MODE=${MODE} (real adapter present, armed only via gate-verified trade:auto:real)`);
   loop();
 }

@@ -42,19 +42,21 @@ const txt = (b, a) => { const r = spawnSync(b, a, { maxBuffer: 1 << 30, encoding
 //     밝기  개념 66~235      vs  브리핑 39.6~123.7
 //   근거: .agent/BRIEFING_BENCHMARK.md
 // plan.json 의 각 항목에 "class": "brief" | "concept" 를 넣는다 (기본 concept)
+// ⛔ 2026-08-21: 길이 상한 30초 (대표 지시). 근거는 variants.ts WINDOW 주석 참조.
+//   구독자가 늘면 «재측정 후» 되돌린다. 숫자만 보고 되돌리지 말 것.
 const SPEC_BY_CLASS = {
-  concept: { secRange: [30, 61], cutsPerMin: [8, 24], brightMin: 90, capTopPct: [66, 82] },
+  concept: { secRange: [20, 31], cutsPerMin: [8, 24], brightMin: 90, capTopPct: [66, 82] },
   // ⚠ 컷/분 상한 24 — 측정된 브리핑 계급은 6.5~16.5 지만 그 6편은 «전부 토킹헤드»다.
   //   TrendyVest 98K 는 45.9초에 5컷(9초에 한 번) — 말하는 사람 얼굴이라 컷이 필요 없다.
   //   우리는 «데이터 카드» 포맷이라 카드 하나를 9초 붙잡으면 빈 화면이 된다.
   //   → 구조가 다른 포맷에 남의 숫자를 그대로 씌우지 않는다. 24 로 두고 «미해결»로 표시한다.
   //   숙제: 데이터 카드형 브리핑 채널을 따로 표본으로 모아 재측정할 것.
-  brief:   { secRange: [38, 59], cutsPerMin: [5, 24], brightMin: 55, capTopPct: [62, 86] },
+  brief:   { secRange: [20, 31], cutsPerMin: [5, 24], brightMin: 55, capTopPct: [62, 86] },
   // ⚠ ad 계급은 «측정된 레퍼런스가 없다». 앱 광고를 오가닉 쇼츠로 올리는 채널 표본을
   //   아직 못 모았다. 그래서 다른 계급에서 «확실히 근거 있는 것»만 가져온다:
   //     자막 위치·첫컷·빈화면·라우드니스 = 계급 무관 (플랫폼 UI·우리 채널 신호)
   //     길이·컷/분·밝기 = 넓게 둔다. 근거가 생기면 좁힌다.
-  ad:      { secRange: [15, 61], cutsPerMin: [5, 30], brightMin: 70, capTopPct: [66, 84] },
+  ad:      { secRange: [15, 31], cutsPerMin: [5, 30], brightMin: 70, capTopPct: [66, 84] },
 };
 const SPEC = {
   capTopPct: [66, 82],      // 자막띠 상단 — DTW 실사 76~80%. 여유 포함

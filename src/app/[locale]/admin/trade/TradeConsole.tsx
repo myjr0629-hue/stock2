@@ -72,6 +72,7 @@ interface AutoRes {
   log: { at: number; type: string; t?: string; px?: number; qty?: number; reason?: string }[];
   report: { date: string; nav: number; dayRet: number | null; trades: number; note?: string } | null;
   navHist: { d: string; nav: number }[];
+  real?: { mode: string; capital?: number; by?: string };
   config: { capital: number; at: number } | null;
 }
 interface LabRes {
@@ -584,7 +585,27 @@ export default function TradeConsole({ operator }: { operator: string }) {
             <div className="tc-kv" style={{ marginTop: 8 }}><span>오늘 투입</span><strong>${fmt(plan.totals.deployToday)}</strong></div>
             <div className="tc-kv"><span>D+1·D+2 코호트 예비</span><strong>${fmt(plan.totals.reservedD1D2)}</strong></div>
             <div className="tc-kv"><span>현금 버퍼</span><strong>${fmt(plan.totals.cashBuffer)}</strong></div>
-            <div className="hint" style={{ marginTop: 6 }}>{plan.mechanics} · 부적합 슬롯은 그날 현금 유지(재배분 없음 — 페이퍼 트윈과 측정 연속성) · <b>C게이트 통과 + 수동 스위치 후 이 플랜 그대로 자동 발주</b></div>
+            <div className="tc-kv" style={{ marginTop: 8 }}>
+              <span>실전 모드</span>
+              <strong>
+                {auto?.real?.mode === 'armed' ? <span className="dn">🔴 무장 — 실주문 활성 · 실전 자본 ${fmt(auto.real.capital ?? 0, 0)}</span> : '⚪ 해제 (페이퍼만 작동)'}
+                {' '}
+                {auto?.real?.mode === 'armed' ? (
+                  <button className="tc-ghost sm" onClick={() => {
+                    fetch('/api/admin/trade/auto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ realMode: 'off' }) })
+                      .then((r) => r.json()).then((j) => { say(j.ok ? '실전 해제됨' : (j.error || '실패')); loadAuto(); });
+                  }}>해제</button>
+                ) : (
+                  <button className="tc-ghost sm" onClick={() => {
+                    const v = window.prompt('실전 투입 자본 (USD, $100–$60,000) — 게이트 3/3 충족 시에만 무장됩니다.');
+                    if (!v) return;
+                    fetch('/api/admin/trade/auto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ realMode: 'armed', realCapital: Number(v) }) })
+                      .then((r) => r.json()).then((j) => { say(j.ok ? `🔴 실전 무장 — $${v}` : (j.error || '무장 거부')); loadAuto(); });
+                  }}>무장 시도 →</button>
+                )}
+              </strong>
+            </div>
+            <div className="hint" style={{ marginTop: 6 }}>{plan.mechanics} · 부적합 슬롯은 그날 현금 유지(재배분 없음 — 페이퍼 트윈과 측정 연속성) · <b>C게이트 통과 + 수동 무장 후 이 플랜 그대로 자동 발주</b></div>
           </>
         ) : <span className="tc-empty">{plan?.error ?? (connected ? '플랜 계산 중…' : '토스 연결 후 표시')}</span>}
       </section>

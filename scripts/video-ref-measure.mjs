@@ -234,8 +234,14 @@ export const GATE = {
 export function gateCheck(v) {
   const fails = [];
   const short = process.argv.includes('--short');
-  if (!short && v.seconds < GATE.minSeconds) fails.push(`길이 ${v.seconds}s < ${GATE.minSeconds}s (CTA가 눌린다)`);
-  if (v.seconds > GATE.maxSeconds) fails.push(`길이 ${v.seconds}s > ${GATE.maxSeconds}s`);
+  // ★ --lean : 「완주율 사냥」 판 (2026-08-13). CTA 를 «의도적으로» 뺐으므로 28초 하한이
+  //   맞지 않는다. 대신 12~24초 창을 강제한다 — 하한을 없애면(--short) 실수가 안 잡힌다.
+  //   근거: 모바일 실측 시청 13초. 완주율 70% 관문을 넘으려면 18.6초 이하여야 한다.
+  const lean = process.argv.includes('--lean');
+  const min = lean ? 12 : GATE.minSeconds;
+  const max = lean ? 24 : GATE.maxSeconds;
+  if (!short && v.seconds < min) fails.push(`길이 ${v.seconds}s < ${min}s${lean ? '' : ' (CTA가 눌린다)'}`);
+  if (v.seconds > max) fails.push(`길이 ${v.seconds}s > ${max}s${lean ? ' (lean 은 24초 이하)' : ''}`);
   if (v.meanBrightness < GATE.meanBrightness) fails.push(`평균밝기 ${v.meanBrightness} < ${GATE.meanBrightness}`);
   if (v.litPixelPct < GATE.litPixelPct) fails.push(`밝은화소 ${v.litPixelPct}% < ${GATE.litPixelPct}%`);
   const need = Math.max(1, Math.round((v.seconds / 30) * GATE.cutsPer30s));

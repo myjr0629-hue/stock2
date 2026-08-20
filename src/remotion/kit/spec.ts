@@ -18,6 +18,16 @@ export const SAFE = {
   bottomPct: 0.25,   // 이 아래는 좋아요·댓글·공유 버튼
   get top() { return Math.round(CANVAS.h * this.topPct); },      // 384
   get bottom() { return Math.round(CANVAS.h * (1 - this.bottomPct)); }, // 1440
+  /**
+   * ★ 우측 안전여백 — «좋아요·댓글·공유» 세로 버튼 열 (2026-08-19 실측)
+   *   실제 YouTube Shorts UI 를 브라우저로 열어 비디오 프레임 기준 좌표를 쟀다:
+   *     우측 버튼 열이 «가로 83.5% (=x 902px) 부터» 시작, 폭 165px
+   *     세로: 더보기 y27 · 좋아요 y1165 · 댓글 y1432 · 공유 y1701
+   *   우리는 우측 여백을 «0» 으로 두고 PAD 44 만 썼다 → 콘텐츠가 x1036 까지 가서
+   *   자막(y 987~1376)의 오른쪽 134px 이 «좋아요 버튼에 깔렸다».
+   *   외부 규격 문서들도 우측 96~120px 을 권한다 — 실측이 더 넓었다.
+   */
+  right: 178,
 } as const;
 
 /**
@@ -32,7 +42,14 @@ export const SAFE = {
 export const CAPTION = {
   size: 74,              // 64~88 중앙값
   lineHeight: 1.22,
-  maxCharsPerLine: 26,   // 24~28
+  /**
+   * ★ 21 자 — 폭에서 «역산»한 값이다 (2026-08-19)
+   *   자막 폭이 우측 안전여백 178 확보로 992px → 858px 로 좁아졌다.
+   *   26 × (858/992) ≈ 22.5 → 안전하게 21.
+   *   실측으로도 24자 줄이 픽셀폭 때문에 깨진 사례가 있었다('They were number one and').
+   *   3줄이 되면 자막 상자가 위로 자라 rows 를 덮는다 — 그래서 상한을 낮게 잡는다.
+   */
+  maxCharsPerLine: 21,
   maxLines: 2,
   minMs: 1500,
   maxMs: 3000,

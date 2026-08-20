@@ -24,9 +24,30 @@ const LOGO_FILES: Record<string, string> = {
   BA: 'BA.png', CAT: 'CAT.png', COIN: 'COIN.png', COST: 'COST.png',
   GOOGL: 'GOOGL.png', INTC: 'INTC.png', JPM: 'JPM.png', LLY: 'LLY.png',
   META: 'META.png', MSFT: 'MSFT.png', MU: 'MU.png', NFLX: 'NFLX.png',
+  // ★ 2026-08-19 추가 — 유입 검색어의 «90%가 티커»였다 (AMD 45 · BROADCOM 17 · SANDISK 11 · MICRON 8).
+  //   반도체 확장(파운드리·장비) + 주요 ETF 를 미리 채워둔다.
+  TSM: 'TSM.png', ASML: 'ASML.png', QCOM: 'QCOM.png', MRVL: 'MRVL.png',
+  TXN: 'TXN.png', WDC: 'WDC.png', LRCX: 'LRCX.png', AMAT: 'AMAT.png', KLAC: 'KLAC.png',
+  SPY: 'SPY.png', QQQ: 'QQQ.png', IWM: 'IWM.png', DIA: 'DIA.png', GLD: 'GLD.png', TLT: 'TLT.png',
   NVDA: 'NVDA.png', PLTR: 'PLTR.png', SMCI: 'SMCI.png', SNDK: 'SNDK.png',
   SPCX: 'SPCX.png', TSLA: 'TSLA.png', UNH: 'UNH.png', XOM: 'XOM.png',
+  // [2026-08-12] 자원·광산 — 로고 프록시로 받음: curl signumhq.com/api/logo/<T>
+  // 모노그램 폴백(분홍 글자 타일)이 구리 배경과 색이 부딪혀 썸네일이 죽었다.
+  FCX: 'FCX.png', SCCO: 'SCCO.png', COPX: 'COPX.png',
+  // [2026-08-17] 소매 — 소매 실적 주간(WMT·TGT·HD)을 다루는데 셋 다 없어서
+  // 배지(DJI·500)로 때웠다. 종목 편에 «그 종목 심볼»이 없으면 안 된다.
+  WMT: 'WMT.png', TGT: 'TGT.png', HD: 'HD.png',
 };
+
+/**
+ * ★ 히어로(SYM.hero=460px) 로 «크게» 써도 되는지 — 로고 «유형»이 가른다.
+ *   2026-08-17 실측 (100x100 원본을 400px 로 확대해 비교):
+ *     · 심볼형(단순 도형)  WMT 스파크 · TGT 과녁 · AAPL · NVDA → 4배에도 «깨끗»
+ *     · 워드마크형(글자)   HD · COST · 대부분의 wordmark      → 4배에 «뭉갠다»
+ *   그래서 「로고 프록시는 100x100 이라 키우면 뭉갠다」는 종전 메모는 절반만 맞다.
+ *   워드마크 종목이 주인공이면 hook.syms 를 쓰지 말고 배지·큰 숫자로 간다.
+ */
+export const WORDMARK_LOGOS = new Set(['HD', 'COST', 'UNH', 'XOM', 'JPM', 'LLY']);
 
 /**
  * 발행사 마크라 «종목 식별»이 안 되는 티커 — 로고가 파일에 있어도 쓰지 않는다.
@@ -43,10 +64,13 @@ const GLYPH: Record<string, { text: string; hue: number }> = {
   DOW: { text: 'DJI', hue: 220 }, DJI: { text: 'DJI', hue: 220 }, DIA: { text: 'DJI', hue: 220 },
   RUSSELL: { text: 'R2K', hue: 265 }, RUSSELL2K: { text: 'R2K', hue: 265 }, IWM: { text: 'R2K', hue: 265 },
   VIX: { text: 'VIX', hue: 12 },
+  SOX: { text: 'SOX', hue: 275 }, SOXX: { text: 'SOX', hue: 275 }, SOXL: { text: 'SOX', hue: 275 },
   GOLD: { text: 'AU', hue: 44 }, GLD: { text: 'AU', hue: 44 },
   OIL: { text: 'WTI', hue: 28 }, WTI: { text: 'WTI', hue: 28 },
   BTC: { text: '₿', hue: 36 },
   US10Y: { text: '10Y', hue: 190 }, TLT: { text: '10Y', hue: 190 },
+  US30Y: { text: '30Y', hue: 200 }, TYX: { text: '30Y', hue: 200 },
+  MTG: { text: 'MTG', hue: 20 }, MORTGAGE: { text: 'MTG', hue: 20 },
   FED: { text: 'FED', hue: 210 }, FOMC: { text: 'FED', hue: 210 },
   CPI: { text: 'CPI', hue: 30 }, JOBS: { text: 'JOBS', hue: 150 },
   RISK: { text: 'RISK', hue: 40 }, RLSI: { text: 'RLSI', hue: 40 },

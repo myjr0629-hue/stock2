@@ -14,7 +14,7 @@
 // ============================================================================
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -53,7 +53,7 @@ const flat = (t) => (t || '').replace(/\n/g, ' ').trim();
 //   합쳐 구우면 ask 자막이 언제 나와야 하는지 알 수 없어 «고정 프레임»으로 띄우게 되고,
 //   그러면 자막이 낭독보다 2초 먼저 뜬다(2026-08-11 실측 결함). 따로 구워 «실측 초»로 맞춘다.
 const segs = [
-  { id: 'hook', text: flat(script.hook.line) },
+  { id: 'hook', text: flat(script.hook.say ?? script.hook.line) },   // say 가 있으면 «그걸» 읽는다 (화면은 line 그대로)
   ...script.beats.flatMap((b, i) => {
     const n = String(i).padStart(2, '0');
     const out = [{ id: n, text: flat(b.say) }];
@@ -72,10 +72,56 @@ mkdirSync(outDir, { recursive: true });
 const IS_WIN = process.platform === 'win32';
 const COMP = join('node_modules', '@remotion', IS_WIN ? 'compositor-win32-x64-msvc' : 'compositor-darwin-arm64');
 const FFPROBE = join(COMP, IS_WIN ? 'ffprobe.exe' : 'ffprobe');
+const ENV = IS_WIN ? { ...process.env } : { ...process.env, DYLD_LIBRARY_PATH: COMP };
 const durOf = (f) => parseFloat(execFileSync(FFPROBE,
   ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', f],
-  { env: IS_WIN ? { ...process.env } : { ...process.env, DYLD_LIBRARY_PATH: COMP } }
+  { env: ENV }
 ).toString());
+
+// ── ★ 실발화 길이 (2026-08-13 실측 결함에서 나온 장치) ─────────────────────────
+// 문제: ElevenLabs mp3 끝에 «꼬리 무음»이 붙는다. 파일 길이 2.32초인데 실제 발화는
+//       1.75초에 끝났다. 파일 길이를 컷 길이로 쓰면 그 0.6초가 통째로 죽은 시간이 된다.
+// 왜 치명적인가: 훅에서 이게 생기면 «스와이프 판정 구간»이 무음이 된다.
+//       실측(원유편): 1.1~1.8초 무음 + 화면도 1.6초까지 정지 → 유효 조회 16%.
+// 해법: 파일 길이 대신 «마지막으로 소리가 난 지점 + 짧은 여운»을 컷 길이로 쓴다.
+//       오디오 자체는 끝까지 재생되지만, 잘리는 건 어차피 무음이라 손실이 없다.
+const FFMPEG = join(COMP, IS_WIN ? 'ffmpeg.exe' : 'ffmpeg');
+const TAIL = 0.12;          // 발화 끝 뒤에 남기는 여운
+const FLOOR = 0.015;        // 무음 판정 RMS
+
+/** mp3 를 8kHz 모노 PCM 으로 풀어 «마지막 소리 지점»을 잰다 */
+function speechEndOf(f) {
+  const wav = join(tmpdir(), `spk-${process.pid}.wav`);
+  execFileSync(FFMPEG, ['-y', '-v', 'error', '-i', f, '-ac', '1', '-ar', '8000',
+    '-f', 'wav', '-acodec', 'pcm_s16le', wav], { env: ENV });
+  const buf = readFileSync(wav);
+  let p = 12;
+  while (p < buf.length - 8) {                       // 'data' 청크 찾기 (헤더 길이가 가변)
+    const id = buf.toString('ascii', p, p + 4);
+    const size = buf.readUInt32LE(p + 4);
+    if (id === 'data') { p += 8; break; }
+    p += 8 + size + (size % 2);
+  }
+  const SR = 8000, WIN = SR / 40;                     // 25ms 창
+  let last = 0;
+  for (let i = p, w = 0; i + WIN * 2 <= buf.length; i += WIN * 2, w++) {
+    let sum = 0;
+    for (let k = 0; k < WIN; k++) { const v = buf.readInt16LE(i + k * 2) / 32768; sum += v * v; }
+    if (Math.sqrt(sum / WIN) > FLOOR) last = (w + 1) * 0.025;
+  }
+  try { unlinkSync(wav); } catch {}
+  return last;
+}
+
+/** 컷 길이로 쓸 값 — 실발화 + 여운. 측정 실패 시 파일 길이로 안전하게 되돌린다. */
+function cutSecOf(f) {
+  const full = durOf(f);
+  try {
+    const end = speechEndOf(f);
+    if (!end || end < 0.15) return full;              // 소리를 못 찾으면 원본 길이
+    return Math.min(full, Math.round((end + TAIL) * 100) / 100);
+  } catch { return full; }
+}
 
 const results = [];
 for (const seg of segs) {
@@ -92,9 +138,13 @@ for (const seg of segs) {
     writeFileSync(mp3, Buffer.from(await res.arrayBuffer()));
     writeFileSync(txt, seg.text);
   }
-  const sec = Math.round(durOf(mp3) * 100) / 100;
+  // ★ 파일 길이가 아니라 «실발화 길이»를 쓴다 (꼬리 무음 제거 — 위 주석 참조)
+  const full = Math.round(durOf(mp3) * 100) / 100;
+  const sec = cutSecOf(mp3);
+  const cut = Math.round((full - sec) * 100) / 100;
   results.push({ id: seg.id, sec, cached });
-  console.log(`  ${cached ? '↩' : '✔'} ${seg.id.padEnd(6)} ${String(sec).padStart(5)}s  ${seg.text.slice(0, 46)}`);
+  console.log(`  ${cached ? '↩' : '✔'} ${seg.id.padEnd(6)} ${String(sec).padStart(5)}s`
+    + `${cut > 0.05 ? ` (꼬리 -${String(cut).padEnd(4)})` : '              '}  ${seg.text.slice(0, 38)}`);
 }
 
 // ── 템플릿용 트랙 파일 생성 ─────────────────────────────────────────────────
