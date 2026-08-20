@@ -1,0 +1,4983 @@
+{
+ "catRows": [
+  {
+   "cat": "금·귀금속",
+   "n": 40,
+   "median": 77563,
+   "max": 5704003,
+   "best": {
+    "q": "ゴールド 買い時",
+    "cat": "금·귀금속",
+    "v": 5704003,
+    "t": "[Risk] Is it dangerous to buy American stocks when the exchange rate is 150 yen to the dollar?",
+    "ch": "楽待 RAKUMACHI",
+    "chId": "UCPMJKbrxtpARoTd1b49iUvA",
+    "sec": 55
+   }
+  },
+  {
+   "cat": "환율·엔",
+   "n": 47,
+   "median": 14101,
+   "max": 2009308,
+   "best": {
+    "q": "円安 いつまで",
+    "cat": "환율·엔",
+    "v": 2009308,
+    "t": "[Dollar/yen] The current weak yen is fundamental, and the only way to stop it is for the Bank of ...",
+    "ch": "楽待 RAKUMACHI",
+    "chId": "UCPMJKbrxtpARoTd1b49iUvA",
+    "sec": 58
+   }
+  },
+  {
+   "cat": "미국주식",
+   "n": 47,
+   "median": 341,
+   "max": 15349,
+   "best": {
+    "q": "S&P500 積立",
+    "cat": "미국주식",
+    "v": 15349,
+    "t": "[Today's FAQ] What are the benefits of buying the same investment trust (S&P 500) in the \"Regular...",
+    "ch": "トウシル [楽天証券]",
+    "chId": "UC5BiTvy2Ni2MyigJPspjhOA",
+    "sec": 174
+   }
+  },
+  {
+   "cat": "NISA·적립",
+   "n": 26,
+   "median": 548,
+   "max": 61098,
+   "best": {
+    "q": "新NISA 何を買う",
+    "cat": "NISA·적립",
+    "v": 61098,
+    "t": "新nisaつみたて投資枠で一括購入するやり方(楽天証券)",
+    "ch": "サラリーマン投資家ヤマムー",
+    "chId": "UC1TrKj3qNOI-nLfTv0FfvPg",
+    "sec": 229
+   }
+  },
+  {
+   "cat": "반도체·AI",
+   "n": 46,
+   "median": 1662,
+   "max": 47749,
+   "best": {
+    "q": "AI 関連株",
+    "cat": "반도체·AI",
+    "v": 47749,
+    "t": "“AI銘柄”フジクラ ストップ安 今期減益見通しと発表【WBS】",
+    "ch": "テレ東BIZ ダイジェスト",
+    "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+    "sec": 60
+   }
+  },
+  {
+   "cat": "금리·정책",
+   "n": 48,
+   "median": 10087,
+   "max": 432350,
+   "best": {
+    "q": "住宅ローン 金利 上昇",
+    "cat": "금리·정책",
+    "v": 432350,
+    "t": "[2028 Forecast] Variable Mortgage Rates Rising to 1.7%!? #shorts",
+    "ch": "両学長 リベラルアーツ大学",
+    "chId": "UC67Wr_9pA4I0glIxDt_Cpyw",
+    "sec": 83
+   }
+  },
+  {
+   "cat": "경기·침체",
+   "n": 48,
+   "median": 1324,
+   "max": 500180,
+   "best": {
+    "q": "日本経済 これから",
+    "cat": "경기·침체",
+    "v": 500180,
+    "t": "日本を抜いて「世界4位の経済大国になった」とインド・モディ首相　今後3年以内にドイツを上回るとの予測も｜TBS NEWS DIG",
+    "ch": "TBS NEWS DIG Powered by JNN",
+    "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+    "sec": 59
+   }
+  },
+  {
+   "cat": "개별종목",
+   "n": 47,
+   "median": 6346,
+   "max": 3544994,
+   "best": {
+    "q": "ソフトバンク 株",
+    "cat": "개별종목",
+    "v": 3544994,
+    "t": "ソフトバンクの株「株式投資するなら。見逃しちゃうのは、もったいない。」③",
+    "ch": "ソフトバンク（SoftBank）",
+    "chId": "UCcMKfz1n6L6erIlyyowlOOA",
+    "sec": 16
+   }
+  },
+  {
+   "cat": "노후·연금",
+   "n": 48,
+   "median": 447,
+   "max": 158404,
+   "best": {
+    "q": "年金 いくら もらえる",
+    "cat": "노후·연금",
+    "v": 158404,
+    "t": "年金生活者支援給付金のお知らせ",
+    "ch": "厚生労働省 / Ministry of Health, Labour and Welfare",
+    "chId": "UCVgZUHlkoN51FOwoNMBGjfw",
+    "sec": 16
+   }
+  },
+  {
+   "cat": "암호화폐",
+   "n": 32,
+   "median": 329,
+   "max": 75669,
+   "best": {
+    "q": "仮想通貨 初心者",
+    "cat": "암호화폐",
+    "v": 75669,
+    "t": "【初心者必見】仮想通貨、何から勉強したらいい？与沢流の極め方はこれ！",
+    "ch": "与沢 翼",
+    "chId": "UCrn6ukKQ9-t1mRYgany043w",
+    "sec": 164
+   }
+  }
+ ],
+ "all": [
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 22603,
+   "t": "Q. Why is the price of gold rising?",
+   "ch": "藤井厳喜の『ワールド・フォーキャスト』",
+   "chId": "UCudswRVodQ-GaaMJf1sy-Iw",
+   "sec": 72
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 148,
+   "t": "2026年8月6日【最新】1日で＋1,136円の大幅上昇！金価格急騰の理由と本日の最新相場を徹底解説！",
+   "ch": "金相場チャンネル",
+   "chId": "UC1KJjVf9vYM9iDnD4nPhPPg",
+   "sec": 148
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 13102,
+   "t": "Do you know why gold is valuable?",
+   "ch": "カイトル亀ちゃんねる",
+   "chId": "UCw8QNtQxlRgZcbuL-xOK-Fw",
+   "sec": 55
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 44015,
+   "t": "【金】価格が急落  過熱感一服  背景に株高や地政学リスクの緩和",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 60
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 166552,
+   "t": "こんなに上がってるって知ってた？🤔金100gの買取価格📣30年前は12万😳#なんぼや #金 #純金 #インゴット #24金 #24k #18金  #18k #金価格 #金相場 #金の売り時",
+   "ch": "なんぼや | ブランド買取専門店",
+   "chId": "UCU5l1JSRryHUc7hZS5fjVrQ",
+   "sec": 13
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 11839,
+   "t": "金価格が上昇している理由",
+   "ch": "経済オタク",
+   "chId": "UCFe1Tr0n6rKdDZ3oA9V9Pbw",
+   "sec": 198
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 104,
+   "t": "金利が金価格に影響する本当の理由｜リファスタ",
+   "ch": "リファスタ",
+   "chId": "UC6VJpegm88WioXPT_NfBNsQ",
+   "sec": 239
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 3437,
+   "t": "金価格が二番天井をつけた可能性が大！｜リファスタ",
+   "ch": "リファスタ",
+   "chId": "UC6VJpegm88WioXPT_NfBNsQ",
+   "sec": 228
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 77563,
+   "t": "金の価値が消える日",
+   "ch": "お金の雑学TV",
+   "chId": "UC54zx3dXKTbxLhfMRs1Bhbg",
+   "sec": 40
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 247287,
+   "t": "ゴールド（金）は上がり続けるか？答えは○○○！#shorts #米国株",
+   "ch": "ライオン兄さんの米国株FIREが最強",
+   "chId": "UCxkiN35K-JNZKV9m0fEzN2w",
+   "sec": 48
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 28875,
+   "t": "【プラチナ価格の真実】2025年、3年連続供給不足！金の1/19しか採れない金属の未来",
+   "ch": "リファスタ",
+   "chId": "UC6VJpegm88WioXPT_NfBNsQ",
+   "sec": 56
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 7265,
+   "t": "インフレなのに金価格が上昇しない理由",
+   "ch": "経済オタク",
+   "chId": "UCFe1Tr0n6rKdDZ3oA9V9Pbw",
+   "sec": 165
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 43045,
+   "t": "【有事の金】発動の条件/再び金価格が上昇する時/イラン危機における価格変動要因＜塚本 卓治＞｜ピクテ・ゴールド 2026.3",
+   "ch": "ピクテ・ジャパン株式会社",
+   "chId": "UCMIoNwVftitx-BLyDK5WDsg",
+   "sec": 161
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 157247,
+   "t": "金価格はまだ上がる？スポット価格は過去最高値。",
+   "ch": "東洋経済オンライン",
+   "chId": "UCN36kFB7Lh4tptI4rsy5vFw",
+   "sec": 49
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 198122,
+   "t": "【金投資の将来性】ゴールドが今後も上昇する理由とは？",
+   "ch": "リノシーチャンネル【公式】",
+   "chId": "UCYFNfQ3DWjRpkAPb__HIV0g",
+   "sec": 42
+  },
+  {
+   "q": "金価格 上昇 理由",
+   "cat": "금·귀금속",
+   "v": 17467,
+   "t": "Chain of bank instability and rising gold prices!? #shorts",
+   "ch": "トウシル [楽天証券]",
+   "chId": "UC5BiTvy2Ni2MyigJPspjhOA",
+   "sec": 16
+  },
+  {
+   "q": "金 投資 初心者",
+   "cat": "금·귀금속",
+   "v": 200,
+   "t": "[Investment] Gold investment is hot right now, even for beginners! 5 ways to invest in gold",
+   "ch": "恵比寿の八木社長【3分でわかる税金】",
+   "chId": "UCOaLRr3MjcpO_VyU-c7NChA",
+   "sec": 168
+  },
+  {
+   "q": "金 投資 初心者",
+   "cat": "금·귀금속",
+   "v": 363741,
+   "t": "投資 初心者向けおすすめの株の始め方　ひろゆき切り抜き",
+   "ch": "ひろゆき動画チャンネル",
+   "chId": "UCd0daRcynfHPsrszw5nJ28A",
+   "sec": 129
+  },
+  {
+   "q": "金 投資 初心者",
+   "cat": "금·귀금속",
+   "v": 44035,
+   "t": "SBI証券での金・銀・プラチナの積立設定方法",
+   "ch": "SBI証券公式チャンネル",
+   "chId": "UCQHZXj_ZXCHuwWLiHHahetQ",
+   "sec": 144
+  },
+  {
+   "q": "金 投資 初心者",
+   "cat": "금·귀금속",
+   "v": 2081,
+   "t": "【テスタ】金・ゴールド　最強の投資先　メリットデメリット切り抜き】",
+   "ch": "テスタの部屋【切り抜き】",
+   "chId": "UCSyJun_VTW5iArnfGBXg0DQ",
+   "sec": 66
+  },
+  {
+   "q": "金 投資 初心者",
+   "cat": "금·귀금속",
+   "v": 108,
+   "t": "【FX・ゴールド初心者必見】スキマ時間で投資脳を鍛える！Turn Trading『コースで学ぶ』徹底解説【フジトミ証券】",
+   "ch": "フジトミ証券株式会社",
+   "chId": "UClL1vUQOt6JTYx2up0wAVhQ",
+   "sec": 127
+  },
+  {
+   "q": "金 投資 初心者",
+   "cat": "금·귀금속",
+   "v": 1301,
+   "t": "＜投資初心者向け＞コモディティとは？？",
+   "ch": "沖縄チャンネル",
+   "chId": "UCDerGvQGLb47P5GWqsk4qGQ",
+   "sec": 148
+  },
+  {
+   "q": "金 投資 初心者",
+   "cat": "금·귀금속",
+   "v": 615,
+   "t": "金投資の始め方決定版！現物・金ETF・ジパングコイン（ZPG）のメリット・デメリットを完全解説【2026年最新資産運用】",
+   "ch": "日本経済徹底解説",
+   "chId": "UCo49fE8ClBC7cLsp6i_CyHg",
+   "sec": 133
+  },
+  {
+   "q": "金 投資 初心者",
+   "cat": "금·귀금속",
+   "v": 195,
+   "t": "【高橋ダン】切り抜き　ダンのマインド　金投資、売るチャンスか？",
+   "ch": "ダンのマインド",
+   "chId": "UCo_xFUnwGr2dmJVNWZCvNcA",
+   "sec": 47
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 1026,
+   "t": "６月はゴールド買い時か！？金価格が上がりにくい要因",
+   "ch": "ウェルカムゴールド鳳凰",
+   "chId": "UCX-LqOGaPyXnZer4EPqSZqg",
+   "sec": 106
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 236947,
+   "t": "[Seminar] ① Why coins are overwhelmingly the best way to invest in gold | Part 2: Now is the time...",
+   "ch": "COINPALACE",
+   "chId": "UCC37n9SmLq09_q_F6BYV7lg",
+   "sec": 60
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 166552,
+   "t": "こんなに上がってるって知ってた？🤔金100gの買取価格📣30年前は12万😳#なんぼや #金 #純金 #インゴット #24金 #24k #18金  #18k #金価格 #金相場 #金の売り時",
+   "ch": "なんぼや | ブランド買取専門店",
+   "chId": "UCU5l1JSRryHUc7hZS5fjVrQ",
+   "sec": 13
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 938846,
+   "t": "[S&P 500] If you want to combine it, choose \"Gold\"",
+   "ch": "楽待 RAKUMACHI",
+   "chId": "UCPMJKbrxtpARoTd1b49iUvA",
+   "sec": 46
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 247287,
+   "t": "ゴールド（金）は上がり続けるか？答えは○○○！#shorts #米国株",
+   "ch": "ライオン兄さんの米国株FIREが最強",
+   "chId": "UCxkiN35K-JNZKV9m0fEzN2w",
+   "sec": 48
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 1664639,
+   "t": "1万円前に売買が多い200gの純金バー #ゴールド #インゴット #金地金",
+   "ch": "ゴールドおーじ@金の世界を優しく解説",
+   "chId": "UCRXSzh1ZweNstU7dlrXXbdA",
+   "sec": 22
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 5704003,
+   "t": "[Risk] Is it dangerous to buy American stocks when the exchange rate is 150 yen to the dollar?",
+   "ch": "楽待 RAKUMACHI",
+   "chId": "UCPMJKbrxtpARoTd1b49iUvA",
+   "sec": 55
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 1054955,
+   "t": "The end was a surprise...🫨 #Nanboya #Appraisal #ValueDesigner #Purchase #HighBrand #24K #Gold",
+   "ch": "なんぼや | ブランド買取専門店",
+   "chId": "UCU5l1JSRryHUc7hZS5fjVrQ",
+   "sec": 38
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 232909,
+   "t": "If you want to buy physical gold, this is it! Direct advice from a purchasing professional. #shor...",
+   "ch": "大吉チャンネル",
+   "chId": "UCUaulltjwxVkOEhnUYIlP3w",
+   "sec": 43
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 133147,
+   "t": "[Now's your chance!] Invest in gold while it's crashing!",
+   "ch": "BANK ACADEMY / バンクアカデミー",
+   "chId": "UCGXU4lVXc9msfUkjNykA7TA",
+   "sec": 62
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 1617875,
+   "t": "新NISA、オルカン一択って決めつけてない？ #新NISA #投資 #株 #お金 #オルカン #米国株 #pivot",
+   "ch": "PIVOT 公式チャンネル",
+   "chId": "UC8yHePe_RgUBE-waRWy6olw",
+   "sec": 32
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 84944,
+   "t": "Selling gold bars: How to avoid paying income tax!! #shorts #incometax #money #gold",
+   "ch": "超・税理士ニシデせんせい",
+   "chId": "UC9xVLsBJ02GWlzjWDmr9GxA",
+   "sec": 59
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 19345,
+   "t": "爆上げ中のゴールド、今は買い時なのか",
+   "ch": "経済オタク",
+   "chId": "UCFe1Tr0n6rKdDZ3oA9V9Pbw",
+   "sec": 196
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 343253,
+   "t": "[For Beginners] \"Gold\" Investment Method",
+   "ch": "楽待 RAKUMACHI",
+   "chId": "UCPMJKbrxtpARoTd1b49iUvA",
+   "sec": 48
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 148392,
+   "t": "[URGENT] Gold plunges 25%... Is now the time to buy? I'm investing an additional 1 million yen",
+   "ch": "BANK ACADEMY / バンクアカデミー",
+   "chId": "UCGXU4lVXc9msfUkjNykA7TA",
+   "sec": 70
+  },
+  {
+   "q": "ゴールド 買い時",
+   "cat": "금·귀금속",
+   "v": 474214,
+   "t": "[High demand] Should I buy gold now? #shorts",
+   "ch": "両学長 リベラルアーツ大学",
+   "chId": "UC67Wr_9pA4I0glIxDt_Cpyw",
+   "sec": 66
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 787,
+   "t": "【ひろゆき】円安が悪い理由【切り抜き】",
+   "ch": "ひろゆき氏のお話【切り抜き】",
+   "chId": "UCukgLcXZWEcnhtmyAb0SyNA",
+   "sec": 210
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 34046,
+   "t": "Why is the yen weakening despite interest rate hikes? [2ch summary] [2ch thread] [5ch thread]",
+   "ch": "2chお金のニュース速報 ",
+   "chId": "UCTA2HU9fLYb5DqIOdcPZMdQ",
+   "sec": 202
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 7192,
+   "t": "39年ぶり“円安”有事のドル買い　なぜ？163円台さらに進む？【スーパーJチャンネル】(2026年7月22日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 159
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 83737,
+   "t": "【解説】日米の金利差が開くと、なぜ「円安」になるのか「投資家は金利差を利用して儲ける」（2022年10月17日）",
+   "ch": "愛知のニュース【テレビ愛知　ニュース・スポーツ公式チャンネル】",
+   "chId": "UCk6SzG4qmA7J6CI-QAtWoOg",
+   "sec": 85
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 584,
+   "t": "そもそも円安、円高とは？なぜ起こるの？２分で解説！【世界経済】#5",
+   "ch": "こう 【1日1分株の勉強】",
+   "chId": "UCXNUY4BmfqwYnldjxyg_rgw",
+   "sec": 160
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 40567,
+   "t": "[3-minute explanation] What does yen-buying intervention do? Is it really effective?",
+   "ch": "コアラ先生の時事ネタ祭り",
+   "chId": "UCQ-0MkpvJZ0co7WD79DBt9w",
+   "sec": 193
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 46308,
+   "t": "90 Seconds: Why the Yen Keeps Falling Despite BOJ Rate Hikes | The Weakness of the Japanese Economy",
+   "ch": "90seconds",
+   "chId": "UC8OjykYh8KUVOmez_y3L7PQ",
+   "sec": 91
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 11735,
+   "t": "歴史的な円安水準1ドル＝162円台 片山さつき財務大臣が為替介入の可能性について触れるも市場の反応は限定的｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 35
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 3356,
+   "t": "円安進み1ドル156円台後半に 背景には日銀の審議委員人事　金融緩和に積極的な「リフレ派」の2人を政府が提示で利上げ観測後退｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 30
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 12123,
+   "t": "39年半ぶりの水準 円安進み1ドル＝162円台後半に　要因は積極財政に対する市場の懸念、日銀への利上げけん制｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 69
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 13071,
+   "t": "“歴史的円安”1ドル＝162円台 39年半ぶり水準で生活への影響は？　「仕入れをかなり圧迫」輸入価格押し上げ家計のさらなる負担に…｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 209
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 47156,
+   "t": "円安164円迫る　片山財務大臣「果断に行動する」　企業トップ「行き過ぎ」【もっと知りたい！】【グッド！モーニング】(2026年7月24日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 161
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 14101,
+   "t": "1ドル＝162円台 約39年半ぶりの円安水準に　片山大臣「いつでも適切に対応」(2026年6月30日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 79
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 99,
+   "t": "【衝撃】日本で円安が止まらない理由",
+   "ch": "解説屋",
+   "chId": "UCPUYO6zptOXfsIxyLGZiAHQ",
+   "sec": 178
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 42212,
+   "t": "【初心者必見】なぜ円安が起きている？円安は終わる？さらに進む？世界的に円が買われない理由を与沢翼が解説",
+   "ch": "与沢 翼",
+   "chId": "UCrn6ukKQ9-t1mRYgany043w",
+   "sec": 140
+  },
+  {
+   "q": "円安 理由",
+   "cat": "환율·엔",
+   "v": 23781,
+   "t": "【解説】約39年半ぶりの円安水準  家計の支出は？",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 132
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 23781,
+   "t": "【解説】約39年半ぶりの円安水準  家計の支出は？",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 132
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 7192,
+   "t": "39年ぶり“円安”有事のドル買い　なぜ？163円台さらに進む？【スーパーJチャンネル】(2026年7月22日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 159
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 11985,
+   "t": "【※速報】円安=1ドル150円？もう終わります。数年後、絶対に“円高”が来ます。【ホリエモン／ドル円／円安／円高／インフレ／堀江貴文／切り抜き】",
+   "ch": "ホリエモン先生の授業【切り抜き 堀江貴文】",
+   "chId": "UCwan7UMAWPpVsjUJL3BLSfg",
+   "sec": 159
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 31356,
+   "t": "【速報】円安進み1ドル＝159円台に　先日の「日米協調介入」以降で初(2026年8月10日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 93
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 80572,
+   "t": "円安急加速...今後の日本経済どうなるの？",
+   "ch": "田端大学　投資学部",
+   "chId": "UC7sEB_ylMuHJD4TjF4Ag1nw",
+   "sec": 28
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 15032,
+   "t": "“止まらない円安”一時1ドル＝162円台前半に 約39年半ぶり水準　片山財務大臣「必要に応じ適切に対応」｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 59
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 1358,
+   "t": "円安いつまで？ドル円高止まりへ移行！中国ロックダウン→豪・欧で景気悪化？",
+   "ch": "ザイZAi TV",
+   "chId": "UCMOlBSrEEnjXn8rBlblhLTQ",
+   "sec": 208
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 1394,
+   "t": "ドル円130円1日で回復、円安いつまで？0.5％利上げでもインフレ抑制に不十分。",
+   "ch": "ザイZAi TV",
+   "chId": "UCMOlBSrEEnjXn8rBlblhLTQ",
+   "sec": 163
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 7808,
+   "t": "経団連会長「円安行き過ぎなら介入も然るべき」　一時1ドル＝159円台に(2026年1月13日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 98
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 18510,
+   "t": "円相場が急騰 1ドル155円台に　円安加速受け、為替介入を示唆(2026年4月30日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 91
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 34796,
+   "t": "「ドル円の話をしすぎ」【2026年の為替相場】",
+   "ch": "東洋経済オンライン",
+   "chId": "UCN36kFB7Lh4tptI4rsy5vFw",
+   "sec": 40
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 520281,
+   "t": "【円安】何をしても止められない  #newspicks",
+   "ch": "NewsPicks /ニューズピックス",
+   "chId": "UCfTnJmRQP79C4y_BMF_XrlA",
+   "sec": 52
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 4121,
+   "t": "円安傾向続く　“けん制効果”は半分以上剥落　約2週間ぶり1ドル＝157円台付近(2026年2月5日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 100
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 6703,
+   "t": "止まらぬ円安　1ドル＝163円台　39年7カ月ぶりの水準に　消費減税でさらに加速？　【羽鳥慎一モーニングショー】(2026年7月23日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 102
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 109086,
+   "t": "90 seconds [Even with the Bank of Japan raising interest rates, the yen continues to depreciate |...",
+   "ch": "90seconds",
+   "chId": "UC8OjykYh8KUVOmez_y3L7PQ",
+   "sec": 91
+  },
+  {
+   "q": "円安 いつまで",
+   "cat": "환율·엔",
+   "v": 2009308,
+   "t": "[Dollar/yen] The current weak yen is fundamental, and the only way to stop it is for the Bank of ...",
+   "ch": "楽待 RAKUMACHI",
+   "chId": "UCPMJKbrxtpARoTd1b49iUvA",
+   "sec": 58
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 60087,
+   "t": "【速報】円相場が急速に円高に　一時1ドル156円台｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 45
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 97586,
+   "t": "ALBANIA FINAL 3",
+   "ch": "90seconds",
+   "chId": "UC8OjykYh8KUVOmez_y3L7PQ",
+   "sec": 91
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 23,
+   "t": "【8/17〜】ドル円相場分析｜週足・日足の分岐点と、4時間足第3波を狙うトレード戦略",
+   "ch": "Regalia Method FX Channel",
+   "chId": "UCADtkCd5TaPPdKalMZNwmbA",
+   "sec": 182
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 11735,
+   "t": "歴史的な円安水準1ドル＝162円台 片山さつき財務大臣が為替介入の可能性について触れるも市場の反応は限定的｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 35
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 80842,
+   "t": "【速報】一時1ドル157円台に、ドル円相場が急速に円高進む…政府・日銀による為替介入の可能性も｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 32
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 580,
+   "t": "[Australia] RBA Holds Rates Steady – Will the AUD/JPY Exchange Rate Maintain Its Upward Trend Thr...",
+   "ch": "岡三証券",
+   "chId": "UCn4QqGT58iQJqWXHAjOIXJA",
+   "sec": 141
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 9028,
+   "t": "【速報】円相場 一時1ドル＝160円台に　中東情勢の混乱長期化を懸念　2024年7月以来の円安水準｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 23
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 10209,
+   "t": "ドル円相場が急速に1円以上円高に　財務官「コメントは差し控える」 “為替介入”警戒する声高まる｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 49
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 16791,
+   "t": "【円相場】1ドル＝163円台まで下落  ドル高…専門家｢介入したとしても効果半減してしまうのでは｣",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 68
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 0,
+   "t": "8月21日  FX予想　ユーロドル ドル円 　ポンドドル　ゴールド",
+   "ch": "まんごぼう くると",
+   "chId": "UCQh2ZESlrAbpghe6SyLn4XA",
+   "sec": 82
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 13079,
+   "t": "米財務省　円相場への介入可能性を複数銀行に通知　現地時間31日午後に円買い介入実施した可能性｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 43
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 44120,
+   "t": "【速報】外国為替市場で円相場がドルに対して急騰　“為替介入”指摘の声も(2026年5月6日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 97
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 6645,
+   "t": "円相場が1ドル＝163円台まで下落　約39年半ぶりの円安水準(2026年7月21日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 76
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 24709,
+   "t": "円相場　1ドル＝160円80銭付近まで下落　FOMCの結果受け　日米金利差を意識(2026年6月18日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 79
+  },
+  {
+   "q": "ドル円 予想",
+   "cat": "환율·엔",
+   "v": 16569,
+   "t": "1ドル＝155円台まで5円以上円高に “為替介入”との見方も 「最後の退避勧告」三村財務官が市場を強くけん制したあとに｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 66
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 53,
+   "t": "【知らなきゃ損】初心者でも分かる米国株の始め方＆メリット・デメリット！　#投資 #株 #米国株",
+   "ch": "投資独学",
+   "chId": "UCZ2j-hHrefhy8hA6IbkQfZQ",
+   "sec": 204
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 15187,
+   "t": "【テスタ】米国株投資でデイトレをする際に気を付けるべき事を教えます！【テスタ /  株式投資の初心者】【切り抜き】",
+   "ch": "テスタのマインド【切り抜き】",
+   "chId": "UCpscUJI0EVfquxX6vmg07dA",
+   "sec": 95
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 6294,
+   "t": "米国株取引は何時から何時まで？｜米国株入門【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 80
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 3559,
+   "t": "[Easy to use even for US stock beginners!] A thorough explanation of Monex Securities' new US sto...",
+   "ch": "マネックス証券",
+   "chId": "UCTuTMd_xFwEhapfhv6kFDig",
+   "sec": 179
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 2263,
+   "t": "米国株の税金はどうなるの？｜米国株入門【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 115
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 418,
+   "t": "【米国株】コーニング | 個別株分析【投資初心者】【GLW】",
+   "ch": "たぼの投資生活",
+   "chId": "UCNHx9NC4ZohBItN-kZ2XvUg",
+   "sec": 231
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 5849,
+   "t": "米国株を買うなら成行と指値はどっちが良い？｜米国株入門【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 166
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 919,
+   "t": "米国株ビギナー必見！投資情報はどこで集める？｜米国株入門【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 175
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 522,
+   "t": "米国株市場で勝つ！大切なポイント｜米国株入門【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 206
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 730,
+   "t": "金持ちになる準備してる？｜米国株入門【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 210
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 15,
+   "t": "米国株 vs 日本株 初心者はどっち? 30年データで完全比較",
+   "ch": "ずんだもんと学ぶ株のキホン",
+   "chId": "UCz4I1K_CltkVS0gyXeCtGUA",
+   "sec": 199
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 698,
+   "t": "投資はメンタルが８割｜米国株入門【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 124
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 583,
+   "t": "学校で教えない資産形成｜米国株入門【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 198
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 34,
+   "t": "【投資初心者のお勉強】米国株ってどんな株？",
+   "ch": "神ヶ谷舞",
+   "chId": "UCRMiH3vsIlvD_YxyFzGXPdA",
+   "sec": 157
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 54,
+   "t": "【王道の投資先】米国株のうた｜投資初心者向け",
+   "ch": "こしあん配当金",
+   "chId": "UCr8d7CoeDT66FgOeBTaB60g",
+   "sec": 169
+  },
+  {
+   "q": "米国株 初心者",
+   "cat": "미국주식",
+   "v": 6,
+   "t": "【株・初心者の質問】米国株と日本株との違い|DAISAKUマネートレーニング",
+   "ch": "マネーコーチ DAISAKU",
+   "chId": "UCmNeUJ9rKyh5uqjR_z0NA5Q",
+   "sec": 71
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 15187,
+   "t": "【テスタ】米国株投資でデイトレをする際に気を付けるべき事を教えます！【テスタ /  株式投資の初心者】【切り抜き】",
+   "ch": "テスタのマインド【切り抜き】",
+   "chId": "UCpscUJI0EVfquxX6vmg07dA",
+   "sec": 95
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 5307,
+   "t": "[LIVE Archive] Does Mr. Kiritani also invest in US stocks? [Mr. Kiritani's Stock Market Investing]",
+   "ch": "All About マネー【プロと学ぶお金のキホン】",
+   "chId": "UCjXHk1gAA4BRCwsR4FXzkMg",
+   "sec": 144
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 3847,
+   "t": "がっつり持ってる個別株はこれです！【高校生でも分かる米国株】【花子】【切り抜き】",
+   "ch": "花子の部屋【切り抜き  高校生でも分かる米国株】",
+   "chId": "UC2o2ZVya4ZdGJQSk1w3B54A",
+   "sec": 101
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 9395,
+   "t": "How to buy US stocks using a smartphone app: Investing in US stocks one share at a time with SBI ...",
+   "ch": "りりな家計管理と投資をする主婦",
+   "chId": "UCfdRXiDhXijuxcZEs0kQqYg",
+   "sec": 120
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 1184,
+   "t": "【高橋ダン】おすすめの３つの米国株【アメリカ株】",
+   "ch": "高橋ダンダン【切り抜き】",
+   "chId": "UC4TXF-qFfOx9ZQpbaYNk6wQ",
+   "sec": 90
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 19,
+   "t": "サクッと米国株おすすめ3銘柄ご紹介！",
+   "ch": "投資小僧",
+   "chId": "UCpHJjUGfLQa_yNisUCEGG5g",
+   "sec": 210
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 652,
+   "t": "米国株投資ならmoomoo証券ー銘柄比較ツールおすすめ",
+   "ch": "moomoo証券",
+   "chId": "UCS_c9UkGzb3lGLVOblUZVvA",
+   "sec": 28
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 132,
+   "t": "今！買うべき米国株TOP5",
+   "ch": "TOP5",
+   "chId": "UCznI1ezrZ5riLyHsM3apCIQ",
+   "sec": 84
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 787,
+   "t": "【高橋ダン】GAFAでアップルがおすすめな理由【米国株】",
+   "ch": "高橋ダンダン【切り抜き】",
+   "chId": "UC4TXF-qFfOx9ZQpbaYNk6wQ",
+   "sec": 72
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 18,
+   "t": "[米国株 じっちゃま切り抜き]　今後のおすすめのセクター戦略とは？",
+   "ch": "米国株 じっちゃまに学べ",
+   "chId": "UCwUFbgukwmtPUB6CQx__jNQ",
+   "sec": 81
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 104,
+   "t": "【米国株】じっちゃまのおすすめ個別銘柄？RFP・ASXC・EURN・EGY",
+   "ch": "じっちゃまのコバンザメ",
+   "chId": "UCmr-Rul5MdHcIL1sgTiuWSA",
+   "sec": 221
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 13,
+   "t": "002 私が米国株取引をおすすめする理由",
+   "ch": "Prezin Life ",
+   "chId": "UCpSRQH8hgfHxCQ9Q46bms7g",
+   "sec": 198
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 43,
+   "t": "【米国株】今買いのエネルギー株/じっちゃまおすすめ銘柄/HESヘス",
+   "ch": "じっちゃまのコバンザメ",
+   "chId": "UCmr-Rul5MdHcIL1sgTiuWSA",
+   "sec": 38
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 238,
+   "t": "楽天証券　米国株投資に本気を出している件 米国株投資するなら楽天証券がおすすめか！？",
+   "ch": "【資産形成】きよまっさチャンネル",
+   "chId": "UCGh_iZTP1wMglLK3_E8_kog",
+   "sec": 232
+  },
+  {
+   "q": "米国株 おすすめ",
+   "cat": "미국주식",
+   "v": 703,
+   "t": "【米国株】おすすめしないアノ会社と業界！その理由とは？【@高校生でも分かる米国株】【花子 | 2022/9/16配信の切り抜き】",
+   "ch": "花子のマインド 【#高校生でも分かる #米国株】《切り抜き》",
+   "chId": "UCyJFTMjzN7815qlCDcFa-gw",
+   "sec": 83
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 2198,
+   "t": "【特別版】S&P500を信用積立で1年間続けた結果…＋20万円になりました",
+   "ch": "リスキーダイスキー",
+   "chId": "UC7gG0EngVILuVHxXJ_w67TA",
+   "sec": 204
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 187,
+   "t": "S&P500に月3万円を30年積立したらいくら？年利・積立額別9通り試算【新NISA】【年収400万円】",
+   "ch": "まめマネー研究所【投資・節約・NISA】",
+   "chId": "UCuW2gBdHR-jsa817TnLATVw",
+   "sec": 235
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 341,
+   "t": "（Ｓ＆Ｐ５００）投信を２年間積立しました。その結果は・・・。",
+   "ch": "60代投資Vlog",
+   "chId": "UC7BD4wESuoU-qgMhtSUHtPg",
+   "sec": 223
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 15349,
+   "t": "[Today's FAQ] What are the benefits of buying the same investment trust (S&P 500) in the \"Regular...",
+   "ch": "トウシル [楽天証券]",
+   "chId": "UC5BiTvy2Ni2MyigJPspjhOA",
+   "sec": 174
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 172,
+   "t": "早いほど有利【積立NISA・S&P500！】＃ひろゆき #新NISA #切り抜き",
+   "ch": "ひろゆきのお金",
+   "chId": "UC0jUztuzoITQSSz2fbwoubg",
+   "sec": 100
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 2211,
+   "t": "【積立NISA運用報告】1ヶ月で＋83万円【S&P500全力買い】",
+   "ch": "つみにーさん",
+   "chId": "UCHbk__I-G3CK0lNMDahTP7A",
+   "sec": 186
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 712,
+   "t": "積立NISA投資実績７月分！！S&P500が強い！",
+   "ch": "とくさん　新入社員の投資日記",
+   "chId": "UC3cj2hgM6hkQvDacOWYcVzg",
+   "sec": 130
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 187,
+   "t": "S&P500に月3万円を30年積立したらいくら？年利・積立額別9通り試算【新NISA】【年収400万円】",
+   "ch": "まめマネー研究所【投資・節約・NISA】",
+   "chId": "UCuW2gBdHR-jsa817TnLATVw",
+   "sec": 235
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 179,
+   "t": "【実践比較】S&P500とオルカンに積立投資した結果、リターンが大きかったのはどっち？（1ヶ月目）",
+   "ch": "積立投資ニキ【20代会社員が1億円貯めるまで】",
+   "chId": "UC59uNC3ENrvMqJvAux4a1Gw",
+   "sec": 208
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 265,
+   "t": "#10【年内最終】S&P500信用積立は＋117,841円（＋13.17%）！1年を振り返る運用結果と来年の方針",
+   "ch": "リスキーダイスキー",
+   "chId": "UC7gG0EngVILuVHxXJ_w67TA",
+   "sec": 151
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 6,
+   "t": "つみたてNISA　S＆P500の積立報告　41日目　#積み立てnisa # つみたてNISA＃S＆P500＃新NISA#大学生#ずんだもん#楽天証券",
+   "ch": "haruto tsuenaka",
+   "chId": "UCKkFLj00Hdmp5-4mjuahsyA",
+   "sec": 33
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 156,
+   "t": "#9【運用報告】S&P500信用積立は＋10万円維持も調整局面へ（11.83%）年末相場は静かに推移？",
+   "ch": "リスキーダイスキー",
+   "chId": "UC7gG0EngVILuVHxXJ_w67TA",
+   "sec": 190
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 16,
+   "t": "2026年　S&P500積立の調子はどう？　#SP500 #積立",
+   "ch": "湾岸マネーナイト　飛車切り上等チャンネル",
+   "chId": "UCjQ7agSSgNDqdvhkmi1ZvFQ",
+   "sec": 72
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 3,
+   "t": "つみたてNISA　S＆P500の積立報告　31日目　#積み立てnisa # つみたてNISA＃S＆P500＃新NISA#大学生#ずんだもん",
+   "ch": "haruto tsuenaka",
+   "chId": "UCKkFLj00Hdmp5-4mjuahsyA",
+   "sec": 36
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 69,
+   "t": "S＆P500 V字回復！ゆっくり10/28積立NISA実績報告",
+   "ch": "イーニー ",
+   "chId": "UCWuprpaEtJF6W-IOF-CNDOw",
+   "sec": 97
+  },
+  {
+   "q": "S&P500 積立",
+   "cat": "미국주식",
+   "v": 110,
+   "t": "積立NISA2021年9月投資運用実績報告！！S&P500が調子下降気味！？",
+   "ch": "とくさん　新入社員の投資日記",
+   "chId": "UC3cj2hgM6hkQvDacOWYcVzg",
+   "sec": 138
+  },
+  {
+   "q": "新NISA 何を買う",
+   "cat": "NISA·적립",
+   "v": 548,
+   "t": "新NISA「成長投資枠」で何を買う？2026年に知っておきたい、意外と見落としがちな4つの戦略と1つの注意点 #nisa #新nisa #資産形成",
+   "ch": "五十歳代が思いついたことを書いているブログです。",
+   "chId": "UCod_mcFcSltiXg4edlBd3qA",
+   "sec": 126
+  },
+  {
+   "q": "新NISA 何を買う",
+   "cat": "NISA·적립",
+   "v": 360,
+   "t": "3分解説！５０代が新ニーサで何を買うべきか",
+   "ch": "センチュリー21のラスター不動産You Tube支店",
+   "chId": "UCkgyQU88epWaOwtmDIbzlJQ",
+   "sec": 200
+  },
+  {
+   "q": "新NISA 何を買う",
+   "cat": "NISA·적립",
+   "v": 61098,
+   "t": "新nisaつみたて投資枠で一括購入するやり方(楽天証券)",
+   "ch": "サラリーマン投資家ヤマムー",
+   "chId": "UC1TrKj3qNOI-nLfTv0FfvPg",
+   "sec": 229
+  },
+  {
+   "q": "新NISA 何を買う",
+   "cat": "NISA·적립",
+   "v": 0,
+   "t": "新NISAで何を買うべきか迷っている人へを完全解説",
+   "ch": "ちゃんげんのマネー研究所",
+   "chId": "UCR-hcg-URfN8FlKHDBqYQ8w",
+   "sec": 194
+  },
+  {
+   "q": "新NISA 何を買う",
+   "cat": "NISA·적립",
+   "v": 3988,
+   "t": "マネックス証券の投資信託の始め方【新NISA活用ガイド】",
+   "ch": "PRESIDENT Growth",
+   "chId": "UCPBBwvmnt3YGXTJCCkx3D_g",
+   "sec": 99
+  },
+  {
+   "q": "新NISA 何を買う",
+   "cat": "NISA·적립",
+   "v": 15349,
+   "t": "[Today's FAQ] What are the benefits of buying the same investment trust (S&P 500) in the \"Regular...",
+   "ch": "トウシル [楽天証券]",
+   "chId": "UC5BiTvy2Ni2MyigJPspjhOA",
+   "sec": 174
+  },
+  {
+   "q": "つみたてNISA 銘柄",
+   "cat": "NISA·적립",
+   "v": 8972,
+   "t": "【初心者向け】新NISAの枠を活用したい！初心者に向いている銘柄は？",
+   "ch": "松井証券マーケットナビ",
+   "chId": "UCgY8pmJItX4O-ZkkOy9xoFA",
+   "sec": 212
+  },
+  {
+   "q": "つみたてNISA 銘柄",
+   "cat": "NISA·적립",
+   "v": 8883,
+   "t": "【SBI証券】新NISA積立をアプリで即解除・削除する方法。",
+   "ch": "nemu room / ねむるーむ",
+   "chId": "UCJefO79L1HfJJw6EDp62miw",
+   "sec": 94
+  },
+  {
+   "q": "つみたてNISA 銘柄",
+   "cat": "NISA·적립",
+   "v": 15349,
+   "t": "[Today's FAQ] What are the benefits of buying the same investment trust (S&P 500) in the \"Regular...",
+   "ch": "トウシル [楽天証券]",
+   "chId": "UC5BiTvy2Ni2MyigJPspjhOA",
+   "sec": 174
+  },
+  {
+   "q": "つみたてNISA 銘柄",
+   "cat": "NISA·적립",
+   "v": 8723,
+   "t": "【SBI証券】新NISA追加購入の方法 | アプリでサクッとつみたて投資・買う方法",
+   "ch": "nemu room / ねむるーむ",
+   "chId": "UCJefO79L1HfJJw6EDp62miw",
+   "sec": 157
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 5,
+   "t": "新NISAで よくある失敗5選｜知っているだけで大損を回避する方法",
+   "ch": "はじめてのお金講座",
+   "chId": "UC8a76DQuxUkucKfi1k1cIzg",
+   "sec": 218
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 2587,
+   "t": "【猫ミーム】新NISA王道の失敗はコレ‼︎集中投資した人の末路がヤバすぎたwww",
+   "ch": "ゆうまつⅠ猫ミームで投資が学べるチャンネル",
+   "chId": "UClpNZvJyYESUJLMObdoEOMg",
+   "sec": 135
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 11483,
+   "t": "NISA - HOW ? (HE NEVER FAILED ME YET) [Official Audio] Action Rock Riddim. [Power Soca 2023]",
+   "ch": "N I S A",
+   "chId": "UCwq5GMnVI9E-N40AkyeyX2w",
+   "sec": 202
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 1027,
+   "t": "【DaiGo投資】積立NISAで失敗しない投資術※iDeCo【メンタリストDaiGo切り抜き】",
+   "ch": "DaiGoイズム【メンタリストDaiGo切り抜き】",
+   "chId": "UCjRjqH3AEbpEgbFniYdgrBA",
+   "sec": 54
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 4,
+   "t": "【NISA】 失敗しない為に必要な１４選",
+   "ch": "うーにゃん",
+   "chId": "UCcQnlwvcTqdwIXYLwDO0Inw",
+   "sec": 217
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 3433,
+   "t": "【積立NISAで失敗する人】努力と根性で頑張れると思うな！（字幕あり）",
+   "ch": "[公式]お金の専門学校",
+   "chId": "UCCEoqaOzY9__AReWKXrvt8Q",
+   "sec": 120
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 146,
+   "t": "新ＮＩＳＡ　失敗しない始め方！",
+   "ch": "ケセラセラ横浜",
+   "chId": "UCdTiMnLGmZPS2ebpi2oI-eQ",
+   "sec": 234
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 55,
+   "t": "NISAでやりがちな5つの失敗",
+   "ch": "Bocchama",
+   "chId": "UCCIEaMqwRzuc_73TvQR2udg",
+   "sec": 221
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 18,
+   "t": "【新NISA】9割がやってる\"やってはいけない失敗\"ワースト5！知らないと数百万円損する",
+   "ch": "毎日ニュース投稿",
+   "chId": "UCWkUrL5ztPtaHIf8lx_XrjQ",
+   "sec": 226
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 149,
+   "t": "【新NISA】これだけ見ればOK！初心者が絶対に失敗しない始め方3ステップをGeminiが解説！",
+   "ch": "AIマネー相談室",
+   "chId": "UC4tZjeuvmCMqG_z5fnCbzrw",
+   "sec": 206
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 18,
+   "t": "NISAで失敗したくない人は見ていって！",
+   "ch": "ホロ",
+   "chId": "UCft_pAOFyKfQJE7c9LwAdtQ",
+   "sec": 216
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 704,
+   "t": "【徹底解説】積立NISAで失敗しないためのファンドの選び方【ひろゆき】",
+   "ch": "今更ひろゆき",
+   "chId": "UCv0zVar4Cbh-uOT4BCR65cw",
+   "sec": 166
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 23,
+   "t": "新NISAの正しい使い方と避けるべき3つの失敗",
+   "ch": "知らないと損する金融知識",
+   "chId": "UCR3bGUWqmlPA3PIsoKs9-Rg",
+   "sec": 216
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 7,
+   "t": "40代50代向け　新NISA　焦らず始める！失敗しない極意",
+   "ch": "今日から新NISA",
+   "chId": "UC9cqvXDNEdSljaKrlhMYDoA",
+   "sec": 228
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 2,
+   "t": "新NISAで多くの人がやりがちな3つの失敗",
+   "ch": "おトクな制度のトリセツ",
+   "chId": "UCa7Om-SSkA_8HvDzKazFbtg",
+   "sec": 140
+  },
+  {
+   "q": "NISA 失敗",
+   "cat": "NISA·적립",
+   "v": 6,
+   "t": "新NISA世代の正解？失敗しない「超・守りの投資術」",
+   "ch": "AI漫画マネー塾【お金の教科書】",
+   "chId": "UCur8Hyq-u-cGfMCd48uNkbA",
+   "sec": 206
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 20514,
+   "t": "日経平均株価1915円安　米半導体メモリー下落が波及、TSMC好決算でも売り【日経CNBC／きょうのポイント、明日のヒント】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 111
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 6353,
+   "t": "日経平均株価大幅安　プライム7割上昇も半導体関連が軒並み下落【日経CNBC/きょうのポイント、明日のヒント】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 111
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 4810,
+   "t": "AMD株価急伸 成長期待で　半導体売上高で強気見通し【モーサテ】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 33
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 18620,
+   "t": "米半導体大手エヌビディア　AI需要で2027年度までに159兆円の受注額の見通し",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 40
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 150,
+   "t": "【切り抜き】半導体不足と、半導体株の今後の見通し【じっちゃま】",
+   "ch": "【切り抜き】じっちゃま短編集 【広瀬隆雄】",
+   "chId": "UC24ohvEP5Arg5lzr50kx2mQ",
+   "sec": 109
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 13,
+   "t": "半導体株の株価見通しにケチは付けにくい",
+   "ch": "証券マン的株式状況見通し",
+   "chId": "UCBS4JPaxIC3iibI-U6cOGYw",
+   "sec": 79
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 27559,
+   "t": "日経平均2494円高、半導体に買い　キオクシア7～9月純利益31倍で予想届かず【日経CNBC/きょうのポイント、明日のヒント】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 111
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 23548,
+   "t": "日経平均株価　史上最高値6万2833円　“終戦合意期待”も…半導体関連株に買い注文が殺到　上げ幅も過去最大を記録｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 161
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 5684,
+   "t": "日経平均株価4日ぶり反発　AI・半導体に買い、金利低下も追い風【日経CNBC/きょうのポイント、明日のヒント】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 111
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 1084,
+   "t": "３分で半導体ツウ：半導体株投資の必須知識！SOX指数の仕組みと注目銘柄",
+   "ch": "半導体ニュース by ハンドウ退【業界歴31年】【毎日14時更新】",
+   "chId": "UCsWwPmvnv5k4KbxnV0aEDCg",
+   "sec": 204
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 1058,
+   "t": "半導体需要の回復で急騰する最新の注目銘柄3選と今後の株価見通し",
+   "ch": "5分でわかる日本株",
+   "chId": "UCcro2Kbrw1hHZRxiYVM5VWg",
+   "sec": 173
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 18905,
+   "t": "インテル 大幅増収 「AIでかつてない需要」【モーサテ】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 49
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 4851,
+   "t": "英アーム決算　AI需要続く 強気見通しで株価↑【モーサテ】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 38
+  },
+  {
+   "q": "半導体 株 見通し",
+   "cat": "반도체·AI",
+   "v": 10860,
+   "t": "日経平均株価 史上初の7万円突破 2か月弱で1万円も上昇　急ピッチな株高は「バブル」なのか？警鐘鳴らす専門家も｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 169
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 35686,
+   "t": "ソフトバンクグループが全株売却　エヌビディア株下落 一時 ↓3.9％【モーサテ】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 55
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 10063,
+   "t": "米エヌビディア2-4月期 最高益 純利益3倍の9兆円",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 51
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 362,
+   "t": "エヌビディア株は大暴落します。ひろゆき",
+   "ch": "白旗ひろゆき(切り抜き）",
+   "chId": "UCcCpFVM9HFuC1YCCCBgriOw",
+   "sec": 187
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 10710,
+   "t": "Nvidia stock could reach $800 by 2030, BGG executive predicts 550% rise due to AI revolution and ...",
+   "ch": "ニュースアーカイブ",
+   "chId": "UCScTXydzX9hBtH951188jxw",
+   "sec": 179
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 15732,
+   "t": "米エヌビディア純利益3倍 「ブラックウェル」需要がけん引【モーサテ】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 47
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 54,
+   "t": "エヌビディア（NVDA）株価をAI分析｜判定「中立」目標株価$204の根拠",
+   "ch": "米国株AIレポート",
+   "chId": "UC_RRcTZIHOvT_aUWqzA-eRA",
+   "sec": 158
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 10555,
+   "t": "エヌビディア　売上高・純利益過去最高　5～7月期売上高見通しも市場予想上回る(2026年5月21日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 117
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 5033,
+   "t": "米エヌビディアが時価総額で世界首位に　生成AI需要増え画像処理半導体の収益急拡大(2024年6月19日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 58
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 29698,
+   "t": "エヌビディアの決算速報。NVIDIA　2026年５月２２日（金）に上がる銘柄。最新の日本株情報。高配当株の株価やデイトレ情報",
+   "ch": "株リアルライブ",
+   "chId": "UC5Qgc-tEFmm5iQX5tUy6TyA",
+   "sec": 100
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 1662,
+   "t": "【5万円台回復】日経平均株価　エヌビディア“過去最高”の好決算で半導体関連株中心に買い注文　一時2000円以上値上がり｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 57
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 1,
+   "t": "エヌビディア株価が日本で急上昇中？AI投資の今 - 日本のトレンド (August 2026) | NewsDrop JP",
+   "ch": "NewsDrop JP",
+   "chId": "UCe721srCFaJm9JD4DwPs3hg",
+   "sec": 61
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 35045,
+   "t": "エヌビディア 時価総額世界トップに マイクロソフト・アップル抜く時価総額3兆ドル超",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 36
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 58,
+   "t": "【緊急】NVIDIA株価37%暴落で終了？…とは言いません。実は「Vera Rubin」6ヶ月前倒し生産で競合が絶望する衝撃の事実 NVDA",
+   "ch": "億トレーダーの米国株情報局",
+   "chId": "UCx-znGo4gJRuuIwQGggol0Q",
+   "sec": 231
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 13070,
+   "t": "[This Week, a New Catalyst?] NVIDIA Earnings and SpaceX IPO... That \"Market Rally\" Begins Again",
+   "ch": "高田資産コンサル",
+   "chId": "UCzhFASYte7zGWIgVS7PgUaA",
+   "sec": 225
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 12,
+   "t": "【エヌビディア株価はまだ上がる？】AI需要拡大でNVDAが再び注目｜最新ニュース・今後の予想を解説",
+   "ch": "大黒天",
+   "chId": "UCXa5vhjUnWEc3MsKbLZB9ug",
+   "sec": 98
+  },
+  {
+   "q": "エヌビディア 株価",
+   "cat": "반도체·AI",
+   "v": 5,
+   "t": "新ＮＩＳＡ激震！エヌビディア株価下落の理由とは？短時間で解説",
+   "ch": "k kt",
+   "chId": "UCTW2C35NEBGE0s3delaKR9A",
+   "sec": 148
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 28417,
+   "t": "米AI関連株 大幅安 日韓の株安波及【モーサテ】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 61
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 253,
+   "t": "An In-Depth Look at the High-Dividend AI Stock \"Nippon Pure Chemical\" #Kioxia #Fujikura #AIStocks",
+   "ch": "億り人になりたいチャンネル",
+   "chId": "UCCgZe1LQIc6gSkG4VoUlx2w",
+   "sec": 218
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 172,
+   "t": "【AI株】まだ誰も気づいていない…数百円で買える\"次の大化け候補\"2選！",
+   "ch": "マネーマウンテン",
+   "chId": "UCVgwOkjyUbwouCjiXPulG4Q",
+   "sec": 182
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 206,
+   "t": "【AI関連株の特徴】を３分で解説！【各業種の特徴】#11",
+   "ch": "こう 【1日1分株の勉強】",
+   "chId": "UCXNUY4BmfqwYnldjxyg_rgw",
+   "sec": 167
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 33,
+   "t": "【AI株失速の裏側】Google・Microsoft決算で激変！AI投資の「回収フェーズ」と関連株の狙い目",
+   "ch": "アテル投資顧問",
+   "chId": "UCwQX1SWJfxMk_gp617KmLBQ",
+   "sec": 151
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 986,
+   "t": "【最高値更新】日経平均が止まらない…AI関連株がけん引",
+   "ch": "大阪NEWS【テレビ大阪ニュース】",
+   "chId": "UCd6GEK664CTEWRZda7Fu7Lg",
+   "sec": 55
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 3378,
+   "t": "【日経平均】一時1900円超の下落  AI関連株などで売り注文",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 41
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 323,
+   "t": "東京株、初の７万２０００円台　ＡＩ関連に買い、６日連続最高値",
+   "ch": "時事通信映像センター",
+   "chId": "UCNLxBzguoGLqXWA8_BtHSHA",
+   "sec": 39
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 47749,
+   "t": "“AI銘柄”フジクラ ストップ安 今期減益見通しと発表【WBS】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 60
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 20,
+   "t": "西本浩一氏が選ぶ次世代AI関連株の注目ポイント",
+   "ch": "西本浩一",
+   "chId": "UC6lg4-ejQbL6KnJx9hybtuQ",
+   "sec": 49
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 10,
+   "t": "【緊急】Oracle株が11%急落！AI関連株に広がる影響",
+   "ch": "ECONOMIC PODCAST",
+   "chId": "UCmgCLrxjm7ZKd1HlFO2ZAlg",
+   "sec": 125
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 27,
+   "t": "古河電気工業関連株が注目！AI・EV需要で期待される理由とは？",
+   "ch": "大黒天",
+   "chId": "UCXa5vhjUnWEc3MsKbLZB9ug",
+   "sec": 38
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 2,
+   "t": "米国株急反発！AI関連銘柄が熱い理由とは？",
+   "ch": "Cognivault",
+   "chId": "UCwqc4_7jWmkThQ2yGiRAGPQ",
+   "sec": 115
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 570,
+   "t": "東京株４万４３７２円　連日の最高値、ＡＩ関連けん引",
+   "ch": "時事通信映像センター",
+   "chId": "UCNLxBzguoGLqXWA8_BtHSHA",
+   "sec": 31
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 29,
+   "t": "海外株関連#1【3/8最新】AIバブル継続？ブロードコム・エヌビディア・アマゾン決算分析！",
+   "ch": "すけちゃんねる【株ちゃんねる】",
+   "chId": "UCxwMxAAkuA7L7M4m2cfXu-Q",
+   "sec": 195
+  },
+  {
+   "q": "AI 関連株",
+   "cat": "반도체·AI",
+   "v": 6,
+   "t": "8月29日 エヌビディア決算がAI関連株を支援し、ダウ・Ｓ＆Ｐ最高値更新！【株式投資】【米国株】",
+   "ch": "いきなりてっちゃん@株式投資、料理晩酌や温泉etc",
+   "chId": "UCo41ITEkDt_h1FcXPstgi6A",
+   "sec": 112
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 16258,
+   "t": "【｢1.0%｣に利上げの公算大】来週の日銀金融政策決定会合で ｢利上げ｣なら31年ぶりの高さに…家計への影響は?",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 93
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 16498,
+   "t": "【日銀の利上げ影響は？】政策金利1％は31年ぶり高水準 物価上昇リスクに日銀の判断は？【記者が語るニュースのいま】｜TBS NEWS DIG #shorts",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 52
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 101005,
+   "t": "The Bank of Japan announced a 0.5% interest rate hike. What will be the impact on household finan...",
+   "ch": "両学長 リベラルアーツ大学",
+   "chId": "UC67Wr_9pA4I0glIxDt_Cpyw",
+   "sec": 60
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 7113,
+   "t": "日銀 利上げへ　金利専門家「政府の経済対策の助けになる」　一方でデメリットも(2025年12月19日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 100
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 5420,
+   "t": "【解説人語】日銀、政策金利を1%に　インフレ、円安、住宅ローンへの影響とは #shorts",
+   "ch": "朝日新聞",
+   "chId": "UCMKvT0YVLufHMdGLH89J1oA",
+   "sec": 65
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 1962,
+   "t": "日銀、政策金利据え置きの見通し　先月の利上げ影響見極め　総裁発言次第で円安進行も(2026年7月31日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 62
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 7821,
+   "t": "日銀決定会合　政策金利据え置く公算大　前回の利上げ影響見極めか(2026年7月30日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 79
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 1810,
+   "t": "日銀 利上げ見送りの公算大　中東情勢の影響見極めか(2026年4月27日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 73
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 2466,
+   "t": "[BOJ Rate Hike] What Happens to 30-Somethings' Finances at 1% Interest? [Quick Summary]",
+   "ch": "日本経済新聞",
+   "chId": "UCHL12woHGeiqAqLrK-pJe7g",
+   "sec": 190
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 20856,
+   "t": "日銀　政策金利1％に利上げへ　31年ぶりの水準に引き上げ　背景に長引く円安・原油高が招く物価上昇への強い危機感　総裁不在の異例会合｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 65
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 6629,
+   "t": "【日銀利上げ影響の試算】政策金利1%で家計と住宅ローン世帯はどうなる？2%へ備える必要性 #住宅ローン #日銀 #政策金利1% #政策金利2%",
+   "ch": "千日太郎　公認会計士の住宅ローン専門チャンネル",
+   "chId": "UC-l_HeZ6YaBV-5n8lAXZkgg",
+   "sec": 48
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 17690,
+   "t": "31年ぶり「金利1％の世界」へ　日銀が追加利上げ決定で住宅ローンへの影響は？　物価高の要因の一つ「円安」はほぼ是正されず…｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 206
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 2896,
+   "t": "日銀「利上げ」見送りへ　不透明な中東情勢…経済・物価への影響“見極め困難”　金融政策決定会合｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 61
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 14789,
+   "t": "【日銀】政策金利1.0%に引き上げへ  市場の関心すでに“次の利上げ”に",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 85
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 331,
+   "t": "利上げ、利下げって結局何？どんな影響があるの？【国と経済】#1",
+   "ch": "こう 【1日1分株の勉強】",
+   "chId": "UCXNUY4BmfqwYnldjxyg_rgw",
+   "sec": 94
+  },
+  {
+   "q": "利上げ 影響",
+   "cat": "금리·정책",
+   "v": 10087,
+   "t": "日銀「利上げ」に前向き意見複数　一方で…30代住宅ローン世代、約24万円負担増の試算",
+   "ch": "TOKYO MX 報道局",
+   "chId": "UCJf85jSgFayOSsZfJ051ZKw",
+   "sec": 91
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 18711,
+   "t": "【日本銀行】先月の金融政策決定会合｢主な意見｣を公表  利上げぺースアップに前向きな意見",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 69
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 43120,
+   "t": "【金融政策決定会合】日銀 政策金利0.75%に引き上げへ　賃上げ動向後押しに 30年ぶりの水準｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 63
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 12818,
+   "t": "【速報】日銀  政策金利を1.0％に引き上げ  31年ぶりの水準に",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 90
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 12923,
+   "t": "【日銀金融政策決定会合】15日から2日間  政策金利1％に引き上げの見通し",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 89
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 12515,
+   "t": "日銀　金融政策決定会合　1月以来の利上げ見通し",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 45
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 16258,
+   "t": "【｢1.0%｣に利上げの公算大】来週の日銀金融政策決定会合で ｢利上げ｣なら31年ぶりの高さに…家計への影響は?",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 93
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 9083,
+   "t": "【日銀】今週木曜から金融政策決定会合  政策金利据え置く公算大",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 77
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 14929,
+   "t": "利上げ「数カ月に1回のペース」　日銀金融政策決定会合「主な意見」",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 57
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 4766,
+   "t": "【解説】日銀が金融政策決定会合“利上げ見送る方向”のワケ",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 127
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 33415,
+   "t": "日銀　6月金融政策決定会合の議事要旨　複数の委員が「利上げを進めるべき」「利上げしても緩和的」",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 44
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 5755,
+   "t": "日銀が政策決定会合開始 政策金利1％に引き上げへ　物価上振れリスクに対応で31年ぶりの高水準に",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 42
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 1430,
+   "t": "日銀きょうから金融政策決定会合 政策金利は据え置きの公算 6月の利上げの影響を見極めるため｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 42
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 5913,
+   "t": "【日本銀行】金融政策決定会合  政策金利｢据え置き｣決定",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 116
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 5543,
+   "t": "政策金利1.0％程度に利上げ見通し　日銀　きょうから金融政策決定会合(2026年6月15日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 75
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 16007,
+   "t": "日銀委員 利上げ「数カ月に1度」　6月金融政策決定会合の「主な意見」公表",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 47
+  },
+  {
+   "q": "日銀 金融政策",
+   "cat": "금리·정책",
+   "v": 2896,
+   "t": "日銀「利上げ」見送りへ　不透明な中東情勢…経済・物価への影響“見極め困難”　金融政策決定会合｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 61
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 8095,
+   "t": "住宅ローン金利上昇で庶民は持ち家買えなくなる？#ひろゆき #ひろゆき切り抜き #住宅ローン #マイホーム #金利上昇 #持ち家vs賃貸 #不動産#shorts",
+   "ch": "ひろゆき収集所【ひろゆき切り抜きCH】",
+   "chId": "UCUDhUiSUnz7m91Vsbsv1Cwg",
+   "sec": 60
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 6066,
+   "t": "変動金利はどこまで上がる？3つのシナリオ #住宅ローン #千日太郎 #変動金利  #日銀利上げ",
+   "ch": "千日太郎　公認会計士の住宅ローン専門チャンネル",
+   "chId": "UC-l_HeZ6YaBV-5n8lAXZkgg",
+   "sec": 43
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 54,
+   "t": "8月20日 - HousingWire 住宅ローン金利まとめ",
+   "ch": "HousingWire",
+   "chId": "UCXDD_3y3LvU60vac7eki-6Q",
+   "sec": 33
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 10087,
+   "t": "日銀「利上げ」に前向き意見複数　一方で…30代住宅ローン世代、約24万円負担増の試算",
+   "ch": "TOKYO MX 報道局",
+   "chId": "UCJf85jSgFayOSsZfJ051ZKw",
+   "sec": 91
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 180,
+   "t": "【衝撃】住宅ローン4000万円、金利1%上がるといくら増える？",
+   "ch": "リストラ投資オヤジのお金と心の安定チャンネル",
+   "chId": "UC3_6kWGBpPGkRi9YZiATbtQ",
+   "sec": 187
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 8811,
+   "t": "「フラット35」最低金利3.29％で過去最高に 3か月連続の3％台で高水準続く｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 41
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 24037,
+   "t": "変動型住宅ローン金利引き上げ 三菱UFJと三井住友【WBS】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 35
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 27585,
+   "t": "6月の住宅ローン固定金利引き上げ メガバンク5行が発表　長期金利の上昇受け｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 54
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 41646,
+   "t": "長期金利上昇2.4％台 1999年以来　住宅ローンに影響も　専門家「そろそろ目先の上限」【知っておきたい！】【グッド！モーニング】(2026年4月7日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 96
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 5324,
+   "t": "【速報】長期金利2.945％！30年ぶり高水準…住宅ローンはどうなる？ #住宅ローン #千日太郎 #長期金利  #変動か固定か",
+   "ch": "千日太郎　公認会計士の住宅ローン専門チャンネル",
+   "chId": "UC-l_HeZ6YaBV-5n8lAXZkgg",
+   "sec": 61
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 164507,
+   "t": "住宅ローンも“変化” 住宅高騰・金利上昇のダブルパンチ？日銀利上げへ【news23】｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 236
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 9029,
+   "t": "メガバンクが預金金利引き上げ　日銀利上げ受け(2026年6月17日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 69
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 14179,
+   "t": "住宅ローン完済「不安抱える」95％　不安抱えながら購入検討【知っておきたい！】【グッド！モーニング】(2026年6月26日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 65
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 432350,
+   "t": "[2028 Forecast] Variable Mortgage Rates Rising to 1.7%!? #shorts",
+   "ch": "両学長 リベラルアーツ大学",
+   "chId": "UC67Wr_9pA4I0glIxDt_Cpyw",
+   "sec": 83
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 10165,
+   "t": "住宅ローン固定金利引き上げ 大手5行 三井住友信託は4％超え【もっと知りたい！】【グッド！モーニング】(2026年8月1日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 53
+  },
+  {
+   "q": "住宅ローン 金利 上昇",
+   "cat": "금리·정책",
+   "v": 28289,
+   "t": "住宅ローン 変動金利はどこまで上がる？ #住宅ローン #変動金利 #金利上昇 #隣のマネーのぞき見隊",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 33
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 9222,
+   "t": "リセッション（景気後退）とは？日本経済への影響は？#高橋洋一",
+   "ch": "全国賃貸オーナーズフェスタ 公式チャンネル",
+   "chId": "UC3MIZel02-i-7JQFq1Xr-IQ",
+   "sec": 185
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 14788,
+   "t": "リセッション懸念でコモディティ暴落",
+   "ch": "経済オタク",
+   "chId": "UCFe1Tr0n6rKdDZ3oA9V9Pbw",
+   "sec": 168
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 20,
+   "t": "【2024/02/16】【ひろゆき切り抜き】日経平均の今後リセッション来る？",
+   "ch": "ひろゆきに救われたい",
+   "chId": "UCqYcqPUEA15L_NhtElwBeHg",
+   "sec": 117
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 14448,
+   "t": "アメリカの景気後退がはじまる？株を買う人の気が知れない！",
+   "ch": "竹田恒泰ch公式切り抜きチャンネル",
+   "chId": "UCtY61Iz5qYSKObseuv0eWNg",
+   "sec": 182
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 660,
+   "t": "米国経済は景気後退、悲観論強まる｜海外株最新ニュース【海外株投資チャンネル】",
+   "ch": "米国株投資チャンネル",
+   "chId": "UCRZJTJDPnzbjgP8toLCURFQ",
+   "sec": 103
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 19015,
+   "t": "景気後退の回避は「懐疑的」　世銀副総裁【モ－サテ】（2022年6月30日）",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 35
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 9024,
+   "t": "米「景気後退ではない」　イエレン財務長官【モーサテ】（2022年7月29日）",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 39
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 9715,
+   "t": "リセッション(大不況)が来るのか。アマゾンが1万人解雇",
+   "ch": "経済オタク",
+   "chId": "UCFe1Tr0n6rKdDZ3oA9V9Pbw",
+   "sec": 179
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 2905,
+   "t": "【ひろゆき】そろそろリセッションが来ると聞かされ早2年、どーすれば良い？ - ひろゆき切り抜き 2026.05.28",
+   "ch": "ひろゆき事典(hiroyuki-ziten)",
+   "chId": "UCAe_-f-hlYQmQUtJWtUbVOg",
+   "sec": 73
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 8851,
+   "t": "マーケット入門「リセッションとは？」#NISA #投資 #資産運用",
+   "ch": "FFG公式チャンネル",
+   "chId": "UC4u4MYZUTZiXvaxOYG6fLIg",
+   "sec": 192
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 1216,
+   "t": "急騰銘柄は情報まとめ中",
+   "ch": "Ken Honda 本田健",
+   "chId": "UCB8Q7Tm9WaOpPj-JhPiSEXQ",
+   "sec": 16
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 13609,
+   "t": "今回の景気サイクルのスピードは異常に速いです。",
+   "ch": "ばっちゃまのサブチャンネル",
+   "chId": "UCzoYzblsE4SEfrQmdjTQZDw",
+   "sec": 154
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 77,
+   "t": "引き締め止めるとリセッション（４月１９日）",
+   "ch": "もってぃ株チャンネル",
+   "chId": "UCcUwld9BlC12xZWycuMFwkQ",
+   "sec": 197
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 3726,
+   "t": "英「景気後退入り回避へ」　財務相の見通し【モーサテ】（2023年3月16日）",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 32
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 69,
+   "t": "【中級者向け】「リセッションの定義を説明します」【用語解説】",
+   "ch": "”質問受付中”投資家【ある】のエヌビディア最前線”AI革命で目指せ資産最大化”",
+   "chId": "UCJrPMhEkK4MHSw9qSZKW1hQ",
+   "sec": 103
+  },
+  {
+   "q": "景気後退 くる",
+   "cat": "경기·침체",
+   "v": 5145,
+   "t": "中国の景気後退の裏で起こる【新たな資本の流れ】",
+   "ch": "大井幸子のグローバルストリームニュース",
+   "chId": "UCRVxf5lU0Vl7CLCCMLkf7eg",
+   "sec": 220
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 500180,
+   "t": "日本を抜いて「世界4位の経済大国になった」とインド・モディ首相　今後3年以内にドイツを上回るとの予測も｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 59
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 26564,
+   "t": "【日経平均】中東情勢悪化から7000円以上の下落  今後の日本経済への影響は…【中継】",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 85
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 141,
+   "t": "日本経済がこれからよくなるわけ#shorts",
+   "ch": "増田俊男のメディアが言わない話【切り抜き】",
+   "chId": "UC9Yzd9JQg1wR4jVWE8CcPcg",
+   "sec": 78
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 38,
+   "t": "これからの日本の将来と日本経済について青汁的予想【三崎優太】【青汁王子切り抜き】",
+   "ch": "三崎優太ラボ【青汁王子切り抜き】",
+   "chId": "UC-EfEz57FcOg4VhGX69w1rg",
+   "sec": 72
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 32511,
+   "t": "日経平均下げ幅歴代5位、AI・半導体総崩れ　キオクシアは最高値の半値【日経CNBC/きょうのポイント、明日のヒント】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 111
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 300,
+   "t": "No17　これからの日本、経済より大切なこと",
+   "ch": "いわた書店のいわたま",
+   "chId": "UC2Tg2ht5rAdn0AE9xmdAc2w",
+   "sec": 169
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 30,
+   "t": "日本経済、これからの若者、FXなど、政治など",
+   "ch": "Mao lazyday",
+   "chId": "UCH0h5Z1d88I46eZOtAmmM3Q",
+   "sec": 154
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 201,
+   "t": "桜井誠　これからの日本経済を考える",
+   "ch": "日本   一太郎",
+   "chId": "UCGfWCwHFlc6dSgs4IunJ5TA",
+   "sec": 185
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 4523,
+   "t": "【ホリエモン】高齢化・インフレ、これからの日本経済はどうなっていくのか？最終的に日本の経済力は●●国と●●国の中間点に着地する可能性が高い【堀江貴文  切り抜き】",
+   "ch": "ホリエモンGO【堀江貴文 切り抜き】",
+   "chId": "UCjSrO-HJNGudoom0AmX-Wuw",
+   "sec": 166
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 323,
+   "t": "次代を拓く 日経オオテマチ会議とは？",
+   "ch": "日本経済新聞",
+   "chId": "UCHL12woHGeiqAqLrK-pJe7g",
+   "sec": 31
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 15,
+   "t": "日本経済はこれからどうなると思いますか",
+   "ch": "はくあま",
+   "chId": "UCqFp_-Xz8JEvX0QbvIXnzAw",
+   "sec": 26
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 32511,
+   "t": "日経平均下げ幅歴代5位、AI・半導体総崩れ　キオクシアは最高値の半値【日経CNBC/きょうのポイント、明日のヒント】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 111
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 67,
+   "t": "これからの経済の流れ 日本の経済は良くなる！ #経済 #ビジネス情報",
+   "ch": "野田宜成チャンネル（野田宜成チャンネル）",
+   "chId": "UCdIe4LgnXUjZlfcDstaflYQ",
+   "sec": 221
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 35,
+   "t": "これからの日本の経済!? よくなる見通し!? #経済情報",
+   "ch": "野田宜成チャンネル（野田宜成チャンネル）",
+   "chId": "UCdIe4LgnXUjZlfcDstaflYQ",
+   "sec": 163
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 0,
+   "t": "💼⚠️「188億円黒字」なのに4000人リストラ…55歳女性が語った「今辞めるわけにはいかない」理由とは",
+   "ch": "Japan Pulse Media ⭐",
+   "chId": "UCfARecm0pLxcZXMS_aZXoVA",
+   "sec": 62
+  },
+  {
+   "q": "日本経済 これから",
+   "cat": "경기·침체",
+   "v": 1324,
+   "t": "経済3団体トップが語る今年の日本経済と課題",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 109
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 8398,
+   "t": "背景に物価高？株高なのに生活は苦しい「株高不況」とは　海外勢からは期待の声も…「日常」との間に大きな溝｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 232
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 50254,
+   "t": "「働けど働けど生活が成り立たない」経済格差広がるアメリカ 止まらぬ物価上昇…政権発足から1年 トランプ大統領は「世界で一番“ホットな国”だ」｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 198
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 235486,
+   "t": "【イギリス】激しいインフレが生活を直撃  新たな首相選びに影響も",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 226
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 106437,
+   "t": "【止まらぬ物価高騰】「もう節約節約。まともに生活できなくなる」インフレ手当を出す企業も (2022年11月24日)",
+   "ch": "愛知のニュース【テレビ愛知　ニュース・スポーツ公式チャンネル】",
+   "chId": "UCk6SzG4qmA7J6CI-QAtWoOg",
+   "sec": 157
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 276320,
+   "t": "【アメリカ大統領選挙】アメリカ・西海岸に異様な光景…ホームレスに高額家賃  広がる経済格差",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 195
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 18,
+   "t": "バナナでインフレを解説します。~ 同じ生活なのに苦しくなる理由 ~",
+   "ch": "サムタイム",
+   "chId": "UCd8_sBwkRG2mpGXxD5vA1KQ",
+   "sec": 236
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 9,
+   "t": "【ボストン生活と物価】インフレに負けない！#インフレの味方　#ボストン生活　#ディスカウントストア",
+   "ch": "こがちゃんのボストン住まい選び情報",
+   "chId": "UCKGnibzFGJLVrCOIXu-4hXg",
+   "sec": 39
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 202,
+   "t": "【AIアナウンサー】厳しい生活待ったなし！インフレ加速とその防衛策についてAIアナウンサーが解説",
+   "ch": "【ChatGPTコンサル、経営、DX、副業、農業】M&Sチャンネル",
+   "chId": "UCTVj_vAw0IgsCFEarT6thlA",
+   "sec": 108
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 344,
+   "t": "【半額戦隊マツンジャー！】インフレで生活直撃",
+   "ch": "タケシの休日倶楽部",
+   "chId": "UCUBDOEm4w4b9RkWn17RMsVA",
+   "sec": 206
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 42820,
+   "t": "アメリカ建国250年「アメリカンドリームは失われた」　将来に希望を持てない若者も(2026年7月4日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 168
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 243,
+   "t": "日銀利上げ　生活への影響は？　専門家「物価高抑えられる」 (26/06/16 18:42)",
+   "ch": "鹿児島ニュースKTS",
+   "chId": "UCqPDZgcJtyPFhJM4qx-PuKg",
+   "sec": 173
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 24,
+   "t": "【インフレとデフレの違いとは？ 私たちの生活への影響は？】",
+   "ch": "SAKUCHANNEL",
+   "chId": "UCNU_K-28sjqX66tyfqOBW9w",
+   "sec": 121
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 66,
+   "t": "インフレが私たちの生活に与える影響は？",
+   "ch": "Financial DC Japan",
+   "chId": "UCzse1CKZMdzJs7QydKcMIMg",
+   "sec": 127
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 344,
+   "t": "【半額戦隊マツンジャー！】インフレで生活直撃",
+   "ch": "タケシの休日倶楽部",
+   "chId": "UCUBDOEm4w4b9RkWn17RMsVA",
+   "sec": 206
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 13172,
+   "t": "マイナス金利解除はいつ？　住宅ローン金利など生活への影響も　カギは春闘｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 126
+  },
+  {
+   "q": "インフレ 生活",
+   "cat": "경기·침체",
+   "v": 46,
+   "t": "【値上げ】生活苦はいつ終わる？インフレ・円安・円高の動きと中小企業の賃上げ、実質賃金の行方を解説！",
+   "ch": "AI解説トレンド速報",
+   "chId": "UCC33kHSLB2TmAR7bIv5GjvQ",
+   "sec": 180
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 19869,
+   "t": "トヨタ株主 5年で2.5倍　個人株主の獲得に注力【WBS】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 34
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 61134,
+   "t": "トヨタ アイシン株を売却へ　デンソー･豊田自動織機も【WBS】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 31
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 12326,
+   "t": "トヨタ 純利益3.2兆円に上方修正 想定レート円安へ修正 1ドル=160円に【モーサテ】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 64
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 26780,
+   "t": "トヨタ自動車 純利益3兆2500億円に業績予想を上方修正",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 43
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 3880,
+   "t": "トヨタやスペースXなど大型企業の決算発表に注目　今週のマーケットどう動く【知っておきたい！】【グッド！モーニング】(2026年8月3日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 114
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 15032,
+   "t": "トヨタ　上半期の世界の販売台数 前年を下回る　中国の市場環境悪化が要因(2026年7月30日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 75
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 1672,
+   "t": "【緊急】トヨタ（7203）は買いなのか！？適正株価を出したみた。その結果は！？",
+   "ch": "経済評論家 増田ひろし『先回りエントリー法』で海外投資家や大口に便乗【億トレ監修の日本株投資法】",
+   "chId": "UCoqM4LL-KrODLL6rT8nWMZw",
+   "sec": 167
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 10154,
+   "t": "日経平均反発、KOSPI連動でAI半導体に買い　トヨタ業績上振れも株価下げ【日経CNBC／きょうのポイント、明日のヒント】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 111
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 21,
+   "t": "トヨタ株価25年チャート：この凹みこそが最強の理由。データ変動から見る大企業のターニングポイント",
+   "ch": "データあさぼりチャンネル",
+   "chId": "UC9-OrNKoplDVNWVWlSHQ3qw",
+   "sec": 62
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 46563,
+   "t": "豊田自動織機がトヨタGによるTOB成立　5兆9000億円で日本企業同士案件として過去最大【知っておきたい！】【グッド！モーニング】(2026年3月25日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 85
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 3983,
+   "t": "トヨタ自動車 日本企業初の売上高50兆円を突破　中東情勢の影響などで今年度は22％減益予想　2025年度決算｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 51
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 5442,
+   "t": "日経平均株価　初の6万8000円台　キオクシア株が上昇し、一時　時価総額がトヨタ超え　国内2位に｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 57
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 89563,
+   "t": "キオクシアの時価総額が一時45兆円で国内2位に　トヨタ上回る　AIブームの波に乗る【知っておきたい！】【グッド！モーニング】(2026年6月4日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 129
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 6697,
+   "t": "ソフトバンクGが時価総額でトップに　トヨタ自動車は22年ぶりに首位陥落(2026年6月1日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 47
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 18884,
+   "t": "トヨタ“逆輸入車”を報道陣に初公開(2026年5月18日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 97
+  },
+  {
+   "q": "トヨタ 株価",
+   "cat": "개별종목",
+   "v": 55386,
+   "t": "キオクシアの時価総額50兆円超　日本でトヨタ自動車以来2社目　上昇どこまで続く？【知っておきたい！】【グッド！モーニング】(2026年6月17日)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 110
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 2660765,
+   "t": "ソフトバンク株　1億6000万円購入の男性　けさ売却(19/01/07)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 168
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 4526,
+   "t": "ソフトバンクの株を買うやつは正直〇〇です。",
+   "ch": "ひろゆき配信切り抜きチャンネル",
+   "chId": "UCHm3tHjwSFb586yOs_tz-tQ",
+   "sec": 146
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 4338,
+   "t": "【ひろゆき字幕付】ソフトバンク株を2年で6000万円にする【論破】",
+   "ch": "SAORI YOSHIDA",
+   "chId": "UCw4TINAAzBLv8wZWVEe4bEQ",
+   "sec": 49
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 8280,
+   "t": "ソフトバンク決算「売上7兆円 最終利益5500億円」 携帯料金は大手3社で値上げに｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 71
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 37357,
+   "t": "[SoftBank Group] Masayoshi Son Announces: \"I'll Keep Going for Another 10 to 15 Years\" at Shareho...",
+   "ch": "日本経済新聞",
+   "chId": "UCHL12woHGeiqAqLrK-pJe7g",
+   "sec": 168
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 6373,
+   "t": "最終利益は3473億円　ソフトバンクグループが今年6月までの決算発表　前年同期比で18％減少　AI事業などへの先行投資など重しに｜TBS NEWS DIG",
+   "ch": "TBS NEWS DIG Powered by JNN",
+   "chId": "UC6AG81pAkf6Lbi_1VC5NmPA",
+   "sec": 55
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 11899,
+   "t": "売上高 初の7兆円超え ソフトバンク【WBS】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 36
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 18166,
+   "t": "ソフトバンクG オープンAIに追加出資 4.7兆円 持ち分比率13％に【WBS】",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 41
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 1315,
+   "t": "SoftBank Group to Establish New Company SB Neo, Stock Price, Masayoshi Son",
+   "ch": "SBGレヴューチャンネル",
+   "chId": "UC68auNbMASkHVkzDdAXHK1A",
+   "sec": 160
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 22632,
+   "t": "ソフトバンクG株主総会　孫正義会長「4つの分野で世界一のAI企業目指す」",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 35
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 321,
+   "t": "ソフトバンクグループ 2026年3月期 第1四半期 決算ハイライト / 後藤芳光 CFO",
+   "ch": "ソフトバンクグループ株式会社 (SoftBank Group Corp.)",
+   "chId": "UCamllJQ7YaqaDNMCWgonj2w",
+   "sec": 221
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 7160,
+   "t": "【ソフトバンクグループ】最終利益が初の5兆円超え  過去最高益",
+   "ch": "日テレNEWS",
+   "chId": "UCuTAXTexrhetbOe3zgskJBQ",
+   "sec": 60
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 1926,
+   "t": "SoftBank Group (9984): Expect a Rebound Next Week, but Watch Out for Sell Zones!",
+   "ch": "マクラーレン買うために投資を始めた会社員",
+   "chId": "UCqYVxsgmDYm5vLTGqILjKhA",
+   "sec": 231
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 3544994,
+   "t": "ソフトバンクの株「株式投資するなら。見逃しちゃうのは、もったいない。」③",
+   "ch": "ソフトバンク（SoftBank）",
+   "chId": "UCcMKfz1n6L6erIlyyowlOOA",
+   "sec": 16
+  },
+  {
+   "q": "ソフトバンク 株",
+   "cat": "개별종목",
+   "v": 18201,
+   "t": "ソフトバンク 世界初 革新型バッテリー",
+   "ch": "ソフトバンク（SoftBank）",
+   "chId": "UCcMKfz1n6L6erIlyyowlOOA",
+   "sec": 140
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 4261,
+   "t": "This is the reason why Nintendo's stock price plummeted [2ch5ch] [Internet Reactions]",
+   "ch": "2chトレンド速報",
+   "chId": "UCk4Kc-bfvhrpDkImjfBxdIg",
+   "sec": 206
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 78525,
+   "t": "暴落した任天堂株を塩漬けにするポプ子【カブカピピック】",
+   "ch": "Nex",
+   "chId": "UCzNrVHQ8EV_HhKvBbt4bk2g",
+   "sec": 125
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 385,
+   "t": "【株】ニンダイ後の任天堂の株価が暴落してしまった件",
+   "ch": "薪アラタ / Takigi Arata",
+   "chId": "UCOqXYSgU-LtP6v7OZkFHBLQ",
+   "sec": 163
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 945,
+   "t": "【任天堂】任天堂の株主総会で株主が苦言！株価が10ヶ月で半値以下に暴落した真相とは？【ネットの反応】【2ch 5ch】",
+   "ch": "ギャルとゲーム、どっちが本業かわからん件",
+   "chId": "UCLfUYPjiihODeeBzlnpf7Fg",
+   "sec": 133
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 1460,
+   "t": "中国人さん、任天堂株で大損してしまう",
+   "ch": "ゲム速!!",
+   "chId": "UCsN49aoPDKUVZ8I3kxMrN5A",
+   "sec": 200
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 4840,
+   "t": "【任天堂】売上過去最高なのに赤字？ピンチの正体とは！？",
+   "ch": "ゲム速!!",
+   "chId": "UCsN49aoPDKUVZ8I3kxMrN5A",
+   "sec": 166
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 133,
+   "t": "【任天堂7974】私が実際に買った理由を公開！今が買い時？任天堂を徹底分析 #投資 #初心者 #株式投資 #日本株 #テクニカル分析 #チャート分析 #買い時 #任天堂 #決算",
+   "ch": "タカ視チャート",
+   "chId": "UC5WGadXKT5SegWxu15yIKdg",
+   "sec": 195
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 1751,
+   "t": "【7974】任天堂の株価は割安？独自に理論株価を算出した衝撃の結果",
+   "ch": "RC理論株価算出チャンネル",
+   "chId": "UC8q5kQIsR7Doh0i5UzcMXEw",
+   "sec": 215
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 1095,
+   "t": "[Currently in a massive crash] Nintendo shares, now half price, are being given as a gift to a ne...",
+   "ch": "窓際│日本株でFIRE目指す",
+   "chId": "UCyQIge_hYpOrscaaOMtLsfg",
+   "sec": 220
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 3461,
+   "t": "任天堂の株価がすごいことに",
+   "ch": "王道の投資【日本有名株式で資産を増やす】",
+   "chId": "UCgfoWZfz7-jMgtUfc2OwmLw",
+   "sec": 69
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 6346,
+   "t": "[Tester] To win in a bear market, you should choose stocks like Nintendo. A person who earns 1 bi...",
+   "ch": "みんなのテスタ【切り抜き】",
+   "chId": "UCO7FMrzELE07mfCMZuoWSog",
+   "sec": 101
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 14985,
+   "t": "ポケモノミクスで任天堂株価2倍超　関連株も上昇(16/07/22)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 45
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 25,
+   "t": "【任天堂株価】8000円割れ",
+   "ch": "投資家ニュース",
+   "chId": "UCIlFVqJ09T9msSWelYUUGAQ",
+   "sec": 135
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 453,
+   "t": "任天堂、マリオ映画公開後に株価がとんでもない事になってしまう…",
+   "ch": "あしたの気になるニュース",
+   "chId": "UCIe45xeWYKH6g6T7BGk0ENw",
+   "sec": 217
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 360,
+   "t": "なぜ任天堂株だけ急落しているのか　Switch 2をメモリ高騰が直撃する理由",
+   "ch": "時空をこえて日本",
+   "chId": "UCK7D9-RHhr7Fl5jkNbuYF-Q",
+   "sec": 176
+  },
+  {
+   "q": "任天堂 株価",
+   "cat": "개별종목",
+   "v": 286,
+   "t": "任天堂、政策株縮減へ3000億円売り出し　三菱ＵＦＪ銀や京都銀が売却",
+   "ch": "ゲム速!!",
+   "chId": "UCsN49aoPDKUVZ8I3kxMrN5A",
+   "sec": 172
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 42,
+   "t": "老後2,000万円問題、本当に必要？",
+   "ch": "介護士ゆみの老後戦略",
+   "chId": "UCOTKt_HVF56SKvwD4iduI2A",
+   "sec": 212
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 1,
+   "t": "老後2000万円は本当に必要？意外と知らない生き延びる方法",
+   "ch": "秘密の知識図書館–選ばれし者が知る知識の倉庫",
+   "chId": "UCNMjzKiBsJzpCiNcv9PVN1Q",
+   "sec": 91
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 8929,
+   "t": "“老後2000万円不足”麻生氏「報告書受け取らない」(19/06/11)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 54
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 24,
+   "t": "【20代･30代の方必見！】老後2,000万円問題！本当に2,000万円あれば老後は安泰なのか!?",
+   "ch": "ヴィーナスの部屋 | 小出美知代",
+   "chId": "UChf8zXgNLKLWiyBF_sWfNlg",
+   "sec": 226
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 2797,
+   "t": "【ひろゆき・論破・切り抜き】老後２０００万円問題！",
+   "ch": "ひろゆき論破ちゃんねる",
+   "chId": "UCQWnWQjBUsWyoeyXxU7DfBw",
+   "sec": 67
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 262,
+   "t": "もう年金だけでは暮らしていけない？老後2000万円問題とは？",
+   "ch": "恵比寿の八木社長【3分でわかる税金】",
+   "chId": "UCOaLRr3MjcpO_VyU-c7NChA",
+   "sec": 166
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 3258,
+   "t": "“老後2000万円”問題　枝野氏が財務大臣を批判(19/06/12)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 57
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 3392,
+   "t": "“老後2000万円”経済界「若い世代にどう見えるか」(19/06/18)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 34
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 270,
+   "t": "老後2000万円問題、本当はいくら必要？",
+   "ch": "FPがそっと教えるお金のこと",
+   "chId": "UCRiAKKuRd2NaKmEUmPfwSEA",
+   "sec": 158
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 8,
+   "t": "Is 20 Million Yen Enough for Retirement Alone? The Real Amount You Need to Know in Your 50s",
+   "ch": "50代女性の老後とお金の悩み解決",
+   "chId": "UCpnxEiz4CMKDJLgA1Xu3BEg",
+   "sec": 187
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 4219,
+   "t": "金融庁｢老後2,000万円｣撤回",
+   "ch": "テレ東BIZ ダイジェスト",
+   "chId": "UCkKVQ_GNjd8FbAuT6xDcWgg",
+   "sec": 30
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 6211,
+   "t": "「老後2000万円不足」金融庁は修正、報告しない方針(19/06/12)",
+   "ch": "ANNnewsCH",
+   "chId": "UCGCZAYq5Xxojl_tSXcVJhiQ",
+   "sec": 51
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 448,
+   "t": "老後2000万円家計簿が近道の理由は？",
+   "ch": "日経CNBC 公式チャンネル",
+   "chId": "UClVsQnfs-jKkjKmUKUHnT2g",
+   "sec": 103
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 592,
+   "t": "老後2000万円ないとどうなる？これが現実です",
+   "ch": "老後の真実チャンネル",
+   "chId": "UCyeNczFFV-uutr5qbHjAQJw",
+   "sec": 177
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 19,
+   "t": "【人生100年時代】老後資金は2000万円では足りない！？",
+   "ch": "現役投資家FP",
+   "chId": "UCaq_TuAtmhlejtZnmT4q5MQ",
+   "sec": 54
+  },
+  {
+   "q": "老後 2000万円",
+   "cat": "노후·연금",
+   "v": 62,
+   "t": "そもそも老後2000万円問題って何？この数字本当なの？",
+   "ch": "マネースタイル〜お金頭脳を磨こう!〜",
+   "chId": "UClB39noM8q9iCVTHimVeKEA",
+   "sec": 211
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 29282,
+   "t": "[Pension newsletter] The pension amount of a man who was exempt from paying national pension insu...",
+   "ch": "ななおnetラジオ局",
+   "chId": "UC357Zh32XKxleZHzExMTr7Q",
+   "sec": 227
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 230,
+   "t": "専業主婦の年金はいくら？払っていないのにもらえる理由",
+   "ch": "障碍者目線の福祉チャンネル",
+   "chId": "UCOEI3q4Yd12bBAAyTZGmEmg",
+   "sec": 187
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 132104,
+   "t": "When I looked at my regular pension newsletter for 2023, I was in despair because the pension I w...",
+   "ch": "はまの仕事",
+   "chId": "UCXv71riGOU_ktN_erQcLEKA",
+   "sec": 170
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 110899,
+   "t": "年金定期便の見方を解説",
+   "ch": "rav god",
+   "chId": "UCqD-bc3ISx7TjM21PEZrvQQ",
+   "sec": 94
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 14629,
+   "t": "特別支給の老齢厚生年金受給額を公表します。",
+   "ch": "60代 生涯独身 足るを知る生き方",
+   "chId": "UCXABTs6AijX9VyNE44cMhpw",
+   "sec": 232
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 158404,
+   "t": "年金生活者支援給付金のお知らせ",
+   "ch": "厚生労働省 / Ministry of Health, Labour and Welfare",
+   "chId": "UCVgZUHlkoN51FOwoNMBGjfw",
+   "sec": 16
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 1414,
+   "t": "厚生年金を20年支払った男の将来年金受給額はどのくらいか？確認するために年金事務所に行ってきました。「無職」",
+   "ch": "セミリタTIME",
+   "chId": "UCsVzW9YowZb1ywDaoDSf7Ag",
+   "sec": 185
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 4508,
+   "t": "Are Civil Servant Pensions Really Higher? A Thorough Comparison with the Private Sector!",
+   "ch": "キャリサポチャネル",
+   "chId": "UCH6IkH2WOmz-igrI6ilTcaQ",
+   "sec": 118
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 447,
+   "t": "【老齢年金】老齢基礎年金いくらもらえる？（国民年金加入者必見！）",
+   "ch": "あなたを救う　社会保障チャンネル",
+   "chId": "UC9ehYg2pAKd7pLjPEkoI29Q",
+   "sec": 239
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 219,
+   "t": "老後の年金はいくらもらえるの？【おひとりさま・終活】",
+   "ch": "恵比寿の八木社長【3分でわかる税金】",
+   "chId": "UCOaLRr3MjcpO_VyU-c7NChA",
+   "sec": 142
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 312,
+   "t": "厚生年金はいくら払っていくらもらえる？自分で老後資金を貯める方法も",
+   "ch": "お金と保険が学べる！ニッセンライフチャンネル",
+   "chId": "UCcZQ8T-BCqr7TmjgXJD20ZQ",
+   "sec": 141
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 25665,
+   "t": "How much pension can a part-time housewife receive? Should she be supported by her husband? [Easy...",
+   "ch": "All About マネー【プロと学ぶお金のキホン】",
+   "chId": "UCjXHk1gAA4BRCwsR4FXzkMg",
+   "sec": 168
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 18,
+   "t": "国民年金・厚生年金いくらもらえるの？その給付金額で老後は安心！？",
+   "ch": "梅木タカユキ | 未来マネーデザイン",
+   "chId": "UCY8eO82NkThzoOw7_dLHDmg",
+   "sec": 229
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 579,
+   "t": "[Pension] Eh! Can you really get that much? The surprising privileges of \"category 3 insured pers...",
+   "ch": "アトム/探求ちゃんねる",
+   "chId": "UCpjRcvQdZf_FfqgSh1FNjMw",
+   "sec": 196
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 7826,
+   "t": "I am currently receiving a special old-age employees' pension. Do I need to apply for a pension a...",
+   "ch": "かんたん労務チャンネル",
+   "chId": "UCPOls6lAFH6dUsaPU5dvxRA",
+   "sec": 118
+  },
+  {
+   "q": "年金 いくら もらえる",
+   "cat": "노후·연금",
+   "v": 13318,
+   "t": "【秘密】障害年金の初回の振込額はなぜ多い？【理由】",
+   "ch": "障害年金【専門】社労士「松岡由将」",
+   "chId": "UCnJTxuXKkNGD1vwCkSlGtcg",
+   "sec": 132
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 2042,
+   "t": "[My First Dividend Story] The Origins of My Wealth Building as a Single Person in My 30s #Dividen...",
+   "ch": "まなものゆる投資と暮らし",
+   "chId": "UCxDxfAKNcaofS71E0kJq17w",
+   "sec": 209
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 9,
+   "t": "資産形成を30代から始める人へ。「賢者のポートフォリオ」デモ動画",
+   "ch": "賢者のポートフォリオ_SNS版",
+   "chId": "UCnZ1PaAoWYevgAl5rz9usDA",
+   "sec": 116
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 8,
+   "t": "資産形成を30代から始める人に。株式投資学習アプリ「賢者のポートフォリオ」デモ動画",
+   "ch": "賢者のポートフォリオ_SNS版",
+   "chId": "UCnZ1PaAoWYevgAl5rz9usDA",
+   "sec": 96
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 1901,
+   "t": "第2回 20~30代の資産形成のお悩み解決シリーズ　テーマ：積立投資は少額からでも恥ずかしくない？",
+   "ch": "楽天証券",
+   "chId": "UCALplCbeagOxXGmEJ-hOJIg",
+   "sec": 175
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 1,
+   "t": "30代から始める!確実な資産形成のための3つの方法",
+   "ch": "Life-smith ",
+   "chId": "UC_egE0WCAKCCUi2hpItta0Q",
+   "sec": 204
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 2320,
+   "t": "第3回 20~30代の資産形成のお悩み解決シリーズ 　テーマ：長期で投資したほうがいいの？",
+   "ch": "楽天証券",
+   "chId": "UCALplCbeagOxXGmEJ-hOJIg",
+   "sec": 174
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 25,
+   "t": "30代会社員パパの資産形成｜資産1000万円を目指す投資チャンネル始めました",
+   "ch": "ゴリパパのんびり資産形成チャンネル",
+   "chId": "UCAtSDFXv_kR1fkviACcEuMg",
+   "sec": 120
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 1541,
+   "t": "30代共働き公務員DINKSは資産形成•FIREにおいて最強",
+   "ch": "ショートしない資産形成のショート",
+   "chId": "UCvgEDcGzZeis9N_nI6U8BKA",
+   "sec": 202
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 369,
+   "t": "【３分書評】30代から始める節約×資産形成の家計術",
+   "ch": "鳥本ラジオ",
+   "chId": "UCZ7wVb-0sVdlAz4vX8vDlVA",
+   "sec": 124
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 3,
+   "t": "資産形成を30代から行う人へ。「賢者のポートフォリオ」デモ動画",
+   "ch": "賢者のポートフォリオ_SNS版",
+   "chId": "UCnZ1PaAoWYevgAl5rz9usDA",
+   "sec": 183
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 2,
+   "t": "30代からの投資スタート！それがあなたの将来を有利に創り上げてくれる",
+   "ch": "慎重派のための年利5%でムリなく手堅くできる資産運用",
+   "chId": "UCGj8DVN6Ysxi66aRBt99AxA",
+   "sec": 72
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 29,
+   "t": "看護師 × 筋トレ × 資産形成2,500万円｜30代既婚のリアル内訳",
+   "ch": "特養看護師　K",
+   "chId": "UCXpbu_cEoz0wARCvMnz1bvg",
+   "sec": 187
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 25,
+   "t": "【資産公開】目指せFIRE！30代からはじめる資産運用 〜2025年１月編〜",
+   "ch": "奥春life",
+   "chId": "UCjdz8ZhtCjrbLVAs73fQAmQ",
+   "sec": 225
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 8,
+   "t": "【30〜50代必見】老後不安を解消！今から始める資産形成・投資の第一歩3選",
+   "ch": "生活のプチライフハック",
+   "chId": "UCOoklLIF2iuPUNM1IbWGddw",
+   "sec": 201
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 294,
+   "t": "【月30万で1億】医師の資産形成日誌#1【進捗率13％】",
+   "ch": "医師の資産形成録",
+   "chId": "UCQzTm1FjjZEFqTxsEr8dCVA",
+   "sec": 125
+  },
+  {
+   "q": "資産形成 30代",
+   "cat": "노후·연금",
+   "v": 8,
+   "t": "20代30代は今すぐ新NISA！物価高・年金不安を乗り越える資産形成術",
+   "ch": "気になるニュース",
+   "chId": "UCqOCTwhlsscuIbb6RbSVJ7A",
+   "sec": 197
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 73733,
+   "t": "ビットコインの今後の将来性はどうなる？「私は仮想通貨を徐々に増やしてます」",
+   "ch": "与沢 翼",
+   "chId": "UCrn6ukKQ9-t1mRYgany043w",
+   "sec": 177
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 25696,
+   "t": "[Hiroyuki] Ethereum is a better virtual currency than Bitcoin! Considering ●●, this is the techno...",
+   "ch": "ひろぬけ【ひろゆき切り抜き】",
+   "chId": "UC3McPdkyidCBzdV_XbQu-4w",
+   "sec": 73
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 264,
+   "t": "ビットコインが急騰！今すぐ買うべき？それとも調整を待つべき？",
+   "ch": "Shah Faisal Shah",
+   "chId": "UCtwH2mwok-jdRCVTeZAzwow",
+   "sec": 197
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 5597,
+   "t": "全財産746万円をビットコインに投資していたけど、さすがに日和った営業39歳サラリーマン【2026年6月19日】 #bitcoin #全財産 #仮想通貨",
+   "ch": "2浪4留で大学中退した社畜は今セミリタイアしたい",
+   "chId": "UCFNH-kBMYFIo3GNpwFAowxw",
+   "sec": 115
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 112,
+   "t": "ビットコイン価格急落時に「BTCクジラ」が増加｜今後注目のサポートラインは？",
+   "ch": "BITTIMES OFFICIAL",
+   "chId": "UCEdwidkxPqrtN1K1DD2JZPw",
+   "sec": 162
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 408,
+   "t": "仮想通貨ビットコイン(BTC)最低水準に！？今後は○○を買え！",
+   "ch": "仮想通貨クラウド",
+   "chId": "UCS_eNl7R0V8hmN4eXyYN8qA",
+   "sec": 191
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 557,
+   "t": "CPI前のビットコインと今後について",
+   "ch": "金融トレーダーaki 【harmonic trader】",
+   "chId": "UCDqEPyH-wL4u9FcKLxDCxpQ",
+   "sec": 181
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 11074,
+   "t": "【絶望】大暴落した仮想通貨ビットコインに全財産746万円を投資してた営業39歳サラリーマンの心境【2026年6月5日】 #bitcoin #大暴落 #全財産",
+   "ch": "2浪4留で大学中退した社畜は今セミリタイアしたい",
+   "chId": "UCFNH-kBMYFIo3GNpwFAowxw",
+   "sec": 91
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 6212,
+   "t": "【大暴落の夜】仮想通貨ビットコインに全財産746万円を投資した営業39歳サラリーマンの生き様 #bitcoin #仮想通貨 #暗号資産",
+   "ch": "2浪4留で大学中退した社畜は今セミリタイアしたい",
+   "chId": "UCFNH-kBMYFIo3GNpwFAowxw",
+   "sec": 90
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 993,
+   "t": "ビットコイン急騰の理由と今後の展望、ETF認可や市場の動向を徹底解説！｜リファスタ",
+   "ch": "リファスタ",
+   "chId": "UC6VJpegm88WioXPT_NfBNsQ",
+   "sec": 131
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 19174,
+   "t": "Paraphrased: Bitcoin is the Gold of the Future. The Case for $2 Million - Tom Lee",
+   "ch": "レバニキ",
+   "chId": "UCxyv0MGvkLJAk52LDll7cKw",
+   "sec": 171
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 2134,
+   "t": "【緊急】ビットコインが7万3000ドルに急騰！今後の展開に十分備えよ。",
+   "ch": "ノストラダムス",
+   "chId": "UCxW1CrSxJzX38qJsdG2HTPw",
+   "sec": 219
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 210,
+   "t": "ビットコイン、短期は上。今後の値動きを解説します。【BTC】【Bitcoin】【Bitget】【メタプラネット】【チャート分析】【価格予想】【今後】【将来価格】【暗号資産】【仮想通貨】",
+   "ch": "【超入門 仮想通貨ch】 きつね店長",
+   "chId": "UCawXFhmKEQiA7xk2g_NrHMg",
+   "sec": 122
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 819,
+   "t": "サポートを割り込んだビットコイン、今後の展開は（松田康生のFXcoin Daily Report）2020年12月7日",
+   "ch": "FXcoin株式会社 公式チャンネル",
+   "chId": "UCjRnTXG9EgvRNMprkfPtxDQ",
+   "sec": 160
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 778,
+   "t": "見事に反発したビットコイン、反発の理由と今後の展開（松田康生のFXcoin Daily Report）2020年12月14日",
+   "ch": "FXcoin株式会社 公式チャンネル",
+   "chId": "UCjRnTXG9EgvRNMprkfPtxDQ",
+   "sec": 174
+  },
+  {
+   "q": "ビットコイン 今後",
+   "cat": "암호화폐",
+   "v": 329,
+   "t": "イベントを通過、回復傾向のビットコイン、今後注意すべき点松田康生のFXcoin Daily Report（ 2020年9月28日）",
+   "ch": "FXcoin株式会社 公式チャンネル",
+   "chId": "UCjRnTXG9EgvRNMprkfPtxDQ",
+   "sec": 170
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 75669,
+   "t": "【初心者必見】仮想通貨、何から勉強したらいい？与沢流の極め方はこれ！",
+   "ch": "与沢 翼",
+   "chId": "UCrn6ukKQ9-t1mRYgany043w",
+   "sec": 164
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 5,
+   "t": "仮想通貨やビットコインを初心者が購入の注意事項！",
+   "ch": "yu-taro仮想通貨の裏表",
+   "chId": "UCqMYW_VLuaEi71c8Mc53Z_A",
+   "sec": 182
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 2422,
+   "t": "仮想通貨初心者に積立投資をオススメする理由【ダイジェスト版】",
+   "ch": "ビットコイナー反省会",
+   "chId": "UCRP9Ij6gL9IViB7MS3Ez9aw",
+   "sec": 201
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 1510,
+   "t": "【初心者必見】XRPを持ってるだけでXRP増やせます‼️ #リップル #仮想通貨 #ビットコイン #xrp",
+   "ch": "投資家アヴィーチ『資産運用・投資TV』",
+   "chId": "UChS9JcY41MojIAiqNG3sfhA",
+   "sec": 132
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 256,
+   "t": "仮想通貨の用語をわかりやすく解説！通貨くんの初心者向け仮想通貨超入門シリーズ",
+   "ch": "通貨くん_仮想通貨初心者向け超入門",
+   "chId": "UCGtP69JFW8nzDr-EKqeqTFA",
+   "sec": 195
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 26,
+   "t": "Q:初心者がビットコインを始める方法は？ #仮想通貨 #暗号資産 #暗号通貨 #BTC #Bitcoin #PR #BinanceJapan",
+   "ch": "はじめての株・ビットコインch【きつね店長】",
+   "chId": "UC59MosY-_4XNt8FRwNbUxhw",
+   "sec": 56
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 6,
+   "t": "【仮想通貨初心者】仮想通貨を始めるなら今？買うならバブルの今！【ビットコインかんたん解説】",
+   "ch": "投資スクール",
+   "chId": "UCL4B0otnLbZfzYI5qZTLjxw",
+   "sec": 133
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 77,
+   "t": "【仮想通貨】初心者がたった２つのことを心がけるだけで勝率UP↑",
+   "ch": "ビビットちゃんねる",
+   "chId": "UCuAHeGo7CcN6vubv3zAH9wQ",
+   "sec": 231
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 3,
+   "t": "【仮想通貨】初心者が仮想通貨を売買する手順の解説",
+   "ch": "ビットマン",
+   "chId": "UCGg1ORBcywpOd_OxtSFOMQQ",
+   "sec": 107
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 12,
+   "t": "【仮想通貨　初心者】仮想通貨の始め方教えます【ビットコインかんたんスタート】",
+   "ch": "投資スクール",
+   "chId": "UCL4B0otnLbZfzYI5qZTLjxw",
+   "sec": 163
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 108,
+   "t": "仮想通貨初心者必見！初めて買うなら〇〇〇！伊藤が選ぶ通貨はこれだ！",
+   "ch": "コインオタクおたくの伊藤健次まとめチャンネル",
+   "chId": "UClQJzCA5q7H97R08SGi2_8w",
+   "sec": 180
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 45,
+   "t": "【小学生でも分かる】仮想通貨の仕組みを初心者の方のためにやさしく解説",
+   "ch": "残業トレード👨‍💼",
+   "chId": "UC2vVdoxC2SksHmTs3Joxhpw",
+   "sec": 136
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 10,
+   "t": "日本で仮想通貨を買う方法 初心者向けチュートリアル 2026",
+   "ch": "GUMY Tutorials",
+   "chId": "UCDuaAgOL_NyFnqxPHMd43RA",
+   "sec": 223
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 180,
+   "t": "【仮想通貨の税金】投資や暗号資産初心者もビットコイン出た利益の確定申告がわかる。",
+   "ch": "お金を増やす基本",
+   "chId": "UCIlf1c82vOyQzE8kDpiwuoQ",
+   "sec": 162
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 51,
+   "t": "仮想通貨初心者を救いたい。",
+   "ch": "億トレーダー☆サトシ😘",
+   "chId": "UC5Bf0wKhBinR5WDbwjq_gfA",
+   "sec": 169
+  },
+  {
+   "q": "仮想通貨 初心者",
+   "cat": "암호화폐",
+   "v": 259,
+   "t": "【仮想通貨 初心者】始め方。クレジットカードで買うとお得です。安心できる取引所を使おう【ビットコイン イーサリアム 株 fx 副業 在宅 マナブ切り抜き 投資 ビットフライヤー バイナンス コイン】",
+   "ch": "副業のすすめ【切り抜き】",
+   "chId": "UCHyVYCZj_4oGW7-MRuOasYQ",
+   "sec": 94
+  }
+ ],
+ "subs": {
+  "UCFe1Tr0n6rKdDZ3oA9V9Pbw": {
+   "s": 46800,
+   "n": "経済オタク"
+  },
+  "UCxkiN35K-JNZKV9m0fEzN2w": {
+   "s": 402000,
+   "n": "ライオン兄さんの米国株FIREが最強"
+  },
+  "UCo_xFUnwGr2dmJVNWZCvNcA": {
+   "s": 128,
+   "n": "ダンのマインド"
+  },
+  "UCudswRVodQ-GaaMJf1sy-Iw": {
+   "s": 362000,
+   "n": "藤井厳喜の『ワールド・フォーキャスト』"
+  },
+  "UCSyJun_VTW5iArnfGBXg0DQ": {
+   "s": 86600,
+   "n": "テスタの部屋【切り抜き】"
+  },
+  "UCMIoNwVftitx-BLyDK5WDsg": {
+   "s": 67500,
+   "n": "ピクテ・ジャパン株式会社"
+  },
+  "UCXNUY4BmfqwYnldjxyg_rgw": {
+   "s": 1800,
+   "n": "こう 【1日1分株の勉強】"
+  },
+  "UCuTAXTexrhetbOe3zgskJBQ": {
+   "s": 3310000,
+   "n": "日テレNEWS"
+  },
+  "UCo49fE8ClBC7cLsp6i_CyHg": {
+   "s": 913,
+   "n": "日本経済徹底解説"
+  },
+  "UC1KJjVf9vYM9iDnD4nPhPPg": {
+   "s": 188,
+   "n": "金相場チャンネル"
+  },
+  "UCYFNfQ3DWjRpkAPb__HIV0g": {
+   "s": 181000,
+   "n": "リノシーチャンネル【公式】"
+  },
+  "UCZ2j-hHrefhy8hA6IbkQfZQ": {
+   "s": 167,
+   "n": "投資独学"
+  },
+  "UC67Wr_9pA4I0glIxDt_Cpyw": {
+   "s": 9860000,
+   "n": "両学長 リベラルアーツ大学"
+  },
+  "UC54zx3dXKTbxLhfMRs1Bhbg": {
+   "s": 173,
+   "n": "お金の雑学TV"
+  },
+  "UClL1vUQOt6JTYx2up0wAVhQ": {
+   "s": 5700,
+   "n": "フジトミ証券株式会社"
+  },
+  "UCw8QNtQxlRgZcbuL-xOK-Fw": {
+   "s": 24400,
+   "n": "カイトル亀ちゃんねる"
+  },
+  "UC9xVLsBJ02GWlzjWDmr9GxA": {
+   "s": 18300,
+   "n": "超・税理士ニシデせんせい"
+  },
+  "UC6AG81pAkf6Lbi_1VC5NmPA": {
+   "s": 3360000,
+   "n": "TBS NEWS DIG Powered by JNN"
+  },
+  "UCd0daRcynfHPsrszw5nJ28A": {
+   "s": 12800,
+   "n": "ひろゆき動画チャンネル"
+  },
+  "UCTA2HU9fLYb5DqIOdcPZMdQ": {
+   "s": 659,
+   "n": "2chお金のニュース速報 "
+  },
+  "UCC37n9SmLq09_q_F6BYV7lg": {
+   "s": 3210,
+   "n": "COINPALACE"
+  },
+  "UCPUYO6zptOXfsIxyLGZiAHQ": {
+   "s": 894,
+   "n": "解説屋"
+  },
+  "UCQh2ZESlrAbpghe6SyLn4XA": {
+   "s": 299,
+   "n": "まんごぼう くると"
+  },
+  "UCGXU4lVXc9msfUkjNykA7TA": {
+   "s": 932000,
+   "n": "BANK ACADEMY / バンクアカデミー"
+  },
+  "UCwan7UMAWPpVsjUJL3BLSfg": {
+   "s": 572,
+   "n": "ホリエモン先生の授業【切り抜き 堀江貴文】"
+  },
+  "UC8yHePe_RgUBE-waRWy6olw": {
+   "s": 4050000,
+   "n": "PIVOT 公式チャンネル"
+  },
+  "UCDerGvQGLb47P5GWqsk4qGQ": {
+   "s": 71,
+   "n": "沖縄チャンネル"
+  },
+  "UCpscUJI0EVfquxX6vmg07dA": {
+   "s": 4540,
+   "n": "テスタのマインド【切り抜き】"
+  },
+  "UCQHZXj_ZXCHuwWLiHHahetQ": {
+   "s": 213000,
+   "n": "SBI証券公式チャンネル"
+  },
+  "UCfTnJmRQP79C4y_BMF_XrlA": {
+   "s": 2260000,
+   "n": "NewsPicks /ニューズピックス"
+  },
+  "UCMOlBSrEEnjXn8rBlblhLTQ": {
+   "s": 12200,
+   "n": "ザイZAi TV"
+  },
+  "UC8OjykYh8KUVOmez_y3L7PQ": {
+   "s": 79600,
+   "n": "90seconds"
+  },
+  "UC5BiTvy2Ni2MyigJPspjhOA": {
+   "s": 471000,
+   "n": "トウシル [楽天証券]"
+  },
+  "UCQ-0MkpvJZ0co7WD79DBt9w": {
+   "s": 564000,
+   "n": "コアラ先生の時事ネタ祭り"
+  },
+  "UCN36kFB7Lh4tptI4rsy5vFw": {
+   "s": 780000,
+   "n": "東洋経済オンライン"
+  },
+  "UCukgLcXZWEcnhtmyAb0SyNA": {
+   "s": 370,
+   "n": "ひろゆき氏のお話【切り抜き】"
+  },
+  "UCPMJKbrxtpARoTd1b49iUvA": {
+   "s": 1690000,
+   "n": "楽待 RAKUMACHI"
+  },
+  "UCX-LqOGaPyXnZer4EPqSZqg": {
+   "s": 631,
+   "n": "ウェルカムゴールド鳳凰"
+  },
+  "UCUaulltjwxVkOEhnUYIlP3w": {
+   "s": 10800,
+   "n": "大吉チャンネル"
+  },
+  "UC6VJpegm88WioXPT_NfBNsQ": {
+   "s": 11800,
+   "n": "リファスタ"
+  },
+  "UCk6SzG4qmA7J6CI-QAtWoOg": {
+   "s": 75500,
+   "n": "愛知のニュース【テレビ愛知　ニュース・スポーツ公式チャンネル】"
+  },
+  "UCRZJTJDPnzbjgP8toLCURFQ": {
+   "s": 10200,
+   "n": "米国株投資チャンネル"
+  },
+  "UCRXSzh1ZweNstU7dlrXXbdA": {
+   "s": 6470,
+   "n": "ゴールドおーじ@金の世界を優しく解説"
+  },
+  "UCOaLRr3MjcpO_VyU-c7NChA": {
+   "s": 6000,
+   "n": "恵比寿の八木社長【3分でわかる税金】"
+  },
+  "UCGCZAYq5Xxojl_tSXcVJhiQ": {
+   "s": 5050000,
+   "n": "ANNnewsCH"
+  },
+  "UCn4QqGT58iQJqWXHAjOIXJA": {
+   "s": 4420,
+   "n": "岡三証券"
+  },
+  "UCU5l1JSRryHUc7hZS5fjVrQ": {
+   "s": 1910,
+   "n": "なんぼや | ブランド買取専門店"
+  },
+  "UCrn6ukKQ9-t1mRYgany043w": {
+   "s": 405000,
+   "n": "与沢 翼"
+  },
+  "UCADtkCd5TaPPdKalMZNwmbA": {
+   "s": 7,
+   "n": "Regalia Method FX Channel"
+  },
+  "UC7sEB_ylMuHJD4TjF4Ag1nw": {
+   "s": 400000,
+   "n": "田端大学　投資学部"
+  },
+  "UC4tZjeuvmCMqG_z5fnCbzrw": {
+   "s": 3170,
+   "n": "AIマネー相談室"
+  },
+  "UCznI1ezrZ5riLyHsM3apCIQ": {
+   "s": 4,
+   "n": "TOP5"
+  },
+  "UCfdRXiDhXijuxcZEs0kQqYg": {
+   "s": 63000,
+   "n": "りりな家計管理と投資をする主婦"
+  },
+  "UCkgyQU88epWaOwtmDIbzlJQ": {
+   "s": 1110,
+   "n": "センチュリー21のラスター不動産You Tube支店"
+  },
+  "UCTuTMd_xFwEhapfhv6kFDig": {
+   "s": 49500,
+   "n": "マネックス証券"
+  },
+  "UCr8d7CoeDT66FgOeBTaB60g": {
+   "s": 17,
+   "n": "こしあん配当金"
+  },
+  "UCGh_iZTP1wMglLK3_E8_kog": {
+   "s": 295,
+   "n": "【資産形成】きよまっさチャンネル"
+  },
+  "UCgY8pmJItX4O-ZkkOy9xoFA": {
+   "s": 179000,
+   "n": "松井証券マーケットナビ"
+  },
+  "UCmNeUJ9rKyh5uqjR_z0NA5Q": {
+   "s": 32,
+   "n": "マネーコーチ DAISAKU"
+  },
+  "UCR3bGUWqmlPA3PIsoKs9-Rg": {
+   "s": 6,
+   "n": "知らないと損する金融知識"
+  },
+  "UCdTiMnLGmZPS2ebpi2oI-eQ": {
+   "s": 28,
+   "n": "ケセラセラ横浜"
+  },
+  "UCjXHk1gAA4BRCwsR4FXzkMg": {
+   "s": 118000,
+   "n": "All About マネー【プロと学ぶお金のキホン】"
+  },
+  "UCJefO79L1HfJJw6EDp62miw": {
+   "s": 4200,
+   "n": "nemu room / ねむるーむ"
+  },
+  "UCwq5GMnVI9E-N40AkyeyX2w": {
+   "s": 2950,
+   "n": "N I S A"
+  },
+  "UClpNZvJyYESUJLMObdoEOMg": {
+   "s": 83,
+   "n": "ゆうまつⅠ猫ミームで投資が学べるチャンネル"
+  },
+  "UCWuprpaEtJF6W-IOF-CNDOw": {
+   "s": 202,
+   "n": "イーニー "
+  },
+  "UCKkFLj00Hdmp5-4mjuahsyA": {
+   "s": 1,
+   "n": "haruto tsuenaka"
+  },
+  "UCmr-Rul5MdHcIL1sgTiuWSA": {
+   "s": 13,
+   "n": "じっちゃまのコバンザメ"
+  },
+  "UCCEoqaOzY9__AReWKXrvt8Q": {
+   "s": 238000,
+   "n": "[公式]お金の専門学校"
+  },
+  "UC1TrKj3qNOI-nLfTv0FfvPg": {
+   "s": 2880,
+   "n": "サラリーマン投資家ヤマムー"
+  },
+  "UCS_c9UkGzb3lGLVOblUZVvA": {
+   "s": 7340,
+   "n": "moomoo証券"
+  },
+  "UCjQ7agSSgNDqdvhkmi1ZvFQ": {
+   "s": 35,
+   "n": "湾岸マネーナイト　飛車切り上等チャンネル"
+  },
+  "UCHbk__I-G3CK0lNMDahTP7A": {
+   "s": 54,
+   "n": "つみにーさん"
+  },
+  "UCR-hcg-URfN8FlKHDBqYQ8w": {
+   "s": 8,
+   "n": "ちゃんげんのマネー研究所"
+  },
+  "UCPBBwvmnt3YGXTJCCkx3D_g": {
+   "s": 44,
+   "n": "PRESIDENT Growth"
+  },
+  "UCRMiH3vsIlvD_YxyFzGXPdA": {
+   "s": 602,
+   "n": "神ヶ谷舞"
+  },
+  "UCNHx9NC4ZohBItN-kZ2XvUg": {
+   "s": 58,
+   "n": "たぼの投資生活"
+  },
+  "UCcQnlwvcTqdwIXYLwDO0Inw": {
+   "s": 1,
+   "n": "うーにゃん"
+  },
+  "UCv0zVar4Cbh-uOT4BCR65cw": {
+   "s": 84200,
+   "n": "今更ひろゆき"
+  },
+  "UC9cqvXDNEdSljaKrlhMYDoA": {
+   "s": 13,
+   "n": "今日から新NISA"
+  },
+  "UCft_pAOFyKfQJE7c9LwAdtQ": {
+   "s": 1800,
+   "n": "ホロ"
+  },
+  "UCjRjqH3AEbpEgbFniYdgrBA": {
+   "s": 1050,
+   "n": "DaiGoイズム【メンタリストDaiGo切り抜き】"
+  },
+  "UC2o2ZVya4ZdGJQSk1w3B54A": {
+   "s": 1050,
+   "n": "花子の部屋【切り抜き  高校生でも分かる米国株】"
+  },
+  "UCuW2gBdHR-jsa817TnLATVw": {
+   "s": 16,
+   "n": "まめマネー研究所【投資・節約・NISA】"
+  },
+  "UCz4I1K_CltkVS0gyXeCtGUA": {
+   "s": 540,
+   "n": "ずんだもんと学ぶ株のキホン"
+  },
+  "UC0jUztuzoITQSSz2fbwoubg": {
+   "s": 199,
+   "n": "ひろゆきのお金"
+  },
+  "UCpHJjUGfLQa_yNisUCEGG5g": {
+   "s": 3,
+   "n": "投資小僧"
+  },
+  "UCa7Om-SSkA_8HvDzKazFbtg": {
+   "s": 27,
+   "n": "おトクな制度のトリセツ"
+  },
+  "UCWkUrL5ztPtaHIf8lx_XrjQ": {
+   "s": 956,
+   "n": "毎日ニュース投稿"
+  },
+  "UCod_mcFcSltiXg4edlBd3qA": {
+   "s": 113,
+   "n": "五十歳代が思いついたことを書いているブログです。"
+  },
+  "UC59uNC3ENrvMqJvAux4a1Gw": {
+   "s": 2890,
+   "n": "積立投資ニキ【20代会社員が1億円貯めるまで】"
+  },
+  "UC7gG0EngVILuVHxXJ_w67TA": {
+   "s": 35,
+   "n": "リスキーダイスキー"
+  },
+  "UC7BD4wESuoU-qgMhtSUHtPg": {
+   "s": 765,
+   "n": "60代投資Vlog"
+  },
+  "UCyJFTMjzN7815qlCDcFa-gw": {
+   "s": 3540,
+   "n": "花子のマインド 【#高校生でも分かる #米国株】《切り抜き》"
+  },
+  "UCCIEaMqwRzuc_73TvQR2udg": {
+   "s": 1,
+   "n": "Bocchama"
+  },
+  "UCpSRQH8hgfHxCQ9Q46bms7g": {
+   "s": 0,
+   "n": "Prezin Life "
+  },
+  "UC8a76DQuxUkucKfi1k1cIzg": {
+   "s": 3,
+   "n": "はじめてのお金講座"
+  },
+  "UCwUFbgukwmtPUB6CQx__jNQ": {
+   "s": 13,
+   "n": "米国株 じっちゃまに学べ"
+  },
+  "UC4TXF-qFfOx9ZQpbaYNk6wQ": {
+   "s": 744,
+   "n": "高橋ダンダン【切り抜き】"
+  },
+  "UC3cj2hgM6hkQvDacOWYcVzg": {
+   "s": 249,
+   "n": "とくさん　新入社員の投資日記"
+  },
+  "UCJf85jSgFayOSsZfJ051ZKw": {
+   "s": 43500,
+   "n": "TOKYO MX 報道局"
+  },
+  "UCB8Q7Tm9WaOpPj-JhPiSEXQ": {
+   "s": 7,
+   "n": "Ken Honda 本田健"
+  },
+  "UCRVxf5lU0Vl7CLCCMLkf7eg": {
+   "s": 66800,
+   "n": "大井幸子のグローバルストリームニュース"
+  },
+  "UC5Qgc-tEFmm5iQX5tUy6TyA": {
+   "s": 287000,
+   "n": "株リアルライブ"
+  },
+  "UC-EfEz57FcOg4VhGX69w1rg": {
+   "s": 925,
+   "n": "三崎優太ラボ【青汁王子切り抜き】"
+  },
+  "UCJrPMhEkK4MHSw9qSZKW1hQ": {
+   "s": 21300,
+   "n": "”質問受付中”投資家【ある】のエヌビディア最前線”AI革命で目指せ資産最大化”"
+  },
+  "UC6lg4-ejQbL6KnJx9hybtuQ": {
+   "s": 3,
+   "n": "西本浩一"
+  },
+  "UCo41ITEkDt_h1FcXPstgi6A": {
+   "s": 209,
+   "n": "いきなりてっちゃん@株式投資、料理晩酌や温泉etc"
+  },
+  "UC_RRcTZIHOvT_aUWqzA-eRA": {
+   "s": 26,
+   "n": "米国株AIレポート"
+  },
+  "UCNLxBzguoGLqXWA8_BtHSHA": {
+   "s": 274000,
+   "n": "時事通信映像センター"
+  },
+  "UCxwMxAAkuA7L7M4m2cfXu-Q": {
+   "s": 2,
+   "n": "すけちゃんねる【株ちゃんねる】"
+  },
+  "UCCgZe1LQIc6gSkG4VoUlx2w": {
+   "s": 1510,
+   "n": "億り人になりたいチャンネル"
+  },
+  "UCzoYzblsE4SEfrQmdjTQZDw": {
+   "s": 71000,
+   "n": "ばっちゃまのサブチャンネル"
+  },
+  "UCcUwld9BlC12xZWycuMFwkQ": {
+   "s": 33,
+   "n": "もってぃ株チャンネル"
+  },
+  "UC2Tg2ht5rAdn0AE9xmdAc2w": {
+   "s": 2440,
+   "n": "いわた書店のいわたま"
+  },
+  "UC9Yzd9JQg1wR4jVWE8CcPcg": {
+   "s": 2470,
+   "n": "増田俊男のメディアが言わない話【切り抜き】"
+  },
+  "UCur8Hyq-u-cGfMCd48uNkbA": {
+   "s": 8,
+   "n": "AI漫画マネー塾【お金の教科書】"
+  },
+  "UCdIe4LgnXUjZlfcDstaflYQ": {
+   "s": 2400,
+   "n": "野田宜成チャンネル（野田宜成チャンネル）"
+  },
+  "UCcro2Kbrw1hHZRxiYVM5VWg": {
+   "s": 113,
+   "n": "5分でわかる日本株"
+  },
+  "UCXDD_3y3LvU60vac7eki-6Q": {
+   "s": 8700,
+   "n": "HousingWire"
+  },
+  "UCwQX1SWJfxMk_gp617KmLBQ": {
+   "s": 55,
+   "n": "アテル投資顧問"
+  },
+  "UC24ohvEP5Arg5lzr50kx2mQ": {
+   "s": 33,
+   "n": "【切り抜き】じっちゃま短編集 【広瀬隆雄】"
+  },
+  "UC3_6kWGBpPGkRi9YZiATbtQ": {
+   "s": 57,
+   "n": "リストラ投資オヤジのお金と心の安定チャンネル"
+  },
+  "UCcCpFVM9HFuC1YCCCBgriOw": {
+   "s": 34,
+   "n": "白旗ひろゆき(切り抜き）"
+  },
+  "UCTW2C35NEBGE0s3delaKR9A": {
+   "s": 19,
+   "n": "k kt"
+  },
+  "UCjSrO-HJNGudoom0AmX-Wuw": {
+   "s": 61100,
+   "n": "ホリエモンGO【堀江貴文 切り抜き】"
+  },
+  "UCmgCLrxjm7ZKd1HlFO2ZAlg": {
+   "s": 3,
+   "n": "ECONOMIC PODCAST"
+  },
+  "UCH0h5Z1d88I46eZOtAmmM3Q": {
+   "s": 10,
+   "n": "Mao lazyday"
+  },
+  "UCwqc4_7jWmkThQ2yGiRAGPQ": {
+   "s": 37,
+   "n": "Cognivault"
+  },
+  "UCe721srCFaJm9JD4DwPs3hg": {
+   "s": 105,
+   "n": "NewsDrop JP"
+  },
+  "UCkKVQ_GNjd8FbAuT6xDcWgg": {
+   "s": 2640000,
+   "n": "テレ東BIZ ダイジェスト"
+  },
+  "UCBS4JPaxIC3iibI-U6cOGYw": {
+   "s": 59,
+   "n": "証券マン的株式状況見通し"
+  },
+  "UCqFp_-Xz8JEvX0QbvIXnzAw": {
+   "s": 850,
+   "n": "はくあま"
+  },
+  "UCtY61Iz5qYSKObseuv0eWNg": {
+   "s": 579000,
+   "n": "竹田恒泰ch公式切り抜きチャンネル"
+  },
+  "UCGfWCwHFlc6dSgs4IunJ5TA": {
+   "s": 3140,
+   "n": "日本   一太郎"
+  },
+  "UC-l_HeZ6YaBV-5n8lAXZkgg": {
+   "s": 38700,
+   "n": "千日太郎　公認会計士の住宅ローン専門チャンネル"
+  },
+  "UCsWwPmvnv5k4KbxnV0aEDCg": {
+   "s": 177,
+   "n": "半導体ニュース by ハンドウ退【業界歴31年】【毎日14時更新】"
+  },
+  "UC4u4MYZUTZiXvaxOYG6fLIg": {
+   "s": 15300,
+   "n": "FFG公式チャンネル"
+  },
+  "UCqYcqPUEA15L_NhtElwBeHg": {
+   "s": 25,
+   "n": "ひろゆきに救われたい"
+  },
+  "UCScTXydzX9hBtH951188jxw": {
+   "s": 11200,
+   "n": "ニュースアーカイブ"
+  },
+  "UCx-znGo4gJRuuIwQGggol0Q": {
+   "s": 1390,
+   "n": "億トレーダーの米国株情報局"
+  },
+  "UCMKvT0YVLufHMdGLH89J1oA": {
+   "s": 646000,
+   "n": "朝日新聞"
+  },
+  "UCzhFASYte7zGWIgVS7PgUaA": {
+   "s": 51900,
+   "n": "高田資産コンサル"
+  },
+  "UCUDhUiSUnz7m91Vsbsv1Cwg": {
+   "s": 10400,
+   "n": "ひろゆき収集所【ひろゆき切り抜きCH】"
+  },
+  "UCd6GEK664CTEWRZda7Fu7Lg": {
+   "s": 359000,
+   "n": "大阪NEWS【テレビ大阪ニュース】"
+  },
+  "UCXa5vhjUnWEc3MsKbLZB9ug": {
+   "s": 1640,
+   "n": "大黒天"
+  },
+  "UCHL12woHGeiqAqLrK-pJe7g": {
+   "s": 256000,
+   "n": "日本経済新聞"
+  },
+  "UCAe_-f-hlYQmQUtJWtUbVOg": {
+   "s": 2090,
+   "n": "ひろゆき事典(hiroyuki-ziten)"
+  },
+  "UCVgwOkjyUbwouCjiXPulG4Q": {
+   "s": 186,
+   "n": "マネーマウンテン"
+  },
+  "UC3MIZel02-i-7JQFq1Xr-IQ": {
+   "s": 139000,
+   "n": "全国賃貸オーナーズフェスタ 公式チャンネル"
+  },
+  "UClB39noM8q9iCVTHimVeKEA": {
+   "s": 12,
+   "n": "マネースタイル〜お金頭脳を磨こう!〜"
+  },
+  "UCVgZUHlkoN51FOwoNMBGjfw": {
+   "s": 237000,
+   "n": "厚生労働省 / Ministry of Health, Labour and Welfare"
+  },
+  "UC357Zh32XKxleZHzExMTr7Q": {
+   "s": 1890,
+   "n": "ななおnetラジオ局"
+  },
+  "UCsVzW9YowZb1ywDaoDSf7Ag": {
+   "s": 306,
+   "n": "セミリタTIME"
+  },
+  "UCsN49aoPDKUVZ8I3kxMrN5A": {
+   "s": 2360,
+   "n": "ゲム速!!"
+  },
+  "UCaq_TuAtmhlejtZnmT4q5MQ": {
+   "s": 162,
+   "n": "現役投資家FP"
+  },
+  "UCRiAKKuRd2NaKmEUmPfwSEA": {
+   "s": 136,
+   "n": "FPがそっと教えるお金のこと"
+  },
+  "UCd8_sBwkRG2mpGXxD5vA1KQ": {
+   "s": 9,
+   "n": "サムタイム"
+  },
+  "UCyQIge_hYpOrscaaOMtLsfg": {
+   "s": 4010,
+   "n": "窓際│日本株でFIRE目指す"
+  },
+  "UC5WGadXKT5SegWxu15yIKdg": {
+   "s": 3620,
+   "n": "タカ視チャート"
+  },
+  "UCXv71riGOU_ktN_erQcLEKA": {
+   "s": 2880,
+   "n": "はまの仕事"
+  },
+  "UCqD-bc3ISx7TjM21PEZrvQQ": {
+   "s": 469,
+   "n": "rav god"
+  },
+  "UC68auNbMASkHVkzDdAXHK1A": {
+   "s": 5090,
+   "n": "SBGレヴューチャンネル"
+  },
+  "UCcMKfz1n6L6erIlyyowlOOA": {
+   "s": 201000,
+   "n": "ソフトバンク（SoftBank）"
+  },
+  "UC8q5kQIsR7Doh0i5UzcMXEw": {
+   "s": 243,
+   "n": "RC理論株価算出チャンネル"
+  },
+  "UCgfoWZfz7-jMgtUfc2OwmLw": {
+   "s": 6540,
+   "n": "王道の投資【日本有名株式で資産を増やす】"
+  },
+  "UCUBDOEm4w4b9RkWn17RMsVA": {
+   "s": 705,
+   "n": "タケシの休日倶楽部"
+  },
+  "UCOqXYSgU-LtP6v7OZkFHBLQ": {
+   "s": 1120,
+   "n": "薪アラタ / Takigi Arata"
+  },
+  "UCfARecm0pLxcZXMS_aZXoVA": {
+   "s": 3,
+   "n": "Japan Pulse Media ⭐"
+  },
+  "UCqYVxsgmDYm5vLTGqILjKhA": {
+   "s": 6470,
+   "n": "マクラーレン買うために投資を始めた会社員"
+  },
+  "UCzse1CKZMdzJs7QydKcMIMg": {
+   "s": 721,
+   "n": "Financial DC Japan"
+  },
+  "UCKGnibzFGJLVrCOIXu-4hXg": {
+   "s": 18,
+   "n": "こがちゃんのボストン住まい選び情報"
+  },
+  "UCcZQ8T-BCqr7TmjgXJD20ZQ": {
+   "s": 78,
+   "n": "お金と保険が学べる！ニッセンライフチャンネル"
+  },
+  "UClVsQnfs-jKkjKmUKUHnT2g": {
+   "s": 218000,
+   "n": "日経CNBC 公式チャンネル"
+  },
+  "UCO7FMrzELE07mfCMZuoWSog": {
+   "s": 84900,
+   "n": "みんなのテスタ【切り抜き】"
+  },
+  "UCK7D9-RHhr7Fl5jkNbuYF-Q": {
+   "s": 1380,
+   "n": "時空をこえて日本"
+  },
+  "UCHm3tHjwSFb586yOs_tz-tQ": {
+   "s": 6,
+   "n": "ひろゆき配信切り抜きチャンネル"
+  },
+  "UCQWnWQjBUsWyoeyXxU7DfBw": {
+   "s": 2050,
+   "n": "ひろゆき論破ちゃんねる"
+  },
+  "UCIe45xeWYKH6g6T7BGk0ENw": {
+   "s": 2660,
+   "n": "あしたの気になるニュース"
+  },
+  "UCw4TINAAzBLv8wZWVEe4bEQ": {
+   "s": 485,
+   "n": "SAORI YOSHIDA"
+  },
+  "UCk4Kc-bfvhrpDkImjfBxdIg": {
+   "s": 1010,
+   "n": "2chトレンド速報"
+  },
+  "UCLfUYPjiihODeeBzlnpf7Fg": {
+   "s": 6900,
+   "n": "ギャルとゲーム、どっちが本業かわからん件"
+  },
+  "UCNU_K-28sjqX66tyfqOBW9w": {
+   "s": 1,
+   "n": "SAKUCHANNEL"
+  },
+  "UCyeNczFFV-uutr5qbHjAQJw": {
+   "s": 104,
+   "n": "老後の真実チャンネル"
+  },
+  "UCzNrVHQ8EV_HhKvBbt4bk2g": {
+   "s": 175000,
+   "n": "Nex"
+  },
+  "UCOTKt_HVF56SKvwD4iduI2A": {
+   "s": 20,
+   "n": "介護士ゆみの老後戦略"
+  },
+  "UCC33kHSLB2TmAR7bIv5GjvQ": {
+   "s": 1650,
+   "n": "AI解説トレンド速報"
+  },
+  "UCIlFVqJ09T9msSWelYUUGAQ": {
+   "s": 50,
+   "n": "投資家ニュース"
+  },
+  "UCTVj_vAw0IgsCFEarT6thlA": {
+   "s": 120,
+   "n": "【ChatGPTコンサル、経営、DX、副業、農業】M&Sチャンネル"
+  },
+  "UCqPDZgcJtyPFhJM4qx-PuKg": {
+   "s": 36000,
+   "n": "鹿児島ニュースKTS"
+  },
+  "UCOEI3q4Yd12bBAAyTZGmEmg": {
+   "s": 415,
+   "n": "障碍者目線の福祉チャンネル"
+  },
+  "UC9ehYg2pAKd7pLjPEkoI29Q": {
+   "s": 58,
+   "n": "あなたを救う　社会保障チャンネル"
+  },
+  "UCH6IkH2WOmz-igrI6ilTcaQ": {
+   "s": 2330,
+   "n": "キャリサポチャネル"
+  },
+  "UChf8zXgNLKLWiyBF_sWfNlg": {
+   "s": 534,
+   "n": "ヴィーナスの部屋 | 小出美知代"
+  },
+  "UCpnxEiz4CMKDJLgA1Xu3BEg": {
+   "s": 45,
+   "n": "50代女性の老後とお金の悩み解決"
+  },
+  "UCamllJQ7YaqaDNMCWgonj2w": {
+   "s": 18200,
+   "n": "ソフトバンクグループ株式会社 (SoftBank Group Corp.)"
+  },
+  "UC9-OrNKoplDVNWVWlSHQ3qw": {
+   "s": 9,
+   "n": "データあさぼりチャンネル"
+  },
+  "UCXABTs6AijX9VyNE44cMhpw": {
+   "s": 1230,
+   "n": "60代 生涯独身 足るを知る生き方"
+  },
+  "UCoqM4LL-KrODLL6rT8nWMZw": {
+   "s": 1210,
+   "n": "経済評論家 増田ひろし『先回りエントリー法』で海外投資家や大口に便乗【億トレ監修の日本株投資法】"
+  },
+  "UCNMjzKiBsJzpCiNcv9PVN1Q": {
+   "s": 31,
+   "n": "秘密の知識図書館–選ばれし者が知る知識の倉庫"
+  },
+  "UCnZ1PaAoWYevgAl5rz9usDA": {
+   "s": 110,
+   "n": "賢者のポートフォリオ_SNS版"
+  },
+  "UCY8eO82NkThzoOw7_dLHDmg": {
+   "s": 41,
+   "n": "梅木タカユキ | 未来マネーデザイン"
+  },
+  "UCqOCTwhlsscuIbb6RbSVJ7A": {
+   "s": 45,
+   "n": "気になるニュース"
+  },
+  "UCL4B0otnLbZfzYI5qZTLjxw": {
+   "s": 2,
+   "n": "投資スクール"
+  },
+  "UCXpbu_cEoz0wARCvMnz1bvg": {
+   "s": 1,
+   "n": "特養看護師　K"
+  },
+  "UCOoklLIF2iuPUNM1IbWGddw": {
+   "s": 80,
+   "n": "生活のプチライフハック"
+  },
+  "UChS9JcY41MojIAiqNG3sfhA": {
+   "s": 4870,
+   "n": "投資家アヴィーチ『資産運用・投資TV』"
+  },
+  "UCawXFhmKEQiA7xk2g_NrHMg": {
+   "s": 2930,
+   "n": "【超入門 仮想通貨ch】 きつね店長"
+  },
+  "UCRP9Ij6gL9IViB7MS3Ez9aw": {
+   "s": 18200,
+   "n": "ビットコイナー反省会"
+  },
+  "UCQzTm1FjjZEFqTxsEr8dCVA": {
+   "s": 415,
+   "n": "医師の資産形成録"
+  },
+  "UCALplCbeagOxXGmEJ-hOJIg": {
+   "s": 197000,
+   "n": "楽天証券"
+  },
+  "UCDuaAgOL_NyFnqxPHMd43RA": {
+   "s": 29200,
+   "n": "GUMY Tutorials"
+  },
+  "UC2vVdoxC2SksHmTs3Joxhpw": {
+   "s": 6800,
+   "n": "残業トレード👨‍💼"
+  },
+  "UCtwH2mwok-jdRCVTeZAzwow": {
+   "s": 34400,
+   "n": "Shah Faisal Shah"
+  },
+  "UClQJzCA5q7H97R08SGi2_8w": {
+   "s": 2170,
+   "n": "コインオタクおたくの伊藤健次まとめチャンネル"
+  },
+  "UCpjRcvQdZf_FfqgSh1FNjMw": {
+   "s": 2290,
+   "n": "アトム/探求ちゃんねる"
+  },
+  "UCEdwidkxPqrtN1K1DD2JZPw": {
+   "s": 1380,
+   "n": "BITTIMES OFFICIAL"
+  },
+  "UCvgEDcGzZeis9N_nI6U8BKA": {
+   "s": 789,
+   "n": "ショートしない資産形成のショート"
+  },
+  "UCxDxfAKNcaofS71E0kJq17w": {
+   "s": 172,
+   "n": "まなものゆる投資と暮らし"
+  },
+  "UCGj8DVN6Ysxi66aRBt99AxA": {
+   "s": 5,
+   "n": "慎重派のための年利5%でムリなく手堅くできる資産運用"
+  },
+  "UCxyv0MGvkLJAk52LDll7cKw": {
+   "s": 76800,
+   "n": "レバニキ"
+  },
+  "UCZ7wVb-0sVdlAz4vX8vDlVA": {
+   "s": 234,
+   "n": "鳥本ラジオ"
+  },
+  "UCjRnTXG9EgvRNMprkfPtxDQ": {
+   "s": 692,
+   "n": "FXcoin株式会社 公式チャンネル"
+  },
+  "UCGg1ORBcywpOd_OxtSFOMQQ": {
+   "s": 6,
+   "n": "ビットマン"
+  },
+  "UCxW1CrSxJzX38qJsdG2HTPw": {
+   "s": 4620,
+   "n": "ノストラダムス"
+  },
+  "UCIlf1c82vOyQzE8kDpiwuoQ": {
+   "s": 66,
+   "n": "お金を増やす基本"
+  },
+  "UCuAHeGo7CcN6vubv3zAH9wQ": {
+   "s": 25,
+   "n": "ビビットちゃんねる"
+  },
+  "UCS_eNl7R0V8hmN4eXyYN8qA": {
+   "s": 3350,
+   "n": "仮想通貨クラウド"
+  },
+  "UCGtP69JFW8nzDr-EKqeqTFA": {
+   "s": 227,
+   "n": "通貨くん_仮想通貨初心者向け超入門"
+  },
+  "UCPOls6lAFH6dUsaPU5dvxRA": {
+   "s": 2470,
+   "n": "かんたん労務チャンネル"
+  },
+  "UCFNH-kBMYFIo3GNpwFAowxw": {
+   "s": 201000,
+   "n": "2浪4留で大学中退した社畜は今セミリタイアしたい"
+  },
+  "UCqMYW_VLuaEi71c8Mc53Z_A": {
+   "s": 2,
+   "n": "yu-taro仮想通貨の裏表"
+  },
+  "UCDqEPyH-wL4u9FcKLxDCxpQ": {
+   "s": 637,
+   "n": "金融トレーダーaki 【harmonic trader】"
+  },
+  "UCAtSDFXv_kR1fkviACcEuMg": {
+   "s": 4,
+   "n": "ゴリパパのんびり資産形成チャンネル"
+  },
+  "UC3McPdkyidCBzdV_XbQu-4w": {
+   "s": 70300,
+   "n": "ひろぬけ【ひろゆき切り抜き】"
+  },
+  "UC5Bf0wKhBinR5WDbwjq_gfA": {
+   "s": 1,
+   "n": "億トレーダー☆サトシ😘"
+  },
+  "UC59MosY-_4XNt8FRwNbUxhw": {
+   "s": 994,
+   "n": "はじめての株・ビットコインch【きつね店長】"
+  },
+  "UC_egE0WCAKCCUi2hpItta0Q": {
+   "s": 0,
+   "n": "Life-smith "
+  },
+  "UCHyVYCZj_4oGW7-MRuOasYQ": {
+   "s": 317,
+   "n": "副業のすすめ【切り抜き】"
+  },
+  "UCjdz8ZhtCjrbLVAs73fQAmQ": {
+   "s": 4,
+   "n": "奥春life"
+  },
+  "UCnJTxuXKkNGD1vwCkSlGtcg": {
+   "s": 51600,
+   "n": "障害年金【専門】社労士「松岡由将」"
+  }
+ }
+}
