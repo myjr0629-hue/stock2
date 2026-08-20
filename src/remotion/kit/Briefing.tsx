@@ -18,7 +18,7 @@
 // ============================================================================
 
 import {
-  AbsoluteFill, Audio, Img, Sequence, interpolate, staticFile,
+  AbsoluteFill, OffthreadVideo, Audio, Img, Sequence, interpolate, staticFile,
   useCurrentFrame, useVideoConfig, Easing,
 } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Inter';
@@ -28,6 +28,8 @@ import { CANVAS, SAFE, CAPTION, PACE, C, BACKDROP_FOR, HOOK_BACKDROP, type BeatR
 import { TickerMark, SymbolHero } from '../components/TickerMark';
 import { TickerField } from '../components/TickerField';
 import { SYM, resolveSymbol } from './symbols';
+import { AppPlate } from './AppPlate';
+import { EndCard } from './EndCard';
 
 const { fontFamily } = loadFont();
 const F = (s: number) => Math.round(s * CANVAS.fps);
@@ -47,7 +49,17 @@ export type Visual =
       제3자 의견의 «집계»를 사실로 보여준다. 우리 의견으로 섞지 않는다. */
   | { kind: 'consensus'; rating: string; pct: string; n: string; up: boolean; note?: string }
   | { kind: 'shot'; src: string; focus: ShotFocus; callout?: ShotCallout }
-  | { kind: 'chart'; series: number[]; label: string; value: string; pct: string; up: boolean };
+  /** ★ 2026-08-20 승격 — 스파크라인에서 «ICT 계급 차트»로.
+   *  레퍼런스 3계급 어디도 «숫자 3줄 카드»로만 말하지 않는다.
+   *  ICT Gems(17.6만)는 «실제 차트에 실제 레벨»을 짚는다. levels/marks/panel 이 그 문법이다. */
+  | { kind: 'chart'; series: number[]; label: string; value: string; pct: string; up: boolean;
+      /** 수평 레벨 — 맥스페인·감마플립·VWAP 처럼 «실제 값»만 */
+      levels?: Array<{ v: number; label: string; tone?: 'accent' | 'hot' | 'cool' }>;
+      /** 짚을 지점 — 돌파·이벤트일. i 는 series 인덱스 */
+      marks?: Array<{ i: number; label?: string }>;
+      /** 하단 지표 패널 (0~100 스케일). RSI 등 */
+      panel?: { series: number[]; label: string; hi?: number; lo?: number };
+      axis?: boolean };
 
 export interface Beat {
   role: BeatRole;
@@ -79,9 +91,45 @@ export interface BriefingProps {
   title: string;
   date: string;
   /** hook.syms = 프레임0 지배 요소. 1개면 단독, 2~3개면 클러스터 (§1-3) */
-  hook: { line: string; sub: string; role?: BeatRole; bg?: string | BackdropSpec; syms?: string[]; stamp?: string };
+  hook: {
+    line: string; sub: string; role?: BeatRole; bg?: string | BackdropSpec; syms?: string[]; stamp?: string;
+    /** 프레임0 지배 요소로 쓸 «거대 숫자» (예: '+0.1%'). 폰 썸네일에서 유일하게 읽히는 것 */
+    bigNum?: string;
+    /**
+     * ★ 반전 훅 — 「상식과 반대」를 «화살표 2개»로 만든다.
+     *   폰 썸네일 폭은 ≈210px 다. 88px 문장은 17px, 40px 서브는 8px 로 줄어 «안 읽힌다».
+     *   그 크기에서 살아남는 것은 «색 블록과 도형»뿐이다. 그래서 방향을 그림으로 그린다.
+     *   down = 내려간다고 «믿는» 것 / up = 실제로 «오르는» 것.
+     */
+    flip?: { down: string; up: string };
+    /**
+     * ★ 훅 «낭독 전용» 문장. 없으면 line 을 읽는다.
+     *   화면에는 'down 25%' 라고 써야 뜻이 통하는데, TTS 는 그걸
+     *   'down twenty-five percent' 로 읽어 낭독이 길어진다.
+     *   낭독이 길어지면 훅이 길어지고 → 첫 컷이 밀리고 → 지속률이 떨어진다(상관 -0.90).
+     *   실측: 'Micron: down 25%. Up 198%.' 는 2.87초 → 훅 3.32초 (승자밴드 2.8초 초과)
+     *   그래서 «보는 문장»과 «읽는 문장»을 분리한다.
+     */
+    say?: string;
+  };
   beats: Beat[];
-  outro: { app: string; line: string; ask: string };
+  outro: {
+    app: string; line: string; ask: string;
+    /**
+     * ★ 폰 목업 엔드카드 — 대표 지시(2026-08-19):
+     *   "앱 아이콘만 넣지 말고 «실제 주요 화면»을 폰 안에 넣고, 기관급 지표를 자막으로
+     *    나열하면서 free 를 강조해라. 보통 광고 영상이 그렇게 한다."
+     *   조사도 같은 방향이다: 「스크린샷을 3D 디바이스 프레임에 넣고 핵심 기능을 헤드라인으로,
+     *   명시적 CTA(Download free / Available on iOS & Android), 스토어 배지를 엔드프레임에」
+     *   (2026 앱 프로모 관례. 모바일 영상의 80%가 «음소거» 시청 → 온스크린 텍스트 필수)
+     *
+     *   endcard 를 켜면 CtaBlock 대신 EndCard(폰+궤도패널+아이콘+CTA)를 쓴다.
+     *   ⚠️ 앱 화면은 «실캡처»만 (endcards.ts §8). AI 가 그린 UI 는 절대 금지.
+     */
+    endcard?: boolean;
+    /** 폰 위에 겹칠 «기관급 지표» 나열. 음소거 시청자에게 값을 보여준다 */
+    metrics?: string[];
+  };
   /** 마지막이 첫 화면으로 이어지는 루프백 문장 */
   loop: string;
   /** 절차 배경이 쓸 실데이터 (seed=티커, series=당일 시계열 등) */
@@ -98,6 +146,8 @@ export interface BriefingProps {
   readLabel?: string;
   /** 면책 본문 — «의견»이 들어가는 영상은 이 문구가 더 길어진다 */
   disclaimer?: string;
+  /** 브리핑 계급 페이스 — 비트 안 중간컷을 끈다 (컷/분 6.5~16.5 실측) */
+  slowCuts?: boolean;
   /** ★ ElevenLabs 음성 트랙 (scripts/tts-beats.mjs 가 생성).
       낭독 «실측» 길이가 컷 길이의 정답이 된다 — 글자수 추정(msFor)을 대체. */
   voice?: VoiceTrack;
@@ -134,9 +184,29 @@ const secFor = (b: Beat, seg?: VoiceSeg | null) =>
 /** 훅/CTA/루프 길이 — 음성이 스펙 기본값보다 길면 음성을 따른다 */
 export function timingOf(p: BriefingProps) {
   const v = p.voice;
-  const hookSec = v?.hook ? Math.max(PACE.hookSec, v.hook.sec + 0.25) : PACE.hookSec;
+  /**
+   * ★★ 훅 길이 = «첫 컷이 언제 오는가» 다. 이게 지속률을 지배한다.
+   *
+   * 2026-08-19 자사 쇼츠 9편 전수 실측 (YouTube 스튜디오 지속률 × ffmpeg 첫컷 시각):
+   *   첫컷 ≤2.8초  → 지속률 평균 100.6%  (111.4 / 100.6 / 89.7)   ← 상위 3편 전부
+   *   첫컷  3.0초  → 지속률 평균  48.5%
+   *   첫컷 ≥3.7초  → 지속률 평균  29.6%  (17.1 / 42.1)
+   *   순위상관 «-0.90» — 빠를수록 좋다. 거의 완전한 단조 관계다.
+   *   (상단 밝기는 +0.13 으로 거의 무관했다 — 눈으로는 그게 원인처럼 보였지만 아니었다)
+   *
+   * 예전 공식은 `Math.max(3.0, 낭독+0.25)` 였다. 낭독이 1.3초여도 3.0초로 «강제»되어
+   * 낭독이 끝난 뒤 1.7초 동안 정지 화면이 남았고, 시청자는 그 정지 구간에서 나갔다
+   * (04_MORNING 실측: 첫컷 3.73초 · 평균 시청 «4초» · 지속률 17.1%).
+   *
+   * ⚠️ 상한은 두지 않는다 — 자르면 훅 음성이 끊긴다. 대신 «대본 규칙»으로 잡는다:
+   *    훅 문장은 32자 이내 (= 낭독 2.3초 이내 = 첫컷 2.75초 이내).
+   */
+  const hookSec = v?.hook ? Math.max(2.0, v.hook.sec + 0.45) : PACE.hookSec;
   const beatSecs = p.beats.map((b, i) => secFor(b, v?.beats?.[i]));
-  const ctaSec = v?.outro ? Math.max(PACE.ctaSec, v.outro.sec + 0.3) : PACE.ctaSec;
+  // ⛔ 낭독 끝나자마자 잘라내면 끝 장면이 «스쳐 지나간다» (대표 확인 2026-08-21).
+  //    폰·지표칩·구독줄·앱주소를 읽을 시간이 필요하다. 낭독 뒤 1.4초를 준다.
+  //    ⚠ 길이가 늘면 평균 조회율의 분모가 커진다 — 그래서 «최소한만» 늘린다.
+  const ctaSec = v?.outro ? Math.max(3.2, v.outro.sec + 1.4) : 3.2;
   const loopSec = v?.loop ? Math.max(PACE.loopSec, v.loop.sec + 0.2) : PACE.loopSec;
   return { hookSec, beatSecs, ctaSec, loopSec };
 }
@@ -196,28 +266,34 @@ function Banner({ title, date }: { title: string; date: string }) {
   );
 }
 
-// ── 하단 존 (2026-08-07 대표 피드백: «아래쪽이 텅 비어 있다») ────────────────
-// SAFE.bottom(1440) 아래 25%는 플랫폼 UI가 덮는 자리라 «중요 정보»는 못 놓는다.
-// 대신 덮여도 되는 것: 브랜드 워터마크 + 티커 테이프. 빈 화면이 아니라
-// 라이브 터미널처럼 보이게 하는 앰비언트 존이다. 테이프 값도 캡처 실측.
+// ── 하단 존 ────────────────────────────────────────────────────────────────
+// ★ 2026-08-17 세이프존 교정 (Casual.tsx 와 동일 규칙 적용).
+//   구판은 «덮여도 되는 것»이라며 UI 존 안에 뒀는데, 실제 모바일 UI 를 겹쳐 재보니
+//   덮이는 정도가 아니라 «정면 충돌»이었다:
+//     · 브랜드 워터마크 y≈1544 → 유튜브가 바로 그 줄에 @SIGNUMHQ 채널명을 그린다
+//       (화면에 SIGNUM HQ 가 두 개 겹쳐 나온다) → «삭제». 상단 TitleBand 가
+//       영상 내내 로고+SIGNUM HQ 를 이미 보여준다. 브랜딩 손실 0
+//     · 티커 테이프 y≈1778 → 유튜브 음원 표시줄과 겹쳐 사실상 안 보인다
+//       → y≈1402~1458 로 «올린다». 뉴스 티커는 보여야 의미가 있다
+//   UI 존은 y>1536 (1080x1920 기준 실측). 이 함수의 모든 요소는 그 «위»에 둔다.
 function BottomZone({ tape }: { tape?: Array<{ t: string; v: string; up?: boolean }> }) {
   const f = useCurrentFrame();
   const items = tape ?? [];
   return (
-    <div style={{ position: 'absolute', left: 0, right: 0, top: SAFE.bottom, bottom: 0, zIndex: 30, pointerEvents: 'none' }}>
-      <div style={{ position: 'absolute', top: 104, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, opacity: 0.62 }}>
-        <Img src={staticFile(LOGO)} style={{ width: 48, height: 48, borderRadius: 12 }} />
-        <span style={{ fontFamily, fontSize: 26, fontWeight: 900, letterSpacing: '0.16em', color: 'rgba(224,232,246,0.92)' }}>SIGNUM HQ</span>
-      </div>
+    <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 30, pointerEvents: 'none' }}>
       {items.length > 0 && (
         <div style={{
-          position: 'absolute', left: 0, right: 0, bottom: 92, overflow: 'hidden',
+          // ★ 2026-08-20 — 티커를 «상단»으로 옮겼다.
+          //   자막을 레퍼런스 밴드(67~78%)로 내리자 티커(y1400~1458)와 정면으로 겹쳤다
+          //   — 실제 프레임에서 ask 문구가 티커에 잘렸다.
+          //   레퍼런스 3계급 어디에도 하단 스크롤 티커는 없다. 상단이 시황 채널의 자리다.
+          position: 'absolute', left: 0, right: 0, bottom: 390, height: 50, overflow: 'hidden',
           borderTop: '1px solid rgba(255,255,255,0.10)', borderBottom: '1px solid rgba(255,255,255,0.10)',
           background: 'rgba(6,10,18,0.55)',
         }}>
-          <div style={{ display: 'flex', whiteSpace: 'nowrap', transform: `translateX(${-(f * 2.2)}px)`   /* mod 래핑은 내용폭≠주기라 이음매가 튄다 — 60s(3960px)도 4반복(~8000px)이 덮는다 */, padding: '13px 0' }}>
+          <div style={{ display: 'flex', whiteSpace: 'nowrap', transform: `translateX(${-(f * 2.2)}px)`   /* mod 래핑은 내용폭≠주기라 이음매가 튄다 */, padding: '11px 0' }}>
             {[0, 1, 2, 3].map((rep) => items.map((it, i) => (
-              <span key={`${rep}-${i}`} style={{ fontFamily, fontSize: 24, fontWeight: 800, padding: '0 28px', display: 'inline-flex', gap: 10 }}>
+              <span key={`${rep}-${i}`} style={{ fontFamily, fontSize: 23, fontWeight: 800, padding: '0 28px', display: 'inline-flex', gap: 10 }}>
                 <span style={{ color: C.ink }}>{it.t}</span>
                 <span style={{ color: it.up == null ? C.faint : it.up ? C.cool : C.hot }}>{it.v}</span>
               </span>
@@ -231,44 +307,52 @@ function BottomZone({ tape }: { tape?: Array<{ t: string; v: string; up?: boolea
 
 // ── 자막 — ★ 안전영역 안, 74px, 26자 2줄 ───────────────────────────────────
 function Say({ text, ask, askAt }: { text: string; ask?: string; askAt?: number }) {
-  const p = useIn(0, 6);          // 조사: 오디오보다 0.1~0.3초 먼저
-  // ★ ask 자막은 «말이 시작되는 프레임»에 뜬다. 고정 22프레임이던 구판은
-  //   낭독이 앞 문장을 읽는 동안 자막만 먼저 떠서 최대 2초가 어긋났다(2026-08-11 실측).
-  const q = useIn(Math.max(0, (askAt ?? 22) - 4), 9);   // 4프레임(0.13s) 선행 = 조사 권장치
+  const p = useIn(0, 6);
+  // ★ ask 자막은 «말이 시작되는 프레임»에 뜬다 (2026-08-11 실측: 고정 22프레임은 최대 2초 어긋남)
+  // ★ 2026-08-20 — 9프레임 교차페이드는 «컷»으로 검출됐다 (컷/분 30 → 46.5).
+  //   레퍼런스 최대가 22.8컷/분인데 우리가 두 배였다. 디졸브는 컷이 아니어야 한다.
+  const q = useIn(Math.max(0, (askAt ?? 22) - 4), 18);
   const lines = CAPTION.wrap(text);
+  const askLines = ask ? CAPTION.wrap(ask) : [];
+  // ★ 2026-08-20 — «한 슬롯, 한 자막».
+  //   전: say 상자 아래에 ask 상자를 «쌓았다» → 두 상자 높이 때문에 say 가 화면 52~65% 로 밀려
+  //       레퍼런스 밴드(76~80%, DayTrade Warrior 실사)를 한참 벗어났다. shorts-gate 가 잡았다.
+  //   후: 같은 자리에서 교차 페이드. 레퍼런스는 전부 «한 번에 한 줄»이다.
+  const slot: React.CSSProperties = {
+    position: 'absolute', left: 44, right: SAFE.right, bottom: 460,
+  };
   return (
-    <div style={{
-      position: 'absolute', left: 44, right: 44,
-      // ★ 하단이 아니라 «안전영역 하단» 위. 유튜브 버튼에 안 가린다.
-      bottom: CANVAS.h - SAFE.bottom + 24,
-    }}>
-      <div style={{
-        opacity: p, transform: `translateY(${(1 - p) * 12}px)`,
-        background: C.capBg, border: `1px solid ${C.line}`, borderRadius: 18,
-        padding: '20px 26px', backdropFilter: 'blur(4px)',
-      }}>
-        {lines.map((l, i) => (
-          <div key={i} style={{
-            fontFamily, fontSize: CAPTION.sizeFor(lines.length), lineHeight: CAPTION.lineHeight,
-            fontWeight: 900, color: C.ink, letterSpacing: '-0.025em',
-          }}>{l}</div>
-        ))}
-      </div>
-      {ask && (
+    <>
+      <div style={{ ...slot, opacity: p * (1 - q), transform: `translateY(${(1 - p) * 12}px)` }}>
         <div style={{
-          marginTop: 12, opacity: q, transform: `translateY(${(1 - q) * 10}px)`,
-          background: 'rgba(255,176,32,0.16)', border: `2px solid ${C.head}`,
-          borderRadius: 16, padding: '16px 22px',
+          background: C.capBg, border: `1px solid ${C.line}`, borderRadius: 18,
+          padding: '20px 26px', backdropFilter: 'blur(4px)',
         }}>
-          {CAPTION.wrap(ask).map((l, i, arr) => (
-            <div key={i} style={{
-              fontFamily, fontSize: arr.length > 2 ? 44 : 52, lineHeight: 1.2, fontWeight: 900,
-              color: C.head, letterSpacing: '-0.025em',
+          {lines.map((l, i2) => (
+            <div key={i2} style={{
+              fontFamily, fontSize: CAPTION.sizeFor(lines.length), lineHeight: CAPTION.lineHeight,
+              fontWeight: 900, color: C.ink, letterSpacing: '-0.025em',
             }}>{l}</div>
           ))}
         </div>
+      </div>
+      {ask && (
+        <div style={{ ...slot, opacity: q, transform: `translateY(${(1 - q) * 10}px)` }}>
+          <div style={{
+            // ⛔ 반투명 앰버는 밝은 배경 위에서 «앰버 글자»와 붙어 안 읽혔다 (paper-crowd 실측)
+            background: 'rgba(6,10,18,0.92)', border: `2px solid ${C.head}`,
+            borderRadius: 18, padding: '20px 26px', backdropFilter: 'blur(4px)',
+          }}>
+            {askLines.map((l, i2) => (
+              <div key={i2} style={{
+                fontFamily, fontSize: CAPTION.sizeFor(askLines.length), lineHeight: CAPTION.lineHeight,
+                fontWeight: 900, color: C.head, letterSpacing: '-0.025em',
+              }}>{l}</div>
+            ))}
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -282,7 +366,12 @@ function Head({ n, eyebrow, head }: { n: number; eyebrow?: string; head: string 
           {String(n).padStart(2, '0')}
         </span>
         <div style={{ width: 72, height: 3, background: C.head, borderRadius: 2 }} />
-        {eyebrow && <span style={{ fontFamily, fontSize: 21, fontWeight: 700, color: C.ink }}>{eyebrow}</span>}
+        {/* ⛔ 밝은 배경에서 회색 글자가 묻힌다 — 얇은 스크림을 깐다 (2026-08-21) */}
+        {eyebrow && <span style={{
+          fontFamily, fontSize: 21, fontWeight: 700, color: '#EEF3FB',
+          background: 'rgba(6,9,16,0.55)', borderRadius: 7, padding: '3px 10px',
+          textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+        }}>{eyebrow}</span>}
       </div>
       <div style={{
         marginTop: 10, opacity: b, transform: `translateY(${(1 - b) * 12}px)`,
@@ -403,10 +492,22 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
 
   if (v.kind === 'chart') {
     const d = useIn(6, 26);
-    const W = w, H = Math.min(300, h - 140), B = 14;
-    const lo = Math.min(...v.series), hi = Math.max(...v.series), sp = hi - lo || 1;
-    const pts = v.series.map((x, i) => `${((i / (v.series.length - 1)) * W).toFixed(1)},${((H - B) - ((x - lo) / sp) * (H - B - 20)).toFixed(1)}`).join(' ');
+    const CW = w - 52;
+    const PH = v.panel ? Math.min(206, h - 300) : Math.min(300, h - 150);
+    const NH = v.panel ? 96 : 0;
+    // 레벨이 있으면 «레벨까지» 보이도록 축을 넓힌다 — 레벨이 프레임 밖이면 의미가 없다
+    const vals = [...v.series, ...(v.levels || []).map((L) => L.v)];
+    const lo0 = Math.min(...vals), hi0 = Math.max(...vals), pad = (hi0 - lo0) * 0.08 || 1;
+    const lo = lo0 - pad, sp = (hi0 + pad) - lo || 1;
+    const X = (i: number) => (i / (v.series.length - 1)) * CW;
+    const Y = (x: number) => (PH - 14) - ((x - lo) / sp) * (PH - 34);
+    const pts = v.series.map((x, i) => `${X(i).toFixed(1)},${Y(x).toFixed(1)}`).join(' ');
     const col = v.up ? C.cool : C.hot;
+    const TONE = { accent: C.head, hot: C.hot, cool: C.cool } as const;
+    // 지표 패널 (0~100)
+    const PY = (x: number) => NH - 10 - (x / 100) * (NH - 20);
+    const ppts = v.panel ? v.panel.series.map((x, i) =>
+      `${((i / (v.panel!.series.length - 1)) * CW).toFixed(1)},${PY(x).toFixed(1)}`).join(' ') : '';
     return (
       <div style={box}><Card>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
@@ -416,10 +517,40 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
           </div>
           <div style={{ fontFamily, fontSize: 52, fontWeight: 900, color: col, letterSpacing: '-0.035em' }}>{v.pct}</div>
         </div>
-        <div style={{ marginTop: 12, clipPath: `inset(0 ${(1 - d) * 100}% 0 0)` }}>
-          <svg width={W - 52} height={H} style={{ display: 'block' }}>
-            <polyline points={pts} fill="none" stroke={col} strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" />
+        <div style={{ marginTop: 10 }}>
+          <svg width={CW} height={PH} style={{ display: 'block' }}>
+            {(v.levels || []).map((L) => (
+              <g key={L.label}>
+                <line x1={0} y1={Y(L.v)} x2={CW} y2={Y(L.v)} stroke={TONE[L.tone ?? 'accent']}
+                  strokeWidth={4} strokeDasharray="12 8" opacity={0.95} />
+                <text x={6} y={Y(L.v) - 10} fill={TONE[L.tone ?? 'accent']} fontFamily={fontFamily}
+                  fontSize={24} fontWeight={900}>{L.label}</text>
+              </g>
+            ))}
+            <g style={{ clipPath: `inset(0 ${(1 - d) * 100}% 0 0)` }}>
+              <polyline points={pts} fill="none" stroke={col} strokeWidth={5}
+                strokeLinejoin="round" strokeLinecap="round" />
+            </g>
+            {(v.marks || []).map((m) => (
+              <circle key={m.i} cx={X(m.i)} cy={Y(v.series[m.i])} r={10} fill={C.head}
+                opacity={d > (m.i / v.series.length) ? 1 : 0} />
+            ))}
           </svg>
+          {v.panel && (
+            <svg width={CW} height={NH} style={{ display: 'block', marginTop: 8 }}>
+              <rect x={0} y={0} width={CW} height={NH} rx={8} fill="rgba(10,20,36,0.4)"
+                stroke="rgba(226,240,255,0.2)" strokeWidth={2} />
+              {v.panel.hi !== undefined && (
+                <line x1={0} y1={PY(v.panel.hi)} x2={CW} y2={PY(v.panel.hi)} stroke={C.hot}
+                  strokeWidth={3} strokeDasharray="10 7" />
+              )}
+              <g style={{ clipPath: `inset(0 ${(1 - d) * 100}% 0 0)` }}>
+                <polyline points={ppts} fill="none" stroke={C.head} strokeWidth={4}
+                  strokeLinejoin="round" strokeLinecap="round" />
+              </g>
+              <text x={8} y={22} fill={C.head} fontFamily={fontFamily} fontSize={20} fontWeight={900}>{v.panel.label}</text>
+            </svg>
+          )}
         </div>
       </Card></div>
     );
@@ -472,11 +603,18 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
     <AbsoluteFill style={{ background: '#05070C' }}>
       {/* 훅 */}
       <Sequence durationInFrames={hookF}>
-        <Backdrop spec={hookBg} dur={hookF} data={data} />
+        <Backdrop spec={hookBg} dur={hookF} data={data} punch />
         {p.field?.length ? <TickerField tickers={p.field} seed={`${p.date}|hook`} opacity={0.16} exclude={p.hook.syms} /> : null}
+        {/* ★ 훅 안의 펀치 컷 — 첫 컷을 2.8초 안으로 (지속률 상관 -0.90, 유일한 신호) */}
+        {hookF > F(2.4) && (
+          <Sequence from={F(2.1)} durationInFrames={hookF - F(2.1)}>
+            <Backdrop spec={hookBg} dur={hookF - F(2.1)} data={data} tone={1.5} />
+            <CutFlash />
+          </Sequence>
+        )}
         <Say2 v={p.voice} seg={p.voice?.hook} />
         <AbsoluteFill style={{ justifyContent: 'center', padding: `0 ${PAD}px`, paddingTop: 120 }}>
-          <HookBlock line={p.hook.line} sub={p.hook.sub} date={p.hook.stamp ?? p.date} syms={p.hook.syms} />
+          <HookBlock line={p.hook.line} sub={p.hook.sub} date={p.hook.stamp ?? p.date} syms={p.hook.syms} bigNum={p.hook.bigNum} flip={p.hook.flip} />
         </AbsoluteFill>
       </Sequence>
 
@@ -495,7 +633,10 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
           <Backdrop spec={bgOf(b)} dur={len} data={data} tone={toneA} />
           {p.field?.length ? <TickerField tickers={p.field} seed={`${p.date}|${i}`} /> : null}
           <CutFlash />
-          {askAtF !== undefined && askAtF + 6 < len && (
+          {/* ⛔ 비트 «안»의 중간컷 — 브리핑 계급 실측은 6.5~16.5컷/분인데
+              이걸 켜면 30컷/분이 된다(우리 실측). slowCuts 면 끈다.
+              근거: .agent/BRIEFING_BENCHMARK.md */}
+          {!p.slowCuts && askAtF !== undefined && askAtF + 6 < len && (
             <Sequence from={askAtF} durationInFrames={len - askAtF}>
               <Backdrop spec={bgOf(b)} dur={len - askAtF} data={data} tone={toneB} />
               <CutFlash />
@@ -514,50 +655,73 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       })}
 
       {/* CTA */}
+      {/* CTA — ★ 고정 자산 클립을 «튼다». 영상마다 다시 조립하지 않는다.
+          만드는 곳: src/remotion/kit/Outro.tsx → public/shorts/outro/outro.mp4
+          바꾸려면 그 파일 하나만 고치고 다시 구우면 모든 영상에 반영된다. */}
       <Sequence from={ctaFrom} durationInFrames={ctaLen}>
-        <Backdrop spec={BACKDROP_FOR.brand} dur={ctaLen} data={data} />
-        <Say2 v={p.voice} seg={p.voice?.outro} />
-        <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', padding: '0 60px' }}>
-          <CtaBlock {...p.outro} />
+        <AbsoluteFill style={{ background: '#05070C' }}>
+          <OffthreadVideo muted src={staticFile('shorts/outro/outro.mp4')}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </AbsoluteFill>
+        <Say2 v={p.voice} seg={p.voice?.outro} />
       </Sequence>
 
       {/* 루프백 — 첫 화면으로 이어진다 */}
       <Sequence from={loopFrom} durationInFrames={loopF}>
         <Backdrop spec={hookBg} dur={loopF} data={data} />
         <Say2 v={p.voice} seg={p.voice?.loop} />
-        <AbsoluteFill style={{ justifyContent: 'center', padding: `0 ${PAD}px`, paddingTop: 120 }}>
+        <div style={{ position: 'absolute', left: PAD, right: PAD, top: 240 }}>
           <Rise><div style={{
-            fontFamily, fontSize: 78, lineHeight: 1.16, fontWeight: 900, color: C.ink,
+            fontFamily, fontSize: 72, lineHeight: 1.14, fontWeight: 900, color: C.ink,
             letterSpacing: '-0.035em', whiteSpace: 'pre-line', textShadow: '0 6px 30px rgba(0,0,0,0.74)',
           }}>{p.loop}</div></Rise>
-        </AbsoluteFill>
+        </div>
+        <LoopPhone />
+        {/* ★ 2026-08-19 — 여기 있던 앱 배지(AppPlate)를 «뺐다».
+            루프 구간의 일은 «마지막 문장을 0초의 훅 문장으로 넘기는 것» 하나뿐이다.
+            앱스토어 배지 2개가 박혀 있으면 영상이 「끝난 것」으로 닫히고
+            0초로 도는 순환이 끊긴다. 승자 3편의 지속률 100.6·111.4·134.3% 는
+            전부 «루프가 돌아서» 나온 숫자다. CTA 는 바로 앞 outro 가 이미 한다. */}
       </Sequence>
 
       {/* [§1-2] 훅 구간에는 배너·테이프를 그리지 않는다 — 프레임0에서 «1초에 읽히는
           블록»은 심볼+훅 두 개뿐이어야 한다. 본문부터 등장한다. */}
-      <Sequence from={hookF}>
+      <Sequence from={hookF} durationInFrames={Math.max(1, ctaFrom - hookF)}>
         <BottomZone tape={p.tape} />
         <Banner title={p.title} date={p.date} />
       </Sequence>
 
-      {/* ── 면책 — «노란 줄 하나», 화면 맨 아래 ──────────────────────────────
-          대표 지시(2026-08-11): "면책 문구는 노란색 줄 하나만 있으면 될 듯하고,
-          하단으로 내려. 겹치잖아." 박스·2단 구성은 워터마크·테이프와 겹쳤다. */}
-      <div style={{
-        position: 'absolute', left: 40, right: 40, bottom: 22,
+      {/* ── 면책 — «노란 줄 하나», 화면 맨 아래 ──────────────────────────
+          ★ 2026-08-19: 훅 구간에서는 «그리지 않는다» (Sequence from={hookF}).
+          전에는 전역이라 «프레임 0 부터» 떠 있었고, 스크롤하는 시청자는
+          첫 화면을 「규제 공지가 붙은 딱딱한 슬라이드」로 인식했다.
+          배너·티커는 이미 훅에서 빼놓고 면책만 남겨둔 것은 일관성이 없었다.
+          법적 고지는 본문 내내 + 설명란에 있으므로 고지 의무는 그대로 지켜진다. */}
+      <Sequence from={hookF} durationInFrames={Math.max(1, ctaFrom - hookF)}>
+        <div style={{
+        // ★ 2026-08-17 세이프존 교정: bottom 22(y≈1868)는 유튜브 진행바 «아래»라
+        //   사실상 표시가 안 됐다. 티커 바로 밑, UI 존(y>1536) 위로 올린다.
+        position: 'absolute', left: 40, right: 40, bottom: 330,
         textAlign: 'center', pointerEvents: 'none',
-        fontFamily, fontSize: 24, fontWeight: 800, letterSpacing: '0.01em',
-        color: 'rgba(255,176,32,0.92)',
-        textShadow: '0 2px 10px rgba(0,0,0,0.9)',
       }}>
-        {p.disclaimer ?? 'Educational only. Not investment advice. Our read, not a forecast.'}
+        {/* ⛔ 2026-08-21: 밝은 배경(실측 162~178) 위에서 주황 글자가 «사라졌다».
+            면책은 법적 표시라 «항상» 읽혀야 한다 → 어두운 알약을 깐다. */}
+        <span style={{
+          display: 'inline-block', whiteSpace: 'nowrap',
+          fontFamily, fontSize: 24, fontWeight: 800, letterSpacing: '0.01em',
+          color: 'rgba(255,190,64,0.98)',
+          background: 'rgba(6,9,16,0.72)', borderRadius: 999, padding: '7px 20px',
+          textShadow: '0 2px 10px rgba(0,0,0,0.95)',
+        }}>
+          {p.disclaimer ?? 'Educational only. Not investment advice. Our read, not a forecast.'}
+        </span>
       </div>
+      </Sequence>
     </AbsoluteFill>
   );
 };
 
-function HookBlock({ line, sub, date, syms }: { line: string; sub: string; date: string; syms?: string[] }) {
+function HookBlock({ line, sub, date, syms, bigNum, flip }: { line: string; sub: string; date: string; syms?: string[]; bigNum?: string; flip?: { down: string; up: string } }) {
   // [2026-08-07 조사반영] Shorts 는 커스텀 썸네일이 없다 — «프레임 0 이 썸네일»이다.
   // 훅 문장은 페이드 없이 프레임 0 부터 완전히 보인다. 배지·서브만 미세하게 뜬다.
   // [2026-08-10 §1-3] 심볼 히어로 — 문장보다 먼저 읽히는 «무엇인지»의 답.
@@ -571,36 +735,260 @@ function HookBlock({ line, sub, date, syms }: { line: string; sub: string; date:
           <SymbolHero syms={syms} size={SYM.hero} />
         </div>
       )}
+      {/* ★ 반전 블록 — 초록▼ 과 빨강▲ 가 «서로 반대»를 가리킨다.
+          화살표는 폰트 글리프(▲▼)가 아니라 CSS 삼각형으로 그린다 —
+          글리프가 없는 폰트면 두부(□)가 뜨는데, 그건 썸네일에서 치명적이다. */}
+      {flip && (
+        <div style={{ marginBottom: 20 }}>
+          {([['down', flip.down, C.cool], ['up', flip.up, C.hot]] as const).map(([dir, label, bgc], i) => (
+            <div key={dir} style={{
+              display: 'flex', alignItems: 'center', gap: 20,
+              background: bgc, color: '#070A11', borderRadius: 16,
+              padding: '16px 28px', marginBottom: 14,
+              transform: `rotate(${i ? 2.3 : -2.3}deg)`,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.74)',
+            }}>
+              <span style={{ fontFamily, fontSize: 76, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>{label}</span>
+              <span style={{
+                marginLeft: 'auto', width: 0, height: 0,
+                borderLeft: '54px solid transparent', borderRight: '54px solid transparent',
+                ...(dir === 'up' ? { borderBottom: '72px solid #070A11' } : { borderTop: '72px solid #070A11' }),
+              }} />
+            </div>
+          ))}
+        </div>
+      )}
+      {/* ★ 거대 숫자 — «단색 슬래브» 위에 검은 글자.
+          대표 지시(2026-08-12): "너무 밋밋해. 그래픽적으로 자극적으로."
+          근거: 158회 나온 썸네일은 흰+빨강 2색에 배경이 시끄러웠고, 그 뒤 만든 것들은
+          전부 어두운 사진 + 흰 글자 단색이었다(조회 0~13). 이긴 쪽이 더 «시끄러웠다».
+          떠 있는 글자는 폰 크기에서 배경에 묻힌다 — 색 블록은 안 묻힌다. */}
+      {bigNum && (
+        <div style={{
+          display: 'inline-block', background: C.head, color: '#070A11',
+          fontFamily, fontSize: 168, lineHeight: 0.98, fontWeight: 900,
+          letterSpacing: '-0.05em', padding: '4px 26px 14px', borderRadius: 14,
+          marginBottom: 16, boxShadow: '0 14px 50px rgba(0,0,0,0.72)',
+          transform: 'rotate(-1.6deg)',
+        }}>{bigNum}</div>
+      )}
       <div style={{
         display: 'inline-block', opacity: a, marginBottom: 18,
         fontFamily, fontSize: 24, fontWeight: 900, color: '#0A0E16',
         background: C.head, borderRadius: 8, padding: '8px 16px', letterSpacing: '0.06em',
       }}>{date}</div>
+      {/* ★ 훅 문장 — «줄마다 단색 슬래브». 마지막 줄은 강조색으로 2색 대비를 만든다.
+          158회 썸네일이 흰+빨강 2색이었고, 단색으로 만든 것들은 전부 죽었다. */}
+      {line.split('\n').map((ln, i, arr) => (
+        <div key={i} style={{
+          display: 'inline-block', opacity: b,
+          background: 'rgba(6,9,16,0.82)', borderRadius: 6,
+          padding: '2px 16px 10px', marginBottom: 6,
+          fontFamily, fontSize: syms && syms.length ? 76 : 88, lineHeight: 1.06, fontWeight: 900,
+          color: i === arr.length - 1 && arr.length > 1 ? C.head : C.ink,
+          letterSpacing: '-0.04em',
+        }}>{ln}</div>
+      ))}
       <div style={{
-        opacity: b, transform: `translateY(${(1 - b) * 12}px)`,
-        fontFamily, fontSize: syms && syms.length ? 72 : 84, lineHeight: 1.12, fontWeight: 900, color: C.ink,
-        letterSpacing: '-0.038em', whiteSpace: 'pre-line', textShadow: '0 6px 30px rgba(0,0,0,0.76)',
-      }}>{line}</div>
-      <div style={{ marginTop: 16, opacity: b, fontFamily, fontSize: 44, fontWeight: 900, color: C.head, letterSpacing: '-0.025em' }}>{sub}</div>
+        marginTop: 10, display: 'inline-block', opacity: b,
+        background: C.hot, color: '#0B0E14', borderRadius: 6, padding: '8px 16px 12px',
+        fontFamily, fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em',
+      }}>{sub}</div>
     </div>
   );
 }
 
-function CtaBlock({ app, line, ask }: { app: string; line: string; ask: string }) {
-  const a = useIn(2, 12), b = useIn(12, 12);
+
+/**
+ * ★ 기관급 지표 띠 — 엔드카드 폰 «위»에 겹친다.
+ *   음소거 시청자(모바일 영상의 80%)에게 «무엇이 공짜인지»를 글자로 보여준다.
+ *   지표 이름만 쓴다 — 수치는 안 쓴다. 수치는 시시각각 변해서 광고에 박으면 «틀린 화면»이 된다.
+ */
+function MetricStrip({ items }: { items: string[] }) {
+  const p = useIn(14, 12);
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ opacity: a }}>
-        <Img src={staticFile(LOGO)} style={{ width: 124, height: 124, borderRadius: 30, margin: '0 auto 18px', display: 'block', boxShadow: '0 14px 40px rgba(0,0,0,0.5)' }} />
-        <div style={{ fontFamily, fontSize: 72, fontWeight: 900, color: C.head, letterSpacing: '-0.035em' }}>{app}</div>
-        <div style={{ fontFamily, marginTop: 10, fontSize: 26, fontWeight: 700, color: C.ink }}>{line}</div>
-        <div style={{ marginTop: 20, display: 'inline-block', fontFamily, fontSize: 24, fontWeight: 900, color: '#0A0E16', background: C.head, borderRadius: 999, padding: '12px 34px' }}>
-          FREE · iOS &amp; Android
+    <AbsoluteFill style={{ pointerEvents: 'none' }}>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 268,
+        display: 'flex', gap: 9, justifyContent: 'center',
+        padding: '0 56px', opacity: p, transform: `translateY(${(1 - p) * 14}px)`,
+      }}>
+        {items.map((t) => (
+          <span key={t} style={{
+            fontFamily, fontSize: 34, fontWeight: 900, letterSpacing: '-0.01em',
+            color: '#0A0E16', background: C.head, borderRadius: 999,
+            padding: '10px 22px', boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+          }}>{t}</span>
+        ))}
+      </div>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 214, textAlign: 'center',
+        fontFamily, fontSize: 30, fontWeight: 900, letterSpacing: '0.10em',
+        color: C.ink, opacity: p, textShadow: '0 4px 18px rgba(0,0,0,0.8)',
+      }}>INSTITUTIONAL DATA · FREE</div>
+    </AbsoluteFill>
+  );
+}
+
+/**
+ * CtaBlock — 「뒤에 앱 있음」 수준이던 CTA 를 «폰 목업»으로 교체 (2026-08-20 대표 지시)
+ * ---------------------------------------------------------------------------
+ * 왜 길이를 안 늘리는가: 시청자는 흥미를 잃는 «절대 시점»에 나간다. 뒤에 뭘 붙여도
+ *   시청 «초»는 그대로인데 분모만 커져 평균 조회율이 깎인다(6.5초 붙이면 60%→45.6%).
+ *   그래서 «같은 2.77초» 안에서 «질»만 올린다 — 길이 비용 0.
+ *
+ * 담는 것: 실제 앱 화면이 든 폰 · 뒤에 자매 앱 · 지표 이름 4개 · FREE
+ *   지표 이름을 글자로 박는 이유 = 「맥스페인·감마플립·고래·다크풀」이 이 앱이 파는 것이고,
+ *   말로 스쳐 지나가면 남지 않는다.
+ */
+// ── CTA 레이아웃 정본 (2026-08-20 재작업) ──────────────────────────────────
+// ⛔ 이전 판이 깨진 이유 (렌더 프레임 실측):
+//    · 폰 하단이 프레임 밖으로 잘렸다
+//    · 칩 4개가 flexWrap 으로 두 줄이 되어 2개만 보였다
+//    · ask 문구가 쇼츠 UI 존(y>1536) 으로 밀려 안 보였다
+//    · 뒤 폰이 «한국어» 언더커런트였다 — 영어 채널 CTA 에 한글 화면이 뜬다
+// ⇒ 좌표를 «전부 고정»하고 안전존(y<1500) 안에 넣는다. 자동 배치에 맡기지 않는다.
+const CTA_PHONE_W = 290;
+const CTA_APP_H = Math.round(CTA_PHONE_W * 2622 / 1206);
+const CTA_STATUS = 28;
+const CTA_PAD = 9;
+const CTA_BOX_H = CTA_STATUS + CTA_APP_H + CTA_PAD * 2;
+const CTA_TOP = 318;                                   // 폰 상단. 318 + 675 = 993 → 안전
+const CTA_CHIPS_Y = 1058;
+const CTA_ASK_Y = 1152;
+
+function CtaPhone({ src, dx, scale, z, o, tilt = 0 }: {
+  src: string; dx: number; scale: number; z: number; o: number; tilt?: number;
+}) {
+  const w = CTA_PHONE_W + CTA_PAD * 2;
+  return (
+    <div style={{
+      position: 'absolute', left: `calc(50% + ${dx}px)`, top: 0, width: w, height: CTA_BOX_H,
+      marginLeft: -w / 2, transform: `scale(${scale}) rotate(${tilt}deg)`,
+      transformOrigin: '50% 50%', opacity: o, zIndex: z,
+    }}>
+      <div style={{
+        position: 'absolute', left: -18, top: CTA_BOX_H - 18, width: w + 36, height: 60,
+        borderRadius: '50%', background: 'rgba(2,4,9,0.62)', filter: 'blur(26px)',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 42,
+        background: 'linear-gradient(104deg,#E6ECF6 0%,#AAB7C9 22%,#68758A 52%,#9AA8BC 76%,#DCE4F0 100%)',
+        boxShadow: '0 22px 54px rgba(0,0,0,0.62)',
+      }} />
+      <div style={{ position: 'absolute', inset: 5, borderRadius: 37, background: '#04050A' }} />
+      <div style={{
+        position: 'absolute', left: CTA_PAD, top: CTA_PAD,
+        width: CTA_PHONE_W, height: CTA_STATUS + CTA_APP_H,
+        borderRadius: 34, overflow: 'hidden', background: '#070A10',
+      }}>
+        <Img src={staticFile(src)} style={{
+          position: 'absolute', left: 0, top: CTA_STATUS - 56, width: CTA_PHONE_W, display: 'block',
+        }} />
+        <div style={{
+          position: 'absolute', left: '50%', top: 6, width: 58, height: 17,
+          marginLeft: -29, borderRadius: 9, background: '#000',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+const CTA_TERMS = ['MAX PAIN', 'GAMMA FLIP', 'WHALE FLOW', 'DARK POOL'];
+
+function CtaBlock({ app, line, ask }: { app: string; line: string; ask: string }) {
+  const f = useCurrentFrame();
+  const a = useIn(2, 12);
+  const rise = interpolate(f, [0, 16], [64, 0], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) });
+  const pop = useIn(6, 10);
+  return (
+    <AbsoluteFill>
+      {/* 상단 — 앱 이름 + FREE. FREE 는 이 화면에서 «두 번째로 큰 글자»여야 한다 */}
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 108, textAlign: 'center', opacity: a }}>
+        <div style={{
+          fontFamily, fontSize: 60, fontWeight: 900, color: C.head, letterSpacing: '-0.035em',
+          textShadow: '0 4px 20px rgba(0,0,0,0.6)',
+        }}>{app}</div>
+        <div style={{
+          marginTop: 14, display: 'inline-block', fontFamily, fontSize: 50, fontWeight: 900,
+          color: '#0A0E16', background: C.head, borderRadius: 999, padding: '13px 44px',
+          letterSpacing: '0.01em', boxShadow: '0 12px 36px rgba(0,0,0,0.55)',
+          transform: `scale(${0.9 + pop * 0.1})`,
+        }}>FREE &middot; iOS &amp; Android</div>
+      </div>
+
+      {/* 폰 2대 — 같은 앱의 다른 화면. 영어 채널이므로 «영어 화면»만 쓴다 */}
+      <div style={{ position: 'absolute', left: 0, right: 0, top: CTA_TOP + rise, height: CTA_BOX_H }}>
+        <CtaPhone src="ad/tall-guardian.png" dx={158} scale={0.86} z={1} o={a * 0.94} tilt={4} />
+        <CtaPhone src="ad/tall-command-overview.png" dx={-52} scale={1} z={2} o={a} tilt={-2} />
+      </div>
+
+      {/* 지표 이름 — 이 앱이 «파는 것». 한 줄에 반드시 다 들어간다 (wrap 금지) */}
+      <div style={{
+        position: 'absolute', left: 24, right: 24, top: CTA_CHIPS_Y,
+        display: 'flex', flexWrap: 'nowrap', gap: 10, justifyContent: 'center',
+      }}>
+        {CTA_TERMS.map((t, i) => {
+          const q = interpolate(f, [14 + i * 3, 22 + i * 3], [0, 1],
+            { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.back(1.6)) });
+          return (
+            <div key={t} style={{
+              fontFamily, fontSize: 25, fontWeight: 900, letterSpacing: '0.02em', whiteSpace: 'nowrap',
+              color: '#08101C', background: C.head, borderRadius: 8, padding: '8px 13px',
+              opacity: q, transform: `scale(${0.82 + q * 0.18})`,
+            }}>{t}</div>
+          );
+        })}
+      </div>
+
+      <div style={{
+        position: 'absolute', left: 70, right: 70, top: CTA_ASK_Y, textAlign: 'center',
+        opacity: useIn(18, 12), fontFamily, fontSize: 33, fontWeight: 800,
+        color: C.ink, letterSpacing: '-0.01em', whiteSpace: 'pre-line', lineHeight: 1.24,
+        textShadow: '0 3px 14px rgba(0,0,0,0.75)',
+      }}>{ask}</div>
+    </AbsoluteFill>
+  );
+}
+
+/**
+ * LoopPhone — 마지막 프레임까지 «폰 + FREE» 를 남긴다 (2026-08-20 대표 지시)
+ * 스토어 배지는 넣지 않는다 — 배지가 있으면 「끝난 영상」으로 닫혀 루프가 끊긴다.
+ */
+function LoopPhone() {
+  const a = useIn(0, 10);
+  const w = CTA_PHONE_W * 0.96 + CTA_PAD * 2;
+  const h = (CTA_STATUS + CTA_APP_H) * 0.96 + CTA_PAD * 2;
+  return (
+    <div style={{ position: 'absolute', left: 0, right: 0, top: 560, height: h, opacity: a }}>
+      <div style={{
+        position: 'absolute', left: '50%', marginLeft: -w / 2, top: 0, width: w, height: h,
+      }}>
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 30,
+          background: 'linear-gradient(104deg,#E6ECF6 0%,#AAB7C9 22%,#68758A 52%,#9AA8BC 76%,#DCE4F0 100%)',
+          boxShadow: '0 20px 46px rgba(0,0,0,0.6)',
+        }} />
+        <div style={{ position: 'absolute', inset: 4, borderRadius: 26, background: '#04050A' }} />
+        <div style={{ position: 'absolute', inset: 4, borderRadius: 26, overflow: 'hidden' }}>
+          <Img src={staticFile('ad/tall-command-overview.png')} style={{
+            position: 'absolute', left: 0, top: -34, width: w - 8, display: 'block',
+          }} />
         </div>
+        {/* FREE — 목업 «위에» 강하게 */}
+        <div style={{
+          position: 'absolute', right: -58, top: -38,
+          transform: `rotate(-8deg) scale(${0.86 + useIn(4, 10) * 0.14})`,
+          background: C.head, color: '#0A0E16', borderRadius: 14, padding: '13px 30px',
+          fontFamily, fontSize: 56, fontWeight: 900, letterSpacing: '0.04em',
+          boxShadow: '0 12px 34px rgba(0,0,0,0.6)', whiteSpace: 'nowrap',
+        }}>FREE</div>
       </div>
-      <div style={{ marginTop: 30, opacity: b, background: 'rgba(255,176,32,0.16)', border: `2px solid ${C.head}`, borderRadius: 18, padding: '20px 26px' }}>
-        <div style={{ fontFamily, fontSize: 46, lineHeight: 1.22, fontWeight: 900, color: C.head, letterSpacing: '-0.025em', whiteSpace: 'pre-line' }}>{ask}</div>
-      </div>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: h + 22, textAlign: 'center',
+        fontFamily, fontSize: 32, fontWeight: 900, color: C.head, letterSpacing: '0.06em',
+        textShadow: '0 3px 14px rgba(0,0,0,0.8)', opacity: useIn(6, 10),
+      }}>SIGNUM HQ &middot; iOS &amp; ANDROID</div>
     </div>
   );
 }

@@ -1,9 +1,16 @@
 // ============================================================================
-// Remotion Root — 모든 Composition 등록 (V3 Hybrid)
+// Remotion Root ? ��� Composition ��� (V3 Hybrid)
 // ============================================================================
 
 import React from 'react';
 import { Composition } from 'remotion';
+import { PhoneAd, phoneAdDuration } from './kit/PhoneAd';
+import { AppAd, AppAdTag, APPAD_DURATION, APPAD_DURATION_SOLO, APPAD_TAG_DURATION, APPAD_FPS } from './kit/AppAd';
+import { Thumb, THUMB_AMD819 } from './kit/Thumb';
+import { OutroCard, OUTRO_FRAMES, OUTRO_FPS } from './kit/Outro';
+import { Concept2, C2_DURATION, C2_FPS } from './kit/Concept2';
+import { Concept, CONCEPT_DURATION, CONCEPT_FPS } from './kit/Concept';
+import { PHONEAD_SIGNUM } from './kit/phonead-signum';
 import { MarketPulseVideo, type MarketPulseProps } from './compositions/MarketPulseVideo';
 import { NewsDigestVideo, type NewsDigestProps } from './compositions/NewsDigestVideo';
 import { EventSpikeVideo, type EventSpikeProps } from './compositions/EventSpikeVideo';
@@ -101,8 +108,34 @@ import { SAMPLE_BRIEFING_6 } from './data/sampleBriefing6';
 import { BriefingV7, BRIEFING7_DURATION } from './compositions/BriefingV7';
 import { SAMPLE_BRIEFING_7 } from './data/sampleBriefing7';
 import { Briefing, durationOf } from './kit/Briefing';
-import { SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE, SCRIPT_T2, SCRIPT_T4, SCRIPT_T2B, SCRIPT_CLOSE811 } from './kit/scripts';
-import { cutFor, type Platform } from './kit/variants';
+import {
+  SCRIPT_T1, SCRIPT_FLIP, SCRIPT_CLOSE, SCRIPT_T2, SCRIPT_T4, SCRIPT_T2B,
+  SCRIPT_CLOSE811, SCRIPT_COPPER, SCRIPT_RECORDS, SCRIPT_OILSYM, SCRIPT_DEFENSE, SCRIPT_CPI812, SCRIPT_META812, SCRIPT_GOOGL812, SCRIPT_CPIOUT, SCRIPT_MU812, SCRIPT_CLOSE812,
+  SCRIPT_CLOSE814,
+  SCRIPT_RETAIL817,
+  SCRIPT_JOBS817,
+  SCRIPT_FEDGAP817,
+  SCRIPT_MORNING818,
+  SCRIPT_CLOSE817,
+  SCRIPT_LONGEND818,
+  SCRIPT_UNWIND818,
+  SCRIPT_TRIPLE818,
+  SCRIPT_TRIPLEB,
+  SCRIPT_AMD819,
+  SCRIPT_DISP820,
+  SCRIPT_KOREA820,
+  SCRIPT_MEMCORR,
+  SCRIPT_GOLD821,
+} from './kit/scripts';
+// �� ĳ�־� ���ø� (2026-08-13) ? Briefing �� �ڸ���. props ����� ���� cutFor �� �����Ѵ�.
+import { Casual, casualDurationOf, type CasualProps } from './kit/Casual';
+import { SCRIPT_DUEL813, SCRIPT_DUELB, SCRIPT_MAXPAIN, SCRIPT_PRE813, SCRIPT_PRE814, SCRIPT_REGIME813 } from './kit/scripts-casual';
+// ★ 교육형 재고 — 날짜 무관. 하루 4번째 슬롯을 소재 고갈 없이 채운다 (kit/scripts-edu)
+import {
+  SCRIPT_EDUDARK, SCRIPT_EDUSQZ, SCRIPT_EDUGAMMA,
+  SCRIPT_EDUPCR, SCRIPT_EDUVWAP, SCRIPT_EDUFLOW,
+} from './kit/scripts-edu';
+import { cutFor, leanCut, type Platform } from './kit/variants';
 import { AdPromo, adDurationOf } from './kit/AdPromo';
 import { AD_SIGNUM } from './kit/ads';
 import { EndCard } from './kit/EndCard';
@@ -113,8 +146,8 @@ import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 export const RemotionRoot: React.FC = () => {
   return (
     <>
-      {/* ══ 앱 홍보 엔드카드 3앱 × (105f 기본 / 210f 확장) — 정본 §6 ══
-          105f 는 브리핑 꼬리에 붙이는 판, 210f 는 X·웹 히어로·광고 헤드 전용. */}
+      {/* ?? �� ȫ�� ����ī�� 3�� �� (105f �⺻ / 210f Ȯ��) ? ���� ��6 ??
+          105f �� �긮�� ������ ���̴� ��, 210f �� X���� ����Ρ����� ��� ����. */}
       {(['signum', 'uc', 'wim'] as AppKey[]).flatMap((app) => ([
         <Composition
           key={`ec-${app}`}
@@ -138,8 +171,8 @@ export const RemotionRoot: React.FC = () => {
         />,
       ]))}
 
-      {/* ══ 신규 라인 — 「SIGNUM 브리핑」. 정본 .agent/VIDEO_ENGINE_SPEC.md ══
-          기존 V10–V37 42종은 폐기 결정(대표 지시). 이것이 데일리 3편의 본체다. */}
+      {/* ?? �ű� ���� ? ��SIGNUM �긮�Ρ�. ���� .agent/VIDEO_ENGINE_SPEC.md ??
+          ���� V10?V37 42���� ��� ����(��ǥ ����). �̰��� ���ϸ� 3���� ��ü��. */}
       <Composition
         id="BriefingV1"
         component={BriefingV1 as React.ComponentType<any>}
@@ -150,7 +183,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SAMPLE_BRIEFING}
       />
 
-      {/* V2 — 이야기 구조 + 상시 자막 + 밝기 밴드 고정. V1의 «수치나열·번쩍임» 재설계 */}
+      {/* V2 ? �̾߱� ���� + ��� �ڸ� + ��� ��� ����. V1�� ���ġ��������½�ӡ� �缳�� */}
       <Composition
         id="BriefingV2"
         component={BriefingV2 as React.ComponentType<any>}
@@ -161,8 +194,8 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SAMPLE_BRIEFING_2}
       />
 
-      {/* V3 — 풀블리드 실사 배경 + 거대 앰버 헤드라인 + 리서치 차트 (레퍼런스 구조)
-          + 훅 우선(타이틀 카드 제거) — 숏폼 리텐션 조사 반영 */}
+      {/* V3 ? Ǯ����� �ǻ� ��� + �Ŵ� �ڹ� ������ + ����ġ ��Ʈ (���۷��� ����)
+          + �� �켱(Ÿ��Ʋ ī�� ����) ? ���� ���ټ� ���� �ݿ� */}
       <Composition
         id="BriefingV3"
         component={BriefingV3 as React.ComponentType<any>}
@@ -173,7 +206,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SAMPLE_BRIEFING_3}
       />
 
-      {/* V4 — 완성본. 커리오시티 루프 + 리텐션 루프백 + 상시 자막 + 실사 배경 */}
+      {/* V4 ? �ϼ���. Ŀ������Ƽ ���� + ���ټ� ������ + ��� �ڸ� + �ǻ� ��� */}
       <Composition
         id="BriefingV4"
         component={BriefingV4 as React.ComponentType<any>}
@@ -184,7 +217,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SAMPLE_BRIEFING_4}
       />
 
-      {/* V5 — 뉴스 → 종목 → 파급 → 우리 데이터. 날짜 배지 + 중앙 채움 + 앱화면 잘림 해결 */}
+      {/* V5 ? ���� �� ���� �� �ı� �� �츮 ������. ��¥ ���� + �߾� ä�� + ��ȭ�� �߸� �ذ� */}
       <Composition
         id="BriefingV5"
         component={BriefingV5 as React.ComponentType<any>}
@@ -195,7 +228,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SAMPLE_BRIEFING_5}
       />
 
-      {/* V6 — 경제사냥꾼 차용: 고정배너·날짜·자막3초·핵심어색·빨간네모·질문CTA */}
+      {/* V6 ? ������ɲ� ����: ������ʡ���¥���ڸ�3�ʡ��ٽɾ���������׸�����CTA */}
       <Composition
         id="BriefingV6"
         component={BriefingV6 as React.ComponentType<any>}
@@ -206,7 +239,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SAMPLE_BRIEFING_6}
       />
 
-      {/* V7 — V5 화면 + 연쇄 커리오시티 루프 대본 (각 컷이 답하지 않는 질문을 남긴다) */}
+      {/* V7 ? V5 ȭ�� + ���� Ŀ������Ƽ ���� �뺻 (�� ���� ������ �ʴ� ������ �����) */}
       <Composition
         id="BriefingV7"
         component={BriefingV7 as React.ComponentType<any>}
@@ -217,7 +250,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SAMPLE_BRIEFING_7}
       />
 
-      {/* ★ 정본 템플릿 — 대본(kit/scripts)만 바꾸면 다른 영상이 된다 */}
+      {/* �� ���� ���ø� ? �뺻(kit/scripts)�� �ٲٸ� �ٸ� ������ �ȴ� */}
       <Composition
         id="Briefing"
         component={Briefing as React.ComponentType<any>}
@@ -228,7 +261,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SCRIPT_T1}
       />
 
-      {/* ★ 42초판 — 절차 배경 + 콜아웃 + 컨센서스 인용 (2026-08-06 실측 대본) */}
+      {/* �� 42���� ? ���� ��� + �ݾƿ� + �������� �ο� (2026-08-06 ���� �뺻) */}
       <Composition
         id="BriefingFlip"
         component={Briefing as React.ComponentType<any>}
@@ -239,7 +272,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={SCRIPT_FLIP}
       />
 
-      {/* ★ T4 장마감 레짐 브리핑 — 뉴스+흐름 «하나의 스토리» (8/6 마감 실측) */}
+      {/* �� T4 �帶�� ���� �긮�� ? ����+�帧 ���ϳ��� ���丮�� (8/6 ���� ����) */}
       <Composition
         id="BriefingClose"
         component={Briefing as React.ComponentType<any>}
@@ -249,11 +282,15 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={SCRIPT_CLOSE}
       />
-      {/* ★ 브리핑 — 대본 × 플랫폼 3벌 (kit/variants)
-          하나의 대본·하나의 낭독에서 잘라 쓴다. YT 는 시청시간, TT 는 완주율 최적.
-          T2 = 장시작전 모닝 · T4 = 장마감 클로징 */}
+      {/* �� �긮�� ? �뺻 �� �÷��� 3�� (kit/variants)
+          �ϳ��� �뺻���ϳ��� �������� �߶� ����. YT �� ��û�ð�, TT �� ������ ����.
+          T2 = ������� ��� �� T4 = �帶�� Ŭ��¡ */}
       {([['T2', SCRIPT_T2], ['T4', SCRIPT_T4], ['T2B', SCRIPT_T2B],
-         ['CLOSE811', SCRIPT_CLOSE811]] as const).flatMap(([tag, src]) =>
+         ['CLOSE811', SCRIPT_CLOSE811], ['COPPER', SCRIPT_COPPER],
+         // ����� ? ���� ���࿡�� ���� �� (�ǽð� ��� �ƴ�, ���� �÷��� �ȴ�)
+         ['RECORDS', SCRIPT_RECORDS], ['OILSYM', SCRIPT_OILSYM], ['DEFENSE', SCRIPT_DEFENSE],
+         ['CPI812', SCRIPT_CPI812], ['META812', SCRIPT_META812], ['GOOGL812', SCRIPT_GOOGL812], ['CPIOUT', SCRIPT_CPIOUT], ['MU812', SCRIPT_MU812], ['CLOSE812', SCRIPT_CLOSE812],
+         ['CLOSE814', SCRIPT_CLOSE814], ['RETAIL817', SCRIPT_RETAIL817], ['JOBS817', SCRIPT_JOBS817], ['FEDGAP817', SCRIPT_FEDGAP817], ['MORNING818', SCRIPT_MORNING818], ['CLOSE817', SCRIPT_CLOSE817], ['LONGEND818', SCRIPT_LONGEND818], ['UNWIND818', SCRIPT_UNWIND818], ['TRIPLE818', SCRIPT_TRIPLE818], ['TRIPLEB', SCRIPT_TRIPLEB], ['AMD819', SCRIPT_AMD819], ['DISP820', SCRIPT_DISP820], ['KOREA820', SCRIPT_KOREA820], ['MEMCORR', SCRIPT_MEMCORR], ['GOLD821', SCRIPT_GOLD821]] as const).flatMap(([tag, src]) =>
         (['yt', 'tt', 'reels'] as Platform[]).map((pf) => {
           const cut = cutFor(src, pf);
           const id = pf === 'yt' ? `Briefing${tag}` : `Briefing${tag}-${pf}`;
@@ -271,7 +308,122 @@ export const RemotionRoot: React.FC = () => {
           );
         }))}
 
-      {/* ★ 앱 광고 — 시덴스 시네마틱 + 실앱 UI + 실로고 (kit/ads) */}
+      {/* �ڡ� ĳ�־� ���ø� ? �뺻 �� �÷��� 3��.
+          CASUAL_CLOSE812 �� SCRIPT_CLOSE812 �� �찰�� ���롤���� �������� A/B �������̴�.
+          (���⼭ �����ϴ� ����: scripts-casual.ts �� scripts.ts �� import �ϸ� ��ȯ) */}
+      {([
+        // �� �� A/B ? ���������� ����, �Ÿ� �ٸ��� (scripts-casual �ר�-B ����)
+        ['DUEL813', SCRIPT_DUEL813],   // A�� = ���� �� ���� (������)
+        ['DUELB', SCRIPT_DUELB],       // B�� = ���� 0 �� 2��� �� ������ġ �� ���� ���
+        ['PRE813', SCRIPT_PRE813],     // ���� �� �긮�� ? ��� �н� ���� ����
+        ['MAXPAIN', SCRIPT_MAXPAIN],
+        ['CLOSE812', { ...SCRIPT_CLOSE812, track: 'macro', tape: undefined, field: undefined } as CasualProps],
+      ] as const).flatMap(([tag, src]) =>
+        (['yt', 'tt', 'reels'] as Platform[]).map((pf) => {
+          const cut = cutFor(src as any, pf) as CasualProps;
+          const id = pf === 'yt' ? `Casual${tag}` : `Casual${tag}-${pf}`;
+          return (
+            <Composition
+              key={id}
+              id={id}
+              component={Casual as React.ComponentType<any>}
+              durationInFrames={casualDurationOf(cut)}
+              fps={30}
+              width={1080}
+              height={1920}
+              defaultProps={cut as any}
+            />
+          );
+        }))}
+
+      {/* �ڡ� LEAN �� ? �������� ��ɡ� (2026-08-13)
+          ����: ����� 108���� 34�� ������ ��� 13�� �ô� = ������ 38%.
+          Ȯ�� ������ 70%. ����(��û)�� �� �ø��� �и�(����)�� ���δ� �� 18�ʸ� 72%.
+          ���� �뺻������ �������� ����� ��Ʈ���� ����� CTA �� �� �����. �߰� ��� 0. */}
+      {([
+        ['PRE813', SCRIPT_PRE813],
+        ['REGIME813', SCRIPT_REGIME813],
+        ['PRE814', SCRIPT_PRE814],         // �� 5�� ��Ģ 1ȣ
+        // �� �� A/B �� ��lean ���̿����� ������ ? 33�� ���� A��B �� �� 16%�� �ٴ��� ��
+        //   ���̰� �� ���� ������ �ִ�(�ٴ� ȿ��). 15�ʸ� �� �� ������ �޾� ���̰� �巯����.
+        ['DUEL813', SCRIPT_DUEL813],
+        ['DUELB', SCRIPT_DUELB],
+        ['MAXPAIN', SCRIPT_MAXPAIN],
+        // 교육형 재고 6편 — 전부 lean(15~20초) + 루프 이음매
+        ['EDUDARK', SCRIPT_EDUDARK], ['EDUSQZ', SCRIPT_EDUSQZ], ['EDUGAMMA', SCRIPT_EDUGAMMA],
+        ['EDUPCR', SCRIPT_EDUPCR], ['EDUVWAP', SCRIPT_EDUVWAP], ['EDUFLOW', SCRIPT_EDUFLOW],
+      ] as const).map(([tag, src]) => {
+        const cut = { ...(leanCut(src as any, 19) as any), lean: true } as CasualProps;
+        return (
+          <Composition
+            key={`Lean${tag}`}
+            id={`Lean${tag}`}
+            component={Casual as React.ComponentType<any>}
+            durationInFrames={casualDurationOf(cut)}
+            fps={30}
+            width={1080}
+            height={1920}
+            defaultProps={cut as any}
+          />
+        );
+      })}
+
+      {/* �� �� ���� ? �õ��� �ó׸�ƽ + �Ǿ� UI + �Ƿΰ� (kit/ads) */}
+      {/* ★ 밝은 앱 광고 — 공중 폰 + 살아 움직이는 차트 + FREE (2026-08-19 신설) */}
+      <Composition
+        id="PhoneAdSignum"
+        component={PhoneAd as React.ComponentType<any>}
+        durationInFrames={phoneAdDuration(PHONEAD_SIGNUM)}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={PHONEAD_SIGNUM as any}
+      />
+
+      <Composition
+        id="ThumbAMD819"
+        component={Thumb as React.ComponentType<any>}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={THUMB_AMD819}
+      />
+      <Composition
+        id="AppAd"
+        component={AppAd}
+        durationInFrames={APPAD_DURATION}
+        fps={APPAD_FPS}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="AppAdSolo"
+        component={AppAd}
+        durationInFrames={APPAD_DURATION_SOLO}
+        fps={APPAD_FPS}
+        width={1080}
+        height={1920}
+      defaultProps={{ withUC: false }}
+      />
+      <Composition
+        id="AppAdTag"
+        component={AppAdTag}
+        durationInFrames={APPAD_TAG_DURATION}
+        fps={APPAD_FPS}
+        width={1080}
+        height={1920}
+      
+      />
+      <Composition
+        id="Concept1MaxPain"
+        component={Concept as React.ComponentType<any>}
+        durationInFrames={CONCEPT_DURATION}
+        fps={CONCEPT_FPS}
+        width={1080}
+        height={1920}
+      
+      />
       <Composition
         id="AdSignum"
         component={AdPromo as React.ComponentType<any>}
@@ -282,7 +434,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={AD_SIGNUM}
       />
 
-      {/* ── Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ── */}
+      {/* ���� Shorts Engine V37 Real-Time SSoT Premium Rebuild (24.633s, 739 frames) ���� */}
       <Composition
         id="MarketPressureBriefV37-NVDA"
         component={MarketPressureBriefV37 as React.ComponentType<any>}
@@ -293,7 +445,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV37Input()}
       />
 
-      {/* ── Shorts Engine V36 SSoT Rebuild (17.868s, 536 frames) ── */}
+      {/* ���� Shorts Engine V36 SSoT Rebuild (17.868s, 536 frames) ���� */}
       <Composition
         id="MarketPressureBriefV36-SPY"
         component={MarketPressureBriefV36 as React.ComponentType<any>}
@@ -303,7 +455,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={createMockMarketPressureBriefV36Input()}
       />
-      {/* ── Shorts Engine V35 데일리 모닝 특보 & 3-Shorts 분화 체계 (24.0s) ── */}
+      {/* ���� Shorts Engine V35 ���ϸ� ��� Ư�� & 3-Shorts ��ȭ ü�� (24.0s) ���� */}
       <Composition
         id="MarketPressureBriefV35-SPY"
         component={MarketPressureBriefV35 as React.ComponentType<any>}
@@ -325,7 +477,7 @@ export const RemotionRoot: React.FC = () => {
       />
 
 
-      {/* ── Shorts Engine V34 Alert Boot & GEX Rebuild (24.0s) ── */}
+      {/* ���� Shorts Engine V34 Alert Boot & GEX Rebuild (24.0s) ���� */}
       <Composition
         id="MarketPressureBriefV34"
         component={MarketPressureBriefV34 as React.ComponentType<any>}
@@ -336,7 +488,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV34Input()}
       />
 
-      {/* ── Shorts Engine V33 Frame-0 Event Shock Fix ── */}
+      {/* ���� Shorts Engine V33 Frame-0 Event Shock Fix ���� */}
       <Composition
         id="MarketPressureBriefV33"
         component={MarketPressureBriefV33 as React.ComponentType<any>}
@@ -347,7 +499,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV33Input()}
       />
 
-      {/* ── Shorts Engine V32 First-6-Seconds Revenue Lock Rebuild ── */}
+      {/* ���� Shorts Engine V32 First-6-Seconds Revenue Lock Rebuild ���� */}
       <Composition
         id="MarketPressureBriefV32"
         component={MarketPressureBriefV32 as React.ComponentType<any>}
@@ -358,7 +510,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV32Input()}
       />
 
-      {/* ── Shorts Engine V31 Event Shock + Product Desire Rebuild ── */}
+      {/* ���� Shorts Engine V31 Event Shock + Product Desire Rebuild ���� */}
       <Composition
         id="MarketPressureBriefV31"
         component={MarketPressureBriefV31 as React.ComponentType<any>}
@@ -369,7 +521,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV31Input()}
       />
 
-      {/* ── Shorts Engine V30 Intelligence Leak Revenue Cut ── */}
+      {/* ���� Shorts Engine V30 Intelligence Leak Revenue Cut ���� */}
       <Composition
         id="MarketPressureBriefV30"
         component={MarketPressureBriefV30 as React.ComponentType<any>}
@@ -380,7 +532,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV30Input()}
       />
 
-      {/* ── Shorts Engine V29 Premium Intelligence Revenue Cut ── */}
+      {/* ���� Shorts Engine V29 Premium Intelligence Revenue Cut ���� */}
       <Composition
         id="MarketPressureBriefV29"
         component={MarketPressureBriefV29 as React.ComponentType<any>}
@@ -391,7 +543,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV29Input()}
       />
 
-      {/* ── Shorts Engine V28 Revenue-Grade Viewer Lock-in Rebuild ── */}
+      {/* ���� Shorts Engine V28 Revenue-Grade Viewer Lock-in Rebuild ���� */}
       <Composition
         id="MarketPressureBriefV28"
         component={MarketPressureBriefV28 as React.ComponentType<any>}
@@ -402,7 +554,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV28Input()}
       />
 
-      {/* ── Shorts Engine V27 Collision-Free Institutional Upload Master ── */}
+      {/* ���� Shorts Engine V27 Collision-Free Institutional Upload Master ���� */}
       <Composition
         id="MarketPressureBriefV27"
         component={MarketPressureBriefV27 as React.ComponentType<any>}
@@ -443,7 +595,7 @@ export const RemotionRoot: React.FC = () => {
           ]
         }}
       />
-      {/* ★ Market Pulse V3 — 하이브리드 6씬 Shorts (30초) */}
+      {/* �� Market Pulse V3 ? ���̺긮�� 6�� Shorts (30��) */}
       <Composition
         id="MarketPulseV3"
         component={MarketPulseV3 as React.ComponentType<any>}
@@ -459,7 +611,7 @@ export const RemotionRoot: React.FC = () => {
           price: '585.00',
           change: '+0.84',
           gexRegime: 'POSITIVE',
-          gexLabel: 'NEGATIVE → POSITIVE',
+          gexLabel: 'NEGATIVE �� POSITIVE',
           darkPool: 39.2,
           buyRatio: 34,
           sellRatio: 65,
@@ -474,7 +626,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
 
-      {/* Market Pulse V2 — 레거시 (30초) */}
+      {/* Market Pulse V2 ? ���Ž� (30��) */}
       <Composition
         id="MarketPulse"
         component={MarketPulseVideo as React.ComponentType<any>}
@@ -496,7 +648,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
 
-      {/* News Digest — 뉴스 + 시장 반응 (30초) */}
+      {/* News Digest ? ���� + ���� ���� (30��) */}
       <Composition
         id="NewsDigest"
         component={NewsDigestVideo as React.ComponentType<any>}
@@ -518,7 +670,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
 
-      {/* Event Spike — 고래/GEX 이벤트 (15초) */}
+      {/* Event Spike ? ���/GEX �̺�Ʈ (15��) */}
       <Composition
         id="EventSpike"
         component={EventSpikeVideo as React.ComponentType<any>}
@@ -538,7 +690,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
 
-      {/* ── Shorts Engine V9A: MarketPressureBrief (22.0s, aggressive cutdown) ── */}
+      {/* ���� Shorts Engine V9A: MarketPressureBrief (22.0s, aggressive cutdown) ���� */}
       <Composition
         id="MarketPressureBrief"
         component={MarketPressureBrief as React.ComponentType<any>}
@@ -549,7 +701,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV9AInput()}
       />
 
-      {/* ── Shorts Engine V10: Keyframe Review ── */}
+      {/* ���� Shorts Engine V10: Keyframe Review ���� */}
       <Composition
         id="MarketPressureKeyframesV10"
         component={MarketPressureKeyframesV10}
@@ -559,7 +711,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
       />
 
-      {/* ── Shorts Engine V11: Final Audio Mix ── */}
+      {/* ���� Shorts Engine V11: Final Audio Mix ���� */}
       <Composition
         id="MarketPressureBriefV11"
         component={MarketPressureBriefV11 as React.ComponentType<any>}
@@ -570,7 +722,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV11Input()}
       />
 
-      {/* ── Shorts Engine V12 Variants ── */}
+      {/* ���� Shorts Engine V12 Variants ���� */}
       <Composition
         id="MarketPressureBriefV12A"
         component={MarketPressureBriefV12A as React.ComponentType<any>}
@@ -599,7 +751,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV12CInput()}
       />
 
-      {/* ── Shorts Engine V13 Hybrid Winner ── */}
+      {/* ���� Shorts Engine V13 Hybrid Winner ���� */}
       <Composition
         id="MarketPressureBriefV13"
         component={MarketPressureBriefV13 as React.ComponentType<any>}
@@ -610,7 +762,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV13Input()}
       />
 
-      {/* ── Shorts Engine V14 Upload Candidate ── */}
+      {/* ���� Shorts Engine V14 Upload Candidate ���� */}
       <Composition
         id="MarketPressureBriefV14"
         component={MarketPressureBriefV14 as React.ComponentType<any>}
@@ -621,7 +773,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV14Input()}
       />
 
-      {/* ── Shorts Engine V14.1 Final Hook Hierarchy ── */}
+      {/* ���� Shorts Engine V14.1 Final Hook Hierarchy ���� */}
       <Composition
         id="MarketPressureBriefV14-1"
         component={MarketPressureBriefV14_1 as React.ComponentType<any>}
@@ -632,7 +784,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV14_1Input()}
       />
 
-      {/* ── Shorts Engine V15 Creative Rebuild ── */}
+      {/* ���� Shorts Engine V15 Creative Rebuild ���� */}
       <Composition
         id="MarketPressureBriefV15"
         component={MarketPressureBriefV15 as React.ComponentType<any>}
@@ -643,7 +795,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV15Input()}
       />
 
-      {/* ── Shorts Engine V16 Upload Candidate ── */}
+      {/* ���� Shorts Engine V16 Upload Candidate ���� */}
       <Composition
         id="MarketPressureBriefV16"
         component={MarketPressureBriefV16 as React.ComponentType<any>}
@@ -654,7 +806,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV16Input()}
       />
 
-      {/* ── Shorts Engine V16.1 Audio Truth Candidate ── */}
+      {/* ���� Shorts Engine V16.1 Audio Truth Candidate ���� */}
       <Composition
         id="MarketPressureBriefV16-1"
         component={MarketPressureBriefV16_1 as React.ComponentType<any>}
@@ -665,7 +817,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV16_1Input()}
       />
 
-      {/* ── Shorts Engine V16.2 Visual Authority Fix ── */}
+      {/* ���� Shorts Engine V16.2 Visual Authority Fix ���� */}
       <Composition
         id="MarketPressureBriefV16-2"
         component={MarketPressureBriefV16_2 as React.ComponentType<any>}
@@ -676,7 +828,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV16_2Input()}
       />
 
-      {/* ── Shorts Engine V17 Revenue-Grade Rebuild ── */}
+      {/* ���� Shorts Engine V17 Revenue-Grade Rebuild ���� */}
       <Composition
         id="MarketPressureBriefV17"
         component={MarketPressureBriefV17 as React.ComponentType<any>}
@@ -687,7 +839,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV17Input()}
       />
 
-      {/* ── Shorts Engine V18 Upload Candidate Rebuild ── */}
+      {/* ���� Shorts Engine V18 Upload Candidate Rebuild ���� */}
       <Composition
         id="MarketPressureBriefV18"
         component={MarketPressureBriefV18 as React.ComponentType<any>}
@@ -698,7 +850,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV18Input()}
       />
 
-      {/* ── Shorts Engine V19 True Upload Candidate ── */}
+      {/* ���� Shorts Engine V19 True Upload Candidate ���� */}
       <Composition
         id="MarketPressureBriefV19"
         component={MarketPressureBriefV19 as React.ComponentType<any>}
@@ -709,7 +861,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV19Input()}
       />
 
-      {/* ── Shorts Engine V20 Institutional Footprint ── */}
+      {/* ���� Shorts Engine V20 Institutional Footprint ���� */}
       <Composition
         id="MarketPressureBriefV20"
         component={MarketPressureBriefV20 as React.ComponentType<any>}
@@ -720,7 +872,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV20Input()}
       />
 
-      {/* ── Shorts Engine V21 Event-Driven Rebuild ── */}
+      {/* ���� Shorts Engine V21 Event-Driven Rebuild ���� */}
       <Composition
         id="MarketPressureBriefV21"
         component={MarketPressureBriefV21 as React.ComponentType<any>}
@@ -731,7 +883,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV21Input()}
       />
 
-      {/* ── Shorts Engine V21.1 Surgical Fix ── */}
+      {/* ���� Shorts Engine V21.1 Surgical Fix ���� */}
       <Composition
         id="MarketPressureBriefV21-1"
         component={MarketPressureBriefV21_1 as React.ComponentType<any>}
@@ -742,7 +894,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV21_1Input()}
       />
 
-      {/* ── Shorts Engine V21.2 Collision-Free ── */}
+      {/* ���� Shorts Engine V21.2 Collision-Free ���� */}
       <Composition
         id="MarketPressureBriefV21-2"
         component={MarketPressureBriefV21_2 as React.ComponentType<any>}
@@ -753,7 +905,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV21_2Input()}
       />
 
-      {/* ── Shorts Engine V22 Event-First Revenue Cut ── */}
+      {/* ���� Shorts Engine V22 Event-First Revenue Cut ���� */}
       <Composition
         id="MarketPressureBriefV22"
         component={MarketPressureBriefV22 as React.ComponentType<any>}
@@ -764,7 +916,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV22Input()}
       />
 
-      {/* ── Shorts Engine V23 Bloomberg-Alert Revenue Cut ── */}
+      {/* ���� Shorts Engine V23 Bloomberg-Alert Revenue Cut ���� */}
       <Composition
         id="MarketPressureBriefV23"
         component={MarketPressureBriefV23 as React.ComponentType<any>}
@@ -775,7 +927,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV23Input()}
       />
 
-      {/* ── Shorts Engine V24 Intelligence-UI Rebuild ── */}
+      {/* ���� Shorts Engine V24 Intelligence-UI Rebuild ���� */}
       <Composition
         id="MarketPressureBriefV24"
         component={MarketPressureBriefV24 as React.ComponentType<any>}
@@ -786,7 +938,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV24Input()}
       />
 
-      {/* ── Shorts Engine V25 Cinematic 28s Magic Prototype ── */}
+      {/* ���� Shorts Engine V25 Cinematic 28s Magic Prototype ���� */}
       <Composition
         id="MarketPressureBriefV25"
         component={MarketPressureBriefV25 as React.ComponentType<any>}
@@ -797,7 +949,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV25Input()}
       />
 
-      {/* ── Shorts Engine V26 Institutional Data-First Revenue Cut ── */}
+      {/* ���� Shorts Engine V26 Institutional Data-First Revenue Cut ���� */}
       <Composition
         id="MarketPressureBriefV26"
         component={MarketPressureBriefV26 as React.ComponentType<any>}
@@ -807,6 +959,23 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={createMockMarketPressureBriefV26Input()}
       />
+      <Composition
+        id="OutroCard"
+        component={OutroCard}
+        durationInFrames={OUTRO_FRAMES}
+        fps={OUTRO_FPS}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="Concept2RSI"
+        component={Concept2}
+        durationInFrames={C2_DURATION}
+        fps={C2_FPS}
+        width={1080}
+        height={1920}
+      />
     </>
   );
 };
+
