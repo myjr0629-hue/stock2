@@ -4,7 +4,7 @@
   "thumb": "E:/SIGNUM_UPLOAD/2026-08-21/GOLD821_thumb.jpg",
   "class": "concept",
   "scriptTag": "GOLD821",
-  "title": "Why Gold Is Going Up Is Not What You Think",
+  "title": "Why Gold Is Going Up Is Now A Bitcoin Story",
   "evidence": [
    "GLD 일봉 255개 (FMP stable/historical-price-eod/full, 2025-08-15~2026-08-20)",
    "UUP 일봉 255개 · GLD-UUP 일간수익률 피어슨 상관 -0.39 (n=254, 자체 계산)",
@@ -17,6 +17,8 @@
   "tags": [
    "why gold is going up",
    "gold",
+   "bitcoin",
+   "gold price",
    "stock market",
    "finance",
    "investing",
@@ -24,12 +26,10 @@
    "stocks",
    "finance news",
    "world news",
-   "stock market news",
-   "financial education",
-   "business"
+   "financial education"
   ],
-  "description": "https://www.signumhq.com - FREE market intel.\n\nGold is up 34.8% over the past year and 12.8% in the past month. But it still closed 16.4% below its January 29 high of $495.90.\n\nWe ran the correlation ourselves: GLD versus the dollar (UUP), daily returns, 254 trading days. The result is -0.39 - negative, but far from a one-to-one link. A weaker dollar helps gold. It has not been enough to make a new record.\n\nData: GLD and UUP daily closes, Aug 15 2025 to Aug 20 2026.\nEducational only. Not investment advice.\n\n#gold #stockmarket #investing",
-  "pinnedComment": "Numbers in this video, all from daily closes (Aug 2025 - Aug 2026):\n- Gold (GLD) 1Y +34.8% - past month +12.8%\n- Jan 29 high $495.90 -> today $414.54 = -16.4%\n- GLD vs dollar (UUP) daily-return correlation -0.39 over 254 days\n\nWe built the app that runs these checks for you - free on iOS and Android:\nhttps://www.signumhq.com/app",
+  "description": "https://www.signumhq.com - FREE market intel.\n\nGold is up 34.8% over the past year and 12.8% in the past month. But it still closed 16.4% below its January 29 high of $495.90. So what changed this summer?\n\nWe ran the numbers ourselves. Gold's 42-day correlation with bitcoin is 0.62 right now. The one-year median is 0.26, and 0.62 sits in the 94th percentile of all 213 windows we measured. It has climbed every single month since spring.\n\nTwo factors, the dollar and bitcoin, explained 19% of gold's daily moves across the year. Over the last six weeks they explain 50%.\n\nGold has stopped trading like a fear hedge and started trading like a currency hedge.\n\nData: GLD, IBIT and UUP daily closes, Aug 15 2025 to Aug 20 2026. All correlations computed by us.\nEducational only. Not investment advice.\n\n#gold #bitcoin #investing",
+  "pinnedComment": "Every number here, computed by us from daily closes (Aug 2025 - Aug 2026):\n\n- Gold (GLD) 1Y +34.8% - past month +12.8%\n- Jan 29 high $495.90 -> $414.54 today = -16.4%\n- GLD vs bitcoin, 42-day correlation: 0.62 now, 0.26 one-year median\n- That 0.62 is the 94th percentile of 213 rolling windows\n- Dollar + bitcoin explained 19% of gold's daily moves over the year, 50% over the last six weeks\n\nWe built the app that runs checks like this for you - free on iOS and Android:\nhttps://www.signumhq.com/app",
   "privacy": "private",
   "insight": {
    "claim": "Gold has started moving with bitcoin, not against risk",
@@ -41,6 +41,7 @@
    "pValue": 0.005,
    "computedBy": "FMP stable/historical-price-eod/full 2025-08-15~2026-08-20, GLD/IBIT/UUP 255봉. 42일 롤링 상관 213창 · Fisher z 검정 (최근42 0.62 vs 이전212 0.23, z=2.81, p=0.005). 원본 .agent/_gold_why.json",
    "saidAs": "Gold now moves with bitcoin."
-  }
+  },
+  "publishAtKST": "2026-08-21 05:00"
  }
 ]

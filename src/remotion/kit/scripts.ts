@@ -4415,6 +4415,9 @@ export const SCRIPT_GOLD821: BriefingProps = {
   hook: {
     line: 'Gold is not\nat a record.',
     sub: 'Everyone asks why it keeps rising.',
+    // ⛔ 대표 지시 2026-08-21: "비트코인 심볼을 영상 처음에 넣도록해"
+    //    프레임 0 = 썸네일. ₿ 가 첫 화면에 있으면 주제가 «즉시» 읽힌다.
+    syms: ['BTC'],
     role: 'market',
     bg: { kind: 'video', src: 'shorts/bg/video/gold-btc-race.mp4', loopFrames: 240 },   // 대표 제공 · 밝기 139 · 첫 프레임=썸네일
   },
