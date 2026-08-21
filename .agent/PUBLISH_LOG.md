@@ -272,3 +272,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-21 업로드 (비공개+예약)
 
 - [Why Gold Is Going Up Is Now A Bitcoin Story](https://youtube.com/shorts/ke34mBPAfNQ) — 예약 KST 2026-08-21 05:00 · `ke34mBPAfNQ`
+
+## 2026-08-21 업로드 (비공개+예약)
+
+- [Why Options Trading Freezes Tech Stocks Every Expiry Friday](https://youtube.com/shorts/zy5q6nmxlQ8) — 예약 KST 2026-08-21 20:00 · `zy5q6nmxlQ8`

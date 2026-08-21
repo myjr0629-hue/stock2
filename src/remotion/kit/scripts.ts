@@ -4540,12 +4540,12 @@ export const SCRIPT_GOLD821: BriefingProps = {
 const OPEX_RANGE = [2.783, 2.672];
 
 export const SCRIPT_OPEX821: BriefingProps = {
-  title: 'Your Friday calls\ndid not lose. They were pinned.',
+  title: 'Tech stocks freeze\nevery expiry Friday.',
   date: 'AUG 21 · MONTHLY EXPIRY',
   slowCuts: true,
   hook: {
-    line: 'Your Friday calls\ndid not lose.',
-    sub: 'They were pinned. We proved it.',
+    line: 'Tech stocks are\nfrozen today.',
+    sub: 'Every expiry Friday. We proved it.',
     role: 'conflict',
     bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
   },
@@ -4580,7 +4580,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'money',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-tanker.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-wafer-lift.mp4', loopFrames: 150 },
       eyebrow: 'What came back',
       head: 'Expiry day.\nThe range goes quiet.',
       say: 'Expiry day. The range goes quiet.',
@@ -4601,7 +4601,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'chips',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-juggle-mm.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-point-same.mp4', loopFrames: 150 },
       eyebrow: 'Today is one of them',
       head: 'Today. Two names\nare off the line.',
       say: 'Today two names are off the line.',
