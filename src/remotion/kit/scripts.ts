@@ -4555,7 +4555,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'conflict',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-two-smile.mp4', loopFrames: 150 },
       eyebrow: 'What everyone says',
       head: 'They say the price\ngets pinned',
       say: 'Hold on. Everyone repeats this.',
@@ -4580,7 +4580,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'money',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-tanker.mp4', loopFrames: 150 },
       eyebrow: 'What came back',
       head: 'Expiry day.\nThe range goes quiet.',
       say: 'Expiry day. The range goes quiet.',
@@ -4601,7 +4601,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'chips',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-juggle-mm.mp4', loopFrames: 150 },
       eyebrow: 'Today is one of them',
       head: 'Today. Two names\nare off the line.',
       say: 'Today two names are off the line.',

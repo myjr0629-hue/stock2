@@ -373,11 +373,23 @@ function Head({ n, eyebrow, head }: { n: number; eyebrow?: string; head: string 
           textShadow: '0 2px 8px rgba(0,0,0,0.9)',
         }}>{eyebrow}</span>}
       </div>
-      <div style={{
-        marginTop: 10, opacity: b, transform: `translateY(${(1 - b) * 12}px)`,
-        fontFamily, fontSize: 62, lineHeight: 1.12, fontWeight: 900, color: C.head,
-        letterSpacing: '-0.035em', whiteSpace: 'pre-line', textShadow: '0 6px 28px rgba(0,0,0,0.72)',
-      }}>{head}</div>
+      {/* ⛔ 2026-08-21: 밝은 배경(fiber-one-lit 157)에서 금색 제목이 «묻혔다».
+          에이브로우·면책은 스크림을 깔았는데 정작 제일 큰 글자는 안 깔았다.
+          줄마다 어두운 슬래브를 깐다 — 배경 밝기와 무관하게 읽힌다. */}
+      <div style={{ marginTop: 10, opacity: b, transform: `translateY(${(1 - b) * 12}px)` }}>
+        {head.split('\n').map((ln, i) => (
+          // 바깥은 블록(줄바꿈 강제), 안쪽 span 이 글자폭만큼만 슬래브를 깐다.
+          // inline-block 만 쓰면 두 줄이 «나란히» 붙어 한 줄로 보인다 (2026-08-21 확인).
+          <div key={i} style={{ display: 'block', marginBottom: 5 }}>
+            <span style={{
+              display: 'inline-block', background: 'rgba(6,9,16,0.62)',
+              borderRadius: 8, padding: '2px 12px 6px',
+              fontFamily, fontSize: 62, lineHeight: 1.12, fontWeight: 900, color: C.head,
+              letterSpacing: '-0.035em', textShadow: '0 4px 22px rgba(0,0,0,0.9)',
+            }}>{ln}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -787,17 +799,19 @@ function HookBlock({ line, sub, date, syms, bigNum, flip }: { line: string; sub:
       {line.split('\n').map((ln, i, arr) => (
         <div key={i} style={{
           display: 'inline-block', opacity: b,
-          background: 'rgba(6,9,16,0.82)', borderRadius: 6,
-          padding: '2px 16px 10px', marginBottom: 6,
-          fontFamily, fontSize: syms && syms.length ? 76 : 88, lineHeight: 1.06, fontWeight: 900,
+          // ⛔ 2026-08-21 대표 확인: "첫 화면에 제목이 눈에 들어오게 써있어야지"
+          //   88 은 배경 캐릭터와 «경쟁»했다. 프레임0 은 1초 안에 읽혀야 한다.
+          background: 'rgba(6,9,16,0.88)', borderRadius: 6,
+          padding: '4px 18px 12px', marginBottom: 7,
+          fontFamily, fontSize: syms && syms.length ? 86 : 102, lineHeight: 1.04, fontWeight: 900,
           color: i === arr.length - 1 && arr.length > 1 ? C.head : C.ink,
           letterSpacing: '-0.04em',
         }}>{ln}</div>
       ))}
       <div style={{
         marginTop: 10, display: 'inline-block', opacity: b,
-        background: C.hot, color: '#0B0E14', borderRadius: 6, padding: '8px 16px 12px',
-        fontFamily, fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em',
+        background: C.hot, color: '#0B0E14', borderRadius: 6, padding: '9px 18px 13px',
+        fontFamily, fontSize: 46, fontWeight: 900, letterSpacing: '-0.02em',
       }}>{sub}</div>
     </div>
   );
