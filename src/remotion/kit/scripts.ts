@@ -37,6 +37,7 @@ import { VOICE_KOREA820 } from './voice-korea820';
 import { VOICE_MEMCORR } from './voice-memcorr';
 import { VOICE_GOLD821 } from './voice-gold821';
 import { VOICE_OPEX821 } from './voice-opex821';
+import { VOICE_BONDS821 } from './voice-bonds821';
 import { VOICE_T2 } from './voice-t2';
 import { VOICE_T4 } from './voice-t4';
 import { VOICE_T2B } from './voice-t2b';
@@ -4619,5 +4620,106 @@ export const SCRIPT_OPEX821: BriefingProps = {
     app: 'SIGNUM HQ',
     line: 'The tape institutions leave behind',
     ask: 'Stop reading news.\nRead the book.',
+  },
+};
+
+// ============================================================================
+// SCRIPT_BONDS821 — 「채권이 지켜준다」가 2022년에 깨졌다 (C슬롯 · EVERGREEN)
+// ----------------------------------------------------------------------------
+// ★ 문(수요): `bond yields explained` 소형중앙 **64,208** — 우리가 잰 것 중 최상위
+// ★ 이상값: scripts/edge-bonds.mjs — 사전등록 후 계산
+//     SPY 일간 -1% 이하 «하락일» 328일 · 공통 거래일 2,924일 (2015-01~2026-08)
+//     TLT 가 오른 비율:  아무 날 50.5%  ·  하락일 62.2%   z=4.00 (유의)
+//     ⛔ 그런데 시대를 쪼개면 뒤집힌다 —
+//        2015~2019  78.8%   /  2020~2021  72.7%   /  **2022~2026  46.8%**
+//     46.8% 는 «아무 날»(50.5%)보다도 낮다. 최근 4년은 헤지가 아니었다.
+//
+// ⛔ 왜 이게 「너도 몰랐지?」인가
+//   평균만 보면 통념이 «맞다»(62.2%). 그래서 아무도 의심하지 않는다.
+//   시대를 쪼개야 보인다. 우리는 쪼갤 수 있고, 남들은 이 숫자를 내지 않는다.
+// ⛔ 자막에 숫자를 넣지 않는다. 화면 카드가 나른다.
+// ⛔ 「채권을 팔아라」 같은 권유를 하지 않는다. 우리는 «무엇이 바뀌었나»만 보여준다.
+// ============================================================================
+
+export const SCRIPT_BONDS821: BriefingProps = {
+  title: 'Your hedge stopped\nhedging in 2022.',
+  date: 'BOND YIELDS - 2,924 SESSIONS',
+  slowCuts: true,
+  hook: {
+    line: 'Your bonds stopped\nprotecting you.',
+    sub: 'Nobody checked. We did.',
+    role: 'conflict',
+    bg: { kind: 'video', src: 'shorts/bg/video/ani-bell-strike.mp4', loopFrames: 150 },
+  },
+  loop: 'The average lies.\nSplit it by era.',
+
+  beats: [
+    {
+      role: 'conflict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-two-smile.mp4', loopFrames: 150 },
+      eyebrow: 'What you were taught',
+      head: 'Stocks fall,\nbonds rise',
+      say: 'Hold on. Bonds are your safety net.',
+      ask: 'That is the whole idea, right?',
+      visual: { kind: 'stat', label: 'THE PROMISE', value: '60 / 40',
+        sub: 'bonds rise when stocks fall - the entire premise', up: true },
+    },
+    {
+      role: 'evidence',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },
+      eyebrow: 'So we tested it',
+      head: 'Every day stocks\ndropped hard',
+      say: 'We took every hard down day.',
+      ask: 'Ten years of them. Then counted.',
+      visual: { kind: 'rows', rows: [
+        { k: 'SESSIONS', v: '2,924', up: true, note: '2015 to 2026' },
+        { k: 'HARD DOWN DAYS', v: '328', up: false, note: 'S&P down 1% or worse' },
+        { k: 'BONDS ROSE', v: '62.2%', up: true, note: 'against 50.5% on any day' },
+      ] },
+    },
+    {
+      role: 'money',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
+      eyebrow: 'The average agrees',
+      head: 'So the textbook\nlooks right',
+      say: 'Across ten years it holds up.',
+      ask: 'Then we split it by era.',
+      visual: { kind: 'versus', aK: 'ANY DAY', aV: '50.5%', bK: 'CRASH DAY', bV: '62.2%' },
+    },
+    {
+      role: 'verdict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-ai-bubble.mp4', loopFrames: 150 },
+      eyebrow: 'And it falls apart',
+      head: 'It broke\nin twenty twenty two',
+      say: 'Before that, it worked. After, no.',
+      ask: 'Now it is worse than a coin flip.',
+      visual: { kind: 'rows', rows: [
+        { k: '2015-2019', v: '78.8%', up: true, note: 'low rates - the hedge worked' },
+        { k: '2020-2021', v: '72.7%', up: true, note: 'pandemic - still working' },
+        { k: '2022-2026', v: '46.8%', up: false, note: 'below the 50.5% baseline' },
+      ] },
+    },
+    {
+      role: 'chips',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-point-same.mp4', loopFrames: 150 },
+      eyebrow: 'Why nobody noticed',
+      head: 'The average\nhid the break',
+      say: 'The ten year average hides it.',
+      ask: 'So check what yours actually did.',
+      visual: { kind: 'stat', label: 'HEDGE RATE - LAST FOUR YEARS', value: '46.8%',
+        sub: 'lower than a random day - our own count', up: false },
+    },
+  ],
+
+  voice: VOICE_BONDS821,
+  outro: {
+    app: 'SIGNUM HQ',
+    line: 'The tape institutions leave behind',
+    ask: 'Check the era,\nnot the average.',
   },
 };
