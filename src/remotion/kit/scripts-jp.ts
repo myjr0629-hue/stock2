@@ -50,6 +50,10 @@ export const SCRIPT_JPOPEX: BriefingProps = {
     //   레퍼런스는 7편 중 3편이 질문·반박으로 연다.
     say: 'ちょっと待って。エヌビディアは違う。',
     role: 'conflict',
+    // ⛔ 종목 영상이면 «심볼»을 크게 박는다 (대표 상시 지시).
+    //   일반 시청자는 글자보다 심볼을 먼저 본다. 폰 썸네일 폭 210px 에서
+    //   「エヌビディア」 가나 6자는 뭉개지지만, NVDA 로고는 그 크기에서도 살아남는다.
+    syms: ['NVDA'],
     // 훅: 멈춘 도미노 = 가격이 묶인다
     bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
   },
@@ -109,7 +113,7 @@ export const SCRIPT_JPOPEX: BriefingProps = {
       say: 'ただし、例外があります。',
       ask: 'エヌビディアには効かない。',
       visual: {
-        kind: 'stat', label: 'エヌビディア · 満期64回 vs ほか219回', value: '効果なし',
+        kind: 'stat', label: 'NVDA · 満期64回 vs ほか219回', value: '効果なし',
         sub: 't = 0.25 — 差は出なかった', up: false,
       },
     },
@@ -125,7 +129,7 @@ export const SCRIPT_JPOPEX: BriefingProps = {
       visual: {
         kind: 'rows', rows: [
           { k: 'ガンマフリップ', v: '$220', up: true, note: '株価より上' },
-          { k: '株価', v: '$216.85', up: true, note: '二つの線の間' },
+          { k: 'NVDA', v: '$216.85', up: true, note: '二つの線の間' },
           { k: 'マックスペイン', v: '$210', up: false, note: '株価より下' },
         ],
       },

@@ -42,6 +42,15 @@ const HOOK_OPEN = /^(hold on|okay|look|wait|no,|but |forget|stop|everyone|nobody
 // ⛔ 일본어 여는 말 (2026-08-21). 위 사전은 영어 전용이라 일본어 훅은 «항상 선언»으로 잡혔다.
 //   뜻은 같다 — 「잠깐」「사실은」「다들 ~라고 하지만」처럼 통념을 세우고 꺾는 말.
 const HOOK_OPEN_JA = /^(ちょっと待|待って|実は|でも|しかし|違います|違う|みんな|誰も|そう言われ|本当に|よく聞く|信じ)/;
+// ⛔ 종목 영상이면 «첫 화면에 심볼»을 박는다 — 상시 원칙 (대표 지시 2026-08-21)
+//   "내가 항상 말하지 종목에 관한것이 있으면 심볼을 강하게 넣으라고"
+//   "썸네일이든 첫화면에 넣어야지 그것을 원칙으로해"
+//   ⇒ 말로 기억하지 않고 여기서 막는다. hook.syms 가 프레임0(=썸네일)을 지배한다.
+//   폰 썸네일 폭은 ≈210px 다. 그 크기에서 사명 글자는 뭉개지고 로고는 살아남는다.
+const TICKER_SYM = /\b(NVDA|AMD|MU|AVGO|TSLA|AAPL|MSFT|AMZN|GOOGL|META|INTC|SMCI|PLTR|SNDK|NFLX|COIN|SPY|QQQ|IWM|GLD|SLV|TLT|IEF|SMH|XLU)\b/;
+// 일본어 대본은 사명이 가타카나로 나온다 — 심볼이 아니라 이름이라 위 정규식에 안 걸린다
+const TICKER_JA = /(エヌビディア|テスラ|アップル|マイクロン|ブロードコム|アマゾン|グーグル|マイクロソフト|メタ|インテル|パランティア|ネットフリックス)/;
+
 // 일본어는 «글자/큐»로 호흡을 본다 (자막 상한 18자 기준, 한 호흡에 8~16자)
 const CPC_JA = [8, 16];
 
@@ -103,6 +112,16 @@ export function checkScript(tag, src, lang = 'en') {
   const band = SPACED ? WPC : CPC_JA;
   ok(SPACED ? '단어/큐' : '글자/큐', wpc >= band[0] && wpc <= band[1], wpc.toFixed(1),
     `${band[0]}~${band[1]}${SPACED ? ' (레퍼런스 5.1~7.3)' : ' (ja 자막 상한 18자 · 한 호흡 분량)'}`);
+
+  // ⑤ 종목이 나오면 첫 화면에 심볼이 있어야 한다
+  //   ⛔ blk 은 대본 블록 «원문»이다. hook.syms 는 여기서 문자열로 확인한다.
+  const namedTicker = (blk.match(TICKER_SYM) || blk.match(TICKER_JA) || [])[0] || null;
+  if (namedTicker) {
+    const hookBlk = blk.slice(0, blk.indexOf('beats:') > 0 ? blk.indexOf('beats:') : blk.length);
+    const hasSyms = /syms\s*:\s*\[\s*'[^']+'/.test(hookBlk);
+    ok('첫 화면 심볼', hasSyms, hasSyms ? `있음 (${namedTicker} 편)` : `없음 — "${namedTicker}" 가 나오는데 hook.syms 가 비었다`,
+      'hook.syms 필수 (프레임0=썸네일 지배 요소. 폰에서 사명 글자는 뭉개지고 로고는 읽힌다)');
+  }
 
   // ⑤ 자막 줄수 — 기존 script-lint 규칙을 흡수
   const over = cues.filter((c) => c[1].length > cap);
