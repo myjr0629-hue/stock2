@@ -5,7 +5,7 @@
   "class": "concept",
   "scriptTag": "BONDS821",
   "lang": "en",
-  "title": "Bond Yields Explained: The Year Your Hedge Stopped Working",
+  "title": "Bond Yields Explained: Your Hedge Died In 2022",
   "evidence": [
    "SPY·TLT·IEF 일봉 2015-01-01~2026-08-20 · 공통 2,924 세션",
    "SPY -1% 이하 하락일 328일 · TLT 상승 62.2% vs 전체일 50.5% · z=4.00",
@@ -21,7 +21,7 @@
    "n": 158,
    "pValue": 0.0001,
    "computedBy": "scripts/edge-bonds.mjs — 사전등록(기간·대상·정의·검정) 후 FMP 일봉으로 계산. 전체 z=4.00. 원본 .agent/_edge_bonds.json",
-   "saidAs": "Now it is worse than a coin flip."
+   "saidAs": "It died in twenty twenty two."
   },
   "tags": [
    "bond yields",

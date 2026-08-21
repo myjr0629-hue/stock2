@@ -160,6 +160,56 @@ node scripts/market-wants.mjs us     # 또는 jp
 
 ---
 
+## 2-B. ⛔ 팩트가 확인되면 «말은 세게 민다» (2026-08-21)
+
+> 대표 지시: "팩트라면 멘트는 강하게 밀어붙여서 항상 만들어라"
+> "제목을 과감하게 소제를 과감하게 작성한다"
+
+**우리가 조심해야 할 것은 «숫자»지 «말투»가 아니다.**
+숫자가 확인된 뒤에도 문장을 얌전하게 쓰면, 우리가 한 측정이 아깝게 죽는다.
+
+| 약함 (쓰지 않는다) | 세게 (이렇게 쓴다) |
+|---|---|
+| "Bonds are your safety net." | **"Bonds are not a hedge."** |
+| "That is the whole idea, right?" | **"You were told the opposite."** |
+| "Across ten years it holds up." | **"The average is lying to you."** |
+| "Before that it worked. After, no." | **"It died in twenty twenty two."** |
+| "Now it is worse than a coin flip." | **"A coin flip now beats your bonds."** |
+| "So check what yours actually did." | **"Go look at the last four years."** |
+
+이렇게 바꾸면 «우리/너» 비율도 같이 오른다 (BONDS821: 4.8% → **6.6%**, 레퍼런스 중앙 3.9%).
+세게 쓰는 것과 「너에게 말하는 것」은 같은 동작이다.
+
+### ⛔ 다만 «세게»와 «지어냄»의 선은 분명하다
+
+| 해도 되는 것 | 하면 안 되는 것 |
+|---|---|
+| 확인된 수치를 «단정»으로 말한다 | 확인 안 된 수치를 말한다 (`$2조 만기` 같은 것) |
+| 통념을 «틀렸다»고 때린다 | 인과를 단정한다 (`기관이 함정을 팠다`) |
+| 「A coin flip beats your bonds」 (46.8% < 50%, 참) | 매수·매도를 권한다 |
+| 「The average is lying to you」 (평균이 실제로 가린다) | 없는 날짜·사건을 말한다 |
+
+**판정 기준 하나: 시청자가 확인하러 갔을 때 «그대로» 나오는가.**
+나오면 아무리 세게 써도 된다. 안 나오면 아무리 부드럽게 써도 안 된다.
+
+## 2-C. ★ 우리 앱 화면을 «증거»로 쓴다
+
+우리에겐 남에게 없는 게 하나 더 있다 — **앱 화면 캡처**와 «같은 순간»의 값이 담긴 `.txt`.
+`public/shorts/appshots/<이름>.png` + `<이름>.txt`
+
+```js
+visual: { kind: 'shot', src: 'shorts/appshots/mu-cmd.png',
+  focus: { x: 0.04, y: 0.158, w: 0.92 },
+  callout: { box: {...}, label: 'GAMMA FLIP $850' } }
+```
+
+**언제 쓰나** — 「우리가 계산했다」를 말로만 하지 말고 **보여줘야 할 때.**
+맥스페인·감마플립·순프리미엄처럼 «우리 화면에 그 숫자가 떠 있는» 소재가 그렇다.
+
+⛔ **캡처와 대본의 숫자가 어긋나면 안 된다.** `.txt` 는 캡처와 «같은 순간»에 저장된 값이다.
+   숫자가 필요하면 그 파일에서 읽는다. 기억으로 쓰지 않는다.
+⛔ 앱 화면을 **지어내지 않는다.** 없는 화면은 캡처를 새로 뜨거나, 그 소재를 접는다.
+
 ## 3. 「떠먹여준다」의 실제 구조 — 8비트
 
 레퍼런스 흐름을 우리 포맷에 맞춘 것이다. **유니크하게 가지 않는다.**
