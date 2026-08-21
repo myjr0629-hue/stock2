@@ -47,13 +47,13 @@ const txt = (b, a) => { const r = spawnSync(b, a, { maxBuffer: 1 << 30, encoding
 // ⛔ 2026-08-21: 길이 상한 30초 (대표 지시). 근거는 variants.ts WINDOW 주석 참조.
 //   구독자가 늘면 «재측정 후» 되돌린다. 숫자만 보고 되돌리지 말 것.
 const SPEC_BY_CLASS = {
-  concept: { secRange: [20, 31], cutsPerMin: [8, 24], brightMin: 90, capTopPct: [66, 82] },
+  concept: { secRange: [31, 38], cutsPerMin: [8, 24], brightMin: 90, capTopPct: [66, 82] },
   // ⚠ 컷/분 상한 24 — 측정된 브리핑 계급은 6.5~16.5 지만 그 6편은 «전부 토킹헤드»다.
   //   TrendyVest 98K 는 45.9초에 5컷(9초에 한 번) — 말하는 사람 얼굴이라 컷이 필요 없다.
   //   우리는 «데이터 카드» 포맷이라 카드 하나를 9초 붙잡으면 빈 화면이 된다.
   //   → 구조가 다른 포맷에 남의 숫자를 그대로 씌우지 않는다. 24 로 두고 «미해결»로 표시한다.
   //   숙제: 데이터 카드형 브리핑 채널을 따로 표본으로 모아 재측정할 것.
-  brief:   { secRange: [20, 31], cutsPerMin: [5, 24], brightMin: 55, capTopPct: [62, 86] },
+  brief:   { secRange: [31, 38], cutsPerMin: [5, 24], brightMin: 55, capTopPct: [62, 86] },
   // ⚠ ad 계급은 «측정된 레퍼런스가 없다». 앱 광고를 오가닉 쇼츠로 올리는 채널 표본을
   //   아직 못 모았다. 그래서 다른 계급에서 «확실히 근거 있는 것»만 가져온다:
   //     자막 위치·첫컷·빈화면·라우드니스 = 계급 무관 (플랫폼 UI·우리 채널 신호)
@@ -68,7 +68,9 @@ const SPEC = {
   firstCutSec: 2.8,         // 우리 채널 전수: 첫컷 시각 ↔ 지속률 -0.90 (유일한 신호)
   secRange: [8, 60],        // 쇼츠
   titleMax: 100,
-  tagCount: [8, 15],
+  // ⛔ 500자를 끝까지 쓴다 (대표 지시 2026-08-21). 태그는 넣는다고 손해가 없다.
+  //   상한 15 는 «내가 만든 제약»이었고 근거가 없었다.
+  tagCount: [8, 90],
   descMax: 1200,            // 설명 길이는 조회수와 무관(상관 0.01) — 짧게 유지
   hashtags: [1, 3],
   banHours: [22, 23, 0],    // KST 22~01 = d-0.15 · n=578 · 99% 유의

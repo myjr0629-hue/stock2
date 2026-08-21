@@ -97,8 +97,11 @@ export function checkTopic(it) {
   const TICKERS = tickerRe(LANG);
   const inTitle = TICKERS.test(it.title || '');
   const inBody = TICKERS.test([].concat(it.evidence || []).join(' ') + ' ' + (it.insight?.claim || ''));
-  R.push({ name: '종목 해석', pass: inTitle || inBody,
-    got: inTitle ? '제목에 종목명' : (inBody ? '근거에만 (제목엔 없음)' : '없음'),
+  // ⛔ 이 규칙은 «막지 않는다» — 위 주석의 의도가 그랬는데 구현이 막고 있었다 (2026-08-21 발견).
+  //   근거 자체가 n=6 vs 15, z=1.09/1.48 로 «유의하지 않다»고 적혀 있다.
+  //   유의하지 않은 규칙으로 매크로 편(FRED 계열만 쓰는 편)을 막으면 안 된다. 표시만 한다.
+  R.push({ name: '종목 해석', pass: true,
+    got: inTitle ? '제목에 종목명' : (inBody ? '근거에만 (제목엔 없음)' : '없음 — 매크로 편이면 정상'),
     want: '종목명이 제목에 있으면 좋다 (있는 편 조회중앙 86·시청률 88% vs 없는 편 40·47%, n=21 관찰)' });
 
   // ⑥ 신선도 — 뉴스성 소재만

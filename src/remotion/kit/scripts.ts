@@ -38,6 +38,7 @@ import { VOICE_MEMCORR } from './voice-memcorr';
 import { VOICE_GOLD821 } from './voice-gold821';
 import { VOICE_OPEX821 } from './voice-opex821';
 import { VOICE_BONDS821 } from './voice-bonds821';
+import { VOICE_AICON } from './voice-aicon';
 import { VOICE_T2 } from './voice-t2';
 import { VOICE_T4 } from './voice-t4';
 import { VOICE_T2B } from './voice-t2b';
@@ -4726,4 +4727,121 @@ export const SCRIPT_BONDS821: BriefingProps = {
 
 // ⛔ 일본 채널 대본은 scripts-jp.ts 에 따로 있다 (언어별 규칙이 달라 섞지 않는다).
 //   여기서 재수출하는 이유는 tts-beats 가 scripts.ts «하나»를 번들해 SCRIPT_<이름> 을 찾기 때문.
+
+// ============================================================================
+// SCRIPT_AICON — 「소비가 죽는다」는 통념이 반쯤 틀렸다 (2026-08-22 · 미국)
+// ----------------------------------------------------------------------------
+// ★ 네 칸 (.agent/CHANNEL_PLAN.md §1-B)
+//   ① 사건    미국 실물 소비 둔화 vs AI 인프라 투자 양극화 — 월마트 쇼크 이후 시장의 주제
+//   ② 영향경로 소비가 식으면 경기민감주가 밀린다. 그런데 AI 설비투자는 경기와 무관하게 간다.
+//             두 힘이 지수 안에서 «상쇄»되므로 지수만 보면 아무것도 안 보인다.
+//   ③ 우리수치 scripts/edge-consumer-ai.mjs — FRED 실물 데이터, 401개월(1993~)
+//             소매판매 +6.75% vs 컴퓨터·전자 신규주문 +16.76% → 격차 +10.01%p
+//             백분위 95.3 · 지금보다 큰 달은 401개월 중 «19번»
+//   ④ 기준선   컴퓨터·전자 신규주문 +16.76%
+//
+//   문: ai bubble 49,448 (매크로 7주제 중 최대) · market makers 9,587
+//
+// ⛔ 통념이 «반쯤» 틀렸다는 게 핵심이다.
+//   「소비가 죽는다」→ 소매판매 +6.75%. 죽지 않았다.
+//   진짜 이상값은 «AI 쪽이 2.5배로 벌어졌다»는 것이다.
+// ⛔ 레퍼런스 채널은 「월마트 -9.2%, 디어 +7%」로 그날 두 종목을 든다.
+//   우리는 «미국 전체가 실제로 쓴 돈»을 33년치로 든다. 그게 우리가 이기는 자리다.
+// ⛔ 「AI 버블이다/아니다」로 단정하지 않는다. 격차와 백분위만 보여준다.
+// ============================================================================
+export const SCRIPT_AICON: BriefingProps = {
+  title: 'Consumer spending is fine.\nThat is not the story.',
+  date: 'AUG 22 - FRED, 401 MONTHS',
+  slowCuts: true,
+
+  hook: {
+    line: 'The consumer\nis not dying.',
+    sub: 'We checked 401 months. Something else is.',
+    say: 'Hold on. The consumer is fine.',
+    role: 'conflict',
+    // 쇼핑백 vs AI 칩 — 이 편 전용 클립
+    bg: { kind: 'video', src: 'shorts/bg/video/ani-bag-vs-chip.mp4', loopFrames: 150 },
+  },
+  loop: 'Spending is fine.\nThe gap is not.',
+
+  beats: [
+    {
+      role: 'conflict', prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-crowd-stop.mp4', loopFrames: 150 },
+      eyebrow: 'What everyone says',
+      head: 'They say the US\nconsumer is cracking',
+      say: 'Every headline says the same thing.',
+      ask: 'So we pulled the actual receipts.',
+      visual: { kind: 'stat', label: 'THE CLAIM', value: 'CONSUMER CRACKING',
+        sub: 'repeated all month - rarely checked', up: false },
+    },
+    {
+      role: 'evidence', prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },
+      eyebrow: 'What America actually spent',
+      head: 'Retail sales.\nUp, not down.',
+      say: 'Retail sales are up from last year.',
+      ask: 'Not falling. Not even flat.',
+      visual: { kind: 'rows', rows: [
+        { k: 'RETAIL SALES', v: '+6.8%', up: true, note: 'year over year, June' },
+        { k: 'A YEAR AGO', v: '+4.1%', up: false, note: 'it accelerated' },
+        { k: 'SOURCE', v: 'FRED', up: true, note: 'US Census, seasonally adjusted' },
+      ] },
+    },
+    {
+      role: 'money', prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-bag-vs-chip.mp4', loopFrames: 150 },
+      eyebrow: 'Now the other side',
+      head: 'Computer orders\nran two and a half\ntimes faster.',
+      say: 'Nobody puts these two together.',
+      ask: 'Computer and electronics orders.',
+      visual: { kind: 'versus', aK: 'RETAIL SALES', aV: '+6.8%', bK: 'COMPUTER ORDERS', bV: '+16.8%' },
+    },
+    {
+      role: 'verdict', prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-expression-flip.mp4', loopFrames: 150 },
+      eyebrow: '401 months of history',
+      head: 'A gap this wide\nhappened 19 times.',
+      say: 'We counted every month since 1993.',
+      ask: 'Nineteen were wider. Out of 401.',
+      visual: { kind: 'stat', label: 'GAP PERCENTILE - 401 MONTHS', value: '95th',
+        sub: 'only 19 months ran a wider gap since 1993', up: true },
+    },
+    {
+      // 왜 이게 시장에 닿는가 — «영향 경로»를 한 비트로 세운다
+      role: 'depth', prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-arrows-flow.mp4', loopFrames: 150 },
+      eyebrow: 'Why the index hides it',
+      head: 'Two forces.\nOne index.',
+      say: 'These two cancel inside the index.',
+      ask: 'So the tape looks calm. It is not.',
+      visual: { kind: 'rows', rows: [
+        { k: 'CONSUMER SIDE', v: 'SLOWING', up: false, note: 'still positive, just slower' },
+        { k: 'AI SIDE', v: 'ACCELERATING', up: true, note: 'orders up 16.8%' },
+        { k: 'THE INDEX', v: 'QUIET', up: true, note: 'they offset - so you see nothing' },
+      ] },
+    },
+    {
+      role: 'chips', prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-data-pillars.mp4', loopFrames: 150 },
+      eyebrow: 'The number to watch',
+      head: 'Watch the orders,\nnot the shopper.',
+      say: 'So stop watching the shopper.',
+      ask: 'Watch the orders. Read the number.',
+      visual: { kind: 'rows', rows: [
+        { k: 'COMPUTER ORDERS', v: '+16.8%', up: true, note: 'the one to check next month' },
+        { k: 'RETAIL SALES', v: '+6.8%', up: true, note: 'healthy - just slower' },
+        { k: 'GAP', v: '+10.0pp', up: true, note: '95th percentile since 1993' },
+      ] },
+    },
+  ],
+
+  voice: VOICE_AICON,
+  outro: {
+    app: 'SIGNUM HQ',
+    line: 'The tape institutions leave behind',
+    ask: 'Stop reading news.\nRead the number.',
+  },
+};
+
 export { SCRIPT_JPOPEX, SCRIPT_JPGAMMA } from './scripts-jp';

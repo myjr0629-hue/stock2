@@ -903,6 +903,55 @@
    "motionAt0": 14.82,
    "bestStartSec": 1.5,
    "bestWindowMotion": 15.75
+  },
+  "ani-tariff-prices.mp4": {
+   "dur": 10,
+   "motionMean": 25.41,
+   "motionAt0": 46.54,
+   "bestStartSec": 0,
+   "bestWindowMotion": 26.16
+  },
+  "ani-btc-react.mp4": {
+   "dur": 10,
+   "motionMean": 28.14,
+   "motionAt0": 22.8,
+   "bestStartSec": 0.5,
+   "bestWindowMotion": 33.61
+  },
+  "ani-vault-drain.mp4": {
+   "dur": 10,
+   "motionMean": 26.44,
+   "motionAt0": 7.19,
+   "bestStartSec": 1.5,
+   "bestWindowMotion": 30.75
+  },
+  "ani-coin-liquidation.mp4": {
+   "dur": 10,
+   "motionMean": 26.32,
+   "motionAt0": 5.41,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 36.67
+  },
+  "ani-bag-vs-chip.mp4": {
+   "dur": 10,
+   "motionMean": 15.64,
+   "motionAt0": 1.03,
+   "bestStartSec": 1.75,
+   "bestWindowMotion": 21.18
+  },
+  "ani-oil-grows.mp4": {
+   "dur": 10,
+   "motionMean": 18.08,
+   "motionAt0": 5.23,
+   "bestStartSec": 4,
+   "bestWindowMotion": 22.65
+  },
+  "ani-block-train.mp4": {
+   "dur": 10,
+   "motionMean": 26.08,
+   "motionAt0": 16.01,
+   "bestStartSec": 2,
+   "bestWindowMotion": 36.57
   }
  }
 }
