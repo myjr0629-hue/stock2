@@ -71,11 +71,11 @@
       "sp500",
       "nasdaq",
       "dow jones",
-      "is it a bubble stock market",
-      "why companies are laying off",
-      "bond yields explained",
-      "bond yields",
-      "rsi"
+      "stock market today",
+      "stocks to buy",
+      "stocks to buy now",
+      "stock market news",
+      "investing for beginners"
     ],
     "description": "https://www.signumhq.com/app - FREE market intel on iOS and Android.\n\nEveryone says market makers pin the price on options expiry Friday. Nobody measured it. We did.\n\nWe took every Friday since 2021 for SPY, QQQ and the ten largest US names, then split them in two: the third Friday of each month (monthly options expiry) against every other Friday.\n\n768 expiry Fridays. 2,628 other Fridays.\nAverage intraday range on expiry Friday: 2.672%\nAverage intraday range on other Fridays: 2.783%\nThat is 4.0% tighter. Ten of the twelve names moved the same direction.\n\nThe size difference alone does not reach statistical significance (t = -1.64). The direction does - a sign test on 10 of 12 gives p = 0.019.\n\nSo the pin is real. It is just far smaller than the story you were told.\n\nToday, August 21, is a monthly expiry Friday. AMD sits 4.3% above its max pain of $450. Broadcom sits 6.2% below its $390. QQQ is 1.2% above $710.\n\nData: daily bars 2021-01-01 to 2026-08-20. Options levels from our own book.\nEducational only. Not investment advice.\n\n#options #stockmarket #investing",
     "pinnedComment": "The full test, so you can check it:\n\n- Window: every Friday from 2021-01-01 to 2026-08-20\n- Names: SPY QQQ AAPL NVDA AMD TSLA MSFT AMZN META GOOGL AVGO MU\n- Expiry Fridays: 768 - average intraday range 2.672%\n- Other Fridays: 2,628 - average intraday range 2.783%\n- Difference: -4.0%, t = -1.64 (not significant on size)\n- Direction: 10 of 12 names tighter, sign test p = 0.019 (significant)\n\nWe built the app that runs checks like this - free on iOS and Android:\nhttps://www.signumhq.com/app",

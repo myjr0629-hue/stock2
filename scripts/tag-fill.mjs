@@ -58,19 +58,29 @@ const items = [].concat(plan);
 
 // ③ 남는 자리를 채우는 일반 인기 금융어 — 영역 «안»에서만
 const FILLER_EN = [
-  'stock market', 'stocks', 'investing', 'stock market news', 'finance', 'trading',
-  'stock market today', 'wall street', 'investing for beginners', 'day trading',
-  'stock analysis', 'market news', 'nasdaq', 's&p 500', 'sp500', 'dow jones',
-  'money', 'personal finance', 'economy', 'us economy', 'inflation', 'recession',
-  'federal reserve', 'interest rates', 'bull market', 'bear market', 'earnings',
-  'tech stocks', 'ai stocks', 'semiconductor stocks', 'etf investing', 'dividend stocks',
-  'passive income', 'financial education', 'market analysis', 'stock tips',
+  // ⛔ «사람이 검색창에 실제로 치는 말»만 넣는다 (대표 지시 2026-08-21).
+  //   우리 수요표에는 「is it a bubble stock market」 같은 항목도 있는데,
+  //   그건 우리가 «측정한 질의»지 사람이 태그로 떠올릴 말은 아니다.
+  'stock market today', 'stocks to buy', 'stocks to buy now', 'stock market news',
+  'stock market', 'stocks', 'investing', 'investing for beginners', 'how to invest',
+  'day trading', 'day trading for beginners', 'swing trading', 'options trading',
+  'options for beginners', 'stock analysis', 'technical analysis', 'trading strategy',
+  'wall street', 'finance', 'personal finance', 'money', 'passive income',
+  'nasdaq', 'sp500', 's&p 500', 'dow jones', 'us stocks', 'us stock market',
+  'tech stocks', 'ai stocks', 'semiconductor stocks', 'growth stocks', 'dividend stocks',
+  'etf', 'etf investing', 'index funds', 'earnings', 'earnings report',
+  'federal reserve', 'interest rates', 'inflation', 'recession', 'market crash',
+  'bull market', 'bear market', 'stock tips', 'trading tips', 'financial education',
 ];
 const FILLER_JA = [
-  '米国株', '株式投資', '投資', '米国株投資', '資産運用', '株', 'nisa', '新nisa',
-  '米国株 初心者', '投資初心者', 'ナスダック', 'sp500', '株価', '相場', '経済',
-  'マネー', '金融', '決算', '為替', 'ドル円', '半導体', 'ai株', '高配当',
-  'インデックス投資', '積立', '投資信託', '株式市場', 'ウォール街', '米国経済',
+  // 사람이 실제로 치는 말 — 조사·군더더기 없이
+  '米国株', '株', '株式投資', '投資', '米国株投資', '株価', '資産運用',
+  '新nisa', 'nisa', '投資初心者', '米国株 初心者', '株 初心者',
+  'ナスダック', 'sp500', 'ダウ', '米国株 おすすめ', '高配当株',
+  'インデックス投資', '積立nisa', '投資信託', '配当金', '株 稼ぐ',
+  '相場', '経済', '金融', 'マネー', '決算', '為替', '円安', 'ドル円',
+  '半導体', 'ai株', '成長株', '暴落', '株価 予想', '株式市場',
+  'ウォール街', '米国経済', '投資 勉強', 'お金', '資産形成',
 ];
 
 for (const it of items) {
@@ -104,20 +114,24 @@ for (const it of items) {
   for (const t of tickers) push(t);
   const nTicker = out.length - nOwn;
 
-  // ② 실측 수요 상위 — 실제로 검색되는 말
-  //   ⛔ 값이 «소형채널 조회 중앙»이라 큰 순서가 곧 «문이 큰» 순서다
-  const byDemand = Object.entries(D).sort((a, b) => b[1] - a[1]).map(([k]) => k);
-  for (const t of byDemand) push(t);
-  const nDemand = out.length - nOwn - nTicker;
-
-  // ③ 일반 인기어로 남은 자리를 채운다
+  // ③ 자연 검색어 — 사람이 태그로 떠올릴 «말». 수요표보다 «먼저» 채운다.
+  //   ⛔ 수요표에는 「is it a bubble stock market」 「why companies are laying off」 처럼
+  //     «질문 형태»가 있다. 그건 우리가 측정한 질의지 태그가 아니다.
+  //     자연 검색어를 앞에 두면 그런 것들은 자리가 없어 자동으로 빠진다.
   for (const t of filler) push(t);
-  const nFill = out.length - nOwn - nTicker - nDemand;
+  const nFill = out.length - nOwn - nTicker;
+
+  // ④ 그래도 자리가 남으면 실측 수요어 — 단 «질문 형태»는 뺀다
+  const QUESTIONY = /^(is |are |why |how |what |does |do |can |should |when )/i;
+  const byDemand = Object.entries(D).sort((a, b) => b[1] - a[1]).map(([k]) => k)
+    .filter((k) => !QUESTIONY.test(k) && k.split(' ').length <= 3);
+  for (const t of byDemand) push(t);
+  const nDemand = out.length - nOwn - nTicker - nFill;
 
   const chars = out.join(', ').length;
   console.log(`\n  ${it.title || PLAN}`);
   console.log(`   ${(it.tags || []).length}개 · ${(it.tags || []).join(', ').length}자  →  ${out.length}개 · ${chars}/${LIMIT}자`);
-  console.log(`   고유 ${nOwn} · 티커 ${nTicker} · 실측수요 ${nDemand} · 일반 ${nFill}`);
+  console.log(`   고유 ${nOwn} · 티커 ${nTicker} · 자연검색어 ${nFill} · 수요표 ${nDemand}`);
   console.log(`   ${out.join(', ')}`);
   it.tags = out;
 }
