@@ -31,7 +31,12 @@ if (!KEY) { console.error('.env.local 에 ELEVENLABS_API_KEY 가 없다'); proce
 // [2026-08-07 대표 지시: «가장 사람들이 좋아하는 목소리»] 보이스 라이브러리 실측:
 // Adam - Engaging, Friendly = 남성 1위 (1y 사용 29억 자 · 채택 56.4만 = 전체 1위).
 // 워크스페이스에 추가된 ID(s3TPKV...). 이전 Daniel(onwK4e9ZLuTAKqWW03F9)에서 교체.
-const VOICE_ID = 's3TPKV1kjDlVtZbl4Ksh';
+// ⛔ 일본 채널은 목소리가 다르다 (2026-08-21 실측).
+//   일본어 미국주식 쇼츠 25편에서 F0(음높이)와 구독자당 조회의 관계를 직접 쟀다:
+//   스피어만 rho=-0.509, t=-2.84 → «낮을수록 성과가 좋다». 저음(~140Hz) 중앙 12.95 vs 고음 0.00.
+//   Adam 은 영어 남성 1위지만 «일본어 채널의 근거»가 아니다. 그래서 JP 는 따로 고른다.
+//   SIGNUM_VOICE 로 덮어쓸 수 있다 — 실측 후보는 .agent/JP_VOICE_PICK.json 에 있다.
+const VOICE_ID = process.env.SIGNUM_VOICE || 's3TPKV1kjDlVtZbl4Ksh';
 const MODEL = 'eleven_multilingual_v2';
 const SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.25 };
 

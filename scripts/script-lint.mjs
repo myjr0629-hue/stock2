@@ -9,9 +9,10 @@
 // 사용: node scripts/script-lint.mjs SCRIPT_TAG
 // ============================================================================
 import { readFileSync } from 'node:fs';
+import { scriptSource } from './_script-source.mjs';
 const TAG = process.argv[2];
 if (!TAG) { console.error('사용: script-lint <TAG>'); process.exit(1); }
-const src = readFileSync('src/remotion/kit/scripts.ts', 'utf8');
+const src = scriptSource();
 const i = src.indexOf(`export const SCRIPT_${TAG}`);
 if (i < 0) { console.error(`SCRIPT_${TAG} 없음`); process.exit(1); }
 const end = src.indexOf('\nexport const SCRIPT_', i + 10);

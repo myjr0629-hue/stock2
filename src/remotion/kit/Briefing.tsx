@@ -19,6 +19,7 @@
 
 import {
   AbsoluteFill, OffthreadVideo, Audio, Img, Sequence, interpolate, staticFile,
+  delayRender, continueRender,
   useCurrentFrame, useVideoConfig, Easing,
 } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Inter';
@@ -31,7 +32,37 @@ import { SYM, resolveSymbol } from './symbols';
 import { AppPlate } from './AppPlate';
 import { EndCard } from './EndCard';
 
-const { fontFamily } = loadFont();
+// ⛔ 일본 채널(@signum_jp) 대응 — Inter 에는 «일본어 글리프가 없다».
+//   그대로 두면 가나·한자가 두부(□)로 렌더된다.
+//   ⇒ 글꼴 «스택»으로 둔다. 라틴 글자는 항상 앞의 Inter 가 먼저 먹고,
+//     Inter 에 없는 일본어만 Noto Sans JP 가 받는다.
+//     그래서 기존 영어 편의 렌더 결과는 «한 픽셀도 바뀌지 않는다».
+//
+// ⛔ 왜 @remotion/google-fonts 를 안 쓰는가 (2026-08-21 실측)
+//   NotoSansJP 는 «japanese» 라는 서브셋 이름이 없다. 일본어 글리프가
+//   [0]~[119] 120개 조각으로 쪼개져 있어서, 굵기 3개를 받으면 요청이 360건이 된다.
+//   (Inter 만으로도 이미 126건 경고가 뜬다.)
+//   ⇒ 필요한 굵기 2개만 «직접 받아» public/fonts 에 두고 self-host 한다.
+//     렌더가 네트워크에 안 매이고, 다시 렌더해도 결과가 같다.
+const { fontFamily: FONT_LATIN } = loadFont();
+const FONT_JP = 'NotoSansJP';
+const fontFamily = `${FONT_LATIN}, ${FONT_JP}, sans-serif`;
+
+// ⛔ 글꼴이 «도착하기 전에» 프레임이 찍히면 그 프레임만 두부로 나온다.
+//   delayRender 로 붙잡았다가 실제 로드가 끝나면 놓는다.
+if (typeof document !== 'undefined' && !document.getElementById('signum-jp-font')) {
+  const handle = delayRender('Noto Sans JP');
+  const el = document.createElement('style');
+  el.id = 'signum-jp-font';
+  el.textContent = [700, 900].map((w) =>
+    `@font-face{font-family:'${FONT_JP}';font-style:normal;font-weight:${w};font-display:block;`
+    + `src:url(${staticFile(`fonts/NotoSansJP-${w}.woff2`)}) format('woff2');}`).join('');
+  document.head.appendChild(el);
+  Promise.all([
+    document.fonts.load(`700 100px '${FONT_JP}'`),
+    document.fonts.load(`900 100px '${FONT_JP}'`),
+  ]).then(() => continueRender(handle)).catch(() => continueRender(handle));
+}
 const F = (s: number) => Math.round(s * CANVAS.fps);
 const ease = Easing.bezier(0.16, 1, 0.3, 1);
 const useIn = (d = 0, dur = 10) => interpolate(useCurrentFrame(), [d, d + dur], [0, 1],

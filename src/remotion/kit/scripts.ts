@@ -4723,3 +4723,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
     ask: 'Stop trusting\nthe average.',
   },
 };
+
+// ⛔ 일본 채널 대본은 scripts-jp.ts 에 따로 있다 (언어별 규칙이 달라 섞지 않는다).
+//   여기서 재수출하는 이유는 tts-beats 가 scripts.ts «하나»를 번들해 SCRIPT_<이름> 을 찾기 때문.
+export { SCRIPT_JPOPEX } from './scripts-jp';

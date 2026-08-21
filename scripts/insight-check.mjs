@@ -31,6 +31,7 @@
 //   }
 // ============================================================================
 import { readFileSync, existsSync } from 'node:fs';
+import { scriptSource } from './_script-source.mjs';
 
 export function checkInsight(it, scriptSrc) {
   const R = [];
@@ -85,7 +86,7 @@ if (direct) {
   const p = process.argv[2];
   if (!p || !existsSync(p)) { console.error('사용: insight-check <plan.json>'); process.exit(1); }
   const items = [].concat(JSON.parse(readFileSync(p, 'utf8')));
-  const src = existsSync('src/remotion/kit/scripts.ts') ? readFileSync('src/remotion/kit/scripts.ts', 'utf8') : '';
+  const src = scriptSource();
   let bad = 0;
   for (const it of items) {
     console.log(`\n  ${it.title}`);

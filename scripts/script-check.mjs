@@ -21,6 +21,7 @@
 // 사용: node scripts/script-check.mjs SCRIPT_TAG
 // ============================================================================
 import { readFileSync } from 'node:fs';
+import { scriptSource } from './_script-source.mjs';
 
 // ── 규격의 근거는 전부 위 표. 숫자를 통과시키려고 낮추지 않는다 ──────────────
 // ⛔ 자막 한 줄 상한은 «언어마다 다르다» (2026-08-21 실측)
@@ -38,6 +39,11 @@ const HOOK_WORDS  = 12;          // 레퍼런스 훅은 전부 한 호흡
 
 const PRON = new Set(['you', 'your', "you're", 'yourself', 'we', 'us', 'our', "we're", "we've"]);
 const HOOK_OPEN = /^(hold on|okay|look|wait|no,|but |forget|stop|everyone|nobody)/i;
+// ⛔ 일본어 여는 말 (2026-08-21). 위 사전은 영어 전용이라 일본어 훅은 «항상 선언»으로 잡혔다.
+//   뜻은 같다 — 「잠깐」「사실은」「다들 ~라고 하지만」처럼 통념을 세우고 꺾는 말.
+const HOOK_OPEN_JA = /^(ちょっと待|待って|実は|でも|しかし|違います|違う|みんな|誰も|そう言われ|本当に|よく聞く|信じ)/;
+// 일본어는 «글자/큐»로 호흡을 본다 (자막 상한 18자 기준, 한 호흡에 8~16자)
+const CPC_JA = [8, 16];
 
 export function checkScript(tag, src, lang = 'en') {
   const cap = CAP_BY_LANG[lang] ?? CAP_CHARS;
@@ -55,29 +61,48 @@ export function checkScript(tag, src, lang = 'en') {
   const ok = (name, pass, got, want) => R.push({ name, pass, got, want });
   if (!cues.length) { ok('자막 큐', false, '0개', '>= 1'); return R; }
 
-  const words = cues.map((c) => c[1]).join(' ').split(/\s+/).filter(Boolean);
+  // ⛔ 일본어는 «띄어쓰기가 없다». 공백으로 자르면 큐 하나가 통째로 «단어 1개»가 되어
+  //   단어/큐 는 항상 1.0 이 나오고, 대명사 비율은 항상 0% 가 된다 (2026-08-21 실측).
+  //   영어에서 뽑은 지표를 그대로 씌우면 «측정 오류»를 위반으로 보고하게 된다.
+  //   ⇒ 공백을 쓰지 않는 언어는 «글자»로 센다.
+  const SPACED = lang !== 'ja';
+  const joined = cues.map((c) => c[1]).join(SPACED ? ' ' : '');
+  const words = SPACED ? joined.split(/\s+/).filter(Boolean) : [...joined.replace(/\s/g, '')];
   const n = words.length;
-  const pron = words.filter((w) => PRON.has(w.toLowerCase().replace(/[^a-z']/g, ''))).length / n * 100;
   const num  = words.filter((w) => /[0-9]/.test(w)).length / n * 100;
   const wpc  = n / cues.length;
 
   // ① 훅 — 레퍼런스는 3편 중 1편이 질문·반박으로 연다. 우리는 32/32 가 선언이었다
+  //   ⛔ 여는 말 사전이 영어 전용이라 일본어는 «영원히 선언»으로 잡혔다. 언어별로 둔다.
   const first = cues[0][1];
-  const hookType = /[?]/.test(first) ? '질문' : (HOOK_OPEN.test(first) ? '반박' : '선언');
+  const opener = lang === 'ja' ? HOOK_OPEN_JA : HOOK_OPEN;
+  const isQ = /[?？]/.test(first) || (lang === 'ja' && /(のか|だろうか|ますか|ですか)。?$/.test(first));
+  const hookType = isQ ? '질문' : (opener.test(first) ? '반박' : '선언');
   ok('훅 유형', hookType !== '선언', `${hookType} — "${first}"`,
     '질문 또는 반박 (레퍼런스 7편 중 3편. 우리 32편은 100% 선언이었다)');
-  ok('훅 길이', first.split(/\s+/).length <= HOOK_WORDS, `${first.split(/\s+/).length}단어`, `<= ${HOOK_WORDS}단어`);
+  const hookLen = SPACED ? first.split(/\s+/).length : [...first.replace(/\s/g, '')].length;
+  ok('훅 길이', SPACED ? hookLen <= HOOK_WORDS : hookLen <= cap,
+    SPACED ? `${hookLen}단어` : `${hookLen}자`, SPACED ? `<= ${HOOK_WORDS}단어` : `<= ${cap}자`);
 
   // ② 사람에게 하는 말인가 — 2인칭·1인칭 복수 비율
-  ok('우리/너 비율', pron >= PRON_MIN, `${pron.toFixed(1)}%`,
-    `>= ${PRON_MIN}% (레퍼런스 중앙 3.9% · 우리 과거 중앙 1.9%)`);
+  //   ⛔ 일본어는 «대명사를 생략하는 언어»다. 私たち·あなた 를 영어만큼 쓰면 부자연스럽다.
+  //     일본어 레퍼런스로 이 값을 재본 적이 «없다» → 없는 근거로 막지 않는다. 표시만 한다.
+  if (SPACED) {
+    const pron = words.filter((w) => PRON.has(w.toLowerCase().replace(/[^a-z']/g, ''))).length / n * 100;
+    ok('우리/너 비율', pron >= PRON_MIN, `${pron.toFixed(1)}%`,
+      `>= ${PRON_MIN}% (레퍼런스 중앙 3.9% · 우리 과거 중앙 1.9%)`);
+  } else {
+    ok('우리/너 비율', true, '해당 없음 (일본어는 대명사 생략)', '일본어 레퍼런스 미측정 — 막지 않는다');
+  }
 
   // ③ 자료 낭독이 되지 않는가 — 숫자 밀도
   ok('숫자 밀도', num <= NUM_MAX, `${num.toFixed(1)}%`,
     `<= ${NUM_MAX}% (레퍼런스 중앙 1.0% · 우리 과거 중앙 2.6%)`);
 
-  // ④ 호흡
-  ok('단어/큐', wpc >= WPC[0] && wpc <= WPC[1], wpc.toFixed(1), `${WPC[0]}~${WPC[1]} (레퍼런스 5.1~7.3)`);
+  // ④ 호흡 — 일본어는 «글자/큐»로 본다
+  const band = SPACED ? WPC : CPC_JA;
+  ok(SPACED ? '단어/큐' : '글자/큐', wpc >= band[0] && wpc <= band[1], wpc.toFixed(1),
+    `${band[0]}~${band[1]}${SPACED ? ' (레퍼런스 5.1~7.3)' : ' (ja 자막 상한 18자 · 한 호흡 분량)'}`);
 
   // ⑤ 자막 줄수 — 기존 script-lint 규칙을 흡수
   const over = cues.filter((c) => c[1].length > cap);
@@ -92,8 +117,10 @@ const direct = String(process.argv[1] || '').endsWith('script-check.mjs');
 if (direct) {
   const tag = process.argv[2];
   if (!tag) { console.error('사용: script-check <SCRIPT_TAG>'); process.exit(1); }
-  const src = readFileSync('src/remotion/kit/scripts.ts', 'utf8');
-  const R = checkScript(tag, src);
+  const src = scriptSource();
+  // ⛔ 언어를 안 넘기면 일본어 대본도 영어 규칙으로 재게 된다 (2026-08-21).
+  const lang = (process.argv[3] || 'en').toLowerCase();
+  const R = checkScript(tag, src, lang);
   console.log(`\n\n  SCRIPT_${tag}`);
   for (const r of R)
     console.log(`   ${r.pass ? '✔' : '✗'} ${r.name.padEnd(12)} ${String(r.got).padEnd(40)} ${r.pass ? '' : '기준 ' + r.want}`);

@@ -21,6 +21,7 @@
 
 import { spawnSync, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { scriptSource } from './_script-source.mjs';
 import { join } from 'node:path';
 import { checkTitle } from './title-check.mjs';
 import { checkTopic } from './topic-check.mjs';
@@ -268,9 +269,9 @@ for (const it of items) {
   // ⛔ 인사이트는 «선택»이 아니다 (대표 지시 2026-08-21):
   //    "강력한 인사이트를 줘야 무엇인가 얻어가지 상황설명만 하는것이 아니라"
   if (arg.endsWith('.json'))
-    for (const r of checkInsight(it, readFileSync('src/remotion/kit/scripts.ts', 'utf8'))) R.push(r);
+    for (const r of checkInsight(it, scriptSource())) R.push(r);
   if (it.scriptTag) {
-    const src = readFileSync('src/remotion/kit/scripts.ts', 'utf8');
+    const src = scriptSource();
     for (const r of checkScript(it.scriptTag, src, it.lang || 'en')) R.push(r);
     // ⛔ 2026-08-21: cutFor 가 길이 상한을 맞추려 «뒤에서부터» 비트를 버린다.
     //    결론·인사이트가 통째로 사라져도 렌더는 정상이라 영상 검사로는 못 잡는다.
