@@ -292,3 +292,11 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-22 업로드 (비공개+예약)
 
 - [The AI Bubble Question Nobody Checks: America Is Still Spending](https://youtube.com/shorts/OGPkK2_V4vE) — 예약 KST 2026-08-22 21:00 · `OGPkK2_V4vE`
+
+## 2026-08-22 업로드 (비공개+예약)
+
+- [ガンマが外れた翌週は荒れる、は逆でした](https://youtube.com/shorts/KMQvb4bE33Q) — 예약 KST 2026-08-22 13:00 · `KMQvb4bE33Q`
+
+## 2026-08-22 업로드 (비공개+예약)
+
+- [Bond Yields Explained: Your Hedge Died In 2022](https://youtube.com/shorts/ZcMnT7fEf-M) — 예약 KST 2026-08-22 13:00 · `ZcMnT7fEf-M`

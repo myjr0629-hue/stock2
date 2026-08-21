@@ -30,6 +30,11 @@ import { scriptSource } from './_script-source.mjs';
 //     ① 우리 TTS(ElevenLabs multilingual v2) 실측 초당 5.92자 → 3.0초 = 18자
 //     ② 일본 레퍼런스 15편의 자막 큐 지속 중앙 2.98초 × 5.92 = 18자
 //   영어 38자를 일본어에 쓰면 «한 줄이 6.4초» 가 된다.
+// ⛔ 로고가 «없는» 심볼 — symbols.ts 의 AMBIGUOUS 와 같은 목록.
+//   ETF 발행사 마크가 서로 같아 배지(NDX·500·DJI·VIX)로 그린다.
+//   배지는 폰에서 «읽히는 로고»가 아니므로 프레임0 심볼 규칙에서 제외한다. (2026-08-22)
+const AMBIGUOUS_SYMS = new Set(['SPY','SPX','SP500','DIA','DJI','GLD','IWM','RUSSELL','TLT','QQQ','NDX','VIX','SOX','SOXX']);
+
 const CAP_BY_LANG = { en: 38, ja: 18, ko: 20 };
 const CAP_CHARS   = CAP_BY_LANG.en;
 const NUM_MAX     = 3.2;         // 레퍼런스 중앙 1.0%, 최고 6.3%. 우리 상한을 3.2 로
@@ -115,7 +120,15 @@ export function checkScript(tag, src, lang = 'en') {
 
   // ⑤ 종목이 나오면 첫 화면에 심볼이 있어야 한다
   //   ⛔ blk 은 대본 블록 «원문»이다. hook.syms 는 여기서 문자열로 확인한다.
-  const namedTicker = (blk.match(TICKER_SYM) || blk.match(TICKER_JA) || [])[0] || null;
+  // ⛔ «로고가 있는» 티커만 이 규칙의 대상이다 (2026-08-22).
+  //   전에는 SPY 하나만 나와도 막았는데, SPY 는 배지(빨간 500 타일)로 그려진다.
+  //   일본 1호 렌더에서 그 타일이 프레임0을 차지해 «뜻 없는 빨간 사각형»이 됐다.
+  //   규칙의 목적은 「폰에서 읽히는 로고」이므로 로고가 없는 심볼은 대상에서 뺀다.
+  const allSyms = [
+    ...String(blk).matchAll(new RegExp(TICKER_SYM.source, 'g' + TICKER_SYM.flags.replace('g', ''))),
+  ].map((m) => m[0]);
+  const logoSyms = allSyms.filter((t) => !AMBIGUOUS_SYMS.has(String(t).toUpperCase()));
+  const namedTicker = logoSyms[0] || (blk.match(TICKER_JA) || [])[0] || null;
   if (namedTicker) {
     const hookBlk = blk.slice(0, blk.indexOf('beats:') > 0 ? blk.indexOf('beats:') : blk.length);
     const hasSyms = /syms\s*:\s*\[\s*'[^']+'/.test(hookBlk);

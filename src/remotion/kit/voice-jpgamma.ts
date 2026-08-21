@@ -9,7 +9,7 @@ export const VOICE_JPGAMMA: VoiceTrack = {
     { f: '01.mp3', sec: 3.9, saySec: 2.15, ask: { f: '01a.mp3', sec: 1.57 } },
     { f: '02.mp3', sec: 3.3, saySec: 1.32, ask: { f: '02a.mp3', sec: 1.8 } },
     { f: '03.mp3', sec: 3.95, saySec: 2.32, ask: { f: '03a.mp3', sec: 1.45 } },
-    { f: '04.mp3', sec: 3.45, saySec: 1.52, ask: { f: '04a.mp3', sec: 1.75 } },
+    { f: '04.mp3', sec: 4.65, saySec: 1.52, ask: { f: '04a.mp3', sec: 2.95 } },
   ],
   outro: { f: 'outro.mp3', sec: 1.62 },
   loop: { f: 'loop.mp3', sec: 1.85 },

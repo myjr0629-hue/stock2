@@ -4652,7 +4652,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
     role: 'conflict',
     bg: { kind: 'video', src: 'shorts/bg/video/ani-crowd-stop.mp4', loopFrames: 150 },   // 훅: 군중은 다 가는데 혼자 멈춘다 = 다들 믿는 것을 의심한다 (126)
   },
-  loop: 'The average lies.\nSplit it by era.',
+  loop: 'The average lies to you.\nSplit it by era.',
 
   beats: [
     {
@@ -4662,7 +4662,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
       eyebrow: 'What you were taught',
       head: 'Stocks fall,\nbonds rise',
       say: 'Hold on. Bonds are not a hedge.',
-      ask: 'You were told the opposite.',
+      ask: 'Every retirement plan is built on it.',
       visual: { kind: 'stat', label: 'THE PROMISE', value: '60 / 40',
         sub: 'bonds rise when stocks fall - the entire premise', up: true },
     },
@@ -4672,8 +4672,8 @@ export const SCRIPT_BONDS821: BriefingProps = {
       bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },   // 2 검정: 저울로 둘로 갈라 잰다
       eyebrow: 'So we tested it',
       head: 'Every day stocks\ndropped hard',
-      say: 'We counted every crash day.',
-      ask: 'Ten years. Every single one.',
+      say: 'So we counted every single crash day.',
+      ask: 'Ten years of them. Every single one.',
       visual: { kind: 'rows', rows: [
         { k: 'SESSIONS', v: '2,924', up: true, note: '2015 to 2026' },
         { k: 'HARD DOWN DAYS', v: '328', up: false, note: 'S&P down 1% or worse' },
@@ -4697,7 +4697,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
       eyebrow: 'And it falls apart',
       head: 'It died in\ntwenty twenty two',
       say: 'It died in twenty twenty two.',
-      ask: 'A coin flip now beats your bonds.',
+      ask: 'A coin flip beats them on crash days.',
       visual: { kind: 'rows', rows: [
         { k: '2015-2019', v: '78.8%', up: true, note: 'low rates - the hedge worked' },
         { k: '2020-2021', v: '72.7%', up: true, note: 'pandemic - still working' },
@@ -4710,10 +4710,24 @@ export const SCRIPT_BONDS821: BriefingProps = {
       bg: { kind: 'video', src: 'shorts/bg/video/ani-point-shock.mp4', loopFrames: 150 },   // 5 폭로: 놀라서 가리킨다
       eyebrow: 'Why nobody noticed',
       head: 'Your chart\nhid the break',
-      say: 'Your ten year chart hides this.',
-      ask: 'Go look at the last four years.',
+      say: 'Your ten year chart is hiding this.',
+      ask: 'Cut the last four years out and look.',
       visual: { kind: 'stat', label: 'HEDGE RATE - LAST FOUR YEARS', value: '46.8%',
         sub: 'lower than a random day - our own count', up: false },
+    },
+    {
+      role: 'verdict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-fed-dial.mp4', loopFrames: 150 },   // 6 기준선: 눈금 하나를 본다
+      eyebrow: 'One number to watch',
+      head: 'Fifty is the\nline that matters',
+      say: 'One number tells you if it comes back.',
+      ask: 'Above fifty, the hedge is alive again.',
+      visual: { kind: 'rows', rows: [
+        { k: 'Any random day', v: '50.5%', up: true, note: 'the baseline - 2,924 sessions' },
+        { k: 'Bonds now', v: '46.8%', up: false, note: '2022-2026 - below the baseline' },
+        { k: 'Watch for', v: '50%', up: true, note: 'cross it and the hedge is back' },
+      ] },
     },
   ],
 

@@ -199,8 +199,13 @@ function thumbIsFrame0(video, thumb) {
 const R = [];
 const ok = (name, pass, got, want) => R.push({ name, pass, got, want });
 
-function checkVideo(file, thumb, cls = 'concept') {
+// ⛔ 길이만은 «언어»로 갈린다 — 위 SPEC_BY_CLASS 의 31~38 은 미국 실측값이다.
+//   일본 247편: rho=-0.208 t=-3.32 (짧을수록 유리, 유의). 원본 .agent/_jp_hour_raw.json
+const SEC_RANGE_BY_LANG = { ja: [20, 32] };
+
+function checkVideo(file, thumb, cls = 'concept', lang = 'en') {
   const S = { ...SPEC, ...(SPEC_BY_CLASS[cls] || SPEC_BY_CLASS.concept) };
+  if (SEC_RANGE_BY_LANG[lang]) S.secRange = SEC_RANGE_BY_LANG[lang];
   const m = analyse(file);
   R.push({ name: '계급', pass: true, got: cls, want: '' });
   ok('해상도 1080x1920', m.w === 1080 && m.h === 1920, `${m.w}x${m.h}`, '1080x1920');
@@ -293,7 +298,7 @@ for (const it of items) {
   } else if (arg.endsWith('.json')) {
     R.push({ name: '대본 태그', pass: false, got: '없음', want: 'plan 에 scriptTag 를 넣어야 대본을 잰다' });
   }
-  const m = checkVideo(it.file, it.thumb, it.class || 'concept');
+  const m = checkVideo(it.file, it.thumb, it.class || 'concept', it.lang || 'en');
   if (arg.endsWith('.json')) checkMeta(it);
   const fails = R.filter((r) => !r.pass);
   for (const r of R)

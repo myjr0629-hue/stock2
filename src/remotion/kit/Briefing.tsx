@@ -164,6 +164,14 @@ export interface BriefingProps {
   };
   /** 마지막이 첫 화면으로 이어지는 루프백 문장 */
   loop: string;
+  /**
+   * ⛔ 정적 아웃트로(앱 광고 카드)를 «빼고» 마지막 비트를 바로 루프로 넘긴다.
+   *   왜 생겼나 (2026-08-22 실측): 일본 첫 영상 pt9HSA9y82g 의 23초 프레임이
+   *   통째로 「SIGNUM HQ FREE - iOS & Android」 정지 카드였다. 쇼츠에서 «정지 화면»은
+   *   시청자에게 「끝났다」 신호이고, 그 순간 스와이프된다 — 루프가 끊긴다.
+   *   ⚠ 미국 채널은 앱 유입이 사업 목적이라 «기본은 켬»이다. 끄는 것은 채널 판단.
+   */
+  noOutro?: boolean;
   /** 절차 배경이 쓸 실데이터 (seed=티커, series=당일 시계열 등) */
   data?: BackdropData;
   /** 하단 티커 테이프 — 캡처 .txt 와 같은 순간의 시장 값들 (플랫폼 UI에 덮여도 되는 존) */
@@ -238,7 +246,7 @@ export function timingOf(p: BriefingProps) {
   // ⛔ 낭독 끝나자마자 잘라내면 끝 장면이 «스쳐 지나간다» (대표 확인 2026-08-21).
   //    폰·지표칩·구독줄·앱주소를 읽을 시간이 필요하다. 낭독 뒤 1.4초를 준다.
   //    ⚠ 길이가 늘면 평균 조회율의 분모가 커진다 — 그래서 «최소한만» 늘린다.
-  const ctaSec = v?.outro ? Math.max(3.2, v.outro.sec + 1.4) : 3.2;
+  const ctaSec = p.noOutro ? 0 : v?.outro ? Math.max(3.2, v.outro.sec + 1.4) : 3.2;
   const loopSec = v?.loop ? Math.max(PACE.loopSec, v.loop.sec + 0.2) : PACE.loopSec;
   return { hookSec, beatSecs, ctaSec, loopSec };
 }
@@ -717,6 +725,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       {/* CTA — ★ 고정 자산 클립을 «튼다». 영상마다 다시 조립하지 않는다.
           만드는 곳: src/remotion/kit/Outro.tsx → public/shorts/outro/outro.mp4
           바꾸려면 그 파일 하나만 고치고 다시 구우면 모든 영상에 반영된다. */}
+      {!p.noOutro && (
       <Sequence from={ctaFrom} durationInFrames={ctaLen}>
         <AbsoluteFill style={{ background: '#05070C' }}>
           <OffthreadVideo muted src={staticFile('shorts/outro/outro.mp4')}
@@ -724,6 +733,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
         </AbsoluteFill>
         <Say2 v={p.voice} seg={p.voice?.outro} />
       </Sequence>
+      )}
 
       {/* 루프백 — 첫 화면으로 이어진다 */}
       <Sequence from={loopFrom} durationInFrames={loopF}>

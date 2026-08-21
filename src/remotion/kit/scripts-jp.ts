@@ -169,19 +169,21 @@ export const SCRIPT_JPGAMMA: BriefingProps = {
   title: 'ガンマが外れた翌週。\n荒れる、は逆だった。',
   date: 'AUG 22 · 満期の翌週',
   slowCuts: true,
+  noOutro: true,
+  disclaimer: '教育目的のみ。投資助言ではありません。',
 
   hook: {
     line: '満期が終わった。\n荒れるはずだった。',
     sub: '12銘柄で数えたら、逆でした。',
     say: 'ちょっと待って。逆になりました。',
     role: 'conflict',
+    syms: ['NVDA'],
     // ⛔ 이 편은 «시장 전체» 이야기다 (12종목 중 11종목). 그래서 프레임0은 SPY 다.
     //   NVDA 는 마지막 «예외»로 나온다 — 거기서 쓴다.
-    syms: ['SPY'],
     // 훅 배경은 «루프백에서 한 번 더» 쓰인다. sunrise 는 잔잔한 수면이라
     // 마지막 2.5초가 통째로 «빈 화면»으로 잡혔다 (게이트 상한 0.8초).
     // ⇒ 밝으면서 «화면이 찬» 것으로 바꾼다. 종을 친다 = 만기 종료 신호로 뜻도 맞다.
-    bg: { kind: 'video', src: 'shorts/bg/video/ani-bell-strike.mp4', loopFrames: 150 },
+    bg: { kind: 'video', src: 'shorts/bg/video/golden-bell.mp4', loopFrames: 150 },
   },
   loop: '荒れるはずが、\n静かだった。',
 
@@ -190,7 +192,7 @@ export const SCRIPT_JPGAMMA: BriefingProps = {
       role: 'conflict',
       prio: 1,
       // 다들 같은 곳을 가리킨다
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-point-same.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/exchange-flags.mp4', loopFrames: 150 },
       eyebrow: 'よく聞く話',
       head: '満期が過ぎると\n荒れる、と言う。',
       say: 'そう言われています。',
@@ -205,7 +207,7 @@ export const SCRIPT_JPGAMMA: BriefingProps = {
       role: 'evidence',
       prio: 1,
       // 둘로 가른다
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-tipping-balance.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/scale-few-vs-many.mp4', loopFrames: 150 },
       eyebrow: 'だから数えた',
       head: '一万三千日を\n二つに分けた。',
       say: '二〇二一年からの全営業日。',
@@ -222,7 +224,7 @@ export const SCRIPT_JPGAMMA: BriefingProps = {
       role: 'money',
       prio: 1,
       // 폭풍이 갈라진다 = 예상과 달리 잠잠해짐
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-storm-part.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/desks-dawn.mp4', loopFrames: 150 },
       eyebrow: '返ってきた答え',
       head: '逆だった。\n翌週は静かになる。',
       // ★ 레퍼런스 흐름: «중반 재훅» — 「그런데 여기가 이상하다」를 명시적으로 신호한다
@@ -234,7 +236,7 @@ export const SCRIPT_JPGAMMA: BriefingProps = {
       role: 'verdict',
       prio: 1,
       // 표정이 뒤집힌다
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-expression-flip.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/tape-wall-scroll.mp4', loopFrames: 150 },
       eyebrow: '十二のうち十一',
       head: '十一銘柄で\n静かになった。',
       say: '十二のうち十一が、そうでした。',
@@ -248,11 +250,11 @@ export const SCRIPT_JPGAMMA: BriefingProps = {
       role: 'chips',
       prio: 1,
       // 마켓메이커가 저글링 — 하나만 계속 움직인다
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-juggle-mm.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/pcb-one-chip-lit.mp4', loopFrames: 150 },
       eyebrow: 'ただ一つの例外',
       head: 'エヌビディアだけ、\n静かにならない。',
       say: '例外は、一つだけでした。',
-      ask: 'ニュースではなく、板を見る。',
+      ask: 'ニュースではなく、数字を見る。',
       visual: {
         kind: 'rows', rows: [
           { k: 'NVDA 満期の翌週', v: '3.81%', up: true, note: '唯一 静かにならなかった' },
