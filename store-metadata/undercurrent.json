@@ -1,0 +1,123 @@
+{
+ "appId": "6788779895",
+ "slug": "undercurrent",
+ "bundleId": "com.signumhq.undercurrent",
+ "name": "Undercurrent: News & Money",
+ "primaryLocale": "en-US",
+ "contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT",
+ "localizations": {
+  "ja": {
+   "name": "アンダーカレント：ニュースとお金",
+   "subtitle": "ニュースの裏で動くお金",
+   "privacyPolicyUrl": "https://www.signumhq.com/ja/undercurrent/privacy"
+  },
+  "ko": {
+   "name": "언더커런트: 뉴스 뒤의 돈",
+   "subtitle": "뉴스 뒤에서 움직이는 돈을 읽다",
+   "privacyPolicyUrl": "https://www.signumhq.com/ko/undercurrent/privacy"
+  },
+  "en-US": {
+   "name": "Undercurrent: News & Money",
+   "subtitle": "The money behind the news",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  }
+ },
+ "versionLocalizations": {
+  "1.0.2 (READY_FOR_SALE)": {
+   "ko": {
+    "keywords": "주식,미국주식,투자,경제뉴스,옵션,기관,수급,공시,브리핑,시황,티커,금융",
+    "keywordsLen": 40,
+    "keywordsRoom": 60,
+    "promotionalText": "뉴스는 오르라 하는데 기관 자금은 반대로 흐를 때가 있습니다. 그 «괴리»를 매일 무료로 보여드립니다. 다크풀 비중·옵션 수급·기관 거래를 한 화면에.",
+    "description": "뉴스는 이야기를 들려줍니다. 돈은 진실을 말합니다.\n\n언더커런트는 기사 하나하나를 '큰돈이 실제로 한 일'과 나란히 읽습니다 — 기관 장외 거래, 옵션 포지션, 스퀴즈 압력을 누구나 이해할 수 있는 쉬운 말로. 이야기와 돈이 어긋나는 순간, 바로 보입니다.\n\n매일 열게 되는 이유\n• 뉴스 ≠ 돈 — 낙관적인 기사 뒤에 방어적인 수급이 붙어 있다면? 휩쓸리기 전에 카드에서 괴리를 바로 표시합니다.\n• 끝이 있는 데일리 에디션 — 모닝·애프터눈·이브닝 에디션이 정해진 개수의 이야기로 구성됩니다. 다 읽으면 오늘 치 끝. 무한 스크롤이 없습니다.\n• 회사가 직접 밝힌 것 — 언론 보도 옆에 SEC 공식 8-K 공시를 한 줄씩 요약해 나란히, 내부자들의 최근 매매까지.\n• 괴리 스코어보드 — 뉴스와 돈이 갈렸을 때",
+    "whatsNew": "시스템 내비게이션 바 관련 레이아웃·안정성 개선. 내부 업데이트.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "en-US": {
+    "keywords": "stocks,investing,market,options,dark pool,institutional,daily brief,earnings,SEC,whale,flow,ticker",
+    "keywordsLen": 98,
+    "keywordsRoom": 2,
+    "promotionalText": "Sometimes the news says up while institutional money moves the other way. We show that gap — free, every day. Dark pool, options flow, institutional prints.",
+    "description": "The news tells you a story. The money tells you the truth.\n\nUndercurrent reads every headline side-by-side with what big money actually did — institutional off-exchange activity, options positioning, squeeze pressure — translated into plain words anyone can follow. When the story and the money disagree, you'll see it instantly.\n\nWHY PEOPLE OPEN IT EVERY DAY\n• News ≠ Money — a bullish story with de",
+    "whatsNew": "Stability and layout fixes for system navigation bars. Internal updates.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ja": {
+    "keywords": "株,米国株,投資,経済ニュース,オプション,機関投資家,決算,ブリーフィング,金融,相場",
+    "keywordsLen": 44,
+    "keywordsRoom": 56,
+    "promotionalText": "ニュースは強気でも、機関の資金は逆に動くことがある。その「乖離」を毎日無料で。ダークプール比率・オプション需給・機関の売買を一画面で。",
+    "description": "ニュースは物語を伝えます。お金は真実を語ります。\n\nアンダーカレントは記事の一つひとつを「大きなお金が実際にしたこと」と並べて読みます — 機関投資家の場外取引、オプションの構え、スクイーズ圧力を、誰にでもわかる言葉で。物語とお金が食い違った瞬間、すぐに見えます。\n\n毎日開きたくなる理由\n• ニュース ≠ マネー — 強気な記事の裏に防御的なポジションが付いていたら?流されるまえに、カード上で乖離をすぐ表示します。\n• 読み切れるデイリーエディション — モーニング・アフタヌーン・イブニング版が決まった数のストーリーで構成。読み終えたら今日はおしまい。無限スクロールはありません。\n• 企業が自ら明かしたこと — 報道の隣に、SEC公式の8-K開示を一行ずつ要約して並べ、インサイダーの最近の売買も。\n• 乖離スコアボード — ニュースとお金が割れたとき、3営業日後にどちらが正しかったかを公開",
+    "whatsNew": "システムナビゲーションバー周りのレイアウト・安定性の改善。内部アップデート。",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   }
+  },
+  "1.0.1 (READY_FOR_SALE)": {
+   "ko": {
+    "keywords": "주식,미국주식,투자,경제뉴스,옵션,기관,수급,공시,브리핑,시황,티커,금융",
+    "keywordsLen": 40,
+    "keywordsRoom": 60,
+    "promotionalText": null,
+    "description": "뉴스는 이야기를 들려줍니다. 돈은 진실을 말합니다.\n\n언더커런트는 기사 하나하나를 '큰돈이 실제로 한 일'과 나란히 읽습니다 — 기관 장외 거래, 옵션 포지션, 스퀴즈 압력을 누구나 이해할 수 있는 쉬운 말로. 이야기와 돈이 어긋나는 순간, 바로 보입니다.\n\n매일 열게 되는 이유\n• 뉴스 ≠ 돈 — 낙관적인 기사 뒤에 방어적인 수급이 붙어 있다면? 휩쓸리기 전에 카드에서 괴리를 바로 표시합니다.\n• 끝이 있는 데일리 에디션 — 모닝·애프터눈·이브닝 에디션이 정해진 개수의 이야기로 구성됩니다. 다 읽으면 오늘 치 끝. 무한 스크롤이 없습니다.\n• 회사가 직접 밝힌 것 — 언론 보도 옆에 SEC 공식 8-K 공시를 한 줄씩 요약해 나란히, 내부자들의 최근 매매까지.\n• 괴리 스코어보드 — 뉴스와 돈이 갈렸을 때",
+    "whatsNew": "최신 기기에서 화면 상단이 상태바에 물리던 문제를 고쳤고, 시스템 글꼴을 크게 설정해도 레이아웃이 깨지지 않도록 했습니다.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "en-US": {
+    "keywords": "stocks,investing,market,options,dark pool,institutional,daily brief,earnings,SEC,whale,flow,ticker",
+    "keywordsLen": 98,
+    "keywordsRoom": 2,
+    "promotionalText": "Wall Street watches the money, not the headlines. Now you can too — the institutional flows behind every story, explained in plain English. Free.",
+    "description": "The news tells you a story. The money tells you the truth.\n\nUndercurrent reads every headline side-by-side with what big money actually did — institutional off-exchange activity, options positioning, squeeze pressure — translated into plain words anyone can follow. When the story and the money disagree, you'll see it instantly.\n\nWHY PEOPLE OPEN IT EVERY DAY\n• News ≠ Money — a bullish story with de",
+    "whatsNew": "Fixes layout problems on newer devices where content could sit under the status bar, and keeps the layout intact when the system font size is enlarged.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ja": {
+    "keywords": "株,米国株,投資,経済ニュース,オプション,機関投資家,決算,ブリーフィング,金融,相場",
+    "keywordsLen": 44,
+    "keywordsRoom": 56,
+    "promotionalText": null,
+    "description": "ニュースは物語を伝えます。お金は真実を語ります。\n\nアンダーカレントは記事の一つひとつを「大きなお金が実際にしたこと」と並べて読みます — 機関投資家の場外取引、オプションの構え、スクイーズ圧力を、誰にでもわかる言葉で。物語とお金が食い違った瞬間、すぐに見えます。\n\n毎日開きたくなる理由\n• ニュース ≠ マネー — 強気な記事の裏に防御的なポジションが付いていたら?流されるまえに、カード上で乖離をすぐ表示します。\n• 読み切れるデイリーエディション — モーニング・アフタヌーン・イブニング版が決まった数のストーリーで構成。読み終えたら今日はおしまい。無限スクロールはありません。\n• 企業が自ら明かしたこと — 報道の隣に、SEC公式の8-K開示を一行ずつ要約して並べ、インサイダーの最近の売買も。\n• 乖離スコアボード — ニュースとお金が割れたとき、3営業日後にどちらが正しかったかを公開",
+    "whatsNew": "新しい端末でコンテンツがステータスバーに重なる問題を修正し、システムの文字サイズを大きくしてもレイアウトが崩れないようにしました。",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   }
+  },
+  "1.0 (READY_FOR_SALE)": {
+   "en-US": {
+    "keywords": "stocks,investing,market,options,dark pool,institutional,daily brief,earnings,SEC,whale,flow,ticker",
+    "keywordsLen": 98,
+    "keywordsRoom": 2,
+    "promotionalText": "Wall Street watches the money, not the headlines. Now you can too — the institutional flows behind every story, explained in plain English. Free.",
+    "description": "The news tells you a story. The money tells you the truth.\n\nUndercurrent reads every headline side-by-side with what big money actually did — institutional off-exchange activity, options positioning, squeeze pressure — translated into plain words anyone can follow. When the story and the money disagree, you'll see it instantly.\n\nWHY PEOPLE OPEN IT EVERY DAY\n• News ≠ Money — a bullish story with de",
+    "whatsNew": "",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ja": {
+    "keywords": "株,米国株,投資,経済ニュース,オプション,機関投資家,決算,ブリーフィング,金融,相場",
+    "keywordsLen": 44,
+    "keywordsRoom": 56,
+    "promotionalText": "ウォール街はヘッドラインではなく、お金を見ています。あなたも — すべてのニュースの裏で動く機関投資家の動きを、やさしい言葉で。無料。",
+    "description": "ニュースは物語を伝えます。お金は真実を語ります。\n\nアンダーカレントは記事の一つひとつを「大きなお金が実際にしたこと」と並べて読みます — 機関投資家の場外取引、オプションの構え、スクイーズ圧力を、誰にでもわかる言葉で。物語とお金が食い違った瞬間、すぐに見えます。\n\n毎日開きたくなる理由\n• ニュース ≠ マネー — 強気な記事の裏に防御的なポジションが付いていたら?流されるまえに、カード上で乖離をすぐ表示します。\n• 読み切れるデイリーエディション — モーニング・アフタヌーン・イブニング版が決まった数のストーリーで構成。読み終えたら今日はおしまい。無限スクロールはありません。\n• 企業が自ら明かしたこと — 報道の隣に、SEC公式の8-K開示を一行ずつ要約して並べ、インサイダーの最近の売買も。\n• 乖離スコアボード — ニュースとお金が割れたとき、3営業日後にどちらが正しかったかを公開",
+    "whatsNew": "",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ko": {
+    "keywords": "주식,미국주식,투자,경제뉴스,옵션,기관,수급,공시,브리핑,시황,티커,금융",
+    "keywordsLen": 40,
+    "keywordsRoom": 60,
+    "promotionalText": "월가는 헤드라인이 아니라 돈을 봅니다. 이제 당신도 — 모든 뉴스 뒤의 기관 수급과 옵션 포지션을 쉬운 말로. 무료.",
+    "description": "뉴스는 이야기를 들려줍니다. 돈은 진실을 말합니다.\n\n언더커런트는 기사 하나하나를 '큰돈이 실제로 한 일'과 나란히 읽습니다 — 기관 장외 거래, 옵션 포지션, 스퀴즈 압력을 누구나 이해할 수 있는 쉬운 말로. 이야기와 돈이 어긋나는 순간, 바로 보입니다.\n\n매일 열게 되는 이유\n• 뉴스 ≠ 돈 — 낙관적인 기사 뒤에 방어적인 수급이 붙어 있다면? 휩쓸리기 전에 카드에서 괴리를 바로 표시합니다.\n• 끝이 있는 데일리 에디션 — 모닝·애프터눈·이브닝 에디션이 정해진 개수의 이야기로 구성됩니다. 다 읽으면 오늘 치 끝. 무한 스크롤이 없습니다.\n• 회사가 직접 밝힌 것 — 언론 보도 옆에 SEC 공식 8-K 공시를 한 줄씩 요약해 나란히, 내부자들의 최근 매매까지.\n• 괴리 스코어보드 — 뉴스와 돈이 갈렸을 때",
+    "whatsNew": "",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   }
+  }
+ }
+}
