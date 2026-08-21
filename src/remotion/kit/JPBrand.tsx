@@ -31,14 +31,21 @@ export const JPAvatar: React.FC = () => (
   <AbsoluteFill style={{ background: NAVY }}>
     <Img src={staticFile('app-icons/signum.png')}
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-    {/* 배지 — 로고를 가리지 않는 우하단. 금색이라 원본 남색과 대비가 확실하다 */}
+    {/* ⛔ 유튜브 채널 아바타는 «원형»으로 잘린다 (2026-08-21 확인).
+        우하단 모서리(right/bottom 44)에 뒀더니 배지가 통째로 잘려나갔다.
+        800x800 의 내접원은 중심(400,400)·반지름 400 — 그 안에 들어가야 살아남는다.
+        ⇒ 아래 «가운데»로 옮긴다. 배지 모서리까지 계산해도 중심에서 354px, 안쪽이다. */}
     <div style={{
-      position: 'absolute', right: 44, bottom: 44,
-      background: GOLD, color: '#08101C', borderRadius: 22,
-      padding: '14px 30px 18px',
-      fontFamily, fontSize: 128, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1,
-      boxShadow: '0 14px 44px rgba(0,0,0,0.72)',
-    }}>JP</div>
+      position: 'absolute', left: 0, right: 0, bottom: 118,
+      display: 'flex', justifyContent: 'center',
+    }}>
+      <div style={{
+        background: GOLD, color: '#08101C', borderRadius: 20,
+        padding: '10px 30px 14px',
+        fontFamily, fontSize: 110, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1,
+        boxShadow: '0 14px 44px rgba(0,0,0,0.78)',
+      }}>JP</div>
+    </div>
   </AbsoluteFill>
 );
 
