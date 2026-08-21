@@ -71,3 +71,26 @@
 - **Buffer API 키** — Vercel 에 이미 존재
 - **ASC API 키** — `~/.appstoreconnect/private_keys/AuthKey_2LD2B7366M.p8` 보유, 제가 바로 사용 가능
 - **앱 홍보영상** — https://youtube.com/shorts/VUPwd_Fugl0
+
+
+---
+
+## 🔵 E. 실행 중 발견 — «클릭 한 번»만 필요한 곳 (2026-08-21 실측)
+
+제가 직접 시도한 결과입니다. **리다이렉트형 구글 로그인은 제가 됩니다**(Bing 성공).
+아래는 **팝업형(GSI)** 이라 브라우저 보안상 «사람의 실제 클릭» 한 번이 필요합니다.
+버튼만 눌러주시면 이후 등재·게시는 전부 제가 이어받습니다.
+
+| 사이트 | 하실 것 |
+|---|---|
+| https://connect.aptoide.com/login | 「Sign in」(구글) 클릭 → 계정 선택 |
+| https://www.uptodown.dev | 「Sign in with Google」 클릭 → 계정 선택 |
+
+## ✅ 오늘 제가 끝낸 것 (2026-08-21)
+
+- **Google Search Console** — www.signumhq.com 소유 확인(자동 검증) + sitemap 재제출. 이미 513페이지 발견 상태였음
+- **Bing Webmaster** — 구글 리다이렉트 로그인 → GSC 가져오기로 사이트 등록 + sitemap 자동 이관(Processing). Yahoo·DuckDuckGo·Ecosia 에 함께 반영됨
+- **App Store 프로모션 텍스트 9건** — 3앱×3언어, 심사 없이 즉시 반영 완료
+- **실화면 캡처 21장** — SIGNUM 12(dash/guardian/flow/intel × ko/en/ja) + UC 9(home/diverge/whales × ko/en/ja), 밝기 게이트 통과, `promo-shots/`
+- **보도자료 3개 국어** — `.agent/distribution/press-release-{ko,ja,en}.md` (발송은 승인 후)
+- **네이버** — 이 환경에서 도메인 차단 확인 → 서치어드바이저·네이버TV 는 대표님 전용 확정
