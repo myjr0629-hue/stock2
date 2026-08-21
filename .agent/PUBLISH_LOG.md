@@ -276,3 +276,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-21 업로드 (비공개+예약)
 
 - [Why Options Trading Freezes Tech Stocks Every Expiry Friday](https://youtube.com/shorts/zy5q6nmxlQ8) — 예약 KST 2026-08-21 20:00 · `zy5q6nmxlQ8`
+
+## 2026-08-22 업로드 (비공개+예약)
+
+- [Bond Yields Explained: Your Hedge Died In 2022](https://youtube.com/shorts/UKdmCQzkF6M) — 예약 KST 2026-08-22 13:00 · `UKdmCQzkF6M`

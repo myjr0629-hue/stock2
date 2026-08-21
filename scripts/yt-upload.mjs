@@ -193,7 +193,8 @@ const log = `\n## ${items[0].publishAtKST.slice(0, 10)} 업로드 (비공개+예
   done.map((d) => `- [${d.title}](${d.url}) — 예약 KST ${d.publishAtKST} · \`${d.id}\``).join('\n') + '\n';
 appendFileSync('.agent/PUBLISH_LOG.md', log);
 console.log(`\n  ${done.length}건 완료 → .agent/PUBLISH_LOG.md 기록`);
-console.log('  ⚠ 전부 «비공개+예약» 상태다. 개시는 스튜디오에서 대표가 한다.
-  ⚠ 사람이 해야 하는 일 2가지 (API 없음):
-     1) 고정 댓글의 「고정」 버튼
-     2) Studio > 세부정보 > 썸네일 에 <이름>_thumb.jpg 업로드 — 쇼츠 «커버»는 API 로 못 바꾼다\n');
+console.log('  ⚠ 전부 «비공개+예약» 상태다. 개시는 스튜디오에서 대표가 한다.');
+console.log('  ⚠ 사람이 해야 하는 일 2가지 (API 없음):');
+console.log('     1) 고정 댓글의 「고정」 버튼');
+console.log('     2) Studio > 세부정보 > 썸네일 에 <이름>_thumb.jpg 업로드');
+console.log('        - 쇼츠 커버는 API 로 못 바꾼다 (2026-08-21 확인)');
