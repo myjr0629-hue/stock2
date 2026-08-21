@@ -46,7 +46,7 @@ const WANT = {
       '',
       '※投資助言ではありません。最終判断はご自身の責任でお願いします。',
     ].join('\n'),
-    keywords: '米国株 マックスペイン オプション 機関投資家 建玉 板読み ナスダック 米国株投資 決算',
+    keywords: 'マックスペイン エヌビディア ウォール街 機関投資家 米国株 板読み "米国株 速報" オプション 建玉 ガンマ ダークプール ナスダック S&P500 半導体株 決算 米国株投資 "株価 なぜ" 相場解説 FRB 金利 ドル円 ボラティリティ テスラ株 アップル株 マイクロン ブロードコム 空売り 出来高 "米国株 初心者"',
   },
 };
 
@@ -105,15 +105,27 @@ const j = await r.json();
 if (!r.ok) { console.error(`\n  ✗ ${r.status}`, JSON.stringify(j).slice(0, 400)); process.exit(1); }
 
 // ── 되읽어서 «실제로 들어갔는지» 확인한다 ───────────────────────────────────
-const back = await (await fetch(
-  'https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings&mine=true', { headers: H })).json();
-const nb = back.items?.[0]?.brandingSettings?.channel || {};
+//   ⛔ 즉시 되읽으면 «옛 값»이 온다 (2026-08-21 실측 — 키워드가 옛 값으로 보였다가
+//     4초 뒤 새 값이 왔다). 유튜브는 쓰기 반영에 지연이 있다. 재시도한다.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const KEYS = ['country', 'defaultLanguage', 'keywords', 'description'];
+const miss = (nb) => KEYS.filter((k) => String(nb[k] ?? '') !== String(after[k] ?? ''));
+
+let nb = {}, bad = KEYS;
+for (let t = 0; t < 5 && bad.length; t++) {
+  if (t) await sleep(3000);
+  const back = await (await fetch(
+    'https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings&mine=true',
+    { headers: H })).json();
+  nb = back.items?.[0]?.brandingSettings?.channel || {};
+  bad = miss(nb);
+  if (bad.length) console.log(`  … 반영 대기 ${t + 1}/5 (미반영: ${bad.join(', ')})`);
+}
+
 console.log('\n  ══ 반영 확인 (되읽음) ══');
-let bad = 0;
-for (const k of ['country', 'defaultLanguage', 'keywords', 'description']) {
-  const ok = String(nb[k] ?? '') === String(after[k] ?? '');
-  if (!ok) bad++;
+for (const k of KEYS) {
+  const ok = !bad.includes(k);
   console.log(`   ${ok ? '✔' : '✗'} ${k}${ok ? '' : `   실제=${JSON.stringify(String(nb[k] ?? '')).slice(0, 80)}`}`);
 }
-console.log(bad ? `\n  ⛔ ${bad}개가 반영되지 않았다.\n` : '\n  전부 반영됐다.\n');
-process.exit(bad ? 1 : 0);
+console.log(bad.length ? `\n  ⛔ ${bad.length}개가 반영되지 않았다.\n` : '\n  전부 반영됐다.\n');
+process.exit(bad.length ? 1 : 0);

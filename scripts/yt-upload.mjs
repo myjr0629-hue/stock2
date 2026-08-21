@@ -33,6 +33,9 @@ const env = readFileSync('.env.local', 'utf8');
 //   기본값은 hq. 환경변수를 «안 주면» 지금까지와 완전히 같게 동작한다.
 const RTKEY = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp'
   ? 'YT_JP_REFRESH_TOKEN' : 'YT_REFRESH_TOKEN';
+// ⛔ 영상의 «언어»도 채널을 따라가야 한다. en 으로 고정돼 있으면 일본 채널에서
+//   자동자막·번역·추천이 전부 영어 기준으로 잡힌다 (2026-08-21).
+const LANG = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp' ? 'ja' : 'en';
 const envGet = (k) => {
   const m = env.match(new RegExp(`^${k}=(.*)$`, 'm'));
   return m ? m[1].trim() : null;
@@ -67,8 +70,8 @@ async function upload(tok, item) {
       description: item.description,
       tags: item.tags || [],
       categoryId: '25',                    // News & Politics — 금융 시황 채널 기준
-      defaultLanguage: 'en',
-      defaultAudioLanguage: 'en',
+      defaultLanguage: LANG,
+      defaultAudioLanguage: LANG,
     },
     // ⛔ private 은 «대표 본인만» 볼 수 있다 — 링크를 줘도 남이 못 연다.
     //    홍보 링크로 쓰려면 unlisted(일부공개). 검색·피드에는 안 뜨고 링크로만 열린다.
