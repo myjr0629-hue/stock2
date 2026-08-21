@@ -80,16 +80,6 @@
     "description": "https://www.signumhq.com/app - FREE market intel on iOS and Android.\n\nEveryone says market makers pin the price on options expiry Friday. Nobody measured it. We did.\n\nWe took every Friday since 2021 for SPY, QQQ and the ten largest US names, then split them in two: the third Friday of each month (monthly options expiry) against every other Friday.\n\n768 expiry Fridays. 2,628 other Fridays.\nAverage intraday range on expiry Friday: 2.672%\nAverage intraday range on other Fridays: 2.783%\nThat is 4.0% tighter. Ten of the twelve names moved the same direction.\n\nThe size difference alone does not reach statistical significance (t = -1.64). The direction does - a sign test on 10 of 12 gives p = 0.019.\n\nSo the pin is real. It is just far smaller than the story you were told.\n\nToday, August 21, is a monthly expiry Friday. AMD sits 4.3% above its max pain of $450. Broadcom sits 6.2% below its $390. QQQ is 1.2% above $710.\n\nData: daily bars 2021-01-01 to 2026-08-20. Options levels from our own book.\nEducational only. Not investment advice.\n\n#options #stockmarket #investing",
     "pinnedComment": "The full test, so you can check it:\n\n- Window: every Friday from 2021-01-01 to 2026-08-20\n- Names: SPY QQQ AAPL NVDA AMD TSLA MSFT AMZN META GOOGL AVGO MU\n- Expiry Fridays: 768 - average intraday range 2.672%\n- Other Fridays: 2,628 - average intraday range 2.783%\n- Difference: -4.0%, t = -1.64 (not significant on size)\n- Direction: 10 of 12 names tighter, sign test p = 0.019 (significant)\n\nWe built the app that runs checks like this - free on iOS and Android:\nhttps://www.signumhq.com/app",
     "publishAtKST": "2026-08-21 20:00",
-    "privacy": "private",
-    "localizations": {
-      "ja": {
-        "title": "満期日に株価が止まる、は本当か — 768回を数えた",
-        "description": "signumhq.com/app — 米国株の板情報が無料。iOS / Android\n\n「満期日はマーケットメーカーが株価を押さえつける」\nよく聞く話です。誰も数えていませんでした。\n\n2021年以降の金曜日を全部、SPY・QQQ と大型10銘柄で二つに分けました。\n毎月第三金曜日（月間オプション満期）と、それ以外の金曜日です。\n\n満期の金曜日 768回。ほかの金曜日 2,628回。\n満期日の日中値幅 2.672%、ほかの金曜日 2.783%。\n4.0% 狭い。12銘柄のうち10銘柄が同じ方向でした。\n\n値幅の差そのものは有意になりません（t = -1.64）。\nただ方向は有意です — 12銘柄中10銘柄、符号検定 p = 0.019。\n\nつまりピンは本物です。ただ、語られてきたよりずっと小さい。\n\nエヌビディアだけは、その10銘柄に入っていませんでした。\n\nデータ: 日足 2021-01-01〜2026-08-20。オプション水準は自社の板から。\n※投資助言ではありません。\n\n#米国株 #オプション #マックスペイン #エヌビディア #投資"
-      },
-      "ko": {
-        "title": "만기일에 주가가 묶인다는 말, 768번 세어봤습니다",
-        "description": "signumhq.com/app — 미국주식 옵션·수급 데이터 무료. iOS / Android\n\n「만기일엔 마켓메이커가 주가를 눌러놓는다」\n다들 이렇게 말합니다. 아무도 세어보지 않았습니다.\n\n2021년 이후 모든 금요일을 SPY·QQQ와 대형 10종목으로 둘로 갈랐습니다.\n매달 셋째 금요일(월간 옵션 만기)과 나머지 금요일입니다.\n\n만기 금요일 768회. 나머지 금요일 2,628회.\n만기일 일중 변동폭 2.672%, 나머지 2.783%.\n4.0% 좁습니다. 12종목 중 10종목이 같은 방향이었습니다.\n\n변동폭 «크기» 차이는 유의하지 않습니다(t = -1.64).\n다만 «방향»은 유의합니다 — 부호검정 p = 0.019.\n\n핀 현상은 진짜입니다. 다만 들어온 이야기보다 훨씬 작습니다.\n\n엔비디아만 그 10종목에 없었습니다.\n\n데이터: 일봉 2021-01-01~2026-08-20.\n※투자 자문이 아닙니다.\n\n#미국주식 #옵션 #맥스페인 #엔비디아 #투자"
-      }
-    }
+    "privacy": "private"
   }
 ]

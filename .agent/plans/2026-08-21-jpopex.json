@@ -107,16 +107,6 @@
       "mechanism": "만기일에는 옵션 포지션이 정리되면서 가격이 특정 레벨로 끌린다는 통념이 있다. 마켓메이커가 헤지를 되감으면서 변동폭이 줄어든다는 것인데, 사실인지 아무도 재지 않았다. 재보면 대부분 종목에서는 맞고 — 엔비디아에서만 안 맞는다.",
       "anchor": "NVDA 감마플립 $220",
       "note": "⛔ 실제 영상은 기준선을 3개 냈다 (감마플립 220 · 주가 216.85 · 맥스페인 210). 3소스 합의는 «하나»다. 2호부터 하나로 좁힌다."
-    },
-    "localizations": {
-      "en": {
-        "title": "The One Stock Max Pain Does Not Work On",
-        "description": "signumhq.com/app - FREE options and flow data for US stocks. iOS / Android\n\nEveryone says price gets pinned on expiry Friday. Nobody measured it. We did.\n\nEvery Friday since 2021, across SPY, QQQ and the ten largest US names, split in two:\nthe third Friday of each month against every other Friday.\n\n768 expiry Fridays. 2,628 other Fridays.\nExpiry Friday intraday range 2.672%. Other Fridays 2.783%.\nTen of twelve names moved the same direction. Sign test p = 0.019.\n\nThe pin is real. But Nvidia is not one of those ten.\n64 expiry Fridays against 219 others, t = 0.25. No effect either way.\n\nTonight: gamma flip $220 / price $216.85 / max pain $210.\n\nEducational only. Not investment advice.\n\n#stockmarket #options #nvidia #maxpain #investing"
-      },
-      "ko": {
-        "title": "맥스페인이 통하지 않는 유일한 종목, 엔비디아",
-        "description": "signumhq.com/app — 미국주식 옵션·수급 데이터 무료. iOS / Android\n\n만기일엔 주가가 묶인다고들 합니다. 아무도 세어보지 않았습니다.\n\n2021년 이후 모든 금요일, SPY·QQQ와 대형 10종목.\n만기 금요일 768회 vs 나머지 2,628회.\n일중 변동폭 2.672% vs 2.783% — 12종목 중 10종목 동일 방향, 부호검정 p = 0.019.\n\n핀 현상은 진짜입니다. 그런데 엔비디아는 그 10종목에 없습니다.\n만기 64회 vs 나머지 219회, t = 0.25. 어느 방향으로도 차이가 없었습니다.\n\n오늘 밤: 감마플립 $220 / 주가 $216.85 / 맥스페인 $210.\n\n※투자 자문이 아닙니다.\n\n#미국주식 #옵션 #엔비디아 #맥스페인 #투자"
-      }
     }
   }
 ]
