@@ -1,0 +1,121 @@
+{
+ "measuredAt": "2026-08-21",
+ "target": {
+  "f0": 158.4,
+  "iqr": 103.5
+ },
+ "test": {
+  "f0": {
+   "U": 45,
+   "z": -2.12,
+   "p": 0.0338,
+   "n1": 16,
+   "n2": 11
+  },
+  "iqr": {
+   "U": 70,
+   "z": -0.89,
+   "p": 0.3744,
+   "n1": 16,
+   "n2": 11
+  }
+ },
+ "candidates": [
+  {
+   "name": "Koemugi - Calm & Expressive ",
+   "id": "xya0RvcJtofTcFTOdX4E",
+   "g": "male",
+   "age": "young",
+   "use": 1187768,
+   "file": "public/shorts/audio/jpvoicepick/Koemugi_Calm_Expressive.mp3",
+   "bytes": 147583,
+   "f0": 115.1,
+   "iqr": 29.2,
+   "dist": 115.108
+  },
+  {
+   "name": "Ryu - Calm Japanese Male Narration",
+   "id": "LjaWbdfZxis9YRrL8L87",
+   "g": "male",
+   "age": "middle_aged",
+   "use": 1113429,
+   "file": "public/shorts/audio/jpvoicepick/Ryu_Calm_Japanese_Male_Narration.mp3",
+   "bytes": 178512,
+   "f0": 120.3,
+   "iqr": 30.3,
+   "dist": 120.301
+  },
+  {
+   "name": "Rio - Late Night Radio",
+   "id": "M7yNn2Ev4SskxM3JS3OC",
+   "g": "male",
+   "age": "middle_aged",
+   "use": 1249426,
+   "file": "public/shorts/audio/jpvoicepick/Rio_Late_Night_Radio.mp3",
+   "bytes": 113311,
+   "f0": 123.1,
+   "iqr": 38.2,
+   "dist": 123.077
+  },
+  {
+   "name": "Mio - Warm Japanese Narrator",
+   "id": "nBV906YvEOdwWKK9J8Hx",
+   "g": "female",
+   "age": "young",
+   "use": 974899,
+   "file": "public/shorts/audio/jpvoicepick/Mio_Warm_Japanese_Narrator.mp3",
+   "bytes": 154688,
+   "f0": 177.8,
+   "iqr": 38.7,
+   "dist": 177.778
+  },
+  {
+   "name": "Kinako - Warm Japanese Narrator",
+   "id": "t3iNwCjYhE9IEQPVBlys",
+   "g": "female",
+   "age": "middle_aged",
+   "use": 1501804,
+   "file": "public/shorts/audio/jpvoicepick/Kinako_Warm_Japanese_Narrator.mp3",
+   "bytes": 174751,
+   "f0": 219.2,
+   "iqr": 67.2,
+   "dist": 219.178
+  },
+  {
+   "name": "Kazuha - Warm & Friendly",
+   "id": "qbfQuoRJv1T3ei3qV4bc",
+   "g": "female",
+   "age": "young",
+   "use": 2834570,
+   "file": "public/shorts/audio/jpvoicepick/Kazuha_Warm_Friendly.mp3",
+   "bytes": 143822,
+   "f0": 250,
+   "iqr": 77.6,
+   "dist": 250
+  },
+  {
+   "name": "Rei - Japanese Young Lady",
+   "id": "LCjxmvbOHJFuUnh87ifL",
+   "g": "female",
+   "age": "young",
+   "use": 1061546,
+   "file": "public/shorts/audio/jpvoicepick/Rei_Japanese_Young_Lady.mp3",
+   "bytes": 156360,
+   "f0": 250,
+   "iqr": 41.3,
+   "dist": 250
+  },
+  {
+   "name": "Sumiko Ito - Crisp",
+   "id": "0yh9saSHWVy78QG1HfNs",
+   "g": "female",
+   "age": "young",
+   "use": 1228917,
+   "file": "public/shorts/audio/jpvoicepick/Sumiko_Ito_Crisp.mp3",
+   "bytes": 152599,
+   "f0": 280.7,
+   "iqr": 63.7,
+   "dist": 280.702
+  }
+ ]
+}

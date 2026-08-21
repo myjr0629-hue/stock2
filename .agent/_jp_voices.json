@@ -1,0 +1,74 @@
+[
+ {
+  "id": "qbfQuoRJv1T3ei3qV4bc",
+  "pub": "0ad324d413835b9a513d5be1f9822e951b11e4b1869488f7a3106d55bbab258c",
+  "name": "Kazuha - Warm & Friendly",
+  "g": "female",
+  "age": "young",
+  "use": 2834570,
+  "clone": 2328
+ },
+ {
+  "id": "t3iNwCjYhE9IEQPVBlys",
+  "pub": "cef4f34d1ac633887ad5e2d6b366846b7862bc4c629aea9aa66af5eda6e72081",
+  "name": "Kinako - Warm Japanese Narrator",
+  "g": "female",
+  "age": "middle_aged",
+  "use": 1501804,
+  "clone": 609
+ },
+ {
+  "id": "M7yNn2Ev4SskxM3JS3OC",
+  "pub": "a818f7ff481e501d7abae777492a43b518e65e3e6f73a73658231db7eb307ebf",
+  "name": "Rio - Late Night Radio",
+  "g": "male",
+  "age": "middle_aged",
+  "use": 1249426,
+  "clone": 1533
+ },
+ {
+  "id": "0yh9saSHWVy78QG1HfNs",
+  "pub": "30b8c0820ef4e34eb70feeb21e01480c4c80a0fa9b1de28c5ff53be5b98d4ec0",
+  "name": "Sumiko Ito - Crisp",
+  "g": "female",
+  "age": "young",
+  "use": 1228917,
+  "clone": 280
+ },
+ {
+  "id": "xya0RvcJtofTcFTOdX4E",
+  "pub": "1dc20662ba3e9fa94883b93ee12c4bdc8b9d2f4d9700b822d59940da279a8685",
+  "name": "Koemugi - Calm & Expressive ",
+  "g": "male",
+  "age": "young",
+  "use": 1187768,
+  "clone": 1597
+ },
+ {
+  "id": "LjaWbdfZxis9YRrL8L87",
+  "pub": "68eb0b868d371816a4984ed8249c78c07978a0bc5334910da79a2a4e94ebc550",
+  "name": "Ryu - Calm Japanese Male Narration",
+  "g": "male",
+  "age": "middle_aged",
+  "use": 1113429,
+  "clone": 570
+ },
+ {
+  "id": "LCjxmvbOHJFuUnh87ifL",
+  "pub": "baeae93e72d33b3952e0a37b2d5c9dea675e37b0ddcafad9ea0766417115c95b",
+  "name": "Rei - Japanese Young Lady",
+  "g": "female",
+  "age": "young",
+  "use": 1061546,
+  "clone": 469
+ },
+ {
+  "id": "nBV906YvEOdwWKK9J8Hx",
+  "pub": "50dade802a91f775fc0a154b882b4e0184c90a9f488c1d2dceaa3a76779dbbe5",
+  "name": "Mio - Warm Japanese Narrator",
+  "g": "female",
+  "age": "young",
+  "use": 974899,
+  "clone": 351
+ }
+]

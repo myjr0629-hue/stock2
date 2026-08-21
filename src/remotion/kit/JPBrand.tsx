@@ -54,15 +54,23 @@ export const JPBanner: React.FC = () => {
   const SAFE_W = 1546, SAFE_H = 423;
   return (
     <AbsoluteFill style={{ background: NAVY }}>
-      {/* 배경 — 브랜드 금색 터널. 안전영역 밖은 여기서 끝난다 */}
+      {/* ⛔ 밝기 실측 (2026-08-21). 처음 만든 배너는 YAVG 39.6 이었다 — 기준(90~150)의 절반도 안 된다.
+          "습관적으로 어둡게 만든다"는 지적이 여기서도 그대로 재현됐다.
+          아래 그라디언트를 실제로 들어올린다. 색상은 그대로 두고 «명도»만 올린다 —
+          브랜드 금색(#FFB020)과 남색 계열은 유지해야 메인 채널과 한 형제로 읽힌다. */}
       <AbsoluteFill style={{
-        background: 'radial-gradient(ellipse 90% 120% at 50% 50%, rgba(86,62,18,0.92) 0%, rgba(16,22,36,0.96) 55%, #060A12 100%)',
+        background: 'radial-gradient(ellipse 95% 130% at 50% 48%, rgba(214,160,60,0.98) 0%, rgba(126,104,66,0.96) 34%, rgba(58,72,104,0.97) 68%, #2B3A55 100%)',
       }} />
-      {/* 격자 — 터미널 느낌. 아주 옅게 */}
+      {/* 격자 — 터미널 느낌. 밝은 바탕에선 어두운 선이 보인다 */}
       <AbsoluteFill style={{
         backgroundImage:
-          'linear-gradient(rgba(255,176,32,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,176,32,0.07) 1px, transparent 1px)',
+          'linear-gradient(rgba(10,18,32,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(10,18,32,0.10) 1px, transparent 1px)',
         backgroundSize: '80px 80px',
+      }} />
+      {/* ⛔ 글자가 밝은 바탕에 묻히지 않도록 «안전영역 뒤»에만 어두운 판을 깐다.
+          배경 전체를 어둡게 하면 다시 YAVG 가 무너진다 — 글자 뒤에만 국소로 넣는다. */}
+      <AbsoluteFill style={{
+        background: 'radial-gradient(ellipse 42% 30% at 50% 50%, rgba(8,14,26,0.62) 0%, rgba(8,14,26,0.28) 60%, rgba(8,14,26,0) 100%)',
       }} />
 
       {/* 안전영역 */}

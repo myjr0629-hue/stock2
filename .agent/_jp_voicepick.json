@@ -1,0 +1,77 @@
+{
+ "line": "満期日、株価は動かなくなる。七百六十八回、調べました。ただしエヌビディアだけ、例外でした。",
+ "out": [
+  {
+   "name": "Kazuha - Warm & Friendly",
+   "id": "qbfQuoRJv1T3ei3qV4bc",
+   "g": "female",
+   "age": "young",
+   "use": 2834570,
+   "file": "public/shorts/audio/jpvoicepick/Kazuha_Warm_Friendly.mp3",
+   "bytes": 143822
+  },
+  {
+   "name": "Kinako - Warm Japanese Narrator",
+   "id": "t3iNwCjYhE9IEQPVBlys",
+   "g": "female",
+   "age": "middle_aged",
+   "use": 1501804,
+   "file": "public/shorts/audio/jpvoicepick/Kinako_Warm_Japanese_Narrator.mp3",
+   "bytes": 174751
+  },
+  {
+   "name": "Rio - Late Night Radio",
+   "id": "M7yNn2Ev4SskxM3JS3OC",
+   "g": "male",
+   "age": "middle_aged",
+   "use": 1249426,
+   "file": "public/shorts/audio/jpvoicepick/Rio_Late_Night_Radio.mp3",
+   "bytes": 113311
+  },
+  {
+   "name": "Sumiko Ito - Crisp",
+   "id": "0yh9saSHWVy78QG1HfNs",
+   "g": "female",
+   "age": "young",
+   "use": 1228917,
+   "file": "public/shorts/audio/jpvoicepick/Sumiko_Ito_Crisp.mp3",
+   "bytes": 152599
+  },
+  {
+   "name": "Koemugi - Calm & Expressive ",
+   "id": "xya0RvcJtofTcFTOdX4E",
+   "g": "male",
+   "age": "young",
+   "use": 1187768,
+   "file": "public/shorts/audio/jpvoicepick/Koemugi_Calm_Expressive.mp3",
+   "bytes": 147583
+  },
+  {
+   "name": "Ryu - Calm Japanese Male Narration",
+   "id": "LjaWbdfZxis9YRrL8L87",
+   "g": "male",
+   "age": "middle_aged",
+   "use": 1113429,
+   "file": "public/shorts/audio/jpvoicepick/Ryu_Calm_Japanese_Male_Narration.mp3",
+   "bytes": 178512
+  },
+  {
+   "name": "Rei - Japanese Young Lady",
+   "id": "LCjxmvbOHJFuUnh87ifL",
+   "g": "female",
+   "age": "young",
+   "use": 1061546,
+   "file": "public/shorts/audio/jpvoicepick/Rei_Japanese_Young_Lady.mp3",
+   "bytes": 156360
+  },
+  {
+   "name": "Mio - Warm Japanese Narrator",
+   "id": "nBV906YvEOdwWKK9J8Hx",
+   "g": "female",
+   "age": "young",
+   "use": 974899,
+   "file": "public/shorts/audio/jpvoicepick/Mio_Warm_Japanese_Narrator.mp3",
+   "bytes": 154688
+  }
+ ]
+}
