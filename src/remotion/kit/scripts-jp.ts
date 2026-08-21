@@ -12,6 +12,7 @@
 // ============================================================================
 import type { BriefingProps } from './Briefing';
 import { VOICE_JPOPEX } from './voice-jpopex';
+import { VOICE_JPGAMMA } from './voice-jpgamma';
 
 // ============================================================================
 // SCRIPT_JPOPEX — 「핀은 진짜다. 단 엔비디아만 예외다」 (2026-08-21 · 일본 1호)
@@ -137,6 +138,132 @@ export const SCRIPT_JPOPEX: BriefingProps = {
   ],
 
   voice: VOICE_JPOPEX,
+  outro: {
+    app: 'SIGNUM',
+    line: '機関が残す、板の跡',
+    ask: 'ニュースの前に、\n数字を見ろ。',
+  },
+};
+
+// ============================================================================
+// SCRIPT_JPGAMMA — 「만기가 끝나면 출렁인다」가 정반대였다 (2026-08-22 · 일본 C슬롯)
+// ----------------------------------------------------------------------------
+// ★ 소재 = 네 칸 (.agent/CHANNEL_PLAN.md §1-B)
+//   ① 사건    2026-08-21 이 8월 월간 만기일. 이 영상이 나가는 8/22 부터가 «만기 다음 주».
+//   ② 영향경로 만기 전에는 마켓메이커 헤지가 가격을 누른다 → 만기가 지나면 그 포지션이
+//             사라지므로 눌러주던 힘이 풀려 출렁인다. 레퍼런스 채널도 어제 그렇게 말했다.
+//   ③ 우리수치 scripts/edge-gamma-reset.mjs 사전등록 검정 (2021-01 ~ 2026-08)
+//             만기 다음 주 3,840일 2.704% vs 평상 9,288일 2.901% — 6.8% «더 조용»
+//             12종목 중 11종목이 조용해짐 → 부호검정 p=0.0063 (유의)
+//             ⇒ 통념과 «반대» 방향이 유의하다
+//   ④ 기준선   NVDA 일중 변동폭 3.8% — 이번 주 이걸 넘는지 본다 (유일한 예외 종목이었다)
+//
+//   문: 🇯🇵 ガンマ 소형중앙 19,480 · 여지 68% — 일본 검색어 «1위»
+//
+// ⛔ 「감마가 사라져서 조용해진다」로 쓰지 않는다. 우리가 잰 것은 «변동폭»이지 감마가 아니다.
+//   인과를 단정하는 순간 거짓이 된다. 우리는 «통념과 반대였다»까지만 말한다.
+// ⛔ NVDA 는 «유일한 예외»다 (+1.3%, t=0.38 — 유의하지는 않다). 「더 출렁였다」로 쓰지 않는다.
+// ⛔ 1호(JPOPEX)와 배경 클립이 겹치지 않게 골랐다.
+// ============================================================================
+export const SCRIPT_JPGAMMA: BriefingProps = {
+  title: 'ガンマが外れた翌週。\n荒れる、は逆だった。',
+  date: 'AUG 22 · 満期の翌週',
+  slowCuts: true,
+
+  hook: {
+    line: '満期が終わった。\n荒れるはずだった。',
+    sub: '12銘柄で数えたら、逆でした。',
+    say: 'ちょっと待って。逆になりました。',
+    role: 'conflict',
+    // ⛔ 이 편은 «시장 전체» 이야기다 (12종목 중 11종목). 그래서 프레임0은 SPY 다.
+    //   NVDA 는 마지막 «예외»로 나온다 — 거기서 쓴다.
+    syms: ['SPY'],
+    // 훅 배경은 «루프백에서 한 번 더» 쓰인다. sunrise 는 잔잔한 수면이라
+    // 마지막 2.5초가 통째로 «빈 화면»으로 잡혔다 (게이트 상한 0.8초).
+    // ⇒ 밝으면서 «화면이 찬» 것으로 바꾼다. 종을 친다 = 만기 종료 신호로 뜻도 맞다.
+    bg: { kind: 'video', src: 'shorts/bg/video/ani-bell-strike.mp4', loopFrames: 150 },
+  },
+  loop: '荒れるはずが、\n静かだった。',
+
+  beats: [
+    {
+      role: 'conflict',
+      prio: 1,
+      // 다들 같은 곳을 가리킨다
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-point-same.mp4', loopFrames: 150 },
+      eyebrow: 'よく聞く話',
+      head: '満期が過ぎると\n荒れる、と言う。',
+      say: 'そう言われています。',
+      // ★ 레퍼런스 흐름: «개수를 먼저 말한다» — 듣는 사람이 진도를 안다
+      ask: '理由は一つ。ヘッジが外れるから。',
+      visual: {
+        kind: 'stat', label: 'よく聞く話', value: '荒れる',
+        sub: 'ヘッジが外れるから — 検証はされない', up: false,
+      },
+    },
+    {
+      role: 'evidence',
+      prio: 1,
+      // 둘로 가른다
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-tipping-balance.mp4', loopFrames: 150 },
+      eyebrow: 'だから数えた',
+      head: '一万三千日を\n二つに分けた。',
+      say: '二〇二一年からの全営業日。',
+      ask: '満期の翌週と、それ以外。',
+      visual: {
+        kind: 'rows', rows: [
+          { k: '満期の翌週', v: '3,840', up: true, note: '満期の翌営業日から5日' },
+          { k: 'それ以外', v: '9,288', up: false, note: '満期の週は除外' },
+          { k: '銘柄', v: '12', up: true, note: 'SPY QQQ と大型十銘柄' },
+        ],
+      },
+    },
+    {
+      role: 'money',
+      prio: 1,
+      // 폭풍이 갈라진다 = 예상과 달리 잠잠해짐
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-storm-part.mp4', loopFrames: 150 },
+      eyebrow: '返ってきた答え',
+      head: '逆だった。\n翌週は静かになる。',
+      // ★ 레퍼런스 흐름: «중반 재훅» — 「그런데 여기가 이상하다」를 명시적으로 신호한다
+      say: 'ところが、ここが変です。',
+      ask: '荒れるどころか、静かでした。',
+      visual: { kind: 'versus', aK: 'それ以外', aV: '2.90%', bK: '満期の翌週', bV: '2.70%' },
+    },
+    {
+      role: 'verdict',
+      prio: 1,
+      // 표정이 뒤집힌다
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-expression-flip.mp4', loopFrames: 150 },
+      eyebrow: '十二のうち十一',
+      head: '十一銘柄で\n静かになった。',
+      say: '十二のうち十一が、そうでした。',
+      ask: '偶然では、ありません。',
+      visual: {
+        kind: 'stat', label: '符号検定 · 12銘柄中11', value: 'p = 0.0063',
+        sub: '通説と«逆»方向で有意', up: true,
+      },
+    },
+    {
+      role: 'chips',
+      prio: 1,
+      // 마켓메이커가 저글링 — 하나만 계속 움직인다
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-juggle-mm.mp4', loopFrames: 150 },
+      eyebrow: 'ただ一つの例外',
+      head: 'エヌビディアだけ、\n静かにならない。',
+      say: '例外は、一つだけでした。',
+      ask: 'ニュースではなく、板を見る。',
+      visual: {
+        kind: 'rows', rows: [
+          { k: 'NVDA 満期の翌週', v: '3.81%', up: true, note: '唯一 静かにならなかった' },
+          { k: 'ほか11銘柄', v: '-5%〜-11%', up: false, note: 'すべて静かになった' },
+          { k: '全体', v: '-6.8%', up: false, note: '満期の翌週のほうが静か' },
+        ],
+      },
+    },
+  ],
+
+  voice: VOICE_JPGAMMA,
   outro: {
     app: 'SIGNUM',
     line: '機関が残す、板の跡',

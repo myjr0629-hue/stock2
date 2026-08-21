@@ -1,0 +1,144 @@
+{
+ "preregistered": {
+  "from": "2021-01-01",
+  "to": "2026-08-20",
+  "syms": [
+   "SPY",
+   "QQQ",
+   "AAPL",
+   "NVDA",
+   "AMD",
+   "TSLA",
+   "MSFT",
+   "AMZN",
+   "META",
+   "GOOGL",
+   "AVGO",
+   "MU"
+  ],
+  "window": 5,
+  "metric": "(high-low)/close",
+  "define": "만기 다음 거래일부터 5거래일 vs 만기주를 제외한 나머지 전부",
+  "hypothesis": "만기 다음 주 변동폭 > 평상 주"
+ },
+ "rows": [
+  {
+   "s": "SPY",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 1.124,
+   "normalMean": 1.216,
+   "diffPct": -7.6,
+   "t": -1.94
+  },
+  {
+   "s": "QQQ",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 1.53,
+   "normalMean": 1.66,
+   "diffPct": -7.8,
+   "t": -2.18
+  },
+  {
+   "s": "AAPL",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 2.016,
+   "normalMean": 2.209,
+   "diffPct": -8.7,
+   "t": -2.69
+  },
+  {
+   "s": "NVDA",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 3.813,
+   "normalMean": 3.764,
+   "diffPct": 1.3,
+   "t": 0.38
+  },
+  {
+   "s": "AMD",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 3.827,
+   "normalMean": 4.274,
+   "diffPct": -10.5,
+   "t": -3.71
+  },
+  {
+   "s": "TSLA",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 4.441,
+   "normalMean": 4.53,
+   "diffPct": -2,
+   "t": -0.63
+  },
+  {
+   "s": "MSFT",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 1.946,
+   "normalMean": 2.053,
+   "diffPct": -5.2,
+   "t": -1.63
+  },
+  {
+   "s": "AMZN",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 2.441,
+   "normalMean": 2.645,
+   "diffPct": -7.7,
+   "t": -2.52
+  },
+  {
+   "s": "META",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 2.682,
+   "normalMean": 2.974,
+   "diffPct": -9.8,
+   "t": -3.26
+  },
+  {
+   "s": "GOOGL",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 2.261,
+   "normalMean": 2.397,
+   "diffPct": -5.7,
+   "t": -1.95
+  },
+  {
+   "s": "AVGO",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 2.798,
+   "normalMean": 3.107,
+   "diffPct": -9.9,
+   "t": -3.08
+  },
+  {
+   "s": "MU",
+   "nAfter": 320,
+   "nNormal": 774,
+   "afterMean": 3.569,
+   "normalMean": 3.981,
+   "diffPct": -10.3,
+   "t": -3.32
+  }
+ ],
+ "all": {
+  "nAfter": 3840,
+  "nNormal": 9288,
+  "afterMean": 2.704,
+  "normalMean": 2.901,
+  "diffPct": -6.8,
+  "wider": 1,
+  "total": 12,
+  "pSign": 0.0063
+ }
+}
