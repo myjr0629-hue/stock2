@@ -11,8 +11,33 @@
 // ⛔ 아래 4개는 scripts/declip.mjs 로 «워터마크 크롭 + 1080x1920 업스케일» 후의 값이다.
 //   Flow 클립은 720x1280 + 우하단 ✦ 워터마크로 온다 — 반드시 declip 을 거친다.
 export const BG_LEVEL: Record<string, number> = {
-  'ani-bull-bear.mp4': 91,       // 2026-08-21 대표 제공 — 황소·곰 대치 (시장 레짐)
-  'ani-surf-megacap.mp4': 119,   // 2026-08-21 대표 제공 — 메가캡 서핑 (누가 파도를 타나)
+  // 애니 클립 — declip 처리 완료 (1080x1920, 워터마크 제거). 발주서 .agent/CLIP_ORDERS.md
+  'ani-ai-bubble.mp4': 133,
+  'ani-armwrestle.mp4': 95,
+  'ani-bell-strike.mp4': 117,
+  'ani-bull-bear.mp4': 91,
+  'ani-china-us.mp4': 114,
+  'ani-chip-carry.mp4': 100,
+  'ani-circuit-city.mp4': 85,
+  'ani-data-pillars.mp4': 81,
+  'ani-dominoes.mp4': 137,
+  'ani-door-open.mp4': 92,
+  'ani-fed-dial.mp4': 98,
+  'ani-fed-gavel.mp4': 110,
+  'ani-geo-seesaw.mp4': 52,
+  'ani-glass-heal.mp4': 106,
+  'ani-juggle-mm.mp4': 104,
+  'ani-network.mp4': 71,
+  'ani-point-same.mp4': 117,
+  'ani-scale-tip.mp4': 134,
+  'ani-servers-wake.mp4': 80,
+  'ani-storm-part.mp4': 103,
+  'ani-sunrise.mp4': 115,
+  'ani-surf-megacap.mp4': 119,
+  'ani-tanker.mp4': 106,
+  'ani-two-smile.mp4': 126,
+  'ani-vault-open.mp4': 87,
+  'ani-wafer-lift.mp4': 120,
   'gold-btc-race.mp4': 141,      // 2026-08-21 대표 제공 — 금괴 vs 비트코인 «경쟁→악수→동행»
   'gold-vault-bars.mp4': 85,     // 2026-08-21 대표 제공 — 금고 안 금괴
   'c811-00-exchange.mp4': 104,

@@ -1,0 +1,148 @@
+{
+ "scannedAt": "2026-08-21",
+ "found": [
+  {
+   "kind": "극단",
+   "sym": "GLD/IBIT",
+   "metric": "42일 상관",
+   "value": 0.63,
+   "hook": "금과 비트코인 correlation is 0.63 - the highest in 265 windows (median 0.24)",
+   "detail": {
+    "now": 0.63,
+    "median": 0.24,
+    "percentile": 96,
+    "windows": 265
+   },
+   "door": "is the ai bubble popping",
+   "doorDemand": 48136
+  },
+  {
+   "kind": "전환",
+   "sym": "SPY/GLD",
+   "metric": "42일 상관 부호 전환",
+   "value": 0.22,
+   "hook": "주식과 금 flipped from -0.28 to 0.22 - the relationship reversed sign",
+   "detail": {
+    "was": -0.28,
+    "now": 0.22
+   },
+   "door": "is the ai bubble popping",
+   "doorDemand": 48136
+  },
+  {
+   "kind": "극단",
+   "sym": "XLU/SPY",
+   "metric": "42일 상관",
+   "value": -0.18,
+   "hook": "유틸리티와 지수 correlation is -0.18 - the lowest in 265 windows (median 0.20)",
+   "detail": {
+    "now": -0.18,
+    "median": 0.2,
+    "percentile": 1,
+    "windows": 265
+   },
+   "door": "is the ai bubble popping",
+   "doorDemand": 48136
+  },
+  {
+   "kind": "전환",
+   "sym": "XLU/SPY",
+   "metric": "42일 상관 부호 전환",
+   "value": -0.18,
+   "hook": "유틸리티와 지수 flipped from 0.22 to -0.18 - the relationship reversed sign",
+   "detail": {
+    "was": 0.22,
+    "now": -0.18
+   },
+   "door": "is the ai bubble popping",
+   "doorDemand": 48136
+  },
+  {
+   "kind": "임박",
+   "sym": "AMD",
+   "metric": "price vs max pain",
+   "value": 4.3,
+   "hook": "AMD sits 4.3% above max pain ($450) into expiry",
+   "detail": {
+    "price": 469.43,
+    "maxPain": 450,
+    "callWall": 500,
+    "netPremium": -4858443
+   },
+   "door": "options trading explained",
+   "doorDemand": null
+  },
+  {
+   "kind": "괴리",
+   "sym": "AMD",
+   "metric": "price above max pain while premium leaves",
+   "value": -4.86,
+   "hook": "AMD held above max pain while $4.9M of option premium left",
+   "detail": {
+    "price": 469.43,
+    "maxPain": 450,
+    "netPremium": -4858443
+   },
+   "door": "options trading explained",
+   "doorDemand": null
+  },
+  {
+   "kind": "임박",
+   "sym": "AVGO",
+   "metric": "price vs max pain",
+   "value": -6.2,
+   "hook": "AVGO sits 6.2% below max pain ($390) into expiry",
+   "detail": {
+    "price": 365.8,
+    "maxPain": 390,
+    "callWall": 400,
+    "netPremium": -15856164
+   },
+   "door": "options trading explained",
+   "doorDemand": null
+  },
+  {
+   "kind": "임박",
+   "sym": "HOOD",
+   "metric": "price vs max pain",
+   "value": 5.7,
+   "hook": "HOOD sits 5.7% above max pain ($93) into expiry",
+   "detail": {
+    "price": 98.32,
+    "maxPain": 93,
+    "callWall": 100,
+    "netPremium": 8848725
+   },
+   "door": "options trading explained",
+   "doorDemand": null
+  },
+  {
+   "kind": "괴리",
+   "sym": "QQQ",
+   "metric": "price above max pain while premium leaves",
+   "value": -4.7,
+   "hook": "QQQ held above max pain while $4.7M of option premium left",
+   "detail": {
+    "price": 718.76,
+    "maxPain": 710,
+    "netPremium": -4697750
+   },
+   "door": "options trading explained",
+   "doorDemand": null
+  },
+  {
+   "kind": "극단",
+   "sym": "TSLA",
+   "metric": "21일 실현변동성",
+   "value": 34.5,
+   "hook": "TSLA realized volatility is 34% - bottom 7% of the last 630 readings",
+   "detail": {
+    "now": 34.5,
+    "percentile": 7,
+    "n": 630
+   },
+   "door": "stock market crash coming",
+   "doorDemand": null
+  }
+ ]
+}

@@ -1,0 +1,168 @@
+{
+ "preregistered": {
+  "from": "2021-01-01",
+  "to": "2026-08-20",
+  "syms": [
+   "SPY",
+   "QQQ",
+   "AAPL",
+   "NVDA",
+   "AMD",
+   "TSLA",
+   "MSFT",
+   "AMZN",
+   "META",
+   "GOOGL",
+   "AVGO",
+   "MU"
+  ],
+  "metric": "(high-low)/close",
+  "compare": "third Friday vs other Fridays"
+ },
+ "rows": [
+  {
+   "s": "SPY",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 1.127,
+   "otherMean": 1.232,
+   "opexMed": 1.028,
+   "otherMed": 1.059,
+   "diffPct": -8.5,
+   "t": -1.08
+  },
+  {
+   "s": "QQQ",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 1.567,
+   "otherMean": 1.625,
+   "opexMed": 1.446,
+   "otherMed": 1.387,
+   "diffPct": -3.6,
+   "t": -0.51
+  },
+  {
+   "s": "AAPL",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 1.934,
+   "otherMean": 2.192,
+   "opexMed": 1.771,
+   "otherMed": 1.806,
+   "diffPct": -11.8,
+   "t": -1.9
+  },
+  {
+   "s": "NVDA",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 3.695,
+   "otherMean": 3.626,
+   "opexMed": 3.553,
+   "otherMed": 3.187,
+   "diffPct": 1.9,
+   "t": 0.25
+  },
+  {
+   "s": "AMD",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 3.668,
+   "otherMean": 3.898,
+   "opexMed": 3.205,
+   "otherMed": 3.573,
+   "diffPct": -5.9,
+   "t": -0.92
+  },
+  {
+   "s": "TSLA",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 3.9,
+   "otherMean": 4.482,
+   "opexMed": 3.585,
+   "otherMed": 3.992,
+   "diffPct": -13,
+   "t": -2.16
+  },
+  {
+   "s": "MSFT",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 1.913,
+   "otherMean": 1.961,
+   "opexMed": 1.736,
+   "otherMed": 1.706,
+   "diffPct": -2.5,
+   "t": -0.41
+  },
+  {
+   "s": "AMZN",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 2.486,
+   "otherMean": 2.549,
+   "opexMed": 2.315,
+   "otherMed": 2.19,
+   "diffPct": -2.5,
+   "t": -0.41
+  },
+  {
+   "s": "META",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 2.82,
+   "otherMean": 2.855,
+   "opexMed": 2.736,
+   "otherMed": 2.487,
+   "diffPct": -1.2,
+   "t": -0.21
+  },
+  {
+   "s": "GOOGL",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 2.253,
+   "otherMean": 2.271,
+   "opexMed": 2.065,
+   "otherMed": 2.08,
+   "diffPct": -0.8,
+   "t": -0.13
+  },
+  {
+   "s": "AVGO",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 2.939,
+   "otherMean": 2.996,
+   "opexMed": 2.746,
+   "otherMed": 2.541,
+   "diffPct": -1.9,
+   "t": -0.28
+  },
+  {
+   "s": "MU",
+   "nOpex": 64,
+   "nOther": 219,
+   "opexMean": 3.765,
+   "otherMean": 3.705,
+   "opexMed": 3.196,
+   "otherMed": 3.25,
+   "diffPct": 1.6,
+   "t": 0.21
+  }
+ ],
+ "all": {
+  "nOpex": 768,
+  "nOther": 2628,
+  "opexMean": 2.672,
+  "otherMean": 2.783,
+  "opexMed": 2.341,
+  "otherMed": 2.378,
+  "diffPct": -4,
+  "t": -1.64,
+  "narrower": 10,
+  "total": 12
+ }
+}
