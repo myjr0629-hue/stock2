@@ -62,6 +62,26 @@ export function checkTopic(it) {
   ok('실증 근거', ev.length > 0, ev.length ? `${ev.length}건: ${ev[0]}` : '없음',
     '숫자·화면은 실데이터 출처가 있어야 한다 (지어내지 않는다)');
 
+  // ⑤ ★ 스토리 — 「세상에서 무슨 일이 있었고 → 왜 시장에 닿고 → 우리 숫자엔 어떻게 → 오늘 밤 뭘 본다」
+  //   ⛔ 대표 지적 2026-08-21: "기준선은 소재 선정 단계에서 정했어야지"
+  //     지금까지 소재를 「문 x 이상값」으로만 골랐다. 그래서 통계적 이상값은 나왔지만
+  //     «오늘 밤 확인할 숫자»가 없었고 결론이 「통화 베팅이다」처럼 추상으로 끝났다.
+  //     사람들이 더 궁금해하는 건 수치가 아니라 «무슨 일이 벌어졌고 그게 이렇게 나타난다»는 이야기다.
+  //   ⇒ 네 칸이 다 차야 소재다. 재료는 scripts/news-radar.mjs 가 캔다.
+  const st = it.story || {};
+  ok('① 사건', !!st.event, st.event ? String(st.event).slice(0, 60) : '없음',
+    '세상에서 무슨 일이 벌어졌나 (가디언 뉴스·캘린더·연준). 개념편이면 「왜 지금 이 개념인가」');
+  ok('② 영향 경로', !!st.mechanism && String(st.mechanism).length >= 20,
+    st.mechanism ? String(st.mechanism).slice(0, 60) : '없음',
+    '그게 «왜» 시장에 닿는지 한 줄. 이 줄이 스토리다 — 없으면 수치 나열이 된다');
+  ok('④ 기준선 하나', !!st.anchor, st.anchor || '없음',
+    '오늘 밤 확인할 숫자 «하나». 여러 개면 기억에 안 남는다 (레퍼런스 3소스 합의)');
+  if (st.anchor) {
+    // ⛔ 기준선은 «숫자»여야 한다. 「지켜보자」 같은 말은 기준선이 아니다.
+    ok('기준선에 숫자', /[0-9]/.test(String(st.anchor)), String(st.anchor).slice(0, 50),
+      '숫자가 들어가야 «확인»할 수 있다');
+  }
+
   // ④ 동음이의 오염 — 검색 유입이 우리 주제로 오는가
   if (it.homonymPct !== undefined && it.homonymPct !== null)
     ok('동음이의 오염', it.homonymPct <= HOMONYM_MAX, `${it.homonymPct}%`,
