@@ -36,6 +36,7 @@ import { VOICE_DISP820 } from './voice-disp820';
 import { VOICE_KOREA820 } from './voice-korea820';
 import { VOICE_MEMCORR } from './voice-memcorr';
 import { VOICE_GOLD821 } from './voice-gold821';
+import { VOICE_OPEX821 } from './voice-opex821';
 import { VOICE_T2 } from './voice-t2';
 import { VOICE_T4 } from './voice-t4';
 import { VOICE_T2B } from './voice-t2b';
@@ -4518,5 +4519,105 @@ export const SCRIPT_GOLD821: BriefingProps = {
     app: 'SIGNUM HQ',
     line: 'The tape institutions leave behind',
     ask: 'A record,\nor a rebound?',
+  },
+};
+
+// ============================================================================
+// SCRIPT_OPEX821 — 「금요일 핀은 진짜다. 3,396개 금요일로 쟀다」 (2026-08-21)
+// ----------------------------------------------------------------------------
+// ★ 소재 = 문 × 이상값
+//   문   : options / expire worthless (DEMAND.json) · 소형중앙 24,875 · 여지 64%
+//   이상값: scripts/edge-opex.mjs 사전등록 검정
+//           만기일(셋째 금요일) 768일 일중폭 2.672% vs 나머지 금요일 2,628일 2.783%
+//           차이 −4.0% (t=−1.64 유의아님) · **12종목 중 10종목 동일방향 → 부호검정 p=0.019 유의**
+//   오늘  : 8/21 이 8월 셋째 금요일(월간 만기). AMD 맥스페인 위 4.3% / AVGO 아래 6.2%
+//
+// ⛔ 「90%가 휴지조각」은 쓰지 않는다 — 우리가 못 잰 통설이다.
+//   우리 무기는 과장이 아니라 «아무도 안 낸 숫자»다. 그래서 훅이 더 세다.
+// ⛔ 「기관이 함정을 팠다」 같은 인과 단정을 하지 않는다. 우리는 «위치»와 «분포»를 보여준다.
+// ⛔ 자막에 숫자를 넣지 않는다 (레퍼런스 중앙 1.0%). 숫자는 화면 카드가 나른다.
+// ============================================================================
+const OPEX_RANGE = [2.783, 2.672];
+
+export const SCRIPT_OPEX821: BriefingProps = {
+  title: 'Your Friday calls\ndid not lose. They were pinned.',
+  date: 'AUG 21 · MONTHLY EXPIRY',
+  slowCuts: true,
+  hook: {
+    line: 'Your Friday calls\ndid not lose.',
+    sub: 'They were pinned. We proved it.',
+    role: 'conflict',
+    bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
+  },
+  loop: 'The pin is real.\nJust smaller.',
+
+  beats: [
+    {
+      role: 'conflict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
+      eyebrow: 'What everyone says',
+      head: 'They say the price\ngets pinned',
+      say: 'Hold on. Everyone repeats this.',
+      ask: 'Nobody ever proved it. We did.',
+      visual: { kind: 'stat', label: 'THE CLAIM', value: 'PINNED',
+        sub: 'repeated every expiry Friday - never tested', up: false },
+    },
+    {
+      role: 'evidence',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },
+      eyebrow: 'So we tested it',
+      head: 'Three thousand\nFridays. Split in two.',
+      say: 'Every Friday since twenty one.',
+      ask: 'Expiry days against the rest.',
+      visual: { kind: 'rows', rows: [
+        { k: 'EXPIRY FRIDAYS', v: '768', up: true, note: 'third Friday of each month' },
+        { k: 'OTHER FRIDAYS', v: '2,628', up: false, note: 'same weekday, same names' },
+        { k: 'NAMES', v: '12', up: true, note: 'SPY QQQ and the ten largest' },
+      ] },
+    },
+    {
+      role: 'money',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
+      eyebrow: 'What came back',
+      head: 'Expiry day.\nThe range goes quiet.',
+      say: 'Expiry day. The range goes quiet.',
+      ask: 'Ten of twelve names. Every year.',
+      visual: { kind: 'versus', aK: 'OTHER FRIDAYS', aV: '2.78%', bK: 'EXPIRY FRIDAYS', bV: '2.67%' },
+    },
+    {
+      role: 'verdict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/fiber-one-lit.mp4', loopFrames: 150 },
+      eyebrow: 'Our own test',
+      head: 'Real.\nJust smaller.',
+      say: 'So the pin is real.',
+      ask: 'Just smaller than they told you.',
+      visual: { kind: 'stat', label: 'SIGN TEST - 10 OF 12 NAMES', value: 'p = 0.019',
+        sub: 'direction holds - size does not reach significance', up: true },
+    },
+    {
+      role: 'chips',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },
+      eyebrow: 'Today is one of them',
+      head: 'Today. Two names\nare off the line.',
+      say: 'Today two names are off the line.',
+      ask: 'One above. One below. Watch them.',
+      visual: { kind: 'rows', rows: [
+        { k: 'AMD', v: '+4.3%', up: true, note: 'above max pain $450' },
+        { k: 'AVGO', v: '-6.2%', up: false, note: 'below max pain $390' },
+        { k: 'QQQ', v: '+1.2%', up: true, note: 'above max pain $710' },
+      ] },
+    },
+  ],
+
+  voice: VOICE_OPEX821,
+  outro: {
+    app: 'SIGNUM HQ',
+    line: 'The tape institutions leave behind',
+    ask: 'Stop reading news.\nRead the book.',
   },
 };

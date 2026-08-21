@@ -1,0 +1,46 @@
+[
+ {
+  "file": "E:/SIGNUM_UPLOAD/2026-08-21/OPEX821.mp4",
+  "thumb": "E:/SIGNUM_UPLOAD/2026-08-21/OPEX821_thumb.jpg",
+  "class": "concept",
+  "scriptTag": "OPEX821",
+  "lang": "en",
+  "title": "Why Options Trading Explained Never Mentions Friday",
+  "evidence": [
+   "일봉 2021-01-01~2026-08-20 · SPY QQQ AAPL NVDA AMD TSLA MSFT AMZN META GOOGL AVGO MU",
+   "만기일(셋째 금요일) 768일 일중폭 2.672% vs 나머지 금요일 2,628일 2.783%",
+   "부호검정 12종목 중 10종목 동일방향 p=0.019 · 크기검정 t=-1.64",
+   "오늘 옵션 북: AMD $469.43(맥스페인 $450) · AVGO $365.80($390) · QQQ $718.76($710)"
+  ],
+  "homonymPct": 0,
+  "freshnessDays": 0,
+  "insight": {
+   "claim": "Expiry Friday really does compress the range - by 4%, not by the amount folklore claims",
+   "metric": "일중 변동폭 (고가-저가)/종가, 만기일 vs 나머지 금요일",
+   "value": 2.672,
+   "baseline": 2.783,
+   "n": 768,
+   "pValue": 0.019,
+   "computedBy": "scripts/edge-opex.mjs — 사전등록(대상 12종·기간·정의·검정) 후 FMP 일봉으로 계산. 원본 .agent/_edge_opex.json",
+   "saidAs": "So the pin is real."
+  },
+  "tags": [
+   "options",
+   "options trading",
+   "stock market",
+   "expiry",
+   "max pain",
+   "investing",
+   "finance",
+   "stocks",
+   "trading",
+   "market makers",
+   "finance news",
+   "stock market news"
+  ],
+  "description": "https://www.signumhq.com/app - FREE market intel on iOS and Android.\n\nEveryone says market makers pin the price on options expiry Friday. Nobody measured it. We did.\n\nWe took every Friday since 2021 for SPY, QQQ and the ten largest US names, then split them in two: the third Friday of each month (monthly options expiry) against every other Friday.\n\n768 expiry Fridays. 2,628 other Fridays.\nAverage intraday range on expiry Friday: 2.672%\nAverage intraday range on other Fridays: 2.783%\nThat is 4.0% tighter. Ten of the twelve names moved the same direction.\n\nThe size difference alone does not reach statistical significance (t = -1.64). The direction does - a sign test on 10 of 12 gives p = 0.019.\n\nSo the pin is real. It is just far smaller than the story you were told.\n\nToday, August 21, is a monthly expiry Friday. AMD sits 4.3% above its max pain of $450. Broadcom sits 6.2% below its $390. QQQ is 1.2% above $710.\n\nData: daily bars 2021-01-01 to 2026-08-20. Options levels from our own book.\nEducational only. Not investment advice.\n\n#options #stockmarket #investing",
+  "pinnedComment": "The full test, so you can check it:\n\n- Window: every Friday from 2021-01-01 to 2026-08-20\n- Names: SPY QQQ AAPL NVDA AMD TSLA MSFT AMZN META GOOGL AVGO MU\n- Expiry Fridays: 768 - average intraday range 2.672%\n- Other Fridays: 2,628 - average intraday range 2.783%\n- Difference: -4.0%, t = -1.64 (not significant on size)\n- Direction: 10 of 12 names tighter, sign test p = 0.019 (significant)\n\nWe built the app that runs checks like this - free on iOS and Android:\nhttps://www.signumhq.com/app",
+  "publishAtKST": "2026-08-21 20:00",
+  "privacy": "private"
+ }
+]
