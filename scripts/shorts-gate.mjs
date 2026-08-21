@@ -228,7 +228,11 @@ function checkMeta(it) {
   ok('설명 길이', D.length <= SPEC.descMax, `${D.length}자`, `<= ${SPEC.descMax} (조회수와 무관 — 짧게)`);
   const ht = (D.match(/#\S+/g) || []).length;
   ok('해시태그', ht >= SPEC.hashtags[0] && ht <= SPEC.hashtags[1], ht, `${SPEC.hashtags[0]}~${SPEC.hashtags[1]}`);
-  ok('제목에 물음표·이모지 없음', !/[?\u{1F300}-\u{1FAFF}]/u.test(T), /[?]/.test(T) ? '물음표 있음' : '없음', '효과 없음 — 넣지 않는다');
+  // ⛔ 2026-08-21 완화. 근거가 «효과 없음(|r|<=0.06)» 인데 그걸 «금지»로 바꿔놨었다.
+  //   효과가 없다는 건 «막을 이유도 없다»는 뜻이다. 대표 예시 제목은 물음표를 쓴다.
+  //   이모지만 막는다 — 이건 브랜드 결정이지 실측이 아니다.
+  const EMO = /[\u{1F300}-\u{1FAFF}]/u;
+  ok('제목에 이모지 없음', !EMO.test(T), EMO.test(T) ? '이모지 있음' : '없음', '이모지는 쓰지 않는다 (브랜드)');
   if (it.publishAtKST && it.privacy !== 'unlisted') {
     const h = +String(it.publishAtKST).match(/[ T](\d{2}):/)[1];
     ok('게시시각', !SPEC.banHours.includes(h), `KST ${h}시`, 'KST 22~01 금지');

@@ -8,7 +8,19 @@
 // 근거
 //   우리 채널 n=22  두문장 대비형 15편 조회 중앙 40  ·  그 외 7편 104  ·  Why/How 3편 177
 //   교차채널 n=1,964 제목 «형식»은 무의미(|r|<=0.06) → 형식 규칙은 «우리 채널» 근거다
-//   검색 수요 .agent/DEMAND.json — 최대 43배 차이. 수요 문구를 앞에 둔다
+//   검색 수요 .agent/DEMAND.json — 수요 문구를 앞에 둔다
+//
+// ⛔ 2026-08-21 «완화». 대표 지적: "게이트가 어떻게 잡혀있는지 모르지만
+//    제목을 과감하게 소제를 과감하게 작성한다".
+//    근거를 다시 보니 내가 «없는 근거»로 제목을 얌전하게 묶고 있었다.
+//
+//    | 규칙            | 근거                     | 조치 |
+//    |----------------|-------------------------|------|
+//    | 수요 어휘 포함    | 22편 중 1편, 조회 중앙 42  | 유지 (진짜 관문) |
+//    | 동음이의 회피     | "ai bubble" 게임밈 21%    | 유지 |
+//    | 1문장           | 대비형 40 vs 그 외 104     | 유지 |
+//    | Why/How 시작     | **n=3**                  | **해제** — 표시만 |
+//    | 물음표 금지       | **"효과 없음"**           | **해제** — 효과 없음은 금지 사유가 아니다 |
 // ============================================================================
 import { readFileSync, existsSync } from 'node:fs';
 
@@ -22,30 +34,32 @@ export function checkTitle(title) {
   const add = (name, pass, got, want) => out.push({ name, pass, got, want });
 
   // ① 문장 수 — 두/세 문장 대비형은 우리 채널 최하위 형식
+  //   ※ 물음표로 끝나는 한 문장은 «한 문장»이다. 콜론·대괄호도 문장을 나누지 않는다.
   const sentences = t.split(/[.!?]\s+/).filter((x) => x.trim().length > 2).length;
   add('제목 문장 수', sentences <= 1, `${sentences}문장`, '1문장 (대비형 n=15 중앙 40 vs 그 외 104)');
 
-  // ② 여는 말 — Why/How 로 여는 3편이 중앙 177
-  add('Why/How 로 시작', /^(why|how)\b/i.test(t), /^(why|how)\b/i.test(t) ? 'Why/How' : t.split(' ')[0],
-    'Why 또는 How (우리 1·3위 제목의 프레임)');
+  // ② 여는 말 — 강제하지 않는다 (n=3 근거)
+  const wh = /^(why|how)\b/i.test(t);
+  add('여는 말', true, wh ? 'Why/How (우리 1·3위 프레임)' : `"${t.split(' ')[0]}" — 자유`,
+    '강제 아님. Why/How 는 n=3 근거라 참고만 한다');
 
   // ③ 수요 문구 — 실제로 검색되는 말이 들어 있는가, 얼마나 앞쪽인가
+  //   ⛔ 여기가 «진짜 관문»이다. 발행 22편 중 21편이 이걸 어겨서 조회 중앙 42 였다.
   let best = null;
   for (const [term, vol] of Object.entries(D.terms || {})) {
     const i = low.indexOf(term);
     if (i >= 0 && (!best || vol > best.vol)) best = { term, vol, pos: i };
   }
-  // ⛔ 검색 겨냥(개념편)과 피드 겨냥(당일 뉴스)은 규칙이 다르다.
-  //    당일 뉴스는 검색 수요가 «휘발»이라 수요 앵커를 강제하면 오히려 제목이 어색해진다.
-  //    → 둘 중 하나면 통과: (a) 수요 800+ 문구 포함  또는  (b) Why/How 프레임(우리 1·3위)
-  const feedFrame = /^(why|how)\b/i.test(t);
+  // 검색 겨냥(개념편)과 피드 겨냥(당일 뉴스)은 규칙이 다르다.
+  // 당일 뉴스는 검색 수요가 «휘발»이라 수요 앵커를 강제하면 제목이 어색해진다.
+  const feedFrame = wh;
   add('수요 앵커 또는 피드 프레임', (!!best && best.vol >= 800) || feedFrame,
     best && best.vol >= 800 ? `"${best.term}" 수요 ${best.vol.toLocaleString()}`
       : feedFrame ? '피드 프레임(Why/How)' : '없음',
     '수요 800+ 문구 또는 Why/How 시작');
   if (best && best.vol >= 800) add('수요 문구 위치', best.pos <= 34, `${best.pos}번째 글자`, '앞쪽 34자 이내');
 
-  // ④ 동음이의어 충돌
+  // ④ 동음이의어 충돌 — 검색 유입이 우리 주제로 오는가
   const clash = Object.keys(D.homonyms || {}).filter((k) => low.includes(k) && low.indexOf(k) <= 12);
   add('동음이의어 충돌', clash.length === 0, clash.length ? clash.join(', ') : '없음',
     '충돌어를 앞 12자에 두지 않는다');
