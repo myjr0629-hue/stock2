@@ -12,12 +12,16 @@ const FILE = process.argv[2];
 if (!FILE || !existsSync(FILE)) { console.error('사용: yt-set-trailer <mp4>'); process.exit(1); }
 
 const env = readFileSync('.env.local', 'utf8');
+// ⛔ 채널 스위치 — SIGNUM_YT=jp 면 일본 채널 토큰을 쓴다 (2026-08-21)
+//   기본값은 hq. 환경변수를 «안 주면» 지금까지와 완전히 같게 동작한다.
+const RTKEY = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp'
+  ? 'YT_JP_REFRESH_TOKEN' : 'YT_REFRESH_TOKEN';
 const g = (k) => { const m = env.match(new RegExp(`^${k}=(.*)$`, 'm')); return m ? m[1].trim() : null; };
 const tok = await (async () => {
   const j = await (await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: g('YT_CLIENT_ID'), client_secret: g('YT_CLIENT_SECRET'),
-      refresh_token: g('YT_REFRESH_TOKEN'), grant_type: 'refresh_token' }),
+      refresh_token: g(RTKEY), grant_type: 'refresh_token' }),
   })).json();
   return j.access_token;
 })();

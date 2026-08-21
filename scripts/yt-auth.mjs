@@ -37,6 +37,16 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   process.exit(1);
 }
 
+// ⛔ 어느 채널에 붙일 것인가 (2026-08-21)
+//   같은 구글 계정에 채널이 둘이다. 동의 화면에서 «채널을 고르는» 단계가 있는데,
+//   여기서 잘못 고르면 일본 슬롯에 SIGNUM HQ 토큰이 저장되고,
+//   그 뒤로 «일본어 영상이 영어 채널에 올라간다». 조용히 일어난다.
+//   ⇒ 아래에서 토큰이 실제로 어느 채널 것인지 확인하고, 다르면 저장하지 않는다.
+const AS = (process.argv.find((a) => a.startsWith('--as=')) || '--as=hq').slice(5).toLowerCase();
+const TARGET = { hq: { key: 'YT_REFRESH_TOKEN',    id: 'UCcJYwdMx4ijXGJHxZ3-deVg', name: 'SIGNUM HQ' },
+                 jp: { key: 'YT_JP_REFRESH_TOKEN', id: 'UCVLHMbVtpc3QOpSXDdeNE7A', name: 'SIGNUM ウォール街のマックスペイン' } }[AS];
+if (!TARGET) { console.error('사용: node scripts/yt-auth.mjs [--as=hq|--as=jp]'); process.exit(1); }
+
 const SCOPES = [
   'https://www.googleapis.com/auth/yt-analytics.readonly',
   'https://www.googleapis.com/auth/youtube.readonly',
@@ -72,18 +82,38 @@ const server = createServer(async (req, res) => {
     server.close(); process.exit(1);
   }
 
+  // ⛔ 이 토큰이 «정말로» 그 채널 것인지 먼저 묻는다. 아니면 저장하지 않는다.
+  const who = await (await fetch(
+    'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+    { headers: { Authorization: `Bearer ${tok.access_token}` } })).json();
+  const ch = who.items?.[0];
+  if (!ch) {
+    res.end('<h2 style="font-family:sans-serif">채널을 확인하지 못했습니다.</h2>');
+    console.error('✗ channels?mine=true 응답에 채널이 없다:', JSON.stringify(who).slice(0, 300));
+    server.close(); process.exit(1);
+  }
+  console.log(`\n  받은 토큰의 채널: ${ch.snippet.title}  (${ch.id})`);
+  if (ch.id !== TARGET.id) {
+    res.end(`<h2 style="font-family:sans-serif">채널이 다릅니다 — 저장하지 않았습니다.<br>받은 것: ${ch.snippet.title}<br>필요한 것: ${TARGET.name}</h2>`);
+    console.error(`\n  ✗ «${TARGET.name}» 을 골라야 하는데 «${ch.snippet.title}» 이 왔다. 저장하지 않았다.`);
+    console.error('    https://myaccount.google.com/permissions 에서 액세스를 제거하고 다시 실행한 뒤,');
+    console.error('    동의 화면에서 «채널 선택» 단계를 놓치지 말 것.');
+    server.close(); process.exit(1);
+  }
+
   // .env.local 에 저장 (있으면 교체)
+  const KEY = TARGET.key;
   let cur = readFileSync('.env.local', 'utf8');
-  if (/^YT_REFRESH_TOKEN=/m.test(cur)) {
-    cur = cur.replace(/^YT_REFRESH_TOKEN=.*$/m, `YT_REFRESH_TOKEN=${tok.refresh_token}`);
-    writeFileSync('.env.local', cur);
+  if (new RegExp(`^${KEY}=`, 'm').test(cur)) {
+    writeFileSync('.env.local', cur.replace(new RegExp(`^${KEY}=.*$`, 'm'), `${KEY}=${tok.refresh_token}`));
   } else {
-    appendFileSync('.env.local', `\nYT_REFRESH_TOKEN=${tok.refresh_token}\n`);
+    appendFileSync('.env.local', `\n${KEY}=${tok.refresh_token}\n`);
   }
 
   res.end('<h2 style="font-family:sans-serif">인증 완료. 이 창을 닫고 터미널로 돌아가세요.</h2>');
-  console.log('\n  ✔ 리프레시 토큰을 .env.local 에 저장했다 (YT_REFRESH_TOKEN)');
-  console.log('  다음: node scripts/yt-stats.mjs\n');
+  console.log(`\n  ✔ ${TARGET.name} 토큰을 저장했다 (${TARGET.key})`);
+  console.log(AS === 'jp' ? '  다음: SIGNUM_YT=jp node scripts/yt-channel-setup.mjs\n'
+                        : '  다음: node scripts/yt-stats.mjs\n');
   server.close(); setTimeout(() => process.exit(0), 200);
 });
 
@@ -96,9 +126,11 @@ server.listen(8765, '127.0.0.1', () => {
     response_type: 'code',
     scope: SCOPES,
     access_type: 'offline',
-    prompt: 'consent',            // 항상 refresh_token 을 받도록 강제
+    prompt: 'consent select_account',            // 항상 refresh_token 을 받도록 강제
   });
-  console.log('\n  브라우저가 열립니다. 계정을 고르고 «허용» 하세요.');
+  console.log(`\n  대상 채널: ${TARGET.name}`);
+  console.log('  브라우저가 열립니다. 계정을 고르고 «허용» 하세요.');
+  console.log('  ⛔ 계정 다음 «채널 선택» 화면에서 반드시 위 채널을 고르세요.');
   console.log('  (「Google에서 확인하지 않은 앱」 경고가 뜨면 → 고급 → 안전하지 않은 페이지로 이동)');
   console.log(`\n  안 열리면 이 주소를 직접 붙여넣으세요:\n  ${auth}\n`);
   // ⛔ 윈도우 `cmd /c start URL` 은 «&» 를 명령 구분자로 잘라먹는다.

@@ -18,13 +18,17 @@ if (!PLAN || !existsSync(PLAN)) { console.error('사용: yt-comment <plan.json> 
 const plan = [].concat(JSON.parse(readFileSync(PLAN, 'utf8')));
 
 const env = readFileSync('.env.local', 'utf8');
+// ⛔ 채널 스위치 — SIGNUM_YT=jp 면 일본 채널 토큰을 쓴다 (2026-08-21)
+//   기본값은 hq. 환경변수를 «안 주면» 지금까지와 완전히 같게 동작한다.
+const RTKEY = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp'
+  ? 'YT_JP_REFRESH_TOKEN' : 'YT_REFRESH_TOKEN';
 const g = (k) => { const m = env.match(new RegExp(`^${k}=(.*)$`, 'm')); return m ? m[1].trim() : null; };
 
 async function token() {
   const r = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: g('YT_CLIENT_ID'), client_secret: g('YT_CLIENT_SECRET'),
-      refresh_token: g('YT_REFRESH_TOKEN'), grant_type: 'refresh_token' }),
+      refresh_token: g(RTKEY), grant_type: 'refresh_token' }),
   });
   const j = await r.json();
   if (!j.access_token) { console.error('토큰 실패', j); process.exit(1); }

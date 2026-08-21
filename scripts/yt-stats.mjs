@@ -15,11 +15,15 @@ import { readFileSync } from 'node:fs';
 
 const DAYS = Number(process.argv[2] || 28);
 const env = readFileSync('.env.local', 'utf8');
+// ⛔ 채널 스위치 — SIGNUM_YT=jp 면 일본 채널 토큰을 쓴다 (2026-08-21)
+//   기본값은 hq. 환경변수를 «안 주면» 지금까지와 완전히 같게 동작한다.
+const RTKEY = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp'
+  ? 'YT_JP_REFRESH_TOKEN' : 'YT_REFRESH_TOKEN';
 const pick = (k) => (env.match(new RegExp(`^${k}=(.+)$`, 'm')) || [])[1]?.trim().replace(/^["']|["']$/g, '');
 
 const CLIENT_ID = pick('YT_CLIENT_ID');
 const CLIENT_SECRET = pick('YT_CLIENT_SECRET');
-const REFRESH = pick('YT_REFRESH_TOKEN');
+const REFRESH = pick(RTKEY);
 const API_KEY = pick('YOUTUBE_API_KEY');
 if (!REFRESH) { console.error('YT_REFRESH_TOKEN 이 없다 → node scripts/yt-auth.mjs'); process.exit(1); }
 
