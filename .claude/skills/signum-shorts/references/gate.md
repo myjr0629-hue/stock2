@@ -64,3 +64,19 @@ node scripts/script-lint.mjs XXX
 `shorts-gate.mjs` 의 `SPEC` 숫자는 **전부 실측에서 나왔다.**
 바꾸려면 **새 실측**이 있어야 한다 — 통과시키려고 기준을 낮추지 않는다.
 재측정: `node scripts/ref-fleet.mjs` (영상 안) · `node scripts/ref-meta.mjs` (영상 밖)
+
+## ★ 2026-08-21 추가된 게이트 항목
+
+| 항목 | 무엇을 막나 | 어디 |
+|---|---|---|
+| **① 사건 / ② 영향 경로 / ④ 기준선** | plan 의 `story` 블록. 하나라도 비면 차단 | `topic-check.mjs` |
+| **기준선에 숫자** | 「지켜보자」 같은 건 기준선이 아니다 | `topic-check.mjs` |
+| **첫 화면 심볼** | 종목이 나오는데 `hook.syms` 가 비면 차단 | `script-check.mjs` |
+| **밝기 90~150** | 어두우면 `finish-video` 가 감마로 올린다 (상한 1.6) | `finish-video.mjs` |
+| **언어별 규칙** | ja 는 띄어쓰기가 없어 «글자/큐»로 잰다. 대명사 규칙 면제 | `script-check.mjs` |
+| **언어별 수요표** | 🇯🇵 `DEMAND_JA.json` · 🇺🇸 `DEMAND.json` | `_demand.mjs` |
+| **「무료」 표기** | 일본어는 `無料` — FREE 를 박으면 그 줄만 영어가 된다 | `yt-upload.mjs` |
+
+⛔ **게이트는 «막혀야 할 것»으로 시험해야 검증된 것이다.**
+   2026-08-21: 티커 정규식의 `` 가 백스페이스 문자로 들어가 아무것도 매칭하지 않았는데
+   게이트는 «통과»라고 보고했다. 통과하는 대본으로만 시험했으면 못 잡았다.
