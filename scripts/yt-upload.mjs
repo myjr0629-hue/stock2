@@ -104,12 +104,18 @@ async function upload(tok, item) {
 }
 
 async function setThumb(tok, id, path) {
+  // 유튜브는 세로 썸네일을 받아도 1280x720 «가로»로 바꾼다 (2026-08-21 실측).
+  //   좌우가 흐린 배경으로 채워져 «가운데만» 우리 그림이 된다.
+  //   ⇒ finish-video 가 만들어둔 _thumb16.jpg 가 있으면 «그것»을 올린다.
+  //   ⛔ 쇼츠 «피드»의 세로 커버는 별개 필드이고 API 가 없다 — 스튜디오에서만.
+  const wide = String(path).replace(/_thumb\.jpg$/i, '_thumb16.jpg');
+  const use = existsSync(wide) ? wide : path;
   const r = await fetch(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${id}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'image/jpeg' },
-    body: readFileSync(path),
+    body: readFileSync(use),
   });
-  return r.ok ? 'ok' : `실패 ${r.status} ${(await r.text()).slice(0, 160)}`;
+  return r.ok ? `ok (${use.endsWith('_thumb16.jpg') ? '16:9' : '세로'})` : `실패 ${r.status} ${(await r.text()).slice(0, 160)}`;
 }
 
 /**
