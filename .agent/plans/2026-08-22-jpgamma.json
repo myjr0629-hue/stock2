@@ -107,6 +107,16 @@
     "description": "signumhq.com/app — 米国株の板情報が無料。iOS / Android\n\n「満期が過ぎるとヘッジが外れて荒れる」\nよく聞く話です。誰も数えていませんでした。\n\n2021年からの全営業日を二つに分けました。\n満期の翌週 3,840日 vs それ以外 9,288日。\n\n結果は逆でした。\n満期の翌週の値幅は 2.70%、平常は 2.90%。\n12銘柄のうち11銘柄で「静かに」なっています。\n符号検定 p = 0.0063。偶然ではありません。\n\nただ一つの例外がエヌビディアでした。\n3.81% vs 3.76% — ここだけ静かになりませんでした。\n\n今週の目印\nNVDA の日中値幅 3.8%\n\nニュースの前に、数字を見ろ。\n\n#米国株 #ガンマ #オプション\n\n※投資助言ではありません。最終判断はご自身の責任でお願いします。",
     "pinnedComment": "検証の中身です。\n\n- 期間: 2021-01-01 〜 2026-08-20\n- 銘柄: SPY QQQ AAPL NVDA AMD TSLA MSFT AMZN META GOOGL AVGO MU\n- 満期の翌週: 3,840日 平均日中値幅 2.704%\n- それ以外: 9,288日 2.901%（満期の週は除外）\n- 差 -6.8%、12銘柄中11銘柄が静かに → 符号検定 p = 0.0063\n- 唯一の例外 NVDA: 3.813% vs 3.764%（t = 0.38、有意ではない）\n\n毎日、板の数字から出しています。アプリは無料 → signumhq.com/app",
     "publishAtKST": "2026-08-22 18:00",
-    "privacy": "private"
+    "privacy": "private",
+    "localizations": {
+      "en": {
+        "title": "Everyone Says The Week After Expiry Gets Wild. It Is The Opposite.",
+        "description": "signumhq.com/app - FREE options and flow data for US stocks. iOS / Android\n\nOnce expiry passes, the dealer hedge unwinds and things get choppy. That is what everyone says.\nNobody counted it.\n\nEvery session since 2021, twelve names, split in two:\nthe five trading days after monthly expiry against everything else (expiry week excluded).\n\nAfter expiry: 3,840 days, average intraday range 2.704%.\nEverything else: 9,288 days, 2.901%.\nThat is 6.8% QUIETER. Eleven of twelve names. Sign test p = 0.0063.\n\nThe one exception is Nvidia: 3.813% against 3.764%.\nThe only name that did not go quiet - though t = 0.38, so not significant either.\n\nThis week, watch one number: NVDA intraday range 3.8%.\n\nEducational only. Not investment advice.\n\n#stockmarket #options #gamma #nvidia #investing"
+      },
+      "ko": {
+        "title": "만기 끝나면 출렁인다는 말, 정반대였습니다",
+        "description": "signumhq.com/app — 미국주식 옵션·수급 데이터 무료. iOS / Android\n\n만기가 지나면 헤지가 풀려 출렁인다 — 다들 이렇게 말합니다.\n아무도 세어보지 않았습니다.\n\n2021년 이후 모든 거래일, 12종목을 둘로 갈랐습니다.\n월간 만기 다음 5거래일 vs 나머지 전부(만기 주는 제외).\n\n만기 다음 주: 3,840일, 평균 일중 변동폭 2.704%.\n나머지: 9,288일, 2.901%.\n6.8% «더 조용»합니다. 12종목 중 11종목. 부호검정 p = 0.0063.\n\n유일한 예외가 엔비디아입니다: 3.813% vs 3.764%.\n혼자만 조용해지지 않았습니다 — 다만 t = 0.38로 유의하지는 않습니다.\n\n이번 주 볼 숫자 하나: NVDA 일중 변동폭 3.8%.\n\n※투자 자문이 아닙니다.\n\n#미국주식 #옵션 #감마 #엔비디아 #투자"
+      }
+    }
   }
 ]
