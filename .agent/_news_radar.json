@@ -1,12 +1,29 @@
 {
  "day": "2026-08-21",
- "marketContext": "NASDAQ 100: 29483 (+0.62%) | S&P 500: 7688 (+0.33%) | VIX: 15.7 (-1.69%) | US 10Y: 4.70% (+0.92%) | Oil: $87.2 (+0.39%) | Gold: $4641 (+1.53%) | DXY: 98.6 (-0.28%) | BTC: $77820 (+6.58%)",
+ "marketContext": "NASDAQ 100: 29458 (+0.54%) | S&P 500: 7685 (+0.30%) | VIX: 15.7 (-2.12%) | US 10Y: 4.70% (+0.92%) | Oil: $87.2 (+0.37%) | Gold: $4651 (+1.75%) | DXY: 98.7 (-0.24%) | BTC: $77414 (+6.03%)",
  "stories": [
   {
    "event": "Warren Buffett's Successor, Greg Abel, Is Transforming Berkshire Hathaway With This $43 Billion Investment",
    "category": "GLOBAL",
    "impact": "BULLISH",
    "mechanism": "버크셔의 일본 자산 집중 투자가 지속된다면, 엔화 약세(현재 DXY 98.6) 환경에서 일본 기업의 수익성 개선에 대한 기대감이 반영될 수 있으며, 이는 글로벌 가치주 재평가의 신호로 작용할 수 있습니다.",
+   "mechanismEN": "IF Berkshire's Japan-focused capital deployment reflects conviction on yen weakness and structural valuation opportunities, THEN this may signal broader institutional rotation toward Asia ex-China equ",
+   "mechanismJP": "バークシャーの日本集中投資が継続すれば、円安環境（現在DXY 98.6）での日本企業の収益性改善期待が反映され、グローバル・バリュー株の再評価シグナルとなる可能性があります。",
+   "summaryKR": "버크셔 해서웨이의 신임 CEO 그렉 에이블이 일본 기업, 특히 5개 종합상사와 도쿄 해상에 약 43억 달러를 투자하며 경영 방향을 전환하고 있습니다.",
+   "summaryJP": "バークシャー・ハサウェイの新CEO グレッグ・エイベルが日本企業、特に5つの総合商社と東京海上に約43億ドルを投資し、経営方針を転換しています。",
+   "ourProbe": "해당 지역 지표 서프라이즈 이후 미국 지수 반응 베이스레이트",
+   "anchor": null,
+   "tickers": []
+  },
+  {
+   "event": "Iraq aims to boost oil output to 8-10 million bpd in six years",
+   "category": "GLOBAL",
+   "impact": "MIXED",
+   "mechanism": "이라크의 증산 계획이 OPEC 내 공급 확대 압력으로 작용한다면, 현재 유가 86.8달러 수준에서 장기적 하향 압력이 가해질 수 있으며 인플레이션 완화 시나리오를 지지할 수 있습니다.",
+   "mechanismEN": "IF Iraq's production expansion gains OPEC approval, THEN incremental global oil supply may exert downward pressure on crude (currently $86.8, flat), potentially supporting disinflationary narratives a",
+   "mechanismJP": "イラクの増産計画がOPEC内で承認される場合、グローバル石油供給の増加が原油（現在86.8ドル）に下向き圧力をかけ、ディスインフレシナリオを支援する可能性があります。",
+   "summaryKR": "이라크가 OPEC 생산 쿼터 인상을 요청하며 향후 6년간 일일 생산량을 800만~1000만 배럴로 확대할 계획입니다.",
+   "summaryJP": "イラクがOPEC生産枠の引き上げを要請し、今後6年間で日産800万～1000万バレルへの拡大を計画しています。",
    "ourProbe": "해당 지역 지표 서프라이즈 이후 미국 지수 반응 베이스레이트",
    "anchor": null,
    "tickers": []
@@ -16,6 +33,10 @@
    "category": "GEOPOLITICAL",
    "impact": "BEARISH",
    "mechanism": "만약 미국의 이란 제재 강화가 실행되어 중동 공급 차질이 심화된다면, 유가의 상승 압력이 지속되어 에너지 인플레이션 우려가 재점화될 수 있으며, 이는 연방준비제도의 금리 인하 경로에 대한 시장의 재평가를 초래할 가능성이 있습니다.",
+   "mechanismEN": "IF U.S. sanctions on Iran escalate as Treasury signals, THEN Middle East supply constraints may intensify, sustaining the embedded risk premium in crude ($86.1) and potentially reigniting inflation ex",
+   "mechanismJP": "もし米国のイラン制裁が強化されれば、中東の供給制約が深刻化し、原油のリスクプレミアムが維持され、インフレ期待の再燃につながり、FRBの利下げサイクルの遅延を示唆する可能性があります。",
+   "summaryKR": "미국이 이란에 대한 '역사상 가장 강한 제재'를 추진하겠다고 선언하면서 유가가 2주 연속 상승 추적. 유가는 금주 소폭 하락했으나 주간 기준 상승세 지속.",
+   "summaryJP": "米国財務省がイランに対する「過去最強の制裁」を宣言。原油は2週連続の上昇を追跡中で、地政学的リスクプレミアムが組み込まれている。",
    "ourProbe": "유가가 하루 N% 이상 오른 날 이후 5거래일, 섹터별(XLE·XLU·SMH·SPY) 수익률 베이스레이트",
    "anchor": null,
    "tickers": []
@@ -25,6 +46,10 @@
    "category": "MACRO",
    "impact": "BEARISH",
    "mechanism": "재무부의 채권 매입에 대한 시장의 신뢰가 약화되고 있다면, 정부 채무 지속성에 대한 우려가 심화되고 있음을 의미하며, 이는 장기 금리의 구조적 상승 추세 강화로 이어질 수 있습니다.",
+   "mechanismEN": "IF Treasury buyback enthusiasm fizzles while 10Y yields remain elevated at 4.70%, THEN market skepticism regarding intervention credibility may reinforce structural upward pressure on longer-dated yie",
+   "mechanismJP": "財務省の債券買い戻しに対する市場の楽観論が消え、10年金利が4.70%に留まれば、介入の信頼性に対する市場の懐疑が深まり、長期金利の構造的上昇圧力が強まる可能性があります。",
+   "summaryKR": "재무부의 채권 매입 프로그램에 대한 시장의 낙관론이 사라지면서 장기 국채 수익률이 상승하고 있습니다.",
+   "summaryJP": "財務省の債券買い戻しプログラムに対する市場の楽観論が消え、長期国債利回りが上昇しています。",
    "ourProbe": "10년물이 하루 X bp 오른 날의 주식 방어율 — 시대별로 쪼갠다 (2015~19 / 20~21 / 22~26)",
    "anchor": null,
    "tickers": []
@@ -34,6 +59,10 @@
    "category": "GLOBAL",
    "impact": "BULLISH",
    "mechanism": "만약 주요 선진국과 신흥국의 경기 활동이 지속적으로 개선된다면, 글로벌 경제 연착륙 시나리오에 대한 시장의 신뢰도가 높아질 수 있으며, 이는 현재 VIX 15.8의 낮은 변동성 환경과 위험자산 선호도 지속을 뒷받침할 가능성을 시사합니다.",
+   "mechanismEN": "IF PMI improvements across developed and emerging markets sustain, THEN soft-landing expectations may strengthen, supporting the observed VIX compression to 15.8 and continued risk-asset appetite refl",
+   "mechanismJP": "もし先進国と新興国の事業活動の改善が継続すれば、グローバル経済のソフトランディング期待が強まる可能性があり、これは現在のVIX 15.8の低ボラティリティ環境とリスク資産選好の継続を支持する可能性があります。",
+   "summaryKR": "8월 구매관리자지수(PMI) 조사에서 유로존, 일본, 인도의 사업 활동이 회복세를 보임. 3분기 글로벌 경제 둔화 회피 가능성 시사.",
+   "summaryJP": "8月のPMI調査でユーロ圏、日本、インドの事業活動が回復を示唆。第3四半期の世界経済の一層の減速を回避する可能性を示唆。",
    "ourProbe": "해당 지역 지표 서프라이즈 이후 미국 지수 반응 베이스레이트",
    "anchor": null,
    "tickers": []
@@ -43,6 +72,10 @@
    "category": "US_MARKET",
    "impact": "BEARISH",
    "mechanism": "만약 마진론 잔액이 $100.7B 수준에서 지속적으로 증가하고 시장 변동성이 상승한다면, 강제 청산 연쇄 반응의 위험이 증가하여 주식 시장의 급락 시나리오에서 시스템 리스크로 작용할 수 있으며, 현재 VIX 15.8의 저평가 상태가 이러한 위험을 은폐하고 있을 가능성이 있습니다.",
+   "mechanismEN": "IF margin debt continues expanding at $100.7B levels while market volatility spikes from current VIX 15.8, THEN forced liquidation cascades may amplify drawdowns in equities (NASDAQ 100 +0.51%), creat",
+   "mechanismJP": "もしマージンローンが$100.7B水準で継続的に増加し、現在のVIX 15.8から変動性が上昇すれば、強制清算の連鎖反応がNASDAQ 100の下落を増幅させ、システミックリスクが顕在化する可能性があります。",
+   "summaryKR": "인터랙티브 브로커스의 고객 마진론이 전년 대비 49% 증가하여 $100.7B에 도달. 고객 수도 34% 증가한 530만 명으로 확대.",
+   "summaryJP": "インタラクティブ・ブローカーズの顧客マージンローンが前年比49%増加して$100.7Bに達し、顧客数も34%増加。レバレッジの急速な拡大が観察されている。",
    "ourProbe": "그 지표가 극단이던 과거 구간의 이후 수익률 분포 — 백분위로",
    "anchor": null,
    "tickers": []
@@ -52,6 +85,10 @@
    "category": "US_MARKET",
    "impact": "BULLISH",
    "mechanism": "만약 국채 수익률이 현재의 상승 추세(4.70%, +0.92%)에도 불구하고 단기 변동성이 지속된다면, 위험자산 선호 심리의 불안정성을 시사하며 암호화폐 랠리의 지속성에 대한 재평가가 불가피합니다.",
+   "mechanismEN": "IF Treasury yields continue rising despite near-term relief rallies, THEN the 5.71% BTC surge may indicate temporary risk-on sentiment rather than sustained confidence, particularly given VIX compress",
+   "mechanismJP": "もし米国債利回りが4.70%での上昇基調を維持すれば、ビットコインの5.71%上昇はリスク選好の一時的な回復に過ぎず、VIX15.9での低位安定と矛盾する可能性があります。",
+   "summaryKR": "비트코인이 금주 20% 상승률을 기록 중이며, 목요일 미국 국채 수익률 급락 이후 투자자 낙관심이 회복되고 있습니다.",
+   "summaryJP": "ビットコインが週間20%の上昇を記録し、米国債利回りの急落後に投資家心理が改善されています。",
    "ourProbe": "그 지표가 극단이던 과거 구간의 이후 수익률 분포 — 백분위로",
    "anchor": null,
    "tickers": []
@@ -61,6 +98,10 @@
    "category": "GEOPOLITICAL",
    "impact": "BEARISH",
    "mechanism": "이란 석유 공급 감소가 지속된다면, 유가(현재 $86.3, -0.55%)의 하락 압력에도 불구하고 지정학적 프리미엄이 내재되어 있음을 시사하며, 에너지 인플레이션 재평가 가능성을 높입니다.",
+   "mechanismEN": "IF US-Iran tensions escalate further with additional sanctions, THEN oil's modest decline (-0.55%) may mask underlying supply-side constraints, suggesting geopolitical risk premium could offset curren",
+   "mechanismJP": "もし米国のイラン制裁が追加実施されれば、原油の0.55%下落にもかかわらず、地政学的リスク・プレミアムが内在し、エネルギー・インフレ再評価の可能性が高まります。",
+   "summaryKR": "미국의 이란 석유 봉쇄로 인해 중국 구매자들에 대한 이란산 원유 공급이 감소하고 가격이 상승했으며, 추가 제재 위협이 지속되고 있습니다.",
+   "summaryJP": "米国によるイラン石油封鎖により、中国向けの供給オファーが減少し、価格が上昇しています。追加制裁の脅威が継続しています。",
    "ourProbe": "유가가 하루 N% 이상 오른 날 이후 5거래일, 섹터별(XLE·XLU·SMH·SPY) 수익률 베이스레이트",
    "anchor": null,
    "tickers": []
@@ -70,6 +111,10 @@
    "category": "MACRO",
    "impact": "BEARISH",
    "mechanism": "만약 정부 개입에도 불구하고 국채 수익률이 상승 추세를 유지한다면, 인플레이션 기대치 또는 재정 우려에 대한 시장의 구조적 우려를 반영하며, 주식시장의 밸류에이션 재평가 압력이 심화될 수 있습니다.",
+   "mechanismEN": "IF Treasury yields continue rising despite policy intervention, THEN the +0.92% move suggests structural inflation or fiscal concerns overriding official support, potentially pressuring equity valuati",
+   "mechanismJP": "もし政策介入にもかかわらず国債利回りが上昇し続ければ、インフレ期待または財政懸念に対する市場の構造的懸念を反映し、S&P500の0.26%上昇にもかかわらず株式バリュエーション再評価圧力が強まります。",
+   "summaryKR": "재무부 장관 베센트의 국채 매입 개입에도 불구하고 미국 국채 수익률이 반등하고 있으며, 추가 개입 확대 의지를 표명했습니다.",
+   "summaryJP": "ベッセント財務長官の買い戻し介入にもかかわらず、米国債利回りが反発しており、10年物は4.70%（+0.92%）で上昇圧力が続いています。",
    "ourProbe": "10년물이 하루 X bp 오른 날의 주식 방어율 — 시대별로 쪼갠다 (2015~19 / 20~21 / 22~26)",
    "anchor": null,
    "tickers": []
@@ -79,16 +124,11 @@
    "category": "SECTOR",
    "impact": "BULLISH",
    "mechanism": "구글의 대규모 칩 구매 약정(1,200억 달러)이 반도체 산업의 장기 수요 확보를 의미한다면, AI 인프라 투자 가속화에 대한 시장의 신뢰도가 높아져 현재 NASDAQ 100 +0.18%의 약한 기술주 랠리를 지탱할 수 있습니다.",
+   "mechanismEN": "IF Google's $120 billion chip commitment signals sustained AI infrastructure demand, THEN semiconductor sector confidence may strengthen, supporting current NASDAQ 100 +0.18% tech advance.",
+   "mechanismJP": "もしグーグルの1,200億ドルのチップ購入約定がAIインフラ投資の加速を示唆すれば、半導体セクターの需要確保に対する市場の信頼が高まり、現在のNASDAQ 100 +0.18%のテック上昇を支える可能性があります。",
+   "summaryKR": "마벨 테크놀로지가 구글에 발행한 워런트(약 5,900만 주, 122억 달러 상당)는 240회 분할로 행사되며, 구글이 1,200억 달러 규모의 칩을 구매할 때까지 완전히 행사되지 않습니다.",
+   "summaryJP": "マーベル・テクノロジーがグーグルに発行したワラント（約5,900万株、122億ドル相当）は240回の分割で行使され、グーグルが1,200億ドル規模のチップを購入するまで完全には行使されません。",
    "ourProbe": "그 섹터가 지수와 갈라진 날의 이후 수렴/발산 베이스레이트",
-   "anchor": null,
-   "tickers": []
-  },
-  {
-   "event": "Tech Firms, Govts. Clash For Capital: Market Snapshot",
-   "category": "MACRO",
-   "impact": "BEARISH",
-   "mechanism": "만약 정부와 기술 기업 간 자본 경쟁이 심화된다면, AI 관련 기업들의 자금조달 비용 상승과 프로젝트 지연이 불가피하며, 이는 현재 US 10Y 수익률 4.70% (+0.92%) 상승과 함께 신용 스프레드 확대 가능성을 시사합니다.",
-   "ourProbe": "10년물이 하루 X bp 오른 날의 주식 방어율 — 시대별로 쪼갠다 (2015~19 / 20~21 / 22~26)",
    "anchor": null,
    "tickers": []
   }
@@ -158,7 +198,7 @@
   "NVDA 맥스페인 $210",
   "NVDA 감마플립 $220",
   "SPY 맥스페인 $755",
-  "SPY 감마플립 $770",
+  "SPY 감마플립 $769",
   "TSLA 맥스페인 $337.5",
   "TSLA 감마플립 $350",
   "S&P Global Services PMI (Aug) 예상 54 (직전 54.6)",

@@ -97,7 +97,14 @@ const stories = news
       event: n.headline,
       category: cat,
       impact: n.impact,
-      mechanism: (n.analysisKR || '').slice(0, 200),     // ② 영향 경로 — 가디언이 이미 써뒀다
+      // ② 영향 경로 — 가디언이 이미 «한·영·일» 세 언어로 써뒀다.
+      //   ⛔ 처음엔 한국어만 들고 왔다. 일본 채널 대본을 쓸 때 다시 번역하게 되는데,
+      //     번역하면 원문의 뉘앙스가 한 번 더 깎인다. 세 개를 다 들고 간다.
+      mechanism: (n.analysisKR || '').slice(0, 200),
+      mechanismEN: (n.analysisEN || '').slice(0, 200),
+      mechanismJP: (n.analysisJP || '').slice(0, 200),
+      summaryKR: (n.summaryKR || '').slice(0, 160),
+      summaryJP: (n.summaryJP || '').slice(0, 160),
       ourProbe: PROBE[cat] || PROBE.US_MARKET,           // ③ 우리가 «재야 할» 것
       anchor: null,                                       // ④ 기준선 — 아직 비어 있다
       tickers: n.tickers || [],
@@ -165,6 +172,7 @@ const md = [
     `### [${s.category} · ${s.impact}] ${s.event}`,
     '',
     `- **② 영향 경로**: ${s.mechanism}`,
+    `- **② 영향 경로 (JP)**: ${s.mechanismJP || '(없음)'}`,
     `- **③ 재야 할 것**: ${s.ourProbe}`,
     `- **④ 기준선**: ⛔ 미정`,
     '',
