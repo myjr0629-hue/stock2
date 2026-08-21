@@ -4548,7 +4548,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     line: 'Tech stocks are\nfrozen today.',
     sub: 'Every expiry Friday. We proved it.',
     role: 'conflict',
-    bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
+    bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },   // 훅: 멈춘 도미노 = 가격이 묶인다 (137)
   },
   loop: 'The pin is real.\nJust smaller.',
 
@@ -4556,7 +4556,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'conflict',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-two-smile.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-two-smile.mp4', loopFrames: 150 },   // 1 주장: 다들 그렇게 말한다
       eyebrow: 'What everyone says',
       head: 'They say the price\ngets pinned',
       say: 'Hold on. Everyone repeats this.',
@@ -4567,7 +4567,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'evidence',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },   // 2 분할: 저울로 둘로 나눈다
       eyebrow: 'So we tested it',
       head: 'Three thousand\nFridays. Split in two.',
       say: 'Every Friday since twenty one.',
@@ -4581,7 +4581,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'money',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-wafer-lift.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-trapped-box.mp4', loopFrames: 150 },   // 3 조용해짐: 상자 안에 갇혀 못 움직인다
       eyebrow: 'What came back',
       head: 'Expiry day.\nThe range goes quiet.',
       say: 'Expiry day. The range goes quiet.',
@@ -4591,7 +4591,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'verdict',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/fiber-one-lit.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-tipping-balance.mp4', loopFrames: 150 },   // 4 판정: 아슬한 균형
       eyebrow: 'Our own test',
       head: 'Real.\nJust smaller.',
       say: 'So the pin is real.',
@@ -4602,7 +4602,7 @@ export const SCRIPT_OPEX821: BriefingProps = {
     {
       role: 'chips',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-point-same.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-rubber-band.mp4', loopFrames: 150 },   // 5 오늘: 고무줄이 당겨진 상태 = 레벨에서 벗어나 있다 (135)
       eyebrow: 'Today is one of them',
       head: 'Today. Two names\nare off the line.',
       say: 'Today two names are off the line.',
@@ -4649,7 +4649,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
     line: 'Your bonds are\nnot a hedge.',
     sub: 'Not since 2022. We counted.',
     role: 'conflict',
-    bg: { kind: 'video', src: 'shorts/bg/video/ani-bell-strike.mp4', loopFrames: 150 },
+    bg: { kind: 'video', src: 'shorts/bg/video/ani-crowd-stop.mp4', loopFrames: 150 },   // 훅: 군중은 다 가는데 혼자 멈춘다 = 다들 믿는 것을 의심한다 (126)
   },
   loop: 'The average lies.\nSplit it by era.',
 
@@ -4657,7 +4657,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
     {
       role: 'conflict',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-two-smile.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-two-smile.mp4', loopFrames: 150 },   // 1 통념: 다들 그렇게 믿는다
       eyebrow: 'What you were taught',
       head: 'Stocks fall,\nbonds rise',
       say: 'Hold on. Bonds are not a hedge.',
@@ -4668,7 +4668,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
     {
       role: 'evidence',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-scale-tip.mp4', loopFrames: 150 },   // 2 검정: 저울로 둘로 갈라 잰다
       eyebrow: 'So we tested it',
       head: 'Every day stocks\ndropped hard',
       say: 'We counted every crash day.',
@@ -4682,7 +4682,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
     {
       role: 'money',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-dominoes.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-tipping-balance.mp4', loopFrames: 150 },   // 3 평균: 균형이 잡힌 «듯» 보인다
       eyebrow: 'The average agrees',
       head: 'The average\nis lying to you',
       say: 'The average says it still works.',
@@ -4692,7 +4692,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
     {
       role: 'verdict',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-ai-bubble.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-ai-bubble.mp4', loopFrames: 150 },   // 4 깨짐: 방울에 금이 간다 = 전제가 깨졌다
       eyebrow: 'And it falls apart',
       head: 'It died in\ntwenty twenty two',
       say: 'It died in twenty twenty two.',
@@ -4706,7 +4706,7 @@ export const SCRIPT_BONDS821: BriefingProps = {
     {
       role: 'chips',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-point-same.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/ani-point-shock.mp4', loopFrames: 150 },   // 5 폭로: 놀라서 가리킨다
       eyebrow: 'Why nobody noticed',
       head: 'Your chart\nhid the break',
       say: 'Your ten year chart hides this.',

@@ -254,13 +254,35 @@ C-2 범용 4편은 **어느 편에나 들어가서 회전율이 가장 높다.**
 
 ---
 
-## 보유 현황 (declip 처리 완료 · 전부 1080×1920 · 워터마크 없음)
+## 보유 현황 — 애니 **50편 (2026-08-21 · 전부 declip 완료 · 1080×1920 · 워터마크 없음)
 
-| 파일 | 밝기 | 전환 | 평가 |
-|---|---|---|---|
-| `gold-btc-race.mp4` | **141** | 1회 | **최고 — 경쟁→악수→동행. ₿ 선명** |
-| `ani-surf-megacap.mp4` | 119 | 0회 | 좋음 · 애플 로고 회피 필요 |
-| `ani-bull-bear.mp4` | 91 | 0회 | 좋음 · 전환 없음 · 가짜 수치 |
-| `gold-vault-bars.mp4` | 85 | 0회 | 어둡다 |
+**뜻으로 골라 쓴다.** 괄호 안은 실측 밝기 (게이트 하한 90, 훅·루프백은 «두 번» 걸리니 밝은 것을 둔다).
 
-**애니 4개 / 목표 37개.** A-1~A-3 (12편) 만 채워도 배경 사용의 **49%** 가 애니로 바뀐다.
+| 뜻 | 클립 (밝기 순) |
+|---|---|
+| **대비·균형** | `scale-tip`(134) · `tipping-balance`(115) · `geo-seesaw`(52) |
+| **함정·갇힘** | `dominoes`(137) · `crowd-stop`(126) · `trapped-box`(86) |
+| **깨짐·실패** | `ai-bubble`(133) · `glass-heal`(106) · `rain-shelter`(102) · `bear-escalator`(84) |
+| **반전·놀람** | `two-smile`(126) · `expression-flip`(123) · `point-shock`(117) · `point-same`(117) |
+| **싸움·대치** | `china-us`(114) · `bull-bear-fight`(95) · `armwrestle`(95) · `bull-bear`(91) |
+| **흐름·방향** | `chip-conveyor`(109) · `arrows-flow`(97) · `pipeline-pulse`(84) · `chip-pull`(83) · `network`(71) |
+| **시장상징** | `office-fade`(118) · `us-bull`(117) · `bell-strike`(117) · `bull-bell`(116) · `floor-fills`(114) · `lights-out`(78) |
+| **금·코인** | `btc-launch`(136) · `vault-through`(92) · `vault-open`(87) |
+| **금리·집** | `house-stairs`(122) · `fed-gavel`(110) · `fed-dial`(98) |
+| **회복·돌파** | `beach-sunrise`(140) · `sunrise`(115) · `grab-rock`(109) · `storm-part`(103) · `glass-corridor`(79) |
+| **지표·기술** | `rubber-band`(135) · `wafer-lift`(120) · `surf-megacap`(119) · `tanker`(106) · `juggle-mm`(104) · `chip-carry`(100) · `door-open`(92) · `circuit-city`(85) · `data-pillars`(81) · `servers-wake`(80) |
+
+### 쓰는 법
+- **훅은 밝은 것으로.** 훅 배경은 루프백에서 «한 번 더» 쓰여 평균 밝기에 이중으로 걸린다
+- **한 영상 안에서 같은 클립을 두 번 쓰지 않는다** (대표 지적 2026-08-21)
+- **연속한 두 편의 «훅»이 겹치지 않게** 한다 — 피드에서 같은 채널로 안 보인다
+- 뜻이 맞는 게 없으면 **발주서 위쪽에서 새로 시킨다.** 억지로 끼워 맞추지 않는다
+
+### 아직 없는 것 (다음 발주)
+| 뜻 | 발주 문구 |
+|---|---|
+| 방패가 깨짐 | 캐릭터가 든 방패에 금이 가다 부서지는 영상 |
+| 평균이 가림 | 큰 담요가 무언가를 덮고 있다가 들추니 다른 게 나오는 영상 |
+| 동전 던지기 | 캐릭터가 동전을 던져 손등으로 받는 영상 |
+| 시대 구분 | 캐릭터가 문 세 개를 지나가는데 문마다 색이 바뀌는 영상 |
+
