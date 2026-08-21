@@ -9,6 +9,7 @@ import { AppAd, AppAdTag, APPAD_DURATION, APPAD_DURATION_SOLO, APPAD_TAG_DURATIO
 import { Thumb, THUMB_AMD819 } from './kit/Thumb';
 import { OutroCard, OUTRO_FRAMES, OUTRO_FPS } from './kit/Outro';
 import { Trailer, TRAILER_FPS, TRAILER_FRAMES } from './kit/Trailer';
+import { JPAvatar, JPBanner } from './kit/JPBrand';
 import { Concept2, C2_DURATION, C2_FPS } from './kit/Concept2';
 import { Concept, CONCEPT_DURATION, CONCEPT_FPS } from './kit/Concept';
 import { PHONEAD_SIGNUM } from './kit/phonead-signum';
@@ -963,6 +964,9 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={createMockMarketPressureBriefV26Input()}
       />
       {/* 채널 트레일러 — 「왜 구독해야 하는가」. 쇼츠가 아니므로 30초 상한 대상 아님 */}
+      {/* 일본 채널 브랜드 자산 — 정지 이미지로 뽑아 쓴다 (still 렌더) */}
+      <Composition id="JPAvatar" component={JPAvatar} durationInFrames={1} fps={30} width={800} height={800} />
+      <Composition id="JPBanner" component={JPBanner} durationInFrames={1} fps={30} width={2560} height={1440} />
       <Composition
         id="Trailer"
         component={Trailer}
