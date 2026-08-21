@@ -1,0 +1,35 @@
+{
+ "day": "2026-08-22",
+ "dow": "토",
+ "isOpex": false,
+ "isWeekend": true,
+ "plan": [
+  {
+   "id": "A",
+   "at": "20:00",
+   "want": "LIVE",
+   "note": "미국 개장 전 — 오늘 벌어질 것",
+   "type": "EVERGREEN",
+   "label": "bond yields explained",
+   "why": "주말 — LIVE 가 성립하지 않는다 · 소형중앙 64,208"
+  },
+  {
+   "id": "B",
+   "at": "06:00",
+   "want": "LIVE",
+   "note": "미국 마감 후 — 어제 벌어진 것",
+   "type": "EVERGREEN",
+   "label": "interest rates",
+   "why": "주말 — LIVE 가 성립하지 않는다 · 소형중앙 48,195"
+  },
+  {
+   "id": "C",
+   "at": "13:00",
+   "want": "EVERGREEN",
+   "note": "장과 무관 — 개념·구조",
+   "type": "EVERGREEN",
+   "label": "mortgage rates explained",
+   "why": "소형중앙 47,676"
+  }
+ ]
+}

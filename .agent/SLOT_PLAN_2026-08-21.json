@@ -1,0 +1,35 @@
+{
+ "day": "2026-08-21",
+ "dow": "금",
+ "isOpex": true,
+ "isWeekend": false,
+ "plan": [
+  {
+   "id": "A",
+   "at": "20:00",
+   "want": "LIVE",
+   "note": "미국 개장 전 — 오늘 벌어질 것",
+   "type": "LIVE",
+   "label": "AMD sits 4.3% above max pain ($450) into expiry",
+   "why": "임박 · 문: options trading explained"
+  },
+  {
+   "id": "B",
+   "at": "06:00",
+   "want": "LIVE",
+   "note": "미국 마감 후 — 어제 벌어진 것",
+   "type": "LIVE",
+   "label": "AMD held above max pain while $4.9M of option premium left",
+   "why": "괴리 · 문: options trading explained"
+  },
+  {
+   "id": "C",
+   "at": "13:00",
+   "want": "EVERGREEN",
+   "note": "장과 무관 — 개념·구조",
+   "type": "EVERGREEN",
+   "label": "bond yields explained",
+   "why": "소형중앙 64,208"
+  }
+ ]
+}
