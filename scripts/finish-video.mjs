@@ -65,33 +65,15 @@ const yavgOf = (f) => {
   return all.length ? all.reduce((a, b) => a + b, 0) / all.length : null;
 };
 
-const BRIGHT = { min: 90, max: 150 };
-let y0 = yavgOf(OUT);
-if (y0 == null) {
-  console.log('  밝기  측정 실패 — 건너뛴다');
-} else if (y0 >= BRIGHT.min) {
-  console.log(`  밝기  YAVG ${y0.toFixed(1)}  ✔ 밴드 안 (${BRIGHT.min}~${BRIGHT.max})`);
-} else {
-  // 필요한 만큼만 올린다. gamma 상한 1.6 — 그 이상은 소재가 어두운 것이지
-  // 후보정으로 덮을 문제가 아니다. 그때는 배경 클립을 바꿔야 한다.
-  // ffmpeg eq: 출력 = 입력^(1/g) 이므로  g = log(y0/255) / log(목표/255).
-  //   ⛔ 처음에 이 분수를 뒤집어 써서 g 가 1 미만으로 나왔고, 보정이 거의 안 됐다.
-  //   목표는 하한(90)이 아니라 95 로 잡는다 — 하한에 딱 맞추면 반올림에서 다시 떨어진다.
-  const TARGET = 95;
-  const g = Math.min(1.6, Math.max(1.01, Math.log(y0 / 255) / Math.log(TARGET / 255)));
-  const LIFT = OUT.replace(/\.mp4$/i, '.lift.mp4');
-  run(['-y', '-hide_banner', '-loglevel', 'error', '-i', OUT,
-    '-vf', `eq=gamma=${g.toFixed(3)}`, '-c:a', 'copy',
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', LIFT]);
-  if (!existsSync(LIFT)) {
-    console.log(`  밝기  YAVG ${y0.toFixed(1)}  ✗ 보정 실패 — 원본 유지`);
-  } else {
-    const y1 = yavgOf(LIFT);
-    unlinkSync(OUT); renameSync(LIFT, OUT);
-    console.log(`  밝기  ${y0.toFixed(1)} → ${y1.toFixed(1)}  (gamma ${g.toFixed(3)})  `
-      + `${y1 >= BRIGHT.min ? '✔ 밴드 안' : '✗ 아직 어둡다 — 배경 클립을 바꿔야 한다'}`);
-  }
-}
+// ⛔ 대표 지시 2026-08-21 (2차): "의도적으로 밝기를 올리고... 눈이 부시다.
+//   특별한 것 아니라면 안 해도 될 듯하다"
+//   ⇒ 감마로 «강제로 들어올리는» 것을 «끈다». 재기만 하고 보고한다.
+//   렌더가 원래 내는 톤을 존중한다 — 후보정으로 밀어올리면 화면이 뜬다.
+//   ⛔ 정말 어두운 소재(YAVG 60 미만)는 «배경 클립»을 바꾸지, 감마로 덮지 않는다.
+const BRIGHT = { min: 90, max: 150, LIFT: false };
+const y0 = yavgOf(OUT);
+if (y0 == null) console.log('  밝기  측정 실패');
+else console.log(`  밝기  YAVG ${y0.toFixed(1)}  ${y0 >= BRIGHT.min ? '(밴드 안)' : y0 >= 60 ? '(밴드 아래 — 보정하지 않는다)' : '⛔ 매우 어둡다 — 배경 클립을 바꾼다'}`);
 
 // ── 썸네일 = 프레임 0 (게이트가 픽셀로 대조한다) ────────────────────────────
 run(['-y', '-loglevel', 'error', '-i', OUT, '-vf', 'select=eq(n\\,0)', '-vframes', '1', THUMB]);

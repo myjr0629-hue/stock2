@@ -1,0 +1,134 @@
+{
+ "preregistered": {
+  "syms": [
+   "NVDA",
+   "AMD",
+   "MU",
+   "AVGO",
+   "AAPL",
+   "MSFT",
+   "GOOGL",
+   "AMZN",
+   "META",
+   "TSLA"
+  ],
+  "from": "2021-01-01",
+  "to": "2026-08-20",
+  "define": "실적 발표 다음 거래일 종가 수익률",
+  "tests": [
+   "|수익률| 웰치 t",
+   "상승 비율 이항검정"
+  ]
+ },
+ "rows": [
+  {
+   "s": "NVDA",
+   "n": 22,
+   "reactAbs": 6.2,
+   "normalAbs": 2.31,
+   "ratio": 2.69,
+   "t": 3.1,
+   "up": 11,
+   "upPct": 50
+  },
+  {
+   "s": "AMD",
+   "n": 23,
+   "reactAbs": 6.86,
+   "normalAbs": 2.45,
+   "ratio": 2.8,
+   "t": 4.34,
+   "up": 9,
+   "upPct": 39.1
+  },
+  {
+   "s": "MU",
+   "n": 23,
+   "reactAbs": 6.67,
+   "normalAbs": 2.42,
+   "ratio": 2.75,
+   "t": 4.19,
+   "up": 9,
+   "upPct": 39.1
+  },
+  {
+   "s": "AVGO",
+   "n": 22,
+   "reactAbs": 6.75,
+   "normalAbs": 1.79,
+   "ratio": 3.76,
+   "t": 4.32,
+   "up": 16,
+   "upPct": 72.7
+  },
+  {
+   "s": "AAPL",
+   "n": 23,
+   "reactAbs": 2.93,
+   "normalAbs": 1.22,
+   "ratio": 2.39,
+   "t": 3.43,
+   "up": 9,
+   "upPct": 39.1
+  },
+  {
+   "s": "MSFT",
+   "n": 23,
+   "reactAbs": 4.6,
+   "normalAbs": 1.17,
+   "ratio": 3.92,
+   "t": 4.65,
+   "up": 11,
+   "upPct": 47.8
+  },
+  {
+   "s": "GOOGL",
+   "n": 23,
+   "reactAbs": 5.23,
+   "normalAbs": 1.37,
+   "ratio": 3.81,
+   "t": 5.85,
+   "up": 13,
+   "upPct": 56.5
+  },
+  {
+   "s": "AMZN",
+   "n": 23,
+   "reactAbs": 6.65,
+   "normalAbs": 1.5,
+   "ratio": 4.43,
+   "t": 5.71,
+   "up": 10,
+   "upPct": 43.5
+  },
+  {
+   "s": "META",
+   "n": 23,
+   "reactAbs": 10.09,
+   "normalAbs": 1.65,
+   "ratio": 6.11,
+   "t": 5.39,
+   "up": 11,
+   "upPct": 47.8
+  },
+  {
+   "s": "TSLA",
+   "n": 23,
+   "reactAbs": 7.94,
+   "normalAbs": 2.64,
+   "ratio": 3,
+   "t": 5.1,
+   "up": 9,
+   "upPct": 39.1
+  }
+ ],
+ "all": {
+  "n": 228,
+  "reactAbs": 6.39,
+  "normalAbs": 1.85,
+  "ratio": 3.45,
+  "up": 108,
+  "upPct": 47.4,
+  "z": -0.79
+ }
+}

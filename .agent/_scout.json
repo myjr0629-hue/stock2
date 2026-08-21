@@ -1,0 +1,521 @@
+{
+ "day": "2026-08-21",
+ "markets": {
+  "ko": [
+   {
+    "id": "nodhOWYJu8w",
+    "title": "The Real Reason Behind the Massive 'Treasury Bond' Bomb That Just Exploded in the US (+Korea)",
+    "views": 38004,
+    "from": "@경제사냥꾼",
+    "pub": "2026-08-19T12:30:26Z",
+    "dur": 848,
+    "ch": "경제사냥꾼",
+    "door": null
+   },
+   {
+    "id": "eep_N_oTkOg",
+    "title": "The 'Future Industry' That Could Push KOSPI to 12,000 Alongside Semiconductors",
+    "views": 24880,
+    "from": "@경제사냥꾼",
+    "pub": "2026-08-18T12:30:25Z",
+    "dur": 1123,
+    "ch": "경제사냥꾼",
+    "door": null
+   },
+   {
+    "id": "yx5n_pQVBKs",
+    "title": "Hynix’s 40 Trillion Won Power Move, and Everything You Need to Know About Silent Samsung Electron...",
+    "views": 14970,
+    "from": "@경제사냥꾼",
+    "pub": "2026-08-20T12:25:30Z",
+    "dur": 925,
+    "ch": "경제사냥꾼",
+    "door": null
+   },
+   {
+    "id": "D8L_tHNLj_A",
+    "title": "Kakao is splitting again—I've broken it all down",
+    "views": 2354,
+    "from": "@경제사냥꾼",
+    "pub": "2026-08-21T13:30:37Z",
+    "dur": 1180,
+    "ch": "경제사냥꾼",
+    "door": null
+   }
+  ],
+  "ja": [
+   {
+    "id": "GU22lNvBiEU",
+    "title": "【ナスダック100が超バーゲン】投機筋がナスダック100を売る理由と大上昇に備える仕込み戦略をデータ解説",
+    "views": 90197,
+    "from": "米国株",
+    "pub": "2026-08-20T09:00:23Z",
+    "dur": 930,
+    "ch": "江守哲の米国株投資チャンネル",
+    "door": {
+     "term": "ナスダック",
+     "demand": 185
+    }
+   },
+   {
+    "id": "OBGi2rUhWy4",
+    "title": "【米国株 8/20】ベッセント・プット発動、米財務省が異例の一手です。",
+    "views": 47927,
+    "from": "米国株",
+    "pub": "2026-08-20T08:19:56Z",
+    "dur": 782,
+    "ch": "ばっちゃまの米国株",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "F0NZZKTGHdo",
+    "title": "【キオクシア続落で】信用買残株数が過去最大に！米財務省の市場支援の影響は？　#米国株 #日経平均 #sp500 #soxl #nvda",
+    "views": 47626,
+    "from": "米国株 速報",
+    "pub": "2026-08-19T22:00:28Z",
+    "dur": 730,
+    "ch": "毎日チャート分析ちゃんねる",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "JrYeq__4ef4",
+    "title": "米財務省の介入も効果なし⁉金利上昇の要因は何!?【8/21 米国株ニュース】",
+    "views": 37094,
+    "from": "米国株",
+    "pub": "2026-08-20T21:24:27Z",
+    "dur": 969,
+    "ch": "とも米国株投資チャンネル",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "plJOROOMIBY",
+    "title": "【米国株 8/21】米中間選挙に新たな問題が浮上しています",
+    "views": 35629,
+    "from": "米国株",
+    "pub": "2026-08-21T08:15:36Z",
+    "dur": 758,
+    "ch": "ばっちゃまの米国株",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "URcFVNupRAI",
+    "title": "【武器になる経済指標】米国株は雇用統計から読め／日本株は日銀短観 回答率99%／株価を見るには名目GDP／日本経済のミクロ指標 業況DI／まだ有効 製造業指数／藤代宏一氏【PIVOT ECONOMY】",
+    "views": 33954,
+    "from": "米国株",
+    "pub": "2026-08-19T03:00:35Z",
+    "dur": 2655,
+    "ch": "PIVOT 公式チャンネル",
+    "door": {
+     "term": "雇用統計",
+     "demand": 2003
+    }
+   },
+   {
+    "id": "UqKXtVXL3p8",
+    "title": "Taisuke Tanaka’s Money Talks: [US Stocks] The Pitfalls Emerging in the Semiconductor Market Recov...",
+    "views": 28443,
+    "from": "米国株",
+    "pub": "2026-08-20T08:29:12Z",
+    "dur": 2281,
+    "ch": "トウシル [楽天証券]",
+    "door": null
+   },
+   {
+    "id": "Do6PvFjVVD0",
+    "title": "日本株、米国株　破",
+    "views": 16976,
+    "from": "米国株",
+    "pub": "2026-08-20T15:33:16Z",
+    "dur": 2446,
+    "ch": "Sho【Sho's投資情報局サブ】",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "IGx4SNY0ZoY",
+    "title": "【投資の必須知識】米国株・ゴールドの利益を左右する「金利・債券」の正しい見方【真夏の特別企画】",
+    "views": 15746,
+    "from": "米国株",
+    "pub": "2026-08-21T09:00:38Z",
+    "dur": 1024,
+    "ch": "江守哲の米国株投資チャンネル",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "ByszxzC82zw",
+    "title": "モデルナ急上昇！米財務省、長期金利下げに動く！",
+    "views": 11904,
+    "from": "米国株",
+    "pub": "2026-08-19T21:41:27Z",
+    "dur": 2078,
+    "ch": "高校生でも分かる米国株",
+    "door": {
+     "term": "長期金利",
+     "demand": 1135
+    }
+   },
+   {
+    "id": "Yow8hIQgdpA",
+    "title": "なぜ株価下落？１０分で米国株・日本株・コモディティ・仮想通貨の最新情報まとめ【8/21】",
+    "views": 7812,
+    "from": "米国株",
+    "pub": "2026-08-20T21:18:42Z",
+    "dur": 642,
+    "ch": "損切り抜刀斎【株式投資】",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "hdiWufBhbFY",
+    "title": "[US Stocks, S&P 500] This is a surprise.",
+    "views": 6526,
+    "from": "米国株",
+    "pub": "2026-08-21T07:30:09Z",
+    "dur": 534,
+    "ch": "ボゥ",
+    "door": null
+   },
+   {
+    "id": "blA4mPYr9mc",
+    "title": "【8/21米国株】アメリカによるイランへの史上最大の経済制裁が迫っています【広告なし】",
+    "views": 5501,
+    "from": "米国株",
+    "pub": "2026-08-20T19:45:10Z",
+    "dur": 1463,
+    "ch": "【米国株ニュース】しあわせゼミナール ",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "OKIqhN_iK3k",
+    "title": "債券市場混乱、金利再上昇！株はまた下げ🥶FANG+はマイクロンで助かりかすり傷。また1円、円安にもどる　ゴールド勢またトップ狙えるぞ【米国株速報 NISA応援】",
+    "views": 4755,
+    "from": "米国株 速報",
+    "pub": "2026-08-20T22:29:12Z",
+    "dur": 616,
+    "ch": "ふぁん丸の米国株ファンチャンネル!【FANG+いけ!S&P500最強!NISA応援】",
+    "door": {
+     "term": "マイクロン",
+     "demand": 2313
+    }
+   },
+   {
+    "id": "cSAvFFNZcrE",
+    "title": "原油高で金利高、歩み寄らないアメリカイラン！なんとかなーれ！FANG+には金利鈍感銘柄ネットフリックスがいる！半導体マイクロンはド・ピンチに メガテンはイーライビザマス【米国株速報 NISA応援】",
+    "views": 4252,
+    "from": "米国株 速報",
+    "pub": "2026-08-18T22:30:11Z",
+    "dur": 648,
+    "ch": "ふぁん丸の米国株ファンチャンネル!【FANG+いけ!S&P500最強!NISA応援】",
+    "door": {
+     "term": "マイクロン",
+     "demand": 2313
+    }
+   },
+   {
+    "id": "OWmR5ZqOITY",
+    "title": "【米国株に異変】Dow600ドル安、それでもウォール街は強気？S&P500 10,000論を検証",
+    "views": 4046,
+    "from": "米国株",
+    "pub": "2026-08-20T21:08:54Z",
+    "dur": 1917,
+    "ch": "もうれつ【米国株投資ch】",
+    "door": {
+     "term": "S&P500",
+     "demand": 20926
+    }
+   },
+   {
+    "id": "QXXgQOvvLKc",
+    "title": "ウォルマート急落9%！好決算でも下げた理由⁉【8/21 米国株ニュース】",
+    "views": 2464,
+    "from": "米国株",
+    "pub": "2026-08-20T21:15:55Z",
+    "dur": 569,
+    "ch": "【速報】AI×PAN米国株※PAN本人のサブチャンネルです。",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   },
+   {
+    "id": "qhGqjWdQe-o",
+    "title": "ビットコイン急騰！資金は金融からハイテクへ回転⁉【8/21 米国株ニュース】",
+    "views": 452,
+    "from": "米国株 速報",
+    "pub": "2026-08-21T11:37:42Z",
+    "dur": 272,
+    "ch": "【速報】AI×PAN米国株※PAN本人のサブチャンネルです。",
+    "door": {
+     "term": "米国株",
+     "demand": 1225
+    }
+   }
+  ],
+  "en": [
+   {
+    "id": "_YXDHskRP6Y",
+    "title": "Here's What Pops This Stock Bubble",
+    "views": 764051,
+    "from": "ai bubble",
+    "pub": "2026-08-19T23:13:14Z",
+    "dur": 1509,
+    "ch": "Andrei Jikh",
+    "door": null
+   },
+   {
+    "id": "n32mhb2aUsE",
+    "title": "WH nightmare: AI bubble COLLAPSES! A TECH INSIDER shows the TERRIFYING WAY it may all CRATER",
+    "views": 373765,
+    "from": "ai bubble",
+    "pub": "2026-08-20T23:45:11Z",
+    "dur": 728,
+    "ch": "MS NOW",
+    "door": {
+     "term": "ai bubble",
+     "demand": 48136
+    }
+   },
+   {
+    "id": "kAFSn9gQgNk",
+    "title": "Stock Market Updates Live: आज कहां करें इन्वेस्ट | Business & Finance |21st August 2026 | CNBC Awaaz",
+    "views": 332392,
+    "from": "stock market today",
+    "pub": "2026-08-21T00:59:27Z",
+    "dur": 0,
+    "ch": "CNBC Awaaz.",
+    "door": {
+     "term": "stock market",
+     "demand": 2430
+    }
+   },
+   {
+    "id": "8g1kcbIAdIg",
+    "title": "Tom Lee: The AI Bubble Comparison Is Wrong",
+    "views": 159924,
+    "from": "ai bubble",
+    "pub": "2026-08-17T21:47:39Z",
+    "dur": 590,
+    "ch": "Fundstrat",
+    "door": {
+     "term": "ai bubble",
+     "demand": 48136
+    }
+   },
+   {
+    "id": "1VcLoNTXrGo",
+    "title": "AI Bubble: ‘AI companies have run out of internet.’ | David Gerard",
+    "views": 154733,
+    "from": "ai bubble",
+    "pub": "2026-08-17T16:00:32Z",
+    "dur": 1820,
+    "ch": "The Tech Report",
+    "door": {
+     "term": "ai bubble",
+     "demand": 48136
+    }
+   },
+   {
+    "id": "jduJFNhpyIs",
+    "title": "“Stock Market Is Ready To CRASH!” | AI Bubble Could Burst Warns Economist Justin Urquhart-Stewart",
+    "views": 89134,
+    "from": "ai bubble",
+    "pub": "2026-08-18T18:00:36Z",
+    "dur": 739,
+    "ch": "TalkTV",
+    "door": {
+     "term": "stock market",
+     "demand": 2430
+    }
+   },
+   {
+    "id": "csbA1WPaXj4",
+    "title": "🔴LIVE: First Trade Strategy | Anuj Singhal Live | Stock Market Today | CNBC Awaaz | 19th August 2026",
+    "views": 53230,
+    "from": "stock market today",
+    "pub": "2026-08-19T06:10:54Z",
+    "dur": 0,
+    "ch": "CNBC Awaaz.",
+    "door": {
+     "term": "stock market today",
+     "demand": 1960
+    }
+   },
+   {
+    "id": "HzpDYd85iD4",
+    "title": "Some of the data center stocks are buying huge amounts of stock in the open markets, says Jim Cramer",
+    "views": 49523,
+    "from": "stock market today",
+    "pub": "2026-08-17T23:51:46Z",
+    "dur": 746,
+    "ch": "CNBC Television",
+    "door": {
+     "term": "data center stocks",
+     "demand": 105
+    }
+   },
+   {
+    "id": "4az35C5h0QA",
+    "title": "REVEALED: 4 Stocks Congress Is Buying Now",
+    "views": 46652,
+    "from": "stock market today",
+    "pub": "2026-08-20T00:52:23Z",
+    "dur": 853,
+    "ch": "ZipTrader",
+    "door": null
+   },
+   {
+    "id": "bYY8a5Y6aoM",
+    "title": "Stock Market LIVE Updates: Nifty & Sensex Live | Crude Oil Price | Aug 20th | Trump | US Iran Talks",
+    "views": 28677,
+    "from": "stock market today",
+    "pub": "2026-08-20T16:17:01Z",
+    "dur": 0,
+    "ch": "CNBC-TV18",
+    "door": {
+     "term": "stock market",
+     "demand": 2430
+    }
+   },
+   {
+    "id": "bMNbKY-uTYs",
+    "title": "🔴Morning Call LIVE | Stock Market | Top Stocks Today | Morning Business News | Anuj Singhal",
+    "views": 20501,
+    "from": "stock market today",
+    "pub": "2026-08-20T02:00:55Z",
+    "dur": 1880,
+    "ch": "CNBC Awaaz.",
+    "door": {
+     "term": "stock market",
+     "demand": 2430
+    }
+   },
+   {
+    "id": "H_zPEpSU2XY",
+    "title": "Wall Street Just Found $500 Billion to Extend the AI Boom By Years",
+    "views": 19821,
+    "from": "ai bubble",
+    "pub": "2026-08-20T16:26:23Z",
+    "dur": 789,
+    "ch": "Mark Moss",
+    "door": null
+   },
+   {
+    "id": "3Jen8UmI7Dw",
+    "title": "A.I. Bubble Creates Bizarre Arbitrage Oppurtunities",
+    "views": 9104,
+    "from": "ai bubble",
+    "pub": "2026-08-21T04:12:33Z",
+    "dur": 871,
+    "ch": "Broken Business Models",
+    "door": null
+   },
+   {
+    "id": "SdA41N_GOOo",
+    "title": "Business Breakfast | Stock Market News | August 20, 2026 || TV5 News",
+    "views": 7573,
+    "from": "stock market today",
+    "pub": "2026-08-20T04:25:32Z",
+    "dur": 2680,
+    "ch": "TV5 News ",
+    "door": {
+     "term": "stock market",
+     "demand": 2430
+    }
+   },
+   {
+    "id": "Ci1IAiczmNg",
+    "title": "AI Bubble: EU Central Bank Warns AI Crash Coming",
+    "views": 5193,
+    "from": "ai bubble",
+    "pub": "2026-08-20T11:00:35Z",
+    "dur": 675,
+    "ch": "The John Johnston Lounge",
+    "door": {
+     "term": "ai bubble",
+     "demand": 48136
+    }
+   },
+   {
+    "id": "DkItf9VdjRg",
+    "title": "Back In The Box  - AUG 21 - Stock Market LIVE, Live Trading, Stock News",
+    "views": 2645,
+    "from": "stock market today",
+    "pub": "2026-08-21T03:39:34Z",
+    "dur": 0,
+    "ch": "Stock Market Live",
+    "door": {
+     "term": "stock market",
+     "demand": 2430
+    }
+   },
+   {
+    "id": "DkItf9VdjRg",
+    "title": "Back In The Box  - AUG 21 - Stock Market LIVE, Live Trading, Stock News",
+    "views": 2645,
+    "from": "options trading",
+    "pub": "2026-08-21T03:39:34Z",
+    "dur": 0,
+    "ch": "Stock Market Live",
+    "door": {
+     "term": "stock market",
+     "demand": 2430
+    }
+   },
+   {
+    "id": "JNCq60wGaMI",
+    "title": "BAD NEWS for The Stock Market... (Yikes)",
+    "views": 2618,
+    "from": "stock market today",
+    "pub": "2026-08-20T20:00:25Z",
+    "dur": 961,
+    "ch": "The Creative Investor",
+    "door": {
+     "term": "stock market",
+     "demand": 2430
+    }
+   },
+   {
+    "id": "c8rQIWuG5DM",
+    "title": "Share Market Today | Final Trade में कहां दिखा एक्शन, अब कहां मिलेगा अच्छा मौका? | Kamai Ka Adda",
+    "views": 1874,
+    "from": "stock market today",
+    "pub": "2026-08-20T11:00:07Z",
+    "dur": 0,
+    "ch": "CNBC Awaaz.",
+    "door": null
+   },
+   {
+    "id": "hT7gqYA3bhg",
+    "title": "Market Close: Stocks Tumble, Walmart's Worst Day In 4 Years, Upbeat Economic News 8-20-2026",
+    "views": 1640,
+    "from": "stock market today",
+    "pub": "2026-08-20T20:22:59Z",
+    "dur": 129,
+    "ch": "CNBC Television",
+    "door": null
+   }
+  ]
+ }
+}

@@ -47,7 +47,7 @@ const txt = (b, a) => { const r = spawnSync(b, a, { maxBuffer: 1 << 30, encoding
 // ⛔ 2026-08-21: 길이 상한 30초 (대표 지시). 근거는 variants.ts WINDOW 주석 참조.
 //   구독자가 늘면 «재측정 후» 되돌린다. 숫자만 보고 되돌리지 말 것.
 const SPEC_BY_CLASS = {
-  concept: { secRange: [31, 38], cutsPerMin: [8, 24], brightMin: 90, capTopPct: [66, 82] },
+  concept: { secRange: [31, 38], cutsPerMin: [8, 24], brightMin: 72, capTopPct: [66, 82] },
   // ⚠ 컷/분 상한 24 — 측정된 브리핑 계급은 6.5~16.5 지만 그 6편은 «전부 토킹헤드»다.
   //   TrendyVest 98K 는 45.9초에 5컷(9초에 한 번) — 말하는 사람 얼굴이라 컷이 필요 없다.
   //   우리는 «데이터 카드» 포맷이라 카드 하나를 9초 붙잡으면 빈 화면이 된다.
@@ -62,7 +62,10 @@ const SPEC_BY_CLASS = {
 };
 const SPEC = {
   capTopPct: [66, 82],      // 자막띠 상단 — DTW 실사 76~80%. 여유 포함
-  brightMin: 90,            // 상위 3계급 197~235. 브랜드가 다크블루라 90 을 하한으로
+  // 90 -> 72 (2026-08-21). 대표 지시로 감마 강제 올림을 껐다 - 눈이 부셨다.
+  //   자연 렌더는 80~87 로 나온다. 72 는 진짜 어두운 것만 잡는 하한이다
+  //   (첫 JP 배너가 39.6 이었다 - 그런 것을 잡는 게 목적).
+  brightMin: 72,
   lufs: [-15.5, -13.0],     // 유튜브 표준 -14
   cutsPerMin: [6, 40],      // Primate 19.5~22.8 / DTW 2.6~2.9 / 0 은 최하위
   firstCutSec: 2.8,         // 우리 채널 전수: 첫컷 시각 ↔ 지속률 -0.90 (유일한 신호)
