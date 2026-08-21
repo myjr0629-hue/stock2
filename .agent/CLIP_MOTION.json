@@ -1,0 +1,908 @@
+{
+ "measuredAt": "2026-08-21",
+ "clips": {
+  "ani-ai-bubble.mp4": {
+   "dur": 10,
+   "motionMean": 21.35,
+   "motionAt0": 18.58,
+   "bestStartSec": 1.5,
+   "bestWindowMotion": 23.32
+  },
+  "ani-armwrestle.mp4": {
+   "dur": 10,
+   "motionMean": 25.09,
+   "motionAt0": 13.31,
+   "bestStartSec": 1.75,
+   "bestWindowMotion": 34.05
+  },
+  "ani-arrows-flow.mp4": {
+   "dur": 10,
+   "motionMean": 44.38,
+   "motionAt0": 37.94,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 51.89
+  },
+  "ani-beach-sunrise.mp4": {
+   "dur": 10,
+   "motionMean": 12.69,
+   "motionAt0": 4.13,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 15.76
+  },
+  "ani-bear-escalator.mp4": {
+   "dur": 10,
+   "motionMean": 24.29,
+   "motionAt0": 18.4,
+   "bestStartSec": 3,
+   "bestWindowMotion": 30.72
+  },
+  "ani-bell-strike.mp4": {
+   "dur": 10,
+   "motionMean": 24.27,
+   "motionAt0": 3.27,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 32.35
+  },
+  "ani-btc-launch.mp4": {
+   "dur": 10,
+   "motionMean": 27.95,
+   "motionAt0": 16.5,
+   "bestStartSec": 2.5,
+   "bestWindowMotion": 32.49
+  },
+  "ani-bull-bear-fight.mp4": {
+   "dur": 10,
+   "motionMean": 35.76,
+   "motionAt0": 32.63,
+   "bestStartSec": 4,
+   "bestWindowMotion": 39.98
+  },
+  "ani-bull-bear.mp4": {
+   "dur": 10,
+   "motionMean": 23.98,
+   "motionAt0": 8.27,
+   "bestStartSec": 1.5,
+   "bestWindowMotion": 26.22
+  },
+  "ani-bull-bell.mp4": {
+   "dur": 10,
+   "motionMean": 25.11,
+   "motionAt0": 7.9,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 31.71
+  },
+  "ani-china-us.mp4": {
+   "dur": 10,
+   "motionMean": 28.2,
+   "motionAt0": 4.01,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 39.08
+  },
+  "ani-chip-carry.mp4": {
+   "dur": 10,
+   "motionMean": 19.18,
+   "motionAt0": 15.83,
+   "bestStartSec": 3,
+   "bestWindowMotion": 23.12
+  },
+  "ani-chip-conveyor.mp4": {
+   "dur": 10,
+   "motionMean": 23.58,
+   "motionAt0": 25.98,
+   "bestStartSec": 0.5,
+   "bestWindowMotion": 26.44
+  },
+  "ani-chip-pull.mp4": {
+   "dur": 10,
+   "motionMean": 22.77,
+   "motionAt0": 3.73,
+   "bestStartSec": 3.25,
+   "bestWindowMotion": 27.54
+  },
+  "ani-circuit-city.mp4": {
+   "dur": 10,
+   "motionMean": 31.63,
+   "motionAt0": 26.03,
+   "bestStartSec": 1,
+   "bestWindowMotion": 33.82
+  },
+  "ani-crowd-stop.mp4": {
+   "dur": 10,
+   "motionMean": 22.19,
+   "motionAt0": 30.4,
+   "bestStartSec": 0,
+   "bestWindowMotion": 26.59
+  },
+  "ani-data-pillars.mp4": {
+   "dur": 10,
+   "motionMean": 21.54,
+   "motionAt0": 5.59,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 22.77
+  },
+  "ani-dominoes.mp4": {
+   "dur": 10,
+   "motionMean": 18.81,
+   "motionAt0": 3.99,
+   "bestStartSec": 1.25,
+   "bestWindowMotion": 25.02
+  },
+  "ani-door-open.mp4": {
+   "dur": 10,
+   "motionMean": 6.53,
+   "motionAt0": 2.19,
+   "bestStartSec": 3.75,
+   "bestWindowMotion": 9.16
+  },
+  "ani-expression-flip.mp4": {
+   "dur": 10,
+   "motionMean": 20.9,
+   "motionAt0": 4.19,
+   "bestStartSec": 4.5,
+   "bestWindowMotion": 30.05
+  },
+  "ani-fed-dial.mp4": {
+   "dur": 10,
+   "motionMean": 18.14,
+   "motionAt0": 4.01,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 21.43
+  },
+  "ani-fed-gavel.mp4": {
+   "dur": 10,
+   "motionMean": 22.86,
+   "motionAt0": 7.4,
+   "bestStartSec": 4,
+   "bestWindowMotion": 30.69
+  },
+  "ani-floor-fills.mp4": {
+   "dur": 10,
+   "motionMean": 25.09,
+   "motionAt0": 4.98,
+   "bestStartSec": 3.5,
+   "bestWindowMotion": 31.34
+  },
+  "ani-geo-seesaw.mp4": {
+   "dur": 10,
+   "motionMean": 2.27,
+   "motionAt0": 0.4,
+   "bestStartSec": 2,
+   "bestWindowMotion": 2.71
+  },
+  "ani-glass-corridor.mp4": {
+   "dur": 10,
+   "motionMean": 16.88,
+   "motionAt0": 10.49,
+   "bestStartSec": 2.5,
+   "bestWindowMotion": 18.67
+  },
+  "ani-glass-heal.mp4": {
+   "dur": 10,
+   "motionMean": 22.32,
+   "motionAt0": 15.66,
+   "bestStartSec": 4.5,
+   "bestWindowMotion": 23.6
+  },
+  "ani-grab-rock.mp4": {
+   "dur": 10,
+   "motionMean": 35.73,
+   "motionAt0": 37.38,
+   "bestStartSec": 0,
+   "bestWindowMotion": 40.12
+  },
+  "ani-house-stairs.mp4": {
+   "dur": 10,
+   "motionMean": 26.63,
+   "motionAt0": 32.27,
+   "bestStartSec": 4,
+   "bestWindowMotion": 29.63
+  },
+  "ani-juggle-mm.mp4": {
+   "dur": 10,
+   "motionMean": 37.07,
+   "motionAt0": 27.26,
+   "bestStartSec": 2,
+   "bestWindowMotion": 45.48
+  },
+  "ani-lights-out.mp4": {
+   "dur": 10,
+   "motionMean": 19.69,
+   "motionAt0": 9.6,
+   "bestStartSec": 3.75,
+   "bestWindowMotion": 23
+  },
+  "ani-network.mp4": {
+   "dur": 10,
+   "motionMean": 27.74,
+   "motionAt0": 14.36,
+   "bestStartSec": 4.5,
+   "bestWindowMotion": 32.13
+  },
+  "ani-office-fade.mp4": {
+   "dur": 10,
+   "motionMean": 16.01,
+   "motionAt0": 6.48,
+   "bestStartSec": 4.5,
+   "bestWindowMotion": 24.75
+  },
+  "ani-pipeline-pulse.mp4": {
+   "dur": 10,
+   "motionMean": 19.75,
+   "motionAt0": 10.78,
+   "bestStartSec": 3.5,
+   "bestWindowMotion": 22.34
+  },
+  "ani-point-same.mp4": {
+   "dur": 10,
+   "motionMean": 15.76,
+   "motionAt0": 3.64,
+   "bestStartSec": 4,
+   "bestWindowMotion": 25.96
+  },
+  "ani-point-shock.mp4": {
+   "dur": 10,
+   "motionMean": 24.32,
+   "motionAt0": 19.19,
+   "bestStartSec": 3.25,
+   "bestWindowMotion": 31.02
+  },
+  "ani-rain-shelter.mp4": {
+   "dur": 10,
+   "motionMean": 16.75,
+   "motionAt0": 14.69,
+   "bestStartSec": 3.75,
+   "bestWindowMotion": 18.2
+  },
+  "ani-rubber-band.mp4": {
+   "dur": 10,
+   "motionMean": 18.69,
+   "motionAt0": 16.29,
+   "bestStartSec": 2,
+   "bestWindowMotion": 24.58
+  },
+  "ani-scale-tip.mp4": {
+   "dur": 10,
+   "motionMean": 11.51,
+   "motionAt0": 2.71,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 14.93
+  },
+  "ani-servers-wake.mp4": {
+   "dur": 10,
+   "motionMean": 23.71,
+   "motionAt0": 4.78,
+   "bestStartSec": 3,
+   "bestWindowMotion": 31.39
+  },
+  "ani-storm-part.mp4": {
+   "dur": 10,
+   "motionMean": 13.71,
+   "motionAt0": 8.18,
+   "bestStartSec": 2.5,
+   "bestWindowMotion": 16.31
+  },
+  "ani-sunrise.mp4": {
+   "dur": 10,
+   "motionMean": 19.34,
+   "motionAt0": 9.3,
+   "bestStartSec": 2,
+   "bestWindowMotion": 23.04
+  },
+  "ani-surf-megacap.mp4": {
+   "dur": 10,
+   "motionMean": 41.41,
+   "motionAt0": 32.22,
+   "bestStartSec": 2.5,
+   "bestWindowMotion": 44.13
+  },
+  "ani-tanker.mp4": {
+   "dur": 10,
+   "motionMean": 19.59,
+   "motionAt0": 11.35,
+   "bestStartSec": 1.75,
+   "bestWindowMotion": 25.18
+  },
+  "ani-tipping-balance.mp4": {
+   "dur": 10,
+   "motionMean": 13.23,
+   "motionAt0": 4.81,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 17.67
+  },
+  "ani-trapped-box.mp4": {
+   "dur": 10,
+   "motionMean": 21.26,
+   "motionAt0": 34.08,
+   "bestStartSec": 0,
+   "bestWindowMotion": 26.44
+  },
+  "ani-two-smile.mp4": {
+   "dur": 10,
+   "motionMean": 15.93,
+   "motionAt0": 3.9,
+   "bestStartSec": 3.75,
+   "bestWindowMotion": 22.41
+  },
+  "ani-us-bull.mp4": {
+   "dur": 10,
+   "motionMean": 26.81,
+   "motionAt0": 19.38,
+   "bestStartSec": 1.5,
+   "bestWindowMotion": 30.56
+  },
+  "ani-vault-open.mp4": {
+   "dur": 10,
+   "motionMean": 17.2,
+   "motionAt0": 4.54,
+   "bestStartSec": 2,
+   "bestWindowMotion": 22.16
+  },
+  "ani-vault-through.mp4": {
+   "dur": 10,
+   "motionMean": 15.32,
+   "motionAt0": 11.03,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 16.68
+  },
+  "ani-wafer-lift.mp4": {
+   "dur": 10,
+   "motionMean": 25.19,
+   "motionAt0": 15.35,
+   "bestStartSec": 2.5,
+   "bestWindowMotion": 31.49
+  },
+  "c811-00-exchange.mp4": {
+   "dur": 6,
+   "motionMean": 23.14,
+   "motionAt0": 12.55,
+   "bestStartSec": 0,
+   "bestWindowMotion": 24.97
+  },
+  "c811-01-cleanroom.mp4": {
+   "dur": 10,
+   "motionMean": 20.04,
+   "motionAt0": 5.02,
+   "bestStartSec": 1.5,
+   "bestWindowMotion": 23.6
+  },
+  "c811-02-mirrorcity.mp4": {
+   "dur": 5,
+   "motionMean": 11.48,
+   "motionAt0": 10.73,
+   "bestStartSec": 0,
+   "bestWindowMotion": 11.48
+  },
+  "c811-03-energygrid.mp4": {
+   "dur": 10,
+   "motionMean": 8.8,
+   "motionAt0": 8.49,
+   "bestStartSec": 1,
+   "bestWindowMotion": 8.9
+  },
+  "c811-04-papercrowd.mp4": {
+   "dur": 6,
+   "motionMean": 7.56,
+   "motionAt0": 0.78,
+   "bestStartSec": 0.75,
+   "bestWindowMotion": 8.26
+  },
+  "c811-05-mirrorfield.mp4": {
+   "dur": 5.5,
+   "motionMean": 9.42,
+   "motionAt0": 11.07,
+   "bestStartSec": 0,
+   "bestWindowMotion": 9.45
+  },
+  "c811-06-columns-tight.mp4": {
+   "dur": 2.8,
+   "motionMean": 18.27,
+   "motionAt0": 32.24,
+   "bestStartSec": 0,
+   "bestWindowMotion": 18.27
+  },
+  "c811-07-wafer-tight.mp4": {
+   "dur": 4.5,
+   "motionMean": 21.7,
+   "motionAt0": 19.21,
+   "bestStartSec": 0,
+   "bestWindowMotion": 21.7
+  },
+  "c811-hook-chip.mp4": {
+   "dur": 4,
+   "motionMean": 10.7,
+   "motionAt0": 6.49,
+   "bestStartSec": 0,
+   "bestWindowMotion": 10.7
+  },
+  "calm-sea-dawn.mp4": {
+   "dur": 5,
+   "motionMean": 3.38,
+   "motionAt0": 2.43,
+   "bestStartSec": 0,
+   "bestWindowMotion": 3.38
+  },
+  "chip-city.mp4": {
+   "dur": 5,
+   "motionMean": 21.1,
+   "motionAt0": 20.67,
+   "bestStartSec": 0,
+   "bestWindowMotion": 21.1
+  },
+  "chip-glow.mp4": {
+   "dur": 6,
+   "motionMean": 32.76,
+   "motionAt0": 6.17,
+   "bestStartSec": 0.75,
+   "bestWindowMotion": 35.62
+  },
+  "chip-macro-grey.mp4": {
+   "dur": 4,
+   "motionMean": 10.94,
+   "motionAt0": 6.66,
+   "bestStartSec": 0,
+   "bestWindowMotion": 10.94
+  },
+  "chip-underside.mp4": {
+   "dur": 5,
+   "motionMean": 8.5,
+   "motionAt0": 6.19,
+   "bestStartSec": 0,
+   "bestWindowMotion": 8.5
+  },
+  "columns-birds.mp4": {
+   "dur": 6,
+   "motionMean": 23.24,
+   "motionAt0": 12.86,
+   "bestStartSec": 0,
+   "bestWindowMotion": 25.13
+  },
+  "columns-goldenhour.mp4": {
+   "dur": 5,
+   "motionMean": 4.66,
+   "motionAt0": 3.7,
+   "bestStartSec": 0,
+   "bestWindowMotion": 4.66
+  },
+  "copper-mine-dusk.mp4": {
+   "dur": 15,
+   "motionMean": 10.51,
+   "motionAt0": 2.88,
+   "bestStartSec": 9.75,
+   "bestWindowMotion": 16.33
+  },
+  "copper-mine-molten.mp4": {
+   "dur": 6,
+   "motionMean": 11.3,
+   "motionAt0": 11.16,
+   "bestStartSec": 0,
+   "bestWindowMotion": 11.78
+  },
+  "crack-star.mp4": {
+   "dur": 5,
+   "motionMean": 1.64,
+   "motionAt0": 0.3,
+   "bestStartSec": 0,
+   "bestWindowMotion": 1.64
+  },
+  "datacenter-aisle.mp4": {
+   "dur": 6,
+   "motionMean": 37.36,
+   "motionAt0": 32.64,
+   "bestStartSec": 0,
+   "bestWindowMotion": 38.74
+  },
+  "desks-dawn.mp4": {
+   "dur": 5,
+   "motionMean": 5.08,
+   "motionAt0": 3.7,
+   "bestStartSec": 0,
+   "bestWindowMotion": 5.08
+  },
+  "device-assembly-bright.mp4": {
+   "dur": 15.1,
+   "motionMean": 10.6,
+   "motionAt0": 2.68,
+   "bestStartSec": 7,
+   "bestWindowMotion": 15.76
+  },
+  "device-counter-bright.mp4": {
+   "dur": 15.1,
+   "motionMean": 4.06,
+   "motionAt0": 1.31,
+   "bestStartSec": 3.75,
+   "bestWindowMotion": 5.65
+  },
+  "euv-plasma-a.mp4": {
+   "dur": 5,
+   "motionMean": 20.81,
+   "motionAt0": 18.92,
+   "bestStartSec": 0,
+   "bestWindowMotion": 20.81
+  },
+  "euv-plasma-b.mp4": {
+   "dur": 5,
+   "motionMean": 15.86,
+   "motionAt0": 15.06,
+   "bestStartSec": 0,
+   "bestWindowMotion": 15.86
+  },
+  "exchange-flags.mp4": {
+   "dur": 5,
+   "motionMean": 13.05,
+   "motionAt0": 12.29,
+   "bestStartSec": 0,
+   "bestWindowMotion": 13.05
+  },
+  "exchange-storm.mp4": {
+   "dur": 15,
+   "motionMean": 9.26,
+   "motionAt0": 5.35,
+   "bestStartSec": 9.75,
+   "bestWindowMotion": 10.59
+  },
+  "fab-hall-bright.mp4": {
+   "dur": 5,
+   "motionMean": 28.37,
+   "motionAt0": 35.21,
+   "bestStartSec": 0,
+   "bestWindowMotion": 28.37
+  },
+  "fed-building.mp4": {
+   "dur": 6,
+   "motionMean": 19.96,
+   "motionAt0": 8.87,
+   "bestStartSec": 0.75,
+   "bestWindowMotion": 21.61
+  },
+  "fiber-one-lit.mp4": {
+   "dur": 5,
+   "motionMean": 12.33,
+   "motionAt0": 13.02,
+   "bestStartSec": 0,
+   "bestWindowMotion": 12.33
+  },
+  "floor-empty-night.mp4": {
+   "dur": 10,
+   "motionMean": 15.14,
+   "motionAt0": 10.82,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 18.46
+  },
+  "geo-corridor-light.mp4": {
+   "dur": 15.1,
+   "motionMean": 3.12,
+   "motionAt0": 1.45,
+   "bestStartSec": 9.5,
+   "bestWindowMotion": 4.53
+  },
+  "geo-flare-stack-night.mp4": {
+   "dur": 15.1,
+   "motionMean": 7.48,
+   "motionAt0": 5.39,
+   "bestStartSec": 3.75,
+   "bestWindowMotion": 8.39
+  },
+  "geo-port-day.mp4": {
+   "dur": 15.1,
+   "motionMean": 19.62,
+   "motionAt0": 19.83,
+   "bestStartSec": 0,
+   "bestWindowMotion": 21.22
+  },
+  "geo-port-fog-night.mp4": {
+   "dur": 15.1,
+   "motionMean": 6,
+   "motionAt0": 3.7,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 7.87
+  },
+  "geo-radar-dusk.mp4": {
+   "dur": 15.1,
+   "motionMean": 1,
+   "motionAt0": 0.75,
+   "bestStartSec": 3.25,
+   "bestWindowMotion": 1.09
+  },
+  "geo-refinery-day.mp4": {
+   "dur": 15.1,
+   "motionMean": 25.34,
+   "motionAt0": 21.11,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 30.7
+  },
+  "geo-strait-day.mp4": {
+   "dur": 15.1,
+   "motionMean": 10.08,
+   "motionAt0": 3.86,
+   "bestStartSec": 5.75,
+   "bestWindowMotion": 13.02
+  },
+  "glass-tube-array.mp4": {
+   "dur": 5,
+   "motionMean": 33.51,
+   "motionAt0": 25.32,
+   "bestStartSec": 0,
+   "bestWindowMotion": 33.51
+  },
+  "gold-bars.mp4": {
+   "dur": 5,
+   "motionMean": 5.88,
+   "motionAt0": 3.56,
+   "bestStartSec": 0,
+   "bestWindowMotion": 5.88
+  },
+  "gold-btc-race.mp4": {
+   "dur": 10,
+   "motionMean": 28.82,
+   "motionAt0": 34.13,
+   "bestStartSec": 0.5,
+   "bestWindowMotion": 34.27
+  },
+  "gold-vault-bars.mp4": {
+   "dur": 10,
+   "motionMean": 27.54,
+   "motionAt0": 5.21,
+   "bestStartSec": 2.25,
+   "bestWindowMotion": 30.56
+  },
+  "golden-bell.mp4": {
+   "dur": 5,
+   "motionMean": 13.36,
+   "motionAt0": 8.2,
+   "bestStartSec": 0,
+   "bestWindowMotion": 13.36
+  },
+  "grid-heliostat.mp4": {
+   "dur": 10,
+   "motionMean": 8.78,
+   "motionAt0": 8.46,
+   "bestStartSec": 1,
+   "bestWindowMotion": 8.95
+  },
+  "humanoid-robot.mp4": {
+   "dur": 5,
+   "motionMean": 10.44,
+   "motionAt0": 8.6,
+   "bestStartSec": 0,
+   "bestWindowMotion": 10.44
+  },
+  "mini-construction.mp4": {
+   "dur": 5,
+   "motionMean": 16.17,
+   "motionAt0": 7.77,
+   "bestStartSec": 0,
+   "bestWindowMotion": 16.17
+  },
+  "minicity-water.mp4": {
+   "dur": 10,
+   "motionMean": 19.93,
+   "motionAt0": 16.97,
+   "bestStartSec": 4.5,
+   "bestWindowMotion": 21.55
+  },
+  "mirror-city.mp4": {
+   "dur": 5,
+   "motionMean": 11.48,
+   "motionAt0": 10.73,
+   "bestStartSec": 0,
+   "bestWindowMotion": 11.48
+  },
+  "nyse-flags.mp4": {
+   "dur": 6,
+   "motionMean": 21.48,
+   "motionAt0": 20.17,
+   "bestStartSec": 0,
+   "bestWindowMotion": 22.03
+  },
+  "paper-crowd.mp4": {
+   "dur": 6,
+   "motionMean": 7.72,
+   "motionAt0": 0.79,
+   "bestStartSec": 0.75,
+   "bestWindowMotion": 8.44
+  },
+  "pcb-cyan-dark.mp4": {
+   "dur": 5,
+   "motionMean": 13.35,
+   "motionAt0": 18.88,
+   "bestStartSec": 0,
+   "bestWindowMotion": 13.35
+  },
+  "pcb-one-chip-lit.mp4": {
+   "dur": 5,
+   "motionMean": 22.09,
+   "motionAt0": 22.51,
+   "bestStartSec": 0,
+   "bestWindowMotion": 22.09
+  },
+  "pcb-traces-glow.mp4": {
+   "dur": 5,
+   "motionMean": 17.35,
+   "motionAt0": 9.66,
+   "bestStartSec": 0,
+   "bestWindowMotion": 17.35
+  },
+  "quantum-fridge.mp4": {
+   "dur": 5,
+   "motionMean": 30.65,
+   "motionAt0": 23.42,
+   "bestStartSec": 0,
+   "bestWindowMotion": 30.65
+  },
+  "rams-vs-block.mp4": {
+   "dur": 10,
+   "motionMean": 12.21,
+   "motionAt0": 14.6,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 12.49
+  },
+  "refinery-stacks.mp4": {
+   "dur": 5,
+   "motionMean": 16.09,
+   "motionAt0": 13.85,
+   "bestStartSec": 0,
+   "bestWindowMotion": 16.09
+  },
+  "retail-carts-dusk.mp4": {
+   "dur": 10,
+   "motionMean": 12.54,
+   "motionAt0": 10.75,
+   "bestStartSec": 0.75,
+   "bestWindowMotion": 14.23
+  },
+  "retail-checkout-empty.mp4": {
+   "dur": 10,
+   "motionMean": 9.05,
+   "motionAt0": 3.98,
+   "bestStartSec": 4.5,
+   "bestWindowMotion": 10.55
+  },
+  "retail-shutter-night.mp4": {
+   "dur": 10,
+   "motionMean": 21.04,
+   "motionAt0": 0.87,
+   "bestStartSec": 4.25,
+   "bestWindowMotion": 28.14
+  },
+  "retail-warehouse-aisle.mp4": {
+   "dur": 10,
+   "motionMean": 12.55,
+   "motionAt0": 12.34,
+   "bestStartSec": 0.25,
+   "bestWindowMotion": 13.21
+  },
+  "rise-glass-tower.mp4": {
+   "dur": 15.1,
+   "motionMean": 6.32,
+   "motionAt0": 7.34,
+   "bestStartSec": 0,
+   "bestWindowMotion": 7.52
+  },
+  "rise-stairs-light.mp4": {
+   "dur": 15.1,
+   "motionMean": 17.49,
+   "motionAt0": 11.58,
+   "bestStartSec": 1.25,
+   "bestWindowMotion": 25.2
+  },
+  "rocket-ignition.mp4": {
+   "dur": 5,
+   "motionMean": 11.09,
+   "motionAt0": 9.29,
+   "bestStartSec": 0,
+   "bestWindowMotion": 11.09
+  },
+  "scale-few-vs-many.mp4": {
+   "dur": 6,
+   "motionMean": 7.78,
+   "motionAt0": 4.46,
+   "bestStartSec": 0,
+   "bestWindowMotion": 8.66
+  },
+  "server-assembly.mp4": {
+   "dur": 6,
+   "motionMean": 27.23,
+   "motionAt0": 22.28,
+   "bestStartSec": 0.75,
+   "bestWindowMotion": 29.2
+  },
+  "skyline-red-river.mp4": {
+   "dur": 5,
+   "motionMean": 10.61,
+   "motionAt0": 6.5,
+   "bestStartSec": 0,
+   "bestWindowMotion": 10.61
+  },
+  "skyline-sunrise-fog.mp4": {
+   "dur": 5,
+   "motionMean": 11.16,
+   "motionAt0": 9.26,
+   "bestStartSec": 0,
+   "bestWindowMotion": 11.16
+  },
+  "steel-balls.mp4": {
+   "dur": 10,
+   "motionMean": 44.2,
+   "motionAt0": 5.01,
+   "bestStartSec": 1.75,
+   "bestWindowMotion": 53.7
+  },
+  "steel-spheres.mp4": {
+   "dur": 10,
+   "motionMean": 8.54,
+   "motionAt0": 5.5,
+   "bestStartSec": 0.25,
+   "bestWindowMotion": 10.42
+  },
+  "supertanker.mp4": {
+   "dur": 6,
+   "motionMean": 22.12,
+   "motionAt0": 25.96,
+   "bestStartSec": 0,
+   "bestWindowMotion": 22.37
+  },
+  "tankers-strait.mp4": {
+   "dur": 6,
+   "motionMean": 7.45,
+   "motionAt0": 7.22,
+   "bestStartSec": 0,
+   "bestWindowMotion": 7.52
+  },
+  "tape-wall-scroll.mp4": {
+   "dur": 10,
+   "motionMean": 21.29,
+   "motionAt0": 12.67,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 24.81
+  },
+  "tech-euv-litho.mp4": {
+   "dur": 5,
+   "motionMean": 16.32,
+   "motionAt0": 15.2,
+   "bestStartSec": 0,
+   "bestWindowMotion": 16.32
+  },
+  "temple-storm.mp4": {
+   "dur": 15,
+   "motionMean": 3.9,
+   "motionAt0": 1.23,
+   "bestStartSec": 9.75,
+   "bestWindowMotion": 6.09
+  },
+  "undercurrent-pull.mp4": {
+   "dur": 10,
+   "motionMean": 26.98,
+   "motionAt0": 17.63,
+   "bestStartSec": 4.75,
+   "bestWindowMotion": 31.06
+  },
+  "vault-doors.mp4": {
+   "dur": 5,
+   "motionMean": 14.68,
+   "motionAt0": 7.35,
+   "bestStartSec": 0,
+   "bestWindowMotion": 14.68
+  },
+  "wafer-arm.mp4": {
+   "dur": 10,
+   "motionMean": 20.54,
+   "motionAt0": 5.14,
+   "bestStartSec": 1.5,
+   "bestWindowMotion": 24.25
+  },
+  "wafer-press.mp4": {
+   "dur": 6,
+   "motionMean": 10.09,
+   "motionAt0": 10.15,
+   "bestStartSec": 0,
+   "bestWindowMotion": 11.32
+  },
+  "wafer-spin-clean.mp4": {
+   "dur": 10,
+   "motionMean": 15.17,
+   "motionAt0": 14.82,
+   "bestStartSec": 1.5,
+   "bestWindowMotion": 15.75
+  }
+ }
+}

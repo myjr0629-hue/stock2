@@ -43,7 +43,7 @@ const diff = (f, tA, tB) => {
   const A = join(TMP, 'fa_a.png'), B = join(TMP, 'fa_b.png');
   grab(f, tA, A); grab(f, tB, B);
   const r = spawnSync(FF, ['-v', 'error', '-i', A, '-i', B,
-    '-filter_complex', '[0][1]blend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG',
+    '-filter_complex', '[0][1]blend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-',
     '-frames:v', '1', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
   const m = ((r.stdout || '') + (r.stderr || '')).match(/YAVG=([\d.]+)/);
   return m ? +Number(m[1]).toFixed(2) : null;

@@ -455,6 +455,66 @@ SIGNUM_YT=jp node scripts/yt-comment.mjs <plan.json> <videoId>
 ⛔ **「15초로 압축」 제안은 기각.** 우리 20~30초 구간이 완청률 골짜기(33.1%)고,
    30~45초가 68.3%다. 짧을수록 좋다는 근거가 우리에게도 외부에도 없다.
 
+## 0-A-7. ★★★ 훅 첫 프레임은 «동작 중»에서 시작한다 — 자동이다
+
+⛔ 대표 지시 2026-08-21: "치트키라도 쓰면서 남들이 안 하는 방식은 기본이고 창의력을 더해서"
+
+**조사 결과**: 쇼츠 배포의 «단일 최대 신호»는 VVSA (보고 남는가 vs 스와이프).
+50% 이상이면 강하고 **30% 미만이면 배포가 죽는다**.
+스와이프를 막는 것은 «첫 프레임이 정지가 아니라 동작 중»일 때다 —
+뇌가 「뭔가 벌어지고 있다」고 등록해야 손가락이 멈춘다.
+
+### ★ 여기가 우리 자리다
+
+남들은 촬영본을 «감»으로 자른다. **우리는 영상을 코드로 만든다** —
+클립의 어느 지점에서 시작할지 «고를 수 있다».
+
+**실측 (2026-08-21, 클립 82개 전수 프로파일)**
+
+| 훅 클립 | 0초 동작 | 최고 구간 | 손해 |
+|---|---|---|---|
+| `ani-bell-strike` | 3.27 | 32.35 @4.75초 | **9.9배** |
+| `ani-point-same` | 3.64 | 25.96 @4초 | 7.1배 |
+| `ani-expression-flip` | 4.19 | 30.05 @4.5초 | 7.2배 |
+| `ani-dominoes` | 3.99 | 25.02 @1.25초 | **6.3배** |
+
+**우리가 쓴 훅 13개 중 9개가 0초에서 «거의 정지»였다.**
+
+### 자동이다 — 대본에 안 적어도 된다
+
+`Briefing.tsx` 가 훅 배경이 video 이고 `startFrom` 이 없으면
+`clip-motion.ts` 를 보고 «최고 동작 구간»에서 자동으로 시작한다.
+
+```
+node scripts/clip-motion.mjs        # 클립 전수 프로파일 → .agent/CLIP_MOTION.json
+                                    # 새 클립이 들어오면 «반드시» 다시 돌린다
+```
+그다음 `src/remotion/kit/clip-motion.ts` 를 다시 생성한다 (커밋 이력의 생성 스니펫 참조).
+
+**검증**: `node scripts/frame-audit.mjs <video.mp4>`
+JPGAMMA 실측 — 초반 동작 **23.89 → 39.68 (+66%)**
+
+⛔ **비트 배경에는 적용하지 않는다.** 훅만이다 —
+   본문 배경은 자막이 주인공이라 배경이 요동치면 오히려 방해다.
+
+## 0-A-8. 유튜브가 주는 필드 — 전수 조사 (2026-08-21)
+
+API 명세를 직접 훑어서 «쓰기 가능한 것»을 전부 적어둔다.
+
+| 필드 | 상태 |
+|---|---|
+| `snippet.title/description/tags/categoryId` | ✔ 쓴다 (태그 497/500) |
+| `snippet.defaultLanguage/defaultAudioLanguage` | ✔ 채널 따라 en/ja |
+| `status.privacyStatus/publishAt/license/embeddable` | ✔ |
+| `localizations` | ✔ 채널 언어 «하나»만 (교차 언어는 철회) |
+| `thumbnails.set` | ✔ 프레임0 |
+| **`status.publicStatsViewable`** | ⬜ 안 씀 — 조회수 통계 공개 여부 |
+| **`status.containsSyntheticMedia`** | ⬜ 안 씀 — **우리는 TTS·AI 배경을 쓴다. 정직성 판단이 필요하다** |
+| **`recordingDetails.location/locationDescription`** | ⬜ 안 씀 — 지오 신호 가능성 |
+| **`playlists` / `channelSections`** | ⬜ 🇯🇵 채널에 0개 |
+| `watermarks.set` | ⬜ 쇼츠엔 안 나온다 |
+| `captions` | ⛔ **폐기** — 박힌 자막과 겹친다 |
+
 ## 0-B. ★★ 소재는 «네 칸»이다 — 이게 이 문서에서 가장 중요한 절이다
 
 ⛔ 대표 지적 2026-08-21: **"기준선은 소재 선정 단계에서 정했어야지. 그런 구조 자체를 만들라는 것이야"**

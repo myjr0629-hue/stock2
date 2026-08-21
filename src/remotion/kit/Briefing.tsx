@@ -25,6 +25,7 @@ import {
 import { loadFont } from '@remotion/google-fonts/Inter';
 import { AppShot, type ShotFocus, type ShotCallout } from '../components/AppShot';
 import { Backdrop, type BackdropSpec, type BackdropData } from './Backdrop';
+import { bestStartFrame } from './clip-motion';
 import { CANVAS, SAFE, CAPTION, PACE, C, BACKDROP_FOR, HOOK_BACKDROP, type BeatRole } from './spec';
 import { TickerMark, SymbolHero } from '../components/TickerMark';
 import { TickerField } from '../components/TickerField';
@@ -637,9 +638,24 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
   const ctaLen = Math.max(F(1), loopFrom - ctaFrom);
 
   // 훅은 유일하게 «움직이는 실사»(kling 5.04s 영상) — role 지정 시 그 역할의 절차 배경
-  const hookBg: BackdropSpec = p.hook.bg
+  const hookBgRaw: BackdropSpec = p.hook.bg
     ? (typeof p.hook.bg === 'string' ? { kind: 'img', src: p.hook.bg } : p.hook.bg)
     : p.hook.role ? BACKDROP_FOR[p.hook.role] : HOOK_BACKDROP;
+
+  // ⛔ 훅 첫 프레임이 «정지»면 스와이프된다 (2026-08-21 조사·실측)
+  //   쇼츠 배포의 단일 최대 신호는 VVSA(보고 남는가 vs 넘기는가)다.
+  //   뇌가 «뭔가 벌어지고 있다»고 등록해야 손가락이 멈춘다.
+  //
+  //   ★ 우리는 영상을 «코드»로 만든다 — 클립의 어느 지점에서 시작할지 고를 수 있다.
+  //     실측해보니 우리 훅 클립들이 0초에서 거의 정지였다:
+  //       ani-dominoes    0초 3.99 vs 최고 25.02  → 6.3배 손해
+  //       ani-bell-strike 0초 3.27 vs 최고 32.35  → 9.9배 손해
+  //
+  //   ⇒ 대본이 startFrom 을 «안 적어도» 자동으로 최고 동작 구간에서 시작한다.
+  //     기억에 맡기면 잊는다. (clip-motion.ts 는 scripts/clip-motion.mjs 가 생성)
+  const hookBg: BackdropSpec = (hookBgRaw.kind === 'video' && hookBgRaw.startFrom === undefined)
+    ? { ...hookBgRaw, startFrom: bestStartFrame(hookBgRaw.src, CANVAS.fps) }
+    : hookBgRaw;
   const data = p.data ?? {};
 
   return (
