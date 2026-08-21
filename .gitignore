@@ -80,3 +80,4 @@ public/shorts/bg/**/*.mp4
 .agent/_fleet_cache/
 .agent/_script_cache/
 .agent/_meta_cache/
+.agent/_voicetmp/
