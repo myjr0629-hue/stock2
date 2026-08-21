@@ -25,6 +25,7 @@ import { scriptSource } from './_script-source.mjs';
 import { join } from 'node:path';
 import { checkTitle } from './title-check.mjs';
 import { checkTopic } from './topic-check.mjs';
+import { freeRe } from './_demand.mjs';
 import { checkScript } from './script-check.mjs';
 import { checkInsight } from './insight-check.mjs';
 import { auditCut } from './cut-audit.mjs';
@@ -216,9 +217,14 @@ function checkVideo(file, thumb, cls = 'concept') {
 function checkMeta(it) {
   const T = it.title || '', D = it.description || '', G = it.tags || [];
   // 제목 «형식 + 수요» — 실측 규칙 (scripts/title-check.mjs)
-  for (const r of checkTitle(T)) ok(r.name, r.pass, r.got, r.want);
+  const LANG = String(it.lang || 'en').toLowerCase();
+  for (const r of checkTitle(T, LANG)) ok(r.name, r.pass, r.got, r.want);
   ok('제목 길이', T.length > 0 && T.length <= SPEC.titleMax, `${T.length}자`, `<= ${SPEC.titleMax}`);
-  ok('FREE 존재', /\bfree\b/i.test(T) || /\bfree\b/i.test(D), (/\bfree\b/i.test(T) ? '제목' : '') + (/\bfree\b/i.test(D) ? ' 설명' : '') || '없음', '제목 또는 설명');
+  // ⛔ 「무료」는 언어를 따라간다 — 일본어 설명에 FREE 를 박으면 그 줄만 영어가 된다 (2026-08-21)
+  const FR = freeRe(LANG);
+  const freeLabel = LANG === 'ja' ? '「無料」 존재' : 'FREE 존재';
+  ok(freeLabel, FR.test(T) || FR.test(D),
+    (FR.test(T) ? '제목' : '') + (FR.test(D) ? ' 설명' : '') || '없음', '제목 또는 설명');
   const head = D.slice(0, 120);
   // ⛔ 유튜브는 설명 앞 ~100자만 노출하고 자른다. 쇼츠에서 «더보기»는 거의 안 눌린다.
   //    링크가 뒤에 있으면 «있어도 없는 것»이다 → 첫 줄에 있어야 한다 (대표 지시 2026-08-20)

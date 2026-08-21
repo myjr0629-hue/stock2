@@ -23,11 +23,12 @@
 //    | 물음표 금지       | **"효과 없음"**           | **해제** — 효과 없음은 금지 사유가 아니다 |
 // ============================================================================
 import { readFileSync, existsSync } from 'node:fs';
+import { demandFor } from './_demand.mjs';
 
-const D = existsSync('.agent/DEMAND.json')
-  ? JSON.parse(readFileSync('.agent/DEMAND.json', 'utf8')) : { terms: {}, homonyms: {} };
+// ⛔ 언어별 수요표 (2026-08-21) — checkTitle(title, lang) 로 받는다
 
-export function checkTitle(title) {
+export function checkTitle(title, lang = 'en') {
+  const D = demandFor(lang);
   const t = String(title || '');
   const low = t.toLowerCase();
   const out = [];
@@ -70,6 +71,6 @@ export function checkTitle(title) {
 // 직접 실행일 때만 (import 되면 조용히 있는다)
 const DIRECT = String(process.argv[1] || '').endsWith('title-check.mjs');
 if (DIRECT && process.argv[2]) {
-  for (const r of checkTitle(process.argv.slice(2).join(' ')))
+  for (const r of checkTitle(process.argv[2], process.argv[3] || 'en'))
     console.log(`  ${r.pass ? '✔' : '✗'} ${r.name.padEnd(16)} ${String(r.got).padEnd(38)} ${r.pass ? '' : '기준 ' + r.want}`);
 }

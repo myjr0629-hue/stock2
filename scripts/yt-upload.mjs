@@ -140,8 +140,12 @@ function validate(it, i) {
   if (!it.description) e.push('설명 없음');
   if (it.description && it.description.length > 5000) e.push('설명 5000자 초과');
   if (!/signumhq\.com/i.test(it.description || '')) e.push('설명에 앱 주소가 없다');
-  if (!/\bfree\b/i.test(it.title || '') && !/\bfree\b/i.test(it.description || ''))
-    e.push('제목·설명 어디에도 FREE 가 없다');           // 대표 지시(2026-08-20)
+  // 「무료」를 반드시 밝힌다 (대표 지시 2026-08-20)
+  // ⛔ 단어는 언어를 따라간다. 일본어 설명에 'FREE' 를 박으면 그 줄만 영어가 되어
+  //   문장이 어긋난다 — 일본어에서는 «無料» 가 같은 일을 한다. (2026-08-21)
+  const FREE_WORD = LANG === 'ja' ? /(無料|むりょう)/ : /\bfree\b/i;
+  if (!FREE_WORD.test(it.title || '') && !FREE_WORD.test(it.description || ''))
+    e.push(`제목·설명 어디에도 ${LANG === 'ja' ? '「無料」' : 'FREE'} 가 없다`);
   if (it.privacy !== 'unlisted') {
     if (!it.publishAtKST) e.push('publishAtKST 없음');
     else {

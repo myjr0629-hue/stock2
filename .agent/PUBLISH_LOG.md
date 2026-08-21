@@ -280,3 +280,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-22 업로드 (비공개+예약)
 
 - [Bond Yields Explained: Your Hedge Died In 2022](https://youtube.com/shorts/UKdmCQzkF6M) — 예약 KST 2026-08-22 13:00 · `UKdmCQzkF6M`
+
+## 2026-08-21 업로드 (비공개+예약)
+
+- [マックスペインが効かない唯一の銘柄、エヌビディア](https://youtube.com/shorts/pt9HSA9y82g) — 예약 KST 2026-08-21 21:30 · `pt9HSA9y82g`

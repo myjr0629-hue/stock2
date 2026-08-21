@@ -20,9 +20,11 @@
 //     "freshnessDays": 2, "homonymPct": 11 }
 // ============================================================================
 import { readFileSync, existsSync } from 'node:fs';
+import { demandFor, tickerRe } from './_demand.mjs';
 
-const DEMAND = JSON.parse(readFileSync('.agent/DEMAND.json', 'utf8')).terms;
-const KEYS = Object.keys(DEMAND).sort((a, b) => b.length - a.length);
+// ⛔ 언어별 수요표. 일본어 제목은 영어 표에 없어서 항상 «수요 0» 이 나왔다 (2026-08-21).
+//   it.lang 이 없으면 en 으로 본다 — 기존 영어 편 동작은 그대로다.
+//   (KEYS 는 언어마다 다르므로 checkTopic 안에서 만든다)
 
 // ── 임계값의 근거 ───────────────────────────────────────────────────────────
 // MIN_DEMAND 5000: 우리가 만든 것 중 최고 수요는 RSI 33,947, 최저는 max pain 2,822.
@@ -35,6 +37,10 @@ const HOMONYM_MAX = 40;
 const MAX_FRESHNESS_DAYS = 7;   // 뉴스성 소재만 적용
 
 export function checkTopic(it) {
+  const LANG = String(it.lang || 'en').toLowerCase();
+  const DEMAND = demandFor(LANG).terms;
+  // ⛔ 긴 문구부터 본다 — 짧은 말이 먼저 걸리면 더 정확한 긴 문구를 놓친다
+  const KEYS = Object.keys(DEMAND).sort((a, b) => b.length - a.length);
   const R = [];
   const ok = (name, pass, got, want) => R.push({ name, pass, got, want });
   const T = (it.title || '').toLowerCase();
@@ -45,7 +51,7 @@ export function checkTopic(it) {
   const bestKey = hits.find((k) => DEMAND[k] === best) || null;
   ok('제목에 수요 어휘', hits.length > 0,
     bestKey ? `"${bestKey}" (수요 ${best.toLocaleString()})` : '없음 — 아무도 검색하지 않는 문장',
-    '.agent/DEMAND.json 의 어휘가 제목에 «그대로» 들어가야 한다');
+    `${LANG === 'ja' ? '.agent/DEMAND_JA.json' : '.agent/DEMAND.json'} 의 어휘가 제목에 «그대로» 들어가야 한다`);
 
   // ② 수요의 크기
   ok('소재 수요', best >= MIN_DEMAND, best.toLocaleString(),
@@ -68,7 +74,7 @@ export function checkTopic(it) {
   //                            없는 15편 조회중앙 40 · 47%
   //   ⚠ 순위합 z=1.09(조회) / 1.48(시청률) — n=6 vs 15 라 «유의 아님». 방향만 일관되다.
   //   ⇒ 막지는 않고 «없으면 표시»한다. 표본이 쌓이면 그때 강제로 바꾼다.
-  const TICKERS = /\b(AMD|NVDA|Nvidia|Micron|MU|SanDisk|SNDK|Broadcom|AVGO|Walmart|Meta|Google|Apple|Tesla|Intel|Samsung|Hynix|Amazon|Microsoft|Netflix|Palantir|GLD|SPY|QQQ|TSLA|AAPL|MSFT|AMZN|GOOGL|IBIT|UUP|SLV|GDX)/i;
+  const TICKERS = tickerRe(LANG);
   const inTitle = TICKERS.test(it.title || '');
   const inBody = TICKERS.test([].concat(it.evidence || []).join(' ') + ' ' + (it.insight?.claim || ''));
   R.push({ name: '종목 해석', pass: inTitle || inBody,
