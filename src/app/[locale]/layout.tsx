@@ -27,6 +27,35 @@ import { NativeAppProvider } from '@/components/native/NativeAppProvider';
 import { NativePullToRefresh } from '@/components/native/NativePullToRefresh';
 import { ChunkErrorRecovery } from '@/components/ChunkErrorRecovery';
 
+// ★ 로케일 홈의 메타데이터 (2026-08-22 실측으로 추가)
+//   루트 layout 의 `title: "SIGNUM HQ"` 가 전 페이지에 그대로 깔려 있었다.
+//   사이트에서 «권위가 가장 높은» 홈이 아무 검색어도 겨냥하지 않고 있었고,
+//   /how-it-works 와 /pricing 은 홈과 제목·설명이 «완전히 중복»이라
+//   구글이 저품질 중복으로 볼 수 있었다.
+//   GSC 상위 질의(dark pool / max pain)를 홈 제목에 넣는다.
+//   page.tsx 가 'use client' 라 메타데이터를 export 할 수 없어 레이아웃에서 준다(UC 와 같은 패턴).
+const HOME_META: Record<string, { title: string; desc: string }> = {
+  ko: {
+    title: 'SIGNUM HQ — 미국주식 다크풀·맥스페인·옵션 플로우',
+    desc: '기관이 실제로 움직인 자리를 봅니다. 다크풀 비중, 맥스페인, 감마 노출, 옵션 플로우를 매일 무료로. 투자 자문이 아닌 정보 제공입니다.',
+  },
+  en: {
+    title: 'SIGNUM HQ — Dark Pool, Max Pain & Options Flow for US Stocks',
+    desc: 'See where institutional money actually moved. Dark pool share, max pain, gamma exposure and options flow — free, refreshed every US session. Information, not investment advice.',
+  },
+  ja: {
+    title: 'SIGNUM HQ — 米国株のダークプール・マックスペイン・オプションフロー',
+    desc: '機関投資家が実際に動いた場所を見る。ダークプール比率、マックスペイン、ガンマ、オプションフローを毎日無料で。投資助言ではなく情報提供です。',
+  },
+};
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  const m = HOME_META[locale] || HOME_META.en;
+  return { title: m.title, description: m.desc };
+}
+
+
 export function generateStaticParams() {
     return locales.map((locale) => ({ locale }));
 }
