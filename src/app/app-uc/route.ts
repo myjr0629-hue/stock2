@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { normalizeFrom, playUrlWithReferrer } from '@/lib/marketing/storeRedirect';
 
 // /app-uc — device-aware store smart link for Undercurrent (cross-promo from SIGNUM etc.).
 // Mirrors /app: counts ?from=<channel> into `mkt:attr:hit:<from>:<etDate>` via after() so
@@ -36,10 +37,14 @@ async function recordHit(fromRaw: string | null): Promise<void> {
 
 export function GET(request: NextRequest) {
   const ua = request.headers.get('user-agent') || '';
+  const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
+
+  // Play Install Referrer — 이게 있어야 Play Console 획득 보고서가 «어느 채널이
+  // 설치를 만들었는지»를 보여준다. 없으면 클릭만 알고 설치는 영영 모른다.
   after(() => recordHit(request.nextUrl.searchParams.get('from')));
 
   if (/android/i.test(ua)) {
-    return NextResponse.redirect(UC_PLAY_STORE_URL, 302);
+    return NextResponse.redirect(playUrlWithReferrer(UC_PLAY_STORE_URL, fromTag), 302);
   }
   return NextResponse.redirect(UC_APP_STORE_URL, 302);
 }
