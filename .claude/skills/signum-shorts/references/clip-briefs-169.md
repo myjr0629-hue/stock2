@@ -319,3 +319,39 @@ node scripts/clip-ingest.mjs <받은파일.mp4> <이름>
 ```
 10 seconds. A small rounded 3D character shaped like a chunky navy-blue hardcover ledger book, with cream page edges showing along one side. On its front cover it has two large expressive eyes with soft dark eyebrows and a small friendly smile, and it has short stubby arms and legs. An amber bookmark ribbon hangs from the top edge on the left. The cover and spine are completely blank, with no lettering of any kind. Soft matte surface, gentle rim light, calm and curious. It stands in a softly lit room as bright overhead lights switch on one row at a time. The background is bright and light-toned so the navy character reads clearly against it. 16:9 horizontal, 1920x1080. Very slow camera, almost static. Keep the middle of the frame clear and uncluttered. Soft Pixar-style 3D, clean studio lighting, shallow depth of field, warm neutral palette with amber and cyan accents. No text, no signs, no readable screens, no logos, no watermark.
 ```
+
+---
+
+## 실제로 40개를 뽑고 나서 — 절차 교정 (2026-08-22)
+
+### ① 새 프로젝트에 «캐릭터 시트를 먼저 올린다»
+
+캐릭터 이미지를 프로젝트에 넣고 「앞으로 이 캐릭터 유지해서 영상 생성해줘」라고 한 번 말해두면,
+프롬프트에서 **캐릭터 설명 다섯 줄을 통째로 뺄 수 있다.** 그 자리에 `Keep this exact character.` 한 줄만 쓴다.
+
+효과가 컸다 — 첫 프로젝트는 클립이 30개 넘게 쌓이자 **입력이 30초 타임아웃을 반복**했고
+29~32번은 전송조차 안 됐다. 캐릭터 시트를 올린 새 프로젝트에서는 남은 12개를 **20분 만에** 끝냈다.
+
+⛔ 프로젝트 하나에 클립을 30개 넘게 쌓지 않는다. 무거워져서 입력·다운로드가 다 느려진다.
+
+### ② 다운로드 버튼은 «좌표»가 아니라 «참조»로 누른다
+
+스크롤할 때마다 카드 위치가 바뀌어서 좌표 클릭은 계속 빗나갔다.
+32번까지 생성해놓고 19개만 받아져 있던 것이 이 때문이다.
+
+```
+find("다운로드 버튼")  →  ref_N 목록을 받는다
+computer{action:'left_click', ref:'ref_N'}  →  정확히 눌린다
+```
+
+### ③ 다운로드는 zip 으로 온다
+
+여러 개를 연속으로 누르면 `download.zip`, `download (1).zip` … 로 떨어진다. 풀고 지운다.
+
+```bash
+cd "E:/SIGNUM_UPLOAD/video flow/16-9" && for z in *.zip; do unzip -o -j "$z" -d .; done; rm -f *.zip
+```
+
+### 결과
+
+40/40 확보. 전부 1280x720(16:9) · 검수 전항목 통과 · 캐릭터 40편 동일.
