@@ -1290,7 +1290,13 @@ export default function UndercurrentPage() {
         // 활성 탭은 «채워진 알약». 섬 위에서는 상단 인디케이터 바가 읽히지 않는다.
         const col = active ? '#FFFFFF' : C.sub;
         return (
-          <button key={m.k} type="button" aria-label={m.label} onClick={() => { setTab(m.k); window.scrollTo(0, 0); }} style={{
+          // ★ setDetail(null) 이 «반드시» 먼저다 (2026-08-23 대표 제보로 발견).
+          //   기사 상세는 아래에서 `if (detail) return (...)` 로 early return 한다.
+          //   그런데 탭바는 상세 화면에도 같이 렌더된다 — 그래서 탭을 눌러도
+          //   detail 이 남아 있으면 다시 상세로 되돌아와 «아무 반응이 없는» 것처럼 보였다.
+          //   상단 뒤로가기(closeDetail)를 먼저 눌러야만 탭이 먹혔다.
+          //   같은 파일의 gotoTicker 는 이미 setDetail(null) 을 하고 있었다 — 여기만 빠져 있었다.
+          <button key={m.k} type="button" aria-label={m.label} onClick={() => { setDetail(null); setTab(m.k); window.scrollTo(0, 0); }} style={{
             font: 'inherit', cursor: 'pointer', flex: 1, position: 'relative', minWidth: 0,
             padding: '7px 0 6px', border: 'none', borderRadius: 19, color: col,
             background: active ? `linear-gradient(150deg, ${C.emerald}, ${C.emeraldDeep})` : 'transparent',
