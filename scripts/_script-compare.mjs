@@ -18,7 +18,9 @@ const cleanVtt = (p) => {
 };
 const ours = () => {
   const s = readFileSync('src/remotion/kit/scripts-longform.ts','utf8');
-  return [...s.matchAll(/^\s+(say|ask):\s*'([^']+)'/gm)].map(m=>m[2]).join(' ');
+  const a=[...s.matchAll(/^\s+(say|ask):\s*'([^']+)'/gm)].map(m=>m[2]);
+  const b=[...s.matchAll(/^\s+(say|ask):\s*"([^"]+)"/gm)].map(m=>m[2]);
+  return a.concat(b).join(' ');
 };
 const syl = (w) => (w.toLowerCase().replace(/[^a-z]/g,'').replace(/e$/,'').match(/[aeiouy]+/g)||['x']).length;
 const M = (name, text, minutes) => {
@@ -35,7 +37,7 @@ const M = (name, text, minutes) => {
   console.log(`   축약형(it's 등) ${(c(/\b\w+'(s|re|t|ll|ve|d)\b/gi)/minutes).toFixed(2)}/분`);
   console.log(`   구어 시작어    ${(c(/\b(So|And|But|Now|Here|Look|Okay|Well|Because)\b/g)/minutes).toFixed(2)}/분`);
   console.log(`   감정·과장어    ${(c(/\b(crazy|insane|wild|huge|massive|shocking|terrible|amazing|absurd|ridiculous|brutal|nightmare|disaster)\b/gi)/minutes).toFixed(2)}/분`);
-  console.log(`   사람·캐릭터    ${(c(/\bCharlie\b|\bhe\b|\bshe\b|\bhis\b|\bher\b/gi)/minutes).toFixed(2)}/분`);
+  console.log(`   사람·캐릭터    ${(c(/\bCharlie\b|\bSam\b|\bhe\b|\bshe\b|\bthey\b|\bthem\b|\bhis\b|\bher\b|\btheir\b/gi)/minutes).toFixed(2)}/분`);
 };
 M('MonkeyExplains 15:36', cleanVtt('C:/Users/seamo/AppData/Local/Temp/subs/sy4HzG_qzKw.en.vtt'), 15.6);
 M('SIGNUM 롱폼 7:19', ours(), 7.32);

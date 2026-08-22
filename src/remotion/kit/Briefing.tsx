@@ -227,8 +227,16 @@ const baseSecFor = (b: Beat) =>
   b.sec ?? (b.visual?.kind === 'shot' || b.visual?.kind === 'source' ? PACE.proofSec : PACE.beatSec);
 
 /** 음성이 있으면 «낭독 실측 + 0.5s 숨»이 하한이 된다 */
-const secFor = (b: Beat, seg?: VoiceSeg | null) =>
-  seg ? Math.max(baseSecFor(b), seg.sec + 0.35) : baseSecFor(b);   // 낭독 + 짧은 숨
+// ⛔ 롱폼은 숨을 더 준다 (2026-08-22 실측)
+//   쇼츠 값(+0.35초)을 8분짜리에 그대로 쓰면 영상의 91% 가 «말하는 시간»이 된다.
+//   레퍼런스 분당 879자 vs 우리 1,137자 — 말이 많은 게 아니라 쉬지 않은 것이었다.
+//   +2.2초를 주면 같은 대본이 5:40 → 7:20 이 되고 분당 글자가 레퍼런스에 맞는다.
+//   ⚠ 쇼츠는 절대 건드리지 않는다 — 31~38초에서 2초는 치명적이다.
+const BREATH_LONGFORM = 2.2;
+const secFor = (b: Beat, seg?: VoiceSeg | null, lf = false) => {
+  const breath = lf ? BREATH_LONGFORM : 0.35;
+  return seg ? Math.max(baseSecFor(b), seg.sec + breath) : baseSecFor(b);
+};
 
 /** 훅/CTA/루프 길이 — 음성이 스펙 기본값보다 길면 음성을 따른다 */
 export function timingOf(p: BriefingProps) {
@@ -251,7 +259,7 @@ export function timingOf(p: BriefingProps) {
    *    훅 문장은 32자 이내 (= 낭독 2.3초 이내 = 첫컷 2.75초 이내).
    */
   const hookSec = v?.hook ? Math.max(2.0, v.hook.sec + 0.45) : PACE.hookSec;
-  const beatSecs = p.beats.map((b, i) => secFor(b, v?.beats?.[i]));
+  const beatSecs = p.beats.map((b, i) => secFor(b, v?.beats?.[i], !!p.longform));
   // ⛔ 낭독 끝나자마자 잘라내면 끝 장면이 «스쳐 지나간다» (대표 확인 2026-08-21).
   //    폰·지표칩·구독줄·앱주소를 읽을 시간이 필요하다. 낭독 뒤 1.4초를 준다.
   //    ⚠ 길이가 늘면 평균 조회율의 분모가 커진다 — 그래서 «최소한만» 늘린다.
