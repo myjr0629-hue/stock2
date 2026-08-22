@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import PhLaunchBanner from '@/components/marketing/PhLaunchBanner';
 import { publicBase } from '@/lib/net/publicBase';
 import { APPS, appJsonLd, type Loc } from '@/lib/seo/apps';
 
@@ -49,6 +50,7 @@ export default async function UndercurrentLayout({
   const jsonLd = appJsonLd(APPS.undercurrent, lc, publicBase());
   return (
     <>
+      <PhLaunchBanner app="undercurrent" locale={lc} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {children}
     </>

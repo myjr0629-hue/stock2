@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import PhLaunchBanner from '@/components/marketing/PhLaunchBanner';
 import { publicBase } from '@/lib/net/publicBase';
 
 // ============================================================================
@@ -57,6 +58,15 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   };
 }
 
-export default function HomeLayout({ children }: { children: ReactNode }) {
-  return children;
+export default async function HomeLayout({
+  children, params,
+}: { children: ReactNode; params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  return (
+    <>
+      {/* 런치 당일에만 뜨는 PH 배너 — 날짜가 지나면 스스로 사라진다 */}
+      <PhLaunchBanner locale={loc(locale)} />
+      {children}
+    </>
+  );
 }

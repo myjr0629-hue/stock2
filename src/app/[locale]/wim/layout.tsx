@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import PhLaunchBanner from '@/components/marketing/PhLaunchBanner';
 import { publicBase } from '@/lib/net/publicBase';
 import { APPS, appJsonLd, type Loc } from '@/lib/seo/apps';
 
@@ -51,6 +52,7 @@ export default async function WimLayout({
   const jsonLd = appJsonLd(APPS.wim, lc, publicBase());
   return (
     <>
+      <PhLaunchBanner app="wim" locale={lc} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {children}
     </>
