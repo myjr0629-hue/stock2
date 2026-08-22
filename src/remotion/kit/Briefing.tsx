@@ -17,6 +17,7 @@
 // 컴플라이언스: 관찰형만. 액션 요구 0. 예측·매수매도 0.
 // ============================================================================
 
+import { createContext, useContext } from 'react';
 import {
   AbsoluteFill, OffthreadVideo, Audio, Img, Sequence, interpolate, staticFile,
   delayRender, continueRender,
@@ -355,19 +356,22 @@ function BottomZone({ tape }: { tape?: Array<{ t: string; v: string; up?: boolea
 
 // ── 자막 — ★ 안전영역 안, 74px, 26자 2줄 ───────────────────────────────────
 function Say({ text, ask, askAt }: { text: string; ask?: string; askAt?: number }) {
+  const g = useGeo();
   const p = useIn(0, 6);
   // ★ ask 자막은 «말이 시작되는 프레임»에 뜬다 (2026-08-11 실측: 고정 22프레임은 최대 2초 어긋남)
   // ★ 2026-08-20 — 9프레임 교차페이드는 «컷»으로 검출됐다 (컷/분 30 → 46.5).
   //   레퍼런스 최대가 22.8컷/분인데 우리가 두 배였다. 디졸브는 컷이 아니어야 한다.
   const q = useIn(Math.max(0, (askAt ?? 22) - 4), 18);
-  const lines = CAPTION.wrap(text);
-  const askLines = ask ? CAPTION.wrap(ask) : [];
+  // 16:9 는 자막 폭이 1728px 라 줄당 글자 상한이 다르다 (2026-08-22)
+  const CAP_MAX = g.lf ? 44 : undefined;
+  const lines = CAPTION.wrap(text, CAP_MAX);
+  const askLines = ask ? CAPTION.wrap(ask, CAP_MAX) : [];
   // ★ 2026-08-20 — «한 슬롯, 한 자막».
   //   전: say 상자 아래에 ask 상자를 «쌓았다» → 두 상자 높이 때문에 say 가 화면 52~65% 로 밀려
   //       레퍼런스 밴드(76~80%, DayTrade Warrior 실사)를 한참 벗어났다. shorts-gate 가 잡았다.
   //   후: 같은 자리에서 교차 페이드. 레퍼런스는 전부 «한 번에 한 줄»이다.
   const slot: React.CSSProperties = {
-    position: 'absolute', left: 44, right: SAFE.right, bottom: 460,
+    position: 'absolute', left: g.pad, right: g.lf ? g.pad : SAFE.right, bottom: g.capBottom,
   };
   return (
     <>
@@ -406,9 +410,10 @@ function Say({ text, ask, askAt }: { text: string; ask?: string; askAt?: number 
 
 // ── 상단 타이포 ─────────────────────────────────────────────────────────────
 function Head({ n, eyebrow, head }: { n: number; eyebrow?: string; head: string }) {
+  const g = useGeo();
   const a = useIn(1, 8), b = useIn(4, 10);
   return (
-    <div style={{ position: 'absolute', top: SAFE.top - 174, left: 44, right: 44 }}>
+    <div style={{ position: 'absolute', top: g.headTop, left: g.pad, right: g.pad }}>
       <div style={{ opacity: a, display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontFamily, fontSize: 27, fontWeight: 900, color: C.head, letterSpacing: '0.05em' }}>
           {String(n).padStart(2, '0')}
@@ -629,16 +634,47 @@ function Vis({ v, w, h }: { v: Visual; w: number; h: number }) {
   );
 }
 
+// ── 레이아웃 컨텍스트 — 세로(쇼츠) vs 16:9(롱폼) ────────────────────────────
+// ⛔ 2026-08-22: 롱폼 첫 렌더가 1080x1920 세로로 나왔다. 조사한 롱폼 레퍼런스는
+//   전부 16:9 다. 세로 전용으로 박아둔 픽셀값을 여기서 한 번에 갈아끼운다.
+//   ⚠ 안전영역이 다르다 — 쇼츠는 상·하단을 플랫폼 UI 가 덮지만 일반 영상은 안 덮는다.
+type Geo = {
+  lf: boolean; W: number; H: number;
+  top: number; bottom: number; pad: number;
+  capBottom: number; bannerTop: number; headTop: number; visTop: number;
+  discBottom: number; loopTop: number;
+  visMaxW: number;
+};
+const GEO_V: Geo = {
+  lf: false, W: 1080, H: 1920,
+  top: 384, bottom: 1440, pad: 44,
+  capBottom: 460, bannerTop: 384 - 174, headTop: 384 - 174, visTop: 384 + 40,
+  discBottom: 330, loopTop: 240,
+  visMaxW: 1080 - 88,
+};
+const GeoCtx = createContext<Geo>(GEO_V);
+const useGeo = () => useContext(GeoCtx);
+const geoFor = (lf: boolean, W: number, H: number): Geo => (lf
+  ? {
+      lf: true, W, H,
+      top: Math.round(H * 0.10), bottom: Math.round(H * 0.94), pad: 96,
+      capBottom: 56, bannerTop: 34, headTop: 186, visTop: 470,
+      discBottom: 18, loopTop: Math.round(H * 0.36),
+      visMaxW: 1180,
+    }
+  : GEO_V);
+
 // ── 본체 ────────────────────────────────────────────────────────────────────
 export const Briefing: React.FC<BriefingProps> = (p) => {
-  const { durationInFrames } = useVideoConfig();
-  const PAD = 44;
-  const VIS_TOP = SAFE.top + 40;   // [2026-08-07] 배너-헤드 «딱 붙음» 해소로 헤드가 내려온 만큼
+  const { durationInFrames, width, height } = useVideoConfig();
+  const g = geoFor(!!p.longform, width, height);
+  const PAD = g.pad;
+  const VIS_TOP = g.visTop;   // [2026-08-07] 배너-헤드 «딱 붙음» 해소로 헤드가 내려온 만큼
   // 자막 실측 높이: 본문 2줄(74*1.22*2=180) + 패딩 40 + 질문(2줄 52*1.2=125 + 패딩 32 + 여백 12)
-  const CAP_BLOCK_H = 180 + 40 + 125 + 32 + 12;   // 389
-  const CAP_TOP = SAFE.bottom - 24 - CAP_BLOCK_H;
-  const VIS_H = Math.max(320, CAP_TOP - VIS_TOP - 20);
-  const VIS_W = CANVAS.w - PAD * 2;
+  const CAP_BLOCK_H = g.lf ? 236 : 180 + 40 + 125 + 32 + 12;   // 389 (세로)
+  const CAP_TOP = (g.lf ? height - g.capBottom : SAFE.bottom) - 24 - CAP_BLOCK_H;
+  const VIS_H = Math.max(g.lf ? 240 : 320, CAP_TOP - VIS_TOP - 20);
+  const VIS_W = Math.min(g.visMaxW, width - PAD * 2);
 
   const T = timingOf(p);
   const hookF = F(T.hookSec);
@@ -675,6 +711,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
   const data = p.data ?? {};
 
   return (
+    <GeoCtx.Provider value={g}>
     <AbsoluteFill style={{ background: '#05070C' }}>
       {/* 훅 */}
       <Sequence durationInFrames={hookF}>
@@ -747,7 +784,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       <Sequence from={loopFrom} durationInFrames={loopF}>
         <Backdrop spec={hookBg} dur={loopF} data={data} />
         <Say2 v={p.voice} seg={p.voice?.loop} />
-        <div style={{ position: 'absolute', left: PAD, right: PAD, top: 240 }}>
+        <div style={{ position: 'absolute', left: PAD, right: PAD, top: g.loopTop }}>
           <Rise><div style={{
             fontFamily, fontSize: 72, lineHeight: 1.14, fontWeight: 900, color: C.ink,
             letterSpacing: '-0.035em', whiteSpace: 'pre-line', textShadow: '0 6px 30px rgba(0,0,0,0.74)',
@@ -783,7 +820,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
         <div style={{
         // ★ 2026-08-17 세이프존 교정: bottom 22(y≈1868)는 유튜브 진행바 «아래»라
         //   사실상 표시가 안 됐다. 티커 바로 밑, UI 존(y>1536) 위로 올린다.
-        position: 'absolute', left: 40, right: 40, bottom: 330,
+        position: 'absolute', left: PAD, right: PAD, bottom: g.discBottom,
         textAlign: 'center', pointerEvents: 'none',
       }}>
         {/* ⛔ 2026-08-21: 밝은 배경(실측 162~178) 위에서 주황 글자가 «사라졌다».
@@ -800,6 +837,7 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
       </div>
       </Sequence>
     </AbsoluteFill>
+    </GeoCtx.Provider>
   );
 };
 

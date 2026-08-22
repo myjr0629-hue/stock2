@@ -62,12 +62,17 @@ export const CAPTION = {
     return Math.min(this.maxMs, Math.max(this.minMs, ms));
   },
   /** 26자 기준 줄바꿈 — 단어를 자르지 않는다 */
-  wrap(text: string) {
+  /**
+   * @param max 줄당 글자 상한. 생략하면 세로(쇼츠) 기본값 21.
+   *   ⛔ 21 은 «세로 1080px» 에서 역산한 값이다 — 16:9(1728px)에는 44 를 쓴다 (2026-08-22).
+   */
+  wrap(text: string, max?: number) {
+    const cap = max ?? this.maxCharsPerLine;
     const words = text.split(' ');
     const lines: string[] = [];
     let cur = '';
     for (const w of words) {
-      if ((cur + ' ' + w).trim().length > this.maxCharsPerLine && cur) { lines.push(cur.trim()); cur = w; }
+      if ((cur + ' ' + w).trim().length > cap && cur) { lines.push(cur.trim()); cur = w; }
       else cur = (cur + ' ' + w).trim();
     }
     if (cur) lines.push(cur);

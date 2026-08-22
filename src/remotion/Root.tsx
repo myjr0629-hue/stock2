@@ -296,7 +296,19 @@ export const RemotionRoot: React.FC = () => {
       {/* �� �긮�� ? �뺻 �� �÷��� 3�� (kit/variants)
           �ϳ��� �뺻���ϳ��� �������� �߶� ����. YT �� ��û�ð�, TT �� ������ ����.
           T2 = ������� ��� �� T4 = �帶�� Ŭ��¡ */}
-      {([['T2', SCRIPT_T2], ['T4', SCRIPT_T4], ['T2B', SCRIPT_T2B],
+            {/* ★ 롱폼 — 16:9. 조사한 롱폼 레퍼런스가 전부 가로다 (.agent/LONGFORM_RESEARCH.md).
+          쇼츠 루프와 «별도»로 등록한다 — 캔버스도 안전영역도 다르다. */}
+      <Composition
+        id="LongformLFEARN"
+        component={Briefing as React.ComponentType<any>}
+        durationInFrames={durationOf(SCRIPT_LFEARN)}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={SCRIPT_LFEARN}
+      />
+
+{([['T2', SCRIPT_T2], ['T4', SCRIPT_T4], ['T2B', SCRIPT_T2B],
          ['CLOSE811', SCRIPT_CLOSE811], ['COPPER', SCRIPT_COPPER],
          // ����� ? ���� ���࿡�� ���� �� (�ǽð� ��� �ƴ�, ���� �÷��� �ȴ�)
          ['RECORDS', SCRIPT_RECORDS], ['OILSYM', SCRIPT_OILSYM], ['DEFENSE', SCRIPT_DEFENSE],
