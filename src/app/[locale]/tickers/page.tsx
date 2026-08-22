@@ -74,10 +74,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     itunes: { appId: '6788779895' },
     // OG — 없으면 브랜드 기본 이미지가 떠서 «전체 티커 목록»임을 공유 카드가 못 알린다.
     openGraph: {
+      images: [`${base}/og-brand.png`],
       title: l.title, description: l.desc,
       url: `${base}/${loc(locale)}/tickers`, type: 'website',
     },
-    twitter: { card: 'summary_large_image', title: l.title, description: l.desc },
+    twitter: { card: 'summary_large_image', title: l.title, description: l.desc, images: [`${base}/og-brand.png`] },
     alternates: {
       canonical: `${base}/${loc(locale)}/tickers`,
       languages: {

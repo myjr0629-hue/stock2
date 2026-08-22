@@ -59,8 +59,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         'x-default': `${base}/en/learn`,
       },
     },
-    openGraph: { title: t.title, description: t.desc, url: `${base}/${lc}/learn`, type: 'website' },
-    twitter: { card: 'summary_large_image', title: t.title, description: t.desc },
+    openGraph: { title: t.title, description: t.desc, url: `${base}/${lc}/learn`, type: 'website', images: [`${base}/og-brand.png`] },
+    twitter: { card: 'summary_large_image', title: t.title, description: t.desc, images: [`${base}/og-brand.png`] },
   };
 }
 

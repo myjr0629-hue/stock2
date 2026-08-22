@@ -69,8 +69,8 @@ export async function generateMetadata(
         'x-default': `${base}/en/learn/${concept}`,
       },
     },
-    openGraph: { title: c.title, description: c.desc, url: `${base}/${lc}/learn/${concept}`, type: 'article' },
-    twitter: { card: 'summary_large_image', title: c.title, description: c.desc },
+    openGraph: { title: c.title, description: c.desc, url: `${base}/${lc}/learn/${concept}`, type: 'article', images: [`${base}/og-brand.png`] },
+    twitter: { card: 'summary_large_image', title: c.title, description: c.desc, images: [`${base}/og-brand.png`] },
   };
 }
 

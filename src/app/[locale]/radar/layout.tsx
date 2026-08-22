@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { publicBase } from '@/lib/net/publicBase';
 
 // 기관 레이더 — 4th spinoff prototype. Own tab identity (SEO + share cards).
 const META: Record<string, { title: string; desc: string }> = {
@@ -11,7 +12,22 @@ const META: Record<string, { title: string; desc: string }> = {
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   const m = META[locale] || META.en;
-  return { title: m.title, description: m.desc };
+  const base = publicBase();
+  // canonical/hreflang 이 «아예 없었다»(2026-08-22 seo-audit 실측).
+  // 세 로케일이 서로 구별되는 신호가 없으면 구글이 중복으로 버린다 —
+  // /ko/flow 150건이 정확히 그렇게 색인에서 빠졌다.
+  return {
+    title: m.title, description: m.desc,
+    alternates: {
+      canonical: `${base}/${locale}/radar`,
+      languages: {
+        en: `${base}/en/radar`, ko: `${base}/ko/radar`, ja: `${base}/ja/radar`,
+        'x-default': `${base}/en/radar`,
+      },
+    },
+    openGraph: { title: m.title, description: m.desc, url: `${base}/${locale}/radar`, type: 'website', images: [`${base}/og-brand.png`] },
+    twitter: { card: 'summary_large_image', title: m.title, description: m.desc, images: [`${base}/og-brand.png`] },
+  };
 }
 
 export default function RadarLayout({ children }: { children: ReactNode }) {

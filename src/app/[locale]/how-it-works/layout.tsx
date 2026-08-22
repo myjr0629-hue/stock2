@@ -1,3 +1,4 @@
+import { publicBase } from '@/lib/net/publicBase';
 
 
 // 2026-08-22 실측: 이 페이지 제목·설명이 홈과 «완전히 동일»했다(둘 다 루트 layout 값).
@@ -11,7 +12,22 @@ const HIW_META: Record<string, { title: string; desc: string }> = {
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const m = HIW_META[locale] || HIW_META.en;
-  return { title: m.title, description: m.desc };
+  const base = publicBase();
+  // canonical/hreflang 이 «아예 없었다»(2026-08-22 seo-audit 실측).
+  // 세 로케일이 서로 구별되는 신호가 없으면 구글이 중복으로 버린다 —
+  // /ko/flow 150건이 정확히 그렇게 색인에서 빠졌다.
+  return {
+    title: m.title, description: m.desc,
+    alternates: {
+      canonical: `${base}/${locale}/how-it-works`,
+      languages: {
+        en: `${base}/en/how-it-works`, ko: `${base}/ko/how-it-works`, ja: `${base}/ja/how-it-works`,
+        'x-default': `${base}/en/how-it-works`,
+      },
+    },
+    openGraph: { title: m.title, description: m.desc, url: `${base}/${locale}/how-it-works`, type: 'website', images: [`${base}/og-brand.png`] },
+    twitter: { card: 'summary_large_image', title: m.title, description: m.desc, images: [`${base}/og-brand.png`] },
+  };
 }
 export default function HowItWorksRouteLayout({
     children,

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { publicBase } from '@/lib/net/publicBase';
 
 // pricing/page.tsx 가 'use client' 라 메타데이터를 export 할 수 없다 → 레이아웃에서 준다.
 // 2026-08-22 실측: 이 페이지 제목·설명이 홈과 «완전히 동일»했다(둘 다 루트 layout 값).
@@ -12,7 +13,22 @@ const META: Record<string, { title: string; desc: string }> = {
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const m = META[locale] || META.en;
-  return { title: m.title, description: m.desc };
+  const base = publicBase();
+  // canonical/hreflang 이 «아예 없었다»(2026-08-22 seo-audit 실측).
+  // 세 로케일이 서로 구별되는 신호가 없으면 구글이 중복으로 버린다 —
+  // /ko/flow 150건이 정확히 그렇게 색인에서 빠졌다.
+  return {
+    title: m.title, description: m.desc,
+    alternates: {
+      canonical: `${base}/${locale}/pricing`,
+      languages: {
+        en: `${base}/en/pricing`, ko: `${base}/ko/pricing`, ja: `${base}/ja/pricing`,
+        'x-default': `${base}/en/pricing`,
+      },
+    },
+    openGraph: { title: m.title, description: m.desc, url: `${base}/${locale}/pricing`, type: 'website', images: [`${base}/og-brand.png`] },
+    twitter: { card: 'summary_large_image', title: m.title, description: m.desc, images: [`${base}/og-brand.png`] },
+  };
 }
 
 export default function PricingLayout({ children }: { children: ReactNode }) {

@@ -161,7 +161,12 @@ export async function generateMetadata(
     title, description: desc,
     alternates: {
       canonical: url,
-      languages: { en: `${base}/en/flow/${ticker}`, ko: `${base}/ko/flow/${ticker}`, ja: `${base}/ja/flow/${ticker}` },
+      languages: {
+        en: `${base}/en/flow/${ticker}`, ko: `${base}/ko/flow/${ticker}`, ja: `${base}/ja/flow/${ticker}`,
+        // x-default = «어떤 언어에도 안 맞는 방문자에게 무엇을 줄지». 이게 없으면
+        // 세 판이 서로 «언어 변형»이라는 신호가 약해진다 — 1,800페이지에 빠져 있었다.
+        'x-default': `${base}/en/flow/${ticker}`,
+      },
     },
     openGraph: { title, description: desc, url, images: [ogUrl], type: 'article' },
     twitter: { card: 'summary_large_image', title, description: desc, images: [ogUrl] },
