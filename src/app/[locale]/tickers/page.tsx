@@ -70,6 +70,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return {
     title: `${l.title} | SIGNUM HQ`,
     description: l.desc,
+    // 스마트앱배너 — 이 허브는 Undercurrent 콘텐츠다. 루트 layout 의 SIGNUM 기본값을 덮는다.
+    itunes: { appId: '6788779895' },
     alternates: {
       canonical: `${base}/${loc(locale)}/tickers`,
       languages: {
