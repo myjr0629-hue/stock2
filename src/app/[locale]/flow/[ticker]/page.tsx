@@ -10,6 +10,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
+import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 
 export const revalidate = 3600; // ISR: refresh at most hourly
 export const dynamicParams = true;
@@ -48,7 +49,7 @@ type Strings = {
   kicker: string; sub: (t: string) => string; money: string; read: string; news: string;
   divergence: string; whatT: string; whatB: string; glossT: string; gloss: [string, string][];
   ctaT: string; ctaUc: string; ctaSg: string; ctaWim: string; disc: string;
-  relT: string; allT: string;
+  relT: string; allT: string; learnT: string;
   lbl: Record<string, string>;
 };
 const L: Record<string, Strings> = {
@@ -71,6 +72,7 @@ const L: Record<string, Strings> = {
     disc: 'Data, scores and interpretations are for information and education only — not investment advice or a buy/sell recommendation. All decisions and outcomes are your own.',
   relT: 'Nearby tickers',
   allT: 'See all tickers',
+  learnT: 'Learn the numbers',
     lbl: { darkPool: 'Dark-pool volume', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
   },
   ko: {
@@ -92,6 +94,7 @@ const L: Record<string, Strings> = {
     disc: '데이터·점수·해석은 정보·교육용이며 투자자문이나 매수/매도 권유가 아닙니다. 모든 판단과 결과의 책임은 본인에게 있습니다.',
   relT: '인접 종목',
   allT: '전체 종목 보기',
+  learnT: '숫자를 읽는 법',
     lbl: { darkPool: '다크풀 비중', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
   },
   ja: {
@@ -113,6 +116,7 @@ const L: Record<string, Strings> = {
     disc: 'データ・スコア・解釈は情報・教育目的であり、投資助言や売買推奨ではありません。すべての判断と結果は利用者ご自身の責任です。',
   relT: '近いティッカー',
   allT: '全ティッカーを見る',
+  learnT: '数字の読み方',
     lbl: { darkPool: 'ダークプール比率', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
   },
 };
@@ -336,6 +340,19 @@ export default async function FlowTickerPage(
           <a href={`/${locale}/tickers`} style={S.allA}>{l.allT} →</a>
         </section>
       )}
+
+      {/* 개념 설명으로 — 이 페이지의 지표를 처음 보는 사람에게 필요한 다음 클릭이고,
+          동시에 정보성 질의를 겨냥한 /learn 층으로 링크 가중치를 보낸다. */}
+      <section>
+        <div style={S.relH}>{l.learnT}</div>
+        <div style={S.relGrid}>
+          {CONCEPT_SLUGS.map((c) => (
+            <a key={c} href={`/${locale}/learn/${c}`} style={S.relA}>
+              {(CONCEPTS[(locale as 'en' | 'ko' | 'ja')] || CONCEPTS.en)[c].h1}
+            </a>
+          ))}
+        </div>
+      </section>
 
       <footer style={S.disc}>{l.disc}</footer>
     </main>
