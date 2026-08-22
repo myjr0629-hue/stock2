@@ -52,7 +52,15 @@ const HOME_META: Record<string, { title: string; desc: string }> = {
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const m = HOME_META[locale] || HOME_META.en;
-  return { title: m.title, description: m.desc };
+  return {
+    title: m.title,
+    description: m.desc,
+    // RSS 자동발견 — 이 <link> 가 없으면 Feedly 등 리더가 URL 을 직접 쳐야만 찾는다.
+    // 즉 피드를 만들어도 «발견»되지 않는다.
+    alternates: {
+      types: { 'application/rss+xml': [{ url: `/${locale}/feed.xml`, title: m.title }] },
+    },
+  };
 }
 
 

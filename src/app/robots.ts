@@ -41,6 +41,8 @@ export default function robots(): MetadataRoute.Robots {
       ],
     },
     sitemap: `${base}/sitemap.xml`,
+    // AI 답변엔진용 안내(신흥 규약). robots.txt 가 «가지 마라»면 llms.txt 는
+    // «여기를 봐라»다 — 인용은 참조 도메인이 2개뿐인 지금 링크만큼 값어치가 있다.
     host: base,
   };
 }
