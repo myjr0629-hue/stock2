@@ -5,6 +5,7 @@
 import React from 'react';
 import { Composition } from 'remotion';
 import { PhoneAd, phoneAdDuration } from './kit/PhoneAd';
+import { Race, raceDuration, RACE_FPS, type RaceProps } from './kit/Race';
 import { AppAd, AppAdTag, APPAD_DURATION, APPAD_DURATION_SOLO, APPAD_TAG_DURATION, APPAD_FPS } from './kit/AppAd';
 import { Thumb, THUMB_AMD819 } from './kit/Thumb';
 import { OutroCard, OUTRO_FRAMES, OUTRO_FPS } from './kit/Outro';
@@ -153,6 +154,40 @@ import { EndCard } from './kit/EndCard';
 import { ENDCARD_FRAMES, type AppKey } from './kit/endcards';
 import { SAMPLE_BRIEFING } from './data/sampleBriefing';
 
+
+
+// ── Race : 두 대상 + 시간 누적 (터진 영상 8편 픽셀 측정으로 뽑은 뼈대) ──────
+//   숫자는 FMP 분할조정 종가 실측 (.agent/_race.json). 손대지 말 것.
+const RACE_NVDA_INTC: RaceProps = {
+  title: ['$10,000 in NVIDIA vs Intel', '10 years ago'],
+  a: { sym: 'NVDA', name: 'NVIDIA', color: '#76B900' },
+  b: { sym: 'INTC', name: 'INTEL', color: '#3B8EEA' },
+  seed: '$10,000',
+  rows: [{"y": 2016, "a": 10000, "b": 10000}, {"y": 2017, "a": 27712, "b": 9772}, {"y": 2018, "a": 45882, "b": 13494}, {"y": 2019, "a": 27386, "b": 13210}, {"y": 2020, "a": 87386, "b": 14196}, {"y": 2021, "a": 146340, "b": 15063}, {"y": 2022, "a": 98627, "b": 8894}, {"y": 2023, "a": 322614, "b": 9791}, {"y": 2024, "a": 780196, "b": 6141}, {"y": 2025, "a": 1138431, "b": 6785}, {"y": 2026, "a": 1403399, "b": 25096}],
+  stepSec: 1.15,
+  holdSec: 3.4,
+};
+
+
+const RACE_AMD_INTC: RaceProps = {
+  title: ['$10,000 in AMD vs Intel', '10 years ago'],
+  a: { sym: 'AMD', name: 'AMD', color: '#ED1C24' },
+  b: { sym: 'INTC', name: 'INTEL', color: '#3B8EEA' },
+  seed: '$10,000',
+  rows: [{"y": 2016, "a": 10000, "b": 10000}, {"y": 2017, "a": 17568, "b": 9772}, {"y": 2018, "a": 34014, "b": 13494}, {"y": 2019, "a": 42500, "b": 13210}, {"y": 2020, "a": 122730, "b": 14196}, {"y": 2021, "a": 149622, "b": 15063}, {"y": 2022, "a": 114689, "b": 8894}, {"y": 2023, "a": 142865, "b": 9791}, {"y": 2024, "a": 200757, "b": 6141}, {"y": 2025, "a": 219770, "b": 6785}, {"y": 2026, "a": 639527, "b": 25096}],
+  stepSec: 1.15,
+  holdSec: 3.4,
+};
+
+const RACE_NVDA_AAPL: RaceProps = {
+  title: ['$10,000 in NVIDIA vs Apple', '10 years ago'],
+  a: { sym: 'NVDA', name: 'NVIDIA', color: '#76B900' },
+  b: { sym: 'AAPL', name: 'APPLE', color: '#E8E8ED' },
+  seed: '$10,000',
+  rows: [{"y": 2016, "a": 10000, "b": 10000}, {"y": 2017, "a": 27712, "b": 15454}, {"y": 2018, "a": 45882, "b": 21451}, {"y": 2019, "a": 27386, "b": 19672}, {"y": 2020, "a": 87386, "b": 48639}, {"y": 2021, "a": 146340, "b": 57230}, {"y": 2022, "a": 98627, "b": 59261}, {"y": 2023, "a": 322614, "b": 70814}, {"y": 2024, "a": 780196, "b": 86317}, {"y": 2025, "a": 1138431, "b": 87501}, {"y": 2026, "a": 1403399, "b": 116604}],
+  stepSec: 1.15,
+  holdSec: 3.4,
+};
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -1009,6 +1044,34 @@ export const RemotionRoot: React.FC = () => {
         fps={C2_FPS}
         width={1080}
         height={1920}
+      />
+      {/* ★ Race — 우리 틀을 버리고 «터진 뼈대» 그대로 만든 첫 편 (2026-08-22) */}
+      <Composition
+        id="RaceNvdaIntc"
+        component={Race as React.ComponentType<any>}
+        durationInFrames={raceDuration(RACE_NVDA_INTC)}
+        fps={RACE_FPS}
+        width={1080}
+        height={1920}
+        defaultProps={RACE_NVDA_INTC as any}
+      />
+      <Composition
+        id="RaceAmdIntc"
+        component={Race as React.ComponentType<any>}
+        durationInFrames={raceDuration(RACE_AMD_INTC)}
+        fps={RACE_FPS}
+        width={1080}
+        height={1920}
+        defaultProps={RACE_AMD_INTC as any}
+      />
+      <Composition
+        id="RaceNvdaAapl"
+        component={Race as React.ComponentType<any>}
+        durationInFrames={raceDuration(RACE_NVDA_AAPL)}
+        fps={RACE_FPS}
+        width={1080}
+        height={1920}
+        defaultProps={RACE_NVDA_AAPL as any}
       />
     </>
   );
