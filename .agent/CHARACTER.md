@@ -8,14 +8,27 @@
 ## 고정 블록 (수정 금지 · 그대로 복사)
 
 ```
-A small rounded 3D character shaped like a chunky navy-blue ledger book, with two
-large friendly eyes on its front cover, short stubby arms and legs, and a thin amber
-bookmark ribbon hanging from the top like a scarf. The cover and spine are completely
-blank, with no lettering of any kind. Soft matte surface, gentle rim light, calm and
-curious, no mouth.
+A small rounded 3D character shaped like a chunky navy-blue hardcover ledger book, with
+cream page edges showing along one side. On its front cover it has two large expressive
+eyes with soft dark eyebrows and a small friendly smile, and it has short stubby arms and
+legs. An amber bookmark ribbon hangs from the top edge on the left. The cover and spine
+are completely blank, with no lettering of any kind. Soft matte surface, gentle rim light,
+calm and curious.
 ```
 
-승인된 시안: 2026-08-22 (남색 장부 · 큰 눈 두 개 · 호박색 리본 · 입 없음 · Pixar풍 소프트 3D)
+확정: 2026-08-22 · 실제 생성 4편으로 검증 (`ax-count-tally` `ax-two-piles` `ax-ledger-open` `ax-magnifier`)
+
+### ⛔ 「입 없음」에서 「입 있음」으로 바꾼 이유
+
+첫 정본은 `no mouth` 였다. 레퍼런스 둘 다 입을 거의 안 써서 립싱크 사고를 피하려던 것이다.
+그런데 **4편 전부 입과 눈썹이 나왔다.** 모델이 「친근한 3D 캐릭터」를 그렇게 해석한다.
+
+두 가지 이유로 «결과에 맞춘다»:
+1. **결과가 더 낫다** — 감정이 훨씬 잘 읽힌다. 우리는 캐릭터를 말하게 하지 않으므로 립싱크 문제가 없다.
+2. **모델과 싸우면 일관성이 깨진다** — 계속 `no mouth` 를 넣으면 어떤 편은 입이 있고 어떤 편은 없다.
+   그게 「입이 있는 것」보다 훨씬 나쁘다.
+
+⛔ 원칙: **프롬프트가 결과를 못 이기면, 프롬프트를 결과에 맞춘다.** 일관성이 의도보다 우선이다.
 
 ---
 
