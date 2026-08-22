@@ -126,7 +126,13 @@ export async function generateMetadata(
   const base = publicBase();
   const data = await getData(locale, ticker);
   const div = data?.cards?.some((c) => c.divergence);
-  const title = `${ticker} — dark pool, max pain & options flow${div ? ' (divergence)' : ''} | Undercurrent`;
+  // 제목은 «검색어와 연속으로 일치»해야 한다. GSC 실측(2026-08-22) 상위 질의가
+  // 전부 `{티커} dark pool` / `{티커} max pain` 형태인데, 기존 제목은 em-dash 가
+  // 「USO dark pool」을 갈라놓아 정확 일치가 아니었다 — 75노출에 클릭 0이었다.
+  //   before: `USO — dark pool, max pain & options flow (divergence) | Undercurrent`
+  //   after : `USO Dark Pool & Max Pain Today — Options Flow (divergence) | Undercurrent`
+  // 앞머리 두 어절이 두 상위 질의를 동시에 정확 일치시킨다.
+  const title = `${ticker} Dark Pool & Max Pain Today — Options Flow${div ? ' (divergence)' : ''} | Undercurrent`;
   const desc = (data?.tickerRead || l.sub(ticker)).slice(0, 200);
   const m = data?.money;
   const og = new URLSearchParams({ ticker, priceLabel: 'PRICE' });
