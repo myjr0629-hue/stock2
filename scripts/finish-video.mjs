@@ -86,8 +86,16 @@ console.log(`  썸네일  ${THUMB}  ${existsSync(THUMB) ? '✔' : '✗'}`);
 //     제목이 있는 위쪽을 잘라 16:9 로 채운다. 검색 결과에서 글자가 훨씬 크게 보인다.
 //   ⛔ 쇼츠 «피드»에 뜨는 세로 커버는 «별개 필드»이고 API 가 없다 — 그건 스튜디오에서만.
 const THUMB16 = IN.replace(/\.mp4$/i, '_thumb16.jpg');
+// ⛔ 원본이 «이미 가로»면 자르지 않는다 (롱폼 1920x1080). 세로일 때만 위쪽을 잘라낸다.
+const probe = spawnSync(join(FFDIR, 'ffprobe.exe'),
+  ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height',
+   '-of', 'csv=p=0', OUT], { encoding: 'utf8' });
+const [pw, ph] = String(probe.stdout || '0,0').trim().split(',').map(Number);
+const isWide = pw >= ph;
 run(['-y', '-loglevel', 'error', '-i', THUMB,
-  '-vf', 'crop=1080:608:0:720,scale=1280:720:flags=lanczos', '-q:v', '2', THUMB16]);
+  '-vf', isWide ? 'scale=1280:720:flags=lanczos' : 'crop=1080:608:0:720,scale=1280:720:flags=lanczos',
+  '-q:v', '2', THUMB16]);
+console.log(`  (원본 ${pw}x${ph} — ${isWide ? '가로: 자르지 않음' : '세로: 상단 크롭'})`);
 console.log(`  썸네일16:9  ${THUMB16}  ${existsSync(THUMB16) ? '✔' : '✗'}`);
 
 console.log(`  → ${OUT}`);
