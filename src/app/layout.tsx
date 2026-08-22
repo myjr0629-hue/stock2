@@ -3,6 +3,7 @@ import "./globals.css";
 import { GuardianProvider } from "@/components/guardian/GuardianProvider";
 import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
+import { headers } from 'next/headers';
 
 // [PERF] next/font: 빌드 시 다운로드 → 셀프호스팅 (외부 CDN 렌더 블로킹 제거)
 const inter = Inter({
@@ -99,13 +100,33 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+// ============================================================================
+// <html lang> 은 «실제 로케일»이어야 한다 (2026-08-22 GSC 실측으로 발견)
+// ----------------------------------------------------------------------------
+// 여기가 "ko" 로 하드코딩돼 있어서 /en/flow/NIO 도 /ja/flow/NIO 도 전부
+// lang="ko" 로 선언되고 있었다. 제목까지 세 로케일이 영어로 동일하다 보니
+// 구글은 «같은 언어의 동일 문서 3개»로 보고 **/ko/flow/* 150건을
+// "Duplicate without user-selected canonical" 로 색인에서 제외**했다.
+// (canonical 자체는 각자 자기를 가리키고 있었는데도 중복 판정을 받았다.)
+//
+// headers() 호출이 여기서 «공짜»인 이유: [locale]/layout.tsx 가 이미
+// await headers() 를 무조건 호출해 이 앱 전체가 이미 동적 렌더다.
+// 실측으로도 /en/learn/* 응답이 cache-control: no-store 였다.
+const LOCALES = ['en', 'ko', 'ja'] as const;
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const h = await headers();
+  const path = h.get('x-pathname') || h.get('x-middleware-request-next-url') || '';
+  const seg = path.match(/^\/(en|ko|ja)(?:\/|$)/)?.[1];
+  // 로케일 접두어가 없는 경로(루트 리다이렉트 전 등)는 기존 동작을 유지한다.
+  const lang = (LOCALES as readonly string[]).includes(seg || '') ? (seg as string) : 'ko';
+
   return (
-    <html lang="ko" suppressHydrationWarning className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable}`}>
+    <html lang={lang} suppressHydrationWarning className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable}`}>
       <head>
         {/* [PERF] Pretendard: preload for early download + afterInteractive to avoid render blocking */}
         <link

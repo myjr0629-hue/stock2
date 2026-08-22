@@ -136,7 +136,18 @@ export async function generateMetadata(
   //   before: `USO — dark pool, max pain & options flow (divergence) | Undercurrent`
   //   after : `USO Dark Pool & Max Pain Today — Options Flow (divergence) | Undercurrent`
   // 앞머리 두 어절이 두 상위 질의를 동시에 정확 일치시킨다.
-  const title = `${ticker} Dark Pool & Max Pain Today — Options Flow${div ? ' (divergence)' : ''} | Undercurrent`;
+  // ★ 로케일별 제목 (2026-08-22 GSC 실측으로 추가):
+  //   세 로케일이 «영어 제목 하나»를 공유하고 있었고 <html lang> 까지 전부 ko 였다.
+  //   그 결과 구글은 셋을 같은 문서로 보고 /ko/flow/* 150건을
+  //   "Duplicate without user-selected canonical" 로 색인에서 제외했다.
+  //   제목을 각 언어로 갈라 «다른 문서»임을 명시하고, 동시에 그 언어권의
+  //   실제 검색어(다크풀 / ダークプール)에 정확 일치시킨다.
+  const TITLE: Record<string, (t: string, d: boolean) => string> = {
+    en: (t, d) => `${t} Dark Pool & Max Pain Today — Options Flow${d ? ' (divergence)' : ''} | Undercurrent`,
+    ko: (t, d) => `${t} 다크풀·맥스페인 — 오늘의 옵션 자금 흐름${d ? ' (괴리)' : ''} | Undercurrent`,
+    ja: (t, d) => `${t} ダークプール・マックスペイン — 今日のオプションフロー${d ? '（乖離）' : ''} | Undercurrent`,
+  };
+  const title = (TITLE[locale] ?? TITLE.en)(ticker, !!div);
   const desc = (data?.tickerRead || l.sub(ticker)).slice(0, 200);
   const m = data?.money;
   const og = new URLSearchParams({ ticker, priceLabel: 'PRICE' });
