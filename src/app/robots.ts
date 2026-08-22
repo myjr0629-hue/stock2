@@ -20,6 +20,21 @@ export default function robots(): MetadataRoute.Robots {
         '/app-view/', '/*/app-view/',
         '/login', '/*/login',
         '/settings', '/*/settings',
+        // ⛔ 2026-08-22 실측: 아래 6개는 «게이트된 웹 터미널 셸»인데 Googlebot 에
+        //   HTTP 200 + index,follow 로 열려 있었고 사이트맵엔 없었다.
+        //   자체 metadata 가 없어 «홈과 제목이 완전히 동일»했다 → 홈 제목을 희석하고
+        //   저품질 중복으로 색인될 위험이 있었다. 크롤 예산도 낭비된다
+        //   (지금 진짜로 크롤해야 할 티커 페이지가 1,800개다).
+        //   판정 기준: 자체 metadata 유무 = 공개 의도 유무.
+        //   `/radar` 는 자체 metadata 가 있는 «의도적 공개 페이지»라 제외하지 않는다.
+        '/dashboard', '/*/dashboard',
+        '/intel', '/*/intel',
+        '/quant-radar', '/*/quant-radar',
+        '/watchlist', '/*/watchlist',
+        '/portfolio', '/*/portfolio',
+        // ⚠️ 반드시 '$' 를 붙인다. robots 의 Disallow 는 «접두사» 매칭이라
+        //   '/ticker' 라고 쓰면 오늘 만든 허브 '/tickers' 까지 통째로 막힌다.
+        '/ticker$', '/*/ticker$',
       ],
     },
     sitemap: `${base}/sitemap.xml`,
