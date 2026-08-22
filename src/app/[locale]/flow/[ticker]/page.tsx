@@ -9,6 +9,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
+import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 
 export const revalidate = 3600; // ISR: refresh at most hourly
 export const dynamicParams = true;
@@ -47,6 +48,7 @@ type Strings = {
   kicker: string; sub: (t: string) => string; money: string; read: string; news: string;
   divergence: string; whatT: string; whatB: string; glossT: string; gloss: [string, string][];
   ctaT: string; ctaUc: string; ctaSg: string; ctaWim: string; disc: string;
+  relT: string; allT: string;
   lbl: Record<string, string>;
 };
 const L: Record<string, Strings> = {
@@ -67,6 +69,8 @@ const L: Record<string, Strings> = {
     ctaSg: 'Or go deeper with SIGNUM HQ — the pro options terminal',
     ctaWim: "New to this? Why'd It Move? turns today's move into a 60-second lesson",
     disc: 'Data, scores and interpretations are for information and education only — not investment advice or a buy/sell recommendation. All decisions and outcomes are your own.',
+  relT: 'Nearby tickers',
+  allT: 'See all tickers',
     lbl: { darkPool: 'Dark-pool volume', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
   },
   ko: {
@@ -86,6 +90,8 @@ const L: Record<string, Strings> = {
     ctaSg: '또는 SIGNUM HQ로 더 깊이 — 프로 옵션 터미널',
     ctaWim: "처음이라면 — Why'd It Move? 가 오늘의 움직임을 60초 문제로 만들어 줍니다",
     disc: '데이터·점수·해석은 정보·교육용이며 투자자문이나 매수/매도 권유가 아닙니다. 모든 판단과 결과의 책임은 본인에게 있습니다.',
+  relT: '인접 종목',
+  allT: '전체 종목 보기',
     lbl: { darkPool: '다크풀 비중', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
   },
   ja: {
@@ -105,6 +111,8 @@ const L: Record<string, Strings> = {
     ctaSg: 'またはSIGNUM HQでさらに深く — プロ向けオプション端末',
     ctaWim: "はじめてなら — Why'd It Move? が今日の値動きを60秒の問題にします",
     disc: 'データ・スコア・解釈は情報・教育目的であり、投資助言や売買推奨ではありません。すべての判断と結果は利用者ご自身の責任です。',
+  relT: '近いティッカー',
+  allT: '全ティッカーを見る',
     lbl: { darkPool: 'ダークプール比率', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
   },
 };
@@ -231,7 +239,20 @@ export default async function FlowTickerPage(
     cta2: { display: 'block', textAlign: 'center' as const, color: '#55606B', textDecoration: 'none', fontWeight: 700, fontSize: 14, padding: '6px' },
     disc: { fontSize: 12, color: '#9AA3AD', marginTop: 28, borderTop: '1px solid #EEE9E0', paddingTop: 14 },
     gloss: { fontSize: 14, marginBottom: 10 },
+    relH: { fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#8A939E', margin: '28px 0 10px' },
+    relGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 6 } as const,
+    relA: { display: 'block', textAlign: 'center' as const, fontSize: 13, fontWeight: 700, color: '#17191E', textDecoration: 'none', border: '1px solid #E7E3DA', borderRadius: 8, padding: '7px 6px', background: '#FAF8F3' } as const,
+    allA: { display: 'inline-block', marginTop: 12, fontSize: 14, fontWeight: 700, color: '#C2410C', textDecoration: 'none' },
   };
+
+  // 내부 링크 — 이 페이지들은 사이트맵에만 있고 서로 «전혀» 연결돼 있지 않았다.
+  // (있던 링크 4개는 전부 hreflang 자기참조였다 — 2026-08-22 실측)
+  // 알파벳 순 이웃 12개 + 전체 허브로 링크해 크롤 발견성과 가중치 흐름을 만든다.
+  const sortedT = [...FLOW_TICKERS].sort();
+  const myIdx = sortedT.indexOf(ticker);
+  const neighbors = (myIdx >= 0
+    ? [...sortedT.slice(Math.max(0, myIdx - 6), myIdx), ...sortedT.slice(myIdx + 1, myIdx + 7)]
+    : sortedT.slice(0, 12));
 
   return (
     <main style={S.wrap}>
@@ -290,6 +311,18 @@ export default async function FlowTickerPage(
           <p key={term} style={S.gloss}><strong>{term}</strong> — <span style={{ color: '#55606B' }}>{def}</span></p>
         ))}
       </section>
+
+      {neighbors.length > 0 && (
+        <section>
+          <div style={S.relH}>{l.relT}</div>
+          <div style={S.relGrid}>
+            {neighbors.map((t) => (
+              <a key={t} href={`/${locale}/flow/${t}`} style={S.relA}>{t}</a>
+            ))}
+          </div>
+          <a href={`/${locale}/tickers`} style={S.allA}>{l.allT} →</a>
+        </section>
+      )}
 
       <footer style={S.disc}>{l.disc}</footer>
     </main>
