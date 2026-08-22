@@ -543,6 +543,18 @@ export default function Page() {
                 <span className="text-[11px] text-slate-400">{t('home.ucTagline')}</span>
               </span>
             </a>
+            <span className="hidden sm:block w-px h-9 bg-white/10" />
+            {/* Why'd It Move? — 세 번째 앱인데 홈에서 한 번도 소개되지 않고 있었다(2026-08-22). */}
+            <a href="/app-wim?from=home" className="flex items-center gap-2.5 group">
+              <span className="w-11 h-11 rounded-[12px] bg-[#EFEBFF] flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/app-icons/wim.png" alt="Why'd It Move?" width={44} height={44} />
+              </span>
+              <span className="flex flex-col leading-tight text-left">
+                <span className="text-sm font-bold text-white group-hover:text-violet-300 transition-colors">Why&apos;d It Move?</span>
+                <span className="text-[11px] text-slate-400">{t('home.wimTagline')}</span>
+              </span>
+            </a>
           </div>
 
           <div className="inline-flex items-center gap-2 text-sm text-slate-400">
