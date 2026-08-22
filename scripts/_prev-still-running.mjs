@@ -61,6 +61,21 @@ const get = async () => {
 const first = await get();
 if (!first) { console.log(`  ${ID} 를 못 읽었다 — 안전하게 «올리지 않는다»로 본다`); process.exit(1); }
 const ageMin = (Date.now() - first.pub) / 60000;
+
+// ⛔ Data API 의 viewCount 는 «뒤처진다» (2026-08-23 확인).
+//   같은 시각에 스튜디오 418 · Data API 337 이었다 — 약 80회, 수 분치 차이.
+//   그래서 「API 가 평평하다」가 「실제로 멈췄다」를 뜻하지 않는다.
+//   기울기만 믿으면 아직 달리는 편 위에 새 편을 얹게 된다.
+//   ⇒ 절대 시간 하한을 같이 건다. 발행 90분 안에는 기울기와 무관하게 막는다.
+const MIN_AGE_MIN = 90;
+if (ageMin < MIN_AGE_MIN) {
+  console.log(`
+  ⛔ 직전 편이 아직 ${ageMin.toFixed(0)}분밖에 안 됐다 (하한 ${MIN_AGE_MIN}분).`);
+  console.log(`     Data API 는 스튜디오보다 뒤처져서, 「평평하다」가 「멈췄다」를 뜻하지 않는다.`);
+  console.log(`     기울기만으로 판단하지 않는다 — 시간이 지나야 API 가 따라잡는다.
+`);
+  process.exit(1);
+}
 console.log(`\n  직전 편  ${first.t.slice(0, 52)}`);
 console.log(`           ${ID} · 발행 ${ageMin.toFixed(0)}분 전 · 현재 ${first.views}회`);
 
