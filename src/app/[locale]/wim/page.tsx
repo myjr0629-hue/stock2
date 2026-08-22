@@ -20,6 +20,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
 import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
@@ -3262,6 +3263,8 @@ export default function WimPage() {
     if (u) record(u, '__timeout__');
   }, [picked]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const markSetFinished = useReviewPrompt({ storageKey: 'wim.setsFinished', milestones: [2, 8] });
+
   const closeQuiz = useCallback((finishedAll: boolean) => {
     stopTimer();
     // W5-A: quick 150ms fade, then unmount (one-shot timer — no per-frame state)
@@ -3273,10 +3276,13 @@ export default function WimPage() {
     }, 150);
     if (finishedAll && !setDoneShown) {
       setSetDoneShown(true);
+      // 평점 요청 — «오늘 세트를 다 풀었다» 가 WIM 의 성공 순간이다.
+      // 기존엔 설정의 «앱 평가» 버튼뿐이라 사실상 아무도 안 눌렀다(평점 0).
+      markSetFinished();
       // ② interstitial slot — fires here when ads go live (one per set, capped)
       // if (WIM_ADS_LIVE) showWimInterstitial();
     }
-  }, [stopTimer, setDoneShown]);
+  }, [stopTimer, setDoneShown, markSetFinished]);
 
   // ── W3: almanac collect — first proof of a concept (top-tier play answer or a
   // glossary read) mints its card with a downsampled copy of the day's hero spark

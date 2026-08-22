@@ -19,6 +19,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { useParams, useRouter } from 'next/navigation';
 import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
@@ -1132,7 +1133,13 @@ export default function UndercurrentPage() {
   const isFree = (c: Card) => !!hero && c.ticker === hero.ticker; // hero's deep layer is the free taste
   const isOpen = (c: Card) => isFree(c) || deepUnlock || unlocked[c.ticker];
 
-  const openDetail = (c: Card) => { setDetail(c); markRead(c); window.scrollTo(0, 0); };
+  // 평점 요청 — «기사를 연다» 가 UC 의 성공 순간이다.
+  // 기존엔 설정 메뉴의 «앱 평가» 버튼을 직접 눌러야만 시트가 떴다. 아무도 안 누른다.
+  // (2026-08-22 실측: 3앱 평점 전부 0. SIGNUM 만 자동 호출이 있었다)
+  // 전면광고는 시간 간격(3분)으로 제어되므로 회차 충돌 걱정이 없다.
+  const markStoryOpened = useReviewPrompt({ storageKey: 'uc.storyOpens', milestones: [5, 14] });
+
+  const openDetail = (c: Card) => { setDetail(c); markRead(c); markStoryOpened(); window.scrollTo(0, 0); };
   // leaving a story is the ONE acceptable interstitial moment (never mid-read);
   // ads.ts enforces session grace / min gap / daily cap, so this is a no-op most of the time
   const closeDetail = () => { setDetail(null); if (adsAvailable()) maybeShowInterstitial(); };
