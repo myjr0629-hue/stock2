@@ -44,6 +44,22 @@ export function checkInsight(it, scriptSrc) {
     return R;
   }
 
+  // ⛔ race 계급(두 대상 + 시간 누적)은 «희소성 주장» 을 하지 않는다 (2026-08-23).
+  //   아래 p값·백분위·표본 검사는 「이 수치가 통계적으로 드물다」는 주장을 검증하는 장치다.
+  //   race 는 확정된 과거 사실을 나란히 놓을 뿐이라 그런 주장이 없다.
+  //   ⛔ 통과시키려고 p값을 지어 넣는 것은 이 검사가 막으려는 «바로 그 행위» 다.
+  //   그래서 검사를 무르게 하지 않고, 이 계급에 맞는 것을 «대신» 요구한다:
+  //     두 수치가 실제로 있고 · 어디서 계산했고 · 원 출처가 무엇인가.
+  if (it.class === 'race') {
+    ok('인사이트 주장', !!I.claim && I.claim.length >= 8, I.claim || '없음', '한 문장으로 무엇을 알아가는가');
+    ok('자체 계산 출처', !!I.computedBy, I.computedBy || '없음', '어디서 계산했는가');
+    ok('수치', typeof I.value === 'number', I.value ?? '없음', '숫자여야 한다');
+    ok('비교 대상', typeof I.baseline === 'number', I.baseline ?? '없음', '나란히 놓은 반대편 숫자');
+    ok('원 출처', !!I.source, I.source || '없음',
+      '가격 출처를 명시한다 (예: FMP 분할조정 종가). 화면에 나가는 숫자다');
+    return R;
+  }
+
   ok('인사이트 주장', !!I.claim && I.claim.length >= 8, I.claim || '없음', '한 문장으로 무엇을 알아가는가');
 
   // ① 우리가 계산한 수치인가

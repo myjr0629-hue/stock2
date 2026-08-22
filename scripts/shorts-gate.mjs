@@ -59,6 +59,24 @@ const SPEC_BY_CLASS = {
   //     자막 위치·첫컷·빈화면·라우드니스 = 계급 무관 (플랫폼 UI·우리 채널 신호)
   //     길이·컷/분·밝기 = 넓게 둔다. 근거가 생기면 좁힌다.
   ad:      { secRange: [15, 31], cutsPerMin: [5, 30], brightMin: 70, capTopPct: [66, 84] },
+
+  // ⛔ race 계급 — 「두 대상 + 시간 누적」. 2026-08-23 신설.
+  //   기존 계급의 규격이 이 포맷을 «전부» 불통과시켰다. 규격이 틀린 것이지 영상이 틀린 게 아니다.
+  //   근거: 폭발작 7편을 직접 내려받아 프레임·오디오 단위로 실측한 값이다.
+  //     길이   Finvesto 5.7 · Rolex 8.2 · LifeInFocus 13.1 · Jeremy 15.1
+  //            AssetVsTime 20.1 · ValueSignals 24.3 · Wealthrive 29.3
+  //     컷/분  Jeremy 0 · Rolex 0 · AssetVsTime 0 · Finvesto 0 · ValueSignals 2.5
+  //            LifeInFocus 4.6 · Wealthrive 10.2      ← 기존 하한 8 은 이 포맷을 죽인다
+  //     밝기   AssetVsTime 22.1 · Wealthrive 40.5 · ValueSignals 47.4 · LifeInFocus 50.0
+  //            Finvesto 85.8 · Rolex 116.9 · Jeremy 131.2   ← 기존 하한 72 는 4편을 떨어뜨린다
+  //     LUFS   LifeInFocus -5.8 · AssetVsTime -7.1 · Rolex -13.2 · Finvesto -14.9
+  //            ValueSignals -16.5 · Wealthrive -22.1 · Jeremy -22.6
+  //   ⛔ 자막띠·첫컷 검사는 이 계급에 «해당 사항이 없다» — 자막띠가 없고 컷이 없는 포맷이다.
+  //     검사를 무르게 한 게 아니라, 그 항목이 측정 대상이 아니다.
+  race: {
+    secRange: [5, 34], cutsPerMin: [0, 12], brightMin: 20, capTopPct: null,
+    lufs: [-24, -5], firstCutSec: null, tagCount: [0, 90], hashtags: [1, 8],
+  },
 };
 const SPEC = {
   capTopPct: [66, 82],      // 자막띠 상단 — DTW 실사 76~80%. 여유 포함
@@ -214,10 +232,14 @@ function checkVideo(file, thumb, cls = 'concept', lang = 'en') {
   ok('해상도 1080x1920', m.w === 1080 && m.h === 1920, `${m.w}x${m.h}`, '1080x1920');
   ok('길이', m.sec >= S.secRange[0] && m.sec < S.secRange[1], `${m.sec}s`, `${S.secRange[0]}~${S.secRange[1]}s`);
   ok('평균 밝기', m.bright >= S.brightMin, m.bright, `>= ${S.brightMin}`);
-  ok('라우드니스', m.lufs >= SPEC.lufs[0] && m.lufs <= SPEC.lufs[1], `${m.lufs} LUFS`, `${SPEC.lufs[0]}~${SPEC.lufs[1]}`);
+  ok('라우드니스', m.lufs >= S.lufs[0] && m.lufs <= S.lufs[1], `${m.lufs} LUFS`, `${S.lufs[0]}~${S.lufs[1]}`);
   ok('컷/분', m.cutsPerMin >= S.cutsPerMin[0] && m.cutsPerMin <= S.cutsPerMin[1], m.cutsPerMin, `${S.cutsPerMin[0]}~${S.cutsPerMin[1]}`);
-  ok('첫 컷 시각', m.firstCutSec !== null && m.firstCutSec <= SPEC.firstCutSec, m.firstCutSec === null ? '컷 없음' : `${m.firstCutSec}s`, `<= ${SPEC.firstCutSec}s`);
-  ok('자막띠 위치', m.capTopPct !== null && m.capTopPct >= S.capTopPct[0] && m.capTopPct <= S.capTopPct[1],
+  // firstCutSec 이 null 인 계급은 «컷이 없는 것이 정상» 이다 (race). 검사하지 않는다.
+  if (S.firstCutSec === null) R.push({ name: '첫 컷 시각', pass: true, got: m.firstCutSec === null ? '컷 없음 (정상)' : `${m.firstCutSec}s`, want: '' });
+  else ok('첫 컷 시각', m.firstCutSec !== null && m.firstCutSec <= S.firstCutSec, m.firstCutSec === null ? '컷 없음' : `${m.firstCutSec}s`, `<= ${S.firstCutSec}s`);
+  // capTopPct 가 null 인 계급은 «자막띠가 없는 포맷» 이다 (race). 검사 대상이 아니다.
+  if (S.capTopPct === null) R.push({ name: '자막띠 위치', pass: true, got: '해당 없음 (자막띠 없는 포맷)', want: '' });
+  else ok('자막띠 위치', m.capTopPct !== null && m.capTopPct >= S.capTopPct[0] && m.capTopPct <= S.capTopPct[1],
     m.capTopPct === null ? '검출 안 됨' : `${m.capTopPct}~${m.capBotPct}%`, `상단 ${S.capTopPct[0]}~${S.capTopPct[1]}%`);
   ok('빈 화면 구간', m.emptySec <= SPEC.emptyMaxSec,
     m.emptySec > 0 ? `${m.emptySec}초 @ ${m.emptyAt}s` : '없음',
@@ -228,6 +250,9 @@ function checkVideo(file, thumb, cls = 'concept', lang = 'en') {
 }
 
 function checkMeta(it) {
+  // ⛔ 계급별 기준을 메타 검사에도 적용한다 (태그·해시태그).
+  //   race 계급은 폭발작 실측이 태그 중앙 0개라서 concept 기준(8~90)으로는 통과가 불가능하다.
+  const S = { ...SPEC, ...(SPEC_BY_CLASS[it.class || 'concept'] || SPEC_BY_CLASS.concept) };
   const T = it.title || '', D = it.description || '', G = it.tags || [];
   // 제목 «형식 + 수요» — 실측 규칙 (scripts/title-check.mjs)
   const LANG = String(it.lang || 'en').toLowerCase();
@@ -244,10 +269,10 @@ function checkMeta(it) {
   ok('앱 주소 (첫 줄)', /signumhq\.com/i.test(head),
     /signumhq\.com/i.test(head) ? '첫 줄에 있음' : (/signumhq\.com/i.test(D) ? '본문에만 있음 — 잘려서 안 보인다' : '없음'),
     '설명 앞 120자 안에 필수');
-  ok('태그 개수', G.length >= SPEC.tagCount[0] && G.length <= SPEC.tagCount[1], G.length, `${SPEC.tagCount[0]}~${SPEC.tagCount[1]}`);
+  ok('태그 개수', G.length >= S.tagCount[0] && G.length <= S.tagCount[1], G.length, `${S.tagCount[0]}~${S.tagCount[1]}`);
   ok('설명 길이', D.length <= SPEC.descMax, `${D.length}자`, `<= ${SPEC.descMax} (조회수와 무관 — 짧게)`);
   const ht = (D.match(/#\S+/g) || []).length;
-  ok('해시태그', ht >= SPEC.hashtags[0] && ht <= SPEC.hashtags[1], ht, `${SPEC.hashtags[0]}~${SPEC.hashtags[1]}`);
+  ok('해시태그', ht >= S.hashtags[0] && ht <= S.hashtags[1], ht, `${S.hashtags[0]}~${S.hashtags[1]}`);
   // ⛔ 2026-08-21 완화. 근거가 «효과 없음(|r|<=0.06)» 인데 그걸 «금지»로 바꿔놨었다.
   //   효과가 없다는 건 «막을 이유도 없다»는 뜻이다. 대표 예시 제목은 물음표를 쓴다.
   //   이모지만 막는다 — 이건 브랜드 결정이지 실측이 아니다.
@@ -299,7 +324,12 @@ for (const it of items) {
       a.error ? '검사 실패' : (a.dropped.length ? `${a.dropped.length}개 사라짐: ${a.dropped.map((d) => d.say).join(' / ')}` : `${a.kept}/${a.total}비트 · ${a.cutSec}s`),
       '대본에 쓴 비트가 영상에 전부 있어야 한다');
   } else if (arg.endsWith('.json')) {
-    R.push({ name: '대본 태그', pass: false, got: '없음', want: 'plan 에 scriptTag 를 넣어야 대본을 잰다' });
+    // ⛔ race 계급은 «나레이션 대본이 없는» 포맷이다 (2026-08-23).
+    //   레퍼런스 7편 중 나레이션이 있는 것은 0편이었다 — 원본 소리이거나 음악뿐이다.
+    //   없는 대본을 요구하면 지어내게 된다. 있어야 할 것은 대본이 아니라 «출처» 이고,
+    //   그건 위의 실증 근거·원 출처 항목이 이미 잡는다.
+    if (it.class === 'race') R.push({ name: '대본 태그', pass: true, got: '해당 없음 (나레이션 없는 포맷)', want: '' });
+    else R.push({ name: '대본 태그', pass: false, got: '없음', want: 'plan 에 scriptTag 를 넣어야 대본을 잰다' });
   }
   const m = checkVideo(it.file, it.thumb, it.class || 'concept', it.lang || 'en');
   if (arg.endsWith('.json')) checkMeta(it);

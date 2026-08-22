@@ -54,10 +54,24 @@ export function checkTitle(title, lang = 'en') {
   }
   // 검색 겨냥(개념편)과 피드 겨냥(당일 뉴스)은 규칙이 다르다.
   // 당일 뉴스는 검색 수요가 «휘발»이라 수요 앵커를 강제하면 제목이 어색해진다.
-  const feedFrame = wh;
+  // ⛔ 2026-08-23 교체. 「Why/How 시작」만 피드 프레임으로 인정하던 규칙은 «실측으로 무효»다.
+  //   Why : 우리 25편 z=2.74 → 나이 교란이었고, 라이벌 2,068편 z=-0.47, 신규채널 20,691편 z=0.91
+  //   How : 신규채널 20,691편 z=-1.60
+  //   대신 같은 표본에서 «유의하게» 나온 장치들을 피드 프레임으로 인정한다:
+  //     랭킹 1.38배 z=5.14 · 시간경과 1.38배 z=3.52 · 유명인 1.25배 z=9.52
+  //     대결(vs) 1.06배 z=2.76 · 유명 브랜드 1.09배 z=2.56 · 금액 1.08배 z=2.39
+  //   ⛔ 검색 수요 어휘는 그대로 둔다 — 이건 검색 유입용이고 위는 피드 유입용이다.
+  const MEASURED_FRAME =
+    /(top\s*\d+|ranked|ranking|#\s?[1-9]|best\s+\d+|worst\s+\d+)/i.test(t) ||
+    /(\d+\s*years?\s*(ago|later)|over\s*\d+\s*years?|in\s*\d+\s*years?|decade)/i.test(t) ||
+    /vs\.?|versus|then\s*(vs|and)\s*now/i.test(t) ||
+    /(elon|musk|bezos|jobs|buffett|gates|cuban|zuckerberg|jensen|huang|altman)/i.test(t) ||
+    /(nvidia|nvda|intel|intc|apple|aapl|tesla|tsla|amd|micron|microsoft|msft|amazon|google|meta|broadcom|palantir)/i.test(t) ||
+    /(\$[\d,]+|\d+\s*(million|billion|trillion))/i.test(t);
+  const feedFrame = wh || MEASURED_FRAME;
   add('수요 앵커 또는 피드 프레임', (!!best && best.vol >= 800) || feedFrame,
     best && best.vol >= 800 ? `"${best.term}" 수요 ${best.vol.toLocaleString()}`
-      : feedFrame ? '피드 프레임(Why/How)' : '없음',
+      : wh ? '피드 프레임(Why/How)' : MEASURED_FRAME ? '피드 프레임(실측 장치: 랭킹/시간경과/vs/유명명/금액)' : '없음',
     '수요 800+ 문구 또는 Why/How 시작');
   if (best && best.vol >= 800) add('수요 문구 위치', best.pos <= 34, `${best.pos}번째 글자`, '앞쪽 34자 이내');
 

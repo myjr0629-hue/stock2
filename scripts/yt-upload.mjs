@@ -69,15 +69,24 @@ async function upload(tok, item) {
       title: item.title,
       description: item.description,
       tags: item.tags || [],
-      categoryId: '25',                    // News & Politics — 금융 시황 채널 기준
+      // ⛔ 기본 25(News & Politics). 항목에서 덮어쓸 수 있다.
+      //   실측 2026-08-23 : 영어권 신규채널 폭발작 532편의 카테고리는
+      //   22 People&Blogs 48.7% · 27 Education 38.5% · 25 News&Politics 4.1% 였다.
+      //   (대조군 1,692편은 51.8% / 32.2% / 6.2%) — 25 는 이 바닥의 표준이 아니다.
+      //   다만 「25 라서 안 된다」는 증거는 약하다. A/B 로만 바꾼다.
+      categoryId: String(item.categoryId || '25'),
       defaultLanguage: LANG,
       defaultAudioLanguage: LANG,
     },
     // ⛔ private 은 «대표 본인만» 볼 수 있다 — 링크를 줘도 남이 못 연다.
     //    홍보 링크로 쓰려면 unlisted(일부공개). 검색·피드에는 안 뜨고 링크로만 열린다.
     status: {
-      privacyStatus: item.privacy === 'unlisted' ? 'unlisted' : 'private',
-      ...(item.privacy === 'unlisted' ? {} : { publishAt: kstToUtc(item.publishAtKST) }),
+      // ⛔ 기본은 private+예약이다 (개시는 대표 몫). 'public' 은 대표가 «명시적으로»
+      //   지시한 테스트 업로드에만 쓴다 — 2026-08-23 "이것 그냥 테스트로 공개로 올려봐".
+      privacyStatus: item.privacy === 'public' ? 'public'
+        : item.privacy === 'unlisted' ? 'unlisted' : 'private',
+      ...(item.privacy === 'public' || item.privacy === 'unlisted'
+        ? {} : { publishAt: kstToUtc(item.publishAtKST) }),
       selfDeclaredMadeForKids: false,
       license: 'youtube',
       embeddable: true,
@@ -152,11 +161,18 @@ function validate(it, i) {
   const FREE_WORD = LANG === 'ja' ? /(無料|むりょう)/ : /\bfree\b/i;
   if (!FREE_WORD.test(it.title || '') && !FREE_WORD.test(it.description || ''))
     e.push(`제목·설명 어디에도 ${LANG === 'ja' ? '「無料」' : 'FREE'} 가 없다`);
-  if (it.privacy !== 'unlisted') {
+  // ⛔ 예약 검사는 «예약이 있는 건» 에만 돈다.
+  //   public/unlisted 는 예약 없이 바로 게시되므로 publishAtKST 가 없다.
+  //   (이 가드가 없으면 String(undefined).match(...) 로 죽는다)
+  if (it.privacy !== 'unlisted' && it.privacy !== 'public') {
     if (!it.publishAtKST) e.push('publishAtKST 없음');
     else {
-      const h = +String(it.publishAtKST).match(/[ T](\d{2}):/)[1];
-      if (h >= 22 || h < 1) e.push(`게시 ${h}시 KST — 실측상 최악 구간(d-0.15, n=578)`);
+      const m = String(it.publishAtKST).match(/[ T](\d{2}):/);
+      if (!m) e.push(`publishAtKST 형식 오류: ${it.publishAtKST}`);
+      else {
+        const h = +m[1];
+        if (h >= 22 || h < 1) e.push(`게시 ${h}시 KST — 실측상 최악 구간(d-0.15, n=578)`);
+      }
     }
   }
   if (it.pinnedComment && !/signumhq\.com/i.test(it.pinnedComment)) e.push('고정 댓글에 앱 주소가 없다');
@@ -173,13 +189,17 @@ items.forEach((it, i) => {
   const e = validate(it, i);
   console.log(`  [${i + 1}] ${it.title}`);
   console.log(`      ${it.file}`);
-  console.log(`      ${it.privacy === 'unlisted' ? '일부공개(unlisted) — 링크로만 열림 · 예약 없음' : `게시예약 KST ${it.publishAtKST}`}`);
+  console.log(`      ${
+    it.privacy === 'public' ? '⚠ 즉시 «공개» — 올리는 순간 전 세계에 보인다 (대표 명시 지시분만)'
+    : it.privacy === 'unlisted' ? '일부공개(unlisted) — 링크로만 열림 · 예약 없음'
+    : `게시예약 KST ${it.publishAtKST}`}`);
   if (e.length) { bad++; e.forEach((x) => console.log(`      ✗ ${x}`)); }
   else console.log('      ✔ 규약 통과');
 });
 if (bad) { console.log(`\n  ${bad}건 위반 — 업로드하지 않는다\n`); process.exit(1); }
-if (DRY) { console.log('\n  검증만 수행했다. 실제 업로드는 --dry 없이 실행\n'); process.exit(0); }
-
+// ⛔ 게이트는 --dry 에서도 «반드시» 돌다 (2026-08-23 수정).
+//   전에는 DRY 가 이 앞에서 종료해서, --dry 가 통과라고 말해놓고 실제 실행은
+//   20건 위반으로 막혔다. 「검증만」이 핵심 검사를 건너뛰면 그건 검증이 아니다.
 // ⛔ 정본 규격 게이트 — 사람 기억에 맡기지 않는다 (2026-08-20 대표 지적)
 //   "조사보고에서 끝낸것이 아니라" — 실제로 개념편에만 적용하고 브리핑은 감사하지 않았다.
 //   이제 업로드 경로에서 «영상 파일을 직접 재서» 위반이면 여기서 멈춘다.
@@ -187,6 +207,9 @@ if (DRY) { console.log('\n  검증만 수행했다. 실제 업로드는 --dry �
   const g = spawnSync(process.execPath, ['scripts/shorts-gate.mjs', PLAN], { stdio: 'inherit' });
   if (g.status !== 0) { console.error('  shorts-gate 불통과 — 업로드를 중단한다'); process.exit(1); }
 }
+
+if (DRY) { console.log('\n  검증만 수행했다 (게이트 포함). 실제 업로드는 --dry 없이 실행\n'); process.exit(0); }
+
 
 const { access_token, scope } = await accessToken();
 console.log(`\n  스코프: ${scope}`);
@@ -206,11 +229,16 @@ for (const it of items) {
   done.push({ ...it, id: v.id, url });
 }
 
-const log = `\n## ${items[0].publishAtKST.slice(0, 10)} 업로드 (비공개+예약)\n\n` +
-  done.map((d) => `- [${d.title}](${d.url}) — 예약 KST ${d.publishAtKST} · \`${d.id}\``).join('\n') + '\n';
+// ⛔ public/unlisted 는 publishAtKST 가 없다 — 예약 전제로 쓴 이 줄이 업로드 성공 «뒤에» 죽었다
+//   (2026-08-23, wfO7CbK8-xQ). 영상은 올라갔는데 기록이 안 남는 게 더 나쁘다.
+const today = new Date().toISOString().slice(0, 10);
+const mode = items[0].privacy === 'public' ? '즉시 공개'
+  : items[0].privacy === 'unlisted' ? '일부공개' : '비공개+예약';
+const log = `\n## ${(items[0].publishAtKST || today).slice(0, 10)} 업로드 (${mode})\n\n` +
+  done.map((d) => `- [${d.title}](${d.url}) — ${d.publishAtKST ? `예약 KST ${d.publishAtKST}` : mode} · \`${d.id}\``).join('\n') + '\n';
 appendFileSync('.agent/PUBLISH_LOG.md', log);
 console.log(`\n  ${done.length}건 완료 → .agent/PUBLISH_LOG.md 기록`);
-console.log('  ⚠ 전부 «비공개+예약» 상태다. 개시는 스튜디오에서 대표가 한다.');
+console.log(mode === '즉시 공개' ? '  ⚠ «즉시 공개» 로 올렸다 — 이미 전 세계에 보인다.' : '  ⚠ 전부 «비공개+예약» 상태다. 개시는 스튜디오에서 대표가 한다.');
 console.log('  ⚠ 사람이 해야 하는 일 2가지 (API 없음):');
 console.log('     1) 고정 댓글의 「고정」 버튼');
 console.log('     2) Studio > 세부정보 > 썸네일 에 <이름>_thumb.jpg 업로드');

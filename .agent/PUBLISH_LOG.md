@@ -312,3 +312,8 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-22 업로드 (비공개+예약)
 
 - [S&P500が静かな理由、中では二つに割れている](https://youtube.com/shorts/AOag_nNivx0) — 예약 KST 2026-08-22 21:30 · `AOag_nNivx0`
+
+## 2026-08-23 업로드 (즉시 공개)
+
+- [Chip Stocks: $10,000 in NVIDIA vs Intel, 10 Years Later](https://youtube.com/shorts/wfO7CbK8-xQ) — 즉시 공개 · `wfO7CbK8-xQ`
+  - race 계급 첫 편 · 카테고리 27 · 태그 0개 (전부 A/B 테스트 항목)

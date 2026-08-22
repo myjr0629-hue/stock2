@@ -67,7 +67,7 @@ export const Race: React.FC<RaceProps> = ({
   const t = frame / RACE_FPS;
 
   // ── 진행도 : 0 → rows.length-1 (연속값이라 기둥이 «부드럽게» 자란다) ──────
-  const lead = 0.6;                                  // 시작 전 숨 고르기
+  const lead = 0.45;                                 // 시작 전 숨 고르기 (짧게)
   const prog = Math.max(0, Math.min(rows.length - 1, (t - lead) / stepSec));
   const idx = Math.floor(prog);
   const frac = prog - idx;
@@ -82,10 +82,15 @@ export const Race: React.FC<RaceProps> = ({
   //   ⛔ 선형 축으로 처음 렌더했더니 NVDA 기둥이 15초 내내 천장에 붙어 «안 자라 보였다».
   //     55.9배 격차에서는 선두가 항상 최대값이라 선형으로는 움직임이 안 생긴다.
   //     Jeremy·Rolex 는 «사람 키» 라 축이 없고 둘 다 조금씩 자란다 — 그 느낌을 로그로 낸다.
-  const BASE = 10000;
+  // ⛔ 로그 바닥을 «시작 금액의 1/10» 로 잡는다.
+  //   0.55배로 잡았더니 첫 해(둘 다 $10,000)에서 기둥이 화면 바닥에 붙어,
+  //   shorts-gate 가 「빈 화면 1.9초 @ 0s」로 잡았다. 그 지적이 옳다 —
+  //   Jeremy·Rolex 는 첫 프레임부터 두 사람이 «같은 키로 이미 서 있다».
+  //   바닥을 1/10 로 내리면 시작점이 한 자릿수만큼 올라와 처음부터 보인다.
+  const FLOOR_V = rows[0].a / 10;
   const topV = Math.max(...rows.map((r) => Math.max(r.a, r.b)));
-  const lg = (v: number) => Math.log10(Math.max(v, BASE * 0.55) / (BASE * 0.55));
-  const lgTop = lg(topV) * 1.04;
+  const lg = (v: number) => Math.log10(Math.max(v, FLOOR_V) / FLOOR_V);
+  const lgTop = lg(topV) * 1.06;
   const norm = (v: number) => lg(v) / lgTop;
 
   // ── 배치 ────────────────────────────────────────────────────────────────
@@ -112,9 +117,13 @@ export const Race: React.FC<RaceProps> = ({
 
   const hOf = (v: number) => Math.max(10, norm(v) * SPAN);
 
-  // 등장 — 첫 0.5초에만 아주 살짝. 그 뒤로는 «자라는 것» 말고 아무것도 안 움직인다.
-  const intro = interpolate(t, [0, 0.5], [0, 1], {
-    extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.quad),
+  // ⛔ 등장을 «투명도 0 → 1» 로 하지 않는다.
+  //   shorts-gate 가 「빈 화면 1.93초 @ 0s」를 잡았고, 그 지적이 옳다.
+  //   Jeremy·Rolex 는 첫 프레임부터 두 사람이 이미 서 있다 — 비는 순간이 없다.
+  //   그래서 첫 프레임부터 «완전히 보이는 상태» 로 시작하고, 크기만 살짝 튀어오르게 한다.
+  const intro = 1;
+  const pop = interpolate(t, [0, 0.34], [0.86, 1], {
+    extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.back(1.4)),
   });
 
   const Column = (
@@ -123,7 +132,7 @@ export const Race: React.FC<RaceProps> = ({
     val: number,
     cx: number,
   ) => {
-    const bh = hOf(val);
+    const bh = hOf(val) * pop;
     return (
       <>
         {/* 기둥 — 이 영상에서 «움직이는 유일한 것» */}

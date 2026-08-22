@@ -1,0 +1,30 @@
+[
+  {
+    "file": "out/race-RaceNvdaIntc.mp4",
+    "privacy": "public",
+    "categoryId": "27",
+    "title": "Chip Stocks: $10,000 in NVIDIA vs Intel, 10 Years Later #stocks #investing",
+    "description": "Free market intel: https://www.signumhq.com/app\n\n$10,000 into NVIDIA in 2016. The same $10,000 into Intel.\n\nTen years later: $1,403,399 and $25,096.\n\nSame industry. Same decade. Two chip companies everyone had heard of.\n\nSplit-adjusted closing prices, August to August.\n\n#stocks #investing #nvidia #intel #semiconductors",
+    "tags": [],
+    "pinnedComment": "Both were chip companies everyone knew in 2016. Which pair should we run next?\n\nFree app: https://www.signumhq.com/app",
+    "class": "race",
+    "thumb": "out/thumbs/race-nvda-intc.jpg",
+    "evidence": [
+      "FMP stable/historical-price-eod: NVDA 2016-08 close vs 2026-08 close (split-adjusted)",
+      "FMP stable/historical-price-eod: INTC 2016-08 close vs 2026-08 close (split-adjusted)",
+      "Computed in scripts/_race-data.mjs, stored at .agent/_race.json (11 annual points)"
+    ],
+    "story": {
+      "event": "Nvidia crossed into the largest-company-on-earth bracket on AI demand while Intel spent the same decade losing its manufacturing lead.",
+      "mechanism": "Both were chip companies a retail investor in 2016 could name. One caught the accelerator cycle, the other missed it, so identical starting money in the same sector ended 55.9x apart.",
+      "anchor": "NVDA $1,403,399 vs INTC $25,096 from the same $10,000"
+    },
+    "insight": {
+      "claim": "The same $10,000, same sector, same decade: NVIDIA returned 55.9x what Intel did.",
+      "computedBy": "scripts/_race-data.mjs — 10,000 x (close_2026 / close_2016), August closes",
+      "value": 1403399,
+      "baseline": 25096,
+      "source": "FMP stable/historical-price-eod/light, split-adjusted closes, 2016-08 to 2026-08"
+    }
+  }
+]
