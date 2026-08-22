@@ -317,3 +317,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 
 - [Chip Stocks: $10,000 in NVIDIA vs Intel, 10 Years Later](https://youtube.com/shorts/wfO7CbK8-xQ) — 즉시 공개 · `wfO7CbK8-xQ`
   - race 계급 첫 편 · 카테고리 27 · 태그 0개 (전부 A/B 테스트 항목)
+
+## 2026-08-22 업로드 (즉시 공개)
+
+- [Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later #stocks #investing](https://youtube.com/shorts/ht1IdXkWY8k) — 즉시 공개 · `ht1IdXkWY8k`

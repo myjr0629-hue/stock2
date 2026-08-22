@@ -1,0 +1,30 @@
+[
+  {
+    "file": "out/race-RaceAmdIntc.mp4",
+    "thumb": "out/thumbs/RaceAmdIntc.jpg",
+    "privacy": "public",
+    "categoryId": "27",
+    "class": "race",
+    "title": "Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later #stocks #investing",
+    "description": "Free market intel: https://www.signumhq.com/app?src=yt_race2\n\n$10,000 into AMD in 2016. The same $10,000 into Intel.\n\nTen years later: $639,527 and $25,096.\n\nBoth make the chips. One of them spent the decade taking the other's customers.\n\nSplit-adjusted closing prices, August to August.\n\n#stocks #investing #amd #intel #semiconductors",
+    "tags": [],
+    "pinnedComment": "AMD and Intel sold to the same customers in 2016. Which pair should we run next?\n\nFree app: https://www.signumhq.com/app?src=yt_race2c",
+    "evidence": [
+      "FMP stable/historical-price-eod: AMD 2016-08 close vs 2026-08 close (split-adjusted)",
+      "FMP stable/historical-price-eod: INTC 2016-08 close vs 2026-08 close (split-adjusted)",
+      "Computed in scripts/_race-data.mjs, stored at .agent/_race.json (11 annual points)"
+    ],
+    "story": {
+      "event": "AMD went from a near-bankrupt second source to outselling Intel in server CPUs over the same decade.",
+      "mechanism": "Both companies sold x86 chips to the same buyers in 2016, so identical starting money in the same product category ended 25.5x apart purely on execution.",
+      "anchor": "AMD $639,527 vs INTC $25,096 from the same $10,000"
+    },
+    "insight": {
+      "claim": "The same $10,000 in the same product category: AMD returned 25.5x what Intel did.",
+      "computedBy": "scripts/_race-data.mjs - 10,000 x (close_2026 / close_2016), August closes",
+      "value": 639527,
+      "baseline": 25096,
+      "source": "FMP stable/historical-price-eod/light, split-adjusted closes, 2016-08 to 2026-08"
+    }
+  }
+]
