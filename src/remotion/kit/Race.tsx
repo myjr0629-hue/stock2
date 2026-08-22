@@ -229,7 +229,7 @@ export const Race: React.FC<RaceProps> = ({
         fontWeight: 700, fontSize: 34, color: 'rgba(255,255,255,.46)',
       }}>{seed} invested in {rows[0].y}</div>
 
-      {music ? <Audio src={staticFile(music)} volume={0.34} /> : null}
+      {music ? <Audio src={staticFile(music)} volume={0.82} /> : null}
     </AbsoluteFill>
   );
 };
