@@ -197,6 +197,25 @@ items.forEach((it, i) => {
   else console.log('      ✔ 규약 통과');
 });
 if (bad) { console.log(`\n  ${bad}건 위반 — 업로드하지 않는다\n`); process.exit(1); }
+// ⛔ 직전 편이 «아직 달리는지» 먼저 본다 (2026-08-23 신설).
+//   테스트1 이 30분째 2차 파동으로 오르는 중에 테스트2 를 올렸고,
+//   테스트1 은 그 순간 280회에서 멈췄다. 유튜브는 «가장 최신 쇼츠» 에 배포를 몰아준다.
+//   이 결론(z=3.02)을 직접 재서 보고해놓고 30분 뒤에 어겼다.
+//   ⇒ 기억·판단에 맡기지 않고 업로드 경로에서 막는다.
+//   ⚠ 이 검사를 건너뛰려면 --force-interval 을 «명시» 해야 한다.
+{
+  if (process.argv.includes('--force-interval')) {
+    console.warn('  ⚠ --force-interval — 직전 편 검사를 건너뛴다. 직전 편이 잘릴 수 있다.');
+  } else {
+    const q = spawnSync(process.execPath, ['scripts/_prev-still-running.mjs'], { stdio: 'inherit' });
+    if (q.status !== 0) {
+      console.error('  직전 편이 아직 달린다 — 업로드를 중단한다.');
+      console.error('  기울기가 30분 이상 0 이 된 뒤에 다시 실행한다.');
+      process.exit(1);
+    }
+  }
+}
+
 // ⛔ 게이트는 --dry 에서도 «반드시» 돌다 (2026-08-23 수정).
 //   전에는 DRY 가 이 앞에서 종료해서, --dry 가 통과라고 말해놓고 실제 실행은
 //   20건 위반으로 막혔다. 「검증만」이 핵심 검사를 건너뛰면 그건 검증이 아니다.
