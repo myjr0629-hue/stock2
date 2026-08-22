@@ -28,6 +28,9 @@ export default function robots(): MetadataRoute.Robots {
         //   판정 기준: 자체 metadata 유무 = 공개 의도 유무.
         //   `/radar` 는 자체 metadata 가 있는 «의도적 공개 페이지»라 제외하지 않는다.
         '/dashboard', '/*/dashboard',
+        // '/intel' 은 접두사 매칭이라 '/intel-guardian' 도 함께 막힌다.
+        // Bing Site Scan(2026-08-22)이 H1 누락으로 잡아낸 4페이지 중 하나였고,
+        // 자체 metadata 가 없어 역시 홈 제목을 물려받는 앱 셸이다.
         '/intel', '/*/intel',
         '/quant-radar', '/*/quant-radar',
         '/watchlist', '/*/watchlist',
