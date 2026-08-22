@@ -75,9 +75,12 @@ public/shorts/bg/.raw/
 # 렌더는 로컬에서 도므로 없어도 파이프라인은 돈다.
 public/shorts/bg/**/*.mp4
 
+
 # 레퍼런스 원본·중간 산출물 — 커밋하지 않는다 (2026-08-21)
 # 남의 영상 파일이고 용량이 크다. 측정 «결과»(REF_FLEET.json 등)만 남긴다.
 .agent/_fleet_cache/
 .agent/_script_cache/
 .agent/_meta_cache/
 .agent/_voicetmp/
+.agent/_vf0/
+dist/

@@ -10,18 +10,24 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { IAP_LIVE } from '@/config/iap';
+import { IAP_LIVE, type PlanId } from '@/config/iap';
 import {
   initRevenueCat,
   isProFromCustomerInfo,
   purchasePro,
   restorePro,
+  getProOffers,
   type PurchaseOutcome,
+  type PlanOffer,
 } from '@/services/revenueCat';
 
 export function useProStatus() {
   const [isPro, setIsPro] = useState(false);
   const [ready, setReady] = useState(!IAP_LIVE);
+  /** 페이월에 그릴 플랜들. 가격 문자열은 «스토어가 준 현지화 값»이다 —
+      우리가 "$9.99" 를 하드코딩하면 통화·세금이 다른 나라에서 거짓말이 되고,
+      스토어 심사(가격 표시 의무)에서도 걸린다. */
+  const [offers, setOffers] = useState<PlanOffer[]>([]);
 
   useEffect(() => {
     if (!IAP_LIVE) return;
@@ -47,6 +53,12 @@ export function useProStatus() {
       } catch {
         // leave isPro false
       }
+      try {
+        const list = await getProOffers();
+        if (!cancelled) setOffers(list);
+      } catch {
+        // 오퍼링을 못 받으면 페이월이 «구매 불가» 상태로 그려진다 (가격 거짓말 금지)
+      }
       if (!cancelled) setReady(true);
       listenerId = await Purchases.addCustomerInfoUpdateListener((info) => apply(info));
     })();
@@ -63,8 +75,8 @@ export function useProStatus() {
     };
   }, []);
 
-  const purchase = useCallback(async (): Promise<PurchaseOutcome> => {
-    const result = await purchasePro();
+  const purchase = useCallback(async (plan: PlanId = 'monthly'): Promise<PurchaseOutcome> => {
+    const result = await purchasePro(plan);
     if (result.ok && result.isPro) setIsPro(true);
     return result;
   }, []);
@@ -75,5 +87,5 @@ export function useProStatus() {
     return result;
   }, []);
 
-  return { isPro, ready, purchase, restore };
+  return { isPro, ready, offers, purchase, restore };
 }

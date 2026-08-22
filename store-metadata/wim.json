@@ -1,0 +1,59 @@
+{
+ "appId": "6794356135",
+ "slug": "wim",
+ "bundleId": "com.signumhq.wim",
+ "name": "Why'd It Move?: Stock Quiz",
+ "primaryLocale": "en-US",
+ "contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT",
+ "localizations": {
+  "ko": {
+   "name": "Why'd It Move? 미국주식 퀴즈",
+   "subtitle": "차트·뉴스로 배우는 실전 투자·경제 공부",
+   "privacyPolicyUrl": "https://www.signumhq.com/ko/wim/privacy"
+  },
+  "ja": {
+   "name": "Why'd It Move? 米国株クイズ",
+   "subtitle": "毎日3分、チャートとニュースで学ぶ投資と経済",
+   "privacyPolicyUrl": "https://www.signumhq.com/ja/wim/privacy"
+  },
+  "en-US": {
+   "name": "Why'd It Move?: Stock Quiz",
+   "subtitle": "Learn investing, charts & news",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/wim/privacy"
+  }
+ },
+ "versionLocalizations": {
+  "1.0 (READY_FOR_SALE)": {
+   "ko": {
+    "keywords": "주식,주식공부,투자공부,서학개미,재테크,나스닥,초보,주린이,증시,금융,종목,시황,실적,수급,매매,해외주식,트레이딩,금리,연준,반도체,주식앱,학습,입문,공시,분석,미장,강의,게임",
+    "keywordsLen": 98,
+    "keywordsRoom": 2,
+    "promotionalText": "오늘 가장 크게 움직인 미국주식, 왜 움직였을까요? 하루 3분 4지선다로 배우고, 정답 뒤에서 기관급 데이터를 확인하세요. 무료입니다.",
+    "description": "미국주식, 오늘 실제로 있었던 일로 배웁니다.\n\n매일 밤 미국 시장이 직접 문제를 냅니다. 오늘 크게 움직인 종목의 진짜 차트를 펼쳐놓고, 딱 하나만 묻습니다 — 왜 움직였을까?\n\n■ 왜 이렇게 배우나요\n대부분의 투자 앱은 몇 년 전에 만들어둔 예시로 가르칩니다. 여기서는 오늘의 시세가 교재입니다. 뉴스에서 방금 본 종목을 직접 수사하고, 원인을 찍어보고, 기관과 섹터와 연준이 실제로 무엇을 했는지 확인합니다. 하루 3분이면 됩니다.\n\n■ 이런 걸 합니다\n- 오늘 실제로 움직인 종목이 그대로 문제로 — 만들어낸 예시가 아닌 당일 실데이터\n- 4지선다 원인 수사: 기관 수급 · 섹터 로테이션 · 동종업계 파장 · 거시 변수\n- 정답 뒤엔 근거 기사와 기관급 데이터가 한 층 더 (다크풀 비중, 옵션 구조)\n- ",
+    "whatsNew": "",
+    "marketingUrl": "https://www.signumhq.com/ko/wim",
+    "supportUrl": "https://www.signumhq.com/ko/wim/support"
+   },
+   "ja": {
+    "keywords": "株,株式,新NISA,ナスダック,初心者,決算,金利,資産運用,株価,銘柄,相場,マーケット,金融,勉強,入門,学習,米株,半導体,FRB,ゲーム,トレード,取引,分析,講座,習慣,経済指標",
+    "keywordsLen": 95,
+    "keywordsRoom": 5,
+    "promotionalText": "今日いちばん動いた米国株、その理由は？1日3分の4択で学び、解説の先で機関級データを確認。無料です。",
+    "description": "米国株を、今日実際に起きたことで学ぶ。\n\n毎晩、市場そのものがあなたの教材を作ります。今日大きく動いた銘柄の本物のチャートを開き、たったひとつだけ問いかけます — なぜ動いたのか？\n\n■ なぜこの学び方なのか\n多くの投資アプリは、何年も前に作られた例で教えます。ここでは今日の値動きが教科書です。ニュースでさっき見た銘柄を自分で捜査し、原因を推理し、機関投資家やセクター、FRBが実際に何をしたのかを確かめる。1日3分で終わります。\n\n■ できること\n- 今日実際に動いた銘柄がそのまま問題に — 作り物の例ではなく当日の実データ\n- 4択の原因捜査：機関の需給・セクターローテーション・同業への波及・マクロ要因\n- 正解の後には根拠記事と、機関級データをもう一段深く（ダークプール比率、オプション構造）\n- 6つのインタラクティブプレイ：レベルハント、数字感覚、リプレイ、金利ドミノ、ニュース講座、",
+    "whatsNew": "",
+    "marketingUrl": "https://www.signumhq.com/ja/wim",
+    "supportUrl": "https://www.signumhq.com/ja/wim/support"
+   },
+   "en-US": {
+    "keywords": "market,stocks,trading,course,beginner,money,economy,earnings,nasdaq,trivia,ticker,study,game,finance",
+    "keywordsLen": 100,
+    "keywordsRoom": 0,
+    "promotionalText": "Today's biggest US stock move — why did it happen? Learn in 3 minutes a day, then see the institutional data behind the answer. Free.",
+    "description": "Learn the US stock market from what actually happened today.\n\nEvery trading night, the market itself writes your lesson: we take the stocks that really moved, hand you the real chart, and ask one question - why did it move?\n\nWHY THIS WORKS\nMost finance apps teach with made-up examples from years ago. Here, today's tape is the textbook. You investigate a stock you just saw in the headlines, guess t",
+    "whatsNew": "",
+    "marketingUrl": "https://www.signumhq.com/en/wim",
+    "supportUrl": "https://www.signumhq.com/en/wim/support"
+   }
+  }
+ }
+}

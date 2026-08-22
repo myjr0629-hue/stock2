@@ -46,7 +46,7 @@ async function getData(locale: string, ticker: string): Promise<TickerData | nul
 type Strings = {
   kicker: string; sub: (t: string) => string; money: string; read: string; news: string;
   divergence: string; whatT: string; whatB: string; glossT: string; gloss: [string, string][];
-  ctaT: string; ctaUc: string; ctaSg: string; disc: string;
+  ctaT: string; ctaUc: string; ctaSg: string; ctaWim: string; disc: string;
   lbl: Record<string, string>;
 };
 const L: Record<string, Strings> = {
@@ -65,6 +65,7 @@ const L: Record<string, Strings> = {
     ],
     ctaT: 'See it live, free', ctaUc: 'Get Undercurrent — the news behind the money',
     ctaSg: 'Or go deeper with SIGNUM HQ — the pro options terminal',
+    ctaWim: "New to this? Why'd It Move? turns today's move into a 60-second lesson",
     disc: 'Data, scores and interpretations are for information and education only — not investment advice or a buy/sell recommendation. All decisions and outcomes are your own.',
     lbl: { darkPool: 'Dark-pool volume', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
   },
@@ -83,6 +84,7 @@ const L: Record<string, Strings> = {
     ],
     ctaT: '실시간으로 무료로 보기', ctaUc: 'Undercurrent 받기 — 뉴스 뒤의 돈',
     ctaSg: '또는 SIGNUM HQ로 더 깊이 — 프로 옵션 터미널',
+    ctaWim: "처음이라면 — Why'd It Move? 가 오늘의 움직임을 60초 문제로 만들어 줍니다",
     disc: '데이터·점수·해석은 정보·교육용이며 투자자문이나 매수/매도 권유가 아닙니다. 모든 판단과 결과의 책임은 본인에게 있습니다.',
     lbl: { darkPool: '다크풀 비중', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
   },
@@ -101,6 +103,7 @@ const L: Record<string, Strings> = {
     ],
     ctaT: 'リアルタイムで無料で見る', ctaUc: 'Undercurrentを入手 — ニュースの裏側のお金',
     ctaSg: 'またはSIGNUM HQでさらに深く — プロ向けオプション端末',
+    ctaWim: "はじめてなら — Why'd It Move? が今日の値動きを60秒の問題にします",
     disc: 'データ・スコア・解釈は情報・教育目的であり、投資助言や売買推奨ではありません。すべての判断と結果は利用者ご自身の責任です。',
     lbl: { darkPool: 'ダークプール比率', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
   },
@@ -150,6 +153,10 @@ export default async function FlowTickerPage(
   const m = data.money || ({} as Money);
   const cards = (data.cards || []).filter((c) => c.plainTitle);
   const pcr = m.oiPcr ?? m.volumePcr;
+  // JSON-LD 용 (generateMetadata 와 같은 값을 컴포넌트 스코프에서도 쓴다)
+  const base = publicBase();
+  const url = `${base}/${locale}/flow/${ticker}`;
+  const desc = (data.tickerRead || l.sub(ticker)).slice(0, 200);
 
   const metrics: [string, string][] = [];
   if (m.price != null) metrics.push([l.lbl.price, money$(m.price)!]);
@@ -165,9 +172,47 @@ export default async function FlowTickerPage(
   if (m.darkPoolPct != null) faq.push({ q: `What is ${ticker}'s dark-pool activity?`, a: `${ticker}'s dark-pool volume is about ${Math.round(m.darkPoolPct)}%.` });
   if (m.maxPain != null) faq.push({ q: `Where is ${ticker}'s max pain?`, a: `${ticker}'s max pain is around ${money$(m.maxPain)}.` });
   if (m.callWall != null || m.putFloor != null) faq.push({ q: `What are ${ticker}'s option walls?`, a: `${[m.callWall != null ? `call wall ${money$(m.callWall)}` : '', m.putFloor != null ? `put floor ${money$(m.putFloor)}` : ''].filter(Boolean).join(', ')}.` });
-  const jsonLd = faq.length
-    ? { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) }
-    : null;
+  // ⛔ 2026-08-20: 여기는 FAQPage 하나만 내보내고 있었다. 구글은 FAQ 리치결과를
+  //    검색 갤러리에서 사실상 걷어냈으므로(일반 사이트엔 미표시) 노출 기여가 0이다.
+  //    그래서 «지금도 지원되는» 타입으로 갈아끼운다:
+  //      Dataset        — 이 페이지의 본체는 «데이터»다. 구글 데이터셋 검색 대상.
+  //      BreadcrumbList — 검색결과에 경로가 붙어 CTR 이 오른다.
+  //      Organization   — 브랜드 엔티티(sameAs 로 스토어·SNS 를 묶는다)
+  //    FAQ 항목은 LLM 추출용으로 Dataset.description 에 문장으로 남긴다(마크업이 아니라 텍스트).
+  const brand = `${base}/#org`;
+  const jsonLd: Record<string, unknown>[] = [
+    {
+      '@context': 'https://schema.org', '@type': 'Dataset', '@id': `${url}#dataset`,
+      name: `${ticker} options flow, dark pool and max pain`,
+      description: [desc, ...faq.map((f) => `${f.q} ${f.a}`)].join(' ').slice(0, 1200),
+      url,
+      isAccessibleForFree: true,
+      creator: { '@id': brand },
+      variableMeasured: metrics.map(([k]) => k),
+      inLanguage: locale,
+    },
+    {
+      '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Undercurrent', item: `${base}/${locale}/undercurrent` },
+        { '@type': 'ListItem', position: 2, name: ticker, item: url },
+      ],
+    },
+    {
+      '@context': 'https://schema.org', '@type': 'Organization', '@id': brand,
+      name: 'SIGNUM HQ', url: base, logo: `${base}/icons/icon-192x192.png`,
+      sameAs: [
+        'https://x.com/signumhq',
+        'https://x.com/signumhq_jp',
+        'https://apps.apple.com/app/id6783130444',
+        'https://apps.apple.com/app/id6788779895',
+        'https://apps.apple.com/app/id6794356135',
+        'https://play.google.com/store/apps/details?id=com.signumhq.app',
+        'https://play.google.com/store/apps/details?id=com.signumhq.undercurrent',
+        'https://play.google.com/store/apps/details?id=com.signumhq.wim',
+      ],
+    },
+  ];
 
   const S = {
     wrap: { maxWidth: 720, margin: '0 auto', padding: '32px 20px 64px', fontFamily: 'Pretendard, system-ui, sans-serif', color: '#17191E', lineHeight: 1.6 } as const,
@@ -190,7 +235,7 @@ export default async function FlowTickerPage(
 
   return (
     <main style={S.wrap}>
-      {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
+      {jsonLd.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
 
       <div style={S.kicker}>Undercurrent · {l.kicker}</div>
       <h1 style={S.h1}>{ticker} — {l.money}</h1>
@@ -231,6 +276,10 @@ export default async function FlowTickerPage(
         <div style={{ fontSize: 16, fontWeight: 900, textAlign: 'center', marginBottom: 10 }}>{l.ctaT}</div>
         <a href="https://www.signumhq.com/app-uc?from=seo" style={S.cta} rel="noopener">{l.ctaUc} →</a>
         <a href="https://www.signumhq.com/app?from=seo" style={S.cta2} rel="noopener">{l.ctaSg} →</a>
+        {/* WIM — 2026-08-18 실측: /app-wim 링크가 사이트 «전체»에 0회였다. 즉 WIM 은
+            웹에서 설치될 경로가 아예 없었다. 티커 페이지는 「왜 움직였나」가 주제라
+            Why'd It Move? 와 정확히 겹치므로 여기가 가장 자연스러운 자리다. */}
+        <a href="https://www.signumhq.com/app-wim?from=seo" style={S.cta2} rel="noopener">{l.ctaWim} →</a>
       </section>
 
       <section>

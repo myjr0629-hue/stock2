@@ -42,6 +42,13 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Android ≤14 는 시스템 내비바가 앱 위에 겹치지 않고 «흰 띠»로 남는다.
+        // 다크 앱인 SIGNUM 에서만 경계가 도드라진다(UC 는 밝아서 안 보인다).
+        // Android 15+ 는 엣지투엣지 강제라 이 호출을 무시한다 → 레이아웃·인셋 불변.
+        getWindow().setNavigationBarColor(android.graphics.Color.parseColor("#050a14"));
+        new androidx.core.view.WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView())
+                .setAppearanceLightNavigationBars(false);
+
         // Disable pull-to-refresh / overscroll bounce
         getBridge().getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
 
@@ -98,7 +105,12 @@ public class MainActivity extends BridgeActivity {
         final int screenPx = getResources().getDisplayMetrics().heightPixels;
 
         final int clearTopPx = loc[1];                          // gap already above the WebView
-        final int clearBottomPx = screenPx - (loc[1] + wv.getHeight());
+        // ★ clamp. 삼성 실기기에서 heightPixels 가 내비바를 «제외한» 값을 돌려줘
+        //   이 식이 −205 가 됐고, 아래 max(0, barsBottom − clearBottom) 이 뺄셈이
+        //   아니라 «덧셈»이 되면서 내비바 48dp 를 126dp 로 부풀려 게시했다.
+        //   그러면 웹의 탭바가 화면에서 140px 떠 버린다(2026-07 실측).
+        //   clearBottom 은 «WebView 아래 남은 여백»이라 음수일 수 없다.
+        final int clearBottomPx = Math.max(0, screenPx - (loc[1] + wv.getHeight()));
 
         final float density = getResources().getDisplayMetrics().density;
         final int topDp = Math.round(Math.max(0, barsTopPx - clearTopPx) / density);

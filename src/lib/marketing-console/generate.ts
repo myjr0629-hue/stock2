@@ -24,6 +24,7 @@ export interface LintResult {
 
 const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu;
 const LINK_RE = /https?:\/\/|www\./i;
+const LINK_RE_G = /https?:\/\/\S+/gi;   // 개수를 세기 위한 전역판
 // Prediction framing (en + ko/ja) — present/past facts only, no direction hints.
 const PREDICT_RE =
   /\b(will|gonna|about to break|headed|knife'?s edge|breakout imminent|target|moon|squeeze incoming)\b|향하|곧 (깨|돌파|터)|급등할|급락할|간다|갈 것|목표가|突破する|向かって|上がる見込み|下がる見込み/i;
@@ -50,7 +51,10 @@ export function lint(text: string, lang: 'ko' | 'en' | 'ja'): LintResult {
   const emojiCount = (text.match(EMOJI_RE) || []).length;
   const metrics = countMetrics(text);
   const checks = [
-    { key: 'link', label: '링크 0', ok: !LINK_RE.test(text) },
+    // ⛔ 2026-08-20 정정. 예전엔 «링크 0»을 강제했다. 그 결과 182개 글을 올려
+    //    팔로워 2명, 클릭 경로 0 이었다. 컴플라이언스는 «어떻게 말하느냐»의 문제지
+    //    «앱을 알리지 마라»가 아니다. 링크는 «한 개»까지 허용한다(스팸 방지 상한).
+    { key: 'link', label: '링크 ≤1', ok: (text.match(LINK_RE_G) || []).length <= 1 },
     { key: 'emoji', label: '이모지 ≤2', ok: emojiCount <= 2 },
     { key: 'metrics', label: '지표 ≤3', ok: metrics <= 3 },
     { key: 'predict', label: '예측 프레이밍', ok: !PREDICT_RE.test(text) },
@@ -96,7 +100,10 @@ Produce ONE post per channel. Return STRICT JSON: ${jsonShape}.
 ABSOLUTE RULES (violation is unacceptable — brand is "accurate, no prediction"):
 - Use ONLY the provided numbers. NEVER invent/estimate any number. Max 3 numbers per post.
 - NO prediction or direction hints (no will / headed / about to break / knife's edge / 향하 / 간다 / 目標). Present or past facts only.
-- NO buy/sell language. NO app name. NO links. Emoji max 1.
+- NO buy/sell language. Emoji max 1.
+- ALWAYS start with the cashtag ($TICKER) — it is how people find this post in search.
+- You MAY name the app and include EXACTLY ONE link when it is natural. Never more than one link.
+- The app is free, has no paid tier, and gives no advice — describe it as a free data viewer, never as a signal/recommendation service.
 - LANGUAGE PURITY (hard rule): "toss" = 100% Korean. "stocktwits" and "x_en" = 100% English (Latin script only). "x_ja" = 100% Japanese — NEVER include Korean Hangul or English sentences (ticker symbols like SOXL and digits are fine). Financial terms in x_ja use katakana: マックスペイン, ガンマフリップ, コールウォール.
 - One or two short sentences per post. Frame: options structure showed it before the chart.`;
 

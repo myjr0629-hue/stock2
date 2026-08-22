@@ -35,15 +35,19 @@
 //     Data safety = collects advertising ID; ASC App Privacy tracking = yes.
 // ============================================================================
 
-export const WIM_ADS_LIVE = false;  // master switch (also hides the banner slot)
-const ADS_TESTING = true;           // keep true until real unit ids are in
+import { unitsFor, hasRealUnits } from '@/config/admob';
 
-// Google's published TEST unit ids — safe to ship, replaced at activation.
-const UNITS = {
-  banner: { ios: 'ca-app-pub-3940256099942544/2934735716', android: 'ca-app-pub-3940256099942544/6300978111' },
-  interstitial: { ios: 'ca-app-pub-3940256099942544/4411468910', android: 'ca-app-pub-3940256099942544/1033173712' },
-  rewarded: { ios: 'ca-app-pub-3940256099942544/1712485313', android: 'ca-app-pub-3940256099942544/5224354917' },
-};
+// ⛔ WIM_ADS_LIVE 를 true 로 바꾸기 «전에» 반드시 개인정보처리방침부터 고친다.
+//    현재 /{locale}/wim/privacy 는 «No ads or tracking — This version does not
+//    display ads and does not use advertising identifiers (IDFA/AAID)» 라고
+//    명시하고 있다(2026-08-18 실서비스 확인). 방침을 그대로 둔 채 광고를 켜면
+//    스토어 데이터 안전성 선언·방침·실동작이 «서로 모순»이 되어 심사 리스크가 된다.
+//    순서: 방침 3개국어 수정 → 스토어 데이터 안전성/App Privacy 갱신 → 이 플래그.
+export const WIM_ADS_LIVE = false;  // master switch (also hides the banner slot)
+const ADS_TESTING = !hasRealUnits('wim');   // 실유닛이 생기면 자동으로 false 가 된다
+
+// 유닛 ID 정본은 src/config/admob.ts. WIM 은 아직 실유닛이 없어 테스트 유닛으로 폴백된다.
+const UNITS = unitsFor('wim');
 
 // ── business guardrails (WIM_DIRECTION §4) ──
 const NEW_LEARNER_QUIET_DAYS = 3;   // no interstitial at all for the first 3 days
@@ -100,6 +104,9 @@ function daysSinceInstall(): number {
 }
 
 let initialized = false;
+/** 구글이 이 사용자에게 «개인정보 옵션» 진입점을 요구하는가 (UMP) */
+let privacyOptionsRequired = false;
+
 export async function initWimAds(): Promise<boolean> {
   stampInstall();  // starts the new-learner quiet period even before ads are live
   const ad = plugin();
@@ -108,10 +115,37 @@ export async function initWimAds(): Promise<boolean> {
     // ATT first on iOS 14+ (personalized vs limited ads). The OS sheet shows once.
     // Android and a declining user both land in the catch and are fine.
     try { await ad.requestTrackingAuthorization?.(); } catch { /* android / declined */ }
+
+    // ── UMP 동의 (GDPR/EEA·UK) — initialize «앞»에 와야 한다 ─────────────────
+    // 2026-08-18 실측으로 WIM 에만 이 흐름이 통째로 빠져 있었다(SIGNUM·UC 는 있음).
+    // 유럽 사용자에게 동의 없이 맞춤광고를 내보내면 애드몹 정책 위반이다.
+    // EEA 밖에서는 status 가 NOT_REQUIRED 로 떨어져 폼이 뜨지 않는다.
+    // 동의 실패가 앱을 막으면 안 되므로 통째로 감싼다.
+    try {
+      const info = await ad.requestConsentInfo?.();
+      if (info?.isConsentFormAvailable && info?.status === 'REQUIRED') {
+        await ad.showConsentForm?.();
+      }
+      privacyOptionsRequired = info?.privacyOptionsRequirementStatus === 'REQUIRED';
+    } catch { /* consent unavailable — carry on with non-personalised ads */ }
+
     await ad.initialize({ initializeForTesting: ADS_TESTING });
     initialized = true;
   } catch { /* SDK init failed — stay silent, the app simply runs ad-free */ }
   return initialized;
+}
+
+/** 구글이 이 사용자에게 «개인정보 옵션» 진입점을 요구하는가 */
+export function wimNeedsPrivacyOptions(): boolean {
+  return WIM_ADS_LIVE && privacyOptionsRequired;
+}
+
+/** 동의를 «바꾸거나 철회»할 수 있게 폼을 다시 연다.
+ *  동의를 한 번 받았으면 구글은 이 경로가 앱 안에서 «상시» 닿을 것을 요구한다. */
+export async function openWimPrivacyOptions(): Promise<void> {
+  const ad = plugin();
+  if (!ad) return;
+  try { await ad.showPrivacyOptionsForm?.(); } catch { /* nothing to show */ }
 }
 
 // ── banner: anchored bottom, lifted above the fixed tab bar ──

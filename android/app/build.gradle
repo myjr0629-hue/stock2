@@ -18,18 +18,24 @@ android {
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
             }
+            // minSdk 24 부터 Gradle 이 v1(JAR) 서명을 «자동으로» 끈다. Play 는 AAB 를
+            // 재서명하므로 여태 문제가 없었지만, 서드파티 스토어(Softonic 등)의 검증기는
+            // jarsigner = v1 을 본다 → v2 단독 APK 는 "서명을 확인할 수 없음"으로 반려된다.
+            // (2026-08-22 Softonic 실측). v1 은 «추가» 서명이라 v2 와 공존하며 부작용 없음.
+            enableV1Signing true
+            enableV2Signing true
         }
     }
     defaultConfig {
         applicationId "com.signumhq.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1"
+        versionCode 4
+        versionName "1.2.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        // AdMob: production Android App ID (account ca-app-pub-1716731715414173).
+        // AdMob: production Android App ID (개인 게시자 ca-app-pub-9554397112094712, 2026-08-18 교체).
         // Env override kept for flexibility; defaults to the real production ID.
-        def adMobAppId = System.getenv("ADMOB_ANDROID_APP_ID") ?: "ca-app-pub-1716731715414173~8198575283"
+        def adMobAppId = System.getenv("ADMOB_ANDROID_APP_ID") ?: "ca-app-pub-9554397112094712~1354734212"
         manifestPlaceholders = [adMobAppId: adMobAppId]
         if (gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") } &&
                 adMobAppId == "ca-app-pub-3940256099942544~3347511713") {

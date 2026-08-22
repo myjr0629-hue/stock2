@@ -55,6 +55,21 @@ function ogCardUrl(ticker: string, lv: Levels, lang: 'en' | 'ja' = 'en', theme =
   return `${SITE}/api/og/level?${q.toString()}`;
 }
 
+/**
+ * ★ 2026-08-20 신설 — 포스트에 «갈 곳»을 붙인다.
+ *
+ * 그전까지 이 파이프라인은 링크를 «금지»했다(generate.ts 린트가 링크 0을 강제).
+ * 그 결과 182개 글을 올려 팔로워 2명, 클릭 경로 0. 광고를 켜 놓고도 유입이 없던
+ * 직접 원인이 이것이다. 이제 채널마다 하나씩 붙이되:
+ *   · 스토어 링크가 아니라 «해당 티커의 실제 화면»으로 보낸다 — 사람이 즉시 값을 본다
+ *   · from= 파라미터로 채널을 구분한다. 이게 있어야 나중에 «X가 0인지»를 사실로 말할 수 있다
+ *   · 앱이 아니라 웹 화면이라 로그인·설치 없이 열린다(이탈이 가장 적은 지점)
+ */
+function landingFor(ch: string, ticker: string, lang: 'en' | 'ja' | 'ko'): string {
+  const from = { 'x-us': 'x_en', 'x-jp': 'x_ja', bluesky: 'bsky', stocktwits: 'stwits' }[ch] || ch;
+  return `${SITE}/${lang}/flow/${ticker}?from=${from}`;
+}
+
 // ---- 분산 발행 페이서 -------------------------------------------------------
 // 고정 크론 시각 대신 30분 슬롯마다 확률로 발행을 결정해, 하루 캡(3)이 채널
 // 활동창 전체에 매일 다른 시각으로 흩어지게 한다. target = CAP × 창 경과율.
@@ -244,19 +259,23 @@ export async function runAutopilotOriginals(): Promise<AutoResult[]> {
       p.ch === 'x-jp' ? 'ja' : 'en',
       pickTheme(pick.ticker + etDate() + p.ch)
     );
+    // 링크를 «린트 통과 후»에 붙인다 — 모델이 링크를 지어내지 못하게 하고,
+    // 우리가 만든 정확한 URL 하나만 들어가게 하기 위해서다.
+    const land = landingFor(p.ch, pick.ticker, p.ch === 'x-jp' ? 'ja' : 'en');
+    const textWithLink = /https?:\/\//.test(text) ? text : `${text}\n${land}`;
     let ok = false;
     let detail = '';
     try {
       if (p.bluesky && mode === 'live') {
         // Bluesky live → direct AT-Protocol post. The level card is uploaded as a
         // blob + embedded (bsky doesn't OG-fetch, and our posts carry no link).
-        const r = await bskyPost(text, ogUrl);
+        const r = await bskyPost(textWithLink, ogUrl);
         ok = r.ok; detail = r.ok ? (r.withImage ? 'bluesky published +card' : 'bluesky published (no card)') : (r.error || 'bsky 실패');
       } else {
         // X (shadow=draft / live=publish) AND Bluesky shadow → Buffer. Drafts now
         // hold correctly (createPost omits dueAt for drafts, mode 'shareNow'), so
         // shadow no longer silently publishes. mediaUrl = hosted level card.
-        const r = await createPost({ channelIds: [p.bufferId], text, mediaUrl: ogUrl, dryRun: false, draft: mode !== 'live' });
+        const r = await createPost({ channelIds: [p.bufferId], text: textWithLink, mediaUrl: ogUrl, dryRun: false, draft: mode !== 'live' });
         ok = r.success; detail = r.success ? (mode === 'live' ? 'published' : 'draft 적재') : (r.error || 'buffer 실패');
       }
     } catch (e) {

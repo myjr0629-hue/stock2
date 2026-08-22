@@ -38,6 +38,25 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "SIGNUM HQ",
   description: "Institutional Intelligence, Democratized — GEX · Dark Pool · Options Flow · AI Verdicts",
+  metadataBase: new URL('https://www.signumhq.com'),
+  // ⛔ 2026-08-20 실측: 티커 페이지 501개는 generateMetadata 에서 hreflang 을 내보내는데,
+  //    홈·/undercurrent·/wim·/how-it-works·/pricing 는 «0개»였다. 3개국어를 완비해 놓고
+  //    정작 사람이 가장 먼저 닿는 페이지들에서만 검색엔진에 안 알리고 있었다.
+  //    여기서 로케일 루트를 잡아주고, 각 페이지는 필요 시 자기 canonical 로 덮어쓴다.
+  alternates: {
+    languages: {
+      en: '/en',
+      ko: '/ko',
+      ja: '/ja',
+      'x-default': '/en',
+    },
+  },
+  // Google Discover 노출 자격 요건. 없으면 큰 이미지 프리뷰가 아예 후보에서 빠진다.
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
+  },
   manifest: '/manifest.json',
   // iOS Safari Smart App Banner (App Store id — live since 2026-07). WKWebView(native app) ignores this.
   itunes: {

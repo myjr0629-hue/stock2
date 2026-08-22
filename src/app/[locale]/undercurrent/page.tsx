@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions } from './ads';
+import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
 
 type Locale = 'ko' | 'en' | 'ja';
@@ -1106,6 +1106,15 @@ export default function UndercurrentPage() {
   // (retention-first: no verified evidence that hard rewarded gates work in
   // content apps, so the first daily unlock is frictionless)
   const dayKey = new Date().toISOString().slice(0, 10);
+  // 보상형으로 얻은 «1시간 전역 언락». localStorage 에 남아 앱을 다시 켜도 유지되고,
+  // 만료되면 스스로 닫힌다(1분마다 확인 — 남은 시간을 화면에 쓰지 않으므로 이 정도면 충분).
+  const [deepUnlock, setDeepUnlock] = useState(false);
+  useEffect(() => {
+    const sync = () => setDeepUnlock(isDeepUnlocked());
+    sync();
+    const iv = window.setInterval(sync, 60_000);
+    return () => clearInterval(iv);
+  }, []);
   const [freeUsed, setFreeUsed] = useState(true);
   useEffect(() => {
     try { setFreeUsed(!!localStorage.getItem(`uc.freeUnlock.${dayKey}`)); } catch { /* keep true */ }
@@ -1121,7 +1130,7 @@ export default function UndercurrentPage() {
   // Free by TICKER, not object identity — an SWR feed swap replaces card objects, so
   // `c === hero` would re-lock the hero's already-open deep layer mid-read.
   const isFree = (c: Card) => !!hero && c.ticker === hero.ticker; // hero's deep layer is the free taste
-  const isOpen = (c: Card) => isFree(c) || unlocked[c.ticker];
+  const isOpen = (c: Card) => isFree(c) || deepUnlock || unlocked[c.ticker];
 
   const openDetail = (c: Card) => { setDetail(c); markRead(c); window.scrollTo(0, 0); };
   // leaving a story is the ONE acceptable interstitial moment (never mid-read);
@@ -1170,7 +1179,13 @@ export default function UndercurrentPage() {
     if (adBusy) return;
     setAdBusy(true);
     showRewarded()
-      .then((ok) => { if (ok) setUnlocked((u) => ({ ...u, [ticker]: true })); })
+      .then((ok) => {
+        if (!ok) return;
+        // 광고 «한 번»에 1시간 전역 언락 — 종목마다 다시 보게 하지 않는다(2026-08-19 대표 지시).
+        markDeepUnlocked();
+        setDeepUnlock(true);
+        setUnlocked((u) => ({ ...u, [ticker]: true }));
+      })
       .finally(() => setAdBusy(false));
   };
 
@@ -1233,13 +1248,82 @@ export default function UndercurrentPage() {
   );
 
   // ── DETAIL VIEW (slide-up page) ──
+  // ── TAB VIEWS ──
+  // 2026-08-06 — 「떠 있는 섬」형 탭바 (WIM 방식 이식)
+  //   이전: left/right/bottom 0 의 전폭 바 + borderTop 실선.
+  //         화면 아래를 «뚜껑»처럼 닫아, 피드가 끊겨 보였다(대표 지적).
+  //   지금: 좌우·하단을 띄운 라운드 섬. 배경이 섬 아래로 계속 흐른다.
+  // 안전영역: iOS 는 env(), 안드로이드 웹뷰는 env()가 0 이라 네이티브가 내려주는
+  //          --uc-bottom-floor 를 max() 로 받는다 (MainActivity 가 게시).
+  const TabBar = () => (
+    <nav style={{
+      position: 'fixed', left: 12, right: 12, zIndex: 60,
+      // --uc-lift: 안드로이드에서만 6px 로 낮춘다(위 useEffect). 기본 12px.
+      bottom: `calc(var(--uc-lift, ${TABBAR_LIFT}px) + var(--uc-safe, 0px))`,
+      maxWidth: 536, margin: '0 auto',
+      // frosted glass: translucent so the feed shows through + heavy blur & saturation.
+      background: 'linear-gradient(180deg, rgba(255,255,255,0.80), rgba(252,250,246,0.60))',
+      backdropFilter: 'blur(32px) saturate(1.85)', WebkitBackdropFilter: 'blur(32px) saturate(1.85)',
+      border: '1px solid rgba(255,255,255,0.78)', borderRadius: 26,
+      boxShadow: '0 18px 40px rgba(23,25,30,0.15), 0 2px 8px rgba(23,25,30,0.06), inset 0 1px 0 rgba(255,255,255,0.92)',
+      // 실측(iPhone 17 Pro): padding 5 로는 활성 알약이 섬의 3면에 거의 닿아
+      // «비어져 나온» 것처럼 읽혔다. 6 으로 올리고 버튼 세로 패딩을 1씩 줄여
+      // 섬 전체 높이(TABBAR_H)는 유지한다.
+      display: 'flex', padding: 6, gap: 2,
+    }}>
+      {([
+        { k: 'home', label: t.tabHome, dot: null },
+        { k: 'macro', label: t.tabMacro, dot: macro?.cards?.length || null },
+        { k: 'div', label: t.tabDiv, dot: divCards.length || null },
+        { k: 'whale', label: t.tabWhale, dot: whaleCards.length || null },
+        { k: 'stories', label: t.tabStories, dot: null },
+        { k: 'search', label: t.tabSearch, dot: null },
+      ] as { k: Tab; label: string; dot: number | null }[]).map((m) => {
+        const active = tab === m.k;
+        // 활성 탭은 «채워진 알약». 섬 위에서는 상단 인디케이터 바가 읽히지 않는다.
+        const col = active ? '#FFFFFF' : C.sub;
+        return (
+          <button key={m.k} type="button" aria-label={m.label} onClick={() => { setTab(m.k); window.scrollTo(0, 0); }} style={{
+            font: 'inherit', cursor: 'pointer', flex: 1, position: 'relative', minWidth: 0,
+            padding: '7px 0 6px', border: 'none', borderRadius: 19, color: col,
+            background: active ? `linear-gradient(150deg, ${C.emerald}, ${C.emeraldDeep})` : 'transparent',
+            // 그림자를 좁게 — 넓으면 후광이 섬 테두리에 닿아 «새어 나온» 것처럼 보인다
+            boxShadow: active ? '0 5px 13px rgba(11,138,92,0.26)' : 'none',
+            transform: active ? 'translateY(-1px)' : 'none',
+            transition: 'background 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, color 0.18s ease',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+          }}>
+            <span style={{ position: 'relative', display: 'inline-flex' }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth={active ? 2.2 : 1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                {TAB_ICONS[m.k]}
+              </svg>
+              {m.dot ? (
+                <span style={{
+                  position: 'absolute', top: -5, right: -8, fontSize: 8.5, fontWeight: 900, color: '#fff',
+                  background: m.k === 'div' ? C.diverge : C.emerald, borderRadius: 999,
+                  minWidth: 15, textAlign: 'center', padding: '1px 4px', lineHeight: 1.3,
+                  border: '1.5px solid rgba(255,255,255,0.95)',
+                }}>{m.dot}</span>
+              ) : null}
+            </span>
+            {/* 6탭이라 폭이 좁다 — 'Diverge'/'ストーリー'가 줄바꿈되지 않게 nowrap 고정 */}
+            <span style={{
+              fontSize: 9, fontWeight: active ? 900 : 700, letterSpacing: '0.005em',
+              whiteSpace: 'nowrap', opacity: active ? 1 : 0.92,
+            }}>{m.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+
   if (detail) {
     const c = detail;
     const open = isOpen(c);
     const conn = connected(c);
     return (
       <div className="uc-slideup" style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
-        <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 18px calc(46px + var(--uc-safe, 0px))' }}>
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${TABBAR_RESERVE}px + var(--uc-safe, 0px) + var(--uc-ad-h, 0px))` }}>
           <header style={{
             position: 'sticky', top: 0, zIndex: 40, margin: '0 -18px', padding: '12px 18px',
             paddingTop: 'calc(12px + max(env(safe-area-inset-top), var(--uc-top-floor, 0px)))',
@@ -1456,82 +1540,17 @@ export default function UndercurrentPage() {
           }}>{t.shareCopied}</div>
         )}
         <style>{CSS_ANIM}</style>
+        {/* 하단 메뉴는 모든 화면에 있어야 한다 — 상세에서만 사라져 배너만 남으면
+            «메뉴 없이 광고만» 있는 화면이 된다(2026-08-19 대표 지적). */}
+        <TabBar />
       </div>
     );
   }
 
-  // ── TAB VIEWS ──
-  // 2026-08-06 — 「떠 있는 섬」형 탭바 (WIM 방식 이식)
-  //   이전: left/right/bottom 0 의 전폭 바 + borderTop 실선.
-  //         화면 아래를 «뚜껑»처럼 닫아, 피드가 끊겨 보였다(대표 지적).
-  //   지금: 좌우·하단을 띄운 라운드 섬. 배경이 섬 아래로 계속 흐른다.
-  // 안전영역: iOS 는 env(), 안드로이드 웹뷰는 env()가 0 이라 네이티브가 내려주는
-  //          --uc-bottom-floor 를 max() 로 받는다 (MainActivity 가 게시).
-  const TabBar = () => (
-    <nav style={{
-      position: 'fixed', left: 12, right: 12, zIndex: 60,
-      // --uc-lift: 안드로이드에서만 6px 로 낮춘다(위 useEffect). 기본 12px.
-      bottom: `calc(var(--uc-lift, ${TABBAR_LIFT}px) + var(--uc-safe, 0px))`,
-      maxWidth: 536, margin: '0 auto',
-      // frosted glass: translucent so the feed shows through + heavy blur & saturation.
-      background: 'linear-gradient(180deg, rgba(255,255,255,0.80), rgba(252,250,246,0.60))',
-      backdropFilter: 'blur(32px) saturate(1.85)', WebkitBackdropFilter: 'blur(32px) saturate(1.85)',
-      border: '1px solid rgba(255,255,255,0.78)', borderRadius: 26,
-      boxShadow: '0 18px 40px rgba(23,25,30,0.15), 0 2px 8px rgba(23,25,30,0.06), inset 0 1px 0 rgba(255,255,255,0.92)',
-      // 실측(iPhone 17 Pro): padding 5 로는 활성 알약이 섬의 3면에 거의 닿아
-      // «비어져 나온» 것처럼 읽혔다. 6 으로 올리고 버튼 세로 패딩을 1씩 줄여
-      // 섬 전체 높이(TABBAR_H)는 유지한다.
-      display: 'flex', padding: 6, gap: 2,
-    }}>
-      {([
-        { k: 'home', label: t.tabHome, dot: null },
-        { k: 'macro', label: t.tabMacro, dot: macro?.cards?.length || null },
-        { k: 'div', label: t.tabDiv, dot: divCards.length || null },
-        { k: 'whale', label: t.tabWhale, dot: whaleCards.length || null },
-        { k: 'stories', label: t.tabStories, dot: null },
-        { k: 'search', label: t.tabSearch, dot: null },
-      ] as { k: Tab; label: string; dot: number | null }[]).map((m) => {
-        const active = tab === m.k;
-        // 활성 탭은 «채워진 알약». 섬 위에서는 상단 인디케이터 바가 읽히지 않는다.
-        const col = active ? '#FFFFFF' : C.sub;
-        return (
-          <button key={m.k} type="button" aria-label={m.label} onClick={() => { setTab(m.k); window.scrollTo(0, 0); }} style={{
-            font: 'inherit', cursor: 'pointer', flex: 1, position: 'relative', minWidth: 0,
-            padding: '7px 0 6px', border: 'none', borderRadius: 19, color: col,
-            background: active ? `linear-gradient(150deg, ${C.emerald}, ${C.emeraldDeep})` : 'transparent',
-            // 그림자를 좁게 — 넓으면 후광이 섬 테두리에 닿아 «새어 나온» 것처럼 보인다
-            boxShadow: active ? '0 5px 13px rgba(11,138,92,0.26)' : 'none',
-            transform: active ? 'translateY(-1px)' : 'none',
-            transition: 'background 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, color 0.18s ease',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-          }}>
-            <span style={{ position: 'relative', display: 'inline-flex' }}>
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth={active ? 2.2 : 1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                {TAB_ICONS[m.k]}
-              </svg>
-              {m.dot ? (
-                <span style={{
-                  position: 'absolute', top: -5, right: -8, fontSize: 8.5, fontWeight: 900, color: '#fff',
-                  background: m.k === 'div' ? C.diverge : C.emerald, borderRadius: 999,
-                  minWidth: 15, textAlign: 'center', padding: '1px 4px', lineHeight: 1.3,
-                  border: '1.5px solid rgba(255,255,255,0.95)',
-                }}>{m.dot}</span>
-              ) : null}
-            </span>
-            {/* 6탭이라 폭이 좁다 — 'Diverge'/'ストーリー'가 줄바꿈되지 않게 nowrap 고정 */}
-            <span style={{
-              fontSize: 9, fontWeight: active ? 900 : 700, letterSpacing: '0.005em',
-              whiteSpace: 'nowrap', opacity: active ? 1 : 0.92,
-            }}>{m.label}</span>
-          </button>
-        );
-      })}
-    </nav>
-  );
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "-apple-system,'SF Pro Display','Segoe UI',sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${TABBAR_RESERVE}px + var(--uc-safe, 0px))` }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: `0 18px calc(${TABBAR_RESERVE}px + var(--uc-safe, 0px) + var(--uc-ad-h, 0px))` }}>
 
         {/* masthead — two clean rows: (logo · wordmark · bell) / (tagline ─ date · edition).
             The old single-row layout squeezed the by-line into a wrap and stacked the

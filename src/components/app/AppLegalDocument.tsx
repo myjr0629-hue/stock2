@@ -1,6 +1,7 @@
 'use client';
 
 import { Link } from '@/i18n/routing';
+import { hasRealUnits, type AppKey } from '@/config/admob';
 import styles from './AppLegalDocument.module.css';
 
 type LocaleKey = 'ko' | 'en' | 'ja';
@@ -597,14 +598,110 @@ function resolveLocale(locale: string): LocaleKey {
   return 'en';
 }
 
+
+// ============================================================================
+// 광고가 «실제로» 켜졌을 때만 갈아끼우는 문장
+// ----------------------------------------------------------------------------
+// 방침이 사실과 어긋나는 사고를 «구조적으로» 막는다. 아래 두 문장은 광고를 켜는
+// 스위치(config/admob.ts 의 REAL_UNIT_IDS)와 같은 조건으로 바뀌므로, 유닛을
+// 채워 배포하는 순간 광고와 방침이 «같은 배포에서» 함께 바뀐다.
+// 사람이 기억해서 따로 고치는 구조였으면 또 어긋났을 것이다.
+//
+// ⚠️ 스토어의 App Privacy / 데이터 안전성 선언은 콘솔이라 여전히 «수동»이다.
+//    유닛을 켜기 전에 그쪽부터 맞춰야 한다(.agent/NOW.md A1·A2).
+// ============================================================================
+type AdSwap = { freeFrom: string; freeTo: string; noAdsTitle: string; adsSection: Section };
+
+const ADS_ON: Record<LocaleKey, Record<'uc' | 'wim', AdSwap>> = {
+  ko: {
+    uc: {
+      freeFrom: '본 앱은 계정 가입 없이 무료로 제공됩니다. 현재 버전에는 인앱 구매가 없으며 광고도 게재하지 않습니다.',
+      freeTo: '본 앱은 계정 가입 없이 무료로 제공되며, 광고를 통해 운영됩니다. 현재 버전에는 인앱 구매가 없습니다.',
+      noAdsTitle: '광고·추적 없음',
+      adsSection: {
+        title: '광고와 광고 식별자',
+        body: '본 앱은 Google AdMob 광고를 게재합니다. 광고 제공·측정·부정 사용 방지를 위해 모바일 광고 식별자(iOS의 IDFA, Android의 AAID)가 사용될 수 있습니다. iOS에서는 사용자가 추적을 허용한 경우에만 IDFA가 사용됩니다. 광고 식별자는 기기 설정에서 언제든 초기화하거나 맞춤형 광고를 제한할 수 있으며, 유럽경제지역·영국 사용자는 앱 설정의 「광고 개인정보 설정」에서 동의를 언제든 변경하거나 철회할 수 있습니다.',
+      },
+    },
+    wim: {
+      freeFrom: '본 앱은 계정 가입 없이 무료로 제공됩니다. 현재 버전에는 광고와 인앱 구매가 없습니다.',
+      freeTo: '본 앱은 계정 가입 없이 무료로 제공되며, 광고를 통해 운영됩니다. 현재 버전에는 인앱 구매가 없습니다.',
+      noAdsTitle: '광고·추적 없음',
+      adsSection: {
+        title: '광고와 광고 식별자',
+        body: '본 앱은 Google AdMob 광고를 게재합니다. 광고 제공·측정·부정 사용 방지를 위해 모바일 광고 식별자(iOS의 IDFA, Android의 AAID)가 사용될 수 있습니다. iOS에서는 사용자가 추적을 허용한 경우에만 IDFA가 사용됩니다. 광고 식별자는 기기 설정에서 언제든 초기화하거나 맞춤형 광고를 제한할 수 있으며, 유럽경제지역·영국 사용자는 앱 설정에서 동의를 언제든 변경하거나 철회할 수 있습니다. 학습 기록은 기기에만 저장되며 광고에 사용되지 않습니다.',
+      },
+    },
+  },
+  en: {
+    uc: {
+      freeFrom: 'The app is free and requires no account. This version contains no in-app purchases and serves no ads.',
+      freeTo: 'The app is free, requires no account, and is supported by advertising. This version contains no in-app purchases.',
+      noAdsTitle: 'No ads, no tracking',
+      adsSection: {
+        title: 'Advertising and advertising identifiers',
+        body: 'This app serves Google AdMob advertising. A mobile advertising identifier (IDFA on iOS, AAID on Android) may be used for ad delivery, measurement, and fraud prevention. On iOS the IDFA is used only if you allow tracking. You can reset the advertising identifier or limit personalized ads in your device settings at any time, and users in the EEA and UK can change or withdraw consent at any time from “Ad privacy settings” in the app.',
+      },
+    },
+    wim: {
+      freeFrom: 'The app is provided for free without an account. This version contains no ads and no in-app purchases.',
+      freeTo: 'The app is provided for free without an account and is supported by advertising. This version contains no in-app purchases.',
+      noAdsTitle: 'No ads or tracking',
+      adsSection: {
+        title: 'Advertising and advertising identifiers',
+        body: 'This app serves Google AdMob advertising. A mobile advertising identifier (IDFA on iOS, AAID on Android) may be used for ad delivery, measurement, and fraud prevention. On iOS the IDFA is used only if you allow tracking. You can reset the advertising identifier or limit personalized ads in your device settings at any time, and users in the EEA and UK can change or withdraw consent at any time in the app settings. Your learning progress stays on the device and is not used for advertising.',
+      },
+    },
+  },
+  ja: {
+    uc: {
+      freeFrom: '本アプリはアカウント登録なしで無料で提供されます。現行バージョンにアプリ内購入はなく、広告も表示しません。',
+      freeTo: '本アプリはアカウント登録なしで無料で提供され、広告により運営されています。現行バージョンにアプリ内購入はありません。',
+      noAdsTitle: '広告・トラッキングなし',
+      adsSection: {
+        title: '広告と広告識別子',
+        body: '本アプリは Google AdMob の広告を表示します。広告配信・測定・不正利用防止のため、モバイル広告識別子（iOS の IDFA、Android の AAID）が使用される場合があります。iOS では利用者がトラッキングを許可した場合にのみ IDFA が使用されます。広告識別子は端末の設定からいつでもリセットまたはパーソナライズ広告の制限ができ、EEA・英国の利用者はアプリ設定の「広告プライバシー設定」からいつでも同意を変更・撤回できます。',
+      },
+    },
+    wim: {
+      freeFrom: '本アプリはアカウント登録なしで無料で提供されます。現在のバージョンには広告およびアプリ内課金はありません。',
+      freeTo: '本アプリはアカウント登録なしで無料で提供され、広告により運営されています。現在のバージョンにアプリ内課金はありません。',
+      noAdsTitle: '広告・トラッキングなし',
+      adsSection: {
+        title: '広告と広告識別子',
+        body: '本アプリは Google AdMob の広告を表示します。広告配信・測定・不正利用防止のため、モバイル広告識別子（iOS の IDFA、Android の AAID）が使用される場合があります。iOS では利用者がトラッキングを許可した場合にのみ IDFA が使用されます。広告識別子は端末の設定からいつでもリセットまたはパーソナライズ広告の制限ができ、EEA・英国の利用者はアプリ設定からいつでも同意を変更・撤回できます。学習の記録は端末内に保存され、広告には使用されません。',
+      },
+    },
+  },
+};
+
+/** 광고가 실제로 켜진 앱의 방침에서 «광고 없음» 문장을 사실로 갈아끼운다 */
+function applyAdsOn(sections: Section[], loc: LocaleKey, v: 'uc' | 'wim'): Section[] {
+  const sw = ADS_ON[loc][v];
+  return sections.map((sec) => {
+    if (sec.title === sw.noAdsTitle) return sw.adsSection;
+    if (sec.body === sw.freeFrom) return { ...sec, body: sw.freeTo };
+    return sec;
+  });
+}
+
 export function AppLegalDocument({ locale, doc, backHref, badgeText, variant }: { locale: string; doc: DocType; backHref?: string; badgeText?: string; variant?: 'default' | 'wim' | 'uc' }) {
-  const copy = COPY[resolveLocale(locale)];
+  const loc = resolveLocale(locale);
+  const copy = COPY[loc];
   // 앱별 «사실과 일치하는» 문서를 고른다. 기본(default) 카피는 SIGNUM 전용이며
   // 광고·푸시를 전제하므로 UC/WIM 에 쓰면 거짓 진술이 된다 (2026-08-10 실측 수정).
   const set = variant === 'wim' ? copy.wim : variant === 'uc' ? copy.uc : null;
-  const sections = doc === 'privacy'
+  const appKey: AppKey | null = variant === 'wim' ? 'wim' : variant === 'uc' ? 'uc' : null;
+  // 광고가 실제로 켜진 앱만 «광고 있음» 문장으로 바뀐다. 유닛이 null 인 동안은
+  // 광고가 나가지 않으므로 «광고 없음»이 그대로 사실이다.
+  const adsOn = !!appKey && hasRealUnits(appKey);
+  const rawSections = doc === 'privacy'
     ? (set ? set.privacy : copy.privacy)
     : (set ? set.terms : copy.terms);
+  const sections =
+    doc === 'privacy' && adsOn && (variant === 'uc' || variant === 'wim')
+      ? applyAdsOn(rawSections, loc, variant)
+      : rawSections;
   const title = doc === 'privacy' ? copy.privacyTitle : copy.termsTitle;
   const updated = set ? set.updated : copy.updated;
   const badge = badgeText || copy.badge;

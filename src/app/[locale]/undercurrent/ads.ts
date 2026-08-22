@@ -15,31 +15,25 @@
 // completely on web / when the plugin or ADS_LIVE flag is off, so the store
 // build stays clean until AdMob is approved.
 //
-// ACTIVATION CHECKLIST — see `.agent/ADS_ACTIVATION_MASTER_PLAN.md`
-//  1. ✅ Real unit IDs (2026-07-28).
-//  2. UC 1.0.1 binary: real GADApplicationIdentifier (~6307534807) + restore
-//     NSUserTrackingUsageDescription in uc-app iOS Info.plist; real
-//     com.google.android.gms.ads.APPLICATION_ID (~1198944282) + DELETE the two
-//     AD_ID `tools:node="remove"` lines in AndroidManifest.
-//  3. Flip ADS_LIVE to true — LAST, and in the SAME change window as the store
-//     declarations (ASC App Privacy tracking = yes / Play Ads + advertising-ID +
-//     Data safety). Flipping it early puts a live app out of sync with what both
-//     stores say it does.
+// ACTIVATION — 완료 (2026-08-19). 남은 체크리스트가 아니라 «기록»이다.
+//  1. ✅ 실유닛 (config/admob.ts 의 UNITS_2026_08_18.uc)
+//  2. ✅ 바이너리: iOS 1.0.2(빌드 4) / Android 1.0.2(vc 4) 라이브. 새 게시자 앱 ID
+//        (iOS ~4983038360 / Android ~7167861342), NSUserTrackingUsageDescription 있음,
+//        AndroidManifest 에 AD_ID 제거 지시 없음(=play-services-ads 가 병합) — 전부 실측 확인.
+//  3. ✅ ADS_LIVE=true 를 스토어 선언과 «같은 창»에서 켰다:
+//        Play 광고=예 + 데이터 보안(기기 ID 수집·공유) 제출 / ASC 「기기 ID·추적」 게시됨.
+// ⚠️ 되돌릴 때도 같은 규칙이 적용된다 — 코드만 끄고 선언을 두면 스토어 표시가 거짓이 된다.
 // ============================================================================
 
-export const ADS_LIVE = false;    // master switch (also hides placeholder slots)
-const ADS_TESTING = false;        // real units below — never request test ads against them
+import { unitsFor, hasRealUnits } from '@/config/admob';
 
-// REAL AdMob units (account ca-app-pub-1716731715414173, created 2026-07-28).
-// Partner bidding is off on all six, so AdMob mediation and Google/DV360 demand
-// stay available — that demand is the floor under our eCPM.
-// Nothing here runs while ADS_LIVE is false: every call site is behind
-// adsAvailable(), so the SDK is not even initialized.
-const UNITS = {
-  banner: { ios: 'ca-app-pub-1716731715414173/6846022634', android: 'ca-app-pub-1716731715414173/5046424029' },
-  interstitial: { ios: 'ca-app-pub-1716731715414173/3485930345', android: 'ca-app-pub-1716731715414173/7900084009' },
-  rewarded: { ios: 'ca-app-pub-1716731715414173/4152410686', android: 'ca-app-pub-1716731715414173/4415868633' },
-};
+export const ADS_LIVE = true;     // master switch (also hides placeholder slots)
+const ADS_TESTING = !hasRealUnits('uc');   // 실유닛이면 테스트 광고를 절대 요청하지 않는다
+
+// 유닛 ID 정본은 src/config/admob.ts 하나뿐이다 — 계정을 갈아탈 때 여기를 안 고쳐도 된다.
+// Partner bidding 은 6개 전부 off. 애드몹 미디에이션과 Google/DV360 수요가 eCPM 바닥을 받친다.
+// ADS_LIVE 가 false 인 동안은 아무것도 실행되지 않는다 (모든 호출부가 adsAvailable() 뒤에 있다).
+const UNITS = unitsFor('uc');
 
 // business guardrails for the interstitial
 const SESSION_GRACE_MS = 90_000;      // never within the first 90s of a session
@@ -103,6 +97,18 @@ export async function initAds(): Promise<boolean> {
     } catch { /* consent unavailable — carry on with non-personalised ads */ }
 
     await ad.initialize({ initializeForTesting: ADS_TESTING });
+
+    // 배너 «실제» 높이를 레이아웃에 알린다. UC 의 콘텐츠 하단 여백(TABBAR_RESERVE)에는
+    // 배너 몫이 아예 없었다 → 끝까지 스크롤하면 마지막 카드가 배너에 가렸다.
+    // 적응형 배너는 기기·화면폭마다 높이가 달라(실측 iOS 63 / Android 64) 상수로는 못 맞춘다.
+    try {
+      ad.addListener?.('bannerAdSizeChanged', (info: { height?: number }) => {
+        const h = Number(info?.height);
+        if (!Number.isFinite(h) || h <= 0) return;
+        document.documentElement.style.setProperty('--uc-ad-h', `${Math.round(h)}px`);
+      });
+    } catch { /* 이벤트 없는 버전 — 여백 0 으로 기존 동작 유지 */ }
+
     initialized = true;
   } catch { /* SDK init failed — stay silent, app works ad-free */ }
   return initialized;
@@ -123,6 +129,34 @@ export async function openPrivacyOptions(): Promise<void> {
 
 // ── banner: anchored bottom, pushed up above the fixed tab bar ──
 let bannerShown = false;
+
+/** CSS 변수를 px 숫자로 읽는다 (없으면 fallback) */
+function cssPx(name: string, fallback: number): number {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : fallback;
+  } catch { return fallback; }
+}
+
+/**
+ * 호출부의 marginPx 는 «탭바 섬 위» 기준(lift + 탭바높이 + 간격)이다.
+ * 여기에 플랫폼별 «기준선» 차이만 반영한다. 근거·실측은 services/adManager.ts 의
+ * computeBannerMargin() 주석에 한 곳으로 정리해 뒀다. 요약:
+ *   iOS     기준선 = safeAreaLayoutGuide.bottom → 세이프가 이미 빠져 있어 그대로 맞다
+ *   Android 기준선 = 플러그인 컨테이너 바닥. 이 컨테이너는 «이미 내비바만큼 인셋»이라
+ *           내비바를 따로 더하면 그만큼 배너가 뜬다(실측으로 확인). safe 만 더한다.
+ */
+function resolveMargin(marginPx: number): number {
+  if (platform() !== 'android') return marginPx;
+  // marginPx 는 «상수» TABBAR_LIFT(12) 로 계산돼 들어온다. 그런데 안드로이드는 실제 lift 가
+  // 6px 이라(native-app.css 오버라이드) 그대로 쓰면 6dp 만큼 더 뜬다 — 실측으로 확인.
+  // 탭바가 실제로 쓰는 값으로 바꿔치기한다.
+  const LIFT_IN_CONST = 12;
+  const liftReal = cssPx('--uc-lift', LIFT_IN_CONST);
+  return Math.round(marginPx - LIFT_IN_CONST + liftReal + cssPx('--uc-safe', 0));
+}
+
 export async function showHomeBanner(marginPx: number): Promise<boolean> {
   const ad = plugin();
   if (!ad || !(await initAds())) return false;
@@ -131,7 +165,7 @@ export async function showHomeBanner(marginPx: number): Promise<boolean> {
       adId: UNITS.banner[platform()],
       adSize: 'ADAPTIVE_BANNER',
       position: 'BOTTOM_CENTER',
-      margin: marginPx,
+      margin: resolveMargin(marginPx),
       isTesting: ADS_TESTING,
     });
     bannerShown = true;
@@ -149,9 +183,34 @@ export async function resumeBanner(): Promise<void> {
   try { await ad.resumeBanner(); bannerShown = true; } catch { /* noop */ }
 }
 
+// ── 보상형 언락 — 「광고를 봤다」는 사실을 1시간 기억한다 ────────────────────
+// 2026-08-19 대표 지적: 종목마다 매번 광고를 봐야 했다(언락이 React state 라
+// 티커별이고 저장도 안 됐다). SIGNUM 은 처음부터 1시간 전역 언락이었다 — 그쪽에 맞춘다.
+export const DEEP_UNLOCK_MS = 60 * 60 * 1000;
+const DEEP_UNLOCK_KEY = 'uc.deepUnlockUntil';
+
+/** 보상형 시청 성공 시각을 기록한다(= 1시간 언락 시작). */
+export function markDeepUnlocked(): void {
+  try { localStorage.setItem(DEEP_UNLOCK_KEY, String(Date.now() + DEEP_UNLOCK_MS)); } catch { /* noop */ }
+}
+/** 지금 심층 데이터가 열려 있는가 (티커 무관, 1시간). */
+export function isDeepUnlocked(): boolean {
+  try { return (parseInt(localStorage.getItem(DEEP_UNLOCK_KEY) || '0', 10) || 0) > Date.now(); }
+  catch { return false; }
+}
+/** 남은 언락 시간(ms) — UI 안내용. */
+export function deepUnlockRemainingMs(): number {
+  try { return Math.max(0, (parseInt(localStorage.getItem(DEEP_UNLOCK_KEY) || '0', 10) || 0) - Date.now()); }
+  catch { return 0; }
+}
+
 // ── interstitial: detail-close moment, guarded by caps ──
 function interAllowed(): boolean {
   if (Date.now() - sessionStart < SESSION_GRACE_MS) return false;
+  // ★ 보상형을 본 사용자에게는 1시간 동안 전면광고를 띄우지 않는다 (2026-08-19, 대표 지시).
+  //   구글 권장이 «사용자당 시간당 전면 1회»이고, 보상형을 본 참여 사용자에게 전면을
+  //   곧바로 얹는 건 광고 피로의 대표 사례다. SIGNUM 과 같은 규칙을 쓴다.
+  if (isDeepUnlocked()) return false;
   try {
     const day = new Date().toISOString().slice(0, 10);
     const last = parseInt(localStorage.getItem('uc.ads.inter.last') || '0', 10) || 0;

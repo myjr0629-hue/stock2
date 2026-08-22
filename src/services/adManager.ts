@@ -6,6 +6,8 @@
 
 'use client';
 
+import { unitsFor, hasRealUnits, adsAllowed, testUnits } from '@/config/admob';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -29,66 +31,63 @@ interface UnlockState {
 }
 
 // ---------------------------------------------------------------------------
-// Test Ad Unit IDs (Google AdMob 공식 테스트 ID)
-// 실제 배포 시 AdMob에서 발급받은 실제 ID로 교체
+// 유닛 ID 정본은 src/config/admob.ts 하나뿐이다 (2026-08-13).
+// 애드몹 계정을 갈아탈 때 그 파일 하나만 고치면 3앱이 동시에 따라온다.
+// 유닛 ID 는 플랫폼별로 다르므로 런타임에 Capacitor.getPlatform() 으로 고른다.
+// 이 값들은 «공개 식별자»다 — 비밀이 아니다.
 // ---------------------------------------------------------------------------
-const TEST_AD_IDS: AdConfig = {
-  bannerId: 'ca-app-pub-3940256099942544/6300978111',
-  interstitialId: 'ca-app-pub-3940256099942544/1033173712',
-  rewardedId: 'ca-app-pub-3940256099942544/5224354917',
-  testMode: true,
-};
+const SIGNUM_UNITS = unitsFor('signum');
+const SIGNUM_REAL = hasRealUnits('signum');
 
-// ---------------------------------------------------------------------------
-// Production Ad Unit IDs (AdMob account ca-app-pub-1716731715414173).
-// Ad unit IDs are PLATFORM-SPECIFIC, so they are selected at runtime by
-// Capacitor.getPlatform() in init(). These are public identifiers, not secrets.
-// ---------------------------------------------------------------------------
-const PROD_AD_IDS_IOS: AdConfig = {
-  bannerId: 'ca-app-pub-1716731715414173/1878755113',
-  interstitialId: 'ca-app-pub-1716731715414173/9818357259',
-  rewardedId: 'ca-app-pub-1716731715414173/5712012740',
-  testMode: false,
-};
+const pick = (p: 'ios' | 'android'): AdConfig => ({
+  bannerId: SIGNUM_UNITS.banner[p],
+  interstitialId: SIGNUM_UNITS.interstitial[p],
+  rewardedId: SIGNUM_UNITS.rewarded[p],
+  testMode: !SIGNUM_REAL,
+});
 
-const PROD_AD_IDS_ANDROID: AdConfig = {
-  bannerId: 'ca-app-pub-1716731715414173/9374101756',
-  interstitialId: 'ca-app-pub-1716731715414173/5687540555',
-  rewardedId: 'ca-app-pub-1716731715414173/6011395643',
-  testMode: false,
-};
+const PROD_AD_IDS_IOS: AdConfig = pick('ios');
+const PROD_AD_IDS_ANDROID: AdConfig = pick('android');
+
+/**
+ * 강제 테스트 모드용 설정 — «구글 테스트 유닛»을 쓴다.
+ *
+ * ⛔ 2026-08-19 정정. 예전에는 여기서 unitsFor() 결과를 그대로 썼는데, 실유닛을
+ *    채우는 순간 그게 «실유닛 + 테스트 요청»이 되어버린다. 그건 무효 트래픽이고,
+ *    수익이 아니라 애드몹 계정을 잃는 길이다. 테스트 경로는 반드시 테스트 유닛으로.
+ */
+function testAdConfig(p: 'ios' | 'android'): AdConfig {
+  const t = testUnits();
+  return {
+    bannerId: t.banner[p],
+    interstitialId: t.interstitial[p],
+    rewardedId: t.rewarded[p],
+    testMode: true,
+  };
+}
 
 // Pick the right ad unit IDs for the current platform. Set
 // NEXT_PUBLIC_ADMOB_TEST_MODE=true to force Google test ads in QA builds.
 function resolvePlatformAdConfig(platform: string): AdConfig {
+  const p: 'ios' | 'android' = platform === 'ios' ? 'ios' : 'android';
   if (process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true') {
-    return { ...TEST_AD_IDS };
+    return testAdConfig(p);
   }
-  return platform === 'ios' ? { ...PROD_AD_IDS_IOS } : { ...PROD_AD_IDS_ANDROID };
+  return p === 'ios' ? { ...PROD_AD_IDS_IOS } : { ...PROD_AD_IDS_ANDROID };
 }
 
+/**
+ * init() 전까지 쓰이는 «빈» 자리표시자.
+ *
+ * ⛔ 예전에는 여기서 환경변수를 읽고, 없으면 실유닛을 집으면서 testMode 만 true 로
+ *    올렸다. 「실유닛 + 테스트 요청」 — 8/18 에 라이브 앱에 "Test mode" 배너를
+ *    내보낸 것과 정확히 같은 짝이다. 환경변수 3개는 어디에도 설정된 적이 없어
+ *    사실상 «항상» 그 분기로 갔다.
+ *    이제는 아무 유닛도 담지 않는다. init() 이 resolvePlatformAdConfig() 로 덮어쓰며,
+ *    혹시 init() 이 안 돌면 아래 «ID 없음» 가드가 광고를 아예 끈다.
+ */
 function resolveDefaultAdConfig(): AdConfig {
-  const explicitTestMode = process.env.NEXT_PUBLIC_ADMOB_TEST_MODE === 'true';
-  const config: AdConfig = {
-    bannerId: process.env.NEXT_PUBLIC_ADMOB_BANNER_ID || '',
-    interstitialId: process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_ID || '',
-    rewardedId: process.env.NEXT_PUBLIC_ADMOB_REWARDED_ID || '',
-    testMode: explicitTestMode,
-  };
-  const missingIds = !config.bannerId || !config.interstitialId || !config.rewardedId;
-
-  // Always fall back to test IDs when real IDs are not configured.
-  // Native apps load the production URL but still need AdMob to initialize.
-  if (explicitTestMode || missingIds) {
-    return {
-      bannerId: config.bannerId || TEST_AD_IDS.bannerId,
-      interstitialId: config.interstitialId || TEST_AD_IDS.interstitialId,
-      rewardedId: config.rewardedId || TEST_AD_IDS.rewardedId,
-      testMode: true,
-    };
-  }
-
-  return config;
+  return { bannerId: '', interstitialId: '', rewardedId: '', testMode: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +95,72 @@ function resolveDefaultAdConfig(): AdConfig {
 // ---------------------------------------------------------------------------
 const UNLOCK_KEY = 'signum_ad_unlock';
 const AD_STATS_KEY = 'signum_ad_stats';
+
+/**
+ * 배너를 «CSS 가 비워둔 자리»에 정확히 앉힌다 — 상수로 두지 않는 이유가 있다.
+ *
+ * ⛔ 2026-08-19 양 플랫폼 실측으로 잡은 버그. 기존 값은 iOS 124 / Android 94 였고
+ *    «iOS 104 는 홈 인디케이터 34 를 포함한 값»이라는 주석이 붙어 있었다. 둘 다 틀렸다.
+ *    플러그인 원본을 열어 보면 마진의 «기준선»이 플랫폼마다 다르다:
+ *      · iOS     BannerExecutor.swift → `toItem: view.safeAreaLayoutGuide, attribute: .bottom`
+ *                즉 세이프에어리어가 «이미» 빠져 있다. 여기에 34 를 또 더해 이중 차감이 됐다.
+ *      · Android BannerExecutor.java  → 컨테이너 바닥 기준(엣지투엣지라 내비바 «아래»까지).
+ *                내비바 높이를 안 더해 배너가 탭바를 덮었다.
+ *    실측(2026-08-19): iOS 배너 하단이 화면 바닥에서 158pt(있어야 할 곳 126pt, +32 높음),
+ *    Android 96dp(있어야 할 곳 140dp, −44 낮아 탭바를 36dp 가림).
+ *
+ * 그래서 숫자를 고치는 대신 «레이아웃이 실제로 쓰는 변수»에서 계산한다. 이러면 탭바 높이나
+ * 리프트를 바꿔도 배너가 저절로 따라오고, 두 값이 어긋날 방법이 없다.
+ * 기준선 차이만 플랫폼 분기로 남긴다 — 그건 플러그인의 사실이지 우리 선택이 아니다.
+ */
+/** 레이아웃 CSS 변수를 px 숫자로 읽는다 (.app-viewport 기준, 없으면 fallback) */
+function px(name: string, fallback: number): number {
+  try {
+    const el = document.querySelector('.app-viewport') || document.documentElement;
+    const v = getComputedStyle(el).getPropertyValue(name).trim();
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : fallback;
+  } catch { return fallback; }
+}
+
+function computeBannerMargin(platform: string): number {
+  const lift = px('--app-tabbar-lift', 12);
+  const tabbar = px('--app-tabbar-height', 72);
+  const gap = px('--app-anchor-ad-gap', 8);
+  const safe = px('--app-bottom-safe', 0);
+
+  // 탭바 상단은 «웹뷰 바닥»에서 (lift + safe + tabbar) 위에 있다.
+  // 배너 하단은 그보다 gap 만큼 더 위여야 한다. 남는 건 «마진의 기준선»뿐이다.
+  //
+  // ★ 2026-08-20 양 플랫폼 실측으로 확정. 기준선이 다르다:
+  //   iOS     safeAreaLayoutGuide.bottom → 세이프가 이미 빠져 있다 → safe 를 더하면 이중.
+  //           실측: 마진 92 → 배너 하단 131.7pt (목표 126, 탭바와 8pt) ✓
+  //   Android 플러그인 컨테이너 바닥. 이 컨테이너는 «이미 내비바만큼 인셋»돼 있다.
+  //           실측(API 35, 패치 적용): 마진 134 → 배너 하단 181.7dp = 134 + 내비바 48.
+  //           즉 화면 바닥 기준이 아니다. 내비바를 따로 더하면 그만큼 배너가 뜬다
+  //           — 대표 Android 13 실기기에서 SIGNUM 만 벌어져 보이던 원인이 이것이다.
+  //           웹뷰 바닥과 컨테이너 바닥이 같으므로 safe 는 그대로 더한다.
+  return Math.round(lift + tabbar + gap + (platform === 'android' ? safe : 0));
+}
+
+/**
+ * 설정 화면 진단용 — 배너 위치 계산에 «실제로» 들어간 값들.
+ * 에뮬로 재현이 안 되는 기기 차이(안드로이드 버전별 엣지투엣지)를 한 장의 스크린샷으로
+ * 받기 위한 창구다. 숫자를 추측하지 않으려고 만든다.
+ */
+export function bannerGeometryDiag(platform: string): string {
+  const safe = px('--app-bottom-safe', 0);
+  const inset = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
+  return [
+    `lift ${px('--app-tabbar-lift', 12)}`,
+    `tab ${px('--app-tabbar-height', 72)}`,
+    `gap ${px('--app-anchor-ad-gap', 8)}`,
+    `safe ${safe}`,
+    `inset ${inset}`,
+    `adH ${px('--app-anchor-ad-height', 50)}`,
+    `→ margin ${computeBannerMargin(platform)}`,
+  ].join(' · ');
+}
 
 // ---------------------------------------------------------------------------
 // Ad Manager Singleton
@@ -106,6 +171,7 @@ class AdManagerService {
   private interstitialLoaded = false;
   private rewardedLoaded = false;
   private bannerSuppressed = false;
+  private privacyOptionsRequired = false; // 구글 UMP 가 «철회 진입점»을 요구하는가
   private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
   private proKnown = false; // true once Pro status has been reported at least once (setPro called)
   private wantBanner = false; // derived desired banner visibility (recomputeWantBanner)
@@ -126,6 +192,19 @@ class AdManagerService {
   async init(customConfig?: Partial<AdConfig>) {
     if (this.initialized) return;
     if (typeof window === 'undefined') return;
+
+    // ⛔ 실유닛이 없으면 여기서 끝낸다 — 플러그인도 안 부르고, 배너·전면·보상형
+    //    어느 것도 요청하지 않는다. 아래 모든 노출 경로가 this.initialized 를
+    //    보고 있으므로 이 한 줄이 광고 전체를 끈다.
+    //
+    //    2026-08-18: 이게 없어서 구 계정 폐쇄(유닛 전부 null) 뒤 «구글 테스트
+    //    배너»가 라이브 SIGNUM 앱에 그대로 나갔다. 수익 0인데 화면만 가렸다.
+    //    SIGNUM 은 UC(ADS_LIVE)·WIM(WIM_ADS_LIVE) 과 달리 마스터 스위치가
+    //    없었는데, 그 빈자리를 config/admob.ts 의 adsAllowed() 가 메운다.
+    if (!adsAllowed('signum')) {
+      console.log('[AdManager] 실유닛 없음 — 광고 비활성 (테스트 광고를 프로덕션에 내보내지 않는다)');
+      return;
+    }
 
     // Check if running in Capacitor native + select platform-specific ad IDs
     try {
@@ -185,14 +264,34 @@ class AdManagerService {
         ) {
           await AdMob.showConsentForm();
         }
+        // ★ 동의를 받은 뒤에는 «철회 진입점»이 앱 안에 상시 있어야 한다(구글 UMP 요건).
+        //   2026-08-10 감사 S1-5: SIGNUM 배포 번들에 showPrivacyOptionsForm 이 0건이라
+        //   동의만 받고 되돌릴 길이 없었다. 광고를 켜기 «전에» 메워야 하는 구멍이다.
+        this.privacyOptionsRequired =
+          (consentInfo as { privacyOptionsRequirementStatus?: string })
+            .privacyOptionsRequirementStatus === 'REQUIRED';
       } catch (consentErr) {
         console.warn('[AdManager] UMP consent flow skipped:', consentErr);
       }
 
+      const { BannerAdPluginEvents } = await import('@capacitor-community/admob');
       await AdMob.initialize({
         testingDevices: this.config.testMode ? ['EMULATOR'] : [],
         initializeForTesting: this.config.testMode,
       });
+
+      // 배너 «실제» 높이를 레이아웃에 알려준다. --app-anchor-ad-height 는 50px 고정이었는데
+      // 적응형 배너의 실측 높이는 iOS 63pt / Android 64dp 였다(2026-08-19). 14 만큼 덜 비워
+      // 끝까지 스크롤하면 마지막 콘텐츠가 배너에 가렸다. 기기·화면폭마다 다른 값이라
+      // 상수로는 맞출 수 없어, 플러그인이 알려주는 값을 그대로 쓴다.
+      try {
+        AdMob.addListener(BannerAdPluginEvents.SizeChanged, (info: { height?: number }) => {
+          const h = Number(info?.height);
+          if (!Number.isFinite(h) || h <= 0) return;
+          const el = (document.querySelector('.app-viewport') as HTMLElement) || document.documentElement;
+          el.style.setProperty('--app-anchor-ad-height', `${Math.round(h)}px`);
+        });
+      } catch { /* 이벤트가 없는 플러그인 버전 — 기본 50px 로 동작 */ }
 
       // Pre-load interstitial and rewarded ads
       this.preloadInterstitial();
@@ -216,12 +315,7 @@ class AdManagerService {
     try {
       const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
       const { Capacitor } = await import('@capacitor/core');
-      // 배너는 탭바 «위»에 앉아야 한다. 2026-08-06 탭바가 떠 있는 섬이 되면서
-      // 하단에서 --app-tabbar-lift(12) 만큼 더 올라갔고, 섬과 배너 사이 간격 8을 더한다.
-      // 기존 값(iOS 104 / Android 74)의 차이는 iOS 홈 인디케이터(≈34)라 그 관계는 유지.
-      const TABBAR_LIFT = 12;
-      const BANNER_GAP = 8;
-      const bottomMargin = (Capacitor.getPlatform() === 'ios' ? 104 : 74) + TABBAR_LIFT + BANNER_GAP;
+      const bottomMargin = computeBannerMargin(Capacitor.getPlatform());
 
       await AdMob.showBanner({
         adId: this.config.bannerId,
@@ -243,6 +337,22 @@ class AdManagerService {
       const { AdMob } = await import('@capacitor-community/admob');
       await AdMob.hideBanner();
     } catch {}
+  }
+
+  /** 구글이 이 사용자에게 «광고 개인정보 설정» 진입점을 요구하는가 */
+  needsPrivacyOptions(): boolean {
+    return this.initialized && this.privacyOptionsRequired;
+  }
+
+  /** 동의를 바꾸거나 철회할 수 있게 구글 폼을 다시 연다 */
+  async openPrivacyOptions(): Promise<void> {
+    if (!this.initialized) return;
+    try {
+      const { AdMob } = await import('@capacitor-community/admob');
+      await (AdMob as { showPrivacyOptionsForm?: () => Promise<void> }).showPrivacyOptionsForm?.();
+    } catch (err) {
+      console.warn('[AdManager] privacy options form unavailable:', err);
+    }
   }
 
   // Single source of truth for whether the banner SHOULD be visible. Derived from
@@ -311,6 +421,12 @@ class AdManagerService {
   canShowInterstitial(): boolean {
     if (!this.initialized || !this.interstitialLoaded) return false;
     const now = Date.now();
+    // ★ 보상형을 본 사용자에게는 1시간 동안 전면광고를 띄우지 않는다 (2026-08-19, 대표 지시).
+    //   「광고를 봐서 데이터를 열었는데 전면광고까지 보면 과하다」 — 업계 기준과도 맞는다:
+    //   구글 권장은 «사용자당 시간당 전면 1회»이고, 보상형을 본 참여 사용자에게 곧바로
+    //   전면을 얹는 건 광고 피로의 대표 사례로 꼽힌다.
+    //   언락 자체가 「사용자가 주의를 지불했다」는 신호라 그대로 재사용한다(1시간 동일).
+    if (this.isPremiumUnlocked()) return false;
     if (now - this.sessionStartedAt < this.INTERSTITIAL_COLD_START_GRACE_MS) return false;
     if (this.interstitialShownThisSession >= this.INTERSTITIAL_MAX_PER_SESSION) return false;
     if (now - this.lastInterstitialAt < this.INTERSTITIAL_MIN_INTERVAL_MS) return false;
