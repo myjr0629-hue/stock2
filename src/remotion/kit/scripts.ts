@@ -4989,3 +4989,4 @@ export const SCRIPT_EARN822: BriefingProps = {
 };
 
 export { SCRIPT_JPOPEX, SCRIPT_JPGAMMA, SCRIPT_JPEARN, SCRIPT_JPCONS } from './scripts-jp';
+export { SCRIPT_LFEARN } from './scripts-longform';

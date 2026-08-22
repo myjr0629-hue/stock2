@@ -86,6 +86,9 @@ const prioOf = (b: Beat) => (b.role === 'verdict' ? 1 : (b.prio ?? 2));
  *  · 창 안에 못 들어가면 «가장 가까운 상태»로 멈춘다. 억지로 자르지 않는다
  */
 export function cutFor(p: BriefingProps, platform: Platform): BriefingProps {
+  // ⛔ 롱폼은 자르지 않는다 (2026-08-22). cutFor 는 «쇼츠 길이창»에 맞추는 도구다 —
+  //   12분 대본을 태우면 38초로 만들려고 비트를 거의 전부 버린다.
+  if (p.longform) return p;
   const win = WINDOW[platform];
   const keep = p.beats.map((_, i) => i);
 

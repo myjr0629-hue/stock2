@@ -173,6 +173,13 @@ export interface BriefingProps {
    *   ⚠ 미국 채널은 앱 유입이 사업 목적이라 «기본은 켬»이다. 끄는 것은 채널 판단.
    */
   noOutro?: boolean;
+  /**
+   * 롱폼(8분+) 판. 길이창 자르기를 건너뛰고, 챕터 표지를 그린다.
+   *   근거: .agent/LONGFORM_RESEARCH.md — 검증된 포맷을 그대로 빌린다.
+   */
+  longform?: boolean;
+  /** 챕터 표지 — beats 인덱스에 붙는다. { at: 비트번호, no: 표시번호, title: 제목 } */
+  chapters?: Array<{ at: number; no: string; title: string }>;
   /** 절차 배경이 쓸 실데이터 (seed=티커, series=당일 시계열 등) */
   data?: BackdropData;
   /** 하단 티커 테이프 — 캡처 .txt 와 같은 순간의 시장 값들 (플랫폼 UI에 덮여도 되는 존) */
