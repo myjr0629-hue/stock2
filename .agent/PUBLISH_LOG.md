@@ -300,3 +300,15 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-22 업로드 (비공개+예약)
 
 - [Bond Yields Explained: Your Hedge Died In 2022](https://youtube.com/shorts/ZcMnT7fEf-M) — 예약 KST 2026-08-22 13:00 · `ZcMnT7fEf-M`
+
+## 2026-08-22 업로드 (비공개+예약)
+
+- [エヌビディア決算、方向を当てた人はいない](https://youtube.com/shorts/Bbk8r-o4nYw) — 예약 KST 2026-08-22 18:00 · `Bbk8r-o4nYw`
+
+## 2026-08-22 업로드 (비공개+예약)
+
+- [Earnings Report Day: The Size Is Knowable, The Direction Is Not](https://youtube.com/shorts/_EP12EaF7I0) — 예약 KST 2026-08-22 17:00 · `_EP12EaF7I0`
+
+## 2026-08-22 업로드 (비공개+예약)
+
+- [S&P500が静かな理由、中では二つに割れている](https://youtube.com/shorts/AOag_nNivx0) — 예약 KST 2026-08-22 21:30 · `AOag_nNivx0`

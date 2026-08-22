@@ -145,7 +145,8 @@ export interface BriefingProps {
     say?: string;
   };
   beats: Beat[];
-  outro: {
+  /** ⛔ noOutro 대본은 이 블록이 없다 (2026-08-22) */
+  outro?: {
     app: string; line: string; ask: string;
     /**
      * ★ 폰 목업 엔드카드 — 대표 지시(2026-08-19):

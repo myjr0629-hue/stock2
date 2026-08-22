@@ -38,6 +38,7 @@ import { VOICE_MEMCORR } from './voice-memcorr';
 import { VOICE_GOLD821 } from './voice-gold821';
 import { VOICE_OPEX821 } from './voice-opex821';
 import { VOICE_BONDS821 } from './voice-bonds821';
+import { VOICE_EARN822 } from './voice-earn822';
 import { VOICE_AICON } from './voice-aicon';
 import { VOICE_T2 } from './voice-t2';
 import { VOICE_T4 } from './voice-t4';
@@ -4858,4 +4859,133 @@ export const SCRIPT_AICON: BriefingProps = {
   },
 };
 
-export { SCRIPT_JPOPEX, SCRIPT_JPGAMMA } from './scripts-jp';
+
+
+// ============================================================================
+// SCRIPT_EARN822 — "The size is knowable. The direction is not." (2026-08-22)
+// ----------------------------------------------------------------------------
+// ★ 소재 = 수요 × 이상값 × 시의성
+//   수요  : nvidia earnings — 미국 수요표 상위. 분기마다 반복되는 최대 이벤트
+//   시의성: 2026-08-26 엔비디아 실적. FMP 캘린더 «실호출» 확인 (컨센 EPS 2.09 · 매출 920.4억달러)
+//   이상값: scripts/edge-earnings.mjs 사전등록 검정 (2021-01-01 ~ 2026-08-20)
+//           10종목 228회 — 실적 다음날 절대수익 6.39% vs 평상 1.85% = 3.45배
+//           10/10 종목 전부 같은 방향 → 부호검정 양측 p = 0.00195
+//           «그런데» 상승 비율 108/228 = 47.4% · z = -0.79 — 동전과 구분 안 됨
+//           NVDA 단독 22회: 6.20% vs 2.31% = 2.69배 · 상승 11/22 = 정확히 50.0%
+//
+// ⛔ "direction is random" 이라고 쓰지 않는다. z=-0.79 는 «구분되지 않는다»이지
+//   «랜덤임이 증명됐다»가 아니다. 말할 수 있는 것은 "nobody called it" 까지다.
+// ⛔ 매수·매도 권유로 가지 않는다. 위치와 분포만 보여준다.
+// ⛔ 자막에 숫자를 넣지 않는다 — 숫자는 화면 카드가 나른다.
+// ============================================================================
+export const SCRIPT_EARN822: BriefingProps = {
+  title: 'The size is knowable.\nThe direction is not.',
+  date: 'AUG 26 · EARNINGS',
+  slowCuts: true,
+
+  hook: {
+    line: 'Nvidia reports\nTuesday.',
+    sub: 'Nobody has called the direction.',
+    say: 'Hold on. Nobody calls the direction.',
+    role: 'conflict',
+    syms: ['NVDA'],
+    bg: { kind: 'video', src: 'shorts/bg/video/pcb-traces-glow.mp4', loopFrames: 150 },
+  },
+  loop: 'The size is knowable.\nThe direction is not.',
+
+  beats: [
+    {
+      role: 'conflict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/nyse-flags.mp4', loopFrames: 150 },
+      eyebrow: 'What everyone does',
+      head: 'Everyone picks\nup or down',
+      say: 'Everyone picks a direction first.',
+      ask: 'Every quarter, you get the same show.',
+      visual: {
+        kind: 'stat', label: 'THE RITUAL', value: 'UP OR DOWN',
+        sub: 'repeated every quarter - never checked', up: false,
+      },
+    },
+    {
+      role: 'evidence',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/tape-wall-scroll.mp4', loopFrames: 150 },
+      eyebrow: 'So we counted them',
+      head: 'Ten megacaps.\nTwo hundred prints.',
+      say: 'So we counted every print ourselves.',
+      ask: 'Close to close, on the next session.',
+      visual: {
+        kind: 'rows', rows: [
+          { k: 'Earnings prints', v: '228', up: true, note: 'ten megacaps since 2021' },
+          { k: 'What we measured', v: 'next close', up: true, note: 'the session after the print' },
+          { k: 'Compared against', v: 'normal days', up: false, note: 'same window, every session' },
+        ],
+      },
+    },
+    {
+      role: 'money',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/datacenter-aisle.mp4', loopFrames: 150 },
+      eyebrow: 'The size is real',
+      head: 'Three and a half\ntimes a normal day',
+      say: 'The size comes out clean.',
+      ask: 'All ten names moved the same way.',
+      visual: { kind: 'versus', aK: 'Normal day', aV: '1.85%', bK: 'Day after earnings', bV: '6.39%' },
+    },
+    {
+      role: 'verdict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/scale-few-vs-many.mp4', loopFrames: 150 },
+      eyebrow: 'The direction is not',
+      head: 'Forty seven\npoint four percent',
+      say: 'But here is where it breaks.',
+      ask: 'That is a coin flip with extra steps.',
+      visual: {
+        kind: 'stat', label: 'WENT UP - 108 OF 228', value: '47.4%',
+        sub: 'we cannot tell it from a coin', up: false,
+      },
+    },
+    {
+      role: 'chips',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/pcb-one-chip-lit.mp4', loopFrames: 150 },
+      eyebrow: 'Nvidia itself',
+      head: 'Eleven up.\nEleven down.',
+      say: 'Nvidia landed on exactly half.',
+      ask: 'Twenty two prints, eleven each way.',
+      visual: {
+        kind: 'rows', rows: [
+          { k: 'NVDA normal day', v: '2.31%', up: false, note: 'average session, same window' },
+          { k: 'NVDA after earnings', v: '6.20%', up: true, note: '2.69 times' },
+          { k: 'Times it went up', v: '11 / 22', up: false, note: 'exactly fifty percent' },
+        ],
+      },
+    },
+    {
+      role: 'verdict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/golden-bell.mp4', loopFrames: 150 },
+      eyebrow: 'One number to watch',
+      head: 'Six point\ntwo percent',
+      say: 'One number tells you if it was normal.',
+      ask: 'So you watch the range, not the guess.',
+      visual: {
+        kind: 'rows', rows: [
+          { k: 'Its normal day', v: '2.31%', up: false, note: 'the baseline' },
+          { k: 'Its earnings day', v: '6.20%', up: true, note: 'what 22 prints averaged' },
+          { k: 'Wednesday', v: '?', up: true, note: 'near 6% means a normal reaction' },
+        ],
+      },
+    },
+  ],
+
+  voice: VOICE_EARN822,
+  outro: {
+    app: 'SIGNUM HQ',
+    line: 'The tape institutions leave behind',
+    ask: 'Watch the range,\nnot the guess.',
+  },
+};
+
+export { SCRIPT_JPOPEX, SCRIPT_JPGAMMA, SCRIPT_JPEARN, SCRIPT_JPCONS } from './scripts-jp';

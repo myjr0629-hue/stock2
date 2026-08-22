@@ -48,7 +48,8 @@ export function checkTitle(title, lang = 'en') {
   //   ⛔ 여기가 «진짜 관문»이다. 발행 22편 중 21편이 이걸 어겨서 조회 중앙 42 였다.
   let best = null;
   for (const [term, vol] of Object.entries(D.terms || {})) {
-    const i = low.indexOf(term);
+    // ⛔ 키도 소문자로 — 제목만 낮추면 S&P500·FRB 가 영원히 안 걸린다 (2026-08-22)
+    const i = low.indexOf(term.toLowerCase());
     if (i >= 0 && (!best || vol > best.vol)) best = { term, vol, pos: i };
   }
   // 검색 겨냥(개념편)과 피드 겨냥(당일 뉴스)은 규칙이 다르다.

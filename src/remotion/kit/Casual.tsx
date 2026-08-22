@@ -962,12 +962,12 @@ export const Casual: React.FC<CasualProps> = (p) => {
       })}
 
       {/* CTA — lean 판에서는 통째로 뺀다 (18초에서 2.3초는 13%) */}
-      {!p.lean && (
+      {!p.lean && p.outro && (
         <Sequence from={ctaFrom} durationInFrames={ctaLen}>
           <Backdrop spec={BACKDROP_FOR.brand} dur={ctaLen} data={data} />
           <Say2 v={p.voice} seg={p.voice?.outro} />
           <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', padding: '0 60px' }}>
-            <CasualCta {...p.outro} accent={accent} />
+            <CasualCta {...(p.outro as { app: string; line: string; ask: string })} accent={accent} />
           </AbsoluteFill>
         </Sequence>
       )}

@@ -125,8 +125,11 @@ function analyse(file) {
   // 자막띠 — 글자는 «가로 고주파». 행별 에너지에서 하단 큰 띠를 찾는다
   const rowE = new Float64Array(GH);
   const step = Math.max(1, Math.floor(n / 200));
+  // ⛔ 훅 구간은 «자막띠가 없는» 구간이다 — 빼고 잰다 (2026-08-22, 위 주석 참조)
+  const HOOK_SKIP_SEC = 4.0;
+  const skipTo = Math.min(Math.floor(HOOK_SKIP_SEC * p.fps), Math.floor(n * 0.35));
   let smp = 0;
-  for (let i = 0; i < n; i += step) {
+  for (let i = skipTo; i < n; i += step) {
     const f2 = fr(i); smp++;
     for (let y = 0; y < GH; y++) {
       let s = 0;

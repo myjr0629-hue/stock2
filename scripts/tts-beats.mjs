@@ -65,7 +65,8 @@ const segs = [
     if (flat(b.ask)) out.push({ id: `${n}a`, text: flat(b.ask) });
     return out;
   }),
-  { id: 'outro', text: flat(script.outro.ask) },
+  // ⛔ noOutro 대본은 아웃트로가 아예 없다 — 있을 때만 굽는다 (2026-08-22)
+  ...(script.outro?.ask ? [{ id: 'outro', text: flat(script.outro.ask) }] : []),
   { id: 'loop', text: flat(script.loop) },
 ];
 
@@ -154,7 +155,10 @@ for (const seg of segs) {
 
 // ── 템플릿용 트랙 파일 생성 ─────────────────────────────────────────────────
 const lc = NAME.toLowerCase();
-const seg = (id) => { const r = results.find((x) => x.id === id); return `{ f: '${id}.mp3', sec: ${r.sec} }`; };
+const seg = (id) => { const r = results.find((x) => x.id === id); return r ? `{ f: '${id}.mp3', sec: ${r.sec} }` : null; };
+// ⛔ noOutro 대본은 아웃트로 줄 자체를 트랙에서 뺀다 (2026-08-22)
+const outroLine = () => { const v = seg('outro'); return v ? `  outro: ${v},
+` : ''; };
 const GAP = 0.18;   // say 끝 ↔ ask 시작 사이의 숨. 자막 전환도 이 시점에 맞춘다.
 const beatSegs = results.filter((r) => /^\d+$/.test(r.id)).map((r) => {
   const a = results.find((x) => x.id === `${r.id}a`);
@@ -172,8 +176,7 @@ export const VOICE_${NAME}: VoiceTrack = {
   beats: [
     ${beatSegs},
   ],
-  outro: ${seg('outro')},
-  loop: ${seg('loop')},
+${outroLine()}  loop: ${seg('loop')},
 };
 `;
 writeFileSync(`src/remotion/kit/voice-${lc}.ts`, ts);

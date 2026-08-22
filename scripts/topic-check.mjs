@@ -46,7 +46,9 @@ export function checkTopic(it) {
   const T = (it.title || '').toLowerCase();
 
   // ① 제목이 «검색되는 말»을 실제로 담고 있는가 — 가장 중요한 항목
-  const hits = KEYS.filter((k) => T.includes(k));
+  // ⛔ 키도 «같이» 소문자로 본다 — 제목만 낮추면 S&P500·FRB 같은 대문자 어휘가
+  //   영원히 걸리지 않는다 (2026-08-22 에 이 버그로 S&P500 20,926 이 0 으로 나왔다)
+  const hits = KEYS.filter((k) => T.includes(k.toLowerCase()));
   const best = hits.length ? Math.max(...hits.map((k) => DEMAND[k])) : 0;
   const bestKey = hits.find((k) => DEMAND[k] === best) || null;
   ok('제목에 수요 어휘', hits.length > 0,

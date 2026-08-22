@@ -13,6 +13,8 @@
 import type { BriefingProps } from './Briefing';
 import { VOICE_JPOPEX } from './voice-jpopex';
 import { VOICE_JPGAMMA } from './voice-jpgamma';
+import { VOICE_JPEARN } from './voice-jpearn';
+import { VOICE_JPCONS } from './voice-jpcons';
 
 // ============================================================================
 // SCRIPT_JPOPEX — 「핀은 진짜다. 단 엔비디아만 예외다」 (2026-08-21 · 일본 1호)
@@ -271,4 +273,223 @@ export const SCRIPT_JPGAMMA: BriefingProps = {
     line: '機関が残す、板の跡',
     ask: 'ニュースの前に、\n数字を見ろ。',
   },
+};
+
+// ============================================================================
+// SCRIPT_JPEARN — 「幅は読める。方向は読めない」 (2026-08-22 · 일본 3호)
+// ----------------------------------------------------------------------------
+// ★ 소재 = 문 × 이상값 × 시의성
+//   문    : エヌビディア — 일본 소형채널 조회 중앙 14,658 (실측 2위)
+//           決算 은 실적 시즌마다 반복되는 상시 검색어
+//   시의성: 2026-08-26 엔비디아 실적. FMP 캘린더로 «실호출» 확인 —
+//           컨센 EPS 2.09 · 매출 920.4억달러 (조회일 2026-08-22)
+//   이상값: scripts/edge-earnings.mjs 사전등록 검정 (2021-01 ~ 2026-08)
+//           10종목 228회 실적 다음날: 평균 절대수익 6.39% vs 평상 1.85% = 3.45배
+//           그런데 «상승 비율»은 108/228 = 47.4% (z=-0.79) — 동전 던지기와 구분 안 됨
+//           NVDA 단독: 22회 중 11회 상승 = «정확히» 50.0%
+//
+// ⛔ 「방향은 랜덤이다」로 단정하지 않는다. z=-0.79 는 «동전과 구분되지 않는다»는 뜻이지
+//   «랜덤임이 증명됐다»가 아니다. 우리가 말할 수 있는 것은 「당해내지 못했다」까지다.
+// ⛔ 「그러니 사라/팔라」로 가지 않는다. 우리는 위치와 분포만 보여준다.
+// ⛔ 배경은 전부 «실사»다 (2026-08-22 실측: 일본 인기 쇼츠 12편에 캐릭터 애니 0편).
+// ============================================================================
+export const SCRIPT_JPEARN: BriefingProps = {
+  title: 'エヌビディア決算。\n幅は読める、方向は読めない。',
+  date: 'AUG 26 · 決算',
+  slowCuts: true,
+  noOutro: true,
+  disclaimer: '教育目的のみ。投資助言ではありません。',
+
+  hook: {
+    line: '幅は読める。\n方向は読めない。',
+    sub: '決算二百二十八回、全部数えた。',
+    say: 'ちょっと待って。方向は当たりません。',
+    role: 'conflict',
+    syms: ['NVDA'],
+    bg: { kind: 'video', src: 'shorts/bg/video/pcb-traces-glow.mp4', loopFrames: 150 },
+  },
+  loop: '当たるのは幅だけ。\n方向ではない。',
+
+  beats: [
+    {
+      role: 'conflict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/nyse-flags.mp4', loopFrames: 150 },
+      eyebrow: 'よく聞く話',
+      head: '決算の前は\nみんな方向を語る。',
+      say: 'みんな、上か下かを言います。',
+      ask: '上がるか、下がるか。',
+      visual: {
+        kind: 'stat', label: 'よく聞く話', value: '上か下か',
+        sub: '毎回くり返される — 検証はされない', up: false,
+      },
+    },
+    {
+      role: 'evidence',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/tape-wall-scroll.mp4', loopFrames: 150 },
+      eyebrow: 'だから数えた',
+      head: '十社の決算\n二百二十八回。',
+      say: '二〇二一年からの全決算です。',
+      ask: '翌営業日の終値です。',
+      visual: {
+        kind: 'rows', rows: [
+          { k: '決算の回数', v: '228', up: true, note: '大型十銘柄 · 2021年から' },
+          { k: '数えた値', v: '翌日終値', up: true, note: '発表の次の営業日' },
+          { k: '比べた相手', v: '普段の日', up: false, note: '同じ期間の全営業日' },
+        ],
+      },
+    },
+    {
+      role: 'money',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/datacenter-aisle.mp4', loopFrames: 150 },
+      eyebrow: '返ってきた答え',
+      head: '幅は、\n三・四五倍。',
+      say: '幅のほうは、きれいに出ました。',
+      ask: '普段の三倍以上、動きます。',
+      visual: { kind: 'versus', aK: '普段の日', aV: '1.85%', bK: '決算の翌日', bV: '6.39%' },
+    },
+    {
+      role: 'verdict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/scale-few-vs-many.mp4', loopFrames: 150 },
+      eyebrow: 'ところが方向は',
+      head: '四十七・四%。\nコインと同じ。',
+      say: 'ところが、ここが変です。',
+      ask: '方向は、当たっていません。',
+      visual: {
+        kind: 'stat', label: '上昇した割合 · 228回中108回', value: '47.4%',
+        sub: 'コイン投げと区別がつかない', up: false,
+      },
+    },
+    {
+      role: 'chips',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/pcb-one-chip-lit.mp4', loopFrames: 150 },
+      eyebrow: 'エヌビディアは',
+      head: '二十二回中十一回。\nちょうど半分。',
+      say: 'エヌビディアは、ちょうど半分でした。',
+      ask: '見るのは方向ではなく、幅です。',
+      visual: {
+        kind: 'rows', rows: [
+          { k: 'NVDA 普段の日', v: '2.31%', up: false, note: '同じ期間の平均的な一日' },
+          { k: 'NVDA 決算の翌日', v: '6.20%', up: true, note: '二・六九倍' },
+          { k: '上がった回数', v: '11 / 22', up: false, note: 'ちょうど五十%' },
+        ],
+      },
+    },
+  ],
+
+  voice: VOICE_JPEARN,
+};
+
+
+// ============================================================================
+// SCRIPT_JPCONS — 「指数は静かでも、中は割れている」 (2026-08-22 · 일본 4호)
+// ----------------------------------------------------------------------------
+// ★ 소재 = 문 × 이상값
+//   문    : S&P500 — 일본 소형채널 조회 중앙 20,926 (실측 4위)
+//           ⛔ 「AIバブル」는 83, 「AI株」는 26 이다. 일본에서 AI 프레임은 «문이 아니다».
+//             그래서 같은 데이터를 «지수가 왜 조용한가»로 연다.
+//   이상값: scripts/edge-consumer-ai.mjs 사전등록 후 FRED 원자료로 계산
+//           RSAFS(소매판매) vs A34SNO(컴퓨터·전자 신규주문) 공통 401개월 (1993-02~2026-06)
+//           최근: 소매 +6.75% · 컴퓨터 신규주문 +16.76% → 격차 +10.01%p
+//           401개월 분포에서 백분위 95.3 — 이보다 큰 달은 19번뿐
+//
+// ⛔ 「소비가 죽는다」가 «틀렸다»고 단정하지 않는다. 우리가 잰 것은 «증가율»이고,
+//   증가율이 플러스라는 것은 「감소하지 않았다」까지다. 체감·물가 조정은 다른 이야기다.
+// ⛔ 인과를 단정하지 않는다 — 두 계열이 지수 안에서 상쇄된다는 것은 «구조 설명»이지
+//   검정된 인과가 아니다. 검정된 것은 «격차의 크기»뿐이다.
+// ⛔ 배경은 전부 실사 (2026-08-22 실측: 일본 인기 쇼츠 12편에 캐릭터 애니 0편)
+// ============================================================================
+export const SCRIPT_JPCONS: BriefingProps = {
+  title: 'S&P500が静かな理由。\n中では二つに割れている。',
+  date: 'AUG 22 · 米国の実体',
+  slowCuts: true,
+  noOutro: true,
+  disclaimer: '教育目的のみ。投資助言ではありません。',
+
+  hook: {
+    line: 'S&P500は静かだ。\n中は割れている。',
+    sub: '四百一か月、全部並べた。',
+    say: 'ちょっと待って。消費は死んでいない。',
+    role: 'conflict',
+    syms: ['SPY'],
+    bg: { kind: 'video', src: 'shorts/bg/video/exchange-flags.mp4', loopFrames: 150 },
+  },
+  loop: '指数は静かでも、\n中は割れている。',
+
+  beats: [
+    {
+      role: 'conflict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/nyse-flags.mp4', loopFrames: 150 },
+      eyebrow: 'よく聞く話',
+      head: '消費が死ぬ、と\n言われている。',
+      say: 'そう言われています。',
+      ask: 'ウォルマート以降、ずっとです。',
+      visual: {
+        kind: 'stat', label: 'よく聞く話', value: '消費が死ぬ',
+        sub: 'くり返される — 検証はされない', up: false,
+      },
+    },
+    {
+      role: 'evidence',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/desks-dawn.mp4', loopFrames: 150 },
+      eyebrow: 'だから並べた',
+      head: '四百一か月の\n二つの数字。',
+      say: '一九九三年からの全月です。',
+      ask: '小売と、コンピュータ受注。',
+      visual: {
+        kind: 'rows', rows: [
+          { k: '期間', v: '401か月', up: true, note: '1993年2月から2026年6月' },
+          { k: '一つ目', v: '小売販売', up: true, note: 'FRED RSAFS · 季節調整済み' },
+          { k: '二つ目', v: '新規受注', up: true, note: 'FRED A34SNO · コンピュータ電子' },
+        ],
+      },
+    },
+    {
+      role: 'money',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/retail-warehouse-aisle.mp4', loopFrames: 150 },
+      eyebrow: '返ってきた答え',
+      head: '小売は\n伸びていた。',
+      say: '小売は、伸びていました。',
+      ask: '死んでは、いません。',
+      visual: {
+        kind: 'stat', label: '小売販売 · 前年同月比', value: '+6.75%',
+        sub: '減速ではなく、加速していた', up: true,
+      },
+    },
+    {
+      role: 'verdict',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/chip-city.mp4', loopFrames: 150 },
+      eyebrow: 'ところが',
+      head: '異常なのは\nAI側だった。',
+      say: 'ところが、ここが変です。',
+      ask: '二・五倍の速さです。',
+      visual: { kind: 'versus', aK: '小売販売', aV: '+6.75%', bK: 'コンピュータ受注', bV: '+16.76%' },
+    },
+    {
+      role: 'chips',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/scale-few-vs-many.mp4', loopFrames: 150 },
+      eyebrow: '四百一か月で',
+      head: '上位五%。\n十九回だけ。',
+      say: 'これより大きい月は、十九回だけ。',
+      ask: '見るのは指数ではなく、この差。',
+      visual: {
+        kind: 'rows', rows: [
+          { k: '二つの差', v: '+10.01%pt', up: true, note: '受注の伸び - 小売の伸び' },
+          { k: '401か月での位置', v: '上位4.7%', up: true, note: '中央値は -2.6%pt' },
+          { k: 'これより大きい月', v: '19回', up: false, note: '1993年からで十九回だけ' },
+        ],
+      },
+    },
+  ],
+
+  voice: VOICE_JPCONS,
 };
