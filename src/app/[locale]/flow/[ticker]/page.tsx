@@ -208,6 +208,9 @@ export default async function FlowTickerPage(
       creator: { '@id': brand },
       variableMeasured: metrics.map(([k]) => k),
       inLanguage: locale,
+      // Google Rich Results Test 가 지적한 유일한 항목(비치명, 선택 필드).
+      // 595 페이지 전부에 걸리므로 채운다. 우리 이용약관이 이 데이터의 라이선스다.
+      license: `${base}/${locale}/terms`,
     },
     {
       '@context': 'https://schema.org', '@type': 'BreadcrumbList',
