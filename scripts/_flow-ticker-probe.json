@@ -1,0 +1,1672 @@
+{
+ "pass": [
+  "AA",
+  "AEP",
+  "AGG",
+  "ARKG",
+  "BAX",
+  "CAG",
+  "CAH",
+  "CSX",
+  "D",
+  "DUK",
+  "DVN",
+  "ED",
+  "ES",
+  "FOX",
+  "FXI",
+  "GBTC",
+  "HMY",
+  "IFF",
+  "INDA",
+  "IVV",
+  "JBHT",
+  "JDST",
+  "KRE",
+  "LABU",
+  "LHX",
+  "MMM",
+  "MPC",
+  "NEE",
+  "OPEN",
+  "PBW",
+  "PEG",
+  "PENN",
+  "PPLT",
+  "PRU",
+  "QYLD",
+  "SHAK",
+  "SHEL",
+  "SO",
+  "SOUN",
+  "SPGI",
+  "SPXS",
+  "SVXY",
+  "TCOM",
+  "VLO",
+  "VYM",
+  "WEC",
+  "XEL",
+  "XLB",
+  "XLI",
+  "XOP"
+ ],
+ "fail": [
+  {
+   "t": "EXC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SRE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PSX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EOG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HAL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BKR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KMI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WMB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TRGP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "OKE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "APA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ADP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FANG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PAYX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FIS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FISV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "GPN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HES",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "MCO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ICE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NDAQ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CME",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CBOE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MSCI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TRV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ALL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PGR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AIG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MET",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "L",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HIG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AFL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "USB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FITB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TFC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PNC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RF",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KEY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CFG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HBAN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ZION",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MTB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ALLY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "STT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DFS",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "NTRS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AMP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BK",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "TROW",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BEN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IVZ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RJF",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ELV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CNC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HUM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MCK",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "COR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ZTS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BDX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BSX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SYF",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SYK",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MDT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EW",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "A",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IDXX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DXCM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WAT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RMD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MTD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ALGN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ZBH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "STE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HOLX",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "BIIB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "INCY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ALNY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SRPT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NBIX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CRL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ILMN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ORLY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TECH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TJX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ROST",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AZO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BURL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DLTR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ADM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SYY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TSN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HRL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CPB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "GIS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SJM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EXAS",
+   "why": "div=true vals=1"
+  },
+  {
+   "t": "K",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "MKC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CLX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KMB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CHD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "QSR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "COTY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "YUM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WEN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DPZ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PZZA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DRI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TXRH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WING",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MAR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CAKE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HLT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CCL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RCL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NCLH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LVS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MGM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "H",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CZR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WYNN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DAL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LUV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AAL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "UAL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "JBLU",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ALK",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NSC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CHRW",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ODFL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XPO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EXPD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SAIA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EMR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LSTR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SAVE",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "PH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ROK",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ETN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ITW",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DOV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SWK",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CMI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AME",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PCAR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XYL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FTV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NOC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "GD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TXT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LDOS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HWM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HII",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TDG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AXON",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FCX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "STLD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NUE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NEM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CLF",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MLM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SHW",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VMC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "X",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "PPG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LYB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DOW",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ECL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "APD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LIN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ALB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MOS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CF",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PLD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CCI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AMT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EQIX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DLR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FMC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SPG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "O",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PSA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WELL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VTR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ESS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MAA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AVB",
+   "why": "div=false vals=2"
+  },
+  {
+   "t": "UDR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EQR",
+   "why": "div=false vals=2"
+  },
+  {
+   "t": "BXP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ARE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KIM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HST",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IRM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "REG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SBAC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CHTR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FOXA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NYT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DISH",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "NWSA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PARA",
+   "why": "div=false vals=2"
+  },
+  {
+   "t": "INVH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SIRI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LYV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MTCH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TTWO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EA",
+   "why": "div=false vals=2"
+  },
+  {
+   "t": "COMP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BMBL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ZG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RDFN",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "XYZ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TOST",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BILL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LC",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "FOUR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TREE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WEX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WDAY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SQ",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "ADSK",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ANSS",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "CDNS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FTNT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SNPS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ZS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "OKTA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TENB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "S",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RPD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HUBS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DOCU",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ZI",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "TWLO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ESTC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TEAM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "GTLB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PATH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BBAI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IONQ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "CYBR",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "SPLK",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "CFLT",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "RGTI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RKLB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "QBTS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LUNR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ASTS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ACHR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "JOBY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ENVX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RUN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FCEL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SPCE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SEDG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ARRY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SHLS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BLDP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NOVA",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "XPEV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BIDU",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ARCH",
+   "why": "div=true vals=1"
+  },
+  {
+   "t": "RIDE",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "NTES",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BILI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TME",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "YMM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IQ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BEKE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NKLA",
+   "why": "div=true vals=1"
+  },
+  {
+   "t": "ZTO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TIGR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FUTU",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "INFY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HDB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IBN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "WIT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LU",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SMFG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MUFG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SONY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SHG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MELI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "GRAB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TTE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EQNR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PBR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HMC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VALE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BHP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RIO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SCCO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KGC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "E",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AU",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "AEM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "GOLD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VXX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SPXL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "UVXY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VIXY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TZA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TNA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LABD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "YINN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FAZ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "YANG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FAS",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "NUGT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DUST",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "JNUG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "UCO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BOIL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SCO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KOLD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "UNG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XLP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XLY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XLU",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XLC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XBI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XLRE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IBB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ITB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XHB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "OIH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XRT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IYR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KBE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VNQ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "DVY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SCHD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "JEPQ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "JEPI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "XYLD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EFA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RYLD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EEM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MCHI",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EWJ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "KWEB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EWZ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EWT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EWY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IEMG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "HYG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VWO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LQD",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BND",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IEF",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TBT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SHY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TIP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MUB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "EMB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TMV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VUG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IJH",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IJR",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "RSP",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VTV",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "QQQM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TMF",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "MDY",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SCHG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "FBTC",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ETHE",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "VOOG",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SPLG",
+   "why": "div=false vals=1"
+  },
+  {
+   "t": "ARKB",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "IBIT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BITO",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ARKW",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "BITX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "GDXJ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "GDX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ARKF",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ARKQ",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "COPX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "SIL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "LIT",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "REMX",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "URA",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "PALL",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "URNM",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "TAN",
+   "why": "div=false vals=5"
+  },
+  {
+   "t": "ICLN",
+   "why": "div=false vals=5"
+  }
+ ]
+}
