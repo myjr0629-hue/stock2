@@ -225,6 +225,21 @@ export const Race: React.FC<RaceProps> = ({
         </div>
       </div>
 
+      {/* ══ 핸들 각인 ══
+          ⛔ 브랜딩을 «로고 크게» 로 하지 않는다 (2026-08-23 실측).
+             폭발작 8편 중 브랜드 표시가 있는 것은 2편뿐이고, 둘 다 «거의 안 보일 만큼» 작다:
+               Life in Focus  제목 바로 아래 「YOUTUBE | @LIFEINFOCUS-1」 흐린 손글씨체
+               TheWealthrive  클립 하단 중앙 반투명 「W」 모노그램
+             나머지 6편은 표시가 아예 없다.
+             ⇒ 이 채널들의 브랜딩은 로고가 아니라 «매 편 똑같은 상단 띠» 다. 그게 서명이다.
+             우리 서명 = 흰 줄 + 앰버(#FFB020) 줄 · Montserrat 900 · 매 편 동일.
+             핸들은 그 아래 «작고 흐리게» 만 둔다 — 콘텐츠 자리를 뺏지 않는다. */}
+      <div style={{
+        position: 'absolute', left: PAD, top: TOP_H - 44, width: W - PAD * 2,
+        fontFamily, fontWeight: 700, fontSize: 21, letterSpacing: 2.4,
+        color: 'rgba(255,255,255,.30)',
+      }}>@SIGNUMHQ</div>
+
       {/* 연도 — 하단 «한 곳». 자리는 고정이고 숫자만 바뀐다 */}
       <div style={{
         position: 'absolute', left: 0, top: H - 168, width: W, textAlign: 'center',
