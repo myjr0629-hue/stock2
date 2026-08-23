@@ -349,3 +349,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-24 업로드 (비공개+예약)
 
 - [S&P500と米国金利、20年測ったら通念は15%しか当たらなかった](https://youtube.com/shorts/Tj_7RapbICU) — 예약 KST 2026-08-24 19:00 · `Tj_7RapbICU`
+
+## 2026-08-23 업로드 (즉시 공개)
+
+- [Free options trading data institutions pay for, on one screen](https://youtube.com/shorts/9QiPguQtqmQ) — 즉시 공개 · `9QiPguQtqmQ`

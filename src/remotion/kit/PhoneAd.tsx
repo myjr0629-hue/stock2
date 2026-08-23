@@ -19,7 +19,7 @@
 
 import React from 'react';
 import {
-  AbsoluteFill, Easing, Img, Sequence, interpolate, staticFile, useCurrentFrame,
+  AbsoluteFill, Audio, Easing, Img, Sequence, interpolate, staticFile, useCurrentFrame,
 } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Montserrat';
 
@@ -44,6 +44,8 @@ export interface AdScene {
   /** 그게 «무엇인지» 한 줄 — 이게 떠먹여주는 부분이다 */
   define: string;
   sec: number;
+  /** 이 씬에서 읽을 낭독 파일명 (voice-ad.ts 의 f). 없으면 무음 */
+  vo?: string;
 }
 
 export interface PhoneAdProps {
@@ -52,6 +54,13 @@ export interface PhoneAdProps {
   scenes: AdScene[];
   /** 마지막 FREE 카드 길이(초) */
   ctaSec: number;
+  /**
+   * ★ 낭독 (2026-08-24 신설). 이 판은 원래 «무음» 이었다 — 렌더가 -inf LUFS 였고
+   *   게이트 라우드니스 규격을 구조적으로 못 넘었다. 소리 없는 광고는 광고가 아니다.
+   *   ⛔ 새로 굽지 않는다. scripts/tts-ad.mjs 가 구워둔 voice-ad.ts 의 줄을 «고른다».
+   */
+  voiceBase?: string;
+  ctaVo?: string;
   storeLine: string;
   disclaimer: string;
 }
@@ -202,7 +211,7 @@ const FreeCard: React.FC<{ storeLine: string }> = ({ storeLine }) => {
   );
 };
 
-export const PhoneAd: React.FC<PhoneAdProps> = ({ series, scenes, ctaSec, storeLine, disclaimer }) => {
+export const PhoneAd: React.FC<PhoneAdProps> = ({ series, scenes, ctaSec, storeLine, disclaimer, voiceBase, ctaVo }) => {
   const F = (s: number) => Math.round(s * FPS);
   const total = scenes.reduce((a, s) => a + F(s.sec), 0) + F(ctaSec);
   let cur = 0;
@@ -219,6 +228,7 @@ export const PhoneAd: React.FC<PhoneAdProps> = ({ series, scenes, ctaSec, storeL
       ))}
       <Sequence from={cur} durationInFrames={F(ctaSec)}>
         <FreeCard storeLine={storeLine} />
+        {voiceBase && ctaVo ? <Audio src={staticFile(`${voiceBase}/${ctaVo}`)} /> : null}
       </Sequence>
       <div style={{
         position: 'absolute', left: 0, right: 0, bottom: 42, textAlign: 'center',

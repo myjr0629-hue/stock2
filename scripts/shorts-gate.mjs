@@ -58,7 +58,10 @@ const SPEC_BY_CLASS = {
   //   아직 못 모았다. 그래서 다른 계급에서 «확실히 근거 있는 것»만 가져온다:
   //     자막 위치·첫컷·빈화면·라우드니스 = 계급 무관 (플랫폼 UI·우리 채널 신호)
   //     길이·컷/분·밝기 = 넓게 둔다. 근거가 생기면 좁힌다.
-  ad:      { secRange: [15, 31], cutsPerMin: [5, 30], brightMin: 70, capTopPct: [66, 84] },
+  // ⛔ 광고판은 문구가 «위» 에 있다 (PhoneAd: TermCard top=150px = 7.8%). 하단 자막띠가 없다.
+  //   실측 63.7~65.5% 로 잡힌 것은 자막이 아니라 «떠 있는 폰 목업» 의 가장자리였다.
+  //   없는 것을 재면 항상 어긋난다 → 이 계급에서는 끄고, 대신 밝기·길이·컷으로 본다.
+  ad:      { secRange: [15, 31], cutsPerMin: [5, 30], brightMin: 70, capTopPct: null },
 
   // ⛔ race 계급 — 「두 대상 + 시간 누적」. 2026-08-23 신설.
   //   기존 계급의 규격이 이 포맷을 «전부» 불통과시켰다. 규격이 틀린 것이지 영상이 틀린 게 아니다.
@@ -347,7 +350,9 @@ for (const it of items) {
     for (const r of checkInsight(it, scriptSource())) R.push(r);
   if (it.scriptTag) {
     const src = scriptSource();
-    for (const r of checkScript(it.scriptTag, src, it.lang || 'en')) R.push(r);
+    // ⛔ 광고판은 SCRIPT_* 대본이 없다 (문구가 props 안에 있다). 대본 검사를 건너뛴다.
+    if (it.class !== 'ad')
+        for (const r of checkScript(it.scriptTag, src, it.lang || 'en')) R.push(r);
     // ⛔ 2026-08-21: cutFor 가 길이 상한을 맞추려 «뒤에서부터» 비트를 버린다.
     //    결론·인사이트가 통째로 사라져도 렌더는 정상이라 영상 검사로는 못 잡는다.
     const a = auditCut(it.scriptTag, 'yt');
@@ -359,7 +364,7 @@ for (const it of items) {
     //   레퍼런스 7편 중 나레이션이 있는 것은 0편이었다 — 원본 소리이거나 음악뿐이다.
     //   없는 대본을 요구하면 지어내게 된다. 있어야 할 것은 대본이 아니라 «출처» 이고,
     //   그건 위의 실증 근거·원 출처 항목이 이미 잡는다.
-    if (['race', 'stat'].includes(it.class))
+    if (['race', 'stat', 'ad'].includes(it.class))
       R.push({ name: '대본 태그', pass: true, got: '해당 없음 (나레이션 없는 포맷)', want: '' });
     else R.push({ name: '대본 태그', pass: false, got: '없음', want: 'plan 에 scriptTag 를 넣어야 대본을 잰다' });
   }

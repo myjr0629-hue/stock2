@@ -1,0 +1,55 @@
+[
+  {
+    "file": "out/ad-signum.mp4",
+    "thumb": "out/ad-signum_thumb.jpg",
+    "privacy": "public",
+    "categoryId": "27",
+    "class": "ad",
+    "lang": "en",
+    "title": "Free options trading data institutions pay for, on one screen",
+    "description": "Free options app: https://www.signumhq.com/app?src=yt_ad1\n\nMax pain, gamma flip, whale flow and dark pool volume, on one screen for any US stock.\n\nMax pain is the price where the most option contracts expire worthless. Gamma flip is where dealers stop cushioning a move and start amplifying it. Whale flow is the size institutions are actually moving. Dark pool is the volume nobody sees.\n\nClaude reads the whole options book down to one line, so you get a verdict instead of a wall of numbers. Morning and closing briefings every trading day.\n\nAll of it free, on iOS and Android.\n\n___\nMost watched on this channel:\n- Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later\n- Chip Stocks: Who Actually Got Rich in 10 Years\n- Chip Stocks: $10,000 in NVIDIA vs Intel, 10 Years Later\n\nInformational only. Not investment advice.\n\n#options #stocks #investing",
+    "tags": [
+      "options trading",
+      "options",
+      "max pain",
+      "gamma",
+      "gamma flip",
+      "unusual options activity",
+      "dark pool",
+      "options flow",
+      "stocks",
+      "stock market",
+      "investing",
+      "nvidia",
+      "amd",
+      "intel",
+      "chip stocks",
+      "semiconductors",
+      "trading",
+      "day trading",
+      "options explained",
+      "free stock app",
+      "market data",
+      "wall street",
+      "call wall",
+      "zero dte options"
+    ],
+    "pinnedComment": "Max pain is the price where the most option contracts expire worthless. Which one should we break down next?\n\nFree app: https://www.signumhq.com/app?src=yt_ad1c",
+    "evidence": [
+      "App promo. The chart in the background is AMD 2026 daily closes (64 points, 2026-01-02 to 08-18, Yahoo), so the motion is a real price path rather than a decoration.",
+      "Screens are real captures from the app (public/shorts/appshots), not mockups.",
+      "No live numbers are spoken, because captures age."
+    ],
+    "story": {
+      "event": "SIGNUM HQ is free on iOS and Android.",
+      "mechanism": "Options-flow data is normally behind a paid terminal. This shows what the app puts on one screen and defines each term in one line, so a viewer knows what they would be getting.",
+      "anchor": "4 institutional options signals on one screen, free on iOS and Android"
+    },
+    "insight": {
+      "claim": "App promo - no measured claim",
+      "kind": "promo",
+      "computedBy": "n/a",
+      "source": "public/shorts/appshots (real captures)"
+    }
+  }
+]

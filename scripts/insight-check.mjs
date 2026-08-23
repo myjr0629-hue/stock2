@@ -52,6 +52,26 @@ export function checkInsight(it, scriptSrc) {
   //     두 수치가 실제로 있고 · 어디서 계산했고 · 원 출처가 무엇인가.
   // ⛔ 나레이션이 없고 «확정된 사실» 만 놓는 계급들.
   //   race 하나에 박아둔것을 stat 이 생기자마자 깨졌다 (2026-08-23).
+  // ⛔ 광고(ad)는 «발견» 이 없다 — 앱이 무엇을 주는지 보여주는 판이다 (2026-08-24).
+  //   여기에 p값·표본·백분위를 요구하면 통과시키려고 «없는 통계» 를 지어 넣게 된다.
+  //   그건 이 검사가 막으려던 바로 그 행위다. 대신 광고가 «책임져야 할 것» 을 요구한다:
+  //     ① 화면이 실캡처인가 (AI 가 그린 UI 금지 — endcards.ts §8)
+  //     ② 무엇을 준다고 말하는지 한 줄로 적혀 있는가
+  //     ③ 검증 불가능한 수치를 말하지 않는가 (캡처는 시세가 늙는다)
+  if (it.class === 'ad') {
+    ok('광고 주장', !!I.claim && I.claim.length >= 8, I.claim || '없음', '무엇을 주는 앱인지 한 줄');
+    ok('화면 출처', /capture|캡처|appshots/i.test(I.source || ''), I.source || '없음',
+      '실캡처 경로를 밝힌다 — AI 가 그린 UI 는 금지');
+    // ⛔ 본문만 본다. 아래 「많이 본 영상」 목록은 «우리 영상 제목» 이라 $10,000 같은 것이 들어간다 —
+    //   그건 늙는 시세가 아니라 고정된 제목이다. 첫 실행에서 이걸 위반으로 잡았다.
+    const body = String(it.description || '').split('___')[0];
+    const nums = body.match(/\$?\d+(\.\d+)?%?/g) || [];
+    const live = nums.filter((x) => /\./.test(x) || /^\$/.test(x));
+    ok('시세 수치 없음', live.length === 0, live.join(' ') || '없음',
+      '광고에는 «늙는 수치» 를 넣지 않는다 (캡처를 다시 뜨면 어긋난다)');
+    return R;
+  }
+
   const FACTUAL = ['race', 'stat'];
   if (FACTUAL.includes(it.class)) {
     ok('인사이트 주장', !!I.claim && I.claim.length >= 8, I.claim || '없음', '한 문장으로 무엇을 알아가는가');

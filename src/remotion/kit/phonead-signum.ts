@@ -15,6 +15,7 @@
 // ============================================================================
 
 import type { PhoneAdProps } from './PhoneAd';
+import { VOICE_AD } from './voice-ad';
 
 export const AMD_SERIES = [
   223.5, 214.4, 204.7, 207.7, 223.6, 231.8, 249.8, 259.7, 252.0, 252.2, 246.3, 200.2,
@@ -33,7 +34,10 @@ export const PHONEAD_SIGNUM: PhoneAdProps = {
       shot: 'shorts/appshots/ad-cmd.png',
       term: 'ONE SCREEN',
       define: 'Every options signal on one stock, in one place.',
-      sec: 3.4,
+      vo: 'open.mp3',   // 1.85s
+      // ⛔ 3.4초였다 → 첫 컷이 3.4초. 우리 실측은 첫컷 2.8초 이내가 지속률을 지배한다
+      //   (9편 전수, 순위상관 -0.90). 낭독이 1.85초라 2.6초로 줄여도 잘리지 않는다.
+      sec: 2.6,
     },
     // 2) MAX PAIN — 이름 + 정의
     {
@@ -41,6 +45,7 @@ export const PHONEAD_SIGNUM: PhoneAdProps = {
       focus: { x: 0.02, y: 0.24, w: 0.52 },
       term: 'MAX PAIN',
       define: 'The price where the most option contracts expire worthless.',
+      vo: 'pain.mp3',   // 2.47s
       sec: 3.4,
     },
     // 3) GAMMA FLIP
@@ -49,6 +54,7 @@ export const PHONEAD_SIGNUM: PhoneAdProps = {
       focus: { x: 0.30, y: 0.24, w: 0.52 },
       term: 'GAMMA FLIP',
       define: 'Where dealers stop cushioning the move and start amplifying it.',
+      vo: 'gamma.mp3',   // 2.8s
       sec: 3.6,
     },
     // 4) AI 판정 — 「한 줄로 결론」
@@ -57,10 +63,13 @@ export const PHONEAD_SIGNUM: PhoneAdProps = {
       focus: { x: 0.04, y: 0.455, w: 0.86 },
       term: 'THE VERDICT',
       define: 'The whole options book, read down to one line.',
+      vo: 'ai.mp3',   // 2.25s
       sec: 3.6,
     },
   ],
   ctaSec: 3.4,
+  voiceBase: VOICE_AD.base,
+  ctaVo: 'tag3.mp3',
   storeLine: 'iOS & Android',
   disclaimer: 'Informational only. Not investment advice.',
 };
