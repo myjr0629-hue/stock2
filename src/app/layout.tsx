@@ -123,7 +123,7 @@ export default async function RootLayout({
   const path = h.get('x-pathname') || h.get('x-middleware-request-next-url') || '';
   const seg = path.match(/^\/(en|ko|ja)(?:\/|$)/)?.[1];
   // 로케일 접두어가 없는 경로(루트 리다이렉트 전 등)는 기존 동작을 유지한다.
-  const lang = (LOCALES as readonly string[]).includes(seg || '') ? (seg as string) : 'ko';
+  const lang = (LOCALES as readonly string[]).includes(seg || '') ? (seg as string) : 'en';
 
   return (
     <html lang={lang} suppressHydrationWarning className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable}`}>

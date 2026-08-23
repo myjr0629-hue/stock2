@@ -1,0 +1,95 @@
+# 직접 홍보 실행 로그
+
+기록 규칙: **실제로 게시한 것만** 적는다. 준비·초안은 여기 안 적는다.
+성과 판정은 감이 아니라 노출수·설치수로 한다.
+
+---
+
+## 2026-08-23 (일)
+
+### X (@signumhq · Premium+)
+Premium+ 의 «답글 상단 우선 노출»이 실제로 작동하는 것을 화면에서 확인했다 —
+두 건 모두 스레드 최상단에 붙었다.
+
+| 대상 | 노출 | 우리 답글 | 이미지 |
+|---|---|---|---|
+| @TrendSpider (NVDA $6B Poolside) | 49.3K | NVDA 옵션 구조(맥스페인 215 / 감마플립 222.50 / 프리미엄 44.7M) | Flow 화면 EN |
+| @StockSavvyShay (같은 뉴스) | 50K | M7 Tech 섹터 구조(GEX −192M / PCR 0.56 / 다크풀 46%) | Intel 화면 EN |
+| @TrendSpider (SPY 고점·aVWAP 테스트) | 44.8K | SPY 맥스페인 765 vs 현재가 765.72(괴리 0.09%) / 감마플립 655 | Flow 화면 SPY |
+
+합계 약 **144K 노출** 트윗에 답글 3건. 프로필 `with_replies` 에서 게시 확인함.
+
+**규칙(지키고 있는 것)**
+- 본문에 URL 을 넣지 않는다 → 링크는 이미지 워터마크로. 반복 URL 은 섀도우밴 사유.
+- 같은 이미지·같은 수치를 연속으로 쓰지 않는다 → 두 번째는 화면 자체를 바꿨다.
+- 예측형 표현 금지. Guardian 화면은 「反発接近(반등 임박)」 문구 때문에 **쓰지 않았다**.
+- 하루 3~5건, 미국장 시간에 집중.
+
+### Reddit (u/SignumHQ)
+- **r/SideProject** (주간 방문 31만) — 게시 완료.
+  제목: "3 apps live on iOS + Android, 0 reviews, ~50 installs. Everything I got wrong about distribution."
+  각도: 홍보문이 아니라 **실패 수치 공개 + 오늘 발견한 설정 결함 3가지**.
+  (Apple 이름 필드에 현지어 없음 / 키워드 40·44자 방치 / 사이트가 크롤러에 한국어)
+  이 서브레딧은 «솔직한 숫자»에 반응한다. 링크는 본문 맨 아래 한 줄.
+
+
+### X 일본 (@signumhq_jp · Premium+)
+미국 계정과 «다른 계정»이다. 미국=@signumhq(gbbridge11), 일본=@signumhq_jp(hicubedeal).
+
+| 대상 | 노출 | 우리 답글 |
+|---|---|---|
+| @SERIKURA (엔비디아 뉴스와 개인 포지션) | 7.7K | NVDA 옵션 구조 · Flow 화면 JA |
+| @YasLovesTech (다음주 일정 · 잭슨홀) | 7.2K | M7 섹터 구조 · Intel 화면 JA |
+
+일본어는 «失礼いたします」로 열고 «ご参考になれば幸いです」로 닫는다.
+광고 문장을 쓰면 무시당한다 — 데이터 공유 형식이어야 읽힌다.
+
+**못 붙인 곳**: @hirosetakao(일본 미국주식 최대 권위)는 답글이 제한된 계정이고
+내용도 회고담이라 우리 데이터와 무관했다. 노출만 보고 아무 데나 붙이지 않는다.
+
+### StockTwits (@SignumHQ)
+트레이더만 모인 곳이라 X 보다 전환이 높을 자리. 여긴 본문에 링크를 넣어도 된다.
+
+| 스트림 | 팔로워 | 내용 |
+|---|---|---|
+| $NVDA | 66.0만 | 맥스페인/감마플립/프리미엄/다크풀 46% + 스샷 |
+| $SPY | 63.6만 | 맥스페인 765 vs 현재가 765.72 + 스샷 |
+
+※ 이미지 첨부는 **두 번째 file input** 에만 먹는다. 첫 번째에 넣으면
+「Please use the image upload button」 경고만 뜨고 안 붙는다.
+
+### note.com (일본 SEO)
+「米国株のダークプールとマックスペインを無料で確認する方法」 발행.
+태그: 米国株 · 投資 · オプション取引 · 個人開発
+※ 자동 추천 태그(現値·パーセント)는 검색되지 않는 말이라 쓰지 않았다.
+※ **본문에 `$NVDA` 를 쓰면 note 가 money.note.com 링크로 바꿔버려 티커가 사라진다.**
+   달러 기호 없이 `NVDA` 로 쓸 것. (한 번 당하고 전면 재작성했다)
+
+### Reddit — 카르마 벽 확인
+- r/androidapps: **자기홍보 전면 금지**. 규칙이 r/droidappshowcase 로 보낸다.
+- r/droidappshowcase: 게시했으나 **Reddit 스팸 필터가 자동 삭제**했다.
+  원인은 계정 카르마 0 + 신규(규칙 8 «Account Age & Karma Requirements»).
+- r/SideProject 는 통과했다. 즉 **서브마다 카르마 게이트가 다르다**.
+- 다음 수: 카르마가 쌓이기 전까지 카르마 게이트가 있는 서브에 글을 넣지 않는다.
+  넣어봐야 조용히 지워지고 계정 평판만 깎인다.
+
+### 앱 배포처
+- **APKPure** 3/3 업로드 완료 (SIGNUM 1.2.1 · UC 1.0.3 · WIM 1.0) — 수동 검토 대기
+- **Softonic** 3/3 심사 중
+- **Launching Next** 3/3 제출 (#146259 #146260 #146261)
+- **Uneed** SIGNUM 등록 완료 → 무료 대기줄 폐쇄로 런치는 유료($14.99~)
+- **Microlaunch / BetaList** 유료 전용 → 미진행
+
+### 막힌 곳
+- Uptodown — GitHub 계정 필요
+- Hacker News / StockTwits — 아이디·비밀번호 가입 필요(내가 못 함)
+
+---
+
+## 자산
+
+- X 댓글용 이미지 공장: `scripts/make-x-shot.js` + `scripts/x-watermark.py`
+  `node scripts/make-x-shot.js <signum|uc> <ko|en|ja> <scene> [ticker]`
+  → `~/Desktop/X 댓글용 이미지/` 에 «오늘 데이터» 워터마크 스샷 1장
+  ※ 장중에 돌리면 장중 화면이 그대로 나온다.
+- 원링크(한 링크로 iOS/Android 자동 분기): `/app` `/app-uc` `/app-wim`
