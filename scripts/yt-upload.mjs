@@ -197,6 +197,22 @@ items.forEach((it, i) => {
   else console.log('      ✔ 규약 통과');
 });
 if (bad) { console.log(`\n  ${bad}건 위반 — 업로드하지 않는다\n`); process.exit(1); }
+// ⛔ 시청자 시간대 검사 (2026-08-23 신설).
+//   테스트3 을 미국 동부 새벽 4:36 에 올렸다 — 시청자가 자는 시간이다.
+//   시각을 보지도 않고 올렸고 막을 장치가 없었다.
+//   ⚠ 표본이 얇다(새벽 2편) — 금지가 아니라 경고다. --force-hour 로 강행한다.
+{
+  if (process.argv.includes('--force-hour')) {
+    console.warn('  ⚠ --force-hour — 시간대 검사를 건너뛴다.');
+  } else {
+    const hq = spawnSync(process.execPath, ['scripts/_publish-hour.mjs'], { stdio: 'inherit' });
+    if (hq.status !== 0) {
+      console.error('  시청자가 자는 시간대다 — 업로드를 중단한다.');
+      process.exit(1);
+    }
+  }
+}
+
 // ⛔ 직전 편이 «아직 달리는지» 먼저 본다 (2026-08-23 신설).
 //   테스트1 이 30분째 2차 파동으로 오르는 중에 테스트2 를 올렸고,
 //   테스트1 은 그 순간 280회에서 멈췄다. 유튜브는 «가장 최신 쇼츠» 에 배포를 몰아준다.
