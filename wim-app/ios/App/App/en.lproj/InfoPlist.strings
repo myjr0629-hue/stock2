@@ -1,0 +1,4 @@
+/* Declares English support to the App Store. The UI is web-rendered,
+   so there is nothing to translate here — this file exists so Apple
+   detects the language at all. */
+"CFBundleDisplayName" = "Why'd It Move?";

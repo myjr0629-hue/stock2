@@ -1,0 +1,4 @@
+/* 앱스토어에 한국어 지원을 «실제로» 알리기 위한 파일.
+   CFBundleLocalizations 선언만으로는 스토어 «언어» 칸이 영어 하나로 남는다.
+   애플은 번들 안의 .lproj 폴더를 보고 판단한다. */
+"CFBundleDisplayName" = "Undercurrent";
