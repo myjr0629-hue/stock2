@@ -189,3 +189,45 @@ Discogs 클라이언트 / RSS 리더 / 사운드 아카이브 / 카운트다운 
 장중 실화면 캡처 → 눈으로 결함 검사 → 30~60분 내 신선한 트윗 선별 → 게시 →
 **검증**(본문 DOM 확인 + 성공 토스트) → 로그 커밋 → 대표 보고서 작성.
 오늘 잃은 4건의 원인(이미지 먼저 올리면 본문이 날아감)을 규칙으로 박아뒀다.
+
+### ★ 앱스토어가 우리 앱을 «영어 전용»으로 표시하고 있었다 (오늘 발견)
+SIGNUM 1.3 이 승인된 뒤 한국 앱스토어 페이지를 실제로 열어봤더니
+「언어: EN 영어」 하나였다. 앱 전체가 한국어인데도.
+한국 방문자에게 «이 앱은 영어 전용»이라고 말하는 셈이고, 1순위 시장에서 직접 손해다.
+
+**원인**: `CFBundleLocalizations` 에 en/ko/ja 가 **2026-06-29부터** 선언돼 있었고
+1.1·1.2·1.3 이 전부 그 뒤에 빌드됐는데도 영어만 표시됐다.
+→ **선언만으로는 부족하다. 애플은 번들 안의 `.lproj` 폴더를 본다.**
+
+**고침**: 3앱 전부에 en/ko/ja `InfoPlist.strings` 를 만들고 variant group 으로 등록,
+`knownRegions` 에 ko·ja 추가. UI 는 웹뷰가 그리므로 번역할 문자열이 없다 —
+`.lproj` 의 «존재 자체»가 목적이다. 재사용 스크립트: `scripts/ios_declare_locales.py`
+
+**함정**: variant group 을 «path = App» 그룹의 children 에 넣지 않으면
+Xcode 가 경로를 `ios/App/ko.lproj` 로 해석해 빌드가 깨진다
+(`Build input file cannot be found`). SIGNUM 은 손으로 넣어서 우연히 맞았고
+UC·WIM 은 스크립트가 빠뜨려서 실패했다 → 스크립트를 고쳤다.
+**3앱 모두 빌드해서 App.app 안에 ko.lproj/ja.lproj 가 있는 것을 확인했다.**
+
+SIGNUM 1.4 로 제출 완료(WAITING_FOR_REVIEW).
+
+### 어제 «삭제됐다»고 적은 것 정정
+r/droidappshowcase 글은 **삭제되지 않았다.** 어제 화면에서 「필터로 제거됨」을 보고
+실패로 판단했는데, 오늘 받은편지함에 봇의 Play 스토어 매칭 확인 메시지가 와 있었고
+프로필에도 살아 있다. 내 오판이었다.
+
+### Reddit — 첫 반응이 왔다
+- r/iosapps 댓글에 **2 points** + 원글 작성자 2명이 직접 답글:
+  「Thank you so much for this feedback. Totally agree on the global audience.
+   I had no idea I was missing out here.」
+- 그 답글에 ASO 방법을 구체적으로 다시 답했다(색인 3필드·버전잠금·ASC API·.lproj).
+  카르마가 실제로 쌓이는 중 → 10점 되면 3앱을 ABC 형식으로 올린다.
+
+### X 미국 (@signumhq) — 2건 추가, 둘 다 «레벨이 맞아떨어진» 자리
+| 대상 | 노출 | 붙인 내용 |
+|---|---|---|
+| @EliteOptions2 ($MU 트레이드 아이디어, 20분 전) | 7.7K | 그의 트리거 1000 이 우리 감마플립 1020 바로 아래 |
+| @SRxTrades ($PLTR 180 아래 베이스, 26분 전) | 7.1K | 그 베이스가 곧 감마플립 177.50 자체 |
+
+억지로 끼운 게 아니라 **상대가 말한 숫자와 우리 레벨이 실제로 겹친** 경우다.
+이게 가장 잘 통하는 형태다 — 우리가 하는 말이 그 사람 논지의 «다음 문장»이 된다.
