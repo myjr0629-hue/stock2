@@ -4994,4 +4994,6 @@ export { SCRIPT_JPOPEX, SCRIPT_JPGAMMA, SCRIPT_JPEARN, SCRIPT_JPCONS } from './s
 export { SCRIPT_JPYEN, SCRIPT_JP10D, SCRIPT_JPPOST } from './scripts-jp2';
 // 일본 수요 1·2위(米国金利·ドル円) 첫 진입 (2026-08-24)
 export { SCRIPT_JPRATE, SCRIPT_JPFX } from './scripts-jp3';
+// 일본 첫 롱폼 (2026-08-24) — 16:9
+export { SCRIPT_JPLF } from './scripts-jp-lf';
 export { SCRIPT_LFEARN } from './scripts-longform';

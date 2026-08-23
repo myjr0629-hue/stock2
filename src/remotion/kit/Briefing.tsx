@@ -286,6 +286,38 @@ const Say2 = ({ v, seg }: { v?: VoiceTrack; seg?: VoiceSeg | null }) => {
 
 // (배경은 kit/Backdrop 이 전담한다 — 이미지·영상·절차 모드 공용)
 
+// ── 챕터 표지 (2026-08-24) ────────────────────────────────────────────────
+// ⛔ `chapters` 는 타입만 있고 «렌더에 쓰이지 않았다». 넣어도 화면에 안 나왔다.
+//   롱폼 레퍼런스는 목차를 «개수로 못박고» 구간마다 표지를 세운다
+//   (.agent/LONGFORM_RESEARCH.md §4 — 한국 레퍼런스의 ⑧ 단계).
+//   쇼츠는 chapters 를 주지 않으므로 이 경로는 그대로 꺼져 있다.
+function ChapterCard({ no, title }: { no: string; title: string }) {
+  const f = useCurrentFrame();
+  const inN = interpolate(f, [0, 10], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const out = interpolate(f, [40, 52], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const o = inN * out;
+  if (o <= 0.001) return null;
+  return (
+    <AbsoluteFill style={{ pointerEvents: 'none', opacity: o }}>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: '38%',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18,
+      }}>
+        <div style={{
+          fontFamily, fontSize: 34, fontWeight: 900, letterSpacing: '0.32em',
+          color: C.head, textShadow: '0 4px 24px rgba(0,0,0,0.9)',
+        }}>{no}</div>
+        <div style={{ width: 120, height: 4, background: C.head, borderRadius: 2 }} />
+        <div style={{
+          background: 'rgba(6,10,18,0.86)', padding: '20px 44px', borderRadius: 16,
+          fontFamily, fontSize: 62, fontWeight: 900, color: C.ink,
+          letterSpacing: '-0.02em', textShadow: '0 6px 30px rgba(0,0,0,0.8)',
+        }}>{title}</div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
 // ── 컷 플래시 (2026-08-07) ─────────────────────────────────────────────────
 // 실측: 절차 배경끼리는 같은 다크 팔레트라 밝기 차가 작아 컷이 «병합»돼 읽혔다
 // (12초짜리 샷으로 잡힘). V2~V3 교훈 — 검출기에 안 잡히면 사람 눈에도 한 컷이다.
@@ -769,6 +801,8 @@ export const Briefing: React.FC<BriefingProps> = (p) => {
               <Vis v={b.visual} w={VIS_W} h={VIS_H} />
             </div>
           )}
+          {(() => { const c = p.chapters?.find((x) => x.at === i);
+            return c ? <ChapterCard no={c.no} title={c.title} /> : null; })()}
           <Say text={b.say} ask={b.ask} askAt={askAtF} />
         </Sequence>
         );

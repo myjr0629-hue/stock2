@@ -140,6 +140,7 @@ import {
   SCRIPT_JPYEN,
   SCRIPT_JP10D,
   SCRIPT_JPPOST,
+  SCRIPT_JPLF,
   SCRIPT_JPRATE,
   SCRIPT_JPFX,
   SCRIPT_LFEARN,
@@ -452,6 +453,16 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
         defaultProps={SCRIPT_LFEARN}
+      />
+
+      <Composition
+        id="LongformJPLF"
+        component={Briefing as React.ComponentType<any>}
+        durationInFrames={durationOf(SCRIPT_JPLF)}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={SCRIPT_JPLF}
       />
 
 {([['T2', SCRIPT_T2], ['T4', SCRIPT_T4], ['T2B', SCRIPT_T2B],
