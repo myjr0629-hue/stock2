@@ -49,7 +49,15 @@ export function checkTitle(title, lang = 'en') {
   let best = null;
   for (const [term, vol] of Object.entries(D.terms || {})) {
     // ⛔ 키도 소문자로 — 제목만 낮추면 S&P500·FRB 가 영원히 안 걸린다 (2026-08-22)
-    const i = low.indexOf(term.toLowerCase());
+    // ⛔ 그리고 «공백을 지운 형태»도 본다 (2026-08-24).
+    //   수요표의 키는 «검색 질의» 라서 「米国 金利」처럼 토큰이 띄어져 있다.
+    //   그런데 일본어 문장에는 띄어쓰기가 없어서 제목에는 「米国金利」로 쓴다.
+    //   indexOf 하나만 쓰면 이 어휘(83,743 · 일본 수요 1위)는 «영원히 안 걸린다».
+    //   실제로 그래서 금리 편이 「수요 0」으로 반려됐다.
+    const k = term.toLowerCase();
+    const forms = k.includes(' ') ? [k, k.replace(/\s+/g, '')] : [k];
+    let i = -1;
+    for (const f of forms) { const p = low.indexOf(f); if (p >= 0 && (i < 0 || p < i)) i = p; }
     if (i >= 0 && (!best || vol > best.vol)) best = { term, vol, pos: i };
   }
   // 검색 겨냥(개념편)과 피드 겨냥(당일 뉴스)은 규칙이 다르다.

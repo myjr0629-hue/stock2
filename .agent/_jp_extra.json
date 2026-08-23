@@ -1,0 +1,19 @@
+{
+  "A": {
+    "maxAt": "2012-08-15",
+    "max": 0.712,
+    "minAt": "2024-07-08",
+    "min": -0.312,
+    "over05": 18.2,
+    "windows": 4673
+  },
+  "B": {
+    "n": 2528,
+    "downUsd": 1130,
+    "downJpy": 1109,
+    "big2Usd": 88,
+    "big2Jpy": 121,
+    "downUsdPct": 44.7,
+    "downJpyPct": 43.9
+  }
+}

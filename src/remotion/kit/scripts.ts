@@ -4992,4 +4992,6 @@ export { SCRIPT_JPOPEX, SCRIPT_JPGAMMA, SCRIPT_JPEARN, SCRIPT_JPCONS } from './s
 // ⛔ scripts-jp2 = «실제로 달린 3갈래» 확장판. 개시 4편(scripts-jp)과 섞지 않는다 —
 //   섞으면 무엇이 이겼는지 다시 못 가른다.
 export { SCRIPT_JPYEN, SCRIPT_JP10D, SCRIPT_JPPOST } from './scripts-jp2';
+// 일본 수요 1·2위(米国金利·ドル円) 첫 진입 (2026-08-24)
+export { SCRIPT_JPRATE, SCRIPT_JPFX } from './scripts-jp3';
 export { SCRIPT_LFEARN } from './scripts-longform';
