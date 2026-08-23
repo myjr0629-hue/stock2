@@ -408,7 +408,12 @@ function Say({ text, ask, askAt }: { text: string; ask?: string; askAt?: number 
   //   렌더 프레임에서 한 줄에 실제로 들어간 것은 «28자» 였다. CJK 면 26 으로 잡는다.
   //   (ET/KST · 無料/free 와 같은 종류의 버그 — 영어에서 뽑은 수를 언어 구분 없이 쓴 것)
   const CJK = /[぀-ヿ一-鿿가-힯]/.test(text + (ask || ''));
-  const CAP_MAX = g.lf ? (CJK ? 26 : 44) : undefined;
+  // ⛔ 26 으로도 3줄이 남았다 (2026-08-24 2차 실측). 줄당 22자밖에 안 들어가서다 —
+  //   자막 글자 크기가 «쇼츠 기준» 이라 16:9 에서 과하게 크다. 롱폼은 화면이 넓고
+  //   시청 거리도 다르다. 글자를 0.78 배로 줄이고, 그만큼 줄당 상한을 30 으로 올린다.
+  //   ⇒ 44자 낭독이 2줄에 들어가고, 자막 상자가 낮아져 아래 visual 을 덮지 않는다.
+  const CAP_MAX = g.lf ? (CJK ? 30 : 52) : undefined;
+  const CAP_SCALE = g.lf ? 0.78 : 1;
   const lines = CAPTION.wrap(text, CAP_MAX);
   const askLines = ask ? CAPTION.wrap(ask, CAP_MAX) : [];
   // ★ 2026-08-20 — «한 슬롯, 한 자막».
@@ -427,7 +432,7 @@ function Say({ text, ask, askAt }: { text: string; ask?: string; askAt?: number 
         }}>
           {lines.map((l, i2) => (
             <div key={i2} style={{
-              fontFamily, fontSize: CAPTION.sizeFor(lines.length), lineHeight: CAPTION.lineHeight,
+              fontFamily, fontSize: Math.round(CAPTION.sizeFor(lines.length) * CAP_SCALE), lineHeight: CAPTION.lineHeight,
               fontWeight: 900, color: C.ink, letterSpacing: '-0.025em',
             }}>{l}</div>
           ))}
@@ -442,7 +447,7 @@ function Say({ text, ask, askAt }: { text: string; ask?: string; askAt?: number 
           }}>
             {askLines.map((l, i2) => (
               <div key={i2} style={{
-                fontFamily, fontSize: CAPTION.sizeFor(askLines.length), lineHeight: CAPTION.lineHeight,
+                fontFamily, fontSize: Math.round(CAPTION.sizeFor(askLines.length) * CAP_SCALE), lineHeight: CAPTION.lineHeight,
                 fontWeight: 900, color: C.head, letterSpacing: '-0.025em',
               }}>{l}</div>
             ))}
