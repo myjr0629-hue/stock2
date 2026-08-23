@@ -137,6 +137,9 @@ import {
   SCRIPT_JPEARN,
   SCRIPT_EARN822,
   SCRIPT_JPCONS,
+  SCRIPT_JPYEN,
+  SCRIPT_JP10D,
+  SCRIPT_JPPOST,
   SCRIPT_LFEARN,
   SCRIPT_BONDS821,
 } from './kit/scripts';
@@ -259,6 +262,39 @@ const STAT_JP_CHIPS: StatProps = {
   cta: 'あなたはどれを持っていた？',
   source: '2016年8月に100万円 · 株式分割調整済み終値',
   jp: true,
+  music: 'shorts/audio/race-bed.mp3',
+};
+
+
+// ── Race 일본판 2편 (2026-08-23) ───────────────────────────────────────────
+//   ⛔ 포맷을 바꾸지 않는다. 지금 일본에서 가장 빠른 것이 Race 다 (7시간 489회 · 11회/분).
+//     대표 지시: "완전 포맷을 틀지말고 강화하고 원하는주제 소재를 던져주자"
+//   ⛔ 소재는 «살아난 두 주제» 를 합쳤다:
+//     S&P500 (옛 영상 617회 · 우리 실측 수요 20,926 — 일본 사전 최상위)
+//     エヌビディア (Race 1편 538회 · 수요 14,658)
+//     둘 다 일본 NISA 투자자가 «실제로 마주하는 선택» 이다. 만들어낸 프레임이 아니다.
+const RACE_JP_SPY_NVDA: RaceProps = {
+  title: ['10年前に100万円', 'S&P500とエヌビディア'],
+  // ⛔ 끝 카드는 «광고» 가 아니라 «해석» 이다 (2026-08-23).
+  //   본편은 비교만 보여준다 — 그것만으로는 인사이트가 없다.
+  //   일본에서 가장 잘 나온 옛 영상은 「S&P500が静かな理由、中では二つに割れている」 —
+  //   «해석» 이 제목에 있었다. 우리 Race 는 숫자만 있었다.
+  //   실측: 엔비디아는 10년 중 2번 하락, 최악 -40.3%(2019). S&P500 은 1번, -12.5%.
+  //   ⇒ 「40배의 길에 -40%의 해가 2번」 — 이게 사람이 가져가는 것이다. 앱은 그 뒤에 붙인다.
+  endCard: {
+    line1: '40倍の道には、-40%の年が2回ありました',
+    line2: '米国株の実測 · signumhq.com/app',
+    sec: 2.8,
+  },
+  a: { sym: 'SPY', name: 'S&P500', color: '#4FA3FF' },
+  b: { sym: 'NVDA', name: 'エヌビディア', color: '#76B900' },
+  seed: '100万円',
+  currency: 'jpy',
+  jp: true,
+  footnote: '2016年8月に100万円を投資した場合',
+  rows: [{"y": 2016, "a": 1000000, "b": 1000000}, {"y": 2017, "a": 1138513, "b": 2771242}, {"y": 2018, "a": 1335495, "b": 4588235}, {"y": 2019, "a": 1345340, "b": 2738562}, {"y": 2020, "a": 1606910, "b": 8738562}, {"y": 2021, "a": 2077284, "b": 14633987}, {"y": 2022, "a": 1817923, "b": 9862745}, {"y": 2023, "a": 2071718, "b": 32261438}, {"y": 2024, "a": 2593063, "b": 78019608}, {"y": 2025, "a": 2967384, "b": 113843137}, {"y": 2026, "a": 3522495, "b": 140339869}],
+  stepSec: 1.15,
+  holdSec: 3.4,
   music: 'shorts/audio/race-bed.mp3',
 };
 
@@ -421,7 +457,7 @@ export const RemotionRoot: React.FC = () => {
          // ����� ? ���� ���࿡�� ���� �� (�ǽð� ��� �ƴ�, ���� �÷��� �ȴ�)
          ['RECORDS', SCRIPT_RECORDS], ['OILSYM', SCRIPT_OILSYM], ['DEFENSE', SCRIPT_DEFENSE],
          ['CPI812', SCRIPT_CPI812], ['META812', SCRIPT_META812], ['GOOGL812', SCRIPT_GOOGL812], ['CPIOUT', SCRIPT_CPIOUT], ['MU812', SCRIPT_MU812], ['CLOSE812', SCRIPT_CLOSE812],
-         ['CLOSE814', SCRIPT_CLOSE814], ['RETAIL817', SCRIPT_RETAIL817], ['JOBS817', SCRIPT_JOBS817], ['FEDGAP817', SCRIPT_FEDGAP817], ['MORNING818', SCRIPT_MORNING818], ['CLOSE817', SCRIPT_CLOSE817], ['LONGEND818', SCRIPT_LONGEND818], ['UNWIND818', SCRIPT_UNWIND818], ['TRIPLE818', SCRIPT_TRIPLE818], ['TRIPLEB', SCRIPT_TRIPLEB], ['AMD819', SCRIPT_AMD819], ['DISP820', SCRIPT_DISP820], ['KOREA820', SCRIPT_KOREA820], ['MEMCORR', SCRIPT_MEMCORR], ['GOLD821', SCRIPT_GOLD821], ['OPEX821', SCRIPT_OPEX821], ['BONDS821', SCRIPT_BONDS821], ['JPOPEX', SCRIPT_JPOPEX], ['JPGAMMA', SCRIPT_JPGAMMA], ['JPEARN', SCRIPT_JPEARN], ['EARN822', SCRIPT_EARN822], ['JPCONS', SCRIPT_JPCONS], ['LFEARN', SCRIPT_LFEARN], ['AICON', SCRIPT_AICON]] as const).flatMap(([tag, src]) =>
+         ['CLOSE814', SCRIPT_CLOSE814], ['RETAIL817', SCRIPT_RETAIL817], ['JOBS817', SCRIPT_JOBS817], ['FEDGAP817', SCRIPT_FEDGAP817], ['MORNING818', SCRIPT_MORNING818], ['CLOSE817', SCRIPT_CLOSE817], ['LONGEND818', SCRIPT_LONGEND818], ['UNWIND818', SCRIPT_UNWIND818], ['TRIPLE818', SCRIPT_TRIPLE818], ['TRIPLEB', SCRIPT_TRIPLEB], ['AMD819', SCRIPT_AMD819], ['DISP820', SCRIPT_DISP820], ['KOREA820', SCRIPT_KOREA820], ['MEMCORR', SCRIPT_MEMCORR], ['GOLD821', SCRIPT_GOLD821], ['OPEX821', SCRIPT_OPEX821], ['BONDS821', SCRIPT_BONDS821], ['JPOPEX', SCRIPT_JPOPEX], ['JPGAMMA', SCRIPT_JPGAMMA], ['JPEARN', SCRIPT_JPEARN], ['EARN822', SCRIPT_EARN822], ['JPCONS', SCRIPT_JPCONS], ['JPYEN', SCRIPT_JPYEN], ['JP10D', SCRIPT_JP10D], ['JPPOST', SCRIPT_JPPOST], ['LFEARN', SCRIPT_LFEARN], ['AICON', SCRIPT_AICON]] as const).flatMap(([tag, src]) =>
         (['yt', 'tt', 'reels'] as Platform[]).map((pf) => {
           const cut = cutFor(src, pf);
           const id = pf === 'yt' ? `Briefing${tag}` : `Briefing${tag}-${pf}`;
@@ -1172,6 +1208,15 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={STAT_JP_CHIPS as any}
+      />
+      <Composition
+        id="RaceJpSpyNvda"
+        component={Race as React.ComponentType<any>}
+        durationInFrames={raceDuration(RACE_JP_SPY_NVDA)}
+        fps={RACE_FPS}
+        width={1080}
+        height={1920}
+        defaultProps={RACE_JP_SPY_NVDA as any}
       />
     </>
   );

@@ -4989,4 +4989,7 @@ export const SCRIPT_EARN822: BriefingProps = {
 };
 
 export { SCRIPT_JPOPEX, SCRIPT_JPGAMMA, SCRIPT_JPEARN, SCRIPT_JPCONS } from './scripts-jp';
+// ⛔ scripts-jp2 = «실제로 달린 3갈래» 확장판. 개시 4편(scripts-jp)과 섞지 않는다 —
+//   섞으면 무엇이 이겼는지 다시 못 가른다.
+export { SCRIPT_JPYEN, SCRIPT_JP10D, SCRIPT_JPPOST } from './scripts-jp2';
 export { SCRIPT_LFEARN } from './scripts-longform';

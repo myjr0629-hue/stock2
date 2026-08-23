@@ -15,6 +15,8 @@ import { readFileSync, existsSync } from 'node:fs';
 const FILES = [
   'src/remotion/kit/scripts.ts',
   'src/remotion/kit/scripts-jp.ts',
+  // 일본 «실제로 달린 3갈래» 확장판 (2026-08-23). 파일이 늘 때마다 여기만 고친다.
+  'src/remotion/kit/scripts-jp2.ts',
 ];
 
 /** 모든 대본 파일을 이어붙인 원문. 게이트의 문자열 탐색이 이걸 쓴다. */
