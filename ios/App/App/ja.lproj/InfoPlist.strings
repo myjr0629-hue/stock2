@@ -1,0 +1,3 @@
+/* App Store に日本語対応を実際に認識させるためのファイル。
+   詳細は ko.lproj/InfoPlist.strings のコメントを参照。 */
+"CFBundleDisplayName" = "SIGNUM HQ";

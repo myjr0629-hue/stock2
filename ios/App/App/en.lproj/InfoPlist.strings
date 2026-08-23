@@ -1,0 +1,4 @@
+/* Declares English support to the App Store.
+   The app's UI is web-rendered, so there is nothing else to translate here —
+   this file exists so that Apple detects the language at all. */
+"CFBundleDisplayName" = "SIGNUM HQ";
