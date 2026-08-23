@@ -22,7 +22,10 @@ async function token() {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       client_id: env.YT_CLIENT_ID, client_secret: env.YT_CLIENT_SECRET,
-      refresh_token: env.YT_REFRESH_TOKEN, grant_type: 'refresh_token',
+      // ⛔ 채널 스위치 — SIGNUM_YT=jp 면 일본 채널 토큰을 쓴다 (2026-08-23)
+      refresh_token: String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp'
+        ? env.YT_JP_REFRESH_TOKEN : env.YT_REFRESH_TOKEN,
+      grant_type: 'refresh_token',
     }),
   });
   return (await r.json()).access_token;

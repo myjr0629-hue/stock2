@@ -321,3 +321,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-22 업로드 (즉시 공개)
 
 - [Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later #stocks #investing](https://youtube.com/shorts/ht1IdXkWY8k) — 즉시 공개 · `ht1IdXkWY8k`
+
+## 2026-08-23 업로드 (즉시 공개)
+
+- [【米国株】10年前に100万円、エヌビディアとインテルで今いくら？](https://youtube.com/shorts/ugpQhzDodT8) — 즉시 공개 · `ugpQhzDodT8`

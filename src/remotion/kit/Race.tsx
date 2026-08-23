@@ -29,8 +29,12 @@ import {
   staticFile, Easing, Audio,
 } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Montserrat';
+import { loadFont as loadJP } from '@remotion/google-fonts/NotoSansJP';
 
 const { fontFamily } = loadFont();
+// ⛔ Montserrat 에는 일본어 글리프가 없다. 일본판은 반드시 NotoSansJP 를 써야 한다
+//   (안 그러면 두부(□)만 나온다). 2026-08-23 렌더로 확인.
+const { fontFamily: fontJP } = loadJP();
 
 export const RACE_FPS = 30;
 
@@ -46,6 +50,12 @@ export type RaceProps = {
   rows: RaceRow[];
   /** 시작 투자금 (라벨용) */
   seed: string;
+  /** 통화 표기 — 일본판은 «円», 미국판은 «$». ⛔ cur 는 내부에서 «현재 행» 으로 쓰여 이름이 다르다 */
+  currency?: 'usd' | 'jpy';
+  /** 하단 고정 문구 (기본은 영어). 일본판은 일본어로 넣는다 */
+  footnote?: string;
+  /** 일본어면 true — 폰트가 바뀐다 */
+  jp?: boolean;
   /** 한 해가 넘어가는 데 걸리는 초 */
   stepSec?: number;
   /** 마지막 결과를 붙잡고 있는 초 */
@@ -61,7 +71,17 @@ export const raceDuration = (p: RaceProps) =>
 
 export const Race: React.FC<RaceProps> = ({
   title, a, b, rows, seed, stepSec = 1.1, holdSec = 3.2, music,
+  currency = 'usd', footnote, jp = false,
 }) => {
+  const FF = jp ? fontJP : fontFamily;
+  // 일본은 «万» 단위로 읽는다. 1억 4034만엔 을 ¥140,339,900 으로 쓰면 안 읽힌다.
+  const yen = (n: number) => {
+    const oku = Math.floor(n / 1e8);
+    const man = Math.floor((n % 1e8) / 1e4);
+    if (oku > 0) return `${oku}億${man > 0 ? `${man.toLocaleString('ja-JP')}万` : ''}円`;
+    return `${man.toLocaleString('ja-JP')}万円`;
+  };
+  const fmt = currency === 'jpy' ? yen : money;
   const frame = useCurrentFrame();
   const { width: W, height: H } = useVideoConfig();
   const t = frame / RACE_FPS;
@@ -155,20 +175,24 @@ export const Race: React.FC<RaceProps> = ({
                style={{ width: 92, height: 92, objectFit: 'contain' }} />
         </div>
         {/* 티커 이름 — 로고 위 */}
+        {/* ⛔ 일본어 이름은 길다 — 「エヌビディア」가 260px·46px 에서 「エヌビディ」로 잘렸다.
+            폭을 넓히고 글자를 줄인다. 기둥 간격(240)보다 넓으면 두 라벨이 겹치므로 340 이 상한이다. */}
         <div style={{
-          position: 'absolute', left: cx - 130, top: FLOOR - bh - 222,
-          width: 260, textAlign: 'center',
-          fontFamily, fontWeight: 800, fontSize: 46, letterSpacing: 1,
+          position: 'absolute', left: cx - (jp ? 170 : 130), top: FLOOR - bh - 222,
+          width: jp ? 340 : 260, textAlign: 'center', whiteSpace: 'nowrap',
+          fontFamily: FF, fontWeight: 800, fontSize: jp ? 38 : 46, letterSpacing: jp ? 0 : 1,
           color: o.color, textShadow: '0 4px 22px rgba(0,0,0,.75)', opacity: intro,
         }}>{o.name}</div>
         {/* 현재 금액 — 기둥 아래. 계속 올라가는 숫자 */}
+        {/* ⛔ 일본어 금액도 길다 — 「1億4,033万円」이 280px·52px 에서 두 줄로 깨져 연도와 겹쳤다.
+            기둥 간격 240 + 폭 140 이므로 340 까지는 두 금액이 안 겹친다 (A 180~520 · B 560~900). */}
         <div style={{
-          position: 'absolute', left: cx - 140, top: FLOOR + 22,
-          width: 280, textAlign: 'center',
-          fontFamily, fontWeight: 900, fontSize: 52,
+          position: 'absolute', left: cx - (jp ? 170 : 140), top: FLOOR + 22,
+          width: jp ? 340 : 280, textAlign: 'center', whiteSpace: 'nowrap',
+          fontFamily: FF, fontWeight: 900, fontSize: jp ? 44 : 52,
           color: '#FFFFFF', textShadow: '0 4px 20px rgba(0,0,0,.8)',
           fontVariantNumeric: 'tabular-nums', opacity: intro,
-        }}>{money(Math.round(val))}</div>
+        }}>{fmt(Math.round(val))}</div>
 
         {/* ⛔ Jeremy 166만회의 «움직임의 본체» 는 기둥이 아니라 이것이었다 —
             연도별 금액이 한 줄씩 «쌓인다». 지나온 해가 화면에 남아야 격차가 읽힌다. */}
@@ -178,7 +202,7 @@ export const Race: React.FC<RaceProps> = ({
           top: TOP_H + 30,
           width: LIST_W, textAlign: side === 'a' ? 'left' : 'right',
           whiteSpace: 'nowrap',
-          fontFamily, fontWeight: 800, fontSize: 28, lineHeight: 1.46,
+          fontFamily: FF, fontWeight: 800, fontSize: 28, lineHeight: 1.46,
           color: 'rgba(255,255,255,.80)', fontVariantNumeric: 'tabular-nums',
           textShadow: '0 2px 10px rgba(0,0,0,.9)',
         }}>
@@ -187,7 +211,7 @@ export const Race: React.FC<RaceProps> = ({
               <span style={{ color: 'rgba(255,255,255,.42)', fontSize: 22, fontWeight: 700 }}>{r.y}</span>
               {'  '}
               <span style={{ color: o.color }}>
-                {money(side === 'a' ? r.a : r.b)}
+                {fmt(side === 'a' ? r.a : r.b)}
               </span>
             </div>
           ))}
@@ -197,7 +221,7 @@ export const Race: React.FC<RaceProps> = ({
   };
 
   return (
-    <AbsoluteFill style={{ background: '#0A0D14', fontFamily }}>
+    <AbsoluteFill style={{ background: '#0A0D14', fontFamily: FF }}>
       {/* 바닥선 — 두 기둥이 «같은 곳에서 출발했다»는 것을 보여준다 */}
       <div style={{
         position: 'absolute', left: cxA - barW / 2 - 30, top: FLOOR,
@@ -217,10 +241,10 @@ export const Race: React.FC<RaceProps> = ({
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         paddingLeft: PAD, paddingRight: PAD, paddingBottom: 46,
       }}>
-        <div style={{ fontWeight: 900, fontSize: 62, lineHeight: 1.08, color: '#FFFFFF' }}>
+        <div style={{ fontWeight: 900, fontSize: jp ? 56 : 62, lineHeight: 1.14, color: '#FFFFFF' }}>
           {title[0]}
         </div>
-        <div style={{ fontWeight: 900, fontSize: 62, lineHeight: 1.08, color: '#FFB020', marginTop: 4 }}>
+        <div style={{ fontWeight: 900, fontSize: jp ? 56 : 62, lineHeight: 1.14, color: '#FFB020', marginTop: 4 }}>
           {title[1]}
         </div>
       </div>
@@ -236,7 +260,7 @@ export const Race: React.FC<RaceProps> = ({
              핸들은 그 아래 «작고 흐리게» 만 둔다 — 콘텐츠 자리를 뺏지 않는다. */}
       <div style={{
         position: 'absolute', left: PAD, top: TOP_H - 44, width: W - PAD * 2,
-        fontFamily, fontWeight: 700, fontSize: 21, letterSpacing: 2.4,
+        fontFamily: FF, fontWeight: 700, fontSize: 21, letterSpacing: 2.4,
         color: 'rgba(255,255,255,.30)',
       }}>@SIGNUMHQ</div>
 
@@ -251,7 +275,7 @@ export const Race: React.FC<RaceProps> = ({
       <div style={{
         position: 'absolute', left: 0, top: H - 74, width: W, textAlign: 'center',
         fontWeight: 700, fontSize: 34, color: 'rgba(255,255,255,.46)',
-      }}>{seed} invested in {rows[0].y}</div>
+      }}>{footnote ?? `${seed} invested in ${rows[0].y}`}</div>
 
       {music ? <Audio src={staticFile(music)} volume={0.82} /> : null}
     </AbsoluteFill>

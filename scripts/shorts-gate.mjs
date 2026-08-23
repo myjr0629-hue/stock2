@@ -74,7 +74,7 @@ const SPEC_BY_CLASS = {
   //   ⛔ 자막띠·첫컷 검사는 이 계급에 «해당 사항이 없다» — 자막띠가 없고 컷이 없는 포맷이다.
   //     검사를 무르게 한 게 아니라, 그 항목이 측정 대상이 아니다.
   race: {
-    secRange: [5, 34], cutsPerMin: [0, 12], brightMin: 20, capTopPct: null,
+    secRange: [5, 34], secRangeMeasured: true, cutsPerMin: [0, 12], brightMin: 20, capTopPct: null,
     lufs: [-24, -5], firstCutSec: null, tagCount: [0, 90], hashtags: [1, 8],
   },
 };
@@ -220,13 +220,26 @@ function thumbIsFrame0(video, thumb) {
 const R = [];
 const ok = (name, pass, got, want) => R.push({ name, pass, got, want });
 
-// ⛔ 길이만은 «언어»로 갈린다 — 위 SPEC_BY_CLASS 의 31~38 은 미국 실측값이다.
-//   일본 247편: rho=-0.208 t=-3.32 (짧을수록 유리, 유의). 원본 .agent/_jp_hour_raw.json
-const SEC_RANGE_BY_LANG = { ja: [20, 32] };
+// ── 길이 × 언어 ────────────────────────────────────────────────────────────
+// ⛔ 2026-08-23 재측정으로 이 규칙을 완화했다. 규칙이 «자기 근거와 반대» 였다.
+//   옛 주석: "일본 247편: rho=-0.208 (짧을수록 유리, 유의)" — 짧을수록 좋다고 써놓고
+//            규칙은 20초 «미만을 금지» 했다. 앞뒤가 안 맞는다.
+//   재측정 (일본 신규채널 9,552편 · 채널별 정규화):
+//     길이 vs 성과  rho = 0.008 · t = 0.77  ⇒ 유의하지 않다. 247편 결과가 재현되지 않는다.
+//     구간별 배수중앙  4~12초 1.06 · 12~20초 1.00 · 20~32초 1.01 · 32~50초 1.02 · 50~95초 1.08
+//     (12~20초 폭발률이 14.1% 로 튀어 보였지만 한 채널이 그 구간 폭발작의 75% 였다 — 착시)
+//   ⇒ 일본에서 길이는 성과를 가르지 않는다. 좁은 창을 강제할 근거가 없다.
+//     ⛔ 다만 «측정된 계급 범위» 가 있으면 그쪽이 이긴다 (race 는 레퍼런스 7편 실측 [5,34]).
+const SEC_RANGE_BY_LANG = { ja: [8, 95] };
 
 function checkVideo(file, thumb, cls = 'concept', lang = 'en') {
   const S = { ...SPEC, ...(SPEC_BY_CLASS[cls] || SPEC_BY_CLASS.concept) };
-  if (SEC_RANGE_BY_LANG[lang]) S.secRange = SEC_RANGE_BY_LANG[lang];
+  // ⛔ 언어 범위는 «계급이 직접 재지 않은 경우» 에만 덮는다.
+  //   race 는 폭발작 7편을 내려받아 잰 [5,34] 를 갖고 있다. 언어 규칙이 그걸 덮으면
+  //   측정값이 미측정 규칙에 밀린다 — 그게 우리를 42회에 묶어뒀던 구조다.
+  if (SEC_RANGE_BY_LANG[lang] && !SPEC_BY_CLASS[cls]?.secRangeMeasured) {
+    S.secRange = SEC_RANGE_BY_LANG[lang];
+  }
   const m = analyse(file);
   R.push({ name: '계급', pass: true, got: cls, want: '' });
   ok('해상도 1080x1920', m.w === 1080 && m.h === 1920, `${m.w}x${m.h}`, '1080x1920');

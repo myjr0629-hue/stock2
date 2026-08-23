@@ -1,0 +1,31 @@
+[
+  {
+    "file": "out/race-jp-nvda-intc.mp4",
+    "thumb": "out/thumbs/race-jp.jpg",
+    "privacy": "public",
+    "categoryId": "27",
+    "class": "race",
+    "lang": "ja",
+    "title": "【米国株】10年前に100万円、エヌビディアとインテルで今いくら？",
+    "description": "無料の米国株アプリ: https://www.signumhq.com/app?src=yt_jp1\n\n2016年8月に100万円。エヌビディアに入れた場合と、インテルに入れた場合。\n\n10年後、1億4,033万円と250万円になりました。\n\n同じ半導体、同じ10年。どちらも当時から誰もが知っている会社です。\n\n株式分割を調整した月末終値で計算しています。\n\n#米国株 #投資 #エヌビディア #インテル #新NISA",
+    "tags": [],
+    "pinnedComment": "2016年はどちらも「有名な半導体株」でした。次はどの組み合わせを見たいですか？\n\n無料アプリ: https://www.signumhq.com/app?src=yt_jp1c",
+    "evidence": [
+      "FMP stable/historical-price-eod: NVDA 2016-08 close vs 2026-08 close (split-adjusted)",
+      "FMP stable/historical-price-eod: INTC 2016-08 close vs 2026-08 close (split-adjusted)",
+      "scripts/_race-data.mjs で計算・.agent/_race.json に保存 (年次11点)。100万円は1万ドルを100倍したもので倍率は同一"
+    ],
+    "story": {
+      "event": "エヌビディアがAI需要で世界最大級の企業になる一方、インテルは同じ10年で製造の優位を失った。",
+      "mechanism": "2016年の個人投資家にとって、どちらも名前を知っている半導体株だった。片方はアクセラレータの波に乗り、片方は乗り遅れた。同じ金額・同じ業種で55.9倍の差がついた。",
+      "anchor": "同じ100万円が1億4,033万円と250万円"
+    },
+    "insight": {
+      "claim": "同じ100万円、同じ半導体、同じ10年で、エヌビディアはインテルの55.9倍になった。",
+      "computedBy": "scripts/_race-data.mjs — 1,000,000 x (close_2026 / close_2016), 8月終値",
+      "value": 140339900,
+      "baseline": 2509600,
+      "source": "FMP stable/historical-price-eod/light, 株式分割調整済み終値, 2016-08 to 2026-08"
+    }
+  }
+]

@@ -192,6 +192,27 @@ const RACE_NVDA_AAPL: RaceProps = {
   music: 'shorts/audio/race-bed.mp3',
 };
 
+
+// ── Race 일본판 (2026-08-23) ────────────────────────────────────────────────
+//   ⛔ 미국판을 번역만 한 게 아니다. 일본 실측 3가지를 반영했다:
+//     ① 【】 대괄호 — 일본 폭발작 관습. 미국엔 없다
+//     ② 제목이 «묻는다» — 가장 가까운 레퍼런스 株データ検証 Fund Lens(구독 776 → 29만회)의
+//        폭발작이 「【積立】FANG+に毎月約1万円積み立てたら10年後いくら？」 였다
+//     ③ 금액은 «万·億» 단위 — 일본은 ¥140,339,900 을 그렇게 안 읽는다
+const RACE_JP_NVDA_INTC: RaceProps = {
+  title: ['10年前に100万円', 'エヌビディアとインテル'],
+  a: { sym: 'NVDA', name: 'エヌビディア', color: '#76B900' },
+  b: { sym: 'INTC', name: 'インテル', color: '#3B8EEA' },
+  seed: '100万円',
+  currency: 'jpy',
+  jp: true,
+  footnote: '2016年8月に100万円を投資した場合',
+  rows: [{"y": 2016, "a": 1000000, "b": 1000000}, {"y": 2017, "a": 2771200, "b": 977200}, {"y": 2018, "a": 4588200, "b": 1349400}, {"y": 2019, "a": 2738600, "b": 1321000}, {"y": 2020, "a": 8738600, "b": 1419600}, {"y": 2021, "a": 14634000, "b": 1506300}, {"y": 2022, "a": 9862700, "b": 889400}, {"y": 2023, "a": 32261400, "b": 979100}, {"y": 2024, "a": 78019600, "b": 614100}, {"y": 2025, "a": 113843100, "b": 678500}, {"y": 2026, "a": 140339900, "b": 2509600}],
+  stepSec: 1.15,
+  holdSec: 3.4,
+  music: 'shorts/audio/race-bed.mp3',
+};
+
 export const RemotionRoot: React.FC = () => {
   return (
     <>
@@ -1075,6 +1096,15 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={RACE_NVDA_AAPL as any}
+      />
+      <Composition
+        id="RaceJpNvdaIntc"
+        component={Race as React.ComponentType<any>}
+        durationInFrames={raceDuration(RACE_JP_NVDA_INTC)}
+        fps={RACE_FPS}
+        width={1080}
+        height={1920}
+        defaultProps={RACE_JP_NVDA_INTC as any}
       />
     </>
   );
