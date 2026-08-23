@@ -176,6 +176,19 @@ function validate(it, i) {
     }
   }
   if (it.pinnedComment && !/signumhq\.com/i.test(it.pinnedComment)) e.push('고정 댓글에 앱 주소가 없다');
+  // ⛔ 「이미 올린 영상과 같은 소리를 또 하는가」 (2026-08-24 신설)
+  //   실제 사고: SCRIPT_JPPOST 를 «갈래 확장»으로 만들었는데 이미 825회를 기록 중이던
+  //   SCRIPT_JPGAMMA 와 같은 발견이었다 (12종목·11/12·p=0.0063·NVDA 예외).
+  //   업로드·예약까지 갔고 사람이 잡았다. 기억에 맡기지 않고 여기서 막는다.
+  if (it.scriptTag) {
+    const r = spawnSync(process.execPath, ['scripts/_dupe-check.mjs', it.scriptTag],
+      { encoding: 'utf8' });
+    if (r.status !== 0) {
+      e.push('기존 대본과 같은 발견일 수 있다 — node scripts/_dupe-check.mjs ' + it.scriptTag);
+      String(r.stdout || '').split('\n').filter((l) => /SCRIPT_|⛔/.test(l))
+        .forEach((l) => e.push('   ' + l.trim()));
+    }
+  }
   if (it.thumb && !existsSync(it.thumb)) e.push(`썸네일 없음: ${it.thumb}`);
   if ((it.tags || []).join(',').length > 480) e.push('태그 총 길이 500자 초과 위험');
   return e;
@@ -259,7 +272,23 @@ for (const it of items) {
   const url = `https://youtube.com/shorts/${v.id}`;
   process.stdout.write(` ✔ ${v.id}\n`);
   if (it.thumb) console.log(`    썸네일: ${await setThumb(access_token, v.id, it.thumb)}`);
-  if (it.pinnedComment) console.log(`    댓글:   ${await comment(access_token, v.id, it.pinnedComment)}  (고정은 스튜디오에서 수동)`);
+  // ⛔ 비공개(예약) 영상에는 댓글을 못 단다 — API 가 403 을 낸다.
+  //   전에는 그걸 «실패»로 찍고 끝냈고, 게시된 뒤에 다는 절차가 없었다.
+  //   그래서 예약으로 올린 3편이 «댓글 0» 인 채로 며칠을 돌았다 (2026-08-24 대표 지적).
+  //   ⇒ 지금 못 달면 «대기열»에 남긴다. 게시 시각이 지나면 yt-admin 이 처리한다.
+  if (it.pinnedComment) {
+    const sched = it.privacy !== 'public' && it.privacy !== 'unlisted';
+    if (sched) {
+      appendFileSync('.agent/PENDING_COMMENTS.jsonl', JSON.stringify({
+        id: v.id, ch: LANG === "ja" ? "jp" : "hq", title: it.title,
+        publishAtKST: it.publishAtKST, text: it.pinnedComment,
+      }) + '\n');
+      console.log('    댓글:   대기열 등록 (비공개라 지금은 못 단다)');
+      console.log('            게시 후 →  node scripts/yt-admin.mjs pending');
+    } else {
+      console.log(`    댓글:   ${await comment(access_token, v.id, it.pinnedComment)}  (고정은 스튜디오에서 수동)`);
+    }
+  }
   console.log(`    ${url}`);
   done.push({ ...it, id: v.id, url });
 }
