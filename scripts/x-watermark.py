@@ -23,7 +23,14 @@ base = im.crop((0, h - 6, w, h)).resize((1, 1)).getpixel((0, 0))
 canvas = Image.new("RGB", (w, h + bar), base)
 canvas.paste(im, (0, 0))
 d = ImageDraw.Draw(canvas)
-d.line([(int(w * 0.05), h + 1), (w - int(w * 0.05), h + 1)], fill=(255, 255, 255), width=2)
+# 배경 밝기에 따라 글자색을 뒤집는다.
+# (UC 는 밝은 테마라 하단이 흰색 — 흰 글씨를 쓰면 워터마크가 통째로 안 보인다. 2026-08-23 실측)
+lum = 0.299 * base[0] + 0.587 * base[1] + 0.114 * base[2]
+dark_bg = lum < 128
+fg = (255, 255, 255) if dark_bg else (17, 24, 39)
+sub_fg = (150, 165, 185) if dark_bg else (90, 100, 115)
+rule = (255, 255, 255) if dark_bg else (200, 206, 215)
+d.line([(int(w * 0.05), h + 1), (w - int(w * 0.05), h + 1)], fill=rule, width=2)
 name, sub = MARK[(app, loc)]
 f1 = ImageFont.truetype(FONT, int(w * 0.040))
 f2 = ImageFont.truetype(FONT, int(w * 0.027))
@@ -31,6 +38,6 @@ f2 = ImageFont.truetype(FONT, int(w * 0.027))
 for t in (name, sub):
     if any(f1.getmask(ch).getbbox() is None and ch.strip() for ch in t):
         raise SystemExit(f"font cannot render: {t}")
-d.text((int(w * 0.05), h + int(bar * 0.20)), name, font=f1, fill=(255, 255, 255))
-d.text((int(w * 0.05), h + int(bar * 0.58)), sub, font=f2, fill=(150, 165, 185))
+d.text((int(w * 0.05), h + int(bar * 0.20)), name, font=f1, fill=fg)
+d.text((int(w * 0.05), h + int(bar * 0.58)), sub, font=f2, fill=sub_fg)
 canvas.save(dst, optimize=True)

@@ -57,6 +57,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.evaluate(() => {
     document.querySelectorAll('.app-anchor-ad, [aria-label="Sponsored"], .uc-ad, [id*="google_ads"], iframe[src*="ads"]')
       .forEach((el) => el.remove());
+    // 프로덕트헌트 런치 배너 제거 — 홍보용 스샷에 다른 배너가 들어가면 안 된다.
+    // (배너는 producthunt.com 로 나가는 a 태그를 갖고 있다. 그 조상 블록을 지운다.)
+    document.querySelectorAll('a[href*="producthunt.com"]').forEach((a) => {
+      const box = a.closest('div');
+      if (box && box.parentElement) box.remove();
+    });
     for (const v of ['--app-anchor-ad-height', '--uc-ad-h', '--app-tabbar-lift', '--app-bottom-safe', '--uc-lift', '--uc-safe'])
       document.documentElement.style.setProperty(v, '0px');
     window.scrollTo(0, 0);
