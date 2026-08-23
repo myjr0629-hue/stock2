@@ -2,7 +2,6 @@
   {
     "file": "out/jp-post.mp4",
     "thumb": "out/jp-post_thumb.jpg",
-    "privacy": "public",
     "categoryId": "27",
     "class": "briefing",
     "lang": "ja",
@@ -53,6 +52,7 @@
       "source": "FMP stable/historical-price-eod/full, 12銘柄 2021-2026, 満期明け320日 vs 平常770日",
       "pValue": 0.0063,
       "saidAs": "十二銘柄のうち十一銘柄が同じ向き。"
-    }
+    },
+    "publishAtKST": "2026-08-24 14:00"
   }
 ]

@@ -333,3 +333,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-23 업로드 (즉시 공개)
 
 - [【エヌビディア】同じ100万円、10年で一番増えたのは？](https://youtube.com/shorts/3otHV6P40Ms) — 즉시 공개 · `3otHV6P40Ms`
+
+## 2026-08-24 업로드 (비공개+예약)
+
+- [S&P500で検証:「満期明けは荒れる」は逆でした](https://youtube.com/shorts/9Jbtrmns0o0) — 예약 KST 2026-08-24 14:00 · `9Jbtrmns0o0`
