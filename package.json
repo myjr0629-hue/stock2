@@ -83,7 +83,8 @@
     "swr": "^2.4.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "three": "^0.182.0"
+    "three": "^0.182.0",
+    "youtubei.js": "^18.0.0"
   },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.1005.0",
