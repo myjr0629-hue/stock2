@@ -46,6 +46,10 @@ export type StatBeat = {
   /** 하단 라벨 — 그 뒤의 말. 합쳐서 2~4단어여야 한다 */
   label: string;
   sec: number;
+  /** ⛔ 클립의 «몇 초 지점» 부터 쓸지. 앞 4초만 쓰면 뜻이 뒤집힐 수 있다 —
+   *   ax-stack-blocks 는 처음엔 블록이 낮고 나중에 높이 쌓인다.
+   *   가장 큰 숫자에 «낮은 더미» 가 붙어 서열이 거꾸로 읽혔다 (2026-08-23). */
+  from?: number;
 };
 
 export type StatProps = {
@@ -124,6 +128,7 @@ export const Stat: React.FC<StatProps> = ({ title, beats, verdict, cta, source, 
             <OffthreadVideo
               src={staticFile(`shorts/bg/video/${b.clip}.mp4`)}
               muted
+              startFrom={Math.round((b.from ?? 0) * STAT_FPS)}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           </div>

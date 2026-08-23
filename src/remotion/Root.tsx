@@ -233,6 +233,35 @@ const STAT_CHIPS: StatProps = {
   music: 'shorts/audio/race-bed.mp3',
 };
 
+
+// ── Stat 일본판 (2026-08-23) ────────────────────────────────────────────────
+//   ⛔ 미국판 첫 편의 결함을 고친 것이다. 거기서는 클립을 «움직임 점수» 로만 골랐고,
+//     그 결과 「+151% 인텔」 옆에 «급등하는 초록 차트» 가 붙었다 — 그림이 숫자를 반박했다.
+//     레퍼런스는 반대다: 호날두 옆에 「7% ATHLETES」, 지친 직장인 옆에 「0% EMPLOYEES」.
+//     ⇒ 여기서는 클립을 «그 숫자를 보여주는 그림인가» 로 골랐다:
+//        rise-stairs-light(168) 계단이 올라감 → 1위
+//        ani-floor-fills(135)   바닥이 채워짐 → 2위
+//        ani-vault-drain(157)   금고가 비어감 → 꼴찌
+//     서열이 그림으로 읽힌다. 움직임은 셋 다 135~168 로 레퍼런스대(157~205) 근처다.
+const STAT_JP_CHIPS: StatProps = {
+  title: { pre: '同じ100万円、10年で', hot: '一番増えた', post: 'のは' },
+  beats: [
+    // ⛔ 세로 클립(움직임 150~193)을 가로 띠에 넣었더니 «뜻이 안 읽혔다».
+    //   rise-stairs-light 는 「계단이 올라간다」인데 크롭하면 콘크리트 덩어리다.
+    //   레퍼런스 클립은 원래 가로라 그대로 들어간다 — 우리 라이브러리는 세로용으로 만들어졌다.
+    //   우리 가로 클립 40개는 전부 ax- 캐릭터이고 최고 움직임이 112 다 (150+ 는 0개).
+    //   ⇒ «뜻» 을 택했다. 움직임 손해는 측정으로 확인한다 (레퍼런스 157~205 대비 얼마나 빠지는지).
+    { clip: 'ax-stack-blocks',  value: '+13,934%', label: 'エヌビディア', sec: 4.2, from: 5.4 },
+    { clip: 'ax-two-piles',     value: '+6,295%',  label: 'AMD',      sec: 4.2, from: 3.6 },
+    { clip: 'ax-podium-empty',  value: '+151%',    label: 'インテル',   sec: 4.2 },
+  ],
+  verdict: '同じ半導体、同じ10年。',
+  cta: 'あなたはどれを持っていた？',
+  source: '2016年8月に100万円 · 株式分割調整済み終値',
+  jp: true,
+  music: 'shorts/audio/race-bed.mp3',
+};
+
 export const RemotionRoot: React.FC = () => {
   return (
     <>
@@ -1134,6 +1163,15 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={STAT_CHIPS as any}
+      />
+      <Composition
+        id="StatJpChips"
+        component={Stat as React.ComponentType<any>}
+        durationInFrames={statDuration(STAT_JP_CHIPS)}
+        fps={STAT_FPS}
+        width={1080}
+        height={1920}
+        defaultProps={STAT_JP_CHIPS as any}
       />
     </>
   );

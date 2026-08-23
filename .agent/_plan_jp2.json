@@ -1,0 +1,31 @@
+[
+  {
+    "file": "out/stat-jp-chips.mp4",
+    "thumb": "out/thumbs/stat-jp.jpg",
+    "privacy": "public",
+    "categoryId": "27",
+    "class": "stat",
+    "lang": "ja",
+    "title": "【エヌビディア】同じ100万円、10年で一番増えたのは？",
+    "description": "無料の米国株アプリ: https://www.signumhq.com/app?src=yt_jp2\n\n2016年8月に100万円。3つの半導体株に入れた場合。\n\nエヌビディア +13,934%、AMD +6,295%、インテル +151%。\n\n同じ業種、同じ10年、同じ元手です。\n\n株式分割を調整した終値で計算しています。\n\n#米国株 #投資 #エヌビディア #新NISA #半導体",
+    "tags": [],
+    "pinnedComment": "3社とも2016年から名前は知られていました。あなたはどれを持っていましたか？\n\n無料アプリ: https://www.signumhq.com/app?src=yt_jp2c",
+    "evidence": [
+      "FMP stable/historical-price-eod: NVDA/AMD/INTC 2016-08 vs 2026-08 終値 (株式分割調整済み)",
+      "scripts/_race-data.mjs で計算・.agent/_race.json に保存",
+      "パーセントは (close_2026/close_2016 - 1) x 100"
+    ],
+    "story": {
+      "event": "AIアクセラレータの波で半導体セクターが割れた。エヌビディアとAMDは乗り、インテルは製造の優位を失った。",
+      "mechanism": "2016年時点で3社とも個人投資家が名前を知っている半導体株だった。情報へのアクセスではなく実行の差が10年で92倍の開きになった。",
+      "anchor": "同じ100万円がエヌビディア+13,934%、インテル+151%"
+    },
+    "insight": {
+      "claim": "同じ業種・同じ10年・同じ元手で、エヌビディアはインテルの92倍になった。",
+      "computedBy": "scripts/_race-data.mjs - (close_2026/close_2016 - 1) x 100, 8月終値",
+      "value": 13934,
+      "baseline": 151,
+      "source": "FMP stable/historical-price-eod/light, 株式分割調整済み終値, 2016-08 to 2026-08"
+    }
+  }
+]

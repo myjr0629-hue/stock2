@@ -329,3 +329,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-23 업로드 (즉시 공개)
 
 - [Chip Stocks: Who Actually Got Rich in 10 Years #stocks #investing](https://youtube.com/shorts/KFywOkzy8mY) — 즉시 공개 · `KFywOkzy8mY`
+
+## 2026-08-23 업로드 (즉시 공개)
+
+- [【エヌビディア】同じ100万円、10年で一番増えたのは？](https://youtube.com/shorts/3otHV6P40Ms) — 즉시 공개 · `3otHV6P40Ms`
