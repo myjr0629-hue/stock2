@@ -218,7 +218,12 @@ if (bad) { console.log(`\n  ${bad}건 위반 — 업로드하지 않는다\n`); 
   if (process.argv.includes('--force-hour')) {
     console.warn('  ⚠ --force-hour — 시간대 검사를 건너뛴다.');
   } else {
-    const hq = spawnSync(process.execPath, ['scripts/_publish-hour.mjs'], { stdio: 'inherit' });
+    // ⛔ «업로드 시각» 이 아니라 «게시 시각» 을 본다 (2026-08-24).
+    //   예약 업로드는 지금 올려도 게시는 나중이다. 이 구분이 없어서 JST 00:01 에
+    //   「14:00 게시」 건을 막았다 — 검사 대상 자체가 틀렸다.
+    const sched = items.map((x) => x.publishAtKST).filter(Boolean);
+    const at = sched.length ? ['--at=' + sched[0]] : [];
+    const hq = spawnSync(process.execPath, ['scripts/_publish-hour.mjs', ...at], { stdio: 'inherit' });
     if (hq.status !== 0) {
       console.error('  시청자가 자는 시간대다 — 업로드를 중단한다.');
       process.exit(1);
@@ -233,8 +238,21 @@ if (bad) { console.log(`\n  ${bad}건 위반 — 업로드하지 않는다\n`); 
 //   ⇒ 기억·판단에 맡기지 않고 업로드 경로에서 막는다.
 //   ⚠ 이 검사를 건너뛰려면 --force-interval 을 «명시» 해야 한다.
 {
+  // ⛔ 이 검사는 «지금 게시되는» 건에만 뜻이 있다 (2026-08-24).
+  //   예약분은 지금 올려도 게시가 몇 시간 뒤다. 그때 직전 편은 이미 끝나 있다.
+  //   실제로 「14시간 뒤 게시」 건이 지금 달리는 직전 편 때문에 막혔다 — 잘못 막은 것이다.
+  //   ⇒ 예약이 6시간 이상 남았으면, 지금 상태 대신 «게시 간격» 을 본다.
+  //     간격이 곧 자기잠식을 결정하는 값이고, 그건 예약 시각이 이미 정해놨다.
+  const firstAt = items.map((x) => x.publishAtKST).filter(Boolean)[0];
+  const hoursOut = firstAt
+    ? (Date.UTC(+firstAt.slice(0, 4), +firstAt.slice(5, 7) - 1, +firstAt.slice(8, 10),
+                +firstAt.slice(11, 13) - 9, +firstAt.slice(14, 16)) - Date.now()) / 36e5
+    : 0;
   if (process.argv.includes('--force-interval')) {
     console.warn('  ⚠ --force-interval — 직전 편 검사를 건너뛴다. 직전 편이 잘릴 수 있다.');
+  } else if (hoursOut >= 6) {
+    console.log(`  게시까지 ${hoursOut.toFixed(1)}시간 — 직전 편 «현재» 상태는 보지 않는다.`);
+    console.log('  (예약분은 게시 «간격» 이 자기잠식을 결정하고, 그건 예약 시각이 정해놨다)');
   } else {
     const q = spawnSync(process.execPath, ['scripts/_prev-still-running.mjs'], { stdio: 'inherit' });
     if (q.status !== 0) {

@@ -33,7 +33,15 @@ const LABEL = JP ? '일본' : '미국 동부';
 const BAD = [0, 1, 2, 3, 4, 5];        // 시청자가 자는 시간
 const BEST = [6, 7, 8, 9, 10, 11];     // 우리 최고 구간
 
-const now = new Date();
+// ⛔ 예약 업로드는 «지금» 이 아니라 «게시될 시각» 을 봐야 한다 (2026-08-24).
+//   그 구분이 없어서 JST 00:01 에 올린 「14:00 게시」 건이 막혔다 — 잘못 막은 것이다.
+//   --at="YYYY-MM-DD HH:MM" 은 JST/KST(둘 다 UTC+9) 기준 게시 시각이다.
+const AT = (process.argv.find((a) => a.startsWith('--at=')) || '').slice(5);
+const atM = AT.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+const now = atM
+  ? new Date(Date.UTC(+atM[1], +atM[2] - 1, +atM[3], +atM[4] - 9, +atM[5]))
+  : new Date();
+if (atM) console.log(`\n  «게시 예정» 시각으로 검사한다 — ${AT} (KST/JST)`);
 const hour = +new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: '2-digit', hour12: false }).format(now);
 const shown = new Intl.DateTimeFormat('ko-KR', {
   timeZone: TZ, weekday: 'short', month: 'numeric', day: 'numeric',

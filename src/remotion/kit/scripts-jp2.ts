@@ -23,6 +23,7 @@
 import type { BriefingProps } from './Briefing';
 import { VOICE_JPYEN } from './voice-jpyen';
 import { VOICE_JPPOST } from './voice-jppost';
+import { VOICE_JP10D } from './voice-jp10d';
 
 // ============================================================================
 // SCRIPT_JPYEN — 「その2.5倍、4割は株じゃない」 (지수 갈래 확장)
@@ -138,111 +139,143 @@ export const SCRIPT_JPYEN: BriefingProps = {
 };
 
 // ============================================================================
-// SCRIPT_JP10D — 「137倍の正体は、10日だった」 (10년 복리 갈래 확장)
+// SCRIPT_JP10D — 「エヌビディアは十日に頼っていなかった」 (10년 복리 갈래 확장)
 // ----------------------------------------------------------------------------
-// ★ 근거: scripts/edge-jp3.mjs · .agent/_jp3.json (2026-08-23 실호출)
-//   NVDA 2016-08-22 → 2026-08-21 · 2,513거래일
-//     그대로 137.64배 / 상위10일 제외 27.05배 / 20일 10.77배 / 30일 5.02배
-//     상위 10일이 지운 몫 80.3% (전체 일수의 0.40%)
-//     최대 낙폭 -66.4% (2022-10-14)
-//   SPY 같은 기간 3.50배 → 상위10일 제외 1.85배 (47.1% 소멸) · 최대 낙폭 -34.1%
+// ★ 근거: scripts/edge-jp-rare.mjs · .agent/_jp_rare.json (2026-08-24 실호출)
+//   대형주 29종 · 2016-08-22 ~ 2026-08-21 (2,513거래일)
+//   지표: 10년 로그수익 중 «상위 10일» 이 차지하는 몫
+//     WFC 188.9%  INTC 164.1%  QCOM 142.7%  CVX 140.6%  XOM 130.4%  ORCL 114.0%
+//     중앙 65.0%
+//     AAPL 37.9%  MU 35.3%  NVDA 33.0%  ← 29종 중 «최하위», 백분위 3.4
 //
-// ⛔ 이건 «검정» 이 아니라 «분해» 다. p값을 붙이지 않는다. 붙이면 거짓이 된다.
-// ⛔ 「だから売るな」로 쓰지 않는다. 그건 조언이다. 우리는 분해만 보여준다.
-// ⛔ 10일을 «맞출 수 있다»는 뉘앙스도 금지. 위치만 말한다.
+// ⛔ 처음에 쓰려던 각도를 «버렸다». 그대로 적어 둔다 —
+//   초안은 「137배의 8할이 10일에서 나왔다」였다 (상위10일 제외 시 137.64배→27.05배).
+//   틀린 수치는 아니지만 «배수»로 말하면 극적으로 들리고 «로그»로 종목끼리 비교하면
+//   NVDA 는 오히려 가장 덜 몰려 있다. 두 수치는 같은 사실이다:
+//     log(137.64)=4.925 · 상위10일 몫 33% → exp(4.925×0.67)=27.1 ✓
+//   ⇒ 「8할」만 보여주면 시청자는 «NVDA 가 유난히 운 좋은 열흘» 이라고 오해한다.
+//     비교군을 재고 나서야 반대라는 것을 알았다. 재지 않았으면 거짓을 내보낼 뻔했다.
+//
+// ⛔ 「だから長期保有せよ」로 쓰지 않는다. 조언이 되는 순간 거짓이 된다.
+// ⛔ 「NVDA 가 더 안전하다」도 금지. 우리가 잰 것은 «수익의 집중도» 하나뿐이다.
+//   최대 낙폭은 NVDA 가 -66.4% 로 훨씬 컸다 (.agent/_jp3.json).
 // ============================================================================
 export const SCRIPT_JP10D: BriefingProps = {
-  title: '10年で137倍。\n10日抜くと27倍。',
-  date: 'AUG 23 · 2,513営業日の分解',
+  // ⛔ 초안은 「29銘柄中28銘柄が沈む」이었다 — «틀린 말»이다. 중앙값이 65% 라는 것은
+  //   상위 10일을 빼도 대부분은 여전히 플러스라는 뜻이다. 실제로 원금 아래로 내려가는 것은
+  //   몫이 100% 를 넘는 8종목뿐이다 (WFC INTC QCOM CVX XOM ORCL CRM ADBE).
+  title: '上位10日を抜くと、\n8銘柄が元本割れ。',
+  date: 'AUG 24 · 大型株29銘柄',
   slowCuts: true,
   noOutro: true,
   disclaimer: '教育目的のみ。投資助言ではありません。',
-  field: ['NVDA', 'SPY', 'AMD', 'INTC'],
+  field: ['NVDA', 'WFC', 'INTC', 'AAPL', 'MU'],
 
   hook: {
-    line: '137倍のうち、\n8割は10日で出た。',
-    sub: '二千五百十三営業日、全部並べた。',
-    say: '百三十七倍のうち、八割は十日で出ました。',
+    line: '上位10日を抜いたら、\n元本割れした銘柄がある。',
+    sub: '大型株二十九銘柄、全部並べた。',
+    say: 'ちょっと待って。逆でした。',
     role: 'conflict',
     syms: ['NVDA'],
     bigNum: '10日',
-    bg: { kind: 'video', src: 'shorts/bg/video/ax-long-corridor-count.mp4', loopFrames: 150 },
+    bg: { kind: 'video', src: 'shorts/bg/video/tape-wall-scroll.mp4', loopFrames: 150 },
   },
-  loop: '十年を作ったのは、\n十日だった。',
+  loop: '百三十七倍は、\n毎日積み上がった。',
 
   beats: [
     {
       role: 'conflict',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-vault-open.mp4', loopFrames: 150 },
-      eyebrow: '十年前に100万円',
-      head: '今は\n1億3,764万円。',
-      say: '十年前の百万円が、一億三千七百万円です。',
-      ask: 'エヌビディア、百三十七倍。',
+      bg: { kind: 'video', src: 'shorts/bg/video/exchange-flags.mp4', loopFrames: 150 },
+      eyebrow: 'よく聞く話',
+      head: '上がるのは\n十日だけ、と言う。',
+      say: '上がるのは十日だけ、と言う。',
+      ask: 'よく聞く話です。',
       visual: {
-        kind: 'stat', label: 'NVDA · 10年', value: '137.64倍',
-        sub: '2016年8月22日 → 2026年8月21日', up: true, sym: 'NVDA',
+        kind: 'stat', label: 'よく聞く話', value: '上位10日',
+        sub: 'くり返される — 比べられたことはない', up: false,
       },
     },
     {
       role: 'evidence',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ax-count-tally.mp4', loopFrames: 150 },
+      bg: { kind: 'video', src: 'shorts/bg/video/desks-dawn.mp4', loopFrames: 150 },
       eyebrow: 'だから並べた',
-      head: '2,513日を\n一日ずつ。',
-      say: '二千五百十三営業日を、一日ずつ並べました。',
-      ask: '上がった日の上位十日を抜きます。',
+      head: '大型株\n二十九銘柄。',
+      say: '大型株二十九銘柄で測りました。',
+      ask: '十年を一日ずつです。',
       visual: {
         kind: 'rows', rows: [
-          { k: '対象', v: '2,513営業日', up: true, note: '2016年8月 - 2026年8月' },
-          { k: '抜くのは', v: '上位10日', up: false, note: '全体のわずか0.40%' },
-          { k: '残りは', v: '2,503日', up: true, note: '他は一日も触らない' },
+          { k: '対象', v: '29銘柄', up: true, note: '米国大型株 · 2016年8月から' },
+          { k: '日数', v: '2,513日', up: true, note: '一銘柄あたり' },
+          { k: '測るもの', v: '上位10日の寄与', up: true, note: '対数リターンでの割合' },
         ],
       },
     },
     {
       role: 'money',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-vault-drain.mp4', loopFrames: 150 },
-      eyebrow: '結果',
-      head: '137倍が\n27倍になった。',
-      say: '百三十七倍が、二十七倍になりました。',
-      ask: '十日で、八割が消えます。',
-      visual: { kind: 'versus', aK: '全2,513日', aV: '137.64倍', bK: '10日を除く', bV: '27.05倍' },
+      bg: { kind: 'video', src: 'shorts/bg/video/nyse-flags.mp4', loopFrames: 150 },
+      eyebrow: '返ってきた答え',
+      head: '中央値は\n六十五%。',
+      say: '中央値は六十五%でした。',
+      ask: '半分以上が十日で決まる。',
+      visual: {
+        kind: 'stat', label: '29銘柄の中央値', value: '65.0%',
+        sub: '十年の伸びの半分以上が、十日に集まっていた', up: false,
+      },
     },
     {
       role: 'verdict',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ax-stack-blocks.mp4', loopFrames: 150 },
-      eyebrow: 'もっと抜くと',
-      head: '30日抜けば\n5倍まで落ちる。',
-      say: '二十日で十・七倍。三十日で、五倍です。',
-      ask: '十年が、ほぼ消えます。',
+      bg: { kind: 'video', src: 'shorts/bg/video/vault-doors.mp4', loopFrames: 150 },
+      eyebrow: '一番きつい銘柄',
+      head: '十日を抜くと\n元本割れ。',
+      say: '十日を抜くと元本割れです。',
+      ask: 'ウェルズ・ファーゴの話です。',
       visual: {
         kind: 'rows', rows: [
-          { k: 'そのまま', v: '137.64倍', up: true, note: '2,513日すべて' },
-          { k: '上位20日を除く', v: '10.77倍', up: false, note: '全体の0.80%' },
-          { k: '上位30日を除く', v: '5.02倍', up: false, note: '全体の1.19%' },
+          { k: 'ウェルズ・ファーゴ', v: '188.9%', up: false, note: '10年で1.7倍 — 10日を抜くと1倍未満' },
+          { k: 'インテル', v: '164.1%', up: false, note: '10年で2.5倍' },
+          { k: 'クアルコム', v: '142.7%', up: false, note: '10年で2.6倍' },
+        ],
+      },
+    },
+    {
+      role: 'evidence',
+      prio: 1,
+      bg: { kind: 'video', src: 'shorts/bg/video/columns-goldenhour.mp4', loopFrames: 150 },
+      eyebrow: '分布で見ると',
+      head: '二十九のうち\n二十一。',
+      say: '五十%を超えたのが二十一銘柄。',
+      ask: '元本割れは八銘柄でした。',
+      visual: {
+        kind: 'rows', rows: [
+          { k: '50%超', v: '21銘柄', up: false, note: '29銘柄中 — 伸びの半分が10日に' },
+          { k: '100%超', v: '8銘柄', up: false, note: '10日を抜くと元本割れ' },
+          { k: '40%未満', v: '3銘柄', up: true, note: 'AAPL · MU · NVDA' },
         ],
       },
     },
     {
       role: 'chips',
       prio: 1,
-      bg: { kind: 'video', src: 'shorts/bg/video/ani-storm-part.mp4', loopFrames: 150 },
-      eyebrow: 'その十年の途中',
-      head: '一度、\n66%下げている。',
-      say: 'そしてその途中、六十六%下げた時期があります。',
-      ask: 'S&P500も同じ形でした。',
+      bg: { kind: 'video', src: 'shorts/bg/video/chip-city.mp4', loopFrames: 150 },
+      eyebrow: 'ところが',
+      head: 'エヌビディアが\n一番低い。',
+      say: 'エヌビディアは二十九銘柄中最下位。',
+      ask: '十日には頼っていません。',
       visual: {
         kind: 'rows', rows: [
-          { k: 'NVDA 最大下落', v: '-66.4%', up: false, note: '2022年10月14日 · 終値ベース' },
-          { k: 'S&P500 10年', v: '3.50倍', up: true, note: '10日を除くと1.85倍' },
-          { k: 'S&P500 最大下落', v: '-34.1%', up: false, note: '2020年3月23日' },
+          { k: 'エヌビディア', v: '33.0%', up: true, note: '29銘柄で最も低い · 下位3.4%' },
+          { k: '10年の倍率', v: '137.6倍', up: true, note: '同じ期間で最大' },
+          { k: 'ただし最大下落', v: '-66.4%', up: false, note: '2022年10月 — 楽な道ではない' },
         ],
       },
     },
   ],
+
+  voice: VOICE_JP10D,
 };
 
 // ============================================================================
