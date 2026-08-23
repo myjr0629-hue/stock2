@@ -47,7 +47,7 @@ for ch, vs in by_ch.items():
     med = statistics.median([x['v'] for x in vs]) or 1
     for x in vs:
         if 4 <= x['sec'] <= 95 and len(x['t'].strip()) >= 6:
-            items.append({'t': x['t'], 'ch': ch, 'rel': x['v'] / med, 'v': x['v'], 'sec': x['sec']})
+            items.append({'t': x['t'], 'ch': ch, 'rel': x['v'] / med, 'v': x['v'], 'sec': x['sec'], 'id': x.get('id','')})
 
 print('  %s 쇼츠 %d편 · 채널 %d곳' % (LABEL, len(items), len(set(i['ch'] for i in items))))
 
@@ -81,6 +81,7 @@ for k in range(K):
         'chans': len(chs),
         'conc': top_n / len(g) * 100,          # 1위 채널 집중도 — 과반이면 신호 아님
         'ex': [i['t'] for i in sorted(g, key=lambda x: -x['rel'])[:3]],
+        'top': sorted(g, key=lambda x: -x['v'])[:12],
     })
 
 out.sort(key=lambda o: -o['hit'])
@@ -102,3 +103,18 @@ for o in [x for x in out if x['conc'] < 50][-3:]:
     print('\n   ── 폭발률 %.1f%% · %d편 · %d채널 ──' % (o['hit'], o['n'], o['chans']))
     for t in o['ex']:
         print('      ' + t[:66])
+
+# ── 특정 군집의 «내려받을 목록» 을 뽑는다 ────────────────────────────────────
+#   python scripts/_title-cluster.py 24 --dump=7.1   → 폭발률 7.1% 군집의 상위 영상
+dump = next((a.split('=')[1] for a in sys.argv[1:] if a.startswith('--dump=')), None)
+if dump:
+    target = min(out, key=lambda o: abs(o['hit'] - float(dump)))
+    print('\n  ══ 폭발률 %.1f%% 군집 · 내려받을 목록 ══' % target['hit'])
+    print('   (편수 %d · 채널 %d · 1위채널비중 %.0f%%)' % (target['n'], target['chans'], target['conc']))
+    seen = set()
+    for i in target['top']:
+        if i['ch'] in seen:      # 채널당 1편 — 한 채널 특성이 아니라 «유형» 을 보려면
+            continue
+        seen.add(i['ch'])
+        print('   %s  %8s회  %2d초  %-16s %s'
+              % (i['id'], format(i['v'], ','), i['sec'], i['ch'][:16], i['t'][:44]))

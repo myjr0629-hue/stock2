@@ -6,6 +6,7 @@ import React from 'react';
 import { Composition } from 'remotion';
 import { PhoneAd, phoneAdDuration } from './kit/PhoneAd';
 import { Race, raceDuration, RACE_FPS, type RaceProps } from './kit/Race';
+import { Stat, statDuration, STAT_FPS, type StatProps } from './kit/Stat';
 import { AppAd, AppAdTag, APPAD_DURATION, APPAD_DURATION_SOLO, APPAD_TAG_DURATION, APPAD_FPS } from './kit/AppAd';
 import { Thumb, THUMB_AMD819 } from './kit/Thumb';
 import { OutroCard, OUTRO_FRAMES, OUTRO_FPS } from './kit/Outro';
@@ -210,6 +211,25 @@ const RACE_JP_NVDA_INTC: RaceProps = {
   rows: [{"y": 2016, "a": 1000000, "b": 1000000}, {"y": 2017, "a": 2771200, "b": 977200}, {"y": 2018, "a": 4588200, "b": 1349400}, {"y": 2019, "a": 2738600, "b": 1321000}, {"y": 2020, "a": 8738600, "b": 1419600}, {"y": 2021, "a": 14634000, "b": 1506300}, {"y": 2022, "a": 9862700, "b": 889400}, {"y": 2023, "a": 32261400, "b": 979100}, {"y": 2024, "a": 78019600, "b": 614100}, {"y": 2025, "a": 113843100, "b": 678500}, {"y": 2026, "a": 140339900, "b": 2509600}],
   stepSec: 1.15,
   holdSec: 3.4,
+  music: 'shorts/audio/race-bed.mp3',
+};
+
+
+// ── Stat : 폭발률 7.1% 군집 복제 (2026-08-23) ─────────────────────────────
+//   R2 「THE RICHEST MEN IN THE WORLD ARE」 485만회의 구조 그대로:
+//     상단 고정 제목(핵심어만 노랑) + 움직이는 영상 + 하단 통계 라벨 + 결론 + 행동유도
+//   ⛔ 클립은 우리 라이브러리에서 «중앙활동 150+» 인 것만 골랐다 (실측 상위권).
+//   ⛔ 수치는 .agent/_race.json 실측 (FMP 분할조정 종가, 2016-08 → 2026-08).
+const STAT_CHIPS: StatProps = {
+  title: { pre: 'WHO ACTUALLY GOT ', hot: 'RICH', post: ' IN CHIPS' },
+  beats: [
+    { clip: 'steel-balls',     value: '+13,934%', label: 'NVIDIA', sec: 4.2 },
+    { clip: 'ani-wafer-lift',  value: '+6,295%',  label: 'AMD',    sec: 4.2 },
+    { clip: 'ani-chip-pull',   value: '+151%',    label: 'INTEL',  sec: 4.2 },
+  ],
+  verdict: 'Same industry. Same decade.',
+  cta: 'WHICH ONE DID YOU HOLD?',
+  source: '$10,000 in Aug 2016 · split-adjusted closes',
   music: 'shorts/audio/race-bed.mp3',
 };
 
@@ -1105,6 +1125,15 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={RACE_JP_NVDA_INTC as any}
+      />
+      <Composition
+        id="StatChips"
+        component={Stat as React.ComponentType<any>}
+        durationInFrames={statDuration(STAT_CHIPS)}
+        fps={STAT_FPS}
+        width={1080}
+        height={1920}
+        defaultProps={STAT_CHIPS as any}
       />
     </>
   );
