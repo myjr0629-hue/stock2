@@ -61,6 +61,19 @@ const SPEC_BY_CLASS = {
   // ⛔ 광고판은 문구가 «위» 에 있다 (PhoneAd: TermCard top=150px = 7.8%). 하단 자막띠가 없다.
   //   실측 63.7~65.5% 로 잡힌 것은 자막이 아니라 «떠 있는 폰 목업» 의 가장자리였다.
   //   없는 것을 재면 항상 어긋난다 → 이 계급에서는 끄고, 대신 밝기·길이·컷으로 본다.
+  // ⛔ 롱폼 (2026-08-24 신설). 쇼츠 규격을 그대로 씌우면 전부 반려된다 — 캔버스도 길이도 다르다.
+  //   근거는 .agent/LONGFORM_RESEARCH.md 실측:
+  //     한국 레퍼런스 150편 «전부 5분 이상» · 길이 중앙 16.3분 / 미국 379편 중앙 16.9분
+  //     길이 ↔ 성과 스피어만 rho=0.047 t=0.58 n=150 → «유의하지 않다»
+  //     ⇒ 길이는 목표가 아니다. 하한만 두고(5분) 상한은 넓게(45분) 잡는다.
+  //   ⚠️ 컷/분·자막띠 위치는 롱폼에서 «측정한 적이 없다». 남의 숫자를 씌우지 않고
+  //     넓게 두거나 끈다. 우리 편이 쌓이면 그때 좁힌다 (미해결로 표시).
+  longform: {
+    secRange: [300, 2700], secRangeMeasured: true,
+    cutsPerMin: [0, 40], brightMin: 72, capTopPct: null,
+    lufs: [-15.5, -13.0], firstCutSec: null, tagCount: [8, 90], hashtags: [1, 3],
+    landscape: true,
+  },
   ad:      { secRange: [15, 31], cutsPerMin: [5, 30], brightMin: 70, capTopPct: null },
 
   // ⛔ race 계급 — 「두 대상 + 시간 누적」. 2026-08-23 신설.
@@ -263,7 +276,10 @@ function checkVideo(file, thumb, cls = 'concept', lang = 'en') {
   }
   const m = analyse(file);
   R.push({ name: '계급', pass: true, got: cls, want: '' });
-  ok('해상도 1080x1920', m.w === 1080 && m.h === 1920, `${m.w}x${m.h}`, '1080x1920');
+  // ⛔ 롱폼은 «가로» 다. 조사한 롱폼 레퍼런스가 전부 16:9 였다 (LONGFORM_RESEARCH.md).
+  const wantWH = S.landscape ? [1920, 1080] : [1080, 1920];
+  ok(`해상도 ${wantWH[0]}x${wantWH[1]}`, m.w === wantWH[0] && m.h === wantWH[1],
+    `${m.w}x${m.h}`, `${wantWH[0]}x${wantWH[1]}`);
   ok('길이', m.sec >= S.secRange[0] && m.sec < S.secRange[1], `${m.sec}s`, `${S.secRange[0]}~${S.secRange[1]}s`);
   ok('평균 밝기', m.bright >= S.brightMin, m.bright, `>= ${S.brightMin}`);
   ok('라우드니스', m.lufs >= S.lufs[0] && m.lufs <= S.lufs[1], `${m.lufs} LUFS`, `${S.lufs[0]}~${S.lufs[1]}`);

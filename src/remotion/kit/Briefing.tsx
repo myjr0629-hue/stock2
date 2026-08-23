@@ -403,7 +403,12 @@ function Say({ text, ask, askAt }: { text: string; ask?: string; askAt?: number 
   //   레퍼런스 최대가 22.8컷/분인데 우리가 두 배였다. 디졸브는 컷이 아니어야 한다.
   const q = useIn(Math.max(0, (askAt ?? 22) - 4), 18);
   // 16:9 는 자막 폭이 1728px 라 줄당 글자 상한이 다르다 (2026-08-22)
-  const CAP_MAX = g.lf ? 44 : undefined;
+  // ⛔ 그런데 44 는 «영어 기준» 이었다 (2026-08-24 실측). 일본어는 글자 폭이 두 배라
+  //   44자가 3줄로 터지고, 자막 상자가 커져 그 아래 visual 카드의 셋째 줄을 덮었다.
+  //   렌더 프레임에서 한 줄에 실제로 들어간 것은 «28자» 였다. CJK 면 26 으로 잡는다.
+  //   (ET/KST · 無料/free 와 같은 종류의 버그 — 영어에서 뽑은 수를 언어 구분 없이 쓴 것)
+  const CJK = /[぀-ヿ一-鿿가-힯]/.test(text + (ask || ''));
+  const CAP_MAX = g.lf ? (CJK ? 26 : 44) : undefined;
   const lines = CAPTION.wrap(text, CAP_MAX);
   const askLines = ask ? CAPTION.wrap(ask, CAP_MAX) : [];
   // ★ 2026-08-20 — «한 슬롯, 한 자막».

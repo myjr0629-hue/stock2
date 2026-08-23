@@ -353,3 +353,15 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-23 업로드 (즉시 공개)
 
 - [Free options trading data institutions pay for, on one screen](https://youtube.com/shorts/9QiPguQtqmQ) — 즉시 공개 · `9QiPguQtqmQ`
+
+## 2026-08-24 업로드 (비공개+예약)
+
+- [ドル円のせいで、円で持つS&P500は18%荒くなる](https://youtube.com/shorts/q00SDy-c-qs) — 예약 KST 2026-08-24 10:00 · `q00SDy-c-qs`
+
+## 2026-08-24 업로드 (비공개+예약)
+
+- [エヌビディア、上位10日への依存が29銘柄で最も低かった](https://youtube.com/shorts/NCCt-amOi9k) — 예약 KST 2026-08-24 14:00 · `NCCt-amOi9k`
+
+## 2026-08-24 업로드 (비공개+예약)
+
+- [S&P500と米国金利、20年測ったら通念は15%しか当たらなかった](https://youtube.com/shorts/-M77iWgV6y4) — 예약 KST 2026-08-24 19:00 · `-M77iWgV6y4`

@@ -183,7 +183,14 @@ function validate(it, i) {
   if (it.scriptTag) {
     const r = spawnSync(process.execPath, ['scripts/_dupe-check.mjs', it.scriptTag],
       { encoding: 'utf8' });
-    if (r.status !== 0) {
+    if (r.status !== 0 && it.dupeOk) {
+      // ⛔ 의도된 중복만 통과한다. 검사를 «끄지» 않고, 사람이 쓴 사유를 «요구» 한다.
+      //   실제 사례(2026-08-24): 롱폼이 숏폼 3편의 발견을 묶은 편집본이라 전부 겹친다.
+      //   사유가 없으면 그대로 막힌다 — 그래야 JPPOST 같은 «모르고 낸 중복» 은 계속 잡힌다.
+      console.warn(`      ⚠ 대본 중복 «인지하고» 진행: ${it.dupeOk}`);
+      String(r.stdout || '').split('\n').filter((l) => /SCRIPT_/.test(l))
+        .forEach((l) => console.warn('        ' + l.trim()));
+    } else if (r.status !== 0) {
       e.push('기존 대본과 같은 발견일 수 있다 — node scripts/_dupe-check.mjs ' + it.scriptTag);
       String(r.stdout || '').split('\n').filter((l) => /SCRIPT_|⛔/.test(l))
         .forEach((l) => e.push('   ' + l.trim()));
