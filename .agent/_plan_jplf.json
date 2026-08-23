@@ -59,6 +59,7 @@
       "value": -0.306,
       "baseline": 0.348,
       "source": "FRED DGS10 × FMP stable SPY, 2006-2026"
-    }
+    },
+    "dupeOk": "この長尺は同日の短尺3本(JPFX/JP10D/JPRATE)を束ねた編集版である。意図した重複であり、別々の発見ではない。"
   }
 ]

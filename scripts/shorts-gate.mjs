@@ -368,7 +368,7 @@ for (const it of items) {
     const src = scriptSource();
     // ⛔ 광고판은 SCRIPT_* 대본이 없다 (문구가 props 안에 있다). 대본 검사를 건너뛴다.
     if (it.class !== 'ad')
-        for (const r of checkScript(it.scriptTag, src, it.lang || 'en')) R.push(r);
+        for (const r of checkScript(it.scriptTag, src, it.lang || 'en', it.class === 'longform')) R.push(r);
     // ⛔ 2026-08-21: cutFor 가 길이 상한을 맞추려 «뒤에서부터» 비트를 버린다.
     //    결론·인사이트가 통째로 사라져도 렌더는 정상이라 영상 검사로는 못 잡는다.
     const a = auditCut(it.scriptTag, 'yt');

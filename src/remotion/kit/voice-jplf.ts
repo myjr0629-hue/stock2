@@ -44,7 +44,7 @@ export const VOICE_JPLF: VoiceTrack = {
     { f: '36.mp3', sec: 11.68, saySec: 6, ask: { f: '36a.mp3', sec: 5.5 } },
     { f: '37.mp3', sec: 11.24, saySec: 3.239184, ask: { f: '37a.mp3', sec: 7.82 } },
     { f: '38.mp3', sec: 11.87, saySec: 4.97, ask: { f: '38a.mp3', sec: 6.72 } },
-    { f: '39.mp3', sec: 14.57, saySec: 4.67, ask: { f: '39a.mp3', sec: 9.72 } },
+    { f: '39.mp3', sec: 12.15, saySec: 7.85, ask: { f: '39a.mp3', sec: 4.12 } },
   ],
   loop: { f: 'loop.mp3', sec: 3.02 },
 };

@@ -48,7 +48,12 @@ export function checkTopic(it) {
   // ① 제목이 «검색되는 말»을 실제로 담고 있는가 — 가장 중요한 항목
   // ⛔ 키도 «같이» 소문자로 본다 — 제목만 낮추면 S&P500·FRB 같은 대문자 어휘가
   //   영원히 걸리지 않는다 (2026-08-22 에 이 버그로 S&P500 20,926 이 0 으로 나왔다)
-  const hits = KEYS.filter((k) => T.includes(k.toLowerCase()));
+  // ⛔ 공백을 지운 형태도 본다 (2026-08-24). 수요표의 키는 «검색 질의» 라서
+  //   「米国 金利」처럼 토큰이 띄어져 있는데, 일본어 문장에는 띄어쓰기가 없다.
+  //   그래서 일본 수요 1위(83,743)가 «영원히» 안 걸렸다. title-check 와 같은 버그였다 —
+  //   한 곳만 고치고 여기를 놓쳐서, 롱폼 제목이 「수요 0」으로 반려됐다.
+  const forms = (k) => (k.includes(' ') ? [k.toLowerCase(), k.toLowerCase().replace(/\s+/g, '')] : [k.toLowerCase()]);
+  const hits = KEYS.filter((k) => forms(k).some((f) => T.includes(f)));
   const best = hits.length ? Math.max(...hits.map((k) => DEMAND[k])) : 0;
   const bestKey = hits.find((k) => DEMAND[k] === best) || null;
   ok('제목에 수요 어휘', hits.length > 0,

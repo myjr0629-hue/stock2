@@ -299,6 +299,9 @@ function ChapterCard({ no, title }: { no: string; title: string }) {
   if (o <= 0.001) return null;
   return (
     <AbsoluteFill style={{ pointerEvents: 'none', opacity: o }}>
+      {/* ⛔ 스크림 — 카드만 띄우면 아래 visual 과 겹쳐 읽힘이 약했다 (2026-08-24 프레임 확인).
+          표지는 «잠깐 화면을 넘겨받는» 것이라 배경을 눌러야 표지가 된다. */}
+      <AbsoluteFill style={{ background: 'rgba(4,7,14,0.62)' }} />
       <div style={{
         position: 'absolute', left: 0, right: 0, top: '38%',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18,

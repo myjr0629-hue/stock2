@@ -577,8 +577,8 @@ export const SCRIPT_JPLF: BriefingProps = {
       role: 'chips', prio: 1, bg: V('ax-auction-gavel.mp4'),
       eyebrow: '来月また測ります',
       head: '三つ目が\n戻るかどうか。',
-      say: '来月、三つ目の数字が戻るかどうかをまた測って、そのまま出します。',
-      ask: 'FREDのDGS10と終値だけあれば、あなたも同じ計算ができます。確かめたい通念があれば、コメントに書いてください。次に数えます。',
+      say: '来月、三つ目の数字をまた測って出します。FREDのDGS10と終値だけで、同じ計算ができます。',
+      ask: '確かめたい通念があれば、コメントに書いてください。次に数えます。',
       visual: {
         kind: 'stat', label: '次に確認するもの', value: '-0.306 が戻るか',
         sub: '公開データだけで誰でも同じ手順を再現できる', up: true,

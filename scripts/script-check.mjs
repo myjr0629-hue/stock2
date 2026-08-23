@@ -59,8 +59,18 @@ const TICKER_JA = /(エヌビディア|テスラ|アップル|マイクロン|�
 // 일본어는 «글자/큐»로 호흡을 본다 (자막 상한 18자 기준, 한 호흡에 8~16자)
 const CPC_JA = [8, 16];
 
-export function checkScript(tag, src, lang = 'en') {
-  const cap = CAP_BY_LANG[lang] ?? CAP_CHARS;
+// ⛔ 롱폼은 «다른 자» 로 잰다 (2026-08-24). 아래 상한들은 전부 «3초 훅 쇼츠» 에서 나온 값이다:
+//   자막 18자(ja) = 한 호흡 3.0초 · 훅 18자 = 첫 컷 2.8초 · 글자/큐 8~16 = 같은 뿌리.
+//   롱폼은 캔버스가 16:9 라 줄당 30자가 들어가고(Briefing 실측), 레퍼런스는 «캐릭터 소개»로
+//   길게 연다 — MonkeyExplains 「This is Charlie, and he has a huge problem」.
+//   .agent/LONGFORM_RESEARCH.md §4·§5: 인사는 0:35~0:45, 훅 길이 규칙은 «없다».
+//   ⇒ 쇼츠 값을 씌우면 «측정 오류를 위반으로 보고» 하게 된다. 롱폼은 분리한다.
+//   ⚠️ 롱폼 자막 상한 60자(=30자×2줄)는 «우리 렌더 실측» 이지 레퍼런스 측정이 아니다.
+const CAP_LONGFORM = { ja: 60, ko: 64, en: 104 };
+const CPC_JA_LONGFORM = [16, 52];   // 롱폼 큐는 문장 단위다
+
+export function checkScript(tag, src, lang = 'en', longform = false) {
+  const cap = longform ? (CAP_LONGFORM[lang] ?? CAP_LONGFORM.en) : (CAP_BY_LANG[lang] ?? CAP_CHARS);
   const i = src.indexOf(`export const SCRIPT_${tag}`);
   if (i < 0) return [{ name: '대본 존재', pass: false, got: `SCRIPT_${tag} 없음`, want: 'scripts.ts' }];
   const end = src.indexOf('\nexport const SCRIPT_', i + 10);
@@ -92,7 +102,10 @@ export function checkScript(tag, src, lang = 'en') {
   const opener = lang === 'ja' ? HOOK_OPEN_JA : HOOK_OPEN;
   const isQ = /[?？]/.test(first) || (lang === 'ja' && /(のか|だろうか|ますか|ですか)。?$/.test(first));
   const hookType = isQ ? '질문' : (opener.test(first) ? '반박' : '선언');
-  ok('훅 유형', hookType !== '선언', `${hookType} — "${first}"`,
+  // ⛔ 롱폼은 «반박 훅» 을 요구하지 않는다 — 레퍼런스 두 편 다 캐릭터/사건 소개로 연다.
+  //   (Charlie / 「미국 개미들이 빚내서 산 주식이 2,100조원」). 쇼츠 규칙을 씌우지 않는다.
+  if (!longform)
+    ok('훅 유형', hookType !== '선언', `${hookType} — "${first}"`,
     '질문 또는 반박 (레퍼런스 7편 중 3편. 우리 32편은 100% 선언이었다)');
   const hookLen = SPACED ? first.split(/\s+/).length : [...first.replace(/\s/g, '')].length;
   ok('훅 길이', SPACED ? hookLen <= HOOK_WORDS : hookLen <= cap,
@@ -114,7 +127,7 @@ export function checkScript(tag, src, lang = 'en') {
     `<= ${NUM_MAX}% (레퍼런스 중앙 1.0% · 우리 과거 중앙 2.6%)`);
 
   // ④ 호흡 — 일본어는 «글자/큐»로 본다
-  const band = SPACED ? WPC : CPC_JA;
+  const band = SPACED ? WPC : (longform ? CPC_JA_LONGFORM : CPC_JA);
   ok(SPACED ? '단어/큐' : '글자/큐', wpc >= band[0] && wpc <= band[1], wpc.toFixed(1),
     `${band[0]}~${band[1]}${SPACED ? ' (레퍼런스 5.1~7.3)' : ' (ja 자막 상한 18자 · 한 호흡 분량)'}`);
 
