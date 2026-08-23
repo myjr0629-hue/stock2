@@ -1,0 +1,33 @@
+[
+  {
+    "file": "out/jp-yen.mp4",
+    "thumb": "out/jp-yen_thumb.jpg",
+    "privacy": "public",
+    "categoryId": "27",
+    "class": "briefing",
+    "lang": "ja",
+    "scriptTag": "JPYEN",
+    "title": "S&P500で5年2.5倍。でも4割は株の力じゃなかった",
+    "description": "無料の米国株アプリ: https://www.signumhq.com/app?src=yt_jp4\n\n2021年8月に100万円をS&P500へ。円建てでは248万円になりました。\n\nところが同じ5年をドル建てで見ると1.712倍です。差は為替でした。109.70円が158.97円。為替だけで1.449倍です。\n\n寄与を分けると、5年は40.8%、10年は26.9%が円安の分でした。\n\nただし直近3年は13.1%だけです。最近の伸びは円安によるものではありません。\n\nSPYとドル円の重なる2,529営業日で計算しています(2026年8月21日終値基準)。\n\n#S&P500 #米国株 #ドル円 #新NISA #円安",
+    "tags": [],
+    "pinnedComment": "直近3年の円安の寄与は13.1%だけでした。あなたの円建ての数字は、どちらの力でできていますか?\n\n無料アプリ: https://www.signumhq.com/app?src=yt_jp4c",
+    "evidence": [
+      "FMP stable/historical-price-eod/full: SPY と USDJPY の重なる 2,529営業日 (2016-08-01 ~ 2026-08-21)",
+      "円建て = SPY終値 x USDJPY終値。寄与 = 1 - log(ドル建て倍率)/log(円建て倍率) (掛け算の分解なので対数を使う)",
+      "計算スクリプト scripts/edge-jp-yen.mjs、結果は .agent/_jp_yen.json に保存",
+      "予備登録した別の角度(SPY vs RSP の1年格差)は 4,748窓中 上位51.0% = 中央値付近で基準を満たさず破棄した"
+    ],
+    "story": {
+      "event": "ドル円は5年で109.70円から158.97円へ。同じ期間にS&P500はドル建てで1.712倍になった。",
+      "mechanism": "円建てで米国株を持つ人の数字は「株の値上がり」と「円安」の掛け算でできている。指数だけを見ていると、どちらがどれだけ効いたか分からない。",
+      "anchor": "5年で40.8%、10年で26.9%、直近3年は13.1%"
+    },
+    "insight": {
+      "claim": "円建てS&P500の5年リターンのうち40.8%は円安の寄与だった。ただし直近3年では13.1%まで下がっている。",
+      "computedBy": "scripts/edge-jp-yen.mjs — 対数寄与分解",
+      "value": 40.8,
+      "baseline": 13.1,
+      "source": "FMP stable/historical-price-eod/full, SPY x USDJPY, 2026-08-21 終値基準"
+    }
+  }
+]
