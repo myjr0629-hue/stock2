@@ -24,6 +24,23 @@
       "vpn": null,
       "title": "S&P500と米国金利、20年測ったら通念は15%しか当たらなかった",
       "at": "2026-08-23T17:12:54.457Z"
+    },
+    {
+      "id": "jbzLe7yk-AE",
+      "ch": "hq",
+      "cond": "C_뉴욕IP",
+      "uploadIP": "US / New York City / PacketHub S.A. (187.14.54.238)",
+      "vpn": "nordvpn-newyork",
+      "privacy": "public-immediate",
+      "slotET": "19:00 (일요일)",
+      "title": "Interest rates and stocks: the rule held fifteen percent of the time",
+      "at": "2026-08-23T23:00:00Z",
+      "note": "미국 채널 첫 VPN 업로드. ⚠️ 시각 교란: ET 19시(일요일 저녁). 우리 시각표(ET 18~24 중앙 40 · n=6)는 주중/주말을 나누지 않아 이 슬롯을 대표하지 못한다 — 대표 지적. IP 효과와 시각 효과가 섞여 있으므로 이 한 편으로 판정하지 않는다."
     }
-  ]
+  ],
+  "conditions": {
+    "A_기준선_KR": "한국 IP(전주) · 일본 9편 + 미국 32편 — 2026-08-23 이전 전부",
+    "B_도쿄IP": "일본 IP(Tokyo, GSL Networks) · 일본 채널 · 2026-08-24 예약 3편",
+    "C_뉴욕IP": "미국 IP(New York, PacketHub) · 미국 채널 · 2026-08-24~"
+  }
 }

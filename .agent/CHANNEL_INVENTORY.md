@@ -6,19 +6,20 @@
 >
 > **업로드했으면 반드시 이 스크립트를 돌린다.** 비공개·일부공개도 전부 잡힌다.
 
-갱신 2026-08-23T16:26:06.848Z
+갱신 2026-08-23T23:38:01.099Z
 
-## SIGNUM HQ (US) — 33편
+## SIGNUM HQ (US) — 34편
 
 | 상태 | ID | 초 | 조회 | 댓글 | 로컬 | 제목 |
 |---|---|---|---|---|---|---|
-| 공개 | `VUPwd_Fugl0` | 27 | 0 | 1 | ✔ | See unusual options activity on any US stock — free  |
-| 공개 | `KFywOkzy8mY` | 16 | 319 | 1 | ✗  | Chip Stocks: Who Actually Got Rich in 10 Years #stoc |
-| 공개 | `ht1IdXkWY8k` | 16 | 570 | 1 | ✗  | Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later |
-| 공개 | `wfO7CbK8-xQ` | 16 | 341 | 1 | ✗  | Chip Stocks: $10,000 in NVIDIA vs Intel, 10 Years La |
+| 공개 | `jbzLe7yk-AE` | 36 | 0 | 1 | ✗  | Interest rates and stocks: the rule held fifteen per |
+| 공개 | `VUPwd_Fugl0` | 27 | 177 | 1 | ✔ | See unusual options activity on any US stock — free  |
+| 공개 | `KFywOkzy8mY` | 16 | 347 | 1 | ✗  | Chip Stocks: Who Actually Got Rich in 10 Years #stoc |
+| 공개 | `ht1IdXkWY8k` | 16 | 630 | 1 | ✗  | Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later |
+| 공개 | `wfO7CbK8-xQ` | 16 | 344 | 1 | ✗  | Chip Stocks: $10,000 in NVIDIA vs Intel, 10 Years La |
 | 공개 | `OGPkK2_V4vE` | 32 | 5 | 0 | ✔ | The AI Bubble Question Nobody Checks: America Is Sti |
-| 공개 | `_EP12EaF7I0` | 32 | 20 | 0 | ✔ | Earnings Report Day: The Size Is Knowable, The Direc |
-| 공개 | `ZcMnT7fEf-M` | 33 | 12 | 0 | ✔ | Bond Yields Explained: Your Hedge Died In 2022 |
+| 공개 | `_EP12EaF7I0` | 32 | 21 | 0 | ✔ | Earnings Report Day: The Size Is Knowable, The Direc |
+| 공개 | `ZcMnT7fEf-M` | 33 | 14 | 0 | ✔ | Bond Yields Explained: Your Hedge Died In 2022 |
 | 공개 | `zy5q6nmxlQ8` | 27 | 57 | 1 | ✔ | Why Options Trading Freezes Tech Stocks Every Expiry |
 | 일부공개 | `3SE4A-3oxsM` | 34 | 0 | 1 | ✔ | SIGNUM HQ - We run the numbers |
 | 공개 | `ke34mBPAfNQ` | 38 | 78 | 1 | ✔ | Why Gold Is Going Up Is Now A Bitcoin Story |
@@ -50,12 +51,12 @@
 
 | 상태 | ID | 초 | 조회 | 댓글 | 로컬 | 제목 |
 |---|---|---|---|---|---|---|
-| 예약 2026-08-24 19:00 (KST/JST) | `Tj_7RapbICU` | 32 | 0 | 0 | ✗  | S&P500と米国金利、20年測ったら通念は15%しか当たらなかった |
-| 예약 2026-08-24 10:00 (KST/JST) | `Ha7_hilPq9s` | 32 | 0 | 0 | ✗  | ドル円のせいで、円で持つS&P500は18%荒くなる |
-| 예약 2026-08-24 14:00 (KST/JST) | `53A4y5PIn2s` | 34 | 0 | 0 | ✗  | エヌビディア、上位10日への依存が29銘柄で最も低かった |
-| 공개 | `3otHV6P40Ms` | 16 | 498 | 1 | ✗  | 【エヌビディア】同じ100万円、10年で一番増えたのは？ |
-| 공개 | `ugpQhzDodT8` | 16 | 1032 | 1 | ✗  | 【米国株】10年前に100万円、エヌビディアとインテルで今いくら？ |
-| 공개 | `AOag_nNivx0` | 31 | 1160 | 1 | ✔ | S&P500が静かな理由、中では二つに割れている |
-| 공개 | `Bbk8r-o4nYw` | 32 | 281 | 1 | ✔ | エヌビディア決算、方向を当てた人はいない |
-| 공개 | `KMQvb4bE33Q` | 27 | 900 | 1 | ✔ | ガンマが外れた翌週は荒れる、は逆でした |
-| 공개 | `pt9HSA9y82g` | 28 | 7 | 1 | ✔ | マックスペインが効かない唯一の銘柄、エヌビディア |
+| 예약 2026-08-24 19:00 (KST/JST) | `-M77iWgV6y4` | 32 | 0 | 0 | ✗  | S&P500と米国金利、20年測ったら通念は15%しか当たらなかった |
+| 예약 2026-08-24 14:00 (KST/JST) | `NCCt-amOi9k` | 34 | 0 | 0 | ✗  | エヌビディア、上位10日への依存が29銘柄で最も低かった |
+| 예약 2026-08-24 10:00 (KST/JST) | `q00SDy-c-qs` | 32 | 0 | 0 | ✗  | ドル円のせいで、円で持つS&P500は18%荒くなる |
+| 공개 | `3otHV6P40Ms` | 16 | 623 | 1 | ✗  | 【エヌビディア】同じ100万円、10年で一番増えたのは？ |
+| 공개 | `ugpQhzDodT8` | 16 | 1062 | 1 | ✗  | 【米国株】10年前に100万円、エヌビディアとインテルで今いくら？ |
+| 공개 | `AOag_nNivx0` | 31 | 1260 | 1 | ✔ | S&P500が静かな理由、中では二つに割れている |
+| 공개 | `Bbk8r-o4nYw` | 32 | 312 | 1 | ✔ | エヌビディア決算、方向を当てた人はいない |
+| 공개 | `KMQvb4bE33Q` | 27 | 1068 | 1 | ✔ | ガンマが外れた翌週は荒れる、は逆でした |
+| 공개 | `pt9HSA9y82g` | 28 | 8 | 1 | ✔ | マックスペインが効かない唯一の銘柄、エヌビディア |

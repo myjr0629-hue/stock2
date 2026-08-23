@@ -6,7 +6,6 @@
     "class": "briefing",
     "lang": "en",
     "scriptTag": "USRATE",
-    "publishAtKST": "2026-08-24 22:00",
     "title": "Interest rates and stocks: the rule held fifteen percent of the time",
     "description": "Free options app: https://www.signumhq.com/app?src=yt_us1\n\n\"Rates go up, stocks go down.\" You hear it every day. We counted it.\n\nEvery session from 2006 to today: the 10-year Treasury yield against the S&P 500. 4,924 trading days.\n\nAcross the whole span the correlation is +0.284, t = 20.75. Not negative. Positive. On average they rose together.\n\nWindow by window, same story. Across 4,673 one-year windows the median is +0.348, and the rule held — a negative correlation — in only 15.3%. Windows above +0.5 were more common at 18.2%. The strongest was +0.712 in August 2012.\n\nBut today reads -0.306, the bottom 0.1% of the record, nearly level with the all-time low of -0.312 in July 2024. The rule is not wrong. It is conditional, and today you are inside that 15%.\n\nWe measured direction only. Why the sign flips is not something we measured, and this is not causation.\n\nRates are FRED DGS10 daily changes. Stocks are SPY closes.\n\n___\nMost watched on this channel:\n- Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later\n- Why Your Stock Ripped 23% on No News.\n- Rate Cut Odds Are 0%. Hike Odds Are 32.5%.\n\nInformational only. Not investment advice.\n\n#interestrates #stocks #investing",
     "tags": [
@@ -59,6 +58,7 @@
       "value": -0.306,
       "baseline": 0.348,
       "source": "FRED DGS10 x FMP stable SPY, 2006-2026"
-    }
+    },
+    "privacy": "public"
   }
 ]

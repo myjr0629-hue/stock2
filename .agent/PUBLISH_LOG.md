@@ -365,3 +365,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-24 업로드 (비공개+예약)
 
 - [S&P500と米国金利、20年測ったら通念は15%しか当たらなかった](https://youtube.com/shorts/-M77iWgV6y4) — 예약 KST 2026-08-24 19:00 · `-M77iWgV6y4`
+
+## 2026-08-23 업로드 (즉시 공개)
+
+- [Interest rates and stocks: the rule held fifteen percent of the time](https://youtube.com/shorts/jbzLe7yk-AE) — 즉시 공개 · `jbzLe7yk-AE`
