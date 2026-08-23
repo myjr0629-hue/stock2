@@ -148,6 +148,7 @@ import {
   SCRIPT_BONDS821,
 } from './kit/scripts';
 // �� ĳ�־� ���ø� (2026-08-13) ? Briefing �� �ڸ���. props ����� ���� cutFor �� �����Ѵ�.
+import { ThumbLF, THUMBLF_JPLF } from './kit/ThumbLF';
 import { Casual, casualDurationOf, type CasualProps } from './kit/Casual';
 import { SCRIPT_DUEL813, SCRIPT_DUELB, SCRIPT_MAXPAIN, SCRIPT_PRE813, SCRIPT_PRE814, SCRIPT_REGIME813 } from './kit/scripts-casual';
 // ★ 교육형 재고 — 날짜 무관. 하루 4번째 슬롯을 소재 고갈 없이 채운다 (kit/scripts-edu)
@@ -454,6 +455,17 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
         defaultProps={SCRIPT_LFEARN}
+      />
+
+      {/* 롱폼 썸네일 — 16:9. 쇼츠와 달리 커스텀 썸네일이 «실제로 적용»된다 */}
+      <Composition
+        id="ThumbLFJPLF"
+        component={ThumbLF as React.ComponentType<any>}
+        durationInFrames={1}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={THUMBLF_JPLF as any}
       />
 
       <Composition

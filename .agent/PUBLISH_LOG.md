@@ -369,3 +369,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-23 업로드 (즉시 공개)
 
 - [Interest rates and stocks: the rule held fifteen percent of the time](https://youtube.com/shorts/jbzLe7yk-AE) — 즉시 공개 · `jbzLe7yk-AE`
+
+## 2026-08-23 업로드 (즉시 공개)
+
+- [米国金利と株の常識は、思っているより当たりません — 通念を四つ、全部数えました](https://youtube.com/shorts/5AVUoDGnm9Y) — 즉시 공개 · `5AVUoDGnm9Y`

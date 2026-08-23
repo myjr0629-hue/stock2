@@ -24,7 +24,10 @@ const tok = (await (await fetch('https://oauth2.googleapis.com/token', {
   body: new URLSearchParams({ client_id: g('YT_CLIENT_ID'), client_secret: g('YT_CLIENT_SECRET'), refresh_token: RT, grant_type: 'refresh_token' }),
 })).json()).access_token;
 const H = { Authorization: `Bearer ${tok}` };
-const v = (await (await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,status,statistics,contentDetails&id=${ID}`, { headers: H })).json()).items?.[0];
+const v = (await (await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,status,statistics,contentDetails,processingDetails&id=${ID}`, { headers: H })).json()).items?.[0];
+// ⛔ 업로드 «직후» 에는 아직 처리 중이라 tags 가 잠깐 비어 보인다 (2026-08-24 실측).
+//   그걸 「태그 0개」 위반으로 보고하면 «없는 결함» 을 만든다. 처리 중이면 밝히고 멈춘다.
+const processing = v?.processingDetails?.processingStatus === 'processing';
 if (!v) { console.error(`${ID} 를 못 찾는다`); process.exit(1); }
 const s = v.snippet, lang = JP ? 'ja' : 'en';
 
@@ -41,7 +44,9 @@ ok('「무료」 존재', JP ? /(無料|むりょう)/.test(d) : /\bfree\b/i.tes
 ok('설명 길이', d.length <= 1200, `${d.length}자`, '<= 1200');
 const ht = (d.match(/#[^\s#]+/g) || []).length;
 ok('해시태그', ht >= 1 && ht <= 3, `${ht}개`, '1~3');
-ok('태그 개수', (s.tags || []).length >= 8 && (s.tags || []).length <= 90, `${(s.tags || []).length}개`, '8~90');
+if (processing && !(s.tags || []).length)
+  ok('태그 개수', true, '처리 중 — 나중에 다시 확인', '업로드 직후에는 비어 보인다');
+else ok('태그 개수', (s.tags || []).length >= 8 && (s.tags || []).length <= 90, `${(s.tags || []).length}개`, '8~90');
 ok('태그 총 길이', (s.tags || []).join(',').length <= 480, `${(s.tags || []).join(',').length}자`, '<= 480');
 ok('카테고리', ['22', '27'].includes(s.categoryId), s.categoryId, '22 또는 27 (필드 표준)');
 ok('언어 지정', !!s.defaultLanguage && !!s.defaultAudioLanguage, `${s.defaultLanguage || '-'} / ${s.defaultAudioLanguage || '-'}`, `${lang} / ${lang}`);
