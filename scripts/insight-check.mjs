@@ -50,7 +50,10 @@ export function checkInsight(it, scriptSrc) {
   //   ⛔ 통과시키려고 p값을 지어 넣는 것은 이 검사가 막으려는 «바로 그 행위» 다.
   //   그래서 검사를 무르게 하지 않고, 이 계급에 맞는 것을 «대신» 요구한다:
   //     두 수치가 실제로 있고 · 어디서 계산했고 · 원 출처가 무엇인가.
-  if (it.class === 'race') {
+  // ⛔ 나레이션이 없고 «확정된 사실» 만 놓는 계급들.
+  //   race 하나에 박아둔것을 stat 이 생기자마자 깨졌다 (2026-08-23).
+  const FACTUAL = ['race', 'stat'];
+  if (FACTUAL.includes(it.class)) {
     ok('인사이트 주장', !!I.claim && I.claim.length >= 8, I.claim || '없음', '한 문장으로 무엇을 알아가는가');
     ok('자체 계산 출처', !!I.computedBy, I.computedBy || '없음', '어디서 계산했는가');
     ok('수치', typeof I.value === 'number', I.value ?? '없음', '숫자여야 한다');

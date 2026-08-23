@@ -77,6 +77,24 @@ const SPEC_BY_CLASS = {
     secRange: [5, 34], secRangeMeasured: true, cutsPerMin: [0, 12], brightMin: 20, capTopPct: null,
     lufs: [-24, -5], firstCutSec: null, tagCount: [0, 90], hashtags: [1, 8],
   },
+
+  // ⛔ stat 계급 — 「고정 제목 + 움직이는 영상 + 통계 라벨」. 2026-08-23 신설.
+  //   제목 임베딩 군집에서 폭발률 7.1% 로 나온 계열이다 (race 가 속한 군집은 2.7%).
+  //   레퍼런스 3편을 내려받아 잰 값이다:
+  //     R1 「Me after becoming a Billionaire」 4,610만  길이 33.8s · 밝기 35.8 · LUFS  -8.09
+  //     R2 「THE RICHEST MEN IN THE WORLD ARE」 485만   길이 21.6s · 밝기 32.7 · LUFS  -7.86
+  //     R4 「THE POWER OF BOOKS」 318만                길이 28.8s · 밝기 30.5 · LUFS -14.36
+  //
+  //   ⛔ 「컷/분」이 이 계급에서 무의미한 이유
+  //     게이트의 컷 검출은 «프레임간 평균차 18 초과» 다 — 장면 전환이 아니라 «움직임» 을 센다.
+  //     같은 방식으로 재면 R1(4,610만회)이 42.8 로 우리(38.3)보다 높다.
+  //     ffprobe 의 진짜 장면검출(scene>0.30)로는 넷 다 0 이다 — 하드컷이 실제로 없다.
+  //     이 계열은 «가운데가 계속 움직이는 것» 이 정체성이라, 낮은 값을 요구하면 계열이 성립하지 않는다.
+  //     ⇒ 상한을 레퍼런스 최대(42.8)에 여유를 둔 50 으로 잡는다. 하한은 없다.
+  stat: {
+    secRange: [10, 42], secRangeMeasured: true, cutsPerMin: [0, 50], brightMin: 22, capTopPct: null,
+    lufs: [-24, -5], firstCutSec: null, tagCount: [0, 90], hashtags: [1, 8],
+  },
 };
 const SPEC = {
   capTopPct: [66, 82],      // 자막띠 상단 — DTW 실사 76~80%. 여유 포함
@@ -341,7 +359,8 @@ for (const it of items) {
     //   레퍼런스 7편 중 나레이션이 있는 것은 0편이었다 — 원본 소리이거나 음악뿐이다.
     //   없는 대본을 요구하면 지어내게 된다. 있어야 할 것은 대본이 아니라 «출처» 이고,
     //   그건 위의 실증 근거·원 출처 항목이 이미 잡는다.
-    if (it.class === 'race') R.push({ name: '대본 태그', pass: true, got: '해당 없음 (나레이션 없는 포맷)', want: '' });
+    if (['race', 'stat'].includes(it.class))
+      R.push({ name: '대본 태그', pass: true, got: '해당 없음 (나레이션 없는 포맷)', want: '' });
     else R.push({ name: '대본 태그', pass: false, got: '없음', want: 'plan 에 scriptTag 를 넣어야 대본을 잰다' });
   }
   const m = checkVideo(it.file, it.thumb, it.class || 'concept', it.lang || 'en');

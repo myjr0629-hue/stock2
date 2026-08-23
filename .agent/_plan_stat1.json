@@ -1,0 +1,30 @@
+[
+  {
+    "file": "out/stat-chips.mp4",
+    "thumb": "out/thumbs/stat-chips.jpg",
+    "privacy": "public",
+    "categoryId": "27",
+    "class": "stat",
+    "title": "Chip Stocks: Who Actually Got Rich in 10 Years #stocks #investing",
+    "description": "Free market intel: https://www.signumhq.com/app?src=yt_stat1\n\n$10,000 into three chip stocks in August 2016.\n\nNVIDIA +13,934%. AMD +6,295%. Intel +151%.\n\nSame industry, same decade, same starting money.\n\nSplit-adjusted closing prices.\n\n#stocks #investing #nvidia #amd #intel #semiconductors",
+    "tags": [],
+    "pinnedComment": "All three were chip stocks anyone could name in 2016. Which one did you actually hold?\n\nFree app: https://www.signumhq.com/app?src=yt_stat1c",
+    "evidence": [
+      "FMP stable/historical-price-eod: NVDA/AMD/INTC 2016-08 vs 2026-08 closes (split-adjusted)",
+      "Computed in scripts/_race-data.mjs, stored at .agent/_race.json",
+      "Percentages are (close_2026/close_2016 - 1) x 100 on the same $10,000"
+    ],
+    "story": {
+      "event": "The AI accelerator cycle split the chip sector: Nvidia and AMD rode it, Intel spent the decade losing its manufacturing lead.",
+      "mechanism": "All three sold chips to overlapping customers in 2016 and a retail investor could name every one of them, so the gap is execution rather than access or information.",
+      "anchor": "NVDA +13,934% vs INTC +151% on the same $10,000"
+    },
+    "insight": {
+      "claim": "Same sector, same decade, same money: NVIDIA returned 92x what Intel did.",
+      "computedBy": "scripts/_race-data.mjs - (close_2026/close_2016 - 1) x 100, August closes",
+      "value": 13934,
+      "baseline": 151,
+      "source": "FMP stable/historical-price-eod/light, split-adjusted closes, 2016-08 to 2026-08"
+    }
+  }
+]
