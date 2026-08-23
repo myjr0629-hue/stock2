@@ -182,7 +182,14 @@ function validate(it, i) {
       if (!m) e.push(`publishAtKST 형식 오류: ${it.publishAtKST}`);
       else {
         const h = +m[1];
-        if (h >= 22 || h < 1) e.push(`게시 ${h}시 KST — 실측상 최악 구간(d-0.15, n=578)`);
+        // ⛔ 세 번째 자리다 (2026-08-24). 같은 규칙이 _publish-hour · shorts-gate · 여기,
+        //   세 곳에 «각자» 적혀 있었고 앞의 두 곳만 시청자 시간대로 고쳤다.
+        //   KST 22~01 은 ET 09~12 — 미국 채널의 «최고 구간»(14편 중앙 86)이다.
+        //   금지해야 하는 것은 «시청자 현지 00~06»(우리 실측 2편 11회·18회) 뿐이다.
+        const utcH = (h - 9 + 24) % 24;
+        const localH = LANG === 'ja' ? (utcH + 9) % 24 : (utcH - 4 + 24) % 24;
+        const zone = LANG === 'ja' ? 'JST' : 'ET';
+        if (localH < 6) e.push(`게시 ${zone} ${localH}시 — 시청자가 자는 시간 (우리 실측 2편 11·18회)`);
       }
     }
   }

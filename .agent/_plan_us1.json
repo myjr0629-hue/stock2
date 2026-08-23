@@ -1,0 +1,64 @@
+[
+  {
+    "file": "out/us-rate.mp4",
+    "thumb": "out/us-rate_thumb.jpg",
+    "categoryId": "27",
+    "class": "briefing",
+    "lang": "en",
+    "scriptTag": "USRATE",
+    "publishAtKST": "2026-08-24 22:00",
+    "title": "Interest rates and stocks: the rule held fifteen percent of the time",
+    "description": "Free options app: https://www.signumhq.com/app?src=yt_us1\n\n\"Rates go up, stocks go down.\" You hear it every day. We counted it.\n\nEvery session from 2006 to today: the 10-year Treasury yield against the S&P 500. 4,924 trading days.\n\nAcross the whole span the correlation is +0.284, t = 20.75. Not negative. Positive. On average they rose together.\n\nWindow by window, same story. Across 4,673 one-year windows the median is +0.348, and the rule held — a negative correlation — in only 15.3%. Windows above +0.5 were more common at 18.2%. The strongest was +0.712 in August 2012.\n\nBut today reads -0.306, the bottom 0.1% of the record, nearly level with the all-time low of -0.312 in July 2024. The rule is not wrong. It is conditional, and today you are inside that 15%.\n\nWe measured direction only. Why the sign flips is not something we measured, and this is not causation.\n\nRates are FRED DGS10 daily changes. Stocks are SPY closes.\n\n___\nMost watched on this channel:\n- Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later\n- Why Your Stock Ripped 23% on No News.\n- Rate Cut Odds Are 0%. Hike Odds Are 32.5%.\n\nInformational only. Not investment advice.\n\n#interestrates #stocks #investing",
+    "tags": [
+      "interest rates",
+      "interest rates explained",
+      "bond yields",
+      "bond yields explained",
+      "10 year treasury",
+      "treasury yields",
+      "fed",
+      "how the fed works",
+      "stock market",
+      "stocks",
+      "investing",
+      "S&P 500",
+      "SPY",
+      "correlation",
+      "macro",
+      "rate cuts",
+      "yield curve",
+      "bonds",
+      "stock market explained",
+      "market data",
+      "wall street",
+      "options trading",
+      "free stock app",
+      "finance"
+    ],
+    "pinnedComment": "The rule held in 15.3% of one-year windows since 2006. Today reads -0.306, the bottom 0.1%. What else should we count?\n\nFree app: https://www.signumhq.com/app?src=yt_us1c",
+    "dupeOk": "This is the English edition of the same measurement we published in Japanese (SCRIPT_JPRATE / SCRIPT_JPLF). Different channel, different language, same finding — intentional localization, not an accidental repeat.",
+    "evidence": [
+      "FRED DGS10 (US 10-year yield, daily) x FMP stable SPY closes, 2006-10-06 to 2026-08-20, 4,924 overlapping sessions",
+      "Metric is the correlation between SPY daily returns and DGS10 daily change in basis points; 252-session rolling windows give 4,673 windows",
+      "Full-span correlation +0.284 (t=20.75). Rolling median +0.348, range -0.312 to +0.712, negative in 15.3% of windows, above +0.5 in 18.2%",
+      "Current window -0.306 sits at the 0.1st percentile; the record low is -0.312 on 2024-07-08",
+      "Scripts: scripts/edge-jp-rate-fx.mjs and scripts/_jp-extra.mjs; outputs in .agent/_jp_ratefx.json and .agent/_jp_extra.json",
+      "Causation is not measured. Why the sign flips is not identified"
+    ],
+    "story": {
+      "event": "As of August 2026 the one-year correlation between US rates and US stocks sits near its lowest reading in twenty years.",
+      "mechanism": "\"Rates up, stocks down\" is repeated constantly but nobody publishes its hit rate. Over twenty years the sign is usually positive; the rule describes a minority of the record, and today falls inside it.",
+      "anchor": "Held 15.3% of the time; today is the bottom 0.1%"
+    },
+    "insight": {
+      "claim": "The rates-stocks one-year correlation was negative in only 15.3% of windows since 2006, and today's -0.306 sits at the 0.1st percentile",
+      "saidAs": "The rule held fifteen percent.",
+      "computedBy": "scripts/edge-jp-rate-fx.mjs — 252-session rolling correlation distribution and percentile",
+      "n": 4924,
+      "percentile": 0.1,
+      "value": -0.306,
+      "baseline": 0.348,
+      "source": "FRED DGS10 x FMP stable SPY, 2006-2026"
+    }
+  }
+]

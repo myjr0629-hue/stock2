@@ -128,7 +128,14 @@ const SPEC = {
   tagCount: [8, 90],
   descMax: 1200,            // 설명 길이는 조회수와 무관(상관 0.01) — 짧게 유지
   hashtags: [1, 3],
-  banHours: [22, 23, 0],    // KST 22~01 = d-0.15 · n=578 · 99% 유의
+  // ⛔ 이 규칙은 «우리 시간대» 로 쓰여 있었다 — 그게 문제였다 (2026-08-24 완전 수정).
+  //   KST 22~01 을 금지했는데 그 구간은 **ET 09~12**, 즉 미국 채널의 «최고 구간» 이다:
+  //     ET 06~12  14편 · 조회 중앙 86  ← 최고작 187·202·220 이 전부 여기
+  //     ET 00~06   2편 · 중앙 18  ← 채널 최하위
+  //   2026-08-23 에 _publish-hour.mjs 만 시청자 시간대로 고치고 «여기를 놓쳤다».
+  //   그래서 ET 09:00 게시 예약이 「최악 구간」으로 반려됐다.
+  //   ⇒ 시청자 현지 «취침 시간(00~06)» 만 막는다. 판정은 현지시로 환산해서 한다.
+  banHoursLocal: [0, 1, 2, 3, 4, 5],
   emptyMaxSec: 0.8,         // 본문이 비어 있는 최장 구간. 자막만 뜨는 시간은 이탈 지점이다
 };
 
@@ -329,8 +336,16 @@ function checkMeta(it) {
   const EMO = /[\u{1F300}-\u{1FAFF}]/u;
   ok('제목에 이모지 없음', !EMO.test(T), EMO.test(T) ? '이모지 있음' : '없음', '이모지는 쓰지 않는다 (브랜드)');
   if (it.publishAtKST && it.privacy !== 'unlisted') {
+    // publishAtKST 는 KST(UTC+9). 시청자 현지시로 환산해서 본다.
+    //   일본(JST)은 KST 와 같고, 미국 채널은 ET 로 옮긴다.
     const h = +String(it.publishAtKST).match(/[ T](\d{2}):/)[1];
-    ok('게시시각', !SPEC.banHours.includes(h), `KST ${h}시`, 'KST 22~01 금지');
+    const utcH = (h - 9 + 24) % 24;
+    const localH = (it.lang || 'en') === 'ja'
+      ? (utcH + 9) % 24
+      : (utcH - 4 + 24) % 24;          // ET (EDT, UTC-4)
+    const zone = (it.lang || 'en') === 'ja' ? 'JST' : 'ET';
+    ok('게시시각', !SPEC.banHoursLocal.includes(localH),
+      `${zone} ${localH}시 (KST ${h}시)`, `${zone} 00~06 금지 — 시청자가 자는 시간`);
   }
   // ⛔ signumhq.com 은 «웹사이트»다. 앱 주소가 아니다 (대표 반복 지적 2026-08-20~21).
   //    고정 댓글에는 «스토어 링크»가 들어가야 한다. .agent/APP_LINKS.json 이 정본.

@@ -4996,4 +4996,6 @@ export { SCRIPT_JPYEN, SCRIPT_JP10D, SCRIPT_JPPOST } from './scripts-jp2';
 export { SCRIPT_JPRATE, SCRIPT_JPFX } from './scripts-jp3';
 // 일본 첫 롱폼 (2026-08-24) — 16:9
 export { SCRIPT_JPLF } from './scripts-jp-lf';
+// 미국 금리 편 (2026-08-24) — 수요 interest rates 48,195
+export { SCRIPT_USRATE } from './scripts-us2';
 export { SCRIPT_LFEARN } from './scripts-longform';
