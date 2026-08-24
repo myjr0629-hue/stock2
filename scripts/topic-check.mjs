@@ -33,6 +33,15 @@ import { demandFor, tickerRe } from './_demand.mjs';
 // HOMONYM_MAX 40: "ai bubble" 검색 상위 19편 중 게임 밈(Triple T) 4편 = 21%.
 //   오염이 40% 를 넘으면 검색 유입이 우리 주제로 오지 않는다.
 const MIN_DEMAND = 5000;
+// ⛔ 상한도 있다 (2026-08-24 실측). 지금까지 하한만 있었고, 그래서 게이트가
+//   «나쁜 선택을 승인» 했다 — interest rates(48,195) 편이 전 항목 통과로 나가서 9회에 그쳤다.
+//   미국 33편을 제목 수요 앵커로 가르면:
+//     수요 0     20편 · 조회 중앙 41.5
+//     5천~2만     6편 · 조회 중앙 266.5   ← 최고
+//     2만+        5편 · 조회 중앙 14      ← 최하
+//   큰 검색어는 CNBC·Bloomberg 와 같은 링에 서는 것이다. 구독 200명이 이길 수 없다.
+//   ⚠️ 표본이 얇다(6편·5편). 그래서 «막지 않고» 경고만 한다 — 사유를 적고 진행할 수 있게.
+const GOLDILOCKS_MAX = 20000;
 const HOMONYM_MAX = 40;
 const MAX_FRESHNESS_DAYS = 7;   // 뉴스성 소재만 적용
 
@@ -63,6 +72,12 @@ export function checkTopic(it) {
   // ② 수요의 크기
   ok('소재 수요', best >= MIN_DEMAND, best.toLocaleString(),
     `>= ${MIN_DEMAND.toLocaleString()} (우리 과거 최저 2,822 · 매크로 최하위 13,082)`);
+  // 상한은 «경고» 다 — 표본이 얇아 막지 않는다. 대신 눈에 보이게 한다.
+  if (best >= GOLDILOCKS_MAX)
+    ok('수요 구간', false, `${best.toLocaleString()} — 대형매체 충돌 구간`,
+      '5,000~20,000 «골디락스» 권장 (2만+ 5편 조회중앙 14 · 5천~2만 6편 266.5)');
+  else if (best >= MIN_DEMAND)
+    ok('수요 구간', true, `${best.toLocaleString()} — 골디락스`, '');
 
   // ③ 우리 데이터로 실증되는가 — 지어내지 않는다는 원칙의 게이트화
   const ev = Array.isArray(it.evidence) ? it.evidence.filter(Boolean) : [];

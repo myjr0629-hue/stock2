@@ -8,7 +8,7 @@
     "scriptTag": "USNVDA",
     "publishAtKST": "2026-08-25 22:00",
     "dupeOk": "This is the English/Japanese pair of the same measurement, published on both channels for different audiences. Intentional localization, not an accidental repeat.",
-    "title": "Chip stocks move on Nvidia earnings — the index barely does, across 46 reports",
+    "title": "Chip stocks: the Nvidia earnings reaction is worse than you think, 46 counted",
     "description": "Free options app: https://www.signumhq.com/app?src=yt_us2\n\nNvidia reports Wednesday, August 26. Consensus is $2.09 EPS on $92.1B revenue.\n\nEveryone says the market waits on this. We counted 46 reports back to 2015 and measured what the S&P 500 did the next day.\n\nThe index moved 1.172% intraday on those days against 1.125% otherwise. That is 1.04x, t = 0.38 — nowhere near the 1.96 you would need. Statistically an Nvidia earnings day is indistinguishable from an ordinary session.\n\nNvidia itself is also moving less. The first five reports averaged 9.88% the next day. The last five averaged 2.88%. Across all 46 the trend is rho -0.305, t -2.12.\n\nOne thing does move: the other chips. AMD matched Nvidia's direction 67.4% of the time, Broadcom 63.0%, Micron 60.9% — 88 of 138, sign test p = 0.0015.\n\nWe counted size, not cause, and we say nothing about direction.\n\nPrices are split-adjusted closes. Earnings dates from the reported calendar.\n\n___\nMost watched on this channel:\n- Chip Stocks: $10,000 in AMD vs Intel, 10 Years Later\n- AMD +117%. Nvidia +16%. Same Year.\n- Why Your Stock Ripped 23% on No News.\n\nInformational only. Not investment advice.\n\n#nvidia #earnings #stocks",
     "tags": [
       "nvidia",
@@ -36,7 +36,7 @@
       "macro",
       "finance"
     ],
-    "pinnedComment": "We counted 46 Nvidia reports. The S&P moved 1.04x its normal range the next day — t = 0.38. What else should we count?\n\nFree app: https://www.signumhq.com/app?src=yt_us2c",
+    "pinnedComment": "It is worse than you think in a specific way: the S&P moved 1.04x its normal range, t = 0.38. The chips did follow though — 88 of 138. What else should we count?\n\nFree app: https://www.signumhq.com/app?src=yt_us2c",
     "evidence": [
       "FMP stable earnings calendar for NVDA (59 reports, 46 with usable next-day prices, 2015 to 2026-05) x FMP stable adjusted closes",
       "A: S&P 500 next-day intraday range 1.172% on earnings days vs 1.125% otherwise. Ratio 1.04, Welch t = 0.38 — not significant",

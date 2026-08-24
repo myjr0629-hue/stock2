@@ -181,6 +181,25 @@ const RACE_NVDA_INTC: RaceProps = {
 };
 
 
+// ⛔ 미국 레이스 · AI 칩 1년 (2026-08-24 실측 · .agent/_chip_race.json)
+//   왜 이 포맷: 미국 33편에서 레이스 4편 중앙 345.5 vs 브리핑 29편 중앙 41 = 8.4배.
+//   왜 이 소재: 제목 수요 앵커 5천~2만 구간이 중앙 266.5 로 최고 (2만+ 는 14 로 최하).
+//               chip stocks = 8,724 로 그 구간 한가운데.
+//   왜 지금: 엔비디아 실적이 8/26. 그 이틀 전에 «1년 성적표» 를 놓는다.
+//   ⛔ 예측하지 않는다. 2025-08-22 ~ 2026-08-21 확정 종가만 쓴다.
+const RACE_CHIP1Y: RaceProps = {
+  title: ['$10,000 in AMD vs NVIDIA', 'one year ago'],
+  a: { sym: 'AMD', name: 'AMD', color: '#ED1C24' },
+  b: { sym: 'NVDA', name: 'NVIDIA', color: '#76B900' },
+  seed: '$10,000',
+  rows: [{"y": "2025-08", "a": 9694, "b": 9786}, {"y": "2025-09", "a": 9644, "b": 10483}, {"y": "2025-10", "a": 15267, "b": 11376}, {"y": "2025-11", "a": 12967, "b": 9944}, {"y": "2025-12", "a": 12766, "b": 10478}, {"y": "2026-01", "a": 14111, "b": 10738}, {"y": "2026-02", "a": 11934, "b": 9955}, {"y": "2026-03", "a": 12126, "b": 9798}, {"y": "2026-04", "a": 21131, "b": 11212}, {"y": "2026-05", "a": 30764, "b": 11862}, {"y": "2026-06", "a": 34627, "b": 11242}, {"y": "2026-07", "a": 28383, "b": 11279}, {"y": "2026-08", "a": 28210, "b": 12064}],
+  stepSec: 0.95,
+  holdSec: 3.6,
+  footnote: 'Broadcom over the same year: $12,532',
+  endCard: { line1: 'Nvidia reports Wednesday.', line2: 'It is last of the three.', sec: 2.8 },
+  music: 'shorts/audio/race-bed.mp3',
+};
+
 const RACE_AMD_INTC: RaceProps = {
   title: ['$10,000 in AMD vs Intel', '10 years ago'],
   a: { sym: 'AMD', name: 'AMD', color: '#ED1C24' },
@@ -1183,6 +1202,16 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
       />
       {/* ★ Race — 우리 틀을 버리고 «터진 뼈대» 그대로 만든 첫 편 (2026-08-22) */}
+      <Composition
+        id="RaceChip1Y"
+        component={Race as React.ComponentType<any>}
+        durationInFrames={raceDuration(RACE_CHIP1Y)}
+        fps={RACE_FPS}
+        width={1080}
+        height={1920}
+        defaultProps={RACE_CHIP1Y as any}
+      />
+
       <Composition
         id="RaceNvdaIntc"
         component={Race as React.ComponentType<any>}

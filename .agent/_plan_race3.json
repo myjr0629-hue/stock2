@@ -1,0 +1,58 @@
+[
+  {
+    "file": "out/us-chip1y.mp4",
+    "thumb": "out/us-chip1y_thumb.jpg",
+    "privacy": "public",
+    "categoryId": "27",
+    "class": "race",
+    "lang": "en",
+    "title": "Chip stocks: $10,000 in AMD vs NVIDIA one year ago",
+    "description": "Free market intel: https://www.signumhq.com/app?src=yt_race3\n\n$10,000 into AMD on August 22, 2025. The same $10,000 into NVIDIA.\n\nOne year later: AMD is $28,210. NVIDIA is $12,064. Broadcom, over the same year, is $12,532.\n\nNvidia reports Wednesday, August 26. Going in, it is last of the three.\n\nThe road was not smooth for any of them. AMD fell 27.8% at its worst, NVIDIA 20.2%, Broadcom 29.0%.\n\nSplit- and dividend-adjusted closes, 251 trading sessions.\n\n#chipstocks #nvidia #amd",
+    "tags": [
+      "chip stocks",
+      "chip stocks today",
+      "AMD",
+      "nvidia",
+      "NVDA",
+      "broadcom",
+      "AVGO",
+      "semiconductors",
+      "AI stocks",
+      "stock market",
+      "stocks",
+      "investing",
+      "nvidia earnings",
+      "earnings report",
+      "tech stocks",
+      "AMD stock",
+      "nvidia stock",
+      "market data",
+      "wall street",
+      "trading",
+      "free stock app",
+      "finance",
+      "S&P 500",
+      "AI chips"
+    ],
+    "pinnedComment": "Broadcom over the same year: $12,532. Nvidia reports Wednesday and goes in last of the three. Which pair next?\n\nFree app: https://www.signumhq.com/app?src=yt_race3c",
+    "evidence": [
+      "FMP stable/historical-price-eod/full: AMD, NVDA, AVGO adjusted closes, 2025-08-22 to 2026-08-21, 251 common trading sessions",
+      "AMD $167.76 to $473.25 = $28,210 on $10,000 (2.82x). NVDA $177.99 to $214.72 = $12,064 (1.21x). AVGO $294.00 to $368.45 = $12,532 (1.25x)",
+      "Max drawdown over the same window: AMD -27.8% (2026-03-03), NVDA -20.2% (2026-03-30), AVGO -29.0% (2026-03-30)",
+      "Monthly trajectory from the same series; script scripts/edge-chip-race.mjs, output .agent/_chip_race.json",
+      "No forecast. Only settled closes through 2026-08-21"
+    ],
+    "story": {
+      "event": "Nvidia reports on August 26, 2026.",
+      "mechanism": "Nvidia is the name everyone watches, but over the last year the same $10,000 did more than twice as well in AMD. Going into this report Nvidia is last of the three big AI chip names.",
+      "anchor": "$28,210 vs $12,064 on the same $10,000"
+    },
+    "insight": {
+      "claim": "Over the year to 2026-08-21, $10,000 became $28,210 in AMD and $12,064 in NVIDIA",
+      "computedBy": "scripts/edge-chip-race.mjs — 10000 x (close_end / close_start), adjusted closes",
+      "value": 28210,
+      "baseline": 12064,
+      "source": "FMP stable adjusted closes, 2025-08-22 to 2026-08-21"
+    }
+  }
+]

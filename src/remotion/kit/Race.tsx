@@ -38,7 +38,10 @@ const { fontFamily: fontJP } = loadJP();
 
 export const RACE_FPS = 30;
 
-export type RaceRow = { y: number; a: number; b: number };
+// ⛔ y 는 «눈금 이름» 이다. 연도(2016)뿐 아니라 월('2026-08')도 온다 (2026-08-24).
+//   1년짜리 레이스를 만들려니 연도로는 눈금이 2개뿐이라 궤적이 안 그려졌다.
+//   숫자면 카운터가 부드럽게 올라가고, 문자열이면 그 값을 그대로 띄운다.
+export type RaceRow = { y: number | string; a: number; b: number };
 export type RaceProps = {
   /** 상단 고정 제목 2줄 — 영상 내내 안 바뀐다 */
   title: [string, string];
@@ -56,6 +59,12 @@ export type RaceProps = {
   footnote?: string;
   /** 일본어면 true — 폰트가 바뀐다 */
   jp?: boolean;
+  /** ⛔ 끝에 붙이는 앱 카드 (대표 지시 2026-08-23: "뒤에 광고붙이는 우리 포맷그대로 강화해서").
+   *   레퍼런스 7편 중 끝에 CTA 를 붙인 것은 0편이다 — 검증된 적이 «없는» 시도다.
+   *   그리고 쇼츠는 루프가 걸려서, 끝 화면이 곧 다시 첫 화면이 된다.
+   *   ⇒ 최소한으로 짧게(기본 2.4초) 하고 «상단 제목 띠는 그대로» 둬서 루프 손상을 줄인다.
+   *     효과는 이 편과 앱 카드 없는 편의 조회·EXT_URL 을 대조해서 판정한다. */
+  endCard?: { line1: string; line2: string; sec?: number };
   /** 한 해가 넘어가는 데 걸리는 초 */
   stepSec?: number;
   /** 마지막 결과를 붙잡고 있는 초 */
@@ -67,11 +76,12 @@ const money = (n: number) => '$' + n.toLocaleString('en-US');
 
 /** 이 영상의 총 길이 — 연도 수로 정해진다 */
 export const raceDuration = (p: RaceProps) =>
-  Math.round(((p.rows.length - 1) * (p.stepSec ?? 1.1) + (p.holdSec ?? 3.2) + 0.6) * RACE_FPS);
+  Math.round(((p.rows.length - 1) * (p.stepSec ?? 1.1) + (p.holdSec ?? 3.2) + 0.6
+    + (p.endCard ? (p.endCard.sec ?? 2.4) : 0)) * RACE_FPS);
 
 export const Race: React.FC<RaceProps> = ({
   title, a, b, rows, seed, stepSec = 1.1, holdSec = 3.2, music,
-  currency = 'usd', footnote, jp = false,
+  currency = 'usd', footnote, jp = false, endCard,
 }) => {
   const FF = jp ? fontJP : fontFamily;
   // 일본은 «万» 단위로 읽는다. 1억 4034만엔 을 ¥140,339,900 으로 쓰면 안 읽힌다.
@@ -96,7 +106,10 @@ export const Race: React.FC<RaceProps> = ({
   const lerp = (x: number, y: number) => x + (y - x) * frac;
   const va = lerp(cur.a, nxt.a);
   const vb = lerp(cur.b, nxt.b);
-  const year = Math.round(lerp(cur.y, nxt.y));
+  // 숫자 눈금이면 보간해서 카운터로, 문자열이면 그대로 (월 표시)
+  const year = typeof cur.y === 'number' && typeof nxt.y === 'number'
+    ? Math.round(lerp(cur.y, nxt.y))
+    : cur.y;
 
   // ── 축은 «로그» 다 ─────────────────────────────────────────────────────
   //   ⛔ 선형 축으로 처음 렌더했더니 NVDA 기둥이 15초 내내 천장에 붙어 «안 자라 보였다».
@@ -107,6 +120,10 @@ export const Race: React.FC<RaceProps> = ({
   //   shorts-gate 가 「빈 화면 1.9초 @ 0s」로 잡았다. 그 지적이 옳다 —
   //   Jeremy·Rolex 는 첫 프레임부터 두 사람이 «같은 키로 이미 서 있다».
   //   바닥을 1/10 로 내리면 시작점이 한 자릿수만큼 올라와 처음부터 보인다.
+  // 앱 카드가 시작되는 시각 — 본편이 끝난 뒤다
+  const bodyEnd = lead + (rows.length - 1) * stepSec + holdSec;
+  const inCard = !!endCard && t >= bodyEnd;
+
   const FLOOR_V = rows[0].a / 10;
   const topV = Math.max(...rows.map((r) => Math.max(r.a, r.b)));
   const lg = (v: number) => Math.log10(Math.max(v, FLOOR_V) / FLOOR_V);
@@ -276,6 +293,30 @@ export const Race: React.FC<RaceProps> = ({
         position: 'absolute', left: 0, top: H - 74, width: W, textAlign: 'center',
         fontWeight: 700, fontSize: 34, color: 'rgba(255,255,255,.46)',
       }}>{footnote ?? `${seed} invested in ${rows[0].y}`}</div>
+
+      {/* ══ 앱 카드 ══
+          ⛔ 상단 제목 띠는 «그대로 둔다». 그래야 루프가 덜 끊긴다.
+             가운데만 덮는다 — 검증 안 된 시도이므로 최소 침습으로 한다. */}
+      {inCard && (
+        <div style={{
+          position: 'absolute', left: 0, top: TOP_H, width: W, height: H - TOP_H,
+          background: 'rgba(6,9,15,.94)',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          opacity: interpolate(t - bodyEnd, [0, 0.28], [0, 1],
+            { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+        }}>
+          <div style={{
+            fontFamily: FF, fontWeight: 900, fontSize: jp ? 62 : 66,
+            color: '#FFFFFF', textAlign: 'center', lineHeight: 1.24,
+            paddingLeft: PAD, paddingRight: PAD,
+          }}>{endCard.line1}</div>
+          <div style={{
+            marginTop: 26, fontFamily: FF, fontWeight: 900, fontSize: jp ? 46 : 50,
+            color: '#FFB020', textAlign: 'center', letterSpacing: 1,
+          }}>{endCard.line2}</div>
+        </div>
+      )}
 
       {music ? <Audio src={staticFile(music)} volume={0.82} /> : null}
     </AbsoluteFill>

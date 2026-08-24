@@ -83,6 +83,30 @@ export function checkTitle(title, lang = 'en') {
     '수요 800+ 문구 또는 Why/How 시작');
   if (best && best.vol >= 800) add('수요 문구 위치', best.pos <= 34, `${best.pos}번째 글자`, '앞쪽 34자 이내');
 
+  // ⑤ 후킹 장치 — 「사실 진술」로만 끝내지 않는가 (2026-08-24 신설)
+  //   ⛔ 왜: 우리 미국 제목은 전부 «사실 진술» 이었다. 「Manufacturing Beat 20.6」 10회,
+  //     「Your Mortgage Is 6.73%」 1회. 장치가 하나도 없었고, 게이트도 그걸 안 봤다.
+  //   근거는 .agent/LONGFORM_RESEARCH.md 실측 (채널 크기 통제 · n=505):
+  //     「Worse Than You Think」류      1.57x  ← 최고
+  //     Crisis/Collapse/Bubble/Fail    1.42x
+  //     숫자·금액                       1.26x
+  //     Explained                      0.88x  ⛔ 흔하지만 평균 이하
+  //     Nobody/Secret/Hidden           0.86x  ⛔
+  //   ⚠️ 롱폼에서 잰 값을 쇼츠 제목에 «빌려» 쓴다. 쇼츠에서 재측정한 적은 없다.
+  //   ⛔ 막지 않는다 — 데이터가 뒷받침하지 않는 후킹을 강요하면 그게 더 나쁘다.
+  const HOOKDEV = [
+    [/worse than (you|they) think|less than (you|they) think|思っているより/i, 'Worse-than-you-think', 1.57],
+    [/(crisis|collapse|bubble|fails?|barely|nobody counted|逆でし|ほとんど)/i, '위기·반전 어휘', 1.42],
+    [/\d/, '숫자', 1.26],
+  ];
+  const found = HOOKDEV.filter(([re]) => re.test(t));
+  const anti = /(explained|nobody|secret|hidden)/i.test(t);
+  add('후킹 장치', found.length > 0,
+    found.length ? found.map(([, n, m]) => `${n} ${m}x`).join(' · ') : '없음 — 사실 진술뿐',
+    '최소 1개 (Worse-than-you-think 1.57x · 위기어휘 1.42x · 숫자 1.26x)');
+  if (anti) add('피할 어휘', false, 'Explained/Nobody/Secret 포함',
+    'Explained 0.88x · Nobody/Secret 0.86x — 흔하지만 평균 이하다');
+
   // ④ 동음이의어 충돌 — 검색 유입이 우리 주제로 오는가
   const clash = Object.keys(D.homonyms || {}).filter((k) => low.includes(k) && low.indexOf(k) <= 12);
   add('동음이의어 충돌', clash.length === 0, clash.length ? clash.join(', ') : '없음',
