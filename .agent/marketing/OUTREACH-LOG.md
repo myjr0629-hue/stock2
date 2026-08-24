@@ -388,3 +388,37 @@ TSLA 를 NVDA 의 대비로 쓴 게 핵심이다 — 「같은 장인데 종목�
 3. **모달이 닫히면 이름만 남고 나머지 입력은 전부 사라진다.** 초안을 다시 열어 다 채웠다.
 4. **Submit 반영이 느리다.** 누른 직후엔 Draft 로 보이지만 새로고침하면 Pending 이다.
    성급하게 «실패했다»고 판단하지 말 것.
+
+---
+
+## 2026-08-25 — Uptodown 실태 점검 (대표가 화면을 보여줘서 발견)
+
+대표: 「여기는 시그넘앱은 없고 다른것만 있어?」
+
+### 왜 SIGNUM 이 없나
+**APK 16.2MB > 내 업로드 상한 10MB.** 로컬 CORS 서버 우회도 Uptodown 이 사설망 요청을
+차단해 실패했다(기존 기록대로). 대표가 파일선택으로 직접 올려야 한다.
+
+### 그보다 급한 것 — Undercurrent 가 REJECTED 였다
+알림 전문: 「Please, confirm that you are the app owner or have its distribution rights.
+…attach a screenshot showing the app in your Google Play developer account.」
+= **콘텐츠 문제가 아니라 «소유권 미확인»**.
+
+**원인으로 강하게 의심되는 것: 계정 불일치.**
+- Uptodown 로그인 = **개인** `myjr0629@gmail.com`
+- Play 개발자 계정 = **회사** `contact@signumhq.com` (조직 `Signum HQ`, ID 4769683602295618218)
+
+대표가 「구글 플레이콘솔은 개인 계정이 아닌 회사 계정이다」라고 **다시** 정정해줬다.
+→ 기억에 고정: `google-accounts-company-vs-personal`.
+
+### 내가 고친 것
+**두 앱 다 `DESCRIPTIONS 0` 이었다** — 짧은 설명·본문이 다 «쓰여만 있고 저장이 안 된» 상태.
+- Undercurrent: 68자 / 214단어 → 저장 완료
+- Why'd It Move?: 63자 / 203단어 → 저장 완료
+둘 다 「Your description has been successfully saved」 확인.
+**교훈: 입력해 둔 것과 저장된 것은 다르다. 탭의 숫자 배지로 검증할 것.**
+
+### 대표만 가능
+1. Play Console(u/0, 회사 계정) 화면을 스크린샷 → Uptodown 지원 티켓에 첨부
+   (내 쪽은 화면녹화 TCC 권한이 없어 파일 저장 자체가 안 됨: `could not create image from display`)
+2. SIGNUM APK 16.2MB 업로드
