@@ -5004,3 +5004,4 @@ export { SCRIPT_USNVDA, SCRIPT_JPNVDA } from './scripts-nvda';
 export { SCRIPT_JPWEEKA, SCRIPT_JPWEEKB } from './scripts-jpweek';
 export { SCRIPT_LFEARN } from './scripts-longform';
 export { SCRIPT_TARIFF } from './scripts-tariff';
+export { SCRIPT_JPTARIFF } from './scripts-jptariff';

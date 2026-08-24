@@ -1,0 +1,70 @@
+[
+ {
+  "file": "out/jp-tariff.mp4",
+  "thumb": "out/jp-tariff_thumb.jpg",
+  "categoryId": "25",
+  "class": "briefing",
+  "lang": "ja",
+  "scriptTag": "JPTARIFF",
+  "publishAtKST": "2026-08-25 14:00",
+  "title": "トヨタ+4.54%、カナダ+0.86%。関税50%の二日間です",
+  "description": "https://www.signumhq.com\n\n米国がカナダ産の全品目に50%の関税をかけました。交渉が決裂した翌日のことです。\n\nですが、その四日前には同じ二者が引き下げに合意していました。自動車は15%、鉄鋼とアルミは25%へ。日本の報道はこれを「日本勢に追い風」と書いていました。\n\nそこで、市場がその合意を持っていた二日間を測りました。8月19日終値から8月21日終値まで、終値だけを使っています。\n\nトヨタ +4.54%。ホンダ +4.58%。カナダETFは +0.86%。同じ二日間でS&P500は0.43%下げています。\n\n見出しに出ていた国が、いちばん動きませんでした。\n\nさらに、この差がどれくらい珍しいのかを2021年以降の二日間の窓1,413個と並べました。普段の差は中央値で-0.12ポイント、今回は+3.68ポイント。上位4.2%に入ります。\n\n何がどれだけ動いたかを一つの窓の中で測りました。なぜかは測っていませんし、次がどこかも予測しません。\n\n無料のオプション・フローアプリ: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n#関税 #米国株 #投資",
+  "tags": [
+   "トヨタ",
+   "ホンダ",
+   "米国株",
+   "関税",
+   "貿易摩擦",
+   "自動車株",
+   "カナダ",
+   "EWC",
+   "S&P500",
+   "NVDA",
+   "エヌビディア",
+   "ナスダック",
+   "日経平均",
+   "株式投資",
+   "投資",
+   "米国株投資",
+   "マーケット",
+   "経済ニュース",
+   "資産運用",
+   "新NISA"
+  ],
+  "pinnedComment": "いちばん意外だったのはここです。カナダETFが+0.86%のとき、トヨタは+4.54%でした。同じ二日間で、S&P500は0.43%下げています。見出しに出ていた国が、いちばん動きませんでした。\n\n2021年以降の1,413個の窓と並べると、この差は上位4.2%です。\n\n動きを測っただけで、理由は測っていません。政策の予測もしません。今夜の基準はEWCの62.36、50%の前の最後の終値です。\n\n無料アプリ: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n次は何を数えましょうか。",
+  "evidence": [
+   "FMP stable historical-price-eod/full — TM, HMC, EWC, EWJ, EWY, SPY の日次終値、2026-08-12 から 2026-08-25、2026-08-24 取得",
+   "二日間の変化は終値から直接計算: 2026-08-19 → 2026-08-21 で TM +4.54%, HMC +4.58%, EWY +2.24%, EWC +0.86%, EWJ +0.42%, SPY -0.43%",
+   "⛔ FMP の changePercent フィールドは自社の終値と矛盾する（TM を +0.37% と返すが終値からは +2.66%）。よって全ての数値は終値から計算している",
+   "事実関係は三か国のニュース原文から（KR/JP/US、2026-08-24 収集）: 引き下げ合意（自動車15%、鉄鋼アルミ25%）は約102時間前、交渉決裂と50%は約17時間前、カナダの報復表明は約9時間前",
+   "ベースレート: TM の二日間リターンから EWC の二日間リターンを引いた値、2021-01-04 から 2026-08-21 までの二日間の窓 1,413 個。中央値 -0.12pt、標準偏差 2.17pt。2026-08-21 の窓は +3.68pt で第95.8パーセンタイル",
+   "注目度は scripts/topic-scan.mjs で実測 — 関税テーマは三か国で181件、うち日本77件、最新0.4時間前"
+  ],
+  "story": {
+   "event": "米国とカナダの交渉が決裂し、カナダ産の全品目に50%の関税が発効した。その四日前には同じ二者が自動車15%、鉄鋼アルミ25%への引き下げで合意していた。",
+   "mechanism": "北米での自動車生産にかかる関税の引き下げは、日本の報道では「日本勢に追い風」と読まれた。北米に工場を持つ側が有利になるという読みである。だから値がついたのは国の指数ではなく製造業の側だった。",
+   "anchor": "EWC 62.36",
+   "timely": {
+    "headlines": 181,
+    "countries": [
+     "KR",
+     "JP",
+     "US"
+    ],
+    "freshH": 0.4,
+    "source": "scripts/topic-scan.mjs · .agent/TODAY_HOOKS.json"
+   }
+  },
+  "insight": {
+   "claim": "トヨタとカナダETFの二日間の差は+3.68ポイントに達した。五年の中央値は-0.12ポイントで、1,413個の窓の第95.8パーセンタイルにあたる",
+   "computedBy": "FMP stable historical-price-eod/full の TM と EWC の日次終値、2021-01-04 から 2026-08-21。すべての二日間の窓について TM の二日間リターン引く EWC の二日間リターンを計算し順位付け、2026-08-24 実行",
+   "value": 3.68,
+   "baseline": -0.12,
+   "n": 1413,
+   "percentile": 95.8,
+   "saidAs": "上位四.二%です"
+  },
+  "dupeOk": "Deliberate localization, not an accidental repeat. This is the Japanese-language pair of the English tariff short (yHyREAzDeeA): the same measured window and the same base rate, rewritten for a Japanese audience with a different entry point. The English piece opens on Canada; this one opens on the line Japanese and Korean press carried, that Japan might be next, and answers it with the measurement instead of a forecast. Both channels have separate audiences and neither sees the other.",
+  "titleNote": "2026-08-25 교체. 원제는 종목명이 없어 4회에 그쳤다. 우리 성과작은 전부 종목명+숫자가 앞에 온다(AMD/Nvidia/エヌビディア). 영상 안에 실제로 있는 종목(TM·HMC)을 앞으로 옮긴 것이지 낚시가 아니다."
+ }
+]

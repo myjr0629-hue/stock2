@@ -6,11 +6,32 @@
   "class": "briefing",
   "lang": "en",
   "scriptTag": "TARIFF",
-  "publishAtKST": "2026-08-24 22:00",
-  "title": "Canada got 50% tariffs — which country's stocks moved five times more?",
+  "publishAtKST": "2026-08-24 22:30",
+  "title": "Toyota +4.54%. Canada +0.86%. Same Two Days.",
   "description": "https://www.signumhq.com\n\nWashington put 50% tariffs on Canadian goods after trade talks collapsed. Four days earlier the same two sides had agreed to cut them — cars to 15%, steel and aluminum to 25%.\n\nSo we measured the two days the market spent holding that deal: August 19 close to August 21 close, using closing prices only.\n\nToyota +4.54%. Honda +4.58%. The Canada ETF: +0.86%. The S&P 500 fell 0.43% over the same two days.\n\nThe country in every headline moved least. The manufacturers moved five times more. This was priced through factories, not through flags.\n\nWe measured what moved and how much, in one window. We did not measure why, and we do not forecast policy.\n\nFree options and flow app: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n#tariffs #stocks #investing",
-  "tags": ["tariffs", "canada tariffs", "trade war", "stock market", "stocks", "toyota", "honda", "carmakers", "EWC", "investing", "market news", "macro", "us economy", "trade policy", "auto stocks"],
-  "pinnedComment": "The number that surprised us: the Canada ETF moved +0.86% while Toyota moved +4.54% — on the same two days, with the S&P down 0.43%. The country in the headline moved least.\n\nWe measured moves, not causes, and we do not forecast policy. Anchor for tonight is EWC at 62.36, the last close before the 50%.\n\nFree app — iOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\nWhat should we count next?",
+  "tags": [
+   "toyota",
+   "TM",
+   "honda",
+   "HMC",
+   "canada tariffs",
+   "tariffs",
+   "trade war",
+   "EWC",
+   "stock market",
+   "stocks",
+   "US stocks",
+   "nasdaq",
+   "S&P 500",
+   "SPY",
+   "NVDA",
+   "investing",
+   "market news",
+   "macro",
+   "auto stocks",
+   "wall street"
+  ],
+  "pinnedComment": "The number that surprised us: the Canada ETF moved +0.86% while Toyota moved +4.54% — on the same two days, with the S&P down 0.43%. The country in the headline moved least.\n\nWe measured moves, not causes, and we do not forecast policy. Anchor for tonight is EWC at 62.36, the last close before the 50%.\n\nFree app: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\nWhat should we count next?",
   "evidence": [
    "FMP stable historical-price-eod/full — daily closes for TM, HMC, EWC, EWJ, EWY, SPY, 2026-08-12 to 2026-08-25, pulled 2026-08-24",
    "Two-day move computed from closes 2026-08-19 to 2026-08-21: TM +4.54%, HMC +4.58%, EWY +2.24%, EWC +0.86%, EWJ +0.42%, SPY -0.43%",
@@ -25,7 +46,11 @@
    "anchor": "EWC 62.36",
    "timely": {
     "headlines": 190,
-    "countries": ["KR", "JP", "US"],
+    "countries": [
+     "KR",
+     "JP",
+     "US"
+    ],
     "freshH": 0.6,
     "source": "scripts/topic-scan.mjs · .agent/TODAY_HOOKS.json"
    }
@@ -38,6 +63,8 @@
    "n": 1413,
    "percentile": 95.8,
    "saidAs": "You are in the top four percent."
-  }
+  },
+  "privacy": "public",
+  "titleNote": "2026-08-25 교체. 원제는 종목명이 없어 4회에 그쳤다. 우리 성과작은 전부 종목명+숫자가 앞에 온다(AMD/Nvidia/エヌビディア). 영상 안에 실제로 있는 종목(TM·HMC)을 앞으로 옮긴 것이지 낚시가 아니다."
  }
 ]

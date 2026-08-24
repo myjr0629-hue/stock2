@@ -24,6 +24,8 @@ const FILES = [
   'src/remotion/kit/scripts-jpweek.ts',
   // 미국 채널 · 캐나다 50% 관세 편 (2026-08-24). 처음으로 «시의성» 으로 고른 소재다.
   'src/remotion/kit/scripts-tariff.ts',
+  // 일본 채널 · 관세 편 (2026-08-24). 일본 헤드라인 1위 소재.
+  'src/remotion/kit/scripts-jptariff.ts',
 ];
 
 /** 모든 대본 파일을 이어붙인 원문. 게이트의 문자열 탐색이 이걸 쓴다. */
