@@ -19,6 +19,16 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 | BetaList | 59 | 152K | 유료 |
 
 ## 다음 대상 (우리 앱에 맞고 무료)
+
+### 8/24 추가 처리
+| 디렉터리 | DS | 트래픽 | 상태 |
+|---|---|---|---|
+| PitchWall | 57 | 83K | **3앱 제출 완료**(8/24) · 무료 큐 30일+ |
+| OpenHunts | 37 | 48K | SIGNUM 제출 완료(8/24) · **무료는 주 1개**, 최단 슬롯이 2028-07 |
+| SourceForge | 92 | 18.4M | **reCAPTCHA 이미지 챌린지에서 막힘** → 대표 |
+| Alternative.me | 55 | 1.6M | **이메일+비번 가입 필요**(OAuth 없음) → 대표 |
+
+### 남은 곳
 | 디렉터리 | DS | 트래픽 | 비고 |
 |---|---|---|---|
 | **Hacker News** | 89 | 13.5M | 최대. 아이디·비번 가입 필요 → 대표 |
@@ -49,3 +59,21 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
   → **B2B SaaS 리뷰 플랫폼**. 소비자 무료 앱은 대상이 아니다.
 - AppSumo → 유료 라이프타임 딜 마켓. 무료 앱은 팔 게 없다.
 - CyberSecTools / GoodFirms / TechImply → 분야 불일치.
+
+
+---
+
+## 2026-08-24 실측 메모
+
+- **먼저 «이미 냈는지»를 확인할 것.** AlternativeTo 에 3앱을 또 넣으려다
+  「An app with the name SIGNUM HQ already exists」로 막혔다. 확인해보니
+  **8/22 에 3앱 다 제출**돼 있었다(`alternativeto.net/my-submissions`). 이 문서에도
+  그렇게 적혀 있었는데 안 읽고 시작한 게 원인.
+- **자동생성 소개문을 그대로 두면 안 된다.** OpenHunts 의 URL 자동채움이
+  「premium data worth over $450/month」라는 **근거 없는 금액 주장**을 넣었다.
+  UC 를 넣을 때도 SIGNUM 데이터를 그대로 재사용해 **제품 이미지까지 SIGNUM 배너**였다.
+  전부 직접 덮어썼다.
+- **무료 큐는 대부분 실질적으로 죽어 있다.** PitchWall 30일+, AlternativeTo 몇 달,
+  OpenHunts **2028년 7월**. 유료 우회는 전부 결제라 손대지 않았다.
+- OpenHunts 는 숨겨진 file input 이라 업로드가 안 됐다 →
+  JS 로 `style` 을 덮어 노출시킨 뒤 ref 를 잡아 업로드했다.
