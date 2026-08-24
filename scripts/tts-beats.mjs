@@ -18,6 +18,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from '
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
+import { jaPhonetic, isJa } from './_ja-phonetic.mjs';
 
 const NAME = (process.argv[2] || '').toUpperCase();
 if (!NAME) { console.error('사용: node scripts/tts-beats.mjs <CLOSE|FLIP|...>'); process.exit(1); }
@@ -36,9 +37,22 @@ if (!KEY) { console.error('.env.local 에 ELEVENLABS_API_KEY 가 없다'); proce
 //   스피어만 rho=-0.509, t=-2.84 → «낮을수록 성과가 좋다». 저음(~140Hz) 중앙 12.95 vs 고음 0.00.
 //   Adam 은 영어 남성 1위지만 «일본어 채널의 근거»가 아니다. 그래서 JP 는 따로 고른다.
 //   SIGNUM_VOICE 로 덮어쓸 수 있다 — 실측 후보는 .agent/JP_VOICE_PICK.json 에 있다.
-const VOICE_ID = process.env.SIGNUM_VOICE || 's3TPKV1kjDlVtZbl4Ksh';
+// ⛔ 일본어 목소리를 «환경변수로만» 두면 매번 빠뜨린다 (2026-08-25 실측 사고).
+//   SIGNUM_VOICE 를 안 붙이고 구우면 조용히 영어 목소리(Adam)로 일본어를 읽는다.
+//   ⇒ 아래에서 «대본 언어를 보고» 기본값을 정한다. 환경변수는 덮어쓰기 용도로만 남긴다.
+const VOICE_EN = 's3TPKV1kjDlVtZbl4Ksh';   // Adam — 영어권 남성 1위
+const VOICE_JA = 'b34JylakFZPlGS0BnwyY';   // kenzo — 2026-08-25 대표 확정
+//   후보 대조 실측(같은 문장·같은 세팅): kenzo F0 142.9Hz / kozy 148.1Hz
+//   정본 근거는 「일본어는 F0 가 낮을수록 성과가 좋다」(rho=-0.509, t=-2.84 · 25편)
+//   ⚠ 차이는 5Hz 로 작다. 「듣기 좋은가」는 재지 못했고 대표가 듣고 고른 것이다.
 const MODEL = 'eleven_multilingual_v2';
-const SETTINGS = { stability: 0.45, similarity_boost: 0.8, style: 0.25 };
+
+// ⛔ 일본어는 «세팅이 다르다» (대표 지시 2026-08-25: "지금 음성이 너무 안좋다")
+//   기존 0.45/0.8/0.25 는 style(연기 톤)이 섞여 일본어에서 억양이 튀었다.
+//   권장값: stability 0.65~0.70 · similarity 0.85 · style 0.00 · speed 1.10~1.15
+//   style 0 이 핵심이다 — 연기 톤을 완전히 빼야 낭독체가 된다.
+const SETTINGS_EN = { stability: 0.45, similarity_boost: 0.8, style: 0.25 };
+const SETTINGS_JA = { stability: 0.68, similarity_boost: 0.85, style: 0.0, speed: 1.12 };
 
 // ── 대본 로드 — scripts.ts 를 esbuild 로 즉석 번들해 require ─────────────────
 // npx 로 부르지 않는다 — 윈도우에서는 npx.cmd 라 Node 20+ 가 EINVAL 로 거부한다.
@@ -69,6 +83,23 @@ const segs = [
   ...(script.outro?.ask ? [{ id: 'outro', text: flat(script.outro.ask) }] : []),
   { id: 'loop', text: flat(script.loop) },
 ];
+
+// ── 언어 판별 → 전처리 + 세팅 ───────────────────────────────────────────────
+// ⛔ 대본에 lang 필드가 없어서 «글자» 로 판별한다. 가나가 있으면 일본어다.
+//   (한자만으로는 못 가른다 — 영어 대본에도 한자는 안 나오지만 확실한 신호는 가나다)
+const IS_JA = segs.some((s) => isJa(s.text));
+const SETTINGS = IS_JA ? SETTINGS_JA : SETTINGS_EN;
+// ★ 목소리는 «대본 언어» 가 정한다. 환경변수는 덮어쓸 때만.
+const VOICE_ID = process.env.SIGNUM_VOICE || (IS_JA ? VOICE_JA : VOICE_EN);
+console.log(`  목소리 ${VOICE_ID === VOICE_JA ? 'kenzo (JA)' : VOICE_ID === VOICE_EN ? 'Adam (EN)' : VOICE_ID}`);
+if (IS_JA) {
+  for (const s of segs) {
+    const before = s.text;
+    s.text = jaPhonetic(s.text);
+    if (s.text !== before) console.log(`  발음교정 ${s.id.padEnd(5)} ${before}  →  ${s.text}`);
+  }
+  console.log(`  일본어 세팅 적용 — stability ${SETTINGS.stability} · style ${SETTINGS.style} · speed ${SETTINGS.speed}\n`);
+}
 
 const outDir = join('public/shorts/audio', NAME.toLowerCase());
 mkdirSync(outDir, { recursive: true });
@@ -133,16 +164,23 @@ const results = [];
 for (const seg of segs) {
   const mp3 = join(outDir, `${seg.id}.mp3`);
   const txt = join(outDir, `${seg.id}.txt`);
-  const cached = existsSync(mp3) && existsSync(txt) && readFileSync(txt, 'utf8') === seg.text;
+  // ⛔ 캐시 키에 «목소리와 세팅» 을 넣는다 (2026-08-25 실측 사고).
+  //   문장만 키로 쓰던 때, 일본 목소리를 kenzo 로 바꿨더니 «문장이 바뀐 6개만» 다시 구워지고
+  //   나머지 12개는 옛 목소리로 남았다. 한 영상 안에서 목소리가 갈리는데 로그는 정상으로 보였다.
+  //   ⇒ 목소리·모델·세팅이 하나라도 달라지면 전부 다시 굽는다.
+  const stamp = `# ${VOICE_ID} ${MODEL} ${JSON.stringify(SETTINGS)}\n${seg.text}`;
+  const cached = existsSync(mp3) && existsSync(txt) && readFileSync(txt, 'utf8') === stamp;
   if (!cached) {
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
       method: 'POST',
       headers: { 'xi-api-key': KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: seg.text, model_id: MODEL, voice_settings: SETTINGS }),
+      // ⛔ seg.text 는 «이미 전처리된» 문자열이다. 캐시 .txt 도 이 값으로 저장되므로
+      //   전처리 규칙을 고치면 자동으로 다시 구워진다 (원문만 저장하면 조용히 옛 음성이 남는다).
     });
     if (!res.ok) { console.error(`✗ ${seg.id}: HTTP ${res.status} ${await res.text()}`); process.exit(1); }
     writeFileSync(mp3, Buffer.from(await res.arrayBuffer()));
-    writeFileSync(txt, seg.text);
+    writeFileSync(txt, stamp);
   }
   // ★ 파일 길이가 아니라 «실발화 길이»를 쓴다 (꼬리 무음 제거 — 위 주석 참조)
   const full = Math.round(durOf(mp3) * 100) / 100;

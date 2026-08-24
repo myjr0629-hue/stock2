@@ -50,7 +50,10 @@ export const SCRIPT_JPTARIFF: BriefingProps = {
   title: '「次は日本」と言われた日、\n実際に上がったのはどこですか。',
   date: '8月24日 · 関税',
   slowCuts: true,
-  noOutro: true,
+  // ⛔ noOutro 를 «켜지 않는다» (2026-08-25). 8/21 에 내가 이 플래그를 만들어 끄고는
+  //   대본 10개에 그대로 복사했다. 앱 광고가 통째로 빠진 원인이 이것이다.
+  //   브랜딩이 이 채널의 목적이므로 아웃트로(4초)는 기본으로 붙인다.
+  //   대신 길이를 그만큼 줄인다 — 게이트가 noOutro 를 검사한다.
   disclaimer: '情報提供のみ。投資助言ではありません。因果は測っていません。',
   field: ['TM', 'HMC', 'EWC', 'SPY'],
 

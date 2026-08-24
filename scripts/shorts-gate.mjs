@@ -384,6 +384,24 @@ for (const it of items) {
     // ⛔ 광고판은 SCRIPT_* 대본이 없다 (문구가 props 안에 있다). 대본 검사를 건너뛴다.
     if (it.class !== 'ad')
         for (const r of checkScript(it.scriptTag, src, it.lang || 'en', it.class === 'longform')) R.push(r);
+    // ★ 앱 광고(아웃트로)가 붙었는가 — 2026-08-25 대표 지적
+    //   "뒤에 우리 광고 붙이는것 그것도 잘 붙여라 매번 왜 까먹냐"
+    //   ⛔ 까먹은 게 아니었다. 내가 8/21 에 noOutro 플래그를 만들어 껐고(커밋 0078a4e42
+    //     — 「4초 앱 카드가 '끝났다'로 읽혀 루프를 끊는다」), 그 뒤 대본 10개에 그대로 복사됐다.
+    //     판단은 할 수 있지만 «기본값으로 눌러앉힌» 것이 잘못이다. 그래서 게이트가 묻는다.
+    //   ⇒ 끄려면 plan 에 noOutroOk 로 «이유를 적어» 야 한다. 침묵으로는 못 끈다.
+    {
+      const i = src.indexOf(`export const SCRIPT_${it.scriptTag}`);
+      const end = i < 0 ? -1 : src.indexOf('\nexport const SCRIPT_', i + 10);
+      const blk = i < 0 ? '' : src.slice(i, end < 0 ? src.length : end);
+      const off = /noOutro:\s*true/.test(blk);
+      if (it.class !== 'ad')
+        ok('앱 광고(아웃트로)', !off || !!it.noOutroOk,
+          off ? (it.noOutroOk ? `끔 — 사유: ${String(it.noOutroOk).slice(0, 60)}` : '⛔ noOutro:true 인데 사유가 없다')
+              : '붙음',
+          '브랜딩이 채널의 목적이다. 끄려면 plan 에 noOutroOk 로 이유를 적는다');
+    }
+
     // ⛔ 2026-08-21: cutFor 가 길이 상한을 맞추려 «뒤에서부터» 비트를 버린다.
     //    결론·인사이트가 통째로 사라져도 렌더는 정상이라 영상 검사로는 못 잡는다.
     const a = auditCut(it.scriptTag, 'yt');

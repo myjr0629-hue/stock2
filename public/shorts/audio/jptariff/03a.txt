@@ -1,1 +1,2 @@
+# b34JylakFZPlGS0BnwyY eleven_multilingual_v2 {"stability":0.68,"similarity_boost":0.85,"style":0,"speed":1.12}
 終値だけで測ります
