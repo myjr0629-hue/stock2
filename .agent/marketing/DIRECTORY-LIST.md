@@ -26,7 +26,7 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 | PitchWall | 57 | 83K | **3앱 제출 완료**(8/24) · 무료 큐 30일+ |
 | OpenHunts | 37 | 48K | SIGNUM 제출 완료(8/24) · **무료는 주 1개**, 최단 슬롯이 2028-07 |
 | SourceForge | 92 | 18.4M | **reCAPTCHA 이미지 챌린지에서 막힘** → 대표 |
-| Alternative.me | 55 | 1.6M | **이메일+비번 가입 필요**(OAuth 없음) → 대표 |
+| Alternative.me | 55 | 1.6M | **3앱 전부 Pending Approval**(8/25) · 대표가 가입, 등재는 내가 완료 |
 
 ### 남은 곳
 | 디렉터리 | DS | 트래픽 | 비고 |

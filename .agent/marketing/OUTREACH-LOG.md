@@ -365,3 +365,26 @@ TSLA 를 NVDA 의 대비로 쓴 게 핵심이다 — 「같은 장인데 종목�
    두 번째 것이 맞다.
 3. **ref 클릭은 컴포저에 포커스를 안 준다** — 좌표 클릭만 먹는다. 매번 DOM 으로 본문 검증.
 4. 본문 먼저 → 이미지 → 본문 재검증 → 게시. 순서를 지키면 이미지가 본문을 안 지운다.
+
+---
+
+## 2026-08-25 — Alternative.me 3앱 등재 완료 (월 160만)
+
+대표가 `signumhq` 계정을 만들어준 뒤 내가 3앱 전부 제출했다. 전부 **Pending Approval**.
+
+| 앱 | 카테고리 | 홈페이지 |
+|---|---|---|
+| SIGNUM HQ | Mobile > Finance | signumhq.com |
+| Undercurrent | Mobile > Finance | signumhq.com/en/undercurrent |
+| Why'd It Move? | Mobile > Education | signumhq.com/en/wim |
+
+각 항목: 아이콘 + 스크린샷 2장 + 짧은 소개 + 본문 + 플랫폼(iOS/Android/Browser)
++ Free + Released.
+
+### 이 사이트 함정
+1. **이메일 미인증(Pending User) 상태에서도 제출은 된다.** 인증을 기다릴 필요 없었다.
+2. **플랫폼은 JS 로 `select.value` 를 넣으면 안 먹는다** — Vue 가 무시하고 Windows 로
+   되돌린다(그 상태로 Add 를 눌러 Windows 가 두 번 들어갔다). `form_input` 툴로만 된다.
+3. **모달이 닫히면 이름만 남고 나머지 입력은 전부 사라진다.** 초안을 다시 열어 다 채웠다.
+4. **Submit 반영이 느리다.** 누른 직후엔 Draft 로 보이지만 새로고침하면 Pending 이다.
+   성급하게 «실패했다»고 판단하지 말 것.
