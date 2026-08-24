@@ -2,7 +2,6 @@
   {
     "file": "out/us-chip1y.mp4",
     "thumb": "out/us-chip1y_thumb.jpg",
-    "privacy": "public",
     "categoryId": "27",
     "class": "race",
     "lang": "en",
@@ -53,6 +52,7 @@
       "value": 28210,
       "baseline": 12064,
       "source": "FMP stable adjusted closes, 2025-08-22 to 2026-08-21"
-    }
+    },
+    "publishAtKST": "2026-08-25 22:00"
   }
 ]

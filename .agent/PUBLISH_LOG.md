@@ -373,3 +373,11 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-23 업로드 (즉시 공개)
 
 - [米国金利と株の常識は、思っているより当たりません — 通念を四つ、全部数えました](https://youtube.com/shorts/5AVUoDGnm9Y) — 즉시 공개 · `5AVUoDGnm9Y`
+
+## 2026-08-26 업로드 (비공개+예약)
+
+- [Chip stocks: the Nvidia earnings reaction is worse than you think, 46 counted](https://youtube.com/shorts/LduE0teyEPE) — 예약 KST 2026-08-26 22:00 · `LduE0teyEPE`
+
+## 2026-08-25 업로드 (비공개+예약)
+
+- [Chip stocks: $10,000 in AMD vs NVIDIA one year ago](https://youtube.com/shorts/2clyaRyqXTU) — 예약 KST 2026-08-25 22:00 · `2clyaRyqXTU`
