@@ -231,3 +231,35 @@ r/droidappshowcase 글은 **삭제되지 않았다.** 어제 화면에서 「필
 
 억지로 끼운 게 아니라 **상대가 말한 숫자와 우리 레벨이 실제로 겹친** 경우다.
 이게 가장 잘 통하는 형태다 — 우리가 하는 말이 그 사람 논지의 «다음 문장»이 된다.
+
+---
+
+## 2026-08-24 — PitchWall 3앱 전부 제출 완료
+
+`pitchwall.co` (모바일 앱 전문 디렉터리, SaaSHub 107개 목록에서 골라낸 것).
+계정 = 회사 구글 OAuth(contact@signumhq.com), 프로필 `@signumhq`.
+
+| 앱 | 제품 페이지 | 상태 |
+|---|---|---|
+| SIGNUM HQ | pitchwall.co/product/signum-hq-options-flow-market-intelligence | Under Review |
+| Undercurrent | pitchwall.co/product/undercurrent-tracks-money-behind-the-news | Under Review |
+| Why'd It Move? | pitchwall.co/product/whyd-it-move-daily-stock-market-quiz | Under Review |
+
+무료 플랜 = **게시까지 30일 이상**. 유료(Pro $49 / Premium $99)는 **결제라 손대지 않았다.**
+각 항목에 넣은 것: 갤러리 4장 + 로고 + 유튜브 홍보영상 + App Store/Play/Web 3개 다운로드 링크
++ X 프로필. 이미지는 PH 갤러리 자산을 그대로 재사용했다(`promo-shots/ph/*`).
+
+### 이 사이트에서 배운 함정 (다음 디렉터리에서도 쓴다)
+1. **프로필에 username 이 없으면 제출 페이지가 조용히 프로필로 리다이렉트된다.**
+   에러도 안 뜬다. 원인은 `POST auth.pitchwall.co/api/profile` 이 422 로
+   `username`·`about` 을 요구하는데 화면엔 그 사실이 안 나오는 것 — **응답 본문을 봐야 보였다.**
+   `about` 은 100자 제한이다.
+2. **fetch 인터셉터를 두 번 걸면 나중 것이 먼저 것에 덮인다.** 같은 실패가 두 번 반복돼서
+   원인을 오해할 뻔했다 → 인터셉터는 «리로드 후 한 번만».
+3. **ref 클릭이 포커스를 안 준다(좌표 클릭은 된다).** 그리고 새 입력 행이 생긴 «직후»의
+   첫 클릭은 먹지 않는다 → 행 추가 후 한 번 더 클릭하고 타이핑, 매번 값 검증.
+4. **1단계에서 넣은 다운로드 링크는 2단계로 넘어갈 때 사라진다** → 2단계에서 다시 넣어야 한다.
+5. 로고는 **100~512px만** 받는다(1024 는 거부). 유튜브는 `/shorts/` 를 거부 → `watch?v=`.
+6. AI 가 페이지를 긁어 본문을 자동 생성해준다. **그대로 두면 안 된다** — WIM 은 이름을
+   「Signum HQ market learning platform」으로 잘못 지었고, SIGNUM 본문엔
+   "before they become obvious"(예측형 표현)가 들어 있었다. 전부 고쳐서 넣었다.
