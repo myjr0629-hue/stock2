@@ -381,3 +381,7 @@ YouTube 스튜디오 → 분석 → 시청자층 탭
 ## 2026-08-25 업로드 (비공개+예약)
 
 - [Chip stocks: $10,000 in AMD vs NVIDIA one year ago](https://youtube.com/shorts/2clyaRyqXTU) — 예약 KST 2026-08-25 22:00 · `2clyaRyqXTU`
+
+## 2026-08-26 업로드 (비공개+예약)
+
+- [エヌビディア決算の反応は、思っているより小さい — 46回数えました](https://youtube.com/shorts/zP_TWaiPiJw) — 예약 KST 2026-08-26 14:00 · `zP_TWaiPiJw`

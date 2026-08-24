@@ -41,7 +41,14 @@ const MIN_DEMAND = 5000;
 //     2만+        5편 · 조회 중앙 14      ← 최하
 //   큰 검색어는 CNBC·Bloomberg 와 같은 링에 서는 것이다. 구독 200명이 이길 수 없다.
 //   ⚠️ 표본이 얇다(6편·5편). 그래서 «막지 않고» 경고만 한다 — 사유를 적고 진행할 수 있게.
-const GOLDILOCKS_MAX = 20000;
+// ⛔ 이 상한은 «영어권 전용» 이다 (2026-08-24 재측정). 언어를 안 가리고 걸었더니
+//   일본 최고작(S&P500 20,926 · 1,260회)이 「대형매체 충돌」로 잡혔다 — 정반대다.
+//     🇺🇸 미국  5천~2만 6편 중앙 266.5  ·  2만+ 5편 중앙 14    ← 큰 검색어에서 짓밟힌다
+//     🇯🇵 일본  5천~2만 5편 중앙 623    ·  2만+ 1편 중앙 1,260  ← 오히려 이겼다
+//   영어권은 CNBC·Bloomberg 가 큰 검색어를 점유하지만, 일본어 미국주식 쇼츠는 성기다.
+//   ⚠️ 일본 2만+ 는 «1편» 이다. 규칙을 세울 표본이 아니다 —
+//     그래서 일본은 상한을 «두지 않는다». 미국 규칙을 옮기지 않는 것이 요점이다.
+const GOLDILOCKS_MAX_BY_LANG = { en: 20000, ja: Infinity, ko: Infinity };
 const HOMONYM_MAX = 40;
 const MAX_FRESHNESS_DAYS = 7;   // 뉴스성 소재만 적용
 
@@ -73,9 +80,10 @@ export function checkTopic(it) {
   ok('소재 수요', best >= MIN_DEMAND, best.toLocaleString(),
     `>= ${MIN_DEMAND.toLocaleString()} (우리 과거 최저 2,822 · 매크로 최하위 13,082)`);
   // 상한은 «경고» 다 — 표본이 얇아 막지 않는다. 대신 눈에 보이게 한다.
-  if (best >= GOLDILOCKS_MAX)
+  const gmax = GOLDILOCKS_MAX_BY_LANG[LANG] ?? GOLDILOCKS_MAX_BY_LANG.en;
+  if (best >= gmax)
     ok('수요 구간', false, `${best.toLocaleString()} — 대형매체 충돌 구간`,
-      '5,000~20,000 «골디락스» 권장 (2만+ 5편 조회중앙 14 · 5천~2만 6편 266.5)');
+      `5,000~${gmax.toLocaleString()} 권장 — 영어권 실측 (2만+ 5편 중앙 14 · 5천~2만 6편 266.5)`);
   else if (best >= MIN_DEMAND)
     ok('수요 구간', true, `${best.toLocaleString()} — 골디락스`, '');
 
