@@ -1,0 +1,64 @@
+[
+  {
+    "file": "out/jp-nvda.mp4",
+    "thumb": "out/jp-nvda_thumb.jpg",
+    "categoryId": "27",
+    "class": "briefing",
+    "lang": "ja",
+    "scriptTag": "JPNVDA",
+    "publishAtKST": "2026-08-25 14:00",
+    "dupeOk": "This is the English/Japanese pair of the same measurement, published on both channels for different audiences. Intentional localization, not an accidental repeat.",
+    "title": "エヌビディア決算、46回数えたら市場はほとんど動いていなかった",
+    "description": "無料の米国株アプリ: https://www.signumhq.com/app?src=yt_jp9\n\nエヌビディアの決算は8月26日です。コンセンサスはEPS 2.09ドル、売上921億ドル。\n\n「市場全体が決算を待つ」とよく言われます。2015年からの46回で、翌日のS&P500がどう動いたかを測りました。\n\n決算翌日の日中の値幅は1.172%、それ以外の日は1.125%。1.04倍で、t値は0.38です。有意と言える1.96にまるで届きません。統計的には普通の日と見分けがつきません。\n\nエヌビディア自身も動かなくなっています。最初の5回は翌日平均9.88%、直近5回は2.88%。46回全体の傾向はrho -0.305、t -2.12でした。\n\nただし動くものが一つあります。他の半導体です。AMDは67.4%、ブロードコムは63.0%、マイクロンは60.9%が同じ方向でした。138回中88回、符号検定でp=0.0015です。\n\n測ったのは幅であって理由ではありません。方向についても何も言いません。\n\n株式分割を調整した終値で計算しています。\n\n___\nよく見られている回:\n・S&P500が静かな理由、中では二つに割れている\n・ガンマが外れた翌週は荒れる、は逆でした\n・【米国株】10年前に100万円、エヌビディアとインテルで今いくら？\n\n#エヌビディア #決算 #米国株",
+    "tags": [
+      "エヌビディア",
+      "決算",
+      "NVDA",
+      "米国株",
+      "半導体",
+      "AMD",
+      "ブロードコム",
+      "マイクロン",
+      "S&P500",
+      "新NISA",
+      "投資",
+      "株式投資",
+      "米国株投資",
+      "AI株",
+      "ハイテク株",
+      "マーケット",
+      "相場",
+      "検証",
+      "データ分析",
+      "オプション",
+      "資産運用",
+      "決算 見方",
+      "ガンマ",
+      "ドル円"
+    ],
+    "pinnedComment": "46回数えて、決算翌日の指数は普段の1.04倍。t値0.38でした。次は何を数えましょうか?\n\n無料アプリ: https://www.signumhq.com/app?src=yt_jp9c",
+    "evidence": [
+      "FMP stable earnings calendar for NVDA (59 reports, 46 with usable next-day prices, 2015 to 2026-05) x FMP stable adjusted closes",
+      "A: S&P 500 next-day intraday range 1.172% on earnings days vs 1.125% otherwise. Ratio 1.04, Welch t = 0.38 — not significant",
+      "B: absolute next-day NVDA move trends down, Spearman rho -0.305, t = -2.12. First five reports 9.88%, last five 2.88%, record 30.2% on 2016-11-10",
+      "D: AMD/AVGO/MU matched NVDA's next-day direction 88 of 138 times, 63.8%, sign test p = 0.00154",
+      "Scripts: scripts/edge-nvda-earn.mjs and scripts/edge-nvda-band.mjs; outputs in .agent/_nvda_earn.json and .agent/_nvda_band.json",
+      "Direction is deliberately not covered here — we published that separately. Causation is not measured"
+    ],
+    "story": {
+      "event": "エヌビディアの決算が2026年8月26日にある。",
+      "mechanism": "「市場全体が待つ」は毎四半期くり返されるが数えられていない。46回で測ると指数はほとんど反応せず、エヌビディア自身の反応も規模とともに縮んでいた。",
+      "anchor": "平常の1.04倍、t=0.38"
+    },
+    "insight": {
+      "claim": "46回のエヌビディア決算で、翌日のS&P500の値幅は平常の1.04倍、t=0.38で統計的に区別できない",
+      "saidAs": "統計的に区別がつきません。",
+      "computedBy": "scripts/edge-nvda-earn.mjs — Welch t between earnings-day and other-day intraday ranges",
+      "n": 46,
+      "pValue": 0.0015,
+      "value": 1.172,
+      "baseline": 1.125,
+      "source": "FMP stable earnings + adjusted closes, 2015-2026"
+    }
+  }
+]

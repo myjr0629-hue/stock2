@@ -4998,4 +4998,6 @@ export { SCRIPT_JPRATE, SCRIPT_JPFX } from './scripts-jp3';
 export { SCRIPT_JPLF } from './scripts-jp-lf';
 // 미국 금리 편 (2026-08-24) — 수요 interest rates 48,195
 export { SCRIPT_USRATE } from './scripts-us2';
+// 엔비디아 실적 2026-08-26 — 미국/일본 동시
+export { SCRIPT_USNVDA, SCRIPT_JPNVDA } from './scripts-nvda';
 export { SCRIPT_LFEARN } from './scripts-longform';

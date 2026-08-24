@@ -20,6 +20,7 @@ const FILES = [
   'src/remotion/kit/scripts-jp3.ts',
   'src/remotion/kit/scripts-jp-lf.ts',
   'src/remotion/kit/scripts-us2.ts',
+  'src/remotion/kit/scripts-nvda.ts',
 ];
 
 /** 모든 대본 파일을 이어붙인 원문. 게이트의 문자열 탐색이 이걸 쓴다. */
