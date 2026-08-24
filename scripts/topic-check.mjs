@@ -72,13 +72,43 @@ export function checkTopic(it) {
   const hits = KEYS.filter((k) => forms(k).some((f) => T.includes(f)));
   const best = hits.length ? Math.max(...hits.map((k) => DEMAND[k])) : 0;
   const bestKey = hits.find((k) => DEMAND[k] === best) || null;
-  ok('제목에 수요 어휘', hits.length > 0,
-    bestKey ? `"${bestKey}" (수요 ${best.toLocaleString()})` : '없음 — 아무도 검색하지 않는 문장',
+
+  // ★ 시의성 차선을 «먼저» 판정한다 — ① 도 이 판정을 따라야 하기 때문이다.
+  //   오늘 터진 사건의 이름(관세·캐나다)은 며칠 전 수요표에 있을 수가 없다.
+  const tmly = it.story && it.story.timely;
+  const timelyOk = !!(tmly && Number(tmly.headlines) >= 30 && Number(tmly.freshH) <= 24
+    && Array.isArray(tmly.countries) && tmly.countries.length >= 2 && tmly.source);
+
+  ok('제목에 수요 어휘', hits.length > 0 || timelyOk,
+    bestKey ? `"${bestKey}" (수요 ${best.toLocaleString()})`
+      : timelyOk ? '수요표엔 없음 — 시의성 차선으로 통과 (오늘 만들어지는 수요다)'
+        : '없음 — 아무도 검색하지 않는 문장',
     `${LANG === 'ja' ? '.agent/DEMAND_JA.json' : '.agent/DEMAND.json'} 의 어휘가 제목에 «그대로» 들어가야 한다`);
 
-  // ② 수요의 크기
-  ok('소재 수요', best >= MIN_DEMAND, best.toLocaleString(),
-    `>= ${MIN_DEMAND.toLocaleString()} (우리 과거 최저 2,822 · 매크로 최하위 13,082)`);
+  // ★ 시의성 차선 (2026-08-24) — 누적 수요표는 «상록 소재»의 잣대다
+  //   ⛔ 대표 지적: "낙후된 노후화된 검색어를 가지고 접근한다는것이 문제이다"
+  //   DEMAND.json 은 「유튜브 검색 상위의 조회수 중앙값」이라 그 소재가 «원래» 인기 있는지를
+  //   재는 값이고, 측정일도 며칠 전에 얼어붙는다. 오늘 터진 사건은 거기 있을 수가 없다.
+  //   실례: 관세는 3개국 헤드라인 190건이 몇 시간 안에 쏟아졌는데 수요표엔 tariffs 1,094 다.
+  //         하한 5,000 을 그대로 대면 «지금 가장 큰 사건»이 반려된다.
+  //
+  //   ⛔ 그렇다고 하한을 낮추지 않는다 (정본 금지 사항). 대신 «다른 증거»를 요구한다.
+  //     story.timely 에 관심을 실측으로 적어야 통과한다 — 숫자 없는 선언은 안 받는다.
+  //       "timely": { "headlines": 190, "countries": ["KR","JP","US"], "freshH": 0.6,
+  //                   "source": "scripts/topic-scan.mjs · .agent/TODAY_HOOKS.json" }
+  if (tmly && !timelyOk)
+    ok('시의성 증거', false, JSON.stringify(tmly).slice(0, 90),
+      'headlines>=30 · freshH<=24 · countries>=2 · source 필요 (topic-scan 산출)');
+
+  // ② 수요의 크기 — 시의성 차선이 서면 누적 수요 대신 «관심 실측» 을 본다
+  if (timelyOk) {
+    ok('소재 수요(시의성 차선)', true,
+      `누적 ${best.toLocaleString()} — 대신 헤드라인 ${tmly.headlines}건 / ${tmly.countries.join('·')} / 최신 ${tmly.freshH}h`,
+      '오늘 만들어지는 수요는 며칠 전 표에 없다 — 관심을 실측으로 증명했다');
+  } else {
+    ok('소재 수요', best >= MIN_DEMAND, best.toLocaleString(),
+      `>= ${MIN_DEMAND.toLocaleString()} (우리 과거 최저 2,822 · 매크로 최하위 13,082)`);
+  }
   // 상한은 «경고» 다 — 표본이 얇아 막지 않는다. 대신 눈에 보이게 한다.
   const gmax = GOLDILOCKS_MAX_BY_LANG[LANG] ?? GOLDILOCKS_MAX_BY_LANG.en;
   if (best >= gmax)

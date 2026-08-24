@@ -5000,4 +5000,7 @@ export { SCRIPT_JPLF } from './scripts-jp-lf';
 export { SCRIPT_USRATE } from './scripts-us2';
 // 엔비디아 실적 2026-08-26 — 미국/일본 동시
 export { SCRIPT_USNVDA, SCRIPT_JPNVDA } from './scripts-nvda';
+// 일본판 «다음 주 미국 투자 포인트» A/B (2026-08-24)
+export { SCRIPT_JPWEEKA, SCRIPT_JPWEEKB } from './scripts-jpweek';
 export { SCRIPT_LFEARN } from './scripts-longform';
+export { SCRIPT_TARIFF } from './scripts-tariff';

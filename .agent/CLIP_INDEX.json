@@ -1,2079 +1,2132 @@
 {
-  "note": "배경 클립 전수 색인. desc 는 프레임을 «보고» 적는다 — 파일명은 설명이 아니다.",
-  "updatedAt": "2026-08-23T23:19:42.518Z",
-  "n": 176,
-  "clips": {
-    "ani-ai-bubble": {
-      "file": "shorts/bg/video/ani-ai-bubble.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-ai-bubble.jpg",
-      "desc": "흰 로봇이 비눗방울 안에서 웃는다 — AI 버블",
-      "tags": [
-        "캐릭터",
-        "AI",
-        "버블"
-      ]
-    },
-    "ani-armwrestle": {
-      "file": "shorts/bg/video/ani-armwrestle.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-armwrestle.jpg",
-      "desc": "돌 괴물이 팔씨름한다 — 힘겨루기",
-      "tags": [
-        "캐릭터",
-        "대결"
-      ]
-    },
-    "ani-arrows-flow": {
-      "file": "shorts/bg/video/ani-arrows-flow.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-arrows-flow.jpg",
-      "desc": "청록 화살표가 위로 무수히 흐른다. 캐릭터 없음",
-      "tags": [
-        "중립",
-        "방향",
-        "상승",
-        "데이터"
-      ]
-    },
-    "ani-bag-vs-chip": {
-      "file": "shorts/bg/video/ani-bag-vs-chip.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-bag-vs-chip.jpg",
-      "desc": "종이봉투 캐릭터가 빈 지갑을 본다 — 소비 위축",
-      "tags": [
-        "캐릭터",
-        "소비"
-      ]
-    },
-    "ani-beach-sunrise": {
-      "file": "shorts/bg/video/ani-beach-sunrise.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-beach-sunrise.jpg",
-      "desc": "흰 고양이가 해변에서 일출을 본다",
-      "tags": [
-        "캐릭터",
-        "조용"
-      ]
-    },
-    "ani-bear-escalator": {
-      "file": "shorts/bg/video/ani-bear-escalator.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-bear-escalator.jpg",
-      "desc": "곰 캐릭터가 에스컬레이터를 내려간다 — 하락",
-      "tags": [
-        "캐릭터",
-        "하락"
-      ]
-    },
-    "ani-bell-strike": {
-      "file": "shorts/bg/video/ani-bell-strike.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-bell-strike.jpg",
-      "desc": "금괴 캐릭터가 종을 친다",
-      "tags": [
-        "캐릭터",
-        "금",
-        "개장"
-      ]
-    },
-    "ani-block-train": {
-      "file": "shorts/bg/video/ani-block-train.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-block-train.jpg",
-      "desc": "PMI 슈퍼히어로와 장난감 기차",
-      "tags": [
-        "캐릭터",
-        "지표"
-      ]
-    },
-    "ani-btc-launch": {
-      "file": "shorts/bg/video/ani-btc-launch.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-btc-launch.jpg",
-      "desc": "비트코인 캐릭터가 시소를 탄다",
-      "tags": [
-        "캐릭터",
-        "코인"
-      ]
-    },
-    "ani-btc-react": {
-      "file": "shorts/bg/video/ani-btc-react.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-btc-react.jpg",
-      "desc": "비트코인 캐릭터와 차트, 정장 인물들",
-      "tags": [
-        "캐릭터",
-        "코인"
-      ]
-    },
-    "ani-bull-bear-fight": {
-      "file": "shorts/bg/video/ani-bull-bear-fight.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-bull-bear-fight.jpg",
-      "desc": "곰과 황소가 격돌한다",
-      "tags": [
-        "캐릭터",
-        "대결"
-      ]
-    },
-    "ani-bull-bear": {
-      "file": "shorts/bg/video/ani-bull-bear.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-bull-bear.jpg",
-      "desc": "황소와 곰 캐릭터가 차트벽 앞에 나란히",
-      "tags": [
-        "캐릭터",
-        "대결"
-      ]
-    },
-    "ani-bull-bell": {
-      "file": "shorts/bg/video/ani-bull-bell.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-bull-bell.jpg",
-      "desc": "황소 캐릭터가 망치를 든다 — 경매/개장",
-      "tags": [
-        "캐릭터",
-        "개장"
-      ]
-    },
-    "ani-china-us": {
-      "file": "shorts/bg/video/ani-china-us.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-china-us.jpg",
-      "desc": "용과 독수리가 컨테이너로 줄다리기 — 미중",
-      "tags": [
-        "캐릭터",
-        "지정학"
-      ]
-    },
-    "ani-chip-carry": {
-      "file": "shorts/bg/video/ani-chip-carry.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-chip-carry.jpg",
-      "desc": "칩 캐릭터가 서버랙 앞에서 울상",
-      "tags": [
-        "캐릭터",
-        "반도체"
-      ]
-    },
-    "ani-chip-conveyor": {
-      "file": "shorts/bg/video/ani-chip-conveyor.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-chip-conveyor.jpg",
-      "desc": "칩 캐릭터들이 컨베이어에 실린다",
-      "tags": [
-        "캐릭터",
-        "반도체"
-      ]
-    },
-    "ani-chip-pull": {
-      "file": "shorts/bg/video/ani-chip-pull.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-chip-pull.jpg",
-      "desc": "칩 로봇과 하락 차트",
-      "tags": [
-        "캐릭터",
-        "반도체",
-        "하락"
-      ]
-    },
-    "ani-circuit-city": {
-      "file": "shorts/bg/video/ani-circuit-city.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-circuit-city.jpg",
-      "desc": "회로가 도시처럼 빛난다. 캐릭터 없음",
-      "tags": [
-        "중립",
-        "기술",
-        "배경"
-      ]
-    },
-    "ani-coin-liquidation": {
-      "file": "shorts/bg/video/ani-coin-liquidation.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-coin-liquidation.jpg",
-      "desc": "금화 캐릭터가 돈자루를 든다",
-      "tags": [
-        "캐릭터",
-        "현금"
-      ]
-    },
-    "ani-crowd-stop": {
-      "file": "shorts/bg/video/ani-crowd-stop.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-crowd-stop.jpg",
-      "desc": "파란 캐릭터 군중이 달린다 — 군중",
-      "tags": [
-        "캐릭터",
-        "군중"
-      ]
-    },
-    "ani-data-pillars": {
-      "file": "shorts/bg/video/ani-data-pillars.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-data-pillars.jpg",
-      "desc": "녹색 데이터 기둥이 솟는다. 캐릭터 없음",
-      "tags": [
-        "중립",
-        "데이터",
-        "배경"
-      ]
-    },
-    "ani-dominoes": {
-      "file": "shorts/bg/video/ani-dominoes.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-dominoes.jpg",
-      "desc": "색색 도미노 캐릭터가 넘어진다 — 연쇄",
-      "tags": [
-        "캐릭터",
-        "연쇄"
-      ]
-    },
-    "ani-door-open": {
-      "file": "shorts/bg/video/ani-door-open.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-door-open.jpg",
-      "desc": "어두운 돌문. 캐릭터 없음, 무겁다",
-      "tags": [
-        "중립",
-        "문",
-        "어둠"
-      ]
-    },
-    "ani-expression-flip": {
-      "file": "shorts/bg/video/ani-expression-flip.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-expression-flip.jpg",
-      "desc": "청록 여우 캐릭터가 표정을 바꾼다",
-      "tags": [
-        "캐릭터",
-        "반전"
-      ]
-    },
-    "ani-fed-dial": {
-      "file": "shorts/bg/video/ani-fed-dial.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-fed-dial.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-fed-gavel": {
-      "file": "shorts/bg/video/ani-fed-gavel.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-fed-gavel.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-floor-fills": {
-      "file": "shorts/bg/video/ani-floor-fills.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-floor-fills.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-geo-seesaw": {
-      "file": "shorts/bg/video/ani-geo-seesaw.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-geo-seesaw.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-glass-corridor": {
-      "file": "shorts/bg/video/ani-glass-corridor.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-glass-corridor.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-glass-heal": {
-      "file": "shorts/bg/video/ani-glass-heal.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-glass-heal.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-grab-rock": {
-      "file": "shorts/bg/video/ani-grab-rock.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-grab-rock.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-house-stairs": {
-      "file": "shorts/bg/video/ani-house-stairs.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-house-stairs.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-juggle-mm": {
-      "file": "shorts/bg/video/ani-juggle-mm.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-juggle-mm.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-lights-out": {
-      "file": "shorts/bg/video/ani-lights-out.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-lights-out.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-network": {
-      "file": "shorts/bg/video/ani-network.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-network.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-office-fade": {
-      "file": "shorts/bg/video/ani-office-fade.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-office-fade.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-oil-grows": {
-      "file": "shorts/bg/video/ani-oil-grows.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-oil-grows.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-pipeline-pulse": {
-      "file": "shorts/bg/video/ani-pipeline-pulse.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-pipeline-pulse.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-point-same": {
-      "file": "shorts/bg/video/ani-point-same.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-point-same.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-point-shock": {
-      "file": "shorts/bg/video/ani-point-shock.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-point-shock.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-rain-shelter": {
-      "file": "shorts/bg/video/ani-rain-shelter.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-rain-shelter.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-rubber-band": {
-      "file": "shorts/bg/video/ani-rubber-band.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-rubber-band.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-scale-tip": {
-      "file": "shorts/bg/video/ani-scale-tip.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-scale-tip.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-servers-wake": {
-      "file": "shorts/bg/video/ani-servers-wake.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-servers-wake.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-storm-part": {
-      "file": "shorts/bg/video/ani-storm-part.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-storm-part.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-sunrise": {
-      "file": "shorts/bg/video/ani-sunrise.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-sunrise.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-surf-megacap": {
-      "file": "shorts/bg/video/ani-surf-megacap.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-surf-megacap.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-tanker": {
-      "file": "shorts/bg/video/ani-tanker.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-tanker.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-tariff-prices": {
-      "file": "shorts/bg/video/ani-tariff-prices.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-tariff-prices.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-tipping-balance": {
-      "file": "shorts/bg/video/ani-tipping-balance.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-tipping-balance.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-trapped-box": {
-      "file": "shorts/bg/video/ani-trapped-box.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-trapped-box.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-two-smile": {
-      "file": "shorts/bg/video/ani-two-smile.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-two-smile.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-us-bull": {
-      "file": "shorts/bg/video/ani-us-bull.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-us-bull.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-vault-drain": {
-      "file": "shorts/bg/video/ani-vault-drain.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-vault-drain.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-vault-open": {
-      "file": "shorts/bg/video/ani-vault-open.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-vault-open.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-vault-through": {
-      "file": "shorts/bg/video/ani-vault-through.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-vault-through.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ani-wafer-lift": {
-      "file": "shorts/bg/video/ani-wafer-lift.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ani-wafer-lift.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-auction-gavel": {
-      "file": "shorts/bg/video/ax-auction-gavel.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-auction-gavel.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-bar-rises": {
-      "file": "shorts/bg/video/ax-bar-rises.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-bar-rises.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-boardroom-long": {
-      "file": "shorts/bg/video/ax-boardroom-long.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-boardroom-long.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-calendar-grid": {
-      "file": "shorts/bg/video/ax-calendar-grid.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-calendar-grid.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-chip-city": {
-      "file": "shorts/bg/video/ax-chip-city.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-chip-city.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-clipboard-check": {
-      "file": "shorts/bg/video/ax-clipboard-check.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-clipboard-check.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-coin-hard": {
-      "file": "shorts/bg/video/ax-coin-hard.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-coin-hard.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-coin-spin": {
-      "file": "shorts/bg/video/ax-coin-spin.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-coin-spin.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-count-tally": {
-      "file": "shorts/bg/video/ax-count-tally.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-count-tally.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-crowd-of-copies": {
-      "file": "shorts/bg/video/ax-crowd-of-copies.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-crowd-of-copies.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-double-take": {
-      "file": "shorts/bg/video/ax-double-take.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-double-take.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-earnings-stage": {
-      "file": "shorts/bg/video/ax-earnings-stage.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-earnings-stage.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-exchange-steps": {
-      "file": "shorts/bg/video/ax-exchange-steps.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-exchange-steps.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-eyes-widen": {
-      "file": "shorts/bg/video/ax-eyes-widen.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-eyes-widen.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-high-jump": {
-      "file": "shorts/bg/video/ax-high-jump.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-high-jump.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-lean-in": {
-      "file": "shorts/bg/video/ax-lean-in.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-lean-in.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-ledger-open": {
-      "file": "shorts/bg/video/ax-ledger-open.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-ledger-open.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-lights-on": {
-      "file": "shorts/bg/video/ax-lights-on.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-lights-on.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-long-corridor-count": {
-      "file": "shorts/bg/video/ax-long-corridor-count.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-long-corridor-count.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-magnifier": {
-      "file": "shorts/bg/video/ax-magnifier.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-magnifier.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-measure-tape": {
-      "file": "shorts/bg/video/ax-measure-tape.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-measure-tape.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-notebook-write": {
-      "file": "shorts/bg/video/ax-notebook-write.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-notebook-write.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-podium-empty": {
-      "file": "shorts/bg/video/ax-podium-empty.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-podium-empty.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-point-off": {
-      "file": "shorts/bg/video/ax-point-off.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-point-off.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-price-tag": {
-      "file": "shorts/bg/video/ax-price-tag.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-price-tag.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-scale-watch": {
-      "file": "shorts/bg/video/ax-scale-watch.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-scale-watch.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-server-hall": {
-      "file": "shorts/bg/video/ax-server-hall.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-server-hall.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-shrug-both": {
-      "file": "shorts/bg/video/ax-shrug-both.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-shrug-both.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-sit-down-think": {
-      "file": "shorts/bg/video/ax-sit-down-think.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-sit-down-think.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-sort-conveyor": {
-      "file": "shorts/bg/video/ax-sort-conveyor.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-sort-conveyor.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-stack-blocks": {
-      "file": "shorts/bg/video/ax-stack-blocks.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-stack-blocks.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-storm-window": {
-      "file": "shorts/bg/video/ax-storm-window.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-storm-window.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-tiny-vs-huge": {
-      "file": "shorts/bg/video/ax-tiny-vs-huge.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-tiny-vs-huge.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-trading-desk": {
-      "file": "shorts/bg/video/ax-trading-desk.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-trading-desk.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-two-doors": {
-      "file": "shorts/bg/video/ax-two-doors.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-two-doors.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-two-piles": {
-      "file": "shorts/bg/video/ax-two-piles.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-two-piles.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-umbrella-wait": {
-      "file": "shorts/bg/video/ax-umbrella-wait.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-umbrella-wait.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-vault-door": {
-      "file": "shorts/bg/video/ax-vault-door.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-vault-door.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-walk-away-turn": {
-      "file": "shorts/bg/video/ax-walk-away-turn.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-walk-away-turn.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "ax-window-city": {
-      "file": "shorts/bg/video/ax-window-city.mp4",
-      "w": 1280,
-      "h": 720,
-      "aspect": "16:9",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/ax-window-city.jpg",
-      "desc": "그리스식 기둥 건물 정면 — 기관·중앙은행",
-      "tags": [
-        "16:9",
-        "기관",
-        "건축"
-      ]
-    },
-    "c811-00-exchange": {
-      "file": "shorts/bg/video/c811-00-exchange.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-00-exchange.jpg",
-      "desc": "클린룸 로봇팔",
-      "tags": [
-        "9:16",
-        "공정"
-      ]
-    },
-    "c811-01-cleanroom": {
-      "file": "shorts/bg/video/c811-01-cleanroom.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-01-cleanroom.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "c811-02-mirrorcity": {
-      "file": "shorts/bg/video/c811-02-mirrorcity.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-02-mirrorcity.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "c811-03-energygrid": {
-      "file": "shorts/bg/video/c811-03-energygrid.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-03-energygrid.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "c811-04-papercrowd": {
-      "file": "shorts/bg/video/c811-04-papercrowd.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-04-papercrowd.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "c811-05-mirrorfield": {
-      "file": "shorts/bg/video/c811-05-mirrorfield.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5.5,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-05-mirrorfield.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "c811-06-columns-tight": {
-      "file": "shorts/bg/video/c811-06-columns-tight.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 2.8,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-06-columns-tight.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "c811-07-wafer-tight": {
-      "file": "shorts/bg/video/c811-07-wafer-tight.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 4.5,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-07-wafer-tight.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "c811-hook-chip": {
-      "file": "shorts/bg/video/c811-hook-chip.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 4,
-      "bright": null,
-      "preview": ".agent/clipsheet/c811-hook-chip.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "calm-sea-dawn": {
-      "file": "shorts/bg/video/calm-sea-dawn.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/calm-sea-dawn.jpg",
-      "desc": "지평선 일출, 잔잔한 바다 — 질감이 거의 없다(빈 화면으로 잡힘)",
-      "tags": [
-        "중립",
-        "조용",
-        "주의"
-      ]
-    },
-    "chip-city": {
-      "file": "shorts/bg/video/chip-city.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/chip-city.jpg",
-      "desc": "회로 위 도시 축소모형",
-      "tags": [
-        "중립",
-        "기술"
-      ]
-    },
-    "chip-glow": {
-      "file": "shorts/bg/video/chip-glow.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/chip-glow.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "chip-macro-grey": {
-      "file": "shorts/bg/video/chip-macro-grey.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 4,
-      "bright": null,
-      "preview": ".agent/clipsheet/chip-macro-grey.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "chip-underside": {
-      "file": "shorts/bg/video/chip-underside.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/chip-underside.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "columns-birds": {
-      "file": "shorts/bg/video/columns-birds.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/columns-birds.jpg",
-      "desc": "밝은 기둥 건물 위로 새가 난다",
-      "tags": [
-        "중립",
-        "기관",
-        "밝음"
-      ]
-    },
-    "columns-goldenhour": {
-      "file": "shorts/bg/video/columns-goldenhour.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/columns-goldenhour.jpg",
-      "desc": "골든아워의 기둥 건물",
-      "tags": [
-        "중립",
-        "기관",
-        "따뜻"
-      ]
-    },
-    "copper-mine-dusk": {
-      "file": "shorts/bg/video/copper-mine-dusk.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15,
-      "bright": null,
-      "preview": ".agent/clipsheet/copper-mine-dusk.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "copper-mine-molten": {
-      "file": "shorts/bg/video/copper-mine-molten.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/copper-mine-molten.jpg",
-      "desc": "용암처럼 흐르는 구리 제련",
-      "tags": [
-        "중립",
-        "원자재"
-      ]
-    },
-    "crack-star": {
-      "file": "shorts/bg/video/crack-star.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/crack-star.jpg",
-      "desc": "흐릿한 회색 면에 작은 빛",
-      "tags": [
-        "중립",
-        "미니멀"
-      ]
-    },
-    "datacenter-aisle": {
-      "file": "shorts/bg/video/datacenter-aisle.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/datacenter-aisle.jpg",
-      "desc": "데이터센터 복도",
-      "tags": [
-        "중립",
-        "데이터"
-      ]
-    },
-    "desks-dawn": {
-      "file": "shorts/bg/video/desks-dawn.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/desks-dawn.jpg",
-      "desc": "일출 빛의 책상 줄 — 사무실 새벽",
-      "tags": [
-        "중립",
-        "업무",
-        "아침"
-      ]
-    },
-    "device-assembly-bright": {
-      "file": "shorts/bg/video/device-assembly-bright.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/device-assembly-bright.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "device-counter-bright": {
-      "file": "shorts/bg/video/device-counter-bright.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/device-counter-bright.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "euv-plasma-a": {
-      "file": "shorts/bg/video/euv-plasma-a.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/euv-plasma-a.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "euv-plasma-b": {
-      "file": "shorts/bg/video/euv-plasma-b.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/euv-plasma-b.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "exchange-flags": {
-      "file": "shorts/bg/video/exchange-flags.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/exchange-flags.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "exchange-storm": {
-      "file": "shorts/bg/video/exchange-storm.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15,
-      "bright": null,
-      "preview": ".agent/clipsheet/exchange-storm.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "fab-hall-bright": {
-      "file": "shorts/bg/video/fab-hall-bright.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/fab-hall-bright.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "fed-building": {
-      "file": "shorts/bg/video/fed-building.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/fed-building.jpg",
-      "desc": "연준 청사 정면, 성조기와 파란 하늘 — 실사",
-      "tags": [
-        "실사",
-        "연준",
-        "금리",
-        "기관"
-      ]
-    },
-    "fiber-one-lit": {
-      "file": "shorts/bg/video/fiber-one-lit.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/fiber-one-lit.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "floor-empty-night": {
-      "file": "shorts/bg/video/floor-empty-night.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/floor-empty-night.jpg",
-      "desc": "사람 없는 트레이딩 플로어, 모니터만 켜져 있다",
-      "tags": [
-        "실사",
-        "거래소",
-        "정적"
-      ]
-    },
-    "geo-corridor-light": {
-      "file": "shorts/bg/video/geo-corridor-light.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/geo-corridor-light.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "geo-flare-stack-night": {
-      "file": "shorts/bg/video/geo-flare-stack-night.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/geo-flare-stack-night.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "geo-port-day": {
-      "file": "shorts/bg/video/geo-port-day.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/geo-port-day.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "geo-port-fog-night": {
-      "file": "shorts/bg/video/geo-port-fog-night.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/geo-port-fog-night.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "geo-radar-dusk": {
-      "file": "shorts/bg/video/geo-radar-dusk.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/geo-radar-dusk.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "geo-refinery-day": {
-      "file": "shorts/bg/video/geo-refinery-day.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/geo-refinery-day.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "geo-strait-day": {
-      "file": "shorts/bg/video/geo-strait-day.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/geo-strait-day.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "glass-tube-array": {
-      "file": "shorts/bg/video/glass-tube-array.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/glass-tube-array.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "gold-bars": {
-      "file": "shorts/bg/video/gold-bars.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/gold-bars.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "gold-btc-race": {
-      "file": "shorts/bg/video/gold-btc-race.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/gold-btc-race.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "gold-vault-bars": {
-      "file": "shorts/bg/video/gold-vault-bars.mp4",
-      "w": 1080,
-      "h": 1920,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/gold-vault-bars.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "golden-bell": {
-      "file": "shorts/bg/video/golden-bell.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/golden-bell.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "grid-heliostat": {
-      "file": "shorts/bg/video/grid-heliostat.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/grid-heliostat.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "humanoid-robot": {
-      "file": "shorts/bg/video/humanoid-robot.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/humanoid-robot.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "mini-construction": {
-      "file": "shorts/bg/video/mini-construction.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/mini-construction.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "minicity-water": {
-      "file": "shorts/bg/video/minicity-water.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/minicity-water.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "mirror-city": {
-      "file": "shorts/bg/video/mirror-city.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/mirror-city.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "nyse-flags": {
-      "file": "shorts/bg/video/nyse-flags.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/nyse-flags.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "paper-crowd": {
-      "file": "shorts/bg/video/paper-crowd.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/paper-crowd.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "pcb-cyan-dark": {
-      "file": "shorts/bg/video/pcb-cyan-dark.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/pcb-cyan-dark.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "pcb-one-chip-lit": {
-      "file": "shorts/bg/video/pcb-one-chip-lit.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/pcb-one-chip-lit.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "pcb-traces-glow": {
-      "file": "shorts/bg/video/pcb-traces-glow.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/pcb-traces-glow.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "quantum-fridge": {
-      "file": "shorts/bg/video/quantum-fridge.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/quantum-fridge.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "rams-vs-block": {
-      "file": "shorts/bg/video/rams-vs-block.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/rams-vs-block.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "refinery-stacks": {
-      "file": "shorts/bg/video/refinery-stacks.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/refinery-stacks.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "retail-carts-dusk": {
-      "file": "shorts/bg/video/retail-carts-dusk.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/retail-carts-dusk.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "retail-checkout-empty": {
-      "file": "shorts/bg/video/retail-checkout-empty.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/retail-checkout-empty.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "retail-shutter-night": {
-      "file": "shorts/bg/video/retail-shutter-night.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/retail-shutter-night.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "retail-warehouse-aisle": {
-      "file": "shorts/bg/video/retail-warehouse-aisle.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/retail-warehouse-aisle.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "rise-glass-tower": {
-      "file": "shorts/bg/video/rise-glass-tower.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/rise-glass-tower.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "rise-stairs-light": {
-      "file": "shorts/bg/video/rise-stairs-light.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15.1,
-      "bright": null,
-      "preview": ".agent/clipsheet/rise-stairs-light.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "rocket-ignition": {
-      "file": "shorts/bg/video/rocket-ignition.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/rocket-ignition.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "scale-few-vs-many": {
-      "file": "shorts/bg/video/scale-few-vs-many.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/scale-few-vs-many.jpg",
-      "desc": "저울 위, 한쪽엔 구슬 몇 개 다른 쪽엔 무더기 — 소수 대 다수",
-      "tags": [
-        "실사",
-        "비교",
-        "분포"
-      ]
-    },
-    "server-assembly": {
-      "file": "shorts/bg/video/server-assembly.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/server-assembly.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "skyline-red-river": {
-      "file": "shorts/bg/video/skyline-red-river.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/skyline-red-river.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "skyline-sunrise-fog": {
-      "file": "shorts/bg/video/skyline-sunrise-fog.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/skyline-sunrise-fog.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "steel-balls": {
-      "file": "shorts/bg/video/steel-balls.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/steel-balls.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "steel-spheres": {
-      "file": "shorts/bg/video/steel-spheres.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/steel-spheres.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "supertanker": {
-      "file": "shorts/bg/video/supertanker.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/supertanker.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "tankers-strait": {
-      "file": "shorts/bg/video/tankers-strait.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/tankers-strait.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "tape-wall-scroll": {
-      "file": "shorts/bg/video/tape-wall-scroll.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/tape-wall-scroll.jpg",
-      "desc": "시세판 벽이 스크롤된다 — 실사, 틱커·종목표",
-      "tags": [
-        "실사",
-        "시세",
-        "중립"
-      ]
-    },
-    "tech-euv-litho": {
-      "file": "shorts/bg/video/tech-euv-litho.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/tech-euv-litho.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "temple-storm": {
-      "file": "shorts/bg/video/temple-storm.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 15,
-      "bright": null,
-      "preview": ".agent/clipsheet/temple-storm.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "undercurrent-pull": {
-      "file": "shorts/bg/video/undercurrent-pull.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/undercurrent-pull.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "vault-doors": {
-      "file": "shorts/bg/video/vault-doors.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 5,
-      "bright": null,
-      "preview": ".agent/clipsheet/vault-doors.jpg",
-      "desc": "금고 문이 열리며 빛이 샌다 — 실사",
-      "tags": [
-        "실사",
-        "금고",
-        "무게"
-      ]
-    },
-    "wafer-arm": {
-      "file": "shorts/bg/video/wafer-arm.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/wafer-arm.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "wafer-press": {
-      "file": "shorts/bg/video/wafer-press.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 6,
-      "bright": null,
-      "preview": ".agent/clipsheet/wafer-press.jpg",
-      "desc": "",
-      "tags": []
-    },
-    "wafer-spin-clean": {
-      "file": "shorts/bg/video/wafer-spin-clean.mp4",
-      "w": 720,
-      "h": 1280,
-      "aspect": "9:16",
-      "sec": 10,
-      "bright": null,
-      "preview": ".agent/clipsheet/wafer-spin-clean.jpg",
-      "desc": "",
-      "tags": []
-    }
+ "note": "배경 클립 전수 색인. desc 는 프레임을 «보고» 적는다 — 파일명은 설명이 아니다.",
+ "updatedAt": "2026-08-24T10:11:44.450Z",
+ "n": 179,
+ "clips": {
+  "ani-ai-bubble": {
+   "file": "shorts/bg/video/ani-ai-bubble.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-ai-bubble.jpg",
+   "desc": "흰 로봇이 비눗방울 안에서 웃는다 — AI 버블",
+   "tags": [
+    "캐릭터",
+    "AI",
+    "버블"
+   ]
+  },
+  "ani-armwrestle": {
+   "file": "shorts/bg/video/ani-armwrestle.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-armwrestle.jpg",
+   "desc": "돌 괴물이 팔씨름한다 — 힘겨루기",
+   "tags": [
+    "캐릭터",
+    "대결"
+   ]
+  },
+  "ani-arrows-flow": {
+   "file": "shorts/bg/video/ani-arrows-flow.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-arrows-flow.jpg",
+   "desc": "청록 화살표가 위로 무수히 흐른다. 캐릭터 없음",
+   "tags": [
+    "중립",
+    "방향",
+    "상승",
+    "데이터"
+   ]
+  },
+  "ani-bag-vs-chip": {
+   "file": "shorts/bg/video/ani-bag-vs-chip.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-bag-vs-chip.jpg",
+   "desc": "종이봉투 캐릭터가 빈 지갑을 본다 — 소비 위축",
+   "tags": [
+    "캐릭터",
+    "소비"
+   ]
+  },
+  "ani-beach-sunrise": {
+   "file": "shorts/bg/video/ani-beach-sunrise.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-beach-sunrise.jpg",
+   "desc": "흰 고양이가 해변에서 일출을 본다",
+   "tags": [
+    "캐릭터",
+    "조용"
+   ]
+  },
+  "ani-bear-escalator": {
+   "file": "shorts/bg/video/ani-bear-escalator.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-bear-escalator.jpg",
+   "desc": "곰 캐릭터가 에스컬레이터를 내려간다 — 하락",
+   "tags": [
+    "캐릭터",
+    "하락"
+   ]
+  },
+  "ani-bell-strike": {
+   "file": "shorts/bg/video/ani-bell-strike.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-bell-strike.jpg",
+   "desc": "금괴 캐릭터가 종을 친다",
+   "tags": [
+    "캐릭터",
+    "금",
+    "개장"
+   ]
+  },
+  "ani-block-train": {
+   "file": "shorts/bg/video/ani-block-train.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-block-train.jpg",
+   "desc": "PMI 슈퍼히어로와 장난감 기차",
+   "tags": [
+    "캐릭터",
+    "지표"
+   ]
+  },
+  "ani-btc-launch": {
+   "file": "shorts/bg/video/ani-btc-launch.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-btc-launch.jpg",
+   "desc": "비트코인 캐릭터가 시소를 탄다",
+   "tags": [
+    "캐릭터",
+    "코인"
+   ]
+  },
+  "ani-btc-react": {
+   "file": "shorts/bg/video/ani-btc-react.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-btc-react.jpg",
+   "desc": "비트코인 캐릭터와 차트, 정장 인물들",
+   "tags": [
+    "캐릭터",
+    "코인"
+   ]
+  },
+  "ani-bull-bear-fight": {
+   "file": "shorts/bg/video/ani-bull-bear-fight.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-bull-bear-fight.jpg",
+   "desc": "곰과 황소가 격돌한다",
+   "tags": [
+    "캐릭터",
+    "대결"
+   ]
+  },
+  "ani-bull-bear": {
+   "file": "shorts/bg/video/ani-bull-bear.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-bull-bear.jpg",
+   "desc": "황소와 곰 캐릭터가 차트벽 앞에 나란히",
+   "tags": [
+    "캐릭터",
+    "대결"
+   ]
+  },
+  "ani-bull-bell": {
+   "file": "shorts/bg/video/ani-bull-bell.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-bull-bell.jpg",
+   "desc": "황소 캐릭터가 망치를 든다 — 경매/개장",
+   "tags": [
+    "캐릭터",
+    "개장"
+   ]
+  },
+  "ani-calendar-four": {
+   "file": "shorts/bg/video/ani-calendar-four.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-calendar-four.jpg",
+   "desc": "⛔ 사용 금지 — 글자 금지했는데 뭉개진 가짜 글자가 들어갔고 어둡다 (2026-08-24 생성 실패)",
+   "tags": [
+    "사용금지",
+    "생성실패"
+   ]
+  },
+  "ani-canada-moose": {
+   "file": "shorts/bg/video/ani-canada-moose.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-canada-moose.jpg",
+   "desc": "빨간 목도리 무스와 정장 독수리가 협상 테이블을 사이에 두고 마주 선다 — 미·캐나다 무역",
+   "tags": [
+    "캐릭터",
+    "무역",
+    "관세",
+    "캐나다",
+    "미국"
+   ]
+  },
+  "ani-china-us": {
+   "file": "shorts/bg/video/ani-china-us.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-china-us.jpg",
+   "desc": "용과 독수리가 컨테이너로 줄다리기 — 미중",
+   "tags": [
+    "캐릭터",
+    "지정학"
+   ]
+  },
+  "ani-chip-carry": {
+   "file": "shorts/bg/video/ani-chip-carry.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-chip-carry.jpg",
+   "desc": "칩 캐릭터가 서버랙 앞에서 울상",
+   "tags": [
+    "캐릭터",
+    "반도체"
+   ]
+  },
+  "ani-chip-conveyor": {
+   "file": "shorts/bg/video/ani-chip-conveyor.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-chip-conveyor.jpg",
+   "desc": "칩 캐릭터들이 컨베이어에 실린다",
+   "tags": [
+    "캐릭터",
+    "반도체"
+   ]
+  },
+  "ani-chip-pull": {
+   "file": "shorts/bg/video/ani-chip-pull.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-chip-pull.jpg",
+   "desc": "칩 로봇과 하락 차트",
+   "tags": [
+    "캐릭터",
+    "반도체",
+    "하락"
+   ]
+  },
+  "ani-circuit-city": {
+   "file": "shorts/bg/video/ani-circuit-city.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-circuit-city.jpg",
+   "desc": "회로가 도시처럼 빛난다. 캐릭터 없음",
+   "tags": [
+    "중립",
+    "기술",
+    "배경"
+   ]
+  },
+  "ani-coin-liquidation": {
+   "file": "shorts/bg/video/ani-coin-liquidation.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-coin-liquidation.jpg",
+   "desc": "금화 캐릭터가 돈자루를 든다",
+   "tags": [
+    "캐릭터",
+    "현금"
+   ]
+  },
+  "ani-crowd-stop": {
+   "file": "shorts/bg/video/ani-crowd-stop.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-crowd-stop.jpg",
+   "desc": "파란 캐릭터 군중이 달린다 — 군중",
+   "tags": [
+    "캐릭터",
+    "군중"
+   ]
+  },
+  "ani-data-pillars": {
+   "file": "shorts/bg/video/ani-data-pillars.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-data-pillars.jpg",
+   "desc": "녹색 데이터 기둥이 솟는다. 캐릭터 없음",
+   "tags": [
+    "중립",
+    "데이터",
+    "배경"
+   ]
+  },
+  "ani-dominoes": {
+   "file": "shorts/bg/video/ani-dominoes.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-dominoes.jpg",
+   "desc": "색색 도미노 캐릭터가 넘어진다 — 연쇄",
+   "tags": [
+    "캐릭터",
+    "연쇄"
+   ]
+  },
+  "ani-door-open": {
+   "file": "shorts/bg/video/ani-door-open.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-door-open.jpg",
+   "desc": "어두운 돌문. 캐릭터 없음, 무겁다",
+   "tags": [
+    "중립",
+    "문",
+    "어둠"
+   ]
+  },
+  "ani-expression-flip": {
+   "file": "shorts/bg/video/ani-expression-flip.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-expression-flip.jpg",
+   "desc": "청록 여우 캐릭터가 표정을 바꾼다",
+   "tags": [
+    "캐릭터",
+    "반전"
+   ]
+  },
+  "ani-factory-line": {
+   "file": "shorts/bg/video/ani-factory-line.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-factory-line.jpg",
+   "desc": "자동차 차체가 컨베이어를 따라 흐르고 로봇팔이 내려온다 — 자동차 생산라인",
+   "tags": [
+    "공장",
+    "자동차",
+    "제조",
+    "생산라인"
+   ]
+  },
+  "ani-fed-dial": {
+   "file": "shorts/bg/video/ani-fed-dial.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-fed-dial.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-fed-gavel": {
+   "file": "shorts/bg/video/ani-fed-gavel.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-fed-gavel.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-floor-fills": {
+   "file": "shorts/bg/video/ani-floor-fills.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-floor-fills.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-geo-seesaw": {
+   "file": "shorts/bg/video/ani-geo-seesaw.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-geo-seesaw.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-glass-corridor": {
+   "file": "shorts/bg/video/ani-glass-corridor.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-glass-corridor.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-glass-heal": {
+   "file": "shorts/bg/video/ani-glass-heal.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-glass-heal.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-grab-rock": {
+   "file": "shorts/bg/video/ani-grab-rock.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-grab-rock.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-house-stairs": {
+   "file": "shorts/bg/video/ani-house-stairs.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-house-stairs.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-juggle-mm": {
+   "file": "shorts/bg/video/ani-juggle-mm.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-juggle-mm.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-lights-out": {
+   "file": "shorts/bg/video/ani-lights-out.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-lights-out.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-network": {
+   "file": "shorts/bg/video/ani-network.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-network.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-office-fade": {
+   "file": "shorts/bg/video/ani-office-fade.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-office-fade.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-oil-grows": {
+   "file": "shorts/bg/video/ani-oil-grows.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-oil-grows.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-pipeline-pulse": {
+   "file": "shorts/bg/video/ani-pipeline-pulse.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-pipeline-pulse.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-point-same": {
+   "file": "shorts/bg/video/ani-point-same.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-point-same.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-point-shock": {
+   "file": "shorts/bg/video/ani-point-shock.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-point-shock.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-rain-shelter": {
+   "file": "shorts/bg/video/ani-rain-shelter.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-rain-shelter.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-rubber-band": {
+   "file": "shorts/bg/video/ani-rubber-band.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-rubber-band.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-scale-tip": {
+   "file": "shorts/bg/video/ani-scale-tip.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-scale-tip.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-servers-wake": {
+   "file": "shorts/bg/video/ani-servers-wake.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-servers-wake.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-storm-part": {
+   "file": "shorts/bg/video/ani-storm-part.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-storm-part.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-sunrise": {
+   "file": "shorts/bg/video/ani-sunrise.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-sunrise.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-surf-megacap": {
+   "file": "shorts/bg/video/ani-surf-megacap.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-surf-megacap.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-tanker": {
+   "file": "shorts/bg/video/ani-tanker.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-tanker.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-tariff-prices": {
+   "file": "shorts/bg/video/ani-tariff-prices.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-tariff-prices.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-tipping-balance": {
+   "file": "shorts/bg/video/ani-tipping-balance.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-tipping-balance.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-trapped-box": {
+   "file": "shorts/bg/video/ani-trapped-box.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-trapped-box.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-two-smile": {
+   "file": "shorts/bg/video/ani-two-smile.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-two-smile.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-us-bull": {
+   "file": "shorts/bg/video/ani-us-bull.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-us-bull.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-vault-drain": {
+   "file": "shorts/bg/video/ani-vault-drain.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-vault-drain.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-vault-open": {
+   "file": "shorts/bg/video/ani-vault-open.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-vault-open.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-vault-through": {
+   "file": "shorts/bg/video/ani-vault-through.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-vault-through.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ani-wafer-lift": {
+   "file": "shorts/bg/video/ani-wafer-lift.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ani-wafer-lift.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-auction-gavel": {
+   "file": "shorts/bg/video/ax-auction-gavel.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-auction-gavel.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-bar-rises": {
+   "file": "shorts/bg/video/ax-bar-rises.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-bar-rises.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-boardroom-long": {
+   "file": "shorts/bg/video/ax-boardroom-long.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-boardroom-long.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-calendar-grid": {
+   "file": "shorts/bg/video/ax-calendar-grid.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-calendar-grid.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-chip-city": {
+   "file": "shorts/bg/video/ax-chip-city.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-chip-city.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-clipboard-check": {
+   "file": "shorts/bg/video/ax-clipboard-check.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-clipboard-check.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-coin-hard": {
+   "file": "shorts/bg/video/ax-coin-hard.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-coin-hard.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-coin-spin": {
+   "file": "shorts/bg/video/ax-coin-spin.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-coin-spin.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-count-tally": {
+   "file": "shorts/bg/video/ax-count-tally.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-count-tally.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-crowd-of-copies": {
+   "file": "shorts/bg/video/ax-crowd-of-copies.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-crowd-of-copies.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-double-take": {
+   "file": "shorts/bg/video/ax-double-take.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-double-take.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-earnings-stage": {
+   "file": "shorts/bg/video/ax-earnings-stage.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-earnings-stage.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-exchange-steps": {
+   "file": "shorts/bg/video/ax-exchange-steps.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-exchange-steps.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-eyes-widen": {
+   "file": "shorts/bg/video/ax-eyes-widen.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-eyes-widen.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-high-jump": {
+   "file": "shorts/bg/video/ax-high-jump.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-high-jump.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-lean-in": {
+   "file": "shorts/bg/video/ax-lean-in.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-lean-in.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-ledger-open": {
+   "file": "shorts/bg/video/ax-ledger-open.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-ledger-open.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-lights-on": {
+   "file": "shorts/bg/video/ax-lights-on.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-lights-on.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-long-corridor-count": {
+   "file": "shorts/bg/video/ax-long-corridor-count.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-long-corridor-count.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-magnifier": {
+   "file": "shorts/bg/video/ax-magnifier.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-magnifier.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-measure-tape": {
+   "file": "shorts/bg/video/ax-measure-tape.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-measure-tape.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-notebook-write": {
+   "file": "shorts/bg/video/ax-notebook-write.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-notebook-write.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-podium-empty": {
+   "file": "shorts/bg/video/ax-podium-empty.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-podium-empty.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-point-off": {
+   "file": "shorts/bg/video/ax-point-off.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-point-off.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-price-tag": {
+   "file": "shorts/bg/video/ax-price-tag.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-price-tag.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-scale-watch": {
+   "file": "shorts/bg/video/ax-scale-watch.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-scale-watch.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-server-hall": {
+   "file": "shorts/bg/video/ax-server-hall.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-server-hall.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-shrug-both": {
+   "file": "shorts/bg/video/ax-shrug-both.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-shrug-both.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-sit-down-think": {
+   "file": "shorts/bg/video/ax-sit-down-think.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-sit-down-think.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-sort-conveyor": {
+   "file": "shorts/bg/video/ax-sort-conveyor.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-sort-conveyor.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-stack-blocks": {
+   "file": "shorts/bg/video/ax-stack-blocks.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-stack-blocks.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-storm-window": {
+   "file": "shorts/bg/video/ax-storm-window.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-storm-window.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-tiny-vs-huge": {
+   "file": "shorts/bg/video/ax-tiny-vs-huge.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-tiny-vs-huge.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-trading-desk": {
+   "file": "shorts/bg/video/ax-trading-desk.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-trading-desk.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-two-doors": {
+   "file": "shorts/bg/video/ax-two-doors.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-two-doors.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-two-piles": {
+   "file": "shorts/bg/video/ax-two-piles.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-two-piles.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-umbrella-wait": {
+   "file": "shorts/bg/video/ax-umbrella-wait.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-umbrella-wait.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-vault-door": {
+   "file": "shorts/bg/video/ax-vault-door.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-vault-door.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-walk-away-turn": {
+   "file": "shorts/bg/video/ax-walk-away-turn.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-walk-away-turn.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "ax-window-city": {
+   "file": "shorts/bg/video/ax-window-city.mp4",
+   "w": 1280,
+   "h": 720,
+   "aspect": "16:9",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/ax-window-city.jpg",
+   "desc": "그리스식 기둥 건물 정면 — 기관·중앙은행",
+   "tags": [
+    "16:9",
+    "기관",
+    "건축"
+   ]
+  },
+  "c811-00-exchange": {
+   "file": "shorts/bg/video/c811-00-exchange.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-00-exchange.jpg",
+   "desc": "클린룸 로봇팔",
+   "tags": [
+    "9:16",
+    "공정"
+   ]
+  },
+  "c811-01-cleanroom": {
+   "file": "shorts/bg/video/c811-01-cleanroom.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-01-cleanroom.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "c811-02-mirrorcity": {
+   "file": "shorts/bg/video/c811-02-mirrorcity.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-02-mirrorcity.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "c811-03-energygrid": {
+   "file": "shorts/bg/video/c811-03-energygrid.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-03-energygrid.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "c811-04-papercrowd": {
+   "file": "shorts/bg/video/c811-04-papercrowd.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-04-papercrowd.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "c811-05-mirrorfield": {
+   "file": "shorts/bg/video/c811-05-mirrorfield.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5.5,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-05-mirrorfield.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "c811-06-columns-tight": {
+   "file": "shorts/bg/video/c811-06-columns-tight.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 2.8,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-06-columns-tight.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "c811-07-wafer-tight": {
+   "file": "shorts/bg/video/c811-07-wafer-tight.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 4.5,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-07-wafer-tight.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "c811-hook-chip": {
+   "file": "shorts/bg/video/c811-hook-chip.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 4,
+   "bright": null,
+   "preview": ".agent/clipsheet/c811-hook-chip.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "calm-sea-dawn": {
+   "file": "shorts/bg/video/calm-sea-dawn.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/calm-sea-dawn.jpg",
+   "desc": "지평선 일출, 잔잔한 바다 — 질감이 거의 없다(빈 화면으로 잡힘)",
+   "tags": [
+    "중립",
+    "조용",
+    "주의"
+   ]
+  },
+  "chip-city": {
+   "file": "shorts/bg/video/chip-city.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/chip-city.jpg",
+   "desc": "회로 위 도시 축소모형",
+   "tags": [
+    "중립",
+    "기술"
+   ]
+  },
+  "chip-glow": {
+   "file": "shorts/bg/video/chip-glow.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/chip-glow.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "chip-macro-grey": {
+   "file": "shorts/bg/video/chip-macro-grey.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 4,
+   "bright": null,
+   "preview": ".agent/clipsheet/chip-macro-grey.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "chip-underside": {
+   "file": "shorts/bg/video/chip-underside.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/chip-underside.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "columns-birds": {
+   "file": "shorts/bg/video/columns-birds.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/columns-birds.jpg",
+   "desc": "밝은 기둥 건물 위로 새가 난다",
+   "tags": [
+    "중립",
+    "기관",
+    "밝음"
+   ]
+  },
+  "columns-goldenhour": {
+   "file": "shorts/bg/video/columns-goldenhour.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/columns-goldenhour.jpg",
+   "desc": "골든아워의 기둥 건물",
+   "tags": [
+    "중립",
+    "기관",
+    "따뜻"
+   ]
+  },
+  "copper-mine-dusk": {
+   "file": "shorts/bg/video/copper-mine-dusk.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15,
+   "bright": null,
+   "preview": ".agent/clipsheet/copper-mine-dusk.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "copper-mine-molten": {
+   "file": "shorts/bg/video/copper-mine-molten.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/copper-mine-molten.jpg",
+   "desc": "용암처럼 흐르는 구리 제련",
+   "tags": [
+    "중립",
+    "원자재"
+   ]
+  },
+  "crack-star": {
+   "file": "shorts/bg/video/crack-star.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/crack-star.jpg",
+   "desc": "흐릿한 회색 면에 작은 빛",
+   "tags": [
+    "중립",
+    "미니멀"
+   ]
+  },
+  "datacenter-aisle": {
+   "file": "shorts/bg/video/datacenter-aisle.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/datacenter-aisle.jpg",
+   "desc": "데이터센터 복도",
+   "tags": [
+    "중립",
+    "데이터"
+   ]
+  },
+  "desks-dawn": {
+   "file": "shorts/bg/video/desks-dawn.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/desks-dawn.jpg",
+   "desc": "일출 빛의 책상 줄 — 사무실 새벽",
+   "tags": [
+    "중립",
+    "업무",
+    "아침"
+   ]
+  },
+  "device-assembly-bright": {
+   "file": "shorts/bg/video/device-assembly-bright.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/device-assembly-bright.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "device-counter-bright": {
+   "file": "shorts/bg/video/device-counter-bright.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/device-counter-bright.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "euv-plasma-a": {
+   "file": "shorts/bg/video/euv-plasma-a.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/euv-plasma-a.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "euv-plasma-b": {
+   "file": "shorts/bg/video/euv-plasma-b.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/euv-plasma-b.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "exchange-flags": {
+   "file": "shorts/bg/video/exchange-flags.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/exchange-flags.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "exchange-storm": {
+   "file": "shorts/bg/video/exchange-storm.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15,
+   "bright": null,
+   "preview": ".agent/clipsheet/exchange-storm.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "fab-hall-bright": {
+   "file": "shorts/bg/video/fab-hall-bright.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/fab-hall-bright.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "fed-building": {
+   "file": "shorts/bg/video/fed-building.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/fed-building.jpg",
+   "desc": "연준 청사 정면, 성조기와 파란 하늘 — 실사",
+   "tags": [
+    "실사",
+    "연준",
+    "금리",
+    "기관"
+   ]
+  },
+  "fiber-one-lit": {
+   "file": "shorts/bg/video/fiber-one-lit.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/fiber-one-lit.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "floor-empty-night": {
+   "file": "shorts/bg/video/floor-empty-night.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/floor-empty-night.jpg",
+   "desc": "사람 없는 트레이딩 플로어, 모니터만 켜져 있다",
+   "tags": [
+    "실사",
+    "거래소",
+    "정적"
+   ]
+  },
+  "geo-corridor-light": {
+   "file": "shorts/bg/video/geo-corridor-light.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/geo-corridor-light.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "geo-flare-stack-night": {
+   "file": "shorts/bg/video/geo-flare-stack-night.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/geo-flare-stack-night.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "geo-port-day": {
+   "file": "shorts/bg/video/geo-port-day.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/geo-port-day.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "geo-port-fog-night": {
+   "file": "shorts/bg/video/geo-port-fog-night.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/geo-port-fog-night.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "geo-radar-dusk": {
+   "file": "shorts/bg/video/geo-radar-dusk.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/geo-radar-dusk.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "geo-refinery-day": {
+   "file": "shorts/bg/video/geo-refinery-day.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/geo-refinery-day.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "geo-strait-day": {
+   "file": "shorts/bg/video/geo-strait-day.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/geo-strait-day.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "glass-tube-array": {
+   "file": "shorts/bg/video/glass-tube-array.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/glass-tube-array.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "gold-bars": {
+   "file": "shorts/bg/video/gold-bars.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/gold-bars.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "gold-btc-race": {
+   "file": "shorts/bg/video/gold-btc-race.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/gold-btc-race.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "gold-vault-bars": {
+   "file": "shorts/bg/video/gold-vault-bars.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/gold-vault-bars.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "golden-bell": {
+   "file": "shorts/bg/video/golden-bell.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/golden-bell.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "grid-heliostat": {
+   "file": "shorts/bg/video/grid-heliostat.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/grid-heliostat.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "humanoid-robot": {
+   "file": "shorts/bg/video/humanoid-robot.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/humanoid-robot.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "mini-construction": {
+   "file": "shorts/bg/video/mini-construction.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/mini-construction.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "minicity-water": {
+   "file": "shorts/bg/video/minicity-water.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/minicity-water.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "mirror-city": {
+   "file": "shorts/bg/video/mirror-city.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/mirror-city.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "nyse-flags": {
+   "file": "shorts/bg/video/nyse-flags.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/nyse-flags.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "paper-crowd": {
+   "file": "shorts/bg/video/paper-crowd.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/paper-crowd.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "pcb-cyan-dark": {
+   "file": "shorts/bg/video/pcb-cyan-dark.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/pcb-cyan-dark.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "pcb-one-chip-lit": {
+   "file": "shorts/bg/video/pcb-one-chip-lit.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/pcb-one-chip-lit.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "pcb-traces-glow": {
+   "file": "shorts/bg/video/pcb-traces-glow.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/pcb-traces-glow.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "quantum-fridge": {
+   "file": "shorts/bg/video/quantum-fridge.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/quantum-fridge.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "rams-vs-block": {
+   "file": "shorts/bg/video/rams-vs-block.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/rams-vs-block.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "refinery-stacks": {
+   "file": "shorts/bg/video/refinery-stacks.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/refinery-stacks.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "retail-carts-dusk": {
+   "file": "shorts/bg/video/retail-carts-dusk.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/retail-carts-dusk.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "retail-checkout-empty": {
+   "file": "shorts/bg/video/retail-checkout-empty.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/retail-checkout-empty.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "retail-shutter-night": {
+   "file": "shorts/bg/video/retail-shutter-night.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/retail-shutter-night.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "retail-warehouse-aisle": {
+   "file": "shorts/bg/video/retail-warehouse-aisle.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/retail-warehouse-aisle.jpg",
+   "desc": "높은 선반이 늘어선 창고 통로, 팔레트에 물건이 가득 — 실사. 교역되는 «물건» 그 자체",
+   "tags": [
+    "창고",
+    "물류",
+    "무역",
+    "재고",
+    "실사"
+   ]
+  },
+  "rise-glass-tower": {
+   "file": "shorts/bg/video/rise-glass-tower.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/rise-glass-tower.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "rise-stairs-light": {
+   "file": "shorts/bg/video/rise-stairs-light.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15.1,
+   "bright": null,
+   "preview": ".agent/clipsheet/rise-stairs-light.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "rocket-ignition": {
+   "file": "shorts/bg/video/rocket-ignition.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/rocket-ignition.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "scale-few-vs-many": {
+   "file": "shorts/bg/video/scale-few-vs-many.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/scale-few-vs-many.jpg",
+   "desc": "저울 위, 한쪽엔 구슬 몇 개 다른 쪽엔 무더기 — 소수 대 다수",
+   "tags": [
+    "실사",
+    "비교",
+    "분포"
+   ]
+  },
+  "server-assembly": {
+   "file": "shorts/bg/video/server-assembly.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/server-assembly.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "skyline-red-river": {
+   "file": "shorts/bg/video/skyline-red-river.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/skyline-red-river.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "skyline-sunrise-fog": {
+   "file": "shorts/bg/video/skyline-sunrise-fog.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/skyline-sunrise-fog.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "steel-balls": {
+   "file": "shorts/bg/video/steel-balls.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/steel-balls.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "steel-spheres": {
+   "file": "shorts/bg/video/steel-spheres.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/steel-spheres.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "supertanker": {
+   "file": "shorts/bg/video/supertanker.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/supertanker.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "tankers-strait": {
+   "file": "shorts/bg/video/tankers-strait.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/tankers-strait.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "tape-wall-scroll": {
+   "file": "shorts/bg/video/tape-wall-scroll.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/tape-wall-scroll.jpg",
+   "desc": "시세판 벽이 스크롤된다 — 실사, 틱커·종목표",
+   "tags": [
+    "실사",
+    "시세",
+    "중립"
+   ]
+  },
+  "tech-euv-litho": {
+   "file": "shorts/bg/video/tech-euv-litho.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/tech-euv-litho.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "temple-storm": {
+   "file": "shorts/bg/video/temple-storm.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 15,
+   "bright": null,
+   "preview": ".agent/clipsheet/temple-storm.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "undercurrent-pull": {
+   "file": "shorts/bg/video/undercurrent-pull.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/undercurrent-pull.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "vault-doors": {
+   "file": "shorts/bg/video/vault-doors.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 5,
+   "bright": null,
+   "preview": ".agent/clipsheet/vault-doors.jpg",
+   "desc": "금고 문이 열리며 빛이 샌다 — 실사",
+   "tags": [
+    "실사",
+    "금고",
+    "무게"
+   ]
+  },
+  "wafer-arm": {
+   "file": "shorts/bg/video/wafer-arm.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/wafer-arm.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "wafer-press": {
+   "file": "shorts/bg/video/wafer-press.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 6,
+   "bright": null,
+   "preview": ".agent/clipsheet/wafer-press.jpg",
+   "desc": "",
+   "tags": []
+  },
+  "wafer-spin-clean": {
+   "file": "shorts/bg/video/wafer-spin-clean.mp4",
+   "w": 720,
+   "h": 1280,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/clipsheet/wafer-spin-clean.jpg",
+   "desc": "",
+   "tags": []
   }
+ }
 }

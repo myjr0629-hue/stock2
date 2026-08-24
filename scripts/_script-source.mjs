@@ -21,6 +21,9 @@ const FILES = [
   'src/remotion/kit/scripts-jp-lf.ts',
   'src/remotion/kit/scripts-us2.ts',
   'src/remotion/kit/scripts-nvda.ts',
+  'src/remotion/kit/scripts-jpweek.ts',
+  // 미국 채널 · 캐나다 50% 관세 편 (2026-08-24). 처음으로 «시의성» 으로 고른 소재다.
+  'src/remotion/kit/scripts-tariff.ts',
 ];
 
 /** 모든 대본 파일을 이어붙인 원문. 게이트의 문자열 탐색이 이걸 쓴다. */

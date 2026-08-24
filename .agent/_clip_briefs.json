@@ -1,0 +1,20 @@
+[
+ {
+  "name": "ani-canada-moose",
+  "prompt": "A calm cartoon moose wearing a red knitted scarf stands on one side of a wide negotiating table, facing a bald eagle in a dark suit on the other side. Between them sits a stack of shipping crates. Neither character is angry; they simply hold their ground while the crates slowly pile higher between them",
+  "desc": "빨간 목도리 무스와 정장 독수리가 협상 테이블을 사이에 두고 마주 선다 — 미·캐나다 무역",
+  "tags": ["캐릭터", "무역", "관세", "캐나다", "미국"]
+ },
+ {
+  "name": "ani-calendar-four",
+  "prompt": "Four large paper calendar pages hang on a line and flip over one after another, left to right, each landing with a soft settle. The last page flips to reveal the same blank sheet as the first, as if four days changed nothing and everything at once",
+  "desc": "달력 넉 장이 왼쪽부터 차례로 넘어간다 — 나흘의 경과",
+  "tags": ["시간", "달력", "경과"]
+ },
+ {
+  "name": "ani-factory-line",
+  "prompt": "A side view of a car assembly line. Simplified car bodies glide steadily along a conveyor from left to right while robotic arms lower toward them in slow rhythm. The line never stops and no people are visible",
+  "desc": "자동차 차체가 컨베이어를 따라 흐르고 로봇팔이 내려온다 — 자동차 생산라인",
+  "tags": ["공장", "자동차", "제조", "생산라인"]
+ }
+]
