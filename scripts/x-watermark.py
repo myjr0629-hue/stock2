@@ -7,12 +7,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 FONT = "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
 MARK = {
-    ("signum", "en"): ("SIGNUM HQ", "Free · App Store & Google Play · signumhq.com/app"),
-    ("signum", "ja"): ("SIGNUM HQ", "完全無料 · App Store / Google Play · signumhq.com/app"),
-    ("signum", "ko"): ("SIGNUM HQ", "무료 · 앱스토어 / 구글플레이 · signumhq.com/app"),
-    ("uc", "en"): ("Undercurrent", "Free · App Store & Google Play · signumhq.com/app-uc"),
-    ("uc", "ja"): ("Undercurrent", "完全無料 · App Store / Google Play · signumhq.com/app-uc"),
-    ("uc", "ko"): ("Undercurrent", "무료 · 앱스토어 / 구글플레이 · signumhq.com/app-uc"),
+    # 랜딩 페이지로 보낸다. `/app`·`/app-uc` 는 **iOS 스토어로만** 302 되므로
+    # 안드로이드 유입이 통째로 샜다(2026-08-24 실측). 로케일 페이지엔 양쪽 스토어가 다 있다.
+    ("signum", "en"): ("SIGNUM HQ", "Free · App Store & Google Play · signumhq.com/en"),
+    ("signum", "ja"): ("SIGNUM HQ", "完全無料 · App Store / Google Play · signumhq.com/ja"),
+    ("signum", "ko"): ("SIGNUM HQ", "무료 · 앱스토어 / 구글플레이 · signumhq.com/ko"),
+    ("uc", "en"): ("Undercurrent", "Free · App Store & Google Play · signumhq.com/en/undercurrent"),
+    ("uc", "ja"): ("Undercurrent", "完全無料 · App Store / Google Play · signumhq.com/ja/undercurrent"),
+    ("uc", "ko"): ("Undercurrent", "무료 · 앱스토어 / 구글플레이 · signumhq.com/ko/undercurrent"),
 }
 
 src, dst, app, loc = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
