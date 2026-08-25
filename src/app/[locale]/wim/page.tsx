@@ -29,6 +29,7 @@ import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
 //   실제 스위치는 ads.ts 의 WIM_ADS_LIVE 하나뿐이다 — 여기서 다시 선언하지 말 것.
 import {
   WIM_ADS_LIVE, wimAdsAvailable, initWimAds, showWimBanner, hideWimBanner, showWimInterstitial,
+  refreshWimBannerPosition,
 } from './ads';
 
 // ============================================================================
@@ -3266,19 +3267,39 @@ export default function WimPage() {
     if (u) record(u, '__timeout__');
   }, [picked]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 네이티브 셸인가. SSR 과 첫 페인트는 «아님»으로 두고 마운트 후 확정한다 —
+  // 서버에서 Capacitor 를 볼 수 없으므로 곧바로 읽으면 하이드레이션이 어긋난다.
+  const [isNativeShell, setIsNativeShell] = useState(false);
+  useEffect(() => {
+    try { setIsNativeShell(!!(window as any).Capacitor?.isNativePlatform?.()); } catch { /* web */ }
+  }, []);
+
   const markSetFinished = useReviewPrompt({ storageKey: 'wim.setsFinished', milestones: [2, 8] });
 
-  // ── 배너: 네이티브 셸에서만, 탭바(84px) 위에 앵커한다.
+  // ── 배너: 네이티브 셸에서만. 위치는 ads.ts 가 탭바를 «실측» 해서 정한다.
   //    웹·플러그인 없음·스위치 off 면 wimAdsAvailable() 이 false 라 아무것도 안 한다.
+  //    ⚠️ 여기서 숫자를 넘기지 말 것 — 마진 기준선이 iOS/Android 가 달라서 반드시 틀어진다.
   useEffect(() => {
     if (!wimAdsAvailable()) return;
     let dead = false;
     (async () => {
       const ok = await initWimAds();
       if (!ok || dead) return;
-      await showWimBanner(84);
+      // 탭바가 실제로 그려진 «뒤»에 재야 한다. 두 프레임 기다린다.
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+      if (dead) return;
+      await showWimBanner();
     })();
-    return () => { dead = true; void hideWimBanner(); };
+    // 회전·키보드·인셋 변화로 탭바가 움직이면 배너도 따라가야 한다.
+    const reposition = () => { void refreshWimBannerPosition(); };
+    window.addEventListener('resize', reposition);
+    window.addEventListener('orientationchange', reposition);
+    return () => {
+      dead = true;
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('orientationchange', reposition);
+      void hideWimBanner();
+    };
   }, []);
 
 
@@ -4783,15 +4804,17 @@ export default function WimPage() {
         </div>
       )}
 
-      {/* ① bottom banner ad slot — inert until WIM_ADS_LIVE (sits above the tab bar) */}
-      {WIM_ADS_LIVE && (
+      {/* ① 배너 자리. 네이티브에서는 AdMob 이 «웹뷰 위»에 진짜 배너를 그리므로 이 자리표시자를
+          같이 그리면 배너가 두 겹으로 보인다. 웹(브라우저 미리보기)에서만 그린다.
+          자리 비움(아래 본문 padding)은 두 경우 모두 필요하므로 그대로 둔다. */}
+      {WIM_ADS_LIVE && !isNativeShell && (
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(84px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', height: 56, background: 'rgba(255,255,255,0.9)', borderTop: `1px solid ${P.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: P.faint, zIndex: 49 }}>
           {t.adBanner}
         </div>
       )}
 
       {/* glass bottom tab bar */}
-      <nav style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.52))', backdropFilter: 'blur(36px) saturate(1.9)', WebkitBackdropFilter: 'blur(36px) saturate(1.9)', border: '1px solid rgba(255,255,255,0.75)', borderRadius: 28, boxShadow: '0 20px 46px rgba(76,63,175,0.22), 0 2px 10px rgba(76,63,175,0.10), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(120,100,220,0.06)', display: 'flex', padding: 6, gap: 2 }}>
+      <nav id="wim-tabbar" style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.52))', backdropFilter: 'blur(36px) saturate(1.9)', WebkitBackdropFilter: 'blur(36px) saturate(1.9)', border: '1px solid rgba(255,255,255,0.75)', borderRadius: 28, boxShadow: '0 20px 46px rgba(76,63,175,0.22), 0 2px 10px rgba(76,63,175,0.10), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(120,100,220,0.06)', display: 'flex', padding: 6, gap: 2 }}>
         {([
           { id: 'home', icon: 'home', label: t.tabHome },
           { id: 'lib', icon: 'book2', label: t.tabLib },

@@ -30,7 +30,9 @@
 //  3. Add NSUserTrackingUsageDescription back to the iOS Info.plist, and verify
 //     on a REAL DEVICE that the ATT sheet actually appears — SIGNUM was rejected
 //     2.1 on 2026-07-08 for exactly this.
-//  4. Flip WIM_ADS_LIVE to true, ADS_TESTING to false.
+//  4. Flip WIM_ADS_LIVE to true. ADS_TESTING 은 실유닛이 붙으면 자동으로 false 다.
+//     ※ 개인정보처리방침·이용약관 3개 국어는 hasRealUnits('wim') 기준으로 «자동» 전환된다
+//       (AppLegalDocument.applyAdsOn). 손으로 고칠 것이 없다.
 //  5. Update both stores: Play Ads = yes + advertising-ID declaration = yes +
 //     Data safety = collects advertising ID; ASC App Privacy tracking = yes.
 // ============================================================================
@@ -150,7 +152,84 @@ export async function openWimPrivacyOptions(): Promise<void> {
 
 // ── banner: anchored bottom, lifted above the fixed tab bar ──
 let bannerShown = false;
-export async function showWimBanner(marginPx: number): Promise<boolean> {
+// ── 배너 위치 ───────────────────────────────────────────────────────────────
+// ★ 여기는 «숫자를 하드코딩하면 반드시 틀리는» 자리다. 두 플랫폼의 마진 기준선이
+//   다르기 때문이다 (2026-08-20 SIGNUM 양 플랫폼 실측, src/services/adManager.ts
+//   computeBannerMargin() 에 근거가 정리돼 있다):
+//
+//     iOS     기준선 = safeAreaLayoutGuide.bottom  → 세이프가 «이미» 빠져 있다.
+//                      여기에 세이프를 더하면 이중이 되어 배너가 그만큼 뜬다.
+//     Android 기준선 = 플러그인 컨테이너 바닥 = 웹뷰 바닥.
+//                      → 웹뷰 바닥부터 잰 거리를 그대로 준다.
+//
+//   그리고 «탭바가 실제로 어디 있는지»는 계산하지 않고 «잰다». 탭바 위치는
+//   env(safe-area-inset-bottom) 과 셸이 게시하는 --wim-bottom-floor 에 따라 달라지고,
+//   안드로이드 셸이 물리픽셀을 게시한 전례가 있어(2026-08-06 삼성 실기기) 공식을
+//   베껴 쓰면 탭바와 배너가 «따로» 어긋난다. DOM 을 재면 무엇이 오든 같이 움직인다.
+const BANNER_GAP_PX = 8;          // 탭바와 배너 사이 숨구멍
+const TABBAR_ID = 'wim-tabbar';
+
+/** env(safe-area-inset-bottom) 의 실제 계산값(px). 미지원/0 이면 0. */
+function envBottomPx(): number {
+  try {
+    const probe = document.createElement('div');
+    probe.style.cssText =
+      'position:fixed;left:-9999px;bottom:0;width:0;pointer-events:none;' +
+      'height:env(safe-area-inset-bottom,0px);';
+    document.body.appendChild(probe);
+    const h = probe.getBoundingClientRect().height;
+    probe.remove();
+    return Number.isFinite(h) && h > 0 ? h : 0;
+  } catch { return 0; }
+}
+
+/** 탭바 상단이 웹뷰 «바닥»에서 얼마나 위인지(px). 못 재면 null. */
+function tabbarTopFromBottomPx(): number | null {
+  try {
+    const el = document.getElementById(TABBAR_ID);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (r.height <= 0) return null;                 // 아직 렌더 전
+    const d = (window.innerHeight || 0) - r.top;
+    return d > 0 && d < (window.innerHeight || 0) ? d : null;
+  } catch { return null; }
+}
+
+/** 플러그인에 넘길 최종 마진. 실측 우선, 실패 시 CSS 와 같은 공식으로 폴백. */
+export function wimBannerMargin(): number {
+  const safe = envBottomPx();
+  // 폴백 공식은 탭바 CSS 와 «같은 값»이어야 한다:
+  //   nav bottom = 14px + max(env, --wim-bottom-floor), nav 높이 ≈ 62px
+  const floorVar = (() => {
+    try {
+      const v = getComputedStyle(document.documentElement)
+        .getPropertyValue('--wim-bottom-floor').trim();
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : 0;
+    } catch { return 0; }
+  })();
+  const fallback = 14 + 62 + Math.max(safe, floorVar);
+  const fromBottom = tabbarTopFromBottomPx() ?? fallback;
+
+  const margin = fromBottom + BANNER_GAP_PX;
+  // iOS 는 기준선에서 세이프가 이미 빠져 있으므로 되돌려 뺀다.
+  return Math.max(0, Math.round(platform() === 'ios' ? margin - safe : margin));
+}
+
+/** 설정 화면에 찍어 «한 장의 스크린샷»으로 받기 위한 진단 문자열.
+ *  안드로이드 기기 차이는 에뮬로 재현이 안 된다 — 숫자를 추측하지 말고 받아본다. */
+export function wimBannerDiag(): string {
+  const safe = envBottomPx();
+  return [
+    `plat ${platform()}`,
+    `env ${Math.round(safe)}`,
+    `tabTop ${tabbarTopFromBottomPx() ?? '-'}`,
+    `inset ${Math.round((window.screen?.height ?? 0) - (window.innerHeight ?? 0))}`,
+    `→ margin ${wimBannerMargin()}`,
+  ].join(' · ');
+}
+
+export async function showWimBanner(): Promise<boolean> {
   const ad = plugin();
   if (!WIM_ADS_LIVE || !ad || bannerShown) return false;
   if (!(await initWimAds())) return false;
@@ -159,12 +238,24 @@ export async function showWimBanner(marginPx: number): Promise<boolean> {
       adId: UNITS.banner[platform()],
       adSize: 'ADAPTIVE_BANNER',
       position: 'BOTTOM_CENTER',
-      margin: marginPx,
+      margin: wimBannerMargin(),
       isTesting: ADS_TESTING,
     });
     bannerShown = true;
     return true;
   } catch { return false; }
+}
+
+/** 회전·키보드·인셋 변화로 탭바가 움직이면 배너도 따라가야 한다. */
+export async function refreshWimBannerPosition(): Promise<void> {
+  if (!bannerShown) return;
+  const ad = plugin();
+  if (!ad) return;
+  try {
+    await ad.hideBanner();
+    bannerShown = false;
+    await showWimBanner();
+  } catch { /* 위치만 못 맞춘 것이니 조용히 둔다 */ }
 }
 
 export async function hideWimBanner(): Promise<void> {

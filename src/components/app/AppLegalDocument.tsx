@@ -676,13 +676,22 @@ const ADS_ON: Record<LocaleKey, Record<'uc' | 'wim', AdSwap>> = {
 };
 
 /** 광고가 실제로 켜진 앱의 방침에서 «광고 없음» 문장을 사실로 갈아끼운다 */
+// ⚠️ 완전일치 치환이다. 문구가 한 글자만 바뀌어도 «조용히» 아무 일도 안 일어나고
+//    광고는 나가는데 문서는 «광고 없음» 인 채로 남는다. 그래서 개발 중에는 시끄럽게 운다.
+//    (2026-08-25 실제로 이 함수가 privacy 에만 걸려 있어서, 광고가 켜진 UC 의 «이용약관»이
+//     3개 국어 전부 «광고를 게재하지 않습니다» 라고 말하고 있었다.)
 function applyAdsOn(sections: Section[], loc: LocaleKey, v: 'uc' | 'wim'): Section[] {
   const sw = ADS_ON[loc][v];
-  return sections.map((sec) => {
-    if (sec.title === sw.noAdsTitle) return sw.adsSection;
-    if (sec.body === sw.freeFrom) return { ...sec, body: sw.freeTo };
+  let hits = 0;
+  const out = sections.map((sec) => {
+    if (sec.title === sw.noAdsTitle) { hits++; return sw.adsSection; }
+    if (sec.body === sw.freeFrom) { hits++; return { ...sec, body: sw.freeTo }; }
     return sec;
   });
+  if (hits === 0 && process.env.NODE_ENV !== 'production') {
+    console.warn(`[legal] applyAdsOn(${loc}/${v}) 가 아무것도 못 바꿨다 — 문구가 어긋났다.`);
+  }
+  return out;
 }
 
 export function AppLegalDocument({ locale, doc, backHref, badgeText, variant }: { locale: string; doc: DocType; backHref?: string; badgeText?: string; variant?: 'default' | 'wim' | 'uc' }) {
@@ -698,8 +707,10 @@ export function AppLegalDocument({ locale, doc, backHref, badgeText, variant }: 
   const rawSections = doc === 'privacy'
     ? (set ? set.privacy : copy.privacy)
     : (set ? set.terms : copy.terms);
+  // privacy «와» terms 둘 다. 「무료 이용」 문장은 약관 쪽에 있어서, privacy 에만 걸었더니
+  // 광고를 켠 앱의 약관이 계속 «광고 없음» 이라고 말했다.
   const sections =
-    doc === 'privacy' && adsOn && (variant === 'uc' || variant === 'wim')
+    adsOn && (variant === 'uc' || variant === 'wim')
       ? applyAdsOn(rawSections, loc, variant)
       : rawSections;
   const title = doc === 'privacy' ? copy.privacyTitle : copy.termsTitle;
