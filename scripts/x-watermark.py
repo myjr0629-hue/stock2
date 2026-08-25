@@ -18,6 +18,9 @@ MARK = {
     ("uc", "en"): ("Undercurrent", "Free · App Store & Google Play · signumhq.com/app-uc"),
     ("uc", "ja"): ("Undercurrent", "完全無料 · App Store / Google Play · signumhq.com/app-uc"),
     ("uc", "ko"): ("Undercurrent", "무료 · 앱스토어 / 구글플레이 · signumhq.com/app-uc"),
+    ("wim", "en"): ("Why'd It Move?", "Free · App Store & Google Play · signumhq.com/app-wim"),
+    ("wim", "ja"): ("Why'd It Move?", "完全無料 · App Store / Google Play · signumhq.com/app-wim"),
+    ("wim", "ko"): ("Why'd It Move?", "무료 · 앱스토어 / 구글플레이 · signumhq.com/app-wim"),
 }
 
 src, dst, app, loc = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]

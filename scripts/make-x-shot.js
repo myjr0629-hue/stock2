@@ -10,8 +10,8 @@
 //         뷰포트 420px(제목 한 줄) · 하단은 탭바 실측선에서 자름 ·
 //         워터마크는 이미지 안에(본문에 URL 을 반복하면 X 가 섀도우밴을 건다).
 //
-// 사용: node scripts/make-x-shot.js <signum|uc> <ko|en|ja> <scene> [ticker]
-//   scene: signum = dash|guardian|flow|intel  /  uc = home|diverge|whales
+// 사용: node scripts/make-x-shot.js <signum|uc|wim> <ko|en|ja> <scene> [ticker]
+//   scene: signum = dash|guardian|flow|intel  /  uc = home|diverge|whales  /  wim = home|quiz|library|record
 // ============================================================================
 const puppeteer = require('puppeteer');
 const fs = require('fs');
@@ -28,6 +28,8 @@ const SCENES = {
     path: (l, s, t) => `/${l}/app-view/${s}${t ? `?t=${t}` : ''}`,
   },
   uc: { onboard: null, path: (l, s) => `/${l}/undercurrent${s === 'home' ? '' : `?tab=${s}`}` },
+  // WIM 도 홍보 대상이다. 세 앱 중 하나만 찍히면 나머지 둘은 영영 홍보가 안 된다.
+  wim: { onboard: ['wim.onboard', '1'], path: (l, s) => `/${l}/wim${s === 'home' ? '' : `?tab=${s}`}` },
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -35,7 +37,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const [app = 'signum', loc = 'ja', scene = 'flow', ticker] = process.argv.slice(2);
   const cfg = SCENES[app];
-  if (!cfg) { console.error('signum | uc'); process.exit(1); }
+  if (!cfg) { console.error('signum | uc | wim'); process.exit(1); }
   fs.mkdirSync(OUT, { recursive: true });
 
   const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--hide-scrollbars'] });
@@ -44,8 +46,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.setExtraHTTPHeaders({ 'Accept-Language': alang });
   await page.evaluateOnNewDocument(([loc, onboard]) => {
     try {
+      // 세 앱 모두 자기 로케일 키를 읽는다. 하나라도 빠지면 셀프라우팅이 되돌려
+      // «일본어로 찍었는데 한국어가 나오는» 사고가 난다(2026-08-25 WIM 에서 실제 발생).
       localStorage.setItem('signumhq.locale', loc);
       localStorage.setItem('undercurrent.locale', loc);
+      localStorage.setItem('wim.locale', loc);
       if (onboard) localStorage.setItem(onboard[0], onboard[1]);
     } catch {}
   }, [loc, cfg.onboard]);
