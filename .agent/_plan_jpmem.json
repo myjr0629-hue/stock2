@@ -1,0 +1,43 @@
+[
+ {
+  "file": "out/jpmem.mp4",
+  "thumb": "out/jpmem_thumb.jpg",
+  "categoryId": "25",
+  "class": "briefing",
+  "lang": "ja",
+  "scriptTag": "JPMEM",
+  "publishAtKST": "2026-08-25 19:00",
+  "title": "マイクロン−5.83%。米国株の大型テックは同じ日に上げています",
+  "description": "https://www.signumhq.com\n\n八月二十四日、S&P500は0.17%安で引けました。表面だけ見れば静かな一日です。\n\nその下で、メモリだけが崩れました。マイクロンは910.43ドル、5.83%安。同じ日にアップル、マイクロソフト、グーグルの三社は平均で 0.70%高 でした。\n\n一日で6.53ポイントの差です。二〇二一年一月以降のすべての日、1,415日と並べました。普段の差は中央値で プラス0.05ポイント。今回は第2パーセンタイルで、これだけ開いた日は1,415日のうち30日しかありません。\n\nその朝に報じられたのは、中国のメモリ企業が上海で上場を申請したという話です。報じられた事実まではお伝えしますが、因果は測っていません。\n\nこの分かれ方が示すのは、値がついた場所です。メモリを作る側であって、買う側ではありませんでした。\n\n無料のオプション・フローアプリ: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n#マイクロン #米国株 #投資",
+  "tags": ["マイクロン", "MU", "メモリ", "半導体", "半導体株", "サンディスク", "SNDK", "米国株", "アップル", "マイクロソフト", "グーグル", "S&P500", "ナスダック", "エヌビディア", "NVDA", "米国株投資", "株式投資", "投資", "マーケット", "経済ニュース", "資産運用", "新NISA"],
+  "pinnedComment": "指数は無事でした。棚が一つだけ違いました。\n\nマイクロンが5.83%安のとき、アップル・マイクロソフト・グーグルは平均0.70%高。一日で6.53ポイントの差です。二〇二一年以降1,415日の中央値は プラス0.05ポイント、これだけ開いた日は30日だけでした。\n\n差を測っただけで、理由は測っていません。今夜の基準はマイクロンの910.43です。\n\n無料アプリ: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n次は何を数えましょうか。",
+  "evidence": [
+   "FMP stable historical-price-eod/full — MU, AAPL, MSFT, GOOGL の日次終値 2021-01-04 から 2026-08-24。marketstatus が extended-hours であることを確認してから計算した",
+   "2026-08-24 終値: MU 910.43 (-5.83%)、AAPL/MSFT/GOOGL の平均 +0.70%、SPY -0.17%",
+   "⛔ 場中とは違った: MU は場中に -6.38% と表示されたが確定終値は -5.83%。0.55ポイントの差。すべて確定終値で計算している",
+   "スプレッド（MU から大型テック三社平均を引いた値）= -6.53pt。1,415セッションの中央値は +0.05pt、標準偏差 3.18pt。第2.0パーセンタイルで、これだけ開いた日は 30/1,415 = 2.12%",
+   "原因として報じられた内容（Massive ニュース 2026-08-24）: 中国のメモリチップ企業が上海での上場を申請し、競争懸念が広がった。報じられた事実であり、我々が測ったものではない"
+  ],
+  "story": {
+   "event": "八月二十四日、マイクロンが5.83%下げた一方で、アップル・マイクロソフト・グーグルはいずれも上げて引け、S&P500はほぼ変わらなかった。",
+   "mechanism": "分かれ目はメモリを作る側と買う側の境界に沿っていた。これは需要の話ではなく新しい供給の話が落ちる場所である。その朝の報道は中国メモリ企業の上海上場申請を伝えていた。",
+   "anchor": "MU 910.43",
+   "timely": {
+    "headlines": 181,
+    "countries": ["KR", "JP", "US"],
+    "freshH": 0.4,
+    "source": "scripts/topic-scan.mjs · .agent/TODAY_HOOKS.json"
+   }
+  },
+  "insight": {
+   "claim": "マイクロンと大型テック三社の一日の差は -6.53 ポイントに達した。五年の中央値は +0.05 ポイントで、1,415セッションの第2パーセンタイルにあたる",
+   "computedBy": "FMP stable historical-price-eod/full の MU, AAPL, MSFT, GOOGL 終値 2021-01-04 から 2026-08-24。各セッションを MU の日次リターンから三社平均を引いた値で採点し、2026-08-25 の引け後に順位付けした",
+   "value": -6.53,
+   "baseline": 0.05,
+   "n": 1415,
+   "percentile": 2.0,
+   "saidAs": "五年の中で下位二%です"
+  },
+  "dupeOk": "Deliberate localization, not an accidental repeat. This is the Japanese pair of the English short c5tvUjzpOzU: the same session and the same base rate, rebuilt for a Japanese audience. The English cut opens on the quiet index; this one opens on why memory alone broke, because Japanese viewers read memory through Kioxia and the Korean makers. Separate channels, separate audiences, neither sees the other."
+ }
+]

@@ -26,6 +26,10 @@ const FILES = [
   'src/remotion/kit/scripts-tariff.ts',
   // 일본 채널 · 관세 편 (2026-08-24). 일본 헤드라인 1위 소재.
   'src/remotion/kit/scripts-jptariff.ts',
+  'src/remotion/kit/scripts-nvstreak.ts',
+  'src/remotion/kit/scripts-memsplit.ts',
+  'src/remotion/kit/scripts-jpnv.ts',
+  'src/remotion/kit/scripts-jpmem.ts',
 ];
 
 /** 모든 대본 파일을 이어붙인 원문. 게이트의 문자열 탐색이 이걸 쓴다. */

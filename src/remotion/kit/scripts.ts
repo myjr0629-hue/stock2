@@ -5005,3 +5005,7 @@ export { SCRIPT_JPWEEKA, SCRIPT_JPWEEKB } from './scripts-jpweek';
 export { SCRIPT_LFEARN } from './scripts-longform';
 export { SCRIPT_TARIFF } from './scripts-tariff';
 export { SCRIPT_JPTARIFF } from './scripts-jptariff';
+export { SCRIPT_NVSTREAK } from './scripts-nvstreak';
+export { SCRIPT_MEMSPLIT } from './scripts-memsplit';
+export { SCRIPT_JPSTREAK } from './scripts-jpnv';
+export { SCRIPT_JPMEM } from './scripts-jpmem';

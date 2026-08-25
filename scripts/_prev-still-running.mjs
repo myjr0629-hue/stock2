@@ -36,7 +36,7 @@ const AT = (await (await fetch('https://oauth2.googleapis.com/token', {
 })).json()).access_token;
 const H = { headers: { authorization: `Bearer ${AT}` } };
 
-let ID = process.argv[2];
+let ID = process.argv.slice(2).find((a) => !a.startsWith('--'));
 if (!ID) {
   const ch = (await (await fetch(
     'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true', H)).json()).items[0];
@@ -60,7 +60,18 @@ const get = async () => {
 
 const first = await get();
 if (!first) { console.log(`  ${ID} 를 못 읽었다 — 안전하게 «올리지 않는다»로 본다`); process.exit(1); }
-const ageMin = (Date.now() - first.pub) / 60000;
+// ⛔ 예약 업로드면 «게시될 시각» 기준으로 간격을 본다 (2026-08-24).
+//   앞서 시각 가드는 고쳤는데 이 간격 가드는 «지금 시점» 을 계속 봤다.
+//   실제로 「17:00 게시」 건이 막혔다 — 직전 편(14:00)과의 «게시 간격» 은 180분인데,
+//   가드는 「직전 편이 지금 78분밖에 안 됐다」를 보고 반려했다. 검사 대상이 틀린 것이다.
+//   ⇒ --at="YYYY-MM-DD HH:MM" (KST/JST) 가 오면 그 시각을 기준시로 쓴다.
+const AT_ARG = (process.argv.find((a) => a.startsWith('--at=')) || '').slice(5);
+const atM = AT_ARG.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+const REF = atM
+  ? Date.UTC(+atM[1], +atM[2] - 1, +atM[3], +atM[4] - 9, +atM[5])
+  : Date.now();
+if (atM) console.log(`  «게시 예정» ${AT_ARG} (KST/JST) 기준으로 간격을 본다`);
+const ageMin = (REF - first.pub) / 60000;
 
 // ⛔ Data API 의 viewCount 는 «뒤처진다» (2026-08-23 확인).
 //   같은 시각에 스튜디오 418 · Data API 337 이었다 — 약 80회, 수 분치 차이.
@@ -99,20 +110,37 @@ if (existsSync(tsv)) {
   }
 }
 
-// ── ② 지금 90초 간격으로 3번 재서 «하나라도 늘면» 달리는 것이다 ──────────
-let prev = first.views, grew = 0;
+// ⛔ 오래된 편은 이 검사의 대상이 아니다 (2026-08-25 실측 사고)
+//   이 가드는 «몇 분~몇 시간 전에 올린 편» 위에 새 편을 얹지 않기 위한 것이다.
+//   21시간 전에 게시된 편을 3분 표본으로 재서 막았다 — 게다가 그 새 편은
+//   «4시간 반 뒤» 게시 예약이라 실제 간격이 25시간이었다. 막을 이유가 없다.
+const MAX_AGE_MIN = 360;
+if (ageMin > MAX_AGE_MIN) {
+  console.log(`\n  ✅ 직전 편이 ${(ageMin / 60).toFixed(1)}시간 전이다 (상한 ${MAX_AGE_MIN / 60}시간) — 초기 배급은 끝났다. 올려도 된다.\n`);
+  process.exit(0);
+}
+
+// ── ② 지금 90초 간격으로 3번 재서 «순증» 이 있으면 달리는 것이다 ──────────
+// ⛔ 예전엔 «양수 증가분만» 더했다 (if (d > 0) grew += d). 그래서 조회수가
+//   723 → 855 → 723 으로 제자리에 돌아와도 grew=132 가 되어 막혔다.
+//   유튜브 조회수는 보정되며 위아래로 흔들린다 — 잡음이 «성장» 으로 읽힌 것이다.
+//   ⇒ 마지막 값에서 첫 값을 뺀 «순증» 으로 본다. 잡음은 서로 상쇄된다.
+let prev = first.views;
+const seen = [first.views];
 for (let i = 0; i < 2; i++) {
   await new Promise((r) => setTimeout(r, 90000));
   const now = await get();
   if (!now) continue;
-  const d = now.views - prev;
-  console.log(`  +${(i + 1) * 1.5}분  ${now.views}회  (증가 ${d})`);
-  if (d > 0) grew += d;
+  console.log(`  +${(i + 1) * 1.5}분  ${now.views}회  (변화 ${now.views - prev})`);
+  seen.push(now.views);
   prev = now.views;
 }
-if (grew > 0) {
-  console.log(`\n  ⛔ 직전 편이 «아직 달린다» (3분간 +${grew}회) — 올리지 않는다.\n`);
+const net = seen[seen.length - 1] - seen[0];
+if (net > 0) {
+  console.log(`\n  ⛔ 직전 편이 «아직 달린다» (3분간 순증 +${net}회) — 올리지 않는다.\n`);
   process.exit(1);
 }
+if (seen.some((v, i) => i && v !== seen[i - 1]))
+  console.log(`  (오르내렸지만 순증 ${net} — 조회수 보정으로 본다)`);
 console.log(`\n  ✅ 직전 편이 멎었다 — 올려도 된다.\n`);
 process.exit(0);

@@ -209,6 +209,30 @@ mcp__Claude_Browser__get_page_text
 
 **국가·주체는 캐릭터와 국기로 세운다.** 첫 장면에 그것이 없으면 다시 만든다.
 
+## ⛔ 티커 심볼 — 적극적으로 «크게» 쓴다
+
+> 대표 지시 2026-08-25: "항상 썸네일 처음에 엔비디아 심볼을 크게 넣고 (…)
+>  항상 티커 종목이 나올때는 심볼을 잘 사용해"
+
+**첫 프레임(=썸네일)에 그 종목의 심볼이 크게 있어야 한다.** 대본에서 `hook.syms` 로 넣는다.
+
+```ts
+hook: { syms: ['NVDA'], bigNum: '5', ... }     // 460px 히어로로 크게 나온다
+```
+
+`TickerMark` 가 알아서 두 갈래로 그린다 — **로고 파일이 있으면 흰 플레이트 + 실 로고**,
+없으면 «글자 배지» 로 떨어진다. 관세 편에서 `EWC` 가 글자 타일로 나온 이유가 이것이다.
+
+| 상태 | 조치 |
+|---|---|
+| 로고 있음 (46종) | 그냥 쓴다. NVDA·MU·AAPL·SPY·TSM·SNDK 등 이미 있다 |
+| **로고 없음** | **우리 사이트 프록시에서 받는다** — `curl signumhq.com/api/logo/<TICKER>` → `public/shorts/logos/<T>.png` 저장 후 `symbols.ts` 의 `LOGO_FILES` 에 등록 |
+
+⛔ **워드마크형(글자 로고)은 히어로로 키우지 않는다** — `WORDMARK_LOGOS` (HD·COST·UNH·XOM·JPM·LLY).
+100x100 원본이라 4배로 키우면 뭉갠다. 심볼형(도형)은 4배도 깨끗하다 (2026-08-17 실측).
+
+---
+
 ### 만드는 곳은 «Flow» 다
 
 ⛔ **Replicate 를 쓰지 않는다.** 내가 `.env.local` 에 토큰이 있다는 이유로 그리로 갔는데,
@@ -216,9 +240,48 @@ mcp__Claude_Browser__get_page_text
 안되는것이지". 스킬에 남의 서비스가 적혀 있으면 다음 세션이 그걸 정본으로 알고 따라간다.
 
 ```
-Flow (labs.google/fx/tools/flow) 에서 9:16 로 뽑는다 — 10초면 충분하다
+Flow (labs.google/fx/tools/flow) 에서 뽑는다
 ⛔ 로그인은 대표가 한다. 자격증명을 내가 입력하지 않는다
 ```
+
+### ★ 요청서 규격 — 이 네 줄을 «항상» 먼저 쓴다
+
+> 대표 지시 2026-08-25: "flow 영상 제작요청할때 10초 그리고 9:16인지 16:9인지 프롬프터에
+>  앞으로는 같이 써줘 (…) 실사인지 캐릭터인지도 같이 캐릭터는 픽사 3d스타일인지 그런것도"
+
+```
+길이   10초
+비율   9:16 (쇼츠)  /  16:9 (롱폼)      ← 반드시 명시. ax-* 를 세로에 넣는 실수를 두 번 했다
+종류   실사(live-action)  /  캐릭터(character)
+결     캐릭터면 → Pixar-style 3D, soft rounded forms, bright studio lighting
+       실사면   → cinematic live-action footage, natural daylight
+```
+
+그 다음에 장면 묘사를 쓰고, **끝에 금지 문구**를 붙인다.
+
+```
+No text, no letters, no numbers, no logos, no writing anywhere in frame.
+```
+
+⛔ **글자 금지는 세 번 쓴다.** 「no text」한 번으로는 뭉개진 가짜 글자가 들어온다 (실제로 두 번 당했다).
+그리고 **지도·달력·간판·신문** 처럼 글자가 붙기 쉬운 소재는 아예 피한다.
+
+**실제로 성공한 요청 예** (`ani-chip-stairs-down`)
+
+```
+길이 10초 · 비율 9:16 · 캐릭터 · Pixar-style 3D, bright studio lighting
+
+A small friendly computer-chip character with tiny legs walks down a wide
+staircase, one step at a time, descending steadily. Seven broad steps visible.
+Bright airy studio, soft daylight, clean flat colors.
+No text, no letters, no numbers, no writing anywhere in frame.
+```
+
+⛔ **국기·상징은 «이름» 이 아니라 «형태» 로 쓴다.** `Japanese rising-sun flag` 라고 썼다가
+**욱일기(전범기)** 가 나왔다. 「흰 바탕에 붉은 원 하나, 광선 없음」처럼 도형으로 기술한다.
+게이트가 절대 못 잡는 종류라 **프레임을 반드시 눈으로 본다.**
+
+**받는 곳**: `E:\SIGNUM_UPLOAD\video flow\ani` (16-9 폴더에 들어와도 실제 비율은 다를 수 있으니 `ffprobe` 로 «잰다»)
 
 받은 파일은 대개 `E:\SIGNUM_UPLOAD\video flow\ani` 에 들어온다. **오늘 날짜로 정렬해서** 찾는다
 (그 폴더에는 예전 클립이 잔뜩 있다).
@@ -239,6 +302,21 @@ ffmpeg -i <in> -vf "delogo=x=575:y=1128:w=62:h=60,scale=1080:1920:flags=lanczos"
   -an -c:v libx264 -preset medium -crf 18 public/shorts/bg/video/<이름>.mp4
 ```
 (워터마크 실측 위치 720x1280 기준 x 583~627 · y 1136~1180 — `scripts/declip.mjs` 의 `WM`)
+
+### ⛔ 대본 태그는 «기존 태그의 접두사» 가 되면 안 된다 (2026-08-25 실측 사고)
+
+`SCRIPT_JPNV` 로 이름 지었더니 게이트가 **엉뚱한 대본을 검사했다.**
+기존에 `SCRIPT_JPNVDA` 가 있었고, 게이트는 `src.indexOf('export const SCRIPT_' + tag)` 로
+블록을 찾기 때문에 «접두사가 먼저 걸린다».
+
+증상이 이랬다 — 내 대본에 없는 훅 문장이 표시되고, 설정한 적 없는 `noOutro:true` 가 잡혔다.
+**게이트는 정상적으로 «다른 영상» 을 검사하고 있었다.** 통과했어도 아무 의미가 없었을 것이다.
+
+```bash
+grep -o "SCRIPT_[A-Z0-9]*" src/remotion/kit/scripts*.ts | sort -u   # 새 태그 짓기 전에 확인
+```
+
+⇒ 새 태그는 기존 어느 태그의 «접두사도, 확장도» 아니어야 한다. (JPNV → **JPSTREAK** 로 바꿔 해결)
 
 ### ⛔ 게이트 통과는 «눈으로 보는 것» 을 대신하지 않는다
 

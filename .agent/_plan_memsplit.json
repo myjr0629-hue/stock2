@@ -1,0 +1,91 @@
+[
+ {
+  "file": "out/memsplit.mp4",
+  "thumb": "out/memsplit_thumb.jpg",
+  "categoryId": "25",
+  "class": "briefing",
+  "lang": "en",
+  "scriptTag": "MEMSPLIT",
+  "publishAtKST": "2026-08-25 23:30",
+  "title": "Chip stocks: Micron fell 5.83% while Apple and Microsoft closed green",
+  "description": "https://www.signumhq.com\n\nThe S&P 500 finished August 24 down 0.17 percent. A quiet session on the surface.\n\nUnderneath it, memory broke on its own. Micron closed at 910.43, down 5.83 percent. Apple, Microsoft and Google averaged plus 0.70 percent the same day.\n\nThat is a gap of 6.53 points in one session. We measured every session since January 2021, 1,415 of them. The median gap is plus 0.05 points. This one sits in the 2nd percentile, and only 30 days out of 1,415 were this wide.\n\nReported that morning: a Chinese memory maker filed to list in Shanghai. We report what was written. We did not measure cause.\n\nWhat the split shows is where the repricing landed, on the companies that make memory rather than the ones that buy it.\n\nFree options and flow app: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n#micron #stocks #investing",
+  "tags": [
+   "memory stocks",
+   "micron stock",
+   "sandisk",
+   "SNDK",
+   "memory chips",
+   "stock market",
+   "stocks",
+   "US stocks",
+   "american stocks",
+   "nasdaq",
+   "S&P 500",
+   "SPY",
+   "QQQ",
+   "wall street",
+   "investing",
+   "stock market today",
+   "market news",
+   "macro",
+   "tech stocks",
+   "AI stocks",
+   "nvidia",
+   "NVDA",
+   "tesla",
+   "TSLA",
+   "apple",
+   "AAPL",
+   "microsoft",
+   "MSFT",
+   "google",
+   "GOOGL",
+   "amazon",
+   "AMZN",
+   "meta",
+   "broadcom",
+   "AVGO",
+   "AMD",
+   "intel",
+   "INTC",
+   "micron",
+   "MU",
+   "chip stocks",
+   "semiconductors",
+   "TSM",
+   "palantir"
+  ],
+  "pinnedComment": "The index was fine. One shelf of it was not.\n\nMicron -5.83% while Apple, Microsoft and Google averaged +0.70%. A 6.53 point gap in a single session. Across 1,415 days since 2021 the median gap is +0.05 points, and only 30 days were this wide.\n\nWe measured the gap, not the reason. Anchor is MU at 910.43.\n\nFree app: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\nWhat should we count next?",
+  "evidence": [
+   "FMP stable historical-price-eod/full — MU, AAPL, MSFT, GOOGL daily closes 2021-01-04 to 2026-08-24, pulled after the regular session closed (marketstatus = extended-hours confirmed before measuring)",
+   "2026-08-24 closes: MU 910.43 (-5.83%), AAPL/MSFT/GOOGL average +0.70%, SPY -0.17%",
+   "⛔ Intraday differed from the close: MU read -6.38% during the session and -5.83% at the close, a 0.55pt gap. Every figure here is a final close",
+   "Spread (MU minus the three-megacap average) = -6.53pt. Across 1,415 sessions the median is +0.05pt, sd 3.18pt; this reads the 2.0 percentile and 30 of 1,415 days (2.12%) were this wide or wider",
+   "Cause as reported by Massive news on 2026-08-24: a Chinese memory-chip maker filed for a Shanghai IPO, raising competition concerns. Reported, not measured"
+  ],
+  "story": {
+   "event": "Micron fell 5.83% on August 24 while Apple, Microsoft and Google all closed higher and the S&P 500 was almost unchanged.",
+   "mechanism": "The split fell along the line between the companies that make memory and the companies that buy it, which is where a new-supply story would land rather than a demand story. Coverage that morning carried a Chinese memory maker's Shanghai listing filing.",
+   "anchor": "MU 910.43",
+   "timely": {
+    "headlines": 181,
+    "countries": [
+     "KR",
+     "JP",
+     "US"
+    ],
+    "freshH": 0.4,
+    "source": "scripts/topic-scan.mjs · .agent/TODAY_HOOKS.json"
+   }
+  },
+  "insight": {
+   "claim": "The one-day gap between Micron and the three megacaps reached -6.53 points against a five-year median of +0.05, the 2nd percentile of 1,415 sessions",
+   "computedBy": "FMP stable historical-price-eod/full closes for MU, AAPL, MSFT and GOOGL, 2021-01-04 to 2026-08-24; each session scored as MU daily return minus the mean of the three, ranked 2026-08-25 after the close",
+   "value": -6.53,
+   "baseline": 0.05,
+   "n": 1415,
+   "percentile": 2.0,
+   "saidAs": "It sits in the bottom two percent."
+  }
+ }
+]

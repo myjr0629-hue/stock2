@@ -1,0 +1,71 @@
+[
+ {
+  "file": "out/jpstreak.mp4",
+  "thumb": "out/jpstreak_thumb.jpg",
+  "categoryId": "25",
+  "class": "briefing",
+  "lang": "ja",
+  "scriptTag": "JPSTREAK",
+  "publishAtKST": "2026-08-25 14:00",
+  "title": "エヌビディア七日続落。米国株で2,920回中5回しかない下げ方です",
+  "description": "https://www.signumhq.com\n\nエヌビディアが七日続けて下げました。八月十四日から二十四日までです。決算はまだ出ていません。八月二十六日です。\n\nそこで、二〇一五年一月以降の七日間の窓をすべて数えました。二千九百二十個あります。七日とも下げたのは五個。〇.一七一%、第99.8パーセンタイルです。\n\n下げ幅は七.四七%。普段の七日間は中央値で プラス一.六九% ですから、測った二千九百二十窓のうち下位一割に入ります。\n\n過去に七日以上続いたのは三回だけです。二〇一五年八月、二〇一九年六月（八日）、二〇二二年九月。四年ぶりということになります。\n\n順番を見てください。売りが先に来ています。決算が何であれ、これの原因ではありません。\n\nどれだけ珍しく、どれだけ深いかを測りました。なぜかは測っていませんし、四例では次を語れません。\n\n無料のオプション・フローアプリ: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n#エヌビディア #米国株 #投資",
+  "tags": [
+   "エヌビディア",
+   "NVDA",
+   "エヌビディア決算",
+   "米国株",
+   "半導体",
+   "マイクロン",
+   "MU",
+   "半導体株",
+   "S&P500",
+   "ナスダック",
+   "米国株投資",
+   "株式投資",
+   "投資",
+   "マーケット",
+   "経済ニュース",
+   "資産運用",
+   "新NISA",
+   "テスラ",
+   "アップル",
+   "マイクロソフト",
+   "AI株",
+   "ウォール街"
+  ],
+  "pinnedComment": "止まったのはこの数字です。五。二〇一五年以降の七日間の窓二千九百二十個のうち、七日とも下げたのは五個だけでした。今回が五回目です。\n\n下げ幅は七.四七%。普段の七日はプラス一.六九%ですから、測った窓の下位一割に入ります。\n\n数えただけです。予測はしません。四例では五回目を語れません。今夜の基準はNVDAの208.48です。\n\n無料アプリ: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n次は何を数えましょうか。",
+  "evidence": [
+   "FMP stable historical-price-eod/full — NVDA の日次終値 2015-01-02 から 2026-08-24、2,927セッション。marketstatus が extended-hours であることを確認してから計算した",
+   "連続下落は終値から確認: 225.16 (8/14) → 225.01 → 219.74 → 217.56 → 216.85 → 214.72 → 208.48 (8/24) の七営業日連続",
+   "希少性: 二〇一五年以降のローリング七日窓 2,920 個のうち、七日とも下げたのは 5 個 = 0.171%、第99.83パーセンタイル",
+   "下げ幅: 七日リターン -7.47%、同じ2,920窓の中央値は +1.69%、第10.0パーセンタイル",
+   "七日以上の連続は11.6年で四回: 2015-08-25、2019-06-03（八日）、2022-09-06、2026-08-24",
+   "決算日 2026-08-26 は FMP stable earnings カレンダーで確認"
+  ],
+  "story": {
+   "event": "エヌビディアが八月二十四日に七営業日連続で安値引けした。決算発表の二日前である。",
+   "mechanism": "下げは決算に向かって進んでおり、決算から出たものではない。したがって決算の内容が何であれ、この連続下落の原因にはなりえない。報道は決算前の様子見と、中国メモリ企業の上海上場申請を受けたメモリ売りを挙げている。",
+   "anchor": "NVDA 208.48",
+   "timely": {
+    "headlines": 181,
+    "countries": [
+     "KR",
+     "JP",
+     "US"
+    ],
+    "freshH": 0.4,
+    "source": "scripts/topic-scan.mjs · .agent/TODAY_HOOKS.json"
+   }
+  },
+  "insight": {
+   "claim": "エヌビディアの七日リターン -7.47% は 2,920 窓の第10パーセンタイルにあり、七日とも下げた窓は 5 個しかない",
+   "computedBy": "FMP stable historical-price-eod/full の NVDA 日次終値 2015-01-02 から 2026-08-24。すべてのローリング七日窓について累積リターンと全日下落の両方を判定し、2026-08-25 の引け後に実行",
+   "value": -7.47,
+   "baseline": 1.69,
+   "n": 2920,
+   "percentile": 10.0,
+   "saidAs": "普段の七日は上げています"
+  },
+  "dupeOk": "Deliberate localization, not an accidental repeat. This is the Japanese pair of the English short RkXs3n8jnCE: the same streak and the same base rate, rebuilt for a Japanese audience. The English cut opens on how rare the streak is; this one opens on the earnings date, because Japanese viewers follow the report itself as the event. Separate channels, separate audiences, neither sees the other."
+ }
+]

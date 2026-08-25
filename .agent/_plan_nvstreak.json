@@ -1,0 +1,93 @@
+[
+ {
+  "file": "out/nvstreak.mp4",
+  "thumb": "out/nvstreak_thumb.jpg",
+  "categoryId": "25",
+  "class": "briefing",
+  "lang": "en",
+  "scriptTag": "NVSTREAK",
+  "publishAtKST": "2026-08-26 02:00",
+  "title": "Chip stocks: Nvidia fell seven days straight, 5 times out of 2,920",
+  "description": "https://www.signumhq.com\n\nNvidia closed lower for seven sessions in a row, from August 14 to August 24. The report is not out yet. It lands on August 26.\n\nSo we counted every rolling seven-session window since January 2015. There are 2,920 of them. Five had all seven closes lower. That is 0.171 percent, the 99.8th percentile.\n\nThe run itself took 7.47 percent off the stock. A normal seven days for Nvidia is plus 1.69 percent, so this one sits in the bottom tenth of every week we measured.\n\nMemory fell harder the same session. Micron closed down 5.83 percent while Apple, Microsoft and Google averaged plus 0.70 percent.\n\nWe measured how rare it is and how deep it went. We did not measure why, and seven-plus streaks have only four cases in 11.6 years, far too few to tell you what comes next.\n\nFree options and flow app: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\n#nvidia #stocks #investing",
+  "tags": [
+   "nvidia stock",
+   "nvidia earnings",
+   "nvidia streak",
+   "chip stocks today",
+   "stock market",
+   "stocks",
+   "US stocks",
+   "american stocks",
+   "nasdaq",
+   "S&P 500",
+   "SPY",
+   "QQQ",
+   "wall street",
+   "investing",
+   "stock market today",
+   "market news",
+   "macro",
+   "tech stocks",
+   "AI stocks",
+   "nvidia",
+   "NVDA",
+   "tesla",
+   "TSLA",
+   "apple",
+   "AAPL",
+   "microsoft",
+   "MSFT",
+   "google",
+   "GOOGL",
+   "amazon",
+   "AMZN",
+   "meta",
+   "broadcom",
+   "AVGO",
+   "AMD",
+   "intel",
+   "INTC",
+   "micron",
+   "MU",
+   "chip stocks",
+   "semiconductors",
+   "TSM",
+   "palantir"
+  ],
+  "pinnedComment": "The number that stopped us: five. Out of 2,920 rolling seven-day windows since 2015, only five had all seven closes lower. This is the fifth.\n\nThe streak took 7.47 percent, against a normal seven days of plus 1.69 percent. Bottom tenth of every window we measured.\n\nWe counted. We do not predict: four prior cases cannot tell you the fifth. Anchor is NVDA at 208.48.\n\nFree app: https://www.signumhq.com/app\niOS: https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444\nAndroid: https://play.google.com/store/apps/details?id=com.signumhq.app\n\nWhat should we count next?",
+  "evidence": [
+   "FMP stable historical-price-eod/full — NVDA daily closes 2015-01-02 to 2026-08-24, 2,927 sessions, pulled after the regular session closed (marketstatus = extended-hours confirmed before measuring)",
+   "Streak verified from closes: 225.16 (8/14) then 225.01, 219.74, 217.56, 216.85, 214.72, 208.48 (8/24) — seven consecutive lower closes",
+   "Rarity: of 2,920 rolling seven-session windows since 2015, 5 had all seven closes lower = 0.171%, 99.83rd percentile",
+   "Depth: seven-day return -7.47% against a median of +1.69% across the same 2,920 windows = 10.0th percentile",
+   "Seven-or-more streaks occur four times in 11.6 years: 2015-08-25, 2019-06-03 (8 days), 2022-09-06, 2026-08-24",
+   "Same session: MU -5.83%, AAPL/MSFT/GOOGL average +0.70%, computed from FMP closes",
+   "Earnings date 2026-08-26 confirmed via FMP stable earnings calendar"
+  ],
+  "story": {
+   "event": "Nvidia closed lower for a seventh straight session on August 24, two days before its scheduled earnings report on August 26.",
+   "mechanism": "The decline runs into the report rather than out of it, so whatever the report contains cannot be what caused this stretch. Coverage attributes the weakness to pre-earnings caution alongside a memory selloff after a Chinese memory maker filed to list in Shanghai.",
+   "anchor": "NVDA 208.48",
+   "timely": {
+    "headlines": 181,
+    "countries": [
+     "KR",
+     "JP",
+     "US"
+    ],
+    "freshH": 0.4,
+    "source": "scripts/topic-scan.mjs · .agent/TODAY_HOOKS.json"
+   }
+  },
+  "insight": {
+   "claim": "Nvidia's seven-day return of -7.47% sits in the 10th percentile of 2,920 windows, and only 5 of those windows had all seven closes lower",
+   "computedBy": "FMP stable historical-price-eod/full NVDA daily closes 2015-01-02 to 2026-08-24; every rolling seven-session window scored for both cumulative return and all-lower-closes, run 2026-08-25 after the close",
+   "value": -7.47,
+   "baseline": 1.69,
+   "n": 2920,
+   "percentile": 10.0,
+   "saidAs": "Bottom tenth of every week."
+  },
+  "privacy": "public"
+ }
+]

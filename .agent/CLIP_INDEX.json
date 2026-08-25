@@ -2127,6 +2127,100 @@
    "preview": ".agent/clipsheet/wafer-spin-clean.jpg",
    "desc": "",
    "tags": []
+  },
+  "ani-tariff-stamp": {
+   "file": "shorts/bg/video/ani-tariff-stamp.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "preview": ".agent/_stamp_check2.jpg",
+   "desc": "성조기 두른 독수리와 단풍잎 비버가 북미 지도 위에 마주 서고 TARIFF 도장이 BANG 하고 찍힌다 — 미국의 대캐나다 관세. ⛔ declip 크롭 금지(비버가 잘린다). delogo 로만 워터마크 제거",
+   "tags": [
+    "캐릭터",
+    "관세",
+    "미국",
+    "캐나다",
+    "국기",
+    "무역"
+   ]
+  },
+  "ani-jp-flags-car": {
+   "file": "shorts/bg/video/ani-jp-flags-car.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "desc": "일장기와 성조기 사이 팔레트 위 빨간 자동차, 도장이 내려온다 — 미국의 대일본 자동차 관세",
+   "tags": [
+    "캐릭터",
+    "관세",
+    "일본",
+    "미국",
+    "국기",
+    "자동차"
+   ]
+  },
+  "ani-jp-cars-up": {
+   "file": "shorts/bg/video/ani-jp-cars-up.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "desc": "장난감 자동차 두 대가 블록 계단을 올라가고 뒤의 회색 화살표는 내려간다 — 시장은 빠지는데 이들만 오름",
+   "tags": [
+    "자동차",
+    "상승",
+    "괴리"
+   ]
+  },
+  "ani-jp-handshake-end": {
+   "file": "shorts/bg/video/ani-jp-handshake-end.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "desc": "두 손이 악수한다. ⛔ 첫 프레임이 비어 있어 훅에는 쓰지 말 것 — 중간 비트 전용",
+   "tags": [
+    "합의",
+    "악수"
+   ]
+  },
+  "ani-chip-stairs-down": {
+   "file": "shorts/bg/video/ani-chip-stairs-down.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "desc": "초록 칩 캐릭터가 파스텔 계단을 한 칸씩 걸어 내려간다 — 연속 하락",
+   "tags": [
+    "캐릭터",
+    "칩",
+    "하락",
+    "계단",
+    "반도체"
+   ]
+  },
+  "ani-mem-seesaw": {
+   "file": "shorts/bg/video/ani-mem-seesaw.mp4",
+   "w": 1080,
+   "h": 1920,
+   "aspect": "9:16",
+   "sec": 10,
+   "bright": null,
+   "desc": "시소 위, 왼쪽 메모리 모듈 더미는 내려가고 오른쪽 스마트폰·노트북은 올라간다 — 메모리만 빠지고 메가캡은 오름",
+   "tags": [
+    "시소",
+    "메모리",
+    "괴리",
+    "반도체",
+    "메가캡"
+   ]
   }
  }
 }
