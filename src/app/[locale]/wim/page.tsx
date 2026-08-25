@@ -24,9 +24,12 @@ import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
 import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
-
-// ── ads master switch (mirror of UC ADS_LIVE discipline) ──
-const WIM_ADS_LIVE = false;
+// ★ 2026-08-25 배선. 여기까지 «구조만» 있고 `./ads` 를 아무도 import 하지 않아
+//   광고 모듈 전체가 죽은 코드였다(로컬에 같은 이름 상수를 또 선언해 그렇게 보였다).
+//   실제 스위치는 ads.ts 의 WIM_ADS_LIVE 하나뿐이다 — 여기서 다시 선언하지 말 것.
+import {
+  WIM_ADS_LIVE, wimAdsAvailable, initWimAds, showWimBanner, hideWimBanner, showWimInterstitial,
+} from './ads';
 
 // ============================================================================
 // 지표 라벨 → 용어집 키 (2026-08-03)
@@ -3265,6 +3268,20 @@ export default function WimPage() {
 
   const markSetFinished = useReviewPrompt({ storageKey: 'wim.setsFinished', milestones: [2, 8] });
 
+  // ── 배너: 네이티브 셸에서만, 탭바(84px) 위에 앵커한다.
+  //    웹·플러그인 없음·스위치 off 면 wimAdsAvailable() 이 false 라 아무것도 안 한다.
+  useEffect(() => {
+    if (!wimAdsAvailable()) return;
+    let dead = false;
+    (async () => {
+      const ok = await initWimAds();
+      if (!ok || dead) return;
+      await showWimBanner(84);
+    })();
+    return () => { dead = true; void hideWimBanner(); };
+  }, []);
+
+
   const closeQuiz = useCallback((finishedAll: boolean) => {
     stopTimer();
     // W5-A: quick 150ms fade, then unmount (one-shot timer — no per-frame state)
@@ -3279,8 +3296,9 @@ export default function WimPage() {
       // 평점 요청 — «오늘 세트를 다 풀었다» 가 WIM 의 성공 순간이다.
       // 기존엔 설정의 «앱 평가» 버튼뿐이라 사실상 아무도 안 눌렀다(평점 0).
       markSetFinished();
-      // ② interstitial slot — fires here when ads go live (one per set, capped)
-      // if (WIM_ADS_LIVE) showWimInterstitial();
+      // ② 세트 완료 = 학습자가 이미 «나가는» 순간. 정답 공개 «뒤»에만 뜬다.
+      //    하루 1회 상한·설치 3일 침묵은 ads.ts 가 강제한다.
+      void showWimInterstitial();
     }
   }, [stopTimer, setDoneShown, markSetFinished]);
 
