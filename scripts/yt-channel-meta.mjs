@@ -19,7 +19,9 @@ import { readFileSync } from 'node:fs';
 const env = readFileSync('.env.local', 'utf8');
 // ⛔ 채널 스위치 — SIGNUM_YT=jp 면 일본 채널 토큰을 쓴다 (2026-08-21)
 const WHICH = String(process.env.SIGNUM_YT || 'hq').toLowerCase();
-const RTKEY = WHICH === 'jp' ? 'YT_JP_REFRESH_TOKEN' : 'YT_REFRESH_TOKEN';
+// ⛔ 3분기 (2026-08-25 한국 채널 추가). 모르는 값이면 «멈춘다».
+const RTKEY = { hq: 'YT_REFRESH_TOKEN', jp: 'YT_JP_REFRESH_TOKEN', kr: 'YT_KR_REFRESH_TOKEN' }[WHICH];
+if (!RTKEY) { console.error(`  ⛔ SIGNUM_YT=${WHICH} 는 모르는 채널이다. hq | jp | kr 중 하나여야 한다.`); process.exit(1); }
 const g = (k) => { const m = env.match(new RegExp(`^${k}=(.*)$`, 'm')); return m ? m[1].trim() : null; };
 const WRITE = process.argv.includes('--write');
 

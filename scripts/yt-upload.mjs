@@ -31,11 +31,14 @@ if (!PLAN || !existsSync(PLAN)) { console.error('plan.json 이 필요하다'); p
 const env = readFileSync('.env.local', 'utf8');
 // ⛔ 채널 스위치 — SIGNUM_YT=jp 면 일본 채널 토큰을 쓴다 (2026-08-21)
 //   기본값은 hq. 환경변수를 «안 주면» 지금까지와 완전히 같게 동작한다.
-const RTKEY = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp'
-  ? 'YT_JP_REFRESH_TOKEN' : 'YT_REFRESH_TOKEN';
+const YTW = String(process.env.SIGNUM_YT || 'hq').toLowerCase();
+// ⛔ 3분기 (2026-08-25 한국 채널 추가). 모르는 값이면 «멈춘다» —
+//   예전 2분기는 SIGNUM_YT=kr 오타 하나로 한국어 영상이 영어 채널에 올라갔다.
+const RTKEY = { hq: 'YT_REFRESH_TOKEN', jp: 'YT_JP_REFRESH_TOKEN', kr: 'YT_KR_REFRESH_TOKEN' }[YTW];
+if (!RTKEY) { console.error(`  ⛔ SIGNUM_YT=${YTW} 는 모르는 채널이다. hq | jp | kr 중 하나여야 한다.`); process.exit(1); }
 // ⛔ 영상의 «언어»도 채널을 따라가야 한다. en 으로 고정돼 있으면 일본 채널에서
 //   자동자막·번역·추천이 전부 영어 기준으로 잡힌다 (2026-08-21).
-const LANG = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp' ? 'ja' : 'en';
+const LANG = { hq: 'en', jp: 'ja', kr: 'ko' }[YTW];
 const envGet = (k) => {
   const m = env.match(new RegExp(`^${k}=(.*)$`, 'm'));
   return m ? m[1].trim() : null;
@@ -275,11 +278,11 @@ if (bad) { console.log(`\n  ${bad}건 위반 — 업로드하지 않는다\n`); 
     : 0;
   if (process.argv.includes('--force-interval')) {
     console.warn('  ⚠ --force-interval — 직전 편 검사를 건너뛴다. 직전 편이 잘릴 수 있다.');
-  } else if (hoursOut >= 6) {
-    console.log(`  게시까지 ${hoursOut.toFixed(1)}시간 — 직전 편 «현재» 상태는 보지 않는다.`);
-    console.log('  (예약분은 게시 «간격» 이 자기잠식을 결정하고, 그건 예약 시각이 정해놨다)');
   } else {
-    const q = spawnSync(process.execPath, ['scripts/_prev-still-running.mjs'], { stdio: 'inherit' });
+    // ⛔ 6시간 편법을 버린다 (2026-08-24). 예약분은 «게시 시각» 을 기준시로 넘겨야 한다 —
+    //   그러면 «지금 몇 분 됐나» 가 아니라 «게시 간격이 얼마나 되나» 를 재게 된다.
+    const at2 = firstAt ? ['--at=' + firstAt] : [];
+    const q = spawnSync(process.execPath, ['scripts/_prev-still-running.mjs', ...at2], { stdio: 'inherit' });
     if (q.status !== 0) {
       console.error('  직전 편이 아직 달린다 — 업로드를 중단한다.');
       console.error('  기울기가 30분 이상 0 이 된 뒤에 다시 실행한다.');

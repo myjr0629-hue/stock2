@@ -16,8 +16,13 @@
 import { readFileSync } from 'node:fs';
 const env = readFileSync('.env.local', 'utf8');
 const g = (k) => (env.match(new RegExp(`^${k}=(.*)$`, 'm')) || [])[1]?.trim() || null;
-const JP = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp';
-const RT = JP ? (g('YT_JP_REFRESH_TOKEN') || g('YT_REFRESH_TOKEN')) : g('YT_REFRESH_TOKEN');
+const YTW = String(process.env.SIGNUM_YT || 'hq').toLowerCase();
+// ⛔ 3분기 (2026-08-25 한국 채널 추가). 예전 «|| HQ토큰» 폴백은 지웠다 —
+//   그 폴백 때문에 채널 토큰이 없으면 조용히 «영어 채널» 을 고쳤다.
+const RTKEY = { hq: 'YT_REFRESH_TOKEN', jp: 'YT_JP_REFRESH_TOKEN', kr: 'YT_KR_REFRESH_TOKEN' }[YTW];
+if (!RTKEY) { console.error(`  ⛔ SIGNUM_YT=${YTW} 는 모르는 채널이다. hq | jp | kr 중 하나여야 한다.`); process.exit(1); }
+const RT = g(RTKEY);
+if (!RT) { console.error(`  ⛔ .env.local 에 ${RTKEY} 가 없다.`); process.exit(1); }
 const args = process.argv.slice(2);
 const TEXT = (args.find((a) => a.startsWith('--text=')) || '').slice(7);
 const IDS = args.filter((a) => !a.startsWith('--'));

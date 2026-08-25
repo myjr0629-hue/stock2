@@ -23,8 +23,8 @@ async function token() {
     body: new URLSearchParams({
       client_id: env.YT_CLIENT_ID, client_secret: env.YT_CLIENT_SECRET,
       // ⛔ 채널 스위치 — SIGNUM_YT=jp 면 일본 채널 토큰을 쓴다 (2026-08-23)
-      refresh_token: String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp'
-        ? env.YT_JP_REFRESH_TOKEN : env.YT_REFRESH_TOKEN,
+      refresh_token: env[{ hq: 'YT_REFRESH_TOKEN', jp: 'YT_JP_REFRESH_TOKEN', kr: 'YT_KR_REFRESH_TOKEN' }[
+        String(process.env.SIGNUM_YT || 'hq').toLowerCase()] || '__NO_SUCH_CHANNEL__'],
       grant_type: 'refresh_token',
     }),
   });

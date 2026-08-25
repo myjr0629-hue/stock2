@@ -49,8 +49,12 @@ if (!ID || !PLACES[PLACE]) {
 }
 const env = readFileSync('.env.local', 'utf8');
 const g = (k) => (env.match(new RegExp(`^${k}=(.*)$`, 'm')) || [])[1]?.trim() || null;
-const JP = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp';
-const RT = JP ? (g('YT_JP_REFRESH_TOKEN') || g('YT_REFRESH_TOKEN')) : g('YT_REFRESH_TOKEN');
+const YTW = String(process.env.SIGNUM_YT || 'hq').toLowerCase();
+// ⛔ 3분기 (2026-08-25 한국 채널 추가). «|| HQ토큰» 폴백은 지웠다 — 조용한 오배송 경로였다.
+const RTKEY = { hq: 'YT_REFRESH_TOKEN', jp: 'YT_JP_REFRESH_TOKEN', kr: 'YT_KR_REFRESH_TOKEN' }[YTW];
+if (!RTKEY) { console.error(`  ⛔ SIGNUM_YT=${YTW} 는 모르는 채널이다. hq | jp | kr 중 하나여야 한다.`); process.exit(1); }
+const RT = g(RTKEY);
+if (!RT) { console.error(`  ⛔ .env.local 에 ${RTKEY} 가 없다.`); process.exit(1); }
 const tok = (await (await fetch('https://oauth2.googleapis.com/token', {
   method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   body: new URLSearchParams({ client_id: g('YT_CLIENT_ID'), client_secret: g('YT_CLIENT_SECRET'), refresh_token: RT, grant_type: 'refresh_token' }),
@@ -83,7 +87,7 @@ console.log(`  확인 ${JSON.stringify(j.recordingDetails)}`);
 
 const d = readLog();
 d.rows = d.rows.filter((x) => x.id !== ID);
-d.rows.push({ id: ID, ch: JP ? 'jp' : 'hq', place: PLACE, vpn: process.env.SIGNUM_VPN || null,
+d.rows.push({ id: ID, ch: YTW, place: PLACE, vpn: process.env.SIGNUM_VPN || null,
   title: cur.snippet.title, at: new Date().toISOString() });
 writeFileSync(LOG, JSON.stringify(d, null, 2));
 console.log(`  → ${LOG} 에 조건 기록 (판정하려면 조건을 남겨야 한다)`);

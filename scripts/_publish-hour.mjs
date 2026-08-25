@@ -25,11 +25,13 @@
 // 종료코드: 0 = 괜찮다 · 1 = 나쁜 시간대다
 // ============================================================================
 
-const JP = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp';
-const TZ = JP ? 'Asia/Tokyo' : 'America/New_York';
-const LABEL = JP ? '일본' : '미국 동부';
+const YTW = String(process.env.SIGNUM_YT || 'hq').toLowerCase();
+const TZ = { hq: 'America/New_York', jp: 'Asia/Tokyo', kr: 'Asia/Seoul' }[YTW];
+const LABEL = { hq: '미국 동부', jp: '일본', kr: '한국' }[YTW];
+if (!TZ) { console.error(`  ⛔ SIGNUM_YT=${YTW} 는 모르는 채널이다. hq | jp | kr 중 하나여야 한다.`); process.exit(1); }
 
-// ⛔ 우리 채널 실측 기준 (미국). 일본은 표본이 없어 «미국 패턴을 빌려» 둔다 — 추정이다.
+// ⛔ 우리 채널 «실측» 기준은 미국뿐이다. 일본·한국은 표본이 없어 미국 패턴을 빌린다 — 추정이다.
+//   한국 채널은 2026-08-25 개설 — 표본 0. 편수가 쌓이면 여기 숫자를 «따로» 재서 갈아끼운다.
 const BAD = [0, 1, 2, 3, 4, 5];        // 시청자가 자는 시간
 const BEST = [6, 7, 8, 9, 10, 11];     // 우리 최고 구간
 

@@ -27,6 +27,9 @@ const g = (k) => (env.match(new RegExp(`^${k}=(.*)$`, 'm')) || [])[1]?.trim() ||
 const CH = [
   { key: 'jp', label: '🇯🇵 일본', tz: 'Asia/Tokyo', zone: 'JST', off: 9, slots: [10, 14, 19], rt: g('YT_JP_REFRESH_TOKEN') },
   { key: 'hq', label: '🇺🇸 미국', tz: 'America/New_York', zone: 'ET', off: -4, slots: [9, 13, 19], rt: g('YT_REFRESH_TOKEN') },
+  // ⛔ 한국 슬롯은 «추정» 이다 (2026-08-25 개설, 표본 0). 일본 슬롯을 빌려 뒀고,
+  //   일본 슬롯 자체도 미국에서 빌린 것이다. 편수가 쌓이면 따로 재서 갈아끼운다.
+  { key: 'kr', label: '🇰🇷 한국', tz: 'Asia/Seoul', zone: 'KST', off: 9, slots: [10, 14, 19], rt: g('YT_KR_REFRESH_TOKEN') },
 ];
 
 const tokenFor = async (rt) => (await (await fetch('https://oauth2.googleapis.com/token', {

@@ -24,8 +24,11 @@ import { readFileSync, existsSync } from 'node:fs';
 const env = Object.fromEntries(readFileSync('.env.local', 'utf8').split(/\r?\n/)
   .filter((l) => l.includes('=') && !l.startsWith('#'))
   .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]));
-const RTKEY = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp'
-  ? 'YT_JP_REFRESH_TOKEN' : 'YT_REFRESH_TOKEN';
+const YTW = String(process.env.SIGNUM_YT || 'hq').toLowerCase();
+// ⛔ 3분기 (2026-08-25 한국 채널 추가). 모르는 값이면 «멈춘다» —
+//   예전 2분기는 SIGNUM_YT=kr 오타 하나로 한국어 영상이 영어 채널에 올라갔다.
+const RTKEY = { hq: 'YT_REFRESH_TOKEN', jp: 'YT_JP_REFRESH_TOKEN', kr: 'YT_KR_REFRESH_TOKEN' }[YTW];
+if (!RTKEY) { console.error(`  ⛔ SIGNUM_YT=${YTW} 는 모르는 채널이다. hq | jp | kr 중 하나여야 한다.`); process.exit(1); }
 
 const AT = (await (await fetch('https://oauth2.googleapis.com/token', {
   method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },

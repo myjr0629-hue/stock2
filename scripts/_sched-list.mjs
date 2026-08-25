@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 const env=Object.fromEntries(readFileSync('.env.local','utf8').split(/\r?\n/)
  .filter(l=>l.includes('=')&&!l.startsWith('#')).map(l=>[l.slice(0,l.indexOf('=')).trim(),l.slice(l.indexOf('=')+1).trim()]));
-for (const [tag,rtk] of [['🇺🇸 SIGNUM HQ','YT_REFRESH_TOKEN'],['🇯🇵 SIGNUM JP','YT_JP_REFRESH_TOKEN']]){
+for (const [tag,rtk] of [['🇺🇸 SIGNUM HQ','YT_REFRESH_TOKEN'],['🇯🇵 SIGNUM JP','YT_JP_REFRESH_TOKEN'],['🇰🇷 시그넘 KR','YT_KR_REFRESH_TOKEN']]){
  const {access_token:AT}=await (await fetch('https://oauth2.googleapis.com/token',{method:'POST',
   headers:{'content-type':'application/x-www-form-urlencoded'},
   body:new URLSearchParams({client_id:env.YT_CLIENT_ID,client_secret:env.YT_CLIENT_SECRET,refresh_token:env[rtk],grant_type:'refresh_token'})})).json();

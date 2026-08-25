@@ -4,7 +4,7 @@ const env=Object.fromEntries(readFileSync('.env.local','utf8').split(/\r?\n/)
 const {access_token:AT}=await (await fetch('https://oauth2.googleapis.com/token',{method:'POST',
  headers:{'content-type':'application/x-www-form-urlencoded'},
  body:new URLSearchParams({client_id:env.YT_CLIENT_ID,client_secret:env.YT_CLIENT_SECRET,
-   refresh_token:(String(process.env.SIGNUM_YT||'hq').toLowerCase()==='jp'?env.YT_JP_REFRESH_TOKEN:env.YT_REFRESH_TOKEN),grant_type:'refresh_token'})})).json();
+   refresh_token:env[{hq:'YT_REFRESH_TOKEN',jp:'YT_JP_REFRESH_TOKEN',kr:'YT_KR_REFRESH_TOKEN'}[String(process.env.SIGNUM_YT||'hq').toLowerCase()]||'__NO_SUCH_CHANNEL__'],grant_type:'refresh_token'})})).json();
 const H={headers:{authorization:`Bearer ${AT}`}};
 const id=process.argv[2];
 const j=await (await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,status,contentDetails,processingDetails&id=${id}`,H)).json();

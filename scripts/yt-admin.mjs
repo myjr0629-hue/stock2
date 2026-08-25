@@ -22,11 +22,17 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const env = readFileSync('.env.local', 'utf8');
-const JP = String(process.env.SIGNUM_YT || 'hq').toLowerCase() === 'jp';
-const RTKEY = JP ? 'YT_JP_REFRESH_TOKEN' : 'YT_REFRESH_TOKEN';
+const YTW = String(process.env.SIGNUM_YT || 'hq').toLowerCase();
+// ⛔ 3분기 (2026-08-25 한국 채널 추가). 모르는 값이면 «멈춘다» —
+//   2분기 시절엔 SIGNUM_YT=kr 오타 하나가 조용히 hq 로 떨어졌다.
+const RTKEY = { hq: 'YT_REFRESH_TOKEN', jp: 'YT_JP_REFRESH_TOKEN', kr: 'YT_KR_REFRESH_TOKEN' }[YTW];
+if (!RTKEY) { console.error(`  ⛔ SIGNUM_YT=${YTW} 는 모르는 채널이다. hq | jp | kr 중 하나여야 한다.`); process.exit(1); }
 const g = (k) => (env.match(new RegExp(`^${k}=(.*)$`, 'm')) || [])[1]?.trim() || null;
 const CID = g('YT_CLIENT_ID'), CSEC = g('YT_CLIENT_SECRET');
-const RT = g(RTKEY) || g('YT_REFRESH_TOKEN');
+// ⛔ 예전엔 «|| g('YT_REFRESH_TOKEN')» 폴백이 붙어 있었다 (2026-08-25 제거).
+//   그 폴백은 「KR 토큰이 없으면 영어 채널을 고친다」는 뜻이었다 — 조용한 오배송.
+const RT = g(RTKEY);
+if (!RT) { console.error(`  ⛔ .env.local 에 ${RTKEY} 가 없다.`); process.exit(1); }
 if (!CID || !CSEC || !RT) { console.error('.env.local 인증 정보가 없다'); process.exit(1); }
 
 async function token() {
@@ -67,7 +73,7 @@ if (cmd === 'pending') {
   let lines = [];
   try { lines = readFileSync(F, 'utf8').split('\n').filter((l) => l.trim()); }
   catch { console.log('  대기열이 비어 있다'); process.exit(0); }
-  const want = JP ? 'jp' : 'hq';
+  const want = YTW;
   const keep = [];
   for (const l of lines) {
     const it = JSON.parse(l);
@@ -113,6 +119,38 @@ if (cmd === 'unschedule') {
   const j = await r.json();
   if (!r.ok) { console.error('실패', JSON.stringify(j).slice(0, 300)); process.exit(1); }
   console.log(`  ✔ 예약 취소 — 비공개로 남는다 (삭제하지 않았다). 예약: ${j.status.publishAt || '없음'}`);
+  process.exit(0);
+}
+
+// ── reschedule — 예약 «시각만» 옮긴다 (2026-08-24) ──────────────────────────
+//   슬롯 재배치 때마다 필요했는데 손으로 스튜디오를 열어야 했다. 여기로 들인다.
+//   ⛔ 공개된 것은 손대지 않는다 — unschedule 과 같은 원칙.
+if (cmd === 'reschedule') {
+  const at = process.argv.find((a) => a.startsWith('--at='))?.slice(5);
+  const m = String(at || '').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if (!m) { console.error('--at="YYYY-MM-DD HH:MM" (KST/JST) 가 필요하다'); process.exit(1); }
+  const cur = await (await fetch(
+    `https://www.googleapis.com/youtube/v3/videos?part=status,snippet&id=${id}`, { headers: H })).json();
+  const v = cur.items?.[0];
+  if (!v) { console.error(`${id} 를 못 찾는다`); process.exit(1); }
+  console.log(`  현재  ${v.snippet.title}`);
+  console.log(`        ${v.status.privacyStatus} · 예약 ${v.status.publishAt || '없음'}`);
+  if (v.status.privacyStatus === 'public') {
+    console.error('  ⛔ 이미 «공개»다 — 시각을 옮길 수 없다.');
+    process.exit(1);
+  }
+  const utc = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 9, +m[5]))
+    .toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const r = await fetch('https://www.googleapis.com/youtube/v3/videos?part=status', {
+    method: 'PUT', headers: H,
+    body: JSON.stringify({ id, status: {
+      privacyStatus: 'private', publishAt: utc,
+      selfDeclaredMadeForKids: v.status.selfDeclaredMadeForKids ?? false,
+    } }),
+  });
+  const j = await r.json();
+  if (!r.ok) { console.error('실패', JSON.stringify(j).slice(0, 300)); process.exit(1); }
+  console.log(`  ✔ ${at} (KST/JST) 로 옮겼다 — publishAt ${j.status.publishAt}`);
   process.exit(0);
 }
 

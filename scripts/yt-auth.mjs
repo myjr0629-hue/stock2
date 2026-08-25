@@ -44,8 +44,9 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 //   ⇒ 아래에서 토큰이 실제로 어느 채널 것인지 확인하고, 다르면 저장하지 않는다.
 const AS = (process.argv.find((a) => a.startsWith('--as=')) || '--as=hq').slice(5).toLowerCase();
 const TARGET = { hq: { key: 'YT_REFRESH_TOKEN',    id: 'UCcJYwdMx4ijXGJHxZ3-deVg', name: 'SIGNUM HQ' },
-                 jp: { key: 'YT_JP_REFRESH_TOKEN', id: 'UCVLHMbVtpc3QOpSXDdeNE7A', name: 'SIGNUM ウォール街のマックスペイン' } }[AS];
-if (!TARGET) { console.error('사용: node scripts/yt-auth.mjs [--as=hq|--as=jp]'); process.exit(1); }
+                 jp: { key: 'YT_JP_REFRESH_TOKEN', id: 'UCVLHMbVtpc3QOpSXDdeNE7A', name: 'SIGNUM ウォール街のマックスペイン' },
+                 kr: { key: 'YT_KR_REFRESH_TOKEN', id: 'UCfJcKtlwA4ZeyMV4idwoGug', name: '시그넘 KR' } }[AS];
+if (!TARGET) { console.error('사용: node scripts/yt-auth.mjs [--as=hq|--as=jp|--as=kr]'); process.exit(1); }
 
 const SCOPES = [
   'https://www.googleapis.com/auth/yt-analytics.readonly',
