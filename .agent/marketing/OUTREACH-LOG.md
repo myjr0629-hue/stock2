@@ -1032,3 +1032,16 @@ $XOM 콜 $4.2M vs 풋 $0.6M(~7.4배), 주가 -1.4%임에도 콜 압도 — 바�
 
 **⚠️ 대표가 UC 1.0.3 반려 확인 이메일 전달함** — 상세 내용은 App Store Connect "앱 심사 문제 및 메시지 보기" 링크에서 확인 필요(첨부 스크린샷엔 헤더만 보임, 구체 반려 사유 텍스트는 없음). 대표에게 해당 링크를 열어 실제 사유 텍스트를 받아야 원인분석 가능.
 StockTwits 계속 중단. WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 — ✅ UC 1.0.3 반려 원인 확정 + 재제출 완료
+대표가 전달한 Apple 반려 이메일 확인 → 웹 로그인 직접 접속(세션 이미 로그인돼 있었음) → App Store Connect "앱 심사" 페이지에서 실제 사유 확인:
+**Guideline 2.3.6 Performance: Accurate Metadata** — "Age Rating의 Advertising이 'No'인데 앱에 광고가 있으니 'Yes'로 바꿔야 함" (8/19 활성화된 광고와 동일 이슈 재발).
+
+**진짜 원인:** appInfo가 앱당 2개 존재(구버전용 READY_FOR_SALE + 신버전용 REJECTED) — 지난 세션에서 고친 건 잘못된(이미 승인된) appInfo였고, 반려된 1.0.3용 appInfo는 계속 advertising=false였음.
+API로 반려된 쪽 appInfo(4eeac5e4-6418-4ec3-9a19-2c917276ae33) 재확인 → 이미 advertising=true로 반영되어 있음(타이밍상 늦게 저장된 듯) → 추가 수정 불필요, 곧바로 재제출:
+1) 반려된 reviewSubmissionItem removed:true
+2) 새 reviewSubmission 생성(6ab0102f-a281-4a1c-a067-aee716114565)
+3) 1.0.3 버전 항목 추가
+4) submitted:true → WAITING_FOR_REVIEW 확인됨
+
+**교훈:** 앱마다 appInfo가 여러 개(버전별) 존재할 수 있음 — 다음부터는 appVersionState까지 같이 확인해서 올바른 appInfo를 골라야 함.
