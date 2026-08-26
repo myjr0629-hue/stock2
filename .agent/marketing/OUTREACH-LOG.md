@@ -922,3 +922,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 빅무브×균형플로우 훅: -3.23% 급락인데 콜 $212K = 풋 $212K로 완전 동률 — 패닉 없는 플로우.
 스크린샷 첨부(2026-08-26-signum-flow-en-IONQ.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 1차 — StockTwits NVDA (662,247명 팔로워 게시판, 결산 다음날)
+결산 후 옵션플로우 훅: 총 $102.6M 프리미엄(콜 $57.6M vs 풋 $45.0M), 주가 -0.91~0.99%.
+스크린샷 첨부(signum-flow-en-NVDA.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨.
