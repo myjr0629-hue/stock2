@@ -174,7 +174,7 @@ const APP_FLOW_COPY = {
     volatilityEffect: '변동성 효과',
     absorbsVol: '변동성 흡수',
     amplifiesVol: '변동성 확대',
-    premiumFlow: '프리미엄 흐름',
+    premiumFlow: '콜/풋 거래량',
     gammaMap: '감마 위치',
     riskState: '리스크 상태',
     highConviction: 'HIGH CONVICTION',
@@ -261,7 +261,7 @@ const APP_FLOW_COPY = {
     volatilityEffect: 'Vol Effect',
     absorbsVol: 'Vol absorbing',
     amplifiesVol: 'Vol amplifying',
-    premiumFlow: 'Premium Flow',
+    premiumFlow: 'Call/put volume',
     gammaMap: 'Gamma Map',
     riskState: 'Risk State',
     highConviction: 'HIGH CONVICTION',
@@ -348,7 +348,7 @@ const APP_FLOW_COPY = {
     volatilityEffect: '変動性効果',
     absorbsVol: '変動性吸収',
     amplifiesVol: '変動性拡大',
-    premiumFlow: 'プレミアムフロー',
+    premiumFlow: 'コール/プット出来高',
     gammaMap: 'ガンマ位置',
     riskState: 'リスク状態',
     highConviction: 'HIGH CONVICTION',
@@ -1517,6 +1517,12 @@ export default function AppFlowPage() {
     : overviewDirection === 'bearish'
     ? '#f43f5e'
     : '#f59e0b';
+  // ⚠️ 이 라벨은 «콜 거래량 비중(callPct)» 기준이다. 히어로의 TOTAL PREMIUM 라벨은
+  //    «순프리미엄 금액(netPremiumVal)» 부호 기준이라 서로 다른 것을 잰다.
+  //    비싼 풋이 적게 체결되면 «금액=풋 우세 + 계약수=콜 우세»가 동시에 참일 수 있다.
+  //    둘 다 'Call/Put dominant' 로 부르던 시절엔 한 화면에 정반대 두 문구가 떠서
+  //    «앱이 틀렸다»로 읽혔다(2026-08-26 PLTR 실화면). 그래서 카드 제목을
+  //    「Call/put volume」로 바꿔 무엇을 재는지 드러낸다. 라벨 자체는 그대로 둔다.
   const premiumBiasLabel = callPct >= 55
     ? flowCopy.callDominant
     : callPct <= 45
