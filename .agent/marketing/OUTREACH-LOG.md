@@ -912,3 +912,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 극단적 콜/풋 비율 훅: 콜 프리미엄 $2.35M vs 풋 $67K — 콜이 풋의 ~35배.
 스크린샷 첨부(2026-08-26-signum-flow-en-UBER.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-26 21차 — StockTwits ROKU (133,990명 팔로워 게시판)
+극단적 편향 훅: 콜 프리미엄 $2.22M vs 풋 프리미엄 $7.9K — 거의 전량 콜 쪽.
+스크린샷 첨부(2026-08-26-signum-flow-en-ROKU.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
