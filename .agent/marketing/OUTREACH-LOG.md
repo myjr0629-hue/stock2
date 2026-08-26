@@ -932,3 +932,9 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 대형 콜우세 훅: 총 $89.4M 프리미엄(콜 $59.6M vs 풋 $29.8M), 주가 +1.12~1.18%.
 스크린샷 첨부(signum-flow-en-MU.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 3차 — X 미국 계정(@signumhq) 첫 재개 답글 (x_us)
+대표가 2026-08-27 미국 X 계정 직접 로그인 완료 → 이전 세션들 내내 구글 OAuth 팝업 차단으로 못 붙였던 계정 재개.
+@SemiconductorsX(HBM 공급부족 분석, 게시 25초 전 신선한 글)에 MU 실데이터로 보강 답글:
+총 프리미엄 $89M(콜 $59.6M vs 풋 $29.8M, 콜 2배 우세) + 스크린샷(mu-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨.
