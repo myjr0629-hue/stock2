@@ -600,3 +600,40 @@ r/options 를 열어 «규칙부터» 읽었다. **규칙 1 = No AI/LLM-Authored
 - 프로필/헤더 이미지가 비어 있음 (회색 기본값)
 - 고정 트윗 없음 → 방문자가 «무엇을 주는 계정인지» 3초 안에 못 본다
 → 아이콘·헤더·고정 트윗(앱 링크 포함)을 붙이는 것이 답글 100건보다 전환에 크다.
+
+---
+
+## 2026-08-26 4차 (루프 사이클 2) — 자동 파이프라인이 앱이 아니라 «웹»으로 보내고 있었다
+
+### ★ 이번 사이클 최대 성과 — 118건짜리 구조적 누수
+`@signumhq_jp` 프로필을 열어보니 자기 게시물이 전부 `signumhq.com/ja/flow/AMD?...` 로 나가고 있었다.
+코드를 따라가니 `src/lib/marketing-console/autopilot.ts` `landingFor()` 가 **의도적으로** 웹 화면을
+목적지로 쓰고 있었다(2026-08-20 결정, 「설치 없이 열려 이탈이 가장 적다」).
+
+그 판단 자체는 틀리지 않지만 **회사의 목표가 아니다.** 웹으로 보내면
+- 설치는 한 건도 안 생기고
+- **Play install referrer 가 안 실려서 «어느 채널이 설치를 만들었는지»를 영영 못 센다.**
+
+→ `${SITE}/app?from=${from}` (앱 스마트링크)로 변경. Android UA 로 3개 링크 전수 검증:
+```
+/app?from=x_ja      → play.google.com/...id=com.signumhq.app&referrer=utm_source%3Dx_ja%26utm_medium%3Dsmartlink ✓
+/app-uc?from=x_ja   → ...id=com.signumhq.undercurrent&referrer=... ✓
+/app-wim?from=x_ja  → ...id=com.signumhq.wim&referrer=... ✓
+iPhone UA           → 각각 apps.apple.com/...id6783130444 / 6788779895 / 6794356135 ✓
+```
+※ curl 기본 UA 는 **항상** iOS 분기로 간다. 반드시 `curl -A "...Android..."`.
+
+파이프라인이 쓰는 태그(`x_en`/`x_ja`/`bsky`/`stwits`)도 집계 배열에 추가. 안 넣으면 0 으로 보인다.
+
+### ★ 내 앞선 판단 정정
+3차에서 「@signumhq_jp 아이콘·헤더 없음」이라고 적었는데 **틀렸다.**
+둘 다 이미 설정돼 있었고, 스크린샷 시점에 이미지가 로드되기 전이라 회색 원으로 보인 것이다.
+→ **회색 플레이스홀더를 «비어 있음»으로 읽지 말 것.** 로드 후 다시 볼 것.
+
+실제로 비어 있던 것은 **고정 트윗**이었다 → 일본어로 작성해 고정 완료.
+「이 계정이 무엇을 주는가」 + 실제 앱 화면 + `signumhq.com/app?from=x_jp`.
+
+### 부산물
+`scripts/make-x-header.js` — X 헤더(1500×500) 생성기(ja/en/ko).
+아바타가 덮는 좌하단 260px 를 비우고, 모바일이 잘라내는 위아래를 피해 세로 중앙에 배치.
+당장은 안 갈아끼웠지만(기존 헤더가 이미 양호) en/ko 계정 정비 때 바로 쓴다.
