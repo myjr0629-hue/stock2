@@ -897,3 +897,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 가격-플로우 다이버전스 훅: 주가 -1.44% 인데 콜 프리미엄 $38.8M vs 풋 $11.4M(총 $50.3M) — 비트코인 프록시 종목이라 Undercurrent(뉴스×자금 다이버전스 앱) 타깃으로 앱-uc 링크 사용.
 스크린샷 첨부(2026-08-26-signum-flow-en-MSTR.png) + `signumhq.com/app-uc?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-26 18차 — StockTwits AMZN (700,255명 팔로워 게시판, 오늘 최대)
+총 프리미엄 $138.4M(콜 $85.2M vs 풋 $53.1M) — 오늘 훅 중 최대 액수.
+스크린샷 첨부(2026-08-26-signum-flow-en-AMZN.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
