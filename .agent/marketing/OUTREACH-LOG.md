@@ -976,3 +976,9 @@ DELL 콜 $7.6M vs 풋 $5.0M, 주가 +2.25% — 모멘텀을 플로우가 뒷받�
 가격-플로우 일치 훅: 주가 +0.85% + 콜 $19.8M vs 풋 $3.8M(5배 콜 우세).
 스크린샷 첨부(msft-shot.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 11차 — X 미국 계정(@signumhq) 4번째 답글 (x_us)
+@pangpong — SNAP -7.77% 급락에 물타기(1500주 추가매수) 글(2분 전)에 옵션 컨텍스트 보강:
+풋 $535K vs 콜 $186K(총 -$349K 넷프리미엄, 풋 우세) — 중립적 사실 서술로(그의 매수 방향과 반대되는 데이터라 "당신 편"식 프레이밍 피하고 순수 컨텍스트로 정정 후 게시).
+스크린샷(snap-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
