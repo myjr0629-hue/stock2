@@ -35,7 +35,7 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 | **SourceForge** | 92 | 18.4M | 트래픽 1위. 소프트웨어 등재 |
 | **Slashdot** | 89 | 3.3M | SourceForge 계열 |
 | **Indie Hackers** | 69 | 850K | 1인 개발 커뮤니티 |
-| **StartupRanking** | 71 | 129K | 스타트업 랭킹 |
+| ~~StartupRanking~~ | 71 | 129K | ✅ **2026-08-26 등재 + 소유권 확인 완료** → `startupranking.com/startup/signum-hq` |
 | **Startup Stash** | 56 | 185K | 큐레이션 |
 | **PitchWall** | 57 | 83K | **모바일 앱 전용** — 우리와 정확히 맞음 |
 | **StartupInspire** | 30 | 11.7K | |
