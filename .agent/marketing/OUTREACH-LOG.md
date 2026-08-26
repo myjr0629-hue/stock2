@@ -907,3 +907,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 가격-플로우 확인 훅: -1.27% 하락 + 풋 프리미엄 $22.9M > 콜 $19.8M($42.7M 총) — 플로우가 테이프와 일치.
 스크린샷 첨부(2026-08-26-signum-flow-en-PLTR.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-26 20차 — StockTwits UBER (130,533명 팔로워 게시판)
+극단적 콜/풋 비율 훅: 콜 프리미엄 $2.35M vs 풋 $67K — 콜이 풋의 ~35배.
+스크린샷 첨부(2026-08-26-signum-flow-en-UBER.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
