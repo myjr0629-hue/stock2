@@ -1003,3 +1003,9 @@ UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 
 $CRM 총 프리미엄 $22.7M, 콜 $13.7M vs 풋 $9.0M.
 스크린샷(crm-shot.png) + `signumhq.com/app?from=x_us`.
 "Your post was sent" 확인됨. StockTwits 계속 중단 상태. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 15차 — X 미국 계정(@signumhq) 7번째 답글 (x_us)
+@InvestKaye — MRVL SerDes/optical DSP 투자 분석 글(1분 전)에 실데이터로 보강:
+$MRVL 총 프리미엄 $28.2M, 콜 $21.9M vs 풋 $6.3M(~3.5배), 주가 +5%.
+스크린샷(mrvl-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨. StockTwits 계속 중단 상태. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
