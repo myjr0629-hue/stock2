@@ -878,3 +878,7 @@ X: 미국 4건 · 일본 4건 · **한국(x_kr, 신규) 1건**
 
 ### 오늘 총계 (자기페이스 루프 시작 이후)
 StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_kr) 1건 = **총 22건**
+
+## 2026-08-26 사이클 — DevHunt 시도 + 리뷰상태 체크
+- DevHunt.org 신규 채널 시도: GitHub OAuth 로그인은 열렸으나 "Authorize johnrushx" 버튼이 자동화 클릭에 반응하지 않음(좌표클릭·ref클릭·새로고침 후 재시도 등 5회 시도) — StartupRanking 때와 달리 이 앱은 봇 차단 가드가 있는 듯. 대표 전용 작업으로 DIRECTORY-LIST.md 에 기록.
+- 심사 상태 확인: UC 1.0.3 = WAITING_FOR_REVIEW (변화 없음), WIM 1.0.1 = WAITING_FOR_REVIEW (변화 없음). 반려 없음, 조치 불필요.

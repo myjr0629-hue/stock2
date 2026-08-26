@@ -77,3 +77,8 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
   OpenHunts **2028년 7월**. 유료 우회는 전부 결제라 손대지 않았다.
 - OpenHunts 는 숨겨진 file input 이라 업로드가 안 됐다 →
   JS 로 `style` 을 덮어 노출시킨 뒤 ref 를 잡아 업로드했다.
+
+## DevHunt.org — BLOCKED (2026-08-26)
+- Login: GitHub OAuth (same-tab redirect, expected to work like StartupRanking)
+- Result: "Authorize johnrushx" button on GitHub's consent screen does not respond to automated clicks (tried coordinate click + ref click + page reload + retry, ~5 attempts) — likely bot-detection guard on this specific OAuth app's consent flow, unlike StartupRanking's GitHub OAuth which worked.
+- Status: reserved for 대표 (needs a real human click) — noted in ~/Desktop/★대표님 할일 폴더 candidate list, or skip.
