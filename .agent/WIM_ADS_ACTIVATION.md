@@ -121,3 +121,25 @@ DOM 을 재면 무엇이 오든 둘이 **같이** 움직인다.
 2. `REAL_UNIT_IDS.wim = UNITS_2026_08_18.wim` + `WIM_ADS_LIVE = true` → 웹 배포
    (이 한 번으로 방침·약관 3개 국어와 `adsAllowed()` 관문이 같이 열린다)
 3. **실기기** 확인 — iOS/Android 각각 배너가 탭바에 붙는지. 시뮬레이터의 "Test mode" 라벨은 정상.
+
+---
+
+## 2026-08-26 — 광고를 켤 때 «연령 등급」을 빠뜨리면 반려된다 (UC 실제 반려)
+
+UC 1.0.3 이 **Guideline 2.3.6** 으로 반려됐다:
+> The capability selected for the app's Age Rating is inconsistent with the content of the
+> app. Since the app includes advertising, you must select "Yes" for "Advertising".
+
+**원인**: 8/19 에 UC 광고를 켜면서 App Privacy(기기 ID·추적)는 갱신했는데
+**앱 정보 → 연령 등급 → 「광고」 토글은 안 건드렸다.** 두 화면은 완전히 별개다.
+이 체크리스트에도 「ASC 추적/연령등급 광고=예」라고 한 줄로 뭉뚱그려 있어서 반쪽만 실행됐다.
+
+**세 앱 동시 점검이 결정적이었다** (API 한 번으로 확인):
+| 앱 | 조치 전 | 조치 후 |
+|---|---|---|
+| SIGNUM | True | True (원래 정상 — 그래서 통과했다) |
+| UC 1.0.3 | **False** → 반려 | True |
+| **WIM 1.0.1 (심사 «대기 중»)** | **False** | True — **같은 반려를 사전 차단** |
+
+→ 하나가 걸리면 «형제 앱 전부»를 같은 눈으로 볼 것. WIM 은 아직 광고 유닛도 안 붙였지만
+   바이너리에 AdMob 이 들어 있고 Play 에는 이미 광고=예로 신고했으므로 예가 맞다.

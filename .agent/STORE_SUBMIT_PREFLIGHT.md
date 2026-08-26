@@ -28,11 +28,25 @@
          선택값을 대상 앱 CSV 에 이식(삭제 URL 만 교체) → Import from CSV
          ※ 확장 업로드는 «세션이 읽을 수 있는 경로»만 된다 → 스크래치패드로 복사
 
-**App Store Connect**
+**App Store Connect — 세 곳이다. 개인정보만 고치면 반려된다**
 - [ ] 앱이 수집하는 개인정보 → 기기 ID = 타사 광고 / **추적 목적으로 사용됨 = 예**
       ⚠️ 안 하면 제출 API 가 `STATE_ERROR.BINARY_INDICATES_APP_TRACKS_USERS` 로 거부한다
       ⚠️ **ASC API 에 이 쓰기 경로는 없다.** 웹 UI 로 해야 한다
 - [ ] 광고 데이터 = 타사 광고 / 추적 = 예
+- [ ] **★ 앱 정보 → 연령 등급 → 1단계 「광고」 = 예**
+      ⚠️ **2026-08-26 UC 1.0.3 이 정확히 이것 하나로 반려됐다.**
+      `Guideline 2.3.6 — The capability selected for the app's Age Rating is inconsistent
+       with the content of the app. Since the app includes advertising, you must select
+       "Yes" for "Advertising".`
+      개인정보(추적)와 **별개 화면**이다. 8/19 UC 광고를 켤 때 개인정보만 고치고 여기를 빠뜨렸다.
+      확인법(추측 말고 API 로):
+      ```
+      GET /v1/apps/{id}/appInfos → 각 appInfo 의 /ageRatingDeclaration → advertising
+      ```
+      **세 앱을 한 번에 조회할 것.** 그날 SIGNUM 은 True 인데 UC·WIM 은 False 였고,
+      WIM 은 그 상태로 심사 대기 중이라 같은 반려를 맞기 직전이었다.
+      ※ 연령 등급을 고친 직후에는 재제출이 «Version is not ready to be submitted yet» 로
+        막힌다. 애플 쪽 전파 대기이니 몇 분 뒤 다시 누르면 된다.
 
 **웹(코드)**
 - [ ] `src/config/admob.ts` → `REAL_UNIT_IDS.<app>` 연결 — **스토어 라이브 «후»에**
