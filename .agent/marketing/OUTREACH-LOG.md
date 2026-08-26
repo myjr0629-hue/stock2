@@ -1053,3 +1053,11 @@ DELL 콜 $11.2M vs 풋 $7.3M(총 $18.5M), 주가 +4.5% — 확인 신호가 나�
 "Your post was sent" 확인됨.
 
 **UC 1.0.3·WIM 1.0.1 심사 상태:** 둘 다 WAITING_FOR_REVIEW 정상 유지(appInfo 이슈 해결 후). StockTwits 계속 중단.
+
+## 2026-08-27 13차 — X CRWD 실적 스레드 답글
+- 대상: x.com/HedgeMind/status/2092759296576794776 ($CRWD Q2 FY27 실적 발표 스레드, 팔로워 다수 계정, 발견 시 558뷰→게시 시점 948뷰로 급증 중인 신선한 스레드)
+- 계정: @signumhq (미국 계정, x_us 태그)
+- 내용: 실데이터 옵션플로우 스크린샷(`make-x-shot.js signum en flow CRWD`) + 텍스트 "Options flow into the print: $CRWD total premium $8.1M, call dominant, max pain $195, VWAP $192.99. Post-earnings the stock is running to $208.40 (+10.16%)." + signumhq.com/app?from=x_us
+- ⚠️ 품질 노트: 처음엔 실적발표 기준 +12.46%/$29.9M(POST 세션 API 실측치)로 텍스트를 썼으나, 스크린샷 팩토리는 정규장 마감 시점 데이터($189.18/+2.05%/총프리미엄 $8.1M, POST 박스는 $208.40/+10.16%만 별도 표시)로 렌더링돼 텍스트-이미지 숫자가 어긋남을 발견 → 게시 전 스크린샷에 실제 찍힌 숫자로 텍스트를 다시 맞춰 일치시킨 후 게시. **텍스트는 반드시 스크린샷에 실제 보이는 숫자와 일치시킬 것**(스크린샷 팩토리가 애프터마켓 전체 플로우가 아니라 정규장 마감 기준 렌더링하는 경우가 있음).
+- 결과: "Your post was sent" 확인.
+- UC 1.0.3 · WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 안정 상태, 반려 없음.
