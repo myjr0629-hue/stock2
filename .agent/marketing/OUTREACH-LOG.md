@@ -1009,3 +1009,11 @@ $CRM 총 프리미엄 $22.7M, 콜 $13.7M vs 풋 $9.0M.
 $MRVL 총 프리미엄 $28.2M, 콜 $21.9M vs 풋 $6.3M(~3.5배), 주가 +5%.
 스크린샷(mrvl-shot.png) + `signumhq.com/app?from=x_us`.
 "Your post was sent" 확인됨. StockTwits 계속 중단 상태. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 16차 — X 미국 계정(@signumhq) 8번째 답글 (x_us)
+@doughboysfn — 사이버보안 섹터 CRWD/OKTA/PANW 스레드(196 뷰, 32분 전)에 실데이터로 보강:
+$PANW 콜 $8.2M vs 풋 $2.0M(~4배, 총 $10.2M), 주가 +4.1%.
+스크린샷(panw-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨. StockTwits 계속 중단. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+**신규 채널 조사(이번 사이클):** Startup Fame — Google OAuth(팝업)/이메일 매직링크뿐, 둘 다 자동화 불가 → BLOCKED, 대표 전용.
