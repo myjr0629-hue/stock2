@@ -82,3 +82,8 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 - Login: GitHub OAuth (same-tab redirect, expected to work like StartupRanking)
 - Result: "Authorize johnrushx" button on GitHub's consent screen does not respond to automated clicks (tried coordinate click + ref click + page reload + retry, ~5 attempts) — likely bot-detection guard on this specific OAuth app's consent flow, unlike StartupRanking's GitHub OAuth which worked.
 - Status: reserved for 대표 (needs a real human click) — noted in ~/Desktop/★대표님 할일 폴더 candidate list, or skip.
+
+## Indie Hackers — 진행 중 (2026-08-26)
+- 가입 흐름: 유저네임(SignumHQ) → 단계별 프로필 질문(비즈니스 단계·코딩 여부·관심분야) → **생일(필수)·위치(필수)** 요구.
+- OAuth 옵션 없음(이메일/비번만, 소셜로그인 미제공) — 생일은 실제 개인정보라 임의로 지어내지 않고 여기서 중단.
+- Status: 대표가 실제 생일/이메일로 완료하거나 스킵 판단.
