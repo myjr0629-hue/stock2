@@ -982,3 +982,11 @@ DELL 콜 $7.6M vs 풋 $5.0M, 주가 +2.25% — 모멘텀을 플로우가 뒷받�
 풋 $535K vs 콜 $186K(총 -$349K 넷프리미엄, 풋 우세) — 중립적 사실 서술로(그의 매수 방향과 반대되는 데이터라 "당신 편"식 프레이밍 피하고 순수 컨텍스트로 정정 후 게시).
 스크린샷(snap-shot.png) + `signumhq.com/app?from=x_us`.
 "Your post was sent" 확인됨. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 12차 — ⚠️ StockTwits 계정 제재 감지 — StockTwits 게시 즉시 중단
+NFLX 게시판 포스팅 직후("Idea has been posted" 토스트는 확인됨) 다음 배너가 지속 표시됨:
+"Due to a violation of our House Rules some actions have been restricted. These actions have been restricted indefinitely. Please contact support@stocktwits.com if you believe this to be a mistake"
+추정 원인: 오늘 10여개 게시판에 25분 간격 연속 게시 패턴이 스팸/봇 탐지에 걸렸을 가능성.
+`~/Desktop/★대표님 할일 2026-08-27/StockTwits 계정 제재 확인 필요.md` 에 확인 요청 남김.
+**이후 사이클부터 StockTwits 신규 게시 중단, X(미국/일본 계정) 아웃리치만 계속.**
+UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
