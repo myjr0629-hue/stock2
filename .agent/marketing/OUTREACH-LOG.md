@@ -949,3 +949,9 @@ $SPY 풋 $57.4M > 콜 $27.0M(총 $84.4M) — 트레이더의 풋 방향과 일�
 가격-플로우 일치 훅: 주가 +1.96% + 콜 $9.4M > 풋 $3.1M — 콜쪽 플로우가 상승을 뒷받침.
 스크린샷 첨부(orcl-shot.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 6차 — X 미국 계정(@signumhq) 3번째 답글 (x_us)
+@gabz_investing — DELL 모멘텀 시그널 정확성 글(607 노출, 44분 전)에 실데이터로 보강:
+DELL 콜 $7.6M vs 풋 $5.0M, 주가 +2.25% — 모멘텀을 플로우가 뒷받침.
+스크린샷(dell-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
