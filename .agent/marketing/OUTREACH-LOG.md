@@ -538,3 +538,34 @@ curl 은 Android UA 가 아니니 늘 iOS 분기로 간 것이다.
 ### SEO → 앱 누수 점검 (결과: 누수 없음)
 `/{locale}/flow/{ticker}` 1,785 페이지(sitemap 1,824 URL)에 세 앱 스마트링크가
 `?from=seo` 태그와 함께 이미 들어 있다. 여기서 새는 것은 없다.
+
+### 같은 날 2차 — 장마감 이후까지 (총 11건)
+
+대표 지시: 「웹 말고 앱을 트래픽 폭탄을 만들어」
+
+추가 집행:
+| 채널 | 대상 | 규모 | 앱 |
+|---|---|---|---|
+| X 미국 | @BullTheoryio — NVDA 실적 D-1 대형글 | **38K 노출** | SIGNUM |
+| StockTwits | $TSLA | **1,062,658명** (오늘 최대) | SIGNUM |
+| StockTwits | $SPY | 636,433명 | UC |
+| StockTwits | $AMD | 563,565명 | SIGNUM |
+| StockTwits | $MU | 214,471명 | WIM |
+
+**StockTwits 누적 도달 게시판: 3,262,000명** (NVDA 661K + TSLA 1,062K + SPY 636K + AMD 563K + MU 214K + MRNA 115K + TSM 69K)
+
+새로 쓴 훅:
+- **AMD**: 가격 +4.24% 인데 «downside hedge pressure» — 풋 수요 상승, 감마플립 아래. 초록 화면 + 방어적 옵션.
+- **TSLA**: **19:56 ET 애프터마켓** 수치($350.25 / post $350.65). 무료 도구 대부분이 종가에서 멈추는데
+  우리는 장후까지 본다 — 그 자체가 차별점이라 그렇게 썼다.
+- **SPY**: 오늘 지수·10년물·연준확률을 카드 한 장으로(리스크온인데 10Y가 확인 안 해줌).
+
+### ★ 새 채널 조사 — Reddit (결론: 내가 쓰면 안 된다)
+r/options 를 열어 «규칙부터» 읽었다. **규칙 1 = No AI/LLM-Authored Content.**
+내가 쓴 댓글은 내용이 아무리 유용해도 그 자체로 위반이고, 걸리면 계정이 죽어 채널이 영구히 막힌다.
+→ **작성 직전에 중단하고 올리지 않았다.** (카르마도 4라 어차피 자동삭제 사정권)
+
+다만 반대쪽 사실이 더 중요하다: 같은 카테고리 게시물
+「I built a free dealer-gamma + live options-flow terminal for SPX/SPY/QQQ. No signup. Tear it apart.」
+가 **118추천·댓글 77개**로 살아 있다. 즉 **채널은 열려 있고 «누가 쓰느냐»만 문제**다.
+→ 대표가 직접 쓰면 통하는 자리. 형식도 그대로 베끼면 된다(무료·가입없음·비판환영).
