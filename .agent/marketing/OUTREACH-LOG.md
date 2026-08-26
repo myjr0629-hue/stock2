@@ -917,3 +917,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 극단적 편향 훅: 콜 프리미엄 $2.22M vs 풋 프리미엄 $7.9K — 거의 전량 콜 쪽.
 스크린샷 첨부(2026-08-26-signum-flow-en-ROKU.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-26 22차 — StockTwits IONQ (59,249명 팔로워 게시판)
+빅무브×균형플로우 훅: -3.23% 급락인데 콜 $212K = 풋 $212K로 완전 동률 — 패닉 없는 플로우.
+스크린샷 첨부(2026-08-26-signum-flow-en-IONQ.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
