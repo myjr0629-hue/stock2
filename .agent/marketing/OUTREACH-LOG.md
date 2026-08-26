@@ -927,3 +927,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 결산 후 옵션플로우 훅: 총 $102.6M 프리미엄(콜 $57.6M vs 풋 $45.0M), 주가 -0.91~0.99%.
 스크린샷 첨부(signum-flow-en-NVDA.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨.
+
+## 2026-08-27 2차 — StockTwits MU (214,546명 팔로워 게시판)
+대형 콜우세 훅: 총 $89.4M 프리미엄(콜 $59.6M vs 풋 $29.8M), 주가 +1.12~1.18%.
+스크린샷 첨부(signum-flow-en-MU.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
