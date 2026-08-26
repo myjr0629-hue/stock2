@@ -20,7 +20,18 @@ interface ManualStats {
   updatedAt: number;
 }
 
-const CHANNELS = ['x_bio', 'x_reply', 'toss', 'stocktwits', 'reddit'];
+// ★ 여기 없는 태그는 «세어지지 않는다». 실제로 붙이는 태그와 반드시 일치시킬 것.
+//   (2026-08-26: 하루 12건을 붙이고 나서 보니 x_us·x_jp·seo 가 목록에 없어 전부 미집계였다.)
+//   정본 규약은 .agent/marketing/ATTRIBUTION-TAGS.md.
+const CHANNELS = [
+  'x_us', 'x_jp',            // X 답글 — 계정별로 나눠야 어느 시장이 먹히는지 보인다
+  'stocktwits',              // 종목 게시판
+  'reddit',                  // r/Daytrading Software Sunday 등
+  'seo',                     // /{locale}/flow/{ticker} 1,785 페이지에 이미 붙어 있다
+  'ph',                      // Product Hunt
+  'note',                    // note.com (일본)
+  'x_bio', 'x_reply', 'toss', // 기존 태그 — 과거 데이터 보존용
+];
 
 export async function GET() {
   const gate = await requireMktAdmin();
