@@ -990,3 +990,10 @@ NFLX 게시판 포스팅 직후("Idea has been posted" 토스트는 확인됨) �
 `~/Desktop/★대표님 할일 2026-08-27/StockTwits 계정 제재 확인 필요.md` 에 확인 요청 남김.
 **이후 사이클부터 StockTwits 신규 게시 중단, X(미국/일본 계정) 아웃리치만 계속.**
 UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 13차 — X 미국 계정(@signumhq) 5번째 답글 (x_us, StockTwits 대체)
+@BullTheoryio — NVDA 결산 서프라이즈+주가 반응 글(2,867 뷰, 5분 전)에 브로더 마켓(QQQ) 플로우로 보강:
+$QQQ 총 프리미엄 $83.8M, 콜 $56.5M vs 풋 $27.3M(~2배).
+스크린샷(qqq-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨. **StockTwits 제재로 이번부터 X만 사용.**
+UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
