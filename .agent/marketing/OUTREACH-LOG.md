@@ -1017,3 +1017,9 @@ $PANW 콜 $8.2M vs 풋 $2.0M(~4배, 총 $10.2M), 주가 +4.1%.
 "Your post was sent" 확인됨. StockTwits 계속 중단. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
 
 **신규 채널 조사(이번 사이클):** Startup Fame — Google OAuth(팝업)/이메일 매직링크뿐, 둘 다 자동화 불가 → BLOCKED, 대표 전용.
+
+## 2026-08-27 17차 — X 미국 계정(@signumhq) 9번째 답글 (x_us)
+@Bashir_Rzayev — NVDA→TSM 캐파 부족 논리 스레드(500 뷰, 44분 전)에 실데이터로 보강:
+$TSM 총 프리미엄 $8.8M, 콜 $5.9M vs 풋 $2.9M, 주가 +1.6%.
+스크린샷(tsm-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨. StockTwits 계속 중단. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
