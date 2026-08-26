@@ -856,3 +856,14 @@ X 는 계정의 «국적»이 아니라 «누가 쓰는 콘텐츠인가»만 본
 ### 다음에 시도할 것
 같은 원리로 **일본 계정에서 영어 답글**도 가능하다(현재 미국 계정 막혀 있는 동안의 임시 우회).
 단, 프로필이 "SIGNUM HQ Japan" 이라 영어권 첫 방문자에게는 약간 어색할 수 있음 — 신뢰도 대비 판단 필요.
+
+## 2026-08-26 13차 — $GOOGL (미공략, 227,055명) · 누적 21건
+
+또 하나의 심리-데이터 대비: 게시판 「Extremely Bearish 23」인데
+RSI 32.3(기술적 과매도) + 콜 우세 플로우 High Conviction. 「Cool momentum, warm positioning」으로 요약.
+감마플립 $350(가격 위) · 맥스페인 $343(1.30% 아래). `signumhq.com/app?from=stocktwits`
+
+### 오늘 누적 (StockTwits 도달 약 605만 명, 게시판 12곳 + X 5건)
+TSLA 106만 · AAPL 99만 · NVDA 66만 · META 61만 · SPY 64만 · AMD 56만 · MSFT 55만 ·
+**GOOGL 23만** · PLTR 32만 · QQQ 28만 · MU 21만 · MRNA 12만 · TSM 7만
+X: 미국 4건 · 일본 4건 · **한국(x_kr, 신규) 1건**
