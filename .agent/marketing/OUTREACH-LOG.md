@@ -955,3 +955,8 @@ $SPY 풋 $57.4M > 콜 $27.0M(총 $84.4M) — 트레이더의 풋 방향과 일�
 DELL 콜 $7.6M vs 풋 $5.0M, 주가 +2.25% — 모멘텀을 플로우가 뒷받침.
 스크린샷(dell-shot.png) + `signumhq.com/app?from=x_us`.
 "Your post was sent" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 7차 — StockTwits HOOD (100,099명 팔로워 게시판)
+가격-플로우 다이버전스 훅: 주가 -2.70% 인데 콜 $4.6M > 풋 $2.9M — 하락 확신 없는 플로우.
+스크린샷 첨부(hood-shot.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
