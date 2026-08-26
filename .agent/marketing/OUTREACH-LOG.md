@@ -971,3 +971,8 @@ DELL 콜 $7.6M vs 풋 $5.0M, 주가 +2.25% — 모멘텀을 플로우가 뒷받�
 가격-플로우 강한 다이버전스 훅: 주가 -1.84% 인데 콜 $32.9M vs 풋 $3.6M(9배 콜 우세).
 스크린샷 첨부(gs-shot.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 10차 — StockTwits MSFT (546,683명 팔로워 게시판)
+가격-플로우 일치 훅: 주가 +0.85% + 콜 $19.8M vs 풋 $3.8M(5배 콜 우세).
+스크린샷 첨부(msft-shot.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
