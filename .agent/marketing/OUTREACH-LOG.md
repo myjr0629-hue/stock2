@@ -1045,3 +1045,11 @@ API로 반려된 쪽 appInfo(4eeac5e4-6418-4ec3-9a19-2c917276ae33) 재확인 →
 4) submitted:true → WAITING_FOR_REVIEW 확인됨
 
 **교훈:** 앱마다 appInfo가 여러 개(버전별) 존재할 수 있음 — 다음부터는 appVersionState까지 같이 확인해서 올바른 appInfo를 골라야 함.
+
+## 2026-08-27 19차 — X 미국 계정(@signumhq) 11번째 답글 (x_us)
+@SniperAlphaCom — DELL "가격이 스토리를 확인해주길 기다린다"는 스레드(26뷰, 1시간 전)에 실데이터로 보강:
+DELL 콜 $11.2M vs 풋 $7.3M(총 $18.5M), 주가 +4.5% — 확인 신호가 나타났음을 지적.
+스크린샷(dell-shot2.png) + `signumhq.com/app-uc?from=x_us` 아 아니 `/app?from=x_us` 사용.
+"Your post was sent" 확인됨.
+
+**UC 1.0.3·WIM 1.0.1 심사 상태:** 둘 다 WAITING_FOR_REVIEW 정상 유지(appInfo 이슈 해결 후). StockTwits 계속 중단.
