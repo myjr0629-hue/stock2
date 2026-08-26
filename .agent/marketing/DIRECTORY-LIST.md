@@ -42,9 +42,9 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 | **Startup Buffer** | 42 | 57K | |
 | **Startup Fame** | 49 | 5.2K | |
 | **OpenHunts** | 37 | 48K | |
-| **PeerPush** | 47 | - | 커뮤니티 기반 |
+| **PeerPush** | 47 | - | ⛔ 로그인이 «이메일 6자리 코드» 또는 구글뿐. 회사 메일함 접근이 없어 코드를 못 읽는다 → 대표 |
 | **Make.rs** | 29 | 2.2K | |
-| **SideProjectors** | 48 | 53K | |
+| ~~SideProjectors~~ | 48 | 53K | ✂️ **대상 아님.** 사이드 프로젝트를 «사고파는» 마켓플레이스다. 라이브 앱을 올리면 매물로 읽힌다 |
 | **AppRater** | 14 | 11.3K | **앱 평가** — 리뷰 0인 우리에게 의미 |
 | **Website Hunt** | 21 | 56K | |
 | **Tool Battles** | 11 | 100 | |
