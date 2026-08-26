@@ -80,3 +80,34 @@
 - [ ] 시뮬레이터 배너의 "Test mode" 라벨은 **정상**이다(구글이 시뮬을 자동 테스트기기로 등록).
       실기기에 뜨면 그때가 버그
 - [ ] 커밋 전 `git status` 를 눈으로 본다. 무관한 파일은 경로 명시로만 add
+
+---
+
+## 3. 반려된 버전을 다시 제출하는 법 (2026-08-26 실측)
+
+고쳐도 재제출이 이렇게 막힌다:
+```
+STATE_ERROR — Version is not ready to be submitted yet, please try again later.
+```
+**이건 «기다리라»는 뜻이 아니다.** 40분을 기다려도 그대로였다. 진짜 원인은:
+
+> 반려된 버전이 **기존 reviewSubmission 에 묶여 있어서** 다시 제출되지 않는다.
+
+새 제출을 만들어 항목을 넣어 보면 진짜 사유가 나온다:
+```
+appStoreVersions with id ... was already added to another reviewSubmission with id <OLD>
+```
+
+### 절차 (ASC API, 웹 버튼은 비활성이라 안 된다)
+```
+1) GET  /v1/reviewSubmissions/{OLD}/items          → item id 확보
+2) PATCH /v1/reviewSubmissionItems/{ITEM}          {"attributes":{"removed":true}}
+3) POST /v1/reviewSubmissions                      {app, platform:IOS}      → NEW
+4) POST /v1/reviewSubmissionItems                  {reviewSubmission:NEW, appStoreVersion:V}
+5) PATCH /v1/reviewSubmissions/{NEW}               {"attributes":{"submitted":true}}
+```
+확인: `GET /v1/apps/{id}/appStoreVersions` 가 `WAITING_FOR_REVIEW` 여야 하고
+옛 제출은 `COMPLETE` 로 정리된다.
+
+⚠️ 3번을 먼저 하고 4번에서 실패하면 **빈 제출이 하나 남는다.** 그대로 두고 항목만 옮기면 된다
+   (오늘 그렇게 처리했다 — 61d13d77 이 그 빈 제출이었고 결국 여기로 제출됐다).

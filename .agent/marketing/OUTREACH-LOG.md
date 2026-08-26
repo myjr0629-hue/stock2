@@ -781,3 +781,10 @@ NASDAQ 26,151 +0.7% · Dow 53,577 +0.3% · 10Y −4bp 4.70% · 연준 동결 60%
 오늘 기사 분류 **5 bullish / 4 cautious / 4 diverging** 을 훅으로 썼다 —
 「diverging 이 이 앱의 존재 이유」라는 프레임.
 `signumhq.com/app-uc?from=stocktwits`
+
+### UC 1.0.3 재제출 완료 (사이클 8)
+「Version is not ready to be submitted yet」는 **대기 메시지가 아니었다.**
+반려된 버전이 **옛 reviewSubmission 에 묶여** 있었던 것이고, 새 제출에 넣어 보니
+`was already added to another reviewSubmission` 이라는 진짜 사유가 나왔다.
+→ 옛 항목 `removed:true` → 새 제출에 버전 추가 → submit.
+**결과: UC 1.0.3 = WAITING_FOR_REVIEW, 옛 제출 = COMPLETE.** 절차는 프리플라이트 §3 에 기록.
