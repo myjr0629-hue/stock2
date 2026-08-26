@@ -1023,3 +1023,12 @@ $PANW 콜 $8.2M vs 풋 $2.0M(~4배, 총 $10.2M), 주가 +4.1%.
 $TSM 총 프리미엄 $8.8M, 콜 $5.9M vs 풋 $2.9M, 주가 +1.6%.
 스크린샷(tsm-shot.png) + `signumhq.com/app?from=x_us`.
 "Your post was sent" 확인됨. StockTwits 계속 중단. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 18차 — X 미국 계정(@signumhq) 10번째 답글 (x_us)
+@iWatchUSleeeep — XOM "relief bounce" 기술적분석 글(32뷰, 22분 전)에 실데이터로 보강:
+$XOM 콜 $4.2M vs 풋 $0.6M(~7.4배), 주가 -1.4%임에도 콜 압도 — 바운스 논지를 플로우가 뒷받침.
+스크린샷(xom-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨.
+
+**⚠️ 대표가 UC 1.0.3 반려 확인 이메일 전달함** — 상세 내용은 App Store Connect "앱 심사 문제 및 메시지 보기" 링크에서 확인 필요(첨부 스크린샷엔 헤더만 보임, 구체 반려 사유 텍스트는 없음). 대표에게 해당 링크를 열어 실제 사유 텍스트를 받아야 원인분석 가능.
+StockTwits 계속 중단. WIM 1.0.1 WAITING_FOR_REVIEW 유지.
