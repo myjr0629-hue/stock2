@@ -22,6 +22,18 @@
 | **Uptodown** | 구글(myjr0629) | ✅ UC·WIM 심사중 | 월 1억+ 사용자. SIGNUM 만 남음(아래) |
 | **AlternativeTo** | 있음 | ✅ 3앱 등재 | 무료 심사 대기(수개월) |
 
+### ★ r/Daytrading «Software Sunday» — 규칙이 허용하는 자기홍보 자리 (2026-08-26 발견)
+
+32만 명. **일요일에 `Software Sunday: <도구 이름>` 제목으로 «자기 도구»를 게시하는 것이 관례이자 허용**이다.
+실제 생존 사례: 「Software Sunday: PortCall — personalized market radio for day traders」(댓글 6),
+「Software Sunday: news and insider trades in your terminal」. 카르마 게이트를 우회하는 정식 통로다.
+
+- **다음 실행일: 2026-08-30(일)**. 요일을 어기면 지워진다(관측: 8/16·8/23 전부 일요일).
+- 형식은 r/options 에서 118추천 받은 글과 같다: **무료 · 가입 없음 · 마음껏 비판해달라**.
+- 계정: `u/SignumHQ` 그대로 쓴다. **새 계정 만들지 말 것** — 카르마 0·나이 0 은 지금(4·4개월)보다
+  더 걸러지고, 홍보용 다중계정은 IP 단위 차단으로 기존 계정까지 잃는다.
+- `myjr0629@gmail.com` 구글 로그인 = `u/SignumHQ` 다. 별도 개인 Reddit 계정이 아니다(2026-08-26 확인).
+
 ## 막힌 곳 (이유까지)
 
 | 채널 | 막힌 이유 | 풀려면 |
