@@ -944,3 +944,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 $SPY 풋 $57.4M > 콜 $27.0M(총 $84.4M) — 트레이더의 풋 방향과 일치.
 스크린샷(spy-shot.png) + `signumhq.com/app?from=x_us`.
 "Your post was sent" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 5차 — StockTwits ORCL (68,826명 팔로워 게시판)
+가격-플로우 일치 훅: 주가 +1.96% + 콜 $9.4M > 풋 $3.1M — 콜쪽 플로우가 상승을 뒷받침.
+스크린샷 첨부(orcl-shot.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
