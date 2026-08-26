@@ -887,3 +887,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 프리마켓 옵션플로우: put $8.4M > call $5.5M, 총 $13.8M. 팩트만 서술(예측 프레이밍 없음).
 스크린샷 첨부(2026-08-26-signum-flow-en-AVGO.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨.
+
+## 2026-08-26 16차 — StockTwits COIN (138,297명 팔로워 게시판)
+가격-플로우 다이버전스 훅: 주가 -0.81% 인데 콜 프리미엄 $19.4M vs 풋 $5.2M(콜이 풋의 ~3.7배) 프리마켓.
+스크린샷 첨부(2026-08-26-signum-flow-en-COIN.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
