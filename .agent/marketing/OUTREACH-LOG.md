@@ -966,3 +966,8 @@ DELL 콜 $7.6M vs 풋 $5.0M, 주가 +2.25% — 모멘텀을 플로우가 뒷받�
 실제 반려 사유(Resolution Center 메시지)는 App Store Connect API로 노출 안 됨 — 웹 로그인 2FA 필요해 내가 직접 못 봄.
 `~/Desktop/★대표님 할일 2026-08-27/UC 1.0.3 반려 확인 필요.md` 에 즉시 확인 요청 남김.
 이번 사이클 새 아웃리치는 생략하고 이 알림을 우선함. WIM 1.0.1은 여전히 WAITING_FOR_REVIEW.
+
+## 2026-08-27 9차 — StockTwits GS (34,219명 팔로워 게시판)
+가격-플로우 강한 다이버전스 훅: 주가 -1.84% 인데 콜 $32.9M vs 풋 $3.6M(9배 콜 우세).
+스크린샷 첨부(gs-shot.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
