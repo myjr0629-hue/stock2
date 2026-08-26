@@ -938,3 +938,9 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 @SemiconductorsX(HBM 공급부족 분석, 게시 25초 전 신선한 글)에 MU 실데이터로 보강 답글:
 총 프리미엄 $89M(콜 $59.6M vs 풋 $29.8M, 콜 2배 우세) + 스크린샷(mu-shot.png) + `signumhq.com/app?from=x_us`.
 "Your post was sent" 확인됨.
+
+## 2026-08-27 4차 — X 미국 계정(@signumhq) 2번째 답글 (x_us)
+@TrdeToScale — $SPY 765p 트레이드 실현(+60%, $84→$136) 신선한 글(1분 전)에 실데이터로 보강:
+$SPY 풋 $57.4M > 콜 $27.0M(총 $84.4M) — 트레이더의 풋 방향과 일치.
+스크린샷(spy-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
