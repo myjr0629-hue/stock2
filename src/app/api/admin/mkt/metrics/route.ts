@@ -31,6 +31,8 @@ const CHANNELS = [
   'ph',                      // Product Hunt
   'note',                    // note.com (일본)
   'x_en', 'x_ja', 'bsky', 'stwits', // 자동 파이프라인(autopilot.ts landingFor)이 쓰는 태그
+  'x_kr', // 2026-08-26: 계정 국적(JP)과 무관하게 한국어 청중을 겨냥한 답글에 쓴다.
+          // «어느 계정으로 올렸나»가 아니라 «어느 시장을 겨냥했나»로 태그한다.
   'x_bio', 'x_reply', 'toss', // 기존 태그 — 과거 데이터 보존용
 ];
 

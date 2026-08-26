@@ -16,7 +16,10 @@
 | 태그 | 어디 |
 |---|---|
 | `x_us` | X 미국 @signumhq 답글 |
-| `x_jp` | X 일본 @signumhq_jp 답글 |
+| `x_jp` | X 일본 @signumhq_jp 답글 (일본어 청중) |
+| `x_kr` | 한국어 청중을 겨냥한 답글. **계정 국적이 아니라 청중 시장 기준** —
+          일본 계정(@signumhq_jp)으로 한국어 답글을 달아도 `x_kr` 을 쓴다.
+          X 콘텐츠 언어는 로그인 계정과 무관하게 자유롭다(2026-08-26 실측) |
 | `stocktwits` | StockTwits 종목 게시판 |
 | `reddit` | Reddit (r/Daytrading Software Sunday 등) |
 | `seo` | `/{locale}/flow/{ticker}` — 사이트가 이미 자동으로 붙인다 |
