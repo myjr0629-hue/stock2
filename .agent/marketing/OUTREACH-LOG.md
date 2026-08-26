@@ -902,3 +902,8 @@ StockTwits 12곳 약 605만 명 · X 미국 4건 · X 일본 5건 · X 한국(x_
 총 프리미엄 $138.4M(콜 $85.2M vs 풋 $53.1M) — 오늘 훅 중 최대 액수.
 스크린샷 첨부(2026-08-26-signum-flow-en-AMZN.png) + `signumhq.com/app?from=stwits`.
 "Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-26 19차 — StockTwits PLTR (324,507명 팔로워 게시판)
+가격-플로우 확인 훅: -1.27% 하락 + 풋 프리미엄 $22.9M > 콜 $19.8M($42.7M 총) — 플로우가 테이프와 일치.
+스크린샷 첨부(2026-08-26-signum-flow-en-PLTR.png) + `signumhq.com/app?from=stwits`.
+"Idea has been posted" 확인됨. UC 1.0.3·WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 유지.
