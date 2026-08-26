@@ -997,3 +997,9 @@ $QQQ 총 프리미엄 $83.8M, 콜 $56.5M vs 풋 $27.3M(~2배).
 스크린샷(qqq-shot.png) + `signumhq.com/app?from=x_us`.
 "Your post was sent" 확인됨. **StockTwits 제재로 이번부터 X만 사용.**
 UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
+
+## 2026-08-27 14차 — X 미국 계정(@signumhq) 6번째 답글 (x_us)
+@Djangoku_ — CRM 결산 서프라이즈(+11.96%, BPA 5.90 vs 3.27 예상) 프랑스어 트윗(1분 전)에 실데이터로 보강:
+$CRM 총 프리미엄 $22.7M, 콜 $13.7M vs 풋 $9.0M.
+스크린샷(crm-shot.png) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨. StockTwits 계속 중단 상태. UC 1.0.3 여전히 REJECTED(대표 확인 대기), WIM 1.0.1 WAITING_FOR_REVIEW 유지.
