@@ -30,6 +30,7 @@ const CHANNELS = [
   'seo',                     // /{locale}/flow/{ticker} 1,785 페이지에 이미 붙어 있다
   'ph',                      // Product Hunt
   'note',                    // note.com (일본)
+  'x_en', 'x_ja', 'bsky', 'stwits', // 자동 파이프라인(autopilot.ts landingFor)이 쓰는 태그
   'x_bio', 'x_reply', 'toss', // 기존 태그 — 과거 데이터 보존용
 ];
 

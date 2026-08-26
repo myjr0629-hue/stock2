@@ -57,17 +57,26 @@ function ogCardUrl(ticker: string, lv: Levels, lang: 'en' | 'ja' = 'en', theme =
 
 /**
  * ★ 2026-08-20 신설 — 포스트에 «갈 곳»을 붙인다.
+ *   그전까지 이 파이프라인은 링크를 «금지»했다(generate.ts 린트가 링크 0을 강제).
+ *   그 결과 182개 글을 올려 팔로워 2명, 클릭 경로 0.
  *
- * 그전까지 이 파이프라인은 링크를 «금지»했다(generate.ts 린트가 링크 0을 강제).
- * 그 결과 182개 글을 올려 팔로워 2명, 클릭 경로 0. 광고를 켜 놓고도 유입이 없던
- * 직접 원인이 이것이다. 이제 채널마다 하나씩 붙이되:
- *   · 스토어 링크가 아니라 «해당 티커의 실제 화면»으로 보낸다 — 사람이 즉시 값을 본다
- *   · from= 파라미터로 채널을 구분한다. 이게 있어야 나중에 «X가 0인지»를 사실로 말할 수 있다
- *   · 앱이 아니라 웹 화면이라 로그인·설치 없이 열린다(이탈이 가장 적은 지점)
+ * ★ 2026-08-26 목적지 변경 — 웹 화면 → **앱 스마트링크**.
+ *   8/20 판단은 「설치 없이 열려서 이탈이 가장 적다」였고 그 자체는 틀리지 않다.
+ *   그런데 이 회사의 목표는 «웹 방문»이 아니라 «앱 설치»다. 대표가 반복해서 지적했다.
+ *   웹으로 보내면 이탈은 적지만 설치는 한 건도 안 생기고, 무엇보다
+ *   **Play install referrer 가 안 실려서 «어느 채널이 설치를 만들었는지»를 영영 못 센다.**
+ *   `/app`·`/app-uc`·`/app-wim` 는 UA 로 분기하는 스마트링크라
+ *   안드로이드 → Play(+install referrer), iOS/데스크톱 → App Store 로 간다.
+ *   ⚠️ curl 로 테스트하면 항상 App Store 로 가서 «iOS 전용»으로 오판한다.
+ *      반드시 `curl -A "...Android..."` 로 볼 것.
+ *   from= 태그 정본은 .agent/marketing/ATTRIBUTION-TAGS.md — 여기 태그를 바꾸면
+ *   집계 배열(src/app/api/admin/mkt/metrics/route.ts)도 같이 바꿔야 한다.
  */
 function landingFor(ch: string, ticker: string, lang: 'en' | 'ja' | 'ko'): string {
   const from = { 'x-us': 'x_en', 'x-jp': 'x_ja', bluesky: 'bsky', stocktwits: 'stwits' }[ch] || ch;
-  return `${SITE}/${lang}/flow/${ticker}?from=${from}`;
+  // 이 파이프라인이 다루는 소재는 티커 플로우 = SIGNUM 이다. UC/WIM 은 각자 링크를 쓴다.
+  void ticker; void lang;
+  return `${SITE}/app?from=${from}`;
 }
 
 // ---- 분산 발행 페이서 -------------------------------------------------------
