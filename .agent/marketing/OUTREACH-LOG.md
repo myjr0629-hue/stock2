@@ -758,3 +758,26 @@ StartupRanking(DS 71, 월 129K)은 소셜 로그인만 받는다: Google / Faceb
 
 그리고 **DS·트래픽보다 «맞는 카테고리»가 먼저다.** SideProjectors 는 DS 48 로 나쁘지 않지만
 성격이 달라 올리면 손해다. AI 툴 디렉터리 30여 곳을 제외한 것과 같은 이유.
+
+---
+
+## 2026-08-26 9차 (루프 사이클 7) — UC 반려 대응 + $QQQ
+
+### ★ UC 1.0.3 반려 처리 (홍보보다 우선했다)
+반려 사유는 **Guideline 2.3.6 딱 하나**: 연령 등급의 「광고」가 «아니오» 였다.
+8/19 광고를 켤 때 App Privacy(추적)만 고치고 **연령 등급은 별개 화면인데 안 건드렸다.**
+
+- UC 연령 등급 → 광고 = 예 ✅ (API 로 `advertising=True` 확인)
+- **세 앱 동시 점검이 결정적**: SIGNUM True(정상), UC False(반려), **WIM False(심사 대기 중)**
+  → WIM 도 같이 True 로 바꿔 **같은 반려를 사전 차단**
+- 재제출은 **아직 막혀 있다**: API·웹 버튼 모두
+  `STATE_ERROR — Version is not ready to be submitted yet, please try again later`
+  버전 자체는 완전하다(빌드 5 연결, en/ja/ko 전부 작성 완료) → **애플 쪽 전파 대기**
+  → 다음 사이클 최우선으로 재시도
+
+### 게시 — $QQQ (미공략, 278,811명)
+오늘 **Morning edition** 을 새로 찍어 사용. NVDA 실적 대기장이라 매크로 카드가 맞았다:
+NASDAQ 26,151 +0.7% · Dow 53,577 +0.3% · 10Y −4bp 4.70% · 연준 동결 60% · 공포탐욕 59.
+오늘 기사 분류 **5 bullish / 4 cautious / 4 diverging** 을 훅으로 썼다 —
+「diverging 이 이 앱의 존재 이유」라는 프레임.
+`signumhq.com/app-uc?from=stocktwits`
