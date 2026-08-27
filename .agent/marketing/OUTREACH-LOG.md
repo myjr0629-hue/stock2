@@ -1108,3 +1108,22 @@ $NVDA 실적발표 후 +4.71%로 $219.53까지, 총 프리미엄 $54.9M 콜 우�
 **신규 채널 조사(이번 사이클):** 10words.io — 이메일/비번 계정 생성 필요해 BLOCKED(비밀번호 생성은 금지 행동), Startup Stash — B2B SaaS 디렉터리라 카테고리 불일치로 제외, Website Hunt — 계정+유료 가능성으로 BLOCKED. 셋 다 대표 전용으로 기록.
 
 UC 1.0.3 · WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 안정 상태, 반려 없음.
+
+## 2026-08-27 24차 — 대표 직접 가입한 신규 채널 2곳 3앱 전부 제출 완료
+대표가 WebsiteHunt·10words.io 두 곳에 myjr0629@gmail.com으로 직접 가입 완료 → 로그인 세션 이어받아 등재 작업 진행.
+
+**WebsiteHunt (websitehunt.co) — 3앱 전부 무료 제출 완료**
+- SIGNUM HQ: Finance 카테고리, 로고+실플로우 스크린샷 첨부, `signumhq.com/app?from=websitehunt`
+- Undercurrent: Finance/News, `signumhq.com/app-uc?from=websitehunt`
+- Why'd It Move?: Education/Finance, `signumhq.com/app-wim?from=websitehunt`
+- 매 제출 후 €9 "Fast Track" 유료 옵션이 뜨지만 전부 스킵(무료 큐만 이용)
+
+**10words.io — 3앱 전부 무료 제출 완료**
+- SIGNUM HQ, Undercurrent, Why'd It Move — Mobile App 카테고리, 각각 `?from=10words` 태그
+- 무료 큐 예상 노출까지 "2,318일" 표시(사실상 죽은 큐)지만 유료("Skip the line") 결제 없이 무료 제출만 진행
+- 이름 필드는 "부가 단어 넣으면 반려" 규칙이 있어 WIM은 "Why'd It Move"로만 입력(부제 생략)
+
+## 2026-08-27 25차 — X 미국 계정(@signumhq) 16번째 답글 (x_us)
+@Arata_cr_SiM65 — "NVIDIA 어디까지 갈 수 있나" 신선 트윗에 실데이터 답글(이전 사이클에 이미 게시, 로그 누락 보정): $NVDA 실적발표 후 +4.71%로 $219.53, 총 프리미엄 $54.9M 콜 우세. `signumhq.com/app?from=x_us`. "Your post was sent" 확인.
+
+UC 1.0.3 · WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 안정 상태, 반려 없음.
