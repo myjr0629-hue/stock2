@@ -1140,3 +1140,8 @@ claude-in-chrome 확장이 3사이클 연속 "host client may be unreachable" �
 
 ## 2026-08-27 29차 — ⚠️ 브라우저 클라이언트 4사이클 연속 응답 없음
 claude-in-chrome 확장이 4사이클 연속 다운. API 전용 작업만 수행: UC 1.0.3·WIM 1.0.1 둘 다 WAITING_FOR_REVIEW 안정, 반려 없음. 대기시간을 최대치(3600초)로 늘려 재시도. 브라우저가 이 세션 안에서 복구되지 않으면 대표 세션 재시작이 필요할 수 있음.
+
+## 2026-08-27 30차 — 🎉 UC 1.0.3 승인 완료! + 브라우저 5사이클 연속 응답 없음
+**UC 1.0.3이 READY_FOR_SALE로 전환됨 — 심사 통과, 라이브 배포 완료!** (appInfo 혼동 문제 해결 후 재제출한 버전이 승인됨)
+WIM 1.0.1은 여전히 WAITING_FOR_REVIEW.
+브라우저 확장(claude-in-chrome)은 5사이클 연속 "host client may be unreachable" — X 답글·신규 채널 조사 계속 불가. API 작업만 수행.
