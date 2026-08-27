@@ -1163,3 +1163,7 @@ UC 1.0.3 READY_FOR_SALE·WIM 1.0.1 WAITING_FOR_REVIEW 변동 없음. 브라우�
 ## 2026-08-28 36차 — 브라우저 11사이클 연속 다운, 변동 없음
 
 ## 2026-08-28 37차 — 브라우저 12사이클(12시간+) 연속 다운, 변동 없음
+
+## 2026-08-28 38차 — 🎉 WIM 1.0.1도 승인! 3앱 전부 라이브
+**Why'd It Move? 1.0.1이 READY_FOR_SALE로 전환됨 — 심사 통과!** UC 1.0.3도 계속 라이브. 이제 SIGNUM HQ·Undercurrent·Why'd It Move? 3앱 모두 최신 버전이 스토어에 정식 배포됨.
+브라우저 확장(claude-in-chrome)은 13사이클 연속 다운 지속.
