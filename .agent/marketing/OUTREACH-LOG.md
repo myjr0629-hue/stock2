@@ -1075,3 +1075,16 @@ $ANET 총 프리미엄 $2.7M, 콜 우세, 맥스페인 $190 vs 현재가 $202.25
 - UC/WIM도 다음 사이클에 같은 폼으로 추가 제출 가능(로그인 불필요라 반복 가능).
 
 UC 1.0.3 · WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 안정 상태, 반려 없음.
+
+## 2026-08-27 21차 — X 미국 계정(@signumhq) 13번째 답글 (x_us)
+@WillBiddy_ — "$META가 오늘 안 튄 게 의외였다"는 27초 전 신선한 트윗(법적 이슈보다 CAPEX 우려가 하방 압력의 원인이라는 분석)에 실데이터로 직접 답변:
+$META 총 프리미엄 $71.0M, 콜 우세, 현재가 $576.14(+1.07%), 맥스페인 $560 — 왜 급락하지 않고 버텼는지 플로우가 설명해줌.
+스크린샷(meta-shot.png, 게시 전 대조 완료) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨.
+
+**AppRater 추가 제출: Undercurrent — ✅ 완료**
+- ⚠️ 함정 발견: "Submit another app" 클릭 후 폼이 재렌더링되며 read_page의 ref 번호가 필드와 어긋나는 현상 발생(같은 ref가 다른 필드를 가리킴) — 좌표 클릭도 스크롤 위치가 매번 바뀌어 엉뚱한 필드에 타이핑됨. **해결: 매 제출 직후 read_page로 fresh ref를 다시 받고, form_input 실행 후 반드시 스크린샷으로 각 필드값을 육안 대조할 것.** 결과적으로 App name/URL/설명/태그/이름/이메일/X핸들 전부 올바르게 수정 확인 후 제출 완료("Undercurrent: News & Money gets posted again instead of once" 문구로 확인).
+- 유료 프로모션($35) 재노출됐으나 결제하지 않음.
+- WIM은 다음 사이클로 이월(같은 함정을 반복하지 않기 위해 이번 사이클은 여기서 마무리).
+
+UC 1.0.3 · WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 안정 상태, 반려 없음.
