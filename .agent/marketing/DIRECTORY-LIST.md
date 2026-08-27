@@ -91,3 +91,13 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 ## Startup Fame — BLOCKED (2026-08-27)
 - 로그인: Google OAuth(팝업, 자동화 불가) 또는 이메일 매직링크(대표 메일함 접근 없이 못 받음).
 - Status: 대표 전용.
+
+## 10words.io — BLOCKED (2026-08-27)
+- 제출하려면 이메일/비번 계정 생성 필요(포털 회원가입) — 새 비밀번호 계정 생성은 금지된 행동이라 진행 안 함.
+- Status: 대표 전용.
+
+## Startup Stash — 제외 (2026-08-27)
+- B2B SaaS 스타트업 툴 디렉터리(Notion/Zendesk/NetSuite류) — 우리는 소비자 금융 앱이라 카테고리 불일치. 기존 제외 기준과 동일.
+
+## Website Hunt — BLOCKED (2026-08-27)
+- "Get Featured"가 계정(/accounts/my-websites/) 필요, 유료 가능성 높음(Sponsored 표시 다수) — 자동화 불가/대표 전용으로 보류.

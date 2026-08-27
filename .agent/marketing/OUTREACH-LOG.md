@@ -1098,3 +1098,13 @@ $PLTR 총 프리미엄 $34.1M, 콜 우세, 현재가 $177.50(+2.76%), 맥스페�
 **AppRater 3앱 전부 제출 완료: SIGNUM HQ ✅ · Undercurrent ✅ · Why'd It Move?: Stock Quiz ✅**(오늘 세 사이클에 걸쳐 완료, 무료 제출만·유료 프로모션 결제 없음).
 
 UC 1.0.3 · WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 안정 상태, 반려 없음.
+
+## 2026-08-27 23차 — X 미국 계정(@signumhq) 15번째 답글 (x_us)
+@Arata_cr_SiM65 — "NVIDIA 어디까지 갈 수 있나" 신선 트윗(37초 전)에 실데이터로 보강:
+$NVDA 실적발표 후 +4.71%로 $219.53까지, 총 프리미엄 $54.9M 콜 우세.
+텍스트만 게시(이미지 첨부 시도 시 파일선택 다이얼로그 이슈로 스킵, 신뢰할 수 있는 텍스트 데이터로 대체) + `signumhq.com/app?from=x_us`.
+"Your post was sent" 확인됨.
+
+**신규 채널 조사(이번 사이클):** 10words.io — 이메일/비번 계정 생성 필요해 BLOCKED(비밀번호 생성은 금지 행동), Startup Stash — B2B SaaS 디렉터리라 카테고리 불일치로 제외, Website Hunt — 계정+유료 가능성으로 BLOCKED. 셋 다 대표 전용으로 기록.
+
+UC 1.0.3 · WIM 1.0.1 재확인: 둘 다 WAITING_FOR_REVIEW 안정 상태, 반려 없음.
