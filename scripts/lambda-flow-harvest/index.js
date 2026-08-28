@@ -26,6 +26,7 @@
  */
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const __intrinio = require('./intrinio-adapter');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
 
@@ -33,7 +34,7 @@ const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east
   marshallOptions: { removeUndefinedValues: true }
 });
 
-const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY || '';
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 
@@ -86,7 +87,18 @@ const UNIVERSE = ["A","AA","AAAU","AAL","AAOI","AAON","AAOX","AAP","AAPL","ABBV"
 // HTTP + Redis helpers (same pattern as signum-harvest)
 // ──────────────────────────────────────────
 
-function httpsGet(url, timeoutMs) {
+async function httpsGet(url, timeoutMs) {
+  // ── [2026-08-29] Intrinio 라우팅 ──────────────────────────────
+  // Massive 계정이 약관 위반으로 차단(시세 403). 대응 가능한 요청은 Intrinio 로.
+  // 뉴스(/v2/reference/news)는 어댑터가 undefined 를 돌려주므로 아래 기존 경로로 간다.
+  // 정본: .agent/INTRINIO_MIGRATION.md
+  try {
+    const __routed = await __intrinio.routeMassiveUrl(url);
+    if (__routed !== undefined) return __routed;
+  } catch (__e) {
+    console.warn('[Intrinio] route fail:', __e && __e.message);
+  }
+
   return new Promise((resolve, reject) => {
     const to = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs || 15000);
     https.get(url, { headers: { 'User-Agent': 'SIGNUM-FLOW/1.0' } }, (res) => {

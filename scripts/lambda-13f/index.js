@@ -1,3 +1,4 @@
+const __intrinio = require('./intrinio-adapter');
 // ============================================================================
 // 13-F Cache Builder — FULL-UNIVERSE quarterly ingest
 //
@@ -26,7 +27,7 @@
 // Zero-dependency: writes go through the Upstash REST pipeline via fetch, so this
 // file runs identically as a local CLI script and as the signum-13f Lambda (no
 // node_modules to bundle).
-const API_KEY = process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const API_KEY = process.env.MASSIVE_API_KEY || '';
 const BASE = process.env.MASSIVE_BASE_URL || 'https://api.polygon.io';
 const DRY = process.env.DRY === '1';
 const MAXPAGES = process.env.MAXPAGES ? parseInt(process.env.MAXPAGES, 10) : Infinity;
@@ -93,6 +94,17 @@ function currentPeriod(now) {
 }
 
 async function fetchJson(url, tries = 4) {
+
+  // ── [2026-08-29] Intrinio 라우팅 ──────────────────────────────
+  // Massive 계정이 약관 위반으로 차단(시세 403). 대응 가능한 요청은 Intrinio 로.
+  // 뉴스(/v2/reference/news)는 어댑터가 undefined 를 돌려주므로 아래 기존 경로로 간다.
+  // 정본: .agent/INTRINIO_MIGRATION.md
+  try {
+    const __routed = await __intrinio.routeMassiveUrl(url);
+    if (__routed !== undefined) return __routed;
+  } catch (__e) {
+    console.warn('[Intrinio] route fail:', __e && __e.message);
+  }
     for (let i = 0; i < tries; i++) {
         try {
             const res = await fetch(url);

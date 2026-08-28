@@ -243,6 +243,48 @@ BID PRICE, BID SIZE, LAST BID TIMESTAMP, INTRINIO ID`
 | realtime 시세 필드 | ✅ Massive 보다 풍부 |
 | 다크풀 (EQUITIES_EDGE WS) | ❌ market_center 공백 |
 
+## ★ EC2 외부 접근 확보 (2026-08-29) — SSH 키 없이 제어
+
+**문제**: 로컬에 `signum-websocket-key.pem` 이 없어 EC2 접근 불가. SSM 도 미등록.
+
+**원인**: IAM Role `signum-ec2-role` 에 **`AmazonSSMManagedInstanceCore` 정책이 빠져 있었다.**
+(SSM Agent 자체는 5개월째 정상 running 이었음 — Agent 문제가 아니라 권한 문제)
+
+**해결 (재부팅 없이)**
+1. IAM 정책 부착 — `AttachRolePolicy(signum-ec2-role, AmazonSSMManagedInstanceCore)`
+2. AWS 콘솔 → EC2 Instance Connect(브라우저 터미널)로 접속
+3. `sudo systemctl restart amazon-ssm-agent` → 즉시 Online 등록
+
+**이제 쓸 수 있는 도구**: `scripts/ec2-ssm.js`
+```bash
+ENV_FILE=... node scripts/ec2-ssm.js "pm2 list"
+ENV_FILE=... node scripts/ec2-ssm.js --file ./local.js /opt/signum-ws/remote.js
+```
+⚠️ SSM 은 root + HOME 미설정으로 실행된다. PM2 를 쓰려면 `HOME=/home/ec2-user`,
+`PM2_HOME=/home/ec2-user/.pm2` 를 반드시 export 해야 한다(스크립트에 PRELUDE 로 내장).
+
+### PM2 워커 실측 (2026-08-29)
+| 워커 | 재시작 | 스크립트 경로 |
+|---|---|---|
+| **price-ws** | **2,238회** ⚠️ | `/opt/signum-ws/price-ws.js` |
+| redis-proxy | 31 | `/opt/signum-ws/redis-proxy.js` |
+| guardian-worker | 37 | `/opt/signum-ws/guardian-worker.js` |
+| guardian-ws | 1 | `/opt/signum-ws/guardian-ws.js` |
+| signum-flow-acc | 9 | `/home/ec2-user/signum-workers/ec2-flow-accumulator.js` |
+| capture-worker | 5 | `/home/ec2-user/capture/ec2-capture-worker.js` |
+| signum-toss-exec | 9 | `/home/ec2-user/toss-executor/ec2-toss-executor.js` |
+| signum-auto-engine | 1 | `/home/ec2-user/toss-executor/ec2-auto-engine.js` |
+
+### 🔴 price-ws 가 죽은 진짜 이유 (로그 실측)
+```
+✅ Polygon WebSocket connected
+✅ Polygon auth success
+Polygon WS closed (code: 1008)      ← Policy Violation, 즉시 강제 종료
+Reconnecting to Polygon in 5s
+```
+**Massive 는 WebSocket 도 막았다.** 인증은 통과시키고 1008 로 끊는다.
+그래서 구독 시점 캐시값(어제 종가)만 한 번 뱉고 2,238회 재시작 중이었다.
+
 ## 작업 이력
 
 ### 2026-08-29
