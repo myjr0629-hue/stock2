@@ -14,6 +14,7 @@ import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FI
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
+const MASSIVE_TICKS_ON = process.env.ENABLE_MASSIVE_TICKS === "1";
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
 // [S-52.2.3] Force dynamic rendering - no static optimization
@@ -552,14 +553,16 @@ export async function GET(req: NextRequest) {
             volumePcr: _vpcr,
             volumePcrCallVol: _cvol > 0 ? _cvol : null,
             volumePcrPutVol: _pvol > 0 ? _pvol : null,
-            darkPoolPct: metricsData?.darkPool?.percent ?? null,
-            darkPoolVol: metricsData?.darkPool?.volume ?? null,
-            darkPoolTotalVol: metricsData?.darkPool?.totalVolume ?? null,
-            darkPoolNetBuyVal: metricsData?.darkPool?.netBuyValue ?? null,
-            shortVolPct: metricsData?.shortVolume?.percent ?? null,
-            shortVol: metricsData?.shortVolume?.volume ?? null,
+            // [2026-08-29] Massive 차단 — 다크풀/공매도는 stale 이므로 노출 금지.
+            // ENABLE_MASSIVE_TICKS=1 일 때만 되살아난다. (정본: INTRINIO_MIGRATION_WORKLOG.md)
+            darkPoolPct: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.percent ?? null) : null,
+            darkPoolVol: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.volume ?? null) : null,
+            darkPoolTotalVol: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.totalVolume ?? null) : null,
+            darkPoolNetBuyVal: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.netBuyValue ?? null) : null,
+            shortVolPct: MASSIVE_TICKS_ON ? (metricsData?.shortVolume?.percent ?? null) : null,
+            shortVol: MASSIVE_TICKS_ON ? (metricsData?.shortVolume?.volume ?? null) : null,
             shortTotalVol: metricsData?.shortVolume?.totalVolume ?? null,
-            blockTrades: metricsData?.blockTrade?.count ?? null,
+            blockTrades: MASSIVE_TICKS_ON ? (metricsData?.blockTrade?.count ?? null) : null,
             ivSkew: computeIVSkew((flowData as any)?.rawChain ?? [], activePrice || 0),
         },
 

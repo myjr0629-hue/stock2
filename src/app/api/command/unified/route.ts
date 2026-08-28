@@ -344,9 +344,38 @@ async function enrichExpiration(data: any): Promise<any> {
     return data;
 }
 
+/**
+ * [2026-08-29] 다크풀 계열 최종 게이트 — 응답 출구에서 한 번에 차단
+ *
+ * Massive 차단 이후 stale 다크풀이 **여섯 갈래**로 새어 나왔다:
+ *   ① rt-metrics (ElastiCache)        ② rt-metrics (Upstash)
+ *   ③ cache:inst-last (ec2-last-known) ④ signum-flow-history (DynamoDB)
+ *   ⑤ signum-unified-cache (DynamoDB)  ⑥ lambda-harvest 의 "count===0 이면 기존값 보존" 로직
+ *
+ * 캐시를 지우고 소비처를 막아도 크론/Lambda 가 다시 채워 넣어 되살아났다.
+ * 입구를 하나씩 쫓는 대신 **출구를 막는다.** 데이터 소스가 복구되면
+ * ENABLE_MASSIVE_TICKS=1 로 되돌리면 된다.
+ */
+function stripStaleInstitutional(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+    if (process.env.ENABLE_MASSIVE_TICKS === '1') return data;
+
+    const inst = data.institutional;
+    if (inst && typeof inst === 'object') {
+        data.institutional = {
+            ...inst,
+            darkPool: null,
+            blockTrade: null,
+            shortVolume: null,
+            _source: 'unavailable-massive-blocked',
+        };
+    }
+    return data;
+}
+
 function jsonResponse(data: any, status = 200) {
     const isMarket = isMarketHoursNow();
-    return NextResponse.json(data, {
+    return NextResponse.json(stripStaleInstitutional(data), {
         status,
         headers: {
             'Cache-Control': isMarket
