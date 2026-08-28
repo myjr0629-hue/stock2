@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { fetchMassive } from '@/services/massiveClient';
 import { AlphaInput } from '../alphaEngine';
 
 // Initialize Supabase Client — SERVER ONLY (service_role bypasses RLS)
@@ -155,7 +156,9 @@ export async function verifyPendingTrackRecords(): Promise<{ success: boolean; p
                 // Polygon aggregates API expects: /v2/aggs/ticker/{ticker}/range/1/day/{start}/{end}
                 // We will construct this call using the massive pipeline or direct fetch
                 const polyUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?apiKey=${process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY}`;
-                const res = await fetch(polyUrl);
+                // [2026-08-29] Massive 직접 fetch → fetchMassive (Intrinio 라우팅 경유)
+                const d0 = await fetchMassive(polyUrl, {}, true);
+                const res = { ok: true, json: async () => d0 } as any;
                 const data = await res.json();
                 if (data.results && data.results.length > 0) {
                     aggregates = data.results;

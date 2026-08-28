@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "";
 const POLYGON_BASE = "https://api.polygon.io";
 
 // FINRA TRF/ADF Exchange IDs = Dark Pool (off-exchange)

@@ -285,6 +285,50 @@ Reconnecting to Polygon in 5s
 **Massive 는 WebSocket 도 막았다.** 인증은 통과시키고 1008 로 끊는다.
 그래서 구독 시점 캐시값(어제 종가)만 한 번 뱉고 2,238회 재시작 중이었다.
 
+## ★ Phase 2·3 완료 (2026-08-29) — Lambda · WebSocket · 다크풀 정리
+
+### Lambda (SSH 불필요, AWS SDK 배포)
+- 4개 HTTP 헬퍼에 Intrinio 라우팅 삽입: `harvest_lambda` `lambda-harvest`
+  `lambda-flow-harvest` `lambda-13f` + 각 디렉터리에 공용 어댑터 배치
+- 배포기: `scripts/deploy-lambda-intrinio.js` (Mac 호환. 기존 v7 은 PowerShell 의존)
+- `signum-13f` 배포·실호출 검증: 24,585 CUSIP / 240만 holdings, 에러 0
+
+### EC2 price-ws → Intrinio WebSocket
+- Massive WS 는 `close(1008 Policy Violation)` 로 차단. 재시작 2,238회.
+- Intrinio `EQUITIES_EDGE` SDK 로 교체. 수신 메시지를 Massive 형식으로 변환해
+  기존 브로드캐스트·스로틀·클라이언트 로직 1,100여 줄 **무수정 재사용**
+- 🔴 **ensurePrevClose() 를 반드시 호출할 것** — Intrinio 분기가 Massive 전용
+  코드보다 먼저 return 하면서 prevClose 초기화가 건너뛰어져 **changePct 가
+  전 종목 0%** 로 나갔다. 구독·재구독 **양쪽** 경로에 필요.
+- 옵션 WS 비활성화 (`ENABLE_OPTIONS_WS=1` 로만 활성) — Massive 차단 +
+  Intrinio Node SDK 부재. 영향은 FlowRadar 개별 체결뿐.
+
+**검증(프로덕션 50초)**: 가격 189건 · 전 종목 실시간 변동 ·
+WS↔REST 가격차 0.009~0.188% · changePct 오차 0.05%p 이내
+
+### 🔴 다크풀 — "200 OK 인데 값은 과거"가 가장 위험했다
+| 경로 | 응답 | 실제 |
+|---|---|---|
+| `/v3/trades` | HTTP 200 | `status:"DELAYED"` · **19시간 전** |
+| `/v3/quotes` | HTTP 200 | 동일 |
+| `stocks/v1/short-volume` | HTTP 200 | `date "2024-02-06"` · **2년 전** |
+| WebSocket `T.*`/`Q.*` | connected | close(1008) · 거래량 2,916,815 **고정** |
+
+이 값으로 계산된 darkPool 50% 가 앱의 `darkPool >= 45` **판단 로직까지 오염**시켰다.
+
+**전수 차단 (ENABLE_MASSIVE_TICKS=1 로만 복구)**
+- `services/realtimeMetricsService.ts` ← **live/ticker 가 쓰는 경로. 여기를 놓쳐서
+  route.ts 만 막았을 때 stale 값이 계속 새어 나왔다.**
+- `api/flow/realtime-metrics/route.ts`
+- `api/live/short-squeeze/route.ts`
+- `api/live/options/quotes/route.ts` — fetchMassive 경유라 UNSUPPORTED 로 자동 차단
+- EC2 `signum-flow-acc` 중지 · ElastiCache rt-metrics 1,649키 + Upstash 삭제
+
+⚠️ **같은 로직이 3곳에 복제되어 있다.** 하나만 고치면 다른 경로로 샌다.
+
+**최종 상태**: `darkPool/shortVol/block = null` → 화면 '-' 표시.
+옵션 구조 지표(gammaFlip·callWall·putFloor·PCR·ivSkew)는 전부 정상.
+
 ## 작업 이력
 
 ### 2026-08-29

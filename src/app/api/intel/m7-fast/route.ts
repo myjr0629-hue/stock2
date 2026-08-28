@@ -2,8 +2,9 @@
 // [V3] Fixed session detection - uses simple time-based logic
 import { NextResponse } from 'next/server';
 
+import { fetchMassive } from '@/services/massiveClient';
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
-const POLYGON_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 10;
@@ -64,7 +65,9 @@ export async function GET() {
         const tickersParam = M7_TICKERS.join(',');
         const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickersParam}&apiKey=${POLYGON_API_KEY}`;
 
-        const res = await fetch(url, { next: { revalidate: 10 } });
+        // [2026-08-29] Massive 직접 fetch → fetchMassive (Intrinio 라우팅 경유)
+        const data0 = await fetchMassive(url, {}, true);
+        const res = { ok: true, json: async () => data0 } as any;
         if (!res.ok) throw new Error(`Polygon API error: ${res.status}`);
 
         const data = await res.json();

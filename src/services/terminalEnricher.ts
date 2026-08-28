@@ -134,7 +134,7 @@ export async function enrichTerminalItems(
 
 // [V4.1] Fetch REAL short volume % from Polygon (FINRA-reported data)
 // Same data source as /api/live/short-squeeze but called directly for engine use
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "";
 async function fetchShortVolumePct(ticker: string): Promise<number | undefined> {
     try {
         const url = `https://api.polygon.io/stocks/v1/short-volume?ticker=${ticker}&limit=1&apiKey=${POLYGON_API_KEY}`;

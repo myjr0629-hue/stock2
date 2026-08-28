@@ -2,7 +2,7 @@
 // Fetches SEC Form 4 filings from Polygon API and builds summary metrics.
 // Completely isolated — does NOT affect any existing service or pipeline.
 
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "";
 const POLYGON_BASE = "https://api.polygon.io";
 
 // ─── Types ─────────────────────────────────────────────────────────

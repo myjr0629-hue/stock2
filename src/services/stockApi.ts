@@ -9,7 +9,7 @@ export { analyzeGemsTicker };
 import { fetchMassive, fetchMassiveAll, RunBudget, StatusUpdate, setStatusCallback } from './massiveClient';
 
 // [S-56.4.5c] Legacy compatibility - these constants are used in getMarketStatus_LEGACY
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
 // [S-56.4.5c] Concurrency constants for legacy functions

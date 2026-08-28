@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
 
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "";
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
 // --- CUSIP Mapping for major tickers (13-F uses CUSIP, not ticker symbols) ---

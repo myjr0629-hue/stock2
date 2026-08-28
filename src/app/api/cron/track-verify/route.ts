@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server';
 
+import { fetchMassive } from '@/services/massiveClient';
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
@@ -67,7 +68,9 @@ export async function GET(request: Request) {
                 try {
                     // Use Polygon day aggregate for today
                     const polyUrl = `https://api.polygon.io/v2/aggs/ticker/${record.ticker}/range/1/day/${todayStr}/${todayStr}?apiKey=${process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY}`;
-                    const res = await fetch(polyUrl);
+                    // [2026-08-29] Massive 직접 fetch → fetchMassive (Intrinio 라우팅 경유)
+                    const d0 = await fetchMassive(polyUrl, {}, true);
+                    const res = { ok: true, json: async () => d0 } as any;
                     const data = await res.json();
 
                     if (data.results && data.results.length > 0) {

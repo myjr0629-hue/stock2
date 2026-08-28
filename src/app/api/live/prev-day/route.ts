@@ -1,5 +1,6 @@
 // [V8] Redis SWR cache: 300s TTL (prev-day data rarely changes)
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchMassive } from '@/services/massiveClient';
 import { swrFetch } from '@/lib/cache/redisSWR';
 
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
@@ -20,7 +21,9 @@ export async function GET(req: NextRequest) {
         const { data: prevDataRaw, _cache } = await swrFetch(
             ticker.toUpperCase(),
             async () => {
-                const prevRes = await fetch(prevUrl, { next: { revalidate: 3600 } });
+                // [2026-08-29] Massive 직접 fetch → fetchMassive (Intrinio 라우팅 경유)
+                const prevData0 = await fetchMassive(prevUrl, {}, true);
+                const prevRes = { ok: true, json: async () => prevData0 } as any;
                 if (!prevRes.ok) return null;
                 return await prevRes.json();
             },

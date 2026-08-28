@@ -13,7 +13,7 @@ import { fetchTruePreMarket } from '@/services/marketDataLight'; // [V5.5 FIX] T
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
 // [S-52.2.3] Force dynamic rendering - no static optimization
