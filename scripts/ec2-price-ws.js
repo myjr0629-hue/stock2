@@ -78,16 +78,25 @@ function getETDateString() {
     }
 }
 
-// Fetch real previous day close for a ticker from Massive REST API
+// Fetch real previous day close for a ticker
+//
+// [2026-08-29] Massive → Intrinio 교체.
+//   Massive REST 가 403 이라 prevClose 가 0 이 되고, 그 결과 WS 브로드캐스트의
+//   changePct 가 전 종목 0% 로 나가고 있었다(실측 확인).
+//   Intrinio realtime 응답의 eod_close_price 가 전일 종가의 정본이다.
 function fetchPreviousClose(ticker) {
-    const url = `https://api.massive.com/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY}`;
+    const key = process.env.INTRINIO_API_KEY;
+    if (!key) {
+        console.warn('[Price WS] INTRINIO_API_KEY 없음 — prevClose 조회 불가');
+        return Promise.resolve(0);
+    }
+    const url = `https://api-v2.intrinio.com/securities/${encodeURIComponent(ticker)}/prices/realtime?api_key=${key}`;
     return httpsGet(url)
         .then(data => {
-            const t = data?.ticker;
-            if (t?.prevDay?.c && t.prevDay.c > 0) {
-                return t.prevDay.c;
-            }
-            return 0;
+            const eod = data && Number(data.eod_close_price);
+            if (eod > 0) return eod;
+            const close = data && Number(data.close_price);
+            return close > 0 ? close : 0;
         })
         .catch(e => {
             console.warn(`[Price WS] Failed to fetch prevClose for ${ticker}:`, e.message);
@@ -151,7 +160,113 @@ const optionsTickerSubscribers = new Map();
 // POLYGON WEBSOCKET CONNECTION
 // ══════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════
+// [2026-08-29] INTRINIO WEBSOCKET (Massive 대체)
+//
+// Massive 는 REST 뿐 아니라 WebSocket 도 차단했다.
+//   실측 로그: "Polygon auth success" → "WS closed (code: 1008)" 무한 반복.
+//   1008 = Policy Violation. 인증은 통과시키고 즉시 끊는다. 재시작 2,238회.
+//   그 결과 구독 시점 캐시값(어제 종가)만 한 번 송출 → 앱에 4% 틀린 가격 노출.
+//
+// 대응: Intrinio EQUITIES_EDGE SDK 로 교체하고, 수신 메시지를 **Massive 형식으로
+// 변환**해 기존 handleTradeUpdate/handleQuoteUpdate 를 그대로 재사용한다.
+// (아래 1,100여 줄의 브로드캐스트·스로틀·클라이언트 관리 로직 무수정)
+//
+// 정본: .agent/INTRINIO_MIGRATION_WORKLOG.md
+// ══════════════════════════════════════════════════════════════
+
+const INTRINIO_API_KEY = process.env.INTRINIO_API_KEY || "";
+let intrinioClient = null;
+let intrinioReady = false;
+
+function connectIntrinioWs() {
+    if (intrinioClient) {
+        console.log("[Price WS] Intrinio 클라이언트 이미 존재 — 재사용");
+        return;
+    }
+    let RealtimeClient;
+    try {
+        RealtimeClient = require("intrinio-realtime").RealtimeClient;
+    } catch (e) {
+        console.error("[Price WS] ❌ intrinio-realtime 모듈 없음:", e.message);
+        return;
+    }
+
+    const onTrade = (t) => {
+        try {
+            // Intrinio Trade → Massive 'T' 이벤트 형식
+            handleTradeUpdate({
+                ev: "T",
+                sym: t.Symbol,
+                p: t.Price,
+                s: t.Size,
+                t: Number(t.Timestamp) || Date.now(),
+                _intrinio: { mc: t.MarketCenter, dark: t.IsDarkpool, cond: t.Condition },
+            });
+        } catch (e) { /* 개별 틱 실패가 스트림을 죽이지 않게 */ }
+    };
+
+    const onQuote = (q) => {
+        try {
+            // Intrinio Quote 는 bid/ask 가 분리된 단일 메시지로 온다.
+            // Massive 'Q' 는 bp/bs/ap/as 를 한 번에 담으므로, 마지막 값과 병합한다.
+            const sym = q.Symbol;
+            if (!sym) return;
+            const prev = latestQuotes.get(sym) || {};
+            const isAsk = String(q.Type || "").toLowerCase().includes("ask");
+            handleQuoteUpdate({
+                ev: "Q",
+                sym,
+                bp: isAsk ? (prev.bid || 0) : (q.Price || 0),
+                bs: isAsk ? (prev.bidSize || 0) : (q.Size || 0),
+                ap: isAsk ? (q.Price || 0) : (prev.ask || 0),
+                as: isAsk ? (q.Size || 0) : (prev.askSize || 0),
+            });
+        } catch (e) { /* noop */ }
+    };
+
+    try {
+        console.log("[Price WS] Connecting to Intrinio (EQUITIES_EDGE)...");
+        intrinioClient = new RealtimeClient(INTRINIO_API_KEY, onTrade, onQuote, {
+            provider: "EQUITIES_EDGE",
+            ipAddress: undefined,
+            tradesOnly: false,
+            isPublicKey: false,
+            delayed: false,
+        });
+        intrinioReady = true;
+        polygonConnected = true;   // 하위 호환: 기존 상태 플래그 재사용
+        polygonReconnectCount = 0;
+        console.log("[Price WS] ✅ Intrinio WebSocket 연결됨");
+        resubscribeAllOnPolygon();
+    } catch (e) {
+        console.error("[Price WS] ❌ Intrinio 연결 실패:", e.message);
+        intrinioClient = null;
+        intrinioReady = false;
+        polygonConnected = false;
+        schedulePolygonReconnect();
+    }
+}
+
+/** Intrinio 구독/해지 — 기존 Massive 구독 함수에서 위임받는다 */
+function intrinioJoin(tickers) {
+    if (!intrinioClient || !tickers.length) return;
+    try { intrinioClient.join(tickers, false); }
+    catch (e) { console.error("[Price WS] Intrinio join 실패:", e.message); }
+}
+function intrinioLeave(tickers) {
+    if (!intrinioClient || !tickers.length) return;
+    try { intrinioClient.leave(tickers); }
+    catch (e) { console.error("[Price WS] Intrinio leave 실패:", e.message); }
+}
+
 function connectToPolygon() {
+    // Intrinio 키가 있으면 그쪽을 쓴다 (Massive 는 차단됨)
+    if (INTRINIO_API_KEY) {
+        connectIntrinioWs();
+        return;
+    }
+
     if (!POLYGON_API_KEY) {
         console.error("[Price WS] ❌ No POLYGON_API_KEY set. Cannot connect to Polygon.");
         return;
@@ -257,6 +372,20 @@ function schedulePolygonReconnect() {
 }
 
 function resubscribeAllOnPolygon() {
+    // [2026-08-29] Intrinio 경로 — SDK 가 구독을 관리한다
+    if (intrinioReady && intrinioClient) {
+        const all = [...tickerSubscribers.keys()];
+        if (all.length) {
+            intrinioJoin(all);
+            all.forEach(t => {
+                subscribedOnPolygon.add(t);
+                ensurePrevClose(t);   // ← changePct 기준값. 빠지면 전 종목 0%
+            });
+            console.log(`[Price WS] Intrinio 재구독 ${all.length}종목`);
+        }
+        return;
+    }
+
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
     const allTickers = new Set();
@@ -274,7 +403,47 @@ function resubscribeAllOnPolygon() {
     console.log(`[Price WS] Subscribed to ${tickerList.length} tickers (T+A+AM+Q+LULD): ${tickerList.slice(0, 10).join(", ")}${tickerList.length > 10 ? "..." : ""}`);
 }
 
+/**
+ * prevClose 확보 — changePct 계산의 기준값.
+ * ⚠️ 이 로직이 없으면 WS 브로드캐스트의 changePct 가 전 종목 0% 로 나간다.
+ *    (2026-08-29 실제 발생: Intrinio 분기가 Massive 전용 코드보다 먼저 return 하면서
+ *     아래 prevClose 초기화가 통째로 건너뛰어졌다.)
+ */
+function ensurePrevClose(ticker) {
+    const todayStr = getETDateString();
+    const existing = latestPrices.get(ticker);
+    if (existing && existing.prevClose > 0 && existing.prevCloseDate === todayStr) {
+        subscribeQuotesForTicker(ticker);
+        return;
+    }
+    if (existing && existing.isFetchingPrevClose) return;
+
+    latestPrices.set(ticker, { ...(existing || {}), isFetchingPrevClose: true });
+    fetchPreviousClose(ticker).then(prevClose => {
+        const cur = latestPrices.get(ticker) || {};
+        if (prevClose > 0) {
+            // 이미 들어온 틱이 있으면 changePct 를 즉시 보정
+            const price = cur.price || 0;
+            const changePct = price > 0 ? Math.round(((price - prevClose) / prevClose) * 10000) / 100 : (cur.changePct || 0);
+            latestPrices.set(ticker, { ...cur, prevClose, prevCloseDate: todayStr, changePct, isFetchingPrevClose: false });
+            console.log(`[Price WS] 📊 ${ticker} prevClose: $${prevClose} (${todayStr})`);
+            subscribeQuotesForTicker(ticker);
+        } else {
+            latestPrices.set(ticker, { ...cur, isFetchingPrevClose: false });
+            console.warn(`[Price WS] ⚠️ ${ticker} prevClose 확보 실패 — changePct 0 으로 나갈 수 있음`);
+        }
+    });
+}
+
 function subscribeTickerOnPolygon(ticker) {
+    // [2026-08-29] Intrinio 경로
+    if (intrinioReady && intrinioClient) {
+        if (subscribedOnPolygon.has(ticker)) return;
+        intrinioJoin([ticker]);
+        subscribedOnPolygon.add(ticker);
+        ensurePrevClose(ticker);   // ← 반드시 필요. 없으면 changePct 0%
+        return;
+    }
     if (subscribedOnPolygon.has(ticker)) return;
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
@@ -303,6 +472,13 @@ function subscribeTickerOnPolygon(ticker) {
 }
 
 function unsubscribeTickerOnPolygon(ticker) {
+    // [2026-08-29] Intrinio 경로
+    if (intrinioReady && intrinioClient) {
+        if (!subscribedOnPolygon.has(ticker)) return;
+        intrinioLeave([ticker]);
+        subscribedOnPolygon.delete(ticker);
+        return;
+    }
     if (!subscribedOnPolygon.has(ticker)) return;
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
@@ -506,6 +682,29 @@ function broadcastLuld(ticker, upperLimit, lowerLimit, indicator) {
 // ══════════════════════════════════════════════════════════════
 
 function connectToOptionsWs() {
+    // ══════════════════════════════════════════════════════════════
+    // [2026-08-29] 옵션 실시간 WS 비활성화
+    //
+    // Massive 옵션 WS 도 차단됨 — close(1006) 무한 재접속으로 5초마다
+    // 로그를 채우고 리소스를 낭비하고 있었다.
+    //
+    // Intrinio 는 옵션 실시간 WS SDK 를 Python/Go/C#/Java 로만 제공하고
+    // **Node.js 판이 없다.** 별도 Python 워커를 붙이기 전까지는 끈다.
+    //
+    // 영향: FlowRadar 의 개별 옵션 체결(BLOCK/SWEEP 프리미엄) 스트림.
+    //       OI·Greeks·맥스페인·GEX 등 구조 지표는 REST 옵션 체인으로
+    //       정상 제공되므로 영향 없음.
+    // 정본: .agent/INTRINIO_MIGRATION_WORKLOG.md
+    // ══════════════════════════════════════════════════════════════
+    if (process.env.ENABLE_OPTIONS_WS !== "1") {
+        if (!connectToOptionsWs._warned) {
+            console.log("[Options WS] 비활성화됨 (Massive 차단 · Intrinio Node SDK 부재). ENABLE_OPTIONS_WS=1 로 강제 활성화 가능.");
+            connectToOptionsWs._warned = true;
+        }
+        optionsWsConnected = false;
+        return;
+    }
+
     if (!POLYGON_API_KEY) {
         console.error("[Options WS] ❌ No API key set. Cannot connect.");
         return;
