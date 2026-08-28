@@ -410,6 +410,17 @@ async function fetchOptionsSnapshotRaw(ticker) {
 // Returns { metrics, quotes } so dark pool can reuse quotes (save 1 API call per ticker)
 // ──────────────────────────────────────────
 async function fetchRealtimeMetrics(ticker) {
+  // ══════════════════════════════════════════════════════════════
+  // [2026-08-29] 다크풀/공매도 수집 중단 — Massive 차단
+  //   /v3/trades·/v3/quotes 는 HTTP 200 이지만 status:"DELAYED" 로 19시간 전 데이터,
+  //   short-volume 은 date "2024-02-06"(2년 전)을 준다.
+  //   이 Lambda 가 그 값으로 계산한 darkPool 을 signum-flow-history(DynamoDB)에
+  //   15분마다 새 타임스탬프로 기록해, Vercel 의 나이 검사마저 무력화시키고 있었다.
+  //   (command/unified 가 _source: flow-history-recovery 로 63.8%/93.2% 를 노출)
+  //   → 소스 자체를 끊는다. ENABLE_MASSIVE_TICKS=1 로만 복구.
+  // ══════════════════════════════════════════════════════════════
+  if (process.env.ENABLE_MASSIVE_TICKS !== '1') return null;
+
   try {
     // Parallel: trades 5K + quotes 1K + short-volume (matches Vercel route L51-54, L223)
     const [tradesRes, quotesRes, shortRes] = await Promise.all([
@@ -530,6 +541,9 @@ async function fetchRealtimeMetrics(ticker) {
 // Step 2: Dark Pool Trades — matches /api/flow/dark-pool-trades EXACTLY
 // ──────────────────────────────────────────
 async function fetchDarkPoolTrades(ticker, quotes) {
+  // [2026-08-29] 위와 동일 — Massive 틱 차단으로 수집 중단
+  if (process.env.ENABLE_MASSIVE_TICKS !== '1') return null;
+
   try {
     // Fetch trades 10K desc (matches Vercel L124-126)
     const tradesRes = await httpsGet('https://api.polygon.io/v3/trades/' + ticker + '?limit=10000&order=desc&apiKey=' + POLYGON_KEY, 12000);

@@ -114,11 +114,26 @@ async function injectAlphaBypass(data: any, ticker: string) {
                     new Promise<any>(r => setTimeout(() => r(null), 2000))
                 ]);
                 const latest = flowResult?.Items?.[0];
-                if (latest && latest.blockTradeCount > 0) {
+
+                // ⚠️ [2026-08-29] 나이 검사 필수.
+                //   Massive 차단 이후 signum-flow-history 는 더 이상 갱신되지 않는데,
+                //   이 복구 로직이 **과거 값을 무기한 되살려** darkPool 63.8%·93.2% 같은
+                //   수치를 현재값인 것처럼 내보내고 있었다(_source: flow-history-recovery).
+                //   원 의도는 "금요일 값을 주말 동안 유지"이므로 3일이면 충분하다.
+                const FLOW_HISTORY_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+                const flowTs = latest
+                    ? (Number(latest.timestamp) || Number(latest.ts) ||
+                       (latest.date ? Date.parse(String(latest.date)) : NaN))
+                    : NaN;
+                const flowAge = Number.isFinite(flowTs) ? Date.now() - flowTs : Infinity;
+
+                if (latest && latest.blockTradeCount > 0 && flowAge < FLOW_HISTORY_MAX_AGE_MS) {
                     data.institutional = {
                         ...data.institutional,
                         darkPool: { percent: latest.darkPoolPercent || data.institutional?.darkPool?.percent || 0 },
                         blockTrade: { count: latest.blockTradeCount, volume: 0 },
+                        _source: 'flow-history-recovery',
+                        _ageMs: flowAge,
                     };
                 }
             } catch { /* DynamoDB unavailable */ }
