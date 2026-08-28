@@ -1,9 +1,12 @@
 
 import { StockData } from "./stockTypes";
+import { routeToIntrinio, isUnsupported, shouldPassThroughToMassive } from "./intrinioRouter";
 
 // --- CONFIGURATION ---
-// [S-56.4.5b] Use environment variable with fallback to hardcoded key for backwards compatibility
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+// [2026-08-29] Massive 계정이 약관 위반으로 차단됨(시세 403). Intrinio 로 이관.
+// 뉴스(/v2/reference/news)만 Massive 유지 — 2026-09-23 해지 예정.
+// 정본: .agent/INTRINIO_MIGRATION.md
+const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "";
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
 export const CACHE_POLICY = {
@@ -154,6 +157,43 @@ export async function fetchMassive(
     customFetchOptions?: RequestInit
 ) {
     assertLiveApiEnabled(`fetchMassive: ${endpoint}`, !!budget);
+
+    // ══════════════════════════════════════════════════════════════
+    // [2026-08-29] Intrinio 라우팅
+    //   Massive 시세는 403 으로 차단됨. 대응 가능한 엔드포인트는 Intrinio 로 보낸다.
+    //   - 뉴스는 shouldPassThroughToMassive() 로 걸러져 아래 Massive 경로로 간다.
+    //   - 대응 불가 엔드포인트는 Massive 를 때리지 않고 즉시 빈 결과를 준다.
+    //     (403 재시도로 6초씩 낭비하는 것을 막고, 소비처가 graceful degrade 하도록)
+    // ══════════════════════════════════════════════════════════════
+    if (!endpoint.startsWith("http") && !shouldPassThroughToMassive(endpoint)) {
+        const cacheKeyEarly = `${endpoint}::${JSON.stringify(params)}`;
+        if (useCache && massiveCache.has(cacheKeyEarly)) {
+            const cached = massiveCache.get(cacheKeyEarly)!;
+            if (Date.now() < cached.expiry) return cached.data;
+            massiveCache.delete(cacheKeyEarly);
+        }
+
+        if (isUnsupported(endpoint)) {
+            notifyStatus({ lastEndpoint: endpoint, step: "INTRINIO_UNSUPPORTED" });
+            return { status: "OK", results: [], tickers: [], count: 0, _unsupported: true };
+        }
+
+        try {
+            const routed = await routeToIntrinio(endpoint, params);
+            if (routed !== undefined) {
+                notifyStatus({ lastEndpoint: endpoint, lastHttpStatus: 200, step: "INTRINIO_OK" });
+                if (useCache) {
+                    massiveCache.set(cacheKeyEarly, { data: routed, expiry: Date.now() + 60000 });
+                }
+                return routed;
+            }
+        } catch (e: any) {
+            const err = normalizeError(e);
+            console.warn(`[Intrinio] ${endpoint} 실패: ${err.reasonKR}`, err.details?.slice(0, 160));
+            notifyStatus({ lastEndpoint: endpoint, lastError: err.reasonKR, step: "INTRINIO_FAIL" });
+            throw err;
+        }
+    }
 
     // [S-56.4.5b] ENV_MISSING guard - but we have fallback so this is just a warning
     if (!MASSIVE_API_KEY) {
@@ -495,6 +535,31 @@ export interface OptionSnapshot {
 
 export async function fetchOptionSnapshot(underlyingTicker: string, contractTicker: string): Promise<OptionSnapshot | null> {
     assertLiveApiEnabled(`fetchOptionSnapshot:${contractTicker}`);
+
+    // [2026-08-29] Intrinio 경로 — 체인에서 해당 계약만 골라낸다.
+    // contractTicker 예: "O:NVDA260828C00212500"
+    try {
+        const chain = await fetchMassive(`/v3/snapshot/options/${underlyingTicker}`, {}, true);
+        const list: any[] = chain?.results || [];
+        if (list.length) {
+            const want = contractTicker.replace(/^O:/, "");
+            const hit = list.find((c: any) => String(c?.details?.ticker || "").replace(/^O:/, "") === want);
+            if (hit) {
+                notifyStatus({ step: 'SNAPSHOT_OK' });
+                return hit as OptionSnapshot;
+            }
+            // 체인은 받았으나 해당 계약이 없음 (만기 범위 밖 등)
+            notifyStatus({ step: 'SNAPSHOT_MISS' });
+            return null;
+        }
+    } catch (e: any) {
+        const err = normalizeError(e);
+        console.warn(`[Intrinio] Option snapshot 실패 ${contractTicker}: ${err.reasonKR}`);
+        return null;
+    }
+
+    // 여기 도달 = 체인이 비었음. Massive 키가 있으면 레거시 경로 시도.
+    if (!MASSIVE_API_KEY) return null;
     const url = `${MASSIVE_BASE_URL}/v3/snapshot/options/${underlyingTicker}/${contractTicker}?apiKey=${MASSIVE_API_KEY}`;
 
     try {
