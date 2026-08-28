@@ -77,10 +77,26 @@ async function getTickerSnapshot(ticker) {
 
   const prevClose = num(rt && rt.eod_close_price) ?? num(todayBar && todayBar.close) ?? num(prevBar && prevBar.close) ?? 0;
   const last = num(rt && rt.last_price) ?? num(rt && rt.normal_market_hours_last_price) ?? num(rt && rt.close_price) ?? prevClose;
-  const change = last != null && prevClose ? last - prevClose : 0;
+
+  // ⚠️ day.c 는 **정규장 종가**여야 한다. 시간외 가격을 넣으면 소비처의
+  //   regularCloseToday 가 오염돼 POST 등락률이 항상 0% 가 된다.
+  //   (2026-08-28 애프터마켓 실제 발생)
+  const regularClose = num(rt && rt.normal_market_hours_last_price)
+    ?? num(rt && rt.qualified_last_price) ?? num(rt && rt.close_price) ?? last;
+  const regularTime = toMs(rt && rt.normal_market_hours_last_time);
+  const lastTime = toMs(rt && rt.last_time);
+  const hasExtendedTrade = lastTime > 0 && regularTime > 0 && lastTime > regularTime + 60000;
+  const extendedPrice = hasExtendedTrade ? last : null;
+
+  const change = regularClose != null && prevClose ? regularClose - prevClose : 0;
   const changePerc = prevClose ? (change / prevClose) * 100 : 0;
 
-  const dayBar = bar(rt && rt.open_price, rt && rt.high_price, rt && rt.low_price, last,
+  const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const etMins = etNow.getHours() * 60 + etNow.getMinutes();
+  const isPreSession = etMins >= 240 && etMins < 570;
+  const isPostSession = etMins >= 960 && etMins < 1200;
+
+  const dayBar = bar(rt && rt.open_price, rt && rt.high_price, rt && rt.low_price, regularClose,
     (rt && (rt.market_volume || rt.exchange_volume)) || 0);
   const prevSrc = todayBar || prevBar;
   const prevDayBar = prevSrc
@@ -96,6 +112,8 @@ async function getTickerSnapshot(ticker) {
       updated: toMs(rt && (rt.updated_on || rt.last_time)) * 1e6,
       day: dayBar,
       prevDay: prevDayBar,
+      preMarket: isPreSession && extendedPrice ? extendedPrice : undefined,
+      afterHours: isPostSession && extendedPrice ? extendedPrice : undefined,
       lastTrade: { p: last || 0, s: num(rt && rt.last_size) || 0, t: toMs(rt && rt.last_time) * 1e6, c: [] },
       lastQuote: {
         P: num(rt && rt.ask_price) || 0, S: num(rt && rt.ask_size) || 0,

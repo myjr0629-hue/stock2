@@ -186,24 +186,56 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
         num(prevBar?.close) ??
         0;
 
-    // 현재가: 마지막 체결가 → 정규장 마지막가 → 종가 순
+    // 현재가(마지막 체결) — 시간외 체결을 포함한다
     const last =
         num(rt?.last_price) ??
         num(rt?.normal_market_hours_last_price) ??
         num(rt?.close_price) ??
         prevClose;
 
-    const change = last != null && prevClose ? last - prevClose : 0;
+    // ── 정규장 종가 vs 시간외 현재가 분리 ─────────────────────────
+    // ⚠️ Massive 스냅샷의 의미:
+    //     day.c      = **정규장 종가** (시간외 체결이 들어오면 안 됨)
+    //     lastTrade.p= 마지막 체결가 (시간외 포함)
+    //   여기서 day.c 에 시간외 가격을 넣으면 소비처의
+    //   regularCloseToday 가 오염돼 **POST 등락률이 항상 0%** 가 된다.
+    //   (2026-08-28 애프터마켓 실제 발생: postChangePct 0, PRE/POST 미표시)
+    //
+    // Intrinio 는 두 값을 분리해 준다:
+    //     normal_market_hours_last_price / _time  = 정규장 마지막 체결
+    //     last_price / last_time                  = 세션 무관 마지막 체결
+    const regularClose =
+        num(rt?.normal_market_hours_last_price) ??
+        num(rt?.qualified_last_price) ??
+        num(rt?.close_price) ??
+        last;
+
+    const regularTime = toMs(rt?.normal_market_hours_last_time);
+    const lastTime = toMs(rt?.last_time);
+    // 정규장 마지막 체결보다 뒤에 찍힌 체결이 있으면 시간외 거래가 있었다는 뜻
+    const hasExtendedTrade = lastTime > 0 && regularTime > 0 && lastTime > regularTime + 60_000;
+    const extendedPrice = hasExtendedTrade ? last : null;
+
+    // 등락률은 **정규장 기준**(전일 종가 대비 정규장 종가)
+    const change = regularClose != null && prevClose ? regularClose - prevClose : 0;
     const changePerc = prevClose ? (change / prevClose) * 100 : 0;
 
-    // 당일 바: realtime 의 당일 OHLC + 시장 전체 거래량
+    // 당일 바: OHLC 는 당일 값, close 는 **정규장 종가**
     const dayBar = bar(
         rt?.open_price,
         rt?.high_price,
         rt?.low_price,
-        last,
+        regularClose,
         rt?.market_volume ?? rt?.exchange_volume ?? 0
     );
+
+    // 세션 판정 (ET 기준) — preMarket/afterHours 필드 채우기용
+    const etNow = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+    );
+    const etMins = etNow.getHours() * 60 + etNow.getMinutes();
+    const isPreSession = etMins >= 240 && etMins < 570;    // 04:00–09:30
+    const isPostSession = etMins >= 960 && etMins < 1200;  // 16:00–20:00
 
     // 전일 바: 확정 일봉에서
     const prevSrc = num(rt?.eod_close_price) != null && todayBar
@@ -222,6 +254,10 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
             updated: toMs(rt?.updated_on || rt?.last_time) * 1e6, // Massive 는 ns
             day: dayBar,
             prevDay: prevDayBar,
+            // Massive 스냅샷과 동일한 시간외 필드.
+            // 소비처(live/ticker)가 S.preMarket / S.afterHours 를 읽는다.
+            preMarket: isPreSession && extendedPrice ? extendedPrice : undefined,
+            afterHours: isPostSession && extendedPrice ? extendedPrice : undefined,
             lastTrade: {
                 p: last ?? 0,
                 s: num(rt?.last_size) ?? 0,
@@ -247,6 +283,9 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
                 eodCloseDate: rt?.eod_close_date ?? null,
                 regularLastPrice: num(rt?.normal_market_hours_last_price),
                 regularLastTime: rt?.normal_market_hours_last_time ?? null,
+                extendedPrice,
+                hasExtendedTrade,
+                session: isPreSession ? "PRE" : isPostSession ? "POST" : "REG",
                 marketCenterCode: rt?.market_center_code ?? null,
                 isDarkpool: rt?.is_darkpool ?? null,
             },
