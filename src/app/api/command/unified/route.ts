@@ -501,13 +501,23 @@ async function injectEC2Institutional(data: any, ticker: string): Promise<boolea
     } catch { /* EC2 proxy unavailable */ }
 
     // [FALLBACK] EC2 returned null or failed — restore last known good data
+    //
+    // ⚠️ [2026-08-29] 나이 제한 필수.
+    //   Massive 차단으로 flow-accumulator 가 죽은 뒤 이 폴백이 **어제 값을
+    //   무기한 되살리고** 있었다(darkPool 50% · block 52).
+    //   ElastiCache/Upstash 의 rt-metrics 를 지워도 여기서 다시 새어 나온다.
+    //   원래 의도는 "주말/휴일 TTL 만료 대비"이므로 3일이면 충분하다.
+    //   그보다 오래된 값은 되살리지 않고 화면에 '-' 가 뜨게 둔다.
+    const INST_LAST_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000; // 3일
     try {
         const lastKnown = await getFromCache<any>(`${INST_LAST_PREFIX}${ticker}`);
-        if (lastKnown && lastKnown.blockTrade?.count > 0) {
+        const age = lastKnown?._ts ? Date.now() - lastKnown._ts : Infinity;
+        if (lastKnown && lastKnown.blockTrade?.count > 0 && age < INST_LAST_MAX_AGE_MS) {
             data.institutional = {
                 ...(data.institutional || {}),
                 ...lastKnown,
                 _source: 'ec2-last-known',
+                _ageMs: age,
             };
             return true;
         }
