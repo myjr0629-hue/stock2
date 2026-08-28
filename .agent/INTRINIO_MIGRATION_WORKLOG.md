@@ -329,6 +329,57 @@ WS↔REST 가격차 0.009~0.188% · changePct 오차 0.05%p 이내
 **최종 상태**: `darkPool/shortVol/block = null` → 화면 '-' 표시.
 옵션 구조 지표(gammaFlip·callWall·putFloor·PCR·ivSkew)는 전부 정상.
 
+## 🔴🔴 stale 다크풀 — 여섯 갈래 누수와 최종 해법 (2026-08-29)
+
+가장 오래 걸린 작업. **"HTTP 200 인데 값은 과거"** 가 가장 위험한 형태였다.
+캐시를 지우고 소비처를 막을 때마다 크론/Lambda 가 **새 타임스탬프로 다시 채워 넣어**
+나이 검사까지 무력화시켰다.
+
+### 누수 경로 (발견 순서)
+| # | 경로 | 차단 방법 |
+|---|---|---|
+| ① | `rt-metrics:*` (ElastiCache) | 1,649키 삭제 + flow-acc 중지 |
+| ② | `rt-metrics:*` (Upstash) | 키 삭제 |
+| ③ | `cache:inst-last:*` → `_source: ec2-last-known` | 3일 나이 제한 + 81키 삭제 |
+| ④ | `signum-flow-history` (DynamoDB, **3천만 건**) | 나이 제한 (스캔 삭제 비현실적) |
+| ⑤ | `signum-unified-cache` (DynamoDB) | 출구 게이트 |
+| ⑥ | **`signum-flow-harvest` Lambda** — 15분마다 stale 틱으로 재계산 후 DynamoDB 기록 | Lambda 수집 중단 + 재배포 |
+| ⑦ | `lambda-harvest` 의 `blockTrade.count===0 이면 기존값 보존` | 출구 게이트로 무력화 |
+
+### ★ 최종 해법 — 입구가 아니라 **출구**를 막는다
+```ts
+// command/unified/route.ts — jsonResponse() 에 게이트
+function stripStaleInstitutional(data) {
+  if (process.env.ENABLE_MASSIVE_TICKS === '1') return data;
+  data.institutional = { ...inst, darkPool: null, blockTrade: null,
+                          shortVolume: null, _source: 'unavailable-massive-blocked' };
+}
+```
+- `command/unified`: `jsonResponse()` 한 곳에서 **8개 응답 경로 전부** 커버
+- `live/ticker`: `MASSIVE_TICKS_ON` 게이트로 flow.darkPool*/shortVol*/blockTrades 차단
+- 소스 복구 시 **`ENABLE_MASSIVE_TICKS=1` 하나로 되돌아간다**
+
+⚠️ **교훈**: 데이터 계보를 *소비 → 저장 → 생산* 순으로 역추적할 것.
+   쓰는 쪽(크론/Lambda)을 멈추지 않으면 캐시를 몇 번을 지워도 되살아난다.
+   그리고 입구가 6개면 입구를 쫓지 말고 출구 1개를 막는 게 확실하다.
+
+## ✅ 최종 검증 (2026-08-29, 프로덕션 실측)
+```
+정상 32 · 주의 2 · 실패 0
+
+live/ticker    NVDA $217.42 (-4.63%) prev $227.98 · GF 217.5 · PCR 1.18
+정합성          chart↔ticker 0.01~0.02% · quotes↔ticker 불일치 0 · PCR 재계산 0.004
+chart          1d 355 · 1w 42 · 1m 23 · 3m 64 · 1y 251건
+command/unified maxPain 220 · callOI 940,732 · putOI 690,500 · dark null(의도)
+movers         상승10 하락10 · CELU +138.5%
+UC             feed 12 · price · ticker · macro · judgment 전부 정상
+WIM            today 5유닛 spark 있음 · 일일 불변성 유지
+뉴스            10건 (Massive 유지 — 9/23 마감)
+WebSocket      50초 189건 실시간 · WS↔REST 0.009~0.188%
+```
+주의 2건은 둘 다 정상: 다크풀은 **의도적 제거**, `uc/scoreboard` 는 검증
+스크립트의 키 이름 오류(실제 응답은 `record/recent/tracking` 로 정상).
+
 ## 작업 이력
 
 ### 2026-08-29
