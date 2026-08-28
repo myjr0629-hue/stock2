@@ -5,7 +5,36 @@
 
 ## 현재 단계
 
-**Phase 0 — 전수 인벤토리 (진행 중)**
+**Phase 1 (Vercel REST) — ✅ 완료·프로덕션 검증됨 (2026-08-29)**
+다음: Phase 2 = Lambda 6개 · Phase 3 = EC2 WebSocket
+
+### Phase 1 프로덕션 검증 결과 (www.signumhq.com 실측)
+```
+live/ticker NVDA   price 218.63  -4.10%  prev 227.98  api 200  gammaFlip 217.5  PCR 1.18
+live/quotes        NVDA 218.64 · AAPL 319.82 · TSLA 346.44
+market/movers      상승10 하락10 · 1위 CELU +138.5%
+command/unified    maxPain 220 · pcRatio 0.73 · sma50 208.16 · darkPool 53.6
+history gex        1,000건
+guardian/news      10건 (Massive 유지 — 정상)
+```
+
+### Phase 1 에서 잡은 버그 3건 (전부 프로덕션 실측으로 발견)
+1. **CSV 컬럼 밀림** — 벌크 CSV 542행이 `"Argan, Inc."` 처럼 따옴표+쉼표를 포함.
+   단순 split(",") 로 DATE 자리에 EXCH_TICKER 가 들어가 최신 거래일이 `ARLP:UW` 로 오염,
+   종목 수가 1개로 붕괴. → RFC 4180 파서 신설 + ISO 날짜 검증.
+2. **전체 URL 우회** — `live/ticker` 등은 `fetchMassiveWithRetry(`${BASE}/v2/...`)` 로
+   **전체 URL**을 넘기는데 라우팅 조건이 `!startsWith("http")` 였다.
+   1차 배포에서 옵션 지표만 살고 price 가 null 이던 원인. → `normalizeToMassivePath()` 신설.
+3. **다중 종목 price 0** — `/v2/snapshot/.../tickers?tickers=A,B` 가 Redis EOD 만 바라봐서
+   Lambda 적재 전에는 항상 빈 결과. → 30종목 이하면 개별 realtime 폴백.
+
+⚠️ **캐시 주의**: massiveCache 60초 + route 자체 메모리 캐시 60초.
+   배포 직후 이전 빈 결과가 살아 있어 오판하기 쉽다. **새 티커로 검증할 것.**
+
+### 커밋
+- `cd6d3a15` 1단계 (어댑터·라우터·연결)
+- `37b1bb22` 전체 URL 라우팅 수정
+- `71f93204` 다중 종목 폴백
 
 ## 자격 정보
 
