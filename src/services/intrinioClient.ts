@@ -850,11 +850,48 @@ async function buildMarketTickers(): Promise<any[]> {
     return out;
 }
 
+/** 개별 realtime 조회로 스냅샷 티커 배열을 만든다 (소수 종목 폴백용) */
+async function buildTickersDirect(tickers: string[]): Promise<any[]> {
+    const settled = await Promise.allSettled(
+        tickers.map(async (t) => {
+            const snap = await getTickerSnapshot(t);
+            return snap?.ticker || null;
+        })
+    );
+    return settled
+        .map((r) => (r.status === "fulfilled" ? r.value : null))
+        .filter(Boolean);
+}
+
+/** 다중 종목 스냅샷 폴백 임계치 — 이 이하면 개별 조회 (분당 2,000 호출 한도 고려) */
+const DIRECT_SNAPSHOT_MAX = 30;
+
 export async function getFullMarketSnapshotIntrinio(tickers?: string[]): Promise<any> {
+    const want = tickers?.length
+        ? [...new Set(tickers.map((t) => t.toUpperCase()).filter(Boolean))]
+        : null;
+
+    // 소수 종목이면 EOD 캐시를 기다리지 않고 바로 실시간 조회.
+    // (Lambda 적재 전이거나 신규 상장 등 EOD 에 없는 종목도 커버)
+    if (want && want.length > 0 && want.length <= DIRECT_SNAPSHOT_MAX) {
+        const direct = await buildTickersDirect(want);
+        if (direct.length) {
+            return { status: "OK", count: direct.length, tickers: direct, _source: "intrinio-realtime" };
+        }
+    }
+
     const rows = await buildMarketTickers();
-    const want = tickers?.length ? new Set(tickers.map((t) => t.toUpperCase())) : null;
-    const filtered = want ? rows.filter((r) => want.has(r.ticker)) : rows;
-    return { status: "OK", count: filtered.length, tickers: filtered };
+    const wantSet = want ? new Set(want) : null;
+    let filtered = wantSet ? rows.filter((r) => wantSet.has(r.ticker)) : rows;
+
+    // EOD 에서 못 찾은 종목은 개별 조회로 보완
+    if (wantSet && filtered.length < wantSet.size && wantSet.size <= DIRECT_SNAPSHOT_MAX) {
+        const missing = [...wantSet].filter((t) => !filtered.some((r) => r.ticker === t));
+        const extra = await buildTickersDirect(missing);
+        filtered = [...filtered, ...extra];
+    }
+
+    return { status: "OK", count: filtered.length, tickers: filtered, _source: "intrinio-eod" };
 }
 
 export async function getMoversIntrinio(direction: "gainers" | "losers"): Promise<any> {
