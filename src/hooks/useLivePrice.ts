@@ -57,7 +57,32 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
     // (/api/live/quotes), which already holds the correct last-session POST.
     if (wsConnected && ticker && !isGlobalClosed) {
         const wsPrice = wsGetPrice(ticker);
-        if (wsPrice && wsPrice.price > 0) {
+
+        // ── [2026-08-29] STALE WS 가드 ──────────────────────────────────
+        // Massive 계정이 차단되면서 EC2 price-ws 가 실시간 틱을 못 받고,
+        // 구독 시점에 캐시된 **어제 값**만 한 번 뱉는 상태가 됐다.
+        //   실측: WS $228.2697 (고정) vs REST $218.985  → 4% 괴리, 화면에 오표시.
+        // WS 가격이 REST 기준가에서 크게 벗어나면 WS 를 신뢰하지 않고
+        // REST(Intrinio) 폴링 값으로 폴백한다.
+        // EC2 워커를 Intrinio WS 로 이관하면 자연히 통과하게 되는 가드다.
+        const restQuote = data?.data?.[ticker];
+        const restRef = restQuote?.price || restQuote?.previousClose || restQuote?.prevClose || 0;
+        const wsDeviation =
+            wsPrice && wsPrice.price > 0 && restRef > 0
+                ? Math.abs(wsPrice.price - restRef) / restRef
+                : 0;
+        const WS_MAX_DEVIATION = 0.02; // 2%
+        const wsTrustworthy = wsDeviation <= WS_MAX_DEVIATION;
+
+        if (!wsTrustworthy && wsPrice && wsPrice.price > 0 && restRef > 0) {
+            if (typeof console !== 'undefined' && Math.random() < 0.02) {
+                console.warn(
+                    `[useLivePrice] WS 가격 무시 (${ticker}): ws=${wsPrice.price} rest=${restRef} 괴리=${(wsDeviation * 100).toFixed(2)}%`
+                );
+            }
+        }
+
+        if (wsPrice && wsPrice.price > 0 && wsTrustworthy) {
             // Merge WS real-time price with SWR extended session data
             const q = data?.data?.[ticker];
             

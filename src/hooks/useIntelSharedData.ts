@@ -480,7 +480,19 @@ export function useIntelSharedDataForApp(): IntelSharedData & { refresh: () => v
             let changed = false;
             const next = arr.map(q => {
                 const ws = wsPrices.get(q.ticker);
-                const wsPrice = (ws?.price && ws.price > 0) ? ws.price : null;
+                let wsPrice = (ws?.price && ws.price > 0) ? ws.price : null;
+
+                // ── [2026-08-29] STALE WS 가드 ──────────────────────────
+                // Massive 차단 이후 EC2 price-ws 가 실시간 틱을 받지 못해
+                // 구독 시점의 **어제 값**만 뱉는 상태가 됐다.
+                //   실측: WS $228.2697(고정) vs REST $218.985 → 4% 괴리.
+                // REST 기준가에서 2% 이상 벗어난 WS 값은 신뢰하지 않는다.
+                // (EC2 를 Intrinio WS 로 이관하면 자연히 통과하는 가드)
+                if (wsPrice != null) {
+                    const ref = q.price > 0 ? q.price : q.prevClose;
+                    if (ref > 0 && Math.abs(wsPrice - ref) / ref > 0.02) wsPrice = null;
+                }
+
                 if (wsPrice == null) return q;
                 const pipe = computeOnePipe({
                     session: normalizeSession(q.session),
