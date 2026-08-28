@@ -445,9 +445,12 @@ function etMinuteToMs(date: string, minute: number): number {
     const probe = Date.parse(`${date}T12:00:00Z`);
     if (Number.isNaN(probe)) return 0;
     const etNoon = new Date(new Date(probe).toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const offsetHours = 12 - etNoon.getHours();
-    const sign = offsetHours >= 0 ? "+" : "-";
-    const oh = String(Math.abs(offsetHours)).padStart(2, "0");
+    // ⚠️ 부호 주의: UTC 정오가 ET 08시면 ET 는 UTC 보다 **4시간 뒤**이므로
+    //    ISO 오프셋은 «-04:00» 이다. 이 부호를 뒤집으면 POST 봉이 정규장 시간대로
+    //    계산돼 기존 봉과 충돌하고 조용히 버려진다(2026-08-29 실제 발생).
+    const behindHours = 12 - etNoon.getHours();      // EDT=4, EST=5
+    const sign = behindHours > 0 ? "-" : "+";
+    const oh = String(Math.abs(behindHours)).padStart(2, "0");
     const t = Date.parse(`${date}T${h}:${m}:00${sign}${oh}:00`);
     return Number.isNaN(t) ? 0 : t;
 }
