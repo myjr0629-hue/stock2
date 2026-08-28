@@ -147,6 +147,40 @@ async function releaseQueue(isReport: boolean) {
     }
 }
 
+/**
+ * 호출부가 넘긴 endpoint 를 "/v2/..." 형태의 Massive 경로로 정규화한다.
+ *
+ * 소비처가 두 가지 형태를 섞어 쓴다:
+ *   1) 상대 경로   — fetchMassive('/v2/snapshot/...', {...})
+ *   2) 전체 URL    — fetchMassiveWithRetry(`${BASE}/v2/snapshot/...?apiKey=...`)
+ *      (live/ticker, live/options/atm, live/options/structure 등)
+ *
+ * ⚠️ 2)를 처리하지 않으면 해당 소비처가 라우팅을 통째로 우회한다.
+ *    실제로 1차 배포에서 옵션 지표는 살아나고 price 만 null 이 된 원인이 이것이었다.
+ *
+ * @returns 라우팅 가능한 경로(+쿼리). Massive/Polygon 호스트가 아니면 null.
+ */
+function normalizeToMassivePath(endpoint: string): string | null {
+    if (!endpoint) return null;
+    if (!endpoint.startsWith("http")) return endpoint;
+
+    try {
+        const u = new URL(endpoint);
+        const host = u.hostname.toLowerCase();
+        const isVendor =
+            host.endsWith("polygon.io") || host.endsWith("massive.com");
+        if (!isVendor) return null; // 외부 호스트(next_url 등)는 건드리지 않는다
+
+        // apiKey 는 라우팅 판단에 불필요하므로 제거
+        u.searchParams.delete("apiKey");
+        u.searchParams.delete("api_key");
+        const qs = u.searchParams.toString();
+        return qs ? `${u.pathname}?${qs}` : u.pathname;
+    } catch {
+        return null;
+    }
+}
+
 // --- HELPER: Massive API Core (Retry, Cache, Concurrency, Budget) ---
 export async function fetchMassive(
     endpoint: string,
@@ -165,23 +199,27 @@ export async function fetchMassive(
     //   - 대응 불가 엔드포인트는 Massive 를 때리지 않고 즉시 빈 결과를 준다.
     //     (403 재시도로 6초씩 낭비하는 것을 막고, 소비처가 graceful degrade 하도록)
     // ══════════════════════════════════════════════════════════════
-    if (!endpoint.startsWith("http") && !shouldPassThroughToMassive(endpoint)) {
-        const cacheKeyEarly = `${endpoint}::${JSON.stringify(params)}`;
+    // 전체 URL 로 들어오는 경우(fetchMassiveWithRetry 등)도 경로를 뽑아 라우팅한다.
+    // ⚠️ 이 정규화를 빼면 live/ticker 처럼 URL 을 직접 조립하는 소비처가 통째로 우회된다.
+    const routableEndpoint = normalizeToMassivePath(endpoint);
+
+    if (routableEndpoint && !shouldPassThroughToMassive(routableEndpoint)) {
+        const cacheKeyEarly = `${routableEndpoint}::${JSON.stringify(params)}`;
         if (useCache && massiveCache.has(cacheKeyEarly)) {
             const cached = massiveCache.get(cacheKeyEarly)!;
             if (Date.now() < cached.expiry) return cached.data;
             massiveCache.delete(cacheKeyEarly);
         }
 
-        if (isUnsupported(endpoint)) {
-            notifyStatus({ lastEndpoint: endpoint, step: "INTRINIO_UNSUPPORTED" });
+        if (isUnsupported(routableEndpoint)) {
+            notifyStatus({ lastEndpoint: routableEndpoint, step: "INTRINIO_UNSUPPORTED" });
             return { status: "OK", results: [], tickers: [], count: 0, _unsupported: true };
         }
 
         try {
-            const routed = await routeToIntrinio(endpoint, params);
+            const routed = await routeToIntrinio(routableEndpoint, params);
             if (routed !== undefined) {
-                notifyStatus({ lastEndpoint: endpoint, lastHttpStatus: 200, step: "INTRINIO_OK" });
+                notifyStatus({ lastEndpoint: routableEndpoint, lastHttpStatus: 200, step: "INTRINIO_OK" });
                 if (useCache) {
                     massiveCache.set(cacheKeyEarly, { data: routed, expiry: Date.now() + 60000 });
                 }
@@ -189,8 +227,8 @@ export async function fetchMassive(
             }
         } catch (e: any) {
             const err = normalizeError(e);
-            console.warn(`[Intrinio] ${endpoint} 실패: ${err.reasonKR}`, err.details?.slice(0, 160));
-            notifyStatus({ lastEndpoint: endpoint, lastError: err.reasonKR, step: "INTRINIO_FAIL" });
+            console.warn(`[Intrinio] ${routableEndpoint} 실패: ${err.reasonKR}`, err.details?.slice(0, 160));
+            notifyStatus({ lastEndpoint: routableEndpoint, lastError: err.reasonKR, step: "INTRINIO_FAIL" });
             throw err;
         }
     }
