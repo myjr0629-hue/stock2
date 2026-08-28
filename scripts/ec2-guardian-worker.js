@@ -65,7 +65,10 @@ const CONFIG = {
     ELASTICACHE_PORT: parseInt(process.env.ELASTICACHE_PORT || "6379"),
 
     // Polygon API
-    POLYGON_API_KEY: process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF",
+    // [2026-08-29] Massive 차단으로 무효. polygonGet() 은 현재 호출처가 없는
+    // 죽은 코드이며, 실제 데이터는 Vercel API 를 거쳐 Intrinio 에서 온다.
+    // 하드코딩 키만 제거하고 정의는 남겨 둔다(참조 안전).
+    POLYGON_API_KEY: process.env.POLYGON_API_KEY || "",
     POLYGON_BASE_URL: "https://api.polygon.io",
 
     // Vercel Production (fallback for complex calculations)

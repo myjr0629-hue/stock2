@@ -66,6 +66,30 @@ interface ShortVolumeData {
 
 // Fetch Trades for Dark Pool & Block Trade analysis + Buy/Sell classification (Quote Rule)
 async function fetchTradeData(ticker: string): Promise<TradeData | null> {
+    // ══════════════════════════════════════════════════════════════
+    // [2026-08-29] 다크풀 계산 중단 — Massive 차단
+    //
+    // 이 함수는 /v3/trades + /v3/quotes 틱을 표본으로 다크풀%·블록트레이드를
+    // 계산했다. Massive 차단 후 실측:
+    //   /v3/trades  → HTTP 200 이지만 status:"DELAYED", **19시간 전 데이터**
+    //   /v3/quotes  → 동일
+    //   short-volume→ HTTP 200 이지만 date "2024-02-06" (2년 전)
+    //   WebSocket   → close(1008) 차단
+    //
+    // 즉 "200 OK 인데 값은 어제 것"이라 **오탐이 가장 위험한 형태**였다.
+    // 실제로 darkPool 50%·blockTrade 52 가 어제 값으로 계산돼 앱의
+    // `darkPool >= 45` 판단 로직까지 오염시키고 있었다.
+    //
+    // Intrinio Startup 에는 틱 단위 체결/호가가 없다(Enterprise 전용).
+    // → 다크풀 계열은 **제공 중단**하고 null 을 반환한다.
+    //   소비처는 이미 0/null 을 '-' 로 표시하도록 되어 있다.
+    //
+    // 되살리려면: Intrinio Enterprise(15-Min Delayed SIP) 계약 후
+    //   DELAYED_SIP provider 로 market_center 기반 재구현.
+    // 정본: .agent/INTRINIO_MIGRATION_WORKLOG.md
+    // ══════════════════════════════════════════════════════════════
+    if (process.env.ENABLE_MASSIVE_TICKS !== "1") return null;
+
     try {
         // [PROD FIX] limit=5000 trades + 1000 quotes — sufficient sample for DP% calculation
         // Previous limit=50000 + next_url follow (100K+ trades) caused Vercel serverless timeout
@@ -241,6 +265,11 @@ async function fetchQuoteData(ticker: string): Promise<QuoteData | null> {
 
 // Fetch Short Volume (daily)
 async function fetchShortVolumeData(ticker: string): Promise<ShortVolumeData | null> {
+    // [2026-08-29] Massive short-volume 은 HTTP 200 을 주지만 실측 date 가
+    // "2024-02-06" — **2년 전 데이터**다. 값이 있으니 정상처럼 보이는 게 더 위험하다.
+    // Intrinio Startup 에는 공매도 잔고/거래량이 없다(Enterprise 전용) → 제공 중단.
+    if (process.env.ENABLE_MASSIVE_TICKS !== "1") return null;
+
     try {
         const url = `${POLYGON_BASE}/stocks/v1/short-volume?ticker=${ticker}&limit=1&apiKey=${POLYGON_API_KEY}`;
         const res = await fetch(url);
