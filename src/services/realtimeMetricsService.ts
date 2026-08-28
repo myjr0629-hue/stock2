@@ -76,7 +76,17 @@ export async function fetchTradeData(ticker: string): Promise<TradeData | null> 
         // Proxy down → fall through to Polygon REST
     }
 
-    // [FALLBACK] Polygon REST sampling (5,000 trades) — used when EC2 data unavailable
+    // ══════════════════════════════════════════════════════════════
+    // [2026-08-29] Massive REST 폴백 중단
+    //   /v3/trades·/v3/quotes 가 HTTP 200 을 주지만 status:"DELAYED" 로
+    //   **19시간 전 데이터**를 반환한다. 그 값으로 계산한 다크풀 50%가
+    //   앱의 `darkPool >= 45` 판단 로직까지 오염시켰다.
+    //   Intrinio Startup 에는 틱 데이터가 없다(Enterprise 전용) → 제공 중단.
+    //   ※ 이 파일은 realtime-metrics/route.ts 와 로직이 복제되어 있다.
+    //     한쪽만 고치면 live/ticker 경로로 stale 값이 계속 새어 나온다.
+    // ══════════════════════════════════════════════════════════════
+    if (process.env.ENABLE_MASSIVE_TICKS !== "1") return null;
+
     try {
         const [tradesRes, quotesRes] = await Promise.all([
             fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=5000&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } } as any),
@@ -178,6 +188,10 @@ export async function fetchTradeData(ticker: string): Promise<TradeData | null> 
 
 // Fetch Short Volume (daily)
 export async function fetchShortVolumeData(ticker: string): Promise<ShortVolumeData | null> {
+    // [2026-08-29] Massive short-volume 은 200 OK 이지만 실측 date 가 "2024-02-06"
+    // — 2년 전 데이터다. Intrinio Startup 미제공 → 중단.
+    if (process.env.ENABLE_MASSIVE_TICKS !== "1") return null;
+
     try {
         const url = `${POLYGON_BASE}/stocks/v1/short-volume?ticker=${ticker}&limit=1&apiKey=${POLYGON_API_KEY}`;
         const res = await fetch(url, { next: { revalidate: 60 } } as any);

@@ -41,6 +41,9 @@ export async function GET(req: NextRequest) {
                 const [siData, svData] = await Promise.all([
                     fetchSIPercent(ticker),
                     (async () => {
+                        // [2026-08-29] Massive short-volume 은 200 OK 이지만 실측 date 가
+                        // "2024-02-06" — 2년 전 데이터다. Intrinio Startup 미제공 → 중단.
+                        if (process.env.ENABLE_MASSIVE_TICKS !== '1') return null;
                         try {
                             const url = `https://api.polygon.io/stocks/v1/short-volume?ticker=${ticker}&limit=1&apiKey=${POLYGON_API_KEY}`;
                             const res = await fetch(url);
