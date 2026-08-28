@@ -262,19 +262,50 @@ interface McClellanState {
     ema39: number;
     oscillator: number;
     lastUpdate: string;
+    /** 마지막으로 «반영»한 거래일 (YYYY-MM-DD, ET) */
+    lastTradingDate?: string;
 }
 
+/** ET 기준 오늘 날짜 YYYY-MM-DD */
+function etDateKey(): string {
+    const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+}
+
+/**
+ * McClellan Oscillator = EMA19(A−D) − EMA39(A−D)
+ *
+ * ⚠️ **하루에 한 번만 반영해야 한다.**
+ *   McClellan 은 정의상 «일간» 등락종목차의 EMA 다. 그런데 이 함수는 RLSI 가
+ *   계산될 때마다(가디언 스냅샷 갱신 주기 = 분 단위) 호출되고 있었다.
+ *   그러면 EMA 가 몇 분 안에 당일 A−D 로 수렴해 **19일/39일 평활의 의미가 사라진다.**
+ *   (Massive 시절부터 있던 설계 결함 — 2026-08-29 이관 검증 중 발견)
+ *
+ *   같은 거래일에 다시 호출되면 저장된 오실레이터를 그대로 돌려준다.
+ */
 async function updateMcClellan(advancers: number, decliners: number): Promise<number> {
     const adDiff = advancers - decliners;
-    
+    const today = etDateKey();
+
     try {
         const prev = await getFromCache<McClellanState>(MCCLELLAN_KEY);
-        
+
+        // 오늘 이미 반영했으면 그대로 유지 (일간 지표를 분 단위로 흔들지 않는다)
+        if (prev && prev.lastTradingDate === today) {
+            return prev.oscillator;
+        }
+        // A/D 가 아직 안 잡힌 상태(전 종목 0)면 반영하지 않는다 — 0 을 «중립 하루»로
+        // 기록해 버리면 다음 날 EMA 가 오염된다.
+        if (advancers === 0 && decliners === 0) {
+            return prev?.oscillator ?? 0;
+        }
+
         const k19 = 2 / (19 + 1); // EMA smoothing factor
         const k39 = 2 / (39 + 1);
-        
+
         let ema19: number, ema39: number;
-        
+
         if (prev) {
             ema19 = adDiff * k19 + prev.ema19 * (1 - k19);
             ema39 = adDiff * k39 + prev.ema39 * (1 - k39);
@@ -290,7 +321,8 @@ async function updateMcClellan(advancers: number, decliners: number): Promise<nu
             ema19: Number(ema19.toFixed(2)),
             ema39: Number(ema39.toFixed(2)),
             oscillator: Number(oscillator.toFixed(2)),
-            lastUpdate: new Date().toISOString()
+            lastUpdate: new Date().toISOString(),
+            lastTradingDate: today
         };
         
         await setInCache(MCCLELLAN_KEY, state, 7 * 24 * 60 * 60); // 7 days

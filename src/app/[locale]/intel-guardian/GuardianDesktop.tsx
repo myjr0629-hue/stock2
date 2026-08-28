@@ -148,15 +148,20 @@ interface GuardianContext {
         noiseFlags?: string[];
         bounceWarnings?: string[];
     };
+    // ⚠️ 이 형태는 `GuardianContext['breadth']`(services/guardian/unifiedDataStream.ts)
+    //    의 **재선언**이다. 한쪽만 고치면 앱/웹이 갈린다.
+    //    필드를 추가할 때는 반드시 양쪽을 같이 바꿀 것.
     breadth?: {
         advancers: number;
         decliners: number;
+        unchanged?: number;
         totalTickers: number;
         breadthPct: number;
         adRatio: number;
         volumeBreadth: number;
         signal: string;
         isDivergent: boolean;
+        hasData?: boolean;
     };
     // [V9.0] RLSI Intraday History
     rlsiHistory?: { time: string; score: number }[];
@@ -523,6 +528,7 @@ export default function GuardianDesktop() {
                                             loading={loading}
                                             isMarketActive={isMarketActive}
                                             session={session || 'CLOSED'}
+                                            breadthHasData={data?.breadth?.hasData}
                                         />
                                     ) : (
                                         <WhatIfSimulator

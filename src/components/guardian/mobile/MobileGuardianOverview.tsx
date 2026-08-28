@@ -208,6 +208,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                             loading={loading}
                             isMarketActive={isMarketActive}
                             session={effectiveSession || 'CLOSED'}
+                            breadthHasData={data?.breadth?.hasData}
                             appCompact
                         />
                     ) : (

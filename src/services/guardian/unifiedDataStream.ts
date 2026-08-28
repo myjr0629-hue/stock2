@@ -77,6 +77,7 @@ export interface GuardianContext {
         decliners: number;
         unchanged?: number;
         totalTickers: number;
+        hasData?: boolean;
         breadthPct: number;
         adRatio: number;
         volumeBreadth: number;
@@ -903,7 +904,9 @@ export class GuardianDataHub {
                     adRatio: breadthSnapshot?.adRatio ?? rlsi.components?.adRatio ?? 1,
                     volumeBreadth: breadthSnapshot?.volumeBreadth ?? rlsi.components?.volumeBreadth ?? 50,
                     signal: breadthSnapshot?.signal ?? rlsi.components?.breadthSignal ?? 'NEUTRAL',
-                    isDivergent: breadthSnapshot?.isDivergent ?? rlsi.components?.breadthDivergent ?? false
+                    isDivergent: breadthSnapshot?.isDivergent ?? rlsi.components?.breadthDivergent ?? false,
+                    // 화면이 «기본값인가»를 숫자로 추측하지 않도록 명시 전달
+                    hasData: breadthSnapshot?.hasData ?? false
                 },
                 rlsiHistory,  // [V9.0] Intraday sparkline data
                 gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence

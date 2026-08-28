@@ -19,6 +19,15 @@ export interface BreadthSnapshot {
     isDivergent: boolean;       // NQ↑ but Breadth<40% → 경고
     signal: 'STRONG' | 'HEALTHY' | 'NEUTRAL' | 'WEAK' | 'CRITICAL';
     timestamp: string;
+    /**
+     * 실제 시장 데이터로 계산된 값인가.
+     * false 면 «데이터 없음»의 중립 기본값이다.
+     *
+     * ⚠️ 예전에는 UI 가 `breadthPct===50 && adRatio===1 && volumeBreadth===50` 로
+     *    **추측**했다. 실제 폭이 정확히 50.0% 인 날에는 «데이터 없음»으로 오판한다.
+     *    (Massive 시절부터 있던 휴리스틱 — 명시 플래그로 교체)
+     */
+    hasData: boolean;
 }
 
 // === CACHE CONFIG ===
@@ -230,7 +239,8 @@ async function fetchFreshBreadth(
             breadthScore: Math.min(100, Math.max(0, breadthScore)),
             isDivergent,
             signal,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            hasData: true
         };
 
         // Store in caches
@@ -263,6 +273,7 @@ function createDefaultSnapshot(): BreadthSnapshot {
         breadthScore: 50,
         isDivergent: false,
         signal: 'NEUTRAL',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        hasData: false
     };
 }

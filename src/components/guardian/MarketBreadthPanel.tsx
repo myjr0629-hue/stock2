@@ -131,6 +131,8 @@ interface RLSIInsightPanelProps {
     loading?: boolean;
     isMarketActive?: boolean;
     session?: string; // "PRE" | "REG" | "CLOSED" | "POST"
+    /** 업스트림이 실데이터로 계산했는가. undefined = 구버전 응답 */
+    breadthHasData?: boolean;
     appCompact?: boolean;
 }
 
@@ -152,6 +154,7 @@ export default function RLSIInsightPanel({
     loading,
     isMarketActive = true,
     session = "CLOSED",
+    breadthHasData,
     appCompact = false,
 }: RLSIInsightPanelProps) {
     const t = useTranslations('guardian');
@@ -236,7 +239,12 @@ export default function RLSIInsightPanel({
     // the open. During PRE (and closed/holiday) the upstream serves neutral defaults
     // (50/50, A/D 1.00, vol 50) — rendering those with a real interpretation sentence
     // misleads (user-reported). POST keeps the completed session's real reading.
-    const breadthIsDefault = breadthPct === 50 && adRatio === 1 && volumeBreadth === 50;
+    // 업스트림이 «실데이터인가»를 명시로 알려준다(breadthHasData).
+    // 옛 휴리스틱(50/1/50 이면 기본값)은 실제 폭이 정확히 50.0% 인 날을
+    // «데이터 없음»으로 오판했다. 플래그가 없는 응답(구버전 캐시)만 휴리스틱으로 폴백.
+    const breadthIsDefault = breadthHasData === undefined
+        ? (breadthPct === 50 && adRatio === 1 && volumeBreadth === 50)
+        : !breadthHasData;
     const breadthLive = isMarketActive && (session === 'REG' || session === 'POST') && !breadthIsDefault;
 
     const sentimentBorder = sentiment === 'BULLISH' ? 'border-emerald-500/20' :
