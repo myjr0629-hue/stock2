@@ -664,7 +664,7 @@ export async function getTickerDetails(ticker: string): Promise<any> {
 
 export interface EodRow { ticker: string; date: string; o: number; h: number; l: number; c: number; v: number; chg: number; chgPct: number; }
 
-let _eodCache: { at: number; date: string; rows: Map<string, EodRow> } | null = null;
+let _eodCache: { at: number; date: string; prevDate: string; rows: Map<string, EodRow> } | null = null;
 let _snapCache: { at: number; rows: Map<string, { last: number; high: number; low: number; vol: number }> } | null = null;
 const EOD_TTL_MS = 30 * 60 * 1000;       // 30m (Redis 재조회 주기)
 const SNAP_TTL_MS = 5 * 60 * 1000;       // 5m
@@ -689,14 +689,14 @@ export const EOD_SNAPSHOT_KEY = "intrinio:eod:snapshot";
  *
  * 비어 있으면 빈 Map 을 반환한다. 호출부는 유니버스 폴백으로 동작해야 한다.
  */
-async function loadBulkEod(): Promise<{ date: string; rows: Map<string, EodRow> }> {
+async function loadBulkEod(): Promise<{ date: string; prevDate: string; rows: Map<string, EodRow> }> {
     if (_eodCache && Date.now() - _eodCache.at < EOD_TTL_MS) {
-        return { date: _eodCache.date, rows: _eodCache.rows };
+        return { date: _eodCache.date, prevDate: _eodCache.prevDate, rows: _eodCache.rows };
     }
 
     const payload = (await readEodFromElastiCache()) ?? (await readEodFromUpstash());
     if (!payload?.date || !Array.isArray(payload.rows)) {
-        return { date: "", rows: new Map() };
+        return { date: "", prevDate: "", rows: new Map() };
     }
 
     const rows = new Map<string, EodRow>();
@@ -713,11 +713,11 @@ async function loadBulkEod(): Promise<{ date: string; rows: Map<string, EodRow> 
         });
     }
 
-    _eodCache = { at: Date.now(), date: payload.date, rows };
-    return { date: payload.date, rows };
+    _eodCache = { at: Date.now(), date: payload.date, prevDate: payload.prevDate || "", rows };
+    return { date: payload.date, prevDate: payload.prevDate || "", rows };
 }
 
-interface EodPayload { date: string; rows: any[][]; _ts?: number }
+interface EodPayload { date: string; prevDate?: string; rows: any[][]; _ts?: number }
 
 /** 1순위: EC2 Redis Proxy → ElastiCache (비용 $0) */
 async function readEodFromElastiCache(): Promise<EodPayload | null> {
@@ -920,9 +920,11 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
         iP = H.get("TRADE PRICE") ?? -1,
         iV = H.get("TOTAL TRADE VOLUME") ?? -1,
         iH = H.get("TRADE HIGH PRICE") ?? -1,
-        iL = H.get("TRADE LOW PRICE") ?? -1;
+        iL = H.get("TRADE LOW PRICE") ?? -1,
+        iA = H.get("ASK PRICE") ?? -1,
+        iB = H.get("BID PRICE") ?? -1;
     if (iS < 0) return rows;
-    const maxIx = Math.max(iS, iP, iV, iH, iL);
+    const maxIx = Math.max(iS, iP, iV, iH, iL, iA, iB);
 
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
@@ -931,8 +933,21 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
         if (cols.length <= maxIx) continue;
         const sym = cols[iS].toUpperCase();
         if (!sym) continue;
+
+        // ⚠️ Startup 플랜에서는 TRADE PRICE / HIGH / LOW / TIMESTAMP 가 **전부 빈 칸**이다.
+        //    (체결 데이터는 상위 라이선스, 이 CSV 는 NBBO 호가만 채워 준다.)
+        //    2026-08-29 실측:
+        //      NVDA,,,194772757,,,,217.910,1,…,217.900,196,…   ← trade 열 공백, ask/bid 존재
+        //    `last = TRADE PRICE` 로만 읽으면 항상 0 → 전 종목이 장중에도 EOD 종가에
+        //    고정되고, Market Breadth 가 «어제 등락»을 오늘로 표시한다.
+        //    → 체결가가 없으면 **호가 미드**로 대체한다 (실측 미드 217.905 vs 실제 217.91).
+        const trade = Number(cols[iP]) || 0;
+        const ask = iA >= 0 ? Number(cols[iA]) || 0 : 0;
+        const bid = iB >= 0 ? Number(cols[iB]) || 0 : 0;
+        const mid = ask > 0 && bid > 0 ? (ask + bid) / 2 : ask || bid || 0;
+
         rows.set(sym, {
-            last: Number(cols[iP]) || 0,
+            last: trade > 0 ? trade : mid,
             high: Number(cols[iH]) || 0,
             low: Number(cols[iL]) || 0,
             vol: Number(cols[iV]) || 0,
@@ -944,22 +959,50 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
 }
 
 /** EOD + 실시간 스냅샷 병합 → Massive 스냅샷 티커 배열 */
+/**
+ * 현재 미국장 «거래일»(ET). 주말이면 직전 금요일.
+ * 벌크 EOD 가 T+1 로 하루 늦게 게시되므로, 이 날짜와 비교해
+ * EOD 종가가 «오늘 종가»인지 «전일 종가»인지를 판정해야 한다.
+ */
+function currentEtTradingDate(): string {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    // 04:00 ET 이전은 아직 전 거래일로 취급 (프리마켓 시작 전)
+    if (et.getHours() < 4) et.setDate(et.getDate() - 1);
+    while (et.getDay() === 0 || et.getDay() === 6) et.setDate(et.getDate() - 1);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+}
+
 async function buildMarketTickers(): Promise<any[]> {
-    const [{ rows: eod }, snap] = await Promise.all([
+    const [{ rows: eod, date: eodDate }, snap] = await Promise.all([
         loadBulkEod(),
         loadRealtimeSnapshot().catch(() => new Map()),
     ]);
+
+    // ⚠️ 하루 어긋남 방어 — 2026-08-29 실측으로 확인한 실제 버그.
+    //    벌크 EOD 최신일은 8/27 인데 8/28 장은 이미 끝나 있었다(T+1 게시).
+    //    그런데 코드는 항상 `prevClose = c - chg`(= 8/26 종가)로 계산해서
+    //    등락률이 **한 세션 어긋난 값**이 되고 있었다.
+    //
+    //      EOD 날짜 == 현재 거래일  →  c 는 «오늘» 종가  →  prevClose = c - chg
+    //      EOD 날짜 <  현재 거래일  →  c 는 «전일» 종가  →  prevClose = c
+    const eodIsStale = !!eodDate && eodDate < currentEtTradingDate();
 
     const out: any[] = [];
     for (const [ticker, e] of eod.entries()) {
         const s = snap.get(ticker);
         const live = s && s.last > 0 ? s.last : null;
 
-        // 장중이면 실시간가 기준으로 등락률 재계산, 아니면 EOD 값 사용
-        const prevClose = e.c - e.chg;
+        const prevClose = eodIsStale ? e.c : e.c - e.chg;
+
+        // EOD 가 뒤처져 있는데 실시간가도 없으면 «오늘» 값을 만들 수 없다.
+        // 이때 e.chgPct(어제 등락)를 쓰면 Market Breadth 가 어제 장을 오늘로
+        // 표시한다 — 조용히 틀린 숫자가 가장 위험하므로 그 종목은 버린다.
+        if (eodIsStale && !live) continue;
+
         const last = live ?? e.c;
-        const change = live && prevClose > 0 ? live - prevClose : e.chg;
-        const changePct = live && prevClose > 0 ? (change / prevClose) * 100 : e.chgPct;
+        const change = prevClose > 0 ? last - prevClose : e.chg;
+        const changePct = prevClose > 0 ? (change / prevClose) * 100 : e.chgPct;
 
         out.push({
             ticker,
@@ -1034,23 +1077,55 @@ export async function getMoversIntrinio(direction: "gainers" | "losers"): Promis
     return { status: "OK", count: Math.min(sorted.length, 50), tickers: sorted.slice(0, 50) };
 }
 
-/** Massive: /v2/aggs/grouped/locale/us/market/stocks/{date} 대응 */
-export async function getGroupedDailyIntrinio(_date: string): Promise<any> {
-    const { date, rows } = await loadBulkEod();
-    const results = [...rows.values()].map((e) => ({
-        T: e.ticker,
-        t: dateToMs(e.date),
-        o: e.o, h: e.h, l: e.l, c: e.c, v: e.v,
-        vw: Math.round(((e.h + e.l + e.c) / 3) * 10000) / 10000,
-        n: 0,
-    }));
+/**
+ * Massive: /v2/aggs/grouped/locale/us/market/stocks/{date} 대응
+ *
+ * ⚠️ 예전 구현은 `_date` 를 **통째로 무시**하고 항상 최신 EOD 를 돌려줬다.
+ *    그런데 `/api/market/movers` 는 «서로 다른 두 거래일»을 받아 등락률을 계산한다.
+ *    같은 값을 두 번 받으면 prevClose == price → 등락률 전 종목 0% 가 된다.
+ *    (2026-08-29 발견 — movers 가 전일 종가에 가짜 등락률을 붙여 내보내고 있었다.)
+ *
+ *    벌크 EOD 행에는 `chg`(전일 대비)가 들어 있으므로, 직전 거래일 종가는
+ *    `c - chg` 로 저장량 증가 없이 복원할 수 있다. 그 두 날짜만 응답하고
+ *    나머지 날짜는 빈 결과 → 호출부가 다른 날짜로 재시도하게 둔다.
+ */
+export async function getGroupedDailyIntrinio(reqDate: string): Promise<any> {
+    const { date, prevDate, rows } = await loadBulkEod();
+    if (!date) return { status: "OK", adjusted: true, queryCount: 0, resultsCount: 0, results: [] };
+
+    const wantPrev = !!reqDate && !!prevDate && reqDate === prevDate;
+    if (reqDate && reqDate !== date && !wantPrev) {
+        // 보유하지 않은 날짜 — 빈 결과로 정직하게 응답한다.
+        return {
+            status: "OK", adjusted: true,
+            queryCount: 0, resultsCount: 0, results: [],
+            _eodDate: date, _requested: reqDate,
+        };
+    }
+
+    const results = [...rows.values()].map((e) => {
+        const close = wantPrev ? e.c - e.chg : e.c;
+        return {
+            T: e.ticker,
+            t: dateToMs(wantPrev ? prevDate : e.date),
+            // 직전 거래일은 종가만 복원 가능 — o/h/l 은 종가로 대체(소비처는 c 만 쓴다)
+            o: wantPrev ? close : e.o,
+            h: wantPrev ? close : e.h,
+            l: wantPrev ? close : e.l,
+            c: close,
+            v: wantPrev ? 0 : e.v,
+            vw: Math.round((wantPrev ? close : (e.h + e.l + e.c) / 3) * 10000) / 10000,
+            n: 0,
+        };
+    }).filter((r) => r.c > 0);
+
     return {
         status: "OK",
         adjusted: true,
         queryCount: results.length,
         resultsCount: results.length,
         results,
-        _eodDate: date,
+        _eodDate: wantPrev ? prevDate : date,
     };
 }
 
