@@ -98,9 +98,10 @@ async function getTickerSnapshot(ticker) {
 
   const dayBar = bar(rt && rt.open_price, rt && rt.high_price, rt && rt.low_price, regularClose,
     (rt && (rt.market_volume || rt.exchange_volume)) || 0);
-  const prevSrc = todayBar || prevBar;
+  // ⚠️ prevDay.c 는 반드시 prevClose(eod_close_price). 첫 행은 «오늘 진행 중 봉»일 수 있다.
+  const prevSrc = bars.find(b => num(b && b.close) === prevClose) || prevBar || todayBar;
   const prevDayBar = prevSrc
-    ? bar(prevSrc.open, prevSrc.high, prevSrc.low, prevSrc.close, prevSrc.volume)
+    ? bar(prevSrc.open, prevSrc.high, prevSrc.low, prevClose, prevSrc.volume)
     : bar(0, 0, 0, prevClose, 0);
 
   return {

@@ -237,11 +237,14 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     const isPreSession = etMins >= 240 && etMins < 570;    // 04:00–09:30
     const isPostSession = etMins >= 960 && etMins < 1200;  // 16:00–20:00
 
-    // 전일 바: 확정 일봉에서
-    const prevSrc = num(rt?.eod_close_price) != null && todayBar
-        && todayBar.close === num(rt?.eod_close_price) ? todayBar : (todayBar || prevBar);
+    // 전일 바.
+    // ⚠️ close 는 **반드시 prevClose(eod_close_price)** 여야 한다.
+    //   securities/{t}/prices 의 첫 행은 «오늘 진행 중인 봉»일 수 있어서,
+    //   그 close 를 쓰면 prevDay.c 가 현재가 근처 값이 되어 등락률이 0 에 수렴한다.
+    //   (2026-08-28 실측: prevDay.c 217.55 / 실제 전일종가 227.98)
+    const prevSrc = bars.find((b: any) => num(b?.close) === prevClose) || prevBar || todayBar;
     const prevDayBar = prevSrc
-        ? bar(prevSrc.open, prevSrc.high, prevSrc.low, prevSrc.close, prevSrc.volume)
+        ? bar(prevSrc.open, prevSrc.high, prevSrc.low, prevClose, prevSrc.volume)
         : bar(0, 0, 0, prevClose, 0);
 
     return {
