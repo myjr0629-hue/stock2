@@ -667,6 +667,8 @@ export interface EodRow { ticker: string; date: string; o: number; h: number; l:
 let _eodCache: { at: number; date: string; prevDate: string; rows: Map<string, EodRow> } | null = null;
 let _snapCache: { at: number; rows: Map<string, { last: number; high: number; low: number; vol: number }> } | null = null;
 const EOD_TTL_MS = 30 * 60 * 1000;       // 30m (Redis 재조회 주기)
+/** 호가 미드를 «가격»으로 받아들일 최대 스프레드(%). 넘으면 시장이 없는 것으로 본다. */
+const MAX_QUOTE_SPREAD_PCT = 1;
 const SNAP_TTL_MS = 5 * 60 * 1000;       // 5m
 
 /**
@@ -944,7 +946,18 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
         const trade = Number(cols[iP]) || 0;
         const ask = iA >= 0 ? Number(cols[iA]) || 0 : 0;
         const bid = iB >= 0 ? Number(cols[iB]) || 0 : 0;
-        const mid = ask > 0 && bid > 0 ? (ask + bid) / 2 : ask || bid || 0;
+
+        // ⚠️ 미드는 **스프레드가 좁을 때만** 가격의 대용이 된다.
+        //    2026-08-29 시간외 실측 (13,064종목):
+        //      NVDA  bid 217.90 / ask 217.92 → 0.01%   ← 신뢰 가능
+        //      EBMT  bid  22.56 / ask  43.95 → 64.3%   ← 미드 33.25 는 무의미
+        //      BEPI  bid  15.92 / ask  31.70 → 66.3%   ← 미드 23.81 은 무의미
+        //    분포: ≤1% 1,212종목 / >20% 5,002종목.
+        //    게이트 없이 미드를 쓰면 movers 상위가 «가짜 급등» 으로 뒤덮인다
+        //    (실제로 EBMT +48%, BEPI +49% 가 상위에 올라왔다).
+        const midRaw = ask > 0 && bid > 0 ? (ask + bid) / 2 : 0;
+        const spreadPct = midRaw > 0 ? ((ask - bid) / midRaw) * 100 : Infinity;
+        const mid = midRaw > 0 && spreadPct >= 0 && spreadPct <= MAX_QUOTE_SPREAD_PCT ? midRaw : 0;
 
         rows.set(sym, {
             last: trade > 0 ? trade : mid,

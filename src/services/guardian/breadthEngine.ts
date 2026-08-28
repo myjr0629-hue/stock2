@@ -26,6 +26,36 @@ const REDIS_KEY = 'guardian:breadth';
 const REDIS_TTL = 300;  // 5 minutes
 const MEMORY_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
+/**
+ * 마지막 «정규장» 판독값 — POST/CLOSED 에서 이 값을 그대로 서빙한다.
+ *
+ * [세션 정책 · 정본]  src/components/guardian/MarketBreadthPanel.tsx
+ *   REG          → 실시간 A/D
+ *   POST         → **직전 정규장의 실제 판독값을 유지** (시간외로 다시 재지 않는다)
+ *   PRE / CLOSED → 중립 (패널이 non-live 로 렌더)
+ *
+ * 왜 시간외에 다시 재면 안 되는가:
+ *   A/D 는 정규장에 누적되는 지표다. 게다가 2026-08-29 실측으로
+ *   시간외에는 13,064종목 중 5,002종목의 호가 스프레드가 20%를 넘어
+ *   (EBMT 64% · BEPI 66%) 미드가 가격 대용이 되지 못한다.
+ *   그 값으로 breadth 를 재계산하면 «가짜 급등» 이 섞인 폭이 나온다.
+ */
+const LAST_REG_KEY = 'guardian:breadth:lastreg';
+const LAST_REG_TTL = 36 * 60 * 60;   // 36h — 주말/휴일을 건너뛰어도 직전 정규장이 남게
+
+type Session = 'PRE' | 'REG' | 'POST' | 'CLOSED';
+
+/** rlsiEngine 과 동일 규칙. 순환 import 를 피하려고 여기 둔다. */
+function marketSession(): Session {
+    const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    if (et.getDay() === 0 || et.getDay() === 6) return 'CLOSED';
+    const t = et.getHours() * 100 + et.getMinutes();
+    if (t >= 400 && t < 930) return 'PRE';
+    if (t >= 930 && t < 1600) return 'REG';
+    if (t >= 1600 && t < 2000) return 'POST';
+    return 'CLOSED';
+}
+
 let memoryCache: { data: BreadthSnapshot | null; expiry: number } = {
     data: null,
     expiry: 0
@@ -39,6 +69,23 @@ let memoryCache: { data: BreadthSnapshot | null; expiry: number } = {
  */
 export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<BreadthSnapshot> {
     const now = Date.now();
+    const session = marketSession();
+
+    // 0. 정규장이 아니면 «직전 정규장 판독값»을 그대로 돌려준다.
+    //    (설계 정본: MarketBreadthPanel — POST 는 완료된 세션의 실제 값을 유지)
+    if (session !== 'REG') {
+        try {
+            const lastReg = await getFromCache<BreadthSnapshot>(LAST_REG_KEY);
+            if (lastReg && lastReg.totalTickers > 0) {
+                console.log(`[Breadth] ${session}: 직전 정규장 판독값 유지 (${lastReg.advancers}↑/${lastReg.decliners}↓ @ ${lastReg.timestamp})`);
+                return { ...lastReg, isDivergent: nasdaqChangePct > 0.3 && lastReg.breadthPct < 40 };
+            }
+        } catch (e) {
+            console.warn('[Breadth] lastreg 조회 실패:', e);
+        }
+        // 폴백: 아래 일반 경로로 내려간다. EOD 가 «직전 완료 거래일»이면
+        // 그 자체가 완료된 정규장 판독값이므로 사용해도 정합적이다.
+    }
 
     // 1. Memory Cache
     if (memoryCache.data && memoryCache.expiry > now) {
@@ -160,6 +207,11 @@ async function fetchFreshBreadth(nasdaqChangePct: number): Promise<BreadthSnapsh
         // Store in caches
         memoryCache = { data: snapshot, expiry: Date.now() + MEMORY_TTL_MS };
         setInCache(REDIS_KEY, snapshot, REDIS_TTL).catch(() => { });
+
+        // 정규장 판독값은 별도 키로 보존한다 → 장 마감 후 POST 내내 이 값을 서빙.
+        if (marketSession() === 'REG') {
+            setInCache(LAST_REG_KEY, snapshot, LAST_REG_TTL).catch(() => { });
+        }
 
         console.log(`[Breadth V7.0] Complete: ${advancers}↑ ${decliners}↓ | Pct=${breadthPct.toFixed(1)}% | A/D=${adRatio.toFixed(2)} | VolBreadth=${volumeBreadth.toFixed(1)}% | Signal=${signal}`);
         return snapshot;
