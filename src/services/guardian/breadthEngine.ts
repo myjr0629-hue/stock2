@@ -45,6 +45,17 @@ const LAST_REG_TTL = 36 * 60 * 60;   // 36h — 주말/휴일을 건너뛰어도
 
 type Session = 'PRE' | 'REG' | 'POST' | 'CLOSED';
 
+/** 마지막으로 «완료된» 정규장의 거래일(ET, YYYY-MM-DD) */
+function lastCompletedTradingDate(): string {
+    const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const past16 = et.getHours() * 100 + et.getMinutes() >= 1600;
+    // 장 마감 전이면 오늘 정규장은 아직 «완료»가 아니다 → 하루 뒤로
+    if (!past16) et.setDate(et.getDate() - 1);
+    while (et.getDay() === 0 || et.getDay() === 6) et.setDate(et.getDate() - 1);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+}
+
 /** rlsiEngine 과 동일 규칙. 순환 import 를 피하려고 여기 둔다. */
 function marketSession(): Session {
     const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -70,6 +81,7 @@ let memoryCache: { data: BreadthSnapshot | null; expiry: number } = {
 export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<BreadthSnapshot> {
     const now = Date.now();
     const session = marketSession();
+    let nonRegRequiresCompletedSession = false;
 
     // 0. 정규장이 아니면 «직전 정규장 판독값»을 그대로 돌려준다.
     //    (설계 정본: MarketBreadthPanel — POST 는 완료된 세션의 실제 값을 유지)
@@ -83,8 +95,11 @@ export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<Bre
         } catch (e) {
             console.warn('[Breadth] lastreg 조회 실패:', e);
         }
-        // 폴백: 아래 일반 경로로 내려간다. EOD 가 «직전 완료 거래일»이면
-        // 그 자체가 완료된 정규장 판독값이므로 사용해도 정합적이다.
+        // 폴백: 아래 일반 경로로 내려가되, **완료된 거래일의 전수 데이터일 때만** 쓴다.
+        // 시간외 호가로 다시 재면 유동성 좋은 종목만 남은 편향 표본이 되고
+        // (2026-08-29 실측: 13,064종목 중 스프레드 1% 이내는 1,212종목뿐),
+        // 그걸 «오늘 폭»으로 내보내면 조용히 틀린 숫자가 된다.
+        nonRegRequiresCompletedSession = true;
     }
 
     // 1. Memory Cache
@@ -108,16 +123,19 @@ export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<Bre
         console.warn('[Breadth] Redis read failed:', e);
     }
 
-    // 3. Fresh Fetch from Massive API
+    // 3. Fresh Fetch
     console.log('[Breadth V7.0] Fetching Full Market Snapshot...');
-    return await fetchFreshBreadth(nasdaqChangePct);
+    return await fetchFreshBreadth(nasdaqChangePct, nonRegRequiresCompletedSession);
 }
 
 /**
  * Fetch fresh breadth data from Massive Full Market Snapshot
  * Endpoint: /v2/snapshot/locale/us/markets/stocks/tickers
  */
-async function fetchFreshBreadth(nasdaqChangePct: number): Promise<BreadthSnapshot> {
+async function fetchFreshBreadth(
+    nasdaqChangePct: number,
+    requireCompletedSession = false
+): Promise<BreadthSnapshot> {
     const defaultSnapshot = createDefaultSnapshot();
 
     try {
@@ -132,6 +150,17 @@ async function fetchFreshBreadth(nasdaqChangePct: number): Promise<BreadthSnapsh
         if (!tickers || tickers.length === 0) {
             console.warn('[Breadth] Empty snapshot response');
             return defaultSnapshot;
+        }
+
+        // 비정규장: 스냅샷이 «마지막으로 완료된 정규장»의 것일 때만 신뢰한다.
+        // (벌크 EOD 는 T+1 게시라 장 마감 직후에는 아직 어제 자료다)
+        if (requireCompletedSession) {
+            const snapDate = tickers.find((t: any) => t?._eodDate)?._eodDate || '';
+            const want = lastCompletedTradingDate();
+            if (snapDate !== want) {
+                console.warn(`[Breadth] 비정규장 · 스냅샷 ${snapDate || '없음'} ≠ 완료 거래일 ${want} → 중립 반환`);
+                return defaultSnapshot;
+            }
         }
 
         // Filter: only count tickers with actual trading data

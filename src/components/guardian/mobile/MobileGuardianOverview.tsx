@@ -12,7 +12,7 @@ import dynamic from 'next/dynamic';
 import { useTranslations, useLocale } from 'next-intl';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
-import { getIsMarketActive } from '@/services/guardian/marketSessionUtils';
+import { getIsMarketActive, getEffectiveSession } from '@/services/guardian/marketSessionUtils';
 import { Landmark } from 'lucide-react';
 
 const GravityGauge = dynamic(() => import('@/components/guardian/GravityGauge'), { ssr: false });
@@ -37,6 +37,13 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
     const locale = useLocale();
     const { status: marketStatusInfo } = useMarketStatus();
     const isMarketActive = getIsMarketActive(session, marketStatusInfo.isHoliday);
+    // ⚠️ 패널에는 **정규화한** 세션을 넘겨야 한다.
+    //   API 가 CLOSED 를 주는데 실제로는 정규장인 경우(marketStatus 지연 등),
+    //   원본을 그대로 넘기면 웹은 실시간 breadth 를 보여주는데 앱만 비실시간이 된다.
+    //   같은 파일 안에서도 isMarketActive 는 내부적으로 정규화되므로
+    //   «isMarketActive=true 인데 session=CLOSED» 라는 모순이 생긴다.
+    //   형제 컴포넌트(MobileGuardianFlow / MobileGuardianShield)와 웹은 이미 이렇게 한다.
+    const effectiveSession = getEffectiveSession(session);
     const [insightTab, setInsightTab] = useState<'insight' | 'whatif'>('insight');
     const { data: fedwatch } = useSWR('/api/guardian/fedwatch', url => fetch(url).then(r => r.json()), { refreshInterval: 60000 });
     const fwEase = typeof fedwatch?.ease === 'number' ? fedwatch.ease : 0;
@@ -200,7 +207,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                             isDivergent={data?.breadth?.isDivergent ?? data?.rlsi?.components?.breadthDivergent ?? false}
                             loading={loading}
                             isMarketActive={isMarketActive}
-                            session={session || 'CLOSED'}
+                            session={effectiveSession || 'CLOSED'}
                             appCompact
                         />
                     ) : (
