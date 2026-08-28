@@ -72,6 +72,13 @@ const dateToMs = (d: string): number => {
     return Number.isNaN(t) ? 0 : t;
 };
 
+/** YYYY-MM-DD 에 n일 더한 YYYY-MM-DD */
+function addDays(d: string, n: number): string {
+    const t = Date.parse(`${d}T00:00:00Z`);
+    if (Number.isNaN(t)) return d;
+    return new Date(t + n * 86400000).toISOString().slice(0, 10);
+}
+
 // ─────────────────────────────────────────────────────────────
 // CSV 파서 (RFC 4180)
 //
@@ -294,6 +301,83 @@ export async function getDailyAggregates(
         results,
         status: "OK",
         request_id: `intrinio-aggs-${sym}`,
+    };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2-b) 분봉/시간봉 집계
+//    Massive: /v2/aggs/ticker/{T}/range/{mult}/{minute|hour}/{from}/{to}
+//    Intrinio: securities/{t}/prices/intervals?interval_size=5m
+//              → { intervals: [{ time, close_time, open, high, low, close,
+//                                volume, average, trade_count, bid_*, ask_* }] }
+//    지원 interval_size: 1m 5m 15m 30m 60m(=1h)
+// ─────────────────────────────────────────────────────────────
+
+/** Massive (mult, span) → Intrinio interval_size. 미지원이면 null */
+function toIntrinioInterval(mult: number, span: string): string | null {
+    const s = span.toLowerCase();
+    if (s === "hour") return mult === 1 ? "60m" : null;
+    if (s !== "minute") return null;
+    if ([1, 5, 15, 30, 60].includes(mult)) return `${mult}m`;
+    // 근사: 지원 크기 중 가장 가까운 하위 값으로 내린다 (봉이 더 촘촘한 쪽이 안전)
+    if (mult < 5) return "1m";
+    if (mult < 15) return "5m";
+    if (mult < 30) return "15m";
+    if (mult < 60) return "30m";
+    return "60m";
+}
+
+export async function getIntradayAggregates(
+    ticker: string,
+    mult: number,
+    span: string,
+    from: string,
+    to: string,
+    opts: { sort?: "asc" | "desc"; limit?: number } = {}
+): Promise<any | undefined> {
+    const interval = toIntrinioInterval(mult, span);
+    if (!interval) return undefined;
+
+    const sym = ticker.toUpperCase();
+    const limit = Math.min(opts.limit ?? 1000, 1000);
+
+    // ⚠️ Intrinio intervals 의 실측 제약 두 가지 (2026-08-29 확인)
+    //   1) end_date 는 **배타적(exclusive)**. from==to 로 보내면 빈 배열이 온다.
+    //      → Massive 의 inclusive 의미를 맞추려면 +1일 해야 한다.
+    //   2) page_size 상한은 **1000** (넘기면 400 "Max page size for this endpoint is 1000").
+    const endExclusive = addDays(to, 1);
+
+    const data = await callIntrinio(`securities/${sym}/prices/intervals`, {
+        interval_size: interval,
+        start_date: from,
+        end_date: endExclusive,
+        page_size: String(Math.min(Math.max(limit, 100), 1000)),
+    });
+
+    const rows: any[] = data?.intervals || [];
+    // Intrinio 는 최신순(desc) 반환
+    const ordered = opts.sort === "desc" ? rows : [...rows].reverse();
+
+    const results = ordered.slice(0, limit).map((r) => ({
+        t: toMs(r.time),
+        o: num(r.open) ?? 0,
+        h: num(r.high) ?? 0,
+        l: num(r.low) ?? 0,
+        c: num(r.close) ?? 0,
+        v: num(r.volume) ?? 0,
+        // average = 해당 구간 평균가 → Massive vw 대응
+        vw: num(r.average) ?? num(r.close) ?? 0,
+        n: num(r.trade_count) ?? 0,
+    }));
+
+    return {
+        ticker: sym,
+        queryCount: results.length,
+        resultsCount: results.length,
+        adjusted: true,
+        results,
+        status: "OK",
+        request_id: `intrinio-intraday-${sym}-${interval}`,
     };
 }
 

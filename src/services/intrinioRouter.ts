@@ -14,6 +14,7 @@ import {
     hasIntrinioKey,
     getTickerSnapshot,
     getDailyAggregates,
+    getIntradayAggregates,
     getOptionChainSnapshotIntrinio,
     getTechnicalIndicator,
     getTickerDetails,
@@ -83,15 +84,25 @@ export async function routeToIntrinio(
     // /v2/aggs/ticker/{T}/range/{mult}/{span}/{from}/{to}
     m = path.match(/^\/v2\/aggs\/ticker\/([^/]+)\/range\/(\d+)\/(\w+)\/([^/]+)\/([^/]+)$/);
     if (m) {
-        const [, ticker, , span, from, to] = m;
-        // 일봉만 대응. 분봉은 Intrinio Startup 에 등가 상품이 없어 폴백.
-        if (span !== "day") return undefined;
+        const [, ticker, multRaw, span, from, to] = m;
         const sort = (p("sort") as "asc" | "desc") || "asc";
         const limitRaw = p("limit");
-        return await getDailyAggregates(ticker, from, to, {
-            sort,
-            limit: limitRaw ? Number(limitRaw) : undefined,
-        });
+        const limit = limitRaw ? Number(limitRaw) : undefined;
+
+        if (span === "day") {
+            return await getDailyAggregates(ticker, from, to, { sort, limit });
+        }
+
+        // 분봉/시간봉 — securities/{t}/prices/intervals
+        // ⚠️ 이 분기를 빼면 1D 차트가 죽는다(2026-08-29 실제 발생).
+        //    Massive 로 폴백해봐야 403 이므로 반드시 여기서 처리해야 한다.
+        const intraday = await getIntradayAggregates(
+            ticker, Number(multRaw), span, from, to, { sort, limit }
+        );
+        if (intraday !== undefined) return intraday;
+
+        // 지원하지 않는 시간단위(초봉 등) — 빈 결과로 안전하게 종료
+        return { ticker, queryCount: 0, resultsCount: 0, results: [], status: "OK" };
     }
 
     // ── 6) 전일 봉 ──────────────────────────────────────
