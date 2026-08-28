@@ -226,6 +226,11 @@ async function fetchTradeData(ticker: string): Promise<TradeData | null> {
 
 // Fetch Quotes for Bid-Ask Spread
 async function fetchQuoteData(ticker: string): Promise<QuoteData | null> {
+    // [2026-08-29] /v3/quotes 도 status:"DELAYED" 로 19시간 전 호가를 준다.
+    // bid/ask 스프레드가 어제 값이면 유동성 지표로서 무의미하므로 중단.
+    // 실시간 호가는 EC2 price-ws(Intrinio WS)가 별도로 공급한다.
+    if (process.env.ENABLE_MASSIVE_TICKS !== "1") return null;
+
     try {
         const url = `${POLYGON_BASE}/v3/quotes/${ticker}?limit=1&apiKey=${POLYGON_API_KEY}`;
         const res = await fetch(url);
