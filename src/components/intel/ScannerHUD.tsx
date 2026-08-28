@@ -25,7 +25,7 @@ export function ScannerHUD({ onComplete }: { onComplete: () => void }) {
     const steps = [
         "INITIALIZING CORE SYSTEMS...",
         "ESTABLISHING SECURE UPLINK...",
-        "SCANNING 8,432 TICKERS (MASSIVE API)...",
+        "SCANNING US EQUITY UNIVERSE...",
         "ANALYSING SENTIMENT & FLOW...",
         "TARGETS ACQUIRED."
     ];

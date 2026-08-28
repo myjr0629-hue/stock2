@@ -66,7 +66,9 @@ interface IntelligenceContext {
     rlsiScore: number;
     nasdaqChange: number;
     vectors: { source: string, target: string, strength: number }[];
-    rvol: number;
+    /** 정규장에서만 측정 가능. 시간외/휴장에는 undefined —
+     *  0 을 넣으면 AI 가 «거래량 저조»라는 사실 주장으로 바꿔 쓴다. */
+    rvol?: number;
     vix: number;
     locale?: Locale;
     // Macro indicators
@@ -115,6 +117,12 @@ interface IntelligenceContext {
     sectorIFS?: { id: string; ifs: number; divergence: string }[];
     stealthAlert?: string;            // e.g. "Healthcare: -0.3% but IFS +55"
     exitAlert?: string;               // e.g. "Energy: +0.8% but IFS -42"
+}
+
+
+/** RVOL 표기 — 측정 불가를 «0.00x»(저조)로 오해시키지 않는다 */
+function rvolText(v?: number): string {
+    return v === undefined || !(v > 0) ? "측정 불가 (정규장 아님)" : `${v.toFixed(2)}x`;
 }
 
 // === TIME-BASED GATING ===
@@ -201,7 +209,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - NASDAQ 변동: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
         - 오늘의 자금 흐름: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
-        - RVOL: ${ctx.rvol.toFixed(2)}x
+        - RVOL: ${rvolText(ctx.rvol)}
         ${ctx.rotationRegime ? `- 5일 순환매 레짐: ${ctx.rotationRegime}` : ''}
         ${ctx.topInflow5d ? `- 5일 유입 섹터: ${ctx.topInflow5d}` : ''}
         ${ctx.topOutflow5d ? `- 5일 유출 섹터: ${ctx.topOutflow5d}` : ''}
@@ -265,7 +273,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - NASDAQ Change: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
         - Today's Money Flow: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
-        - RVOL: ${ctx.rvol.toFixed(2)}x
+        - RVOL: ${rvolText(ctx.rvol)}
         ${ctx.rotationRegime ? `- 5-Day Rotation Regime: ${ctx.rotationRegime}` : ''}
         ${ctx.topInflow5d ? `- 5-Day Inflow Leaders: ${ctx.topInflow5d}` : ''}
         ${ctx.topOutflow5d ? `- 5-Day Outflow Leaders: ${ctx.topOutflow5d}` : ''}
@@ -325,7 +333,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - NASDAQ変動: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
         - 本日の資金フロー: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
-        - RVOL: ${ctx.rvol.toFixed(2)}x
+        - RVOL: ${rvolText(ctx.rvol)}
         ${ctx.rotationRegime ? `- 5日ローテーションレジーム: ${ctx.rotationRegime}` : ''}
         ${ctx.topInflow5d ? `- 5日流入リーダー: ${ctx.topInflow5d}` : ''}
         ${ctx.topOutflow5d ? `- 5日流出リーダー: ${ctx.topOutflow5d}` : ''}
@@ -476,7 +484,8 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         const rlsiLevel = ctx.rlsiScore >= 65 ? '건강' : ctx.rlsiScore >= 45 ? '중립' : '취약';
         const priceAction = ctx.nasdaqChange >= 0.5 ? '강세' : ctx.nasdaqChange <= -0.5 ? '약세' : '보합';
         const vixLevel = ctx.vix >= 25 ? '공포' : ctx.vix >= 18 ? '경계' : '안정';
-        const rvolLevel = ctx.rvol >= 1.5 ? '급증' : ctx.rvol >= 1.1 ? '활발' : '저조';
+        const rvolLevel = ctx.rvol === undefined || !(ctx.rvol > 0) ? '측정 불가'
+            : ctx.rvol >= 1.5 ? '급증' : ctx.rvol >= 1.1 ? '활발' : '저조';
 
         // Macro context strings
         const yieldLine = ctx.us10y !== undefined
@@ -518,7 +527,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - RLSI (시장 건강도): ${ctx.rlsiScore.toFixed(0)}점 (${rlsiLevel})
         - 나스닥: ${ctx.nasdaqChange >= 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}% (${priceAction})
         - VIX (변동성): ${ctx.vix.toFixed(1)} (${vixLevel})
-        - 거래량(RVOL): ${ctx.rvol.toFixed(2)}x (${rvolLevel})
+        - 거래량(RVOL): ${rvolText(ctx.rvol)} (${rvolLevel})
 
         [매크로 금리 환경]
         ${yieldLine}
@@ -623,7 +632,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         **Current Data:**
         - RLSI: ${ctx.rlsiScore.toFixed(0)} points
         - NASDAQ: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - VIX: ${ctx.vix.toFixed(1)}, RVOL: ${ctx.rvol.toFixed(2)}x
+        - VIX: ${ctx.vix.toFixed(1)}, RVOL: ${rvolText(ctx.rvol)}
         ${ctx.us10y !== undefined ? `- US10Y: ${ctx.us10y.toFixed(2)}%` : ''}
         ${ctx.breadthPct !== undefined ? `- Breadth: ${Math.round(ctx.breadthPct)}% [${ctx.breadthSignal || '?'}]` : ''}
         ${assetBlock}
@@ -681,7 +690,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         **現在のデータ:**
         - RLSI: ${ctx.rlsiScore.toFixed(0)}点
         - NASDAQ: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - VIX: ${ctx.vix.toFixed(1)}, RVOL: ${ctx.rvol.toFixed(2)}x
+        - VIX: ${ctx.vix.toFixed(1)}, RVOL: ${rvolText(ctx.rvol)}
         ${ctx.us10y !== undefined ? `- US10Y: ${ctx.us10y.toFixed(2)}%` : ''}
         ${ctx.breadthPct !== undefined ? `- Breadth: ${Math.round(ctx.breadthPct)}% [${ctx.breadthSignal || '?'}]` : ''}
         ${assetBlock}

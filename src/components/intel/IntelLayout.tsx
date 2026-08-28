@@ -74,7 +74,9 @@ export function IntelLayout({ children, status = 'ACTIVE' }: IntelLayoutProps) {
             {/* Footer Status */}
             <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#0a0a0a] border-t border-white/5 flex items-center justify-between px-6 text-[10px] text-white/30 z-40">
                 <span>SECURE CONNECTION: ENCRYPTED (TLS 1.3)</span>
-                <span>DATA STREAM: MASSIVE API (LIVE)</span>
+                {/* 벤더명을 UI 에 박지 않는다 — 공급사가 바뀌면 화면이 거짓말을 한다
+                    (2026-08 Massive→Intrinio 이관 때 실제로 그렇게 됐다). */}
+                <span>DATA STREAM: CONSOLIDATED FEED (LIVE)</span>
             </footer>
         </div>
     );

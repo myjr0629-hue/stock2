@@ -6,6 +6,7 @@ import { IntelligenceNode } from "./intelligenceNode";
 import { RvolEngine, RvolProfile } from "./rvolEngine";
 import { fetchMassive } from "@/services/massiveClient";
 import { getGammaShield, GammaShieldData } from "./gammaShieldEngine";
+import { getMarketBreadth } from "./breadthEngine";
 
 // === TYPES ===
 export interface SectorDensity {
@@ -74,6 +75,7 @@ export interface GuardianContext {
     breadth?: {
         advancers: number;
         decliners: number;
+        unchanged?: number;
         totalTickers: number;
         breadthPct: number;
         adRatio: number;
@@ -579,7 +581,11 @@ export class GuardianDataHub {
                         rlsiScore: rlsi.score,
                         nasdaqChange: macro?.nqChangePercent || 0,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
-                        rvol: rvolNdx.rvol,
+                        // ⚠️ rvolEngine 은 PRE/POST/CLOSED 에서 «측정 안 함»을 rvol:0 으로 표현한다.
+                        //    그 0 을 그대로 AI 에 넘기면 «거래량 0.00x 저조»라는 **사실 주장**으로
+                        //    바뀌어 사용자에게 나간다(2026-08-29 애프터마켓 실제 발생).
+                        //    측정 불가는 값이 아니라 부재로 전달해야 한다 → undefined.
+                        rvol: rvolNdx.status === "OPEN" && rvolNdx.rvol > 0 ? rvolNdx.rvol : undefined,
                         vix: macro?.vix || 0,
                         locale,
                         // Macro indicators
@@ -783,7 +789,10 @@ export class GuardianDataHub {
                         id: 'rvol',
                         label: 'RVOL 1.2+',
                         passed: isAccelerating,
-                        current: `${rvolNdx.rvol.toFixed(2)}x`,
+                        // 정규장이 아니면 «0.00x»(저조)가 아니라 «—»(측정 불가)로 보여야 한다
+                        current: rvolNdx.status === "OPEN" && rvolNdx.rvol > 0
+                            ? `${rvolNdx.rvol.toFixed(2)}x`
+                            : '—',
                         required: `1.2x ${CHECKLIST_TEXTS[locale].above}`
                     },
                     {
@@ -860,6 +869,10 @@ export class GuardianDataHub {
             // [V9.0] Append RLSI history for intraday sparkline
             const rlsiHistory = await appendRlsiHistory(rlsi.score, rlsi.session);
 
+            // Market Breadth 실수치 (advancers/decliners/totalTickers). RLSI 가 이미
+            // 같은 호출을 했으므로 메모리 캐시에서 즉시 반환된다.
+            const breadthSnapshot = await getMarketBreadth(macro?.nqChangePercent || 0).catch(() => null);
+
             const context: GuardianContext = {
                 rlsi,
                 market: macro,
@@ -874,16 +887,23 @@ export class GuardianDataHub {
                 rotationIntensity,
                 ruleVerdict, // [V6.0] 규칙 기반 핵심 결론
                 tripleA,     // [V6.0] 체크리스트 포함
-                // [V7.0] Market Breadth (from RLSI engine components)
+                // [V7.0] Market Breadth
+                // ⚠️ 예전에는 advancers/decliners/totalTickers 를 **0 으로 하드코딩**하고
+                //    «populated by breadthEngine cache» 라는 주석만 달려 있었다.
+                //    그런데 그 자리를 채워 주는 코드가 어디에도 없어서, 가디언의
+                //    Market Breadth 패널은 항상 «0↑ / 0↓ / 총 0» 이었다.
+                //    (rlsi.components 에는 breadthPct 만 들어 있어 비율만 맞고 종목 수는 0)
+                //    → breadthEngine 은 메모리+Redis 캐시라 재호출이 사실상 공짜다. 직접 읽는다.
                 breadth: {
-                    advancers: 0, // populated by breadthEngine cache
-                    decliners: 0,
-                    totalTickers: 0,
-                    breadthPct: rlsi.components?.breadthPct ?? 50,
-                    adRatio: rlsi.components?.adRatio ?? 1,
-                    volumeBreadth: rlsi.components?.volumeBreadth ?? 50,
-                    signal: rlsi.components?.breadthSignal ?? 'NEUTRAL',
-                    isDivergent: rlsi.components?.breadthDivergent ?? false
+                    advancers: breadthSnapshot?.advancers ?? 0,
+                    decliners: breadthSnapshot?.decliners ?? 0,
+                    unchanged: breadthSnapshot?.unchanged ?? 0,
+                    totalTickers: breadthSnapshot?.totalTickers ?? 0,
+                    breadthPct: breadthSnapshot?.breadthPct ?? rlsi.components?.breadthPct ?? 50,
+                    adRatio: breadthSnapshot?.adRatio ?? rlsi.components?.adRatio ?? 1,
+                    volumeBreadth: breadthSnapshot?.volumeBreadth ?? rlsi.components?.volumeBreadth ?? 50,
+                    signal: breadthSnapshot?.signal ?? rlsi.components?.breadthSignal ?? 'NEUTRAL',
+                    isDivergent: breadthSnapshot?.isDivergent ?? rlsi.components?.breadthDivergent ?? false
                 },
                 rlsiHistory,  // [V9.0] Intraday sparkline data
                 gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
