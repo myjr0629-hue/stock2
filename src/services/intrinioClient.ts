@@ -412,15 +412,117 @@ export async function getIntradayAggregates(
         n: num(r.trade_count) ?? 0,
     }));
 
+    // ── 시간외(PRE/POST) 봉 병합 ─────────────────────────────────
+    // Intrinio intervals 는 **정규장만** 준다(실측: 390봉, PRE 0 / POST 0).
+    // EC2 `intrinio-ext-bars` 서비스가 기록해 둔 시간외 봉을 여기서 합쳐,
+    // 1D 차트의 PRE/본장/POST 구분이 살아 있게 한다.
+    const merged = await mergeExtendedBars(sym, from, to, results);
+
     return {
         ticker: sym,
-        queryCount: results.length,
-        resultsCount: results.length,
+        queryCount: merged.length,
+        resultsCount: merged.length,
         adjusted: true,
-        results,
+        results: opts.sort === "desc" ? [...merged].reverse() : merged,
         status: "OK",
         request_id: `intrinio-intraday-${sym}-${interval}`,
     };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 시간외 봉 (EC2 기록기 산출물)
+// ─────────────────────────────────────────────────────────────
+
+const EXT_BARS_KEY = (d: string) => `intrinio:extbars:${d}`;
+const EXT_TTL_MS = 60_000;
+let _extCache: { at: number; date: string; bars: Record<string, number[][]> } | null = null;
+
+/** ET 분(minute-of-day) + 날짜 → epoch ms. DST 를 실제 오프셋으로 계산한다. */
+function etMinuteToMs(date: string, minute: number): number {
+    const h = String(Math.floor(minute / 60)).padStart(2, "0");
+    const m = String(minute % 60).padStart(2, "0");
+    // 해당 날짜의 ET 오프셋을 UTC 로 역산 (EDT -4 / EST -5 자동 처리)
+    const probe = Date.parse(`${date}T12:00:00Z`);
+    if (Number.isNaN(probe)) return 0;
+    const etNoon = new Date(new Date(probe).toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const offsetHours = 12 - etNoon.getHours();
+    const sign = offsetHours >= 0 ? "+" : "-";
+    const oh = String(Math.abs(offsetHours)).padStart(2, "0");
+    const t = Date.parse(`${date}T${h}:${m}:00${sign}${oh}:00`);
+    return Number.isNaN(t) ? 0 : t;
+}
+
+async function loadExtBars(date: string): Promise<Record<string, number[][]>> {
+    if (_extCache && _extCache.date === date && Date.now() - _extCache.at < EXT_TTL_MS) {
+        return _extCache.bars;
+    }
+    const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    try {
+        const res = await fetch(`${proxy}/get?key=${encodeURIComponent(EXT_BARS_KEY(date))}`, {
+            headers: { Authorization: `Bearer ${key}` },
+            signal: controller.signal,
+            cache: "no-store",
+        });
+        if (!res.ok) return {};
+        const raw = await res.json();
+        const val = typeof raw?.result === "string" ? safeJson(raw.result) : raw?.result;
+        const bars = val?.bars && typeof val.bars === "object" ? val.bars : {};
+        _extCache = { at: Date.now(), date, bars };
+        return bars;
+    } catch {
+        return {};
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/**
+ * 정규장 봉 배열에 시간외 봉을 시간순으로 합친다.
+ * 기록된 날짜가 조회 구간(from~to) 안에 있을 때만 합치고,
+ * 이미 같은 시각의 봉이 있으면 정규장 값을 우선한다(중복 방지).
+ */
+async function mergeExtendedBars(
+    sym: string, from: string, to: string, results: any[]
+): Promise<any[]> {
+    // 조회 구간이 하루 이상이어도 «오늘/마지막 날»만 시간외를 붙인다
+    // (그 이전 날짜는 기록기가 돌기 전이라 데이터가 없다)
+    const dates = [to, from].filter((d, i, a) => ISO_DATE.test(d) && a.indexOf(d) === i);
+    if (!dates.length) return results;
+
+    const have = new Set(results.map((r) => r.t));
+    const extra: any[] = [];
+
+    for (const date of dates) {
+        const bars = await loadExtBars(date);
+        const rows = bars?.[sym];
+        if (!Array.isArray(rows) || !rows.length) continue;
+        for (const row of rows) {
+            // [etMinute, o, h, l, c, v]
+            if (!Array.isArray(row) || row.length < 6) continue;
+            const t = etMinuteToMs(date, Number(row[0]));
+            if (!t || have.has(t)) continue;
+            const c = Number(row[4]) || 0;
+            if (!(c > 0)) continue;
+            have.add(t);
+            extra.push({
+                t,
+                o: Number(row[1]) || c,
+                h: Number(row[2]) || c,
+                l: Number(row[3]) || c,
+                c,
+                v: Number(row[5]) || 0,
+                vw: c,
+                n: 0,
+                _ext: true,   // 시간외 기록물 표식 (진단용)
+            });
+        }
+    }
+
+    if (!extra.length) return results;
+    return [...results, ...extra].sort((a, b) => a.t - b.t);
 }
 
 // ─────────────────────────────────────────────────────────────
