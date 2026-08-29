@@ -73,6 +73,22 @@ const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; 
         const gotPx = num(tick.price);
         const gotPrev = num(tick.prevClose) ?? num(tick.previousClose);
 
+        // ── 다른 화면이 쓰는 엔드포인트도 같은 진실과 대조한다 ──
+        //   화면마다 데이터 출처가 달라서, 한 곳만 맞아도 다른 화면은 틀릴 수 있다.
+        //   (2026-08-29 실측: quotes 는 맞는데 ticker 는 틀렸다)
+        const others = [];
+        const [q, f, u] = await Promise.all([
+            get(`${BASE}/api/live/quotes?symbols=${t}`),           // 워치리스트 칩 · Flow
+            get(`${BASE}/api/intel/fast?sector=m7`),               // Intel 섹터카드
+            get(`${BASE}/api/command/unified?t=${t}&lang=ko`),     // Command 통합
+        ]);
+        const qv = q?.data?.[t] || q?.[t] || null;
+        if (qv) others.push(['quotes', num(qv.price), num(qv.previousClose ?? qv.prevClose), num(qv.changePercent)]);
+        const fv = (f?.data || []).find((x) => x.ticker === t);
+        if (fv) others.push(['intel/fast', num(fv.price), num(fv.prevClose), num(fv.changePct)]);
+        const uv = u?._dynamoPrice || u?.unified?._dynamoPrice || null;
+        if (uv) others.push(['unified', num(uv.price), null, num(uv.changePct)]);
+
         const dPct = gotPct == null ? null : Math.abs(gotPct - T.chgPct);
         const dPx = gotPx == null ? null : Math.abs((gotPx - T.close) / T.close) * 100;
         const prevOk = gotPrev == null ? null : Math.abs((gotPrev - T.prevClose) / T.prevClose) * 100 <= TOL_PX;
@@ -85,9 +101,20 @@ const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; 
 
         console.log(`${ok ? C.g + "✓" : C.r + "✗"}${C.x} ${t.padEnd(6)} ` +
             `진실 ${T.prevDate}→${T.date}  ${T.prevClose} → ${T.close}  ${T.chgPct >= 0 ? "+" : ""}${T.chgPct.toFixed(2)}%`);
-        console.log(`     표시  가격 ${gotPx ?? "—"}${okPx ? "" : C.r + " ← 불일치" + C.x}` +
+        console.log(`     ticker      가격 ${gotPx ?? "—"}${okPx ? "" : C.r + " ← 불일치" + C.x}` +
             `  등락 ${gotPct == null ? "—" : (gotPct >= 0 ? "+" : "") + gotPct.toFixed(2) + "%"}${okPct ? "" : C.r + ` ← 오차 ${dPct?.toFixed(2)}%p` + C.x}` +
             `  전일 ${gotPrev ?? "—"}${prevOk === false ? C.r + " ← 불일치" + C.x : ""}`);
+        for (const [name, px, prev, pctRaw] of others) {
+            const p2 = pctRaw == null ? null : (Math.abs(pctRaw) < 1 && Math.abs(T.chgPct) > 1 ? pctRaw * 100 : pctRaw);
+            const dp2 = p2 == null ? null : Math.abs(p2 - T.chgPct);
+            const dx2 = px == null ? null : Math.abs((px - T.close) / T.close) * 100;
+            const ok2 = (dp2 == null || dp2 <= TOL_PCT) && (dx2 == null || dx2 <= TOL_PX)
+                && (prev == null || Math.abs((prev - T.prevClose) / T.prevClose) * 100 <= TOL_PX);
+            if (!ok2) bad++;
+            console.log(`     ${(ok2 ? C.g + "✓" : C.r + "✗") + C.x} ${name.padEnd(11)} 가격 ${px ?? "—"}` +
+                `  등락 ${p2 == null ? "—" : (p2 >= 0 ? "+" : "") + p2.toFixed(2) + "%"}` +
+                `  전일 ${prev ?? "—"}${ok2 ? "" : C.r + "  ← 진실과 다름" + C.x}`);
+        }
     }
 
     // ── «전 종목 보합» 지문 ─────────────────────────────────────
