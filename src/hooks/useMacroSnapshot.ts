@@ -44,6 +44,18 @@ export interface MacroSnapshot {
     // [V45.0] Advanced Macro Indicators
     yieldCurve?: YieldCurveData;
     realYield?: RealYieldData;
+    /**
+     * 하이일드 신용 스프레드 (BofA HY Master II OAS).
+     * 기존 축이 전부 주식/금리라 채권시장이 빠져 있었다 — 위험 레짐의 독립 축.
+     * 없으면 undefined (0 을 만들지 않는다).
+     */
+    creditSpread?: {
+        value: number;
+        date: string;
+        change20d: number | null;
+        percentile: number | null;
+        regime: 'TIGHTENING' | 'STABLE' | 'WIDENING';
+    };
 }
 
 // Initial state with "safe" defaults

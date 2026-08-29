@@ -16,6 +16,7 @@ import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { MorningBrief } from '@/components/app/MorningBrief';
 import { BreakingCard } from '@/components/app/BreakingCard';
+import { MetricInfo } from '@/components/app/MetricInfo';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -498,6 +499,57 @@ function GuardianPageContent() {
                 </div>
               ))}
             </div>
+
+            {/* ── 신용 스프레드 (하이일드 OAS) ─────────────────────
+                위 4칸은 전부 주식 아니면 심리다. 채권시장이 위험을 어떻게
+                보는지가 통째로 빠져 있었다. 4칸에 끼우면 모바일에서 좁아지므로
+                아래 한 줄로 붙이고, 대신 «무슨 뜻인지» 한 문장을 같이 준다. */}
+            {(() => {
+              const cs: any = (snapshot as any)?.creditSpread;
+              if (!cs || typeof cs.value !== 'number') return null;
+              const widening = cs.regime === 'WIDENING';
+              const tightening = cs.regime === 'TIGHTENING';
+              const c = widening ? 'var(--red)' : tightening ? 'var(--green)' : 'rgba(148,163,184,.9)';
+              const badge = widening ? (locale === 'ko' ? '위험 회피' : locale === 'ja' ? 'リスク回避' : 'Risk-off')
+                : tightening ? (locale === 'ko' ? '위험 선호' : locale === 'ja' ? 'リスク選好' : 'Risk-on')
+                  : (locale === 'ko' ? '보합' : locale === 'ja' ? '横ばい' : 'Stable');
+              const hint = widening
+                ? (locale === 'ko' ? '채권시장이 위험을 더 요구하는 중' : locale === 'ja' ? '債券市場がリスク上乗せを要求' : 'Credit demanding more for risk')
+                : tightening
+                  ? (locale === 'ko' ? '채권시장은 위험을 낮게 봄' : locale === 'ja' ? '債券市場はリスクを低く評価' : 'Credit sees risk as low')
+                  : (locale === 'ko' ? '큰 변화 없음' : locale === 'ja' ? '大きな変化なし' : 'Little change');
+              return (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
+                  margin: '5px 0 0', padding: '6px 9px', borderRadius: 11,
+                  border: `1px solid ${widening ? 'rgba(239,68,68,.42)' : 'rgba(255,255,255,0.055)'}`,
+                  background: widening
+                    ? 'linear-gradient(90deg, rgba(239,68,68,.10), rgba(2,6,23,.38) 70%)'
+                    : 'rgba(2,6,23,0.38)',
+                  boxShadow: widening ? '0 0 14px rgba(239,68,68,.14)' : 'none',
+                }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, font: 'var(--f-micro)', fontWeight: 900, letterSpacing: '.09em', textTransform: 'uppercase', color: 'rgba(203,213,225,.8)', whiteSpace: 'nowrap' }}>
+                    {locale === 'ko' ? '신용 스프레드' : locale === 'ja' ? 'クレジットSP' : 'CREDIT'}
+                    <MetricInfo term="creditSpread" locale={locale} size={11} />
+                  </span>
+                  <span className="tnum" style={{ font: "900 14px/1 'Inter'", color: c, whiteSpace: 'nowrap' }}>
+                    {cs.value.toFixed(2)}<span style={{ fontSize: 9, opacity: .65 }}>%</span>
+                  </span>
+                  {cs.change20d != null && (
+                    <span className="tnum" style={{ font: "800 9.5px/1 'Inter'", color: cs.change20d > 0 ? 'var(--red)' : 'var(--green)', whiteSpace: 'nowrap' }}>
+                      20D {cs.change20d > 0 ? '+' : ''}{cs.change20d.toFixed(2)}
+                    </span>
+                  )}
+                  <span style={{ font: "800 9px/1 'Inter'", padding: '2px 5px', borderRadius: 4, color: c, border: `1px solid ${c}`, opacity: .95, whiteSpace: 'nowrap' }}>{badge}</span>
+                  {cs.percentile != null && (
+                    <span className="tnum" style={{ font: "700 9px/1 'Inter'", color: 'rgba(148,163,184,.8)', whiteSpace: 'nowrap' }}>
+                      {locale === 'ko' ? '1년 백분위' : locale === 'ja' ? '1年%タイル' : '1Y pctile'} {cs.percentile}
+                    </span>
+                  )}
+                  <span style={{ font: "600 9.5px/1.3 'Inter'", color: 'rgba(148,163,184,.72)', flex: '1 1 auto', minWidth: 0 }}>{hint}</span>
+                </div>
+              );
+            })()}
           </div>
 
           <div style={{

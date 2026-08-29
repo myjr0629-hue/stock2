@@ -164,6 +164,26 @@ export async function POST(req: Request) {
         const flow = s.flow || {};
         const conviction = s.conviction || {};
         const insider = s.insider || null;
+        // [2026-08-30] 고급 기술지표 + 신용 스프레드 — 클라이언트가 실어 보낸다.
+        //   없으면 전부 null 이고 프롬프트는 N/A 로 나간다. **추측하게 두지 않는다.**
+        const t = s.technicals || {};
+        const tech = {
+            adx: t.adx?.value ?? null,
+            adxRegime: t.adx?.regime ?? 'N/A',
+            diPos: t.adx?.diPos ?? null,
+            diNeg: t.adx?.diNeg ?? null,
+            obvSlopePct: t.obv?.slopePct ?? null,
+            obvDivergence: t.obv?.divergence ?? null,
+            bbWidthPct: t.bb?.widthPct ?? null,
+            bbPercentile: t.bb?.percentile ?? null,
+            bbSqueeze: t.bb?.squeeze ?? false,
+            atrPct: t.atr?.pct ?? null,
+            volIv: t.volPremium?.ivPct ?? null,
+            volRv: t.volPremium?.rvPct ?? null,
+            volSpread: t.volPremium?.spread ?? null,
+            volLabel: t.volPremium?.label ?? 'N/A',
+        };
+        const credit = s.creditSpread || { value: null, change20d: null, percentile: null, regime: 'N/A' };
 
         const priceChange = s.priceChange || 0;
         const priceChangeStr = priceChange >= 0 ? `+${priceChange.toFixed(2)}%` : `${priceChange.toFixed(2)}%`;
@@ -223,6 +243,27 @@ export async function POST(req: Request) {
   </institutional>
   
   <volatility regime="${volatility.regime || 'N/A'}" score="${volatility.regimeScore || 'N/A'}" gex_long="${volatility.gexLong || 'N/A'}%"/>
+
+  <!-- [2026-08-30] Massive 시절엔 없던 지표. 값이 없으면 N/A — 추측 금지. -->
+  <advanced_technicals>
+    <trend_strength note="ADX_BELOW_20_MEANS_NO_TREND_CROSSOVERS_UNRELIABLE">${tech.adx != null
+        ? `ADX ${tech.adx} (${tech.adxRegime}), +DI ${tech.diPos ?? 'N/A'} / -DI ${tech.diNeg ?? 'N/A'}`
+        : 'N/A'}</trend_strength>
+    <money_flow note="OBV_20D_SLOPE_AND_PRICE_DIVERGENCE">${tech.obvSlopePct != null
+        ? `${tech.obvSlopePct > 0 ? '+' : ''}${tech.obvSlopePct}% over 20 sessions${tech.obvDivergence ? `, ${tech.obvDivergence} divergence vs price` : ''}`
+        : 'N/A'}</money_flow>
+    <bollinger_squeeze note="BAND_WIDTH_PERCENTILE_VS_OWN_130_SESSIONS_LOW_MEANS_COMPRESSED">${tech.bbPercentile != null
+        ? `width ${tech.bbWidthPct}% at percentile ${tech.bbPercentile}${tech.bbSqueeze ? ' — COMPRESSED' : ''}`
+        : 'N/A'}</bollinger_squeeze>
+    <realized_vol note="ATR_IS_ACTUAL_MOVEMENT_INCLUDING_GAPS">${tech.atrPct != null ? `ATR ${tech.atrPct}% of price` : 'N/A'}</realized_vol>
+    <vol_premium note="IMPLIED_MINUS_REALIZED_POSITIVE_MEANS_OPTIONS_RICH">${tech.volSpread != null
+        ? `IV ${tech.volIv} vs RV ${tech.volRv} = ${tech.volSpread > 0 ? '+' : ''}${tech.volSpread}pp (${tech.volLabel})`
+        : 'N/A'}</vol_premium>
+  </advanced_technicals>
+
+  <macro_credit note="HIGH_YIELD_OAS_WIDENING_IS_RISK_OFF_INDEPENDENT_OF_EQUITY_SIGNALS">${credit.value != null
+      ? `${credit.value}% , 20d change ${credit.change20d > 0 ? '+' : ''}${credit.change20d}pp, 1y percentile ${credit.percentile}, regime ${credit.regime}`
+      : 'N/A'}</macro_credit>
   
   <earnings days_until="${earnings.daysUntil || 'N/A'}" date="${earnings.date || 'N/A'}" estimated_eps="${earnings.estimatedEps || 'N/A'}"/>
   

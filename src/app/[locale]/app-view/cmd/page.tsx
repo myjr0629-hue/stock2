@@ -18,6 +18,7 @@ import s from './cmd.module.css';
 
 // WebSocket real-time price hooks
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
@@ -1850,6 +1851,8 @@ function CmdPageContent() {
   // [공매도 403 대체] 「SHORT SQUEEZE」 카드는 siPercent 가 플랜 밖이라 죽어 있었다.
   // 볼린저 밴드폭 압축(변동성 스퀴즈)으로 되살린다 — 다른 개념이므로 라벨도 바꾼다.
   const [techData, setTechData] = useState<any>(null);
+  // 신용 스프레드 — AI 분석에 매크로 축을 같이 넘기기 위해 (화면 표시는 가디언에서)
+  const { snapshot: macroSnapshot } = useMacroSnapshot();
 
   // [BUG FIX] switching tickers must reset the view: always land back on OVERVIEW
   // (not the previously-open AI/QUANT/HOLDERS tab), and NEVER show the previous
@@ -2260,6 +2263,9 @@ function CmdPageContent() {
       analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
       // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면 AI 가 사실로 서술한다
       institutional: { insiderNet30d: insiderData?.net30d ?? null, insiderBuy: insiderData?.buyCount ?? null, insiderSell: insiderData?.sellCount ?? null, activity: insiderData?.sentiment || 'N/A' },
+      // [2026-08-30] 새 지표를 AI 에도 넘긴다 — 화면에만 있고 분석에 없으면 반쪽이다
+      technicals: techData ? { adx: techData.adx, obv: techData.obv, bb: techData.bb, atr: techData.atr, volPremium: techData.volPremium } : null,
+      creditSpread: macroSnapshot?.creditSpread ?? null,
       volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
       squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
       earnings: { daysUntil: earn.daysUntilEarnings || 999, date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },
