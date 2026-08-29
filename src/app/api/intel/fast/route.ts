@@ -142,17 +142,31 @@ export async function GET(request: Request) {
         }
 
         // ── Phase 2: Build unified quotes ──
+        // 유동성은 세션에 따라 실시간/직전정규장이 갈리므로 미리 일괄 조회한다
+        const liqMap: Record<string, { liquidityScore: number | null; spreadPct: number | null }> = {};
+        try {
+            const { sessionAwareLiquidity } = await import('@/services/intrinioClient');
+            const liqRes = await Promise.all(tickers.map((t, i) => {
+                const sn: any = snapshotMap[t];
+                return sessionAwareLiquidity(t, sn?.bidPrice ?? null, sn?.askPrice ?? null);
+            }));
+            tickers.forEach((t, i) => { liqMap[t] = liqRes[i]; });
+        } catch (e: any) {
+            console.warn('[intel/fast] liquidity lookup failed:', e?.message);
+        }
+
         const quotes = tickers.map((ticker, i) => {
             const snap = snapshotMap[ticker];
             const cached = cachedTickers[i];
 
-            // ── 다크풀 대체 지표 ────────────────────────────────────
-            // Intrinio 스냅샷이 NBBO 호가에서 계산한 스프레드/유동성을 실어 준다.
-            // 측정 불가면 null — 0 이나 50 으로 채우지 않는다.
-            const spreadPct: number | null = typeof (snap as any)?.spreadPct === 'number'
-                ? (snap as any).spreadPct : null;
-            const liquidityScore: number | null = typeof (snap as any)?.liquidityScore === 'number'
-                ? (snap as any).liquidityScore : null;
+            // ── 다크풀 대체 지표 (세션 인지) ────────────────────────
+            // 유동성은 **정규장 지표**다. 휴장 중 호가는 벌어져 있어서
+            // 그대로 재면 전 종목이 나쁘게 나온다(GOOGL 2.0% → 0점 실측).
+            // 정규장이면 실시간 호가, 아니면 EC2 가 적재한 직전 정규장
+            // 분봉 중앙값을 쓴다. 둘 다 없으면 null.
+            const liq = liqMap[ticker] || { liquidityScore: null, spreadPct: null };
+            const spreadPct: number | null = liq.spreadPct;
+            const liquidityScore: number | null = liq.liquidityScore;
 
             // --- Price data from Polygon snapshot ---
             const prevClose = snap?.prevDay?.c || 0;

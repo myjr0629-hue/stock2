@@ -1225,6 +1225,76 @@ export function liquidityScoreFromSpread(spreadPct: number | null): number | nul
     return Math.round(Math.max(0, Math.min(100, 100 - ratio * 100)));
 }
 
+/**
+ * 유동성 점수는 **정규장 지표**다.
+ *
+ * ⚠️ 2026-08-29 실측: 휴장 중 호가는 벌어진다.
+ *      정규장  NVDA 0.009% · AAPL 0.012% · GOOGL 0.011%
+ *      휴장중  NVDA 0.064% · AAPL 0.150% · GOOGL 2.009%(→0점)
+ *    휴장 중 호가로 «유동성»을 재면 전 종목이 나쁘게 나온다 — 거짓이다.
+ *    breadth 와 같은 규칙: 정규장이 아니면 **직전 정규장 판독값**을 쓰고,
+ *    그것도 없으면 null 이다.
+ *    (직전 정규장 값은 EC2 가 하루 1회 분봉 중앙값으로 적재한다 —
+ *     한 시점 호가보다 390봉 중앙값이 «유동성 품질»의 정본에 가깝다)
+ */
+function isRegularSessionEt(): boolean {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    if (et.getDay() === 0 || et.getDay() === 6) return false;
+    const m = et.getHours() * 60 + et.getMinutes();
+    return m >= 570 && m < 960;
+}
+
+/** EC2 가 적재한 «직전 정규장» 유동성 (종목 → 점수) */
+export const LIQUIDITY_KEY = "intrinio:liquidity:lastreg";
+let _liqCache: { at: number; rows: Record<string, { s: number; q: number }> } | null = null;
+
+async function loadLastRegLiquidity(): Promise<Record<string, { s: number; q: number }>> {
+    if (_liqCache && Date.now() - _liqCache.at < EOD_TTL_MS) return _liqCache.rows;
+    const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+        const res = await fetch(`${proxy}/get?key=${encodeURIComponent(LIQUIDITY_KEY)}`, {
+            headers: { Authorization: `Bearer ${key}` },
+            signal: controller.signal, cache: "no-store",
+        });
+        if (!res.ok) return {};
+        const raw = await res.json();
+        const val = typeof raw?.result === "string" ? safeJson(raw.result) : raw?.result;
+        const rows = val?.rows && typeof val.rows === "object" ? val.rows : {};
+        _liqCache = { at: Date.now(), rows };
+        return rows;
+    } catch {
+        return {};
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/**
+ * 세션을 고려한 유동성 점수.
+ *  정규장 → 실시간 호가로 계산
+ *  그 외   → EC2 가 적재한 직전 정규장 중앙값 (없으면 null)
+ */
+export async function sessionAwareLiquidity(
+    ticker: string,
+    liveBid: number | null,
+    liveAsk: number | null
+): Promise<{ liquidityScore: number | null; spreadPct: number | null; asOf: "live" | "lastReg" | null }> {
+    if (isRegularSessionEt()) {
+        const sp = spreadPctOf(liveBid, liveAsk);
+        const sc = liquidityScoreFromSpread(sp);
+        if (sc != null) return { liquidityScore: sc, spreadPct: sp == null ? null : Math.round(sp * 10000) / 10000, asOf: "live" };
+    }
+    const rows = await loadLastRegLiquidity();
+    const hit = rows[ticker.toUpperCase()];
+    if (hit && Number.isFinite(hit.s)) {
+        return { liquidityScore: hit.s, spreadPct: Number.isFinite(hit.q) ? hit.q : null, asOf: "lastReg" };
+    }
+    return { liquidityScore: null, spreadPct: null, asOf: null };
+}
+
 /** bid/ask 에서 스프레드(%) — 둘 다 있어야 한다 */
 export function spreadPctOf(bid: number | null, ask: number | null): number | null {
     if (bid == null || ask == null || !(bid > 0) || !(ask > 0) || ask < bid) return null;
