@@ -1465,10 +1465,14 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
 /* ═══════════════════════════════════════════
    SIGNAL CARD
    ═══════════════════════════════════════════ */
-function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, locale = 'en', infoTerm }: {
+function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, locale = 'en', infoTerm, emphasis, insightOverride }: {
   label: string; value: string; sub?: React.ReactNode; iconKey?: string;
   color?: string; bg?: string; border?: string;
   badge?: string; badgeColor?: string; locale?: string; infoTerm?: MetricTerm;
+  /** 주목할 신호일 때 테두리·글로우를 강하게 (대표 요청: «강조는 테두리로») */
+  emphasis?: boolean;
+  /** iconKey 규칙 대신 직접 인사이트 문구를 줄 때 */
+  insightOverride?: string | null;
 }) {
   const getGlowColor = () => {
     const k = (iconKey || label).toUpperCase();
@@ -1486,6 +1490,9 @@ function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, loca
     }
     if (k.includes('FUNDAMENTAL')) {
       return 'rgba(245, 158, 11, 0.15)'; // Amber
+    }
+    if (k.includes('FLOW PULSE')) {
+      return 'rgba(20, 184, 166, 0.15)'; // Teal — 수급 계열
     }
     return 'rgba(255, 255, 255, 0.05)';
   };
@@ -1669,12 +1676,19 @@ function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, loca
         </svg>
       );
     }
+    if (l.includes('FLOW PULSE')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <path d="M2 12h3l2.5-7 4 14 3-9 2.5 2H22" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      );
+    }
     return null;
   };
 
   const glowColor = getGlowColor();
   const icon = getIcon(iconKey || label);
-  const insightText = getInsight();
+  const insightText = insightOverride !== undefined ? insightOverride : getInsight();
   const pctVal = getProgress();
 
   const isRadar = (iconKey || label).toUpperCase().includes('RADAR');
@@ -1688,6 +1702,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, loca
     if (color?.includes('fuchsia') || isRadar) return '#e879f9'; // fuchsia-400
     if (color?.includes('purple')) return '#c084fc'; // purple-400
     if (color?.includes('indigo')) return '#818cf8'; // indigo-400
+    if (color?.includes('teal')) return '#2dd4bf'; // teal-400
     return '#94a3b8'; // slate-400
   };
   const colorVal = getColorValue();
@@ -1696,9 +1711,11 @@ function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, loca
     <div 
       className="relative overflow-hidden rounded-2xl px-4 py-3.5 transition-all duration-300 backdrop-blur-xl border"
       style={{
-        boxShadow: `0 0 16px ${glowColor.replace('0.15', '0.04')}, inset 0 1px 0 rgba(255, 255, 255, 0.05)`,
-        background: `radial-gradient(120% 120% at 20% 0%, ${glowColor.replace('0.15', '0.05')}, transparent 70%), rgba(22, 32, 54, 0.45)`,
-        borderColor: glowColor.replace('0.15', '0.22')
+        boxShadow: emphasis
+          ? `0 0 0 1px ${colorVal}55, 0 0 20px ${colorVal}33, inset 0 1px 0 rgba(255,255,255,0.06)`
+          : `0 0 16px ${glowColor.replace('0.15', '0.04')}, inset 0 1px 0 rgba(255, 255, 255, 0.05)`,
+        background: `radial-gradient(120% 120% at 20% 0%, ${emphasis ? colorVal + '18' : glowColor.replace('0.15', '0.05')}, transparent 70%), rgba(22, 32, 54, 0.45)`,
+        borderColor: emphasis ? `${colorVal}66` : glowColor.replace('0.15', '0.22')
       }}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-transparent pointer-events-none" />
@@ -2393,6 +2410,56 @@ function CmdPageContent() {
     };
   }, [data]);
 
+  /**
+   * 고급 기술지표 → 화면 표시값
+   *
+   * ADX  추세 «강도». 지금 트렌드 페이즈는 이동평균 교차만 봐서
+   *      추세가 없는 구간에서도 GOLDEN/DEAD 를 말한다. ADX<20 이면
+   *      그 교차는 대부분 의미가 없으므로 **경고로 강조**한다.
+   * OBV  자금 흐름. 가격과 어긋나면(다이버전스) 테두리를 강조한다.
+   * ATR  하루 실제 변동폭 — 히어로의 데이 레인지 옆에 붙인다.
+   */
+  const techSignal = useMemo(() => {
+    const L = (ko: string, en: string, ja: string) => ({ ko, en, ja }[locale as 'ko' | 'en' | 'ja'] ?? en);
+    const adx = techData?.adx || null;
+    const obv = techData?.obv || null;
+    const atr = techData?.atr || null;
+
+    // ── ADX ──
+    let adxBadge: string | null = null;
+    let adxWeak = false;
+    if (adx) {
+      adxWeak = adx.regime === 'RANGE';
+      adxBadge = adx.regime === 'STRONG' ? L('강한 추세', 'Strong', '強いトレンド')
+        : adx.regime === 'TREND' ? L('추세 있음', 'Trending', 'トレンド')
+          : adx.regime === 'WEAK' ? L('추세 약함', 'Weak', 'トレンド弱')
+            : L('무추세', 'No trend', 'トレンドなし');
+    }
+
+    // ── OBV ──
+    let obvValue = '—';
+    let obvDir: 'up' | 'down' | 'flat' = 'flat';
+    let obvBadge: string | null = null;
+    if (obv && obv.slopePct != null) {
+      obvValue = `${obv.slopePct > 0 ? '+' : ''}${obv.slopePct.toFixed(1)}%`;
+      obvDir = obv.slopePct > 0 ? 'up' : obv.slopePct < 0 ? 'down' : 'flat';
+      obvBadge = obv.divergence === 'BULL' ? L('가격↓ 자금↑', 'Price↓ Flow↑', '価格↓ 資金↑')
+        : obv.divergence === 'BEAR' ? L('가격↑ 자금↓', 'Price↑ Flow↓', '価格↑ 資金↓')
+          : obv.slopePct > 3 ? L('유입', 'Inflow', '流入')
+            : obv.slopePct < -3 ? L('유출', 'Outflow', '流出')
+              : L('중립', 'Neutral', '中立');
+    }
+
+    return {
+      adx, adxBadge, adxWeak,
+      obvValue, obvDir, obvBadge,
+      obvDivergent: !!obv?.divergence,
+      atrText: atr ? `ATR ${atr.pct}%` : null,
+      atrAbs: atr?.value ?? null,
+      volPremium: techData?.volPremium || null,
+    };
+  }, [techData, locale]);
+
   // 내부자 거래 시그널 카드 (구 「기관 레이더」).
   // 판정은 services/insiderSignal 한 곳에서만 한다 — 모바일 웹·SSR 카드와 같은 식.
   const insiderSignal = useMemo(() => {
@@ -2684,6 +2751,49 @@ function CmdPageContent() {
           </div>
         </div>
 
+        {/* ── Row 3.5: 변동성 프리미엄 (IV − 실현) ─────────────────
+            방향이 아니라 «옵션이 지금 비싼가 싼가»를 말한다.
+            기대 변동성(옵션 체인 IV)과 실제 변동성(20일 종가)의 차이다.
+            3열 그리드를 건드리지 않도록 한 줄 스트립으로 붙인다. */}
+        {(() => {
+          const vp = techSignal.volPremium;
+          if (!vp || vp.spread == null || vp.ivPct == null || vp.rvPct == null) return null;
+          const rich = vp.label === 'RICH', cheap = vp.label === 'CHEAP';
+          const c = rich ? 'var(--amber, #fbbf24)' : cheap ? 'var(--cyan)' : 'rgba(148,163,184,.9)';
+          const verdict = rich
+            ? (locale === 'ko' ? '옵션 비쌈' : locale === 'ja' ? 'オプション割高' : 'Options rich')
+            : cheap
+              ? (locale === 'ko' ? '옵션 쌈' : locale === 'ja' ? 'オプション割安' : 'Options cheap')
+              : (locale === 'ko' ? '적정 범위' : locale === 'ja' ? '適正圏' : 'Fair');
+          const hint = rich
+            ? (locale === 'ko' ? '기대가 실제보다 앞서 있음' : locale === 'ja' ? '期待が実際を上回る' : 'Expectation ahead of reality')
+            : cheap
+              ? (locale === 'ko' ? '실제 움직임이 더 큼' : locale === 'ja' ? '実際の動きの方が大きい' : 'Actual moves exceed pricing')
+              : (locale === 'ko' ? '기대와 실제가 비슷함' : locale === 'ja' ? '期待と実際が近い' : 'Expectation matches reality');
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              margin: '10px 0 0', padding: '9px 12px', borderRadius: 12,
+              border: `1px solid ${c}${rich || cheap ? '55' : '22'}`,
+              background: `linear-gradient(90deg, ${c}12, transparent 70%), rgba(22,32,54,.45)`,
+              boxShadow: rich || cheap ? `0 0 14px ${c}22` : 'none',
+            }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 800, letterSpacing: '.08em', color: 'rgba(203,213,225,.85)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                {locale === 'ko' ? '변동성 프리미엄' : locale === 'ja' ? 'ボラプレミアム' : 'VOL PREMIUM'}
+                <MetricInfo term="volPremium" locale={locale} size={12} />
+              </span>
+              <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', color: c, lineHeight: 1 }}>
+                {vp.spread > 0 ? '+' : ''}{vp.spread.toFixed(1)}<span style={{ fontSize: 10, opacity: .7 }}>%p</span>
+              </span>
+              <span style={{ fontSize: 9.5, fontWeight: 800, padding: '2px 6px', borderRadius: 4, color: c, border: `1px solid ${c}40`, background: `${c}14`, whiteSpace: 'nowrap' }}>{verdict}</span>
+              <span style={{ fontSize: 11, color: 'rgba(148,163,184,.9)', fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                IV {vp.ivPct.toFixed(0)} · {locale === 'ko' ? '실현' : locale === 'ja' ? '実現' : 'RV'} {vp.rvPct.toFixed(0)}
+              </span>
+              <span style={{ fontSize: 11, color: 'rgba(148,163,184,.75)', flex: '1 1 auto', minWidth: 0 }}>{hint}</span>
+            </div>
+          );
+        })()}
+
         {/* ── Row 4: Vitals Strip (RSI / VWAP / DAY RANGE) ── */}
         <div className={s.p2Vitals}>
           <div className={s.p2Vital}>
@@ -2719,7 +2829,29 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.p2Vital}>
-            <div className={s.k}>DAY RANGE</div>
+            <div className={s.k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>DAY RANGE</span>
+              {/* 오늘 폭이 «평소 대비» 큰지 작은지 — ATR 이 있어야 판단이 된다.
+                  고저 차이만 보면 그게 큰 날인지 모른다. */}
+              {(() => {
+                const atrPct = techSignal.atrAbs && displayPrice > 0 ? (techSignal.atrAbs / displayPrice) * 100 : null;
+                const todayPct = displayPrice > 0 ? ((data.high - data.low) / displayPrice) * 100 : 0;
+                if (!atrPct || !(todayPct > 0)) return null;
+                const ratio = todayPct / atrPct;
+                const wide = ratio >= 1.5, calm = ratio <= 0.6;
+                const c = wide ? 'var(--amber, #fbbf24)' : calm ? 'var(--cyan)' : 'rgba(148,163,184,.85)';
+                const txt = wide ? (locale === 'ko' ? '평소보다 큼' : locale === 'ja' ? '普段より大' : 'Wider than usual')
+                  : calm ? (locale === 'ko' ? '평소보다 작음' : locale === 'ja' ? '普段より小' : 'Narrower')
+                    : (locale === 'ko' ? '평소 수준' : locale === 'ja' ? '通常水準' : 'Typical');
+                return (
+                  <span title={`ATR ${atrPct.toFixed(2)}%`} style={{
+                    fontSize: 9, fontWeight: 800, letterSpacing: '.03em', lineHeight: 1,
+                    padding: '2px 5px', borderRadius: 4, whiteSpace: 'nowrap',
+                    color: c, border: `1px solid ${c}40`, background: `${c}14`,
+                  }}>{ratio.toFixed(1)}× · {txt}</span>
+                );
+              })()}
+            </div>
             {(() => {
               const rangePct = Math.max(0, Math.min(100, ((displayPrice - data.low) / (data.high - data.low || 1)) * 100));
               const rangeColor = rangePct >= 70 ? 'var(--green)' : rangePct <= 30 ? 'var(--red)' : 'var(--cyan)';
@@ -3103,18 +3235,59 @@ function CmdPageContent() {
                   locale={locale}
                 />
 
-                {/* [7] TREND PHASE */}
-                <SignalCard 
+                {/* [7] TREND PHASE + 추세 강도(ADX)
+                    이동평균 교차만 보면 «추세가 없는 구간의 교차»도 GOLDEN 이라고 말한다.
+                    ADX 가 20 아래면 그 교차는 대부분 의미가 없다 → 신뢰도 게이트로 붙이고,
+                    «교차는 났는데 추세가 없다»는 조합일 때 테두리를 강조해 경고한다. */}
+                {(() => {
+                  const cross = signalsData.smaCross === 'GOLDEN' ? 'GOLDEN' : signalsData.smaCross === 'DEAD' ? 'DEAD' : 'CALM';
+                  const hasCross = cross !== 'CALM';
+                  const unreliable = hasCross && techSignal.adxWeak;   // 교차 O · 추세 X
+                  const tone = unreliable ? 'text-amber-400'
+                    : cross === 'GOLDEN' ? 'text-emerald-400' : cross === 'DEAD' ? 'text-rose-400' : 'text-slate-300';
+                  return (
+                <SignalCard
                   label={locale === 'ko' ? '트렌드 페이즈' : locale === 'ja' ? 'トレンドフェーズ' : 'TREND PHASE'}
                   iconKey="TREND PHASE"
-                  infoTerm="trendPhase"
-                  value={signalsData.smaCross === 'GOLDEN' ? 'GOLDEN' : signalsData.smaCross === 'DEAD' ? 'DEAD' : 'CALM'}
-                  color={signalsData.smaCross === 'GOLDEN' ? 'text-emerald-400' : signalsData.smaCross === 'DEAD' ? 'text-rose-400' : 'text-slate-300'}
-                  bg={signalsData.smaCross === 'GOLDEN' ? 'bg-emerald-950/20' : signalsData.smaCross === 'DEAD' ? 'bg-rose-950/20' : 'bg-slate-900/40'}
-                  border={signalsData.smaCross === 'GOLDEN' ? 'border-emerald-500/20' : signalsData.smaCross === 'DEAD' ? 'border-rose-500/20' : 'border-white/[0.06]'}
-                  sub={<>{signalsData.smaLabel || 'SMA 50/200'} · <span className={signalsData.smaDistance >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{signalsData.smaDistance >= 0 ? '+' : ''}{signalsData.smaDistance}%</span></>} 
+                  infoTerm="trendStrength"
+                  value={cross}
+                  color={tone}
+                  emphasis={unreliable}
+                  insightOverride={unreliable
+                    ? (locale === 'ko' ? '신뢰도 낮음' : locale === 'ja' ? '信頼度低' : 'Low confidence')
+                    : techSignal.adxBadge}
+                  bg={cross === 'GOLDEN' ? 'bg-emerald-950/20' : cross === 'DEAD' ? 'bg-rose-950/20' : 'bg-slate-900/40'}
+                  border={cross === 'GOLDEN' ? 'border-emerald-500/20' : cross === 'DEAD' ? 'border-rose-500/20' : 'border-white/[0.06]'}
+                  sub={<>{signalsData.smaLabel || 'SMA 50/200'} · <span className={signalsData.smaDistance >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{signalsData.smaDistance >= 0 ? '+' : ''}{signalsData.smaDistance}%</span>
+                    {techSignal.adx ? <> · ADX <span className={techSignal.adxWeak ? 'text-amber-400 font-bold' : 'text-cyan-400 font-bold'}>{techSignal.adx.value.toFixed(0)}</span></> : null}</>}
                   locale={locale}
                 />
+                  );
+                })()}
+
+                {/* [9] 자금 흐름 (OBV) — 신규.
+                    다크풀이 하던 «수급» 서사를 공개 데이터로 대체한다.
+                    가격과 자금이 어긋나면(다이버전스) 테두리를 강조한다. */}
+                {(() => {
+                  const d = techSignal.obvDir;
+                  const div = techSignal.obvDivergent;
+                  const tone = div ? 'text-amber-400' : d === 'up' ? 'text-emerald-400' : d === 'down' ? 'text-rose-400' : 'text-slate-300';
+                  return (
+                <SignalCard
+                  label={locale === 'ko' ? '자금 흐름' : locale === 'ja' ? '資金フロー' : 'FLOW PULSE'}
+                  iconKey="FLOW PULSE"
+                  infoTerm="moneyFlow"
+                  value={techSignal.obvValue}
+                  color={tone}
+                  emphasis={div}
+                  insightOverride={techSignal.obvBadge}
+                  bg="bg-slate-900/40"
+                  border="border-white/[0.06]"
+                  sub={<>{locale === 'ko' ? '20일 누적 거래량' : locale === 'ja' ? '20日累積出来高' : '20D cumulative volume'}</>}
+                  locale={locale}
+                />
+                  );
+                })()}
 
                 {/* [8] FUNDAMENTAL */}
                 <SignalCard 

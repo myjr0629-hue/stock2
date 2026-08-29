@@ -24,6 +24,11 @@ export type MetricTerm =
   | 'darkPool'
   | 'liquidity'
   | 'volSqueeze'
+  | 'trendStrength'
+  | 'moneyFlow'
+  | 'volPremium'
+  | 'creditSpread'
+  | 'atr'
   | 'blockTrades'
   | 'ivRank'
   | 'ivSkew'
@@ -129,6 +134,46 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
       ko: '볼린저 밴드의 폭이 지난 130거래일 분포에서 몇 번째 백분위인지 나타냅니다. 값이 낮을수록 최근 가격 변동폭이 이례적으로 좁다는 뜻이며, 이런 압축 구간 뒤에 변동성이 확대되는 흐름이 자주 관찰됩니다. 방향은 알려주지 않습니다 — 위로 터질지 아래로 터질지는 다른 지표와 함께 보아야 합니다. 20% 이하를 압축, 10% 이하를 극단적 압축으로 표시합니다.',
       en: 'Where the current Bollinger band width sits in its own 130-session distribution. A low reading means the recent trading range is unusually narrow, and volatility expansion is often observed after such compression. It says nothing about direction — whether the move resolves up or down must be read alongside other indicators. Below 20% is flagged as a squeeze, below 10% as extreme.',
       ja: 'ボリンジャーバンドの幅が過去130営業日の分布の何パーセンタイルに位置するかを示します。値が低いほど直近の値幅が異例に狭いことを意味し、こうした圧縮局面の後にボラティリティが拡大する動きがしばしば観測されます。方向は示しません — 上下どちらに放れるかは他の指標と併せて判断する必要があります。20%以下を圧縮、10%以下を極端な圧縮として表示します。',
+    },
+  },
+  trendStrength: {
+    title: { ko: '추세 강도 (ADX)', en: 'Trend Strength (ADX)', ja: 'トレンド強度 (ADX)' },
+    body: {
+      ko: '추세가 「어느 방향인지」가 아니라 「있기는 한지」를 재는 지표입니다. 20 아래면 뚜렷한 추세가 없는 구간으로 보며, 이때 나오는 골든크로스·데드크로스는 방향이 자주 바뀌어 신뢰도가 낮게 관찰됩니다. 25를 넘으면 추세가 형성된 것으로, 40을 넘으면 강한 추세로 봅니다. 교차 신호가 났는데 강도가 낮으면 카드 테두리로 표시해 알려드립니다.',
+      en: 'Measures whether a trend exists at all, not which way it points. Below 20 is treated as a trendless range, where golden/dead crosses tend to flip direction and are observed to be less reliable. Above 25 indicates an established trend, above 40 a strong one. When a cross appears while strength is low, the card border flags it.',
+      ja: 'トレンドの「方向」ではなく「そもそも存在するか」を測る指標です。20未満はトレンドが不明瞭な局面とみなし、この状態でのゴールデンクロス・デッドクロスは方向が頻繁に反転し信頼度が低いと観測されます。25超でトレンド形成、40超で強いトレンドとみます。クロスが出ていて強度が低い場合はカードの枠線で示します。',
+    },
+  },
+  moneyFlow: {
+    title: { ko: '자금 흐름 (OBV)', en: 'Money Flow (OBV)', ja: '資金フロー (OBV)' },
+    body: {
+      ko: '상승한 날의 거래량은 더하고 하락한 날은 빼서 누적한 값의 20거래일 변화율입니다. 가격이 오르는데 이 값이 줄면 상승을 뒷받침하는 자금이 따라오지 않는다는 뜻으로, 반대의 경우도 마찬가지입니다. 이런 어긋남(다이버전스)이 나타나면 카드 테두리로 강조합니다. 방향을 단정하는 지표가 아니라 가격과 수급이 같은 이야기를 하는지 확인하는 용도입니다.',
+      en: "The 20-session change in on-balance volume — volume added on up days, subtracted on down days. If price rises while this falls, the move is not being backed by flow, and vice versa. When that divergence appears, the card border highlights it. It is a cross-check on whether price and flow tell the same story, not a directional call.",
+      ja: '上昇日の出来高を加算し下落日を減算して累積した値の、20営業日変化率です。価格が上昇しているのにこの値が減少していれば、上昇を支える資金が伴っていないことを意味し、逆も同様です。この乖離（ダイバージェンス）が現れた場合はカードの枠線で強調します。方向を断定する指標ではなく、価格と需給が同じ話をしているかを確認するためのものです。',
+    },
+  },
+  volPremium: {
+    title: { ko: '변동성 프리미엄 (IV − 실현)', en: 'Volatility Premium (IV − RV)', ja: 'ボラティリティプレミアム (IV − RV)' },
+    body: {
+      ko: '옵션 시장이 기대하는 변동성(IV)에서 실제로 나타난 변동성(20일 종가 기준)을 뺀 값입니다. 양수가 크면 옵션이 실제 움직임 대비 비싸게 거래되는 상태로, 음수가 크면 그 반대로 관찰됩니다. 주가의 방향이 아니라 옵션 「가격의 적정성」을 말하는 지표입니다. ±10%p 안쪽은 계산 오차와 만기 구조 차이로 갈릴 수 있어 중립으로 표시합니다.',
+      en: "Implied volatility from the option chain minus realized volatility computed from 20 sessions of closes. A large positive reading means options are priced richly relative to how the stock has actually moved; a large negative reading is the reverse. It speaks to the fairness of option pricing, not to price direction. Within ±10 points it is shown as neutral, since calculation and term-structure differences can account for that range.",
+      ja: 'オプション市場が織り込む変動率（IV）から、実際に生じた変動率（20日終値ベース）を差し引いた値です。プラスが大きいほどオプションが実際の値動きに対して割高に取引されている状態、マイナスが大きいほどその逆として観測されます。株価の方向ではなくオプション「価格の妥当性」を示す指標です。±10ポイント以内は計算誤差や限月構造の違いで振れうるため中立として表示します。',
+    },
+  },
+  creditSpread: {
+    title: { ko: '신용 스프레드 (하이일드)', en: 'Credit Spread (High Yield)', ja: 'クレジットスプレッド（ハイイールド）' },
+    body: {
+      ko: '신용도가 낮은 기업의 회사채가 국채 대비 얼마나 높은 금리를 요구받는지를 나타냅니다. 채권시장이 위험을 어떻게 보는지를 가장 직접적으로 보여주는 값으로, 벌어지면 위험 회피, 좁아지면 위험 선호로 해석됩니다. 주가는 오르는데 스프레드가 벌어지는 구간은 주식과 채권이 서로 다른 이야기를 하는 상태로 관찰됩니다. 절대 수준보다 방향과 1년 분포 내 위치를 함께 봅니다.',
+      en: 'How much extra yield lower-rated corporate bonds must offer over Treasuries. It is the most direct read on how the credit market prices risk: widening reads as risk-off, tightening as risk-on. Stretches where equities rise while spreads widen are observed as stocks and bonds telling different stories. Direction and position within the past year matter more than the absolute level.',
+      ja: '信用力の低い企業の社債が国債に対してどれだけ高い利回りを要求されているかを示します。債券市場がリスクをどう見ているかを最も直接的に表す値で、拡大すればリスク回避、縮小すればリスク選好と解釈されます。株価が上昇する一方でスプレッドが拡大する局面は、株式と債券が異なる話をしている状態として観測されます。絶対水準より方向と過去1年の分布内の位置を併せて見ます。',
+    },
+  },
+  atr: {
+    title: { ko: '평균 실제 변동폭 (ATR)', en: 'Average True Range (ATR)', ja: '平均実質変動幅 (ATR)' },
+    body: {
+      ko: '최근 하루 동안 실제로 움직인 폭의 평균입니다. 전날 종가와의 갭까지 포함해 계산하므로 장중 고저 차이만 보는 것보다 실제 변동을 잘 반영합니다. 오늘의 움직임이 평소 대비 큰지 작은지 가늠하거나, 손절 폭·포지션 크기를 정할 때 기준으로 쓰입니다. 옵션 IV가 「기대되는 변동」이라면 이 값은 「실제로 있었던 변동」입니다.',
+      en: 'The average distance the price has actually traveled in a session, including any gap from the prior close — so it reflects real movement better than the intraday high-low range alone. It is used to judge whether today is unusually active, and to size stops or positions. If option IV is the expected move, this is the move that actually happened.',
+      ja: '直近の1日で実際に動いた値幅の平均です。前日終値からのギャップも含めて計算するため、日中の高安差だけを見るより実際の変動をよく反映します。今日の動きが普段に比べ大きいか小さいかの判断や、損切り幅・ポジションサイズの基準として使われます。オプションのIVが「期待される変動」なら、こちらは「実際にあった変動」です。',
     },
   },
   blockTrades: {
