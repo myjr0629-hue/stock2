@@ -23,6 +23,7 @@ export type MetricTerm =
   | 'maxPain'
   | 'darkPool'
   | 'liquidity'
+  | 'volSqueeze'
   | 'blockTrades'
   | 'ivRank'
   | 'ivSkew'
@@ -120,6 +121,14 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
       ko: '매수·매도 호가 차이(스프레드)로 매긴 0~100 점수입니다. 점수가 높을수록 호가가 촘촘해, 큰 물량이 들어와도 가격이 잘 밀리지 않습니다. 낮으면 시장이 얇아 같은 물량에도 가격이 크게 흔들립니다. 정규장 체결 기준으로 계산하며, 장 마감 후에는 직전 정규장 값을 보여줍니다.',
       en: 'A 0-100 score derived from the bid-ask spread. A higher score means tighter quotes, so large orders move price less. A lower score means a thin market where the same size swings price more. Computed from regular-session trading; after the close it shows the last regular session.',
       ja: '売買気配の差（スプレッド）から算出した0〜100のスコアです。高いほど気配が厚く、大口注文でも価格が動きにくいことを示します。低いと市場が薄く、同じ数量でも価格が大きく振れます。通常取引時間の約定を基準に計算し、引け後は直近の通常取引時間の値を表示します。',
+    },
+  },
+  volSqueeze: {
+    title: { ko: '변동성 압축 (Volatility Squeeze)', en: 'Volatility Squeeze', ja: 'ボラティリティ圧縮' },
+    body: {
+      ko: '볼린저 밴드의 폭이 지난 130거래일 분포에서 몇 번째 백분위인지 나타냅니다. 값이 낮을수록 최근 가격 변동폭이 이례적으로 좁다는 뜻이며, 이런 압축 구간 뒤에 변동성이 확대되는 흐름이 자주 관찰됩니다. 방향은 알려주지 않습니다 — 위로 터질지 아래로 터질지는 다른 지표와 함께 보아야 합니다. 20% 이하를 압축, 10% 이하를 극단적 압축으로 표시합니다.',
+      en: 'Where the current Bollinger band width sits in its own 130-session distribution. A low reading means the recent trading range is unusually narrow, and volatility expansion is often observed after such compression. It says nothing about direction — whether the move resolves up or down must be read alongside other indicators. Below 20% is flagged as a squeeze, below 10% as extreme.',
+      ja: 'ボリンジャーバンドの幅が過去130営業日の分布の何パーセンタイルに位置するかを示します。値が低いほど直近の値幅が異例に狭いことを意味し、こうした圧縮局面の後にボラティリティが拡大する動きがしばしば観測されます。方向は示しません — 上下どちらに放れるかは他の指標と併せて判断する必要があります。20%以下を圧縮、10%以下を極端な圧縮として表示します。',
     },
   },
   blockTrades: {

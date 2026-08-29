@@ -1830,6 +1830,9 @@ function CmdPageContent() {
   // [다크풀 대체] 기관 레이더 카드가 쓰던 다크풀은 Intrinio 피드에 값이 오지 않는다.
   // 익명 다크풀 대신 «누가·언제·얼마에» 가 다 나오는 내부자 거래로 교체했다.
   const [insiderData, setInsiderData] = useState<any>(null);
+  // [공매도 403 대체] 「SHORT SQUEEZE」 카드는 siPercent 가 플랜 밖이라 죽어 있었다.
+  // 볼린저 밴드폭 압축(변동성 스퀴즈)으로 되살린다 — 다른 개념이므로 라벨도 바꾼다.
+  const [techData, setTechData] = useState<any>(null);
 
   // [BUG FIX] switching tickers must reset the view: always land back on OVERVIEW
   // (not the previously-open AI/QUANT/HOLDERS tab), and NEVER show the previous
@@ -1843,6 +1846,7 @@ function CmdPageContent() {
     setAiInsightData(null);
     setGexStats(null);
     setInsiderData(null);   // 티커별 상태 — 안 지우면 이전 종목 내부자가 남는다
+    setTechData(null);
   }, [ticker]);
 
   useEffect(() => {
@@ -1866,6 +1870,17 @@ function CmdPageContent() {
     fetch(`/api/command/insider?ticker=${ticker}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(d => { if (isMounted) setInsiderData(d?.insider || null); })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, [ticker]);
+
+  // 고급 기술지표 (ATR·ADX·OBV·볼린저 + 변동성 프리미엄) — 6시간 서버 캐시
+  useEffect(() => {
+    if (!ticker) return;
+    let isMounted = true;
+    fetch(`/api/live/technicals?t=${ticker}`)
+      .then(res => res.json())
+      .then(d => { if (isMounted && !d?.error) setTechData(d); })
       .catch(() => {});
     return () => { isMounted = false; };
   }, [ticker]);
@@ -3035,20 +3050,40 @@ function CmdPageContent() {
                   locale={locale}
                 />
 
-                {/* [4] SHORT SQUEEZE */}
-                <SignalCard 
-                  label={locale === 'ko' ? '순매도 스퀘즈' : locale === 'ja' ? 'ショートスクイーズ' : 'SHORT SQUEEZE'}
+                {/* [4] VOLATILITY SQUEEZE — 구 SHORT SQUEEZE.
+                    공매도 잔고(short_interest)가 현재 플랜에서 403 이라 siPercent 가
+                    영구 null 이었고, 카드는 값 «-» · 배지 «LOW» · DTC «—» 로 죽어 있었다.
+                    「LOW」는 «공매도 압력이 낮다»는 **사실 주장**인데 실은 측정을 안 한 것이다.
+                    → 볼린저 밴드폭 압축(변동성 스퀴즈)으로 교체. 밴드폭을 자기 130일
+                      분포와 비교한 백분위이므로 «지금이 역대 대비 얼마나 눌려 있나»를
+                      말한다. 공매도 스퀴즈와 다른 개념이라 라벨·설명도 함께 바꿨다. */}
+                {(() => {
+                  const bb = techData?.bb;
+                  const pct = bb?.percentile;
+                  const st = pct == null ? null : pct <= 10 ? 'EXTREME' : pct <= 20 ? 'SQUEEZE' : pct >= 80 ? 'EXPANDED' : 'NORMAL';
+                  const tone = st === 'EXTREME' ? { c: 'text-rose-400', b: 'bg-rose-950/20', r: 'border-rose-500/20', bd: 'bg-rose-500/25 text-rose-400' }
+                    : st === 'SQUEEZE' ? { c: 'text-amber-400', b: 'bg-amber-950/20', r: 'border-amber-500/20', bd: 'bg-amber-500/25 text-amber-400' }
+                    : st === 'EXPANDED' ? { c: 'text-cyan-400', b: 'bg-slate-900/40', r: 'border-white/[0.06]', bd: 'bg-cyan-500/25 text-cyan-400' }
+                    : { c: 'text-slate-300', b: 'bg-slate-900/40', r: 'border-white/[0.06]', bd: 'bg-slate-700/40 text-slate-300' };
+                  return (
+                <SignalCard
+                  label={locale === 'ko' ? '변동성 압축' : locale === 'ja' ? 'ボラティリティ圧縮' : 'VOL SQUEEZE'}
                   iconKey="SHORT SQUEEZE"
-                  infoTerm="squeeze"
-                  value={signalsData.squeezePercent != null ? `${Number(signalsData.squeezePercent).toFixed(1)}%` : '-'}
-                  badge={signalsData.squeezeStatus}
-                  badgeColor={signalsData.squeezeStatus === 'CRITICAL' ? 'bg-rose-500/25 text-rose-400' : signalsData.squeezeStatus === 'HIGH' ? 'bg-amber-500/25 text-amber-400' : signalsData.squeezeStatus === 'MEDIUM' ? 'bg-cyan-500/25 text-cyan-400' : 'bg-emerald-500/25 text-emerald-400'}
-                  color={signalsData.squeezeStatus === 'CRITICAL' ? 'text-rose-400' : signalsData.squeezeStatus === 'HIGH' ? 'text-amber-400' : signalsData.squeezeStatus === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400'}
-                  bg={signalsData.squeezeStatus === 'CRITICAL' ? 'bg-rose-950/20' : signalsData.squeezeStatus === 'HIGH' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
-                  border={signalsData.squeezeStatus === 'CRITICAL' ? 'border-rose-500/20' : signalsData.squeezeStatus === 'HIGH' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={<>{signalsData.squeezeStatus} · DTC: <span className="text-cyan-400 font-extrabold">{signalsData.dtc?.toFixed(1) || '—'}</span>{signalsData.siChange ? <> · Δ <span className={signalsData.siChange > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{signalsData.siChange > 0 ? '+' : ''}{signalsData.siChange.toFixed(1)}%</span></> : ''}</>} 
+                  infoTerm="volSqueeze"
+                  value={pct != null ? `${pct}%` : '—'}
+                  badge={st || undefined}
+                  badgeColor={tone.bd}
+                  color={tone.c}
+                  bg={tone.b}
+                  border={tone.r}
+                  sub={bb
+                    ? <>{locale === 'ko' ? '밴드폭' : locale === 'ja' ? 'バンド幅' : 'Width'} <span className="text-cyan-400 font-extrabold">{bb.widthPct}%</span>
+                        {bb.position != null ? <> · {locale === 'ko' ? '위치' : locale === 'ja' ? '位置' : 'Pos'} <span className="text-white font-bold">{bb.position}</span></> : null}</>
+                    : <>{locale === 'ko' ? '측정 대기' : locale === 'ja' ? '計測待ち' : 'Loading'}</>}
                   locale={locale}
                 />
+                  );
+                })()}
 
                 {/* [6] INSIDER — 다크풀 자리 대체.
                     Intrinio 피드는 market_center/condition 을 주지 않아 다크풀 비중을
