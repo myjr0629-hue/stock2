@@ -428,6 +428,8 @@ function hasStockQuoteDelta(prev: KeyStockPremiumData, next: KeyStockPremiumData
     prev.impliedMovePct !== next.impliedMovePct ||
     prev.whaleIndex !== next.whaleIndex ||
     prev.darkPoolPct !== next.darkPoolPct ||
+    // 유동성이 빠져 있어 값이 새로 와도 리렌더가 안 걸릴 수 있었다
+    (prev as any).liquidityScore !== (next as any).liquidityScore ||
     ((next.sparkline?.length || 0) > 0 && next.sparkline !== prev.sparkline)
   );
 }

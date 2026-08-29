@@ -1161,6 +1161,40 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
         results.push(...chunkResults);
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // 유동성 주입 ★ [2026-08-30]
+    //
+    // 다크풀 자리를 유동성 점수로 대체했는데, 이 배치는 그 필드를 안 실어
+    // 보내고 있었다. Intel 화면의 핵심종목 상세 카드가 여기서 realtime 을
+    // 받아 쓰기 때문에 **LIQUIDITY 타일이 「—」로 떠 있었다**
+    // (같은 카드의 WHALE 은 잘 떴다 — 이 배치엔 whaleIndex 만 있었으니까).
+    // 새 필드를 만들면 **모든 소비 경로**에 붙여야 한다는 걸 놓친 경우다.
+    //
+    // 출구 한 곳에서 일괄 주입한다 — 구축 지점이 5곳이라 각각 고치면 또 샌다.
+    try {
+        const { sessionAwareLiquidity } = await import('@/services/intrinioClient');
+        const liq = await Promise.all(
+            results.map((r: any) =>
+                r?.ticker && !r.error
+                    ? sessionAwareLiquidity(r.ticker, r.realtime?.bidPrice ?? null, r.realtime?.askPrice ?? null)
+                        .catch(() => ({ liquidityScore: null, spreadPct: null }))
+                    : Promise.resolve({ liquidityScore: null, spreadPct: null })
+            )
+        );
+        results.forEach((r: any, i: number) => {
+            if (!r?.realtime) return;
+            r.realtime.liquidityScore = liq[i]?.liquidityScore ?? null;
+            r.realtime.spreadPct = liq[i]?.spreadPct ?? null;
+            // 죽은 틱 계열은 여기서도 «없음»으로 명시한다 — 0 은 «0%» 라는 주장이 된다
+            r.realtime.darkPoolPct = null;
+            r.realtime.blockTrades = null;
+            r.realtime.blockVolume = null;
+            r.realtime.netBuyValue = null;
+        });
+    } catch (e: any) {
+        console.warn('[watchlist/batch] 유동성 주입 실패:', e?.message);
+    }
+
     return {
         results,
         meta: {
