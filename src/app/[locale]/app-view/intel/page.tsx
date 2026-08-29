@@ -266,6 +266,9 @@ interface KeyStockPremiumData {
   whaleIndex?: number;
   /** 측정 불가면 null — 0 은 «측정된 0%» 라는 주장이 된다 */
   darkPoolPct?: number | null;
+  /** 다크풀 대체 — 호가 스프레드 기반 유동성 점수(0~100). 측정 불가면 null */
+  liquidityScore?: number | null;
+  spreadPct?: number | null;
 }
 
 interface AppNewsDigestItem {
@@ -480,7 +483,9 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
       impliedMovePct: pickNumber(rt.impliedMovePct, stock.impliedMovePct) ?? stock.impliedMovePct,
       whaleIndex: pickNumber(rt.whaleIndex, stock.whaleIndex) ?? stock.whaleIndex,
       darkPoolPct: pickNumber(rt.darkPoolPct, stock.darkPoolPct) ?? stock.darkPoolPct,
-    };
+      liquidityScore: pickNumber((rt as any).liquidityScore, (stock as any).liquidityScore) ?? (stock as any).liquidityScore ?? null,
+      spreadPct: pickNumber((rt as any).spreadPct, (stock as any).spreadPct) ?? (stock as any).spreadPct ?? null,
+    } as KeyStockPremiumData;
 
     if (hasStockQuoteDelta(stock, merged)) changed = true;
     return merged;
@@ -2108,6 +2113,8 @@ export default function AppIntelPage() {
     const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
     const netPremium = quotes.reduce((sum, q) => sum + (q.netPremium || 0), 0);
     const avgDarkPool = safeAverage(quotes.map(q => q.darkPoolPct || 0).filter(v => v > 0));
+    // 다크풀 대체 — 섹터 평균 유동성
+    const avgLiquidity = safeAverage(quotes.map(q => (q as any).liquidityScore || 0).filter(v => v > 0));
     const avgWhale = safeAverage(quotes.map(q => q.whaleIndex || 0).filter(v => v > 0));
     const avgSqueeze = safeAverage(quotes.map(q => q.squeezeScore || 0).filter(v => v > 0));
     const gammaLong = quotes.filter(q => String(q.gammaRegime || '').toUpperCase().includes('LONG')).length;
@@ -2481,6 +2488,8 @@ export default function AppIntelPage() {
     const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
     const netPremium = quotes.reduce((sum, q) => sum + (q.netPremium || 0), 0);
     const avgDarkPool = safeAverage(quotes.map(q => q.darkPoolPct || 0).filter(v => v > 0));
+    // 다크풀 대체 — 섹터 평균 유동성
+    const avgLiquidity = safeAverage(quotes.map(q => (q as any).liquidityScore || 0).filter(v => v > 0));
     const avgWhale = safeAverage(quotes.map(q => q.whaleIndex || 0).filter(v => v > 0));
     const avgSqueeze = safeAverage(quotes.map(q => q.squeezeScore || 0).filter(v => v > 0));
     const avgIvSkew = safeAverage(quotes.map(q => q.ivSkew || 0).filter(v => v !== 0));
@@ -2508,6 +2517,7 @@ export default function AppIntelPage() {
       avgPcr,
       netPremium,
       avgDarkPool,
+      avgLiquidity,
       avgWhale,
       avgSqueeze,
       avgIvSkew,
@@ -4210,7 +4220,7 @@ export default function AppIntelPage() {
                 gammaShort: '숏 감마 우위',
                 gammaMixed: '감마 혼재',
                 net: 'NET PREM',
-                darkPool: 'DARK POOL',
+                darkPool: 'LIQ',
                 whale: 'WHALE',
                 squeeze: 'SQUEEZE',
                 pcr: 'PCR',
@@ -4225,7 +4235,7 @@ export default function AppIntelPage() {
                   gammaShort: 'ショートガンマ優位',
                   gammaMixed: 'ガンマ混在',
                   net: 'NET PREM',
-                  darkPool: 'DARK POOL',
+                  darkPool: 'LIQ',
                   whale: 'WHALE',
                   squeeze: 'SQUEEZE',
                   pcr: 'PCR',
@@ -4239,7 +4249,7 @@ export default function AppIntelPage() {
                   gammaShort: 'Short Gamma Bias',
                   gammaMixed: 'Mixed Gamma',
                   net: 'NET PREM',
-                  darkPool: 'DARK POOL',
+                  darkPool: 'LIQ',
                   whale: 'WHALE',
                   squeeze: 'SQUEEZE',
                   pcr: 'PCR',
@@ -4269,7 +4279,11 @@ export default function AppIntelPage() {
             const displayGex: number | null = sec.totalGex !== 0 ? sec.totalGex : null;
             const displayPcr: number | null = sec.avgPcr || null;
             const displayNetPremium: number | null = sec.netPremium !== 0 ? sec.netPremium : null;
-            const displayDarkPool: number | null = sec.avgDarkPool || null;
+            // ── 다크풀 자리 대체 ────────────────────────────────────
+            // 다크풀은 현재 플랜에 틱이 없어 측정 불가다. 후보를 전부 실측해
+            // «호가 스프레드 기반 유동성»을 골랐다(종목 간 28배 변별력).
+            // 정본: .agent/DARKPOOL_REPLACEMENT.md
+            const displayLiquidity: number | null = (sec as any).avgLiquidity || null;
             const displayWhale: number | null = sec.avgWhale || null;
             const displaySqueeze: number | null = sec.avgSqueeze || null;
             const MUTED = '#94a3b8';
@@ -4277,7 +4291,8 @@ export default function AppIntelPage() {
               { label: labels.gex, value: displayGex == null ? '—' : formatGex(displayGex), color: displayGex == null ? MUTED : (displayGex >= 0 ? '#10b981' : '#ef4444') },
               { label: labels.pcr, value: displayPcr == null ? '—' : displayPcr.toFixed(2), color: displayPcr == null ? MUTED : (displayPcr < 0.8 ? '#10b981' : displayPcr > 1.1 ? '#ef4444' : '#e2e8f0') },
               { label: labels.net, value: displayNetPremium == null ? '—' : formatMoneyCompact(displayNetPremium), color: displayNetPremium == null ? MUTED : (displayNetPremium >= 0 ? '#10b981' : '#ef4444') },
-              { label: labels.darkPool, value: displayDarkPool == null ? '—' : formatPlainPercent(displayDarkPool), color: displayDarkPool != null && displayDarkPool >= 40 ? '#cbd5e1' : MUTED },
+              // LIQ: 높을수록 유동성 좋음(스프레드 좁음). 70+ 우수 · 40- 주의
+              { label: labels.darkPool, value: displayLiquidity == null ? '—' : String(Math.round(displayLiquidity)), color: displayLiquidity == null ? MUTED : (displayLiquidity >= 65 ? '#22d3ee' : displayLiquidity >= 40 ? '#cbd5e1' : '#f59e0b') },
               { label: labels.whale, value: displayWhale == null ? '—' : Math.round(displayWhale).toString(), color: displayWhale != null && displayWhale >= 60 ? '#a78bfa' : MUTED },
               { label: labels.squeeze, value: displaySqueeze == null ? '—' : `${Math.round(displaySqueeze)}%`, color: displaySqueeze == null ? MUTED : (displaySqueeze >= 70 ? '#f59e0b' : displaySqueeze >= 40 ? '#facc15' : MUTED) },
             ];
@@ -5080,7 +5095,7 @@ export default function AppIntelPage() {
                                     { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${stock.putFloor.toFixed(0)}` : '-', color: '#ef4444' },
                                     { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${stock.callWall.toFixed(0)}` : '-', color: '#10b981' },
                                     { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
-                                    { label: 'DARK POOL', tip: 'darkPool', value: (stock.darkPoolPct ?? 0) > 0 ? `${Math.round(stock.darkPoolPct as number)}%` : '—', color: (stock.darkPoolPct || 0) >= 45 ? '#a78bfa' : '#94a3b8' },
+                                    { label: 'LIQUIDITY', tip: 'darkPool', value: ((stock as any).liquidityScore ?? 0) > 0 ? String(Math.round((stock as any).liquidityScore)) : '—', color: (stock.darkPoolPct || 0) >= 45 ? '#a78bfa' : '#94a3b8' },
                                     { label: 'IV SKEW', tip: 'ivSkew', value: (stock.ivSkew || 0) !== 0 ? `${(stock.ivSkew || 0) > 0 ? '+' : ''}${(stock.ivSkew || 0).toFixed(1)}%` : '-', color: Math.abs(stock.ivSkew || 0) > 3 ? '#f59e0b' : '#94a3b8' },
                                     { label: 'IMP MOVE', tip: 'impliedMove', value: (stock.impliedMovePct || 0) > 0 ? `±${(stock.impliedMovePct || 0).toFixed(1)}%` : '-', color: (stock.impliedMovePct || 0) > 5 ? '#f59e0b' : '#94a3b8' },
                                   ].map(m => (
@@ -5341,9 +5356,10 @@ export default function AppIntelPage() {
                                         WHALE {Math.round(stock.whaleIndex || 0)}
                                       </span>
                                     )}
-                                    {(stock.darkPoolPct || 0) >= 40 && (
-                                      <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.2)' }}>
-                                        D.POOL {stock.darkPoolPct == null ? '—' : `${Math.round(stock.darkPoolPct)}%`}
+                                    {/* 다크풀 자리 → 유동성. 65 이상(스프레드 좁음)일 때만 배지 노출 */}
+                                    {((stock as any).liquidityScore ?? 0) >= 65 && (
+                                      <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: 'rgba(34,211,238,0.12)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.2)' }}>
+                                        LIQ {Math.round((stock as any).liquidityScore)}
                                       </span>
                                     )}
                                   </div>

@@ -146,6 +146,14 @@ export async function GET(request: Request) {
             const snap = snapshotMap[ticker];
             const cached = cachedTickers[i];
 
+            // ── 다크풀 대체 지표 ────────────────────────────────────
+            // Intrinio 스냅샷이 NBBO 호가에서 계산한 스프레드/유동성을 실어 준다.
+            // 측정 불가면 null — 0 이나 50 으로 채우지 않는다.
+            const spreadPct: number | null = typeof (snap as any)?.spreadPct === 'number'
+                ? (snap as any).spreadPct : null;
+            const liquidityScore: number | null = typeof (snap as any)?.liquidityScore === 'number'
+                ? (snap as any).liquidityScore : null;
+
             // --- Price data from Polygon snapshot ---
             const prevClose = snap?.prevDay?.c || 0;
             const todayClose = snap?.day?.c || prevClose;
@@ -330,6 +338,9 @@ export async function GET(request: Request) {
                 // 메우고 있었다. 합성값을 걷어내면서 진짜 값을 채운다.
                 // (다크풀은 여전히 null — 그건 측정 자체가 불가하다)
                 whaleIndex: calculateWhaleIndex(gex, null, null, netPremium),
+                // 다크풀 대체 — 호가 스프레드 기반 유동성 점수(0~100)
+                liquidityScore: liquidityScore,
+                spreadPct: spreadPct,
                 ivSkew,
                 impliedMovePct,
             };
