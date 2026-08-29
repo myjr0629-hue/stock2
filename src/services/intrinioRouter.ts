@@ -23,6 +23,8 @@ import {
     getGroupedDailyIntrinio,
     getMarketStatusIntrinio,
     getOpenCloseIntrinio,
+    getDividendsIntrinio,
+    getSplitsIntrinio,
 } from "./intrinioClient";
 
 /** 라우팅하지 않고 Massive 로 그대로 보낼 엔드포인트 */
@@ -151,6 +153,23 @@ export async function routeToIntrinio(
     m = path.match(/^\/v3\/reference\/tickers\/([^/]+)$/);
     if (m) return await getTickerDetails(m[1]);
 
+    // ── 9-b) 배당 이력 ──────────────────────────────────
+    // `securities/{t}/dividends` 는 404 지만 `prices/adjustments` 에 배당이 있다.
+    // 이걸 못 찾아서 배당 화면이 전 필드 null 로 죽어 있었다(2026-08-29 실측).
+    if (path === "/v3/reference/dividends") {
+        const t = p("ticker");
+        if (!t) return { status: "OK", count: 0, results: [] };
+        const lim = Number(p("limit")) || 16;
+        return await getDividendsIntrinio(t, lim);
+    }
+
+    // ── 9-c) 주식 분할 ──────────────────────────────────
+    if (path === "/v3/reference/splits") {
+        const t = p("ticker");
+        if (!t) return { status: "OK", count: 0, results: [] };
+        return await getSplitsIntrinio(t, Number(p("limit")) || 10);
+    }
+
     // ── 10) 시장 상태 ───────────────────────────────────
     if (path === "/v1/marketstatus/now") return getMarketStatusIntrinio();
     if (path === "/v1/marketstatus/upcoming") return [];
@@ -170,7 +189,6 @@ export async function routeToIntrinio(
  */
 export const UNSUPPORTED_ENDPOINTS = [
     "/stocks/v1/short-interest",   // 공매도 잔고 — Enterprise 전용
-    "/v3/reference/dividends",     // 배당 이력 — 미제공
     "/v1/related-companies",       // 연관 종목 — 미제공
     "/v3/trades",                  // 틱 체결 — 옵션 실시간 WS 로 대체 예정
     "/v3/quotes",                  // 틱 호가 — 동일

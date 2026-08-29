@@ -1218,6 +1218,94 @@ export async function getFullMarketSnapshotIntrinio(tickers?: string[]): Promise
     return { status: "OK", count: filtered.length, tickers: filtered, _source: "intrinio-eod" };
 }
 
+/**
+ * Massive: /v3/reference/dividends 대응
+ *
+ * [발견] `securities/{t}/dividends` 는 404 지만, **`prices/adjustments` 에
+ *        배당이 들어 있다**(2026-08-29 실측). 그래서 죽어 있던 배당 기능을
+ *        되살릴 수 있다.
+ *   AAPL 2026-08-10 $0.27 · MSFT $0.91 · KO $0.53 · JNJ $1.34 · TSLA 무배당
+ *   분할도 같은 응답에 있다 (NVDA 2024-06-10 split_ratio 0.1 = 10:1)
+ *
+ * [한계] Intrinio 는 **배당락일만** 준다. 지급일·기준일·선언일은 없다.
+ *        없는 값을 지어내지 않고 null 로 둔다 — 화면이 «미제공»으로 렌더한다.
+ *        지급 주기(frequency)는 배당 간격의 중앙값에서 **유도**한다.
+ */
+export async function getDividendsIntrinio(ticker: string, limit = 16): Promise<any> {
+    const sym = ticker.toUpperCase();
+    const data = await callIntrinio(`securities/${sym}/prices/adjustments`, {
+        page_size: String(Math.min(Math.max(limit * 4, 40), 200)),
+    }).catch(() => null);
+
+    const rows: any[] = data?.stock_price_adjustments || [];
+    const divs = rows
+        .filter((r) => num(r?.dividend) != null && Number(r.dividend) > 0 && ISO_DATE.test(String(r.date)))
+        .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+    if (!divs.length) {
+        return { status: "OK", count: 0, results: [], _source: "intrinio-adjustments" };
+    }
+
+    // 지급 주기 유도 — 간격의 중앙값(일) → 연 지급 횟수
+    let frequency: number | null = null;
+    if (divs.length >= 3) {
+        const gaps: number[] = [];
+        for (let i = 0; i < Math.min(divs.length - 1, 8); i++) {
+            const g = (Date.parse(divs[i].date) - Date.parse(divs[i + 1].date)) / 86400000;
+            if (g > 0) gaps.push(g);
+        }
+        if (gaps.length) {
+            gaps.sort((a, b) => a - b);
+            const med = gaps[Math.floor(gaps.length / 2)];
+            if (med <= 10) frequency = 52;
+            else if (med <= 45) frequency = 12;
+            else if (med <= 120) frequency = 4;
+            else if (med <= 250) frequency = 2;
+            else frequency = 1;
+        }
+    }
+
+    const results = divs.slice(0, limit).map((d) => ({
+        cash_amount: Number(d.dividend),
+        currency: d.dividend_currency || "USD",
+        ex_dividend_date: String(d.date),
+        // ⚠️ Intrinio 는 배당락일만 준다. 없는 날짜를 추정해 채우지 않는다.
+        pay_date: null,
+        record_date: null,
+        declaration_date: null,
+        frequency,
+        dividend_type: "CD",
+        ticker: sym,
+    }));
+
+    return {
+        status: "OK",
+        count: results.length,
+        results,
+        _source: "intrinio-adjustments",
+        _note: "pay/record/declaration dates not provided by source",
+    };
+}
+
+/** Massive: 주식 분할 이력 (같은 adjustments 응답에서) */
+export async function getSplitsIntrinio(ticker: string, limit = 10): Promise<any> {
+    const sym = ticker.toUpperCase();
+    const data = await callIntrinio(`securities/${sym}/prices/adjustments`, { page_size: "200" }).catch(() => null);
+    const rows: any[] = data?.stock_price_adjustments || [];
+    const results = rows
+        .filter((r) => num(r?.split_ratio) != null && Number(r.split_ratio) !== 1 && ISO_DATE.test(String(r.date)))
+        .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+        .slice(0, limit)
+        .map((r) => ({
+            execution_date: String(r.date),
+            // Intrinio split_ratio 0.1 = 10:1 분할 → Massive 는 split_from/split_to 로 표현
+            split_from: 1,
+            split_to: Math.round((1 / Number(r.split_ratio)) * 1000) / 1000,
+            ticker: sym,
+        }));
+    return { status: "OK", count: results.length, results, _source: "intrinio-adjustments" };
+}
+
 export async function getMoversIntrinio(direction: "gainers" | "losers"): Promise<any> {
     const rows = await buildMarketTickers();
     // 노이즈 제거: 최소 거래량·가격
