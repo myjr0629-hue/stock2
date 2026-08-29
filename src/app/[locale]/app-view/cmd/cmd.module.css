@@ -1470,7 +1470,9 @@
 }
 
 /* vitals strip: RSI / VWAP / RANGE */
-.p2Vitals { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 14px; position: relative; z-index: 1; }
+/* minmax(0,1fr) — 그냥 1fr 은 min-content 아래로 못 줄어서, 칸 안에 긴 배지가
+   들어오면 그 칸만 넓어지고 나머지가 찌그러진다(2026-08-30 실화면 회귀). */
+.p2Vitals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; position: relative; z-index: 1; }
 .p2Vital {
   background: rgba(30, 41, 59, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.09);

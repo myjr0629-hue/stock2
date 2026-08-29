@@ -2770,49 +2770,6 @@ function CmdPageContent() {
           </div>
         </div>
 
-        {/* ── Row 3.5: 변동성 프리미엄 (IV − 실현) ─────────────────
-            방향이 아니라 «옵션이 지금 비싼가 싼가»를 말한다.
-            기대 변동성(옵션 체인 IV)과 실제 변동성(20일 종가)의 차이다.
-            3열 그리드를 건드리지 않도록 한 줄 스트립으로 붙인다. */}
-        {(() => {
-          const vp = techSignal.volPremium;
-          if (!vp || vp.spread == null || vp.ivPct == null || vp.rvPct == null) return null;
-          const rich = vp.label === 'RICH', cheap = vp.label === 'CHEAP';
-          const c = rich ? 'var(--amber, #fbbf24)' : cheap ? 'var(--cyan)' : 'rgba(148,163,184,.9)';
-          const verdict = rich
-            ? (locale === 'ko' ? '옵션 비쌈' : locale === 'ja' ? 'オプション割高' : 'Options rich')
-            : cheap
-              ? (locale === 'ko' ? '옵션 쌈' : locale === 'ja' ? 'オプション割安' : 'Options cheap')
-              : (locale === 'ko' ? '적정 범위' : locale === 'ja' ? '適正圏' : 'Fair');
-          const hint = rich
-            ? (locale === 'ko' ? '기대가 실제보다 앞서 있음' : locale === 'ja' ? '期待が実際を上回る' : 'Expectation ahead of reality')
-            : cheap
-              ? (locale === 'ko' ? '실제 움직임이 더 큼' : locale === 'ja' ? '実際の動きの方が大きい' : 'Actual moves exceed pricing')
-              : (locale === 'ko' ? '기대와 실제가 비슷함' : locale === 'ja' ? '期待と実際が近い' : 'Expectation matches reality');
-          return (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-              margin: '10px 0 0', padding: '9px 12px', borderRadius: 12,
-              border: `1px solid ${c}${rich || cheap ? '55' : '22'}`,
-              background: `linear-gradient(90deg, ${c}12, transparent 70%), rgba(22,32,54,.45)`,
-              boxShadow: rich || cheap ? `0 0 14px ${c}22` : 'none',
-            }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 800, letterSpacing: '.08em', color: 'rgba(203,213,225,.85)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                {locale === 'ko' ? '변동성 프리미엄' : locale === 'ja' ? 'ボラプレミアム' : 'VOL PREMIUM'}
-                <MetricInfo term="volPremium" locale={locale} size={12} />
-              </span>
-              <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', color: c, lineHeight: 1 }}>
-                {vp.spread > 0 ? '+' : ''}{vp.spread.toFixed(1)}<span style={{ fontSize: 10, opacity: .7 }}>%p</span>
-              </span>
-              <span style={{ fontSize: 9.5, fontWeight: 800, padding: '2px 6px', borderRadius: 4, color: c, border: `1px solid ${c}40`, background: `${c}14`, whiteSpace: 'nowrap' }}>{verdict}</span>
-              <span style={{ fontSize: 11, color: 'rgba(148,163,184,.9)', fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                IV {vp.ivPct.toFixed(0)} · {locale === 'ko' ? '실현' : locale === 'ja' ? '実現' : 'RV'} {vp.rvPct.toFixed(0)}
-              </span>
-              <span style={{ fontSize: 11, color: 'rgba(148,163,184,.75)', flex: '1 1 auto', minWidth: 0 }}>{hint}</span>
-            </div>
-          );
-        })()}
-
         {/* ── Row 4: Vitals Strip (RSI / VWAP / DAY RANGE) ── */}
         <div className={s.p2Vitals}>
           <div className={s.p2Vital}>
@@ -2848,29 +2805,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.p2Vital}>
-            <div className={s.k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>DAY RANGE</span>
-              {/* 오늘 폭이 «평소 대비» 큰지 작은지 — ATR 이 있어야 판단이 된다.
-                  고저 차이만 보면 그게 큰 날인지 모른다. */}
-              {(() => {
-                const atrPct = techSignal.atrPct;
-                const todayPct = displayPrice > 0 ? ((data.high - data.low) / displayPrice) * 100 : 0;
-                if (!atrPct || !(todayPct > 0)) return null;
-                const ratio = todayPct / atrPct;
-                const wide = ratio >= 1.5, calm = ratio <= 0.6;
-                const c = wide ? 'var(--amber, #fbbf24)' : calm ? 'var(--cyan)' : 'rgba(148,163,184,.85)';
-                const txt = wide ? (locale === 'ko' ? '평소보다 큼' : locale === 'ja' ? '普段より大' : 'Wider than usual')
-                  : calm ? (locale === 'ko' ? '평소보다 작음' : locale === 'ja' ? '普段より小' : 'Narrower')
-                    : (locale === 'ko' ? '평소 수준' : locale === 'ja' ? '通常水準' : 'Typical');
-                return (
-                  <span title={`ATR ${atrPct.toFixed(2)}%`} style={{
-                    fontSize: 9, fontWeight: 800, letterSpacing: '.03em', lineHeight: 1,
-                    padding: '2px 5px', borderRadius: 4, whiteSpace: 'nowrap',
-                    color: c, border: `1px solid ${c}40`, background: `${c}14`,
-                  }}>{ratio.toFixed(1)}× · {txt}</span>
-                );
-              })()}
-            </div>
+            <div className={s.k}>DAY RANGE</div>
             {(() => {
               const rangePct = Math.max(0, Math.min(100, ((displayPrice - data.low) / (data.high - data.low || 1)) * 100));
               const rangeColor = rangePct >= 70 ? 'var(--green)' : rangePct <= 30 ? 'var(--red)' : 'var(--cyan)';
@@ -2889,6 +2824,83 @@ function CmdPageContent() {
             })()}
           </div>
         </div>
+
+        {/* ── 변동성 요약 (6개 카드 아래) ──────────────────────────
+            처음엔 옵션 카드와 바이탈 사이에 끼워 넣었는데, 카드 6개의
+            흐름을 끊고 DAY RANGE 라벨에 넣은 ATR 배지가 그리드 폭까지
+            밀어 버렸다(대표 지적). 두 값 다 «변동성»을 말하므로
+            묶어서 **맨 아래 한 줄**로 내린다. 카드 폭은 원래대로 복원.
+
+            프리미엄 = 옵션이 비싼가 싼가 (기대 vs 실제)
+            오늘 폭   = 오늘 움직임이 평소 대비 큰가 (실제 vs 평소) */}
+        {(() => {
+          const vp = techSignal.volPremium;
+          const atrPct = techSignal.atrPct;
+          const todayPct = displayPrice > 0 && data.high > data.low ? ((data.high - data.low) / displayPrice) * 100 : 0;
+          const ratio = atrPct && todayPct > 0 ? todayPct / atrPct : null;
+          const hasPrem = !!(vp && vp.spread != null && vp.ivPct != null && vp.rvPct != null);
+          if (!hasPrem && ratio == null) return null;
+
+          const rich = vp?.label === 'RICH', cheap = vp?.label === 'CHEAP';
+          const pc = rich ? '#fbbf24' : cheap ? '#22d3ee' : 'rgba(148,163,184,.9)';
+          const premVerdict = rich ? (locale === 'ko' ? '옵션 비쌈' : locale === 'ja' ? 'オプション割高' : 'Options rich')
+            : cheap ? (locale === 'ko' ? '옵션 쌈' : locale === 'ja' ? 'オプション割安' : 'Options cheap')
+              : (locale === 'ko' ? '적정 범위' : locale === 'ja' ? '適正圏' : 'Fair');
+          const hint = rich ? (locale === 'ko' ? '기대가 실제보다 앞서 있음' : locale === 'ja' ? '期待が実際を上回る' : 'Expectation ahead of reality')
+            : cheap ? (locale === 'ko' ? '실제 움직임이 더 큼' : locale === 'ja' ? '実際の動きの方が大きい' : 'Actual moves exceed pricing')
+              : (locale === 'ko' ? '기대와 실제가 비슷함' : locale === 'ja' ? '期待と実際が近い' : 'Expectation matches reality');
+
+          const wide = ratio != null && ratio >= 1.5, calm = ratio != null && ratio <= 0.6;
+          const rc = wide ? '#fbbf24' : calm ? '#22d3ee' : 'rgba(148,163,184,.9)';
+          const rangeVerdict = wide ? (locale === 'ko' ? '평소보다 큼' : locale === 'ja' ? '普段より大' : 'Wider')
+            : calm ? (locale === 'ko' ? '평소보다 작음' : locale === 'ja' ? '普段より小' : 'Narrower')
+              : (locale === 'ko' ? '평소 수준' : locale === 'ja' ? '通常水準' : 'Typical');
+
+          const chip = (c: string) => ({
+            fontSize: 9.5, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
+            color: c, border: `1px solid ${c}40`, background: `${c}14`, whiteSpace: 'nowrap' as const, lineHeight: 1.15,
+          });
+          const emph = rich || cheap || wide;
+          return (
+            <div style={{
+              marginTop: 8, padding: '9px 12px', borderRadius: 9,
+              border: `1px solid ${emph ? (rich || wide ? '#fbbf2455' : '#22d3ee55') : 'rgba(255,255,255,0.09)'}`,
+              background: 'rgba(30, 41, 59, 0.35)',
+              backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+              boxShadow: emph
+                ? `0 0 14px ${rich || wide ? 'rgba(251,191,36,.14)' : 'rgba(34,211,238,.14)'}, inset 0 1px 0 rgba(255,255,255,0.05)`
+                : '0 4px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)',
+              display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, font: '700 11px/1 var(--f-sans)', letterSpacing: '.12em', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  {locale === 'ko' ? '변동성' : locale === 'ja' ? 'ボラティリティ' : 'VOLATILITY'}
+                  <MetricInfo term="volPremium" locale={locale} size={11} />
+                </span>
+                {hasPrem && (
+                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
+                    <span style={{ font: '700 14px/1 var(--f-mono)', fontVariantNumeric: 'tabular-nums', color: pc }}>
+                      {vp!.spread! > 0 ? '+' : ''}{vp!.spread!.toFixed(1)}<span style={{ fontSize: 9, opacity: .7 }}>%p</span>
+                    </span>
+                    <span style={chip(pc)}>{premVerdict}</span>
+                  </span>
+                )}
+                {hasPrem && ratio != null && <span style={{ width: 1, height: 12, background: 'rgba(255,255,255,.12)' }} />}
+                {ratio != null && (
+                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
+                    <span style={{ font: '700 14px/1 var(--f-mono)', fontVariantNumeric: 'tabular-nums', color: rc }}>{ratio.toFixed(1)}×</span>
+                    <span style={chip(rc)}>{rangeVerdict}</span>
+                  </span>
+                )}
+              </div>
+              <div style={{ font: '600 10.5px/1.35 var(--f-sans)', color: 'rgba(148,163,184,.8)', minWidth: 0 }}>
+                {hasPrem && <>IV {vp!.ivPct!.toFixed(0)} · {locale === 'ko' ? '실현' : locale === 'ja' ? '実現' : 'RV'} {vp!.rvPct!.toFixed(0)} · {hint}</>}
+                {hasPrem && ratio != null && ' · '}
+                {ratio != null && <>{locale === 'ko' ? '오늘 폭' : locale === 'ja' ? '本日値幅' : 'Today'} {todayPct.toFixed(1)}% (ATR {atrPct!.toFixed(1)}%)</>}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       <div 
