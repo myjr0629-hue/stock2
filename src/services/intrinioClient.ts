@@ -1374,6 +1374,53 @@ export async function getTickerListIntrinio(opts: { limit?: number } = {}): Prom
     return { status: "OK", count: results.length, results, _source: "intrinio-eod-universe" };
 }
 
+/**
+ * 13F 기관 보유 — Intrinio `securities/{t}/institutional_ownership`
+ *
+ * [왜 이관하나]  기존 `command/13f` 는 Massive `/stocks/filings/vX/13-F` 를
+ *   폴백으로 쓴다. 그 벤더는 죽는다.
+ *
+ * [오히려 개선]  Intrinio 는 **직전 분기 대비 증감을 계산해서 준다** (실측):
+ *   {"owner_name":"ADAMS DIVERSIFIED EQUITY FUND","period_ended":"2026-06-30",
+ *    "value":219971472,"amount":760200,"previous_amount":767300,
+ *    "amount_change":-7100,"amount_percent_change":-0.009253,
+ *    "sole_voting_authority":760200, ...}
+ *   기존 구현은 두 분기를 직접 받아 비교해야 했다.
+ *
+ * [한계]  filing_date 는 주지 않는다(period_ended 만). 지어내지 않고 null.
+ */
+export async function getInstitutionalOwnershipIntrinio(
+    ticker: string,
+    limit = 100
+): Promise<any[]> {
+    const sym = ticker.toUpperCase();
+    const data = await callIntrinio(`securities/${sym}/institutional_ownership`, {
+        page_size: String(Math.min(Math.max(limit, 10), 500)),
+    }).catch(() => null);
+
+    const rows: any[] = data?.ownership || [];
+    return rows
+        .filter((r) => num(r?.amount) != null && Number(r.amount) > 0)
+        .map((r) => ({
+            owner_cik: String(r.owner_cik || ""),
+            owner_name: String(r.owner_name || ""),
+            period_ended: String(r.period_ended || ""),
+            shares: Number(r.amount) || 0,
+            market_value: num(r.value) ?? 0,
+            previous_shares: num(r.previous_amount),
+            shares_change: num(r.amount_change),
+            // Intrinio 는 소수(-0.009253 = -0.93%)로 준다
+            shares_change_pct: num(r.amount_percent_change) != null
+                ? Math.round(Number(r.amount_percent_change) * 100 * 10000) / 10000
+                : null,
+            sole_voting: num(r.sole_voting_authority),
+            shared_voting: num(r.shared_voting_authority),
+            no_voting: num(r.no_voting_authority),
+            // Intrinio 미제공 — 추정하지 않는다
+            filing_date: null,
+        }));
+}
+
 export async function getMoversIntrinio(direction: "gainers" | "losers"): Promise<any> {
     const rows = await buildMarketTickers();
     // 노이즈 제거: 최소 거래량·가격

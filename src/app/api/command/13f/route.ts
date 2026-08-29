@@ -219,7 +219,44 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // 3. [Fallback] Fetch from Polygon API (original logic — limited coverage)
+        // 3. [2026-08-29] Intrinio 기관보유 — Massive 폴백보다 먼저 시도한다.
+        //    Massive 는 9/23 해지되고, Intrinio 는 **직전 분기 대비 증감을
+        //    계산해서 준다**(기존 구현은 두 분기를 직접 받아 비교해야 했다).
+        try {
+            const { getInstitutionalOwnershipIntrinio } = await import('@/services/intrinioClient');
+            const rows = await getInstitutionalOwnershipIntrinio(ticker, 120);
+            if (rows.length >= 5) {
+                const sorted = [...rows].sort((a, b) => (b.market_value || 0) - (a.market_value || 0));
+                const period = sorted[0]?.period_ended || '';
+                const intrinioHolders: Holder13F[] = sorted.slice(0, 50).map((r, i) => ({
+                    rank: i + 1,
+                    cik: r.owner_cik,
+                    name: r.owner_name,
+                    domain: null,
+                    shares: r.shares,
+                    marketValue: r.market_value,
+                    period: r.period_ended,
+                    // Intrinio 는 제출일을 주지 않는다 — 지어내지 않는다
+                    filingDate: '',
+                    prevShares: r.previous_shares ?? null,
+                    sharesChange: r.shares_change ?? null,
+                    sharesChangePct: r.shares_change_pct ?? null,
+                    // 직전 분기 «평가액»은 미제공 — 주식수 증감만 신뢰할 수 있다
+                    prevMarketValue: null,
+                    marketValueChange: null,
+                }));
+                console.log(`[13F] Intrinio hit for ${ticker}: ${intrinioHolders.length} holders @ ${period}`);
+                return NextResponse.json({
+                    ticker, period, holders: intrinioHolders,
+                    totalHolders: rows.length,
+                    _source: 'intrinio',
+                }, { headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400' } });
+            }
+        } catch (e: any) {
+            console.warn('[13F] Intrinio path failed, falling back:', e?.message);
+        }
+
+        // 4. [Fallback] Fetch from Polygon API (original logic — limited coverage)
         // Strategy: Keep paginating until we have matches from at least 2 distinct quarters
         const allResults: Filing13F[] = [];
         let nextUrl: string | null = null;

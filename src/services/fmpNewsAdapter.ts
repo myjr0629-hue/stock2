@@ -49,6 +49,23 @@ function toIso(d?: string): string {
     return `${d.replace(" ", "T")}Z`;
 }
 
+/**
+ * 쓸모없는 본문 걸러내기.
+ *
+ * FMP 본문 실측(NVDA 40건): 중앙값 218자 · 평균 227자.
+ * 그런데 4건은 «Loading the player» 같은 **플레이어 껍데기 문구**였다.
+ * 그대로 두면 AI 요약이 그걸 기사 내용으로 읽는다.
+ * 참고: Massive 는 중앙값 441자 — FMP 는 약 절반이다.
+ */
+const JUNK_BODY = /^(loading the player|advertisement|read more|click here|see more|subscribe|sign up)\b/i;
+function cleanBody(text?: string): string {
+    const t = String(text || "").trim();
+    if (!t) return "";
+    if (t.length < 40) return "";            // 문장 하나도 안 되는 것은 버린다
+    if (JUNK_BODY.test(t)) return "";
+    return t;
+}
+
 /** URL 로부터 안정적인 id 생성 — 소비처가 중복 제거에 쓴다 */
 function stableId(url: string, title: string): string {
     const s = `${url}|${title}`;
@@ -80,7 +97,7 @@ function toMassiveShape(a: FmpArticle, requestedTickers: string[]) {
         article_url: url,
         tickers,
         image_url: a.image || null,
-        description: a.text || "",
+        description: cleanBody(a.text),
         // Massive 만 제공하던 것 — 지어내지 않고 빈 배열
         keywords: [] as string[],
         insights: [] as any[],
@@ -142,8 +159,16 @@ export async function getNewsFromFmp(params: {
         }
     }
 
+    // URL 중복 제거 — FMP 는 같은 기사가 여러 심볼로 중복되어 온다
+    const seen = new Set<string>();
     const results = list
         .filter((a) => a.title && a.url)
+        .filter((a) => {
+            const key = String(a.url).split("?")[0];
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
         .sort((a, b) => Date.parse(toIso(b.publishedDate)) - Date.parse(toIso(a.publishedDate)))
         .slice(0, limit)
         .map((a) => toMassiveShape(a, tickers));
