@@ -472,7 +472,7 @@ const WHALE_DP_COPY = {
     conviction: '확신도',
     dpDominance: '내부자 순매매',
     shortPressure: '숏 압력',
-    blockIntensity: '블록 강도',
+    blockIntensity: '내부자 강도',
     netBias: '순방향',
     whaleTab: '고래',
     darkTab: '내부자',
@@ -523,7 +523,7 @@ const WHALE_DP_COPY = {
     conviction: 'Conviction',
     dpDominance: 'Insider net',
     shortPressure: 'Short pressure',
-    blockIntensity: 'Block intensity',
+    blockIntensity: 'Insider intensity',
     netBias: 'Net bias',
     whaleTab: 'Whale',
     darkTab: 'Insider',
@@ -574,7 +574,7 @@ const WHALE_DP_COPY = {
     conviction: '確信度',
     dpDominance: 'インサイダー純額',
     shortPressure: 'ショート圧力',
-    blockIntensity: 'ブロック強度',
+    blockIntensity: 'インサイダー強度',
     netBias: 'ネット方向',
     whaleTab: '大口',
     darkTab: 'インサイダー',
@@ -1305,7 +1305,8 @@ export default function AppFlowPage() {
   const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : callPct;
   const largestWhalePrint = whaleSweeps[0]?.premium || 0;
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
-  const largestInstitutionalPrint = Math.max(largestWhalePrint, largestDpPrint);
+  // 다크풀 프린트가 없으므로 고래 옵션 vs 내부자 실매매 중 최대값
+  const largestInstitutionalPrint = Math.max(largestWhalePrint, insiderStats.largest);
   const shortPressureNum = pctNumber(shortPct);
   const whaleBiasScore = Math.max(-100, Math.min(100, Math.round((whaleCallShare - 50) * 2)));
   // 다크풀 미제공이면 편향 점수를 0(중립)으로 «주장»하지 않고 계산에서 제외한다
@@ -1326,7 +1327,10 @@ export default function AppFlowPage() {
     ? whaleCopy.hedge
     : whaleCopy.mixed;
   const psychologyAccent = pressureScore >= 20 ? '#10b981' : pressureScore <= -20 ? '#f43f5e' : '#f59e0b';
-  const rawBlockCount = dpUnavailable ? null : Number(dpDayCount || blockCount || 0);
+  // ── 「블록 강도」 자리 → 내부자 거래 강도 ─────────────────────────
+  // 다크풀 블록 건수로 만들던 지표다. 그 데이터가 없으므로
+  // 내부자 실매매 건수로 대체한다. 없으면 null(«—»).
+  const rawBlockCount = insiderStats.count > 0 ? insiderStats.count : null;
   const formattedBlockCount = rawBlockCount == null
     ? '—'
     : rawBlockCount.toLocaleString(locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US');
@@ -1336,9 +1340,10 @@ export default function AppFlowPage() {
     + Math.min(whaleDayCount, 25) * 0.4
     + Math.min(dpDayPct ?? 0, 60) * 0.12
   )));
+  // 내부자 실매매 20건이면 100% 로 본다 (다크풀 10,000건 기준을 대체)
   const blockIntensityPct = rawBlockCount == null
     ? null
-    : Math.max(5, Math.min(100, Math.round((rawBlockCount / 10000) * 100)));
+    : Math.max(5, Math.min(100, Math.round((rawBlockCount / 20) * 100)));
   const isSessionClosed = effectiveSession === 'CLOSED';
   const isFlowStale = Boolean(darkPoolMeta?._stale);
   const isFlowCached = Boolean(darkPoolMeta?._cached || whaleMeta?._cached);
