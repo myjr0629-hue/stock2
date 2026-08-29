@@ -2474,7 +2474,10 @@ function CmdPageContent() {
         })()
         : null,
     };
-  }, [techData, locale]);
+    // ⚠️ 의존성에 가격·IV 를 반드시 넣는다. 빼면 techData 가 먼저 도착했을 때
+    //    px=0 / iv=0 으로 계산된 값이 그대로 굳어 ATR 배지와 변동성 프리미엄이
+    //    영영 안 뜬다 (2026-08-30 실화면에서 그렇게 비어 있었다).
+  }, [techData, locale, displayPrice, signalsData?.iv]);
 
   // 내부자 거래 시그널 카드 (구 「기관 레이더」).
   // 판정은 services/insiderSignal 한 곳에서만 한다 — 모바일 웹·SSR 카드와 같은 식.
@@ -3221,6 +3224,13 @@ function CmdPageContent() {
                   value={pct != null ? `${pct}%` : '—'}
                   badge={st || undefined}
                   badgeColor={tone.bd}
+                  // iconKey 가 'SHORT SQUEEZE' 라 옛 공매도 문구(«공매도 위험 낮음»)가
+                  // 인사이트로 나왔다. 개념이 바뀌었으니 문구도 직접 준다.
+                  insightOverride={st === 'EXTREME' ? (locale === 'ko' ? '극단적 압축' : locale === 'ja' ? '極端な圧縮' : 'Extreme squeeze')
+                    : st === 'SQUEEZE' ? (locale === 'ko' ? '압축 구간' : locale === 'ja' ? '圧縮局面' : 'Compressed')
+                      : st === 'EXPANDED' ? (locale === 'ko' ? '변동 확대' : locale === 'ja' ? '変動拡大' : 'Expanded')
+                        : st === 'NORMAL' ? (locale === 'ko' ? '보통 폭' : locale === 'ja' ? '通常幅' : 'Normal')
+                          : null}
                   color={tone.c}
                   bg={tone.b}
                   border={tone.r}
