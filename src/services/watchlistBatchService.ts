@@ -458,7 +458,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     : null;
                 const fastDarkPoolPct = (cachedTradeData?.darkPoolPercent && cachedTradeData.darkPoolPercent > 0)
                     ? cachedTradeData.darkPoolPercent
-                    : (analysis.darkPoolPct ?? null);
+                    // analysis 캐시에도 Massive 시절 값이 남아 있다 → 게이트 뒤로
+                    : (tickDataAvailable() ? (analysis.darkPoolPct ?? null) : null);
                 const fastBlockTrades = cachedTradeData?.blockTrades ?? null;
                 const fastWhaleIndex = calculateWhaleIndex(
                     analysis.gex,
@@ -508,7 +509,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
 
             // [V5.0] ALWAYS fetch live dark pool from EC2 ElastiCache (100% accuracy, ~3ms)
             // Previous: only fetched when cache was 0 → stale Polygon samples persisted
-            let liveDarkPoolPct: number | null = analysis.darkPoolPct ?? null;
+            let liveDarkPoolPct: number | null = tickDataAvailable() ? (analysis.darkPoolPct ?? null) : null;
             try {
                 const tradeData = await fetchTradeData(ticker);
                 if (tradeData && tradeData.darkPoolPercent > 0) {
@@ -609,7 +610,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     gex: analysis.gex,
                     gexM: analysis.gexM,
                     pcr: analysis.pcr,
-                    whaleIndex: calculateWhaleIndex(analysis.gex, analysis.darkPoolPct, null, analysis.netPremium),
+                    whaleIndex: calculateWhaleIndex(analysis.gex, liveDarkPoolPct, null, analysis.netPremium),
                     whaleConfidence: analysis.whaleConfidence,
                     darkPoolPct: liveDarkPoolPct,
                     squeezeScore: analysis.squeezeScore,
@@ -802,7 +803,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                         pcr: dynamoAnalysis.pcr,
                         whaleIndex: calculateWhaleIndex(dynamoAnalysis.gex, dynamoAnalysis.darkPoolPct, null, dynamoAnalysis.netPremium),
                         whaleConfidence: dynamoAnalysis.whaleConfidence ?? 'NONE',
-                        darkPoolPct: dynamoAnalysis.darkPoolPct ?? 0,
+                        darkPoolPct: dynamoAnalysis.darkPoolPct ?? null,
                         squeezeScore: dynamoAnalysis.squeezeScore,
                         ivSkew: (dynamoAnalysis.ivSkew != null && dynamoAnalysis.ivSkew <= 2.0) ? dynamoAnalysis.ivSkew : null,
                         impliedMovePct: dynamoAnalysis.impliedMovePct ?? null,
@@ -1103,7 +1104,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 netPremium: fullObj.realtime.netPremium,
                 vwapDist: fullObj.realtime.vwapDist,
                 volume: fullObj.realtime.volume,
-                darkPoolPct: darkPoolPct ?? 0,
+                // 측정 불가는 null. 소비처(intel/flow 화면)는 null 을 «—» 로 렌더한다.
+                darkPoolPct: (darkPoolPct ?? null) as unknown as number,
                 ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
                 impliedMovePct: impliedMovePct ?? null,
                 // [V3 FIX] Dashboard card fields
