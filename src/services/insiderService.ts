@@ -25,7 +25,25 @@ export interface InsiderTransaction {
     filingUrl: string;        // SEC EDGAR link
 }
 
+/** 거래 코드별 구성 — «거래 N건인데 매수 0 매도 0» 모순을 없애기 위해 */
+export interface InsiderBreakdown {
+    buy: number;             // P — 실제 매수
+    sell: number;            // S — 실제 매도
+    award: number;           // A — 무상부여(RSU 등)
+    gift: number;            // G — 증여
+    optionExercise: number;  // M — 옵션 행사
+    taxWithheld: number;     // F — 세금 원천징수
+    conversion: number;      // C — 전환
+    other: number;
+}
+
 export interface InsiderSummary {
+    /** 거래 코드별 구성 (실매매와 부여/증여를 구분해서 보여주기 위해) */
+    breakdown?: InsiderBreakdown;
+    /** 실매매(P/S) 건수. 0 이면 «실매매 없음»으로 표시해야 한다 */
+    realTradeCount?: number;
+    /** 파생(옵션) 거래 건수 — Intrinio 만 제공 */
+    derivativeCount?: number;
     net30d: number;            // Net buy/sell value (positive = net buy)
     buyCount: number;          // Purchase (P) count in 30d
     sellCount: number;         // Sale (S) count in 30d
@@ -162,6 +180,28 @@ export function buildInsiderSummary(transactions: InsiderTransaction[], source: 
         }
     }
 
+    // ── [2026-08-29] 구성 내역 ───────────────────────────────────────
+    // 예전에는 «거래 30건 · 매수 0 · 매도 0» 이 그대로 나갔다.
+    // 실제로는 30일 내 «실매매»가 없고 무상부여·증여·세금원천만 있는 것인데,
+    // 화면에서는 그 구분이 안 보여 모순처럼 읽혔다(대표 확인).
+    // 무엇이 몇 건인지 그대로 보여준다 — 숫자를 숨기지도, 뭉뚱그리지도 않는다.
+    const CODE_KIND: Record<string, keyof InsiderBreakdown> = {
+        P: 'buy', S: 'sell', A: 'award', G: 'gift',
+        M: 'optionExercise', F: 'taxWithheld', C: 'conversion',
+    };
+    const breakdown: InsiderBreakdown = {
+        buy: 0, sell: 0, award: 0, gift: 0,
+        optionExercise: 0, taxWithheld: 0, conversion: 0, other: 0,
+    };
+    for (const t of transactions) {
+        const kind = CODE_KIND[t.code];
+        if (kind) breakdown[kind]++;
+        else breakdown.other++;
+    }
+    // 실매매(P/S)가 몇 건인지 — 이게 0 이면 화면은 «실매매 없음» 이라고 말해야 한다
+    const realTradeCount = breakdown.buy + breakdown.sell;
+    const derivativeCount = transactions.filter((t: any) => t.isDerivative === true).length;
+
     // Latest significant trade
     const latest = significantTrades.length > 0
         ? {
@@ -195,6 +235,9 @@ export function buildInsiderSummary(transactions: InsiderTransaction[], source: 
         buyCount,
         sellCount,
         totalTxCount: transactions.length,
+        breakdown,
+        realTradeCount,
+        derivativeCount,
         sentiment,
         latest,
         transactions: transactions.slice(0, 20), // Cap at 20 for payload size
