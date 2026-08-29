@@ -556,6 +556,93 @@ EC2 crontab:
 Market Breadth : 비정규장이라 중립 (설계대로) — 정규장 동작은 자동 검증 대기
 ```
 
+## 2026-08-29 (토) — 이관 완결 + Intrinio 전 API 실측
+
+### ★ Massive 이관 완결 — 누수 0 (측정으로 확인)
+`MASSIVE_PASSTHROUGH` 를 비웠다고 끝이 아니었다. `routeToIntrinio()` 가
+`undefined` 를 돌려주면 호출부가 **조용히** Massive 로 폴백하고, 죽은 벤더라
+403 이 나는데 소비처가 `.catch` 로 삼킨다 — 즉 안 보인다.
+
+**신규 `scripts/check-massive-coverage.js`** — 코드에서 실제 호출 패턴 32개를
+뽑아 라우터가 처리하는지 하나씩 대조하는 재현 가능한 검사.
+
+```
+라우팅 25 · 의도적 미지원 7 · Massive 누수 0
+```
+의도적 미지원 7 = 체결틱 · 호가틱 · 마지막체결 · 공매도잔고 · 공매도거래량 ·
+연관종목 · 거래조건표 (전부 플랜 미제공을 실측으로 확정)
+
+발견해 막은 누수 4건:
+| 엔드포인트 | 조치 |
+|---|---|
+| `/v3/reference/options/contracts` | Intrinio `options/{t}` 는 403 → 만기목록+EOD체인에서 **역산** |
+| `/v3/reference/tickers` (목록) | EOD 유니버스로 대응 (종목당 호출 불필요) |
+| `/v3/reference/conditions` | 미지원 명시 (틱 데이터가 없어 무의미) |
+| `/stocks/v1/short-volume` | 미지원 명시 (403 확정) |
+
+### ★ 뉴스도 이관 완료 — Massive 9/23 절벽 해소
+뉴스는 «나중에» 로 남겨둔 마지막 Massive 의존성이었다. 3사 실측 비교:
+
+| 항목 | Massive(기존) | Intrinio | **FMP(선택)** |
+|---|---|---|---|
+| 종목 정확도 | 20/20 100% | **9/30 30%** | 26/30 87% |
+| 발행사 | 3곳 | yahoo 1곳 | **17곳** |
+| 본문 | 있음 | 요약만 | 31/50 |
+| 다종목 1콜 | ✗ | ✗ | **✓ (5종목 60건)** |
+| 일반뉴스 한도 | - | - | 250건 + 페이지네이션 |
+| 소형주 | - | - | ✓ IONQ·AEHR·BBAI 확인 |
+
+**Intrinio 뉴스는 탈락.** `/companies/NVDA/news` 에 「GE Vernova」「Ford」
+「Ulta Beauty」가 섞여 나온다(30건 중 NVDA 언급 9건). 종목 연결을 못 믿는다.
+
+→ `src/services/fmpNewsAdapter.ts` 신규. 라우팅 한 곳만 바꿔 **소비처 30여 곳
+   무수정**. `NEWS_SOURCE=massive` 로 즉시 롤백 가능. Lambda 어댑터도 동일 반영.
+   잃는 것: Massive 의 `insights`(종목별 감성)·`keywords` → 자체 AI 로 대체.
+
+**실측 확인**: `live/news` 발행사가 3곳 → 6곳(Schwab Network·TechCrunch·
+Barrons·InvestorPlace 추가). Lambda 어댑터도 5건/8건 정상.
+
+### ★ 죽어 있던 배당 복구
+`/api/dividends` 가 전 필드 null 이었다. Massive `/v3/reference/dividends` 를
+미지원으로 분류했기 때문. 그런데 **`securities/{t}/prices/adjustments` 에
+배당이 들어 있다**(`securities/{t}/dividends` 는 404 라 못 찾고 있었다).
+
+```
+AAPL $0.27 분기 · 연 $1.08 · 0.34%      MSFT $0.91 · 연 $3.64 · 0.71%
+KO   $0.53 · 연 $2.12 · 2.36%          NVDA $0.25 · 연 $1.00 · 0.46%
+TSLA 무배당(정확)                        분할도 같은 응답에서 (NVDA 10:1 등 3건)
+```
+한계: **배당락일만** 제공. 지급일·기준일·선언일은 없음 → 지어내지 않고 null.
+
+### Intrinio 전 API 실측 (83개)
+`scripts/intrinio-api-survey.js` 신규. 상세: `.agent/INTRINIO_API_SURVEY.md`
+```
+사용 가능 46 · 빈값 3 · 권한없음 22 · 미존재 12 · 새로 쓸 수 있는 것 35
+```
+주요 신규: 실시간 SEC공시(0일전) · 실시간 내부자 스트림(0일전) ·
+13F 기관보유(증감 계산 포함) · BB/ATR/ADX/OBV · 표준화 재무제표 ·
+지수/경제지표 · 봉마다 bid/ask + trade_count
+
+닫혀 있음(403): ETF 보유종목 · Zacks 전체(애널리스트/EPS추정/목표주가) ·
+옵션 실시간체인/UOA · 공매도잔고 · ESG
+
+### 월요일 개장 자동 검증 (EC2 cron)
+```
+30 12 * * 1-5  프리마켓 세션 검증
+45 13 * * 1-5  다크풀 필드 판정      → /var/log/intrinio-darkpool-probe.log
+50 13 * * 1-5  정규장 세션 검증      → /var/log/signum-verify.log
+55 13 * * 1-5  전 엔드포인트 감사    → /var/log/signum-verify.log
+ 5 */3 * * *   EOD 적재
+```
+
+### 현재 상태 (2026-08-29 토 · 휴장)
+```
+엔드포인트 감사   : 통과 50 · 주의 2 · 실패 0
+Massive 커버리지  : 라우팅 25 · 미지원 7 · 누수 0
+차트 1d          : 394봉 (REG 390 + POST 4)
+시세↔차트 0.161% · 시세↔quotes 0.000%
+```
+
 ## 작업 이력
 
 ### 2026-08-29
