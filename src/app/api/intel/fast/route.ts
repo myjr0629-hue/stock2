@@ -12,6 +12,7 @@ import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 import { xsSnapshotOverride } from '@/services/xsScores';
 import { fetchTruePreMarket } from '@/services/marketDataLight';
+import { calculateWhaleIndex } from '@/services/alphaEngine';
 
 // Sector ticker maps
 const SECTOR_TICKERS: Record<string, string[]> = {
@@ -323,6 +324,12 @@ export async function GET(request: Request) {
                 rsi,
                 rvol,
                 squeezeScore,
+                // [2026-08-29] whaleIndex 추가.
+                // 섹터 카드의 WHALE 배지가 이 필드를 못 받아 0 이 되었고,
+                // 그동안 화면이 «감마 펄스에서 합성한 가짜 값»으로 그 공백을
+                // 메우고 있었다. 합성값을 걷어내면서 진짜 값을 채운다.
+                // (다크풀은 여전히 null — 그건 측정 자체가 불가하다)
+                whaleIndex: calculateWhaleIndex(gex, null, null, netPremium),
                 ivSkew,
                 impliedMovePct,
             };
