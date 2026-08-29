@@ -269,7 +269,9 @@ export async function GET(req: NextRequest) {
 
     const fetchOC = async () => {
         let oc = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${todayStr}?apiKey=${MASSIVE_API_KEY}`);
-        if (!oc.success || !oc.data?.preMarket) {
+        // ⚠️ preMarket 은 더 이상 오지 않는다(일봉에 시간외가 없어 null 로 둔다).
+        //    그걸 재시도 조건으로 쓰면 매번 한 번씩 더 호출한다 → 종가 유무로 판정.
+        if (!oc.success || !oc.data?.close) {
             if (ocDateStr !== todayStr) {
                 oc = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${ocDateStr}?apiKey=${MASSIVE_API_KEY}`);
             } else {
@@ -389,7 +391,9 @@ export async function GET(req: NextRequest) {
         prePrice = truePmRes;
     } else {
         // Absolute Fallbacks
-        const ocPre = OC.preMarket || S.preMarket?.p || null;
+        // `S.preMarket` 은 숫자다(스냅샷 규격) — `?.p` 로 읽으면 늘 undefined
+        const snapPre = typeof S.preMarket === "number" ? S.preMarket : (S.preMarket?.p ?? null);
+        const ocPre = OC.preMarket || snapPre || null;
 
         // Validation: If it's too close to yesterday's close, it's likely a stale early-morning snapshot.
         let isStale = false;
@@ -420,10 +424,15 @@ export async function GET(req: NextRequest) {
         }
     }
 
+    // ⚠️ `S.afterHours` 는 **숫자**다(스냅샷 규격). 예전 코드는 `S.afterHours?.p` 로
+    //   읽어 항상 undefined 였고, 그래서 지어낸 `OC.afterHours`(= 정규장 종가)로
+    //   흘러가 POST 등락률이 늘 0.00% 였다.
+    const snapAfter = typeof S.afterHours === "number" ? S.afterHours : (S.afterHours?.p ?? null);
     const postPrice = (session === "POST" ? liveLast : null)
         || OC.afterHoursClose
-        || S.afterHours?.p
-        || OC.afterHours;
+        || snapAfter
+        || OC.afterHours
+        || null;
 
     // [SQUEEZE FIX] Get squeezeScore from structureService for unified display
     const squeezeScore: number | null = structureResult.squeezeScore ?? null;

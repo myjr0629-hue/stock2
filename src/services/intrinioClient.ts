@@ -2069,7 +2069,18 @@ export async function getOpenCloseIntrinio(ticker: string, date: string): Promis
         low: num(r.low) ?? 0,
         close: num(r.close) ?? 0,
         volume: num(r.volume) ?? 0,
-        afterHours: num(r.close) ?? 0,
-        preMarket: num(r.open) ?? 0,
+        // ★ [2026-08-29] 예전에는 여기서 이렇게 지어내고 있었다:
+        //       afterHours: r.close   ·   preMarket: r.open
+        //   Massive `/v1/open-close` 는 시간외/프리마켓을 **따로** 줬지만
+        //   Intrinio 일봉에는 그 값이 없다. 정규장 종가·시가를 별칭으로 쓰면
+        //   소비처가 그걸 시간외 가격으로 믿는다.
+        //   실제로 `/api/live/ticker` 의 postPrice 가 정규장 종가가 되어
+        //   **POST 등락률이 항상 0.00%** 였다(NVDA 실측: postPrice 217.55,
+        //   실제 시간외 217.86 → +0.14%).
+        //   없는 값은 지어내지 않고 null 로 둔다. 소비처는 스냅샷의
+        //   afterHours/preMarket(실제 시간외 체결)로 폴백한다.
+        afterHours: null,
+        preMarket: null,
+        _extendedUnavailable: "intrinio-daily-bar-has-no-extended-session",
     };
 }
