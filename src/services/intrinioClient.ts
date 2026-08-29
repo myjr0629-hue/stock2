@@ -163,62 +163,159 @@ function bar(o: any, h: any, l: any, c: any, v: any, vw?: any): MassiveBar {
 //    → { status, ticker: { ticker, day, prevDay, lastTrade, min, todaysChange, todaysChangePerc, updated } }
 // ─────────────────────────────────────────────────────────────
 
+/** ISO 시각 → ET 기준 YYYY-MM-DD */
+function etDateOf(iso: string | null | undefined): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const et = new Date(d.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+}
+
+/** 현재 ET 세션 — 주말/시간대까지 본다 */
+function etSessionNow(): "PRE" | "REG" | "POST" | "CLOSED" {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    if (et.getDay() === 0 || et.getDay() === 6) return "CLOSED";
+    const m = et.getHours() * 60 + et.getMinutes();
+    if (m >= 240 && m < 570) return "PRE";      // 04:00–09:30
+    if (m >= 570 && m < 960) return "REG";      // 09:30–16:00
+    if (m >= 960 && m < 1200) return "POST";    // 16:00–20:00
+    return "CLOSED";
+}
+
+/**
+ * 정규장 종가 / 전일 종가 판정 — **순수 함수** (테스트 가능)
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * [무엇이 틀렸었나]  `eod_close_price` 를 «전일 종가»로 썼다. 아니다.
+ *   실측(2026-08-29 토, NVDA):
+ *     eod_close_price 217.55 · eod_close_date "2026-08-28"  ← **금요일 종가**
+ *     일봉 8/28 c=217.55 · 8/27 c=227.98
+ *   즉 «가장 최근 **완료된** 정규장의 종가»다. 그걸 전일로 쓰면 금요일 종가끼리
+ *   빼게 되어 등락률이 0 에 수렴한다. 실제 앱 표시(프로덕션 실측):
+ *     NVDA  실제 −4.57% → 표시 +0.01%
+ *     GOOGL 실제 +1.74% → 표시 +0.04%
+ *     TSLA  실제 −1.71% → 표시 +0.01%
+ *   두 번째 폴백이 `bars[0].close`(= 같은 값)이라 방어도 되지 않았다.
+ *
+ * [올바른 규칙]  추측하지 않고 **날짜로** 판정한다.
+ *   · 정규장 밖        → 마지막 완료 세션이 곧 「본장」.  bars[0] vs bars[1]
+ *   · 정규장 중        → 오늘 봉은 아직 완료가 아니다.  실시간 vs bars[0]
+ *   · 마감 직후(게시 전) → 방금 끝난 정규장 체결이 «오늘»이면 그것으로 메운다
+ *                        (월요일 프리마켓과 구분하려고 체결 시각의 ET 날짜를 본다)
+ *
+ * ⚠️ 이 함수는 네트워크를 타지 않는다. 주말에는 REG/PRE 분기를 실화면으로
+ *    검증할 수 없으므로 `scripts/test-session-prices.js` 가 유일한 방어선이다.
+ */
+export interface SessionPriceInput {
+    /** securities/{t}/prices 의 stock_prices — **최신순** */
+    bars: Array<{ date?: string; close?: number | string | null }>;
+    session: "PRE" | "REG" | "POST" | "CLOSED";
+    /** 현재 ET 거래일 (주말이면 직전 금요일) */
+    todayEt: string;
+    eodClosePrice: number | null;
+    eodCloseDate: string;
+    /** 정규장 마지막 체결가 (시간외 제외) */
+    regularLastPrice: number | null;
+    regularLastTime: string | null;
+}
+
+export interface SessionPriceResult {
+    regularClose: number | null;
+    prevClose: number | null;
+    /** 「본장」이 어느 날짜의 세션인지 */
+    regularDate: string;
+    /** 어느 분기를 탔는지 — 진단용 */
+    basis: "bars" | "live-intraday" | "post-before-publish" | "eod-only" | "none";
+}
+
+export function resolveSessionPrices(i: SessionPriceInput): SessionPriceResult {
+    const n = (v: any): number | null => {
+        const x = Number(v);
+        return Number.isFinite(x) && x !== 0 ? x : null;
+    };
+    const b0 = i.bars?.[0] || null;
+    const b1 = i.bars?.[1] || null;
+    const d0 = String(b0?.date || "");
+
+    // 기본: 일봉 두 개가 정답이다 (공식 종가)
+    let regularClose = n(b0?.close) ?? i.eodClosePrice ?? null;
+    let prevClose = n(b1?.close) ?? null;
+    let regularDate = d0 || i.eodCloseDate || "";
+    let basis: SessionPriceResult["basis"] = b0 ? "bars" : i.eodClosePrice != null ? "eod-only" : "none";
+
+    if (i.session === "REG") {
+        // 진행 중 — 오늘 봉은 «완료»가 아니다. 실시간이 오늘, 마지막 완료 봉이 전일.
+        if (d0 && d0 === i.todayEt) {
+            // 벤더가 진행 중 봉을 이미 올린 경우: 그 자리를 실시간으로, 전일은 bars[1]
+            regularClose = i.regularLastPrice ?? regularClose;
+        } else {
+            regularClose = i.regularLastPrice ?? regularClose;
+            prevClose = n(b0?.close) ?? i.eodClosePrice ?? prevClose;
+        }
+        regularDate = i.todayEt;
+        basis = "live-intraday";
+    } else if (d0 && d0 < i.todayEt) {
+        // 정규장 밖인데 오늘 봉이 아직 없다(마감 직후 게시 지연).
+        // «방금 끝난 정규장» 체결이 오늘 것일 때만 메운다 —
+        // 월요일 프리마켓(마지막 체결이 금요일)과 반드시 구분해야 한다.
+        const regTradeDate = etDateOf(i.regularLastTime);
+        if (regTradeDate === i.todayEt && i.regularLastPrice != null) {
+            prevClose = n(b0?.close) ?? prevClose;
+            regularClose = i.regularLastPrice;
+            regularDate = i.todayEt;
+            basis = "post-before-publish";
+        }
+    }
+
+    return { regularClose, prevClose, regularDate, basis };
+}
+
 export async function getTickerSnapshot(ticker: string): Promise<any> {
     const sym = ticker.toUpperCase();
 
     const [rt, hist] = await Promise.all([
         callIntrinio(`securities/${sym}/prices/realtime`).catch(() => null),
-        callIntrinio(`securities/${sym}/prices`, { page_size: "2" }).catch(() => null),
+        callIntrinio(`securities/${sym}/prices`, { page_size: "3" }).catch(() => null),
     ]);
 
-    const bars: any[] = hist?.stock_prices || [];
-    const todayBar = bars[0] || null;   // 최신 확정 일봉
+    const bars: any[] = hist?.stock_prices || [];   // 최신순
+    const todayBar = bars[0] || null;
     const prevBar = bars[1] || null;
 
     if (!rt && !todayBar) {
         return { status: "NOT_FOUND", ticker: null };
     }
 
-    // 전일 종가: realtime 의 eod_close_price 를 최우선(가장 신뢰)으로 사용.
-    const prevClose =
-        num(rt?.eod_close_price) ??
-        num(todayBar?.close) ??
-        num(prevBar?.close) ??
-        0;
+    const session = etSessionNow();
+    const resolved = resolveSessionPrices({
+        bars,
+        session,
+        todayEt: currentEtTradingDate(),
+        eodClosePrice: num(rt?.eod_close_price),
+        eodCloseDate: String(rt?.eod_close_date || ""),
+        regularLastPrice: num(rt?.normal_market_hours_last_price) ?? num(rt?.qualified_last_price) ?? null,
+        regularLastTime: rt?.normal_market_hours_last_time ?? null,
+    });
+    const { regularClose, prevClose, regularDate } = resolved;
 
-    // 현재가(마지막 체결) — 시간외 체결을 포함한다
-    const last =
-        num(rt?.last_price) ??
-        num(rt?.normal_market_hours_last_price) ??
-        num(rt?.close_price) ??
-        prevClose;
+    // 마지막 체결(시간외 포함)
+    const last = num(rt?.last_price) ?? regularClose ?? prevClose ?? 0;
 
-    // ── 정규장 종가 vs 시간외 현재가 분리 ─────────────────────────
-    // ⚠️ Massive 스냅샷의 의미:
-    //     day.c      = **정규장 종가** (시간외 체결이 들어오면 안 됨)
-    //     lastTrade.p= 마지막 체결가 (시간외 포함)
-    //   여기서 day.c 에 시간외 가격을 넣으면 소비처의
-    //   regularCloseToday 가 오염돼 **POST 등락률이 항상 0%** 가 된다.
-    //   (2026-08-28 애프터마켓 실제 발생: postChangePct 0, PRE/POST 미표시)
-    //
-    // Intrinio 는 두 값을 분리해 준다:
-    //     normal_market_hours_last_price / _time  = 정규장 마지막 체결
-    //     last_price / last_time                  = 세션 무관 마지막 체결
-    const regularClose =
-        num(rt?.normal_market_hours_last_price) ??
-        num(rt?.qualified_last_price) ??
-        num(rt?.close_price) ??
-        last;
-
-    const regularTime = toMs(rt?.normal_market_hours_last_time);
-    const lastTime = toMs(rt?.last_time);
-    // 정규장 마지막 체결보다 뒤에 찍힌 체결이 있으면 시간외 거래가 있었다는 뜻
-    const hasExtendedTrade = lastTime > 0 && regularTime > 0 && lastTime > regularTime + 60_000;
-    const extendedPrice = hasExtendedTrade ? last : null;
-
-    // 등락률은 **정규장 기준**(전일 종가 대비 정규장 종가)
+    // 등락률은 **정규장 기준** (마지막 완료 정규장 종가 vs 그 직전 종가)
     const change = regularClose != null && prevClose ? regularClose - prevClose : 0;
     const changePerc = prevClose ? (change / prevClose) * 100 : 0;
+
+    // ── 시간외 판정 ───────────────────────────────────────────────
+    // 정규장 마지막 체결보다 뒤에 찍힌 체결이 있으면 시간외 거래가 있었다는 뜻
+    const regularTime = toMs(rt?.normal_market_hours_last_time);
+    const lastTime = toMs(rt?.last_time);
+    const hasExtendedTrade = lastTime > 0 && regularTime > 0 && lastTime > regularTime + 60_000;
+    const extendedPrice = hasExtendedTrade ? num(rt?.last_price) : null;
+    // 시간외 등락률은 **본장 종가 대비**다 (전일 종가가 아니다)
+    const extendedChangePct =
+        extendedPrice != null && regularClose ? ((extendedPrice - regularClose) / regularClose) * 100 : null;
 
     // 당일 바: OHLC 는 당일 값, close 는 **정규장 종가**
     const dayBar = bar(
@@ -229,23 +326,20 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
         rt?.market_volume ?? rt?.exchange_volume ?? 0
     );
 
-    // 세션 판정 (ET 기준) — preMarket/afterHours 필드 채우기용
-    const etNow = new Date(
-        new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
-    );
-    const etMins = etNow.getHours() * 60 + etNow.getMinutes();
-    const isPreSession = etMins >= 240 && etMins < 570;    // 04:00–09:30
-    const isPostSession = etMins >= 960 && etMins < 1200;  // 16:00–20:00
+    // preMarket/afterHours 필드 채우기용 (세션은 위에서 이미 판정했다)
+    const isPreSession = session === "PRE";
+    const isPostSession = session === "POST" || session === "CLOSED";
 
-    // 전일 바.
-    // ⚠️ close 는 **반드시 prevClose(eod_close_price)** 여야 한다.
-    //   securities/{t}/prices 의 첫 행은 «오늘 진행 중인 봉»일 수 있어서,
-    //   그 close 를 쓰면 prevDay.c 가 현재가 근처 값이 되어 등락률이 0 에 수렴한다.
-    //   (2026-08-28 실측: prevDay.c 217.55 / 실제 전일종가 227.98)
-    const prevSrc = bars.find((b: any) => num(b?.close) === prevClose) || prevBar || todayBar;
+    // 전일 바 — close 는 위에서 날짜로 판정한 prevClose 를 그대로 쓴다.
+    // ⚠️ 예전에는 `bars.find(b => b.close === prevClose)` 로 원본 행을 되찾았는데,
+    //   prevClose 자체가 틀려 있었으므로(오늘 종가) 오늘 봉을 «전일»로 집어왔다.
+    //   이제는 인덱스로 고른다 — 값 비교로 행을 찾지 않는다.
+    const prevSrc = bars.find((b: any) => num(b?.close) === prevClose && String(b?.date || "") !== regularDate)
+        || prevBar
+        || null;
     const prevDayBar = prevSrc
-        ? bar(prevSrc.open, prevSrc.high, prevSrc.low, prevClose, prevSrc.volume)
-        : bar(0, 0, 0, prevClose, 0);
+        ? bar(prevSrc.open, prevSrc.high, prevSrc.low, prevClose ?? 0, prevSrc.volume)
+        : bar(0, 0, 0, prevClose ?? 0, 0);
 
     return {
         status: "OK",
@@ -296,8 +390,13 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
                 regularLastPrice: num(rt?.normal_market_hours_last_price),
                 regularLastTime: rt?.normal_market_hours_last_time ?? null,
                 extendedPrice,
+                extendedChangePct: extendedChangePct == null ? null : Math.round(extendedChangePct * 10000) / 10000,
                 hasExtendedTrade,
-                session: isPreSession ? "PRE" : isPostSession ? "POST" : "REG",
+                session,
+                // 「본장」이 어느 날짜의 세션인지 — 소비처가 신선도를 판단할 수 있게
+                regularDate,
+                regularClose,
+                prevClose,
                 marketCenterCode: rt?.market_center_code ?? null,
                 isDarkpool: rt?.is_darkpool ?? null,
             },

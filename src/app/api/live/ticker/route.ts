@@ -212,22 +212,55 @@ export async function GET(req: NextRequest) {
     // [PERF] Phase 1 results - extract snapshot data immediately
     const S = snapshotRes.data?.ticker || {};
 
-    // [S-52.3] BASELINE SOURCE TRACKING - Identify where prevClose comes from
+    // ══════════════════════════════════════════════════════════════
+    // 기준선(전일 종가) 판정  ★ [2026-08-29 수정]
+    //
+    // [무엇이 틀렸었나]  aggregates 의 **최신 행을 무조건** 기준선으로 썼다.
+    //   그런데 그 범위는 `~yesterdayStr` 로 끝나고, 장 마감 후·주말에는
+    //   «yesterday» 가 곧 **화면에 표시 중인 세션**이다.
+    //   → 금요일 종가에서 금요일 종가를 빼게 되어 등락률이 0 에 수렴했다.
+    //   실측(2026-08-29 토, 프로덕션):
+    //     NVDA  실제 −4.57% → 표시 +0.01%
+    //     GOOGL 실제 +1.74% → 표시 +0.04%
+    //     TSLA  실제 −1.71% → 표시 +0.01%
+    //
+    // [올바른 규칙]  기준선은 «표시 중인 세션의 **직전** 세션» 종가다.
+    //   스냅샷이 날짜로 판정해 실어 보내는 `_intrinio.prevClose` 가 정본이고
+    //   (services/intrinioClient.resolveSessionPrices · 세션 4종 테스트 통과),
+    //   없을 때만 aggregates 를 쓰되 **표시 세션과 같은 날짜 행은 건너뛴다.**
+    // ══════════════════════════════════════════════════════════════
     let prevRegularClose: number | null = null;
     let prevPrevRegularClose: number | null = null;
     let baselineSource: string = "UNKNOWN";
 
-    if (historicalResults[0]?.c) {
-        prevRegularClose = historicalResults[0].c;
-        baselineSource = "prevAgg.c";
-    } else if (S.prevDay?.c) {
-        prevRegularClose = S.prevDay.c;
-        baselineSource = "snapshot.prevDay.c";
+    const snapPrev = Number(S._intrinio?.prevClose);
+    const snapRegDate: string = S._intrinio?.regularDate || "";
+    const aggDateOf = (r: any) => (r?.t ? new Date(r.t).toISOString().slice(0, 10) : "");
+
+    if (Number.isFinite(snapPrev) && snapPrev > 0) {
+        prevRegularClose = snapPrev;
+        baselineSource = "snapshot._intrinio.prevClose";
+    } else {
+        // 표시 중인 세션과 같은 날짜 행은 기준선이 될 수 없다
+        const baseIdx = snapRegDate
+            ? historicalResults.findIndex((r: any) => r?.c && aggDateOf(r) !== snapRegDate)
+            : 0;
+        const baseRow = baseIdx >= 0 ? historicalResults[baseIdx] : null;
+        if (baseRow?.c) {
+            prevRegularClose = baseRow.c;
+            baselineSource = snapRegDate ? `prevAgg.c[${baseIdx}]` : "prevAgg.c";
+        } else if (S.prevDay?.c) {
+            prevRegularClose = S.prevDay.c;
+            baselineSource = "snapshot.prevDay.c";
+        }
     }
 
-    if (historicalResults[1]?.c) {
-        prevPrevRegularClose = historicalResults[1].c;
-    }
+    // 그 직전 세션 (기준선의 기준선)
+    const ppIdx = historicalResults.findIndex(
+        (r: any) => r?.c && r.c !== prevRegularClose && aggDateOf(r) !== snapRegDate
+    );
+    if (ppIdx >= 0) prevPrevRegularClose = historicalResults[ppIdx].c;
+    else if (historicalResults[1]?.c) prevPrevRegularClose = historicalResults[1].c;
 
     const liveLast = S.lastTrade?.p || S.min?.c || null;
 
@@ -474,7 +507,10 @@ export async function GET(req: NextRequest) {
 
             // [Phase 24.0] Rollover Fix: If change is 0% (because date rolled over, so Today==Prev),
             // show PREVIOUS session's change instead (e.g. 12/29 Change).
-            if ((changePctFrac === 0 || changePctFrac === null) && historicalResults.length >= 2) {
+            // ⚠️ 예전엔 `changePctFrac === 0` 도 조건에 넣었다. 그게 위의 기준선 오염을
+            //    **마스크**하고 있었고, 동시에 «진짜 보합»인 날을 직전 세션 등락률로
+            //    덮어써 거짓말을 했다. 근본 원인을 고쳤으므로 «값 없음»만 메운다.
+            if (changePctFrac === null && historicalResults.length >= 2) {
                 // H[0] = 12/29 (Today for the user perspective logic), H[1] = 12/28 (Yesterday)
                 const lastClose = historicalResults[0].c;
                 const prevLastClose = historicalResults[1].c;
