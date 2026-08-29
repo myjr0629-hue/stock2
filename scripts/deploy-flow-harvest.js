@@ -10,7 +10,7 @@
  * 
  * Usage: node scripts/deploy-flow-harvest.js
  */
-require('dotenv').config({ path: '.env.local' });
+require('dotenv').config({ path: process.env.ENV_FILE || '.env.local', quiet: true });
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -62,7 +62,14 @@ execSync('npm install --production', { cwd: lambdaDir, stdio: 'pipe' });
 // Create zip
 const zipPath = path.join(__dirname, 'lambda-flow-harvest.zip');
 if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+// [2026-08-29] PowerShell 전용이라 macOS 에서 배포가 조용히 안 됐다.
+// 그 결과 Lambda 가 8/29 01:31 판(= FMP·Intrinio 어댑터 수정 이전)으로 남아
+// **정규장 내내 ok=0 fail=501** 이었고, GEX 이력이 8/19 에서 멈췄다.
+if (process.platform === 'win32') {
+  execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+} else {
+  execSync(`cd '${lambdaDir}' && zip -qr '${zipPath}' . -x '*.zip'`, { stdio: 'pipe', shell: '/bin/bash' });
+}
 const zipSize = Math.round(fs.statSync(zipPath).size / 1024 / 1024 * 10) / 10;
 console.log('Zip:', zipSize + 'MB');
 
@@ -72,10 +79,13 @@ async function deploy() {
 
   // Check if function exists
   let functionExists = false;
+  let currentEnv = {};
   try {
-    await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME }));
+    const cur = await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME }));
     functionExists = true;
-    console.log('Function exists — updating...');
+    currentEnv = (cur.Configuration && cur.Configuration.Environment
+      && cur.Configuration.Environment.Variables) || {};
+    console.log('Function exists — updating... (기존 env ' + Object.keys(currentEnv).length + '개)');
   } catch {
     console.log('Function does not exist — creating...');
   }
@@ -93,12 +103,28 @@ async function deploy() {
     }
   }
 
-  const envVars = {
+  // ★ [2026-08-29] 예전에는 이 4개만 담은 객체를 그대로 Environment 로 보냈다.
+  //   UpdateFunctionConfiguration 의 Environment 는 **전체 치환**이라
+  //   deploy-lambda-intrinio.js 가 넣어 둔 INTRINIO_API_KEY 가 배포할 때마다 지워졌다.
+  //   결과: signum-flow-harvest 만 Intrinio 키가 없어 routeMassiveUrl 이 즉시
+  //   undefined 를 돌려주고 죽은 polygon.io 로 나가 **정규장 내내 ok=0 fail=501**.
+  //   GEX 이력이 2026-08-19 에서 멈춘 직접 원인이다(SPY 는 8/10).
+  //   → 기존 env 를 읽어 **병합**한다. 덮어쓰기 금지.
+  const envVars = Object.assign({}, currentEnv, {
     NODE_ENV: 'production',
-    POLYGON_API_KEY: process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || '',
-    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || '',
-    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-  };
+  });
+  // 있으면 갱신, 없으면 기존 값 유지 — 빈 문자열로 덮지 않는다
+  for (const k of ['POLYGON_API_KEY', 'INTRINIO_API_KEY', 'FMP_API_KEY',
+                   'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
+                   'EC2_REDIS_PROXY_URL', 'REDIS_PROXY_KEY']) {
+    const v = process.env[k];
+    if (v && v !== '[SENSITIVE]') envVars[k] = v;
+  }
+  if (!envVars.INTRINIO_API_KEY) {
+    throw new Error('INTRINIO_API_KEY 가 없다 — 배포를 중단한다. 키 없이 올리면 전건 실패한다(2026-08-29 실화).');
+  }
+  if (!envVars.INTRINIO_BASE_URL) envVars.INTRINIO_BASE_URL = 'https://api-v2.intrinio.com';
+  console.log('Env:', Object.keys(envVars).length, '개 (기존 보존 + 갱신)');
 
   if (functionExists) {
     // Update code
