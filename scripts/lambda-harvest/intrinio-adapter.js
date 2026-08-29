@@ -16,17 +16,83 @@
 const INTRINIO_BASE = process.env.INTRINIO_BASE_URL || 'https://api-v2.intrinio.com';
 const INTRINIO_KEY = process.env.INTRINIO_API_KEY || '';
 
-const PASSTHROUGH = ['/v2/reference/news'];
+// ⚠️ 2026-08-29: 뉴스도 FMP 로 이관. Massive 는 9/23 해지되고, 3사 실측에서
+//    FMP 가 대안으로 확정됐다(Intrinio 는 종목 연결 30% 로 부정확).
+//    Vercel(intrinioRouter.ts)과 동일 규칙 — 한쪽만 고치면 갈린다.
+const PASSTHROUGH = [];
 
 const UNSUPPORTED = [
   '/stocks/v1/short-interest',
+  '/stocks/v1/short-volume',
   '/v1/short-volume',
-  '/v3/reference/dividends',
+  '/v3/reference/conditions',
   '/v1/related-companies',
   '/v3/trades',
   '/v3/quotes',
   '/v2/last/trade',
 ];
+
+// ─────────────────────────────────────────────────────────────
+// 뉴스 — FMP (Massive 9/23 해지 대응)
+// ─────────────────────────────────────────────────────────────
+const FMP_KEY = process.env.FMP_API_KEY || '';
+
+function _fmpIso(d) {
+  if (!d) return new Date().toISOString();
+  if (String(d).includes('T')) return String(d).endsWith('Z') ? d : `${d}Z`;
+  return `${String(d).replace(' ', 'T')}Z`;
+}
+
+function _fmpId(url, title) {
+  const s = `${url}|${title}`;
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  for (let i = 0; i < s.length; i++) {
+    h1 = Math.imul(h1 ^ s.charCodeAt(i), 16777619) >>> 0;
+    h2 = Math.imul(h2 + s.charCodeAt(i), 2654435761) >>> 0;
+  }
+  return `fmp_${h1.toString(16)}${h2.toString(16)}`;
+}
+
+async function getNewsFromFmp(ticker, limit, since) {
+  if (!FMP_KEY) return undefined;
+  const lim = Math.min(Math.max(Number(limit) || 20, 1), 250);
+  const tickers = String(ticker || '').split(',').map((t) => t.trim().toUpperCase()).filter(Boolean);
+  const path = tickers.length
+    ? `news/stock?symbols=${tickers.join(',')}&limit=${lim}`
+    : `news/general-latest?limit=${lim}`;
+  try {
+    const res = await fetch(`https://financialmodelingprep.com/stable/${path}&apikey=${FMP_KEY}`);
+    if (!res.ok) return undefined;
+    let list = await res.json();
+    if (!Array.isArray(list)) return undefined;
+    if (since) {
+      const cut = Date.parse(since);
+      if (Number.isFinite(cut)) list = list.filter((a) => Date.parse(_fmpIso(a.publishedDate)) >= cut);
+    }
+    const results = list
+      .filter((a) => a && a.title && a.url)
+      .sort((a, b) => Date.parse(_fmpIso(b.publishedDate)) - Date.parse(_fmpIso(a.publishedDate)))
+      .slice(0, lim)
+      .map((a) => ({
+        id: _fmpId(a.url, a.title),
+        publisher: { name: a.publisher || a.site || 'Unknown', homepage_url: null, logo_url: null },
+        title: a.title,
+        author: null,
+        published_utc: _fmpIso(a.publishedDate),
+        article_url: a.url,
+        tickers: a.symbol ? [String(a.symbol).toUpperCase()] : [],
+        image_url: a.image || null,
+        description: a.text || '',
+        keywords: [],
+        insights: [],
+        _source: 'fmp',
+      }));
+    return results.length ? { status: 'OK', count: results.length, results, _source: 'fmp' } : undefined;
+  } catch (e) {
+    console.warn('[FMP news] fail:', e && e.message);
+    return undefined;
+  }
+}
 
 // ── 저수준 호출 ──────────────────────────────────────────────
 
@@ -611,6 +677,12 @@ async function routeMassiveUrl(input) {
   const q = (k) => query.get(k) || undefined;
   let m;
 
+  // 뉴스 → FMP (Intrinio 키와 무관)
+  if (path === '/v2/reference/news') {
+    if (process.env.NEWS_SOURCE === 'massive') return undefined;
+    return await getNewsFromFmp(q('ticker'), q('limit'), q('published_utc.gte'));
+  }
+
   m = path.match(/^\/v2\/snapshot\/locale\/us\/markets\/stocks\/tickers\/([^/]+)$/);
   if (m) return await getTickerSnapshot(m[1]);
 
@@ -676,6 +748,41 @@ async function routeMassiveUrl(input) {
 
   m = path.match(/^\/v3\/reference\/tickers\/([^/]+)$/);
   if (m) return await getTickerDetails(m[1]);
+
+  // 배당 — securities/{t}/dividends 는 404 지만 prices/adjustments 에 들어 있다
+  if (path === '/v3/reference/dividends') {
+    const t = q('ticker');
+    if (!t) return { status: 'OK', count: 0, results: [] };
+    const lim = Number(q('limit')) || 16;
+    const d = await callIntrinio(`securities/${String(t).toUpperCase()}/prices/adjustments`, {
+      page_size: String(Math.min(Math.max(lim * 4, 40), 200)),
+    }).catch(() => null);
+    const rows = (d && d.stock_price_adjustments) || [];
+    const divs = rows
+      .filter((r) => Number(r && r.dividend) > 0 && /^\d{4}-\d{2}-\d{2}/.test(String(r.date)))
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    let frequency = null;
+    if (divs.length >= 3) {
+      const gaps = [];
+      for (let i = 0; i < Math.min(divs.length - 1, 8); i++) {
+        const g = (Date.parse(divs[i].date) - Date.parse(divs[i + 1].date)) / 86400000;
+        if (g > 0) gaps.push(g);
+      }
+      if (gaps.length) {
+        gaps.sort((a, b) => a - b);
+        const med = gaps[Math.floor(gaps.length / 2)];
+        frequency = med <= 10 ? 52 : med <= 45 ? 12 : med <= 120 ? 4 : med <= 250 ? 2 : 1;
+      }
+    }
+    const results = divs.slice(0, lim).map((x) => ({
+      cash_amount: Number(x.dividend),
+      currency: x.dividend_currency || 'USD',
+      ex_dividend_date: String(x.date),
+      pay_date: null, record_date: null, declaration_date: null,
+      frequency, dividend_type: 'CD', ticker: String(t).toUpperCase(),
+    }));
+    return { status: 'OK', count: results.length, results, _source: 'intrinio-adjustments' };
+  }
 
   if (path === '/v1/marketstatus/now') return getMarketStatus();
   if (path === '/v1/marketstatus/upcoming') return [];
