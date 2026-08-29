@@ -81,6 +81,16 @@ function deriveTitle(raw: { officer_title?: string; is_director?: boolean; is_of
  * Returns raw transactions sorted by filing_date DESC.
  */
 export async function fetchForm4(ticker: string, limit: number = 30): Promise<InsiderTransaction[]> {
+    // [2026-08-29] Intrinio 우선. Massive /stocks/filings/vX/form-4 는 9/23 해지.
+    // Intrinio 전역 피드는 실시간(0일전)이고 거래 상세가 더 완전하다.
+    try {
+        const { getInsiderFilingsIntrinio } = await import("./intrinioClient");
+        const rows = await getInsiderFilingsIntrinio(ticker, limit);
+        if (rows.length) return rows as InsiderTransaction[];
+    } catch (e: any) {
+        console.warn(`[insiderService] Intrinio path failed for ${ticker}:`, e?.message);
+    }
+
     try {
         const url = `${POLYGON_BASE}/stocks/filings/vX/form-4?tickers=${encodeURIComponent(ticker)}&limit=${limit}&apiKey=${POLYGON_API_KEY}`;
         const controller = new AbortController();

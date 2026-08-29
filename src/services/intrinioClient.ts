@@ -1436,6 +1436,82 @@ export async function getInstitutionalOwnershipIntrinio(
         });
 }
 
+/**
+ * 내부자 거래 (SEC Form 4) — Intrinio
+ *
+ * [왜 이관하나]  기존 `insiderService.fetchForm4` 는 Massive
+ *   `/stocks/filings/vX/form-4` 를 쓴다. 그 벤더는 죽는다.
+ *
+ * [오히려 개선]  Intrinio 는 **전역 피드가 실시간(0일전)** 이고
+ *   거래별 상세가 완전하다(2026-08-29 실측):
+ *     transaction_type_code       A(무상부여) · P(매수) · S(매도) · M(행사) …
+ *     acquisition_disposition_code A / D
+ *     amount_of_shares · transaction_price · total_shares_owned
+ *     officer_title · director / officer / ten_percent_owner 플래그
+ *     derivative_transaction      파생(옵션) 거래 여부 ← 실제 매수와 구분 가능
+ *
+ * [주의]  Intrinio 는 «거래 금액»을 주지 않는다 → shares × price 로 계산한다.
+ *         무상부여(A)는 price 가 0 이므로 금액도 0 이다 — 이게 정상이다.
+ *         («0 원어치 매수»가 아니라 «대가 없이 받음»이다)
+ */
+export async function getInsiderFilingsIntrinio(
+    ticker: string,
+    limit = 30
+): Promise<any[]> {
+    const sym = ticker.toUpperCase();
+    const data = await callIntrinio(`companies/${sym}/insider_transaction_filings`, {
+        page_size: String(Math.min(Math.max(limit, 10), 100)),
+    }).catch(() => null);
+
+    const filings: any[] = data?.transaction_filings || [];
+    const out: any[] = [];
+
+    for (const f of filings) {
+        const ownerName = f?.owner?.owner_name || "Unknown";
+        for (const t of (f.transactions || [])) {
+            const shares = num(t.amount_of_shares) ?? 0;
+            const price = num(t.transaction_price) ?? 0;
+            const code = String(t.transaction_type_code || "").toUpperCase();
+
+            // ⚠️ 거래 코드가 비어 있고 수량도 0 인 행은 **거래가 아니다.**
+            //    Form 4 에는 «현재 보유 신고» 행이 섞여 온다(Table I/II 의 holding rows).
+            //    이걸 그대로 세면 화면에 «거래 30건인데 매수 0 · 매도 0» 이라는
+            //    모순이 나간다(2026-08-29 앱 실화면에서 확인).
+            //    실측: NVDA 30건 중 17건이 이런 행이었다.
+            if (!code && shares <= 0) continue;
+
+            out.push({
+                date: String(f.filing_date || "").slice(0, 10),
+                transactionDate: String(t.transaction_date || f.filing_date || "").slice(0, 10),
+                name: ownerName,
+                title: t.officer_title
+                    || (t.director ? "Director" : t.ten_percent_owner ? "10% Owner" : t.officer ? "Officer" : ""),
+                isDirector: !!t.director,
+                isOfficer: !!t.officer,
+                isTenPctOwner: !!t.ten_percent_owner,
+                code,
+                shares,
+                pricePerShare: price,
+                // Intrinio 는 금액을 안 준다 — 주식수 × 단가
+                value: Math.round(shares * price),
+                acquired: String(t.acquisition_disposition_code || "").toUpperCase() === "A" ? "A" : "D",
+                // Intrinio 미제공 — 지어내지 않는다
+                is10b5: false,
+                sharesAfter: num(t.total_shares_owned) ?? 0,
+                filingUrl: String(f.filing_url || ""),
+                // Massive 에 없던 것 — 파생(옵션) 거래인지 구분할 수 있다
+                isDerivative: !!t.derivative_transaction,
+                securityTitle: String(t.security_title || ""),
+            });
+        }
+    }
+
+    // 거래일 최신순
+    return out
+        .sort((a, b) => String(b.transactionDate).localeCompare(String(a.transactionDate)))
+        .slice(0, limit);
+}
+
 export async function getMoversIntrinio(direction: "gainers" | "losers"): Promise<any> {
     const rows = await buildMarketTickers();
     // 노이즈 제거: 최소 거래량·가격
