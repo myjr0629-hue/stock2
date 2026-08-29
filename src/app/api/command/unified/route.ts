@@ -367,7 +367,9 @@ function stripStaleInstitutional(data: any): any {
             darkPool: null,
             blockTrade: null,
             shortVolume: null,
-            _source: 'unavailable-massive-blocked',
+            // 벤더명을 사유로 쓰지 않는다 — 공급사가 바뀌어도 사실인 문구로.
+            // (지금 이유는 «차단» 이 아니라 «현재 플랜에 틱 데이터가 없음» 이다)
+            _source: 'unavailable-tick-data-not-in-plan',
         };
     }
     return data;

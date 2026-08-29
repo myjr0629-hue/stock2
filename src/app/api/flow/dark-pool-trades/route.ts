@@ -106,6 +106,27 @@ export async function GET(request: NextRequest) {
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'NVDA';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
 
+    // ── 다크풀 공급 중단 게이트 ────────────────────────────────────
+    // 이 라우트는 massiveClient 를 거치지 않고 Polygon 을 **직접** 부른다.
+    // 그래서 다른 다크풀 경로에 건 게이트를 혼자 우회하고 있었다.
+    // 게다가 소스가 죽어 캐시가 갱신되지 않으니, 아래 SWR 이 옛 값을
+    // **나이 제한 없이 영원히** 서빙했다(실측: totalDarkPoolVolume 1,064,547).
+    // 없는 데이터는 «0» 도 «옛날 값» 도 아니고 **없음** 이어야 한다.
+    if (process.env.ENABLE_MASSIVE_TICKS !== '1') {
+        return NextResponse.json({
+            ticker,
+            items: [],
+            totalDarkPoolVolume: null,
+            totalDarkPoolValue: null,
+            totalVolume: null,
+            darkPoolPercent: null,
+            tradesScanned: null,
+            unavailable: true,
+            _reason: 'tick-data-not-in-plan',
+            _ts: Date.now(),
+        }, { headers: { 'Cache-Control': 's-maxage=300' } });
+    }
+
     const cacheKey = `${CACHE_PREFIX}${ticker}`;
     const STALE_THRESHOLD_MS = 300_000; // 5 min
 

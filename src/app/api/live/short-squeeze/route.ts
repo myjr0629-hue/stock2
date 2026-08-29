@@ -8,6 +8,18 @@ import { swrFetch } from '@/lib/cache/redisSWR';
 
 export const revalidate = 120;
 
+/**
+ * 공매도 잔고는 격주 정산(settlement) 기준으로 발표된다.
+ * 정산일이 45일 이상 지났으면 «현재»라고 부를 수 없다.
+ * (소스가 죽은 뒤 캐시에 남은 값을 걸러내는 기준선)
+ */
+function isRecentSettlement(d?: string | null): boolean {
+    if (!d) return false;
+    const t = Date.parse(d);
+    if (Number.isNaN(t)) return false;
+    return Date.now() - t < 45 * 86400000;
+}
+
 export async function GET(req: NextRequest) {
     const ticker = req.nextUrl.searchParams.get('t')?.toUpperCase();
     if (!ticker) return NextResponse.json({ error: 'Missing ticker' }, { status: 400 });
@@ -63,6 +75,31 @@ export async function GET(req: NextRequest) {
         );
 
         const { siData, svData } = squeezeData;
+
+        // ── 「없는 데이터는 0 이 아니라 없음」 ───────────────────────────
+        // 공매도 잔고(short interest)는 Intrinio Startup 에서 403 이고,
+        // short-volume 도 미제공이다. 즉 **살아 있는 소스가 없다.**
+        // 그런데 DynamoDB 에는 Massive 시절 값이 남아 있어서, 그대로
+        // 내보내면 «siPercent 0.1 · shortVolPercent 45.2 · riskScore 10 ·
+        // status LOW» 처럼 **그럴듯한 숫자가 현재 사실처럼** 나간다(실측).
+        // 계산해서 0 을 만드는 것도 답이 아니다 — 0% 공매도는 «낮음»이라는
+        // 틀린 결론을 만든다. 값이 없으면 **필드 자체를 null 로** 보내고
+        // unavailable 을 명시해 화면이 숨길 수 있게 한다.
+        const siSource = (squeezeData as any)?._source;
+        const siFresh = siSource === 'dynamodb'
+            ? isRecentSettlement(siData?.settlementDate)
+            : siData != null;
+        if (!siFresh && !svData) {
+            return NextResponse.json({
+                ticker,
+                siPercent: null, daysToCover: null, siChange: null,
+                shortVolPercent: null, riskScore: null, status: null,
+                floatShares: null, settlementDate: null,
+                unavailable: true,
+                _reason: 'short-interest-not-in-plan',
+            }, { headers: { 'Cache-Control': 's-maxage=300' } });
+        }
+
         const siPercent = siData?.siPercent || 0;
         const daysToCover = siData?.daysToCover || 0;
         const siChange = siData?.siPercentChange || 0;
