@@ -32,6 +32,7 @@
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, BatchGetCommand, BatchWriteCommand, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const __intrinio = require('./intrinio-adapter');   // Massive → Intrinio 라우팅
 
 // 1.1.0: main xsScore path is IDENTICAL to 1.0.0 — the bump only adds shadow
 // variant instrumentation (frozen / anti composites, see FROZEN_PRIORS note).
@@ -352,7 +353,11 @@ async function run() {
             const dow = new Date(`${d}T12:00:00Z`).getUTCDay();
             if (dow === 0 || dow === 6) continue;
             try {
-                const g = await (await fetch(`https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${d}?adjusted=true&apiKey=${POLY_KEY}`)).json();
+                // [2026-08-29] Massive 차단 → Intrinio 이관.
+                // grouped-aggs 대응 REST 가 Intrinio 에 없으므로, EC2 적재기가
+                // 벌크 CSV 로 채워 둔 20거래일 종가 행렬을 어댑터가 읽어 준다.
+                // (이 루프는 17거래일을 요구한다 — 이력 없이는 2일밖에 못 받는다)
+                const g = await __intrinio.getGroupedDaily(d);
                 if (g && g.resultsCount > 100) {
                     const m = new Map();
                     for (const gr of g.results) if (gr.c > 0) m.set(gr.T, gr.c);

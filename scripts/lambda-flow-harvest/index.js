@@ -650,8 +650,22 @@ async function harvestTicker(ticker) {
     const snapshotOk = await fetchOptionsSnapshotRaw(ticker);
 
     // Step 1: Realtime Metrics (trades 5K + quotes 1K + short-volume) — 3 API calls
-    const { metrics: rtMetrics, quotes } = await fetchRealtimeMetrics(ticker);
-    if (!rtMetrics) return { ticker, ok: false, reason: 'no-data' };
+    //
+    // ⚠️ [2026-08-29] 이 세 엔드포인트(/v3/trades · /v3/quotes · short-volume)는
+    //    Intrinio 스타트업 플랜에 **없다**. 어댑터가 빈 결과를 돌려주므로
+    //    rtMetrics 는 항상 null 이다.
+    //    예전 코드는 여기서 `return ok:false` 로 **종목 전체를 포기**했고,
+    //    그 결과 2,001종목 전건 실패 + `cache:flow:unified` 가 하나도 안 써져
+    //    Flow 페이지 SSR 이 매번 캐시 미스가 됐다(실측).
+    //    다크풀이 없다고 옵션 구조까지 버릴 이유는 없다 → **가능한 것만 쓴다.**
+    // ⚠️ fetchRealtimeMetrics 는 실패 시 객체가 아니라 **null** 을 돌려준다.
+    //    바로 구조분해하면 TypeError 가 나고 catch 가 삼켜 «조용한 전건 실패»가 된다.
+    const rtRes = (await fetchRealtimeMetrics(ticker)) || {};
+    const rtMetrics = rtRes.metrics || null;
+    const quotes = rtRes.quotes || null;
+    const degraded = !rtMetrics;
+    // 옵션 스냅샷조차 못 받았으면 그때는 쓸 게 없다
+    if (degraded && !snapshotOk) return { ticker, ok: false, reason: 'no-data' };
 
     // Step 2: Dark Pool Trades (trades 10K + next_url) — reuse quotes from Step 1
     const darkPool = await fetchDarkPoolTrades(ticker, quotes);
@@ -669,7 +683,9 @@ async function harvestTicker(ticker) {
       } : null,
       realtimeMetrics: rtMetrics || { darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null },
       timestamp: Date.now(),
-      _source: 'lambda-flow-harvest',
+      _source: degraded ? 'lambda-flow-harvest:degraded' : 'lambda-flow-harvest',
+      // 다크풀/공매도 계열이 «없음»인지 «0»인지 소비처가 구분할 수 있게 명시
+      _unavailable: degraded ? ['darkPool', 'shortVolume', 'blockTrade', 'bidAsk'] : undefined,
     };
 
     // Step 4: Save to Redis — pipeline for efficiency
@@ -682,19 +698,30 @@ async function harvestTicker(ticker) {
     await redisPipeline(commands);
 
     // Step 5: Save to DynamoDB (Tier 2 fallback)
-    await client.send(new PutCommand({
-      TableName: 'signum-flow-history',
-      Item: {
-        ticker,
-        timestamp: Date.now(),
-        darkPoolPercent: rtMetrics.darkPool?.percent || 0,
-        shortVolPercent: rtMetrics.shortVolume?.percent || 0,
-        blockTradeCount: rtMetrics.blockTrade?.count || 0,
-        buyPct: rtMetrics.darkPool?.buyPct || 0,
-        sellPct: rtMetrics.darkPool?.sellPct || 0,
-        _source: 'lambda-flow-harvest',
-      }
-    })).catch(() => {});
+    //
+    // ⚠️ degraded(다크풀/공매도 미제공) 상태에서는 **쓰지 않는다.**
+    //    두 가지 이유가 있다.
+    //    ① rtMetrics 가 null 인데 `rtMetrics.darkPool?.` 처럼 앞쪽에 가드가 없어
+    //       TypeError 가 났고, catch 가 삼켜 «조용한 전건 실패»로 보였다.
+    //    ② 더 중요한 이유: 여기에 0 을 **새 타임스탬프로** 쓰면
+    //       signum-flow-history(3천만 건)가 «방금 갱신된 0» 으로 덮인다.
+    //       그건 예전에 다크풀 stale 값이 되살아나 나이 검사까지 무력화시켰던
+    //       바로 그 경로다. 없는 데이터는 «0» 이 아니라 «없음» 이어야 한다.
+    if (rtMetrics) {
+      await client.send(new PutCommand({
+        TableName: 'signum-flow-history',
+        Item: {
+          ticker,
+          timestamp: Date.now(),
+          darkPoolPercent: rtMetrics.darkPool?.percent || 0,
+          shortVolPercent: rtMetrics.shortVolume?.percent || 0,
+          blockTradeCount: rtMetrics.blockTrade?.count || 0,
+          buyPct: rtMetrics.darkPool?.buyPct || 0,
+          sellPct: rtMetrics.darkPool?.sellPct || 0,
+          _source: 'lambda-flow-harvest',
+        }
+      })).catch(() => {});
+    }
 
     return { ticker, ok: true };
   } catch (e) {
@@ -708,7 +735,10 @@ async function harvestTicker(ticker) {
 // ──────────────────────────────────────────
 // LOCK_KEY is now per-shard (set in handler based on event.shard)
 let LOCK_KEY = 'flow-harvest:lock';
-const LOCK_TTL = 900; // seconds — matches Lambda timeout
+// ⚠️ 락 TTL 은 «실제 실행 시간»에 맞춰야 한다. 900s 로 두면 한 번 비정상
+//    종료했을 때 5분 스케줄이 3사이클(15분) 통째로 막힌다.
+//    슬라이스 도입으로 한 실행이 4분 예산 안에서 끝나므로 그에 맞춘다.
+const LOCK_TTL = Number(process.env.FLOW_LOCK_TTL || 330); // seconds
 
 async function acquireLock() {
   // Try EC2 proxy first (uses SET NX EX pattern)
@@ -821,16 +851,57 @@ exports.handler = async (event) => {
     console.log('[flow-harvest] Lock acquired (' + LOCK_KEY + ') — proceeding with harvest');
   }
 
+  // ── [2026-08-29] 처리량을 API 예산에 맞춘다 ──────────────────────
+  //
+  // 예전 구조는 Massive 한도 기준이었다. 실측: 2,001종목 × 동시 10 ×
+  // 종목당 약 7콜을 31초에 쏟아부어 **분당 2만 콜 이상** — Intrinio 스로틀에
+  // 걸려 전건 실패했다. 어댑터에 토큰버킷을 넣었지만, 그것만으로는
+  // 한 번에 못 끝내고 15분 Lambda 한도에서 잘린다.
+  //
+  // 그래서 **매 실행마다 유니버스의 일부만** 처리하고 다음 실행이 이어받는다.
+  // 커서는 Redis 에 두어 실행 간에 회전한다 — 시간이 지나면 전 종목이 덮인다.
+  const SLICE = Number(process.env.FLOW_SLICE_SIZE || 120);
+  const TIME_BUDGET_MS = Number(process.env.FLOW_TIME_BUDGET_MS || 4 * 60 * 1000);
+  const CURSOR_KEY = 'flow-harvest:cursor:' + (shardIndex == null ? 'all' : shardIndex);
+
+  let cursor = 0;
+  try {
+    const raw = await redisGet(CURSOR_KEY);
+    cursor = Number(raw) || 0;
+  } catch { /* 커서 없으면 0 부터 */ }
+  if (cursor >= myUniverse.length) cursor = 0;
+
+  const sliceEnd = Math.min(cursor + SLICE, myUniverse.length);
+  const workUniverse = myUniverse.slice(cursor, sliceEnd);
+  const nextCursor = sliceEnd >= myUniverse.length ? 0 : sliceEnd;
+  console.log('[flow-harvest] 슬라이스 ' + cursor + '-' + (sliceEnd - 1) + ' / ' + myUniverse.length +
+    ' (' + workUniverse.length + '종목, 예산 ' + Math.round(TIME_BUDGET_MS / 1000) + 's)');
+
   // Process in batches of 10
   let ok = 0, fail = 0;
+  // ⚠️ 실패 사유를 버리지 않는다. 예전에는 `reason` 을 만들어 놓고 아무 데도
+  //    남기지 않아, 2,001종목 전건 실패인데 로그에 «fail=2001» 한 줄뿐이었다.
+  //    원인이 스로틀인지 TypeError 인지 구분할 수 없어 진단이 몇 시간 늦어졌다.
+  const failReasons = new Map();
+  const noteFail = (r) => {
+    const k = String(r || 'unknown').slice(0, 90);
+    failReasons.set(k, (failReasons.get(k) || 0) + 1);
+  };
   const BATCH_SIZE = 10;
+  const deadline = Date.now() + TIME_BUDGET_MS;
+  let stoppedAt = null;
 
-  for (let i = 0; i < myUniverse.length; i += BATCH_SIZE) {
-    const batch = myUniverse.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < workUniverse.length; i += BATCH_SIZE) {
+    if (Date.now() > deadline) {
+      stoppedAt = cursor + i;
+      console.log('[flow-harvest] 시간 예산 소진 — ' + i + '종목 처리 후 중단');
+      break;
+    }
+    const batch = workUniverse.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(batch.map(t => harvestTicker(t)));
     for (const r of results) {
       if (r.ok) ok++;
-      else fail++;
+      else { fail++; noteFail(r.reason); }
     }
     // Progress log every 100 tickers
     if ((i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= myUniverse.length) {
@@ -838,6 +909,16 @@ exports.handler = async (event) => {
       console.log(prefix + ' Progress: ' + (i + BATCH_SIZE) + '/' + myUniverse.length + ' (ok=' + ok + ' fail=' + fail + ')');
     }
   }
+
+  if (failReasons.size) {
+    const top = [...failReasons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    console.log('[flow-harvest] 실패 사유 상위: ' + top.map(([r, n]) => `${r}×${n}`).join(' | '));
+  }
+
+  // 다음 실행이 이어받을 위치를 기록 (중단됐으면 그 지점부터)
+  try {
+    await redisSet(CURSOR_KEY, String(stoppedAt != null ? stoppedAt : nextCursor), 24 * 3600);
+  } catch (e) { console.warn('[flow-harvest] 커서 저장 실패:', e && e.message); }
 
   const duration = Math.round((Date.now() - start) / 1000);
   const logPrefix = isSharded ? '[shard-' + shardIndex + ']' : '[flow-harvest]';

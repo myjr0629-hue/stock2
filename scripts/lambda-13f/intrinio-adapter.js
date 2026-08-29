@@ -29,7 +29,48 @@ const UNSUPPORTED = [
 ];
 
 // ── 저수준 호출 ──────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// 레이트 리미터 (토큰 버킷)
+//
+// ⚠️ [2026-08-29] Massive 시절 구조가 Intrinio 한도를 크게 넘긴다.
+//    signum-flow-harvest 실측: 2,001종목 × 동시 10 × 종목당 약 7콜을
+//    31초에 쏟아부어 **분당 2만 콜 이상**. 전건 실패의 실체는 스로틀이었다.
+//    (단발 테스트로는 잘 되다가 대량 실행에서만 0건이 되어 원인이 안 보였다)
+//    한 프로세스 안의 모든 Intrinio 호출을 여기서 직렬 제어한다.
+// ─────────────────────────────────────────────────────────────
+const RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 1200);
+let _tokens = RATE_PER_MIN;
+let _refillAt = Date.now();
+let _queue = Promise.resolve();
+
+function _takeToken() {
+  const now = Date.now();
+  const elapsed = now - _refillAt;
+  if (elapsed > 0) {
+    _tokens = Math.min(RATE_PER_MIN, _tokens + (elapsed / 60000) * RATE_PER_MIN);
+    _refillAt = now;
+  }
+  if (_tokens >= 1) { _tokens -= 1; return 0; }
+  // 토큰 1개가 다시 차는 데 필요한 시간(ms)
+  return Math.ceil((1 - _tokens) * (60000 / RATE_PER_MIN));
+}
+
+/** 호출 직전에 await 한다. 한도를 넘으면 그만큼 기다린다. */
+function rateGate() {
+  const run = async () => {
+    for (;;) {
+      const wait = _takeToken();
+      if (wait === 0) return;
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  };
+  _queue = _queue.then(run, run);
+  return _queue;
+}
+
 async function callIntrinio(path, params = {}, timeoutMs = 15000) {
+  await rateGate();
   if (!INTRINIO_KEY) throw new Error('ENV_MISSING: INTRINIO_API_KEY');
   const qs = new URLSearchParams({ ...params, api_key: INTRINIO_KEY });
   const url = `${INTRINIO_BASE}/${String(path).replace(/^\//, '')}?${qs}`;
@@ -348,6 +389,203 @@ async function getOpenClose(ticker, date) {
  * Massive 전체 URL(또는 경로)을 받아 Intrinio 결과를 돌려준다.
  * 처리 불가하면 undefined → 호출부가 기존 Massive 경로로 폴백.
  */
+// ─────────────────────────────────────────────────────────────
+// 전 종목 일봉 (grouped) — EC2 ElastiCache 의 적재물을 읽는다
+//
+// Intrinio 에는 grouped-aggs 대응 REST 가 없다. EC2 적재기
+// (`scripts/intrinio-eod-snapshot.js`)가 벌크 CSV 를 파싱해 두 키를 채운다.
+//   intrinio:eod:snapshot — 최신 거래일 OHLCV
+//   intrinio:eod:history  — 20거래일 종가 행렬 (signum-xs 가 17일치를 요구)
+// ─────────────────────────────────────────────────────────────
+const REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+const REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const _redisCache = new Map();          // key → { at, val }
+const REDIS_TTL_MS = 30 * 60 * 1000;
+
+async function readRedis(key) {
+  const hit = _redisCache.get(key);
+  if (hit && Date.now() - hit.at < REDIS_TTL_MS) return hit.val;
+  try {
+    const res = await fetch(`${REDIS_PROXY}/get?key=${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${REDIS_PROXY_KEY}` },
+    });
+    if (!res.ok) return null;
+    const raw = await res.json();
+    const val = typeof raw.result === 'string' ? JSON.parse(raw.result) : raw.result;
+    _redisCache.set(key, { at: Date.now(), val });
+    return val;
+  } catch (e) {
+    console.warn('[Intrinio] redis read fail:', e && e.message);
+    return null;
+  }
+}
+
+async function getGroupedDaily(reqDate) {
+  const empty = { status: 'OK', adjusted: true, queryCount: 0, resultsCount: 0, results: [] };
+
+  const snap = await readRedis('intrinio:eod:snapshot');
+  if (snap && snap.date === reqDate && Array.isArray(snap.rows)) {
+    // row = [ticker,o,h,l,c,v,chg,chgPct]
+    const results = snap.rows
+      .filter((r) => Array.isArray(r) && Number(r[4]) > 0)
+      .map((r) => ({
+        T: r[0], t: Date.parse(`${reqDate}T00:00:00Z`),
+        o: Number(r[1]) || 0, h: Number(r[2]) || 0, l: Number(r[3]) || 0,
+        c: Number(r[4]), v: Number(r[5]) || 0,
+        vw: Number(r[4]), n: 0,
+      }));
+    return { ...empty, queryCount: results.length, resultsCount: results.length, results, _eodDate: reqDate };
+  }
+
+  const hist = await readRedis('intrinio:eod:history');
+  const idx = hist && Array.isArray(hist.dates) ? hist.dates.indexOf(reqDate) : -1;
+  if (hist && idx >= 0) {
+    const t = Date.parse(`${reqDate}T00:00:00Z`);
+    const results = [];
+    for (const [T, arr] of Object.entries(hist.closes || {})) {
+      const c = Number(arr[idx]) || 0;
+      if (c > 0) results.push({ T, t, o: c, h: c, l: c, c, v: 0, vw: c, n: 0 });
+    }
+    return { ...empty, queryCount: results.length, resultsCount: results.length, results, _eodDate: reqDate, _source: 'intrinio-eod-history' };
+  }
+
+  return { ...empty, _requested: reqDate };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 전 종목 스냅샷 — EOD(전일 확정) + 호가 스냅샷 CSV(현재가) 결합
+//
+// ⚠️ 예전에는 `_needsEod: true` 와 함께 **빈 배열**을 돌려주고 있었다(미완성
+//    자리표시자). 그래서 signum-harvest 의 harvestPrices 가 0건을 받고,
+//    그 뒤 warmFlowCache 가 506종목 전부 «price<=0» 으로 즉시 실패했다.
+//    TS 어댑터(buildMarketTickers)와 같은 규칙으로 채운다.
+// ─────────────────────────────────────────────────────────────
+const MAX_QUOTE_SPREAD_PCT = 1;   // 미드를 가격으로 인정할 최대 스프레드
+let _quoteCache = null;           // { at, rows: Map }
+const QUOTE_TTL_MS = 5 * 60 * 1000;
+
+function _parseCsvLine(line) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map((x) => x.trim());
+}
+
+/** 현재 미국장 «거래일»(ET). EOD 가 T+1 이라 이 날짜와 비교해야 한다. */
+function _currentEtTradingDate() {
+  const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  if (et.getHours() < 4) et.setDate(et.getDate() - 1);
+  while (et.getDay() === 0 || et.getDay() === 6) et.setDate(et.getDate() - 1);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+}
+
+/** Intrinio 호가 스냅샷 CSV — 1콜에 전 종목 */
+async function loadQuoteSnapshot() {
+  if (_quoteCache && Date.now() - _quoteCache.at < QUOTE_TTL_MS) return _quoteCache.rows;
+  const rows = new Map();
+  try {
+    const meta = await callIntrinio('securities/snapshots');
+    const file = meta && meta.snapshots && meta.snapshots[0] && meta.snapshots[0].files && meta.snapshots[0].files[0];
+    if (!file || !file.url) return rows;
+    const res = await fetch(file.url);
+    if (!res.ok) return rows;
+    let buf = Buffer.from(await res.arrayBuffer());
+    if (buf[0] === 0x1f && buf[1] === 0x8b) buf = require('zlib').gunzipSync(buf);
+    const lines = buf.toString('utf8').split('\n');
+    if (lines.length < 2) return rows;
+    const H = new Map();
+    _parseCsvLine(lines[0]).forEach((h, i) => H.set(h.toUpperCase(), i));
+    const iS = H.get('SYMBOL'), iP = H.get('TRADE PRICE'), iV = H.get('TOTAL TRADE VOLUME'),
+      iH = H.get('TRADE HIGH PRICE'), iL = H.get('TRADE LOW PRICE'),
+      iA = H.get('ASK PRICE'), iB = H.get('BID PRICE');
+    if (iS == null) return rows;
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const c = _parseCsvLine(line);
+      if (c.length <= iS) continue;
+      const sym = (c[iS] || '').toUpperCase();
+      if (!sym) continue;
+      // Startup 플랜은 TRADE PRICE 가 비어 있고 NBBO 만 채운다 → 미드로 대체
+      const trade = Number(c[iP]) || 0;
+      const ask = iA != null ? Number(c[iA]) || 0 : 0;
+      const bid = iB != null ? Number(c[iB]) || 0 : 0;
+      const midRaw = ask > 0 && bid > 0 ? (ask + bid) / 2 : 0;
+      const spread = midRaw > 0 ? ((ask - bid) / midRaw) * 100 : Infinity;
+      const mid = spread >= 0 && spread <= MAX_QUOTE_SPREAD_PCT ? midRaw : 0;
+      rows.set(sym, {
+        last: trade > 0 ? trade : mid,
+        high: Number(c[iH]) || 0,
+        low: Number(c[iL]) || 0,
+        vol: Number(c[iV]) || 0,
+      });
+    }
+    _quoteCache = { at: Date.now(), rows };
+  } catch (e) {
+    console.warn('[Intrinio] quote snapshot fail:', e && e.message);
+  }
+  return rows;
+}
+
+/**
+ * @param wantList 특정 종목만 (없으면 전 종목)
+ * @param opts.dropStale  EOD 가 뒤처졌는데 실시간가도 없는 종목을 «버릴지».
+ *
+ *   버리는 게 옳은 소비처 : movers / breadth
+ *     → 어제 등락률을 오늘 값으로 내보내면 조용히 틀린 화면이 된다.
+ *   버리면 안 되는 소비처 : harvestPrices / flowWarm
+ *     → 이쪽은 «등락률»이 아니라 «현재 가격»이 필요하다. 종목이 사라지면
+ *       그 뒤 단계가 통째로 실패한다(실측: 506종목 전건 실패).
+ *   기본값은 **보존**이고, 등락률에는 _stale 표식을 단다.
+ */
+async function getFullMarketSnapshot(wantList, opts) {
+  const dropStale = !!(opts && opts.dropStale);
+  const want = wantList && wantList.length ? new Set(wantList.map((x) => x.toUpperCase())) : null;
+  const [snap, quotes] = await Promise.all([readRedis('intrinio:eod:snapshot'), loadQuoteSnapshot()]);
+  const eodRows = (snap && Array.isArray(snap.rows)) ? snap.rows : [];
+  if (!eodRows.length) return { status: 'OK', tickers: [], count: 0, _noEod: true };
+
+  const stale = !!snap.date && snap.date < _currentEtTradingDate();
+  const tickers = [];
+  for (const r of eodRows) {
+    if (!Array.isArray(r) || r.length < 8) continue;
+    const T = r[0];
+    if (want && !want.has(T)) continue;
+    const c = Number(r[4]) || 0, v = Number(r[5]) || 0, chg = Number(r[6]) || 0, chgPct = Number(r[7]) || 0;
+    if (!(c > 0)) continue;
+    const q = quotes.get(T);
+    const live = q && q.last > 0 ? q.last : null;
+    // EOD 가 «오늘»이면 prevClose = c - chg, 뒤처졌으면 c 자체가 전일 종가다
+    const prevClose = stale ? c : c - chg;
+    if (stale && !live && dropStale) continue;
+    const last = live != null ? live : c;
+    const change = prevClose > 0 ? last - prevClose : chg;
+    const pct = prevClose > 0 ? (change / prevClose) * 100 : chgPct;
+    const bar = (o, h, l, cc, vv) => ({ o: o || 0, h: h || 0, l: l || 0, c: cc || 0, v: vv || 0, vw: cc || 0 });
+    tickers.push({
+      ticker: T,
+      todaysChange: Math.round(change * 10000) / 10000,
+      todaysChangePerc: Math.round(pct * 10000) / 10000,
+      updated: Date.now() * 1e6,
+      day: bar(Number(r[1]), (q && q.high) || Number(r[2]), (q && q.low) || Number(r[3]), last, (q && q.vol) || v),
+      prevDay: bar(0, 0, 0, prevClose > 0 ? prevClose : c, 0),
+      lastTrade: { p: last, s: 0, t: Date.now() * 1e6, c: [] },
+      // 실시간가가 없어 «오늘» 등락을 만들 수 없는 종목 표식
+      _stale: stale && live == null ? true : undefined,
+      min: bar(Number(r[1]), (q && q.high) || Number(r[2]), (q && q.low) || Number(r[3]), last, (q && q.vol) || v),
+      _eodDate: snap.date,
+    });
+  }
+  return { status: 'OK', count: tickers.length, tickers, _source: 'intrinio-eod+quotes' };
+}
+
 async function routeMassiveUrl(input) {
   if (!input || !INTRINIO_KEY) return undefined;
 
@@ -377,11 +615,23 @@ async function routeMassiveUrl(input) {
   if (m) return await getTickerSnapshot(m[1]);
 
   m = path.match(/^\/v2\/snapshot\/locale\/us\/markets\/stocks\/(gainers|losers)$/);
-  if (m) return { status: 'OK', tickers: [], count: 0, _needsEod: true };
+  if (m) {
+    const dir = m[1];
+    // movers 는 «오늘 등락»이 핵심이므로 뒤처진 종목을 버린다
+    const full = await getFullMarketSnapshot(null, { dropStale: true });
+    const eligible = (full.tickers || []).filter(
+      (t) => (t.day && t.day.v >= 200000) && (t.lastTrade && t.lastTrade.p >= 1) && t.todaysChangePerc !== 0
+    );
+    eligible.sort((a, b) => (dir === 'gainers' ? b.todaysChangePerc - a.todaysChangePerc : a.todaysChangePerc - b.todaysChangePerc));
+    const top = eligible.slice(0, 50);
+    return { status: 'OK', count: top.length, tickers: top };
+  }
 
   if (/^\/v2\/snapshot\/locale\/us\/markets\/stocks\/tickers$/.test(path)) {
     const list = q('tickers');
-    if (!list) return { status: 'OK', tickers: [], count: 0, _needsEod: true };
+    // 필터 없는 «전 종목» 요청 — EOD + 호가 스냅샷으로 구성한다.
+    // (예전에는 빈 배열을 돌려줘 signum-harvest 가 통째로 0건이었다)
+    if (!list) return await getFullMarketSnapshot(null);
     const syms = list.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 30);
     const settled = await Promise.allSettled(syms.map((s) => getTickerSnapshot(s)));
     const tickers = settled
@@ -389,6 +639,9 @@ async function routeMassiveUrl(input) {
       .filter(Boolean);
     return { status: 'OK', count: tickers.length, tickers };
   }
+
+  m = path.match(/^\/v2\/aggs\/grouped\/locale\/us\/market\/stocks\/([\d-]+)$/);
+  if (m) return await getGroupedDaily(m[1]);
 
   m = path.match(/^\/v2\/aggs\/ticker\/([^/]+)\/range\/(\d+)\/(\w+)\/([^/]+)\/([^/]+)$/);
   if (m) {
@@ -435,6 +688,8 @@ async function routeMassiveUrl(input) {
 
 module.exports = {
   routeMassiveUrl,
+  getGroupedDaily,
+  getFullMarketSnapshot,
   getTickerSnapshot,
   getDailyAggregates,
   getIntradayAggregates,

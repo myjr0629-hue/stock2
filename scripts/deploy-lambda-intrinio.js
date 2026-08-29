@@ -21,6 +21,17 @@ const ROOT = process.cwd();
 const TMP = require("os").tmpdir() + "/signum-lambda-zip";
 const INTRINIO_KEY = process.env.INTRINIO_API_KEY;
 
+// ⚠️ 2026-08-29 사고: `vercel env pull` 은 Secret 을 **"[SENSITIVE]" 자리표시자**로
+//    써 놓는다. 그 파일을 ENV_FILE 로 물리고 배포하면 살아 있던 Lambda 키를
+//    자리표시자로 덮어써서 조용히 죽는다(실제로 signum-xs 가 그렇게 됐다).
+//    «값이 있다»가 아니라 «값이 말이 되는가»를 봐야 한다.
+if (!INTRINIO_KEY || INTRINIO_KEY.length < 20 || /SENSITIVE|PLACEHOLDER|CHANGEME/i.test(INTRINIO_KEY)) {
+  console.error(`실패: INTRINIO_API_KEY 가 유효하지 않다 (${INTRINIO_KEY ? `"${INTRINIO_KEY.slice(0, 12)}…" ${INTRINIO_KEY.length}자` : "미설정"})`);
+  console.error("      vercel env pull 로 받은 파일에는 Secret 이 들어 있지 않다.");
+  console.error("      EC2 /opt/signum-ws/.env 의 실제 키를 쓸 것.");
+  process.exit(1);
+}
+
 const cred = {
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -32,6 +43,7 @@ const TARGETS = [
   { fn: "signum-harvest", dir: "harvest_lambda" },
   { fn: "signum-flow-harvest", dir: "scripts/lambda-flow-harvest" },
   { fn: "signum-13f", dir: "scripts/lambda-13f" },
+  { fn: "signum-xs", dir: "scripts/lambda-xs" },
 ];
 
 const ONLY = process.argv[2]; // 특정 함수만 배포하고 싶을 때

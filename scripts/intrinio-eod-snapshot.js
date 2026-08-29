@@ -82,6 +82,13 @@ const ENV_PATH = process.env.ENV_PATH || "/opt/signum-ws/.env";
 const PROXY = process.env.REDIS_PROXY_URL || "http://127.0.0.1:8081";
 const PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
 const SNAPSHOT_KEY = "intrinio:eod:snapshot";
+/**
+ * 다일치 종가 행렬 — `signum-xs` Lambda 가 17거래일 grouped daily 를 요구한다.
+ * 벌크 CSV 에는 이미 6개월치가 들어 있는데 예전에는 최신 2일만 쓰고 버렸다.
+ * 종가만 담아 크기를 억제한다(OHLV 제외).
+ */
+const HISTORY_KEY = "intrinio:eod:history";
+const HISTORY_DAYS = 20;
 const TTL_SEC = 3 * 24 * 3600;          // 3일 — 적재가 며칠 실패해도 화면이 안 죽게
 const INTRINIO_BASE = "https://api-v2.intrinio.com";
 const DRY = process.argv.includes("--dry");
@@ -276,8 +283,26 @@ function parseBulkCsv(csv, acc) {
     const json = JSON.stringify(payload);
     log(`페이로드 ${(json.length / 1024 / 1024).toFixed(2)}MB`);
 
+    // ── 다일치 종가 행렬 ────────────────────────────────────────
+    const histDates = dates.slice(0, HISTORY_DAYS).reverse();   // 오래된→최신
+    const closes = {};
+    for (const t of acc.get(date).keys()) {
+        const series = new Array(histDates.length).fill(0);
+        let filled = 0;
+        histDates.forEach((d, i) => {
+            const row = acc.get(d)?.get(t);
+            if (row) { series[i] = row[4]; filled++; }
+        });
+        // 절반 이상 결측이면 신규상장/거래정지 — 넣어봐야 계산만 흐린다
+        if (filled >= histDates.length / 2) closes[t] = series;
+    }
+    const histPayload = { dates: histDates, closes, _ts: Date.now() };
+    const histJson = JSON.stringify(histPayload);
+    log(`이력 ${histDates.length}일 × ${Object.keys(closes).length}종목 · ${(histJson.length / 1024 / 1024).toFixed(2)}MB`);
+
     if (DRY) {
         log("--dry 모드 — 적재하지 않고 종료");
+        log(`이력 날짜: ${histDates[0]} ~ ${histDates[histDates.length - 1]}`);
         const sample = rows.slice(0, 3).map((r) => `${r[0]} c=${r[4]} chg%=${r[7]}`);
         log("샘플:", sample.join(" | "));
         return;
@@ -308,7 +333,21 @@ function parseBulkCsv(csv, acc) {
     if (!val || val.date !== date || !Array.isArray(val.rows) || val.rows.length !== rows.length) {
         throw new Error(`되읽기 불일치: date=${val && val.date} rows=${val && val.rows && val.rows.length}`);
     }
-    log(`되읽기 검증 OK — ${val.rows.length}종목, ${((Date.now() - t0) / 1000).toFixed(1)}초 소요`);
+    log(`되읽기 검증 OK — ${val.rows.length}종목`);
+
+    // ── 이력 적재 ───────────────────────────────────────────────
+    const histBody = JSON.stringify({ key: HISTORY_KEY, value: histJson, ttl: TTL_SEC });
+    const histRes = await httpRequest(`${PROXY}/set`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${PROXY_KEY}`,
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(histBody),
+        },
+        body: histBody,
+    });
+    if (!histRes.ok) throw new Error(`이력 SET 실패 HTTP ${histRes.status}`);
+    log(`이력 적재 완료 → ${HISTORY_KEY} · ${((Date.now() - t0) / 1000).toFixed(1)}초 소요`);
 })().catch((e) => {
     console.error("[EOD] 실패:", e.message);
     process.exit(1);
