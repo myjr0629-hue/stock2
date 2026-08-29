@@ -492,7 +492,13 @@ async function mergeExtendedBars(
 ): Promise<any[]> {
     // 조회 구간이 하루 이상이어도 «오늘/마지막 날»만 시간외를 붙인다
     // (그 이전 날짜는 기록기가 돌기 전이라 데이터가 없다)
-    const dates = [to, from].filter((d, i, a) => ISO_DATE.test(d) && a.indexOf(d) === i);
+    //
+    // ⚠️ 호출부(getStockChartData)는 from/to 를 **UTC 날짜**로 만드는데
+    //    기록기는 **ET 날짜**로 키를 만든다. 20:00 ET(=00:00 UTC)를 넘기면
+    //    두 날짜가 하루 갈려서 조회가 통째로 빗나간다(실측: POST 봉 사라짐).
+    //    그래서 ET 거래일도 후보에 넣는다.
+    const dates = [currentEtTradingDate(), to, from]
+        .filter((d, i, a) => ISO_DATE.test(d) && a.indexOf(d) === i);
     if (!dates.length) return results;
 
     const have = new Set(results.map((r) => r.t));
@@ -782,6 +788,8 @@ const SNAP_TTL_MS = 5 * 60 * 1000;       // 5m
  * (Upstash 는 요청당 과금 → 호출 수를 1회로 고정. 실제 저장소는 ElastiCache.)
  */
 export const EOD_SNAPSHOT_KEY = "intrinio:eod:snapshot";
+/** 다일치 종가 행렬 (EC2 적재기가 같이 채운다) — 17거래일 grouped 를 요구하는 소비처용 */
+export const EOD_HISTORY_KEY = "intrinio:eod:history";
 
 /**
  * B) 벌크 EOD — **EC2 ElastiCache 우선, Upstash 는 폴백**
@@ -862,6 +870,35 @@ async function readEodFromUpstash(): Promise<EodPayload | null> {
     } catch (e) {
         console.warn("[Intrinio] Upstash EOD 폴백 실패:", (e as any)?.message || e);
         return null;
+    }
+}
+
+interface EodHistory { dates: string[]; closes: Record<string, number[]> }
+let _histCache: { at: number; data: EodHistory | null } | null = null;
+
+/** 20거래일 종가 행렬을 ElastiCache 에서 읽는다 (30분 메모리 캐시) */
+async function loadEodHistory(): Promise<EodHistory | null> {
+    if (_histCache && Date.now() - _histCache.at < EOD_TTL_MS) return _histCache.data;
+    const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+        const res = await fetch(`${proxy}/get?key=${encodeURIComponent(EOD_HISTORY_KEY)}`, {
+            headers: { Authorization: `Bearer ${key}` },
+            signal: controller.signal,
+            cache: "no-store",
+        });
+        if (!res.ok) return null;
+        const raw = await res.json();
+        const val = typeof raw?.result === "string" ? safeJson(raw.result) : raw?.result;
+        const data = Array.isArray(val?.dates) && val?.closes ? (val as EodHistory) : null;
+        _histCache = { at: Date.now(), data };
+        return data;
+    } catch {
+        return null;
+    } finally {
+        clearTimeout(timer);
     }
 }
 
@@ -1213,6 +1250,26 @@ export async function getGroupedDailyIntrinio(reqDate: string): Promise<any> {
 
     const wantPrev = !!reqDate && !!prevDate && reqDate === prevDate;
     if (reqDate && reqDate !== date && !wantPrev) {
+        // 최신 2일이 아니면 20거래일 종가 행렬에서 찾아 본다.
+        // (`signum-xs` 는 17거래일치 grouped 를 요구한다 — 벌크 CSV 에 6개월치가
+        //  들어 있으므로 적재기가 종가만 따로 모아 둔다)
+        const hist = await loadEodHistory();
+        const idx = hist?.dates.indexOf(reqDate) ?? -1;
+        if (hist && idx >= 0) {
+            const results = Object.entries(hist.closes)
+                .map(([T, arr]) => ({ T, c: arr[idx] }))
+                .filter((r) => r.c > 0)
+                .map((r) => ({
+                    T: r.T, t: dateToMs(reqDate),
+                    // 이력은 종가만 보관한다 — o/h/l 은 종가로 대체(소비처는 c 만 쓴다)
+                    o: r.c, h: r.c, l: r.c, c: r.c, v: 0, vw: r.c, n: 0,
+                }));
+            return {
+                status: "OK", adjusted: true,
+                queryCount: results.length, resultsCount: results.length,
+                results, _eodDate: reqDate, _source: "intrinio-eod-history",
+            };
+        }
         // 보유하지 않은 날짜 — 빈 결과로 정직하게 응답한다.
         return {
             status: "OK", adjusted: true,

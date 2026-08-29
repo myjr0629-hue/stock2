@@ -85,11 +85,14 @@ export async function GET(req: NextRequest) {
         // 계산해서 0 을 만드는 것도 답이 아니다 — 0% 공매도는 «낮음»이라는
         // 틀린 결론을 만든다. 값이 없으면 **필드 자체를 null 로** 보내고
         // unavailable 을 명시해 화면이 숨길 수 있게 한다.
+        // ⚠️ DynamoDB 캐시에는 siData 와 svData 가 **함께** 남아 있다.
+        //    `!siFresh && !svData` 로 걸면 stale 한 svData 가 게이트를 막아
+        //    그대로 통과한다(실측: 수정 후에도 45.2% 가 계속 나갔다).
+        //    소스가 죽었으므로 «캐시에서 왔는데 정산일이 오래됐다» 하나로 판정한다.
         const siSource = (squeezeData as any)?._source;
-        const siFresh = siSource === 'dynamodb'
-            ? isRecentSettlement(siData?.settlementDate)
-            : siData != null;
-        if (!siFresh && !svData) {
+        const siStale = siSource === 'dynamodb' && !isRecentSettlement(siData?.settlementDate);
+        const noLiveSource = siSource !== 'polygon-fallback' || siData == null;
+        if (siStale || (noLiveSource && !isRecentSettlement(siData?.settlementDate))) {
             return NextResponse.json({
                 ticker,
                 siPercent: null, daysToCover: null, siChange: null,
