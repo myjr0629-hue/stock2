@@ -718,7 +718,23 @@ export async function getTechnicalIndicator(
         results: { values, underlying: { url: "" } },
         status: "OK",
         request_id: `intrinio-tech-${ind}-${sym}`,
+        // Massive 형태로 눌러 담으면 adx 의 di_pos/di_neg, bb 의 3개 밴드 같은
+        // **다지표 필드가 통째로 사라진다.** 원본을 같이 실어 보낸다
+        // (advancedTechnicals 가 이걸 쓴다).
+        _rows: rows,
     };
+}
+
+/** 20거래일 종가 시계열 — 이미 Redis 에 적재된 것을 읽는다 (API 콜 0) */
+export async function getCloseHistory(
+    ticker: string
+): Promise<{ dates: string[]; closes: number[] } | null> {
+    const hist = await loadEodHistory();
+    if (!hist) return null;
+    const row = (hist as any).closes?.[ticker.toUpperCase()];
+    if (!Array.isArray(row) || row.length < 5) return null;
+    const closes = row.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0);
+    return closes.length >= 5 ? { dates: (hist as any).dates || [], closes } : null;
 }
 
 // ─────────────────────────────────────────────────────────────
