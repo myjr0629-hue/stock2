@@ -60,7 +60,8 @@ export interface AnalysisCacheEntry {
     // Extra indicators
     whaleIndex: number;
     whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE';
-    darkPoolPct: number;   // [V5] Off-exchange / dark pool volume percentage
+    /** 장외 체결 비중. **현재 피드에 값이 없어 읽기 시점에 null 로 잘라낸다**(stripDeadTickFields) */
+    darkPoolPct: number | null;
     netPremium: number | null;
     vwapDist: number | null;   // cached for reference, UI recalculates with live price
     volume: number | null;     // for reference
@@ -106,8 +107,36 @@ export async function getAnalysisCache(
 // this cache, so the override must sit on the READ side (single point for
 // every alphaSnapshot consumer — command/unified, ticker SSR, intel routes).
 function applyXs<T extends AnalysisCacheEntry | null>(ticker: string, entry: T): T {
-    if (!entry || !entry.alphaSnapshot) return entry;
-    return { ...entry, alphaSnapshot: xsSnapshotOverride(ticker, entry.alphaSnapshot) };
+    if (!entry) return entry;
+    const stripped = stripDeadTickFields(entry);
+    if (!stripped.alphaSnapshot) return stripped as T;
+    return { ...stripped, alphaSnapshot: xsSnapshotOverride(ticker, stripped.alphaSnapshot) } as T;
+}
+
+/**
+ * ★ [2026-08-29] 죽은 다크풀이 이 캐시에 «살아 있는 숫자»로 남아 있었다.
+ *
+ * 실측 — 가디언 섹터 payload:
+ *     XLE DP=67  XLV DP=71  XLF DP=41  …  (15개 섹터 전부 값이 있었다)
+ *
+ * 이 값들은 2026-08-28 데이터 권한 상실 **이전에 굳어진 것**이고 앞으로
+ * 영원히 변하지 않는다. 그런데 하류는 그걸 오늘의 사실로 읽는다:
+ *   · calculateWhaleIndex 의 활동도 축 (DP≥60 이면 +25점)
+ *   · sectorEngine 의 IFS 다크풀 항
+ * 「200 OK 인데 값은 어제 것」보다 나쁘다 — **영원히 어제 것**이다.
+ *
+ * 캐시를 비워도 소용없다. 하베스트 Lambda 가 다시 채운다(applyXs 주석의
+ * V8 사례와 같은 구조). 그래서 **읽는 쪽 한 곳**에서 잘라낸다.
+ * 데이터가 복구되면 ENABLE_MASSIVE_TICKS=1 로 되돌린다.
+ */
+function stripDeadTickFields(entry: AnalysisCacheEntry): AnalysisCacheEntry {
+    if (process.env.ENABLE_MASSIVE_TICKS === '1') return entry;
+    if (entry.darkPoolPct == null && (entry as any).blockTrades == null) return entry;
+    const out: any = { ...entry };
+    out.darkPoolPct = null;      // 0 이 아니다 — 0 은 «다크풀 0%» 라는 주장이 된다
+    out.blockTrades = null;
+    out._tickFieldsStripped = true;
+    return out;
 }
 
 /**
