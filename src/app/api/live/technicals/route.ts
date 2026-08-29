@@ -26,7 +26,10 @@ export async function GET(req: NextRequest) {
 
     // 캐시 키에 price/iv 를 넣지 않는다 — 그러면 캐시가 사실상 안 걸린다.
     // 대신 그 둘에 의존하는 파생값만 응답 시점에 다시 계산한다.
-    const key = `tech:adv:${ticker}`;
+    // 캐시 키 버전 — 응답 «형태»가 바뀌면 올린다.
+    // v1 은 ATR 을 가격 없이 계산해 null 로 굳혀 놨었다(6시간). 키를 안 올리면
+    // 고친 코드가 배포돼도 화면은 옛 응답을 계속 본다.
+    const key = `tech:adv:v2:${ticker}`;
     try {
         const cached = await getFromCache<any>(key);
         if (cached) {
