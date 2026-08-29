@@ -28,6 +28,8 @@ export interface BreadthSnapshot {
      *    (Massive 시절부터 있던 휴리스틱 — 명시 플래그로 교체)
      */
     hasData: boolean;
+    /** hasData=false 일 때의 사유 (진단용) */
+    reason?: string;
 }
 
 // === CACHE CONFIG ===
@@ -145,7 +147,7 @@ async function fetchFreshBreadth(
     nasdaqChangePct: number,
     requireCompletedSession = false
 ): Promise<BreadthSnapshot> {
-    const defaultSnapshot = createDefaultSnapshot();
+    const mkDefault = (reason: string) => createDefaultSnapshot(reason);
 
     try {
         // Full Market Snapshot — returns 10,000+ tickers in one call
@@ -158,7 +160,7 @@ async function fetchFreshBreadth(
         const tickers = data?.tickers;
         if (!tickers || tickers.length === 0) {
             console.warn('[Breadth] Empty snapshot response');
-            return defaultSnapshot;
+            return mkDefault('snapshot-empty');
         }
 
         // 비정규장: 스냅샷이 «마지막으로 완료된 정규장»의 것일 때만 신뢰한다.
@@ -168,7 +170,7 @@ async function fetchFreshBreadth(
             const want = lastCompletedTradingDate();
             if (snapDate !== want) {
                 console.warn(`[Breadth] 비정규장 · 스냅샷 ${snapDate || '없음'} ≠ 완료 거래일 ${want} → 중립 반환`);
-                return defaultSnapshot;
+                return mkDefault(`stale-snapshot:${snapDate || 'none'}!=${want}`);
             }
         }
 
@@ -179,7 +181,7 @@ async function fetchFreshBreadth(
 
         if (activeTickers.length < 100) {
             console.warn(`[Breadth] Too few active tickers: ${activeTickers.length}`);
-            return defaultSnapshot;
+            return mkDefault(`too-few-active:${activeTickers.length}/${tickers.length}`);
         }
 
         // Count Advancers / Decliners
@@ -256,13 +258,20 @@ async function fetchFreshBreadth(
         return snapshot;
 
     } catch (error: any) {
-        console.error('[Breadth] Massive API Error:', error?.message);
-        return defaultSnapshot;
+        console.error('[Breadth] snapshot error:', error?.message);
+        return mkDefault(`error:${String(error?.message || error).slice(0, 80)}`);
     }
 }
 
-function createDefaultSnapshot(): BreadthSnapshot {
+/**
+ * 중립 기본값.
+ * ★ `reason` 은 진단용이다. 예전엔 «왜 비었는지»가 응답에 없어서
+ *    프로덕션에서 0/50 만 보고 원인을 못 좁혔다(대표 지적 2회).
+ *    사유를 계산해 놓고 로그에만 남기면 서버리스에선 사실상 사라진다.
+ */
+function createDefaultSnapshot(reason = 'unknown'): BreadthSnapshot {
     return {
+        reason,
         advancers: 0,
         decliners: 0,
         unchanged: 0,

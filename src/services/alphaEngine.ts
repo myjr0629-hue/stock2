@@ -1730,19 +1730,34 @@ export function calculateWhaleIndex(
     else if (absGex > 1_000_000) activityLevel += 15;
     else if (absGex > 100_000) activityLevel += 8;
 
+    // ── 활동도는 «가용한 입력만으로» 정규화한다 ★ [2026-08-29] ──────────────
+    // 예전엔 분모가 75 로 고정이었다. GEX·다크풀·블록딜 세 축이 각 25점이라는 전제였는데,
+    // 이관 후 다크풀·블록딜은 **측정 자체가 불가**해 영원히 0 이 된다.
+    // 그러면 활동도가 최대 25/75 에 갇혀 배수가 0.6~0.9 밖으로 못 나가고,
+    // 고래지수는 실측상 **30~70 안에서만 움직였다** — 극단값이 영영 안 나온다.
+    // 즉 없는 데이터가 «활동 없음»으로 읽혀 지표의 폭을 2/3 잘라먹고 있었다.
+    // → 가용 축의 합만 분모로 쓴다. 있는 정보로는 여전히 0~100 전 구간을 쓴다.
+    let activityMax = 25;                       // GEX 축은 항상 있다
+
     const dp = darkPoolPct ?? 0;
-    if (dp >= 60) activityLevel += 25;
-    else if (dp >= 45) activityLevel += 20;
-    else if (dp >= 30) activityLevel += 12;
-    else if (dp > 0) activityLevel += 5;
+    if (darkPoolPct != null && darkPoolPct > 0) {
+        activityMax += 25;
+        if (dp >= 60) activityLevel += 25;
+        else if (dp >= 45) activityLevel += 20;
+        else if (dp >= 30) activityLevel += 12;
+        else activityLevel += 5;
+    }
 
     const bt = blockTrades ?? 0;
-    if (bt >= 10) activityLevel += 25;
-    else if (bt >= 5) activityLevel += 20;
-    else if (bt >= 2) activityLevel += 15;
-    else if (bt >= 1) activityLevel += 8;
+    if (blockTrades != null && blockTrades > 0) {
+        activityMax += 25;
+        if (bt >= 10) activityLevel += 25;
+        else if (bt >= 5) activityLevel += 20;
+        else if (bt >= 2) activityLevel += 15;
+        else activityLevel += 8;
+    }
 
-    const multiplier = 0.6 + (Math.min(activityLevel, 75) / 75) * 0.9;
+    const multiplier = 0.6 + (Math.min(activityLevel, activityMax) / activityMax) * 0.9;
 
     // [V2.1] Sigmoid compression: maps any raw value to ±50 asymptotically
     // Eliminates ceiling clipping (raw 60 vs 120 both → 100) while preserving ordering
@@ -1758,8 +1773,9 @@ export function calculateWhaleIndex(
     } else {
         // V1 Fallback: activity-based (no directional data available)
         // Still center at 50: low activity = 50, high activity nudged by netPremium direction
-        const activityScore = activityLevel; // 0-75
-        const activityNormalized = (activityScore / 75) * 30; // 0-30
+        // 분모는 위와 같은 이유로 «가용 축의 합»(activityMax) 이다. 75 로 고정하면
+        // 다크풀·블록딜이 없는 지금 활동도 기여분이 1/3 로 눌린다.
+        const activityNormalized = (Math.min(activityLevel, activityMax) / activityMax) * 30; // 0-30
         const direction = npScore > 0 ? 1 : npScore < 0 ? -1 : 0;
         const raw = activityNormalized * direction * 0.5 + npScore * 0.5;
         return clamp(Math.round(50 + compress(raw)), 0, 100);

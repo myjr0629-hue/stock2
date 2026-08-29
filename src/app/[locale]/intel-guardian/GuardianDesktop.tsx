@@ -73,7 +73,7 @@ interface SectorFlowRate {
     instFlow?: {
         avgWhale: number;
         totalNetPremium: number;
-        avgDarkPool: number;
+        avgDarkPool: number | null;
         avgPCR: number;
         totalGEX: number;
         ifs: number;
@@ -1147,12 +1147,16 @@ export default function GuardianDesktop() {
                                                                                 selectedSector.instFlow.avgWhale <= 40 ? 'text-rose-400' : 'text-slate-300'
                                                                             }`}>{selectedSector.instFlow.avgWhale}</span>
                                                                         </div>
-                                                                        {/* Dark Pool */}
+                                                                        {/* Net Premium — 다크풀 자리 대체.
+                                                                            다크풀은 현재 피드에 값이 오지 않아 늘 «0%» 였다.
+                                                                            같은 instFlow 안에 실측되는 순프리미엄을 대신 보인다. */}
                                                                         <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
-                                                                            <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">Dark Pool</div>
+                                                                            <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">Net Premium</div>
                                                                             <span className={`text-sm font-mono font-bold ${
-                                                                                selectedSector.instFlow.avgDarkPool >= 40 ? 'text-cyan-400' : 'text-slate-300'
-                                                                            }`}>{selectedSector.instFlow.avgDarkPool}%</span>
+                                                                                selectedSector.instFlow.totalNetPremium > 0 ? 'text-emerald-400' : selectedSector.instFlow.totalNetPremium < 0 ? 'text-rose-400' : 'text-slate-300'
+                                                                            }`}>{selectedSector.instFlow.totalNetPremium
+                                                                                ? `${selectedSector.instFlow.totalNetPremium > 0 ? '+' : '-'}$${(Math.abs(selectedSector.instFlow.totalNetPremium) / 1e6).toFixed(1)}M`
+                                                                                : '—'}</span>
                                                                         </div>
                                                                         {/* IFS Score */}
                                                                         <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">

@@ -12,7 +12,7 @@ import { getFromCache, setInCache } from "@/services/redisClient";
 export interface SectorInstitutionalFlow {
     avgWhale: number;        // V2 calculateWhaleIndex recalculated
     totalNetPremium: number; // Sector total NP ($)
-    avgDarkPool: number;     // Sector avg DP%
+    avgDarkPool: number | null;  // Sector avg DP% — 못 재면 null (0 이 아니다)
     avgPCR: number;          // Sector avg PCR
     totalGEX: number;        // Sector total GEX ($M)
     ifs: number;             // Institutional Flow Score (-100 ~ +100)
@@ -709,14 +709,23 @@ export class SectorEngine {
                 const totalGEX = safeSum(sectorAcEntries.map(a => a.gexM || 0));
 
                 // IFS composite: whale direction (40%) + net premium (30%) + dark pool (20%) + PCR (10%)
+                //
+                // ★ [2026-08-29] 다크풀 항이 전 섹터를 조용히 −12점씩 끌어내리고 있었다.
+                //   `dpScore = (avgDP - 30) * 2` 는 30% 를 중립으로 보는 식인데,
+                //   이관 후 avgDP 는 «측정 불가»라 항상 0 이다 → dpScore = −60 고정
+                //   → 가중 기여 −60 × 0.2 = **−12점이 모든 섹터에 무조건 더해졌다.**
+                //   0 을 «다크풀 0%» 라는 사실로 읽은 것이 원인이다(측정을 안 했을 뿐이다).
+                //   → 다크풀을 못 재면 그 항을 **빼고 남은 가중치를 재정규화**한다.
+                //     Flow 화면 압력점수에 적용한 것과 같은 처리다.
                 const whaleDir = (avgWhale - 50) * 2; // -100 ~ +100 range
                 const npScore = ifsClamp(totalNP / 10_000_000, -100, 100); // scale: $10M = 1 point
-                const dpScore = (avgDP - 30) * 2; // 30% = neutral baseline
                 const pcrScore = avgPCR > 0 ? (1.0 - avgPCR) * 50 : 0; // low PCR = bullish
-                const ifs = ifsClamp(
-                    whaleDir * 0.4 + npScore * 0.3 + dpScore * 0.2 + pcrScore * 0.1,
-                    -100, 100
-                );
+                const hasDp = avgDP > 0;
+                const ifsRaw = hasDp
+                    ? whaleDir * 0.4 + npScore * 0.3 + ((avgDP - 30) * 2) * 0.2 + pcrScore * 0.1
+                    // 0.4 / 0.3 / 0.1 → ÷0.8 → 0.5 / 0.375 / 0.125
+                    : whaleDir * 0.5 + npScore * 0.375 + pcrScore * 0.125;
+                const ifs = ifsClamp(ifsRaw, -100, 100);
 
                 // Divergence detection: price direction vs institutional direction
                 const priceDir = sector.change >= 0;
@@ -729,7 +738,8 @@ export class SectorEngine {
                 sector.instFlow = {
                     avgWhale: Math.round(avgWhale),
                     totalNetPremium: totalNP,
-                    avgDarkPool: Math.round(avgDP),
+                    // 못 잰 것은 0 이 아니라 null 로 내보낸다 — 화면이 «0%» 라고 단언하면 안 된다
+                    avgDarkPool: hasDp ? Math.round(avgDP) : null,
                     avgPCR: Number(avgPCR.toFixed(2)),
                     totalGEX,
                     ifs: Number(ifs.toFixed(1)),
