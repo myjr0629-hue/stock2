@@ -586,7 +586,7 @@ export class GuardianDataHub {
                         //    그 0 을 그대로 AI 에 넘기면 «거래량 0.00x 저조»라는 **사실 주장**으로
                         //    바뀌어 사용자에게 나간다(2026-08-29 애프터마켓 실제 발생).
                         //    측정 불가는 값이 아니라 부재로 전달해야 한다 → undefined.
-                        rvol: rvolNdx.status === "OPEN" && rvolNdx.rvol > 0 ? rvolNdx.rvol : undefined,
+                        rvol: rvolNdx.status === "OPEN" && (rvolNdx.rvol ?? 0) > 0 ? rvolNdx.rvol! : undefined,
                         vix: macro?.vix || 0,
                         locale,
                         // Macro indicators
@@ -740,7 +740,7 @@ export class GuardianDataHub {
 
             // 3. Acceleration (RVOL > 1.2 or Vector Strength)
             // Use Market RVOL as proxy OR Vector Torque
-            const isAccelerating = rvolNdx.rvol >= 1.2 || (vectors && vectors.length > 0 && vectors[0].strength > 25);
+            const isAccelerating = (rvolNdx.rvol ?? 0) >= 1.2 || (vectors && vectors.length > 0 && vectors[0].strength > 25);
 
             // 4. Accumulation (Breadth)
             // Check top 3 constituents of target sector
@@ -791,8 +791,8 @@ export class GuardianDataHub {
                         label: 'RVOL 1.2+',
                         passed: isAccelerating,
                         // 정규장이 아니면 «0.00x»(저조)가 아니라 «—»(측정 불가)로 보여야 한다
-                        current: rvolNdx.status === "OPEN" && rvolNdx.rvol > 0
-                            ? `${rvolNdx.rvol.toFixed(2)}x`
+                        current: rvolNdx.status === "OPEN" && (rvolNdx.rvol ?? 0) > 0
+                            ? `${rvolNdx.rvol!.toFixed(2)}x`
                             : '—',
                         required: `1.2x ${CHECKLIST_TEXTS[locale].above}`
                     },

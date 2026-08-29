@@ -13,8 +13,8 @@ interface RealityCheckProps {
     nasdaqChange: number;
     guardianScore: number;
     divergenceCase?: 'A' | 'B' | 'C' | 'D' | 'N';
-    rvolNdx?: number;
-    rvolDow?: number;
+    rvolNdx?: number | null;
+    rvolDow?: number | null;
     verdict?: {
         title: string;
         desc: string;
@@ -48,8 +48,8 @@ export function RealityCheck({
     nasdaqChange,
     guardianScore,
     divergenceCase = 'N',
-    rvolNdx = 1.0,
-    rvolDow = 1.0,
+    rvolNdx,
+    rvolDow,
     vixTermStructure,
     bondFlow,
     goldFlow,
@@ -172,12 +172,15 @@ export function RealityCheck({
                 <>
                     <div className="flex-none grid grid-cols-3 gap-x-2 gap-y-3 place-items-center content-center">
                         <DualGauge priceValue={nasdaqChange} flowValue={guardianScore} size="lg" />
-                        <MiniGauge label="NDX 20D" value={`${Math.round(rvolNdx * 100)}%`}
-                            subLabel={rvolNdx > 1.5 ? t('rvolActive') : rvolNdx > 1.0 ? t('rvolNormal') : t('rvolLow')}
-                            colorClass={getRvolColor(rvolNdx)} size="lg" fillPercent={Math.min(rvolNdx * 50, 100)} />
-                        <MiniGauge label="DOW 20D" value={`${Math.round(rvolDow * 100)}%`}
-                            subLabel={rvolDow > 1.5 ? t('rvolActive') : rvolDow > 1.0 ? t('rvolNormal') : t('rvolLow')}
-                            colorClass={rvolDow > 1.0 ? 'text-orange-400' : 'text-slate-400'} size="lg" fillPercent={Math.min(rvolDow * 50, 100)} />
+                        {/* RVOL 은 정규장 지표다. 장 밖에선 측정하지 않으므로 «—» 로 둔다.
+                            예전엔 미측정 0 이 그대로 흘러 `> 1.0 ? 보통 : 저조` 에 걸려
+                            **밤·주말 내내 「거래량 저조」라고 단언**하고 있었다. */}
+                        <MiniGauge label="NDX 20D" value={rvolNdx ? `${Math.round(rvolNdx * 100)}%` : '—'}
+                            subLabel={!rvolNdx ? t('marketClosed') : rvolNdx > 1.5 ? t('rvolActive') : rvolNdx > 1.0 ? t('rvolNormal') : t('rvolLow')}
+                            colorClass={rvolNdx ? getRvolColor(rvolNdx) : 'text-slate-500'} size="lg" fillPercent={rvolNdx ? Math.min(rvolNdx * 50, 100) : 0} />
+                        <MiniGauge label="DOW 20D" value={rvolDow ? `${Math.round(rvolDow * 100)}%` : '—'}
+                            subLabel={!rvolDow ? t('marketClosed') : rvolDow > 1.5 ? t('rvolActive') : rvolDow > 1.0 ? t('rvolNormal') : t('rvolLow')}
+                            colorClass={rvolDow && rvolDow > 1.0 ? 'text-orange-400' : 'text-slate-400'} size="lg" fillPercent={rvolDow ? Math.min(rvolDow * 50, 100) : 0} />
                         <MiniGauge label="US10Y" value={yieldCurve ? `${yieldCurve.us10y.toFixed(2)}%` : '—'}
                             secondaryValue={`${us10yChangePct >= 0 ? '+' : ''}${us10yChangePct.toFixed(2)}%`}
                             subLabel={us10yChangePct > 0 ? t('yieldUp') : us10yChangePct < 0 ? t('yieldDown') : t('yieldFlat')}

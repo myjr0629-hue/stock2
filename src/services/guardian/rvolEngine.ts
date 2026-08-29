@@ -4,9 +4,18 @@ import { fetchMassive } from "../massiveClient";
 // === TYPES ===
 export interface RvolProfile {
     ticker: string;
-    rvol: number;          // The calculated Ratio (e.g. 1.2 = 120% of normal)
-    currentVol: number;    // Today's cumulative volume so far
-    baselineVol: number;   // Average cumulative volume at this time
+    /**
+     * 20일 같은 시각 누적거래량 대비 비율 (1.2 = 평소의 120%).
+     *
+     * ★ 정규장이 아니면 **null** 이다. 0 이 아니다.
+     *   예전엔 0 을 돌려줬는데, 화면이 `rvol > 1.0 ? '보통' : '저조'` 로 읽어
+     *   **밤·주말 내내 「거래량 저조」라고 단언**하고 있었다(RealityCheck).
+     *   AI 리포트 문장도 `rvol < 0.5 → 「거래량 부진」` 으로 그대로 썼다.
+     *   측정하지 않은 것을 판단으로 바꾸면 안 된다.
+     */
+    rvol: number | null;
+    currentVol: number | null;
+    baselineVol: number | null;
     timestamp: number;     // Calculation time
     status: "OPEN" | "CLOSED" | "PRE_MARKET" | "AFTER_HOURS";
 }
@@ -41,7 +50,12 @@ export class RvolEngine {
             const currentMinuteOfDay = hours * 60 + minutes;
 
             let status: RvolProfile['status'] = "CLOSED";
-            if (currentMinuteOfDay >= marketOpen && currentMinuteOfDay < marketClose) status = "OPEN";
+            const dow = nyTime.getDay();
+            if (dow === 0 || dow === 6) {
+                // 주말엔 «장 전»이 아니라 «휴장»이다. 예전 코드는 토요일 새벽을
+                // PRE_MARKET 으로 답해 화면·리포트가 장중인 것처럼 읽었다.
+                status = "CLOSED";
+            } else if (currentMinuteOfDay >= marketOpen && currentMinuteOfDay < marketClose) status = "OPEN";
             else if (currentMinuteOfDay < marketOpen) status = "PRE_MARKET";
             else status = "AFTER_HOURS";
 
@@ -49,15 +63,9 @@ export class RvolEngine {
             await this.ensureBaseline(ticker);
 
             // 3. Skip RVOL during PRE_MARKET and AFTER_HOURS (data is stale/misleading)
-            if (status === "PRE_MARKET" || status === "AFTER_HOURS") {
-                return {
-                    ticker,
-                    rvol: 0,
-                    currentVol: 0,
-                    baselineVol: 0,
-                    timestamp: Date.now(),
-                    status
-                };
+            if (status !== "OPEN") {
+                // 측정하지 않았다 → null. 0 을 돌려주면 화면이 「저조」라고 단언한다.
+                return { ticker, rvol: null, currentVol: null, baselineVol: null, timestamp: Date.now(), status };
             }
 
             // 4. Standard Intraday Logic (OPEN only — PRE/POST already returned above)
@@ -74,7 +82,7 @@ export class RvolEngine {
             // If it's early "OPEN" but no bars yet (switched JUST now), might return empty. 
             // Handle empty bars by showing 0 for now.
             if (bars.length === 0) {
-                return { ticker, rvol: 0, currentVol: 0, baselineVol: 0, timestamp: Date.now(), status };
+                return { ticker, rvol: null, currentVol: null, baselineVol: null, timestamp: Date.now(), status };
             }
 
             // Sum volume up to now
@@ -100,7 +108,8 @@ export class RvolEngine {
 
         } catch (error) {
             console.error(`RVOL Calculation Failed for ${ticker}:`, error);
-            return { ticker, rvol: 0, currentVol: 0, baselineVol: 0, timestamp: Date.now(), status: "CLOSED" };
+            // 실패도 «측정 안 됨»이다 — 0 은 「저조」로 읽힌다
+            return { ticker, rvol: null, currentVol: null, baselineVol: null, timestamp: Date.now(), status: "CLOSED" };
         }
     }
 
