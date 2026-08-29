@@ -8,19 +8,19 @@ const COPY: Record<string, { sponsor: string; title: string; sub: string; cta: s
   ko: {
     sponsor: 'SPONSOR',
     title: 'Apex Clearing Intelligence Feed',
-    sub: '\uc2e4\uc2dc\uac04 \uae30\uad00 \ub2e4\ud06c\ud480 \ube14\ub85d \ubc0f \ub300\ud615 \uc635\uc158 \uccb4\uc778 \ud50c\ub85c\uc6b0',
+    sub: '\uae30\uad00\uae09 \uccb4\uacb0 \ub370\uc774\ud130\uc640 \uc635\uc158 \uccb4\uc778 \ud50c\ub85c\uc6b0',
     cta: '\uc5f0\uacb0',
   },
   en: {
     sponsor: 'SPONSOR',
     title: 'Apex Clearing Intelligence Feed',
-    sub: 'Institutional dark-pool blocks and large options chain flow',
+    sub: 'Institutional execution data and options chain flow',
     cta: 'Open',
   },
   ja: {
     sponsor: 'SPONSOR',
     title: 'Apex Clearing Intelligence Feed',
-    sub: '\u6a5f\u95a2\u30c0\u30fc\u30af\u30d7\u30fc\u30eb\u3001\u30d6\u30ed\u30c3\u30af\u3001\u5927\u53e3\u30aa\u30d7\u30b7\u30e7\u30f3\u30d5\u30ed\u30fc',
+    sub: '\u6a5f\u95a2\u306e\u7d04\u5b9a\u30c7\u30fc\u30bf\u3068\u30aa\u30d7\u30b7\u30e7\u30f3\u30c1\u30a7\u30fc\u30f3\u30d5\u30ed\u30fc',
     cta: '\u63a5\u7d9a',
   },
 };
