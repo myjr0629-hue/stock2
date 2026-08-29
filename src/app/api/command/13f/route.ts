@@ -141,6 +141,8 @@ export interface Holder13F {
     sharesChangePct: number | null;
     prevMarketValue: number | null;
     marketValueChange: number | null;
+    /** 직전 분기 보유 0 → 신규 편입. «0% 변화» 로 표시하면 안 된다 */
+    isNewPosition?: boolean;
 }
 
 export async function GET(request: NextRequest) {
@@ -240,7 +242,9 @@ export async function GET(request: NextRequest) {
                     filingDate: '',
                     prevShares: r.previous_shares ?? null,
                     sharesChange: r.shares_change ?? null,
+                    // 신규 편입은 «0% 변화» 가 아니라 비율 없음이다
                     sharesChangePct: r.shares_change_pct ?? null,
+                    isNewPosition: r.isNewPosition === true,
                     // 직전 분기 «평가액»은 미제공 — 주식수 증감만 신뢰할 수 있다
                     prevMarketValue: null,
                     marketValueChange: null,

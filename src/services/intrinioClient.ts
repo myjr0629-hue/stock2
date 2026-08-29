@@ -1401,24 +1401,39 @@ export async function getInstitutionalOwnershipIntrinio(
     const rows: any[] = data?.ownership || [];
     return rows
         .filter((r) => num(r?.amount) != null && Number(r.amount) > 0)
-        .map((r) => ({
+        .map((r) => {
+            const shares = Number(r.amount) || 0;
+            const prev = num(r.previous_amount);
+            const chg = num(r.amount_change);
+            // ⚠️ 신규 편입 판정.
+            //    실측에서 JPMORGAN 이 `amount_change: +449,404,578` 인데
+            //    `amount_percent_change: 0` 으로 왔다. 직전 보유가 0 이라
+            //    비율을 낼 수 없는 경우인데, 그대로 두면 화면에
+            //    «전량 매수인데 0% 변화» 라는 모순이 나간다.
+            //    → 비율은 null 로 두고 isNew 로 구분한다.
+            const isNew = (prev == null || prev === 0) && chg != null && Math.abs(chg - shares) < 1;
+            const pctRaw = num(r.amount_percent_change);
+            return {
             owner_cik: String(r.owner_cik || ""),
             owner_name: String(r.owner_name || ""),
             period_ended: String(r.period_ended || ""),
-            shares: Number(r.amount) || 0,
+            shares,
             market_value: num(r.value) ?? 0,
-            previous_shares: num(r.previous_amount),
-            shares_change: num(r.amount_change),
-            // Intrinio 는 소수(-0.009253 = -0.93%)로 준다
-            shares_change_pct: num(r.amount_percent_change) != null
-                ? Math.round(Number(r.amount_percent_change) * 100 * 10000) / 10000
-                : null,
+            previous_shares: isNew ? 0 : prev,
+            shares_change: chg,
+            isNewPosition: isNew,
+            // Intrinio 는 소수(-0.009253 = -0.93%)로 준다.
+            // 신규 편입은 비율이 정의되지 않는다 → null (0% 라고 주장하지 않는다)
+            shares_change_pct: isNew || pctRaw == null
+                ? null
+                : Math.round(pctRaw * 100 * 10000) / 10000,
             sole_voting: num(r.sole_voting_authority),
             shared_voting: num(r.shared_voting_authority),
             no_voting: num(r.no_voting_authority),
             // Intrinio 미제공 — 추정하지 않는다
             filing_date: null,
-        }));
+            };
+        });
 }
 
 export async function getMoversIntrinio(direction: "gainers" | "losers"): Promise<any> {
