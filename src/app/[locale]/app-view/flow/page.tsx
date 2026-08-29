@@ -53,11 +53,11 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     underlyer: '기초자산 가격',
     whaleRadar: '고래 블록 거래 (Whale Sweep)',
     uoaTitle: '이례적 옵션 거래 폭발 (UOA)',
-    darkPoolTitle: '다크풀 & 기관 거래 (Dark Pool & Block Trades)',
+    darkPoolTitle: '내부자 & 기관 거래 (Insider & Institutional)',
     vol: '거래량',
     oi: '미결제약정',
     ratio: '배수',
-    whaleLockDesc: '30초 광고를 시청하시면 $100K 이상의 고래 거래 전체 내역과 실시간 다크풀/블록딜 내역을 1시간 동안 해금합니다.',
+    whaleLockDesc: '30초 광고를 시청하시면 $100K 이상의 고래 거래 전체 내역과 내부자(SEC Form 4) 신고 거래를 1시간 동안 해금합니다.',
     opiLabel: '옵션 압박 지수 (OPI)',
     atmIvPctLabel: 'ATM IV 분위수',
     whaleNetBetLabel: '대형 고래 순베팅',
@@ -89,11 +89,11 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     underlyer: 'Underlying Price',
     whaleRadar: 'Whale Sweep Radar',
     uoaTitle: 'Unusual Options Activity (UOA)',
-    darkPoolTitle: 'Dark Pool & Block Trades',
+    darkPoolTitle: 'Insider & Institutional',
     vol: 'Volume',
     oi: 'OI',
     ratio: 'Ratio',
-    whaleLockDesc: 'Watch a 30-second video to unlock the full list of Whale Sweeps (>$100K) and Dark Pool & Block Trades for 1 hour.',
+    whaleLockDesc: 'Watch a 30-second video to unlock the full list of Whale Sweeps (>$100K) and insider (SEC Form 4) filings for 1 hour.',
     opiLabel: 'Options Pressure Index (OPI)',
     atmIvPctLabel: 'ATM IV Percentile',
     whaleNetBetLabel: 'Whale Net Bet',
@@ -125,11 +125,11 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     underlyer: '原資産価格',
     whaleRadar: 'クジラ大口取引 (Whale Sweep)',
     uoaTitle: '異常オプション取引爆発 (UOA)',
-    darkPoolTitle: 'ダークプール & 機関取引 (Dark Pool & Block Trades)',
+    darkPoolTitle: 'インサイダー & 機関取引 (Insider & Institutional)',
     vol: '出来高',
     oi: '建玉',
     ratio: '倍率',
-    whaleLockDesc: '30秒の動画を視聴すると、1時間$100K以上のクジラ取引全履歴とリアルタイムダークプール・ブロックディール内訳をアンロックできます。',
+    whaleLockDesc: '30秒の動画を視聴すると、1時間$100K以上のクジラ取引全履歴とインサイダー（SEC Form 4）報告取引をアンロックできます。',
     opiLabel: 'オプション圧力指数 (OPI)',
     atmIvPctLabel: 'ATM IV パーセンタイル',
     whaleNetBetLabel: 'クジラ純ベット',
@@ -153,7 +153,7 @@ const APP_FLOW_COPY = {
   ko: {
     searchPlaceholder: '티커를 입력하거나 옵션 흐름을 바로 분석',
     searchCta: 'FLOW',
-    searchHint: '옵션, 다크풀, 감마 구조를 하나의 흐름으로 압축',
+    searchHint: '옵션, 내부자, 감마 구조를 하나의 흐름으로 압축',
     overviewEyebrow: 'OPTIONS FLOW OVERVIEW',
     drivers: '핵심 드라이버',
     opiFactors: 'OPI 구성 요인',
@@ -240,7 +240,7 @@ const APP_FLOW_COPY = {
   en: {
     searchPlaceholder: 'Enter a ticker or scan options flow',
     searchCta: 'FLOW',
-    searchHint: 'Options, dark pool, and gamma structure compressed into one read',
+    searchHint: 'Options, insider filings, and gamma structure compressed into one read',
     overviewEyebrow: 'OPTIONS FLOW OVERVIEW',
     drivers: 'Key Drivers',
     opiFactors: 'OPI Factor Rail',
@@ -327,7 +327,7 @@ const APP_FLOW_COPY = {
   ja: {
     searchPlaceholder: 'ティッカーを入力してオプションフローを分析',
     searchCta: 'FLOW',
-    searchHint: 'オプション、ダークプール、ガンマ構造を一つの読み筋に集約',
+    searchHint: 'オプション、インサイダー、ガンマ構造を一つの読み筋に集約',
     overviewEyebrow: 'OPTIONS FLOW OVERVIEW',
     drivers: '主要ドライバー',
     opiFactors: 'OPI構成要因',
@@ -454,30 +454,30 @@ const WHALE_DP_COPY = {
     sectionEyebrow: 'LEVEL 3 FLOW',
     sectionTitle: '기관 플로우 총량',
     sectionInfoTitle: '기관 플로우 설명',
-    sectionInfo: '고래 옵션 체결과 다크풀 블록 거래를 같은 화면에서 압축해 기관성 수급이 어느 방향으로 쏠리는지 보여줍니다. 투자 조언이 아니라 시장 구조 참고용 지표입니다.',
+    sectionInfo: '고래 옵션 체결과 내부자(임원·이사) 신고 거래를 같은 화면에서 압축해 기관성 수급이 어느 방향으로 쏠리는지 보여줍니다. 내부자 거래는 SEC Form 4 공시 기준입니다. 투자 조언이 아니라 시장 구조 참고용 지표입니다.',
     liveBadge: '실시간 집계',
     dayTotal: '당일 추적 총량',
     whaleOptions: '고래 옵션',
-    darkBlocks: '다크풀 블록',
+    darkBlocks: '내부자 순매매',
     callFlow: 'Call 흐름',
     putFlow: 'Put 흐름',
     buySide: '매수 판정',
     sellSide: '매도 판정',
     psychology: '심리 판독',
     psychologyInfoTitle: '심리 판독 설명',
-    psychologyInfo: '고래 Call 비중, 다크풀 순방향, 숏볼륨 압력을 가중 합산한 파생 판독입니다. 원천 데이터의 방향 일치도를 보여주며 투자 조언은 아닙니다.',
+    psychologyInfo: '고래 Call 비중과 숏볼륨 압력을 가중 합산한 파생 판독입니다. 사용할 수 없는 신호는 «중립 표»로 채우지 않고 가중치를 재분배합니다. 원천 데이터의 방향 일치도를 보여주며 투자 조언은 아닙니다.',
     chase: '추격 매수 심리',
     hedge: '헤지 방어 심리',
     mixed: '혼합 수급',
     conviction: '확신도',
-    dpDominance: '다크풀 비중',
+    dpDominance: '내부자 순매매',
     shortPressure: '숏 압력',
     blockIntensity: '블록 강도',
     netBias: '순방향',
     whaleTab: '고래',
-    darkTab: '다크풀',
+    darkTab: '내부자',
     chainTitle: '기관급 실시간 체인',
-    chainSubtitle: '고래 스윕, 다크풀 블록, 가격대별 충격도를 1시간 동안 확인합니다.',
+    chainSubtitle: '고래 스윕, 내부자 신고 거래, 가격대별 충격도를 1시간 동안 확인합니다.',
     unlockCta: '광고 보고 1시간 해제',
     adFree: '또는 $9.99/월 광고 제거',
     socialProof: '오늘 14.2K 잠금해제',
@@ -505,30 +505,30 @@ const WHALE_DP_COPY = {
     sectionEyebrow: 'LEVEL 3 FLOW',
     sectionTitle: 'Institutional Flow Total',
     sectionInfoTitle: 'Institutional Flow',
-    sectionInfo: 'Combines whale options prints and dark-pool block trades to show where institutional pressure is leaning. Educational market-structure signal, not investment advice.',
+    sectionInfo: 'Combines whale options prints and insider (officer/director) filings to show where institutional pressure is leaning. Insider data is from SEC Form 4. Educational market-structure signal, not investment advice.',
     liveBadge: 'Live aggregate',
     dayTotal: 'Tracked today',
     whaleOptions: 'Whale options',
-    darkBlocks: 'Dark blocks',
+    darkBlocks: 'Insider net',
     callFlow: 'Call flow',
     putFlow: 'Put flow',
     buySide: 'Buy classified',
     sellSide: 'Sell classified',
     psychology: 'Psychology Read',
     psychologyInfoTitle: 'Psychology Read',
-    psychologyInfo: 'Derived read from weighted whale call share, dark-pool net direction, and short-volume pressure. It shows signal alignment, not investment advice.',
+    psychologyInfo: 'Derived read from weighted whale call share and short-volume pressure. Unavailable signals are excluded and the remaining weights are renormalized rather than voting neutral. It shows signal alignment, not investment advice.',
     chase: 'Chase demand',
     hedge: 'Hedge defense',
     mixed: 'Mixed flow',
     conviction: 'Conviction',
-    dpDominance: 'Dark pool share',
+    dpDominance: 'Insider net',
     shortPressure: 'Short pressure',
     blockIntensity: 'Block intensity',
     netBias: 'Net bias',
     whaleTab: 'Whale',
-    darkTab: 'Dark Pool',
+    darkTab: 'Insider',
     chainTitle: 'Institutional Live Chain',
-    chainSubtitle: 'Unlock whale sweeps, dark-pool blocks, and strike-level impact for 1 hour.',
+    chainSubtitle: 'Unlock whale sweeps, insider filings, and strike-level impact for 1 hour.',
     unlockCta: 'Watch ad to unlock 1HR',
     adFree: 'or $9.99/mo ad-free',
     socialProof: '14.2K unlocked today',
@@ -556,30 +556,30 @@ const WHALE_DP_COPY = {
     sectionEyebrow: 'LEVEL 3 FLOW',
     sectionTitle: '機関フロー総量',
     sectionInfoTitle: '機関フロー説明',
-    sectionInfo: '大口オプション約定とダークプールのブロック取引を圧縮し、機関性資金がどちらへ傾いているかを示します。投資助言ではなく市場構造の参考指標です。',
+    sectionInfo: '大口オプション約定とインサイダー（役員・取締役）の報告取引を圧縮し、機関性資金がどちらへ傾いているかを示します。インサイダー情報はSEC Form 4 に基づきます。投資助言ではなく市場構造の参考指標です。',
     liveBadge: 'リアルタイム集計',
     dayTotal: '本日追跡総量',
     whaleOptions: '大口オプション',
-    darkBlocks: 'ダークブロック',
+    darkBlocks: 'インサイダー純額',
     callFlow: 'Call フロー',
     putFlow: 'Put フロー',
     buySide: '買い判定',
     sellSide: '売り判定',
     psychology: '心理判定',
     psychologyInfoTitle: '心理判定',
-    psychologyInfo: '大口Call比率、ダークプールのネット方向、ショート出来高圧力を加重した派生判定です。原データの方向一致度を示すもので投資助言ではありません。',
+    psychologyInfo: '大口Call比率とショート出来高圧力を加重した派生判定です。利用できない指標は中立票で埋めず、残りの重みを再配分します。原データの方向一致度を示すもので投資助言ではありません。',
     chase: '追随買い心理',
     hedge: 'ヘッジ防衛心理',
     mixed: '混合フロー',
     conviction: '確信度',
-    dpDominance: 'ダークプール比率',
+    dpDominance: 'インサイダー純額',
     shortPressure: 'ショート圧力',
     blockIntensity: 'ブロック強度',
     netBias: 'ネット方向',
     whaleTab: '大口',
-    darkTab: 'ダーク',
+    darkTab: 'インサイダー',
     chainTitle: '機関級ライブチェーン',
-    chainSubtitle: '大口スイープ、ダークプールブロック、価格帯別インパクトを1時間確認できます。',
+    chainSubtitle: '大口スイープ、インサイダー報告取引、価格帯別インパクトを1時間確認できます。',
     unlockCta: '広告視聴で1時間解除',
     adFree: 'または月$9.99で広告なし',
     socialProof: '本日14.2K件解除',
@@ -771,6 +771,35 @@ export default function AppFlowPage() {
   const [whaleTradesFeed, setWhaleTradesFeed] = useState<any[]>([]);
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>(lastGoodDarkPool ?? []);
   const [darkPoolMeta, setDarkPoolMeta] = useState<any>(null);
+  // 내부자 거래 (다크풀 자리 대체) — SEC Form 4
+  const [insiderData, setInsiderData] = useState<any>(null);
+
+  // ── 내부자 거래 (다크풀 자리 대체) ────────────────────────────────
+  //   실매매(P 매수 / S 매도)만 카드로 보여준다.
+  //   무상부여(A)·옵션행사(M)·세금원천(F)·증여(G)는 «시장에서 산 것»이 아니라
+  //   보상·행정 절차다. 섞으면 «내부자가 샀다»는 잘못된 인상을 준다.
+  const insiderTrades = useMemo(() => {
+    const list: any[] = insiderData?.transactions || [];
+    return list.filter((t) => t.code === 'P' || t.code === 'S').slice(0, 20);
+  }, [insiderData]);
+
+  const insiderStats = useMemo(() => {
+    const buy = insiderTrades.filter((t) => t.code === 'P');
+    const sell = insiderTrades.filter((t) => t.code === 'S');
+    const buySum = buy.reduce((s: number, t: any) => s + (t.value || 0), 0);
+    const sellSum = sell.reduce((s: number, t: any) => s + (t.value || 0), 0);
+    return {
+      count: insiderTrades.length,
+      buyCount: buy.length,
+      sellCount: sell.length,
+      buySum, sellSum,
+      net: buySum - sellSum,
+      largest: insiderTrades.reduce((m: number, t: any) => Math.max(m, t.value || 0), 0),
+      // 실매매가 없을 때 «무엇은 있었는지»는 숨기지 않는다
+      breakdown: insiderData?.breakdown || null,
+    };
+  }, [insiderTrades, insiderData]);
+
   const [whaleMeta, setWhaleMeta] = useState<any>(null);
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
@@ -1028,11 +1057,23 @@ export default function AppFlowPage() {
         setLoading(false);
         initialLoadRef.current = false;
 
-        const [dpRes, ivRes, whaleRes] = await Promise.all([
+        // [2026-08-29] 다크풀 탭 → 내부자 탭.
+        //   다크풀은 현재 플랜에 틱이 없어 측정 불가(응답은 unavailable).
+        //   자리를 비우는 대신 SEC Form 4 내부자 신고 거래를 넣는다.
+        //   다크풀은 익명이지만 내부자는 «누가·언제·얼마에»가 다 나온다.
+        const [dpRes, ivRes, whaleRes, insRes] = await Promise.all([
           optionalFetch(`/api/flow/dark-pool-trades?ticker=${ticker.toUpperCase()}&limit=20`),
           optionalFetch(`/api/flow/iv-percentile?ticker=${ticker.toUpperCase()}`),
-          optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 3500)
+          optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 3500),
+          optionalFetch(`/api/command/insider?ticker=${ticker.toUpperCase()}`, 5000)
         ]);
+
+        if (insRes && insRes.ok) {
+          try {
+            const insData = await insRes.json();
+            setInsiderData(insData?.insider || null);
+          } catch { setInsiderData(null); }
+        }
 
         let dpItems: any[] | null = null;
         let dpMetaNext: any = null;
@@ -1310,7 +1351,7 @@ export default function AppFlowPage() {
     : whaleCopy.liveData;
   const flowPreviewStats = [
     { label: whaleCopy.largestPrint, value: formatCompactMoney(largestInstitutionalPrint), color: largestInstitutionalPrint >= 1000000 ? '#f59e0b' : '#38bdf8' },
-    { label: whaleCopy.netBias, value: dpNetBuyValue == null ? '—' : `${dpNetBuyValue >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(dpNetBuyValue))}`, color: dpNetBuyValue == null ? 'var(--muted)' : (dpNetBuyValue >= 0 ? '#10b981' : '#f43f5e') },
+    { label: whaleCopy.netBias, value: insiderStats.count === 0 ? '—' : `${insiderStats.net >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(insiderStats.net))}`, color: insiderStats.count === 0 ? 'var(--muted)' : (insiderStats.net >= 0 ? '#10b981' : '#f43f5e') },
     { label: whaleCopy.sourceFresh, value: flowFreshness, color: flowFreshness === whaleCopy.liveData ? '#22d3ee' : isSessionClosed ? '#94a3b8' : '#f59e0b' },
   ];
 
@@ -1779,6 +1820,79 @@ export default function AppFlowPage() {
           <span>{tx.time}</span>
           <span style={{ fontWeight: 800, color: '#ffffff' }}>
             {tx.dir}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInsiderCard = (tx: any, idx: number) => {
+    const isBuy = tx.code === 'P';
+    const sideColor = isBuy ? '#10b981' : '#ef4444';
+    const sideText = isBuy ? 'INSIDER - BUY' : 'INSIDER - SELL';
+    return (
+      <div
+        key={idx}
+        style={{
+          flex: '0 0 78%',
+          scrollSnapAlign: 'start',
+          background: isBuy
+            ? 'linear-gradient(145deg, rgba(6, 78, 59, 0.42), rgba(15, 23, 42, 0.78))'
+            : 'linear-gradient(145deg, rgba(76, 5, 25, 0.4), rgba(15, 23, 42, 0.78))',
+          border: `1px solid ${isBuy ? 'rgba(16,185,129,0.34)' : 'rgba(244,63,94,0.3)'}`,
+          borderRadius: '14px',
+          padding: '12px 14px',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          minHeight: '138px',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 18% 0%, rgba(255,255,255,0.12), transparent 32%)' }} />
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontSize: '8px', fontWeight: 900, padding: '2px 5px', borderRadius: '4px',
+            background: isBuy ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+            color: sideColor,
+            border: `1px solid ${isBuy ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`,
+          }}>{sideText}</span>
+          {tx.isDerivative && (
+            <span style={{ fontSize: '8px', fontWeight: 800, color: '#f59e0b', background: 'rgba(245,158,11,0.08)', padding: '2px 5px', borderRadius: '4px' }}>
+              DERIV
+            </span>
+          )}
+        </div>
+
+        <div style={{ position: 'relative', marginTop: 8 }}>
+          <div style={{ fontSize: '11px', fontWeight: 900, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {tx.name}
+          </div>
+          <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {tx.title || (tx.isDirector ? 'Director' : tx.isOfficer ? 'Officer' : '')}
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', margin: '8px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>{whaleCopy.value}</span>
+            <span className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: sideColor }}>
+              {formatCompactMoney(tx.value || 0, 1)}
+            </span>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>{whaleCopy.price}</span>
+            <span className="tnum" style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>
+              {tx.pricePerShare > 0 ? `$${Number(tx.pricePerShare).toFixed(2)}` : '—'}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '7px' }}>
+          <span>{tx.transactionDate || tx.date}</span>
+          <span style={{ fontWeight: 800, color: '#ffffff' }}>
+            {Number(tx.shares || 0).toLocaleString()} {whaleCopy.shares}
           </span>
         </div>
       </div>
@@ -3607,7 +3721,7 @@ export default function AppFlowPage() {
                       </div>
                       <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(34,211,238,0.075)', border: '1px solid rgba(34,211,238,0.15)' }}>
                         <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.darkBlocks}</div>
-                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#22d3ee' }}>{dpDayValue == null ? '—' : formatCompactMoney(dpDayValue, 1)}</div>
+                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#22d3ee' }}>{insiderStats.count === 0 ? '—' : formatCompactMoney(insiderStats.buySum + insiderStats.sellSum, 1)}</div>
                       </div>
                     </div>
                   </div>
@@ -3622,9 +3736,9 @@ export default function AppFlowPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '14px' }}>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
                       <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.dpDominance}</div>
-                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: 'var(--cyan)', marginTop: '4px' }}>{dpDayPct == null ? '—' : `${dpDayPct.toFixed(1)}%`}</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: insiderStats.count === 0 ? 'var(--text-muted)' : (insiderStats.net >= 0 ? '#10b981' : '#f43f5e'), marginTop: '4px' }}>{insiderStats.count === 0 ? '—' : `${insiderStats.net >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(insiderStats.net), 1)}`}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {dpNetBuyValue == null ? '' : <>{dpNetBuyValue >= 0 ? '+' : '-'}{formatCompactMoney(Math.abs(dpNetBuyValue), 1)}</>}
+                        {insiderStats.count === 0 ? '' : `${insiderStats.buyCount}B / ${insiderStats.sellCount}S`}
                       </span>
                     </div>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
@@ -3721,7 +3835,7 @@ export default function AppFlowPage() {
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {whaleCopy.darkTab} <span className="tnum" style={{ opacity: 0.8 }}>{dpDayCount ?? '—'}</span>
+                  {whaleCopy.darkTab} <span className="tnum" style={{ opacity: 0.8 }}>{insiderStats.count}</span>
                 </button>
               </div>
 
@@ -3744,7 +3858,7 @@ export default function AppFlowPage() {
                 title={whaleCopy.chainTitle}
                 subtitle={whaleCopy.chainSubtitle}
                 socialProof={whaleCopy.socialProof}
-                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? whaleDayCount : dpDayCount} ${whaleCopy.prints} / ${formatCompactMoney(flowTab === 'whale' ? largestWhalePrint : largestDpPrint, 1)}` }}
+                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? whaleDayCount : insiderStats.count} ${whaleCopy.prints} / ${formatCompactMoney(flowTab === 'whale' ? largestWhalePrint : insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 adFreeLabel={whaleCopy.adFree}
                 previewChipLabel={whaleCopy.freePreview}
@@ -3765,7 +3879,7 @@ export default function AppFlowPage() {
                   >
                     {flowTab === 'whale'
                       ? whaleSweeps.slice(0, 2).map((tx, idx) => renderWhaleCard(tx, idx))
-                      : filteredDarkPoolTrades.slice(0, 2).map((tx, idx) => renderDarkPoolCard(tx, idx))
+                      : insiderTrades.slice(0, 2).map((tx, idx) => renderInsiderCard(tx, idx))
                     }
                   </div>
                 }
@@ -3784,7 +3898,23 @@ export default function AppFlowPage() {
                 >
                   {flowTab === 'whale'
                     ? (whaleSweeps.length > 0 ? whaleSweeps.map((tx, idx) => renderWhaleCard(tx, idx)) : <div style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '12px', padding: '18px 4px' }}>{whaleCopy.noData}</div>)
-                    : (filteredDarkPoolTrades.length > 0 ? filteredDarkPoolTrades.map((tx, idx) => renderDarkPoolCard(tx, idx)) : <div style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '12px', padding: '18px 4px' }}>{whaleCopy.noData}</div>)
+                    : (insiderTrades.length > 0
+                        ? insiderTrades.map((tx, idx) => renderInsiderCard(tx, idx))
+                        : (
+                          // 실매매가 없을 때 «없다»로 끝내지 않고 무엇이 있었는지 알려준다
+                          <div style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '12px', padding: '18px 4px', lineHeight: 1.6 }}>
+                            {whaleCopy.noData}
+                            {insiderStats.breakdown && (
+                              <div style={{ marginTop: 6, fontSize: '10px', fontWeight: 700, opacity: 0.85 }}>
+                                {[
+                                  insiderStats.breakdown.award ? `${locale === 'ko' ? '무상부여' : locale === 'ja' ? '無償付与' : 'Awards'} ${insiderStats.breakdown.award}` : '',
+                                  insiderStats.breakdown.optionExercise ? `${locale === 'ko' ? '옵션행사' : locale === 'ja' ? 'オプション行使' : 'Exercises'} ${insiderStats.breakdown.optionExercise}` : '',
+                                  insiderStats.breakdown.gift ? `${locale === 'ko' ? '증여' : locale === 'ja' ? '贈与' : 'Gifts'} ${insiderStats.breakdown.gift}` : '',
+                                ].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
+                          </div>
+                        ))
                   }
                 </div>
               </ValueWall>
