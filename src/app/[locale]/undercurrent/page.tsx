@@ -1935,7 +1935,7 @@ export default function UndercurrentPage() {
                             {c.divergence && <span style={{ fontSize: 9.5, fontWeight: 800, color: '#FFD9C4', background: 'rgba(194,65,12,0.55)', padding: '2px 7px', borderRadius: 999, flexShrink: 0 }}>{t.divergence}</span>}
                           </div>
                           <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em', margin: '10px 0 1px', fontVariantNumeric: 'tabular-nums' }}>
-                            {Math.round(c.money?.darkPoolPct ?? 0)}<span style={{ fontSize: 15, fontWeight: 800, opacity: 0.75 }}>%</span>
+                            {c.money?.darkPoolPct == null ? '—' : <>{Math.round(c.money.darkPoolPct)}<span style={{ fontSize: 15, fontWeight: 800, opacity: 0.75 }}>%</span></>}
                           </div>
                           <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>{t.offExchange}</div>
                           <div style={{ height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.18)', marginTop: 9, overflow: 'hidden' }}>
@@ -2139,7 +2139,7 @@ export default function UndercurrentPage() {
                         background: `linear-gradient(160deg, ${C.emeraldDeep}, #0B3D2C)`,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <span style={{ fontSize: 17, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{Math.round(c.money?.darkPoolPct ?? 0)}%</span>
+                        <span style={{ fontSize: 17, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>{c.money?.darkPoolPct == null ? '—' : `${Math.round(c.money.darkPoolPct)}%`}</span>
                         <span style={{ fontSize: 7.5, fontWeight: 800, opacity: 0.7, letterSpacing: '0.06em' }}>OFF-EXCH</span>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>

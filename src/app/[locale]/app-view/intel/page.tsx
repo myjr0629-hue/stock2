@@ -1618,7 +1618,7 @@ export default function AppIntelPage() {
             ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
             impliedMovePct: tick.implied_move_pct ?? tick.impliedMovePct ?? 0,
             whaleIndex: tick.whale_index ?? tick.whaleIndex ?? 0,
-            darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? 0
+            darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? null
           }))
         };
 
@@ -1705,7 +1705,7 @@ export default function AppIntelPage() {
           putFloor: stock.putFloor || 0,
           maxPain: stock.maxPain || 0,
           whaleIndex: stock.whaleIndex || 0,
-          darkPoolPct: stock.darkPoolPct || 0,
+          darkPoolPct: stock.darkPoolPct ?? null,
           ivSkew: stock.ivSkew || 0,
           impliedMovePct: stock.impliedMovePct || 0,
           squeezeScore: stock.squeezeScore || 0,
@@ -2214,7 +2214,7 @@ export default function AppIntelPage() {
         ivSkew: q.ivSkew || 0,
         impliedMovePct: q.impliedMovePct || 0,
         whaleIndex: q.whaleIndex || 0,
-        darkPoolPct: q.darkPoolPct || 0
+        darkPoolPct: q.darkPoolPct ?? null
       }))
       : (sec?.stocks || []).map(sym => ({
         sym,
@@ -2409,7 +2409,7 @@ export default function AppIntelPage() {
         ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
         impliedMovePct: tick.implied_move_pct ?? tick.impliedMovePct ?? 0,
         whaleIndex: tick.whale_index ?? tick.whaleIndex ?? 0,
-        darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? 0
+        darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? null
       }))
     };
   }, [locale, appLocale]);
@@ -5061,7 +5061,7 @@ export default function AppIntelPage() {
                                     { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${stock.putFloor.toFixed(0)}` : '-', color: '#ef4444' },
                                     { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${stock.callWall.toFixed(0)}` : '-', color: '#10b981' },
                                     { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
-                                    { label: 'DARK POOL', tip: 'darkPool', value: (stock.darkPoolPct || 0) > 0 ? `${Math.round(stock.darkPoolPct || 0)}%` : '-', color: (stock.darkPoolPct || 0) >= 45 ? '#a78bfa' : '#94a3b8' },
+                                    { label: 'DARK POOL', tip: 'darkPool', value: (stock.darkPoolPct ?? 0) > 0 ? `${Math.round(stock.darkPoolPct as number)}%` : '—', color: (stock.darkPoolPct || 0) >= 45 ? '#a78bfa' : '#94a3b8' },
                                     { label: 'IV SKEW', tip: 'ivSkew', value: (stock.ivSkew || 0) !== 0 ? `${(stock.ivSkew || 0) > 0 ? '+' : ''}${(stock.ivSkew || 0).toFixed(1)}%` : '-', color: Math.abs(stock.ivSkew || 0) > 3 ? '#f59e0b' : '#94a3b8' },
                                     { label: 'IMP MOVE', tip: 'impliedMove', value: (stock.impliedMovePct || 0) > 0 ? `±${(stock.impliedMovePct || 0).toFixed(1)}%` : '-', color: (stock.impliedMovePct || 0) > 5 ? '#f59e0b' : '#94a3b8' },
                                   ].map(m => (

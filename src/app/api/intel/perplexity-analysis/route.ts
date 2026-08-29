@@ -32,7 +32,7 @@ interface StockData {
     putFloor: number;
     maxPain: number;
     whaleIndex: number;
-    darkPoolPct: number;
+    darkPoolPct: number | null;
     ivSkew: number;
     impliedMovePct: number;
     squeezeScore: number;

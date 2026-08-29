@@ -39,7 +39,7 @@ export interface SectorQuote {
     rsi: number;
     rvol: number;
     whaleIndex: number;
-    darkPoolPct: number;
+    darkPoolPct: number | null;
 }
 
 async function callInternalGet(handler: Function, url: string): Promise<any> {
@@ -142,7 +142,7 @@ export async function GET(request: Request) {
                     rsi: analysis.rsi || 0,
                     rvol: analysis.relVol || 0,
                     whaleIndex: analysis.whaleIndex || 0,
-                    darkPoolPct: analysis.darkPoolPct || 0,
+                    darkPoolPct: analysis.darkPoolPct ?? null,
                 };
             });
 
@@ -268,7 +268,7 @@ export async function GET(request: Request) {
                 rsi: rt.rsi || 0,
                 rvol: rt.relVol || 0,
                 whaleIndex: rt.whaleIndex || 0,
-                darkPoolPct: rt.darkPoolPct || 0
+                darkPoolPct: rt.darkPoolPct ?? null
             });
         });
 

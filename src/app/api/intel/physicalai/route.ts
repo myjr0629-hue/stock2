@@ -36,7 +36,7 @@ export interface PhysicalAIQuote {
     rsi: number;
     rvol: number;
     whaleIndex: number;
-    darkPoolPct: number;
+    darkPoolPct: number | null;
 }
 
 async function callInternalGet(handler: Function, url: string): Promise<any> {
@@ -193,7 +193,7 @@ export async function GET(request: Request) {
                 rsi: rt.rsi || 0,
                 rvol: rt.relVol || 0,
                 whaleIndex: rt.whaleIndex || 0,
-                darkPoolPct: rt.darkPoolPct || 0
+                darkPoolPct: rt.darkPoolPct ?? null
             });
         });
 
