@@ -837,8 +837,72 @@ async function loadBulkEod(): Promise<{ date: string; prevDate: string; rows: Ma
         });
     }
 
-    _eodCache = { at: Date.now(), date: payload.date, prevDate: payload.prevDate || "", rows };
-    return { date: payload.date, prevDate: payload.prevDate || "", rows };
+    // ── 벤더 벌크가 T+1 이라 최신 세션이 빠져 있으면 우리 캡처로 메운다 ★ ──
+    //
+    // 2026-08-29(토) 실측: 벌크 최신 거래일 2026-08-27 → **금요일 장이 통째로 없었다.**
+    // 그러면 EOD 가 전부 stale 로 판정되고, 시간외 호가는 스프레드 게이트에
+    // 13,064 중 1,212 만 통과해 Market Breadth 가 0↑0↓, 가디언 섹터 16개 중
+    // 9개가 구성종목 0개가 된다. 즉 **금요일 마감 후 30시간 넘게** 시장 지표가 비었다.
+    //
+    // scripts/intrinio-session-close.js 가 15:57 ET 에 우리 계정으로 직접 찍어 둔
+    // 종가를 여기서 «최신 거래일»로 얹는다. 벌크가 따라잡으면 자동으로 무시된다
+    // (sc.date <= payload.date 가 되므로).
+    let outDate = payload.date;
+    let outPrevDate = payload.prevDate || "";
+    try {
+        const sc = await readSessionClose();
+        if (sc?.date && sc.date > payload.date && sc.rows) {
+            let merged = 0;
+            for (const [sym, v] of Object.entries(sc.rows)) {
+                const close = Number((v as any[])[0]);
+                const vol = Number((v as any[])[1]) || 0;
+                if (!(close > 0)) continue;
+                const prev = rows.get(sym);
+                // 직전 종가는 벌크의 최신 종가다 (없으면 등락을 만들지 않는다)
+                const prevClose = prev?.c ?? 0;
+                rows.set(sym, {
+                    ticker: sym, date: sc.date,
+                    o: prev?.o ?? 0, h: prev?.h ?? 0, l: prev?.l ?? 0,
+                    c: close, v: vol,
+                    chg: prevClose > 0 ? close - prevClose : 0,
+                    chgPct: prevClose > 0 ? ((close - prevClose) / prevClose) * 100 : 0,
+                });
+                merged++;
+            }
+            if (merged > 0) {
+                outPrevDate = payload.date;   // 벌크의 최신일이 이제 «전일»이 된다
+                outDate = sc.date;
+                console.log(`[Intrinio] 세션종가 병합: ${sc.date} ${merged}종목 (벌크 ${payload.date} 위에)`);
+            }
+        }
+    } catch { /* 캡처가 없으면 기존 동작 그대로 — 폴백이 화면을 더 나쁘게 만들면 안 된다 */ }
+
+    _eodCache = { at: Date.now(), date: outDate, prevDate: outPrevDate, rows };
+    return { date: outDate, prevDate: outPrevDate, rows };
+}
+
+/** 우리가 직접 찍은 세션 종가 (scripts/intrinio-session-close.js) */
+async function readSessionClose(): Promise<{ date: string; rows: Record<string, number[]> } | null> {
+    const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+        const res = await fetch(`${proxy}/get?key=intrinio:eod:sessionclose`, {
+            headers: { Authorization: `Bearer ${key}` },
+            signal: controller.signal,
+            cache: "no-store",
+        });
+        if (!res.ok) return null;
+        const raw = await res.json();
+        const val = raw?.result;
+        const parsed = typeof val === "string" ? safeJson(val) : val;
+        return parsed?.date && parsed?.rows ? parsed : null;
+    } catch {
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 interface EodPayload { date: string; prevDate?: string; rows: any[][]; _ts?: number }
@@ -1305,19 +1369,42 @@ export function spreadPctOf(bid: number | null, ask: number | null): number | nu
 
 /** 개별 realtime 조회로 스냅샷 티커 배열을 만든다 (소수 종목 폴백용) */
 async function buildTickersDirect(tickers: string[]): Promise<any[]> {
-    const settled = await Promise.allSettled(
-        tickers.map(async (t) => {
-            const snap = await getTickerSnapshot(t);
-            return snap?.ticker || null;
-        })
-    );
-    return settled
-        .map((r) => (r.status === "fulfilled" ? r.value : null))
-        .filter(Boolean);
+    // 동시 요청은 나눠서 — 150종목을 한꺼번에 던지면 분당 한도(2,000)를 순간적으로 밀어낸다
+    const CHUNK = 25;
+    const out: any[] = [];
+    for (let i = 0; i < tickers.length; i += CHUNK) {
+        const settled = await Promise.allSettled(
+            tickers.slice(i, i + CHUNK).map(async (t) => {
+                const snap = await getTickerSnapshot(t);
+                return snap?.ticker || null;
+            })
+        );
+        for (const r of settled) {
+            if (r.status === "fulfilled" && r.value) out.push(r.value);
+        }
+    }
+    return out;
 }
 
-/** 다중 종목 스냅샷 폴백 임계치 — 이 이하면 개별 조회 (분당 2,000 호출 한도 고려) */
+/** 다중 종목 스냅샷 폴백 임계치 — 이 이하면 처음부터 개별 조회 (분당 2,000 호출 한도 고려) */
 const DIRECT_SNAPSHOT_MAX = 30;
+
+/**
+ * «벌크에서 빠진 종목» 개별 보완의 상한.
+ *
+ * ★ [2026-08-29] 왜 30 이 아니라 따로 크게 두는가
+ *   벌크 EOD 는 벤더가 T+1 로 게시한다. 토요일 실측: 벌크 최신 거래일이
+ *   **2026-08-27** 이라 금요일 장이 통째로 없었다. 이때 시간외 호가로는
+ *   스프레드 1% 게이트를 통과하는 종목이 13,064 중 1,212 뿐이라
+ *   나머지는 `eodIsStale && !live` 로 탈락한다.
+ *   그 결과 가디언 섹터 16개 중 **9개가 구성종목 0개**(에너지·금융·헬스케어…)
+ *   가 되어 change/volume 이 0 으로 표시됐다.
+ *
+ *   요청 종목이 30을 넘는다는 이유로 보완을 아예 건너뛰고 있었다.
+ *   섹터·워치리스트처럼 «명시된 종목 묶음»은 개별 조회로 메우는 게 맞다.
+ *   (150종목 × 1콜, 캐시 5분 → 분당 30콜 수준. 한도 2,000/분 대비 무시)
+ */
+const DIRECT_BACKFILL_MAX = 150;
 
 export async function getFullMarketSnapshotIntrinio(tickers?: string[]): Promise<any> {
     const want = tickers?.length
@@ -1337,11 +1424,21 @@ export async function getFullMarketSnapshotIntrinio(tickers?: string[]): Promise
     const wantSet = want ? new Set(want) : null;
     let filtered = wantSet ? rows.filter((r) => wantSet.has(r.ticker)) : rows;
 
-    // EOD 에서 못 찾은 종목은 개별 조회로 보완
-    if (wantSet && filtered.length < wantSet.size && wantSet.size <= DIRECT_SNAPSHOT_MAX) {
-        const missing = [...wantSet].filter((t) => !filtered.some((r) => r.ticker === t));
-        const extra = await buildTickersDirect(missing);
-        filtered = [...filtered, ...extra];
+    // EOD 에서 못 찾은 종목은 개별 조회로 보완 (상한 DIRECT_BACKFILL_MAX)
+    if (wantSet && filtered.length < wantSet.size && wantSet.size <= DIRECT_BACKFILL_MAX) {
+        const have = new Set(filtered.map((r) => r.ticker));
+        const missing = [...wantSet].filter((t) => !have.has(t));
+        if (missing.length) {
+            const extra = await buildTickersDirect(missing);
+            filtered = [...filtered, ...extra];
+            // 보완하고도 못 채운 종목은 «없음»이다 — 조용히 0 으로 만들지 않는다
+            if (extra.length < missing.length) {
+                console.warn(
+                    `[Intrinio] 스냅샷 보완 ${extra.length}/${missing.length} — ` +
+                    `미확보: ${missing.filter((t) => !extra.some((e: any) => e.ticker === t)).slice(0, 10).join(",")}`
+                );
+            }
+        }
     }
 
     return { status: "OK", count: filtered.length, tickers: filtered, _source: "intrinio-eod" };
