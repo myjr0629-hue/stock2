@@ -22,6 +22,7 @@ export type MetricTerm =
   | 'putFloor'
   | 'maxPain'
   | 'darkPool'
+  | 'liquidity'
   | 'blockTrades'
   | 'ivRank'
   | 'ivSkew'
@@ -111,6 +112,14 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
       ko: '거래소 밖(장외)에서 체결된 거래 비중입니다. 대형 기관이 시장 충격을 줄이려 쓰는 경로로, 비율이 높을수록 기관 활동이 활발한 것으로 관찰됩니다.',
       en: 'The share of volume executed off-exchange. Large institutions use it to reduce market impact, so a higher percentage is associated with heavier institutional activity.',
       ja: '取引所外（店頭）で約定した取引の割合です。大口機関が市場インパクトを抑えるために用いる経路で、比率が高いほど機関の活動が活発と観測されます。',
+    },
+  },
+  liquidity: {
+    title: { ko: '유동성 (Liquidity)', en: 'Liquidity', ja: '流動性' },
+    body: {
+      ko: '매수·매도 호가 차이(스프레드)로 매긴 0~100 점수입니다. 점수가 높을수록 호가가 촘촘해, 큰 물량이 들어와도 가격이 잘 밀리지 않습니다. 낮으면 시장이 얇아 같은 물량에도 가격이 크게 흔들립니다. 정규장 체결 기준으로 계산하며, 장 마감 후에는 직전 정규장 값을 보여줍니다.',
+      en: 'A 0-100 score derived from the bid-ask spread. A higher score means tighter quotes, so large orders move price less. A lower score means a thin market where the same size swings price more. Computed from regular-session trading; after the close it shows the last regular session.',
+      ja: '売買気配の差（スプレッド）から算出した0〜100のスコアです。高いほど気配が厚く、大口注文でも価格が動きにくいことを示します。低いと市場が薄く、同じ数量でも価格が大きく振れます。通常取引時間の約定を基準に計算し、引け後は直近の通常取引時間の値を表示します。',
     },
   },
   blockTrades: {

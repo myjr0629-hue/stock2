@@ -1395,15 +1395,23 @@ function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocal
       ? 'ショートガンマ構造で値動きが拡大しやすい領域です'
       : 'ガンマは中立圏に近く、方向性よりもレベル反応の確認が重要です';
 
-  const flowKR = netPremium > 0 || whale >= 65 || (darkPool != null && darkPool >= 45)
-    ? `순프리미엄 ${netPremiumText}, Whale ${whaleText}, 다크풀 ${darkPoolText}가 함께 관찰되어 수급 축은 비교적 선명합니다`
-    : `순프리미엄 ${netPremiumText}, Whale ${whaleText}, 다크풀 ${darkPoolText} 기준으로 아직 수급 확신은 제한적입니다`;
-  const flowEN = netPremium > 0 || whale >= 65 || (darkPool != null && darkPool >= 45)
-    ? `Net premium ${netPremiumText}, Whale ${whaleText}, and Dark Pool ${darkPoolText} show a clearer flow axis`
-    : `Net premium ${netPremiumText}, Whale ${whaleText}, and Dark Pool ${darkPoolText} leave flow conviction limited`;
-  const flowJA = netPremium > 0 || whale >= 65 || (darkPool != null && darkPool >= 45)
-    ? `ネットプレミアム${netPremiumText}、Whale ${whaleText}、Dark Pool ${darkPoolText}からフロー軸は比較的明確です`
-    : `ネットプレミアム${netPremiumText}、Whale ${whaleText}、Dark Pool ${darkPoolText}ではフロー確度はまだ限定的です`;
+  // [2026-08-29] 다크풀 → 유동성. 값이 없으면 문장에서 아예 뺀다
+  //   («다크풀 —가 함께 관찰되어» 처럼 깨진 문장이 나가면 안 된다)
+  const liqScore: number | null = (stock as any).liquidityScore ?? null;
+  const liqText = liqScore == null ? null : String(Math.round(liqScore));
+  const flowStrong = netPremium > 0 || whale >= 65 || (liqScore != null && liqScore >= 65);
+  const liqKR = liqText ? `, 유동성 ${liqText}` : '';
+  const liqEN = liqText ? `, Liquidity ${liqText}` : '';
+  const liqJA = liqText ? `、流動性 ${liqText}` : '';
+  const flowKR = flowStrong
+    ? `순프리미엄 ${netPremiumText}, Whale ${whaleText}${liqKR}가 함께 관찰되어 수급 축은 비교적 선명합니다`
+    : `순프리미엄 ${netPremiumText}, Whale ${whaleText}${liqKR} 기준으로 아직 수급 확신은 제한적입니다`;
+  const flowEN = flowStrong
+    ? `Net premium ${netPremiumText}, Whale ${whaleText}${liqEN} show a clearer flow axis`
+    : `Net premium ${netPremiumText}, Whale ${whaleText}${liqEN} leave flow conviction limited`;
+  const flowJA = flowStrong
+    ? `ネットプレミアム${netPremiumText}、Whale ${whaleText}${liqJA}からフロー軸は比較的明確です`
+    : `ネットプレミアム${netPremiumText}、Whale ${whaleText}${liqJA}ではフロー確度はまだ限定的です`;
 
   const levelKR = callWall > 0 && putFloor > 0
     ? `핵심 레벨은 풋플로어 $${putFloor.toFixed(0)}와 콜월 $${callWall.toFixed(0)}이며, 현재가 ${price}는 맥스페인 ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'} 대비 ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} 위치입니다`
@@ -1847,6 +1855,8 @@ export default function AppIntelPage() {
     const avgAlpha = safeAverage(keyStocksData.map(stock => stock.score || 0).filter(value => value > 0));
     const netPremium = keyStocksData.reduce((sum, stock) => sum + (stock.netPremium || 0), 0);
     const avgDarkPool = safeAverage(keyStocksData.map(stock => stock.darkPoolPct || 0).filter(value => value > 0));
+    // 다크풀 대체 — 섹터 평균 유동성
+    const avgLiquidity = safeAverage(keyStocksData.map(stock => (stock as any).liquidityScore || 0).filter(value => value > 0));
     const avgWhale = safeAverage(keyStocksData.map(stock => stock.whaleIndex || 0).filter(value => value > 0));
     const avgSqueeze = safeAverage(keyStocksData.map(stock => stock.squeezeScore || 0).filter(value => value > 0));
     const gammaLong = keyStocksData.filter(stock => String(stock.gammaRegime || '').toUpperCase().includes('LONG')).length;
@@ -1867,9 +1877,9 @@ export default function AppIntelPage() {
         ? `${sectorCopy.name} セクターレポート`
         : `${sectorCopy.name} Sector Report`;
     const localizedReportSummary = appLocale === 'ko'
-      ? `${sectorCopy.name}는 ${lead.sym} 중심의 컨텍스트, 옵션 감마, 고래·다크풀 수급을 앱 화면에 맞게 압축한 섹터 리포트입니다.`
+      ? `${sectorCopy.name}는 ${lead.sym} 중심의 컨텍스트, 옵션 감마, 고래 수급과 유동성을 앱 화면에 맞게 압축한 섹터 리포트입니다.`
       : appLocale === 'ja'
-        ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプションガンマ、ホエール・ダークプールのフローをアプリ向けに要約したセクターレポートです。`
+        ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプションガンマ、ホエールのフローと流動性をアプリ向けに要約したセクターレポートです。`
         : `${sectorCopy.name} is a sector report compressed from ${lead.sym}-led alpha, options gamma, whale flow and dark-pool context.`;
     const localizedVerdict = appLocale === 'ko'
       ? `${localizedReportSummary} 현재 구도는 ${sentiment} 편향이며, ${dominantRegime} 감마, ${formatMoneyCompact(netPremium)} 순프리미엄, 평균 PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}가 핵심 확인 축입니다.`
@@ -1881,20 +1891,20 @@ export default function AppIntelPage() {
         `주도 종목 ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
         `섹터 GEX ${formatGex(totalGex)} / 감마 ${dominantRegime}`,
         `순프리미엄 ${formatMoneyCompact(netPremium)} / 평균 PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-        `고래 ${avgWhale ? Math.round(avgWhale) : '-'} / 다크풀 ${formatPlainPercent(avgDarkPool)} / 스퀴즈 ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+        `고래 ${avgWhale ? Math.round(avgWhale) : '-'} / 유동성 ${avgLiquidity ? Math.round(avgLiquidity) : '-'} / 스퀴즈 ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
       ]
       : appLocale === 'ja'
         ? [
           `主導銘柄 ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
           `セクターGEX ${formatGex(totalGex)} / ガンマ ${dominantRegime}`,
           `ネットプレミアム ${formatMoneyCompact(netPremium)} / 平均PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Dark Pool ${formatPlainPercent(avgDarkPool)} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ]
         : [
           `Lead ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
           `Sector GEX ${formatGex(totalGex)} / Gamma ${dominantRegime}`,
           `Net Premium ${formatMoneyCompact(netPremium)} / Avg PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Dark Pool ${formatPlainPercent(avgDarkPool)} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
+          `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ];
     const bullets = keyStocksData.slice(0, 5).map(stock => {
       const line = `${stock.sym} ${formatPercentCompact(stock.changePct || 0)} / Context ${stock.score.toFixed(0)} / GEX ${formatGex(stock.gex || 0)} / PCR ${stock.pcr ? stock.pcr.toFixed(2) : '-'}`;
@@ -5095,7 +5105,7 @@ export default function AppIntelPage() {
                                     { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${stock.putFloor.toFixed(0)}` : '-', color: '#ef4444' },
                                     { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${stock.callWall.toFixed(0)}` : '-', color: '#10b981' },
                                     { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
-                                    { label: 'LIQUIDITY', tip: 'darkPool', value: ((stock as any).liquidityScore ?? 0) > 0 ? String(Math.round((stock as any).liquidityScore)) : '—', color: (stock.darkPoolPct || 0) >= 45 ? '#a78bfa' : '#94a3b8' },
+                                    { label: 'LIQUIDITY', tip: 'liquidity', value: ((stock as any).liquidityScore ?? 0) > 0 ? String(Math.round((stock as any).liquidityScore)) : '—', color: ((stock as any).liquidityScore ?? 0) >= 65 ? '#22d3ee' : '#94a3b8' },
                                     { label: 'IV SKEW', tip: 'ivSkew', value: (stock.ivSkew || 0) !== 0 ? `${(stock.ivSkew || 0) > 0 ? '+' : ''}${(stock.ivSkew || 0).toFixed(1)}%` : '-', color: Math.abs(stock.ivSkew || 0) > 3 ? '#f59e0b' : '#94a3b8' },
                                     { label: 'IMP MOVE', tip: 'impliedMove', value: (stock.impliedMovePct || 0) > 0 ? `±${(stock.impliedMovePct || 0).toFixed(1)}%` : '-', color: (stock.impliedMovePct || 0) > 5 ? '#f59e0b' : '#94a3b8' },
                                   ].map(m => (
