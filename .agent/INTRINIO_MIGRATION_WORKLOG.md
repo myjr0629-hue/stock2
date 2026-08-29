@@ -489,6 +489,73 @@ PRE 가격 · 옵션 구조 · 차트↔시세 정합성.
 **Redis 키를 읽는 코드를 쓸 때는 «누가 이 키를 채우는가»를 같은 커밋에서 답해야 한다.**
 읽기만 구현하면 타입체크·빌드·배포가 전부 통과하고, 화면은 «그럴듯한 기본값»으로 조용히 죽는다.
 
+## 2026-08-29 심야 — 전수 재점검 라운드 2 (대표 지시: 「메시브 흔적 전부 · 잘못된 건 개선」)
+
+### 발견하고 고친 것 — 요약표
+
+| # | 증상 | 진짜 원인 | 조치 |
+|---|---|---|---|
+| 1 | 가디언 Market Breadth 0/0/50% | Redis 키 `intrinio:eod:snapshot` 의 **생산자 부재** | EC2 적재기 신규(3h cron) |
+| 2 | 등락률이 한 세션 어긋남 | 벌크 EOD 가 **T+1** 인데 `prevClose = c - chg` 고정 | 거래일 비교로 분기 |
+| 3 | movers 가 구조적으로 0% | `getGroupedDailyIntrinio` 가 **날짜 인자를 무시** | prevDate 복원 + 20일 이력 |
+| 4 | 장중에도 EOD 종가 고정 | Startup 플랜은 **TRADE PRICE 가 빈 칸**(NBBO 만 제공) | 호가 미드 + 스프레드 1% 게이트 |
+| 5 | movers 상위가 가짜 급등 | 넓은 스프레드 미드(EBMT 64%·BEPI 66%)를 가격으로 사용 | 스프레드 게이트 |
+| 6 | breadth 패널이 항상 0↑/0↓ | `advancers: 0` **하드코딩** («populated by cache» 주석만) | breadthEngine 직접 연결 |
+| 7 | AI 가 «거래량 0.00x 저조» 서술 | rvol 의 «측정 안 함» 센티널 0 을 사실로 오독 | undefined 로 전달 + 프롬프트 표기 |
+| 8 | 앱만 breadth 비실시간 | `MobileGuardianOverview` 만 `getEffectiveSession` 미적용 | 웹·형제 컴포넌트와 동일화 |
+| 9 | McClellan 이 의미를 잃음 | **일간** 지표를 분 단위로 EMA 갱신 (메시브 시절 결함) | 거래일당 1회 |
+| 10 | 실제 50.0% 를 «데이터 없음»으로 오판 | UI 가 숫자로 기본값 여부를 **추측** | `hasData` 명시 플래그 |
+| 11 | 1D 차트에 PRE/POST 색 없음 | Intrinio 분봉은 **정규장만** 제공 | **시간외 봉 자체 기록**(신규) |
+| 12 | 기록한 POST 봉이 안 붙음 | ET 오프셋 **부호 반전** → 정규장 시간대와 충돌 후 폐기 | 부호 수정 + EDT/EST 왕복 검증 |
+| 13 | 20:00 ET 이후 POST 봉 소실 | 차트는 **UTC** 날짜, 기록기는 **ET** 날짜 | ET 거래일을 조회 후보에 추가 |
+| 14 | Lambda 4개가 죽은 벤더 호출 | `INTRINIO_API_KEY` 가 **빈 문자열** | 실제 키 주입 + 배포 가드 |
+| 15 | 배포가 살아있는 키를 파괴 | `vercel env pull` 이 Secret 을 `[SENSITIVE]` 로 씀 | 유효성 가드 |
+| 16 | harvest 가 0건 수집 | 어댑터의 전 종목 스냅샷이 **미완성 자리표시자** | EOD+호가 결합 구현 (0→480) |
+| 17 | flow-harvest 2,001건 전건 실패 | ①null 구조분해 ②degrade 시 TypeError ③일괄 처리 | 3건 수정 (0→119/120) |
+| 18 | 다크풀 옛 값이 계속 노출 | `dark-pool-trades` 만 게이트 우회 + 무기한 캐시 | 게이트 + 전 필드 null |
+| 19 | 공매도 가짜 수치 노출 | 죽은 소스의 DynamoDB 캐시를 현재처럼 서빙 | 정산일 45일 기준 + null |
+| 20 | 진단이 몇 시간 지연 | 실패 사유를 만들어놓고 **아무데도 안 남김** | 사유 집계 로그 |
+
+### 관통하는 원칙 — 「없는 데이터는 0 이 아니라 없음」
+대표 지시로 전 구간에 적용. 0 은 «측정했더니 0» 이라는 **주장**이라서,
+「공매도 0%」→「위험 낮음」, 「거래량 0.00x」→「저조」 처럼 **틀린 결론**을 만든다.
+없으면 `null` + `unavailable` + `_reason` 으로 내보내 화면이 숨길 수 있게 한다.
+
+### 호출 예산도 이관 대상이었다
+대표 지적: 메시브는 **무제한 콜**이었고 전체 구조가 그 전제로 짜였다.
+Intrinio 는 **2,000콜/분**(문서 · 동시 60건 200 확인).
+- 어댑터에 토큰버킷 리미터
+- flow-harvest 를 **회전 슬라이스 + 시간 예산**으로 (2,001 일괄 → 120/회)
+- 락 TTL 900s → 330s (5분 스케줄에서 15분 락은 3사이클을 막는다)
+
+### 새로 만든 것
+| 파일 | 역할 |
+|---|---|
+| `scripts/intrinio-eod-snapshot.js` | 벌크 EOD → ElastiCache (최신 2일 + 20일 종가 이력) |
+| `scripts/intrinio-ext-bars.js` | **시간외 봉 자체 기록** — 1콜로 전 종목, PM2 상주 |
+| `scripts/intrinio-darkpool-probe.js` | 다크풀 필드 판정 — 개장 직후 자동 실행 |
+| `scripts/audit-endpoints.js` | 전 엔드포인트 감사 (기본값 고정·정체·교차불일치) |
+| `.agent/INDICATOR_SESSION_MATRIX.md` | 지표×세션×앱/웹 정본 |
+| `.agent/INTRINIO_UPGRADE_OPPORTUNITIES.md` | Intrinio 강점 실측 정리 |
+
+### 자동 검증 (정규장에서만 확인 가능한 것들)
+EC2 crontab:
+```
+5 */3 * * *    EOD 적재
+45 13 * * 1-5  다크풀 필드 판정      → /var/log/intrinio-darkpool-probe.log
+30 12 * * 1-5  프리마켓 세션 검증    → /var/log/signum-verify.log
+50 13 * * 1-5  정규장 세션 검증      → /var/log/signum-verify.log
+55 13 * * 1-5  전 엔드포인트 감사    → /var/log/signum-verify.log
+```
+
+### 현재 상태 (2026-08-28 20:55 ET · CLOSED)
+```
+엔드포인트 감사 : 통과 51 · 주의 1 · 실패 0
+차트 1d        : 394봉 (REG 390 + POST 4) · 마지막 19:55 ET $217.93
+시세↔차트      : 0.161% · 시세↔quotes 0.000%
+Market Breadth : 비정규장이라 중립 (설계대로) — 정규장 동작은 자동 검증 대기
+```
+
 ## 작업 이력
 
 ### 2026-08-29

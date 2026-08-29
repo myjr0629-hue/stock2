@@ -30,6 +30,17 @@ const ONLY = (() => {
 })();
 
 const T = "NVDA";
+
+/** 현재 미국장 세션 (ET). verify-sessions.js 와 동일 규칙. */
+function expectedSession() {
+    const d = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    if (d.getDay() === 0 || d.getDay() === 6) return "CLOSED";
+    const m = d.getHours() * 60 + d.getMinutes();
+    if (m >= 240 && m < 570) return "PRE";
+    if (m >= 570 && m < 960) return "REG";
+    if (m >= 960 && m < 1200) return "POST";
+    return "CLOSED";
+}
 const cb = () => `_cb=${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
 // ── 감사 대상 ────────────────────────────────────────────────────────
@@ -41,7 +52,7 @@ const ENDPOINTS = [
     { g: "시세", p: `/api/live/prices?t=${T},AAPL`, req: [] },
     { g: "시세", p: `/api/live/overview?ticker=${T}`, req: [] },
     { g: "시세", p: `/api/live/prev-day?ticker=${T}`, req: [] },
-    { g: "시세", p: `/api/market/ticker?s=${T}`, req: [] },
+    { g: "시세", p: `/api/market/ticker?s=%5EVIX`, req: [] },   // 지수 전용 라우트
     { g: "시세", p: `/api/stock?symbol=${T}`, req: [] },
 
     // 차트
@@ -145,6 +156,16 @@ function auditPayload(name, json) {
                 else if (v === 50 || v === 50.0) fiftyFields.push(path);
             }
         } else if (typeof v === "string" && DATEISH.test(leaf)) {
+            // ⚠️ «과거 날짜 = 이상» 이 아닌 곳들. 여기까지 걸러야 감사기가
+            //    늑대소년이 되지 않는다(오탐이 섞이면 아무도 안 본다).
+            //      · 차트/시계열 배열   — 1년 차트의 첫 봉은 365일 전이 정상
+            //      · baseline 창 라벨   — «30일 전 ~ 어제» 가 정의 그 자체
+            //      · 13F / 내부자 공시  — 제도상 수 주 지연이 정상
+            const benign = /^(data|results|intervals|series|bars|history|rlsiHistory)\[/.test(path)
+                || /baseline\./.test(path)
+                || /(filingDate|transactionDate|periodOfReport)$/i.test(leaf)
+                || /(holders|insider|transactions)\[/.test(path);
+            if (benign) return;
             const m = v.match(/^\d{4}-\d{2}-\d{2}/);
             if (m) {
                 const age = (now - Date.parse(m[0] + "T00:00:00Z")) / 86400000;
@@ -248,12 +269,23 @@ async function fetchJson(path) {
     cmp(px, qPx, "시세 ↔ quotes");
 
     // ── breadth 실체 확인 ────────────────────────────────────────────
+    // Market Breadth 는 **정규장 지표**다 (정본: .agent/INDICATOR_SESSION_MATRIX.md)
+    //   REG          → 실데이터여야 한다
+    //   POST         → 직전 정규장 판독값 유지
+    //   PRE / CLOSED → 중립이 정상 («없음»을 정직하게 표시한 것)
+    // 이걸 구분하지 않으면 밤에 돌릴 때마다 가짜 FAIL 이 뜬다.
     const g = await fetchJson(`/api/debug/guardian?locale=ko`);
     const b = g.json?.data?.breadth || {};
-    const bOk = (b.totalTickers || 0) > 1000 && b.breadthPct !== 50;
-    console.log(`  ${bOk ? C.g + "✓" : C.r + "✗"}${C.x} ${"Market Breadth 실데이터".padEnd(30)} ` +
-        `${b.advancers}↑/${b.decliners}↓ 총 ${b.totalTickers} · ${b.breadthPct}%`);
-    bOk ? nPass++ : (nFail++, findings.push({ sev: "FAIL", ep: "breadth", why: "기본 스냅샷(50%) 상태" }));
+    const hasReal = (b.totalTickers || 0) > 1000 && b.hasData !== false;
+    const sess = expectedSession();
+    const label = `${b.advancers}↑/${b.decliners}↓ 총 ${b.totalTickers} · ${b.breadthPct}% (세션 ${sess})`;
+    if (sess === "REG" || sess === "POST") {
+        console.log(`  ${hasReal ? C.g + "✓" : C.r + "✗"}${C.x} ${"Market Breadth 실데이터".padEnd(30)} ${label}`);
+        hasReal ? nPass++ : (nFail++, findings.push({ sev: "FAIL", ep: "breadth", why: `${sess} 인데 실데이터가 없다` }));
+    } else {
+        console.log(`  ${C.g}✓${C.x} ${"Market Breadth (비정규장)".padEnd(30)} ${label} — 중립이 정상`);
+        nPass++;
+    }
 
     // ── 요약 ─────────────────────────────────────────────────────────
     console.log("\n" + "═".repeat(84));
