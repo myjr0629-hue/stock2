@@ -725,6 +725,68 @@ export async function getTechnicalIndicator(
     };
 }
 
+/**
+ * 하이일드 신용 스프레드 (BofA US High Yield Master II OAS) — 위험 레짐
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * [왜 이걸 붙이나]  현재 매크로 축은 NQ·VIX·US10Y·DXY·TLT·GLD 로 **전부
+ *   주식 아니면 금리**다. 신용시장은 빠져 있었다. HY OAS 는 «위험자산에
+ *   요구되는 추가 수익률»이라 위험선호/회피를 가장 직접적으로 말하고,
+ *   주식보다 먼저 움직이는 경우가 관찰된다.
+ *
+ * [실측]  `indices/economic/$BAMLH0A0HYM2/historical_data/level` → 200
+ *   2026-08-27 2.63 · 08-26 2.67 · 08-25 2.70   (영업일 +1 지연은 정상)
+ *   ⚠️ 이 계열은 그동안 «갱신 느림»으로 분류해 안 쓰고 있었다 — 오판이었다.
+ *
+ * [해석]  절대 수준보다 **방향**이 중요하다. 스프레드 «확대» = 위험회피.
+ *   주가가 오르는데 스프레드가 벌어지면 그 상승은 신용시장이 확인해 주지 않는
+ *   것이라 다이버전스 경고가 된다.
+ */
+const HY_OAS_SYMBOL = "$BAMLH0A0HYM2";
+
+export interface CreditSpread {
+    value: number;
+    date: string;
+    /** 20영업일 전 대비 변화 (%p) */
+    change20d: number | null;
+    /** 최근 1년 분포 백분위 (높을수록 스프레드가 벌어진 상태) */
+    percentile: number | null;
+    /** TIGHTENING = 위험선호 · WIDENING = 위험회피 */
+    regime: "TIGHTENING" | "STABLE" | "WIDENING";
+}
+
+export async function getCreditSpread(): Promise<CreditSpread | null> {
+    try {
+        const data = await callIntrinio(
+            `indices/economic/${encodeURIComponent(HY_OAS_SYMBOL)}/historical_data/level`,
+            { page_size: "260" }
+        );
+        const rows: any[] = data?.historical_data || [];
+        const series = rows
+            .map((r) => ({ date: String(r.date || ""), v: Number(r.value) }))
+            .filter((r) => r.date && Number.isFinite(r.v));
+        if (series.length < 5) return null;
+
+        // API 는 최신순
+        const cur = series[0];
+        const prior = series[Math.min(20, series.length - 1)];
+        const change20d = prior ? Math.round((cur.v - prior.v) * 1000) / 1000 : null;
+
+        const vals = series.map((r) => r.v).sort((a, b) => a - b);
+        const below = vals.filter((v) => v < cur.v).length;
+        const percentile = vals.length >= 60 ? Math.round((below / vals.length) * 100) : null;
+
+        // 0.05%p 미만 변화는 잡음으로 본다 (일간 변동폭 실측이 0.01~0.04 수준)
+        const regime: CreditSpread["regime"] =
+            change20d == null || Math.abs(change20d) < 0.05 ? "STABLE"
+                : change20d > 0 ? "WIDENING" : "TIGHTENING";
+
+        return { value: cur.v, date: cur.date, change20d, percentile, regime };
+    } catch {
+        return null;
+    }
+}
+
 /** 20거래일 종가 시계열 — 이미 Redis 에 적재된 것을 읽는다 (API 콜 0) */
 export async function getCloseHistory(
     ticker: string

@@ -4,6 +4,7 @@
 // Synthetic Multipliers applied to mimic Index Levels.
 
 import { fetchMassive, CACHE_POLICY } from './massiveClient';
+import { getCreditSpread } from "@/services/intrinioClient";
 import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider";
 import { getUpcomingEvents } from './eventHubProvider';
 import { getTreasuryYields, getInflationData } from './fedApiClient';
@@ -49,6 +50,18 @@ export interface MacroSnapshot {
         score: number;
         rating: string;
         updatedAt: string;
+    };
+    /**
+     * 하이일드 신용 스프레드 (BofA HY Master II OAS).
+     * 기존 축이 전부 주식/금리라 신용시장이 빠져 있었다 — 위험 레짐의 독립 축.
+     * 주가가 오르는데 스프레드가 벌어지면 신용시장이 그 상승을 확인해 주지 않는 것이다.
+     */
+    creditSpread?: {
+        value: number;
+        date: string;
+        change20d: number | null;
+        percentile: number | null;
+        regime: 'TIGHTENING' | 'STABLE' | 'WIDENING';
     };
     // Legacy fields
     nq?: number;
@@ -356,12 +369,14 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
 
     // Parallel Fetch with Multipliers + [V7.0] Advanced Indicators
     // [V7.0] VIX, NQ, and TNX (US10Y) from Yahoo (rate-limited: 1 call/min)
-    const [yahooData, qqqFallback, fedYield, yieldCurve, cnnFearGreed] = await Promise.all([
+    const [yahooData, qqqFallback, fedYield, yieldCurve, cnnFearGreed, creditSpread] = await Promise.all([
         getYahooDataSSOT(), // Yahoo -> Cache -> Redis -> Default (rate-limited)
         fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX, marketStatus), // QQQ fallback
         fetchFedYield(), // FED daily yield (fallback for TNX)
         fetchYieldCurveData(),
-        getFromCache<{ score: number; rating: string; updatedAt: string }>('cnn:feargreed')
+        getFromCache<{ score: number; rating: string; updatedAt: string }>('cnn:feargreed'),
+        // 신용 스프레드 — 실패해도 나머지 매크로는 그대로 나가야 한다
+        getCreditSpread().catch(() => null),
     ]);
 
     // Check and trigger background self-healing cron
@@ -485,6 +500,7 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         tltChangePct: tltFactor.chgPct ?? null,
         gldChangePct: gldFactor.chgPct ?? null,
         fearGreed: cnnFearGreed || undefined,
+        creditSpread: creditSpread || undefined,
     };
 
     cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };
