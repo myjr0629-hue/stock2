@@ -1306,6 +1306,74 @@ export async function getSplitsIntrinio(ticker: string, limit = 10): Promise<any
     return { status: "OK", count: results.length, results, _source: "intrinio-adjustments" };
 }
 
+/**
+ * Massive: /v3/reference/options/contracts 대응
+ *
+ * Intrinio 의 `options/{ticker}` 계약 목록은 403(상위 플랜)이다.
+ * 그러나 만기 목록 + EOD 체인은 열려 있으므로 **체인에서 계약을 역산**한다.
+ * (현재 프로덕션 소비처는 없고 옵션 WS 가 꺼져 있지만, 명시적으로 라우팅해
+ *  미래에 누가 이 경로를 쓸 때 죽은 벤더로 나가지 않게 한다)
+ */
+export async function getOptionContractsIntrinio(
+    underlying: string,
+    opts: { expirationGte?: string; limit?: number } = {}
+): Promise<any> {
+    const sym = underlying.toUpperCase();
+    const limit = Math.min(opts.limit ?? 250, 1000);
+    const after = opts.expirationGte || new Date().toISOString().slice(0, 10);
+
+    const exp = await callIntrinio(`options/expirations/${sym}/eod`, { after }).catch(() => null);
+    const expirations: string[] = ((exp?.expirations as string[]) || []).slice().sort().slice(0, 4);
+    if (!expirations.length) return { status: "OK", count: 0, results: [] };
+
+    const chains = await Promise.all(
+        expirations.map((e) => callIntrinio(`options/chain/${sym}/${e}/eod`).catch(() => null))
+    );
+
+    const results: any[] = [];
+    for (const ch of chains) {
+        for (const row of (ch?.chain || [])) {
+            const o = row.option || {};
+            const type = String(o.type || "").toLowerCase();
+            results.push({
+                ticker: `O:${o.code || ""}`,
+                underlying_ticker: sym,
+                contract_type: type === "put" ? "put" : "call",
+                expiration_date: o.expiration || null,
+                strike_price: num(o.strike) ?? 0,
+                shares_per_contract: 100,
+                exercise_style: "american",
+                primary_exchange: "OPRA",
+            });
+            if (results.length >= limit) break;
+        }
+        if (results.length >= limit) break;
+    }
+    return { status: "OK", count: results.length, results, _source: "intrinio-chain-derived" };
+}
+
+/**
+ * Massive: /v3/reference/tickers (목록) 대응
+ * EOD 스냅샷의 유니버스를 그대로 쓴다 — 종목당 호출이 필요 없다.
+ */
+export async function getTickerListIntrinio(opts: { limit?: number } = {}): Promise<any> {
+    const { rows } = await loadBulkEod();
+    const limit = Math.min(opts.limit ?? 1000, 5000);
+    const results = [...rows.values()]
+        .sort((a, b) => b.c * b.v - a.c * a.v)     // 달러거래량 내림차순
+        .slice(0, limit)
+        .map((e) => ({
+            ticker: e.ticker,
+            name: e.ticker,
+            market: "stocks",
+            locale: "us",
+            active: true,
+            currency_name: "usd",
+            type: "CS",
+        }));
+    return { status: "OK", count: results.length, results, _source: "intrinio-eod-universe" };
+}
+
 export async function getMoversIntrinio(direction: "gainers" | "losers"): Promise<any> {
     const rows = await buildMarketTickers();
     // 노이즈 제거: 최소 거래량·가격

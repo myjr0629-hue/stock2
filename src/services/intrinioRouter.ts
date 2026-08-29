@@ -26,6 +26,8 @@ import {
     getOpenCloseIntrinio,
     getDividendsIntrinio,
     getSplitsIntrinio,
+    getOptionContractsIntrinio,
+    getTickerListIntrinio,
 } from "./intrinioClient";
 
 /**
@@ -179,6 +181,21 @@ export async function routeToIntrinio(
     m = path.match(/^\/v3\/reference\/tickers\/([^/]+)$/);
     if (m) return await getTickerDetails(m[1]);
 
+    // 티커 «목록» — EOD 유니버스로 대응 (종목당 호출 불필요)
+    if (path === "/v3/reference/tickers") {
+        return await getTickerListIntrinio({ limit: Number(p("limit")) || 1000 });
+    }
+
+    // 옵션 계약 목록 — Intrinio 의 options/{t} 는 403 이라 체인에서 역산
+    if (path === "/v3/reference/options/contracts") {
+        const u = p("underlying_ticker");
+        if (!u) return { status: "OK", count: 0, results: [] };
+        return await getOptionContractsIntrinio(u, {
+            expirationGte: p("expiration_date.gte"),
+            limit: Number(p("limit")) || 250,
+        });
+    }
+
     // ── 9-b) 배당 이력 ──────────────────────────────────
     // `securities/{t}/dividends` 는 404 지만 `prices/adjustments` 에 배당이 있다.
     // 이걸 못 찾아서 배당 화면이 전 필드 null 로 죽어 있었다(2026-08-29 실측).
@@ -214,6 +231,8 @@ export async function routeToIntrinio(
  * 소비처에서 graceful degrade 되어야 한다.
  */
 export const UNSUPPORTED_ENDPOINTS = [
+    "/stocks/v1/short-volume",     // 공매도 거래량 — Intrinio 미제공(403)
+    "/v3/reference/conditions",    // 거래 조건 코드표 — 틱 데이터가 없어 무의미
     "/stocks/v1/short-interest",   // 공매도 잔고 — Enterprise 전용
     "/v1/related-companies",       // 연관 종목 — 미제공
     "/v3/trades",                  // 틱 체결 — 옵션 실시간 WS 로 대체 예정
