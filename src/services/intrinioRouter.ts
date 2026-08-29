@@ -10,6 +10,7 @@
  * 정본: .agent/INTRINIO_MIGRATION.md · INTRINIO_MIGRATION_WORKLOG.md
  */
 
+import { getNewsFromFmp, hasFmpKey } from "./fmpNewsAdapter";
 import {
     hasIntrinioKey,
     getTickerSnapshot,
@@ -27,10 +28,20 @@ import {
     getSplitsIntrinio,
 } from "./intrinioClient";
 
-/** 라우팅하지 않고 Massive 로 그대로 보낼 엔드포인트 */
-const MASSIVE_PASSTHROUGH = [
-    "/v2/reference/news",   // 뉴스 — 9/23 까지 유지
-];
+/**
+ * 라우팅하지 않고 Massive 로 그대로 보낼 엔드포인트
+ *
+ * ⚠️ 2026-08-29: 뉴스도 **FMP 로 이관**했다. Massive 는 9/23 해지되고,
+ *    3사 실측 비교에서 FMP 가 대안으로 확정됐다(Intrinio 는 종목 연결이 부정확).
+ *    정본: .agent/INTRINIO_API_SURVEY.md §1-2
+ *    되돌리려면 NEWS_SOURCE=massive 로 설정한다.
+ */
+const MASSIVE_PASSTHROUGH: string[] = [];
+
+/** 뉴스 소스 — 기본 FMP, `NEWS_SOURCE=massive` 로 되돌릴 수 있다 */
+function newsSource(): "fmp" | "massive" {
+    return process.env.NEWS_SOURCE === "massive" ? "massive" : "fmp";
+}
 
 export function shouldPassThroughToMassive(endpoint: string): boolean {
     return MASSIVE_PASSTHROUGH.some((p) => endpoint.startsWith(p));
@@ -54,11 +65,26 @@ export async function routeToIntrinio(
     endpoint: string,
     params: Record<string, string> = {}
 ): Promise<any | undefined> {
-    if (!hasIntrinioKey()) return undefined;
     if (shouldPassThroughToMassive(endpoint)) return undefined;
 
     const { path, query } = splitQuery(endpoint);
     const p = (k: string) => params[k] ?? query.get(k) ?? undefined;
+
+    // ── 0) 뉴스 → FMP ───────────────────────────────────
+    // 뉴스는 Intrinio 가 아니라 FMP 로 간다(실측 비교 결과).
+    // Intrinio 키와 무관하므로 hasIntrinioKey() 검사보다 앞에 둔다.
+    if (path === "/v2/reference/news") {
+        if (newsSource() === "massive" || !hasFmpKey()) return undefined;
+        const res = await getNewsFromFmp({
+            ticker: p("ticker"),
+            limit: Number(p("limit")) || 20,
+            since: p("published_utc.gte"),
+        });
+        // FMP 가 실패하면 undefined → 호출부가 Massive 로 폴백(9/23 까지 안전망)
+        return res && res.results?.length ? res : undefined;
+    }
+
+    if (!hasIntrinioKey()) return undefined;
 
     // ── 1) 개별 종목 스냅샷 ─────────────────────────────
     // /v2/snapshot/locale/us/markets/stocks/tickers/{TICKER}
