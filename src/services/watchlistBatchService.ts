@@ -23,7 +23,22 @@ const EC2_REDIS_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || process.env.REDIS
 const INST_LAST_PREFIX = 'cache:inst-last:';
 const INST_LAST_TTL = 259200;
 
+/**
+ * 틱 데이터(체결/호가) 공급 여부.
+ *
+ * ⚠️ Intrinio Startup 플랜에는 틱이 없어 다크풀·블록거래를 **측정할 수 없다.**
+ *    그런데 `cache:inst-last:*` 에 Massive 시절 값이 남아 있어서,
+ *    앱 Intel 화면에 「D.POOL 53.6%」 같은 숫자가 **현재 사실처럼** 나갔다
+ *    (2026-08-29 실화면 확인). 나이 검사만으로는 못 막는다 —
+ *    캐시를 채우는 쪽이 살아 있으면 계속 새 타임스탬프로 되살아난다.
+ *    → 읽는 입구에서 아예 차단한다.
+ */
+function tickDataAvailable(): boolean {
+    return process.env.ENABLE_MASSIVE_TICKS === '1';
+}
+
 async function readLastKnownTradeData(ticker: string) {
+    if (!tickDataAvailable()) return null;
     try {
         const lastKnown = await getFromCache<any>(`${INST_LAST_PREFIX}${ticker}`);
         if (!lastKnown) return null;
@@ -42,6 +57,7 @@ async function readLastKnownTradeData(ticker: string) {
 }
 
 function normalizeTradeMetrics(rawMetrics: any) {
+    if (!tickDataAvailable()) return null;
     if (!rawMetrics) return null;
     const metrics = typeof rawMetrics === 'string' ? JSON.parse(rawMetrics) : rawMetrics;
     const darkPoolPercent = typeof metrics.darkPool?.percent === 'number' ? metrics.darkPool.percent : 0;
@@ -56,7 +72,14 @@ function normalizeTradeMetrics(rawMetrics: any) {
     };
 }
 
+/** 틱 게이트를 통과한 경우에만 캐시된 거래 데이터를 돌려준다 */
+async function fetchCachedTradeDataOnly(ticker: string): Promise<any> {
+    if (!tickDataAvailable()) return null;
+    return await fetchCachedTradeDataOnly_inner(ticker);
+}
+
 function normalizeTradeData(tradeData: Awaited<ReturnType<typeof fetchTradeData>>) {
+    if (!tickDataAvailable()) return null;
     if (!tradeData) return null;
     if ((tradeData.darkPoolPercent ?? 0) <= 0 && (tradeData.blockTrades ?? 0) <= 0) return null;
 
@@ -68,7 +91,7 @@ function normalizeTradeData(tradeData: Awaited<ReturnType<typeof fetchTradeData>
     };
 }
 
-async function fetchCachedTradeDataOnly(ticker: string, timeoutMs = 3200) {
+async function fetchCachedTradeDataOnly_inner(ticker: string, timeoutMs = 3200) {
     try {
         const lastKnownPromise = readLastKnownTradeData(ticker);
         let payload = normalizeTradeMetrics(await getFromCache<any>(`rt-metrics:${ticker}`).catch(() => null));
@@ -435,7 +458,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     : null;
                 const fastDarkPoolPct = (cachedTradeData?.darkPoolPercent && cachedTradeData.darkPoolPercent > 0)
                     ? cachedTradeData.darkPoolPercent
-                    : (analysis.darkPoolPct ?? 0);
+                    : (analysis.darkPoolPct ?? null);
                 const fastBlockTrades = cachedTradeData?.blockTrades ?? null;
                 const fastWhaleIndex = calculateWhaleIndex(
                     analysis.gex,
@@ -485,7 +508,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
 
             // [V5.0] ALWAYS fetch live dark pool from EC2 ElastiCache (100% accuracy, ~3ms)
             // Previous: only fetched when cache was 0 → stale Polygon samples persisted
-            let liveDarkPoolPct = analysis.darkPoolPct ?? 0;
+            let liveDarkPoolPct: number | null = analysis.darkPoolPct ?? null;
             try {
                 const tradeData = await fetchTradeData(ticker);
                 if (tradeData && tradeData.darkPoolPercent > 0) {
@@ -618,7 +641,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 : null;
             const fastDarkPoolPct = (cachedTradeData?.darkPoolPercent && cachedTradeData.darkPoolPercent > 0)
                 ? cachedTradeData.darkPoolPercent
-                : 0;
+                : null;   // 측정 불가는 0 이 아니라 없음
             const fastBlockTrades = cachedTradeData?.blockTrades ?? null;
 
             return {
@@ -665,7 +688,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 const dynamoCachedTradeData = await fetchCachedTradeDataOnly(ticker);
                 const dynamoDarkPoolPct = (dynamoCachedTradeData?.darkPoolPercent && dynamoCachedTradeData.darkPoolPercent > 0)
                     ? dynamoCachedTradeData.darkPoolPercent
-                    : (dynAny.institutional?.darkPool?.percent || 0);
+                    // DynamoDB 의 institutional 은 Massive 시절 잔재다. 게이트가 꺼져 있으면 쓰지 않는다.
+                    : (tickDataAvailable() ? (dynAny.institutional?.darkPool?.percent ?? null) : null);
                 const dynamoBlockTrades = dynamoCachedTradeData?.blockTrades ?? null;
 
                 // Build analysisEntry from DynamoDB data and write to Redis cache
