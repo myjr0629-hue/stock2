@@ -1880,7 +1880,7 @@ export default function AppIntelPage() {
       ? `${sectorCopy.name}는 ${lead.sym} 중심의 컨텍스트, 옵션 감마, 고래 수급과 유동성을 앱 화면에 맞게 압축한 섹터 리포트입니다.`
       : appLocale === 'ja'
         ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプションガンマ、ホエールのフローと流動性をアプリ向けに要約したセクターレポートです。`
-        : `${sectorCopy.name} is a sector report compressed from ${lead.sym}-led alpha, options gamma, whale flow and dark-pool context.`;
+        : `${sectorCopy.name} is a sector report compressed from ${lead.sym}-led alpha, options gamma, whale flow and liquidity context.`;
     const localizedVerdict = appLocale === 'ko'
       ? `${localizedReportSummary} 현재 구도는 ${sentiment} 편향이며, ${dominantRegime} 감마, ${formatMoneyCompact(netPremium)} 순프리미엄, 평균 PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}가 핵심 확인 축입니다.`
       : appLocale === 'ja'
@@ -1915,7 +1915,8 @@ export default function AppIntelPage() {
     const topLoser = [...keyStocksData].sort((a, b) => (a.changePct || 0) - (b.changePct || 0))[0] || lead;
     const avgPcrText = avgPcr ? avgPcr.toFixed(2) : '-';
     const whaleText = avgWhale ? String(Math.round(avgWhale)) : '-';
-    const darkPoolText = avgDarkPool ? formatPlainPercent(avgDarkPool) : '-';
+    // 다크풀 대체 — 섹터 평균 유동성 (측정 불가면 '-')
+    const liquidityText = avgLiquidity ? String(Math.round(avgLiquidity)) : '-';
     const squeezeText = avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-';
     const leadMove = formatPercentCompact(lead.changePct || 0);
     const topGainerMove = formatPercentCompact(topGainer.changePct || 0);
@@ -1926,10 +1927,10 @@ export default function AppIntelPage() {
         ? `${sectorCopy.name} セクター引け後レポート`
         : `${sectorCopy.name} Sector Closing Report`;
     const appReportSummary = appLocale === 'ko'
-      ? `${sectorCopy.name}는 ${lead.sym} 중심의 컨텍스트, 옵션 감마, 고래·다크풀 수급을 함께 압축한 섹터 리포트입니다. 현재 구도는 ${sentiment} 편향이며 ${dominantRegime} 감마, 순프리미엄 ${formatMoneyCompact(netPremium)}, 평균 PCR ${avgPcrText}가 핵심 확인 축입니다.`
+      ? `${sectorCopy.name}는 ${lead.sym} 중심의 컨텍스트, 옵션 감마, 고래 수급과 유동성을 함께 압축한 섹터 리포트입니다. 현재 구도는 ${sentiment} 편향이며 ${dominantRegime} 감마, 순프리미엄 ${formatMoneyCompact(netPremium)}, 평균 PCR ${avgPcrText}가 핵심 확인 축입니다.`
       : appLocale === 'ja'
-        ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプション・ガンマ、ホエール/ダークプールのフローを圧縮したセクターレポートです。現在のバイアスは${sentiment}、ガンマは${dominantRegime}、ネットプレミアムは${formatMoneyCompact(netPremium)}、平均PCRは${avgPcrText}です。`
-        : `${sectorCopy.name} compresses ${lead.sym}-led context, options gamma, whale flow and dark-pool activity into one sector report. Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and ${avgPcrText} average PCR are the main confirmation axes.`;
+        ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプション・ガンマ、ホエールのフローと流動性を圧縮したセクターレポートです。現在のバイアスは${sentiment}、ガンマは${dominantRegime}、ネットプレミアムは${formatMoneyCompact(netPremium)}、平均PCRは${avgPcrText}です。`
+        : `${sectorCopy.name} compresses ${lead.sym}-led context, options gamma, whale flow and liquidity into one sector report. Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and ${avgPcrText} average PCR are the main confirmation axes.`;
     const appReportVerdict = appLocale === 'ko'
       ? `${lead.sym}가 섹터 기준점 역할을 하며 ${leadMove} 움직임과 Context ${lead.score.toFixed(0)}를 기록했습니다. ${topGainer.sym}는 ${topGainerMove}로 상대 강도를 보였고, ${topLoser.sym}는 ${topLoserMove}로 압력 구간을 형성했습니다.`
       : appLocale === 'ja'
@@ -1943,7 +1944,7 @@ export default function AppIntelPage() {
     const appReportCatalysts = [
       appLocale === 'ko' ? `섹터 GEX ${formatGex(totalGex)} / 감마 ${dominantRegime}` : appLocale === 'ja' ? `セクターGEX ${formatGex(totalGex)} / ガンマ ${dominantRegime}` : `Sector GEX ${formatGex(totalGex)} / Gamma ${dominantRegime}`,
       appLocale === 'ko' ? `순프리미엄 ${formatMoneyCompact(netPremium)} / 평균 PCR ${avgPcrText}` : appLocale === 'ja' ? `ネットプレミアム ${formatMoneyCompact(netPremium)} / 平均PCR ${avgPcrText}` : `Net premium ${formatMoneyCompact(netPremium)} / Avg PCR ${avgPcrText}`,
-      appLocale === 'ko' ? `고래 ${whaleText} / 다크풀 ${darkPoolText} / 스퀴즈 ${squeezeText}` : appLocale === 'ja' ? `Whale ${whaleText} / Dark Pool ${darkPoolText} / Squeeze ${squeezeText}` : `Whale ${whaleText} / Dark Pool ${darkPoolText} / Squeeze ${squeezeText}`,
+      appLocale === 'ko' ? `고래 ${whaleText} / 유동성 ${liquidityText} / 스퀴즈 ${squeezeText}` : appLocale === 'ja' ? `Whale ${whaleText} / 流動性 ${liquidityText} / Squeeze ${squeezeText}` : `Whale ${whaleText} / Liquidity ${liquidityText} / Squeeze ${squeezeText}`,
     ];
     const appNewsDigest = keyStocksData.slice(0, 5).map(stock => {
       const move = formatPercentCompact(stock.changePct || 0);
@@ -1962,10 +1963,10 @@ export default function AppIntelPage() {
           ? `${topLoser.sym}の弱さと${formatGex(totalGex)}のGEX方向が食い違う場合、レポートのバイアスは中立化しやすくなります。`
           : `If ${topLoser.sym} weakness conflicts with ${formatGex(totalGex)} sector GEX direction, the report bias can neutralize quickly.`,
       appLocale === 'ko'
-        ? `다크풀 ${darkPoolText}, 고래 ${whaleText}, 스퀴즈 ${squeezeText}는 다음 세션에서 유동성 집중 구간을 재확인하는 보조 축입니다.`
+        ? `유동성 ${liquidityText}, 고래 ${whaleText}, 스퀴즈 ${squeezeText}는 다음 세션에서 수급 집중 구간을 재확인하는 보조 축입니다.`
         : appLocale === 'ja'
-          ? `Dark Pool ${darkPoolText}、Whale ${whaleText}、Squeeze ${squeezeText}は、次セッションの流動性集中ゾーンを再確認する補助軸です。`
-          : `Dark Pool ${darkPoolText}, Whale ${whaleText} and Squeeze ${squeezeText} are supporting axes for the next liquidity check.`,
+          ? `流動性 ${liquidityText}、Whale ${whaleText}、Squeeze ${squeezeText}は、次セッションの需給集中ゾーンを再確認する補助軸です。`
+          : `Liquidity ${liquidityText}, Whale ${whaleText} and Squeeze ${squeezeText} are supporting axes for the next flow check.`,
     ];
     const reportRawNewsDigest = sectorSummary?.newsDigest || sectorSummary?.news_digest;
     const reportNewsItems = normalizeNewsDigest(reportRawNewsDigest);
@@ -2149,7 +2150,7 @@ export default function AppIntelPage() {
         catalysts: [
           `선도 종목 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
         fallbackAnalysis: `${sectorCopy.thesis}. 실시간 스냅샷 보강 전까지 앱에 들어온 가격, 컨텍스트, 옵션 데이터를 기준으로 표시합니다.`
@@ -2159,7 +2160,7 @@ export default function AppIntelPage() {
         catalysts: [
           `Lead ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
         fallbackAnalysis: `${sectorCopy.thesis}. Until the full snapshot arrives, this view uses the app's current price, alpha and options feed.`
@@ -2169,7 +2170,7 @@ export default function AppIntelPage() {
         catalysts: [
           `主導 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
         fallbackAnalysis: `${sectorCopy.thesis}。詳細スナップショット取得前は、アプリに入っている価格、コンテキスト、オプションデータを基準に表示します。`
@@ -2182,7 +2183,7 @@ export default function AppIntelPage() {
         catalysts: [
           `주도 종목 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
         fallbackAnalysis: `${sectorCopy.thesis}. 전체 리포트가 도착하기 전까지 현재 가격, 컨텍스트, 옵션 수급 피드를 기준으로 섹터 맥락을 표시합니다.`
@@ -2192,7 +2193,7 @@ export default function AppIntelPage() {
         catalysts: [
           `Lead ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
         fallbackAnalysis: `${sectorCopy.thesis}. Until the full snapshot arrives, this view uses the app's current price, alpha and options feed.`
@@ -2202,7 +2203,7 @@ export default function AppIntelPage() {
         catalysts: [
           `主導銘柄 ${topStock?.ticker || '-'} / Alpha ${topStock?.alphaScore || '-'}`,
           `GEX ${formatGex(totalGex)} / PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
-          `Net Premium ${formatMoneyCompact(netPremium)} / Dark Pool ${formatPlainPercent(avgDarkPool)}`,
+          `Net Premium ${formatMoneyCompact(netPremium)} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ],
         fallbackAnalysis: `${sectorCopy.thesis}。完全なレポートが届くまでは、現在価格、コンテキスト、オプションフローを基準にセクターの文脈を表示します。`
@@ -2244,7 +2245,8 @@ export default function AppIntelPage() {
     const fallbackTopGainer = [...keyStocksData].sort((a, b) => (b.changePct || 0) - (a.changePct || 0))[0] || fallbackLead;
     const fallbackTopLoser = [...keyStocksData].sort((a, b) => (a.changePct || 0) - (b.changePct || 0))[0] || fallbackLead;
     const fallbackAvgPcrText = avgPcr ? avgPcr.toFixed(2) : '-';
-    const fallbackDarkPoolText = avgDarkPool ? formatPlainPercent(avgDarkPool) : '-';
+    // 다크풀 대체 — 유동성
+    const fallbackLiquidityText = avgLiquidity ? String(Math.round(avgLiquidity)) : '-';
     const fallbackWhaleText = avgWhale ? String(Math.round(avgWhale)) : '-';
     const fallbackSqueezeText = avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-';
     const fallbackTitle = appLocale === 'ko'
@@ -2253,10 +2255,10 @@ export default function AppIntelPage() {
         ? `${sectorCopy.name} セクター引け後レポート`
         : `${sectorCopy.name} Sector Closing Report`;
     const fallbackSummary = appLocale === 'ko'
-      ? `${sectorCopy.name}는 현재 앱에 들어온 컨텍스트, 옵션 감마, 고래·다크풀 수급을 기준으로 압축한 섹터 리포트입니다. 전체 웹 리포트가 갱신되기 전에도 핵심 방향과 리스크 축을 먼저 확인할 수 있습니다.`
+      ? `${sectorCopy.name}는 현재 앱에 들어온 컨텍스트, 옵션 감마, 고래 수급과 유동성을 기준으로 압축한 섹터 리포트입니다. 전체 웹 리포트가 갱신되기 전에도 핵심 방향과 리스크 축을 먼저 확인할 수 있습니다.`
       : appLocale === 'ja'
-        ? `${sectorCopy.name}は、現在アプリに入っているコンテキスト、オプション・ガンマ、ホエール/ダークプールのフローを基準に圧縮したセクターレポートです。完全なWebレポート更新前でも、主要な方向性とリスク軸を確認できます。`
-        : `${sectorCopy.name} is compressed from the app's current alpha, options gamma, whale and dark-pool flow. It keeps the sector bias and risk axes visible while the full web report refreshes.`;
+        ? `${sectorCopy.name}は、現在アプリに入っているコンテキスト、オプション・ガンマ、ホエールのフローと流動性を基準に圧縮したセクターレポートです。完全なWebレポート更新前でも、主要な方向性とリスク軸を確認できます。`
+        : `${sectorCopy.name} is compressed from the app's current alpha, options gamma, whale flow and liquidity. It keeps the sector bias and risk axes visible while the full web report refreshes.`;
     const fallbackVerdict = appLocale === 'ko'
       ? `${fallbackLead?.sym || sectorCopy.name}가 중심 관찰 축입니다. ${gainers}개 상승, ${losers}개 하락이며 ${dominantRegime} 감마와 평균 PCR ${fallbackAvgPcrText}를 기준으로 다음 세션의 반응을 확인해야 합니다.`
       : appLocale === 'ja'
@@ -2275,10 +2277,10 @@ export default function AppIntelPage() {
     });
     const fallbackRisks = [
       appLocale === 'ko'
-        ? `순프리미엄 ${formatMoneyCompact(netPremium)}, 다크풀 ${fallbackDarkPoolText}, 고래 ${fallbackWhaleText}가 서로 엇갈리면 리포트 편향은 중립화될 수 있습니다.`
+        ? `순프리미엄 ${formatMoneyCompact(netPremium)}, 유동성 ${fallbackLiquidityText}, 고래 ${fallbackWhaleText}가 서로 엇갈리면 리포트 편향은 중립화될 수 있습니다.`
         : appLocale === 'ja'
-          ? `ネットプレミアム ${formatMoneyCompact(netPremium)}、Dark Pool ${fallbackDarkPoolText}、Whale ${fallbackWhaleText}が食い違う場合、レポートのバイアスは中立化する可能性があります。`
-          : `If ${formatMoneyCompact(netPremium)} net premium, ${fallbackDarkPoolText} dark-pool activity and Whale ${fallbackWhaleText} diverge, the report bias can neutralize.`,
+          ? `ネットプレミアム ${formatMoneyCompact(netPremium)}、流動性 ${fallbackLiquidityText}、Whale ${fallbackWhaleText}が食い違う場合、レポートのバイアスは中立化する可能性があります。`
+          : `If ${formatMoneyCompact(netPremium)} net premium, Liquidity ${fallbackLiquidityText} and Whale ${fallbackWhaleText} diverge, the report bias can neutralize.`,
       appLocale === 'ko'
         ? `스퀴즈 ${fallbackSqueezeText}는 변동성 확장 여부를 보는 보조 축입니다. 가격 레벨과 체결 강도 확인이 필요합니다.`
         : appLocale === 'ja'
@@ -2304,10 +2306,10 @@ export default function AppIntelPage() {
         : `Track ${fallbackTopGainer?.sym || '-'} relative strength against ${fallbackTopLoser?.sym || '-'} pressure, then verify whether sector GEX ${formatGex(totalGex)} absorbs or amplifies price reaction.`;
     const safeFallbackRisks = [
       appLocale === 'ko'
-        ? `순프리미엄 ${formatMoneyCompact(netPremium)}, 다크풀 ${fallbackDarkPoolText}, 고래 ${fallbackWhaleText}가 서로 엇갈리면 리포트 편향은 빠르게 중립화될 수 있습니다.`
+        ? `순프리미엄 ${formatMoneyCompact(netPremium)}, 유동성 ${fallbackLiquidityText}, 고래 ${fallbackWhaleText}가 서로 엇갈리면 리포트 편향은 빠르게 중립화될 수 있습니다.`
         : appLocale === 'ja'
-          ? `ネットプレミアム${formatMoneyCompact(netPremium)}、ダークプール${fallbackDarkPoolText}、Whale ${fallbackWhaleText}が互いに乖離すると、レポートのバイアスは中立化しやすくなります。`
-          : `If ${formatMoneyCompact(netPremium)} net premium, ${fallbackDarkPoolText} dark-pool activity and Whale ${fallbackWhaleText} diverge, the report bias can neutralize.`,
+          ? `ネットプレミアム${formatMoneyCompact(netPremium)}、流動性${fallbackLiquidityText}、Whale ${fallbackWhaleText}が互いに乖離すると、レポートのバイアスは中立化しやすくなります。`
+          : `If ${formatMoneyCompact(netPremium)} net premium, Liquidity ${fallbackLiquidityText} and Whale ${fallbackWhaleText} diverge, the report bias can neutralize.`,
       appLocale === 'ko'
         ? `스퀴즈 ${fallbackSqueezeText}는 변동성 확장 여부를 보는 보조 축입니다. 가격 레벨과 체결 강도 확인이 필요합니다.`
         : appLocale === 'ja'
