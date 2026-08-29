@@ -1246,36 +1246,58 @@ export default function AppFlowPage() {
     : locale === 'ja'
     ? '総額構成'
     : 'Total mix';
-  const dpDayValue = Number(darkPoolMeta?.totalDarkPoolValue ?? dpSummary.total ?? 0);
-  const dpDayCount = Number(tickerData?.flow?.blockTrades ?? darkPoolMeta?.tradeCount ?? filteredDarkPoolTrades.length);
-  const dpDayPct = Number(pctNumber(dpPct) || darkPoolMeta?.darkPoolPercent || 0);
-  const dpNetBuyValue = Number(tickerData?.flow?.darkPoolNetBuyVal ?? (dpSummary.buySum - dpSummary.sellSum));
+  // ── 「없는 데이터는 0 이 아니라 없음」 ───────────────────────────
+  // 다크풀은 현재 플랜에 틱 데이터가 없어 **측정 자체가 불가**하다.
+  // 그런데 `?? 0` 으로 떨어뜨리면 화면에 「다크풀 블록 $0 · 비중 0.0%」가
+  // **측정된 사실처럼** 나간다(2026-08-29 앱 실화면에서 확인).
+  // 같은 화면의 「숏 압력」은 이미 «—» 로 나오는데 다크풀만 0 이었다.
+  // 0% 다크풀은 「기관 개입 없음」이라는 틀린 결론을 만든다.
+  const dpUnavailable = darkPoolMeta?.unavailable === true
+    || (tickerData?.flow?.darkPoolPct == null && darkPoolMeta?.totalDarkPoolValue == null);
+  const dpDayValue = dpUnavailable ? null : Number(darkPoolMeta?.totalDarkPoolValue ?? dpSummary.total ?? 0);
+  const dpDayCount = dpUnavailable ? null : Number(tickerData?.flow?.blockTrades ?? darkPoolMeta?.tradeCount ?? filteredDarkPoolTrades.length);
+  const dpDayPct = dpUnavailable ? null : Number(pctNumber(dpPct) || darkPoolMeta?.darkPoolPercent || 0);
+  const dpNetBuyValue = dpUnavailable ? null : Number(tickerData?.flow?.darkPoolNetBuyVal ?? (dpSummary.buySum - dpSummary.sellSum));
   const whaleDayTotal = Number(whaleSummary.total || 0);
   const whaleDayCount = Number(whaleMeta?.count ?? whaleSummary.count ?? 0);
-  const institutionalTotal = whaleDayTotal + dpDayValue;
+  const institutionalTotal = whaleDayTotal + (dpDayValue ?? 0);
   const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : callPct;
   const largestWhalePrint = whaleSweeps[0]?.premium || 0;
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
   const largestInstitutionalPrint = Math.max(largestWhalePrint, largestDpPrint);
   const shortPressureNum = pctNumber(shortPct);
   const whaleBiasScore = Math.max(-100, Math.min(100, Math.round((whaleCallShare - 50) * 2)));
-  const dpBiasScore = institutionalTotal > 0 ? Math.max(-100, Math.min(100, Math.round((dpNetBuyValue / Math.max(dpDayValue, 1)) * 100))) : 0;
-  const pressureScore = Math.max(-100, Math.min(100, Math.round((whaleBiasScore * 0.5) + (dpBiasScore * 0.3) - ((shortPressureNum - 45) * 0.8))));
+  // 다크풀 미제공이면 편향 점수를 0(중립)으로 «주장»하지 않고 계산에서 제외한다
+  const dpBiasScore = (!dpUnavailable && institutionalTotal > 0 && dpDayValue != null)
+    ? Math.max(-100, Math.min(100, Math.round(((dpNetBuyValue ?? 0) / Math.max(dpDayValue, 1)) * 100)))
+    : null;
+  // 다크풀이 없으면 그 가중치(0.3)를 «중립 0 표» 로 채우지 않고,
+  // 남은 신호(고래)에 **재정규화**한다. 없는 신호가 결론을 중립 쪽으로
+  // 끌어당기는 것도 일종의 조용한 왜곡이다.
+  const pressureScore = Math.max(-100, Math.min(100, Math.round(
+    dpBiasScore == null
+      ? (whaleBiasScore * 0.8) - ((shortPressureNum - 45) * 0.8)
+      : (whaleBiasScore * 0.5) + (dpBiasScore * 0.3) - ((shortPressureNum - 45) * 0.8)
+  )));
   const psychologyLabel = pressureScore >= 20
     ? whaleCopy.chase
     : pressureScore <= -20
     ? whaleCopy.hedge
     : whaleCopy.mixed;
   const psychologyAccent = pressureScore >= 20 ? '#10b981' : pressureScore <= -20 ? '#f43f5e' : '#f59e0b';
-  const rawBlockCount = Number(dpDayCount || blockCount || 0);
-  const formattedBlockCount = rawBlockCount.toLocaleString(locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US');
+  const rawBlockCount = dpUnavailable ? null : Number(dpDayCount || blockCount || 0);
+  const formattedBlockCount = rawBlockCount == null
+    ? '—'
+    : rawBlockCount.toLocaleString(locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US');
   const convictionPct = Math.max(35, Math.min(92, Math.round(
     45
     + Math.abs(pressureScore) * 0.35
     + Math.min(whaleDayCount, 25) * 0.4
-    + Math.min(dpDayPct, 60) * 0.12
+    + Math.min(dpDayPct ?? 0, 60) * 0.12
   )));
-  const blockIntensityPct = Math.max(5, Math.min(100, Math.round((rawBlockCount / 10000) * 100)));
+  const blockIntensityPct = rawBlockCount == null
+    ? null
+    : Math.max(5, Math.min(100, Math.round((rawBlockCount / 10000) * 100)));
   const isSessionClosed = effectiveSession === 'CLOSED';
   const isFlowStale = Boolean(darkPoolMeta?._stale);
   const isFlowCached = Boolean(darkPoolMeta?._cached || whaleMeta?._cached);
@@ -1288,7 +1310,7 @@ export default function AppFlowPage() {
     : whaleCopy.liveData;
   const flowPreviewStats = [
     { label: whaleCopy.largestPrint, value: formatCompactMoney(largestInstitutionalPrint), color: largestInstitutionalPrint >= 1000000 ? '#f59e0b' : '#38bdf8' },
-    { label: whaleCopy.netBias, value: `${dpNetBuyValue >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(dpNetBuyValue))}`, color: dpNetBuyValue >= 0 ? '#10b981' : '#f43f5e' },
+    { label: whaleCopy.netBias, value: dpNetBuyValue == null ? '—' : `${dpNetBuyValue >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(dpNetBuyValue))}`, color: dpNetBuyValue == null ? 'var(--muted)' : (dpNetBuyValue >= 0 ? '#10b981' : '#f43f5e') },
     { label: whaleCopy.sourceFresh, value: flowFreshness, color: flowFreshness === whaleCopy.liveData ? '#22d3ee' : isSessionClosed ? '#94a3b8' : '#f59e0b' },
   ];
 
@@ -3585,7 +3607,7 @@ export default function AppFlowPage() {
                       </div>
                       <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(34,211,238,0.075)', border: '1px solid rgba(34,211,238,0.15)' }}>
                         <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.darkBlocks}</div>
-                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#22d3ee' }}>{formatCompactMoney(dpDayValue, 1)}</div>
+                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#22d3ee' }}>{dpDayValue == null ? '—' : formatCompactMoney(dpDayValue, 1)}</div>
                       </div>
                     </div>
                   </div>
@@ -3600,9 +3622,9 @@ export default function AppFlowPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '14px' }}>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
                       <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.dpDominance}</div>
-                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: 'var(--cyan)', marginTop: '4px' }}>{dpDayPct.toFixed(1)}%</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: 'var(--cyan)', marginTop: '4px' }}>{dpDayPct == null ? '—' : `${dpDayPct.toFixed(1)}%`}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {dpNetBuyValue >= 0 ? '+' : '-'}{formatCompactMoney(Math.abs(dpNetBuyValue), 1)}
+                        {dpNetBuyValue == null ? '' : <>{dpNetBuyValue >= 0 ? '+' : '-'}{formatCompactMoney(Math.abs(dpNetBuyValue), 1)}</>}
                       </span>
                     </div>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
@@ -3614,9 +3636,9 @@ export default function AppFlowPage() {
                     </div>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
                       <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.blockIntensity}</div>
-                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{dpDayCount || blockCount}</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{dpDayCount == null ? '—' : (dpDayCount || blockCount)}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px' }}>
-                        {blockIntensityPct}%
+                        {blockIntensityPct == null ? '—' : `${blockIntensityPct}%`}
                       </span>
                     </div>
                   </div>
@@ -3654,9 +3676,9 @@ export default function AppFlowPage() {
                   <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 850 }}>{whaleCopy.blockIntensity}</div>
                   <div className="tnum" style={{ color: '#22d3ee', fontSize: '18px', fontWeight: 950, marginTop: '5px' }}>{formattedBlockCount}</div>
                   <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: '7px' }}>
-                    <div style={{ width: `${blockIntensityPct}%`, height: '100%', background: '#22d3ee', boxShadow: '0 0 10px rgba(34,211,238,0.7)' }} />
+                    <div style={{ width: `${blockIntensityPct ?? 0}%`, height: '100%', background: '#22d3ee', boxShadow: '0 0 10px rgba(34,211,238,0.7)' }} />
                   </div>
-                  <div style={{ marginTop: '5px', fontSize: '8px', color: '#91a6ca', fontWeight: 850 }}>{blockIntensityPct}%</div>
+                  <div style={{ marginTop: '5px', fontSize: '8px', color: '#91a6ca', fontWeight: 850 }}>{blockIntensityPct == null ? '—' : `${blockIntensityPct}%`}</div>
                 </div>
               </div>
             </div>
@@ -3699,7 +3721,7 @@ export default function AppFlowPage() {
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {whaleCopy.darkTab} <span className="tnum" style={{ opacity: 0.8 }}>{dpDayCount}</span>
+                  {whaleCopy.darkTab} <span className="tnum" style={{ opacity: 0.8 }}>{dpDayCount ?? '—'}</span>
                 </button>
               </div>
 
