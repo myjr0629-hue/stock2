@@ -4248,19 +4248,38 @@ export default function AppIntelPage() {
             const regimeText = sec.gammaLong > sec.gammaShort ? labels.gammaLong : sec.gammaShort > sec.gammaLong ? labels.gammaShort : labels.gammaMixed;
             const topStock = sec.topStock;
             const aiLine = (sec.aiLine || sectorCopy.thesis || '').replace(/\s+/g, ' ');
-            const displayGex = sec.totalGex !== 0 ? sec.totalGex : sec.gammaPulse.pct * -700000;
-            const displayPcr = sec.avgPcr || (sec.gammaPulse.stance === 'STABLE' ? 0.72 : sec.gammaPulse.stance === 'NEUTRAL' ? 0.98 : 1.24);
-            const displayNetPremium = sec.netPremium !== 0 ? sec.netPremium : sec.change * 18000000;
-            const displayDarkPool = sec.avgDarkPool || Math.max(38, Math.min(68, 48 + Math.abs(sec.gammaPulse.pct) * 0.18));
-            const displayWhale = sec.avgWhale || Math.max(42, Math.min(82, 52 + Math.abs(sec.gammaPulse.pct) * 0.22));
-            const displaySqueeze = sec.avgSqueeze || Math.max(22, Math.min(76, 28 + Math.abs(sec.gammaPulse.pct) * 0.35));
+            // ══════════════════════════════════════════════════════════════
+            // ⚠️ 여기에 «없으면 그럴듯한 숫자를 만들어 넣는» 코드가 있었다.
+            //
+            //   displayDarkPool = sec.avgDarkPool || 48 + |gammaPulse| * 0.18   (38~68 클램프)
+            //   displayWhale    = sec.avgWhale    || 52 + |gammaPulse| * 0.22
+            //   displaySqueeze  = sec.avgSqueeze  || 28 + |gammaPulse| * 0.35
+            //   displayGex      = totalGex !== 0 ? totalGex : gammaPulse * -700000
+            //   displayPcr      = avgPcr || (stance 별 0.72 / 0.98 / 1.24)
+            //   displayNetPrem  = netPremium !== 0 ? netPremium : change * 18000000
+            //
+            // 다크풀은 현재 플랜에 틱이 없어 **측정 자체가 불가**한데,
+            // 화면에는 「DARK POOL 64%」가 감마 펄스로 합성되어 나갔다
+            // (2026-08-29 앱 실화면 확인 — 값이 새로고침마다 바뀌었다).
+            // 이건 «0 을 사실로 주장»하는 것보다 나쁘다. 아예 없는 측정을
+            // 구체적 숫자로 만들어낸 것이기 때문이다.
+            //
+            // 없으면 없다고 한다 → null → 화면은 «—».
+            // ══════════════════════════════════════════════════════════════
+            const displayGex: number | null = sec.totalGex !== 0 ? sec.totalGex : null;
+            const displayPcr: number | null = sec.avgPcr || null;
+            const displayNetPremium: number | null = sec.netPremium !== 0 ? sec.netPremium : null;
+            const displayDarkPool: number | null = sec.avgDarkPool || null;
+            const displayWhale: number | null = sec.avgWhale || null;
+            const displaySqueeze: number | null = sec.avgSqueeze || null;
+            const MUTED = '#94a3b8';
             const tapeMetrics = [
-              { label: labels.gex, value: formatGex(displayGex), color: displayGex >= 0 ? '#10b981' : '#ef4444' },
-              { label: labels.pcr, value: displayPcr.toFixed(2), color: displayPcr < 0.8 ? '#10b981' : displayPcr > 1.1 ? '#ef4444' : '#e2e8f0' },
-              { label: labels.net, value: formatMoneyCompact(displayNetPremium), color: displayNetPremium >= 0 ? '#10b981' : '#ef4444' },
-              { label: labels.darkPool, value: formatPlainPercent(displayDarkPool), color: displayDarkPool >= 40 ? '#cbd5e1' : '#94a3b8' },
-              { label: labels.whale, value: Math.round(displayWhale).toString(), color: displayWhale >= 60 ? '#a78bfa' : '#94a3b8' },
-              { label: labels.squeeze, value: `${Math.round(displaySqueeze)}%`, color: displaySqueeze >= 70 ? '#f59e0b' : displaySqueeze >= 40 ? '#facc15' : '#94a3b8' },
+              { label: labels.gex, value: displayGex == null ? '—' : formatGex(displayGex), color: displayGex == null ? MUTED : (displayGex >= 0 ? '#10b981' : '#ef4444') },
+              { label: labels.pcr, value: displayPcr == null ? '—' : displayPcr.toFixed(2), color: displayPcr == null ? MUTED : (displayPcr < 0.8 ? '#10b981' : displayPcr > 1.1 ? '#ef4444' : '#e2e8f0') },
+              { label: labels.net, value: displayNetPremium == null ? '—' : formatMoneyCompact(displayNetPremium), color: displayNetPremium == null ? MUTED : (displayNetPremium >= 0 ? '#10b981' : '#ef4444') },
+              { label: labels.darkPool, value: displayDarkPool == null ? '—' : formatPlainPercent(displayDarkPool), color: displayDarkPool != null && displayDarkPool >= 40 ? '#cbd5e1' : MUTED },
+              { label: labels.whale, value: displayWhale == null ? '—' : Math.round(displayWhale).toString(), color: displayWhale != null && displayWhale >= 60 ? '#a78bfa' : MUTED },
+              { label: labels.squeeze, value: displaySqueeze == null ? '—' : `${Math.round(displaySqueeze)}%`, color: displaySqueeze == null ? MUTED : (displaySqueeze >= 70 ? '#f59e0b' : displaySqueeze >= 40 ? '#facc15' : MUTED) },
             ];
             const coreMetrics = tapeMetrics.slice(0, 3);
             const flowMetrics = tapeMetrics.slice(3);
