@@ -267,13 +267,22 @@ function connectToPolygon() {
         return;
     }
 
+    // ⛔ 아래는 **죽은 경로**다. Massive(Polygon) 계정은 2026-08 약관 위반으로
+    //    차단됐고 WS 는 auth 직후 close(1008) 로 끊긴다.
+    //    예전에는 INTRINIO_API_KEY 가 없으면 조용히 이쪽으로 흘렀는데,
+    //    «연결 시도 → 실패 → 재연결 루프»가 되어 원인을 찾기 어려웠다.
+    //    설정 누락은 조용한 폴백이 아니라 **명확한 실패**로 드러나야 한다.
+    console.error("[Price WS] ❌ INTRINIO_API_KEY 가 없다. Massive 는 영구 차단되어 폴백이 없다.");
+    console.error("[Price WS]    /opt/signum-ws/.env 의 INTRINIO_API_KEY 를 확인할 것.");
+    if (!process.env.ALLOW_DEAD_MASSIVE_WS) return;
+
     if (!POLYGON_API_KEY) {
         console.error("[Price WS] ❌ No POLYGON_API_KEY set. Cannot connect to Polygon.");
         return;
     }
 
     try {
-        console.log("[Price WS] Connecting to Polygon WebSocket...");
+        console.log("[Price WS] Connecting to Polygon WebSocket (죽은 경로 · 강제 활성화됨)...");
         polygonWs = new WebSocket(POLYGON_WS_URL);
 
         polygonWs.on("open", () => {
@@ -826,6 +835,15 @@ async function subscribeQuotesForTicker(ticker) {
     console.log("[Options WS] Fetching ATM contracts for " + ticker + "...");
 
     try {
+        // ⚠️ Massive 계약 조회는 계정 차단으로 403 이다. 옵션 WS 자체가
+        //    ENABLE_OPTIONS_WS 로 꺼져 있어 여기 도달하지 않지만, 누가 켰을 때
+        //    죽은 벤더로 나가지 않도록 봉인해 둔다.
+        //    (Intrinio 옵션은 EOD 체인만 열려 있어 실시간 계약 구독 대상이 아니다)
+        if (process.env.ENABLE_OPTIONS_WS !== "1") {
+            console.log("[Options WS] 옵션 계약 조회 비활성 — 건너뜀");
+            quotesSubscribed.delete(ticker);
+            return;
+        }
         var url = "https://api.massive.com/v3/reference/options/contracts?underlying_ticker=" + ticker + "&expired=false&limit=30&order=asc&sort=expiration_date&apiKey=" + POLYGON_API_KEY;
         var data = await httpsGet(url);
         var contracts = (data && data.results) ? data.results : [];
@@ -1420,25 +1438,44 @@ function markPolygonDataReceived() {
 }
 
 // REST snapshot fetcher for a batch of tickers
+//
+// [2026-08-29] Massive/Polygon → Intrinio 이관.
+//   기존 구현은 `api.polygon.io/v2/snapshot/...` 를 불렀는데 계정 차단으로 403 이다.
+//   즉 **WS 가 끊겼을 때의 안전망이 통째로 죽어 있었다**(로그의 "REST Fallback: ❌").
+//   Intrinio 에는 다중 종목 스냅샷이 없으므로 종목별 realtime 을 병렬 호출한다.
+//   (분당 2,000 호출 한도 — 폴백은 3초 주기이고 구독 종목은 수십 개 수준이라 여유롭다)
 async function fetchSnapshotREST(tickers) {
-    if (!POLYGON_API_KEY || tickers.length === 0) return;
-    
+    if (!INTRINIO_API_KEY || tickers.length === 0) return;
+
     try {
-        const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(",")}&apiKey=${POLYGON_API_KEY}`;
-        const data = await httpsGet(url);
-        
-        if (!data.tickers || !Array.isArray(data.tickers)) return;
-        
-        for (const snap of data.tickers) {
+        const settled = await Promise.allSettled(
+            tickers.map(async (t) => {
+                const url = `https://api-v2.intrinio.com/securities/${encodeURIComponent(t)}/prices/realtime?api_key=${INTRINIO_API_KEY}`;
+                const rt = await httpsGet(url);
+                if (!rt) return null;
+                return {
+                    ticker: t,
+                    // day.c 는 정규장 종가, lastTrade 는 시간외 포함 — 어댑터와 같은 규칙
+                    last: Number(rt.last_price) || 0,
+                    regular: Number(rt.normal_market_hours_last_price) || 0,
+                    prev: Number(rt.eod_close_price) || 0,
+                    vol: Number(rt.market_volume) || Number(rt.exchange_volume) || 0,
+                };
+            })
+        );
+
+        const snaps = settled
+            .map((r) => (r.status === "fulfilled" ? r.value : null))
+            .filter(Boolean);
+
+        for (const snap of snaps) {
             const ticker = snap.ticker;
             if (!ticker) continue;
-            
-            const liveLast = snap.lastTrade?.p || 0;
-            const dayClose = snap.day?.c || 0;
-            const prevClose = snap.prevDay?.c || 0;
-            const volume = snap.day?.v || 0;
-            const price = liveLast || dayClose || prevClose;
-            
+
+            const prevClose = snap.prev;
+            const volume = snap.vol;
+            const price = snap.last || snap.regular || prevClose;
+
             if (price <= 0) continue;
             
             const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
@@ -1468,16 +1505,16 @@ async function fetchSnapshotREST(tickers) {
 function startRestFallback() {
     if (restFallbackActive) return;
     restFallbackActive = true;
-    console.log("[Price WS] 🔄 REST fallback ACTIVATED — polling Polygon REST API every 3s");
+    console.log("[Price WS] 🔄 REST fallback ACTIVATED — Intrinio REST 3초 폴링");
     
     const poll = () => {
         const tickers = [...tickerSubscribers.keys()];
         if (tickers.length === 0) return;
         
-        // Polygon allows up to 50 tickers per snapshot request
+        // Intrinio 는 종목별 호출이므로 배치를 작게 잡아 동시성을 제한한다
         const batches = [];
-        for (let i = 0; i < tickers.length; i += 50) {
-            batches.push(tickers.slice(i, i + 50));
+        for (let i = 0; i < tickers.length; i += 20) {
+            batches.push(tickers.slice(i, i + 20));
         }
         batches.forEach(batch => fetchSnapshotREST(batch));
     };
@@ -1496,7 +1533,7 @@ setInterval(() => {
     
     // If no WS data for 10s and fallback not yet active, activate it
     if (timeSinceLastData > REST_FALLBACK_CHECK_MS && !restFallbackActive) {
-        console.log(`[Price WS] No Polygon WS data for ${Math.round(timeSinceLastData / 1000)}s — activating REST fallback`);
+        console.log(`[Price WS] WS 무데이터 ${Math.round(timeSinceLastData / 1000)}s — REST 폴백 활성화`);
         startRestFallback();
     }
 }, 5000); // Check every 5s
@@ -1510,8 +1547,9 @@ server.listen(PORT, () => {
     console.log("  SIGNUM HQ — Real-Time Price WebSocket Hub v1.0  ");
     console.log("═══════════════════════════════════════════════════");
     console.log(`  Port:         ${PORT}`);
-    console.log(`  Polygon Key:  ${POLYGON_API_KEY ? POLYGON_API_KEY.slice(0, 8) + "..." : "NOT SET"}`);
-    console.log(`  Polygon WS:   ${POLYGON_WS_URL}`);
+    console.log(`  Intrinio Key: ${INTRINIO_API_KEY ? INTRINIO_API_KEY.slice(0, 6) + "..." : "NOT SET"}`);
+    console.log(`  Feed:         Intrinio EQUITIES_EDGE (WS) + REST 폴백`);
+    console.log(`  Options WS:   ${process.env.ENABLE_OPTIONS_WS === "1" ? "활성" : "비활성"}`);
     console.log("═══════════════════════════════════════════════════");
 
     // Connect to Polygon (Stocks)
