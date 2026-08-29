@@ -158,7 +158,33 @@ export default async function RootLayout({
         {/* Service Worker Registration (PWA) */}
         <Script id="sw-register" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(function(){});
+            // ★ [2026-08-30] 버전을 붙여 등록한다.
+            //   예전엔 '/sw.js' 로 등록했고 SW 안의 CACHE_NAME 도 'signum-hq-v1' 고정이라,
+            //   배포해도 브라우저가 «같은 SW»로 보고 activate 를 안 돌렸다.
+            //   그러면 캐시가 영원히 안 지워지고 **사용자는 옛 JS 를 계속 실행**한다.
+            //   (실측: 웹 배포로 고친 지표가 화면에 안 떠서 SW 캐시를 지우니 바로 나왔다)
+            //   URL 이 바뀌면 브라우저가 새 SW 로 인식 → install → activate → 옛 캐시 삭제.
+            var v = '${process.env.NEXT_PUBLIC_BUILD_STAMP || 'dev'}';
+            navigator.serviceWorker.register('/sw.js?v=' + v).then(function(reg){
+              // 새 버전이 대기 중이면 즉시 넘긴다 (탭을 다 닫아야 갱신되는 일 방지)
+              if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+              reg.addEventListener('updatefound', function(){
+                var sw = reg.installing;
+                if (!sw) return;
+                sw.addEventListener('statechange', function(){
+                  if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+                    sw.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                });
+              });
+            }).catch(function(){});
+            // 새 SW 가 제어권을 잡으면 한 번만 새로고침 — 옛 청크로 계속 도는 것을 막는다
+            var reloaded = false;
+            navigator.serviceWorker.addEventListener('controllerchange', function(){
+              if (reloaded) return;
+              reloaded = true;
+              location.reload();
+            });
           }
         `}</Script>
       </body>
