@@ -577,7 +577,7 @@ async function generateReportFromItems(
             // Priority 1: Whale Block Action (Snippet)
             if (details.dominantContract && details.blockCount > 0) {
                 const k = (details.maxBlockSize / 1000).toFixed(0) + 'k';
-                const ratio = Math.round(details.aggressorRatio * 100);
+                const ratio = details.aggressorRatio == null ? null : Math.round(details.aggressorRatio * 100);
                 narrative = `${details.dominantContract} ${details.blockCount}건($${k}) ${ratio}% 집중매집 관측.`;
             }
             // Priority 2: Gamma Squeeze Flag (Engine)

@@ -264,7 +264,8 @@ interface KeyStockPremiumData {
   ivSkew?: number;
   impliedMovePct?: number;
   whaleIndex?: number;
-  darkPoolPct?: number;
+  /** 측정 불가면 null — 0 은 «측정된 0%» 라는 주장이 된다 */
+  darkPoolPct?: number | null;
 }
 
 interface AppNewsDigestItem {
@@ -813,7 +814,9 @@ function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
     ivSkew: pickFiniteNumber(options.ivSkew, item.ivSkew, item.iv_skew, v71.ivSkew) ?? 0,
     impliedMovePct: pickFiniteNumber(options.impliedMovePct, options.impliedMove, item.impliedMovePct, item.implied_move_pct, v71.impliedMovePct) ?? 0,
     whaleIndex: pickFiniteNumber(flow.whaleIndex, item.whaleIndex, item.whale_index, ssot.whaleIndex, v71.whaleIndex) ?? 0,
-    darkPoolPct: pickFiniteNumber(flow.darkPoolPct, flow.offExPct, item.darkPoolPct, item.dark_pool_pct, snapshot.offExPct, v71.darkPoolPct) ?? 0,
+    // 「없는 데이터는 0 이 아니라 없음」 — 0% 다크풀은 «기관 개입 없음»이라는
+    // 틀린 결론을 만든다. 현재 플랜에 틱 데이터가 없으므로 대부분 null 이다.
+    darkPoolPct: pickFiniteNumber(flow.darkPoolPct, flow.offExPct, item.darkPoolPct, item.dark_pool_pct, snapshot.offExPct, v71.darkPoolPct) ?? null,
   };
 }
 
@@ -1351,7 +1354,7 @@ function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocal
   const rsi = stock.rsi || 0;
   const rvol = stock.rvol || 0;
   const whale = stock.whaleIndex || 0;
-  const darkPool = stock.darkPoolPct || 0;
+  const darkPool = stock.darkPoolPct ?? null;
   const netPremium = stock.netPremium || 0;
   const squeeze = stock.squeezeScore || 0;
   const ivSkew = stock.ivSkew || 0;
@@ -1365,7 +1368,7 @@ function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocal
   const rsiText = rsi > 0 ? Math.round(rsi).toString() : '-';
   const rvolText = rvol > 0 ? `${rvol.toFixed(1)}x` : '-';
   const whaleText = whale > 0 ? Math.round(whale).toString() : '-';
-  const darkPoolText = darkPool > 0 ? `${Math.round(darkPool)}%` : '-';
+  const darkPoolText = darkPool != null && darkPool > 0 ? `${Math.round(darkPool)}%` : '—';
   const netPremiumText = netPremium !== 0 ? formatMoneyCompact(netPremium) : '-';
   const squeezeText = squeeze > 0 ? `${Math.round(squeeze)}%` : '-';
   const ivText = ivSkew !== 0 ? signedPct(ivSkew, 1) : '-';
@@ -1387,13 +1390,13 @@ function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocal
       ? 'ショートガンマ構造で値動きが拡大しやすい領域です'
       : 'ガンマは中立圏に近く、方向性よりもレベル反応の確認が重要です';
 
-  const flowKR = netPremium > 0 || whale >= 65 || darkPool >= 45
+  const flowKR = netPremium > 0 || whale >= 65 || (darkPool != null && darkPool >= 45)
     ? `순프리미엄 ${netPremiumText}, Whale ${whaleText}, 다크풀 ${darkPoolText}가 함께 관찰되어 수급 축은 비교적 선명합니다`
     : `순프리미엄 ${netPremiumText}, Whale ${whaleText}, 다크풀 ${darkPoolText} 기준으로 아직 수급 확신은 제한적입니다`;
-  const flowEN = netPremium > 0 || whale >= 65 || darkPool >= 45
+  const flowEN = netPremium > 0 || whale >= 65 || (darkPool != null && darkPool >= 45)
     ? `Net premium ${netPremiumText}, Whale ${whaleText}, and Dark Pool ${darkPoolText} show a clearer flow axis`
     : `Net premium ${netPremiumText}, Whale ${whaleText}, and Dark Pool ${darkPoolText} leave flow conviction limited`;
-  const flowJA = netPremium > 0 || whale >= 65 || darkPool >= 45
+  const flowJA = netPremium > 0 || whale >= 65 || (darkPool != null && darkPool >= 45)
     ? `ネットプレミアム${netPremiumText}、Whale ${whaleText}、Dark Pool ${darkPoolText}からフロー軸は比較的明確です`
     : `ネットプレミアム${netPremiumText}、Whale ${whaleText}、Dark Pool ${darkPoolText}ではフロー確度はまだ限定的です`;
 
@@ -5321,7 +5324,7 @@ export default function AppIntelPage() {
                                     )}
                                     {(stock.darkPoolPct || 0) >= 40 && (
                                       <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.2)' }}>
-                                        D.POOL {Math.round(stock.darkPoolPct || 0)}%
+                                        D.POOL {stock.darkPoolPct == null ? '—' : `${Math.round(stock.darkPoolPct)}%`}
                                       </span>
                                     )}
                                   </div>

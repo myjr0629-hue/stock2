@@ -384,9 +384,10 @@ function buildFlowEvidence(data: any, forensicData?: any, optionsData?: any): Un
     const netPrem = data.flow?.netPremium || 0;
 
     // [V4.0] Extract offExPct from ForensicService analysis
-    const offExPct = forensicData?.details?.aggressorRatio
+    // 측정 불가는 0 이 아니라 null — 0% 장외거래도 «측정된 사실» 주장이 된다
+    const offExPct = typeof forensicData?.details?.aggressorRatio === 'number'
         ? Math.round(forensicData.details.aggressorRatio * 100)
-        : 0;
+        : null;
 
     // [V4.1] Calculate whaleIndex from GEX — use optionsData.gex (the REAL source)
     const gex = optionsData?.gex ?? data.flow?.gex ?? 0;
@@ -402,7 +403,8 @@ function buildFlowEvidence(data: any, forensicData?: any, optionsData?: any): Un
         relVol: data.relVol || 1, // [Phase 41.2] Real RelVol (Snap/Avg)
         gapPct: data.gapPct || 0, // [Phase 41.2] Real Gap %
         largeTradesUsd: netPrem, // Mapped for UI
-        offExPct: offExPct, // [V4.0] From ForensicService dark pool analysis
+        // 측정 불가(null)를 0 으로 캐스팅하지 않는다 — 소비처가 «없음»으로 렌더한다
+        offExPct: (offExPct as unknown) as number, // [V4.0] From ForensicService — null 가능
         offExDeltaPct: 0,
         netFlow: netPrem,
         netPremium: netPrem, // [FIX] Explicitly set netPremium for Intel page whaleNetM

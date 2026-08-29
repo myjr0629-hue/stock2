@@ -15,7 +15,13 @@ export interface ForensicResult {
     whaleIndex: number; // 0-100
     whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE';
     details: {
-        aggressorRatio: number; // Volume at Ask / Total Volume
+        /**
+         * 체결 공격성 비율 (Ask 체결량 / 전체).
+         * ⚠️ **측정 불가면 null.** 예전에는 `|| 0.5` 로 떨어뜨렸는데,
+         *    그 0.5 가 화면에 «D.POOL 50%» 라는 사실처럼 나갔다(실화면 확인).
+         *    50% 다크풀은 «절반이 장외»라는 구체적 주장이라 0 보다도 위험하다.
+         */
+        aggressorRatio: number | null; // Volume at Ask / Total Volume
         blockCount: number; // Trades > $50k
         maxBlockSize: number;
         offExchangePct: number; // [V4.1] Dark Pool + Off-Exchange volume percentage
@@ -282,7 +288,9 @@ export class ForensicService {
             else if (putBlockVol > callBlockVol * 1.5) sentiment = 'BEARISH';
         }
 
-        const aggressorRatio = clusterResult.darkPoolRatio || 0.5; // Use dark pool ratio as proxy
+        // 틱 데이터가 없으면 detectBlockCluster 가 darkPoolRatio 0 을 돌려준다.
+        // 그때 0.5 로 «보정»하면 없는 측정을 만들어내는 것이다 → null.
+        const aggressorRatio = clusterResult.darkPoolRatio > 0 ? clusterResult.darkPoolRatio : null;
 
         // Confidence
         let confidence: 'HIGH' | 'MED' | 'LOW' | 'NONE' = 'LOW';
@@ -351,7 +359,7 @@ export class ForensicService {
             whaleIndex: 0,
             whaleConfidence: 'NONE',
             details: {
-                aggressorRatio: 0,
+                aggressorRatio: null,
                 blockCount: 0,
                 maxBlockSize: 0,
                 offExchangePct: 0,
