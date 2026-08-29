@@ -469,8 +469,9 @@ export default function GuardianDesktop() {
                                     nasdaqChange={data?.market?.nqChangePercent || 0}
                                     guardianScore={data?.rlsi.score || 0}
                                     divergenceCase={data?.divergence?.caseId as "N" | "A" | "B" | "C" | "D" | undefined}
-                                    rvolNdx={data?.rvol?.ndx?.rvol || 1.0}
-                                    rvolDow={data?.rvol?.dow?.rvol || 1.0}
+                                    // `|| 1.0` 금지 — null(측정 안 함)을 «평소만큼 거래됨»으로 바꾸면 안 된다
+                                    rvolNdx={data?.rvol?.ndx?.rvol ?? null}
+                                    rvolDow={data?.rvol?.dow?.rvol ?? null}
                                     verdict={{
                                         title: "MARKET ESSENCE",
                                         desc: verdict.realityInsight || "Gathering Pulse...",

@@ -45,8 +45,11 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
                         nasdaqChange={data?.market?.nqChangePercent || 0}
                         guardianScore={data?.rlsi?.score || 0}
                         divergenceCase={data?.divergence?.caseId as "N" | "A" | "B" | "C" | "D" | undefined}
-                        rvolNdx={data?.rvol?.ndx?.rvol || 1.0}
-                        rvolDow={data?.rvol?.dow?.rvol || 1.0}
+                        // ⚠️ `|| 1.0` 금지 — 엔진이 «측정 안 함»으로 null 을 주는데
+                        //    1.0 으로 되돌리면 화면이 «100% · 저조»라고 단언한다
+                        //    (2026-08-29 실측: 앱 「시장 현황」 탭에 상시 노출)
+                        rvolNdx={data?.rvol?.ndx?.rvol ?? null}
+                        rvolDow={data?.rvol?.dow?.rvol ?? null}
                         verdict={{
                             title: "MARKET ESSENCE",
                             desc: verdict.realityInsight || "Gathering Pulse...",
