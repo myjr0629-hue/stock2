@@ -189,9 +189,9 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
   whale: {
     title: { ko: '웨일 인덱스 (Whale Index)', en: 'Whale Index', ja: 'ホエール指数' },
     body: {
-      ko: 'GEX·다크풀·블록딜·넷프리미엄을 합성한 기관 발자국 지표입니다. 높을수록 큰손(웨일)의 개입 신호가 강하게 관찰됩니다.',
-      en: 'A composite institutional-footprint index built from GEX, dark pool, block trades and net premium. Higher readings reflect a stronger "whale" presence.',
-      ja: 'GEX・ダークプール・ブロック取引・ネットプレミアムを合成した機関フットプリント指標です。高いほど大口（ホエール）の関与シグナルが強く観測されます。',
+      ko: '딜러 감마(GEX)와 옵션 순프리미엄을 합성한 기관 발자국 지표입니다. 높을수록 큰손(웨일)의 개입 신호가 강하게 관찰됩니다.',
+      en: 'A composite institutional-footprint index built from dealer gamma (GEX) and net option premium. Higher readings reflect a stronger "whale" presence.',
+      ja: 'ディーラーガンマ（GEX）とオプションのネットプレミアムを合成した機関フットプリント指標です。高いほど大口（ホエール）の関与シグナルが強く観測されます。',
     },
   },
   rsi: {
