@@ -2430,6 +2430,10 @@ function CmdPageContent() {
     const adx = techData?.adx || null;
     const obv = techData?.obv || null;
     const atr = techData?.atr || null;
+    // 가격·IV 는 이 화면이 안다. API 캐시(6시간)에 굳히지 않고 여기서 파생한다.
+    const px = Number(displayPrice) || 0;
+    const ivNow = Number(signalsData?.iv) || 0;
+    const rv = techData?.volPremium?.rvPct ?? null;
 
     // ── ADX ──
     let adxBadge: string | null = null;
@@ -2460,9 +2464,15 @@ function CmdPageContent() {
       adx, adxBadge, adxWeak,
       obvValue, obvDir, obvBadge,
       obvDivergent: !!obv?.divergence,
-      atrText: atr ? `ATR ${atr.pct}%` : null,
       atrAbs: atr?.value ?? null,
-      volPremium: techData?.volPremium || null,
+      atrPct: atr?.value && px > 0 ? (atr.value / px) * 100 : null,
+      // 변동성 프리미엄 — 실현변동성은 API 가 주고, IV 는 이 화면의 실시간 값을 쓴다
+      volPremium: (rv != null && ivNow > 0)
+        ? (() => {
+          const spread = ivNow - rv;
+          return { ivPct: ivNow, rvPct: rv, spread, label: spread > 10 ? 'RICH' : spread < -10 ? 'CHEAP' : 'FAIR' };
+        })()
+        : null,
     };
   }, [techData, locale]);
 
@@ -2840,7 +2850,7 @@ function CmdPageContent() {
               {/* 오늘 폭이 «평소 대비» 큰지 작은지 — ATR 이 있어야 판단이 된다.
                   고저 차이만 보면 그게 큰 날인지 모른다. */}
               {(() => {
-                const atrPct = techSignal.atrAbs && displayPrice > 0 ? (techSignal.atrAbs / displayPrice) * 100 : null;
+                const atrPct = techSignal.atrPct;
                 const todayPct = displayPrice > 0 ? ((data.high - data.low) / displayPrice) * 100 : 0;
                 if (!atrPct || !(todayPct > 0)) return null;
                 const ratio = todayPct / atrPct;

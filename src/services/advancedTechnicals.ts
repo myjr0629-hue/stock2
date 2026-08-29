@@ -38,8 +38,8 @@ import { getTechnicalIndicator, getCloseHistory } from "@/services/intrinioClien
 export interface AdvancedTechnicals {
     ticker: string;
     asOf: string | null;
-    /** 평균 실제 범위 — 절대값과 가격 대비 % */
-    atr: { value: number; pct: number } | null;
+    /** 평균 실제 범위. pct 는 가격을 알 때만 — 캐시에 굳히지 않으려고 절대값과 분리했다 */
+    atr: { value: number; pct: number | null } | null;
     /** 추세 강도 + 방향 */
     adx: {
         value: number;
@@ -124,9 +124,15 @@ export async function getAdvancedTechnicals(
     let atr: AdvancedTechnicals["atr"] = null;
     const atrRows = atrR?._rows || [];
     const atrVal = firstNum(atrRows, "atr");
-    if (atrVal != null && price && price > 0) {
-        atr = { value: Math.round(atrVal * 10000) / 10000, pct: Math.round((atrVal / price) * 10000) / 100 };
-    } else if (atrVal == null) partial.push("atr");
+    if (atrVal != null) {
+        // ⚠️ 가격은 세션마다 변한다. 여기 캐시(6시간)에 «가격 대비 %»를 굳히면
+        //    장중에 옛 가격 기준 값이 남는다. **절대값만 캐시**하고 비율은
+        //    가격을 아는 화면에서 계산한다. (price 가 오면 편의상 같이 넣어 준다)
+        atr = {
+            value: Math.round(atrVal * 10000) / 10000,
+            pct: price && price > 0 ? Math.round((atrVal / price) * 10000) / 100 : null,
+        };
+    } else partial.push("atr");
 
     // ── ADX ──────────────────────────────────────────────────────
     let adx: AdvancedTechnicals["adx"] = null;
