@@ -269,7 +269,8 @@
     "POLLING": "POLLING",
     "CONNECTING": "연결 중",
     "COLLAPSE": "접기",
-    "ALERTS": "알림"
+    "ALERTS": "알림",
+    "marketClosed": "장 종료"
   },
   "command": {
     "title": "COMMAND",

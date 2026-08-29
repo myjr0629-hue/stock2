@@ -269,7 +269,8 @@
     "POLLING": "POLLING",
     "CONNECTING": "接続中",
     "COLLAPSE": "閉じる",
-    "ALERTS": "アラート"
+    "ALERTS": "アラート",
+    "marketClosed": "取引終了"
   },
   "command": {
     "title": "COMMAND",

@@ -269,7 +269,8 @@
     "POLLING": "POLLING",
     "CONNECTING": "CONNECTING",
     "COLLAPSE": "COLLAPSE",
-    "ALERTS": "ALERTS"
+    "ALERTS": "ALERTS",
+    "marketClosed": "Market closed"
   },
   "command": {
     "title": "COMMAND",
