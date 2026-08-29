@@ -2489,7 +2489,7 @@ export default function AppFlowPage() {
           className={activeTab === 'whale-flow' ? s.on : ''}
           onClick={() => setActiveTab('whale-flow')}
         >
-          WHALE & DP
+          WHALE
         </button>
         <button
           className={activeTab === 'strike-profile' ? s.on : ''}

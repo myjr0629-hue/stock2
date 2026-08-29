@@ -89,7 +89,7 @@ interface Props {
         flow: { netPremium: number };
         fundamental: { score: number; grade: string; pe: number; fcfMargin: number };
         analyst: { score: number; buyPct: number };
-        institutional: { dpRatio: number; activity: string };
+        institutional: { insiderNet30d: number | null; insiderBuy: number | null; insiderSell: number | null; activity: string };
         volatility: { regime: string; regimeScore: number; gexLong: number };
         squeeze: { status: string; siPercent: number };
         earnings: { daysUntil: number; date: string; estimatedEps: number };

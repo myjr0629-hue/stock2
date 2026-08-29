@@ -1368,7 +1368,7 @@
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — 이동평균 교차, 지지·저항 레벨, 추세 구조를 종합한 기술적 구조 분석",
       "optionsAnalysis": "OPTIONS POSITIONING — Put Floor, Gamma Flip, 옵션 체인 집중도, GEX 레짐 기반 파생 포지셔닝 분석",
       "insiderAnalysis": "INSIDER ACTIVITY (SEC Form 4) — C-level 임원의 자발적 매수/매도 패턴, 10b5-1 계획 구분, 클러스터 매수 감지를 통한 내부자 행동 분석",
-      "newsAnalysis": "NEWS \u0026 MARKET CONTEXT — AI가 실시간 뉴스와 시장 컨텍스트를 교차 분석하여 센티먼트와 촉매를 평가",
+      "newsAnalysis": "NEWS & MARKET CONTEXT — AI가 실시간 뉴스와 시장 컨텍스트를 교차 분석하여 센티먼트와 촉매를 평가",
       "riskLow": "LOW — 구조적 안정, 변동성 억제 환경",
       "riskMedium": "MEDIUM — 혼합 시그널, 방향 탐색 중",
       "riskHigh": "HIGH — 구조적 불확실성, 변동성 확대 환경",
@@ -3188,7 +3188,14 @@
     "nextYearDesc": "내년전망",
     "revDesc": "매출",
     "insiderPulse": "내부자 거래",
-    "insiderFilingIntel": "SEC 공시 인텔리전스"
+    "insiderFilingIntel": "SEC 공시 인텔리전스",
+    "insiderNet30d": "30일 순매매",
+    "insiderBuy": "매수",
+    "insiderSell": "매도",
+    "insiderNoFiling": "30일 내 공시 없음",
+    "insiderNoTrade": "실매매 없음",
+    "insiderLatest": "최근 거래",
+    "insiderCount": "건"
   },
   "commandInsight": {
     "longGamma": "Long Gamma",

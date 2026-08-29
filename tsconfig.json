@@ -47,6 +47,7 @@
     "scripts",
     "tests",
     "src/app/_backup_before_i18n",
+    "_backup_dashboard_20260408",
     "generate-*.ts",
     "run-simulator*.ts"
   ]

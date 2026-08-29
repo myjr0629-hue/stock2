@@ -38,6 +38,7 @@ import { MobileCommandHeader } from '@/components/mobile/MobileCommandHeader';
 import { MobileSnapCarousel } from '@/components/mobile/MobileSnapCarousel';
 import { MobileBottomSheet } from '@/components/mobile/MobileBottomSheet';
 import { DecisionGate } from '@/components/DecisionGate';
+import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -1376,44 +1377,53 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* ═══ ROW 2: 스윙 / 장기 판단용 ═══ */}
 
                     {/* [2-1] INSTITUTIONAL RADAR™ — PRO */}
-                    <ProGate title="Inst Radar" mode="blur" compact fomoTagline={tg('taglineInstRadar')} description={tg('descInstRadar')} className="w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
+                    {/* [2-1] INSIDER — 구 INST RADAR.
+                        다크풀 비중은 현재 피드에 값이 오지 않아 카드가 늘 «0.0% 다크풀»이었다.
+                        익명 다크풀 대신 «누가·언제·얼마에»가 전부 공시되는 SEC Form 4 로 교체.
+                        판정식은 services/insiderSignal — 앱·모바일 웹과 같은 것을 쓴다. */}
+                    <ProGate title="Insider" mode="blur" compact fomoTagline={tg('taglineInstRadar')} description={tg('descInstRadar')} className="w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
                         {(() => {
-                            const dp = effectiveInst?.darkPool?.percent || 0;
-                            const blockCount = effectiveInst?.blockTrade?.count || 0;
-                            // [FIX] Require actual data presence — dp=0 means "no data", not "low activity"
-                            const hasInstData = effectiveInst && (dp > 0 || blockCount > 0);
-                            const isAccumulation = hasInstData && dp > 40 && blockCount >= 3;
-                            const isDistribution = hasInstData && dp > 0 && dp < 20 && blockCount <= 1;
-                            const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
-                            const sigColor = isAccumulation ? 'text-emerald-400' : isDistribution ? 'text-rose-400' : 'text-slate-400';
-                            const sigBg = isAccumulation ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isDistribution ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50';
-                            const instDesc = isAccumulation ? td('instAccum') : isDistribution ? td('instDist') : td('instNormal');
+                            const v = buildInsiderSignal(insiderData, locale as any);
+                            const isBull = v.direction === 'up';
+                            const isBear = v.direction === 'down';
+                            const sigColor = isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-slate-400';
+                            const sigBg = isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50';
+                            const sentiment = (insiderData as any)?.sentiment || 'NEUTRAL';
+                            const latest = (insiderData as any)?.latest;
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${sigBg}`}>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setActiveInsightTab('insider'); }}
+                                    className={`relative overflow-hidden text-left rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${sigBg}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 0deg at 80% 50%, rgba(255,255,255,0.5) 0deg, transparent 30deg, transparent 360deg), radial-gradient(circle at 80% 50%, transparent 20%, rgba(255,255,255,0.1) 21%, transparent 22%)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
-                                            <Radar className={`w-3.5 h-3.5 ${isAccumulation ? 'text-emerald-400' : 'text-indigo-400'}`} />
-                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.INST_RADAR.tooltip}>INST RADAR</CardTooltip></span>
+                                            <Radar className={`w-3.5 h-3.5 ${isBull ? 'text-emerald-400' : 'text-amber-400'}`} />
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.INST_RADAR.tooltip}>{td('insiderPulse')}</CardTooltip></span>
                                         </div>
-                                        <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isAccumulation ? 'bg-emerald-500/20' : isDistribution ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${sigColor}`}>
-                                            {signal}
+                                        <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${sentiment === 'BULLISH' ? 'bg-emerald-500/20 text-emerald-400' : sentiment === 'BEARISH' ? 'bg-rose-500/20 text-rose-400' : sentiment === 'CAUTIOUS' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-400'}`}>
+                                            {sentiment}
                                         </span>
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-[20px] font-black tabular-nums leading-none ${dp > 35 ? 'text-indigo-400' : 'text-white/80'}`}>{dp.toFixed(1)}%</span>
-                                        <span className="text-[14px] font-jakarta text-white font-bold">{td('instDarkPool')}</span>
-                                        <span className="text-[12px] font-jakarta text-white ml-0.5">{instDesc}</span>
+                                        <span className={`text-[20px] font-black tabular-nums leading-none ${sigColor}`}>{v.value}</span>
+                                        <span className="text-[14px] font-jakarta text-white font-bold">{td('insiderNet30d')}</span>
                                     </div>
-                                    <div className="relative z-10 grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
-                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>{td('instBlock')}</span><span className="font-bold text-white">{blockCount}{td('instTrades')}</span></div>
-                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>Short Vol</span><span className="font-bold text-white">{effectiveInst?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></div>
+                                    {v.state === 'net' ? (
+                                        <div className="relative z-10 grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                                            <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>{td('insiderBuy')}</span><span className="font-bold text-emerald-400">{v.buy}{td('insiderCount')}</span></div>
+                                            <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>{td('insiderSell')}</span><span className="font-bold text-rose-400">{v.sell}{td('insiderCount')}</span></div>
+                                        </div>
+                                    ) : (
+                                        // 실매매가 없으면 0 을 쓰지 않는다 — 실제로 있었던 것을 밝힌다
+                                        <div className="relative z-10 mt-1.5 text-[12px] font-jakarta text-white/80 bg-white/5 rounded px-1.5 py-[2px] truncate">{v.subText}</div>
+                                    )}
+                                    <div className="relative z-10 mt-0.5 flex items-center justify-between gap-2">
+                                        <span className="text-[12px] text-slate-300 font-jakarta truncate">
+                                            {latest ? `${latest.title} ${latest.code === 'P' ? td('insiderBuy') : td('insiderSell')} ${compactUsd(latest.value)}` : 'SEC Form 4'}
+                                        </span>
                                     </div>
-                                    <div className="relative z-10 mt-0.5">
-                                        <span className="text-[12px] text-slate-300 font-jakarta">DP·Block·Short Vol</span>
-                                    </div>
-                                </div>
+                                </button>
                             );
                         })()}
                     </ProGate>
@@ -1422,7 +1432,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {(() => {
                             const s = effectiveSma;
                             const phase = s?.cross === 'GOLDEN' ? td('smaGolden') : s?.cross === 'DEAD' ? td('smaDead') : s?.label === 'ABOVE' ? td('smaAbove') : s?.label === 'BELOW' ? td('smaBelow') : '...';
-                            const fmtVal = (n: number) => { const a = Math.abs(n); return a >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`; };
                             return (
                                 <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 flex flex-col ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1450,37 +1459,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </div>
                                     )}
 
-                                    {/* ── BOTTOM: INSIDER PULSE (2-line premium) ── */}
-                                    {insiderData ? (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setActiveInsightTab('insider'); }}
-                                            className="relative z-10 mt-auto pt-1.5 border-t border-amber-500/20 text-left hover:bg-amber-500/5 rounded-b px-1 py-1 transition-all w-full group/ins"
-                                        >
-                                            {/* Line 1: INSIDER PULSE label + sentiment */}
-                                            <div className="flex items-center justify-between mb-0.5">
-                                                <div className="flex items-center gap-1.5">
-                                                    <svg width="12" height="12" viewBox="0 0 16 16" className="text-amber-400 shrink-0" fill="currentColor"><circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" /></svg>
-                                                    <span className="text-[12px] text-amber-400 font-jakarta font-bold tracking-wider uppercase">{td('insiderPulse')}</span>
-                                                </div>
-                                                <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${insiderData.sentiment === 'BULLISH' ? 'bg-emerald-500/20 text-emerald-400' : insiderData.sentiment === 'BEARISH' ? 'bg-rose-500/20 text-rose-400' : insiderData.sentiment === 'CAUTIOUS' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-400'}`}>
-                                                    {insiderData.sentiment}
-                                                </span>
-                                            </div>
-                                            {/* Line 2: Latest trade + Net value (bold, prominent) */}
-                                            <div className="flex items-center justify-between">
-                                                <span className={`text-[13px] font-jakarta font-bold truncate ${insiderData.latest?.code === 'P' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                    {insiderData.latest ? `${insiderData.latest.title} ${insiderData.latest.code === 'P' ? 'Buy' : 'Sell'} ${fmtVal(insiderData.latest.value)}` : '—'}
-                                                </span>
-                                                <span className={`text-[13px] font-mono font-black ${insiderData.net30d > 0 ? 'text-emerald-400' : insiderData.net30d < 0 ? 'text-rose-400' : 'text-slate-400'} shrink-0 ml-2`}>
-                                                    Net {insiderData.net30d > 0 ? '+' : ''}{fmtVal(insiderData.net30d)}
-                                                </span>
-                                            </div>
-                                        </button>
-                                    ) : (
-                                        <div className="relative z-10 mt-auto pt-0.5">
-                                            <span className="text-[12px] text-slate-200 font-jakarta">SMA 50/200 Cross</span>
-                                        </div>
-                                    )}
+                                    {/* [2026-08-29] INSIDER PULSE 분할은 제거했다 —
+                                        같은 내부자 데이터를 바로 왼쪽 INSIDER 카드가 전부 보여준다.
+                                        한 화면에 같은 지표가 두 번 나오면 서로 다른 이야기처럼 읽힌다. */}
+                                    <div className="relative z-10 mt-auto pt-0.5">
+                                        <span className="text-[12px] text-slate-200 font-jakarta">SMA 50/200 Cross</span>
+                                    </div>
                                 </div>
                             );
                         })()}
@@ -2557,8 +2541,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         })(),
                                     },
                                     institutional: {
-                                        dpRatio: effectiveInst?.darkPool?.percent || 0,
-                                        activity: effectiveInst?.darkPool ? (effectiveInst.darkPool.percent > 50 ? 'ACCUMULATION' : 'DISTRIBUTION') : 'N/A',
+                                        // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면
+                                        // AI 가 «다크풀 0%» 를 사실로 서술한다. 내부자 거래로 교체.
+                                        insiderNet30d: (insiderData as any)?.net30d ?? null,
+                                        insiderBuy: (insiderData as any)?.buyCount ?? null,
+                                        insiderSell: (insiderData as any)?.sellCount ?? null,
+                                        activity: (insiderData as any)?.sentiment || 'N/A',
                                     },
                                     volatility: {
                                         regime: effectiveVol?.regime || 'N/A',

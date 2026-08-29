@@ -7,9 +7,11 @@
 // ZERO desktop impact — isolated in mobile/ directory
 // ============================================================================
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocale } from 'next-intl';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import { ProGate } from '@/components/gate/FeatureGate';
+import { buildInsiderSignal } from '@/services/insiderSignal';
 
 interface Props {
     ticker: string;
@@ -43,6 +45,22 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor }:
 
 export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading }: Props) {
     const q = quote;
+    const locale = useLocale() as 'ko' | 'en' | 'ja';
+
+    // [다크풀 대체] 「기관 레이더」가 쓰던 다크풀은 현재 피드에 값이 오지 않는다.
+    // 앱(app-view/cmd)과 **같은 엔드포인트·같은 판정식**으로 내부자 거래를 쓴다.
+    const [insider, setInsider] = useState<any>(null);
+    useEffect(() => {
+        if (!ticker) return;
+        let alive = true;
+        setInsider(null);   // 티커 전환 시 이전 종목 값이 남지 않게
+        fetch(`/api/command/insider?ticker=${ticker}`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(d => { if (alive) setInsider(d?.insider || null); })
+            .catch(() => { });
+        return () => { alive = false; };
+    }, [ticker]);
+    const insiderSignal = useMemo(() => buildInsiderSignal(insider, locale), [insider, locale]);
 
     // ═══ EFFECTIVE DATA ═══
     const structure = unified?.structure || {};
@@ -60,7 +78,6 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading }: Pro
     const regime = volatility.regime || (q.gammaRegime === 'LONG' ? 'CALM' : q.gammaRegime === 'SHORT' ? 'LOADED' : 'CALM');
     const squeezeScore = volatility.squeezeScore || q.squeezeScore || 0;
     const smaCross = sma.cross || 'NONE';
-    const darkPool = institutional.darkPool?.percent || q.darkPoolPct || 0;
     const earningsLabel = earnings.daysLabel || '';
     const flipLevel = structure.gammaFlipLevel || 0;
     const flipDist = flipLevel > 0 && q.price > 0 ? ((q.price - flipLevel) / flipLevel * 100) : 0;
@@ -203,13 +220,14 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading }: Pro
                         border={isBullish ? 'border-emerald-500/30' : isBearish ? 'border-rose-500/30' : 'border-slate-700/50'}
                         sub={`${analyst.consensus || '—'} · ${analyst.totalAnalysts || 0} analysts${priceTarget > 0 ? ` · $${priceTarget.toFixed(0)}(${targetUpside > 0 ? '+' : ''}${targetUpside.toFixed(1)}%)` : ''}`} />
                     ); })()}
-                    {/* [2-1] INST RADAR */}
-                    <ProGate title="Inst Radar" mode="blur" compact>
-                    <SignalCard label="INST RADAR" value={darkPool > 0 ? `${darkPool.toFixed(1)}%` : '—'}
-                        color={darkPool >= 40 ? 'text-indigo-400' : 'text-slate-300'}
-                        bg={darkPool >= 40 ? 'bg-indigo-950/40' : 'bg-slate-800/40'}
-                        border={darkPool >= 40 ? 'border-indigo-500/30' : 'border-slate-700/50'}
-                        sub={`DP · Block ${institutional.blockTrade?.count || 0} · ShortVol ${institutional.shortVolume?.percent?.toFixed(0) || '—'}%`} />
+                    {/* [2-1] INSIDER — 다크풀 자리 대체 (services/insiderSignal 이 정본) */}
+                    <ProGate title="Insider" mode="blur" compact>
+                    <SignalCard label={locale === 'ko' ? '내부자 거래' : locale === 'ja' ? '内部者取引' : 'INSIDER'}
+                        value={insiderSignal.value}
+                        color={insiderSignal.direction === 'up' ? 'text-emerald-400' : insiderSignal.direction === 'down' ? 'text-rose-400' : 'text-slate-300'}
+                        bg={insiderSignal.direction === 'up' ? 'bg-emerald-950/40' : insiderSignal.direction === 'down' ? 'bg-rose-950/40' : 'bg-slate-800/40'}
+                        border={insiderSignal.direction === 'up' ? 'border-emerald-500/30' : insiderSignal.direction === 'down' ? 'border-rose-500/30' : 'border-slate-700/50'}
+                        sub={insiderSignal.subText} />
                     </ProGate>
                     {/* [2-2] TREND PHASE */}
                     <SignalCard label="TREND PHASE" value={smaCross === 'GOLDEN' ? 'GOLDEN' : smaCross === 'DEAD' ? 'DEAD' : sma.label || '—'}

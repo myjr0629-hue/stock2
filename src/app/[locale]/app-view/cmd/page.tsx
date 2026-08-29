@@ -21,6 +21,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
+import { buildInsiderSignal } from '@/services/insiderSignal';
 
 /* ═══════════════════════════════════════════
    DEMO DATA — used when API is unreachable
@@ -1826,6 +1827,9 @@ function CmdPageContent() {
   const [aiInsightData, setAiInsightData] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [relatedData, setRelatedData] = useState<any[]>([]);
+  // [다크풀 대체] 기관 레이더 카드가 쓰던 다크풀은 Intrinio 피드에 값이 오지 않는다.
+  // 익명 다크풀 대신 «누가·언제·얼마에» 가 다 나오는 내부자 거래로 교체했다.
+  const [insiderData, setInsiderData] = useState<any>(null);
 
   // [BUG FIX] switching tickers must reset the view: always land back on OVERVIEW
   // (not the previously-open AI/QUANT/HOLDERS tab), and NEVER show the previous
@@ -1838,6 +1842,7 @@ function CmdPageContent() {
     setActiveTab('overview');
     setAiInsightData(null);
     setGexStats(null);
+    setInsiderData(null);   // 티커별 상태 — 안 지우면 이전 종목 내부자가 남는다
   }, [ticker]);
 
   useEffect(() => {
@@ -1850,6 +1855,17 @@ function CmdPageContent() {
           setRelatedData(data.topRelated);
         }
       })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, [ticker]);
+
+  // 내부자 거래 — 메인 로드를 막지 않도록 별도로 가져온다 (10분 서버 캐시)
+  useEffect(() => {
+    if (!ticker) return;
+    let isMounted = true;
+    fetch(`/api/command/insider?ticker=${ticker}`, { cache: 'no-store' })
+      .then(res => res.json())
+      .then(d => { if (isMounted) setInsiderData(d?.insider || null); })
       .catch(() => {});
     return () => { isMounted = false; };
   }, [ticker]);
@@ -2210,7 +2226,8 @@ function CmdPageContent() {
       flow: { netPremium: q.rawTickerData?.flow?.netFlow || q.rawTickerData?.netPremium || 0 },
       fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
       analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
-      institutional: { dpRatio: inst.darkPool?.percent || 0, activity: 'NORMAL' },
+      // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면 AI 가 사실로 서술한다
+      institutional: { insiderNet30d: insiderData?.net30d ?? null, insiderBuy: insiderData?.buyCount ?? null, insiderSell: insiderData?.sellCount ?? null, activity: insiderData?.sentiment || 'N/A' },
       volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
       squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
       earnings: { daysUntil: earn.daysUntilEarnings || 999, date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },
@@ -2360,6 +2377,28 @@ function CmdPageContent() {
       earningsLabel, nextEarningsDate: earnings.nextEarningsDate || '', epsEstimate: earnings.epsEstimate || null
     };
   }, [data]);
+
+  // 내부자 거래 시그널 카드 (구 「기관 레이더」).
+  // 판정은 services/insiderSignal 한 곳에서만 한다 — 모바일 웹·SSR 카드와 같은 식.
+  const insiderSignal = useMemo(() => {
+    const v = buildInsiderSignal(insiderData, locale as any);
+    const tone = v.direction === 'up'
+      ? { color: 'text-emerald-400', bg: 'bg-emerald-950/20', border: 'border-emerald-500/20' }
+      : v.direction === 'down'
+        ? { color: 'text-rose-400', bg: 'bg-rose-950/20', border: 'border-rose-500/20' }
+        : { color: 'text-slate-300', bg: 'bg-slate-900/40', border: 'border-white/[0.06]' };
+    const sub = v.state === 'net' ? (
+      <>
+        {{ ko: '매수', en: 'Buy', ja: '買い' }[locale as 'ko' | 'en' | 'ja']}{' '}
+        <span className="text-emerald-400 font-extrabold">{v.buy}</span>
+        {' · '}
+        {{ ko: '매도', en: 'Sell', ja: '売り' }[locale as 'ko' | 'en' | 'ja']}{' '}
+        <span className="text-rose-400 font-extrabold">{v.sell}</span>
+        {{ ko: '건', en: '', ja: '件' }[locale as 'ko' | 'en' | 'ja']}
+      </>
+    ) : <>{v.subText}</>;
+    return { ...tone, value: v.value, sub };
+  }, [insiderData, locale]);
 
   // Verdict AI Deep Insight Accordion parsing
   const verdictHeader = aiInsightData || null;
@@ -3011,16 +3050,21 @@ function CmdPageContent() {
                   locale={locale}
                 />
 
-                {/* [6] INST RADAR */}
-                <SignalCard 
-                  label={locale === 'ko' ? '기관 레이더' : locale === 'ja' ? '機関レーダー' : 'INST RADAR'}
+                {/* [6] INSIDER — 다크풀 자리 대체.
+                    Intrinio 피드는 market_center/condition 을 주지 않아 다크풀 비중을
+                    만들 수 없다(합성하면 그건 지어낸 숫자다). 익명 다크풀 대신
+                    «누가·언제·얼마에» 가 전부 공시되는 SEC Form 4 내부자 거래로 바꿨다.
+                    무상부여(A)·옵션행사(M)·세금원천(F)·증여(G)는 시장에서 산 게 아니므로
+                    실매매(P/S)만 금액에 반영하고, 실매매가 없으면 무엇이 있었는지 밝힌다. */}
+                <SignalCard
+                  label={locale === 'ko' ? '내부자 거래' : locale === 'ja' ? '内部者取引' : 'INSIDER'}
                   iconKey="INST RADAR"
-                  infoTerm="darkPool"
-                  value={signalsData.darkPool > 0 ? `${signalsData.darkPool.toFixed(1)}%` : '—'}
-                  color={signalsData.darkPool >= 45 ? 'text-fuchsia-400' : signalsData.darkPool >= 30 ? 'text-purple-400' : 'text-slate-300'}
-                  bg={signalsData.darkPool >= 45 ? 'bg-fuchsia-950/20' : signalsData.darkPool >= 30 ? 'bg-purple-950/20' : 'bg-slate-900/40'}
-                  border={signalsData.darkPool >= 45 ? 'border-fuchsia-500/20' : signalsData.darkPool >= 30 ? 'border-purple-500/20' : 'border-white/[0.06]'}
-                  sub={<>DP · Block: <span className={`${signalsData.darkPool >= 45 ? 'text-fuchsia-400' : signalsData.darkPool >= 30 ? 'text-purple-400' : 'text-indigo-400'} font-extrabold`}>{signalsData.blockTradeCount}</span></>} 
+                  infoTerm="insiderActivity"
+                  value={insiderSignal.value}
+                  color={insiderSignal.color}
+                  bg={insiderSignal.bg}
+                  border={insiderSignal.border}
+                  sub={insiderSignal.sub}
                   locale={locale}
                 />
 

@@ -216,7 +216,9 @@ export async function POST(req: Request) {
   
   <institutional>
     <analyst_score>${analyst.score || 'N/A'}/100 (Buy ${analyst.buyPct || 'N/A'}%)</analyst_score>
-    <inst_radar>${institutional.dpRatio || 'N/A'}% (${institutional.activity || 'N/A'})</inst_radar>
+    <insider note="SEC_FORM_4_LAST_30D">${institutional.insiderNet30d != null
+        ? `net ${institutional.insiderNet30d > 0 ? '+' : ''}$${(Math.abs(institutional.insiderNet30d) / 1e6).toFixed(1)}M, buys ${institutional.insiderBuy ?? 0}, sells ${institutional.insiderSell ?? 0}`
+        : 'N/A'} (${institutional.activity || 'N/A'})</insider>
     <short_squeeze status="${squeeze.status || 'N/A'}" si="${squeeze.siPercent || 'N/A'}%"/>
   </institutional>
   

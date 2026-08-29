@@ -81,7 +81,8 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
             flow: { netPremium: q.netPremium || 0 },
             fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
             analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
-            institutional: { dpRatio: inst.darkPool?.percent || q.darkPoolPct || 0, activity: 'NORMAL' },
+            // [2026-08-29] 다크풀 값이 없다 — 0 대신 «없음»으로 보낸다
+            institutional: { insiderNet30d: null, insiderBuy: null, insiderSell: null, activity: 'N/A' },
             volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
             squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
             earnings: { daysUntil: earn.daysUntilEarnings || 999, date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },

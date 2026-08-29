@@ -1405,7 +1405,7 @@
           "title": "学術的根拠（Academic Research Foundation）",
           "desc": "インサイダー取引の情報価値は数十年にわたる学術研究を通じて実証的に検証されてきました。",
           "seyhun": "Seyhun（1986年、Journal of Financial Economics）— インサイダー取引後に統計的に有意な異常収益率パターンが観測されており、特にC-level幹部の自発的買付においてそのパターンの強度がより高く記録されました",
-          "lakonishok": "Lakonishok \u0026 Lee（2001年、Review of Financial Studies）— インサイダーは逆張り（Contrarian）投資パターンを示し、小型株において買付シグナルの情報価値がより高く観測されました。大型株では情報価値が相対的に限定的であることが記録されています",
+          "lakonishok": "Lakonishok & Lee（2001年、Review of Financial Studies）— インサイダーは逆張り（Contrarian）投資パターンを示し、小型株において買付シグナルの情報価値がより高く観測されました。大型株では情報価値が相対的に限定的であることが記録されています",
           "cluster": "クラスター買付 — 複数のインサイダーが短期間に同時買付した場合、単独インサイダー買付と比較して後続の超過収益パターンの強度がより高く記録されています"
         },
         "signumMethod": {
@@ -1432,7 +1432,7 @@
           "desc": "インサイダー取引データの解釈にあたり必ず認識すべき制限事項です。",
           "delay": "開示遅延: 取引後2営業日以内の届出のため、最大2日の時差が存在します",
           "sellNoise": "売却ノイズ: インサイダー売却の相当部分は納税、ポートフォリオ分散、個人流動性確保等の非情報的動機によるものです",
-          "largeCap": "大型株の限界: Lakonishok \u0026 Lee（2001）によると、大型株ではインサイダー買付の情報価値が小型株と比較して限定的であることが観測されています",
+          "largeCap": "大型株の限界: Lakonishok & Lee（2001）によると、大型株ではインサイダー買付の情報価値が小型株と比較して限定的であることが観測されています",
           "disclaimer": "本データは市場構造の観察および定量化であり、投資助言や売買推奨には該当しません"
         },
         "tradingGuide": "Insiderシグナル解釈",
@@ -1450,7 +1450,7 @@
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — 移動平均交差、サポート・レジスタンスレベル、トレンド構造を総合したテクニカル構造分析",
       "optionsAnalysis": "OPTIONS POSITIONING — Put Floor、Gamma Flip、オプションチェーン集中度、GEXレジーム基盤のデリバティブポジショニング分析",
       "insiderAnalysis": "INSIDER ACTIVITY (SEC Form 4) — C-level幹部の自発的売買パターン、10b5-1プラン区分、クラスター買付検出によるインサイダー行動分析",
-      "newsAnalysis": "NEWS \u0026 MARKET CONTEXT — AIがリアルタイムニュースと市場コンテキストを交差分析しセンチメントと触媒を評価",
+      "newsAnalysis": "NEWS & MARKET CONTEXT — AIがリアルタイムニュースと市場コンテキストを交差分析しセンチメントと触媒を評価",
       "riskLow": "LOW — 構造的安定、ボラティリティ抑制環境",
       "riskMedium": "MEDIUM — 混合シグナル、方向模索中",
       "riskHigh": "HIGH — 構造的不確実性、ボラティリティ拡大環境",
@@ -3270,7 +3270,14 @@
     "nextYearDesc": "来期予想",
     "revDesc": "売上高",
     "insiderPulse": "インサイダー取引",
-    "insiderFilingIntel": "SEC届出インテリジェンス"
+    "insiderFilingIntel": "SEC届出インテリジェンス",
+    "insiderNet30d": "30日純売買",
+    "insiderBuy": "買い",
+    "insiderSell": "売り",
+    "insiderNoFiling": "30日以内の届出なし",
+    "insiderNoTrade": "市場売買なし",
+    "insiderLatest": "直近取引",
+    "insiderCount": "件"
   },
   "commandInsight": {
     "longGamma": "Long Gamma",

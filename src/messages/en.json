@@ -1450,7 +1450,7 @@
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — Moving average crossovers, support/resistance levels, and trend structure synthesized into technical structural analysis",
       "optionsAnalysis": "OPTIONS POSITIONING — Put Floor, Gamma Flip, options chain concentration, and GEX regime-based derivative positioning analysis",
       "insiderAnalysis": "INSIDER ACTIVITY (SEC Form 4) — C-level voluntary buy/sell patterns, 10b5-1 plan distinction, and cluster purchase detection for insider behavioral analysis",
-      "newsAnalysis": "NEWS \u0026 MARKET CONTEXT — AI cross-analyzes real-time news and market context to assess sentiment and catalysts",
+      "newsAnalysis": "NEWS & MARKET CONTEXT — AI cross-analyzes real-time news and market context to assess sentiment and catalysts",
       "riskLow": "LOW — Structurally stable, volatility-suppressed environment",
       "riskMedium": "MEDIUM — Mixed signals, direction seeking",
       "riskHigh": "HIGH — Structural uncertainty, volatility-expanding environment",
@@ -3270,7 +3270,14 @@
     "nextYearDesc": "Forward",
     "revDesc": "REV",
     "insiderPulse": "INSIDER",
-    "insiderFilingIntel": "SEC Filing Intelligence"
+    "insiderFilingIntel": "SEC Filing Intelligence",
+    "insiderNet30d": "Net 30D",
+    "insiderBuy": "Buy",
+    "insiderSell": "Sell",
+    "insiderNoFiling": "No filings in 30d",
+    "insiderNoTrade": "No open-market trades",
+    "insiderLatest": "Latest",
+    "insiderCount": ""
   },
   "commandInsight": {
     "longGamma": "Long Gamma",

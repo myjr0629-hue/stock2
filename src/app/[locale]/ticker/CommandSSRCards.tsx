@@ -94,9 +94,14 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
     const sqColor = sqStatus === 'CRITICAL' ? 'text-rose-400' : sqStatus === 'HIGH' ? 'text-amber-400' : 'text-emerald-400';
 
     // Institutional
-    const dp = inst?.darkPool?.percent || (inst?.compositeScore ? inst.compositeScore : 0);
-    const instLabel = dp > 40 ? 'ACCUMULATION' : dp < 20 ? 'DISTRIBUTION' : 'NEUTRAL';
-    const instColor = instLabel === 'ACCUMULATION' ? 'text-emerald-400' : instLabel === 'DISTRIBUTION' ? 'text-rose-400' : 'text-slate-400';
+    // [2026-08-29] 여기에 다크풀 비중을 쓸 수 없다 — 현재 피드에 값이 오지 않는다.
+    // 예전 코드는 `dp = 0` 을 그대로 흘렸고 `0 < 20` 에 걸리는 바람에
+    // **모든 종목이 DISTRIBUTION(기관 매도)** 로 SSR HTML 에 박혀 나갔다.
+    // 없는 데이터가 «그럴듯한 약세 주장»으로 위장된 전형적인 경우다.
+    // 이 카드는 훅 없는 프리뷰라 내부자 거래를 가져올 수 없다
+    // (하이드레이션 직후 LiveTickerDashboard 가 실값으로 교체한다).
+    // 그러니 여기서는 **판정하지 않는다.**
+    const instColor = 'text-slate-400';
 
     // Fundamentals
     const fundGrade = fund?.grade || '--';
@@ -206,11 +211,11 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
 
                 {/* ROW 2 */}
 
-                {/* 2-1: INST RADAR */}
-                <CardShell bg={instLabel === 'ACCUMULATION' ? 'bg-emerald-950/40 border-emerald-500/30' : instLabel === 'DISTRIBUTION' ? 'bg-rose-950/40 border-rose-500/30' : 'bg-slate-800/40 border-slate-700/50'}>
-                    <CardHeader icon="📡" title="INST RADAR" badge={instLabel} badgeColor={`${instLabel === 'ACCUMULATION' ? 'bg-emerald-500/20' : instLabel === 'DISTRIBUTION' ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${instColor}`} />
-                    <MetricRow value={`${(typeof dp === 'number' ? dp : 0).toFixed(1)}%`} suffix="D.Pool" color={dp > 35 ? 'text-indigo-400' : 'text-white/80'} />
-                    <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">DP·Block·Short Vol</span></div>
+                {/* 2-1: INSIDER (다크풀 자리 대체 — 프리뷰라 값은 하이드레이션 후 채워진다) */}
+                <CardShell>
+                    <CardHeader icon="🕵️" title="INSIDER" />
+                    <MetricRow value="—" suffix="Net 30D" color={instColor} />
+                    <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">SEC Form 4</span></div>
                 </CardShell>
 
                 {/* 2-2: TREND PHASE */}
