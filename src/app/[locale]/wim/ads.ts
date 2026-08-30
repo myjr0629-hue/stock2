@@ -39,16 +39,18 @@
 
 import { unitsFor, hasRealUnits } from '@/config/admob';
 
-// ⛔ WIM_ADS_LIVE 를 true 로 바꾸기 «전에» 반드시 개인정보처리방침부터 고친다.
-//    현재 /{locale}/wim/privacy 는 «No ads or tracking — This version does not
-//    display ads and does not use advertising identifiers (IDFA/AAID)» 라고
-//    명시하고 있다(2026-08-18 실서비스 확인). 방침을 그대로 둔 채 광고를 켜면
-//    스토어 데이터 안전성 선언·방침·실동작이 «서로 모순»이 되어 심사 리스크가 된다.
-//    순서: 방침 3개국어 수정 → 스토어 데이터 안전성/App Privacy 갱신 → 이 플래그.
-export const WIM_ADS_LIVE = false;  // master switch (also hides the banner slot)
+// ✅ 2026-08-30 켬.
+//    방침·약관 문구는 손으로 고치지 않는다 — AppLegalDocument 가
+//    `hasRealUnits('wim')` 으로 3개 국어(방침 «와» 약관)를 자동 전환한다.
+//    그래서 위의 REAL_UNIT_IDS.wim 을 채우는 순간 함께 열린다.
+//    (2026-08-25 에 UC 약관만 «광고 없음»으로 남아 있던 것을 고치면서 만든 장치)
+//
+//    ⚠️ 되돌릴 때도 두 곳을 «같이» 되돌려야 한다. 여기만 false 로 하면
+//       유닛은 살아 있어 방침·약관은 「광고 있음」인데 광고는 안 나온다.
+export const WIM_ADS_LIVE = true;   // master switch (also hides the banner slot)
 const ADS_TESTING = !hasRealUnits('wim');   // 실유닛이 생기면 자동으로 false 가 된다
 
-// 유닛 ID 정본은 src/config/admob.ts. WIM 은 아직 실유닛이 없어 테스트 유닛으로 폴백된다.
+// 유닛 ID 정본은 src/config/admob.ts. 2026-08-30 부터 실유닛이다.
 const UNITS = unitsFor('wim');
 
 // ── business guardrails (WIM_DIRECTION §4) ──
