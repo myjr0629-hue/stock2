@@ -57,6 +57,8 @@ const OI_KEY = "intrinio:options:oi";
 const TTL_SEC = 5 * 24 * 3600;
 
 const DRY = process.argv.includes("--dry");
+/** 이미 처리한 날짜를 다시 쓰게 한다 — 복구용 */
+const FORCE = process.argv.includes("--force");
 const MAX_TICKERS = (() => { const i = process.argv.indexOf("--max"); return i > 0 ? Number(process.argv[i + 1]) : 400; })();
 const WANT_DATE = (() => { const i = process.argv.indexOf("--date"); return i > 0 ? process.argv[i + 1] : null; })();
 
@@ -296,8 +298,40 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
         return;
     }
 
+    // ★ 이미 처리한 날짜면 **아무것도 쓰지 않는다.**
+    //
+    //   같은 날 두 번 돌리면 두 번째 실행이 «첫 실행이 쓴 오늘 OI»를 직전으로
+    //   읽는다 → prevDate 가 오늘이 되고 oiChange 가 전부 0 → 신규진입/청산
+    //   구분이 통째로 죽는다. 실측(2026-08-30): date=prevDate=2026-08-28,
+    //   NVDA·TSLA 12계약 전부 «단타».
+    //
+    //   기준선만 지키는 것으론 부족했다 — 출력의 prevDate 는 여전히 갱신된
+    //   기준선을 쓰기 때문이다. 재실행은 «아무 일도 일어나지 않는» 것이 맞다.
+    //   복구가 필요할 때만 --force 로 뚫는다.
+    if (!FORCE && prevOi.date && fileDate <= prevOi.date) {
+        log(`이미 처리한 날짜 (기준선 ${prevOi.date} · 파일 ${fileDate}) — 쓰지 않고 종료. 재실행 안전`);
+        log(`  강제로 다시 쓰려면 --force`);
+        return;
+    }
+
     await redisSet(OUT_KEY, payload, TTL_SEC);
-    await redisSet(OI_KEY, oiPayload, TTL_SEC);
+
+    // 기준선은 «날짜가 앞으로 갈 때만» 갱신한다.
+    //
+    //   같은 날 두 번 돌리면 (개발 중 수동 실행 + 크론) 두 번째 실행이
+    //   **첫 실행이 쓴 오늘 OI 를 «직전»으로 읽는다.** 그러면 prevDate 가
+    //   오늘이 되고 oiChange 가 전부 0 이 되어, 신규진입/청산 구분이 통째로
+    //   죽는다. 실제로 그랬다(2026-08-30 실측: date=prevDate=2026-08-28,
+    //   NVDA 12계약 전부 «단타»로 분류).
+    //
+    //   덮어쓰기를 막으면 재실행이 안전해진다 — 같은 날 몇 번을 돌려도
+    //   기준선은 «어제»로 남는다.
+    if (!prevOi.date || fileDate > prevOi.date) {
+        await redisSet(OI_KEY, oiPayload, TTL_SEC);
+        log(`기준선 갱신 ${prevOi.date || "없음"} → ${fileDate}`);
+    } else {
+        log(`기준선 유지 (${prevOi.date}) — 파일일(${fileDate})이 앞서지 않는다. 재실행 안전`);
+    }
 
     // 되읽기 검증 — 「썼다」가 아니라 「읽힌다」
     const back = await redisGet(OUT_KEY);
