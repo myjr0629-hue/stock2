@@ -34,13 +34,25 @@ const pad = (s, n) => String(s).padEnd(n);
 (async () => {
     const tickers = CORE;
     const out = [];
-    for (let i = 0; i < tickers.length; i += 6) {
-        const r = await Promise.all(tickers.slice(i, i + 6).map(async (t) => {
-            try {
+    // ⚠️ 동시 요청을 6개로 두면 **검사기가 부하를 만들어** 벤더 쪽이 타임아웃하고,
+    //    그 빈 응답을 「앱의 결함」으로 잘못 읽는다(2026-08-30 실제로 오진했다 —
+    //    15종목이 계약 0 으로 나왔는데 개별 조회는 전부 정상이었다).
+    //    측정기는 대상을 흔들면 안 된다. 동시 2개 + 실패 시 1회 재시도.
+    const CONCURRENCY = 2;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < tickers.length; i += CONCURRENCY) {
+        const r = await Promise.all(tickers.slice(i, i + CONCURRENCY).map(async (t) => {
+            const once = async () => {
                 const res = await fetch(`${BASE}/api/live/ticker?t=${t}&skip_alpha=1`,
                     { signal: AbortSignal.timeout(55000) });
-                if (!res.ok) return { t, err: `HTTP ${res.status}` };
-                const d = await res.json();
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            };
+            try {
+                let d;
+                try { d = await once(); } catch { await sleep(1500); d = await once(); }
+                // 계약 0 은 «부하 때문»일 수 있다 → 한 번 더 확인하고 그래도 0 이면 보고
+                if ((d?.flow?.contractsProcessed ?? 0) === 0) { await sleep(2000); d = await once(); }
                 const f = d.flow || {};
                 return {
                     t,
@@ -52,9 +64,10 @@ const pad = (s, n) => String(s).padEnd(n);
                     price: d.price,
                     src: d._source || null,
                 };
-            } catch (e) { return { t, err: String(e?.name || e).slice(0, 16) }; }
+            } catch (e) { return { t, err: String(e?.message || e?.name || e).slice(0, 16) }; }
         }));
         out.push(...r);
+        await sleep(300);   // 대상에 숨 쉴 틈을 준다
     }
 
     const failed = out.filter((x) => x.err);
