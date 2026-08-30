@@ -2085,6 +2085,9 @@ function CmdPageContent() {
   }, [ticker]);
 
   const initialLoadRef = useRef(true);
+  /** unified 가 «준비 중»이면 짧게 재시도하기 위한 타이머·마지막 응답 */
+  const partialRetry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lastUnified = useRef<any>(null);
   useEffect(() => {
     let cancelled = false;
     initialLoadRef.current = true;
@@ -2093,7 +2096,8 @@ function CmdPageContent() {
     async function fetchAll() {
       try {
         const [tickerRes, analystRes, fundRes, earningsRes, unifiedRes] = await Promise.allSettled([
-          fetch(`/api/live/ticker?t=${ticker}`, { cache: 'no-store' }).then(r => r.json()),
+          // 이 화면은 옵션 체인을 쓰지 않는다 — 800KB 를 받을 이유가 없다
+          fetch(`/api/live/ticker?t=${ticker}&chain=0`, { cache: 'no-store' }).then(r => r.json()),
           fetch(`/api/live/analyst?t=${ticker}`, { cache: 'no-store' }).then(r => r.json()),
           fetch(`/api/live/fundamentals?t=${ticker}`, { cache: 'no-store' }).then(r => r.json()),
           fetch(`/api/live/earnings?t=${ticker}`, { cache: 'no-store' }).then(r => r.json()),
@@ -2107,6 +2111,7 @@ function CmdPageContent() {
         const f = fundRes.status === 'fulfilled' ? fundRes.value : null;
         const e = earningsRes.status === 'fulfilled' ? earningsRes.value : null;
         const u = unifiedRes.status === 'fulfilled' ? unifiedRes.value : null;
+        lastUnified.current = u;
 
         const rejections = [
           { name: 'ticker', res: tickerRes },
@@ -2207,7 +2212,9 @@ function CmdPageContent() {
         const gexData = flow.gexProfile || DEMO.premium.gex;
         const premium = {
           gex: Array.isArray(gexData) ? gexData : DEMO.premium.gex,
-          gammaFlip: flow.gammaFlipLevel ? `$${Number(flow.gammaFlipLevel).toFixed(2)}` : DEMO.premium.gammaFlip,
+          // ⚠️ 없으면 «—» 다. `$0.00` 은 「감마플립이 0달러」라는 거짓말이고,
+          //    로딩 중인지 데이터가 없는지도 구분이 안 된다.
+          gammaFlip: flow.gammaFlipLevel ? `$${Number(flow.gammaFlipLevel).toFixed(2)}` : '$—',
           gammaFlipRaw: flow.gammaFlipLevel ?? DEMO.premium.gammaFlipRaw,
           callWall: flow.callWall ?? DEMO.premium.callWall,
           putFloor: flow.putFloor ?? DEMO.premium.putFloor,
@@ -2264,9 +2271,26 @@ function CmdPageContent() {
       }
     }
 
-    fetchAll();
-    const interval = setInterval(() => { if (!cancelled) fetchAll(); }, 30000);
-    return () => { cancelled = true; clearInterval(interval); };
+    /**
+     * unified 가 「지금 준비 중」이라고 답하면 **그 말을 듣는다.**
+     *   `_source:'unavailable'` · `_isPartial:true` 와 함께
+     *   "Data for MU is being prepared. Please retry in 1-3 minutes." 가 온다.
+     *   30초 주기만 돌면 사용자는 그동안 빈 칸을 본다 → 8초 뒤 한 번 더 친다.
+     *   (백엔드가 채우는 동안 두세 번이면 대개 들어온다.)
+     */
+    async function fetchAllWithRetry() {
+      await fetchAll();
+      if (cancelled) return;
+      const u = lastUnified.current;
+      if (u && (u._source === 'unavailable' || u._isPartial === true)) {
+        clearTimeout(partialRetry.current);
+        partialRetry.current = setTimeout(() => { if (!cancelled) fetchAllWithRetry(); }, 8000);
+      }
+    }
+
+    fetchAllWithRetry();
+    const interval = setInterval(() => { if (!cancelled) fetchAllWithRetry(); }, 30000);
+    return () => { cancelled = true; clearInterval(interval); clearTimeout(partialRetry.current); };
   }, [ticker]);
 
   // ── Live Price Hooks ──

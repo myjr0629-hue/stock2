@@ -80,11 +80,37 @@ function daysAgoISO(days: number): string {
 // One Haiku call per ticker fetch (result cached 12h alongside the events).
 // Returns per-event one-line summaries in all three locales; on failure the
 // caller falls back to the trimmed English excerpt.
-async function summarize(events: { i: number; category: string; text: string }[]): Promise<Record<number, Record<DiscLocale, string>> | null> {
+async function summarize(
+    events: { i: number; category: string; text: string }[],
+    ticker?: string,
+): Promise<Record<number, Record<DiscLocale, string>> | null> {
     if (events.length === 0) return {};
     try {
-        const sys = 'You summarize SEC 8-K disclosure excerpts for a premium market-intelligence app. For each event, write ONE short factual sentence (max 90 chars) in Korean, English, and Japanese. No opinions, no advice, keep numbers exact. Return ONLY JSON: {"events":[{"i":0,"ko":"...","en":"...","ja":"..."}]}';
-        const user = JSON.stringify({ events });
+        /**
+         * ⚠️ 실측 오역 2건(MU 8-K, 2026-08-31):
+         *   · "Micron" → 「미크론」   (관용 표기는 「마이크론」)
+         *   · "President" → 「대통령」 (기업 직책이므로 「사장」)
+         * 회사명·직책은 자유 번역 대상이 아니다. 규칙을 명시한다.
+         */
+        const sys = [
+            'You summarize SEC 8-K disclosure excerpts for a premium market-intelligence app.',
+            'For each event write ONE short factual sentence (max 90 chars) in Korean, English and Japanese.',
+            'No opinions, no advice, keep numbers exact.',
+            '',
+            'NAMES AND TITLES — these are not free translation:',
+            '- Company names: use the conventional rendering financial media already use in that language',
+            '  (Micron → 마이크론 / マイクロン, Nvidia → 엔비디아 / エヌビディア, Broadcom → 브로드컴 / ブロードコム).',
+            '  Never invent a phonetic spelling. If unsure, keep the English name as-is.',
+            '- Corporate titles are BUSINESS roles, never political or scientific:',
+            '  President → 사장 / 社長  (NEVER 대통령 or 大統領)',
+            '  Chief Executive Officer → 최고경영자(CEO) / 最高経営責任者(CEO)',
+            '  Chairman → 회장 / 会長 ,  Director → 이사 / 取締役 ,  Officer → 임원 / 執行役員',
+            '- Person names: standard transliteration; keep the English spelling if it is not established.',
+            '',
+            'Return ONLY JSON: {"events":[{"i":0,"ko":"...","en":"...","ja":"..."}]}',
+        ].join('\n');
+        // 티커를 함께 준다 — 어느 회사인지 알아야 이름을 관용 표기로 쓴다
+        const user = JSON.stringify(ticker ? { ticker, events } : { events });
         const out = await invokeJSON(sys, user);
         const map: Record<number, Record<DiscLocale, string>> = {};
         for (const e of (out?.events || [])) {
@@ -103,7 +129,10 @@ export async function getTickerDisclosures(ticker: string, days: number = 90): P
     const T = ticker.toUpperCase();
     if (isEtfTicker(T)) return { ticker: T, events: [], skipped: 'etf' };
 
-    const cacheKey = `disclosures:v1:${T}`;
+    // ⚠️ 요약 «문구»가 바뀌면 버전을 올린다. 안 올리면 캐시에 남은 옛 오역
+    //    (「미크론」·「대통령으로 임명」)이 계속 나간다.
+    //    v2 = 회사명·직책 번역 규칙 추가 2026-08-31
+    const cacheKey = `disclosures:v2:${T}`;
     try {
         const cached = await getFromCache<TickerDisclosures>(cacheKey);
         if (cached && Array.isArray(cached.events)) return cached;
@@ -134,7 +163,7 @@ export async function getTickerDisclosures(ticker: string, days: number = 90): P
             category: `${r.primary_category}/${r.tertiary_category || ''}`,
             text: String(r.supporting_text || '').slice(0, 400),
         }));
-        const summaries = await summarize(aiInput);
+        const summaries = await summarize(aiInput, T);
 
         result = {
             ticker: T,

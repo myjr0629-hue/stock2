@@ -138,6 +138,14 @@ export async function GET(req: NextRequest) {
     const ticker = t.toUpperCase();
     // [PERF] Flow page skip_alpha mode — skips 5 alpha-only APIs + alpha calculation
     const skipAlpha = req.nextUrl.searchParams.get('skip_alpha') === '1';
+    /**
+     * [PERF] 옵션 체인 제외.
+     *   `allExpiryChain`(633KB·3,904계약) + `rawChain`(170KB)이 응답의 **99.9%**다.
+     *   그런데 이걸 쓰는 화면은 Flow 계열뿐이고 Command 화면은 **한 번도 안 쓴다**.
+     *   즉 휴대폰이 쓰지도 않는 800KB 를 받아서 파싱하고 있었다(MU 실측 5.3초).
+     *   `chain=0` 이면 빼고 보낸다 → 같은 응답이 ~1KB.
+     */
+    const noChain = req.nextUrl.searchParams.get('chain') === '0';
 
     // XS display switch: warm the XS map BEFORE any alpha computation — a cold
     // serverless instance would otherwise compute raw V8 and cache it into
@@ -146,7 +154,11 @@ export async function GET(req: NextRequest) {
 
     // [PERF] Check Redis cache first — returns in ~0.1s if cache hit
     // Use separate cache key for skip_alpha to avoid serving incomplete data to full callers
-    const cacheKey = skipAlpha ? `flow:ticker:lite:v2:${ticker}` : tickerCacheKey(ticker);
+    // ⚠️ 체인 유무로 응답 «모양»이 달라진다 → 캐시를 반드시 분리한다.
+    //    섞이면 Command 가 캐시에 넣은 체인 없는 응답을 Flow 가 받아 차트가 빈다.
+    const cacheKey = skipAlpha
+        ? `flow:ticker:lite:v2:${ticker}`
+        : (noChain ? `flow:ticker:nochain:v2:${ticker}` : tickerCacheKey(ticker));
     try {
         const cached = await getFromCache<any>(cacheKey);
         const verdict = isUsableTickerCache(cached);
@@ -643,8 +655,8 @@ export async function GET(req: NextRequest) {
         // [PERF] Slim rawChain (121KB→35KB) and allExpiryChain (2.89MB→~400KB)
         flow: {
             ...(flowData as any),
-            rawChain: slimOptionChain((flowData as any)?.rawChain, true),
-            allExpiryChain: slimOptionChain((flowData as any)?.allExpiryChain, false),
+            rawChain: noChain ? undefined : slimOptionChain((flowData as any)?.rawChain, true),
+            allExpiryChain: noChain ? undefined : slimOptionChain((flowData as any)?.allExpiryChain, false),
             gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
             callWall: (structureResult as any)?.levels?.callWall ?? (flowData as any)?.callWall ?? null,
             putFloor: (structureResult as any)?.levels?.putFloor ?? (flowData as any)?.putFloor ?? null,
