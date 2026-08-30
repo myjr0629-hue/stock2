@@ -43,8 +43,25 @@ async function httpsGet(url, timeoutMs) {
   // Massive 계정이 약관 위반으로 차단(시세 403). 대응 가능한 요청은 Intrinio 로.
   // 뉴스(/v2/reference/news)는 어댑터가 undefined 를 돌려주므로 아래 기존 경로로 간다.
   // 정본: .agent/INTRINIO_MIGRATION.md
+  //
+  // ⚠️ [2026-08-30] 이 라우팅에 **타임아웃이 없었다.**
+  //   아래 https.get 경로만 timeoutMs 로 보호되고, 이관 때 앞에 끼워 넣은
+  //   이 호출은 무한정 매달릴 수 있었다. 그러면 배치의 Promise.all 이
+  //   영원히 안 끝나고 Lambda 가 **900초 한도까지 타서 강제 종료**된다.
+  //   실측(signum-harvest): [FlowWarm] 450/506 에서 멈춘 채
+  //   Duration 900000.00 ms 로 매 실행이 죽었고, 그 뒤 단계인
+  //   cache:analysis 쓰기까지 못 가서 분석 캐시가 **37시간** 묵었다.
+  //   → 기존 경로와 같은 예산으로 감싼다.
   try {
-    const __routed = await __intrinio.routeMassiveUrl(url);
+    // 라우팅은 내부에서 **여러 번** 호출한다(옵션 체인 = 만기목록 1 + 체인 6).
+    //   호출부의 단건 예산(8~12초)을 그대로 쓰면 정상 요청까지 죽는다
+    //   (실측: 예산 12초로 걸었더니 GEX 99종목이 전부 ROUTE_TIMEOUT).
+    //   무한 대기만 막으면 되므로 넉넉하되 **유한한** 상한을 준다.
+    const __budget = Math.max(timeoutMs || 15000, 60000);
+    const __routed = await Promise.race([
+      __intrinio.routeMassiveUrl(url),
+      new Promise((_, rj) => setTimeout(() => rj(new Error('ROUTE_TIMEOUT')), __budget)),
+    ]);
     if (__routed !== undefined) return __routed;
   } catch (__e) {
     console.warn('[Intrinio] route fail:', __e && __e.message);
