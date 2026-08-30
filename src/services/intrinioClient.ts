@@ -2665,6 +2665,57 @@ async function getSecFilings8K(cik: string): Promise<Map<string, { items: string
     }
 }
 
+/**
+ * SEC 8-K 원문에서 **본문**을 뽑는다.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * Polygon 이 주던 `supporting_text` 의 정체는 결국 이 문서다. 벤더를 잃었지만
+ * 원본은 공개돼 있고 **0.089초**에 읽힌다(실측, NVDA 8-K 26KB).
+ * 추출 예:
+ *   "Item 2.02 Results of Operations and Financial Condition. On August 26,
+ *    2026, NVIDIA Corporation ... issued a press release announcing its
+ *    results for the quarter ended July 26, 2026 ..."
+ *
+ * ⚠️ SEC 는 User-Agent 에 연락처를 요구하고 초당 10요청을 넘지 말라고 한다.
+ *    우리는 «화면에 실제로 보여줄» 5건 정도만, 병렬로 한 번에 받는다.
+ */
+async function fetchSec8KText(
+    cik: string,
+    accessionNoDashes: string,
+    primaryDoc: string
+): Promise<string> {
+    if (!cik || !accessionNoDashes || !primaryDoc) return "";
+    const num = String(cik).replace(/\D/g, "").replace(/^0+/, "");
+    const url = `https://www.sec.gov/Archives/edgar/data/${num}/${accessionNoDashes}/${primaryDoc}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    try {
+        const res = await fetch(url, {
+            headers: { "User-Agent": "SIGNUM HQ contact@signumhq.com" },
+            signal: ctrl.signal,
+            cache: "no-store",
+        });
+        if (!res.ok) return "";
+        const html = await res.text();
+        // 태그를 걷어내고 공백을 정규화한다 (외부 파서 없이)
+        let t = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ");
+        t = t.replace(/<[^>]+>/g, " ");
+        t = t.replace(/&(nbsp|#160);/gi, " ").replace(/&amp;/gi, "&")
+             .replace(/&(lt|gt|quot|#39|apos);/gi, " ");
+        t = t.replace(/\s+/g, " ").trim();
+
+        // "Item X.XX" 이후가 실제 내용이다. 없으면 문서 앞부분으로 대체한다.
+        const m = /Item\s+\d\.\d{2}[\s\S]{0,1200}/.exec(t);
+        const body = (m ? m[0] : t).slice(0, 900).trim();
+        // 서식만 남은 껍데기(표지·서명면)는 버린다
+        return body.length >= 80 ? body : "";
+    } catch {
+        return "";
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 export async function getFilings8KIntrinio(
     ticker: string,
     sinceISO?: string,
@@ -2730,5 +2781,18 @@ export async function getFilings8KIntrinio(
             };
         });
 
-    return { status: "OK", count: results.length, results };
+    // ── 본문 보강 — 화면에 보여줄 것만 SEC 원문에서 받아 채운다 ──────
+    //   Polygon 의 supporting_text 를 대체한다. 실패해도 분류는 남으므로
+    //   «없으면 없는 대로» 진행한다(빈 문자열 + _textUnavailable).
+    const enriched = await Promise.all(
+        results.map(async (r: any) => {
+            const hit = sec.get(String(r.accession_number || "").replace(/\D/g, ""));
+            if (!hit?.doc) return r;
+            const text = await fetchSec8KText(cik, String(hit.acc || "").replace(/-/g, ""), hit.doc);
+            if (!text) return r;
+            return { ...r, supporting_text: text, _textUnavailable: false, _textSource: "sec-primary-doc" };
+        })
+    );
+
+    return { status: "OK", count: enriched.length, results: enriched };
 }
