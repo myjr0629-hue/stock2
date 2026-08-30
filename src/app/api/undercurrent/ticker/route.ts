@@ -30,7 +30,11 @@ export async function GET(request: Request) {
   }
 
   const skipCache = searchParams.get('refresh') === '1';
-  const cacheKey = `undercurrent:ticker:v4:${ticker}:${loc}`;
+  // ⚠️ money/cards 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛
+  //    페이로드가 그대로 나가 새 필드가 «조용히» 빠진다. SWR 이라 stale 도
+  //    돌려주므로 더 오래 남는다. (2026-08-31 하루에 세 번 겪었다.)
+  //    v5 = 다크풀(FINRA) + 파생지표 필드 추가 2026-08-31
+  const cacheKey = `undercurrent:ticker:v5:${ticker}:${loc}`;
 
   // SWR: repeat lookups serve cache instantly (stale ok); client triggers refresh=1.
   const generate = async () => {
