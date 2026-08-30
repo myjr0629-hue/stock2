@@ -24,6 +24,7 @@ type Loc = (typeof LOCALES)[number];
 const L: Record<Loc, {
   title: string; desc: string; h1: string; lead: string;
   count: (n: number) => string; sec: string; back: string; disc: string;
+  daily: string;
 }> = {
   en: {
     title: 'All Tickers — Dark Pool, Max Pain & Options Flow',
@@ -32,6 +33,7 @@ const L: Record<Loc, {
     lead: 'Dark pool share, max pain, call wall, put floor and unusual options flow — one page per ticker, refreshed through every US session. Free, no account.',
     count: (n) => `${n} tickers`,
     sec: 'Browse by first letter',
+    daily: 'Today’s off-exchange leaders — ranked against each name’s own baseline →',
     back: 'Undercurrent — the money behind the news',
     disc: 'Information and education only. Not investment advice and not a recommendation to buy or sell any security.',
   },
@@ -42,6 +44,7 @@ const L: Record<Loc, {
     lead: '다크풀 비중, 맥스페인, 콜월, 풋플로어, 이상 옵션 플로우 — 종목당 한 페이지, 미국장 세션마다 갱신됩니다. 무료, 가입 없이.',
     count: (n) => `${n}개 종목`,
     sec: '첫 글자로 찾기',
+    daily: '오늘의 장외 상위 종목 — 각 종목의 «자기 기준선» 대비 순위 →',
     back: '언더커런트 — 뉴스 뒤의 돈',
     disc: '정보 제공·교육 목적입니다. 투자 자문이나 매수·매도 추천이 아닙니다.',
   },
@@ -52,6 +55,7 @@ const L: Record<Loc, {
     lead: 'ダークプール比率、マックスペイン、コールウォール、プットフロア、異常オプションフロー — 銘柄ごとに1ページ、米国市場のセッションごとに更新。無料、登録不要。',
     count: (n) => `${n}銘柄`,
     sec: '頭文字で探す',
+    daily: '今日の場外上位銘柄 — 各銘柄の「自分の基準線」との差で順位 →',
     back: 'アンダーカレント — ニュースの裏のお金',
     disc: '情報提供・教育目的です。投資助言や売買推奨ではありません。',
   },
@@ -131,6 +135,7 @@ export default async function TickersIndex({ params }: { params: Promise<{ local
     secH: { fontSize: 13, fontWeight: 900, color: '#8A939E', margin: '22px 0 8px', letterSpacing: '0.06em' },
     grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))', gap: 6 } as const,
     cell: { display: 'block', fontSize: 14, fontWeight: 700, color: '#17191E', textDecoration: 'none', border: '1px solid #E7E3DA', borderRadius: 8, padding: '8px 10px', background: '#fff' } as const,
+    daily: { display: 'block', margin: '4px 0 18px', fontSize: 14, fontWeight: 800, color: '#C2410C', textDecoration: 'none' } as const,
     back: { display: 'inline-block', marginTop: 30, fontSize: 14, fontWeight: 700, color: '#C2410C', textDecoration: 'none' },
     disc: { fontSize: 12, color: '#9AA3AD', marginTop: 26, borderTop: '1px solid #EEE9E0', paddingTop: 14 },
   };
@@ -143,6 +148,9 @@ export default async function TickersIndex({ params }: { params: Promise<{ local
       <h1 style={S.h1}>{l.h1}</h1>
       <p style={S.lead}>{l.lead}</p>
       <p style={S.count}>{l.count(FLOW_TICKERS.length)}</p>
+
+      {/* 순위표를 사이트맵에만 두면 «고아»가 된다 — 티커 허브가 그 입구다. */}
+      <a href={`/${lc}/dark-pool`} style={S.daily}>{l.daily}</a>
 
       <nav style={S.jump} aria-label={l.sec}>
         {letters.map((k) => (

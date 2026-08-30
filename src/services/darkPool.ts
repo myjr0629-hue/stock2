@@ -28,6 +28,8 @@
  * ══════════════════════════════════════════════════════════════════════
  */
 
+import { isEtf } from '@/lib/seo/etfSet';
+
 const KEY = 'finra:offexchange';
 const HIST_KEY = 'finra:offexchange:hist';
 
@@ -117,11 +119,18 @@ export interface DarkPoolMarket {
 
 const MIN_HIST = 10;
 
-async function readKey<T = any>(key: string): Promise<T | null> {
+/**
+ * ⚠️ 읽기 예산은 «키 크기»에 맞춰야 한다. `finra:offexchange` 는 **2.19MB** 이고
+ *    공용 인터넷 경유 실측이 5.2초였다(2026-08-31). 기본 5초는 그 경계에
+ *    딱 걸려서, 느려지는 날 다크풀이 «에러 없이» 사라진다.
+ *    앱 응답 경로(getDarkPool)는 사용자를 기다리게 할 수 없으니 기본값을
+ *    유지하고, 시간당 한 번만 도는 ISR 경로는 넉넉히 준다.
+ */
+async function readKey<T = any>(key: string, timeoutMs = 5000): Promise<T | null> {
     const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
     const auth = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
         const res = await fetch(`${proxy}/get?key=${encodeURIComponent(key)}`, {
             headers: { Authorization: `Bearer ${auth}` },
@@ -186,6 +195,126 @@ export async function getDarkPoolBatch(tickers: string[]): Promise<Record<string
         out[t] = toTicker(t, row, data.date ?? null, typeof data.marketAvg === 'number' ? data.marketAvg : null);
     }
     return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  «오늘의 이상치» 순위 — 공개 검색 표면
+//
+//  왜 이 함수가 있나: 종목 페이지 1,195장은 롱테일(「NVDA 다크풀」)을 먹지만
+//  헤드 질의(「dark pool volume today」·「다크풀 상위 종목」)를 받는 페이지가
+//  하나도 없었다. 순위표는 남이 «링크할 이유»가 있는 유일한 형태이기도 하다 —
+//  우리 최대 병목이 참조 도메인 2개라는 점에서 이게 핵심이다.
+//
+//  ⚠️ 순위는 «비중 %»로 매기지 않는다. 시장 중앙값이 49.4% 라 비중 상위는
+//     매일 같은 배관 종목이 나온다. 정보는 **자기 기준선에서 얼마나 벗어났나**
+//     에 있다. 그래서 정렬 키는 전부 volRatio(물량 배수) 또는 shortDev(%p 이탈).
+// ══════════════════════════════════════════════════════════════════════
+
+const EOD_KEY = 'intrinio:eod:snapshot';
+/**
+ * 달러 거래대금 하한. 「아무도 모르는 잡주」가 순위표 맨 위에 오면 페이지 전체의
+ * 신뢰가 깨진다 — 배수는 유동성이 낮을수록 쉽게 커지기 때문에 반드시 필요하다.
+ */
+const MIN_DOLLAR_VOL = 200e6;
+const ROWS_PER_LIST = 10;
+
+export interface DarkPoolLeader extends DarkPoolTicker {
+    /** 그날 종가 변화율 % — 「내렸는데 담았다」를 말하려면 방향이 필요하다 */
+    changePct: number | null;
+    /** 통합 거래대금(종가 × 통합 거래량) — 하한 필터의 근거 */
+    dollarVolume: number | null;
+}
+
+export interface DarkPoolLeaders {
+    date: string | null;
+    marketAvg: number | null;
+    /** FINRA 가 그날 보고한 종목 수 */
+    covered: number;
+    /** 거래대금 하한과 ETF 제외를 통과해 순위 대상이 된 종목 수 */
+    universe: number;
+    /** 순위에서 뺀 ETF 수 — 「왜 SPY 가 없냐」에 숫자로 답하기 위해 노출한다 */
+    etfExcluded: number;
+    /** 주가는 내렸는데 장외 물량은 늘고 공매도 비중은 평소보다 낮았다 */
+    absorbed: DarkPoolLeader[];
+    /** 주가는 올랐는데 장외 물량 중 공매도 비중이 평소보다 크게 높았다 */
+    sold: DarkPoolLeader[];
+    /** 장외 물량이 자기 20일 평균의 몇 배였나 */
+    surge: DarkPoolLeader[];
+    /** 공매도 비중이 자기 기준선 위로 가장 크게 벗어난 종목 */
+    shortHigh: DarkPoolLeader[];
+    /** 공매도 비중이 자기 기준선 아래로 가장 크게 벗어난 종목 */
+    shortLow: DarkPoolLeader[];
+    source: 'FINRA';
+}
+
+export async function getDarkPoolLeaders(): Promise<DarkPoolLeaders | null> {
+    // ISR(시간당 1회)이라 지연이 사용자에게 보이지 않는다 → 예산을 넉넉히 준다.
+    const [data, snap] = await Promise.all([
+        readKey<{ date: string; tickers: Record<string, any>; marketAvg: number; covered: number }>(KEY, 20000),
+        readKey<{ date: string; rows: any[][] }>(EOD_KEY, 20000),
+    ]);
+    if (!data?.tickers) return null;
+
+    // [t, o, h, l, c, v, chg, chgPct] — 실측으로 확인한 배치(2026-08-31)
+    const px = new Map<string, { chg: number | null; dv: number | null }>();
+    for (const r of snap?.rows ?? []) {
+        if (!Array.isArray(r) || typeof r[0] !== 'string') continue;
+        const close = typeof r[4] === 'number' ? r[4] : null;
+        const vol = typeof r[5] === 'number' ? r[5] : null;
+        px.set(r[0], {
+            chg: typeof r[7] === 'number' ? r[7] : null,
+            dv: close != null && vol != null ? close * vol : null,
+        });
+    }
+
+    const marketAvg = typeof data.marketAvg === 'number' ? data.marketAvg : null;
+    const date = data.date ?? null;
+
+    const rows: DarkPoolLeader[] = [];
+    let etfExcluded = 0;
+    for (const [t, row] of Object.entries(data.tickers)) {
+        if (!row || typeof row.pct !== 'number' || !(row.pct > 0)) continue;
+        const p = px.get(t);
+        // 거래대금을 모르면 순위에 넣지 않는다. 「모른다」를 「통과」로 바꾸면
+        // 하한 필터가 조용히 무력화된다.
+        if (!p || p.dv == null || p.dv < MIN_DOLLAR_VOL) continue;
+        // ★ ETF 를 뺀다. 지정참가회사가 설정/환매 과정에서 ETF 를 공매도로 팔았다
+        //   되사기 때문에 장외 공매도 비중이 **기계적으로** 흔들린다. 넣어 두면
+        //   이탈 순위 20자리를 전부 채권·광범위 ETF 가 차지하고(2026-08-31 실측),
+        //   독자는 그걸 「신호」로 읽는다. 우리가 파는 게 정확히 그 오해의 방지다.
+        if (isEtf(t)) { etfExcluded++; continue; }
+        rows.push({ ...toTicker(t, row, date, marketAvg), changePct: p.chg, dollarVolume: p.dv });
+    }
+
+    const top = (
+        filter: (r: DarkPoolLeader) => boolean,
+        score: (r: DarkPoolLeader) => number,
+    ) => rows.filter(filter).sort((a, b) => score(b) - score(a)).slice(0, ROWS_PER_LIST);
+
+    const hasVol = (r: DarkPoolLeader) => r.volRatio != null;
+    const hasDev = (r: DarkPoolLeader) => r.shortDev != null;
+
+    return {
+        date,
+        marketAvg,
+        covered: data.covered ?? 0,
+        universe: rows.length,
+        etfExcluded,
+        absorbed: top(
+            r => hasVol(r) && hasDev(r) && r.changePct != null
+                && r.changePct <= -2 && r.volRatio! >= 1.6 && r.shortDev! <= -3,
+            r => r.volRatio!,
+        ),
+        sold: top(
+            r => hasVol(r) && hasDev(r) && r.changePct != null
+                && r.changePct >= 1.5 && r.volRatio! >= 1.5 && r.shortDev! >= 8,
+            r => r.shortDev!,
+        ),
+        surge: top(hasVol, r => r.volRatio!),
+        shortHigh: top(hasDev, r => r.shortDev!),
+        shortLow: top(hasDev, r => -r.shortDev!),
+        source: 'FINRA',
+    };
 }
 
 // ══════════════════════════════════════════════════════════════════════
