@@ -229,6 +229,16 @@ export async function generateMetadata(
   const base = publicBase();
   const url = `${base}/${lc}/dark-pool`;
   const title = `${l.title} | SIGNUM HQ`;
+  // 링크될 자산에 공유 카드가 없으면 X·슬랙에서 «회색 상자»로 붙는다.
+  // 카드 문구는 영어 고정 — OG 폰트가 라틴 전용이라 CJK 는 두부글자가 된다.
+  const d = await getDarkPoolLeaders().catch(() => null);
+  const og = new URLSearchParams({ kind: 'darkpool' });
+  if (d?.date) og.set('date', d.date);
+  (d?.surge ?? []).slice(0, 3).forEach((r, i) => {
+    if (r.volRatio == null) return;
+    og.set(`r${i + 1}`, `${r.ticker}|${r.volRatio.toFixed(1)}x vs norm|${r.pct.toFixed(1)}% off-exch`);
+  });
+  const ogUrl = `${base}/api/og/leaders?${og.toString()}`;
   return {
     title,
     description: l.desc,
@@ -239,8 +249,8 @@ export async function generateMetadata(
         'x-default': `${base}/en/dark-pool`,
       },
     },
-    openGraph: { title, description: l.desc, url, type: 'website' },
-    twitter: { card: 'summary_large_image', title, description: l.desc },
+    openGraph: { title, description: l.desc, url, type: 'website', images: [ogUrl] },
+    twitter: { card: 'summary_large_image', title, description: l.desc, images: [ogUrl] },
   };
 }
 

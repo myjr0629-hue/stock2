@@ -205,6 +205,14 @@ export async function generateMetadata(
   const base = publicBase();
   const url = `${base}/${lc}/options-flow`;
   const title = `${l.title} | SIGNUM HQ`;
+  const d = await getInstitutionalFlowLeaders().catch(() => null);
+  const og = new URLSearchParams({ kind: 'options' });
+  if (d?.date) og.set('date', d.date);
+  (d?.contracts ?? []).slice(0, 3).forEach((r, i) => {
+    const size = r.notional >= 1e9 ? `$${(r.notional / 1e9).toFixed(2)}B` : `$${Math.round(r.notional / 1e6)}M`;
+    og.set(`r${i + 1}`, `${r.ticker}|${r.type === 'call' ? 'Call' : 'Put'} $${r.strike} · ${r.expiry}|${size} opened`);
+  });
+  const ogUrl = `${base}/api/og/leaders?${og.toString()}`;
   return {
     title,
     description: l.desc,
@@ -215,8 +223,8 @@ export async function generateMetadata(
         'x-default': `${base}/en/options-flow`,
       },
     },
-    openGraph: { title, description: l.desc, url, type: 'website' },
-    twitter: { card: 'summary_large_image', title, description: l.desc },
+    openGraph: { title, description: l.desc, url, type: 'website', images: [ogUrl] },
+    twitter: { card: 'summary_large_image', title, description: l.desc, images: [ogUrl] },
   };
 }
 
