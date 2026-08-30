@@ -233,14 +233,22 @@ export async function getAnalystEvents(ticker: string, windowDays = 90): Promise
             .slice(0, 4)
         : [];
 
-    // 순 이동 — 변화가 전혀 없으면 null (「변화 없음」을 화면에 쓰지 않는다)
+    // ── 순 이동 ─────────────────────────────────────────────────────
+    //   ⚠️ ±1 은 잡음이다. 실측(2026-08-30):
+    //        MU    강세 +4 · 약세 −2  (총 이동 6, 커버리지 46)  ← 진짜 이동
+    //        INTC  강세 +1 · 약세 −3  (총 이동 4, 커버리지 49)  ← 의미 있음
+    //        LRCX  강세 +1 · 약세 −1  (총 이동 2, 커버리지 36)  ← 잡음
+    //        AVGO  0                                             ← 변화 없음
+    //   커버리지 30~50명에서 한 명이 등급을 바꾸는 건 상시로 일어난다.
+    //   그걸 「구성이 이동 중」이라고 쓰면 없는 신호를 만드는 것이다.
+    //   총 이동 3명 이상일 때만 신호로 본다. 아니면 **null** — 화면은 안 그린다.
     let compositionShift: AnalystEvents["compositionShift"] = null;
     if (composition.length >= 2) {
         const newest = composition[0];
         const oldest = composition[composition.length - 1];
         const dB = newest.bullish - oldest.bullish;
         const dS = newest.bearish - oldest.bearish;
-        if (dB !== 0 || dS !== 0) {
+        if (Math.abs(dB) + Math.abs(dS) >= 3) {
             compositionShift = { bullish: dB, bearish: dS, months: composition.length - 1 };
         }
     }
