@@ -129,10 +129,34 @@ async function buildCore(origin: string): Promise<FeedCore> {
 
   // 옵션 신규 포지션은 **전 종목이 한 키**에 있으므로 1콜로 받아 병합한다.
   //   종목당 호출하던 다크풀과 달리 호출 예산을 거의 쓰지 않는다.
-  const [money, opening] = await Promise.all([
+  const [money0, opening] = await Promise.all([
     Promise.all(probeList.map((c) => fetchMoney(origin, c.ticker, MONEY_TIMEOUT_MS))),
     fetchOptionsOpening(origin),
   ]);
+  const money = money0;
+
+  // ⚠️ 1차 프로브는 «20개 동시 + 12초» 다. /api/live/ticker 는 옵션 체인을
+  //    포함한 무거운 경로라, 캐시가 식은 시각(주말 새벽 등)엔 여러 개가
+  //    통째로 타임아웃해 **전 필드 null** 로 돌아온다. 실측(2026-08-30):
+  //      웜 상태 20개 → 완전 17 · 부분 1 · 타임아웃 2
+  //      콜드 생성분 → 12장 중 10장이 oiPcr/volumePcr/squeeze/price 전부 null
+  //    1차에서 비어 온 것만 다시 부른다. 1차가 캐시를 데워 놨으므로
+  //    2차는 거의 다 성공하고, 비용은 «실패한 개수»만큼이다.
+  const retryIdx = probeList
+    .map((_, i) => i)
+    .filter((i) => money[i].oiPcr === null && money[i].volumePcr === null && money[i].price === null);
+  if (retryIdx.length) {
+    const again = await Promise.all(
+      retryIdx.map((i) => fetchMoney(origin, probeList[i].ticker, MONEY_TIMEOUT_MS))
+    );
+    retryIdx.forEach((i, k) => {
+      const r = again[k];
+      // 필드 단위로 «있는 것만» 채운다 — 2차가 더 나쁘면 1차를 덮지 않는다
+      (Object.keys(r) as (keyof typeof r)[]).forEach((key) => {
+        if (money[i][key] === null && r[key] !== null) (money[i] as any)[key] = r[key];
+      });
+    });
+  }
   probeList.forEach((c, i) => {
     const o = opening.byTicker[c.ticker];
     if (!o) return;

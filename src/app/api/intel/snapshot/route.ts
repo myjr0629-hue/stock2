@@ -44,6 +44,19 @@ const SECTOR_TICKERS: Record<string, string[]> = {
  * GET /api/intel/snapshot?sector=m7&date=2026-02-10
  * Retrieve latest or date-specific snapshot
  */
+/**
+ * 규칙(언더바 넣기/빼기)으로 못 맞추는 짝만 손으로 적는다.
+ * 실측으로 확인된 3쌍 — 크론이 쓰는 이름이 값이다.
+ */
+const SECTOR_ID_ALIASES: Record<string, string> = {
+    cloudfortress: 'cloud_fortress',
+    fintechpulse: 'fintech_pulse',
+    quantumedge: 'quantum_edge',
+    cloud_fortress: 'cloudfortress',
+    fintech_pulse: 'fintechpulse',
+    quantum_edge: 'quantumedge',
+};
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const sector = searchParams.get('sector');
@@ -55,6 +68,20 @@ export async function GET(request: Request) {
             { status: 400 }
         );
     }
+
+    // ★ 크론(쓰는 쪽)과 설정(읽는 쪽)의 섹터 id 가 어긋나 있었다.
+    //   vercel.json 크론: cloud_fortress · fintech_pulse · quantum_edge
+    //   src/configs/*  : cloudfortress  · fintechpulse  · quantumedge   ← 언더바 누락
+    //   나머지 7개는 우연히 일치해서, **3개 섹터만** 인텔 화면이 통째로
+    //   「스냅샷 없음」이었다(2026-08-30 프로덕션 실측). 데이터는 내내 있었다.
+    //   id 자체를 바꾸면 라우팅·i18n·다른 API 경로까지 건드리게 되므로
+    //   여기서 두 표기를 모두 시도한다. 앞으로 어느 쪽으로 불러도 찾는다.
+    const aliases = Array.from(new Set([
+        sector,
+        sector.replace(/_/g, ''),                       // silicon_core → siliconcore
+        sector.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase(),
+        SECTOR_ID_ALIASES[sector] || '',
+    ].filter(Boolean)));
 
     try {
         const cacheKey = `snapshot:${sector}:${date || 'latest'}`;
@@ -69,9 +96,11 @@ export async function GET(request: Request) {
             });
         }
 
-        const snapshot = date
-            ? await getSnapshotByDate(sector, date)
-            : await getLatestSnapshot(sector);
+        let snapshot = null;
+        for (const id of aliases) {
+            snapshot = date ? await getSnapshotByDate(id, date) : await getLatestSnapshot(id);
+            if (snapshot) break;
+        }
 
         if (!snapshot) {
             return NextResponse.json(
