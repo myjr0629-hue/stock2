@@ -23,6 +23,11 @@ interface PulseItem {
   chg: number;
   up: boolean;
   spark: number[];
+  /**
+   * 피드가 이 심볼 값을 못 주면 true. 이때 px/chg 는 자리를 채우고 있을 뿐이므로
+   * 화면에 «숫자»로 그리지 않는다. (DEMO_ETFS 시드가 라이브 카드로 새던 경로)
+   */
+  noData?: boolean;
   live?: boolean;
   updatedAt?: string;
   marketTime?: string;
@@ -816,7 +821,9 @@ export default function AppDashPage() {
   const volatilityLive = itemSessionLive('VIX');
   const futuresAvg = avgChange(futures);
   const cashAvg = avgChange(indices);
-  const vixChange = etfs.find((p) => p.sym === 'VIX')?.chg ?? 0;
+  const vixEtf = etfs.find((p) => p.sym === 'VIX');
+  // 값이 없으면 0 → riskScore 에 «기여하지 않는다»(가짜 상승/하락을 만들지 않음)
+  const vixChange = vixEtf && !vixEtf.noData ? vixEtf.chg : 0;
   const fgValue = parseFloat(macro.find((m) => m.label === 'F&G')?.value || '50');
   const breadthPct = sectors.length
     ? Math.round((sectors.filter((sec) => sec.pct >= 0).length / sectors.length) * 100)
@@ -1001,12 +1008,17 @@ export default function AppDashPage() {
         const data = await res.json();
         if (active && data.movers) {
           const mapped: MoverItem[] = data.movers.map((t: any) => {
-            const pctVal = t.changePercent ?? 0;
+            // ⚠️ 등락률을 못 받으면 «+0.00%» 가 아니라 «—» 다.
+            //    0.00% 는 「보합」이라는 주장이고, 그게 전 종목에 퍼지면
+            //    「전 종목 보합」이라는 그 유명한 지문이 된다.
+            const raw = t.changePercent;
+            const has = typeof raw === 'number' && Number.isFinite(raw);
+            const pctVal = has ? raw : 0;
             const sign = pctVal >= 0 ? '+' : '';
             return {
               sym: t.ticker,
-              px: t.price ? t.price.toFixed(2) : '0.00',
-              chg: `${sign}${pctVal.toFixed(2)}%`,
+              px: typeof t.price === 'number' && t.price > 0 ? t.price.toFixed(2) : '—',
+              chg: has ? `${sign}${pctVal.toFixed(2)}%` : '—',
               up: pctVal >= 0,
               spark: t.spark || [5, 6, 7, 8, 9]
             };
@@ -1263,9 +1275,12 @@ export default function AppDashPage() {
                 badge: fgBadgeLabel(fgScore),
                 live: false,
               });
-            } else {
-              // Fallback to VIX synthetic if CNN data is missing
-              const vixVal = f.vix?.level ?? 20;
+            } else if (typeof f.vix?.level === 'number' && Number.isFinite(f.vix.level)) {
+              // CNN 값이 없을 때 VIX 로 F&G 를 «근사»한다.
+              // ⚠️ 예전엔 VIX 마저 없으면 `?? 20` 으로 채웠다 — 그러면 없는 입력에서
+              //    F&G 67 이라는 «그럴듯한 숫자»가 만들어져 화면에 나간다.
+              //    VIX 가 없으면 근사 자체를 하지 않는다(이 항목을 안 그린다).
+              const vixVal = f.vix.level;
               const fg = Math.max(0, Math.min(100, Math.round(100 - (vixVal - 10) * 3.3)));
               macroItems.push({
                 label: 'F&G',
@@ -1339,8 +1354,12 @@ export default function AppDashPage() {
           const spyQuote = q.SPY || {};
           const qqqQuote = q.QQQ || {};
 
-          const vixVal = f?.vix?.level ?? 21.5;
-          const vixChg = f?.vix?.chgPct ?? -3.1;
+          // ⚠️ 예전엔 `?? 21.5` / `?? -3.1` 이었다 — DEMO_ETFS 시드값 그대로다.
+          //    VIX 피드가 비면 그 데모 숫자가 라이브 카드에 «실제 지수»처럼 찍혔다.
+          //    이제는 직전 «실측» 값을 유지하고, 그것도 없으면 표시하지 않는다.
+          const vixLive = typeof f?.vix?.level === 'number' && Number.isFinite(f.vix.level)
+            ? { px: f.vix.level, chg: typeof f?.vix?.chgPct === 'number' && Number.isFinite(f.vix.chgPct) ? f.vix.chgPct : 0 }
+            : null;
 
           setEtfs(prev => {
             const prevSpy = prev.find(item => item.sym === 'SPY');
@@ -1364,14 +1383,19 @@ export default function AppDashPage() {
                 spark: DEMO_ETFS[1].spark,
                 live: equityExtendedLive,
               },
-              {
-                sym: 'VIX',
-                px: vixVal,
-                chg: vixChg,
-                up: vixChg >= 0,
-                spark: DEMO_ETFS[2].spark,
-                ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday), { requireFresh: false }),
-              }
+              (() => {
+                const prevVix = prev.find(item => item.sym === 'VIX');
+                const kept = vixLive ?? (prevVix && !prevVix.noData ? { px: prevVix.px, chg: prevVix.chg } : null);
+                return {
+                  sym: 'VIX',
+                  px: kept?.px ?? 0,
+                  chg: kept?.chg ?? 0,
+                  up: (kept?.chg ?? 0) >= 0,
+                  noData: kept == null,
+                  spark: DEMO_ETFS[2].spark,
+                  ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday), { requireFresh: false }),
+                };
+              })()
             ];
             lastGoodEtfs = next;
             return next;
@@ -1657,10 +1681,10 @@ export default function AppDashPage() {
                       <span className={s.pulseSym}>{p.sym}</span>
                     </div>
                     <span className={s.pulsePrice}>
-                      {p.sym === 'VIX' ? displayPx.toFixed(2) : `$${fmtPrice(displayPx)}`}
+                      {p.noData && !useWs ? '—' : p.sym === 'VIX' ? displayPx.toFixed(2) : `$${fmtPrice(displayPx)}`}
                     </span>
                     <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                      {isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%
+                      {p.noData && !useWs ? '—' : <>{isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%</>}
                     </span>
                     <div className={s.pulseSparkline}>
                       <Sparkline data={p.spark} up={isUp} />
