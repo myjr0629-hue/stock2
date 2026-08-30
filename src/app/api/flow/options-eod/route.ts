@@ -54,9 +54,42 @@ async function readOptions(): Promise<any | null> {
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const ticker = (searchParams.get("t") || searchParams.get("ticker") || "").toUpperCase();
-    if (!ticker) return NextResponse.json({ error: "Missing ticker" }, { status: 400 });
+    if (!ticker && searchParams.get("all") !== "1") {
+        return NextResponse.json({ error: "Missing ticker" }, { status: 400 });
+    }
 
     const data = await readOptions();
+
+    // ── all=1 : 전 종목 «신규 포지션» 요약 (1콜) ────────────────────
+    //   UC 큰손 레이더처럼 여러 종목을 한 번에 훑는 소비처를 위해서다.
+    //   종목마다 호출하면 UC 의 호출 예산이 남아나지 않는다.
+    if (searchParams.get("all") === "1") {
+        if (!data) {
+            return NextResponse.json(
+                { available: false, reason: "options-eod-not-loaded", date: null, opening: {} },
+                { status: 200, headers: { "Cache-Control": "no-store" } }
+            );
+        }
+        const opening: Record<string, { contracts: number; notional: number; side: "call" | "put" }> = {};
+        for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
+            let contracts = 0, notional = 0, callN = 0, putN = 0;
+            for (const c of (v.top || [])) {
+                // 미결제약정이 «늘어난» 것만 신규 포지션이다
+                if (!(c.d > 0)) continue;
+                const n = c.d * 100 * (c.k || 0);
+                contracts += c.d; notional += n;
+                if (c.t === "C") callN += n; else putN += n;
+            }
+            if (contracts > 0) {
+                opening[sym] = { contracts, notional, side: callN >= putN ? "call" : "put" };
+            }
+        }
+        return NextResponse.json(
+            { available: true, date: data.date, prevDate: data.prevDate ?? null, basis: "EOD", opening },
+            { headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600" } }
+        );
+    }
+
     if (!data) {
         // 없는 것을 0 으로 만들지 않는다 — 화면이 «활동 없음»이라고 말하면 안 된다
         return NextResponse.json(

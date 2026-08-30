@@ -22,7 +22,7 @@
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import {
-  isSpam, primaryTicker, fetchMoney, hasRealMoney, cleanImage,
+  isSpam, primaryTicker, fetchMoney, hasRealMoney, cleanImage, fetchOptionsOpening,
   type NewsItem, type MoneyData,
 } from './shared';
 
@@ -127,9 +127,20 @@ async function buildCore(origin: string): Promise<FeedCore> {
     })
     .slice(0, MONEY_PROBE);
 
-  const money = await Promise.all(
-    probeList.map((c) => fetchMoney(origin, c.ticker, MONEY_TIMEOUT_MS)),
-  );
+  // 옵션 신규 포지션은 **전 종목이 한 키**에 있으므로 1콜로 받아 병합한다.
+  //   종목당 호출하던 다크풀과 달리 호출 예산을 거의 쓰지 않는다.
+  const [money, opening] = await Promise.all([
+    Promise.all(probeList.map((c) => fetchMoney(origin, c.ticker, MONEY_TIMEOUT_MS))),
+    fetchOptionsOpening(origin),
+  ]);
+  probeList.forEach((c, i) => {
+    const o = opening.byTicker[c.ticker];
+    if (!o) return;
+    money[i].newOiContracts = o.contracts;
+    money[i].newOiNotional = o.notional;
+    money[i].newOiSide = o.side;
+    money[i].optionsDate = opening.date;
+  });
 
   // curation pass 2 — final rank: real money data (큰손/괴리 material) beats
   // fame, fame beats neither; recency breaks ties. Then take the top PICK.
@@ -159,7 +170,9 @@ async function buildCore(origin: string): Promise<FeedCore> {
   // produce the same prose, so callers can skip the AI call (nights/weekends the
   // wire is quiet AND prices are frozen — this zeroes those cycles' AI cost).
   const sig = stories
-    .map((s) => `${s.ticker}:${s.publishedAt}:${s.money.price}:${s.money.volumePcr}:${s.money.darkPoolPct}`)
+    // 서명에서 darkPoolPct 를 뺀다 — 항상 null 이라 «변화 감지»에 기여하지 않고,
+    // 대신 신규 포지션이 바뀌면 AI 를 다시 돌려야 한다
+    .map((s) => `${s.ticker}:${s.publishedAt}:${s.money.price}:${s.money.volumePcr}:${s.money.newOiContracts}`)
     .join('|');
 
   return { sig, stories };

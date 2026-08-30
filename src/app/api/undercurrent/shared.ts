@@ -31,7 +31,20 @@ export interface NewsItem {
 }
 
 export interface MoneyData {
+  /**
+   * 장외(다크풀) 체결 비중.
+   * ⚠️ 현재 데이터 공급으로는 **측정 불가**라 항상 null 이다.
+   *    화면은 이 값 대신 아래 옵션 신규 포지션을 쓴다.
+   */
   darkPoolPct: number | null;
+  /** 어제 새로 걸린 옵션 계약 수 (미결제약정 증가분 합) */
+  newOiContracts: number | null;
+  /** 그 신규 포지션의 명목가 ($) — 대형주·소형주를 공평하게 비교하려고 */
+  newOiNotional: number | null;
+  /** 신규 포지션이 콜 쪽인가 풋 쪽인가 */
+  newOiSide: 'call' | 'put' | null;
+  /** 기준 거래일 (전일 마감) */
+  optionsDate: string | null;
   oiPcr: number | null;
   volumePcr: number | null;
   squeezeScore: number | null;
@@ -95,6 +108,7 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
   const empty: MoneyData = {
     darkPoolPct: null, oiPcr: null, volumePcr: null, squeezeScore: null,
     maxPain: null, callWall: null, putFloor: null, price: null,
+    newOiContracts: null, newOiNotional: null, newOiSide: null, optionsDate: null,
   };
   const base = publicBase(origin); // never the request origin — see publicBase note above
   try {
@@ -113,6 +127,9 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
       callWall: num(find(d, 'callWall')),
       putFloor: num(find(d, 'putFloor')),
       price: num(d?.prices?.price) ?? num(d?.prices?.regularCloseToday) ?? num(find(d, 'regularCloseToday')),
+      // 옵션 신규 포지션은 종목당 호출하지 않는다 — 전 종목이 한 키에 있으므로
+      // 호출부가 fetchOptionsOpening() 으로 «1콜»에 받아 병합한다.
+      newOiContracts: null, newOiNotional: null, newOiSide: null, optionsDate: null,
     };
   } catch {
     return empty;
@@ -129,14 +146,19 @@ export function cleanImage(url?: string | null): string | null {
 }
 
 export function hasRealMoney(m: MoneyData): boolean {
-  return m.darkPoolPct !== null || m.oiPcr !== null || m.volumePcr !== null;
+  // 다크풀은 이제 항상 null 이다 — 그것만 보면 «돈 데이터 없음»이 되어
+  // UC 의 큐레이션(돈 있는 기사 우대)이 통째로 무너진다.
+  // 옵션 신규 포지션을 판단 재료에 포함한다.
+  return m.darkPoolPct !== null || m.oiPcr !== null || m.volumePcr !== null
+    || m.newOiContracts !== null || m.maxPain !== null;
 }
 
 export function buildSystem(loc: Locale): string {
   return `You write for "Undercurrent", a premium general-audience market app. Your ONE job per story: compare what the NEWS says vs what the MONEY (institutional & options positioning) is actually doing, and surface real DIVERGENCE.
 
 HOW TO READ THE MONEY SIGNALS (be precise):
-- darkPoolPct = share of volume traded off-exchange by institutions. >50 = unusually heavy institutional activity; 30-50 = elevated; <30 = normal.
+- newOiContracts / newOiNotional / newOiSide = option positions OPENED yesterday (open interest INCREASED). This is the strongest "smart money" read available: rising open interest means a NEW position, not a close-out — volume alone cannot tell those apart. newOiSide says whether the new money leaned call (upside) or put (downside). Judge size by notional, not contract count.
+- darkPoolPct is ALWAYS null on the current data feed — never mention off-exchange or dark pool activity, and never infer it from other fields.
 - putCallRatio (oiPcr / volumePcr) = hedging/direction lean. >1.2 = put-heavy (defensive/bearish lean); 0.8-1.2 = balanced; <0.8 = call-heavy (bullish lean). volumePcr is today's flow; oiPcr is standing positions.
 - squeezeScore (0-100) = short-squeeze pressure. >60 = high squeeze potential; <20 = low.
 - maxPain / callWall / putFloor = option magnet/resistance/support price levels (compare to price when given).
@@ -144,7 +166,7 @@ HOW TO READ THE MONEY SIGNALS (be precise):
 RULES:
 - Write in ${langName[loc]}.
 - EVERY output field INCLUDING plainTitle must be written in ${langName[loc]}. Headlines usually arrive in English — TRANSLATE them into ${langName[loc]}; NEVER copy the original English wording. Keep tickers and company names as-is.
-- Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "dark pool", "max pain"). Translate: e.g. "기관들이 장외에서 이례적으로 많이 거래 중", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
+- Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "open interest", "max pain"). Translate: e.g. "어제 상승 쪽에 큰 규모로 새 포지션이 걸렸다", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
 - Describe facts only — NEVER buy/sell/hold advice, NEVER price predictions.
 - moneyRead: ONE sentence, grounded ONLY in the given numbers. If signals are mixed or weak, say so honestly.
 - divergence=true ONLY when news tone and money signals clearly point OPPOSITE ways. Mixed/unclear = false.
@@ -163,7 +185,10 @@ export function storyPayload(stories: {
       summary: (s.description || '').slice(0, 220),
       newsSentiment: s.newsSentiment || 'unknown',
       money: {
-        darkPoolPct: s.money.darkPoolPct,
+        // 다크풀은 항상 null 이다 — AI 가 «0%» 나 «낮음»으로 서술하지 않도록 아예 뺀다
+        newOiContracts: s.money.newOiContracts,
+        newOiNotional: s.money.newOiNotional,
+        newOiSide: s.money.newOiSide,
         oiPcr: s.money.oiPcr,
         volumePcr: s.money.volumePcr,
         squeezeScore: s.money.squeezeScore,
@@ -320,5 +345,43 @@ export async function serveSWR<T extends Record<string, any>>(opts: {
     return null; // truly nothing to serve
   } finally {
     if (gotLock) await deleteFromCache(`${key}:swrlock`).catch(() => {});
+  }
+}
+
+
+// ── 옵션 신규 포지션 (전 종목 1콜) ─────────────────────────────────────────
+//
+// [왜 이게 큰손 레이더를 대체하나]
+//   기존 「큰손 레이더」는 다크풀 비중(장외 체결 비중)이었다. 현재 데이터
+//   공급으로는 측정 자체가 불가능해서 그 자리가 **영영 비어 있었다**
+//   (앱 화면: «지금은 두드러진 장외 큰손 움직임이 없어요» 가 상시 노출).
+//
+//   대체재는 «어제 기관이 어디에 새로 걸었나»다. 옵션 미결제약정이 늘었다는
+//   것은 그 계약에 **새 포지션이 생겼다**는 뜻이고, 이건 거래량과 달리
+//   신규와 청산을 구분한다. 익명 다크풀보다 오히려 검증 가능하다.
+//
+// [비용]  전 종목이 한 Redis 키에 있으므로 **1콜**이면 끝난다.
+//   종목당 호출하던 다크풀과 달리 UC 의 호출 예산을 거의 안 쓴다.
+export interface OpeningPosition {
+  contracts: number;
+  notional: number;
+  side: 'call' | 'put';
+}
+
+export async function fetchOptionsOpening(
+  origin: string,
+  timeoutMs = 8000,
+): Promise<{ date: string | null; byTicker: Record<string, OpeningPosition> }> {
+  const base = publicBase(origin);
+  try {
+    const res = await fetch(`${base}/api/flow/options-eod?all=1`, {
+      signal: AbortSignal.timeout(timeoutMs),
+      redirect: 'follow',
+    });
+    if (!res.ok) return { date: null, byTicker: {} };
+    const d = await res.json();
+    return { date: d?.date ?? null, byTicker: d?.opening || {} };
+  } catch {
+    return { date: null, byTicker: {} };
   }
 }

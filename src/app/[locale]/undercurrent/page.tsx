@@ -38,19 +38,19 @@ const T: Record<Locale, Record<string, string>> = {
     moneyTitle: '돈의 움직임',
     filingsTitle: '회사가 직접 밝힌 것', filingsSub: '언론이 아닌 SEC 공식 문서(8-K)에 회사가 스스로 적어낸 사실',
     secDiv: '괴리 시그널', secDivSub: '뉴스와 돈이 반대로 움직이는 곳',
-    secWhale: '큰손 레이더', secWhaleSub: '기관이 장외에서 조용히 움직인 비중',
-    whaleEmpty: '지금은 두드러진 장외 큰손 움직임이 없어요. 데이터는 장중에 계속 갱신됩니다.',
+    secWhale: '큰손 레이더', secWhaleSub: '어제 새로 걸린 옵션 포지션',
+    whaleEmpty: '어제는 두드러진 신규 포지션이 없었어요. 매일 장 마감 후 갱신됩니다.',
     secStories: '오늘의 스토리', secStoriesSub: '돈의 반응과 함께 읽는 뉴스',
     connected: '연결된 흐름', more: '더 보기',
     share: '공유', shareCopied: '링크가 복사되었어요', viewTicker: '이 종목 전체 보기', backdropNow: '지금 시장',
     pxToday: '오늘', pxSince: '보도 후',
-    offExchange: '장외 거래 비중',
+    offExchange: '신규 포지션', sideCall: '상방', sidePut: '하방',
     deepTitle: '심층 머니 레이어',
     deepLockedTitle: '이 종목의 심층 데이터',
-    deepLockedDesc: '기관 장외 비중 · 풋/콜 보험 · 스퀴즈 압력 · 옵션 가격 지도',
+    deepLockedDesc: '신규 옵션 포지션 · 풋/콜 보험 · 스퀴즈 압력 · 옵션 가격 지도',
     unlockBtn: '심층 데이터 열기',
     unlockNote: '지금은 무료로 열람할 수 있어요',
-    sigOff: '기관 장외 거래', sigPcr: '하락 보험(풋/콜)', sigSq: '스퀴즈 압력',
+    sigOff: '신규 옵션 포지션', sigPcr: '하락 보험(풋/콜)', sigSq: '스퀴즈 압력',
     bandNormal: '보통', bandHigh: '높음', bandVeryHigh: '매우 높음',
     pcrCall: '콜 우위 · 강세 성향', pcrBal: '균형', pcrPut: '풋 우위 · 방어적',
     sqLow: '낮음', sqMid: '중간', sqHigh: '높음',
@@ -117,19 +117,19 @@ const T: Record<Locale, Record<string, string>> = {
     moneyTitle: 'What the money is doing',
     filingsTitle: 'Straight from the company', filingsSub: 'Facts the company itself filed with the SEC (8-K) — not the press',
     secDiv: 'Divergence signals', secDivSub: 'Where news and money point opposite ways',
-    secWhale: 'Whale radar', secWhaleSub: 'Institutional off-exchange share',
-    whaleEmpty: 'No standout off-exchange activity right now. Data refreshes through the session.',
+    secWhale: 'Whale radar', secWhaleSub: 'New option positions opened yesterday',
+    whaleEmpty: 'No standout new positions yesterday. Updates after each close.',
     secStories: "Today's stories", secStoriesSub: 'News read together with the money',
     connected: 'Connected flows', more: 'See all',
     share: 'Share', shareCopied: 'Link copied', viewTicker: 'See all on this ticker', backdropNow: 'The market now',
     pxToday: 'today', pxSince: 'since the news',
-    offExchange: 'off-exchange share',
+    offExchange: 'new positions', sideCall: 'upside', sidePut: 'downside',
     deepTitle: 'Deep money layer',
     deepLockedTitle: 'Deep data for this ticker',
-    deepLockedDesc: 'Institutional share · put/call insurance · squeeze · option price map',
+    deepLockedDesc: 'New option positions · put/call insurance · squeeze · option price map',
     unlockBtn: 'Open the deep data',
     unlockNote: 'Free to open for now',
-    sigOff: 'Institutional off-exchange', sigPcr: 'Downside insurance (put/call)', sigSq: 'Squeeze pressure',
+    sigOff: 'New option positions', sigPcr: 'Downside insurance (put/call)', sigSq: 'Squeeze pressure',
     bandNormal: 'Normal', bandHigh: 'High', bandVeryHigh: 'Very high',
     pcrCall: 'Call-heavy · bullish lean', pcrBal: 'Balanced', pcrPut: 'Put-heavy · defensive',
     sqLow: 'Low', sqMid: 'Medium', sqHigh: 'High',
@@ -196,19 +196,19 @@ const T: Record<Locale, Record<string, string>> = {
     moneyTitle: 'お金の動き',
     filingsTitle: '企業が自ら明かしたこと', filingsSub: '報道ではなくSEC公式文書(8-K)に企業自身が記した事実',
     secDiv: '乖離シグナル', secDivSub: 'ニュースとお金が逆方向の銘柄',
-    secWhale: '大口レーダー', secWhaleSub: '機関投資家の場外取引シェア',
-    whaleEmpty: '今、目立った場外の大口の動きはありません。データは取引時間中に更新されます。',
+    secWhale: '大口レーダー', secWhaleSub: '昨日新たに建てられたオプションポジション',
+    whaleEmpty: '昨日は目立った新規ポジションがありませんでした。引け後に更新されます。',
     secStories: '今日のストーリー', secStoriesSub: 'お金の反応と一緒に読むニュース',
     connected: 'つながる流れ', more: 'すべて見る',
     share: 'シェア', shareCopied: 'リンクをコピーしました', viewTicker: 'この銘柄をすべて見る', backdropNow: 'いまの市場',
     pxToday: '本日', pxSince: '報道後',
-    offExchange: '場外取引シェア',
+    offExchange: '新規ポジション', sideCall: '上方', sidePut: '下方',
     deepTitle: 'ディープ・マネーレイヤー',
     deepLockedTitle: 'この銘柄のディープデータ',
-    deepLockedDesc: '機関シェア · プット/コール保険 · スクイーズ · オプション価格マップ',
+    deepLockedDesc: '新規オプションポジション · プット/コール保険 · スクイーズ · オプション価格マップ',
     unlockBtn: 'ディープデータを開く',
     unlockNote: '今は無料でご覧いただけます',
-    sigOff: '機関の場外取引', sigPcr: '下落保険(プット/コール)', sigSq: 'スクイーズ圧力',
+    sigOff: '新規オプションポジション', sigPcr: '下落保険(プット/コール)', sigSq: 'スクイーズ圧力',
     bandNormal: '普通', bandHigh: '高い', bandVeryHigh: '非常に高い',
     pcrCall: 'コール優勢 · 強気', pcrBal: '均衡', pcrPut: 'プット優勢 · 防御的',
     sqLow: '低い', sqMid: '中間', sqHigh: '高い',
@@ -310,9 +310,13 @@ const TAB_ICONS: Record<string, React.ReactElement> = {
 };
 
 interface Money {
+  /** 장외 체결 비중 — 현재 데이터 공급으로는 측정 불가라 항상 null */
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
   putFloor: number | null; price: number | null;
+  /** 어제 새로 걸린 옵션 포지션 (다크풀 자리 대체) */
+  newOiContracts: number | null; newOiNotional: number | null;
+  newOiSide: 'call' | 'put' | null; optionsDate: string | null;
 }
 interface Card {
   ticker: string; tag: string | null; plainTitle: string; whyItMatters: string | null;
@@ -474,8 +478,12 @@ function SectionHead({ title, sub, color }: { title: string; sub: string; color:
 
 
 // ── deep money layer (the rewarded-unlock content) ──
-function bandOff(v: number, t: Record<string, string>) {
-  return v > 50 ? { label: t.bandVeryHigh, color: C.diverge } : v >= 30 ? { label: t.bandHigh, color: C.amber } : { label: t.bandNormal, color: C.emerald };
+/** 신규 옵션 포지션의 «방향» 밴드 — 옛 bandOff(장외 비중 구간)를 대체한다.
+ *  비중과 달리 «크다/작다»가 아니라 «어느 쪽에 걸렸나»가 핵심 정보다. */
+function bandNewOi(side: 'call' | 'put' | null, t: Record<string, string>) {
+  return side === 'put'
+    ? { label: t.sidePut, color: C.amber }
+    : { label: t.sideCall, color: C.emerald };
 }
 function bandPcr(v: number, t: Record<string, string>) {
   return v > 1.2 ? { label: t.pcrPut, color: C.amber } : v < 0.8 ? { label: t.pcrCall, color: C.emerald } : { label: t.pcrBal, color: C.neutral };
@@ -547,8 +555,13 @@ function DeepLayer({ c, t }: { c: Card; t: Record<string, string> }) {
   const pcr = m.oiPcr ?? m.volumePcr;
   return (
     <div style={{ marginTop: 4 }}>
-      {typeof m.darkPoolPct === 'number' && (
-        <SignalRow name={t.sigOff} value={`${Math.round(m.darkPoolPct)}%`} band={bandOff(m.darkPoolPct, t)} />
+      {/* 다크풀 자리 → 어제 새로 걸린 옵션 포지션. 명목가로 보여준다 */}
+      {typeof m.newOiNotional === 'number' && m.newOiNotional > 0 && (
+        <SignalRow
+          name={t.sigOff}
+          value={m.newOiNotional >= 1e9 ? `$${(m.newOiNotional / 1e9).toFixed(1)}B` : m.newOiNotional >= 1e6 ? `$${Math.round(m.newOiNotional / 1e6)}M` : `$${Math.round(m.newOiNotional / 1e3)}K`}
+          band={bandNewOi(m.newOiSide, t)}
+        />
       )}
       {typeof pcr === 'number' && (
         <SignalRow name={t.sigPcr} value={pcr.toFixed(2)} band={bandPcr(pcr, t)} />
@@ -1005,12 +1018,17 @@ export default function UndercurrentPage() {
   const cards = feed?.cards || [];
   const hero = cards.find((c) => c.divergence) || cards[0];
   const divCards = cards.filter((c) => c.divergence);
-  // 큰손: strong off-exchange (>=40) first; if none clear the bar, still show the day's top
-  // off-exchange names so the radar is never blank when money data exists (rich, not empty).
+  // ★ [2026-08-30] 큰손 레이더를 «장외 체결 비중»에서 «옵션 신규 포지션»으로 바꿨다.
+  //   다크풀은 현재 데이터 공급으로 측정 자체가 불가능해 그 자리가 영영 비어 있었다
+  //   (앱에 «지금은 두드러진 장외 큰손 움직임이 없어요» 가 상시 노출).
+  //   대체재는 «어제 기관이 어디에 새로 걸었나» — 옵션 미결제약정이 늘었다는 것은
+  //   그 계약에 새 포지션이 생겼다는 뜻이고, 거래량과 달리 신규와 청산을 구분한다.
+  //   익명 다크풀보다 오히려 검증 가능하다.
+  //   순위는 계약 «수»가 아니라 **명목가**로 — 대형주·소형주가 공평하게 겨루도록.
   const whaleAll = [...cards]
-    .filter((c) => c.money?.darkPoolPct != null)
-    .sort((a, b) => (b.money?.darkPoolPct ?? 0) - (a.money?.darkPoolPct ?? 0));
-  const whaleStrong = whaleAll.filter((c) => (c.money?.darkPoolPct ?? 0) >= 40);
+    .filter((c) => (c.money?.newOiNotional ?? 0) > 0)
+    .sort((a, b) => (b.money?.newOiNotional ?? 0) - (a.money?.newOiNotional ?? 0));
+  const whaleStrong = whaleAll.filter((c) => (c.money?.newOiNotional ?? 0) >= 10_000_000);
   const whaleCards = whaleStrong.length ? whaleStrong : whaleAll.slice(0, 6);
   const connected = (base: Card | null) =>
     base ? cards.filter((c) => c.ticker !== base.ticker && (c.moneyMood === base.moneyMood || (c.divergence && base.divergence))).slice(0, 3) : [];
@@ -1934,13 +1952,28 @@ export default function UndercurrentPage() {
                             </span>
                             {c.divergence && <span style={{ fontSize: 9.5, fontWeight: 800, color: '#FFD9C4', background: 'rgba(194,65,12,0.55)', padding: '2px 7px', borderRadius: 999, flexShrink: 0 }}>{t.divergence}</span>}
                           </div>
-                          <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em', margin: '10px 0 1px', fontVariantNumeric: 'tabular-nums' }}>
-                            {c.money?.darkPoolPct == null ? '—' : <>{Math.round(c.money.darkPoolPct)}<span style={{ fontSize: 15, fontWeight: 800, opacity: 0.75 }}>%</span></>}
-                          </div>
-                          <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>{t.offExchange}</div>
-                          <div style={{ height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.18)', marginTop: 9, overflow: 'hidden' }}>
-                            <div style={{ width: `${Math.min(100, Math.max(4, c.money?.darkPoolPct ?? 0))}%`, height: '100%', background: '#5BE3A9', borderRadius: 99 }} />
-                          </div>
+                          {(() => {
+                            const n = c.money?.newOiNotional ?? 0;
+                            const ct = c.money?.newOiContracts ?? 0;
+                            const isCall = c.money?.newOiSide !== 'put';
+                            const money = n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${Math.round(n / 1e6)}M` : `$${Math.round(n / 1e3)}K`;
+                            // 막대는 «이 카드들 중 상대 크기» — 절대 기준이 없는 값이라
+                            // 임의의 100 을 만들지 않는다
+                            const maxN = whaleCards.reduce((mx, x) => Math.max(mx, x.money?.newOiNotional ?? 0), 0) || 1;
+                            return (
+                              <>
+                                <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', margin: '10px 0 1px', fontVariantNumeric: 'tabular-nums' }}>
+                                  {n > 0 ? money : '—'}
+                                </div>
+                                <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>
+                                  {t.offExchange}{ct > 0 ? ` · ${isCall ? t.sideCall : t.sidePut}` : ''}
+                                </div>
+                                <div style={{ height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.18)', marginTop: 9, overflow: 'hidden' }}>
+                                  <div style={{ width: `${Math.min(100, Math.max(4, (n / maxN) * 100))}%`, height: '100%', background: isCall ? '#5BE3A9' : '#F5A3B0', borderRadius: 99 }} />
+                                </div>
+                              </>
+                            );
+                          })()}
                         </button>
                       ))}
                     </div>
