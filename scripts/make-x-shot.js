@@ -55,8 +55,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     } catch {}
   }, [loc, cfg.onboard]);
   await page.setViewport({ width: VIEW.w, height: VIEW.h, deviceScaleFactor: VIEW.dsf });
+  // ⚠️ 캐시를 끄지 않으면 «배포는 됐는데 이미지는 옛 화면»이 나온다.
+  //    URL 쿼리로는 안 막혔다(puppeteer 자체 캐시). 실제로 겪었다.
+  await page.setCacheEnabled(false);
 
-  await page.goto(`${BASE}${cfg.path(loc, scene, ticker)}`, { waitUntil: 'networkidle2', timeout: 90000 });
+  // 캐시된 옛 페이지를 찍으면 «배포했는데 화면은 옛것»이 그대로 이미지가 된다.
+  // 실제로 겪었다(다크풀 판독 수정 직후). 캐시 무력화 파라미터를 붙인다.
+  const bust = `${cfg.path(loc, scene, ticker)}${cfg.path(loc, scene, ticker).includes('?') ? '&' : '?'}_cb=${Date.now()}`;
+  await page.goto(`${BASE}${bust}`, { waitUntil: 'networkidle2', timeout: 90000 });
   await sleep(7000);
 
   await page.evaluate(() => {

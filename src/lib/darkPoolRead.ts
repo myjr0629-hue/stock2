@@ -89,6 +89,20 @@ function shortBand(dev: number | null | undefined, raw: number | null | undefine
     return 'mid';
 }
 
+/**
+ * 화면에 «표시할» 레짐. 배지와 문장이 서로 다른 말을 하지 못하게
+ * **한 곳에서** 정한다.
+ *   실측(SLB): 배지 NEUTRAL · 문장 「sold into the strength」 — 같은 카드가
+ *   서로 반대를 말했다. 배지는 백엔드 regime 을, 문장은 극단 이탈 우선을
+ *   따로 썼기 때문이다. 이제 둘 다 이 함수를 쓴다.
+ */
+export function effectiveRegime(d: DarkPoolInput): 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null {
+    if (typeof d.shortDev === 'number' && Number.isFinite(d.shortDev) && Math.abs(d.shortDev) >= 10) {
+        return d.shortDev > 0 ? 'DISTRIBUTION' : 'ACCUMULATION';
+    }
+    return d.regime ?? null;
+}
+
 export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRead {
     // ── 왜 «호가창 밖»이 중요한가 — 모든 해석의 공통 전제 ──────────────
     const why = T(lang,

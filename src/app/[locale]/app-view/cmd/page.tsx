@@ -12,7 +12,7 @@ import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
 import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
-import { readDarkPool } from '@/lib/darkPoolRead';
+import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
@@ -2959,7 +2959,12 @@ function CmdPageContent() {
           const sp = typeof f.darkPoolShortPct === 'number' ? f.darkPoolShortPct : null;
           const shAvg = typeof f.darkPoolShortAvg === 'number' ? f.darkPoolShortAvg : null;
           const dev = typeof f.darkPoolShortDev === 'number' ? f.darkPoolShortDev : null;
-          const reg = f.darkPoolRegime as 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
+          // 배지도 판독과 «같은» 레짐을 쓴다 — 안 그러면 배지는 NEUTRAL 인데
+          // 문장은 「분산」이라고 말한다(SLB 실화면에서 실제로 그랬다).
+          const reg = effectiveRegime({
+            pct, volRatio: vr, shortPct: sp, shortAvg: shAvg, shortDev: dev,
+            regime: (f.darkPoolRegime ?? null) as 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null,
+          });
           const gap = mkt != null ? pct - mkt : null;
           const hot = reg === 'ACCUMULATION', cold = reg === 'DISTRIBUTION';
           // ⚠️ CSS 변수에 16진 알파를 «이어 붙일 수 없다». `var(--red)33` 은
