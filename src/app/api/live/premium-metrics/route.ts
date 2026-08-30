@@ -97,9 +97,13 @@ export async function GET(req: NextRequest) {
             const { getIndexBreadth } = await import('@/services/indexBreadth');
             const b = await getIndexBreadth();
             if (b?.ndx?.pctAbove20 != null || b?.dow?.pctAbove20 != null) {
+                // ⚠️ `pctAbove20` 은 이름과 달리 **0~1 비율**이다(서비스 정의 그대로).
+                //    화면은 %로 쓰므로 경계에서 ×100 한다. 안 하면 52% 가 «0%» 로 찍힌다.
+                const toPct = (v: number | null | undefined) =>
+                    typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1000) / 10 : null;
                 breadth = {
-                    ndx: b.ndx?.pctAbove20 ?? null,
-                    dow: b.dow?.pctAbove20 ?? null,
+                    ndx: toPct(b.ndx?.pctAbove20),
+                    dow: toPct(b.dow?.pctAbove20),
                     covered: (b.ndx?.covered ?? 0) + (b.dow?.covered ?? 0),
                     universe: (b.ndx?.universe ?? 0) + (b.dow?.universe ?? 0),
                 };
