@@ -758,7 +758,7 @@ export default function AppDashPage() {
   const gateCopy = {
     ko: {
       title: '기관급 마켓 펄스',
-      subtitle: '변동성 레짐, 다크풀 흐름, 섹터 순환을 1시간 동안 확인합니다.',
+      subtitle: '변동성 레짐, 기관 신규 포지션, 섹터 순환을 1시간 동안 확인합니다.',
       teaserLabel: '무료 미리보기 · 기관급 펄스',
       previewChip: '무료 미리보기',
       cta: '광고 보고 1시간 해제',
@@ -774,7 +774,7 @@ export default function AppDashPage() {
     },
     en: {
       title: 'Institutional Market Pulse',
-      subtitle: 'Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.',
+      subtitle: 'Unlock volatility regime, new institutional positioning, and sector rotation for 1 hour.',
       teaserLabel: 'Free preview · Institutional pulse',
       previewChip: 'Free preview',
       cta: 'Watch ad to unlock 1HR',
@@ -790,7 +790,7 @@ export default function AppDashPage() {
     },
     ja: {
       title: '機関級マーケットパルス',
-      subtitle: 'ボラティリティ・レジーム、ダークプールフロー、セクターローテーションを1時間確認できます。',
+      subtitle: 'ボラティリティ・レジーム、機関の新規ポジション、セクターローテーションを1時間確認できます。',
       teaserLabel: '無料プレビュー · 機関投資家パルス',
       previewChip: '無料プレビュー',
       cta: '広告視聴で1時間解除',
@@ -1550,7 +1550,8 @@ export default function AppDashPage() {
             <span className={s.brandName}>
               SIGNUM<span style={{ color: 'var(--cyan)' }}>HQ</span>
             </span>
-            <span className={s.brandSub}>DARK POOL INTEL</span>
+            {/* 다크풀은 2026-08-28 소멸 — 앱 이름표가 못 지키는 약속을 하고 있었다 */}
+            <span className={s.brandSub}>OPTIONS FLOW INTEL</span>
           </div>
         </div>
         <div className={s.headerActions}>
