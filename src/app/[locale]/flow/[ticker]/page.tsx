@@ -66,7 +66,11 @@ const L: Record<string, Strings> = {
     whatB: 'A divergence is when the news narrative and the institutional money flow point in opposite directions — a bearish headline while large call premium is bought, or heavy dark-pool selling under a bullish story. It signals the crowd and the desks may disagree.',
     glossT: 'How to read these numbers',
     gloss: [
-      ['Dark-pool volume', 'The share of trading done off-exchange, where institutions move size quietly. Well above ~40% means big players are active.'],
+      // ⛔ 「~40% 훨씬 위면 큰손 활발」이라고 써 있었다. 시장 평균이 51%다 —
+      //    거의 모든 종목이 매일 그 조건을 만족하므로 아무 말도 못 하는 문장이었고,
+      //    실제로 사용자를 오해시켰다. 기준선으로 다시 쓴다.
+      ['Dark-pool volume', 'The share of trading executed off-exchange, at wholesalers and dark pools. About half of all US share volume prints there on an ordinary day, so the level by itself says almost nothing. What carries information is the distance from this name’s own recent norm, and whether the off-exchange size ran above its usual.'],
+      ['Off-exchange short share', 'How much of that off-exchange volume was sold short. The median across all listed names is about 49%, because wholesalers filling retail buy orders sell short and cover later. A reading near half is plumbing, not a bearish vote — compare it to the same name’s own 20-day norm.'],
       ['Max pain', 'The price where the most options expire worthless — positioning often gravitates toward it near expiry.'],
       ['Call wall / Put floor', 'Strikes with the heaviest call/put open interest — they often act as short-term resistance and support.'],
       ['Put/Call ratio', 'Below ~0.7 leans bullish (more calls); above ~1 leans defensive (more puts).'],
@@ -88,7 +92,8 @@ const L: Record<string, Strings> = {
     whatB: '괴리는 뉴스의 서사와 기관 자금 흐름이 반대를 가리킬 때입니다 — 약세 헤드라인인데 대규모 콜 프리미엄이 매수되거나, 강세 스토리 밑에서 다크풀 매도가 몰릴 때. 대중과 데스크가 엇갈릴 수 있다는 신호죠.',
     glossT: '이 숫자 읽는 법',
     gloss: [
-      ['다크풀 비중', '거래소 밖(장외)에서 일어난 거래 비율. 기관이 조용히 물량을 움직이는 곳. ~40% 훨씬 위면 큰손 활발.'],
+      ['다크풀 비중', '거래소 밖(장외)에서 체결된 거래 비율. 평범한 날에도 미국 주식 거래량의 약 절반이 거기서 찍힙니다. 그래서 수치 자체는 거의 아무 말도 하지 않습니다. 정보는 그 종목의 «평소»에서 얼마나 벗어났는지, 그리고 장외 물량이 평소보다 많았는지에 있습니다.'],
+      ['그중 공매도 비중', '그 장외 물량 중 공매도로 팔린 비율. 전 종목 중앙값이 약 49%입니다. 소매 매수의 상대가 되는 도매업자가 일단 공매도로 팔고 나중에 되사기 때문입니다. 절반 근처면 시장 배관이지 하락 베팅이 아닙니다 — 반드시 그 종목의 20일 평균과 비교하세요.'],
       ['맥스페인', '가장 많은 옵션이 소멸하는 가격. 만기 근처엔 포지셔닝이 이쪽으로 끌리곤 함.'],
       ['콜월 / 풋플로어', '콜/풋 미결제약정이 가장 두꺼운 행사가 — 단기 저항/지지로 작용하곤 함.'],
       ['풋/콜 비율', '~0.7 아래는 강세(콜 우세), ~1 위는 방어적(풋 우세).'],
@@ -110,7 +115,8 @@ const L: Record<string, Strings> = {
     whatB: '乖離とは、ニュースの物語と機関の資金フローが逆を向くこと — 弱気の見出しなのに大口のコールプレミアムが買われる、強気の話の裏でダークプール売りが集まる、など。大衆とデスクが食い違うサインです。',
     glossT: 'この数字の読み方',
     gloss: [
-      ['ダークプール比率', '取引所外で行われた取引の割合。機関が静かに大口を動かす場所。~40%を大きく超えると大口が活発。'],
+      ['ダークプール比率', '取引所外（ホールセラー・ダークプール）で約定した取引の割合。平常の日でも米国株の出来高の約半分がそこで付きます。だから水準そのものはほとんど何も語りません。情報は、その銘柄の「平常」からどれだけ離れたか、場外の規模が普段より多かったかにあります。'],
+      ['うち空売り比率', 'その場外出来高のうち空売りで売られた割合。全銘柄の中央値は約49%です。個人の買い注文の相手方になるホールセラーが、いったん空売りで売ってあとで買い戻すためです。半分近くなら市場の配管であって弱気の一票ではありません — 必ずその銘柄の20日平均と比べてください。'],
       ['マックスペイン', '最も多くのオプションが無価値で満期を迎える価格。満期近くは建玉がここに引き寄せられがち。'],
       ['コールウォール / プットフロア', 'コール/プット建玉が最も厚い権利行使価格 — 短期の抵抗/支持として働きがち。'],
       ['プット/コール比', '~0.7未満は強気(コール優勢)、~1超は守勢(プット優勢)。'],
