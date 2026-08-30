@@ -2084,3 +2084,320 @@ export async function getOpenCloseIntrinio(ticker: string, date: string): Promis
         _extendedUnavailable: "intrinio-daily-bar-has-no-extended-session",
     };
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// [2026-08-30] Massive 계정 해지(2026-09-23) 대비 — 남은 8종 이관
+//
+//   해지일까지 아직 살아 있어서(시세만 403 이었다) 화면에 아무 이상이 없다.
+//   그래서 «다 됐다»고 착각하기 쉽다. 아래가 그 마지막 경로들이다.
+//   판정기: `node scripts/check-massive-leftovers.js` → UNKNOWN 0 이면 완료.
+// ════════════════════════════════════════════════════════════════════════
+
+/** FRED 계열 경제지표 한 계열 — 최신순 [{date, value}] */
+export async function getEconomicSeries(
+    symbol: string,
+    pageSize = 2
+): Promise<{ date: string; value: number }[]> {
+    try {
+        const d = await callIntrinio(
+            `indices/economic/${encodeURIComponent(symbol)}/historical_data/level`,
+            { page_size: String(pageSize), sort_order: "desc" }
+        );
+        return (d?.historical_data || [])
+            .map((r: any) => ({ date: String(r?.date || ""), value: Number(r?.value) }))
+            .filter((r: any) => r.date && Number.isFinite(r.value));
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * 국채 수익률 곡선 → Massive `/fed/v1/treasury-yields` 모양.
+ *
+ * Massive 는 만기별 컬럼을 한 행에 담아 줬다. Intrinio 는 만기마다 별도 계열이라
+ * 7개를 병렬로 받아 **날짜로 다시 붙인다.**
+ * 계열마다 최신일이 다를 수 있으므로(휴일·공표 지연) 날짜를 키로 합치고,
+ * 없는 만기는 **null 로 둔다** — 0 으로 채우면 「금리 0%」라는 주장이 된다.
+ */
+const TREASURY_SERIES: Array<[string, string]> = [
+    ["$DGS1MO", "yield_1_month"],
+    ["$DGS3MO", "yield_3_month"],
+    ["$DGS1", "yield_1_year"],
+    ["$DGS2", "yield_2_year"],
+    ["$DGS5", "yield_5_year"],
+    ["$DGS10", "yield_10_year"],
+    ["$DGS30", "yield_30_year"],
+];
+
+export async function getTreasuryYieldsIntrinio(limit = 2): Promise<any> {
+    // 소비처가 [0]과 [1]을 빼서 변화량을 만든다 → 최소 2행이 필요하다.
+    const want = Math.max(2, Math.min(limit, 30));
+    const series = await Promise.all(
+        TREASURY_SERIES.map(([sym]) => getEconomicSeries(sym, want + 3))
+    );
+
+    const byDate = new Map<string, any>();
+    series.forEach((rows, i) => {
+        const field = TREASURY_SERIES[i][1];
+        for (const r of rows) {
+            if (!byDate.has(r.date)) byDate.set(r.date, { date: r.date });
+            byDate.get(r.date)[field] = r.value;
+        }
+    });
+
+    // 10년물이 없는 날은 쓸모가 없다 — 소비처가 전부 그것부터 본다
+    const results = [...byDate.values()]
+        .filter((r) => Number.isFinite(r.yield_10_year))
+        .sort((a, b) => (a.date < b.date ? 1 : -1))
+        .slice(0, want)
+        .map((r) => {
+            for (const [, f] of TREASURY_SERIES) if (!(f in r)) r[f] = null;
+            return r;
+        });
+
+    return { status: "OK", count: results.length, results };
+}
+
+/**
+ * 물가 → Massive `/fed/v1/inflation` 모양.
+ *
+ * ⚠️ 호출부(`fedApiClient.getInflationData`)는 `res.cpi` 를 **최상위에서** 읽는데
+ *    Massive 는 `results[0].cpi` 를 줬다. 그래서 이 값은 **줄곧 null 이었다**
+ *    (2026-08-30 코드 실측 — `source: "FAIL"` 로 떨어진다).
+ *    이관하면서 최상위 «와» results 양쪽에 담아, 어느 쪽을 읽어도 맞게 한다.
+ *
+ *    YoY 는 Massive 가 안 주던 값이다. 12개월 전 지수와 비교해 우리가 만든다.
+ */
+export async function getInflationIntrinio(): Promise<any> {
+    const rows = await getEconomicSeries("$CPIAUCSL", 14);
+    if (!rows.length) return { status: "OK", count: 0, results: [] };
+    const latest = rows[0];
+    // 월간 계열이라 13번째가 «12개월 전»이다
+    const yearAgo = rows.length >= 13 ? rows[12] : null;
+    const cpiYoY =
+        yearAgo && yearAgo.value > 0
+            ? Math.round(((latest.value - yearAgo.value) / yearAgo.value) * 1000) / 10
+            : null;
+
+    const pceRows = await getEconomicSeries("$PCEPI", 14);
+    const pce = pceRows[0]?.value ?? null;
+    const pceYearAgo = pceRows.length >= 13 ? pceRows[12] : null;
+    const pceYoY =
+        pce != null && pceYearAgo && pceYearAgo.value > 0
+            ? Math.round(((pce - pceYearAgo.value) / pceYearAgo.value) * 1000) / 10
+            : null;
+
+    return {
+        status: "OK",
+        // 최상위 — 지금 호출부가 읽는 자리
+        date: latest.date,
+        cpi: latest.value,
+        cpiYoY,
+        pce,
+        pceYoY,
+        // results — Massive 원형과 같은 자리
+        count: rows.length,
+        results: rows.map((r) => ({ date: r.date, cpi: r.value })),
+    };
+}
+
+/** 기대 인플레이션(5년 브레이크이븐) → `/fed/v1/inflation-expectations` 모양 */
+export async function getInflationExpectationsIntrinio(): Promise<any> {
+    const rows = await getEconomicSeries("$T5YIE", 5);
+    if (!rows.length) return { status: "OK", count: 0, results: [] };
+    return {
+        status: "OK",
+        date: rows[0].date,
+        expected: rows[0].value,      // 호출부가 `res.expected` 로 읽는다
+        count: rows.length,
+        results: rows.map((r) => ({ date: r.date, expected: r.value })),
+    };
+}
+
+/**
+ * 재무 비율 → Massive `/stocks/financials/v1/ratios` 모양.
+ *
+ * Intrinio 는 계산된 비율을 «데이터 포인트»로 준다. 태그마다 한 콜이라
+ * 7콜이지만 소비처가 6시간 캐시를 쓰므로 예산 문제는 없다.
+ * 못 받은 값은 **null** 로 둔다(0 으로 채우면 「PER 0」이 된다).
+ */
+//
+// ★ 태그 이름과 «기준»을 실측으로 맞췄다 (2026-08-30, NVDA 기준 Massive 대조):
+//     pricetoearnings  27.18 vs 27.24  ✅
+//     pricetobook      22.90 vs 22.94  ✅
+//     debttoequity     0.146 vs 0.15   ✅
+//     marketcap        5.243T vs 5.253T ✅
+//     pricetorevenue   17.31 vs 17.34  ✅  ← `pricetosales` 는 없는 태그다(404)
+//     freecashflow     54.7B vs 127.0B ❌  ← Intrinio 는 «분기», Massive 는 TTM
+//                       → 분기 4개를 더해 127,006,000,000 = **정확히 일치** 확인
+//     roe              1.172 vs 0.842  ⚠️  기준이 다르다(아래 주석 참조)
+//
+const RATIO_TAGS: Array<[string, string]> = [
+    ["pricetoearnings", "price_to_earnings"],
+    ["debttoequity", "debt_to_equity"],
+    ["roe", "return_on_equity"],
+    ["pricetobook", "price_to_book"],
+    ["pricetorevenue", "price_to_sales"],
+    ["marketcap", "market_cap"],
+];
+
+async function dataPoint(ticker: string, tag: string): Promise<number | null> {
+    try {
+        const v = await callIntrinio(`companies/${encodeURIComponent(ticker)}/data_point/${tag}/number`);
+        const n = typeof v === "number" ? v : Number(v);
+        return Number.isFinite(n) ? n : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * 잉여현금흐름 TTM — 분기 4개를 더한다.
+ *
+ * ⚠️ Intrinio 의 `freecashflow` 데이터 포인트는 **최신 분기** 값이다.
+ *    Massive 는 TTM 을 줬고, 소비처는 이걸 시총으로 나눠 «FCF 수익률 %»를
+ *    화면에 쓴다. 기준이 다르면 표시값이 2배 이상 틀어진다.
+ *    실측(NVDA): 21.400 + 48.587 + 34.904 + 22.115 = **127.006B**
+ *                = Massive 의 127,006,000,000 과 정확히 일치.
+ */
+async function freeCashFlowTTM(ticker: string): Promise<number | null> {
+    try {
+        const d = await callIntrinio(`companies/${encodeURIComponent(ticker)}/fundamentals`, {
+            statement_code: "cash_flow_statement",
+            type: "QTR",
+            page_size: "4",
+        });
+        const funds: any[] = d?.fundamentals || [];
+        if (funds.length < 4) return null;          // 4분기가 안 되면 TTM 이 아니다
+        const parts = await Promise.all(
+            funds.map(async (f) => {
+                try {
+                    const sf = await callIntrinio(`fundamentals/${f.id}/standardized_financials`);
+                    const list: any[] = sf?.standardized_financials || [];
+                    const hit = list.find((x) => x?.data_tag?.tag === "freecashflow");
+                    const n = Number(hit?.value);
+                    return Number.isFinite(n) ? n : null;
+                } catch { return null; }
+            })
+        );
+        if (parts.some((v) => v == null)) return null;   // 한 분기라도 비면 합계가 거짓이 된다
+        return (parts as number[]).reduce((a, b) => a + b, 0);
+    } catch {
+        return null;
+    }
+}
+
+export async function getFinancialRatiosIntrinio(ticker: string): Promise<any> {
+    const [vals, fcfTtm] = await Promise.all([
+        Promise.all(RATIO_TAGS.map(([tag]) => dataPoint(ticker, tag))),
+        freeCashFlowTTM(ticker),
+    ]);
+    const row: Record<string, number | string | null> = { ticker };
+    RATIO_TAGS.forEach(([, field], i) => { row[field] = vals[i]; });
+    row.free_cash_flow = fcfTtm;
+    // ⚠️ ROE 는 Intrinio 와 Massive 의 «기준»이 다르다(1.172 vs 0.842, NVDA 실측).
+    //    Intrinio 쪽이 기말자본 기준으로 보이고 Massive 는 평균자본 기준으로 보인다.
+    //    어느 쪽도 «틀린» 값은 아니라 변환하지 않고 그대로 흘린다. 다만 소비처의
+    //    점수 구간이 달라질 수 있으므로 기준을 응답에 남긴다.
+    row._roeBasis = "intrinio";
+    const any = vals.some((v) => v != null) || fcfTtm != null;
+    return { status: "OK", count: any ? 1 : 0, results: any ? [row] : [] };
+}
+
+/**
+ * 분기 손익 → `/stocks/financials/v1/income-statements` 모양.
+ * 소비처는 `revenue` 와 `consolidated_net_income_loss` 만 쓴다(순마진·매출성장률).
+ */
+export async function getIncomeStatementsIntrinio(ticker: string, limit = 5): Promise<any> {
+    let funds: any[] = [];
+    try {
+        const d = await callIntrinio(`companies/${encodeURIComponent(ticker)}/fundamentals`, {
+            statement_code: "income_statement",
+            type: "QTR",
+            page_size: String(Math.max(1, Math.min(limit, 8))),
+        });
+        funds = d?.fundamentals || [];
+    } catch {
+        return { status: "OK", count: 0, results: [] };
+    }
+    if (!funds.length) return { status: "OK", count: 0, results: [] };
+
+    const rows = await Promise.all(
+        funds.map(async (f: any) => {
+            try {
+                const sf = await callIntrinio(`fundamentals/${f.id}/standardized_financials`);
+                const list: any[] = sf?.standardized_financials || [];
+                const pick = (tag: string) => {
+                    const hit = list.find((x) => x?.data_tag?.tag === tag);
+                    const n = Number(hit?.value);
+                    return Number.isFinite(n) ? n : null;
+                };
+                return {
+                    ticker,
+                    period_end: f.end_date || null,
+                    fiscal_year: f.fiscal_year ?? null,
+                    fiscal_period: f.fiscal_period || null,
+                    revenue: pick("totalrevenue"),
+                    consolidated_net_income_loss: pick("netincome"),
+                };
+            } catch {
+                return null;
+            }
+        })
+    );
+    const results = rows.filter(Boolean);
+    return { status: "OK", count: results.length, results };
+}
+
+/**
+ * 8-K 공시 → `/stocks/filings/8-K/vX/disclosures` 모양.
+ *
+ * ⚠️ **완전 대체가 아니다.** Massive(Polygon)는 8-K «본문»을 구조화 추출해
+ *    `primary_category` · `tertiary_category` · `supporting_text` 를 줬다.
+ *    Intrinio 는 메타데이터만 준다(날짜·URL·report_type·earnings_release).
+ *    그래서 여기서는 «어떤 공시가 언제 나왔는가»까지만 채우고, 본문이 필요한
+ *    AI 요약은 소비처가 텍스트 없음을 보고 알아서 건너뛴다.
+ *    카테고리는 우리가 만들 수 있는 만큼만 넣는다(실적 발표 여부).
+ *
+ * 또 하나: Intrinio filings 는 **정렬돼 오지 않는다**(실측: 2025-02-26 이 첫 행).
+ * accepted_date 로 우리가 정렬한다. filing_date 는 null 인 경우가 많다.
+ */
+export async function getFilings8KIntrinio(
+    ticker: string,
+    sinceISO?: string,
+    limit = 10
+): Promise<any> {
+    let filings: any[] = [];
+    try {
+        const d = await callIntrinio(`companies/${encodeURIComponent(ticker)}/filings`, {
+            report_type: "8-K",
+            page_size: String(Math.max(limit, 20)),
+        });
+        filings = d?.filings || [];
+    } catch {
+        return { status: "OK", count: 0, results: [] };
+    }
+
+    const dateOf = (f: any) =>
+        String(f?.filing_date || f?.accepted_date || "").slice(0, 10);
+
+    const results = filings
+        .map((f) => ({ f, d: dateOf(f) }))
+        .filter((x) => x.d && (!sinceISO || x.d >= sinceISO.slice(0, 10)))
+        .sort((a, b) => (a.d < b.d ? 1 : -1))
+        .slice(0, limit)
+        .map(({ f, d }) => ({
+            ticker,
+            filing_date: d,
+            accession_number: f.sec_unique_id || f.id || null,
+            // 우리가 «알 수 있는» 만큼만. 없는 분류를 지어내지 않는다.
+            primary_category: f.earnings_release ? "Results of Operations" : "Other Events",
+            tertiary_category: null,
+            // Polygon 이 주던 본문 추출은 Intrinio 에 없다 → 빈 문자열로 명시
+            supporting_text: "",
+            source_url: f.report_url || f.filing_url || null,
+            _textUnavailable: true,
+        }));
+
+    return { status: "OK", count: results.length, results };
+}

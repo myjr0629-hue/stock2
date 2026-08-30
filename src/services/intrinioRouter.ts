@@ -23,6 +23,12 @@ import {
     getMoversIntrinio,
     getGroupedDailyIntrinio,
     getMarketStatusIntrinio,
+    getTreasuryYieldsIntrinio,
+    getInflationIntrinio,
+    getInflationExpectationsIntrinio,
+    getFinancialRatiosIntrinio,
+    getIncomeStatementsIntrinio,
+    getFilings8KIntrinio,
     getOpenCloseIntrinio,
     getDividendsIntrinio,
     getSplitsIntrinio,
@@ -220,6 +226,71 @@ export async function routeToIntrinio(
     // ── 11) 특정일 시가/종가 ────────────────────────────
     m = path.match(/^\/v1\/open-close\/([^/]+)\/([\d-]+)$/);
     if (m) return await getOpenCloseIntrinio(m[1], m[2]);
+
+    // ── 12) 매크로 지표 (Fed 계열) ──────────────────────
+    //   Massive 자체 Fed API 였다. Intrinio 는 FRED 계열을 경제지표 인덱스로 준다.
+    //   실측 대조(2026-08-30): $DGS10 → 4.67 = 앱이 표시하던 값과 일치.
+    if (path === "/fed/v1/treasury-yields") {
+        return await getTreasuryYieldsIntrinio(Number(p("limit")) || 2);
+    }
+    if (path === "/fed/v1/inflation") return await getInflationIntrinio();
+    if (path === "/fed/v1/inflation-expectations") return await getInflationExpectationsIntrinio();
+
+    // ── 13) 재무 ────────────────────────────────────────
+    if (path === "/stocks/financials/v1/ratios") {
+        const t = p("ticker") || p("tickers");
+        if (!t) return { status: "OK", count: 0, results: [] };
+        return await getFinancialRatiosIntrinio(t.split(",")[0].trim());
+    }
+    if (path === "/stocks/financials/v1/income-statements") {
+        const t = p("tickers") || p("ticker");
+        if (!t) return { status: "OK", count: 0, results: [] };
+        return await getIncomeStatementsIntrinio(t.split(",")[0].trim(), Number(p("limit")) || 5);
+    }
+
+    // ── 14) 공시 ────────────────────────────────────────
+    if (path === "/stocks/filings/8-K/vX/disclosures") {
+        const t = p("tickers") || p("ticker");
+        if (!t) return { status: "OK", count: 0, results: [] };
+        return await getFilings8KIntrinio(
+            t.split(",")[0].trim(),
+            p("filing_date.gte"),
+            Number(p("limit")) || 10
+        );
+    }
+
+    // 리스크 팩터 — Polygon vX 실험 엔드포인트였고 **소비처가 0곳**이다
+    // (2026-08-30 전수 grep). 게다가 프로덕션 응답이 이미 category="Unknown",
+    // title="Risk Factor"(폴백 문자열)라 실질 데이터가 없었다. 빈 결과로 닫는다.
+    if (path === "/stocks/filings/vX/risk-factors") {
+        return { status: "OK", count: 0, results: [], _retired: "no-consumer" };
+    }
+
+    // ── 15) V3 스냅샷 (ticker.any_of) ───────────────────
+    //   매크로 허브가 지수 ETF 를 이 형태로 부른다. 기존 일괄 스냅샷으로 돌린다.
+    if (path === "/v3/snapshot") {
+        const list = p("ticker.any_of") || p("ticker");
+        if (!list) return { status: "OK", count: 0, results: [] };
+        const syms = list.split(",").map((x) => x.trim()).filter(Boolean);
+        const snap = await getFullMarketSnapshotIntrinio(syms);
+        // v2 스냅샷 모양 → v3 모양으로 얇게 변환 (소비처는 session.* 를 먼저 본다)
+        const results = (snap?.tickers || []).map((t: any) => ({
+            ticker: t.ticker,
+            session: {
+                price: t.day?.c ?? t.lastTrade?.p ?? null,
+                close: t.day?.c ?? null,
+                change: t.todaysChange ?? null,
+                change_percent: t.todaysChangePerc ?? null,
+                previous_close: t.prevDay?.c ?? null,
+            },
+            last_trade: t.lastTrade ?? null,
+            day: t.day ?? null,
+            prev_day: t.prevDay ?? null,
+            todaysChange: t.todaysChange ?? null,
+            todaysChangePerc: t.todaysChangePerc ?? null,
+        }));
+        return { status: "OK", count: results.length, results };
+    }
 
     // 대응 없음 → 호출부가 Massive 로 폴백
     return undefined;
