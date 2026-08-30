@@ -2129,7 +2129,66 @@ const TREASURY_SERIES: Array<[string, string]> = [
     ["$DGS30", "yield_30_year"],
 ];
 
+/**
+ * 국채 곡선 «정본» — 미 재무부 원본(EC2 크론이 Redis 에 적재).
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * FRED(DGS*)는 재무부 par yield 를 받아 게시하므로 **한 단계 늦다.**
+ * 벤더 둘 다(Massive·Intrinio) 8/27 에서 멈춰 있었다 — 벤더 문제가 아니라
+ * FRED 파이프라인의 구조적 지연이다. 원본을 직접 받으면 그 지연이 사라진다.
+ *
+ * 실측(2026-08-30, 마지막 거래일 8/28):
+ *   재무부 원본  2Y 4.34 · 10Y 4.73 · 2s10s **0.39**   ← 맞는 값
+ *   FRED 경유    2Y 4.20 · 10Y 4.67 · 2s10s 0.47       ← 하루 낡음
+ *   화면에 떠 있던 값                     2s10s 0.52   ← 날짜를 섞어 만든 값
+ *
+ * 못 읽으면 null 을 돌려주고 호출부가 FRED 로 폴백한다 — 낡아도 없는 것보단 낫다.
+ * 단 **나이 제한**을 둔다. 크론이 멎은 채 몇 주 지난 곡선을 「오늘의 금리」로
+ * 내보내면 그게 더 나쁘다.
+ */
+const TREASURY_CURVE_KEY = "treasury:curve";
+const TREASURY_MAX_AGE_DAYS = 7;
+
+export async function getTreasuryCurveOfficial(): Promise<any[] | null> {
+    try {
+        const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
+        const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 3000);
+        try {
+            const res = await fetch(`${proxy}/get?key=${encodeURIComponent(TREASURY_CURVE_KEY)}`, {
+                headers: { Authorization: `Bearer ${key}` },
+                signal: ctrl.signal,
+                cache: "no-store",
+            });
+            if (!res.ok) return null;
+            const raw = await res.json();
+            const val = typeof raw?.result === "string" ? JSON.parse(raw.result) : raw?.result;
+            const rows: any[] = Array.isArray(val?.results) ? val.results : [];
+            if (!rows.length) return null;
+            const ageDays = (Date.now() - Date.parse(`${rows[0].date}T21:00:00Z`)) / 86400_000;
+            if (!(ageDays < TREASURY_MAX_AGE_DAYS)) return null;   // 너무 낡으면 안 쓴다
+            return rows;
+        } finally {
+            clearTimeout(timer);
+        }
+    } catch {
+        return null;
+    }
+}
+
 export async function getTreasuryYieldsIntrinio(limit = 2): Promise<any> {
+    // ① 재무부 원본이 있으면 그것이 정본이다
+    const official = await getTreasuryCurveOfficial();
+    if (official) {
+        const want = Math.max(2, Math.min(limit, 30));
+        return { status: "OK", count: Math.min(want, official.length), results: official.slice(0, want), _source: "us-treasury" };
+    }
+    // ② 없으면 FRED 로 폴백 (하루 낡을 수 있다)
+    return await getTreasuryYieldsFred(limit);
+}
+
+async function getTreasuryYieldsFred(limit = 2): Promise<any> {
     // 소비처가 [0]과 [1]을 빼서 변화량을 만든다 → 최소 2행이 필요하다.
     const want = Math.max(2, Math.min(limit, 30));
     const series = await Promise.all(
@@ -2155,7 +2214,7 @@ export async function getTreasuryYieldsIntrinio(limit = 2): Promise<any> {
             return r;
         });
 
-    return { status: "OK", count: results.length, results };
+    return { status: "OK", count: results.length, results, _source: "fred" };
 }
 
 /**

@@ -235,6 +235,9 @@ interface YieldCurveData {
     us10y: number;
     spread2s10s: number;
     trend: 'STEEPENING' | 'FLATTENING' | 'INVERTED' | 'NORMAL';
+    /** 관측일(YYYY-MM-DD). 헤드라인 10Y 를 갈아끼울지 판단하는 근거다 */
+    date?: string;
+    source?: string;
 }
 
 async function fetchYieldCurveData(): Promise<YieldCurveData | null> {
@@ -256,7 +259,7 @@ async function fetchYieldCurveData(): Promise<YieldCurveData | null> {
             }
 
             console.log(`[MacroHub] YieldCurve: 2Y=${treasury.us2y.toFixed(2)}%, 10Y=${treasury.us10y.toFixed(2)}%, Spread=${spread2s10s.toFixed(2)}% (${trend})`);
-            return { us2y: treasury.us2y, us10y: treasury.us10y, spread2s10s, trend };
+            return { us2y: treasury.us2y, us10y: treasury.us10y, spread2s10s, trend, date: treasury.date, source: treasury.source };
         }
     } catch (e) {
         console.error("[MacroHub] Yield Curve Fetch Failed", e);
@@ -422,18 +425,36 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         ? createYahooFactor(tnxData, "US 10Y", "^TNX")
         : fedYield; // Fallback to FED daily if Yahoo fails
 
-    // [V7.0] Use real-time US10Y for yield curve and real yield
-    const liveUs10y = us10y.level ?? yieldCurve?.us10y ?? 4.2;
+    // ── 10년물 정본 (2026-08-30 수정) ────────────────────────────────
+    //   ⚠️ 예전엔 무조건 Yahoo ^TNX 를 헤드라인으로 쓰고, 그 값에서 **FRED 의
+    //      2Y 를 빼서** 2s10s 를 만들었다. 두 값의 날짜가 달라서 스프레드가
+    //      통째로 틀렸다: 화면 0.52 vs 실제(8/28) 4.73−4.34 = **0.39**.
+    //
+    //   지금은 곡선(미 재무부 원본)이 정본이다. Yahoo 는 **곡선보다 새로운
+    //   세션일 때만** 헤드라인을 갈아끼운다(장중엔 재무부가 아직 게시 전이다).
+    //   스프레드는 **언제나 같은 날짜**의 곡선에서 만든다.
+    const curveDate = yieldCurve?.date || '';
+    const tnxSessionDate = String((tnxData as any)?.marketTime || '').slice(0, 10);
+    const tnxIsNewer = !!(tnxSessionDate && curveDate && tnxSessionDate > curveDate);
 
-    // Override yieldCurve with live US10Y if available
-    const liveYieldCurve = yieldCurve ? {
-        ...yieldCurve,
-        us10y: liveUs10y,
-        spread2s10s: liveUs10y - yieldCurve.us2y
-    } : null;
+    const liveUs10y = tnxIsNewer
+        ? (us10y.level ?? yieldCurve?.us10y ?? null)
+        : (yieldCurve?.us10y ?? us10y.level ?? null);
 
-    // [V7.0] Real Yield with live US10Y
-    const realYield = await fetchRealYieldData(liveUs10y);
+    // 헤드라인 지표도 정본에 맞춘다 — 화면마다 다른 10년물이 뜨면 안 된다
+    const us10yUnified: MacroFactor = tnxIsNewer
+        ? us10y
+        : (yieldCurve
+            ? { ...us10y, level: yieldCurve.us10y, label: "US 10Y",
+                symbolUsed: yieldCurve.source === "US_TREASURY" ? "UST:10Y" : (us10y.symbolUsed || "FED:10Y"),
+                source: (yieldCurve.source === "US_TREASURY" ? "MASSIVE" : us10y.source) as any }
+            : us10y);
+
+    // 스프레드는 곡선 «안에서» 만든다. 갈아끼운 10Y 를 섞지 않는다.
+    const liveYieldCurve = yieldCurve ? { ...yieldCurve } : null;
+
+    // 실질금리도 같은 10년물을 쓴다
+    const realYield = await fetchRealYieldData(liveUs10y ?? 4.2);
 
     // [V3 PIPELINE] TLT (Safe Haven) + GLD
     const [tltFactor, gldFactor] = await Promise.all([
@@ -486,12 +507,15 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         fetchedAtET,
         ageSeconds: 0,
         marketStatus,
-        factors: { nasdaq100: qqq, vix: vixy, us10y, dxy, spx, btc, gold, oil, sox, rut },
+        // us10yUnified — 곡선과 «같은» 10년물. 화면마다 다른 값이 뜨지 않게 한다.
+        factors: { nasdaq100: qqq, vix: vixy, us10y: us10yUnified, dxy, spx, btc, gold, oil, sox, rut },
         // Legacy fields
         nq: qqq.level ?? 0,
         nqChangePercent: qqq.chgPct ?? 0,
         vix: vixy.level ?? 0,
-        us10y: us10y.level ?? 0,
+        // ★ 이 legacy 필드도 통일본을 쓴다 — 여기만 옛 값이면 «화면마다 다른
+        //   10년물»이 그대로 남는다(실제로 /api/market/macro 가 이걸 내보낸다)
+        us10y: us10yUnified.level ?? 0,
         dxy: dxy.level ?? 0,
         // [V7.0] Advanced Macro Indicators (live US10Y)
         yieldCurve: liveYieldCurve ?? undefined,

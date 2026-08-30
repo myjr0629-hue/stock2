@@ -3,6 +3,7 @@
 // Uses Massive API /fed/v1/* endpoints as fallback
 
 import { fetchMassive } from "./massiveClient";
+import { getTreasuryCurveOfficial } from '@/services/intrinioClient';
 
 const FED_CACHE_TTL = 60 * 30; // 30 minutes
 const FRED_API_KEY = process.env.FRED_API_KEY || "";
@@ -15,7 +16,7 @@ export interface TreasuryYields {
     us10y: number | null;
     us30y: number | null;
     spread2s10s: number | null;
-    source: "FRED" | "MASSIVE" | "FAIL";
+    source: "US_TREASURY" | "FRED" | "MASSIVE" | "FAIL";
     updatedAt: string;
 }
 
@@ -26,7 +27,7 @@ export interface InflationData {
     pce: number | null;
     pceYoY: number | null;
     expectations: number | null;
-    source: "FRED" | "MASSIVE" | "FAIL";
+    source: "US_TREASURY" | "FRED" | "MASSIVE" | "FAIL";
     updatedAt: string;
 }
 
@@ -69,8 +70,9 @@ async function fetchFredSeries(seriesId: string, limit: number = 1): Promise<num
     }
 }
 
-// Fetch Treasury Yields - Try FRED first, fallback to Massive
+// Fetch Treasury Yields — 미 재무부 원본 → FRED → 벤더 어댑터
 export async function getTreasuryYields(): Promise<TreasuryYields> {
+    let fredDate = '';
     const now = new Date().toISOString();
     const failResult: TreasuryYields = {
         date: now.split('T')[0],
@@ -83,7 +85,32 @@ export async function getTreasuryYields(): Promise<TreasuryYields> {
         updatedAt: now
     };
 
-    // [V4.3] Try FRED API first if key is available
+    // ── ① 미 재무부 «원본»이 정본이다 (2026-08-30) ────────────────────
+    //   FRED 는 재무부 par yield 를 받아 게시하므로 한 단계 늦다. 실측:
+    //     재무부 8/28  2Y 4.34 · 10Y 4.73 · 2s10s 0.39   ← 마지막 거래일
+    //     FRED 경유    2Y 4.20 · 10Y 4.67 · 2s10s 0.47   ← 하루 낡음
+    //   화면에는 0.52 가 떠 있었다 — 10Y 는 Yahoo(8/28), 2Y 는 FRED(8/27) 로
+    //   **날짜를 섞어** 만든 값이었다. 스프레드는 반드시 같은 날짜여야 한다.
+    try {
+        const official = await getTreasuryCurveOfficial();
+        const r = official?.[0];
+        if (r && typeof r.yield_10_year === "number") {
+            const us2y = r.yield_2_year ?? null;
+            const us10y = r.yield_10_year;
+            return {
+                date: r.date,                       // ★ 관측일 그대로. 오늘 날짜를 찍지 않는다
+                us2y,
+                us5y: r.yield_5_year ?? null,
+                us10y,
+                us30y: r.yield_30_year ?? null,
+                spread2s10s: us2y !== null ? Math.round((us10y - us2y) * 100) / 100 : null,
+                source: "US_TREASURY",
+                updatedAt: now,
+            };
+        }
+    } catch { /* 폴백으로 넘어간다 */ }
+
+    // ── ② FRED 직접 (키가 있을 때) ────────────────────────────────────
     if (FRED_API_KEY) {
         try {
             console.log("[FedAPI] Fetching Treasury from FRED...");
@@ -97,7 +124,10 @@ export async function getTreasuryYields(): Promise<TreasuryYields> {
             if (us10y !== null) {
                 console.log(`[FedAPI] FRED Treasury OK: 10Y=${us10y}%`);
                 return {
-                    date: now.split('T')[0],
+                    // ⚠️ 예전엔 여기 «오늘 날짜»를 찍었다. 실제 관측일은 하루 이상
+                    //    이전인데 화면은 그걸 오늘 값이라고 말하게 된다.
+                    //    fetchFredSeries 가 날짜를 안 주므로 «모른다»고 표시한다.
+                    date: fredDate || '',
                     us2y,
                     us5y,
                     us10y,
