@@ -2651,3 +2651,79 @@
   opacity: 0.75;
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   애널리스트 «변화 이벤트» — 목표가 리비전 + 등급 상하향
+   컨센서스 스냅샷 아래에 붙는다. 기존 카드 리듬(var(--s*), f-mono)을 따른다.
+   ═══════════════════════════════════════════════════════════ */
+.analystRevisionRow {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 0 var(--s3);
+  margin-top: var(--s3);
+  padding: var(--s2) var(--s3);
+  border: 1px solid transparent;   /* 색은 상태에 따라 인라인으로 */
+  border-radius: 8px;
+}
+.analystRevisionLabel {
+  font: var(--f-micro);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+.analystRevisionValue {
+  font: 700 12px/1.2 var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.analystRevisionNote {
+  grid-column: 1 / -1;
+  margin-top: 3px;
+  font: 500 10px/1.3 var(--f-mono);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.analystActionsBlock {
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.analystActionsHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+.analystActionsTitle {
+  font: var(--f-micro);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+.analystActionsCount {
+  font: 600 11px/1 var(--f-mono);
+  font-variant-numeric: tabular-nums;
+}
+.analystActionRow {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s2);
+  font: 500 11px/1.35 var(--f-mono);
+  font-variant-numeric: tabular-nums;
+}
+.analystActionDate { color: var(--text-dim); }
+.analystActionFirm {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.analystActionMove {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}

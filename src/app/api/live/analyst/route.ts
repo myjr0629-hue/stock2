@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { swrFetch } from '@/lib/cache/redisSWR';
+import { getAnalystEvents } from '@/services/analystEvents';
 
 const FMP_API_KEY = process.env.FMP_API_KEY || '';
 
@@ -109,7 +110,18 @@ export async function GET(req: NextRequest) {
             { ttlSeconds: 3600, keyPrefix: 'swr' }
         );
 
-        return NextResponse.json({ ...result.data, _cache: result._cache });
+        // ── 변화 이벤트 (등급 상하향 · 목표가 리비전) ────────────────────
+        //   컨센서스 «스냅샷»과 캐시 경로가 다르다. DynamoDB 히트든 FMP 폴백이든
+        //   **양쪽 모두** 이벤트를 갖도록 여기서 따로 붙인다. 위 result 안에만
+        //   넣으면 DynamoDB 경로에선 영영 안 나온다(이번 이관에서 여러 번 당한 유형).
+        //   실패해도 컨센서스는 그대로 나간다 — 보강이지 의존이 아니다.
+        const events = await swrFetch(
+            `analyst-events:${ticker.toUpperCase()}`,
+            () => getAnalystEvents(ticker),
+            { ttlSeconds: 6 * 3600, keyPrefix: 'swr' }
+        ).then((r) => r.data).catch(() => null);
+
+        return NextResponse.json({ ...result.data, events, _cache: result._cache });
     } catch (err) {
         console.error('[API /live/analyst] Error:', err);
         return NextResponse.json({ error: 'Failed to fetch analyst data' }, { status: 500 });

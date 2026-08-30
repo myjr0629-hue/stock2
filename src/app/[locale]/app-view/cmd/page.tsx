@@ -39,7 +39,7 @@ const DEMO = {
   high: 0,
   low: 0,
   session: 'REG' as const,
-  analyst: { rating: '—', target: 0, targetHigh: 0, targetLow: 0, buy: 0, hold: 0, sell: 0, totalAnalysts: 0, bullishPct: 0 },
+  analyst: { rating: '—', target: 0, targetHigh: 0, targetLow: 0, buy: 0, hold: 0, sell: 0, totalAnalysts: 0, bullishPct: 0, events: null as any },
   fundamentals: [
     { label: 'P / E', value: '—', sub: '', trend: 'up' },
     { label: 'ROE', value: '—', sub: '', trend: 'up' },
@@ -847,6 +847,21 @@ function AnalystConsensus({
   const ratingClass = analyst.rating.includes('BUY') ? s.ratingBuy
     : analyst.rating.includes('SELL') ? s.ratingSell : s.ratingHold;
 
+  // ── 변화 이벤트 (없으면 이 블록들은 통째로 안 그린다) ─────────────
+  const ev: any = (analyst as any).events || null;
+  const trend = ev?.targetTrend || null;
+  const recentChanges: any[] = Array.isArray(ev?.recent) ? ev.recent.slice(0, 3) : [];
+  const revColor = trend?.direction === 'RAISING' ? 'var(--green)'
+    : trend?.direction === 'LOWERING' ? 'var(--red)' : 'var(--text-muted)';
+
+  // 카드 테두리 강조 — «지금 뭔가 벌어지고 있다»를 한눈에.
+  //   ① 90일 상하향이 한쪽으로 3건 이상 쏠렸거나
+  //   ② 목표가가 뚜렷하게 올라오거나 내려오는 중
+  const netActions = (ev?.net ?? 0);
+  const notable = Math.abs(netActions) >= 3 || (trend?.direction === 'RAISING' || trend?.direction === 'LOWERING');
+  const emphasisColor = netActions >= 3 || trend?.direction === 'RAISING' ? 'var(--green)'
+    : netActions <= -3 || trend?.direction === 'LOWERING' ? 'var(--red)' : null;
+
   const desc = locale === 'ko'
     ? `${total}명 애널리스트 중 ${buyPct}%가 긍정적 의견`
     : locale === 'ja'
@@ -854,7 +869,12 @@ function AnalystConsensus({
     : `${buyPct}% bullish consensus from ${total} analysts`;
 
   return (
-    <div className={`${s.card} ${s.animateIn} ${s.delay3}`}>
+    <div
+      className={`${s.card} ${s.animateIn} ${s.delay3}`}
+      style={notable && emphasisColor
+        ? { borderColor: `color-mix(in srgb, ${emphasisColor} 40%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${emphasisColor} 14%, transparent)` }
+        : undefined}
+    >
       {/* Header: Title + Rating badge inline */}
       <div className={s.analystHead}>
         <div className={s.cardTitle} style={{ marginBottom: 0 }}>
@@ -900,7 +920,58 @@ function AnalystConsensus({
             <span>{locale === 'ko' ? '최저' : locale === 'ja' ? '最低' : 'Low'} ${analyst.targetLow.toFixed(0)}</span>
           </div>
         )}
+
+        {/* 목표가 리비전 추세 — 컨센서스가 «올라오는 중»인지. 방향을 못 정하면 안 그린다 */}
+        {trend?.direction && trend.direction !== 'FLAT' && trend.revisionPct != null && (
+          <div className={s.analystRevisionRow} style={{ borderColor: revColor + '55', background: revColor + '12' }}>
+            <span className={s.analystRevisionLabel}>
+              {locale === 'ko' ? '목표가 추세' : locale === 'ja' ? '目標株価トレンド' : 'TARGET TREND'}
+            </span>
+            <span className={s.analystRevisionValue} style={{ color: revColor }}>
+              {trend.direction === 'RAISING'
+                ? (locale === 'ko' ? '상향 중' : locale === 'ja' ? '引き上げ中' : 'RAISING')
+                : (locale === 'ko' ? '하향 중' : locale === 'ja' ? '引き下げ中' : 'LOWERING')}
+              {' '}{trend.revisionPct > 0 ? '+' : ''}{trend.revisionPct}%
+            </span>
+            <span className={s.analystRevisionNote}>
+              {locale === 'ko' ? `최근 1개월 평균 $${(trend.lastMonthAvg ?? 0).toFixed(0)} · 1년 평균 $${(trend.lastYearAvg ?? 0).toFixed(0)}`
+                : locale === 'ja' ? `直近1ヶ月平均 $${(trend.lastMonthAvg ?? 0).toFixed(0)} · 1年平均 $${(trend.lastYearAvg ?? 0).toFixed(0)}`
+                  : `1M avg $${(trend.lastMonthAvg ?? 0).toFixed(0)} vs 1Y avg $${(trend.lastYearAvg ?? 0).toFixed(0)}`}
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* 최근 등급 변경 — «유지»는 이벤트가 아니다. 상하향만 보여 준다 */}
+      {recentChanges.length > 0 && (
+        <div className={s.analystActionsBlock}>
+          <div className={s.analystActionsHead}>
+            <span className={s.analystActionsTitle}>
+              {locale === 'ko' ? '최근 등급 변경' : locale === 'ja' ? '直近の格付変更' : 'RECENT RATING CHANGES'}
+            </span>
+            <span className={s.analystActionsCount}>
+              <span style={{ color: 'var(--green)' }}>▲{ev.upgrades}</span>
+              {' '}
+              <span style={{ color: 'var(--red)' }}>▼{ev.downgrades}</span>
+              <span style={{ opacity: 0.55 }}>
+                {' '}{locale === 'ko' ? '90일' : locale === 'ja' ? '90日' : '90d'}
+              </span>
+            </span>
+          </div>
+          {recentChanges.map((c: any, i: number) => (
+            <div key={`${c.date}-${c.firm}-${i}`} className={s.analystActionRow}>
+              <span className={s.analystActionDate}>{c.date.slice(5)}</span>
+              <span className={s.analystActionFirm}>{c.firm}</span>
+              <span
+                className={s.analystActionMove}
+                style={{ color: c.action === 'upgrade' ? 'var(--green)' : 'var(--red)' }}
+              >
+                {c.action === 'upgrade' ? '▲' : '▼'} {c.from ? `${c.from} → ` : ''}{c.to}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1970,6 +2041,8 @@ function CmdPageContent() {
           sell: (a.breakdown?.sell || 0) + (a.breakdown?.strongSell || 0),
           totalAnalysts: a.totalAnalysts || 0,
           bullishPct: a.bullishPct || 0,
+          // 변화 이벤트(등급 상하향 · 목표가 리비전). 없으면 null — 카드가 알아서 접는다
+          events: a.events ?? null,
         } : DEMO.analyst;
 
         // Fundamentals: /api/live/fundamentals returns FLAT (f.score, f.pe, etc.)
