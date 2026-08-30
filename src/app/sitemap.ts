@@ -20,27 +20,52 @@ const LEARN_PATHS = CONCEPT_SLUGS.map((c) => `/learn/${c}`);
 // 티커 목록은 단일 진실원천에서 가져온다 (허브 페이지·상호링크와 공유)
 
 
+/**
+ * ⚠️ lastmod 를 «요청 시각»으로 주면 안 된다.
+ *
+ *   예전에는 모든 URL 이 `lastModified: now` 였다. 그러면 구글이 매번
+ *   「전부 방금 바뀌었다」는 신호를 받는데, 그건 사실이 아니므로 구글은
+ *   **lastmod 를 통째로 무시한다**(공식 문서: 신뢰할 수 없으면 쓰지 않는다).
+ *   즉 재크롤 신호가 있으나 마나였다.
+ *
+ *   지금은 «실제로 그 페이지 내용이 바뀐 날»을 준다:
+ *     · 티커 페이지 → 시장 데이터 기준일(전 거래일)
+ *     · 정적/개념   → 실제로 고친 날(상수. 고칠 때 같이 올린다)
+ */
+const STATIC_LASTMOD = new Date('2026-08-31T00:00:00Z');  // 다크풀 복원으로 전 페이지 내용 변경
+
+/** 마지막 미국 거래일(주말 보정). 데이터는 T+1 이므로 «전 거래일»이 기준이다. */
+function lastSessionDate(): Date {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  // 미 동부 기준 자정 이후에도 당일 마감 데이터는 아직 없다 → 하루 뒤로
+  d.setUTCDate(d.getUTCDate() - 1);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+  return d;
+}
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = publicBase();
-  const now = new Date();
+  const session = lastSessionDate();
   const entries: MetadataRoute.Sitemap = [];
 
   for (const loc of LOCALES) {
     for (const p of STATIC_PATHS) {
       entries.push({
         url: `${base}/${loc}${p}`,
-        lastModified: now,
+        lastModified: p === '' ? session : STATIC_LASTMOD,
         changeFrequency: p === '' ? 'daily' : 'weekly',
         priority: p === '' ? 0.9 : 0.6,
       });
     }
     for (const p of LEARN_PATHS) {
-      entries.push({ url: `${base}/${loc}${p}`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 });
+      entries.push({ url: `${base}/${loc}${p}`, lastModified: STATIC_LASTMOD, changeFrequency: 'monthly', priority: 0.5 });
     }
     for (const t of FLOW_TICKERS) {
       entries.push({
         url: `${base}/${loc}/flow/${t}`,
-        lastModified: now,
+        // 티커 페이지는 매 거래일 «실제로» 값이 바뀐다 — 그 날짜를 준다
+        lastModified: session,
         changeFrequency: 'daily',
         priority: 0.7,
       });
