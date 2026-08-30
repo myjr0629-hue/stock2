@@ -1785,7 +1785,9 @@ export default function AppFlowPage() {
     const isCall = tx.type === 'CALL';
     const dirColor = tx.dir === 'ASK' ? '#10b981' : tx.dir === 'BID' ? '#ef4444' : '#f59e0b';
     const impactLabel = tx.premium > 500000 ? whaleCopy.impactHigh : tx.premium > 100000 ? whaleCopy.impactMid : whaleCopy.impactLow;
-    const impactColor = tx.premium > 500000 ? '#ef4444' : tx.premium > 100000 ? '#f59e0b' : 'var(--cyan)';
+    // ⚠️ 아래에서 `${impactColor}33` 처럼 알파를 이어 붙인다. CSS 변수엔 그게
+    //    안 되므로(선언이 통째로 무시된다) 마지막 분기도 16진 리터럴이어야 한다.
+    const impactColor = tx.premium > 500000 ? '#ef4444' : tx.premium > 100000 ? '#f59e0b' : '#22d3ee';
     const cost = tx.size > 0 ? tx.premium / (tx.size * 100) : tx.px || 0;
     const bep = isCall ? Number(tx.strike || 0) + cost : Number(tx.strike || 0) - cost;
 

@@ -2935,7 +2935,13 @@ function CmdPageContent() {
           const reg = f.darkPoolRegime as 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
           const gap = mkt != null ? pct - mkt : null;
           const hot = reg === 'ACCUMULATION', cold = reg === 'DISTRIBUTION';
-          const accent = hot ? 'var(--green)' : cold ? 'var(--red)' : 'var(--purple, #a78bfa)';
+          // ⚠️ CSS 변수에 16진 알파를 «이어 붙일 수 없다». `var(--red)33` 은
+          //    유효하지 않은 CSS 라 선언이 통째로 무시된다 — 그래서 카드 테두리·
+          //    배경·토글 알약이 전부 «투명»했다(실화면 computedStyle 로 확인).
+          //    투명도를 쓰려면 rgb 3원색을 들고 있어야 한다.
+          const accentRgb = hot ? '52,211,153' : cold ? '239,68,68' : '167,139,250';
+          const accent = `rgb(${accentRgb})`;
+          const a = (o: number) => `rgba(${accentRgb},${o})`;
           const tag = reg == null ? null
             : hot ? (locale === 'ko' ? '은밀 매집' : locale === 'ja' ? '静かな買い集め' : 'ACCUMULATION')
             : cold ? (locale === 'ko' ? '은밀 분산' : locale === 'ja' ? '静かな売り抜け' : 'DISTRIBUTION')
@@ -2956,7 +2962,7 @@ function CmdPageContent() {
               //    쌓임 맥락을 만들어 카드를 배경 위로 올린다.
               position: 'relative', zIndex: 2,
               margin: '0 0 var(--s3)', padding: '12px 14px', borderRadius: 14,
-              border: `1px solid ${accent}33`, background: `linear-gradient(135deg, ${accent}12, rgba(255,255,255,.015))`,
+              border: `1px solid ${a(.28)}`, background: `linear-gradient(135deg, ${a(.10)}, rgba(255,255,255,.015))`,
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, letterSpacing: '.14em', color: 'var(--text-dim, #94a3b8)' }}>
@@ -2964,7 +2970,7 @@ function CmdPageContent() {
                   <MetricInfo term="darkPool" locale={locale} size={12} />
                 </span>
                 {tag && (
-                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.08em', color: accent, background: `${accent}1f`, border: `1px solid ${accent}44`, borderRadius: 999, padding: '3px 9px' }}>{tag}</span>
+                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.08em', color: accent, background: a(.14), border: `1px solid ${a(.35)}`, borderRadius: 999, padding: '3px 9px' }}>{tag}</span>
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
@@ -3005,7 +3011,7 @@ function CmdPageContent() {
                   appearance: 'none', WebkitAppearance: 'none', width: '100%', marginTop: 8,
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '8px 0 0', background: 'transparent', border: 'none',
-                  borderTop: `1px solid ${accent}22`, cursor: 'pointer', textAlign: 'left',
+                  borderTop: `1px solid ${a(.18)}`, cursor: 'pointer', textAlign: 'left',
                 }}
                 aria-expanded={dpOpen}
               >
@@ -3021,7 +3027,7 @@ function CmdPageContent() {
                 <span style={{
                   flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 3,
                   height: 22, padding: '0 8px', borderRadius: 999,
-                  border: `1px solid ${accent}55`, background: `${accent}18`,
+                  border: `1px solid ${a(.45)}`, background: a(.16),
                   fontSize: 10, fontWeight: 900, letterSpacing: '.02em', color: accent, whiteSpace: 'nowrap',
                 }}>
                   {dpOpen

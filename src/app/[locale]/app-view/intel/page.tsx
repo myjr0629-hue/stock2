@@ -4146,7 +4146,8 @@ export default function AppIntelPage() {
                                   stock.grade === 'S' ? '#f59e0b' :
                                   stock.grade === 'A' ? '#10b981' :
                                   stock.grade === 'B' ? '#3b82f6' :
-                                  stock.grade === 'C' ? '#8b5cf6' : 'var(--text-muted)';
+                                  // ⚠️ 아래에서 `${gradeColor}15` 로 알파를 붙인다 — CSS 변수는 안 된다
+                                  stock.grade === 'C' ? '#8b5cf6' : '#94a3b8';
                                 return (
                                   <div key={stock.sym} style={{
                                     display: 'flex',
