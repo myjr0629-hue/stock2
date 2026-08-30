@@ -931,14 +931,22 @@ export default function AppDashPage() {
   //   프리미엄 카드는 «오늘 이 숫자가 무슨 뜻인가»를 말해야 한다.
   //   지표 설명은 그대로 두되(ⓘ 성격), 판독을 한 줄 얹는다.
   const L3 = (ko: string, en: string, ja: string) => (locale === 'ko' ? ko : locale === 'ja' ? ja : en);
+  // ⚠️ 판독의 경계는 **라벨이 쓰는 경계와 같아야 한다.**
+  //   예전엔 판독이 60/35 를, 라벨이 70/45/20 을 써서 같은 카드가
+  //   「보통(MEDIUM)」이라고 쓰고 바로 아래에서 「쏠림이 적습니다」라고
+  //   말했다(실화면 22점에서 확인). 라벨과 문장이 싸우면 둘 다 못 믿는다.
+  //   레짐: ERUPTING≥75 · LOADED≥50 · COILING≥25 · CALM  (volatility-regime)
+  //   위험: EXTREME≥70 · HIGH≥45 · MEDIUM≥20 · LOW      (structureService)
   const readVol = (sc: number | null, rg?: string | null) => sc == null ? null
-    : sc <= 25 ? L3('압축 구간 — 방향이 정해지면 크게 움직입니다.', 'Coiled — a resolution tends to move far.', '圧縮局面 — 方向が決まると大きく動きます。')
-      : sc >= 65 ? L3('확대 구간 — 이미 크게 움직이는 중입니다.', 'Expanded — already moving wide.', '拡大局面 — すでに大きく動いています。')
-        : L3('중간 구간 — 뚜렷한 압축도 확대도 아닙니다.', 'Mid-range — neither coiled nor expanded.', '中間 — 圧縮でも拡大でもありません。');
+    : sc >= 75 ? L3('확대 구간 — 이미 크게 움직이는 중입니다.', 'Erupting — already moving wide.', '拡大局面 — すでに大きく動いています。')
+      : sc >= 50 ? L3('압력이 쌓였습니다 — 촉발되면 폭이 커집니다.', 'Loaded — a trigger would move it far.', '圧力が蓄積 — 引き金が引かれると大きく動きます。')
+        : sc >= 25 ? L3('압축 구간 — 방향이 정해지면 크게 움직입니다.', 'Coiled — a resolution tends to move far.', '圧縮局面 — 方向が決まると大きく動きます。')
+          : L3('조용한 구간 — 딜러 헤지가 변동성을 누르고 있습니다.', 'Calm — dealer hedging is damping volatility.', '静穏 — ディーラーのヘッジが変動を抑えています。');
   const readSqueeze = (sc: number | null) => sc == null ? null
-    : sc >= 60 ? L3('포지션 쏠림이 큽니다 — 급변 가능성이 높습니다.', 'Crowded positioning — snap risk is elevated.', 'ポジションの偏りが大きく、急変の可能性が高いです。')
-      : sc >= 35 ? L3('보통 수준의 쏠림입니다.', 'Moderate crowding.', '通常水準の偏りです。')
-        : L3('쏠림이 적습니다 — 급변 압력이 낮습니다.', 'Little crowding — low snap pressure.', '偏りが少なく、急変圧力は低いです。');
+    : sc >= 70 ? L3('극단적 쏠림 — 급변 가능성이 매우 높습니다.', 'Extremely crowded — snap risk is very high.', '極端な偏り — 急変の可能性が非常に高いです。')
+      : sc >= 45 ? L3('포지션 쏠림이 큽니다 — 급변 가능성이 높습니다.', 'Crowded positioning — snap risk is elevated.', 'ポジションの偏りが大きく、急変の可能性が高いです。')
+        : sc >= 20 ? L3('보통 수준의 쏠림입니다.', 'Moderate crowding.', '通常水準の偏りです。')
+          : L3('쏠림이 적습니다 — 급변 압력이 낮습니다.', 'Little crowding — low snap pressure.', '偏りが少なく、急変圧力は低いです。');
   // 점수는 «최근 N개 5거래일 창» 대비 백분위다(basis==='percentile').
   //   → 70 이상 = 최근 중 강한 축, 30 미만 = 최근 중 조용한 축.
   //   예전엔 상수 배율이라 거의 매일 100 이었고, 그래서 「강하게 이동 중」이
