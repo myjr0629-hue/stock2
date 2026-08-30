@@ -24,12 +24,13 @@ type Loc = (typeof LOCALES)[number];
 const loc = (l: string): Loc => (LOCALES as readonly string[]).includes(l) ? (l as Loc) : 'en';
 const isSlug = (s: string): s is ConceptSlug => (CONCEPT_SLUGS as readonly string[]).includes(s);
 
-const UI: Record<Loc, { back: string; more: string; tickers: string; disc: string; leaders: string }> = {
+const UI: Record<Loc, { back: string; more: string; tickers: string; disc: string; leaders: string; flowLeaders: string }> = {
   en: {
     back: 'All concepts',
     more: 'Related',
     tickers: 'See this on a live ticker',
     leaders: 'Today’s off-exchange leaders — the whole market, ranked',
+    flowLeaders: 'Today’s biggest new options positions — the whole market, ranked',
     disc: 'Information and education only. Not investment advice and not a recommendation to buy or sell any security.',
   },
   ko: {
@@ -37,6 +38,7 @@ const UI: Record<Loc, { back: string; more: string; tickers: string; disc: strin
     more: '관련 개념',
     tickers: '실제 종목에서 보기',
     leaders: '오늘의 장외 상위 종목 — 시장 전체 순위',
+    flowLeaders: '오늘 새로 열린 옵션 포지션 상위 — 시장 전체 순위',
     disc: '정보 제공·교육 목적입니다. 투자 자문이나 매수·매도 추천이 아닙니다.',
   },
   ja: {
@@ -44,6 +46,7 @@ const UI: Record<Loc, { back: string; more: string; tickers: string; disc: strin
     more: '関連する概念',
     tickers: '実際の銘柄で見る',
     leaders: '今日の場外上位銘柄 — 市場全体のランキング',
+    flowLeaders: '今日の新規オプション建玉の上位 — 市場全体のランキング',
     disc: '情報提供・教育目的です。投資助言や売買推奨ではありません。',
   },
 };
@@ -141,6 +144,9 @@ export default async function ConceptPage(
             순위표는 이 개념 페이지의 자연스러운 다음 단계다. */}
         {concept === 'dark-pool' && (
           <a href={`/${lc}/dark-pool`} style={S.cta}>{t.leaders} →</a>
+        )}
+        {concept === 'options-flow' && (
+          <a href={`/${lc}/options-flow`} style={S.cta}>{t.flowLeaders} →</a>
         )}
         <a href={`/${lc}/tickers`} style={S.cta}>{t.tickers} →</a>
       </div>

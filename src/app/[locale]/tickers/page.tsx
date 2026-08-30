@@ -24,7 +24,7 @@ type Loc = (typeof LOCALES)[number];
 const L: Record<Loc, {
   title: string; desc: string; h1: string; lead: string;
   count: (n: number) => string; sec: string; back: string; disc: string;
-  daily: string;
+  daily: string; flow: string;
 }> = {
   en: {
     title: 'All Tickers — Dark Pool, Max Pain & Options Flow',
@@ -34,6 +34,7 @@ const L: Record<Loc, {
     count: (n) => `${n} tickers`,
     sec: 'Browse by first letter',
     daily: 'Today’s off-exchange leaders — ranked against each name’s own baseline →',
+    flow: 'Today’s biggest new options positions — open interest that actually rose →',
     back: 'Undercurrent — the money behind the news',
     disc: 'Information and education only. Not investment advice and not a recommendation to buy or sell any security.',
   },
@@ -45,6 +46,7 @@ const L: Record<Loc, {
     count: (n) => `${n}개 종목`,
     sec: '첫 글자로 찾기',
     daily: '오늘의 장외 상위 종목 — 각 종목의 «자기 기준선» 대비 순위 →',
+    flow: '오늘 새로 열린 옵션 포지션 상위 — 미결제약정이 «실제로 늘어난» 것만 →',
     back: '언더커런트 — 뉴스 뒤의 돈',
     disc: '정보 제공·교육 목적입니다. 투자 자문이나 매수·매도 추천이 아닙니다.',
   },
@@ -56,6 +58,7 @@ const L: Record<Loc, {
     count: (n) => `${n}銘柄`,
     sec: '頭文字で探す',
     daily: '今日の場外上位銘柄 — 各銘柄の「自分の基準線」との差で順位 →',
+    flow: '今日あらたに建てられたオプション建玉の上位 — 建玉が「実際に増えた」ものだけ →',
     back: 'アンダーカレント — ニュースの裏のお金',
     disc: '情報提供・教育目的です。投資助言や売買推奨ではありません。',
   },
@@ -151,6 +154,7 @@ export default async function TickersIndex({ params }: { params: Promise<{ local
 
       {/* 순위표를 사이트맵에만 두면 «고아»가 된다 — 티커 허브가 그 입구다. */}
       <a href={`/${lc}/dark-pool`} style={S.daily}>{l.daily}</a>
+      <a href={`/${lc}/options-flow`} style={S.daily}>{l.flow}</a>
 
       <nav style={S.jump} aria-label={l.sec}>
         {letters.map((k) => (

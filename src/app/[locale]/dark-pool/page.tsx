@@ -42,6 +42,7 @@ interface Strings {
   ctaSg: string;
   ctaUc: string;
   ctaWim: string;
+  ctaOf: string;
   allT: string;
   disc: string;
   unavailable: string;
@@ -99,6 +100,7 @@ const L: Record<Loc, Strings> = {
     ctaSg: 'SIGNUM HQ — options flow, gamma, dark pool',
     ctaUc: 'Undercurrent — the news and the money side by side',
     ctaWim: 'Why’d It Move? — learn what moved a stock',
+    ctaOf: 'Today’s biggest new options positions',
     allT: 'All tickers',
     disc: 'Data source: FINRA. Provided free and without additional charge. Educational and informational only — not investment advice, and no guarantee of accuracy or results.',
     unavailable: 'The off-exchange tape for the latest session is not available right now. It refreshes twice a day.',
@@ -154,6 +156,7 @@ const L: Record<Loc, Strings> = {
     ctaSg: 'SIGNUM HQ — 옵션 자금 흐름·감마·다크풀',
     ctaUc: '언더커런트 — 뉴스와 돈을 나란히',
     ctaWim: 'Why’d It Move? — 왜 움직였는지 배우기',
+    ctaOf: '오늘 새로 열린 옵션 포지션 상위',
     allT: '전체 종목',
     disc: '데이터 출처: FINRA. 별도 요금 없이 무료로 제공합니다. 교육·정보 목적이며 투자 조언이 아닙니다. 정확성과 결과를 보장하지 않습니다.',
     unavailable: '최신 장의 장외 테이프를 지금 불러올 수 없습니다. 하루 두 번 갱신됩니다.',
@@ -209,6 +212,7 @@ const L: Record<Loc, Strings> = {
     ctaSg: 'SIGNUM HQ — オプションフロー・ガンマ・ダークプール',
     ctaUc: 'アンダーカレント — ニュースとお金を並べて',
     ctaWim: 'Why’d It Move? — なぜ動いたかを学ぶ',
+    ctaOf: '今日の新規オプション建玉の上位',
     allT: '全銘柄',
     disc: 'データ出典: FINRA。追加料金なしで無料提供しています。教育・情報目的であり投資助言ではありません。正確性や結果を保証しません。',
     unavailable: '最新取引の場外テープを今は取得できません。1日2回更新されます。',
@@ -428,6 +432,7 @@ export default async function DarkPoolLeadersPage(
 
       <h2 style={S.readH}>{l.ctaT}</h2>
       <a style={S.cta} href={`/${lc}/app-view/cmd?from=seo-darkpool`}>{l.ctaSg}</a>
+      <a style={S.cta2} href={`/${lc}/options-flow`}>{l.ctaOf}</a>
       <a style={S.cta2} href={`/${lc}/undercurrent?from=seo-darkpool`}>{l.ctaUc}</a>
       <a style={S.cta2} href={`/${lc}/wim?from=seo-darkpool`}>{l.ctaWim}</a>
       <a style={S.cta2} href={`/${lc}/tickers`}>{l.allT}</a>

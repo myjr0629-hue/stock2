@@ -60,12 +60,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }
     // 다크풀 순위표는 «매 거래일 값이 바뀌는 허브»다. 정적 상수 날짜를 주면
     // 구글에 「안 바뀐다」고 거짓말하는 셈이 된다 — 실제 거래일을 준다.
-    entries.push({
-      url: `${base}/${loc}/dark-pool`,
-      lastModified: session,
-      changeFrequency: 'daily',
-      priority: 0.9,
-    });
+    for (const hub of ['/dark-pool', '/options-flow']) {
+      entries.push({
+        url: `${base}/${loc}${hub}`,
+        lastModified: session,
+        changeFrequency: 'daily',
+        priority: 0.9,
+      });
+    }
     for (const p of LEARN_PATHS) {
       entries.push({ url: `${base}/${loc}${p}`, lastModified: STATIC_LASTMOD, changeFrequency: 'monthly', priority: 0.5 });
     }

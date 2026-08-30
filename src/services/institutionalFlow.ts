@@ -26,6 +26,8 @@
  * ══════════════════════════════════════════════════════════════════════
  */
 
+import { isEtf } from '@/lib/seo/etfSet';
+
 const OPT_KEY = 'intrinio:options:eod';
 
 /** 「시장 전체」라고 말하려면 최소 이만큼의 종목이 있어야 한다 */
@@ -169,6 +171,123 @@ export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSu
         percentile,
         samples: past.length,
         date: data.date ?? null,
+    };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  «오늘의 신규 포지션» 순위 — 공개 검색 표면
+//
+//  왜: 「unusual options activity today」·「옵션 특이거래」·
+//      「オプション 大口」는 헤드 질의인데 우리는 받을 페이지가 없었다.
+//      그리고 무료 목록들은 대부분 «거래량»만 보여 준다 — 거래량은
+//      신규 진입과 청산을 구분하지 못한다. 우리는 미결제약정 **증가분**을
+//      쓰므로 「연 것」만 남는다. 그게 이 페이지의 존재 이유다.
+//
+//  ⚠️ 다크풀 순위표와 달리 **ETF 를 빼지 않는다.** SPY·QQQ·GLD 옵션은
+//     기계적 배관이 아니라 실제 헤지 활동이고, 오히려 그날의 이야기다.
+//     대신 화면에 ETF 임을 표시해 개별 종목과 섞이지 않게 한다.
+// ══════════════════════════════════════════════════════════════════════
+
+const LEADER_ROWS = 12;
+
+export interface FlowLeaderContract {
+    ticker: string;
+    type: 'call' | 'put';
+    strike: number;
+    expiry: string;
+    /** 늘어난 계약 수 */
+    contracts: number;
+    notional: number;
+    isEtf: boolean;
+}
+
+export interface FlowLeaderTicker {
+    ticker: string;
+    contracts: number;
+    notional: number;
+    /** 신규 금액 중 콜 비중 0~100 */
+    callPct: number;
+    side: 'call' | 'put';
+    isEtf: boolean;
+}
+
+export interface InstitutionalFlowLeaders {
+    date: string | null;
+    totalNotional: number;
+    callPct: number;
+    /** 신규 진입이 하나라도 있는 종목 수 */
+    tickers: number;
+    /** 단일 계약 기준 최대 신규 — 「무엇에 걸었나」가 남는다 */
+    contracts: FlowLeaderContract[];
+    /** 종목 합계 상위 */
+    byTicker: FlowLeaderTicker[];
+    /** 콜 쪽 신규가 큰 종목 */
+    topCalls: FlowLeaderTicker[];
+    /** 풋 쪽 신규가 큰 종목 */
+    topPuts: FlowLeaderTicker[];
+}
+
+export async function getInstitutionalFlowLeaders(): Promise<InstitutionalFlowLeaders | null> {
+    const data = await readOptionsEod();
+    if (!data?.tickers) return null;
+
+    const contracts: FlowLeaderContract[] = [];
+    const byTicker: FlowLeaderTicker[] = [];
+    const callNotional = new Map<string, number>();
+    const putNotional = new Map<string, number>();
+    let total = 0, call = 0;
+
+    for (const [sym, v] of Object.entries<any>(data.tickers)) {
+        const etf = isEtf(sym);
+        let c = 0, n = 0, cn = 0, pn = 0;
+        for (const x of (v?.top || [])) {
+            // 미결제약정이 «늘어난» 것만 신규다. 줄어든 것은 청산이라 반대 의미다.
+            if (!(x.d > 0)) continue;
+            const strike = typeof x.k === 'number' ? x.k : 0;
+            const notional = x.d * 100 * strike;
+            if (!(notional > 0)) continue;
+            c += x.d; n += notional;
+            if (x.t === 'C') cn += notional; else pn += notional;
+            contracts.push({
+                ticker: sym,
+                type: x.t === 'C' ? 'call' : 'put',
+                strike,
+                expiry: String(x.e || ''),
+                contracts: x.d,
+                notional,
+                isEtf: etf,
+            });
+        }
+        if (!(c > 0)) continue;
+        total += n; call += cn;
+        callNotional.set(sym, cn);
+        putNotional.set(sym, pn);
+        byTicker.push({
+            ticker: sym, contracts: c, notional: n,
+            callPct: Math.round((cn / n) * 1000) / 10,
+            side: cn >= pn ? 'call' : 'put',
+            isEtf: etf,
+        });
+    }
+
+    if (byTicker.length < MIN_TICKERS_FOR_MARKET || total <= 0) return null;
+
+    const desc = (a: number, b: number) => b - a;
+    return {
+        date: data.date ?? null,
+        totalNotional: total,
+        callPct: Math.round((call / total) * 1000) / 10,
+        tickers: byTicker.length,
+        contracts: [...contracts].sort((a, b) => desc(a.notional, b.notional)).slice(0, LEADER_ROWS),
+        byTicker: [...byTicker].sort((a, b) => desc(a.notional, b.notional)).slice(0, LEADER_ROWS),
+        topCalls: [...byTicker]
+            .sort((a, b) => desc(callNotional.get(a.ticker) ?? 0, callNotional.get(b.ticker) ?? 0))
+            .slice(0, LEADER_ROWS)
+            .map(t => ({ ...t, notional: callNotional.get(t.ticker) ?? 0 })),
+        topPuts: [...byTicker]
+            .sort((a, b) => desc(putNotional.get(a.ticker) ?? 0, putNotional.get(b.ticker) ?? 0))
+            .slice(0, LEADER_ROWS)
+            .map(t => ({ ...t, notional: putNotional.get(t.ticker) ?? 0 })),
     };
 }
 
