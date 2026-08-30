@@ -276,17 +276,25 @@ async function fetchGexHistoryData(ticker: string): Promise<any> {
         const history = await getGexHistory(ticker, 30);
         if (!history || history.length === 0) return null;
 
-        // Calculate GEX percentile (current vs 30-day range)
-        const gexValues = history.map((h: any) => h.gex).filter((v: number) => v !== 0);
-        const currentGex = gexValues[0] || 0;
+        // ★ 정렬을 «가정»하지 않는다.
+        //   `historyStore.getGexHistory` 는 scanForward:true — **오름차순**이다.
+        //   (같은 이름의 `dynamoDataProvider.getGexHistory` 는 내림차순이다.
+        //    어느 것을 import 했느냐로 [0] 의 뜻이 뒤집힌다.)
+        //   예전엔 `gexValues[0]` 을 «현재 GEX» 로 썼는데 그건 **30일 전 값**이라
+        //   백분위가 통째로 어긋났다. timestamp 로 최신을 고른다.
+        const sorted = [...history].sort((a: any, b: any) => Number(a.timestamp) - Number(b.timestamp));
+        const gexValues = sorted.map((h: any) => h.gex).filter((v: number) => v !== 0);
+        const currentGex = gexValues.length ? gexValues[gexValues.length - 1] : 0;
         const belowCount = gexValues.filter((v: number) => v < currentGex).length;
         const gexPercentile = gexValues.length > 0 ? Math.round((belowCount / gexValues.length) * 100) : null;
 
         // Detect Gamma Flip events (flipLevel changes)
+        //   ⚠️ 오름차순이므로 «최신»은 뒤쪽이다. 뒤에서 앞으로 걸으며 비교한다.
+        //      예전엔 curr=history[i-1] · prev=history[i] 로 **앞뒤가 뒤집혀** 있었다.
         const flipEvents: any[] = [];
-        for (let i = 1; i < Math.min(history.length, 30); i++) {
-            const curr = history[i - 1];
-            const prev = history[i];
+        for (let i = sorted.length - 1; i >= 1 && flipEvents.length < 30; i--) {
+            const curr = sorted[i];
+            const prev = sorted[i - 1];
             if (curr.flipLevel && prev.flipLevel && Math.abs(curr.flipLevel - prev.flipLevel) > curr.flipLevel * 0.02) {
                 flipEvents.push({
                     date: new Date(curr.timestamp).toISOString().slice(0, 10),
