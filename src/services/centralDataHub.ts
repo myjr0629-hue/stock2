@@ -424,7 +424,25 @@ export const CentralDataHub = {
 
             try {
                 const lambdaCache = await getFromCache<any>(`polygon:snapshot:probe:${ticker}`);
-                if (lambdaCache && lambdaCache.probeResults && lambdaCache.exactResults
+                // ★ 배열의 «존재»가 아니라 «내용»을 본다.
+                //
+                //   JS 에서 빈 배열 `[]` 은 truthy 다. 예전 게이트는
+                //   `lambdaCache.exactResults` 만 확인해서, Lambda 가 조회에
+                //   실패하며 써 넣은 **빈 배열**을 그대로 통과시켰다.
+                //   그러면 Polygon/Intrinio 경로를 통째로 건너뛰고 optionsCount 0 이
+                //   되며, TTL 이 72시간이라 **3일간 고착**된다.
+                //
+                //   실측(2026-08-30): PLTR probe 1136 · **exact 0** (37시간 전) →
+                //   화면에서 PLTR 만 GEX·맥스페인·콜월·PCR 이 전부 «—».
+                //   같은 시각 NVDA exact 166 · AAPL exact 154 로 멀쩡했다.
+                //   → 한 종목만 조용히 죽는 형태라 알아채기 어렵다.
+                const lcProbe = Array.isArray(lambdaCache?.probeResults) ? lambdaCache.probeResults : null;
+                const lcExact = Array.isArray(lambdaCache?.exactResults) ? lambdaCache.exactResults : null;
+                const lcUsable = !!(lcProbe?.length && lcExact?.length && lambdaCache?.weeklyExpiry);
+                if (lambdaCache && !lcUsable) {
+                    console.warn(`[CentralDataHub] Lambda 캐시 거부 ${ticker} — probe ${lcProbe?.length ?? 'n/a'} · exact ${lcExact?.length ?? 'n/a'} · expiry ${lambdaCache?.weeklyExpiry || 'none'}`);
+                }
+                if (lcUsable
                     && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 259200000) { // 72h max (weekend preservation)
                     // Lambda cache hit — skip all Polygon API calls
                     probeResults = lambdaCache.probeResults;

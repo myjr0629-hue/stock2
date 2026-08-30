@@ -46,7 +46,11 @@ const KNOWN_ETF_SYMBOLS = new Set([
     'FTCS', 'FTSL', 'FTXN', 'FTXR', 'FTXD', 'FTXG', 'FTXH', 'FTXL', 'FTXO', 'FTXZ',
     // [V4.1] Single-Stock / Leveraged ETFs (T-REX, GraniteShares, Direxion, YieldMax)
     'MSTU', 'MSTX', 'MSTZ', 'CONL', 'CONY', 'NVDL', 'NVDU', 'NVDX', 'NVDS',
-    'TSLL', 'TSLR', 'TSLS', 'AMDL', 'AMDY', 'PLTR', 'MSFL', 'MSFD',
+    // ⚠️ 여기 'PLTR' 이 있었다 — **팔란티어 본주**다. 이 블록은 단일종목
+    //    레버리지 ETF 목록이므로 'PLTU'(T-REX 2X Long Palantir) 오타로 보인다.
+    //    (같은 블록 아래에 YieldMax 팔란티어 ETF 'PLTY' 가 따로 있다)
+    //    그대로 두면 팔란티어가 ETF 로 분류돼 리포트 유니버스에서 빠진다.
+    'TSLL', 'TSLR', 'TSLS', 'AMDL', 'AMDY', 'PLTU', 'MSFL', 'MSFD',
     'AAPU', 'AAPD', 'AMZU', 'AMZD', 'GOOU', 'GOOD', 'METV',
     'BITX', 'BITU', 'BITC', 'BTFX', 'IBIT', 'BITO', 'GBTC',
     'NRGD', 'NRGU', 'WEBL', 'WEBS', 'OILU', 'OILD', 'DPST', 'DRV',

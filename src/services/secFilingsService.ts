@@ -53,7 +53,9 @@ async function fetch8KFilings(ticker: string): Promise<SECFiling8K[]> {
     const cacheKey = `sec:8k:${ticker}`;
     try {
         const cached = await getFromCache<SECFiling8K[]>(cacheKey);
-        if (cached && cached.length >= 0) return cached;
+        // ⚠️ `length >= 0` 은 «항상 참»이다 — 빈 배열도 통과한다. 조회가 실패해
+        //    []가 캐시되면 TTL 동안 「공시 없음」이 고착된다. 내용이 있을 때만 쓴다.
+        if (Array.isArray(cached) && cached.length > 0) return cached;
     } catch { /* cache miss */ }
 
     try {
