@@ -270,7 +270,11 @@
     "CONNECTING": "CONNECTING",
     "COLLAPSE": "COLLAPSE",
     "ALERTS": "ALERTS",
-    "marketClosed": "Market closed"
+    "marketClosed": "Market closed",
+    "breadthPositive": "Bullish tilt",
+    "breadthMixed": "Mixed",
+    "breadthNegative": "Bearish tilt",
+    "noData": "No data"
   },
   "command": {
     "title": "COMMAND",

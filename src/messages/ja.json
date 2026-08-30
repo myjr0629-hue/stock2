@@ -270,7 +270,11 @@
     "CONNECTING": "接続中",
     "COLLAPSE": "閉じる",
     "ALERTS": "アラート",
-    "marketClosed": "取引終了"
+    "marketClosed": "取引終了",
+    "breadthPositive": "強気優勢",
+    "breadthMixed": "混在",
+    "breadthNegative": "弱気優勢",
+    "noData": "データなし"
   },
   "command": {
     "title": "COMMAND",

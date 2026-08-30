@@ -15,6 +15,9 @@ interface RealityCheckProps {
     divergenceCase?: 'A' | 'B' | 'C' | 'D' | 'N';
     rvolNdx?: number | null;
     rvolDow?: number | null;
+    /** 지수 브레드스 — 구성종목 중 20일 이평 위 비율(0~1) + 커버리지 */
+    ma20Ndx?: { pctAbove20: number | null; covered: number; universe: number } | null;
+    ma20Dow?: { pctAbove20: number | null; covered: number; universe: number } | null;
     verdict?: {
         title: string;
         desc: string;
@@ -50,6 +53,8 @@ export function RealityCheck({
     divergenceCase = 'N',
     rvolNdx,
     rvolDow,
+    ma20Ndx,
+    ma20Dow,
     vixTermStructure,
     bondFlow,
     goldFlow,
@@ -77,6 +82,23 @@ export function RealityCheck({
     const hasMacroAlerts = hasVixAlert || hasRiskOff;
 
     const getRvolColor = (val: number) => val > 1.0 ? 'text-cyan-400' : 'text-slate-400';
+
+    // ── 지수 브레드스 (구성종목 중 20일 이평 위 비율) ──────────────
+    //   커버리지가 목록의 절반도 안 되면 서비스가 null 을 준다 — 낡은
+    //   구성종목 목록으로 계산한 값을 «시장»이라고 말하지 않기 위해서다.
+    const ndxPct = ma20Ndx?.pctAbove20 ?? null;
+    const dowPct = ma20Dow?.pctAbove20 ?? null;
+    /** 70%↑ 광범위 강세 · 55%↑ 강세 우위 · 45%↑ 혼조 · 30%↑ 약세 우위 · 그 이하 광범위 약세 */
+    const getBreadthColor = (p: number) =>
+        p >= 0.7 ? 'text-emerald-400'
+            : p >= 0.55 ? 'text-green-400'
+                : p >= 0.45 ? 'text-slate-300'
+                    : p >= 0.3 ? 'text-orange-400' : 'text-rose-400';
+    const breadthLabel = (p: number) =>
+        p >= 0.7 ? t('breadthStrong')
+            : p >= 0.55 ? t('breadthPositive')
+                : p >= 0.45 ? t('breadthMixed')
+                    : p >= 0.3 ? t('breadthNegative') : t('breadthWeak');
     const get10YColor = (change: number) => change >= 0 ? 'text-rose-400' : 'text-emerald-400';
     const getSpreadColor = (val: number) => {
         if (val < 0) return 'text-rose-400';
@@ -172,15 +194,19 @@ export function RealityCheck({
                 <>
                     <div className="flex-none grid grid-cols-3 gap-x-2 gap-y-3 place-items-center content-center">
                         <DualGauge priceValue={nasdaqChange} flowValue={guardianScore} size="lg" />
-                        {/* RVOL 은 정규장 지표다. 장 밖에선 측정하지 않으므로 «—» 로 둔다.
-                            예전엔 미측정 0 이 그대로 흘러 `> 1.0 ? 보통 : 저조` 에 걸려
-                            **밤·주말 내내 「거래량 저조」라고 단언**하고 있었다. */}
-                        <MiniGauge label="NDX 20D" value={rvolNdx ? `${Math.round(rvolNdx * 100)}%` : '—'}
-                            subLabel={!rvolNdx ? t('marketClosed') : rvolNdx > 1.5 ? t('rvolActive') : rvolNdx > 1.0 ? t('rvolNormal') : t('rvolLow')}
-                            colorClass={rvolNdx ? getRvolColor(rvolNdx) : 'text-slate-500'} size="lg" fillPercent={rvolNdx ? Math.min(rvolNdx * 50, 100) : 0} />
-                        <MiniGauge label="DOW 20D" value={rvolDow ? `${Math.round(rvolDow * 100)}%` : '—'}
-                            subLabel={!rvolDow ? t('marketClosed') : rvolDow > 1.5 ? t('rvolActive') : rvolDow > 1.0 ? t('rvolNormal') : t('rvolLow')}
-                            colorClass={rvolDow && rvolDow > 1.0 ? 'text-orange-400' : 'text-slate-400'} size="lg" fillPercent={rvolDow ? Math.min(rvolDow * 50, 100) : 0} />
+                        {/* ★ 「NDX 20D」·「DOW 20D」 = 구성종목 중 **20일 이평 위** 비율.
+                            예전엔 이 자리에 RVOL(상대거래량)을 그리고 있었다 — 라벨도
+                            도움말도 브레드스라고 말하는데 값은 완전히 다른 지표였다.
+                            게다가 RVOL 은 정규장 지표라 밤·주말엔 «—/장 종료» 로 비었다.
+                            브레드스는 종가로 계산하므로 **주말에도 나온다.** */}
+                        <MiniGauge label="NDX 20D" value={ndxPct != null ? `${Math.round(ndxPct * 100)}%` : '—'}
+                            subLabel={ndxPct == null ? t('noData') : breadthLabel(ndxPct)}
+                            colorClass={ndxPct == null ? 'text-slate-500' : getBreadthColor(ndxPct)} size="lg"
+                            fillPercent={ndxPct != null ? ndxPct * 100 : 0} />
+                        <MiniGauge label="DOW 20D" value={dowPct != null ? `${Math.round(dowPct * 100)}%` : '—'}
+                            subLabel={dowPct == null ? t('noData') : breadthLabel(dowPct)}
+                            colorClass={dowPct == null ? 'text-slate-500' : getBreadthColor(dowPct)} size="lg"
+                            fillPercent={dowPct != null ? dowPct * 100 : 0} />
                         <MiniGauge label="US10Y" value={yieldCurve ? `${yieldCurve.us10y.toFixed(2)}%` : '—'}
                             secondaryValue={`${us10yChangePct >= 0 ? '+' : ''}${us10yChangePct.toFixed(2)}%`}
                             subLabel={us10yChangePct > 0 ? t('yieldUp') : us10yChangePct < 0 ? t('yieldDown') : t('yieldFlat')}

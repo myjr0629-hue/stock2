@@ -7,6 +7,10 @@ import { RvolEngine, RvolProfile } from "./rvolEngine";
 import { fetchMassive } from "@/services/massiveClient";
 import { getGammaShield, GammaShieldData } from "./gammaShieldEngine";
 import { getMarketBreadth } from "./breadthEngine";
+// ⚠️ 위 breadthEngine 과 «다른» 지표다.
+//    getMarketBreadth  = 등락종목수(A/D) — 정규장에 누적되는 값
+//    getIndexBreadth   = 구성종목의 20일 이평 상회 비율 — 종가 기반, 주말에도 나온다
+import { getIndexBreadth } from "@/services/indexBreadth";
 
 // === TYPES ===
 export interface SectorDensity {
@@ -60,6 +64,15 @@ export interface GuardianContext {
     verdictTargetId: string | null;
     marketStatus: 'GO' | 'WAIT' | 'STOP';
     rvol?: { ndx: RvolProfile; dow: RvolProfile };
+    /**
+     * 지수 브레드스 — 구성종목 중 20일 이평 위 비율.
+     * rvol 과 «다른 지표»다: rvol 은 정규장 거래량, 이건 종가 기반이라 주말에도 나온다.
+     * covered/universe 를 같이 담는다 — 구성종목 목록이 낡으면 화면이 그걸 알 수 있어야 한다.
+     */
+    ma20Breadth?: {
+        ndx: { pctAbove20: number | null; covered: number; universe: number; asOf: string | null };
+        dow: { pctAbove20: number | null; covered: number; universe: number; asOf: string | null };
+    };
     rotationIntensity?: RotationIntensity;
     // [V6.0] Hybrid Intelligence
     ruleVerdict?: MarketVerdict;        // 규칙 기반 핵심 결론
@@ -397,7 +410,7 @@ export class GuardianDataHub {
             // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
             // [V5.0] Changed order: Sector first, then RLSI with RIS score
             console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
-            const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData] = await Promise.all([
+            const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth] = await Promise.all([
                 SectorEngine.getSectorFlows(),
                 getMacroSnapshotSSOT(),
                 RvolEngine.getRvol("QQQ"),
@@ -426,7 +439,16 @@ export class GuardianDataHub {
                     } catch { return [] as string[]; }
                 })(),
                 // [V10.0] GAMMA SHIELD — market-wide GEX/squeeze/trigger band
-                getGammaShield(force).catch(e => { console.warn('[Guardian] GammaShield failed:', e.message); return null; })
+                getGammaShield(force).catch(e => { console.warn('[Guardian] GammaShield failed:', e.message); return null; }),
+                // ★ 지수 브레드스 (구성종목 중 20일 이평 위 비율)
+                //   화면의 「NDX 20D」·「DOW 20D」 게이지가 라벨·도움말로는
+                //   브레드스라고 말하면서 실제로는 RVOL 을 그리고 있었다.
+                //   RVOL 은 정규장 지표라 장 밖엔 «—» 인데, 브레드스는 종가로
+                //   계산하므로 **주말에도 나와야 하는 값**이다.
+                getIndexBreadth().catch(() => ({
+                    ndx: { pctAbove20: null, covered: 0, universe: 100, asOf: null },
+                    dow: { pctAbove20: null, covered: 0, universe: 30, asOf: null },
+                }))
             ]);
 
             // Merge Polygon + FMP news with deduplication
@@ -885,6 +907,8 @@ export class GuardianDataHub {
                 verdictTargetId: targetId,
                 marketStatus,
                 rvol: { ndx: rvolNdx, dow: rvolDow },
+                // rvol 과 «다른 지표»다. 같은 자리에 섞지 않는다.
+                ma20Breadth,
                 rotationIntensity,
                 ruleVerdict, // [V6.0] 규칙 기반 핵심 결론
                 tripleA,     // [V6.0] 체크리스트 포함

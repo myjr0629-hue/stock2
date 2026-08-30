@@ -49,6 +49,8 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
                         //    1.0 으로 되돌리면 화면이 «100% · 저조»라고 단언한다
                         //    (2026-08-29 실측: 앱 「시장 현황」 탭에 상시 노출)
                         rvolNdx={data?.rvol?.ndx?.rvol ?? null}
+                        ma20Ndx={data?.ma20Breadth?.ndx ?? null}
+                        ma20Dow={data?.ma20Breadth?.dow ?? null}
                         rvolDow={data?.rvol?.dow?.rvol ?? null}
                         verdict={{
                             title: "MARKET ESSENCE",

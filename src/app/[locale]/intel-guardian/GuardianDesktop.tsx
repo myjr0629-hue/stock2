@@ -113,6 +113,11 @@ interface GuardianContext {
         ndx: { rvol: number };
         dow: { rvol: number };
     };
+    /** 지수 브레드스 — 20일 이평 위 비율. rvol 과 다른 지표다(종가 기반, 주말에도 나온다) */
+    ma20Breadth?: {
+        ndx: { pctAbove20: number | null; covered: number; universe: number };
+        dow: { pctAbove20: number | null; covered: number; universe: number };
+    };
     tripleA?: {
         regime: 'BULL' | 'BEAR' | 'NEUTRAL';
         alignment: boolean;
@@ -471,6 +476,8 @@ export default function GuardianDesktop() {
                                     divergenceCase={data?.divergence?.caseId as "N" | "A" | "B" | "C" | "D" | undefined}
                                     // `|| 1.0` 금지 — null(측정 안 함)을 «평소만큼 거래됨»으로 바꾸면 안 된다
                                     rvolNdx={data?.rvol?.ndx?.rvol ?? null}
+                                    ma20Ndx={data?.ma20Breadth?.ndx ?? null}
+                                    ma20Dow={data?.ma20Breadth?.dow ?? null}
                                     rvolDow={data?.rvol?.dow?.rvol ?? null}
                                     verdict={{
                                         title: "MARKET ESSENCE",
