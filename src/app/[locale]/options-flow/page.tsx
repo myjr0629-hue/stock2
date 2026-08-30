@@ -439,9 +439,11 @@ export default async function OptionsFlowPage(
       ))}
 
       <h2 style={S.readH}>{l.ctaT}</h2>
-      <a style={S.cta} href={`/${lc}/app-view/cmd?from=seo-optionsflow`}>{l.ctaSg}</a>
+      {/* ★ 스토어 스마트링크를 쓴다 — 내부 웹 경로로 보내면 설치가 안 는다.
+          /app·/app-uc 은 UA 분기 + install referrer 로 측정까지 된다. */}
+      <a style={S.cta} href={`${base}/app?from=seo-optionsflow`} rel="noopener">{l.ctaSg} →</a>
+      <a style={S.cta2} href={`${base}/app-uc?from=seo-optionsflow`} rel="noopener">{l.ctaUc} →</a>
       <a style={S.cta2} href={`/${lc}/dark-pool`}>{l.ctaDp}</a>
-      <a style={S.cta2} href={`/${lc}/undercurrent?from=seo-optionsflow`}>{l.ctaUc}</a>
       <a style={S.cta2} href={`/${lc}/tickers`}>{l.allT}</a>
 
       <p style={S.disc}>{l.disc}</p>

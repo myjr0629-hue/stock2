@@ -446,10 +446,14 @@ export default async function DarkPoolLeadersPage(
       ))}
 
       <h2 style={S.readH}>{l.ctaT}</h2>
-      <a style={S.cta} href={`/${lc}/app-view/cmd?from=seo-darkpool`}>{l.ctaSg}</a>
+      {/* ★ 앱 CTA 는 반드시 «스마트링크»여야 한다. /app·/app-uc·/app-wim 은 UA 로
+          분기해 App Store / Play(install referrer 포함) 로 보내므로 설치로 바로
+          꽂히고 측정된다. 내부 웹 경로로 보내면 페이지뷰만 늘고 설치가 안 는다.
+          (티커 페이지 3,585장이 이미 이 규칙을 쓰고 있었다.) */}
+      <a style={S.cta} href={`${base}/app?from=seo-darkpool`} rel="noopener">{l.ctaSg} →</a>
+      <a style={S.cta2} href={`${base}/app-uc?from=seo-darkpool`} rel="noopener">{l.ctaUc} →</a>
+      <a style={S.cta2} href={`${base}/app-wim?from=seo-darkpool`} rel="noopener">{l.ctaWim} →</a>
       <a style={S.cta2} href={`/${lc}/options-flow`}>{l.ctaOf}</a>
-      <a style={S.cta2} href={`/${lc}/undercurrent?from=seo-darkpool`}>{l.ctaUc}</a>
-      <a style={S.cta2} href={`/${lc}/wim?from=seo-darkpool`}>{l.ctaWim}</a>
       <a style={S.cta2} href={`/${lc}/tickers`}>{l.allT}</a>
 
       <p style={S.disc}>{l.disc}</p>
