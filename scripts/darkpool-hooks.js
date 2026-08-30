@@ -65,6 +65,32 @@ const MIN_DOLLAR_VOL = 200e6;   // 「아무도 모르는 잡주」를 올리면
         push("short-anomaly", r,
             `$${r.t}: ${r.shortPct}% of off-exchange volume printed short, against a ${r.shortAvg}% norm — a ${r.shortDev > 0 ? "+" : ""}${r.shortDev}pp swing.`);
 
+    // ── 옵션 신규 포지션 훅 ────────────────────────────────────────────
+    //   2026-08-31 추가. 다크풀만으로는 매일 같은 종류의 문장이 나온다.
+    //   미결제약정 «증가분»은 청산이 아니라 진입이라 「무엇에 걸었나」가 남는다.
+    //   ⚠️ 거래량이 아니라 OI 증가분이다 — 이 구분이 훅의 전부다.
+    const opt = await g("intrinio:options:eod");
+    if (opt?.tickers) {
+        const cons = [];
+        for (const [sym, v] of Object.entries(opt.tickers)) {
+            for (const c of (v?.top || [])) {
+                if (!(c.d > 0) || !(c.k > 0)) continue;
+                cons.push({ sym, t: c.t, k: c.k, e: c.e, d: c.d, n: c.d * 100 * c.k });
+            }
+        }
+        cons.sort((a, b) => b.n - a.n);
+        for (const c of cons.slice(0, 3)) {
+            const size = c.n >= 1e9 ? `$${(c.n / 1e9).toFixed(2)}B` : `$${Math.round(c.n / 1e6)}M`;
+            out.hooks.push({
+                kind: "new-option-position", ticker: c.sym,
+                headline: `$${c.sym}: open interest on the ${c.e} $${c.k} ${c.t === "C" ? "call" : "put"} rose by ${c.d.toLocaleString()} contracts (${size} notional). Open interest rising means the position was entered, not closed.`,
+                strike: c.k, expiry: c.e, side: c.t === "C" ? "call" : "put",
+                contractsAdded: c.d, notional: c.n,
+                url: `https://www.signumhq.com/en/options-flow`,
+            });
+        }
+    }
+
     // 중복 티커 제거(같은 종목을 여러 훅으로 올리면 도배로 보인다)
     const seen = new Set();
     out.hooks = out.hooks.filter((h) => (seen.has(h.ticker) ? false : (seen.add(h.ticker), true)));
