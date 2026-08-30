@@ -2504,6 +2504,10 @@ export async function getFilings8KIntrinio(
             tertiary_category: null,
             // Polygon 이 주던 본문 추출은 Intrinio 에 없다 → 빈 문자열로 명시
             supporting_text: "",
+            // ⚠️ 소비처(disclosures.ts)는 `filing_url` 이라는 이름으로 읽는다.
+            //    `source_url` 로만 내보냈더니 화면의 링크가 빈 문자열이 됐다.
+            //    (SEC 원문 링크는 «본문 요약이 없는» 지금 더 중요하다)
+            filing_url: f.report_url || f.filing_url || null,
             source_url: f.report_url || f.filing_url || null,
             _textUnavailable: true,
         }));
