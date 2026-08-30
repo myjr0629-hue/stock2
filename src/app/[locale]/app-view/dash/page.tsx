@@ -495,7 +495,11 @@ export default function AppDashPage() {
   const [moversLoading, setMoversLoading] = useState(false);
   const [briefing, setBriefing] = useState<string>(DEMO_BRIEFING);
   const [volRegime, setVolRegime] = useState<{ regime: string; score: number } | null>(null);
-  const [darkPoolFlow, setDarkPoolFlow] = useState<{ percent: number; volume: number; totalVolume: number } | null>(null);
+  // 다크풀은 이관으로 영구 상실했다 — 기관 «신규 옵션 포지션»으로 대체한다.
+  const [instFlow, setInstFlow] = useState<{
+    notional: number; callPct: number; side: 'call' | 'put';
+    tickers: number; topTicker: string | null; topNotional: number; date: string | null;
+  } | null>(null);
   const [gammaSqueeze, setGammaSqueeze] = useState<{ score: number; risk: string } | null>(null);
   const [sectorRotation, setSectorRotation] = useState<{ score: number; direction: string; conviction: string } | null>(null);
   const [newsItems, setNewsItems] = useState<TickerNewsItem[]>([]);
@@ -753,7 +757,7 @@ export default function AppDashPage() {
       teaserUnit: '4개 중 1개',
       signals: {
         volatility: { label: '변동성 레짐', kicker: '시장 압축/확대', insight: '시장 변동성이 압축되는지, 확대되는지 추적합니다.' },
-        darkPool: { label: '다크풀 거래량', kicker: '기관성 비공개 체결', insight: '일반 호가창 밖의 대형 체결 흐름을 감지합니다.' },
+        instFlow: { label: '기관 신규 포지션', kicker: '어제 새로 깔린 옵션', insight: '장중엔 보이지 않는 미결제약정 증가분입니다.' },
         squeeze: { label: '스퀴즈 위험', kicker: '단기 변동성 압력', insight: '감마와 포지션 쏠림이 만드는 급변 가능성을 봅니다.' },
         rotation: { label: '섹터 순환 강도', kicker: '자금 이동 방향', insight: '공격/방어 섹터로 자금이 이동하는 강도를 확인합니다.' },
       },
@@ -769,7 +773,7 @@ export default function AppDashPage() {
       teaserUnit: '1 of 4',
       signals: {
         volatility: { label: 'Volatility Regime', kicker: 'Compression / expansion', insight: 'Tracks whether market volatility is compressing or expanding.' },
-        darkPool: { label: 'Dark Pool Volume', kicker: 'Institutional prints', insight: 'Surfaces large off-exchange flow hidden from the open book.' },
+        instFlow: { label: 'New Institutional Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
         squeeze: { label: 'Squeeze Risk', kicker: 'Short-term pressure', insight: 'Monitors gamma and positioning pressure behind fast moves.' },
         rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
       },
@@ -785,7 +789,7 @@ export default function AppDashPage() {
       teaserUnit: '4つ中1つ',
       signals: {
         volatility: { label: 'ボラティリティ・レジーム', kicker: '圧縮 / 拡大', insight: '市場の変動性が圧縮か拡大かを追跡します。' },
-        darkPool: { label: 'ダークプール出来高', kicker: '機関投資家フロー', insight: '板に見えにくい大口の非公開取引を確認します。' },
+        instFlow: { label: '機関の新規ポジション', kicker: '昨日建てられたオプション', insight: '場中には見えない建玉の増加分です。' },
         squeeze: { label: 'スクイーズリスク', kicker: '短期圧力', insight: 'ガンマとポジション偏りによる急変リスクを見ます。' },
         rotation: { label: 'セクター循環強度', kicker: '資金移動', insight: '資金がリスク側か防御側へ回る強さを確認します。' },
       },
@@ -801,7 +805,7 @@ export default function AppDashPage() {
     teaserUnit: '1 of 4',
     signals: {
       volatility: { label: 'Volatility Regime', kicker: 'Compression / expansion', insight: 'Tracks whether market volatility is compressing or expanding.' },
-      darkPool: { label: 'Dark Pool Volume', kicker: 'Institutional prints', insight: 'Surfaces large off-exchange flow hidden from the open book.' },
+      instFlow: { label: 'New Institutional Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
       squeeze: { label: 'Squeeze Risk', kicker: 'Short-term pressure', insight: 'Monitors gamma and positioning pressure behind fast moves.' },
       rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
     },
@@ -893,45 +897,77 @@ export default function AppDashPage() {
     }[locale as 'ko' | 'en' | 'ja'];
     return map?.[token as keyof typeof map] || (value ? value.replace(/_/g, ' ') : 'Neutral Tilt');
   };
-  const formatDarkPoolVolume = (volume?: number | null) => {
-    if (!volume || !Number.isFinite(volume)) return 'DP —';
-    if (volume >= 1e9) return `DP ${(volume / 1e9).toFixed(1)}B`;
-    if (volume >= 1e6) return `DP ${(volume / 1e6).toFixed(1)}M`;
-    return `DP ${(volume / 1e3).toFixed(1)}K`;
+  const money = (v?: number | null) => {
+    if (!v || !Number.isFinite(v)) return '—';
+    if (v >= 1e12) return `$${(v / 1e12).toFixed(1)}T`;
+    if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+    if (v >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
+    return `$${(v / 1e3).toFixed(0)}K`;
   };
-  const volScore = clampPct(volRegime?.score || 38);
-  const darkPoolScore = clampPct(darkPoolFlow?.percent || 42.5);
-  const squeezeScore = clampPct(gammaSqueeze?.score || 34);
-  const rotationScore = clampPct(sectorRotation?.score || 50);
+
+  // ★ 폴백 상수(38 · 42.5 · 34 · 50)를 전부 걷어냈다.
+  //   못 잰 값은 null 로 두고 카드가 «—» 로 말한다. 진행바도 0 이 아니라
+  //   아예 안 그린다 — 0% 막대는 «측정된 0» 처럼 보인다.
+  const volScore = volRegime?.score == null ? null : clampPct(volRegime.score);
+  const squeezeScore = gammaSqueeze?.score == null ? null : clampPct(gammaSqueeze.score);
+  const rotationScore = sectorRotation?.score == null ? null : clampPct(sectorRotation.score);
+  // 신규 포지션은 «콜 비중»을 게이지로 쓴다(0~100). 금액은 값으로 따로 보여 준다.
+  const instScore = instFlow ? clampPct(instFlow.callPct) : null;
+
+  // ── 오늘 값에 대한 «판독» ────────────────────────────────────────
+  //   기존 insight 는 «이 지표가 무엇인가»를 설명하는 정적 문장이었다.
+  //   프리미엄 카드는 «오늘 이 숫자가 무슨 뜻인가»를 말해야 한다.
+  //   지표 설명은 그대로 두되(ⓘ 성격), 판독을 한 줄 얹는다.
+  const L3 = (ko: string, en: string, ja: string) => (locale === 'ko' ? ko : locale === 'ja' ? ja : en);
+  const readVol = (sc: number | null, rg?: string | null) => sc == null ? null
+    : sc <= 25 ? L3('압축 구간 — 방향이 정해지면 크게 움직입니다.', 'Coiled — a resolution tends to move far.', '圧縮局面 — 方向が決まると大きく動きます。')
+      : sc >= 65 ? L3('확대 구간 — 이미 크게 움직이는 중입니다.', 'Expanded — already moving wide.', '拡大局面 — すでに大きく動いています。')
+        : L3('중간 구간 — 뚜렷한 압축도 확대도 아닙니다.', 'Mid-range — neither coiled nor expanded.', '中間 — 圧縮でも拡大でもありません。');
+  const readSqueeze = (sc: number | null) => sc == null ? null
+    : sc >= 60 ? L3('포지션 쏠림이 큽니다 — 급변 가능성이 높습니다.', 'Crowded positioning — snap risk is elevated.', 'ポジションの偏りが大きく、急変の可能性が高いです。')
+      : sc >= 35 ? L3('보통 수준의 쏠림입니다.', 'Moderate crowding.', '通常水準の偏りです。')
+        : L3('쏠림이 적습니다 — 급변 압력이 낮습니다.', 'Little crowding — low snap pressure.', '偏りが少なく、急変圧力は低いです。');
+  const readRotation = (sc: number | null, dir?: string | null) => sc == null ? null
+    : sc >= 70 ? (dir === 'RISK_ON' || dir === 'BULLISH'
+        ? L3('공격 섹터로 자금이 강하게 이동 중입니다.', 'Money is rotating hard into offense.', '攻撃セクターへ資金が強く移動中です。')
+        : L3('방어 섹터로 자금이 강하게 이동 중입니다.', 'Money is rotating hard into defense.', '防御セクターへ資金が強く移動中です。'))
+      : L3('섹터 간 자금 이동이 뚜렷하지 않습니다.', 'No clear sector rotation.', 'セクター間の資金移動は不明瞭です。');
+  const readInst = (f: typeof instFlow) => !f ? null
+    : L3(
+        `${f.tickers}종목에 ${money(f.notional)} 신규 진입 · ${f.callPct >= 50 ? '콜' : '풋'} ${f.callPct >= 50 ? f.callPct : (100 - f.callPct)}% 우위${f.topTicker ? ` · 최대 ${f.topTicker}` : ''}`,
+        `${money(f.notional)} opened across ${f.tickers} names · ${f.callPct >= 50 ? 'call' : 'put'}-heavy ${f.callPct >= 50 ? f.callPct : (100 - f.callPct)}%${f.topTicker ? ` · led by ${f.topTicker}` : ''}`,
+        `${f.tickers}銘柄に${money(f.notional)}の新規 · ${f.callPct >= 50 ? 'コール' : 'プット'}優勢${f.callPct >= 50 ? f.callPct : (100 - f.callPct)}%${f.topTicker ? ` · 最大 ${f.topTicker}` : ''}`
+      );
+  const NO_DATA = L3('데이터 없음', 'No data', 'データなし');
   const institutionalSignals = [
     {
       key: 'vol',
       tone: 'cyan',
       label: gateCopy.signals.volatility.label,
       kicker: gateCopy.signals.volatility.kicker,
-      value: localizeRegime(volRegime?.regime),
-      sub: `${volScore.toFixed(0)}%`,
-      insight: gateCopy.signals.volatility.insight,
+      value: volRegime?.regime ? localizeRegime(volRegime.regime) : '—',
+      sub: volScore == null ? '—' : `${volScore.toFixed(0)}%`,
+      insight: readVol(volScore, volRegime?.regime) ?? NO_DATA,
       score: volScore,
     },
     {
-      key: 'dark',
+      key: 'inst',
       tone: 'green',
-      label: gateCopy.signals.darkPool.label,
-      kicker: gateCopy.signals.darkPool.kicker,
-      value: `${darkPoolScore.toFixed(1)}%`,
-      sub: formatDarkPoolVolume(darkPoolFlow?.volume),
-      insight: gateCopy.signals.darkPool.insight,
-      score: darkPoolScore,
+      label: gateCopy.signals.instFlow.label,
+      kicker: gateCopy.signals.instFlow.kicker,
+      value: instFlow ? money(instFlow.notional) : '—',
+      sub: instFlow ? `${instFlow.callPct >= 50 ? 'CALL' : 'PUT'} ${instFlow.callPct >= 50 ? instFlow.callPct : Math.round((100 - instFlow.callPct) * 10) / 10}%` : '—',
+      insight: readInst(instFlow) ?? gateCopy.signals.instFlow.insight,
+      score: instScore,
     },
     {
       key: 'squeeze',
       tone: 'pink',
       label: gateCopy.signals.squeeze.label,
       kicker: gateCopy.signals.squeeze.kicker,
-      value: localizeRisk(gammaSqueeze?.risk),
-      sub: `${squeezeScore.toFixed(0)}%`,
-      insight: gateCopy.signals.squeeze.insight,
+      value: gammaSqueeze?.risk ? localizeRisk(gammaSqueeze.risk) : '—',
+      sub: squeezeScore == null ? '—' : `${squeezeScore.toFixed(0)}%`,
+      insight: readSqueeze(squeezeScore) ?? NO_DATA,
       score: squeezeScore,
     },
     {
@@ -939,9 +975,9 @@ export default function AppDashPage() {
       tone: 'amber',
       label: gateCopy.signals.rotation.label,
       kicker: gateCopy.signals.rotation.kicker,
-      value: localizeRotation(sectorRotation?.direction),
-      sub: `Rotation ${rotationScore.toFixed(0)}`,
-      insight: gateCopy.signals.rotation.insight,
+      value: sectorRotation?.direction ? localizeRotation(sectorRotation.direction) : '—',
+      sub: rotationScore == null ? '—' : `Rotation ${rotationScore.toFixed(0)}`,
+      insight: readRotation(rotationScore, sectorRotation?.direction) ?? NO_DATA,
       score: rotationScore,
     },
   ];
@@ -1367,10 +1403,16 @@ export default function AppDashPage() {
           try {
             const pData = await premiumRes.value.json();
             if (pData.success) {
-              setVolRegime({ regime: pData.volatilityRegime.regime, score: pData.volatilityRegime.score });
-              setDarkPoolFlow({ percent: pData.darkPool.percent, volume: pData.darkPool.volume, totalVolume: pData.darkPool.totalVolume ?? 0 });
-              setGammaSqueeze({ score: pData.gammaSqueeze.score, risk: pData.gammaSqueeze.risk });
-              setSectorRotation({ score: pData.sectorRotation.score, direction: pData.sectorRotation.direction, conviction: pData.sectorRotation.conviction });
+              // ⚠️ 못 잰 값을 상수로 채우지 않는다. null 은 null 로 흘려보내고
+              //    카드가 «—» 로 말하게 한다. 이 카드들은 보상형 광고 뒤에 있다 —
+              //    광고를 보고 나서 보는 값이 폴백 상수면 사용자를 속이는 것이다.
+              setVolRegime(pData.volatilityRegime?.score == null ? null
+                : { regime: pData.volatilityRegime.regime, score: pData.volatilityRegime.score });
+              setInstFlow(pData.institutionalFlow ?? null);
+              setGammaSqueeze(pData.gammaSqueeze?.score == null ? null
+                : { score: pData.gammaSqueeze.score, risk: pData.gammaSqueeze.risk });
+              setSectorRotation(pData.sectorRotation?.score == null ? null
+                : { score: pData.sectorRotation.score, direction: pData.sectorRotation.direction, conviction: pData.sectorRotation.conviction });
             }
           } catch (e) {
             console.error('[Premium Metrics Parsing Error]', e);
@@ -1951,8 +1993,11 @@ export default function AppDashPage() {
                     <span className={s.instVal}>{signal.value}</span>
                     <span className={s.instSub}>{signal.sub}</span>
                   </div>
+                  {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
                   <div className={s.instTrack}>
-                    <div className={s.instFill} style={{ width: `${signal.score}%` }} />
+                    {signal.score != null && (
+                      <div className={s.instFill} style={{ width: `${signal.score}%` }} />
+                    )}
                   </div>
                   <p className={s.instInsight}>{signal.insight}</p>
                 </div>
@@ -1974,8 +2019,11 @@ export default function AppDashPage() {
                     <span className={s.instVal}>{signal.value}</span>
                     <span className={s.instSub}>{signal.sub}</span>
                   </div>
+                  {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
                   <div className={s.instTrack}>
-                    <div className={s.instFill} style={{ width: `${signal.score}%` }} />
+                    {signal.score != null && (
+                      <div className={s.instFill} style={{ width: `${signal.score}%` }} />
+                    )}
                   </div>
                   <p className={s.instInsight}>{signal.insight}</p>
                 </div>
