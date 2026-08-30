@@ -101,8 +101,20 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
     //    계산되므로 종목별 차이를 흡수한다. 여기서 절대 임계값으로 다시
     //    판정하면 라벨(은밀 매집)과 문장(중립)이 서로 다른 말을 한다 —
     //    2026-08-31 실제로 CRWD 에서 그렇게 어긋났다.
+    /**
+     * ★ 극단 이탈은 합성 점수가 상쇄해도 «이상»이다.
+     *   실측 반례(SLB 2026-08-28): 물량 1.9배 + 공매도 73%(평소 48%, **+25%p**).
+     *   그런데 stealth = volP*0.6 + (100-shortP)*0.4 는 둘이 반대로 커서
+     *   가운데로 수렴 → regime NEUTRAL → 화면이 「73% vs 48% 는 **평범하다**」
+     *   고 말했다. +25%p 는 평범할 수 없다.
+     *   → |shortDev| ≥ 10%p 면 합성 점수를 «무시하고» 이탈 방향을 쓴다.
+     *      (마케팅 게시물로 나가기 직전에 잡았다.)
+     */
+    const extremeShort = typeof d.shortDev === 'number' && Number.isFinite(d.shortDev)
+        && Math.abs(d.shortDev) >= 10;
     const sb: 'low' | 'mid' | 'high' | null =
-        d.regime === 'ACCUMULATION' ? 'low'
+        extremeShort ? (d.shortDev! > 0 ? 'high' : 'low')
+        : d.regime === 'ACCUMULATION' ? 'low'
         : d.regime === 'DISTRIBUTION' ? 'high'
         : d.regime === 'NEUTRAL' ? 'mid'
         : shortBand(d.shortDev, d.shortPct);
@@ -143,9 +155,9 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
             return {
                 tone: 'negative',
                 headline: T(lang,
-                    `주가는 ${absChg}% 올랐는데 장외 물량의 ${shortTxt(sp!)}가 공매도입니다 — 오르는 데 대고 팔았습니다`,
-                    `Price rose ${absChg}% while ${shortTxt(sp!)} of the off-exchange size printed short — sold into the strength`,
-                    `株価は${absChg}%上げたのに場外出来高の${shortTxt(sp!)}が空売り — 上昇に向けて売っています`),
+                    `주가는 ${absChg}% 올랐는데 장외 물량의 ${sp!.toFixed(0)}%가 공매도입니다${d.shortAvg != null ? ` (평소 ${d.shortAvg.toFixed(0)}%)` : ''} — 오르는 데 대고 팔았습니다`,
+                    `Price rose ${absChg}% while ${sp!.toFixed(0)}% of the off-exchange size printed short${d.shortAvg != null ? `, against a ${d.shortAvg.toFixed(0)}% norm` : ''} — sold into the strength`,
+                    `株価は${absChg}%上げたのに場外出来高の${sp!.toFixed(0)}%が空売り${d.shortAvg != null ? `（平常${d.shortAvg.toFixed(0)}%）` : ''} — 上昇に向けて売っています`),
                 detail: T(lang,
                     `${why} 화면에는 «상승»만 보입니다. 그러나 호가창 밖에서는 평소의 ${mult}배 물량 중 절반 넘게가 공매도로 찍혔습니다. 오른 가격에 물량을 넘기거나 헤지를 얹은 쪽에 가깝습니다.`,
                     `${why} The screen shows only the rally. Off the book, more than half of ${mult}× the usual size printed short — closer to distributing into strength or layering hedges.`,
