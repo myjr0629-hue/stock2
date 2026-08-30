@@ -3281,6 +3281,16 @@ export default function WimPage() {
   //    ⚠️ 여기서 숫자를 넘기지 말 것 — 마진 기준선이 iOS/Android 가 달라서 반드시 틀어진다.
   useEffect(() => {
     if (!wimAdsAvailable()) return;
+    // ⛔ 온보딩(첫 부팅 3패널) 중에는 배너를 띄우지 않는다. 이유 둘:
+    //    ① 신규 학습자가 «앱에서 처음 보는 화면»이다. 인터스티셜에 설치 3일
+    //       침묵·하루 1회 상한을 둔 것과 같은 이유로, 첫인상에 광고를 얹지 않는다.
+    //    ② 온보딩 화면은 탭바를 렌더하지 않는다 → showWimBanner() 가 «잴 것»이
+    //       없어 폴백 공식으로 떨어진다. 실측 시뮬(2026-08-30)에서 배너가
+    //       「다음 →」 버튼 위에 어정쩡하게 걸렸다.
+    //    onboard 는 마운트 «후»에 결정되므로 state 만 보면 한 프레임 새어 나간다.
+    //    localStorage 를 동기로 같이 읽어 그 깜빡임을 막는다.
+    if (onboard) return;
+    try { if (localStorage.getItem('wim.onboard') !== '1') return; } catch { /* 접근 불가면 그냥 진행 */ }
     let dead = false;
     (async () => {
       const ok = await initWimAds();
@@ -3300,7 +3310,7 @@ export default function WimPage() {
       window.removeEventListener('orientationchange', reposition);
       void hideWimBanner();
     };
-  }, []);
+  }, [onboard]);
 
 
   const closeQuiz = useCallback((finishedAll: boolean) => {
