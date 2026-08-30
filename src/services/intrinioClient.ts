@@ -2274,9 +2274,20 @@ async function freeCashFlowTTM(ticker: string): Promise<number | null> {
                 try {
                     const sf = await callIntrinio(`fundamentals/${f.id}/standardized_financials`);
                     const list: any[] = sf?.standardized_financials || [];
-                    const hit = list.find((x) => x?.data_tag?.tag === "freecashflow");
-                    const n = Number(hit?.value);
-                    return Number.isFinite(n) ? n : null;
+                    const tag = (t: string) => {
+                        const hit = list.find((x) => x?.data_tag?.tag === t);
+                        const n = Number(hit?.value);
+                        return Number.isFinite(n) ? n : null;
+                    };
+                    // ⚠️ `freecashflow` 태그는 **종목마다 있기도 없기도 하다.**
+                    //    NVDA 는 있고 SYM·TER 는 없다(실측). 없으면 정의대로 만든다:
+                    //      FCF = 영업현금흐름 − 설비투자
+                    //    Intrinio 는 capex 를 **음수**로 주므로 «더하면» 뺀 것이 된다.
+                    const direct = tag("freecashflow");
+                    if (direct != null) return direct;
+                    const ocf = tag("netcashfromoperatingactivities");
+                    const capex = tag("purchaseofplantpropertyandequipment");
+                    return ocf != null && capex != null ? ocf + capex : null;
                 } catch { return null; }
             })
         );
@@ -2287,14 +2298,64 @@ async function freeCashFlowTTM(ticker: string): Promise<number | null> {
     }
 }
 
+/**
+ * TTM 순이익 — 분기 4개 합.
+ *
+ * ★ PER 을 이걸로 «다시» 계산한다. Intrinio 의 `pricetoearnings` 데이터 포인트는
+ *   **반올림된 분기 EPS**(SYM 은 0.06)를 쓰기 때문에 이익이 작은 종목에서 크게 틀어진다.
+ *   실측(2026-08-30, 시총÷TTM순이익 vs Massive):
+ *     SYM   411.3 vs 410.38   (Intrinio 태그는 2937.8 — 7배 오차)
+ *     NVDA   27.18 vs 27.24
+ *     TER    48.23 vs 48.25
+ *   세 종목 모두 Massive 와 일치한다 → 태그 대신 이 계산을 쓴다.
+ */
+async function netIncomeTTM(ticker: string): Promise<number | null> {
+    try {
+        const d = await callIntrinio(`companies/${encodeURIComponent(ticker)}/fundamentals`, {
+            statement_code: "income_statement",
+            type: "QTR",
+            page_size: "4",
+        });
+        const funds: any[] = d?.fundamentals || [];
+        if (funds.length < 4) return null;
+        const parts = await Promise.all(
+            funds.map(async (f) => {
+                try {
+                    const sf = await callIntrinio(`fundamentals/${f.id}/standardized_financials`);
+                    const list: any[] = sf?.standardized_financials || [];
+                    const hit = list.find((x) => x?.data_tag?.tag === "netincome");
+                    const n = Number(hit?.value);
+                    return Number.isFinite(n) ? n : null;
+                } catch { return null; }
+            })
+        );
+        if (parts.some((v) => v == null)) return null;
+        return (parts as number[]).reduce((a, b) => a + b, 0);
+    } catch {
+        return null;
+    }
+}
+
 export async function getFinancialRatiosIntrinio(ticker: string): Promise<any> {
-    const [vals, fcfTtm] = await Promise.all([
+    const [vals, fcfTtm, niTtm] = await Promise.all([
         Promise.all(RATIO_TAGS.map(([tag]) => dataPoint(ticker, tag))),
         freeCashFlowTTM(ticker),
+        netIncomeTTM(ticker),
     ]);
     const row: Record<string, number | string | null> = { ticker };
     RATIO_TAGS.forEach(([, field], i) => { row[field] = vals[i]; });
     row.free_cash_flow = fcfTtm;
+
+    // PER 은 TTM 기준으로 다시 계산한다(위 netIncomeTTM 주석 참조).
+    // 순이익이 0 이하면 PER 은 의미가 없다 → null. (음수 PER 을 표시하면 «싸다»로 읽힌다)
+    const mcap = typeof row.market_cap === "number" ? row.market_cap : null;
+    if (mcap != null && niTtm != null && niTtm > 0) {
+        row.price_to_earnings = Math.round((mcap / niTtm) * 100) / 100;
+        row._peBasis = "marketcap/ttmNetIncome";
+    } else if (niTtm != null && niTtm <= 0) {
+        row.price_to_earnings = null;
+        row._peBasis = "negative-earnings";
+    }
     // ⚠️ ROE 는 Intrinio 와 Massive 의 «기준»이 다르다(1.172 vs 0.842, NVDA 실측).
     //    Intrinio 쪽이 기말자본 기준으로 보이고 Massive 는 평균자본 기준으로 보인다.
     //    어느 쪽도 «틀린» 값은 아니라 변환하지 않고 그대로 흘린다. 다만 소비처의
