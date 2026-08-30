@@ -774,6 +774,46 @@ export default function AppFlowPage() {
   // 내부자 거래 (다크풀 자리 대체) — SEC Form 4
   const [insiderData, setInsiderData] = useState<any>(null);
 
+  // ── 이상 옵션 활동 (미결제약정 증감 기반) ──────────────────────────
+  //   지금까지의 UOA 는 `거래량 ÷ 미결제약정 ≥ 2.0` 이었다. 그 비율은
+  //   신규 진입인지 청산인지 **구분하지 못한다.** 실측(NVDA 8/28):
+  //     C $225 만기당일  거래 414,949  OI −14,067   ← 비율 7.3 로 1위인데 «청산»
+  //     C $200 2027-01   거래  22,552  OI +188,333  ← 비율 0.08 로 탈락인데 «대형 신규»
+  //   채택 9건 중 5건이 청산이었고, 탈락 3건이 전부 신규(합 42만 계약)였다.
+  //   만기일엔 청산이 거래량을 지배하므로 옛 방식은 그날마다 정확히 거꾸로 간다.
+  //   → 미결제약정 «증감»으로 판정한다. 전일 마감 기준이라 화면에 그렇게 표시한다.
+  const [optionsEod, setOptionsEod] = useState<any>(null);
+  useEffect(() => {
+    if (!ticker) return;
+    let alive = true;
+    setOptionsEod(null);
+    fetch(`/api/flow/options-eod?t=${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (alive) setOptionsEod(d?.available ? d : null); })
+      .catch(() => { });
+    return () => { alive = false; };
+  }, [ticker]);
+
+  /** 신규 진입만 추려 «명목가» 순으로 — 대형주·소형주가 공평하게 겨루도록 */
+  const openingPositions = useMemo(() => {
+    const cs: any[] = optionsEod?.contracts || [];
+    return cs
+      .filter((c) => c.kind === 'OPENING' && (c.oiChange ?? 0) > 0)
+      .map((c) => ({ ...c, notional: (c.oiChange || 0) * 100 * (c.strike || 0) }))
+      .sort((a, b) => b.notional - a.notional);
+  }, [optionsEod]);
+
+  /** 배너를 띄울 만한가 — 평소엔 안 뜨고 «진짜»일 때만 떠야 의미가 있다 */
+  const uoaAlert = useMemo(() => {
+    const top = openingPositions[0];
+    if (!top) return null;
+    const NOTIONAL_MIN = 10_000_000;   // 명목가 1천만 달러
+    const OI_MIN = 10_000;             // 또는 미결제약정 1만 계약
+    if (top.notional < NOTIONAL_MIN && (top.oiChange || 0) < OI_MIN) return null;
+    return top;
+  }, [openingPositions]);
+
+
   // ── 내부자 거래 (다크풀 자리 대체) ────────────────────────────────
   //   실매매(P 매수 / S 매도)만 카드로 보여준다.
   //   무상부여(A)·옵션행사(M)·세금원천(F)·증여(G)는 «시장에서 산 것»이 아니라
@@ -1546,12 +1586,17 @@ export default function AppFlowPage() {
   }, [liveGammaFlip, displayPrice]);
 
   const uoaScore = useMemo(() => {
-    const uoaCount = uoaList.length;
+    // ★ [2026-08-30] 예전엔 `거래량÷미결제약정 ≥ 2` 를 만족한 계약 «개수»를 셌다.
+    //   그 조건은 만기일 청산에서 가장 잘 맞아서, **청산을 신호로 세고 있었다.**
+    //   미결제약정 증감을 알 수 있으면 «신규 진입»만 센다.
+    //   (아직 그 데이터가 없는 종목은 기존 방식으로 폴백)
+    const openingCount = optionsEod?.summary?.openingCount;
+    const uoaCount = typeof openingCount === 'number' ? openingCount : uoaList.length;
     let score = 0;
     if (uoaCount >= 4) score = 5;
     else if (uoaCount >= 2) score = 3;
     return (opi - 50) < 0 ? -score : score;
-  }, [uoaList, opi]);
+  }, [uoaList, opi, optionsEod]);
 
   const pcScore = useMemo(() => {
     if (pcRatio >= 2.0) return -5;
@@ -2499,6 +2544,72 @@ export default function AppFlowPage() {
         </button>
       </div>
 
+      {/* ══ 이상 옵션 활동 — 신규 포지션 감지 ═══════════════════════════
+          평소엔 «안 뜬다». 명목가 1천만 달러 또는 미결제약정 1만 계약을
+          넘는 신규 포지션이 있을 때만 뜬다 — 상시 표시하면 배너 실명이 온다.
+          전일 마감 기준이라 라벨에 명시한다(장중 실시간이 아니다). */}
+      {activeTab === 'overview' && uoaAlert && (() => {
+        const L = (ko: string, en: string, ja: string) => ({ ko, en, ja }[locale as 'ko' | 'en' | 'ja'] ?? en);
+        const c = uoaAlert;
+        const isCall = c.type === 'call';
+        const accent = isCall ? '#f59e0b' : '#a855f7';
+        const money = c.notional >= 1e9 ? `$${(c.notional / 1e9).toFixed(1)}B` : `$${(c.notional / 1e6).toFixed(0)}M`;
+        const expShort = String(c.expiration || '').slice(2).replace(/-/g, '/');
+        return (
+          <div style={{ padding: '10px 14px 0' }}>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('whale-flow'); }}
+              style={{
+                width: '100%', textAlign: 'left', font: 'inherit', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', gap: 6,
+                padding: '12px 14px', borderRadius: 14,
+                border: `1px solid ${accent}66`,
+                background: `linear-gradient(100deg, ${accent}1f, rgba(22,32,54,.6) 60%)`,
+                boxShadow: `0 0 22px ${accent}2e, inset 0 1px 0 rgba(255,255,255,.06)`,
+                animation: 'uoaPulse 2.8s ease-in-out infinite',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 900, letterSpacing: '.1em', color: accent, textTransform: 'uppercase' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" strokeLinejoin="round" /></svg>
+                  {L('신규 포지션 감지', 'New position detected', '新規ポジション検知')}
+                </span>
+                <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'rgba(148,163,184,.9)', whiteSpace: 'nowrap' }}>
+                  {L('전일 마감 기준', 'Prior close', '前日引け基準')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                <span style={{ fontSize: 15, fontWeight: 900, color: '#f8fafc', fontFamily: 'ui-monospace, monospace' }}>
+                  {expShort} ${c.strike} {isCall ? 'C' : 'P'}
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 900, color: accent, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums' }}>
+                  +{(c.oiChange || 0).toLocaleString()}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(203,213,225,.85)' }}>
+                  {L('계약', 'contracts', '枚')} · {money}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(148,163,184,.85)', lineHeight: 1.4 }}>
+                {isCall
+                  ? L('미결제약정이 늘었다 — 청산이 아니라 새로 걸린 상방 베팅이다', 'Open interest rose — a new upside bet, not a close-out', '建玉が増加 — 手仕舞いではなく新規の強気ベット')
+                  : L('미결제약정이 늘었다 — 새로 걸린 하방 보험이다', 'Open interest rose — new downside protection', '建玉が増加 — 新規の下方ヘッジ')}
+                {' · '}{L('자세히', 'Details', '詳細')} ▸
+              </div>
+            </button>
+          </div>
+        );
+      })()}
+
+      <style jsx global>{`
+        @keyframes uoaPulse {
+          0%, 100% { filter: brightness(1); }
+          50% { filter: brightness(1.1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes uoaPulse { 0%, 100% { filter: none; } }
+        }
+      `}</style>
 
       {/* ── STYLE TAG FOR CUSTOM PREMIUM SCROLLBAR & VITAL CARD GLOWS ── */}
       <style jsx global>{`
@@ -3676,6 +3787,94 @@ export default function AppFlowPage() {
       )}{/* 3. FLOW (WHALE RADAR) TAB */}
       {activeTab === 'whale-flow' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
+
+            {/* ══ 이상 옵션 활동 — 신규 진입 / 청산 구분 ═══════════════════
+                정렬 기준이 «거래량»이 아니라 «미결제약정 증감»이다.
+                신규는 강조하고 청산은 눌러서 보여준다 — 지금까지와 정반대다.
+                (거래량 순위 1~3위가 만기일 청산인 날이 흔하다) */}
+            {optionsEod && (optionsEod.contracts || []).length > 0 && (() => {
+              const L = (ko: string, en: string, ja: string) => ({ ko, en, ja }[locale as 'ko' | 'en' | 'ja'] ?? en);
+              const cs: any[] = optionsEod.contracts;
+              const withDelta = cs.filter((c) => c.oiChange != null);
+              const rows = (withDelta.length ? withDelta : cs)
+                .slice()
+                .sort((a, b) => Math.abs(b.oiChange ?? 0) - Math.abs(a.oiChange ?? 0))
+                .slice(0, 8);
+              const nf = (n: number) => n.toLocaleString();
+              return (
+                <div className="premium-card" style={{ padding: '16px 15px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      {L('이상 옵션 활동', 'Unusual options activity', '異常オプション活動')}
+                    </span>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: 'rgba(148,163,184,.95)', border: '1px solid rgba(148,163,184,.28)' }}>
+                      {optionsEod.date} · {L('마감 기준', 'at close', '引け基準')}
+                    </span>
+                    {optionsEod.summary?.openingCount > 0 && (
+                      <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 800, color: '#fbbf24' }}>
+                        {L('신규', 'New', '新規')} {optionsEod.summary.openingCount}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {rows.map((c) => {
+                      const opening = c.kind === 'OPENING';
+                      const closing = c.kind === 'CLOSING';
+                      const isCall = c.type === 'call';
+                      const accent = opening ? (isCall ? '#fbbf24' : '#c084fc') : 'rgba(148,163,184,.55)';
+                      const kindTxt = opening ? L('신규 진입', 'Opening', '新規')
+                        : closing ? L('청산', 'Closing', '手仕舞い')
+                          : c.kind === 'INTRADAY' ? L('단타', 'Intraday', 'デイ')
+                            : L('판단 불가', 'Unknown', '不明');
+                      return (
+                        <div key={c.contract} style={{
+                          display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 10,
+                          border: `1px solid ${opening ? accent + '55' : 'rgba(255,255,255,.05)'}`,
+                          background: opening ? `linear-gradient(100deg, ${accent}14, rgba(30,41,59,.4) 65%)` : 'rgba(30,41,59,.32)',
+                          boxShadow: opening ? `0 0 12px ${accent}1f` : 'none',
+                          opacity: opening ? 1 : 0.62,
+                          minWidth: 0,
+                        }}>
+                          <span style={{
+                            fontSize: 8.5, fontWeight: 900, letterSpacing: '.04em', padding: '3px 6px', borderRadius: 4,
+                            color: opening ? accent : 'rgba(148,163,184,.9)',
+                            border: `1px solid ${opening ? accent + '55' : 'rgba(148,163,184,.25)'}`,
+                            background: opening ? `${accent}14` : 'transparent',
+                            whiteSpace: 'nowrap', flexShrink: 0,
+                          }}>{kindTxt}</span>
+
+                          <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'ui-monospace, monospace', color: isCall ? '#34d399' : '#f87171', whiteSpace: 'nowrap' }}>
+                            {isCall ? 'C' : 'P'} ${c.strike}
+                          </span>
+                          <span style={{ fontSize: 10, color: 'rgba(148,163,184,.8)', fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap' }}>
+                            {String(c.expiration || '').slice(5)}
+                          </span>
+
+                          <span style={{ marginLeft: 'auto', textAlign: 'right', minWidth: 0 }}>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 900, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', color: opening ? accent : 'rgba(203,213,225,.85)', whiteSpace: 'nowrap' }}>
+                              {c.oiChange == null ? '—' : `${c.oiChange > 0 ? '+' : ''}${nf(c.oiChange)}`}
+                            </span>
+                            <span style={{ display: 'block', fontSize: 9, color: 'rgba(148,163,184,.7)', fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap' }}>
+                              {L('거래', 'vol', '出来')} {nf(c.volume)} · OI {nf(c.openInterest)}
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ marginTop: 10, fontSize: 10, lineHeight: 1.5, color: 'rgba(148,163,184,.75)' }}>
+                    {L(
+                      '미결제약정이 늘면 새 포지션, 줄면 청산입니다. 거래량만 보면 둘을 구분할 수 없습니다.',
+                      'Rising open interest means new positions; falling means close-outs. Volume alone cannot tell them apart.',
+                      '建玉が増えれば新規、減れば手仕舞いです。出来高だけでは区別できません。'
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* TODAY'S WHALE FLOW & SUMMARY WIDGET */}
             {(() => {
               const whaleTotalVol = institutionalTotal;
