@@ -33,20 +33,43 @@ for (const f of fs.readdirSync(cfgDir).filter((f) => f.endsWith(".config.ts"))) 
     if (m) read.set(m[1], f);
 }
 
-const missing = [...read.keys()].filter((id) => !written.has(id));
-const orphan = [...written].filter((id) => !read.has(id));
+// ── 조회 쪽 별칭표 — 이 표에 실린 짝은 API 가 알아서 해석한다 ──────
+//    (src/app/api/intel/snapshot/route.ts 의 SECTOR_ID_ALIASES 와 같은 내용)
+const routeSrc = fs.readFileSync(
+    path.join(root, "src", "app", "api", "intel", "snapshot", "route.ts"), "utf8");
+const aliasBlock = /SECTOR_ID_ALIASES[^=]*=\s*\{([^}]*)\}/s.exec(routeSrc);
+const alias = new Map();
+if (aliasBlock) {
+    for (const m of aliasBlock[1].matchAll(/(\w+)\s*:\s*['"]([^'"]+)['"]/g)) alias.set(m[1], m[2]);
+}
+/** 규칙(언더바 빼기) + 별칭표로 도달 가능한 이름들 */
+const reachable = (id) => new Set([id, id.replace(/_/g, ""), alias.get(id) || ""].filter(Boolean));
+
+const missing = [...read.keys()].filter((id) => ![...reachable(id)].some((x) => written.has(x)));
+const aliased = [...read.keys()].filter(
+    (id) => !written.has(id) && [...reachable(id)].some((x) => written.has(x)));
+const orphan = [...written].filter(
+    (id) => !read.has(id) && ![...read.keys()].some((r) => reachable(r).has(id)));
 
 console.log(`  섹터 id 대조 · 크론 ${written.size}개 · 설정 ${read.size}개`);
 console.log("=".repeat(72));
+
+if (aliased.length) {
+    // 실패는 아니다 — 조회 쪽이 해석해 준다. 다만 「같지 않다」는 사실은 계속 보인다.
+    console.log(`\n  \x1b[33m표기가 다르지만 별칭으로 해결됨 (${aliased.length}개)\x1b[0m`);
+    for (const id of aliased) {
+        const hit = [...reachable(id)].find((x) => written.has(x));
+        console.log(`    ${id.padEnd(18)} → 크론 '${hit}'   (${read.get(id)})`);
+    }
+}
 if (!missing.length && !orphan.length) {
-    console.log("  \x1b[32m전부 일치\x1b[0m");
+    console.log(`\n  \x1b[32m조회 가능한 섹터 ${read.size}/${read.size}\x1b[0m`);
     process.exit(0);
 }
 if (missing.length) {
-    console.log(`\n  \x1b[31m설정에만 있는 id (크론이 이 이름으로 안 쓴다 → 화면이 빈다)\x1b[0m`);
+    console.log(`\n  \x1b[31m어느 이름으로도 크론과 안 맞는다 → 그 섹터 화면이 빈다\x1b[0m`);
+    const norm = (x) => x.replace(/_/g, "");
     for (const id of missing) {
-        // 가장 가까운 크론 이름을 제안한다
-        const norm = (s) => s.replace(/_/g, "");
         const near = [...written].find((w) => norm(w) === norm(id));
         console.log(`    ${id.padEnd(18)} ${read.get(id)}${near ? `   → 크론은 '${near}'` : ""}`);
     }
