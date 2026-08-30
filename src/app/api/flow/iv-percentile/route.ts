@@ -60,8 +60,23 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // Current ATM IV = most recent entry
-        const currentIv = (history[0] as any).atmIv;
+        // ★ 현재 ATM IV = «가장 최근» 항목.
+        //
+        //   ⚠️ 배열의 [0] 을 «최신»이라고 가정하면 안 된다. 같은 이름의
+        //      getGexHistory 가 두 개이고 **정렬이 반대**다:
+        //        lib/aws/historyStore      → scanForward:true  (오름차순)
+        //        lib/aws/dynamoDataProvider → scanForward:false (내림차순)
+        //      어느 것을 import 했느냐로 [0] 의 뜻이 뒤집힌다.
+        //      → 순서에 기대지 말고 **timestamp 로** 최신을 고른다.
+        //
+        //   그리고 최신 몇 건이 비어 있어도 지표가 죽지 않게, atmIv 가 «있는»
+        //   가장 최근 항목을 찾는다. 실측(2026-08-30 NVDA): 8/28 13:02 이후
+        //   라이브 레코드에 atmIv 가 안 써지고 있었다(69/107) → 화면 IV RANK «—».
+        const withIv = (history as any[])
+            .filter((h) => h?.atmIv != null && Number(h.atmIv) > 0)
+            .sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+        const currentIv: number | null = withIv.length ? Number(withIv[0].atmIv) : null;
+        const currentIvAt: number | null = withIv.length ? Number(withIv[0].timestamp) : null;
 
         if (!currentIv || currentIv <= 0) {
             return NextResponse.json({

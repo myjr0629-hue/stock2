@@ -663,7 +663,16 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             );
             const extractIv = (c: any) => {
                 const raw = c?.implied_volatility || c?.greeks?.implied_volatility || c?.iv;
-                return typeof raw === 'number' && raw > 0 ? (raw > 1 ? raw : raw * 100) : null;
+                if (typeof raw !== 'number' || !(raw > 0)) return null;
+                // ⚠️ 벤더가 «소수»로 준다(0.45 = 45%). 예전 휴리스틱은 `raw > 1` 이면
+                //    이미 퍼센트라고 봤는데, IV 가 100%를 넘는 종목에서 그게 깨진다:
+                //    Intrinio 실측 NVDA 1.29848 → 129.8% 인데 1.3 으로 읽혔다.
+                //    소수/퍼센트를 «값의 크기»로 가르지 말고, 상식 범위로 판정한다.
+                //      소수 표기: 0 < raw < 5      (즉 0~500%)
+                //      퍼센트 표기: raw >= 5       (5% 미만 IV 는 사실상 없다)
+                const pct = raw < 5 ? raw * 100 : raw;
+                // 1000% 를 넘으면 데이터 오류로 본다 — 지표로 쓰지 않는다
+                return pct > 0 && pct < 1000 ? pct : null;
             };
             const callIv = extractIv(cleanContracts.find(c => c.k === atmStrike && c.type === 'call'));
             const putIv = extractIv(cleanContracts.find(c => c.k === atmStrike && c.type === 'put'));
@@ -752,7 +761,16 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             );
             const extractIv = (c: any) => {
                 const raw = c?.implied_volatility || c?.greeks?.implied_volatility || c?.iv;
-                return typeof raw === 'number' && raw > 0 ? (raw > 1 ? raw : raw * 100) : null;
+                if (typeof raw !== 'number' || !(raw > 0)) return null;
+                // ⚠️ 벤더가 «소수»로 준다(0.45 = 45%). 예전 휴리스틱은 `raw > 1` 이면
+                //    이미 퍼센트라고 봤는데, IV 가 100%를 넘는 종목에서 그게 깨진다:
+                //    Intrinio 실측 NVDA 1.29848 → 129.8% 인데 1.3 으로 읽혔다.
+                //    소수/퍼센트를 «값의 크기»로 가르지 말고, 상식 범위로 판정한다.
+                //      소수 표기: 0 < raw < 5      (즉 0~500%)
+                //      퍼센트 표기: raw >= 5       (5% 미만 IV 는 사실상 없다)
+                const pct = raw < 5 ? raw * 100 : raw;
+                // 1000% 를 넘으면 데이터 오류로 본다 — 지표로 쓰지 않는다
+                return pct > 0 && pct < 1000 ? pct : null;
             };
             const callIv = extractIv(ivContracts.find((c: any) => c.k === atmStrike && c.type === 'call'));
             const putIv = extractIv(ivContracts.find((c: any) => c.k === atmStrike && c.type === 'put'));
