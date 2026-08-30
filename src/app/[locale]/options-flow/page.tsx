@@ -235,14 +235,18 @@ export default async function OptionsFlowPage(
   const data: InstitutionalFlowLeaders | null = await getInstitutionalFlowLeaders().catch(() => null);
 
   const S = {
-    wrap: { maxWidth: 860, margin: '0 auto', padding: '32px 20px 64px', fontFamily: 'Pretendard, system-ui, sans-serif', color: '#17191E', lineHeight: 1.6 } as const,
+    // ⚠️ main 은 레이아웃에서 **flex 자식**이다. flex 자식의 기본 min-width 는
+    //    auto 라서, 안에 있는 표가 넓으면 main 이 내용 너비(589px)로 부풀고
+    //    페이지 전체가 모바일에서 가로 스크롤된다(375px 뷰포트에서 실측).
+    //    minWidth:0 을 줘야 줄어들고, 그래야 아래 overflowX 컨테이너가 일한다.
+    wrap: { maxWidth: 860, minWidth: 0, margin: '0 auto', padding: '32px 20px 64px', fontFamily: 'Pretendard, system-ui, sans-serif', color: '#17191E', lineHeight: 1.6 } as const,
     kicker: { fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#C2410C' },
     h1: { fontSize: 32, fontWeight: 900, margin: '6px 0 6px' },
     sub: { fontSize: 15, color: '#55606B', margin: '0 0 18px' },
     summary: { fontSize: 14, background: '#F3F5F4', border: '1px solid #E1E7E4', borderRadius: 12, padding: '14px 16px', margin: '0 0 8px' },
     secH: { fontSize: 17, fontWeight: 850 as any, margin: '30px 0 4px' },
     secNote: { fontSize: 13, color: '#6B7480', margin: '0 0 10px' },
-    scroll: { overflowX: 'auto' as const, border: '1px solid #E7E3DA', borderRadius: 12, background: '#FAF8F3' },
+    scroll: { overflowX: 'auto' as const, maxWidth: '100%', border: '1px solid #E7E3DA', borderRadius: 12, background: '#FAF8F3' },
     table: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 14, fontVariantNumeric: 'tabular-nums' as const },
     th: { textAlign: 'right' as const, fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: '#8A939E', padding: '10px 12px', whiteSpace: 'nowrap' as const },
     thL: { textAlign: 'left' as const, fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: '#8A939E', padding: '10px 12px', whiteSpace: 'nowrap' as const },
