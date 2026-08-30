@@ -48,6 +48,47 @@ const SECTOR_TICKERS: Record<string, string[]> = {
  * 규칙(언더바 넣기/빼기)으로 못 맞추는 짝만 손으로 적는다.
  * 실측으로 확인된 3쌍 — 크론이 쓰는 이름이 값이다.
  */
+/**
+ * 저장된 스냅샷의 「가짜 기본값」을 읽는 시점에 걷어낸다.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * [왜 필요한가]
+ *   스냅샷은 하루 한 번 만들어져 그대로 굳는다. 그래서 만들 때 코드가
+ *   `?? 0` 으로 채운 값이 **그 날짜에 영원히 남는다.** 실측(silicon_core
+ *   2026-08-28): TSM 만 gex 0 · pcr 1 · maxPain 0 · callWall 0 · putFloor 0,
+ *   같은 섹터의 나머지 6종목은 전부 실측값. 생성 당시 TSM 의 옵션 구조
+ *   계산이 변수 섀도잉으로 죽어 있었고, 그 «없음»이 0 으로 저장된 것이다.
+ *
+ *   생성 코드는 고쳤지만 **이미 저장된 것은 안 고쳐진다.** 다음 크론까지
+ *   화면은 「TSM 감마 0 · PCR 1(균형)」 이라고 말한다 — 측정 결과처럼.
+ *
+ * [판정]
+ *   옵션 레벨 3개(maxPain·callWall·putFloor)가 **동시에 정확히 0** 인 것은
+ *   시장 상태가 아니다. 옵션이 있는 종목이면 셋 다 0 일 수 없다.
+ *   그건 「옵션 데이터가 아예 없었다」는 뜻이고, 그때 함께 채워진
+ *   gex 0 · pcr 1 · regime NEUTRAL 도 측정값이 아니다. 전부 null 로 돌린다.
+ *   (진짜 0 을 지울 위험은 없다 — 셋이 동시에 0 이 되는 실제 경우가 없다)
+ */
+function sanitizeStoredSnapshot(data: any): { data: any; healed: number } {
+    const tickers = data?.tickers;
+    if (!Array.isArray(tickers)) return { data, healed: 0 };
+    let healed = 0;
+    const out = tickers.map((t: any) => {
+        const noOptions = t?.max_pain === 0 && t?.call_wall === 0 && t?.put_floor === 0;
+        if (!noOptions) return t;
+        healed++;
+        return {
+            ...t,
+            gex: null, pcr: null, max_pain: null, call_wall: null, put_floor: null,
+            // 감마 레짐도 그때 같이 지어낸 값이다
+            gamma_regime: null,
+            // 무엇이 왜 비었는지 남긴다 — 소비처가 「측정 실패」로 읽을 수 있게
+            _optionsUnavailable: true,
+        };
+    });
+    return { data: { ...data, tickers: out }, healed };
+}
+
 const SECTOR_ID_ALIASES: Record<string, string> = {
     cloudfortress: 'cloud_fortress',
     fintechpulse: 'fintech_pulse',
@@ -87,12 +128,14 @@ export async function GET(request: Request) {
         const cacheKey = `snapshot:${sector}:${date || 'latest'}`;
         const cached = await getFromCache<any>(cacheKey).catch(() => null);
         if (cached) {
+            const s1 = sanitizeStoredSnapshot(cached.data_json);
             return NextResponse.json({
                 success: true,
-                snapshot: cached.data_json,
+                snapshot: s1.data,
                 snapshot_date: cached.snapshot_date,
                 created_at: cached.created_at,
-                source: 'REDIS'
+                source: 'REDIS',
+                ...(s1.healed && { _healed: s1.healed }),
             });
         }
 
@@ -116,12 +159,14 @@ export async function GET(request: Request) {
             created_at: snapshot.created_at
         }, 600).catch(() => null);
 
+        const s2 = sanitizeStoredSnapshot(snapshot.data_json);
         return NextResponse.json({
             success: true,
-            snapshot: snapshot.data_json,
+            snapshot: s2.data,
             snapshot_date: snapshot.snapshot_date,
             created_at: snapshot.created_at,
-            source: 'DB'
+            source: 'DB',
+            ...(s2.healed && { _healed: s2.healed }),
         });
     } catch (e: any) {
         console.error('[Snapshot API] GET error:', e);
@@ -238,15 +283,21 @@ export async function POST(request: Request) {
             // ⚠️ 여기서 `?? 0` 을 쓰면 「못 잰 것」이 「0 이라는 측정 결과」가 되어
             //    소비처(Intel 화면 · AI 프롬프트 · 섹터 요약)로 퍼진다.
             //    마지막 폴백은 반드시 null 이다.
+            // ★ 배치 응답에 `flow` 라는 키는 없다 — 옵션 지표는 `realtime` 아래에 있다.
+            //   `batch?.flow?.*` 는 모든 종목에서 항상 undefined 였고(실측),
+            //   그래서 이 병합은 **한 번도 동작한 적이 없다.** 조용히 q.* 로만
+            //   떨어졌을 뿐이라 에러도 안 났다. 실제 키로 바로잡는다.
+            const rt = batch?.realtime;
             const alphaScore = nz(batch?.alphaSnapshot?.score ?? batch?.alpha?.score ?? q.alphaScore);
             const grade = batch?.alphaSnapshot?.grade ?? batch?.alpha?.grade ?? q.grade ?? null;
-            const rsi = nz(batch?.realtime?.rsi ?? q.rsi);
-            const rvol = nz(batch?.realtime?.relVol ?? q.rvol);
-            const gex = nz(batch?.flow?.netGex ?? q.gex);
-            const pcr = nz(batch?.flow?.oiPcr ?? batch?.flow?.volumePcr ?? q.pcr);
-            const maxPain = nz(batch?.flow?.maxPain ?? q.maxPain);
-            const callWall = nz(batch?.flow?.callWall ?? q.callWall);
-            const putFloor = nz(batch?.flow?.putFloor ?? q.putFloor);
+            const rsi = nz(rt?.rsi ?? q.rsi);
+            const rvol = nz(rt?.relVol ?? q.rvol);
+            // 우선순위는 「값이 있는 쪽」이다 — 앞이 null 이면 뒤를 본다
+            const gex = nz(rt?.gex) ?? nz(q.gex);
+            const pcr = nz(rt?.pcr) ?? nz(q.pcr);
+            const maxPain = nz(rt?.maxPain) ?? nz(q.maxPain);
+            const callWall = nz(rt?.callWall) ?? nz(q.callWall);
+            const putFloor = nz(rt?.putFloor) ?? nz(q.putFloor);
 
             const merged = { ...q, alphaScore, grade, rsi, rvol, gex, pcr, maxPain, callWall, putFloor };
 
