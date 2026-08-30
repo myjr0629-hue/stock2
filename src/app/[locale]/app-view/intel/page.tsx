@@ -5102,8 +5102,11 @@ export default function AppIntelPage() {
                                 {/* 2×5 Bento Grid Metrics */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '12px' }}>
                                   {[
-                                    { label: 'GEX', tip: 'gex', value: formatGex(stock.gex || 0), color: (stock.gex || 0) > 0 ? '#10b981' : (stock.gex || 0) < 0 ? '#ef4444' : '#94a3b8' },
-                                    { label: 'PCR', tip: 'pcr', value: (stock.pcr || 0) > 0 ? (stock.pcr || 0).toFixed(2) : '-', color: (stock.pcr || 0) < 0.7 ? '#10b981' : (stock.pcr || 0) > 1.2 ? '#ef4444' : '#f8fafc' },
+                                    // ⚠️ `|| 0` 금지 — API 가 «못 잼»을 null 로 주는데 여기서 0 으로
+                                    //    되돌리면 화면이 «GEX 0.00 · PCR 1.00» 이라고 단언한다.
+                                    //    (같은 카드의 CALL WALL 은 «—» 인데 GEX 만 0.00 이라 일관성도 없었다)
+                                    { label: 'GEX', tip: 'gex', value: stock.gex == null ? '—' : formatGex(stock.gex), color: (stock.gex ?? 0) > 0 ? '#10b981' : (stock.gex ?? 0) < 0 ? '#ef4444' : '#94a3b8' },
+                                    { label: 'PCR', tip: 'pcr', value: stock.pcr == null || !(stock.pcr > 0) ? '—' : stock.pcr.toFixed(2), color: (stock.pcr ?? 1) < 0.7 ? '#10b981' : (stock.pcr ?? 1) > 1.2 ? '#ef4444' : '#f8fafc' },
                                     { label: 'SQUEEZE', tip: 'squeeze', value: (stock.squeezeScore || 0) > 0 ? `${Math.round(stock.squeezeScore || 0)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
                                     { label: 'NET PREM', tip: 'netPremium', value: (stock.netPremium || 0) !== 0 ? `${(stock.netPremium || 0) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium || 0) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
                                     { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${stock.putFloor.toFixed(0)}` : '-', color: '#ef4444' },

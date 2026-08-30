@@ -267,38 +267,47 @@ export async function GET(request: Request) {
             const analysis = analysisCache[ticker];
             let alphaScore = 0;
             let grade = '-';
-            let maxPain = 0;
-            let callWall = 0;
-            let putFloor = 0;
-            let gex = 0;
-            let pcr = 1;
+            // ★ [2026-08-30] 기본값을 0/1 에서 **null** 로 바꿨다.
+            //   옵션 지표가 없는 종목이 화면에 «GEX 0.00 · PCR 1.00» 으로 떴다.
+            //   0 은 «감마 노출이 0» 이라는 주장이고 1.00 은 «풋콜 균형»이라는
+            //   주장이다 — 둘 다 재지 않았을 뿐이다.
+            //   같은 카드 안에서 CALL WALL 은 «—» 인데 GEX 만 «0.00» 이라
+            //   일관성도 없었다(대표 지적: TSM 은 안 나오고 AVGO 는 나온다).
+            //   null 로 두면 화면이 전부 «—» 로 그린다.
+            let maxPain: number | null = null;
+            let callWall: number | null = null;
+            let putFloor: number | null = null;
+            let gex: number | null = null;
+            let pcr: number | null = null;
             let gammaRegime = 'NEUTRAL';
             let sparkline: number[] = [];
-            let netPremium = 0;
-            let rsi = 0;
-            let rvol = 0;
-            let squeezeScore = 0;
-            let ivSkew = 0;
-            let impliedMovePct = 0;
+            let netPremium: number | null = null;
+            let rsi: number | null = null;
+            let rvol: number | null = null;
+            let squeezeScore: number | null = null;
+            let ivSkew: number | null = null;
+            let impliedMovePct: number | null = null;
 
             if (analysis) {
                 // Use pre-warmed analysis cache (always fresh, 2-min Cron)
                 alphaScore = analysis.alphaSnapshot?.score || 0;
                 grade = analysis.alphaSnapshot?.grade || '-';
-                maxPain = analysis.maxPain || 0;
-                callWall = analysis.callWall || 0;
-                putFloor = analysis.putFloor || 0;
-                gex = analysis.gex || 0;
-                pcr = analysis.pcr || 1;
-                netPremium = analysis.netPremium || 0;
-                rsi = analysis.rsi || 0;
-                rvol = analysis.relVol || 0;
-                squeezeScore = analysis.squeezeScore || 0;
-                ivSkew = (analysis.ivSkew && analysis.ivSkew <= 2.0) ? analysis.ivSkew : 0;
-                impliedMovePct = analysis.impliedMovePct || 0;
+                maxPain = analysis.maxPain ?? null;
+                callWall = analysis.callWall ?? null;
+                putFloor = analysis.putFloor ?? null;
+                gex = analysis.gex ?? null;
+                pcr = analysis.pcr ?? null;
+                netPremium = analysis.netPremium ?? null;
+                rsi = analysis.rsi ?? null;
+                rvol = analysis.relVol ?? null;
+                squeezeScore = analysis.squeezeScore ?? null;
+                ivSkew = (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null;
+                impliedMovePct = analysis.impliedMovePct ?? null;
                 sparkline = analysis.sparkline || [];
-                if (gex > 0) gammaRegime = 'LONG';
-                else if (gex < 0) gammaRegime = 'SHORT';
+                // 못 잰 것은 «중립»이 아니라 «알 수 없음»이다
+                if (gex != null && gex > 0) gammaRegime = 'LONG';
+                else if (gex != null && gex < 0) gammaRegime = 'SHORT';
+                else if (gex == null) gammaRegime = 'UNKNOWN';
             } else if (cached) {
                 // Full cached data from /api/live/ticker — re-apply the XS
                 // override in case a stale/cold-start V8 entry is cached
@@ -308,14 +317,16 @@ export async function GET(request: Request) {
                 maxPain = cached.flow?.maxPain || 0;
                 callWall = cached.flow?.callWall || 0;
                 putFloor = cached.flow?.putFloor || 0;
-                gex = cached.flow?.netGex || 0;
+                gex = cached.flow?.netGex ?? null;
                 pcr = cached.flow?.oiPcr || cached.flow?.volumePcr || 1;
                 netPremium = cached.flow?.netPremium || 0;
                 rsi = cached.realtime?.rsi || 0;
                 rvol = cached.realtime?.relVol || 0;
 
-                if (gex > 0) gammaRegime = 'LONG';
-                else if (gex < 0) gammaRegime = 'SHORT';
+                // 못 잰 것은 «중립»이 아니라 «알 수 없음»이다
+                if (gex != null && gex > 0) gammaRegime = 'LONG';
+                else if (gex != null && gex < 0) gammaRegime = 'SHORT';
+                else if (gex == null) gammaRegime = 'UNKNOWN';
 
                 // Sparkline from cached sparkline or flow data
                 if (cached.flow?.sparkline) {
