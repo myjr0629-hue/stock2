@@ -2219,7 +2219,10 @@ function CmdPageContent() {
           callWall: flow.callWall ?? DEMO.premium.callWall,
           putFloor: flow.putFloor ?? DEMO.premium.putFloor,
           maxPain: flow.maxPain ?? u?.structure?.maxPain ?? 0,
-          netPremium: flow.netFlow ?? t?.netPremium ?? u?.structure?.netPremium ?? 0,
+          // ⚠️ API 가 내보내는 이름은 `netPremium` 이다. `netFlow` 는 존재하지
+          //    않아 항상 undefined → 0 이었다. 그래서 Flow 화면엔 $22.4M 이
+          //    뜨는데 Command 만 «—» 였다(대표가 두 화면을 나란히 놓고 발견).
+          netPremium: flow.netPremium ?? flow.netFlow ?? u?.structure?.netPremium ?? 0,
           darkPool: flow.darkPoolPct != null ? `${flow.darkPoolPct}%` : DEMO.premium.darkPool,
           blockTrades: flow.blockTrades ?? DEMO.premium.blockTrades,
           aiInsight: t?.alpha?.whyKR || DEMO.premium.aiInsight,
@@ -2463,7 +2466,7 @@ function CmdPageContent() {
         putFloor: s.levels?.putFloor || 0, maxPain: s.maxPain || 0,
         gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
       },
-      flow: { netPremium: q.rawTickerData?.flow?.netFlow || q.rawTickerData?.netPremium || 0 },
+      flow: { netPremium: q.rawTickerData?.flow?.netPremium ?? q.rawTickerData?.flow?.netFlow ?? 0 },
       fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
       analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
       // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면 AI 가 사실로 서술한다
@@ -2608,7 +2611,7 @@ function CmdPageContent() {
     else if (cPcr > 1.2) cScore -= 7;
     if (netGex > 0) cScore += 5;
     else if (netGex < 0) cScore -= 5;
-    const netPrem = q.rawTickerData?.flow?.netFlow || q.rawTickerData?.netPremium || 0;
+    const netPrem = q.rawTickerData?.flow?.netPremium ?? q.rawTickerData?.flow?.netFlow ?? 0;
     if (netPrem > 500000) cScore += 5;
     else if (netPrem < -500000) cScore -= 5;
     cScore = Math.max(0, Math.min(100, cScore));
