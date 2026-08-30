@@ -47,45 +47,95 @@ async function main() {
     if (!shot) { console.error('캡처 실패 — 카드를 만들지 않는다'); process.exit(3); }
     const shotPath = path.join(SHOT_DIR, shot);
 
+    // ── 문구 (로케일별) ───────────────────────────────────────────────────
+    // ⚠️ 카드 안 문장이 앱 화면 언어와 다르면 «번역기 돌린 것»처럼 보인다.
+    //    캡처도 같은 로케일로 뜨므로 문구도 반드시 같은 언어여야 한다.
+    const T = {
+        en: {
+            kicker: (d) => `Off-exchange tape · ${d}`,
+            shortL: 'of its off-exchange volume printed short',
+            shortS: (a, p) => `against a ${a}% 20-day norm · ${p}% off-exchange`,
+            volL: 'its own 20-day off-exchange volume',
+            volS: (p, sp, sa) => `${p}% off-exchange · short ${sp}% vs a ${sa}% norm`,
+            thinL: 'its own 20-day off-exchange volume',
+            thinS: (p, m) => `${p}% off-exchange · market average ${m}%`,
+            pctL: 'of its volume printed off-exchange',
+            pctS: (m, v) => `market average ${m}% · volume ${v}x its own norm`,
+            foot: 'signumhq.com/en/dark-pool · Data source: FINRA · free, no account',
+        },
+        ko: {
+            kicker: (d) => `장외 체결 테이프 · ${d}`,
+            shortL: '장외 물량 중 공매도로 팔린 비중',
+            shortS: (a, p) => `평소 ${a}% · 장외 비중 ${p}%`,
+            volL: '자기 20일 평균 대비 장외 물량',
+            volS: (p, sp, sa) => `장외 비중 ${p}% · 그중 공매도 ${sp}% (평소 ${sa}%)`,
+            thinL: '자기 20일 평균 대비 장외 물량',
+            thinS: (p, m) => `장외 비중 ${p}% · 시장 평균 ${m}%`,
+            pctL: '거래량 중 장외에서 체결된 비중',
+            pctS: (m, v) => `시장 평균 ${m}% · 물량은 평소의 ${v}배`,
+            foot: 'signumhq.com/ko/dark-pool · 출처 FINRA · 무료·가입 없이',
+        },
+        ja: {
+            kicker: (d) => `場外約定テープ · ${d}`,
+            shortL: '場外出来高のうち空売りで売られた割合',
+            shortS: (a, p) => `平常 ${a}% · 場外比率 ${p}%`,
+            volL: '自分の20日平均に対する場外出来高',
+            volS: (p, sp, sa) => `場外比率 ${p}% · うち空売り ${sp}%（平常 ${sa}%）`,
+            thinL: '自分の20日平均に対する場外出来高',
+            thinS: (p, m) => `場外比率 ${p}% · 市場平均 ${m}%`,
+            pctL: '出来高のうち場外で約定した割合',
+            pctS: (m, v) => `市場平均 ${m}% · 出来高は平常の ${v}倍`,
+            foot: 'signumhq.com/ja/dark-pool · 出典 FINRA · 無料・登録不要',
+        },
+    }[loc] || null;
+    if (!T) { console.error('로케일은 en|ko|ja'); process.exit(4); }
+
     // ── 각도 선택: 그 종목에서 가장 크게 벗어난 축 ─────────────────────────
+    //   ★ 「평소보다 유난히 적었다」도 신호다. 배수만 위로 보면 조용한 날을
+    //     통째로 놓친다(AAOI 0.5배 = 5백분위에서 실제로 겪었다).
     const dev = dp.shortDev, vr = dp.volRatio;
     let big, unit, label, sub, accent;
 
     if (dev != null && Math.abs(dev) >= 8) {
         big = n1(dp.shortPct); unit = '%';
-        label = 'of its off-exchange volume printed short';
-        sub = `against a ${n1(dp.shortAvg)}% 20-day norm · ${n1(dp.pct)}% off-exchange`;
+        label = T.shortL;
+        sub = T.shortS(n1(dp.shortAvg), n1(dp.pct));
         accent = dev > 0 ? GOLD : CYAN;
     } else if (vr != null && vr >= 1.6) {
         big = n1(vr); unit = 'x';
-        label = 'its own 20-day off-exchange volume';
-        sub = `${n1(dp.pct)}% off-exchange · short ${n1(dp.shortPct)}% vs a ${n1(dp.shortAvg)}% norm`;
+        label = T.volL;
+        sub = T.volS(n1(dp.pct), n1(dp.shortPct), n1(dp.shortAvg));
+        accent = CYAN;
+    } else if (vr != null && vr <= 0.6) {
+        big = n1(vr); unit = 'x';
+        label = T.thinL;
+        sub = T.thinS(n1(dp.pct), dp.marketAvg);
         accent = CYAN;
     } else {
         big = n1(dp.pct); unit = '%';
-        label = 'of its volume printed off-exchange';
-        sub = `market average ${dp.marketAvg}% · volume ${n1(vr)}x its own norm`;
+        label = T.pctL;
+        sub = T.pctS(dp.marketAvg, n1(vr));
         accent = CYAN;
     }
 
     const cfg = {
-        kicker: `Off-exchange tape · ${dp.date}`,
+        kicker: T.kicker(dp.date),
         ticker: `$${ticker}`,
         big, bigUnit: unit, bigLabel: label, sub,
-        foot: 'signumhq.com/en/dark-pool · Data source: FINRA · free, no account',
+        foot: T.foot,
         shot: shotPath,
         accent,
     };
 
-    const out = path.join(OUT_DIR, `xcard-${ticker}-${dp.date}.png`);
+    const out = path.join(OUT_DIR, `xcard-${ticker}-${loc}-${dp.date}.png`);
     execFileSync('python3', [path.join(__dirname, 'make-x-card.py'), JSON.stringify(cfg), out],
         { stdio: 'inherit' });
 
     // 붙일 문장까지 같이 준다 — 이미지만 있으면 매번 문구를 새로 고민하게 된다.
     console.log('\n--- 붙일 문장 ---');
-    console.log(`$${ticker}: ${big}${unit} ${label}.`);
-    console.log(`${sub}.`);
-    console.log(`\nFINRA regShoDaily, ${dp.date}. Free for every US ticker:\n${BASE}/en/dark-pool`);
+    console.log(`$${ticker} — ${big}${unit} · ${label}`);
+    console.log(sub);
+    console.log(`\n${T.foot}`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
