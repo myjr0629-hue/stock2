@@ -74,6 +74,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   });
   await sleep(1200);
 
+  // Command 화면의 다크풀 카드는 «해석»이 접혀 있다. 공유 이미지에서는
+  // 숫자보다 해석이 주인공이므로 펼친 상태로 찍는다.
+  await page.evaluate(() => {
+    const b = [...document.querySelectorAll('button')].find((x) => x.getAttribute('aria-expanded') === 'false');
+    if (b) b.click();
+  });
+  await sleep(900);
+
   const bottom = await page.evaluate(() => {
     const bars = [...document.querySelectorAll('nav, [class*="tabbar"], [class*="tab-bar"], [class*="bottom-nav"]')];
     let best = 0;

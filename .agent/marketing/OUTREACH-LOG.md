@@ -1191,3 +1191,47 @@ UC 1.0.3 READY_FOR_SALE·WIM 1.0.1 WAITING_FOR_REVIEW 변동 없음. 브라우�
 ## 2026-08-28 49차 — 브라우저 24사이클(24시간) 연속 다운
 
 ## 2026-08-28 50차 — 브라우저 25사이클 연속 다운
+
+---
+
+## 2026-08-31 — 마케팅 재개. 다크풀 복원이 «올릴 것»을 만들었다
+
+브라우저 확장이 25사이클 만에 복구돼 X 게시가 다시 가능해졌다.
+그리고 더 중요한 것: **올릴 소재가 생겼다.**
+
+### 왜 지금은 다른가
+전에는 「우리 앱 좋아요」밖에 할 말이 없었다. 지금은 **매일 데이터가
+스스로 이야기를 만든다** — FINRA 규제 원본으로 전 종목(11,663) 다크풀을
+받고, 그것을 주가 방향과 엮어 «화면만 보면 안 보이는 것»을 말할 수 있다.
+게다가 §2.3 재배포 허용이라 마음 놓고 쓴다.
+
+### 오늘 1건 게시 (x_us · @signumhq)
+```
+$PCG closed -7.5% on Friday.
+Off the public book, 4.0x its usual size changed hands that same day
+— and only 29% of it printed short, against a 36% norm.
+The screen showed a drop. The tape showed absorption.
+FINRA off-exchange data, prior close.
+```
+- 이미지: 실제 앱 Command 화면(다크풀 카드 해석 펼침) · 워터마크 포함
+- 링크는 **답글에** 달았다 — 본문에 URL 을 넣으면 X 가 노출을 깎는다
+  (`signumhq.com/app?from=x_us`)
+- https://x.com/signumhq/status/2094133085030019313
+
+### 남긴 엔진 (다음엔 사람이 소재를 고민하지 않는다)
+- `scripts/darkpool-hooks.js` — 오늘의 훅을 데이터에서 자동 추출
+  (하락인데 매집 / 상승인데 분산 / 물량 폭증 / 공매도 이상 · 중복 티커 제거)
+- `scripts/make-x-shot.js` — `signum en cmd <TICKER>` 로 앱 화면 이미지 생성
+  (다크풀 해석 «펼친 상태»로 찍도록 이번에 보강)
+- 유동성 $200M 미만은 훅에서 제외 — 잡주를 올리면 신뢰를 잃는다
+
+### 오늘 데이터가 준 훅 (참고)
+- 하락인데 매집: PCG(-7.5%, 4.0배, 공매도 29% vs 36%) · GNRC · NUGT
+- 상승인데 분산: SLB(+4.2%, 공매도 72.5% vs 48%) · ACM · HQY
+- 물량 폭증: FNGR 18.7배 · AIA 8.2배 · AFRM 6.5배
+
+### 동시 진행 — SEO 표면 2.5배 확장
+다크풀이 모든 페이지에 지표 3개를 더해서, 예전에 «내용 빈약»으로 탈락했던
+티커도 이제 통과한다. 후보 1,439개를 **전부 실제 렌더**해 검증 중
+(`scripts/probe-flow-expand.js`, 현재 450/1439 · 통과율 99.8%).
+595 → ~2,000 페이지가 되면 「{티커} dark pool」 검색 커버리지가 3배가 된다.
