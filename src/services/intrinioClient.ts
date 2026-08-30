@@ -2149,7 +2149,68 @@ const TREASURY_SERIES: Array<[string, string]> = [
 const TREASURY_CURVE_KEY = "treasury:curve";
 const TREASURY_MAX_AGE_DAYS = 7;
 
+/**
+ * FMP 국채 곡선 — 재무부 원본과 **값이 정확히 같고 1.1초**다.
+ *
+ * 재무부 CSV 는 18~20초라 요청 시점에 못 쓴다(그래서 크론으로 Redis 에 넣는다).
+ * FMP 는 같은 데이터를 즉시 준다 → 크론과 크론 사이의 공백을 메우는 1순위.
+ * 실측 대조(2026-08-30):
+ *   FMP   8/28  2Y 4.34 · 10Y 4.73 · 30Y 5.22
+ *   재무부 8/28  2Y 4.34 · 10Y 4.73 · 30Y 5.22   ← 전 만기 완전 일치
+ */
+async function getTreasuryCurveFmp(): Promise<any[] | null> {
+    const key = process.env.FMP_API_KEY || "";
+    if (!key) return null;
+    const from = new Date(Date.now() - 20 * 86400_000).toISOString().slice(0, 10);
+    const to = new Date(Date.now() + 86400_000).toISOString().slice(0, 10);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    try {
+        const res = await fetch(
+            `https://financialmodelingprep.com/stable/treasury-rates?from=${from}&to=${to}&apikey=${key}`,
+            { signal: ctrl.signal, cache: "no-store" }
+        );
+        if (!res.ok) return null;
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) return null;
+        const out = rows
+            .map((r: any) => ({
+                date: String(r?.date || ""),
+                yield_1_month: r?.month1 ?? null,
+                yield_3_month: r?.month3 ?? null,
+                yield_6_month: r?.month6 ?? null,
+                yield_1_year: r?.year1 ?? null,
+                yield_2_year: r?.year2 ?? null,
+                yield_3_year: r?.year3 ?? null,
+                yield_5_year: r?.year5 ?? null,
+                yield_7_year: r?.year7 ?? null,
+                yield_10_year: r?.year10 ?? null,
+                yield_20_year: r?.year20 ?? null,
+                yield_30_year: r?.year30 ?? null,
+            }))
+            .filter((r: any) => r.date && Number.isFinite(Number(r.yield_10_year)))
+            .sort((a: any, b: any) => (a.date < b.date ? 1 : -1));
+        // 상식 게이트 — 이상한 값을 「오늘 금리」로 내보내지 않는다
+        if (!out.length || !(out[0].yield_10_year > 0 && out[0].yield_10_year < 20)) return null;
+        return out;
+    } catch {
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 export async function getTreasuryCurveOfficial(): Promise<any[] | null> {
+    // ① Redis (EC2 크론이 재무부 원본을 적재) — 즉시
+    const cached = await readTreasuryCurveFromRedis();
+    // ② FMP — 재무부와 값이 같고 1.1초. 캐시가 «더 오래된» 경우에만 부른다
+    //    (크론 주기 사이에 새 거래일이 게시되는 구간을 메운다)
+    const fmp = await getTreasuryCurveFmp();
+    if (fmp && (!cached || fmp[0].date > cached[0].date)) return fmp;
+    return cached ?? fmp ?? null;
+}
+
+async function readTreasuryCurveFromRedis(): Promise<any[] | null> {
     try {
         const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
         const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
