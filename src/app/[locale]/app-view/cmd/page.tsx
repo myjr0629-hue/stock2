@@ -837,6 +837,8 @@ function AnalystConsensus({
   const [animated, setAnimated] = useState(false);
   // 목표가 건별 내역은 30건까지 온다 — 기본은 접어 두고 눌러서 편다
   const [targetsOpen, setTargetsOpen] = useState(false);
+  // 구성 변화도 별도 토글 — 카드가 이미 길어서 기본은 «한 줄 요약»만 보여 준다
+  const [compOpen, setCompOpen] = useState(false);
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(t); }, []);
 
   const total = analyst.buy + analyst.hold + analyst.sell;
@@ -856,6 +858,8 @@ function AnalystConsensus({
   const targetChanges: any[] = Array.isArray(ev?.targetChanges) ? ev.targetChanges : [];
   const shownTargets = targetsOpen ? targetChanges : targetChanges.slice(0, 3);
   // 중앙값은 평균과 «뜻이 다를 때»만 보여 준다. 같은 값을 두 번 쓰면 잡음이다.
+  const composition: any[] = Array.isArray(ev?.composition) ? ev.composition : [];
+  const compShift = ev?.compositionShift || null;   // 변화가 0 이면 null 로 온다
   const median: number | null = typeof ev?.targetMedian === 'number' ? ev.targetMedian : null;
   const medianDiffers = median != null && analyst.target > 0
     && Math.abs(median - analyst.target) / analyst.target >= 0.03;
@@ -1041,6 +1045,67 @@ function AnalystConsensus({
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 컨센서스 «구성» 변화 — 기본은 한 줄, 눌러서 월별 막대.
+          변화가 전혀 없으면(compShift === null) 블록을 안 그린다 */}
+      {compShift && composition.length >= 2 && (
+        <div className={s.analystActionsBlock}>
+          <button
+            type="button"
+            className={s.analystDisclosure}
+            onClick={() => setCompOpen((v) => !v)}
+            aria-expanded={compOpen}
+          >
+            <span className={s.analystActionsTitle}>
+              {locale === 'ko' ? `구성 변화 (${compShift.months}개월)`
+                : locale === 'ja' ? `構成の変化 (${compShift.months}ヶ月)`
+                  : `COMPOSITION SHIFT (${compShift.months}M)`}
+            </span>
+            <span className={s.analystDisclosureRight}>
+              <span className={s.analystActionsCount}>
+                {compShift.bullish !== 0 && (
+                  <span style={{ color: compShift.bullish > 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {locale === 'ko' ? '강세' : locale === 'ja' ? '強気' : 'Bull'} {compShift.bullish > 0 ? '+' : ''}{compShift.bullish}
+                  </span>
+                )}
+                {compShift.bullish !== 0 && compShift.bearish !== 0 && <span style={{ opacity: 0.4 }}> · </span>}
+                {compShift.bearish !== 0 && (
+                  <span style={{ color: compShift.bearish > 0 ? 'var(--red)' : 'var(--green)' }}>
+                    {locale === 'ko' ? '약세' : locale === 'ja' ? '弱気' : 'Bear'} {compShift.bearish > 0 ? '+' : ''}{compShift.bearish}
+                  </span>
+                )}
+              </span>
+              <span className={s.analystChevron} data-open={compOpen ? '1' : '0'}>▾</span>
+            </span>
+          </button>
+
+          {compOpen && composition.map((m: any) => {
+            const t = m.total || 1;
+            return (
+              <div key={m.date} className={s.analystCompRow}>
+                <span className={s.analystActionDate}>{m.date.slice(0, 7).replace('-', '/')}</span>
+                <span className={s.analystCompBar} aria-hidden="true">
+                  <span className={s.stackedBuy} style={{ width: `${(m.bullish / t) * 100}%` }} />
+                  <span className={s.stackedHold} style={{ width: `${(m.neutral / t) * 100}%` }} />
+                  <span className={s.stackedSell} style={{ width: `${(m.bearish / t) * 100}%` }} />
+                </span>
+                <span className={s.analystCompNums}>
+                  <span style={{ color: 'var(--green)' }}>{m.bullish}</span>
+                  <span style={{ color: 'var(--amber)' }}>{m.neutral}</span>
+                  <span style={{ color: 'var(--red)' }}>{m.bearish}</span>
+                </span>
+              </div>
+            );
+          })}
+          {compOpen && (
+            <div className={s.analystTargetChangeNote}>
+              {locale === 'ko' ? '강세(적극매수+매수) · 중립(보유) · 약세(매도+적극매도)'
+                : locale === 'ja' ? '強気(強い買い+買い) · 中立(保有) · 弱気(売り+強い売り)'
+                  : 'Bullish (Strong Buy + Buy) · Neutral (Hold) · Bearish (Sell + Strong Sell)'}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -64,8 +64,24 @@ export interface AnalystEvents {
      * 소수의 극단 목표가가 평균을 끌어내리고 있었다.
      */
     targetMedian: number | null;
-    /** 컨센서스 «구성»의 월별 변화 (최신순 4개월) — 등급 분포가 이동 중인지 */
-    composition: Array<{ date: string; strongBuy: number; buy: number; hold: number; sell: number; strongSell: number }>;
+    /**
+     * 컨센서스 «구성»의 월별 변화 (최신순 4개월) — 등급 분포가 이동 중인지.
+     *
+     * 카드가 이미 Buy/Hold/Sell 3구간 막대를 쓰므로 여기서도 같은 구간으로
+     * 접어 둔다. SB/B/H/S/SS 5개 × 4개월 = 숫자 20개를 그대로 보여 주면
+     * 읽히지 않는다.
+     */
+    composition: Array<{
+        date: string;
+        strongBuy: number; buy: number; hold: number; sell: number; strongSell: number;
+        /** 화면용 3구간 — bullish = SB+B · bearish = S+SS */
+        bullish: number; neutral: number; bearish: number; total: number;
+    }>;
+    /**
+     * 가장 오래된 달 → 최신 달의 «순 이동». 변화가 0 이면 **null** 이다 —
+     * 「변화 없음」을 굳이 화면에 쓰지 않는다(AVGO 는 4개월 내내 동일했다).
+     */
+    compositionShift: { bullish: number; bearish: number; months: number } | null;
     /** 목표가 리비전 추세 — 못 구하면 null (0 으로 만들지 않는다) */
     targetTrend: {
         lastMonthAvg: number | null;
@@ -106,7 +122,7 @@ export async function getAnalystEvents(ticker: string, windowDays = 90): Promise
     const T = ticker.toUpperCase().trim();
     const empty: AnalystEvents = {
         ticker: T, windowDays, upgrades: 0, downgrades: 0, net: 0, recent: [],
-        targetChanges: [], targetMedian: null, composition: [], targetTrend: null,
+        targetChanges: [], targetMedian: null, composition: [], compositionShift: null, targetTrend: null,
     };
     if (!T) return empty;
 
@@ -197,18 +213,37 @@ export async function getAnalystEvents(ticker: string, windowDays = 90): Promise
     // ── 컨센서스 구성의 월별 변화 ───────────────────────────────────
     const composition = Array.isArray(hist)
         ? hist
-            .map((h: any) => ({
-                date: String(h?.date || "").slice(0, 10),
-                strongBuy: num(h?.analystRatingsStrongBuy) ?? 0,
-                buy: num(h?.analystRatingsBuy) ?? 0,
-                hold: num(h?.analystRatingsHold) ?? 0,
-                sell: num(h?.analystRatingsSell) ?? 0,
-                strongSell: num(h?.analystRatingsStrongSell) ?? 0,
-            }))
-            .filter((h: any) => h.date)
+            .map((h: any) => {
+                const strongBuy = num(h?.analystRatingsStrongBuy) ?? 0;
+                const buy = num(h?.analystRatingsBuy) ?? 0;
+                const hold = num(h?.analystRatingsHold) ?? 0;
+                const sell = num(h?.analystRatingsSell) ?? 0;
+                const strongSell = num(h?.analystRatingsStrongSell) ?? 0;
+                return {
+                    date: String(h?.date || "").slice(0, 10),
+                    strongBuy, buy, hold, sell, strongSell,
+                    bullish: strongBuy + buy,
+                    neutral: hold,
+                    bearish: sell + strongSell,
+                    total: strongBuy + buy + hold + sell + strongSell,
+                };
+            })
+            .filter((h: any) => h.date && h.total > 0)
             .sort((a: any, b: any) => (a.date < b.date ? 1 : -1))
             .slice(0, 4)
         : [];
+
+    // 순 이동 — 변화가 전혀 없으면 null (「변화 없음」을 화면에 쓰지 않는다)
+    let compositionShift: AnalystEvents["compositionShift"] = null;
+    if (composition.length >= 2) {
+        const newest = composition[0];
+        const oldest = composition[composition.length - 1];
+        const dB = newest.bullish - oldest.bullish;
+        const dS = newest.bearish - oldest.bearish;
+        if (dB !== 0 || dS !== 0) {
+            compositionShift = { bullish: dB, bearish: dS, months: composition.length - 1 };
+        }
+    }
 
     return {
         ticker: T,
@@ -220,6 +255,7 @@ export async function getAnalystEvents(ticker: string, windowDays = 90): Promise
         targetChanges: targetChanges.slice(0, 30),
         targetMedian,
         composition,
+        compositionShift,
         targetTrend,
     };
 }
