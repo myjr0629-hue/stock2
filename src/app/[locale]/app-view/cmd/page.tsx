@@ -2912,6 +2912,70 @@ function CmdPageContent() {
                within 7 days (empty-space insert — no layout impact otherwise) ── */}
         <DisclosureBadge ticker={data.ticker} locale={locale} variant="badge" />
 
+        {/* ══════════════════════════════════════════════════════════════
+            DARK POOL — 우리 브랜드의 대표 지표.
+            ⚠️ 여기(무료 영역)에 둔다. QUANT 탭은 보상형 광고 게이트 뒤라
+               FINRA 약관 §2.3(b)「이 데이터에 별도 요금 금지」와 부딪힌다.
+               브랜드 지표를 잠가 둘 이유도 없다.
+            숫자 하나가 아니라 «시장 평균 대비 · 평소 물량 대비 · 그 물량이
+            매집인가 헤지인가»까지 말한다. 값이 없으면 통째로 안 그린다.
+            ══════════════════════════════════════════════════════════════ */}
+        {(() => {
+          const f = data.rawTickerData?.flow;
+          const pct = typeof f?.darkPoolPct === 'number' && f.darkPoolPct > 0 ? f.darkPoolPct : null;
+          if (pct == null) return null;
+          const mkt = typeof f.darkPoolMarketAvg === 'number' ? f.darkPoolMarketAvg : null;
+          const vr = typeof f.darkPoolVolRatio === 'number' ? f.darkPoolVolRatio : null;
+          const sp = typeof f.darkPoolShortPct === 'number' ? f.darkPoolShortPct : null;
+          const reg = f.darkPoolRegime as 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
+          const gap = mkt != null ? pct - mkt : null;
+          const hot = reg === 'ACCUMULATION', cold = reg === 'DISTRIBUTION';
+          const accent = hot ? 'var(--green)' : cold ? 'var(--red)' : 'var(--purple, #a78bfa)';
+          const tag = reg == null ? null
+            : hot ? (locale === 'ko' ? '은밀 매집' : locale === 'ja' ? '静かな買い集め' : 'ACCUMULATION')
+            : cold ? (locale === 'ko' ? '은밀 분산' : locale === 'ja' ? '静かな売り抜け' : 'DISTRIBUTION')
+            : (locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'NEUTRAL');
+          return (
+            <div style={{
+              margin: '0 0 var(--s3)', padding: '12px 14px', borderRadius: 14,
+              border: `1px solid ${accent}33`, background: `linear-gradient(135deg, ${accent}12, rgba(255,255,255,.015))`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, letterSpacing: '.14em', color: 'var(--text-dim, #94a3b8)' }}>
+                  {locale === 'ko' ? '다크풀' : locale === 'ja' ? 'ダークプール' : 'DARK POOL'}
+                  <MetricInfo term="darkPool" locale={locale} size={12} />
+                </span>
+                {tag && (
+                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.08em', color: accent, background: `${accent}1f`, border: `1px solid ${accent}44`, borderRadius: 999, padding: '3px 9px' }}>{tag}</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
+                <span style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-.03em', color: accent, lineHeight: 1 }}>{pct.toFixed(1)}%</span>
+                {gap != null && (
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-dim, #94a3b8)' }}>
+                    {locale === 'ko' ? '시장 평균 ' : locale === 'ja' ? '市場平均 ' : 'mkt avg '}{mkt!.toFixed(0)}%
+                    <span style={{ color: gap >= 0 ? 'var(--green)' : 'var(--red)', marginLeft: 4 }}>
+                      {gap >= 0 ? '+' : ''}{gap.toFixed(1)}%p
+                    </span>
+                  </span>
+                )}
+              </div>
+              <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text-dim, #94a3b8)', lineHeight: 1.5 }}>
+                {vr != null && <>{locale === 'ko' ? '물량 ' : locale === 'ja' ? '出来高 ' : 'volume '}
+                  <b style={{ color: 'var(--cyan, #22d3ee)' }}>{vr.toFixed(1)}×</b>
+                  {locale === 'ko' ? ' (평소 대비)' : locale === 'ja' ? '（平常比）' : ' vs its norm'}</>}
+                {vr != null && sp != null && ' · '}
+                {sp != null && <>{locale === 'ko' ? '그중 공매도 ' : locale === 'ja' ? 'うち空売り ' : 'short share '}
+                  <b style={{ color: sp >= 55 ? 'var(--red)' : 'var(--text, #e2e8f0)' }}>{sp.toFixed(0)}%</b></>}
+                <span style={{ display: 'block', marginTop: 3, fontSize: 9.5, color: 'var(--text-dimmer, #64748b)' }}>
+                  {locale === 'ko' ? '출처 FINRA · 전일 마감 기준 ' : locale === 'ja' ? '出典 FINRA · 前日終値基準 ' : 'Source: FINRA · prior close '}
+                  {f.darkPoolDate ?? ''}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
         <div className={s.heroMetrics}>
           <div className={s.heroMetricCard}>
