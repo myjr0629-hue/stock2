@@ -3,6 +3,7 @@
 // ZERO desktop impact — mobile-only component
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { MobileCongressCard } from './MobileCongressCard';
 import { Loader2 } from 'lucide-react';
 import { MetricInfo } from '@/components/app/MetricInfo';
 
@@ -305,6 +306,10 @@ export function MobileCmd13F({ ticker, locale = 'en' }: { ticker: string; locale
                     </span>
                 </button>
             </div>
+
+            {/* 의회 거래 — 13F·내부자와 나란한 «세 번째 공시». 어느 탭에서도 보인다.
+                활동이 없는 종목이면 컴포넌트가 스스로 null 을 반환해 자리를 안 잡는다. */}
+            <MobileCongressCard ticker={ticker} locale={locale} />
 
             {/* Content */}
             {sub === '13f' ? <Mobile13FContent ticker={ticker} /> : <MobileInsiderContent ticker={ticker} />}

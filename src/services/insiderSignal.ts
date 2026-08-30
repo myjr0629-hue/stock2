@@ -50,7 +50,27 @@ const T = {
     exercise: { ko: '행사', en: 'Exercise', ja: '行使' },
     tax: { ko: '세금', en: 'Tax', ja: '税' },
     gift: { ko: '증여', en: 'Gift', ja: '贈与' },
+    // 30일 내 실매매가 없을 때 «가장 최근 실매매»를 말해 준다
+    lastBuy: { ko: '최근 매수', en: 'Last buy', ja: '直近の買い' },
+    lastSell: { ko: '최근 매도', en: 'Last sell', ja: '直近の売り' },
+    director: { ko: '이사', en: 'Director', ja: '取締役' },
+    officer: { ko: '임원', en: 'Officer', ja: '役員' },
+    daysAgo: { ko: '일 전', en: 'd ago', ja: '日前' },
 } as const;
+
+/** 'STEVENS MARK A' → 'Stevens Mark A' (전부 대문자로 오는 SEC 표기를 완화) */
+function titleCase(n: string): string {
+    return String(n || '')
+        .toLowerCase()
+        .replace(/\b[a-z]/g, (c) => c.toUpperCase())
+        .trim();
+}
+
+function daysSince(iso: string): number | null {
+    const t = Date.parse(String(iso || ''));
+    if (!Number.isFinite(t)) return null;
+    return Math.max(0, Math.round((Date.now() - t) / 86400_000));
+}
 
 /** $12,400,000 → "$12.4M" */
 export function compactUsd(v: number): string {
@@ -83,6 +103,33 @@ export function buildInsiderSignal(insider: any, locale: Locale = 'en'): Insider
         push(b.optionExercise, 'exercise');
         push(b.taxWithheld, 'tax');
         push(b.gift, 'gift');
+        // ★ 「실매매 없음 · 부여 13 · 세금 5 · 증여 4」는 사실이지만 **쓸모가 없다.**
+        //   30일 «밖»에 실매매가 있었다면 그게 훨씬 중요한 정보다.
+        //   실측(2026-08-30 NVDA): 30일 내 실매매 0 인데, 6/23 에 이사가
+        //   $67.0M 를 팔았다. 카드는 그걸 안 보여주고 「없음」이라고만 했다.
+        //   → 가장 최근 실매매를 문장으로 만들어 준다.
+        const latest = insider.latest;
+        const code = String(latest?.code || '').toUpperCase();
+        const isRealTrade = code === 'P' || code === 'S';
+        const val = Number(latest?.value);
+        const ago = isRealTrade ? daysSince(latest?.date) : null;
+
+        if (isRealTrade && Number.isFinite(val) && val > 0 && ago != null) {
+            const who = /director/i.test(String(latest?.title || '')) ? L('director')
+                : /officer|ceo|cfo|president|chief/i.test(String(latest?.title || '')) ? L('officer')
+                    : titleCase(latest?.name || '');
+            const head = code === 'P' ? L('lastBuy') : L('lastSell');
+            return {
+                ...empty,
+                state: 'noTrade',
+                value: '—',
+                kinds,
+                direction: code === 'P' ? 'up' : 'down',
+                // 「최근 매도 · 이사 $67.0M · 68일 전」
+                subText: `${head} · ${who} ${compactUsd(val)} · ${ago}${L('daysAgo')}`,
+            };
+        }
+
         return {
             ...empty,
             state: 'noTrade',
