@@ -143,3 +143,62 @@ UC 1.0.3 이 **Guideline 2.3.6** 으로 반려됐다:
 
 → 하나가 걸리면 «형제 앱 전부»를 같은 눈으로 볼 것. WIM 은 아직 광고 유닛도 안 붙였지만
    바이너리에 AdMob 이 들어 있고 Play 에는 이미 광고=예로 신고했으므로 예가 맞다.
+
+---
+
+## 2026-08-30 — ✅ 광고 켰다. 3앱 전부 수익화 라이브
+
+### 켜기 전 게이트 5개 — 기억이 아니라 실측으로 확인
+
+| 조건 | 확인 방법 | 결과 |
+|---|---|---|
+| iOS 1.0.1 라이브 | ASC API `/apps/6794356135/appStoreVersions` | **1.0.1 (build 4) READY_FOR_SALE** |
+| Android 1.0.1 라이브 | Play 공개 리스팅 파싱 | **1.0.1 · 2026-08-25 갱신** (저장소 vc 3 일치) |
+| 라이브 바이너리가 «개인 계정» 앱 ID | `git log --until=2026-08-25` 로 Info.plist·Manifest 대조 | 8/18 커밋 `7ca04f53` → 8/25 빌드 포함. iOS `~6742792269` / Android `~2356875029` |
+| ASC 연령등급 «광고=예» | ASC API `ageRatingDeclaration.advertising` | **3앱 전부 True** (UC 2.3.6 반려의 그 항목) |
+| app-ads.txt | `curl` | www 200 `text/plain` · `pub-9554397112094712` (apex 는 307→www 정규화일 뿐) |
+
+### 바꾼 것은 두 줄
+```
+REAL_UNIT_IDS.wim = UNITS_2026_08_18.wim   // null → 실유닛 6개
+WIM_ADS_LIVE = true
+```
+이 한 번으로 `adsAllowed()` 관문 · `ADS_TESTING=false` · **방침「과」약관 3개 국어**가
+같이 열린다. WIM 은 원격 웹뷰(`signumhq.com/en/wim`)라 **재빌드·재제출 없이** 반영된다.
+
+### 실화면 검증 (iPhone 17 Pro 시뮬 · 1.0.1 build 4 = 출시분과 동일하게 재빌드)
+
+- ✅ ATT 프롬프트 정상 — 우리 문자열이 그대로 표시
+- ✅ **실유닛이 실제 광고를 서빙** (한국 광고주 2건 회전)
+- ✅ 배너가 **탭바 위 8px** 에 정확히 앵커 (숫자 하드코딩 아니라 DOM 실측)
+- ✅ 하단 푸터가 배너에 안 가림 — 본문 padding 예약 정상
+- ✅ 방침·약관 3개 국어 × 2문서 전수: 「광고 없음」 진술 **0건**, AdMob 명시
+- ℹ️ "Test mode" 라벨은 시뮬레이터라 정상. **실기기에 뜨면 그때가 버그**
+
+### ★ 그 자리에서 발견해 고친 것 — 온보딩 배너
+배너 effect 가 `[]` 의존성이라 **첫 부팅 온보딩(3패널 인트로)에서도 배너가 떴다.**
+① 신규 학습자가 앱에서 처음 보는 화면이다 ② 온보딩엔 탭바가 없어 위치 실측이
+불가능해 폴백 공식으로 떨어졌고, 실제로 「다음 →」 버튼 위에 어정쩡하게 걸렸다.
+→ `onboard` 를 의존성에 넣고, state 가 마운트 후에 정해지는 한 프레임 누수는
+`localStorage` 동기 읽기로 막았다. (커밋 `f88a8d09`)
+
+### ⚠️ 크래시 오진 주의 (기록)
+처음 시뮬에서 앱이 즉시 죽어 「광고가 크래시를 냈다」고 볼 뻔했다. 실제 원인은
+로컬 `simbuild` 가 **1.0(build 2) · 2026-07-23 판**이라 `NSUserTrackingUsageDescription`
+이 없었던 것이다(그 키는 8/18 커밋에 추가). 로그가 정확히 그렇게 말했다:
+> This app has crashed because it attempted to access privacy-sensitive data
+> without a usage description.
+
+현재 소스로 재빌드하니 정상. **로컬 빌드 버전을 먼저 확인할 것** —
+`plutil -p App.app/Info.plist | grep CFBundleVersion`.
+
+### 상시 검사기 신설
+`scripts/check-legal-ads-switch.js` — `applyAdsOn()` 은 완전일치 치환이라 문구가
+한 글자만 달라도 조용히 실패하고 「광고는 나가는데 문서는 광고 없음」이 된다
+(2026-08-25 UC 약관이 실제로 그랬다). uc·wim × ko/en/ja × (noAdsTitle·freeFrom)
+토큰 12개를 대조한다.
+
+### 남은 것
+- **실기기** 확인 1회씩(iOS/Android) — 배너가 탭바에 붙는지. 안드로이드는 기기별
+  인셋 차이를 에뮬로 재현할 수 없으므로 `wimBannerDiag()` 숫자를 스크린샷으로 받는다.
+- 수익 리포트에 WIM 노출이 잡히는지 며칠 뒤 확인(시뮬 트래픽은 안 잡힌다).
