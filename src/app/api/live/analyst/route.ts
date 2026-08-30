@@ -115,8 +115,14 @@ export async function GET(req: NextRequest) {
         //   **양쪽 모두** 이벤트를 갖도록 여기서 따로 붙인다. 위 result 안에만
         //   넣으면 DynamoDB 경로에선 영영 안 나온다(이번 이관에서 여러 번 당한 유형).
         //   실패해도 컨센서스는 그대로 나간다 — 보강이지 의존이 아니다.
+        //   ⚠️ 캐시 키에 «형태 버전»을 박는다. 응답 필드를 늘려 놓고 키를 그대로
+        //      두면, 배포가 끝나도 6시간 동안 **옛 형태가 그대로 나간다.**
+        //      실제로 그랬다(2026-08-30, NVDA): targetChanges·targetMedian·
+        //      composition 을 추가했는데 화면엔 targetTrend 까지만 떴다.
+        //      오늘 기술지표에서 같은 것을 고쳐 놓고(tech:adv:v2) 또 반복했다.
+        //      → **응답 형태를 바꾸면 v 를 올린다.**
         const events = await swrFetch(
-            `analyst-events:${ticker.toUpperCase()}`,
+            `analyst-events:v2:${ticker.toUpperCase()}`,
             () => getAnalystEvents(ticker),
             { ttlSeconds: 6 * 3600, keyPrefix: 'swr' }
         ).then((r) => r.data).catch(() => null);
