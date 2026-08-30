@@ -88,6 +88,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   });
   await sleep(900);
 
+  // ★ 발행 전 검수 게이트 — 2026-08-31 FNGR Command 화면이 «Loading...» 스켈레톤인
+  //   채로 이미지가 만들어졌다. 그대로 X 에 붙였으면 빈 앱을 홍보한 꼴이 된다.
+  //   화면이 안 채워졌으면 한 번 더 기다리고, 그래도 안 되면 저장하지 않는다.
+  const inspect = () => page.evaluate(() => {
+    const t = document.body.innerText || '';
+    return {
+      loading: /Loading\.\.\.|로딩\s*중|読み込み/.test(t),
+      nums: (t.match(/\$-?[\d,.]+|-?[\d,.]+%/g) || []).length,
+      len: t.length,
+    };
+  });
+  let st = await inspect();
+  if (st.loading || st.nums < 6) { await sleep(9000); st = await inspect(); }
+  if (st.loading || st.nums < 6) {
+    console.error(`[검수 실패] 화면이 안 채워졌다 — loading=${st.loading} 숫자=${st.nums} 글자=${st.len}. 저장하지 않는다.`);
+    await browser.close();
+    process.exit(2);
+  }
+
   const bottom = await page.evaluate(() => {
     const bars = [...document.querySelectorAll('nav, [class*="tabbar"], [class*="tab-bar"], [class*="bottom-nav"]')];
     let best = 0;
