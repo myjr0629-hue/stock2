@@ -2968,7 +2968,8 @@ function CmdPageContent() {
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
-                <span style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-.03em', color: accent, lineHeight: 1 }}>{pct.toFixed(1)}%</span>
+                {/* 대표 지적: 숫자가 너무 컸다 — 값보다 «해석»이 주인공이다 */}
+                <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-.02em', color: accent, lineHeight: 1 }}>{pct.toFixed(1)}%</span>
                 {gap != null && (
                   <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-dim, #94a3b8)' }}>
                     {locale === 'ko' ? '시장 평균 ' : locale === 'ja' ? '市場平均 ' : 'mkt avg '}{mkt!.toFixed(0)}%
@@ -3002,8 +3003,8 @@ function CmdPageContent() {
                 onClick={() => setDpOpen(v => !v)}
                 style={{
                   appearance: 'none', WebkitAppearance: 'none', width: '100%', marginTop: 8,
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                  padding: '7px 0 0', background: 'transparent', border: 'none',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 0 0', background: 'transparent', border: 'none',
                   borderTop: `1px solid ${accent}22`, cursor: 'pointer', textAlign: 'left',
                 }}
                 aria-expanded={dpOpen}
@@ -3012,7 +3013,22 @@ function CmdPageContent() {
                   ...(dpOpen ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }) }}>
                   {read.headline}
                 </span>
-                <span style={{ flex: '0 0 auto', fontSize: 10, color: 'var(--text-dimmer, #64748b)', transform: dpOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+                {/*
+                  대표 지적: 「▾ 만으로는 열린다는 걸 알 수 없다」.
+                  글자가 붙은 알약 모양이라야 «누르면 열린다»가 읽힌다.
+                  최소 터치 타깃(높이 22px)도 확보한다.
+                */}
+                <span style={{
+                  flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 3,
+                  height: 22, padding: '0 8px', borderRadius: 999,
+                  border: `1px solid ${accent}55`, background: `${accent}18`,
+                  fontSize: 10, fontWeight: 900, letterSpacing: '.02em', color: accent, whiteSpace: 'nowrap',
+                }}>
+                  {dpOpen
+                    ? (locale === 'ko' ? '접기' : locale === 'ja' ? '閉じる' : 'Less')
+                    : (locale === 'ko' ? '해석' : locale === 'ja' ? '解説' : 'Why')}
+                  <span style={{ fontSize: 9, lineHeight: 1, transform: dpOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▼</span>
+                </span>
               </button>
               {dpOpen && (
                 <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.55, color: 'var(--text-dim, #94a3b8)' }}>
