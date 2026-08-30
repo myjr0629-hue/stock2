@@ -2260,15 +2260,63 @@ async function dataPoint(ticker: string, tag: string): Promise<number | null> {
  *    실측(NVDA): 21.400 + 48.587 + 34.904 + 22.115 = **127.006B**
  *                = Massive 의 127,006,000,000 과 정확히 일치.
  */
+/**
+ * 「최근 4분기」를 **안전하게** 고른다.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * ⚠️ 그냥 앞에서 4개를 자르면 안 된다. 실측(2026-08-30)에서 나온 것들:
+ *
+ *   ① 순서가 보장되지 않는다 — ONTO 의 3번째 행이 2024 Q4 로 끼어 있었다.
+ *   ② **start_date 가 깨진 행이 있다** — ONTO `2024-09-29 ~ 2026-01-03`(461일).
+ *      그런데 그 행의 매출은 281M 으로 **정상 분기 수준**이다(동종 218~343M).
+ *      즉 기간이 15개월인 게 아니라 start_date 만 틀렸다.
+ *      → 기간 «길이»로 거르면 멀쩡한 분기를 버린다. start_date 를 믿지 않는다.
+ *   ③ 손익과 현금흐름의 최신 분기가 다를 수 있다 — WOLF 는 현금흐름이
+ *      두 분기 뒤처져 있다. 그래서 «각 계열 안에서» 4분기를 고른다.
+ *
+ * 판정은 **end_date 간격**으로 한다: 연속한 끝날짜가 80~100일 간격이고,
+ * 4개가 250~290일을 덮으면 TTM 이다. 못 채우면 **null** — 「대충 더한 값」은
+ * TTM 이 아니고, 그걸 PER·FCF수익률로 화면에 쓰면 그럴듯한 거짓이 된다.
+ */
+function pickTTMQuarters(funds: any[]): any[] | null {
+    const DAY = 86400_000;
+    const rows = funds
+        .map((f) => ({ f, e: Date.parse(String(f?.end_date || "")) }))
+        .filter((r) => Number.isFinite(r.e))
+        .sort((a, b) => b.e - a.e);
+
+    // 같은 끝날짜가 중복으로 오면 하나만 쓴다
+    const uniq: typeof rows = [];
+    for (const r of rows) {
+        if (uniq.length && Math.abs(uniq[uniq.length - 1].e - r.e) < 5 * DAY) continue;
+        uniq.push(r);
+    }
+    if (uniq.length < 4) return null;
+
+    const picked = [uniq[0]];
+    for (const r of uniq.slice(1)) {
+        if (picked.length >= 4) break;
+        const gap = (picked[picked.length - 1].e - r.e) / DAY;
+        if (gap < 80 || gap > 100) continue;      // 분기 간격이 아니면 건너뛴다
+        picked.push(r);
+    }
+    if (picked.length < 4) return null;
+
+    const span = (picked[0].e - picked[3].e) / DAY;
+    if (span < 250 || span > 290) return null;    // 3개 간격 ≈ 9개월이어야 한다
+    return picked.map((r) => r.f);
+}
+
 async function freeCashFlowTTM(ticker: string): Promise<number | null> {
     try {
         const d = await callIntrinio(`companies/${encodeURIComponent(ticker)}/fundamentals`, {
             statement_code: "cash_flow_statement",
             type: "QTR",
-            page_size: "4",
+            // 이상 기간·중복이 섞여 있으므로 넉넉히 받아 «고른다»
+            page_size: "8",
         });
-        const funds: any[] = d?.fundamentals || [];
-        if (funds.length < 4) return null;          // 4분기가 안 되면 TTM 이 아니다
+        const funds = pickTTMQuarters(d?.fundamentals || []);
+        if (!funds) return null;                    // 정합한 4분기를 못 고르면 TTM 이 아니다
         const parts = await Promise.all(
             funds.map(async (f) => {
                 try {
@@ -2314,10 +2362,10 @@ async function netIncomeTTM(ticker: string): Promise<number | null> {
         const d = await callIntrinio(`companies/${encodeURIComponent(ticker)}/fundamentals`, {
             statement_code: "income_statement",
             type: "QTR",
-            page_size: "4",
+            page_size: "8",
         });
-        const funds: any[] = d?.fundamentals || [];
-        if (funds.length < 4) return null;
+        const funds = pickTTMQuarters(d?.fundamentals || []);
+        if (!funds) return null;
         const parts = await Promise.all(
             funds.map(async (f) => {
                 try {
