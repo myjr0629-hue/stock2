@@ -38,6 +38,10 @@ export interface DarkPoolInput {
      *   화면만 보는 사람은 절대 못 보는 그림이다.
      */
     changePct?: number | null;
+    /** 이 종목의 20일 평균 공매도 비중 — 기준선 */
+    shortAvg?: number | null;
+    /** 오늘 − 평소 (%p) */
+    shortDev?: number | null;
     date?: string | null;
 }
 
@@ -61,11 +65,27 @@ function volBand(v: number | null | undefined): 'surge' | 'up' | 'flat' | 'quiet
     return 'flat';
 }
 
-/** 공매도 비중 구간 — 장외 물량의 «성격» */
-function shortBand(s: number | null | undefined): 'low' | 'mid' | 'high' | null {
-    if (typeof s !== 'number' || !Number.isFinite(s)) return null;
-    if (s <= 45) return 'low';
-    if (s >= 58) return 'high';
+/**
+ * 공매도 비중의 «성격» — ★ 절대 수준이 아니라 «자기 평소 대비»로 판단한다.
+ *
+ * 왜: 장외 공매도 비중의 **시장 중앙값이 49.4%** 다(11,663종목 실측).
+ *     도매업자가 소매 매수의 상대가 될 때 보유하지 않은 주식을 일단
+ *     공매도로 팔고 나중에 되사기 때문이다. 즉 절반은 시장 배관이지
+ *     하락 베팅이 아니다.
+ *     실측: CRWD 45.5%(평소 46.3%) = 아무 일 없음.
+ *           TSLA 61.9%(평소 48.5%) = **+13.4%p, 진짜 이상**.
+ *     절대값 46%를 「낮다」고 읽으면 종목마다 다 틀린다.
+ */
+function shortBand(dev: number | null | undefined, raw: number | null | undefined): 'low' | 'mid' | 'high' | null {
+    if (typeof dev === 'number' && Number.isFinite(dev)) {
+        if (dev <= -4) return 'low';
+        if (dev >= 4) return 'high';
+        return 'mid';
+    }
+    // 기준선이 아직 없으면 시장 중앙값(49.4%)을 임시 기준으로 쓴다
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+    if (raw <= 42) return 'low';
+    if (raw >= 57) return 'high';
     return 'mid';
 }
 
@@ -85,10 +105,16 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
         d.regime === 'ACCUMULATION' ? 'low'
         : d.regime === 'DISTRIBUTION' ? 'high'
         : d.regime === 'NEUTRAL' ? 'mid'
-        : shortBand(d.shortPct);
+        : shortBand(d.shortDev, d.shortPct);
     const gap = typeof d.marketAvg === 'number' ? d.pct - d.marketAvg : null;
     const vr = d.volRatio;
     const sp = d.shortPct;
+    /** 「46%」가 아니라 「46% (평소 46%)」로 말한다 — 기준선 없이는 오해한다 */
+    const shortTxt = (v: number) => {
+        const a = d.shortAvg;
+        if (typeof a !== 'number') return T(lang, `${v.toFixed(0)}%`, `${v.toFixed(0)}%`, `${v.toFixed(0)}%`);
+        return T(lang, `${v.toFixed(0)}%(평소 ${a.toFixed(0)}%)`, `${v.toFixed(0)}% vs a ${a.toFixed(0)}% norm`, `${v.toFixed(0)}%（平常${a.toFixed(0)}%）`);
+    };
 
     // ══ ⓪ 주가와의 «어긋남» — 있으면 이것이 가장 강한 이야기다.
     //    장외 포지셔닝만 보면 「샀다/팔았다」까지다. 주가 방향과 엮어야
@@ -108,18 +134,18 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
                     `Price fell ${absChg}% while off-exchange volume ran ${mult}× its norm — the decline was being absorbed`,
                     `株価は${absChg}%下げたのに場外出来高は平常の${mult}倍 — 下げを引き受けています`),
                 detail: T(lang,
-                    `${why} 공개 화면에는 «하락»만 보입니다. 그런데 같은 날 호가창 밖에서는 평소의 ${mult}배 물량이 오갔고 그중 공매도는 ${sp!.toFixed(0)}%에 그쳤습니다. 파는 쪽이 아니라 받는 쪽이 컸다는 뜻입니다.`,
-                    `${why} The public screen shows only the drop. Off the book, ${mult}× the usual size changed hands that same day, and only ${sp!.toFixed(0)}% of it printed short — the flow leaned toward absorbing, not selling.`,
-                    `${why} 公開画面には「下落」しか見えません。しかし同じ日、板の外では平常の${mult}倍が動き、うち空売りは${sp!.toFixed(0)}%にとどまりました。売り手ではなく引き受け手が大きかったということです。`),
+                    `${why} 공개 화면에는 «하락»만 보입니다. 그런데 같은 날 호가창 밖에서는 평소의 ${mult}배 물량이 오갔고 그중 공매도는 ${shortTxt(sp!)}에 그쳤습니다. 파는 쪽이 아니라 받는 쪽이 컸다는 뜻입니다.`,
+                    `${why} The public screen shows only the drop. Off the book, ${mult}× the usual size changed hands that same day, and only ${shortTxt(sp!)} of it printed short — the flow leaned toward absorbing, not selling.`,
+                    `${why} 公開画面には「下落」しか見えません。しかし同じ日、板の外では平常の${mult}倍が動き、うち空売りは${shortTxt(sp!)}にとどまりました。売り手ではなく引き受け手が大きかったということです。`),
             };
         }
         if (!down && sb === 'high') {
             return {
                 tone: 'negative',
                 headline: T(lang,
-                    `주가는 ${absChg}% 올랐는데 장외 물량의 ${sp!.toFixed(0)}%가 공매도입니다 — 오르는 데 대고 팔았습니다`,
-                    `Price rose ${absChg}% while ${sp!.toFixed(0)}% of the off-exchange size printed short — sold into the strength`,
-                    `株価は${absChg}%上げたのに場外出来高の${sp!.toFixed(0)}%が空売り — 上昇に向けて売っています`),
+                    `주가는 ${absChg}% 올랐는데 장외 물량의 ${shortTxt(sp!)}가 공매도입니다 — 오르는 데 대고 팔았습니다`,
+                    `Price rose ${absChg}% while ${shortTxt(sp!)} of the off-exchange size printed short — sold into the strength`,
+                    `株価は${absChg}%上げたのに場外出来高の${shortTxt(sp!)}が空売り — 上昇に向けて売っています`),
                 detail: T(lang,
                     `${why} 화면에는 «상승»만 보입니다. 그러나 호가창 밖에서는 평소의 ${mult}배 물량 중 절반 넘게가 공매도로 찍혔습니다. 오른 가격에 물량을 넘기거나 헤지를 얹은 쪽에 가깝습니다.`,
                     `${why} The screen shows only the rally. Off the book, more than half of ${mult}× the usual size printed short — closer to distributing into strength or layering hedges.`,
@@ -135,9 +161,9 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
             return {
                 tone: 'positive',
                 headline: T(lang,
-                    `장외 물량이 평소의 ${mult}배 — 그중 공매도는 ${sp!.toFixed(0)}%뿐입니다`,
-                    `Off-exchange volume ran ${mult}× its norm — and only ${sp!.toFixed(0)}% of it was short`,
-                    `場外出来高が平常の${mult}倍 — うち空売りは${sp!.toFixed(0)}%だけです`),
+                    `장외 물량이 평소의 ${mult}배 — 그중 공매도는 ${shortTxt(sp!)}뿐입니다`,
+                    `Off-exchange volume ran ${mult}× its norm — and only ${shortTxt(sp!)} of it was short`,
+                    `場外出来高が平常の${mult}倍 — うち空売りは${shortTxt(sp!)}だけです`),
                 detail: T(lang,
                     `${why} 물량이 늘었는데 공매도 비중은 낮다는 것은, 그 늘어난 물량 대부분이 «파는 쪽»이 아니었다는 뜻입니다. 호가창 밖에서 조용히 모으는 전형적인 모양입니다.`,
                     `${why} Volume rose while the short share stayed low, meaning most of that extra size was not sell-side. This is what quiet accumulation looks like on the tape.`,
@@ -148,9 +174,9 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
             return {
                 tone: 'negative',
                 headline: T(lang,
-                    `장외 물량이 평소의 ${mult}배 — 그런데 절반 넘는 ${sp!.toFixed(0)}%가 공매도입니다`,
-                    `Off-exchange volume ran ${mult}× its norm — but ${sp!.toFixed(0)}% of it was short`,
-                    `場外出来高が平常の${mult}倍 — ただし${sp!.toFixed(0)}%が空売りです`),
+                    `장외 물량이 평소의 ${mult}배 — 그런데 절반 넘는 ${shortTxt(sp!)}가 공매도입니다`,
+                    `Off-exchange volume ran ${mult}× its norm — but ${shortTxt(sp!)} of it was short`,
+                    `場外出来高が平常の${mult}倍 — ただし${shortTxt(sp!)}が空売りです`),
                 detail: T(lang,
                     `${why} 물량은 늘었지만 그 대부분이 공매도로 찍혔습니다. 새로 사 모으는 것이 아니라 «헤지하거나 덜어내는» 쪽에 가깝습니다. 같은 «장외 급증»이라도 성격이 정반대입니다.`,
                     `${why} The size showed up, but most of it printed short — closer to hedging or trimming than to fresh buying. Same volume surge, opposite meaning.`,
@@ -164,9 +190,9 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
                 `Off-exchange volume ran ${mult}× its norm`,
                 `場外出来高が平常の${mult}倍に増えました`),
             detail: T(lang,
-                `${why} 활동은 뚜렷하게 늘었지만 공매도 비중${sp != null ? ` ${sp.toFixed(0)}%` : ''}은 평범해서, 매집인지 정리인지 한쪽으로 읽기는 이릅니다. 며칠 이어지는지가 판단 재료입니다.`,
-                `${why} Activity clearly picked up, but the short share${sp != null ? ` at ${sp.toFixed(0)}%` : ''} is unremarkable — too early to call it accumulation or unwinding. Whether it persists is the tell.`,
-                `${why} 活動は明確に増えましたが空売り比率${sp != null ? `（${sp.toFixed(0)}%）` : ''}は平凡で、買い集めか整理かはまだ判断できません。数日続くかどうかが手がかりです。`),
+                `${why} 활동은 뚜렷하게 늘었지만 공매도 비중${sp != null ? ` ${shortTxt(sp)}` : ''}은 평범해서, 매집인지 정리인지 한쪽으로 읽기는 이릅니다. 며칠 이어지는지가 판단 재료입니다.`,
+                `${why} Activity clearly picked up, but the short share${sp != null ? ` at ${shortTxt(sp)}` : ''} is unremarkable — too early to call it accumulation or unwinding. Whether it persists is the tell.`,
+                `${why} 活動は明確に増えましたが空売り比率${sp != null ? `（${shortTxt(sp)}）` : ''}は平凡で、買い集めか整理かはまだ判断できません。数日続くかどうかが手がかりです。`),
         };
     }
 
@@ -201,13 +227,13 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
                     `場外比率${d.pct.toFixed(0)}% — 市場平均より${Math.abs(gap).toFixed(0)}pt低い水準です`),
             detail: high
                 ? T(lang,
-                    `${why} 이 종목은 구조적으로 장외 비중이 높은 편입니다. 다만 오늘 물량 자체는 평소 수준이라, «비중이 높다»는 사실만으로 오늘 무슨 일이 있었다고 읽기는 어렵습니다.${sp != null ? ` 그중 공매도는 ${sp.toFixed(0)}%입니다.` : ''}`,
-                    `${why} This name structurally trades more off-exchange than most. Today's size was normal, though, so the elevated share alone does not say something happened today.${sp != null ? ` Short share of it: ${sp.toFixed(0)}%.` : ''}`,
-                    `${why} この銘柄は構造的に場外比率が高めです。ただし本日の出来高自体は平常水準で、比率の高さだけで今日何かがあったとは読めません。${sp != null ? `うち空売りは${sp.toFixed(0)}%です。` : ''}`)
+                    `${why} 이 종목은 구조적으로 장외 비중이 높은 편입니다. 다만 오늘 물량 자체는 평소 수준이라, «비중이 높다»는 사실만으로 오늘 무슨 일이 있었다고 읽기는 어렵습니다.${sp != null ? ` 그중 공매도는 ${shortTxt(sp)}입니다.` : ''}`,
+                    `${why} This name structurally trades more off-exchange than most. Today's size was normal, though, so the elevated share alone does not say something happened today.${sp != null ? ` Short share of it: ${shortTxt(sp)}.` : ''}`,
+                    `${why} この銘柄は構造的に場外比率が高めです。ただし本日の出来高自体は平常水準で、比率の高さだけで今日何かがあったとは読めません。${sp != null ? `うち空売りは${shortTxt(sp)}です。` : ''}`)
                 : T(lang,
-                    `${why} 대부분이 공개 시장에서 소화됐다는 뜻입니다. 기관이 굳이 숨길 필요가 없었거나, 오늘은 참여가 적었습니다.${sp != null ? ` 장외 물량 중 공매도는 ${sp.toFixed(0)}%입니다.` : ''}`,
-                    `${why} Most of the day cleared on the lit market — either there was nothing to hide, or the large players sat out.${sp != null ? ` Short share of the off-exchange piece: ${sp.toFixed(0)}%.` : ''}`,
-                    `${why} 大半が公開市場で消化されたということです。隠す必要がなかったか、今日は大口の参加が少なかったかです。${sp != null ? `場外分のうち空売りは${sp.toFixed(0)}%です。` : ''}`),
+                    `${why} 대부분이 공개 시장에서 소화됐다는 뜻입니다. 기관이 굳이 숨길 필요가 없었거나, 오늘은 참여가 적었습니다.${sp != null ? ` 장외 물량 중 공매도는 ${shortTxt(sp)}입니다.` : ''}`,
+                    `${why} Most of the day cleared on the lit market — either there was nothing to hide, or the large players sat out.${sp != null ? ` Short share of the off-exchange piece: ${shortTxt(sp)}.` : ''}`,
+                    `${why} 大半が公開市場で消化されたということです。隠す必要がなかったか、今日は大口の参加が少なかったかです。${sp != null ? `場外分のうち空売りは${shortTxt(sp)}です。` : ''}`),
         };
     }
 
@@ -216,9 +242,9 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
         return {
             tone: 'negative',
             headline: T(lang,
-                `장외 물량의 ${sp.toFixed(0)}%가 공매도로 찍혔습니다`,
-                `${sp.toFixed(0)}% of the off-exchange volume printed short`,
-                `場外出来高の${sp.toFixed(0)}%が空売りとして記録されました`),
+                `장외 물량의 ${shortTxt(sp)}가 공매도로 찍혔습니다`,
+                `${shortTxt(sp)} of the off-exchange volume printed short`,
+                `場外出来高の${shortTxt(sp)}が空売りとして記録されました`),
             detail: T(lang,
                 `${why} 전체 규모는 평소 수준이지만, 그 안에서 파는 쪽 비중이 높습니다. 매집보다는 헤지·차익 거래에 가까운 구성입니다.`,
                 `${why} Overall size was ordinary, but the sell side dominated within it — a mix that reads closer to hedging or arbitrage than to accumulation.`,
@@ -229,9 +255,9 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
         return {
             tone: 'positive',
             headline: T(lang,
-                `장외 물량 중 공매도는 ${sp.toFixed(0)}%에 그쳤습니다`,
-                `Only ${sp.toFixed(0)}% of the off-exchange volume was short`,
-                `場外出来高のうち空売りは${sp.toFixed(0)}%にとどまりました`),
+                `장외 물량 중 공매도는 ${shortTxt(sp)}에 그쳤습니다`,
+                `Only ${shortTxt(sp)} of the off-exchange volume was short`,
+                `場外出来高のうち空売りは${shortTxt(sp)}にとどまりました`),
             detail: T(lang,
                 `${why} 규모는 평소 수준이지만, 그 안에서 파는 쪽 비중이 낮습니다. 급하게 모으는 모양은 아니어도 매도 압력이 크지 않았다는 뜻입니다.`,
                 `${why} Size was ordinary, but the sell side was light within it — not aggressive accumulation, yet no real selling pressure either.`,

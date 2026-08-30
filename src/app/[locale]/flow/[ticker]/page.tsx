@@ -20,7 +20,8 @@ const TICKER_RE = /^[A-Z]{1,6}$/;
 
 interface Money {
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
-  darkPoolShortPct?: number | null; darkPoolVolRatio?: number | null;
+  darkPoolShortPct?: number | null; darkPoolShortAvg?: number | null; darkPoolShortDev?: number | null;
+  darkPoolVolRatio?: number | null;
   darkPoolStealth?: number | null; darkPoolRegime?: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
   darkPoolMarketAvg?: number | null; darkPoolDate?: string | null; changePct?: number | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
@@ -77,7 +78,7 @@ const L: Record<string, Strings> = {
   relT: 'Nearby tickers',
   allT: 'See all tickers',
   learnT: 'Learn the numbers',
-    lbl: { darkPool: 'Dark pool share', mktAvg: 'market avg', dpVol: 'Dark pool volume vs its norm', dpShort: 'Short share of that', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
+    lbl: { darkPool: 'Dark pool share', mktAvg: 'market avg', dpVol: 'Dark pool volume vs its norm', dpShort: 'Short share of that', norm: 'norm', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
   },
   ko: {
     kicker: '수급 스냅샷',
@@ -99,7 +100,7 @@ const L: Record<string, Strings> = {
   relT: '인접 종목',
   allT: '전체 종목 보기',
   learnT: '숫자를 읽는 법',
-    lbl: { darkPool: '다크풀 비중', mktAvg: '시장 평균', dpVol: '다크풀 물량 (평소 대비)', dpShort: '그중 공매도 비중', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
+    lbl: { darkPool: '다크풀 비중', mktAvg: '시장 평균', dpVol: '다크풀 물량 (평소 대비)', dpShort: '그중 공매도 비중', norm: '평소', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
   },
   ja: {
     kicker: '資金フロー・スナップショット',
@@ -121,7 +122,7 @@ const L: Record<string, Strings> = {
   relT: '近いティッカー',
   allT: '全ティッカーを見る',
   learnT: '数字の読み方',
-    lbl: { darkPool: 'ダークプール比率', mktAvg: '市場平均', dpVol: 'ダークプール出来高（平常比）', dpShort: 'うち空売り比率', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
+    lbl: { darkPool: 'ダークプール比率', mktAvg: '市場平均', dpVol: 'ダークプール出来高（平常比）', dpShort: 'うち空売り比率', norm: '平常', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
   },
 };
 
@@ -207,7 +208,8 @@ export default async function FlowTickerPage(
   const dpRead = m.darkPoolPct != null
     ? readDarkPool(
         { pct: m.darkPoolPct, marketAvg: m.darkPoolMarketAvg ?? null, volRatio: m.darkPoolVolRatio ?? null,
-          shortPct: m.darkPoolShortPct ?? null, regime: m.darkPoolRegime ?? null, date: m.darkPoolDate ?? null,
+          shortPct: m.darkPoolShortPct ?? null, shortAvg: m.darkPoolShortAvg ?? null, shortDev: m.darkPoolShortDev ?? null,
+          regime: m.darkPoolRegime ?? null, date: m.darkPoolDate ?? null,
           changePct: m.changePct ?? null },
         (locale === 'ko' || locale === 'ja' ? locale : 'en') as 'ko' | 'en' | 'ja',
       )
@@ -222,7 +224,10 @@ export default async function FlowTickerPage(
         : `${m.darkPoolPct.toFixed(1)}%`,
     ]);
     if (m.darkPoolVolRatio != null) metrics.push([l.lbl.dpVol, `${m.darkPoolVolRatio.toFixed(1)}×`]);
-    if (m.darkPoolShortPct != null) metrics.push([l.lbl.dpShort, `${m.darkPoolShortPct.toFixed(1)}%`]);
+    if (m.darkPoolShortPct != null) metrics.push([l.lbl.dpShort,
+      m.darkPoolShortAvg != null
+        ? `${m.darkPoolShortPct.toFixed(1)}%  (${l.lbl.norm} ${m.darkPoolShortAvg.toFixed(0)}%)`
+        : `${m.darkPoolShortPct.toFixed(1)}%`]);
   }
   if (m.price != null) metrics.push([l.lbl.price, money$(m.price)!]);
   if (m.maxPain != null) metrics.push([l.lbl.maxPain, money$(m.maxPain)!]);
@@ -240,7 +245,8 @@ export default async function FlowTickerPage(
     if (m.darkPoolShortPct != null) bits.push(`${m.darkPoolShortPct.toFixed(1)}% of it was short`);
     const en = readDarkPool(
       { pct: m.darkPoolPct, marketAvg: m.darkPoolMarketAvg ?? null, volRatio: m.darkPoolVolRatio ?? null,
-        shortPct: m.darkPoolShortPct ?? null, regime: m.darkPoolRegime ?? null, changePct: m.changePct ?? null }, 'en');
+        shortPct: m.darkPoolShortPct ?? null, shortAvg: m.darkPoolShortAvg ?? null, shortDev: m.darkPoolShortDev ?? null,
+        regime: m.darkPoolRegime ?? null, changePct: m.changePct ?? null }, 'en');
     faq.push({ q: `What is ${ticker}'s dark pool volume today?`, a: `${bits.join('; ')}. ${en.headline}. ${en.detail} Source: FINRA.` });
   }
   if (m.maxPain != null) faq.push({ q: `Where is ${ticker}'s max pain?`, a: `${ticker}'s max pain is around ${money$(m.maxPain)}.` });

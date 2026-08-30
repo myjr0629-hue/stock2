@@ -2010,6 +2010,8 @@ function CmdPageContent() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchVal, setSearchVal] = useState('');
 
+  /** 다크풀 해석 펼침 — 기본은 접힘(핵심만). 대표 지적: 화면을 너무 많이 차지한다 */
+  const [dpOpen, setDpOpen] = useState(false);
   const [data, setData] = useState<(typeof DEMO & { rawTickerData?: any; unified?: any; fundRaw?: FundRaw | null; earnRaw?: EarnRaw | null }) | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -2928,6 +2930,8 @@ function CmdPageContent() {
           const mkt = typeof f.darkPoolMarketAvg === 'number' ? f.darkPoolMarketAvg : null;
           const vr = typeof f.darkPoolVolRatio === 'number' ? f.darkPoolVolRatio : null;
           const sp = typeof f.darkPoolShortPct === 'number' ? f.darkPoolShortPct : null;
+          const shAvg = typeof f.darkPoolShortAvg === 'number' ? f.darkPoolShortAvg : null;
+          const dev = typeof f.darkPoolShortDev === 'number' ? f.darkPoolShortDev : null;
           const reg = f.darkPoolRegime as 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
           const gap = mkt != null ? pct - mkt : null;
           const hot = reg === 'ACCUMULATION', cold = reg === 'DISTRIBUTION';
@@ -2937,7 +2941,7 @@ function CmdPageContent() {
             : cold ? (locale === 'ko' ? '은밀 분산' : locale === 'ja' ? '静かな売り抜け' : 'DISTRIBUTION')
             : (locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'NEUTRAL');
           const read = readDarkPool(
-            { pct, marketAvg: mkt, volRatio: vr, shortPct: sp, regime: reg, date: f.darkPoolDate,
+            { pct, marketAvg: mkt, volRatio: vr, shortPct: sp, shortAvg: shAvg, shortDev: dev, regime: reg, date: f.darkPoolDate,
               // 주가 방향과 엮어야 「내리는 걸 사고 있다」가 나온다 — 차별점은 여기다.
               // ⚠️ data.changePct 는 **절댓값**으로 저장된다(표시용). 부호는 data.up 에 있다.
               //    그대로 넘기면 하락장이 상승으로 읽혀 해석이 정반대가 된다.
@@ -2979,22 +2983,46 @@ function CmdPageContent() {
                   <b style={{ color: 'var(--cyan, #22d3ee)' }}>{vr.toFixed(1)}×</b>
                   {locale === 'ko' ? ' (평소 대비)' : locale === 'ja' ? '（平常比）' : ' vs its norm'}</>}
                 {vr != null && sp != null && ' · '}
-                {sp != null && <>{locale === 'ko' ? '그중 공매도 ' : locale === 'ja' ? 'うち空売り ' : 'short share '}
-                  <b style={{ color: sp >= 55 ? 'var(--red)' : 'var(--text, #e2e8f0)' }}>{sp.toFixed(0)}%</b></>}
+                {/* ⚠️ 공매도 «비중»은 단독으로 방향이 아니다 — 시장 중앙값이 49.4%.
+                       도매업자가 소매 매수를 받을 때 일단 공매도로 팔기 때문이다.
+                       그래서 반드시 «평소»를 붙여서 보여 준다. */}
+                {sp != null && <>{locale === 'ko' ? '그중 공매도 ' : locale === 'ja' ? 'うち空売り ' : 'short '}
+                  <b style={{ color: dev != null && Math.abs(dev) >= 4 ? (dev > 0 ? 'var(--red)' : 'var(--green)') : 'var(--text, #e2e8f0)' }}>{sp.toFixed(0)}%</b>
+                  {shAvg != null && <span style={{ opacity: .7 }}>
+                    {locale === 'ko' ? ` (평소 ${shAvg.toFixed(0)}%` : locale === 'ja' ? `（平常${shAvg.toFixed(0)}%` : ` (norm ${shAvg.toFixed(0)}%`}
+                    {dev != null && Math.abs(dev) >= 4 && <b style={{ color: dev > 0 ? 'var(--red)' : 'var(--green)' }}>{` ${dev > 0 ? '+' : ''}${dev.toFixed(0)}%p`}</b>}
+                    {locale === 'ja' ? '）' : ')'}
+                  </span>}
+                </>}
               </div>
-              {/* ── 해석 — 숫자가 아니라 «무슨 일이 있었나» ── */}
-              <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${accent}22` }}>
-                <div style={{ fontSize: 12.5, fontWeight: 800, lineHeight: 1.45, color: accent }}>
+
+              {/* ── 해석 — 기본은 접혀 있다. 화면을 적게 쓰고, 원할 때 연다 ── */}
+              <button
+                type="button"
+                onClick={() => setDpOpen(v => !v)}
+                style={{
+                  appearance: 'none', WebkitAppearance: 'none', width: '100%', marginTop: 8,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                  padding: '7px 0 0', background: 'transparent', border: 'none',
+                  borderTop: `1px solid ${accent}22`, cursor: 'pointer', textAlign: 'left',
+                }}
+                aria-expanded={dpOpen}
+              >
+                <span style={{ fontSize: 11.5, fontWeight: 800, lineHeight: 1.4, color: accent, flex: 1, minWidth: 0,
+                  ...(dpOpen ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }) }}>
                   {read.headline}
-                </div>
-                <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.55, color: 'var(--text-dim, #94a3b8)' }}>
-                  {read.detail}
-                </div>
-                <span style={{ display: 'block', marginTop: 6, fontSize: 9.5, color: 'var(--text-dimmer, #64748b)' }}>
-                  {locale === 'ko' ? '출처 FINRA · 전일 마감 기준 ' : locale === 'ja' ? '出典 FINRA · 前日終値基準 ' : 'Source: FINRA · prior close '}
-                  {f.darkPoolDate ?? ''}
                 </span>
-              </div>
+                <span style={{ flex: '0 0 auto', fontSize: 10, color: 'var(--text-dimmer, #64748b)', transform: dpOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+              </button>
+              {dpOpen && (
+                <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.55, color: 'var(--text-dim, #94a3b8)' }}>
+                  {read.detail}
+                  <span style={{ display: 'block', marginTop: 6, fontSize: 9.5, color: 'var(--text-dimmer, #64748b)' }}>
+                    {locale === 'ko' ? '출처 FINRA · 전일 마감 기준 ' : locale === 'ja' ? '出典 FINRA · 前日終値基準 ' : 'Source: FINRA · prior close '}
+                    {f.darkPoolDate ?? ''}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })()}

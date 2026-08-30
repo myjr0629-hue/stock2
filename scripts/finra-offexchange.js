@@ -267,6 +267,17 @@ function avg(arr) {
             row.volP = pctileOf(d.v, volHist);
         }
         row.shortP = pctileOf(shortPct, shHist);
+        // ★ 공매도 «비중» 자체는 의미가 없다. 시장 중앙값이 49.4% 다 —
+        //   도매업자가 소매 매수의 상대가 될 때 일단 공매도로 팔고 되사기
+        //   때문에 절반은 «구조적»으로 찍힌다. 하락 베팅이 아니다.
+        //   → 그 종목의 «평소»를 같이 줘야 사용자가 오해하지 않는다.
+        //     (실측: CRWD 45.5% 는 평소 46.3% 와 같다 = 이상 없음.
+        //            TSLA 61.9% 는 평소 48.5% 대비 +13.4%p = 진짜 이상.)
+        const shAvg = avg(shHist);
+        if (shAvg != null) {
+            row.shortAvg = Math.round(shAvg * 10) / 10;
+            row.shortDev = Math.round((shortPct - shAvg) * 10) / 10;
+        }
         // 오늘의 비중 %는 오늘부터 쌓인다(과거 통합거래량이 없어 소급 불가)
         row.pctP = pctileOf(pct, (prevSeries.pct?.[sym] || []));
 
@@ -288,7 +299,7 @@ function avg(arr) {
     log(`장외비중 ${matched.toLocaleString()}종목 · 평균 ${marketAvg}% · 제외 ${dropped}건(>100%) · 파생지표 ${derived.toLocaleString()}종목`);
     for (const t of ["SPY", "QQQ", "NVDA", "TSLA", "AAPL"]) {
         const r = out[t];
-        if (r) log(`  ${t}: ${r.pct}% · 공매도 ${r.shortPct}% · 물량 ${r.volRatio ?? "—"}배 · 은밀축적 ${r.stealth ?? "—"} ${r.regime ?? ""}`);
+        if (r) log(`  ${t}: ${r.pct}% · 공매도 ${r.shortPct}%(평소 ${r.shortAvg ?? "—"}%, ${r.shortDev != null && r.shortDev > 0 ? "+" : ""}${r.shortDev ?? "—"}%p) · 물량 ${r.volRatio ?? "—"}배 · ${r.regime ?? ""}`);
     }
 
     if (DRY) { log("--dry · 저장 생략"); return; }

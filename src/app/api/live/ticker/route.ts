@@ -659,6 +659,8 @@ export async function GET(req: NextRequest) {
             darkPoolPct: finraDp?.pct ?? null,
             darkPoolVol: finraDp?.volume ?? null,
             darkPoolShortPct: finraDp?.shortPct ?? null,
+            darkPoolShortAvg: finraDp?.shortAvg ?? null,   // 기준선 — 없으면 오해한다
+            darkPoolShortDev: finraDp?.shortDev ?? null,
             darkPoolVolRatio: finraDp?.volRatio ?? null,
             darkPoolStealth: finraDp?.stealth ?? null,
             darkPoolRegime: finraDp?.regime ?? null,

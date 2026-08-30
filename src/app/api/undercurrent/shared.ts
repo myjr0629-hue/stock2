@@ -37,8 +37,12 @@ export interface MoneyData {
    *   되살렸다(전 종목 11,663개·T+1). 아래 파생값과 함께 쓴다.
    */
   darkPoolPct: number | null;
-  /** 장외 체결 중 공매도 비중 % — 그 물량이 매집인지 헤지인지 가른다 */
+  /** 장외 공매도 비중 %. ⚠️ 시장 중앙값 49.4% — 절반은 구조적이다. 반드시 아래 평균과 함께 */
   darkPoolShortPct: number | null;
+  /** 그 종목의 20일 평균 (기준선) */
+  darkPoolShortAvg: number | null;
+  /** 오늘 − 평소 (%p) — «이상»은 여기서 판단 */
+  darkPoolShortDev: number | null;
   /** 오늘 장외 물량 ÷ 자기 20일 평균. 1.0 = 평소 */
   darkPoolVolRatio: number | null;
   /** 은밀 포지셔닝 점수 0~100 (물량↑ + 공매도비중↓ = 매집 쪽) */
@@ -119,7 +123,7 @@ export function publicBase(origin: string): string {
 
 export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_000): Promise<MoneyData> {
   const empty: MoneyData = {
-    darkPoolPct: null, darkPoolShortPct: null, darkPoolVolRatio: null,
+    darkPoolPct: null, darkPoolShortPct: null, darkPoolShortAvg: null, darkPoolShortDev: null, darkPoolVolRatio: null,
     darkPoolStealth: null, darkPoolRegime: null, darkPoolMarketAvg: null, darkPoolDate: null,
     changePct: null,
     oiPcr: null, volumePcr: null, squeezeScore: null,
@@ -145,6 +149,8 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
     return {
       darkPoolPct: dp?.pct ?? null,
       darkPoolShortPct: dp?.shortPct ?? null,
+      darkPoolShortAvg: dp?.shortAvg ?? null,
+      darkPoolShortDev: dp?.shortDev ?? null,
       darkPoolVolRatio: dp?.volRatio ?? null,
       darkPoolStealth: dp?.stealth ?? null,
       darkPoolRegime: dp?.regime ?? null,
@@ -189,7 +195,7 @@ export function buildSystem(loc: Locale): string {
 HOW TO READ THE MONEY SIGNALS (be precise):
 - newOiContracts / newOiNotional / newOiSide = option positions OPENED yesterday (open interest INCREASED). This is the strongest "smart money" read available: rising open interest means a NEW position, not a close-out — volume alone cannot tell those apart. newOiSide says whether the new money leaned call (upside) or put (downside). Judge size by notional, not contract count.
 - darkPoolPct = share of the day's volume executed OFF-EXCHANGE (dark pools + wholesaler internalization), from FINRA's regulatory tape. This is where institutions work large orders away from the public book. Compare it to darkPoolMarketAvg — the same day's average across all names — never to a fixed number. darkPoolVolRatio says how that off-exchange volume compares to the SAME ticker's own 20-day norm (1.0 = normal, 1.8 = nearly double); a jump there is a stronger signal than the raw share.
-- darkPoolShortPct = what fraction of that off-exchange volume was SHORT. Low = those off-exchange prints lean toward genuine buying; high = they lean toward hedging or distribution. darkPoolStealth (0-100) and darkPoolRegime (ACCUMULATION / DISTRIBUTION / NEUTRAL) combine those two. Treat it as a read on POSITIONING, never as a prediction.
+- darkPoolShortPct = what fraction of that off-exchange volume was SHORT. ⚠️ NEVER read this level as bearish on its own: the market-wide median is ~49% because wholesalers sell short to fill retail buys and cover afterwards — half of it is plumbing, not a bet. Judge it ONLY against darkPoolShortAvg (this ticker's own 20-day norm); darkPoolShortDev is the gap in points. 46% against a 46% norm is unremarkable; 62% against a 48% norm is the real anomaly. darkPoolStealth (0-100) and darkPoolRegime (ACCUMULATION / DISTRIBUTION / NEUTRAL) combine those two. Treat it as a read on POSITIONING, never as a prediction.
 - Dark-pool figures are as of the prior close (darkPoolDate), not intraday. If darkPoolPct is null for this ticker, do not mention off-exchange activity at all and never infer it from other fields.
 - HOW TO READ IT WELL: the raw share is structural — big ETFs always sit near 30%, small caps near 70% — so never call a share "high" or "low" on its own. Lead with darkPoolVolRatio (the same name vs its own 20-day norm), then use darkPoolShortPct to say WHICH WAY that size leaned: volume up + short share low = size was accumulated quietly off the public book; volume up + short share high = hedging or trimming, not buying. Explain the mechanism in one clause — off-exchange prints do not touch the public book, so large orders move size without moving the quote. Describe positioning, never a forecast.
 - putCallRatio (oiPcr / volumePcr) = hedging/direction lean. >1.2 = put-heavy (defensive/bearish lean); 0.8-1.2 = balanced; <0.8 = call-heavy (bullish lean). volumePcr is today's flow; oiPcr is standing positions.

@@ -45,8 +45,19 @@ export interface DarkPoolTicker {
     pct: number;
     /** 장외 체결 거래량(주) */
     volume: number;
-    /** 장외 체결 중 공매도 비중 % — 벤더는 주지 않던 값 */
+    /**
+     * 장외 체결 중 공매도 비중 %.
+     * ⚠️ **이 숫자 자체는 방향성이 아니다.** 시장 중앙값이 49.4% 다 —
+     *    도매업자가 소매 매수의 상대가 될 때 일단 공매도로 팔고 되사기
+     *    때문에 절반은 «구조적»으로 찍힌다. 이 값만 보여 주면
+     *    「46% 공매도 = 하락 베팅」으로 오해한다(실제로 그렇게 읽혔다).
+     *    반드시 shortAvg(그 종목의 평소)와 **함께** 보여 줄 것.
+     */
     shortPct: number | null;
+    /** 이 종목의 20일 평균 공매도 비중 — 기준선 */
+    shortAvg: number | null;
+    /** 오늘 − 평소 (%p). 여기가 «이상»을 말하는 자리다 */
+    shortDev: number | null;
     /** 오늘 장외 물량 ÷ 20일 평균. 1.0 = 평소, 1.76 = 평소의 1.8배 */
     volRatio: number | null;
     /** 장외 «물량»의 자기 20일 백분위 */
@@ -79,6 +90,8 @@ function toTicker(t: string, row: any, date: string | null, marketAvg: number | 
         pct: row.pct,
         volume: row.vol ?? 0,
         shortPct: num(row.shortPct),
+        shortAvg: num(row.shortAvg),
+        shortDev: num(row.shortDev),
         volRatio: num(row.volRatio),
         volP: num(row.volP),
         shortP: num(row.shortP),

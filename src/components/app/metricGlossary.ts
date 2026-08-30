@@ -113,11 +113,11 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
     },
   },
   darkPool: {
-    title: { ko: '다크풀 (Dark Pool)', en: 'Dark Pool', ja: 'ダークプール' },
+    title: { ko: '다크풀이란?', en: 'What is Dark Pool %?', ja: 'ダークプールとは？' },
     body: {
-      ko: '거래소 밖(장외)에서 체결된 거래 비중입니다. 대형 기관이 시장 충격을 줄이려 쓰는 경로로, 비율이 높을수록 기관 활동이 활발한 것으로 관찰됩니다.',
-      en: 'The share of volume executed off-exchange. Large institutions use it to reduce market impact, so a higher percentage is associated with heavier institutional activity.',
-      ja: '取引所外（店頭）で約定した取引の割合です。大口機関が市場インパクトを抑えるために用いる経路で、比率が高いほど機関の活動が活発と観測されます。',
+      ko: '거래소 «밖»에서 체결된 거래의 비율입니다. 이 주문들은 공개 호가창에 뜨지 않아 가격을 밀지 않습니다 — 큰 물량을 조용히 옮길 때 쓰는 통로죠. 미국엔 이런 체결을 FINRA 에 의무 보고하고, 그 규제 원본을 그대로 씁니다(전일 마감 기준).\n\n■ 어떻게 읽나\n· 비중(%)만으로 «높다/낮다»를 판단하면 거의 틀립니다. 대형 ETF 는 늘 30%대, 소형주는 늘 70%대로 종목마다 구조가 다릅니다.\n· 그래서 «물량 배수»(이 종목의 평소 대비 몇 배인가)를 먼저 봅니다. 여기가 변화를 잡는 자리입니다.\n\n■ 「그중 공매도」를 오해하지 마세요\n공매도 비중의 시장 중앙값은 약 49%입니다. 증권사에서 주식을 사면 상대편 도매업자는 그 주식을 갖고 있지 않아 «일단 공매도로 팔고» 나중에 되샅니다. 그래서 절반은 구조적으로 찍히는 것이지 하락 베팅이 아닙니다.\n→ 46%라는 숫자 자체가 아니라 그 종목의 평소(예: 46%)와 얼마나 다른가만 의미가 있습니다.\n\n출처: FINRA. 투자 조언이 아닙니다.',
+      en: 'The share of the day\'s volume that printed AWAY from the public exchanges. Those orders never touch the public book, so they move size without moving the quote — that is exactly why large players use them. US off-exchange trades must be reported to FINRA, and we use that regulatory tape directly (prior close).\n\n■ How to read it\n· The raw share alone tells you little. Big ETFs structurally sit near 30%, small caps near 70%.\n· Look first at the volume multiple — how today compares with this same ticker\'s own 20-day norm. That is where change shows up.\n\n■ Do not misread the short share\nThe market-wide median off-exchange short share is about 49%. When you buy from a wholesaler, it does not own the stock: it sells short to fill you and covers afterwards. Half of it is plumbing, not a bearish bet.\n→ Only the gap against this ticker\'s own norm carries information.\n\nSource: FINRA. Not investment advice.',
+      ja: '取引所の「外」で約定した売買の比率です。これらの注文は板に載らないため価格を動かさずに大口をさばけます。米国では場外約定をFINRAへ報告する義務があり、その規制原本をそのまま使っています（前日終値基準）。\n\n■ 読み方\n・比率だけで「高い/低い」は判断できません。大型ETFは常に30%台、小型株は70%台と銘柄ごとに構造が違います。\n・まず「出来高倍率」（この銘柄の平常比で何倍か）を見ます。変化はここに出ます。\n\n■「うち空売り」を誤解しないでください\n空売り比率の市場中央値は約49%です。証券会社で株を買うと、相手方のホールセラーはその株を保有していないため「まず空売りして」後で買い戻します。半分は市場の配管であって弱気の賭けではありません。\n→ 数値そのものではなく、その銘柄の平常値との差だけが意味を持ちます。\n\n出典：FINRA。投資助言ではありません。',
     },
   },
   liquidity: {
