@@ -73,7 +73,9 @@ export async function GET(request: Request) {
           spy: marketData.spy,
           vix: marketData.vix,
           gex: marketData.gexRegime || 'neutral',
-          dp: marketData.darkPool || 0,
+          // 다크풀은 은퇴했다 — 없는 값을 0 으로 넘기면 이미지에 «0%» 가 찍힌다
+          instNotional: marketData.instNotional ?? null,
+          instCallPct: marketData.instCallPct ?? null,
         });
         if (Object.values(capturedUrls).some(Boolean)) {
           await setInCache(`marketing:pulse:images:${dateKey}`, JSON.stringify(capturedUrls), 86400);
@@ -183,13 +185,15 @@ export async function GET(request: Request) {
         ]);
         const tslaAnalysis = tslaAnalysisRaw ? (typeof tslaAnalysisRaw === 'string' ? JSON.parse(tslaAnalysisRaw) : tslaAnalysisRaw) : {};
 
-        let dp = tslaLive?.darkPoolPercent || tslaAnalysis?.darkPoolPercent || 0;
-        if (dp === 0) {
-          try {
-            const dpC = await safeGetCache('marketing:dp:latest:TSLA');
-            if (dpC) dp = parseFloat(String(dpC)) || 0;
-          } catch {}
-        }
+        // 다크풀은 2026-08-28 소멸 → 이 값은 항상 0 이고, 0 은 OG 에
+        // 「다크풀 0%」로 찍힌다. 종목별 기관 신규 포지션으로 바꾼다.
+        let instN: number | null = null;
+        let instSide: 'call' | 'put' | null = null;
+        try {
+          const { getInstitutionalFlowForTicker } = await import('@/services/institutionalFlow');
+          const f = await getInstitutionalFlowForTicker('TSLA');
+          if (f) { instN = f.notional; instSide = f.side; }
+        } catch {}
         const whale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? 50;
         const gex = String(tslaAnalysis?.gexRegime ?? 'neutral').toLowerCase();
         const price = tslaStock?.price || (tslaLive as any)?.price || tslaAnalysis?.price || 0;
@@ -198,13 +202,17 @@ export async function GET(request: Request) {
         if (change === 0 && prevClose > 0 && price > 0) {
           change = ((price - prevClose) / prevClose) * 100;
         }
-        console.log(`[SpaceX-Content] TSLA data: dp=${dp} whale=${whale} gex=${gex} price=${price} change=${change}`);
+        console.log(`[SpaceX-Content] TSLA data: inst=${instN ?? 'n/a'}(${instSide ?? '-'}) whale=${whale} gex=${gex} price=${price} change=${change}`);
 
         const { captureTemplate } = await import('@/lib/marketing/screenshotService');
         const ogResult = await captureTemplate({
           template: 'spacex_ipo',
           format: 'tweet',
-          data: { dp, whale: String(whale), gex, price: String(price), change, date: dateKey },
+          data: {
+            ...(instN ? { in: instN } : {}),
+            ...(instSide ? { side: instSide } : {}),
+            whale: String(whale), gex, price: String(price), change, date: dateKey,
+          },
         });
         if (ogResult?.cdnUrl) {
           ogCdnUrl = ogResult.cdnUrl;

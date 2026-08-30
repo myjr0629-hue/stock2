@@ -302,14 +302,17 @@ export async function captureDailyPulse(params: {
   spy: number;
   vix: number;
   gex: string;
-  dp: number;
+  /** 다크풀 은퇴(2026-08-28) → 기관 신규 포지션: 금액 + 콜 비중 */
+  instNotional?: number | null;
+  instCallPct?: number | null;
   date?: string;
 }): Promise<Record<string, string | null>> {
   const data: Record<string, string | number> = {
     spy: params.spy,
     vix: params.vix,
     gex: params.gex,
-    dp: params.dp,
+    ...(params.instNotional ? { in: params.instNotional } : {}),
+    ...(params.instCallPct ? { cp: params.instCallPct } : {}),
     date: params.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
   };
   
@@ -328,7 +331,8 @@ export async function captureDailyPulse(params: {
       spy: params.spy,
       vix: params.vix,
       gex: params.gex,
-      dp: params.dp,
+      ...(params.instNotional ? { in: params.instNotional } : {}),
+      ...(params.instCallPct ? { cp: params.instCallPct } : {}),
       date: data.date as string,
     });
     urls.story = storyUrl;
@@ -381,7 +385,9 @@ export async function captureStoryImage(params: {
   spy: string | number;
   vix: string | number;
   gex: string;
-  dp: string | number;
+  /** 다크풀 은퇴 → 기관 신규 포지션(금액·콜 비중). 없으면 그 칸을 안 그린다. */
+  instNotional?: number | null;
+  instCallPct?: number | null;
   date?: string;
   insight?: string;
 }): Promise<string | null> {
@@ -389,7 +395,8 @@ export async function captureStoryImage(params: {
     spy: params.spy,
     vix: params.vix,
     gex: params.gex,
-    dp: params.dp,
+    ...(params.instNotional ? { in: params.instNotional } : {}),
+    ...(params.instCallPct ? { cp: params.instCallPct } : {}),
     date: params.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     ...(params.insight && { insight: params.insight }),
   };

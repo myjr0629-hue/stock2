@@ -47,7 +47,9 @@ export interface MarketPulseV3Props {
   // Scene 3 X-Ray
   gexRegime: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
   gexLabel: string;
-  darkPool: number;
+  /** 다크풀은 2026-08-28 소멸 → 기관 신규 포지션(옵션 OI 증가분)으로 대체 */
+  instNotional?: number | null;
+  instCallPct?: number | null;
   buyRatio: number;
   sellRatio: number;
 
@@ -99,7 +101,8 @@ export const MarketPulseV3: React.FC<MarketPulseV3Props> = (props) => {
     change = '+0.84',
     gexRegime = 'POSITIVE',
     gexLabel = 'NEGATIVE → POSITIVE',
-    darkPool = 39.2,
+    instNotional = null,
+    instCallPct = null,
     buyRatio = 34,
     sellRatio = 65,
     spy = 0.84,
@@ -158,7 +161,8 @@ export const MarketPulseV3: React.FC<MarketPulseV3Props> = (props) => {
             ticker={ticker}
             gexRegime={gexRegime}
             gexLabel={gexLabel}
-            darkPool={darkPool}
+            instNotional={instNotional}
+            instCallPct={instCallPct}
             buyRatio={buyRatio}
             sellRatio={sellRatio}
             lang={lang}

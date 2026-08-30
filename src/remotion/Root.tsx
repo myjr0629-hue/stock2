@@ -834,7 +834,9 @@ export const RemotionRoot: React.FC = () => {
           change: '+0.84',
           gexRegime: 'POSITIVE',
           gexLabel: 'NEGATIVE �� POSITIVE',
-          darkPool: 39.2,
+          // 다크풀 소멸(2026-08-28) → 기관 신규 포지션. 스튜디오 미리보기용 표본.
+          instNotional: 10_900_000_000,
+          instCallPct: 73.3,
           buyRatio: 34,
           sellRatio: 65,
           spy: 0.84,
@@ -861,7 +863,6 @@ export const RemotionRoot: React.FC = () => {
           qqq: -0.8,
           vix: 18.5,
           gexRegime: 'positive',
-          darkPool: 42.3,
           callWall: 590,
           putFloor: 570,
           lang: 'en',

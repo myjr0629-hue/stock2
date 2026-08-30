@@ -25,7 +25,16 @@ export interface MarketSnapshot {
   dia: number;          // DOW change %
   vix: number;          // VIX level
   gexRegime: string;    // positive | negative | neutral
-  darkPool: number;     // Dark pool %
+  /**
+   * ⚠️ 다크풀은 2026-08-28 벤더 권한 상실로 **영구 소멸**했다. 항상 0 이다.
+   *    유지하는 이유는 옛 소비처 호환뿐 — 새 코드는 쓰지 말 것.
+   * @deprecated instNotional / instCallPct 를 쓸 것
+   */
+  darkPool: number;
+  /** 기관 신규 포지션 금액(USD). 없으면 null — 0 으로 만들지 않는다. */
+  instNotional: number | null;
+  /** 그중 콜 비중 0~100 */
+  instCallPct: number | null;
   fearGreed: number;    // CNN Fear & Greed
   spyPrice: number;     // SPY 현재가
 }
@@ -78,18 +87,18 @@ export async function fetchMarketSnapshot(): Promise<MarketSnapshot> {
     else if (vixA?.value) vix = vixA.value;
   }
 
-  // Live Dark Pool from EC2
-  if (darkPool === 0) {
-    try {
-      const { fetchTradeData } = await import('@/services/realtimeMetricsService');
-      const trades = await fetchTradeData('SPY');
-      if (trades && trades.darkPoolPercent && trades.darkPoolPercent > 0) darkPool = trades.darkPoolPercent;
-    } catch {}
-  }
+  // 다크풀 대체: 기관 신규 포지션(옵션 미결제약정 증가분)
+  let instNotional: number | null = null;
+  let instCallPct: number | null = null;
+  try {
+    const { getInstitutionalFlowSummary } = await import('@/services/institutionalFlow');
+    const inst = await getInstitutionalFlowSummary();
+    if (inst) { instNotional = inst.notional; instCallPct = inst.callPct; }
+  } catch {}
 
   console.log(`[MktV2/DataCollector] 💎 Polygon SSoT Real-time: SPY=${spy.toFixed(2)}%, QQQ=${qqq.toFixed(2)}%, DIA=${dia.toFixed(2)}%, SPY_Price=$${spyPrice.toFixed(2)}`);
 
-  return { spy, qqq, dia, vix, gexRegime, darkPool, fearGreed, spyPrice };
+  return { spy, qqq, dia, vix, gexRegime, darkPool, instNotional, instCallPct, fearGreed, spyPrice };
 }
 
 // ── Guardian AI Verdicts ──

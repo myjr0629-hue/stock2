@@ -30,7 +30,9 @@ const L: Record<string, Record<string, string>> = {
     hook_title: 'MARKET STRUCTURE',
     data_title: 'TODAY\'S DATA',
     gex_title: 'GEX REGIME',
-    darkpool_title: 'DARK POOL',
+    darkpool_title: 'NEW INSTITUTIONAL POSITIONS',
+    inst_call: 'CALLS',
+    inst_put: 'PUTS',
     insight_title: 'KEY INSIGHT',
     cta_title: 'SIGNUM HQ',
     swipe_hook: 'See today\'s data →',
@@ -50,7 +52,9 @@ const L: Record<string, Record<string, string>> = {
     hook_title: '시장 구조 분석',
     data_title: '오늘의 데이터',
     gex_title: 'GEX 레짐',
-    darkpool_title: '다크풀',
+    darkpool_title: '기관 신규 포지션',
+    inst_call: '콜',
+    inst_put: '풋',
     insight_title: '핵심 인사이트',
     cta_title: 'SIGNUM HQ',
     swipe_hook: '오늘의 데이터 보기 →',
@@ -70,7 +74,9 @@ const L: Record<string, Record<string, string>> = {
     hook_title: 'マーケット構造分析',
     data_title: '本日のデータ',
     gex_title: 'GEXレジーム',
-    darkpool_title: 'ダークプール',
+    darkpool_title: '機関の新規ポジション',
+    inst_call: 'コール',
+    inst_put: 'プット',
     insight_title: 'キーインサイト',
     cta_title: 'SIGNUM HQ',
     swipe_hook: 'Data →',
@@ -111,7 +117,18 @@ export async function GET(req: NextRequest) {
   const vix    = parseFloat(searchParams.get('vix') || '0');
   const gex    = searchParams.get('gex') || 'neutral';
   const date   = searchParams.get('date') || new Date().toISOString().split('T')[0];
-  const darkPool = searchParams.get('dp') || '';
+  // ⚠️ 다크풀(`dp`)은 2026-08-28 벤더 권한 상실로 **영구 소멸**했다.
+  //    그런데 이 슬라이드는 `darkPool || '42.3'` 로 42.3% 를 그려 «발행되는
+  //    OG 이미지»에 존재하지 않는 숫자를 실어 내보내고 있었다.
+  //    (dp=0 이 들어오면 문자열 '0' 이 truthy 라 「0%」가 나갔다.)
+  //    대체: 기관 신규 포지션 — 금액(in) + 콜 비중(cp).
+  const instNotional = parseFloat(searchParams.get('in') || '0');
+  const instCallPct = parseFloat(searchParams.get('cp') || '0');
+  const hasInst = Number.isFinite(instNotional) && instNotional > 0
+    && Number.isFinite(instCallPct) && instCallPct > 0;
+  const instMoney = instNotional >= 1e12 ? `$${(instNotional / 1e12).toFixed(1)}T`
+    : instNotional >= 1e9 ? `$${(instNotional / 1e9).toFixed(1)}B`
+    : `$${(instNotional / 1e6).toFixed(0)}M`;
 
   const l = L[lang] || L.en;
   const gc = gexColor(gex);
@@ -313,15 +330,23 @@ export async function GET(req: NextRequest) {
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '40px' }}>
             <span style={{ fontSize: '80px', fontWeight: 900, color: C.cyan }}>
-              {darkPool || '42.3'}%
+              {hasInst ? instMoney : '—'}
             </span>
-            {/* Bar */}
-            <div style={{ display: 'flex', width: '80%', height: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.08)' }}>
-              <div style={{
-                width: `${darkPool || 42.3}%`, height: '100%', borderRadius: '8px',
-                background: `linear-gradient(90deg, ${C.cyanDim}, ${C.cyan})`,
-              }} />
-            </div>
+            {/* 콜/풋 비중 — 값이 없으면 막대를 «안 그린다» */}
+            {hasInst && (
+              <div style={{ display: 'flex', width: '80%', height: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.08)' }}>
+                <div style={{
+                  width: `${Math.max(0, Math.min(100, instCallPct))}%`, height: '100%', borderRadius: '8px',
+                  background: `linear-gradient(90deg, ${C.cyanDim}, ${C.cyan})`,
+                }} />
+              </div>
+            )}
+            {hasInst && (
+              <div style={{ display: 'flex', width: '80%', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '22px', color: C.cyan, fontWeight: 700 }}>{l.inst_call} {instCallPct.toFixed(0)}%</span>
+                <span style={{ fontSize: '22px', color: C.muted, fontWeight: 700 }}>{l.inst_put} {(100 - instCallPct).toFixed(0)}%</span>
+              </div>
+            )}
             <div style={{
               display: 'flex', padding: '24px 32px', borderRadius: '16px', width: '100%',
               background: C.glass, border: `1px solid ${C.glassBorder}`,

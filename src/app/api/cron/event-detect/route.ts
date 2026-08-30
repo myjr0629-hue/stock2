@@ -166,7 +166,7 @@ export async function GET(request: Request) {
         detail: content.en?.text?.substring(0, 100) || '',
         spy: marketData.spy || 0,
         vix: marketData.vix || 0,
-        dp: marketData.darkPool || 0,
+        // dp(다크풀)는 은퇴 — 0 을 넘기면 이미지에 「0%」가 찍힌다
       });
       console.log(`[EventDetect] 📸 Captured: tweet=${!!eventImages.tweet}, story=${!!eventImages.story}`);
     } catch (err: any) {

@@ -17,7 +17,14 @@ interface Scene3Props {
   ticker: string;
   gexRegime: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
   gexLabel: string;
-  darkPool: number;
+  /**
+   * ⚠️ 다크풀은 2026-08-28 벤더 권한 상실로 **영구 소멸**했다.
+   *    그런데 이 씬은 `darkPool || 35` 로 35% 를 채워 «발행되는 영상»에
+   *    존재하지 않는 숫자를 실어 내보내고 있었다(칩의 ELEVATED 도 하드코딩).
+   *    대체: 옵션 미결제약정 증가분 = 기관 신규 포지션. 우리가 실제로 잰다.
+   */
+  instNotional?: number | null;  // 신규 진입 금액(USD)
+  instCallPct?: number | null;   // 콜 비중 0~100
   buyRatio: number;
   sellRatio: number;
   lang: 'en' | 'ko' | 'ja';
@@ -26,9 +33,9 @@ interface Scene3Props {
 const clamp = { extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const };
 
 const L = {
-  en: { xray: 'Structural X-Ray', regime: 'GEX REGIME', dp: 'Dark Pool Activity', buy: 'Buy Flow', sell: 'Sell Flow', scan: 'SCANNING MARKET STRUCTURE', status: 'Detected status' },
-  ko: { xray: '구조 X-Ray 분석', regime: 'GEX 레짐', dp: '다크풀 활동', buy: '매수 흐름', sell: '매도 흐름', scan: '시장 구조 스캔중', status: '감지 상태' },
-  ja: { xray: '構造X-Ray分析', regime: 'GEXレジーム', dp: 'ダークプール', buy: '買いフロー', sell: '売りフロー', scan: '市場構造スキャン中', status: '検出ステータス' },
+  en: { xray: 'Structural X-Ray', regime: 'GEX REGIME', dp: 'New Institutional Positions', buy: 'Buy Flow', sell: 'Sell Flow', scan: 'SCANNING MARKET STRUCTURE', status: 'Detected status', call: 'Calls', put: 'Puts', callHeavy: 'CALL-HEAVY', putHeavy: 'PUT-HEAVY', balanced: 'BALANCED' },
+  ko: { xray: '구조 X-Ray 분석', regime: 'GEX 레짐', dp: '기관 신규 포지션', buy: '매수 흐름', sell: '매도 흐름', scan: '시장 구조 스캔중', status: '감지 상태', call: '콜', put: '풋', callHeavy: '콜 우위', putHeavy: '풋 우위', balanced: '균형' },
+  ja: { xray: '構造X-Ray分析', regime: 'GEXレジーム', dp: '機関の新規ポジション', buy: '買いフロー', sell: '売りフロー', scan: '市場構造スキャン中', status: '検出ステータス', call: 'コール', put: 'プット', callHeavy: 'コール優勢', putHeavy: 'プット優勢', balanced: '均衡' },
 };
 
 const regimeMeta = (regime: string) => {
@@ -114,11 +121,30 @@ const SemiGauge: React.FC<{ regime: string; frame: number; fps: number; l: typeo
 };
 
 // ── Dark Pool Panel ──
-const DarkPoolPanel: React.FC<{ dp: number; buy: number; sell: number; frame: number; fps: number; l: typeof L.en }> = ({ dp, buy, sell, frame, fps, l }) => {
+const money = (v: number) => {
+  if (v >= 1e12) return `$${(v / 1e12).toFixed(1)}T`;
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
+  return `$${Math.round(v / 1e3)}K`;
+};
+
+/**
+ * 기관 신규 포지션 패널 (다크풀 패널 대체).
+ *   값이 없으면 **아무것도 그리지 않는다**. 예전 패널은 값이 없어도 35% 와
+ *   'ELEVATED' 칩을 그렸다 — 칩은 아예 값과 무관한 하드코딩이었다.
+ */
+const InstitutionalPanel: React.FC<{
+  notional: number; callPct: number; frame: number; fps: number; l: typeof L.en;
+}> = ({ notional, callPct, frame, fps, l }) => {
   const reveal = spring({ frame: frame - 72, fps, config: { damping: 22, stiffness: 110, mass: 0.8 } });
-  const width = interpolate(reveal, [0, 1], [0, dp], clamp);
+  const width = interpolate(reveal, [0, 1], [0, callPct], clamp);
   const opacity = interpolate(frame, [62, 92], [0, 1], clamp);
   const y = interpolate(frame, [62, 92], [28, 0], clamp);
+  const putPct = Math.round((100 - callPct) * 10) / 10;
+  // 칩은 «데이터에서» 나온다
+  const chip = callPct >= 60 ? { text: l.callHeavy, color: C.emerald }
+    : callPct <= 40 ? { text: l.putHeavy, color: C.red }
+    : { text: l.balanced, color: C.amber };
 
   return (
     <div style={{
@@ -131,12 +157,12 @@ const DarkPoolPanel: React.FC<{ dp: number; buy: number; sell: number; frame: nu
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <div style={{ color: C.muted, fontSize: 18, fontWeight: 900, letterSpacing: '0.34em', textTransform: 'uppercase' }}>{l.dp}</div>
-          <div style={{ marginTop: 22, color: C.purple, fontSize: 72, lineHeight: 0.85, fontWeight: 900, letterSpacing: '-0.06em', textShadow: `0 0 30px ${C.purple}66` }}>{dp.toFixed(1)}%</div>
+          <div style={{ marginTop: 22, color: C.cyan, fontSize: 72, lineHeight: 0.85, fontWeight: 900, letterSpacing: '-0.06em', textShadow: `0 0 30px ${C.cyan}66` }}>{money(notional)}</div>
         </div>
-        <div style={{ padding: '13px 21px', borderRadius: 999, border: `1px solid rgba(245,158,11,.44)`, background: 'rgba(245,158,11,.08)', color: C.amber, fontSize: 18, fontWeight: 900, letterSpacing: '0.14em' }}>ELEVATED</div>
+        <div style={{ padding: '13px 21px', borderRadius: 999, border: `1px solid ${chip.color}70`, background: `${chip.color}14`, color: chip.color, fontSize: 18, fontWeight: 900, letterSpacing: '0.14em' }}>{chip.text}</div>
       </div>
       <div style={{ marginTop: 44, width: '100%', height: 18, borderRadius: 999, background: '#1e293b', overflow: 'hidden', position: 'relative' }}>
-        <div style={{ width: `${width}%`, height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${C.purple}, ${C.cyan})`, boxShadow: `0 0 26px ${C.purple}` }} />
+        <div style={{ width: `${width}%`, height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${C.emerald}, ${C.cyan})`, boxShadow: `0 0 26px ${C.emerald}` }} />
         {width > 5 && <div style={{
           position: 'absolute', top: '50%', left: `${width}%`, transform: 'translate(-50%, -50%)',
           width: 28, height: 28, borderRadius: '50%', background: C.cyan,
@@ -145,12 +171,12 @@ const DarkPoolPanel: React.FC<{ dp: number; buy: number; sell: number; frame: nu
       </div>
       <div style={{ marginTop: 31, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
         <div>
-          <div style={{ color: C.muted, fontSize: 16, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase' }}>{l.buy}</div>
-          <div style={{ marginTop: 8, color: C.emerald, fontSize: 34, fontWeight: 900 }}>{buy}%</div>
+          <div style={{ color: C.muted, fontSize: 16, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase' }}>{l.call}</div>
+          <div style={{ marginTop: 8, color: C.emerald, fontSize: 34, fontWeight: 900 }}>{callPct.toFixed(1)}%</div>
         </div>
         <div>
-          <div style={{ color: C.muted, fontSize: 16, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase' }}>{l.sell}</div>
-          <div style={{ marginTop: 8, color: C.red, fontSize: 34, fontWeight: 900 }}>{sell}%</div>
+          <div style={{ color: C.muted, fontSize: 16, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase' }}>{l.put}</div>
+          <div style={{ marginTop: 8, color: C.red, fontSize: 34, fontWeight: 900 }}>{putPct.toFixed(1)}%</div>
         </div>
       </div>
     </div>
@@ -158,7 +184,7 @@ const DarkPoolPanel: React.FC<{ dp: number; buy: number; sell: number; frame: nu
 };
 
 // ── Main Export ──
-export const Scene3_XRay: React.FC<Scene3Props> = ({ ticker, gexRegime, gexLabel, darkPool, buyRatio, sellRatio, lang }) => {
+export const Scene3_XRay: React.FC<Scene3Props> = ({ ticker, gexRegime, gexLabel, instNotional, instCallPct, buyRatio, sellRatio, lang }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const meta = regimeMeta(gexRegime);
@@ -201,7 +227,10 @@ export const Scene3_XRay: React.FC<Scene3Props> = ({ ticker, gexRegime, gexLabel
         <SemiGauge regime={gexRegime} frame={frame} fps={fps} l={l} />
       </div>
       <div style={{ opacity: poolReveal }}>
-        <DarkPoolPanel dp={darkPool} buy={buyRatio} sell={sellRatio} frame={frame} fps={fps} l={l} />
+        {/* 값이 없으면 패널 자체를 안 그린다 — 지어낸 숫자로 채우지 않는다 */}
+        {typeof instNotional === 'number' && instNotional > 0 && typeof instCallPct === 'number' && (
+          <InstitutionalPanel notional={instNotional} callPct={instCallPct} frame={frame} fps={fps} l={l} />
+        )}
       </div>
 
       {/* Status strip */}

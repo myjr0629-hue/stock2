@@ -14,7 +14,16 @@ export interface MarketData {
   qqq: number;
   vix: number;
   gexRegime: string;
+  /**
+   * @deprecated 다크풀은 2026-08-28 벤더 권한 상실로 **영구 소멸**했다.
+   *   `!= null` 가드는 0 을 통과시키므로 「$0% of volume went dark」 같은 글이
+   *   실제로 발행됐다. 새 코드는 instNotional/instCallPct 를 쓸 것.
+   */
   darkPool?: number;
+  /** 기관 신규 포지션 금액(USD) — 옵션 미결제약정 증가분 */
+  instNotional?: number | null;
+  /** 그중 콜 비중 0~100 */
+  instCallPct?: number | null;
   pcr?: number;
   maxPain?: number;
   callWall?: number;
@@ -83,16 +92,41 @@ function gexMeaning(gex: string, lang: string): string {
   return m[gex.toLowerCase()]?.[lang] || '';
 }
 
-// Dark Pool → interpretation
-function dpMeaning(dp: number, lang: string): string {
-  if (dp >= 40) {
-    return lang === 'ko' ? '기관이 수면 아래에서 움직이고 있습니다' :
-           lang === 'ja' ? '機関が水面下で動いています' :
-           'Institutions are active beneath the surface';
+// 기관 신규 포지션 → 표기·해석 (다크풀 대체)
+function instMoney(v: number): string {
+  if (v >= 1e12) return `$${(v / 1e12).toFixed(1)}T`;
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  return `$${(v / 1e6).toFixed(0)}M`;
+}
+function instMeaning(callPct: number, lang: string): string {
+  if (callPct >= 60) {
+    return lang === 'ko' ? '콜 쪽으로 신규 자금이 쏠렸습니다' :
+           lang === 'ja' ? 'コール側に新規資金が偏りました' :
+           'new money skewed to calls';
   }
-  return lang === 'ko' ? '기관 활동 정상 범위' :
-         lang === 'ja' ? '機関活動は通常範囲' :
-         'Institutional activity within normal range';
+  if (callPct <= 40) {
+    return lang === 'ko' ? '풋 쪽으로 신규 자금이 쏠렸습니다' :
+           lang === 'ja' ? 'プット側に新規資金が偏りました' :
+           'new money skewed to puts';
+  }
+  return lang === 'ko' ? '콜·풋이 균형을 이뤘습니다' :
+         lang === 'ja' ? 'コールとプットが均衡しました' :
+         'calls and puts were balanced';
+}
+/**
+ * 한 줄 문구. **둘 다 있어야** 문장을 만든다 — 없으면 빈 문자열이라
+ * 그 줄이 통째로 빠진다(0 을 그리지 않는다).
+ */
+function instLine(data: { instNotional?: number | null; instCallPct?: number | null },
+                  lang: 'en' | 'ko' | 'ja', style: 'bullet' | 'plain' | 'compact'): string {
+  const n = data.instNotional, c = data.instCallPct;
+  if (typeof n !== 'number' || !(n > 0) || typeof c !== 'number' || !(c > 0)) return '';
+  const label = lang === 'ko' ? '기관 신규 포지션' : lang === 'ja' ? '機関の新規ポジション' : 'New institutional positions';
+  const val = instMoney(n);
+  if (style === 'compact') return `${label}: ${val}`;
+  const mean = instMeaning(c, lang);
+  if (style === 'bullet') return `▸ ${label}: ${val} — ${mean}`;
+  return lang === 'ja' ? `${label}${val} — ${mean}。` : `${label} ${val} — ${mean}.`;
 }
 
 // GEX regime → historical directional tendency (compliance-safe)
@@ -134,7 +168,7 @@ function getPulseHook(data: MarketData, lang: string): string[] {
      `SPY ${fmt(data.spy)}. But here's what actually shifted:`],
     [`Everyone saw ${fmt(data.spy)}. Almost no one saw what happened underneath.`],
     [`The close was ${fmt(data.spy)}. The structure tells a different story.`],
-    [`SPY ${fmt(data.spy)}. But $${data.darkPool?.toFixed(0) || '?'}% of volume went dark.`,
+    [`SPY ${fmt(data.spy)}. Institutions opened ${data.instNotional ? instMoney(data.instNotional) : 'new'} in fresh option positions.`,
      `Here's what the options market is actually saying:`],
     [`Headline: SPY ${fmt(data.spy)}.`,
      `Reality: The options structure just shifted.`],
@@ -170,7 +204,7 @@ function getPulseHook(data: MarketData, lang: string): string[] {
 // ---------------------------------------------------------------------------
 export function generateMarketPulse(data: MarketData): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const imageParams = `type=pulse&spy=${data.spy}&vix=${data.vix}&gex=${data.gexRegime}&dp=${data.darkPool ?? ''}`;
+  const imageParams = `type=pulse&spy=${data.spy}&vix=${data.vix}&gex=${data.gexRegime}&in=${data.instNotional ?? ''}&cp=${data.instCallPct ?? ''}`;
   const gex = data.gexRegime.toUpperCase();
 
   // ── English ──────────────────────────────────────────
@@ -180,7 +214,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     ``,
     // Data + Meaning
     `▸ GEX flipped ${gex} (${gexMeaning(data.gexRegime, 'en')})`,
-    data.darkPool != null ? `▸ Dark Pool at ${data.darkPool.toFixed(1)}% (${dpMeaning(data.darkPool, 'en')})` : '',
+    instLine(data, 'en', 'bullet'),
     ``,
     // Historical context (compliance-safe — Phase 3-6)
     gexHistorical(data.gexRegime, 'en'),
@@ -198,7 +232,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     ``,
     // Data + Meaning
     `GEX is ${gex} — ${gexMeaning(data.gexRegime, 'en')}`,
-    data.darkPool != null ? `Dark Pool at ${data.darkPool.toFixed(1)}% — ${dpMeaning(data.darkPool, 'en')}.` : '',
+    instLine(data, 'en', 'plain'),
     data.callWall ? `Key levels: Call Wall $${data.callWall}, Put Floor $${data.putFloor}.` : '',
     ``,
     // Conversational close (Threads algorithm: replies > likes)
@@ -217,7 +251,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     `▸ GEX Regime: ${gex}`,
     `→ ${gexMeaning(data.gexRegime, 'en')}`,
     ``,
-    data.darkPool != null ? `▸ Dark Pool: ${data.darkPool.toFixed(1)}% — ${dpMeaning(data.darkPool, 'en')}` : '',
+    instLine(data, 'en', 'bullet'),
     data.pcr != null ? `▸ P/C Ratio: ${data.pcr.toFixed(2)}` : '',
     data.callWall ? `▸ Call Wall: $${data.callWall}  ·  Put Floor: $${data.putFloor}` : '',
     data.maxPain != null ? `▸ Max Pain: $${data.maxPain}` : '',
@@ -235,7 +269,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
   const enBluesky = [
     `SPY ${fmt(data.spy)} · QQQ ${fmt(data.qqq)} · VIX ${data.vix.toFixed(1)}`,
     `GEX: ${gex} — ${gexMeaning(data.gexRegime, 'en')}`,
-    data.darkPool != null ? `Dark Pool: ${data.darkPool.toFixed(1)}%` : '',
+    instLine(data, 'en', 'compact'),
     DISCLAIMER.en,
   ].filter(Boolean).join('\n');
 
@@ -245,7 +279,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     ...getPulseHook(data, 'ko'),
     ``,
     `▸ GEX: ${gex} 진입 (${gexMeaning(data.gexRegime, 'ko')})`,
-    data.darkPool != null ? `▸ 다크풀: ${data.darkPool.toFixed(1)}% (${dpMeaning(data.darkPool, 'ko')})` : '',
+    instLine(data, 'ko', 'bullet'),
     ``,
     gexHistorical(data.gexRegime, 'ko'),
     ``,
@@ -259,7 +293,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     `하지만 그 숫자가 실제로 바뀐 것을 가리고 있습니다.`,
     ``,
     `GEX가 ${gex} — ${gexMeaning(data.gexRegime, 'ko')}`,
-    data.darkPool != null ? `다크풀 ${data.darkPool.toFixed(1)}% — ${dpMeaning(data.darkPool, 'ko')}.` : '',
+    instLine(data, 'ko', 'plain'),
     data.callWall ? `주시 레벨: Call Wall $${data.callWall}, Put Floor $${data.putFloor}` : '',
     ``,
     `표면적 가격과 심층 구조의 괴리.`,
@@ -277,7 +311,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     `▸ GEX 레짐: ${gex}`,
     `→ ${gexMeaning(data.gexRegime, 'ko')}`,
     ``,
-    data.darkPool != null ? `▸ 다크풀: ${data.darkPool.toFixed(1)}% — ${dpMeaning(data.darkPool, 'ko')}` : '',
+    instLine(data, 'ko', 'bullet'),
     data.pcr != null ? `▸ 풋/콜 비율: ${data.pcr.toFixed(2)}` : '',
     data.callWall ? `▸ Call Wall: $${data.callWall}  ·  Put Floor: $${data.putFloor}` : '',
     data.maxPain != null ? `▸ Max Pain: $${data.maxPain}` : '',
@@ -295,7 +329,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
   const koBluesky = [
     `SPY ${fmt(data.spy)} · QQQ ${fmt(data.qqq)} · VIX ${data.vix.toFixed(1)}`,
     `GEX: ${gex} — ${gexMeaning(data.gexRegime, 'ko')}`,
-    data.darkPool != null ? `다크풀: ${data.darkPool.toFixed(1)}%` : '',
+    instLine(data, 'ko', 'compact'),
     DISCLAIMER.ko,
   ].filter(Boolean).join('\n');
 
@@ -305,7 +339,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     ...getPulseHook(data, 'ja'),
     ``,
     `▸ GEX: ${gex}（${gexMeaning(data.gexRegime, 'ja')}）`,
-    data.darkPool != null ? `▸ ダークプール: ${data.darkPool.toFixed(1)}%（${dpMeaning(data.darkPool, 'ja')}）` : '',
+    instLine(data, 'ja', 'bullet'),
     ``,
     gexHistorical(data.gexRegime, 'ja'),
     ``,
@@ -319,7 +353,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     `しかし、その数字は実際に変わったことを隠しています。`,
     ``,
     `GEXが${gex} — ${gexMeaning(data.gexRegime, 'ja')}`,
-    data.darkPool != null ? `ダークプール${data.darkPool.toFixed(1)}% — ${dpMeaning(data.darkPool, 'ja')}。` : '',
+    instLine(data, 'ja', 'plain'),
     ``,
     `表面の価格と深層構造の乖離。`,
     ``,
@@ -336,7 +370,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     `▸ GEXレジーム: ${gex}`,
     `→ ${gexMeaning(data.gexRegime, 'ja')}`,
     ``,
-    data.darkPool != null ? `▸ ダークプール: ${data.darkPool.toFixed(1)}% — ${dpMeaning(data.darkPool, 'ja')}` : '',
+    instLine(data, 'ja', 'bullet'),
     data.pcr != null ? `▸ P/Cレシオ: ${data.pcr.toFixed(2)}` : '',
     ``,
     `価格は現象。オプション構造は本質です。`,
@@ -398,7 +432,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
 // ---------------------------------------------------------------------------
 export function generateMorningBrief(data: MarketData & { briefingSummary?: string }): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const imageParams = `spy=${data.spy}&vix=${data.vix.toFixed(1)}&gex=${data.gexRegime}&dp=${data.darkPool ?? ''}${data.briefingSummary ? '&insight=' + encodeURIComponent(data.briefingSummary.substring(0, 120)) : ''}`;
+  const imageParams = `spy=${data.spy}&vix=${data.vix.toFixed(1)}&gex=${data.gexRegime}&in=${data.instNotional ?? ''}&cp=${data.instCallPct ?? ''}${data.briefingSummary ? '&insight=' + encodeURIComponent(data.briefingSummary.substring(0, 120)) : ''}`;
   const gex = data.gexRegime.toUpperCase();
 
   const enTwitter = [
@@ -604,7 +638,7 @@ export function getEducationTopicIds(): string[] {
 export function generateEventSpike(event: EventData, marketData?: Partial<MarketData>): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
 
-  const imageParams = `ticker=${event.ticker}&event=${encodeURIComponent(event.details)}&spy=${marketData?.spy || 0}&vix=${marketData?.vix || 0}&dp=${marketData?.darkPool ?? ''}`;
+  const imageParams = `ticker=${event.ticker}&event=${encodeURIComponent(event.details)}&spy=${marketData?.spy || 0}&vix=${marketData?.vix || 0}&in=${marketData?.instNotional ?? ''}&cp=${marketData?.instCallPct ?? ''}`;
 
   function buildEvent(lang: 'en' | 'ko' | 'ja') {
     const premium = event.premium ? (
@@ -754,7 +788,11 @@ const SPOTLIGHT_TICKERS = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSL
 
 export interface SpotlightData {
   ticker: string;
+  /** @deprecated 다크풀 소멸(2026-08-28). instNotional 을 쓸 것 */
   darkPoolPct?: number;
+  /** 이 종목의 기관 신규 포지션 금액(USD) — 옵션 미결제약정 증가분 */
+  instNotional?: number | null;
+  instSide?: 'call' | 'put' | null;
   buyPct?: number;
   sellPct?: number;
   blockTrades?: number;
@@ -762,21 +800,23 @@ export interface SpotlightData {
 
 export function generateTickerSpotlight(data: SpotlightData): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const { ticker, darkPoolPct, buyPct, sellPct, blockTrades } = data;
+  const { ticker, instNotional, instSide, buyPct, sellPct, blockTrades } = data;
 
-  const dpText = darkPoolPct != null ? `Dark Pool: ${darkPoolPct.toFixed(1)}%` : '';
+  // 다크풀 줄은 삭제했다 — 원천이 없는데 「Dark Pool: 0.0%」가 발행되고 있었다.
+  const hasInst = typeof instNotional === 'number' && instNotional > 0;
+  const instVal = hasInst ? instMoney(instNotional!) : '';
   const flowText = buyPct != null && sellPct != null
     ? `Flow: ${buyPct > sellPct ? 'Buy-side dominant' : 'Sell-side dominant'} (${buyPct.toFixed(0)}/${sellPct.toFixed(0)})`
     : '';
   const blockText = blockTrades != null && blockTrades > 0 ? `${blockTrades} block trades detected` : '';
 
-  const imageParams = `t=${ticker}&dp=${darkPoolPct ?? ''}&buy=${buyPct ?? ''}&sell=${sellPct ?? ''}&blocks=${blockTrades ?? ''}&position=${darkPoolPct != null ? Math.min(Math.round(darkPoolPct * 2.5), 100) : 50}`;
+  const imageParams = `t=${ticker}&in=${instNotional ?? ''}&buy=${buyPct ?? ''}&sell=${sellPct ?? ''}&blocks=${blockTrades ?? ''}&position=${buyPct ?? 50}`;
   const imageUrl = (lang: string) => `${baseUrl}/templates/og/spotlight?${imageParams}&lang=${lang}`;
 
   const enText = [
     `$${ticker} — Under the Hood`,
     ``,
-    dpText ? `▸ ${dpText}` : '',
+    hasInst ? `▸ New institutional positions: ${instVal}${instSide ? ` (${instSide}-side)` : ''}` : '',
     flowText ? `▸ ${flowText}` : '',
     blockText ? `▸ ${blockText}` : '',
     ``,
@@ -787,7 +827,7 @@ export function generateTickerSpotlight(data: SpotlightData): ContentOutput {
   const koText = [
     `$${ticker} — 구조 분석`,
     ``,
-    dpText ? `▸ 다크풀: ${darkPoolPct?.toFixed(1)}%` : '',
+    hasInst ? `▸ 기관 신규 포지션: ${instVal}${instSide ? ` (${instSide === 'call' ? '콜' : '풋'} 우위)` : ''}` : '',
     flowText ? `▸ 플로우: ${buyPct! > sellPct! ? '매수 우위' : '매도 우위'} (${buyPct?.toFixed(0)}/${sellPct?.toFixed(0)})` : '',
     blockText ? `▸ 블록 트레이드 ${blockTrades}건 감지` : '',
     ``,
@@ -798,7 +838,7 @@ export function generateTickerSpotlight(data: SpotlightData): ContentOutput {
   const jaText = [
     `$${ticker} — 構造分析`,
     ``,
-    dpText ? `▸ ダークプール: ${darkPoolPct?.toFixed(1)}%` : '',
+    hasInst ? `▸ 機関の新規ポジション: ${instVal}${instSide ? `（${instSide === 'call' ? 'コール' : 'プット'}優勢）` : ''}` : '',
     flowText ? `▸ フロー: ${buyPct! > sellPct! ? '買い優勢' : '売り優勢'} (${buyPct?.toFixed(0)}/${sellPct?.toFixed(0)})` : '',
     blockText ? `▸ ブロックトレード ${blockTrades}件検出` : '',
     ``,

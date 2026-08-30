@@ -38,7 +38,7 @@ const L: Record<string, Record<string, string>> = {
     gexDescTra: 'Regime shifting — structural transition in progress.',
     gexSignal: 'GEX SIGNAL', strong: 'STRONG', weak: 'WEAK', mixed: 'MIXED',
     sp500: 'S&P 500', todayChange: "TODAY'S CHANGE",
-    dpLabel: 'DARK POOL', dpSub: 'INSTITUTIONAL ACTIVITY',
+    dpLabel: 'NEW INST. POSITIONS', dpSub: 'OPTION OPEN INTEREST',
     vixLabel: 'VIX', vixSub: 'MARKET VOLATILITY',
     vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
     tagline: 'See What Others Cannot',
@@ -56,7 +56,7 @@ const L: Record<string, Record<string, string>> = {
     gexDescTra: '레짐 전환 중 — 구조적 전환 진행.',
     gexSignal: 'GEX SIGNAL', strong: 'STRONG', weak: 'WEAK', mixed: 'MIXED',
     sp500: 'S&P 500', todayChange: '당일 변동',
-    dpLabel: 'DARK POOL', dpSub: '기관 활동',
+    dpLabel: '기관 신규 포지션', dpSub: '옵션 미결제약정',
     vixLabel: 'VIX', vixSub: '시장 변동성',
     vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
     tagline: 'See What Others Cannot',
@@ -74,7 +74,7 @@ const L: Record<string, Record<string, string>> = {
     gexDescTra: 'レジーム転換中 — 構造的転換進行。',
     gexSignal: 'GEX SIGNAL', strong: 'STRONG', weak: 'WEAK', mixed: 'MIXED',
     sp500: 'S&P 500', todayChange: '本日の変動',
-    dpLabel: 'DARK POOL', dpSub: '機関活動',
+    dpLabel: '機関の新規ポジション', dpSub: 'オプション建玉',
     vixLabel: 'VIX', vixSub: 'ボラティリティ',
     vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
     tagline: 'See What Others Cannot',
@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
   const spy    = parseFloat(searchParams.get('spy') || '0');
   const vix    = parseFloat(searchParams.get('vix') || '0');
   const gex    = searchParams.get('gex') || 'neutral';
-  const dp     = parseFloat(searchParams.get('dp') || '0');
+  // `dp`(다크풀)는 은퇴했다 — hasData 판정에만 남겨 둔다(옛 링크 호환).
   const ticker = searchParams.get('ticker') || '';
   const event  = decodeURIComponent(searchParams.get('event') || '');
   const date   = searchParams.get('date') || new Date().toISOString().split('T')[0];
@@ -182,8 +182,17 @@ export async function GET(req: NextRequest) {
   const gt = gexTheme(gex);
   const gexLabel = l[gex.toLowerCase() as keyof typeof l] || gex.toUpperCase();
   const vi = vixInfo(vix, l);
-  const dpPct = dp > 0 ? dp : 0;
-  const dpColor = dpPct >= 40 ? C.amber : C.cyan;
+  // ⚠️ 다크풀은 2026-08-28 소멸 → 발행 이미지에서 매번 «—» 인 죽은 칸이었다.
+  //    기관 신규 포지션(옵션 미결제약정 증가분)으로 교체한다.
+  //    in=금액(USD) · cp=콜 비중(0~100). 없으면 값 대신 «—» 를 두고 막대는 생략.
+  const instNotional = parseFloat(searchParams.get('in') || '0');
+  const instCallPct = parseFloat(searchParams.get('cp') || '0');
+  const hasInst = Number.isFinite(instNotional) && instNotional > 0
+    && Number.isFinite(instCallPct) && instCallPct > 0;
+  const instMoney = instNotional >= 1e12 ? `$${(instNotional / 1e12).toFixed(1)}T`
+    : instNotional >= 1e9 ? `$${(instNotional / 1e9).toFixed(1)}B`
+    : `$${(instNotional / 1e6).toFixed(0)}M`;
+  const dpColor = hasInst && instCallPct >= 60 ? C.amber : C.cyan;
 
   // Formatted date: "May 11, 2026"
   const dateFormatted = (() => {
@@ -313,17 +322,16 @@ export async function GET(req: NextRequest) {
               <span style={{ fontSize: '14px', color: dpColor }}>o</span>
             </div>
             <span style={{ fontSize: '34px', fontWeight: 900, color: dpColor, lineHeight: '1.2', marginTop: '6px' }}>
-              {dpPct > 0 ? `${dpPct.toFixed(1)}%` : '—'}
+              {hasInst ? instMoney : '—'}
             </span>
-            {dpPct > 0 ? (
+            {hasInst ? (
               <div style={B({ flexDirection: 'column', marginTop: '6px', gap: '3px' })}>
                 <div style={B({ width: '100%', height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)' })}>
-                  <div style={{ display: 'flex', width: `${Math.min(dpPct * 2, 100)}%`, height: '5px', borderRadius: '3px', background: `linear-gradient(90deg, ${C.cyanDim}, ${dpColor})` }} />
+                  <div style={{ display: 'flex', width: `${Math.max(0, Math.min(instCallPct, 100))}%`, height: '5px', borderRadius: '3px', background: `linear-gradient(90deg, ${C.cyanDim}, ${dpColor})` }} />
                 </div>
                 <div style={B({ justifyContent: 'space-between' })}>
-                  <span style={{ fontSize: '8px', color: C.dimmer }}>0%</span>
-                  <span style={{ fontSize: '8px', color: C.dimmer }}>50%</span>
-                  <span style={{ fontSize: '8px', color: C.dimmer }}>100%</span>
+                  <span style={{ fontSize: '8px', color: C.dimmer }}>PUT</span>
+                  <span style={{ fontSize: '8px', color: C.dimmer }}>{`CALL ${instCallPct.toFixed(0)}%`}</span>
                 </div>
               </div>
             ) : null}

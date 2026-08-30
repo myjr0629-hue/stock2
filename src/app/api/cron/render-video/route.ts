@@ -193,7 +193,8 @@ function buildInputProps(
         change: String(data.topChange || data.change || '+0.00'),
         gexRegime: (data.gexRegime || 'neutral').toUpperCase(),
         gexLabel: data.gexLabel || data.gexShift || `→ ${(data.gexRegime || 'NEUTRAL').toUpperCase()}`,
-        darkPool: data.darkPool || 35,
+        instNotional: data.instNotional ?? null,
+        instCallPct: data.instCallPct ?? null,
         buyRatio: data.buyRatio || 50,
         sellRatio: data.sellRatio || 50,
         spy: data.spy || 0,
@@ -274,26 +275,33 @@ async function fetchVideoData(type: string): Promise<any> {
       ? (() => { try { return JSON.parse(gexRaw); } catch { return { regime: gexRaw }; } })()
       : (gexRaw || {});
 
-    // Dark pool live data
-    let darkPool = raw?.darkPool || 35;
+    // ⚠️ 여기 있던 `let darkPool = raw?.darkPool || 35` 가 **발행되는 영상에**
+    //    존재하지 않는 다크풀 35% 를 실어 내보내고 있었다. 원천은 2026-08-28
+    //    소멸했고, 그 뒤로 이 상수만 남아 매 영상에 찍혔다.
+    //    대체: 기관 신규 포지션(옵션 미결제약정 증가분). 없으면 null 로 두고
+    //    영상에서 그 패널을 **아예 안 그린다**.
+    let instNotional: number | null = null;
+    let instCallPct: number | null = null;
     let buyRatio = 50;
     let sellRatio = 50;
     try {
-      const { fetchTradeData } = await import('@/services/realtimeMetricsService');
-      const tradeData = await fetchTradeData('SPY');
-      if (tradeData && tradeData.darkPoolPercent > 0) {
-        darkPool = tradeData.darkPoolPercent;
-        buyRatio = tradeData.buyPct || 50;
-        sellRatio = tradeData.sellPct || 50;
+      const { getInstitutionalFlowSummary } = await import('@/services/institutionalFlow');
+      const inst = await getInstitutionalFlowSummary();
+      if (inst) {
+        instNotional = inst.notional;
+        instCallPct = inst.callPct;
+        buyRatio = Math.round(inst.callPct);
+        sellRatio = 100 - Math.round(inst.callPct);
       }
-    } catch { /* dark pool optional */ }
+    } catch { /* 없으면 패널을 안 그린다 */ }
 
     // [V3] Dynamic top ticker — scan M7 for biggest mover
     const topTickerData = await findTopTicker();
 
     // [V3] AI-generated insights
     const gexRegime = gexParsed?.regime || raw?.gexRegime || 'neutral';
-    const insights = await generateVideoInsights({ spy, qqq, vix, gexRegime, darkPool });
+    // 나레이션까지 가짜 숫자로 만들지 않는다 — 없으면 그 주제를 안 쓴다
+    const insights = await generateVideoInsights({ spy, qqq, vix, gexRegime, instNotional, instCallPct });
 
     return {
       spy,
@@ -301,7 +309,8 @@ async function fetchVideoData(type: string): Promise<any> {
       vix,
       gexRegime,
       gexLabel: gexParsed?.shift || '',
-      darkPool,
+      instNotional,
+      instCallPct,
       buyRatio,
       sellRatio,
       topTicker: topTickerData.ticker,
@@ -313,7 +322,8 @@ async function fetchVideoData(type: string): Promise<any> {
       insight3: insights[2],
     };
   } catch {
-    return { spy: 0, qqq: 0, vix: 18, gexRegime: 'neutral', darkPool: 35, buyRatio: 50, sellRatio: 50 };
+    // 실패했으면 «모른다». 상수(다크풀 35·VIX 18)를 발행하지 않는다.
+    return { spy: 0, qqq: 0, vix: 0, gexRegime: 'neutral', instNotional: null, instCallPct: null, buyRatio: 50, sellRatio: 50 };
   }
 }
 
@@ -370,11 +380,17 @@ async function findTopTicker(): Promise<{
 // [V3] AI-generated Video Insights — Bedrock Haiku 3줄 인사이트
 // ---------------------------------------------------------------------------
 async function generateVideoInsights(data: {
-  spy: number; qqq: number; vix: number; gexRegime: string; darkPool: number;
+  spy: number; qqq: number; vix: number; gexRegime: string;
+  instNotional: number | null; instCallPct: number | null;
 }): Promise<[string, string, string]> {
+  const money = (v: number) => v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${(v / 1e6).toFixed(0)}M`;
+  // 다크풀 문장은 삭제했다 — 원천이 없는데 「Dark pool 42%」를 읽어 주고 있었다.
+  const instLine = data.instNotional != null && data.instCallPct != null
+    ? `${money(data.instNotional)} in new institutional option positions — ${data.instCallPct >= 50 ? 'call' : 'put'}-weighted ${data.instCallPct >= 50 ? data.instCallPct.toFixed(0) : (100 - data.instCallPct).toFixed(0)}%`
+    : `VIX structure and dealer positioning define today's hedging backdrop`;
   const defaults: [string, string, string] = [
     `GEX ${data.gexRegime.toUpperCase()} regime — dealer hedging structure ${data.gexRegime === 'negative' ? 'amplifies' : 'dampens'} volatility`,
-    `Dark pool activity at ${data.darkPool.toFixed(1)}% — ${data.darkPool > 40 ? 'institutional accumulation detected' : 'within normal range'}`,
+    instLine,
     `VIX at ${data.vix.toFixed(1)} — ${data.vix > 25 ? 'elevated short-term risk structure' : data.vix > 18 ? 'moderate volatility regime' : 'low volatility compression'}`,
   ];
 
@@ -388,14 +404,18 @@ DATA:
 - QQQ: ${data.qqq > 0 ? '+' : ''}${data.qqq.toFixed(2)}%
 - VIX: ${data.vix.toFixed(1)}
 - GEX Regime: ${data.gexRegime.toUpperCase()}
-- Dark Pool: ${data.darkPool.toFixed(1)}%
+${data.instNotional != null && data.instCallPct != null
+  ? `- New institutional option positions (open-interest additions, prior close): ${money(data.instNotional)}, ${data.instCallPct.toFixed(1)}% call-weighted`
+  : '- (No institutional positioning data today — do not mention it)'}
 
 RULES:
 - Each insight must be a structural OBSERVATION, not prediction
-- Use institutional vocabulary (dealer hedging, gamma exposure, dark pool activity)
+- Use institutional vocabulary (dealer hedging, gamma exposure, open interest)
+- NEVER mention dark pool — we do not have that data. Inventing it is a false claim.
+- Only reference numbers given above. Never invent a metric that is not listed.
 - NEVER use: buy, sell, bullish, bearish, predict, guarantee, opportunity
 - Format: Return ONLY a JSON array of exactly 3 strings
-- Example: ["GEX negative regime — dealer hedging amplifies volatility","Dark pool 42% — institutional accumulation signal","VIX 18.5 — moderate volatility compression"]`;
+- Example: ["GEX negative regime — dealer hedging amplifies volatility","$63B in new call positions — institutional accumulation signal","VIX 18.5 — moderate volatility compression"]`;
 
     const result = await callBedrock({
       modelId: MODELS.HAIKU_35,
