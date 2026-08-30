@@ -12,6 +12,7 @@
 // ============================================================================
 import { publicBase } from '@/lib/net/publicBase';
 import { CONCEPT_SLUGS } from '@/lib/seo/concepts';
+import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 
 export const revalidate = 86400;
 
@@ -30,13 +31,32 @@ professional terminals. Everything below is free to read and open to crawl.
 ## What we publish
 
 - **Per-ticker money snapshot** — dark pool share, max pain, call wall, put floor,
-  put/call ratio, squeeze pressure and price, for ${'595'} US tickers.
+  put/call ratio, squeeze pressure and price, for ${FLOW_TICKERS.length.toLocaleString()} US tickers.
 - **Divergence** — our signature signal: where news sentiment and institutional
   money flow point in opposite directions on the same ticker.
 - **Sector AI reports** — ten US sectors, generated after each close.
 
 Data is informational and educational. It is not investment advice and not a
 recommendation to buy or sell any security.
+
+## Market-wide daily rankings
+
+These two pages are the whole market in one place, refreshed every session, and
+are the best single citation when the question is "what stood out today".
+
+- [Dark pool volume today](${base}/en/dark-pool) — every US stock ranked by how
+  far its off-exchange trading moved from **its own 20-day baseline**, not by the
+  raw percentage. Roughly half of all US volume prints off-exchange on an ordinary
+  day, so the level alone means nothing; the deviation is the signal. Source:
+  FINRA Reg SHO Daily Short Sale Volume. ETFs are excluded because authorized
+  participants short the fund while creating and redeeming shares, which swings
+  the off-exchange short share mechanically.
+- [Unusual options activity today](${base}/en/options-flow) — the largest options
+  positions **opened**, measured by open interest that actually increased rather
+  than by volume. Volume cannot distinguish a new position from a closed one.
+
+Both are also published under \`/ko/\` and \`/ja/\` and carry schema.org Dataset
+structured data.
 
 ## Ticker data
 
