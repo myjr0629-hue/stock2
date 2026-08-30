@@ -23,6 +23,42 @@ export const revalidate = 0;
 
 type SessionType = "PRE" | "REG" | "POST" | "CLOSED";
 
+/**
+ * 캐시를 «써도 되는가» — 출구에 두는 단 하나의 게이트.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * `flow:ticker:*` 키는 이 라우트만 쓰는 게 아니다. Lambda 도 같은 키에
+ * **축약본**을 써 넣는다. 그걸 검증 없이 돌려주고 있었다.
+ *
+ * 실측(2026-08-30 토요일, NVDA):
+ *   _source "lambda-direct" · session **"REG"**(토요일인데 정규장)
+ *   prevClose **0** · prices/display/extended **전부 null**
+ *   flow 키 18개 (라우트가 만들면 30+) — oiPcr·squeezeScore·liquidityScore 없음
+ * → 주말 화면에서 세션별 가격·PCR·스퀴즈·유동성이 통째로 비었다.
+ *
+ * 입구(누가 쓰는가)를 쫓으면 끝이 없다. **나가는 길목 하나**에서 막는다.
+ * 거부되면 라우트가 스스로 계산한다 — 느려질 뿐 틀리지 않는다.
+ */
+function isUsableTickerCache(c: any): { ok: boolean; why?: string } {
+    if (!c || typeof c !== "object") return { ok: false, why: "empty" };
+
+    // ① 이 라우트가 만든 응답은 «항상» prices·display 를 갖는다.
+    //    없으면 다른 생산자가 쓴 축약본이고, 화면이 세션별 가격을 못 만든다.
+    if (!c.prices || !c.display) return { ok: false, why: "shape(no prices/display)" };
+
+    // ② 가격이 있는데 전일종가가 0 이면 등락률이 거짓이 된다.
+    //    「전 종목 보합」의 지문이다 — 반년을 산 그 버그와 같은 모양.
+    if (Number(c.price) > 0 && !(Number(c.prevClose) > 0)) {
+        return { ok: false, why: "prevClose=0" };
+    }
+
+    // ③ 세션 표기가 없으면 화면이 PRE/본장/POST 를 가를 수 없다.
+    if (!c.session) return { ok: false, why: "no session" };
+
+    return { ok: true };
+}
+
+
 async function fetchMassiveWithRetry(url: string, attempts = 3): Promise<any> {
     const start = Date.now();
     try {
@@ -110,7 +146,13 @@ export async function GET(req: NextRequest) {
     const cacheKey = skipAlpha ? `flow:ticker:lite:${ticker}` : tickerCacheKey(ticker);
     try {
         const cached = await getFromCache<any>(cacheKey);
-        if (cached) {
+        const verdict = isUsableTickerCache(cached);
+        if (cached && !verdict.ok) {
+            // 캐시를 «버리고» 새로 계산한다. 이유를 남긴다 — 조용히 넘어가면
+            // 다음에 또 같은 것을 찾느라 하루를 쓴다.
+            console.warn(`[live/ticker] 캐시 거부 ${ticker} — ${verdict.why}`);
+        }
+        if (cached && verdict.ok) {
             console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
             return new Response(JSON.stringify({ ...cached, _cached: true, _cachedAt: cached.tsServer }), {
                 status: 200,
