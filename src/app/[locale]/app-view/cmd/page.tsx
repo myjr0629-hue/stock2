@@ -2503,7 +2503,9 @@ function CmdPageContent() {
     const squeezeScore = volatility.squeezeScore || q.rawTickerData?.squeezeScore || 0;
     const smaCross = sma.cross || 'NONE';
     // 다크풀 — FINRA 규제 원본(T+1). 없으면 null 로 두고 카드를 안 그린다.
-    const dpRaw = q.rawTickerData || {};
+    // ⚠️ 다크풀 필드는 응답의 **flow** 아래에 있다. 최상위에서 읽으면
+    //    조건이 영영 false 라 카드가 «조용히» 안 그려진다(실측으로 잡음).
+    const dpRaw = (q.rawTickerData?.flow ?? q.rawTickerData ?? {}) as Record<string, unknown>;
     const dp = typeof dpRaw.darkPoolPct === 'number' && dpRaw.darkPoolPct > 0 ? {
         pct: dpRaw.darkPoolPct as number,
         shortPct: typeof dpRaw.darkPoolShortPct === 'number' ? dpRaw.darkPoolShortPct as number : null,
