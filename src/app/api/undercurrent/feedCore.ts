@@ -78,9 +78,23 @@ function coreAgeSec(c: FeedCore | null | undefined): number {
 
 // ── build (news → curate → money overlay) ───────────────────────────────────
 async function buildCore(origin: string): Promise<FeedCore> {
+  // ★ [2026-08-30] 티커를 «명시해서» 부른다.
+  //
+  //   예전엔 티커 없이 일반 뉴스를 받았다. Massive 는 일반 뉴스에도
+  //   `tickers` 배열을 채워 줬지만, 이관한 FMP 의 general-latest 는
+  //   **symbol 이 null** 이다(실측). UC 는 «뉴스 → 티커 → 그 종목의 돈»
+  //   구조라 티커가 없으면 primaryTicker 가 전부 null 이 되고,
+  //   candidates 가 0건이 되어 `no usable news after spam filter` 로 throw 한다.
+  //   → 앱이 «unavailable» 만 반환하고 **피드가 통째로 비었다.**
+  //
+  //   FMP 는 다종목을 1콜로 받을 수 있고 그 응답엔 symbol 이 채워진다.
+  //   UC 가 어차피 잘 알려진 종목 위주로 큐레이션하므로 WELL_KNOWN 을 넘긴다.
+  //   (가디언 뉴스펄스는 시장 전반을 원하므로 일반 뉴스 그대로 둔다 —
+  //    거기선 티커가 필요 없다)
+  const symbols = [...WELL_KNOWN].join(',');
   const news = await fetchMassive(
     '/v2/reference/news',
-    { limit: '80', order: 'desc', sort: 'published_utc' },
+    { ticker: symbols, limit: '120', order: 'desc', sort: 'published_utc' },
     false,
     undefined,
     { cache: 'no-store' as RequestCache },
