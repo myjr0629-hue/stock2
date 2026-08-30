@@ -506,7 +506,12 @@ export default function AppDashPage() {
     tickers: number; topTicker: string | null; topNotional: number; date: string | null;
   } | null>(null);
   const [gammaSqueeze, setGammaSqueeze] = useState<{ score: number; risk: string } | null>(null);
-  const [sectorRotation, setSectorRotation] = useState<{ score: number; direction: string; conviction: string } | null>(null);
+  const [sectorRotation, setSectorRotation] = useState<{
+    score: number; direction: string; conviction: string;
+    /** 'percentile' 이면 score 는 최근 5거래일 창들 대비 백분위다 */
+    basis?: string | null; windows?: number | null;
+    into?: string | null; outOf?: string | null;
+  } | null>(null);
   const [newsItems, setNewsItems] = useState<TickerNewsItem[]>([]);
   const [tickerIndex, setTickerIndex] = useState(0);
   const [briefingMode, setBriefingMode] = useState<'briefing' | 'news'>('news');
@@ -934,11 +939,36 @@ export default function AppDashPage() {
     : sc >= 60 ? L3('포지션 쏠림이 큽니다 — 급변 가능성이 높습니다.', 'Crowded positioning — snap risk is elevated.', 'ポジションの偏りが大きく、急変の可能性が高いです。')
       : sc >= 35 ? L3('보통 수준의 쏠림입니다.', 'Moderate crowding.', '通常水準の偏りです。')
         : L3('쏠림이 적습니다 — 급변 압력이 낮습니다.', 'Little crowding — low snap pressure.', '偏りが少なく、急変圧力は低いです。');
-  const readRotation = (sc: number | null, dir?: string | null) => sc == null ? null
-    : sc >= 70 ? (dir === 'RISK_ON' || dir === 'BULLISH'
-        ? L3('공격 섹터로 자금이 강하게 이동 중입니다.', 'Money is rotating hard into offense.', '攻撃セクターへ資金が強く移動中です。')
-        : L3('방어 섹터로 자금이 강하게 이동 중입니다.', 'Money is rotating hard into defense.', '防御セクターへ資金が強く移動中です。'))
-      : L3('섹터 간 자금 이동이 뚜렷하지 않습니다.', 'No clear sector rotation.', 'セクター間の資金移動は不明瞭です。');
+  // 점수는 «최근 N개 5거래일 창» 대비 백분위다(basis==='percentile').
+  //   → 70 이상 = 최근 중 강한 축, 30 미만 = 최근 중 조용한 축.
+  //   예전엔 상수 배율이라 거의 매일 100 이었고, 그래서 「강하게 이동 중」이
+  //   항상 켜져 있었다. 실제로는 오늘(8/31) 36 = 평소보다 약한 순환이다.
+  const readRotation = (
+    sc: number | null,
+    dir?: string | null,
+    into?: string | null,
+    outOf?: string | null,
+    basis?: string | null,
+  ) => {
+    if (sc == null) return null;
+    const off = dir === 'RISK_ON' || dir === 'BULLISH';
+    const where = into && outOf
+      ? L3(` · ${outOf} → ${into}`, ` · ${outOf} → ${into}`, ` · ${outOf} → ${into}`)
+      : into ? L3(` · ${into}로`, ` · into ${into}`, ` · ${into}へ`) : '';
+    if (basis !== 'percentile') {
+      // 보정 이력이 모자란 상태 — 강도를 «최근 대비»로 말할 수 없다.
+      return (off
+        ? L3('공격 섹터 우위', 'Offense-led tilt', '攻撃セクター優位')
+        : L3('방어 섹터 우위', 'Defense-led tilt', '防御セクター優位')) + where;
+    }
+    if (sc >= 70) return (off
+      ? L3('최근 중 강한 순환 — 공격 섹터로 이동', 'Strongest rotation in weeks — into offense', '直近で強い循環 — 攻撃セクターへ')
+      : L3('최근 중 강한 순환 — 방어 섹터로 이동', 'Strongest rotation in weeks — into defense', '直近で強い循環 — 防御セクターへ')) + where;
+    if (sc >= 30) return (off
+      ? L3('평소 수준의 순환 · 공격 우위', 'Typical rotation · offense-led', '通常水準の循環 · 攻撃優位')
+      : L3('평소 수준의 순환 · 방어 우위', 'Typical rotation · defense-led', '通常水準の循環 · 防御優位')) + where;
+    return L3('최근 중 조용한 편 — 섹터 이동이 약합니다.', 'Quieter than usual — little sector movement.', '直近では静かな部類 — セクター移動は弱いです。');
+  };
   const readInst = (f: typeof instFlow) => !f ? null
     : L3(
         `${f.tickers}종목에 ${money(f.notional)} 신규 진입 · ${f.callPct >= 50 ? '콜' : '풋'} ${f.callPct >= 50 ? f.callPct : (100 - f.callPct)}% 우위${f.topTicker ? ` · 최대 ${f.topTicker}` : ''}`,
@@ -983,8 +1013,11 @@ export default function AppDashPage() {
       label: gateCopy.signals.rotation.label,
       kicker: gateCopy.signals.rotation.kicker,
       value: sectorRotation?.direction ? localizeRotation(sectorRotation.direction) : '—',
-      sub: rotationScore == null ? '—' : `Rotation ${rotationScore.toFixed(0)}`,
-      insight: readRotation(rotationScore, sectorRotation?.direction) ?? NO_DATA,
+      sub: rotationScore == null ? '—'
+        : sectorRotation?.basis === 'percentile'
+          ? L3(`백분위 ${rotationScore.toFixed(0)}`, `${rotationScore.toFixed(0)}th pct`, `パーセンタイル${rotationScore.toFixed(0)}`)
+          : `Rotation ${rotationScore.toFixed(0)}`,
+      insight: readRotation(rotationScore, sectorRotation?.direction, sectorRotation?.into, sectorRotation?.outOf, sectorRotation?.basis) ?? NO_DATA,
       score: rotationScore,
     },
   ];
@@ -1436,7 +1469,15 @@ export default function AppDashPage() {
               setGammaSqueeze(pData.gammaSqueeze?.score == null ? null
                 : { score: pData.gammaSqueeze.score, risk: pData.gammaSqueeze.risk });
               setSectorRotation(pData.sectorRotation?.score == null ? null
-                : { score: pData.sectorRotation.score, direction: pData.sectorRotation.direction, conviction: pData.sectorRotation.conviction });
+                : {
+                  score: pData.sectorRotation.score,
+                  direction: pData.sectorRotation.direction,
+                  conviction: pData.sectorRotation.conviction,
+                  basis: pData.sectorRotation.basis ?? null,
+                  windows: pData.sectorRotation.windows ?? null,
+                  into: pData.sectorRotation.into ?? null,
+                  outOf: pData.sectorRotation.outOf ?? null,
+                });
             }
           } catch (e) {
             console.error('[Premium Metrics Parsing Error]', e);

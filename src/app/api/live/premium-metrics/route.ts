@@ -99,6 +99,9 @@ export async function GET(req: NextRequest) {
         //        「최근 세션 중 가장 강한 로테이션」이라는 실제 의미를 갖는다.
         let rotationBasis: string | null = null;
         let rotationWindows: number | null = null;
+        // 점수만으론 «얼마나»만 알 수 있다. 프리미엄 카드는 «어디로»를 말해야 한다.
+        let rotationInto: string | null = null;
+        let rotationOutOf: string | null = null;
 
         try {
             const guardianSnap = await getFromCache<any>(`guardian:snapshot:${locale}`);
@@ -108,6 +111,8 @@ export async function GET(req: NextRequest) {
                 rotationConviction = guardianSnap.rotationIntensity.conviction ?? rotationConviction;
                 rotationBasis = guardianSnap.rotationIntensity.scoreBasis ?? rotationBasis;
                 rotationWindows = typeof guardianSnap.rotationIntensity.sampleWindows === 'number' ? guardianSnap.rotationIntensity.sampleWindows : rotationWindows;
+                rotationInto = guardianSnap.rotationIntensity.topInflow?.[0]?.sector ?? rotationInto;
+                rotationOutOf = guardianSnap.rotationIntensity.topOutflow?.[0]?.sector ?? rotationOutOf;
             } else {
                 // Fallback: dynamic compute via GuardianDataHub
                 const freshSnap = await GuardianDataHub.getGuardianSnapshot(false, locale);
@@ -117,6 +122,8 @@ export async function GET(req: NextRequest) {
                     rotationConviction = freshSnap.rotationIntensity.conviction ?? rotationConviction;
                     rotationBasis = freshSnap.rotationIntensity.scoreBasis ?? rotationBasis;
                     rotationWindows = typeof freshSnap.rotationIntensity.sampleWindows === 'number' ? freshSnap.rotationIntensity.sampleWindows : rotationWindows;
+                    rotationInto = freshSnap.rotationIntensity.topInflow?.[0]?.sector ?? rotationInto;
+                    rotationOutOf = freshSnap.rotationIntensity.topOutflow?.[0]?.sector ?? rotationOutOf;
                 }
             }
         } catch (e) {
@@ -145,6 +152,8 @@ export async function GET(req: NextRequest) {
                 conviction: rotationConviction, // 'HIGH' | 'MEDIUM' | 'LOW' | null
                 basis: rotationBasis,          // 'percentile' | 'uncalibrated' | null
                 windows: rotationWindows,      // 백분위를 낼 때 쓴 과거 5일창 개수
+                into: rotationInto,            // 자금이 가장 많이 들어간 섹터
+                outOf: rotationOutOf,          // 가장 많이 빠져나온 섹터
             }
         });
 

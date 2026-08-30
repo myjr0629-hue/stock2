@@ -64,9 +64,15 @@ export async function GET(req: NextRequest) {
         let regimeScore = 0;
 
         // Factor 1: GEX Polarity (0-30pts) — Short Gamma amplifies vol
+        //
+        // ⚠️ 옛 식 `Math.min(30, gexMagnitude * 3)` 은 $10M 만 넘으면 30 만점이었다.
+        //    실제 숏감마는 수백 M~수 B 규모라 사실상 «숏감마면 30, 아니면 0» 인
+        //    이진값을 그라데이션처럼 보이게 하고 있었다. 로그 척도로 바꾸면
+        //    $1M→0 · $10M→10 · $100M→20 · $1B→30 으로 규모가 실제로 반영된다.
         if (isShortGamma) {
-            const gexMagnitude = Math.abs(netGex) / 1000000;
-            regimeScore += Math.min(30, gexMagnitude * 3);
+            const gexMagnitude = Math.abs(netGex) / 1000000; // $M
+            const decades = gexMagnitude > 1 ? Math.log10(gexMagnitude) : 0; // 0~3
+            regimeScore += Math.max(0, Math.min(30, decades * 10));
         }
 
         // Factor 2: Squeeze Score from structure (0-25pts)
