@@ -11,8 +11,14 @@
 
 ## 0. 한 줄 결론
 
-**시세·옵션·뉴스 등 「매일 쓰는 것」은 이관 완료. 다만 아직 Massive 를 타는
-경로가 18곳(10종) 남아 있고, 이것은 계정 해지일 2026-09-23 에 죽는다.**
+**2026-08-30 이관 완료. `fetchMassive` 호출 81건이 전부 Intrinio/FMP 로 간다
+(`node scripts/check-massive-leftovers.js` → UNKNOWN 0). 9/23 해지 절벽 해소.**
+
+> ※ 한때 「미이관 18곳」으로 보고했으나 **틀린 숫자**였다. 분류기가 라우터
+>   패턴을 손으로 적은 목록과 대조해서, 이미 이관된 것들(reference/tickers·
+>   aggs/grouped·일괄 스냅샷·open-close)을 미이관으로 셌다. 실제 잔여는
+>   **8종 / 11건**이었고 그것을 이날 전부 처리했다.
+>   → 검사기는 이제 **라우터 소스에서 패턴을 읽는다**(정확일치 7 + 정규식 10).
 
 ---
 
@@ -54,24 +60,56 @@
 | 내부자 거래 · 13F | Intrinio | 다크풀 대체 지표의 재료 |
 | 실시간 WebSocket | Intrinio WS (EC2 price-ws) | |
 
-### 2-2. ⚠️ 미완료 — 아직 Massive 를 탄다 (2026-09-23 절벽)
+### 2-2. ✅ 2026-08-30 완료 — 마지막 8종
 
-라우터가 안 잡는 **10종 / 18곳**. 오늘 전부 HTTP 200 이라 **화면상 아무 이상이
-없고, 그래서 안 보인다.** 해지일에 동시에 죽는다.
+라우터가 안 잡던 **8종 / 11건**. 오늘 전부 HTTP 200 이라(계정이 잃은 건 *시세*
+권한뿐) 화면에 아무 이상이 없었고, 그래서 「다 됐다」고 착각하기 쉬웠다.
 
-| 엔드포인트 | 쓰는 곳 | 화면 | Intrinio 대체 (실측) |
+| 엔드포인트 | → Intrinio | 프로덕션 검증 |
+|---|---|---|
+| `/fed/v1/treasury-yields` | `$DGS1MO~$DGS30` 7계열을 **날짜로 재조립** | 10Y 4.67 · 2Y 4.2 · 30Y 5.19 ✅ |
+| `/fed/v1/inflation` | `$CPIAUCSL` + `$PCEPI`, YoY 는 12개월 전 대비 | ✅ |
+| `/fed/v1/inflation-expectations` | `$T5YIE` | 기대인플레 2.3 · 실질금리 2.42 ✅ |
+| `/stocks/financials/v1/ratios` | data_point 5종 + **FCF TTM** + **PER 재계산** | KLAC/ENTG 전 항목 ✅ |
+| `.../income-statements` | fundamentals + standardized_financials | ✅ |
+| `/stocks/filings/8-K/vX/disclosures` | `companies/{t}/filings` (**부분** — §2-3) | 3건 · SEC 링크 ✅ |
+| `/stocks/filings/vX/risk-factors` | 빈 결과로 **은퇴** (소비처 0곳) | `status: no_data` ✅ |
+| `/v3/snapshot?ticker.any_of=` | 기존 일괄 스냅샷 → v3 모양 변환 | 매크로 지표 10개 ✅ |
+
+**값 대조 (Massive vs Intrinio, 실측):**
+
+| 항목 | Massive | Intrinio | 조치 |
 |---|---|---|---|
-| `/fed/v1/treasury-yields` | `live/treasury`, `fedApiClient` | 가디언 매크로 · UC 시장맥락 | ✅ `$DGS10/$DGS2/$DGS30` → **4.67 확인** |
-| `/fed/v1/inflation`, `/inflation-expectations` | `fedApiClient` | 매크로 레짐 | ✅ `$CPIAUCSL` → **332.813 확인** |
-| `/stocks/financials/v1/ratios` · `/income-statements` | `live/fundamentals` | 펀더멘털 카드 | ✅ `/companies/{t}/fundamentals` |
-| `/stocks/filings/8-K/vX/disclosures` | `disclosures.ts` ×2 | 공시 알림 | ✅ `/companies/{t}/filings?report_type=8-K` |
-| `/stocks/filings/vX/risk-factors` | `live/risk-factors` | 리스크 카드 | ⚠️ 원문 텍스트는 확인 필요 |
-| `/v3/reference/tickers/{t}` | `live/overview`, UC 로고 | 회사 개요·로고 | ✅ `/companies/{t}` |
-| `/v2/aggs/grouped/...` | `market/movers`, `sectorEngine` | 무버스·섹터 | ✅ 이미 있는 벌크 EOD 로더 재사용 |
-| `/v3/snapshot?ticker.any_of=` | `macroHubProvider` | 매크로 허브 | ✅ 일괄 스냅샷 |
+| price_to_earnings (NVDA) | 27.24 | 27.18 | ✅ |
+| price_to_book | 22.94 | 22.90 | ✅ |
+| debt_to_equity | 0.15 | 0.146 | ✅ |
+| market_cap | 5.253T | 5.243T | ✅ |
+| price_to_sales | 17.34 | 17.31 | ✅ `pricetosales`(404) → **`pricetorevenue`** |
+| free_cash_flow | 127.0B | 54.7B ❌ | Intrinio 는 **분기**, Massive 는 TTM → 4분기 합 = **127.006B 정확 일치** |
+| PER (SYM) | 410.38 | 2937.8 ❌ | 태그가 **반올림된 분기 EPS**(0.06) 사용 → **시총÷TTM순이익 411.3** 로 재계산 |
+| return_on_equity | 0.842 | 1.172 ⚠️ | 기준 차이(기말 vs 평균 자본). 변환 않고 `_roeBasis` 로 표시 |
 
-**→ 9/23 전까지 처리해야 할 유일한 이관 잔여 작업이다.**
-재현 명령: `node /tmp/classify-endpoints.js` (호출부 전수 분류)
+콜드 티커 3종 최종 대조 — FCF 수익률은 **정확히 일치**:
+`AMKR 21.3/0.53/−1.4%` vs `21.4/0.53/−1.4%` · `MKSI 39.3/1.32/2.6%` vs 동일 ·
+`COHR 69.5/0.29/−1.9%` vs `71.0/0.30/−1.9%`
+
+**★ TTM 4분기를 「앞에서 4개」로 자르면 안 된다** (실측 함정 3개):
+- 순서가 보장되지 않는다 (ONTO 3번째 행이 2024 Q4)
+- **start_date 가 깨진 행이 있다** — ONTO `2024-09-29~2026-01-03`(461일). 그런데
+  그 행의 매출은 281M 으로 **정상 분기 수준**(동종 218~343M) = 기간이 긴 게 아니라
+  start_date 만 틀렸다 → 길이로 거르면 멀쩡한 분기를 버린다. **end_date 간격**으로 판정.
+- 계열마다 최신 분기가 다르다 — WOLF 는 현금흐름이 손익보다 **두 분기 지연**.
+  → 계열 «안에서» 각각 고른다.
+테스트 `scripts/test-ttm-quarters.js` 8/8 (전부 실측 날짜).
+
+**★ 인플레는 이관 전에도 죽어 있었다** — `fedApiClient` 가 `res.cpi` 를 **최상위**
+에서 읽는데 Massive 는 `results[0].cpi` 를 준다 → `source:"FAIL"`. 어댑터는 최상위
+«와» results 양쪽에 담아 어느 쪽을 읽어도 맞게 했다.
+
+**※ 화면 간 10년물 표기 차이(이관과 무관, 기존):**
+`/api/live/treasury` 4.67(FRED `DGS10`, 8/27 · 공표 지연) vs
+`/api/market/macro` 4.72(Yahoo `^TNX`, 8/28 종가). 서로 다른 계열이고 Massive
+시절에도 같았다. 통일하려면 별도 결정이 필요하다.
 
 ### 2-3. 영구 상실 — 대체 불가
 
@@ -218,6 +256,7 @@ AI 프롬프트에는 N/A 로 넘기고 「N/A 는 미측정이며 0·중립이 
 
 | 우선순위 | 항목 | 기한 |
 |---|---|---|
-| **1** | §2-2 의 10종/18곳을 Intrinio 로 이관 | **2026-09-23 (계정 해지)** |
-| 2 | 리스크팩터 원문 텍스트 Intrinio 대체 가능성 확인 | 위와 동일 |
-| 3 | Massive 관련 코드·환경변수 완전 제거 | 이관 후 |
+| ~~1~~ | ~~잔여 이관~~ | ✅ **2026-08-30 완료** (UNKNOWN 0) |
+| 2 | 화면 간 10년물 표기 통일 (FRED vs ^TNX) — 별도 결정 필요 | — |
+| 3 | 8-K 본문 요약 대안 (SEC 원문 파싱?) — 지금은 링크만 | — |
+| 4 | Massive 코드·환경변수 완전 제거 | 9/23 이후 |
