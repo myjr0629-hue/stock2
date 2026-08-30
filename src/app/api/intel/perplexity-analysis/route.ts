@@ -20,34 +20,46 @@ export const maxDuration = 60;
 
 
 
+/**
+ * ⚠️ 모든 지표는 «측정 못 함 = null» 이 될 수 있다.
+ *    예전에는 화면이 0 을 채워 보냈고, 그래서 AI 가 «감마 0 → 중립» 처럼
+ *    **없는 데이터를 근거로** 문장을 썼다. 지금은 null 이 그대로 온다.
+ */
 interface StockData {
     ticker: string;
-    price: number;
-    changePct: number;
-    gex: number;
-    pcr: number;
-    gammaRegime: string;
-    netPremium: number;
-    callWall: number;
-    putFloor: number;
-    maxPain: number;
-    whaleIndex: number;
+    price: number | null;
+    changePct: number | null;
+    gex: number | null;
+    pcr: number | null;
+    gammaRegime: string | null;
+    netPremium: number | null;
+    callWall: number | null;
+    putFloor: number | null;
+    maxPain: number | null;
+    whaleIndex: number | null;
     darkPoolPct: number | null;
-    ivSkew: number;
-    impliedMovePct: number;
-    squeezeScore: number;
-    contextScore: number;
+    ivSkew: number | null;
+    impliedMovePct: number | null;
+    squeezeScore: number | null;
+    contextScore: number | null;
 }
+
+/** 없는 값은 «N/A» — AI 가 «측정되지 않았다» 로 읽어야 한다 */
+const na = (v: number | null | undefined, fmt: (n: number) => string): string =>
+    v == null || !Number.isFinite(v) ? 'N/A' : fmt(v);
 
 function buildDataBlock(stocks: StockData[]): string {
     return stocks.map(s => {
-        const mpDist = s.maxPain > 0 ? ((s.price - s.maxPain) / s.maxPain * 100).toFixed(1) : '0';
-        return `${s.ticker} $${s.price.toFixed(2)} (${s.changePct >= 0 ? '+' : ''}${s.changePct.toFixed(2)}%)
-  GEX: ${(s.gex / 1e6).toFixed(1)}M | Gamma: ${s.gammaRegime} | PCR: ${s.pcr.toFixed(2)}
-  Squeeze: ${s.squeezeScore}% | NetPremium: $${(s.netPremium / 1e6).toFixed(1)}M
-  CallWall: $${s.callWall.toFixed(0)} | PutFloor: $${s.putFloor.toFixed(0)} | MaxPain: $${s.maxPain.toFixed(0)} (${mpDist}% from price)
-  Whale: ${s.whaleIndex} | DarkPool: ${s.darkPoolPct}% | IVSkew: ${s.ivSkew > 0 ? '+' : ''}${s.ivSkew.toFixed(1)}%
-  ImpliedMove: ±${s.impliedMovePct.toFixed(1)}% | ContextScore: ${s.contextScore.toFixed(1)}`;
+        const mpDist = (s.maxPain != null && s.maxPain > 0 && s.price != null)
+            ? `${((s.price - s.maxPain) / s.maxPain * 100).toFixed(1)}% from price`
+            : 'N/A';
+        const sign = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
+        return `${s.ticker} ${na(s.price, (n) => `$${n.toFixed(2)}`)} (${na(s.changePct, (n) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`)})
+  GEX: ${na(s.gex, (n) => `${(n / 1e6).toFixed(1)}M`)} | Gamma: ${s.gammaRegime || 'N/A'} | PCR: ${na(s.pcr, (n) => n.toFixed(2))}
+  Squeeze: ${na(s.squeezeScore, (n) => `${n}%`)} | NetPremium: ${na(s.netPremium, (n) => `$${(n / 1e6).toFixed(1)}M`)}
+  CallWall: ${na(s.callWall, (n) => `$${n.toFixed(0)}`)} | PutFloor: ${na(s.putFloor, (n) => `$${n.toFixed(0)}`)} | MaxPain: ${na(s.maxPain, (n) => `$${n.toFixed(0)}`)} (${mpDist})
+  Whale: ${s.whaleIndex ?? 'N/A'} | DarkPool: ${na(s.darkPoolPct, (n) => `${n}%`)} | IVSkew: ${na(s.ivSkew, sign)}${s.ivSkew == null ? '' : '%'}
+  ImpliedMove: ${na(s.impliedMovePct, (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}`;
     }).join('\n\n');
 }
 
@@ -121,6 +133,11 @@ const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier in
 
 6. TONE: Professional institutional research — concise, authoritative, zero fluff
 
+6b. MISSING DATA (STRICT): A field shown as "N/A" was NOT MEASURED. It is not zero, not neutral, not flat.
+   - NEVER write a conclusion that rests on an N/A field ("gamma is neutral" when Gamma: N/A is FALSE)
+   - Simply omit that dimension and build the read from the fields that DO have values
+   - If most fields are N/A, say the structural read is limited rather than inventing one
+
 7. STOCK-SPECIFIC DEPTH (not generic sector talk)
    - Anchor the read in THIS company's own drivers — its product/earnings cycle, competitive position, or the specific news/filing provided. Reject interchangeable boilerplate that could describe any ticker. A reader must learn something true about THIS name.
 
@@ -170,7 +187,9 @@ export async function POST(req: Request) {
                 const entry = await getFromCache<{ ko: string; en: string; ja: string; basePrice: number }>(key);
                 if (entry) {
                     // ±1% price invalidation
-                    if (entry.basePrice && Math.abs(s.price - entry.basePrice) / entry.basePrice >= 0.01) {
+                    // 가격을 모르면 «변했다» 고도 «안 변했다» 고도 말할 수 없다.
+                    // 그럴 땐 캐시를 그대로 쓴다 (없는 값으로 무효화하지 않는다)
+                    if (s.price != null && entry.basePrice && Math.abs(s.price - entry.basePrice) / entry.basePrice >= 0.01) {
                         needsFetch.push(s);
                     } else {
                         cached[s.ticker] = { ko: entry.ko, en: entry.en, ja: entry.ja };

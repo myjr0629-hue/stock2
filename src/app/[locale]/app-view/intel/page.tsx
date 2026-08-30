@@ -243,27 +243,44 @@ const SECTOR_CONFIGS: SectorConfig[] = [
   },
 ];
 
+/**
+ * 숫자면 숫자, 아니면 **null**.
+ *
+ * `?? 0` / `|| 0` 를 대신한다. 0 은 «측정된 0» 이라는 주장이고,
+ * 측정 못 한 것을 그렇게 말하면 화면도 AI 도 그것을 사실로 읽는다.
+ */
+function num(v: any): number | null {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) ? n : null;
+}
+
 interface KeyStockPremiumData {
   sym: string;
-  grade: string;
-  score: number;
-  changePct?: number;
-  closePrice?: number;
-  gex?: number;
-  pcr?: number;
-  gammaRegime?: string;
-  maxPain?: number;
-  callWall?: number;
-  putFloor?: number;
-  rsi?: number;
-  rvol?: number;
+  /** 산출 불가면 null — 'B' 를 채우면 «평가받은 B» 라는 주장이 된다 */
+  grade: string | null;
+  score: number | null;
+  /**
+   * ⚠️ 아래 지표는 전부 «측정 못 함 = null» 이다. 0 을 채우면
+   *    화면·AI 가 그것을 **측정된 0** 으로 읽는다. 실제로 당했다:
+   *    changePct 를 0 으로 채워 전 종목이 «보합» 으로 보인 적이 있다.
+   */
+  changePct?: number | null;
+  closePrice?: number | null;
+  gex?: number | null;
+  pcr?: number | null;
+  gammaRegime?: string | null;
+  maxPain?: number | null;
+  callWall?: number | null;
+  putFloor?: number | null;
+  rsi?: number | null;
+  rvol?: number | null;
   sparkline?: number[];
   analysisKr?: string;
-  netPremium?: number;
-  squeezeScore?: number;
-  ivSkew?: number;
-  impliedMovePct?: number;
-  whaleIndex?: number;
+  netPremium?: number | null;
+  squeezeScore?: number | null;
+  ivSkew?: number | null;
+  impliedMovePct?: number | null;
+  whaleIndex?: number | null;
   /** 측정 불가면 null — 0 은 «측정된 0%» 라는 주장이 된다 */
   darkPoolPct?: number | null;
   /** 다크풀 대체 — 호가 스프레드 기반 유동성 점수(0~100). 측정 불가면 null */
@@ -1107,8 +1124,15 @@ function ExpandedSparkline({ data, isUp }: { data: number[]; isUp: boolean }) {
   );
 }
 
-function formatGex(val: number): string {
-  if (val === 0 || !val) return '0.00';
+/** Context 점수 — 산출 못 했으면 '—' (0점이라고 말하지 않는다) */
+function ctxText(v: number | null | undefined): string {
+  return v == null || !Number.isFinite(v) ? '—' : v.toFixed(0);
+}
+
+function formatGex(val: number | null | undefined): string {
+  // 측정 못 한 것을 '0.00' 이라고 쓰면 «감마가 0» 이라는 주장이 된다
+  if (val == null || !Number.isFinite(val)) return '—';
+  if (val === 0) return '0.00';
   const absVal = Math.abs(val);
   const sign = val > 0 ? '+' : '-';
   if (absVal >= 1e9) {
@@ -1139,13 +1163,13 @@ function formatMoneyCompact(value: number): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-function formatPercentCompact(value: number): string {
-  if (!Number.isFinite(value)) return '-';
+function formatPercentCompact(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 }
 
-function formatPlainPercent(value: number): string {
-  if (!Number.isFinite(value) || value === 0) return '-';
+function formatPlainPercent(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value) || value === 0) return '-';
   return `${value.toFixed(0)}%`;
 }
 
@@ -1354,22 +1378,27 @@ function getBriefTitle(appLocale: AppLocale) {
 
 function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocale) {
   const sym = stock.sym;
-  const price = `$${(stock.closePrice || 0).toFixed(2)}`;
+  const price = stock.closePrice != null ? `$${stock.closePrice.toFixed(2)}` : '—';
   const change = signedPct(stock.changePct, 2);
-  const gex = stock.gex || 0;
-  const pcr = stock.pcr || 0;
-  const rsi = stock.rsi || 0;
-  const rvol = stock.rvol || 0;
-  const whale = stock.whaleIndex || 0;
+  const gex = stock.gex ?? 0;
+  const pcr = stock.pcr ?? 0;
+  const rsi = stock.rsi ?? 0;
+  const rvol = stock.rvol ?? 0;
+  const whale = stock.whaleIndex ?? 0;
   const darkPool = stock.darkPoolPct ?? null;
-  const netPremium = stock.netPremium || 0;
-  const squeeze = stock.squeezeScore || 0;
-  const ivSkew = stock.ivSkew || 0;
-  const impliedMove = stock.impliedMovePct || 0;
-  const maxPain = stock.maxPain || 0;
-  const callWall = stock.callWall || 0;
-  const putFloor = stock.putFloor || 0;
-  const regime = String(stock.gammaRegime || (gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : 'NEUTRAL')).toUpperCase();
+  const netPremium = stock.netPremium ?? 0;
+  const squeeze = stock.squeezeScore ?? 0;
+  const ivSkew = stock.ivSkew ?? 0;
+  const impliedMove = stock.impliedMovePct ?? 0;
+  const maxPain = stock.maxPain ?? 0;
+  const callWall = stock.callWall ?? 0;
+  const putFloor = stock.putFloor ?? 0;
+  // ⚠️ GEX 를 못 잰 종목에 «NEUTRAL» 이라고 쓰면 «중립이라고 판정했다» 가 된다.
+  //    벤더가 준 레짐이 없고 GEX 도 없으면 레짐을 말하지 않는다.
+  const regime = stock.gammaRegime
+    ? String(stock.gammaRegime).toUpperCase()
+    : stock.gex == null ? 'UNKNOWN'
+      : stock.gex > 0 ? 'LONG' : stock.gex < 0 ? 'SHORT' : 'NEUTRAL';
 
   const pcrText = pcr > 0 ? pcr.toFixed(2) : '-';
   const rsiText = rsi > 0 ? Math.round(rsi).toString() : '-';
@@ -1613,27 +1642,30 @@ export default function AppIntelPage() {
           newsSentimentOverall: summary.newsSentimentOverall || summary.news_sentiment_overall,
           riskNotes: cleanCatalysts.slice(0, 3),
           keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
+            // ⚠️ 여기가 «없음»이 «0» 으로 바뀌던 자리였다. 0 을 채우면
+            //    아래 화면과 AI 프롬프트가 그것을 측정값으로 읽는다.
+            //    측정 못 한 것은 끝까지 null 로 흘려보낸다.
             sym: tick.ticker,
-            grade: tick.grade || 'B',
-            score: tick.alpha_score || tick.score || 55,
-            changePct: tick.change_pct || 0,
-            closePrice: tick.close_price || tick.closePrice || 0,
-            gex: tick.gex ?? 0,
-            pcr: tick.pcr ?? 0,
-            gammaRegime: tick.gamma_regime || tick.gammaRegime || 'NEUTRAL',
-            maxPain: tick.max_pain || tick.maxPain || 0,
-            callWall: tick.call_wall || tick.callWall || 0,
-            putFloor: tick.put_floor || tick.putFloor || 0,
-            rsi: tick.rsi ?? 0,
-            rvol: tick.rvol ?? 0,
+            grade: tick.grade ?? null,
+            score: num(tick.alpha_score ?? tick.score),
+            changePct: num(tick.change_pct ?? tick.changePct),
+            closePrice: num(tick.close_price ?? tick.closePrice),
+            gex: num(tick.gex),
+            pcr: num(tick.pcr),
+            gammaRegime: tick.gamma_regime ?? tick.gammaRegime ?? null,
+            maxPain: num(tick.max_pain ?? tick.maxPain),
+            callWall: num(tick.call_wall ?? tick.callWall),
+            putFloor: num(tick.put_floor ?? tick.putFloor),
+            rsi: num(tick.rsi),
+            rvol: num(tick.rvol),
             sparkline: tick.sparkline || [],
             analysisKr: tick.analysis_kr || tick.analysisKr || '',
-            netPremium: tick.net_premium ?? tick.netPremium ?? 0,
-            squeezeScore: tick.squeeze_score ?? tick.squeezeScore ?? 0,
-            ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
-            impliedMovePct: tick.implied_move_pct ?? tick.impliedMovePct ?? 0,
-            whaleIndex: tick.whale_index ?? tick.whaleIndex ?? 0,
-            darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? null
+            netPremium: num(tick.net_premium ?? tick.netPremium),
+            squeezeScore: num(tick.squeeze_score ?? tick.squeezeScore),
+            ivSkew: num(tick.iv_skew ?? tick.ivSkew),
+            impliedMovePct: num(tick.implied_move_pct ?? tick.impliedMovePct),
+            whaleIndex: num(tick.whale_index ?? tick.whaleIndex),
+            darkPoolPct: num(tick.dark_pool_pct ?? tick.darkPoolPct)
           }))
         };
 
@@ -1708,21 +1740,24 @@ export default function AppIntelPage() {
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
       body: JSON.stringify({
+        // ⚠️ AI 에게 «모르는 값»을 0 이라고 말하면 AI 는 그것을 근거로 쓴다.
+        //    («감마 0 이라 중립» 같은 문장이 그렇게 나온다) null 로 넘기고
+        //    프롬프트 쪽에서 «미측정»으로 읽게 한다.
         stocks: stocksForAi.map(stock => ({
           ticker: stock.sym,
-          price: stock.closePrice || 0,
-          changePct: stock.changePct || 0,
-          gex: stock.gex || 0,
-          pcr: stock.pcr || 0,
-          gammaRegime: stock.gammaRegime || 'NEUTRAL',
-          netPremium: stock.netPremium || 0,
-          callWall: stock.callWall || 0,
-          putFloor: stock.putFloor || 0,
-          maxPain: stock.maxPain || 0,
-          whaleIndex: stock.whaleIndex || 0,
+          price: stock.closePrice ?? null,
+          changePct: stock.changePct ?? null,
+          gex: stock.gex ?? null,
+          pcr: stock.pcr ?? null,
+          gammaRegime: stock.gammaRegime ?? null,
+          netPremium: stock.netPremium ?? null,
+          callWall: stock.callWall ?? null,
+          putFloor: stock.putFloor ?? null,
+          maxPain: stock.maxPain ?? null,
+          whaleIndex: stock.whaleIndex ?? null,
           darkPoolPct: stock.darkPoolPct ?? null,
-          ivSkew: stock.ivSkew || 0,
-          impliedMovePct: stock.impliedMovePct || 0,
+          ivSkew: stock.ivSkew ?? null,
+          impliedMovePct: stock.impliedMovePct ?? null,
           squeezeScore: stock.squeezeScore || 0,
           contextScore: stock.score || 0,
         })),
@@ -1890,26 +1925,26 @@ export default function AppIntelPage() {
         : `${localizedReportSummary} Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and average PCR ${avgPcr ? avgPcr.toFixed(2) : '-'} are the primary confirmation axes.`;
     const localizedCatalysts = appLocale === 'ko'
       ? [
-        `주도 종목 ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+        `주도 종목 ${lead.sym} / Context ${ctxText(lead.score)} / ${formatPercentCompact(lead.changePct)}`,
         `섹터 GEX ${formatGex(totalGex)} / 감마 ${dominantRegime}`,
         `순프리미엄 ${formatMoneyCompact(netPremium)} / 평균 PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
         `고래 ${avgWhale ? Math.round(avgWhale) : '-'} / 유동성 ${avgLiquidity ? Math.round(avgLiquidity) : '-'} / 스퀴즈 ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
       ]
       : appLocale === 'ja'
         ? [
-          `主導銘柄 ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+          `主導銘柄 ${lead.sym} / Context ${ctxText(lead.score)} / ${formatPercentCompact(lead.changePct)}`,
           `セクターGEX ${formatGex(totalGex)} / ガンマ ${dominantRegime}`,
           `ネットプレミアム ${formatMoneyCompact(netPremium)} / 平均PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ]
         : [
-          `Lead ${lead.sym} / Context ${lead.score.toFixed(0)} / ${formatPercentCompact(lead.changePct || 0)}`,
+          `Lead ${lead.sym} / Context ${ctxText(lead.score)} / ${formatPercentCompact(lead.changePct)}`,
           `Sector GEX ${formatGex(totalGex)} / Gamma ${dominantRegime}`,
           `Net Premium ${formatMoneyCompact(netPremium)} / Avg PCR ${avgPcr ? avgPcr.toFixed(2) : '-'}`,
           `Whale ${avgWhale ? Math.round(avgWhale) : '-'} / Liquidity ${avgLiquidity ? Math.round(avgLiquidity) : '-'} / Squeeze ${avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-'}`
         ];
     const bullets = keyStocksData.slice(0, 5).map(stock => {
-      const line = `${stock.sym} ${formatPercentCompact(stock.changePct || 0)} / Context ${stock.score.toFixed(0)} / GEX ${formatGex(stock.gex || 0)} / PCR ${stock.pcr ? stock.pcr.toFixed(2) : '-'}`;
+      const line = `${stock.sym} ${formatPercentCompact(stock.changePct)} / Context ${ctxText(stock.score)} / GEX ${formatGex(stock.gex)} / PCR ${stock.pcr ? stock.pcr.toFixed(2) : '-'}`;
       return stock.analysisKr ? `${line} - ${stock.analysisKr}` : line;
     });
 
@@ -1920,7 +1955,7 @@ export default function AppIntelPage() {
     // 다크풀 대체 — 섹터 평균 유동성 (측정 불가면 '-')
     const liquidityText = avgLiquidity ? String(Math.round(avgLiquidity)) : '-';
     const squeezeText = avgSqueeze ? `${Math.round(avgSqueeze)}%` : '-';
-    const leadMove = formatPercentCompact(lead.changePct || 0);
+    const leadMove = formatPercentCompact(lead.changePct);
     const topGainerMove = formatPercentCompact(topGainer.changePct || 0);
     const topLoserMove = formatPercentCompact(topLoser.changePct || 0);
     const appReportTitle = appLocale === 'ko'
@@ -1934,10 +1969,10 @@ export default function AppIntelPage() {
         ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプション・ガンマ、ホエールのフローと流動性を圧縮したセクターレポートです。現在のバイアスは${sentiment}、ガンマは${dominantRegime}、ネットプレミアムは${formatMoneyCompact(netPremium)}、平均PCRは${avgPcrText}です。`
         : `${sectorCopy.name} compresses ${lead.sym}-led context, options gamma, whale flow and liquidity into one sector report. Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and ${avgPcrText} average PCR are the main confirmation axes.`;
     const appReportVerdict = appLocale === 'ko'
-      ? `${lead.sym}가 섹터 기준점 역할을 하며 ${leadMove} 움직임과 Context ${lead.score.toFixed(0)}를 기록했습니다. ${topGainer.sym}는 ${topGainerMove}로 상대 강도를 보였고, ${topLoser.sym}는 ${topLoserMove}로 압력 구간을 형성했습니다.`
+      ? `${lead.sym}가 섹터 기준점 역할을 하며 ${leadMove} 움직임과 Context ${ctxText(lead.score)}를 기록했습니다. ${topGainer.sym}는 ${topGainerMove}로 상대 강도를 보였고, ${topLoser.sym}는 ${topLoserMove}로 압력 구간을 형성했습니다.`
       : appLocale === 'ja'
-        ? `${lead.sym}がセクターの基準点となり、${leadMove}、Context ${lead.score.toFixed(0)}を示しています。${topGainer.sym}は${topGainerMove}で相対的な強さ、${topLoser.sym}は${topLoserMove}で圧力ゾーンを形成しています。`
-        : `${lead.sym} is the sector anchor with a ${leadMove} move and Context ${lead.score.toFixed(0)}. ${topGainer.sym} shows relative strength at ${topGainerMove}, while ${topLoser.sym} marks the pressure pocket at ${topLoserMove}.`;
+        ? `${lead.sym}がセクターの基準点となり、${leadMove}、Context ${ctxText(lead.score)}を示しています。${topGainer.sym}は${topGainerMove}で相対的な強さ、${topLoser.sym}は${topLoserMove}で圧力ゾーンを形成しています。`
+        : `${lead.sym} is the sector anchor with a ${leadMove} move and Context ${ctxText(lead.score)}. ${topGainer.sym} shows relative strength at ${topGainerMove}, while ${topLoser.sym} marks the pressure pocket at ${topLoserMove}.`;
     const appReportDayOutlook = appLocale === 'ko'
       ? `${gainers}개 상승 / ${losers}개 하락. ${dominantRegime} 감마와 평균 PCR ${avgPcrText}를 기준으로 다음 세션에서는 콜월·풋플로어 근처의 반응을 우선 확인해야 합니다.`
       : appLocale === 'ja'
@@ -1949,14 +1984,14 @@ export default function AppIntelPage() {
       appLocale === 'ko' ? `고래 ${whaleText} / 유동성 ${liquidityText} / 스퀴즈 ${squeezeText}` : appLocale === 'ja' ? `Whale ${whaleText} / 流動性 ${liquidityText} / Squeeze ${squeezeText}` : `Whale ${whaleText} / Liquidity ${liquidityText} / Squeeze ${squeezeText}`,
     ];
     const appNewsDigest = keyStocksData.slice(0, 5).map(stock => {
-      const move = formatPercentCompact(stock.changePct || 0);
+      const move = formatPercentCompact(stock.changePct);
       const pcr = stock.pcr ? stock.pcr.toFixed(2) : '-';
-      const gex = formatGex(stock.gex || 0);
+      const gex = formatGex(stock.gex);
       const wall = stock.callWall ? `CW $${stock.callWall.toFixed(0)}` : '';
       const floor = stock.putFloor ? `PF $${stock.putFloor.toFixed(0)}` : '';
-      if (appLocale === 'ko') return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
-      if (appLocale === 'ja') return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
-      return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+      if (appLocale === 'ko') return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+      if (appLocale === 'ja') return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
+      return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
     });
     const appRiskNotes = [
       appLocale === 'ko'
@@ -2272,10 +2307,10 @@ export default function AppIntelPage() {
         ? `${fallbackTopGainer?.sym || '-'}の相対的な強さと${fallbackTopLoser?.sym || '-'}の圧力帯を見ながら、セクターGEX ${formatGex(totalGex)}が価格反応を吸収するか拡大するか確認します。`
         : `Track ${fallbackTopGainer?.sym || '-'} relative strength against ${fallbackTopLoser?.sym || '-'} pressure, then verify whether sector GEX ${formatGex(totalGex)} absorbs or amplifies price reaction.`;
     const fallbackDigest = keyStocksData.slice(0, 5).map(stock => {
-      const move = formatPercentCompact(stock.changePct || 0);
+      const move = formatPercentCompact(stock.changePct);
       const pcr = stock.pcr ? stock.pcr.toFixed(2) : '-';
-      const gex = formatGex(stock.gex || 0);
-      return `${stock.sym} ${move} / Context ${stock.score.toFixed(0)} / GEX ${gex} / PCR ${pcr}`;
+      const gex = formatGex(stock.gex);
+      return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}`;
     });
     const fallbackRisks = [
       appLocale === 'ko'
@@ -4145,9 +4180,9 @@ export default function AppIntelPage() {
                                           borderRadius: '4px',
                                           letterSpacing: '0.02em'
                                         }}>
-                                          {stock.grade}
+                                          {stock.grade || '—'}
                                         </span>
-                                        {stock.score > 0 && (
+                                        {stock.score != null && stock.score > 0 && (
                                           <span style={{
                                             fontSize: '12px',
                                             fontWeight: 600,
@@ -4984,7 +5019,7 @@ export default function AppIntelPage() {
                           'C': { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' },
                           'D': { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' }
                         };
-                        const gc = gradeColors[stock.grade] || gradeColors['B'];
+                        const gc = gradeColors[stock.grade || ''] || gradeColors['B'];
                         const isExpanded = expandedStock === stock.sym;
                         const aiAnalysis = stockAiAnalyses[stock.sym];
                         const localizedAiText = (aiAnalysis?.[appLocale] || aiAnalysis?.en || '').trim();
