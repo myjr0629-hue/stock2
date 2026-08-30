@@ -119,8 +119,11 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any
 
 // [PERF] Redis cache key for ticker response
 const TICKER_CACHE_TTL = 60; // 60 seconds
+// ⚠️ 응답 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛 페이로드가
+//    그대로 나가서 새 필드가 «조용히» 빠진다(2026-08-30 에 두 번 겪었다).
+//    v2 = 다크풀(FINRA) 필드 추가 2026-08-31
 function tickerCacheKey(ticker: string): string {
-    return `flow:ticker:${ticker}`;
+    return `flow:ticker:v2:${ticker}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -143,7 +146,7 @@ export async function GET(req: NextRequest) {
 
     // [PERF] Check Redis cache first — returns in ~0.1s if cache hit
     // Use separate cache key for skip_alpha to avoid serving incomplete data to full callers
-    const cacheKey = skipAlpha ? `flow:ticker:lite:${ticker}` : tickerCacheKey(ticker);
+    const cacheKey = skipAlpha ? `flow:ticker:lite:v2:${ticker}` : tickerCacheKey(ticker);
     try {
         const cached = await getFromCache<any>(cacheKey);
         const verdict = isUsableTickerCache(cached);
@@ -405,8 +408,16 @@ export async function GET(req: NextRequest) {
         }
     };
 
+    // 다크풀(FINRA 원본) — 벤더와 무관하게 Redis 한 번만 읽는다
+    const fetchFinraDarkPool = async () => {
+        try {
+            const { getDarkPool } = await import('@/services/darkPool');
+            return await getDarkPool(ticker);
+        } catch { return null; }
+    };
+
     // [PERF] skip_alpha: skip 5 alpha-only APIs (SMA20, MACD, macro, feargreed, vix3m)
-    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData, truePmRes, macdData, vix3mCacheData] = await Promise.all([
+    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData, truePmRes, macdData, vix3mCacheData, finraDp] = await Promise.all([
         fetchOC(),
         fetchFlow(),
         fetchStructure(),
@@ -417,6 +428,7 @@ export async function GET(req: NextRequest) {
         fetchTruePreMarket(ticker), // [V5.5 FIX] Parallel True PM Fetcher
         skipAlpha ? Promise.resolve(null) : fetchMACD(),  // [V5.5+] MACD for trend crossover
         skipAlpha ? Promise.resolve(null) : getFromCache<{ price: number; changePct: number }>('yahoo:vix3m').catch(() => null),  // [V5.5+] VIX3M for term structure
+        fetchFinraDarkPool(),   // 다크풀 — FINRA 규제 원본 (T+1)
     ]);
 
     // Phase 2 results - extract OC data and compute derived values
@@ -640,10 +652,19 @@ export async function GET(req: NextRequest) {
             volumePcr: _vpcr,
             volumePcrCallVol: _cvol > 0 ? _cvol : null,
             volumePcrPutVol: _pvol > 0 ? _pvol : null,
-            // [2026-08-29] Massive 차단 — 다크풀/공매도는 stale 이므로 노출 금지.
-            // ENABLE_MASSIVE_TICKS=1 일 때만 되살아난다. (정본: INTRINIO_MIGRATION_WORKLOG.md)
-            darkPoolPct: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.percent ?? null) : null,
-            darkPoolVol: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.volume ?? null) : null,
+            // [2026-08-31] 다크풀 **복원**. Massive 상실 후 「측정 불가」로 비워
+            //   두었으나, FINRA TRF 규제 보고 원본으로 되살렸다(T+1·전 종목).
+            //   벤더 값(metricsData)은 stale 이므로 쓰지 않는다 — 원본이 우선.
+            //   ⚠️ 라이선스상 화면에 «출처 FINRA» 표기 필수 → darkPoolSource
+            darkPoolPct: finraDp?.pct ?? null,
+            darkPoolVol: finraDp?.volume ?? null,
+            darkPoolShortPct: finraDp?.shortPct ?? null,
+            darkPoolVolRatio: finraDp?.volRatio ?? null,
+            darkPoolStealth: finraDp?.stealth ?? null,
+            darkPoolRegime: finraDp?.regime ?? null,
+            darkPoolMarketAvg: finraDp?.marketAvg ?? null,
+            darkPoolDate: finraDp?.date ?? null,
+            darkPoolSource: finraDp ? 'FINRA' : null,
             darkPoolTotalVol: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.totalVolume ?? null) : null,
             darkPoolNetBuyVal: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.netBuyValue ?? null) : null,
             shortVolPct: MASSIVE_TICKS_ON ? (metricsData?.shortVolume?.percent ?? null) : null,
@@ -805,8 +826,8 @@ export async function GET(req: NextRequest) {
                     squeezeScore: squeezeScore ?? null,
                     atmIv: (structureResult as any)?.atmIv ?? null,
                     ivSkew,  // [V3 PIPELINE] IV Skew
-                    // Flow data (from metrics + calculated)
-                    darkPoolPct: metricsData?.darkPool?.percent ?? null,
+                    // Flow data — 다크풀은 FINRA 원본(벤더 값은 stale)
+                    darkPoolPct: finraDp?.pct ?? null,
                     shortVolPct: metricsData?.shortVolume?.percent ?? null,
                     whaleIndex,
                     relVol,

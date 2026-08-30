@@ -49,6 +49,7 @@ export const sections: TermsSection[] = [
                 <li><strong>단순 정보 제공:</strong> SIGNUM HQ에서 제공되는 모든 데이터, 분석 및 정보(Gamma Exposure, Options Flow, Max Pain, Dark Pool Tracker, Analytics Score, Session Sentiment 등 포함)는 <strong>과거 데이터에 기반한 통계적 참고 자료일 뿐이며, 특정 종목의 추천이나 개별 자문을 구성하지 않습니다.</strong></li>
                 <li><strong>이용자 책임:</strong> 금융 시장 참여는 원금 손실의 위험이 따르며, <strong>모든 분석 판단에 따른 결과의 책임은 전적으로 이용자 본인에게 있습니다.</strong> 회사는 회원이 서비스에 게재된 정보에 의존하여 행한 이용 결과에 대해 어떠한 법적 책임도 지지 않습니다.</li>
                 <li><strong>서비스 범위:</strong> 본 서비스는 <strong>미국 SEC, FINRA 등 금융 규제 기관에 투자자문업자로 등록되어 있지 않으며,</strong> 개별 자문 또는 그와 유사한 맞춤형 서비스를 제공하지 않습니다. <strong>회사는 데이터 분석 소프트웨어 제공자입니다.</strong></li>
+                <li><strong>시장 데이터의 출처 및 재배포 금지:</strong> 장외(다크풀) 체결 및 공매도 관련 데이터는 <strong>FINRA</strong>가 소유·제공하는 규제 보고 자료이며, 회사는 이를 가공하여 표시합니다. <strong>이용자는 본 서비스에서 제공되는 시장 데이터를 개인적·전문적 참고 용도로만 이용할 수 있으며, 이를 제3자에게 재배포·전재하거나 상업적으로 전용할 수 없습니다.</strong></li>
                 <li><strong>예측 정확도 비보장:</strong> 서비스에서 제시되는 과거 데이터 기반의 통계 수치, 백테스트 결과, 분석 스코어 등은 <strong>미래의 결과를 보장하거나 예측하는 것이 아닙니다.</strong></li>
             </ol>
         ),

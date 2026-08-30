@@ -32,11 +32,22 @@ export interface NewsItem {
 
 export interface MoneyData {
   /**
-   * 장외(다크풀) 체결 비중.
-   * ⚠️ 현재 데이터 공급으로는 **측정 불가**라 항상 null 이다.
-   *    화면은 이 값 대신 아래 옵션 신규 포지션을 쓴다.
+   * 장외(다크풀) 체결 비중 % — **2026-08-31 복원됨**.
+   *   벤더 상실 후 「측정 불가」로 두었으나, FINRA TRF 규제 보고 원본으로
+   *   되살렸다(전 종목 11,663개·T+1). 아래 파생값과 함께 쓴다.
    */
   darkPoolPct: number | null;
+  /** 장외 체결 중 공매도 비중 % — 그 물량이 매집인지 헤지인지 가른다 */
+  darkPoolShortPct: number | null;
+  /** 오늘 장외 물량 ÷ 자기 20일 평균. 1.0 = 평소 */
+  darkPoolVolRatio: number | null;
+  /** 은밀 포지셔닝 점수 0~100 (물량↑ + 공매도비중↓ = 매집 쪽) */
+  darkPoolStealth: number | null;
+  darkPoolRegime: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
+  /** 같은 날 전 종목 평균 — 「높다/낮다」의 기준 */
+  darkPoolMarketAvg: number | null;
+  /** 다크풀 기준일 (T+1) */
+  darkPoolDate: string | null;
   /** 어제 새로 걸린 옵션 계약 수 (미결제약정 증가분 합) */
   newOiContracts: number | null;
   /** 그 신규 포지션의 명목가 ($) — 대형주·소형주를 공평하게 비교하려고 */
@@ -106,7 +117,9 @@ export function publicBase(origin: string): string {
 
 export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_000): Promise<MoneyData> {
   const empty: MoneyData = {
-    darkPoolPct: null, oiPcr: null, volumePcr: null, squeezeScore: null,
+    darkPoolPct: null, darkPoolShortPct: null, darkPoolVolRatio: null,
+    darkPoolStealth: null, darkPoolRegime: null, darkPoolMarketAvg: null, darkPoolDate: null,
+    oiPcr: null, volumePcr: null, squeezeScore: null,
     maxPain: null, callWall: null, putFloor: null, price: null,
     newOiContracts: null, newOiNotional: null, newOiSide: null, optionsDate: null,
   };
@@ -118,8 +131,22 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
     });
     if (!res.ok) return empty;
     const d = await res.json();
+
+    // 다크풀은 FINRA 원본에서 온다 — 벤더 응답의 darkPoolPct 는 이제 없다.
+    let dp: Awaited<ReturnType<typeof import('@/services/darkPool').getDarkPool>> = null;
+    try {
+      const { getDarkPool } = await import('@/services/darkPool');
+      dp = await getDarkPool(ticker);
+    } catch { /* 없으면 null 로 둔다 — 0 을 만들지 않는다 */ }
+
     return {
-      darkPoolPct: num(find(d, 'darkPoolPct')),
+      darkPoolPct: dp?.pct ?? null,
+      darkPoolShortPct: dp?.shortPct ?? null,
+      darkPoolVolRatio: dp?.volRatio ?? null,
+      darkPoolStealth: dp?.stealth ?? null,
+      darkPoolRegime: dp?.regime ?? null,
+      darkPoolMarketAvg: dp?.marketAvg ?? null,
+      darkPoolDate: dp?.date ?? null,
       oiPcr: num(find(d, 'oiPcr')),
       volumePcr: num(find(d, 'volumePcr')),
       squeezeScore: num(find(d, 'squeezeScore')),
@@ -146,9 +173,8 @@ export function cleanImage(url?: string | null): string | null {
 }
 
 export function hasRealMoney(m: MoneyData): boolean {
-  // 다크풀은 이제 항상 null 이다 — 그것만 보면 «돈 데이터 없음»이 되어
-  // UC 의 큐레이션(돈 있는 기사 우대)이 통째로 무너진다.
-  // 옵션 신규 포지션을 판단 재료에 포함한다.
+  // 다크풀이 FINRA 로 복원되어 다시 «돈 데이터»의 한 축이다.
+  // 옵션 신규 포지션도 함께 본다 — 한 축이 비어도 큐레이션이 무너지지 않게.
   return m.darkPoolPct !== null || m.oiPcr !== null || m.volumePcr !== null
     || m.newOiContracts !== null || m.maxPain !== null;
 }
@@ -158,7 +184,9 @@ export function buildSystem(loc: Locale): string {
 
 HOW TO READ THE MONEY SIGNALS (be precise):
 - newOiContracts / newOiNotional / newOiSide = option positions OPENED yesterday (open interest INCREASED). This is the strongest "smart money" read available: rising open interest means a NEW position, not a close-out — volume alone cannot tell those apart. newOiSide says whether the new money leaned call (upside) or put (downside). Judge size by notional, not contract count.
-- darkPoolPct is ALWAYS null on the current data feed — never mention off-exchange or dark pool activity, and never infer it from other fields.
+- darkPoolPct = share of the day's volume executed OFF-EXCHANGE (dark pools + wholesaler internalization), from FINRA's regulatory tape. This is where institutions work large orders away from the public book. Compare it to darkPoolMarketAvg — the same day's average across all names — never to a fixed number. darkPoolVolRatio says how that off-exchange volume compares to the SAME ticker's own 20-day norm (1.0 = normal, 1.8 = nearly double); a jump there is a stronger signal than the raw share.
+- darkPoolShortPct = what fraction of that off-exchange volume was SHORT. Low = those off-exchange prints lean toward genuine buying; high = they lean toward hedging or distribution. darkPoolStealth (0-100) and darkPoolRegime (ACCUMULATION / DISTRIBUTION / NEUTRAL) combine those two. Treat it as a read on POSITIONING, never as a prediction.
+- Dark-pool figures are as of the prior close (darkPoolDate), not intraday. If darkPoolPct is null for this ticker, do not mention off-exchange activity at all and never infer it from other fields.
 - putCallRatio (oiPcr / volumePcr) = hedging/direction lean. >1.2 = put-heavy (defensive/bearish lean); 0.8-1.2 = balanced; <0.8 = call-heavy (bullish lean). volumePcr is today's flow; oiPcr is standing positions.
 - squeezeScore (0-100) = short-squeeze pressure. >60 = high squeeze potential; <20 = low.
 - maxPain / callWall / putFloor = option magnet/resistance/support price levels (compare to price when given).

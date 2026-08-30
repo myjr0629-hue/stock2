@@ -2502,7 +2502,18 @@ function CmdPageContent() {
     const regime = volatility.regime || (q.rawTickerData?.gammaRegime === 'LONG' ? 'CALM' : q.rawTickerData?.gammaRegime === 'SHORT' ? 'LOADED' : 'CALM');
     const squeezeScore = volatility.squeezeScore || q.rawTickerData?.squeezeScore || 0;
     const smaCross = sma.cross || 'NONE';
-    const darkPool = institutional.darkPool?.percent || q.premium.darkPool || 0;
+    // 다크풀 — FINRA 규제 원본(T+1). 없으면 null 로 두고 카드를 안 그린다.
+    const dpRaw = q.rawTickerData || {};
+    const dp = typeof dpRaw.darkPoolPct === 'number' && dpRaw.darkPoolPct > 0 ? {
+        pct: dpRaw.darkPoolPct as number,
+        shortPct: typeof dpRaw.darkPoolShortPct === 'number' ? dpRaw.darkPoolShortPct as number : null,
+        volRatio: typeof dpRaw.darkPoolVolRatio === 'number' ? dpRaw.darkPoolVolRatio as number : null,
+        stealth: typeof dpRaw.darkPoolStealth === 'number' ? dpRaw.darkPoolStealth as number : null,
+        regime: (dpRaw.darkPoolRegime ?? null) as 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null,
+        marketAvg: typeof dpRaw.darkPoolMarketAvg === 'number' ? dpRaw.darkPoolMarketAvg as number : null,
+        date: (dpRaw.darkPoolDate ?? null) as string | null,
+    } : null;
+    const darkPool = dp?.pct ?? 0;
     const earningsLabel = earnings.daysLabel || '';
     const flipLevel = structure.gammaFlipLevel || 0;
     const flipDist = flipLevel > 0 && q.price > 0 ? ((q.price - flipLevel) / flipLevel * 100) : 0;
@@ -2587,7 +2598,7 @@ function CmdPageContent() {
       vwap: vwapVal, vwapDiff: vwapVal > 0 && priceVal > 0 ? ((priceVal - vwapVal) / vwapVal) * 100 : 0,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
       analystConsensus: analyst.consensus || null, totalAnalysts: analyst.totalAnalysts || 0, priceTarget, targetUpside, buyPct: analyst.totalAnalysts > 0 ? Math.round(((analyst.breakdown?.strongBuy || 0) + (analyst.breakdown?.buy || 0)) / analyst.totalAnalysts * 100) : 0,
-      darkPool, blockTradeCount: institutional.blockTrade?.count || 0,
+      darkPool, dp, blockTradeCount: institutional.blockTrade?.count || 0,
       smaCross, smaDistance: sma.distance ?? null, smaLabel: sma.label || '',
       fundGrade: fund.grade || '', fundScore: fund.score || null, fundPe: fund.pe || null, fundRoe: fund.roe || null, fundRevenueGrowth: fund.revenueGrowth || null,
       earningsLabel, nextEarningsDate: earnings.nextEarningsDate || '', epsEstimate: earnings.epsEstimate || null
@@ -3361,6 +3372,54 @@ function CmdPageContent() {
                 {locale === 'ko' ? '시그널 대시보드' : locale === 'ja' ? 'シグナルダッシュボード' : 'Signal Dashboard'}
               </div>
               <div className="grid grid-cols-2 gap-2.5">
+                {/*
+                  [0] DARK POOL — 우리 브랜드의 대표 지표. 2026-08-31 FINRA
+                  규제 원본으로 복원됐다. 숫자 하나가 아니라 «시장 평균 대비 ·
+                  평소 물량 대비 · 그 물량이 매집인가 헤지인가»까지 말한다.
+                  ⚠️ 라이선스상 출처(FINRA) 표기 필수 · 별도 과금 금지(무료 노출)
+                  값이 없으면 **카드를 아예 안 그린다** — 0% 는 거짓말이다.
+                */}
+                {signalsData.dp && (() => {
+                  const d = signalsData.dp;
+                  const hot = d.regime === 'ACCUMULATION';
+                  const cold = d.regime === 'DISTRIBUTION';
+                  const badge = d.regime == null ? undefined
+                    : hot ? (locale === 'ko' ? '은밀 매집' : locale === 'ja' ? '静かな買い集め' : 'ACCUMULATION')
+                    : cold ? (locale === 'ko' ? '은밀 분산' : locale === 'ja' ? '静かな売り抜け' : 'DISTRIBUTION')
+                    : (locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'NEUTRAL');
+                  const gap = d.marketAvg != null ? d.pct - d.marketAvg : null;
+                  return (
+                    <SignalCard
+                      label={locale === 'ko' ? '다크풀' : locale === 'ja' ? 'ダークプール' : 'DARK POOL'}
+                      iconKey="DARK POOL"
+                      infoTerm="darkPool"
+                      value={`${d.pct.toFixed(1)}%`}
+                      badge={badge}
+                      badgeColor={hot ? 'bg-emerald-500/25 text-emerald-400' : cold ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
+                      color={hot ? 'text-emerald-400' : cold ? 'text-rose-400' : 'text-violet-300'}
+                      bg={hot ? 'bg-emerald-950/20' : cold ? 'bg-rose-950/20' : 'bg-violet-950/20'}
+                      border={hot ? 'border-emerald-500/20' : cold ? 'border-rose-500/20' : 'border-violet-500/20'}
+                      sub={<>
+                        {gap != null && (
+                          <>{locale === 'ko' ? '시장 평균 ' : locale === 'ja' ? '市場平均 ' : 'mkt avg '}
+                          <span className="text-slate-300 font-bold">{d.marketAvg!.toFixed(0)}%</span>
+                          {' '}<span className={gap >= 0 ? 'text-emerald-400 font-extrabold' : 'text-rose-400 font-extrabold'}>
+                            {gap >= 0 ? '+' : ''}{gap.toFixed(1)}%p
+                          </span></>
+                        )}
+                        {d.volRatio != null && <> · {locale === 'ko' ? '물량 ' : locale === 'ja' ? '出来高 ' : 'vol '}
+                          <span className="text-cyan-400 font-extrabold">{d.volRatio.toFixed(1)}×</span></>}
+                        {d.shortPct != null && <> · {locale === 'ko' ? '공매도 ' : locale === 'ja' ? '空売り ' : 'short '}
+                          <span className="text-slate-300 font-bold">{d.shortPct.toFixed(0)}%</span></>}
+                        <span className="block mt-0.5 text-[9px] text-slate-500">
+                          FINRA · {d.date ?? ''}
+                        </span>
+                      </>}
+                      locale={locale}
+                    />
+                  );
+                })()}
+
                 {/* [1] VOL REGIME */}
                 <SignalCard 
                   label={locale === 'ko' ? '변동성 레짐' : locale === 'ja' ? 'ボラティリティ体制' : 'VOL REGIME'}

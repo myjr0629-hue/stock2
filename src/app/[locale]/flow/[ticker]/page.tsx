@@ -19,6 +19,9 @@ const TICKER_RE = /^[A-Z]{1,6}$/;
 
 interface Money {
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
+  darkPoolShortPct?: number | null; darkPoolVolRatio?: number | null;
+  darkPoolStealth?: number | null; darkPoolRegime?: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
+  darkPoolMarketAvg?: number | null; darkPoolDate?: string | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
   putFloor: number | null; price: number | null;
 }
@@ -73,7 +76,7 @@ const L: Record<string, Strings> = {
   relT: 'Nearby tickers',
   allT: 'See all tickers',
   learnT: 'Learn the numbers',
-    lbl: { darkPool: 'Dark-pool volume', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
+    lbl: { darkPool: 'Dark pool share', mktAvg: 'market avg', dpVol: 'Dark pool volume vs its norm', dpShort: 'Short share of that', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
   },
   ko: {
     kicker: '수급 스냅샷',
@@ -95,7 +98,7 @@ const L: Record<string, Strings> = {
   relT: '인접 종목',
   allT: '전체 종목 보기',
   learnT: '숫자를 읽는 법',
-    lbl: { darkPool: '다크풀 비중', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
+    lbl: { darkPool: '다크풀 비중', mktAvg: '시장 평균', dpVol: '다크풀 물량 (평소 대비)', dpShort: '그중 공매도 비중', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
   },
   ja: {
     kicker: '資金フロー・スナップショット',
@@ -117,7 +120,7 @@ const L: Record<string, Strings> = {
   relT: '近いティッカー',
   allT: '全ティッカーを見る',
   learnT: '数字の読み方',
-    lbl: { darkPool: 'ダークプール比率', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
+    lbl: { darkPool: 'ダークプール比率', mktAvg: '市場平均', dpVol: 'ダークプール出来高（平常比）', dpShort: 'うち空売り比率', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
   },
 };
 
@@ -196,9 +199,21 @@ export default async function FlowTickerPage(
   const url = `${base}/${locale}/flow/${ticker}`;
   const desc = (data.tickerRead || l.sub(ticker)).slice(0, 200);
 
+  // 이 페이지에 검색으로 들어오는 질의는 사실상 「{티커} dark pool」이다.
+  // 그러니 다크풀을 가격 다음이 아니라 **맨 앞**에 두고, 시장 평균과
+  // «평소의 몇 배»까지 함께 보여 준다 — 숫자 하나로는 판단이 안 된다.
   const metrics: [string, string][] = [];
+  if (m.darkPoolPct != null) {
+    metrics.push([
+      l.lbl.darkPool,
+      m.darkPoolMarketAvg != null
+        ? `${m.darkPoolPct.toFixed(1)}%  (${l.lbl.mktAvg} ${m.darkPoolMarketAvg.toFixed(0)}%)`
+        : `${m.darkPoolPct.toFixed(1)}%`,
+    ]);
+    if (m.darkPoolVolRatio != null) metrics.push([l.lbl.dpVol, `${m.darkPoolVolRatio.toFixed(1)}×`]);
+    if (m.darkPoolShortPct != null) metrics.push([l.lbl.dpShort, `${m.darkPoolShortPct.toFixed(1)}%`]);
+  }
   if (m.price != null) metrics.push([l.lbl.price, money$(m.price)!]);
-  if (m.darkPoolPct != null) metrics.push([l.lbl.darkPool, `${Math.round(m.darkPoolPct)}%`]);
   if (m.maxPain != null) metrics.push([l.lbl.maxPain, money$(m.maxPain)!]);
   if (m.callWall != null) metrics.push([l.lbl.callWall, money$(m.callWall)!]);
   if (m.putFloor != null) metrics.push([l.lbl.putFloor, money$(m.putFloor)!]);
@@ -207,7 +222,13 @@ export default async function FlowTickerPage(
 
   // JSON-LD FAQ from the real data — rich results + LLM extraction
   const faq: { q: string; a: string }[] = [];
-  if (m.darkPoolPct != null) faq.push({ q: `What is ${ticker}'s dark-pool activity?`, a: `${ticker}'s dark-pool volume is about ${Math.round(m.darkPoolPct)}%.` });
+  if (m.darkPoolPct != null) {
+    const bits = [`${m.darkPoolPct.toFixed(1)}% of ${ticker}'s volume was executed off-exchange (dark pools and wholesalers) on ${m.darkPoolDate ?? 'the prior session'}`];
+    if (m.darkPoolMarketAvg != null) bits.push(`against a ${m.darkPoolMarketAvg.toFixed(0)}% average across all listed names that day`);
+    if (m.darkPoolVolRatio != null) bits.push(`that off-exchange volume was ${m.darkPoolVolRatio.toFixed(1)}x ${ticker}'s own 20-day norm`);
+    if (m.darkPoolShortPct != null) bits.push(`${m.darkPoolShortPct.toFixed(1)}% of it was short`);
+    faq.push({ q: `What is ${ticker}'s dark pool volume today?`, a: `${bits.join('; ')}. Source: FINRA.` });
+  }
   if (m.maxPain != null) faq.push({ q: `Where is ${ticker}'s max pain?`, a: `${ticker}'s max pain is around ${money$(m.maxPain)}.` });
   if (m.callWall != null || m.putFloor != null) faq.push({ q: `What are ${ticker}'s option walls?`, a: `${[m.callWall != null ? `call wall ${money$(m.callWall)}` : '', m.putFloor != null ? `put floor ${money$(m.putFloor)}` : ''].filter(Boolean).join(', ')}.` });
   // ⛔ 2026-08-20: 여기는 FAQPage 하나만 내보내고 있었다. 구글은 FAQ 리치결과를

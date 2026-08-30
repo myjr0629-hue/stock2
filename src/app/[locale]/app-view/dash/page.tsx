@@ -1631,8 +1631,8 @@ export default function AppDashPage() {
             <span className={s.brandName}>
               SIGNUM<span style={{ color: 'var(--cyan)' }}>HQ</span>
             </span>
-            {/* 다크풀은 2026-08-28 소멸 — 앱 이름표가 못 지키는 약속을 하고 있었다 */}
-            <span className={s.brandSub}>OPTIONS FLOW INTEL</span>
+            {/* 2026-08-31 다크풀이 FINRA 규제 원본으로 복원돼 다시 사실이 됐다 */}
+            <span className={s.brandSub}>DARK POOL INTEL</span>
           </div>
         </div>
         <div className={s.headerActions}>

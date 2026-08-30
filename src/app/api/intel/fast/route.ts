@@ -29,8 +29,11 @@ const SECTOR_TICKERS: Record<string, string[]> = {
 };
 
 // Redis key matching /api/live/ticker format
+// ⚠️ 응답 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛 페이로드가
+//    그대로 나가서 새 필드가 «조용히» 빠진다(2026-08-30 에 두 번 겪었다).
+//    v2 = 다크풀(FINRA) 필드 추가 2026-08-31
 function tickerCacheKey(ticker: string): string {
-    return `flow:ticker:${ticker}`;
+    return `flow:ticker:v2:${ticker}`;
 }
 
 export const revalidate = 15; // 15-second edge cache

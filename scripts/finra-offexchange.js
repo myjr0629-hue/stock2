@@ -29,6 +29,11 @@
  *
  * 사용법
  *   node finra-offexchange.js [--date=YYYY-MM-DD] [--dry]
+ *   node finra-offexchange.js --backfill=40      최근 40거래일 이력 적재
+ *
+ * 왜 이력이 필요한가
+ *   「TSLA 47.4%」만 보여 주면 그게 높은지 낮은지 알 수 없다. 자기 20일
+ *   이력 대비 백분위·추세가 있어야 «인사이트»가 된다. 하루치로는 못 만든다.
  * ══════════════════════════════════════════════════════════════════════
  */
 const https = require("https");
@@ -48,8 +53,12 @@ const PROXY_PORT = +(process.env.REDIS_PROXY_PORT || 8081);
 const PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
 
 const EOD_KEY = "intrinio:eod:snapshot";
-const OUT_KEY = "finra:offexchange";
-const HIST_KEY = "finra:offexchange:hist";
+const OUT_KEY = "finra:offexchange";        // 오늘 + 파생지표 (앱이 읽는 것)
+const HIST_KEY = "finra:offexchange:hist";  // 시장 평균 이력
+const SERIES_KEY = "finra:offexchange:series"; // 종목별 이력 (백분위·배수의 재료)
+/** 종목별 이력 보관 일수. 백분위를 말하려면 최소 MIN_SERIES 일이 필요하다. */
+const SERIES_DAYS = 25;
+const MIN_SERIES = 10;
 const TTL_SEC = 90 * 86400;
 
 /** FINRA 규정: User-Agent 에 연락처를 넣는다 */
@@ -62,6 +71,7 @@ const PAGE = 5000;
 const args = process.argv.slice(2);
 const DRY = args.includes("--dry");
 const dateArg = (args.find((a) => a.startsWith("--date=")) || "").split("=")[1] || null;
+const backfillArg = +((args.find((a) => a.startsWith("--backfill=")) || "").split("=")[1] || 0);
 const log = (m) => console.log(`[FINRA] ${m}`);
 
 function post(url, body) {
@@ -128,11 +138,8 @@ async function resolveDate() {
     return null;
 }
 
-(async () => {
-    const date = await resolveDate();
-    if (!date) { console.error("[FINRA] 최근 8일 내 데이터 없음"); process.exit(1); }
-
-    // ── 1. 전량 수집 (TRF 3곳이 심볼당 최대 3행) ──────────────────────
+/** 하루치 장외 집계. TRF 3곳(B/Q/N)이 심볼당 최대 3행으로 온다 → 합산. */
+async function fetchDay(date) {
     const off = {}; // sym -> { v: 장외거래량, s: 장외공매도 }
     let offset = 0, rows = 0, total = 0;
     while (true) {
@@ -144,7 +151,6 @@ async function resolveDate() {
         if (!total) total = +(r.headers["record-total"] || 0);
 
         const lines = r.body.split("\n").filter(Boolean);
-        // 첫 페이지에만 헤더가 온다
         const body = lines[0] && lines[0].includes("tradeReportDate") ? lines.slice(1) : lines;
         if (body.length === 0) break;
 
@@ -163,6 +169,64 @@ async function resolveDate() {
         offset += PAGE;
         if (rows >= total || body.length < PAGE) break;
     }
+    return { off, rows };
+}
+
+/** 값이 분포의 몇 번째인가 (0~100). 표본이 얇으면 null — 지어내지 않는다. */
+function pctileOf(today, history) {
+    const h = history.filter((v) => typeof v === "number" && Number.isFinite(v));
+    if (h.length < MIN_SERIES) return null;
+    return Math.round((h.filter((v) => v <= today).length / h.length) * 100);
+}
+
+/** 직전 N개 평균 */
+function avg(arr) {
+    const a = arr.filter((v) => typeof v === "number" && Number.isFinite(v));
+    return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+}
+
+(async () => {
+    // ── 백필 모드: 종목별 이력만 만든다 (통합 거래량이 과거치가 없어 %는 못 만듦)
+    if (backfillArg > 0) {
+        const series = { dates: [], vol: {}, short: {} };
+        const today = new Date();
+        let filled = 0;
+        for (let i = 0; i < backfillArg * 2 && filled < backfillArg; i++) {
+            const iso = new Date(today.getTime() - i * 86400000).toISOString().slice(0, 10);
+            const d = new Date(iso + "T12:00:00Z").getUTCDay();
+            if (d === 0 || d === 6) continue;                       // 주말 건너뛰기
+            let day;
+            try { day = await fetchDay(iso); } catch { continue; }
+            if (!day.rows) continue;                                 // 휴일
+            series.dates.push(iso);
+            for (const [sym, v] of Object.entries(day.off)) {
+                if (!series.vol[sym]) { series.vol[sym] = {}; series.short[sym] = {}; }
+                series.vol[sym][iso] = Math.round(v.v);
+                series.short[sym][iso] = v.v > 0 ? Math.round((v.s / v.v) * 1000) / 10 : null;
+            }
+            filled++;
+            log(`백필 ${iso} · ${Object.keys(day.off).length.toLocaleString()}종목 (${filled}/${backfillArg})`);
+            await new Promise((r) => setTimeout(r, 250));            // 예의상 간격
+        }
+        series.dates.sort();
+        // 날짜별 맵 → 배열(날짜 순서 고정)로 압축
+        const packed = { dates: series.dates, vol: {}, short: {} };
+        for (const sym of Object.keys(series.vol)) {
+            packed.vol[sym] = series.dates.map((d) => series.vol[sym][d] ?? null);
+            packed.short[sym] = series.dates.map((d) => series.short[sym][d] ?? null);
+        }
+        const payload = JSON.stringify(packed);
+        log(`이력 ${series.dates.length}일 × ${Object.keys(packed.vol).length.toLocaleString()}종목 · ${(payload.length / 1048576).toFixed(1)}MB`);
+        if (DRY) { log("--dry · 저장 생략"); return; }
+        await redisSet(SERIES_KEY, payload, TTL_SEC);
+        log("이력 저장 완료");
+        return;
+    }
+
+    const date = await resolveDate();
+    if (!date) { console.error("[FINRA] 최근 8일 내 데이터 없음"); process.exit(1); }
+
+    const { off, rows } = await fetchDay(date);
     log(`${date} · ${rows.toLocaleString()}행 → ${Object.keys(off).length.toLocaleString()}종목`);
 
     // ── 2. 통합 거래량으로 «장외 비중» 계산 ───────────────────────────
@@ -170,26 +234,61 @@ async function resolveDate() {
     const consolidated = {};
     for (const r of (snap?.rows || [])) consolidated[r[0]] = r[5];   // [t,o,h,l,c,v,...]
 
+    // ── 2-B. 이력을 붙여 «파생 지표»를 만든다 ─────────────────────────
+    //   숫자 하나(47.4%)는 정보가 아니다. 그게 이 종목에서 평소보다 높은지,
+    //   그 장외 물량이 매집인지 헤지인지까지 가야 인사이트가 된다.
+    const prevSeries = (await redisGet(SERIES_KEY)) || { dates: [], vol: {}, short: {} };
+    const sDates = Array.isArray(prevSeries.dates) ? prevSeries.dates.filter((x) => x !== date) : [];
+
     const out = {};
-    let matched = 0, sumPct = 0, dropped = 0;
+    let matched = 0, sumPct = 0, dropped = 0, derived = 0;
     for (const [sym, d] of Object.entries(off)) {
         const cv = consolidated[sym];
         if (!cv || !(cv > 0) || !(d.v > 0)) continue;
         const pct = (d.v / cv) * 100;
         // ⚠️ 100% 초과는 심볼 대응이 어긋난 것(클래스 차이 등). 지어내지 말고 버린다.
         if (!(pct > 0) || pct > 100) { dropped++; continue; }
-        out[sym] = {
+
+        const shortPct = Math.round((d.s / d.v) * 1000) / 10;
+        const row = {
             pct: Math.round(pct * 10) / 10,
             vol: Math.round(d.v),
-            // 장외 체결 중 공매도 비중 — 벤더는 팔지 않던 덤
-            shortPct: d.v > 0 ? Math.round((d.s / d.v) * 1000) / 10 : null,
+            shortPct,                       // 장외 체결 중 공매도 비중 — 벤더는 안 주던 값
         };
+
+        // 이 종목의 과거 장외 물량 / 공매도 비중
+        const volHist = (prevSeries.vol?.[sym] || []).filter((v) => typeof v === "number" && v > 0);
+        const shHist = (prevSeries.short?.[sym] || []).filter((v) => typeof v === "number");
+
+        const volAvg = avg(volHist);
+        if (volAvg && volAvg > 0) {
+            // 「평소의 몇 배」 — 비중(%)보다 «변화»가 신호다
+            row.volRatio = Math.round((d.v / volAvg) * 100) / 100;
+            row.volP = pctileOf(d.v, volHist);
+        }
+        row.shortP = pctileOf(shortPct, shHist);
+        // 오늘의 비중 %는 오늘부터 쌓인다(과거 통합거래량이 없어 소급 불가)
+        row.pctP = pctileOf(pct, (prevSeries.pct?.[sym] || []));
+
+        // ── 은밀 축적 점수 ─────────────────────────────────────────
+        //   장외 물량이 평소보다 많고(volP↑), 그 물량 중 공매도 비중은
+        //   평소보다 낮으면(shortP↓) → 호가창 밖에서 «사 모으는» 그림.
+        //   반대면 조용한 분산·헤지. 예측이 아니라 «포지셔닝 판독»이다.
+        if (row.volP != null && row.shortP != null) {
+            row.stealth = Math.round(row.volP * 0.6 + (100 - row.shortP) * 0.4);
+            row.regime = row.stealth >= 70 ? "ACCUMULATION"
+                : row.stealth <= 30 ? "DISTRIBUTION" : "NEUTRAL";
+            derived++;
+        }
+
+        out[sym] = row;
         matched++; sumPct += pct;
     }
     const marketAvg = matched ? Math.round((sumPct / matched) * 10) / 10 : null;
-    log(`장외비중 ${matched.toLocaleString()}종목 · 평균 ${marketAvg}% · 제외 ${dropped}건(>100%)`);
+    log(`장외비중 ${matched.toLocaleString()}종목 · 평균 ${marketAvg}% · 제외 ${dropped}건(>100%) · 파생지표 ${derived.toLocaleString()}종목`);
     for (const t of ["SPY", "QQQ", "NVDA", "TSLA", "AAPL"]) {
-        if (out[t]) log(`  ${t}: ${out[t].pct}% (공매도 ${out[t].shortPct}%)`);
+        const r = out[t];
+        if (r) log(`  ${t}: ${r.pct}% · 공매도 ${r.shortPct}% · 물량 ${r.volRatio ?? "—"}배 · 은밀축적 ${r.stealth ?? "—"} ${r.regime ?? ""}`);
     }
 
     if (DRY) { log("--dry · 저장 생략"); return; }
@@ -198,6 +297,28 @@ async function resolveDate() {
     await redisSet(OUT_KEY, JSON.stringify({
         date, source: "FINRA", tickers: out, marketAvg, covered: matched, _ts: Date.now(),
     }), TTL_SEC);
+
+    // ── 종목별 이력 갱신 — 오늘치가 내일의 «평소»가 된다 ──────────────
+    {
+        const dates = [...sDates, date].sort().slice(-SERIES_DAYS);
+        const idxOld = Object.fromEntries((prevSeries.dates || []).map((d, i) => [d, i]));
+        const nextVol = {}, nextShort = {}, nextPct = {};
+        const syms = new Set([...Object.keys(prevSeries.vol || {}), ...Object.keys(out)]);
+        for (const sym of syms) {
+            const ov = prevSeries.vol?.[sym] || [];
+            const os = prevSeries.short?.[sym] || [];
+            const op = prevSeries.pct?.[sym] || [];
+            const row = out[sym];
+            nextVol[sym] = dates.map((d) => d === date ? (row ? row.vol : null) : (ov[idxOld[d]] ?? null));
+            nextShort[sym] = dates.map((d) => d === date ? (row ? row.shortPct : null) : (os[idxOld[d]] ?? null));
+            nextPct[sym] = dates.map((d) => d === date ? (row ? row.pct : null) : (op[idxOld[d]] ?? null));
+            // 전부 비어 있으면 들고 다닐 이유가 없다
+            if (nextVol[sym].every((v) => v == null)) { delete nextVol[sym]; delete nextShort[sym]; delete nextPct[sym]; }
+        }
+        const payload = JSON.stringify({ dates, vol: nextVol, short: nextShort, pct: nextPct });
+        await redisSet(SERIES_KEY, payload, TTL_SEC);
+        log(`종목 이력 ${dates.length}일 × ${Object.keys(nextVol).length.toLocaleString()}종목 · ${(payload.length / 1048576).toFixed(1)}MB`);
+    }
 
     // 시장 평균 이력 — «오늘이 평소보다 높은가»를 말하려면 기준이 있어야 한다
     const prev = await redisGet(HIST_KEY);

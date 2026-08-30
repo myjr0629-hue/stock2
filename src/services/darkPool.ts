@@ -34,6 +34,11 @@ const HIST_KEY = 'finra:offexchange:hist';
 /** 화면에 그대로 노출해야 하는 출처 표기 (§2.3-a) */
 export const ATTRIBUTION = 'Data source: FINRA';
 
+/**
+ * 「장외 비중 47.4%」 하나로는 정보가 아니다. 이 종목에서 평소보다 높은지,
+ * 그 장외 물량이 «매집»인지 «헤지»인지까지 가야 인사이트가 된다.
+ * 아래 파생값은 전부 EC2 적재 시점에 20일 이력으로 계산된다.
+ */
 export interface DarkPoolTicker {
     ticker: string;
     /** 장외 체결 비중 % */
@@ -42,11 +47,49 @@ export interface DarkPoolTicker {
     volume: number;
     /** 장외 체결 중 공매도 비중 % — 벤더는 주지 않던 값 */
     shortPct: number | null;
+    /** 오늘 장외 물량 ÷ 20일 평균. 1.0 = 평소, 1.76 = 평소의 1.8배 */
+    volRatio: number | null;
+    /** 장외 «물량»의 자기 20일 백분위 */
+    volP: number | null;
+    /** 장외 «공매도 비중»의 자기 20일 백분위 */
+    shortP: number | null;
+    /** 장외 «비중 %»의 자기 백분위 — 오늘부터 누적(과거 통합거래량 없어 소급 불가) */
+    pctP: number | null;
+    /**
+     * 은밀 축적 점수 0~100.
+     *   장외 물량이 평소보다 많고(volP↑) 그 물량 중 공매도 비중은 평소보다
+     *   낮으면(shortP↓) → 호가창 밖에서 «사 모으는» 그림.
+     *   ⚠️ 예측이 아니라 «포지셔닝 판독»이다. 문구도 그렇게 쓸 것.
+     */
+    stealth: number | null;
+    /** ACCUMULATION(≥70) · DISTRIBUTION(≤30) · NEUTRAL */
+    regime: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
     /** 관측일 (T+1 · 장중 실시간 아님) */
     date: string | null;
     /** 같은 날 전 종목 평균 — 「높다/낮다」를 말하려면 기준이 필요하다 */
     marketAvg: number | null;
     source: 'FINRA';
+}
+
+/** Redis 행 → 공개 타입. 없는 파생값은 **null 로 둔다**(0 을 만들지 않는다). */
+function toTicker(t: string, row: any, date: string | null, marketAvg: number | null): DarkPoolTicker {
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    return {
+        ticker: t,
+        pct: row.pct,
+        volume: row.vol ?? 0,
+        shortPct: num(row.shortPct),
+        volRatio: num(row.volRatio),
+        volP: num(row.volP),
+        shortP: num(row.shortP),
+        pctP: num(row.pctP),
+        stealth: num(row.stealth),
+        regime: row.regime === 'ACCUMULATION' || row.regime === 'DISTRIBUTION' || row.regime === 'NEUTRAL'
+            ? row.regime : null,
+        date,
+        marketAvg,
+        source: 'FINRA',
+    };
 }
 
 export interface DarkPoolMarket {
@@ -93,15 +136,7 @@ export async function getDarkPool(ticker: string): Promise<DarkPoolTicker | null
     const data = await readKey<{ date: string; tickers: Record<string, any>; marketAvg: number }>(KEY);
     const row = data?.tickers?.[t];
     if (!row || typeof row.pct !== 'number' || !(row.pct > 0)) return null;
-    return {
-        ticker: t,
-        pct: row.pct,
-        volume: row.vol ?? 0,
-        shortPct: typeof row.shortPct === 'number' ? row.shortPct : null,
-        date: data?.date ?? null,
-        marketAvg: typeof data?.marketAvg === 'number' ? data.marketAvg : null,
-        source: 'FINRA',
-    };
+    return toTicker(t, row, data?.date ?? null, typeof data?.marketAvg === 'number' ? data.marketAvg : null);
 }
 
 /** 시장 전체 요약 + 자기 이력 백분위 */
@@ -135,15 +170,79 @@ export async function getDarkPoolBatch(tickers: string[]): Promise<Record<string
         const t = (raw || '').toUpperCase();
         const row = data.tickers[t];
         if (!row || typeof row.pct !== 'number' || !(row.pct > 0)) continue;
-        out[t] = {
-            ticker: t,
-            pct: row.pct,
-            volume: row.vol ?? 0,
-            shortPct: typeof row.shortPct === 'number' ? row.shortPct : null,
-            date: data.date ?? null,
-            marketAvg: typeof data.marketAvg === 'number' ? data.marketAvg : null,
-            source: 'FINRA',
-        };
+        out[t] = toTicker(t, row, data.date ?? null, typeof data.marketAvg === 'number' ? data.marketAvg : null);
     }
     return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  판독 — 숫자를 «문장»으로
+//
+//  SEO 페이지 · 앱 화면 · AI 프롬프트가 **같은 해석**을 쓰게 한 곳에 둔다.
+//  화면마다 따로 쓰면 같은 데이터가 다른 말을 하게 된다(오늘 실제로 겪었다).
+// ══════════════════════════════════════════════════════════════════════
+
+export type Loc = 'ko' | 'en' | 'ja';
+const pick = (l: Loc, ko: string, en: string, ja: string) => (l === 'ko' ? ko : l === 'ja' ? ja : en);
+
+/** 레짐 라벨 */
+export function regimeLabel(r: DarkPoolTicker['regime'], l: Loc): string | null {
+    if (!r) return null;
+    if (r === 'ACCUMULATION') return pick(l, '은밀 매집', 'Stealth accumulation', '静かな買い集め');
+    if (r === 'DISTRIBUTION') return pick(l, '은밀 분산', 'Stealth distribution', '静かな売り抜け');
+    return pick(l, '중립', 'Neutral', '中立');
+}
+
+/**
+ * 한 줄 판독. **없는 것은 말하지 않는다** — 파생값이 null 이면 그 절을 뺀다.
+ * ⚠️ 예측이 아니라 «포지셔닝 판독»이다. 미래를 암시하는 표현을 쓰지 않는다.
+ */
+export function readDarkPool(d: DarkPoolTicker | null, l: Loc = 'ko'): string | null {
+    if (!d) return null;
+    const parts: string[] = [];
+
+    // ① 비중 — 시장 평균과 견준다
+    if (d.marketAvg != null) {
+        const gap = d.pct - d.marketAvg;
+        parts.push(
+            Math.abs(gap) < 3
+                ? pick(l, `장외 체결 ${d.pct}% (시장 평균 수준)`, `${d.pct}% off-exchange (in line with the market)`, `場外約定 ${d.pct}%（市場平均並み）`)
+                : gap > 0
+                    ? pick(l, `장외 체결 ${d.pct}% — 시장 평균보다 ${gap.toFixed(1)}%p 높음`, `${d.pct}% off-exchange — ${gap.toFixed(1)}pp above the market`, `場外約定 ${d.pct}% — 市場平均より${gap.toFixed(1)}pt高い`)
+                    : pick(l, `장외 체결 ${d.pct}% — 시장 평균보다 ${Math.abs(gap).toFixed(1)}%p 낮음`, `${d.pct}% off-exchange — ${Math.abs(gap).toFixed(1)}pp below the market`, `場外約定 ${d.pct}% — 市場平均より${Math.abs(gap).toFixed(1)}pt低い`),
+        );
+    } else {
+        parts.push(pick(l, `장외 체결 ${d.pct}%`, `${d.pct}% off-exchange`, `場外約定 ${d.pct}%`));
+    }
+
+    // ② 물량 — «평소의 몇 배»가 비중보다 강한 신호다
+    if (d.volRatio != null && Math.abs(d.volRatio - 1) >= 0.25) {
+        parts.push(
+            d.volRatio >= 1
+                ? pick(l, `물량은 평소의 ${d.volRatio.toFixed(1)}배`, `volume ${d.volRatio.toFixed(1)}× its norm`, `出来高は平常の${d.volRatio.toFixed(1)}倍`)
+                : pick(l, `물량은 평소의 ${d.volRatio.toFixed(1)}배로 한산`, `volume only ${d.volRatio.toFixed(1)}× its norm`, `出来高は平常の${d.volRatio.toFixed(1)}倍と閑散`),
+        );
+    }
+
+    // ③ 레짐 — 그 장외 물량이 매집인지 헤지인지
+    if (d.regime && d.regime !== 'NEUTRAL' && d.shortPct != null) {
+        parts.push(
+            d.regime === 'ACCUMULATION'
+                ? pick(l, `그중 공매도는 ${d.shortPct}%로 낮아 «매집» 쪽 그림`, `only ${d.shortPct}% of it short — reads as accumulation`, `うち空売りは${d.shortPct}%と低く「買い集め」寄り`)
+                : pick(l, `그중 공매도가 ${d.shortPct}%로 높아 «헤지·분산» 쪽 그림`, `${d.shortPct}% of it short — reads as hedging or distribution`, `うち空売りが${d.shortPct}%と高く「ヘッジ・売り」寄り`),
+        );
+    }
+
+    return parts.join(' · ');
+}
+
+/** AI 프롬프트에 넣을 사실 나열 (해석은 AI 에게 맡기되 «없는 값»은 주지 않는다) */
+export function darkPoolFacts(d: DarkPoolTicker | null): string | null {
+    if (!d) return null;
+    const f = [`off-exchange share ${d.pct}% (market avg ${d.marketAvg ?? 'n/a'}%)`];
+    if (d.shortPct != null) f.push(`short share of that off-exchange volume ${d.shortPct}%`);
+    if (d.volRatio != null) f.push(`off-exchange volume ${d.volRatio}x its own 20-day average`);
+    if (d.stealth != null) f.push(`stealth-positioning score ${d.stealth}/100 (${d.regime})`);
+    f.push(`as of ${d.date} (prior close, FINRA TRF)`);
+    return f.join('; ');
 }
