@@ -262,8 +262,15 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
 
     if (!usedLambdaCache) {
         // [Fix 2026-04-10] Use Snapshot probe ONLY (Reference API causes massive timeouts)
-        let availableExpirations: string[] = [];
-        let targetExpiry: string = '';
+        //
+        // ★ [2026-08-30] 여기에 `let availableExpirations` / `let targetExpiry` 를
+        //   **다시 선언**하고 있었다(섀도잉). 그러면 이 블록 안의 대입이 바깥 변수에
+        //   닿지 않아, Lambda 캐시가 없는 종목은 응답의 expiration 이 빈 문자열,
+        //   availableExpirations 가 빈 배열로 나간다.
+        //   실측: 같은 섹터에서 AVGO(캐시 적중)는 만기 8개인데 **TSM 은 0개**.
+        //   계약은 안쪽 targetExpiry 로 받아오므로 strikes 는 채워지고 «메타만»
+        //   비는, 알아채기 어려운 형태였다.
+        //   재선언을 지운다 — 바깥 변수를 그대로 쓴다.
 
         const probeUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&limit=250&sort=expiration_date&order=asc`;
         try {
