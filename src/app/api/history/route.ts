@@ -43,6 +43,20 @@ export async function GET(request: Request) {
         }
     }
 
+    /**
+     * 긴 창을 그릴 때 5분 해상도를 다 보내면 8,600포인트(≈1.5MB)가 된다.
+     * 차트에 필요한 것보다 훨씬 많다. 균등 간격으로 솎되
+     * **마지막 포인트는 반드시 남긴다** — 「지금 값」이 잘리면 안 된다.
+     */
+    function downsample<T>(rows: T[], max = 600): T[] {
+        if (rows.length <= max) return rows;
+        const step = rows.length / max;
+        const out: T[] = [];
+        for (let i = 0; i < max - 1; i++) out.push(rows[Math.floor(i * step)]);
+        out.push(rows[rows.length - 1]);
+        return out;
+    }
+
     try {
         let data: any[] = [];
         let meta: Record<string, any> = {};
@@ -57,14 +71,22 @@ export async function GET(request: Request) {
                 ]);
                 const since = Date.now() - days * 24 * 60 * 60 * 1000;
                 const merged = mergeGexHistory(sym, live, bf, since);
-                data = merged.data;
-                meta = { liveCount: live.length, backfilled: merged.filled };
+                data = downsample(merged.data);
+                meta = {
+                    liveCount: live.length,
+                    backfilled: merged.filled,
+                    // 솎아냈으면 솎았다고 말한다 — 조용한 절단은 「이게 전부」로 읽힌다
+                    ...(merged.data.length !== data.length && { sampledFrom: merged.data.length }),
+                };
                 break;
             }
 
-            case 'rlsi':
-                data = await getRlsiHistory(days);
+            case 'rlsi': {
+                const rows = await getRlsiHistory(days);
+                data = downsample(rows);
+                if (rows.length !== data.length) meta = { sampledFrom: rows.length };
                 break;
+            }
 
             case 'sector':
                 if (!sectorId) return NextResponse.json({ error: 'sectorId required' }, { status: 400 });
@@ -76,10 +98,13 @@ export async function GET(request: Request) {
                 data = await getAlphaHistory(ticker, days);
                 break;
 
-            case 'flow':
+            case 'flow': {
                 if (!ticker) return NextResponse.json({ error: 'ticker required' }, { status: 400 });
-                data = await getFlowHistory(ticker, days);
+                const rows = await getFlowHistory(ticker, days);
+                data = downsample(rows);
+                if (rows.length !== data.length) meta = { sampledFrom: rows.length };
                 break;
+            }
 
             default:
                 return NextResponse.json({

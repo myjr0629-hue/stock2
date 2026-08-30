@@ -166,13 +166,19 @@ function HighlightedText({ html, className }: { html: string; className?: string
 }
 
 // ── Build locale-aware analysis text from structured data + i18n keys ──
+//
+// ⚠️ 이 함수는 예전에 「없는 값」을 「중립적인 값」으로 바꿔 말하고 있었다:
+//      const pcr = t.pcr || 1  → PCR 미측정이 「균형」 이라는 판정이 됐고
+//      t.gamma_regime || 'NEUTRAL' → 감마 미측정이 「중립」 으로 표시됐다
+//    이건 틀린 숫자보다 나쁘다. 사용자는 그걸 판정 결과로 읽는다.
+//    지금은 못 잰 축은 **문장에서 아예 빼거나** 「—」 로 쓴다.
 function buildLocaleAnalysis(t: TickerSnapshot, a: any): string {
-    const changePct = t.change_pct.toFixed(2);
-    const arrow = t.change_pct >= 0 ? '▲' : '▼';
+    const arrow = t.change_pct == null ? '·' : t.change_pct >= 0 ? '▲' : '▼';
+    const changePct = t.change_pct == null ? '—' : `${t.change_pct.toFixed(2)}%`;
 
     // RSI
     let rsiNote = '';
-    if (t.rsi > 0) {
+    if (t.rsi != null && t.rsi > 0) {
         const rsiVal = Math.round(t.rsi);
         if (t.rsi < 30) rsiNote = ` RSI ${rsiVal}(${a('rsiOversold')}).`;
         else if (t.rsi > 70) rsiNote = ` RSI ${rsiVal}(${a('rsiOverbought')}).`;
@@ -181,42 +187,42 @@ function buildLocaleAnalysis(t: TickerSnapshot, a: any): string {
 
     // RVOL
     let rvolNote = '';
-    if (t.rvol > 0) {
+    if (t.rvol != null && t.rvol > 0) {
         const rvolVal = t.rvol.toFixed(1);
         if (t.rvol > 1.5) rvolNote = ` RVOL ${rvolVal}x(${a('rvolSurge')}).`;
         else if (t.rvol < 0.5) rvolNote = ` RVOL ${rvolVal}x(${a('rvolWeak')}).`;
         else rvolNote = ` RVOL ${rvolVal}x.`;
     }
 
-    // Gamma regime
-    const regime = t.gamma_regime || 'NEUTRAL';
-    const regimeLabel = regime === 'LONG' ? a('regimeLong') :
-        regime === 'SHORT' ? a('regimeShort') : a('regimeNeutral');
+    // Gamma regime — 못 쟀으면 「중립」이라고 말하지 않고 문장에서 뺀다
+    const regimeNote = t.gamma_regime === 'LONG' ? ` ${a('regimeLong')}.`
+        : t.gamma_regime === 'SHORT' ? ` ${a('regimeShort')}.`
+            : t.gamma_regime === 'NEUTRAL' ? ` ${a('regimeNeutral')}.`
+                : '';
 
-    // PCR
-    const pcr = t.pcr || 1;
-    const pcrLabel = pcr < 0.7 ? a('pcrBullish') :
-        pcr > 1.2 ? a('pcrBearish') : a('pcrBalanced');
+    // PCR — 못 쟀으면 「균형」이 아니다
+    const pcrNote = t.pcr != null && t.pcr > 0
+        ? ` PCR ${t.pcr.toFixed(2)} (${t.pcr < 0.7 ? a('pcrBullish') : t.pcr > 1.2 ? a('pcrBearish') : a('pcrBalanced')}).`
+        : '';
 
     // Max Pain distance
-    const maxPain = t.max_pain || 0;
-    const price = t.close_price || 0;
+    const price = t.close_price;
     let maxPainNote = '';
-    if (maxPain > 0 && price > 0) {
-        const dist = Math.abs((price - maxPain) / maxPain * 100).toFixed(1);
-        const dir = price > maxPain ? a('maxPainAbove') : a('maxPainBelow');
-        maxPainNote = ` ${a('closedVsMaxPain', { mp: maxPain, dir, dist })}`;
+    if (t.max_pain != null && t.max_pain > 0 && price != null && price > 0) {
+        const dist = Math.abs((price - t.max_pain) / t.max_pain * 100).toFixed(1);
+        const dir = price > t.max_pain ? a('maxPainAbove') : a('maxPainBelow');
+        maxPainNote = ` ${a('closedVsMaxPain', { mp: t.max_pain, dir, dist })}`;
     }
 
     // Key level proximity
     let levelNote = '';
-    if (t.call_wall > 0 && price > 0) {
+    if (t.call_wall != null && t.call_wall > 0 && price != null && price > 0) {
         const distToWall = ((t.call_wall - price) / price * 100).toFixed(1);
         if (parseFloat(distToWall) < 2 && parseFloat(distToWall) > 0) {
             levelNote = ` ${a('callWallNear', { wall: t.call_wall, dist: distToWall })}`;
         }
     }
-    if (t.put_floor > 0 && price > 0) {
+    if (t.put_floor != null && t.put_floor > 0 && price != null && price > 0) {
         const distToFloor = ((price - t.put_floor) / price * 100).toFixed(1);
         if (parseFloat(distToFloor) < 2 && parseFloat(distToFloor) > 0) {
             levelNote = ` ${a('putFloorNear', { floor: t.put_floor, dist: distToFloor })}`;
@@ -232,12 +238,13 @@ function buildLocaleAnalysis(t: TickerSnapshot, a: any): string {
     };
     const verdictLabel = verdictMap[t.verdict] || t.verdict;
 
-    return `${arrow} ${changePct}%.${rsiNote}${rvolNote} ${regimeLabel}. PCR ${pcr.toFixed(2)} (${pcrLabel}).${maxPainNote}${levelNote} [${verdictLabel}]`;
+    return `${arrow} ${changePct}.${rsiNote}${rvolNote}${regimeNote}${pcrNote}${maxPainNote}${levelNote} [${verdictLabel}]`;
 }
 
 // ── Ticker Card Component (compact, used in tactical groups) ──
 function TacticalTickerCard({ t, analysisText }: { t: TickerSnapshot; analysisText: string }) {
-    const isUp = t.change_pct >= 0;
+    const isUp = (t.change_pct ?? 0) >= 0;
+    const hasChg = t.change_pct != null;
     return (
         <div className="bg-white/[0.03] rounded-lg p-3 border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all duration-200">
             {/* Row 1: Logo + Ticker + Change */}
@@ -248,18 +255,18 @@ function TacticalTickerCard({ t, analysisText }: { t: TickerSnapshot; analysisTe
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 </div>
                 <span className="text-[13px] font-extrabold text-white font-jakarta">{t.ticker}</span>
-                <span className={`text-[13px] font-extrabold ml-auto font-num ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {isUp ? '+' : ''}{t.change_pct.toFixed(2)}%
+                <span className={`text-[13px] font-extrabold ml-auto font-num ${!hasChg ? 'text-white/40' : isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {hasChg ? `${isUp ? '+' : ''}${t.change_pct!.toFixed(2)}%` : '—'}
                 </span>
             </div>
             {/* Row 2: Price + Context */}
             <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[13px] font-bold text-white font-num">${t.close_price.toFixed(2)}</span>
-                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border backdrop-blur-md text-[11px] font-bold ${t.alpha_score >= 75 ? 'bg-amber-500/15 border-amber-500/30 text-amber-200' :
-                    t.alpha_score >= 50 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200' :
+                <span className="text-[13px] font-bold text-white font-num">{t.close_price != null ? `$${t.close_price.toFixed(2)}` : '—'}</span>
+                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border backdrop-blur-md text-[11px] font-bold ${(t.alpha_score ?? 0) >= 75 ? 'bg-amber-500/15 border-amber-500/30 text-amber-200' :
+                    (t.alpha_score ?? 0) >= 50 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200' :
                         'bg-white/[0.05] border-white/[0.10] text-white/60'}`}>
                     <span className="opacity-80 font-jakarta">Ctx</span>
-                    <span className="text-[13px] font-bold font-num">{t.alpha_score.toFixed(0)}</span>
+                    <span className="text-[13px] font-bold font-num">{t.alpha_score != null ? t.alpha_score.toFixed(0) : '—'}</span>
                 </div>
             </div>
             {/* Row 3: Analysis — locale-aware, white, readable */}
@@ -272,7 +279,16 @@ function TacticalTickerCard({ t, analysisText }: { t: TickerSnapshot; analysisTe
 
 
 // ── Client-side briefing generator (for legacy snapshots without structured briefing) ──
-function generateClientBriefing(sorted: TickerSnapshot[], summary: any, tr: any): BriefingData {
+function generateClientBriefing(all: TickerSnapshot[], summary: any, tr: any): BriefingData {
+    // ⚠️ 등락률 미측정 종목이 「주도주」로 뽑히면 안 된다.
+    type Chg = TickerSnapshot & { change_pct: number };
+    const sorted = all.filter((t): t is Chg => t.change_pct != null && Number.isFinite(t.change_pct));
+    if (!sorted.length) {
+        return {
+            headline: tr('noKeyLevels'),
+            bullets: [], watchpoints: [tr('noKeyLevels')],
+        } as BriefingData;
+    }
     const topGainer = sorted[0];
     const topLoser = sorted[sorted.length - 1];
     const gainers = summary.gainers || 0;
@@ -299,9 +315,9 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any, tr: any)
     const bullets: string[] = [];
     const leaderPct = topGainer.change_pct >= 0 ? '+' : '';
     const leaderExtra = gainers > 1 ? tr('leadingStockExtra', { count: String(gainers - 1) }) : '';
-    bullets.push(tr('leadingStock', { ticker: `${topGainer.ticker} ${leaderPct}${topGainer.change_pct.toFixed(2)}`, pct: '', price: topGainer.close_price.toFixed(2), extra: leaderExtra }));
+    bullets.push(tr('leadingStock', { ticker: `${topGainer.ticker} ${leaderPct}${topGainer.change_pct.toFixed(2)}`, pct: '', price: topGainer.close_price != null ? topGainer.close_price.toFixed(2) : '—', extra: leaderExtra }));
     const loserExtra = losers > 1 ? tr('weakStockExtra', { count: String(losers - 1) }) : '';
-    bullets.push(tr('weakStock', { ticker: `${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}`, pct: '', price: topLoser.close_price.toFixed(2), extra: loserExtra }));
+    bullets.push(tr('weakStock', { ticker: `${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}`, pct: '', price: topLoser.close_price != null ? topLoser.close_price.toFixed(2) : '—', extra: loserExtra }));
 
     const gammaLong = sorted.filter(t => t.gamma_regime === 'LONG').length;
     const gammaShort = total - gammaLong;
@@ -322,8 +338,8 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any, tr: any)
     bullets.push(`${pcrEmoji} PCR ${tr('alphaAvg', { score: pcr.toFixed(2) }).replace('📊 ', '').replace('Sector avg Score', '').replace('セクター平均Score', '').replace('섹터 평균 Score', '').trim()} → ${outlookKR}. ${pcrComment}`);
 
     const avgAlpha = summary.avg_alpha || 0;
-    const highAlpha = sorted.filter(t => t.alpha_score >= 60);
-    const lowAlpha = sorted.filter(t => t.alpha_score < 40);
+    const highAlpha = sorted.filter(t => t.alpha_score != null && t.alpha_score >= 60);
+    const lowAlpha = sorted.filter(t => t.alpha_score != null && t.alpha_score < 40);
     let alphaComment = tr('alphaAvg', { score: avgAlpha.toFixed(1) });
     if (highAlpha.length > 0) alphaComment += tr('alphaHigh', { tickers: highAlpha.map(t => t.ticker).join(', ') });
     if (lowAlpha.length > 0) alphaComment += tr('alphaLow', { tickers: lowAlpha.map(t => t.ticker).join(', ') });
@@ -332,13 +348,13 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any, tr: any)
     // Watchpoints
     const watchpoints: string[] = [];
     sorted.forEach(t => {
-        if (t.call_wall > 0 && t.close_price > 0) {
+        if (t.call_wall != null && t.call_wall > 0 && t.close_price != null && t.close_price > 0) {
             const dist = ((t.call_wall - t.close_price) / t.close_price * 100);
             if (dist > 0 && dist < 3) {
                 watchpoints.push(tr('callWallNear', { ticker: t.ticker, wall: String(t.call_wall), dist: dist.toFixed(1) }));
             }
         }
-        if (t.put_floor > 0 && t.close_price > 0) {
+        if (t.put_floor != null && t.put_floor > 0 && t.close_price != null && t.close_price > 0) {
             const dist = ((t.close_price - t.put_floor) / t.close_price * 100);
             if (dist > 0 && dist < 3) {
                 watchpoints.push(tr('putFloorNear', { ticker: t.ticker, floor: String(t.put_floor), dist: dist.toFixed(1) }));
@@ -450,7 +466,12 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
         hour: '2-digit', minute: '2-digit', hour12: false
     });
 
-    const sorted = [...tickers].sort((a, b) => b.change_pct - a.change_pct);
+    // 등락률을 못 잰 종목은 순위에 넣지 않는다 — 0 으로 두면 「보합」처럼
+    // 한가운데 끼어들어 「주도주 / 최대 낙폭」 이 거짓이 된다.
+    const sorted = [...tickers]
+        .filter(t => t.change_pct != null)
+        .sort((a, b) => (b.change_pct as number) - (a.change_pct as number))
+        .concat(tickers.filter(t => t.change_pct == null));   // 미측정은 뒤에 붙여 표시만
     const topGainer = sorted[0];
     const topLoser = sorted[sorted.length - 1];
     const outlookColor = summary.outlook === 'BULLISH' ? '#10b981' :
@@ -577,8 +598,8 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
                                     <div className="text-[11px] text-white/70 font-bold tracking-wider font-jakarta">MVP</div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-base font-extrabold text-white font-jakarta">{topGainer.ticker}</span>
-                                        <span className={`text-base font-extrabold font-num ${topGainer.change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                            {topGainer.change_pct >= 0 ? '+' : ''}{topGainer.change_pct.toFixed(2)}%
+                                        <span className={`text-base font-extrabold font-num ${topGainer.change_pct == null ? 'text-white/40' : topGainer.change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {topGainer.change_pct == null ? '—' : `${topGainer.change_pct >= 0 ? '+' : ''}${topGainer.change_pct.toFixed(2)}%`}
                                         </span>
                                     </div>
                                 </div>
@@ -595,7 +616,7 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-bold text-white/70 font-jakarta">{topLoser.ticker}</span>
                                         <span className="text-sm font-bold text-rose-400 font-num">
-                                            {topLoser.change_pct.toFixed(2)}%
+                                            {topLoser.change_pct == null ? '—' : `${topLoser.change_pct.toFixed(2)}%`}
                                         </span>
                                     </div>
                                 </div>

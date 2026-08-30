@@ -7,6 +7,15 @@
 import { NextResponse } from 'next/server';
 import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem, BriefingData } from '@/types/sector';
+
+/**
+ * 숫자면 숫자, 아니면 null.
+ * `?? 0` 의 대체품 — 0 은 「측정된 0」이라는 주장이라 못 잰 값에 쓰면 안 된다.
+ */
+function nz(v: any): number | null {
+    const n = typeof v === 'string' ? Number(v) : v;
+    return typeof n === 'number' && Number.isFinite(n) ? n : null;
+}
 import { fetchStockNews } from '@/services/newsHubProvider';
 import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
@@ -197,15 +206,18 @@ export async function POST(request: Request) {
         const tickerSnapshots: TickerSnapshot[] = liveData.data.map((q: any) => {
             // Merge watchlist/batch data (alpha, RSI, RVOL, options) over fast data
             const batch = batchMap[q.ticker];
-            const alphaScore = batch?.alphaSnapshot?.score ?? batch?.alpha?.score ?? q.alphaScore ?? 0;
-            const grade = batch?.alphaSnapshot?.grade ?? batch?.alpha?.grade ?? q.grade ?? '-';
-            const rsi = batch?.realtime?.rsi ?? q.rsi ?? 0;
-            const rvol = batch?.realtime?.relVol ?? q.rvol ?? 0;
-            const gex = batch?.flow?.netGex ?? q.gex ?? 0;
-            const pcr = batch?.flow?.oiPcr ?? batch?.flow?.volumePcr ?? q.pcr ?? 0;
-            const maxPain = batch?.flow?.maxPain ?? q.maxPain ?? 0;
-            const callWall = batch?.flow?.callWall ?? q.callWall ?? 0;
-            const putFloor = batch?.flow?.putFloor ?? q.putFloor ?? 0;
+            // ⚠️ 여기서 `?? 0` 을 쓰면 「못 잰 것」이 「0 이라는 측정 결과」가 되어
+            //    소비처(Intel 화면 · AI 프롬프트 · 섹터 요약)로 퍼진다.
+            //    마지막 폴백은 반드시 null 이다.
+            const alphaScore = nz(batch?.alphaSnapshot?.score ?? batch?.alpha?.score ?? q.alphaScore);
+            const grade = batch?.alphaSnapshot?.grade ?? batch?.alpha?.grade ?? q.grade ?? null;
+            const rsi = nz(batch?.realtime?.rsi ?? q.rsi);
+            const rvol = nz(batch?.realtime?.relVol ?? q.rvol);
+            const gex = nz(batch?.flow?.netGex ?? q.gex);
+            const pcr = nz(batch?.flow?.oiPcr ?? batch?.flow?.volumePcr ?? q.pcr);
+            const maxPain = nz(batch?.flow?.maxPain ?? q.maxPain);
+            const callWall = nz(batch?.flow?.callWall ?? q.callWall);
+            const putFloor = nz(batch?.flow?.putFloor ?? q.putFloor);
 
             const merged = { ...q, alphaScore, grade, rsi, rvol, gex, pcr, maxPain, callWall, putFloor };
 
@@ -215,14 +227,15 @@ export async function POST(request: Request) {
 
             return {
                 ticker: q.ticker,
-                close_price: q.price || 0,
-                change_pct: q.changePct || 0,
+                close_price: nz(q.price),
+                change_pct: nz(q.changePct),
                 alpha_score: alphaScore,
                 grade,
-                volume: q.volume || 0,
+                volume: nz(q.volume),
                 gex,
                 pcr,
-                gamma_regime: q.gammaRegime || 'NEUTRAL',
+                // GEX 를 못 잰 종목에 'NEUTRAL' 을 쓰면 「중립이라고 판정했다」가 된다
+                gamma_regime: q.gammaRegime ?? null,
                 max_pain: maxPain,
                 call_wall: callWall,
                 put_floor: putFloor,
@@ -235,15 +248,22 @@ export async function POST(request: Request) {
         });
 
         // ── Build sector summary ──
-        const gainers = tickerSnapshots.filter(t => t.change_pct > 0).length;
-        const losers = tickerSnapshots.filter(t => t.change_pct < 0).length;
-        const avgAlpha = tickerSnapshots.reduce((sum, t) => sum + t.alpha_score, 0) / tickerSnapshots.length;
-        const avgPcr = tickerSnapshots.reduce((sum, t) => sum + t.pcr, 0) / tickerSnapshots.length;
-        const totalGex = tickerSnapshots.reduce((sum, t) => sum + t.gex, 0);
+        // ⚠️ 평균에 「못 잰 값」을 0 으로 넣으면 평균 자체가 내려앉는다.
+        //    (다크풀이 죽었을 때 섹터 IFS 가 통째로 −12점 밀린 적이 있다)
+        //    측정된 것만 세고, 분모도 그만큼만 쓴다.
+        const avgOf = (vals: (number | null)[]): number | null => {
+            const m = vals.filter((v): v is number => v != null && Number.isFinite(v));
+            return m.length ? m.reduce((a, b) => a + b, 0) / m.length : null;
+        };
+        const gainers = tickerSnapshots.filter(t => t.change_pct != null && t.change_pct > 0).length;
+        const losers = tickerSnapshots.filter(t => t.change_pct != null && t.change_pct < 0).length;
+        const avgAlpha = avgOf(tickerSnapshots.map(t => t.alpha_score)) ?? 0;
+        const avgPcr = avgOf(tickerSnapshots.map(t => t.pcr)) ?? 0;
+        const totalGex = tickerSnapshots.reduce((sum, t) => sum + (t.gex ?? 0), 0);
 
         const regimeCounts = { LONG: 0, SHORT: 0, NEUTRAL: 0 };
         tickerSnapshots.forEach(t => {
-            if (t.gamma_regime in regimeCounts) {
+            if (t.gamma_regime && t.gamma_regime in regimeCounts) {
                 regimeCounts[t.gamma_regime as keyof typeof regimeCounts]++;
             }
         });
@@ -310,8 +330,9 @@ export async function POST(request: Request) {
                             sentiment: n.sentiment,
                         }));
 
+                        // 못 잰 값은 N/A 로 — AI 가 0 을 사실로 읽으면 안 된다
                         const tickerContext = tickerSnapshots.map(t =>
-                            `${t.ticker}: ${t.change_pct >= 0 ? '+' : ''}${t.change_pct.toFixed(2)}%, RSI ${t.rsi}, PCR ${t.pcr}, γ ${t.gamma_regime}`
+                            `${t.ticker}: ${t.change_pct == null ? 'N/A' : `${t.change_pct >= 0 ? '+' : ''}${t.change_pct.toFixed(2)}%`}, RSI ${t.rsi ?? 'N/A'}, PCR ${t.pcr ?? 'N/A'}, γ ${t.gamma_regime ?? 'N/A'}`
                         ).join('; ');
 
                         const userPrompt = `Context: M7 sector today — ${tickerContext}
@@ -556,7 +577,27 @@ function generateNextDayBriefing(
     tickers: TickerSnapshot[],
     summary: { dominantRegime: string; avgPcr: number; totalGex: number; gainers: number; losers: number; outlook: string }
 ): { legacy: string; briefing: BriefingData } {
-    const sorted = [...tickers].sort((a, b) => b.change_pct - a.change_pct);
+    // ⚠️ 등락률을 못 잰 종목이 섞이면 「주도주」·「최대 낙폭」이 거짓이 된다.
+    //    (null 을 0 으로 두면 못 잰 종목이 보합처럼 한가운데 끼어든다)
+    //    측정된 종목만으로 순위를 매기고, 하나도 없으면 브리핑을 만들지 않는다.
+    const measured = tickers.filter(
+        (t): t is TickerSnapshot & { change_pct: number } =>
+            t.change_pct != null && Number.isFinite(t.change_pct)
+    );
+    if (!measured.length) {
+        const msg = '세션 등락 데이터를 확인할 수 없어 브리핑을 생성하지 않았습니다.';
+        return {
+            legacy: msg,
+            briefing: {
+                headline: msg,
+                headlineEN: 'Session change data unavailable — briefing not generated.',
+                headlineJP: 'セッション騰落データが確認できず、ブリーフィングは生成されていません。',
+                bullets: [], bulletsEN: [], bulletsJP: [],
+                watchpoints: [], watchpointsEN: [], watchpointsJP: [],
+            },
+        };
+    }
+    const sorted = [...measured].sort((a, b) => b.change_pct - a.change_pct);
     const topGainer = sorted[0];
     const topLoser = sorted[sorted.length - 1];
 
@@ -684,8 +725,13 @@ function generateNextDayBriefing(
     const watchpointsEN: string[] = [];
     const watchpointsJP: string[] = [];
 
-    const nearCallWall = tickers.filter(t =>
-        t.call_wall > 0 && t.close_price > 0 &&
+    // 옵션 레벨을 못 잰 종목은 「근접하지 않음」이 아니라 「판정 불가」다.
+    // 타입 가드로 걸러 두면 아래 계산이 전부 안전해진다.
+    type WithWall = TickerSnapshot & { call_wall: number; close_price: number };
+    type WithFloor = TickerSnapshot & { put_floor: number; close_price: number };
+
+    const nearCallWall = tickers.filter((t): t is WithWall =>
+        t.call_wall != null && t.call_wall > 0 && t.close_price != null && t.close_price > 0 &&
         ((t.call_wall - t.close_price) / t.close_price * 100) < 3
     );
     nearCallWall.forEach(t => {
@@ -695,8 +741,8 @@ function generateNextDayBriefing(
         watchpointsJP.push(`🎯 ${t.ticker} コールウォール $${t.call_wall} 接近 (${dist}%)、突破時ガンマスクイーズ可能`);
     });
 
-    const nearPutFloor = tickers.filter(t =>
-        t.put_floor > 0 && t.close_price > 0 &&
+    const nearPutFloor = tickers.filter((t): t is WithFloor =>
+        t.put_floor != null && t.put_floor > 0 && t.close_price != null && t.close_price > 0 &&
         ((t.close_price - t.put_floor) / t.close_price * 100) < 3
     );
     nearPutFloor.forEach(t => {

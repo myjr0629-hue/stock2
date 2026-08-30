@@ -31,21 +31,29 @@ export interface SectorConfig {
 // Snapshot Data Types (Supabase daily_sector_snapshots)
 // ============================================================================
 
+/**
+ * 섹터 스냅샷의 종목 한 줄.
+ *
+ * ⚠️ 측정값은 전부 null 을 가질 수 있다. 예전에는 이 API 가 `?? 0` 으로
+ *    0 을 채워 내보냈고, 그래서 화면·AI 가 그것을 **측정된 0** 으로 읽었다
+ *    (GEX 미수집이 「감마 0」, change_pct 누락이 「전 종목 보합」).
+ *    측정 못 한 것은 여기서부터 null 로 흘러야 한다.
+ */
 export interface TickerSnapshot {
     ticker: string;
-    close_price: number;
-    change_pct: number;
-    alpha_score: number;
-    grade: string;
-    volume: number;
-    gex: number;
-    pcr: number;
-    gamma_regime: string;             // 'LONG' | 'SHORT' | 'NEUTRAL'
-    max_pain: number;
-    call_wall: number;
-    put_floor: number;
-    rsi: number;
-    rvol: number;
+    close_price: number | null;
+    change_pct: number | null;
+    alpha_score: number | null;
+    grade: string | null;
+    volume: number | null;
+    gex: number | null;
+    pcr: number | null;
+    gamma_regime: string | null;      // 'LONG' | 'SHORT' | 'NEUTRAL' | null(미측정)
+    max_pain: number | null;
+    call_wall: number | null;
+    put_floor: number | null;
+    rsi: number | null;
+    rvol: number | null;
     sparkline: number[];
     verdict: string;                  // 'HOLD' | 'BUY_DIP' | 'HEDGE' | 'TRIM'
     analysis_kr: string;              // 한줄 AI 요약

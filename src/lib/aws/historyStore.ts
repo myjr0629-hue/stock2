@@ -32,7 +32,7 @@ export async function getGexHistory(ticker: string, days = 30): Promise<GexHisto
         TABLES.GEX_HISTORY,
         'ticker = :t AND #ts > :since',
         { ':t': ticker, ':since': since },
-        { limit: 1000, scanForward: true, expressionNames: { '#ts': 'timestamp' } }
+        { limit: 1000, scanForward: true, maxItems: 20000, expressionNames: { '#ts': 'timestamp' } }
     );
 }
 
@@ -76,7 +76,7 @@ export async function getRlsiHistory(days = 30): Promise<RlsiHistoryItem[]> {
         TABLES.RLSI_HISTORY,
         'pk = :pk AND #ts > :since',
         { ':pk': 'MARKET', ':since': since },
-        { limit: 1000, scanForward: true, expressionNames: { '#ts': 'timestamp' } }
+        { limit: 1000, scanForward: true, maxItems: 20000, expressionNames: { '#ts': 'timestamp' } }
     );
 }
 
@@ -104,7 +104,7 @@ export async function getSectorHistory(sectorId: string, days = 30): Promise<Sec
         TABLES.SECTOR_DAILY,
         'sectorId = :s AND #d > :since',
         { ':s': sectorId, ':since': since },
-        { limit: 90, scanForward: true, expressionNames: { '#d': 'date' } }
+        { limit: 90, scanForward: true, maxItems: 400, expressionNames: { '#d': 'date' } }
     );
 }
 
@@ -177,7 +177,7 @@ export async function getAlphaHistory(ticker: string, days = 30): Promise<AlphaH
         TABLES.ALPHA_HISTORY,
         'ticker = :t AND #d > :since',
         { ':t': ticker, ':since': since },
-        { limit: 90, scanForward: true, expressionNames: { '#d': 'date' } }
+        { limit: 90, scanForward: true, maxItems: 400, expressionNames: { '#d': 'date' } }
     );
 }
 
@@ -205,7 +205,7 @@ export async function getFlowHistory(ticker: string, days = 7): Promise<FlowHist
         TABLES.FLOW_HISTORY,
         'ticker = :t AND #ts > :since',
         { ':t': ticker, ':since': since },
-        { limit: 500, scanForward: true, expressionNames: { '#ts': 'timestamp' } }
+        { limit: 500, scanForward: true, maxItems: 20000, expressionNames: { '#ts': 'timestamp' } }
     );
 }
 
