@@ -54,7 +54,7 @@ type Strings = {
   kicker: string; sub: (t: string) => string; money: string; read: string; news: string;
   divergence: string; whatT: string; whatB: string; glossT: string; gloss: [string, string][];
   ctaT: string; ctaUc: string; ctaSg: string; ctaWim: string; disc: string;
-  relT: string; allT: string; learnT: string;
+  relT: string; allT: string; learnT: string; leadersT: string;
   lbl: Record<string, string>;
 };
 const L: Record<string, Strings> = {
@@ -81,6 +81,7 @@ const L: Record<string, Strings> = {
     disc: 'Data, scores and interpretations are for information and education only — not investment advice or a buy/sell recommendation. All decisions and outcomes are your own.',
   relT: 'Nearby tickers',
   allT: 'See all tickers',
+  leadersT: 'Today’s off-exchange leaders',
   learnT: 'Learn the numbers',
     lbl: { darkPool: 'Dark pool share', mktAvg: 'market avg', dpVol: 'Dark pool volume vs its norm', dpShort: 'Short share of that', norm: 'norm', maxPain: 'Max pain', callWall: 'Call wall', putFloor: 'Put floor', price: 'Price', pcr: 'Put/Call ratio', squeeze: 'Squeeze pressure' },
   },
@@ -104,6 +105,7 @@ const L: Record<string, Strings> = {
     disc: '데이터·점수·해석은 정보·교육용이며 투자자문이나 매수/매도 권유가 아닙니다. 모든 판단과 결과의 책임은 본인에게 있습니다.',
   relT: '인접 종목',
   allT: '전체 종목 보기',
+  leadersT: '오늘의 장외 상위 종목',
   learnT: '숫자를 읽는 법',
     lbl: { darkPool: '다크풀 비중', mktAvg: '시장 평균', dpVol: '다크풀 물량 (평소 대비)', dpShort: '그중 공매도 비중', norm: '평소', maxPain: '맥스페인', callWall: '콜월', putFloor: '풋플로어', price: '현재가', pcr: '풋/콜 비율', squeeze: '스퀴즈 압력' },
   },
@@ -127,6 +129,7 @@ const L: Record<string, Strings> = {
     disc: 'データ・スコア・解釈は情報・教育目的であり、投資助言や売買推奨ではありません。すべての判断と結果は利用者ご自身の責任です。',
   relT: '近いティッカー',
   allT: '全ティッカーを見る',
+  leadersT: '今日の場外上位銘柄',
   learnT: '数字の読み方',
     lbl: { darkPool: 'ダークプール比率', mktAvg: '市場平均', dpVol: 'ダークプール出来高（平常比）', dpShort: 'うち空売り比率', norm: '平常', maxPain: 'マックスペイン', callWall: 'コールウォール', putFloor: 'プットフロア', price: '現在値', pcr: 'プット/コール比', squeeze: 'スクイーズ圧力' },
   },
@@ -411,6 +414,8 @@ export default async function FlowTickerPage(
               <a key={t} href={`/${locale}/flow/${t}`} style={S.relA}>{t}</a>
             ))}
           </div>
+          <a href={`/${locale}/dark-pool`} style={S.allA}>{l.leadersT} →</a>
+          {' · '}
           <a href={`/${locale}/tickers`} style={S.allA}>{l.allT} →</a>
         </section>
       )}
