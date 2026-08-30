@@ -12,6 +12,7 @@ import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
 import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import { readDarkPool } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
@@ -2935,8 +2936,21 @@ function CmdPageContent() {
             : hot ? (locale === 'ko' ? '은밀 매집' : locale === 'ja' ? '静かな買い集め' : 'ACCUMULATION')
             : cold ? (locale === 'ko' ? '은밀 분산' : locale === 'ja' ? '静かな売り抜け' : 'DISTRIBUTION')
             : (locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'NEUTRAL');
+          const read = readDarkPool(
+            { pct, marketAvg: mkt, volRatio: vr, shortPct: sp, regime: reg, date: f.darkPoolDate,
+              // 주가 방향과 엮어야 「내리는 걸 사고 있다」가 나온다 — 차별점은 여기다.
+              // ⚠️ data.changePct 는 **절댓값**으로 저장된다(표시용). 부호는 data.up 에 있다.
+              //    그대로 넘기면 하락장이 상승으로 읽혀 해석이 정반대가 된다.
+              changePct: typeof data.changePct === 'number'
+                ? (data.up ? data.changePct : -data.changePct) : null },
+            (locale === 'ko' || locale === 'ja' ? locale : 'en') as 'ko' | 'en' | 'ja',
+          );
           return (
             <div style={{
+              // ⚠️ 히어로 배경 스파크라인 <svg> 가 절대배치로 이 위를 덮어
+              //    ⓘ 버튼 클릭이 svg 로 먹혔다(실기기에서 대표가 발견).
+              //    쌓임 맥락을 만들어 카드를 배경 위로 올린다.
+              position: 'relative', zIndex: 2,
               margin: '0 0 var(--s3)', padding: '12px 14px', borderRadius: 14,
               border: `1px solid ${accent}33`, background: `linear-gradient(135deg, ${accent}12, rgba(255,255,255,.015))`,
             }}>
@@ -2967,7 +2981,16 @@ function CmdPageContent() {
                 {vr != null && sp != null && ' · '}
                 {sp != null && <>{locale === 'ko' ? '그중 공매도 ' : locale === 'ja' ? 'うち空売り ' : 'short share '}
                   <b style={{ color: sp >= 55 ? 'var(--red)' : 'var(--text, #e2e8f0)' }}>{sp.toFixed(0)}%</b></>}
-                <span style={{ display: 'block', marginTop: 3, fontSize: 9.5, color: 'var(--text-dimmer, #64748b)' }}>
+              </div>
+              {/* ── 해석 — 숫자가 아니라 «무슨 일이 있었나» ── */}
+              <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${accent}22` }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, lineHeight: 1.45, color: accent }}>
+                  {read.headline}
+                </div>
+                <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.55, color: 'var(--text-dim, #94a3b8)' }}>
+                  {read.detail}
+                </div>
+                <span style={{ display: 'block', marginTop: 6, fontSize: 9.5, color: 'var(--text-dimmer, #64748b)' }}>
                   {locale === 'ko' ? '출처 FINRA · 전일 마감 기준 ' : locale === 'ja' ? '出典 FINRA · 前日終値基準 ' : 'Source: FINRA · prior close '}
                   {f.darkPoolDate ?? ''}
                 </span>

@@ -9,6 +9,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
+import { readDarkPool } from '@/lib/darkPoolRead';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 
@@ -21,7 +22,7 @@ interface Money {
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
   darkPoolShortPct?: number | null; darkPoolVolRatio?: number | null;
   darkPoolStealth?: number | null; darkPoolRegime?: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | null;
-  darkPoolMarketAvg?: number | null; darkPoolDate?: string | null;
+  darkPoolMarketAvg?: number | null; darkPoolDate?: string | null; changePct?: number | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
   putFloor: number | null; price: number | null;
 }
@@ -202,6 +203,16 @@ export default async function FlowTickerPage(
   // 이 페이지에 검색으로 들어오는 질의는 사실상 「{티커} dark pool」이다.
   // 그러니 다크풀을 가격 다음이 아니라 **맨 앞**에 두고, 시장 평균과
   // «평소의 몇 배»까지 함께 보여 준다 — 숫자 하나로는 판단이 안 된다.
+  // 해석은 앱 카드·AI 와 **같은 엔진**을 쓴다 — 화면마다 다른 말을 하면 안 된다
+  const dpRead = m.darkPoolPct != null
+    ? readDarkPool(
+        { pct: m.darkPoolPct, marketAvg: m.darkPoolMarketAvg ?? null, volRatio: m.darkPoolVolRatio ?? null,
+          shortPct: m.darkPoolShortPct ?? null, regime: m.darkPoolRegime ?? null, date: m.darkPoolDate ?? null,
+          changePct: m.changePct ?? null },
+        (locale === 'ko' || locale === 'ja' ? locale : 'en') as 'ko' | 'en' | 'ja',
+      )
+    : null;
+
   const metrics: [string, string][] = [];
   if (m.darkPoolPct != null) {
     metrics.push([
@@ -227,7 +238,10 @@ export default async function FlowTickerPage(
     if (m.darkPoolMarketAvg != null) bits.push(`against a ${m.darkPoolMarketAvg.toFixed(0)}% average across all listed names that day`);
     if (m.darkPoolVolRatio != null) bits.push(`that off-exchange volume was ${m.darkPoolVolRatio.toFixed(1)}x ${ticker}'s own 20-day norm`);
     if (m.darkPoolShortPct != null) bits.push(`${m.darkPoolShortPct.toFixed(1)}% of it was short`);
-    faq.push({ q: `What is ${ticker}'s dark pool volume today?`, a: `${bits.join('; ')}. Source: FINRA.` });
+    const en = readDarkPool(
+      { pct: m.darkPoolPct, marketAvg: m.darkPoolMarketAvg ?? null, volRatio: m.darkPoolVolRatio ?? null,
+        shortPct: m.darkPoolShortPct ?? null, regime: m.darkPoolRegime ?? null, changePct: m.changePct ?? null }, 'en');
+    faq.push({ q: `What is ${ticker}'s dark pool volume today?`, a: `${bits.join('; ')}. ${en.headline}. ${en.detail} Source: FINRA.` });
   }
   if (m.maxPain != null) faq.push({ q: `Where is ${ticker}'s max pain?`, a: `${ticker}'s max pain is around ${money$(m.maxPain)}.` });
   if (m.callWall != null || m.putFloor != null) faq.push({ q: `What are ${ticker}'s option walls?`, a: `${[m.callWall != null ? `call wall ${money$(m.callWall)}` : '', m.putFloor != null ? `put floor ${money$(m.putFloor)}` : ''].filter(Boolean).join(', ')}.` });
@@ -327,6 +341,17 @@ export default async function FlowTickerPage(
               </div>
             ))}
           </div>
+          {/* 다크풀 해석 — 검색으로 들어온 사람이 찾던 것은 숫자가 아니라 «뜻»이다 */}
+          {dpRead && (
+            <div style={{ ...S.read, borderLeft: '3px solid rgba(167,139,250,.55)', paddingLeft: 12 }}>
+              <strong>{l.lbl.darkPool}: </strong>{dpRead.headline}
+              <div style={{ marginTop: 6, opacity: .85 }}>{dpRead.detail}</div>
+              <div style={{ marginTop: 6, fontSize: 12, opacity: .6 }}>
+                {locale === 'ko' ? '출처 FINRA · 전일 마감 기준' : locale === 'ja' ? '出典 FINRA · 前日終値基準' : 'Source: FINRA · prior close'}
+                {m.darkPoolDate ? ` · ${m.darkPoolDate}` : ''}
+              </div>
+            </div>
+          )}
           {data.tickerRead && <div style={S.read}><strong>{l.read}: </strong>{data.tickerRead}</div>}
         </section>
       )}

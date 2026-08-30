@@ -48,6 +48,8 @@ export interface MoneyData {
   darkPoolMarketAvg: number | null;
   /** 다크풀 기준일 (T+1) */
   darkPoolDate: string | null;
+  /** 같은 날 등락률 % — 다크풀 해석을 «주가 방향»과 엮는 데 쓴다 */
+  changePct: number | null;
   /** 어제 새로 걸린 옵션 계약 수 (미결제약정 증가분 합) */
   newOiContracts: number | null;
   /** 그 신규 포지션의 명목가 ($) — 대형주·소형주를 공평하게 비교하려고 */
@@ -119,6 +121,7 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
   const empty: MoneyData = {
     darkPoolPct: null, darkPoolShortPct: null, darkPoolVolRatio: null,
     darkPoolStealth: null, darkPoolRegime: null, darkPoolMarketAvg: null, darkPoolDate: null,
+    changePct: null,
     oiPcr: null, volumePcr: null, squeezeScore: null,
     maxPain: null, callWall: null, putFloor: null, price: null,
     newOiContracts: null, newOiNotional: null, newOiSide: null, optionsDate: null,
@@ -147,6 +150,7 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
       darkPoolRegime: dp?.regime ?? null,
       darkPoolMarketAvg: dp?.marketAvg ?? null,
       darkPoolDate: dp?.date ?? null,
+      changePct: num(d?.prices?.changePercent) ?? num(find(d, 'changePercent')),
       oiPcr: num(find(d, 'oiPcr')),
       volumePcr: num(find(d, 'volumePcr')),
       squeezeScore: num(find(d, 'squeezeScore')),
@@ -187,6 +191,7 @@ HOW TO READ THE MONEY SIGNALS (be precise):
 - darkPoolPct = share of the day's volume executed OFF-EXCHANGE (dark pools + wholesaler internalization), from FINRA's regulatory tape. This is where institutions work large orders away from the public book. Compare it to darkPoolMarketAvg — the same day's average across all names — never to a fixed number. darkPoolVolRatio says how that off-exchange volume compares to the SAME ticker's own 20-day norm (1.0 = normal, 1.8 = nearly double); a jump there is a stronger signal than the raw share.
 - darkPoolShortPct = what fraction of that off-exchange volume was SHORT. Low = those off-exchange prints lean toward genuine buying; high = they lean toward hedging or distribution. darkPoolStealth (0-100) and darkPoolRegime (ACCUMULATION / DISTRIBUTION / NEUTRAL) combine those two. Treat it as a read on POSITIONING, never as a prediction.
 - Dark-pool figures are as of the prior close (darkPoolDate), not intraday. If darkPoolPct is null for this ticker, do not mention off-exchange activity at all and never infer it from other fields.
+- HOW TO READ IT WELL: the raw share is structural — big ETFs always sit near 30%, small caps near 70% — so never call a share "high" or "low" on its own. Lead with darkPoolVolRatio (the same name vs its own 20-day norm), then use darkPoolShortPct to say WHICH WAY that size leaned: volume up + short share low = size was accumulated quietly off the public book; volume up + short share high = hedging or trimming, not buying. Explain the mechanism in one clause — off-exchange prints do not touch the public book, so large orders move size without moving the quote. Describe positioning, never a forecast.
 - putCallRatio (oiPcr / volumePcr) = hedging/direction lean. >1.2 = put-heavy (defensive/bearish lean); 0.8-1.2 = balanced; <0.8 = call-heavy (bullish lean). volumePcr is today's flow; oiPcr is standing positions.
 - squeezeScore (0-100) = short-squeeze pressure. >60 = high squeeze potential; <20 = low.
 - maxPain / callWall / putFloor = option magnet/resistance/support price levels (compare to price when given).
