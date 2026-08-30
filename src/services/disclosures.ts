@@ -60,8 +60,10 @@ function labelFor(primary: string): Record<DiscLocale, string> {
     return PRIMARY_LABELS[primary] || { ko: prettify(primary), en: prettify(primary), ja: prettify(primary) };
 }
 
+// 2026-08-30: Polygon 분류가 사라져 SEC 8-K Item 코드로 복원했다.
+//   그때 생긴 새 분류(governance)와 tertiary(auditor_change·restatement 등)를 반영한다.
 const HIGH_IMPACT_PRIMARY = new Set(['strategic_transactions', 'financial_distress']);
-const HIGH_IMPACT_TERTIARY_RE = /ceo_|cfo_|bankruptcy|merger|acquisition|delisting|going_private|restructuring|impairment/;
+const HIGH_IMPACT_TERTIARY_RE = /ceo_|cfo_|bankruptcy|merger|acquisition|delisting|going_private|restructuring|impairment|restatement|auditor_change|control_change|acceleration|material_agreement/;
 
 function isHighImpact(primary: string, secondary: string, tertiary: string): boolean {
     if (HIGH_IMPACT_PRIMARY.has(primary)) return true;

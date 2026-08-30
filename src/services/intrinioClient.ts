@@ -2591,21 +2591,103 @@ export async function getIncomeStatementsIntrinio(ticker: string, limit = 5): Pr
  * 또 하나: Intrinio filings 는 **정렬돼 오지 않는다**(실측: 2025-02-26 이 첫 행).
  * accepted_date 로 우리가 정렬한다. filing_date 는 null 인 경우가 많다.
  */
+/**
+ * SEC 8-K Item 코드 → 소비처(disclosures.ts) 분류 체계.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * Polygon 은 8-K 본문을 구조화 추출해 `primary_category`/`supporting_text` 를
+ * 줬는데 Intrinio 엔 그게 없다. 그런데 **SEC 원본에 Item 코드가 그대로 있다**
+ * — 그게 애초에 Polygon 이 분류의 근거로 삼던 것이다.
+ *
+ * SEC submissions API 실측(2026-08-30, NVDA):
+ *   키 불필요 · **0.097초** · `items: "2.02,9.01"` 처럼 코드가 온다
+ *   2026-08-26 items=2.02,9.01  ·  2026-08-17 items=1.01,2.03,7.01  ·  5.02 …
+ *
+ * 벤더를 거치지 않고 «원본»에서 받으므로 오히려 더 정확하다.
+ */
+const SEC_8K_ITEMS: Record<string, { title: string; primary: string; tertiary: string; high: boolean }> = {
+    "1.01": { title: "Entry into a Material Definitive Agreement", primary: "strategic_transactions", tertiary: "material_agreement", high: true },
+    "1.02": { title: "Termination of a Material Definitive Agreement", primary: "strategic_transactions", tertiary: "agreement_termination", high: true },
+    "1.03": { title: "Bankruptcy or Receivership", primary: "financial_distress", tertiary: "bankruptcy", high: true },
+    "2.01": { title: "Completion of Acquisition or Disposition of Assets", primary: "strategic_transactions", tertiary: "acquisition", high: true },
+    "2.02": { title: "Results of Operations and Financial Condition", primary: "results_of_operations", tertiary: "earnings", high: false },
+    "2.03": { title: "Creation of a Direct Financial Obligation", primary: "financial_obligations", tertiary: "debt_issuance", high: false },
+    "2.04": { title: "Triggering Events That Accelerate a Financial Obligation", primary: "financial_distress", tertiary: "acceleration", high: true },
+    "2.05": { title: "Costs Associated with Exit or Disposal Activities", primary: "financial_distress", tertiary: "restructuring", high: true },
+    "2.06": { title: "Material Impairments", primary: "financial_distress", tertiary: "impairment", high: true },
+    "3.01": { title: "Notice of Delisting or Failure to Satisfy a Listing Rule", primary: "financial_distress", tertiary: "delisting", high: true },
+    "3.02": { title: "Unregistered Sales of Equity Securities", primary: "capital_structure", tertiary: "equity_issuance", high: false },
+    "3.03": { title: "Material Modification to Rights of Security Holders", primary: "capital_structure", tertiary: "rights_modification", high: false },
+    "4.01": { title: "Changes in Registrant's Certifying Accountant", primary: "governance", tertiary: "auditor_change", high: true },
+    "4.02": { title: "Non-Reliance on Previously Issued Financial Statements", primary: "financial_distress", tertiary: "restatement", high: true },
+    "5.01": { title: "Changes in Control of Registrant", primary: "strategic_transactions", tertiary: "control_change", high: true },
+    "5.02": { title: "Departure or Election of Directors or Officers", primary: "governance", tertiary: "ceo_cfo_change", high: true },
+    "5.03": { title: "Amendments to Articles of Incorporation or Bylaws", primary: "governance", tertiary: "bylaws", high: false },
+    "5.07": { title: "Submission of Matters to a Vote of Security Holders", primary: "governance", tertiary: "shareholder_vote", high: false },
+    "7.01": { title: "Regulation FD Disclosure", primary: "other_events", tertiary: "reg_fd", high: false },
+    "8.01": { title: "Other Events", primary: "other_events", tertiary: "", high: false },
+    "9.01": { title: "Financial Statements and Exhibits", primary: "other_events", tertiary: "exhibits", high: false },
+};
+
+/** SEC 공식 제출 목록 — 키 불필요, ~100ms. User-Agent 에 연락처가 있어야 한다(SEC 규정) */
+async function getSecFilings8K(cik: string): Promise<Map<string, { items: string[]; date: string; doc: string; acc: string }>> {
+    const out = new Map<string, { items: string[]; date: string; doc: string; acc: string }>();
+    const padded = String(cik || "").replace(/\D/g, "").padStart(10, "0");
+    if (padded === "0000000000") return out;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    try {
+        const res = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
+            headers: { "User-Agent": "SIGNUM HQ contact@signumhq.com" },
+            signal: ctrl.signal,
+            cache: "no-store",
+        });
+        if (!res.ok) return out;
+        const d = await res.json();
+        const r = d?.filings?.recent;
+        if (!r?.form) return out;
+        for (let i = 0; i < r.form.length; i++) {
+            if (r.form[i] !== "8-K") continue;
+            const acc = String(r.accessionNumber[i] || "");
+            if (!acc) continue;
+            out.set(acc.replace(/-/g, ""), {
+                items: String(r.items?.[i] || "").split(",").map((x: string) => x.trim()).filter(Boolean),
+                date: String(r.filingDate?.[i] || ""),
+                doc: String(r.primaryDocument?.[i] || ""),
+                acc,
+            });
+        }
+        return out;
+    } catch {
+        return out;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 export async function getFilings8KIntrinio(
     ticker: string,
     sinceISO?: string,
     limit = 10
 ): Promise<any> {
     let filings: any[] = [];
+    let cik = "";
     try {
-        const d = await callIntrinio(`companies/${encodeURIComponent(ticker)}/filings`, {
-            report_type: "8-K",
-            page_size: String(Math.max(limit, 20)),
-        });
+        const [d, company] = await Promise.all([
+            callIntrinio(`companies/${encodeURIComponent(ticker)}/filings`, {
+                report_type: "8-K",
+                page_size: String(Math.max(limit, 20)),
+            }),
+            callIntrinio(`companies/${encodeURIComponent(ticker)}`).catch(() => null),
+        ]);
         filings = d?.filings || [];
+        cik = String(company?.cik || "");
     } catch {
         return { status: "OK", count: 0, results: [] };
     }
+
+    // SEC 원본에서 Item 코드를 가져와 분류를 «복원»한다 (§SEC_8K_ITEMS 주석)
+    const sec = cik ? await getSecFilings8K(cik) : new Map();
 
     const dateOf = (f: any) =>
         String(f?.filing_date || f?.accepted_date || "").slice(0, 10);
@@ -2615,22 +2697,38 @@ export async function getFilings8KIntrinio(
         .filter((x) => x.d && (!sinceISO || x.d >= sinceISO.slice(0, 10)))
         .sort((a, b) => (a.d < b.d ? 1 : -1))
         .slice(0, limit)
-        .map(({ f, d }) => ({
-            ticker,
-            filing_date: d,
-            accession_number: f.sec_unique_id || f.id || null,
-            // 우리가 «알 수 있는» 만큼만. 없는 분류를 지어내지 않는다.
-            primary_category: f.earnings_release ? "Results of Operations" : "Other Events",
-            tertiary_category: null,
-            // Polygon 이 주던 본문 추출은 Intrinio 에 없다 → 빈 문자열로 명시
-            supporting_text: "",
-            // ⚠️ 소비처(disclosures.ts)는 `filing_url` 이라는 이름으로 읽는다.
-            //    `source_url` 로만 내보냈더니 화면의 링크가 빈 문자열이 됐다.
-            //    (SEC 원문 링크는 «본문 요약이 없는» 지금 더 중요하다)
-            filing_url: f.report_url || f.filing_url || null,
-            source_url: f.report_url || f.filing_url || null,
-            _textUnavailable: true,
-        }));
+        .map(({ f, d }) => {
+            const accKey = String(f.sec_unique_id || "").replace(/\D/g, "");
+            const hit = sec.get(accKey);
+            const codes = hit?.items || [];
+            const known = codes.map((c: string) => SEC_8K_ITEMS[c]).filter(Boolean);
+
+            // 대표 분류 = «고영향» 항목을 우선, 없으면 첫 항목
+            const lead = known.find((k: any) => k.high) || known[0] || null;
+
+            return {
+                ticker,
+                filing_date: d,
+                accession_number: f.sec_unique_id || f.id || null,
+                // ★ Intrinio 엔 분류가 없다. SEC Item 코드로 복원한다.
+                //   코드를 못 얻으면 earnings_release 플래그로 최소한만 채운다.
+                primary_category: lead?.primary
+                    ?? (f.earnings_release ? "results_of_operations" : "other_events"),
+                tertiary_category: lead?.tertiary || null,
+                secondary_category: null,
+                // 본문은 못 받지만 **무슨 항목의 공시인지**는 말할 수 있다.
+                // AI 요약기가 빈 문자열보다 훨씬 나은 재료를 갖게 된다.
+                supporting_text: known.length
+                    ? known.map((k: any) => k.title).join("; ")
+                    : "",
+                sec_items: codes,
+                // ⚠️ 소비처는 `filing_url` 이라는 이름으로 읽는다(`source_url` 만
+                //    내보냈더니 화면 링크가 빈 문자열이 됐다).
+                filing_url: f.report_url || f.filing_url || null,
+                source_url: f.report_url || f.filing_url || null,
+                _textUnavailable: !known.length,
+            };
+        });
 
     return { status: "OK", count: results.length, results };
 }
