@@ -48,7 +48,9 @@ export function GET(request: NextRequest) {
 
   // Play Install Referrer — 이게 있어야 Play Console 획득 보고서가 «어느 채널이
   // 설치를 만들었는지»를 보여준다. 없으면 클릭만 알고 설치는 영영 모른다.
-  after(() => recordHit(request.nextUrl.searchParams.get('from')));
+  // ⚠️ 정규화된 값을 넘긴다. 원본을 넘기면 하이픈 태그가 recordHit 의
+  //    같은 정규식에 다시 걸려 클릭 카운터만 «조용히» 비게 된다.
+  after(() => recordHit(fromTag));
 
   if (/android/i.test(ua)) {
     return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag), 302);

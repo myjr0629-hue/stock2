@@ -17,9 +17,17 @@
 
 const FROM_RE = /^[a-z0-9_]{1,24}$/;
 
-/** from 태그를 정규화한다. 형식에 안 맞으면 null (측정 생략, 리다이렉트는 그대로). */
+/**
+ * from 태그를 정규화한다. 형식에 안 맞으면 null (측정 생략, 리다이렉트는 그대로).
+ *
+ * ⚠️ 하이픈은 «조용히 버려지는» 함정이었다. 2026-08-31 에 새 SEO 페이지가
+ *    `from=seo-darkpool` 을 달았는데, 정규식이 하이픈을 안 받아서 install
+ *    referrer 도 클릭 카운터도 **에러 없이** 사라졌다(안드로이드 UA 로 실제
+ *    리다이렉트를 재 보고서야 알았다). 이제 하이픈을 밑줄로 흡수한다 —
+ *    태그를 잘못 쓴 쪽을 벌하는 것보다 측정을 살리는 편이 낫다.
+ */
 export function normalizeFrom(raw: string | null | undefined): string | null {
-  const f = (raw || '').toLowerCase();
+  const f = (raw || '').toLowerCase().replace(/-/g, '_');
   return FROM_RE.test(f) ? f : null;
 }
 

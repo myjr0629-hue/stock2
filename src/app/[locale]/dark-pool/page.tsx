@@ -450,9 +450,9 @@ export default async function DarkPoolLeadersPage(
           분기해 App Store / Play(install referrer 포함) 로 보내므로 설치로 바로
           꽂히고 측정된다. 내부 웹 경로로 보내면 페이지뷰만 늘고 설치가 안 는다.
           (티커 페이지 3,585장이 이미 이 규칙을 쓰고 있었다.) */}
-      <a style={S.cta} href={`${base}/app?from=seo-darkpool`} rel="noopener">{l.ctaSg} →</a>
-      <a style={S.cta2} href={`${base}/app-uc?from=seo-darkpool`} rel="noopener">{l.ctaUc} →</a>
-      <a style={S.cta2} href={`${base}/app-wim?from=seo-darkpool`} rel="noopener">{l.ctaWim} →</a>
+      <a style={S.cta} href={`${base}/app?from=seo_darkpool`} rel="noopener">{l.ctaSg} →</a>
+      <a style={S.cta2} href={`${base}/app-uc?from=seo_darkpool`} rel="noopener">{l.ctaUc} →</a>
+      <a style={S.cta2} href={`${base}/app-wim?from=seo_darkpool`} rel="noopener">{l.ctaWim} →</a>
       <a style={S.cta2} href={`/${lc}/options-flow`}>{l.ctaOf}</a>
       <a style={S.cta2} href={`/${lc}/tickers`}>{l.allT}</a>
 
