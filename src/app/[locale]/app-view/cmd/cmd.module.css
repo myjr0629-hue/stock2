@@ -2727,3 +2727,70 @@
   text-align: right;
   white-space: nowrap;
 }
+
+/* ── 목표가 건별 변경 (접기/펼치기) ───────────────────────────── */
+.analystDisclosure {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.analystDisclosureRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.analystChevron {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-dim);
+  transition: transform 160ms ease;
+  transform: rotate(0deg);
+}
+.analystChevron[data-open="1"] { transform: rotate(180deg); }
+
+.analystTargetChangeRow {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s2);
+  font: 500 11px/1.35 var(--f-mono);
+  font-variant-numeric: tabular-nums;
+}
+.analystTargetChangeVal {
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+  white-space: nowrap;
+}
+.analystTargetChangeUpside {
+  margin-left: 5px;
+  font-weight: 600;
+}
+.analystTargetChangeNote {
+  margin-top: 2px;
+  font: 500 10px/1.3 var(--f-mono);
+  color: var(--text-dim);
+}
+.analystMoreBtn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 3px 0 0;
+  align-self: flex-start;
+  font: 600 11px/1 var(--f-mono);
+  color: var(--accent, var(--green));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}

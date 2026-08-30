@@ -32,6 +32,21 @@ export interface GradeChange {
     action: "upgrade" | "downgrade";
 }
 
+/** 목표가 «건별» 변경 — 누가 언제 얼마로 */
+export interface TargetChange {
+    date: string;
+    firm: string;
+    /** 애널리스트 개인명 — 있으면 신뢰도가 다르다 */
+    analyst: string | null;
+    target: number;
+    /** 그 시점의 주가 — 목표가만 보면 «얼마나 공격적인지»를 모른다 */
+    priceThen: number | null;
+    /** 발표 시점 기준 상승여력(%) */
+    upsideThen: number | null;
+    publisher: string | null;
+    url: string | null;
+}
+
 export interface AnalystEvents {
     ticker: string;
     /** 창(일) 안의 상하향만 — maintain 은 이벤트가 아니다 */
@@ -41,6 +56,16 @@ export interface AnalystEvents {
     /** 상향 − 하향. 0 이면 «균형»이 아니라 «변화 없음»일 수 있으니 count 를 같이 본다 */
     net: number;
     recent: GradeChange[];
+    /** 목표가 건별 변경 (최신순). 화면은 접었다 펼친다 */
+    targetChanges: TargetChange[];
+    /**
+     * 목표가 «중앙값». 평균만 보면 치우친 분포에서 왜곡된다 —
+     * 실측 AMD: 고 1250 / 저 260 → 평균 594.04 vs **중앙값 625**.
+     * 소수의 극단 목표가가 평균을 끌어내리고 있었다.
+     */
+    targetMedian: number | null;
+    /** 컨센서스 «구성»의 월별 변화 (최신순 4개월) — 등급 분포가 이동 중인지 */
+    composition: Array<{ date: string; strongBuy: number; buy: number; hold: number; sell: number; strongSell: number }>;
     /** 목표가 리비전 추세 — 못 구하면 null (0 으로 만들지 않는다) */
     targetTrend: {
         lastMonthAvg: number | null;
@@ -80,13 +105,17 @@ const num = (v: any): number | null => {
 export async function getAnalystEvents(ticker: string, windowDays = 90): Promise<AnalystEvents> {
     const T = ticker.toUpperCase().trim();
     const empty: AnalystEvents = {
-        ticker: T, windowDays, upgrades: 0, downgrades: 0, net: 0, recent: [], targetTrend: null,
+        ticker: T, windowDays, upgrades: 0, downgrades: 0, net: 0, recent: [],
+        targetChanges: [], targetMedian: null, composition: [], targetTrend: null,
     };
     if (!T) return empty;
 
-    const [grades, summary] = await Promise.all([
+    const [grades, summary, ptNews, ptConsensus, hist] = await Promise.all([
         fmp(`grades?symbol=${encodeURIComponent(T)}`),
         fmp(`price-target-summary?symbol=${encodeURIComponent(T)}`),
+        fmp(`price-target-news?symbol=${encodeURIComponent(T)}&page=0&limit=40`),
+        fmp(`price-target-consensus?symbol=${encodeURIComponent(T)}`),
+        fmp(`grades-historical?symbol=${encodeURIComponent(T)}&limit=4`),
     ]);
 
     // ── 등급 변경 ────────────────────────────────────────────────────
@@ -134,6 +163,53 @@ export async function getAnalystEvents(ticker: string, windowDays = 90): Promise
         };
     }
 
+    // ── 목표가 건별 변경 ────────────────────────────────────────────
+    //   목표가만 보면 «얼마나 공격적인지»를 모른다. 발표 시점 주가를 같이
+    //   실어 그때 기준 상승여력을 계산한다. 주가를 못 얻으면 null 이다.
+    const targetChanges: TargetChange[] = Array.isArray(ptNews)
+        ? ptNews
+            .map((x: any): TargetChange | null => {
+                const target = num(x?.adjPriceTarget ?? x?.priceTarget);
+                const date = String(x?.publishedDate || "").slice(0, 10);
+                if (target == null || !date) return null;
+                const priceThen = num(x?.priceWhenPosted);
+                return {
+                    date,
+                    firm: String(x?.analystCompany || "—"),
+                    analyst: x?.analystName || null,
+                    target,
+                    priceThen,
+                    upsideThen: priceThen && priceThen > 0
+                        ? Math.round(((target - priceThen) / priceThen) * 1000) / 10
+                        : null,
+                    publisher: x?.newsPublisher || null,
+                    url: x?.newsURL || null,
+                };
+            })
+            .filter(Boolean)
+            .sort((a: any, b: any) => (a.date < b.date ? 1 : -1)) as TargetChange[]
+        : [];
+
+    // ── 목표가 중앙값 ───────────────────────────────────────────────
+    const pc = Array.isArray(ptConsensus) ? ptConsensus[0] : null;
+    const targetMedian = num(pc?.targetMedian);
+
+    // ── 컨센서스 구성의 월별 변화 ───────────────────────────────────
+    const composition = Array.isArray(hist)
+        ? hist
+            .map((h: any) => ({
+                date: String(h?.date || "").slice(0, 10),
+                strongBuy: num(h?.analystRatingsStrongBuy) ?? 0,
+                buy: num(h?.analystRatingsBuy) ?? 0,
+                hold: num(h?.analystRatingsHold) ?? 0,
+                sell: num(h?.analystRatingsSell) ?? 0,
+                strongSell: num(h?.analystRatingsStrongSell) ?? 0,
+            }))
+            .filter((h: any) => h.date)
+            .sort((a: any, b: any) => (a.date < b.date ? 1 : -1))
+            .slice(0, 4)
+        : [];
+
     return {
         ticker: T,
         windowDays,
@@ -141,6 +217,9 @@ export async function getAnalystEvents(ticker: string, windowDays = 90): Promise
         downgrades,
         net: upgrades - downgrades,
         recent: changes.slice(0, 6),
+        targetChanges: targetChanges.slice(0, 30),
+        targetMedian,
+        composition,
         targetTrend,
     };
 }

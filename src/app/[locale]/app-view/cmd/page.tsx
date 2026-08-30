@@ -835,6 +835,8 @@ function AnalystConsensus({
   analyst: typeof DEMO.analyst; price: number; locale?: string
 }) {
   const [animated, setAnimated] = useState(false);
+  // 목표가 건별 내역은 30건까지 온다 — 기본은 접어 두고 눌러서 편다
+  const [targetsOpen, setTargetsOpen] = useState(false);
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(t); }, []);
 
   const total = analyst.buy + analyst.hold + analyst.sell;
@@ -851,6 +853,12 @@ function AnalystConsensus({
   const ev: any = (analyst as any).events || null;
   const trend = ev?.targetTrend || null;
   const recentChanges: any[] = Array.isArray(ev?.recent) ? ev.recent.slice(0, 3) : [];
+  const targetChanges: any[] = Array.isArray(ev?.targetChanges) ? ev.targetChanges : [];
+  const shownTargets = targetsOpen ? targetChanges : targetChanges.slice(0, 3);
+  // 중앙값은 평균과 «뜻이 다를 때»만 보여 준다. 같은 값을 두 번 쓰면 잡음이다.
+  const median: number | null = typeof ev?.targetMedian === 'number' ? ev.targetMedian : null;
+  const medianDiffers = median != null && analyst.target > 0
+    && Math.abs(median - analyst.target) / analyst.target >= 0.03;
   const revColor = trend?.direction === 'RAISING' ? 'var(--green)'
     : trend?.direction === 'LOWERING' ? 'var(--red)' : 'var(--text-muted)';
 
@@ -918,6 +926,13 @@ function AnalystConsensus({
           <div className={s.analystTargetRange}>
             <span>{locale === 'ko' ? '최고' : locale === 'ja' ? '最高' : 'High'} ${analyst.targetHigh.toFixed(0)}</span>
             <span>{locale === 'ko' ? '최저' : locale === 'ja' ? '最低' : 'Low'} ${analyst.targetLow.toFixed(0)}</span>
+            {/* 중앙값 — 평균과 3% 이상 벌어질 때만. 소수의 극단 목표가가 평균을
+                끌고 가는 경우가 있다(AMD 실측: 평균 594 vs 중앙값 625) */}
+            {medianDiffers && (
+              <span title={locale === 'ko' ? '극단값에 덜 휘둘리는 대표값' : locale === 'ja' ? '外れ値に強い代表値' : 'less skewed by outliers'}>
+                {locale === 'ko' ? '중앙' : locale === 'ja' ? '中央' : 'Median'} ${median!.toFixed(0)}
+              </span>
+            )}
           </div>
         )}
 
@@ -941,6 +956,62 @@ function AnalystConsensus({
           </div>
         )}
       </div>
+
+      {/* 목표가 건별 변경 — 기본 3건, 눌러서 전체. 30건까지 온다 */}
+      {targetChanges.length > 0 && (
+        <div className={s.analystActionsBlock}>
+          <button
+            type="button"
+            className={s.analystDisclosure}
+            onClick={() => setTargetsOpen((v) => !v)}
+            aria-expanded={targetsOpen}
+          >
+            <span className={s.analystActionsTitle}>
+              {locale === 'ko' ? '목표가 변경 내역' : locale === 'ja' ? '目標株価の変更履歴' : 'PRICE TARGET CHANGES'}
+            </span>
+            <span className={s.analystDisclosureRight}>
+              <span className={s.analystActionsCount}>{targetChanges.length}</span>
+              <span className={s.analystChevron} data-open={targetsOpen ? '1' : '0'}>▾</span>
+            </span>
+          </button>
+
+          {shownTargets.map((c: any, i: number) => (
+            <div key={`${c.date}-${c.firm}-${i}`} className={s.analystTargetChangeRow}>
+              <span className={s.analystActionDate}>{c.date.slice(5)}</span>
+              <span className={s.analystActionFirm}>{c.firm}</span>
+              <span className={s.analystTargetChangeVal}>
+                ${c.target.toFixed(0)}
+                {typeof c.upsideThen === 'number' && (
+                  <span
+                    className={s.analystTargetChangeUpside}
+                    style={{ color: c.upsideThen >= 0 ? 'var(--green)' : 'var(--red)' }}
+                  >
+                    {c.upsideThen >= 0 ? '+' : ''}{c.upsideThen}%
+                  </span>
+                )}
+              </span>
+            </div>
+          ))}
+
+          {!targetsOpen && targetChanges.length > 3 && (
+            <button type="button" className={s.analystMoreBtn} onClick={() => setTargetsOpen(true)}>
+              {locale === 'ko' ? `+${targetChanges.length - 3}건 더 보기`
+                : locale === 'ja' ? `他${targetChanges.length - 3}件を表示`
+                  : `Show ${targetChanges.length - 3} more`}
+            </button>
+          )}
+          {targetsOpen && (
+            <button type="button" className={s.analystMoreBtn} onClick={() => setTargetsOpen(false)}>
+              {locale === 'ko' ? '접기' : locale === 'ja' ? '閉じる' : 'Show less'}
+            </button>
+          )}
+          <div className={s.analystTargetChangeNote}>
+            {locale === 'ko' ? '% 는 발표 시점 주가 대비 상승여력'
+              : locale === 'ja' ? '% は発表時株価に対する上昇余地'
+                : '% = upside vs price at publication'}
+          </div>
+        </div>
+      )}
 
       {/* 최근 등급 변경 — «유지»는 이벤트가 아니다. 상하향만 보여 준다 */}
       {recentChanges.length > 0 && (
