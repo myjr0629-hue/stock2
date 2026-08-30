@@ -499,13 +499,24 @@ export default function AppDashPage() {
   const [moverSort, setMoverSort] = useState<'value' | 'gainers' | 'losers'>('value');
   const [moversLoading, setMoversLoading] = useState(false);
   const [briefing, setBriefing] = useState<string>(DEMO_BRIEFING);
-  const [volRegime, setVolRegime] = useState<{ regime: string; score: number } | null>(null);
   // 다크풀은 이관으로 영구 상실했다 — 기관 «신규 옵션 포지션»으로 대체한다.
   const [instFlow, setInstFlow] = useState<{
     notional: number; callPct: number; side: 'call' | 'put';
     tickers: number; topTicker: string | null; topNotional: number; date: string | null;
+    /** 「가장 큰 한 방」 — 집계 금액만으론 «무엇에 걸었나»를 모른다 */
+    topContract?: { ticker: string; type: 'call' | 'put'; strike: number; expiry: string; contracts: number; notional: number } | null;
+    /** 자기 이력 대비 백분위. 이력이 쌓이기 전엔 null — 「평소 대비」를 말하지 않는다 */
+    percentile?: number | null;
+    samples?: number;
   } | null>(null);
   const [gammaSqueeze, setGammaSqueeze] = useState<{ score: number; risk: string } | null>(null);
+  /** 딜러 감마 — 「변동성 레짐」+「스퀴즈」를 합친 카드. 백분위로 보정된다. */
+  const [dealerGamma, setDealerGamma] = useState<{
+    gex: number; polarity: 'long' | 'short'; percentile: number | null;
+    samples: number; flipDistancePct: number | null; unstable: boolean; date: string | null;
+  } | null>(null);
+  /** 시장 폭 — 지수 구성종목 중 20일선 위 비율 */
+  const [breadth, setBreadth] = useState<{ ndx: number | null; dow: number | null; covered: number; universe: number } | null>(null);
   const [sectorRotation, setSectorRotation] = useState<{
     score: number; direction: string; conviction: string;
     /** 'percentile' 이면 score 는 최근 5거래일 창들 대비 백분위다 */
@@ -758,7 +769,7 @@ export default function AppDashPage() {
   const gateCopy = {
     ko: {
       title: '기관급 마켓 펄스',
-      subtitle: '변동성 레짐, 기관 신규 포지션, 섹터 순환을 1시간 동안 확인합니다.',
+      subtitle: '기관 신규 포지션 · 딜러 감마 · 섹터 순환 · 시장 폭 — 4개 신호를 1시간 동안 확인합니다.',
       teaserLabel: '무료 미리보기 · 기관급 펄스',
       previewChip: '무료 미리보기',
       cta: '광고 보고 1시간 해제',
@@ -766,15 +777,15 @@ export default function AppDashPage() {
       social: '오늘 14.2K 잠금해제',
       teaserUnit: '4개 중 1개',
       signals: {
-        volatility: { label: '변동성 레짐', kicker: '시장 압축/확대', insight: '시장 변동성이 압축되는지, 확대되는지 추적합니다.' },
         instFlow: { label: '기관 신규 포지션', kicker: '어제 새로 깔린 옵션', insight: '장중엔 보이지 않는 미결제약정 증가분입니다.' },
-        squeeze: { label: '스퀴즈 위험', kicker: '단기 변동성 압력', insight: '감마와 포지션 쏠림이 만드는 급변 가능성을 봅니다.' },
+        gamma: { label: '딜러 감마 구조', kicker: '변동성을 누르나 키우나', insight: '딜러가 헤지하는 방향이 시장의 진폭을 결정합니다.' },
         rotation: { label: '섹터 순환 강도', kicker: '자금 이동 방향', insight: '공격/방어 섹터로 자금이 이동하는 강도를 확인합니다.' },
+        breadth: { label: '시장 폭', kicker: '넓게 오르나, 소수가 끄나', insight: '지수 구성종목 중 20일선 위 비율입니다.' },
       },
     },
     en: {
       title: 'Institutional Market Pulse',
-      subtitle: 'Unlock volatility regime, new institutional positioning, and sector rotation for 1 hour.',
+      subtitle: 'Unlock 4 signals for 1 hour — institutional positioning, dealer gamma, sector rotation, market breadth.',
       teaserLabel: 'Free preview · Institutional pulse',
       previewChip: 'Free preview',
       cta: 'Watch ad to unlock 1HR',
@@ -782,15 +793,15 @@ export default function AppDashPage() {
       social: '14.2K unlocked today',
       teaserUnit: '1 of 4',
       signals: {
-        volatility: { label: 'Volatility Regime', kicker: 'Compression / expansion', insight: 'Tracks whether market volatility is compressing or expanding.' },
         instFlow: { label: 'New Institutional Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
-        squeeze: { label: 'Squeeze Risk', kicker: 'Short-term pressure', insight: 'Monitors gamma and positioning pressure behind fast moves.' },
+        gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
         rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
+        breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
       },
     },
     ja: {
       title: '機関級マーケットパルス',
-      subtitle: 'ボラティリティ・レジーム、機関の新規ポジション、セクターローテーションを1時間確認できます。',
+      subtitle: '機関の新規ポジション・ディーラーガンマ・セクター循環・市場の広がり — 4つのシグナルを1時間確認できます。',
       teaserLabel: '無料プレビュー · 機関投資家パルス',
       previewChip: '無料プレビュー',
       cta: '広告視聴で1時間解除',
@@ -798,10 +809,10 @@ export default function AppDashPage() {
       social: '本日14.2K件解除',
       teaserUnit: '4つ中1つ',
       signals: {
-        volatility: { label: 'ボラティリティ・レジーム', kicker: '圧縮 / 拡大', insight: '市場の変動性が圧縮か拡大かを追跡します。' },
         instFlow: { label: '機関の新規ポジション', kicker: '昨日建てられたオプション', insight: '場中には見えない建玉の増加分です。' },
-        squeeze: { label: 'スクイーズリスク', kicker: '短期圧力', insight: 'ガンマとポジション偏りによる急変リスクを見ます。' },
+        gamma: { label: 'ディーラー・ガンマ', kicker: '変動を抑えるか広げるか', insight: 'ディーラーのヘッジ方向が相場の振幅を決めます。' },
         rotation: { label: 'セクター循環強度', kicker: '資金移動', insight: '資金がリスク側か防御側へ回る強さを確認します。' },
+        breadth: { label: '市場の広がり', kicker: '全体か、一部の銘柄か', insight: '指数構成銘柄のうち20日線より上の比率です。' },
       },
     },
   }[locale as 'ko' | 'en' | 'ja'] || {
@@ -814,10 +825,10 @@ export default function AppDashPage() {
     social: '14.2K unlocked today',
     teaserUnit: '1 of 4',
     signals: {
-      volatility: { label: 'Volatility Regime', kicker: 'Compression / expansion', insight: 'Tracks whether market volatility is compressing or expanding.' },
       instFlow: { label: 'New Institutional Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
-      squeeze: { label: 'Squeeze Risk', kicker: 'Short-term pressure', insight: 'Monitors gamma and positioning pressure behind fast moves.' },
+      gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
       rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
+      breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
     },
   };
 
@@ -882,24 +893,6 @@ export default function AppDashPage() {
     );
   };
   const normalizeSignalToken = (value?: string | null) => String(value || '').replace(/_/g, ' ').trim().toUpperCase();
-  const localizeRegime = (value?: string | null) => {
-    const token = normalizeSignalToken(value);
-    const map = {
-      ko: { COILING: '압축', LOADED: '긴장 고조', EXPANDING: '확대', CALM: '안정', NORMAL: '보통' },
-      en: { COILING: 'Coiling', LOADED: 'Loaded', EXPANDING: 'Expanding', CALM: 'Calm', NORMAL: 'Normal' },
-      ja: { COILING: '圧縮', LOADED: '緊張上昇', EXPANDING: '拡大', CALM: '安定', NORMAL: '通常' },
-    }[locale as 'ko' | 'en' | 'ja'];
-    return map?.[token as keyof typeof map] || (value ? value.replace(/_/g, ' ') : 'Coiling');
-  };
-  const localizeRisk = (value?: string | null) => {
-    const token = normalizeSignalToken(value);
-    const map = {
-      ko: { LOW: '낮음', MEDIUM: '보통', HIGH: '높음', EXTREME: '극단' },
-      en: { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', EXTREME: 'Extreme' },
-      ja: { LOW: '低い', MEDIUM: '中程度', HIGH: '高い', EXTREME: '極端' },
-    }[locale as 'ko' | 'en' | 'ja'];
-    return map?.[token as keyof typeof map] || (value ? value.replace(/_/g, ' ') : 'Low');
-  };
   const localizeRotation = (value?: string | null) => {
     const token = normalizeSignalToken(value);
     const map = {
@@ -920,8 +913,6 @@ export default function AppDashPage() {
   // ★ 폴백 상수(38 · 42.5 · 34 · 50)를 전부 걷어냈다.
   //   못 잰 값은 null 로 두고 카드가 «—» 로 말한다. 진행바도 0 이 아니라
   //   아예 안 그린다 — 0% 막대는 «측정된 0» 처럼 보인다.
-  const volScore = volRegime?.score == null ? null : clampPct(volRegime.score);
-  const squeezeScore = gammaSqueeze?.score == null ? null : clampPct(gammaSqueeze.score);
   const rotationScore = sectorRotation?.score == null ? null : clampPct(sectorRotation.score);
   // 신규 포지션은 «콜 비중»을 게이지로 쓴다(0~100). 금액은 값으로 따로 보여 준다.
   const instScore = instFlow ? clampPct(instFlow.callPct) : null;
@@ -937,20 +928,6 @@ export default function AppDashPage() {
   //   말했다(실화면 22점에서 확인). 라벨과 문장이 싸우면 둘 다 못 믿는다.
   //   레짐: ERUPTING≥75 · LOADED≥50 · COILING≥25 · CALM  (volatility-regime)
   //   위험: EXTREME≥70 · HIGH≥45 · MEDIUM≥20 · LOW      (structureService)
-  const readVol = (sc: number | null, rg?: string | null) => sc == null ? null
-    : sc >= 75 ? L3('확대 구간 — 이미 크게 움직이는 중입니다.', 'Erupting — already moving wide.', '拡大局面 — すでに大きく動いています。')
-      : sc >= 50 ? L3('압력이 쌓였습니다 — 촉발되면 폭이 커집니다.', 'Loaded — a trigger would move it far.', '圧力が蓄積 — 引き金が引かれると大きく動きます。')
-        : sc >= 25 ? L3('압축 구간 — 방향이 정해지면 크게 움직입니다.', 'Coiled — a resolution tends to move far.', '圧縮局面 — 方向が決まると大きく動きます。')
-          : L3('조용한 구간 — 딜러 헤지가 변동성을 누르고 있습니다.', 'Calm — dealer hedging is damping volatility.', '静穏 — ディーラーのヘッジが変動を抑えています。');
-  const readSqueeze = (sc: number | null) => sc == null ? null
-    : sc >= 70 ? L3('극단적 쏠림 — 급변 가능성이 매우 높습니다.', 'Extremely crowded — snap risk is very high.', '極端な偏り — 急変の可能性が非常に高いです。')
-      : sc >= 45 ? L3('포지션 쏠림이 큽니다 — 급변 가능성이 높습니다.', 'Crowded positioning — snap risk is elevated.', 'ポジションの偏りが大きく、急変の可能性が高いです。')
-        : sc >= 20 ? L3('보통 수준의 쏠림입니다.', 'Moderate crowding.', '通常水準の偏りです。')
-          : L3('쏠림이 적습니다 — 급변 압력이 낮습니다.', 'Little crowding — low snap pressure.', '偏りが少なく、急変圧力は低いです。');
-  // 점수는 «최근 N개 5거래일 창» 대비 백분위다(basis==='percentile').
-  //   → 70 이상 = 최근 중 강한 축, 30 미만 = 최근 중 조용한 축.
-  //   예전엔 상수 배율이라 거의 매일 100 이었고, 그래서 「강하게 이동 중」이
-  //   항상 켜져 있었다. 실제로는 오늘(8/31) 36 = 평소보다 약한 순환이다.
   const readRotation = (
     sc: number | null,
     dir?: string | null,
@@ -977,24 +954,113 @@ export default function AppDashPage() {
       : L3('평소 수준의 순환 · 방어 우위', 'Typical rotation · defense-led', '通常水準の循環 · 防御優位')) + where;
     return L3('최근 중 조용한 편 — 섹터 이동이 약합니다.', 'Quieter than usual — little sector movement.', '直近では静かな部類 — セクター移動は弱いです。');
   };
-  const readInst = (f: typeof instFlow) => !f ? null
-    : L3(
-        `${f.tickers}종목에 ${money(f.notional)} 신규 진입 · ${f.callPct >= 50 ? '콜' : '풋'} ${f.callPct >= 50 ? f.callPct : (100 - f.callPct)}% 우위${f.topTicker ? ` · 최대 ${f.topTicker}` : ''}`,
-        `${money(f.notional)} opened across ${f.tickers} names · ${f.callPct >= 50 ? 'call' : 'put'}-heavy ${f.callPct >= 50 ? f.callPct : (100 - f.callPct)}%${f.topTicker ? ` · led by ${f.topTicker}` : ''}`,
-        `${f.tickers}銘柄に${money(f.notional)}の新規 · ${f.callPct >= 50 ? 'コール' : 'プット'}優勢${f.callPct >= 50 ? f.callPct : (100 - f.callPct)}%${f.topTicker ? ` · 最大 ${f.topTicker}` : ''}`
-      );
+  /**
+   * 기관 신규 포지션 판독.
+   *   집계 금액만 보여 주면 «규모»만 알 수 있다. 프리미엄이라면 「무엇에
+   *   걸었나」가 있어야 한다 — 가장 크게 늘어난 단일 계약을 붙인다.
+   *   실측(8/28): NVDA 콜 $200 · 2027-01 만기 · +188,333계약 = $3.77B
+   */
+  const readInst = (f: typeof instFlow) => {
+    if (!f) return null;
+    const heavy = f.callPct >= 50 ? f.callPct : Math.round((100 - f.callPct) * 10) / 10;
+    const tc = f.topContract;
+    const expShort = tc?.expiry ? tc.expiry.slice(0, 7) : '';
+    const best = tc
+      ? L3(
+          ` · 최대 ${tc.ticker} ${tc.type === 'call' ? '콜' : '풋'} $${tc.strike} (${expShort}) ${money(tc.notional)}`,
+          ` · biggest: ${tc.ticker} ${tc.type} $${tc.strike} (${expShort}) ${money(tc.notional)}`,
+          ` · 最大 ${tc.ticker} ${tc.type === 'call' ? 'コール' : 'プット'} $${tc.strike}（${expShort}）${money(tc.notional)}`,
+        )
+      : (f.topTicker ? L3(` · 최대 ${f.topTicker}`, ` · led by ${f.topTicker}`, ` · 最大 ${f.topTicker}`) : '');
+    // 이력이 쌓인 뒤에만 «평소 대비»를 말한다
+    const vs = typeof f.percentile === 'number'
+      ? (f.percentile >= 80 ? L3(' · 평소보다 많음', ' · heavier than usual', ' · 平常より多い')
+        : f.percentile <= 20 ? L3(' · 평소보다 적음', ' · lighter than usual', ' · 平常より少ない') : '')
+      : '';
+    return L3(
+      `${f.tickers}종목에 ${money(f.notional)} 신규 진입 · ${f.callPct >= 50 ? '콜' : '풋'} ${heavy}% 우위${vs}${best}`,
+      `${money(f.notional)} opened across ${f.tickers} names · ${f.callPct >= 50 ? 'call' : 'put'}-heavy ${heavy}%${vs}${best}`,
+      `${f.tickers}銘柄に${money(f.notional)}の新規 · ${f.callPct >= 50 ? 'コール' : 'プット'}優勢${heavy}%${vs}${best}`,
+    );
+  };
+
+  /**
+   * 딜러 감마 판독. 「변동성 레짐」+「스퀴즈」를 대체한다.
+   *   롱감마면 딜러가 변동성을 «누르고», 숏감마면 «증폭»한다.
+   *   플립 근처의 숏감마가 예전 「스퀴즈 위험」이 말하려던 상태다.
+   */
+  const readGamma = (g: typeof dealerGamma) => {
+    if (!g) return null;
+    const flip = g.flipDistancePct == null ? ''
+      : L3(` · 감마플립까지 ${Math.abs(g.flipDistancePct).toFixed(1)}%`,
+           ` · ${Math.abs(g.flipDistancePct).toFixed(1)}% from gamma flip`,
+           ` · ガンマフリップまで${Math.abs(g.flipDistancePct).toFixed(1)}%`);
+    if (g.unstable) {
+      return L3('숏감마 + 플립 근처 — 작은 충격이 크게 증폭됩니다.',
+                'Short gamma near the flip — small shocks get amplified.',
+                'ショートガンマかつフリップ付近 — 小さな衝撃が増幅されます。') + flip;
+    }
+    if (g.polarity === 'short') {
+      return L3('딜러가 숏감마 — 움직임을 «따라가며» 증폭합니다.',
+                'Dealers are short gamma — they chase and amplify moves.',
+                'ディーラーはショートガンマ — 動きを追って増幅します。') + flip;
+    }
+    const strong = typeof g.percentile === 'number' && g.percentile >= 80;
+    return (strong
+      ? L3('최근 중 가장 강한 롱감마 — 변동성이 강하게 눌립니다.',
+           'Strongest long gamma in weeks — volatility is firmly damped.',
+           '直近で最も強いロングガンマ — 変動が強く抑えられます。')
+      : L3('딜러가 롱감마 — 헤지가 변동성을 누릅니다.',
+           'Dealers are long gamma — hedging damps volatility.',
+           'ディーラーはロングガンマ — ヘッジが変動を抑えます。')) + flip;
+  };
+
+  /**
+   * 시장 폭 판독. 지수가 «넓게» 오르는가, 소수가 끌고 가는가.
+   *   지수만 보면 알 수 없는 것이고, 우리는 12,222종목 20일 종가를 갖고 있다.
+   */
+  const readBreadth = (b: typeof breadth) => {
+    if (!b || (b.ndx == null && b.dow == null)) return null;
+    const vals = [b.ndx, b.dow].filter((v): v is number => typeof v === 'number');
+    const avg = vals.reduce((a, c) => a + c, 0) / vals.length;
+    const parts = [
+      b.ndx != null ? `NDX ${b.ndx.toFixed(0)}%` : null,
+      b.dow != null ? `DOW ${b.dow.toFixed(0)}%` : null,
+    ].filter(Boolean).join(' · ');
+    if (avg >= 65) return L3(`상승이 넓습니다 — 대부분 종목이 20일선 위 (${parts})`,
+                             `Broad advance — most members above their 20-day (${parts})`,
+                             `上昇の裾野が広い — 大半が20日線の上（${parts}）`);
+    if (avg <= 35) return L3(`소수가 끌고 갑니다 — 대부분 종목이 20일선 아래 (${parts})`,
+                             `Narrow tape — most members below their 20-day (${parts})`,
+                             `一部の銘柄が牽引 — 大半が20日線の下（${parts}）`);
+    return L3(`절반 정도가 20일선 위입니다 (${parts})`,
+              `About half are above their 20-day (${parts})`,
+              `およそ半数が20日線の上です（${parts}）`);
+  };
   const NO_DATA = L3('데이터 없음', 'No data', 'データなし');
+  // ══════════════════════════════════════════════════════════════════
+  //  4개 카드 = 서로 다른 «4개의 렌즈»
+  //
+  //  ⚠️ 예전 구성은 「변동성 레짐」과 「감마 스퀴즈」가 **같은 것을 두 번**
+  //     보여 주고 있었다 — regimeScore 계산식이 `squeezeScore / 4` 를 직접
+  //     더한다. 4칸 중 2칸이 중복이었고, 그래서 실제로 보는 정보는 3개였다.
+  //
+  //  ① 포지션  기관이 «무엇을» 새로 깔았나        (옵션 미결제약정 증가분)
+  //  ② 구조    딜러가 변동성을 누르나 키우나       (GEX 백분위 + 플립 거리)
+  //  ③ 순환    자금이 «어디로» 갔나               (섹터 백분위 + into/outOf)
+  //  ④ 폭      넓게 오르나, 소수가 끄나           (지수 구성종목 20일선 위)
+  //
+  //  네 카드 모두 «오늘 값»이 아니라 «평소 대비»를 말하려고 한다.
+  //  숫자에 기준이 붙어야 인사이트가 된다.
+  // ══════════════════════════════════════════════════════════════════
+  const gammaScore = dealerGamma?.percentile ?? null;
+  const breadthScore = (() => {
+    if (!breadth) return null;
+    const vals = [breadth.ndx, breadth.dow].filter((v): v is number => typeof v === 'number');
+    return vals.length ? clampPct(vals.reduce((a, c) => a + c, 0) / vals.length) : null;
+  })();
+
   const institutionalSignals = [
-    {
-      key: 'vol',
-      tone: 'cyan',
-      label: gateCopy.signals.volatility.label,
-      kicker: gateCopy.signals.volatility.kicker,
-      value: volRegime?.regime ? localizeRegime(volRegime.regime) : '—',
-      sub: volScore == null ? '—' : `${volScore.toFixed(0)}%`,
-      insight: readVol(volScore, volRegime?.regime) ?? NO_DATA,
-      score: volScore,
-    },
     {
       key: 'inst',
       tone: 'green',
@@ -1006,14 +1072,19 @@ export default function AppDashPage() {
       score: instScore,
     },
     {
-      key: 'squeeze',
-      tone: 'pink',
-      label: gateCopy.signals.squeeze.label,
-      kicker: gateCopy.signals.squeeze.kicker,
-      value: gammaSqueeze?.risk ? localizeRisk(gammaSqueeze.risk) : '—',
-      sub: squeezeScore == null ? '—' : `${squeezeScore.toFixed(0)}%`,
-      insight: readSqueeze(squeezeScore) ?? NO_DATA,
-      score: squeezeScore,
+      key: 'gamma',
+      tone: 'cyan',
+      label: gateCopy.signals.gamma.label,
+      kicker: gateCopy.signals.gamma.kicker,
+      value: dealerGamma
+        ? (dealerGamma.polarity === 'long'
+            ? L3('롱감마', 'Long gamma', 'ロングガンマ')
+            : L3('숏감마', 'Short gamma', 'ショートガンマ'))
+        : '—',
+      sub: gammaScore == null ? '—'
+        : L3(`백분위 ${gammaScore}`, `${gammaScore}th pct`, `パーセンタイル${gammaScore}`),
+      insight: readGamma(dealerGamma) ?? NO_DATA,
+      score: gammaScore,
     },
     {
       key: 'rotation',
@@ -1027,6 +1098,16 @@ export default function AppDashPage() {
           : `Rotation ${rotationScore.toFixed(0)}`,
       insight: readRotation(rotationScore, sectorRotation?.direction, sectorRotation?.into, sectorRotation?.outOf, sectorRotation?.basis) ?? NO_DATA,
       score: rotationScore,
+    },
+    {
+      key: 'breadth',
+      tone: 'pink',
+      label: gateCopy.signals.breadth.label,
+      kicker: gateCopy.signals.breadth.kicker,
+      value: breadthScore == null ? '—' : `${breadthScore.toFixed(0)}%`,
+      sub: breadth ? `NDX ${breadth.ndx == null ? '—' : breadth.ndx.toFixed(0)} · DOW ${breadth.dow == null ? '—' : breadth.dow.toFixed(0)}` : '—',
+      insight: readBreadth(breadth) ?? NO_DATA,
+      score: breadthScore,
     },
   ];
   const signalToneClass = {
@@ -1471,11 +1552,11 @@ export default function AppDashPage() {
               // ⚠️ 못 잰 값을 상수로 채우지 않는다. null 은 null 로 흘려보내고
               //    카드가 «—» 로 말하게 한다. 이 카드들은 보상형 광고 뒤에 있다 —
               //    광고를 보고 나서 보는 값이 폴백 상수면 사용자를 속이는 것이다.
-              setVolRegime(pData.volatilityRegime?.score == null ? null
-                : { regime: pData.volatilityRegime.regime, score: pData.volatilityRegime.score });
               setInstFlow(pData.institutionalFlow ?? null);
               setGammaSqueeze(pData.gammaSqueeze?.score == null ? null
                 : { score: pData.gammaSqueeze.score, risk: pData.gammaSqueeze.risk });
+              setDealerGamma(pData.dealerGamma ?? null);
+              setBreadth(pData.breadth ?? null);
               setSectorRotation(pData.sectorRotation?.score == null ? null
                 : {
                   score: pData.sectorRotation.score,

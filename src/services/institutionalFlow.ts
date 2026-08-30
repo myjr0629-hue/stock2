@@ -31,6 +31,18 @@ const OPT_KEY = 'intrinio:options:eod';
 /** 「시장 전체」라고 말하려면 최소 이만큼의 종목이 있어야 한다 */
 const MIN_TICKERS_FOR_MARKET = 50;
 
+/** 오늘 시장 전체에서 «가장 큰 한 방». 집계는 규모를, 이것은 «무엇을»을 말한다. */
+export interface TopNewPosition {
+    ticker: string;
+    type: 'call' | 'put';
+    strike: number;
+    expiry: string;
+    /** 늘어난 계약 수 */
+    contracts: number;
+    /** 명목 금액(USD) */
+    notional: number;
+}
+
 export interface InstitutionalFlowSummary {
     /** 신규 진입 금액 합계(USD) */
     notional: number;
@@ -41,6 +53,18 @@ export interface InstitutionalFlowSummary {
     tickers: number;
     topTicker: string | null;
     topNotional: number;
+    /**
+     * 오늘 가장 크게 늘어난 «단일 계약». 실측(8/28):
+     *   NVDA 콜 $200 · 2027-01-15 만기 · +188,333계약 = $3.77B
+     * 집계 금액만으론 「기관이 무엇에 걸었나」를 알 수 없다.
+     */
+    topContract: TopNewPosition | null;
+    /**
+     * 자기 이력 대비 백분위(0~100). 옵션 EOD 는 «당일치»만 보관돼 왔으므로
+     * 이력이 쌓이기 전에는 null 이다 — 없으면 「평소 대비」를 말하지 않는다.
+     */
+    percentile: number | null;
+    samples: number;
     /** 기준일 — 장중 실시간이 아니라 «전일 마감» 이다. 화면에 그렇게 쓸 것 */
     date: string | null;
 }
@@ -97,6 +121,8 @@ export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSu
     if (!data) return null;
 
     let total = 0, call = 0, topN = 0, topT: string | null = null, count = 0;
+    let topContract: TopNewPosition | null = null;
+
     for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
         const { contracts, notional, callN } = sumOpening(v);
         if (contracts <= 0) continue;
@@ -104,9 +130,32 @@ export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSu
         total += notional;
         call += callN;
         if (notional > topN) { topN = notional; topT = sym; }
+
+        // 단일 계약 최대 신규 — 종목 합계와 달리 «무엇에 걸었는지»가 남는다
+        for (const c of (v?.top || [])) {
+            if (!(c.d > 0)) continue;
+            const n = c.d * 100 * (c.k || 0);
+            if (!topContract || n > topContract.notional) {
+                topContract = {
+                    ticker: sym,
+                    type: c.t === 'C' ? 'call' : 'put',
+                    strike: c.k,
+                    expiry: c.e,
+                    contracts: c.d,
+                    notional: n,
+                };
+            }
+        }
     }
 
     if (count < MIN_TICKERS_FOR_MARKET || total <= 0) return null;
+
+    // 이력이 있으면 「평소 대비」를 말할 수 있다
+    const hist = await readFlowHistory();
+    const past = hist.filter(h => h.date !== data.date).map(h => h.notional);
+    const percentile = past.length >= MIN_FLOW_SAMPLES
+        ? Math.round((past.filter(v => v <= total).length / past.length) * 100)
+        : null;
 
     const callPct = Math.round((call / total) * 1000) / 10;
     return {
@@ -116,8 +165,37 @@ export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSu
         tickers: count,
         topTicker: topT,
         topNotional: topN,
+        topContract,
+        percentile,
+        samples: past.length,
         date: data.date ?? null,
     };
+}
+
+/** 일별 집계 이력. EOD 적재 스크립트가 매일 한 줄씩 덧붙인다. */
+const FLOW_HIST_KEY = 'intrinio:options:flow:hist';
+const MIN_FLOW_SAMPLES = 10;
+
+async function readFlowHistory(): Promise<Array<{ date: string; notional: number; callPct: number }>> {
+    const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+        const res = await fetch(`${proxy}/get?key=${encodeURIComponent(FLOW_HIST_KEY)}`, {
+            headers: { Authorization: `Bearer ${key}` },
+            signal: controller.signal,
+            cache: 'no-store',
+        });
+        if (!res.ok) return [];
+        const raw = await res.json();
+        const val = typeof raw?.result === 'string' ? JSON.parse(raw.result) : raw?.result;
+        return Array.isArray(val?.points) ? val.points : [];
+    } catch {
+        return [];
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 /** 한 종목만. 유니버스에 없거나 신규 진입이 없으면 null. */

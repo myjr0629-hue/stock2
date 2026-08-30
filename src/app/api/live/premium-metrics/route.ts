@@ -23,11 +23,18 @@ export async function GET(req: NextRequest) {
         let regimeScore: number | null = null;
         let squeezeScore: number | null = null;
         let squeezeRisk: string | null = null;
+        let gammaFlipLevel: number | null = null;
+        let spyPrice: number | null = null;
         
         try {
             const res = await fetch(`${origin}/api/live/volatility-regime?t=SPY`);
             if (res.ok) {
                 const vData = await res.json();
+                gammaFlipLevel = typeof vData.flipLevel === 'number' ? vData.flipLevel : null;
+                // flipDistance 는 % 이므로 여기서 현재가를 역산한다
+                spyPrice = (gammaFlipLevel && typeof vData.flipDistance === 'number')
+                    ? gammaFlipLevel * (1 + vData.flipDistance / 100)
+                    : null;
                 regime = vData.regime ?? regime;
                 regimeScore = typeof vData.regimeScore === 'number' ? vData.regimeScore : regimeScore;
                 squeezeScore = typeof vData.squeezeScore === 'number' ? vData.squeezeScore : squeezeScore;
@@ -52,43 +59,53 @@ export async function GET(req: NextRequest) {
         //     · 5년치 옵션 EOD 벌크가 있어야 만들 수 있다 = 우리만 가능
         //   실측(2026-08-28): 375종목 신규 $63.2B · 콜 73% · 최대 NVDA $10.9B(콜)
         // ══════════════════════════════════════════════════════════════
-        let instFlow: {
-            notional: number; callPct: number; side: 'call' | 'put';
-            tickers: number; topTicker: string | null; topNotional: number; date: string | null;
-        } | null = null;
-
+        // ⚠️ 예전엔 이 라우트가 `/api/flow/options-eod?all=1` 을 HTTP 로 다시 불러
+        //    `opening[sym].side` 로 콜 비중을 냈다. 그건 «콜 우위 종목»의 금액을
+        //    통째로 콜로 세는 것이라 실제보다 부풀려진다(실측: 73.3% vs 65.9%).
+        //    공용 서비스는 **계약 단위**로 센다 — 같은 데이터, 정확한 답.
+        let instFlow: import('@/services/institutionalFlow').InstitutionalFlowSummary | null = null;
         try {
-            const res = await fetch(`${origin}/api/flow/options-eod?all=1`);
-            if (res.ok) {
-                const d = await res.json();
-                const opening: Record<string, { contracts: number; notional: number; side: 'call' | 'put' }> =
-                    d?.opening || {};
-                const rows = Object.entries(opening);
-                // 표본이 얇으면 «시장 전체»라고 말할 수 없다
-                if (d?.available && rows.length >= 50) {
-                    let total = 0, call = 0, topN = 0, topT: string | null = null;
-                    for (const [t, v] of rows) {
-                        const n = Number(v?.notional) || 0;
-                        total += n;
-                        if (v?.side === 'call') call += n;
-                        if (n > topN) { topN = n; topT = t; }
-                    }
-                    if (total > 0) {
-                        const callPct = Math.round((call / total) * 1000) / 10;
-                        instFlow = {
-                            notional: total,
-                            callPct,
-                            side: callPct >= 50 ? 'call' : 'put',
-                            tickers: rows.length,
-                            topTicker: topT,
-                            topNotional: topN,
-                            date: d?.date ?? null,
-                        };
-                    }
-                }
-            }
+            const { getInstitutionalFlowSummary } = await import('@/services/institutionalFlow');
+            instFlow = await getInstitutionalFlowSummary();
         } catch (e) {
             console.warn('[premium-metrics] 기관 신규 포지션 조회 실패:', e);
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // 2-B. 딜러 감마 구조 — 「변동성 레짐」+「감마 스퀴즈」를 하나로
+        //
+        //   두 카드는 같은 것을 두 번 보여 주고 있었다: regimeScore 계산식이
+        //   `squeezeScore / 4` 를 직접 더한다. 4칸 중 2칸이 같은 정보였다.
+        //   대신 «오늘 딜러 감마가 평소와 얼마나 다른가»를 자기 이력 백분위로
+        //   내고, 그 자리에 시장 폭(아래)을 새로 넣는다.
+        // ══════════════════════════════════════════════════════════════
+        let dealerGamma: import('@/services/dealerGamma').DealerGammaSignal | null = null;
+        try {
+            const { getDealerGamma } = await import('@/services/dealerGamma');
+            dealerGamma = await getDealerGamma('SPY', gammaFlipLevel, spyPrice);
+        } catch (e) {
+            console.warn('[premium-metrics] 딜러 감마 조회 실패:', e);
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // 2-C. 시장 폭 — 지수가 «넓게» 오르는가, 소수가 끌고 가는가
+        //   위 세 신호가 전부 옵션·섹터 쪽이라 주식 현물 축이 비어 있었다.
+        //   NDX100 / DOW30 구성종목 중 20일선 위 비율(실측 EOD 20일 이력).
+        // ══════════════════════════════════════════════════════════════
+        let breadth: { ndx: number | null; dow: number | null; covered: number; universe: number } | null = null;
+        try {
+            const { getIndexBreadth } = await import('@/services/indexBreadth');
+            const b = await getIndexBreadth();
+            if (b?.ndx?.pctAbove20 != null || b?.dow?.pctAbove20 != null) {
+                breadth = {
+                    ndx: b.ndx?.pctAbove20 ?? null,
+                    dow: b.dow?.pctAbove20 ?? null,
+                    covered: (b.ndx?.covered ?? 0) + (b.dow?.covered ?? 0),
+                    universe: (b.ndx?.universe ?? 0) + (b.dow?.universe ?? 0),
+                };
+            }
+        } catch (e) {
+            console.warn('[premium-metrics] 시장 폭 조회 실패:', e);
         }
 
         // 3. Sector Rotation Intensity (Fetch from guardian:snapshot:${locale} or dynamic fallback)
@@ -142,10 +159,13 @@ export async function GET(req: NextRequest) {
             darkPool: null,
             _darkPoolRetired: 'vendor-unavailable-since-2026-08-28',
             institutionalFlow: instFlow,
+            // 옛 소비처 호환 — 새 카드는 dealerGamma 를 쓴다
             gammaSqueeze: {
                 score: squeezeScore == null ? null : Math.round(squeezeScore),
                 risk: squeezeRisk, // 'LOW' | 'MEDIUM' | 'HIGH' | null
             },
+            dealerGamma,
+            breadth,
             sectorRotation: {
                 score: rotationScore,
                 direction: rotationDirection, // 'BULLISH' | 'BEARISH' | 'NEUTRAL' | null

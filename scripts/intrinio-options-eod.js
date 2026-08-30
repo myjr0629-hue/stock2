@@ -53,6 +53,8 @@ const BASE = "https://api-v2.intrinio.com";
 
 const EOD_KEY = "intrinio:eod:snapshot";        // 유니버스 순위 재료
 const OUT_KEY = "intrinio:options:eod";
+/** 일별 «시장 전체 신규 진입» 집계 이력 — 백분위 보정용(60일 롤링) */
+const FLOW_HIST_KEY = "intrinio:options:flow:hist";
 const OI_KEY = "intrinio:options:oi";
 const TTL_SEC = 5 * 24 * 3600;
 
@@ -315,6 +317,42 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     }
 
     await redisSet(OUT_KEY, payload, TTL_SEC);
+
+    // ── 일별 집계 이력 (신규) ───────────────────────────────────────────
+    //   지금까지 옵션 EOD 는 «당일치»만 보관했다. 그래서 화면이 「오늘
+    //   $63.2B 가 들어왔다」까지만 말할 수 있고 「그게 평소보다 많은가」는
+    //   말할 수 없었다. 숫자에 «평소»가 붙어야 인사이트가 된다.
+    //   하루 한 줄씩 60일 롤링으로 쌓는다(페이로드 수백 바이트).
+    try {
+        let total = 0, call = 0, cnt = 0;
+        for (const v of Object.values(tickers)) {
+            for (const c of (v.top || [])) {
+                if (!(c.d > 0)) continue;
+                const n = c.d * 100 * (c.k || 0);
+                total += n;
+                if (c.t === "C") call += n;
+            }
+            cnt += 1;
+        }
+        if (total > 0) {
+            const prev = (await redisGet(FLOW_HIST_KEY)) || {};
+            const points = Array.isArray(prev.points) ? prev.points : [];
+            // 같은 날 재실행이 이력을 부풀리면 안 된다 — 날짜로 덮어쓴다
+            const kept = points.filter((x) => x && x.date !== fileDate);
+            kept.push({
+                date: fileDate,
+                notional: Math.round(total),
+                callPct: Math.round((call / total) * 1000) / 10,
+                tickers: cnt,
+            });
+            kept.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+            const trimmed = kept.slice(-60);
+            await redisSet(FLOW_HIST_KEY, JSON.stringify({ points: trimmed }), TTL_SEC);
+            log(`플로우 이력 ${trimmed.length}일 (오늘 $${(total / 1e9).toFixed(1)}B · 콜 ${Math.round((call / total) * 1000) / 10}%)`);
+        }
+    } catch (e) {
+        log(`플로우 이력 적재 실패(비치명): ${e.message}`);
+    }
 
     // 기준선은 «날짜가 앞으로 갈 때만» 갱신한다.
     //
