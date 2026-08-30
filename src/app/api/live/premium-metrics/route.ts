@@ -95,6 +95,10 @@ export async function GET(req: NextRequest) {
         let rotationScore: number | null = null;
         let rotationDirection: string | null = null;
         let rotationConviction: string | null = null;
+        // [V7.0] 점수를 «무엇에 견줘» 냈는지. percentile 이면 100 은
+        //        「최근 세션 중 가장 강한 로테이션」이라는 실제 의미를 갖는다.
+        let rotationBasis: string | null = null;
+        let rotationWindows: number | null = null;
 
         try {
             const guardianSnap = await getFromCache<any>(`guardian:snapshot:${locale}`);
@@ -102,6 +106,8 @@ export async function GET(req: NextRequest) {
                 rotationScore = typeof guardianSnap.rotationIntensity.score === 'number' ? guardianSnap.rotationIntensity.score : rotationScore;
                 rotationDirection = guardianSnap.rotationIntensity.direction ?? rotationDirection;
                 rotationConviction = guardianSnap.rotationIntensity.conviction ?? rotationConviction;
+                rotationBasis = guardianSnap.rotationIntensity.scoreBasis ?? rotationBasis;
+                rotationWindows = typeof guardianSnap.rotationIntensity.sampleWindows === 'number' ? guardianSnap.rotationIntensity.sampleWindows : rotationWindows;
             } else {
                 // Fallback: dynamic compute via GuardianDataHub
                 const freshSnap = await GuardianDataHub.getGuardianSnapshot(false, locale);
@@ -109,6 +115,8 @@ export async function GET(req: NextRequest) {
                     rotationScore = typeof freshSnap.rotationIntensity.score === 'number' ? freshSnap.rotationIntensity.score : rotationScore;
                     rotationDirection = freshSnap.rotationIntensity.direction ?? rotationDirection;
                     rotationConviction = freshSnap.rotationIntensity.conviction ?? rotationConviction;
+                    rotationBasis = freshSnap.rotationIntensity.scoreBasis ?? rotationBasis;
+                    rotationWindows = typeof freshSnap.rotationIntensity.sampleWindows === 'number' ? freshSnap.rotationIntensity.sampleWindows : rotationWindows;
                 }
             }
         } catch (e) {
@@ -135,6 +143,8 @@ export async function GET(req: NextRequest) {
                 score: rotationScore,
                 direction: rotationDirection, // 'BULLISH' | 'BEARISH' | 'NEUTRAL' | null
                 conviction: rotationConviction, // 'HIGH' | 'MEDIUM' | 'LOW' | null
+                basis: rotationBasis,          // 'percentile' | 'uncalibrated' | null
+                windows: rotationWindows,      // 백분위를 낼 때 쓴 과거 5일창 개수
             }
         });
 

@@ -63,6 +63,16 @@ export interface RotationIntensity {
     fiveDayData?: Record<string, SectorTrendData>;
     noiseFlags?: string[];      // sectors with <60% consistency
     bounceWarnings?: string[];  // sectors where today contradicts 5d trend
+    /**
+     * [V7.0] score 를 어떻게 냈는지. 'percentile' 이면 «최근 N개 5일창» 분포
+     * 대비 백분위(= 100 은 「최근 중 가장 강한 로테이션」이라는 뜻),
+     * 'uncalibrated' 면 이력이 모자라 옛 선형식으로 낸 값이다.
+     */
+    scoreBasis?: 'percentile' | 'uncalibrated';
+    /** 원시 강도(상위3 유입 + 상위3 유출의 절대합). 화면 문구에 쓸 수 있다. */
+    rawSpread?: number;
+    /** 백분위를 낼 때 쓴 과거 창 개수 */
+    sampleWindows?: number;
 }
 
 // [V6.0] Sector Group Classification
@@ -152,6 +162,11 @@ async function fetchLastSessionChanges(
  */
 
 // Known real ETF tickers — synthetic sectors like AI_PWR are NOT in Polygon
+/** [V7.0] 보관할 일봉 수. 5일 창 × (이 값 - 4) 개의 과거 표본이 나온다. */
+const SECTOR_HISTORY_BARS = 30;
+/** 백분위로 보정하려면 최소 이만큼의 과거 창이 있어야 한다. */
+const MIN_ROTATION_WINDOWS = 12;
+
 const REAL_ETF_SECTORS = new Set(['XLK', 'XLC', 'XLY', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLP', 'XLRE', 'XLU']);
 
 async function fetch5DaySectorData(): Promise<Record<string, { closes: number[]; volumes: number[]; dates: string[] }>> {
@@ -163,7 +178,11 @@ async function fetch5DaySectorData(): Promise<Record<string, { closes: number[];
     const sectorEtfs = Object.keys(SECTOR_MAP);
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - 12); // fetch 12 days to ensure we get 5 trading days
+    // [V7.0] 예전엔 12일만 받아 5거래일만 남겼다. 그러면 「오늘 로테이션이
+    //        평소보다 강한가」를 물어볼 «비교 대상»이 없어서, 강도를 임의의
+    //        상수(×8)로 눌러 담을 수밖에 없었고 그 결과 항상 100 에 붙었다.
+    //        이제 ~30거래일을 받아 5일 창을 26개 만들고 백분위로 잰다.
+    start.setDate(start.getDate() - 50);
     const from = start.toISOString().split('T')[0];
     const to = end.toISOString().split('T')[0];
 
@@ -176,9 +195,9 @@ async function fetch5DaySectorData(): Promise<Record<string, { closes: number[];
         try {
             const data = await fetchMassive(
                 `/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`,
-                { adjusted: 'true', sort: 'asc', limit: '15' }
+                { adjusted: 'true', sort: 'asc', limit: '60' }
             );
-            const bars = (data.results || []).slice(-5);
+            const bars = (data.results || []).slice(-SECTOR_HISTORY_BARS);
             if (bars.length >= 2) {
                 return {
                     closes: bars.map((b: any) => b.c),
@@ -236,12 +255,35 @@ async function fetch5DaySectorData(): Promise<Record<string, { closes: number[];
     return result;
 }
 
+/** [V7.0] 로테이션 강도의 원자재: 상위 3개 유입 + 상위 3개 유출의 절대합 */
+const ROTATION_WINDOW = 5;
+function rotationSpread(scores: number[]): number {
+    const sorted = [...scores].sort((a, b) => b - a);
+    const inflow = sorted.filter(v => v > 0).slice(0, 3);
+    const outflow = sorted.filter(v => v < 0).sort((a, b) => a - b).slice(0, 3);
+    return [...inflow, ...outflow].reduce((sum, v) => sum + Math.abs(v), 0);
+}
+
 /**
  * [V6.0] Calculate per-sector trend data from 5-day series
  */
-function analyzeSectorTrend(ticker: string, series: { closes: number[]; volumes: number[] }, todayChange: number): SectorTrendData {
-    const closes = series.closes;
-    const volumes = series.volumes;
+/**
+ * [V7.0] 창(window) 을 명시적으로 받는다.
+ *   기존엔 시리즈 «전체»로 계산했기 때문에, 이력을 길게 받아 오면 5일 지표가
+ *   조용히 30일 지표로 바뀌어 버린다. endIdx 를 주면 그 날로 끝나는 5거래일
+ *   창을 계산하므로, 같은 함수로 «과거 창»도 똑같이 잴 수 있다.
+ */
+function analyzeSectorTrend(
+    ticker: string,
+    series: { closes: number[]; volumes: number[] },
+    todayChange: number,
+    endIdx?: number,
+    windowLen: number = 5
+): SectorTrendData {
+    const e = endIdx == null ? series.closes.length - 1 : endIdx;
+    const start = Math.max(0, e - windowLen + 1);
+    const closes = series.closes.slice(start, e + 1);
+    const volumes = series.volumes.slice(start, e + 1);
 
     // Calculate daily changes
     const changes: number[] = [];
@@ -363,12 +405,54 @@ export function calculateRotationIntensityV2(
     const inflows = scoredSectors.filter(s => s.score > 0);
     const outflows = scoredSectors.filter(s => s.score < 0).sort((a, b) => a.score - b.score);
 
-    // 3. Rotation Score: spread between top inflows and outflows
-    const topInflowScore = inflows.slice(0, 3).reduce((sum, s) => sum + Math.abs(s.score), 0);
-    const topOutflowScore = outflows.slice(0, 3).reduce((sum, s) => sum + Math.abs(s.score), 0);
-    // Normalize: typical flowScores range from 0-10, so /20*100 = 0-100
-    const rawScore = topInflowScore + topOutflowScore;
-    const score = Math.min(100, hasFiveDayData ? rawScore * 8 : rawScore * 10);
+    // ══════════════════════════════════════════════════════════════════
+    // 3. Rotation Score — [V7.0] 상수 배율 대신 «자기 이력 대비 백분위»
+    //
+    //   ★ 옛 코드: `Math.min(100, rawScore * 8)`
+    //     rawScore 는 상위 3개 유입 + 상위 3개 유출의 «합»이라 12.5 만 넘으면
+    //     100 에 붙는다. 2026-08-30 실측 rawScore = 15.75 → 126 → 100.
+    //     즉 이 카드는 대부분의 날 100 을 표시하고 있었다. 만점에 붙은 지표는
+    //     아무것도 말해 주지 않는다 — 하물며 «보상형 광고를 봐야 보이는» 자리다.
+    //     (배율 8 은 주석의 설명 「/20*100」과도 맞지 않는다.)
+    //
+    //   새 방식: 같은 rawScore 를 최근 ~26개의 5거래일 창에 대해서도 계산하고,
+    //     오늘 값이 그 분포의 몇 번째인지를 점수로 쓴다.
+    //     → 포화가 없고, 100 은 「최근 중 가장 강한 로테이션」이라는 실제 의미다.
+    //     → 시장이 조용한 국면에선 자연히 낮게 나온다(예전엔 그때도 100이었다).
+    //   이력이 모자라면 옛 식으로 물러서되 scoreBasis 로 그 사실을 밝힌다.
+    // ══════════════════════════════════════════════════════════════════
+    const rawScore = rotationSpread(scoredSectors.map(x => x.score));
+
+    const historicalSpreads: number[] = [];
+    if (hasFiveDayData) {
+        const lens = flows
+            .map(f => fiveDaySeriesData[f.id]?.closes.length ?? 0)
+            .filter(l => l >= ROTATION_WINDOW + 1);
+        const maxLen = lens.length ? Math.min(...lens) : 0;
+        // 오늘 창(마지막 인덱스)은 제외 — 자기 자신과 비교하지 않는다
+        for (let end = maxLen - 2; end >= ROTATION_WINDOW - 1; end--) {
+            const scores: number[] = [];
+            for (const f of flows) {
+                const series = fiveDaySeriesData[f.id];
+                if (!series || series.closes.length <= end) continue;
+                scores.push(analyzeSectorTrend(f.id, series, 0, end, ROTATION_WINDOW).flowScore);
+            }
+            if (scores.length >= Math.ceil(flows.length * 0.6)) {
+                historicalSpreads.push(rotationSpread(scores));
+            }
+        }
+    }
+
+    let score: number;
+    let scoreBasis: 'percentile' | 'uncalibrated';
+    if (historicalSpreads.length >= MIN_ROTATION_WINDOWS) {
+        const below = historicalSpreads.filter(h => h <= rawScore).length;
+        score = Math.round((below / historicalSpreads.length) * 100);
+        scoreBasis = 'percentile';
+    } else {
+        score = Math.min(100, hasFiveDayData ? rawScore * 8 : rawScore * 10);
+        scoreBasis = 'uncalibrated';
+    }
 
     // 4. Direction from 5-day group flows
     const groupFlowScore = (tickers: string[]) =>
@@ -411,7 +495,7 @@ export function calculateRotationIntensityV2(
         .filter(([, d]) => d.isBounce)
         .map(([ticker, d]) => `${ticker}: today ${d.todayChange > 0 ? '+' : ''}${d.todayChange}% but 5d ${d.cumReturn > 0 ? '+' : ''}${d.cumReturn}%`);
 
-    console.log(`[RIS V6.0] Score: ${score.toFixed(1)}, Direction: ${direction}, Regime: ${regime}, Breadth: ${breadth.toFixed(0)}%, Conviction: ${conviction}`);
+    console.log(`[RIS V7.0] Score: ${score} (${scoreBasis}, raw=${rawScore.toFixed(2)}, windows=${historicalSpreads.length}), Direction: ${direction}, Regime: ${regime}, Breadth: ${breadth.toFixed(0)}%, Conviction: ${conviction}`);
     if (noiseFlags.length > 0) console.log(`[RIS V6.0] Noise flags: ${noiseFlags.join(', ')}`);
     if (bounceWarnings.length > 0) console.log(`[RIS V6.0] Bounce warnings: ${bounceWarnings.join(' | ')}`);
 
@@ -425,7 +509,10 @@ export function calculateRotationIntensityV2(
         regime,
         fiveDayData: hasFiveDayData ? fiveDayData : undefined,
         noiseFlags: noiseFlags.length > 0 ? noiseFlags : undefined,
-        bounceWarnings: bounceWarnings.length > 0 ? bounceWarnings : undefined
+        bounceWarnings: bounceWarnings.length > 0 ? bounceWarnings : undefined,
+        scoreBasis,
+        rawSpread: Number(rawScore.toFixed(2)),
+        sampleWindows: historicalSpreads.length
     };
 }
 
