@@ -262,11 +262,12 @@ export default async function DarkPoolLeadersPage(
   const data: DarkPoolLeaders | null = await getDarkPoolLeaders().catch(() => null);
 
   const S = {
-    // ⚠️ main 은 레이아웃에서 **flex 자식**이다. flex 자식의 기본 min-width 는
-    //    auto 라서, 안에 있는 표가 넓으면 main 이 내용 너비(589px)로 부풀고
-    //    페이지 전체가 모바일에서 가로 스크롤된다(375px 뷰포트에서 실측).
-    //    minWidth:0 을 줘야 줄어들고, 그래야 아래 overflowX 컨테이너가 일한다.
-    wrap: { maxWidth: 860, minWidth: 0, margin: '0 auto', padding: '32px 20px 64px', fontFamily: 'Pretendard, system-ui, sans-serif', color: '#17191E', lineHeight: 1.6 } as const,
+    // ⚠️ 375px 실측: 페이지 전체가 가로로 넘쳤다(scrollWidth 588 vs 375).
+    //    레이아웃의 부모가 `flex flex-col` 인데, 여기에 `margin: 0 auto` 를 주면
+    //    **교차축 auto 마진이 stretch 를 끄고** main 이 fit-content(=표 너비)로
+    //    부푼다. minWidth:0 만으로는 안 됐다 — 세로 방향 flex 에서는 min-width
+    //    auto 규칙이 적용되지 않기 때문이다. `width:100%` 가 실제 해법이다.
+    wrap: { width: '100%', maxWidth: 860, minWidth: 0, margin: '0 auto', padding: '32px 20px 64px', fontFamily: 'Pretendard, system-ui, sans-serif', color: '#17191E', lineHeight: 1.6 } as const,
     kicker: { fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#C2410C' },
     h1: { fontSize: 32, fontWeight: 900, margin: '6px 0 6px' },
     sub: { fontSize: 15, color: '#55606B', margin: '0 0 18px' },
