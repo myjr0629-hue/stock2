@@ -56,9 +56,28 @@ export async function GET() {
     const t0 = Date.now();
 
     const paths: string[] = [
+        // Dashboard 화면
         '/api/dashboard/unified',
+        '/api/live/market',
+        '/api/market/index-close',
+        '/api/market/movers',
+        '/api/market/macro',
         `/api/live/quotes?symbols=${WARM_TICKERS.join(',')}`,
+        // Guardian 화면
+        '/api/debug/guardian',
+        '/api/guardian/briefing',
+        '/api/guardian/economic-calendar',
+        '/api/guardian/fedwatch',
+        '/api/guardian/news-digest',
+        // Intel 화면 — 섹터별로 캐시가 갈린다
+        '/api/intel/cross-sector-brief',
+        ...['m7', 'silicon_core', 'power_matrix', 'bio_pulse', 'cloud_fortress'].map((s) => `/api/intel/snapshot?sector=${s}`),
     ];
+    // Flow 화면 (대표 종목 하나면 함수가 데워진다)
+    paths.push('/api/flow/dark-pool-trades?ticker=NVDA&limit=10');
+    paths.push('/api/flow/iv-percentile?t=NVDA');
+    paths.push('/api/command/insider?ticker=NVDA');
+
     for (const t of WARM_TICKERS) {
         paths.push(`/api/live/ticker?t=${t}&chain=0`);
         paths.push(`/api/live/analyst?t=${t}`);
