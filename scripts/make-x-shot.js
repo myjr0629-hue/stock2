@@ -62,7 +62,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // 캐시된 옛 페이지를 찍으면 «배포했는데 화면은 옛것»이 그대로 이미지가 된다.
   // 실제로 겪었다(다크풀 판독 수정 직후). 캐시 무력화 파라미터를 붙인다.
   const bust = `${cfg.path(loc, scene, ticker)}${cfg.path(loc, scene, ticker).includes('?') ? '&' : '?'}_cb=${Date.now()}`;
-  await page.goto(`${BASE}${bust}`, { waitUntil: 'networkidle2', timeout: 90000 });
+  // ⚠️ networkidle2 를 쓰면 안 된다 — 이 화면은 30초 갱신 · WebSocket ·
+  //    인접 종목 프리페치가 계속 돌아서 «유휴»에 도달하지 않는다(2026-08-31 실제로
+  //    타임아웃으로 캡처가 죽었다). 내용 확인은 아래 검수 게이트가 이미 한다.
+  await page.goto(`${BASE}${bust}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await sleep(7000);
 
   await page.evaluate(() => {

@@ -42,7 +42,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.setCacheEnabled(false);
 
   const url = `${BASE}/${loc}/app-view/${scene}?t=${ticker}&_cb=${Date.now()}`;
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
+  // ⚠️ networkidle2 를 쓰면 안 된다 — 이 화면은 30초 갱신 · WebSocket ·
+  //    인접 종목 프리페치가 계속 돌아서 «유휴»에 도달하지 않는다(2026-08-31 실제로
+  //    타임아웃으로 캡처가 죽었다). 내용 확인은 아래 검수 게이트가 이미 한다.
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await sleep(7000);
 
   // 광고·오버레이 제거 — 광고가 찍히면 그대로 발행된다
