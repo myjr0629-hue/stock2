@@ -18,6 +18,7 @@
 //    조용히 넘어간다. 이 라우트가 앱 동작에 영향을 주면 안 된다.
 // ============================================================================
 import { NextResponse } from 'next/server';
+import { setInCache } from '@/services/redisClient';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -33,7 +34,55 @@ function baseUrl(): string {
     return process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
 }
 
-async function warm(path: string): Promise<{ path: string; ok: boolean; ms: number }> {
+// ══════════════════════════════════════════════════════════════
+// [2026-08-31] 데우는 김에 «값도 본다».
+//
+// 대표 지적: 「왜 말할 때마다 찾는 것이야? 처음부터 완벽하게 하도록 해」
+//   검사기를 만들어 놓고 «부르면 돌리는» 상태면 결국 대표가 먼저 발견한다.
+//   워머는 이미 49개 엔드포인트의 응답을 받고 있다 — 버리지 말고 검사한다.
+//
+// 항목은 우리가 실제로 겪은 실패에서 왔다. 위반은 Redis(`signum:audit:last`)에
+// 남겨 어느 세션에서든 즉시 읽을 수 있게 한다.
+// ══════════════════════════════════════════════════════════════
+function inspect(path: string, body: any): string[] {
+    const bad: string[] = [];
+    const n = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : null);
+    if (!body || typeof body !== 'object') return [`${path} 본문이 JSON 이 아니다`];
+    if ((body as any).error) return [`${path} error: ${String(JSON.stringify((body as any).error)).slice(0, 80)}`];
+
+    if (path.startsWith('/api/live/ticker')) {
+        const base = n(body.prices?.prevRegularClose);
+        const price = n(body.price);
+        const vw = n(body.vwap);
+        if (!base) bad.push(`${path} 기준선이 없다`);
+        // 기준선이 한 세션 밀리면 여기서 걸린다 (2026-08-31 실제 사고)
+        if (base && price && Math.abs(price - base) / base > 0.25) bad.push(`${path} 가격이 기준선에서 25% 이상`);
+        // VWAP 이 종가의 1/3 로 «지어지던» 사고
+        if (vw && price && Math.abs(price / vw - 3) < 0.25) bad.push(`${path} VWAP 이 가격의 1/3`);
+        const bd = body.baseline?.dateET;
+        if (bd) { const d = new Date(`${bd}T12:00:00Z`).getUTCDay(); if (d === 0 || d === 6) bad.push(`${path} 기준선 날짜가 주말(${bd})`); }
+    }
+    if (path.startsWith('/api/debug/guardian')) {
+        const s = JSON.stringify(body);
+        for (const k of ['rlsi', 'RLSI', 'breadth', 'marketBreadth']) {
+            const m = s.match(new RegExp(`"${k}":\\s*([-\\d.]+)`));
+            if (m && Number(m[1]) === 0) bad.push(`${path} ${k} 가 0`);
+        }
+    }
+    if (path.startsWith('/api/intel/snapshot')) {
+        const s = JSON.stringify(body);
+        if (/"tickers":\s*\[\s*\]/.test(s) || /"items":\s*\[\s*\]/.test(s)) bad.push(`${path} 종목 목록이 비었다`);
+    }
+    if (path.startsWith('/api/market/movers')) {
+        const up = (body as any).gainers || [], dn = (body as any).losers || [];
+        if (!up.length && !dn.length) bad.push(`${path} 상승·하락이 둘 다 비었다`);
+        if (up.some((r: any) => (n(r.changePercent) ?? 0) < 0)) bad.push(`${path} 상승 목록에 하락 종목`);
+        if (dn.some((r: any) => (n(r.changePercent) ?? 0) > 0)) bad.push(`${path} 하락 목록에 상승 종목`);
+    }
+    return bad;
+}
+
+async function warm(path: string): Promise<{ path: string; ok: boolean; ms: number; bad: string[] }> {
     const t0 = Date.now();
     try {
         const res = await fetch(`${baseUrl()}${path}`, {
@@ -45,10 +94,18 @@ async function warm(path: string): Promise<{ path: string; ok: boolean; ms: numb
                     : {}),
             },
         });
-        await res.arrayBuffer();          // 본문을 버린다 — 파싱할 이유가 없다
-        return { path, ok: res.ok, ms: Date.now() - t0 };
+        // 검사 대상만 파싱한다 — 나머지는 데우기만 하면 되므로 본문을 버린다
+        const CHECKED = /\/api\/(live\/ticker|debug\/guardian|intel\/snapshot|market\/movers)/;
+        let bad: string[] = [];
+        if (CHECKED.test(path)) {
+            const body = await res.json().catch(() => null);
+            bad = res.ok ? inspect(path, body) : [`${path} HTTP ${res.status}`];
+        } else {
+            await res.arrayBuffer();
+        }
+        return { path, ok: res.ok, ms: Date.now() - t0, bad };
     } catch {
-        return { path, ok: false, ms: Date.now() - t0 };
+        return { path, ok: false, ms: Date.now() - t0, bad: [] };
     }
 }
 
@@ -90,16 +147,29 @@ export async function GET() {
     }
 
     // 한꺼번에 다 쏘면 스스로를 느리게 만든다 — 6개씩 끊어서.
-    const results: { path: string; ok: boolean; ms: number }[] = [];
+    const results: { path: string; ok: boolean; ms: number; bad: string[] }[] = [];
     for (let i = 0; i < paths.length; i += 6) {
         results.push(...await Promise.all(paths.slice(i, i + 6).map(warm)));
     }
 
     const failed = results.filter((r) => !r.ok);
+    const violations = results.flatMap((r) => r.bad);
+
+    // 대표가 화면에서 발견하기 전에 잡히게 — 로그와 Redis 양쪽에 남긴다.
+    if (violations.length) {
+        console.error(`[signum-warm] ⚠ 정합성 위반 ${violations.length}건`, violations.slice(0, 10));
+    }
+    try {
+        await setInCache('signum:audit:last', {
+            at: Date.now(), checked: results.length, violations,
+        }, 3600);
+    } catch { /* 워머가 이것 때문에 죽으면 안 된다 */ }
+
     return NextResponse.json({
         success: true,
         warmed: results.length,
         failed: failed.length,
+        violations,
         slowest: results.slice().sort((a, b) => b.ms - a.ms).slice(0, 3),
         ...(failed.length ? { failures: failed.map((f) => f.path) } : {}),
         totalMs: Date.now() - t0,
