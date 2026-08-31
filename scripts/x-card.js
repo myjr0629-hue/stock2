@@ -17,6 +17,7 @@
 const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { composePost } = require('./_applink');
 
 const BASE = 'https://www.signumhq.com';
 const OUT_DIR = process.env.X_CARD_OUT || '/tmp/rshots';
@@ -62,6 +63,7 @@ async function main() {
             pctL: 'of its volume printed off-exchange',
             pctS: (m, v) => `market average ${m}% · volume ${v}x its own norm`,
             foot: 'signumhq.com/en/dark-pool · Data source: FINRA · free, no account',
+            app: 'Every US ticker, free, no account:\nsignumhq.com/app?from=x_us',
         },
         ko: {
             kicker: (d) => `장외 체결 테이프 · ${d}`,
@@ -74,6 +76,7 @@ async function main() {
             pctL: '거래량 중 장외에서 체결된 비중',
             pctS: (m, v) => `시장 평균 ${m}% · 물량은 평소의 ${v}배`,
             foot: 'signumhq.com/ko/dark-pool · 출처 FINRA · 무료·가입 없이',
+            app: '전 종목 무료·가입 없이:\nsignumhq.com/app?from=x_kr',
         },
         ja: {
             kicker: (d) => `場外約定テープ · ${d}`,
@@ -86,6 +89,7 @@ async function main() {
             pctL: '出来高のうち場外で約定した割合',
             pctS: (m, v) => `市場平均 ${m}% · 出来高は平常の ${v}倍`,
             foot: 'signumhq.com/ja/dark-pool · 出典 FINRA · 無料・登録不要',
+            app: '全銘柄、無料・登録不要:\nsignumhq.com/app?from=x_jp',
         },
     }[loc] || null;
     if (!T) { console.error('로케일은 en|ko|ja'); process.exit(4); }
@@ -132,10 +136,12 @@ async function main() {
         { stdio: 'inherit' });
 
     // 붙일 문장까지 같이 준다 — 이미지만 있으면 매번 문구를 새로 고민하게 된다.
-    console.log('\n--- 붙일 문장 ---');
-    console.log(`$${ticker} — ${big}${unit} · ${label}`);
-    console.log(sub);
-    console.log(`\n${T.foot}`);
+    // ★ 앱 스마트링크는 «항상» 붙는다. 대표 반복 지적(오늘 10건 중 3건만 넣었다).
+    //   기억에 의존하면 또 빠지므로 도구가 강제한다. /app 은 UA 로 분기해
+    //   Play(install referrer 포함)/App Store 로 보내므로 설치로 꽂히고 측정된다.
+    console.log('\n--- 붙일 문장 (앱 링크 포함) ---');
+    console.log(composePost([`$${ticker} — ${big}${unit} · ${label}`, sub],
+        { loc, source: `FINRA regShoDaily · ${dp.date}` }));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

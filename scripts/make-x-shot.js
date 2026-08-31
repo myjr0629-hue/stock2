@@ -100,7 +100,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     };
   });
   let st = await inspect();
-  if (st.loading || st.nums < 6) { await sleep(9000); st = await inspect(); }
+  // 한 번만 더 기다리면 «주말·장마감» 처럼 느린 경로에서 그냥 실패한다.
+  // 실패를 늘리지 말고 몇 번 더 기다린다 — 게이트는 유지된다.
+  for (let i = 0; i < (Number(process.env.X_SHOT_RETRIES) || 3) && (st.loading || st.nums < 6); i++) {
+    await sleep(9000);
+    st = await inspect();
+    console.log(`[재시도 ${i + 1}] loading=${st.loading} 숫자=${st.nums}`);
+  }
   if (st.loading || st.nums < 6) {
     console.error(`[검수 실패] 화면이 안 채워졌다 — loading=${st.loading} 숫자=${st.nums} 글자=${st.len}. 저장하지 않는다.`);
     await browser.close();

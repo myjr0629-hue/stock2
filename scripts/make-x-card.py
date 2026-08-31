@@ -26,15 +26,19 @@ DIM = (139, 146, 165)
 FOOT = (96, 105, 122)
 
 SFNS = '/System/Library/Fonts/SFNS.ttf'
-GOTHIC = '/System/Library/Fonts/AppleSDGothicNeo.ttc'
+# ⚠️ 한국어 폰트를 일본어에 쓰면 «満·価·体» 같은 한자가 두부(⊠)로 빠진다.
+#    2026-08-31 실제로 일본어 카드가 이 상태로 만들어졌다. 언어별로 갈라야 한다.
+GOTHIC = '/System/Library/Fonts/AppleSDGothicNeo.ttc'          # 한국어
+HIRAGINO = '/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc'      # 일본어
 
 
 def font(size, weight='Heavy', cjk=False):
-    """영문은 SF Pro(가변), 한/일이 섞이면 Apple SD Gothic Neo."""
+    """영문은 SF Pro(가변). CJK 는 has_cjk() 가 준 언어표로 폰트를 고른다."""
     from PIL import ImageFont
     if cjk:
+        path, idx = (HIRAGINO, 0) if cjk == 'ja' else (GOTHIC, 6)
         try:
-            return ImageFont.truetype(GOTHIC, size, index=6)
+            return ImageFont.truetype(path, size, index=idx)
         except Exception:
             pass
     try:
@@ -49,7 +53,12 @@ def font(size, weight='Heavy', cjk=False):
 
 
 def has_cjk(s):
-    return any('　' <= c <= '鿿' or '가' <= c <= '힯' for c in s)
+    """'ko' / 'ja' / '' 를 돌려준다. 한글이 있으면 한국어, 가나·한자면 일본어."""
+    if any('가' <= c <= '힯' for c in s):
+        return 'ko'
+    if any('ぁ' <= c <= 'ヿ' or '一' <= c <= '鿿' for c in s):
+        return 'ja'
+    return ''
 
 
 def text(d, xy, s, f, fill):
