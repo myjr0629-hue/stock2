@@ -2330,6 +2330,38 @@ function CmdPageContent() {
     return () => { cancelled = true; clearInterval(interval); clearTimeout(partialRetry.current); };
   }, [ticker]);
 
+  // ══════════════════════════════════════════════════════════════
+  // [2026-08-31] 인접 종목 «서버 캐시 데우기».
+  //
+  //   실측: 콜드 600~670ms · 웜 230~290ms. 칩을 누르기 전에 Redis 를 데워 두면
+  //   처음 보는 종목도 웜 속도로 뜬다(모듈 캐시는 «본 적 있는» 종목만 도우므로
+  //   첫 방문은 여전히 느렸다).
+  //
+  //   ⚠️ 모바일 데이터를 아껴야 한다 —
+  //      · 화면을 가르는 «두 엔드포인트»만 (나머지는 그때 받아도 늦지 않다)
+  //      · 3종목만 · 종목당 한 번만 · idle 에서만
+  //      응답은 쓰지 않는다. 목적은 서버 캐시를 채우는 것뿐이다.
+  // ══════════════════════════════════════════════════════════════
+  const warmedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (loading || !data) return;
+    const targets = chipTickers.filter((x) => x !== ticker && !warmedRef.current.has(x)).slice(0, 3);
+    if (targets.length === 0) return;
+    const run = () => {
+      for (const x of targets) {
+        warmedRef.current.add(x);
+        fetch(`/api/command/unified?t=${x}&lang=${locale}`).catch(() => { });
+        fetch(`/api/live/ticker?t=${x}&chain=0`).catch(() => { });
+      }
+    };
+    const w = window as any;
+    const id = w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 4000 }) : window.setTimeout(run, 2000);
+    return () => {
+      if (w.requestIdleCallback && w.cancelIdleCallback) w.cancelIdleCallback(id);
+      else clearTimeout(id as any);
+    };
+  }, [loading, data, ticker, chipTickers, locale]);
+
   // ── Live Price Hooks ──
   const { status: marketStatus } = useMarketStatus();
   const livePrice = useLivePrice(ticker, marketStatus.market);
