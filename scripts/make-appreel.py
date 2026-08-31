@@ -318,7 +318,12 @@ def render_card(sc, t):
         ly = y + 16
         for it in lad:
             on = bool(it.get('on'))
-            rowf = font(int(row_h * 0.63) if on else int(row_h * 0.55), 'Black' if on else 'Bold')
+            # ⚠️ 폰트에 언어 힌트를 안 주면 한글(「배」)이 라틴 폰트로 떨어져
+            #    textlength 가 실제보다 짧게 나오고, 우측 정렬한 값이 화면 밖으로
+            #    밀려 글자가 잘린다(실제로 「2.1배」가 「2.1▤」로 잘렸다).
+            _rs = script_of(str(it.get('s', '')) + str(it.get('v', '')))
+            _rsz = int(row_h * 0.63) if on else int(row_h * 0.55)
+            rowf = font(_rsz, 'Black' if on else 'Bold', _rs)
             col = INK if on else (150, 160, 178)
             if on:
                 d.rounded_rectangle([SAFE_L - 6, ly - 7, RIGHT + 6, ly + row_h - 11], radius=14, fill=(236, 244, 249))
