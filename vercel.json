@@ -123,6 +123,18 @@
     {
       "path": "/api/cron/indexnow",
       "schedule": "20 5 * * *"
+    },
+    {
+      "path": "/api/cron/signum-warm",
+      "schedule": "*/5 9-23 * * 1-5"
+    },
+    {
+      "path": "/api/cron/signum-warm",
+      "schedule": "*/20 0-8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/signum-warm",
+      "schedule": "*/20 * * * 0,6"
     }
   ]
 }

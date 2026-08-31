@@ -3,6 +3,7 @@ import { getStructureData } from "@/services/structureService";
 import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { recordGexSnapshot } from "@/lib/aws/historyMiddleware";
+import { sanitizeMaxPain } from '@/services/centralDataHub';
 
 export const revalidate = 0; // Force dynamic (User Request)
 
@@ -77,5 +78,10 @@ export async function GET(req: NextRequest) {
         });
     }
 
+    // 화면·SEO·마케팅 카드가 모두 이 값을 쓴다 — 한 곳에서 같은 게이트를 건다.
+    if (result?.gex) {
+        const spot = result.gex.spotPrice || (result as any).spotPrice || 0;
+        result.gex.maxPain = sanitizeMaxPain(result.gex.maxPain, spot);
+    }
     return NextResponse.json(result);
 }

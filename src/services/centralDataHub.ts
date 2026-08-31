@@ -746,3 +746,25 @@ function calcMaxPain(chain: any[]): number | null {
 
     return maxPainStrike > 0 ? maxPainStrike : null;
 }
+
+/**
+ * 맥스페인 타당성 게이트.
+ *
+ * 왜 (2026-08-31 전수검사에서 100종목 중 1건):
+ *   DD 는 주가 $136.99 인데 맥스페인 $52.5 가 나왔다. **계산은 맞다** —
+ *   독립 계산도 52.5 였고, 실제로 미결제약정의 55%가 행사가 $100 미만에 몰려 있다
+ *   (기업분할 잔재로 보이는 오래된 건옥).
+ *   그러나 화면에 「MAX PAIN $52.5」가 뜨면 사용자에겐 **고장으로 보인다.**
+ *   산술적으로 옳지만 의미가 없는 숫자다.
+ *
+ * 수치는 신뢰의 문제다 — 「말이 되지 않는 값」은 «값 없음»으로 돌린다.
+ * 그럴듯하게 틀린 것보다 비어 있는 편이 언제나 낫다.
+ * (같은 원칙: bar() 의 VWAP, live/quotes 의 가짜 프리마켓 가격)
+ */
+export function sanitizeMaxPain(maxPain: number | null | undefined, spot: number | null | undefined): number | null {
+    const mp = Number(maxPain);
+    if (!Number.isFinite(mp) || mp <= 0) return null;
+    const s = Number(spot);
+    if (!Number.isFinite(s) || s <= 0) return mp;   // 비교 기준이 없으면 판단하지 않는다
+    return Math.abs(mp - s) / s > 0.35 ? null : mp;
+}

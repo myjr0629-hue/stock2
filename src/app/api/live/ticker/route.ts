@@ -8,7 +8,8 @@ import { ensureXsScores } from '@/services/xsScores';
 import { CentralDataHub } from "@/services/centralDataHub";
 import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
-import { getFromCache, setInCache } from '@/services/redisClient'; // [PERF] Redis caching
+import { getFromCache, setInCache } from '@/services/redisClient';
+import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
 import { fetchTruePreMarket } from '@/services/marketDataLight'; // [V5.5 FIX] True PM Fetcher
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 
@@ -543,7 +544,14 @@ export async function GET(req: NextRequest) {
     const squeezeScore: number | null = structureResult.squeezeScore ?? null;
     const squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null = structureResult.squeezeRisk ?? null;
 
-    const flowData = { ...flowRes, squeezeScore, squeezeRisk };
+    // 맥스페인이 현물에서 너무 멀면 체인이 왜곡된 것이다 — 값 없음으로 돌린다.
+    // (DD: 주가 137 · 맥스페인 52.5. 계산은 맞지만 화면엔 고장으로 보인다)
+    const flowData = {
+        ...flowRes,
+        squeezeScore,
+        squeezeRisk,
+        maxPain: sanitizeMaxPain((flowRes as any)?.maxPain, liveLast || prevRegularClose),
+    };
 
     const warnings: string[] = [];
 
