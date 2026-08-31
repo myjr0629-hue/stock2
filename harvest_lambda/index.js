@@ -847,6 +847,32 @@ async function warmFlowCache(snapshotMap, lambdaContext) {
 
         // Write to Redis — flow:ticker:lite:{ticker}
         await redisSet('flow:ticker:lite:' + ticker, flowPayload, CACHE_TTL);
+
+        // ── 옵션 «자금» 이력 ────────────────────────────────────────────
+        // [2026-09-01] 프리미엄은 여기서 매번 계산되는데 «저장»이 없었다.
+        // 그래서 「이 종목의 평소 옵션 자금 대비 오늘은 몇 배인가」를 물을 수
+        // 없었다 — 절대 순위(프리미엄 TOP)는 시가총액을 따라가서 매일 같은
+        // 이름만 나오고, 정보가 되는 건 «그 종목 자신의 평소 대비 이탈»이다.
+        // 지금부터 쌓아야 몇 주 뒤에 랭킹을 만들 수 있다.
+        //
+        // 없는 값은 «0» 이 아니라 «넣지 않는다» — 0 을 쓰면 실제로 0 인 것과
+        // 구분되지 않고, 그게 죽은 데이터가 살아 있는 척하는 경로다.
+        try {
+          const _tp = Math.round(callPremium + putPremium);
+          if (_tp > 0) {
+            await client.send(new PutCommand({ TableName: 'signum-flow-history', Item: {
+              ticker, timestamp: Date.now(),
+              callPremium: Math.round(callPremium),
+              putPremium: Math.round(putPremium),
+              totalPremium: _tp,
+              netPremium: Math.round(callPremium - putPremium),
+              ...(maxPain ? { maxPain } : {}),
+              ...(callWall ? { callWall } : {}),
+              ...(putFloor ? { putFloor } : {}),
+              src: 'flowwarm',      // 프리미엄이 들어 있는 행을 골라내는 표식
+            }})).catch(() => {});
+          }
+        } catch {}
         success++;
       } catch (e) {
         fail++;

@@ -120,8 +120,241 @@ def paste_phone(img, shot):
     return y + fh
 
 
+def money(v):
+    """$123.4M 처럼 사람이 읽는 표기. 자릿수를 속이지 않는다."""
+    v = float(v)
+    for cut, suf in ((1e9, 'B'), (1e6, 'M'), (1e3, 'K')):
+        if abs(v) >= cut:
+            return f"${v/cut:,.1f}{suf}"
+    return f"${v:,.0f}"
+
+
+def render_card(sc, t):
+    """
+    랭킹 카드.
+
+    [2026-09-01 대표 지적 4건 — 전부 이 함수에서 처리]
+      ① 「어떤 랭킹인지 들어오는 것이 없다」 → 매 컷 상단에 랭킹 제목 띠.
+      ② 「해당 티커의 심볼을 정확하게」 → 종목 «로고»를 넣는다(글자 말고).
+      ③ 「배경이 너무 밋밋하다, 프리미엄하게」 → 종목 로고를 거대하게 흐린 뒤
+         배경에 깔고 대각 광택을 얹는다. 카드마다 배경이 달라진다.
+      ④ 「위아래를 붙이면 폰에서 안 보인다」 → 세로영상 «안전영역» 규격을 지킨다.
+         상180 / 하400 / 좌60 / 우180 (YouTube Shorts·TikTok 둘 다 만족하는 값).
+         이전 판은 헤더 y=74, 하단 링크 y=1812 로 양쪽 다 금지구역에 있었다.
+    """
+    SAFE_T, SAFE_B, SAFE_L, SAFE_R = 180, 400, 60, 180
+    RIGHT = W - SAFE_R              # 콘텐츠 오른쪽 한계(버튼열을 피한다)
+    img = BASE.copy()
+    ease = 1 - (1 - t) ** 3
+    accent = AMBER if sc.get('accent') == 'amber' else TEAL
+
+    # ── 배경: 종목 로고를 크게 흐려 깐다 ──────────────────────────────
+    lg = sc.get('_logo')
+    if lg is not None:
+        S2 = 980
+        big = lg.resize((S2, S2), Image.LANCZOS).filter(ImageFilter.GaussianBlur(30))
+        # ⚠️ 그냥 붙이면 «사각형»이 그대로 보인다(NVDA 초록 타일이 블록으로 남았다).
+        #    원형으로 부드럽게 사라지게 만든다.
+        fade = Image.new('L', (S2, S2), 0)
+        ImageDraw.Draw(fade).ellipse([S2 * 0.12, S2 * 0.12, S2 * 0.88, S2 * 0.88], fill=255)
+        fade = fade.filter(ImageFilter.GaussianBlur(110))
+        al = big.split()[3]
+        al = Image.eval(Image.merge('L', (al,)).point(lambda v: v), lambda v: v)
+        comb = Image.new('L', (S2, S2))
+        comb.paste(al, (0, 0))
+        comb = Image.composite(comb, Image.new('L', (S2, S2), 0), fade)
+        comb = comb.point(lambda v: int(v * 0.16))
+        # 채도를 낮춰 배경이 «색 블록»으로 튀지 않게 한다
+        rgb = Image.blend(big.convert('RGB'), big.convert('L').convert('RGB'), 0.45)
+        rgb.putalpha(Image.composite(comb, Image.new('L', (S2, S2), 0), fade))
+        img.paste(rgb, (W - 520, 640), rgb)
+
+        # 종목 «대표색» 색조 — 카드마다 배경이 달라진다(NVDA 초록·TSLA 빨강…).
+        # 밝기는 유지한 채 색만 얹어야 글자가 죽지 않는다.
+        try:
+            sm = lg.resize((24, 24), Image.LANCZOS)
+            px = [p2 for p2 in sm.convert('RGBA').getdata() if p2[3] > 140]
+            # 흰색·검정에 가까운 화소는 «브랜드색»이 아니다 — 빼고 평균낸다.
+            px = [p2 for p2 in px if not (p2[0] > 232 and p2[1] > 232 and p2[2] > 232)
+                  and not (p2[0] < 26 and p2[1] < 26 and p2[2] < 26)]
+            if px:
+                cr = sum(p2[0] for p2 in px) // len(px)
+                cg = sum(p2[1] for p2 in px) // len(px)
+                cb = sum(p2[2] for p2 in px) // len(px)
+                wash = Image.new('L', (W, H), 0)
+                ImageDraw.Draw(wash).ellipse([W - 760, -420, W + 420, 760], fill=64)
+                img.paste(Image.new('RGB', (W, H), (cr, cg, cb)), (0, 0),
+                          wash.filter(ImageFilter.GaussianBlur(150)))
+        except Exception:
+            pass
+    # 대각 광택 — 밋밋함을 없애는 최소 장치
+    sheen = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(sheen).polygon([(-200, 520), (W + 200, -240), (W + 200, 130), (-200, 900)], fill=30)
+    img.paste(Image.new('RGB', (W, H), (255, 255, 255)), (0, 0), sheen.filter(ImageFilter.GaussianBlur(70)))
+    d = ImageDraw.Draw(img)
+
+    y = SAFE_T
+
+    # ── ① 랭킹 제목 ────────────────────────────────────────────────────
+    rk = sc.get('ranking')
+    if rk:
+        rs = script_of(rk)
+        rf = font(44, 'Black', rs)
+        d.rounded_rectangle([SAFE_L, y, SAFE_L + 12, y + 56], radius=6, fill=accent)
+        d.text((SAFE_L + 30, y + 2), rk, font=rf, fill=INK)
+        if sc.get('rankingSub'):
+            sb = sc['rankingSub']
+            d.text((SAFE_L + 30, y + 62), sb, font=font(28, 'Semibold', script_of(sb)), fill=DIM)
+        y += 132
+
+    # ── ② 순위 배지 + 로고 + 심볼 ──────────────────────────────────────
+    x = SAFE_L
+    if sc.get('rank'):
+        rf = font(84, 'Black')
+        rtxt = sc['rank']
+        rw = d.textlength(rtxt, font=rf)
+        d.rounded_rectangle([x, y, x + int(rw) + 48, y + 112], radius=24, fill=accent)
+        d.text((x + 24, y + 2), rtxt, font=rf, fill=(255, 255, 255))
+        x += int(rw) + 48
+        if sc.get('rankUnit'):
+            u = sc['rankUnit']
+            d.text((x + 14, y + 44), u, font=font(40, 'Bold', script_of(u)), fill=DIM)
+            x += 14 + int(d.textlength(u, font=font(40, 'Bold', script_of(u))))
+    if lg is not None:
+        mark = lg.resize((112, 112), Image.LANCZOS)
+        img.paste(mark, (RIGHT - 112, y), mark)
+    y += 140
+
+    sym = sc.get('symbol')
+    if sym:
+        size = 168 if len(sym) <= 4 else 132
+        sf = font(size, 'Black')
+        while d.textlength(sym, font=sf) > RIGHT - SAFE_L and size > 80:
+            size -= 8; sf = font(size, 'Black')
+        d.text((SAFE_L - 8, y), sym, font=sf, fill=INK)
+        y += int(size * 1.10)
+
+    # ── 가격 + 등락 ────────────────────────────────────────────────────
+    if sc.get('price'):
+        pf = font(72, 'Black')
+        d.text((SAFE_L - 4, y), sc['price'], font=pf, fill=INK)
+        pw = d.textlength(sc['price'], font=pf)
+        chg = sc.get('change')
+        if chg:
+            up = not str(chg).startswith('-')
+            col = (10, 132, 96) if up else (198, 48, 48)
+            cf = font(46, 'Black')
+            cw = d.textlength(chg, font=cf)
+            d.rounded_rectangle([SAFE_L + pw + 22, y + 10, SAFE_L + pw + 22 + cw + 38, y + 76],
+                                radius=18, fill=(226, 244, 236) if up else (252, 232, 232))
+            d.text((SAFE_L + pw + 41, y + 17), chg, font=cf, fill=col)
+        y += 106
+
+    # ── ③ 자세한 자료 표기 ─────────────────────────────────────────────
+    for row in sc.get('stats', []):
+        lab, val = row.get('l', ''), row.get('v', '')
+        d.text((SAFE_L, y + 6), lab, font=font(34, 'Bold', script_of(lab)), fill=DIM)
+        vf = font(44, 'Black', script_of(val))
+        vw = d.textlength(val, font=vf)
+        d.text((RIGHT - vw, y), val, font=vf, fill=INK)
+        y += 64
+        d.line([SAFE_L, y - 10, RIGHT, y - 10], fill=(214, 222, 234), width=2)
+
+    # ── 콜/풋 막대 — 비율은 «항상» 참이어야 한다 ──────────────────────
+    sp = sc.get('split')
+    if sp:
+        cw_, pw_ = float(sp.get('call', 0)), float(sp.get('put', 0))
+        tot = cw_ + pw_
+        if tot > 0:
+            y += 18
+            bw = RIGHT - SAFE_L
+            # 폭에만 ease 를 곱하면 도중에 «틀린 비율»이 화면에 뜬다. 비율은
+            # 고정하고 막대 전체를 펼친다.
+            rev = max(24, int(bw * ease))
+            cx = int(rev * (cw_ / tot))
+            d.rounded_rectangle([SAFE_L, y, SAFE_L + bw, y + 44], radius=14, fill=(232, 238, 247))
+            if cx > 8: d.rounded_rectangle([SAFE_L, y, SAFE_L + cx, y + 44], radius=14, fill=TEAL)
+            if rev - cx > 8: d.rounded_rectangle([SAFE_L + cx, y, SAFE_L + rev, y + 44], radius=14, fill=AMBER)
+            y += 56
+            cl = sp.get('callLabel', '')
+            d.text((SAFE_L, y), cl, font=font(28, 'Bold', script_of(cl)), fill=TEAL)
+            rl = sp.get('putLabel', '')
+            rlf = font(28, 'Bold', script_of(rl))
+            d.text((RIGHT - d.textlength(rl, font=rlf), y), rl, font=rlf, fill=AMBER)
+            y += 52
+
+    # ── 자막 높이를 «먼저» 잰다 ────────────────────────────────────────
+    # 그리는 순서는 사다리가 먼저지만, 자리를 먼저 잡지 않으면 자막이 사다리를
+    # 덮는다(실제로 5행이 가려졌다). 남는 높이를 사다리에 배분한다.
+    cap = sc.get('caption')
+    cap_lines, cap_font, cap_h = [], None, 0
+    if cap:
+        cs = script_of(cap)
+        cap_font = font(38, 'Bold', cs)
+        words = list(cap) if cs else cap.split(' ')
+        joiner = '' if cs else ' '
+        cur = ''
+        for w_ in words:
+            trial = (cur + joiner + w_) if cur else w_
+            if d.textlength(trial, font=cap_font) > RIGHT - SAFE_L - 36 and cur:
+                cap_lines.append(cur); cur = w_
+            else:
+                cur = trial
+        if cur: cap_lines.append(cur)
+        cap_lines = cap_lines[:2]
+        cap_h = 30 + len(cap_lines) * int(cap_font.size * 1.30)
+
+    BRAND_H = 76
+    floor_y = H - SAFE_B - BRAND_H - cap_h - 14   # 사다리가 넘으면 안 되는 선
+
+    # ── 순위 사다리 ────────────────────────────────────────────────────
+    lad = sc.get('ladder')
+    if lad:
+        y += 12
+        # 행 높이를 «남은 공간»에서 역산한다. 데이터가 늘어도 겹치지 않는다.
+        row_h = int(max(44, min(60, (floor_y - y - 24) / max(1, len(lad)))))
+        d.rounded_rectangle([SAFE_L - 14, y, RIGHT + 14, y + 24 + len(lad) * row_h], radius=22,
+                            fill=(255, 255, 255), outline=(222, 230, 241), width=2)
+        ly = y + 16
+        for it in lad:
+            on = bool(it.get('on'))
+            rowf = font(int(row_h * 0.63) if on else int(row_h * 0.55), 'Black' if on else 'Bold')
+            col = INK if on else (150, 160, 178)
+            if on:
+                d.rounded_rectangle([SAFE_L - 6, ly - 7, RIGHT + 6, ly + row_h - 11], radius=14, fill=(236, 244, 249))
+            d.text((SAFE_L + 8, ly), str(it.get('r', '')), font=rowf, fill=accent if on else (186, 194, 208))
+            # 아직 공개 안 한 상위는 가린다 — 다 보여주면 카운트다운이 성립하지 않는다.
+            if it.get('hide'):
+                d.text((SAFE_L + 62, ly), '— — —', font=rowf, fill=(206, 214, 226))
+            else:
+                d.text((SAFE_L + 62, ly), str(it.get('s', '')), font=rowf, fill=col)
+                v = str(it.get('v', ''))
+                d.text((RIGHT - 8 - d.textlength(v, font=rowf), ly), v, font=rowf, fill=col)
+            ly += row_h
+        y = ly + 18
+
+    # ── 자막 — 안전영역 «안», 브랜드 줄 «위»에 고정 ────────────────────
+    if cap_lines:
+        by = H - SAFE_B - BRAND_H - cap_h
+        d.rounded_rectangle([SAFE_L - 14, by, RIGHT + 14, by + cap_h], radius=20, fill=(18, 26, 40))
+        ty = by + 15
+        for ln in cap_lines:
+            d.text((SAFE_L + 4, ty), ln, font=cap_font, fill=(255, 255, 255))
+            ty += int(cap_font.size * 1.30)
+
+    # 브랜드는 안전영역 하단 «바로 위»에 — 잘리지 않는 마지막 줄
+    if LOGO is not None:
+        by2 = H - SAFE_B - 62
+        img.paste(LOGO, (SAFE_L, by2), LOGO)
+        d.text((SAFE_L + 74, by2 - 2), BRAND['name'], font=font(28, 'Bold', script_of(BRAND['name'])), fill=INK)
+        d.text((SAFE_L + 74, by2 + 30), BRAND['link'], font=font(23, 'Semibold'), fill=DIM)
+    return img
+
+
 def render(sc, t):
     global BASE, LOGO
+    if sc.get('mode') == 'card':
+        return render_card(sc, t)
     img = BASE.copy()
     d = ImageDraw.Draw(img)
     PAD = 76
@@ -206,6 +439,13 @@ def main():
         LOGO = Image.open(lp).convert('RGBA').resize((62, 62), Image.LANCZOS)
 
     for sc in spec['scenes']:
+        # 종목 로고 — 심볼 옆의 마크이자 «배경»의 재료다(대표: 배경이 밋밋하다).
+        lp2 = sc.get('logo')
+        if lp2 and os.path.exists(lp2):
+            try:
+                sc['_logo'] = Image.open(lp2).convert('RGBA')
+            except Exception:
+                sc['_logo'] = None
         dirp = sc.get('frames')
         if dirp and os.path.isdir(dirp):
             files = sorted(f for f in os.listdir(dirp) if f.endswith('.png'))

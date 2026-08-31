@@ -100,7 +100,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
 
   // 스크롤 구간 — 끝까지 가지 않는다. 하단 여백까지 찍으면 «빈 화면»이 나온다.
-  const span = Math.max(0, Math.min(st.height - st.view, st.view * 2.2));
+  //
+  // ⚠️ [2026-09-01 대표 지적] 「스크롤이 너무 빨라 폰 스크롤이 인식될 정도는 되어야」
+  //    화면 2.2배를 3초에 훑으면 사람이 «스크롤»로 인식하지 못하고 그냥 흐릿하게
+  //    지나간다. 한 화면보다 조금 적게, 천천히 — 그래야 «누가 폰을 넘기는 것»으로 보인다.
+  //    SCROLL_SCREENS 로 조절한다(기본 0.8화면).
+  const screens = Number(process.env.REEL_SCROLL_SCREENS || 0.8);
+  const span = Math.max(0, Math.min(st.height - st.view, st.view * screens));
   console.log(`[녹화] 스크롤러 ${st.tag} · 높이 ${st.height}px · 스크롤 ${Math.round(span)}px · ${N}프레임`);
   if (span < 200) console.warn('[경고] 스크롤 폭이 작다 — 거의 정지 영상이 된다');
 
