@@ -597,7 +597,7 @@ async function warmRedisCache() {
 // Eliminates Vercel 60s timeout bottleneck entirely
 // Writes to flow:ticker:lite:{ticker} (read by live/ticker API)
 
-async function warmFlowCache(snapshotMap) {
+async function warmFlowCache(snapshotMap, lambdaContext) {
   const redis = getRedis();
   if (!redis) {
     console.log('[FlowWarm] SKIP: Redis not configured');
@@ -626,7 +626,16 @@ async function warmFlowCache(snapshotMap) {
   //         → 커버리지가 «회전»하므로 늘 같은 종목만 차갑게 남지 않는다
   //   동시 실행 수는 올리지 않는다 — 벤더 레이트리밋이 더 큰 위험이다.
   // ══════════════════════════════════════════════════════════════════
-  const DEADLINE_MS = Number(process.env.FLOWWARM_DEADLINE_MS || 660000); // 11분
+  // ⚠️ [2026-08-31 2차] 처음엔 «FlowWarm 자기 시작 시점»부터 11분으로 쟀는데,
+  //    강제 실행 실측에서 앞 단계(GEX·SMA·Details)가 **9분 15초**를 먹어
+  //    FlowWarm 이 5분 만에 타임아웃으로 죽었다. 정규장(13:30~21:00 UTC)에도
+  //    같은 단계들이 도니 같은 일이 난다.
+  //    → 기준을 **Lambda 에 남은 시간**으로 바꾼다. 앞 단계가 얼마를 쓰든 안전하다.
+  const SAFETY_MS = Number(process.env.FLOWWARM_SAFETY_MS || 120000); // 마무리·커서 저장 여유 2분
+  const hasRemaining = lambdaContext && typeof lambdaContext.getRemainingTimeInMillis === 'function';
+  const outOfTime = () => hasRemaining
+    ? lambdaContext.getRemainingTimeInMillis() < SAFETY_MS
+    : (Date.now() - start) > 660000;   // context 가 없으면(로컬 테스트) 예전 기준
   const CURSOR_KEY = 'flow:warm:cursor';
   let startIdx = 0;
   const rawCursor = await redisGet(CURSOR_KEY);
@@ -639,7 +648,8 @@ async function warmFlowCache(snapshotMap) {
   for (let k = 0; k < UNIVERSE.length; k++) ORDER.push(UNIVERSE[(startIdx + k) % UNIVERSE.length]);
 
   console.log('[FlowWarm] Starting — ' + UNIVERSE.length + ' tickers from cursor ' + startIdx
-    + ' (deadline ' + Math.round(DEADLINE_MS / 1000) + 's)');
+    + ' (remaining ' + (hasRemaining ? Math.round(lambdaContext.getRemainingTimeInMillis() / 1000) + 's' : 'n/a')
+    + ', safety ' + Math.round(SAFETY_MS / 1000) + 's)');
   let success = 0, fail = 0;
   let processed = 0, stoppedEarly = false;
 
@@ -682,7 +692,7 @@ async function warmFlowCache(snapshotMap) {
 
   for (let i = 0; i < ORDER.length; i += CONCURRENCY) {
     // 데드라인을 넘기 전에 스스로 멈춘다. 타임아웃으로 죽으면 커서도 못 남긴다.
-    if (Date.now() - start > DEADLINE_MS) { stoppedEarly = true; break; }
+    if (outOfTime()) { stoppedEarly = true; break; }
     const batch = ORDER.slice(i, i + CONCURRENCY);
     await Promise.all(batch.map(async (ticker) => {
       try {
@@ -1017,7 +1027,7 @@ async function harvestEconomicCalendar() {
 }
 
 
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
   const start = Date.now();
   console.log('SIGNUM Harvest Lambda v9.0 — ' + new Date().toISOString());
   const hour = new Date().getUTCHours();
@@ -1116,7 +1126,7 @@ exports.handler = async (event) => {
   // Flow data is critical during pre/post market trading
   if (isExtended || forceRun) {
     try {
-      results.flowWarm = await warmFlowCache(snapshotMap);
+      results.flowWarm = await warmFlowCache(snapshotMap, context);
     } catch (e) {
       results.flowWarm = { error: e.message };
     }
