@@ -122,8 +122,9 @@ const TICKER_CACHE_TTL = 60; // 60 seconds
 // ⚠️ 응답 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛 페이로드가
 //    그대로 나가서 새 필드가 «조용히» 빠진다(2026-08-30 에 두 번 겪었다).
 //    v2 = 다크풀(FINRA) 필드 추가 2026-08-31
+//    v3 = PRE 기준선 한 세션 밀림 수정 2026-08-31 (값이 바뀐다 → 옛 캐시 폐기)
 function tickerCacheKey(ticker: string): string {
-    return `flow:ticker:v2:${ticker}`;
+    return `flow:ticker:v3:${ticker}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -157,8 +158,8 @@ export async function GET(req: NextRequest) {
     // ⚠️ 체인 유무로 응답 «모양»이 달라진다 → 캐시를 반드시 분리한다.
     //    섞이면 Command 가 캐시에 넣은 체인 없는 응답을 Flow 가 받아 차트가 빈다.
     const cacheKey = skipAlpha
-        ? `flow:ticker:lite:v2:${ticker}`
-        : (noChain ? `flow:ticker:nochain:v2:${ticker}` : tickerCacheKey(ticker));
+        ? `flow:ticker:lite:v3:${ticker}`
+        : (noChain ? `flow:ticker:nochain:v3:${ticker}` : tickerCacheKey(ticker));
     try {
         const cached = await getFromCache<any>(cacheKey);
         const verdict = isUsableTickerCache(cached);
@@ -289,6 +290,9 @@ export async function GET(req: NextRequest) {
     let prevRegularClose: number | null = null;
     let prevPrevRegularClose: number | null = null;
     let baselineSource: string = "UNKNOWN";
+    // ⚠️ 기준선의 «실제 세션 날짜». 예전엔 달력 −1일을 찍어서 일요일(2026-08-30)처럼
+    //    존재하지도 않는 세션이 진단에 남았다. 진단이 틀리면 버그를 못 찾는다.
+    let baselineDateET: string | null = null;
 
     const snapPrev = Number(S._intrinio?.prevClose);
     const snapRegDate: string = S._intrinio?.regularDate || "";
@@ -297,6 +301,8 @@ export async function GET(req: NextRequest) {
     if (Number.isFinite(snapPrev) && snapPrev > 0) {
         prevRegularClose = snapPrev;
         baselineSource = "snapshot._intrinio.prevClose";
+        const prevRow = historicalResults.find((r: any) => r?.c === snapPrev && aggDateOf(r) !== snapRegDate);
+        baselineDateET = prevRow ? aggDateOf(prevRow) : null;
     } else {
         // 표시 중인 세션과 같은 날짜 행은 기준선이 될 수 없다
         const baseIdx = snapRegDate
@@ -306,6 +312,7 @@ export async function GET(req: NextRequest) {
         if (baseRow?.c) {
             prevRegularClose = baseRow.c;
             baselineSource = snapRegDate ? `prevAgg.c[${baseIdx}]` : "prevAgg.c";
+            baselineDateET = aggDateOf(baseRow) || null;
         } else if (S.prevDay?.c) {
             prevRegularClose = S.prevDay.c;
             baselineSource = "snapshot.prevDay.c";
@@ -318,6 +325,38 @@ export async function GET(req: NextRequest) {
     );
     if (ppIdx >= 0) prevPrevRegularClose = historicalResults[ppIdx].c;
     else if (historicalResults[1]?.c) prevPrevRegularClose = historicalResults[1].c;
+
+    // ══════════════════════════════════════════════════════════════
+    // [2026-08-31] ★ PRE 세션에서 기준선이 «한 세션» 밀려 있었다.
+    //
+    //   실측(월요일 프리마켓 05:44 ET, 프로덕션):
+    //     TSLA  기준선 354.81(목) → 프리 −2.10%   실제는 금요일 348.75 대비 −0.40%
+    //     NVDA  기준선 227.98(목) → 프리 −3.86%   실제는 금요일 217.55 대비 **+0.74%**
+    //   NVDA 는 **부호까지 뒤집혔다**(하락으로 표시되는데 실제는 상승).
+    //   기준선 하나가 틀리면 전 종목이 같은 방식으로 틀린다.
+    //
+    // [원인]  `_intrinio.prevClose` 는 정의상 «마지막 정규장(regularClose)의 하나 앞»이다.
+    //   CLOSED·REG·POST 에서는 그게 곧 «직전 세션»이라 맞다. 그러나 월요일 프리마켓의
+    //   직전 세션은 **금요일 정규장 그 자체**(= regularClose)다. 하나 앞을 쓰면 밀린다.
+    //
+    // [규칙]  기준선 = «표시 중인 세션의 직전 세션» 종가.
+    //   PRE 는 아직 오늘 정규장이 없으므로 마지막 정규장 종가가 곧 직전 세션이다.
+    //   → prevRegularClose 를 regularClose 로 올리고, 기존 값은 그 앞으로 민다.
+    //     그래야 prevChangePct(직전 세션 등락률)도 «금요일의 실제 등락»이 된다.
+    // ══════════════════════════════════════════════════════════════
+    if (session === "PRE") {
+        // 1순위: 스냅샷의 마지막 정규장 종가. 없으면 그 날짜의 일봉을 직접 집는다
+        // (값이 없다고 조용히 옛 기준선을 쓰면 부호가 뒤집힌 채로 나간다).
+        const lastReg = Number(S._intrinio?.regularClose)
+            || Number(historicalResults.find((r: any) => r?.c && aggDateOf(r) === snapRegDate)?.c);
+        // regularDate 가 오늘이면 이미 오늘 정규장이 끝난 뒤이므로 밀면 안 된다.
+        if (Number.isFinite(lastReg) && lastReg > 0 && snapRegDate && snapRegDate < todayStr) {
+            prevPrevRegularClose = prevRegularClose;
+            prevRegularClose = lastReg;
+            baselineDateET = snapRegDate;
+            baselineSource = "snapshot._intrinio.regularClose (PRE=직전 정규장)";
+        }
+    }
 
     const liveLast = S.lastTrade?.p || S.min?.c || null;
 
@@ -741,7 +780,8 @@ export async function GET(req: NextRequest) {
         baseline: {
             value: prevRegularClose,
             source: baselineSource,
-            dateET: yesterdayStr,
+            dateET: baselineDateET,          // 기준선의 «실제» 세션 날짜(달력 −1일이 아니다)
+            calendarYesterdayET: yesterdayStr,
             aggDateRange: `${thirtyDaysAgoStr} to ${yesterdayStr}`
         },
 
@@ -826,7 +866,10 @@ export async function GET(req: NextRequest) {
                     price: activePrice || 0,
                     prevClose: prevRegularClose || 0,
                     changePct: changePctForAlpha,
-                    vwap: S.day?.vw ?? null,
+                    // ⚠️ `??` 는 0 에서 폴백하지 않는다. 고저가가 없어 vw=0 인 프리마켓에
+                    //    0 이 그대로 들어가면 알파 점수의 «VWAP 대비» 항이 통째로 망가진다.
+                    //    691행과 같은 폴백 체인을 쓴다.
+                    vwap: S.day?.vw || S.prevDay?.vw || null,
                     return3D,
                     rsi14,
                     sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon

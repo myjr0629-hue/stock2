@@ -153,7 +153,19 @@ function bar(o: any, h: any, l: any, c: any, v: any, vw?: any): MassiveBar {
         v: num(v) ?? 0,
         // Intrinio 는 일봉 VWAP 을 주지 않음 → (h+l+c)/3 typical price 로 근사.
         // 소비처(live/ticker)는 S.day.vw 를 "VWAP" 표시에만 사용.
-        vw: num(vw) ?? (close > 0 ? Math.round(((num(h)! + num(l)! + close) / 3) * 10000) / 10000 : 0),
+        //
+        // ⚠️ [2026-08-31 수정] 고가·저가가 없을 때 «지어내면» 안 된다.
+        //   `num(h)!` 는 null 을 0 으로 강제하므로 (0+0+c)/3 = **종가의 1/3** 이 나온다.
+        //   프리마켓에는 «오늘» 고저가가 아직 없어서 매일 아침 이 값이 나갔다.
+        //   실측(월요일 프리마켓, 프로덕션 5종목 전부):
+        //     TSLA vwap 116.25 (종가 348.75 ÷ 3) · NVDA 72.5167 (217.55 ÷ 3)
+        //     화면에는 「VWAP $116.25 · 상회 +205%」로 표시됐다.
+        //   → 계산할 수 없으면 **0 을 돌려준다.** 소비처가
+        //     `S.day?.vw || S.prevDay?.vw` 로 «전일 실제 봉»에 폴백하게 두는 것이
+        //     그럴듯한 가짜 숫자보다 언제나 낫다.
+        vw: num(vw) ?? ((close > 0 && num(h) && num(l))
+            ? Math.round(((num(h)! + num(l)! + close) / 3) * 10000) / 10000
+            : 0),
     };
 }
 

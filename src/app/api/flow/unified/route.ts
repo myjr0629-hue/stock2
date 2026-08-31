@@ -9,7 +9,8 @@ import { GET as getDarkPool } from '@/app/api/flow/dark-pool-trades/route';
 import { GET as getRealtimeMetrics } from '@/app/api/flow/realtime-metrics/route';
 
 // Configuration
-const CACHE_KEY_PREFIX = 'cache:flow:unified:';
+// v2 = PRE 기준선 수정(2026-08-31). 값이 바뀌므로 옛 캐시를 폐기해야 한다.
+const CACHE_KEY_PREFIX = 'cache:flow:unified:v2:';
 const CACHE_TTL_SEC = 300; // 5 minutes solid cache (Redis TTL)
 const REFRESH_THRESHOLD_MS = 60 * 1000; // 1 minute (trigger background refresh if older)
 
