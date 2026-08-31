@@ -79,6 +79,13 @@ def bg_base():
 
 BASE = None
 LOGO = None
+# 세 앱 — 이름·링크·아이콘이 각자 다르다
+BRANDS = {
+    'signum': {'name': 'SIGNUM HQ', 'link': 'signumhq.com/app', 'icon': 'signum.png'},
+    'uc': {'name': 'Undercurrent', 'link': 'signumhq.com/app-uc', 'icon': 'uc.png'},
+    'wim': {'name': "Why'd It Move?", 'link': 'signumhq.com/app-wim', 'icon': 'wim.png'},
+}
+BRAND = BRANDS['signum']
 
 
 def rounded_shadow(size, radius, blur=34, spread=16):
@@ -121,11 +128,12 @@ def render(sc, t):
     ease = 1 - (1 - t) ** 3
     accent = AMBER if sc.get('accent') == 'amber' else TEAL
 
-    # 브랜드 — 로고는 매 장면에 있다(대표 지적: 로고도 사용)
+    # 브랜드 — 로고는 매 장면에 있다(대표 지적: 로고도 사용).
+    # ⚠️ 앱이 셋이다. 하드코딩하면 UC·WIM 영상에 SIGNUM 이 박힌다.
     if LOGO is not None:
         img.paste(LOGO, (PAD, 74), LOGO)
-        d.text((PAD + 78, 88), 'SIGNUM HQ', font=font(34, 'Bold'), fill=INK)
-        d.text((PAD + 78, 128), 'signumhq.com/app', font=font(25, 'Semibold'), fill=DIM)
+        d.text((PAD + 78, 88), BRAND['name'], font=font(34, 'Bold', script_of(BRAND['name'])), fill=INK)
+        d.text((PAD + 78, 128), BRAND['link'], font=font(25, 'Semibold'), fill=DIM)
 
     y = 210
 
@@ -158,11 +166,19 @@ def render(sc, t):
         d.text((PAD - 6, y), txt, font=bf, fill=accent)
         bw = d.textlength(txt, font=bf)
         if sc.get('bigUnit'):
-            uf = font(72, 'Bold')
-            d.text((PAD - 6 + bw + 14, y + 74), sc['bigUnit'], font=uf, fill=accent)
+            # ⚠️ 단위에도 한글이 온다(「억달러」). script 힌트를 안 주면 라틴 폰트로
+            #    떨어져 두부(⊠)가 박힌다 — 2026-08-31 UC 영상에서 실제로 났다.
+            us = script_of(sc['bigUnit'])
+            uf = font(56 if us else 72, 'Bold', us)
+            d.text((PAD - 6 + bw + 14, y + (86 if us else 74)), sc['bigUnit'], font=uf, fill=accent)
         y += int(bf.size * 1.10)
 
-    for i, ln in enumerate(sc.get('lines', [])):
+    # 랭크 블록(130px)+big(150px)이 이미 y 를 많이 먹는다. 폰이 578 에서 시작하므로
+    # 줄이 두 개 넘으면 겹친다 — 실제로 겹쳤다. 남은 공간만큼만 그린다.
+    _lines = [x for x in sc.get('lines', []) if x]
+    if sc.get('rank') and len(_lines) > 1:
+        _lines = _lines[:1]
+    for i, ln in enumerate(_lines):
         lf = font(sc.get('lineSize', 46), 'Bold', script_of(ln))
         d.text((PAD - 2, y), ln, font=lf, fill=INK if i == 0 else DIM)
         y += int(lf.size * 1.34)
@@ -180,11 +196,12 @@ def render(sc, t):
 
 
 def main():
-    global BASE, LOGO
+    global BASE, LOGO, BRAND
     spec = json.load(open(sys.argv[1], encoding='utf-8'))
     out = sys.argv[2]
+    BRAND = BRANDS.get(spec.get('app', 'signum'), BRANDS['signum'])
     BASE = bg_base()
-    lp = os.path.join(os.path.dirname(__file__), '..', 'public', 'app-icons', 'signum.png')
+    lp = os.path.join(os.path.dirname(__file__), '..', 'public', 'app-icons', BRAND['icon'])
     if os.path.exists(lp):
         LOGO = Image.open(lp).convert('RGBA').resize((62, 62), Image.LANCZOS)
 

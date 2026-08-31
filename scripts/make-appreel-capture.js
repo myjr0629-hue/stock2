@@ -10,7 +10,8 @@
 // 검수 게이트는 캡처 공장과 같은 이유로 필수다 — 로딩 화면을 녹화하면
 // 그게 그대로 발행된다.
 //
-// 실행: node scripts/make-appreel-capture.js <ko|en|ja> <scene> [ticker] [프레임수]
+// 실행: node scripts/make-appreel-capture.js <ko|en|ja> <scene> [ticker] [프레임수] [app]
+//   app: signum(기본) | uc | wim  — 세 앱을 다 찍어야 한 앱만 홍보되지 않는다
 // ============================================================================
 const puppeteer = require('puppeteer');
 const fs = require('fs');
@@ -23,7 +24,14 @@ const VIEW = { w: 420, h: 910, dsf: 2 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
-  const [loc = 'ko', scene = 'cmd', ticker = 'NVDA', nRaw] = process.argv.slice(2);
+  const [loc = 'ko', scene = 'cmd', ticker = 'NVDA', nRaw, app = 'signum'] = process.argv.slice(2);
+  // ⚠️ 앱마다 경로도 온보딩 키도 다르다. 하나만 하드코딩해 두면 나머지 둘은 영영 못 찍는다.
+  const APPS = {
+    signum: { onboard: ['signumhq.app.onboarding.v1', 'accepted'], path: () => `/${loc}/app-view/${scene}?t=${ticker}` },
+    uc: { onboard: null, path: () => `/${loc}/undercurrent${scene === 'home' ? '' : `?tab=${scene}`}` },
+    wim: { onboard: ['wim.onboard', '1'], path: () => `/${loc}/wim${scene === 'home' ? '' : `?tab=${scene}`}` },
+  };
+  const cfg = APPS[app] || APPS.signum;
   const N = Number(nRaw) || 96;
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
@@ -32,16 +40,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const page = await browser.newPage();
   const alang = loc === 'ko' ? 'ko-KR,ko' : loc === 'ja' ? 'ja-JP,ja' : 'en-US,en';
   await page.setExtraHTTPHeaders({ 'Accept-Language': alang });
-  await page.evaluateOnNewDocument((l) => {
+  await page.evaluateOnNewDocument(([l, onboard]) => {
     try {
+      // 세 앱이 각자 자기 로케일 키를 읽는다 — 하나라도 빠지면 셀프라우팅이 언어를 되돌린다
       localStorage.setItem('signumhq.locale', l);
-      localStorage.setItem('signumhq.app.onboarding.v1', 'accepted');
+      localStorage.setItem('undercurrent.locale', l);
+      localStorage.setItem('wim.locale', l);
+      if (onboard) localStorage.setItem(onboard[0], onboard[1]);
     } catch {}
-  }, loc);
+  }, [loc, cfg.onboard]);
   await page.setViewport({ width: VIEW.w, height: VIEW.h, deviceScaleFactor: VIEW.dsf });
   await page.setCacheEnabled(false);
 
-  const url = `${BASE}/${loc}/app-view/${scene}?t=${ticker}&_cb=${Date.now()}`;
+  const p0 = cfg.path();
+  const url = `${BASE}${p0}${p0.includes('?') ? '&' : '?'}_cb=${Date.now()}`;
   // ⚠️ networkidle2 를 쓰면 안 된다 — 이 화면은 30초 갱신 · WebSocket ·
   //    인접 종목 프리페치가 계속 돌아서 «유휴»에 도달하지 않는다(2026-08-31 실제로
   //    타임아웃으로 캡처가 죽었다). 내용 확인은 아래 검수 게이트가 이미 한다.
