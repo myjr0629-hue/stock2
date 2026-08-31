@@ -151,6 +151,10 @@ export async function GET(req: NextRequest) {
     //  ⚠️ 마감 후 약 90분(17:30 ET)에야 그날 자료가 뜬다. 없으면 «없음»으로
     //     보고하고 랭킹에서 빠진다 — 어제 것을 오늘인 척하지 않는다.
     const DP_ETF = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'TLT', 'GLD']);  // ETF 는 이탈 상위를 오염시킨다
+    // 옵션 지표가 보고 있는 «최신 세션». 다크풀 신선도 판정의 기준이 된다.
+    const optionSession = found.reduce<string | null>(
+        (m, f) => (f.date && (!m || f.date > m) ? f.date : m), null);
+
     let darkPool: any = { available: false, reason: '자료 없음' };
     try {
         // ⚠️ 다크풀은 «EC2 Redis 프록시»로 읽힌다. getFromCache 로 같은 키를 찍으면
@@ -163,9 +167,21 @@ export async function GET(req: NextRequest) {
         const rows = await getDarkPoolBatch(UNIVERSE.filter((t) => !DP_ETF.has(t)));
         const list = Object.values(rows);
         const n = list.length;
-        if (n > 0) {
+        const dpDate = n > 0 ? (list[0].date ?? null) : null;
+        // ⚠️ 날짜가 어긋나면 랭킹에 넣지 않는다.
+        //    옵션은 오늘(장중), 다크풀은 마감 후 90분에 들어온다. 아직 안 들어온
+        //    날 어제 것을 그대로 섞으면 「오늘의 랭킹」에 3일 전 숫자가 1위로
+        //    올라간다 — 라벨과 데이터가 어긋나는 전형이다. 실제로 8/31 랭킹에
+        //    8/28 다크풀이 3·4·5위로 들어왔다.
+        const fresh = !!(dpDate && optionSession && dpDate === optionSession);
+        if (n > 0 && !fresh) {
             darkPool = {
-                available: true, date: list[0].date ?? null,
+                available: false, stale: true, date: dpDate, expected: optionSession,
+                reason: `아직 안 들어옴 — 보유분은 ${dpDate}, 옵션은 ${optionSession} 세션 (마감 후 약 90분에 갱신)`,
+            };
+        } else if (n > 0) {
+            darkPool = {
+                available: true, date: dpDate,
                 marketAvg: list[0].marketAvg ?? null, covered: n,
             };
             for (const [t, r] of Object.entries(rows)) {
@@ -211,7 +227,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 2,
+        ok: true, _v: 3,
         generatedAt: new Date().toISOString(),
         method: {
             baseline: `최근 ${days}일 중앙값(평균 아님)`,
