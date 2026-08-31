@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { getDarkPoolBatch, getDarkPoolMarket } from '@/services/darkPool';
 
 // ============================================================================
 // /api/ranking/deviation — 「평소 대비 이탈」 랭킹.
@@ -152,37 +153,41 @@ export async function GET(req: NextRequest) {
     const DP_ETF = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'TLT', 'GLD']);  // ETF 는 이탈 상위를 오염시킨다
     let darkPool: any = { available: false, reason: '자료 없음' };
     try {
-        const dp = await getFromCache<any>('finra:offexchange');
-        if (dp?.tickers && dp?.date) {
-            darkPool = { available: true, date: dp.date, marketAvg: dp.marketAvg, covered: dp.covered };
-            for (const t of UNIVERSE) {
-                if (DP_ETF.has(t)) continue;
-                const r = dp.tickers[t];
-                if (!r) continue;
-
+        // ⚠️ 다크풀은 «EC2 Redis 프록시»로 읽힌다. getFromCache 로 같은 키를 찍으면
+        //    빈 값이 온다(실제로 그래서 available:false 가 나왔다). 앱의 정본
+        //    접근자를 그대로 쓴다 — 저장 경로가 바뀌어도 여기가 따라 깨지지 않는다.
+        const [mkt, rows] = await Promise.all([
+            getDarkPoolMarket(),
+            getDarkPoolBatch(UNIVERSE.filter((t) => !DP_ETF.has(t))),
+        ]);
+        const n = Object.keys(rows).length;
+        if (n > 0) {
+            darkPool = {
+                available: true, date: mkt?.date ?? null,
+                marketAvg: mkt?.marketAvg ?? null, covered: mkt?.covered ?? n,
+            };
+            for (const [t, r] of Object.entries(rows)) {
                 // ① 장외 물량이 평소의 몇 배 — 이미 계산돼 있다
                 if (typeof r.volRatio === 'number' && r.volRatio > 0
                     && (r.volRatio >= MIN_RATIO || r.volRatio <= 1 / MIN_RATIO)) {
                     found.push({
-                        ticker: t, metric: 'dpVolRatio', source: 'finra', date: dp.date,
+                        ticker: t, metric: 'dpVolRatio', source: 'finra', date: r.date,
                         label: { ko: '장외 거래량', en: 'Off-exchange volume', ja: '取引所外の出来高' },
-                        today: r.vol, baseline: r.vol / r.volRatio, ratio: r.volRatio,
-                        percentile: r.volP ?? null, regime: r.regime ?? null,
+                        today: r.volume, baseline: Math.round(r.volume / r.volRatio), ratio: r.volRatio,
+                        percentile: r.volP, regime: r.regime ?? null,
                         rank: Math.abs(Math.log(r.volRatio)),
                     });
                 }
-
-                // ② 공매도 비중 이탈 — 여기서는 «배수»가 아니라 «%p» 로 잰다.
+                // ② 공매도 «비중» 이탈 — 여기서는 배수가 아니라 %p 로 잰다.
                 //    49%→65% 는 배수로 1.33 밖에 안 되지만 실제로는 큰 이탈이다.
                 if (typeof r.shortDev === 'number' && typeof r.shortAvg === 'number'
-                    && r.shortAvg > 0 && Math.abs(r.shortDev) >= 8) {
-                    const ratio = r.shortPct / r.shortAvg;
+                    && typeof r.shortPct === 'number' && r.shortAvg > 0 && Math.abs(r.shortDev) >= 8) {
                     found.push({
-                        ticker: t, metric: 'dpShortDev', source: 'finra', date: dp.date,
+                        ticker: t, metric: 'dpShortDev', source: 'finra', date: r.date,
                         label: { ko: '장외 공매도 비중', en: 'Off-exchange short share', ja: '取引所外の空売り比率' },
-                        today: r.shortPct, baseline: r.shortAvg, ratio,
-                        deviationPp: r.shortDev, percentile: r.shortP ?? null, regime: r.regime ?? null,
-                        // %p 이탈을 «49% 기준»으로 정규화해 다른 축과 같은 자로 잰다
+                        today: r.shortPct, baseline: r.shortAvg, ratio: r.shortPct / r.shortAvg,
+                        deviationPp: r.shortDev, percentile: r.shortP, regime: r.regime ?? null,
+                        // %p 이탈을 시장 중앙값(49%) 기준으로 정규화해 다른 축과 같은 자로 잰다
                         rank: Math.abs(r.shortDev) / 49,
                     });
                 }
