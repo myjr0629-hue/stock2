@@ -30,7 +30,10 @@ const UNIVERSE = [
 type Metric = { key: string; label: { ko: string; en: string; ja: string } };
 // ivSkew 는 뺐다 — 실측 300행 전부 0 이다(생산자가 채우지 않는다).
 const METRICS: Metric[] = [
-    { key: 'pcr', label: { ko: '풋콜 비율', en: 'Put/call ratio', ja: 'プットコール比率' } },
+    // ⚠️ 생산자에서 pcr = totalPutOI / totalCallOI 다 — «거래량» PCR 이 아니라
+    //    «미결제약정» PCR 이다. 그냥 「풋콜 비율」이라고 쓰면 시청자는 그날의
+    //    거래량 쏠림으로 읽는다. 라벨이 데이터와 어긋나면 그게 곧 오보다.
+    { key: 'pcr', label: { ko: '풋콜 비율(미결제약정)', en: 'Put/call ratio (open interest)', ja: 'プットコール比率(建玉)' } },
     { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call open interest', ja: 'コール建玉' } },
     { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put open interest', ja: 'プット建玉' } },
     { key: 'whaleScore', label: { ko: '대형거래 지표', en: 'Large-trade score', ja: '大口取引スコア' } },
@@ -184,16 +187,27 @@ export async function GET(req: NextRequest) {
                 available: true, date: dpDate,
                 marketAvg: list[0].marketAvg ?? null, covered: n,
             };
+            // ⚠️ 시장 전체가 조용한 날엔 «모든» 종목의 장외 물량이 같이 준다.
+            //    그걸 그대로 재면 「SMCI 평소의 43%」 같은 게 1위로 올라오는데,
+            //    그건 SMCI 이야기가 아니라 그날 시장 이야기다(실제로 상위 6 중
+            //    4개가 그렇게 채워졌다). 만기 롤오버와 같은 종류의 교란이다.
+            //    → 그날 시장의 중앙 배수로 나눠, «시장 대비» 이탈만 남긴다.
+            const volRatios = list.map((x) => x.volRatio).filter((v): v is number => typeof v === 'number' && v > 0);
+            const mktVolRatio = median(volRatios) ?? 1;
+            darkPool.marketVolRatio = Math.round(mktVolRatio * 100) / 100;
+
             for (const [t, r] of Object.entries(rows)) {
-                // ① 장외 물량이 평소의 몇 배 — 이미 계산돼 있다
-                if (typeof r.volRatio === 'number' && r.volRatio > 0
-                    && (r.volRatio >= MIN_RATIO || r.volRatio <= 1 / MIN_RATIO)) {
+                // ① 장외 물량이 «시장 대비» 평소의 몇 배
+                const rel = typeof r.volRatio === 'number' && r.volRatio > 0 && mktVolRatio > 0
+                    ? r.volRatio / mktVolRatio : null;
+                if (rel !== null && (rel >= MIN_RATIO || rel <= 1 / MIN_RATIO)) {
                     found.push({
                         ticker: t, metric: 'dpVolRatio', source: 'finra', date: r.date,
-                        label: { ko: '장외 거래량', en: 'Off-exchange volume', ja: '取引所外の出来高' },
-                        today: r.volume, baseline: Math.round(r.volume / r.volRatio), ratio: r.volRatio,
+                        label: { ko: '장외 거래량(시장 대비)', en: 'Off-exchange volume (vs market)', ja: '取引所外の出来高(市場比)' },
+                        today: r.volume, baseline: Math.round(r.volume / r.volRatio!), ratio: rel,
+                        rawRatio: r.volRatio, marketRatio: Math.round(mktVolRatio * 100) / 100,
                         percentile: r.volP, regime: r.regime ?? null,
-                        rank: Math.abs(Math.log(r.volRatio)),
+                        rank: Math.abs(Math.log(rel)),
                     });
                 }
                 // ② 공매도 «비중» 이탈 — 여기서는 배수가 아니라 %p 로 잰다.
@@ -227,7 +241,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 3,
+        ok: true, _v: 4,
         generatedAt: new Date().toISOString(),
         method: {
             baseline: `최근 ${days}일 중앙값(평균 아님)`,
