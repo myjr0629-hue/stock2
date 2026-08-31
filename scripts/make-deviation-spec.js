@@ -51,12 +51,28 @@ function caption(f) {
   return `${lab} ${today} vs usual ${usual} — ${mult}`;
 }
 
+// ── 훅 ─────────────────────────────────────────────────────────────────────
+// [2026-09-01 실측] 영어 4.9천·일본 7.4천 «노출»을 이미 받고 있는데 조회당
+// 5~6초에 이탈한다(한국은 12초). 즉 병목은 배포가 아니라 첫 3초다.
+// 「TOP 5」라는 제목 카드로 열면 아무 것도 걸리지 않는다. 그래서 1위의
+// «숫자 자체»로 연다 — 화면 절반을 차지하는 배수 하나.
+const lead = RANK[0];
+const leadMult = lead.ratio >= 1
+  ? `${lead.ratio.toFixed(1)}${LOCALE === 'en' ? 'x' : '배'}`
+  : `${Math.round(lead.ratio * 100)}%`;
+const leadLab = lead.label[LOCALE] || lead.label.en;
+const leadToday = fmt(lead.metric, lead.today), leadUsual = fmt(lead.metric, lead.baseline);
+const hookCaption =
+  LOCALE === 'ko' ? `${leadLab} 평소 ${leadUsual} → 오늘 ${leadToday}. 5위부터 셉니다`
+  : LOCALE === 'ja' ? `${leadLab} 平常 ${leadUsual} → 本日 ${leadToday}。5位から数えます`
+  : `${leadLab} went from ${leadUsual} to ${leadToday}. Counting up from 5`;
+
 const scenes = [{
-  mode: 'card', seconds: 2.6, symbol: T.hook.replace('{N}', String(N)),
+  mode: 'card', seconds: 2.8, accent: 'amber',
+  symbol: leadMult,                       // ← 화면을 채우는 «배수» 하나로 연다
+  symbolSub: LOCALE === 'ko' ? '평소 대비' : LOCALE === 'ja' ? '平常比' : 'vs its own normal',
   ranking: TITLE, rankingSub: T.sub, foot: 'signumhq.com/app',
-  caption: LOCALE === 'ko' ? '절대 크기가 아니라 «그 종목의 평소»와 비교했다'
-    : LOCALE === 'ja' ? '絶対値ではなく«その銘柄の平常»と比べた'
-      : 'Not the biggest — the furthest from their own normal',
+  caption: hookCaption,
 }];
 
 RANK.slice().reverse().forEach((f, i) => {
