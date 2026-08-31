@@ -2475,7 +2475,11 @@ export default function AppFlowPage() {
                 })()}
               </div>
               <div className={s.p2Vital}>
-                <div className={s.k}>DAY RANGE</div>
+                {/* 프리마켓엔 «오늘» 거래가 없다 — 여기 고저는 전일 범위다.
+                    라벨이 틀리면 수치가 맞아도 틀린 화면이다. (cmd 와 동일 규칙) */}
+                <div className={s.k}>{effectiveSession === 'PRE'
+                  ? (locale === 'ko' ? '전일 범위' : locale === 'ja' ? '前日レンジ' : 'PREV RANGE')
+                  : 'DAY RANGE'}</div>
                 {(() => {
                   const rangePct = Math.max(0, Math.min(100, ((displayPrice - liveLow) / (liveHigh - liveLow || 1)) * 100));
                   const rangeColor = rangePct >= 70 ? 'var(--green)' : rangePct <= 30 ? 'var(--red)' : 'var(--cyan)';

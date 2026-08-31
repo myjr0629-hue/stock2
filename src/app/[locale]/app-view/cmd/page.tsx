@@ -28,6 +28,23 @@ import { buildInsiderSignal } from '@/services/insiderSignal';
 /* ═══════════════════════════════════════════
    DEMO DATA — used when API is unreachable
    ═══════════════════════════════════════════ */
+// ══════════════════════════════════════════════════════════════
+// [2026-08-31] 티커별 «마지막 성공 페이로드» 캐시.
+//
+// 왜 (대표 지적): 「로딩되었다가 다시 조회할 때마다 다시 저렇게 로딩이 길게 뜬다」
+//   원인은 서버가 아니었다(5개 엔드포인트 웜 230~290ms · 콜드 600~670ms 병렬).
+//   화면이 **티커가 바뀔 때마다 setLoading(true) 로 스켈레톤부터 다시 그리고**,
+//   5개 fetch 가 «전부» 끝나야 해제했다. 게다가 전부 `cache:'no-store'` 라
+//   방금 본 종목도 처음부터 다시 받았다.
+//
+// → 봤던 종목이면 곧바로 그 화면을 그리고(스켈레톤 없음), 갱신은 뒤에서 조용히.
+//   ⚠️ 너무 오래된 값을 «현재 시세»처럼 보여주면 안 된다 — 수치는 신뢰의 문제다.
+//      MAX_AGE 를 넘긴 캐시는 즉시 렌더에 쓰지 않고 정상 로딩으로 간다.
+// ══════════════════════════════════════════════════════════════
+const CMD_CACHE = new Map<string, { at: number; data: any }>();
+const CMD_CACHE_MAX = 24;
+const CMD_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+
 const DEMO = {
   ticker: 'NVDA',
   company: 'NVIDIA Corp',
@@ -2090,8 +2107,17 @@ function CmdPageContent() {
   const lastUnified = useRef<any>(null);
   useEffect(() => {
     let cancelled = false;
-    initialLoadRef.current = true;
-    if (initialLoadRef.current) setLoading(true);
+    // 봤던 종목이면 즉시 그린다 — 스켈레톤을 다시 보여줄 이유가 없다.
+    const cachedEntry = CMD_CACHE.get(ticker);
+    const cacheFresh = cachedEntry && (Date.now() - cachedEntry.at) < CMD_CACHE_MAX_AGE_MS;
+    if (cacheFresh) {
+      setData(cachedEntry!.data);
+      setLoading(false);
+      initialLoadRef.current = false;
+    } else {
+      initialLoadRef.current = true;
+      setLoading(true);
+    }
 
     async function fetchAll() {
       try {
@@ -2231,7 +2257,7 @@ function CmdPageContent() {
         const high = t?.prices?.high ?? DEMO.high;
         const low = t?.prices?.low ?? DEMO.low;
 
-        setData({
+        const nextData = {
           ticker,
           company,
           price,
@@ -2251,7 +2277,13 @@ function CmdPageContent() {
           unified: u,
           fundRaw,
           earnRaw,
-        });
+        };
+        CMD_CACHE.set(ticker, { at: Date.now(), data: nextData });
+        if (CMD_CACHE.size > CMD_CACHE_MAX) {
+          const oldest = CMD_CACHE.keys().next().value;
+          if (oldest) CMD_CACHE.delete(oldest);
+        }
+        setData(nextData);
       } catch (err: any) {
         fetch('/api/debug-log', {
           method: 'POST',
@@ -2263,7 +2295,9 @@ function CmdPageContent() {
             location: 'CmdPageContent fetchAll'
           })
         }).catch(() => {});
-        if (!cancelled) {
+        // ⚠️ 실패했다고 «있던 정상 값»을 전부 0 인 DEMO 로 덮으면 안 된다.
+        //    화면에 $0 이 뜨는 것보다 조금 전 값이 남아 있는 편이 언제나 낫다.
+        if (!cancelled && !CMD_CACHE.get(ticker)) {
           setData({ ...DEMO, ticker, company: DEMO.company, rawTickerData: null, unified: null, fundRaw: null, earnRaw: null });
         }
       } finally {
@@ -3165,7 +3199,12 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.p2Vital}>
-            <div className={s.k}>DAY RANGE</div>
+            {/* ⚠️ 프리마켓엔 «오늘» 거래가 아직 없다. 그런데 여기 표시되는 고저는
+                전일(마지막 정규장) 범위다. 「DAY RANGE」라고 쓰면 오늘 것처럼 읽힌다.
+                수치가 맞아도 라벨이 틀리면 틀린 화면이다. (2026-08-31 대표 지적) */}
+            <div className={s.k}>{effectiveSession === 'PRE'
+              ? (locale === 'ko' ? '전일 범위' : locale === 'ja' ? '前日レンジ' : 'PREV RANGE')
+              : 'DAY RANGE'}</div>
             {(() => {
               const rangePct = Math.max(0, Math.min(100, ((displayPrice - data.low) / (data.high - data.low || 1)) * 100));
               const rangeColor = rangePct >= 70 ? 'var(--green)' : rangePct <= 30 ? 'var(--red)' : 'var(--cyan)';
