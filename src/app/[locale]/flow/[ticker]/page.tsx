@@ -275,7 +275,10 @@ export default async function FlowTickerPage(
       description: [desc, ...faq.map((f) => `${f.q} ${f.a}`)].join(' ').slice(0, 1200),
       url,
       isAccessibleForFree: true,
-      creator: { '@id': brand },
+      // ⚠️ `@id` 참조만 두면 구글이 객체 타입을 못 읽는다
+      //    (GSC: Invalid object type for field "creator", 2026-08-31).
+      //    같은 문서 안에 Organization 노드가 있어도 @type 을 인라인으로 줘야 한다.
+      creator: { '@type': 'Organization', '@id': brand, name: 'SIGNUM HQ' },
       variableMeasured: metrics.map(([k]) => k),
       inLanguage: locale,
       // Google Rich Results Test 가 지적한 유일한 항목(비치명, 선택 필드).

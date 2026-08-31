@@ -380,7 +380,10 @@ export default async function DarkPoolLeadersPage(
       ].join(' ').slice(0, 1400),
       url,
       isAccessibleForFree: true,
-      creator: { '@id': brand },
+      // ⚠️ `@id` 참조만 두면 구글이 객체 타입을 못 읽는다
+      //    (GSC: Invalid object type for field "creator", 2026-08-31).
+      //    같은 문서 안에 Organization 노드가 있어도 @type 을 인라인으로 줘야 한다.
+      creator: { '@type': 'Organization', '@id': brand, name: 'SIGNUM HQ' },
       temporalCoverage: data.date ?? undefined,
       variableMeasured: ['off-exchange share', 'off-exchange volume multiple', 'off-exchange short share', '20-day short share norm', 'short share deviation'],
       inLanguage: lc,
