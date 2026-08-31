@@ -21,6 +21,17 @@ function getRedis() {
   return redisClient;
 }
 
+async function redisGet(key) {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    return await r.get(key);
+  } catch (e) {
+    console.warn('[Redis] get(' + key + ') failed: ' + e.message);
+    return null;
+  }
+}
+
 async function redisSet(key, value, ttlSec) {
   const r = getRedis();
   if (!r) return false;
@@ -593,11 +604,44 @@ async function warmFlowCache(snapshotMap) {
     return { success: 0, fail: 0, duration: 0 };
   }
 
-  console.log('[FlowWarm] Starting DIRECT flow cache warming — ' + UNIVERSE.length + ' tickers...');
   const start = Date.now();
   const CONCURRENCY = 5;
   const CACHE_TTL = 900; // 15 minutes
+
+  // ══════════════════════════════════════════════════════════════════
+  // [2026-08-31] 커서 + 데드라인 — CloudWatch `signum-harvest-slow` 대응
+  //
+  // 증상: 매 실행이 Duration 900000ms(=타임아웃)로 강제 종료. 실측 로그상
+  //   350~450/506 에서 죽었다. 스케줄이 rate(15 minutes) 로 **타임아웃과 같아서**
+  //   죽기 전에 다음 실행이 시작됐고, 3~4개가 겹쳐 돌며 같은 벤더 API 를 때려
+  //   서로를 더 느리게 만드는 악순환이 있었다.
+  //
+  // 원인: 506종목 × 동시 5 × (만기목록 1 + 체인 여러 개) 가 900초에 안 들어간다.
+  //   실측 종목당 약 1.8초 → 506종목 ≈ 911초. **간발의 차로 초과**한다.
+  //   게다가 항상 0번부터 시작하므로 **뒤쪽 약 150종목은 영원히 안 데워졌다**
+  //   (그 종목들만 앱에서 MAX PAIN·GAMMA FLIP 이 늦게 뜨는 원인).
+  //
+  // 해결: ①데드라인 전에 «스스로» 깨끗이 멈춘다(타임아웃 없음 → 겹침 없음)
+  //       ②멈춘 자리를 Redis 커서에 남겨 다음 실행이 이어받는다
+  //         → 커버리지가 «회전»하므로 늘 같은 종목만 차갑게 남지 않는다
+  //   동시 실행 수는 올리지 않는다 — 벤더 레이트리밋이 더 큰 위험이다.
+  // ══════════════════════════════════════════════════════════════════
+  const DEADLINE_MS = Number(process.env.FLOWWARM_DEADLINE_MS || 660000); // 11분
+  const CURSOR_KEY = 'flow:warm:cursor';
+  let startIdx = 0;
+  const rawCursor = await redisGet(CURSOR_KEY);
+  const parsedCursor = Number(rawCursor);
+  if (Number.isFinite(parsedCursor) && parsedCursor >= 0 && parsedCursor < UNIVERSE.length) {
+    startIdx = Math.floor(parsedCursor);
+  }
+  // 커서에서 시작해 한 바퀴 도는 순서를 만든다
+  const ORDER = [];
+  for (let k = 0; k < UNIVERSE.length; k++) ORDER.push(UNIVERSE[(startIdx + k) % UNIVERSE.length]);
+
+  console.log('[FlowWarm] Starting — ' + UNIVERSE.length + ' tickers from cursor ' + startIdx
+    + ' (deadline ' + Math.round(DEADLINE_MS / 1000) + 's)');
   let success = 0, fail = 0;
+  let processed = 0, stoppedEarly = false;
 
   // ====== PRE-CALCULATE weekly expiry ONCE (not per-ticker) ======
   // Use ET timezone for market-accurate date
@@ -636,8 +680,10 @@ async function warmFlowCache(snapshotMap) {
   console.log('[FlowWarm] Weekly expiry determined: ' + globalWeeklyExpiry + ' (candidates: ' + candidates.join(', ') + ')');
   const todayStr = now.toISOString().slice(0, 10);
 
-  for (let i = 0; i < UNIVERSE.length; i += CONCURRENCY) {
-    const batch = UNIVERSE.slice(i, i + CONCURRENCY);
+  for (let i = 0; i < ORDER.length; i += CONCURRENCY) {
+    // 데드라인을 넘기 전에 스스로 멈춘다. 타임아웃으로 죽으면 커서도 못 남긴다.
+    if (Date.now() - start > DEADLINE_MS) { stoppedEarly = true; break; }
+    const batch = ORDER.slice(i, i + CONCURRENCY);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const snap = snapshotMap[ticker];
@@ -798,20 +844,28 @@ async function warmFlowCache(snapshotMap) {
       }
     }));
 
+    processed += batch.length;
+
     // Small delay between batches to respect Polygon rate limits
-    if (i + CONCURRENCY < UNIVERSE.length) {
+    if (i + CONCURRENCY < ORDER.length) {
       await new Promise(r => setTimeout(r, 500));
     }
 
     // Progress log every 50 tickers
-    if ((i + CONCURRENCY) % 50 === 0) {
-      console.log('[FlowWarm] Progress: ' + (i + CONCURRENCY) + '/' + UNIVERSE.length + ' (' + success + ' ok, ' + fail + ' fail)');
+    if (processed % 50 === 0) {
+      console.log('[FlowWarm] Progress: ' + processed + '/' + ORDER.length + ' (' + success + ' ok, ' + fail + ' fail)');
     }
   }
 
+  // 다음 실행이 이어받을 자리. 한 바퀴를 다 돌았으면 0 으로 되돌린다.
+  const nextCursor = processed >= UNIVERSE.length ? 0 : (startIdx + processed) % UNIVERSE.length;
+  await redisSet(CURSOR_KEY, String(nextCursor), 86400);
+
   const duration = Math.round((Date.now() - start) / 1000);
-  console.log('[FlowWarm] Done: ' + success + ' ok, ' + fail + ' fail in ' + duration + 's');
-  return { success, fail, duration };
+  console.log('[FlowWarm] Done: ' + success + ' ok, ' + fail + ' fail, '
+    + processed + '/' + UNIVERSE.length + ' in ' + duration + 's'
+    + (stoppedEarly ? ' (deadline, next cursor ' + nextCursor + ')' : ' (full pass)'));
+  return { success, fail, duration, processed, startIdx, nextCursor, stoppedEarly };
 }
 
 // ====== V8: GICS Sector Mapping ======
