@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { getDarkPoolBatch, getDarkPoolMarket } from '@/services/darkPool';
+import { getDarkPoolBatch } from '@/services/darkPool';
 
 // ============================================================================
 // /api/ranking/deviation — 「평소 대비 이탈」 랭킹.
@@ -156,15 +156,17 @@ export async function GET(req: NextRequest) {
         // ⚠️ 다크풀은 «EC2 Redis 프록시»로 읽힌다. getFromCache 로 같은 키를 찍으면
         //    빈 값이 온다(실제로 그래서 available:false 가 나왔다). 앱의 정본
         //    접근자를 그대로 쓴다 — 저장 경로가 바뀌어도 여기가 따라 깨지지 않는다.
-        const [mkt, rows] = await Promise.all([
-            getDarkPoolMarket(),
-            getDarkPoolBatch(UNIVERSE.filter((t) => !DP_ETF.has(t))),
-        ]);
-        const n = Object.keys(rows).length;
+        // ⚠️ 이 키는 2.19MB 이고 읽기 타임아웃이 5초다(실측 5.2초 — 코드 주석에
+        //    경고가 있다). getDarkPoolMarket 과 «동시에» 부르면 둘 다 넘겨서
+        //    다크풀이 에러 없이 사라진다(실제로 그랬다). 한 번만 읽는다 —
+        //    date·marketAvg 는 어차피 각 종목 행에 실려 온다.
+        const rows = await getDarkPoolBatch(UNIVERSE.filter((t) => !DP_ETF.has(t)));
+        const list = Object.values(rows);
+        const n = list.length;
         if (n > 0) {
             darkPool = {
-                available: true, date: mkt?.date ?? null,
-                marketAvg: mkt?.marketAvg ?? null, covered: mkt?.covered ?? n,
+                available: true, date: list[0].date ?? null,
+                marketAvg: list[0].marketAvg ?? null, covered: n,
             };
             for (const [t, r] of Object.entries(rows)) {
                 // ① 장외 물량이 평소의 몇 배 — 이미 계산돼 있다
@@ -209,7 +211,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true,
+        ok: true, _v: 2,
         generatedAt: new Date().toISOString(),
         method: {
             baseline: `최근 ${days}일 중앙값(평균 아님)`,
