@@ -192,8 +192,27 @@ export async function GET(request: Request) {
                     extendedLabel = 'PRE';
                 }
             } else if (session === 'pre') {
-                price = prevClose;
-                extendedPrice = S.min?.c || liveLast || 0;
+                // ══════════════════════════════════════════════════════
+                // [2026-08-31 수정] PRE 에서 두 값이 모두 틀려 있었다.
+                //
+                //   실측(월요일 프리마켓, 프로덕션):
+                //     TSLA  price 354.81(목) · extendedPrice 348.75
+                //     → 화면 「PRE $348.75 +0.00%」. 실제 프리 체결가는 346.8 이었다.
+                //
+                //   ① price 는 «마지막 정규장 종가»여야 한다. prevClose(= prevDay.c)는
+                //      그 하나 앞(목요일)이라 한 세션 밀린다. post/closed 분기는 이미
+                //      `dayClose || prevClose` 를 쓰고 있다 — PRE 만 빠져 있었다.
+                //   ② Massive 는 프리마켓 체결을 주지 않는다. 그래서 min.c/lastTrade 가
+                //      금요일 «종가» 그대로 온다. 그건 프리마켓 가격이 아니다.
+                //      /api/live/ticker(Intrinio)가 채워 둔 flow:extended 캐시를 우선한다.
+                //      둘 다 없으면 0 을 내보내 클라이언트가 정확한 소스로 폴백하게 둔다
+                //      — 그럴듯한 가짜 숫자보다 «값 없음»이 언제나 낫다.
+                // ══════════════════════════════════════════════════════
+                price = dayClose || prevClose;
+                const rawPre = S.min?.c || liveLast || 0;
+                const isRealPre = rawPre > 0 && dayClose > 0 && Math.abs(rawPre - dayClose) > 0.005;
+                extendedPrice = (cachedExt?.prePrice > 0 ? cachedExt.prePrice : 0)
+                    || (isRealPre ? rawPre : 0);
                 extendedLabel = 'PRE';
             } else if (session === 'post') {
                 price = dayClose || prevClose;
@@ -228,8 +247,11 @@ export async function GET(request: Request) {
             // POST: (postPrice - dayClose) / dayClose (measures after-hours movement from today's close)
             let extendedChangePct = 0;
             if (extendedPrice > 0) {
-                if (extendedLabel === 'PRE' && prevDayClose > 0) {
-                    extendedChangePct = ((extendedPrice - prevDayClose) / prevDayClose) * 100;
+                // ⚠️ 프리마켓 등락률의 기준은 «마지막 정규장 종가»(금요일)다.
+                //    prevDayClose(목요일)를 쓰면 위 price 와 같은 이유로 한 세션 밀린다.
+                const preBaseline = dayClose || prevDayClose;
+                if (extendedLabel === 'PRE' && preBaseline > 0) {
+                    extendedChangePct = ((extendedPrice - preBaseline) / preBaseline) * 100;
                 } else if (extendedLabel === 'POST' && price > 0) {
                     extendedChangePct = ((extendedPrice - price) / price) * 100;
                 } else if (price > 0) {
