@@ -67,20 +67,39 @@ async function history(ticker: string, days: number): Promise<Row[]> {
     );
 }
 
-// 하루에 여러 스냅샷이 있다 — «그날의 마지막 값»을 그날 값으로 삼는다.
-function daily(items: Row[], key: string) {
-    const byDay = new Map<string, { ts: number; v: number; oi: number }>();
+// 하루의 «대표 스냅샷»을 고른다.
+//
+// ⚠️ [2026-09-01 실측으로 발견 — 이게 가장 큰 함정이었다]
+//    같은 날 NVDA 콜 미결제약정이 이렇게 찍힌다:
+//      1,985,592 → 883,089 → 1,923,222 → 107,121 → 633,626 → 1,825,631
+//    미결제약정은 하루 한 번 갱신되므로 이건 장중 변화가 아니다.
+//    harvest 가 매 실행마다 «맨 앞 만기»를 다시 고르는데 그게 실행마다
+//    달라져서, 어느 만기를 봤느냐로 20배씩 널뛴다.
+//
+//    그래서 「그날의 마지막 값」을 쓰면 안 된다 — 마지막 실행에 어떤 만기가
+//    걸렸느냐는 사실상 동전 던지기다. 대신 **그날 총 OI 가 가장 큰 스냅샷**
+//    하나를 골라 «모든 지표를 거기서» 읽는다. 이러면
+//      ① 날마다 같은 성격(가장 큰 만기)을 보므로 비교가 성립하고
+//      ② 한 카드 안의 지표들이 서로 같은 체인에서 나온다.
+function dailySnapshots(items: Row[]) {
+    const byDay = new Map<string, Row>();
     for (const it of items) {
-        const v = Number(it[key]);
-        if (!Number.isFinite(v)) continue;
         const ts = Number(it.timestamp);
+        if (!Number.isFinite(ts)) continue;
         const d = etDay(ts);
-        // 총 OI 는 «어느 만기를 보고 있었나»의 대리 지표다.
         const oi = Number(it.totalCallOI || 0) + Number(it.totalPutOI || 0);
         const prev = byDay.get(d);
-        if (!prev || ts > prev.ts) byDay.set(d, { ts, v, oi });
+        const prevOi = prev ? Number(prev.totalCallOI || 0) + Number(prev.totalPutOI || 0) : -1;
+        // OI 가 없는 행(프리미엄 전용 행 등)은 대표가 될 수 없다 — 비교 기준을 못 준다.
+        if (oi > 0 && oi > prevOi) byDay.set(d, { ...it, _oi: oi, _d: d });
     }
-    return [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([d, x]) => ({ d, ...x }));
+    return [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([, r]) => r);
+}
+
+function seriesOf(snaps: Row[], key: string) {
+    return snaps
+        .map((r) => ({ d: r._d as string, v: Number(r[key]), oi: r._oi as number }))
+        .filter((x) => Number.isFinite(x.v));
 }
 
 export async function GET(req: NextRequest) {
@@ -101,9 +120,10 @@ export async function GET(req: NextRequest) {
         let items: Row[] = [];
         try { items = await history(t, days); } catch { bump('조회실패'); continue; }
         if (!items.length) { bump('이력없음'); continue; }
+        const snaps = dailySnapshots(items);
 
         for (const m of METRICS) {
-            const series = daily(items, m.key);
+            const series = seriesOf(snaps, m.key);
             if (series.length < MIN_SESSIONS + 1) { bump('이력부족'); continue; }
             const today = series[series.length - 1];
 
@@ -241,10 +261,13 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 4,
+        ok: true, _v: 5,
+        // 어떤 에이전트가 읽어도 쓰는 법을 알 수 있게 — 응답 자체가 사용법을 가리킨다
+        docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(),
         method: {
             baseline: `최근 ${days}일 중앙값(평균 아님)`,
+            snapshot: '하루에 여러 스냅샷이 있고 실행마다 다른 만기가 걸린다(같은 날 OI 가 20배까지 널뛴다). 그래서 마지막 값이 아니라 «총 OI 가 가장 큰 스냅샷» 하나를 골라 모든 지표를 거기서 읽는다.',
             dispersion: 'MAD',
             guards: ['만기 롤오버(같은 규모 체인만 비교)', `최소 비교 ${MIN_REGIME_DAYS}일`, `|z| ≥ ${MIN_Z}`, `배수 ≥ ${MIN_RATIO}`],
             note: '순위는 «평소의 몇 배»(비율). σ 는 게이트로만 쓴다.',

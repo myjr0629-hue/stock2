@@ -859,9 +859,20 @@ async function warmFlowCache(snapshotMap, lambdaContext) {
         // 구분되지 않고, 그게 죽은 데이터가 살아 있는 척하는 경로다.
         try {
           const _tp = Math.round(callPremium + putPremium);
+          // ⚠️ OI 를 같이 넣어야 한다. 랭킹은 «그날 총 OI 가 가장 큰 스냅샷»을
+          //    대표로 고르는데(실행마다 다른 만기가 걸려 OI 가 20배 널뛰기 때문),
+          //    OI 가 없는 행은 대표가 될 수 없어 프리미엄이 영원히 랭킹에 못 든다.
+          let _cOI = 0, _pOI = 0;
+          for (const c of results) {
+            const oi = c.open_interest || 0;
+            if (c.details?.contract_type === 'call') _cOI += oi;
+            else if (c.details?.contract_type === 'put') _pOI += oi;
+          }
           if (_tp > 0) {
             await client.send(new PutCommand({ TableName: 'signum-flow-history', Item: {
               ticker, timestamp: Date.now(),
+              totalCallOI: _cOI, totalPutOI: _pOI,
+              ...(_cOI > 0 ? { pcr: Math.round((_pOI / _cOI) * 100) / 100 } : {}),
               callPremium: Math.round(callPremium),
               putPremium: Math.round(putPremium),
               totalPremium: _tp,
