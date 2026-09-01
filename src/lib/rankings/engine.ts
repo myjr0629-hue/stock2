@@ -131,7 +131,7 @@ export function deviationOf(
  *    서로 다른 행에서 가져와 짝지으면 다른 만기를 섞는 것이라 더 나쁘다.
  *    → 둘 다 든 행을 찾아 쓴다. 없으면 그 종목은 그냥 빠진다.
  */
-export function latestWith(items: Row[], keys: string[]) {
+export function latestWith(items: Row[], keys: string[]): (Row & { _d: string }) | null {
     let best: Row | null = null, bestTs = -1;
     for (const it of items) {
         const ts = Number(it.timestamp);
