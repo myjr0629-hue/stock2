@@ -7,57 +7,266 @@
     "C": "청중형 — 팔로워 0이면 도달 0. 우리 계정에 올리지 말고 «청중이 있는 곳»에 답글로 간다."
   },
   "channels": [
-    { "id":"x_us","name":"X 미국","tier":"C","handle":"@signumhq","login":"ok","profile":"ok",
-      "posts":181,"followers":5,"tag":"x_us","link":"https://signumhq.com/app?from=x_bio",
-      "note":"Premium+. 프로필 완비. 원글은 도달 0 → 대형 스레드 답글로 전환","action":"reply_only" },
-    { "id":"x_jp","name":"X 일본","tier":"C","handle":"@signumhq_jp","login":"ok","profile":"ok",
-      "posts":145,"followers":3,"tag":"x_jp","link":"https://signumhq.com/app?from=x_bio",
-      "note":"Premium+. 콘텐츠 언어는 계정 국적과 무관","action":"reply_only" },
-    { "id":"bluesky","name":"Bluesky","tier":"C","handle":"@signumhq.bsky.social","login":"ok","profile":"ok",
-      "posts":639,"followers":23,"tag":"bluesky_bio","link":"https://signumhq.com/app?from=bluesky_bio",
-      "note":"2026-09-01 소개·링크 정비 + 동종 4곳 팔로우(Unusual Whales 11.4만·InsiderFinance·TipDrop·TradesAlertsAI)","action":"reply_only" },
-    { "id":"threads","name":"Threads","tier":"C","handle":"@signumhq_official","login":"ok","profile":"ok",
-      "posts":2,"followers":3,"tag":"threads_bio","link":"https://signumhq.com/app?from=threads_bio",
-      "note":"2026-09-01 소개·링크·관심사 4개 신규. 소개 150자 제한. 좌표클릭 금지 → ref 로만","action":"reply_only" },
-    { "id":"instagram","name":"Instagram","tier":"C","handle":"@signumhq_official","login":"ok","profile":"partial",
-      "posts":109,"followers":0,"tag":"ig_bio","link":"https://signumhq.com/app?from=ig_bio",
-      "blocker":"링크 칸이 모바일 앱 전용 → 대표 1회","note":"소개에 앱주소 명기 완료","action":"reply_only" },
-    { "id":"pinterest","name":"Pinterest","tier":"A","handle":"SIGNUMHQ","login":"ok","profile":"ok",
-      "tag":"pinterest_bio","link":"https://signumhq.com/app?from=pinterest_bio",
-      "note":"핀은 검색 수요를 받는다(=A형). 단 웹사이트 칸이 ?from= 을 잘라냄 → 태그는 핀 설명에","action":"post" },
-    { "id":"reddit","name":"Reddit","tier":"A","handle":"u/SignumHQ","login":"ok","profile":"ok",
-      "karma":4,"tag":"reddit_bio","link":"https://signumhq.com/app?from=reddit_bio",
-      "note":"2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형)","action":"answer" },
-    { "id":"tiktok","name":"TikTok","tier":"B","handle":"@signumhq","login":"ok","profile":"ok",
-      "posts":2,"followers":0,"tag":"tiktok","link":"https://signumhq.com/app?from=tiktok","action":"post" },
-    { "id":"youtube","name":"YouTube","tier":"B","handle":"시그넘 KR / SIGNUM HQ / SIGNUM_JP","login":"ok","profile":"ok",
-      "tag":"youtube","note":"Shorts KR 1.2만 조회 실적 — 우리가 가진 유일한 «작동하는» 배포 채널","action":"post" },
-    { "id":"note","name":"note.com","tier":"A","handle":"note.com/signumhq","login":"ok","profile":"ok",
-      "tag":"note","note":"일본 검색 수요","action":"post" },
-    { "id":"medium","name":"Medium","tier":"A","handle":"@signum_hq","login":"ok","profile":"ok",
-      "tag":"medium","action":"post" },
-    { "id":"seo","name":"자사 SEO","tier":"A","login":"ok","profile":"ok",
-      "note":"GSC 실측 상위질의가 전부 «{티커} max pain / dark pool». 최대 병목=백링크(참조도메인 2 vs 경쟁사 1.3K)","action":"build" },
-    { "id":"aso","name":"앱스토어 ASO","tier":"A","login":"ok","profile":"ok",
-      "note":"이름 필드가 검색 후보군을 결정한다. 3앱×3스토어","action":"build" },
-    { "id":"directories","name":"앱·스타트업 디렉터리","tier":"A","login":"ok","profile":"ok",
-      "note":"DIRECTORY-LIST.md 107곳. 영구 백링크 = SEO 병목 직격","action":"submit" },
-
-    { "id":"stocktwits","name":"StockTwits","tier":"C","handle":"@SIGNUMHQ","login":"ok","profile":"ok",
-      "status":"BANNED","blocker":"House Rules 무기한 제재 — 대표 확인 전 게시 금지","action":"none" },
-    { "id":"linkedin","name":"LinkedIn","tier":"A","handle":"pick8775@gmail.com","login":"blocked",
-      "blocker":"reCAPTCHA → 대표 1회","action":"none" },
-    { "id":"buffer","name":"Buffer","tier":"-","status":"KILLED",
-      "note":"2026-09-01 대표 지시로 영구 정지. vercel.json 크론 제거 + autopilot.ts BUFFER_AUTOPILOT_DISABLED","action":"none" }
+    {
+      "id": "x_us",
+      "name": "X 미국",
+      "tier": "C",
+      "handle": "@signumhq",
+      "login": "ok",
+      "profile": "ok",
+      "posts": 181,
+      "followers": 5,
+      "tag": "x_us",
+      "link": "https://signumhq.com/app?from=x_bio",
+      "note": "Premium+. 프로필 완비. 원글은 도달 0 → 대형 스레드 답글로 전환",
+      "action": "reply_only"
+    },
+    {
+      "id": "x_jp",
+      "name": "X 일본",
+      "tier": "C",
+      "handle": "@signumhq_jp",
+      "login": "ok",
+      "profile": "ok",
+      "posts": 145,
+      "followers": 3,
+      "tag": "x_jp",
+      "link": "https://signumhq.com/app?from=x_bio",
+      "note": "Premium+. 콘텐츠 언어는 계정 국적과 무관",
+      "action": "reply_only"
+    },
+    {
+      "id": "bluesky",
+      "name": "Bluesky",
+      "tier": "C",
+      "handle": "@signumhq.bsky.social",
+      "login": "ok",
+      "profile": "ok",
+      "posts": 639,
+      "followers": 23,
+      "tag": "bluesky_bio",
+      "link": "https://signumhq.com/app?from=bluesky_bio",
+      "note": "2026-09-01 소개·링크 정비 + 동종 4곳 팔로우(Unusual Whales 11.4만·InsiderFinance·TipDrop·TradesAlertsAI)",
+      "action": "reply_only"
+    },
+    {
+      "id": "threads",
+      "name": "Threads",
+      "tier": "C",
+      "handle": "@signumhq_official",
+      "login": "ok",
+      "profile": "ok",
+      "posts": 2,
+      "followers": 3,
+      "tag": "threads_bio",
+      "link": "https://signumhq.com/app?from=threads_bio",
+      "note": "2026-09-01 소개·링크·관심사 4개 신규. 소개 150자 제한. 좌표클릭 금지 → ref 로만",
+      "action": "reply_only"
+    },
+    {
+      "id": "instagram",
+      "name": "Instagram",
+      "tier": "C",
+      "handle": "@signumhq_official",
+      "login": "ok",
+      "profile": "partial",
+      "posts": 109,
+      "followers": 0,
+      "tag": "ig_bio",
+      "link": "https://signumhq.com/app?from=ig_bio",
+      "blocker": "링크 칸이 모바일 앱 전용 → 대표 1회",
+      "note": "소개에 앱주소 명기 완료",
+      "action": "reply_only"
+    },
+    {
+      "id": "pinterest",
+      "name": "Pinterest",
+      "tier": "A",
+      "handle": "SIGNUMHQ",
+      "login": "ok",
+      "profile": "ok",
+      "tag": "pinterest_bio",
+      "link": "https://signumhq.com/app?from=pinterest_bio",
+      "note": "핀은 검색 수요를 받는다(=A형). 단 웹사이트 칸이 ?from= 을 잘라냄 → 태그는 핀 설명에",
+      "action": "post"
+    },
+    {
+      "id": "reddit",
+      "name": "Reddit",
+      "tier": "A",
+      "handle": "u/SignumHQ",
+      "login": "ok",
+      "profile": "ok",
+      "karma": 4,
+      "tag": "reddit_bio",
+      "link": "https://signumhq.com/app?from=reddit_bio",
+      "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형)",
+      "action": "answer"
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok",
+      "tier": "B",
+      "handle": "@signumhq",
+      "login": "ok",
+      "profile": "ok",
+      "posts": 2,
+      "followers": 0,
+      "tag": "tiktok",
+      "link": "https://signumhq.com/app?from=tiktok",
+      "action": "post"
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "tier": "B",
+      "handle": "시그넘 KR / SIGNUM HQ / SIGNUM_JP",
+      "login": "ok",
+      "profile": "ok",
+      "tag": "youtube",
+      "note": "Shorts KR 1.2만 조회 실적 — 우리가 가진 유일한 «작동하는» 배포 채널",
+      "action": "post"
+    },
+    {
+      "id": "note",
+      "name": "note.com",
+      "tier": "A",
+      "handle": "note.com/signumhq",
+      "login": "ok",
+      "profile": "ok",
+      "tag": "note",
+      "note": "일본 검색 수요",
+      "action": "post"
+    },
+    {
+      "id": "medium",
+      "name": "Medium",
+      "tier": "A",
+      "handle": "@signum_hq",
+      "login": "ok",
+      "profile": "ok",
+      "tag": "medium",
+      "action": "post"
+    },
+    {
+      "id": "seo",
+      "name": "자사 SEO",
+      "tier": "A",
+      "login": "ok",
+      "profile": "ok",
+      "note": "GSC 실측 상위질의가 전부 «{티커} max pain / dark pool». 최대 병목=백링크(참조도메인 2 vs 경쟁사 1.3K)",
+      "action": "build"
+    },
+    {
+      "id": "aso",
+      "name": "앱스토어 ASO",
+      "tier": "A",
+      "login": "ok",
+      "profile": "ok",
+      "note": "이름 필드가 검색 후보군을 결정한다. 3앱×3스토어",
+      "action": "build"
+    },
+    {
+      "id": "directories",
+      "name": "앱·스타트업 디렉터리",
+      "tier": "A",
+      "login": "ok",
+      "profile": "ok",
+      "note": "DIRECTORY-LIST.md 107곳. 영구 백링크 = SEO 병목 직격",
+      "action": "submit"
+    },
+    {
+      "id": "stocktwits",
+      "name": "StockTwits",
+      "tier": "C",
+      "handle": "@SIGNUMHQ",
+      "login": "ok",
+      "profile": "ok",
+      "status": "BANNED",
+      "blocker": "House Rules 무기한 제재 — 대표 확인 전 게시 금지",
+      "action": "none"
+    },
+    {
+      "id": "linkedin",
+      "name": "LinkedIn",
+      "tier": "A",
+      "handle": "pick8775@gmail.com",
+      "login": "blocked",
+      "blocker": "reCAPTCHA → 대표 1회",
+      "action": "none"
+    },
+    {
+      "id": "buffer",
+      "name": "Buffer",
+      "tier": "-",
+      "status": "KILLED",
+      "note": "2026-09-01 대표 지시로 영구 정지. vercel.json 크론 제거 + autopilot.ts BUFFER_AUTOPILOT_DISABLED",
+      "action": "none"
+    }
   ],
   "candidates": [
-    { "id":"quora","name":"Quora","tier":"A","why":"«what is max pain / dark pool» 질문에 답하면 영구 검색 자산. 팔로워 불필요","status":"todo" },
-    { "id":"github_awesome","name":"GitHub awesome-list","tier":"A","why":"awesome-quant 등 PR 등재 = 영구 백링크 + 개발자 청중. 백링크 병목 직격","status":"todo" },
-    { "id":"devto","name":"Dev.to / Hashnode","tier":"A","why":"옵션 데이터 파이프라인 기술글. 개발자 검색 수요","status":"todo" },
-    { "id":"qiita_zenn","name":"Qiita / Zenn","tier":"A","why":"일본 개발자. note 와 다른 수요층","status":"todo" },
-    { "id":"jisiklin","name":"네이버 지식iN","tier":"A","why":"한국 검색 수요를 직접 받는다","status":"todo" },
-    { "id":"chiebukuro","name":"Yahoo!知恵袋","tier":"A","why":"일본 검색 수요","status":"todo" },
-    { "id":"minkabu","name":"みんかぶ / Yahoo!ファイナンス掲示板","tier":"C","why":"일본 개인투자자 밀집","status":"todo" },
-    { "id":"indiehackers","name":"Indie Hackers","tier":"A","why":"1인 개발 스토리. 디렉터리 목록에도 있음","status":"todo" }
+    {
+      "id": "quora",
+      "name": "Quora",
+      "tier": "A",
+      "why": "«what is max pain / dark pool» 질문에 답하면 영구 검색 자산. 팔로워 불필요",
+      "status": "todo"
+    },
+    {
+      "id": "github_awesome",
+      "name": "GitHub awesome-list",
+      "tier": "A",
+      "why": "awesome-quant 등 PR 등재 = 영구 백링크 + 개발자 청중. 백링크 병목 직격",
+      "status": "in_progress",
+      "prs": [
+        "Jera-Value/awesome-investing-tools-and-software-directory#40 (Options and Derivatives, SpotGamma·UnusualWhales 옆)",
+        "jplock/awesome-fintech#128 (Capital Markets, B2C)"
+      ],
+      "rejected": [
+        "mr-karan/awesome-investing — 2026-05-15 아카이브(읽기전용). PR 불가"
+      ]
+    },
+    {
+      "id": "devto",
+      "name": "Dev.to / Hashnode",
+      "tier": "A",
+      "why": "옵션 데이터 파이프라인 기술글. 개발자 검색 수요",
+      "status": "todo"
+    },
+    {
+      "id": "qiita_zenn",
+      "name": "Qiita / Zenn",
+      "tier": "A",
+      "why": "일본 개발자. note 와 다른 수요층",
+      "status": "todo"
+    },
+    {
+      "id": "jisiklin",
+      "name": "네이버 지식iN",
+      "tier": "A",
+      "why": "한국 검색 수요를 직접 받는다",
+      "status": "todo"
+    },
+    {
+      "id": "chiebukuro",
+      "name": "Yahoo!知恵袋",
+      "tier": "A",
+      "why": "일본 검색 수요",
+      "status": "todo"
+    },
+    {
+      "id": "minkabu",
+      "name": "みんかぶ / Yahoo!ファイナンス掲示板",
+      "tier": "C",
+      "why": "일본 개인투자자 밀집",
+      "status": "todo"
+    },
+    {
+      "id": "indiehackers",
+      "name": "Indie Hackers",
+      "tier": "A",
+      "why": "1인 개발 스토리. 디렉터리 목록에도 있음",
+      "status": "todo"
+    }
   ]
 }

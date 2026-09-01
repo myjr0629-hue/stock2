@@ -2330,3 +2330,31 @@ awesome-list 등재는 **영구 백링크 + 개발자 청중 + 팔로워 불필�
 ## Buffer 영구 정지
 
 크론 2건 제거 + `BUFFER_AUTOPILOT_DISABLED`. 근거: 1,000편 넘게 자동 게시해 팔로워 31명.
+
+## awesome-list 2번째 — jplock/awesome-fintech PR #128
+
+→ https://github.com/jplock/awesome-fintech/pull/128
+- 섹션: **Capital Markets** · 형식 `[B2C, @signumhq]` (13F Insight·Tapetide 와 동일)
+- 알파벳 위치 Public.com ↔ Trumid 사이에 정확히 삽입
+- 이해관계 명시
+
+### ★ 반드시 «아카이브 여부»를 먼저 볼 것
+`mr-karan/awesome-investing`(2,456★)에 넣으려고 포크·파일준비·업로드까지 다 했는데
+PR 화면에서야 **「2026-05-15 아카이브, 읽기 전용」** 배너를 봤다. 병합이 불가능하다.
+`pushed_at` 만 보면 안 된다 — API 의 **`archived`** 필드를 봐야 한다:
+
+```bash
+curl -s -H "Authorization: Bearer $T" api.github.com/repos/OWNER/REPO \
+  | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['archived'], d['pushed_at'])"
+```
+
+생존 확인 결과(2026-09-01):
+| 저장소 | 상태 |
+|---|---|
+| mr-karan/awesome-investing 2,456★ | **ARCHIVED** |
+| wilsonfreitas/awesome-quant 29,348★ | live (당일 커밋) — 다만 «라이브러리» 목록이라 앱은 부적합 |
+| paperswithbacktest/awesome-systematic-trading 14,099★ | live — 코드 프레임워크 목록, 부적합 |
+| jplock/awesome-fintech 108★ | live → **PR #128 제출** |
+| moov-io/awesome-fintech 368★ | live — «오픈소스» 한정이라 부적합 |
+| 7kfpun/awesome-fintech 356★ | live — 검토 대상 |
+| andyej0401/awesome-asian-stock-market 3★ | live — KR/JP 강조로 검토 |
