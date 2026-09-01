@@ -2284,3 +2284,49 @@ FINRA 게시 시각(17:31 ET = 일본 아침 6시 반)도 넣었다 — 일본 �
 - ElevenLabs `voice_id` 는 «전체»를 써야 한다. 목록에서 잘라 본 앞 12자로는 404.
 - 이 저장소에 **ffprobe 가 없다**(ffmpeg-static 은 ffmpeg 만 준다).
   길이는 ffmpeg stderr 에서 읽는다.
+
+---
+
+# 2026-09-01 (밤) — 백링크 공략 개시 + 엔진화
+
+## ★ GitHub awesome-list 등재 PR #40 (첫 성과)
+
+**`Jera-Value/awesome-investing-tools-and-software-directory`** (89★ · 투자 도구 361개 디렉터리)
+→ https://github.com/Jera-Value/awesome-investing-tools-and-software-directory/pull/40
+
+- 섹션: **⚙️ Options and Derivatives** (기존 7개뿐 → 8개)
+- 자리: **SpotGamma·Unusual Whales 바로 옆** (알파벳순)
+- 상태: Open · Able to merge · 이해관계 명시(개발자 본인)
+
+### 왜 이걸 먼저 했나
+우리 최대 SEO 병목은 **참조도메인 2개** (경쟁사 Unusual Whales 1,300개).
+awesome-list 등재는 **영구 백링크 + 개발자 청중 + 팔로워 불필요** — 병목 직격이다.
+
+### 재현 절차 (다음 리스트에도 그대로 쓴다)
+1. `CONTRIBUTING.md` 를 **먼저** 읽는다 (여긴 `data/community-tools.json` + 빌드스크립트 방식)
+2. 브라우저로 포크 (**API 포크는 막힌다** — 토큰이 fine-grained 라 새 저장소 권한 없음)
+3. 로컬에서 원본을 클론 → 항목 추가 → `node scripts/build-directory.mjs` 로 README 재생성
+4. **git push 도 막힌다** → GitHub 웹 «Add file → Upload files» 로 업로드 (파일 경로별로 따로)
+5. PR 템플릿을 JS 네이티브 setter 로 채운다 (일반 타이핑은 글자를 흘린다)
+6. **본문의 모든 URL 을 curl 로 200 확인** 후 제출
+
+### 판단 기록
+- 링크는 `signumhq.com/app` 이 아니라 **본 사이트**를 썼다.
+  `/app` 은 데스크톱에서 앱스토어로 302 되는데, 디렉터리 규칙이
+  「정보를 확인할 수 있는 웹사이트」를 요구한다. **백링크 SEO 가치는 동일**하다.
+- 3앱을 한꺼번에 넣지 않고 **SIGNUM HQ 하나만** 냈다.
+  섹션 적합도가 가장 높고, 첫 제출은 통과율이 우선이다. 통과 후 UC·WIM 추가.
+
+## 프로필 정비 (전 채널)
+
+| 채널 | 한 일 |
+|---|---|
+| Threads @signumhq_official | 소개·앱링크·관심사 4개 신규 (계정은 살아있었음, `@signumhq` 는 남의 것) |
+| Reddit u/SignumHQ | 이름 `seamoca`→`SIGNUM HQ` · 소개 · 앱링크 · **아바타·배너(대표 직접)** |
+| Pinterest SIGNUMHQ | 소개 신규 · 웹사이트를 사이트→**앱링크** |
+| Instagram @signumhq_official | 소개에 앱주소 명기 (링크 칸은 모바일 전용) |
+| Bluesky | 소개 재작성 · 링크 태그 `x_bio`→`bluesky_bio` · **동종 4곳 팔로우** |
+
+## Buffer 영구 정지
+
+크론 2건 제거 + `BUFFER_AUTOPILOT_DISABLED`. 근거: 1,000편 넘게 자동 게시해 팔로워 31명.
