@@ -2358,3 +2358,40 @@ curl -s -H "Authorization: Bearer $T" api.github.com/repos/OWNER/REPO \
 | moov-io/awesome-fintech 368★ | live — «오픈소스» 한정이라 부적합 |
 | 7kfpun/awesome-fintech 356★ | live — 검토 대상 |
 | andyej0401/awesome-asian-stock-market 3★ | live — KR/JP 강조로 검토 |
+
+## ★★ Pinterest 가 방치된 2위 채널이었다 (2026-09-01 실측)
+
+프로필 정비하러 들어갔다가 숫자를 보고 알았다.
+
+| 채널 | 팔로워 | 도달 |
+|---|---:|---|
+| 유튜브 Shorts KR | — | **1.2만 조회** (알고리즘 배포) |
+| **Pinterest** | **2명** | **월 6,318 조회** ← 방치돼 있었다 |
+| X 미국 | 5명 | 게시물당 1~3 조회 |
+| Bluesky | 23명 | 유사 |
+
+**팔로워 2명으로 월 6,318 조회.** 정확히 A형(청중 불필요·검색 배포) 특성이다.
+그런데 핀이 **7월 10일에서 멈춰 있었고**, 우리는 X 에 1,000편을 쏟고 있었다.
+
+핀 1개 실측: 30일 노출 158 · 클릭 2 · 저장 1.
+
+### 오늘 한 것
+- 프로필: 소개 신규 + 웹사이트를 사이트→**앱 링크**
+- **첫 핀 게시**: TSLA 실데이터 카드(9/1 10:55 ET) + `?from=pinterest_pin`
+  - 제목/설명에 맥스페인 $345 · 감마플립 $352.50 · 프리미엄 $162.8M 명시
+  - 보드: Options Flow & Market Structure
+
+### ★ 프로필 «웹사이트» 칸과 핀 «랜딩 링크» 는 다르다
+- 프로필 웹사이트 칸: `?from=` **잘림** → 유입 추적 불가
+- 핀 랜딩 링크 칸: `?from=` **유지됨** ✅ → 태그는 핀에 건다
+
+### 카드 만드는 법
+```bash
+node scripts/make-x-shot.js signum en flow TSLA
+# → ~/Desktop/X 댓글용 이미지/YYYY-MM-DD-signum-flow-en-TICKER.png
+# 업로드하려면 scratchpad 로 복사할 것 (Desktop 은 세션 읽기권한 밖)
+```
+
+### ⚠️ 랭킹 API 에 «오래된 날짜»가 섞인다
+오늘(09-01) 랭킹 1위 NVDA 는 데이터 날짜가 **08-30**, 3위 META 는 **08-29** 였다.
+`date` 필드를 안 보고 「오늘」로 올리면 오보다. **09-01 인 항목만 쓴다.**

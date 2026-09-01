@@ -87,8 +87,10 @@
       "profile": "ok",
       "tag": "pinterest_bio",
       "link": "https://signumhq.com/app?from=pinterest_bio",
-      "note": "핀은 검색 수요를 받는다(=A형). 단 웹사이트 칸이 ?from= 을 잘라냄 → 태그는 핀 설명에",
-      "action": "post"
+      "note": "★ 방치된 2위 채널 — 팔로워 2로 월 6,318 조회. 핀 랜딩링크는 ?from= 유지(프로필 칸만 잘림)",
+      "action": "post",
+      "monthlyViews": 6318,
+      "followers": 2
     },
     {
       "id": "reddit",
