@@ -13,6 +13,7 @@
 |---|---|---|---|
 | **note.com** | note.com/signumhq · myjr0629@gmail.com | 2026-09-01 | ✅ **오늘 3편째 게시** · 프로필 완성(헤더·아이콘·소개·유튜브링크) |
 | **Reddit** | u/SignumHQ · myjr0629@gmail.com (구글로그인) | 2026-09-01 | ⚠️ 로그인됨이나 **카르마 4** · 두 번째 계정 unikuma@gmail.com |
+| **Medium** | @signum_hq · myjr0629@gmail.com (구글로그인) | 2026-09-01 | ✅ **오늘 게시** · 핸들 @myjr0629 → **@signum_hq** 로 변경 · 소개에 앱 링크 추가 |
 | **X 일본** | @signumhq_jp (Premium+) | 2026-09-01 | ✅ 게시 가능 |
 | **유튜브 3채널** | 시그넘 KR / SIGNUM HQ / SIGNUM_JP | 2026-09-01 | ✅ 업로드 가능 (**게시는 대표 승인 후**) |
 | **Google Search Console** | contact@signumhq.com | 2026-08-31 | ✅ |
@@ -24,7 +25,7 @@
 |---|---|---|
 | **Pinterest Business** | contact@signumhq.com | ⛔ **구글 로그인 팝업이 차단됨** — 대표가 한 번 로그인하면 그 뒤는 내가 |
 | **Bluesky** | contact@signumhq.com | ⛔ 구글 연동 없음 · 이메일+비밀번호만 → 내가 못 함 |
-| **LinkedIn** | pick8775@gmail.com | ⛔ **보안 인증(캡차)** 화면 → 내가 못 넘음 |
+| **LinkedIn** | pick8775@gmail.com | ⛔ **reCAPTCHA** · 대표 확인 결과 **48시간 대기** 상태 |
 | X 미국 | @signumhq (Premium+) | 계정 전환 메뉴가 안 열림 |
 | 토스증권 | 대표 계정 | 세션 만료 → 재로그인 필요 |
 | 틱톡 | @signumhq · @daldalkelly | 배포 0 (계정 신뢰도 문제) |
