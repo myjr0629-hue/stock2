@@ -5,13 +5,14 @@
 > note·Pinterest 등은 **이미 있었고 내가 만든 것도 있었다.**
 > 기억에 의존하지 말고 여기를 본다. 확인하면 «확인일»을 갱신한다.
 
-최종 확인: **2026-09-01**
+최종 확인: **2026-09-01** (브라우저 실측)
 
 ## 🟢 로그인 확인됨 — 내가 바로 쓸 수 있다
 
 | 채널 | 계정 | 확인일 | 상태 |
 |---|---|---|---|
-| **note.com** | note.com/signumhq (SIGNUM HQ) | 2026-09-01 | ✅ 로그인됨 · 기사 2편 게시함 · 팔로워 0 |
+| **note.com** | note.com/signumhq · myjr0629@gmail.com | 2026-09-01 | ✅ **오늘 3편째 게시** · 프로필 완성(헤더·아이콘·소개·유튜브링크) |
+| **Reddit** | u/SignumHQ · myjr0629@gmail.com (구글로그인) | 2026-09-01 | ⚠️ 로그인됨이나 **카르마 4** · 두 번째 계정 unikuma@gmail.com |
 | **X 일본** | @signumhq_jp (Premium+) | 2026-09-01 | ✅ 게시 가능 |
 | **유튜브 3채널** | 시그넘 KR / SIGNUM HQ / SIGNUM_JP | 2026-09-01 | ✅ 업로드 가능 (**게시는 대표 승인 후**) |
 | **Google Search Console** | contact@signumhq.com | 2026-08-31 | ✅ |
@@ -21,7 +22,9 @@
 
 | 채널 | 계정 | 상태 |
 |---|---|---|
-| **Pinterest Business** | **contact@signumhq.com** | 구글 연동으로 로그인 시도 (대표 승인 2026-09-01) |
+| **Pinterest Business** | contact@signumhq.com | ⛔ **구글 로그인 팝업이 차단됨** — 대표가 한 번 로그인하면 그 뒤는 내가 |
+| **Bluesky** | contact@signumhq.com | ⛔ 구글 연동 없음 · 이메일+비밀번호만 → 내가 못 함 |
+| **LinkedIn** | pick8775@gmail.com | ⛔ **보안 인증(캡차)** 화면 → 내가 못 넘음 |
 | X 미국 | @signumhq (Premium+) | 계정 전환 메뉴가 안 열림 |
 | 토스증권 | 대표 계정 | 세션 만료 → 재로그인 필요 |
 | 틱톡 | @signumhq · @daldalkelly | 배포 0 (계정 신뢰도 문제) |
@@ -35,9 +38,20 @@
 
 ## 🔴 아직 확인 못 한 곳 — 확인하면 여기로 옮긴다
 
-Reddit · Discord · Facebook · Quora · Medium · LinkedIn · Bluesky ·
-Threads/Instagram · Blind · Everytime · 오픈카톡 · Qiita/Zenn · Dev.to ·
-Indie Hackers · AlternativeTo · みんかぶ
+Discord · Facebook · Quora · Medium · Threads/Instagram · Blind · Everytime ·
+오픈카톡 · Qiita/Zenn · Dev.to · Indie Hackers · AlternativeTo · みんかぶ
+
+## ⛔ 내가 넘을 수 없는 벽 (기술적 한계)
+
+| 벽 | 어디서 | 대표가 하면 풀림 |
+|---|---|---|
+| 구글 OAuth **팝업 차단** | Pinterest | 한 번 로그인 |
+| **비밀번호 입력** | Bluesky · 대부분의 신규 가입 | 한 번 로그인 |
+| **캡차/보안 인증** | LinkedIn | 한 번 통과 |
+| **AI 작성 금지 규칙** | r/options 등 | 초안은 내가, 게시는 대표가 |
+| **카르마 하한** | Reddit 금융 서브 | 시간(도움 답글 누적) |
+
+→ 공통점: **한 번만 로그인해두시면 그 뒤로는 전부 제가 합니다.**
 
 ## 규칙
 
