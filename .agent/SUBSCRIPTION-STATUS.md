@@ -61,8 +61,15 @@
 | **심사 스크린샷** | ✅ 페이월 1179×2556 업로드, `COMPLETE` |
 | **심사 메모(reviewNote)** | ✅ 광고만 제거함을 명시 + 화면 찾는 경로 |
 
-> 상태는 아직 `MISSING_METADATA` 로 보인다 — 애플이 비동기로 재계산한다.
-> 다음 세션에서 `state` 를 다시 확인할 것.
+### ★★ 그리고 마지막 열쇠 — 구독 «그룹» 로컬라이제이션
+
+상품 쪽을 전부 채워도 `MISSING_METADATA` 가 안 풀렸다. 그룹이 비어 있었다
+(`/subscriptionGroups/22205273/subscriptionGroupLocalizations` → **0건**).
+en-US/ko/ja 3개를 만들자마자 **`READY_TO_SUBMIT`** 으로 바뀌었다.
+
+**구독은 «상품»과 «그룹» 두 층이다. 상품만 보면 영원히 못 찾는다.**
+
+> **현재 상태: `READY_TO_SUBMIT`** ✅ (2026-09-02 확인)
 
 ### Android
 RevenueCat 플러그인(`purchases-hybrid-common 18.18.0`)이 Play Billing 을 **자동으로 끌어온다**.
