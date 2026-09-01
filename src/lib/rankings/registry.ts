@@ -102,6 +102,25 @@ export const RANKINGS: RankingSpec[] = [
         guards: ['백분위 표본 10일 미만이면 판정하지 않는다', 'ETF 제외', '날짜 일치 확인'],
         direction: 'deviation',
     },
+    // ── 세션 무관 ───────────────────────────────────────────────────────
+    {
+        id: 'insider-conviction', phase: 'anytime',
+        name: { ko: '내부자 자신감 매집', en: 'Insider conviction buys', ja: 'インサイダーの本気買い' },
+        what: '미국 시장 «전체» 내부자 신고에서 SEC 코드 P(장내 매수)만 골라, 한 종목에 들어간 금액을 합쳐 세운다. 보상·무상취득(A)·옵션행사(M)·세금납부(F)는 전부 제외한다.',
+        why: '회사 사정을 가장 잘 아는 사람이 «자기 돈»으로 시장에서 산 것만 남긴다. 보상으로 받은 주식은 아무 말도 안 한다 — 실측 908건 중 절반 이상이 그런 것이었다. 그리고 이건 우리 유니버스 25종목이 아니라 시장 전체를 훑는 «발굴형»이라, 아무도 모르던 티커가 올라온다.',
+        source: 'Intrinio insider_transaction_filings (전역)',
+        guards: ['SEC 코드 P 만', '파생거래 제외', '주식수·단가 둘 다 있어야 함', '금액과 «지분 증가율»을 함께 표기(대주주가 금액으로만 이기지 않게)'],
+        direction: 'deviation',
+    },
+    {
+        id: 'deep-value-fcf', phase: 'anytime',
+        name: { ko: '현금창출 대비 저평가', en: 'Cash-rich but cheap', ja: 'キャッシュ創出に対し割安' },
+        what: '잉여현금흐름 수익률(FCF ÷ 시가총액)이 높으면서, EV/EBITDA 가 유니버스 중앙값보다 40% 이상 싸고, 장기부채/자기자본이 0.8 이하인 종목.',
+        why: '차트가 아니라 «돈»으로 보는 축이다. 현금은 미친 듯이 버는데 주가만 빠진 종목을 찾는다. 다른 랭킹이 전부 옵션·수급이라 단기 트레이더용인데, 이건 스윙·가치 투자자에게 걸린다 — 시청자층이 다르다.',
+        source: 'Intrinio fundamentals → standardized_financials + marketcap',
+        guards: ['업종 평균이 아니라 «유니버스 중앙값» 대비다 — 업종 매핑이 없으므로 그렇게 라벨한다', '부채비율 게이트', '세 값 중 하나라도 없으면 제외(추정하지 않는다)'],
+        direction: 'deviation',
+    },
 ];
 
 export const byId = (id: string) => RANKINGS.find((r) => r.id === id) || null;

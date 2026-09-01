@@ -13,7 +13,9 @@
 //   ④ 시장 교란 — 시장 전체가 조용한 날엔 모든 종목이 «이탈»로 보인다
 // ============================================================================
 
-export type Phase = 'intraday' | 'postclose';
+// 'anytime' = 세션과 무관하게 성립하는 랭킹(내부자 신고·펀더멘털).
+// 장중/마감후로만 나누면 이런 것들이 억지로 한쪽에 붙어 오해를 만든다.
+export type Phase = 'intraday' | 'postclose' | 'anytime';
 
 export type Row = { timestamp: number;[k: string]: any };
 

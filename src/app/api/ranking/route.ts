@@ -6,6 +6,7 @@ import {
     Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
+import { fetchInsiderBuys, fetchFundamentals } from '@/lib/rankings/sources';
 
 // ============================================================================
 // /api/ranking — 랭킹 엔진.
@@ -80,6 +81,8 @@ export async function GET(req: NextRequest) {
     const needFlow = wanted.some((r) => ['deviation', 'multi-axis', 'money-vs-oi'].includes(r.id));
     const needGex = wanted.some((r) => ['maxpain-gap', 'gamma-flip'].includes(r.id));
     const needDp = wanted.some((r) => r.needsPostClose);
+    const needInsider = wanted.some((r) => r.id === 'insider-conviction');
+    const needFunda = wanted.some((r) => r.id === 'deep-value-fcf');
 
     // ── 자료 수집 ────────────────────────────────────────────────────────
     const flowSnaps: Record<string, any[]> = {};
@@ -118,6 +121,9 @@ export async function GET(req: NextRequest) {
             }
         } catch { dpMeta = { available: false, reason: '조회 실패' }; }
     }
+
+    const insider = needInsider ? await fetchInsiderBuys(4).catch(() => null) : null;
+    const funda = needFunda ? await fetchFundamentals(UNIVERSE).catch(() => null) : null;
 
     // ── 랭킹별 계산 ──────────────────────────────────────────────────────
     const results: Record<string, any> = {};
@@ -220,6 +226,56 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        if (spec.id === 'insider-conviction') {
+            if (!insider?.buys?.length) { bump('신고 없음'); }
+            else {
+                // 한 종목에 여러 임원이 사면 «회사 단위»로 합친다 — 그게 신호다.
+                const byTicker = new Map<string, any>();
+                for (const b of insider.buys) {
+                    if (!b.ticker) continue;
+                    const g = byTicker.get(b.ticker) || { ticker: b.ticker, company: b.company, usd: 0, buyers: [] as any[], topExec: false, maxIncrease: 0 };
+                    g.usd += b.usd; g.topExec = g.topExec || b.isTopExec;
+                    if (b.increasePct != null) g.maxIncrease = Math.max(g.maxIncrease, b.increasePct);
+                    g.buyers.push({ owner: b.owner, role: b.role, usd: Math.round(b.usd), shares: b.shares, price: b.price, increasePct: b.increasePct != null ? Math.round(b.increasePct * 10) / 10 : null, date: b.date });
+                    byTicker.set(b.ticker, g);
+                }
+                for (const g of byTicker.values()) {
+                    if (g.usd < 100000) { bump('금액 10만불 미만'); continue; }
+                    g.metric = 'insider-conviction'; g.label = spec.name;
+                    g.buyerCount = g.buyers.length;
+                    g.date = g.buyers[0]?.date ?? null;
+                    // 금액이 기본, «C레벨»과 «지분 증가율»이 가산 —
+                    // 대주주가 금액만으로 늘 이기면 랭킹이 매번 같아진다.
+                    g.rank = Math.log10(g.usd) + (g.topExec ? 0.8 : 0) + Math.min(1.5, (g.maxIncrease || 0) / 100);
+                    rows.push(g);
+                }
+            }
+        }
+
+        if (spec.id === 'deep-value-fcf') {
+            const list = Object.values(funda || {}).filter((f) => f.evToEbitda != null && f.fcfYield != null && f.debtToEquity != null);
+            if (!list.length) { bump('펀더멘털 없음'); }
+            else {
+                const medEv = median(list.map((f) => f.evToEbitda!).filter((v) => v > 0)) ?? 0;
+                for (const f of list) {
+                    if (!(f.debtToEquity! <= 0.8)) { bump('부채비율 초과'); continue; }
+                    if (!(f.fcfYield! > 0)) { bump('FCF 음수'); continue; }
+                    // 「업종 평균 대비 40% 저평가」를 유니버스 중앙값 기준으로 적용한다
+                    if (!(medEv > 0 && f.evToEbitda! <= medEv * 0.6)) { bump('저평가 아님'); continue; }
+                    rows.push({
+                        ticker: f.ticker, metric: 'deep-value-fcf', label: spec.name,
+                        fcfYield: Math.round(f.fcfYield! * 100) / 100,
+                        evToEbitda: Math.round(f.evToEbitda! * 100) / 100,
+                        universeMedianEvToEbitda: Math.round(medEv * 100) / 100,
+                        debtToEquity: Math.round(f.debtToEquity! * 100) / 100,
+                        operatingMargin: f.operatingMargin != null ? Math.round(f.operatingMargin * 1000) / 10 : null,
+                        fcf: f.fcf, marketCap: f.marketCap, fiscalYear: f.fiscalYear,
+                        rank: f.fcfYield! / 10 + (medEv / f.evToEbitda!),
+                    });
+                }
+            }
+        }
+
         if (spec.id === 'multi-axis') {
             const grouped = Object.entries(devByTicker)
                 .map(([t, axes]) => ({
@@ -245,7 +301,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 2, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 3, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta, universe: UNIVERSE.length, results,
     };
