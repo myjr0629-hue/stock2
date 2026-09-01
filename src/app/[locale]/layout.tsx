@@ -111,7 +111,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         const h = await headers();
         return h.get('x-pathname') || '';
     })();
-    const isSeoRoute = /^\/(?:en|ko|ja)?\/?(?:flow\/[A-Z][A-Z0-9.\-]{0,6}|learn|dark-pool|options-flow|tickers|how-it-works)(?:\/|$)/.test(seoPath);
+    const isSeoRoute = /^\/(?:en|ko|ja)?\/?(?:flow\/[A-Z][A-Z0-9.\-]{0,6}|learn|dark-pool|options-flow|tickers|how-it-works|rankings)(?:\/|$)/.test(seoPath);
     const APP_ONLY_NAMESPACES = [
         'flowRadarUI', 'sectorSession', 'dashboard', 'signalCoreV3',
         'guardian', 'intel', 'alphaReport', 'tacticalReport', 'command', 'pricing',
