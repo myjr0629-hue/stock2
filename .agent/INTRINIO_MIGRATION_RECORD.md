@@ -1,5 +1,17 @@
 # Massive → Intrinio 이관 정본 기록
 
+> ## ⚠️ 읽기 전에 — `api.polygon.io` 문자열을 보고 놀라지 말 것 (2026-09-01 추가)
+>
+> 수집 Lambda·EC2 코드에 `https://api.polygon.io/...` 가 수십 곳 남아 있다.
+> **살아있는 벤더 호출이 아니라 «라우팅 키» 다.** `httpsGet()` 이 모든 요청을
+> `__intrinio.routeMassiveUrl(url)` 로 먼저 보내 Intrinio 로 번역하고, 라우터가
+> 모르는 경로만 원본으로 나간다. 호출부는 옛 주소 모양을 유지하는 설계다.
+>
+> 판정은 grep 이 아니라 **실행 로그**로 한다 — `signum-harvest` 의 GEX 성공률과
+> `NOT_AUTHORIZED` 0건이 이관이 살아 있다는 증거다.
+> (2026-09-01 에 이걸 모르고 「미이관」이라 오진해 멀쩡한 코드를 건드렸다.)
+
+
 > 정본. 이관에 관해 하나만 읽어야 한다면 이 문서다.
 > 상세 작업 로그는 `INTRINIO_MIGRATION_WORKLOG.md`(40KB), 벤더 판단 근거는
 > `INTRINIO_MIGRATION.md` · `NEWS_VENDOR_DECISION.md` · `DARKPOOL_REPLACEMENT.md`.

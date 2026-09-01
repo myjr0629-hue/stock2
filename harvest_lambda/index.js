@@ -222,16 +222,21 @@ async function harvestGex(priceMap) {
         // ====== ATM IV + IV Skew ======
         let atmIv = null, ivSkew = null;
         try {
-          // Find ATM options (closest strike to current price)
-          const callsByDist = opts.filter(o => o.details?.contract_type === 'call' && o.greeks?.implied_volatility > 0)
+          // ⚠️ [2026-09-01] IV 를 «greeks 안»에서 찾고 있었다. 어댑터(Intrinio)도
+          //    Polygon 도 implied_volatility 를 greeks 의 «형제»로 준다:
+          //      { greeks:{delta,gamma,theta,vega}, implied_volatility: 0.57, ... }
+          //    그래서 o.greeks.implied_volatility 는 늘 undefined 였고,
+          //    atmIv·ivSkew 가 100/100 NULL 로 저장돼 왔다(감마는 정상이었다).
+          //    IV 랭크·IV 스큐가 이 한 줄 때문에 통째로 죽어 있었다.
+          const ivOf = (o) => Number(o?.implied_volatility ?? o?.greeks?.implied_volatility ?? 0);
+          const byDist = (type) => opts
+            .filter(o => o.details?.contract_type === type && ivOf(o) > 0)
             .sort((a, b) => Math.abs(a.details.strike_price - price) - Math.abs(b.details.strike_price - price));
-          const putsByDist = opts.filter(o => o.details?.contract_type === 'put' && o.greeks?.implied_volatility > 0)
-            .sort((a, b) => Math.abs(a.details.strike_price - price) - Math.abs(b.details.strike_price - price));
-          const atmCall = callsByDist[0];
-          const atmPut = putsByDist[0];
-          if (atmCall) atmIv = Math.round(atmCall.greeks.implied_volatility * 10000) / 100; // as %
+          const atmCall = byDist('call')[0];
+          const atmPut = byDist('put')[0];
+          if (atmCall) atmIv = Math.round(ivOf(atmCall) * 10000) / 100; // as %
           if (atmCall && atmPut) {
-            ivSkew = Math.round((atmPut.greeks.implied_volatility - atmCall.greeks.implied_volatility) * 10000) / 100;
+            ivSkew = Math.round((ivOf(atmPut) - ivOf(atmCall)) * 10000) / 100;
           }
         } catch {}
 
