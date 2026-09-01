@@ -122,5 +122,24 @@ export function deviationOf(
     return { ok: { today: today.v, baseline: med, ratio, z, sessions: cmp.length, date: today.d } };
 }
 
+/**
+ * 필요한 필드를 «한 행에 모두» 가진 가장 최근 스냅샷.
+ *
+ * ⚠️ 생산자가 여럿이라 행마다 필드 구성이 다르다. GEX 루프는 OI 를 쓰고
+ *    FlowWarm 은 프리미엄을 쓴다. 「대표 스냅샷(OI 최대)」 하나만 보면
+ *    프리미엄과 OI 를 «같이» 요구하는 랭킹이 영원히 0건이 된다(실제로 그랬다).
+ *    서로 다른 행에서 가져와 짝지으면 다른 만기를 섞는 것이라 더 나쁘다.
+ *    → 둘 다 든 행을 찾아 쓴다. 없으면 그 종목은 그냥 빠진다.
+ */
+export function latestWith(items: Row[], keys: string[]) {
+    let best: Row | null = null, bestTs = -1;
+    for (const it of items) {
+        const ts = Number(it.timestamp);
+        if (!Number.isFinite(ts) || ts <= bestTs) continue;
+        if (keys.every((k) => Number.isFinite(Number(it[k])) && Number(it[k]) > 0)) { best = it; bestTs = ts; }
+    }
+    return best ? { ...best, _d: etDay(bestTs) } : null;
+}
+
 /** 배수의 «거리» — 2배와 0.5배를 같은 크기로 본다. */
 export const ratioDistance = (r: number) => Math.abs(Math.log(r));

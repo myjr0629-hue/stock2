@@ -3,7 +3,7 @@ import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
 import {
-    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase,
+    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
 
@@ -83,9 +83,15 @@ export async function GET(req: NextRequest) {
 
     // ── 자료 수집 ────────────────────────────────────────────────────────
     const flowSnaps: Record<string, any[]> = {};
+    const flowRaw: Record<string, Row[]> = {};
     const gexSnaps: Record<string, any[]> = {};
     for (const t of UNIVERSE) {
-        if (needFlow) { try { flowSnaps[t] = dailySnapshots(await hist(TABLES.FLOW_HISTORY, t, days)); } catch { } }
+        if (needFlow) {
+            try {
+                const raw = await hist(TABLES.FLOW_HISTORY, t, days);
+                flowRaw[t] = raw; flowSnaps[t] = dailySnapshots(raw);
+            } catch { }
+        }
         if (needGex) { try { gexSnaps[t] = dailySnapshots(await hist('signum-gex-history', t, days)); } catch { } }
     }
 
@@ -158,10 +164,11 @@ export async function GET(req: NextRequest) {
 
         if (spec.id === 'money-vs-oi') {
             for (const t of UNIVERSE) {
-                const s = flowSnaps[t]?.[flowSnaps[t].length - 1]; if (!s) { bump('이력없음'); continue; }
+                // 프리미엄과 OI 를 «한 행에» 가진 최신 스냅샷만 쓴다.
+                const s = latestWith(flowRaw[t] || [], ['callPremium', 'putPremium', 'totalCallOI', 'totalPutOI']);
+                if (!s) { bump('프리미엄+OI 동시 보유 행 없음'); continue; }
                 const cp = Number(s.callPremium), pp = Number(s.putPremium);
                 const co = Number(s.totalCallOI), po = Number(s.totalPutOI);
-                if (!(cp > 0 && pp > 0 && co > 0 && po > 0)) { bump('같은 스냅샷에 둘 다 없음'); continue; }
                 const dollarRatio = cp / pp, oiRatio = co / po;
                 const disagree = Math.abs(Math.log(dollarRatio) - Math.log(oiRatio));
                 if (disagree < Math.log(1.5)) { bump('불일치 작음'); continue; }
@@ -179,6 +186,7 @@ export async function GET(req: NextRequest) {
             if (!dpMeta.available) { results[spec.id] = { available: false, reason: dpMeta.reason, items: [] }; continue; }
             const list = Object.values(dp) as any[];
             const mktVolRatio = median(list.map((x) => x.volRatio).filter((v) => typeof v === 'number' && v > 0)) ?? 1;
+            const mktStealth = median(list.map((x) => x.stealth).filter((v) => typeof v === 'number')) ?? 50;
 
             for (const [t, r] of Object.entries(dp) as [string, any][]) {
                 if (spec.id === 'darkpool-volume') {
@@ -197,10 +205,17 @@ export async function GET(req: NextRequest) {
                 }
                 if (spec.id === 'stealth') {
                     if (typeof r.stealth !== 'number') { bump('표본부족'); continue; }
-                    if (Math.abs(r.stealth - 50) < 20) { bump('중립'); continue; }
+                    // ⚠️ 시장 전체가 조용한 날엔 모든 종목의 volP 가 같이 내려가
+                    //    전부 DISTRIBUTION 으로 찍힌다(실측: 상위 3개가 9·10·20점).
+                    //    그건 종목 이야기가 아니라 그날 시장 이야기다.
+                    //    → 50 이 아니라 «그날 시장 중앙값» 에서 얼마나 벗어났는지로 본다.
+                    const dev = r.stealth - mktStealth;
+                    if (Math.abs(dev) < 18) { bump('시장과 비슷'); continue; }
                     rows.push({ ticker: t, metric: 'stealth', label: spec.name, date: r.date,
-                        stealth: r.stealth, regime: r.regime, volP: r.volP, shortP: r.shortP,
-                        rank: Math.abs(r.stealth - 50) / 50 });
+                        stealth: r.stealth, marketStealth: mktStealth, deviation: Math.round(dev),
+                        regime: dev > 0 ? 'ACCUMULATION' : 'DISTRIBUTION', rawRegime: r.regime,
+                        volP: r.volP, shortP: r.shortP,
+                        rank: Math.abs(dev) / 50 });
                 }
             }
         }
@@ -230,7 +245,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 1, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 2, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta, universe: UNIVERSE.length, results,
     };
