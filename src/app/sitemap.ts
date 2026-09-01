@@ -8,6 +8,10 @@ import { CONCEPT_SLUGS } from '@/lib/seo/concepts';
 // had no way to discover these pages. `new Date()` is fine here (server route, not a
 // workflow script). x-default + per-locale URLs help Google pick the right language.
 const LOCALES = ['en', 'ko', 'ja'] as const;
+// 랭킹 상세 11종 — 각각 노리는 검색어가 다르다(맥스페인 이격 / 감마플립 /
+// 내부자 매수는 서로 다른 사람이 찾는다). 등록부에서 직접 읽어 «표류»를 막는다.
+import { RANKINGS as RANKING_SPECS } from '@/lib/rankings/registry';
+const RANKING_IDS = RANKING_SPECS.map((r) => r.id);
 
 // ⛔ 2026-08-20: '/wim' 이 빠져 있었다. 라이브 200 인데 sitemap 에 없어 3개 로케일 전부
 //    검색엔진에 «존재하지 않는» 페이지였다. /app·/app-uc·/app-wim 은 404(리다이렉트 전용)라 넣지 않는다.
@@ -66,6 +70,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'daily',
       priority: 0.9,
     });
+    for (const rid of RANKING_IDS) {
+      entries.push({
+        url: `${base}/${loc}/rankings/${rid}`,
+        lastModified: session,
+        changeFrequency: 'daily',
+        priority: 0.8,
+      });
+    }
     // 다크풀 순위표는 «매 거래일 값이 바뀌는 허브»다. 정적 상수 날짜를 주면
     // 구글에 「안 바뀐다」고 거짓말하는 셈이 된다 — 실제 거래일을 준다.
     for (const hub of ['/dark-pool', '/options-flow']) {

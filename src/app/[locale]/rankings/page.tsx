@@ -137,7 +137,12 @@ export default async function RankingsPage({ params }: { params: Promise<{ local
             {blocks.map(([id, b]) => (
                 <section key={id} style={{ margin: '0 0 30px', border: '1px solid #e3e8ef', borderRadius: 14, padding: '18px 18px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                        <h2 style={{ fontSize: 19, margin: 0, fontWeight: 750 }}>{b.name?.[l] || id}</h2>
+                        <h2 style={{ fontSize: 19, margin: 0, fontWeight: 750 }}>
+                            {/* 상세로 링크 — 랭킹마다 노리는 검색어가 다르다 */}
+                            <Link href={`/${l}/rankings/${id}`} style={{ textDecoration: 'none', color: '#0f172a' }}>
+                                {b.name?.[l] || id}
+                            </Link>
+                        </h2>
                         <span style={{ fontSize: 12, color: '#7b8496', border: '1px solid #dfe4ec', borderRadius: 999, padding: '2px 9px' }}>
                             {phaseLabel(b.phase)}
                         </span>
