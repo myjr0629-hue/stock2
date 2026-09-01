@@ -3,7 +3,7 @@ import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
 import {
-    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith,
+    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith, readinessOf,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
 import { fetchInsiderBuys, fetchFundamentals } from '@/lib/rankings/sources';
@@ -39,6 +39,9 @@ const DEV_AXES: Array<{ key: string; label: { ko: string; en: string; ja: string
     { key: 'dex', label: { ko: '델타 노출', en: 'Delta exposure', ja: 'デルタ・エクスポージャー' } },
     { key: 'squeezeProbability', label: { ko: '스퀴즈 확률', en: 'Squeeze probability', ja: 'スクイーズ確率' } },
     { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Options premium', ja: 'オプション資金' } },
+    // [2026-09-01] 계약 «수». 프리미엄(달러)은 주가·IV 에 같이 흔들려서
+    // 「거래가 늘었다」와 「비싸졌다」를 구분 못 한다. 계약 수가 있어야 나뉜다.
+    { key: 'optionVolume', label: { ko: '옵션 거래량(계약)', en: 'Option volume (contracts)', ja: 'オプション出来高(枚)' } },
 ];
 
 const hist = (table: string, ticker: string, days: number) => queryItems<Row>(
@@ -46,6 +49,14 @@ const hist = (table: string, ticker: string, days: number) => queryItems<Row>(
     { ':t': ticker, ':since': Date.now() - days * 86400e3 },
     { limit: 400, scanForward: true, maxItems: 3000, expressionNames: { '#ts': 'timestamp' } },
 );
+
+async function pool25<T, R>(items: T[], fn: (x: T) => Promise<R>): Promise<R[]> {
+    const out: R[] = new Array(items.length); let i = 0;
+    await Promise.all(Array.from({ length: Math.min(5, items.length) }, async () => {
+        while (i < items.length) { const k = i++; out[k] = await fn(items[k]); }
+    }));
+    return out;
+}
 
 export async function GET(req: NextRequest) {
     const q = req.nextUrl.searchParams;
@@ -79,7 +90,7 @@ export async function GET(req: NextRequest) {
     }
 
     const needFlow = wanted.some((r) => ['deviation', 'multi-axis', 'money-vs-oi'].includes(r.id));
-    const needGex = wanted.some((r) => ['maxpain-gap', 'gamma-flip'].includes(r.id));
+    const needGex = wanted.some((r) => ['maxpain-gap', 'gamma-flip', 'volatility-bet'].includes(r.id));
     const needDp = wanted.some((r) => r.needsPostClose);
     const needInsider = wanted.some((r) => r.id === 'insider-conviction');
     const needFunda = wanted.some((r) => r.id === 'deep-value-fcf');
@@ -88,6 +99,7 @@ export async function GET(req: NextRequest) {
     const flowSnaps: Record<string, any[]> = {};
     const flowRaw: Record<string, Row[]> = {};
     const gexSnaps: Record<string, any[]> = {};
+    const gexRaw: Record<string, Row[]> = {};
     for (const t of UNIVERSE) {
         if (needFlow) {
             try {
@@ -95,7 +107,12 @@ export async function GET(req: NextRequest) {
                 flowRaw[t] = raw; flowSnaps[t] = dailySnapshots(raw);
             } catch { }
         }
-        if (needGex) { try { gexSnaps[t] = dailySnapshots(await hist('signum-gex-history', t, days)); } catch { } }
+        if (needGex) {
+            try {
+                const raw = await hist('signum-gex-history', t, days);
+                gexRaw[t] = raw; gexSnaps[t] = dailySnapshots(raw);
+            } catch { }
+        }
     }
 
     // 옵션이 보고 있는 최신 세션 — 다크풀 신선도 판정의 기준
@@ -226,6 +243,42 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        if (spec.id === 'volatility-bet') {
+            const rd = readinessOf(gexRaw, spec.requires!.field, spec.requires!.sessions);
+            if (!rd.ready) {
+                results[spec.id] = {
+                    available: false, phase: spec.phase, name: spec.name, what: spec.what, why: spec.why,
+                    readiness: { ...rd, note: spec.requires!.why },
+                    reason: `자료 축적 중 — ${rd.field} ${rd.have}/${rd.need} 세션 (약 ${Math.max(1, rd.need - rd.have)}거래일 남음)`,
+                    items: [],
+                };
+                continue;
+            }
+            // 실적이 가까운 종목은 «달력에 있는 이유»다 — 이 랭킹의 핵심은 그걸 빼는 것.
+            const earn = await pool25(UNIVERSE, async (t) => {
+                const r = await queryItems<any>('signum-pattern-db', 'pattern = :p', { ':p': `EARNINGS:${t}` }, { limit: 1, scanForward: false });
+                return [t, Number(r?.[0]?.daysUntil)] as [string, number];
+            });
+            const daysToEarnings = Object.fromEntries(earn);
+            for (const t of UNIVERSE) {
+                const series = (gexRaw[t] || [])
+                    .map((r) => Number(r.atmIv)).filter((v) => Number.isFinite(v) && v > 0);
+                if (series.length < spec.requires!.sessions) { bump('이력부족'); continue; }
+                const today = series[series.length - 1];
+                const past = series.slice(0, -1);
+                const rank = (past.filter((v) => v < today).length / past.length) * 100;
+                if (rank < 80) { bump('IV 랭크 80 미만'); continue; }
+                const d = daysToEarnings[t];
+                if (Number.isFinite(d) && d >= 0 && d <= 14) { bump('실적 D-14 이내(달력에 있는 이유)'); continue; }
+                rows.push({
+                    ticker: t, metric: 'volatility-bet', label: spec.name,
+                    ivRank: Math.round(rank), atmIv: Math.round(today * 100) / 100,
+                    daysToEarnings: Number.isFinite(d) ? d : null,
+                    sessions: series.length, rank: rank / 100,
+                });
+            }
+        }
+
         if (spec.id === 'insider-conviction') {
             if (!insider?.buys?.length) { bump('신고 없음'); }
             else {
@@ -307,7 +360,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 4, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 5, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta, universe: UNIVERSE.length, results,
     };

@@ -208,12 +208,17 @@ async function harvestGex(priceMap) {
       try {
         const price = priceMap[ticker]; if(!price) return;
         const opts = await getAllOptions(ticker); if(!opts.length) return;
-        let gex=0, cw=null, pf=null, mp=null, maxCOI=0, maxPOI=0, tCOI=0, tPOI=0, mpMin=Infinity;
+        // ⚠️ [2026-09-01] 옵션 «계약 거래량»(optionVolume)을 추가한다.
+        //    지금까지 저장한 건 프리미엄(달러)뿐이라 「평소의 몇 배가 거래됐나」를
+        //    계약 수로 물을 수 없었다. 달러는 주가·IV 에 같이 흔들려서
+        //    「거래가 늘었다」와 「비싸졌다」를 구분 못 한다. 계약 수가 있어야 나뉜다.
+        let gex=0, cw=null, pf=null, mp=null, maxCOI=0, maxPOI=0, tCOI=0, tPOI=0, mpMin=Infinity, tVol=0;
         const strikes = new Set();
         for (const o of opts) {
           const s=o.details?.strike_price; if(!s) continue;
           strikes.add(s);
           const g=o.greeks?.gamma||0, oi=o.open_interest||0, t=o.details?.contract_type;
+          tVol += o.day?.volume || 0;
           if(t==='call'){gex+=g*oi*100*price;tCOI+=oi;if(oi>maxCOI){maxCOI=oi;cw=s;}} else {gex-=g*oi*100*price;tPOI+=oi;if(oi>maxPOI){maxPOI=oi;pf=s;}}
         }
         for (const ts2 of [...strikes].sort((a,b)=>a-b)) { let c2=0; for(const o of opts){const s2=o.details?.strike_price;const oi2=o.open_interest||0;if(!s2||!oi2)continue;if(o.details.contract_type==='call')c2+=Math.max(0,ts2-s2)*oi2;else c2+=Math.max(0,s2-ts2)*oi2;} if(c2<mpMin){mpMin=c2;mp=ts2;} }
@@ -339,8 +344,8 @@ async function harvestGex(priceMap) {
         const compositeClamped = Math.max(-100, Math.min(100, compositeVal));
 
         gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
-        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,squeezeScore:squeezeScore}}));
-        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:compositeClamped,opi:opi,whaleScore:whaleVal,dex:dexVal,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:smartVal,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100}})).catch(()=>{});
+        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,squeezeScore:squeezeScore,optionVolume:tVol}}));
+        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:compositeClamped,opi:opi,whaleScore:whaleVal,dex:dexVal,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:smartVal,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,optionVolume:tVol}})).catch(()=>{});
         ok++;
       } catch {}
     }));
@@ -867,16 +872,17 @@ async function warmFlowCache(snapshotMap, lambdaContext) {
           // ⚠️ OI 를 같이 넣어야 한다. 랭킹은 «그날 총 OI 가 가장 큰 스냅샷»을
           //    대표로 고르는데(실행마다 다른 만기가 걸려 OI 가 20배 널뛰기 때문),
           //    OI 가 없는 행은 대표가 될 수 없어 프리미엄이 영원히 랭킹에 못 든다.
-          let _cOI = 0, _pOI = 0;
+          let _cOI = 0, _pOI = 0, _vol = 0;
           for (const c of results) {
             const oi = c.open_interest || 0;
+            _vol += c.day?.volume || 0;
             if (c.details?.contract_type === 'call') _cOI += oi;
             else if (c.details?.contract_type === 'put') _pOI += oi;
           }
           if (_tp > 0) {
             await client.send(new PutCommand({ TableName: 'signum-flow-history', Item: {
               ticker, timestamp: Date.now(),
-              totalCallOI: _cOI, totalPutOI: _pOI,
+              totalCallOI: _cOI, totalPutOI: _pOI, optionVolume: _vol,
               ...(_cOI > 0 ? { pcr: Math.round((_pOI / _cOI) * 100) / 100 } : {}),
               callPremium: Math.round(callPremium),
               putPremium: Math.round(putPremium),

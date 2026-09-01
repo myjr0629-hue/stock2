@@ -143,5 +143,31 @@ export function latestWith(items: Row[], keys: string[]): (Row & { _d: string })
     return best ? { ...best, _d: etDay(bestTs) } : null;
 }
 
+/**
+ * 랭킹의 «준비 상태».
+ *
+ * 왜 이런 게 필요한가: 어떤 랭킹은 오늘 코드를 다 짜도 **자료가 아직 안 쌓여**
+ * 동작하지 못한다(IV 랭크는 그 종목 IV 이력의 백분위라 20세션이 필요하다).
+ * 그때 «빈 랭킹»을 내보내면 쓰는 쪽이 「고장났나」 하고, 반대로 억지로 채우면
+ * 그게 거짓말이 된다.
+ *   → 랭킹이 필요한 필드와 세션 수를 «선언»하고, 엔진이 진행률을 보고한다.
+ *     자료가 차면 코드 수정 없이 저절로 켜진다.
+ */
+export type Readiness = { ready: boolean; have: number; need: number; field: string; note?: string };
+
+export function readinessOf(
+    perTicker: Record<string, Array<Record<string, any>>>,
+    field: string,
+    need: number,
+): Readiness {
+    // 종목마다 이력이 다르므로 «중앙값 종목»을 기준으로 본다 —
+    // 최대치로 재면 한 종목만 차도 «준비됨»이 되어 나머지가 빈다.
+    const counts = Object.values(perTicker).map(
+        (rows) => rows.filter((r) => Number.isFinite(Number(r?.[field])) && Number(r[field]) !== 0).length,
+    ).sort((a, b) => a - b);
+    const have = counts.length ? counts[counts.length >> 1] : 0;
+    return { ready: have >= need, have, need, field };
+}
+
 /** 배수의 «거리» — 2배와 0.5배를 같은 크기로 본다. */
 export const ratioDistance = (r: number) => Math.abs(Math.log(r));

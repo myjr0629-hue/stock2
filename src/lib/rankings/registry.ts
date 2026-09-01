@@ -24,6 +24,11 @@ export type RankingSpec = {
     guards: string[];
     /** 값의 방향 — 클수록 이례적인가, 작을수록인가 */
     direction: 'deviation' | 'proximity';
+    /**
+     * 이 랭킹이 돌려면 필요한 «이력». 자료가 찰 때까지 엔진이 진행률을 보고하고,
+     * 차면 코드 수정 없이 저절로 켜진다. (앞으로 만들 랭킹도 이 방식을 쓴다.)
+     */
+    requires?: { field: string; sessions: number; source: 'gex' | 'flow'; why: string };
 };
 
 export const RANKINGS: RankingSpec[] = [
@@ -120,6 +125,19 @@ export const RANKINGS: RankingSpec[] = [
         source: 'Intrinio fundamentals → standardized_financials + marketcap',
         guards: ['업종 평균이 아니라 «유니버스 중앙값» 대비다 — 업종 매핑이 없으므로 그렇게 라벨한다', '부채비율 게이트', '세 값 중 하나라도 없으면 제외(추정하지 않는다)'],
         direction: 'deviation',
+    },
+    {
+        id: 'volatility-bet', phase: 'postclose',
+        name: { ko: '조용한데 비싸진 옵션', en: 'Priced for a move, no catalyst', ja: '材料なしで高くなったオプション' },
+        what: 'ATM 내재변동성이 그 종목 자신의 이력에서 상위 백분위(IV 랭크)인데, 실적 일정이 14일 이내에 «없는» 종목. IV 랭크가 높은 순.',
+        why: '시장이 움직임에 값을 치르고 있다는 뜻인데, 그 이유가 달력에 없다. ⚠️ 대형주 IV 급등의 대부분은 예정된 실적이다 — 그것만 뽑으면 무료 실적 달력을 다시 말하는 것이고 우위가 없다. 그래서 «아는 것(실적)»을 빼고 남는 것만 본다. 실적이 아니라면 FDA·M&A·소송·가이던스 같은 비정형 사건이다.',
+        source: 'DynamoDB signum-gex-history(atmIv) + signum-pattern-db(EARNINGS:)',
+        guards: ['실적 D-14 이내 제외(이게 이 랭킹의 핵심이다)', 'IV 랭크는 그 종목 자신의 이력 백분위 — 절대 IV 가 아니다', '이력이 20세션 미만이면 랭킹을 내지 않고 진행률만 보고한다'],
+        direction: 'deviation',
+        requires: {
+            field: 'atmIv', sessions: 20, source: 'gex',
+            why: 'IV 랭크는 그 종목 IV 이력의 백분위다. 2026-09-01 에 생산자 버그(implied_volatility 를 greeks 안에서 찾던 것)를 고쳐 그날부터 쌓기 시작했으므로, 약 4주 뒤 켜진다.',
+        },
     },
 ];
 
