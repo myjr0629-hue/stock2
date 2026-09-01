@@ -54,7 +54,7 @@ type Strings = {
   kicker: string; sub: (t: string) => string; money: string; read: string; news: string;
   divergence: string; whatT: string; whatB: string; glossT: string; gloss: [string, string][];
   ctaT: string; ctaUc: string; ctaSg: string; ctaWim: string; disc: string;
-  relT: string; allT: string; learnT: string; leadersT: string;
+  relT: string; allT: string; learnT: string; leadersT: string; rankT: string;
   lbl: Record<string, string>;
 };
 const L: Record<string, Strings> = {
@@ -75,7 +75,7 @@ const L: Record<string, Strings> = {
       ['Call wall / Put floor', 'Strikes with the heaviest call/put open interest — they often act as short-term resistance and support.'],
       ['Put/Call ratio', 'Below ~0.7 leans bullish (more calls); above ~1 leans defensive (more puts).'],
     ],
-    ctaT: 'See it live, free', ctaUc: 'Get Undercurrent — the news behind the money',
+    ctaT: 'See it live, free', rankT: 'Today’s rankings — what broke from normal', ctaUc: 'Get Undercurrent — the news behind the money',
     ctaSg: 'Or go deeper with SIGNUM HQ — the pro options terminal',
     ctaWim: "New to this? Why'd It Move? turns today's move into a 60-second lesson",
     disc: 'Data, scores and interpretations are for information and education only — not investment advice or a buy/sell recommendation. All decisions and outcomes are your own.',
@@ -99,7 +99,7 @@ const L: Record<string, Strings> = {
       ['콜월 / 풋플로어', '콜/풋 미결제약정이 가장 두꺼운 행사가 — 단기 저항/지지로 작용하곤 함.'],
       ['풋/콜 비율', '~0.7 아래는 강세(콜 우세), ~1 위는 방어적(풋 우세).'],
     ],
-    ctaT: '실시간으로 무료로 보기', ctaUc: 'Undercurrent 받기 — 뉴스 뒤의 돈',
+    ctaT: '실시간으로 무료로 보기', rankT: '오늘의 랭킹 — 평소와 달라진 종목', ctaUc: 'Undercurrent 받기 — 뉴스 뒤의 돈',
     ctaSg: '또는 SIGNUM HQ로 더 깊이 — 프로 옵션 터미널',
     ctaWim: "처음이라면 — Why'd It Move? 가 오늘의 움직임을 60초 문제로 만들어 줍니다",
     disc: '데이터·점수·해석은 정보·교육용이며 투자자문이나 매수/매도 권유가 아닙니다. 모든 판단과 결과의 책임은 본인에게 있습니다.',
@@ -123,7 +123,7 @@ const L: Record<string, Strings> = {
       ['コールウォール / プットフロア', 'コール/プット建玉が最も厚い権利行使価格 — 短期の抵抗/支持として働きがち。'],
       ['プット/コール比', '~0.7未満は強気(コール優勢)、~1超は守勢(プット優勢)。'],
     ],
-    ctaT: 'リアルタイムで無料で見る', ctaUc: 'Undercurrentを入手 — ニュースの裏側のお金',
+    ctaT: 'リアルタイムで無料で見る', rankT: '本日のランキング — 平常から外れた銘柄', ctaUc: 'Undercurrentを入手 — ニュースの裏側のお金',
     ctaSg: 'またはSIGNUM HQでさらに深く — プロ向けオプション端末',
     ctaWim: "はじめてなら — Why'd It Move? が今日の値動きを60秒の問題にします",
     disc: 'データ・スコア・解釈は情報・教育目的であり、投資助言や売買推奨ではありません。すべての判断と結果は利用者ご自身の責任です。',
@@ -422,6 +422,27 @@ export default async function FlowTickerPage(
           <a href={`/${locale}/tickers`} style={S.allA}>{l.allT} →</a>
         </section>
       )}
+
+      {/* 오늘의 랭킹으로 — 이 티커 하나를 보러 온 사람에게 «오늘 시장에서 뭐가
+          달라졌나»는 자연스러운 다음 클릭이다. 동시에 3,585개 티커 페이지에서
+          신설 랭킹 층으로 링크 가중치가 흘러가 발견·평가를 앞당긴다. */}
+      <section>
+        <div style={S.relH}>{l.rankT}</div>
+        <div style={S.relGrid}>
+          {[
+            ['deviation', { en: 'Break from normal', ko: '평소 대비 이탈', ja: '平常からの乖離' }],
+            ['maxpain-gap', { en: 'Max pain gap', ko: '맥스페인 이격도', ja: 'マックスペイン乖離' }],
+            ['gamma-flip', { en: 'Near gamma flip', ko: '감마플립 근접', ja: 'ガンマフリップ接近' }],
+            ['darkpool-volume', { en: 'Off-exchange volume', ko: '장외 물량 이탈', ja: '取引所外の出来高' }],
+            ['stealth', { en: 'Stealth accumulation', ko: '은밀 축적', ja: '静かな買い集め' }],
+            ['insider-conviction', { en: 'Insider buys', ko: '내부자 매집', ja: 'インサイダー買い' }],
+          ].map(([id, nm]) => (
+            <a key={id as string} href={`/${locale}/rankings/${id}`} style={S.relA}>
+              {(nm as Record<string, string>)[locale] || (nm as Record<string, string>).en}
+            </a>
+          ))}
+        </div>
+      </section>
 
       {/* 개념 설명으로 — 이 페이지의 지표를 처음 보는 사람에게 필요한 다음 클릭이고,
           동시에 정보성 질의를 겨냥한 /learn 층으로 링크 가중치를 보낸다. */}
