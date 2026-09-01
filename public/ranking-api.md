@@ -26,7 +26,7 @@ GET https://www.signumhq.com/api/ranking?run=stealth  # 하나만
 인증 없음. 응답의 각 랭킹에 `what`(무엇을 재나)·`why`(왜 가치 있나)·`guards`
 (막아둔 함정)가 그대로 들어 있다. **그걸 읽고 쓰면 된다.**
 
-## 랭킹 8종 — 장중 5 / 마감 후 3
+## 랭킹 10종 — 장중 5 / 마감 후 3 / 세션무관 2
 
 ### 장중 (intraday) — 정규장에도 갱신된다
 
@@ -48,6 +48,17 @@ GET https://www.signumhq.com/api/ranking?run=stealth  # 하나만
 
 **FINRA 는 마감(16:00 ET) 후 약 90분, 17:31 ET 에 그날 파일이 뜬다.**
 그 전에는 마감 후 랭킹이 `available: false` 로 나온다.
+
+### 세션 무관 (anytime) — 언제 불러도 성립
+
+| id | 이름 | 무엇을 재나 |
+|---|---|---|
+| `insider-conviction` | 내부자 자신감 매집 | 시장 «전체» 신고에서 SEC 코드 P(장내 매수)만 골라 종목별 합산 |
+| `deep-value-fcf` | 현금창출 대비 저평가 | FCF수익률 + EV/EBITDA 가 유니버스 중앙값보다 40%↓ + 부채 0.8↓ |
+
+`insider-conviction` 은 우리 유니버스 25종목이 아니라 **미국 시장 전체**를 훑는다.
+보상·무상취득(A)·옵션행사(M)·세금납부(F)는 제외한다 — 실측 908건 중 절반 이상이
+그런 것이고, 그건 «자기 돈으로 산 것»이 아니다.
 
 ## 쓰는 쪽이 반드시 지킬 것
 
@@ -79,3 +90,15 @@ GET https://www.signumhq.com/api/ranking?run=stealth  # 하나만
 | **죽은 필드** | ivSkew 가 실측 300행 전부 0 | 축에서 제외 |
 | **라벨 불일치** | `pcr` 은 OI 기준인데 「풋콜 비율」로만 쓰면 거래량으로 읽힌다 | 라벨에 기준을 명시 |
 | **생산자 분리** | 프리미엄 행과 OI 행이 달라 둘을 같이 쓰는 랭킹이 0건 | 둘 다 든 행을 찾아 쓴다(섞지 않는다) |
+
+## 자료원 — Polygon/Massive 는 쓰지 않는다
+
+| 랭킹군 | 자료원 |
+|---|---|
+| 옵션 5종 | DynamoDB `signum-flow-history` · `signum-gex-history` |
+| 다크풀 3종 | FINRA Reg SHO → Redis `finra:offexchange` |
+| 내부자·펀더멘털 2종 | Intrinio (`api-v2.intrinio.com`) |
+
+**벤더는 Intrinio 하나다.** 저장소 코드 다른 곳에 남은 `api.polygon.io` 문자열은
+전송 계층(`httpsGet` → `routeMassiveUrl`)이 Intrinio 로 번역하는 «라우팅 키»이지
+살아있는 벤더 호출이 아니다. 이관 여부는 grep 이 아니라 실행 로그로 판정한다.
