@@ -33,6 +33,9 @@ const COPY: Record<PaywallLocale, {
   title: string;
   lede: string;
   benefits: string[];
+  beforeTag: string;
+  afterTag: string;
+  adLabel: string;
   perMonth: string;
   cta: string;
   ctaBusy: string;
@@ -58,8 +61,11 @@ const COPY: Record<PaywallLocale, {
       '광고를 보고 잠금해제하던 화면이 바로 열림',
       '기존 기능은 그대로 — 추가 데이터는 없습니다',
     ],
+    beforeTag: '지금',
+    afterTag: 'PRO',
+    adLabel: '광고',
     perMonth: '월',
-    cta: '구독하기',
+    cta: '광고 없이 보기',
     ctaBusy: '처리 중…',
     unavailable: '지금은 구매할 수 없습니다',
     renewNote: '매월 자동 갱신됩니다. 언제든 해지할 수 있고, 해지하면 남은 기간까지 이용됩니다.',
@@ -83,8 +89,11 @@ const COPY: Record<PaywallLocale, {
       'Screens that asked you to watch an ad open straight away',
       'Everything else stays the same — no extra data',
     ],
+    beforeTag: 'Now',
+    afterTag: 'PRO',
+    adLabel: 'Ad',
     perMonth: 'month',
-    cta: 'Subscribe',
+    cta: 'Go ad-free',
     ctaBusy: 'Working…',
     unavailable: 'Not available right now',
     renewNote: 'Renews automatically each month. Cancel anytime; access continues until the period ends.',
@@ -108,8 +117,11 @@ const COPY: Record<PaywallLocale, {
       '広告視聴で解除していた画面がそのまま開きます',
       '他の機能は変わりません — 追加データはありません',
     ],
+    beforeTag: '現在',
+    afterTag: 'PRO',
+    adLabel: '広告',
     perMonth: '月',
-    cta: '登録する',
+    cta: '広告なしで見る',
     ctaBusy: '処理中…',
     unavailable: '現在購入できません',
     renewNote: '毎月自動更新されます。いつでも解約でき、期間終了までご利用いただけます。',
@@ -125,7 +137,13 @@ const COPY: Record<PaywallLocale, {
   },
 };
 
-export function ProPaywall({ locale, onClose }: { locale: string; onClose: () => void }) {
+export function ProPaywall({ locale, onClose, previewPrice }: {
+  locale: string;
+  onClose: () => void;
+  /** 디자인 확인용에만 쓴다. 실제 화면에서는 절대 넘기지 않는다 —
+      가격은 스토어가 준 값이어야 한다. */
+  previewPrice?: string;
+}) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
   const t = COPY[loc];
@@ -136,6 +154,7 @@ export function ProPaywall({ locale, onClose }: { locale: string; onClose: () =>
 
   // 스토어가 준 월간 오퍼. 없으면 «가격을 지어내지 않고» 버튼을 잠근다.
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
+  const shownPrice = monthly?.priceString ?? previewPrice ?? null;
 
   // 이미 구독자면 페이월을 띄울 이유가 없다(복원 직후 포함).
   useEffect(() => { if (isPro) onClose(); }, [isPro, onClose]);
@@ -182,24 +201,18 @@ export function ProPaywall({ locale, onClose }: { locale: string; onClose: () =>
           <p className={s.lede}>{t.lede}</p>
         </div>
 
+        {/* 담는 것 — 아이콘도 칩도 없이 가는 선으로만 나눈다. 덜어낸 만큼 가격이 산다. */}
         <ul className={s.benefits}>
-          {t.benefits.map((b) => (
-            <li key={b} className={s.benefit}>
-              <span className={s.tick} aria-hidden="true">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <span>{b}</span>
-            </li>
+          {t.benefits.map((b, i) => (
+            <li key={b} className={i === 0 ? `${s.benefit} ${s.benefitLead}` : s.benefit}>{b}</li>
           ))}
         </ul>
 
         {/* 가격 — 스토어가 준 현지화 문자열만 쓴다 */}
         <div className={s.priceCard}>
-          {ready && monthly ? (
+          {shownPrice ? (
             <>
-              <span className={s.price}>{monthly.priceString}</span>
+              <span className={s.price}>{shownPrice}</span>
               <span className={s.period}>/ {t.perMonth}</span>
             </>
           ) : (
@@ -211,15 +224,14 @@ export function ProPaywall({ locale, onClose }: { locale: string; onClose: () =>
           type="button"
           className={s.cta}
           onClick={handleSubscribe}
-          disabled={busy || !monthly}
+          disabled={busy || (!monthly && !previewPrice)}
         >
           {busy ? t.ctaBusy : t.cta}
         </button>
 
         {note && <p className={s.note} role="status">{note}</p>}
 
-        <p className={s.fine}>{t.renewNote}</p>
-        <p className={s.fine}>{t.manageNote}</p>
+        <p className={s.fine}>{t.renewNote} {t.manageNote}</p>
 
         <div className={s.links}>
           <button type="button" className={s.link} onClick={handleRestore} disabled={busy}>

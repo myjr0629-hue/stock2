@@ -83,3 +83,4 @@ mcp/video-analyst/node_modules/
 dist/
 media/archive/
 .agent/_pending_watch.log
+.env.development.local

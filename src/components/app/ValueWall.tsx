@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import styles from './ValueWall.module.css';
 import { IAP_LIVE } from '@/config/iap';
 import { useProStatus } from '@/hooks/useProStatus';
+import { ProPaywall } from './ProPaywall';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -37,8 +38,8 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
   ko: {
     defaultSubtitle: <>광고를 시청하면 프리미엄 리서치 데이터를 1시간 동안 확인할 수 있습니다.</>,
     ctaLabel: '광고 보고 1시간 잠금해제',
-    adFreeLabel: '또는 월 $9.99로 광고 제거',
-    proCta: 'SIGNUM Pro · 광고 없이 · 월 $9.99',
+    adFreeLabel: '또는 광고 없이 보기',
+    proCta: 'SIGNUM Pro · 광고 없이 보기',
     proErrorLabel: '구매를 완료하지 못했어요. 다시 시도해주세요.',
     proNothingLabel: '복원할 구매 내역이 없어요.',
     proRestoreLabel: '구매 복원',
@@ -57,8 +58,8 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
   en: {
     defaultSubtitle: <>Watch an ad to unlock premium research data for 1 hour.</>,
     ctaLabel: 'Watch & Unlock · 1HR',
-    adFreeLabel: 'or $9.99/mo ad-free',
-    proCta: 'SIGNUM Pro · Go ad-free · $9.99/mo',
+    adFreeLabel: 'or go ad-free',
+    proCta: 'SIGNUM Pro · Go ad-free',
     proErrorLabel: "Couldn't complete the purchase. Please try again.",
     proNothingLabel: 'No previous purchase to restore.',
     proRestoreLabel: 'Restore purchase',
@@ -77,8 +78,8 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
   ja: {
     defaultSubtitle: <>広告を視聴すると、プレミアムリサーチデータを1時間確認できます。</>,
     ctaLabel: '広告を見て1時間解除',
-    adFreeLabel: 'または月$9.99で広告なし',
-    proCta: 'SIGNUM Pro · 広告なし · 月$9.99',
+    adFreeLabel: 'または広告なしで見る',
+    proCta: 'SIGNUM Pro · 広告なしで見る',
     proErrorLabel: '購入を完了できませんでした。もう一度お試しください。',
     proNothingLabel: '復元できる購入履歴がありません。',
     proRestoreLabel: '購入を復元',
@@ -227,7 +228,13 @@ export function ValueWall({
   }, [finishUnlock, unlocking]);
 
   // Buy the ad-free Pro subscription. On success, isPro flips the wall open (isUnlocked).
-  const handleProPurchase = useCallback(async () => {
+  // ⚠️ 여기서 곧장 purchase() 를 부르면 안 된다 — 가격·기간·약관을 결제 «전에»
+  //    보여주지 않는 것이 애플 3.1.2 반려 사유다. 페이월을 먼저 띄운다.
+  //    (광고가 실제로 방해한 이 순간이 전환이 일어나는 자리라 진입점으로 남긴다.)
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const openPaywall = useCallback(() => setPaywallOpen(true), []);
+
+  const handleProPurchaseLegacy = useCallback(async () => {
     if (purchasing) return;
     setPurchasing(true);
     setProError(false);
@@ -307,7 +314,7 @@ export function ValueWall({
             price fails App Store 3.1.1); the free ad path above always stays. */}
         {IAP_LIVE && (
           <>
-            <button className={styles.proCta} onClick={handleProPurchase} disabled={purchasing || unlocking}>
+            <button className={styles.proCta} onClick={openPaywall} disabled={purchasing || unlocking}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
               </svg>
