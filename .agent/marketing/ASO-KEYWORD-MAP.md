@@ -87,3 +87,40 @@
    → 「무료」는 사람들이 실제로 붙여 검색하는 말이다.
 
 깊이(옵션 플로우·다크풀·GEX)는 **들어온 뒤의 무기**이지 문패가 아니다.
+
+---
+
+## 적용 완료 — 2026-09-02 (ASC API, 3앱 × 3로케일 = 9개)
+
+라이브 버전은 건드리지 않았다. 새 편집 버전에만 넣었다
+(SIGNUM 1.5 · UC 1.0.4 · WIM 1.0.2, 전부 `PREPARE_FOR_SUBMISSION`).
+
+| | 이름 | 부제 |
+|---|---|---|
+| SIGNUM ko | `SIGNUM HQ: 서학개미 미국증시 실적` | 프리마켓·애프터마켓·옵션 흐름 알림 |
+| SIGNUM en | `SIGNUM HQ: Premarket Earnings` | After Hours, Calendar & Alerts |
+| SIGNUM ja | `SIGNUM HQ: 米国株リアルタイム決算` | プレマーケット・時間外・無料アラート |
+| UC ko | `언더커런트: 서학개미 미국증시 뉴스` | 오늘의 증시·시황·기관 자금 흐름 |
+| UC en | `Undercurrent: Stock News Daily` | Market Recap, Earnings & Money |
+| UC ja | `アンダーカレント：米国株ニュース速報` | 決算・市況・機関の資金フローを毎日 |
+| WIM ko | `Why'd It Move? 서학개미 미국주식 퀴즈` | 하루 3분, 미국증시 왕초보 공부 |
+| WIM en | (유지) `Why'd It Move?: Stock Quiz` | Daily finance quiz in 60 sec |
+| WIM ja | `Why'd It Move? 米国株・決算クイズ` | 毎日3分、米国経済とチャートを学ぶ |
+
+키워드 9개 전부 76~97/100자로 채움.
+
+### ★ 잃지 않게 설계한 방법
+애플은 **이름+부제+키워드를 합쳐서** 색인하고 필드 간 중복은 제거한다.
+그래서 이름에서 뺀 말(`미국주식`·`옵션`)을 **부제·키워드로 옮겨** 보존했다.
+현재 순위(`미국주식 옵션` 2위 등)를 잃지 않으면서 새 문만 추가한 것이다.
+
+### 절차 (다음에 그대로 재현)
+```python
+import sys; sys.path.insert(0,"scripts"); import asc_client as A
+A.call("POST","/appStoreVersions", {...})              # 편집 슬롯 생성
+A.call("GET", f"/apps/{aid}/appInfos")                 # ★ PREPARE_FOR_SUBMISSION 인 것을 고를 것
+A.call("PATCH", f"/appInfoLocalizations/{lid}", {...}) # 이름·부제
+A.call("PATCH", f"/appStoreVersionLocalizations/{lid}", {...}) # 키워드
+```
+**함정:** `BASE` 에 이미 `/v1` 이 있다 — 경로에 또 붙이면 404 다.
+**함정:** appInfo 는 앱당 여러 개다. 라이브(`READY_FOR_SALE`)를 고치면 아무 일도 안 일어난다.
