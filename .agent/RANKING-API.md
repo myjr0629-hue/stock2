@@ -26,7 +26,7 @@ GET https://www.signumhq.com/api/ranking?run=stealth  # 하나만
 인증 없음. 응답의 각 랭킹에 `what`(무엇을 재나)·`why`(왜 가치 있나)·`guards`
 (막아둔 함정)가 그대로 들어 있다. **그걸 읽고 쓰면 된다.**
 
-## 랭킹 10종 — 장중 5 / 마감 후 3 / 세션무관 2
+## 랭킹 11종 — 장중 5 / 마감 후 4 / 세션무관 2
 
 ### 장중 (intraday) — 정규장에도 갱신된다
 
@@ -45,6 +45,7 @@ GET https://www.signumhq.com/api/ranking?run=stealth  # 하나만
 | `darkpool-volume` | 장외 물량 이탈 | 장외 체결량 배수 ÷ 그날 시장 중앙 배수 |
 | `darkpool-short` | 장외 공매도 비중 이탈 | 공매도 비중이 평소보다 몇 %p |
 | `stealth` | 은밀 축적·분산 | 물량↑ + 공매도비중↓ 조합을 그날 시장 중앙값과 비교 |
+| `volatility-bet` | 조용한데 비싸진 옵션 | IV 랭크 상위 **+ 실적 D-14 이내 제외** |
 
 **FINRA 는 마감(16:00 ET) 후 약 90분, 17:31 ET 에 그날 파일이 뜬다.**
 그 전에는 마감 후 랭킹이 `available: false` 로 나온다.
@@ -59,6 +60,20 @@ GET https://www.signumhq.com/api/ranking?run=stealth  # 하나만
 `insider-conviction` 은 우리 유니버스 25종목이 아니라 **미국 시장 전체**를 훑는다.
 보상·무상취득(A)·옵션행사(M)·세금납부(F)는 제외한다 — 실측 908건 중 절반 이상이
 그런 것이고, 그건 «자기 돈으로 산 것»이 아니다.
+
+## 「준비 상태」 — 자료가 덜 쌓인 랭킹
+
+일부 랭킹은 이력이 쌓여야 켜진다. 그때는 `available:false` 와 함께 진행률이 온다:
+
+```json
+{ "available": false,
+  "readiness": { "have": 24, "need": 20, "lastDate": "2026-08-28", "stale": true },
+  "reason": "자료가 멈춰 있음 — atmIv 마지막 2026-08-28, 옵션은 2026-08-31 세션" }
+```
+
+`stale: true` 는 **「쌓였지만 지금은 안 들어온다」**는 뜻이다. 세션 수가 찼다고
+쓰면 안 된다 — `lastDate` 가 오늘 세션과 같아야 진짜다.
+자료가 차면 **코드 수정 없이 저절로 켜진다.**
 
 ## 쓰는 쪽이 반드시 지킬 것
 
