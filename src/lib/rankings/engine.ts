@@ -153,7 +153,11 @@ export function latestWith(items: Row[], keys: string[]): (Row & { _d: string })
  *   → 랭킹이 필요한 필드와 세션 수를 «선언»하고, 엔진이 진행률을 보고한다.
  *     자료가 차면 코드 수정 없이 저절로 켜진다.
  */
-export type Readiness = { ready: boolean; have: number; need: number; field: string; note?: string };
+export type Readiness = {
+    ready: boolean; have: number; need: number; field: string;
+    /** 마지막 관측일. 오늘 세션과 다르면 «쌓였지만 멈춘» 것이다 */
+    lastDate?: string | null; stale?: boolean; note?: string;
+};
 
 /**
  * 하루에 값 하나 — «세션» 단위 시계열.
@@ -184,11 +188,13 @@ export function readinessOf(
 ): Readiness {
     // 종목마다 이력이 다르므로 «중앙값 종목»을 기준으로 본다 —
     // 최대치로 재면 한 종목만 차도 «준비됨»이 되어 나머지가 빈다.
-    const counts = Object.values(perTicker)
-        .map((rows) => dailyValues(rows, field).length)
-        .sort((a, b) => a - b);
+    const series = Object.values(perTicker).map((rows) => dailyValues(rows, field));
+    const counts = series.map((s2) => s2.length).sort((a, b) => a - b);
     const have = counts.length ? counts[counts.length >> 1] : 0;
-    return { ready: have >= need, have, need, field };
+    // 마지막 관측일 — 세션 수만 보면 «쌓였지만 며칠 전에 멈춘» 것을 못 잡는다.
+    const lastDate = series.reduce<string | null>(
+        (m, s2) => { const d = s2.length ? s2[s2.length - 1].d : null; return d && (!m || d > m) ? d : m; }, null);
+    return { ready: have >= need, have, need, field, lastDate };
 }
 
 /** 배수의 «거리» — 2배와 0.5배를 같은 크기로 본다. */

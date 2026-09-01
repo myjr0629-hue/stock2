@@ -245,6 +245,20 @@ export async function GET(req: NextRequest) {
 
         if (spec.id === 'volatility-bet') {
             const rd = readinessOf(gexRaw, spec.requires!.field, spec.requires!.sessions);
+            // ⚠️ 세션 수가 찼어도 «며칠 전에 멈춘» 자료면 안 된다. 실측: atmIv 가
+            //    08-28 에서 끊긴 채 24세션이 차 있었고, 하필 그날이 이상치라
+            //    여러 종목이 동시에 IV랭크 100 으로 나왔다 — 3일 전 값을
+            //    「오늘」로 쓴 것이다. 다크풀과 같은 신선도 게이트를 건다.
+            if (rd.ready && optionSession && rd.lastDate && rd.lastDate !== optionSession) {
+                rd.ready = false; rd.stale = true;
+                results[spec.id] = {
+                    available: false, phase: spec.phase, name: spec.name, what: spec.what, why: spec.why,
+                    readiness: { ...rd, note: spec.requires!.why },
+                    reason: `자료가 멈춰 있음 — ${rd.field} 마지막 ${rd.lastDate}, 옵션은 ${optionSession} 세션`,
+                    items: [],
+                };
+                continue;
+            }
             if (!rd.ready) {
                 results[spec.id] = {
                     available: false, phase: spec.phase, name: spec.name, what: spec.what, why: spec.why,
@@ -360,7 +374,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 6, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 7, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta, universe: UNIVERSE.length, results,
     };
