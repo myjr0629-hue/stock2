@@ -58,6 +58,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
         priority: p === '' ? 0.9 : 0.6,
       });
     }
+    // /rankings — 랭킹 11종 허브. 매일 값이 바뀌고, 여기서 티커 페이지로
+    // 내부 링크가 나간다(3,585개의 발견을 돕는다).
+    entries.push({
+      url: `${base}/${loc}/rankings`,
+      lastModified: session,
+      changeFrequency: 'daily',
+      priority: 0.9,
+    });
     // 다크풀 순위표는 «매 거래일 값이 바뀌는 허브»다. 정적 상수 날짜를 주면
     // 구글에 「안 바뀐다」고 거짓말하는 셈이 된다 — 실제 거래일을 준다.
     for (const hub of ['/dark-pool', '/options-flow']) {
