@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { IAP_LIVE } from '@/config/iap';
+import { ProPaywall } from '@/components/app/ProPaywall';
 import { useProStatus } from '@/hooks/useProStatus';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
@@ -202,7 +203,7 @@ export default function SettingsPage() {
   }, []);
 
   // Pro (ad-free) — inert while IAP_LIVE=false (isPro false, no SDK, card hidden).
-  const { isPro, purchase, restore } = useProStatus();
+  const { isPro, restore } = useProStatus();
   const [proBusy, setProBusy] = useState(false);
 
   // 바이너리 실제 버전 (@capacitor/app). 플러그인 없으면 라이브 스토어 버전으로 폴백
@@ -211,14 +212,13 @@ export default function SettingsPage() {
   // Companion-app cross-promo — UC·WIM 모두 iOS/Android 라이브 (2026-08-08 전 앱 승인).
   const [showCompanions] = useState(true);
 
-  const handleProUpgrade = useCallback(async () => {
+  // ⚠️ 여기서 곧장 purchase() 를 부르면 안 된다 — 결제 «전에» 가격·기간·약관을
+  //    보여주지 않는 것이 애플 3.1.2 반려 사유다. 페이월을 먼저 띄운다.
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const handleProUpgrade = useCallback(() => {
     if (proBusy || isPro) return;
-    setProBusy(true);
-    try {
-      const res = await purchase();
-      if (!res.ok && !res.cancelled) setToastMsg(t.proErrorToast);
-    } finally { setProBusy(false); }
-  }, [purchase, proBusy, isPro, t]);
+    setPaywallOpen(true);
+  }, [proBusy, isPro]);
 
   const handleProRestore = useCallback(async () => {
     if (proBusy) return;
@@ -701,6 +701,11 @@ export default function SettingsPage() {
           <div className={s.toast}>✓ {toastMsg}</div>
         )}
       </div>
+
+      {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지) */}
+      {IAP_LIVE && paywallOpen && (
+        <ProPaywall locale={locale} onClose={() => setPaywallOpen(false)} />
+      )}
     </div>
   );
 }
