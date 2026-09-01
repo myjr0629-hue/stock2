@@ -83,6 +83,42 @@ node scripts/_shoot-paywall.js /tmp/paywall-en.png http://localhost:3000/en/payw
 ```
 `/[locale]/paywall-preview` 는 **운영에서 렌더되지 않는다**(NODE_ENV 가드).
 
+## ✅ Android 도 완료 (2026-09-02)
+
+### ★ 새 빌드가 필요 없었다
+Play 구독상품 생성이 막혀 있다고 알고 있었는데(«빌링 빌드가 먼저» 라는 기록),
+실제로 열려 있었다. 이유:
+
+| 시점 | 일 |
+|---|---|
+| 2026-07-29 | RevenueCat 플러그인을 `capacitor.settings.gradle` 에 등록 |
+| 2026-08-20 | versionCode 4 빌드 → **Play 라이브 1.2.1** |
+
+**라이브 빌드가 플러그인 등록 «이후»에 만들어졌다** → Play Billing 이 이미 들어있다.
+(병합 매니페스트에 `com.android.vending.BILLING` 실측 확인)
+
+### Play Console
+- 구독 `com.signumhq.app.pro.monthly` 생성
+- 기본 요금제 `monthly` · 월간 자동갱신 · 유예 7일 · 계정보류 53일
+- 가격 **$9.99** → 177개국 자동 환산(호주 AUD 14.99 등)
+- **상태: Active** ✅
+
+### RevenueCat
+- Play 상품 `com.signumhq.app.pro.monthly:monthly` 등록
+- Entitlement `pro` 에 연결
+- Offering `default` 의 `$rc_monthly` 패키지에 **iOS·Android 둘 다** 연결 ✅
+
+### ★ 이 앱은 «원격 웹셸» 이다
+`capacitor.config.ts` 의 `server.url = https://www.signumhq.com/en/app-view/dash`.
+→ **페이월 UI 는 Vercel 배포만으로 즉시 반영된다.** 네이티브 빌드는 결제 플러그인 때문에만 필요하고,
+그건 이미 라이브에 들어있다.
+
+### Vercel 환경변수
+`NEXT_PUBLIC_RC_IOS_KEY` · `NEXT_PUBLIC_RC_ANDROID_KEY` → production/preview/development 6건 등록 ✅
+
+> ⚠️ **`vercel link` 가 자동으로 `env pull` 을 돌린다.** `.env.local` 이 덮인다.
+> 이번엔 내용이 같아서 무사했지만, 다음엔 **링크 전에 `.env.local` 을 백업**할 것.
+
 ## ⛔ 남은 것
 
 | # | 무엇 | 누가 | 비고 |
