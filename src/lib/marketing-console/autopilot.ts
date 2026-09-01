@@ -173,12 +173,23 @@ interface ChannelPlan {
   bluesky?: boolean;
 }
 
+// ⚠️ [2026-09-01] 대표 지시로 Buffer 자동발행을 «완전히» 끈다.
+//    이유: 자동 다발 게시가 팔로워 0 상태에서 도달 0 을 만들었고(X 181글/팔로워 5,
+//    Bluesky 639글/팔로워 23, Instagram 109글/팔로워 0), 채널만 스팸으로 읽혔다.
+//    게시는 사람이 «올려» 라고 할 때만 한다.
+//    되살리려면 이 상수를 false 로 바꾸고 vercel.json 에 크론을 다시 넣어야 한다
+//    — 둘 다 해야 살아난다(한쪽만으론 안 돈다).
+const BUFFER_AUTOPILOT_DISABLED = true;
+
 /**
  * Run one autopilot tick for ORIGINAL posts (x-us / x-jp / bluesky-post).
  * Posts at most one item per eligible channel; every gate can veto. Replies are
  * a separate engine. Returns a per-channel action log (also written to audit).
  */
 export async function runAutopilotOriginals(): Promise<AutoResult[]> {
+  if (BUFFER_AUTOPILOT_DISABLED) {
+    return [{ channel: '*', mode: 'off', action: 'halt', ok: false, detail: 'Buffer 자동발행 영구 정지(2026-09-01 대표 지시)' }];
+  }
   // Defense in depth — killswitch and deadman halt everything first.
   if (await getKillSwitch()) {
     return [{ channel: '*', mode: 'off', action: 'halt', ok: false, detail: '킬스위치 ON — 전체 정지' }];
@@ -326,6 +337,9 @@ const BSKY_PER_TICK = 3; // grounded Bluesky replies attempted per run
 const X_PER_TICK = 2;    // self-replies per account per run
 
 export async function runAutopilotReplies(): Promise<AutoResult[]> {
+  if (BUFFER_AUTOPILOT_DISABLED) {
+    return [{ channel: 'reply', mode: 'off', action: 'halt', ok: false, detail: 'Buffer 자동발행 영구 정지(2026-09-01 대표 지시)' }];
+  }
   const out: AutoResult[] = [];
   if (await getKillSwitch()) return [{ channel: 'reply', mode: 'off', action: 'halt', ok: false, detail: '킬스위치 ON' }];
   const dm = await deadmanTripped();

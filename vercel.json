@@ -109,14 +109,6 @@
       "schedule": "40 22 * * 1-5"
     },
     {
-      "path": "/api/cron/mkt-originals",
-      "schedule": "3,33 * * * 1-5"
-    },
-    {
-      "path": "/api/cron/mkt-replies",
-      "schedule": "17 * * * 1-5"
-    },
-    {
       "path": "/api/cron/breaking-detect",
       "schedule": "*/3 13-20 * * 1-5"
     },
