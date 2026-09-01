@@ -82,7 +82,31 @@ export default async function LocaleLayout({ children, params }: Props) {
     }
 
     // Load messages for the current locale
-    const messages = await getMessages();
+    const allMessages = await getMessages();
+
+    // ⚠️ [2026-09-01] 클라이언트로 «사전 전체»를 넘기고 있었다.
+    //
+    //   실측: /en/flow/NVDA 의 HTML 372KB 중 **332KB(90%)가 이 플라이트 데이터**였다.
+    //   실제 마크업은 32KB 뿐이다. 그리고 이 보일러플레이트는 티커 3,585개
+    //   페이지에 «똑같이» 실린다 → 구글에겐 전부 중복 페이지로 보이고,
+    //   크롤 예산도 거기서 탄다(색인 531/960 · 중복 156 의 유력한 원인).
+    //
+    //   아래 묶음들은 how-it-works 페이지에서만 쓰이고 그 페이지들은 전부
+    //   **서버 컴포넌트**(getTranslations)다 — 클라이언트 프로바이더에 넣을
+    //   이유가 없다. 73개 클라이언트 파일이 쓰는 네임스페이스를 전수 조사해
+    //   확인했다.
+    //
+    //   ⚠️ 새 클라이언트 컴포넌트가 이 중 하나를 쓰게 되면 «조용히» 빈 문자열이
+    //      된다. 그때는 여기서 빼면 된다.
+    const SERVER_ONLY_NAMESPACES = [
+        'commandGuide', 'flowGuide', 'guardianGuide', 'intelGuide',
+        'dashboardGuide', 'portfolioGuide', 'watchlistGuide',
+        'flowRadarGuide', 'howItWorks',
+    ];
+    const messages = Object.fromEntries(
+        Object.entries(allMessages as Record<string, unknown>)
+            .filter(([k]) => !SERVER_ONLY_NAMESPACES.includes(k)),
+    );
 
     // SERVER-SIDE MOBILE DETECTION (Absolute DOM Bifurcation)
     // Avoids hydration mismatch and heavy desktop CSS fetching on mobile.
