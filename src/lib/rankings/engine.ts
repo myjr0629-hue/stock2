@@ -155,6 +155,28 @@ export function latestWith(items: Row[], keys: string[]): (Row & { _d: string })
  */
 export type Readiness = { ready: boolean; have: number; need: number; field: string; note?: string };
 
+/**
+ * 하루에 값 하나 — «세션» 단위 시계열.
+ *
+ * ⚠️ [2026-09-01 실측] 이걸 안 하면 원시 행을 그대로 센다. 스냅샷이 15분마다
+ *    쌓이므로 «20세션»이 순식간에 «1,312 표본»이 되고, 「20세션 백분위」라고
+ *    써 놓은 값이 실제로는 «몇 시간치 스냅샷 백분위»가 된다(실제로 그랬다).
+ *    라벨이 세션이면 데이터도 세션이어야 한다.
+ */
+export function dailyValues(rows: Array<Record<string, any>>, field: string) {
+    const byDay = new Map<string, { ts: number; v: number }>();
+    for (const r of rows) {
+        const v = Number(r?.[field]);
+        if (!Number.isFinite(v) || v === 0) continue;      // NULL·0 은 «측정 안 됨»으로 본다
+        const ts = Number(r.timestamp);
+        if (!Number.isFinite(ts)) continue;
+        const d = etDay(ts);
+        const prev = byDay.get(d);
+        if (!prev || ts > prev.ts) byDay.set(d, { ts, v });  // 그날 마지막 관측
+    }
+    return [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([d, x]) => ({ d, v: x.v }));
+}
+
 export function readinessOf(
     perTicker: Record<string, Array<Record<string, any>>>,
     field: string,
@@ -162,9 +184,9 @@ export function readinessOf(
 ): Readiness {
     // 종목마다 이력이 다르므로 «중앙값 종목»을 기준으로 본다 —
     // 최대치로 재면 한 종목만 차도 «준비됨»이 되어 나머지가 빈다.
-    const counts = Object.values(perTicker).map(
-        (rows) => rows.filter((r) => Number.isFinite(Number(r?.[field])) && Number(r[field]) !== 0).length,
-    ).sort((a, b) => a - b);
+    const counts = Object.values(perTicker)
+        .map((rows) => dailyValues(rows, field).length)
+        .sort((a, b) => a - b);
     const have = counts.length ? counts[counts.length >> 1] : 0;
     return { ready: have >= need, have, need, field };
 }

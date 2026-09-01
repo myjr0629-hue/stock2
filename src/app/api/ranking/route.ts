@@ -3,7 +3,7 @@ import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
 import {
-    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith, readinessOf,
+    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith, readinessOf, dailyValues,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
 import { fetchInsiderBuys, fetchFundamentals } from '@/lib/rankings/sources';
@@ -261,8 +261,8 @@ export async function GET(req: NextRequest) {
             });
             const daysToEarnings = Object.fromEntries(earn);
             for (const t of UNIVERSE) {
-                const series = (gexRaw[t] || [])
-                    .map((r) => Number(r.atmIv)).filter((v) => Number.isFinite(v) && v > 0);
+                // «세션» 시계열 — 원시 행을 그대로 세면 15분 스냅샷이 표본이 된다.
+                const series = dailyValues(gexRaw[t] || [], 'atmIv').map((x) => x.v);
                 if (series.length < spec.requires!.sessions) { bump('이력부족'); continue; }
                 const today = series[series.length - 1];
                 const past = series.slice(0, -1);
@@ -360,7 +360,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 5, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 6, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta, universe: UNIVERSE.length, results,
     };
