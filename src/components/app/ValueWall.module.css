@@ -427,3 +427,20 @@
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* 광고를 끝까지 본 «직후» 한 줄 — 밀지 않는다. 전환이 가장 높은 자리라 존재만 시킨다. */
+.afterAdUpsell {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 4px;
+  min-height: 32px;
+  border: none;
+  background: none;
+  font-size: 12.5px;
+  color: rgba(148, 163, 184, 0.85);
+  text-align: center;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.afterAdUpsell:hover { color: #10b981; }

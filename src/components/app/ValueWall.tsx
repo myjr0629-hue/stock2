@@ -34,6 +34,7 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
   unlockedTitle: string;
   unlockedSubtitle: ReactNode;
   continueLabel: string;
+  afterAdUpsell: string;
 }> = {
   ko: {
     defaultSubtitle: <>광고를 시청하면 프리미엄 리서치 데이터를 1시간 동안 확인할 수 있습니다.</>,
@@ -54,6 +55,7 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     unlockedTitle: '프리미엄 리서치 데이터 활성화',
     unlockedSubtitle: <>시장 데이터 참고용으로만 사용하세요. 정확성 또는 수익을 보장하지 않습니다.</>,
     continueLabel: '계속',
+    afterAdUpsell: '매번 기다리지 않으려면 · 광고 없이 보기',
   },
   en: {
     defaultSubtitle: <>Watch an ad to unlock premium research data for 1 hour.</>,
@@ -74,6 +76,7 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     unlockedTitle: 'Premium research data is live',
     unlockedSubtitle: <>Use this as market-data context only. Accuracy and returns are not guaranteed.</>,
     continueLabel: 'Continue',
+    afterAdUpsell: 'Tired of waiting? Go ad-free',
   },
   ja: {
     defaultSubtitle: <>広告を視聴すると、プレミアムリサーチデータを1時間確認できます。</>,
@@ -94,6 +97,7 @@ const VALUE_WALL_COPY: Record<ValueWallLocale, {
     unlockedTitle: 'プレミアムリサーチデータが有効です',
     unlockedSubtitle: <>市場データの参考情報としてのみ使用してください。正確性または収益を保証しません。</>,
     continueLabel: '続ける',
+    afterAdUpsell: '毎回待たずに · 広告なしで見る',
   },
 };
 
@@ -340,6 +344,15 @@ export function ValueWall({
           legalNote={resolvedLegalNote}
           onClose={() => setShowAd(false)}
           onReward={finishUnlock}
+          onUpgrade={openPaywall}
+        />
+      )}
+
+      {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지) */}
+      {IAP_LIVE && paywallOpen && (
+        <ProPaywall
+          locale={resolveValueWallLocale(locale)}
+          onClose={() => setPaywallOpen(false)}
         />
       )}
     </div>
@@ -351,11 +364,13 @@ function RewardedAdModal({
   legalNote,
   onClose,
   onReward,
+  onUpgrade,
 }: {
   copy: typeof VALUE_WALL_COPY[ValueWallLocale];
   legalNote: ReactNode;
   onClose: () => void;
   onReward: () => void;
+  onUpgrade?: () => void;
 }) {
   const [progress, setProgress] = useState(0);
   const [canClose, setCanClose] = useState(false);
@@ -399,9 +414,21 @@ function RewardedAdModal({
         {!canClose ? (
           <div className={styles.waiting}>{copy.modalWaitPrefix}...</div>
         ) : (
-          <button className={styles.continueBtn} onClick={handleContinue}>
-            {copy.continueLabel}
-          </button>
+          <>
+            <button className={styles.continueBtn} onClick={handleContinue}>
+              {copy.continueLabel}
+            </button>
+            {/* 30초를 방금 참은 직후가 전환이 가장 높은 자리다. 밀지 않고 한 줄만 둔다. */}
+            {IAP_LIVE && onUpgrade && (
+              <button
+                type="button"
+                className={styles.afterAdUpsell}
+                onClick={() => { onClose(); onUpgrade(); }}
+              >
+                {copy.afterAdUpsell}
+              </button>
+            )}
+          </>
         )}
 
         <div className={styles.modalLegal}>{legalNote}</div>
