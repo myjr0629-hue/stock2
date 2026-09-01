@@ -103,9 +103,25 @@ export default async function LocaleLayout({ children, params }: Props) {
         'dashboardGuide', 'portfolioGuide', 'watchlistGuide',
         'flowRadarGuide', 'howItWorks',
     ];
+    //   한 걸음 더: «순수 SEO 경로»(티커 3,585개 · 학습 · 다크풀 등)는 앱 UI
+    //   컴포넌트를 아예 렌더하지 않는다. 그 경로에서는 앱 전용 묶음도 뺀다.
+    //   ⚠️ `/flow` (티커 없음)는 앱 화면이므로 «제외하지 않는다» —
+    //      `/flow/NVDA` 처럼 티커가 붙은 것만 SEO 경로다.
+    const seoPath = await (async () => {
+        const h = await headers();
+        return h.get('x-pathname') || '';
+    })();
+    const isSeoRoute = /^\/(?:en|ko|ja)?\/?(?:flow\/[A-Z][A-Z0-9.\-]{0,6}|learn|dark-pool|options-flow|tickers|how-it-works)(?:\/|$)/.test(seoPath);
+    const APP_ONLY_NAMESPACES = [
+        'flowRadarUI', 'sectorSession', 'dashboard', 'signalCoreV3',
+        'guardian', 'intel', 'alphaReport', 'tacticalReport', 'command', 'pricing',
+    ];
+    const dropped = new Set([
+        ...SERVER_ONLY_NAMESPACES,
+        ...(isSeoRoute ? APP_ONLY_NAMESPACES : []),
+    ]);
     const messages = Object.fromEntries(
-        Object.entries(allMessages as Record<string, unknown>)
-            .filter(([k]) => !SERVER_ONLY_NAMESPACES.includes(k)),
+        Object.entries(allMessages as Record<string, unknown>).filter(([k]) => !dropped.has(k)),
     );
 
     // SERVER-SIDE MOBILE DETECTION (Absolute DOM Bifurcation)
