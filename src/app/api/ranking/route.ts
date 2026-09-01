@@ -257,6 +257,11 @@ export async function GET(req: NextRequest) {
             if (!list.length) { bump('펀더멘털 없음'); }
             else {
                 const medEv = median(list.map((f) => f.evToEbitda!).filter((v) => v > 0)) ?? 0;
+                // ⚠️ 두 축을 «각자의 중앙값»으로 정규화한 뒤 곱한다.
+                //    안 하면 EV/EBITDA 항(24.5/8.7 = 2.8)이 FCF수익률 항(2.24/10 = 0.22)을
+                //    압도해서, 「현금창출 대비 저평가」인데 FCF 7.99% 종목이
+                //    2.24% 종목 아래로 간다(실제로 그랬다). 이름과 순위가 어긋난다.
+                const medFy = median(list.map((f) => f.fcfYield!).filter((v) => v > 0)) ?? 1;
                 for (const f of list) {
                     if (!(f.debtToEquity! <= 0.8)) { bump('부채비율 초과'); continue; }
                     if (!(f.fcfYield! > 0)) { bump('FCF 음수'); continue; }
@@ -270,7 +275,8 @@ export async function GET(req: NextRequest) {
                         debtToEquity: Math.round(f.debtToEquity! * 100) / 100,
                         operatingMargin: f.operatingMargin != null ? Math.round(f.operatingMargin * 1000) / 10 : null,
                         fcf: f.fcf, marketCap: f.marketCap, fiscalYear: f.fiscalYear,
-                        rank: f.fcfYield! / 10 + (medEv / f.evToEbitda!),
+                        // 현금창출(중앙값 대비) × 싸기(중앙값 대비) — 둘 다 있어야 올라온다
+                        rank: (medFy > 0 ? f.fcfYield! / medFy : 1) * (medEv / f.evToEbitda!),
                     });
                 }
             }
@@ -301,7 +307,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 3, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 4, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta, universe: UNIVERSE.length, results,
     };
