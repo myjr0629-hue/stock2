@@ -299,18 +299,100 @@ async function getIntradayAggregates(ticker, mult, span, from, to, opts = {}) {
   return { ticker: sym, queryCount: results.length, resultsCount: results.length, adjusted: true, results, status: 'OK' };
 }
 
+// ── 만기 선택 ────────────────────────────────────────────────
+// [2026-09-02] 기존 설계를 «평가»한 결과 그대로 유지하고 그 위에서 고도화한다.
+//
+// 기존 설계는 2단계이고, 각 단계가 서로 다른 지표를 먹인다:
+//   탐색(probe) = **0~35 DTE 전 만기** → allExpiryChain → GEX · OPI · DEX
+//                 (근거: src/components/FlowRadar.tsx L371 「0-35 DTE」)
+//   정밀(exact) = **주간 만기 1개**     → rawChain      → 맥스페인 · 콜월 · 풋플로어
+//
+// ★ 이관하면서 탐색이 «날짜 범위»에서 «개수 6개»로 바뀌어 있었다. 그러면
+//   종목마다 덮는 기간이 달라진다(실측: SPY 8일 · MRVL 35일). 되돌린다.
+//
+// ★ 「주간+월물 2개면 충분하지 않나」를 실측으로 검토했고 **부족했다**:
+//     0~35 DTE 총 OI 대비 주간+월물 비중 — SPY 67% · NVDA 78% · AAPL 76%
+//   GEX·DEX·OPI 는 OI 가중 «합계»라 3분의 1이 빠지면 값이 틀린다.
+//   (맥스페인은 주간 1개로 계산하므로 이 판단과 무관하다.)
+//
+// ★ 「첫 금요일」로 고르면 안 된다 (대표 지적 — 실측으로 확인):
+//     SPY/QQQ  목 금 화 수 목 금 월 …  ← 매일 만기. 첫 금요일이 2번째다
+//     NVDA/TSLA 금 수 금 월 수 금 …    ← 월·수 만기가 섞여 있다
+//     금요일 휴장 주 → 그 주 만기는 «목요일»인데, 첫 금요일 규칙은
+//     그 주를 통째로 건너뛰고 다음 주를 잡는다.
+//
+// 그래서 요일이 아니라 «주»로 고른다:
+//   주간 = 오늘부터 다가오는 금요일까지 구간의 **마지막 만기**
+//          → 정상 주 금요일 / 휴장 주 목요일 / SPY 매일만기도 그 주 금요일
+//   월물 = 15~21일 창의 **금요일**(표준 월물). 그 창에 금요일이 없으면
+//          창의 마지막 만기(휴장으로 밀린 경우).
+//
+// 왜 월물까지 받나 — 맥스페인·GEX 는 «미결제약정» 기반인데 월물이 훨씬 두껍다.
+//   실측 2026-09-02: NVDA 주간 996,907 vs 월물 2,114,479 (2.1배)
+//                    AAPL 주간 194,231 vs 월물   744,623 (3.8배)
+//   주간만 보면 시장 OI 의 3분의 1로 계산하게 된다.
+//   (거래량은 반대로 주간이 최다다 — 두 지표는 서로 다른 만기에 몰린다.)
+// 0~35 DTE — 기존 설계의 창(FlowRadar 가 그 범위로 OI 지표를 만든다).
+const DTE_WINDOW_DAYS = 35;
+const _dowOf = (d) => new Date(d + 'T12:00:00').getUTCDay();
+
+function pickWeeklyExpiration(exps, today) {
+  const t = new Date(today + 'T12:00:00');
+  const fri = new Date(t.getTime() + (((5 - t.getUTCDay() + 7) % 7)) * 86400000)
+    .toISOString().slice(0, 10);
+  const inWeek = exps.filter((e) => e >= today && e <= fri);
+  return inWeek.length ? inWeek[inWeek.length - 1] : (exps.find((e) => e >= today) || '');
+}
+
+function pickMonthlyExpiration(exps, today) {
+  // ⚠️ [2026-09-02 시뮬레이션에서 발견] 달을 더할 때 **일(day)을 먼저 1로** 놓아야 한다.
+  //    31일에 setUTCMonth(+1) 을 하면 「11월 31일」이 없어 12월 1일로 넘어가고,
+  //    그 달의 월물이 통째로 건너뛰어진다(10-31 에 11-20 을 지나쳐 12-18 을 골랐다).
+  const y0 = Number(today.slice(0, 4)), m0 = Number(today.slice(5, 7)) - 1;
+  for (let m = 0; m < 3; m++) {
+    const base = new Date(Date.UTC(y0, m0 + m, 1));
+    const ym = `${base.getUTCFullYear()}-${String(base.getUTCMonth() + 1).padStart(2, '0')}`;
+    const win = exps.filter((e) => {
+      const d = Number(e.slice(8, 10));
+      return e >= today && e.slice(0, 7) === ym && d >= 15 && d <= 21;
+    });
+    if (!win.length) continue;
+    return win.find((e) => _dowOf(e) === 5) || win[win.length - 1];
+  }
+  return '';
+}
+
 // ── 3) 옵션 체인 ─────────────────────────────────────────────
 async function getOptionChain(ticker, opts = {}) {
   const sym = String(ticker).toUpperCase();
-  const maxExp = opts.maxExpirations || 6;
 
   let expirations = [];
   if (opts.expiration) expirations = [opts.expiration];
   else {
-    const exp = await callIntrinio(`options/expirations/${sym}/eod`, {
-      after: new Date().toISOString().slice(0, 10),
-    }).catch(() => null);
-    expirations = ((exp && exp.expirations) || []).slice().sort().slice(0, maxExp);
+    const today = new Date().toISOString().slice(0, 10);
+    // ⚠️ [2026-09-02 실측] `after` 는 **배타적**이다. after=2026-09-04 를 주면
+    //    09-04 자신이 빠지고 09-09 부터 온다. 그대로 두면 **만기일 당일 장중에
+    //    그날 만기를 건너뛰고 다음 주 체인을 본다** — 맥스페인의 「핀」이 실제로
+    //    작동하는 바로 그날 엉뚱한 만기를 보는 셈이다.
+    //    → 하루 앞을 주고 `>= today` 로 우리가 직접 자른다. 이러면
+    //      금요일 장중엔 그날 만기, 마감 뒤(토요일)엔 다음 만기로 저절로 넘어간다.
+    const yday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
+    const exp = await callIntrinio(`options/expirations/${sym}/eod`, { after: yday }).catch(() => null);
+    const all = ((exp && exp.expirations) || []).filter((e) => e >= today).sort();
+    // 기존 설계 = 0~35 DTE **날짜 창**. 개수로 자르면 종목마다 기간이 달라진다.
+    const limit = new Date(Date.parse(today + 'T00:00:00Z') + DTE_WINDOW_DAYS * 86400000)
+      .toISOString().slice(0, 10);
+    expirations = all.filter((e) => e <= limit);
+    // 창 안에 만기가 없으면(장기물만 남은 희귀 종목) 가장 가까운 것 하나는 본다.
+    if (!expirations.length && all.length) expirations = [all[0]];
+    // 호출부가 개수를 명시하면 그만큼만 — 주간·월물을 **반드시 포함**한 채로 자른다.
+    const want = opts.maxExpirations || 0;
+    if (want > 0 && expirations.length > want) {
+      const must = [pickWeeklyExpiration(expirations, today), pickMonthlyExpiration(expirations, today)]
+        .filter(Boolean);
+      const rest = expirations.filter((e) => !must.includes(e));
+      expirations = [...new Set([...must, ...rest])].slice(0, want).sort();
+    }
   }
   if (!expirations.length) return { results: [], status: 'OK', count: 0 };
 
@@ -320,9 +402,24 @@ async function getOptionChain(ticker, opts = {}) {
     underlying = num(rt && rt.last_price) ?? num(rt && rt.eod_close_price) ?? 0;
   }
 
-  const chains = await Promise.all(
-    expirations.map((e) => callIntrinio(`options/chain/${sym}/${e}/eod`).catch(() => null))
-  );
+  // ⚠️ [2026-09-02] 체인 하나가 실패하면 **만기가 조용히 사라진다.**
+  //    실측: CAT 이 15.5초 뒤 만기 1개만 돌아왔다(일시적 레이트리밋).
+  //    그러면 맥스페인이 다른 만기 하나로 계산되는데 화면엔 아무 표시가 없다 —
+  //    맥스페인 220 이 어느 만기 것인지 모르게 되는, 가장 위험한 종류의 오류다.
+  //    → ① 한 번 재시도 ② 그래도 실패하면 결과에 명시한다.
+  const fetchChain = async (e) => {
+    let r = await callIntrinio(`options/chain/${sym}/${e}/eod`).catch(() => null);
+    if (!r || !Array.isArray(r.chain)) {
+      await new Promise((z) => setTimeout(z, 400));
+      r = await callIntrinio(`options/chain/${sym}/${e}/eod`).catch(() => null);
+    }
+    return r;
+  };
+  const chains = await Promise.all(expirations.map(fetchChain));
+  const missing = expirations.filter((e, i) => !chains[i] || !Array.isArray(chains[i].chain));
+  if (missing.length) {
+    console.warn(`[Intrinio] ${sym} 체인 누락 ${missing.join(',')} — 남은 만기로만 계산된다`);
+  }
 
   const results = [];
   for (const ch of chains) {
@@ -364,7 +461,13 @@ async function getOptionChain(ticker, opts = {}) {
       });
     }
   }
-  return { results, status: 'OK', count: results.length };
+  // 하류가 «어느 만기로 계산된 값인지»와 «빠진 게 있는지»를 알 수 있어야 한다.
+  return {
+    results, status: 'OK', count: results.length,
+    expirationsRequested: expirations,
+    expirationsFetched: expirations.filter((e) => !missing.includes(e)),
+    ...(missing.length ? { expirationsMissing: missing, partial: true } : {}),
+  };
 }
 
 // ── 4) 기술지표 ──────────────────────────────────────────────

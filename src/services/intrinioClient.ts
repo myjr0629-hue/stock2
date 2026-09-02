@@ -663,8 +663,52 @@ async function mergeExtendedBars(
 //              options/chain/{T}/{exp}/eod → 만기별 체인 (OI + IV + Greeks)
 // ─────────────────────────────────────────────────────────────
 
+// ══════════════════════════════════════════════════════════════════════
+// 만기 선택 — Lambda 어댑터(scripts/lambda-flow-harvest/intrinio-adapter.js)와
+// **같은 규칙이어야 한다.** 갈라지면 앱과 수집기가 다른 만기를 보고,
+// 「맥스페인 220」이 어디서 나온 값인지 알 수 없게 된다.
+//
+// 주간 = 오늘부터 다가오는 금요일까지 구간의 **마지막 만기**
+//        → 정상 주 금요일 / 금요일 휴장 주 목요일 / SPY 매일만기도 그 주 금요일
+// 월물 = 15~21일 창의 **금요일**(표준 월물). 없으면 창의 마지막 만기.
+//
+// ★ 「첫 금요일」로 고르면 안 된다(실측): SPY/QQQ 는 매일 만기라 첫 금요일이
+//   2번째이고, NVDA/TSLA 는 월·수 만기가 섞여 있으며, 금요일이 휴장이면
+//   그 주를 통째로 건너뛴다.
+// ★ 월물을 찾을 때 달을 더하기 전에 **일(day)을 1로** 놓아야 한다.
+//   31일에 setMonth(+1) 을 하면 「11월 31일」이 없어 12월로 넘어가
+//   그 달 월물이 통째로 빠진다(10-31 에 11-20 을 건너뛰고 12-18 을 골랐다).
+// 0~35 DTE — 기존 설계의 창.
+export const DTE_WINDOW_DAYS = 35;
+const _dow = (d: string) => new Date(d + 'T12:00:00Z').getUTCDay();
+
+export function pickWeeklyExpiration(exps: string[], today: string): string {
+    const t = new Date(today + 'T12:00:00Z');
+    const fri = new Date(t.getTime() + (((5 - t.getUTCDay() + 7) % 7)) * 86400000)
+        .toISOString().slice(0, 10);
+    const inWeek = exps.filter((e) => e >= today && e <= fri);
+    return inWeek.length ? inWeek[inWeek.length - 1] : (exps.find((e) => e >= today) || '');
+}
+
+export function pickMonthlyExpiration(exps: string[], today: string): string {
+    const y0 = Number(today.slice(0, 4));
+    const m0 = Number(today.slice(5, 7)) - 1;
+    for (let m = 0; m < 3; m++) {
+        const base = new Date(Date.UTC(y0, m0 + m, 1));
+        const ym = `${base.getUTCFullYear()}-${String(base.getUTCMonth() + 1).padStart(2, '0')}`;
+        const win = exps.filter((e) => {
+            const d = Number(e.slice(8, 10));
+            return e >= today && e.slice(0, 7) === ym && d >= 15 && d <= 21;
+        });
+        if (!win.length) continue;
+        return win.find((e) => _dow(e) === 5) || win[win.length - 1];
+    }
+    return '';
+}
+// ══════════════════════════════════════════════════════════════════════
+
 export interface OptionChainOptions {
-    /** 몇 개 만기까지 가져올지 (가까운 순). 기본 6 */
+    /** 더 넓게 필요할 때만. 기본은 주간+월물 2개다. */
     maxExpirations?: number;
     /** 특정 만기만 */
     expiration?: string;
@@ -677,18 +721,34 @@ export async function getOptionChainSnapshotIntrinio(
     opts: OptionChainOptions = {}
 ): Promise<any> {
     const sym = ticker.toUpperCase();
-    const maxExp = opts.maxExpirations ?? 6;
 
     let expirations: string[] = [];
     if (opts.expiration) {
         expirations = [opts.expiration];
     } else {
-        const expData = await callIntrinio(`options/expirations/${sym}/eod`, {
-            after: new Date().toISOString().slice(0, 10),
-        }).catch(() => null);
-        const all: string[] = expData?.expirations || [];
-        // 오름차순 정렬 후 가까운 것부터
-        expirations = [...all].sort().slice(0, maxExp);
+        const today = new Date().toISOString().slice(0, 10);
+        // ⚠️ `after` 는 **배타적**이다(실측). after=오늘 을 주면 그날 만기가 빠져,
+        //    만기일 당일 장중에 그날 만기를 건너뛰고 다음 주를 본다.
+        //    하루 앞을 주고 우리가 `>= today` 로 자른다.
+        const yday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
+        const expData = await callIntrinio(`options/expirations/${sym}/eod`, { after: yday }).catch(() => null);
+        const all: string[] = (expData?.expirations || []).filter((e: string) => e >= today).sort();
+        // 기존 설계 = 0~35 DTE **날짜 창**(FlowRadar L371 이 그 범위로 OI 지표를 만든다).
+        // 개수로 자르면 종목마다 덮는 기간이 달라진다(실측 SPY 8일 · MRVL 35일).
+        // 주간+월물 2개로 줄이는 것도 검토했으나 0~35 DTE 총 OI 의 67~78% 밖에
+        // 안 돼(SPY 67%) GEX·DEX·OPI 합계가 틀어진다 — 기존 창을 유지한다.
+        const limit = new Date(Date.parse(today + 'T00:00:00Z') + DTE_WINDOW_DAYS * 86400000)
+            .toISOString().slice(0, 10);
+        expirations = all.filter((e) => e <= limit);
+        if (!expirations.length && all.length) expirations = [all[0]];
+        const want = opts.maxExpirations ?? 0;
+        if (want > 0 && expirations.length > want) {
+            // 개수를 줄여야 할 때도 주간·월물은 반드시 남긴다.
+            const must = [pickWeeklyExpiration(expirations, today), pickMonthlyExpiration(expirations, today)]
+                .filter(Boolean);
+            const rest = expirations.filter((e) => !must.includes(e));
+            expirations = [...new Set([...must, ...rest])].slice(0, want).sort();
+        }
     }
 
     if (!expirations.length) {

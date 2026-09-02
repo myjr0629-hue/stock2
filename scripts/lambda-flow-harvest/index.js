@@ -386,20 +386,31 @@ async function fetchOptionsSnapshotRaw(ticker) {
       if (thursdayExp) weeklyExpiry = thursdayExp;
     }
 
-    // Phase 2: Exact weekly — same as CentralDataHub L448-454
-    let exactResults = [];
-    if (weeklyExpiry) {
-      let exactUrl = 'https://api.polygon.io/v3/snapshot/options/' + ticker
-        + '?limit=250&expiration_date=' + weeklyExpiry
-        + '&apiKey=' + POLYGON_KEY;
-      let exactPages = 0;
-      while (exactUrl && exactPages < 20) {
-        const data = await httpsGet(exactUrl, 12000).catch(() => null);
-        if (!data || !data.results) break;
-        exactResults = exactResults.concat(data.results);
-        exactUrl = data.next_url ? (data.next_url + (data.next_url.includes('apiKey') ? '' : '&apiKey=' + POLYGON_KEY)) : null;
-        exactPages++;
-      }
+    // Phase 2: Exact weekly
+    //
+    // ⚠️ [2026-09-02 최적화 — 실측으로 증명하고 뺐다]
+    //   Massive 시절엔 probe 가 `limit=250` 으로 **잘렸기 때문에** 주간 만기를
+    //   다시 온전히 받아야 했다. Intrinio 는 `options/chain/{t}/{exp}/eod` 가
+    //   그 만기의 **전체 체인**을 주므로, probe 안에 이미 주간 체인이 완전하게
+    //   들어 있다. 다시 받는 건 순수 중복이다.
+    //
+    //   증명(계약 수 + 행사가·타입·OI 집합까지 대조):
+    //     NVDA 166=166 · SPY 362=362 · TSLA 270=270 · AAPL 154=154 · MRVL 184=184  전부 일치
+    //
+    //   → 종목당 1콜 절감(9.2 → 8.2). 비용이 아니라 **분당 한도**가 제약이므로
+    //     그만큼 회전이 빨라진다. 데이터 손실은 0 이다.
+    let exactResults = weeklyExpiry
+      ? probeResults.filter((c) => c.details && c.details.expiration_date === weeklyExpiry)
+      : [];
+
+    // 방어: probe 창(0~35 DTE) 밖에 주간이 있는 이상 상황이면 그때만 직접 받는다.
+    if (weeklyExpiry && exactResults.length === 0) {
+      console.warn('[flow-harvest] ' + ticker + ' 주간(' + weeklyExpiry + ')이 probe 에 없다 — 직접 조회');
+      const data = await httpsGet(
+        'https://api.polygon.io/v3/snapshot/options/' + ticker
+        + '?limit=250&expiration_date=' + weeklyExpiry + '&apiKey=' + POLYGON_KEY, 12000
+      ).catch(() => null);
+      exactResults = (data && data.results) || [];
     }
 
     // [COST OPT] Slim contract — keep ONLY fields used by Vercel's structureService + centralDataHub
