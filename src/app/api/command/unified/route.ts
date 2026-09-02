@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { getFromCache, setInCache } from '@/services/redisClient';
+import { getFromCache as _getFromCache, setInCache as _setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 
@@ -210,6 +210,38 @@ const MEMORY_MAX = 200;
 const MEMORY_TTL_MS = 60_000; // 60 seconds
 const memoryCache = new Map<string, { data: any; ts: number }>();
 
+/**
+ * 값이 없는 페이로드를 «캐시에 넣지도, 캐시에서 꺼내지도» 않는다.
+ *
+ * ⚠️ [2026-09-03 실측] AMD 만 커맨드 화면이 통째로 비어 있었다. 39/40 종목은 멀쩡.
+ *    원인은 코드가 아니라 **캐시에 남은 시체**였다 —
+ *    `cache:command:unified:v2:AMD` 의 structure 에 underlyingPrice·prevClose·
+ *    maxPain 이 전부 null 인 페이로드가 들어 있었고, 그게 memory-lru 로 계속
+ *    되살아나 200 OK 로 나갔다(`/api/flow/unified?t=AMD` 는 457.61 로 정상).
+ *    한 번의 일시적 실패가 캐시 TTL 내내 «에러 없는 빈 화면»이 된다.
+ *
+ *    → 옵션 체인만 있고 가격이 없는 페이로드는 캐시로서 무효다. 막으면
+ *      다음 요청이 새로 가져올 기회를 얻는다(막지 않으면 영원히 못 낫는다).
+ *
+ * structure 가 아예 없는 페이로드(overview·institutional 캐시)는 대상이 아니다.
+ */
+function isCacheable(data: any): boolean {
+    if (!data || typeof data !== 'object') return false;
+    const st: any = (data as any).structure;
+    if (!st || typeof st !== 'object') return true;   // 커맨드 페이로드가 아니다
+    return st.underlyingPrice != null || st.prevClose != null;
+}
+
+async function getFromCache<T>(key: string): Promise<T | null> {
+    const v = await _getFromCache<T>(key);
+    return isCacheable(v) ? v : null;
+}
+
+async function setInCache(key: string, value: any, ttl?: number): Promise<void> {
+    if (!isCacheable(value)) return;
+    await (_setInCache as any)(key, value, ttl);
+}
+
 function memoryGet(key: string): any | null {
     const entry = memoryCache.get(key);
     if (!entry) return null;
@@ -217,10 +249,12 @@ function memoryGet(key: string): any | null {
         memoryCache.delete(key);
         return null;
     }
+    if (!isCacheable(entry.data)) { memoryCache.delete(key); return null; }
     return entry.data;
 }
 
 function memorySet(key: string, data: any): void {
+    if (!isCacheable(data)) return;              // 값 없는 페이로드는 담지 않는다
     // LRU eviction: if at capacity, delete oldest entry
     if (memoryCache.size >= MEMORY_MAX) {
         const oldestKey = memoryCache.keys().next().value;

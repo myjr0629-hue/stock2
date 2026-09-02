@@ -15,7 +15,21 @@ APP, VERSION, BUILD_NUM, WN_EN = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv
 
 WN = {"en-US": WN_EN,
       "ko": "안정성 개선과 스토어 정보 업데이트입니다.",
-      "ja": "安定性の改善とApp Store情報の更新です。"}
+      "ja": "安定性の改善とApp Store情報の更新です。",
+      # 로케일을 12개로 늘렸다(2026-09-03). whatsNew 가 비면 «그 로케일 때문에»
+      # 제출이 통째로 막힌다 — 3개만 채우던 옛 코드가 곧 사고였다.
+      "de-DE": "Stabilitätsverbesserungen und aktualisierte App-Store-Informationen.",
+      "es-ES": "Mejoras de estabilidad e información actualizada en la App Store.",
+      "es-MX": "Mejoras de estabilidad e información actualizada en la App Store.",
+      "fr-FR": "Améliorations de la stabilité et informations App Store mises à jour.",
+      "it": "Miglioramenti della stabilità e informazioni App Store aggiornate.",
+      "pt-BR": "Melhorias de estabilidade e informações atualizadas na App Store.",
+      "id": "Peningkatan stabilitas dan pembaruan informasi App Store.",
+      "vi": "Cải thiện độ ổn định và cập nhật thông tin trên App Store.",
+      "zh-Hant": "穩定性改善與 App Store 資訊更新。"}
+
+# 목록에 없는 로케일이 새로 생겨도 «빈 whatsNew» 로 막히지 않게 영어로 메운다.
+WN_FALLBACK = WN_EN
 
 # 1) 버전 확보
 ver = None
@@ -64,11 +78,9 @@ print("  ✓ 빌드 연결")
 # 4) whatsNew — 비어 있으면 제출이 막힌다
 for l in call("GET", f"/appStoreVersions/{ver}/appStoreVersionLocalizations")["data"]:
     loc = l["attributes"]["locale"]
-    if loc not in WN:
-        continue
     call("PATCH", f"/appStoreVersionLocalizations/{l['id']}", {"data": {
         "type": "appStoreVersionLocalizations", "id": l["id"],
-        "attributes": {"whatsNew": WN[loc]}}})
+        "attributes": {"whatsNew": WN.get(loc, WN_FALLBACK)}}})
     time.sleep(1)
 print("  ✓ 새로운 기능 작성")
 
