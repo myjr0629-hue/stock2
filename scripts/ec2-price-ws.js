@@ -249,15 +249,55 @@ function connectIntrinioWs() {
 }
 
 /** Intrinio 구독/해지 — 기존 Massive 구독 함수에서 위임받는다 */
+// ══════════════════════════════════════════════════════════════
+// [2026-09-02] 티커 검증 — 재시작 2,245회의 원인이었다.
+//
+// 실측 로그: `[Price WS] Intrinio join 실패: offset is out of bounds`
+//            `[Price WS] ⚠️ シリコン prevClose 확보 실패`
+//
+// 원인은 SDK 의 버퍼 계산이다(intrinio-realtime/index.js L618·L115):
+//   message = new Uint8Array(2 + symbol.length);   // ← **글자 수**로 잡고
+//   writeString(message, symbol, 2);               // ← **UTF-8 바이트**를 쓴다
+//   가드도 `bytesAvailable < string.length` 로 글자 수를 비교해 무력하다.
+//   「シリコン」= 4글자·12바이트 → 6바이트 버퍼에 12바이트 set → 예외.
+//
+// 즉 **비ASCII 문자가 하나라도 섞인 «티커»가 오면 프로세스가 죽는다.**
+// 우리가 검증 없이 넘긴 것이 진짜 원인이므로 여기서 막는다.
+// (일본어 문자열이 티커로 흘러든 경로는 별도 추적 대상.)
+// ══════════════════════════════════════════════════════════════
+const TICKER_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
+
+function sanitizeTickers(tickers, where) {
+    const ok = [], bad = [];
+    for (const t of (tickers || [])) {
+        const v = typeof t === "string" ? t.trim().toUpperCase() : "";
+        (TICKER_RE.test(v) ? ok : bad).push(v || String(t));
+    }
+    if (bad.length) {
+        console.warn("[Price WS] ⚠️ " + where + " 잘못된 티커 " + bad.length + "건 차단: " +
+            bad.slice(0, 5).map(function (x) { return JSON.stringify(x); }).join(", "));
+    }
+    return ok;
+}
+
 function intrinioJoin(tickers) {
-    if (!intrinioClient || !tickers.length) return;
-    try { intrinioClient.join(tickers, false); }
-    catch (e) { console.error("[Price WS] Intrinio join 실패:", e.message); }
+    if (!intrinioClient) return;
+    const safe = sanitizeTickers(tickers, "join");
+    if (!safe.length) return;
+    // 한 종목이 실패해도 나머지가 죽지 않도록 개별로 넣는다.
+    for (const t of safe) {
+        try { intrinioClient.join([t], false); }
+        catch (e) { console.error("[Price WS] Intrinio join 실패(" + t + "):", e.message); }
+    }
 }
 function intrinioLeave(tickers) {
-    if (!intrinioClient || !tickers.length) return;
-    try { intrinioClient.leave(tickers); }
-    catch (e) { console.error("[Price WS] Intrinio leave 실패:", e.message); }
+    if (!intrinioClient) return;
+    const safe = sanitizeTickers(tickers, "leave");
+    if (!safe.length) return;
+    for (const t of safe) {
+        try { intrinioClient.leave([t]); }
+        catch (e) { console.error("[Price WS] Intrinio leave 실패(" + t + "):", e.message); }
+    }
 }
 
 function connectToPolygon() {
@@ -687,115 +727,95 @@ function broadcastLuld(ticker, upperLimit, lowerLimit, indicator) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// OPTIONS WEBSOCKET CONNECTION (wss://socket.massive.com/options)
+// OPTIONS WEBSOCKET — Intrinio OPTIONS_EDGE (2026-09-02 이관)
+// ══════════════════════════════════════════════════════════════
+// 이관 전: wss://socket.massive.com/options — 벤더 차단으로 close(1006) 무한
+//          재접속. 그래서 ENABLE_OPTIONS_WS 로 통째로 꺼둔 상태였다.
+//
+// 이관 후: Intrinio 실시간 옵션. **provider 가 2개이고 우리 것은 OPTIONS_EDGE 다.**
+//   OPRA         -> realtime-options.intrinio.com … 우리 계정 X (빈 HTTP 200)
+//   OPTIONS_EDGE -> options-edge.intrinio.com     … O 핸드셰이크·수신 확인
+//
+// Node 용 옵션 SDK 가 없어 공식 파이썬 SDK 를 정본으로 프로토콜을 직접 옮겼다:
+//   scripts/intrinio-options-ws.js  (정본: intriniorealtime/options_client.py)
+//
+// * 구독 방식이 바뀌었다. Massive 는 `T.*` 와일드카드였고 Intrinio 는
+//   **티커 단위 구독**(join('NVDA') = NVDA 전 계약)이다. 화면이 어차피
+//   기초자산으로 거르므로 대역폭이 줄고 정확도는 같다.
+//   ($FIREHOSE 는 100Mbps+ 이고 별도 승인이 필요하다 — 쓰지 않는다.)
+//
+// 수신 메시지는 **기존 Massive 형식으로 변환**해 기존 핸들러
+// (handleOptionsTradeUpdate / handleOptionsQuoteUpdate)를 그대로 태운다.
+// 주식 WS 이관 때와 같은 방식이라 하류 코드는 무수정이다.
 // ══════════════════════════════════════════════════════════════
 
+let intrinioOptions = null;
+
+/** Intrinio 계약코드 -> Massive 표기.  NVDA__260904C00200000 -> O:NVDA260904C00200000 */
+function intrinioContractToMassive(c) {
+    if (!c) return null;
+    const sym = c.slice(0, 6).replace(/_+$/, "");
+    return "O:" + sym + c.slice(6);
+}
+
 function connectToOptionsWs() {
-    // ══════════════════════════════════════════════════════════════
-    // [2026-08-29] 옵션 실시간 WS 비활성화
-    //
-    // Massive 옵션 WS 도 차단됨 — close(1006) 무한 재접속으로 5초마다
-    // 로그를 채우고 리소스를 낭비하고 있었다.
-    //
-    // Intrinio 는 옵션 실시간 WS SDK 를 Python/Go/C#/Java 로만 제공하고
-    // **Node.js 판이 없다.** 별도 Python 워커를 붙이기 전까지는 끈다.
-    //
-    // 영향: FlowRadar 의 개별 옵션 체결(BLOCK/SWEEP 프리미엄) 스트림.
-    //       OI·Greeks·맥스페인·GEX 등 구조 지표는 REST 옵션 체인으로
-    //       정상 제공되므로 영향 없음.
-    // 정본: .agent/INTRINIO_MIGRATION_WORKLOG.md
-    // ══════════════════════════════════════════════════════════════
-    if (process.env.ENABLE_OPTIONS_WS !== "1") {
+    if (process.env.ENABLE_OPTIONS_WS === "0") {
         if (!connectToOptionsWs._warned) {
-            console.log("[Options WS] 비활성화됨 (Massive 차단 · Intrinio Node SDK 부재). ENABLE_OPTIONS_WS=1 로 강제 활성화 가능.");
+            console.log("[Options WS] ENABLE_OPTIONS_WS=0 으로 비활성화됨");
             connectToOptionsWs._warned = true;
         }
         optionsWsConnected = false;
         return;
     }
+    if (intrinioOptions) return;   // 이미 연결/재연결 중
 
-    if (!POLYGON_API_KEY) {
-        console.error("[Options WS] ❌ No API key set. Cannot connect.");
+    const key = process.env.INTRINIO_API_KEY || "";
+    if (!key) {
+        console.error("[Options WS] INTRINIO_API_KEY 없음 — 옵션 WS 미연결");
         return;
     }
 
+    let OptionsWsClient;
     try {
-        console.log("[Options WS] Connecting to Massive Options WebSocket...");
-        optionsWs = new WebSocket(OPTIONS_WS_URL);
-
-        optionsWs.on("open", () => {
-            console.log("[Options WS] v3 - Options WebSocket connected");
-            optionsWsConnected = true;
-            optionsReconnectCount = 0;
-            optionsWs.send(JSON.stringify({ action: "auth", params: POLYGON_API_KEY }));
-            // Subscribe to T.* after short delay for auth to complete
-            setTimeout(() => {
-                if (optionsWs && optionsWs.readyState === WebSocket.OPEN) {
-                    optionsWs.send(JSON.stringify({ action: "subscribe", params: "T.*" }));
-                    console.log("[Options WS] Subscribed to T.* (all options trades)");
-                    // Also subscribe Q. for active tickers' ATM contracts
-                    subscribeQuotesForActiveTickers();
-                }
-            }, 2000);
-        });
-
-        optionsWs.on("message", (data) => {
-            try {
-                const messages = JSON.parse(data.toString());
-                if (!Array.isArray(messages)) return;
-
-                for (const msg of messages) {
-                    if (msg.ev === "status") {
-                        if (msg.status === "auth_success") {
-                            console.log("[Options WS] ✅ Options auth success");
-                            resubscribeAllOptions();
-                        } else if (msg.status === "auth_failed") {
-                            console.error("[Options WS] ❌ Options auth failed:", msg.message);
-                        } else if (msg.status === "success") {
-                            console.log("[Options WS] Options:", msg.message);
-                        }
-                        continue;
-                    }
-
-                    // Options Trade events
-                    if (msg.ev === "T") {
-                        handleOptionsTradeUpdate(msg);
-                    }
-
-                    // Options Quote events
-                    if (msg.ev === "Q") {
-                        handleOptionsQuoteUpdate(msg);
-                    }
-
-                    // Options Aggregate per-second (reserved for future)
-                    // if (msg.ev === "A") { }
-
-                    // Options Aggregate per-minute (reserved for future)
-                    // if (msg.ev === "AM") { }
-                }
-            } catch (e) {
-                // Non-JSON or parse error — ignore
-            }
-        });
-
-        optionsWs.on("close", (code, reason) => {
-            console.log(`[Options WS] Options WS closed (code: ${code})`);
-            optionsWsConnected = false;
-            optionsWs = null;
-            optionsSubscribedOnMassive.clear();
-            scheduleOptionsReconnect();
-        });
-
-        optionsWs.on("error", (e) => {
-            console.error("[Options WS] Options WS error:", e.message);
-            if (optionsWs) {
-                try { optionsWs.close(); } catch {}
-            }
-        });
+        ({ OptionsWsClient } = require("./intrinio-options-ws"));
     } catch (e) {
-        console.error("[Options WS] Failed to create Options WS:", e.message);
-        scheduleOptionsReconnect();
+        console.error("[Options WS] intrinio-options-ws 모듈 없음:", e.message);
+        return;
     }
+
+    intrinioOptions = new OptionsWsClient({
+        apiKey: key,
+        provider: process.env.INTRINIO_OPTIONS_PROVIDER || "OPTIONS_EDGE",
+        onTrade: (t) => {
+            handleOptionsTradeUpdate({
+                sym: intrinioContractToMassive(t.contract),
+                p: t.price, s: t.size, x: t.exchange, c: [], t: t.timestamp,
+            });
+        },
+        onQuote: (q) => {
+            handleOptionsQuoteUpdate({
+                sym: intrinioContractToMassive(q.contract),
+                bp: q.bidPrice, bs: q.bidSize, ap: q.askPrice, as: q.askSize,
+            });
+        },
+        onStatus: (m) => {
+            console.log("[Options WS] " + m);
+            if (m.indexOf("connected") === 0) {
+                optionsWsConnected = true;
+                optionsReconnectCount = 0;
+                resubscribeAllOptions();
+            } else if (m.indexOf("closed") === 0) {
+                optionsWsConnected = false;
+            }
+        },
+    });
+
+    intrinioOptions.start().catch((e) => {
+        console.error("[Options WS] 연결 실패:", e.message);
+        optionsWsConnected = false;
+        intrinioOptions = null;
+        scheduleOptionsReconnect();
+    });
 }
 
 function scheduleOptionsReconnect() {
@@ -815,111 +835,68 @@ function scheduleOptionsReconnect() {
 }
 
 function resubscribeAllOptions() {
-    if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
-
-    // Subscribe to ALL options trades with wildcard — filter by underlying when broadcasting
-    optionsWs.send(JSON.stringify({ action: "subscribe", params: "T.*" }));
-    console.log("[Options WS] Subscribed to T.* (all options trades via wildcard)");
-    // Q.* is disabled by Massive, so subscribe to individual ATM contracts
-    subscribeQuotesForActiveTickers();
+    if (!intrinioOptions || !intrinioOptions.ready) return;
+    // Intrinio 는 **기초자산 티커 하나로 그 종목 전 계약의 체결+호가**를 준다.
+    // Massive 시절의 `T.*` 와일드카드 + ATM 계약 개별 Q. 구독이 모두 이걸로 대체된다.
+    const tickers = [];
+    for (const entry of tickerSubscribers) tickers.push(entry[0]);
+    if (tickers.length === 0) {
+        console.log("[Options WS] 구독할 활성 티커 없음 — 클라이언트 접속 시 구독한다");
+        return;
+    }
+    intrinioOptions.join.apply(intrinioOptions, tickers);
+    console.log("[Options WS] 구독 " + tickers.length + "종목: " + tickers.slice(0, 12).join(",") + (tickers.length > 12 ? " …" : ""));
 }
 
-// Fetch ATM options contracts for a ticker and subscribe Q. on Options WS
-const quotesSubscribed = new Set(); // track which tickers already have Q. subscribed
+// ── 티커 구독 ────────────────────────────────────────────────────────
+// [2026-09-02] Massive 시절에는 REST 로 ATM 계약 10개를 긁어 Q. 를 개별 구독했다.
+//   그 REST 는 계정 차단으로 403 이었고, Intrinio 는 티커 하나로 체결+호가를
+//   함께 주므로 **그 로직 전체가 불필요하다.** (죽은 벤더 호출도 같이 사라진다.)
+const quotesSubscribed = new Set();
 
-async function subscribeQuotesForTicker(ticker) {
+function subscribeQuotesForTicker(ticker) {
     if (quotesSubscribed.has(ticker)) return;
-    if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
-
+    if (!intrinioOptions || !intrinioOptions.ready) return;
+    if (!TICKER_RE.test(String(ticker || "").toUpperCase())) return;   // 같은 함정을 옵션에서도 막는다
     quotesSubscribed.add(ticker);
-    console.log("[Options WS] Fetching ATM contracts for " + ticker + "...");
-
-    try {
-        // ⚠️ Massive 계약 조회는 계정 차단으로 403 이다. 옵션 WS 자체가
-        //    ENABLE_OPTIONS_WS 로 꺼져 있어 여기 도달하지 않지만, 누가 켰을 때
-        //    죽은 벤더로 나가지 않도록 봉인해 둔다.
-        //    (Intrinio 옵션은 EOD 체인만 열려 있어 실시간 계약 구독 대상이 아니다)
-        if (process.env.ENABLE_OPTIONS_WS !== "1") {
-            console.log("[Options WS] 옵션 계약 조회 비활성 — 건너뜀");
-            quotesSubscribed.delete(ticker);
-            return;
-        }
-        var url = "https://api.massive.com/v3/reference/options/contracts?underlying_ticker=" + ticker + "&expired=false&limit=30&order=asc&sort=expiration_date&apiKey=" + POLYGON_API_KEY;
-        var data = await httpsGet(url);
-        var contracts = (data && data.results) ? data.results : [];
-
-        if (contracts.length === 0) {
-            console.log("[Options WS] No contracts found for " + ticker);
-            quotesSubscribed.delete(ticker);
-            return;
-        }
-
-        // Get current price to find ATM
-        var priceEntry = latestPrices.get(ticker);
-        var currentPrice = (priceEntry && priceEntry.price) ? priceEntry.price : 0;
-
-        // Group by expiry
-        var expiryGroups = {};
-        for (var i = 0; i < contracts.length; i++) {
-            var c = contracts[i];
-            var exp = c.expiration_date;
-            if (!expiryGroups[exp]) expiryGroups[exp] = [];
-            expiryGroups[exp].push(c);
-        }
-
-        var sortedExpiries = Object.keys(expiryGroups).sort();
-        var targetExpiry = sortedExpiries[0]; // nearest expiry
-        if (!targetExpiry) return;
-
-        var expContracts = expiryGroups[targetExpiry];
-
-        // Sort by proximity to ATM if we have price
-        if (currentPrice > 0) {
-            expContracts.sort(function(a, b) {
-                return Math.abs(a.strike_price - currentPrice) - Math.abs(b.strike_price - currentPrice);
-            });
-        }
-
-        // Take closest 10 contracts (5 calls + 5 puts approx)
-        var selected = expContracts.slice(0, 10);
-        var qSubs = selected.map(function(c) { return "Q." + c.ticker; }).join(",");
-
-        optionsWs.send(JSON.stringify({ action: "subscribe", params: qSubs }));
-        console.log("[Options WS] Q. subscribed " + selected.length + " ATM contracts for " + ticker + " (exp: " + targetExpiry + ")");
-    } catch (e) {
-        console.warn("[Options WS] Q. subscribe failed for " + ticker + ": " + e.message);
-        quotesSubscribed.delete(ticker);
-    }
+    intrinioOptions.join(ticker);
+    console.log("[Options WS] + " + ticker + " (체결+호가)");
 }
 
 function subscribeQuotesForActiveTickers() {
-    var tickers = [];
-    for (var entry of tickerSubscribers) {
-        tickers.push(entry[0]);
-    }
-    if (tickers.length === 0) return;
-    console.log("[Options WS] Subscribing Q. for " + tickers.length + " active tickers");
-    for (var i = 0; i < tickers.length; i++) {
-        subscribeQuotesForTicker(tickers[i]);
-    }
+    const tickers = [];
+    for (const entry of tickerSubscribers) tickers.push(entry[0]);
+    for (let i = 0; i < tickers.length; i++) subscribeQuotesForTicker(tickers[i]);
 }
 
 function subscribeOptionsContract(contract) {
+    // contract 는 Massive 표기(O:NVDA260904C00200000). Intrinio 는 구형 표기를
+    // 받으므로 'O:' 만 떼고 심볼을 6자로 밑줄 패딩해 넘긴다.
     if (optionsSubscribedOnMassive.has(contract)) return;
-    if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
-
-    optionsWs.send(JSON.stringify({ action: "subscribe", params: `T.${contract},Q.${contract}` }));
+    if (!intrinioOptions || !intrinioOptions.ready) return;
+    const c = massiveContractToIntrinio(contract);
+    if (!c) return;
+    intrinioOptions.join(c);
     optionsSubscribedOnMassive.add(contract);
-    console.log(`[Options WS] + Subscribed to T/Q.${contract}`);
+    console.log("[Options WS] + 계약 " + contract);
 }
 
 function unsubscribeOptionsContract(contract) {
     if (!optionsSubscribedOnMassive.has(contract)) return;
-    if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
-
-    optionsWs.send(JSON.stringify({ action: "unsubscribe", params: `T.${contract},Q.${contract}` }));
+    if (!intrinioOptions || !intrinioOptions.ready) return;
+    const c = massiveContractToIntrinio(contract);
+    if (c) intrinioOptions.leave(c);
     optionsSubscribedOnMassive.delete(contract);
-    console.log(`[Options WS] - Unsubscribed from T/Q.${contract}`);
+    console.log("[Options WS] - 계약 " + contract);
+}
+
+/** O:NVDA260904C00200000 -> NVDA__260904C00200000 (심볼 6자 밑줄 패딩) */
+function massiveContractToIntrinio(t) {
+    if (!t || t.slice(0, 2) !== "O:") return null;
+    const body = t.slice(2);
+    const m = body.match(/^([A-Z.]+)(\d{6}[CP]\d{8})$/);
+    if (!m) return null;
+    return m[1].padEnd(6, "_") + m[2];
 }
 
 // Placeholder handlers — implemented in tasks ⓓ and ⓔ
@@ -1549,7 +1526,8 @@ server.listen(PORT, () => {
     console.log(`  Port:         ${PORT}`);
     console.log(`  Intrinio Key: ${INTRINIO_API_KEY ? INTRINIO_API_KEY.slice(0, 6) + "..." : "NOT SET"}`);
     console.log(`  Feed:         Intrinio EQUITIES_EDGE (WS) + REST 폴백`);
-    console.log(`  Options WS:   ${process.env.ENABLE_OPTIONS_WS === "1" ? "활성" : "비활성"}`);
+    // 이관 후 기본값이 «켜짐» 으로 뒤집혔다. 끄려면 ENABLE_OPTIONS_WS=0.
+    console.log(`  Options WS:   ${process.env.ENABLE_OPTIONS_WS === "0" ? "비활성" : "활성 (Intrinio " + (process.env.INTRINIO_OPTIONS_PROVIDER || "OPTIONS_EDGE") + ")"}`);
     console.log("═══════════════════════════════════════════════════");
 
     // Connect to Polygon (Stocks)
@@ -1565,7 +1543,7 @@ server.listen(PORT, () => {
 process.on("SIGINT", () => {
     console.log("\n[Price WS] Shutting down...");
     if (polygonWs) { try { polygonWs.close(); } catch {} }
-    if (optionsWs) { try { optionsWs.close(); } catch {} }
+    if (intrinioOptions) { try { intrinioOptions.stop(); } catch {} }
     if (polygonReconnectTimer) clearTimeout(polygonReconnectTimer);
     if (optionsReconnectTimer) clearTimeout(optionsReconnectTimer);
     wss.close();
@@ -1576,7 +1554,7 @@ process.on("SIGINT", () => {
 process.on("SIGTERM", () => {
     console.log("\n[Price WS] SIGTERM received...");
     if (polygonWs) { try { polygonWs.close(); } catch {} }
-    if (optionsWs) { try { optionsWs.close(); } catch {} }
+    if (intrinioOptions) { try { intrinioOptions.stop(); } catch {} }
     if (polygonReconnectTimer) clearTimeout(polygonReconnectTimer);
     if (optionsReconnectTimer) clearTimeout(optionsReconnectTimer);
     wss.close();
