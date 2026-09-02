@@ -119,6 +119,53 @@ Play 구독상품 생성이 막혀 있다고 알고 있었는데(«빌링 빌드
 > ⚠️ **`vercel link` 가 자동으로 `env pull` 을 돌린다.** `.env.local` 이 덮인다.
 > 이번엔 내용이 같아서 무사했지만, 다음엔 **링크 전에 `.env.local` 을 백업**할 것.
 
+## ✅ iOS 빌드·제출 완료 (2026-09-02)
+
+```
+1.5 (build 6) → WAITING_FOR_REVIEW
+```
+
+### 절차 (그대로 재현 가능)
+```bash
+# 버전 범프: project.pbxproj 의 MARKETING_VERSION / CURRENT_PROJECT_VERSION
+cd ios/App
+xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath /tmp/X.xcarchive archive -allowProvisioningUpdates
+xcodebuild -exportArchive -archivePath /tmp/X.xcarchive -exportPath /tmp/X-export \
+  -exportOptionsPlist /tmp/ExportOptions.plist -allowProvisioningUpdates
+xcrun altool --upload-app -f /tmp/X-export/App.ipa -t ios \
+  --apiKey 2LD2B7366M --apiIssuer ede31c44-c5ac-437b-ab19-ad5d581ef6f9
+```
+
+### ★ 함정 1 — 아카이브는 «개발» 서명으로 나온다
+`codesign -dvvv .../App.app` 이 `Apple Development` 를 보여준다. 정상이다.
+export 단계에서 배포 서명으로 «재서명»되는데, `signingStyle=automatic` 은
+낡은 프로파일(`iOS Team Store Provisioning Profile`)을 집어 실패한다:
+
+> Provisioning profile ... doesn't include signing certificate "Apple Distribution: ..."
+
+**해결: 프로파일을 명시한다.**
+```xml
+<key>signingStyle</key><string>manual</string>
+<key>signingCertificate</key><string>Apple Distribution</string>
+<key>provisioningProfiles</key><dict>
+  <key>com.signumhq.app</key><string>SIGNUM HQ AppStore 2026</string>
+</dict>
+```
+프로파일은 `~/Library/Developer/Xcode/UserData/Provisioning Profiles/` 에 있다
+(구 경로 `~/Library/MobileDevice/…` 는 **비어 있다** — 여기만 보면 «0개»로 오진한다).
+**export 후 반드시 `codesign -dvvv` 로 `Apple Distribution` 확인.**
+
+### ★ 함정 2 — 업로드한 빌드가 «안 보인다»
+`/apps/{id}/builds` 에는 새 빌드가 안 나온다. 10분을 기다려도 안 나왔다.
+**`/builds?filter[app]={id}&sort=-uploadedDate` 로 조회하면 바로 보인다.**
+
+### ★ 함정 3 — 구독은 API 로 제출에 못 넣는다
+`reviewSubmissionItems` 에 subscription 관계가 **없다**(`subscription`,
+`subscriptions`, `inAppPurchase`, `inAppPurchaseV2` 전부 거부).
+앱 버전만 제출되고 구독은 `READY_TO_SUBMIT` 에 남는다.
+→ 애플이 버전 심사 때 함께 볼 수도 있고, 아니면 **웹 UI 에서 한 번 체크**해야 한다.
+
 ## ⛔ 남은 것
 
 | # | 무엇 | 누가 | 비고 |
