@@ -19,8 +19,12 @@ const BASE = 'https://www.signumhq.com';
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
 const CONCURRENCY = 6;
 
-// 이미 사이트맵에 있는 167개 (중복 제외용)
-const EXISTING = new Set(require('./_existing-tickers.json'));
+// ⚠️ [2026-09-02] 「이미 있는 167개」는 낡은 값이었다(실제 1,195개).
+//   별도 JSON 을 손으로 관리하면 반드시 표류한다 → **정본에서 직접 읽는다.**
+const EXISTING = new Set(
+  (fs.readFileSync(path.join(__dirname, '../src/lib/seo/flowTickers.ts'), 'utf8')
+    .match(/'[A-Z][A-Z0-9.\-]{0,9}'/g) || []).map((x) => x.replace(/'/g, ''))
+);
 
 // 후보 — 유동성 있고 옵션이 활발한 미국 종목/ETF 위주.
 const CANDIDATES = [
@@ -67,6 +71,16 @@ const CANDIDATES = [
   'GDX','GDXJ','SIL','PPLT','PALL','COPX','LIT','REMX','URA','URNM','TAN','ICLN','PBW',
 ];
 
+// ── [2026-09-02] 후보를 «파일»로도 받는다 ─────────────────────────────
+//   하드코딩 목록은 한 번 쓰고 버려진다. 유니버스가 2,001로 커진 지금은
+//   «아직 페이지가 없는 종목 전체»를 넣어야 확장 여지를 다 본다.
+//   사용: node scripts/probe-flow-tickers.js /tmp/missing_tickers.json
+const ARG = process.argv[2];
+const CANDIDATE_LIST = ARG
+  ? JSON.parse(fs.readFileSync(ARG, 'utf8'))
+  : CANDIDATES;
+
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function probe(t) {
@@ -77,18 +91,31 @@ async function probe(t) {
     });
     if (!res.ok) return { t, ok: false, why: `HTTP ${res.status}` };
     const h = await res.text();
+    // ⚠️ [2026-09-02 교정 — 검사기가 960개를 잘못 버렸다]
+    //   예전 판정은 `<title>` 에 "(divergence)" 가 있어야 «진짜»라고 봤다.
+    //   그런데 그 표시는 **그 종목에 실제로 다이버전스가 있을 때만** 붙는 조건부
+    //   문구다. 페이지 품질과 아무 상관이 없다.
+    //   실측: ACAD 115KB·실데이터 값 102개인데 "(divergence)" 가 없다는 이유로 탈락.
+    //   1,034개 중 74개만 통과했고 나머지 960개가 전부 이런 오탐이었다.
+    //
+    //   그리고 값 세는 정규식도 너무 좁았다(`>$123<` 형태만). 실제 페이지는
+    //   숫자가 다양한 마크업 안에 들어간다 — 태그 경계를 요구하지 않는다.
+    //
+    //   판정 기준을 «실제로 내용이 있는가»로 바꾼다:
+    //     ① 티커가 제목에 있고  ② 본문이 충분히 크고  ③ 실데이터 값이 여럿이다
     const title = (h.match(/<title>(.*?)<\/title>/s) || [, ''])[1];
-    const hasDiv = title.includes('(divergence)');
-    const vals = (h.match(/>\$[\d,]+(?:\.\d+)?<|>[\d.]+%</g) || []).length;
-    const ok = hasDiv && vals >= 3;
-    return { t, ok, why: ok ? `vals=${vals}` : `div=${hasDiv} vals=${vals}`, size: h.length };
+    const hasTicker = title.toUpperCase().includes(t.toUpperCase());
+    const vals = (h.match(/\$[\d,]+(?:\.\d+)?|[\d.]+%/g) || []).length;
+    const bigEnough = h.length >= 60000;      // 실측: 실페이지 114~121KB · 빈 페이지는 훨씬 작다
+    const ok = hasTicker && bigEnough && vals >= 20;
+    return { t, ok, why: ok ? `vals=${vals} ${Math.round(h.length/1024)}KB` : `title=${hasTicker} vals=${vals} ${Math.round(h.length/1024)}KB`, size: h.length };
   } catch (e) {
     return { t, ok: false, why: String(e.message || e).slice(0, 40) };
   }
 }
 
 (async () => {
-  const list = CANDIDATES.filter((t) => !EXISTING.has(t));
+  const list = CANDIDATE_LIST.filter((t) => !EXISTING.has(t));
   const uniq = [...new Set(list)];
   console.log(`후보 ${uniq.length}개 (기존 ${EXISTING.size}개 제외)\n`);
 
