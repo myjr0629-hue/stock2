@@ -127,6 +127,14 @@
     {
       "path": "/api/cron/signum-warm",
       "schedule": "*/20 * * * 0,6"
+    },
+    {
+      "path": "/api/cron/ranking-build",
+      "schedule": "10 22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/ranking-build",
+      "schedule": "0 15,18 * * 1-5"
     }
   ]
 }
