@@ -124,3 +124,53 @@ A.call("PATCH", f"/appStoreVersionLocalizations/{lid}", {...}) # 키워드
 ```
 **함정:** `BASE` 에 이미 `/v1` 이 있다 — 경로에 또 붙이면 404 다.
 **함정:** appInfo 는 앱당 여러 개다. 라이브(`READY_FOR_SALE`)를 고치면 아무 일도 안 일어난다.
+
+### ★★ 함정(가장 컸다): 이름·부제·키워드는 «새 빌드»가 있어야 나간다
+
+애플에서 이 셋을 바꾸려면 **새 버전 + 그 버전용 새 빌드**가 필요하다.
+빌드 없이 메타데이터만 채우면 버전이 `PREPARE_FOR_SUBMISSION` 에 영원히 멈춘다
+— 화면상 아무 에러도 없고, 그냥 **적용이 안 될 뿐**이다.
+
+2026-09-01 에 내가 정확히 이걸 했다. SIGNUM 1.5 는 구독 때문에 빌드가 있어서
+같이 나갔지만, **UC 1.0.4 · WIM 1.0.2 는 빌드가 없어 9/2 까지 멈춰 있었다.**
+대표가 앱 목록에서 「제출 준비 중」 두 개를 보고 지적해서 발견했다.
+
+**확인법 한 줄:**
+```python
+A.call("GET", f"/appStoreVersions/{vid}/build")   # data:null 이면 안 나간다
+```
+**해결:** `./scripts/ios-release.sh <signum|uc|wim> <버전> "<새로운 기능 en>"`
+— 이 스크립트는 **기존 버전을 재사용**하고 `whatsNew` 만 채우므로
+이름·부제·키워드를 덮어쓰지 않는다.
+
+## 적용 완료 — 구글 플레이 (2026-09-02)
+
+앱스토어만 하고 플레이를 안 했었다. 플레이는 **빌드 없이** 리스팅만 심사 제출된다.
+
+| | 이름 | 짧은 설명 |
+|---|---|---|
+| SIGNUM en | `SIGNUM HQ: Premarket Earnings` | Premarket and after-hours movers, earnings calendar, and daily stock alerts. |
+| SIGNUM ko | `SIGNUM HQ: 서학개미 미국증시 실적발표` | 프리마켓·애프터마켓 급등락, 기업 실적 발표 일정과 증시 캘린더, 미국증시 알림을 한 곳에서. |
+| SIGNUM ja | `SIGNUM HQ: 米国株リアルタイム決算` | プレマーケット・時間外取引の値動き、決算発表カレンダーと米国株ニュースをまとめて。 |
+| UC en | (유지) | Daily market recap, premarket and after-hours movers, and earnings news. |
+| UC ko | `언더커런트: 서학개미 미국증시 뉴스 시황` | 오늘의 증시 브리핑, 프리마켓·애프터마켓 시황과 미장 뉴스를 매일 아침 한 편으로. |
+| UC ja | `アンダーカレント：米国株ニュース・決算速報` | 毎朝の市況ブリーフィング、プレマーケット・時間外の値動きと米国株ニュースを1本で。 |
+| WIM en | (유지) | (유지 — 이미 일상어) |
+| WIM ko | `Why'd It Move? 서학개미 미국주식 퀴즈` | 하루 3분 미국주식 퀴즈. …주식 왕초보 투자 공부, 차트 읽는 법, 경제 공부. |
+| WIM ja | `Why'd It Move? 米国株・決算クイズ` | 1日3分の米国株クイズ。…決算発表で学ぶ株初心者の投資と経済の勉強、チャートの読み方。 |
+
+심사 제출: SIGNUM 6건 · UC 5건 · WIM 4건 (Managed publishing off → 승인 즉시 반영)
+
+### ★ 플레이 함정 — 짧은 설명에 「무료/free」를 쓰면 프로모션에서 빠진다
+> Your app may not be promoted on Google Play because your short description
+> does not meet the following guidelines: Should not use keywords that
+> indicate price or promotion
+
+기존 ko/ja 설명이 「무료」·「無料」로 끝나고 있었다 → **세 앱 모두에서 제거**했다.
+검사기는 저장할 때 돌고, 고치면 배너가 사라진다. 전체 설명(full description)은
+해당 없음. 「무료」로 사람을 끌고 싶으면 **본문**에 쓸 것.
+
+### ★ 플레이는 저장≠제출
+저장하면 «Publishing overview» 에 쌓일 뿐이다. 앱마다 들어가서
+**「Submit N changes for review」**를 눌러야 심사가 시작된다.
+(앱스토어의 빌드 함정과 같은 실수를 여기서도 하기 쉽다)
