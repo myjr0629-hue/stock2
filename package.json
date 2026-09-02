@@ -13,7 +13,11 @@
     "remotion:deploy-fn": "npx remotion lambda functions deploy --memory=2048 --timeout=240 --disk=2048",
     "remotion:render": "npx remotion render src/remotion/index.ts",
     "audit:release": "python3 scripts/release-audit.py",
-    "audit:expiry": "node scripts/audit-expiration-selection.js"
+    "audit:expiry": "node scripts/audit-expiration-selection.js",
+    "audit:speed": "node scripts/audit-load-speed.js",
+    "audit:fields": "node scripts/audit-field-contract.js",
+    "audit:intrinio": "node scripts/audit-intrinio-capabilities.js",
+    "audit:all": "node scripts/audit-expiration-selection.js && node scripts/audit-screens.js && node scripts/audit-screen-numbers.js && node scripts/audit-field-contract.js && node scripts/audit-load-speed.js"
   },
   "dependencies": {
     "@aws-sdk/client-backup": "^3.1014.0",
