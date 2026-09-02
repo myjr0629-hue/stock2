@@ -21,11 +21,38 @@ import { getDarkPoolBatch } from '@/services/darkPool';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const UNIVERSE = [
-    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'AVGO', 'AMD', 'MU',
-    'NFLX', 'PLTR', 'COIN', 'SMCI', 'INTC', 'JPM', 'UNH', 'XOM', 'LLY', 'COST',
-    'BA', 'CAT', 'QQQ', 'SPY', 'IWM',
-];
+// ⚠️ [2026-09-02] 하드코딩 25종목 → **수집 유니버스 전체(2,001)**.
+//    Lambda(signum-flow-harvest)가 2,001종목을 모으는데 랭킹은 25종목만 보고
+//    있었다. 「평소 대비 이탈」은 넓을수록 강해지는 랭킹인데 후보군이 좁으면
+//    매일 같은 대형주만 나온다 — 이 랭킹을 만든 이유 자체가 무력화된다.
+//
+//    정본은 `data/stock_universe_us800.json` 하나다. Lambda 의 UNIVERSE 와
+//    **바이트 단위로 같은 목록**임을 확인했다(2,001 / 차집합 0).
+//    두 곳에 적어 두면 어느 날 조용히 갈라진다.
+import UNIVERSE_FILE from '@/../data/stock_universe_us800.json';
+const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
+
+// 2,001종목을 한 요청에 다 훑을 수는 없다(실측: 종목당 186ms · 동시성 80
+// → 전체 약 370초, maxDuration 은 60초다). 그래서 **샤드로 나눠 굽고**
+// 결과를 Redis 에 모아 둔 뒤, 일반 요청은 그것을 합쳐서 답한다.
+const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
+const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
+const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
+const partKey = (days: number, i: number) => `ranking:deviation:part:v2:${days}:${i}`;
+
+/** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
+async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+    const out: R[] = new Array(items.length);
+    let cursor = 0;
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+        for (;;) {
+            const i = cursor++;
+            if (i >= items.length) return;
+            try { out[i] = await fn(items[i]); } catch { out[i] = undefined as any; }
+        }
+    }));
+    return out;
+}
 
 type Metric = { key: string; label: { ko: string; en: string; ja: string } };
 // ivSkew 는 뺐다 — 실측 300행 전부 0 이다(생산자가 채우지 않는다).
@@ -59,11 +86,19 @@ const etDay = (ms: number) => new Date(ms - 4 * 3600e3).toISOString().slice(0, 1
 type Row = { timestamp: number; totalCallOI?: number; totalPutOI?: number;[k: string]: any };
 
 async function history(ticker: string, days: number): Promise<Row[]> {
+    // ⚠️ [2026-09-02 실측 2건으로 교정]
+    //  ① `limit` 은 **페이지 크기**다. 400 이면 3,000행에 8번 왕복해 7.9초가
+    //     걸렸다. 행은 269바이트뿐이라 한 페이지(1MB)에 3,000행이 다 들어간다.
+    //     3000 으로 올리니 **2.6초**(3배). 조회 조건은 그대로다.
+    //  ② `maxItems: 3000` 이 **최신 행을 버리고 있었다.** NVDA 30일 실제 행이
+    //     3,150개라 오름차순으로 3,000개만 받으면 **가장 최근 150행이 잘린다** —
+    //     하필 그게 「오늘」이다. 랭킹의 today 가 오늘이 아니게 된다.
+    //     (오름차순+Limit 은 가장 «오래된» N 을 준다 — 반복해서 당한 함정이다.)
     return queryItems<Row>(
         TABLES.FLOW_HISTORY,
         'ticker = :t AND #ts > :since',
         { ':t': ticker, ':since': Date.now() - days * 86400e3 },
-        { limit: 400, scanForward: true, maxItems: 3000, expressionNames: { '#ts': 'timestamp' } },
+        { limit: 3000, scanForward: true, maxItems: 20000, expressionNames: { '#ts': 'timestamp' } },
     );
 }
 
@@ -105,9 +140,17 @@ function seriesOf(snaps: Row[], key: string) {
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(10, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v1:${days}:${top}`;
+    const CACHE = `ranking:deviation:v2:${days}:${top}`;
+    const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
-    if (req.nextUrl.searchParams.get('refresh') !== '1') {
+    // ── 샤드 굽기 모드 ────────────────────────────────────────────────
+    // `?build=<i>` 로 부르면 i번째 조각만 계산해 Redis 에 넣고 요약만 돌려준다.
+    // 크론이 0..7 을 부르면 전체 2,001종목이 채워진다. 사람이 부를 일은 없다.
+    const buildParam = req.nextUrl.searchParams.get('build');
+    const buildShard = buildParam === null ? null : Math.max(0, Math.min(SHARDS - 1, Number(buildParam) || 0));
+
+    // ── 읽기 모드: 구워 둔 조각을 합친다 ──────────────────────────────
+    if (buildShard === null && !refresh) {
         const hit = await getFromCache<any>(CACHE);
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
     }
@@ -116,11 +159,63 @@ export async function GET(req: NextRequest) {
     const skipped: Record<string, number> = {};
     const bump = (r: string) => { skipped[r] = (skipped[r] || 0) + 1; };
 
-    for (const t of UNIVERSE) {
-        let items: Row[] = [];
-        try { items = await history(t, days); } catch { bump('조회실패'); continue; }
-        if (!items.length) { bump('이력없음'); continue; }
-        const snaps = dailySnapshots(items);
+    // 이 요청이 실제로 훑을 종목.
+    //   · 굽기 모드  → 그 조각
+    //   · 읽기 모드  → 구워 둔 조각을 쓰고, 없으면 **첫 조각만** 즉석 계산한다.
+    //     (2,001종목을 요청 안에서 다 훑으면 60초를 넘겨 통째로 죽는다.
+    //      빈 응답을 주느니 일부라도 정확히 주고 partial 을 명시한다.)
+    let slice: string[] = [];
+    let partialReason: string | null = null;
+
+    if (buildShard !== null) {
+        const per = Math.ceil(UNIVERSE.length / SHARDS);
+        slice = UNIVERSE.slice(buildShard * per, (buildShard + 1) * per);
+    } else {
+        const parts = await Promise.all(
+            Array.from({ length: SHARDS }, (_, i) => getFromCache<any[]>(partKey(days, i)).catch(() => null)),
+        );
+        const have = parts.filter((x): x is any[] => Array.isArray(x));
+        if (have.length === SHARDS) {
+            for (const arr of have) found.push(...arr);
+        } else {
+            const per = Math.ceil(UNIVERSE.length / SHARDS);
+            slice = UNIVERSE.slice(0, per);
+            partialReason = `구워진 조각 ${have.length}/${SHARDS} — 첫 조각만 즉석 계산했다`;
+            for (const arr of have) found.push(...arr);
+        }
+    }
+
+    const histories = await mapPool(slice, CONCURRENCY, async (t) => {
+        try { return { t, items: await history(t, days) }; }
+        catch { return { t, items: null as Row[] | null }; }
+    });
+
+    // ── 신선도 게이트 ────────────────────────────────────────────────
+    // ⚠️ [2026-09-02 실측으로 발견 — 2,001종목으로 넓히자 바로 드러났다]
+    //    한 조각 251종목 중 **201종목의 최신 세션이 2026-08-28** 이었다.
+    //    벤더 권한 상실일이다. 그 뒤로 수집이 끊겼다가 최근에야 돌아왔다.
+    //    이대로 두면 5일 전 스냅샷이 「오늘의 이탈」로 1위에 올라간다 —
+    //    다크풀 날짜를 맞추는 것과 **같은 이유로** 종목에도 게이트가 필요하다.
+    //
+    //    기준선은 이 조각에서 관측된 «가장 최근 세션»이다. 달력으로 못 정한다
+    //    — 휴장·조기폐장이 있고, 수집 재개 시점도 우리가 정하는 게 아니다.
+    //    관측값을 기준으로 삼으면 시장이 쉬는 날에도 저절로 맞는다.
+    type Prepared = { t: string; snaps: Row[]; last: string };
+    const prepared: Prepared[] = [];
+    for (const h of histories) {
+        if (!h) { bump('조회실패'); continue; }
+        if (h.items === null) { bump('조회실패'); continue; }
+        if (!h.items.length) { bump('이력없음'); continue; }
+        const snaps = dailySnapshots(h.items);
+        if (!snaps.length) { bump('스냅샷없음'); continue; }
+        prepared.push({ t: h.t, snaps, last: snaps[snaps.length - 1]._d as string });
+    }
+    const shardSession = prepared.reduce<string | null>((m, p) => (!m || p.last > m ? p.last : m), null);
+
+    for (const pr of prepared) {
+        if (shardSession && pr.last !== shardSession) { bump(`세션낡음(${pr.last})`); continue; }
+        const t = pr.t;
+        const snaps = pr.snaps;
 
         for (const m of METRICS) {
             const series = seriesOf(snaps, m.key);
@@ -162,6 +257,19 @@ export async function GET(req: NextRequest) {
         }
     }
 
+    // ── 굽기 모드는 여기서 끝 ─────────────────────────────────────────
+    // 다크풀은 종목별이 아니라 «시장 전체»를 한 번에 읽어 상대화하는 축이라
+    // 조각마다 계산하면 시장 중앙값이 조각별로 달라져 서로 다른 자로 잰다.
+    // 그래서 다크풀은 **병합 시점에 한 번만** 계산한다.
+    if (buildShard !== null) {
+        await setInCache(partKey(days, buildShard), found, PART_TTL);
+        return NextResponse.json({
+            ok: true, mode: 'build', shard: buildShard, shards: SHARDS,
+            tickers: slice.length, candidates: found.length, skipped,
+            generatedAt: new Date().toISOString(),
+        });
+    }
+
     // ── 다크풀 (FINRA) ────────────────────────────────────────────────────
     // [2026-09-01 대표 제안] 「유의미한 다크풀 랭킹을 넣어도 될 듯한데,
     //  자료 들어오고 나서 작동하는」 — 맞다. 그리고 여기서도 «절대값 금지»가
@@ -187,7 +295,13 @@ export async function GET(req: NextRequest) {
         //    경고가 있다). getDarkPoolMarket 과 «동시에» 부르면 둘 다 넘겨서
         //    다크풀이 에러 없이 사라진다(실제로 그랬다). 한 번만 읽는다 —
         //    date·marketAvg 는 어차피 각 종목 행에 실려 온다.
-        const rows = await getDarkPoolBatch(UNIVERSE.filter((t) => !DP_ETF.has(t)));
+        // ⚠️ 2,001종목을 그대로 넘기면 응답이 커지고 상위가 잡종목으로 채워진다.
+        //    다크풀 순위는 «이미 옵션 축에서 후보에 오른 종목» + 유동성 상위를
+        //    대상으로 본다. getDarkPoolBatch 는 한 덩어리를 읽어 걸러 주므로
+        //    호출 비용은 목록 길이와 무관하다(2.19MB 키 · 읽기 타임아웃 5초).
+        const dpTargets = [...new Set([...found.map((f) => f.ticker), ...UNIVERSE])]
+            .filter((t) => !DP_ETF.has(t));
+        const rows = await getDarkPoolBatch(dpTargets);
         const list = Object.values(rows);
         const n = list.length;
         const dpDate = n > 0 ? (list[0].date ?? null) : null;
@@ -274,6 +388,13 @@ export async function GET(req: NextRequest) {
             darkPool: 'FINRA 장외. 마감 후 약 90분(17:30 ET)에 들어온다. 없으면 랭킹에서 빠지고 available:false 로 보고한다. 공매도는 시장 중앙값이 49% 라 절대값이 아니라 그 종목의 평소 대비 %p 이탈로 잰다.',
         },
         universe: UNIVERSE.length,
+        // 응답이 스스로 «얼마나 봤는지» 밝힌다. partial 을 숨기면 25종목짜리
+        // 결과가 2,001종목 랭킹인 척하게 된다 — 라벨과 데이터가 어긋나는 전형이다.
+        // 이 랭킹이 «어느 세션» 이야기인지 응답이 직접 밝힌다.
+        session: (found.reduce<string | null>((m, f) => (f.date && (!m || f.date > m) ? f.date : m), null)),
+        scanned: partialReason ? slice.length : UNIVERSE.length,
+        partial: partialReason ?? false,
+        shards: SHARDS,
         darkPool,
         candidates: found.length,
         skipped,
