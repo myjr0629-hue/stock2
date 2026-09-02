@@ -671,6 +671,10 @@ $PLTR 게시판에 붙이려고 찍은 화면에서:
 
 Product Hunt 는 오늘이 아니다: UC 8/23 완료(0포인트) · **WIM 8/29 · SIGNUM 8/30**.
 
+### Pinterest 누적
+프로필 실측: 팔로워 2 · 월 조회 6,318 (핀 40개 기준) → 오늘 +4개.
+핀당 월 ~158 노출이므로 누적 기대 +630/월. **랜딩은 전부 앱 스마트링크**(웹 아님).
+
 ### 다음 사이클 우선순위
 1. **X 미국 재로그인** — 스위처에 @signumhq 가 없다(대표가 JP 로 갈아탈 때 빠짐).
    「Add an existing account」 → 구글(gbbridge11@gmail.com) OAuth 로 내가 붙인다.
@@ -2402,7 +2406,7 @@ node scripts/make-x-shot.js signum en flow TSLA
 | 채널 | 내용 | 링크 태그 | 결과 |
 |---|---|---|---|
 | X (@signumhq) | @ScroogeCap $META 스레드(26.1K 조회·301❤)에 옵션 포지셔닝 답글 + 데이터 이미지 | 이미지 워터마크 | **게시됨** |
-| Pinterest | NVDA 카드 · 「NVDA stock chart today — free stock market app for beginners, no signup」 | `?from=pinterest_nvda` | **게시됨** |
+| Pinterest ×4 | NVDA·TSLA·AAPL·MSFT 카드 · 제목 전부 「{티커} stock chart today — free stock market app for beginners, no signup」 | `?from=pinterest_{티커}` | **4개 전부 게시·프로필 확인** |
 | Play 스토어 | 3앱×3로케일 이름·짧은설명 전면 교체(실측 인기도 기반) | — | SIGNUM·WIM **라이브** / UC 심사 중 |
 
 ### ★ 이번에 검사기가 막은 것
