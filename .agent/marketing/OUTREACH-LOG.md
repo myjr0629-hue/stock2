@@ -2510,3 +2510,90 @@ SIGNUM 은 이번 심사가 끝난 뒤 이름에 AI 를 넣는 2차 패스를 �
 → 페이월 접근 경로·구독 고지·약관 링크를 담아 다시 썼다. 심사 상태는 유지됐다.
 
 배포 국가는 문제없음 — 3앱 전부 주요 20개국 판매중 실측 확인.
+
+---
+
+## 2026-09-03 (KST) 새벽 — 앱스토어 12개 언어 제출 + 데이터 사고 4건 + Pinterest 7핀
+
+### ★★ 앱스토어(iOS) 언어 3 → 12, UC·WIM 둘 다 심사 대기로 들어감
+
+플레이는 8/31 에 12개 언어로 올렸는데 **앱스토어는 3개(en/ko/ja)에 멈춰 있었다.**
+앱스토어는 이름·부제·키워드를 바꾸려면 **새 빌드가 필수**라 미뤄져 있던 것이다.
+`./scripts/ios-release.sh` 로 빌드까지 전부 자동으로 돌렸다 — 키체인 창은 안 떴다.
+
+| 앱 | 버전 | 빌드 | 결과 |
+|---|---|---|---|
+| Undercurrent | 1.0.6 | 8 | ✅ WAITING_FOR_REVIEW · 12개 언어 |
+| Why'd It Move? | 1.0.3 | 6 | ✅ WAITING_FOR_REVIEW · 12개 언어 |
+| SIGNUM HQ | — | — | ⛔ 1.5 가 심사 중이라 **새 버전 생성 자체가 409**. 승인 후에 한다 |
+
+### ⚠️ 제출이 세 번 막혔다 — 전부 «로케일마다 필요한 것»이었다
+
+애플이 주는 겉면은 늘 똑같다: `409 STATE_ERROR.ENTITY_STATE_INVALID` +
+"please check associated errors to see why". **진짜 이유는 `meta.associatedErrors`
+안에 있는데 `asc_client` 가 본문을 900자에서 잘라 그 부분이 통째로 사라졌다.**
+
+| 막힌 것 | 어디에 있는 필드인가 |
+|---|---|
+| 스크린샷 0장 | `appScreenshotSets` — 로케일마다 따로 (APP_IPHONE_65 5장) |
+| `privacyPolicyUrl` | **appInfo**Localization |
+| `supportUrl` | **appStoreVersion**Localization ← 다른 데 있다 |
+| es-ES 설명·키워드 누락 | 앞 사이클에서 9개 중 1개를 빠뜨렸다 |
+
+→ 도구 2개를 새로 만들었다:
+- `scripts/asc_upload_screenshots.py <appId> <ver> <srcDir>` — 0장인 로케일만 골라 올린다
+- `scripts/asc_submit_version.py <appId> <ver>` — 409 의 **associatedErrors 전문**을 로케일 ID 까지 찍는다
+
+`ios_submit.py` 도 고쳤다 — whatsNew 를 3개 로케일만 채우고 있었다(나머지 9개가
+비면 제출이 통째로 막힌다). 12개 + 미지 로케일 영어 폴백으로.
+
+### ★★ 데이터 사고 4건 — 전부 «실패를 성공으로 캐시»였다
+
+마케팅 카드를 찍다가 발견했다. **화면만 보면 「로딩 중」과 구별이 안 된다. 전부 200 OK.**
+
+| # | 어디 | 증상 | 원인 |
+|---|---|---|---|
+| 1 | `command/unified` | **AMD 한 종목만** 빈 화면(39/40 정상) | 가격 null 페이로드가 Redis→memory-lru 로 되살아남 |
+| 2 | `massiveClient` | 위의 시작점 | `getTickerSnapshot` 의 **NOT_FOUND 를 «성공»으로 60초 캐시** |
+| 3 | `isFieldUsable('structure')` | 갭필이 안 돌아 영영 안 나음 | `options_status==='OK'` 만 보고 판정 — 가격 없어도 «쓸만함» |
+| 4 | `flow/unified` | **40/40 종목 전부** 빈 화면 | `if (freshData && freshData.liveQuote)` — **빈 객체 `{}` 는 truthy** |
+
+4번이 제일 컸다. 플로우 화면이 전 종목 `dataSource=NONE · price=null · rawChain=0`.
+수집이 한 번 실패해 `liveQuote:{}` 가 나오면 그게 캐시에 앉고 TTL 내내 굳는다 —
+**캐시가 있으니 새로 안 가져와서 스스로 낫지 못한다.**
+
+고친 방식은 넷 다 같다: **«값이 실제로 있는가»를 캐시 경계에서 묻는다.**
+막으면 다음 요청이 새로 가져올 기회를 얻는다.
+
+검사기도 고쳤다 — `audit-field-contract.js` 가 NVDA 한 종목만 봤기 때문에 못 잡았다.
+이제 **커맨드 50종목 + 플로우 50종목**을 훑는다(화면마다 엔드포인트가 다르므로 **화면마다** 스윕).
+검사 150개 · 누락 0개.
+
+### Pinterest 7핀 (월별 조회수 6,318 → **6,491**)
+
+팔로워 2명으로 월 6천 조회 — 여전히 «청중 불필요» 채널 1위다. 오늘 실데이터로 7장.
+
+| 티커 | 훅 | 링크 태그 |
+|---|---|---|
+| SPY | 맥스페인 $765 vs 현재가 $765.25 — **괴리 0.03%**, 그날 최소 | `pinterest_spy` |
+| AAPL | 숏감마 −$91.1M · 콜월 $330·풋플로어 $325 로 $5 박스 | `pinterest_aapl` |
+| PLTR | 맥스페인 $180 vs $169.66 — **−5.7%, 그날 최대** · IV 57% | `pinterest_pltr` |
+| META | **27년 1월 $830 콜 30,737계약 ≈ $2.6B 신규** (OI 증가=신규 베팅) | `pinterest_meta` |
+| AMD | 맥스페인 $475 vs $456.27 (−3.94%) · 감마플립 $390 | `pinterest_amd` |
+| GOOGL | **콜월과 감마플립이 같은 $347.50** · 맥스페인 괴리 −0.74% | `pinterest_googl` |
+| AMZN | 맥스페인 $260 vs $255.07 (−1.90%) · 감마플립 $220 | `pinterest_amzn` |
+
+#### Pinterest 게시 함정 (플레이북 보강 — 어제 것에 더해)
+- **설명 편집기는 입력 직후 «빈 칸으로 보인다». 그래도 저장은 됐다.**
+  당황해서 다시 넣지 말 것 — 재편집은 `contenteditable` 이 안 잡혀서 실패한다.
+  확인하려면 페이지를 새로고침하고 초안을 다시 열면 내용이 그대로 있다.
+- 실제 키 입력(`computer type`)도 이 필드엔 **안 들어간다.** `insertText` 만 된다.
+- `file_upload` 는 `browser_batch` 안에서 동작한다. 다만 **게시 후 ref 가 바뀐다** →
+  매번 `find` 로 새로 잡을 것(`ref_46 → 94 → 138 → 182 → 226`).
+- **게시 전에 카드 이미지를 반드시 확대해 볼 것.** 오늘 META 카드가 맥스페인·감마플립
+  ·프리미엄이 전부 «—» 인 채로 만들어졌고(위 4번 버그), 그대로 올릴 뻔했다. 초안 삭제 후
+  버그를 고치고 다시 만들었다.
+
+### 다음
+- SIGNUM 1.5 승인되면 → 1.6 만들어 12개 언어 + 이름에 «AI» 넣기 (플레이도 같이)
+- UC 1.0.6 · WIM 1.0.3 심사 결과 확인
