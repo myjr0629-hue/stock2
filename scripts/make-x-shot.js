@@ -96,22 +96,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   //   화면이 안 채워졌으면 한 번 더 기다리고, 그래도 안 되면 저장하지 않는다.
   const inspect = () => page.evaluate(() => {
     const t = document.body.innerText || '';
+    // ⚠️ [2026-09-03] 숫자 개수만 세면 «핵심 칸이 빈» 카드가 통과한다.
+    //    실측: TSLA 플로우 카드가 MAX PAIN 「$—」·TOTAL PREMIUM 「—」 인데
+    //    RSI·VWAP·데이레인지 덕에 숫자 6개를 넘겨 게이트를 통과했다.
+    //    카드의 존재 이유가 맥스페인·감마플립인데 그게 비면 홍보물로 못 쓴다.
+    //    (한 번 더 만들면 채워진다 — 렌더 타이밍 문제라 재시도로 낫는다)
+    const dash = /(MAX PAIN|GAMMA FLIP|TOTAL PREMIUM)\s*\n?\s*[$]?[—–-]\s*$/m.test(t)
+      || /\$—|＄—/.test(t);
     return {
       loading: /Loading\.\.\.|로딩\s*중|読み込み/.test(t),
       nums: (t.match(/\$-?[\d,.]+|-?[\d,.]+%/g) || []).length,
+      blankCell: dash,
       len: t.length,
     };
   });
   let st = await inspect();
   // 한 번만 더 기다리면 «주말·장마감» 처럼 느린 경로에서 그냥 실패한다.
   // 실패를 늘리지 말고 몇 번 더 기다린다 — 게이트는 유지된다.
-  for (let i = 0; i < (Number(process.env.X_SHOT_RETRIES) || 3) && (st.loading || st.nums < 6); i++) {
+  const bad = (x) => x.loading || x.nums < 6 || x.blankCell;
+  for (let i = 0; i < (Number(process.env.X_SHOT_RETRIES) || 3) && bad(st); i++) {
     await sleep(9000);
     st = await inspect();
-    console.log(`[재시도 ${i + 1}] loading=${st.loading} 숫자=${st.nums}`);
+    console.log(`[재시도 ${i + 1}] loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell}`);
   }
-  if (st.loading || st.nums < 6) {
-    console.error(`[검수 실패] 화면이 안 채워졌다 — loading=${st.loading} 숫자=${st.nums} 글자=${st.len}. 저장하지 않는다.`);
+  if (bad(st)) {
+    console.error(`[검수 실패] 화면이 안 채워졌다 — loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell} 글자=${st.len}. 저장하지 않는다.`);
     await browser.close();
     process.exit(2);
   }
