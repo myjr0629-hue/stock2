@@ -106,11 +106,36 @@ socket : wss://options-edge.intrinio.com/socket/websocket?vsn=1.0.0&token=<TOKEN
    (REST `options/.../realtime` 403 은 **REST 상품이 없는 것**이지 WS 와 무관하다 — 헷갈리지 말 것.)
    Node 용 옵션 SDK 는 npm 에 없으므로 **프로토콜을 직접 구현**해야 한다(공식 파이썬 SDK 가 정본).
 
-### 우리 코드의 현재 상태
+### 우리 코드의 현재 상태 (2026-09-02 이관 완료)
 
 | 파일 | 주식 | 옵션 |
 |---|---|---|
-| `scripts/ec2-price-ws.js` | ✅ L189 `intrinio-realtime` SDK 로 **이관 완료·작동 중** | ❌ L114·L724 **`wss://socket.massive.com/options` 그대로** — 죽은 메시브를 가리킨 채 남아 있다 |
+| `scripts/ec2-price-ws.js` | ✅ `intrinio-realtime` SDK (EQUITIES_EDGE) | ✅ **`scripts/intrinio-options-ws.js` (OPTIONS_EDGE)** |
+
+Node 용 옵션 SDK 가 없어 **공식 파이썬 SDK 를 정본으로 프로토콜을 직접 옮겼다.**
+수신 메시지는 기존 Massive 형식(`sym/p/s/x/c/t`, `sym/bp/bs/ap/as`)으로 변환해
+기존 핸들러를 그대로 태운다 — 하류 코드 무수정.
+
+**구독 단위가 바뀌었다**: Massive `T.*` 와일드카드 → Intrinio **티커 단위**
+(`join('NVDA')` = NVDA 전 계약의 체결+호가). `$FIREHOSE` 는 100Mbps+ 이고 별도 승인 필요 — 쓰지 않는다.
+
+### ⚠️ 티커에 비ASCII 가 섞이면 프로세스가 죽는다
+
+`intrinio-realtime` SDK 버그(index.js L618·L115): 버퍼를 **글자 수**로 잡고
+**UTF-8 바이트**를 쓴다. 「シリコン」=4글자·12바이트 → 6바이트 버퍼 → `RangeError`.
+**price-ws 재시작 2,245회의 원인이었다.** → `TICKER_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/` 로
+넘기기 전에 거른다. 종목별로 개별 join 해 한 건 실패가 전체를 죽이지 않게 한다.
+
+### EC2 배포 (SSH 키 없이)
+
+로컬에 `signum-websocket-key.pem` 이 **없다.** SSM 으로 한다:
+```bash
+node scripts/ec2-ssm.js "pm2 list"
+node scripts/ec2-ssm.js --file ./scripts/ec2-price-ws.js /opt/signum-ws/price-ws.js
+node scripts/ec2-ssm.js "pm2 restart price-ws"
+```
+⚠️ PM2 의 스크립트 경로는 **`price-ws.js`**(로컬 파일명 `ec2-price-ws.js` 와 다르다).
+인스턴스 `i-0c8e51d26ddc9b3c1` · `/opt/signum-ws/` · `.env` 에 `INTRINIO_API_KEY` 있음.
 
 앱이 붙는 곳은 **`wss://ws.signumhq.com`**(우리 EC2 중계)이지 Intrinio 직접이 아니다.
 `src/hooks/useWebSocket.ts:25` · `GuardianProvider.tsx:55`.
