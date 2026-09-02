@@ -160,11 +160,34 @@ export 단계에서 배포 서명으로 «재서명»되는데, `signingStyle=au
 `/apps/{id}/builds` 에는 새 빌드가 안 나온다. 10분을 기다려도 안 나왔다.
 **`/builds?filter[app]={id}&sort=-uploadedDate` 로 조회하면 바로 보인다.**
 
-### ★ 함정 3 — 구독은 API 로 제출에 못 넣는다
-`reviewSubmissionItems` 에 subscription 관계가 **없다**(`subscription`,
-`subscriptions`, `inAppPurchase`, `inAppPurchaseV2` 전부 거부).
-앱 버전만 제출되고 구독은 `READY_TO_SUBMIT` 에 남는다.
-→ 애플이 버전 심사 때 함께 볼 수도 있고, 아니면 **웹 UI 에서 한 번 체크**해야 한다.
+### ★★ 함정 3 — 구독은 «앱 버전과 한 제출에» 들어가야 한다 (해결됨)
+
+`reviewSubmissionItems` 는 subscription 관계를 **지원하지 않는다**
+(`subscription`·`subscriptions`·`inAppPurchase`·`inAppPurchaseV2` 전부 거부).
+API 로 앱 버전만 제출하면 구독은 `READY_TO_SUBMIT` 에 남고 **같이 심사되지 않는다.**
+
+**해결 절차 (웹 UI 필요 — 2FA 로그인 상태여야 한다):**
+
+1. **API 로 먼저 제출하지 말 것.** 이미 했다면 취소한다:
+   `PATCH /reviewSubmissions/{id} {"canceled": true}` → 버전이 `DEVELOPER_REJECTED` 가
+   되지만 편집 가능 상태로 돌아온다(심사 시작 전이면 잃는 것 없음).
+2. ASC 웹 → 구독 그룹 → **「심사에 추가」** → 그룹이 제출 초안에 들어간다
+3. **구독 상품 페이지에서도 「심사에 추가」** → 드롭다운에서 **같은 초안**을 고른다
+   (그룹만 넣으면 「새로운 구독 그룹은 그룹 내 자동 갱신 구독과 함께 제출해야
+   합니다」로 계속 막힌다)
+4. 앱 버전을 그 초안에 넣는다 — API 로 가능:
+   `POST /reviewSubmissionItems { reviewSubmission, appStoreVersion }`
+   (`reviewSubmissions` 는 **DELETE 를 허용하지 않는다**. 잘못 만든 초안은
+   `DELETE /reviewSubmissionItems/{id}` 로 «항목만» 빼서 비운다)
+5. 초안에 **3개**(앱 버전 · 구독 그룹 · 구독 상품)가 모이면 경고가 사라지고
+   **「심사를 위해 제출」**이 활성화된다
+
+**결과 (2026-09-02 00:18 UTC):**
+```
+앱 버전 1.5 (build 6)            → WAITING_FOR_REVIEW
+com.signumhq.app.pro.monthly     → WAITING_FOR_REVIEW
+제출(3개 항목)                    → WAITING_FOR_REVIEW
+```
 
 ## ⛔ 남은 것
 
