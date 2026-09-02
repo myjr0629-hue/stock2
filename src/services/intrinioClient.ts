@@ -716,6 +716,44 @@ export interface OptionChainOptions {
     underlyingPrice?: number;
 }
 
+/**
+ * 실시간 그릭스 (OptionsEdge / FMV) — Lambda 어댑터와 **같은 규칙**이어야 한다.
+ *
+ * [2026-09-02 전수조사로 발견] 접근 권한이 있는데 안 쓰고 있었다.
+ *   `options/chain/{t}/{exp}/eod` 는 장중에도 전일 종가를 준다(실측 date=전일).
+ *   플랜에 포함된 **OptionsEdge (FMV Real-Time)** 의 이 엔드포인트가
+ *   실시간 IV·델타·감마·세타·베가 + synthetic_price 를 준다(유효율 100%).
+ *
+ *   실측 효과(NVDA 본장 중): 넷감마 9,828(전일) → 23,246(실시간), **136.5% 차이**.
+ *   지금까지 GEX 가 실제의 절반도 안 되는 값으로 나가고 있었다.
+ *
+ *   ★ OI 는 이 피드에 없다. EOD 체인 것이 정답이다(OCC 야간 정산 = 하루 단위).
+ */
+export async function getRealtimeGreeksIntrinio(
+    sym: string,
+    opts: { start?: string; end?: string } = {}
+): Promise<{ greeks: Map<string, any>; calls: number }> {
+    const out = new Map<string, any>();
+    let page: string | null = null;
+    let calls = 0;
+    const MAX_PAGES = 14;
+    do {
+        const q: Record<string, any> = { page_size: 250 };
+        if (opts.start) q.expiration_start_date = opts.start;
+        if (opts.end) q.expiration_end_date = opts.end;
+        if (page) q.next_page = page;
+        const j: any = await callIntrinio(`options/greeks/by_ticker/${sym}/realtime`, q).catch(() => null);
+        calls++;
+        if (!j) break;
+        for (const c of j.contracts || []) {
+            const code = c.option?.code;
+            if (code) out.set(code, c.greeks || {});
+        }
+        page = j.next_page || null;
+    } while (page && calls < MAX_PAGES);
+    return { greeks: out, calls };
+}
+
 export async function getOptionChainSnapshotIntrinio(
     ticker: string,
     opts: OptionChainOptions = {}
@@ -767,11 +805,23 @@ export async function getOptionChainSnapshotIntrinio(
         )
     );
 
+    // 실시간 그릭스를 같은 계약에 덮어쓴다. OI·행사가·만기는 EOD 것을 그대로.
+    let rtGreeks: Map<string, any> | null = null;
+    if (process.env.INTRINIO_REALTIME_GREEKS !== "0" && expirations.length) {
+        const r = await getRealtimeGreeksIntrinio(sym, {
+            start: expirations[0], end: expirations[expirations.length - 1],
+        }).catch(() => null);
+        if (r && r.greeks.size) rtGreeks = r.greeks;
+    }
+
     const results: any[] = [];
+    let rtHits = 0;
     for (const ch of chains) {
         for (const row of ch?.chain || []) {
             const o = row.option || {};
             const p = row.prices || {};
+            const rt = rtGreeks ? rtGreeks.get(o.code) : null;
+            if (rt) rtHits++;
             const type = String(o.type || "").toLowerCase();
 
             results.push({
@@ -784,12 +834,13 @@ export async function getOptionChainSnapshotIntrinio(
                     strike_price: num(o.strike) ?? 0,
                 },
                 greeks: {
-                    delta: num(p.delta) ?? 0,
-                    gamma: num(p.gamma) ?? 0,
-                    theta: num(p.theta) ?? 0,
-                    vega: num(p.vega) ?? 0,
+                    delta: num(rt?.delta) ?? num(p.delta) ?? 0,
+                    gamma: num(rt?.gamma) ?? num(p.gamma) ?? 0,
+                    theta: num(rt?.theta) ?? num(p.theta) ?? 0,
+                    vega: num(rt?.vega) ?? num(p.vega) ?? 0,
                 },
-                implied_volatility: num(p.implied_volatility) ?? 0,
+                implied_volatility: num(rt?.implied_volatility) ?? num(p.implied_volatility) ?? 0,
+                // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
                 open_interest: num(p.open_interest) ?? 0,
                 break_even_price:
                     type === "put"
@@ -812,7 +863,9 @@ export async function getOptionChainSnapshotIntrinio(
                     bid_size: num(p.close_bid_size) ?? 0,
                     ask: num(p.close_ask) ?? 0,
                     ask_size: num(p.close_ask_size) ?? 0,
+                    // 실시간 FMV(합성가격)가 있으면 그것이 중간값이다 — 전일 종가보다 맞다.
                     midpoint:
+                        num(rt?.synthetic_price) ??
                         num(p.mark) ??
                         ((num(p.close_bid) ?? 0) + (num(p.close_ask) ?? 0)) / 2,
                     last_updated: dateToMs(p.date) * 1e6,
@@ -825,6 +878,8 @@ export async function getOptionChainSnapshotIntrinio(
                     timeframe: "DELAYED",
                 },
                 _intrinio: { code: o.code, date: p.date },
+                // 이 계약의 그릭스가 실시간으로 덮였는지 — 하류가 라벨을 정확히 붙일 근거
+                _rtGreeks: !!rt,
             });
         }
     }

@@ -362,6 +362,43 @@ function pickMonthlyExpiration(exps, today) {
   return '';
 }
 
+// ── 실시간 그릭스 (OptionsEdge / FMV) ────────────────────────────
+// [2026-09-02] 전수조사로 발견 — **접근 권한이 있는데 안 쓰고 있었다.**
+//
+//   `options/chain/{t}/{exp}/eod` 는 장중에도 **전일 종가**를 준다
+//   (실측: 개장 12분 뒤 date=2026-09-01). 그래서 감마·IV 가 하루 늦었다.
+//   그런데 플랜에 **OptionsEdge (FMV Real-Time)** 가 포함돼 있고,
+//   `options/greeks/by_ticker/{t}/realtime` 이 실시간 IV·델타·감마·세타·베가와
+//   synthetic_price(호가 중간값)를 준다. 실측 IV/감마 유효율 **100%**.
+//
+//   ★ 다만 OptionsEdge 에는 **미결제약정이 없다**(상품 구성표 확인).
+//     OI 는 EOD 체인에서 온다 — OI 는 OCC 야간 정산이라 하루 단위가 정상이므로
+//     이건 손실이 아니다. 즉 «OI=EOD + 그릭스=실시간» 이 올바른 조합이다.
+//
+//   비용 실측(0~35 DTE, page_size 250): NVDA 5콜 · SPY 12콜 · UNH 3콜.
+//   OPRA 실시간(`chain/.../realtime`)은 403 이다 — 그건 Enterprise 상품이다.
+async function getRealtimeGreeks(sym, opts = {}) {
+  const out = new Map();   // 계약코드 → greeks
+  let page = null, calls = 0;
+  const MAX_PAGES = Number(process.env.INTRINIO_GREEKS_MAX_PAGES || 14);
+  do {
+    const q = { page_size: 250 };
+    if (opts.start) q.expiration_start_date = opts.start;
+    if (opts.end) q.expiration_end_date = opts.end;
+    if (page) q.next_page = page;
+    const j = await callIntrinio(`options/greeks/by_ticker/${sym}/realtime`, q).catch(() => null);
+    calls++;
+    if (!j) break;
+    for (const c of j.contracts || []) {
+      const code = c.option && c.option.code;
+      const g = c.greeks || {};
+      if (code) out.set(code, g);
+    }
+    page = j.next_page || null;
+  } while (page && calls < MAX_PAGES);
+  return { greeks: out, calls };
+}
+
 // ── 3) 옵션 체인 ─────────────────────────────────────────────
 async function getOptionChain(ticker, opts = {}) {
   const sym = String(ticker).toUpperCase();
@@ -421,11 +458,24 @@ async function getOptionChain(ticker, opts = {}) {
     console.warn(`[Intrinio] ${sym} 체인 누락 ${missing.join(',')} — 남은 만기로만 계산된다`);
   }
 
+  // 실시간 그릭스를 «같은 계약»에 덮어쓴다. OI·행사가·만기는 EOD 것을 그대로 쓴다.
+  //   끄려면 INTRINIO_REALTIME_GREEKS=0.
+  let rtGreeks = null, rtCalls = 0;
+  if (process.env.INTRINIO_REALTIME_GREEKS !== '0' && expirations.length) {
+    const r = await getRealtimeGreeks(sym, {
+      start: expirations[0], end: expirations[expirations.length - 1],
+    }).catch(() => null);
+    if (r && r.greeks.size) { rtGreeks = r.greeks; rtCalls = r.calls; }
+  }
+
   const results = [];
+  let rtHits = 0;
   for (const ch of chains) {
     for (const row of (ch && ch.chain) || []) {
       const o = row.option || {};
       const p = row.prices || {};
+      const rt = rtGreeks ? rtGreeks.get(o.code) : null;
+      if (rt) rtHits++;
       const type = String(o.type || '').toLowerCase();
       results.push({
         details: {
@@ -437,10 +487,13 @@ async function getOptionChain(ticker, opts = {}) {
           strike_price: num(o.strike) || 0,
         },
         greeks: {
-          delta: num(p.delta) || 0, gamma: num(p.gamma) || 0,
-          theta: num(p.theta) || 0, vega: num(p.vega) || 0,
+          delta: num(rt && rt.delta) ?? num(p.delta) ?? 0,
+          gamma: num(rt && rt.gamma) ?? num(p.gamma) ?? 0,
+          theta: num(rt && rt.theta) ?? num(p.theta) ?? 0,
+          vega: num(rt && rt.vega) ?? num(p.vega) ?? 0,
         },
-        implied_volatility: num(p.implied_volatility) || 0,
+        implied_volatility: num(rt && rt.implied_volatility) ?? num(p.implied_volatility) ?? 0,
+        // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
         open_interest: num(p.open_interest) || 0,
         break_even_price: type === 'put'
           ? (num(o.strike) || 0) - (num(p.close) || 0)
@@ -454,7 +507,8 @@ async function getOptionChain(ticker, opts = {}) {
         last_quote: {
           bid: num(p.close_bid) || 0, bid_size: num(p.close_bid_size) || 0,
           ask: num(p.close_ask) || 0, ask_size: num(p.close_ask_size) || 0,
-          midpoint: num(p.mark) ?? (((num(p.close_bid) || 0) + (num(p.close_ask) || 0)) / 2),
+          // 실시간 FMV(합성가격)가 있으면 그걸 중간값으로 쓴다 — 전일 종가보다 맞다.
+          midpoint: num(rt && rt.synthetic_price) ?? num(p.mark) ?? (((num(p.close_bid) || 0) + (num(p.close_ask) || 0)) / 2),
           last_updated: dateToMs(p.date) * 1e6,
         },
         underlying_asset: { ticker: sym, price: underlying, timeframe: 'DELAYED', last_updated: Date.now() * 1e6 },
@@ -466,6 +520,10 @@ async function getOptionChain(ticker, opts = {}) {
     results, status: 'OK', count: results.length,
     expirationsRequested: expirations,
     expirationsFetched: expirations.filter((e) => !missing.includes(e)),
+    // 하류가 «이 그릭스가 실시간인지 전일인지»를 알 수 있어야 한다.
+    greeksSource: rtGreeks ? 'realtime' : 'eod',
+    greeksRealtimeCount: rtHits,
+    greeksCalls: rtCalls,
     ...(missing.length ? { expirationsMissing: missing, partial: true } : {}),
   };
 }

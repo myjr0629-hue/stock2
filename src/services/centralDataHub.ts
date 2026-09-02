@@ -587,6 +587,29 @@ export const CentralDataHub = {
             if (usedFallback && contractsProcessed > 0) dataSource = 'CALCULATED';
             if (isAfterHours && results.length > 0) dataSource = 'CALCULATED';
 
+            // ── 이 값들이 «언제 것인지» 정확히 밝힌다 ────────────────────────
+            // [2026-09-02] 라벨이 사실과 달랐다. 옵션 체인은 EOD 상품이라 장중에도
+            //   전일 종가를 준다(실측: 개장 12분 뒤 date=전일). 그걸 통째로 'LIVE'
+            //   라고 부르고 있었다.
+            //
+            //   지금은 층이 나뉜다 — 섞어서 한 단어로 부르면 또 거짓말이 된다:
+            //     · 미결제약정(OI)  = EOD. **원래 하루 단위**(OCC 야간 정산)라 정상이다.
+            //       → 맥스페인·콜월·풋플로어는 이걸로 계산되므로 «현재값»이 맞다.
+            //     · 그릭스·IV       = OptionsEdge 실시간(가능한 경우).
+            //       실측 효과: NVDA 넷감마 9,828(전일) → 23,246(실시간).
+            //     · 거래량·프리미엄  = EOD. OPRA 체결 데이터가 플랜에 없어 전일이다.
+            const anyRealtimeGreeks = results.some((c: any) => c?._rtGreeks);
+            const dataFreshness = {
+                openInterest: 'EOD',           // 정상 — OI 는 하루 단위다
+                greeks: anyRealtimeGreeks ? 'REALTIME' : 'EOD',
+                impliedVolatility: anyRealtimeGreeks ? 'REALTIME' : 'EOD',
+                volume: 'EOD',                 // OPRA 미보유 — 전일
+                premium: 'EOD',                // 위와 같은 이유
+                chainDate: (results[0] as any)?._intrinio?.date
+                    ?? (results[0] as any)?.last_quote?.last_updated ?? null,
+                note: 'OI 는 OCC 야간 정산이라 EOD 가 곧 현재값이다. 거래량·프리미엄은 전일이다.',
+            };
+
             // [S-72] Use full weekly expiration data for accurate Max Pain (no filter)
             return {
                 netPremium: callPremium - putPremium,
@@ -596,6 +619,7 @@ export const CentralDataHub = {
                 optionsCount: results.length,
                 contractsProcessed,
                 dataSource,
+                dataFreshness,
                 isAfterHours,
                 gamma: totalGamma,
                 rawChain: results,
