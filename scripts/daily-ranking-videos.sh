@@ -36,5 +36,19 @@ for L in ko en ja; do
 done
 
 echo
+echo "━━ 4/4 앱 광고 후첨 ━━"
+# 랭킹 영상만으로는 설치로 안 간다. 끝에 4초 앱 광고를 붙인다.
+# 광고 원본이 외장에 있어야 한다(윈도우 제작분).
+OUTRO="${APP_OUTRO:-/Volumes/macportable/pdown/movie/SIGNUM_쇼츠_후첨_앱광고_KO_9x16_무음_발화자막없음.mp4}"
+if [ -f "$OUTRO" ]; then
+  for f in "$OUT"/이탈랭킹-*.mp4; do
+    [ -e "$f" ] || continue
+    bash scripts/append-app-outro.sh "$f" "${f%.mp4}_광고포함.mp4" "$OUTRO" >/dev/null && echo "  $(basename "${f%.mp4}")  광고 4초 후첨"
+  done
+else
+  echo "  ⚠️ 광고 원본 없음 → 후첨 건너뜀 ($OUTRO)"
+fi
+
+echo
 echo "완료 → $OUT"
 ls -lh "$OUT"/*.mp4 | awk '{print "  ", $9, $5}'
