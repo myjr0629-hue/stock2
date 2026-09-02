@@ -27,6 +27,19 @@
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const __intrinio = require('./intrinio-adapter');
+
+// ── EOD 체인 캐시 주입 ────────────────────────────────────────────────
+// [2026-09-02] 실시간 그릭스를 붙이며 호출이 8→13콜이 되어 분당 한도에 눌렸다
+//   (실측: 단독 실행 ok=31 fail=269, 사유 전부 no-data).
+//   EOD 체인은 **하루 한 번만 바뀌므로** 회전마다 다시 받을 이유가 없다.
+//   어댑터는 Redis 를 모르니 여기서 넣어 준다. 이러면 종목당 호출이
+//   첫 회전 13콜 → 이후 약 5콜(그릭스만)로 떨어진다.
+if (typeof __intrinio.setChainCache === 'function') {
+  __intrinio.setChainCache({
+    get: (k) => redisGet(k),
+    set: (k, v, ttl) => redisSet(k, v, ttl),
+  });
+}
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
 

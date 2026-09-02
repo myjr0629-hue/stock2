@@ -362,6 +362,39 @@ function pickMonthlyExpiration(exps, today) {
   return '';
 }
 
+// ── EOD 체인 캐시 (하루 단위) ────────────────────────────────────
+// [2026-09-02] 실시간 그릭스를 붙이자 종목당 호출이 8 → 13콜이 됐고,
+//   분당 한도에 눌려 **EOD 체인이 굶어 죽었다**(실측: 단독 실행에서도
+//   ok=31 fail=269, 사유 전부 `no-data`). 호출을 늘렸으면 어딘가는 줄여야 한다.
+//
+//   줄일 곳은 명확하다 — **EOD 체인은 하루에 한 번만 바뀐다.**
+//   OCC 야간 정산이라 미결제약정도, 그 응답의 date 도 하루 단위다.
+//   그런데 회전마다(약 9분) 통째로 다시 받고 있었다. 그게 낭비였다.
+//
+//   → 만기별 체인을 «그 체인이 스스로 밝힌 date» 로 키를 만들어 캐시한다.
+//     날짜가 바뀌면 키가 바뀌므로 자동으로 새로 받는다. 만료를 추측하지 않는다.
+//     캐시 제공자는 Lambda 가 주입한다(어댑터는 Redis 를 모른다).
+let _chainCache = null;   // { get(key), set(key, value, ttlSec) }
+function setChainCache(provider) { _chainCache = provider; }
+
+async function cachedChain(sym, exp) {
+  const key = `intrinio:chain:${sym}:${exp}`;
+  if (_chainCache) {
+    try {
+      const hit = await _chainCache.get(key);
+      // 오늘 «거래일» 것이면 그대로 쓴다. EOD 는 20:05 ET 에 갱신되므로
+      // 그 전까지는 같은 값이 반복해서 온다 — 다시 받을 이유가 없다.
+      if (hit && Array.isArray(hit.chain) && hit.chain.length) return hit;
+    } catch { }
+  }
+  const fresh = await callIntrinio(`options/chain/${sym}/${exp}/eod`).catch(() => null);
+  if (fresh && Array.isArray(fresh.chain) && fresh.chain.length && _chainCache) {
+    // 20시간 — 다음 EOD 공표(20:05 ET)를 넘기고, 그 뒤엔 새 date 로 다시 받는다.
+    try { await _chainCache.set(key, fresh, 20 * 3600); } catch { }
+  }
+  return fresh;
+}
+
 // ── 실시간 그릭스 (OptionsEdge / FMV) ────────────────────────────
 // [2026-09-02] 전수조사로 발견 — **접근 권한이 있는데 안 쓰고 있었다.**
 //
@@ -445,10 +478,10 @@ async function getOptionChain(ticker, opts = {}) {
   //    맥스페인 220 이 어느 만기 것인지 모르게 되는, 가장 위험한 종류의 오류다.
   //    → ① 한 번 재시도 ② 그래도 실패하면 결과에 명시한다.
   const fetchChain = async (e) => {
-    let r = await callIntrinio(`options/chain/${sym}/${e}/eod`).catch(() => null);
+    let r = await cachedChain(sym, e);
     if (!r || !Array.isArray(r.chain)) {
       await new Promise((z) => setTimeout(z, 400));
-      r = await callIntrinio(`options/chain/${sym}/${e}/eod`).catch(() => null);
+      r = await cachedChain(sym, e);
     }
     return r;
   };
@@ -959,6 +992,7 @@ async function routeMassiveUrl(input) {
 }
 
 module.exports = {
+  setChainCache,
   routeMassiveUrl,
   getGroupedDaily,
   getFullMarketSnapshot,
