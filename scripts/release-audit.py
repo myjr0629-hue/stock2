@@ -35,17 +35,17 @@ STORE_CC = {"ko": "kr", "ja": "jp", "en-US": "us"}
 # 플레이 이름을 바꾸면 여기도 바꾼다 — 안 바꾸면 이 검사기가 잡는다(그게 목적이다).
 PLAY_EXPECTED = {
     "com.signumhq.app": {
-        "ko": "SIGNUM HQ: 서학개미 미국증시 실적발표",
-        "ja": "SIGNUM HQ: 米国株リアルタイム決算",
-        "en": "SIGNUM HQ: Premarket Earnings"},
+        "ko": "SIGNUM: AI 주식 뉴스 캘린더 알림",
+        "ja": "SIGNUM: AI 株式ニュース カレンダー",
+        "en": "SIGNUM: AI Stock News Calendar"},
     "com.signumhq.undercurrent": {
-        "ko": "언더커런트: 서학개미 미국증시 뉴스 시황",
-        "ja": "アンダーカレント：米国株ニュース・決算速報",
-        "en": "Undercurrent Stock Market News"},
+        "ko": "언더커런트: AI 주식 뉴스 캘린더",
+        "ja": "アンダーカレント: AI 株式ニュース",
+        "en": "Undercurrent: AI Stock News"},
     "com.signumhq.wim": {
-        "ko": "Why'd It Move? 서학개미 미국주식 퀴즈",
-        "ja": "Why'd It Move? 米国株・決算クイズ",
-        "en": "Why'd It Move?: Stock Quiz"},
+        "ko": "Why'd It Move? AI 주식 퀴즈 공부",
+        "ja": "Why'd It Move? AI 株クイズ 勉強",
+        "en": "Why'd It Move? AI Stock Quiz"},
 }
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126 Safari/537.36")
