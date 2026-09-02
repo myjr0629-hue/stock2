@@ -827,7 +827,12 @@ let LOCK_KEY = 'flow-harvest:lock';
 // ⚠️ 락 TTL 은 «실제 실행 시간»에 맞춰야 한다. 900s 로 두면 한 번 비정상
 //    종료했을 때 5분 스케줄이 3사이클(15분) 통째로 막힌다.
 //    슬라이스 도입으로 한 실행이 4분 예산 안에서 끝나므로 그에 맞춘다.
-const LOCK_TTL = Number(process.env.FLOW_LOCK_TTL || 330); // seconds
+// ⚠️ [2026-09-02] 락 TTL 은 **스케줄 간격보다 짧아야** 한다.
+//   330초로 두면 5분(300초) 틱이 락에 걸려 **매 두 번째 실행이 통째로 건너뛴다**
+//   (실측: 14:49 에 샤드 4개 전부 SKIPPED). 회전이 절반으로 느려진다.
+//   시간 예산이 4분이므로 그보다 조금 길고 스케줄보다는 짧은 값으로 둔다.
+//   정상 종료 시엔 어차피 코드가 락을 푼다 — 이 값은 «죽었을 때»의 상한이다.
+const LOCK_TTL = Number(process.env.FLOW_LOCK_TTL || 280); // seconds
 
 async function acquireLock() {
   // Try EC2 proxy first (uses SET NX EX pattern)
