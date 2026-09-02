@@ -144,6 +144,35 @@ const brief = (v) => {
         console.log('');
     }
 
+    // ── 종목 스윕 ────────────────────────────────────────────────────
+    // 계약은 «한 종목»으로 확인해도 통과한다. 그런데 2026-09-03 실측에서
+    // **AMD 한 종목만** 커맨드 화면이 통째로 비어 있었다(나머지 39/40 정상).
+    // 원인은 코드가 아니라 캐시에 굳은 실패였고, NVDA 만 보는 검사로는 영영 못 본다.
+    // → 대표 종목을 훑어 «가격이 없는 종목»이 하나라도 있으면 실패로 본다.
+    const SWEEP = ('SPY QQQ NVDA TSLA AAPL MSFT AMZN GOOGL META AMD AVGO NFLX PLTR MU INTC ' +
+        'COIN MSTR SMCI CRWD SNOW UBER BA GS JPM XOM COST WMT DIS SHOP ABNB TSM ARM DELL ' +
+        'ORCL CRM ADBE NOW PANW MRVL DDOG IWM GLD SLV TLT HOOD SOFI RIVN LCID NIO F').split(' ');
+    console.log(`── 종목 스윕 (커맨드 ${SWEEP.length}종목)`);
+    const sweepBad = [];
+    for (let i = 0; i < SWEEP.length; i += 10) {
+        await Promise.all(SWEEP.slice(i, i + 10).map(async (t) => {
+            try {
+                const r = await fetch(`${BASE}/api/command/unified?t=${t}`, { cache: 'no-store' });
+                const b = await r.json();
+                const st = b?.structure || {};
+                const pcr = st.pcRatio ?? st.pcr;
+                if (st.underlyingPrice == null || st.maxPain == null || pcr == null) {
+                    sweepBad.push(`${t}(px=${st.underlyingPrice} mp=${st.maxPain} pcr=${pcr})`);
+                }
+            } catch (e) { sweepBad.push(`${t}(${e.message.slice(0, 30)})`); }
+        }));
+    }
+    total += SWEEP.length;
+    miss += sweepBad.length;
+    if (sweepBad.length) sweepBad.forEach((x) => console.log(`   ✗ ${x}`));
+    else console.log(`   ✓ ${SWEEP.length}종목 전부 가격·맥스페인·풋콜 있음`);
+    console.log('');
+
     console.log('─'.repeat(70));
     console.log(`검사 ${total}개 · 누락 ${miss}개`);
     if (miss) { console.log('\n화면이 읽는 자리에 값이 없다. 0 이나 빈 칸으로 그려진다.'); process.exit(1); }
