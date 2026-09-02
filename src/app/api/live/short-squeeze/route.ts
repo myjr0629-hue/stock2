@@ -32,7 +32,12 @@ export async function GET(req: NextRequest) {
                 try {
                     const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
                     const dynData = await getUnifiedCache(ticker, 'en');
-                    if (dynData?.squeeze) {
+                    // ⚠️ [2026-09-02] «히트했다»와 «쓸 수 있다»는 다르다.
+                    //    DynamoDB 에는 Massive 시절 값이 남아 있다. 정산일을 보지 않고
+                    //    돌려주면 뒤쪽 게이트가 그걸 막아 unavailable 이 되고,
+                    //    **살아 있는 FINRA 까지 못 내려간다**(실측: NVDA 만 null 이었다).
+                    //    여기서 낡은 히트는 «미스»로 취급해 다음 티어로 보낸다.
+                    if (dynData?.squeeze && isRecentSettlement(dynData.squeeze.settlementDate)) {
                         const sq = dynData.squeeze;
                         console.log(`[live/short-squeeze] ✅ DynamoDB hit for ${ticker}: ${sq.status} (SI:${sq.siPercent}%)`);
                         return {
@@ -81,7 +86,7 @@ export async function GET(req: NextRequest) {
                     _source: 'finra',
                 };
             },
-            { ttlSeconds: 300, keyPrefix: 'swr:squeeze' }
+            { ttlSeconds: 300, keyPrefix: 'swr:squeeze:v2' }   // 응답 모양이 바뀌면 키를 올린다 — 옛 페이로드가 200 으로 계속 나간다
         );
 
         const { siData, svData } = squeezeData;
