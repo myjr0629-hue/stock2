@@ -57,5 +57,41 @@ const box = document.querySelector('.keyword-module__column--recommendations');
 **4. 「무료」는 플레이 짧은설명에서 금지(프로모션 제외)지만 애플에서는 `2점`짜리
    유효 단어다** (`돈 버는 앱` 2 · `무료 공부앱` 1). 스토어별로 다르게 써야 한다.
 
+## 실측 — 미국 스토어 (2026-09-02)
+
+권장 CPT: **$6.33** (한국 $5.55)
+
+### 4점
+`ai` · `calendar` · `ニュース` · `클로드` · `ちゃっとgpt` · `ai chat` · `gemini ai`
+
+### 3점
+`news` · `stocks` · `investing` · `finance` · `yahoo finance` · `trading` ·
+`money` · `budget` · `aktien` · `etoro` · `vanguard` · `google calendar` ·
+`coinbase` · `binance` · `crypto` · `claude` · `character ai` · `moneybox`
+
+### 2점
+`options` · `bitcoin` · `metamask` · `trading view` · `stocks tracker` ·
+`calendar app` · `iphone calendar` · `cash app` · `money apps` · `bourse`
+
+### 1점 이하 — **우리 공략어**
+`premarket` **1** · `earnings` **1** · `dividend` **0(결과 없음)**
+
+## ★★★ 두 시장에서 «같은» 결론이 나왔다
+
+|  | 한국 | 미국 |
+|---|---|---|
+| `ai` | **4** | **4** |
+| `캘린더 / calendar` | **4** | **4** |
+| `뉴스 / news` | 3 | 3~4 |
+| `주식 / stocks` | 3 | 3 |
+| `알림 / alerts` | 3 | — |
+| **`프리마켓 / premarket`** | **1** | **1** |
+| **`실적발표 / earnings`** | **1** | **1** |
+| **`다크풀·맥스페인·옵션플로우`** | **1** | `options` 2 |
+
+**즉 우리가 3앱 9로케일 이름·키워드에 넣은 말이 거의 전부 1점짜리다.**
+반대로 우리가 «실제로 가진 기능»을 부르는 일상어 — AI · 캘린더 · 알림 · 뉴스 —
+는 3~4점이고 우리는 그 말을 이름에 하나도 안 쓰고 있다.
+
 ## 아직 안 한 것
-- 미국·일본 스토어 (캠페인 국가를 바꿔 같은 절차 반복)
+- 일본 스토어
