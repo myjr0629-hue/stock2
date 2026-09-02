@@ -126,6 +126,28 @@ async function httpsGet(url, timeoutMs) {
   });
 }
 
+// HTTP GET helper for EC2 proxy — /get·/mget 은 GET + 쿼리스트링이다.
+// (POST 인 /set·/setnx·/mset 과 메서드가 다르다. 섞으면 라우트에 안 걸린다.)
+function ec2ProxyGet(pathWithQuery, timeoutMs) {
+  return new Promise((resolve) => {
+    let parsed;
+    try { parsed = new URL(EC2_PROXY_URL + pathWithQuery); } catch { return resolve(null); }
+    const req = http.get({
+      hostname: parsed.hostname,
+      port: parsed.port || 8081,
+      path: parsed.pathname + parsed.search,
+      headers: { 'Authorization': 'Bearer ' + EC2_PROXY_KEY },
+    }, (res) => {
+      let data = '';
+      res.on('data', (c) => data += c);
+      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+    });
+    const to = setTimeout(() => { req.destroy(); resolve(null); }, timeoutMs || 3000);
+    req.on('error', () => { clearTimeout(to); resolve(null); });
+    req.on('close', () => clearTimeout(to));
+  });
+}
+
 // HTTP POST helper for EC2 proxy (HTTP, not HTTPS)
 function ec2ProxyPost(path, body, timeoutMs) {
   return new Promise((resolve) => {
@@ -186,8 +208,26 @@ async function redisSet(key, value, ttl) {
   } catch { return false; }
 }
 
-// Redis GET via Upstash REST API
+// Redis GET — EC2 Proxy 우선, Upstash 폴백
+//
+// ⚠️ [2026-09-02 실측으로 발견 — 슬라이스 커서가 영원히 0 이던 원인]
+//   redisSet 은 ① EC2 프록시 ② Upstash 순서로 «쓰는데», redisGet 은
+//   Upstash 만 «읽고» 있었다. 프록시가 정상이면 커서는 프록시에 저장되고
+//   읽기는 Upstash 를 보므로 항상 null → `Number(null)||0` → cursor=0.
+//   결과: 매 실행이 슬라이스 0-119 만 돌아 2,001종목 중 앞 120개만
+//   반복 수집됐다(샤드 4개 합쳐 실제 커버리지 480종목).
+//   실측: flow-harvest:cursor:{all,0,1,2,3} 5개 전부 null.
+//   → 쓰기와 읽기가 «같은 경로 순서»를 보게 맞춘다.
 async function redisGet(key) {
+  // 1st: EC2 Proxy (redisSet 의 1순위와 동일 저장소)
+  //   ⚠️ 프록시의 /get 은 **GET + 쿼리스트링**이다(`GET /get?key=xxx`).
+  //      /set·/setnx 처럼 POST 로 부르면 라우트에 안 걸린다 — 실물 확인함.
+  //      응답은 `{ result: <값 | null> }` 이고 값은 이미 JSON.parse 된 상태다.
+  try {
+    const r = await ec2ProxyGet('/get?key=' + encodeURIComponent(key), 3000);
+    if (r && r.result !== undefined && r.result !== null) return r.result;
+  } catch { /* 프록시 실패 시 Upstash 로 */ }
+
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;
   try {
     const body = JSON.stringify(['GET', key]);
