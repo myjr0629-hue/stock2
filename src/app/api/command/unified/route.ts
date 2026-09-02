@@ -1167,30 +1167,35 @@ export async function GET(request: NextRequest) {
         // ══════════════════════════════════════════════════════════════
         const isInUniverse = UNIVERSE.includes(ticker);
 
+        // ══════════════════════════════════════════════════════════════
+        // ⚠️⚠️ [2026-09-03 실측으로 발견 — 커맨드 화면이 5일간 비어 있었다]
+        //
+        //   여기 있던 코드는 유니버스 종목이면 «생성하지 않고» unavailable 을
+        //   돌려주고 「warm-command 크론이 채운다」고 적혀 있었다.
+        //   **그런 크론은 존재하지 않는다.** (`src/app/api/cron/` 에 없다.)
+        //   signum-warm 은 이 라우트를 부를 뿐이라 unavailable 만 받아 가고,
+        //   그래서 캐시는 영원히 안 채워진다 — 교착이다.
+        //
+        //   실측: signum-unified-cache 의 마지막 기록이 **2026-08-28 13:05**,
+        //   즉 122시간 전이다(벤더 권한 상실일). 그 전까지는 배치가 채우고
+        //   있었고 그게 멈춘 뒤로 NVDA·TSLA·AAPL 전부
+        //   `_source:'unavailable'` · 전 필드 null 로 나가고 있었다.
+        //
+        //   원래 가드의 이유는 주석 그대로 「DO NOT call Polygon」 — **종량 과금**
+        //   시절의 비용 방어였다. 지금 벤더 비용은 정액이고 제약은 분당 한도다.
+        //   비어 있는 화면보다 한 번 더 부르는 쪽이 낫다.
+        //
+        //   → 유니버스라고 특별 취급하지 않는다. 아래 «직접 생성» 경로를 그대로
+        //     탄다(비유니버스가 이미 쓰던 길이라 새 코드가 아니다).
+        //     폭주 방지는 기존 장치가 그대로 맡는다 — Redis 캐시 · 메모리 캐시 ·
+        //     그리고 생성 실패 시의 네거티브 캐시.
+        // ══════════════════════════════════════════════════════════════
         if (isInUniverse) {
-            // ── Universe ticker: warm-command cron will fill data ──
-            // DO NOT call Polygon. Return unavailable. Next cron cycle fills it.
-            console.warn(`[Command Unified] ⚠️ ALL CACHES MISS for ${ticker} (UNIVERSE) — returning unavailable`);
-            const { setNegativeCache } = await import('@/services/redisClient');
-            await setNegativeCache(dataCacheKey, `all-miss:${ticker}`);
-            return jsonResponse({
-                _source: 'unavailable',
-                _cacheStatus: 'miss',
-                _asOf: new Date().toISOString(),
-                _ageSec: 0,
-                _isStale: false,
-                _isPartial: true,
-                _latency: Date.now() - start,
-                _message: `Data for ${ticker} is being prepared. Please retry in 1-3 minutes.`,
-                structure: null, options: null, earnings: null, sma: null,
-                related: null, analyst: null, volatility: null, squeeze: null,
-                institutional: null, fundamentals: null, overview: null, history: null,
-                timestamp: Date.now(),
-            }, 200);
+            console.warn(`[Command Unified] ALL CACHES MISS for ${ticker} (UNIVERSE) — 직접 생성으로 진행`);
         }
 
         // ── Non-universe ticker: Vercel Direct Live Fetch (BFF Pattern) ──
-        console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — Vercel Direct Fetch`);
+        console.log(`[Command Unified] 🌐 Cold-start for ${ticker} (${isInUniverse ? 'universe' : 'non-universe'}) — Vercel Direct Fetch`);
         try {
             const { getUnifiedCache, putUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
             

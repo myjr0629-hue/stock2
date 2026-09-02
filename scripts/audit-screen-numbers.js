@@ -91,8 +91,16 @@ async function auditTicker(t) {
         const expect = session === 'PRE' ? base : null;
         if (expect && Q.price > 0 && !near(Q.price, expect, Math.max(0.5, expect * 0.002)))
             add('XEP_PRICE', `quotes.price ${Q.price} ≠ ticker 기준선 ${expect}`);
-        if (Q.extendedPrice > 0 && price > 0 && Math.abs(pct(Q.extendedPrice, price)) > 0.03)
-            add('XEP_EXT', `quotes 프리 ${Q.extendedPrice} vs ticker 프리 ${price} — ${(pct(Q.extendedPrice, price) * 100).toFixed(1)}% 차이`);
+        // ⚠️ [2026-09-03 교정 — 검사기 버그였다]
+        //   `Q.extendedPrice`(장외 가격)를 `price`(현재가)와 비교하고 있었다.
+        //   정규장 중에는 price 가 정규장 가격이고 extendedPrice 는 «아침 프리마켓의
+        //   잔존값»이라 서로 다른 것이 **정상**이다. 종목이 하루 동안 움직였을 뿐인데
+        //   3.9% 차이를 정합성 위반으로 보고했다(실측: SMCI 프리 37.42 vs 정규 35.98).
+        //   → 장외 세션(PRE/POST)에서만, 같은 세션의 값끼리 비교한다.
+        const tickerExt = session === 'PRE' ? T?.extended?.prePrice
+            : session === 'POST' ? T?.extended?.postPrice : null;
+        if (Q.extendedPrice > 0 && tickerExt > 0 && Math.abs(pct(Q.extendedPrice, tickerExt)) > 0.03)
+            add('XEP_EXT', `quotes 장외 ${Q.extendedPrice} vs ticker 장외 ${tickerExt} — ${(pct(Q.extendedPrice, tickerExt) * 100).toFixed(1)}% 차이 (${session})`);
     } else add('XEP_NONE', 'live/quotes 응답 없음');
 
     return bad;
