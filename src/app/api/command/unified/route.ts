@@ -23,7 +23,11 @@ import { UNIVERSE } from '@/lib/universe';
 export const maxDuration = 30;
 
 // Configuration
-const CACHE_KEY_PREFIX = 'cache:command:unified:';  // Language-independent data
+// ⚠️ 응답 «모양»이 바뀌면 이 키를 올린다. 안 올리면 옛 페이로드가 200 OK 로 계속
+//    나가서 새 필드가 조용히 빠진다(실측: pcRatio·gammaRegime 을 추가했는데
+//    memory-lru 에 남은 배포 전 값이 그대로 나갔다).
+//    v2 = 2026-09-03 structure.pcRatio · gammaRegime · options 정규화
+const CACHE_KEY_PREFIX = 'cache:command:unified:v2:';  // Language-independent data
 const OVERVIEW_KEY_PREFIX = 'cache:command:overview:'; // Language-specific overview
 const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5 min)
 const CACHE_TTL_OFFHOURS = 259200; // 72 hours off-hours (covers Friday→Monday)
@@ -623,7 +627,7 @@ export async function GET(request: NextRequest) {
         // ══════════════════════════════════════════════════════════════
         // [극강 Layer 1] IN-MEMORY LRU — 0ms response
         // ══════════════════════════════════════════════════════════════
-        const memKey = ticker; // Language-independent (data is shared)
+        const memKey = `v2:${ticker}`; // Language-independent (data is shared). v2 = 응답 모양 변경분
         const memData = memoryGet(memKey);
         if (memData && (memData.structure || memData.options)) {
             const ageMs = Date.now() - (memData.timestamp || 0);
