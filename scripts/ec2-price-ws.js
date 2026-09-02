@@ -750,6 +750,25 @@ function broadcastLuld(ticker, upperLimit, lowerLimit, indicator) {
 // ══════════════════════════════════════════════════════════════
 
 let intrinioOptions = null;
+let optionsPriceOnlySeen = 0;
+
+/**
+ * 계약별 실시간 «가격»만 브로드캐스트한다.
+ * OPTIONS_EDGE 가 주는 것이 가격뿐이므로, 프리미엄·체결규모를 지어내지 않고
+ * 있는 것만 그대로 내보낸다. 구독자가 없으면 아무 일도 하지 않는다.
+ */
+function broadcastOptionPrice(optionsTicker, price, ts) {
+    if (!optionsTicker || !(price > 0)) return;
+    const subs = optionsTickerSubscribers.get(optionsTicker);
+    if (!subs || subs.size === 0) return;
+    const msg = JSON.stringify({
+        type: 'optionPrice', sym: optionsTicker, price, ts,
+        source: 'intrinio-options-edge', priceOnly: true,
+    });
+    for (const ws of subs) {
+        if (ws.readyState === WebSocket.OPEN) { try { ws.send(msg); } catch { } }
+    }
+}
 
 /** Intrinio 계약코드 -> Massive 표기.  NVDA__260904C00200000 -> O:NVDA260904C00200000 */
 function intrinioContractToMassive(c) {
@@ -786,7 +805,25 @@ function connectToOptionsWs() {
     intrinioOptions = new OptionsWsClient({
         apiKey: key,
         provider: process.env.INTRINIO_OPTIONS_PROVIDER || "OPTIONS_EDGE",
+        // ⚠️⚠️ [2026-09-02 개장 중 실측] OPTIONS_EDGE 는 **가격만** 준다.
+        //   45초 표본 31,659건 중 size>0 이 **0건**. bid/ask@execution·기초자산가·
+        //   qualifier·거래소도 전부 비어 온다(qual=0x20202020 공백, exch=32).
+        //   워크로그의 EQUITIES_EDGE 와 같은 패턴이다 — 필드는 있는데 값이 안 온다.
+        //
+        //   그대로 기존 핸들러에 태우면 프리미엄 = 가격 × **0** × 100 = 0 이라
+        //   `premium < 10000` 필터에 전부 걸려 **아무것도 앱에 가지 않는다.**
+        //   그런데 소켓은 «연결됨»이고 초당 수백 건이 들어온다 — 지표판은 건강한데
+        //   화면엔 아무것도 없는, 가장 잡기 어려운 실패다.
+        //
+        //   → 프리미엄·BLOCK/SWEEP 경로에는 **태우지 않는다.** 이 피드로 할 수 있는
+        //     것은 «계약별 실시간 가격»이고, 그건 그대로 브로드캐스트한다.
+        //     (size 가 들어오기 시작하면 아래 가드가 자동으로 풀린다.)
         onTrade: (t) => {
+            optionsPriceOnlySeen++;
+            if (!(t.size > 0)) {
+                broadcastOptionPrice(intrinioContractToMassive(t.contract), t.price, t.timestamp);
+                return;
+            }
             handleOptionsTradeUpdate({
                 sym: intrinioContractToMassive(t.contract),
                 p: t.price, s: t.size, x: t.exchange, c: [], t: t.timestamp,
@@ -804,6 +841,16 @@ function connectToOptionsWs() {
                 optionsWsConnected = true;
                 optionsReconnectCount = 0;
                 resubscribeAllOptions();
+                // 5분마다 «가격만 오는지»를 실제 수신값으로 재보고한다.
+                // 언젠가 size 가 들어오기 시작하면 이 로그가 먼저 알려 준다.
+                if (!connectToOptionsWs._probe) {
+                    connectToOptionsWs._probe = setInterval(() => {
+                        const st = intrinioOptions && intrinioOptions.stats;
+                        if (!st) return;
+                        console.log('[Options WS] 수신 ' + st.trades + '건 · 가격전용 ' + optionsPriceOnlySeen +
+                            '건 (' + (st.trades ? Math.round(optionsPriceOnlySeen / st.trades * 100) : 0) + '%)');
+                    }, 300000);
+                }
             } else if (m.indexOf("closed") === 0) {
                 optionsWsConnected = false;
             }
