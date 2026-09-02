@@ -362,11 +362,13 @@ async function fetchOptionsSnapshotRaw(ticker) {
       + '&apiKey=' + POLYGON_KEY;
 
     let probeResults = [];
+    let probeRaw = null;          // 응답 메타(greeksSource 등)를 버리지 않는다
     let url = probeUrl;
     let pages = 0;
     while (url && pages < 20) {
       const data = await httpsGet(url, 12000).catch(() => null);
       if (!data || !data.results) break;
+      if (!probeRaw) probeRaw = data;
       probeResults = probeResults.concat(data.results);
       url = data.next_url ? (data.next_url + (data.next_url.includes('apiKey') ? '' : '&apiKey=' + POLYGON_KEY)) : null;
       pages++;
@@ -459,6 +461,12 @@ async function fetchOptionsSnapshotRaw(ticker) {
       exactResults: exactResults.map(slimContract),
       expirations,      // available expiration dates
       weeklyExpiry,     // detected weekly expiration
+      // ★ [2026-09-02] 이 그릭스가 «실시간인지 전일인지» 를 같이 저장한다.
+      //   저장 안 하면 Vercel 이 판단할 근거가 없어 화면 라벨이 또 거짓말을 한다
+      //   (실측: dataFreshness.greeks 가 계속 'EOD' 로 나갔다).
+      //   어댑터가 greeksSource / greeksRealtimeCount 를 실어 준다.
+      greeksSource: (probeRaw && probeRaw.greeksSource) || 'eod',
+      greeksRealtimeCount: (probeRaw && probeRaw.greeksRealtimeCount) || 0,
       _ts: Date.now(),
       _ticker: ticker,
       _source: 'lambda-flow-harvest',

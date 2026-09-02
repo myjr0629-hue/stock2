@@ -419,6 +419,8 @@ export const CentralDataHub = {
             let probeResults: any[] = [];
             let expirations: string[] = [];
             let weeklyExpiry = '';
+            // Lambda 캐시가 실어 준 그릭스 신선도. 블록 밖에서 라벨을 붙일 때 쓴다.
+            let cacheGreeksSource: string | null = null;
             let results: any[] = [];
             let usedLambdaCache = false;
 
@@ -448,6 +450,7 @@ export const CentralDataHub = {
                     probeResults = lambdaCache.probeResults;
                     expirations = lambdaCache.expirations || [];
                     weeklyExpiry = lambdaCache.weeklyExpiry || '';
+                    cacheGreeksSource = lambdaCache.greeksSource || null;
                     results = lambdaCache.exactResults;
                     usedLambdaCache = true;
                     console.log(`[CentralDataHub] LAMBDA CACHE HIT for ${ticker}: ${probeResults.length} probe, ${results.length} exact, expiry=${weeklyExpiry}`);
@@ -598,7 +601,14 @@ export const CentralDataHub = {
             //     · 그릭스·IV       = OptionsEdge 실시간(가능한 경우).
             //       실측 효과: NVDA 넷감마 9,828(전일) → 23,246(실시간).
             //     · 거래량·프리미엄  = EOD. OPRA 체결 데이터가 플랜에 없어 전일이다.
-            const anyRealtimeGreeks = results.some((c: any) => c?._rtGreeks);
+            // 두 경로 모두에서 판정한다:
+            //   · Vercel 직접 호출 → 계약마다 `_rtGreeks`
+            //   · Lambda 캐시      → 페이로드의 `greeksSource`
+            //     (Lambda 는 계약을 슬림화하면서 계약별 표식을 버리므로
+            //      페이로드 수준에서 받아야 한다. 안 그러면 라벨이 계속 EOD 다.)
+            const anyRealtimeGreeks =
+                results.some((c: any) => c?._rtGreeks) ||
+                cacheGreeksSource === 'realtime';
             const dataFreshness = {
                 openInterest: 'EOD',           // 정상 — OI 는 하루 단위다
                 greeks: anyRealtimeGreeks ? 'REALTIME' : 'EOD',
