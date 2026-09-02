@@ -76,6 +76,26 @@ const MIN_REL_DISPERSION = 0.03;
 const MIN_Z = 3;
 const MIN_RATIO = 1.35;
 
+// ══════════════════════════════════════════════════════════════════════
+// [2026-09-02] 유니버스를 25 → 2,001 로 넓히자 **바로 무너졌다.**
+//
+// 실측 상위 10의 총 미결제약정: 335 · 465 · 1,207 · 2,206 · 2,446 · 3,807 …
+// 유니버스 OI 분포(표본 118종목): 중앙값 4,781 · 75분위 15,321 · 90분위 43,824
+//                                (NVDA 는 350만이다)
+// → 랭킹이 **가장 얇은 66%(OI 1만 미만)에게 점령됐다.**
+//   계약 몇 개가 움직이면 풋콜 비율이 0.4 → 6.55(16배)로 튄다. 그건 시장
+//   이야기가 아니라 «호가창이 비어 있다»는 이야기다.
+//   25종목 시절엔 전부 대형주라 이 문제가 존재하지 않았다.
+//
+// ① 유동성 하한 — 75분위 위. 「이탈」이 의미를 가지려면 한 건의 거래로
+//    지표가 흔들리지 않을 만큼은 두꺼워야 한다.
+const MIN_TODAY_OI = 20000;
+// ② z 상한 — z 138 · 92 · 45 가 실제로 나왔다. 정규분포에서 z 25 는
+//    사실상 불가능하다. 그런 값은 신호가 아니라 **산포 추정이 붕괴했다는
+//    표시**다(몇 주 평평하다가 한 번 뛴 계열). 게이트로 쓰되 버린다.
+const MAX_Z = 25;
+// ══════════════════════════════════════════════════════════════════════
+
 const median = (a: number[]): number | null => {
     if (!a.length) return null;
     const s = [...a].sort((x, y) => x - y); const m = s.length >> 1;
@@ -240,8 +260,12 @@ export async function GET(req: NextRequest) {
             // 산포가 중앙값 대비 지나치게 작으면 분모 붕괴로 z 가 폭발한다(42σ 가 나왔었다).
             if (sp! / Math.abs(med) < MIN_REL_DISPERSION) { bump('너무안변함'); continue; }
 
+            // 얇은 종목은 지표 자체가 잡음이다 — 재기 전에 거른다.
+            if (!(today.oi >= MIN_TODAY_OI)) { bump('유동성부족'); continue; }
+
             const z = (today.v - med) / scale;
             if (!Number.isFinite(z) || Math.abs(z) < MIN_Z) { bump('유의하지않음'); continue; }
+            if (Math.abs(z) > MAX_Z) { bump('산포붕괴(z과대)'); continue; }
             // 점수류에서 오늘이 «정확히 0» 이면 측정된 0 인지 미계산인지 모른다.
             if (today.v === 0 && /Score|Probability/i.test(m.key)) { bump('0값모호'); continue; }
 
@@ -383,7 +407,14 @@ export async function GET(req: NextRequest) {
             baseline: `최근 ${days}일 중앙값(평균 아님)`,
             snapshot: '하루에 여러 스냅샷이 있고 실행마다 다른 만기가 걸린다(같은 날 OI 가 20배까지 널뛴다). 그래서 마지막 값이 아니라 «총 OI 가 가장 큰 스냅샷» 하나를 골라 모든 지표를 거기서 읽는다.',
             dispersion: 'MAD',
-            guards: ['만기 롤오버(같은 규모 체인만 비교)', `최소 비교 ${MIN_REGIME_DAYS}일`, `|z| ≥ ${MIN_Z}`, `배수 ≥ ${MIN_RATIO}`],
+            guards: [
+                '만기 롤오버(같은 규모 체인만 비교)',
+                `최소 비교 ${MIN_REGIME_DAYS}일`,
+                `${MIN_Z} ≤ |z| ≤ ${MAX_Z} (상한은 산포 붕괴 탐지용)`,
+                `배수 ≥ ${MIN_RATIO}`,
+                `당일 총 미결제약정 ≥ ${MIN_TODAY_OI.toLocaleString()} (얇은 종목의 지표는 잡음이다)`,
+                '수집 최신 세션과 다른 종목 제외',
+            ],
             note: '순위는 «평소의 몇 배»(비율). σ 는 게이트로만 쓴다.',
             darkPool: 'FINRA 장외. 마감 후 약 90분(17:30 ET)에 들어온다. 없으면 랭킹에서 빠지고 available:false 로 보고한다. 공매도는 시장 중앙값이 49% 라 절대값이 아니라 그 종목의 평소 대비 %p 이탈로 잰다.',
         },
