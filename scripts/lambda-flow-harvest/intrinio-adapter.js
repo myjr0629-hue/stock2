@@ -105,7 +105,11 @@ async function getNewsFromFmp(ticker, limit, since) {
 //    (단발 테스트로는 잘 되다가 대량 실행에서만 0건이 되어 원인이 안 보였다)
 //    한 프로세스 안의 모든 Intrinio 호출을 여기서 직렬 제어한다.
 // ─────────────────────────────────────────────────────────────
-const RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 1200);
+// ⚠️ 이 버킷은 **Lambda 컨테이너마다 따로** 존재한다(모듈 전역 상태).
+//   flow-harvest 는 샤드 4개가 «동시에» 도므로 계약 한도(2,000콜/분)를 4로 나눈
+//   값이 샤드당 상한이다. 1200 으로 두면 4×1200=4,800 로 한도를 넘길 수 있다.
+//   500×4 = 2,000 이 정확히 한도이므로 10% 여유를 둔다.
+const RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 450);
 let _tokens = RATE_PER_MIN;
 let _refillAt = Date.now();
 let _queue = Promise.resolve();

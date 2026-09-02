@@ -917,7 +917,10 @@ exports.handler = async (event) => {
   //
   // 그래서 **매 실행마다 유니버스의 일부만** 처리하고 다음 실행이 이어받는다.
   // 커서는 Redis 에 두어 실행 간에 회전한다 — 시간이 지나면 전 종목이 덮인다.
-  const SLICE = Number(process.env.FLOW_SLICE_SIZE || 120);
+  // SLICE 는 «시간 예산 안에 들어갈 수 있는 최대치»여야 한다. 작게 잡으면
+  //   예산이 남아도 조기 종료해 회전이 느려진다(120은 4분 예산의 절반도 안 썼다).
+  //   동시성 30 실측 69종목/분 × 4분 = 276 → 여유 두고 300.
+  const SLICE = Number(process.env.FLOW_SLICE_SIZE || 300);
   const TIME_BUDGET_MS = Number(process.env.FLOW_TIME_BUDGET_MS || 4 * 60 * 1000);
   const CURSOR_KEY = 'flow-harvest:cursor:' + (shardIndex == null ? 'all' : shardIndex);
 
@@ -944,7 +947,15 @@ exports.handler = async (event) => {
     const k = String(r || 'unknown').slice(0, 90);
     failReasons.set(k, (failReasons.get(k) || 0) + 1);
   };
-  const BATCH_SIZE = 10;
+  // ⚠️ [2026-09-02 실측] 병목은 Intrinio 가 아니라 **여기였다**.
+  //   이관 때 BATCH_SIZE=10 으로 잡아두고 «Intrinio 예산에 맞췄다»고 적었으나
+  //   실제로 잰 기록은 없었다. 재보니:
+  //     동시성 10 → 22종목/분 · 144콜/분   (계약 한도 2,000콜/분 중 7% 만 사용)
+  //     동시성 30 → 69종목/분 · 486콜/분   (3.1배)
+  //   종목당 콜 = 만기 1 + 체인 6 = 7. 4샤드 동시 실행이므로
+  //   486 × 4 = 1,944콜/분 < 2,000 (계약 한도). 아래 레이트리미터가 안전판.
+  //   결과: 전 종목 회전이 25분 → 10분.
+  const BATCH_SIZE = Number(process.env.FLOW_BATCH_SIZE || 30);
   const deadline = Date.now() + TIME_BUDGET_MS;
   let stoppedAt = null;
 

@@ -407,6 +407,17 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
   - `signum-flow-harvest-shard-3` — ENABLED, `{"shard":3}`, rate(5 minutes)
 - **유니버스**: **2,000종목** (`data/stock_universe_us800.json`) + 동적 유니버스 (shard-3에서만 처리)
 - **실행 시간**: shard당 76~358초 (2,000종목, 500종목/shard), 장외 1~30ms skip
+- ⚠️ **[2026-09-02] Intrinio 이관 후 처리량 실측·교정**
+  - 이관 때 `BATCH_SIZE=10` / `SLICE=120` 으로 잡았으나 **잰 근거가 없었다**(커밋 `43d4ba42`).
+  - 실측: 동시성 10 → **22종목/분·144콜/분** (계약 2,000콜/분 중 **7%만 사용**).
+    동시성 30 → **69종목/분·486콜/분**.
+  - 종목당 콜 = 만기 1 + 체인 6 = **7콜**.
+  - 교정: `BATCH_SIZE 10→30`, `SLICE 120→300`, 어댑터 `RATE_PER_MIN 1200→450`
+    (버킷은 컨테이너별이므로 4샤드 × 450 = 1,800 < 계약 2,000).
+  - 교정 후 실측: **shard0 210종목 / 244초 / fail=0** → 전 종목 회전 **25분 → 약 12분**.
+  - **REST 이론 하한 = 7분** (2,001×7콜 ÷ 2,000콜/분). 그 아래는 REST로 불가능하며
+    **옵션 웹소켓**(`realtime-options.intrinio.com/auth` → 200+JWT, 계약 WS 3연결)이 유일한 길이다.
+    WS는 체결·호가(변화)를 주고 OI·Greeks(상태)는 안 주므로 **REST 회전은 계속 필요하다**.
 - **메모리 사용**: 284~338MB / 1024MB
 - **완전 독립**: signum-harvest와 코드/스케줄/실행 완전 분리
 - **동시 실행 방지 (v3.0)**: shard별 독립 Lock (`flow-harvest:lock:shard-{N}`, TTL 900초)
