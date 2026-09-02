@@ -97,3 +97,10 @@ xcrun altool --upload-app -f "$EXPORT_DIR/App.ipa" -t ios \
 # ---- 5. 버전 생성·빌드연결·메타·제출 ----
 say "버전 연결 및 심사 제출"
 python3 "$ROOT/scripts/ios_submit.py" "$ASC_APP" "$NEW_VERSION" "$NEXT_BUILD" "$WHATS_NEW_EN"
+
+# ---- 6. 출시가 «정말» 나갔는지 스토어에 직접 묻는다 --------------------------
+# 2026-09-02: 여기까지 하고 안 물어봐서 UC·WIM 이 하루 멈춰 있었다.
+# 이 검사가 통과해야 «완료»라고 말할 수 있다.
+say "출시 상태 전수검사"
+python3 "$ROOT/scripts/release-audit.py" || {
+  echo "✗ 아직 안 끝났다 — 위 목록을 처리하기 전에는 «완료»가 아니다"; exit 1; }

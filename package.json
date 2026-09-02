@@ -11,7 +11,8 @@
     "remotion:studio": "npx remotion studio src/remotion/index.ts",
     "remotion:deploy-site": "npx remotion lambda sites create src/remotion/index.ts --site-name=signum-shorts",
     "remotion:deploy-fn": "npx remotion lambda functions deploy --memory=2048 --timeout=240 --disk=2048",
-    "remotion:render": "npx remotion render src/remotion/index.ts"
+    "remotion:render": "npx remotion render src/remotion/index.ts",
+    "audit:release": "python3 scripts/release-audit.py"
   },
   "dependencies": {
     "@aws-sdk/client-backup": "^3.1014.0",
