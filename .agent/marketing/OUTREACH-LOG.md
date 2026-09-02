@@ -2597,3 +2597,25 @@ SIGNUM 은 이번 심사가 끝난 뒤 이름에 AI 를 넣는 2차 패스를 �
 ### 다음
 - SIGNUM 1.5 승인되면 → 1.6 만들어 12개 언어 + 이름에 «AI» 넣기 (플레이도 같이)
 - UC 1.0.6 · WIM 1.0.3 심사 결과 확인
+
+### 새 채널 — AlternativeTo (제출 완료, 승인 대기)
+
+`https://alternativeto.net/software/signum-hq-market-intelligence/` 로 생성됐다.
+⚠️ **아직 공개가 아니다** — 「Only you can see this app right now」. 백링크는 승인 후에 생긴다.
+백로그가 길어 **수개월** 걸린다고 명시(=$5 내면 1~2영업일, 결제는 대표 판단).
+
+**규칙 (다른 디렉터리에도 적용)**
+- 공식 웹사이트 링크에 **UTM/추적 파라미터 금지** → `?from=` 을 못 붙인다.
+  유입 추적은 «HTTP referer 를 보라»는 게 그쪽 안내다. `https://signumhq.com` 으로 넣었다.
+- **설명 본문에 URL·이메일·전화번호 전면 금지.** 앱스토어/플레이 링크는 전용 칸이 따로 있다.
+- 아이콘 필수, 스크린샷 없으면 반려 가능 → 아이콘 1024 + 영문 스크린샷 3장 올렸다.
+- ⚠️ **이름 충돌**: 「SIGNUM HQ」가 이미 있다고 막혔다(공개 검색엔 없음 = 남의 대기열 건).
+  안내대로 `SIGNUM HQ Market Intelligence` 로 제출하고, 관리자 노트에
+  «무관하면 SIGNUM HQ 로 개명 요청 / 같은 앱이면 병합해 달라»고 명시했다.
+- ★ **대안(alternatives)을 안 넣으면 사실상 안 보인다** — 사이트가 직접 경고한다
+  (“Apps without alternatives are almost invisible… rarely appear in search results”).
+  FinViz·TradingView·Koyfin·VolumeEdge 4개를 걸었다(이것도 승인 대기).
+
+**조작 함정**: 언어·회사 칸은 `type → Return` 이 먹히는데 **태그·플랫폼 칸은 Return 이 안 먹는다**
+(드롭다운 옵션을 실제로 클릭해야 한다). 체크박스는 `input[type=checkbox]` 가 아니라
+스타일드 라벨이라 **JS click() 이 안 먹고** 배경색으로만 선택 여부를 확인할 수 있다.
