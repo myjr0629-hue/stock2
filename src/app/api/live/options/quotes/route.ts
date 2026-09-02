@@ -37,6 +37,23 @@ export async function GET(req: NextRequest) {
                 const url = `/v3/quotes/${contractTicker}?limit=${limit}&order=${order}&sort=timestamp`;
                 const data = await fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE);
 
+                // ⚠️ [2026-09-02] 「OK 인데 0건」을 막는다.
+                //   /v3/quotes 는 Intrinio 이관 대상이 아니라(플랜에 틱 없음) 어댑터가
+                //   { status:'OK', results:[], _unsupported:true } 를 돌려준다.
+                //   그대로 두면 아래 성공 분기로 빠져 debug.status='OK' + count:0 이 나가,
+                //   소비자가 «호가가 없다»와 «이 값은 못 준다»를 구분할 수 없다.
+                //   같은 처지인 dark-pool-trades·short-squeeze 와 표식을 맞춘다.
+                if ((data as any)?._unsupported) {
+                    return {
+                        contract: contractTicker,
+                        count: 0,
+                        quotes: [],
+                        unavailable: true,
+                        _reason: 'tick-data-not-in-plan',
+                        debug: { status: 'UNAVAILABLE' },
+                    };
+                }
+
                 if (!data?.results || !Array.isArray(data.results)) {
                     return {
                         contract: contractTicker,
