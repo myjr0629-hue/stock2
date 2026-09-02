@@ -79,16 +79,32 @@ socket : wss://equities-edge.intrinio.com/socket/websocket
 provider 별 호스트: `realtime-mx`(REALTIME/IEX) · `realtime-delayed-sip` · `realtime-nasdaq-basic` ·
 `cboe-one` · `equities-edge`.
 
+### ★ 옵션은 provider 가 **2개**다 — 우리 것은 `OPTIONS_EDGE`
+
+정본: 공식 파이썬 SDK `intriniorealtime/options_client.py` L709~723.
+
+| provider | auth · socket 호스트 | 우리 계정 실측 |
+|---|---|---|
+| `OPRA` | `realtime-options.intrinio.com` | ❌ 빈 HTTP 200 (거부) |
+| **`OPTIONS_EDGE`** | **`options-edge.intrinio.com`** | ✅ **핸드셰이크 성공 · 수신 확인** |
+
+```
+auth   : https://options-edge.intrinio.com/auth?api_key=<KEY>
+         헤더 Client-Information: IntrinioOptionsPythonSDKv2.5
+socket : wss://options-edge.intrinio.com/socket/websocket?vsn=1.0.0&token=<TOKEN>
+```
+⚠️ **옵션은 주식과 URL 규칙이 다르다.** 주식은 `Client-Information`·`UseNewEquitiesFormat` 을
+**쿼리스트링**에 넣지만, 옵션은 **HTTP 헤더**로 보내고 소켓 URL 에는 `vsn`·`token` 만 넣는다.
+쿼리에 넣으면 빈 200 으로 거부된다. (내가 여기서 틀려 «옵션 WS 불가» 라고 잘못 보고했다.)
+
 | 대상 | 실측 |
 |---|---|
-| **주식 `equities-edge`** | ✅ **핸드셰이크 성공 · 수신 확인** (장중 실측 45초 3,728건 — 워크로그 L241) |
-| **옵션 `realtime-options`** | ❌ **파라미터 3조합 전부 빈 HTTP 200 = 서버가 업그레이드 거부** |
+| **주식 `equities-edge`** | ✅ 핸드셰이크·수신 (장중 45초 3,728건 — 워크로그 L241) |
+| **옵션 `options-edge` (OPTIONS_EDGE)** | ✅ **핸드셰이크·수신** |
 
-→ 주식은 같은 방식으로 붙는데 옵션만 거부 = **경로 문제가 아니라 우리 플랜에 옵션 실시간이 없다.**
-   REST `options/.../realtime` 403 과 일치한다. **Node 용 옵션 SDK 도 npm 에 없다**(C#/Java/Python 만).
-
-계약서에는 「WebSocket 3 연결」이 적혀 있으나 **어느 상품인지는 명시가 없다.**
-옵션 실시간이 필요하면 Intrinio 에 **별도 문의/계약**이 필요하다.
+→ **주식·옵션 둘 다 실시간 웹소켓이 가능하다.** 계약서 「WebSocket 3 연결」과 일치한다.
+   (REST `options/.../realtime` 403 은 **REST 상품이 없는 것**이지 WS 와 무관하다 — 헷갈리지 말 것.)
+   Node 용 옵션 SDK 는 npm 에 없으므로 **프로토콜을 직접 구현**해야 한다(공식 파이썬 SDK 가 정본).
 
 ### 우리 코드의 현재 상태
 
