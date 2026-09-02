@@ -1283,6 +1283,41 @@ export async function GET(request: NextRequest) {
                 freshData.structure = { ...freshData.structure, atmIV: freshData.volatility.iv / 100 };
             }
 
+            // ══════════════════════════════════════════════════════════
+            // ⚠️ [2026-09-03] 경로마다 «필드 이름»이 달라 화면이 0 을 그리고 있었다.
+            //
+            //   화면(MobileCommandPage L136)은 이렇게 읽는다:
+            //       pcr: s.pcRatio || ud.options?.pcr || 0
+            //   그런데 이 직접 생성 경로의 structure 는 `pcr` 로 담는다(`pcRatio` 아님).
+            //   `options` 도 이 경로에선 안 만든다. 그래서 **실제 값 0.69 가 있는데
+            //   화면엔 풋콜 비율 0** 으로 나갔다. 에러가 안 나는 오류다.
+            //
+            //   같은 이유로 gammaRegime 도 비었다 — DynamoDB 경로에만 있던 필드다.
+            //   여기서 GEX 부호로 만든다(volatility.gexLabel 이 이미 같은 판정을 한다).
+            //
+            //   근본 해법은 «모든 경로가 같은 모양을 내는 것»이므로, 다른 경로가
+            //   쓰는 이름으로 여기서 맞춰 준다. 화면은 건드리지 않는다.
+            // ══════════════════════════════════════════════════════════
+            if (freshData.structure) {
+                const st: any = freshData.structure;
+                if (st.pcRatio == null && st.pcr != null) st.pcRatio = st.pcr;
+                if (st.gammaRegime == null) {
+                    const lbl = freshData.volatility?.gexLabel;
+                    st.gammaRegime = lbl === 'SHORT' ? 'SHORT_GAMMA'
+                        : lbl === 'LONG' ? 'LONG_GAMMA'
+                            : (typeof st.netGex === 'number'
+                                ? (st.netGex < 0 ? 'SHORT_GAMMA' : 'LONG_GAMMA')
+                                : 'NEUTRAL');
+                }
+                // 다른 경로가 내보내는 파생 묶음. 화면의 두 번째 폴백이 여기를 본다.
+                if (!freshData.options) {
+                    freshData.options = {
+                        pcr: st.pcRatio ?? st.pcr ?? null,
+                        iv: freshData.volatility?.iv ?? st.atmIV ?? null,
+                    };
+                }
+            }
+
             // Persist to all 3 Cache Layers (Memory, Redis, DynamoDB) so future users get 5ms response
             memorySet(memKey, freshData);
             setInCache(dataCacheKey, freshData, getSmartTTL()).catch(() => {});
