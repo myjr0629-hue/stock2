@@ -152,6 +152,8 @@ const brief = (v) => {
     const SWEEP = ('SPY QQQ NVDA TSLA AAPL MSFT AMZN GOOGL META AMD AVGO NFLX PLTR MU INTC ' +
         'COIN MSTR SMCI CRWD SNOW UBER BA GS JPM XOM COST WMT DIS SHOP ABNB TSM ARM DELL ' +
         'ORCL CRM ADBE NOW PANW MRVL DDOG IWM GLD SLV TLT HOOD SOFI RIVN LCID NIO F').split(' ');
+    // 화면마다 «다른 엔드포인트»를 본다. 커맨드만 훑으면 플로우가 통째로 죽어도 모른다
+    // (2026-09-03 실측: 커맨드 50/50 정상인데 플로우는 40/40 이 빈 화면이었다).
     console.log(`── 종목 스윕 (커맨드 ${SWEEP.length}종목)`);
     const sweepBad = [];
     for (let i = 0; i < SWEEP.length; i += 10) {
@@ -171,6 +173,28 @@ const brief = (v) => {
     miss += sweepBad.length;
     if (sweepBad.length) sweepBad.forEach((x) => console.log(`   ✗ ${x}`));
     else console.log(`   ✓ ${SWEEP.length}종목 전부 가격·맥스페인·풋콜 있음`);
+    console.log('');
+
+    console.log(`── 종목 스윕 (플로우 ${SWEEP.length}종목)`);
+    const flowBad = [];
+    for (let i = 0; i < SWEEP.length; i += 8) {
+        await Promise.all(SWEEP.slice(i, i + 8).map(async (t) => {
+            try {
+                const r = await fetch(`${BASE}/api/flow/unified?t=${t}`, { cache: 'no-store' });
+                const b = await r.json();
+                const q = b?.liveQuote || {};
+                const f = q.flow || {};
+                const chain = (f.rawChain || []).length;
+                if (q.price == null || f.maxPain == null || chain === 0) {
+                    flowBad.push(`${t}(px=${q.price} mp=${f.maxPain} chain=${chain} src=${f.dataSource})`);
+                }
+            } catch (e) { flowBad.push(`${t}(${e.message.slice(0, 30)})`); }
+        }));
+    }
+    total += SWEEP.length;
+    miss += flowBad.length;
+    if (flowBad.length) flowBad.forEach((x) => console.log(`   ✗ ${x}`));
+    else console.log(`   ✓ ${SWEEP.length}종목 전부 가격·맥스페인·체인 있음`);
     console.log('');
 
     console.log('─'.repeat(70));
