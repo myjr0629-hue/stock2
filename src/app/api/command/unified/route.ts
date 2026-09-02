@@ -302,7 +302,12 @@ function isFieldUsable(field: string, data: any): boolean {
         case 'volatility': return data.regime != null || data.regimeScore != null || data.iv != null || data.gex != null;
         case 'squeeze': return (data.siPercent != null && data.siPercent > 0) || (data.shortVolPercent != null && data.shortVolPercent > 0) || (data.daysToCover != null && data.daysToCover > 0);
         case 'institutional': return (data.darkPool?.percent != null && data.darkPool.percent > 0) || (data.compositeScore != null && data.compositeScore > 0);
-        case 'structure': return data.options_status === 'OK' || data.netGex != null;
+        // ⚠️ [2026-09-03] options_status 만 보면 «옵션은 있는데 가격이 없는» 페이로드가
+        //    「쓸만함」으로 통과해 갭필이 통째로 건너뛰어졌다(AMD 실측: 체인·PCR·GEX 는
+        //    있는데 underlyingPrice·prevClose·maxPain 이 전부 null → 화면이 빈 채로 200 OK).
+        //    커맨드 화면의 머리글이 가격이다. 가격이 없으면 그 structure 는 못 쓴다.
+        case 'structure': return (data.options_status === 'OK' || data.netGex != null)
+            && (data.underlyingPrice != null || data.prevClose != null);
         default: return true;
     }
 }

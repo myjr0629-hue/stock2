@@ -220,7 +220,13 @@ export async function fetchMassive(
             const routed = await routeToIntrinio(routableEndpoint, params);
             if (routed !== undefined) {
                 notifyStatus({ lastEndpoint: routableEndpoint, lastHttpStatus: 200, step: "INTRINIO_OK" });
-                if (useCache) {
+                // ⚠️ [2026-09-03] NOT_FOUND 를 «성공»으로 60초 캐시하고 있었다.
+                //    레이트리밋 한 번이 NOT_FOUND 를 만들고, 그게 캐시에 앉아
+                //    그 인스턴스로 오는 모든 요청이 «가격 null» 을 받았다
+                //    (AMD 실측: 커맨드 화면이 통째로 빔 → Redis 로 더 오래 굳음).
+                //    실패는 캐시하지 않는다. 다음 요청이 다시 물어볼 기회를 준다.
+                const isNotFound = (routed as any)?.status === "NOT_FOUND";
+                if (useCache && !isNotFound) {
                     massiveCache.set(cacheKeyEarly, { data: routed, expiry: Date.now() + 60000 });
                 }
                 return routed;
