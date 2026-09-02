@@ -2395,3 +2395,30 @@ node scripts/make-x-shot.js signum en flow TSLA
 ### ⚠️ 랭킹 API 에 «오래된 날짜»가 섞인다
 오늘(09-01) 랭킹 1위 NVDA 는 데이터 날짜가 **08-30**, 3위 META 는 **08-29** 였다.
 `date` 필드를 안 보고 「오늘」로 올리면 오보다. **09-01 인 항목만 쓴다.**
+
+## 2026-09-02 (오후)
+
+### 실행
+| 채널 | 내용 | 링크 태그 | 결과 |
+|---|---|---|---|
+| X (@signumhq) | @ScroogeCap $META 스레드(26.1K 조회·301❤)에 옵션 포지셔닝 답글 + 데이터 이미지 | 이미지 워터마크 | **게시됨** |
+| Pinterest | NVDA 카드 · 「NVDA stock chart today — free stock market app for beginners, no signup」 | `?from=pinterest_nvda` | **게시됨** |
+| Play 스토어 | 3앱×3로케일 이름·짧은설명 전면 교체(실측 인기도 기반) | — | SIGNUM·WIM **라이브** / UC 심사 중 |
+
+### ★ 이번에 검사기가 막은 것
+`npm run audit:release` 가 **UC 플레이 제출이 안 된 것**을 잡았다.
+콘솔에서 「Submit」을 눌렀다고 생각했는데 확인 다이얼로그가 안 눌려
+`Changes not yet submitted` 로 남아 있었다. 라이브 이름 대조가 아니었으면 못 봤다.
+→ **저장·제출 후에는 반드시 라이브 스토어로 대조할 것.**
+
+### Pinterest 게시 함정 (플레이북 보강)
+- 설명 편집기는 **제목보다 «먼저»** 채워야 한다. 제목을 먼저 넣으면 레이아웃이
+  밀려 설명 필드가 얇게 접히고 클릭해도 포커스가 안 잡힌다(activeElement=BODY).
+- 포커스가 없는 상태에서 `selectAll` 을 부르면 **페이지 전체**가 선택된다.
+- 설명에 `\n` 이 있으면 중간에 끊긴다 → **한 줄로** 넣을 것.
+- 순서: 업로드 → 7초 대기 → (823,400) 클릭 → activeElement 가 contenteditable 인지
+  확인 → `execCommand('insertText')` → 그 다음 제목·링크를 네이티브 setter 로.
+
+### 다음
+- UC 플레이 반영 확인 (심사 중)
+- 애플: 3앱 심사 승인 후 같은 이름을 다음 빌드에 실어 보낼 것
