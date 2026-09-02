@@ -387,9 +387,42 @@ function stripStaleInstitutional(data: any): any {
     return data;
 }
 
+/**
+ * 경로마다 다른 이름으로 담기는 값을 **응답 직전에** 한 번 맞춘다.
+ *
+ * ⚠️ [2026-09-03] 생성 시점에만 맞췄더니 «이미 저장돼 있던» 옛 모양의 캐시가
+ *    그대로 나갔다(실측: NVDA gammaRegime undefined, _source=memory-lru/cache).
+ *    캐시 키를 올려도 DynamoDB 24시간 창에 남은 것까지는 못 막는다.
+ *    → 어디서 온 페이로드든 나가기 직전에 통과하도록 여기로 옮긴다.
+ *
+ *    화면(MobileCommandPage L136)이 `s.pcRatio || ud.options?.pcr || 0` 로 읽는데
+ *    직접 생성 경로는 `structure.pcr` 로 담아서 **실제 0.69 인데 화면엔 0** 이었다.
+ *    에러가 안 나는 오류라 화면만 봐서는 못 잡는다.
+ */
+function normalizeShape(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+    const st: any = data.structure;
+    if (st && typeof st === 'object') {
+        if (st.pcRatio == null && st.pcr != null) st.pcRatio = st.pcr;
+        if (st.pcr == null && st.pcRatio != null) st.pcr = st.pcRatio;
+        if (st.gammaRegime == null) {
+            const lbl = data.volatility?.gexLabel;
+            st.gammaRegime = lbl === 'SHORT' ? 'SHORT_GAMMA'
+                : lbl === 'LONG' ? 'LONG_GAMMA'
+                    : (typeof st.netGex === 'number'
+                        ? (st.netGex < 0 ? 'SHORT_GAMMA' : 'LONG_GAMMA')
+                        : null);   // 근거가 없으면 «없음»으로 둔다. NEUTRAL 로 지어내지 않는다.
+        }
+        if (data.options == null && (st.pcRatio != null || data.volatility?.iv != null)) {
+            data.options = { pcr: st.pcRatio ?? null, iv: data.volatility?.iv ?? st.atmIV ?? null };
+        }
+    }
+    return data;
+}
+
 function jsonResponse(data: any, status = 200) {
     const isMarket = isMarketHoursNow();
-    return NextResponse.json(stripStaleInstitutional(data), {
+    return NextResponse.json(normalizeShape(stripStaleInstitutional(data)), {
         status,
         headers: {
             'Cache-Control': isMarket
