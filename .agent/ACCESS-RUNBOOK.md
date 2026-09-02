@@ -52,10 +52,56 @@ curl -s -H "Authorization: Bearer signum-redis-proxy-2026" \
 | `securities/{t}/prices/realtime` | ✅ 200 |
 | `securities/{t}/short_interest` | ❌ **403** — 엔드포인트는 있으나 Startup 플랜 권한 없음(Enterprise) |
 | `securities/{t}/short_volume` | ❌ **404** — Intrinio 에 아예 없음 |
-| **`https://realtime-options.intrinio.com/auth?api_key=`** | ✅ **200 + JWT — 옵션 웹소켓 쓸 수 있다(현재 미사용)** |
-| `https://realtime-mx.intrinio.com/auth?api_key=` | ✅ 200 + JWT (주식 웹소켓) |
+| `options/chain/{t}/{exp}/realtime` · `options/prices/{code}/realtime` · `options/unusual_activity` | ❌ **403** — 옵션 «실시간» REST 는 전부 권한 없음. `.../eod` 만 쓸 수 있다 |
 
-계약: 2,000 calls/min · **WebSocket 3 연결**.
+## ★★ 웹소켓 — 주식은 되고 옵션은 안 된다 (2026-09-02 실측 확정)
+
+### 판정 방법을 틀리지 말 것
+
+- **`/auth` 가 200 을 준다 ≠ 권한이 있다.** 유효한 키면 누구에게나 토큰을 발급한다.
+- **JWT 페이로드의 `max_realtime_streams:0` 도 판정 근거가 아니다.**
+  주식 토큰도 `max_realtime_streams:0 · exchanges:[]` 인데 **실제로는 붙고 데이터가 온다.**
+  (내가 이걸 «권한 0» 으로 읽고 대표에게 두 번 틀린 보고를 했다.)
+- **유일하게 믿을 수 있는 판정 = 실제로 핸드셰이크를 해보는 것.**
+
+### 붙는 법 — URL 을 지어내지 말고 SDK 를 그대로 따를 것
+
+`intrinio-realtime` v5.7.0 (npm) 은 **주식 전용**이다. provider 마다 **auth 와 socket 이 같은 호스트**다.
+
+```
+auth   : https://equities-edge.intrinio.com/auth?api_key=<KEY>
+socket : wss://equities-edge.intrinio.com/socket/websocket
+         ?vsn=1.0.0&token=<TOKEN>
+         &Client-Information=IntrinioRealtimeNodeSDKv5.7
+         &UseNewEquitiesFormat=v2
+```
+⚠️ `Client-Information` / `UseNewEquitiesFormat` 을 빼면 **업그레이드가 거부되고 빈 HTTP 200** 이 온다.
+provider 별 호스트: `realtime-mx`(REALTIME/IEX) · `realtime-delayed-sip` · `realtime-nasdaq-basic` ·
+`cboe-one` · `equities-edge`.
+
+| 대상 | 실측 |
+|---|---|
+| **주식 `equities-edge`** | ✅ **핸드셰이크 성공 · 수신 확인** (장중 실측 45초 3,728건 — 워크로그 L241) |
+| **옵션 `realtime-options`** | ❌ **파라미터 3조합 전부 빈 HTTP 200 = 서버가 업그레이드 거부** |
+
+→ 주식은 같은 방식으로 붙는데 옵션만 거부 = **경로 문제가 아니라 우리 플랜에 옵션 실시간이 없다.**
+   REST `options/.../realtime` 403 과 일치한다. **Node 용 옵션 SDK 도 npm 에 없다**(C#/Java/Python 만).
+
+계약서에는 「WebSocket 3 연결」이 적혀 있으나 **어느 상품인지는 명시가 없다.**
+옵션 실시간이 필요하면 Intrinio 에 **별도 문의/계약**이 필요하다.
+
+### 우리 코드의 현재 상태
+
+| 파일 | 주식 | 옵션 |
+|---|---|---|
+| `scripts/ec2-price-ws.js` | ✅ L189 `intrinio-realtime` SDK 로 **이관 완료·작동 중** | ❌ L114·L724 **`wss://socket.massive.com/options` 그대로** — 죽은 메시브를 가리킨 채 남아 있다 |
+
+앱이 붙는 곳은 **`wss://ws.signumhq.com`**(우리 EC2 중계)이지 Intrinio 직접이 아니다.
+`src/hooks/useWebSocket.ts:25` · `GuardianProvider.tsx:55`.
+
+---
+
+계약: 2,000 calls/min · WebSocket 3 연결(상품 미명시).
 
 ## FINRA — 무인증 공개 원본 (`POST https://api.finra.org/data/group/otcMarket/name/{dataset}`)
 
