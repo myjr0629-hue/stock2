@@ -32,7 +32,14 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const SHARDS = 8;
-const CONCURRENCY = 20;
+// ⚠️ [2026-09-03 실측] 8조각 × 동시성 20 = 160 동시 호출로 첫 실행이 2,001 중
+//    **740행(37%)** 밖에 안 나왔다. 시세 조회가 레이트리밋에 걸려 가격이 0 이
+//    되고, 가격 없는 행은 버려지기 때문이다. 수집기에서 이미 겪은 그 문제다
+//    (샤드 동시 발화 시 성공률 47% → 1분 스태거 후 98%).
+//    → 조각을 계단식으로 띄우고(STAGGER_MS) 동시성을 낮추고, 가격이 안 잡히면
+//      한 번 더 시도한다. 셋 다 같은 원인을 다른 각도에서 막는다.
+const CONCURRENCY = 10;
+const STAGGER_MS = 2500;
 const PART_TTL = 2 * 3600;          // 2시간 — 굽는 주기보다 넉넉히
 const ORIGIN = 'https://www.signumhq.com';
 
@@ -78,6 +85,7 @@ export async function GET(req: NextRequest) {
         const started = Date.now();
         const results = await Promise.all(
             Array.from({ length: SHARDS }, async (_, i) => {
+                await new Promise((r) => setTimeout(r, i * STAGGER_MS));   // 계단식 발화
                 const t0 = Date.now();
                 try {
                     const res = await fetch(`${ORIGIN}/api/cron/structure-build?shard=${i}`, {
@@ -106,7 +114,12 @@ export async function GET(req: NextRequest) {
 
     const rows = await mapPool(slice, CONCURRENCY, async (t): Promise<StructRow | null> => {
         try {
-            const d: any = await getStructureData(t, null);
+            let d: any = await getStructureData(t, null);
+            if (!(Number(d?.underlyingPrice) > 0)) {
+                // 레이트리밋으로 시세만 못 받은 경우가 대부분이다 — 한 번 더 준다.
+                await new Promise((r) => setTimeout(r, 400 + Math.random() * 600));
+                d = await getStructureData(t, null);
+            }
             const px = Number(d?.underlyingPrice);
             // 가격이 없으면 「위치」를 잴 수 없다. 0 으로 채우지 않고 버린다 —
             // 없는 값을 0 으로 쓰면 랭킹이 그 종목을 1위로 올린다(오늘 겪었다).
