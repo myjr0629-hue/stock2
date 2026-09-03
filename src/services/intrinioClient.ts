@@ -14,6 +14,10 @@
 
 import { getFromCache, setInCache } from "./redisClient";
 
+/** 마지막으로 성공한 실시간 스냅샷. 벤더 쿼터에 막혔을 때 «보합 거짓말»을 막는다. */
+const SNAP_LAST_GOOD_PREFIX = "intrinio:snap:lastgood:v1:";
+const SNAP_LAST_GOOD_TTL = 12 * 3600;
+
 const INTRINIO_API_KEY = process.env.INTRINIO_API_KEY || "";
 const INTRINIO_BASE = process.env.INTRINIO_BASE_URL || "https://api-v2.intrinio.com";
 
@@ -461,7 +465,7 @@ export function resolveSessionPrices(i: SessionPriceInput): SessionPriceResult {
 export async function getTickerSnapshot(ticker: string): Promise<any> {
     const sym = ticker.toUpperCase();
 
-    const [rt, hist] = await Promise.all([
+    const [rtRaw, hist] = await Promise.all([
         callIntrinio(`securities/${sym}/prices/realtime`).catch(() => null),
         callIntrinio(`securities/${sym}/prices`, { page_size: "3" }).catch(() => null),
     ]);
@@ -469,6 +473,34 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     const bars: any[] = hist?.stock_prices || [];   // 최신순
     const todayBar = bars[0] || null;
     const prevBar = bars[1] || null;
+
+    // ══════════════════════════════════════════════════════════════
+    // ★★ 실시간이 없으면 «정확히 보합»이라는 거짓말이 만들어진다  [2026-09-04]
+    //
+    //   `rt` 가 null 이면 아래 계산이 last = prevClose 로 흘러가
+    //   **price 와 prevClose 가 소수점까지 같아지고 changePct 가 0** 이 된다.
+    //   실측(섹터 인텔 10섹터 70종목): 49종목이 정확히 그 모양이었다
+    //   (LLY 1160.08 = 1160.08 · vol 0 · REG 세션인데 0.00%).
+    //   이건 「보합」이 아니라 **못 잰 것**이다. 화면은 구분할 방법이 없었다.
+    //
+    //   → 마지막으로 성공한 실시간 값을 보관해 두고, 실패하면 그걸 쓴다.
+    //     나이(_rtAgeMs)를 같이 실어 보내므로 거짓말이 아니다.
+    //     이 함수는 앱의 모든 화면이 지나가므로 **한 곳을 고치면 전부 고쳐진다.**
+    // ══════════════════════════════════════════════════════════════
+    let rt: any = rtRaw;
+    let rtStaleMs: number | null = null;
+    if (rt) {
+        // 성공 — 다음 실패를 대비해 남긴다.
+        setInCache(`${SNAP_LAST_GOOD_PREFIX}${sym}`, { rt, at: Date.now() }, SNAP_LAST_GOOD_TTL).catch(() => { });
+    } else {
+        try {
+            const lg = await getFromCache<any>(`${SNAP_LAST_GOOD_PREFIX}${sym}`);
+            if (lg?.rt) {
+                rt = lg.rt;
+                rtStaleMs = Date.now() - Number(lg.at || 0);
+            }
+        } catch { /* 없으면 아래 NOT_FOUND 판정으로 간다 */ }
+    }
 
     if (!rt && !todayBar) {
         return { status: "NOT_FOUND", ticker: null };
@@ -569,6 +601,10 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
                 n: 0,
             },
             // 세션 분리용 (Intrinio 고유 — Massive 에는 없던 정보)
+            // ⚠️ 실시간을 못 받아 «마지막 정상값»으로 답했는지. 소비처가 이걸 보고
+            //    「보합」과 「못 잼」을 구분할 수 있다. null 이면 진짜 실시간이다.
+            _rtAgeMs: rtStaleMs,
+            _rtStale: rtStaleMs != null,
             _intrinio: {
                 source: rt?.source ?? null,
                 eodClosePrice: num(rt?.eod_close_price),

@@ -158,6 +158,47 @@ export async function GET(request: Request) {
             console.warn('[intel/fast] liquidity lookup failed:', e?.message);
         }
 
+        // ══════════════════════════════════════════════════════════════
+        // ★★ AWS 저장소 폴백  [2026-09-04]
+        //
+        //   대표 지적: 「섹터 인텔에 자료가 왜 이렇게 많이 비어 있어?」
+        //   실측(10섹터 70종목): **24종목이 옵션 지표 전부 null**
+        //   (pcr·gex·callWall·putFloor·maxPain). 화면엔 «—» 만 줄줄이 떴다.
+        //
+        //   원인은 여기가 analysisCache(2분 크론) → live/ticker 캐시 두 갈래만
+        //   보고, 둘 다 비면 포기했기 때문이다. 그런데 **같은 값이 DynamoDB
+        //   (GEX_HISTORY)에 이미 있다** — flow-harvest Lambda 가 넣어 둔다.
+        //   커맨드 화면은 그 폴백을 붙여 100% 가 됐다. 인텔에도 같이 붙인다.
+        //
+        //   ⚠️ 없는 종목까지 조회해 낭비하지 않도록, **정말 빈 종목만** 묻는다.
+        // ══════════════════════════════════════════════════════════════
+        const gexFallback: Record<string, any> = {};
+        try {
+            const needGex = tickers.filter((t) => {
+                const a: any = analysisCache[t];
+                if (a && (a.gex != null || a.maxPain != null || a.pcr != null)) return false;
+                const c: any = cachedTickers[tickers.indexOf(t)];
+                if (c?.flow && (c.flow.netGex != null || c.flow.maxPain != null)) return false;
+                return true;
+            });
+            if (needGex.length > 0) {
+                const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+                const got = await Promise.all(
+                    needGex.map((t) =>
+                        Promise.race([
+                            getLatestGex(t).catch(() => null),
+                            new Promise<null>((r) => setTimeout(() => r(null), 2500)),
+                        ])
+                    )
+                );
+                needGex.forEach((t, gi) => { if (got[gi]) gexFallback[t] = got[gi]; });
+                const filled = Object.keys(gexFallback).length;
+                if (filled) console.log(`[intel/fast] DynamoDB GEX 폴백 ${filled}/${needGex.length}종목`);
+            }
+        } catch (e: any) {
+            console.warn('[intel/fast] DynamoDB GEX 폴백 실패:', e?.message);
+        }
+
         const quotes = tickers.map((ticker, i) => {
             const snap = snapshotMap[ticker];
             const cached = cachedTickers[i];
@@ -335,6 +376,19 @@ export async function GET(request: Request) {
                 if (cached.flow?.sparkline) {
                     sparkline = cached.flow.sparkline;
                 }
+            }
+
+            // ★ 두 갈래가 다 비었으면 AWS 저장소에서 메운다. «—» 보다 낫다.
+            const gxf = gexFallback[ticker];
+            if (gxf) {
+                if (maxPain == null && gxf.maxPain != null) maxPain = gxf.maxPain;
+                if (callWall == null && gxf.callWall != null) callWall = gxf.callWall;
+                if (putFloor == null && gxf.putFloor != null) putFloor = gxf.putFloor;
+                if (gex == null && gxf.gex != null) gex = gxf.gex;
+                if (pcr == null && gxf.pcr != null) pcr = gxf.pcr;
+                if (squeezeScore == null && gxf.squeezeScore != null) squeezeScore = gxf.squeezeScore;
+                if (ivSkew == null && gxf.ivSkew != null && gxf.ivSkew <= 2.0) ivSkew = gxf.ivSkew;
+                if (gex != null) gammaRegime = gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : gammaRegime;
             }
 
             return {
