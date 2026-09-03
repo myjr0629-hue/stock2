@@ -493,8 +493,16 @@ export default function AppDashPage() {
   const [indicesReady, setIndicesReady] = useState<boolean>(!!lastGoodIndices);
   const [futuresReady, setFuturesReady] = useState<boolean>(!!lastGoodFutures);
   const [etfsReady, setEtfsReady] = useState<boolean>(!!lastGoodEtfs);
+  // ★★ [2026-09-04] macro·sectors·briefing 만 «준비 가드»가 없었다.
+  //   지수·선물·ETF 는 *Ready 로 스켈레톤을 보여 주는데, 이 셋은 첫 페인트에
+  //   DEMO 상수를 그대로 그렸다 — 화면엔 «오늘의 섹터 히트맵»처럼 보이는
+  //   2.1 / 1.2 / 0.9 … 가 떴고 그건 소스에 박아 둔 숫자였다.
+  //   빈칸은 «없다»고 말하지만 가짜 숫자는 «있다»고 거짓말한다.
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
+  const [macroReady, setMacroReady] = useState(false);
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
+  const [sectorsReady, setSectorsReady] = useState(false);
+  const [briefingReady, setBriefingReady] = useState(false);
   const [movers, setMovers] = useState<MoverItem[]>([]);
   const [moverSort, setMoverSort] = useState<'value' | 'gainers' | 'losers'>('value');
   const [moversLoading, setMoversLoading] = useState(false);
@@ -1263,36 +1271,27 @@ export default function AppDashPage() {
         const buildFuturesItems = (fac: any): PulseItem[] => {
           const globexLive = isCmeGlobexActive('equity', isMarketHoliday);
           const out: PulseItem[] = [];
-          if (fac?.nasdaq100) {
+          // ★★ [2026-09-04] 값이 없으면 **그 줄을 만들지 않는다.**
+          //   예전엔 `?? 19850.50` 처럼 하드코딩 숫자로 메웠다. 화면엔 «—» 가 아니라
+          //   그럴듯한 지수가 떴고, 대표는 그게 오늘 시세인 줄 알 수밖에 없었다.
+          //   가짜 숫자는 빈칸보다 나쁘다 — 빈칸은 «없다»고 말하지만
+          //   가짜 숫자는 «있다»고 거짓말한다.
+          const pushFuture = (sym: string, f: any, spark: number[]) => {
+            const px = Number(f?.level);
+            const chg = Number(f?.chgPct);
+            if (!Number.isFinite(px) || px <= 0) return;   // 값이 없으면 줄 자체를 뺀다
             out.push({
-              sym: 'NASDAQ100 F',
-              px: fac.nasdaq100.level ?? 19850.50,
-              chg: fac.nasdaq100.chgPct ?? 0.45,
-              up: (fac.nasdaq100.chgPct ?? 0) >= 0,
-              spark: DEMO_FUTURES[0].spark,
-              ...feedMetaForItem(fac.nasdaq100, globexLive, { requireFresh: false }),
+              sym,
+              px,
+              chg: Number.isFinite(chg) ? chg : 0,
+              up: (Number.isFinite(chg) ? chg : 0) >= 0,
+              spark,
+              ...feedMetaForItem(f, globexLive, { requireFresh: false }),
             });
-          }
-          if (fac?.spx) {
-            out.push({
-              sym: 'S&P500 F',
-              px: fac.spx.level ?? 5490.25,
-              chg: fac.spx.chgPct ?? 0.30,
-              up: (fac.spx.chgPct ?? 0) >= 0,
-              spark: DEMO_FUTURES[1].spark,
-              ...feedMetaForItem(fac.spx, globexLive, { requireFresh: false }),
-            });
-          }
-          if (fac?.rut) {
-            out.push({
-              sym: 'Russell2k F',
-              px: fac.rut.level ?? 2120.40,
-              chg: fac.rut.chgPct ?? 0.15,
-              up: (fac.rut.chgPct ?? 0) >= 0,
-              spark: DEMO_FUTURES[2].spark,
-              ...feedMetaForItem(fac.rut, globexLive, { requireFresh: false }),
-            });
-          }
+          };
+          pushFuture('NASDAQ100 F', fac?.nasdaq100, DEMO_FUTURES[0].spark);
+          pushFuture('S&P500 F', fac?.spx, DEMO_FUTURES[1].spark);
+          pushFuture('Russell2k F', fac?.rut, DEMO_FUTURES[2].spark);
           return out;
         };
 
@@ -1382,9 +1381,9 @@ export default function AppDashPage() {
                 badge: macroSnap.yieldCurve.trend === 'INVERTED' ? 'INVERT' : macroSnap.yieldCurve.trend === 'STEEPENING' ? 'STEEP' : macroSnap.yieldCurve.trend === 'FLATTENING' ? 'FLAT' : 'NORMAL',
                 live: isUs10YSessionActive(isMarketHoliday),
               });
-            } else {
-              macroItems.push(DEMO_MACRO[6]);
             }
+            // ⚠️ 못 재면 **아무것도 넣지 않는다.** 예전엔 DEMO_MACRO[6](+0.25 STEEP)을
+            //   밀어 넣어 «오늘의 장단기 금리차»인 것처럼 보였다.
 
             // Fear & Greed — Real CNN data from server
             if (macroSnap?.fearGreed) {
@@ -1415,6 +1414,7 @@ export default function AppDashPage() {
             }
 
             setMacro(macroItems);
+            if (macroItems.length > 0) setMacroReady(true);
           } catch {
             // fallback stays
           }
@@ -1453,6 +1453,7 @@ export default function AppDashPage() {
           const q = quotesData.data || {};
 
           // 1. Sector Heatmap (mapped from XL* ETFs)
+          setSectorsReady(true);
           setSectors(prev => {
             const fallback = (name: string, demo: number) => {
               const previous = prev.find(sec => sec.name === name)?.pct;
@@ -1540,6 +1541,7 @@ export default function AppDashPage() {
               const sentences = html.split('. ');
               const summaryText = sentences.slice(0, 2).join('. ') + (sentences.length > 2 ? '.' : '');
               setBriefing(summaryText);
+              setBriefingReady(true);
             }
           }
         }
@@ -1836,7 +1838,7 @@ export default function AppDashPage() {
           </div>
         </div>
         <div className={s.macroGrid}>
-            {macro.map((m) => (
+            {!macroReady ? [0, 1, 2, 3, 4, 5].map((i) => <div key={`skm-${i}`} className={s.skelPulse} />) : macro.map((m) => (
               <div key={m.label} suppressHydrationWarning className={`${s.macroCell} ${m.live ? s.live : ''}`}>
                 <div className={s.macroLabelRow}>
                   {getMacroBadge(m.label)}
@@ -1959,7 +1961,7 @@ export default function AppDashPage() {
           <span className={s.cardTitle}>SECTOR HEATMAP</span>
           <span suppressHydrationWarning className={`${s.sessionPill} ${sectorSessionClass}`}>{sectorSessionLabel}</span>
         </div>
-        {loading ? (
+        {loading || !sectorsReady ? (
           <div className={s.skelSector} />
         ) : (
           <div className={s.sectorGrid}>
@@ -2072,11 +2074,22 @@ export default function AppDashPage() {
                 </div>
               )}
 
-              <div
-                className={s.briefingBody}
-                style={{ fontSize: '13.5px', lineHeight: '1.55' }}
-                dangerouslySetInnerHTML={{ __html: briefing }}
-              />
+              {/* ★ 실제 브리핑이 오기 전에는 DEMO_BRIEFING(소스에 박아 둔 영어 문장)이
+                  그대로 떴다. 「NVDA 가 옵션 만기로 $135 에 묶여 있다」 같은 문장이
+                  오늘 시장과 무관하게 나갔다. 도착 전에는 스켈레톤을 보여 준다. */}
+              {briefingReady ? (
+                <div
+                  className={s.briefingBody}
+                  style={{ fontSize: '13.5px', lineHeight: '1.55' }}
+                  dangerouslySetInnerHTML={{ __html: briefing }}
+                />
+              ) : (
+                <div className={s.briefingBody} style={{ fontSize: '13.5px', lineHeight: '1.55' }}>
+                  <div className={s.skelPulse} style={{ height: 14, marginBottom: 8 }} />
+                  <div className={s.skelPulse} style={{ height: 14, marginBottom: 8, width: '92%' }} />
+                  <div className={s.skelPulse} style={{ height: 14, width: '70%' }} />
+                </div>
+              )}
 
               <div className={s.briefingCta} onClick={() => router.push('/app-view/guardian?tab=briefing')}>
                 {locale === 'ko' ? '전체 리포트 읽기 →' : locale === 'ja' ? 'レポート全文を読む →' : 'Read Full Report →'}

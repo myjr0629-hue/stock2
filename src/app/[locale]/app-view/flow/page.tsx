@@ -1548,11 +1548,23 @@ export default function AppFlowPage() {
     return 0;
   }, [netWhalePremium]);
 
-  const squeezeProb = useMemo(() => {
-    return Math.round((parseFloat(shortPct) || 45.2) * 0.5 + (ivRankVal ?? 50) * 0.5);
+  // ★★ [2026-09-04] 여기 «45.2» 와 «50» 은 측정값이 아니라 **소스에 박아 둔 숫자**였다.
+  //   공매도 비율(shortPct)은 Intrinio 플랜 밖이라 늘 비어 있고, IV 랭크도 자주 빈다.
+  //   그러면 45.2×0.5 + 50×0.5 = **48%** 가 나와 화면엔 「스퀴즈 확률 48%」가
+  //   실제 계산인 것처럼 떴다. 두 입력이 다 없는데도 늘 같은 답이 나오던 이유다.
+  //   → 잴 수 있는 것이 하나도 없으면 **null** 이다. 화면은 «—» 를 그린다.
+  const squeezeProb = useMemo<number | null>(() => {
+    const sp = parseFloat(shortPct);
+    const hasShort = Number.isFinite(sp) && sp > 0;
+    const hasIv = ivRankVal != null && Number.isFinite(Number(ivRankVal));
+    if (!hasShort && !hasIv) return null;
+    if (hasShort && hasIv) return Math.round(sp * 0.5 + Number(ivRankVal) * 0.5);
+    // 한쪽만 있으면 그 값이 곧 추정치다 — 없는 쪽을 지어내 섞지 않는다.
+    return Math.round(hasShort ? sp : Number(ivRankVal));
   }, [shortPct, ivRankVal]);
 
   const squeezeScore = useMemo(() => {
+    if (squeezeProb == null) return 0;   // 못 잰 것은 종합점수에 기여하지 않는다
     let score = 0;
     if (squeezeProb >= 70) score = 15;
     else if (squeezeProb >= 45) score = 8;
@@ -1651,7 +1663,7 @@ export default function AppFlowPage() {
     : flowCopy.stable;
   const convictionLabel = Math.abs(compositeScore) >= 45 || opi >= 68 || opi <= 35
     ? flowCopy.highConviction
-    : Math.abs(compositeScore) >= 20 || squeezeProb >= 55
+    : Math.abs(compositeScore) >= 20 || (squeezeProb != null && squeezeProb >= 55)
     ? flowCopy.mediumConviction
     : flowCopy.lowConviction;
   const netPremiumOverview = tickerData?.flow?.netPremium
@@ -3005,8 +3017,8 @@ export default function AppFlowPage() {
           {(() => {
             const compStatus = compositeScore >= 20 ? flowCopy.compStrong : compositeScore <= -20 ? flowCopy.compBear : flowCopy.compNeutral;
             const compColor = compositeScore >= 20 ? '#10b981' : compositeScore <= -20 ? '#f43f5e' : '#f59e0b';
-            const sqStatus = squeezeProb >= 70 ? flowCopy.squeezeHigh : squeezeProb >= 40 ? flowCopy.squeezeModerate : flowCopy.squeezeLow;
-            const sqColor = squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
+            const sqStatus = squeezeProb == null ? '—' : squeezeProb >= 70 ? flowCopy.squeezeHigh : squeezeProb >= 40 ? flowCopy.squeezeModerate : flowCopy.squeezeLow;  // 못 잰 것은 «낮음»이 아니다
+            const sqColor = squeezeProb == null ? 'rgba(148,163,184,.9)' : squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
             const compositePos = Math.max(0, Math.min(100, (compositeScore + 100) / 2));
 
             return (
@@ -3066,7 +3078,7 @@ export default function AppFlowPage() {
                       {renderInfoBtn("squeeze")}
                     </div>
                     <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: sqColor, lineHeight: 1, marginTop: '7px' }}>
-                      {squeezeProb}%
+                      {squeezeProb == null ? '—' : `${squeezeProb}%`}
                     </div>
                     <div style={{ font: 'var(--f-micro)', color: sqColor, fontWeight: 900, marginTop: '6px' }}>
                       {sqStatus}
@@ -3478,7 +3490,7 @@ export default function AppFlowPage() {
             const scoreColor = overviewDirection === 'bullish' ? '#10b981' : overviewDirection === 'bearish' ? '#ef4444' : '#f59e0b';
             const bullishBias = Math.round((compositeScore + 100) / 2);
             const confidence = Math.round(Math.max(35, Math.min(96, Math.abs(compositeScore) * 0.72 + Math.abs(netPremiumOverview / Math.max(totalPrem, 1)) * 32 + (convictionLabel === flowCopy.highConviction ? 18 : 8))));
-            const conflictRisk = Math.round(Math.max(5, Math.min(92, (Math.sign(opiScore) !== Math.sign(compositeScore) ? 24 : 8) + (squeezeProb >= 60 ? 18 : 6) + (overviewDirection === 'neutral' ? 18 : 0) + (volRegime === 'ERUPTING' ? 22 : volRegime === 'LOADED' ? 14 : 4))));
+            const conflictRisk = Math.round(Math.max(5, Math.min(92, (Math.sign(opiScore) !== Math.sign(compositeScore) ? 24 : 8) + ((squeezeProb ?? 0) >= 60 ? 18 : 6) + (overviewDirection === 'neutral' ? 18 : 0) + (volRegime === 'ERUPTING' ? 22 : volRegime === 'LOADED' ? 14 : 4))));
             const conflictLabel = conflictRisk >= 65
               ? (locale === 'ko' ? '높음' : locale === 'ja' ? '高い' : 'High')
               : conflictRisk >= 38
