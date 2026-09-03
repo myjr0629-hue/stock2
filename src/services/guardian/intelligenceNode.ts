@@ -432,70 +432,106 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - 「~함을 시사한다」 「~가 관찰된다」 「~에 기인한다」 금지. 번역투 금지.
         - 전문어를 쓰면 바로 뒤에 일상어로 풀어 주십시오.
         - 비유(압력밥솥·쿠션·에어백) 금지. 이모지 금지.
-        - 컴플라이언스: 가격 예측·매매 권유 금지. 「~할 것이다」 「~해야 한다」 금지.
-          구조가 어떻게 작동하는지만 쓰고, 판단은 읽는 사람에게 남기십시오.
 
-        **분량: 두 문장. 각 60자 이내.**
+        **★ 가격 예측 절대 금지 (가장 중요):**
+        평서형은 «지금 구조»를 말할 때만 씁니다. **앞으로의 가격에는 쓰지 마십시오.**
+        「~할 것이다」뿐 아니라 **「~나타난다」 「~가속된다」 「~하락한다」 처럼
+        앞으로 일어날 일을 현재형으로 단정하는 것도 전부 금지**입니다.
+        구조가 «어떤 자리에서 어떻게 바뀌는지»만 쓰고, 그래서 무슨 일이 생길지는 쓰지 마십시오.
+          나쁜 예: 7,650 아래로 내려가면 하락 가속이 나타난다.
+          좋은 예: 7,650 아래는 같은 딜러가 반대로 팔아야 하는 자리로 바뀐다.
+          나쁜 예: 변동성이 확대된다 / 상승 흐름이 이어진다
+          좋은 예: 그 구간에서는 헤지 방향이 반대가 된다
+
+        **★ 화면과 모순 금지:** 등급이 중립이면 「감마가 변동성을 키운다」처럼
+        등급과 어긋나는 말을 쓰지 마십시오. 중립은 «누르지도 키우지도 않는다»는 뜻입니다.
+
+        **분량: 두 문장, 각 60자 이내. 초과하면 실패입니다.**
         `;
     },
     en: (ctx) => {
         const gex = ctx.gexIndex ?? 0;
         const squeeze = ctx.squeezeRisk ?? 0;
         return `
-        You are a senior derivatives strategist at a global market-making desk. Analyze the current Options Flow, GEX (Gamma Exposure), Squeeze Risk, and Trigger Band levels in a highly professional Bloomberg Terminal / institutional research style.
+        You are a senior derivatives strategist. Point out the ONE thing about today's options structure that a reader would otherwise miss.
 
-        **Current Data:**
-        - GEX Index: ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'})
-        - Squeeze Risk (Volatility Compression): ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
-        ${ctx.triggerSupport ? `- Put Floor (Support): ${ctx.triggerSupport.toLocaleString()}` : ''}
-        ${ctx.triggerResistance ? `- Call Wall (Resistance): ${ctx.triggerResistance.toLocaleString()}` : ''}
-        ${ctx.triggerCurrent ? `- S&P 500 Current: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+        **Today:**
+        - GEX ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'}) / SPY ${ctx.spyGexIndex ?? '—'} · QQQ ${ctx.qqqGexIndex ?? '—'}
+        - Compression ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
+        ${typeof ctx.gexChange === 'number' ? `- GEX change vs prior reading: ${ctx.gexChange >= 0 ? '+' : ''}${ctx.gexChange}` : ''}
+        ${typeof ctx.gexPercentile === 'number' && (ctx.gexSamples ?? 0) >= 10 ? `- Today's dealer gamma sits in the top ${100 - ctx.gexPercentile}% of the last ${ctx.gexSamples} sessions (percentile ${ctx.gexPercentile})` : ''}
+        ${ctx.triggerCurrent ? `- S&P 500 ${ctx.triggerCurrent.toLocaleString()} / put floor ${ctx.triggerSupport?.toLocaleString() ?? '—'} / call wall ${ctx.triggerResistance?.toLocaleString() ?? '—'}${ctx.gammaFlipPoint ? ` / gamma flip ${ctx.gammaFlipPoint.toLocaleString()}` : ''}` : ''}
 
-        **Writing Rules (Institutional Style):**
-        - Do NOT use analogies like "pressure cooker", "driving on ice", "airbag", or "cushion". Use formal quantitative finance terminology.
-        - **GEX**: Describe in terms of dealer gamma positioning. Positive GEX (Long Gamma) implies dealer reverse-hedging leading to volatility dampening or gamma clamping. Negative GEX (Short Gamma) implies dynamic feedback loops accelerating directional swings. Explain the implications on market liquidity.
-        - **Squeeze Risk**: Frame it as volatility compression or gamma/delta short-covering tail risk. Explain what this interaction means for broader market liquidity flow.
-        - **Trigger Band**: Refer to the levels as the Call Wall (major resistance) and Put Floor (major support) and analyze the proximity to these barriers and its impact on dealer dynamic delta rebalancing.
-        - Compliance: Maintain strict neutrality. Use observational verbs ("observed", "indicates", "suggests", "presents"). Do NOT provide any investment advice or trading directions.
+        **Already on screen — NEVER restate:**
+        The GEX number and label, the compression %, and the distances from price to support/resistance.
+        Turning those numbers back into prose is a failure.
 
-        **Output Format:**
-        [Volatility Diagnosis] (1 sentence analyzing GEX and Volatility Compression profile)
-        [Support & Resistance] (1 sentence analyzing price action proximity to Call Wall/Put Floor and dealer hedging dynamics)
+        **Only you can supply these two:**
+        [What's different from normal] Where today sits versus its own recent history, and what that means. One sentence.
+          If no percentile is given, use the SPY vs QQQ split or the change from the prior reading instead.
+        [Where this read breaks] The price at which the current structure starts working in reverse. One sentence.
+          Give the number AND why that level (e.g. below it the same dealers have to sell instead of buy).
 
-        **Rules:**
-        - Factual, highly objective, and professional Wall Street research tone.
-        - Max 2 sentences, highly concise.
-        - No emojis.
+        **Style:**
+        - One idea per sentence. Short. Plain English.
+        - Banned: "suggests", "is observed", "indicates", "presents", "underscores". No research-report register.
+        - Explain any jargon in the same breath.
+        - No analogies (pressure cooker, cushion, airbag). No emojis.
+
+        **CRITICAL — never predict price:**
+        Describe how the structure works, never what price will do.
+        Banned not just as "will" but any present-tense claim about a future outcome
+        ("acceleration follows", "volatility expands", "the move extends").
+          Bad:  Below 7,650 downside acceleration follows.
+          Good: Below 7,650 the same dealers have to sell instead of buy.
+          Bad:  Volatility expands from here.
+          Good: In that zone the hedging flips direction.
+
+        **Never contradict the label:** if the level says NEUTRAL, do not write that gamma is amplifying moves.
+
+        **Length: two sentences, each under 130 characters. Longer is a failure.**
         `;
     },
     ja: (ctx) => {
         const gex = ctx.gexIndex ?? 0;
         const squeeze = ctx.squeezeRisk ?? 0;
         return `
-        あなたはグローバル投資銀行(IB)のシニア・デリバティブ・マーケットメイキング・デスクのストラテジストです。提供されたリアルタイムのGEX(Gamma Exposure)、Squeeze Risk、Trigger Bandのデータに基づき、ボラティリティの力学関係をブルームバーグ端末スタイルの客観的な定量分析として解説してください。
+        あなたはデリバティブ・デスクのシニアストラテジストです。**今日のオプション構造で読者が見落とす一点**を指摘してください。
 
-        **現在データ:**
-        - GEX指数: ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'})
-        - スクイーズ・リスク: ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
-        ${ctx.triggerSupport ? `- プットオプション支持線(Floor): ${ctx.triggerSupport.toLocaleString()}` : ''}
-        ${ctx.triggerResistance ? `- コールオプション抵抗線(Wall): ${ctx.triggerResistance.toLocaleString()}` : ''}
-        ${ctx.triggerCurrent ? `- 現在 S&P 500: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+        **今日の値:**
+        - GEX ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'}) / SPY ${ctx.spyGexIndex ?? '—'}・QQQ ${ctx.qqqGexIndex ?? '—'}
+        - 圧縮 ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
+        ${typeof ctx.gexChange === 'number' ? `- 直前計測比のGEX変化: ${ctx.gexChange >= 0 ? '+' : ''}${ctx.gexChange}` : ''}
+        ${typeof ctx.gexPercentile === 'number' && (ctx.gexSamples ?? 0) >= 10 ? `- 今日のディーラーガンマは直近${ctx.gexSamples}営業日で上位${100 - ctx.gexPercentile}%（パーセンタイル${ctx.gexPercentile}）` : ''}
+        ${ctx.triggerCurrent ? `- S&P500 ${ctx.triggerCurrent.toLocaleString()} / プットフロア ${ctx.triggerSupport?.toLocaleString() ?? '—'} / コールウォール ${ctx.triggerResistance?.toLocaleString() ?? '—'}${ctx.gammaFlipPoint ? ` / ガンマフリップ ${ctx.gammaFlipPoint.toLocaleString()}` : ''}` : ''}
 
-        **記述ルール (機関投資家・定量的スタイル):**
-        - 「圧力鍋」や「クッション」などの非現実的または初心者向けの比喩表現は一切禁止し、専門的な金融工学用語を使用してください。
-        - **GEX**: ディーラーのガンマ・ポジショニングとして描写します。正のGEX（ロングガンマ）はディーラーの逆ヘッジによるボラティリティ抑制（ガンマ・クランピング）、負のGEX（ショートガンマ）はボラティリティ増幅フィードバック・ループの引き金となることを説明してください。
-        - **Squeeze Risk**: ボラティリティ圧縮（インプライド・ボラティリティの圧縮）またはデルタ・カバーによるテールリスクとして分析してください。
-        - **Trigger Band**: Call WallおよびPut Floorと呼び、現在価格との近接度合いに基づき、ディーラーの動的デルタ・リバランスがもたらす流動性への影響を分析してください。
-        - コンプライアンス: 厳格な中立性を維持し、投資勧誘や価格予測は行わず、「示唆する」「観測される」「現している」などの客観的な表現のみを使用してください。
+        **画面が既に表示しているもの（絶対に書き直さないこと）:**
+        GEXの数値と等級、圧縮%、現在値から支持・抵抗までの距離。これらを文章に置き換えるのは失敗です。
 
-        **出力形式:**
-        [ボラティリティ診断] (GEXとボラティリティ圧縮プロファイルに基づいて診断したオプション市場の現状を1文で)
-        [支持と抵抗] (現在値とCall Wall/Put Floorの近接度、およびディーラーのヘッジ動向から推測される流動性の攻防を1文で)
+        **あなたにしか書けない二つだけ:**
+        [平常との違い] 今日の値が直近の履歴・直前と比べてどの位置にあり、それが何を意味するかを1文で。
+          パーセンタイルが無い場合は、SPYとQQQの分かれ方、または直前比の動きで代替してください。
+        [この見方が崩れる地点] 今の構造が逆に働き始める価格を1文で。
+          数値とともに «なぜその水準か» を添えてください（例：その下では同じディーラーが買いではなく売りに回る）。
 
-        **ルール:**
-        - 事実に基づき、極めて客観的で専門的なトーン
-        - 最大2文、簡潔に記述
-        - 絵文字(emoji)は絶対に使用しない
+        **文体:**
+        - 一文に一つだけ。短く。平易な日本語で。
+        - 禁止：「示唆する」「観測される」「呈している」「起因する」。研究レポート調にしないこと。
+        - 専門用語を使ったらその場で日常語に言い換えること。
+        - 比喩（圧力鍋・クッション・エアバッグ）禁止。絵文字禁止。
+
+        **★ 価格予測は絶対禁止:**
+        構造が «どう働くか» だけを書き、価格が «どうなるか» は書かないでください。
+        「〜だろう」だけでなく、**「加速する」「拡大する」「続く」のように
+        これから起きることを現在形で断定するのも全て禁止**です。
+          悪い例：7,650を割れば下落が加速する。
+          良い例：7,650の下では同じディーラーが買いではなく売りに回る水準に変わる。
+          悪い例：ボラティリティが拡大する。
+          良い例：その領域ではヘッジの向きが反対になる。
+
+        **★ 等級と矛盾しないこと:** 等級がNEUTRALなら「ガンマが変動を増幅する」とは書かないでください。
+
+        **分量：2文、各60字以内。超えたら失敗です。**
         `;
     }
 };
