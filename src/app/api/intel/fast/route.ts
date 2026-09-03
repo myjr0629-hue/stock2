@@ -204,13 +204,24 @@ export async function GET(request: Request) {
                 // ⚠️ 처음엔 2.5초로 잡았다가 **전부 null** 이 돌아왔다(need=5 filled=0 err=없음).
                 //   AWS SDK 콜드 로딩 + 동시 조회가 그 안에 안 끝난다. 넉넉히 준다 —
                 //   여기서 못 채우면 화면에 «—» 가 남으므로 몇 백 ms 를 아낄 이유가 없다.
+                // GEX 레코드엔 netPremium 이 없다 — 프리미엄 계열은 flow-history 에 산다.
+                // 둘을 같이 읽어 합친다(둘 다 같은 하베스터가 채운다).
+                const { getLatestFlow } = await import('@/lib/aws/dynamoDataProvider');
                 const got = await Promise.all(
-                    needGex.map((t) =>
-                        Promise.race([
-                            getLatestGex(t).catch((e) => { gexDiag.err = String(e?.message || e).slice(0, 80); return null; }),
-                            new Promise<null>((r) => setTimeout(() => r(null), 8000)),
-                        ])
-                    )
+                    needGex.map(async (t) => {
+                        const [gx, fl] = await Promise.all([
+                            Promise.race([
+                                getLatestGex(t).catch((e: any) => { gexDiag.err = String(e?.message || e).slice(0, 80); return null; }),
+                                new Promise<null>((r) => setTimeout(() => r(null), 8000)),
+                            ]),
+                            Promise.race([
+                                getLatestFlow(t).catch(() => null),
+                                new Promise<null>((r) => setTimeout(() => r(null), 8000)),
+                            ]),
+                        ]);
+                        if (!gx && !fl) return null;
+                        return { ...(fl || {}), ...(gx || {}) } as any;
+                    })
                 );
                 gexDiag.ms = Date.now() - gexT0;
                 needGex.forEach((t, gi) => { if (got[gi]) gexFallback[t] = got[gi]; });
@@ -412,6 +423,12 @@ export async function GET(request: Request) {
                 if (pcr == null && gxf.pcr != null) pcr = gxf.pcr;
                 if (squeezeScore == null && gxf.squeezeScore != null) squeezeScore = gxf.squeezeScore;
                 if (ivSkew == null && gxf.ivSkew != null && gxf.ivSkew <= 2.0) ivSkew = gxf.ivSkew;
+                if (netPremium == null && gxf.netPremium != null) netPremium = gxf.netPremium;
+                // ⚠️ impliedMovePct 는 **여기서 만들지 않는다.**
+                //   정본(computeImpliedMovePct)은 «ATM 스트래들 가격 / 현재가»,
+                //   즉 시장이 실제로 매긴 값이다. atmIv 를 √(일수/365) 로 환산하면
+                //   **다른 값**이 나오고, 같은 칸에 두 정의가 섞인다.
+                //   섞인 숫자보다 «—» 가 정직하다. (라벨과 데이터 불일치는 조용히 틀린다)
                 if (gex != null) gammaRegime = gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : gammaRegime;
             }
 
