@@ -26,6 +26,23 @@ export const maxDuration = 60;
 // 칩에 먼저 뜨는 순서와 같다(cmd/flow 의 POPULAR_TICKERS 상위).
 // 전부 데우면 크론이 길어진다 — 실제로 가장 많이 눌리는 앞쪽만.
 const WARM_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL'];
+
+/**
+ * ★ [2026-09-04] 차트 전용 데우기 목록.
+ *
+ *   대표 지적: 「다른 부분은 잘 나오는데 **차트가 늦다**. SPY 같은 것도 여전히 늦다」.
+ *   원인은 단순했다 — 이 워머가 ticker·analyst·fundamentals·earnings·unified 는
+ *   데우면서 **`/api/chart` 만 빼놓고 있었다.** 그래서 화면의 다른 칸은 웜인데
+ *   차트만 매번 콜드였다(실측 콜드: IWM 4.56s · QQQ 2.73s · GOOGL 3.52s).
+ *
+ *   차트는 벤더 «1콜»이라 싸다(분봉 1회). 그래서 무거운 4종 엔드포인트보다
+ *   목록을 넓게 가져간다 — 화면의 칩(POPULAR_TICKERS) 전부 + 주요 ETF.
+ *   5분마다 데우고 라우트 보관은 10분이므로 항상 웜이다.
+ */
+const WARM_CHART_TICKERS = [
+    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ',
+    'AMD', 'MU', 'IWM', 'AVGO', 'PLTR', 'NFLX', 'COIN',
+];
 const WARM_LOCALES = ['ko', 'en', 'ja'] as const;
 
 function baseUrl(): string {
@@ -141,6 +158,9 @@ export async function GET() {
         paths.push(`/api/live/fundamentals?t=${t}`);
         paths.push(`/api/live/earnings?t=${t}`);
     }
+    // 차트 — 화면에서 «마지막에 도착하는» 칸이었다. 1콜이라 싸므로 넓게 데운다.
+    for (const t of WARM_CHART_TICKERS) paths.push(`/api/chart?symbol=${t}&range=1d`);
+
     // command/unified 는 로케일별로 캐시가 갈린다 — 셋 다 데워야 ko 만 빠르지 않다.
     for (const t of WARM_TICKERS.slice(0, 3)) {
         for (const l of WARM_LOCALES) paths.push(`/api/command/unified?t=${t}&lang=${l}`);

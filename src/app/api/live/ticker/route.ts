@@ -137,8 +137,18 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any
 
 // [PERF] Redis cache key for ticker response
 const TICKER_CACHE_TTL = 60; // 60 seconds
-/** 마지막 «정상» 응답. 벤더 쿼터에 막혔을 때 빈 화면 대신 이걸 준다. */
-const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v1:';
+/**
+ * 마지막 «정상» 응답. 벤더 쿼터에 막혔을 때 빈 화면 대신 이걸 준다.
+ * ⚠️ [2026-09-04] 처음엔 티커만으로 키를 만들었다가 **응답 모양을 섞어 버렸다.**
+ *   `chain=1` 이 저장한 값(체인 포함)이 `chain=0` 응답에 병합돼 SPY 가 566KB·5.3초,
+ *   QQQ 12.1초가 됐다. 위 cacheKey 가 이미 같은 이유로 분리돼 있었는데 이걸 놓쳤다.
+ *   **모양이 다르면 캐시도 달라야 한다.**
+ */
+const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v2:';
+function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): string {
+    const shape = skipAlpha ? 'lite' : (noChain ? 'nochain' : 'full');
+    return `${LAST_GOOD_PREFIX}${shape}:${ticker}`;
+}
 const LAST_GOOD_TTL = 12 * 3600; // 12h — 장 마감~다음 개장을 건너뛸 만큼
 
 /**
@@ -1058,7 +1068,7 @@ export async function GET(req: NextRequest) {
     const freshVerdict = isUsableTickerCache(response);
     let finalPayload: any = response;
     let lastGood: any = null;
-    try { lastGood = await getFromCache<any>(LAST_GOOD_PREFIX + ticker); } catch { lastGood = null; }
+    try { lastGood = await getFromCache<any>(lastGoodKey(ticker, skipAlpha, noChain)); } catch { lastGood = null; }
     const lastGoodOk = !!(lastGood && isUsableTickerCache(lastGood).ok);
     if (lastGoodOk) {
         finalPayload = mergeFreshOverStale(lastGood, response);
@@ -1077,7 +1087,7 @@ export async function GET(req: NextRequest) {
         setInCache(cacheKey, finalPayload, TICKER_CACHE_TTL).catch(e => {
             console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
         });
-        setInCache(LAST_GOOD_PREFIX + ticker, finalPayload, LAST_GOOD_TTL).catch(() => { });
+        setInCache(lastGoodKey(ticker, skipAlpha, noChain), finalPayload, LAST_GOOD_TTL).catch(() => { });
         if (!freshVerdict.ok) console.warn(`[live/ticker] ${ticker} 이번 계산 실패(${freshVerdict.why}) → 마지막 정상값과 병합해 응답 (나이 ${Math.round((finalPayload._lastGoodAgeMs || 0) / 1000)}초)`);
     } else {
         // 옛 값도 없고 이번 것도 못 쓴다 — 저장하지 않고 있는 그대로 답한다.
@@ -1099,6 +1109,13 @@ export async function GET(req: NextRequest) {
     }
     if (Object.keys(extPrices).length > 0) {
         setInCache(`flow:extended:${ticker}`, extPrices, 86400).catch(() => { }); // 24h TTL
+    }
+
+    // ★ 마지막 방어선. 어떤 경로로 들어왔든 `chain=0` 이면 체인은 나가지 않는다.
+    //   (병합·캐시·폴백이 늘어날수록 «어디선가 다시 붙는» 사고가 난다. 출구에서 막는다)
+    if (noChain && finalPayload?.flow) {
+        const { rawChain: _rc2, allExpiryChain: _ae2, ...flowSlim } = finalPayload.flow as any;
+        finalPayload = { ...finalPayload, flow: flowSlim };
     }
 
     return new Response(JSON.stringify(finalPayload), {
