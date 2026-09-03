@@ -23,6 +23,73 @@ export function hasIntrinioKey(): boolean {
 // 저수준 호출
 // ─────────────────────────────────────────────────────────────
 
+// ══════════════════════════════════════════════════════════════
+// 호출 게이트웨이  ★ [2026-09-04]
+//
+// [무엇이 틀렸었나]
+//   Intrinio 는 **분당 호출 예산**이 있고, 초과분은 4xx 가 아니라
+//   «빈 응답»으로 돌아온다. 그래서 라우트는 `apiStatus 200` 을 보고
+//   성공이라 믿은 채 price·prevClose·vwap·high·low·rsi14·옵션을
+//   전부 null 로 내보냈다. 화면엔 RSI 0.0 · VWAP $0.00 · 감마플립 «—» 가 떴다.
+//
+//   크론은 이미 이 벽에 부딪혀 1분 스태거로 47%→98% 를 만들었는데,
+//   **사용자 경로에는 그 보호가 하나도 없었다.** 종목 하나를 누르면
+//   10개 엔드포인트가 동시에 터지고, 인접 종목 프리페치까지 얹혀
+//   자기가 자기 예산을 태웠다.
+//   실측(2026-09-04 프로덕션, 8초 간격 순차 호출): 5종목 중 4종목 실패.
+//
+// [고친 방법] 세 겹. 소비처 31곳은 한 줄도 안 건드린다.
+//   ① 합치기   — 같은 URL 이 이미 날아가 있으면 결과를 나눠 쓴다.
+//                (한 요청 안에서 같은 종목을 여러 번 묻는 일이 흔하다)
+//   ② 동시성   — 한 인스턴스가 동시에 여는 연결 수를 묶는다.
+//   ③ 재시도   — 429/5xx 와 «빈 응답»을 지터 백오프로 다시 묻는다.
+//                예산은 분 단위로 회복되므로 짧은 재시도가 실제로 먹는다.
+// ══════════════════════════════════════════════════════════════
+const INTRINIO_MAX_CONCURRENCY = Number(process.env.INTRINIO_MAX_CONCURRENCY || 4);
+const INTRINIO_MAX_ATTEMPTS = Number(process.env.INTRINIO_MAX_ATTEMPTS || 3);
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+const _inflight = new Map<string, Promise<any>>();
+const _waiters: Array<() => void> = [];
+let _active = 0;
+
+function _acquire(): Promise<void> {
+    if (_active < INTRINIO_MAX_CONCURRENCY) {
+        _active++;
+        return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+        _waiters.push(() => { _active++; resolve(); });
+    });
+}
+
+function _release(): void {
+    _active--;
+    const next = _waiters.shift();
+    if (next) next();
+}
+
+/** 진단용 — 마지막 실패 사유. 라우트가 `debug` 에 실어 보낸다. */
+let _lastFailure: { path: string; reason: string; at: number } | null = null;
+export function lastIntrinioFailure() {
+    return _lastFailure && Date.now() - _lastFailure.at < 120_000 ? _lastFailure : null;
+}
+
+/** 예산 초과의 «빈 응답» 지문. 실제 빈 결과와 구분이 안 되므로 재시도 대상으로 본다. */
+function _looksEmpty(path: string, data: any): boolean {
+    if (data == null) return true;
+    if (typeof data !== 'object') return false;
+    // securities/{t}/prices → { stock_prices: [] }
+    if (Array.isArray((data as any).stock_prices)) return (data as any).stock_prices.length === 0;
+    // 그 외 배열형 응답들
+    for (const k of ['intervals', 'chain', 'contracts', 'securities']) {
+        if (Array.isArray((data as any)[k])) return (data as any)[k].length === 0;
+    }
+    return false;
+}
+
+const _sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function callIntrinio(
     path: string,
     params: Record<string, string> = {},
@@ -36,19 +103,71 @@ async function callIntrinio(
     const qs = new URLSearchParams({ ...params, api_key: INTRINIO_API_KEY });
     const url = `${INTRINIO_BASE}/${path.replace(/^\//, "")}?${qs.toString()}`;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const res = await fetch(url, {
-            signal: controller.signal,
-            ...(fetchOptions || { cache: "no-store" as RequestCache }),
-        });
-        if (!res.ok) {
-            throw new Error(`Intrinio API Status: ${res.status} (${path})`);
+    // ① 합치기 — api_key 를 뺀 것을 키로 쓴다(로그에 키가 남지 않게).
+    const coalesceKey = `${path}::${JSON.stringify(params)}`;
+    const existing = _inflight.get(coalesceKey);
+    if (existing) return existing;
+
+    const run = (async () => {
+        let lastErr: any = null;
+
+        for (let attempt = 1; attempt <= INTRINIO_MAX_ATTEMPTS; attempt++) {
+            const isLast = attempt >= INTRINIO_MAX_ATTEMPTS;
+            // ⚠️ `continue` 를 쓰면 finally 뒤의 백오프를 건너뛴다. 플래그로 내려간다.
+            let payload: any;
+            let settled = false;
+
+            // ② 동시성 상한
+            await _acquire();
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, {
+                    signal: controller.signal,
+                    ...(fetchOptions || { cache: "no-store" as RequestCache }),
+                });
+
+                if (!res.ok) {
+                    const err = new Error(`Intrinio API Status: ${res.status} (${path})`);
+                    (err as any).status = res.status;
+                    _lastFailure = { path, reason: `HTTP ${res.status}${isLast ? '' : ` (재시도 ${attempt})`}`, at: Date.now() };
+                    if (!RETRYABLE_STATUS.has(res.status) || isLast) throw err;
+                    lastErr = err;
+                } else {
+                    const data = await res.json();
+                    // ③ «빈 응답» — 예산 초과의 지문이다. 마지막 시도가 아니면 다시 묻는다.
+                    if (!isLast && _looksEmpty(path, data)) {
+                        lastErr = new Error(`Intrinio 빈 응답 (${path})`);
+                        _lastFailure = { path, reason: `빈 응답 (재시도 ${attempt})`, at: Date.now() };
+                    } else {
+                        payload = data;
+                        settled = true;
+                    }
+                }
+            } catch (e: any) {
+                lastErr = e;
+                const abort = e?.name === 'AbortError';
+                _lastFailure = { path, reason: abort ? '타임아웃' : String(e?.message || e).slice(0, 120), at: Date.now() };
+                if (isLast) throw e;
+            } finally {
+                clearTimeout(timer);
+                _release();
+            }
+
+            if (settled) return payload;
+
+            // 지터 백오프 — 여러 인스턴스가 같은 순간에 몰려 재시도하지 않게 흔든다.
+            await _sleep(120 * attempt + Math.floor(Math.random() * 120));
         }
-        return await res.json();
+
+        throw lastErr || new Error(`Intrinio 호출 실패 (${path})`);
+    })();
+
+    _inflight.set(coalesceKey, run);
+    try {
+        return await run;
     } finally {
-        clearTimeout(timer);
+        _inflight.delete(coalesceKey);
     }
 }
 

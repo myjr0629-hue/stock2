@@ -12,6 +12,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
 import { fetchTruePreMarket } from '@/services/marketDataLight'; // [V5.5 FIX] True PM Fetcher
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
+import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
@@ -55,6 +56,22 @@ function isUsableTickerCache(c: any): { ok: boolean; why?: string } {
 
     // ③ 세션 표기가 없으면 화면이 PRE/본장/POST 를 가를 수 없다.
     if (!c.session) return { ok: false, why: "no session" };
+
+    // ④ ★ [2026-09-04] «전부 null» 응답을 막는다.
+    //    Intrinio 예산 초과는 4xx 가 아니라 **빈 응답**으로 온다
+    //    (getTickerSnapshot 이 `{status:'NOT_FOUND', ticker:null}` 을 돌려주고
+    //     라우트는 `apiStatus 200` 으로 기록한다). 그 결과가 60초 캐시에 앉아
+    //    화면에 RSI 0.0 · VWAP $0.00 · 감마플립 «—» 를 띄웠다.
+    //    가드 ②는 `price>0` 일 때만 걸리므로 price 가 **null 이면 통과**했다.
+    //    ⚠️ 읽기·쓰기 **양쪽**에 걸어야 한다. 쓰기만 막으면 이미 앉은 독은 TTL 까지 산다.
+    const noPrice = !(Number(c.price) > 0) && !(Number(c.prices?.prePrice) > 0)
+        && !(Number(c.prices?.postPrice) > 0) && !(Number(c.prices?.lastTrade) > 0);
+    if (noPrice) return { ok: false, why: "가격 전무(벤더 빈 응답)" };
+
+    // ⑤ 기준선이 없으면 등락률·괴리율이 통째로 거짓이 된다.
+    if (!(Number(c.prevClose) > 0) && !(Number(c.prices?.prevRegularClose) > 0)) {
+        return { ok: false, why: "기준선 없음" };
+    }
 
     return { ok: true };
 }
@@ -950,15 +967,24 @@ export async function GET(req: NextRequest) {
             latencyMs: snapshotRes.latency,
             histCount: historicalResults.length,
             hasMarketClosed,
+            // ★ 벤더가 왜 비었는지. 이게 없어서 「200 인데 값이 null」을 며칠 못 찾았다.
+            vendorFailure: lastIntrinioFailure(),
             note: "S52.3: baseline tracing + tz diagnostics"
         }
     };
 
     // [PERF] Cache the slimmed response in Redis (60s TTL)
     // Non-blocking: don't wait for cache write to respond
-    setInCache(cacheKey, response, TICKER_CACHE_TTL).catch(e => {
-        console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
-    });
+    // ★ [2026-09-04] 실패한 계산은 **저장하지 않는다.** 저장하면 60초 동안
+    //    모든 사용자가 빈 화면을 본다(벤더 예산이 그 사이 회복돼도 소용없다).
+    const writeVerdict = isUsableTickerCache(response);
+    if (writeVerdict.ok) {
+        setInCache(cacheKey, response, TICKER_CACHE_TTL).catch(e => {
+            console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
+        });
+    } else {
+        console.warn(`[live/ticker] 캐시 저장 거부 ${ticker} — ${writeVerdict.why}`);
+    }
 
     // [FIX] Persist pre/post prices separately — survives session transitions
     // Only write when we have valid values (avoid overwriting with null)

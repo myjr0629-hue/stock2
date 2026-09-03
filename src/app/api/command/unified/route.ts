@@ -1116,8 +1116,23 @@ export async function GET(request: NextRequest) {
                 if (!isFieldUsable('related', dynData.related)) { gapFills.push(callInternalGet(getRelated, `${bUrl}/api/live/related?t=${ticker}`)); gapNames.push('related'); }
                 if (!isFieldUsable('sma', dynData.sma)) { gapFills.push(callInternalGet(getSma, `${bUrl}/api/live/sma?t=${ticker}`)); gapNames.push('sma'); }
                 if (!isFieldUsable('squeeze', dynData.squeeze)) { gapFills.push(callInternalGet(getSqueeze, `${bUrl}/api/live/short-squeeze?t=${ticker}`)); gapNames.push('squeeze'); }
-                if (!isFieldUsable('volatility', dynData.volatility)) {
-                    const dynamoVol = await getVolatilityFromDynamoGex(ticker);
+                // ★ [2026-09-04] 여기가 «종목을 누르면 8초»의 정체였다.
+                //   DynamoDB GEX 2건과 오버뷰 캐시 읽기를 **줄 세워서** 기다린 뒤에야
+                //   갭필 배치를 시작했다 — 서로 아무 의존도 없는데 왕복 4번이 직렬이었다.
+                //   실측(2026-09-04 프로덕션, 처음 보는 종목):
+                //     DHR 8.17s · KMB 7.95s · CTAS 8.11s · ROST 8.62s
+                //     (나머지 9개 엔드포인트는 전부 1.2~3.2초에 끝났다)
+                //   → 셋을 **동시에** 띄우고 한 번만 기다린다.
+                const needVol = !isFieldUsable('volatility', dynData.volatility);
+                const needStruct = !isFieldUsable('structure', dynData.structure);
+                const volGexP = needVol ? getVolatilityFromDynamoGex(ticker).catch(() => null) : Promise.resolve(null);
+                // [AWS-FIRST] Structure: use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
+                const structGexP = needStruct ? getStructureFromDynamoGex(ticker).catch(() => null) : Promise.resolve(null);
+                const dynOvP = getFromCache<any>(overviewCacheKey).catch(() => null);
+
+                const [dynamoVol, dynamoStruct, cachedOv] = await Promise.all([volGexP, structGexP, dynOvP]);
+
+                if (needVol) {
                     if (dynamoVol) {
                         (dynData as any).volatility = dynamoVol;
                         console.log(`[Command Unified] ✅ DynamoDB+GapFill: volatility filled from DynamoDB GEX for ${ticker}`);
@@ -1126,9 +1141,7 @@ export async function GET(request: NextRequest) {
                         gapNames.push('volatility');
                     }
                 }
-                // [AWS-FIRST] Structure: use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
-                if (!isFieldUsable('structure', dynData.structure)) {
-                    const dynamoStruct = await getStructureFromDynamoGex(ticker);
+                if (needStruct) {
                     if (dynamoStruct) {
                         (dynData as any).structure = dynamoStruct;
                         console.log(`[Command Unified] ✅ DynamoDB+GapFill: structure filled from DynamoDB GEX for ${ticker}`);
@@ -1137,9 +1150,9 @@ export async function GET(request: NextRequest) {
                         gapNames.push('structure');
                     }
                 }
-                
+
                 // Overview (language-specific)
-                let dynOv = await getFromCache<any>(overviewCacheKey).catch(() => null);
+                let dynOv = cachedOv;
                 if (!dynOv) {
                     gapFills.push(callInternalGet(getOverview, `${bUrl}/api/live/overview?t=${ticker}&lang=${locale}`));
                     gapNames.push('overview');
@@ -1317,14 +1330,18 @@ export async function GET(request: NextRequest) {
             gapFills.push(callInternalGet(getInstitutional, `${bUrl}/api/flow/realtime-metrics?ticker=${ticker}`)); gapNames.push('institutional');
             
             // Structure & Volatility: DynamoDB GEX is unlikely for non-universe, but we check. If missing, live Polygon.
-            const dynamoVol = await getVolatilityFromDynamoGex(ticker);
+            // ★ [2026-09-04] 이 둘을 **줄 세워 기다린 뒤에야** 위의 7개 갭필이 시작됐다.
+            //   서로 무관한 조회라 동시에 띄우고 한 번만 기다린다(dynamodb 경로와 동일 수정).
+            const [dynamoVol, dynamoStruct] = await Promise.all([
+                getVolatilityFromDynamoGex(ticker).catch(() => null),
+                getStructureFromDynamoGex(ticker).catch(() => null),
+            ]);
             if (dynamoVol) {
                 gapFills.push(Promise.resolve(dynamoVol)); gapNames.push('volatility');
             } else {
                 gapFills.push(callInternalGet(getVolatility, `${bUrl}/api/live/volatility-regime?t=${ticker}`)); gapNames.push('volatility');
             }
 
-            const dynamoStruct = await getStructureFromDynamoGex(ticker);
             if (dynamoStruct) {
                 gapFills.push(Promise.resolve(dynamoStruct)); gapNames.push('structure');
             } else {

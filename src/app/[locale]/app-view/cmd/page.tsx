@@ -134,6 +134,14 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
+  // ⚠️ 이 캔들이 «어느 티커·기간»의 것인지 반드시 함께 들고 있어야 한다 (2026-09-04).
+  //    예전엔 티커를 바꿔도 candles 를 안 비웠고, 새 데이터가 오기 전까지
+  //    **직전 종목의 시세**가 그대로 그려졌다. 게다가 아래 displayCandles 가
+  //    마지막 점의 종가를 «새 종목의 현재가»로 덮어써서, AAPL 시세($323~330)에
+  //    MSFT 현재가($514)가 얹히며 Y축이 $323~$514 로 늘어나고 선이 바닥에 눌린
+  //    평선 + 오른쪽 끝 수직 스파이크가 됐다(실측 스크린샷과 일치).
+  //    실패 시 «직전 캔들 유지»도 같은 티커일 때만 옳다 — 이 키가 그것도 막는다.
+  const [loadedKey, setLoadedKey] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   
@@ -189,6 +197,7 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
           });
           if (mapped.length === 0) throw new Error('No valid chart points');
           setCandles(mapped);
+          setLoadedKey(`${ticker}:${range}`);   // 이 캔들이 누구 것인지 같이 새긴다
         } else {
           throw new Error('Empty data');
         }
@@ -204,6 +213,9 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
   }, [ticker, range]);
 
   const displayCandles = useMemo(() => {
+    // ★ 지금 보고 있는 티커·기간의 데이터일 때만 그린다.
+    //   아니면 «남의 차트»다 — 비어 있는 편이 틀린 그림보다 낫다.
+    if (loadedKey !== `${ticker}:${range}`) return [];
     if (candles.length === 0) return [];
     const copy = [...candles];
     const lastIdx = copy.length - 1;
@@ -215,7 +227,7 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
       l: Math.min(last.l, price),
     };
     return copy;
-  }, [candles, price]);
+  }, [candles, price, loadedKey, ticker, range]);
 
   // Trend detection to color the line/gradient/current-price label green or red.
   // 1D = "today's move": color by change vs previous close so it matches the hero
@@ -2236,19 +2248,35 @@ function CmdPageContent() {
 
         const flow = t?.flow || {};
         const gexData = flow.gexProfile || DEMO.premium.gex;
+        // 0 은 «값 없음»이다 — `??` 가 통과시키므로 따로 걸러야 한다.
+        const firstNonZero = (...xs: any[]) => {
+          for (const x of xs) { const n = Number(x); if (Number.isFinite(n) && n !== 0) return n; }
+          return null;
+        };
+        const gammaFlipRawVal = firstNonZero(
+          flow.gammaFlipLevel, u?.structure?.gammaFlipLevel, u?.volatility?.flipLevel
+        );
         const premium = {
           gex: Array.isArray(gexData) ? gexData : DEMO.premium.gex,
           // ⚠️ 없으면 «—» 다. `$0.00` 은 「감마플립이 0달러」라는 거짓말이고,
           //    로딩 중인지 데이터가 없는지도 구분이 안 된다.
-          gammaFlip: flow.gammaFlipLevel ? `$${Number(flow.gammaFlipLevel).toFixed(2)}` : '$—',
-          gammaFlipRaw: flow.gammaFlipLevel ?? DEMO.premium.gammaFlipRaw,
-          callWall: flow.callWall ?? DEMO.premium.callWall,
-          putFloor: flow.putFloor ?? DEMO.premium.putFloor,
+          // ★ [2026-09-04] `t`(live/ticker)가 벤더 예산 초과로 비면 이 칸들이 통째로
+          //    죽는다. **unified 는 같은 값을 DynamoDB 에서 이미 갖고 있다**
+          //    (실측 MSFT: structure.gammaFlipLevel=510 · maxPain=480 · netPremium=−3.8M).
+          //    maxPain 만 폴백이 있어서 «맥스페인은 뜨는데 감마플립은 —» 였다.
+          gammaFlip: gammaFlipRawVal ? `$${Number(gammaFlipRawVal).toFixed(2)}` : '$—',
+          gammaFlipRaw: gammaFlipRawVal ?? DEMO.premium.gammaFlipRaw,
+          callWall: flow.callWall ?? u?.structure?.callWall ?? DEMO.premium.callWall,
+          putFloor: flow.putFloor ?? u?.structure?.putFloor ?? DEMO.premium.putFloor,
           maxPain: flow.maxPain ?? u?.structure?.maxPain ?? 0,
           // ⚠️ API 가 내보내는 이름은 `netPremium` 이다. `netFlow` 는 존재하지
           //    않아 항상 undefined → 0 이었다. 그래서 Flow 화면엔 $22.4M 이
           //    뜨는데 Command 만 «—» 였다(대표가 두 화면을 나란히 놓고 발견).
-          netPremium: flow.netPremium ?? flow.netFlow ?? u?.structure?.netPremium ?? 0,
+          // ★ [2026-09-04] 그런데 `??` 는 **0 을 통과시킨다.** 벤더가 비면
+          //    live/ticker 는 null 이 아니라 `netPremium: 0` 을 내보내므로
+          //    unified 폴백이 영원히 안 걸렸다 → 화면은 계속 «—».
+          //    0 은 «없음»으로 보고 다음 후보로 넘어간다.
+          netPremium: firstNonZero(flow.netPremium, flow.netFlow, u?.structure?.netPremium) ?? 0,
           darkPool: flow.darkPoolPct != null ? `${flow.darkPoolPct}%` : DEMO.premium.darkPool,
           blockTrades: flow.blockTrades ?? DEMO.premium.blockTrades,
           aiInsight: t?.alpha?.whyKR || DEMO.premium.aiInsight,
@@ -3200,8 +3228,11 @@ function CmdPageContent() {
         <div className={s.p2Vitals}>
           <div className={s.p2Vital}>
             <div className={s.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>RSI 14<MetricInfo term="rsi" locale={locale} size={10} /></div>
-            <div className={s.v}>{data.rsi14.toFixed(1)}</div>
-            {(() => {
+            {/* ★ [2026-09-04] RSI 0 은 존재할 수 없는 값이다(이론상 하한이 0 이지만
+                실제로는 절대 안 나온다). 벤더가 비어서 0 이 온 것을 «0.0 Cool» 이라고
+                그리고 있었다 — 없는 것은 «—» 로 보여야 한다. 틀린 숫자보다 빈 칸이 낫다. */}
+            <div className={s.v}>{data.rsi14 > 0 ? data.rsi14.toFixed(1) : '—'}</div>
+            {data.rsi14 > 0 && (() => {
               const rsiColor = data.rsi14 >= 70 ? 'var(--red)' : data.rsi14 >= 55 ? 'var(--amber)' : data.rsi14 <= 35 ? 'var(--cyan)' : 'var(--green)';
               const rsiLabel = data.rsi14 >= 70 ? 'Hot' : data.rsi14 >= 55 ? 'Warm' : data.rsi14 <= 35 ? 'Cool' : 'Stable';
               return (
@@ -3214,9 +3245,9 @@ function CmdPageContent() {
           </div>
           <div className={s.p2Vital}>
             <div className={s.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>VWAP<MetricInfo term="vwap" locale={locale} size={10} /></div>
-            <div className={s.v}>${data.vwap.toFixed(2)}</div>
-            {(() => {
-              const vwapDiff = data.vwap > 0 ? ((displayPrice - data.vwap) / data.vwap) * 100 : 0;
+            <div className={s.v}>{data.vwap > 0 ? `$${data.vwap.toFixed(2)}` : '—'}</div>
+            {data.vwap > 0 && (() => {
+              const vwapDiff = ((displayPrice - data.vwap) / data.vwap) * 100;
               const vwapColor = vwapDiff >= 0 ? 'var(--green)' : 'var(--red)';
               return (
                 <>
@@ -3237,7 +3268,9 @@ function CmdPageContent() {
             <div className={s.k}>{effectiveSession === 'PRE'
               ? (locale === 'ko' ? '전일 범위' : locale === 'ja' ? '前日レンジ' : 'PREV RANGE')
               : 'DAY RANGE'}</div>
-            {(() => {
+            {!(data.high > 0 && data.low > 0) ? (
+              <div className={s.v} style={{ marginTop: 4 }}>—</div>
+            ) : (() => {
               const rangePct = Math.max(0, Math.min(100, ((displayPrice - data.low) / (data.high - data.low || 1)) * 100));
               const rangeColor = rangePct >= 70 ? 'var(--green)' : rangePct <= 30 ? 'var(--red)' : 'var(--cyan)';
               return (
