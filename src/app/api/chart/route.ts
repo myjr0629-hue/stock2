@@ -16,10 +16,41 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
     }
 
-    // [FIX] Redis cache — 1D는 60초 (가격 실시간 추적과 동기화), 장기 차트는 10분
-    // 이전 300초는 WebSocket 실시간 가격과 차트 데이터 불일치를 유발했음
-    const CHART_CACHE_TTL = range === '1d' ? 60 : 600;
+    // ══════════════════════════════════════════════════════════════
+    // ★★ [2026-09-04] 「차트만 늦다」 — 60초마다 누군가는 3초를 혼자 뒤집어썼다.
+    //
+    //   캐시 수명이 60초였고, 만료된 뒤 **처음 온 사람**이 벤더 왕복 전체를
+    //   기다렸다. 실측: GOOGL 콜드 3.52s · OXY 1.45s (웜은 0.72~1.15s).
+    //   그 «처음 온 사람»이 대표였다. 인기 종목은 트래픽이 데워 주지만
+    //   OXY 같은 종목은 매번 그 사람이 된다.
+    //
+    //   → 신선도와 보관을 **분리한다.**
+    //     · FRESH  60초 : 이 안이면 그냥 준다
+    //     · 보관   10분 : 지났어도 **즉시 주고** 뒤에서 갱신한다(SWR)
+    //   기다리는 사람이 없어진다. 최악이 3.5초에서 «옛 값 + 50ms» 가 된다.
+    //
+    //   ⚠️ 세션 전환(REG→POST)만은 예외다 — 그때는 봉의 «모양»이 달라지므로
+    //     옛 것을 주면 틀린 그림이다. 그 경우에만 기다린다.
+    // ══════════════════════════════════════════════════════════════
+    const CHART_FRESH_MS = range === '1d' ? 60_000 : 600_000;
+    const CHART_CACHE_TTL = range === '1d' ? 600 : 3600;   // 보관(초) — FRESH 보다 훨씬 길게
     const cacheKey = `chart:${symbol}:${range}`;
+
+    /** 백그라운드 갱신. 응답을 붙잡지 않는다. */
+    const refreshInBackground = () => {
+        (async () => {
+            try {
+                const fresh = await getStockChartData(symbol, range as Range);
+                if (fresh.length >= 5) {
+                    await setInCache(cacheKey, {
+                        data: fresh,
+                        sessionMaskDebug: (fresh as any).sessionMaskDebug || null,
+                        _builtAt: Date.now(),
+                    }, CHART_CACHE_TTL);
+                }
+            } catch { /* 다음 요청이 다시 시도한다 */ }
+        })();
+    };
     try {
         const cached = await getFromCache<any>(cacheKey);
         if (cached) {
@@ -46,10 +77,12 @@ export async function GET(request: Request) {
                     // Fall through to Polygon fetch below
                 } else {
                     // Same session — serve from cache
+                    const ageMs = Date.now() - Number(cached._builtAt || 0);
+                    if (ageMs > CHART_FRESH_MS) refreshInBackground();   // 오래됐으면 뒤에서 갱신
                     const buildId = getBuildId();
                     return new Response(JSON.stringify({
                         data: cached.data,
-                        meta: { buildId, timestampISO: new Date().toISOString(), sessionMaskDebug: cached.sessionMaskDebug, _cached: true },
+                        meta: { buildId, timestampISO: new Date().toISOString(), sessionMaskDebug: cached.sessionMaskDebug, _cached: true, _ageMs: ageMs },
                         range, symbol, count: cached.data?.length || 0
                     }), {
                         status: 200,
@@ -58,10 +91,12 @@ export async function GET(request: Request) {
                 }
             } else {
                 // Non-1D range or no session info — always serve from cache
+                const ageMs = Date.now() - Number(cached._builtAt || 0);
+                if (ageMs > CHART_FRESH_MS) refreshInBackground();   // 오래됐으면 뒤에서 갱신
                 const buildId = getBuildId();
                 return new Response(JSON.stringify({
                     data: cached.data,
-                    meta: { buildId, timestampISO: new Date().toISOString(), sessionMaskDebug: cached.sessionMaskDebug, _cached: true },
+                    meta: { buildId, timestampISO: new Date().toISOString(), sessionMaskDebug: cached.sessionMaskDebug, _cached: true, _ageMs: ageMs },
                     range, symbol, count: cached.data?.length || 0
                 }), {
                     status: 200,
@@ -88,7 +123,7 @@ export async function GET(request: Request) {
 
         // [AWS] Cache to ElastiCache ONLY if data is sufficient (Prevents 5-minute trap)
         if (!isSparseData) {
-            try { await setInCache(cacheKey, { data, sessionMaskDebug }, CHART_CACHE_TTL); } catch { /* non-critical */ }
+            try { await setInCache(cacheKey, { data, sessionMaskDebug, _builtAt: Date.now() }, CHART_CACHE_TTL); } catch { /* non-critical */ }
         }
 
         // [S-52.2.3] Inject build metadata for staleness detection

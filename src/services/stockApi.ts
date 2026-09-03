@@ -1045,12 +1045,23 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
     if (range === "1d") {
       // [S-66 V4] Always use 5-day lookback to handle holiday + weekend combos
       // (e.g. Memorial Day Mon → need to reach back to Friday or earlier)
-      const fromDate = new Date();
-      const lookbackDays = 5;
-      fromDate.setDate(now.getDate() - lookbackDays);
-      const from = fromDate.toISOString().split('T')[0];
+      //
+      // ★ [2026-09-04] 그런데 화면에 그리는 건 **마지막 한 세션**뿐이다.
+      //   5일치 1분봉(약 4,800행)을 받아 311점을 그리고 나머지를 버리고 있었다.
+      //   그게 「차트만 늦다」의 비용이다(실측 GOOGL 콜드 3.52s · OXY 1.45s).
+      //   → 흔한 경우(평일)는 2일이면 충분하다. 연휴·주말이 겹쳐 **비면 그때만**
+      //     원래대로 5일로 넓힌다. 안전망은 그대로 두고 평소 비용만 줄인다.
+      const fetchWindow = async (lookbackDays: number) => {
+        const fromDate = new Date();
+        fromDate.setDate(now.getDate() - lookbackDays);
+        return await getAggregates(symbol, 1, 'minute', fromDate.toISOString().split('T')[0], to);
+      };
 
-      const data = await getAggregates(symbol, 1, 'minute', from, to);
+      let data = await fetchWindow(2);
+      if (!Array.isArray(data) || data.length < 30) {
+        // 연휴/장기 휴장 — 원래의 5일 창으로 다시 본다.
+        data = await fetchWindow(5);
+      }
 
       // [S-53.9] 1D Chart Session Masking - Hard Cut Implementation
       // Sessions: Pre (04:00-09:30), Regular (09:30-16:00), Post (16:00-20:00)
