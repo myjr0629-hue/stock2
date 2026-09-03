@@ -792,7 +792,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                     <div className={`px-2 py-1.5 rounded-md border ${q.gex > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.gex < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
                                         <div className="text-xs text-white/80 uppercase font-medium tracking-wider font-jakarta">GEX</div>
                                         <div className={`text-sm font-bold font-num ${q.gex > 0 ? 'text-emerald-400' : q.gex < 0 ? 'text-rose-400' : 'text-white/50'}`}>
-                                            {q.gex > 0 ? '+' : ''}{formatGex(q.gex)}
+                                            {q.gex == null ? '—' : `${q.gex > 0 ? '+' : ''}${formatGex(q.gex)}`}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.pcr < 0.8 ? 'bg-emerald-500/10 border-emerald-500/25' : q.pcr > 1.1 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
@@ -816,13 +816,13 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                     <div className="px-2 py-1.5 rounded-md border bg-white/[0.03] border-white/[0.15]">
                                         <div className="text-xs text-white/80 uppercase font-medium tracking-wider font-jakarta">PUT FLOOR</div>
                                         <div className="text-sm font-bold font-num text-rose-300">
-                                            ${q.putFloor > 0 ? q.putFloor.toFixed(0) : '-'}
+                                            {q.putFloor > 0 ? `$${q.putFloor.toFixed(0)}` : '—'}
                                         </div>
                                     </div>
                                     <div className="px-2 py-1.5 rounded-md border bg-white/[0.03] border-white/[0.15]">
                                         <div className="text-xs text-white/80 uppercase font-medium tracking-wider font-jakarta">CALL WALL</div>
                                         <div className="text-sm font-bold font-num text-emerald-300">
-                                            ${q.callWall > 0 ? q.callWall.toFixed(0) : '-'}
+                                            {q.callWall > 0 ? `$${q.callWall.toFixed(0)}` : '—'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.whaleIndex >= 60 ? 'bg-violet-500/10 border-violet-500/25' : q.whaleIndex >= 30 ? 'bg-white/[0.04] border-white/[0.20]' : 'bg-white/[0.03] border-white/[0.15]'}`}>

@@ -172,6 +172,15 @@ export async function GET(request: Request) {
         //
         //   ⚠️ 없는 종목까지 조회해 낭비하지 않도록, **정말 빈 종목만** 묻는다.
         // ══════════════════════════════════════════════════════════════
+        // 다크풀(FINRA 규제 원본) — 인텔 페이로드엔 아예 키가 없어서 화면이 늘 «—» 였다.
+        let dpMap: Record<string, any> = {};
+        try {
+            const { getDarkPoolBatch } = await import('@/services/darkPool');
+            dpMap = await getDarkPoolBatch(tickers);
+        } catch (e: any) {
+            console.warn('[intel/fast] 다크풀(FINRA) 조회 실패:', e?.message);
+        }
+
         const gexFallback: Record<string, any> = {};
         try {
             const needGex = tickers.filter((t) => {
@@ -423,6 +432,11 @@ export async function GET(request: Request) {
                 // 다크풀 대체 — 호가 스프레드 기반 유동성 점수(0~100)
                 liquidityScore: liquidityScore,
                 spreadPct: spreadPct,
+                // ★ 다크풀 본체 — FINRA 규제 원본(T+1). 라이선스상 출처 표기 필수.
+                darkPoolPct: dpMap[ticker]?.pct ?? null,
+                darkPoolVol: dpMap[ticker]?.volume ?? null,
+                darkPoolDate: dpMap[ticker]?.date ?? null,
+                darkPoolSource: dpMap[ticker] ? 'FINRA' : null,
                 ivSkew,
                 impliedMovePct,
             };

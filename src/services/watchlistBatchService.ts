@@ -1181,12 +1181,29 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     : Promise.resolve({ liquidityScore: null, spreadPct: null })
             )
         );
+        // ★★ [2026-09-04] 다크풀은 «영구 상실»이 아니다 — FINRA 규제 원본으로 복원돼 있다.
+        //   그런데 이 경로만 예전 코드가 남아 **무조건 null** 로 덮고 있었고,
+        //   그래서 인텔의 DARK POOL 타일이 항상 «—» 였다(커맨드 화면은 잘 나오는데).
+        //   같은 값을 이미 Redis 에서 배치로 읽을 수 있다(getDarkPoolBatch).
+        //   ⚠️ 라이선스상 출처 표기 필수 → darkPoolSource 를 같이 싣는다.
+        let dpMap: Record<string, any> = {};
+        try {
+            const { getDarkPoolBatch } = await import('@/services/darkPool');
+            dpMap = await getDarkPoolBatch(results.filter((r: any) => r?.ticker && !r.error).map((r: any) => r.ticker));
+        } catch (e: any) {
+            console.warn('[watchlist/batch] 다크풀(FINRA) 조회 실패:', e?.message);
+        }
+
         results.forEach((r: any, i: number) => {
             if (!r?.realtime) return;
             r.realtime.liquidityScore = liq[i]?.liquidityScore ?? null;
             r.realtime.spreadPct = liq[i]?.spreadPct ?? null;
-            // 죽은 틱 계열은 여기서도 «없음»으로 명시한다 — 0 은 «0%» 라는 주장이 된다
-            r.realtime.darkPoolPct = null;
+            const dp = dpMap[String(r.ticker || '').toUpperCase()];
+            r.realtime.darkPoolPct = dp?.pct ?? null;
+            r.realtime.darkPoolVol = dp?.volume ?? null;
+            r.realtime.darkPoolDate = dp?.date ?? null;
+            r.realtime.darkPoolSource = dp ? 'FINRA' : null;
+            // 틱 기반(체결 단위) 지표는 플랜 밖이라 여전히 «없음»이다 — 0 은 «0» 이라는 주장이 된다
             r.realtime.blockTrades = null;
             r.realtime.blockVolume = null;
             r.realtime.netBuyValue = null;

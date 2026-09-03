@@ -39,8 +39,11 @@ export function MobileMetricsGrid() {
                 </ProGate>}
                 {/* 3. SQUEEZE */}
                 {co.includes("squeeze") && <ProGate title="Squeeze" mode="peek" compact tooltipPosition="above" description={gt("descSqueeze")}>
-                    {(() => { const s = data?.squeezeScore ?? 0; const r = data?.squeezeRisk ?? "LOW"; const c = r === "EXTREME" ? "#f87171" : r === "HIGH" ? "#fbbf24" : r === "MEDIUM" ? "#facc15" : "#4ade80"; const alert = r === "EXTREME" || r === "HIGH" ? "bg-amber-500/10 border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]" : undefined;
-                    return <MobileMetricCard title="SQUEEZE" icon={<Zap className="w-3 h-3 text-indigo-400"/>} value={`${s}%`} valueColor={c} badge={r} badgeColor={r === "EXTREME" || r === "HIGH" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400"} sub={s >= 70 ? td("sqzExtreme") : s >= 50 ? td("sqzCaution") : td("sqzStable")} barPct={s} barColor={c} barLabels={["0%","50%","100%"]} alertStyle={alert}/>;
+                    {(() => { // ⚠️ [2026-09-04] `?? 0` · `?? "LOW"` 라서 **못 잰 것이 「압축 0% · LOW」로** 나갔다.
+                    //    「쟀더니 낮더라」와 「재지 못했다」는 완전히 다른 말이다.
+                    const sRaw = data?.squeezeScore; const has = Number.isFinite(Number(sRaw));
+                    const s = has ? Number(sRaw) : 0; const r = has ? (data?.squeezeRisk ?? "LOW") : "—"; const c = r === "EXTREME" ? "#f87171" : r === "HIGH" ? "#fbbf24" : r === "MEDIUM" ? "#facc15" : "#4ade80"; const alert = r === "EXTREME" || r === "HIGH" ? "bg-amber-500/10 border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]" : undefined;
+                    return <MobileMetricCard title="SQUEEZE" icon={<Zap className="w-3 h-3 text-indigo-400"/>} value={has ? `${s}%` : "—"} valueColor={c} badge={r} badgeColor={r === "EXTREME" || r === "HIGH" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400"} sub={!has ? "—" : s >= 70 ? td("sqzExtreme") : s >= 50 ? td("sqzCaution") : td("sqzStable")} barPct={has ? s : 0} barColor={c} barLabels={["0%","50%","100%"]} alertStyle={alert}/>;
                     })()}
                 </ProGate>}
                 {/* 4. VWAP DIST */}
@@ -83,14 +86,16 @@ export function MobileMetricsGrid() {
                 })()}
                 {/* 11. GEX REGIME */}
                 {co.includes("gexRegime") && <EliteGate title="GEX Regime" compact tooltipPosition="above" description={gt("descGexRegime")}>
-                    {(() => { const gex = data?.netGex || 0; const flip = data?.gammaFlipLevel || 0; const conc = data?.gammaConcentration || 0; const isLong = gex >= 0;
+                    {(() => { // ⚠️ 같은 이유 — `|| 0` 이 「집중도 0%」라는 주장을 만든다.
+                    const hasGex = Number.isFinite(Number(data?.netGex)) || Number.isFinite(Number(data?.gammaConcentration));
+                    const gex = data?.netGex || 0; const flip = data?.gammaFlipLevel || 0; const conc = data?.gammaConcentration || 0; const isLong = gex >= 0;
                     let regime = isLong ? "STABLE" : "EXPLOSIVE"; let flipDist = 0; let fw = isLong ? 1.0 : 0.3;
                     if (flip > 0 && price > 0) { flipDist = ((price - flip) / flip) * 100; if (flipDist > 5) { fw = 1.2; regime = "STABLE"; } else if (flipDist > 2) { fw = 1.0; regime = "STABLE"; } else if (flipDist > 0) { fw = 0.5; regime = "TRANSITION"; } else if (flipDist > -2) { fw = 0.3; regime = "FLIP_ZONE"; } else { fw = 0.2; regime = "EXPLOSIVE"; } }
                     const exp = data?.expiration; let dte = -1; if (exp) { const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" })); const ts = `${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,"0")}-${String(et.getDate()).padStart(2,"0")}`; dte = Math.max(0, Math.round((new Date(exp+"T16:00:00").getTime()-new Date(ts+"T09:30:00").getTime())/86400000)); }
                     const dw = dte === 0 ? 1.0 : dte === 1 ? 0.7 : dte <= 3 ? 0.4 : 0.2;
                     const ps = Math.min(100, Math.round(conc * fw * dw));
                     const colors: Record<string, string> = { STABLE: "#4ade80", TRANSITION: "#fbbf24", FLIP_ZONE: "#fb923c", EXPLOSIVE: "#f87171" };
-                    return <MobileMetricCard title="GEX REGIME" icon={<Zap className="w-3 h-3 text-amber-400"/>} value={`${ps}%`} valueColor={colors[regime]} badge={exp?.slice(5)} badgeColor="bg-slate-700/50 text-slate-300" sub={flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDist > 0 ? "↑" : "↓"}${Math.abs(flipDist).toFixed(1)}%)` : isLong ? td("gexLongGamma") : td("gexShortGamma")} barPct={ps} barColor={colors[regime]}/>;
+                    return <MobileMetricCard title="GEX REGIME" icon={<Zap className="w-3 h-3 text-amber-400"/>} value={hasGex ? `${ps}%` : "—"} valueColor={colors[regime]} badge={exp?.slice(5)} badgeColor="bg-slate-700/50 text-slate-300" sub={flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDist > 0 ? "↑" : "↓"}${Math.abs(flipDist).toFixed(1)}%)` : isLong ? td("gexLongGamma") : td("gexShortGamma")} barPct={hasGex ? ps : 0} barColor={colors[regime]}/>;
                     })()}
                 </EliteGate>}
                 {/* 12. IMPLIED MOVE */}

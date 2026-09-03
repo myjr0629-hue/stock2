@@ -887,7 +887,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                     <span className={`text-[9.5px] font-black font-jakarta px-2 py-0.5 rounded-full border ${confidence === 'HIGH' ? 'text-emerald-300 border-emerald-400/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-300 border-amber-400/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
-                        {confidence}
+                        {confidence || '—'}
                     </span>
                     <span className={`text-[9.5px] font-bold font-jakarta px-2 py-0.5 rounded-full border ${source === 'LIVE' && isMarketActive ? 'text-cyan-300 border-cyan-400/30 bg-cyan-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
                         {sourceLabel}
@@ -998,7 +998,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         </div>
                         <div className="rounded-lg border border-slate-700/50 bg-slate-900/60 px-2.5 py-2">
                             <div className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{ui(locale, 'confidence')}</div>
-                            <div className="mt-1 text-[15px] font-black text-slate-100">{confidence}</div>
+                            <div className="mt-1 text-[15px] font-black text-slate-100">{confidence || '—'}</div>
                         </div>
                     </div>
                 </div>
@@ -1026,7 +1026,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         {/* Gauge Value and Badge overlay */}
                         <div className="absolute top-[42px] flex flex-col items-center justify-center">
                             <span className={`text-[25px] font-black font-jakarta tabular-nums leading-none ${getSqueezeColor(squeezeLevel)}`}>
-                                {squeezeRisk}<span className="text-[12px] font-medium text-slate-400 ml-0.5">%</span>
+                                {Number.isFinite(Number(squeezeRisk)) ? squeezeRisk : '—'}<span className="text-[12px] font-medium text-slate-400 ml-0.5">%</span>
                             </span>
                             <span className="text-[9px] font-bold tracking-wider text-slate-400 uppercase mt-1">
                                 Compression

@@ -300,11 +300,15 @@ function getInsightPreview(text: string, max = 145): string {
     return compact.length > max ? `${compact.slice(0, max).trim()}...` : compact;
 }
 
+// ⚠️ [2026-09-04] 예전엔 마지막 줄이 무조건 `copy.lowSqueeze` 였다.
+//   그래서 **값이 아예 없을 때도 「압축 낮음」**이라고 단언했다 — 재지 못한 것을
+//   「쟀더니 낮더라」로 바꿔 말한 셈이다. 빈칸보다 나쁜 종류의 오류다.
 function getSqueezeLabel(level: string | undefined, copy: typeof GAMMA_AI_COPY[LocaleKey]): string {
     if (level === 'EXTREME') return copy.extremeSqueeze;
     if (level === 'HIGH') return copy.highSqueeze;
     if (level === 'MEDIUM') return copy.mediumSqueeze;
-    return copy.lowSqueeze;
+    if (level === 'LOW') return copy.lowSqueeze;
+    return '—';
 }
 
 function getGammaThesis(gammaShield: any, copy: typeof GAMMA_AI_COPY[LocaleKey]) {
@@ -380,9 +384,10 @@ function getCompressionBody(level: string | undefined, localeKey: LocaleKey): st
 
 function getAiLogicPoints(gammaShield: any, localeKey: LocaleKey, copy: typeof GAMMA_AI_COPY[LocaleKey]) {
     const gexText = [formatSigned(gammaShield?.gexIndex), gammaShield?.gexLabel || gammaShield?.gexLevel].filter(Boolean).join(' · ');
+    const squeezeLabelText = getSqueezeLabel(gammaShield?.squeezeLevel, copy);
     const squeezeText = typeof gammaShield?.squeezeRisk === 'number'
-        ? `${Math.round(gammaShield.squeezeRisk)}% · ${getSqueezeLabel(gammaShield?.squeezeLevel, copy)}`
-        : getSqueezeLabel(gammaShield?.squeezeLevel, copy);
+        ? `${Math.round(gammaShield.squeezeRisk)}%${squeezeLabelText !== '—' ? ` · ${squeezeLabelText}` : ''}`
+        : squeezeLabelText;
     const supportDistance = distancePct(gammaShield?.currentPrice, gammaShield?.supportWall);
     const flipDistance = distancePct(gammaShield?.currentPrice, gammaShield?.gammaFlipPoint);
     const resistanceDistance = distancePct(gammaShield?.currentPrice, gammaShield?.resistanceWall);
