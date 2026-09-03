@@ -175,6 +175,59 @@ export async function GET() {
     const failed = results.filter((r) => !r.ok);
     const violations = results.flatMap((r) => r.bad);
 
+    // ══════════════════════════════════════════════════════════════
+    // ★★ 화면 «빈칸» 감시  [2026-09-04]
+    //
+    //   대표: 「앞으로 이런 일이 있으면 안 된다」.
+    //   오늘 고친 것들의 공통점은 **에러가 안 났다**는 것이다 —
+    //   200 OK 인데 값만 비었다. 그래서 기존 검사기(HTTP 상태·속도)로는
+    //   한 건도 못 잡았고, 대표가 화면을 보고 알려 줘야 발견됐다.
+    //   → 5분마다 «화면이 읽는 필드»의 충족률을 직접 재고, 임계 아래면 남긴다.
+    //     사람이 화면을 보기 전에 기계가 먼저 본다.
+    // ══════════════════════════════════════════════════════════════
+    const tileGaps: string[] = [];
+    try {
+        const INTEL_TILES: [string, string][] = [
+            ['가격', 'price'], ['변화율', 'changePct'], ['GEX', 'gex'], ['PCR', 'pcr'],
+            ['SQUEEZE', 'squeezeScore'], ['NET PREM', 'netPremium'], ['PUT FLOOR', 'putFloor'],
+            ['CALL WALL', 'callWall'], ['MAX PAIN', 'maxPain'], ['WHALE', 'whaleIndex'],
+            ['IV SKEW', 'ivSkew'], ['IMP MOVE', 'impliedMovePct'], ['LIQUIDITY', 'liquidityScore'],
+            ['RSI', 'rsi'],
+            // ⚠️ DARK POOL 은 제외 — FINRA 원본에 없는 종목이 실제로 있다(HOOD·COIN 등).
+            //    «없는 게 맞는 것»을 위반으로 세면 경보가 무의미해진다.
+        ];
+        const sectors = ['m7', 'silicon_core', 'cloud_fortress'];
+        const rowsAll: any[] = [];
+        for (const sec of sectors) {
+            try {
+                const r = await fetch(`${baseUrl()}/api/intel/fast?sector=${sec}`, {
+                    cache: 'no-store', headers: { 'user-agent': 'signum-warm' },
+                });
+                if (r.ok) rowsAll.push(...(((await r.json())?.data) || []));
+            } catch { /* 한 섹터가 실패해도 나머지는 잰다 */ }
+        }
+        if (rowsAll.length >= 10) {
+            for (const [label, key] of INTEL_TILES) {
+                const ok = rowsAll.filter((x) => x?.[key] !== null && x?.[key] !== undefined).length;
+                const pct = Math.round((ok / rowsAll.length) * 100);
+                // 90% 미만이면 «구조가 깨진 것»으로 본다(개별 종목 결손은 늘 몇 개 있다).
+                if (pct < 90) {
+                    const miss = rowsAll.filter((x) => x?.[key] == null).map((x) => x.ticker).slice(0, 6);
+                    tileGaps.push(`인텔 ${label} ${pct}% (${ok}/${rowsAll.length}) — ${miss.join(',')}`);
+                }
+            }
+            // «정확히 보합»은 재지 못한 것의 지문이다(price === prevClose, 소수점까지)
+            const flat = rowsAll.filter((x) => x?.price > 0 && x.price === x.prevClose).length;
+            if (flat >= 3) tileGaps.push(`인텔 보합 의심 ${flat}종목 — price === prevClose (기준선 오염 지문)`);
+        }
+    } catch (e: any) {
+        console.warn('[signum-warm] 타일 충족도 검사 실패:', e?.message);
+    }
+    if (tileGaps.length) {
+        console.error(`[signum-warm] ⚠⚠ 화면 빈칸 ${tileGaps.length}건`, tileGaps);
+        violations.push(...tileGaps);
+    }
+
     // 대표가 화면에서 발견하기 전에 잡히게 — 로그와 Redis 양쪽에 남긴다.
     if (violations.length) {
         console.error(`[signum-warm] ⚠ 정합성 위반 ${violations.length}건`, violations.slice(0, 10));
