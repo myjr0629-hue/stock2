@@ -9,7 +9,7 @@ import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider"
 import { getUpcomingEvents } from './eventHubProvider';
 import { getTreasuryYields, getInflationData } from './fedApiClient';
 import { getYahooDataSSOT, YahooQuote } from './yahooFinanceHub';
-import { getFromCache } from './redisClient';
+import { getFromCache, setInCache } from './redisClient';
 
 export interface MacroFactor {
     level: number | null;
@@ -89,6 +89,27 @@ export interface MacroSnapshot {
 
 const CACHE_TTL_MS = 60000; // 1 min cache (matches Yahoo rate limit)
 let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = { data: null, expiry: 0, fetchedAt: 0 };
+
+// ============================================================================
+// 공유 캐시 — 콜드 인스턴스가 상류를 다시 긁지 않게 한다.
+// ----------------------------------------------------------------------------
+// 왜 (2026-09-03 실측): /api/live/market 이 **297바이트 응답에 3.9초** 였다.
+//   전송이 아니라 서버 작업이다. 위의 `cache` 는 «프로세스 메모리»라
+//   람다 인스턴스마다 따로다 — 새 인스턴스는 매번 Yahoo·FED·수익률곡선·
+//   CNN·신용스프레드를 다시 부른다. 그게 대표가 말한 «콜드스타트»의 정체다.
+//
+// 그래서 메모리 앞이 아니라 **뒤에** Redis 한 겹을 둔다:
+//   메모리 신선 → 그대로
+//   Redis 신선 → 메모리에 채우고 반환 (한 번의 Redis 읽기 ≈ 40ms)
+//   Redis 낡음 → **그 값을 즉시 주고** 뒤에서 갱신한다 (사용자를 기다리게 하지 않는다)
+//   아무것도 없음 → 상류 조회
+//
+// ⚠️ RETENTION 이 FRESH 보다 훨씬 길어야 «즉시 주고 뒤에서 갱신»이 성립한다.
+//    둘이 같으면 낡은 값이 남지 않아 콜드 인스턴스가 다시 상류로 간다.
+const MACRO_REDIS_KEY = 'macro:snapshot:v1';
+const MACRO_FRESH_MS = 60_000;        // 이 안쪽이면 «신선»
+const MACRO_RETENTION_SEC = 15 * 60;  // 낡아도 15분은 들고 있는다 (즉시 응답용)
+let macroRefreshing = false;          // 배경 갱신 중복 방지
 
 const SYMBOLS = {
     NDX_PROXY: "QQQ", // Massive uses QQQ for Trend Logic
@@ -359,13 +380,48 @@ function triggerCronIfNeeded(yahooData: any) {
     }
 }
 
+/**
+ * 메모리 → Redis(신선) → Redis(낡음, 즉시 주고 뒤에서 갱신) → 상류.
+ * 사용자를 상류 조회 때문에 기다리게 하지 않는 것이 목적이다.
+ */
 export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const now = Date.now();
+
+    // 1) 프로세스 메모리 — 가장 빠르다
     if (cache.data && cache.expiry > now) {
         cache.data.ageSeconds = Math.floor((now - cache.fetchedAt) / 1000);
         return cache.data;
     }
 
+    // 2) 공유 캐시 — 콜드 인스턴스가 상류를 다시 긁지 않게 한다
+    try {
+        const shared = await getFromCache<{ data: MacroSnapshot; at: number }>(MACRO_REDIS_KEY);
+        if (shared?.data && typeof shared.at === 'number') {
+            const age = now - shared.at;
+            cache = { data: shared.data, expiry: shared.at + MACRO_FRESH_MS, fetchedAt: shared.at };
+            shared.data.ageSeconds = Math.floor(age / 1000);
+
+            if (age < MACRO_FRESH_MS) return shared.data;
+
+            // 낡았지만 **먼저 주고** 뒤에서 갱신한다. 기다리게 하지 않는다.
+            if (!macroRefreshing) {
+                macroRefreshing = true;
+                fetchMacroSnapshotFresh()
+                    .catch(e => console.warn('[MacroHub] 배경 갱신 실패:', e?.message))
+                    .finally(() => { macroRefreshing = false; });
+            }
+            return shared.data;
+        }
+    } catch (e: any) {
+        console.warn('[MacroHub] 공유 캐시 읽기 실패:', e?.message);
+    }
+
+    // 3) 아무것도 없다 — 상류를 기다린다
+    return fetchMacroSnapshotFresh();
+}
+
+async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
+    const now = Date.now();
     console.log('[MacroHub] Fetching Massive Macros (Pure)...');
     const marketStatus = await getMarketStatusSSOT();
     const fetchedAtET = new Date().toISOString();
@@ -528,5 +584,9 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     };
 
     cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };
+    // 공유 캐시에도 남긴다 — 다음 콜드 인스턴스가 상류를 다시 긁지 않도록.
+    // 실패해도 응답에는 영향이 없어야 한다.
+    setInCache(MACRO_REDIS_KEY, { data: snapshot, at: now }, MACRO_RETENTION_SEC)
+        .catch(e => console.warn('[MacroHub] 공유 캐시 저장 실패:', e?.message));
     return snapshot;
 }

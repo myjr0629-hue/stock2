@@ -26,6 +26,44 @@ export async function GET(req: NextRequest) {
         let gammaFlipLevel: number | null = null;
         let spyPrice: number | null = null;
         
+        // ⚠️ 순서가 곧 지연이다 (2026-09-03 실측: **838바이트 응답에 4.7초**).
+        //    예전엔 다섯 조회를 «차례로» 기다렸다. 실제 의존 관계는 하나뿐이다 —
+        //    딜러 감마만 변동성 레짐의 flipLevel·현재가를 필요로 한다.
+        //    나머지(기관 포지션·시장 폭·섹터 로테이션)는 서로 무관하므로 같이 출발시킨다.
+        //    → 가장 긴 사슬이 「변동성 레짐 → 딜러 감마」 둘로 줄어든다.
+        //    각 조회는 자기 try/catch 를 유지한다 — 하나가 실패해도 나머지는 나가야 한다.
+        const instFlowP = (async () => {
+            try {
+                const { getInstitutionalFlowSummary } = await import('@/services/institutionalFlow');
+                return await getInstitutionalFlowSummary();
+            } catch (e) {
+                console.warn('[premium-metrics] 기관 신규 포지션 조회 실패:', e);
+                return null;
+            }
+        })();
+
+        const breadthP = (async () => {
+            try {
+                const { getIndexBreadth } = await import('@/services/indexBreadth');
+                return await getIndexBreadth();
+            } catch (e) {
+                console.warn('[premium-metrics] 시장 폭 조회 실패:', e);
+                return null;
+            }
+        })();
+
+        const rotationP = (async () => {
+            try {
+                const snap = await getFromCache<any>(`guardian:snapshot:${locale}`);
+                if (snap?.rotationIntensity) return snap.rotationIntensity;
+                const fresh = await GuardianDataHub.getGuardianSnapshot(false, locale);
+                return fresh?.rotationIntensity ?? null;
+            } catch (e) {
+                console.warn('[premium-metrics] Failed to fetch sector snapshot:', e);
+                return null;
+            }
+        })();
+
         try {
             const res = await fetch(`${origin}/api/live/volatility-regime?t=SPY`);
             if (res.ok) {
@@ -63,13 +101,9 @@ export async function GET(req: NextRequest) {
         //    `opening[sym].side` 로 콜 비중을 냈다. 그건 «콜 우위 종목»의 금액을
         //    통째로 콜로 세는 것이라 실제보다 부풀려진다(실측: 73.3% vs 65.9%).
         //    공용 서비스는 **계약 단위**로 센다 — 같은 데이터, 정확한 답.
-        let instFlow: import('@/services/institutionalFlow').InstitutionalFlowSummary | null = null;
-        try {
-            const { getInstitutionalFlowSummary } = await import('@/services/institutionalFlow');
-            instFlow = await getInstitutionalFlowSummary();
-        } catch (e) {
-            console.warn('[premium-metrics] 기관 신규 포지션 조회 실패:', e);
-        }
+        // 위에서 이미 출발시켰다 — 여기서는 기다리기만 한다.
+        const instFlow: import('@/services/institutionalFlow').InstitutionalFlowSummary | null =
+            await instFlowP;
 
         // ══════════════════════════════════════════════════════════════
         // 2-B. 딜러 감마 구조 — 「변동성 레짐」+「감마 스퀴즈」를 하나로
@@ -94,8 +128,7 @@ export async function GET(req: NextRequest) {
         // ══════════════════════════════════════════════════════════════
         let breadth: { ndx: number | null; dow: number | null; covered: number; universe: number } | null = null;
         try {
-            const { getIndexBreadth } = await import('@/services/indexBreadth');
-            const b = await getIndexBreadth();
+            const b = await breadthP;   // 위에서 이미 출발시켰다
             if (b?.ndx?.pctAbove20 != null || b?.dow?.pctAbove20 != null) {
                 // ⚠️ `pctAbove20` 은 이름과 달리 **0~1 비율**이다(서비스 정의 그대로).
                 //    화면은 %로 쓰므로 경계에서 ×100 한다. 안 하면 52% 가 «0%» 로 찍힌다.
@@ -124,31 +157,16 @@ export async function GET(req: NextRequest) {
         let rotationInto: string | null = null;
         let rotationOutOf: string | null = null;
 
-        try {
-            const guardianSnap = await getFromCache<any>(`guardian:snapshot:${locale}`);
-            if (guardianSnap?.rotationIntensity) {
-                rotationScore = typeof guardianSnap.rotationIntensity.score === 'number' ? guardianSnap.rotationIntensity.score : rotationScore;
-                rotationDirection = guardianSnap.rotationIntensity.direction ?? rotationDirection;
-                rotationConviction = guardianSnap.rotationIntensity.conviction ?? rotationConviction;
-                rotationBasis = guardianSnap.rotationIntensity.scoreBasis ?? rotationBasis;
-                rotationWindows = typeof guardianSnap.rotationIntensity.sampleWindows === 'number' ? guardianSnap.rotationIntensity.sampleWindows : rotationWindows;
-                rotationInto = guardianSnap.rotationIntensity.topInflow?.[0]?.sector ?? rotationInto;
-                rotationOutOf = guardianSnap.rotationIntensity.topOutflow?.[0]?.sector ?? rotationOutOf;
-            } else {
-                // Fallback: dynamic compute via GuardianDataHub
-                const freshSnap = await GuardianDataHub.getGuardianSnapshot(false, locale);
-                if (freshSnap?.rotationIntensity) {
-                    rotationScore = typeof freshSnap.rotationIntensity.score === 'number' ? freshSnap.rotationIntensity.score : rotationScore;
-                    rotationDirection = freshSnap.rotationIntensity.direction ?? rotationDirection;
-                    rotationConviction = freshSnap.rotationIntensity.conviction ?? rotationConviction;
-                    rotationBasis = freshSnap.rotationIntensity.scoreBasis ?? rotationBasis;
-                    rotationWindows = typeof freshSnap.rotationIntensity.sampleWindows === 'number' ? freshSnap.rotationIntensity.sampleWindows : rotationWindows;
-                    rotationInto = freshSnap.rotationIntensity.topInflow?.[0]?.sector ?? rotationInto;
-                    rotationOutOf = freshSnap.rotationIntensity.topOutflow?.[0]?.sector ?? rotationOutOf;
-                }
-            }
-        } catch (e) {
-            console.warn('[premium-metrics] Failed to fetch sector snapshot:', e);
+        // 위에서 이미 출발시켰다 (캐시 → 없으면 GuardianDataHub 폴백까지 그 안에서 끝난다)
+        const rot = await rotationP;
+        if (rot) {
+            rotationScore = typeof rot.score === 'number' ? rot.score : rotationScore;
+            rotationDirection = rot.direction ?? rotationDirection;
+            rotationConviction = rot.conviction ?? rotationConviction;
+            rotationBasis = rot.scoreBasis ?? rotationBasis;
+            rotationWindows = typeof rot.sampleWindows === 'number' ? rot.sampleWindows : rotationWindows;
+            rotationInto = rot.topInflow?.[0]?.sector ?? rotationInto;
+            rotationOutOf = rot.topOutflow?.[0]?.sector ?? rotationOutOf;
         }
 
         return NextResponse.json({
