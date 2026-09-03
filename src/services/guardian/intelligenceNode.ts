@@ -110,6 +110,14 @@ interface IntelligenceContext {
     triggerSupport?: number | null;    // S&P 500 options-based support
     triggerResistance?: number | null; // S&P 500 options-based resistance
     triggerCurrent?: number | null;    // S&P 500 current price
+    gammaFlipPoint?: number | null;    // 감마 부호가 뒤집히는 지점 = 이 판단이 깨지는 자리
+    // ★ 「평소와 무엇이 다른가」 축 (2026-09-03 추가).
+    //   이게 없으면 AI 는 화면이 이미 보여 주는 숫자를 다시 읽어 주는 것 말고 할 말이 없다.
+    gexPercentile?: number;            // 오늘 딜러 감마가 최근 이력에서 몇 번째인가 (0-100)
+    gexSamples?: number;               // 그 백분위를 낸 표본 수 — 적으면 말을 아껴야 한다
+    gexChange?: number | null;         // 직전 측정 대비 변화
+    spyGexIndex?: number;              // SPY 단독
+    qqqGexIndex?: number;              // QQQ 단독 — 둘이 갈리면 그 자체가 신호다
     // [V13.0] DIVERGENCE CONTEXT — Surface vs Internal flow mismatch
     divergenceCase?: 'A' | 'B' | 'C' | 'D' | 'N';  // A=FalseRally, B=StealthInflow, C=FullBull, D=DeepFreeze, N=Sync
     divergenceDesc?: string;          // Localized divergence description
@@ -387,33 +395,47 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
     ko: (ctx) => {
         const gex = ctx.gexIndex ?? 0;
         const squeeze = ctx.squeezeRisk ?? 0;
+        // ⚠️ 이 프롬프트는 2026-09-03 에 다시 썼다. 이유는 아래 셋이다.
+        //   ① 예전 규칙 2번은 「학술적 표현 절대 금지」인데 8번은 「'관찰된다·시사한다'
+        //      어조 유지」를 요구했다. **그 어조가 바로 학술 문체다.** 프롬프트가
+        //      자기모순이라 금지가 먹히지 않았다. 컴플라이언스는 «단정·권유를 안 하는 것»이지
+        //      한자어 문체가 아니다 — 평서형으로도 지킬 수 있다.
+        //   ② 출력 형식이 GEX·Squeeze·현재가·벽 거리를 «서술»하라고 시켰는데,
+        //      그 숫자는 카드가 이미 값으로 보여 준다. 그래서 AI 가 화면을 다시 읽어 줬다.
+        //      실측 출력: "현재가 7,714는 풋 플로어 7,650 대비 64포인트 상방…"
+        //   ③ 그래서 정작 인사이트인 것 — 오늘이 평소와 어떻게 다른가, 무엇이 이 판단을
+        //      뒤집는가 — 이 하나도 없었다. 이제 백분위·직전 대비 변화를 넣어 준다.
+        const pct = ctx.gexPercentile;
+        const samples = ctx.gexSamples ?? 0;
+        const chg = ctx.gexChange;
         return `
-        당신은 글로벌 IB 파생상품 트레이딩 데스크 시니어 전략가입니다. 실시간 GEX, Squeeze Risk, Trigger Band 데이터를 기반으로 옵션 시장 변동성 구조를 진단하십시오.
+        당신은 파생상품 데스크의 시니어 전략가입니다. 아래 데이터로 **오늘 옵션 구조에서 남들이 놓치는 한 가지**를 짚어 주십시오.
 
-        **입력 데이터:**
-        - GEX 지수: ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'})
-        - Squeeze Risk (변동성 압축률): ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
-        ${ctx.triggerSupport ? `- Put Floor (풋 옵션 하한선): ${ctx.triggerSupport.toLocaleString()}` : ''}
-        ${ctx.triggerResistance ? `- Call Wall (콜 옵션 상한선): ${ctx.triggerResistance.toLocaleString()}` : ''}
-        ${ctx.triggerCurrent ? `- S&P 500 현재가: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+        **오늘 값:**
+        - GEX 지수 ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'}) / SPY ${ctx.spyGexIndex ?? '—'} · QQQ ${ctx.qqqGexIndex ?? '—'}
+        - 변동성 압축 ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
+        ${typeof chg === 'number' ? `- 직전 측정 대비 GEX 변화: ${chg >= 0 ? '+' : ''}${chg}` : ''}
+        ${typeof pct === 'number' && samples >= 10 ? `- 오늘 딜러 감마는 최근 ${samples}거래일 중 상위 ${100 - pct}% 수준 (백분위 ${pct})` : ''}
+        ${ctx.triggerCurrent ? `- S&P500 현재가 ${ctx.triggerCurrent.toLocaleString()} / 풋플로어 ${ctx.triggerSupport?.toLocaleString() ?? '—'} / 콜월 ${ctx.triggerResistance?.toLocaleString() ?? '—'}${ctx.gammaFlipPoint ? ` / 감마플립 ${ctx.gammaFlipPoint.toLocaleString()}` : ''}` : ''}
 
-        **핵심 작성 규칙:**
-        1. 비유 표현(압력밥솥, 쿠션, 에어백 등) 완전 금지.
-        2. "내재변동성의 구조적 이완 여지가 제한적임을 나타낸다" 같은 지나치게 학술적이고 모호한 표현은 절대 금지. 읽는 즉시 딜러 포지션 상황이 파악되는 명확한 문장을 작성하시오.
-        3. 좋은 예: "딜러 롱감마 포지션이 하방 변동을 흡수하는 구간", "Squeeze 15%로 변동성 축적 미미, 레인지 유지 구조"
-        4. 나쁜 예: "내재변동성의 구조적 이완 여지가 제한적임을 나타낸다", "중성적 영향을 미치고 있음을 시사하며"
-        5. GEX: 딜러의 감마 포지션이 가격 변동에 어떤 영향을 주는지 (변동 억제 vs 증폭)를 구체적으로 서술
-        6. Squeeze Risk: 변동성이 얼마나 축적되어 있고, 해소 시 어떤 구간을 관찰해야 하는지
-        7. 현재가와 콜 월/풋 플로어 간 거리가 딜러 헤지에 어떤 흐름을 만드는지
-        8. 컴플라이언스: 투자 권유/가격 예측 불가. '관찰된다', '시사한다' 어조 유지. 단, 핵심 판단을 즉시 전달하는 간결체 사용.
+        **화면이 이미 보여 주는 것 (절대 다시 쓰지 마십시오):**
+        GEX 숫자와 등급, 압축 %, 현재가·지지·저항까지의 거리. 이 값들을 문장으로 옮겨 적는 것은 실패입니다.
 
-        **출력 형식:**
-        [변동성 진단] (GEX와 Squeeze 조합으로 현재 옵션 시장의 감마 구조가 가격 변동에 미치는 영향 1문장, 구체적으로 즉시 이해 가능하게)
-        [지지와 저항] (현재가 위치와 콜 월/풋 플로어 간 거리 차이에서 관찰되는 딜러 헤지 리밸런싱 공방 구도 1문장)
+        **당신만 할 수 있는 것 — 이 둘만 쓰십시오:**
+        [평소와 다른 점] 오늘 수치가 최근 이력·직전 대비 어떤 위치인지, 그게 무슨 뜻인지 한 문장.
+          백분위 자료가 없으면 SPY와 QQQ가 갈리는지, 직전 대비 어디로 움직였는지로 대신하십시오.
+        [이 판단이 깨지는 지점] 어떤 가격을 지나면 지금 구조가 반대로 작동하기 시작하는지 한 문장.
+          숫자를 쓰되 «왜 그 자리인지»를 붙이십시오 (예: 그 아래에서는 같은 딜러가 반대로 팔기 시작한다).
 
-        **제한사항:**
-        - 2문장 이내, 총 3줄 이하로 매우 간결하게 작성하십시오.
-        - 이모지(emoji)는 절대 금지합니다.
+        **문체:**
+        - 한 문장에 한 가지만. 짧게. 「~다」로 끝내는 평서형.
+        - 「~함을 시사한다」 「~가 관찰된다」 「~에 기인한다」 금지. 번역투 금지.
+        - 전문어를 쓰면 바로 뒤에 일상어로 풀어 주십시오.
+        - 비유(압력밥솥·쿠션·에어백) 금지. 이모지 금지.
+        - 컴플라이언스: 가격 예측·매매 권유 금지. 「~할 것이다」 「~해야 한다」 금지.
+          구조가 어떻게 작동하는지만 쓰고, 판단은 읽는 사람에게 남기십시오.
+
+        **분량: 두 문장. 각 60자 이내.**
         `;
     },
     en: (ctx) => {

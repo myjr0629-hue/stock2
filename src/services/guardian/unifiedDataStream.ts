@@ -649,6 +649,24 @@ export class GuardianDataHub {
                         triggerSupport: gammaShieldData?.supportWall ?? undefined,
                         triggerResistance: gammaShieldData?.resistanceWall ?? undefined,
                         triggerCurrent: gammaShieldData?.currentPrice ?? undefined,
+                        gammaFlipPoint: gammaShieldData?.gammaFlipPoint ?? undefined,
+                        // ★ 「평소와 무엇이 다른가」 — AI 가 할 말이 없던 진짜 이유였다.
+                        //   화면이 이미 보여 주는 숫자만 주니 AI 는 그걸 다시 읽어 줄 수밖에 없었다.
+                        //   백분위는 이미 계산해 두고 프리미엄 카드에서만 쓰고 있었다(Redis 1회 읽기).
+                        gexChange: gammaShieldData?.gexChange ?? undefined,
+                        spyGexIndex: gammaShieldData?.spyGexIndex ?? undefined,
+                        qqqGexIndex: gammaShieldData?.qqqGexIndex ?? undefined,
+                        ...(await (async () => {
+                            try {
+                                const { getDealerGamma } = await import('@/services/dealerGamma');
+                                const dg = await getDealerGamma('SPY',
+                                    gammaShieldData?.gammaFlipPoint ?? null,
+                                    gammaShieldData?.currentPrice ?? null);
+                                return dg
+                                    ? { gexPercentile: dg.percentile ?? undefined, gexSamples: dg.samples ?? undefined }
+                                    : {};
+                            } catch { return {}; }
+                        })()),
                         // [V13.0] DIVERGENCE CONTEXT — pass to AI for divergence-aware analysis
                         ...divergenceForAi,
                         // [V14.0] Institutional Flow Score per sector — for rotation accuracy
