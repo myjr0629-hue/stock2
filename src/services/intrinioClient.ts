@@ -12,6 +12,8 @@
  * 정본 문서: .agent/INTRINIO_MIGRATION.md / INTRINIO_MIGRATION_WORKLOG.md
  */
 
+import { getFromCache, setInCache } from "./redisClient";
+
 const INTRINIO_API_KEY = process.env.INTRINIO_API_KEY || "";
 const INTRINIO_BASE = process.env.INTRINIO_BASE_URL || "https://api-v2.intrinio.com";
 
@@ -52,6 +54,41 @@ const INTRINIO_MAX_CONCURRENCY = Number(process.env.INTRINIO_MAX_CONCURRENCY || 
 //   한 번만 더 묻고, 그래도 안 되면 «마지막 정상값»으로 답한다(live/ticker).
 const INTRINIO_MAX_ATTEMPTS = Number(process.env.INTRINIO_MAX_ATTEMPTS || 2);
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+// ══════════════════════════════════════════════════════════════
+// ★★ 공유 응답 캐시 (Redis)  [2026-09-04]
+//
+// [왜 필요한가]  429 가 **매번 다른 엔드포인트**에서 났다 —
+//   securities/X/prices · options/greeks/by_ticker · options/expirations ·
+//   prices/technicals/macd … 즉 화면 하나가 종목 하나에 벤더를 4~6번 부르고,
+//   그게 엔드포인트 10개 × 모든 사용자로 곱해져 전역 쿼터가 상시 포화였다.
+//
+//   인스턴스 메모리 캐시는 이걸 못 막는다. 서버리스는 요청마다 다른
+//   인스턴스일 수 있고, live/ticker 는 아예 useCache=false 로 부른다.
+//   **같은 질문을 여러 인스턴스가 동시에 하는 것**이 문제이므로,
+//   캐시도 인스턴스 밖(Redis)에 있어야 한다.
+//
+// [TTL]  자료의 «변하는 속도»에 맞춘다. 길게 잡으면 죽은 값이 나가고
+//        짧게 잡으면 쿼터를 못 아낀다.
+// ══════════════════════════════════════════════════════════════
+const VENDOR_CACHE_PREFIX = "intrinio:resp:v1:";
+
+/** 경로별 공유 캐시 수명(초). 0 이면 캐시하지 않는다. */
+function vendorTtlSec(path: string): number {
+    // 실시간 시세 — 장중엔 초 단위로 변한다. 그래도 10초면 동시 요청 수십 건을 흡수한다.
+    if (/\/prices\/realtime$/.test(path)) return 10;
+    // 옵션 실시간 그릭스/체인 — 분 단위로 봐도 화면 판단이 바뀌지 않는다.
+    if (/^options\//.test(path)) return 60;
+    // 기술지표(MACD·RSI 등) — 일봉 기반이라 장중에도 거의 안 변한다.
+    if (/\/prices\/technicals\//.test(path)) return 600;
+    // 분봉
+    if (/\/prices\/intervals$/.test(path)) return 60;
+    // 일봉 — 마지막 봉만 장중에 움직인다.
+    if (/\/prices$/.test(path)) return 120;
+    // 회사 정보·펀더멘털 등 — 하루에 한 번도 안 변한다.
+    if (/^companies\//.test(path) || /^fundamentals\//.test(path)) return 3600;
+    return 60;
+}
 
 const _inflight = new Map<string, Promise<any>>();
 const _waiters: Array<() => void> = [];
@@ -112,6 +149,16 @@ async function callIntrinio(
     const existing = _inflight.get(coalesceKey);
     if (existing) return existing;
 
+    // ①-b 공유 캐시 — 다른 인스턴스가 방금 물어본 답이 있으면 그걸 쓴다.
+    const ttl = vendorTtlSec(path);
+    const cacheKey = ttl > 0 ? VENDOR_CACHE_PREFIX + coalesceKey : "";
+    if (cacheKey) {
+        try {
+            const hit = await getFromCache<any>(cacheKey);
+            if (hit != null && !_looksEmpty(path, hit)) return hit;
+        } catch { /* Redis 가 없어도 벤더로 진행한다 */ }
+    }
+
     const run = (async () => {
         let lastErr: any = null;
 
@@ -146,6 +193,10 @@ async function callIntrinio(
                     } else {
                         payload = data;
                         settled = true;
+                        // 빈 응답은 저장하지 않는다 — 실패를 캐시하면 그게 독이 된다.
+                        if (cacheKey && !_looksEmpty(path, data)) {
+                            setInCache(cacheKey, data, ttl).catch(() => { });
+                        }
                     }
                 }
             } catch (e: any) {

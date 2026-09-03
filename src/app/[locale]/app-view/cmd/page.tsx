@@ -2410,7 +2410,7 @@ function CmdPageContent() {
     ? 'CLOSED'
     : (t?.session || data?.session || 'CLOSED').toUpperCase();
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -3033,8 +3033,9 @@ function CmdPageContent() {
               <SparklineBg up={activeExtPct >= 0} seed={`${data.ticker}-ext`} />
               <span className={s.heroExtLabel}>{activeExtLabel}</span>
               <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
-              <span className={s.heroExtChange} style={{ color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                {activeExtPct >= 0 ? '+' : ''}{activeExtPct.toFixed(2)}%
+              {/* ★ 기준선이 없으면 등락률은 «계산 불가»다. 0.00% 라고 쓰면 거짓말이다. */}
+              <span className={s.heroExtChange} style={{ color: !activeExtPctKnown ? 'var(--text-muted)' : activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                {!activeExtPctKnown ? '—' : `${activeExtPct >= 0 ? '+' : ''}${activeExtPct.toFixed(2)}%`}
               </span>
             </div>
           )}

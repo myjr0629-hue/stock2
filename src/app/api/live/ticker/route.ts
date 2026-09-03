@@ -1056,11 +1056,13 @@ export async function GET(req: NextRequest) {
     const extPrices: Record<string, any> = {};
     if (prePrice && prePrice > 0) {
         extPrices.prePrice = prePrice;
-        extPrices.preChangePct = changePctFrac_PRE !== null ? changePctFrac_PRE * 100 : 0;
+        // ⚠️ 계산 못 했으면 **쓰지 않는다.** 예전엔 `: 0` 이라 «0.00%» 라는
+        //    지어낸 값이 24시간짜리 캐시에 앉았고, 화면엔 PRE CLOSE +0.00% 로 떴다.
+        if (changePctFrac_PRE !== null) extPrices.preChangePct = changePctFrac_PRE * 100;
     }
     if (postPrice && postPrice > 0) {
         extPrices.postPrice = postPrice;
-        extPrices.postChangePct = changePctFrac_POST !== null ? changePctFrac_POST * 100 : 0;
+        if (changePctFrac_POST !== null) extPrices.postChangePct = changePctFrac_POST * 100;
     }
     if (Object.keys(extPrices).length > 0) {
         setInCache(`flow:extended:${ticker}`, extPrices, 86400).catch(() => { }); // 24h TTL

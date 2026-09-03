@@ -58,6 +58,13 @@ export interface PriceDisplayResult {
     activeExtLabel: string;
     /** Extended session change percentage */
     activeExtPct: number;
+    /**
+     * ★ [2026-09-04] 시간외 등락률을 «실제로 계산했는가».
+     *   기준선(prevClose)이 없으면 계산이 불가능한데, 그때도 0 이 남아
+     *   화면에 «+0.00%» 가 진짜 값처럼 떴다(대표 지적: PRE CLOSE 가
+     *   맞게 나오는 종목과 아닌 종목이 섞인다). false 면 화면은 «—» 를 그린다.
+     */
+    activeExtPctKnown: boolean;
 }
 
 /**
@@ -230,17 +237,21 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     // [ABSOLUTE MATH OVERRIDE - BULLDOZER FIX]
     // Completely ignore any untrustworthy `activeExtPct` from APIs (like +3.93% instead of +0.54%).
     // Recalculate directly from absolute numbers to guarantee 100% data integrity globally.
+    let activeExtPctKnown = false;
     if (activeExtPrice > 0) {
         if ((activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') && resolvedPrevClose > 0) {
             activeExtPct = ((activeExtPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
+            activeExtPctKnown = true;
         } else if (activeExtType === 'POST') {
             // POST session change must reference regular close limit. Try regularCloseToday first, fallback to displayPrice (which locks to intraday close during POST).
             const referencePrice = (regularCloseToday && regularCloseToday > 0) ? regularCloseToday : displayPrice;
             if (referencePrice > 0) {
                 activeExtPct = ((activeExtPrice - referencePrice) / referencePrice) * 100;
+                activeExtPctKnown = true;
             }
         } else if (resolvedPrevClose > 0) {
             activeExtPct = ((activeExtPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
+            activeExtPctKnown = true;
         }
     }
 
@@ -250,6 +261,7 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         activeExtPrice,
         activeExtType,
         activeExtLabel,
-        activeExtPct
+        activeExtPct,
+        activeExtPctKnown
     };
 }
