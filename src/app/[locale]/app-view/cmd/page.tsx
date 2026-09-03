@@ -2369,17 +2369,25 @@ function CmdPageContent() {
   //      · 화면을 가르는 «두 엔드포인트»만 (나머지는 그때 받아도 늦지 않다)
   //      · 3종목만 · 종목당 한 번만 · idle 에서만
   //      응답은 쓰지 않는다. 목적은 서버 캐시를 채우는 것뿐이다.
+  //
+  //   ★★ [2026-09-04 축소] 이 데우기가 **지금 보고 있는 종목의 쿼터를 훔치고
+  //   있었다.** 벤더가 Intrinio 로 바뀌면서 «분당 호출 예산»이 생겼는데,
+  //   3종목 × 2엔드포인트 = 6건이 매 종목 전환마다 추가로 나갔다.
+  //   그 결과가 429 이고, 화면엔 RSI 0.0 · VWAP $0.00 로 나타났다.
+  //   («다음 화면이 빠른 것»보다 «지금 화면이 맞는 것»이 먼저다.)
+  //     · 1종목만
+  //     · unified 만 — 이쪽은 DynamoDB 를 먼저 보므로 벤더 호출이 훨씬 적다.
+  //       live/ticker 데우기는 **뺀다**. 그게 쿼터를 가장 많이 먹었다.
   // ══════════════════════════════════════════════════════════════
   const warmedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (loading || !data) return;
-    const targets = chipTickers.filter((x) => x !== ticker && !warmedRef.current.has(x)).slice(0, 3);
+    const targets = chipTickers.filter((x) => x !== ticker && !warmedRef.current.has(x)).slice(0, 1);
     if (targets.length === 0) return;
     const run = () => {
       for (const x of targets) {
         warmedRef.current.add(x);
         fetch(`/api/command/unified?t=${x}&lang=${locale}`).catch(() => { });
-        fetch(`/api/live/ticker?t=${x}&chain=0`).catch(() => { });
       }
     };
     const w = window as any;

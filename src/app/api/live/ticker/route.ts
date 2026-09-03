@@ -137,6 +137,35 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any
 
 // [PERF] Redis cache key for ticker response
 const TICKER_CACHE_TTL = 60; // 60 seconds
+/** 마지막 «정상» 응답. 벤더 쿼터에 막혔을 때 빈 화면 대신 이걸 준다. */
+const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v1:';
+const LAST_GOOD_TTL = 12 * 3600; // 12h — 장 마감~다음 개장을 건너뛸 만큼
+
+/**
+ * 옛 정상값 위에 «이번에 새로 받아 낸 값»만 덮는다.
+ * 스칼라만 본다 — 중첩 객체를 통째로 바꾸면 반쯤 채워진 이번 응답이
+ * 온전한 옛 값을 도로 지운다(그 실수를 크론에서 이미 한 번 했다).
+ */
+function mergeFreshOverStale(stale: any, fresh: any): any {
+    const out: any = { ...stale };
+    for (const [k, v] of Object.entries(fresh || {})) {
+        if (v === null || v === undefined) continue;
+        if (Array.isArray(v)) { if (v.length) out[k] = v; continue; }
+        if (typeof v === 'object') {
+            const inner: any = { ...(stale?.[k] || {}) };
+            for (const [k2, v2] of Object.entries(v as any)) {
+                if (v2 === null || v2 === undefined) continue;
+                if (typeof v2 === 'number' && v2 === 0 && inner[k2]) continue; // 0 은 «없음»일 때가 많다
+                inner[k2] = v2;
+            }
+            out[k] = inner;
+            continue;
+        }
+        if (typeof v === 'number' && v === 0 && stale?.[k]) continue;
+        out[k] = v;
+    }
+    return out;
+}
 // ⚠️ 응답 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛 페이로드가
 //    그대로 나가서 새 필드가 «조용히» 빠진다(2026-08-30 에 두 번 겪었다).
 //    v2 = 다크풀(FINRA) 필드 추가 2026-08-31
@@ -982,8 +1011,44 @@ export async function GET(req: NextRequest) {
         setInCache(cacheKey, response, TICKER_CACHE_TTL).catch(e => {
             console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
         });
+        // ══════════════════════════════════════════════════════════════
+        // ★★ «마지막 정상값» — 한 번이라도 받은 값은 절대 잃지 않는다.
+        //
+        //   Intrinio 분당 쿼터(429)는 **기다린다고 생기지 않는다.** 재시도로
+        //   메우려 했더니 MU 가 16.9초 걸렸다 — 「틀린 데이터」를 「느린
+        //   데이터」로 바꿨을 뿐이다. 주식 앱에서 둘 다 실패다.
+        //
+        //   그래서 방향을 바꾼다. 쿼터에 막히면 **조금 전의 진짜 값**을 준다.
+        //   화면에 RSI 0.0 · VWAP $0.00 이 뜨는 것보다 5분 전 값이 언제나 낫고,
+        //   나이(_staleAgeMs)를 같이 실어 보내므로 거짓말도 아니다.
+        // ══════════════════════════════════════════════════════════════
+        setInCache(LAST_GOOD_PREFIX + ticker, { ...response, _goodAt: Date.now() }, LAST_GOOD_TTL)
+            .catch(() => { });
     } else {
         console.warn(`[live/ticker] 캐시 저장 거부 ${ticker} — ${writeVerdict.why}`);
+        // 계산이 실패했으면 마지막 정상값으로 답한다. 빈 화면을 내보내지 않는다.
+        try {
+            const lastGood: any = await getFromCache<any>(LAST_GOOD_PREFIX + ticker);
+            if (lastGood && isUsableTickerCache(lastGood).ok) {
+                const ageMs = Date.now() - Number(lastGood._goodAt || 0);
+                // 이번에 «새로» 받아 낸 값은 살린다(프리마켓 가격 등 일부는 캐시 밖에서 온다).
+                const merged = mergeFreshOverStale(lastGood, response);
+                console.warn(`[live/ticker] ${ticker} 마지막 정상값으로 응답 (나이 ${Math.round(ageMs / 1000)}초)`);
+                return new Response(JSON.stringify({
+                    ...merged,
+                    _stale: true,
+                    _staleAgeMs: ageMs,
+                    _staleReason: writeVerdict.why,
+                }), {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8',
+                        'Cache-Control': 'no-store, max-age=0, must-revalidate',
+                        'X-Cache': 'STALE'
+                    }
+                });
+            }
+        } catch { /* 마지막 정상값도 없으면 아래로 내려가 있는 그대로 답한다 */ }
     }
 
     // [FIX] Persist pre/post prices separately — survives session transitions

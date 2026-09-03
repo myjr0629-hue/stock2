@@ -46,7 +46,11 @@ export function hasIntrinioKey(): boolean {
 //                예산은 분 단위로 회복되므로 짧은 재시도가 실제로 먹는다.
 // ══════════════════════════════════════════════════════════════
 const INTRINIO_MAX_CONCURRENCY = Number(process.env.INTRINIO_MAX_CONCURRENCY || 4);
-const INTRINIO_MAX_ATTEMPTS = Number(process.env.INTRINIO_MAX_ATTEMPTS || 3);
+// ★ [2026-09-04 조정] 3 → 2.
+//   429 는 «분당 예산 소진»이라 기다린다고 생기지 않는다. 3회까지 물고 늘어졌더니
+//   MU 가 16.9초 걸렸다 — 틀린 데이터를 «느린» 데이터로 바꿨을 뿐이다.
+//   한 번만 더 묻고, 그래도 안 되면 «마지막 정상값»으로 답한다(live/ticker).
+const INTRINIO_MAX_ATTEMPTS = Number(process.env.INTRINIO_MAX_ATTEMPTS || 2);
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 const _inflight = new Map<string, Promise<any>>();
