@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStructureData } from '@/services/structureService';
 import { setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub';
+import { batchPutItems } from '@/lib/aws/dynamoClient';
+import { TABLES } from '@/lib/aws/dynamoClient';
 import UNIVERSE_FILE from '@/../data/stock_universe_us800.json';
 
 /**
@@ -76,6 +78,8 @@ export type StructRow = {
     pf: number | null;   // 풋플로어
     gex: number | null;
     pcr: number | null;
+    cOI: number;         // 콜 미결제약정
+    pOI: number;         // 풋 미결제약정
     oi: number;          // 당일 총 미결제약정 — 유동성 게이트용
     s: string | null;    // 세션
 };
@@ -142,8 +146,9 @@ export async function GET(req: NextRequest) {
             // 없는 값을 0 으로 쓰면 랭킹이 그 종목을 1위로 올린다(오늘 겪었다).
             if (!Number.isFinite(px) || px <= 0) return null;
             const st = d?.structure ?? {};
-            const oi = (Array.isArray(st.callsOI) ? st.callsOI.reduce((a: number, b: number) => a + (b || 0), 0) : 0)
-                + (Array.isArray(st.putsOI) ? st.putsOI.reduce((a: number, b: number) => a + (b || 0), 0) : 0);
+            const cOI = Array.isArray(st.callsOI) ? st.callsOI.reduce((a: number, b: number) => a + (b || 0), 0) : 0;
+            const pOI = Array.isArray(st.putsOI) ? st.putsOI.reduce((a: number, b: number) => a + (b || 0), 0) : 0;
+            const oi = cOI + pOI;
             const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
             return {
                 t, px,
@@ -156,7 +161,7 @@ export async function GET(req: NextRequest) {
                 pf: num(d?.levels?.putFloor),
                 gex: num(d?.netGex),
                 pcr: num(d?.pcr),
-                oi,
+                cOI, pOI, oi,
                 s: typeof d?.session === 'string' ? d.session : null,
             };
         } catch {
@@ -167,11 +172,40 @@ export async function GET(req: NextRequest) {
     const clean = rows.filter((r): r is StructRow => r !== null);
     await setInCache(partKey(shard), { rows: clean, ts: Date.now() }, PART_TTL).catch(() => { });
 
+    // ── «이탈» 축의 이력도 여기서 남긴다 ──────────────────────────────
+    // 랭킹이 읽는 필드(pcr·미결제약정)를 쓰던 옛 경로가 2026-08-28 에 멈췄고
+    // (실측: 1,968종목 중 1,492개가 그날에 고정), 지금 harvest 는 같은 테이블에
+    // **다른 모양의 행**(darkPoolPercent 계열)만 쓴다. 그래서 이탈 축은
+    // 유니버스의 23.5% 만 보고 순위를 매기고 있었다.
+    //
+    // Lambda 를 고치는 대신 여기서 쓴다 — 이 크론은 이미 2,001종목을 100% 로
+    // 계산하고 있고(실측 2,000/2,001), 재배포 위험(환경변수 전체 치환으로 키가
+    // 지워지는 사고)이 없다. 계산도 화면과 같은 함수를 쓴 것 그대로다.
+    //
+    // ⚠️ 최소 8세션이 필요하므로 **약 9거래일 뒤부터** 그 종목들이 랭킹에 든다.
+    let wrote = 0;
+    try {
+        const now = Date.now();
+        const items = clean.map((r) => ({
+            ticker: r.t, timestamp: now,
+            pcr: r.pcr ?? (r.cOI > 0 ? Math.round((r.pOI / r.cOI) * 1000) / 1000 : null),
+            totalCallOI: r.cOI, totalPutOI: r.pOI,
+            maxPain: r.mp, gammaFlipLevel: r.fl, callWall: r.cw, putFloor: r.pf,
+            netGex: r.gex, price: r.px,
+            _source: 'structure-build',
+        }));
+        for (let i = 0; i < items.length; i += 25) {
+            const ok = await batchPutItems(TABLES.FLOW_HISTORY, items.slice(i, i + 25));
+            if (ok) wrote += Math.min(25, items.length - i);
+        }
+    } catch { /* 이력 실패가 굽기를 막지는 않는다 */ }
+
     return NextResponse.json({
         ok: true, shard, shards: SHARDS,
         tickers: slice.length, rows: clean.length,
         withMaxPain: clean.filter((r) => r.mp !== null).length,
         withFlip: clean.filter((r) => r.fl !== null).length,
+        historyWrote: wrote,
         ms: Date.now() - started,
     });
 }

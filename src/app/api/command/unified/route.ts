@@ -113,11 +113,17 @@ async function injectAlphaBypass(data: any, ticker: string) {
                         KeyConditionExpression: 'ticker = :t',
                         ExpressionAttributeValues: { ':t': ticker },
                         ScanIndexForward: false,
-                        Limit: 1
+                        // ⚠️ [2026-09-03] 이 테이블에는 **모양이 다른 행이 섞여** 있다.
+                        //    harvest 는 darkPoolPercent·blockTradeCount 를 쓰고,
+                        //    structure-build 는 pcr·미결제약정을 쓴다. Limit:1 로
+                        //    맨 위 한 줄만 보면 다른 모양이 걸려 복구가 조용히 멈춘다.
+                        //    최근 몇 줄을 받아 **blockTradeCount 가 있는 줄**을 고른다.
+                        Limit: 12
                     })),
                     new Promise<any>(r => setTimeout(() => r(null), 2000))
                 ]);
-                const latest = flowResult?.Items?.[0];
+                const latest = (flowResult?.Items ?? []).find(
+                    (x: any) => Number(x?.blockTradeCount) > 0) ?? flowResult?.Items?.[0];
 
                 // ⚠️ [2026-08-29] 나이 검사 필수.
                 //   Massive 차단 이후 signum-flow-history 는 더 이상 갱신되지 않는데,
