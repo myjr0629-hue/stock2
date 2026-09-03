@@ -529,6 +529,47 @@ export async function GET(req: NextRequest) {
         fetchFinraDarkPool(),   // 다크풀 — FINRA 규제 원본 (T+1)
     ]);
 
+    // ══════════════════════════════════════════════════════════════
+    // ★★ AWS 저장소 폴백  [2026-09-04]
+    //
+    //   옵션 지표(감마플립·맥스페인·콜월·풋플로어·PCR)는 벤더를 «지금» 부르지
+    //   않아도 이미 있다 — flow-harvest Lambda 가 5분마다 유니버스 전체를
+    //   계산해 DynamoDB(GEX_HISTORY)에 넣는다. command/unified 가 그걸 읽어서
+    //   이 화면에서 유일하게 값이 살아 있던 엔드포인트였다.
+    //
+    //   그런데 이 라우트는 매 요청마다 벤더를 다시 불렀고, 분당 쿼터(429)에
+    //   막히면 «—» 를 내보냈다. 같은 값이 옆 테이블에 있는데.
+    //   → 벤더가 비면 DynamoDB 를 읽는다. 사용자 경로의 벤더 의존을 끊는 첫 걸음.
+    //   (대표 질문 「AWS 로 할 수 없나」의 답이 이것이다 — 이미 있는 하베스터를 쓴다)
+    // ══════════════════════════════════════════════════════════════
+    const liveOptionsEmpty = !(structureResult as any)?.gammaFlipLevel && !(structureResult as any)?.pcr
+        && !(flowRes as any)?.maxPain && ((flowRes as any)?.dataSource === 'NONE' || !((flowRes as any)?.optionsCount > 0));
+    if (liveOptionsEmpty) {
+        try {
+            const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+            const gex = await Promise.race([
+                getLatestGex(ticker),
+                new Promise<null>(r => setTimeout(() => r(null), 2500)),
+            ]);
+            if (gex && (gex.maxPain || gex.flipLevel || gex.gex)) {
+                const sr: any = structureResult || {};
+                if (sr.gammaFlipLevel == null && gex.flipLevel) sr.gammaFlipLevel = gex.flipLevel;
+                if (sr.pcr == null && gex.pcr) sr.pcr = gex.pcr;
+                if (sr.netGex == null && typeof gex.gex === 'number') sr.netGex = gex.gex;
+                sr.levels = { ...(sr.levels || {}), callWall: sr.levels?.callWall ?? gex.callWall ?? null, putFloor: sr.levels?.putFloor ?? gex.putFloor ?? null };
+                const fr: any = flowRes || {};
+                if (fr.maxPain == null && gex.maxPain) fr.maxPain = gex.maxPain;
+                if (fr.callWall == null && gex.callWall) fr.callWall = gex.callWall;
+                if (fr.putFloor == null && gex.putFloor) fr.putFloor = gex.putFloor;
+                if (fr.netGex == null && typeof gex.gex === 'number') fr.netGex = gex.gex;
+                fr.dataSource = 'dynamodb-gex';
+                fr._awsFallback = true;
+                fr._awsAsOf = gex.timestamp || null;   // 언제 계산된 값인지 — 정직하게 실어 보낸다
+                console.warn(`[live/ticker] ${ticker} 옵션 지표를 DynamoDB GEX 로 대체 (벤더 비어 있음, 계산시각 ${gex.timestamp ? new Date(gex.timestamp).toISOString() : '?'})`);
+            }
+        } catch { /* DynamoDB 도 없으면 아래 last-good 병합이 한 번 더 메운다 */ }
+    }
+
     // Phase 2 results - extract OC data and compute derived values
     const OC = ocRes.data || {};
 
@@ -1002,53 +1043,45 @@ export async function GET(req: NextRequest) {
         }
     };
 
-    // [PERF] Cache the slimmed response in Redis (60s TTL)
-    // Non-blocking: don't wait for cache write to respond
-    // ★ [2026-09-04] 실패한 계산은 **저장하지 않는다.** 저장하면 60초 동안
-    //    모든 사용자가 빈 화면을 본다(벤더 예산이 그 사이 회복돼도 소용없다).
-    const writeVerdict = isUsableTickerCache(response);
-    if (writeVerdict.ok) {
-        setInCache(cacheKey, response, TICKER_CACHE_TTL).catch(e => {
+    // ══════════════════════════════════════════════════════════════
+    // ★★ «마지막 정상값» 과 **항상** 병합  [2026-09-04 2차]
+    //
+    //   1차엔 「완전히 실패했을 때만」 옛 값을 꺼냈다. 그런데 실패는 대개
+    //   **부분적**이다 — 가격은 왔는데 옵션만 429, 일봉은 왔는데 실시간만 빈 것.
+    //   그 «반쯤 성공»이 가드를 통과해 캐시에 앉았고, 심지어 온전한 옛 값을
+    //   덮어써 last-good 자체를 망가뜨렸다.
+    //
+    //   그래서 순서를 바꾼다: 옛 값을 바닥에 깔고 이번에 **새로 받아 낸 값만**
+    //   덮는다. 결과는 언제나 «지금까지 알게 된 것의 합»이다.
+    //   나이(_lastGoodAgeMs)를 같이 보내므로 거짓말이 아니다.
+    // ══════════════════════════════════════════════════════════════
+    const freshVerdict = isUsableTickerCache(response);
+    let finalPayload: any = response;
+    let lastGood: any = null;
+    try { lastGood = await getFromCache<any>(LAST_GOOD_PREFIX + ticker); } catch { lastGood = null; }
+    const lastGoodOk = !!(lastGood && isUsableTickerCache(lastGood).ok);
+    if (lastGoodOk) {
+        finalPayload = mergeFreshOverStale(lastGood, response);
+        const goodAt = freshVerdict.ok ? Date.now() : Number(lastGood._goodAt || 0);
+        finalPayload._goodAt = goodAt;
+        finalPayload._stale = !freshVerdict.ok;
+        finalPayload._lastGoodAgeMs = Date.now() - goodAt;
+        if (!freshVerdict.ok) finalPayload._staleReason = freshVerdict.why;
+    } else if (freshVerdict.ok) {
+        finalPayload._goodAt = Date.now();
+    }
+
+    const finalVerdict = isUsableTickerCache(finalPayload);
+    if (finalVerdict.ok) {
+        // [PERF] 60초 응답 캐시 + 12시간 last-good. 둘 다 «병합된 합»을 넣는다.
+        setInCache(cacheKey, finalPayload, TICKER_CACHE_TTL).catch(e => {
             console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
         });
-        // ══════════════════════════════════════════════════════════════
-        // ★★ «마지막 정상값» — 한 번이라도 받은 값은 절대 잃지 않는다.
-        //
-        //   Intrinio 분당 쿼터(429)는 **기다린다고 생기지 않는다.** 재시도로
-        //   메우려 했더니 MU 가 16.9초 걸렸다 — 「틀린 데이터」를 「느린
-        //   데이터」로 바꿨을 뿐이다. 주식 앱에서 둘 다 실패다.
-        //
-        //   그래서 방향을 바꾼다. 쿼터에 막히면 **조금 전의 진짜 값**을 준다.
-        //   화면에 RSI 0.0 · VWAP $0.00 이 뜨는 것보다 5분 전 값이 언제나 낫고,
-        //   나이(_staleAgeMs)를 같이 실어 보내므로 거짓말도 아니다.
-        // ══════════════════════════════════════════════════════════════
-        setInCache(LAST_GOOD_PREFIX + ticker, { ...response, _goodAt: Date.now() }, LAST_GOOD_TTL)
-            .catch(() => { });
+        setInCache(LAST_GOOD_PREFIX + ticker, finalPayload, LAST_GOOD_TTL).catch(() => { });
+        if (!freshVerdict.ok) console.warn(`[live/ticker] ${ticker} 이번 계산 실패(${freshVerdict.why}) → 마지막 정상값과 병합해 응답 (나이 ${Math.round((finalPayload._lastGoodAgeMs || 0) / 1000)}초)`);
     } else {
-        console.warn(`[live/ticker] 캐시 저장 거부 ${ticker} — ${writeVerdict.why}`);
-        // 계산이 실패했으면 마지막 정상값으로 답한다. 빈 화면을 내보내지 않는다.
-        try {
-            const lastGood: any = await getFromCache<any>(LAST_GOOD_PREFIX + ticker);
-            if (lastGood && isUsableTickerCache(lastGood).ok) {
-                const ageMs = Date.now() - Number(lastGood._goodAt || 0);
-                // 이번에 «새로» 받아 낸 값은 살린다(프리마켓 가격 등 일부는 캐시 밖에서 온다).
-                const merged = mergeFreshOverStale(lastGood, response);
-                console.warn(`[live/ticker] ${ticker} 마지막 정상값으로 응답 (나이 ${Math.round(ageMs / 1000)}초)`);
-                return new Response(JSON.stringify({
-                    ...merged,
-                    _stale: true,
-                    _staleAgeMs: ageMs,
-                    _staleReason: writeVerdict.why,
-                }), {
-                    status: 200,
-                    headers: {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                        'X-Cache': 'STALE'
-                    }
-                });
-            }
-        } catch { /* 마지막 정상값도 없으면 아래로 내려가 있는 그대로 답한다 */ }
+        // 옛 값도 없고 이번 것도 못 쓴다 — 저장하지 않고 있는 그대로 답한다.
+        console.warn(`[live/ticker] 캐시 저장 거부 ${ticker} — ${finalVerdict.why}`);
     }
 
     // [FIX] Persist pre/post prices separately — survives session transitions
@@ -1068,7 +1101,7 @@ export async function GET(req: NextRequest) {
         setInCache(`flow:extended:${ticker}`, extPrices, 86400).catch(() => { }); // 24h TTL
     }
 
-    return new Response(JSON.stringify(response), {
+    return new Response(JSON.stringify(finalPayload), {
         status: 200,
         headers: {
             'Content-Type': 'application/json; charset=utf-8',
