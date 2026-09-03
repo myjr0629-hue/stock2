@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: false, error: `모르는 랭킹: ${run}`, available: RANKINGS.map((r) => r.id) }, { status: 400 });
     }
 
-    const CACHE = `ranking:v2:${run}:${days}:${top}`;
+    const CACHE = `ranking:v3:${run}:${days}:${top}`;
     if (q.get('refresh') !== '1') {
         const hit = await getFromCache<any>(CACHE);
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
@@ -108,8 +108,11 @@ export async function GET(req: NextRequest) {
     //    표본 120종목 중 112개가 2026-08-28 에 멈춰 있었다(사실상 죽은 소스).
     //    `/api/cron/structure-build` 가 2,001종목을 8조각으로 굽는다(실측 100%·10초).
     //    그걸 읽으면 «25 → 2,001» 이 되고, 직렬 루프도 없어진다.
+    // 구조 캐시는 «항상» 읽는다. 구조 랭킹의 재료이면서 동시에 **유효 유니버스의
+    // 정본**이기도 하다 — 다크풀 랭킹도 이 목록을 써야 25종목에 갇히지 않는다.
+    // 조각 8개 읽기라 비용이 거의 없다.
     const structRows: Record<string, any> = {};
-    if (needGex) {
+    {
         try {
             const parts = await Promise.all(
                 Array.from({ length: 8 }, (_, i) =>
@@ -409,7 +412,11 @@ export async function GET(req: NextRequest) {
     const payload = {
         ok: true, _v: 7, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
-        optionSession, darkPool: dpMeta, universe: UNIVERSE.length, results,
+        optionSession, darkPool: dpMeta,
+        // 실제로 훑은 종목 수를 말한다. 하드코딩 25 를 그대로 말하면 거짓말이 된다.
+        universe: (STRUCT_UNIVERSE.length || UNIVERSE.length),
+        universeSource: STRUCT_UNIVERSE.length ? 'structure-build (2,001종목)' : '하드코딩 25종목(구조 캐시 없음)',
+        results,
     };
     await setInCache(CACHE, payload, 600).catch(() => { });
     return NextResponse.json({ ...payload, _cache: 'miss' });
