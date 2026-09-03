@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-09-01",
+  "_updated": "2026-09-03",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -191,11 +191,16 @@
     {
       "id": "linkedin",
       "name": "LinkedIn",
-      "tier": "A",
-      "handle": "pick8775@gmail.com",
-      "login": "blocked",
-      "blocker": "reCAPTCHA → 대표 1회",
-      "action": "none"
+      "tier": "C",
+      "handle": "linkedin.com/in/signumhq",
+      "login": "ok",
+      "profile": "ok",
+      "posts": 0,
+      "followers": 0,
+      "tag": "li_profile",
+      "link": "https://signumhq.com/app?from=li_profile",
+      "note": "2026-09-03 프로필 전면 정비 — 영문 기본 프로필(헤드라인 215자·소개 1.5천자)·맞춤 URL(/in/signumhq)·배너·스페셜 3개(세 앱 스마트링크 li_feat)·경력 설명·연락처 웹사이트. 회사 페이지 없음(동명이인 Signum HQ 토론토 결제사가 검색 차지). 한국어 2차 프로필 헤드라인은 링크드인 저장 버튼이 안 먹어 미적용. 링크 미리보기는 Post Inspector 로 «먼저 데워야» 붙는다.",
+      "action": "reply_only"
     },
     {
       "id": "buffer",
