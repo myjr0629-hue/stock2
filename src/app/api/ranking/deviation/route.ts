@@ -38,7 +38,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v2:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v3:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -54,19 +54,24 @@ async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): P
     return out;
 }
 
-type Metric = { key: string; label: { ko: string; en: string; ja: string } };
+// kind — 「감소」를 신호로 볼 수 있는 축인지 구분한다.
+//   magnitude(크기: 미결제약정·프리미엄): 감소는 대개 **수집이 덜 된 것**이다
+//     (harvest 가 만기를 일부만 받아오면 총량이 통째로 준다 — partial 플래그가
+//      있는 이유다). 시장 사건으로 보고 1위에 올리면 오보가 된다. → 급증만.
+//   ratio/score(풋콜·델타·점수): 감소도 그 자체로 정보다. → 양방향.
+type Metric = { key: string; label: { ko: string; en: string; ja: string }; kind: 'magnitude' | 'ratio' };
 // ivSkew 는 뺐다 — 실측 300행 전부 0 이다(생산자가 채우지 않는다).
 const METRICS: Metric[] = [
     // ⚠️ 생산자에서 pcr = totalPutOI / totalCallOI 다 — «거래량» PCR 이 아니라
     //    «미결제약정» PCR 이다. 그냥 「풋콜 비율」이라고 쓰면 시청자는 그날의
     //    거래량 쏠림으로 읽는다. 라벨이 데이터와 어긋나면 그게 곧 오보다.
-    { key: 'pcr', label: { ko: '풋콜 비율(미결제약정)', en: 'Put/call ratio (open interest)', ja: 'プットコール比率(建玉)' } },
-    { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call open interest', ja: 'コール建玉' } },
-    { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put open interest', ja: 'プット建玉' } },
-    { key: 'whaleScore', label: { ko: '대형거래 지표', en: 'Large-trade score', ja: '大口取引スコア' } },
-    { key: 'dex', label: { ko: '델타 노출', en: 'Delta exposure', ja: 'デルタ・エクスポージャー' } },
-    { key: 'squeezeProbability', label: { ko: '스퀴즈 확률', en: 'Squeeze probability', ja: 'スクイーズ確率' } },
-    { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Options premium', ja: 'オプション資金' } },
+    { key: 'pcr', label: { ko: '풋콜 비율(미결제약정)', en: 'Put/call ratio (open interest)', ja: 'プットコール比率(建玉)' }, kind: 'ratio' },
+    { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call open interest', ja: 'コール建玉' }, kind: 'magnitude' },
+    { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put open interest', ja: 'プット建玉' }, kind: 'magnitude' },
+    { key: 'whaleScore', label: { ko: '대형거래 지표', en: 'Large-trade score', ja: '大口取引スコア' }, kind: 'ratio' },
+    { key: 'dex', label: { ko: '델타 노출', en: 'Delta exposure', ja: 'デルタ・エクスポージャー' }, kind: 'ratio' },
+    { key: 'squeezeProbability', label: { ko: '스퀴즈 확률', en: 'Squeeze probability', ja: 'スクイーズ確率' }, kind: 'ratio' },
+    { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Options premium', ja: 'オプション資金' }, kind: 'magnitude' },
 ];
 
 const MIN_SESSIONS = 8;
@@ -94,6 +99,32 @@ const MIN_TODAY_OI = 20000;
 //    사실상 불가능하다. 그런 값은 신호가 아니라 **산포 추정이 붕괴했다는
 //    표시**다(몇 주 평평하다가 한 번 뛴 계열). 게이트로 쓰되 버린다.
 const MAX_Z = 25;
+
+// ══════════════════════════════════════════════════════════════════════
+// [2026-09-03] 다크풀 축이 랭킹을 오염시키고 있었다 (대표: 「부정확한 것 같아」).
+//
+// 실측 9,943종목 (2026-09-02):
+//   장외 거래량   중앙값 53,039 · 75분위 310,383 · 90분위 1,051,819
+//   volRatio     중앙값 **0.73** · 10분위 0.15 · 90분위 1.42
+//
+// ★ 시장 중앙 volRatio 가 0.73 이다. 즉 «평소보다 적음»이 종목의 **절반
+//   (5,058/9,797 = 52%)** 이 처한 정상 상태다. 기준선이 장기 평균이라
+//   구조적으로 그렇게 나온다. 그런데 랭킹은 `|log(ratio)|` 로 급증과 붕괴를
+//   **대칭 취급**했다 — log(0.01)=4.6 이 log(5.7)=1.74 를 이긴다.
+//   그래서 「평소의 1%」짜리가 1위, 「평소의 24%」가 7위로 올라왔다.
+//   그건 시장 이야기가 아니라 **그날 FINRA 행이 부실하다**는 이야기다.
+//
+// ③ 거래량 하한 — 옵션의 MIN_TODAY_OI 와 같은 논리(75분위). CRWU 는 장외
+//    27,007주(거래량 41.9분위)로 1위였다. 2만7천 주가 시장 1위일 수는 없다.
+const DP_MIN_VOLUME = 300_000;
+// ④ 자기 이력 백분위 — 옵션이 |z|≥3 을 요구하는 것의 다크풀판. volRatio 만
+//    보면 이력이 짧은 종목이 통과한다.
+const DP_MIN_VOL_PCTL = 90;
+// ⑤ 거래량 축은 «급증만» 랭킹한다. 붕괴는 (a) 절반의 정상 상태이고
+//    (b) volRatio 가 소수 2자리로 반올림돼 0.01 이면 기준선 역산 오차가 50%를
+//    넘는다(실측 494종목이 ≤0.05). 잴 수 없는 것을 1위로 올리지 않는다.
+//    ※ 비율형 지표(풋콜·델타 등)는 감소도 정보이므로 양방향을 유지한다.
+// ══════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════
 
 const median = (a: number[]): number | null => {
@@ -159,8 +190,8 @@ function seriesOf(snaps: Row[], key: string) {
 
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
-    const top = Math.min(10, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v2:${days}:${top}`;
+    const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
+    const CACHE = `ranking:deviation:v3:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -175,7 +206,7 @@ export async function GET(req: NextRequest) {
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
     }
 
-    const found: any[] = [];
+    let found: any[] = [];
     const skipped: Record<string, number> = {};
     const bump = (r: string) => { skipped[r] = (skipped[r] || 0) + 1; };
 
@@ -270,11 +301,27 @@ export async function GET(req: NextRequest) {
             if (today.v === 0 && /Score|Probability/i.test(m.key)) { bump('0값모호'); continue; }
 
             const ratio = today.v / med;
-            if (!(ratio >= MIN_RATIO || ratio <= 1 / MIN_RATIO)) { bump('배수작음'); continue; }
+            // ⚠️ [2026-09-03] 음수 배수가 그냥 통과하고 있었다. dex(델타 노출)나
+            //    점수류는 음수가 될 수 있는데 `ratio <= 0.74` 를 만족하므로
+            //    게이트를 지나고, 그러면 `rank = |log(음수)| = NaN` 이 된다.
+            //    **NaN 이 비교자에 들어가면 정렬 전체가 무너진다** — 실측:
+            //    [1.2, NaN, 2.5, 0.4] 를 정렬하면 그대로 [1.2, NaN, 2.5, 0.4] 다.
+            //    즉 어느 날 음수 하나만 섞이면 순위가 통째로 뒤죽박죽이 된다.
+            //    에러도 안 나고 목록은 그럴듯해 보인다. 가장 위험한 종류다.
+            if (!Number.isFinite(ratio) || ratio <= 0) { bump('배수무효(음수·비유한)'); continue; }
+            const twoSided = m.kind === 'ratio';
+            const passes = twoSided
+                ? (ratio >= MIN_RATIO || ratio <= 1 / MIN_RATIO)
+                : ratio >= MIN_RATIO;   // 크기형은 급증만 (위 kind 주석)
+            if (!passes) { bump(twoSided ? '배수작음' : '배수작음(크기형은 급증만)'); continue; }
 
             found.push({
                 ticker: t, metric: m.key, label: m.label,
                 today: today.v, baseline: med, ratio, z,
+                // 「평소의 0.4배」와 「평소의 2.5배」는 둘 다 이탈이지만 읽는 법이
+                // 정반대다. 방향을 안 주면 소비처(윈도우 에이전트·영상)가
+                // 배수만 보고 카드를 그려 「0.011배 1위」 같은 게 나온다.
+                direction: ratio >= 1 ? 'surge' : 'collapse',
                 sessions: cmp.length, date: today.d, totalOI: today.oi,
                 rank: Math.abs(Math.log(ratio)),
             });
@@ -358,11 +405,15 @@ export async function GET(req: NextRequest) {
                 // ① 장외 물량이 «시장 대비» 평소의 몇 배
                 const rel = typeof r.volRatio === 'number' && r.volRatio > 0 && mktVolRatio > 0
                     ? r.volRatio / mktVolRatio : null;
-                if (rel !== null && (rel >= MIN_RATIO || rel <= 1 / MIN_RATIO)) {
+                // 급증만 · 유동성 하한 · 자기 이력 백분위 (위 주석의 실측 근거)
+                if (rel !== null && rel >= MIN_RATIO
+                    && r.volume >= DP_MIN_VOLUME
+                    && typeof r.volP === 'number' && r.volP >= DP_MIN_VOL_PCTL) {
                     found.push({
                         ticker: t, metric: 'dpVolRatio', source: 'finra', date: r.date,
                         label: { ko: '장외 거래량(시장 대비)', en: 'Off-exchange volume (vs market)', ja: '取引所外の出来高(市場比)' },
                         today: r.volume, baseline: Math.round(r.volume / r.volRatio!), ratio: rel,
+                        direction: 'surge',
                         rawRatio: r.volRatio, marketRatio: Math.round(mktVolRatio * 100) / 100,
                         percentile: r.volP, regime: r.regime ?? null,
                         rank: Math.abs(Math.log(rel)),
@@ -376,6 +427,7 @@ export async function GET(req: NextRequest) {
                         ticker: t, metric: 'dpShortDev', source: 'finra', date: r.date,
                         label: { ko: '장외 공매도 비중', en: 'Off-exchange short share', ja: '取引所外の空売り比率' },
                         today: r.shortPct, baseline: r.shortAvg, ratio: r.shortPct / r.shortAvg,
+                        direction: r.shortDev >= 0 ? 'surge' : 'collapse',
                         deviationPp: r.shortDev, percentile: r.shortP, regime: r.regime ?? null,
                         // %p 이탈을 시장 중앙값(49%) 기준으로 정규화해 다른 축과 같은 자로 잰다
                         rank: Math.abs(r.shortDev) / 49,
@@ -389,6 +441,13 @@ export async function GET(req: NextRequest) {
         darkPool = { available: false, reason: '조회 실패' };
     }
 
+    // ⚠️ 마지막 방어망. rank 에 NaN 이 하나라도 있으면 비교자가 NaN 을 뱉고
+    //    **정렬이 통째로 무의미해진다**(자바스크립트는 조용히 원래 순서를 남긴다).
+    //    위에서 원인을 막았지만, 새 축을 추가한 사람이 또 만들 수 있는 실수다.
+    //    여기서 한 번 더 걸러 «순위가 조용히 틀리는» 일이 다시 없게 한다.
+    const dropped = found.length;
+    found = found.filter((f) => Number.isFinite(f.rank));
+    const nanDropped = dropped - found.length;
     found.sort((a, b) => b.rank - a.rank);
     // 한 종목이 여러 축으로 상위를 독식하면 랭킹이 아니라 한 종목 소개가 된다.
     const seen = new Set<string>(); const picked: any[] = [];
@@ -407,15 +466,26 @@ export async function GET(req: NextRequest) {
             baseline: `최근 ${days}일 중앙값(평균 아님)`,
             snapshot: '하루에 여러 스냅샷이 있고 실행마다 다른 만기가 걸린다(같은 날 OI 가 20배까지 널뛴다). 그래서 마지막 값이 아니라 «총 OI 가 가장 큰 스냅샷» 하나를 골라 모든 지표를 거기서 읽는다.',
             dispersion: 'MAD',
-            guards: [
-                '만기 롤오버(같은 규모 체인만 비교)',
-                `최소 비교 ${MIN_REGIME_DAYS}일`,
-                `${MIN_Z} ≤ |z| ≤ ${MAX_Z} (상한은 산포 붕괴 탐지용)`,
-                `배수 ≥ ${MIN_RATIO}`,
-                `당일 총 미결제약정 ≥ ${MIN_TODAY_OI.toLocaleString()} (얇은 종목의 지표는 잡음이다)`,
-                '수집 최신 세션과 다른 종목 제외',
-            ],
-            note: '순위는 «평소의 몇 배»(비율). σ 는 게이트로만 쓴다.',
+            // ⚠️ 축마다 게이트가 다르다. 하나로 뭉뚱그려 적으면 문서가 거짓말이 된다
+            //    (예전엔 z 게이트가 다크풀에도 걸리는 것처럼 적혀 있었다 — 안 걸린다).
+            guards: {
+                옵션: [
+                    '만기 롤오버(같은 규모 체인만 비교)',
+                    `최소 비교 ${MIN_REGIME_DAYS}일`,
+                    `${MIN_Z} ≤ |z| ≤ ${MAX_Z} (상한은 산포 붕괴 탐지용)`,
+                    `배수 ≥ ${MIN_RATIO} 또는 ≤ ${(1 / MIN_RATIO).toFixed(2)} (양방향)`,
+                    `당일 총 미결제약정 ≥ ${MIN_TODAY_OI.toLocaleString()} (얇은 종목의 지표는 잡음이다)`,
+                    '수집 최신 세션과 다른 종목 제외',
+                ],
+                다크풀_거래량: [
+                    `장외 거래량 ≥ ${DP_MIN_VOLUME.toLocaleString()}주 (실측 75분위)`,
+                    `자기 이력 백분위 ≥ ${DP_MIN_VOL_PCTL}`,
+                    `시장 대비 배수 ≥ ${MIN_RATIO} — **급증만**`,
+                    '시장 중앙 배수가 0.73 이라 «평소보다 적음»은 종목 절반의 정상 상태다. 붕괴를 같이 재면 그게 1위를 먹는다.',
+                ],
+                다크풀_공매도: ['평소 대비 |%p 이탈| ≥ 8 (양방향)'],
+            },
+            note: '순위는 «평소의 몇 배»(비율). σ 는 게이트로만 쓴다. 각 항목의 `direction` 이 surge/collapse 를 알려 준다 — 배수만 보고 카드를 그리면 안 된다.',
             darkPool: 'FINRA 장외. 마감 후 약 90분(17:30 ET)에 들어온다. 없으면 랭킹에서 빠지고 available:false 로 보고한다. 공매도는 시장 중앙값이 49% 라 절대값이 아니라 그 종목의 평소 대비 %p 이탈로 잰다.',
         },
         universe: UNIVERSE.length,
@@ -427,7 +497,7 @@ export async function GET(req: NextRequest) {
         partial: partialReason ?? false,
         shards: SHARDS,
         darkPool,
-        candidates: found.length,
+        candidates: found.length, nanDropped,
         skipped,
         ranking: picked,
     };
