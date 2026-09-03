@@ -208,11 +208,15 @@ export async function GET(request: Request) {
             tickers.forEach((t, i) => {
                 const a: any = analysisCache[t];
                 const c: any = cachedTickers[i];
+                // «차갑다»의 기준은 한 필드가 아니다 — 화면이 읽는 축 중 하나라도 비면 데운다.
+                //   (처음엔 RSI 만 봤는데, RSI 는 있고 넷프리미엄만 빈 종목이 10개 남았다)
                 const hasRsi = Number.isFinite(Number(a?.rsi)) || Number.isFinite(Number(c?.display?.rsi14));
-                if (!hasRsi) coldIdx.push(i);
+                const hasPrem = Number.isFinite(Number(a?.netPremium)) || Number.isFinite(Number(c?.flow?.netPremium));
+                const hasSkew = Number.isFinite(Number(a?.ivSkew)) || Number.isFinite(Number(c?.flow?.ivSkew));
+                if (!hasRsi || !hasPrem || !hasSkew) coldIdx.push(i);
             });
             if (coldIdx.length > 0) {
-                const take = coldIdx.slice(0, 8);
+                const take = coldIdx.slice(0, 12);
                 const got = await Promise.all(take.map(async (i) => {
                     try {
                         const url = `https://www.signumhq.com/api/live/ticker?t=${tickers[i]}&chain=0&skip_alpha=1`;
