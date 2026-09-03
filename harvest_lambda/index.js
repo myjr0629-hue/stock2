@@ -251,14 +251,31 @@ async function harvestGex(priceMap) {
           //     예상 변동폭 = (ATM 콜 + ATM 풋) / 현재가
           //   ⚠️ IV × √(일수/365) 로 «환산»하면 정본과 다른 값이 되어 같은 칸에
           //     두 정의가 섞인다. 시장이 실제로 매긴 값만 쓴다.
-          const px = (o) => Number(o?.last_trade?.price ?? o?.day?.close ?? o?.close ?? 0);
-          if (atmCall && atmPut && price > 0) {
-            const cp = px(atmCall), pp = px(atmPut);
-            if (cp > 0 && pp > 0) {
-              const im = ((cp + pp) / price) * 100;
-              // 비정상 값(체인 오염)은 버린다 — 하루 만기 스트래들이 주가의 50% 일 수는 없다
-              if (im > 0 && im < 50) impliedMovePct = Math.round(im * 10) / 10;
-            }
+          // ⚠️ getAllOptions 는 **전 만기**를 가져온다. 행사가 거리만 보고 ATM 을 고르면
+          //   먼 만기(LEAP)가 뽑혀 스트래들이 비싸지고 값이 부풀어 오른다
+          //   (실측: ASML 16.1% · SNOW 17.4% — 주간 예상 변동폭일 수 없는 값).
+          //   예상 변동폭은 «가장 가까운 만기»의 값이어야 한다. 그 만기로 좁힌다.
+          // 가격 출처 — 체결이 없으면 호가 중간값을 쓴다. 근월 계약은 장 초반에
+          // 체결이 없는 일이 흔해서, last_trade 만 보면 값이 통째로 빈다(SPY 실측).
+          const px = (o) => {
+            const t = Number(o?.last_trade?.price ?? o?.day?.close ?? o?.close ?? 0);
+            if (t > 0) return t;
+            const b = Number(o?.last_quote?.bid ?? 0), a = Number(o?.last_quote?.ask ?? 0);
+            return b > 0 && a > 0 ? (b + a) / 2 : 0;
+          };
+          const today = new Date().toISOString().slice(0, 10);
+          // 가까운 만기부터 차례로 본다 — 첫 만기에 값이 없으면 다음 만기로 넘어간다.
+          const exps = [...new Set(opts.map(o => o.details?.expiration_date).filter(e => e && e >= today))].sort();
+          for (const exp of exps.slice(0, 4)) {
+            const front = opts.filter(o => o.details?.expiration_date === exp);
+            const near = (type) => front
+              .filter(o => o.details?.contract_type === type && px(o) > 0)
+              .sort((a, b) => Math.abs(a.details.strike_price - price) - Math.abs(b.details.strike_price - price))[0];
+            const fc = near('call'), fp = near('put');
+            if (!fc || !fp || !(price > 0)) continue;
+            const im = ((px(fc) + px(fp)) / price) * 100;
+            // 체인 오염 방어 — 근월 스트래들이 주가의 30% 일 수는 없다
+            if (im > 0 && im < 30) { impliedMovePct = Math.round(im * 10) / 10; break; }
           }
         } catch {}
 
