@@ -38,7 +38,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v7:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v8:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -215,7 +215,7 @@ function seriesOf(snaps: Row[], key: string) {
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v7:${days}:${top}`;
+    const CACHE = `ranking:deviation:v8:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -471,7 +471,28 @@ export async function GET(req: NextRequest) {
                         rank: Math.abs(Math.log(rel)),
                     });
                 }
-                // ② 은밀 매집·분산 (stealth)
+                // ② 장외 «비중» 이탈 — 거래량이 아니라 «어디로 갔나»
+                //    거래량은 거래소에서도 늘 수 있다. 비중이 35%→60% 로 뛰면
+                //    그건 기관이 «경로»를 바꿨다는 뜻이라 다른 신호다.
+                //    ⚠️ 자기 이력 백분위(pctP)로 잰다 — 절대 비중은 시장 중앙값이
+                //       39% 라 매일 같은 배관 종목만 나온다(기록된 함정).
+                //    ⚠️ [2026-09-03] pct 이력은 아직 4/23일치다(vol·short 는 23일).
+                //       생산자가 「과거 통합거래량이 없어 소급 불가」라 오늘부터
+                //       쌓는다. pctP 가 null 이면 조용히 빠지고, 이력이 차면
+                //       **손대지 않아도 저절로 켜진다.**
+                if (typeof r.pctP === 'number' && r.pctP >= 95
+                    && typeof r.pct === 'number' && r.volume >= DP_MIN_VOLUME) {
+                    found.push({
+                        ticker: t, metric: 'dpShareSpike', source: 'finra', date: r.date,
+                        label: { ko: '장외 비중 급등', en: 'Off-exchange share spike', ja: '取引所外シェア急騰' },
+                        today: r.pct, baseline: r.marketAvg ?? null,
+                        percentile: r.pctP, direction: 'surge',
+                        volume: r.volume, regime: r.regime ?? null,
+                        rank: (r.pctP - 90) / 10,
+                    });
+                }
+
+                // ③ 은밀 매집·분산 (stealth)
                 //    stealth = volP×0.6 + (100−shortP)×0.4  (finra-offexchange.js L289)
                 //    「거래량은 많은데 공매도는 적다」 = 진짜 매수자가 장외에서 물량을
                 //    담았다는 뜻이다. 반대면 분산이다. 이미 계산해 두고 랭킹에 안 쓰던
@@ -638,7 +659,7 @@ export async function GET(req: NextRequest) {
     // 통일해야 하는데(배수 vs %p vs 근접도) 그 과정에서 왜곡이 생긴다.
     // 축 안에서는 같은 자로 재므로 순위가 정확하다 — 그래서 이쪽이 정본이다.
     const AXIS_ORDER = [
-        'dpStealth', 'dpVolRatio',                                  // 마감 · 다크풀
+        'dpStealth', 'dpShareSpike', 'dpVolRatio',                   // 마감 · 다크풀
         'gammaFlipEdge', 'maxPainPin', 'maxPainGap', 'wallSqueeze',  // 장중 · 위치
         'pcr', 'totalCallOI', 'totalPutOI', 'totalPremium',          // 장중 · 이탈
     ];
@@ -709,6 +730,18 @@ export async function GET(req: NextRequest) {
         // ★ 정본은 `groups` 다 — 축별 목록. `ranking` 은 합본(하위호환·요약용).
         groups,
         structure,
+        // 축이 «왜 비어 있는지»가 밖에서 보여야 한다. 안 보이면 켜진 줄 안다.
+        axesStatus: [
+            { metric: 'dpStealth', ready: !!groups.dpStealth, note: 'FINRA stealth — 즉시' },
+            { metric: 'dpShareSpike', ready: !!groups.dpShareSpike,
+              note: 'pct 이력 10일 필요(생산자가 오늘부터 쌓는 중) — 차면 자동 활성' },
+            { metric: 'dpVolRatio', ready: !!groups.dpVolRatio, note: 'FINRA volRatio — 즉시' },
+            { metric: 'gammaFlipEdge', ready: !!groups.gammaFlipEdge, note: '오늘 체인 — 이력 불필요' },
+            { metric: 'maxPainPin', ready: !!groups.maxPainPin, note: '오늘 체인 — 이력 불필요' },
+            { metric: 'maxPainGap', ready: !!groups.maxPainGap, note: '오늘 체인 — 이력 불필요' },
+            { metric: 'wallSqueeze', ready: !!groups.wallSqueeze, note: '오늘 체인 — 이력 불필요' },
+            { metric: 'pcr', ready: !!groups.pcr, note: '이력 8세션 · 수집 커버리지에 의존' },
+        ],
         // 유니버스 중 «오늘 자료가 있는» 비율. 낮으면 순위가 좁은 표본에서 나온다.
         coverage: (() => {
             const tot = Object.values(coverage.lastSeen).reduce((a, b) => a + b, 0);
