@@ -130,16 +130,19 @@ export function RealityCheck({
         return map[key]?.[locale] || map[key]?.en || key;
     };
 
-    // Get localized summary/analysis
+    // ⚠️ 다른 언어로 «조용히 대체»하지 않는다 (2026-09-03).
+    //    예전엔 `summaryKR || summaryEN` 이라 한국어가 비면 영어가 그대로 떴다.
+    //    서버가 요청한 언어로 걸러 주므로 요약은 항상 있고, 분석이 비면
+    //    그 블록은 렌더링되지 않는다(`{analysis && ...}`) — 빈 게 틀린 언어보다 낫다.
     const getLocalizedSummary = (item: NewsDigestItem): string => {
-        if (locale === 'ko') return item.summaryKR || item.summaryEN;
-        if (locale === 'ja') return item.summaryJP || item.summaryEN;
-        return item.summaryEN || item.summaryKR;
+        if (locale === 'ko') return item.summaryKR || '';
+        if (locale === 'ja') return item.summaryJP || '';
+        return item.summaryEN || '';
     };
     const getLocalizedAnalysis = (item: NewsDigestItem): string => {
-        if (locale === 'ko') return item.analysisKR || item.analysisEN;
-        if (locale === 'ja') return item.analysisJP || item.analysisEN;
-        return item.analysisEN || item.analysisKR;
+        if (locale === 'ko') return item.analysisKR || '';
+        if (locale === 'ja') return item.analysisJP || '';
+        return item.analysisEN || '';
     };
 
     // Age formatter

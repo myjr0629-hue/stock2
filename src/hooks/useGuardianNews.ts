@@ -3,6 +3,7 @@
 "use client";
 
 import useSWR from 'swr';
+import { useLocale } from 'next-intl';
 
 const fetcher = (url: string) => fetch(url).then(res => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -37,8 +38,13 @@ export interface NewsDigest {
 }
 
 export function useGuardianNews(enabled: boolean = true) {
+    // ⚠️ locale 을 반드시 보낸다. 서버가 «요청한 언어로 읽을 수 있는 것»만 돌려주므로
+    //    이걸 빠뜨리면 한국어·일본어 사용자에게 영어가 간다(2026-09-03).
+    //    SWR 키에 locale 이 들어가야 언어 전환 시 캐시가 섞이지 않는다.
+    const locale = useLocale();
+
     const { data, error, isLoading, mutate } = useSWR<NewsDigest>(
-        enabled ? '/api/guardian/news-digest' : null,
+        enabled ? `/api/guardian/news-digest?locale=${locale}` : null,
         fetcher,
         {
             refreshInterval: 60000,      // Re-check every 60s (cache hit = fast)

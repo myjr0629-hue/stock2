@@ -282,9 +282,12 @@ Output ONLY the JSON array — no explanation, no markdown.`;
         return articles.slice(0, BATCH_SIZE).map((a, i) => ({
             id: a.id || `news-${i}`,
             headline: a.title || 'No Title',
-            summaryKR: a.description?.substring(0, 120) || a.title,
+            // ⚠️ 한국어·일본어 칸에 **영어를 넣지 않는다.** 예전엔 원문을 그대로 채워
+            //    「번역된 척」하는 항목이 만들어졌고, 그게 캐시에 쌓여 한국어 화면에
+            //    영어가 떴다. 비워 두면 forLocale 이 걸러 내고 다음 주기에 다시 시도된다.
+            summaryKR: '',
             summaryEN: a.description?.substring(0, 120) || a.title,
-            summaryJP: a.title,
+            summaryJP: '',
             analysisKR: '', analysisEN: '', analysisJP: '',
             category: 'US_MARKET' as const,
             impact: 'NEUTRAL' as const,
@@ -298,11 +301,41 @@ Output ONLY the JSON array — no explanation, no markdown.`;
     }
 }
 
+// ============================================================================
+// 요청한 «그 언어로 읽을 수 있는 것»만 내보낸다 — 응답 직전에 거른다.
+// ----------------------------------------------------------------------------
+// 왜 (2026-09-03 실측): 한국어 UI 인데 뉴스 펄스에 영어 원문이 떴다.
+//   화면 코드는 `summaryKR || summaryEN` 이라 한국어가 비면 **조용히 영어로 대체**한다.
+//   서버에도 필터가 있었지만 두 군데가 새고 있었다:
+//     ① 캐시로 나가는 경로에는 필터가 아예 없었다 (아래 cached 반환)
+//     ② 「3개 미만이면 필터를 포기한다」는 안전밸브가 영어를 통과시켰다
+//   그래서 «늦게라도 한국어로 바뀌는» 증상이 됐다 — 새 AI 배치가 덮을 때까지 영어였다.
+//
+// 캐시에는 3개 언어를 모두 담아 두고, **거르는 건 응답 직전에** 한다.
+// 그래야 영어 사용자의 목록이 한국어 사정 때문에 줄지 않는다.
+// 하나도 안 남으면 빈 배열을 준다 — 화면이 「뉴스를 불러오는 중…」을 보여주므로
+// 깨지지 않고, 다음 주기에 다시 채워진다. **틀린 언어보다 낫다.**
+// ============================================================================
+const HAS_KO = /[가-힣]/;
+const HAS_JA = /[ぁ-ゟ゠-ヿ]/;   // 가나 — 일본어엔 항상 있고 영어·한국어엔 없다
+
+function readableIn(it: NewsDigestItem, locale: string): boolean {
+    if (locale === 'ko') return HAS_KO.test(it.summaryKR || '');
+    if (locale === 'ja') return HAS_JA.test(it.summaryJP || '');
+    return !!(it.summaryEN || '').trim();
+}
+
+function forLocale(items: NewsDigestItem[], locale: string): NewsDigestItem[] {
+    return items.filter(it => readableIn(it, locale));
+}
+
 // ===== Main API Handler =====
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const forceRefresh = searchParams.get('refresh') === '1';
     const isUrgent = searchParams.get('urgent') === '1';
+    const rawLocale = (searchParams.get('locale') || 'en').toLowerCase();
+    const locale = rawLocale.startsWith('ko') ? 'ko' : rawLocale.startsWith('ja') ? 'ja' : 'en';
 
     // Step 1: Load existing cache (always — we need it for accumulation)
     let existingDigest: NewsDigest | null = null;
@@ -312,11 +345,15 @@ export async function GET(req: NextRequest) {
 
     // Return cached if not refreshing and cache has items
     if (!forceRefresh && !isUrgent && existingDigest && existingDigest.items?.length > 0) {
-        const items = existingDigest.items.map(it => ({
+        const items = forLocale(existingDigest.items, locale).map(it => ({
             ...it,
             ageMinutes: getAgeMinutes(it.publishedAt),
         }));
-        return NextResponse.json({ ...existingDigest, items, _source: 'cached' });
+        // 그 언어로 읽을 게 하나도 없으면 캐시를 믿지 말고 아래에서 새로 만든다.
+        if (items.length > 0) {
+            return NextResponse.json({ ...existingDigest, items, _source: 'cached', _locale: locale });
+        }
+        console.warn(`[NewsDigest] 캐시에 ${locale} 로 읽을 항목이 없다 — 새로 만든다`);
     }
 
     // Step 2: Fetch fresh articles from BOTH sources
@@ -361,15 +398,17 @@ export async function GET(req: NextRequest) {
     const uniqueItems = deduplicateItems(allItems);
 
     // [FIX 2026-07-14] Never surface a translation-failed item. When an AI batch falls back
-    // (summaryKR/JP = raw English), those items would render English under KO/JA UI. Drop them
-    // from the display+cache so the News Pulse is only ever properly localized — a shorter list
-    // beats a wrong-language one, and dropping them (vs caching) means they get re-fetched and
-    // retried next cycle instead of sticking forever. Safety: if fewer than 3 survive (e.g. a
-    // transient outage), keep the unfiltered set rather than emptying the pulse.
-    const HAS_KO = /[가-힣]/;          // Hangul
-    const HAS_JA = /[ぁ-ゟ゠-ヿ]/;      // kana (hiragana/katakana) — Japanese always has it; English/Korean don't
-    const localized = uniqueItems.filter(it => HAS_KO.test(it.summaryKR || '') && HAS_JA.test(it.summaryJP || ''));
-    const displayItems = (localized.length >= 3 ? localized : uniqueItems)
+    // (summaryKR/JP = raw English), those items would render English under KO/JA UI.
+    //
+    // [2026-09-03] 예전엔 여기서 «3개 미만이면 필터를 포기»했다. 그 안전밸브가
+    //   영어 항목을 캐시까지 통과시켰고, 한국어 화면에 영어가 뜨는 원인이 됐다.
+    //   이제 캐시에는 **3개 언어를 다 담고**, 거르는 건 응답 직전(forLocale)에 한다.
+    //   그래서 여기서는 「셋 중 하나라도 번역된 것」만 남기면 된다 — 완전 실패 항목은
+    //   저장하지 않아야 다음 주기에 다시 시도된다.
+    const translated = uniqueItems.filter(it =>
+        HAS_KO.test(it.summaryKR || '') || HAS_JA.test(it.summaryJP || ''));
+    const keep = translated.length > 0 ? translated : uniqueItems;
+    const displayItems = keep
         .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
         .slice(0, DISPLAY_SIZE)
         .map(it => ({ ...it, ageMinutes: getAgeMinutes(it.publishedAt) }));
@@ -395,5 +434,10 @@ export async function GET(req: NextRequest) {
         console.warn('[NewsDigest] Redis save failed:', e);
     }
 
-    return NextResponse.json(digest);
+    // 캐시에는 3개 언어를 다 담고, 응답은 요청한 언어로만 준다.
+    return NextResponse.json({
+        ...digest,
+        items: forLocale(displayItems, locale),
+        _locale: locale,
+    });
 }
