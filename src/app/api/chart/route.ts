@@ -25,7 +25,22 @@ export const dynamic = 'force-dynamic';
 //     stale-while-revalidate → 만료돼도 즉시 주고 뒤에서 갱신
 //   한국 사용자의 차트가 «미국 왕복 650ms» 에서 «엣지 응답» 으로 바뀐다.
 // ══════════════════════════════════════════════════════════════
-const CHART_EDGE_CACHE = 'public, max-age=0, s-maxage=30, stale-while-revalidate=120';
+// ⚠️ `force-dynamic` 라우트에서는 Vercel 이 `Cache-Control` 의 **s-maxage 를 벗겨 낸다**
+//   (실측: 보낸 건 `public, max-age=0, s-maxage=30, swr=120` 인데 응답엔 `public, max-age=0`
+//    만 남고 x-vercel-cache 는 계속 MISS). 그래서 엣지 전용 헤더를 따로 쓴다 —
+//   `Vercel-CDN-Cache-Control` 은 벗겨지지 않고, 브라우저엔 전달되지도 않는다.
+const CHART_EDGE_CACHE = 'public, max-age=0, must-revalidate';
+const CHART_CDN_CACHE = 'public, s-maxage=30, stale-while-revalidate=120';
+const CHART_CDN_CACHE_LONG = 'public, s-maxage=120, stale-while-revalidate=600';
+/** 브라우저용 + 엣지용을 함께 실어 보낸다. */
+const chartHeaders = (isOneDay: boolean, sparse = false) => sparse
+    ? { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+    : {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': CHART_EDGE_CACHE,
+        'CDN-Cache-Control': isOneDay ? CHART_CDN_CACHE : CHART_CDN_CACHE_LONG,
+        'Vercel-CDN-Cache-Control': isOneDay ? CHART_CDN_CACHE : CHART_CDN_CACHE_LONG,
+    };
 
 
 export async function GET(request: Request) {
@@ -107,7 +122,7 @@ export async function GET(request: Request) {
                         range, symbol, count: cached.data?.length || 0
                     }), {
                         status: 200,
-                        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': range === '1d' ? CHART_EDGE_CACHE : 'public, max-age=0, s-maxage=120, stale-while-revalidate=300' }
+                        headers: chartHeaders(range === '1d')
                     });
                 }
             } else {
@@ -121,7 +136,7 @@ export async function GET(request: Request) {
                     range, symbol, count: cached.data?.length || 0
                 }), {
                     status: 200,
-                    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': range === '1d' ? CHART_EDGE_CACHE : 'public, max-age=0, s-maxage=120, stale-while-revalidate=300' }
+                    headers: chartHeaders(range === '1d')
                 });
             }
         }
@@ -164,16 +179,11 @@ export async function GET(request: Request) {
         // 장기 차트(5D+)만 CDN 캐시 허용
         // 데이터가 빈약하면(합성 앵커 한두 점) 캐시하지 않는다 — 그걸 30초 굳히면
         // 모든 사용자가 빈 차트를 본다.
-        const cacheControlHeader = isSparseData
-            ? 'no-store, no-cache, must-revalidate'
-            : (range === '1d' ? CHART_EDGE_CACHE : 'public, max-age=0, s-maxage=120, stale-while-revalidate=300');
+        const outHeaders = chartHeaders(range === '1d', isSparseData);
 
         return new Response(JSON.stringify(response), {
             status: 200,
-            headers: {
-                'Content-Type': 'application/json; charset=utf-8',
-                'Cache-Control': cacheControlHeader
-            }
+            headers: outHeaders
         });
     } catch (error) {
         return NextResponse.json({ error: 'Failed to fetch chart data' }, { status: 500 });
