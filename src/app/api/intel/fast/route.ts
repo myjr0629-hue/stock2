@@ -183,11 +183,16 @@ export async function GET(request: Request) {
 
         const gexFallback: Record<string, any> = {};
         try {
-            const needGex = tickers.filter((t) => {
+            // ⚠️ 판정은 **렌더와 똑같은 순서**여야 한다. 처음엔 「analysis 든 cached 든
+            //   하나라도 값이 있으면 제외」로 썼는데, 렌더는 `if (analysis) … else if (cached)`
+            //   라서 **analysis 가 존재하되 전부 null 인 종목**은 cached 를 보지도 않는다.
+            //   그 종목이 「cached 에 값이 있다」는 이유로 폴백에서 빠져 결국 «—» 로 남았다
+            //   (실측 AMZN·AMD·AVGO: DynamoDB 엔 11분 전 값이 있는데 화면은 null).
+            const needGex = tickers.filter((t, i) => {
                 const a: any = analysisCache[t];
-                if (a && (a.gex != null || a.maxPain != null || a.pcr != null)) return false;
-                const c: any = cachedTickers[tickers.indexOf(t)];
-                if (c?.flow && (c.flow.netGex != null || c.flow.maxPain != null)) return false;
+                if (a) return !(a.gex != null || a.maxPain != null || a.pcr != null);
+                const c: any = cachedTickers[i];
+                if (c?.flow) return !(c.flow.netGex != null || c.flow.maxPain != null);
                 return true;
             });
             if (needGex.length > 0) {
