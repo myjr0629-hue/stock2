@@ -34,10 +34,13 @@ STORE_CC = {"ko": "kr", "ja": "jp", "en-US": "us"}
 # 플레이는 «의도»를 읽을 API 가 없다. 그래서 여기에 적는다.
 # 플레이 이름을 바꾸면 여기도 바꾼다 — 안 바꾸면 이 검사기가 잡는다(그게 목적이다).
 PLAY_EXPECTED = {
+    # 2026-09-03 변경: 플레이 이름이 UC 와 같은 자리(«AI Stock News»)를 노리고 있었고
+    # 앱스토어 이름과도 어긋났다. 한국 플레이 검색 10개 전부에서 부재였던 원인이다.
+    # 앱스토어 이름(실적 발표 일정 #1)에 통일했다. 정본=.agent/marketing/ASO-PLAN.md
     "com.signumhq.app": {
-        "ko": "SIGNUM: AI 주식 뉴스 캘린더 알림",
-        "ja": "SIGNUM: AI 株式ニュース カレンダー",
-        "en": "SIGNUM: AI Stock News Calendar"},
+        "ko": "SIGNUM HQ: 서학개미 미국증시 실적",
+        "ja": "SIGNUM HQ: 米国株リアルタイム決算",
+        "en": "SIGNUM HQ: Premarket Earnings"},
     "com.signumhq.undercurrent": {
         "ko": "언더커런트: AI 주식 뉴스 캘린더",
         "ja": "アンダーカレント: AI 株式ニュース",
@@ -232,7 +235,14 @@ def audit_live(tag: str, aid: str, pkg: str, in_flight: bool):
         if got is None:
             bad(f"{tag} AppStore {cc}", "스토어에서 앱을 못 찾았다")
             continue
-        mark = "✓" if (exp and got == exp) else ("…" if in_flight else "✗")
+        # exp 가 없으면 «틀렸다»가 아니라 «비교 기준을 못 읽었다»다.
+        # ✗ 로 찍으면 멀쩡한 앱을 쫓게 된다 — 실제로 UC·WIM 이 그렇게 보였다.
+        if not exp:
+            mark = "–"
+        elif got == exp:
+            mark = "✓"
+        else:
+            mark = "…" if in_flight else "✗"
         print(f"    AppStore {cc}  v{ver:<7s} {mark} {got}")
         if exp and got != exp:
             if in_flight:
