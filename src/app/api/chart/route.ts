@@ -33,7 +33,7 @@ const CHART_EDGE_CACHE = 'public, max-age=0, must-revalidate';
 const CHART_CDN_CACHE = 'public, s-maxage=30, stale-while-revalidate=120';
 const CHART_CDN_CACHE_LONG = 'public, s-maxage=120, stale-while-revalidate=600';
 /** 브라우저용 + 엣지용을 함께 실어 보낸다. */
-const chartHeaders = (isOneDay: boolean, sparse = false) => sparse
+const chartHeaders = (isOneDay: boolean, sparse = false): Record<string, string> => sparse
     ? { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' }
     : {
         'Content-Type': 'application/json; charset=utf-8',
