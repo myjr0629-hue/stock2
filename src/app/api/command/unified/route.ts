@@ -312,8 +312,19 @@ function isFieldUsable(field: string, data: any): boolean {
         //    「쓸만함」으로 통과해 갭필이 통째로 건너뛰어졌다(AMD 실측: 체인·PCR·GEX 는
         //    있는데 underlyingPrice·prevClose·maxPain 이 전부 null → 화면이 빈 채로 200 OK).
         //    커맨드 화면의 머리글이 가격이다. 가격이 없으면 그 structure 는 못 쓴다.
-        case 'structure': return (data.options_status === 'OK' || data.netGex != null)
-            && (data.underlyingPrice != null || data.prevClose != null);
+        // ⚠️ [2026-09-04] 한 겹 더. 「NO_MARKET + 빈 strikes」 인데 netGex·underlyingPrice 가
+        //    남아 있어 **껍데기가 「쓸만함」으로 통과**했다(MSFT 실측: expiration 이
+        //    오늘(=이미 만료)로 굳고 strikes:[] 인 채 memory-lru 에 앉아 있었다).
+        //    그래서 갭필도, DynamoDB GEX 폴백도 한 번도 안 걸렸고 화면엔 감마플립 «—».
+        //    화면이 실제로 읽는 값(맥스페인·감마플립)이 없으면 그 structure 는 못 쓴다.
+        case 'structure': {
+            if (data.options_status === 'NO_MARKET') return false;
+            const hasLevels = data.maxPain != null || data.gammaFlipLevel != null
+                || data.levels?.callWall != null || data.levels?.putFloor != null;
+            return (data.options_status === 'OK' || data.netGex != null)
+                && (data.underlyingPrice != null || data.prevClose != null)
+                && hasLevels;
+        }
         default: return true;
     }
 }
