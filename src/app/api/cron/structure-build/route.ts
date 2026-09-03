@@ -38,8 +38,12 @@ const SHARDS = 8;
 //    (샤드 동시 발화 시 성공률 47% → 1분 스태거 후 98%).
 //    → 조각을 계단식으로 띄우고(STAGGER_MS) 동시성을 낮추고, 가격이 안 잡히면
 //      한 번 더 시도한다. 셋 다 같은 원인을 다른 각도에서 막는다.
-const CONCURRENCY = 10;
-const STAGGER_MS = 2500;
+//    → [해결] 시세를 **배치로 한 번에** 받아 `getStructureData` 에 주입한다.
+//      `/api/live/quotes` 는 250종목을 1.8초에 98.4% 로 준다. 종목당 시세 콜이
+//      사라지므로 한도 문제 자체가 없어지고, 동시성도 올릴 수 있다.
+const CONCURRENCY = 24;
+const STAGGER_MS = 1200;
+const QUOTE_CHUNK = 250;
 const PART_TTL = 2 * 3600;          // 2시간 — 굽는 주기보다 넉넉히
 const ORIGIN = 'https://www.signumhq.com';
 
@@ -112,14 +116,26 @@ export async function GET(req: NextRequest) {
     const slice = UNIVERSE.slice(shard * per, (shard + 1) * per);
     const started = Date.now();
 
+    // ── 시세를 먼저 «한 번에» 받는다 ─────────────────────────────────
+    const quotes: Record<string, { price: number; prevClose?: number | null }> = {};
+    for (let i = 0; i < slice.length; i += QUOTE_CHUNK) {
+        const chunk = slice.slice(i, i + QUOTE_CHUNK);
+        try {
+            const res = await fetch(`${ORIGIN}/api/live/quotes?symbols=${chunk.join(',')}`, {
+                cache: 'no-store', signal: AbortSignal.timeout(20000),
+            });
+            const j: any = await res.json().catch(() => null);
+            for (const [k, v] of Object.entries((j?.data ?? {}) as Record<string, any>)) {
+                const px = Number((v as any)?.price);
+                if (px > 0) quotes[k] = { price: px, prevClose: Number((v as any)?.prevClose) || null };
+            }
+        } catch { /* 조각 일부가 없어도 나머지는 굽는다 */ }
+    }
+
     const rows = await mapPool(slice, CONCURRENCY, async (t): Promise<StructRow | null> => {
         try {
-            let d: any = await getStructureData(t, null);
-            if (!(Number(d?.underlyingPrice) > 0)) {
-                // 레이트리밋으로 시세만 못 받은 경우가 대부분이다 — 한 번 더 준다.
-                await new Promise((r) => setTimeout(r, 400 + Math.random() * 600));
-                d = await getStructureData(t, null);
-            }
+            const q = quotes[t];
+            const d: any = await getStructureData(t, null, q ?? null);
             const px = Number(d?.underlyingPrice);
             // 가격이 없으면 「위치」를 잴 수 없다. 0 으로 채우지 않고 버린다 —
             // 없는 값을 0 으로 쓰면 랭킹이 그 종목을 1위로 올린다(오늘 겪었다).

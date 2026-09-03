@@ -142,7 +142,21 @@ function validateCalculations(
 }
 
 
-export async function getStructureData(ticker: string, requestedExp?: string | null) {
+/**
+ * @param spot  시세를 «미리 받아 온» 경우 주입한다. 주면 종목당 시세 1콜을 건너뛴다.
+ *
+ * ⚠️ [2026-09-03] 랭킹의 배치 생산자(structure-build)가 2,001종목을 돌 때
+ *    종목당 시세를 부르니 **분당 한도가 약 500콜에서 소진**됐다(조각 0·1 은
+ *    251/251 성공, 조각 3 은 0). `/api/live/quotes` 는 250종목을 1.8초에
+ *    98.4% 로 준다 — 배치로 받아 여기에 넣으면 한도 문제가 사라진다.
+ *    계산 로직은 건드리지 않는다. 스냅샷 모양만 만들어 끼워 넣어
+ *    아래 흐름이 «네트워크로 받았을 때»와 한 글자도 다르지 않게 한다.
+ */
+export async function getStructureData(
+    ticker: string,
+    requestedExp?: string | null,
+    spot?: { price: number; prevClose?: number | null } | null,
+) {
     const cacheKey = `${ticker}:${requestedExp || 'auto'}`;
 
     // [DATA CONSISTENCY] Check cache first
@@ -153,7 +167,19 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
     }
 
     const spotUrl = `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`;
-    const spotRes = await fetchMassiveWithRetry(spotUrl, 2);
+    const spotRes = spot && Number(spot.price) > 0
+        ? {
+            success: true,
+            data: {
+                ticker: {
+                    lastTrade: { p: spot.price },
+                    min: { c: spot.price },
+                    day: { c: spot.price },
+                    prevDay: { c: Number(spot.prevClose) > 0 ? Number(spot.prevClose) : 0 },
+                },
+            },
+        }
+        : await fetchMassiveWithRetry(spotUrl, 2);
 
     let underlyingPrice = 0;
     let prevClose = 0;
