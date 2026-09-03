@@ -31,17 +31,20 @@ const UNIVERSE = [
 const ETF = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'TLT', 'GLD']);
 
 // ivSkew 는 뺐다 — 실측 300행 전부 0 이다(생산자가 채우지 않는다).
+// ⚠️ [2026-09-03] 축을 실측으로 골랐다 (scripts/_axis-quality.js · 10종목 30일).
+//    「하루안 범위 ÷ 날짜간 변화」가 크면 **그날의 값이 존재하지 않는다** —
+//    어느 스냅샷을 집었느냐가 값을 정한다. 그래서 아래 셋을 뺐다:
+//      whaleScore 10.5배 · dex 4.0배 · squeezeProbability 2.3배(+동조율 57%)
+//    특히 squeezeProbability 는 랭킹이 60 이라 할 때 **앱 화면은 15** 였다 —
+//    사용자가 앱에서 확인 못 하는 순위는 오보다.
+//    ivSkew 도 예전에 뺐다 — 실측 300행 전부 0(생산자가 안 채운다).
+//    ※ 이 목록은 /api/ranking/deviation 의 METRICS 와 **같아야 한다.**
+//      갈라지면 두 주소가 다른 답을 주고, 그때 어느 쪽이 맞는지 알 수 없다.
 const DEV_AXES: Array<{ key: string; label: { ko: string; en: string; ja: string } }> = [
     { key: 'pcr', label: { ko: '풋콜 비율(미결제약정)', en: 'Put/call ratio (OI)', ja: 'プットコール比率(建玉)' } },
     { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call open interest', ja: 'コール建玉' } },
     { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put open interest', ja: 'プット建玉' } },
-    { key: 'whaleScore', label: { ko: '대형거래 지표', en: 'Large-trade score', ja: '大口取引スコア' } },
-    { key: 'dex', label: { ko: '델타 노출', en: 'Delta exposure', ja: 'デルタ・エクスポージャー' } },
-    { key: 'squeezeProbability', label: { ko: '스퀴즈 확률', en: 'Squeeze probability', ja: 'スクイーズ確率' } },
     { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Options premium', ja: 'オプション資金' } },
-    // [2026-09-01] 계약 «수». 프리미엄(달러)은 주가·IV 에 같이 흔들려서
-    // 「거래가 늘었다」와 「비싸졌다」를 구분 못 한다. 계약 수가 있어야 나뉜다.
-    { key: 'optionVolume', label: { ko: '옵션 거래량(계약)', en: 'Option volume (contracts)', ja: 'オプション出来高(枚)' } },
 ];
 
 const hist = (table: string, ticker: string, days: number) => queryItems<Row>(
@@ -83,7 +86,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: false, error: `모르는 랭킹: ${run}`, available: RANKINGS.map((r) => r.id) }, { status: 400 });
     }
 
-    const CACHE = `ranking:v1:${run}:${days}:${top}`;
+    const CACHE = `ranking:v2:${run}:${days}:${top}`;
     if (q.get('refresh') !== '1') {
         const hit = await getFromCache<any>(CACHE);
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
@@ -100,6 +103,24 @@ export async function GET(req: NextRequest) {
     const flowRaw: Record<string, Row[]> = {};
     const gexSnaps: Record<string, any[]> = {};
     const gexRaw: Record<string, Row[]> = {};
+    // ⚠️ [2026-09-03] 구조 랭킹(맥스페인·감마플립)이 25종목만 보고 있었다.
+    //    읽던 `signum-gex-history` 는 **페이지 방문 때만** 쓰이는 경로라
+    //    표본 120종목 중 112개가 2026-08-28 에 멈춰 있었다(사실상 죽은 소스).
+    //    `/api/cron/structure-build` 가 2,001종목을 8조각으로 굽는다(실측 100%·10초).
+    //    그걸 읽으면 «25 → 2,001» 이 되고, 직렬 루프도 없어진다.
+    const structRows: Record<string, any> = {};
+    if (needGex) {
+        try {
+            const parts = await Promise.all(
+                Array.from({ length: 8 }, (_, i) =>
+                    getFromCache<{ rows: any[]; ts: number }>(`structure:part:v2:${i}`).catch(() => null)),
+            );
+            for (const pt of parts) {
+                for (const r of (pt?.rows ?? [])) if (r?.t) structRows[r.t] = r;
+            }
+        } catch { }
+    }
+    const STRUCT_UNIVERSE = Object.keys(structRows);
     for (const t of UNIVERSE) {
         if (needFlow) {
             try {
@@ -125,7 +146,10 @@ export async function GET(req: NextRequest) {
         try {
             // ⚠️ 이 키는 2.19MB 다. 두 번 동시에 읽으면 5초 타임아웃을 넘겨
             //    다크풀이 «에러 없이» 사라진다. 한 번만 읽는다.
-            dp = await getDarkPoolBatch(UNIVERSE.filter((t) => !ETF.has(t)));
+            // 다크풀도 25종목만 보고 있었다. FINRA 키는 한 덩어리라 목록 길이와
+            // 무관하게 한 번만 읽는다 — 넓혀도 비용이 같다.
+            const dpUni = STRUCT_UNIVERSE.length ? STRUCT_UNIVERSE : UNIVERSE;
+            dp = await getDarkPoolBatch(dpUni.filter((t) => !ETF.has(t)));
             const list = Object.values(dp);
             const dpDate = list.length ? (list[0] as any).date ?? null : null;
             if (!list.length) dpMeta = { available: false, reason: '자료 없음' };
@@ -169,9 +193,18 @@ export async function GET(req: NextRequest) {
         if (spec.id === 'maxpain-gap' || spec.id === 'gamma-flip') {
             const field = spec.id === 'maxpain-gap' ? 'maxPain' : 'flipLevel';
             const bound = spec.id === 'maxpain-gap' ? 0.35 : 0.25;
-            for (const t of UNIVERSE) {
-                const s = gexSnaps[t]?.[gexSnaps[t].length - 1]; if (!s) { bump('이력없음'); continue; }
-                const price = Number(s.price), lvl = Number(s[field]);
+            // 구조 캐시가 있으면 그걸 쓴다(2,001종목). 없으면 옛 경로로 물러난다.
+            const src = STRUCT_UNIVERSE.length ? STRUCT_UNIVERSE : UNIVERSE;
+            const F = field === 'maxPain' ? 'mp' : 'fl';
+            for (const t of src) {
+                const sr = structRows[t];
+                const s = sr
+                    ? { price: sr.px, maxPain: sr.mp, flipLevel: sr.fl, _d: null, oi: sr.oi }
+                    : gexSnaps[t]?.[gexSnaps[t].length - 1];
+                if (!s) { bump('이력없음'); continue; }
+                // 저가주는 행사가 간격이 잡음이 된다($6 의 0.02% 는 0.1센트다)
+                if (sr && (!(sr.px >= 15) || !(sr.oi >= 20000))) { bump('저가·저유동성'); continue; }
+                const price = Number(s.price), lvl = Number(sr ? sr[F] : s[field]);
                 if (!(price > 0) || !(lvl > 0)) { bump('값없음'); continue; }
                 const gap = (price - lvl) / price;
                 // 계산이 어긋난 값은 지어내지 말고 버린다
