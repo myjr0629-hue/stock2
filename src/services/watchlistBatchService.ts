@@ -1214,9 +1214,15 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 .filter((r: any) => {
                     const rt = r.realtime;
                     const has = (...xs: any[]) => xs.some((x) => x !== null && x !== undefined && Number.isFinite(Number(x)));
+                    // ⚠️ «값이 있다»가 아니라 «쓸 수 있는 값이다» 로 판정해야 한다.
+                    //   예상 변동폭 55%(전 만기 스트래들)는 값이 있는 것처럼 보이지만 못 쓴다.
+                    //   그걸 「있음」으로 세면 AWS 보충에서 빠지고, 아래 가드가 지워서
+                    //   결국 «—» 가 된다 — 채우려던 코드가 오히려 비우는 셈이다.
+                    const imv = Number(rt.impliedMovePct);
+                    const imOk = Number.isFinite(imv) && imv > 0 && imv < 30;
                     // 화면이 읽는 축 중 하나라도 비면 대상이다.
                     return !(has(rt.gex) && has(rt.pcr) && has(rt.netPremium) && has(rt.maxPain)
-                        && has(rt.squeezeScore) && has(rt.impliedMovePct) && has(rt.callWall) && has(rt.putFloor));
+                        && has(rt.squeezeScore) && imOk && has(rt.callWall) && has(rt.putFloor));
                 })
                 .map((r: any) => String(r.ticker).toUpperCase());
             if (cold.length > 0) {
