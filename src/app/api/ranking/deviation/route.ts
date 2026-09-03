@@ -38,7 +38,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v6:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v7:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -215,7 +215,7 @@ function seriesOf(snaps: Row[], key: string) {
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v6:${days}:${top}`;
+    const CACHE = `ranking:deviation:v7:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -513,12 +513,14 @@ export async function GET(req: NextRequest) {
     // 억지로 같은 자로 재려다 생기는 왜곡도 없앤다.
     const STRUCT_MIN_OI = MIN_TODAY_OI;      // 옵션 축과 같은 유동성 기준
     const NEAR = 0.02;                        // 「경계에 붙었다」로 볼 범위 2%
+    const STRUCT_MIN_PRICE = 15;              // 행사가 간격이 잡음이 되는 저가주 제외
+    const MAX_SANE_GAP = 0.5;                 // 이보다 벌어지면 체인 고장이지 사건이 아니다
     let structRows: any[] = [];
     let structure: any = { available: false, reason: '아직 안 구워짐' };
     try {
         const parts = await Promise.all(
             Array.from({ length: SHARDS }, (_, i) =>
-                getFromCache<{ rows: any[]; ts: number }>(`structure:part:v1:${i}`).catch(() => null)),
+                getFromCache<{ rows: any[]; ts: number }>(`structure:part:v2:${i}`).catch(() => null)),
         );
         const have = parts.filter((x): x is { rows: any[]; ts: number } => !!x && Array.isArray(x.rows));
         for (const pt of have) structRows.push(...pt.rows);
@@ -540,7 +542,9 @@ export async function GET(req: NextRequest) {
         for (const r of liquid) {
             // ④ 감마플립 경계 — 딜러 헤지가 «완충»에서 «증폭»으로 바뀌는 선.
             //    이 엔진에서 가장 «우리만»인 축이다.
-            if (r.fl !== null && r.fl > 0) {
+            // ⚠️ 저가주는 뺀다. $6 짜리에서 「플립까지 0.02%」는 0.1센트라
+            //    행사가 간격(보통 $0.5~1) 안의 우연이지 «붙었다»가 아니다.
+            if (r.fl !== null && r.fl > 0 && r.px >= STRUCT_MIN_PRICE) {
                 const d = Math.abs(r.px - r.fl) / r.px;
                 if (d <= NEAR) pushStruct({
                     ticker: r.t, metric: 'gammaFlipEdge',
@@ -555,24 +559,27 @@ export async function GET(req: NextRequest) {
             if (r.mp !== null && r.mp > 0) {
                 const gap = (r.px - r.mp) / r.mp;
                 const a = Math.abs(gap);
-                if (a <= 0.005) pushStruct({
+                if (a <= 0.005 && r.px >= STRUCT_MIN_PRICE) pushStruct({
                     ticker: r.t, metric: 'maxPainPin',
                     label: { ko: '맥스페인 핀', en: 'Pinned to max pain', ja: 'マックスペインに固定' },
                     today: r.px, level: r.mp, gapPct: Math.round(gap * 10000) / 100,
                     totalOI: r.oi, session: r.s,
                     rank: 1 - a / 0.005,
                 });
-                if (a >= 0.03) pushStruct({
+                if (a >= 0.03 && a <= MAX_SANE_GAP && r.px >= STRUCT_MIN_PRICE) pushStruct({
                     ticker: r.t, metric: 'maxPainGap',
                     label: { ko: '맥스페인 이탈', en: 'Far from max pain', ja: 'マックスペイン乖離' },
                     today: r.px, level: r.mp, gapPct: Math.round(gap * 10000) / 100,
                     direction: gap >= 0 ? 'above' : 'below',
                     totalOI: r.oi, session: r.s,
-                    rank: Math.min(1, a / 0.15),
+                    // ⚠️ 상한을 두면 상위가 전부 1.0 으로 동점이 되어 **정렬이
+                    //    무의미해진다**(실측: 22%·20%·2217%·33% 가 뒤죽박죽으로 나왔다).
+                    //    괴리 그대로 쓴다 — 위에서 이미 말이 되는 범위로 잘랐다.
+                    rank: a,
                 });
             }
             // ⑦ 벽 압착 — 콜월과 풋플로어 사이가 가장 좁은 종목 =「상자에 갇혔다」
-            if (r.cw !== null && r.pf !== null && r.cw > r.pf && r.pf > 0) {
+            if (r.cw !== null && r.pf !== null && r.cw > r.pf && r.pf > 0 && r.px >= STRUCT_MIN_PRICE) {
                 const w = (r.cw - r.pf) / r.px;
                 if (w <= 0.06 && r.px >= r.pf && r.px <= r.cw) pushStruct({
                     ticker: r.t, metric: 'wallSqueeze',

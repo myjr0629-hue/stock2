@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStructureData } from '@/services/structureService';
 import { setInCache } from '@/services/redisClient';
+import { sanitizeMaxPain } from '@/services/centralDataHub';
 import UNIVERSE_FILE from '@/../data/stock_universe_us800.json';
 
 /**
@@ -47,7 +48,7 @@ const QUOTE_CHUNK = 250;
 const PART_TTL = 2 * 3600;          // 2시간 — 굽는 주기보다 넉넉히
 const ORIGIN = 'https://www.signumhq.com';
 
-export const partKey = (i: number) => `structure:part:v1:${i}`;
+export const partKey = (i: number) => `structure:part:v2:${i}`;
 
 const UNIVERSE: string[] = ((UNIVERSE_FILE as any)?.symbols ?? []) as string[];
 
@@ -146,7 +147,10 @@ export async function GET(req: NextRequest) {
             const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
             return {
                 t, px,
-                mp: num(d?.maxPain),
+                // ⚠️ 화면이 쓰는 것과 **같은 가드**를 통과시킨다. 안 걸면 체인이
+                //    깨진 종목(실측 BYND: 현재가 11.6 에 맥스페인 0.5)이 「괴리
+                //    2217%」로 랭킹 상위에 올라온다. 그건 시장이 아니라 고장이다.
+                mp: sanitizeMaxPain(num(d?.maxPain), px),
                 fl: num(d?.gammaFlipLevel),
                 cw: num(d?.levels?.callWall),
                 pf: num(d?.levels?.putFloor),
