@@ -185,18 +185,13 @@ export async function GET(request: Request) {
         // 진단 — 「폴백이 왜 안 걸리나」를 응답에서 바로 볼 수 있게. 추측 대신 실측.
         let gexDiag: any = { need: 0, filled: 0, sample: [] as string[], err: null as string | null };
         try {
-            // ⚠️ 판정은 **렌더와 똑같은 순서**여야 한다. 처음엔 「analysis 든 cached 든
-            //   하나라도 값이 있으면 제외」로 썼는데, 렌더는 `if (analysis) … else if (cached)`
-            //   라서 **analysis 가 존재하되 전부 null 인 종목**은 cached 를 보지도 않는다.
-            //   그 종목이 「cached 에 값이 있다」는 이유로 폴백에서 빠져 결국 «—» 로 남았다
-            //   (실측 AMZN·AMD·AVGO: DynamoDB 엔 11분 전 값이 있는데 화면은 null).
-            const needGex = tickers.filter((t, i) => {
-                const a: any = analysisCache[t];
-                if (a) return !(a.gex != null || a.maxPain != null || a.pcr != null);
-                const c: any = cachedTickers[i];
-                if (c?.flow) return !(c.flow.netGex != null || c.flow.maxPain != null);
-                return true;
-            });
+            // ★★ [2026-09-04] 처음엔 «종목 단위»로 걸렀다 — 「값이 하나라도 있으면 제외」.
+            //   그런데 실제 결손은 **필드 단위**다. MSFT 는 gex 는 있는데 pcr·예상변동폭이
+            //   비고, 그 종목이 「값이 있다」는 이유로 폴백에서 통째로 빠졌다
+            //   (DynamoDB 엔 4분 전 값이 gex·pcr·im·maxPain 전부 있는데도 화면은 null).
+            //   queryItems 를 고친 뒤 조회가 **20ms 수준**이라 아낄 이유가 없다.
+            //   → 전 종목을 읽고, 아래에서 **비어 있는 필드만** 채운다.
+            const needGex = tickers;
             if (needGex.length > 0) {
                 const gexT0 = Date.now();
                 const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
