@@ -135,6 +135,99 @@ const L: Record<string, Strings> = {
   },
 };
 
+// ============================================================================
+// 검색 결과에 보이는 «제목 + 설명» — 본문 문구와 분리해서 만든다.
+// ----------------------------------------------------------------------------
+// 왜 (2026-09-03 GSC + 실제 SERP 실측):
+//   `uso dark pool` 은 이미 **6.3위**, `wdc max pain` 7.5위, `mrvl max pain` 9.6위,
+//   `sofi dark pool activity` 7.8위 … 즉 1페이지에 있다.
+//   그런데 이 무리의 노출 150+ 에 클릭이 **0** 이었다.
+//   순위 문제가 아니라 «클릭이 안 눌리는» 문제다.
+//
+//   실제 구글 화면을 열어 보니 원인이 보였다:
+//     우리        → "USO shows minimal positioning activity with no new options
+//                    opened yesterday, while off-exchange volume sits well below
+//                    normal (47% of the 20-day average), …"
+//     Unusual Whales   → "Dark Pool Vol, Lit Vol, DP % … 16.13%"
+//     Dark Pool Heatmap→ ★4.8(127) · Free · Finance
+//
+//   ① meta description 에 **AI 서술 요약(tickerRead)** 을 그대로 넣고 있었다.
+//      데이터가 밋밋한 날엔 스니펫이 「여기 볼 것 없습니다」라고 말한다.
+//      「{티커} dark pool」을 친 사람은 **숫자**를 찾는데 우리는 문장을 줬다.
+//   ② 제목의 `(divergence)` 는 검색자에게 의미 없는 전문어이고 길이만 먹었다.
+//   ③ `| Undercurrent` 도 마찬가지다 — 구글은 이미 «signumhq.com» 을 사이트명으로
+//      따로 표시하고 있어(실측) 접미사는 보이는 60자 예산만 갉아먹는다.
+//
+//   → 제목·설명 모두 «숫자 먼저». 그리고 그 검색의 관련질문에
+//     「Where can I see dark pool trades for free?」가 뜬다 — **Free** 를 앞쪽에 둔다.
+//
+// ⚠️ 서술 요약을 버리는 게 아니다. 본문과 OG(소셜 공유)에는 그대로 쓴다.
+//    검색은 숫자를 원하고 소셜은 이야기를 원한다 — 쓰는 곳이 다를 뿐이다.
+// ⚠️ 다음 사람에게: 이 변경의 성패는 **GSC 의 CTR** 로만 판단한다. 순위가 아니다.
+//    지난번(2026-08-22)에 제목만 고치고 CTR 을 다시 안 봐서 6주를 날렸다.
+// ============================================================================
+const DESC_MAX = 158;   // 구글이 잘라내기 시작하는 대략 지점
+
+const n1 = (v: number | null | undefined) => (v == null ? null : v.toFixed(1));
+const n0 = (v: number | null | undefined) => (v == null ? null : v.toFixed(0));
+const usd$ = (v: number | null | undefined) => (v == null ? null : `$${Math.round(v).toLocaleString()}`);
+
+function seoTitle(locale: string, t: string, m: Money | undefined): string {
+  const dp = n1(m?.darkPoolPct);
+  const mp = usd$(m?.maxPain);
+  // ⚠️ 「오늘 갱신」이라고 쓰지 않는다. 페이지는 오늘 갱신되지만 다크풀 수치는
+  //    FINRA T+1 이라 어제 자다 — 숫자 바로 옆에서 «오늘»이라고 하면 오해를 준다.
+  if (locale === 'ko') {
+    return dp && mp ? `${t} 다크풀 ${dp}%, 맥스페인 ${mp} — 무료, 매일 갱신`
+      : `${t} 다크풀·맥스페인 — 오늘의 옵션 자금 흐름, 무료`;
+  }
+  if (locale === 'ja') {
+    return dp && mp ? `${t} ダークプール${dp}%・マックスペイン${mp} — 無料、毎日更新`
+      : `${t} ダークプール・マックスペイン — 今日のオプションフロー、無料`;
+  }
+  return dp && mp ? `${t} Dark Pool ${dp}%, Max Pain ${mp} — Free, Updated Daily`
+    : `${t} Dark Pool & Max Pain Today — Free Options Flow`;
+}
+
+/** 숫자부터 말하는 결정적 설명문. 데이터가 없으면 기존 정적 문구로 안전하게 내려간다. */
+function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings): string {
+  const dp = n1(m?.darkPoolPct);
+  if (!dp) return l.sub(t).slice(0, DESC_MAX);
+
+  const avg = n0(m?.darkPoolMarketAvg);
+  const vr = m?.darkPoolVolRatio != null ? m.darkPoolVolRatio.toFixed(1) : null;
+  const mp = usd$(m?.maxPain);
+  const cw = usd$(m?.callWall);
+  const pf = usd$(m?.putFloor);
+  // FINRA 는 T+1 이다 — 날짜를 밝혀야 «오늘 갱신»이 거짓말이 되지 않는다.
+  const day = m?.darkPoolDate ? m.darkPoolDate.slice(5).replace('-', '/') : null;
+
+  const seg: string[] = [];
+  if (locale === 'ko') {
+    seg.push(`${t} 다크풀 ${dp}%${avg ? ` (시장 평균 ${avg}%)` : ''}${vr ? `, 평소의 ${vr}배` : ''}.`);
+    if (mp) seg.push(`맥스페인 ${mp}${cw ? ` · 콜월 ${cw}` : ''}${pf ? ` · 풋플로어 ${pf}` : ''}.`);
+    seg.push(`FINRA 원본, 매일 무료${day ? ` — ${day} 기준` : ''}.`);
+  } else if (locale === 'ja') {
+    seg.push(`${t} ダークプール ${dp}%${avg ? `（市場平均${avg}%）` : ''}${vr ? `、平常の${vr}倍` : ''}。`);
+    if (mp) seg.push(`マックスペイン ${mp}${cw ? `・コールウォール ${cw}` : ''}${pf ? `・プットフロア ${pf}` : ''}。`);
+    seg.push(`FINRA原文、毎日無料${day ? ` — ${day}時点` : ''}。`);
+  } else {
+    seg.push(`${t} dark pool ${dp}% of volume${avg ? ` (market avg ${avg}%)` : ''}${vr ? `, ${vr}× its norm` : ''}.`);
+    if (mp) seg.push(`Max pain ${mp}${cw ? `, call wall ${cw}` : ''}${pf ? `, put floor ${pf}` : ''}.`);
+    seg.push(`Free, from FINRA’s tape${day ? ` — ${day}` : ''}.`);
+  }
+
+  // 잘린 문장이 스니펫에 남지 않도록 «문장 단위»로만 붙인다.
+  // 일본어는 「。」 뒤에 공백을 두지 않는다 — 붙여 써야 자연스럽다.
+  const sp = locale === 'ja' ? '' : ' ';
+  let out = '';
+  for (const s of seg) {
+    if ((out ? out.length + sp.length : 0) + s.length > DESC_MAX) break;
+    out = out ? `${out}${sp}${s}` : s;
+  }
+  return out || l.sub(t).slice(0, DESC_MAX);
+}
+
 export async function generateMetadata(
   { params }: { params: Promise<{ locale: string; ticker: string }> },
 ): Promise<Metadata> {
@@ -143,27 +236,16 @@ export async function generateMetadata(
   const l = L[locale] ?? L.en;
   const base = publicBase();
   const data = await getData(locale, ticker);
-  const div = data?.cards?.some((c) => c.divergence);
-  // 제목은 «검색어와 연속으로 일치»해야 한다. GSC 실측(2026-08-22) 상위 질의가
-  // 전부 `{티커} dark pool` / `{티커} max pain` 형태인데, 기존 제목은 em-dash 가
-  // 「USO dark pool」을 갈라놓아 정확 일치가 아니었다 — 75노출에 클릭 0이었다.
-  //   before: `USO — dark pool, max pain & options flow (divergence) | Undercurrent`
-  //   after : `USO Dark Pool & Max Pain Today — Options Flow (divergence) | Undercurrent`
-  // 앞머리 두 어절이 두 상위 질의를 동시에 정확 일치시킨다.
-  // ★ 로케일별 제목 (2026-08-22 GSC 실측으로 추가):
-  //   세 로케일이 «영어 제목 하나»를 공유하고 있었고 <html lang> 까지 전부 ko 였다.
-  //   그 결과 구글은 셋을 같은 문서로 보고 /ko/flow/* 150건을
-  //   "Duplicate without user-selected canonical" 로 색인에서 제외했다.
-  //   제목을 각 언어로 갈라 «다른 문서»임을 명시하고, 동시에 그 언어권의
-  //   실제 검색어(다크풀 / ダークプール)에 정확 일치시킨다.
-  const TITLE: Record<string, (t: string, d: boolean) => string> = {
-    en: (t, d) => `${t} Dark Pool & Max Pain Today — Options Flow${d ? ' (divergence)' : ''} | Undercurrent`,
-    ko: (t, d) => `${t} 다크풀·맥스페인 — 오늘의 옵션 자금 흐름${d ? ' (괴리)' : ''} | Undercurrent`,
-    ja: (t, d) => `${t} ダークプール・マックスペイン — 今日のオプションフロー${d ? '（乖離）' : ''} | Undercurrent`,
-  };
-  const title = (TITLE[locale] ?? TITLE.en)(ticker, !!div);
-  const desc = (data?.tickerRead || l.sub(ticker)).slice(0, 200);
   const m = data?.money;
+  // ★ 로케일별 제목은 그대로 유지한다 (2026-08-22 실측 근거):
+  //   세 로케일이 «영어 제목 하나»를 공유하고 <html lang> 까지 전부 ko 였을 때
+  //   구글이 셋을 같은 문서로 보고 /ko/flow/* 150건을
+  //   "Duplicate without user-selected canonical" 로 색인에서 뺐다.
+  //   제목을 언어별로 갈라야 «다른 문서»가 된다 — seoTitle 이 그 규칙을 지킨다.
+  const title = seoTitle(locale, ticker, m);
+  const desc = seoDesc(locale, ticker, m, l);
+  // 소셜 카드에는 서술 요약을 그대로 쓴다 — 공유는 이야기로 읽힌다.
+  const social = (data?.tickerRead || desc).slice(0, 200);
   const og = new URLSearchParams({ ticker, priceLabel: 'PRICE' });
   if (m?.price) og.set('price', String(m.price));
   if (m?.callWall) og.set('callWall', String(m.callWall));
@@ -182,8 +264,8 @@ export async function generateMetadata(
         'x-default': `${base}/en/flow/${ticker}`,
       },
     },
-    openGraph: { title, description: desc, url, images: [ogUrl], type: 'article' },
-    twitter: { card: 'summary_large_image', title, description: desc, images: [ogUrl] },
+    openGraph: { title, description: social, url, images: [ogUrl], type: 'article' },
+    twitter: { card: 'summary_large_image', title, description: social, images: [ogUrl] },
     // 스마트앱배너 — 이 페이지는 Undercurrent 콘텐츠다(본문 1순위 CTA 도 UC).
     // 루트 layout 이 전 페이지에 SIGNUM 을 박아두어 아이폰 사파리 방문자에게
     // «엉뚱한 앱»을 권하고 있었다(2026-08-22 실측). UC 로 맞춘다.
