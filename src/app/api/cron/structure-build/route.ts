@@ -3,6 +3,7 @@ import { getStructureData } from '@/services/structureService';
 import { setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub';
 import { batchPutItems } from '@/lib/aws/dynamoClient';
+import { getETComponents } from '@/services/marketDaySSOT';
 import { TABLES } from '@/lib/aws/dynamoClient';
 import UNIVERSE_FILE from '@/../data/stock_universe_us800.json';
 
@@ -189,7 +190,27 @@ export async function GET(req: NextRequest) {
     // 지워지는 사고)이 없다. 계산도 화면과 같은 함수를 쓴 것 그대로다.
     //
     // ⚠️ 최소 8세션이 필요하므로 **약 9거래일 뒤부터** 그 종목들이 랭킹에 든다.
+    // ⚠️ [2026-09-03] **장중이 아닐 때는 쓰지 않는다.** 새벽 02:00 ET 에 시험 삼아
+    //    돌렸더니 그날(09-03)치 «가짜 세션»이 생겼고, 랭킹의 최신 세션이 09-03 이
+    //    되면서 FINRA(09-02)가 신선도 게이트에 걸려 **다크풀 축 두 개가 통째로
+    //    사라졌다.** 값은 전날 종가 그대로인데 날짜만 하루 앞선 것이라 더 나쁘다.
+    //    프리마켓~애프터마켓(04:00~20:00 ET) 안에서만 이력을 남긴다.
+    //    ※ Redis 구조 캐시는 이 밖에도 쓴다 — 위치 축은 「마지막 종가 구조」가
+    //      정답이라 새벽에도 있어야 한다. 막는 것은 «세션 이력»뿐이다.
+    const et = getETComponents();
+    const etMin = et.hour * 60 + et.minute;
+    const inSession = et.dayOfWeek >= 1 && et.dayOfWeek <= 5 && etMin >= 240 && etMin <= 1200;
     let wrote = 0;
+    if (!inSession) {
+        return NextResponse.json({
+            ok: true, shard, shards: SHARDS,
+            tickers: slice.length, rows: clean.length,
+            withMaxPain: clean.filter((r) => r.mp !== null).length,
+            withFlip: clean.filter((r) => r.fl !== null).length,
+            historyWrote: 0, historySkipped: '장외 시간 — 가짜 세션을 만들지 않는다',
+            ms: Date.now() - started,
+        });
+    }
     try {
         const now = Date.now();
         const items = clean.map((r) => ({
