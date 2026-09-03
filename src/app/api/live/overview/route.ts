@@ -82,7 +82,17 @@ export async function GET(req: NextRequest) {
             const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
             const dynData = await getUnifiedCache(ticker, 'en');
             const fund = dynData?.fundamentals;
-            if (fund?.name || fund?.description) {
+            // ⚠️ [2026-09-04] `fund.name` 이 **티커 자신**("NVDA")일 때가 있다.
+            //   그걸 「회사 정보가 있다」로 읽어 빈 껍데기를 그대로 내보냈다.
+            //   실측: NVDA·MSFT·AAPL·TSLA·GOOGL 이 전부 sector/description/marketCap
+            //   null 인데 source=DynamoDB 로 200 을 냈고, DynamoDB 기록이 **없어서**
+            //   라이브로 흐른 AMD 만 제대로 나왔다(=폴백은 멀쩡한데 못 가고 있었다).
+            //   회사명이 티커와 같으면 이름이 없는 것이고, 설명·섹터·시총이 하나도
+            //   없으면 화면에 보여 줄 게 없다 → 아래 라이브 경로로 내려간다.
+            const dynName = typeof fund?.name === 'string' ? fund.name.trim() : '';
+            const hasRealName = !!dynName && dynName.toUpperCase() !== ticker;
+            const hasSubstance = !!fund?.description || !!fund?.sector || fund?.marketCap != null;
+            if ((hasRealName || !!fund?.description) && hasSubstance) {
                 console.log(`[live/overview] ✅ DynamoDB hit for ${ticker}`);
                 const rawDesc = fund.description || null;
                 const descriptionEN = rawDesc ? rawDesc.split(/(?<=\.)\s+/).slice(0, 2).join(' ') : null;

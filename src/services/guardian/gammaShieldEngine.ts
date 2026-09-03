@@ -209,8 +209,33 @@ async function loadStruct(ticker: string): Promise<StructLite | null> {
         };
     } catch (e: any) {
         console.error(`[GAMMA SHIELD] ${ticker} live fetch failed:`, e?.message);
-        return null;
     }
+
+    // ★ [2026-09-04] AWS 저장소 폴백.
+    //   실측: SPY 는 살아 있는데 **QQQ 만 null** 이라 qqqGex·qqqGexIndex·
+    //   qqqSqueezeScore 가 0 으로 나가고 confidence 가 HIGH→MEDIUM 으로 떨어졌다.
+    //   코드는 SPY·QQQ 대칭이므로 버그가 아니라 «그 순간 QQQ 호출이 쿼터에 걸린 것».
+    //   같은 값이 DynamoDB(GEX_HISTORY)에 있으므로 거기서 메운다.
+    try {
+        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+        const gx: any = await Promise.race([
+            getLatestGex(ticker),
+            new Promise<null>((r) => setTimeout(() => r(null), 2500)),
+        ]);
+        if (gx && (gx.gex != null || gx.flipLevel != null)) {
+            console.log(`[GAMMA SHIELD] ${ticker}: DynamoDB GEX 폴백 (gex=${gx.gex})`);
+            const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+            return {
+                netGex: num(gx.gex),
+                squeezeScore: num(gx.squeezeScore),
+                underlyingPrice: num(gx.price),
+                callWall: num(gx.callWall),
+                putFloor: num(gx.putFloor),
+                gammaFlipLevel: num(gx.flipLevel),
+            };
+        }
+    } catch { /* 저장소도 없으면 null */ }
+    return null;
 }
 
 /** 이 결과를 화면에 써도 되는가. GEX 가 둘 다 없으면 «데이터 없음»이지 «감마 0»이 아니다. */
