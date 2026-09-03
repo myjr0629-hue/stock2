@@ -156,7 +156,7 @@
       "tier": "A",
       "login": "ok",
       "profile": "ok",
-      "note": "GSC 실측 상위질의가 전부 «{티커} max pain / dark pool». 최대 병목=백링크(참조도메인 2 vs 경쟁사 1.3K)",
+      "note": "2026-09-03 진단 정정: 돈이 되는 질의는 **이미 1페이지**였다 (uso dark pool 6.3위·75노출, wdc max pain 7.5위, mrvl 9.6위) — 그런데 CTR 0%. 평균 31위는 put call ratio(91위) 같은 설명형이 만든 착시였다. 원인=meta description 에 AI 서술요약을 넣어 「볼 것 없다」고 말하고 있었다 → 숫자 먼저로 교체(배포됨). 백링크는 «설명형 질의»(put call ratio·gamma exposure, 67~92위)의 병목이지 티커 질의의 병목이 아니다. 다음 판단은 GSC **CTR**로만 한다 — 순위 말고.",
       "action": "build"
     },
     {
@@ -165,7 +165,7 @@
       "tier": "A",
       "login": "ok",
       "profile": "ok",
-      "note": "이름 필드가 검색 후보군을 결정한다. 3앱×3스토어",
+      "note": "2026-09-03 실측: 앱스토어는 SIGNUM 이 「실적 발표 일정」 #1 인데 **플레이는 한국어 10개 검색어 전부 부재**였다 — 그 단어들이 플레이 목록에 한 글자도 없었다. SIGNUM 플레이 3언어 교체·심사통과(premarket earnings US #1 즉시). UC·WIM 은 대조군으로 남겼다 → scripts/aso-play-rank.py --save 로 재측정. 조사 도구는 aso-demand-scan.py(자동완성=수요 × 경쟁). 정본=.agent/marketing/ASO-PLAN.md",
       "action": "build"
     },
     {
