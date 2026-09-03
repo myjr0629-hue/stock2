@@ -41,6 +41,77 @@ import { buildInsiderSignal } from '@/services/insiderSignal';
 //   ⚠️ 너무 오래된 값을 «현재 시세»처럼 보여주면 안 된다 — 수치는 신뢰의 문제다.
 //      MAX_AGE 를 넘긴 캐시는 즉시 렌더에 쓰지 않고 정상 로딩으로 간다.
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// ★★ 차트 데이터 — 페이지와 «동시에» 출발시킨다  [2026-09-04]
+//
+// [무엇이 틀렸었나]  이 화면은 `loading || !data` 면 통째로 스켈레톤이다.
+//   그래서 CandleChart 는 본 데이터가 **다 온 뒤에야 마운트**되고,
+//   그제서야 자기 요청을 시작했다 — 완전한 폭포수다.
+//   실측: 본 데이터 2~3초 + 차트 1.5~3초 = 차트가 뜨기까지 **4~6초**.
+//   대표 지적 「차트가 너무 늦게 나온다」의 정체가 이것이다.
+//
+// [고친 방법]  요청을 컴포넌트 밖으로 꺼낸다.
+//   · 페이지가 티커를 알게 된 **그 순간** 1D 를 미리 띄운다(나머지 5개와 동시).
+//   · CandleChart 는 같은 함수를 부른다 → 이미 날아간 요청을 나눠 받거나
+//     캐시에서 즉시 꺼낸다. 왕복이 겹치지 않는다.
+//   · 봤던 (종목·기간) 은 즉시 그린다 — 스켈레톤을 다시 보여줄 이유가 없다.
+// ══════════════════════════════════════════════════════════════
+type Candle = { o: number; h: number; l: number; c: number; dateET: string; session: string };
+const CHART_CACHE = new Map<string, { at: number; rows: Candle[] }>();
+const CHART_INFLIGHT = new Map<string, Promise<Candle[] | null>>();
+const CHART_MAX_AGE_MS = 60 * 1000;   // 1D 는 장중에 움직인다 — 1분이면 충분히 신선하다
+const CHART_CACHE_MAX = 24;
+
+async function loadChart(ticker: string, range: string): Promise<Candle[] | null> {
+  const key = `${ticker}:${range}`;
+  const hit = CHART_CACHE.get(key);
+  if (hit && Date.now() - hit.at < CHART_MAX_AGE_MS) return hit.rows;
+  const flying = CHART_INFLIGHT.get(key);
+  if (flying) return flying;
+
+  const p = (async (): Promise<Candle[] | null> => {
+    try {
+      const r = await fetch(`/api/chart?symbol=${ticker}&range=${range.toLowerCase()}`, { cache: 'no-store' });
+      if (!r.ok) return null;
+      const json = await r.json();
+      if (!Array.isArray(json?.data) || json.data.length === 0) return null;
+      const toPrice = (v: unknown): number | null => {
+        const n = typeof v === 'number' ? v : Number(v);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+      const mapped: Candle[] = json.data.flatMap((item: any) => {
+        if (item?._gapBreak) return [];
+        const close = toPrice(item.close);
+        if (close === null) return [];
+        const open = toPrice(item.open) ?? close;
+        const high = toPrice(item.high) ?? Math.max(open, close);
+        const low = toPrice(item.low) ?? Math.min(open, close);
+        return [{
+          o: open,
+          h: Math.max(high, open, close),
+          l: Math.min(low, open, close),
+          c: close,
+          dateET: item.dateET ?? '',
+          session: item.session ?? 'REG',
+        }];
+      });
+      if (mapped.length === 0) return null;
+      CHART_CACHE.set(key, { at: Date.now(), rows: mapped });
+      if (CHART_CACHE.size > CHART_CACHE_MAX) {
+        const oldest = CHART_CACHE.keys().next().value;
+        if (oldest) CHART_CACHE.delete(oldest);
+      }
+      return mapped;
+    } catch {
+      return null;
+    } finally {
+      CHART_INFLIGHT.delete(key);
+    }
+  })();
+  CHART_INFLIGHT.set(key, p);
+  return p;
+}
+
 const CMD_CACHE = new Map<string, { at: number; data: any }>();
 const CMD_CACHE_MAX = 24;
 const CMD_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
@@ -162,53 +233,27 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
 
   useEffect(() => {
     let active = true;
-    async function fetchChart() {
-      setLoading(true);
-      try {
-        const r = await fetch(`/api/chart?symbol=${ticker}&range=${range.toLowerCase()}`, { cache: 'no-store' });
-        if (!r.ok) throw new Error();
-        const json = await r.json();
-        if (!active) return;
+    const key = `${ticker}:${range}`;
 
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          const toPrice = (value: unknown): number | null => {
-            const n = typeof value === 'number' ? value : Number(value);
-            return Number.isFinite(n) && n > 0 ? n : null;
-          };
-
-          const mapped = json.data.flatMap((item: any) => {
-            if (item?._gapBreak) return [];
-
-            const close = toPrice(item.close);
-            if (close === null) return [];
-
-            const open = toPrice(item.open) ?? close;
-            const high = toPrice(item.high) ?? Math.max(open, close);
-            const low = toPrice(item.low) ?? Math.min(open, close);
-
-            return [{
-              o: open,
-              h: Math.max(high, open, close),
-              l: Math.min(low, open, close),
-              c: close,
-              dateET: item.dateET ?? '',
-              session: item.session ?? 'REG'
-            }];
-          });
-          if (mapped.length === 0) throw new Error('No valid chart points');
-          setCandles(mapped);
-          setLoadedKey(`${ticker}:${range}`);   // 이 캔들이 누구 것인지 같이 새긴다
-        } else {
-          throw new Error('Empty data');
-        }
-      } catch {
-        // Never draw synthetic (fake) candles. Keep the last real candles on a
-        // transient error; if none have loaded yet the chart shows empty/loading.
-      } finally {
-        if (active) setLoading(false);
-      }
+    // 캐시에 있으면 «그 자리에서» 그린다 — 왕복도 스켈레톤도 없다.
+    const hit = CHART_CACHE.get(key);
+    if (hit && Date.now() - hit.at < CHART_MAX_AGE_MS) {
+      setCandles(hit.rows);
+      setLoadedKey(key);
+      setLoading(false);
+      return () => { active = false; };
     }
-    fetchChart();
+
+    setLoading(true);
+    loadChart(ticker, range).then((rows) => {
+      if (!active) return;
+      // 실패하면 캔들을 건드리지 않는다 — 가짜 캔들은 절대 그리지 않는다.
+      if (rows && rows.length > 0) {
+        setCandles(rows);
+        setLoadedKey(key);   // 이 캔들이 누구 것인지 같이 새긴다
+      }
+      setLoading(false);
+    });
     return () => { active = false; };
   }, [ticker, range]);
 
@@ -2111,6 +2156,13 @@ function CmdPageContent() {
       .then(d => { if (isMounted && !d?.error) setTechData(d); })
       .catch(() => {});
     return () => { isMounted = false; };
+  }, [ticker]);
+
+  // ★ 차트를 «본 데이터와 같은 순간» 출발시킨다. 이 이펙트는 아래 fetchAll 보다
+  //   먼저 등록되므로 왕복이 겹치고, CandleChart 가 마운트될 땐 이미 도착해 있다.
+  useEffect(() => {
+    if (!ticker) return;
+    loadChart(ticker, '1D');
   }, [ticker]);
 
   const initialLoadRef = useRef(true);
