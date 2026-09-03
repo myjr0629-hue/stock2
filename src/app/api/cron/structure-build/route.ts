@@ -47,7 +47,13 @@ const SHARDS = 8;
 const CONCURRENCY = 24;
 const STAGGER_MS = 1200;
 const QUOTE_CHUNK = 250;
-const PART_TTL = 2 * 3600;          // 2시간 — 굽는 주기보다 넉넉히
+// ⚠️ [2026-09-03] 2시간으로 뒀다가 **대부분의 시간 동안 구조 축이 통째로 비었다.**
+//    크론은 14/17/19/21 UTC 인데 마지막 굽기와 다음 굽기 사이가 최대 17시간이다
+//    (21시 → 다음 날 14시). TTL 이 그보다 짧으면 그 사이 내내 「자료 없음」이다.
+//    실측으로 02:53 에 구운 것이 05:53 에 사라져 있었다 — 고장이 아니라 설계 실수다.
+//    **TTL 은 굽는 간격의 최대치보다 길어야 한다.** 오래된 값은 지우는 게 아니라
+//    `ageMin` 으로 나이를 밝혀 소비처가 판단하게 한다.
+const PART_TTL = 26 * 3600;
 const ORIGIN = 'https://www.signumhq.com';
 
 export const partKey = (i: number) => `structure:part:v2:${i}`;

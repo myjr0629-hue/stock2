@@ -38,7 +38,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v8:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v9:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -215,7 +215,7 @@ function seriesOf(snaps: Row[], key: string) {
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v8:${days}:${top}`;
+    const CACHE = `ranking:deviation:v9:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -545,11 +545,16 @@ export async function GET(req: NextRequest) {
         );
         const have = parts.filter((x): x is { rows: any[]; ts: number } => !!x && Array.isArray(x.rows));
         for (const pt of have) structRows.push(...pt.rows);
+        const ageMin = have.length
+            ? Math.round((Date.now() - Math.max(...have.map((h) => h.ts || 0))) / 60000) : null;
         structure = {
             available: structRows.length > 0,
             parts: `${have.length}/${SHARDS}`,
             tickers: structRows.length,
-            ageMin: have.length ? Math.round((Date.now() - Math.max(...have.map((h) => h.ts || 0))) / 60000) : null,
+            ageMin,
+            // 나이를 숨기지 않는다. 장중이면 4시간 지난 구조는 「지금」이 아니다.
+            // 지우지는 않는다 — 마감 후에는 그날 종가 구조가 정답이기 때문이다.
+            stale: ageMin !== null && ageMin > 240,
         };
     } catch {
         structure = { available: false, reason: '조회 실패' };
