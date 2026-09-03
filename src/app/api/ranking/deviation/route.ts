@@ -38,7 +38,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v4:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v5:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -215,7 +215,7 @@ function seriesOf(snaps: Row[], key: string) {
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v4:${days}:${top}`;
+    const CACHE = `ranking:deviation:v5:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -239,6 +239,7 @@ export async function GET(req: NextRequest) {
     //    ※ 표본은 «게이트를 통과한 것»이 아니라 «배수를 계산한 전부»여야 한다.
     //      통과분만 모으면 생존편향으로 중앙값이 위로 밀린다.
     const ratioPool: Record<string, number[]> = {};
+    const coverage: { fresh: number; lastSeen: Record<string, number> } = { fresh: 0, lastSeen: {} };
     const skipped: Record<string, number> = {};
     const bump = (r: string) => { skipped[r] = (skipped[r] || 0) + 1; };
 
@@ -254,7 +255,7 @@ export async function GET(req: NextRequest) {
         const per = Math.ceil(UNIVERSE.length / SHARDS);
         slice = UNIVERSE.slice(buildShard * per, (buildShard + 1) * per);
     } else {
-        type Part = { found: any[]; ratioPool: Record<string, number[]> };
+        type Part = { found: any[]; ratioPool: Record<string, number[]>; coverage?: typeof coverage };
         const parts = await Promise.all(
             Array.from({ length: SHARDS }, (_, i) => getFromCache<Part>(partKey(days, i)).catch(() => null)),
         );
@@ -263,6 +264,12 @@ export async function GET(req: NextRequest) {
             found.push(...pt.found);
             for (const [k, arr] of Object.entries(pt.ratioPool || {})) {
                 (ratioPool[k] = ratioPool[k] || []).push(...arr);
+            }
+            if (pt.coverage) {
+                coverage.fresh += pt.coverage.fresh;
+                for (const [d, n] of Object.entries(pt.coverage.lastSeen)) {
+                    coverage.lastSeen[d] = (coverage.lastSeen[d] || 0) + n;
+                }
             }
         }
         if (have.length !== SHARDS) {
@@ -299,8 +306,16 @@ export async function GET(req: NextRequest) {
     }
     const shardSession = prepared.reduce<string | null>((m, p) => (!m || p.last > m ? p.last : m), null);
 
+    // ⚠️ [2026-09-03] 커버리지를 보고한다 — 이게 안 보여서 「랭킹이 부정확하다」의
+    //    진짜 이유를 오래 못 봤다. 실측: 표본 300종목 중 **75.7% 가 마지막 수집일
+    //    2026-08-28** 이다(메시브 차단일). 랭킹이 읽는 필드(pcr·미결제약정 등)를
+    //    쓰던 옛 경로가 그때 멈췄고, 지금 harvest 는 **다른 모양의 행**을 쓴다
+    //    (darkPoolPercent 계열). 즉 랭킹은 유니버스의 1/4 만 보고 순위를 매긴다.
+    //    후보가 적은 것은 게이트가 엄해서가 아니라 **볼 자료가 없어서**다.
     for (const pr of prepared) {
+        (coverage.lastSeen[pr.last] = (coverage.lastSeen[pr.last] || 0) + 1);
         if (shardSession && pr.last !== shardSession) { bump(`세션낡음(${pr.last})`); continue; }
+        coverage.fresh++;
         const t = pr.t;
         const snaps = pr.snaps;
 
@@ -370,7 +385,7 @@ export async function GET(req: NextRequest) {
     // 조각마다 계산하면 시장 중앙값이 조각별로 달라져 서로 다른 자로 잰다.
     // 그래서 다크풀은 **병합 시점에 한 번만** 계산한다.
     if (buildShard !== null) {
-        await setInCache(partKey(days, buildShard), { found, ratioPool }, PART_TTL);
+        await setInCache(partKey(days, buildShard), { found, ratioPool, coverage }, PART_TTL);
         return NextResponse.json({
             ok: true, mode: 'build', shard: buildShard, shards: SHARDS,
             tickers: slice.length, candidates: found.length, skipped,
@@ -567,6 +582,16 @@ export async function GET(req: NextRequest) {
         shards: SHARDS,
         darkPool,
         candidates: found.length, nanDropped,
+        // 유니버스 중 «오늘 자료가 있는» 비율. 낮으면 순위가 좁은 표본에서 나온다.
+        coverage: (() => {
+            const tot = Object.values(coverage.lastSeen).reduce((a, b) => a + b, 0);
+            return {
+                withHistory: tot, fresh: coverage.fresh,
+                freshPct: tot ? Math.round((coverage.fresh / tot) * 1000) / 10 : null,
+                lastSeen: Object.fromEntries(
+                    Object.entries(coverage.lastSeen).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 6)),
+            };
+        })(),
         // 축별 «준비 상태». 어떤 축이 살아 있고 어떤 축이 자료를 기다리는지
         // 밖에서 보이게 한다 — 안 보이면 「켜져 있는 줄 알았는데 아니었다」가 된다.
         axes: METRICS.map((m) => ({
