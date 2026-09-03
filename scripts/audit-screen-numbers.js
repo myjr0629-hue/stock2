@@ -97,8 +97,12 @@ async function auditTicker(t) {
         //   잔존값»이라 서로 다른 것이 **정상**이다. 종목이 하루 동안 움직였을 뿐인데
         //   3.9% 차이를 정합성 위반으로 보고했다(실측: SMCI 프리 37.42 vs 정규 35.98).
         //   → 장외 세션(PRE/POST)에서만, 같은 세션의 값끼리 비교한다.
-        const tickerExt = session === 'PRE' ? T?.extended?.prePrice
-            : session === 'POST' ? T?.extended?.postPrice : null;
+        //   ⚠️ [2026-09-04] 여기서 `T` 를 썼는데 이 함수의 페이로드 변수는 `k` 다.
+        //     정규장 중에는 이 분기를 안 타서 몰랐다가, 장이 POST 로 넘어가는 순간
+        //     `ReferenceError: T is not defined` 로 **검사기가 통째로 죽었다.**
+        //     (검사기가 죽으면 「이상 없음」도 「이상 있음」도 못 본다)
+        const tickerExt = session === 'PRE' ? k?.extended?.prePrice
+            : session === 'POST' ? k?.extended?.postPrice : null;
         if (Q.extendedPrice > 0 && tickerExt > 0 && Math.abs(pct(Q.extendedPrice, tickerExt)) > 0.03)
             add('XEP_EXT', `quotes 장외 ${Q.extendedPrice} vs ticker 장외 ${tickerExt} — ${(pct(Q.extendedPrice, tickerExt) * 100).toFixed(1)}% 차이 (${session})`);
     } else add('XEP_NONE', 'live/quotes 응답 없음');
