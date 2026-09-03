@@ -377,51 +377,52 @@ export async function GET(request: Request) {
             let ivSkew: number | null = null;
             let impliedMovePct: number | null = null;
 
-            if (analysis) {
-                // Use pre-warmed analysis cache (always fresh, 2-min Cron)
-                alphaScore = analysis.alphaSnapshot?.score || 0;
-                grade = analysis.alphaSnapshot?.grade || '-';
-                maxPain = analysis.maxPain ?? null;
-                callWall = analysis.callWall ?? null;
-                putFloor = analysis.putFloor ?? null;
-                gex = analysis.gex ?? null;
-                pcr = analysis.pcr ?? null;
-                netPremium = analysis.netPremium ?? null;
-                rsi = analysis.rsi ?? null;
-                rvol = analysis.relVol ?? null;
-                squeezeScore = analysis.squeezeScore ?? null;
-                ivSkew = (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null;
-                impliedMovePct = analysis.impliedMovePct ?? null;
-                sparkline = analysis.sparkline || [];
-                // 못 잰 것은 «중립»이 아니라 «알 수 없음»이다
-                if (gex != null && gex > 0) gammaRegime = 'LONG';
-                else if (gex != null && gex < 0) gammaRegime = 'SHORT';
-                else if (gex == null) gammaRegime = 'UNKNOWN';
-            } else if (cached) {
-                // Full cached data from /api/live/ticker — re-apply the XS
-                // override in case a stale/cold-start V8 entry is cached
-                const cAlpha = cached.alpha ? xsSnapshotOverride(ticker, cached.alpha) : null;
-                alphaScore = cAlpha?.score || 0;
-                grade = cAlpha?.grade || '-';
-                maxPain = cached.flow?.maxPain || 0;
-                callWall = cached.flow?.callWall || 0;
-                putFloor = cached.flow?.putFloor || 0;
-                gex = cached.flow?.netGex ?? null;
-                pcr = cached.flow?.oiPcr || cached.flow?.volumePcr || 1;
-                netPremium = cached.flow?.netPremium || 0;
-                rsi = cached.realtime?.rsi || 0;
-                rvol = cached.realtime?.relVol || 0;
-
-                // 못 잰 것은 «중립»이 아니라 «알 수 없음»이다
-                if (gex != null && gex > 0) gammaRegime = 'LONG';
-                else if (gex != null && gex < 0) gammaRegime = 'SHORT';
-                else if (gex == null) gammaRegime = 'UNKNOWN';
-
-                // Sparkline from cached sparkline or flow data
-                if (cached.flow?.sparkline) {
-                    sparkline = cached.flow.sparkline;
+            // ══════════════════════════════════════════════════════════════
+            // ★★ [2026-09-04] 여기가 «같은 실수를 세 번» 하게 만든 구조였다.
+            //
+            //   원래는 `if (analysis) { …전부… } else if (cached) { …전부… }` —
+            //   **종목 단위 배타 분기**다. analysis 가 «존재하되 일부만 채워진»
+            //   흔한 경우에 cached 를 **아예 보지 않는다.**
+            //   실측: LLY·CCJ·GEV·PATH 의 rsi 가 «—» 였는데,
+            //   /api/live/ticker 는 그 순간 41.2 · 47.8 · 27.8 · 62.5 를 주고 있었다.
+            //   게다가 cached 분기는 `cached.realtime?.rsi` 를 읽는데 실제 모양은
+            //   `display.rsi14` 다 — **읽어도 못 찾는 경로**였다.
+            //
+            //   → 분기를 없애고 **필드마다** analysis → cached → AWS 순으로 내려간다.
+            //     한 층이 비어도 다음 층이 채운다. 새 필드를 넣을 때도 한 줄이면 된다.
+            // ══════════════════════════════════════════════════════════════
+            const cAlphaSnap = cached?.alpha ? xsSnapshotOverride(ticker, cached.alpha) : null;
+            /** 첫 번째로 «실제 값»인 것을 고른다. null·undefined·NaN 은 건너뛴다. */
+            const pick = (...xs: any[]): number | null => {
+                for (const x of xs) {
+                    if (x === null || x === undefined) continue;
+                    const n = Number(x);
+                    if (Number.isFinite(n)) return n;
                 }
-            }
+                return null;
+            };
+
+            alphaScore = pick(analysis?.alphaSnapshot?.score, cAlphaSnap?.score) ?? 0;
+            grade = analysis?.alphaSnapshot?.grade || cAlphaSnap?.grade || '-';
+            maxPain = pick(analysis?.maxPain, cached?.flow?.maxPain);
+            callWall = pick(analysis?.callWall, cached?.flow?.callWall);
+            putFloor = pick(analysis?.putFloor, cached?.flow?.putFloor);
+            gex = pick(analysis?.gex, cached?.flow?.netGex);
+            pcr = pick(analysis?.pcr, cached?.flow?.oiPcr, cached?.flow?.volumePcr);
+            netPremium = pick(analysis?.netPremium, cached?.flow?.netPremium);
+            // ⚠️ live/ticker 의 RSI 는 `display.rsi14` 다. `realtime.rsi` 는 없는 경로였다.
+            rsi = pick(analysis?.rsi, cached?.display?.rsi14, cached?.technical?.rsi14);
+            rvol = pick(analysis?.relVol, cached?.realtime?.relVol);
+            squeezeScore = pick(analysis?.squeezeScore, cached?.flow?.squeezeScore);
+            const skewRaw = pick(analysis?.ivSkew, cached?.flow?.ivSkew);
+            ivSkew = (skewRaw != null && skewRaw <= 2.0) ? skewRaw : null;
+            impliedMovePct = pick(analysis?.impliedMovePct, cached?.flow?.impliedMove);
+            sparkline = (analysis?.sparkline?.length ? analysis.sparkline : cached?.flow?.sparkline) || [];
+            // 못 잰 것은 «중립»이 아니라 «알 수 없음»이다
+            if (gex != null && gex > 0) gammaRegime = 'LONG';
+            else if (gex != null && gex < 0) gammaRegime = 'SHORT';
+            else if (gex == null) gammaRegime = 'UNKNOWN';
+
 
             // ★ 두 갈래가 다 비었으면 AWS 저장소에서 메운다. «—» 보다 낫다.
             const gxf = gexFallback[ticker];
