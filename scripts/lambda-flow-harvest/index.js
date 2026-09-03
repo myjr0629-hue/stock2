@@ -1019,6 +1019,15 @@ exports.handler = async (event) => {
     const top = [...failReasons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
     console.log('[flow-harvest] 실패 사유 상위: ' + top.map(([r, n]) => `${r}×${n}`).join(' | '));
   }
+  // ★ [2026-09-04] `no-data` 만 보고는 원인을 못 찾는다 — 벤더가 실제로 뭐라고
+  //   거절했는지(429·타임아웃 등)를 같이 남긴다. 이게 없어서 「예산 초과」를
+  //   며칠 동안 「데이터 없음」으로 오해했다.
+  try {
+    if (typeof __intrinio.drainFailCounts === 'function') {
+      const vf = __intrinio.drainFailCounts();
+      if (vf.length) console.log('[flow-harvest] 벤더 거절 내역: ' + vf.slice(0, 6).map(([r, n]) => `${r}×${n}`).join(' | '));
+    }
+  } catch { }
 
   // 다음 실행이 이어받을 위치를 기록 (중단됐으면 그 지점부터)
   try {

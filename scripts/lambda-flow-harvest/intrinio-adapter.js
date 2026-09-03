@@ -139,19 +139,80 @@ function rateGate() {
   return _queue;
 }
 
+// ══════════════════════════════════════════════════════════════
+// ★★ 호출 게이트웨이  [2026-09-04]
+//
+//   웹 쪽(src/services/intrinioClient.ts)에 넣은 것과 같은 장치를 여기에도 둔다.
+//   레이트게이트만으로는 «같은 질문을 여러 번 하는 것»과 «거절당했을 때»를 못 막는다.
+//
+//   ① 합치기(coalesce) — 같은 호출이 이미 날아가 있으면 결과를 나눠 쓴다.
+//      한 회전에서 같은 종목의 같은 경로를 두 번 묻는 일이 흔하다(스냅샷·그릭스).
+//   ② 429 재시도 — 예산은 분 단위로 회복되므로 짧은 지터 백오프가 실제로 먹는다.
+//      ⚠️ 많이 하면 안 된다. 재시도도 예산을 쓴다 — 2회까지.
+//   ③ 실패 집계 — 왜 비었는지 로그에 남긴다(no-data 만 보고는 원인을 못 찾는다).
+// ══════════════════════════════════════════════════════════════
+const _inflight = new Map();
+const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
+const MAX_ATTEMPTS = Number(process.env.INTRINIO_MAX_ATTEMPTS || 2);
+const _failCounts = Object.create(null);
+function noteFail(reason) { _failCounts[reason] = (_failCounts[reason] || 0) + 1; }
+function drainFailCounts() {
+  const out = Object.entries(_failCounts).sort((a, b) => b[1] - a[1]);
+  for (const k of Object.keys(_failCounts)) delete _failCounts[k];
+  return out;
+}
+
+const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function callIntrinio(path, params = {}, timeoutMs = 15000) {
-  await rateGate();
   if (!INTRINIO_KEY) throw new Error('ENV_MISSING: INTRINIO_API_KEY');
+
+  // ① 합치기 — api_key 는 키에 넣지 않는다.
+  const ckey = `${path}::${JSON.stringify(params)}`;
+  const flying = _inflight.get(ckey);
+  if (flying) return flying;
+
   const qs = new URLSearchParams({ ...params, api_key: INTRINIO_KEY });
   const url = `${INTRINIO_BASE}/${String(path).replace(/^\//, '')}?${qs}`;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+  const run = (async () => {
+    let lastErr = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const isLast = attempt >= MAX_ATTEMPTS;
+      await rateGate();
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      let retry = false;
+      try {
+        const res = await fetch(url, { signal: ctrl.signal });
+        if (!res.ok) {
+          const err = new Error(`Intrinio ${res.status} ${path}`);
+          err.status = res.status;
+          noteFail(`HTTP ${res.status}`);
+          if (!RETRYABLE.has(res.status) || isLast) throw err;
+          lastErr = err;
+          retry = true;
+        } else {
+          return await res.json();
+        }
+      } catch (e) {
+        lastErr = e;
+        if (!retry) noteFail(e && e.name === 'AbortError' ? '타임아웃' : String((e && e.message) || e).slice(0, 60));
+        if (isLast) throw e;
+      } finally {
+        clearTimeout(timer);
+      }
+      // ② 지터 백오프 — 여러 샤드가 같은 순간에 몰려 재시도하지 않게 흔든다.
+      await _sleep(150 * attempt + Math.floor(Math.random() * 200));
+    }
+    throw lastErr || new Error(`Intrinio 호출 실패 (${path})`);
+  })();
+
+  _inflight.set(ckey, run);
   try {
-    const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error(`Intrinio ${res.status} ${path}`);
-    return await res.json();
+    return await run;
   } finally {
-    clearTimeout(timer);
+    _inflight.delete(ckey);
   }
 }
 
@@ -992,6 +1053,7 @@ async function routeMassiveUrl(input) {
 }
 
 module.exports = {
+  drainFailCounts,
   setChainCache,
   routeMassiveUrl,
   getGroupedDaily,
