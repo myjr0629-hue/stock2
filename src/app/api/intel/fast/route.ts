@@ -182,6 +182,8 @@ export async function GET(request: Request) {
         }
 
         const gexFallback: Record<string, any> = {};
+        // 진단 — 「폴백이 왜 안 걸리나」를 응답에서 바로 볼 수 있게. 추측 대신 실측.
+        let gexDiag: any = { need: 0, filled: 0, sample: [] as string[], err: null as string | null };
         try {
             // ⚠️ 판정은 **렌더와 똑같은 순서**여야 한다. 처음엔 「analysis 든 cached 든
             //   하나라도 값이 있으면 제외」로 썼는데, 렌더는 `if (analysis) … else if (cached)`
@@ -208,9 +210,11 @@ export async function GET(request: Request) {
                 needGex.forEach((t, gi) => { if (got[gi]) gexFallback[t] = got[gi]; });
                 const filled = Object.keys(gexFallback).length;
                 if (filled) console.log(`[intel/fast] DynamoDB GEX 폴백 ${filled}/${needGex.length}종목`);
+                gexDiag = { need: needGex.length, filled, sample: needGex.slice(0, 6) };
             }
         } catch (e: any) {
             console.warn('[intel/fast] DynamoDB GEX 폴백 실패:', e?.message);
+            gexDiag.err = String(e?.message || e).slice(0, 120);
         }
 
         const quotes = tickers.map((ticker, i) => {
@@ -460,6 +464,7 @@ export async function GET(request: Request) {
                 count: quotes.length,
                 elapsedMs: elapsed,
                 cachedFor: '15s',
+                gexFallback: gexDiag,
                 dataSource: 'polygon_batch+redis',
                 cacheHits: cachedTickers.filter(Boolean).length,
                 cacheMisses: cachedTickers.filter(c => !c).length,
