@@ -327,6 +327,57 @@ function getPriceCondition(gammaShield: any, copy: typeof GAMMA_AI_COPY[LocaleKe
     return copy.rangeWatch;
 }
 
+// ============================================================================
+// 「무엇을 보는지」가 아니라 「지금 무슨 일이 일어나고 그게 무슨 뜻인지」를 쓴다.
+// ----------------------------------------------------------------------------
+// 왜 (2026-09-03 대표 지적: 「어떤 말을 하는지 이해하기가 쉽지 않다」):
+//   이 카드의 본문은 **하드코딩된 고정 문장**이었다. 숫자만 바뀌고 설명은 매일 같았다.
+//     「감마 레짐과 압축도를 결합해 … 분리해서 읽습니다」
+//   그건 오늘의 시장이 아니라 «우리 방법론» 설명이다. 게다가 카드엔 CLAUDE 배지가 붙어 있다.
+//
+//   규칙 셋으로 다시 쓴다:
+//     ① 딜러가 «무엇을 해야 하는가»를 일상어로 (롱 감마 = 오르면 팔고 내리면 산다)
+//     ② 그래서 «가격이 어떻게 움직이는가» — 눌린다 / 증폭된다 / 감마가 정하지 않는다
+//     ③ 방향 단정 금지. 우리는 구조를 말하지 예측을 팔지 않는다.
+//   숫자는 값 칸이 이미 보여 주므로 본문에서 반복하지 않는다.
+// ============================================================================
+function getStructureBody(level: string | undefined, localeKey: LocaleKey): string {
+    if (level === 'LONG_GAMMA') {
+        if (localeKey === 'ja') return 'ディーラーはロングガンマです。上がれば売り、下がれば買う必要があるため、そのヘッジが値動きを抑えます — レンジが保たれやすい構造です。';
+        if (localeKey === 'en') return 'Dealers are long gamma: they must sell into strength and buy into weakness. That hedging dampens moves — the range tends to hold.';
+        return '딜러가 롱 감마 상태입니다. 오르면 팔고 내리면 사야 해서, 그 헤지 매매가 움직임을 눌러 줍니다 — 레인지가 유지되기 쉬운 구조입니다.';
+    }
+    if (level === 'SHORT_GAMMA') {
+        if (localeKey === 'ja') return 'ディーラーはショートガンマです。上がれば買い、下がれば売る必要があるため、そのヘッジが値動きを増幅します — 方向がつくと普段より遠くまで走ります。';
+        if (localeKey === 'en') return 'Dealers are short gamma: they must buy into strength and sell into weakness. That hedging amplifies moves — once a direction takes hold it runs further than usual.';
+        return '딜러가 숏 감마 상태입니다. 오르면 사고 내리면 팔아야 해서, 그 헤지 매매가 움직임을 키웁니다 — 한 번 방향이 잡히면 평소보다 멀리 갑니다.';
+    }
+    if (localeKey === 'ja') return 'ディーラーの建玉は片方に傾いていません。ガンマが値動きを抑えも増幅もしないため、今日の方向は需給とニュースが決めます。';
+    if (localeKey === 'en') return 'Dealer positioning is not tilted either way. Gamma is neither damping nor amplifying today, so flow and news set the direction instead.';
+    return '딜러 포지션이 한쪽으로 기울지 않았습니다. 감마가 움직임을 누르지도 키우지도 않으니, 오늘 방향은 감마가 아니라 수급과 뉴스가 정합니다.';
+}
+
+function getCompressionBody(level: string | undefined, localeKey: LocaleKey): string {
+    if (level === 'EXTREME') {
+        if (localeKey === 'ja') return '狭い範囲にエネルギーが極端に溜まっています。押し縮められたバネに近く、方向がついたときの値動きが最も大きくなる局面です。';
+        if (localeKey === 'en') return 'Energy is packed into a very narrow band — closest to a compressed spring. When a direction resolves, the move tends to be the largest.';
+        return '좁은 구간에 에너지가 극단적으로 쌓였습니다. 눌린 스프링에 가까워, 방향이 잡혔을 때 움직임이 가장 커지는 국면입니다.';
+    }
+    if (level === 'HIGH') {
+        if (localeKey === 'ja') return '狭い範囲にエネルギーが溜まっています。壁を抜けた瞬間、普段より大きく動く可能性があります。';
+        if (localeKey === 'en') return 'Energy has built up in a narrow band. The moment price clears a wall, the move can be larger than usual.';
+        return '좁은 구간에 에너지가 쌓였습니다. 벽을 벗어나는 순간 평소보다 크게 움직일 수 있습니다.';
+    }
+    if (level === 'MEDIUM') {
+        if (localeKey === 'ja') return '溜まったエネルギーは中程度です。壁を抜ければ速度がつく余地はありますが、まだ急加速を前提にする水準ではありません。';
+        if (localeKey === 'en') return 'Stored energy is moderate. There is room for speed to pick up past a wall, but not enough to assume a sharp acceleration.';
+        return '쌓인 에너지가 중간입니다. 벽을 벗어나면 속도가 붙을 여지는 있지만, 급가속을 전제할 수준은 아닙니다.';
+    }
+    if (localeKey === 'ja') return '溜まったエネルギーは少なめです。今の値動きは壁の内側で吸収されやすく、急な加速につながる可能性は低い状態です。';
+    if (localeKey === 'en') return 'Little stored energy. Moves are being absorbed inside the walls, and a sudden acceleration is unlikely from here.';
+    return '쌓인 에너지가 적습니다. 지금 움직임은 벽 안에서 흡수되기 쉽고, 갑작스러운 가속으로 이어질 가능성은 낮습니다.';
+}
+
 function getAiLogicPoints(gammaShield: any, localeKey: LocaleKey, copy: typeof GAMMA_AI_COPY[LocaleKey]) {
     const gexText = [formatSigned(gammaShield?.gexIndex), gammaShield?.gexLabel || gammaShield?.gexLevel].filter(Boolean).join(' · ');
     const squeezeText = typeof gammaShield?.squeezeRisk === 'number'
@@ -341,25 +392,29 @@ function getAiLogicPoints(gammaShield: any, localeKey: LocaleKey, copy: typeof G
             ? `Support ${formatDistance(supportDistance)} · Flip ${formatDistance(flipDistance)} · Resistance ${formatDistance(resistanceDistance)}`
             : `지지 ${formatDistance(supportDistance)} · 플립 ${formatDistance(flipDistance)} · 저항 ${formatDistance(resistanceDistance)}`;
 
+    // 본문은 데이터에서 나온다 — 고정 문장이 아니다.
+    const structureBody = getStructureBody(gammaShield?.gexLevel, localeKey);
+    const compressionBody = getCompressionBody(gammaShield?.squeezeLevel, localeKey);
+
     if (localeKey === 'ja') {
         return [
-            { label: '構造解釈', value: gexText || '—', body: 'ガンマ水準と圧縮度を合わせ、現在の値動きが壁で吸収されるのか、ブレイク時に増幅されるのかを分けて読みます。' },
-            { label: '圧縮状態', value: squeezeText, body: '圧縮は方向予測ではなくエネルギーの蓄積です。高いほど、壁を抜けた後の速度変化を優先確認します。' },
+            { label: '構造解釈', value: gexText || '—', body: structureBody },
+            { label: '圧縮状態', value: squeezeText, body: compressionBody },
             { label: '確認条件', value: priceText, body: getPriceCondition(gammaShield, copy) },
         ];
     }
 
     if (localeKey === 'en') {
         return [
-            { label: 'Structure Read', value: gexText || '—', body: 'Combines gamma regime and compression to separate wall absorption from potential breakout amplification.' },
-            { label: 'Compression State', value: squeezeText, body: 'Compression is not a direction call; it measures stored energy. Higher readings make post-wall speed more important.' },
+            { label: 'Structure Read', value: gexText || '—', body: structureBody },
+            { label: 'Compression State', value: squeezeText, body: compressionBody },
             { label: 'Confirmation Path', value: priceText, body: getPriceCondition(gammaShield, copy) },
         ];
     }
 
     return [
-        { label: '구조 해석', value: gexText || '—', body: '감마 레짐과 압축도를 결합해 현재 변동성이 벽에서 흡수되는지, 돌파 후 확대될 수 있는지 분리해서 읽습니다.' },
-        { label: '압축 상태', value: squeezeText, body: '압축은 방향 예측이 아니라 에너지 축적 신호입니다. 높아질수록 벽 돌파 이후 속도 변화를 우선 확인합니다.' },
+        { label: '구조 해석', value: gexText || '—', body: structureBody },
+        { label: '압축 상태', value: squeezeText, body: compressionBody },
         { label: '확인 조건', value: priceText, body: getPriceCondition(gammaShield, copy) },
     ];
 }
