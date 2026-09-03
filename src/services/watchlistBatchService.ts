@@ -1194,10 +1194,84 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
             console.warn('[watchlist/batch] 다크풀(FINRA) 조회 실패:', e?.message);
         }
 
+        // ══════════════════════════════════════════════════════════════
+        // ★★ [2026-09-04] 인텔 «종목 상세» 화면이 읽는 문은 여기다.
+        //
+        //   대표 실측(CRWD·ZS): SQUEEZE·NET PREM·IMP MOVE 가 «—».
+        //   내가 앞서 고친 곳은 `/api/intel/fast`(섹터 목록)였고, **상세 카드는
+        //   이 배치를 읽는다.** 같은 화면인데 문이 둘이었고 한쪽만 고쳤다.
+        //   실측: CRWD·ZS·TEAM 이 gex·pcr·squeezeScore·netPremium·putFloor·
+        //   callWall·maxPain 전부 null (NVDA 만 정상).
+        //
+        //   → intel/fast 와 **같은 AWS 폴백**을 여기에도 단다.
+        //     GEX 레코드(gex·pcr·maxPain·벽·squeezeScore·ivSkew·impliedMovePct) +
+        //     flow-history(netPremium). 정말 빈 필드만 채운다.
+        // ══════════════════════════════════════════════════════════════
+        const awsFill: Record<string, any> = {};
+        try {
+            const cold = results
+                .filter((r: any) => r?.ticker && !r.error && r.realtime)
+                .filter((r: any) => {
+                    const rt = r.realtime;
+                    const has = (...xs: any[]) => xs.some((x) => x !== null && x !== undefined && Number.isFinite(Number(x)));
+                    // 화면이 읽는 축 중 하나라도 비면 대상이다.
+                    return !(has(rt.gex) && has(rt.pcr) && has(rt.netPremium) && has(rt.maxPain)
+                        && has(rt.squeezeScore) && has(rt.impliedMovePct) && has(rt.callWall) && has(rt.putFloor));
+                })
+                .map((r: any) => String(r.ticker).toUpperCase());
+            if (cold.length > 0) {
+                const { getLatestGex, getLatestFlow } = await import('@/lib/aws/dynamoDataProvider');
+                const got = await Promise.all(cold.map(async (t) => {
+                    const [gx, fl] = await Promise.all([
+                        Promise.race([getLatestGex(t).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 6000))]),
+                        Promise.race([getLatestFlow(t).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 6000))]),
+                    ]);
+                    return (gx || fl) ? { ...(fl || {}), ...(gx || {}) } : null;
+                }));
+                cold.forEach((t, i) => { if (got[i]) awsFill[t] = got[i]; });
+                console.log(`[watchlist/batch] AWS 폴백 ${Object.keys(awsFill).length}/${cold.length}종목`);
+            }
+        } catch (e: any) {
+            console.warn('[watchlist/batch] AWS 폴백 실패:', e?.message);
+        }
+
         results.forEach((r: any, i: number) => {
             if (!r?.realtime) return;
             r.realtime.liquidityScore = liq[i]?.liquidityScore ?? null;
             r.realtime.spreadPct = liq[i]?.spreadPct ?? null;
+
+            // ★ 비어 있는 필드만 AWS 저장소 값으로 채운다.
+            const af = awsFill[String(r.ticker || '').toUpperCase()];
+            if (af) {
+                const rt = r.realtime;
+                const put = (key: string, v: any) => {
+                    if (v === null || v === undefined) return;
+                    const cur = rt[key];
+                    if (cur === null || cur === undefined || !Number.isFinite(Number(cur))) rt[key] = v;
+                };
+                put('gex', af.gex);
+                put('netGex', af.gex);
+                put('pcr', af.pcr);
+                put('maxPain', af.maxPain);
+                put('callWall', af.callWall);
+                put('putFloor', af.putFloor);
+                put('gammaFlipLevel', af.flipLevel);
+                put('squeezeScore', af.squeezeScore);
+                put('netPremium', af.netPremium);
+                put('atmIv', af.atmIv);
+                if (af.ivSkew != null && Math.abs(Number(af.ivSkew)) <= 2.0) put('ivSkew', af.ivSkew);
+                put('impliedMovePct', af.impliedMovePct);
+                if (rt.gammaRegime == null && af.gex != null) rt.gammaRegime = af.gex > 0 ? 'LONG' : af.gex < 0 ? 'SHORT' : 'NEUTRAL';
+            }
+
+            // ⚠️ 예상 변동폭이 «전 만기»에서 계산돼 부풀어 오르는 일이 있다
+            //   (실측 NVDA 55.1% — 근월 예상 변동폭일 수 없다). 하베스터가 저장한
+            //   근월 기준 값이 있으면 그걸 쓰고, 없으면 비정상 값은 버린다.
+            const im = Number(r.realtime.impliedMovePct);
+            if (Number.isFinite(im) && (im <= 0 || im >= 30)) {
+                r.realtime.impliedMovePct = af?.impliedMovePct ?? null;
+            }
+
             const dp = dpMap[String(r.ticker || '').toUpperCase()];
             r.realtime.darkPoolPct = dp?.pct ?? null;
             r.realtime.darkPoolVol = dp?.volume ?? null;
