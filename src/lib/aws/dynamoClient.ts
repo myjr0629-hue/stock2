@@ -83,8 +83,14 @@ export async function queryItems<T>(
     const client = getDynamoClient();
     if (!client) return [];
 
+    // ★★ [2026-09-04] `limit` 을 «페이지 크기»로만 쓰고 총량은 maxItems(5000)까지
+    //   계속 페이징하고 있었다. 그래서 `getLatestGex(limit:1)` 이 **1건씩 수백 번**
+    //   왕복했고, 호출부의 2.5~3초 타임아웃에 걸려 조용히 null 이 됐다.
+    //   증상: 인텔의 AWS 폴백이 need=5 filled=0 err=없음 — 「대상은 골랐는데
+    //   전부 못 채웠고 에러도 없다」. DynamoDB 엔 11분 전 값이 멀쩡히 있었다.
+    //   → limit 을 준 호출은 그만큼만 받는다(그게 호출부의 의도다).
     const pageSize = options?.limit || 100;
-    const maxItems = options?.maxItems ?? 5000;
+    const maxItems = options?.maxItems ?? (options?.limit ?? 5000);
     const out: T[] = [];
     let startKey: Record<string, any> | undefined;
 

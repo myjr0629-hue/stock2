@@ -216,7 +216,7 @@ export async function GET(request: Request) {
                 needGex.forEach((t, gi) => { if (got[gi]) gexFallback[t] = got[gi]; });
                 const filled = Object.keys(gexFallback).length;
                 if (filled) console.log(`[intel/fast] DynamoDB GEX 폴백 ${filled}/${needGex.length}종목`);
-                gexDiag = { need: needGex.length, filled, sample: needGex.slice(0, 6) };
+                gexDiag = { ...gexDiag, need: needGex.length, filled, sample: needGex.slice(0, 6) };  // ⚠️ 통째로 덮으면 err 가 지워진다
             }
         } catch (e: any) {
             console.warn('[intel/fast] DynamoDB GEX 폴백 실패:', e?.message);
