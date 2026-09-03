@@ -1,0 +1,587 @@
+{
+ "de": [
+  {
+   "term": "aktien",
+   "demand": 1,
+   "med": 54542,
+   "top": "Aktien",
+   "mine": {}
+  },
+  {
+   "term": "aktien news",
+   "demand": 1,
+   "med": 58317,
+   "top": "finanzen.net – Börsen & News",
+   "mine": {}
+  },
+  {
+   "term": "börse online",
+   "demand": 1,
+   "med": 15012,
+   "top": "Börse Online - News & Kurse",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq markets",
+   "demand": 1,
+   "med": 11080,
+   "top": "Nasdaq MarketSite Events App",
+   "mine": {}
+  },
+  {
+   "term": "tesla",
+   "demand": 1,
+   "med": 7890,
+   "top": "Tesla",
+   "mine": {}
+  },
+  {
+   "term": "dividenden kalender",
+   "demand": 1,
+   "med": 1452,
+   "top": "DivvyDiary",
+   "mine": {}
+  },
+  {
+   "term": "investieren",
+   "demand": 1,
+   "med": 76053,
+   "top": "Trade Republic: Broker & Bank",
+   "mine": {}
+  },
+  {
+   "term": "aktienkurse",
+   "demand": 2,
+   "med": 42803,
+   "top": "Aktien",
+   "mine": {}
+  },
+  {
+   "term": "börsen news",
+   "demand": 2,
+   "med": 58317,
+   "top": "Börse & Aktien - BörsennewsApp",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq",
+   "demand": 2,
+   "med": 11080,
+   "top": "NASDQ Signals - Forex Trading",
+   "mine": {}
+  },
+  {
+   "term": "tesla lade app",
+   "demand": 2,
+   "med": 5360,
+   "top": "Tesla",
+   "mine": {}
+  },
+  {
+   "term": "dividenden",
+   "demand": 2,
+   "med": 682,
+   "top": "DivvyDiary",
+   "mine": {}
+  },
+  {
+   "term": "investieren simulator",
+   "demand": 2,
+   "med": 1009,
+   "top": "Vestin - Investitionssimulator",
+   "mine": {}
+  },
+  {
+   "term": "aktien simulator",
+   "demand": 3,
+   "med": 1009,
+   "top": "Best Brokers Börsenspiel",
+   "mine": {}
+  },
+  {
+   "term": "börse.live",
+   "demand": 3,
+   "med": 227,
+   "top": "Börse.live – Invest & Trading",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq, inc.",
+   "demand": 3,
+   "med": 11080,
+   "top": "Nasdaq MarketSite Events App",
+   "mine": {}
+  },
+  {
+   "term": "tesla superchargers",
+   "demand": 3,
+   "med": 5360,
+   "top": "Tesla",
+   "mine": {}
+  },
+  {
+   "term": "dividenden tracker",
+   "demand": 3,
+   "med": 682,
+   "top": "DivTracker: Dividenden Börse",
+   "mine": {}
+  },
+  {
+   "term": "investieren lernen",
+   "demand": 3,
+   "med": 982,
+   "top": "Investmate — Traden lernen",
+   "mine": {}
+  },
+  {
+   "term": "aktien kaufen",
+   "demand": 4,
+   "med": 54542,
+   "top": "Trade Republic: Broker & Bank",
+   "mine": {}
+  },
+  {
+   "term": "börsenspiel",
+   "demand": 4,
+   "med": 1009,
+   "top": "Best Brokers Börsenspiel",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq ir insight",
+   "demand": 4,
+   "med": 0,
+   "top": "NASDAQ IR Insight",
+   "mine": {}
+  },
+  {
+   "term": "tesla one",
+   "demand": 4,
+   "med": 176,
+   "top": "Tesla One",
+   "mine": {}
+  },
+  {
+   "term": "dividende",
+   "demand": 4,
+   "med": 682,
+   "top": "Stock Events Portfolio Tracker",
+   "mine": {}
+  },
+  {
+   "term": "geld investieren",
+   "demand": 4,
+   "med": 7549,
+   "top": "Trade Republic: Broker & Bank",
+   "mine": {}
+  },
+  {
+   "term": "börse frankfurt",
+   "demand": 5,
+   "med": 15012,
+   "top": "Deutsche Börse",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq marketsite events app",
+   "demand": 5,
+   "med": 1,
+   "top": "Nasdaq MarketSite Events App",
+   "mine": {}
+  },
+  {
+   "term": "tesla mobile app",
+   "demand": 5,
+   "med": 654,
+   "top": "Tesla",
+   "mine": {}
+  },
+  {
+   "term": "dividendenrechner",
+   "demand": 5,
+   "med": 1,
+   "top": "Dividendenrechner",
+   "mine": {}
+  },
+  {
+   "term": "plus500 trading & investieren",
+   "demand": 5,
+   "med": 27257,
+   "top": "Plus500 Trading & Investieren",
+   "mine": {}
+  },
+  {
+   "term": "aktienfinder",
+   "demand": 6,
+   "med": 11080,
+   "top": "finanzen.net – Börsen & News",
+   "mine": {}
+  },
+  {
+   "term": "börse stuttgart",
+   "demand": 6,
+   "med": 8771,
+   "top": "Börse Stuttgart App",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq boardvantage",
+   "demand": 6,
+   "med": 0,
+   "top": "Nasdaq Boardvantage",
+   "mine": {}
+  },
+  {
+   "term": "tesla robotaxi",
+   "demand": 6,
+   "med": 872,
+   "top": "Tesla",
+   "mine": {}
+  },
+  {
+   "term": "aktien guide",
+   "demand": 7,
+   "med": 54542,
+   "top": "finanzen.net – Börsen & News",
+   "mine": {}
+  },
+  {
+   "term": "börsenkurse",
+   "demand": 7,
+   "med": 54542,
+   "top": "finanzen.net – Börsen & News",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq boardvantage go",
+   "demand": 7,
+   "med": 0,
+   "top": "Nasdaq Boardvantage Go",
+   "mine": {}
+  },
+  {
+   "term": "tesla auth",
+   "demand": 7,
+   "med": 4920,
+   "top": "Auth app for Tesla",
+   "mine": {}
+  },
+  {
+   "term": "aktien spiel",
+   "demand": 8,
+   "med": 1009,
+   "top": "Best Brokers Börsenspiel",
+   "mine": {}
+  },
+  {
+   "term": "börse",
+   "demand": 8,
+   "med": 15012,
+   "top": "Aktien",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq reference library",
+   "demand": 8,
+   "med": 0,
+   "top": "Nasdaq Reference Library",
+   "mine": {}
+  },
+  {
+   "term": "tesla charging",
+   "demand": 8,
+   "med": 5360,
+   "top": "Tesla",
+   "mine": {}
+  },
+  {
+   "term": "aktien watchlist",
+   "demand": 9,
+   "med": 54542,
+   "top": "Aktien",
+   "mine": {}
+  },
+  {
+   "term": "börsen-zeitung",
+   "demand": 9,
+   "med": 15012,
+   "top": "Börsen-Zeitung",
+   "mine": {}
+  },
+  {
+   "term": "tesla go",
+   "demand": 9,
+   "med": 22,
+   "top": "TeslaGoApp rides in Montenegro",
+   "mine": {}
+  },
+  {
+   "term": "stocks live + dividenden",
+   "demand": 9,
+   "med": 6,
+   "top": "Stocks Live + Dividenden",
+   "mine": {}
+  },
+  {
+   "term": "aktien analyse",
+   "demand": 10,
+   "med": 7549,
+   "top": "TradingView - Börse & Aktien",
+   "mine": {}
+  },
+  {
+   "term": "börsenstrompreis",
+   "demand": 10,
+   "med": 2,
+   "top": "EnergyMarketStats",
+   "mine": {}
+  },
+  {
+   "term": "nasdaq widget",
+   "demand": 10,
+   "med": 0,
+   "top": "NASDAQ Widget",
+   "mine": {}
+  },
+  {
+   "term": "tesla laden",
+   "demand": 10,
+   "med": 1541,
+   "top": "Tesla",
+   "mine": {}
+  },
+  {
+   "term": "stocks live dividenden",
+   "demand": 10,
+   "med": 6,
+   "top": "Stocks Live Dividenden",
+   "mine": {}
+  }
+ ],
+ "tw": [
+  {
+   "term": "美股k線",
+   "demand": 1,
+   "med": 49949,
+   "top": "美股K線",
+   "mine": {}
+  },
+  {
+   "term": "股票",
+   "demand": 1,
+   "med": 53668,
+   "top": "三竹股市-台股、國際股市看盤與股票投資存股及選股分析",
+   "mine": {}
+  },
+  {
+   "term": "財報狗",
+   "demand": 1,
+   "med": 38888,
+   "top": "股市籌碼K線 - 快速找出主力籌碼飆股",
+   "mine": {}
+  },
+  {
+   "term": "股息助手",
+   "demand": 1,
+   "med": 230,
+   "top": "ETF股息助手",
+   "mine": {}
+  },
+  {
+   "term": "股市新聞",
+   "demand": 1,
+   "med": 32050,
+   "top": "Yahoo股市-台美股報價、ETF 比較、重點新聞",
+   "mine": {}
+  },
+  {
+   "term": "投資先生",
+   "demand": 1,
+   "med": 32050,
+   "top": "投資先生",
+   "mine": {}
+  },
+  {
+   "term": "美股即時",
+   "demand": 2,
+   "med": 29443,
+   "top": "美股K線",
+   "mine": {}
+  },
+  {
+   "term": "股票記帳",
+   "demand": 2,
+   "med": 1748,
+   "top": "股票記帳本 | 簡單 好用 台股 投資紀錄",
+   "mine": {}
+  },
+  {
+   "term": "財報雲",
+   "demand": 2,
+   "med": 961,
+   "top": "財報雲 Statementcloud",
+   "mine": {}
+  },
+  {
+   "term": "特斯拉充電站",
+   "demand": 2,
+   "med": 138,
+   "top": "AmpGO 電動車充電地圖：充電站 充電漫遊 特斯拉充電",
+   "mine": {}
+  },
+  {
+   "term": "財報",
+   "demand": 3,
+   "med": 32050,
+   "top": "股市爆料同學會-最大的股票討論社群",
+   "mine": {}
+  },
+  {
+   "term": "特斯拉儀表板",
+   "demand": 4,
+   "med": 9,
+   "top": "Dashla：特斯拉儀表板",
+   "mine": {}
+  },
+  {
+   "term": "股票記帳本",
+   "demand": 6,
+   "med": 1748,
+   "top": "股票記帳本 | 簡單 好用 台股 投資紀錄",
+   "mine": {}
+  },
+  {
+   "term": "財報任意門",
+   "demand": 6,
+   "med": 0,
+   "top": "財報任意門",
+   "mine": {}
+  },
+  {
+   "term": "特斯拉充電",
+   "demand": 6,
+   "med": 3430,
+   "top": "Tesla",
+   "mine": {}
+  },
+  {
+   "term": "股息通",
+   "demand": 6,
+   "med": 31,
+   "top": "股息通",
+   "mine": {}
+  },
+  {
+   "term": "投資儀表板",
+   "demand": 6,
+   "med": 1,
+   "top": "投資儀表板",
+   "mine": {}
+  },
+  {
+   "term": "美股etf",
+   "demand": 7,
+   "med": 2738,
+   "top": "方舟運算-台股 美股 ETF 風控數據策略 再平衡投資系統",
+   "mine": {}
+  },
+  {
+   "term": "股票交易",
+   "demand": 7,
+   "med": 38888,
+   "top": "Yahoo股市-台美股報價、ETF 比較、重點新聞",
+   "mine": {}
+  },
+  {
+   "term": "股息罐罐",
+   "demand": 7,
+   "med": 0,
+   "top": "股息罐罐",
+   "mine": {}
+  },
+  {
+   "term": "投資小學堂",
+   "demand": 7,
+   "med": 49949,
+   "top": "投資小學堂 - 輕鬆入門股市投資理財",
+   "mine": {}
+  },
+  {
+   "term": "美股通",
+   "demand": 8,
+   "med": 11147,
+   "top": "美股通: 實時美股, 股指期貨, 技術分析, 模擬交易",
+   "mine": {}
+  },
+  {
+   "term": "股票大富翁",
+   "demand": 8,
+   "med": 32050,
+   "top": "股市大富翁",
+   "mine": {}
+  },
+  {
+   "term": "投資帳本",
+   "demand": 8,
+   "med": 1103,
+   "top": "TW投資帳本 -台股、期貨、美股、加密資產、損益即時更新",
+   "mine": {}
+  },
+  {
+   "term": "美股etf股息助手",
+   "demand": 9,
+   "med": 7,
+   "top": "美股ETF股息助手",
+   "mine": {}
+  },
+  {
+   "term": "股票挖土機",
+   "demand": 9,
+   "med": 38888,
+   "top": "股票挖土機- 找被低估的好股票",
+   "mine": {}
+  },
+  {
+   "term": "股息流",
+   "demand": 9,
+   "med": 0,
+   "top": "股息流",
+   "mine": {}
+  },
+  {
+   "term": "投資紀錄",
+   "demand": 9,
+   "med": 33,
+   "top": "股票記帳本 | 簡單 好用 台股 投資紀錄",
+   "mine": {}
+  },
+  {
+   "term": "美股記帳",
+   "demand": 10,
+   "med": 130,
+   "top": "美股記帳本",
+   "mine": {}
+  },
+  {
+   "term": "股票遊戲",
+   "demand": 10,
+   "med": 47,
+   "top": "股票遊戲-資本主義",
+   "mine": {}
+  },
+  {
+   "term": "股息-数据查询",
+   "demand": 10,
+   "med": 0,
+   "top": "股息-数据查询",
+   "mine": {}
+  },
+  {
+   "term": "投資記帳",
+   "demand": 10,
+   "med": 2752,
+   "top": "Percento-輕鬆管理你的資產、投資記帳",
+   "mine": {}
+  }
+ ]
+}

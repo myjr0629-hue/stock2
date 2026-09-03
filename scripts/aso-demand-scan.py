@@ -101,13 +101,20 @@ def compete(term: str, cc: str) -> dict:
     }
 
 
-def is_app_name(t: str) -> bool:
+# 검색어로서 «너무 길다»의 기준은 언어마다 다르다. 독일어는 합성어라 원래 길고,
+# 한중일은 한 글자가 한 단어 몫을 한다. 하나의 숫자로 자르면 진짜 검색어까지 버린다
+# (2026-09-03: 22자 고정이라 DE·TW 후보가 0개로 나왔다 — «수요 없음»이 아니라 «못 쟀음»이었다).
+MAX_QUERY_LEN = {'ja': 14, 'zh': 12, 'ko': 16, 'de': 34, 'vi': 34}
+
+
+def is_app_name(t: str, cc: str = 'us') -> bool:
     """자동완성에 섞여 나온 «앱 이름»을 걸러낸다."""
-    if any(ch in t for ch in (':', '–', '—')):
+    if any(ch in t for ch in (':', '–', '—', '｜', '|')):
         return True
-    if ' - ' in t:
+    if ' - ' in t or ' – ' in t:
         return True
-    return len(t) > 22          # 검색어치고 너무 길면 앱 이름이다
+    lang = STORE.get(cc, ('', 'en'))[1].split('-')[0]
+    return len(t) > MAX_QUERY_LEN.get(lang, 28)
 
 
 def verdict(med: int) -> str:
@@ -129,7 +136,7 @@ def main() -> None:
         seen, rows, brands = {}, [], []
         for seed in SEEDS[cc]:
             for rank, h in enumerate(hints(seed, cc), 1):
-                if is_app_name(h):
+                if is_app_name(h, cc):
                     brands.append(h)
                     continue
                 # 같은 말이 여러 씨앗에서 뜨면 «가장 앞선 순위»를 쓴다.

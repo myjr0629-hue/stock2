@@ -1,0 +1,859 @@
+{
+ "kr|미국주식": {
+  "med": 7112,
+  "top": "TradingView - 주식, 증권 및 비트코인",
+  "mine": {
+   "WIM": 24
+  }
+ },
+ "kr|해외주식": {
+  "med": 7112,
+  "top": "미니스탁 - 매일이 즐거운 투자루틴(국내, 해외주식)",
+  "mine": {}
+ },
+ "kr|주식어플": {
+  "med": 7112,
+  "top": "한투-한국투자증권,MTS,투자,증권,해외주식,주식어플",
+  "mine": {}
+ },
+ "kr|증시뉴스": {
+  "med": 14,
+  "top": "SAVE : 투자의 모든 소식, 이제 한 곳에서",
+  "mine": {
+   "UC": 11
+  }
+ },
+ "kr|실적발표": {
+  "med": 0,
+  "top": "Investing.com: 주가차트 & 금융뉴스 제공",
+  "mine": {
+   "SIGNUM": 5,
+   "WIM": 6
+  }
+ },
+ "kr|어닝콜": {
+  "med": 1,
+  "top": "스톡나우 - 실적, 어닝콜, 속보, 뉴스, 공시 정보",
+  "mine": {}
+ },
+ "kr|애프터먼데이": {
+  "med": 26,
+  "top": "에프터먼데이 - aftermonday",
+  "mine": {}
+ },
+ "kr|나스닥": {
+  "med": 20169,
+  "top": "주식",
+  "mine": {}
+ },
+ "kr|배당": {
+  "med": 1362,
+  "top": "배달의민족 - 배달팁 무료 배민클럽",
+  "mine": {}
+ },
+ "kr|시황": {
+  "med": 9,
+  "top": "세시반 - 바쁜 직장인을 위한 종가 투자 정보 앱",
+  "mine": {}
+ },
+ "kr|주식 종목": {
+  "med": 353,
+  "top": "줍줍 - 주식 점수 분석",
+  "mine": {}
+ },
+ "kr|주식 뉴스": {
+  "med": 1138,
+  "top": "SAVE : 투자의 모든 소식, 이제 한 곳에서",
+  "mine": {}
+ },
+ "kr|주식 캘린더": {
+  "med": 12,
+  "top": "스톡나우 - 실적, 어닝콜, 속보, 뉴스, 공시 정보",
+  "mine": {
+   "UC": 13
+  }
+ },
+ "kr|주식 공부": {
+  "med": 1146,
+  "top": "마루랩 - 경제공부 주식 모의투자 재테크 코인 암호화폐",
+  "mine": {
+   "WIM": 18
+  }
+ },
+ "kr|경제뉴스": {
+  "med": 1502,
+  "top": "SAVE : 투자의 모든 소식, 이제 한 곳에서",
+  "mine": {}
+ },
+ "kr|미국주식창": {
+  "med": 69,
+  "top": "미국주식창 – 해외주식, 증권, 시세, 글로벌",
+  "mine": {}
+ },
+ "kr|해외주식선물": {
+  "med": 1509,
+  "top": "미래에셋증권 해외주식선물 m.Global",
+  "mine": {
+   "SIGNUM": 15
+  }
+ },
+ "kr|증시": {
+  "med": 14406,
+  "top": "Investing.com: 주가차트 & 금융뉴스 제공",
+  "mine": {}
+ },
+ "kr|카드 실적": {
+  "med": 68887,
+  "top": "카드실적 셀프체크",
+  "mine": {}
+ },
+ "kr|애프터닥": {
+  "med": 1,
+  "top": "애프터닥",
+  "mine": {}
+ },
+ "kr|배당금 계산기": {
+  "med": 1,
+  "top": "월배당 - ETF 투자 수익 계산기",
+  "mine": {}
+ },
+ "kr|나만의 주식 캘린더": {
+  "med": 3,
+  "top": "나만의 주식 캘린더",
+  "mine": {}
+ },
+ "kr|주식게임": {
+  "med": 341,
+  "top": "주식게임 - 캐피탈리즘",
+  "mine": {}
+ },
+ "kr|오늘의 증시": {
+  "med": 24,
+  "top": "오늘의 증시 - 미국 주식 정보를 한눈에",
+  "mine": {
+   "SIGNUM": 2
+  }
+ },
+ "kr|주식창": {
+  "med": 14406,
+  "top": "주식창 (주식, 증권시세, 주식비타민)",
+  "mine": {}
+ },
+ "kr|경제라디오": {
+  "med": 2702,
+  "top": "삼프로TV - 압도적 경제 콘텐츠",
+  "mine": {}
+ },
+ "jp|米国株": {
+  "med": 1103,
+  "top": "SBI証券 米国株アプリ",
+  "mine": {}
+ },
+ "jp|株": {
+  "med": 20135,
+  "top": "iSPEED - 楽天証券の株アプリ",
+  "mine": {}
+ },
+ "jp|決算": {
+  "med": 20,
+  "top": "KabuDoc 株式決算・開示情報を逃さない",
+  "mine": {}
+ },
+ "jp|時間外給与計算電卓 -残業代計算-": {
+  "med": 1248,
+  "top": "勤務時間記録 - 勤務・残業時間の記録・バイトの勤怠管理",
+  "mine": {}
+ },
+ "jp|テスラアプリ": {
+  "med": 255,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "jp|配当管理": {
+  "med": 3205,
+  "top": "配当管理",
+  "mine": {}
+ },
+ "jp|yahoo!ファイナンス": {
+  "med": 78474,
+  "top": "Yahoo!ファイナンス",
+  "mine": {}
+ },
+ "jp|銘柄スカウター": {
+  "med": 10733,
+  "top": "マネックス証券アプリ",
+  "mine": {}
+ },
+ "jp|株 勉強": {
+  "med": 3401,
+  "top": "株初心者説明書-やさしい投資入門",
+  "mine": {}
+ },
+ "jp|経済ニュース": {
+  "med": 24491,
+  "top": "日本経済新聞 電子版 - ビジネス・政治・金融・経済ニュース",
+  "mine": {}
+ },
+ "jp|米国株テーマトラッカー": {
+  "med": 67,
+  "top": "米国株テーマトラッカー",
+  "mine": {}
+ },
+ "jp|決算書": {
+  "med": 237,
+  "top": "簿記3級 解説付き問題集",
+  "mine": {}
+ },
+ "jp|トレカ 相場": {
+  "med": 84,
+  "top": "DMMマイカ – トレカ管理・相場確認・購入",
+  "mine": {}
+ },
+ "jp|経済": {
+  "med": 24491,
+  "top": "日本経済新聞 電子版 - ビジネス・政治・金融・経済ニュース",
+  "mine": {}
+ },
+ "jp|株価アプリ": {
+  "med": 73046,
+  "top": "株価",
+  "mine": {}
+ },
+ "jp|配当": {
+  "med": 3810,
+  "top": "配当管理",
+  "mine": {}
+ },
+ "jp|ポケモンカード 相場": {
+  "med": 370,
+  "top": "ポケカ価格・相場・トレカ投資・抽選販売の通知・地図・チャート",
+  "mine": {}
+ },
+ "jp|経済指標": {
+  "med": 1147,
+  "top": "株・FX指標イベント一覧",
+  "mine": {}
+ },
+ "jp|sbi 米国株": {
+  "med": 7288,
+  "top": "SBI証券 米国株アプリ",
+  "mine": {}
+ },
+ "jp|決算発表": {
+  "med": 677,
+  "top": "KabuDoc 株式決算・開示情報を逃さない",
+  "mine": {
+   "SIGNUM": 20
+  }
+ },
+ "jp|テスラワン": {
+  "med": 255,
+  "top": "Tesla One",
+  "mine": {}
+ },
+ "us|stocks": {
+  "med": 1797063,
+  "top": "Stocks",
+  "mine": {}
+ },
+ "us|stock market simulator": {
+  "med": 6910,
+  "top": "Stock Market Simulator & Game",
+  "mine": {}
+ },
+ "us|earnings hub": {
+  "med": 3162,
+  "top": "Earnings Hub and Calendar",
+  "mine": {}
+ },
+ "us|after hours": {
+  "med": 36,
+  "top": "AfterHour: Social Copy Trading",
+  "mine": {}
+ },
+ "us|nasdaq": {
+  "med": 407371,
+  "top": "Stocks",
+  "mine": {}
+ },
+ "us|tesla": {
+  "med": 9585,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "us|nvidia shield tv app": {
+  "med": 927,
+  "top": "NVIDIA SHIELD TV",
+  "mine": {}
+ },
+ "us|dividend tracker": {
+  "med": 2152,
+  "top": "Dividend Tracker - DivTracker",
+  "mine": {}
+ },
+ "us|stock alerts": {
+  "med": 14562,
+  "top": "Stock Alarm - Alerts, Tracker",
+  "mine": {}
+ },
+ "us|market news": {
+  "med": 551845,
+  "top": "CNBC: Stock Market & Business",
+  "mine": {}
+ },
+ "us|optionstrat": {
+  "med": 1928,
+  "top": "OptionStrat: Options Toolkit",
+  "mine": {}
+ },
+ "us|free stocks": {
+  "med": 862026,
+  "top": "Stocks",
+  "mine": {}
+ },
+ "us|stock calendar": {
+  "med": 2164,
+  "top": "Profit and Loss Calendar",
+  "mine": {}
+ },
+ "us|investing.com": {
+  "med": 625419,
+  "top": "Investing.com: Stock Market",
+  "mine": {}
+ },
+ "us|day trading simulator": {
+  "med": 10946,
+  "top": "Stock Market Simulator & Game",
+  "mine": {}
+ },
+ "us|tickeri": {
+  "med": 3,
+  "top": "Tickeri Sellers",
+  "mine": {}
+ },
+ "us|stocks.news": {
+  "med": 625419,
+  "top": "Stocks.News－Market Alerts",
+  "mine": {}
+ },
+ "us|stock market tracker": {
+  "med": 625419,
+  "top": "Stocks",
+  "mine": {}
+ },
+ "us|earnings": {
+  "med": 480,
+  "top": "EarnIn: Beyond Cash Advance",
+  "mine": {}
+ },
+ "us|premarket search": {
+  "med": 1367,
+  "top": "Premarket Search",
+  "mine": {}
+ },
+ "us|after hours london": {
+  "med": 235,
+  "top": "afterhours: London nightlife",
+  "mine": {}
+ },
+ "us|nasdaq private market": {
+  "med": 32,
+  "top": "Nasdaq Private Market",
+  "mine": {}
+ },
+ "us|nvidia geforce": {
+  "med": 927,
+  "top": "NVIDIA SHIELD TV",
+  "mine": {}
+ },
+ "us|investing": {
+  "med": 957878,
+  "top": "Robinhood: Trading & Investing",
+  "mine": {}
+ },
+ "us|day trading": {
+  "med": 407371,
+  "top": "TradingView: Track All Markets",
+  "mine": {}
+ },
+ "us|ticker": {
+  "med": 2686,
+  "top": "ticker: social investing",
+  "mine": {}
+ },
+ "us|after hours only": {
+  "med": 21,
+  "top": "After Hours Only",
+  "mine": {}
+ },
+ "us|stock alerts bg": {
+  "med": 7298,
+  "top": "Stock Alerts BG(Alarm/Tracker)",
+  "mine": {}
+ },
+ "us|free stock screener": {
+  "med": 6204,
+  "top": "Stock Screener, AI Scanner",
+  "mine": {}
+ },
+ "us|tickertape": {
+  "med": 2384,
+  "top": "Tickertape: India & US Stocks",
+  "mine": {}
+ },
+ "us|stock market trading": {
+  "med": 862026,
+  "top": "Robinhood: Trading & Investing",
+  "mine": {}
+ },
+ "us|earnings tracker": {
+  "med": 6,
+  "top": "TipTracker - track your income",
+  "mine": {}
+ },
+ "us|buzzed after hours": {
+  "med": 21,
+  "top": "Buzzed After Hours",
+  "mine": {}
+ },
+ "us|free dividend tracker": {
+  "med": 882,
+  "top": "The Dividend Tracker",
+  "mine": {}
+ },
+ "us|investing pro": {
+  "med": 407371,
+  "top": "Investing.com: Stock Market",
+  "mine": {}
+ },
+ "us|stocks simulator": {
+  "med": 6891,
+  "top": "MarketSim",
+  "mine": {}
+ },
+ "us|earnings calendar": {
+  "med": 67,
+  "top": "Earnings Hub and Calendar",
+  "mine": {}
+ },
+ "us|free stock app": {
+  "med": 862026,
+  "top": "Stocks",
+  "mine": {}
+ },
+ "de|aktien": {
+  "med": 54542,
+  "top": "Aktien",
+  "mine": {}
+ },
+ "de|aktien news": {
+  "med": 58317,
+  "top": "finanzen.net – Börsen & News",
+  "mine": {}
+ },
+ "de|börse online": {
+  "med": 15012,
+  "top": "Börse Online - News & Kurse",
+  "mine": {}
+ },
+ "de|nasdaq markets": {
+  "med": 11080,
+  "top": "Nasdaq MarketSite Events App",
+  "mine": {}
+ },
+ "de|tesla": {
+  "med": 7890,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "de|dividenden kalender": {
+  "med": 1452,
+  "top": "DivvyDiary",
+  "mine": {}
+ },
+ "de|investieren": {
+  "med": 76053,
+  "top": "Trade Republic: Broker & Bank",
+  "mine": {}
+ },
+ "de|aktienkurse": {
+  "med": 42803,
+  "top": "Aktien",
+  "mine": {}
+ },
+ "de|börsen news": {
+  "med": 58317,
+  "top": "Börse & Aktien - BörsennewsApp",
+  "mine": {}
+ },
+ "de|nasdaq": {
+  "med": 11080,
+  "top": "NASDQ Signals - Forex Trading",
+  "mine": {}
+ },
+ "de|tesla lade app": {
+  "med": 5360,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "de|dividenden": {
+  "med": 682,
+  "top": "DivvyDiary",
+  "mine": {}
+ },
+ "de|investieren simulator": {
+  "med": 1009,
+  "top": "Vestin - Investitionssimulator",
+  "mine": {}
+ },
+ "de|aktien simulator": {
+  "med": 1009,
+  "top": "Best Brokers Börsenspiel",
+  "mine": {}
+ },
+ "de|börse.live": {
+  "med": 227,
+  "top": "Börse.live – Invest & Trading",
+  "mine": {}
+ },
+ "de|nasdaq, inc.": {
+  "med": 11080,
+  "top": "Nasdaq MarketSite Events App",
+  "mine": {}
+ },
+ "de|tesla superchargers": {
+  "med": 5360,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "de|dividenden tracker": {
+  "med": 682,
+  "top": "DivTracker: Dividenden Börse",
+  "mine": {}
+ },
+ "de|investieren lernen": {
+  "med": 982,
+  "top": "Investmate — Traden lernen",
+  "mine": {}
+ },
+ "de|aktien kaufen": {
+  "med": 54542,
+  "top": "Trade Republic: Broker & Bank",
+  "mine": {}
+ },
+ "de|börsenspiel": {
+  "med": 1009,
+  "top": "Best Brokers Börsenspiel",
+  "mine": {}
+ },
+ "de|nasdaq ir insight": {
+  "med": 0,
+  "top": "NASDAQ IR Insight",
+  "mine": {}
+ },
+ "de|tesla one": {
+  "med": 176,
+  "top": "Tesla One",
+  "mine": {}
+ },
+ "de|dividende": {
+  "med": 682,
+  "top": "Stock Events Portfolio Tracker",
+  "mine": {}
+ },
+ "de|geld investieren": {
+  "med": 7549,
+  "top": "Trade Republic: Broker & Bank",
+  "mine": {}
+ },
+ "de|börse frankfurt": {
+  "med": 15012,
+  "top": "Deutsche Börse",
+  "mine": {}
+ },
+ "de|nasdaq marketsite events app": {
+  "med": 1,
+  "top": "Nasdaq MarketSite Events App",
+  "mine": {}
+ },
+ "de|tesla mobile app": {
+  "med": 654,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "de|dividendenrechner": {
+  "med": 1,
+  "top": "Dividendenrechner",
+  "mine": {}
+ },
+ "de|plus500 trading & investieren": {
+  "med": 27257,
+  "top": "Plus500 Trading & Investieren",
+  "mine": {}
+ },
+ "de|aktienfinder": {
+  "med": 11080,
+  "top": "finanzen.net – Börsen & News",
+  "mine": {}
+ },
+ "de|börse stuttgart": {
+  "med": 8771,
+  "top": "Börse Stuttgart App",
+  "mine": {}
+ },
+ "de|nasdaq boardvantage": {
+  "med": 0,
+  "top": "Nasdaq Boardvantage",
+  "mine": {}
+ },
+ "de|tesla robotaxi": {
+  "med": 872,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "de|aktien guide": {
+  "med": 54542,
+  "top": "finanzen.net – Börsen & News",
+  "mine": {}
+ },
+ "de|börsenkurse": {
+  "med": 54542,
+  "top": "finanzen.net – Börsen & News",
+  "mine": {}
+ },
+ "de|nasdaq boardvantage go": {
+  "med": 0,
+  "top": "Nasdaq Boardvantage Go",
+  "mine": {}
+ },
+ "de|tesla auth": {
+  "med": 4920,
+  "top": "Auth app for Tesla",
+  "mine": {}
+ },
+ "de|aktien spiel": {
+  "med": 1009,
+  "top": "Best Brokers Börsenspiel",
+  "mine": {}
+ },
+ "de|börse": {
+  "med": 15012,
+  "top": "Aktien",
+  "mine": {}
+ },
+ "de|nasdaq reference library": {
+  "med": 0,
+  "top": "Nasdaq Reference Library",
+  "mine": {}
+ },
+ "de|tesla charging": {
+  "med": 5360,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "de|aktien watchlist": {
+  "med": 54542,
+  "top": "Aktien",
+  "mine": {}
+ },
+ "de|börsen-zeitung": {
+  "med": 15012,
+  "top": "Börsen-Zeitung",
+  "mine": {}
+ },
+ "de|tesla go": {
+  "med": 22,
+  "top": "TeslaGoApp rides in Montenegro",
+  "mine": {}
+ },
+ "de|stocks live + dividenden": {
+  "med": 6,
+  "top": "Stocks Live + Dividenden",
+  "mine": {}
+ },
+ "de|aktien analyse": {
+  "med": 7549,
+  "top": "TradingView - Börse & Aktien",
+  "mine": {}
+ },
+ "de|börsenstrompreis": {
+  "med": 2,
+  "top": "EnergyMarketStats",
+  "mine": {}
+ },
+ "de|nasdaq widget": {
+  "med": 0,
+  "top": "NASDAQ Widget",
+  "mine": {}
+ },
+ "de|tesla laden": {
+  "med": 1541,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "de|stocks live dividenden": {
+  "med": 6,
+  "top": "Stocks Live Dividenden",
+  "mine": {}
+ },
+ "tw|美股k線": {
+  "med": 49949,
+  "top": "美股K線",
+  "mine": {}
+ },
+ "tw|股票": {
+  "med": 53668,
+  "top": "三竹股市-台股、國際股市看盤與股票投資存股及選股分析",
+  "mine": {}
+ },
+ "tw|財報狗": {
+  "med": 38888,
+  "top": "股市籌碼K線 - 快速找出主力籌碼飆股",
+  "mine": {}
+ },
+ "tw|股息助手": {
+  "med": 230,
+  "top": "ETF股息助手",
+  "mine": {}
+ },
+ "tw|股市新聞": {
+  "med": 32050,
+  "top": "Yahoo股市-台美股報價、ETF 比較、重點新聞",
+  "mine": {}
+ },
+ "tw|投資先生": {
+  "med": 32050,
+  "top": "投資先生",
+  "mine": {}
+ },
+ "tw|美股即時": {
+  "med": 29443,
+  "top": "美股K線",
+  "mine": {}
+ },
+ "tw|股票記帳": {
+  "med": 1748,
+  "top": "股票記帳本 | 簡單 好用 台股 投資紀錄",
+  "mine": {}
+ },
+ "tw|財報雲": {
+  "med": 961,
+  "top": "財報雲 Statementcloud",
+  "mine": {}
+ },
+ "tw|特斯拉充電站": {
+  "med": 138,
+  "top": "AmpGO 電動車充電地圖：充電站 充電漫遊 特斯拉充電",
+  "mine": {}
+ },
+ "tw|財報": {
+  "med": 32050,
+  "top": "股市爆料同學會-最大的股票討論社群",
+  "mine": {}
+ },
+ "tw|特斯拉儀表板": {
+  "med": 9,
+  "top": "Dashla：特斯拉儀表板",
+  "mine": {}
+ },
+ "tw|股票記帳本": {
+  "med": 1748,
+  "top": "股票記帳本 | 簡單 好用 台股 投資紀錄",
+  "mine": {}
+ },
+ "tw|財報任意門": {
+  "med": 0,
+  "top": "財報任意門",
+  "mine": {}
+ },
+ "tw|特斯拉充電": {
+  "med": 3430,
+  "top": "Tesla",
+  "mine": {}
+ },
+ "tw|股息通": {
+  "med": 31,
+  "top": "股息通",
+  "mine": {}
+ },
+ "tw|投資儀表板": {
+  "med": 1,
+  "top": "投資儀表板",
+  "mine": {}
+ },
+ "tw|美股etf": {
+  "med": 2738,
+  "top": "方舟運算-台股 美股 ETF 風控數據策略 再平衡投資系統",
+  "mine": {}
+ },
+ "tw|股票交易": {
+  "med": 38888,
+  "top": "Yahoo股市-台美股報價、ETF 比較、重點新聞",
+  "mine": {}
+ },
+ "tw|股息罐罐": {
+  "med": 0,
+  "top": "股息罐罐",
+  "mine": {}
+ },
+ "tw|投資小學堂": {
+  "med": 49949,
+  "top": "投資小學堂 - 輕鬆入門股市投資理財",
+  "mine": {}
+ },
+ "tw|美股通": {
+  "med": 11147,
+  "top": "美股通: 實時美股, 股指期貨, 技術分析, 模擬交易",
+  "mine": {}
+ },
+ "tw|股票大富翁": {
+  "med": 32050,
+  "top": "股市大富翁",
+  "mine": {}
+ },
+ "tw|投資帳本": {
+  "med": 1103,
+  "top": "TW投資帳本 -台股、期貨、美股、加密資產、損益即時更新",
+  "mine": {}
+ },
+ "tw|美股etf股息助手": {
+  "med": 7,
+  "top": "美股ETF股息助手",
+  "mine": {}
+ },
+ "tw|股票挖土機": {
+  "med": 38888,
+  "top": "股票挖土機- 找被低估的好股票",
+  "mine": {}
+ },
+ "tw|股息流": {
+  "med": 0,
+  "top": "股息流",
+  "mine": {}
+ },
+ "tw|投資紀錄": {
+  "med": 33,
+  "top": "股票記帳本 | 簡單 好用 台股 投資紀錄",
+  "mine": {}
+ },
+ "tw|美股記帳": {
+  "med": 130,
+  "top": "美股記帳本",
+  "mine": {}
+ },
+ "tw|股票遊戲": {
+  "med": 47,
+  "top": "股票遊戲-資本主義",
+  "mine": {}
+ },
+ "tw|股息-数据查询": {
+  "med": 0,
+  "top": "股息-数据查询",
+  "mine": {}
+ },
+ "tw|投資記帳": {
+  "med": 2752,
+  "top": "Percento-輕鬆管理你的資產、投資記帳",
+  "mine": {}
+ }
+}
