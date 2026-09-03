@@ -85,6 +85,10 @@ export type StructRow = {
     pf: number | null;   // 풋플로어
     gex: number | null;
     pcr: number | null;
+    // 스퀴즈 점수 — 랭킹은 안 쓰지만 **가디언 감마쉴드**가 쓴다(2026-09-03 추가).
+    // 이게 없으면 감마쉴드가 SPY·QQQ 를 매번 콜드로 다시 긁어야 하고,
+    // 그 호출이 실패하면 0 이 캐시에 박혀 화면이 «감마 0»으로 굳는다.
+    sq: number | null;
     cOI: number;         // 콜 미결제약정
     pOI: number;         // 풋 미결제약정
     oi: number;          // 당일 총 미결제약정 — 유동성 게이트용
@@ -168,6 +172,7 @@ export async function GET(req: NextRequest) {
                 pf: num(d?.levels?.putFloor),
                 gex: num(d?.netGex),
                 pcr: num(d?.pcr),
+                sq: num(d?.squeezeScore),
                 cOI, pOI, oi,
                 s: typeof d?.session === 'string' ? d.session : null,
             };
