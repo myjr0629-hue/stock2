@@ -4,12 +4,14 @@
 // Target: ~1-2초 (vs 기존 15-20초)
 // ============================================================================
 
+import { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { getFromCache } from '@/services/redisClient';
 import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
+import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { xsSnapshotOverride } from '@/services/xsScores';
 import { fetchTruePreMarket } from '@/services/marketDataLight';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
@@ -187,6 +189,48 @@ export async function GET(request: Request) {
         //
         //   ⚠️ 없는 종목까지 조회해 낭비하지 않도록, **정말 빈 종목만** 묻는다.
         // ══════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════
+        // ★★ [2026-09-04] «영영 차가운 종목»을 스스로 데운다.
+        //
+        //   LLY·CCJ·GEV·PATH 의 RSI 가 계속 «—» 였다. 값이 없어서가 아니다 —
+        //   /api/live/ticker 는 그 순간 41.2 · 47.8 · 27.8 · 62.5 를 주고 있었다.
+        //   문제는 그 값이 «Redis 에 있을 때만» 여기로 온다는 것이다(60초 TTL).
+        //   그런데 인텔은 live/ticker 를 부르지 않으므로 그 키가 **채워질 일이 없다.**
+        //   커맨드 화면에서 직접 눌러 본 종목만 우연히 따뜻해진다 — 그래서
+        //   「어떤 종목은 나오고 어떤 종목은 안 나온다」가 됐다.
+        //
+        //   → 정말 비어 있는 종목만 골라 라우트 핸들러를 **직접** 부른다(HTTP 왕복 없음).
+        //     그 김에 Redis 키도 채워지므로 다음 회전부터는 이 경로를 안 탄다(자가치유).
+        //     한 번에 최대 8종목 — 벤더 예산을 이 화면이 독점하지 않게.
+        // ══════════════════════════════════════════════════════════════
+        try {
+            const coldIdx: number[] = [];
+            tickers.forEach((t, i) => {
+                const a: any = analysisCache[t];
+                const c: any = cachedTickers[i];
+                const hasRsi = Number.isFinite(Number(a?.rsi)) || Number.isFinite(Number(c?.display?.rsi14));
+                if (!hasRsi) coldIdx.push(i);
+            });
+            if (coldIdx.length > 0) {
+                const take = coldIdx.slice(0, 8);
+                const got = await Promise.all(take.map(async (i) => {
+                    try {
+                        const url = `https://www.signumhq.com/api/live/ticker?t=${tickers[i]}&chain=0&skip_alpha=1`;
+                        const res: any = await Promise.race([
+                            getLiveTicker(new NextRequest(url) as any),
+                            new Promise<null>((r) => setTimeout(() => r(null), 6000)),
+                        ]);
+                        return res && typeof res.json === 'function' ? await res.json() : null;
+                    } catch { return null; }
+                }));
+                take.forEach((i, gi) => { if (got[gi]) cachedTickers[i] = { ...(cachedTickers[i] || {}), ...got[gi] }; });
+                const warmed = got.filter(Boolean).length;
+                if (warmed) console.log(`[intel/fast] 차가운 종목 데우기 ${warmed}/${take.length}`);
+            }
+        } catch (e: any) {
+            console.warn('[intel/fast] 차가운 종목 데우기 실패:', e?.message);
+        }
+
         // 다크풀(FINRA 규제 원본) — 인텔 페이로드엔 아예 키가 없어서 화면이 늘 «—» 였다.
         let dpMap: Record<string, any> = {};
         try {
