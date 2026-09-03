@@ -225,7 +225,7 @@ async function harvestGex(priceMap) {
         const fl=cw&&pf?(cw+pf)/2:null, gr=gex>0?'POSITIVE':gex<0?'NEGATIVE':'NEUTRAL', pcr=tCOI>0?tPOI/tCOI:0;
 
         // ====== ATM IV + IV Skew ======
-        let atmIv = null, ivSkew = null;
+        let atmIv = null, ivSkew = null, impliedMovePct = null;
         try {
           // ⚠️ [2026-09-01] IV 를 «greeks 안»에서 찾고 있었다. 어댑터(Intrinio)도
           //    Polygon 도 implied_volatility 를 greeks 의 «형제»로 준다:
@@ -242,6 +242,23 @@ async function harvestGex(priceMap) {
           if (atmCall) atmIv = Math.round(ivOf(atmCall) * 10000) / 100; // as %
           if (atmCall && atmPut) {
             ivSkew = Math.round((ivOf(atmPut) - ivOf(atmCall)) * 10000) / 100;
+          }
+
+          // ====== 예상 변동폭 (ATM 스트래들) ======
+          // ★ [2026-09-04] 인텔의 IMP MOVE 타일이 70종목 중 **28개만** 채워졌다(40%).
+          //   그 값은 웹의 analysisCache 만 갖고 있었고, 거기 없는 종목은 «—» 였다.
+          //   여기엔 체인이 이미 있으므로 **정본과 같은 방식**으로 계산해 저장한다:
+          //     예상 변동폭 = (ATM 콜 + ATM 풋) / 현재가
+          //   ⚠️ IV × √(일수/365) 로 «환산»하면 정본과 다른 값이 되어 같은 칸에
+          //     두 정의가 섞인다. 시장이 실제로 매긴 값만 쓴다.
+          const px = (o) => Number(o?.last_trade?.price ?? o?.day?.close ?? o?.close ?? 0);
+          if (atmCall && atmPut && price > 0) {
+            const cp = px(atmCall), pp = px(atmPut);
+            if (cp > 0 && pp > 0) {
+              const im = ((cp + pp) / price) * 100;
+              // 비정상 값(체인 오염)은 버린다 — 하루 만기 스트래들이 주가의 50% 일 수는 없다
+              if (im > 0 && im < 50) impliedMovePct = Math.round(im * 10) / 10;
+            }
           }
         } catch {}
 
@@ -344,7 +361,7 @@ async function harvestGex(priceMap) {
         const compositeClamped = Math.max(-100, Math.min(100, compositeVal));
 
         gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
-        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,squeezeScore:squeezeScore,optionVolume:tVol}}));
+        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol}}));
         await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:compositeClamped,opi:opi,whaleScore:whaleVal,dex:dexVal,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:smartVal,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,optionVolume:tVol}})).catch(()=>{});
         ok++;
       } catch {}

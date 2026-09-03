@@ -424,11 +424,10 @@ export async function GET(request: Request) {
                 if (squeezeScore == null && gxf.squeezeScore != null) squeezeScore = gxf.squeezeScore;
                 if (ivSkew == null && gxf.ivSkew != null && gxf.ivSkew <= 2.0) ivSkew = gxf.ivSkew;
                 if (netPremium == null && gxf.netPremium != null) netPremium = gxf.netPremium;
-                // ⚠️ impliedMovePct 는 **여기서 만들지 않는다.**
-                //   정본(computeImpliedMovePct)은 «ATM 스트래들 가격 / 현재가»,
-                //   즉 시장이 실제로 매긴 값이다. atmIv 를 √(일수/365) 로 환산하면
-                //   **다른 값**이 나오고, 같은 칸에 두 정의가 섞인다.
-                //   섞인 숫자보다 «—» 가 정직하다. (라벨과 데이터 불일치는 조용히 틀린다)
+                // 예상 변동폭 — **하베스터가 정본과 같은 방식(ATM 스트래들 / 현재가)으로
+                //   계산해 저장한 값**만 쓴다. 여기서 IV 를 환산해 만들지 않는다
+                //   (환산값은 정본과 다른 값이라 같은 칸에 두 정의가 섞인다).
+                if (impliedMovePct == null && gxf.impliedMovePct != null) impliedMovePct = gxf.impliedMovePct;
                 if (gex != null) gammaRegime = gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : gammaRegime;
             }
 
