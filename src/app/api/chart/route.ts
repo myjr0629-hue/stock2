@@ -7,6 +7,27 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 // 이전 revalidate=30이 브라우저 디스크 캐시와 결합되어 Ctrl+Shift+R 없이는 구 데이터 표시되는 버그 유발
 export const dynamic = 'force-dynamic';
 
+// ══════════════════════════════════════════════════════════════
+// ★★ [2026-09-04] CDN 엣지 캐시 — 「한국에서 미국까지」가 바닥이었다.
+//
+//   실측(서울→iad1): 297바이트짜리 /api/market/status 가 **0.66초**.
+//   55KB 차트도 캐시 히트면 0.645초 — 즉 **우리 코드가 아니라 왕복 자체**가
+//   바닥이다(TLS 핸드셰이크만 0.30초). 서버를 아무리 빠르게 해도 못 넘는다.
+//
+//   그런데 1D 차트는 `no-store, no-cache` 로 **CDN 캐시를 스스로 금지**하고
+//   있었다. 이유는 주석대로 「revalidate=30 이 브라우저 디스크 캐시와 결합돼
+//   Ctrl+Shift+R 없이는 구 데이터가 보이던 버그」 — 그건 **브라우저** 문제였는데
+//   CDN 까지 같이 껐다.
+//
+//   둘을 분리한다:
+//     max-age=0        → 브라우저는 매번 확인한다(그 버그가 안 돌아온다)
+//     s-maxage=30      → CDN(서울 엣지)은 30초 동안 자기가 답한다
+//     stale-while-revalidate → 만료돼도 즉시 주고 뒤에서 갱신
+//   한국 사용자의 차트가 «미국 왕복 650ms» 에서 «엣지 응답» 으로 바뀐다.
+// ══════════════════════════════════════════════════════════════
+const CHART_EDGE_CACHE = 'public, max-age=0, s-maxage=30, stale-while-revalidate=120';
+
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const symbol = searchParams.get('symbol');
@@ -86,7 +107,7 @@ export async function GET(request: Request) {
                         range, symbol, count: cached.data?.length || 0
                     }), {
                         status: 200,
-                        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': range === '1d' ? 'no-store, no-cache, must-revalidate' : 's-maxage=60, stale-while-revalidate=30' }
+                        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': range === '1d' ? CHART_EDGE_CACHE : 'public, max-age=0, s-maxage=120, stale-while-revalidate=300' }
                     });
                 }
             } else {
@@ -100,7 +121,7 @@ export async function GET(request: Request) {
                     range, symbol, count: cached.data?.length || 0
                 }), {
                     status: 200,
-                    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': range === '1d' ? 'no-store, no-cache, must-revalidate' : 's-maxage=60, stale-while-revalidate=30' }
+                    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': range === '1d' ? CHART_EDGE_CACHE : 'public, max-age=0, s-maxage=120, stale-while-revalidate=300' }
                 });
             }
         }
@@ -141,9 +162,11 @@ export async function GET(request: Request) {
 
         // [FIX] 1D 차트는 브라우저/CDN 캐시 금지 — 항상 신선한 데이터
         // 장기 차트(5D+)만 CDN 캐시 허용
-        const cacheControlHeader = (isSparseData || range === '1d')
+        // 데이터가 빈약하면(합성 앵커 한두 점) 캐시하지 않는다 — 그걸 30초 굳히면
+        // 모든 사용자가 빈 차트를 본다.
+        const cacheControlHeader = isSparseData
             ? 'no-store, no-cache, must-revalidate'
-            : 's-maxage=60, stale-while-revalidate=30';
+            : (range === '1d' ? CHART_EDGE_CACHE : 'public, max-age=0, s-maxage=120, stale-while-revalidate=300');
 
         return new Response(JSON.stringify(response), {
             status: 200,

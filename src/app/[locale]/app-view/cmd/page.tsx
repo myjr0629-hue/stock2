@@ -71,7 +71,10 @@ async function loadChart(ticker: string, range: string): Promise<Candle[] | null
 
   const p = (async (): Promise<Candle[] | null> => {
     try {
-      const r = await fetch(`/api/chart?symbol=${ticker}&range=${range.toLowerCase()}`, { cache: 'no-store' });
+      // ⚠️ `no-store` 는 브라우저뿐 아니라 **CDN 엣지 캐시까지** 무력화한다.
+      //   신선도는 이제 서버 헤더가 정한다(max-age=0 → 브라우저는 매번 확인,
+      //   s-maxage=30 → 서울 엣지가 30초 동안 답한다). 여기선 기본값을 쓴다.
+      const r = await fetch(`/api/chart?symbol=${ticker}&range=${range.toLowerCase()}`);
       if (!r.ok) return null;
       const json = await r.json();
       if (!Array.isArray(json?.data) || json.data.length === 0) return null;
