@@ -110,9 +110,29 @@ async function getNewsFromFmp(ticker, limit, since) {
 //   값이 샤드당 상한이다. 1200 으로 두면 4×1200=4,800 로 한도를 넘길 수 있다.
 //   500×4 = 2,000 이 정확히 한도이므로 10% 여유를 둔다.
 const RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 450);
-let _tokens = RATE_PER_MIN;
+
+// ★★ [2026-09-04] 토큰 버킷은 «속도»를 재지 «동시성»을 막지 못한다.
+//   버킷이 가득 찬 채 시작하므로 **첫 RATE_PER_MIN 건이 지연 0 으로 한꺼번에** 나갔다.
+//   실측: RATE 150·BATCH 6 으로 낮췄는데도 33초에 429×187.
+//   그런데 같은 순간 1.2초 간격 순차 호출은 **네 엔드포인트 모두 200** 이었다
+//   (키도 일일 한도도 멀쩡하다). 즉 막히는 건 총량이 아니라 «동시 폭발»이다.
+//   → 버킷을 비운 채 시작하고, 동시에 열리는 연결 수를 따로 묶는다.
+let _tokens = 0;
 let _refillAt = Date.now();
 let _queue = Promise.resolve();
+
+const MAX_CONCURRENCY = Number(process.env.INTRINIO_MAX_CONCURRENCY || 4);
+let _active = 0;
+const _waiters = [];
+function _acquire() {
+  if (_active < MAX_CONCURRENCY) { _active++; return Promise.resolve(); }
+  return new Promise((resolve) => { _waiters.push(() => { _active++; resolve(); }); });
+}
+function _release() {
+  _active--;
+  const next = _waiters.shift();
+  if (next) next();
+}
 
 function _takeToken() {
   const now = Date.now();
@@ -180,6 +200,7 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const isLast = attempt >= MAX_ATTEMPTS;
       await rateGate();
+      await _acquire();            // ← 동시성 상한
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       let retry = false;
@@ -201,6 +222,7 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
         if (isLast) throw e;
       } finally {
         clearTimeout(timer);
+        _release();
       }
       // ② 지터 백오프 — 여러 샤드가 같은 순간에 몰려 재시도하지 않게 흔든다.
       await _sleep(150 * attempt + Math.floor(Math.random() * 200));
