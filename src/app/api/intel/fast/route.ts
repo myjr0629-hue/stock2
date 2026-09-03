@@ -211,9 +211,16 @@ export async function GET(request: Request) {
                 const c: any = cachedTickers[i];
                 // «차갑다»의 기준은 한 필드가 아니다 — 화면이 읽는 축 중 하나라도 비면 데운다.
                 //   (처음엔 RSI 만 봤는데, RSI 는 있고 넷프리미엄만 빈 종목이 10개 남았다)
-                const hasRsi = Number.isFinite(Number(a?.rsi)) || Number.isFinite(Number(c?.display?.rsi14));
-                const hasPrem = Number.isFinite(Number(a?.netPremium)) || Number.isFinite(Number(c?.flow?.netPremium));
-                const hasSkew = Number.isFinite(Number(a?.ivSkew)) || Number.isFinite(Number(c?.flow?.ivSkew));
+                //
+                // ⚠️⚠️ `Number.isFinite(Number(x))` 로 판정하면 **null 이 통과한다** —
+                //   `Number(null) === 0` 이고 0 은 유한수다. 그래서 netPremium 이 null 인
+                //   TEAM·PYPL·AXON 이 「값 있음」으로 판정돼 데우기에서 빠졌다
+                //   (cold=0 인데 화면엔 «—» — 진단을 안 실었으면 또 못 찾았다).
+                //   아래 pick() 은 null 을 먼저 걸러서 옳게 동작했다. **판정도 같아야 한다.**
+                const has = (...xs: any[]) => xs.some((x) => x !== null && x !== undefined && Number.isFinite(Number(x)));
+                const hasRsi = has(a?.rsi, c?.display?.rsi14);
+                const hasPrem = has(a?.netPremium, c?.flow?.netPremium);
+                const hasSkew = has(a?.ivSkew, c?.flow?.ivSkew);
                 if (!hasRsi || !hasPrem || !hasSkew) coldIdx.push(i);
             });
             if (coldIdx.length > 0) {
