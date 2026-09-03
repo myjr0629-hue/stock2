@@ -1,0 +1,144 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getStructureData } from '@/services/structureService';
+import { setInCache } from '@/services/redisClient';
+import UNIVERSE_FILE from '@/../data/stock_universe_us800.json';
+
+/**
+ * /api/cron/structure-build — 「오늘 체인에서의 위치」 랭킹용 배치 생산자.
+ *
+ * ── 왜 필요한가 ────────────────────────────────────────────────────────
+ * 랭킹의 «이탈» 축은 이력이 필요해서 수집 커버리지에 인질로 잡힌다
+ * (2026-09-03 실측: 1,968종목 중 1,492개가 8/28 에 멈춰 있다 = 최신 23.5%).
+ * 그런데 «위치» 축 — 맥스페인·감마플립·콜월/풋플로어 — 은 **이력이 필요 없다.**
+ * 오늘 체인만 있으면 계산되고, 실측 표본 60종목에서 커버리지 100% 였다.
+ *
+ * 문제는 «배치로 읽을 자리»가 없었다는 것이다. 값은 종목별로 계산되는데
+ * 2,001번 부를 수는 없다. signum-gex-history 에 필드는 다 있으나 그건
+ * 페이지 방문 때만 쓰이는 경로라 표본 120종목 중 112개가 8/28 에 멈춰 있었다.
+ * → 여기서 굽어 Redis 에 모아 둔다. 랭킹은 조각 8개만 읽는다.
+ *
+ * ── 왜 계산을 새로 안 하는가 ──────────────────────────────────────────
+ * `getStructureData` 를 그대로 부른다. 맥스페인·감마플립 계산을 두 벌로 만들면
+ * 어느 날 조용히 갈라지고, 그때 어느 쪽이 맞는지 알 수 없게 된다. 화면과
+ * 랭킹이 **같은 함수**를 쓰는 것이 이 파일의 존재 이유다.
+ *
+ * ── 비용 ──────────────────────────────────────────────────────────────
+ * 체인은 이미 Lambda 가 `polygon:snapshot:probe:{t}` 에 넣어 둔 것을 읽는다
+ * (structureService L244). 그래서 새로 드는 것은 종목당 시세 1콜뿐이다.
+ * 동시성을 20 으로 둔 이유도 그것이다 — 분당 호출을 밀어 올리지 않는다.
+ */
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+const SHARDS = 8;
+const CONCURRENCY = 20;
+const PART_TTL = 2 * 3600;          // 2시간 — 굽는 주기보다 넉넉히
+const ORIGIN = 'https://www.signumhq.com';
+
+export const partKey = (i: number) => `structure:part:v1:${i}`;
+
+const UNIVERSE: string[] = ((UNIVERSE_FILE as any)?.symbols ?? []) as string[];
+
+async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+    const out: R[] = new Array(items.length);
+    let i = 0;
+    await Promise.all(
+        Array.from({ length: Math.min(n, items.length) }, async () => {
+            while (i < items.length) {
+                const k = i++;
+                out[k] = await fn(items[k]);
+            }
+        }),
+    );
+    return out;
+}
+
+/** 랭킹이 쓰는 것만 남긴 한 줄. 2,001개를 합쳐도 가벼워야 한다. */
+export type StructRow = {
+    t: string;
+    px: number;          // 기준가
+    mp: number | null;   // 맥스페인
+    fl: number | null;   // 감마플립
+    cw: number | null;   // 콜월
+    pf: number | null;   // 풋플로어
+    gex: number | null;
+    pcr: number | null;
+    oi: number;          // 당일 총 미결제약정 — 유동성 게이트용
+    s: string | null;    // 세션
+};
+
+export async function GET(req: NextRequest) {
+    const shardParam = req.nextUrl.searchParams.get('shard');
+
+    // ── 팬아웃 모드 ───────────────────────────────────────────────────
+    // 크론 한 개가 8조각을 동시에 던진다. 각 조각은 자기만의 60초 예산을 가진
+    // 별도 실행이므로 여기서는 끝나기를 기다리기만 하면 된다.
+    if (shardParam === null) {
+        const started = Date.now();
+        const results = await Promise.all(
+            Array.from({ length: SHARDS }, async (_, i) => {
+                const t0 = Date.now();
+                try {
+                    const res = await fetch(`${ORIGIN}/api/cron/structure-build?shard=${i}`, {
+                        cache: 'no-store', signal: AbortSignal.timeout(55000),
+                    });
+                    const j: any = await res.json().catch(() => null);
+                    return { shard: i, ok: res.ok, ms: Date.now() - t0, rows: j?.rows ?? null, tickers: j?.tickers ?? null };
+                } catch (e: any) {
+                    return { shard: i, ok: false, ms: Date.now() - t0, error: e?.message ?? 'failed' };
+                }
+            }),
+        );
+        const ok = results.filter((r) => r.ok).length;
+        return NextResponse.json({
+            ok: ok === SHARDS, shards: SHARDS, built: ok,
+            rows: results.reduce((a, r) => a + (r.rows ?? 0), 0),
+            totalMs: Date.now() - started, results,
+        });
+    }
+
+    // ── 조각 굽기 ─────────────────────────────────────────────────────
+    const shard = Math.max(0, Math.min(SHARDS - 1, Number(shardParam) || 0));
+    const per = Math.ceil(UNIVERSE.length / SHARDS);
+    const slice = UNIVERSE.slice(shard * per, (shard + 1) * per);
+    const started = Date.now();
+
+    const rows = await mapPool(slice, CONCURRENCY, async (t): Promise<StructRow | null> => {
+        try {
+            const d: any = await getStructureData(t, null);
+            const px = Number(d?.underlyingPrice);
+            // 가격이 없으면 「위치」를 잴 수 없다. 0 으로 채우지 않고 버린다 —
+            // 없는 값을 0 으로 쓰면 랭킹이 그 종목을 1위로 올린다(오늘 겪었다).
+            if (!Number.isFinite(px) || px <= 0) return null;
+            const st = d?.structure ?? {};
+            const oi = (Array.isArray(st.callsOI) ? st.callsOI.reduce((a: number, b: number) => a + (b || 0), 0) : 0)
+                + (Array.isArray(st.putsOI) ? st.putsOI.reduce((a: number, b: number) => a + (b || 0), 0) : 0);
+            const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+            return {
+                t, px,
+                mp: num(d?.maxPain),
+                fl: num(d?.gammaFlipLevel),
+                cw: num(d?.levels?.callWall),
+                pf: num(d?.levels?.putFloor),
+                gex: num(d?.netGex),
+                pcr: num(d?.pcr),
+                oi,
+                s: typeof d?.session === 'string' ? d.session : null,
+            };
+        } catch {
+            return null;
+        }
+    });
+
+    const clean = rows.filter((r): r is StructRow => r !== null);
+    await setInCache(partKey(shard), { rows: clean, ts: Date.now() }, PART_TTL).catch(() => { });
+
+    return NextResponse.json({
+        ok: true, shard, shards: SHARDS,
+        tickers: slice.length, rows: clean.length,
+        withMaxPain: clean.filter((r) => r.mp !== null).length,
+        withFlip: clean.filter((r) => r.fl !== null).length,
+        ms: Date.now() - started,
+    });
+}

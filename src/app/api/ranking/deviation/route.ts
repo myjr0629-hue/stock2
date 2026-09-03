@@ -38,7 +38,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v5:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v6:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -215,7 +215,7 @@ function seriesOf(snaps: Row[], key: string) {
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v5:${days}:${top}`;
+    const CACHE = `ranking:deviation:v6:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -471,18 +471,26 @@ export async function GET(req: NextRequest) {
                         rank: Math.abs(Math.log(rel)),
                     });
                 }
-                // ② 공매도 «비중» 이탈 — 여기서는 배수가 아니라 %p 로 잰다.
-                //    49%→65% 는 배수로 1.33 밖에 안 되지만 실제로는 큰 이탈이다.
-                if (typeof r.shortDev === 'number' && typeof r.shortAvg === 'number'
-                    && typeof r.shortPct === 'number' && r.shortAvg > 0 && Math.abs(r.shortDev) >= 8) {
+                // ② 은밀 매집·분산 (stealth)
+                //    stealth = volP×0.6 + (100−shortP)×0.4  (finra-offexchange.js L289)
+                //    「거래량은 많은데 공매도는 적다」 = 진짜 매수자가 장외에서 물량을
+                //    담았다는 뜻이다. 반대면 분산이다. 이미 계산해 두고 랭킹에 안 쓰던
+                //    값이고, 무료로 이 조합을 주는 곳이 없어 이 엔진의 «우리만» 축이다.
+                //    ⚠️ 예전 dpShortDev 를 대체한다 — stealth 가 shortP 를 이미 품고
+                //       있어 같은 말을 두 번 했고, 실측 상위 25 에 한 번도 못 들었다.
+                if (typeof r.stealth === 'number' && Math.abs(r.stealth - 50) >= 20
+                    && r.volume >= DP_MIN_VOLUME) {
+                    const dev = Math.abs(r.stealth - 50) / 50;   // 0..1
                     found.push({
-                        ticker: t, metric: 'dpShortDev', source: 'finra', date: r.date,
-                        label: { ko: '장외 공매도 비중', en: 'Off-exchange short share', ja: '取引所外の空売り比率' },
-                        today: r.shortPct, baseline: r.shortAvg, ratio: r.shortPct / r.shortAvg,
-                        direction: r.shortDev >= 0 ? 'surge' : 'collapse',
-                        deviationPp: r.shortDev, percentile: r.shortP, regime: r.regime ?? null,
-                        // %p 이탈을 시장 중앙값(49%) 기준으로 정규화해 다른 축과 같은 자로 잰다
-                        rank: Math.abs(r.shortDev) / 49,
+                        ticker: t, metric: 'dpStealth', source: 'finra', date: r.date,
+                        label: { ko: r.stealth >= 70 ? '은밀 매집' : '은밀 분산',
+                                 en: r.stealth >= 70 ? 'Stealth accumulation' : 'Stealth distribution',
+                                 ja: r.stealth >= 70 ? '静かな買い集め' : '静かな分散' },
+                        today: r.stealth, baseline: 50, ratio: r.stealth / 50,
+                        direction: r.stealth >= 70 ? 'surge' : 'collapse',
+                        volume: r.volume, volPercentile: r.volP, shortPercentile: r.shortP,
+                        regime: r.regime ?? null,
+                        rank: dev,
                     });
                 }
             }
@@ -491,6 +499,91 @@ export async function GET(req: NextRequest) {
         }
     } catch {
         darkPool = { available: false, reason: '조회 실패' };
+    }
+
+    // ── 장중 «위치» 축 (오늘 체인) ────────────────────────────────────
+    // 이탈 축은 이력이 필요해 수집 커버리지(23.5%)에 인질로 잡힌다. 위치 축은
+    // 오늘 체인만 있으면 되므로 **2,001종목 전부**에 계산된다.
+    // 값은 /api/cron/structure-build 가 `getStructureData` 로 구워 둔 것을 읽는다 —
+    // 화면과 **같은 함수**를 쓴다. 계산을 두 벌로 만들면 조용히 갈라진다.
+    //
+    // 순위 점수(rank)는 축마다 «0..1 로 정규화된 근접도/이탈도»다. 축을 하나로
+    // 섞어 비교하지 않고 `groups` 로 축별 목록을 따로 준다 — 그게 소비처가
+    // 실제로 쓰는 모양이고(「감마플립 위 5」「맥스페인에 묶인 5」), 축 간 점수를
+    // 억지로 같은 자로 재려다 생기는 왜곡도 없앤다.
+    const STRUCT_MIN_OI = MIN_TODAY_OI;      // 옵션 축과 같은 유동성 기준
+    const NEAR = 0.02;                        // 「경계에 붙었다」로 볼 범위 2%
+    let structRows: any[] = [];
+    let structure: any = { available: false, reason: '아직 안 구워짐' };
+    try {
+        const parts = await Promise.all(
+            Array.from({ length: SHARDS }, (_, i) =>
+                getFromCache<{ rows: any[]; ts: number }>(`structure:part:v1:${i}`).catch(() => null)),
+        );
+        const have = parts.filter((x): x is { rows: any[]; ts: number } => !!x && Array.isArray(x.rows));
+        for (const pt of have) structRows.push(...pt.rows);
+        structure = {
+            available: structRows.length > 0,
+            parts: `${have.length}/${SHARDS}`,
+            tickers: structRows.length,
+            ageMin: have.length ? Math.round((Date.now() - Math.max(...have.map((h) => h.ts || 0))) / 60000) : null,
+        };
+    } catch {
+        structure = { available: false, reason: '조회 실패' };
+    }
+
+    if (structRows.length) {
+        const liquid = structRows.filter((r) => r && r.px > 0 && (r.oi ?? 0) >= STRUCT_MIN_OI);
+        structure.liquid = liquid.length;
+        const pushStruct = (o: any) => found.push({ source: 'chain', ...o });
+
+        for (const r of liquid) {
+            // ④ 감마플립 경계 — 딜러 헤지가 «완충»에서 «증폭»으로 바뀌는 선.
+            //    이 엔진에서 가장 «우리만»인 축이다.
+            if (r.fl !== null && r.fl > 0) {
+                const d = Math.abs(r.px - r.fl) / r.px;
+                if (d <= NEAR) pushStruct({
+                    ticker: r.t, metric: 'gammaFlipEdge',
+                    label: { ko: '감마플립 경계', en: 'At the gamma flip', ja: 'ガンマフリップ際' },
+                    today: r.px, level: r.fl, distancePct: Math.round(d * 10000) / 100,
+                    direction: r.px >= r.fl ? 'above' : 'below',
+                    gex: r.gex, totalOI: r.oi, session: r.s,
+                    rank: 1 - d / NEAR,
+                });
+            }
+            // ⑤⑥ 맥스페인 — 「묶였다」와 「벗어났다」는 서로 다른 이야기라 목록도 둘이다.
+            if (r.mp !== null && r.mp > 0) {
+                const gap = (r.px - r.mp) / r.mp;
+                const a = Math.abs(gap);
+                if (a <= 0.005) pushStruct({
+                    ticker: r.t, metric: 'maxPainPin',
+                    label: { ko: '맥스페인 핀', en: 'Pinned to max pain', ja: 'マックスペインに固定' },
+                    today: r.px, level: r.mp, gapPct: Math.round(gap * 10000) / 100,
+                    totalOI: r.oi, session: r.s,
+                    rank: 1 - a / 0.005,
+                });
+                if (a >= 0.03) pushStruct({
+                    ticker: r.t, metric: 'maxPainGap',
+                    label: { ko: '맥스페인 이탈', en: 'Far from max pain', ja: 'マックスペイン乖離' },
+                    today: r.px, level: r.mp, gapPct: Math.round(gap * 10000) / 100,
+                    direction: gap >= 0 ? 'above' : 'below',
+                    totalOI: r.oi, session: r.s,
+                    rank: Math.min(1, a / 0.15),
+                });
+            }
+            // ⑦ 벽 압착 — 콜월과 풋플로어 사이가 가장 좁은 종목 =「상자에 갇혔다」
+            if (r.cw !== null && r.pf !== null && r.cw > r.pf && r.pf > 0) {
+                const w = (r.cw - r.pf) / r.px;
+                if (w <= 0.06 && r.px >= r.pf && r.px <= r.cw) pushStruct({
+                    ticker: r.t, metric: 'wallSqueeze',
+                    label: { ko: '벽 압착(콜월↔풋플로어)', en: 'Squeezed between walls', ja: '壁に挟まれている' },
+                    today: r.px, callWall: r.cw, putFloor: r.pf,
+                    widthPct: Math.round(w * 10000) / 100,
+                    totalOI: r.oi, session: r.s,
+                    rank: 1 - w / 0.06,
+                });
+            }
+        }
     }
 
     // ── 옵션 축 시장 정규화 ──────────────────────────────────────────
@@ -531,16 +624,40 @@ export async function GET(req: NextRequest) {
     found = found.filter((f) => Number.isFinite(f.rank));
     const nanDropped = dropped - found.length;
     found.sort((a, b) => b.rank - a.rank);
-    // 한 종목이 여러 축으로 상위를 독식하면 랭킹이 아니라 한 종목 소개가 된다.
-    const seen = new Set<string>(); const picked: any[] = [];
+
+    // ── 축별 목록 (`groups`) ──────────────────────────────────────────
+    // 소비처가 실제로 쓰는 모양은 「감마플립 위 5」「은밀 매집 5」 같은 **축별
+    // 목록**이지 하나로 섞은 순위가 아니다. 그리고 축을 섞으면 점수 자를 억지로
+    // 통일해야 하는데(배수 vs %p vs 근접도) 그 과정에서 왜곡이 생긴다.
+    // 축 안에서는 같은 자로 재므로 순위가 정확하다 — 그래서 이쪽이 정본이다.
+    const AXIS_ORDER = [
+        'dpStealth', 'dpVolRatio',                                  // 마감 · 다크풀
+        'gammaFlipEdge', 'maxPainPin', 'maxPainGap', 'wallSqueeze',  // 장중 · 위치
+        'pcr', 'totalCallOI', 'totalPutOI', 'totalPremium',          // 장중 · 이탈
+    ];
+    const groups: Record<string, any[]> = {};
+    for (const k of AXIS_ORDER) {
+        const list = found.filter((f) => f.metric === k).slice(0, top);
+        if (list.length) groups[k] = list.map((f, i) => ({ ...f, rank: i + 1 }));
+    }
+
+    // ── 합본 목록 ─────────────────────────────────────────────────────
+    // 하위호환 + 「오늘 한 장」용. 한 종목이 여러 축으로 독식하지 않게 티커를
+    // 한 번만 쓰고, **축 하나가 목록을 통째로 먹지 않게 축별 상한**을 둔다
+    // (실측: 상한이 없을 때 dpVolRatio 가 25칸 중 24칸을 먹었다).
+    const perAxisCap = Math.max(2, Math.ceil(top / Math.max(1, Object.keys(groups).length) * 1.5));
+    const seen = new Set<string>(); const axisCount: Record<string, number> = {};
+    const picked: any[] = [];
     for (const f of found) {
         if (seen.has(f.ticker)) continue;
-        seen.add(f.ticker); picked.push(f);
+        if ((axisCount[f.metric] || 0) >= perAxisCap) continue;
+        seen.add(f.ticker); axisCount[f.metric] = (axisCount[f.metric] || 0) + 1;
+        picked.push(f);
         if (picked.length >= top) break;
     }
 
     const payload = {
-        ok: true, _v: 5,
+        ok: true, _v: 6,
         // 어떤 에이전트가 읽어도 쓰는 법을 알 수 있게 — 응답 자체가 사용법을 가리킨다
         docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(),
@@ -582,6 +699,9 @@ export async function GET(req: NextRequest) {
         shards: SHARDS,
         darkPool,
         candidates: found.length, nanDropped,
+        // ★ 정본은 `groups` 다 — 축별 목록. `ranking` 은 합본(하위호환·요약용).
+        groups,
+        structure,
         // 유니버스 중 «오늘 자료가 있는» 비율. 낮으면 순위가 좁은 표본에서 나온다.
         coverage: (() => {
             const tot = Object.values(coverage.lastSeen).reduce((a, b) => a + b, 0);

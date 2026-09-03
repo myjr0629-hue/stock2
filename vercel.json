@@ -135,6 +135,14 @@
     {
       "path": "/api/cron/ranking-build",
       "schedule": "0 15,18 * * 1-5"
+    },
+    {
+      "schedule": "5 14,17,19,21 * * 1-5",
+      "path": "/api/cron/structure-build"
+    },
+    {
+      "schedule": "25 21 * * 1-5",
+      "path": "/api/cron/ranking-build"
     }
   ]
 }
