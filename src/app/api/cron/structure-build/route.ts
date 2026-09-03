@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStructureData } from '@/services/structureService';
-import { setInCache } from '@/services/redisClient';
+import { setInCache, getFromCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub';
 import { batchPutItems } from '@/lib/aws/dynamoClient';
 import { getETComponents } from '@/services/marketDaySSOT';
@@ -93,6 +93,9 @@ export type StructRow = {
     pOI: number;         // 풋 미결제약정
     oi: number;          // 당일 총 미결제약정 — 유동성 게이트용
     s: string | null;    // 세션
+    // 이 «행»이 만들어진 시각. 부분 실패 때 직전 값을 들고 가되
+    // 얼마나 낡았는지 알아야 버릴지 정할 수 있다.
+    rt?: number;
 };
 
 export async function GET(req: NextRequest) {
@@ -182,7 +185,37 @@ export async function GET(req: NextRequest) {
     });
 
     const clean = rows.filter((r): r is StructRow => r !== null);
-    await setInCache(partKey(shard), { rows: clean, ts: Date.now() }, PART_TTL).catch(() => { });
+
+    // ── 부분 실패가 «더 완전한 결과»를 덮어쓰지 못하게 한다 ────────────────
+    // 2026-09-03 실측: 같은 샤드를 연속으로 돌렸는데 250행 → 154행 → 250행 이었다.
+    // 벤더 호출이 간헐적으로 실패하기 때문이다(콜드 인스턴스·순간 레이트리밋).
+    // 예전엔 그때마다 통째로 덮어써서, **한 번 부진한 실행이 캐시를 깎아 먹었다.**
+    // 실제로 그 154행짜리 실행이 QQQ 를 떨어뜨렸고 가디언 감마쉴드의
+    // 신뢰도가 HIGH → MEDIUM 으로 내려갔다.
+    //
+    // 그래서 «합친다» — 이번에 성공한 행이 이기고, 이번에 실패한 티커는
+    // 직전 값을 그대로 들고 간다. 다만 무한히 들고 가면 안 되므로 나이를 박아
+    // (rt) 오래된 것은 버린다. 없는 것보다 조금 낡은 것이 낫지만,
+    // «어제 것»을 오늘 값인 척하면 안 된다.
+    const now = Date.now();
+    const CARRY_MAX_MS = 6 * 3600 * 1000;   // 6시간까지만 들고 간다
+    const fresh: StructRow[] = clean.map(r => ({ ...r, rt: now }));
+    let carried = 0;
+    try {
+        const prev = await getFromCache<{ rows: StructRow[] }>(partKey(shard));
+        if (prev?.rows?.length) {
+            const have = new Set(fresh.map(r => r.t));
+            for (const r of prev.rows) {
+                if (have.has(r.t)) continue;
+                const age = now - (typeof r.rt === 'number' ? r.rt : 0);
+                if (age > CARRY_MAX_MS) continue;   // 너무 낡았다 — 버린다
+                fresh.push(r);
+                carried++;
+            }
+        }
+    } catch { /* 이전 값을 못 읽어도 이번 결과는 저장한다 */ }
+
+    await setInCache(partKey(shard), { rows: fresh, ts: now }, PART_TTL).catch(() => { });
 
     // ── «이탈» 축의 이력도 여기서 남긴다 ──────────────────────────────
     // 랭킹이 읽는 필드(pcr·미결제약정)를 쓰던 옛 경로가 2026-08-28 에 멈췄고
@@ -209,7 +242,7 @@ export async function GET(req: NextRequest) {
     if (!inSession) {
         return NextResponse.json({
             ok: true, shard, shards: SHARDS,
-            tickers: slice.length, rows: clean.length,
+            tickers: slice.length, rows: fresh.length, built: clean.length, carried,
             withMaxPain: clean.filter((r) => r.mp !== null).length,
             withFlip: clean.filter((r) => r.fl !== null).length,
             historyWrote: 0, historySkipped: '장외 시간 — 가짜 세션을 만들지 않는다',
@@ -234,7 +267,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
         ok: true, shard, shards: SHARDS,
-        tickers: slice.length, rows: clean.length,
+        tickers: slice.length, rows: fresh.length, built: clean.length, carried,
         withMaxPain: clean.filter((r) => r.mp !== null).length,
         withFlip: clean.filter((r) => r.fl !== null).length,
         historyWrote: wrote,
