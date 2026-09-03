@@ -1176,7 +1176,11 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
         const liq = await Promise.all(
             results.map((r: any) =>
                 r?.ticker && !r.error
-                    ? sessionAwareLiquidity(r.ticker, r.realtime?.bidPrice ?? null, r.realtime?.askPrice ?? null)
+                    // ⚠️ `bidPrice`/`askPrice` 는 존재하지 않는 이름이다(스냅샷은 lastQuote.p/P).
+                    //   늘 null 이 넘어가 실시간 호가를 못 봤다 — intel/fast 와 같은 실수였다.
+                    ? sessionAwareLiquidity(r.ticker,
+                        r.realtime?.lastQuote?.p ?? r.realtime?.bidPrice ?? null,
+                        r.realtime?.lastQuote?.P ?? r.realtime?.askPrice ?? null)
                         .catch(() => ({ liquidityScore: null, spreadPct: null }))
                     : Promise.resolve({ liquidityScore: null, spreadPct: null })
             )

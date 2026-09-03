@@ -1870,6 +1870,34 @@ export async function sessionAwareLiquidity(
     if (hit && Number.isFinite(hit.s)) {
         return { liquidityScore: hit.s, spreadPct: Number.isFinite(hit.q) ? hit.q : null, asOf: "lastReg" };
     }
+
+    // ★★ [2026-09-04] 3단계 — 저장된 중앙값에 없으면 «스냅샷 호가»로 직접 잰다.
+    //   여기서 포기하는 바람에 SERV·PL·SYM·AI·VKTX·S 처럼 얇은 종목의
+    //   LIQUIDITY 타일이 늘 «—» 였다. 호가는 스냅샷이 이미 싣고 다니고
+    //   (lastQuote.p / lastQuote.P), 그 스냅샷은 «마지막 정상값» 캐시가 받쳐 준다.
+    //   이 함수 한 곳을 고치면 인텔 목록·상세·커맨드가 같이 고쳐진다.
+    try {
+        const snap: any = await getTickerSnapshot(ticker);
+        const t = snap?.ticker;
+        if (t) {
+            const bid = num(t.lastQuote?.p);
+            const ask = num(t.lastQuote?.P);
+            const sp = spreadPctOf(bid, ask);
+            const sc = liquidityScoreFromSpread(sp);
+            if (sc != null) {
+                return { liquidityScore: sc, spreadPct: sp == null ? null : Math.round(sp * 10000) / 10000, asOf: "lastReg" };
+            }
+            // 스냅샷이 이미 계산해 실어 보내는 값이 있으면 그것도 받는다
+            if (Number.isFinite(Number(t.liquidityScore))) {
+                return {
+                    liquidityScore: Number(t.liquidityScore),
+                    spreadPct: Number.isFinite(Number(t.spreadPct)) ? Number(t.spreadPct) : null,
+                    asOf: "lastReg",
+                };
+            }
+        }
+    } catch { /* 그래도 없으면 «못 잼»이 맞다 */ }
+
     return { liquidityScore: null, spreadPct: null, asOf: null };
 }
 
