@@ -189,6 +189,7 @@ export async function GET(request: Request) {
         //
         //   ⚠️ 없는 종목까지 조회해 낭비하지 않도록, **정말 빈 종목만** 묻는다.
         // ══════════════════════════════════════════════════════════════
+        let warmDiag: any = { cold: 0, tried: 0, warmed: 0 };
         // ══════════════════════════════════════════════════════════════
         // ★★ [2026-09-04] «영영 차가운 종목»을 스스로 데운다.
         //
@@ -252,7 +253,6 @@ export async function GET(request: Request) {
         const gexFallback: Record<string, any> = {};
         // 진단 — 「폴백이 왜 안 걸리나」를 응답에서 바로 볼 수 있게. 추측 대신 실측.
         let gexDiag: any = { need: 0, filled: 0, sample: [] as string[], err: null as string | null };
-        let warmDiag: any = { cold: 0, tried: 0, warmed: 0 };
         try {
             // ★★ [2026-09-04] 처음엔 «종목 단위»로 걸렀다 — 「값이 하나라도 있으면 제외」.
             //   그런데 실제 결손은 **필드 단위**다. MSFT 는 gex 는 있는데 pcr·예상변동폭이
