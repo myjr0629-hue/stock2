@@ -198,15 +198,21 @@ export async function GET(request: Request) {
                 return true;
             });
             if (needGex.length > 0) {
+                const gexT0 = Date.now();
                 const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+                gexDiag.importMs = Date.now() - gexT0;
+                // ⚠️ 처음엔 2.5초로 잡았다가 **전부 null** 이 돌아왔다(need=5 filled=0 err=없음).
+                //   AWS SDK 콜드 로딩 + 동시 조회가 그 안에 안 끝난다. 넉넉히 준다 —
+                //   여기서 못 채우면 화면에 «—» 가 남으므로 몇 백 ms 를 아낄 이유가 없다.
                 const got = await Promise.all(
                     needGex.map((t) =>
                         Promise.race([
-                            getLatestGex(t).catch(() => null),
-                            new Promise<null>((r) => setTimeout(() => r(null), 2500)),
+                            getLatestGex(t).catch((e) => { gexDiag.err = String(e?.message || e).slice(0, 80); return null; }),
+                            new Promise<null>((r) => setTimeout(() => r(null), 8000)),
                         ])
                     )
                 );
+                gexDiag.ms = Date.now() - gexT0;
                 needGex.forEach((t, gi) => { if (got[gi]) gexFallback[t] = got[gi]; });
                 const filled = Object.keys(gexFallback).length;
                 if (filled) console.log(`[intel/fast] DynamoDB GEX 폴백 ${filled}/${needGex.length}종목`);
