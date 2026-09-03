@@ -230,6 +230,11 @@ export async function GET(request: Request) {
                 take.forEach((i, gi) => { if (got[gi]) cachedTickers[i] = { ...(cachedTickers[i] || {}), ...got[gi] }; });
                 const warmed = got.filter(Boolean).length;
                 if (warmed) console.log(`[intel/fast] 차가운 종목 데우기 ${warmed}/${take.length}`);
+                warmDiag = {
+                    cold: coldIdx.length, tried: take.length, warmed,
+                    sample: take.map((i) => tickers[i]).slice(0, 8),
+                    premAfter: take.map((i) => `${tickers[i]}:${(cachedTickers[i] as any)?.flow?.netPremium ?? 'null'}`).slice(0, 5),
+                };
             }
         } catch (e: any) {
             console.warn('[intel/fast] 차가운 종목 데우기 실패:', e?.message);
@@ -247,6 +252,7 @@ export async function GET(request: Request) {
         const gexFallback: Record<string, any> = {};
         // 진단 — 「폴백이 왜 안 걸리나」를 응답에서 바로 볼 수 있게. 추측 대신 실측.
         let gexDiag: any = { need: 0, filled: 0, sample: [] as string[], err: null as string | null };
+        let warmDiag: any = { cold: 0, tried: 0, warmed: 0 };
         try {
             // ★★ [2026-09-04] 처음엔 «종목 단위»로 걸렀다 — 「값이 하나라도 있으면 제외」.
             //   그런데 실제 결손은 **필드 단위**다. MSFT 는 gex 는 있는데 pcr·예상변동폭이
@@ -546,6 +552,7 @@ export async function GET(request: Request) {
                 elapsedMs: elapsed,
                 cachedFor: '15s',
                 gexFallback: gexDiag,
+                warm: warmDiag,
                 dataSource: 'polygon_batch+redis',
                 cacheHits: cachedTickers.filter(Boolean).length,
                 cacheMisses: cachedTickers.filter(c => !c).length,
