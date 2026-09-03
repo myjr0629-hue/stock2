@@ -38,7 +38,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v3:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v4:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -61,6 +61,31 @@ async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): P
 //   ratio/score(풋콜·델타·점수): 감소도 그 자체로 정보다. → 양방향.
 type Metric = { key: string; label: { ko: string; en: string; ja: string }; kind: 'magnitude' | 'ratio' };
 // ivSkew 는 뺐다 — 실측 300행 전부 0 이다(생산자가 채우지 않는다).
+// ══════════════════════════════════════════════════════════════════════
+// [2026-09-03] 축을 실측으로 골라냈다 (10종목·30일, scripts/_axis-quality.js).
+//
+//   지표                하루안범위/중앙  날짜간변화  비율   동조율
+//   pcr                      0.08         0.06     1.5    18%   ✅
+//   totalCallOI              0.16         0.10     1.6    76%   ⚠️
+//   totalPutOI               0.14         0.09     1.6    90%   ⚠️
+//   whaleScore               0.55         0.05    10.5     0%   ❌
+//   dex                      0.75         0.19     4.0    33%   ❌
+//   squeezeProbability       0.49         0.21     2.3    57%   ❌
+//
+// 「하루안범위 ÷ 날짜간변화」가 크면 **그날의 값이 존재하지 않는다** — 어느
+// 스냅샷을 집었느냐가 값을 정한다. whaleScore 는 하루 안에서 중앙값의 55%를
+// 오가는데 날짜 간 변화는 5% 뿐이다(10.5배). 그걸로 「평소 대비 이탈」을 재면
+// 재는 것은 시장이 아니라 **뽑기**다.
+//
+// squeezeProbability 는 세 가지가 겹쳤다:
+//   ① 하루 안 0~80 을 오간다(실측 RTX 08-30 범위 0~70)
+//   ② 09-02 에 RTX·GS·MRVL·TSM 이 **동시에** 60~70 으로 뛰었다(동조율 57%)
+//      — 네 종목이 같은 말을 하면 그건 개별 종목 이야기가 아니다
+//   ③ 랭킹은 60 이라 하는데 **앱 화면은 같은 종목을 15 로 보여준다**.
+//      사용자가 앱에서 확인할 수 없는 순위는 오보다.
+//
+// ivSkew 는 예전에 뺐다 — 실측 300행 전부 0 이다(생산자가 채우지 않는다).
+// ══════════════════════════════════════════════════════════════════════
 const METRICS: Metric[] = [
     // ⚠️ 생산자에서 pcr = totalPutOI / totalCallOI 다 — «거래량» PCR 이 아니라
     //    «미결제약정» PCR 이다. 그냥 「풋콜 비율」이라고 쓰면 시청자는 그날의
@@ -68,9 +93,8 @@ const METRICS: Metric[] = [
     { key: 'pcr', label: { ko: '풋콜 비율(미결제약정)', en: 'Put/call ratio (open interest)', ja: 'プットコール比率(建玉)' }, kind: 'ratio' },
     { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call open interest', ja: 'コール建玉' }, kind: 'magnitude' },
     { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put open interest', ja: 'プット建玉' }, kind: 'magnitude' },
-    { key: 'whaleScore', label: { ko: '대형거래 지표', en: 'Large-trade score', ja: '大口取引スコア' }, kind: 'ratio' },
-    { key: 'dex', label: { ko: '델타 노출', en: 'Delta exposure', ja: 'デルタ・エクスポージャー' }, kind: 'ratio' },
-    { key: 'squeezeProbability', label: { ko: '스퀴즈 확률', en: 'Squeeze probability', ja: 'スクイーズ確率' }, kind: 'ratio' },
+    // 이력이 3~4일뿐이라 아직 MIN_SESSIONS(8)를 못 넘는다. 선언만 해 두면
+    // 자료가 쌓이는 날 저절로 켜진다 — readiness 로 상태를 보고한다.
     { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Options premium', ja: 'オプション資金' }, kind: 'magnitude' },
 ];
 
@@ -191,7 +215,7 @@ function seriesOf(snaps: Row[], key: string) {
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v3:${days}:${top}`;
+    const CACHE = `ranking:deviation:v4:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -207,6 +231,14 @@ export async function GET(req: NextRequest) {
     }
 
     let found: any[] = [];
+    // ⚠️ [2026-09-03] 옵션 축에 «시장 정규화»가 없었다. 실측 동조율이
+    //    풋 미결제약정 90% · 콜 76% 다 — 만기 주기 때문에 대부분의 종목이
+    //    같은 날 같이 오르내린다. 그걸 그대로 재면 「평소의 2배」가 사실은
+    //    「오늘 시장 전체가 2배」인 날의 이야기가 된다. 다크풀 축은 이미
+    //    시장 중앙 배수로 나눠 이 문제를 풀고 있었다 — 옵션도 같게 만든다.
+    //    ※ 표본은 «게이트를 통과한 것»이 아니라 «배수를 계산한 전부»여야 한다.
+    //      통과분만 모으면 생존편향으로 중앙값이 위로 밀린다.
+    const ratioPool: Record<string, number[]> = {};
     const skipped: Record<string, number> = {};
     const bump = (r: string) => { skipped[r] = (skipped[r] || 0) + 1; };
 
@@ -222,17 +254,21 @@ export async function GET(req: NextRequest) {
         const per = Math.ceil(UNIVERSE.length / SHARDS);
         slice = UNIVERSE.slice(buildShard * per, (buildShard + 1) * per);
     } else {
+        type Part = { found: any[]; ratioPool: Record<string, number[]> };
         const parts = await Promise.all(
-            Array.from({ length: SHARDS }, (_, i) => getFromCache<any[]>(partKey(days, i)).catch(() => null)),
+            Array.from({ length: SHARDS }, (_, i) => getFromCache<Part>(partKey(days, i)).catch(() => null)),
         );
-        const have = parts.filter((x): x is any[] => Array.isArray(x));
-        if (have.length === SHARDS) {
-            for (const arr of have) found.push(...arr);
-        } else {
+        const have = parts.filter((x): x is Part => !!x && Array.isArray(x.found));
+        for (const pt of have) {
+            found.push(...pt.found);
+            for (const [k, arr] of Object.entries(pt.ratioPool || {})) {
+                (ratioPool[k] = ratioPool[k] || []).push(...arr);
+            }
+        }
+        if (have.length !== SHARDS) {
             const per = Math.ceil(UNIVERSE.length / SHARDS);
             slice = UNIVERSE.slice(0, per);
             partialReason = `구워진 조각 ${have.length}/${SHARDS} — 첫 조각만 즉석 계산했다`;
-            for (const arr of have) found.push(...arr);
         }
     }
 
@@ -309,6 +345,7 @@ export async function GET(req: NextRequest) {
             //    즉 어느 날 음수 하나만 섞이면 순위가 통째로 뒤죽박죽이 된다.
             //    에러도 안 나고 목록은 그럴듯해 보인다. 가장 위험한 종류다.
             if (!Number.isFinite(ratio) || ratio <= 0) { bump('배수무효(음수·비유한)'); continue; }
+            (ratioPool[m.key] = ratioPool[m.key] || []).push(ratio);   // 게이트 이전에 담는다
             const twoSided = m.kind === 'ratio';
             const passes = twoSided
                 ? (ratio >= MIN_RATIO || ratio <= 1 / MIN_RATIO)
@@ -333,7 +370,7 @@ export async function GET(req: NextRequest) {
     // 조각마다 계산하면 시장 중앙값이 조각별로 달라져 서로 다른 자로 잰다.
     // 그래서 다크풀은 **병합 시점에 한 번만** 계산한다.
     if (buildShard !== null) {
-        await setInCache(partKey(days, buildShard), found, PART_TTL);
+        await setInCache(partKey(days, buildShard), { found, ratioPool }, PART_TTL);
         return NextResponse.json({
             ok: true, mode: 'build', shard: buildShard, shards: SHARDS,
             tickers: slice.length, candidates: found.length, skipped,
@@ -441,6 +478,36 @@ export async function GET(req: NextRequest) {
         darkPool = { available: false, reason: '조회 실패' };
     }
 
+    // ── 옵션 축 시장 정규화 ──────────────────────────────────────────
+    // 다크풀이 이미 쓰는 방식과 같다. 그 종목의 배수를 «그날 시장의 중앙 배수»로
+    // 나눠, 시장 전체가 같이 움직인 몫을 걷어낸다. 남는 것만 그 종목 이야기다.
+    const OPT_KEYS = new Set(METRICS.map((m) => m.key));
+    const mktRatio: Record<string, number> = {};
+    for (const [k, arr] of Object.entries(ratioPool)) {
+        const mm = median(arr);
+        // 표본이 얇으면 중앙값이 곧 잡음이다 — 그런 날은 정규화하지 않는다(=1).
+        mktRatio[k] = arr.length >= 30 && mm !== null && mm > 0 ? mm : 1;
+    }
+    found = found.flatMap((f) => {
+        if (!OPT_KEYS.has(f.metric) || typeof f.ratio !== 'number') return [f];
+        const mk = mktRatio[f.metric] ?? 1;
+        const rel = f.ratio / mk;
+        if (!Number.isFinite(rel) || rel <= 0) return [];
+        // 정규화한 값으로 게이트를 다시 건다. 시장이 같이 오른 몫을 뺐더니
+        // 기준에 못 미치는 종목은 「그 종목 이야기」가 아니었다는 뜻이다.
+        const twoSided = METRICS.find((m) => m.key === f.metric)?.kind === 'ratio';
+        const passes = twoSided ? (rel >= MIN_RATIO || rel <= 1 / MIN_RATIO) : rel >= MIN_RATIO;
+        if (!passes) return [];
+        return [{
+            ...f,
+            ratio: rel,                                   // 표시·정렬은 시장 대비
+            rawRatio: f.ratio,                            // 자기 기준선 대비(원본)
+            marketRatio: Math.round(mk * 1000) / 1000,
+            direction: rel >= 1 ? 'surge' : 'collapse',
+            rank: Math.abs(Math.log(rel)),
+        }];
+    });
+
     // ⚠️ 마지막 방어망. rank 에 NaN 이 하나라도 있으면 비교자가 NaN 을 뱉고
     //    **정렬이 통째로 무의미해진다**(자바스크립트는 조용히 원래 순서를 남긴다).
     //    위에서 원인을 막았지만, 새 축을 추가한 사람이 또 만들 수 있는 실수다.
@@ -470,6 +537,8 @@ export async function GET(req: NextRequest) {
             //    (예전엔 z 게이트가 다크풀에도 걸리는 것처럼 적혀 있었다 — 안 걸린다).
             guards: {
                 옵션: [
+                    '시장 정규화 — 그날 시장의 중앙 배수로 나눈다(풋 미결제약정 동조율 90%·콜 76% 실측). 표본 30개 미만인 날은 정규화하지 않는다.',
+                    '축은 실측으로 골랐다 — 「하루안 범위 ÷ 날짜간 변화」가 큰 축(whaleScore 10.5배·dex 4.0배·squeezeProbability 2.3배)은 그날의 값이 존재하지 않아 제외했다.',
                     '만기 롤오버(같은 규모 체인만 비교)',
                     `최소 비교 ${MIN_REGIME_DAYS}일`,
                     `${MIN_Z} ≤ |z| ≤ ${MAX_Z} (상한은 산포 붕괴 탐지용)`,
@@ -498,6 +567,15 @@ export async function GET(req: NextRequest) {
         shards: SHARDS,
         darkPool,
         candidates: found.length, nanDropped,
+        // 축별 «준비 상태». 어떤 축이 살아 있고 어떤 축이 자료를 기다리는지
+        // 밖에서 보이게 한다 — 안 보이면 「켜져 있는 줄 알았는데 아니었다」가 된다.
+        axes: METRICS.map((m) => ({
+            metric: m.key, kind: m.kind,
+            samples: (ratioPool[m.key] || []).length,
+            marketRatio: mktRatio[m.key] ?? null,
+            normalized: (ratioPool[m.key] || []).length >= 30,
+            ranked: found.filter((f) => f.metric === m.key).length,
+        })),
         skipped,
         ranking: picked,
     };
