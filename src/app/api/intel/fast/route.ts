@@ -149,11 +149,26 @@ export async function GET(request: Request) {
         const liqMap: Record<string, { liquidityScore: number | null; spreadPct: number | null }> = {};
         try {
             const { sessionAwareLiquidity } = await import('@/services/intrinioClient');
+            // ⚠️ [2026-09-04] `sn.bidPrice` / `sn.askPrice` 는 **존재하지 않는 이름**이다.
+            //   스냅샷은 호가를 `lastQuote.p`(bid) · `lastQuote.P`(ask) 로 준다
+            //   (Massive 스키마 그대로). 그래서 늘 null 이 넘어갔고, 유동성은
+            //   EC2 에 적재된 직전 정규장 중앙값으로만 나왔다 — 그게 없는 종목은 «—».
+            //   스냅샷이 이미 계산해 실어 보내는 liquidityScore/spreadPct 도 함께 쓴다.
             const liqRes = await Promise.all(tickers.map((t, i) => {
                 const sn: any = snapshotMap[t];
-                return sessionAwareLiquidity(t, sn?.bidPrice ?? null, sn?.askPrice ?? null);
+                const bid = sn?.lastQuote?.p ?? sn?.bidPrice ?? null;
+                const ask = sn?.lastQuote?.P ?? sn?.askPrice ?? null;
+                return sessionAwareLiquidity(t, bid > 0 ? bid : null, ask > 0 ? ask : null);
             }));
-            tickers.forEach((t, i) => { liqMap[t] = liqRes[i]; });
+            tickers.forEach((t, i) => {
+                const sn: any = snapshotMap[t];
+                const r: any = liqRes[i] || {};
+                // 세션 인지 계산이 비면 스냅샷이 직접 실어 보낸 값으로 메운다.
+                liqMap[t] = {
+                    liquidityScore: r.liquidityScore ?? (Number.isFinite(Number(sn?.liquidityScore)) ? Number(sn.liquidityScore) : null),
+                    spreadPct: r.spreadPct ?? (Number.isFinite(Number(sn?.spreadPct)) ? Number(sn.spreadPct) : null),
+                };
+            });
         } catch (e: any) {
             console.warn('[intel/fast] liquidity lookup failed:', e?.message);
         }
