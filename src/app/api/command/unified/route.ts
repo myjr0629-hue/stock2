@@ -919,6 +919,41 @@ export async function GET(request: NextRequest) {
                 } catch { /* Finnhub unavailable */ }
             }
 
+            // ══════════════════════════════════════════════════════════════
+            // ★★ [2026-09-04] 캐시 경로는 **필드 검사를 안 하고** 그대로 돌려줬다.
+            //
+            //   DynamoDB 경로엔 isFieldUsable + 갭필이 있는데 여기엔 없었다.
+            //   그래서 한 번 껍데기가 캐시에 앉으면 TTL 동안 계속 나갔다
+            //   (실측 META: 단독 라우트는 score 72·A-·P/E 22.9 를 주는데
+            //    unified 는 `_source:'cache'` 로 grade:'NO_DATA'·sma label:'오류').
+            //   가드는 **읽기·쓰기 양쪽**에 있어야 한다 — 오늘 세 번째 같은 교훈이다.
+            //
+            //   → 캐시에서 꺼낸 뒤에도 «화면이 읽는 값이 있나»를 보고, 없으면 그 필드만
+            //     채워 넣는다. 있으면 아무 일도 안 하므로 정상 경로는 그대로 빠르다.
+            // ══════════════════════════════════════════════════════════════
+            try {
+                const cUrl = getBaseUrl(request);
+                const holes: Array<[string, Promise<any>]> = [];
+                if (!isFieldUsable('fundamentals', cachedData.fundamentals)) holes.push(['fundamentals', callInternalGet(getFundamentals, `${cUrl}/api/live/fundamentals?t=${ticker}`)]);
+                if (!isFieldUsable('sma', cachedData.sma)) holes.push(['sma', callInternalGet(getSma, `${cUrl}/api/live/sma?t=${ticker}`)]);
+                if (!isFieldUsable('analyst', cachedData.analyst)) holes.push(['analyst', callInternalGet(getAnalyst, `${cUrl}/api/live/analyst?t=${ticker}`)]);
+                if (!isFieldUsable('related', cachedData.related)) holes.push(['related', callInternalGet(getRelated, `${cUrl}/api/live/related?t=${ticker}`)]);
+                if (!isFieldUsable('squeeze', cachedData.squeeze)) holes.push(['squeeze', callInternalGet(getSqueeze, `${cUrl}/api/live/short-squeeze?t=${ticker}`)]);
+                if (holes.length > 0) {
+                    const filled = await Promise.all(holes.map(([, p]) => p));
+                    let any = false;
+                    holes.forEach(([name], i) => {
+                        if (filled[i] && isFieldUsable(name, filled[i])) { (cachedData as any)[name] = filled[i]; any = true; }
+                    });
+                    if (any) {
+                        console.log(`[Command Unified] 캐시 구멍 메움 ${ticker}: ${holes.map(([n]) => n).join(',')}`);
+                        setInCache(dataCacheKey, cachedData, getSmartTTL()).catch(() => { });
+                    }
+                }
+            } catch (e: any) {
+                console.warn('[Command Unified] 캐시 구멍 메우기 실패:', e?.message);
+            }
+
             // [FIX 2026-05-06] EC2 institutional ALWAYS injected — preserves last session data through off-hours
             // Previously gated by isMarketHoursNow() → post-market close caused block count regression (252 → 17)
             const ec2Ok = await injectEC2Institutional(cachedData, ticker);
