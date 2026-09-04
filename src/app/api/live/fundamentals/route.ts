@@ -19,8 +19,18 @@ export async function GET(req: NextRequest) {
                 try {
                     const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
                     const dynData = await getUnifiedCache(ticker, 'en');
-                    if (dynData?.fundamentals) {
-                        const f = dynData.fundamentals;
+                    // ⚠️⚠️ [2026-09-04] 「객체가 있으면 쓴다」가 **빈 껍데기를 통과시킨다.**
+                    //   META 실측: DynamoDB 에 fundamentals 가 «있긴 한데» score·pe·roe·
+                    //   marketCap 이 전부 null 이었다. 그래도 여기서 그대로 반환해 버리니
+                    //   **살아 있는 아래 폴백으로 영영 못 갔다**(grade:'NO_DATA' 로 화면 빈칸).
+                    //   overview·structure·sma 에서 이미 세 번 겪은 같은 모양이다.
+                    //   판정은 「객체가 있나」가 아니라 **「화면이 읽는 값이 있나」**로.
+                    const _f: any = dynData?.fundamentals;
+                    const _num = (v: any) => v !== null && v !== undefined && Number.isFinite(Number(v));
+                    const _hasSubstance = !!_f && (_num(_f.score) || _num(_f.pe) || _num(_f.roe)
+                        || _num(_f.marketCap) || _num(_f.revenueGrowth) || _num(_f.netMargin));
+                    if (_hasSubstance) {
+                        const f = dynData!.fundamentals;
                         console.log(`[live/fundamentals] ✅ DynamoDB hit for ${ticker}: score=${f.score} grade=${f.grade}`);
                         return {
                             ticker,

@@ -318,7 +318,10 @@ function isFieldUsable(field: string, data: any): boolean {
         case 'analyst': return data.totalAnalysts > 0;
         case 'earnings': return data.hasData !== false && (data.nextEarningsDate !== null || data.earningsDate !== null || data.forwardEps != null);
         // 이름만 있고 수치가 하나도 없는 껍데기를 거른다.
-        case 'fundamentals': return numOk(data.score) || numOk(data.marketCap) || numOk(data.pe) || !!data.grade;
+        // ⚠️ `!!data.grade` 는 **'NO_DATA' 도 통과시킨다** — 「등급이 있다」가 아니라
+        //   「못 쟀다는 표시」인데 그걸 값으로 세고 있었다.
+        case 'fundamentals': return numOk(data.score) || numOk(data.marketCap) || numOk(data.pe)
+            || (!!data.grade && data.grade !== 'NO_DATA' && data.grade !== '-');
         case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0) || (data.count > 0);
         // ⚠️ [2026-09-04] `cross: "UNKNOWN"` · `label: "오류"` 인 **실패 결과**가
         //    「cross 가 null 이 아니다」는 이유로 통과했다. 그래서 갭필이 안 걸리고
