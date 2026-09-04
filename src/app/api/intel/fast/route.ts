@@ -16,6 +16,11 @@ import { xsSnapshotOverride } from '@/services/xsScores';
 import { fetchTruePreMarket } from '@/services/marketDataLight';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 
+/** null·undefined·빈문자를 먼저 거른다. `Number(null)===0` 함정 방지. */
+function numOk(v: any): boolean {
+    return v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+}
+
 // Sector ticker maps
 const SECTOR_TICKERS: Record<string, string[]> = {
     m7: ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'],
