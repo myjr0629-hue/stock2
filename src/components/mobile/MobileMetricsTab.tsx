@@ -41,7 +41,7 @@ export function MobileMetricsGrid() {
                 {co.includes("squeeze") && <ProGate title="Squeeze" mode="peek" compact tooltipPosition="above" description={gt("descSqueeze")}>
                     {(() => { // ⚠️ [2026-09-04] `?? 0` · `?? "LOW"` 라서 **못 잰 것이 「압축 0% · LOW」로** 나갔다.
                     //    「쟀더니 낮더라」와 「재지 못했다」는 완전히 다른 말이다.
-                    const sRaw = data?.squeezeScore; const has = Number.isFinite(Number(sRaw));
+                    const sRaw = data?.squeezeScore; const has = sRaw !== null && sRaw !== undefined && Number.isFinite(Number(sRaw));
                     const s = has ? Number(sRaw) : 0; const r = has ? (data?.squeezeRisk ?? "LOW") : "—"; const c = r === "EXTREME" ? "#f87171" : r === "HIGH" ? "#fbbf24" : r === "MEDIUM" ? "#facc15" : "#4ade80"; const alert = r === "EXTREME" || r === "HIGH" ? "bg-amber-500/10 border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]" : undefined;
                     return <MobileMetricCard title="SQUEEZE" icon={<Zap className="w-3 h-3 text-indigo-400"/>} value={has ? `${s}%` : "—"} valueColor={c} badge={r} badgeColor={r === "EXTREME" || r === "HIGH" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400"} sub={!has ? "—" : s >= 70 ? td("sqzExtreme") : s >= 50 ? td("sqzCaution") : td("sqzStable")} barPct={has ? s : 0} barColor={c} barLabels={["0%","50%","100%"]} alertStyle={alert}/>;
                     })()}
@@ -87,7 +87,8 @@ export function MobileMetricsGrid() {
                 {/* 11. GEX REGIME */}
                 {co.includes("gexRegime") && <EliteGate title="GEX Regime" compact tooltipPosition="above" description={gt("descGexRegime")}>
                     {(() => { // ⚠️ 같은 이유 — `|| 0` 이 「집중도 0%」라는 주장을 만든다.
-                    const hasGex = Number.isFinite(Number(data?.netGex)) || Number.isFinite(Number(data?.gammaConcentration));
+                    const _ok = (v: any) => v !== null && v !== undefined && Number.isFinite(Number(v));
+                    const hasGex = _ok(data?.netGex) || _ok(data?.gammaConcentration);
                     const gex = data?.netGex || 0; const flip = data?.gammaFlipLevel || 0; const conc = data?.gammaConcentration || 0; const isLong = gex >= 0;
                     let regime = isLong ? "STABLE" : "EXPLOSIVE"; let flipDist = 0; let fw = isLong ? 1.0 : 0.3;
                     if (flip > 0 && price > 0) { flipDist = ((price - flip) / flip) * 100; if (flipDist > 5) { fw = 1.2; regime = "STABLE"; } else if (flipDist > 2) { fw = 1.0; regime = "STABLE"; } else if (flipDist > 0) { fw = 0.5; regime = "TRANSITION"; } else if (flipDist > -2) { fw = 0.3; regime = "FLIP_ZONE"; } else { fw = 0.2; regime = "EXPLOSIVE"; } }

@@ -63,7 +63,8 @@ function baseUrl(): string {
 // ══════════════════════════════════════════════════════════════
 function inspect(path: string, body: any): string[] {
     const bad: string[] = [];
-    const n = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : null);
+    // ⚠️ `Number(null)===0` 이라 null 이 0 으로 통과한다. 먼저 거른다.
+    const n = (v: any) => (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
     if (!body || typeof body !== 'object') return [`${path} 본문이 JSON 이 아니다`];
     if ((body as any).error) return [`${path} error: ${String(JSON.stringify((body as any).error)).slice(0, 80)}`];
 

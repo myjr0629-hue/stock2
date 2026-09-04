@@ -31,7 +31,7 @@ export const maxDuration = 30;
 //   안 그러면 이미 캐시에 앉은 껍데기(sma label:'오류' · structure NO_MARKET)가
 //   TTL 동안 그대로 나가고, 「고쳤는데 화면이 안 바뀐다」로 오진하게 된다.
 //   v3 = sma·volatility·fundamentals·structure 판정 강화 (2026-09-04)
-const CACHE_KEY_PREFIX = 'cache:command:unified:v3:';  // Language-independent data
+const CACHE_KEY_PREFIX = 'cache:command:unified:v4:';  // Language-independent data
 const OVERVIEW_KEY_PREFIX = 'cache:command:overview:'; // Language-specific overview
 const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5 min)
 const CACHE_TTL_OFFHOURS = 259200; // 72 hours off-hours (covers Friday→Monday)
@@ -301,24 +301,33 @@ function getSmartTTL(): number {
 }
 
 // [GAP-FILL] Check if a cached field has usable data (not just an empty shell)
+/**
+ * ⚠️⚠️ [2026-09-04] `Number.isFinite(Number(x))` 를 쓰면 **null 이 통과한다** —
+ *   `Number(null) === 0` 이고 0 은 유한수다. 내가 sma·volatility·fundamentals 판정을
+ *   그렇게 써서 「고쳤는데 그대로」였다(unified.sma 가 label:'오류'·sma50:null 인데
+ *   「쓸 만함」으로 통과 → 갭필이 한 번도 안 걸림. 단독 /api/live/sma 는 209.87 을 준다).
+ *   이 함수 안의 모든 수치 판정은 반드시 이걸 쓴다.
+ */
+function numOk(v: any): boolean {
+    return v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+}
+
 function isFieldUsable(field: string, data: any): boolean {
     if (!data) return false;
     switch (field) {
         case 'analyst': return data.totalAnalysts > 0;
         case 'earnings': return data.hasData !== false && (data.nextEarningsDate !== null || data.earningsDate !== null || data.forwardEps != null);
         // 이름만 있고 수치가 하나도 없는 껍데기를 거른다.
-        case 'fundamentals': return Number.isFinite(Number(data.score)) || Number.isFinite(Number(data.marketCap))
-            || Number.isFinite(Number(data.pe)) || !!data.grade;
+        case 'fundamentals': return numOk(data.score) || numOk(data.marketCap) || numOk(data.pe) || !!data.grade;
         case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0) || (data.count > 0);
         // ⚠️ [2026-09-04] `cross: "UNKNOWN"` · `label: "오류"` 인 **실패 결과**가
         //    「cross 가 null 이 아니다」는 이유로 통과했다. 그래서 갭필이 안 걸리고
         //    화면엔 이동평균이 빈 채로 나갔다(/api/live/sma 단독 호출은 정상값을
         //    돌려주는데도 — NVDA sma50 209.29 · sma200 196.27 실측).
         //    숫자가 하나라도 있어야 쓸 수 있다.
-        case 'sma': return Number.isFinite(Number(data.sma50)) || Number.isFinite(Number(data.sma200));
+        case 'sma': return numOk(data.sma50) || numOk(data.sma200);
         // 같은 이유로 조인다 — 문자열 «UNKNOWN» 이 아니라 실제 수치가 있어야 한다.
-        case 'volatility': return Number.isFinite(Number(data.regimeScore)) || Number.isFinite(Number(data.iv))
-            || Number.isFinite(Number(data.gex)) || Number.isFinite(Number(data.flipLevel));
+        case 'volatility': return numOk(data.regimeScore) || numOk(data.iv) || numOk(data.gex) || numOk(data.flipLevel);
         case 'squeeze': return (data.siPercent != null && data.siPercent > 0) || (data.shortVolPercent != null && data.shortVolPercent > 0) || (data.daysToCover != null && data.daysToCover > 0);
         case 'institutional': return (data.darkPool?.percent != null && data.darkPool.percent > 0) || (data.compositeScore != null && data.compositeScore > 0);
         // ⚠️ [2026-09-03] options_status 만 보면 «옵션은 있는데 가격이 없는» 페이로드가
@@ -729,7 +738,7 @@ export async function GET(request: NextRequest) {
         // ══════════════════════════════════════════════════════════════
         // [극강 Layer 1] IN-MEMORY LRU — 0ms response
         // ══════════════════════════════════════════════════════════════
-        const memKey = `v3:${ticker}`; // Language-independent (data is shared). v3 = 판정 강화(2026-09-04)
+        const memKey = `v4:${ticker}`; // Language-independent (data is shared). v3 = 판정 강화(2026-09-04)
         const memData = memoryGet(memKey);
         if (memData && (memData.structure || memData.options)) {
             const ageMs = Date.now() - (memData.timestamp || 0);

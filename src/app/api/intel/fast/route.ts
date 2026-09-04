@@ -167,8 +167,9 @@ export async function GET(request: Request) {
                 const r: any = liqRes[i] || {};
                 // 세션 인지 계산이 비면 스냅샷이 직접 실어 보낸 값으로 메운다.
                 liqMap[t] = {
-                    liquidityScore: r.liquidityScore ?? (Number.isFinite(Number(sn?.liquidityScore)) ? Number(sn.liquidityScore) : null),
-                    spreadPct: r.spreadPct ?? (Number.isFinite(Number(sn?.spreadPct)) ? Number(sn.spreadPct) : null),
+                    // ⚠️ `Number(null)===0` 이라 null 이 0 으로 통과한다 — 유동성 «0점»은 주장이다.
+                    liquidityScore: r.liquidityScore ?? (numOk(sn?.liquidityScore) ? Number(sn.liquidityScore) : null),
+                    spreadPct: r.spreadPct ?? (numOk(sn?.spreadPct) ? Number(sn.spreadPct) : null),
                 };
             });
         } catch (e: any) {
