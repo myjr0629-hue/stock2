@@ -621,42 +621,33 @@ function pctNumber(value: string | number | null | undefined) {
   return Number(String(value).replace(/[^0-9.-]/g, '')) || 0;
 }
 
-function SparklineBg({ up, seed = 'default' }: { up: boolean; seed?: string }) {
+function SparklineBg({ up, seed = 'default', series }: { up: boolean; seed?: string; series?: number[] | null }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // ⚠️ 2026-09-05: 여기는 티커 문자열을 해시해 `Math.sin` 의사난수로 40포인트를
+  //    만들어 히어로 배경에 «가격 곡선»처럼 깔고 있었다. 같은 화면 아래쪽 차트는
+  //    실제 캔들을 그리므로 위아래가 서로 다른 모양을 말했다.
+  //    이제 실측 종가(series)만 그린다. 없으면 아무것도 그리지 않는다.
   const pts = useMemo(() => {
-    if (!mounted) return '';
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) {
-      h = seed.charCodeAt(i) + ((h << 5) - h);
-    }
-    const rand = () => {
-      const x = Math.sin(h++) * 10000;
-      return x - Math.floor(x);
-    };
+    if (!mounted || !series || series.length < 2) return '';
+    let min = Infinity, max = -Infinity;
+    for (const v of series) { if (v < min) min = v; if (v > max) max = v; }
+    const range = (max - min) || 1;
+    const n = series.length;
+    return series
+      .map((v, i) => {
+        const x = (i / (n - 1)) * 100;
+        const y = 100 - (((v - min) / range) * 80 + 10);   // 상하 10% 여백
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(' ');
+  }, [series, mounted]);
 
-    const n = 40;
-    const vals: number[] = [];
-    let v = 50;
-    for (let i = 0; i < n; i++) {
-      v += (rand() - (up ? 0.42 : 0.58)) * 8;
-      v = Math.max(10, Math.min(90, v));
-      vals.push(v);
-    }
-    return vals.map((y, i) => `${(i / (n - 1)) * 100},${100 - y}`).join(' ');
-  }, [up, seed, mounted]);
-
-  if (!mounted) {
-    return (
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%"
-        style={{ position: 'absolute', inset: 0, opacity: 0 }}>
-      </svg>
-    );
-  }
+  if (!pts) return null;
 
   const gradId = `sparkGrad-${seed}`;
 
@@ -751,6 +742,9 @@ export default function AppFlowPage() {
 
   // Flow State
   const [tickerData, setTickerData] = useState<any>(null);
+  // 히어로 배경 곡선용 «오늘» 종가열. 실측이 없으면 null → 곡선을 안 그린다.
+  // (예전엔 티커 해시 의사난수를 가격 곡선처럼 깔았다 — 2026-09-05)
+  const [heroSeries, setHeroSeries] = useState<number[] | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'ai-intel' | 'whale-flow' | 'strike-profile'>('overview');
   
   const [price, setPrice] = useState(0);
@@ -782,6 +776,25 @@ export default function AppFlowPage() {
   //   채택 9건 중 5건이 청산이었고, 탈락 3건이 전부 신규(합 42만 계약)였다.
   //   만기일엔 청산이 거래량을 지배하므로 옛 방식은 그날마다 정확히 거꾸로 간다.
   //   → 미결제약정 «증감»으로 판정한다. 전일 마감 기준이라 화면에 그렇게 표시한다.
+  // 히어로 배경 곡선 — 실측 «오늘» 종가열을 받는다(종목 화면이라 1콜).
+  // 값이 없으면 null 을 유지해 곡선을 그리지 않는다 — 의사난수로 채우지 않는다.
+  useEffect(() => {
+    if (!ticker) return;
+    let alive = true;
+    setHeroSeries(null);
+    fetch(`/api/chart?symbol=${encodeURIComponent(ticker)}&range=1d`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        if (!alive || !j || !Array.isArray(j.data)) return;
+        const closes = j.data
+          .map((d: any) => Number(d?.close))
+          .filter((n: number) => Number.isFinite(n) && n > 0);
+        if (closes.length >= 2) setHeroSeries(closes);
+      })
+      .catch(() => { /* 실패하면 곡선 없음 */ });
+    return () => { alive = false; };
+  }, [ticker]);
+
   const [optionsEod, setOptionsEod] = useState<any>(null);
   useEffect(() => {
     if (!ticker) return;
@@ -2339,7 +2352,7 @@ export default function AppFlowPage() {
             }}
           >
             {/* Background sparkline decoration */}
-            <SparklineBg up={up} seed={ticker} />
+            <SparklineBg up={up} seed={ticker} series={heroSeries} />
 
             {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
             <div className={s.heroIdentity}>
@@ -2387,7 +2400,7 @@ export default function AppFlowPage() {
               </div>
               {hasExt && (
                 <div className={extCardClassName}>
-                  <SparklineBg up={activeExtPct >= 0} seed={`${ticker}-ext`} />
+                  <SparklineBg up={activeExtPct >= 0} seed={`${ticker}-ext`} series={heroSeries} />
                   <span className={s.heroExtLabel}>{activeExtLabel}</span>
                   <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
                   <span className={s.heroExtChange} style={{ color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>

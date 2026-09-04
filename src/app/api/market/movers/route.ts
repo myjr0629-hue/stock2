@@ -4,11 +4,13 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const dynamic = 'force-dynamic';
 
-const getSpark = (up: boolean) => {
-  return up 
-    ? [5, 6, 5.5, 7, 7.5, 9, 8.5, 10, 11]
-    : [11, 10, 10.5, 9, 8.5, 7.5, 8, 6.5, 5];
-};
+// ⚠️ 2026-09-05: 여기 `getSpark(up)` 이 **방향별 고정 배열 2개**를 돌려주고 있었다.
+//    상승 종목은 전부 같은 우상향 지그재그, 하락 종목은 전부 같은 우하향 —
+//    화면(dash TOP MOVERS)에는 «오늘의 흐름»처럼 보였지만 소스에 박아 둔 숫자였다.
+//    폴백이 아니라 **정규 경로**가 상수였다는 점이 더 나쁘다.
+//    실측 일중 히스토리는 `/api/chart?symbol=X&range=1d`(종목당 1콜)로 받을 수 있으나
+//    무버 목록은 최대 20종목이라 비용 판단이 따로 필요하다. 그때까지는 선을 그리지
+//    않는다 — 없는 것을 지어내지 않는다. (소비처 dash/page.tsx 가 spark 없으면 미렌더)
 
 const toNumber = (value: any): number => {
     const n = Number(value);
@@ -86,7 +88,7 @@ const mapTicker = (t: any) => {
     volume,
     value,
     up: changePercent >= 0,
-    spark: getSpark(changePercent >= 0)
+    spark: null,   // 실측 일중 히스토리 연결 전까지 null (위 주석 참조)
   };
 };
 
@@ -162,7 +164,7 @@ async function fetchRecentGroupedUniverse(): Promise<any[]> {
                 volume,
                 value,
                 up: changePercent >= 0,
-                spark: getSpark(changePercent >= 0),
+                spark: null,   // 실측 일중 히스토리 연결 전까지 null (위 주석 참조)
             };
         })
         .filter((m: any) => m.price >= 1 && m.volume >= 10000 && m.value > 0);

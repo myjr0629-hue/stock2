@@ -1474,6 +1474,14 @@ export default function AppIntelPage() {
 
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const [reportData, setReportData] = useState<SectorReportData | null>(null);
+  // ⚠️ 2026-09-05: 실적 캘린더의 날짜가 **데이터가 아니라 계산**이었다.
+  //    `daysOut = 7 + idx*12 + (score % 20)` — 종목 순번과 점수로 날짜를 만들어
+  //    «예정» 배지를 달아 화면에 그렸다. 실적일은 사용자가 포지션을 잡거나 접는
+  //    근거라 틀린 날짜의 피해가 가장 직접적이다.
+  //    실데이터는 이미 있었다: `/api/live/earnings?t=` → `nextEarningsDate`
+  //    (cmd 어닝 카드가 이미 이 문을 쓴다 — cmd/page.tsx:2196).
+  //    받아 온 종목만 캘린더에 넣고, 없는 종목은 **넣지 않는다**.
+  const [earningsByTicker, setEarningsByTicker] = useState<Record<string, { dateISO: string; hourLabel: string | null }>>({});
   const [loading, setLoading] = useState(false);
   const [adCount, setAdCount] = useState(0);
   const [showAdModal, setShowAdModal] = useState(false);
@@ -1713,6 +1721,34 @@ export default function AppIntelPage() {
       window.clearTimeout(batchTimeoutId);
     }
   };
+
+  // 실적일 실데이터 취득 — 화면이 날짜를 «계산»하지 않게 한다.
+  // 이미 받아 둔 종목은 다시 부르지 않고, 실패한 종목은 캘린더에서 빠진다.
+  useEffect(() => {
+    const syms = (reportData?.keyStocksData || [])
+      .map(s => s.sym)
+      .filter((sym): sym is string => Boolean(sym) && !(sym in earningsByTicker));
+    if (!syms.length) return;
+
+    let alive = true;
+    (async () => {
+      const entries = await Promise.all(syms.map(async (sym) => {
+        try {
+          const r = await fetch(`/api/live/earnings?t=${encodeURIComponent(sym)}`, { cache: 'no-store' });
+          if (!r.ok) return null;
+          const e = await r.json();
+          const iso = typeof e?.nextEarningsDate === 'string' ? e.nextEarningsDate : null;
+          if (!iso || Number.isNaN(new Date(iso).getTime())) return null;   // 값이 없으면 만들지 않는다
+          return [sym, { dateISO: iso, hourLabel: e?.hourLabel ?? null }] as const;
+        } catch { return null; }
+      }));
+      if (!alive) return;
+      const next = Object.fromEntries(entries.filter(Boolean) as (readonly [string, { dateISO: string; hourLabel: string | null }])[]);
+      if (Object.keys(next).length) setEarningsByTicker(prev => ({ ...prev, ...next }));
+    })();
+
+    return () => { alive = false; };
+  }, [reportData, earningsByTicker]);
 
   useEffect(() => {
     if (!selectedSector || !reportData?.keyStocksData?.length) return;
@@ -5619,13 +5655,30 @@ export default function AppIntelPage() {
                 {/* ═══ SECTION 5: EARNINGS CALENDAR (Accordion — Weekly Grouping) ═══ */}
                 {(() => {
                   const earningsCopy = EARNINGS_APP_COPY[appLocale];
-                  const earningsStocks = reportData.keyStocksData.map((stock, idx) => {
-                    const daysOut = 7 + idx * 12 + Math.floor((stock.score || 50) % 20);
-                    const earningsDate = new Date();
-                    earningsDate.setDate(earningsDate.getDate() + daysOut);
-                    const session = idx % 3 === 0 ? 'BMO' : idx % 3 === 1 ? 'AMC' : 'BMO';
-                    return { sym: stock.sym, date: earningsDate, session, grade: stock.grade, daysOut };
-                  }).sort((a, b) => a.date.getTime() - b.date.getTime());
+                  // 실측 실적일만 쓴다. 못 받은 종목은 캘린더에 넣지 않는다.
+                  // (예전엔 `7 + idx*12 + score%20` 로 날짜를 만들어 전 종목을 채웠다)
+                  const MS_DAY = 86_400_000;
+                  const todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
+                  const earningsStocks = reportData.keyStocksData
+                    .map((stock) => {
+                      const hit = stock.sym ? earningsByTicker[stock.sym] : undefined;
+                      if (!hit) return null;
+                      const date = new Date(hit.dateISO);
+                      if (Number.isNaN(date.getTime())) return null;
+                      const dMid = new Date(date); dMid.setHours(0, 0, 0, 0);
+                      const daysOut = Math.round((dMid.getTime() - todayMid.getTime()) / MS_DAY);
+                      // 장전/장후는 벤더 라벨이 있을 때만. 없으면 세션 배지를 달지 않는다.
+                      const h = (hit.hourLabel || '').toLowerCase();
+                      const session = h.includes('before') || h.includes('bmo') ? 'BMO'
+                        : h.includes('after') || h.includes('amc') ? 'AMC'
+                          : null;
+                      return { sym: stock.sym, date, session, grade: stock.grade, daysOut };
+                    })
+                    .filter((e): e is { sym: string; date: Date; session: 'BMO' | 'AMC' | null; grade: any; daysOut: number } => e !== null)
+                    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+                  // 실적일을 하나도 못 받았으면 섹션 자체를 그리지 않는다.
+                  if (earningsStocks.length === 0) return null;
 
                   // Group by week
                   const now = new Date();
@@ -5709,14 +5762,17 @@ export default function AppIntelPage() {
                                         <span style={{ fontSize: '14px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }}>
                                           {earning.sym}
                                         </span>
-                                        <span style={{
-                                          fontSize: '9px', fontWeight: 800, letterSpacing: '0.04em',
-                                          padding: '1px 6px', borderRadius: '4px',
-                                          background: sessionBg, color: sessionColor,
-                                          border: `1px solid ${sessionBorder}`
-                                        }}>
-                                          {earning.session}
-                                        </span>
+                                        {/* 벤더가 장전/장후를 안 알려주면 배지를 달지 않는다(추측 금지) */}
+                                        {earning.session && (
+                                          <span style={{
+                                            fontSize: '9px', fontWeight: 800, letterSpacing: '0.04em',
+                                            padding: '1px 6px', borderRadius: '4px',
+                                            background: sessionBg, color: sessionColor,
+                                            border: `1px solid ${sessionBorder}`
+                                          }}>
+                                            {earning.session}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                     {/* Date + Days Left */}

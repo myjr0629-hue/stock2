@@ -204,7 +204,7 @@ function sma(candles: { c: number }[], window: number): (number | null)[] {
 /* ═══════════════════════════════════════════
    SVG CANDLESTICK CHART (PREMIUM INTEGRATED)
    ═══════════════════════════════════════════ */
-function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker: string; price: number; vwap?: number; locale?: string; changePct?: number }) {
+function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; vwap?: number; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
@@ -315,16 +315,25 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
     return displayCandles.reduce((acc, c) => acc + c.c, 0) / displayCandles.length;
   }, [displayCandles, price, vwap, range]);
 
+  // ⚠️ 2026-09-05: 여기는 `0.08 + Math.sin(vwap)*0.03` 으로 스프레드를 **지어내고**
+  //    있었다. 그 값으로 만든 bid/ask 를 «NBBO Est.» 라 적어 차트 상단에 그렸다.
+  //    벤더는 처음부터 실호가를 줬다(Intrinio bid_price/ask_price →
+  //    intrinioClient.ts:592-597 → /api/live/ticker `quote`). 이제 실값만 쓴다.
+  //    없으면 null 을 돌려 행 자체를 그리지 않는다 — 합성으로 채우지 않는다.
   const nbbo = useMemo(() => {
-    const spreadPct = 0.08 + (Math.sin(vwapVal) * 0.03 + 0.03);
-    const bid = price * (1 - spreadPct / 200);
-    const ask = price * (1 + spreadPct / 200);
+    const bid = Number(quote?.bid);
+    const ask = Number(quote?.ask);
+    if (!Number.isFinite(bid) || bid <= 0 || !Number.isFinite(ask) || ask <= 0 || ask < bid) return null;
+    const mid = (bid + ask) / 2;
+    const spreadPct = Number.isFinite(Number(quote?.spreadPct))
+      ? Number(quote?.spreadPct)
+      : (mid > 0 ? ((ask - bid) / mid) * 100 : null);
     return {
       bid: bid.toFixed(2),
       ask: ask.toFixed(2),
-      spread: spreadPct.toFixed(3)
+      spread: spreadPct == null ? null : spreadPct.toFixed(3),
     };
-  }, [price, vwapVal]);
+  }, [quote]);
 
   const sessionBlocks = useMemo(() => {
     if (displayCandles.length === 0) return [];
@@ -445,12 +454,16 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
         </div>
       </div>
 
-      {/* ── NBBO & Spread Banner ── */}
-      <div className={s.nbbo2}>
-        <span>NBBO<span style={{ fontSize: '8px', opacity: 0.5, marginLeft: '3px' }}>Est.</span> <b style={{ color: 'var(--green)' }}>${nbbo.bid}</b> ×100</span>
-        <span className={s.spread}>Spread {nbbo.spread}%</span>
-        <span><b style={{ color: 'var(--red)' }}>${nbbo.ask}</b> ×100</span>
-      </div>
+      {/* ── NBBO & Spread Banner ──
+          실호가가 있을 때만 그린다. 없으면 행을 통째로 뺀다(예전엔 지어낸 값으로 채웠다).
+          «×100» 은 계약 수가 아니라 호가 잔량이므로 실제 사이즈가 있을 때만 붙인다. */}
+      {nbbo && (
+        <div className={s.nbbo2}>
+          <span>NBBO <b style={{ color: 'var(--green)' }}>${nbbo.bid}</b></span>
+          {nbbo.spread !== null && <span className={s.spread}>Spread {nbbo.spread}%</span>}
+          <span><b style={{ color: 'var(--red)' }}>${nbbo.ask}</b></span>
+        </div>
+      )}
 
       <div className={s.c2Wrap} style={{ position: 'relative' }}>
         <svg 
@@ -783,42 +796,33 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct }: { ticker
 /* ═══════════════════════════════════════════
    SPARKLINE (background decoration for price)
    ═══════════════════════════════════════════ */
-function SparklineBg({ up, seed = 'default' }: { up: boolean; seed?: string }) {
+function SparklineBg({ up, seed = 'default', series }: { up: boolean; seed?: string; series?: number[] | null }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // ⚠️ 2026-09-05: 여기는 티커 문자열을 해시해 `Math.sin` 의사난수로 40포인트를
+  //    만들어 히어로 배경에 «가격 곡선»처럼 깔고 있었다. 같은 화면 아래쪽 차트는
+  //    실제 캔들을 그리므로 위아래가 서로 다른 모양을 말했다.
+  //    이제 실측 종가(series)만 그린다. 없으면 아무것도 그리지 않는다.
   const pts = useMemo(() => {
-    if (!mounted) return '';
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) {
-      h = seed.charCodeAt(i) + ((h << 5) - h);
-    }
-    const rand = () => {
-      const x = Math.sin(h++) * 10000;
-      return x - Math.floor(x);
-    };
+    if (!mounted || !series || series.length < 2) return '';
+    let min = Infinity, max = -Infinity;
+    for (const v of series) { if (v < min) min = v; if (v > max) max = v; }
+    const range = (max - min) || 1;
+    const n = series.length;
+    return series
+      .map((v, i) => {
+        const x = (i / (n - 1)) * 100;
+        const y = 100 - (((v - min) / range) * 80 + 10);   // 상하 10% 여백
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(' ');
+  }, [series, mounted]);
 
-    const n = 40;
-    const vals: number[] = [];
-    let v = 50;
-    for (let i = 0; i < n; i++) {
-      v += (rand() - (up ? 0.42 : 0.58)) * 8;
-      v = Math.max(10, Math.min(90, v));
-      vals.push(v);
-    }
-    return vals.map((y, i) => `${(i / (n - 1)) * 100},${100 - y}`).join(' ');
-  }, [up, seed, mounted]);
-
-  if (!mounted) {
-    return (
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%"
-        style={{ position: 'absolute', inset: 0, opacity: 0 }}>
-      </svg>
-    );
-  }
+  if (!pts) return null;
 
   const gradId = `sparkGrad-${seed}`;
 
@@ -2091,6 +2095,9 @@ function CmdPageContent() {
   const [dpOpen, setDpOpen] = useState(false);
   const [data, setData] = useState<(typeof DEMO & { rawTickerData?: any; unified?: any; fundRaw?: FundRaw | null; earnRaw?: EarnRaw | null }) | null>(null);
   const [loading, setLoading] = useState(true);
+  // 히어로 배경 곡선용 «오늘» 종가열. 실측이 없으면 null → 곡선을 안 그린다.
+  // (아래 차트가 쓰는 것과 같은 문 `/api/chart`. 한 종목 화면이라 1콜이면 끝난다)
+  const [heroSeries, setHeroSeries] = useState<number[] | null>(null);
   
   // Reorder tabs: OVERVIEW | VERDICT ✱ | QUANT ✱ | HOLDERS ✱
   const [activeTab, setActiveTab] = useState<'overview' | 'verdict' | 'quant' | 'holders'>('overview');
@@ -2165,7 +2172,16 @@ function CmdPageContent() {
   //   먼저 등록되므로 왕복이 겹치고, CandleChart 가 마운트될 땐 이미 도착해 있다.
   useEffect(() => {
     if (!ticker) return;
-    loadChart(ticker, '1D');
+    let alive = true;
+    setHeroSeries(null);   // 종목이 바뀌면 직전 종목의 곡선을 즉시 버린다
+    // loadChart 는 모듈 캐시(60초) + 인플라이트 중복제거를 갖고 있어
+    // 아래 CandleChart 가 같은 1D 를 부르면 **추가 요청이 나가지 않는다**.
+    loadChart(ticker, '1D').then(rows => {
+      if (!alive || !rows) return;
+      const closes = rows.map(r => r.c).filter(n => Number.isFinite(n) && n > 0);
+      if (closes.length >= 2) setHeroSeries(closes);
+    });
+    return () => { alive = false; };
   }, [ticker]);
 
   const initialLoadRef = useRef(true);
@@ -3036,7 +3052,7 @@ function CmdPageContent() {
         }}
       >
         {/* Background sparkline decoration */}
-        <SparklineBg up={up} seed={data.ticker} />
+        <SparklineBg up={up} seed={data.ticker} series={heroSeries} />
 
         {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
         <div className={s.heroIdentity}>
@@ -3085,7 +3101,7 @@ function CmdPageContent() {
           </div>
           {hasExt && (
             <div className={extCardClassName}>
-              <SparklineBg up={activeExtPct >= 0} seed={`${data.ticker}-ext`} />
+              <SparklineBg up={activeExtPct >= 0} seed={`${data.ticker}-ext`} series={heroSeries} />
               <span className={s.heroExtLabel}>{activeExtLabel}</span>
               <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
               {/* ★ 기준선이 없으면 등락률은 «계산 불가»다. 0.00% 라고 쓰면 거짓말이다. */}
@@ -3508,6 +3524,7 @@ function CmdPageContent() {
               }
               vwap={data.vwap}
               locale={locale}
+              quote={data.rawTickerData?.quote ?? null}
             />
           </div>
 

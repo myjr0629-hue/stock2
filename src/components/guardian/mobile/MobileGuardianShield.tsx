@@ -567,6 +567,12 @@ export default function MobileGuardianShield({ data, verdict, session, useAppVal
             {useAppValueWall ? (
                 <ValueWall
                     compact
+                    // ⚠️ 2026-09-05: `locale` 을 안 넘겨 ValueWall 이
+                    //    resolveValueWallLocale(undefined) → 'en' 으로 떨어졌다.
+                    //    제목·CTA·소셜프루프는 한국어인데 **법적 면책만 영어**로 나갔다
+                    //    ("Educational market-data research only…", ValueWall.tsx:69).
+                    //    호출부 8곳 중 여기만 빠져 있었다(dash·cmd·flow 는 전부 전달).
+                    locale={localeKey}
                     title={appGateCopy.title}
                     subtitle={<GammaGateSubtitle locale={localeKey} />}
                     teaser={{

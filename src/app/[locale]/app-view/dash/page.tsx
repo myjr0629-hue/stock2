@@ -1150,7 +1150,11 @@ export default function AppDashPage() {
               px: typeof t.price === 'number' && t.price > 0 ? t.price.toFixed(2) : '—',
               chg: has ? `${sign}${pctVal.toFixed(2)}%` : '—',
               up: pctVal >= 0,
-              spark: t.spark || [5, 6, 7, 8, 9]
+              // ⚠️ 2026-09-05: `t.spark || [5,6,7,8,9]` 였다. 그런데 API 가 항상 상수
+              //    배열을 줬으므로(movers/route.ts 옛 getSpark) 이 폴백은 애초에
+              //    걸리지도 않았고, 화면엔 «오늘의 흐름»처럼 보이는 가짜 선이 떴다.
+              //    이제 실측이 없으면 빈 배열 → 아래 렌더가 선을 그리지 않는다.
+              spark: Array.isArray(t.spark) && t.spark.length >= 2 ? t.spark : []
             };
           });
           if (mapped.length > 0) {
@@ -1946,9 +1950,12 @@ export default function AppDashPage() {
                   </span>
                 </div>
                 <span className={s.moverPrice}>${displayPx}</span>
-                <div className={s.moverSpark}>
-                  <Sparkline data={mv.spark} up={isUp} height={28} fill />
-                </div>
+                {/* 실측 스파크라인이 있을 때만 자리를 잡는다. 빈 박스도 남기지 않는다. */}
+                {mv.spark.length >= 2 && (
+                  <div className={s.moverSpark}>
+                    <Sparkline data={mv.spark} up={isUp} height={28} fill />
+                  </div>
+                )}
               </div>
             );
           })}

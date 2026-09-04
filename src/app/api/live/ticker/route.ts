@@ -871,6 +871,31 @@ export async function GET(req: NextRequest) {
             low: S.day?.l || OC.low || S.prevDay?.l || null,
         },
 
+        // ── NBBO 실호가 ──────────────────────────────────────────
+        // 화면(cmd 차트 상단)이 그동안 `0.08 + Math.sin(vwap)*0.03` 으로
+        // 스프레드를 «지어내» 그렸다. 벤더는 처음부터 호가를 주고 있었고
+        // (intrinioClient.ts:592-597 `lastQuote{p,P,s,S}` · `spreadPct`),
+        // 응답에 싣지 않아 소비처가 못 썼을 뿐이다.
+        // 값이 없으면 null 로 내려보내 화면이 «없음»을 그리게 한다 — 합성 금지.
+        quote: (() => {
+            const bid = Number(S.lastQuote?.p);
+            const ask = Number(S.lastQuote?.P);
+            const ok = Number.isFinite(bid) && bid > 0 && Number.isFinite(ask) && ask > 0 && ask >= bid;
+            if (!ok) return null;
+            const spreadPct = Number.isFinite(Number(S.spreadPct)) ? Number(S.spreadPct) : null;
+            const bidSizeRaw = Number(S.lastQuote?.s);
+            const askSizeRaw = Number(S.lastQuote?.S);
+            const tRaw = Number(S.lastQuote?.t); // ns
+            return {
+                bid,
+                ask,
+                bidSize: Number.isFinite(bidSizeRaw) && bidSizeRaw > 0 ? bidSizeRaw : null,
+                askSize: Number.isFinite(askSizeRaw) && askSizeRaw > 0 ? askSizeRaw : null,
+                spreadPct,                                  // 예: 0.0088 = 0.88%
+                asOfMs: Number.isFinite(tRaw) && tRaw > 0 ? Math.round(tRaw / 1e6) : null,
+            };
+        })(),
+
         extended: {
             prePrice,
             postPrice,
