@@ -207,6 +207,35 @@ export async function GET() {
                 if (r.ok) rowsAll.push(...(((await r.json())?.data) || []));
             } catch { /* 한 섹터가 실패해도 나머지는 잰다 */ }
         }
+
+        // ★★ [2026-09-04] «인텔 종목 상세»는 다른 문을 쓴다 — /api/watchlist/batch.
+        //   섹터 목록(intel/fast)만 재고 「99% 충족」이라 보고했는데 상세 카드엔
+        //   빈칸이 남아 있었다(대표가 CRWD·ZS 화면으로 발견). 같은 화면인데 문이 둘이다.
+        //   검사 단위는 «엔드포인트»가 아니라 «화면»이다 — 두 문을 다 잰다.
+        const detailRows: any[] = [];
+        for (const tks of [['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'],
+                           ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET']]) {
+            try {
+                const r = await fetch(`${baseUrl()}/api/watchlist/batch?mode=full&tickers=${tks.join(',')}`, {
+                    cache: 'no-store', headers: { 'user-agent': 'signum-warm' },
+                });
+                if (r.ok) {
+                    for (const x of (((await r.json())?.results) || [])) {
+                        if (!x?.error && x?.realtime) detailRows.push({ ticker: x.ticker, ...x.realtime });
+                    }
+                }
+            } catch { /* 한 묶음이 실패해도 나머지는 잰다 */ }
+        }
+        if (detailRows.length >= 10) {
+            for (const [label, key] of INTEL_TILES) {
+                const ok = detailRows.filter((x) => x?.[key] !== null && x?.[key] !== undefined).length;
+                const pct = Math.round((ok / detailRows.length) * 100);
+                if (pct < 90) {
+                    const miss = detailRows.filter((x) => x?.[key] == null).map((x) => x.ticker).slice(0, 6);
+                    tileGaps.push(`인텔상세 ${label} ${pct}% (${ok}/${detailRows.length}) — ${miss.join(',')}`);
+                }
+            }
+        }
         if (rowsAll.length >= 10) {
             for (const [label, key] of INTEL_TILES) {
                 const ok = rowsAll.filter((x) => x?.[key] !== null && x?.[key] !== undefined).length;
