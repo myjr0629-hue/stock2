@@ -84,3 +84,4 @@ dist/
 media/archive/
 .agent/_pending_watch.log
 .env.development.local
+design_audit_captures/
