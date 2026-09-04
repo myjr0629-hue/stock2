@@ -91,7 +91,7 @@ async function httpsGet(url, timeoutMs) {
 const POLYGON_KEY = process.env.POLYGON_API_KEY || '';
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS","AAL","ACHR","AFL","AIG","AKAM","ALB","ALGN","ALL","ALLY","AMPH","APA","APH","APO","APTV","ARKG","AWR","AZN","AZO","BALL","BDX","BEN","BG","BILL","BIO","BK","BR","BRK.B","BURL","BWA","BYND","CB","CELH","CHWY","CI","CINF","CIVI","CLF","CLX","CME","CMG","CMI","CNC","CNP","COF","COHR","CPNG","CR","CRL","CSCO","CSX","CTRA","CTVA","DAL","DECK","DFS","DG","DLTR","DOC","DOCU","DRI","DT","DUOL","DVA","EFX","EIX","ELV","EMN","ENTG","EPAM","EQT","ES","ESS","ESTC","ETSY","EVR","EXPE","F","FANG","FE","FI","FICO","FIS","FIVE","FLT","FMC","FOX","FROG","FRT","FUBO","GAP","GEN","GLOB","GLW","GNRC","GPC","GOOG","GPS","GWW","HAS","HIG","HIMS","HLT","HPE","HPQ","HRL","HSBC","HST","HUBB","HWM","HXL","IAC","IEX","IOVA","IPG","IRM","IVZ","J","JBHT","JCI","JKHY","KEYS","KIM","KMI","KMX","KNX","KVUE","L","LBRDA","LH","LI","LKQ","LSCC","LYFT","LZB","MAA","MANH","MAS","MASI","MKTX","MLM","MMC","MMM","MOH","MPLN","MRO","MTN","MTTR","NCLH","NIO","NTNX","NTRA","NVR","NWL","NWS","OC","OLED","OMC","OPEN","ORI","OSK","OTEX","OVV","PAYC","PEN","PINS","PNR","PNW","PODD","PSTG","PVH","RBLX","RCL","RE","RFP","RGLD","RHI","RL","RMD","RPM","RVTY","SAIA","SCI","SEB","SFM","SIRI","SKX","SNAP","SSNC","STLD","SWAV","SWN","TAP","TECK","TFX","TGT","TPR","SPY","QQQ","IWM","DIA","XLF","XLE","XLK","XLV","GLD","TLT"];
-const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
+const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA","SPCX"];
 const DETAIL_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
 
 async function getAllOptions(ticker) {
@@ -213,12 +213,20 @@ async function harvestGex(priceMap) {
         //    계약 수로 물을 수 없었다. 달러는 주가·IV 에 같이 흔들려서
         //    「거래가 늘었다」와 「비싸졌다」를 구분 못 한다. 계약 수가 있어야 나뉜다.
         let gex=0, cw=null, pf=null, mp=null, maxCOI=0, maxPOI=0, tCOI=0, tPOI=0, mpMin=Infinity, tVol=0;
+        let callPrem=0, putPrem=0;
         const strikes = new Set();
         for (const o of opts) {
           const s=o.details?.strike_price; if(!s) continue;
           strikes.add(s);
           const g=o.greeks?.gamma||0, oi=o.open_interest||0, t=o.details?.contract_type;
           tVol += o.day?.volume || 0;
+          // 프리미엄(달러) = 계약수 × 계약가 × 100. 콜·풋을 나눠 모은다.
+          const _px = Number(o.last_trade?.price ?? o.day?.close ?? o.close ?? 0);
+          const _vol = Number(o.day?.volume || 0);
+          if (_px > 0 && _vol > 0) {
+            const prem = _px * _vol * 100;
+            if (t === 'call') callPrem += prem; else putPrem += prem;
+          }
           if(t==='call'){gex+=g*oi*100*price;tCOI+=oi;if(oi>maxCOI){maxCOI=oi;cw=s;}} else {gex-=g*oi*100*price;tPOI+=oi;if(oi>maxPOI){maxPOI=oi;pf=s;}}
         }
         for (const ts2 of [...strikes].sort((a,b)=>a-b)) { let c2=0; for(const o of opts){const s2=o.details?.strike_price;const oi2=o.open_interest||0;if(!s2||!oi2)continue;if(o.details.contract_type==='call')c2+=Math.max(0,ts2-s2)*oi2;else c2+=Math.max(0,s2-ts2)*oi2;} if(c2<mpMin){mpMin=c2;mp=ts2;} }
@@ -234,7 +242,14 @@ async function harvestGex(priceMap) {
           //    atmIv·ivSkew 가 100/100 NULL 로 저장돼 왔다(감마는 정상이었다).
           //    IV 랭크·IV 스큐가 이 한 줄 때문에 통째로 죽어 있었다.
           const ivOf = (o) => Number(o?.implied_volatility ?? o?.greeks?.implied_volatility ?? 0);
-          const byDist = (type) => opts
+          // ⚠️ [2026-09-04] 예전엔 **전 만기**에서 행사가 거리만 보고 골랐다.
+          //   그러면 ATM 콜과 ATM 풋이 **서로 다른 만기**에서 뽑혀 스큐가 말이 안 된다
+          //   (실측: SERV −103.88 · PL 60.97 · SMCI −14.2 — 화면 필터 ±2.0 에 걸려 «—»).
+          //   같은 만기의 콜·풋을 비교해야 «스큐»다. 가장 가까운 만기 안에서 고른다.
+          const todayIso = new Date().toISOString().slice(0, 10);
+          const nearExp = [...new Set(opts.map(o => o.details?.expiration_date).filter(e => e && e >= todayIso))].sort()[0] || null;
+          const pool = nearExp ? opts.filter(o => o.details?.expiration_date === nearExp) : opts;
+          const byDist = (type) => pool
             .filter(o => o.details?.contract_type === type && ivOf(o) > 0)
             .sort((a, b) => Math.abs(a.details.strike_price - price) - Math.abs(b.details.strike_price - price));
           const atmCall = byDist('call')[0];
@@ -379,7 +394,12 @@ async function harvestGex(priceMap) {
 
         gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
         await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol}}));
-        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:compositeClamped,opi:opi,whaleScore:whaleVal,dex:dexVal,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:smartVal,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,optionVolume:tVol}})).catch(()=>{});
+        // ⚠️ [2026-09-04] 이 표는 **두 Lambda 가 같이 쓴다**(여기 + signum-flow-history 하베스터).
+        //   그런데 여기서는 netPremium 을 안 실었고, 소비처는 «가장 최신 행»을 읽는다.
+        //   → 이 Lambda 가 뒤에 쓸 때마다 netPremium 이 사라진 행이 최신이 됐다.
+        //   인텔의 NET PREM 이 «—» 였던 이유다. 같은 표에 쓰려면 같은 모양이어야 한다.
+        const netPrem = Math.round(callPrem - putPrem);
+        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:compositeClamped,opi:opi,whaleScore:whaleVal,dex:dexVal,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:smartVal,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,optionVolume:tVol,netPremium:netPrem,callPremium:Math.round(callPrem),putPremium:Math.round(putPrem),totalPremium:Math.round(callPrem+putPrem)}})).catch(()=>{});
         ok++;
       } catch {}
     }));
