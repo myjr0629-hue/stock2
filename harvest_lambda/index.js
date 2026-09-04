@@ -255,8 +255,24 @@ async function harvestGex(priceMap) {
           const atmCall = byDist('call')[0];
           const atmPut = byDist('put')[0];
           if (atmCall) atmIv = Math.round(ivOf(atmCall) * 10000) / 100; // as %
-          if (atmCall && atmPut) {
-            ivSkew = Math.round((ivOf(atmPut) - ivOf(atmCall)) * 10000) / 100;
+
+          // ★★ [2026-09-04] IV 스큐의 «정의»가 정본과 달랐다.
+          //   정본(alphaEngine.computeIVSkew)은 **비율** — ATM 대역(±3%) 평균
+          //   풋IV ÷ 콜IV (예 1.12). 여기서는 **차이(퍼센트포인트)**를 저장했다.
+          //   같은 필드에 두 정의가 들어가니 화면의 정상범위 필터(≤2.0)에 걸려
+          //   전부 «—» 가 됐다(실측 SERV −103.88 · PL 60.97 · SMCI −14.2).
+          //   → 정본과 **똑같이** 계산한다. 한 필드는 한 정의여야 한다.
+          const band = price * 0.03;
+          const cIv = [], pIv = [];
+          for (const o of pool) {
+            const st = o.details?.strike_price; const v = ivOf(o);
+            if (!st || !(v > 0) || Math.abs(st - price) > band) continue;
+            if (o.details?.contract_type === 'call') cIv.push(v); else pIv.push(v);
+          }
+          if (cIv.length && pIv.length) {
+            const ac = cIv.reduce((a, b) => a + b, 0) / cIv.length;
+            const ap = pIv.reduce((a, b) => a + b, 0) / pIv.length;
+            if (ac > 0) ivSkew = Math.round((ap / ac) * 100) / 100;
           }
 
           // ====== 예상 변동폭 (ATM 스트래들) ======
