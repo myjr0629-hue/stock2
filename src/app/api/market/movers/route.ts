@@ -250,18 +250,27 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        // ⚠️ 응답 «직전»에 정규화한다 — 캐시가 옛 모양을 들고 있기 때문이다.
+        //    getSpark() 를 지워도 last_good:v4 에 7일짜리 사본이 남아 있어
+        //    주말/휴장에는 지어낸 상수 배열([5,6,5.5,...])이 그대로 200 OK 로 나갔다.
+        //    키를 올리면 주말엔 무버가 통째로 빈다 → 읽는 쪽에서 털어낸다.
+        const strip = (rows: any[]) =>
+            (Array.isArray(rows) ? rows : []).slice(0, limit).map((m: any) =>
+                m && m.spark ? { ...m, spark: null } : m
+            );
+
         if (type === 'value') {
-            return NextResponse.json({ movers: cachedData.value.slice(0, limit) });
+            return NextResponse.json({ movers: strip(cachedData.value) });
         } else if (type === 'gainers') {
-            return NextResponse.json({ movers: cachedData.gainers.slice(0, limit) });
+            return NextResponse.json({ movers: strip(cachedData.gainers) });
         } else if (type === 'losers') {
-            return NextResponse.json({ movers: cachedData.losers.slice(0, limit) });
+            return NextResponse.json({ movers: strip(cachedData.losers) });
         } else {
             // Return all three arrays
             return NextResponse.json({
-                value: cachedData.value.slice(0, limit),
-                gainers: cachedData.gainers.slice(0, limit),
-                losers: cachedData.losers.slice(0, limit),
+                value: strip(cachedData.value),
+                gainers: strip(cachedData.gainers),
+                losers: strip(cachedData.losers),
                 ts: cachedData.ts
             });
         }

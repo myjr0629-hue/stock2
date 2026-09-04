@@ -284,9 +284,13 @@ function MoversPageContent() {
             <div className={s.progressBar} style={{ width: `${relativePercent}%`, background: activeColor }} />
           </div>
         </div>
-        <div className={s.sparkCol}>
-          <Sparkline data={item.spark || []} up={displayChangePercent >= 0} height={20} fill />
-        </div>
+        {/* 실측 일중 히스토리가 붙기 전까지 spark 는 null 로 내려온다.
+            점이 2개 미만이면 칸 자체를 그리지 않는다 — 빈 껍데기를 남기지 않는다. */}
+        {item.spark.length >= 2 && (
+          <div className={s.sparkCol}>
+            <Sparkline data={item.spark} up={displayChangePercent >= 0} height={20} fill />
+          </div>
+        )}
         <div className={s.priceCol}>
           <span className={s.price}>${fmtPrice(displayPrice)}</span>
           <span className={`${s.chg} ${displayChangePercent >= 0 ? s.chgUp : s.chgDn}`}>
