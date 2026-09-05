@@ -269,7 +269,7 @@
 .e9Bar.w2{width:30px;height:10px}
 .e9Bar.w3{width:76%;height:7px}
 @keyframes e9Shim{to{background-position:-200% 0}}
-.e9Cta{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:11px;
+.e9Cta{display:flex;width:100%;align-items:center;justify-content:center;gap:7px;margin-top:11px;
   padding:10px;border-radius:12px;background:linear-gradient(96deg,#22d3ee,#38bdf8);
   color:#04222a;font-size:12px;font-weight:800;letter-spacing:-.01em;text-align:center}
 .e9Cta svg{flex:0 0 auto;width:14px;height:14px;stroke:#04222a;fill:none;stroke-width:2.2;

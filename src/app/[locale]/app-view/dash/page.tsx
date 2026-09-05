@@ -452,11 +452,11 @@ const IX_BADGE: Record<string, { code: string; full: string; bg: string; fg: str
 /* 빠른 진입 3칸 — 시안 e9 의 QUICK 그대로. 목적지는 실재하는 곳만 건다. */
 function QUICK9(t: { qDark: string; qUnusual: string; qEarn: string }) {
   return [
-    { key: 'darkpool', c: '#a78bfa', to: '/app-view/rankings?tab=postclose', label: t.qDark,
+    { key: 'darkpool', c: '#a78bfa', to: '/app-view/rankings?tab=postclose', label: t.qDark, dest: 'RANKING',
       ico: '<path d="M3 8.5c3-2.6 6-2.6 9 0s6 2.6 9 0M3 14c3-2.6 6-2.6 9 0s6 2.6 9 0M3 19.5c3-2.6 6-2.6 9 0s6 2.6 9 0"/>' },
-    { key: 'unusual', c: '#22d3ee', to: '/app-view/rankings?tab=intraday', label: t.qUnusual,
+    { key: 'unusual', c: '#22d3ee', to: '/app-view/rankings?tab=intraday', label: t.qUnusual, dest: 'RANKING',
       ico: '<circle cx="7.6" cy="15" r="4.2"/><circle cx="16.4" cy="15" r="4.2"/><path d="M7.6 10.8V5.4l3-2M16.4 10.8V5.4l-3-2M11.2 15h1.6"/>' },
-    { key: 'earnings', c: '#fbbf24', to: '/app-view/earnings', label: t.qEarn,
+    { key: 'earnings', c: '#fbbf24', to: '/app-view/earnings', label: t.qEarn, dest: 'NEW', nw: true,
       ico: '<rect x="3.2" y="5" width="17.6" height="15.8" rx="2.4"/><path d="M3.2 10h17.6M8 3v4M16 3v4"/><circle cx="9" cy="14.4" r="1.1"/><circle cx="15" cy="14.4" r="1.1"/>' },
   ];
 }
@@ -2197,6 +2197,7 @@ export default function AppDashPage() {
                 <svg viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: q.ico }} />
               </span>
               <span className={n9.e9QT}>{q.label}</span>
+              <span className={`${n9.e9QDest} ${q.nw ? n9.nw : ''}`}>{q.dest}</span>
               <span className={n9.e9Chev}>&#8250;</span>
             </a>
           ))}
