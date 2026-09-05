@@ -242,3 +242,31 @@ WS 오버레이·세션 판정)이 얽혀 있어 크게 손대면 깨질까 봐 
 2. 시안 이미지 → `public/dash/*.webp` (표시 크기에 맞춰 축소: 황소70KB·지구본137KB)
 3. 렌더 트리 → 시안 마크업으로 교체, **데이터만 꽂는다**
 4. 상태·이펙트·파생 계산은 **한 줄도 건드리지 않는다**
+
+---
+## 5단계 — 렌더 트리 전체를 시안 마크업으로 교체 (리빌딩) ✅
+
+**방식**: 시안 `<style>` 183규칙 → `dash9.module.css` 그대로. 렌더 830행 → 시안 마크업 392행.
+상태·이펙트·파생 계산은 **한 줄도 안 건드렸다**.
+
+**옮긴 것**
+| 시안 | 실데이터 배선 |
+|---|---|
+| `e9Hero` / `e9Hdr` | 로고 + 설정 버튼(실제 앱 그대로) |
+| `e9Signal` TOP SIGNAL | `newsItems[tickerIndex]` · 로케일별 summaryKR/JP/EN · 없으면 줄 자체를 안 그림 |
+| `e9Status` 판정 | `riskTone` · `pulseStatusNote` · `futuresAvg`/`cashAvg`/`riskScore` |
+| `e9Bull/e9Bear` | `data-v` = riskScore 58/42 문턱 → `.e9Root[data-v]` 규칙이 위치를 잡는다 |
+| `e9Ixs` 지수 | `pulseTab` 에 따라 futures/indices/etfs + WS 오버레이 그대로 |
+| `e9Macro` | `macro` 4칸 + `macroOpen` 펼침 |
+| `e9Scs` 섹터 | `sectors` + `SECTOR_ETF` WS 오버레이 + 시안 아이콘/색 |
+| `e9Disc` 발견 | `discoveryRows` (UC stealth) |
+| 게이트 | 기존 `<ValueWall>` 통째로 이동 — 페이월 로직 무수정 |
+| `e9Mvs` 무버 | `movers` + `moverSort` 탭 · 실측 곡선 있을 때만 폴리라인 |
+| `e9Divs` 괴리 | `divergenceRows` |
+| `e9Quick` | 랭킹 딥링크 2 + 실적 캘린더 |
+| 광고·푸터 | `<AdBanner/>` `<MobileAppFooter/>` **무수정** |
+
+**잡은 버그**: `data-v` 를 `.e9Wrap` 에만 붙였는데 시안 규칙은 `.e9Root[data-v]` 기준이라
+짐승 위치(`right`)가 안 잡혀 글자 위로 올라왔다 → `e9Root` 클래스 추가로 해결.
+
+**이미지**: data URI → `public/dash/` (표시 크기로 축소: 황소33KB·곰38KB·지구본137KB)

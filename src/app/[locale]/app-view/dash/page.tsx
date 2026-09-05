@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { Sparkline } from '@/components/app/Sparkline';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { ValueWall } from '@/components/app/ValueWall';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
@@ -436,6 +437,24 @@ const SECTOR_COLOR: Record<string, string> = {
   Tech: '#22d3ee', Industrials: '#34d399', Utilities: '#a3e635', Materials: '#94a3b8',
   Finance: '#60a5fa', Energy: '#fb923c', Healthcare: '#f472b6', 'Cons. Disc': '#c084fc',
 };
+
+/* 섹터 → SPDR ETF 심볼 (WS 오버레이용). 예전엔 렌더 안에 삼항 8단으로 있었다. */
+const SECTOR_ETF: Record<string, string> = {
+  Tech: 'XLK', Energy: 'XLE', 'Cons. Disc': 'XLY', Materials: 'XLB',
+  Industrials: 'XLI', Finance: 'XLF', Healthcare: 'XLV', Utilities: 'XLU',
+};
+
+/* 빠른 진입 3칸 — 시안 e9 의 QUICK 그대로. 목적지는 실재하는 곳만 건다. */
+function QUICK9(t: { qDark: string; qUnusual: string; qEarn: string }) {
+  return [
+    { key: 'darkpool', c: '#a78bfa', to: '/app-view/rankings?tab=postclose', label: t.qDark,
+      ico: '<path d="M3 8.5c3-2.6 6-2.6 9 0s6 2.6 9 0M3 14c3-2.6 6-2.6 9 0s6 2.6 9 0M3 19.5c3-2.6 6-2.6 9 0s6 2.6 9 0"/>' },
+    { key: 'unusual', c: '#22d3ee', to: '/app-view/rankings?tab=intraday', label: t.qUnusual,
+      ico: '<circle cx="7.6" cy="15" r="4.2"/><circle cx="16.4" cy="15" r="4.2"/><path d="M7.6 10.8V5.4l3-2M16.4 10.8V5.4l-3-2M11.2 15h1.6"/>' },
+    { key: 'earnings', c: '#fbbf24', to: '/app-view/earnings', label: t.qEarn,
+      ico: '<rect x="3.2" y="5" width="17.6" height="15.8" rx="2.4"/><path d="M3.2 10h17.6M8 3v4M16 3v4"/><circle cx="9" cy="14.4" r="1.1"/><circle cx="15" cy="14.4" r="1.1"/>' },
+  ];
+}
 
 function getSectorIcon(name: string) {
   const d = SECTOR_ICON[name];
@@ -1733,6 +1752,55 @@ export default function AppDashPage() {
     return () => clearInterval(timer);
   }, [newsItems.length]);
 
+  /* ── 9차 문구 — 시안(e9)의 L9 를 그대로 옮겼다 ─────────────────── */
+  const c9 = ({
+    ko: {
+      tagline: 'DARK POOL INTEL', secIdx: '지수', tFut: '선물', tCash: '현물', tEtf: 'ETF',
+      idxNote: '지금 움직이는 건 선물뿐 — 현물·ETF는 마감값입니다.',
+      secMacro: '매크로', mcMore: (n: number) => `${n}개 더 보기`, mcLess: '접기',
+      secSector: '섹터', heat: '히트맵',
+      secDisc: '오늘의 발견', discAll: '랭킹 11종',
+      discName: '은밀 축적·분산',
+      discWhat: '장외 물량은 늘었는데, 그 물량 중 공매도 비중은 줄었다.',
+      secGate: '기관이 어제 깔아둔 것',
+      secMv: '가장 많이 움직인 것', all: '전체', mvVal: '거래대금', mvUp: '상승률', mvDn: '하락률',
+      secDv: '괴리 시그널', dvSub: '뉴스와 돈이 반대로 움직이는 곳',
+      secQuick: '빠른 진입',
+      qDark: '다크풀 흐름', qUnusual: '이상 옵션 플로우', qEarn: '실적 캘린더',
+      marketAvg: '시장 평균',
+    },
+    en: {
+      tagline: 'DARK POOL INTEL', secIdx: 'Indices', tFut: 'Futures', tCash: 'Cash', tEtf: 'ETF',
+      idxNote: 'Only futures are trading now — cash and ETFs show the close.',
+      secMacro: 'Macro', mcMore: (n: number) => `Show ${n} more`, mcLess: 'Show less',
+      secSector: 'Sectors', heat: 'Heatmap',
+      secDisc: "Today's Find", discAll: 'All 11 rankings',
+      discName: 'Stealth Accumulation',
+      discWhat: 'Off-exchange volume rose, while the short share of that volume fell.',
+      secGate: 'What institutions set up yesterday',
+      secMv: 'Biggest Movers', all: 'View all', mvVal: 'Value', mvUp: 'Gainers', mvDn: 'Losers',
+      secDv: 'Divergence', dvSub: 'Where the news and the money disagree',
+      secQuick: 'Quick Access',
+      qDark: 'Dark Pool Flow', qUnusual: 'Unusual Options Flow', qEarn: 'Earnings Calendar',
+      marketAvg: 'Market avg',
+    },
+    ja: {
+      tagline: 'DARK POOL INTEL', secIdx: '指数', tFut: '先物', tCash: '現物', tEtf: 'ETF',
+      idxNote: '今動いているのは先物のみ — 現物・ETFは終値です。',
+      secMacro: 'マクロ', mcMore: (n: number) => `他${n}件を表示`, mcLess: '折りたたむ',
+      secSector: 'セクター', heat: 'ヒートマップ',
+      secDisc: '今日の発見', discAll: 'ランキング11種',
+      discName: '隠れた蓄積・分散',
+      discWhat: '場外の出来高は増えたが、そのうち空売り比率は下がった。',
+      secGate: '機関が昨日仕込んだもの',
+      secMv: '最も動いた銘柄', all: 'すべて', mvVal: '売買代金', mvUp: '上昇率', mvDn: '下落率',
+      secDv: '乖離シグナル', dvSub: 'ニュースとカネが逆を向く場所',
+      secQuick: 'クイックアクセス',
+      qDark: 'ダークプールの流れ', qUnusual: '異常オプションフロー', qEarn: '決算カレンダー',
+      marketAvg: '市場平均',
+    },
+  } as const)[locale as 'ko' | 'en' | 'ja'] ?? ({} as never);
+
   /* ── 9차 파생 ─────────────────────────────────────────────────
      발견: stealth 값이 있는 카드만, 높은 순. 12개라 정렬 비용은 무시할 수준.
      괴리: divergence:true 인 카드만.
@@ -1753,832 +1821,461 @@ export default function AppDashPage() {
     return k === 'ACCUMULATION' ? s.discAcc : k === 'DISTRIBUTION' ? s.discDis : s.discNeu;
   };
 
-  /* ── Render ── */
+  /* 기관 게이트 — 페이월 로직은 손대지 않고 그대로 옮겼다 */
+  const institutionalGate = (
+  <ValueWall
+            locale={locale}
+            title={gateCopy.title}
+            subtitle={gateCopy.subtitle}
+            teaser={{
+              label: gateCopy.teaserLabel,
+              value: `${institutionalSignals[0].value} · ${gateCopy.teaserUnit}`
+            }}
+            ctaLabel={gateCopy.cta}
+            adFreeLabel={gateCopy.adFree}
+            previewChipLabel={gateCopy.previewChip}
+            socialProof={gateCopy.social}
+            lockedPreview={
+              <div className={`${s.instPulseGrid} ${s.instPulsePreview}`} aria-hidden="true">
+                {institutionalSignals.map((signal) => (
+                  <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
+                    <div className={s.instHeader}>
+                      <span className={s.instLabel}>{signal.label}</span>
+                      <span className={s.instKicker}>{signal.kicker}</span>
+                    </div>
+                    <div className={s.instValRow}>
+                      <span className={s.instVal}>{signal.value}</span>
+                      <span className={s.instSub}>{signal.sub}</span>
+                    </div>
+                    {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
+                    <div className={s.instTrack}>
+                      {signal.score != null && (
+                        <div className={s.instFill} style={{ width: `${signal.score}%` }} />
+                      )}
+                    </div>
+                    <p className={s.instInsight}>{signal.insight}</p>
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            {loading ? (
+              <div style={{ height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', margin: '16px' }} />
+            ) : (
+              <div className={s.instPulseGrid}>
+                {institutionalSignals.map((signal) => (
+                  <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
+                    <div className={s.instHeader}>
+                      <span className={s.instLabel}>{signal.label}</span>
+                      <span className={s.instKicker}>{signal.kicker}</span>
+                    </div>
+                    <div className={s.instValRow}>
+                      <span className={s.instVal}>{signal.value}</span>
+                      <span className={s.instSub}>{signal.sub}</span>
+                    </div>
+                    {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
+                    <div className={s.instTrack}>
+                      {signal.score != null && (
+                        <div className={s.instFill} style={{ width: `${signal.score}%` }} />
+                      )}
+                    </div>
+                    <p className={s.instInsight}>{signal.insight}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ValueWall>
+  );
+
+  /* ── Render — 시안(e9) 마크업 그대로. 데이터만 꽂는다. ─────────────
+     ★ 손으로 다시 설계하지 않는다. 클래스는 dash9.module.css(시안 <style> 원본).
+       상태·이펙트·파생 계산은 위 본문 그대로 쓰고 여기서는 그리기만 한다. */
+  const idxItems = pulseTab === 'futures' ? futures
+                 : pulseTab === 'cash'    ? sortPulse(indices, PULSE_INDEX_ORDER)
+                 : sortPulse(etfs, PULSE_ETF_ORDER);
+  const idxReady = pulseTab === 'futures' ? futuresReady
+                 : pulseTab === 'cash'    ? indicesReady
+                 : etfsReady;
+  const topNews = newsItems[tickerIndex];
+  const verdictKey = !regimeReady ? 'mix' : riskScore >= 58 ? 'on' : riskScore <= 42 ? 'off' : 'mix';
+
   return (
-    <div className={s.page}>
-      {/* ══════════════ HEADER ══════════════ */}
-      <header className="app-header">
-        <div className={s.headerBrand}>
-          <img 
-            src="/signum-sg-vectorized.svg"
-            alt="SIGNUM HQ"
-            width="30"
-            height="30"
-            style={{ 
-              filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.35))',
-              flexShrink: 0
-            }} 
-          />
-          <div className={s.brandText}>
-            <span className={s.brandName}>
-              SIGNUM<span style={{ color: 'var(--cyan)' }}>HQ</span>
-            </span>
-            {/* 2026-08-31 다크풀이 FINRA 규제 원본으로 복원돼 다시 사실이 됐다 */}
-            <span className={s.brandSub}>DARK POOL INTEL</span>
+    <div className={`${n9.e9Wrap} ${n9.e9Root} ${s.page}`} data-v={verdictKey}>
+
+      {/* ① 판정 히어로 ─ 시안 e9Hero */}
+      <div className={n9.e9Hero}>
+        <div className={n9.e9Sky} />
+        <img className={n9.e9Earth} src="/dash/earth.webp" alt="" aria-hidden="true"
+             width={672} height={672} decoding="async" />
+        <div className={n9.e9Veil} />
+        <div className={n9.e9In}>
+
+          <div className={n9.e9Hdr}>
+            <div className={n9.e9Brand}>
+              <img className={n9.e9Logo} src="/signum-sg-vectorized.svg" alt="" width={32} height={32} />
+              <div>
+                <div className={n9.e9Name}>SIGNUM<i>HQ</i></div>
+                <div className={n9.e9Tag}>{c9.tagline}</div>
+              </div>
+            </div>
+            <div className={n9.e9Acts}>
+              <button
+                type="button"
+                className={n9.e9Act}
+                aria-label="Settings"
+                onClick={() => router.push(`/${locale}/app-view/settings`)}
+              >
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
-        <div className={s.headerActions}>
-          <button className={s.headerBtn} aria-label="Settings" onClick={() => router.push(`/${locale}/app-view/settings`)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" strokeWidth="1.6" />
-            </svg>
-          </button>
-        </div>
-      </header>
 
-      {/* ══════════════ LIVE TERMINAL TICKER ══════════════ */}
-      {newsItems.length > 0 && (
-        <div className={s.tickerBar} onClick={() => router.push('/app-view/guardian?tab=reality')}>
-          <div className={s.tickerContainer}>
-            {newsItems.map((item, idx) => {
-              if (idx !== tickerIndex) return null;
+          {/* TOP SIGNAL — 실제 뉴스 티커. 뉴스가 없으면 줄 자체를 안 그린다. */}
+          {topNews && (
+            <div
+              className={n9.e9Signal}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push('/app-view/guardian?tab=reality')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/guardian?tab=reality'); } }}
+            >
+              <svg className={n9.e9Bolt} viewBox="0 0 24 24"><path d="M13 2L5 13.5h6L10 22l8.5-11.5H12z" /></svg>
+              <span className={n9.e9SigLab}>TOP SIGNAL</span>
+              <span className={n9.e9SigBar} />
+              <span className={n9.e9SigTx}>
+                {(locale === 'ko' && topNews.summaryKR) ? topNews.summaryKR
+                  : (locale === 'ja' && topNews.summaryJP) ? topNews.summaryJP
+                  : (topNews.summaryEN || topNews.headline)}
+              </span>
+              <span className={n9.e9Age}>
+                {topNews.ageMinutes < 60 ? `${topNews.ageMinutes}m` : `${Math.round(topNews.ageMinutes / 60)}h`}
+              </span>
+              <span className={n9.e9Chev}>&#8250;</span>
+            </div>
+          )}
 
-              const isBreaking = item.urgency >= 8;
-              let badgeColor = s.badgeSignal;
-              let badgeText = locale === 'ko' ? '시그널' : 'SIGNAL';
-
-              if (item.category === 'MACRO' || item.category === 'US_MARKET' || item.category === 'GLOBAL') {
-                badgeColor = s.badgeEcon;
-                badgeText = locale === 'ko' ? '지표' : 'ECON';
-              }
-              if (isBreaking) {
-                badgeColor = s.badgeBreaking;
-                badgeText = locale === 'ko' ? '속보' : 'BREAKING';
-              }
-
-              let displayHeadline = item.headline;
-              if (locale === 'ko' && item.summaryKR) {
-                displayHeadline = item.summaryKR;
-              } else if (locale === 'ja' && item.summaryJP) {
-                displayHeadline = item.summaryJP;
-              } else if (item.summaryEN) {
-                displayHeadline = item.summaryEN;
-              }
-
-              return (
-                <div key={item.id} className={s.tickerContent}>
-                  <span className={`${s.tickerBadge} ${badgeColor}`}>{badgeText}</span>
-                  <span className={s.tickerText}>{displayHeadline}</span>
-                  <span className={s.tickerTime}>
-                    {item.ageMinutes < 60
-                      ? `${item.ageMinutes}m`
-                      : `${Math.round(item.ageMinutes / 60)}h`}
-                  </span>
+          {/* ② 마켓 스테이터스 */}
+          <div className={`${n9.e9Surf} ${n9.e9Status}`}>
+            {regimeReady && (
+              <>
+                <img className={n9.e9Bull} src="/dash/bull.webp" alt="" aria-hidden="true"
+                     width={264} height={237} decoding="async" />
+                <img className={n9.e9Bear} src="/dash/bear.webp" alt="" aria-hidden="true"
+                     width={264} height={280} decoding="async" />
+              </>
+            )}
+            <div className={n9.e9StatusIn}>
+              <div className={n9.e9Eyebrow}><s />MARKET STATUS</div>
+              <div className={n9.e9Verdict}>{regimeReady ? riskTone : '—'}</div>
+              <div className={n9.e9Say}>{pulseStatusNote}</div>
+              <div className={n9.e9Cells}>
+                <div className={`${n9.e9Cell} ${futuresAvg < 0 ? n9.dn : ''}`}>
+                  <div className={n9.e9CellL}>{copy.futures}</div>
+                  <div className={`${n9.e9CellV} num`}>{futuresReady ? fmtChg(futuresAvg) : '—'}</div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className={s.regimeStrip} data-verdict={!regimeReady ? 'mix' : riskScore >= 58 ? 'on' : riskScore <= 42 ? 'off' : 'mix'}>
-        {/* 9차: 판정을 «글자» 말고 그림으로도 읽히게. 두 장을 따로 두고 진 쪽을 빼는
-            방식이다 — 한 장짜리를 어둡게 죽이면 «어두운 짐승»이 남아 뿔이 튀어나온다.
-            width/height 를 박아 둔다: 높이가 0 이면 lazy 가 안 풀려 영영 안 뜬 적이 있다. */}
-        {regimeReady && (
-          <>
-            <img
-              className={`${s.regimeBeast} ${s.regimeBull}`}
-              src="/dash/bull.webp" alt="" aria-hidden="true"
-              width={264} height={237} decoding="async"
-            />
-            <img
-              className={`${s.regimeBeast} ${s.regimeBear}`}
-              src="/dash/bear.webp" alt="" aria-hidden="true"
-              width={264} height={280} decoding="async"
-            />
-          </>
-        )}
-        <div className={s.regimePrimary}>
-          <span className={s.regimeKicker}>{copy.regime}</span>
-          <strong className={!regimeReady ? s.regimeNeutral : riskScore >= 58 ? s.regimePositive : riskScore <= 42 ? s.regimeNegative : s.regimeNeutral}>
-            {regimeReady ? riskTone : '—'}
-          </strong>
-          <span className={s.regimeNote}>{pulseStatusNote}</span>
-        </div>
-        <div className={s.regimeMetrics}>
-          <div className={`${s.regimeMetric} ${futuresAvg > 0.15 ? s.metricUp : futuresAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
-            <span>{copy.futures}</span>
-            <b className={futuresAvg >= 0 ? s.pos : s.neg}>{futuresReady ? `${futuresTone} ${fmtChg(futuresAvg)}` : '—'}</b>
-          </div>
-          <div className={`${s.regimeMetric} ${cashAvg > 0.15 ? s.metricUp : cashAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
-            <span>{copy.cash}</span>
-            <b className={cashAvg >= 0 ? s.pos : s.neg}>{indicesReady ? `${cashTone} ${fmtChg(cashAvg)}` : '—'}</b>
-          </div>
-          <div className={`${s.regimeMetric} ${s.regimeMetricCenter} ${riskScore >= 58 ? s.metricUp : riskScore <= 42 ? s.metricDown : s.metricFlat}`}>
-            <span>{copy.risk}</span>
-            <b>{regimeReady ? Math.round(riskScore) : '—'}</b>
+                <div className={`${n9.e9Cell} ${cashAvg < 0 ? n9.dn : ''}`}>
+                  <div className={n9.e9CellL}>{copy.cash}</div>
+                  <div className={`${n9.e9CellV} num`}>{indicesReady ? fmtChg(cashAvg) : '—'}</div>
+                </div>
+                <div className={n9.e9Cell}>
+                  <div className={n9.e9CellL}>{copy.risk}</div>
+                  <div className={`${n9.e9CellV} num`}>
+                    {regimeReady ? Math.round(riskScore) : '—'}<s> /100</s>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ══════════════ MARKET PULSE ══════════════ */}
-      <div className={s.card}>
-        <div className={s.pulseGlow} />
-        <div className={s.cardHead}>
-          <div className={s.pulseHeaderContainer}>
-            <div className={s.pulseHeader}>
-              <span className={s.pulseHeaderDecorator}>|</span>
-              <span className={s.cardTitle}>Market Pulse</span>
-            </div>
-            <div className={`${s.pulseLiveBadge} ${pulseStatusClass}`}>
-              <div className={`${s.pulseDot} ${pulseStatusClass}`} />
-              <span style={{ fontSize: '10px', fontWeight: '900', color: isLive || futuresLive || volatilityLive ? 'var(--cyan)' : '#64748b', letterSpacing: '0.08em', lineHeight: 1 }}>
-                {pulseStatusLabel}
-              </span>
-            </div>
-          </div>
+      {/* ③ 지수 — 페이지가 없으므로 「전체 ›」를 그리지 않는다 */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}>
+          <span className={n9.e9SectT}>{c9.secIdx}</span>
+          {(isLive || futuresLive || volatilityLive) && (
+            <span className={n9.e9Live}><s />LIVE</span>
+          )}
         </div>
-        <div className={s.pulseTabs} role="tablist">
-          {([
-            ['futures', copy.futuresRow],
-            ['cash', copy.cashRow],
-            ['etf', copy.etfRow],
-          ] as const).map(([k, label]) => (
+        <div className={n9.e9IxTabs}>
+          {([['futures', c9.tFut], ['cash', c9.tCash], ['etf', c9.tEtf]] as const).map(([k, label]) => (
             <button
               key={k}
               type="button"
-              role="tab"
-              aria-selected={pulseTab === k}
-              className={`${s.pulseTab} ${pulseTab === k ? s.pulseTabActive : ''}`}
+              className={`${n9.e9Tab} ${pulseTab === k ? n9.on : ''}`}
+              aria-pressed={pulseTab === k}
               onClick={() => setPulseTab(k)}
             >
               {label}
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* ── Futures Row (NASDAQ100 F, Russell2k F, S&P500 F) ── */}
-            {pulseTab === 'futures' && (<>
-            <div className={s.pulseRowMeta}>
-              <span>{copy.futuresRow}</span>
-              <em className={futuresLive ? s.metaLive : ''}>{futuresLive ? copy.futuresLive : copy.closed}</em>
-            </div>
-            <div className={s.pulseRow}>
-              {!futuresReady ? [0, 1, 2].map((i) => <div key={`skf-${i}`} className={s.skelPulse} />) : futures.map((p) => (
-                <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
-                  <div className={s.pulseCardSymRow}>
-                    {getSymBadge(p.sym)}
-                    <span className={s.pulseSym}>{p.sym}</span>
-                  </div>
-                  <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
-                  <span className={`${s.pulseChg} ${p.up ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                    {p.up ? '▲' : '▼'} {p.up ? '+' : ''}{p.chg.toFixed(2)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            </>)}
-
-            {/* ── Indices Row (DOW, NASDAQ, S&P 500) ── */}
-            {pulseTab === 'cash' && (<>
-            <div className={s.pulseRowMeta}>
-              <span>{copy.cashRow}</span>
-              <em className={isLive ? s.metaLive : isMarketHoliday ? s.metaHoliday : ''}>{isLive ? copy.regularLive : isMarketHoliday ? copy.holiday : copy.closed}</em>
-            </div>
-            <div className={s.pulseRow}>
-              {!indicesReady ? [0, 1, 2].map((i) => <div key={`ski-${i}`} className={s.skelPulse} />) : sortPulse(indices, PULSE_INDEX_ORDER).map((p) => {
-                // Cash index row is Redis/index-close based. ETF proxies must not overwrite index change.
-                const displayChg = p.chg;
-                const isUp = displayChg >= 0;
-                
-                // Flash animation class
-                const flashClass = '';
-
-                return (
-                  <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
-                    <div className={s.pulseCardSymRow}>
-                      {getSymBadge(p.sym)}
-                      <span className={s.pulseSym}>{p.sym}</span>
-                    </div>
-                    <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
-                    <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                      {isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            </>)}
-
-            {/* ── ETFs Row (SPY, QQQ, VIX) ── */}
-            {pulseTab === 'etf' && (<>
-            <div className={s.pulseRowMeta}>
-              <span>{copy.etfRow}</span>
-              <em className={etfRowLive ? s.metaLive : ''}>{etfRowStatus}</em>
-            </div>
-            <div className={s.pulseRow}>
-              {!etfsReady ? [0, 1, 2].map((i) => <div key={`ske-${i}`} className={s.skelPulse} />) : sortPulse(etfs, PULSE_ETF_ORDER).map((p) => {
+        <div className={n9.e9Ixs}>
+          {!idxReady
+            ? [0, 1, 2].map((i) => <div key={`skx-${i}`} className={`${n9.e9Skel} ${n9.e9SkelIx}`} />)
+            : idxItems.map((p) => {
                 const wsData = wsGetPrice(p.sym);
                 const useWs = shouldUseWsQuote(p.sym, wsData);
-                
-                // Overlay price & change if available
-                const displayPx = useWs ? wsData.price : p.px;
-                const displayChg = useWs ? wsData.changePct : p.chg;
-                const isUp = displayChg >= 0;
-                
-                // Flash animation class
-                const flashClass = useWs ? (flashStates[p.sym] === 'up' ? s.flashUp : flashStates[p.sym] === 'down' ? s.flashDown : '') : '';
-
-  return (
-                  <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
-                    <div className={s.pulseCardSymRow}>
+                const px = useWs ? wsData.price : p.px;
+                const chg = useWs ? wsData.changePct : p.chg;
+                const up = chg >= 0;
+                return (
+                  <div key={p.sym} suppressHydrationWarning
+                       className={`${n9.e9Ix} ${up ? n9.gr : n9.rd}`}>
+                    <span className={n9.e9IxTop}>
                       {getSymBadge(p.sym)}
-                      <span className={s.pulseSym}>{p.sym}</span>
-                    </div>
-                    <span className={s.pulsePrice}>
-                      {p.noData && !useWs ? '—' : p.sym === 'VIX' ? displayPx.toFixed(2) : `$${fmtPrice(displayPx)}`}
+                      <span className={n9.e9IxName}>{p.sym}</span>
                     </span>
-                    <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                      {p.noData && !useWs ? '—' : <>{isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%</>}
+                    <span className={`${n9.e9IxV} num`}>
+                      {p.noData && !useWs ? '—' : p.sym === 'VIX' ? px.toFixed(2) : fmtPrice(px)}
+                    </span>
+                    <span className={`${n9.e9IxP} num ${up ? n9.gr : n9.rd}`}>
+                      {p.noData && !useWs ? '—' : <>{up ? '▲' : '▼'} {up ? '+' : ''}{chg.toFixed(2)}%</>}
                     </span>
                   </div>
                 );
               })}
-            </div>
-            </>)}
         </div>
+        <div className={n9.e9Note}>{pulseStatusNote}</div>
       </div>
 
-      {/* ══════════════ MACRO BOARD ══════════════ */}
-      <div className={s.card}>
-        <div className={s.cardHead}>
-          <div className={s.pulseHeader}>
-            <span className={s.pulseHeaderDecorator}>|</span>
-            <span className={s.cardTitle}>Macro Board</span>
-          </div>
-        </div>
-        <div className={s.macroGrid}>
-            {!macroReady ? [0, 1, 2, 3].map((i) => <div key={`skm-${i}`} className={s.skelPulse} />) : (macroOpen ? macro : macro.slice(0, 4)).map((m) => (
-              <div key={m.label} suppressHydrationWarning className={`${s.macroCell} ${m.live ? s.live : ''}`}>
-                <div className={s.macroLabelRow}>
-                  {getMacroBadge(m.label)}
-                  <span className={s.macroLabel}>{m.label}</span>
+      {/* ④ 매크로 — 지수와 같은 «좌표»라 붙인다. 링크 대신 인라인 펼침 */}
+      <div className={`${n9.e9Sect} ${n9.e9MacWrap} ${macroOpen ? n9.open : ''}`}>
+        <div className={n9.e9SectHead}><span className={n9.e9SectT}>{c9.secMacro}</span></div>
+        <div className={`${n9.e9Surf} ${n9.e9Macro}`}>
+          {!macroReady
+            ? [0, 1, 2, 3].map((i) => <div key={`skm-${i}`} className={`${n9.e9Skel} ${n9.e9SkelRow}`} />)
+            : (macroOpen ? macro : macro.slice(0, 4)).map((m) => (
+                <div key={m.label} suppressHydrationWarning className={n9.e9Mc}>
+                  <div className={n9.e9McTop}>
+                    <span className={n9.e9McIco}>{getMacroBadge(m.label)}</span>
+                    <span className={n9.e9McK}>{m.label}</span>
+                  </div>
+                  <div className={`${n9.e9McV} num`}>{m.value}</div>
+                  {m.badge
+                    ? <em className={n9.e9McB}>{m.badge}</em>
+                    : <div className={`${n9.e9McD} num ${m.chg > 0 ? n9.gr : m.chg < 0 ? n9.rd : ''}`}>
+                        {m.chg > 0 ? '+' : ''}{m.chg !== 0 ? m.chg.toFixed(2) : '—'}{m.unit}
+                      </div>}
                 </div>
-                <span className={s.macroValue}>{m.value}</span>
-                {m.badge ? (
-                  m.label === 'F&G' ? (
-                    <span className={fgBadgeClass(parseFloat(m.value) || 50)}>
-                      {m.badge}
-                    </span>
-                  ) : (
-                    <span className={s.badgeNeutral}>{m.badge}</span>
-                  )
-                ) : (
-                  <span className={`${s.macroChg} ${m.chg > 0 ? s.pos : m.chg < 0 ? s.neg : s.flat}`}>
-                    {m.chg > 0 ? '+' : ''}{m.chg !== 0 ? m.chg.toFixed(2) : '—'}{m.unit}
-                  </span>
-                )}
-              </div>
-            ))}
+              ))}
         </div>
         {macroReady && macro.length > 4 && (
-          <button
-            type="button"
-            className={s.macroMore}
-            onClick={() => setMacroOpen((v) => !v)}
-            aria-expanded={macroOpen}
-          >
-            <span>
-              {macroOpen
-                ? (locale === 'ko' ? '접기' : locale === 'ja' ? '折りたたむ' : 'Show less')
-                : (locale === 'ko' ? `${macro.length - 4}개 더 보기` : locale === 'ja' ? `他${macro.length - 4}件を表示` : `Show ${macro.length - 4} more`)}
-            </span>
-            <i className={macroOpen ? s.macroMoreIconOpen : undefined}>&#9662;</i>
+          <button type="button" className={n9.e9McMore} onClick={() => setMacroOpen((v) => !v)} aria-expanded={macroOpen}>
+            <s>{macroOpen ? c9.mcLess : c9.mcMore(macro.length - 4)}</s>
+            <i>&#9662;</i>
           </button>
         )}
       </div>
 
-      {/* ══════════════ SECTOR HEATMAP ══════════════ */}
-      <div className={s.card}>
-        <div className={s.cardHead}>
-          <span className={s.cardTitle}>SECTOR HEATMAP</span>
-          <span suppressHydrationWarning className={`${s.sessionPill} ${sectorSessionClass}`}>{sectorSessionLabel}</span>
+      {/* ⑤ 섹터 */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}>
+          <span className={n9.e9SectT}>{c9.secSector}</span>
+          <span suppressHydrationWarning className={n9.e9Badge}>{sectorSessionLabel}</span>
+          <span
+            className={n9.e9All}
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push('/app-view/heatmap')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/heatmap'); } }}
+          >
+            {c9.heat} &#8250;
+          </span>
         </div>
-        {loading || !sectorsReady ? (
-          <div className={s.skelSector} />
-        ) : (
-          <div className={s.sectorGrid}>
-            {sectors.map((sec) => {
-              const symbol = sec.name === 'Tech' ? 'XLK'
-                           : sec.name === 'Energy' ? 'XLE'
-                           : sec.name === 'Cons. Disc' ? 'XLY'
-                           : sec.name === 'Materials' ? 'XLB'
-                           : sec.name === 'Industrials' ? 'XLI'
-                           : sec.name === 'Finance' ? 'XLF'
-                           : sec.name === 'Healthcare' ? 'XLV'
-                           : sec.name === 'Utilities' ? 'XLU'
-                           : '';
-              const wsData = wsGetPrice(symbol);
-              const useWs = shouldUseWsQuote(symbol, wsData);
-              const wsChangeLooksStale = useWs
-                && Math.abs(wsData.changePct) < 0.0001
-                && Math.abs(sec.pct) >= 0.0001;
-              const displayPct = useWs && !wsChangeLooksStale ? wsData.changePct : sec.pct;
-              const flashClass = useWs && !wsChangeLooksStale ? (flashStates[symbol] === 'up' ? s.flashUp : flashStates[symbol] === 'down' ? s.flashDown : '') : '';
-
-              return (
-                <div
-                  key={sec.name}
-                  className={`${s.sectorCell} ${flashClass}`}
-                  style={{
-                    background: heatBg(displayPct),
-                    borderColor: heatBorder(displayPct),
-                  }}
-                >
-                  <span className={s.sectorTop}>
-                    {getSectorIcon(sec.name)}
-                    <span className={s.sectorName}>{sectorLabel(sec.name, locale)}</span>
-                  </span>
-                  <span className={`${s.sectorPct} ${displayPct >= 0 ? s.sectorPctUp : s.sectorPctDown}`}>
-                    {displayPct >= 0 ? '+' : ''}{displayPct.toFixed(1)}%
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className={n9.e9Scs}>
+          {!sectorsReady
+            ? [0, 1, 2, 3].map((i) => <div key={`sks-${i}`} className={`${n9.e9Skel} ${n9.e9SkelSc}`} />)
+            : sectors.map((sec) => {
+                const symbol = SECTOR_ETF[sec.name] || '';
+                const wsData = wsGetPrice(symbol);
+                const useWs = shouldUseWsQuote(symbol, wsData);
+                const stale = useWs && Math.abs(wsData.changePct) < 0.0001 && Math.abs(sec.pct) >= 0.0001;
+                const pct = useWs && !stale ? wsData.changePct : sec.pct;
+                return (
+                  <div key={sec.name} className={n9.e9Sc}
+                       style={{ ['--c' as string]: SECTOR_COLOR[sec.name] || '#94a3b8' }}>
+                    <span className={n9.e9ScIco}>{getSectorIcon(sec.name)}</span>
+                    <span className={n9.e9ScN}>{sectorLabel(sec.name, locale)}</span>
+                    <span className={`${n9.e9ScP} num ${pct > 0 ? n9.gr : pct < 0 ? n9.rd : n9.mut}`}>
+                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                    </span>
+                  </div>
+                );
+              })}
+        </div>
       </div>
 
-      {/* ══════════════ 실시간 뉴스펄스 ══════════════
-          ★ 이름 주의: 기본 상태의 화면 제목은 «실시간 뉴스펄스» 다(briefingMode 기본값 'news').
-            «AI 모닝브리핑» 은 토글을 눌렀을 때 나오는 보조 라벨일 뿐이고,
-            진짜 모닝브리핑 화면은 가디언의 <MorningBrief /> 다(guardian/page.tsx:629). */}
-      {loading ? (
-        <div className={s.card}>
-          <div className={s.skelBriefing} />
-        </div>
-      ) : (
-        <div className={s.briefingCard}>
-          <div className={s.briefingHeaderContainer}>
-            <div className={s.briefingHeader} style={{ marginBottom: 0 }}>
-              <span className={s.briefingIcon}>✨</span>
-              <span className={s.briefingTitle}>
-                {briefingMode === 'briefing' 
-                  ? (locale === 'ko' ? 'AI 모닝브리핑' : locale === 'ja' ? 'AI モーニングブリーフィング' : 'AI MORNING BRIEFING')
-                  : (locale === 'ko' ? '실시간 뉴스펄스' : locale === 'ja' ? 'リアルタイム・ニュース' : 'LIVE NEWS PULSE')}
-              </span>
-            </div>
-            
-            {/* Pill Toggle Switch */}
-            <div className={s.briefingToggle}>
-              <button 
-                className={`${s.toggleBtn} ${briefingMode === 'briefing' ? s.toggleBtnActive : ''}`}
-                onClick={() => setBriefingMode('briefing')}
-              >
-                {locale === 'ko' ? '브리핑' : locale === 'ja' ? '要約' : 'Brief'}
-              </button>
-              <button 
-                className={`${s.toggleBtn} ${briefingMode === 'news' ? s.toggleBtnActive : ''}`}
-                onClick={() => setBriefingMode('news')}
-              >
-                {locale === 'ko' ? '실시간' : locale === 'ja' ? 'ニュース' : 'Live'}
-              </button>
-            </div>
-          </div>
-
-          {briefingMode === 'briefing' ? (
-            <>
-              {/* Live News Spotlight (Top 2 items) - MOVED ABOVE briefingBody */}
-              {newsItems.length > 0 && (
-                <div className={s.briefingNewsSection} style={{ marginTop: '8px' }}>
-                  <div className={s.briefingNewsHeader}>
-                    <div className={s.briefingNewsDot} />
-                    <span className={s.briefingNewsTitle}>
-                      {locale === 'ko' ? '실시간 주요 속보' : locale === 'ja' ? 'リアルタイム速報' : 'LIVE MARKET SPOTLIGHT'}
-                    </span>
-                  </div>
-                  <div className={s.briefingNewsList}>
-                    {newsItems.slice(0, 2).map((item) => {
-                      let displayHeadline = item.headline;
-                      if (locale === 'ko' && item.summaryKR) {
-                        displayHeadline = item.summaryKR;
-                      } else if (locale === 'ja' && item.summaryJP) {
-                        displayHeadline = item.summaryJP;
-                      } else if (item.summaryEN) {
-                        displayHeadline = item.summaryEN;
-                      }
-
-                      return (
-                        <div 
-                          key={item.id} 
-                          className={s.briefingNewsItem}
-                          onClick={() => router.push('/app-view/guardian?tab=reality')}
-                        >
-                          <span className={s.briefingNewsHeadline}>{displayHeadline}</span>
-                          <span className={s.briefingNewsArrow}>→</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ★ 실제 브리핑이 오기 전에는 DEMO_BRIEFING(소스에 박아 둔 영어 문장)이
-                  그대로 떴다. 「NVDA 가 옵션 만기로 $135 에 묶여 있다」 같은 문장이
-                  오늘 시장과 무관하게 나갔다. 도착 전에는 스켈레톤을 보여 준다. */}
-              {briefingReady ? (
-                <div
-                  className={s.briefingBody}
-                  style={{ fontSize: '13.5px', lineHeight: '1.55' }}
-                  dangerouslySetInnerHTML={{ __html: briefing }}
-                />
-              ) : (
-                <div className={s.briefingBody} style={{ fontSize: '13.5px', lineHeight: '1.55' }}>
-                  <div className={s.skelPulse} style={{ height: 14, marginBottom: 8 }} />
-                  <div className={s.skelPulse} style={{ height: 14, marginBottom: 8, width: '92%' }} />
-                  <div className={s.skelPulse} style={{ height: 14, width: '70%' }} />
-                </div>
-              )}
-
-              <div className={s.briefingCta} onClick={() => router.push('/app-view/guardian?tab=briefing')}>
-                {locale === 'ko' ? '전체 리포트 읽기 →' : locale === 'ja' ? 'レポート全文を読む →' : 'Read Full Report →'}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Full news items list in card - SHOWN 5 ITEMS */}
-              <div className={s.briefingNewsList} style={{ marginTop: '8px' }}>
-                {newsItems.slice(0, 5).map((item) => {
-                  let displayHeadline = item.headline;
-                  if (locale === 'ko' && item.summaryKR) {
-                    displayHeadline = item.summaryKR;
-                  } else if (locale === 'ja' && item.summaryJP) {
-                    displayHeadline = item.summaryJP;
-                  } else if (item.summaryEN) {
-                    displayHeadline = item.summaryEN;
-                  }
-
-                  return (
-                    <div 
-                      key={item.id} 
-                      className={s.briefingNewsItem}
-                      onClick={() => router.push('/app-view/guardian?tab=reality')}
-                      style={{ padding: '10px 14px' }}
-                    >
-                      <span className={s.briefingNewsHeadline} style={{ fontSize: '12px' }}>{displayHeadline}</span>
-                      <span className={s.briefingNewsArrow}>→</span>
-                    </div>
-                  );
-                })}
-                {newsItems.length === 0 && (
-                  <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '16px 0', textAlign: 'center' }}>
-                    {locale === 'ko' ? '수신된 뉴스가 없습니다.' : locale === 'ja' ? '受信したニュースはありません。' : 'No recent news bulletins.'}
-                  </div>
-                )}
-              </div>
-              
-              <div className={s.briefingCta} onClick={() => router.push('/app-view/guardian?tab=reality')}>
-                {locale === 'ko' ? '시장 모니터 현황 보기 →' : locale === 'ja' ? '市場現況を見る →' : 'View Live Market Monitor →'}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ══════════════ 오늘의 발견 (9차 신규) ══════════════
-          /api/undercurrent/feed 의 money.darkPoolStealth 로 세운다.
-          «장외 물량은 늘었는데 그 물량 중 공매도 비중은 줄었다» = 조용한 매집.
-          값이 없는 종목은 아예 빼고, 데이터가 하나도 없으면 섹션을 안 그린다. */}
+      {/* ⑥ 오늘의 발견 */}
       {ucReady && discoveryRows.length > 0 && (
-        <>
-          <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
-            <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
-              <div className={s.sectionBar} />
-              <span className={s.sectionTitle}>
-                {locale === 'ko' ? '오늘의 발견' : locale === 'ja' ? '今日の発見' : "TODAY'S FIND"}
-              </span>
-            </div>
-            <span
-              className={s.sectionAction}
-              role="button"
-              tabIndex={0}
-              onClick={() => router.push('/app-view/rankings')}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/rankings'); } }}
-              style={{ cursor: 'pointer' }}
-            >
-              {locale === 'ko' ? '랭킹 11종' : locale === 'ja' ? 'ランキング11種' : 'ALL 11 RANKINGS'} &gt;
+        <div className={n9.e9Sect}>
+          <div className={n9.e9SectHead}>
+            <span className={n9.e9SectT}>{c9.secDisc}</span>
+            <span className={n9.e9All} role="button" tabIndex={0}
+                  onClick={() => router.push('/app-view/rankings')}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/rankings'); } }}>
+              {c9.discAll} &#8250;
             </span>
           </div>
-          <div className={s.card}>
-            <div className={s.discHead}>
-              <span className={s.discTag}>DARK POOL</span>
-              <span className={s.discName}>
-                {locale === 'ko' ? '은밀 축적·분산' : locale === 'ja' ? '隠れた蓄積・分散' : 'Stealth accumulation'}
-              </span>
-              {ucMeta.date && <span className={s.discDate}>{ucMeta.date}</span>}
+          <div className={`${n9.e9Surf} ${n9.e9Disc}`}>
+            <div className={n9.e9DiscTop}>
+              <span className={n9.e9DiscTag}>DARK POOL</span>
+              <span className={n9.e9DiscName}>{c9.discName}</span>
+              {ucMeta.date && <span className={`${n9.e9DiscDate} num`}>{ucMeta.date}</span>}
             </div>
-            <div className={s.discWhat}>
-              {locale === 'ko'
-                ? '장외 물량은 늘었는데, 그 물량 중 공매도 비중은 줄었다.'
-                : locale === 'ja'
-                ? '場外の出来高は増えたが、そのうち空売り比率は下がった。'
-                : 'Off-exchange volume rose, while the short share of that volume fell.'}
-            </div>
-            <div className={s.discRows}>
+            <div className={n9.e9DiscWhat}>{c9.discWhat}</div>
+            <div className={n9.e9DiscRows}>
               {discoveryRows.map((c) => {
                 const v = c.money!.darkPoolStealth as number;
-                const med = ucMeta.marketAvg;
+                const reg = (c.money?.darkPoolRegime || '').toUpperCase();
                 return (
-                  <div
-                    key={c.ticker}
-                    className={`${s.discRow} ${regimeClass(c.money?.darkPoolRegime)}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}
-                  >
+                  <a key={c.ticker}
+                     className={`${n9.e9Dr} ${reg === 'ACCUMULATION' ? n9.acc : reg === 'DISTRIBUTION' ? n9.dis : n9.neu}`}
+                     role="button" tabIndex={0}
+                     onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
+                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}>
                     <AppTickerLogo symbol={c.ticker} size={18} />
-                    <b className={s.discTicker}>{c.ticker}</b>
-                    <span className={s.discTrack}>
-                      <i className={s.discFill} style={{ width: `${Math.max(0, Math.min(100, v))}%` }} />
-                      {/* 시장 중앙값 눈금 — 값이 있을 때만 그린다 */}
-                      {med != null && <i className={s.discMed} style={{ left: `${Math.max(0, Math.min(100, med))}%` }} />}
+                    <b className={n9.e9DrT}>{c.ticker}</b>
+                    <span className={n9.e9DrBar}>
+                      <i className={n9.e9DrFill} style={{ width: `${Math.max(0, Math.min(100, v))}%` }} />
+                      {ucMeta.marketAvg != null && (
+                        <i className={n9.e9DrMed} style={{ left: `${Math.max(0, Math.min(100, ucMeta.marketAvg))}%` }} />
+                      )}
                     </span>
-                    <b className={s.discVal}>{v}</b>
-                    <em className={s.discReg}>{regimeLabel(c.money?.darkPoolRegime)}</em>
-                  </div>
+                    <b className={`${n9.e9DrV} num`}>{v}</b>
+                    <em className={n9.e9DrReg}>{regimeLabel(c.money?.darkPoolRegime)}</em>
+                  </a>
                 );
               })}
             </div>
             {ucMeta.marketAvg != null && (
-              <div className={s.discFoot}>
-                {locale === 'ko' ? '시장 평균' : locale === 'ja' ? '市場平均' : 'Market avg'} {ucMeta.marketAvg}
+              <div className={n9.e9DiscFoot}>
+                <span className="num">{c9.marketAvg} {ucMeta.marketAvg}</span>
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
 
-      {/* ══════════════ TOP MOVERS (Moved for better flow) ══════════════ */}
-      <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
-        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
-          <div className={s.sectionBar} />
-          <span className={s.sectionTitle}>TOP MOVERS</span>
-          
-          {/* Pill Toggle Switch */}
-          <div className={s.moversToggle}>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'value' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('value')}
-            >
-              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代金' : 'Value'}
-            </button>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'gainers' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('gainers')}
-            >
-              {locale === 'ko' ? '상승률' : locale === 'ja' ? '上昇' : 'Gainers'}
-            </button>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'losers' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('losers')}
-            >
-              {locale === 'ko' ? '하락률' : locale === 'ja' ? '下落' : 'Losers'}
-            </button>
-          </div>
-        </div>
-        <span
-          className={s.sectionAction}
-          role="button"
-          tabIndex={0}
-          onClick={() => router.push('/app-view/movers')}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}
-          style={{ cursor: 'pointer' }}
-        >
-          VIEW ALL &gt;
-        </span>
+      {/* ⑦ 게이트 — 기존 ValueWall 그대로(페이월 로직은 건드리지 않는다) */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}><span className={n9.e9SectT}>{c9.secGate}</span></div>
+        {institutionalGate}
       </div>
-      {loading || moversLoading ? (
-        <div className={s.skelMovers} style={{ padding: '0 var(--s4)' }}>
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={s.skelMoverCard} />
-          ))}
-        </div>
-      ) : (
-        <div className={s.card}>
-          {movers.map((mv, mi) => {
-            const wsData = wsGetPrice(mv.sym);
-            const useWs = shouldUseWsQuote(mv.sym, wsData);
-            const displayPx = useWs ? wsData.price.toFixed(2) : mv.px;
-            const displayChg = useWs
-              ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
-              : mv.chg;
-            const isUp = displayChg.startsWith('+');
-            const flashClass = useWs ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
 
-            return (
-              <div
-                key={mv.sym}
-                className={`${s.moverRow} ${flashClass}`}
-                onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    router.push(`/app-view/cmd?t=${mv.sym}`);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label={`${mv.sym} command`}
-              >
-                <span className={s.moverRank}>{mi + 1}</span>
-                {getSymBadge(mv.sym) || <AppTickerLogo symbol={mv.sym} size={18} />}
-                <b className={s.moverTicker}>{mv.sym}</b>
-                {/* 실측 곡선이 있을 때만 그린다. 없으면 자리도 안 잡는다. */}
-                {mv.spark.length >= 2 ? (
-                  <span className={s.moverSparkCell}>
-                    <Sparkline data={mv.spark} up={isUp} height={20} fill />
-                  </span>
-                ) : (
-                  <span className={s.moverSparkCell} />
-                )}
-                <b className={isUp ? s.moverChgUp : s.moverChgDown}>{displayChg}</b>
-                <span className={s.moverPx}>${displayPx}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ══════════════ 괴리 시그널 (9차 신규) ══════════════
-          같은 UC 피드에서 divergence:true 인 카드만.
-          «뉴스가 가리키는 방향»과 «돈이 간 방향»이 어긋난 자리다. */}
-      {ucReady && divergenceRows.length > 0 && (
-        <>
-          <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
-            <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
-              <div className={s.sectionBar} />
-              <span className={s.sectionTitle}>
-                {locale === 'ko' ? '괴리 시그널' : locale === 'ja' ? '乖離シグナル' : 'DIVERGENCE'}
-              </span>
-              <span className={s.divCount}>{divergenceRows.length}</span>
-            </div>
-          </div>
-          <div className={s.divSub}>
-            {locale === 'ko'
-              ? '뉴스와 돈이 반대로 움직이는 곳'
-              : locale === 'ja'
-              ? 'ニュースとカネが逆を向く場所'
-              : 'Where the news and the money disagree'}
-          </div>
-          <div className={s.divScroll}>
-            {divergenceRows.map((c) => (
-              <div
-                key={c.ticker}
-                className={s.divCard}
-                role="button"
-                tabIndex={0}
-                onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}
-              >
-                <div className={s.divTop}>
-                  <AppTickerLogo symbol={c.ticker} size={16} />
-                  <span className={s.divTicker}>{c.ticker}</span>
-                  {c.tag && <span className={s.divTag}>{c.tag}</span>}
-                </div>
-                {c.plainTitle && <div className={s.divTitle}>{c.plainTitle}</div>}
-                {c.moneyRead && (
-                  <div className={`${s.divMoney} ${c.moneyMood === 'cautious' ? s.divMoneyDown : s.divMoneyUp}`}>
-                    {c.moneyRead}
-                  </div>
-                )}
-                {c.source && <div className={s.divSrc}>{c.source}</div>}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* ══════════════ INSTITUTIONAL PULSE (PREMIUM) ══════════════ */}
-        <ValueWall
-          locale={locale}
-          title={gateCopy.title}
-          subtitle={gateCopy.subtitle}
-          teaser={{
-            label: gateCopy.teaserLabel,
-            value: `${institutionalSignals[0].value} · ${gateCopy.teaserUnit}`
-          }}
-          ctaLabel={gateCopy.cta}
-          adFreeLabel={gateCopy.adFree}
-          previewChipLabel={gateCopy.previewChip}
-          socialProof={gateCopy.social}
-          lockedPreview={
-            <div className={`${s.instPulseGrid} ${s.instPulsePreview}`} aria-hidden="true">
-              {institutionalSignals.map((signal) => (
-                <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
-                  <div className={s.instHeader}>
-                    <span className={s.instLabel}>{signal.label}</span>
-                    <span className={s.instKicker}>{signal.kicker}</span>
-                  </div>
-                  <div className={s.instValRow}>
-                    <span className={s.instVal}>{signal.value}</span>
-                    <span className={s.instSub}>{signal.sub}</span>
-                  </div>
-                  {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
-                  <div className={s.instTrack}>
-                    {signal.score != null && (
-                      <div className={s.instFill} style={{ width: `${signal.score}%` }} />
-                    )}
-                  </div>
-                  <p className={s.instInsight}>{signal.insight}</p>
-                </div>
-              ))}
-            </div>
-          }
-        >
-          {loading ? (
-            <div style={{ height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', margin: '16px' }} />
-          ) : (
-            <div className={s.instPulseGrid}>
-              {institutionalSignals.map((signal) => (
-                <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
-                  <div className={s.instHeader}>
-                    <span className={s.instLabel}>{signal.label}</span>
-                    <span className={s.instKicker}>{signal.kicker}</span>
-                  </div>
-                  <div className={s.instValRow}>
-                    <span className={s.instVal}>{signal.value}</span>
-                    <span className={s.instSub}>{signal.sub}</span>
-                  </div>
-                  {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
-                  <div className={s.instTrack}>
-                    {signal.score != null && (
-                      <div className={s.instFill} style={{ width: `${signal.score}%` }} />
-                    )}
-                  </div>
-                  <p className={s.instInsight}>{signal.insight}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </ValueWall>
-
-
-
-      {/* ══════════════ 빠른 진입 (9차 신규) ══════════════
-          나가는 문이므로 맨 아래. 목적지는 실재하는 곳만 건다.
-          다크풀·이상 옵션은 랭킹의 해당 탭으로 — 랭킹 11종이 장중 5종(이상 옵션 성격)과
-          장 마감 후 3종(다크풀 성격)을 이미 담고 있어 별도 페이지가 필요 없다. */}
-      <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
-        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
-          <div className={s.sectionBar} />
-          <span className={s.sectionTitle}>
-            {locale === 'ko' ? '빠른 진입' : locale === 'ja' ? 'クイックアクセス' : 'QUICK ACCESS'}
+      {/* ⑧ 가장 많이 움직인 것 — 페이지가 실재하므로 「전체 ›」 유지 */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}>
+          <span className={n9.e9SectT}>{c9.secMv}</span>
+          <span className={n9.e9All} role="button" tabIndex={0}
+                onClick={() => router.push('/app-view/movers')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}>
+            {c9.all} &#8250;
           </span>
         </div>
-      </div>
-      <div className={s.card}>
-        {([
-          {
-            key: 'darkpool',
-            c: '#a78bfa',
-            to: '/app-view/rankings?tab=postclose',
-            label: locale === 'ko' ? '다크풀 흐름' : locale === 'ja' ? 'ダークプールの流れ' : 'Dark Pool Flow',
-            ico: <path d="M3 8.5c3-2.6 6-2.6 9 0s6 2.6 9 0M3 14c3-2.6 6-2.6 9 0s6 2.6 9 0M3 19.5c3-2.6 6-2.6 9 0s6 2.6 9 0" />,
-          },
-          {
-            key: 'unusual',
-            c: '#22d3ee',
-            to: '/app-view/rankings?tab=intraday',
-            label: locale === 'ko' ? '이상 옵션 플로우' : locale === 'ja' ? '異常オプションフロー' : 'Unusual Options Flow',
-            ico: <><circle cx="7.6" cy="15" r="4.2" /><circle cx="16.4" cy="15" r="4.2" /><path d="M7.6 10.8V5.4l3-2M16.4 10.8V5.4l-3-2M11.2 15h1.6" /></>,
-          },
-          {
-            key: 'earnings',
-            c: '#fbbf24',
-            to: '/app-view/earnings',
-            label: locale === 'ko' ? '실적 캘린더' : locale === 'ja' ? '決算カレンダー' : 'Earnings Calendar',
-            ico: <><rect x="3.2" y="5" width="17.6" height="15.8" rx="2.4" /><path d="M3.2 10h17.6M8 3v4M16 3v4" /><circle cx="9" cy="14.4" r="1.1" /><circle cx="15" cy="14.4" r="1.1" /></>,
-          },
-        ]).map((q) => (
-          <div
-            key={q.key}
-            className={s.quickRow}
-            style={{ ['--c' as string]: q.c }}
-            role="button"
-            tabIndex={0}
-            onClick={() => router.push(q.to)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(q.to); } }}
-          >
-            <span className={s.quickIcon}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                {q.ico}
-              </svg>
-            </span>
-            <span className={s.quickLabel}>{q.label}</span>
-            <span className={s.quickChev}>&#8250;</span>
-          </div>
-        ))}
+        <div className={n9.e9MvTabs}>
+          {([['value', c9.mvVal], ['gainers', c9.mvUp], ['losers', c9.mvDn]] as const).map(([k, label]) => (
+            <button key={k} type="button"
+                    className={`${n9.e9Tab} ${moverSort === k ? n9.on : ''}`}
+                    aria-pressed={moverSort === k}
+                    onClick={() => setMoverSort(k)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className={`${n9.e9Surf} ${n9.e9Mvs}`}>
+          {(loading || moversLoading)
+            ? [0, 1, 2, 3].map((i) => <div key={`skv-${i}`} className={`${n9.e9Skel} ${n9.e9SkelRow}`} />)
+            : movers.map((mv, mi) => {
+                const wsData = wsGetPrice(mv.sym);
+                const useWs = shouldUseWsQuote(mv.sym, wsData);
+                const displayPx = useWs ? wsData.price.toFixed(2) : mv.px;
+                const displayChg = useWs
+                  ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
+                  : mv.chg;
+                const isUp = displayChg.startsWith('+');
+                return (
+                  <a key={mv.sym} className={n9.e9Mv} role="button" tabIndex={0}
+                     onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
+                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${mv.sym}`); } }}>
+                    <span className={`${n9.e9MvRank} num`}>{mi + 1}</span>
+                    <AppTickerLogo symbol={mv.sym} size={18} />
+                    <b className={n9.e9MvT}>{mv.sym}</b>
+                    {/* 실측 곡선이 있을 때만 그린다 — 없으면 자리만 비워 둔다 */}
+                    {mv.spark.length >= 2
+                      ? <svg className={n9.e9MvSpark} viewBox="0 0 76 20" preserveAspectRatio="none">
+                          <polyline
+                            points={mv.spark.map((v, i, a) => {
+                              const mn = Math.min(...a), mx = Math.max(...a), rg = mx - mn || 1;
+                              return `${(i / (a.length - 1)) * 76},${20 - ((v - mn) / rg) * 16 - 2}`;
+                            }).join(' ')}
+                            fill="none" stroke={isUp ? '#34d399' : '#f87171'} strokeWidth="1.5" strokeLinejoin="round" />
+                        </svg>
+                      : <span className={n9.e9MvSpark} />}
+                    <b className={`${n9.e9MvP} num ${isUp ? n9.gr : n9.rd}`}>{displayChg}</b>
+                    <span className={`${n9.e9MvPx} num`}>${displayPx}</span>
+                  </a>
+                );
+              })}
+        </div>
       </div>
 
-      {/* ══════════════ AD BANNER ══════════════ */}
+      {/* ⑨ 괴리 시그널 */}
+      {ucReady && divergenceRows.length > 0 && (
+        <div className={n9.e9Sect}>
+          <div className={n9.e9SectHead}>
+            <span className={n9.e9SectT}>{c9.secDv}</span>
+            <span className={`${n9.e9DivN} num`}>{divergenceRows.length}</span>
+          </div>
+          <div className={n9.e9DivSub}>{c9.dvSub}</div>
+          <div className={n9.e9Divs}>
+            {divergenceRows.map((c) => (
+              <a key={c.ticker} className={n9.e9Dv} role="button" tabIndex={0}
+                 onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
+                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}>
+                <span className={n9.e9DvTop}>
+                  <AppTickerLogo symbol={c.ticker} size={16} />
+                  <span className={n9.e9DvT}>{c.ticker}</span>
+                  {c.tag && <span className={n9.e9DvTag}>{c.tag}</span>}
+                </span>
+                {c.plainTitle && <span className={n9.e9DvTitle}>{c.plainTitle}</span>}
+                {c.moneyRead && (
+                  <span className={`${n9.e9DvMoney} ${c.moneyMood === 'cautious' ? n9.rd : n9.gr}`}>
+                    {c.moneyRead}
+                  </span>
+                )}
+                {c.source && <span className={n9.e9DvSrc}>{c.source}</span>}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ⑩ 빠른 진입 — 나가는 문은 다 읽은 다음 */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}><span className={n9.e9SectT}>{c9.secQuick}</span></div>
+        <div className={`${n9.e9Surf} ${n9.e9Quick}`}>
+          {QUICK9(c9).map((q) => (
+            <a key={q.key} className={n9.e9Q} style={{ ['--c' as string]: q.c }}
+               role="button" tabIndex={0}
+               onClick={() => router.push(q.to)}
+               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(q.to); } }}>
+              <span className={n9.e9QIco}>
+                <svg viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: q.ico }} />
+              </span>
+              <span className={n9.e9QT}>{q.label}</span>
+              <span className={n9.e9Chev}>&#8250;</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* 광고 배너 · 푸터 — 건드리지 않는다 */}
       <AdBanner />
       <MobileAppFooter />
-
     </div>
   );
 }
