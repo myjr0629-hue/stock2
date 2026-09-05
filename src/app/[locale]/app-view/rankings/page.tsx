@@ -25,6 +25,8 @@ type Tab = 'all' | Phase;
 interface RankItem { ticker?: string; company?: string; [k: string]: unknown }
 interface RankBlock {
   available?: boolean;
+  /* 엔진이 «왜 비었는지» 를 문장으로 준다 — 있으면 짐작 대신 이걸 쓴다 */
+  reason?: string;
   phase?: Phase;
   name?: { ko?: string; en?: string; ja?: string };
   candidates?: number;
@@ -36,17 +38,17 @@ const T = {
   ko: { title: '랭킹', back: '오늘의 발견', all: '전체', intraday: '장중', postclose: '장 마감 후',
         anytime: '상시', cand: '후보', skip: '제외', more: '전체 보기',
         why: '절대 크기로 줄 세우면 매일 같은 대형주만 나옵니다. 각 종목을 «자기 평소»와 견줍니다.',
-        soon: '자료가 더 쌓이면 켜집니다', noTicker: '비상장 · 티커 없음',
+        soon: '자료가 더 쌓이면 켜집니다', none: '오늘은 조건에 맞는 종목이 없습니다', noTicker: '비상장 · 티커 없음',
         sub: (u: number) => `11종 · 유니버스 ${u.toLocaleString()}`, loading: '불러오는 중' },
   en: { title: 'Rankings', back: "Today's Find", all: 'All', intraday: 'Intraday', postclose: 'After close',
         anytime: 'Anytime', cand: 'candidates', skip: 'skipped', more: 'View all',
         why: 'Ranking by absolute size returns the same megacaps every day. Each name is measured against its own normal.',
-        soon: 'Turns on once enough data accumulates', noTicker: 'Unlisted · no ticker',
+        soon: 'Turns on once enough data accumulates', none: 'No names meet the bar today', noTicker: 'Unlisted · no ticker',
         sub: (u: number) => `11 lists · universe ${u.toLocaleString()}`, loading: 'Loading' },
   ja: { title: 'ランキング', back: '今日の発見', all: 'すべて', intraday: 'ザラ場', postclose: '引け後',
         anytime: '常時', cand: '候補', skip: '除外', more: 'すべて見る',
         why: '絶対規模で並べると毎日同じ大型株になります。各銘柄を«自身の平常»と比べます。',
-        soon: 'データが溜まると有効になります', noTicker: '非上場 · ティッカーなし',
+        soon: 'データが溜まると有効になります', none: '本日は条件を満たす銘柄がありません', noTicker: '非上場 · ティッカーなし',
         sub: (u: number) => `11種 · ユニバース ${u.toLocaleString()}`, loading: '読み込み中' },
 } as const;
 
@@ -282,7 +284,9 @@ export default function RankingsPage() {
                   <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
                 </svg>
                 <span>
-                  <b>{t.soon}</b>
+                  {/* «자료가 덜 쌓였다» 와 «오늘 해당 종목이 없다» 는 다른 말이다.
+                      API 가 실제 사유를 주면 그걸 그대로 쓴다(짐작하지 않는다). */}
+                  <b>{b.reason || (b.available === false ? t.soon : t.none)}</b>
                   {b.skipped && typeof b.skipped === 'object' && (
                     <small>{Object.entries(b.skipped).map(([k, v]) => `${k} ${v}`).join(' · ')}</small>
                   )}

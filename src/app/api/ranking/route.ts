@@ -86,7 +86,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: false, error: `모르는 랭킹: ${run}`, available: RANKINGS.map((r) => r.id) }, { status: 400 });
     }
 
-    const CACHE = `ranking:v3:${run}:${days}:${top}`;
+    // v4 — 미가용 블록에 name/phase/what/why 를 실었다. 옛 페이로드가 200 OK 로 나가면
+    //      화면이 카드 제목에 id 를 그대로 찍는다(캐시 10분).
+    const CACHE = `ranking:v4:${run}:${days}:${top}`;
     if (q.get('refresh') !== '1') {
         const hit = await getFromCache<any>(CACHE);
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
@@ -242,7 +244,15 @@ export async function GET(req: NextRequest) {
         }
 
         if (spec.needsPostClose) {
-            if (!dpMeta.available) { results[spec.id] = { available: false, reason: dpMeta.reason, items: [] }; continue; }
+            if (!dpMeta.available) {
+                // ⚠️ 이름·단계를 안 실으면 화면이 카드 제목에 «darkpool-volume» 같은 id 를 그대로 찍고,
+                //    phase 가 없어 탭 분류에서도 빠진다(실측: 11종인데 탭 합이 8).
+                results[spec.id] = {
+                    available: false, phase: spec.phase, name: spec.name, what: spec.what, why: spec.why,
+                    reason: dpMeta.reason, items: [],
+                };
+                continue;
+            }
             const list = Object.values(dp) as any[];
             const mktVolRatio = median(list.map((x) => x.volRatio).filter((v) => typeof v === 'number' && v > 0)) ?? 1;
             const mktStealth = median(list.map((x) => x.stealth).filter((v) => typeof v === 'number')) ?? 50;
@@ -410,7 +420,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 7, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 8, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta,
         // 실제로 훑은 종목 수를 말한다. 하드코딩 25 를 그대로 말하면 거짓말이 된다.
