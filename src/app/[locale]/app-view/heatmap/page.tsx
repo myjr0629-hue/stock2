@@ -14,7 +14,7 @@
 // ★ 안전영역/탭 신뢰성은 app-view/layout.tsx 가 처리한다. 여기서 env() 를 다시 쓰지 않는다.
 // ============================================================================
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
 import s from './heatmap.module.css';
@@ -128,6 +128,18 @@ export default function HeatmapPage() {
          dangerouslySetInnerHTML={{ __html: (SEC_ICON[k] || '').replace(/CC/g, secOf(k).color) }} />
   );
 
+  /* ★ 섹터는 «스태거드»로 하나씩 들어온다(useIntelSharedDataForApp: fullData:'staggered').
+     bands.length>0 만 보고 열면 «3 섹터 · 21 종목» 같은 «도중의 숫자»가 화면에 찍힌다.
+     그래서 10개가 다 올 때까지는 숫자를 «안 쓰고» 빈 칸은 스켈레톤으로 채운다.
+     한 섹터가 끝내 안 오는 경우까지 기다리진 않는다 — 12초면 있는 것만 보여준다. */
+  const full = bands.length >= SECTORS.length;
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    if (full) { setSettled(true); return; }
+    const id = setTimeout(() => setSettled(true), 12000);
+    return () => clearTimeout(id);
+  }, [full]);
+  const ready = full || settled;
   const loading = bands.length === 0;
 
   return (
@@ -140,7 +152,7 @@ export default function HeatmapPage() {
       </div>
       <div className={s.hmHead}>
         <div className={s.hmTitle}>{t.title}</div>
-        <div className={s.hmSub}>{loading ? t.loading : t.sub(bands.length, total)}</div>
+        <div className={s.hmSub}>{ready ? t.sub(bands.length, total) : t.loading}</div>
       </div>
 
       <div className={s.hmScale}>
@@ -177,6 +189,10 @@ export default function HeatmapPage() {
                 </span>
               </button>
             ))}
+        {!loading && !ready &&
+          Array.from({ length: SECTORS.length - bands.length }).map((_, i) => (
+            <div key={`hmskel-${i}`} className={`${s.hmSkel} ${s.hmSkelBand}`} />
+          ))}
       </div>
       {!loading && <div className={s.hmPick}>{t.pick}</div>}
 
@@ -219,7 +235,7 @@ export default function HeatmapPage() {
         </div>
       )}
 
-      {total > 8 && (
+      {ready && total > 8 && (
         <>
           <div className={s.hmXHead}>
             <span className={s.hmXT}>{t.xTitle}</span>
