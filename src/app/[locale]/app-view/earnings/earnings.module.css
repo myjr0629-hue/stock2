@@ -52,10 +52,12 @@
   border-radius:999px;padding:2px 6px}
 
 .ecRows{display:flex;flex-direction:column}
-.ecR{display:flex;flex-direction:column;gap:6px;padding:8px 0 7px;position:relative}
+/* 한 줄 — 두 줄로 쌓으면 오른쪽이 통째로 빈다(대표 지적 2026-09-06).
+   왼쪽 = 신원(로고·티커·시간칩·분기), 오른쪽 = 수치. 남는 폭은 왼쪽이 먹는다. */
+.ecR{display:flex;align-items:center;gap:7px;padding:8px 0 7px;position:relative}
 .ecR+.ecR::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
   background:rgba(255,255,255,.05)}
-.ecRTop{display:flex;align-items:center;gap:7px;min-width:0}
+.ecRTop{flex:1;min-width:0;display:flex;align-items:center;gap:6px}
 .ecRT{flex:0 0 auto;font-size:12.5px;font-weight:800;letter-spacing:-.02em}
 .ecRH{flex:0 0 auto;font-size:7.5px;font-weight:800;letter-spacing:.04em;border-radius:4px;
   padding:2px 6px}
@@ -64,10 +66,11 @@
 .ecRH.bmo{color:#fbbf24;background:rgba(251,191,36,.14);
   box-shadow:inset 0 0 0 1px rgba(251,191,36,.3)}
 .ecRH.tbd{color:#a9bcd6;background:rgba(255,255,255,.07)}
-.ecRQ{flex:0 0 auto;margin-left:auto;font-size:8.5px;color:#94a8c6;font-weight:600}
+.ecRQ{flex:0 1 auto;min-width:0;font-size:8.5px;color:#94a8c6;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.ecRMet{display:flex;align-items:center;gap:9px}
-.ecRM{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ecRMet{flex:0 0 auto;margin-left:auto;display:flex;align-items:baseline;gap:10px}
+.ecRM{display:flex;align-items:baseline;gap:4px;white-space:nowrap}
 .ecRM s{text-decoration:none;font-size:7.5px;color:#94a8c6;letter-spacing:.02em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ecRM b{font-size:11.5px;font-weight:800;letter-spacing:-.03em;color:#e2ecf7}

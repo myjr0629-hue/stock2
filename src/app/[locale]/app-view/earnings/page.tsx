@@ -27,7 +27,7 @@ const T = {
         src: '출처 FMP 실적 캘린더 (시장 전체 1콜)', empty: '예정된 발표가 없습니다.',
         loading: '불러오는 중', wk: ['일','월','화','수','목','금','토'], mon: (m: number) => `${m}월` },
   en: { title: 'Earnings Calendar', back: 'Quick Access', amc: 'After close', bmo: 'Before open', tbd: 'Time TBD',
-        eps: 'EPS est.', rev: 'Revenue est.', names: 'names', days: 'days', heavy: 'Busiest day',
+        eps: 'EPS est.', rev: 'Rev. est.', names: 'names', days: 'days', heavy: 'Busiest day',
         note: 'Dates and estimates can change before the report. Nothing is filled in before it is confirmed.',
         src: 'Source: FMP earnings calendar (whole market, one call)', empty: 'No scheduled reports.',
         loading: 'Loading', wk: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
@@ -141,8 +141,10 @@ export default function EarningsPage() {
                     <a key={e.ticker} className={s.ecR} role="button" tabIndex={0}
                        onClick={() => router.push(`/app-view/cmd?t=${e.ticker}`)}
                        onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); router.push(`/app-view/cmd?t=${e.ticker}`); } }}>
+                      {/* 한 줄 — 왼쪽에 신원(로고·티커·시간·분기), 오른쪽에 수치.
+                          두 줄로 쌓으면 오른쪽이 통째로 빈다(대표 지적 2026-09-06). */}
                       <span className={s.ecRTop}>
-                        <AppTickerLogo symbol={e.ticker} size={20} />
+                        <AppTickerLogo symbol={e.ticker} size={18} />
                         <b className={s.ecRT}>{e.ticker}</b>
                         {/* ★ 시각을 모르면 칩을 «안 그린다». FMP stable 에는 time 필드가 없어서
                             Finnhub 으로 임박한 12건만 채운다 — 나머지에 «시간 미정» 칩을 다 붙이면
