@@ -371,6 +371,51 @@ function getSymBadge(sym: string) {
   }
 }
 
+/* ── SPDR 8섹터 아이콘 (9차) ───────────────────────────────────────
+   ★ components/intel/mobile/SectorIcon.tsx 는 «인텔 10섹터»(M7·반도체·바이오…)용이라
+     여기 SPDR 8섹터와 분류 체계가 다르다. 그래서 따로 둔다 — 재사용하면 안 된다.
+   섹터 색은 셀 배경(heatBg)이 이미 등락을 칠하므로, 아이콘은 currentColor 로
+   이름과 같은 톤을 쓴다. 색을 두 번 쓰면 화면이 튄다. */
+const SECTOR_ICON: Record<string, string> = {
+  Tech:          '<rect x="7.8" y="7.8" width="8.4" height="8.4" rx="1.5"/><path d="M10 3.8v4M14 3.8v4M10 16.2v4M14 16.2v4M3.8 10h4M3.8 14h4M16.2 10h4M16.2 14h4"/>',
+  Industrials:   '<path d="M3.4 20.6V11l5.6 3.4V11l5.6 3.4V7.2l5.6 3.8v9.6z"/><path d="M7.6 20.6v-3.2M12.4 20.6v-3.2M17.2 20.6v-3.2"/>',
+  Utilities:     '<path d="M12.8 2.8L5.8 13.4h5.2l-.9 7.8 7.3-10.4H12z"/>',
+  Materials:     '<path d="M12 3l7.8 4.4v8.8L12 20.6l-7.8-4.4V7.4z"/><path d="M4.2 7.4L12 11.8l7.8-4.4M12 11.8v8.8"/>',
+  Finance:       '<path d="M3.4 10.6h17.2M5.8 10.6v7M9.6 10.6v7M14.2 10.6v7M18 10.6v7M2.8 20.4h18.4M12 3.6l9 5.2H3z"/>',
+  Energy:        '<path d="M12 3.6c3.5 4.5 5.4 6.9 5.4 9.5a5.4 5.4 0 1 1-10.8 0c0-2.6 1.9-5 5.4-9.5z"/>',
+  Healthcare:    '<circle cx="12" cy="12" r="7.8"/><path d="M12 8.4v7.2M8.4 12h7.2"/>',
+  'Cons. Disc':  '<circle cx="9.8" cy="19.4" r="1.4"/><circle cx="17.4" cy="19.4" r="1.4"/><path d="M2.8 3.8h2.6l2.4 11h9.8l2.6-6.8H6.2"/>',
+};
+
+/* SPDR 8섹터 이름 — 앱은 ko/en/ja 를 다 서비스하는데 여기만 영어로 나가고 있었다.
+   키는 API 가 주는 영어 이름 그대로 두고, 표시만 로케일로 바꾼다. */
+const SECTOR_LABEL: Record<string, { ko: string; en: string; ja: string }> = {
+  Tech:          { ko: '기술',       en: 'Tech',        ja: 'テクノロジー' },
+  Energy:        { ko: '에너지',     en: 'Energy',      ja: 'エネルギー' },
+  'Cons. Disc':  { ko: '임의소비재', en: 'Cons. Disc.', ja: '一般消費財' },
+  Materials:     { ko: '소재',       en: 'Materials',   ja: '素材' },
+  Industrials:   { ko: '산업재',     en: 'Industrials', ja: '資本財' },
+  Finance:       { ko: '금융',       en: 'Financials',  ja: '金融' },
+  Healthcare:    { ko: '헬스케어',   en: 'Health Care', ja: 'ヘルスケア' },
+  Utilities:     { ko: '유틸리티',   en: 'Utilities',   ja: '公益' },
+};
+
+function sectorLabel(name: string, locale: string) {
+  const m = SECTOR_LABEL[name];
+  if (!m) return name;
+  return locale === 'ko' ? m.ko : locale === 'ja' ? m.ja : m.en;
+}
+
+function getSectorIcon(name: string) {
+  const d = SECTOR_ICON[name];
+  if (!d) return null;
+  return (
+    <span className={s.sectorIcon} aria-hidden="true">
+      <svg viewBox="0 0 24 24" stroke="currentColor" dangerouslySetInnerHTML={{ __html: d }} />
+    </span>
+  );
+}
+
 function getMacroBadge(label: string) {
   switch (label) {
     case 'US 10Y':
@@ -1999,7 +2044,8 @@ export default function AppDashPage() {
                     borderColor: heatBorder(displayPct),
                   }}
                 >
-                  <span className={s.sectorName}>{sec.name}</span>
+                  {getSectorIcon(sec.name)}
+                  <span className={s.sectorName}>{sectorLabel(sec.name, locale)}</span>
                   <span className={`${s.sectorPct} ${displayPct >= 0 ? s.sectorPctUp : s.sectorPctDown}`}>
                     {displayPct >= 0 ? '+' : ''}{displayPct.toFixed(1)}%
                   </span>
