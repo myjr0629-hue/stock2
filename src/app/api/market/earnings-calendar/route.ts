@@ -58,10 +58,13 @@ export interface EarningsRow {
   year: number | null;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const cached = await getFromCache<any>(CACHE_KEY);
-    if (cached) return NextResponse.json({ ...cached, _cache: 'hit' });
+    const fresh = new URL(req.url).searchParams.get('fresh') === '1';
+    if (!fresh) {
+      const cached = await getFromCache<any>(CACHE_KEY);
+      if (cached) return NextResponse.json({ ...cached, _cache: 'hit' });
+    }
 
     const key = process.env.FMP_API_KEY || process.env.NEXT_PUBLIC_FMP_API_KEY;
     if (!key) {
@@ -83,15 +86,22 @@ export async function GET() {
     ];
     let raw: any = null;
     let usedUrl = '';
+    const probe: Record<string, string> = {};   // ★ 어느 후보가 왜 떨어졌는지 응답에 싣는다
     for (const u of urls) {
+      const tag = u.includes('/v3/') ? 'v3' : 'stable';
       try {
         const r = await fetch(u, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
-        if (!r.ok) continue;
+        if (!r.ok) { probe[tag] = `http-${r.status}`; continue; }
         const j = await r.json();
-        if (Array.isArray(j) && j.length) { raw = j; usedUrl = u.includes('/v3/') ? 'v3' : 'stable'; break; }
-      } catch { /* 다음 후보로 */ }
+        if (!Array.isArray(j)) { probe[tag] = `shape-${typeof j}`; continue; }
+        if (!j.length) { probe[tag] = 'empty'; continue; }
+        probe[tag] = `ok-${j.length}`;
+        raw = j; usedUrl = tag; break;
+      } catch (e: any) { probe[tag] = `err-${String(e?.message || e).slice(0, 40)}`; }
     }
-    if (!Array.isArray(raw)) return NextResponse.json({ ok: true, rows: [], reason: 'fmp-empty' });
+    if (!Array.isArray(raw)) return NextResponse.json({ ok: true, rows: [], reason: 'fmp-empty', probe });
+    // 벤더가 실제로 주는 필드 — 추측하지 않으려면 이걸 봐야 한다
+    const vendorFields = Object.keys(raw[0] || {});
 
     const u = universe();
     const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -139,6 +149,8 @@ export async function GET() {
       from: fmt(today),
       to: fmt(to),
       generatedAt: new Date().toISOString(),
+      probe,
+      vendorFields,
     };
     if (rows.length) setInCache(CACHE_KEY, payload, TTL).catch(() => {});
     return NextResponse.json({ ...payload, _cache: 'miss' });
