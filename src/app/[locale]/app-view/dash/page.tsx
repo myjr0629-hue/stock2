@@ -1697,6 +1697,22 @@ export default function AppDashPage() {
       )}
 
       <div className={s.regimeStrip}>
+        {/* 황소 vs 곰 — 판정에 따라 이긴 쪽이 밝아지고 진 쪽은 «뒤로 물러난다».
+            문턱은 코드가 이미 쓰는 값 그대로다(riskScore ≥58 선호 / ≤42 회피).
+            0.42 로만 죽이면 어두운 짐승이 그대로 보여 뿔이 튀어나온다 —
+            0.13 + 바깥 이동 + 축소로 «물러남»을 만든다(dash.module.css .obsLose). */}
+        {regimeReady && (
+          <>
+            <img
+              className={`${s.obsBeast} ${s.obsBull} ${riskScore >= 58 ? s.obsWin : riskScore <= 42 ? s.obsLose : s.obsMix}`}
+              src="/dash/bull.webp" alt="" aria-hidden="true" loading="lazy" decoding="async"
+            />
+            <img
+              className={`${s.obsBeast} ${s.obsBear} ${riskScore <= 42 ? s.obsWin : riskScore >= 58 ? s.obsLose : s.obsMix}`}
+              src="/dash/bear.webp" alt="" aria-hidden="true" loading="lazy" decoding="async"
+            />
+          </>
+        )}
         <div className={s.regimePrimary}>
           <span className={s.regimeKicker}>{copy.regime}</span>
           <strong className={!regimeReady ? s.regimeNeutral : riskScore >= 58 ? s.regimePositive : riskScore <= 42 ? s.regimeNegative : s.regimeNeutral}>
