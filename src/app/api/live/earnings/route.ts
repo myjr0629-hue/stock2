@@ -26,7 +26,18 @@ export async function GET(req: NextRequest) {
                     getEarningsCalendar(tickerUpper),
                     fmpKeyToUse ? fetch(`https://financialmodelingprep.com/stable/analyst-estimates?symbol=${tickerUpper}&period=annual&apikey=${fmpKeyToUse}`).catch(()=>null) : null
                 ]);
-                const earnings = [...rawEarnings].sort((a, b) =>
+                // ★ Finnhub 는 ADR 요청에도 «해외 원주» 를 섞어 준다(TSM→2330.TW, ASML→ASML.AS,
+                //   NVO→"NOVO B.CO"). 그 EPS 는 TWD/EUR 인데 화면은 $ 를 붙여 그린다 —
+                //   실측(2026-09-05): TSM 예상 EPS $28.96(실제 ADR 기준 약 $2.5), ASML $10.62.
+                //   에러 없이 숫자만 틀리는 형태라 눈으로는 안 잡힌다. 요청한 심볼과 다른 행은 버린다.
+                const sameListing = (sym: unknown) => {
+                    const v = String(sym ?? '').toUpperCase().trim();
+                    return v === '' || v === tickerUpper;   // 심볼이 없으면 응답 자체가 그 종목 것
+                };
+                const rawSameListing = rawEarnings.filter((e: any) => sameListing(e?.symbol));
+                const droppedForeign = rawEarnings.length - rawSameListing.length;
+
+                const earnings = [...rawSameListing].sort((a, b) =>
                     new Date(a.date).getTime() - new Date(b.date).getTime()
                 );
                 
@@ -52,7 +63,7 @@ export async function GET(req: NextRequest) {
                         nextEarningsDate: null, daysUntilEarnings: null,
                         daysLabel: 'TBD', epsEstimate: null, quarter: null, year: null,
                         color: 'text-slate-400', hasData: false,
-                        debug: { latencyMs: Date.now() - startTime, eventsFound: 0 }
+                        debug: { latencyMs: Date.now() - startTime, eventsFound: 0, droppedForeign }
                     };
                 }
 

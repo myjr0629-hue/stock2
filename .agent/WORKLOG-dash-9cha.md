@@ -270,3 +270,39 @@ WS 오버레이·세션 판정)이 얽혀 있어 크게 손대면 깨질까 봐 
 짐승 위치(`right`)가 안 잡혀 글자 위로 올라왔다 → `e9Root` 클래스 추가로 해결.
 
 **이미지**: data URI → `public/dash/` (표시 크기로 축소: 황소33KB·곰38KB·지구본137KB)
+
+---
+## 6단계 — 새 페이지 3장 (전부 시안 그대로) ✅
+
+### 히트맵 `/app-view/heatmap`
+- CSS: `heatmap.module.css` = 시안 `paneHM` `<style>` 원본
+- 데이터: **`useIntelSharedDataForApp`** — 앱 인텔이 이미 쓰는 훅이라 **신규 왕복 0**
+- ECharts 안 씀(실측 1,092KB = intel JS 의 52%, 모바일에서도 내려옴). app-view 는 계속 0건
+- 색: 프로덕션 `SectorHeatmap.tsx` 의 `getHeatColor` 15단계 그대로 → 웹과 같은 색
+- 아이콘: `components/intel/mobile/SectorIcon.tsx` 정본 10종 그대로
+- 빈 값 규칙: `changePct` 없거나 `price<=0` 인 종목은 빼고, 종목 0이면 **섹터를 뺀다**
+
+### 랭킹 `/app-view/rankings`
+- CSS: `rankings.module.css` = 시안 `paneRK` 원본
+- 데이터: `/api/ranking?run=all&limit=5` 한 콜 · `?tab=` 딥링크 지원(빠른 진입에서 옴)
+- 랭킹 11종마다 값·보조설명이 달라 `readRow(id, ...)` 로 갈랐다 — **없는 필드는 «—»**
+- 준비 중(`available:false`)은 빈 카드 대신 **왜 비었는지**(skipped 사유)를 적는다
+- `ticker:"N/A"`(SEC Form 4 비상장 발행사)는 «N/» 칩 대신 **회사명 + 건물 아이콘**
+
+### 실적 캘린더 `/app-view/earnings` + **신규 라우트**
+`/api/market/earnings-calendar`
+- **벤더 = FMP**. 근거(실측):
+  · FMP `stable/earnings-calendar?from=&to=` → 시장 전체 **1콜**, 미국 티커
+  · Finnhub → **종목당 1콜**(10개 연속 호출 시 6개 빈 응답) + 해외 원주 혼입
+  · Intrinio → 실적/캘린더 함수 **없음**
+- 유니버스 = **합집합** SECTOR_MAP(121) + 인텔 10섹터(70) — 대표 확정.
+  FMP 는 1콜이라 넓혀도 호출 수가 안 는다
+- 해외 원주(`.`·공백 포함 심볼) 제외 · 6시간 캐시 · 키 없으면 빈 배열(화면이 섹션을 안 그림)
+- 시간(amc/bmo)이 비면 **«시간 미정»** 으로 두고 추정하지 않는다
+
+### cmd 외화 EPS 버그 수정 `/api/live/earnings`
+Finnhub 가 ADR 요청에도 해외 원주를 섞어 준다(TSM→2330.TW, ASML→ASML.AS, NVO→"NOVO B.CO").
+그 EPS 는 TWD/EUR 인데 화면은 `$` 를 붙여 그렸다.
+**실측**: TSM 예상 EPS `$28.96`(ADR 기준 약 $2.5) · ASML `$10.62` · NVDA `$2.47`(정상)
+→ 요청 심볼과 다른 행을 버리고, `debug.droppedForeign` 으로 몇 건을 걸렀는지 응답에 싣는다
+(«에러 없이 틀린 값» 은 진단을 실어야 잡힌다).
