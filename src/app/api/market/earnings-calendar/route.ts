@@ -22,7 +22,9 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const CACHE_KEY = 'market:earnings-calendar:v1';
+// 응답 모양이 바뀌면(hour·quarter·year 추가) 키를 올린다 — 옛 페이로드가 200 OK 로 나간다.
+// 이 라우트엔 last_good 폴백이 없으므로 키를 올려도 휴장에 화면이 비지 않는다.
+const CACHE_KEY = 'market:earnings-calendar:v2';
 const TTL = 60 * 60 * 6;          // 6h — 발표일은 자주 안 바뀐다
 
 /* 인텔 10섹터 구성종목 — app-view/intel 과 히트맵이 쓰는 것과 같은 목록 */
@@ -72,14 +74,24 @@ export async function GET() {
     to.setDate(to.getDate() + 120);                 // 4개월
     const fmt = (d: Date) => d.toISOString().split('T')[0];
 
-    const res = await fetch(
+    // ★ stable 엔드포인트는 발표 시각(time)과 분기(fiscalDateEnding)를 주지 않는다 —
+    //   실측(프리뷰): 34행 전부 hour:'' 로 나와 화면이 «시간 미정» 만 그렸다.
+    //   v3 는 time:'bmo'|'amc' 와 fiscalDateEnding 을 준다. v3 를 먼저 쓰고 실패하면 stable.
+    const urls = [
+      `https://financialmodelingprep.com/api/v3/earning_calendar?from=${fmt(today)}&to=${fmt(to)}&apikey=${key}`,
       `https://financialmodelingprep.com/stable/earnings-calendar?from=${fmt(today)}&to=${fmt(to)}&apikey=${key}`,
-      { signal: AbortSignal.timeout(15000), cache: 'no-store' },
-    );
-    if (!res.ok) return NextResponse.json({ ok: true, rows: [], reason: `fmp-${res.status}` });
-
-    const raw = await res.json();
-    if (!Array.isArray(raw)) return NextResponse.json({ ok: true, rows: [], reason: 'fmp-shape' });
+    ];
+    let raw: any = null;
+    let usedUrl = '';
+    for (const u of urls) {
+      try {
+        const r = await fetch(u, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+        if (!r.ok) continue;
+        const j = await r.json();
+        if (Array.isArray(j) && j.length) { raw = j; usedUrl = u.includes('/v3/') ? 'v3' : 'stable'; break; }
+      } catch { /* 다음 후보로 */ }
+    }
+    if (!Array.isArray(raw)) return NextResponse.json({ ok: true, rows: [], reason: 'fmp-empty' });
 
     const u = universe();
     const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -96,14 +108,25 @@ export async function GET() {
       const k = `${ticker}|${date}`;
       if (seen.has(k)) continue;
       seen.add(k);
+      // 시각: v3 는 'bmo'/'amc', 간혹 'before market open' 같은 문장으로도 온다
+      const rawTime = String(r?.time ?? r?.hour ?? '').toLowerCase().trim();
+      const hour = /amc|after/.test(rawTime) ? 'amc' : /bmo|before/.test(rawTime) ? 'bmo' : '';
+      // 분기·연도: v3 는 fiscalDateEnding(YYYY-MM-DD) 으로 온다
+      const fde = String(r?.fiscalDateEnding ?? '').slice(0, 10);
+      let quarter = num(r?.quarter);
+      let year = num(r?.year);
+      if (quarter == null && /^\d{4}-\d{2}-\d{2}$/.test(fde)) {
+        quarter = Math.floor((Number(fde.slice(5, 7)) - 1) / 3) + 1;
+        year = Number(fde.slice(0, 4));
+      }
       rows.push({
         ticker,
         date,
-        hour: typeof r?.time === 'string' && /^(amc|bmo)$/i.test(r.time) ? r.time.toLowerCase() : '',
+        hour,
         epsEstimate: num(r?.epsEstimated ?? r?.epsEstimate),
         revenueEstimate: num(r?.revenueEstimated ?? r?.revenueEstimate),
-        quarter: num(r?.quarter),
-        year: num(r?.year),
+        quarter,
+        year,
       });
     }
     rows.sort((a, b) => (a.date === b.date ? a.ticker.localeCompare(b.ticker) : a.date.localeCompare(b.date)));
@@ -112,7 +135,7 @@ export async function GET() {
       ok: true,
       rows,
       universe: u.size,
-      source: 'FMP stable/earnings-calendar',
+      source: `FMP ${usedUrl} earnings-calendar`,
       from: fmt(today),
       to: fmt(to),
       generatedAt: new Date().toISOString(),
