@@ -820,7 +820,7 @@ export default function AppDashPage() {
       social: '14.2K unlocked today',
       teaserUnit: '1 of 4',
       signals: {
-        instFlow: { label: 'New Institutional Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
+        instFlow: { label: 'New Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
         gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
         rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
         breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
@@ -852,7 +852,7 @@ export default function AppDashPage() {
     social: '14.2K unlocked today',
     teaserUnit: '1 of 4',
     signals: {
-      instFlow: { label: 'New Institutional Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
+      instFlow: { label: 'New Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
       gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
       rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
       breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },

@@ -24,10 +24,10 @@ import s from './heatmap.module.css';
    (같은 섹터가 인텔과 히트맵에서 다른 모양이면 안 된다). */
 const SECTORS = [
   { key: 'siliconCore',   color: '#10b981', ko: '반도체',       en: 'Semis',           ja: '半導体' },
-  { key: 'powerMatrix',   color: '#f59e0b', ko: '전력·에너지',  en: 'Power & Energy',  ja: '電力・エネルギー' },
+  { key: 'powerMatrix',   color: '#f59e0b', ko: '전력·에너지',  en: 'Power',          ja: '電力・エネルギー' },
   { key: 'physicalAI',    color: '#ef4444', ko: '로봇·AI',      en: 'Robotics & AI',   ja: 'ロボット・AI' },
   { key: 'bioPulse',      color: '#ec4899', ko: '바이오',       en: 'Biotech',         ja: 'バイオ' },
-  { key: 'orbitDefense',  color: '#3b82f6', ko: '방산·우주',    en: 'Space & Defense', ja: '防衛・宇宙' },
+  { key: 'orbitDefense',  color: '#3b82f6', ko: '방산·우주',    en: 'Defense',        ja: '防衛・宇宙' },
   { key: 'cyberShield',   color: '#8b5cf6', ko: '사이버보안',   en: 'Cybersecurity',   ja: 'サイバー' },
   { key: 'm7',            color: '#22d3ee', ko: 'M7 테크',      en: 'M7 Tech',         ja: 'M7テック' },
   { key: 'fintechPulse',  color: '#f43f5e', ko: '핀테크',       en: 'Fintech',         ja: 'フィンテック' },
