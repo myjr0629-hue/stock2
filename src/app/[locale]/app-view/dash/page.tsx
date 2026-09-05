@@ -430,11 +430,22 @@ function sectorLabel(name: string, locale: string) {
   return locale === 'ko' ? m.ko : locale === 'ja' ? m.ja : m.en;
 }
 
+/* 시안(e9)의 섹터 색 — 아이콘 칩에만 쓴다.
+   셀 배경은 heatBg 가 등락으로 칠하므로 색을 두 번 쓰지 않는다. */
+const SECTOR_COLOR: Record<string, string> = {
+  Tech: '#22d3ee', Industrials: '#34d399', Utilities: '#a3e635', Materials: '#94a3b8',
+  Finance: '#60a5fa', Energy: '#fb923c', Healthcare: '#f472b6', 'Cons. Disc': '#c084fc',
+};
+
 function getSectorIcon(name: string) {
   const d = SECTOR_ICON[name];
   if (!d) return null;
   return (
-    <span className={s.sectorIcon} aria-hidden="true">
+    <span
+      className={s.sectorIcon}
+      aria-hidden="true"
+      style={{ color: SECTOR_COLOR[name] || '#94a3b8' }}
+    >
       <svg viewBox="0 0 24 24" stroke="currentColor" dangerouslySetInnerHTML={{ __html: d }} />
     </span>
   );
@@ -1821,7 +1832,24 @@ export default function AppDashPage() {
         </div>
       )}
 
-      <div className={s.regimeStrip}>
+      <div className={s.regimeStrip} data-verdict={!regimeReady ? 'mix' : riskScore >= 58 ? 'on' : riskScore <= 42 ? 'off' : 'mix'}>
+        {/* 9차: 판정을 «글자» 말고 그림으로도 읽히게. 두 장을 따로 두고 진 쪽을 빼는
+            방식이다 — 한 장짜리를 어둡게 죽이면 «어두운 짐승»이 남아 뿔이 튀어나온다.
+            width/height 를 박아 둔다: 높이가 0 이면 lazy 가 안 풀려 영영 안 뜬 적이 있다. */}
+        {regimeReady && (
+          <>
+            <img
+              className={`${s.regimeBeast} ${s.regimeBull}`}
+              src="/dash/bull.webp" alt="" aria-hidden="true"
+              width={264} height={237} decoding="async"
+            />
+            <img
+              className={`${s.regimeBeast} ${s.regimeBear}`}
+              src="/dash/bear.webp" alt="" aria-hidden="true"
+              width={264} height={280} decoding="async"
+            />
+          </>
+        )}
         <div className={s.regimePrimary}>
           <span className={s.regimeKicker}>{copy.regime}</span>
           <strong className={!regimeReady ? s.regimeNeutral : riskScore >= 58 ? s.regimePositive : riskScore <= 42 ? s.regimeNegative : s.regimeNeutral}>
@@ -2061,8 +2089,10 @@ export default function AppDashPage() {
                     borderColor: heatBorder(displayPct),
                   }}
                 >
-                  {getSectorIcon(sec.name)}
-                  <span className={s.sectorName}>{sectorLabel(sec.name, locale)}</span>
+                  <span className={s.sectorTop}>
+                    {getSectorIcon(sec.name)}
+                    <span className={s.sectorName}>{sectorLabel(sec.name, locale)}</span>
+                  </span>
                   <span className={`${s.sectorPct} ${displayPct >= 0 ? s.sectorPctUp : s.sectorPctDown}`}>
                     {displayPct >= 0 ? '+' : ''}{displayPct.toFixed(1)}%
                   </span>
@@ -2329,25 +2359,21 @@ export default function AppDashPage() {
           ))}
         </div>
       ) : (
-        <div className={s.moversScroll} style={{ padding: '0 var(--s4)' }}>
-          {movers.map((mv) => {
+        <div className={s.card}>
+          {movers.map((mv, mi) => {
             const wsData = wsGetPrice(mv.sym);
             const useWs = shouldUseWsQuote(mv.sym, wsData);
-
-            // Overlay price & change if available
             const displayPx = useWs ? wsData.price.toFixed(2) : mv.px;
             const displayChg = useWs
               ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
               : mv.chg;
             const isUp = displayChg.startsWith('+');
-
-            // Flash animation class
             const flashClass = useWs ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
 
             return (
               <div
                 key={mv.sym}
-                className={`${s.moverCard} ${flashClass}`}
+                className={`${s.moverRow} ${flashClass}`}
                 onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -2359,19 +2385,19 @@ export default function AppDashPage() {
                 tabIndex={0}
                 aria-label={`${mv.sym} command`}
               >
-                <div className={s.moverTop}>
-                  <span className={s.moverSym}>{getSymBadge(mv.sym) || getTickerLogo(mv.sym)} {mv.sym}</span>
-                  <span className={isUp ? s.moverChgUp : s.moverChgDown}>
-                    {displayChg}
+                <span className={s.moverRank}>{mi + 1}</span>
+                {getSymBadge(mv.sym) || <AppTickerLogo symbol={mv.sym} size={18} />}
+                <b className={s.moverTicker}>{mv.sym}</b>
+                {/* 실측 곡선이 있을 때만 그린다. 없으면 자리도 안 잡는다. */}
+                {mv.spark.length >= 2 ? (
+                  <span className={s.moverSparkCell}>
+                    <Sparkline data={mv.spark} up={isUp} height={20} fill />
                   </span>
-                </div>
-                <span className={s.moverPrice}>${displayPx}</span>
-                {/* 실측 스파크라인이 있을 때만 자리를 잡는다. 빈 박스도 남기지 않는다. */}
-                {mv.spark.length >= 2 && (
-                  <div className={s.moverSpark}>
-                    <Sparkline data={mv.spark} up={isUp} height={28} fill />
-                  </div>
+                ) : (
+                  <span className={s.moverSparkCell} />
                 )}
+                <b className={isUp ? s.moverChgUp : s.moverChgDown}>{displayChg}</b>
+                <span className={s.moverPx}>${displayPx}</span>
               </div>
             );
           })}
