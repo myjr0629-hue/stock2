@@ -65,6 +65,30 @@ interface MoverItem {
   spark: number[];
 }
 
+/* ── 9차: 오늘의 발견 / 괴리 시그널 ──────────────────────────────
+   둘 다 /api/undercurrent/feed 한 콜에서 나온다(실측 0.67s · 16KB · 카드 12).
+   발견 = money.darkPoolStealth(0~100) + darkPoolRegime
+   괴리 = divergence:true 인 카드 (뉴스 방향과 돈 방향이 어긋난 것)
+   ★ 값이 없는 카드는 «빼고», 지어내지 않는다. */
+interface UcMoney {
+  darkPoolStealth?: number | null;
+  darkPoolRegime?: string | null;
+  darkPoolPct?: number | null;
+  darkPoolMarketAvg?: number | null;
+  darkPoolDate?: string | null;
+}
+interface UcCard {
+  ticker: string;
+  tag?: string;
+  plainTitle?: string;
+  moneyRead?: string;
+  moneyMood?: string;
+  divergence?: boolean;
+  hasMoneyData?: boolean;
+  money?: UcMoney | null;
+  source?: string;
+}
+
 const DEMO_INDICES: PulseItem[] = [
   { sym: 'DOW', px: 39127.14, chg: 0.18, up: true, spark: [5, 6, 5, 7, 6, 8, 7, 8, 9] },
   { sym: 'NASDAQ', px: 17862.64, chg: 0.35, up: true, spark: [4, 5, 6, 5, 7, 8, 7, 9, 10] },
@@ -551,6 +575,11 @@ export default function AppDashPage() {
   /* 9차: 선물·현물·ETF 3줄(9카드)이 첫 화면을 다 먹었다. 탭으로 한 줄만 보인다.
      ★ 각 줄의 로직(WS 오버레이·플래시·세션 판정)은 손대지 않고 «표시 여부»만 감싼다. */
   const [pulseTab, setPulseTab] = useState<'futures' | 'cash' | 'etf'>('futures');
+
+  /* 9차 신규 — 오늘의 발견 · 괴리 시그널 (둘 다 UC 피드 한 콜) */
+  const [ucCards, setUcCards] = useState<UcCard[]>([]);
+  const [ucReady, setUcReady] = useState(false);
+  const [ucMeta, setUcMeta] = useState<{ marketAvg: number | null; date: string | null }>({ marketAvg: null, date: null });
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
   const [sectorsReady, setSectorsReady] = useState(false);
   const [briefingReady, setBriefingReady] = useState(false);
@@ -1253,7 +1282,7 @@ export default function AppDashPage() {
 
     async function fetchAll() {
       try {
-        const [, macroRes, briefingRes, quotesRes, premiumRes, indexRes, newsRes] = await Promise.allSettled([
+        const [, macroRes, briefingRes, quotesRes, premiumRes, indexRes, newsRes, ucRes] = await Promise.allSettled([
           fetch('/api/live/market'),
           fetch('/api/market/macro'),
           fetch(`/api/guardian/briefing?locale=${locale}`),
@@ -1261,6 +1290,8 @@ export default function AppDashPage() {
           fetch(`/api/live/premium-metrics?locale=${locale}`),
           fetch('/api/market/index-close', { cache: 'no-store' }),
           fetch(`/api/guardian/news-digest?locale=${locale}`),
+          // 9차: 발견 + 괴리를 한 콜로. SWR 이라 보통 stale hit 으로 즉시 온다.
+          fetch(`/api/undercurrent/feed?locale=${locale}`),
         ]);
 
         if (cancelled) return;
@@ -1644,6 +1675,26 @@ export default function AppDashPage() {
             // silent fail
           }
         }
+
+        // ── 9차: 오늘의 발견 + 괴리 시그널 (UC 피드 한 콜) ──────────────
+        if (ucRes && ucRes.status === 'fulfilled' && ucRes.value.ok) {
+          try {
+            const uc = await ucRes.value.json();
+            const cards: UcCard[] = Array.isArray(uc?.cards) ? uc.cards : [];
+            if (cards.length) {
+              setUcCards(cards);
+              setUcReady(true);
+              // 시장 평균·기준일은 카드 안에 실려 온다 — 없으면 «없는 채로» 둔다.
+              const withMoney = cards.find((c) => c.money?.darkPoolMarketAvg != null);
+              setUcMeta({
+                marketAvg: withMoney?.money?.darkPoolMarketAvg ?? null,
+                date: withMoney?.money?.darkPoolDate ?? null,
+              });
+            }
+          } catch {
+            // silent fail — 섹션 자체가 안 그려진다(빈 껍데기를 남기지 않는다)
+          }
+        }
       } catch {
         // silently fall back to demo data
       } finally {
@@ -1670,6 +1721,26 @@ export default function AppDashPage() {
     }, 5000);
     return () => clearInterval(timer);
   }, [newsItems.length]);
+
+  /* ── 9차 파생 ─────────────────────────────────────────────────
+     발견: stealth 값이 있는 카드만, 높은 순. 12개라 정렬 비용은 무시할 수준.
+     괴리: divergence:true 인 카드만.
+     ★ 둘 다 «값이 없으면 행을 빼는» 규칙. 0 으로 채우지 않는다. */
+  const discoveryRows = ucCards
+    .filter((c) => typeof c.money?.darkPoolStealth === 'number')
+    .sort((a, b) => (b.money!.darkPoolStealth as number) - (a.money!.darkPoolStealth as number))
+    .slice(0, 5);
+  const divergenceRows = ucCards.filter((c) => c.divergence).slice(0, 6);
+  const regimeLabel = (r?: string | null) => {
+    const k = (r || '').toUpperCase();
+    if (k === 'ACCUMULATION') return locale === 'ko' ? '축적' : locale === 'ja' ? '蓄積' : 'ACCUM';
+    if (k === 'DISTRIBUTION') return locale === 'ko' ? '분산' : locale === 'ja' ? '分散' : 'DISTR';
+    return locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'NEUT';
+  };
+  const regimeClass = (r?: string | null) => {
+    const k = (r || '').toUpperCase();
+    return k === 'ACCUMULATION' ? s.discAcc : k === 'DISTRIBUTION' ? s.discDis : s.discNeu;
+  };
 
   /* ── Render ── */
   return (
@@ -1884,7 +1955,7 @@ export default function AppDashPage() {
                 // Flash animation class
                 const flashClass = useWs ? (flashStates[p.sym] === 'up' ? s.flashUp : flashStates[p.sym] === 'down' ? s.flashDown : '') : '';
 
-                return (
+  return (
                   <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
                     <div className={s.pulseCardSymRow}>
                       {getSymBadge(p.sym)}
@@ -1952,101 +2023,6 @@ export default function AppDashPage() {
           </button>
         )}
       </div>
-
-      {/* ══════════════ TOP MOVERS (Moved for better flow) ══════════════ */}
-      <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
-        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
-          <div className={s.sectionBar} />
-          <span className={s.sectionTitle}>TOP MOVERS</span>
-          
-          {/* Pill Toggle Switch */}
-          <div className={s.moversToggle}>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'value' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('value')}
-            >
-              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代金' : 'Value'}
-            </button>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'gainers' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('gainers')}
-            >
-              {locale === 'ko' ? '상승률' : locale === 'ja' ? '上昇' : 'Gainers'}
-            </button>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'losers' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('losers')}
-            >
-              {locale === 'ko' ? '하락률' : locale === 'ja' ? '下落' : 'Losers'}
-            </button>
-          </div>
-        </div>
-        <span
-          className={s.sectionAction}
-          role="button"
-          tabIndex={0}
-          onClick={() => router.push('/app-view/movers')}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}
-          style={{ cursor: 'pointer' }}
-        >
-          VIEW ALL &gt;
-        </span>
-      </div>
-      {loading || moversLoading ? (
-        <div className={s.skelMovers} style={{ padding: '0 var(--s4)' }}>
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={s.skelMoverCard} />
-          ))}
-        </div>
-      ) : (
-        <div className={s.moversScroll} style={{ padding: '0 var(--s4)' }}>
-          {movers.map((mv) => {
-            const wsData = wsGetPrice(mv.sym);
-            const useWs = shouldUseWsQuote(mv.sym, wsData);
-
-            // Overlay price & change if available
-            const displayPx = useWs ? wsData.price.toFixed(2) : mv.px;
-            const displayChg = useWs
-              ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
-              : mv.chg;
-            const isUp = displayChg.startsWith('+');
-
-            // Flash animation class
-            const flashClass = useWs ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
-
-            return (
-              <div
-                key={mv.sym}
-                className={`${s.moverCard} ${flashClass}`}
-                onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    router.push(`/app-view/cmd?t=${mv.sym}`);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label={`${mv.sym} command`}
-              >
-                <div className={s.moverTop}>
-                  <span className={s.moverSym}>{getSymBadge(mv.sym) || getTickerLogo(mv.sym)} {mv.sym}</span>
-                  <span className={isUp ? s.moverChgUp : s.moverChgDown}>
-                    {displayChg}
-                  </span>
-                </div>
-                <span className={s.moverPrice}>${displayPx}</span>
-                {/* 실측 스파크라인이 있을 때만 자리를 잡는다. 빈 박스도 남기지 않는다. */}
-                {mv.spark.length >= 2 && (
-                  <div className={s.moverSpark}>
-                    <Sparkline data={mv.spark} up={isUp} height={28} fill />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {/* ══════════════ SECTOR HEATMAP ══════════════ */}
       <div className={s.card}>
@@ -2230,6 +2206,224 @@ export default function AppDashPage() {
         </div>
       )}
 
+      {/* ══════════════ 오늘의 발견 (9차 신규) ══════════════
+          /api/undercurrent/feed 의 money.darkPoolStealth 로 세운다.
+          «장외 물량은 늘었는데 그 물량 중 공매도 비중은 줄었다» = 조용한 매집.
+          값이 없는 종목은 아예 빼고, 데이터가 하나도 없으면 섹션을 안 그린다. */}
+      {ucReady && discoveryRows.length > 0 && (
+        <>
+          <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
+            <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
+              <div className={s.sectionBar} />
+              <span className={s.sectionTitle}>
+                {locale === 'ko' ? '오늘의 발견' : locale === 'ja' ? '今日の発見' : "TODAY'S FIND"}
+              </span>
+            </div>
+            <span
+              className={s.sectionAction}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push('/app-view/rankings')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/rankings'); } }}
+              style={{ cursor: 'pointer' }}
+            >
+              {locale === 'ko' ? '랭킹 11종' : locale === 'ja' ? 'ランキング11種' : 'ALL 11 RANKINGS'} &gt;
+            </span>
+          </div>
+          <div className={s.card}>
+            <div className={s.discHead}>
+              <span className={s.discTag}>DARK POOL</span>
+              <span className={s.discName}>
+                {locale === 'ko' ? '은밀 축적·분산' : locale === 'ja' ? '隠れた蓄積・分散' : 'Stealth accumulation'}
+              </span>
+              {ucMeta.date && <span className={s.discDate}>{ucMeta.date}</span>}
+            </div>
+            <div className={s.discWhat}>
+              {locale === 'ko'
+                ? '장외 물량은 늘었는데, 그 물량 중 공매도 비중은 줄었다.'
+                : locale === 'ja'
+                ? '場外の出来高は増えたが、そのうち空売り比率は下がった。'
+                : 'Off-exchange volume rose, while the short share of that volume fell.'}
+            </div>
+            <div className={s.discRows}>
+              {discoveryRows.map((c) => {
+                const v = c.money!.darkPoolStealth as number;
+                const med = ucMeta.marketAvg;
+                return (
+                  <div
+                    key={c.ticker}
+                    className={`${s.discRow} ${regimeClass(c.money?.darkPoolRegime)}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}
+                  >
+                    <AppTickerLogo symbol={c.ticker} size={18} />
+                    <b className={s.discTicker}>{c.ticker}</b>
+                    <span className={s.discTrack}>
+                      <i className={s.discFill} style={{ width: `${Math.max(0, Math.min(100, v))}%` }} />
+                      {/* 시장 중앙값 눈금 — 값이 있을 때만 그린다 */}
+                      {med != null && <i className={s.discMed} style={{ left: `${Math.max(0, Math.min(100, med))}%` }} />}
+                    </span>
+                    <b className={s.discVal}>{v}</b>
+                    <em className={s.discReg}>{regimeLabel(c.money?.darkPoolRegime)}</em>
+                  </div>
+                );
+              })}
+            </div>
+            {ucMeta.marketAvg != null && (
+              <div className={s.discFoot}>
+                {locale === 'ko' ? '시장 평균' : locale === 'ja' ? '市場平均' : 'Market avg'} {ucMeta.marketAvg}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ══════════════ TOP MOVERS (Moved for better flow) ══════════════ */}
+      <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
+        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
+          <div className={s.sectionBar} />
+          <span className={s.sectionTitle}>TOP MOVERS</span>
+          
+          {/* Pill Toggle Switch */}
+          <div className={s.moversToggle}>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'value' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('value')}
+            >
+              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代金' : 'Value'}
+            </button>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'gainers' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('gainers')}
+            >
+              {locale === 'ko' ? '상승률' : locale === 'ja' ? '上昇' : 'Gainers'}
+            </button>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'losers' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('losers')}
+            >
+              {locale === 'ko' ? '하락률' : locale === 'ja' ? '下落' : 'Losers'}
+            </button>
+          </div>
+        </div>
+        <span
+          className={s.sectionAction}
+          role="button"
+          tabIndex={0}
+          onClick={() => router.push('/app-view/movers')}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}
+          style={{ cursor: 'pointer' }}
+        >
+          VIEW ALL &gt;
+        </span>
+      </div>
+      {loading || moversLoading ? (
+        <div className={s.skelMovers} style={{ padding: '0 var(--s4)' }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className={s.skelMoverCard} />
+          ))}
+        </div>
+      ) : (
+        <div className={s.moversScroll} style={{ padding: '0 var(--s4)' }}>
+          {movers.map((mv) => {
+            const wsData = wsGetPrice(mv.sym);
+            const useWs = shouldUseWsQuote(mv.sym, wsData);
+
+            // Overlay price & change if available
+            const displayPx = useWs ? wsData.price.toFixed(2) : mv.px;
+            const displayChg = useWs
+              ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
+              : mv.chg;
+            const isUp = displayChg.startsWith('+');
+
+            // Flash animation class
+            const flashClass = useWs ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
+
+            return (
+              <div
+                key={mv.sym}
+                className={`${s.moverCard} ${flashClass}`}
+                onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    router.push(`/app-view/cmd?t=${mv.sym}`);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`${mv.sym} command`}
+              >
+                <div className={s.moverTop}>
+                  <span className={s.moverSym}>{getSymBadge(mv.sym) || getTickerLogo(mv.sym)} {mv.sym}</span>
+                  <span className={isUp ? s.moverChgUp : s.moverChgDown}>
+                    {displayChg}
+                  </span>
+                </div>
+                <span className={s.moverPrice}>${displayPx}</span>
+                {/* 실측 스파크라인이 있을 때만 자리를 잡는다. 빈 박스도 남기지 않는다. */}
+                {mv.spark.length >= 2 && (
+                  <div className={s.moverSpark}>
+                    <Sparkline data={mv.spark} up={isUp} height={28} fill />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ══════════════ 괴리 시그널 (9차 신규) ══════════════
+          같은 UC 피드에서 divergence:true 인 카드만.
+          «뉴스가 가리키는 방향»과 «돈이 간 방향»이 어긋난 자리다. */}
+      {ucReady && divergenceRows.length > 0 && (
+        <>
+          <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
+            <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
+              <div className={s.sectionBar} />
+              <span className={s.sectionTitle}>
+                {locale === 'ko' ? '괴리 시그널' : locale === 'ja' ? '乖離シグナル' : 'DIVERGENCE'}
+              </span>
+              <span className={s.divCount}>{divergenceRows.length}</span>
+            </div>
+          </div>
+          <div className={s.divSub}>
+            {locale === 'ko'
+              ? '뉴스와 돈이 반대로 움직이는 곳'
+              : locale === 'ja'
+              ? 'ニュースとカネが逆を向く場所'
+              : 'Where the news and the money disagree'}
+          </div>
+          <div className={s.divScroll}>
+            {divergenceRows.map((c) => (
+              <div
+                key={c.ticker}
+                className={s.divCard}
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}
+              >
+                <div className={s.divTop}>
+                  <AppTickerLogo symbol={c.ticker} size={16} />
+                  <span className={s.divTicker}>{c.ticker}</span>
+                  {c.tag && <span className={s.divTag}>{c.tag}</span>}
+                </div>
+                {c.plainTitle && <div className={s.divTitle}>{c.plainTitle}</div>}
+                {c.moneyRead && (
+                  <div className={`${s.divMoney} ${c.moneyMood === 'cautious' ? s.divMoneyDown : s.divMoneyUp}`}>
+                    {c.moneyRead}
+                  </div>
+                )}
+                {c.source && <div className={s.divSrc}>{c.source}</div>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* ══════════════ INSTITUTIONAL PULSE (PREMIUM) ══════════════ */}
         <ValueWall
           locale={locale}
@@ -2295,6 +2489,62 @@ export default function AppDashPage() {
         </ValueWall>
 
 
+
+      {/* ══════════════ 빠른 진입 (9차 신규) ══════════════
+          나가는 문이므로 맨 아래. 목적지는 실재하는 곳만 건다.
+          다크풀·이상 옵션은 랭킹의 해당 탭으로 — 랭킹 11종이 장중 5종(이상 옵션 성격)과
+          장 마감 후 3종(다크풀 성격)을 이미 담고 있어 별도 페이지가 필요 없다. */}
+      <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
+        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
+          <div className={s.sectionBar} />
+          <span className={s.sectionTitle}>
+            {locale === 'ko' ? '빠른 진입' : locale === 'ja' ? 'クイックアクセス' : 'QUICK ACCESS'}
+          </span>
+        </div>
+      </div>
+      <div className={s.card}>
+        {([
+          {
+            key: 'darkpool',
+            c: '#a78bfa',
+            to: '/app-view/rankings?tab=postclose',
+            label: locale === 'ko' ? '다크풀 흐름' : locale === 'ja' ? 'ダークプールの流れ' : 'Dark Pool Flow',
+            ico: <path d="M3 8.5c3-2.6 6-2.6 9 0s6 2.6 9 0M3 14c3-2.6 6-2.6 9 0s6 2.6 9 0M3 19.5c3-2.6 6-2.6 9 0s6 2.6 9 0" />,
+          },
+          {
+            key: 'unusual',
+            c: '#22d3ee',
+            to: '/app-view/rankings?tab=intraday',
+            label: locale === 'ko' ? '이상 옵션 플로우' : locale === 'ja' ? '異常オプションフロー' : 'Unusual Options Flow',
+            ico: <><circle cx="7.6" cy="15" r="4.2" /><circle cx="16.4" cy="15" r="4.2" /><path d="M7.6 10.8V5.4l3-2M16.4 10.8V5.4l-3-2M11.2 15h1.6" /></>,
+          },
+          {
+            key: 'earnings',
+            c: '#fbbf24',
+            to: '/app-view/earnings',
+            label: locale === 'ko' ? '실적 캘린더' : locale === 'ja' ? '決算カレンダー' : 'Earnings Calendar',
+            ico: <><rect x="3.2" y="5" width="17.6" height="15.8" rx="2.4" /><path d="M3.2 10h17.6M8 3v4M16 3v4" /><circle cx="9" cy="14.4" r="1.1" /><circle cx="15" cy="14.4" r="1.1" /></>,
+          },
+        ]).map((q) => (
+          <div
+            key={q.key}
+            className={s.quickRow}
+            style={{ ['--c' as string]: q.c }}
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push(q.to)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(q.to); } }}
+          >
+            <span className={s.quickIcon}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                {q.ico}
+              </svg>
+            </span>
+            <span className={s.quickLabel}>{q.label}</span>
+            <span className={s.quickChev}>&#8250;</span>
+          </div>
+        ))}
+      </div>
 
       {/* ══════════════ AD BANNER ══════════════ */}
       <AdBanner />

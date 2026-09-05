@@ -375,6 +375,261 @@
 }
 
 /* 9차: 「전체 ›」(목적지 없음) 대신 그 자리에서 펼친다 */
+/* ══ 9차 신규: 오늘의 발견 ══════════════════════════════════════
+   한 줄 행 — [로고] 티커 ──막대── 값 상태.
+   회사명 둘째 줄을 두지 않는다(로고가 그 역할). 수치와 상태도 한 줄. */
+.discHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.discTag {
+  flex: 0 0 auto;
+  font: 800 7.5px/1 var(--f-sans);
+  letter-spacing: 0.1em;
+  color: #04222a;
+  background: var(--cyan);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+.discName {
+  font: 800 12.5px/1.2 var(--f-sans);
+  letter-spacing: -0.025em;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discDate {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font: 600 8.5px/1 var(--f-sans);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.discWhat {
+  font: 400 10px/1.38 var(--f-sans);
+  color: rgba(159, 180, 208, 0.95);
+  margin-top: 5px;
+}
+.discRows {
+  display: flex;
+  flex-direction: column;
+  margin-top: 7px;
+}
+.discRow {
+  --c: #7f97ba;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  position: relative;
+  cursor: pointer;
+}
+.discRow + .discRow::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.discRow:active { transform: scale(0.99); }
+.discAcc { --c: #22d3ee; }
+.discDis { --c: #fbbf24; }
+.discNeu { --c: #7f97ba; }
+.discTicker {
+  flex: 0 0 46px;
+  font: 800 12px/1 var(--f-sans);
+  letter-spacing: -0.015em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discTrack {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.discFill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 34%, transparent), var(--c));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c) 40%, transparent);
+}
+.discMed {
+  position: absolute;
+  top: -3px; bottom: -3px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.42);
+}
+.discVal {
+  flex: 0 0 22px;
+  text-align: right;
+  font: 800 13px/1 var(--f-sans);
+  letter-spacing: -0.03em;
+  color: var(--c);
+  font-variant-numeric: tabular-nums;
+}
+.discReg {
+  flex: 0 0 42px;
+  text-align: right;
+  font: 800 8px/1 var(--f-sans);
+  font-style: normal;
+  letter-spacing: 0.03em;
+  color: var(--c);
+  opacity: 0.88;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discFoot {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font: 600 8.5px/1.3 var(--f-sans);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ══ 9차 신규: 빠른 진입 ════════════════════════════════════════
+   3칸 타일이면 «다크풀/흐름» 처럼 강제 개행돼 어느 언어에서도 깨진다.
+   전폭 1줄 행으로 두면 en/ja 의 긴 이름도 한 줄에 들어간다. */
+.quickRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 2px;
+  position: relative;
+  cursor: pointer;
+}
+.quickRow + .quickRow::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.055);
+}
+.quickRow:active { transform: scale(0.99); }
+.quickIcon {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 20%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 44%, transparent);
+}
+.quickIcon svg { width: 14px; height: 14px; }
+.quickLabel {
+  flex: 1;
+  min-width: 0;
+  font: 700 11.5px/1.3 var(--f-sans);
+  letter-spacing: -0.015em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quickChev {
+  flex: 0 0 auto;
+  color: #5e769a;
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* ══ 9차 신규: 괴리 시그널 ══════════════════════════════════════ */
+.divCount {
+  margin-left: 7px;
+  font: 800 9px/1 var(--f-sans);
+  color: #04222a;
+  background: #fbbf24;
+  border-radius: var(--r-pill);
+  padding: 2px 7px;
+  font-variant-numeric: tabular-nums;
+}
+.divSub {
+  padding: 0 var(--s4) 7px;
+  font: 400 9.5px/1.4 var(--f-sans);
+  color: var(--text-muted);
+}
+.divScroll {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  padding: 0 var(--s4) 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.divScroll::-webkit-scrollbar { display: none; }
+.divCard {
+  flex: 0 0 214px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  padding: 11px 12px 12px;
+  cursor: pointer;
+  background:
+    radial-gradient(88% 130% at 12% 0%, rgba(251, 191, 36, 0.14) 0%, transparent 62%),
+    linear-gradient(160deg, rgba(21, 31, 50, 0.96), rgba(11, 18, 31, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+.divCard:active { transform: scale(0.99); }
+.divTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.divTicker {
+  flex: 0 0 auto;
+  font: 800 12.5px/1 var(--f-sans);
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.divTag {
+  min-width: 0;
+  font: 800 7.5px/1.25 var(--f-sans);
+  color: #0b1220;
+  background: rgba(226, 240, 255, 0.9);
+  border-radius: 4px;
+  padding: 3px 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.divTitle {
+  font: 700 10.5px/1.4 var(--f-sans);
+  color: #d5e2f2;
+  margin-top: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.divMoney {
+  font: 400 9.5px/1.4 var(--f-sans);
+  margin-top: 7px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.divMoneyUp { color: #34d399; }
+.divMoneyDown { color: #f87171; }
+.divSrc {
+  font: 400 8px/1.3 var(--f-sans);
+  color: #67809f;
+  margin-top: 6px;
+}
+
 /* 9차: 지수 3줄 → 탭 1줄 */
 .pulseTabs {
   display: flex;
