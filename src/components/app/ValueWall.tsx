@@ -148,45 +148,12 @@ export function useUnlockState() {
   return { unlocked, unlock };
 }
 
-interface TeaserSignal {
-  label: string;
-  value: string;
-}
-
-interface ValueWallProps {
-  locale?: string;
-  title: string;
-  subtitle?: ReactNode;
-  children?: ReactNode;
-  lockedPreview?: ReactNode;
-  teaser?: TeaserSignal;
-  socialProof?: string;
-  onUnlock?: () => void;
-  compact?: boolean;
-  ctaLabel?: string;
-  adFreeLabel?: string;
-  previewChipLabel?: string;
-  legalNote?: ReactNode;
-  inset?: boolean;
-}
-
-export function ValueWall({
-  locale,
-  title,
-  subtitle,
-  children,
-  lockedPreview,
-  teaser,
-  socialProof,
-  onUnlock,
-  compact = false,
-  ctaLabel,
-  previewChipLabel,
-  legalNote,
-  inset = false,
-}: ValueWallProps) {
-  // NOTE: adFreeLabel prop is kept in ValueWallProps for caller compat but no longer
-  // rendered — the paid upgrade is now the proCta button below the free ad CTA.
+/* ── 광고 언락 게이트의 «동작»만 떼어낸 훅 ─────────────────────────────────
+   9차 대시보드 게이트는 시안 레이아웃이 ValueWall 과 근본적으로 다르다
+   (1번 신호는 안 가리고, 2~4번만 셔머 막대). 그래도 결제·광고 흐름은
+   두 벌이 되면 안 되므로 ValueWall 과 «같은 코드»를 쓰게 여기서 내보낸다.
+   ValueWall 자신도 이 훅을 쓴다 — 동작은 한 곳에만 있다.            */
+export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const [showAd, setShowAd] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
@@ -198,10 +165,6 @@ export function ValueWall({
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
   const isUnlocked = unlocked || isPro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
-  const resolvedCtaLabel = ctaLabel || copy.ctaLabel;
-  const resolvedPreviewChipLabel = previewChipLabel || copy.previewChipLabel;
-  const resolvedLegalNote = legalNote || copy.legalNote;
-  const preview = lockedPreview !== undefined ? lockedPreview : children;
 
   const finishUnlock = useCallback(() => {
     unlock();
@@ -272,6 +235,86 @@ export function ValueWall({
     }
   }, [restore, purchasing, onUnlock]);
 
+
+  const copyOut = copy;
+  /* 광고 모달·구독 페이월은 호출부 어디에 있든 같아야 하므로 여기서 만들어 준다. */
+  const portals = (
+    <>
+      {showAd && (
+        <RewardedAdModal
+          copy={copyOut}
+          legalNote={copyOut.legalNote}
+          onClose={() => setShowAd(false)}
+          onReward={finishUnlock}
+          onUpgrade={openPaywall}
+        />
+      )}
+      {IAP_LIVE && paywallOpen && (
+        <ProPaywall
+          locale={resolveValueWallLocale(locale)}
+          onClose={() => setPaywallOpen(false)}
+        />
+      )}
+    </>
+  );
+
+  return {
+    isUnlocked, unlocked, isPro,
+    unlocking, purchasing, proError, proNothing,
+    handleUnlockPress, openPaywall, handleRestore, finishUnlock,
+    copy: copyOut, portals,
+  };
+}
+
+interface TeaserSignal {
+  label: string;
+  value: string;
+}
+
+interface ValueWallProps {
+  locale?: string;
+  title: string;
+  subtitle?: ReactNode;
+  children?: ReactNode;
+  lockedPreview?: ReactNode;
+  teaser?: TeaserSignal;
+  socialProof?: string;
+  onUnlock?: () => void;
+  compact?: boolean;
+  ctaLabel?: string;
+  adFreeLabel?: string;
+  previewChipLabel?: string;
+  legalNote?: ReactNode;
+  inset?: boolean;
+}
+
+export function ValueWall({
+  locale,
+  title,
+  subtitle,
+  children,
+  lockedPreview,
+  teaser,
+  socialProof,
+  onUnlock,
+  compact = false,
+  ctaLabel,
+  previewChipLabel,
+  legalNote,
+  inset = false,
+}: ValueWallProps) {
+  // NOTE: adFreeLabel prop is kept in ValueWallProps for caller compat but no longer
+  // rendered — the paid upgrade is now the proCta button below the free ad CTA.
+  // 동작은 useAdUnlockGate 한 곳에만 있다(9차 대시보드 게이트와 공유).
+  const {
+    isUnlocked, unlocking, purchasing, proError, proNothing,
+    handleUnlockPress, openPaywall, handleRestore, copy, portals,
+  } = useAdUnlockGate(locale, onUnlock);
+  const resolvedCtaLabel = ctaLabel || copy.ctaLabel;
+  const resolvedPreviewChipLabel = previewChipLabel || copy.previewChipLabel;
+  const resolvedLegalNote = legalNote || copy.legalNote;
+  const preview = lockedPreview !== undefined ? lockedPreview : children;
+
   if (isUnlocked) {
     return (
       <div className={`${styles.revealed} ${compact ? styles.revealedCompact : ''} ${inset ? styles.inset : ''}`}>
@@ -338,23 +381,7 @@ export function ValueWall({
         <div className={styles.legalNote}>{resolvedLegalNote}</div>
       </div>
 
-      {showAd && (
-        <RewardedAdModal
-          copy={copy}
-          legalNote={resolvedLegalNote}
-          onClose={() => setShowAd(false)}
-          onReward={finishUnlock}
-          onUpgrade={openPaywall}
-        />
-      )}
-
-      {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지) */}
-      {IAP_LIVE && paywallOpen && (
-        <ProPaywall
-          locale={resolveValueWallLocale(locale)}
-          onClose={() => setPaywallOpen(false)}
-        />
-      )}
+      {portals}
     </div>
   );
 }

@@ -3,12 +3,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
+import { Link } from '@/i18n/routing';
 import { Sparkline } from '@/components/app/Sparkline';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
-import { ValueWall } from '@/components/app/ValueWall';
+import { useAdUnlockGate } from '@/components/app/ValueWall';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
@@ -371,30 +371,6 @@ function getTickerLogo(sym: string) {
   return <AppTickerLogo symbol={sym} size={16} style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }} />;
 }
 
-function getSymBadge(sym: string) {
-  switch (sym) {
-    case 'DOW':
-      return <span className={`${s.symbolBadge} ${s.dow}`}>DJI</span>;
-    case 'NASDAQ':
-      return <span className={`${s.symbolBadge} ${s.nasdaq}`}>NDX</span>;
-    case 'S&P 500':
-      return <span className={`${s.symbolBadge} ${s.sp500}`}>500</span>;
-    case 'SPY':
-      return <span className={`${s.symbolBadge} ${s.spy}`}>500</span>;
-    case 'QQQ':
-      return <span className={`${s.symbolBadge} ${s.qqq}`}>100</span>;
-    case 'VIX':
-      return <span className={`${s.symbolBadge} ${s.vix}`}>C</span>;
-    case 'NASDAQ100 F':
-      return <span className={`${s.symbolBadge} ${s.nasdaq}`}>FUT</span>;
-    case 'Russell2k F':
-      return <span className={`${s.symbolBadge} ${s.dow}`}>FUT</span>;
-    case 'S&P500 F':
-      return <span className={`${s.symbolBadge} ${s.sp500}`}>FUT</span>;
-    default:
-      return null;
-  }
-}
 
 /* ── SPDR 8섹터 아이콘 (9차) ───────────────────────────────────────
    ★ components/intel/mobile/SectorIcon.tsx 는 «인텔 10섹터»(M7·반도체·바이오…)용이라
@@ -444,6 +420,35 @@ const SECTOR_ETF: Record<string, string> = {
   Industrials: 'XLI', Finance: 'XLF', Healthcare: 'XLV', Utilities: 'XLU',
 };
 
+/* 매크로 8종 — 시안 sim9 macroFull 의 ic/c 를 그대로. 옛 s.macroBadgeIcon(색 원)이 아니다. */
+const MACRO_IC: Record<string, { c: string; ic: string; tx?: string }> = {
+  'BTC':    { c: '#f7931a', ic: '', tx: '\u20BF' },
+  'GOLD':   { c: '#fbbf24', ic: '<path d="M3.4 18.4h17.2l-2.2-6H5.6z"/><path d="M7 12.4l1.6-4.8h6.8l1.6 4.8"/>' },
+  'OIL':    { c: '#cbd5e1', ic: '<path d="M12 3.6c3.5 4.5 5.4 6.9 5.4 9.5a5.4 5.4 0 1 1-10.8 0c0-2.6 1.9-5 5.4-9.5z"/>' },
+  'SOX':    { c: '#22d3ee', ic: '<rect x="7.8" y="7.8" width="8.4" height="8.4" rx="1.5"/><path d="M10 3.8v4M14 3.8v4M10 16.2v4M14 16.2v4M3.8 10h4M3.8 14h4M16.2 10h4M16.2 14h4"/>' },
+  'US 10Y': { c: '#a78bfa', ic: '<rect x="4.6" y="3.4" width="14.8" height="17.2" rx="2.2"/><path d="M8.2 8.2h7.6M8.2 12h7.6M8.2 15.8h4.4"/>' },
+  'DXY':    { c: '#34d399', ic: '', tx: '$' },
+  '2S10S':  { c: '#818cf8', ic: '<path d="M3 15.4c4.2 0 6-8 10-8s4.4 5 8 5"/><path d="M3 19.6h18"/>' },
+  'F&G':    { c: '#60a5fa', ic: '<path d="M4.4 17.4a7.6 7.6 0 1 1 15.2 0"/><path d="M12 17.4l4.2-5.4"/><circle cx="12" cy="17.4" r="1.2"/>' },
+};
+
+/* 지수 뱃지 — 시안 idxCard 의 {code, full, bg, fg}. 선물 3종은 시안 값 그대로,
+   현물·ETF 3종씩은 같은 규칙으로 이어 붙였다(코드 3자 이내 · 지수색). */
+/* 게이트 4신호 색 — 시안 signals[].c */
+const GATE_SIG_C = ['#22d3ee', '#a78bfa', '#fbbf24', '#34d399'];
+
+const IX_BADGE: Record<string, { code: string; full: string; bg: string; fg: string }> = {
+  'NASDAQ100 F': { code: 'N',   full: 'NASDAQ 100',   bg: '#1b3a6b', fg: '#8fc2ff' },
+  'S&P500 F':    { code: '500', full: 'S&P 500',      bg: '#6b1f2a', fg: '#ffb4b4' },
+  'Russell2k F': { code: 'R2K', full: 'RUSSELL 2000', bg: '#17456b', fg: '#8fd4ff' },
+  'NASDAQ':      { code: 'N',   full: 'NASDAQ',       bg: '#1b3a6b', fg: '#8fc2ff' },
+  'S&P 500':     { code: '500', full: 'S&P 500',      bg: '#6b1f2a', fg: '#ffb4b4' },
+  'DOW':         { code: 'DJI', full: 'DOW JONES',    bg: '#3a2f6b', fg: '#c0b4ff' },
+  'SPY':         { code: 'SPY', full: 'SPDR S&P 500', bg: '#6b1f2a', fg: '#ffb4b4' },
+  'QQQ':         { code: 'QQQ', full: 'INVESCO QQQ',  bg: '#1b3a6b', fg: '#8fc2ff' },
+  'VIX':         { code: 'VIX', full: 'VOLATILITY',   bg: '#5c3a12', fg: '#ffce85' },
+};
+
 /* 빠른 진입 3칸 — 시안 e9 의 QUICK 그대로. 목적지는 실재하는 곳만 건다. */
 function QUICK9(t: { qDark: string; qUnusual: string; qEarn: string }) {
   return [
@@ -456,103 +461,7 @@ function QUICK9(t: { qDark: string; qUnusual: string; qEarn: string }) {
   ];
 }
 
-function getSectorIcon(name: string) {
-  const d = SECTOR_ICON[name];
-  if (!d) return null;
-  return (
-    <span
-      className={s.sectorIcon}
-      aria-hidden="true"
-      style={{ color: SECTOR_COLOR[name] || '#94a3b8' }}
-    >
-      <svg viewBox="0 0 24 24" stroke="currentColor" dangerouslySetInnerHTML={{ __html: d }} />
-    </span>
-  );
-}
 
-function getMacroBadge(label: string) {
-  switch (label) {
-    case 'US 10Y':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.us10yBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 6h16M4 12h16M4 18h16" strokeDasharray="3 3"/>
-            <path d="M12 2v20M17 7l-5-5-5 5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </span>
-      );
-    case 'DXY':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.dxyBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="1" x2="12" y2="23"></line>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-        </span>
-      );
-    case 'BTC':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.btcBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 4h10a4 4 0 0 1 0 8H6z" />
-            <path d="M6 12h11a4 4 0 0 1 0 8H6z" />
-            <line x1="9" y1="1" x2="9" y2="4" />
-            <line x1="13" y1="1" x2="13" y2="4" />
-            <line x1="9" y1="20" x2="9" y2="23" />
-            <line x1="13" y1="20" x2="13" y2="23" />
-          </svg>
-        </span>
-      );
-    case 'GOLD':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.goldBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 22h20M5 22h14L17 12H7L5 22Z" />
-            <path d="M12 12V22" />
-          </svg>
-        </span>
-      );
-    case 'OIL':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.oilBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2s-8 6-8 11a8 8 0 0 0 16 0c0-5-8-11-8-11Z" />
-          </svg>
-        </span>
-      );
-    case 'SOX':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.soxBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="4" y="4" width="16" height="16" rx="2" />
-            <path d="M9 9h6v6H9z" />
-            <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" />
-          </svg>
-        </span>
-      );
-    case '2s10s':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.yieldBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 12c4-8 14-8 18 0M3 18c4-4 14-4 18 0" />
-            <line x1="3" y1="6" x2="21" y2="6" strokeDasharray="2 2" />
-          </svg>
-        </span>
-      );
-    case 'F&G':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.fgBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20.24 12.24a8 8 0 0 0-16.48 0" />
-            <line x1="12" y1="18" x2="12" y2="10" />
-            <line x1="12" y1="18" x2="16" y2="14" />
-          </svg>
-        </span>
-      );
-    default:
-      return null;
-  }
-}
 
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD PAGE
@@ -1178,6 +1087,7 @@ export default function AppDashPage() {
     return vals.length ? clampPct(vals.reduce((a, c) => a + c, 0) / vals.length) : null;
   })();
 
+  const adGate = useAdUnlockGate(locale);
   const institutionalSignals = [
     {
       key: 'inst',
@@ -1757,6 +1667,7 @@ export default function AppDashPage() {
     ko: {
       tagline: 'DARK POOL INTEL', secIdx: '지수', tFut: '선물', tCash: '현물', tEtf: 'ETF',
       idxNote: '지금 움직이는 건 선물뿐 — 현물·ETF는 마감값입니다.',
+      idxNoteLive: '정규장 진행 중 — 선물·현물·ETF 모두 실시간입니다.',
       secMacro: '매크로', mcMore: (n: number) => `${n}개 더 보기`, mcLess: '접기',
       secSector: '섹터', heat: '히트맵',
       secDisc: '오늘의 발견', discAll: '랭킹 11종',
@@ -1768,10 +1679,15 @@ export default function AppDashPage() {
       secQuick: '빠른 진입',
       qDark: '다크풀 흐름', qUnusual: '이상 옵션 플로우', qEarn: '실적 캘린더',
       marketAvg: '시장 평균',
+      discTally: (a: number, d: number) => `축적 상위 ${a} · 분산 ${d}`,
+      gateN: (f: number, n: number) => `무료 ${f} / ${n}`, free: '무료',
+      ftLegal: '교육 및 리서치용 시장 데이터입니다. 투자 조언, 매수/매도 권유, 수익 보장이 아니며 모든 판단과 결과는 사용자 본인 책임입니다.',
+      ftA: '앱 이용약관', ftB: '앱 개인정보처리방침', ftS: '지원: contact@signumhq.com',
     },
     en: {
       tagline: 'DARK POOL INTEL', secIdx: 'Indices', tFut: 'Futures', tCash: 'Cash', tEtf: 'ETF',
       idxNote: 'Only futures are trading now — cash and ETFs show the close.',
+      idxNoteLive: 'Regular session is open — futures, cash and ETFs are all live.',
       secMacro: 'Macro', mcMore: (n: number) => `Show ${n} more`, mcLess: 'Show less',
       secSector: 'Sectors', heat: 'Heatmap',
       secDisc: "Today's Find", discAll: 'All 11 rankings',
@@ -1783,10 +1699,15 @@ export default function AppDashPage() {
       secQuick: 'Quick Access',
       qDark: 'Dark Pool Flow', qUnusual: 'Unusual Options Flow', qEarn: 'Earnings Calendar',
       marketAvg: 'Market avg',
+      discTally: (a: number, d: number) => `${a} accumulating · ${d} distributing`,
+      gateN: (f: number, n: number) => `${f} of ${n} free`, free: 'FREE',
+      ftLegal: 'Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.',
+      ftA: 'App Terms', ftB: 'App Privacy', ftS: 'Support: contact@signumhq.com',
     },
     ja: {
       tagline: 'DARK POOL INTEL', secIdx: '指数', tFut: '先物', tCash: '現物', tEtf: 'ETF',
       idxNote: '今動いているのは先物のみ — 現物・ETFは終値です。',
+      idxNoteLive: '通常取引中 — 先物・現物・ETFすべてリアルタイムです。',
       secMacro: 'マクロ', mcMore: (n: number) => `他${n}件を表示`, mcLess: '折りたたむ',
       secSector: 'セクター', heat: 'ヒートマップ',
       secDisc: '今日の発見', discAll: 'ランキング11種',
@@ -1798,6 +1719,10 @@ export default function AppDashPage() {
       secQuick: 'クイックアクセス',
       qDark: 'ダークプールの流れ', qUnusual: '異常オプションフロー', qEarn: '決算カレンダー',
       marketAvg: '市場平均',
+      discTally: (a: number, d: number) => `蓄積 上位${a} · 分散${d}`,
+      gateN: (f: number, n: number) => `無料 ${f} / ${n}`, free: '無料',
+      ftLegal: '教育およびリサーチ目的の市場データです。投資助言、売買推奨、収益保証ではなく、すべての判断と結果は利用者本人の責任です。',
+      ftA: 'アプリ利用規約', ftB: 'アプリプライバシー', ftS: 'サポート: contact@signumhq.com',
     },
   } as const)[locale as 'ko' | 'en' | 'ja'] ?? ({} as never);
 
@@ -1810,6 +1735,8 @@ export default function AppDashPage() {
     .sort((a, b) => (b.money!.darkPoolStealth as number) - (a.money!.darkPoolStealth as number))
     .slice(0, 5);
   const divergenceRows = ucCards.filter((c) => c.divergence).slice(0, 6);
+  const discAcc = discoveryRows.filter((c) => (c.money?.darkPoolRegime || '').toUpperCase() === 'ACCUMULATION').length;
+  const discDis = discoveryRows.filter((c) => (c.money?.darkPoolRegime || '').toUpperCase() === 'DISTRIBUTION').length;
   const regimeLabel = (r?: string | null) => {
     const k = (r || '').toUpperCase();
     if (k === 'ACCUMULATION') return locale === 'ko' ? '축적' : locale === 'ja' ? '蓄積' : 'ACCUM';
@@ -1822,70 +1749,6 @@ export default function AppDashPage() {
   };
 
   /* 기관 게이트 — 페이월 로직은 손대지 않고 그대로 옮겼다 */
-  const institutionalGate = (
-  <ValueWall
-            locale={locale}
-            title={gateCopy.title}
-            subtitle={gateCopy.subtitle}
-            teaser={{
-              label: gateCopy.teaserLabel,
-              value: `${institutionalSignals[0].value} · ${gateCopy.teaserUnit}`
-            }}
-            ctaLabel={gateCopy.cta}
-            adFreeLabel={gateCopy.adFree}
-            previewChipLabel={gateCopy.previewChip}
-            socialProof={gateCopy.social}
-            lockedPreview={
-              <div className={`${s.instPulseGrid} ${s.instPulsePreview}`} aria-hidden="true">
-                {institutionalSignals.map((signal) => (
-                  <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
-                    <div className={s.instHeader}>
-                      <span className={s.instLabel}>{signal.label}</span>
-                      <span className={s.instKicker}>{signal.kicker}</span>
-                    </div>
-                    <div className={s.instValRow}>
-                      <span className={s.instVal}>{signal.value}</span>
-                      <span className={s.instSub}>{signal.sub}</span>
-                    </div>
-                    {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
-                    <div className={s.instTrack}>
-                      {signal.score != null && (
-                        <div className={s.instFill} style={{ width: `${signal.score}%` }} />
-                      )}
-                    </div>
-                    <p className={s.instInsight}>{signal.insight}</p>
-                  </div>
-                ))}
-              </div>
-            }
-          >
-            {loading ? (
-              <div style={{ height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', margin: '16px' }} />
-            ) : (
-              <div className={s.instPulseGrid}>
-                {institutionalSignals.map((signal) => (
-                  <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
-                    <div className={s.instHeader}>
-                      <span className={s.instLabel}>{signal.label}</span>
-                      <span className={s.instKicker}>{signal.kicker}</span>
-                    </div>
-                    <div className={s.instValRow}>
-                      <span className={s.instVal}>{signal.value}</span>
-                      <span className={s.instSub}>{signal.sub}</span>
-                    </div>
-                    {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
-                    <div className={s.instTrack}>
-                      {signal.score != null && (
-                        <div className={s.instFill} style={{ width: `${signal.score}%` }} />
-                      )}
-                    </div>
-                    <p className={s.instInsight}>{signal.insight}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ValueWall>
-  );
 
   /* ── Render — 시안(e9) 마크업 그대로. 데이터만 꽂는다. ─────────────
      ★ 손으로 다시 설계하지 않는다. 클래스는 dash9.module.css(시안 <style> 원본).
@@ -2026,8 +1889,12 @@ export default function AppDashPage() {
                   <div key={p.sym} suppressHydrationWarning
                        className={`${n9.e9Ix} ${up ? n9.gr : n9.rd}`}>
                     <span className={n9.e9IxTop}>
-                      {getSymBadge(p.sym)}
-                      <span className={n9.e9IxName}>{p.sym}</span>
+                      <span className={n9.e9IxBadge}
+                            style={{ background: IX_BADGE[p.sym]?.bg || '#1b2b45',
+                                     color: IX_BADGE[p.sym]?.fg || '#9fb4d0' }}>
+                        {IX_BADGE[p.sym]?.code || p.sym.slice(0, 3)}
+                      </span>
+                      <span className={n9.e9IxName}>{IX_BADGE[p.sym]?.full || p.sym}</span>
                     </span>
                     <span className={`${n9.e9IxV} num`}>
                       {p.noData && !useWs ? '—' : p.sym === 'VIX' ? px.toFixed(2) : fmtPrice(px)}
@@ -2039,7 +1906,7 @@ export default function AppDashPage() {
                 );
               })}
         </div>
-        <div className={n9.e9Note}>{pulseStatusNote}</div>
+        <div className={n9.e9Note}>{isLive ? c9.idxNoteLive : c9.idxNote}</div>
       </div>
 
       {/* ④ 매크로 — 지수와 같은 «좌표»라 붙인다. 링크 대신 인라인 펼침 */}
@@ -2049,9 +1916,15 @@ export default function AppDashPage() {
           {!macroReady
             ? [0, 1, 2, 3].map((i) => <div key={`skm-${i}`} className={`${n9.e9Skel} ${n9.e9SkelRow}`} />)
             : (macroOpen ? macro : macro.slice(0, 4)).map((m) => (
-                <div key={m.label} suppressHydrationWarning className={n9.e9Mc}>
+                <div key={m.label} suppressHydrationWarning className={n9.e9Mc}
+                     style={{ ['--c' as string]: MACRO_IC[m.label]?.c || '#94a3b8' }}>
                   <div className={n9.e9McTop}>
-                    <span className={n9.e9McIco}>{getMacroBadge(m.label)}</span>
+                    <span className={n9.e9McIco}>
+                      {MACRO_IC[m.label]?.tx
+                        ? <b>{MACRO_IC[m.label].tx}</b>
+                        : <svg viewBox="0 0 24 24" aria-hidden="true"
+                               dangerouslySetInnerHTML={{ __html: MACRO_IC[m.label]?.ic || '' }} />}
+                    </span>
                     <span className={n9.e9McK}>{m.label}</span>
                   </div>
                   <div className={`${n9.e9McV} num`}>{m.value}</div>
@@ -2098,8 +1971,13 @@ export default function AppDashPage() {
                 return (
                   <div key={sec.name} className={n9.e9Sc}
                        style={{ ['--c' as string]: SECTOR_COLOR[sec.name] || '#94a3b8' }}>
-                    <span className={n9.e9ScIco}>{getSectorIcon(sec.name)}</span>
-                    <span className={n9.e9ScN}>{sectorLabel(sec.name, locale)}</span>
+                    <span className={n9.e9ScTop}>
+                      <span className={n9.e9ScIco}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"
+                             dangerouslySetInnerHTML={{ __html: SECTOR_ICON[sec.name] || '' }} />
+                      </span>
+                      <span className={n9.e9ScN}>{sectorLabel(sec.name, locale)}</span>
+                    </span>
                     <span className={`${n9.e9ScP} num ${pct > 0 ? n9.gr : pct < 0 ? n9.rd : n9.mut}`}>
                       {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
                     </span>
@@ -2151,19 +2029,71 @@ export default function AppDashPage() {
                 );
               })}
             </div>
-            {ucMeta.marketAvg != null && (
-              <div className={n9.e9DiscFoot}>
+            <div className={n9.e9DiscFoot}>
+              <span>{c9.discTally(discAcc, discDis)}</span>
+              {ucMeta.marketAvg != null && (
                 <span className="num">{c9.marketAvg} {ucMeta.marketAvg}</span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* ⑦ 게이트 — 기존 ValueWall 그대로(페이월 로직은 건드리지 않는다) */}
+      {/* ⑦ 게이트 — 시안 e9Gate 그대로. 결제·광고 «동작»은 useAdUnlockGate(=ValueWall 과 같은 코드). */}
       <div className={n9.e9Sect}>
         <div className={n9.e9SectHead}><span className={n9.e9SectT}>{c9.secGate}</span></div>
-        {institutionalGate}
+        <div className={`${n9.e9Surf} ${n9.e9Gate}`}>
+          <div className={n9.e9GateTop}>
+            <span className={n9.e9GateT}>{gateCopy.title}</span>
+            <span className={n9.e9GateN}>
+              {adGate.isUnlocked ? c9.gateN(4, 4) : c9.gateN(1, 4)}
+            </span>
+          </div>
+          <div className={n9.e9Sigs}>
+            {institutionalSignals.map((sig, i) => {
+              const open = adGate.isUnlocked || i === 0;
+              return (
+                <div key={sig.key}
+                     className={`${n9.e9Sig} ${open ? n9.open : n9.locked}`}
+                     style={{ ['--c' as string]: GATE_SIG_C[i] }}>
+                  <div className={n9.e9SigTop}>
+                    <span className={n9.e9SigT}>{sig.label}</span>
+                    {open
+                      ? <span className={n9.e9Free}>{c9.free}</span>
+                      : <svg className={n9.e9Lock} viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
+                          <path d="M8.4 10.5V7.8a3.6 3.6 0 0 1 7.2 0v2.7" />
+                        </svg>}
+                  </div>
+                  <div className={n9.e9SigH}>{sig.kicker}</div>
+                  {open ? (
+                    <>
+                      <div className={n9.e9SigV}><b>{sig.value}</b><em>{sig.sub}</em></div>
+                      <div className={n9.e9SigLine}>{sig.insight}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={n9.e9SigV}>
+                        <i className={`${n9.e9Bar} ${n9.w1}`} /><i className={`${n9.e9Bar} ${n9.w2}`} />
+                      </div>
+                      <div className={n9.e9SigLine}><i className={`${n9.e9Bar} ${n9.w3}`} /></div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {!adGate.isUnlocked && (
+            <button type="button" className={n9.e9Cta}
+                    onClick={adGate.handleUnlockPress} disabled={adGate.unlocking}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5v11l9-5.5z" /></svg>
+              {adGate.unlocking ? adGate.copy.modalWaitPrefix : gateCopy.cta}
+            </button>
+          )}
+          <div className={n9.e9GateSub}>{gateCopy.subtitle}</div>
+          <div className={n9.e9GateLegal}>{adGate.copy.legalNote}</div>
+        </div>
+        {adGate.portals}
       </div>
 
       {/* ⑧ 가장 많이 움직인 것 — 페이지가 실재하므로 「전체 ›」 유지 */}
@@ -2274,8 +2204,17 @@ export default function AppDashPage() {
       </div>
 
       {/* 광고 배너 · 푸터 — 건드리지 않는다 */}
+      {/* 푸터 — 시안 e9Foot. 목적지는 기존 그대로(약관·개인정보·지원). */}
+      <div className={n9.e9Foot}>
+        <div className={n9.e9FootLegal}>{c9.ftLegal}</div>
+        <div className={n9.e9FootRow}>
+          <Link href="/app-view/terms">{c9.ftA}</Link>
+          <Link href="/app-view/privacy">{c9.ftB}</Link>
+          <span>{c9.ftS}</span>
+        </div>
+        <div className={n9.e9Copy}>© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.</div>
+      </div>
       <AdBanner />
-      <MobileAppFooter />
     </div>
   );
 }

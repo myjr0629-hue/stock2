@@ -7,34 +7,34 @@
 .ecWrap{padding-bottom:186px;background:#070c17}
 .ecNav{display:flex;align-items:center;gap:8px;padding:6px 16px 10px}
 .ecBack{width:26px;height:26px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;
-  background:rgba(20,32,54,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
-.ecBack svg{width:13px;height:13px;stroke:#b3c6de;fill:none;stroke-width:2;
+  background:rgba(34,211,238,.10);box-shadow:inset 0 0 0 1px rgba(34,211,238,.30)}
+.ecBack svg{width:13px;height:13px;stroke:#22d3ee;fill:none;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round}
-.ecEy{font-size:8px;letter-spacing:.2em;font-weight:800;color:#8ba3c4}
+.ecEy{font-size:8px;letter-spacing:.2em;font-weight:800;color:#a9bcd6}
 .ecHead{padding:0 16px 9px}
 .ecTitle{font-size:19px;font-weight:800;letter-spacing:-.03em}
-.ecSub{font-size:9.5px;color:#7089ab;margin-top:2px}
+.ecSub{font-size:9.5px;color:#94a8c6;margin-top:2px}
 
 /* 월별 밀도 요약 — «어느 달이 바쁜가»를 스크롤 전에 알려준다 */
 .ecBars{margin:0 16px 4px;padding:9px 11px 10px;border-radius:12px;
   background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px rgba(255,255,255,.055);
   display:flex;flex-direction:column;gap:6px}
 .ecBar2{display:flex;align-items:center;gap:8px}
-.ecBar2L{flex:0 0 34px;font-size:9px;font-weight:700;color:#8ba3c4}
+.ecBar2L{flex:0 0 34px;font-size:9px;font-weight:700;color:#a9bcd6}
 .ecBar2T{flex:1;min-width:0;height:5px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
 .ecBar2T i{display:block;height:100%;border-radius:3px;
   background:linear-gradient(90deg,rgba(34,211,238,.45),#22d3ee)}
 .ecBar2N{flex:0 0 22px;text-align:right;font-size:10px;font-weight:800;color:#c2d2e8}
 .ecHeavy{margin-top:3px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);
-  font-size:8.5px;color:#7089ab;display:flex;align-items:center;gap:5px}
+  font-size:8.5px;color:#94a8c6;display:flex;align-items:center;gap:5px}
 .ecHeavy b{color:#e2ecf7;font-weight:800}
 .ecHeavy em{font-style:normal;margin-left:auto;font-size:8px;font-weight:800;color:#04222a;
   background:#22d3ee;border-radius:999px;padding:1px 6px}
 
 .ecMon{display:flex;align-items:center;gap:8px;margin:13px 16px 7px}
 .ecMon s{flex:1;height:1px;background:rgba(255,255,255,.07);text-decoration:none}
-.ecMon b{font-size:9px;font-weight:800;letter-spacing:.12em;color:#8ba3c4}
-.ecMon span{font-size:8px;font-weight:800;color:#61799d;
+.ecMon b{font-size:9px;font-weight:800;letter-spacing:.12em;color:#a9bcd6}
+.ecMon span{font-size:8px;font-weight:800;color:#879bbe;
   background:rgba(255,255,255,.06);border-radius:999px;padding:1px 6px}
 
 .ecD{margin:0 16px 9px;padding:9px 11px 9px;border-radius:14px;
@@ -44,8 +44,8 @@
   border-bottom:1px solid rgba(255,255,255,.07)}
 .ecDNum{display:flex;align-items:baseline;gap:3px}
 .ecDNum b{font-size:17px;font-weight:800;letter-spacing:-.04em;color:#f0f6fb}
-.ecDNum s{text-decoration:none;font-size:9px;color:#8ba3c4;font-weight:700}
-.ecDWk{font-size:9px;color:#7089ab;font-weight:600}
+.ecDNum s{text-decoration:none;font-size:9px;color:#a9bcd6;font-weight:700}
+.ecDWk{font-size:9px;color:#94a8c6;font-weight:600}
 .ecDLeft{margin-left:auto;font-size:9px;font-weight:800;color:#fbbf24;
   background:rgba(251,191,36,.13);border-radius:999px;padding:2px 7px}
 .ecDN{font-size:8.5px;font-weight:800;color:#04222a;background:#22d3ee;
@@ -63,26 +63,26 @@
   box-shadow:inset 0 0 0 1px rgba(167,139,250,.3)}
 .ecRH.bmo{color:#fbbf24;background:rgba(251,191,36,.14);
   box-shadow:inset 0 0 0 1px rgba(251,191,36,.3)}
-.ecRH.tbd{color:#8ba3c4;background:rgba(255,255,255,.07)}
-.ecRQ{flex:0 0 auto;margin-left:auto;font-size:8.5px;color:#7089ab;font-weight:600}
+.ecRH.tbd{color:#a9bcd6;background:rgba(255,255,255,.07)}
+.ecRQ{flex:0 0 auto;margin-left:auto;font-size:8.5px;color:#94a8c6;font-weight:600}
 
 .ecRMet{display:flex;align-items:center;gap:9px}
 .ecRM{display:flex;flex-direction:column;gap:2px;min-width:0}
-.ecRM s{text-decoration:none;font-size:7.5px;color:#7089ab;letter-spacing:.02em;
+.ecRM s{text-decoration:none;font-size:7.5px;color:#94a8c6;letter-spacing:.02em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ecRM b{font-size:11.5px;font-weight:800;letter-spacing:-.03em;color:#e2ecf7}
 .ecRMa{flex:1;min-width:0}
 .ecBar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:rgba(255,255,255,.06)}
 .ecBar i{display:block;height:100%}
 
-.ecLeg{display:flex;align-items:center;gap:10px;padding:2px 16px 0;font-size:8px;color:#7089ab}
+.ecLeg{display:flex;align-items:center;gap:10px;padding:2px 16px 0;font-size:8px;color:#94a8c6}
 .ecLeg span{display:flex;align-items:center;gap:4px}
 .ecLeg i{width:7px;height:5px;border-radius:2px;display:block}
 .ecNote{margin:11px 16px 0;padding:8px 10px;border-radius:10px;font-size:9px;line-height:1.5;
-  color:#8ba3c4;background:rgba(255,255,255,.04);
+  color:#a9bcd6;background:rgba(255,255,255,.04);
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
 .ecNote b{color:#c2d2e8;font-weight:700}
-.ecSrc{padding:8px 16px 0;font-size:8px;color:#5f7595;line-height:1.5}
+.ecSrc{padding:8px 16px 0;font-size:8px;color:#8496b7;line-height:1.5}
   
 
 /* 로딩 (시안엔 없다) */
@@ -95,3 +95,11 @@
 @keyframes ecSkelShim { to { background-position: -200% 0; } }
 .ecSkelCard { height: 190px; margin: 0 16px 9px; }
 @media (prefers-reduced-motion: reduce) { .ecSkel { animation: none; } }
+
+/* 44px 터치타깃 무력화 — globals.css @media(max-width:768px) 의
+   [role=button]·[role=tab]·a{min-height:44px} 가 시안이 정한 카드 높이를 부풀리고
+   섹션 헤드의 «전체 ›»를 제목과 다른 줄로 밀어낸다. 이 화면 안에서만 끈다. */
+.ecWrap [role="button"],
+.ecWrap [role="tab"],
+.ecWrap a,
+.ecWrap button{min-height:0}
