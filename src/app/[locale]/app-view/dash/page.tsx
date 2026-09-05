@@ -104,9 +104,9 @@ let lastGoodIndices: PulseItem[] | null = null;
 
 function buildIndexItems(idx: any): PulseItem[] {
   const items: PulseItem[] = [];
-  if (idx?.dow) items.push({ sym: 'DOW', px: idx.dow.price, chg: idx.dow.changePct, up: idx.dow.changePct >= 0, spark: DEMO_INDICES[0].spark });
-  if (idx?.nasdaq) items.push({ sym: 'NASDAQ', px: idx.nasdaq.price, chg: idx.nasdaq.changePct, up: idx.nasdaq.changePct >= 0, spark: DEMO_INDICES[1].spark });
-  if (idx?.spx) items.push({ sym: 'S&P 500', px: idx.spx.price, chg: idx.spx.changePct, up: idx.spx.changePct >= 0, spark: DEMO_INDICES[2].spark });
+  if (idx?.dow) items.push({ sym: 'DOW', px: idx.dow.price, chg: idx.dow.changePct, up: idx.dow.changePct >= 0, spark: [] });
+  if (idx?.nasdaq) items.push({ sym: 'NASDAQ', px: idx.nasdaq.price, chg: idx.nasdaq.changePct, up: idx.nasdaq.changePct >= 0, spark: [] });
+  if (idx?.spx) items.push({ sym: 'S&P 500', px: idx.spx.price, chg: idx.spx.changePct, up: idx.spx.changePct >= 0, spark: [] });
   return items;
 }
 let lastGoodFutures: PulseItem[] | null = null;
@@ -545,6 +545,12 @@ export default function AppDashPage() {
   //   빈칸은 «없다»고 말하지만 가짜 숫자는 «있다»고 거짓말한다.
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [macroReady, setMacroReady] = useState(false);
+  /* 9차: 매크로 8칸이 항상 2줄을 차지했다. 4칸만 보이고 나머지는 그 자리에서 펼친다.
+     — 「전체 ›」 로 내보내지 않는다. 목적지 페이지가 없고, 10줄짜리는 페이지가 안 된다. */
+  const [macroOpen, setMacroOpen] = useState(false);
+  /* 9차: 선물·현물·ETF 3줄(9카드)이 첫 화면을 다 먹었다. 탭으로 한 줄만 보인다.
+     ★ 각 줄의 로직(WS 오버레이·플래시·세션 판정)은 손대지 않고 «표시 여부»만 감싼다. */
+  const [pulseTab, setPulseTab] = useState<'futures' | 'cash' | 'etf'>('futures');
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
   const [sectorsReady, setSectorsReady] = useState(false);
   const [briefingReady, setBriefingReady] = useState(false);
@@ -1325,7 +1331,7 @@ export default function AppDashPage() {
           //   그럴듯한 지수가 떴고, 대표는 그게 오늘 시세인 줄 알 수밖에 없었다.
           //   가짜 숫자는 빈칸보다 나쁘다 — 빈칸은 «없다»고 말하지만
           //   가짜 숫자는 «있다»고 거짓말한다.
-          const pushFuture = (sym: string, f: any, spark: number[]) => {
+          const pushFuture = (sym: string, f: any) => {
             const px = Number(f?.level);
             const chg = Number(f?.chgPct);
             if (!Number.isFinite(px) || px <= 0) return;   // 값이 없으면 줄 자체를 뺀다
@@ -1334,13 +1340,16 @@ export default function AppDashPage() {
               px,
               chg: Number.isFinite(chg) ? chg : 0,
               up: (Number.isFinite(chg) ? chg : 0) >= 0,
-              spark,
+              // ★ 지어낸 곡선 제거(9차). 예전엔 DEMO_FUTURES[n].spark 라는 «형태 상수»를
+              //   실제 가격·등락률 옆에 붙여 그렸다 — 화면은 «오늘의 흐름»처럼 보이는데
+              //   실제로는 매일 같은 모양이었다. 이 페이로드엔 일중 시계열이 없다.
+              spark: [],
               ...feedMetaForItem(f, globexLive, { requireFresh: false }),
             });
           };
-          pushFuture('NASDAQ100 F', fac?.nasdaq100, DEMO_FUTURES[0].spark);
-          pushFuture('S&P500 F', fac?.spx, DEMO_FUTURES[1].spark);
-          pushFuture('Russell2k F', fac?.rut, DEMO_FUTURES[2].spark);
+          pushFuture('NASDAQ100 F', fac?.nasdaq100);
+          pushFuture('S&P500 F', fac?.spx);
+          pushFuture('Russell2k F', fac?.rut);
           return out;
         };
 
@@ -1544,7 +1553,7 @@ export default function AppDashPage() {
                 px: spyQuote.price || prevSpy?.px || DEMO_ETFS[0].px,
                 chg: spyChg,
                 up: spyChg >= 0,
-                spark: DEMO_ETFS[0].spark,
+                spark: [],
                 live: equityExtendedLive,
               },
               {
@@ -1552,7 +1561,7 @@ export default function AppDashPage() {
                 px: qqqQuote.price || prevQqq?.px || DEMO_ETFS[1].px,
                 chg: qqqChg,
                 up: qqqChg >= 0,
-                spark: DEMO_ETFS[1].spark,
+                spark: [],
                 live: equityExtendedLive,
               },
               (() => {
@@ -1564,7 +1573,7 @@ export default function AppDashPage() {
                   chg: kept?.chg ?? 0,
                   up: (kept?.chg ?? 0) >= 0,
                   noData: kept == null,
-                  spark: DEMO_ETFS[2].spark,
+                  spark: [],
                   ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday), { requireFresh: false }),
                 };
               })()
@@ -1782,8 +1791,27 @@ export default function AppDashPage() {
             </div>
           </div>
         </div>
+        <div className={s.pulseTabs} role="tablist">
+          {([
+            ['futures', copy.futuresRow],
+            ['cash', copy.cashRow],
+            ['etf', copy.etfRow],
+          ] as const).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={pulseTab === k}
+              className={`${s.pulseTab} ${pulseTab === k ? s.pulseTabActive : ''}`}
+              onClick={() => setPulseTab(k)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {/* ── Futures Row (NASDAQ100 F, Russell2k F, S&P500 F) ── */}
+            {pulseTab === 'futures' && (<>
             <div className={s.pulseRowMeta}>
               <span>{copy.futuresRow}</span>
               <em className={futuresLive ? s.metaLive : ''}>{futuresLive ? copy.futuresLive : copy.closed}</em>
@@ -1799,14 +1827,14 @@ export default function AppDashPage() {
                   <span className={`${s.pulseChg} ${p.up ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
                     {p.up ? '▲' : '▼'} {p.up ? '+' : ''}{p.chg.toFixed(2)}%
                   </span>
-                  <div className={s.pulseSparkline}>
-                    <Sparkline data={p.spark} up={p.up} />
-                  </div>
                 </div>
               ))}
             </div>
 
+            </>)}
+
             {/* ── Indices Row (DOW, NASDAQ, S&P 500) ── */}
+            {pulseTab === 'cash' && (<>
             <div className={s.pulseRowMeta}>
               <span>{copy.cashRow}</span>
               <em className={isLive ? s.metaLive : isMarketHoliday ? s.metaHoliday : ''}>{isLive ? copy.regularLive : isMarketHoliday ? copy.holiday : copy.closed}</em>
@@ -1830,15 +1858,15 @@ export default function AppDashPage() {
                     <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
                       {isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%
                     </span>
-                    <div className={s.pulseSparkline}>
-                      <Sparkline data={p.spark} up={isUp} />
-                    </div>
                   </div>
                 );
               })}
             </div>
 
+            </>)}
+
             {/* ── ETFs Row (SPY, QQQ, VIX) ── */}
+            {pulseTab === 'etf' && (<>
             <div className={s.pulseRowMeta}>
               <span>{copy.etfRow}</span>
               <em className={etfRowLive ? s.metaLive : ''}>{etfRowStatus}</em>
@@ -1868,13 +1896,11 @@ export default function AppDashPage() {
                     <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
                       {p.noData && !useWs ? '—' : <>{isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%</>}
                     </span>
-                    <div className={s.pulseSparkline}>
-                      <Sparkline data={p.spark} up={isUp} />
-                    </div>
                   </div>
                 );
               })}
             </div>
+            </>)}
         </div>
       </div>
 
@@ -1887,7 +1913,7 @@ export default function AppDashPage() {
           </div>
         </div>
         <div className={s.macroGrid}>
-            {!macroReady ? [0, 1, 2, 3, 4, 5].map((i) => <div key={`skm-${i}`} className={s.skelPulse} />) : macro.map((m) => (
+            {!macroReady ? [0, 1, 2, 3].map((i) => <div key={`skm-${i}`} className={s.skelPulse} />) : (macroOpen ? macro : macro.slice(0, 4)).map((m) => (
               <div key={m.label} suppressHydrationWarning className={`${s.macroCell} ${m.live ? s.live : ''}`}>
                 <div className={s.macroLabelRow}>
                   {getMacroBadge(m.label)}
@@ -1910,6 +1936,21 @@ export default function AppDashPage() {
               </div>
             ))}
         </div>
+        {macroReady && macro.length > 4 && (
+          <button
+            type="button"
+            className={s.macroMore}
+            onClick={() => setMacroOpen((v) => !v)}
+            aria-expanded={macroOpen}
+          >
+            <span>
+              {macroOpen
+                ? (locale === 'ko' ? '접기' : locale === 'ja' ? '折りたたむ' : 'Show less')
+                : (locale === 'ko' ? `${macro.length - 4}개 더 보기` : locale === 'ja' ? `他${macro.length - 4}件を表示` : `Show ${macro.length - 4} more`)}
+            </span>
+            <i className={macroOpen ? s.macroMoreIconOpen : undefined}>&#9662;</i>
+          </button>
+        )}
       </div>
 
       {/* ══════════════ TOP MOVERS (Moved for better flow) ══════════════ */}
