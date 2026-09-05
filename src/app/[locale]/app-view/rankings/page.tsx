@@ -286,7 +286,14 @@ export default function RankingsPage() {
                 <span>
                   {/* «자료가 덜 쌓였다» 와 «오늘 해당 종목이 없다» 는 다른 말이다.
                       API 가 실제 사유를 주면 그걸 그대로 쓴다(짐작하지 않는다). */}
-                  <b>{b.reason || (b.available === false ? t.soon : t.none)}</b>
+                  {/* 엔진은 «0건»도 available:false 로 준다(route.ts: picked.length>0).
+                      그래서 available 만 보면 «돌았는데 오늘 해당 없음»과
+                      «자료가 없어 못 돌았음»이 같은 문장이 된다. 셋을 갈라 쓴다:
+                        reason 있음        → 엔진이 말한 실제 사유 그대로
+                        돌린 흔적 있음     → 오늘은 조건에 맞는 종목이 없다
+                        그 외              → 자료 축적 중                       */}
+                  <b>{b.reason
+                    || (b.candidates != null || skipTotal(b.skipped) > 0 ? t.none : t.soon)}</b>
                   {b.skipped && typeof b.skipped === 'object' && (
                     <small>{Object.entries(b.skipped).map(([k, v]) => `${k} ${v}`).join(' · ')}</small>
                   )}
