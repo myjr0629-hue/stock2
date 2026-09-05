@@ -1705,11 +1705,11 @@ export default function AppDashPage() {
           <>
             <img
               className={`${s.obsBeast} ${s.obsBull} ${riskScore >= 58 ? s.obsWin : riskScore <= 42 ? s.obsLose : s.obsMix}`}
-              src="/dash/bull.webp" alt="" aria-hidden="true" loading="lazy" decoding="async"
+              src="/dash/bull.webp" alt="" aria-hidden="true" decoding="async"
             />
             <img
               className={`${s.obsBeast} ${s.obsBear} ${riskScore <= 42 ? s.obsWin : riskScore >= 58 ? s.obsLose : s.obsMix}`}
-              src="/dash/bear.webp" alt="" aria-hidden="true" loading="lazy" decoding="async"
+              src="/dash/bear.webp" alt="" aria-hidden="true" decoding="async"
             />
           </>
         )}
