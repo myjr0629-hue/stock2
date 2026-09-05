@@ -1735,6 +1735,9 @@ export default function AppDashPage() {
     .sort((a, b) => (b.money!.darkPoolStealth as number) - (a.money!.darkPoolStealth as number))
     .slice(0, 5);
   const divergenceRows = ucCards.filter((c) => c.divergence).slice(0, 6);
+  /* 매크로가 «도는지» 보이게 — 값이 바뀔 때마다 key 가 바뀌어 점 애니메이션이 다시 뛴다.
+     값이 안 바뀌면 안 뛴다 = 가짜로 깜빡이지 않는다(측정된 갱신만 보여준다). */
+  const macroPulseKey = macro.map((m) => `${m.value}|${m.chg}`).join(',');
   const discAcc = discoveryRows.filter((c) => (c.money?.darkPoolRegime || '').toUpperCase() === 'ACCUMULATION').length;
   const discDis = discoveryRows.filter((c) => (c.money?.darkPoolRegime || '').toUpperCase() === 'DISTRIBUTION').length;
   const regimeLabel = (r?: string | null) => {
@@ -1911,7 +1914,13 @@ export default function AppDashPage() {
 
       {/* ④ 매크로 — 지수와 같은 «좌표»라 붙인다. 링크 대신 인라인 펼침 */}
       <div className={`${n9.e9Sect} ${n9.e9MacWrap} ${macroOpen ? n9.open : ''}`}>
-        <div className={n9.e9SectHead}><span className={n9.e9SectT}>{c9.secMacro}</span></div>
+        <div className={n9.e9SectHead}>
+          <span className={n9.e9SectT}>{c9.secMacro}</span>
+          {/* 도는지 안 도는지 보이게 — 값이 갱신될 때마다 점이 한 번 뛴다(대표 지시) */}
+          {macroReady && (
+            <span key={macroPulseKey} className={n9.e9Pulse} aria-hidden="true" />
+          )}
+        </div>
         <div className={`${n9.e9Surf} ${n9.e9Macro}`}>
           {!macroReady
             ? [0, 1, 2, 3].map((i) => <div key={`skm-${i}`} className={`${n9.e9Skel} ${n9.e9SkelRow}`} />)
@@ -2100,11 +2109,6 @@ export default function AppDashPage() {
       <div className={n9.e9Sect}>
         <div className={n9.e9SectHead}>
           <span className={n9.e9SectT}>{c9.secMv}</span>
-          <span className={n9.e9All} role="button" tabIndex={0}
-                onClick={() => router.push('/app-view/movers')}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}>
-            {c9.all} &#8250;
-          </span>
         </div>
         <div className={n9.e9MvTabs}>
           {([['value', c9.mvVal], ['gainers', c9.mvUp], ['losers', c9.mvDn]] as const).map(([k, label]) => (
@@ -2115,6 +2119,12 @@ export default function AppDashPage() {
               {label}
             </button>
           ))}
+          {/* «전체 ›» 는 탭과 같은 줄 끝에 — 제목 줄에 있으면 탭과 동떨어져 보인다(대표 지적) */}
+          <span className={`${n9.e9All} ${n9.e9TabAll}`} role="button" tabIndex={0}
+                onClick={() => router.push('/app-view/movers')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}>
+            {c9.all} &#8250;
+          </span>
         </div>
         <div className={`${n9.e9Surf} ${n9.e9Mvs}`}>
           {(loading || moversLoading)

@@ -455,3 +455,46 @@ ValueWall 자신도 그 훅을 쓴다 → cmd·flow·가디언 동작은 그대�
 - 지금은 «광고와 같은 선». 12px 로 가면 «탭바와 같은 선»이 되고 광고보다 4px 넓어진다.
 - 12px 로 바꾸는 것 자체는 **기술적 위험이 없다**(세로 모드에서 좌우 세이프에어리어는 0,
   화면 모서리 곡률과도 무관). 얻는 건 폭 +8px = 화면의 2.05%.
+
+---
+## 10단계 — 대표 관찰 5건
+
+### ① 매크로가 «도는지» 안 보인다 → 갱신될 때 점이 뛴다
+`.e9Pulse` — 값이 실제로 바뀔 때만 한 번 뛴다(`key={macroPulseKey}` = 값들의 지문).
+**상시 깜빡이게 하지 않았다.** 늘 깜빡이면 데이터가 멈춰도 도는 것처럼 보인다 —
+그건 「화면이 지표를 지어내는」 것과 같은 종류의 거짓이다. `prefers-reduced-motion` 도 존중.
+
+### ② 하단 푸터 중앙정렬
+`e9FootLegal`·`e9FootRow`·`e9Copy` 셋 다 중앙.
+
+### ③ «전체 ›» 가 동떨어져 있었다 → 탭 줄 끝으로
+제목 줄에 있어 거래대금/상승률/하락률 탭과 따로 놀았다. `.e9MvTabs` 안 끝으로 옮김(`.e9TabAll`).
+
+### ④ 히트맵 «오늘의 양 끝» 에 티커 로고
+`AppTickerLogo size={16}`. 로고가 들어간 만큼 `hmXR` gap 7→6, `hmXT2` 46→44px.
+
+### ⑤ 랭킹 배선 — 11종 전수 점검 ⚠️ 하나가 통째로 빠져 있었다
+`readRow` 스위치에 **`volatility-bet` 케이스가 없었다** → `default` 로 떨어져 값이 «—».
+오늘은 항목이 0건(IV 랭크 80 미만)이라 화면에 안 보였을 뿐, 조건이 맞는 날엔 그대로 나갔다.
+「읽는 쪽만 만들면 조용히 죽는다」와 같은 형태다.
+
+| 랭킹 | 고친 것 |
+|---|---|
+| volatility-bet | **케이스 신설** — `ivRank` / `atmIv` / `daysToEarnings` / `sessions` |
+| money-vs-oi | sub 가 «OI 0.77× · 날짜» 였다 → 요점인 **콜·풋 프리미엄 양쪽** |
+| deep-value-fcf | 응답에 있던 `universeMedianEvToEbitda` 미사용 → **시장 중앙값 대비** |
+| insider-conviction | `buyerCount` 미사용 → **임원 N명** (자신감의 핵심) |
+| darkpool-short | 날짜 대신 **이탈 pp · 백분위** |
+| darkpool-volume | **시장 배수 대비** 추가 |
+| stealth | `regime` 이 `ACCUMULATION` **영문 그대로** 나갔다 → 축적/분산 현지화 + 이탈값 |
+
+나머지 4종(deviation · multi-axis · maxpain-gap · gamma-flip)은 필드명·값 모두 실측 대조 결과 정상.
+
+### 오늘 비어 있는 랭킹 4종 — 고장이 아니다(실측 사유)
+```
+darkpool-volume · darkpool-short · stealth
+   → 「아직 안 들어옴 — 보유분 2026-09-04, 옵션은 2026-09-05 세션」 (FINRA T+1)
+volatility-bet
+   → 「IV 랭크 80 미만」 25종목 전부  (조건에 맞는 종목이 없는 날)
+```
+화면은 빈 껍데기 대신 **사유를 그대로** 보여준다.

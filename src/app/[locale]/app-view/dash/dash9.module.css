@@ -317,10 +317,10 @@
 .e9QDest.nw{color:#04222a;background:#fbbf24}
 
 .e9Foot{margin:16px 16px 0;padding-top:12px;border-top:1px solid rgba(255,255,255,.055)}
-.e9FootLegal{font-size:8.5px;color:#8496b7;line-height:1.55}
-.e9FootRow{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:9px;font-size:9px;color:#a0b4d0}
+.e9FootLegal{font-size:8.5px;color:#8496b7;line-height:1.55;text-align:center}
+.e9FootRow{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px;margin-top:9px;font-size:9px;color:#a0b4d0}
 .e9FootRow a{color:#8fb0d4}
-.e9Copy{margin-top:9px;font-size:7.5px;letter-spacing:.08em;color:#7d90b4}
+.e9Copy{margin-top:9px;font-size:7.5px;letter-spacing:.08em;color:#7d90b4;text-align:center}
   
 
 /* ── 로딩 상태 (시안엔 없다 — 실앱에만 필요) ─────────────────────── */
@@ -351,3 +351,17 @@
 .e9Root [role="tab"],
 .e9Root a,
 .e9Root button{min-height:0}
+
+/* 매크로 «작동 중» 표시 — 값이 실제로 갱신될 때 한 번 뛴다(대표 지시).
+   상시 깜빡이면 «도는 척»이 되므로, 값이 안 바뀌면 안 뛴다. */
+.e9Pulse{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:#22d3ee;
+  box-shadow:0 0 0 0 rgba(34,211,238,.55);animation:e9Ping 1.6s ease-out 1}
+@keyframes e9Ping{
+  0%{transform:scale(.7);box-shadow:0 0 0 0 rgba(34,211,238,.55)}
+  55%{transform:scale(1);box-shadow:0 0 0 6px rgba(34,211,238,0)}
+  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(34,211,238,0)}
+}
+@media (prefers-reduced-motion: reduce){ .e9Pulse{animation:none} }
+
+/* 탭 줄 끝의 «전체 ›» — 제목 줄이 아니라 탭과 같은 줄에 둔다 */
+.e9TabAll{margin-left:auto;align-self:center}

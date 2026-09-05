@@ -72,31 +72,70 @@ function readRow(id: string, it: Record<string, any>, locale: string) {
       return { v: Number.isFinite(it.gapPct) ? `${it.gapPct > 0 ? '+' : ''}${Number(it.gapPct).toFixed(1)}%` : '—',
                sub: it.price != null && it.level != null
                  ? `$${Number(it.price).toLocaleString(undefined, { maximumFractionDigits: 2 })} → $${Number(it.level).toLocaleString()}` : L(it.label) };
-    case 'money-vs-oi':
+    case 'money-vs-oi': {
+      const m = (v: any) => (Number.isFinite(v) ? `$${(Number(v) / 1e6).toFixed(1)}M` : null);
+      const C = locale === 'ko' ? '콜' : locale === 'ja' ? 'コール' : 'Call';
+      const P = locale === 'ko' ? '풋' : locale === 'ja' ? 'プット' : 'Put';
       return { v: n(it.dollarRatio) ? `${n(it.dollarRatio)}×` : '—',
-               sub: [n(it.oiRatio) ? `OI ${n(it.oiRatio)}×` : null, it.date].filter(Boolean).join(' · ') };
-    case 'darkpool-volume':
+               sub: [m(it.callPremium) && m(it.putPremium) ? `${C} ${m(it.callPremium)} vs ${P} ${m(it.putPremium)}` : null,
+                     n(it.oiRatio) ? `OI ${n(it.oiRatio)}×` : null].filter(Boolean).join(' · ') };
+    }
+    case 'darkpool-volume': {
+      const mkt = locale === 'ko' ? '시장' : locale === 'ja' ? '市場' : 'market';
       return { v: n(it.ratio) ? `${n(it.ratio)}×` : '—',
-               sub: it.today != null && it.baseline != null
-                 ? `${Number(it.today).toLocaleString()} vs ${Math.round(it.baseline).toLocaleString()}` : L(it.label) };
-    case 'darkpool-short':
+               sub: [it.today != null && it.baseline != null
+                       ? `${Number(it.today).toLocaleString()} vs ${Math.round(it.baseline).toLocaleString()}` : null,
+                     n(it.marketRatio) ? `${mkt} ${n(it.marketRatio)}×` : null].filter(Boolean).join(' · ')
+                     || L(it.label) };
+    }
+    case 'darkpool-short': {
+      const usual = locale === 'ko' ? '평소' : locale === 'ja' ? '平常' : 'usual';
       return { v: Number.isFinite(it.today) ? `${Number(it.today).toFixed(1)}%` : '—',
-               sub: [Number.isFinite(it.baseline)
-                 ? `${locale === 'ko' ? '평소' : locale === 'ja' ? '平常' : 'usual'} ${Number(it.baseline).toFixed(1)}%` : null,
-                 it.date].filter(Boolean).join(' · ') };
-    case 'stealth':
+               sub: [Number.isFinite(it.baseline) ? `${usual} ${Number(it.baseline).toFixed(1)}%` : null,
+                     Number.isFinite(it.deviationPp)
+                       ? `${it.deviationPp > 0 ? '+' : ''}${Number(it.deviationPp).toFixed(1)}pp` : null,
+                     Number.isFinite(it.percentile) ? `p${Math.round(it.percentile)}` : null]
+                     .filter(Boolean).join(' · ') };
+    }
+    case 'stealth': {
+      const mk = locale === 'ko' ? '시장' : locale === 'ja' ? '市場' : 'market';
+      const reg = String(it.regime || '').toUpperCase() === 'ACCUMULATION'
+        ? (locale === 'ko' ? '축적' : locale === 'ja' ? '蓄積' : 'accumulation')
+        : String(it.regime || '').toUpperCase() === 'DISTRIBUTION'
+          ? (locale === 'ko' ? '분산' : locale === 'ja' ? '分散' : 'distribution')
+          : null;
       return { v: it.stealth != null ? String(it.stealth) : '—',
-               sub: [it.marketStealth != null
-                 ? `${locale === 'ko' ? '시장' : locale === 'ja' ? '市場' : 'market'} ${it.marketStealth}` : null,
-                 it.regime].filter(Boolean).join(' · ') };
+               sub: [it.marketStealth != null ? `${mk} ${it.marketStealth}` : null,
+                     Number.isFinite(it.deviation)
+                       ? `${it.deviation > 0 ? '+' : ''}${it.deviation}` : null,
+                     reg].filter(Boolean).join(' · ') };
+    }
     case 'insider-conviction': {
       const b = Array.isArray(it.buyers) && it.buyers[0] ? it.buyers[0] : null;
+      const who = Number.isFinite(it.buyerCount) && it.buyerCount > 1
+        ? (locale === 'ko' ? `임원 ${it.buyerCount}명` : locale === 'ja' ? `役員${it.buyerCount}名` : `${it.buyerCount} insiders`)
+        : (b?.role || null);
       return { v: Number.isFinite(it.usd) ? `$${(Number(it.usd) / 1e6).toFixed(1)}M` : '—',
-               sub: [it.company, b?.role].filter(Boolean).join(' · ') };
+               sub: [it.company, who].filter(Boolean).join(' · ') };
     }
-    case 'deep-value-fcf':
+    case 'deep-value-fcf': {
+      const med = locale === 'ko' ? '시장 중앙값' : locale === 'ja' ? '市場中央値' : 'market median';
       return { v: Number.isFinite(it.fcfYield) ? `${Number(it.fcfYield).toFixed(1)}%` : '—',
-               sub: Number.isFinite(it.evToEbitda) ? `EV/EBITDA ${Number(it.evToEbitda).toFixed(1)}` : L(it.label) };
+               sub: [Number.isFinite(it.evToEbitda) ? `EV/EBITDA ${Number(it.evToEbitda).toFixed(1)}` : null,
+                     Number.isFinite(it.universeMedianEvToEbitda)
+                       ? `${med} ${Number(it.universeMedianEvToEbitda).toFixed(1)}` : null].filter(Boolean).join(' · ')
+                     || L(it.label) };
+    }
+    case 'volatility-bet': {
+      const ivr = locale === 'ko' ? 'IV 랭크' : locale === 'ja' ? 'IVランク' : 'IV rank';
+      const ss = locale === 'ko' ? '세션' : locale === 'ja' ? 'セッション' : 'sessions';
+      const ern = locale === 'ko' ? '실적 D−' : locale === 'ja' ? '決算 D−' : 'earnings D−';
+      return { v: Number.isFinite(it.ivRank) ? `${it.ivRank}` : '—',
+               sub: [`${ivr}`,
+                     Number.isFinite(it.atmIv) ? `ATM IV ${Number(it.atmIv).toFixed(1)}%` : null,
+                     Number.isFinite(it.daysToEarnings) ? `${ern}${it.daysToEarnings}` : null,
+                     Number.isFinite(it.sessions) ? `${it.sessions}${ss}` : null].filter(Boolean).join(' · ') };
+    }
     default:
       return { v: '—', sub: L(it.label) };
   }

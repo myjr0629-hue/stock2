@@ -17,6 +17,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
+import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import s from './heatmap.module.css';
 
 /* 인텔 10섹터 — 키·색은 app-view/intel/page.tsx 정본과 같다.
@@ -262,6 +263,7 @@ export default function HeatmapPage() {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${r.t}`); } }}
       >
         <span className={`${s.hmXRk} num`}>{rank}</span>
+        <AppTickerLogo symbol={r.t} size={16} />
         <b className={s.hmXT2}>{r.t}</b>
         <span className={s.hmXS}><i className={s.hmXI}>{icon(r.sec, 12)}</i>{label(secOf(r.sec))}</span>
         <span className={s.hmXBar}>
