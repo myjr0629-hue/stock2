@@ -2073,7 +2073,10 @@ export default function AppDashPage() {
         )}
       </div>
 
-      {/* ══════════════ AI MORNING BRIEFING ══════════════ */}
+      {/* ══════════════ 실시간 뉴스펄스 ══════════════
+          ★ 이름 주의: 기본 상태의 화면 제목은 «실시간 뉴스펄스» 다(briefingMode 기본값 'news').
+            «AI 모닝브리핑» 은 토글을 눌렀을 때 나오는 보조 라벨일 뿐이고,
+            진짜 모닝브리핑 화면은 가디언의 <MorningBrief /> 다(guardian/page.tsx:629). */}
       {loading ? (
         <div className={s.card}>
           <div className={s.skelBriefing} />
