@@ -517,3 +517,56 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   9차 스타일 — 히트맵 «오늘의 양 끝»(hmX*)과 «같은 문법»으로 맞춘다.
+   대표 지시(2026-09-06): 「실시간 마켓무버도 오늘의 양 끝 같은 스타일로
+   일관성있게」. 치수·색·간격을 heatmap.module.css 에서 그대로 가져왔다.
+   기존 .row/.card 계열은 안 쓰지만 지우지 않는다(다른 진입점 회귀 방지).
+   ══════════════════════════════════════════════════════════════════ */
+.mvWrap{padding-bottom:186px;background:#070c17;min-height:100vh}
+.mvNav{display:flex;align-items:center;gap:8px;padding:6px 16px 10px}
+.mvBack{width:26px;height:26px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;
+  background:rgba(34,211,238,.10);box-shadow:inset 0 0 0 1px rgba(34,211,238,.30);
+  border:none;padding:0;cursor:pointer}
+.mvBack svg{width:13px;height:13px;stroke:#22d3ee;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.mvEy{font-size:8px;letter-spacing:.2em;font-weight:800;color:#a9bcd6}
+.mvHead{padding:0 16px 8px}
+.mvTitle{font-size:19px;font-weight:800;letter-spacing:-.03em;color:#e4edf8}
+.mvSub{font-size:9.5px;color:#94a8c6;margin-top:2px}
+
+/* 탭 — 9차 .e9Tab 과 같은 알약 */
+.mvTabs{display:flex;align-items:center;gap:5px;padding:0 16px 8px}
+.mvTab{font-size:9.5px;font-weight:700;color:#a0b4d0;padding:3px 9px;border-radius:999px;
+  background:rgba(255,255,255,.05);white-space:nowrap;border:none;cursor:pointer}
+.mvTab.on{color:#04222a;background:#22d3ee}
+.mvSess{margin-left:auto;flex:0 0 auto;font-size:8px;font-weight:800;letter-spacing:.06em;
+  color:#a9bcd6;background:rgba(255,255,255,.07);border-radius:999px;padding:2px 7px}
+
+/* 목록 — hmX 와 같은 카드·행 */
+.mvList{margin:0 16px;padding:9px 12px 10px;border-radius:14px;
+  background:linear-gradient(158deg,#141f33 0%,#0c1524 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.mvR{display:flex;align-items:center;gap:6px;padding:5px 0;position:relative;cursor:pointer}
+.mvR+.mvR::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
+  background:rgba(255,255,255,.05)}
+.mvRk{flex:0 0 12px;font-size:9px;font-weight:800;color:#8397ba;text-align:center}
+.mvT{flex:0 0 44px;font-size:11px;font-weight:800;letter-spacing:-.015em;color:#e4edf8;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvS{flex:1;min-width:0;font-size:8.5px;color:#94a8c6;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvBar{flex:0 0 52px;height:5px;border-radius:3px;background:rgba(255,255,255,.06);
+  position:relative;overflow:hidden}
+.mvBar i{position:absolute;top:0;bottom:0;left:0;border-radius:3px}
+.mvP{flex:0 0 46px;text-align:right;font-size:11px;font-weight:800;letter-spacing:-.03em}
+.mvGr{color:#34d399} .mvRd{color:#f87171}
+
+.mvSkel{border-radius:10px;background:linear-gradient(90deg,
+  rgba(255,255,255,.05),rgba(255,255,255,.10),rgba(255,255,255,.05));
+  background-size:200% 100%;animation:mvShim 1.5s linear infinite;height:22px;margin:6px 0}
+@keyframes mvShim{to{background-position:-200% 0}}
+@media (prefers-reduced-motion: reduce){ .mvSkel{animation:none} }
+
+/* globals.css 의 [role=button]·a{min-height:44px} 가 이 행 높이를 부풀린다 */
+.mvWrap [role="button"], .mvWrap a, .mvWrap button{min-height:0}

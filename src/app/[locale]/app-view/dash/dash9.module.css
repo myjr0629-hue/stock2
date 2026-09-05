@@ -352,16 +352,16 @@
 .e9Root a,
 .e9Root button{min-height:0}
 
-/* 매크로 «작동 중» 표시 — 값이 실제로 갱신될 때 한 번 뛴다(대표 지시).
-   상시 깜빡이면 «도는 척»이 되므로, 값이 안 바뀌면 안 뛴다. */
-.e9Pulse{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:#22d3ee;
-  box-shadow:0 0 0 0 rgba(34,211,238,.55);animation:e9Ping 1.6s ease-out 1}
-@keyframes e9Ping{
-  0%{transform:scale(.7);box-shadow:0 0 0 0 rgba(34,211,238,.55)}
-  55%{transform:scale(1);box-shadow:0 0 0 6px rgba(34,211,238,0)}
-  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(34,211,238,0)}
+/* 지표별 «작동 중» 표시 — 그 지표의 값이 바뀔 때 자기 점이 한 번 뛴다(대표 지시).
+   평소엔 흐린 점으로 «자리»만 지킨다. 상시 깜빡이면 멈춘 지표도 도는 것처럼 보인다. */
+.e9McDot{flex:0 0 auto;margin-left:auto;width:4px;height:4px;border-radius:50%;
+  background:rgba(255,255,255,.16);animation:e9McPing 1.5s ease-out 1}
+@keyframes e9McPing{
+  0%{background:var(--c);box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 55%,transparent);transform:scale(1.35)}
+  60%{background:var(--c);box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 0%,transparent);transform:scale(1)}
+  100%{background:rgba(255,255,255,.16);box-shadow:none;transform:scale(1)}
 }
-@media (prefers-reduced-motion: reduce){ .e9Pulse{animation:none} }
+@media (prefers-reduced-motion: reduce){ .e9McDot{animation:none} }
 
 /* 탭 줄 끝의 «전체 ›» — 제목 줄이 아니라 탭과 같은 줄에 둔다 */
 .e9TabAll{margin-left:auto;align-self:center}
