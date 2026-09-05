@@ -144,9 +144,14 @@ export default function EarningsPage() {
                       <span className={s.ecRTop}>
                         <AppTickerLogo symbol={e.ticker} size={20} />
                         <b className={s.ecRT}>{e.ticker}</b>
-                        <span className={`${s.ecRH} ${e.hour === 'amc' ? s.amc : e.hour === 'bmo' ? s.bmo : s.tbd}`}>
-                          {e.hour === 'amc' ? t.amc : e.hour === 'bmo' ? t.bmo : t.tbd}
-                        </span>
+                        {/* ★ 시각을 모르면 칩을 «안 그린다». FMP stable 에는 time 필드가 없어서
+                            Finnhub 으로 임박한 12건만 채운다 — 나머지에 «시간 미정» 칩을 다 붙이면
+                            같은 칩 수십 개가 잡음이 된다. 아는 것만 표시한다. */}
+                        {(e.hour === 'amc' || e.hour === 'bmo') && (
+                          <span className={`${s.ecRH} ${e.hour === 'amc' ? s.amc : s.bmo}`}>
+                            {e.hour === 'amc' ? t.amc : t.bmo}
+                          </span>
+                        )}
                         {e.quarter != null && e.year != null && (
                           <span className={`${s.ecRQ} num`}>Q{e.quarter} FY{e.year}</span>
                         )}

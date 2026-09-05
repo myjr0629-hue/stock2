@@ -17,6 +17,7 @@
 
 import { NextResponse } from 'next/server';
 import { SECTOR_MAP } from '@/services/universePolicy';
+import { getEarningsCalendar } from '@/services/finnhubClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export const revalidate = 0;
 
 // 응답 모양이 바뀌면(hour·quarter·year 추가) 키를 올린다 — 옛 페이로드가 200 OK 로 나간다.
 // 이 라우트엔 last_good 폴백이 없으므로 키를 올려도 휴장에 화면이 비지 않는다.
-const CACHE_KEY = 'market:earnings-calendar:v2';
+const CACHE_KEY = 'market:earnings-calendar:v3';
 const TTL = 60 * 60 * 6;          // 6h — 발표일은 자주 안 바뀐다
 
 /* 인텔 10섹터 구성종목 — app-view/intel 과 히트맵이 쓰는 것과 같은 목록 */
@@ -77,11 +78,13 @@ export async function GET(req: Request) {
     to.setDate(to.getDate() + 120);                 // 4개월
     const fmt = (d: Date) => d.toISOString().split('T')[0];
 
-    // ★ stable 엔드포인트는 발표 시각(time)과 분기(fiscalDateEnding)를 주지 않는다 —
-    //   실측(프리뷰): 34행 전부 hour:'' 로 나와 화면이 «시간 미정» 만 그렸다.
-    //   v3 는 time:'bmo'|'amc' 와 fiscalDateEnding 을 준다. v3 를 먼저 쓰고 실패하면 stable.
+    // ★ 벤더 실측(2026-09-06, probe 로 확인):
+    //   · v3/earning_calendar        → HTTP 403 (플랜에 없다)
+    //   · stable/earnings-calendar   → ok, 4,000행. 그런데 주는 필드가
+    //     symbol·date·epsActual·epsEstimated·revenueActual·revenueEstimated·lastUpdated 뿐이라
+    //     **발표 시각(time)이 아예 없다.** 그래서 34행 전부 «시간 미정» 이 나왔다.
+    //   → 시장 전체 목록은 stable 로 받고, 시각은 Finnhub 으로 «가장 임박한 것만» 채운다.
     const urls = [
-      `https://financialmodelingprep.com/api/v3/earning_calendar?from=${fmt(today)}&to=${fmt(to)}&apikey=${key}`,
       `https://financialmodelingprep.com/stable/earnings-calendar?from=${fmt(today)}&to=${fmt(to)}&apikey=${key}`,
     ];
     let raw: any = null;
@@ -141,6 +144,25 @@ export async function GET(req: Request) {
     }
     rows.sort((a, b) => (a.date === b.date ? a.ticker.localeCompare(b.ticker) : a.date.localeCompare(b.date)));
 
+    // ── 발표 시각 채우기 (Finnhub) ────────────────────────────────────
+    // FMP 에 time 이 없으므로, «가장 임박한 12건» 만 Finnhub 으로 채운다.
+    // 종목당 1콜이라 무제한으로 부르면 한도에 걸린다(실측: 10개 라우트 연속 호출 시 6개 빈 응답).
+    // 캐시 미스일 때만 돌고, 실패하면 그냥 비워 둔다 — 추정하지 않는다.
+    let hourFilled = 0;
+    const HOUR_FILL_LIMIT = 12;
+    await Promise.all(
+      rows.slice(0, HOUR_FILL_LIMIT).map(async (row) => {
+        try {
+          const ev = await getEarningsCalendar(row.ticker, row.date, row.date);
+          const hit = (ev || []).find((e: any) => String(e?.symbol || '').toUpperCase() === row.ticker);
+          const h = String(hit?.hour ?? '').toLowerCase();
+          if (h === 'amc' || h === 'bmo') { row.hour = h; hourFilled += 1; }
+          if (hit?.quarter != null) row.quarter = Number(hit.quarter);
+          if (hit?.year != null) row.year = Number(hit.year);
+        } catch { /* 못 채우면 빈 채로 둔다 */ }
+      }),
+    );
+
     const payload = {
       ok: true,
       rows,
@@ -151,6 +173,8 @@ export async function GET(req: Request) {
       generatedAt: new Date().toISOString(),
       probe,
       vendorFields,
+      hourFilled,
+      hourSource: 'Finnhub (nearest 12)',
     };
     if (rows.length) setInCache(CACHE_KEY, payload, TTL).catch(() => {});
     return NextResponse.json({ ...payload, _cache: 'miss' });
