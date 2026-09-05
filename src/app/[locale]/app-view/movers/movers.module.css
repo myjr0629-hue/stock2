@@ -568,5 +568,18 @@
 @keyframes mvShim{to{background-position:-200% 0}}
 @media (prefers-reduced-motion: reduce){ .mvSkel{animation:none} }
 
-/* globals.css 의 [role=button]·a{min-height:44px} 가 이 행 높이를 부풀린다 */
-.mvWrap [role="button"], .mvWrap a, .mvWrap button{min-height:0}
+
+/* ══ 44px 터치타깃 무력화 (특이도까지 맞춘 정본) ══════════════════════
+   globals.css @media(max-width:768px) 의 규칙은 선택자마다 특이도가 다르다.
+     [role="button"] · [role="tab"]                                   (0,1,0)
+     a:not([class*="inline"]):not([class*="text-\["])                  (0,2,1)
+     button:not([class*="shrink"]):not([class*="w-3"]):not([class*="w-4"]) (0,3,1)
+   그래서 `.WRAP a` (0,1,1) 로는 «못 이긴다» — 앞서 이 실수로 시안 30px 행이
+   44px 로 남아 있었다(오늘의 발견·빠른 진입·무버·실적 전부). :not() 을 덧붙여
+   각각을 한 단계씩 넘긴다. 높이는 시안이 정본이다.
+   ─────────────────────────────────────────────────────────────────── */
+.mvWrap a:not([data-tap]):not([data-tap2]),
+.mvWrap button:not([data-tap]):not([data-tap2]):not([data-tap3]),
+.mvWrap [role="button"],
+.mvWrap [role="tab"],
+.mvWrap input, .mvWrap select, .mvWrap textarea{min-height:0}

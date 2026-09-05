@@ -82,10 +82,17 @@
 .rkSkelCard { height: 190px; margin: 0 16px 9px; }
 @media (prefers-reduced-motion: reduce) { .rkSkel { animation: none; } }
 
-/* 44px 터치타깃 무력화 — globals.css @media(max-width:768px) 의
-   [role=button]·[role=tab]·a{min-height:44px} 가 시안이 정한 카드 높이를 부풀리고
-   섹션 헤드의 «전체 ›»를 제목과 다른 줄로 밀어낸다. 이 화면 안에서만 끈다. */
+/* ══ 44px 터치타깃 무력화 (특이도까지 맞춘 정본) ══════════════════════
+   globals.css @media(max-width:768px) 의 규칙은 선택자마다 특이도가 다르다.
+     [role="button"] · [role="tab"]                                   (0,1,0)
+     a:not([class*="inline"]):not([class*="text-\["])                  (0,2,1)
+     button:not([class*="shrink"]):not([class*="w-3"]):not([class*="w-4"]) (0,3,1)
+   그래서 `.WRAP a` (0,1,1) 로는 «못 이긴다» — 앞서 이 실수로 시안 30px 행이
+   44px 로 남아 있었다(오늘의 발견·빠른 진입·무버·실적 전부). :not() 을 덧붙여
+   각각을 한 단계씩 넘긴다. 높이는 시안이 정본이다.
+   ─────────────────────────────────────────────────────────────────── */
+.rkWrap a:not([data-tap]):not([data-tap2]),
+.rkWrap button:not([data-tap]):not([data-tap2]):not([data-tap3]),
 .rkWrap [role="button"],
 .rkWrap [role="tab"],
-.rkWrap a,
-.rkWrap button{min-height:0}
+.rkWrap input, .rkWrap select, .rkWrap textarea{min-height:0}
