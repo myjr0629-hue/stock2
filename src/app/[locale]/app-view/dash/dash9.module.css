@@ -274,6 +274,39 @@
   color:#04222a;font-size:12px;font-weight:800;letter-spacing:-.01em;text-align:center}
 .e9Cta svg{flex:0 0 auto;width:14px;height:14px;stroke:#04222a;fill:none;stroke-width:2.2;
   stroke-linecap:round;stroke-linejoin:round}
+/* ── 구독 진입점 ─────────────────────────────────────────────────────────
+   시안에 없는 요소라 «시안의 말»로 새로 짠다.
+   원칙 3개:
+     1. 무료(광고 CTA)가 1순위 — 유료를 필수처럼 보이게 하면 심사에서도 문제다.
+        그래서 광고는 «불투명 시안색», 구독은 «테두리 + 옅은 틴트»로 한 단계 낮춘다.
+     2. 그래도 눌리는 곳으로 확실히 보여야 한다 — 전폭 · 별 아이콘 · 시안 테두리.
+     3. 가격을 쓰지 않는다. 스토어가 준 값을 페이월이 보여준다(한국 ₩13,000).
+   ─────────────────────────────────────────────────────────────────────── */
+.e9ProOr{display:flex;align-items:center;gap:8px;margin-top:9px;
+  font-size:8.5px;font-weight:700;letter-spacing:.08em;color:#879bbe}
+.e9ProOr s{flex:1;height:1px;background:rgba(255,255,255,.08);text-decoration:none}
+
+.e9ProCta{display:flex;width:100%;align-items:center;justify-content:center;gap:7px;
+  margin-top:9px;padding:9px 10px;border-radius:12px;border:none;cursor:pointer;
+  background:linear-gradient(96deg,rgba(34,211,238,.14),rgba(56,189,248,.05));
+  box-shadow:inset 0 0 0 1px rgba(34,211,238,.34);
+  transition:box-shadow .16s ease,background .16s ease}
+.e9ProCta svg{flex:0 0 auto;width:13px;height:13px;fill:#22d3ee;stroke:none}
+.e9ProCta b{font-size:11.5px;font-weight:800;letter-spacing:-.01em;color:#7fe6f7}
+.e9ProCta em{font-style:normal;font-size:9px;color:#93a8c8;letter-spacing:-.01em}
+.e9ProCta:active{background:linear-gradient(96deg,rgba(34,211,238,.22),rgba(56,189,248,.09));
+  box-shadow:inset 0 0 0 1px rgba(34,211,238,.55)}
+.e9ProCta:disabled{opacity:.6;cursor:default}
+
+.e9ProErr{margin-top:6px;font-size:9px;line-height:1.4;text-align:center;color:#f87171}
+.e9ProErr.mut{color:#93a8c8}
+
+/* 애플이 요구하는 «구매 복원» — 있어야 하지만 시선을 끌 자리는 아니다 */
+.e9ProRestore{display:block;width:100%;margin-top:7px;padding:2px;border:none;
+  background:none;cursor:pointer;font-size:9px;font-weight:600;color:#879bbe;
+  text-decoration:underline;text-underline-offset:2px}
+.e9ProRestore:disabled{opacity:.5;cursor:default}
+
 .e9GateSub{margin-top:8px;font-size:9px;color:#a9bcd6;line-height:1.45;text-align:center}
 .e9GateLegal{margin-top:7px;font-size:8px;color:#879bbe;line-height:1.45;text-align:center}
 

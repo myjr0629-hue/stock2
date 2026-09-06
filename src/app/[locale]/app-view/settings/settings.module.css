@@ -93,8 +93,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  min-height: 50px;
+  /* 여백만 조정 (2026-09-06, 대표: 「카드가 내용에 비해 뚱뚱하다」).
+     실측 전: 행 59~61px · 내용 30~32px → 빈 공간 29px(절반).
+     상하 14→9, min-height 50→44(터치 기준선). 구조·색·아이콘 팔레트는 그대로. */
+  padding: 9px 16px;
+  min-height: 44px;
   gap: 10px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.05);
   cursor: pointer;
@@ -124,9 +127,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   flex-shrink: 0;
 }
 
@@ -136,12 +139,12 @@
 .rowIconLegal { background: rgba(148, 163, 184, 0.10); color: #94a3b8; }
 
 .rowLabel {
-  font: 600 14px/1.3 'Inter', sans-serif;
+  font: 600 13px/1.3 'Inter', sans-serif;
   color: var(--text);
 }
 
 .rowSub {
-  font: 500 11px/1.2 'Inter', sans-serif;
+  font: 500 10px/1.25 'Inter', sans-serif;
   color: var(--text-muted);
   margin-top: 1px;
 }
@@ -191,8 +194,8 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 13px 16px 13px 58px;
-  min-height: 44px;
+  padding: 10px 16px 10px 54px;
+  min-height: 40px;
   border: none;
   background: transparent;
   cursor: pointer;

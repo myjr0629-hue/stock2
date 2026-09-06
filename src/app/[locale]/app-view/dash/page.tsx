@@ -9,6 +9,7 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
+import { IAP_LIVE } from '@/config/iap';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
@@ -1681,6 +1682,7 @@ export default function AppDashPage() {
       marketAvg: '시장 평균',
       discTally: (a: number, d: number) => `축적 상위 ${a} · 분산 ${d}`,
       gateN: (f: number, n: number) => `무료 ${f} / ${n}`, free: '무료',
+      proOr: '또는', proNote: '광고 없이 항상 열림',
       ftLegal: '교육 및 리서치용 시장 데이터입니다. 투자 조언, 매수/매도 권유, 수익 보장이 아니며 모든 판단과 결과는 사용자 본인 책임입니다.',
       ftA: '앱 이용약관', ftB: '앱 개인정보처리방침', ftS: '지원: contact@signumhq.com',
     },
@@ -1701,6 +1703,7 @@ export default function AppDashPage() {
       marketAvg: 'Market avg',
       discTally: (a: number, d: number) => `${a} accumulating · ${d} distributing`,
       gateN: (f: number, n: number) => `${f} of ${n} free`, free: 'FREE',
+      proOr: 'or', proNote: 'Always open, no ads',
       ftLegal: 'Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.',
       ftA: 'App Terms', ftB: 'App Privacy', ftS: 'Support: contact@signumhq.com',
     },
@@ -1721,6 +1724,7 @@ export default function AppDashPage() {
       marketAvg: '市場平均',
       discTally: (a: number, d: number) => `蓄積 上位${a} · 分散${d}`,
       gateN: (f: number, n: number) => `無料 ${f} / ${n}`, free: '無料',
+      proOr: 'または', proNote: '広告なしで常に開く',
       ftLegal: '教育およびリサーチ目的の市場データです。投資助言、売買推奨、収益保証ではなく、すべての判断と結果は利用者本人の責任です。',
       ftA: 'アプリ利用規約', ftB: 'アプリプライバシー', ftS: 'サポート: contact@signumhq.com',
     },
@@ -2099,11 +2103,45 @@ export default function AppDashPage() {
             })}
           </div>
           {!adGate.isUnlocked && (
-            <button type="button" className={n9.e9Cta}
-                    onClick={adGate.handleUnlockPress} disabled={adGate.unlocking}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5v11l9-5.5z" /></svg>
-              {adGate.unlocking ? adGate.copy.modalWaitPrefix : gateCopy.cta}
-            </button>
+            <>
+              <button type="button" className={n9.e9Cta}
+                      onClick={adGate.handleUnlockPress} disabled={adGate.unlocking}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5v11l9-5.5z" /></svg>
+                {adGate.unlocking ? adGate.copy.modalWaitPrefix : gateCopy.cta}
+              </button>
+
+              {/* ★ 구독 진입점 — 시안에는 없는 요소다(시안 작성 시점엔 IAP 가 없었다).
+                  기존 ValueWall(cmd·flow·가디언)은 이 블록을 갖고 있는데 9차 게이트를
+                  다시 만들며 빠뜨렸다. 없으면 IAP 를 켜는 순간 «첫 화면만» 구독 버튼이
+                  없는 상태가 되고, 애플이 요구하는 «구매 복원»도 사라진다.
+                  ⚠️ 가격은 절대 쓰지 않는다 — 스토어가 준 값만 페이월이 보여준다
+                     (한국은 ₩13,000 이라 $9.99 로 쓰면 표시 위반).
+                  순서: 무료(광고)가 1순위, 구독은 2순위. 유료를 필수처럼 보이게 하지 않는다. */}
+              {IAP_LIVE && (
+                <>
+                  <div className={n9.e9ProOr}><s />{c9.proOr}<s /></div>
+                  <button type="button" className={n9.e9ProCta}
+                          onClick={adGate.openPaywall}
+                          disabled={adGate.purchasing || adGate.unlocking}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3.2l2.5 5.4 5.9.5-4.5 3.9 1.4 5.8L12 15.7 6.7 18.8l1.4-5.8-4.5-3.9 5.9-.5z" />
+                    </svg>
+                    <b>{adGate.purchasing ? adGate.copy.modalWaitPrefix : adGate.copy.proCta}</b>
+                    <em>{c9.proNote}</em>
+                  </button>
+                  {adGate.proError && (
+                    <div className={n9.e9ProErr} role="alert">{adGate.copy.proErrorLabel}</div>
+                  )}
+                  {adGate.proNothing && (
+                    <div className={`${n9.e9ProErr} ${n9.mut}`} role="status">{adGate.copy.proNothingLabel}</div>
+                  )}
+                  <button type="button" className={n9.e9ProRestore}
+                          onClick={adGate.handleRestore} disabled={adGate.purchasing}>
+                    {adGate.copy.proRestoreLabel}
+                  </button>
+                </>
+              )}
+            </>
           )}
           <div className={n9.e9GateSub}>{gateCopy.subtitle}</div>
           <div className={n9.e9GateLegal}>{adGate.copy.legalNote}</div>
