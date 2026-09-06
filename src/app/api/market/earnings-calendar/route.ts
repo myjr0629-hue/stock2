@@ -120,7 +120,37 @@ export async function GET(req: Request) {
         return j;
       } catch (e: any) { probe[f] = `err-${String(e?.message || e).slice(0, 30)}`; return []; }
     }));
-    const raw: any[] = chunks.flat();
+    // ★ 상한에 닿은 창은 «반으로 쪼개 다시» 부른다.
+    //   실측: 14일로 나눠도 성수기(11/01~11/14)는 4,000 에 닿았다 — Q3 실적이 몰리는 2주다.
+    //   고정 폭을 더 줄이면 한산한 달에 호출만 늘어난다. 닿은 창만 스스로 쪼개는 게 맞다.
+    const extra: any[][] = [];
+    if (truncated.length) {
+      const halves: Array<[string, string]> = [];
+      for (const w of truncated) {
+        const [f, t2] = w.split('~');
+        const fd = new Date(`${f}T00:00:00Z`), td = new Date(`${t2}T00:00:00Z`);
+        const mid = new Date(fd); mid.setUTCDate(mid.getUTCDate() + Math.floor((td.getTime() - fd.getTime()) / 86400000 / 2));
+        const nxt = new Date(mid); nxt.setUTCDate(nxt.getUTCDate() + 1);
+        halves.push([fmt(fd), fmt(mid)], [fmt(nxt), fmt(td)]);
+      }
+      const got = await Promise.all(halves.map(async ([f, t2]) => {
+        const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${f}&to=${t2}&apikey=${key}`;
+        try {
+          const r = await fetch(url, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+          if (!r.ok) { probe[`${f}*`] = `http-${r.status}`; return []; }
+          const j = await r.json();
+          if (!Array.isArray(j)) return [];
+          probe[`${f}*`] = `ok-${j.length}`;
+          if (j.length >= CAP) truncated.push(`${f}~${t2} (재분할 후에도 상한)`);
+          return j;
+        } catch (e: any) { probe[`${f}*`] = `err-${String(e?.message || e).slice(0, 30)}`; return []; }
+      }));
+      extra.push(...got);
+      // 잘렸던 원본 창은 «다시 받은 반쪽들»로 대체된다 — 목록에서 뺀다
+      for (const w of [...truncated]) if (!w.includes('재분할')) truncated.splice(truncated.indexOf(w), 1);
+    }
+
+    const raw: any[] = [...chunks.flat(), ...extra.flat()];
     const usedUrl = 'stable';
     if (!raw.length) return NextResponse.json({ ok: true, rows: [], reason: 'fmp-empty', probe });
     // 벤더가 실제로 주는 필드 — 추측하지 않으려면 이걸 봐야 한다
