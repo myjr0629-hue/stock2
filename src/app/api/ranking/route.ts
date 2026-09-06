@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     //      화면이 카드 제목에 id 를 그대로 찍는다(캐시 10분).
     // v5 — 엔진의 영어 표시명을 줄였다(카드 제목이 잘려서). 이름이 응답에 실려 있으므로
     //      키를 올리지 않으면 옛 긴 이름이 10분 더 나간다.
-    const CACHE = `ranking:v6:${run}:${days}:${top}`;
+    const CACHE = `ranking:v7:${run}:${days}:${top}`;
     if (q.get('refresh') !== '1') {
         const hit = await getFromCache<any>(CACHE);
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
@@ -398,13 +398,25 @@ export async function GET(req: NextRequest) {
         }
 
         if (spec.id === 'multi-axis') {
+            // ⚠️ 2026-09-07: devByTicker 는 spec 루프 «밖»에 선언돼 있고, 위 블록이
+            //    deviation 과 multi-axis 두 spec에서 «모두» 돈다. run=all 이면 같은 축이
+            //    두 번 쌓여서
+            //      · 축 개수가 항상 2배로 표시되고(«4축»은 실제 2축)
+            //      · **1축짜리가 «2축»으로 둔갑해 이 랭킹에 잘못 들어왔다**
+            //        (실측: XOM/BA/NFLX 가 «Put OI 1.40× · Put OI 1.40×» 로 같은 축 두 번)
+            //    「다축 동시 이탈」은 «서로 다른» 지표가 함께 튄 종목을 찾는 랭킹이므로
+            //    이건 랭킹의 뜻 자체가 무너지는 버그다.
+            //    → 지표(metric) 기준으로 한 번만 세다. 몇 번을 채웠든 결과가 같아진다.
             const grouped = Object.entries(devByTicker)
-                .map(([t, axes]) => ({
-                    ticker: t, axisCount: axes.length,
-                    axes: axes.map((a) => ({ metric: a.metric, label: a.label, ratio: Math.round(a.ratio * 100) / 100, today: a.today, baseline: a.baseline })),
-                    date: axes[0]?.date ?? null,
-                    rank: axes.length + axes.reduce((s, a) => s + a.rank, 0) / 10,
-                }))
+                .map(([t, dupes]) => {
+                    const axes = [...new Map(dupes.map((a) => [a.metric, a])).values()];
+                    return {
+                        ticker: t, axisCount: axes.length,
+                        axes: axes.map((a) => ({ metric: a.metric, label: a.label, ratio: Math.round(a.ratio * 100) / 100, today: a.today, baseline: a.baseline })),
+                        date: axes[0]?.date ?? null,
+                        rank: axes.length + axes.reduce((s, a) => s + a.rank, 0) / 10,
+                    };
+                })
                 .filter((g) => g.axisCount >= 2);
             rows.length = 0; rows.push(...grouped);
         }
@@ -422,7 +434,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 10, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 11, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta,
         // 실제로 훑은 종목 수를 말한다. 하드코딩 25 를 그대로 말하면 거짓말이 된다.
