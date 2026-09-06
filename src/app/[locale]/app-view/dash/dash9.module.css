@@ -29,6 +29,17 @@
     radial-gradient(52% 40% at 8% 2%,   rgba(124,92,255,.42) 0%, transparent 62%),
     radial-gradient(46% 34% at 92% 12%, rgba(56,189,248,.22) 0%, transparent 66%),
     linear-gradient(180deg,#0f1930 0%,#0a1122 56%,#070c17 100%)}
+/* ── 상단 이음매 지우기 (2026-09-07) ─────────────────────────────────────
+   iOS 는 capacitor.config.ts 의 `contentInset:'always'` 때문에 웹뷰가
+   «상태바 아래»에서 시작한다. 그 위 띠는 네이티브 웹뷰 배경(#050a14)이고
+   **웹에서는 못 그린다**(그래서 UC 같은 완전 풀블리드는 새 빌드가 필요하다).
+   할 수 있는 건 «첫 줄을 같은 색에서 시작»시켜 가로 경계선을 지우는 것이다.
+   28px 안에서 사라지므로 히어로의 성격(지구본·보랏빛 글로우)은 그대로다.
+   ※ 나중에 contentInset 을 바꿔 A안으로 가더라도 이 색 맞춤은 그대로 쓰인다. */
+.e9Hero::before{content:'';position:absolute;left:0;right:0;top:0;height:28px;z-index:2;
+  pointer-events:none;
+  background:linear-gradient(180deg,#050a14 0%,rgba(5,10,20,.55) 46%,rgba(5,10,20,0) 100%)}
+
 .e9Earth{position:absolute;right:-70px;top:-28px;width:224px;height:224px;z-index:1;
   opacity:.46;object-fit:contain;pointer-events:none}
 .e9Veil{position:absolute;left:0;right:0;bottom:0;height:100px;z-index:2;
