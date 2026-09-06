@@ -55,7 +55,24 @@ const T = {
 const PHASE_C: Record<Phase, string> = { intraday: '#22d3ee', postclose: '#a78bfa', anytime: '#fbbf24' };
 
 /* 랭킹마다 보여줄 값·보조설명이 다르다. 없는 필드는 «빼고» 지어내지 않는다. */
-function readRow(id: string, it: Record<string, any>, locale: string) {
+/* 카드 제목 옆 «한 줄 설명» — 대표 지시(2026-09-06): 무엇을 뜻하는지 간단히.
+   엔진의 what/why 는 두세 문장짜리라 제목 옆에 못 쓴다. 그 뜻을 한 줄로 줄인 것이다.
+   길면 말줄임으로 잘리므로 한국어 14자 안쪽을 지킨다. */
+const RANK_WHAT: Record<string, { ko: string; en: string; ja: string }> = {
+  'deviation':          { ko: '자기 평소보다 몇 배',      en: 'vs its own normal',        ja: '自分の平常比' },
+  'multi-axis':         { ko: '여러 지표가 한꺼번에',      en: 'several metrics at once',  ja: '複数指標が同時に' },
+  'maxpain-gap':        { ko: '최대고통가와의 거리',      en: 'gap to max pain',          ja: 'マックスペインとの差' },
+  'gamma-flip':         { ko: '딜러 방향이 바뀌는 값',    en: 'where dealers flip',       ja: 'ディーラーが反転する値' },
+  'money-vs-oi':        { ko: '프리미엄과 미결제가 반대', en: 'premium vs open interest', ja: 'プレミアムと建玉が逆' },
+  'darkpool-volume':    { ko: '장외 거래량이 평소보다',   en: 'off-exchange volume vs norm', ja: '場外出来高が平常比' },
+  'darkpool-short':     { ko: '장외 중 공매도 비중',      en: 'short share off-exchange', ja: '場外の空売り比率' },
+  'stealth':            { ko: '물량은 늘고 공매도는 줄고', en: 'volume up, shorts down',  ja: '出来高増・空売り減' },
+  'insider-conviction': { ko: '임원이 자기 돈으로 매수',  en: 'insiders buying, own money', ja: '役員が自腹で買い' },
+  'deep-value-fcf':     { ko: '현금은 버는데 싸다',       en: 'cash-rich but cheap',      ja: '稼ぐのに割安' },
+  'volatility-bet':     { ko: '재료 없이 옵션만 비싸',    en: 'no catalyst, pricey options', ja: '材料なしで割高' },
+};
+
+function readRow(id: string, it: Record<string, any>, locale: string, nt = false) {
   const L = (o: any) => (o && (o[locale] ?? o.ko ?? o.en)) || '';
   const n = (v: any, d = 2) => (Number.isFinite(v) ? Number(v).toFixed(d) : null);
   switch (id) {
@@ -117,8 +134,9 @@ function readRow(id: string, it: Record<string, any>, locale: string) {
       const who = Number.isFinite(it.buyerCount) && it.buyerCount > 1
         ? (locale === 'ko' ? `임원 ${it.buyerCount}명` : locale === 'ja' ? `役員${it.buyerCount}名` : `${it.buyerCount} insiders`)
         : (b?.role || null);
+      // 티커가 없는 행은 «이름» 자리에 이미 회사명이 들어간다 — 여기서 또 쓰면 두 번 나온다.
       return { v: Number.isFinite(it.usd) ? `$${(Number(it.usd) / 1e6).toFixed(1)}M` : '—',
-               sub: [it.company, who].filter(Boolean).join(' · ') };
+               sub: [nt ? null : it.company, who].filter(Boolean).join(' · ') };
     }
     case 'deep-value-fcf': {
       const med = locale === 'ko' ? '시장 중앙값' : locale === 'ja' ? '市場中央値' : 'market median';
@@ -231,6 +249,9 @@ export default function RankingsPage() {
             <div className={s.rkCTop}>
               <span className={s.rkDot} />
               <span className={s.rkCN}>{b.name?.[locale as 'ko'] || b.name?.ko || b.id}</span>
+              {RANK_WHAT[b.id] && (
+                <span className={s.rkCW}>{RANK_WHAT[b.id][(locale as 'ko' | 'en' | 'ja')] ?? RANK_WHAT[b.id].en}</span>
+              )}
               {b.phase && <span className={s.rkCP}>{t[b.phase]}</span>}
             </div>
 
@@ -239,8 +260,8 @@ export default function RankingsPage() {
                 <div className={s.rkRows}>
                   {items.map((raw, i) => {
                     const it = raw as Record<string, any>;
-                    const row = readRow(b.id, it, locale);
                     const nt = noTicker(it.ticker);
+                    const row = readRow(b.id, it, locale, nt);
                     const name = nt ? (it.company || '—') : it.ticker;
                     return (
                       <a key={`${b.id}-${it.ticker ?? i}`}
