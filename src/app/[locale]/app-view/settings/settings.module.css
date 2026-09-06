@@ -234,8 +234,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 12px 58px;
-  min-height: 44px;
+  /* .row 와 같은 리듬 (1차에서 여기가 빠져 있었다: 57px 중 25px 빈칸) */
+  padding: 9px 16px 9px 54px;
+  min-height: 40px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.04);
 }
 
@@ -290,7 +291,7 @@
 /* ── Version ── */
 .versionBox {
   text-align: center;
-  padding: 20px 16px 4px;
+  padding: 12px 16px 6px;
 }
 
 .versionLogo {
