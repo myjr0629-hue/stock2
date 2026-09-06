@@ -544,7 +544,7 @@
 .mvTab{font-size:9.5px;font-weight:700;color:#a0b4d0;padding:3px 9px;border-radius:999px;
   background:rgba(255,255,255,.05);white-space:nowrap;border:none;cursor:pointer}
 .mvTab.on{color:#04222a;background:#22d3ee}
-.mvSess{margin-left:auto;flex:0 0 auto;font-size:8px;font-weight:800;letter-spacing:.06em;
+.mvSess{margin-left:auto;flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.05em;
   color:#a9bcd6;background:rgba(255,255,255,.07);border-radius:999px;padding:2px 7px}
 
 /* 목록 — hmX 와 같은 카드·행 */

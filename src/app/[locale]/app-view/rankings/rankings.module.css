@@ -40,7 +40,7 @@
 /* 제목 옆 한 줄 설명 — 좁아지면 «설명»이 먼저 줄고 제목·단계 칩은 안 밀린다 */
 .rkCW{flex:1 1 auto;min-width:0;font-size:9px;color:#94a8c6;font-weight:600;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rkCP{flex:0 0 auto;font-size:7.5px;font-weight:800;letter-spacing:.06em;
+.rkCP{flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.05em;
   color:color-mix(in srgb,var(--c) 82%,white);
   background:color-mix(in srgb,var(--c) 13%,transparent);
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 32%,transparent);
@@ -68,7 +68,7 @@
   color:color-mix(in srgb,var(--c) 62%,#e6eef8)}
 
 .rkFoot{position:relative;display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:8px;
-  border-top:1px solid rgba(255,255,255,.06);font-size:8.5px;color:#94a8c6}
+  border-top:1px solid rgba(255,255,255,.06);font-size:9.5px;color:#94a8c6}
 .rkAll{margin-left:auto;font-size:9.5px;font-weight:600;color:#8fb0d4;white-space:nowrap}
 
 /* 준비 중인 랭킹은 «비어 있음»이 아니라 «왜 비었는지»를 적는다 */
@@ -77,7 +77,7 @@
   stroke-linecap:round;stroke-linejoin:round}
 .rkSoon span{min-width:0}
 .rkSoon b{display:block;font-size:10px;font-weight:700;color:#9fb4d0}
-.rkSoon small{display:block;font-size:8.5px;color:#879bbe;margin-top:2px}
+.rkSoon small{display:block;font-size:9.5px;color:#879bbe;margin-top:2px}
   
 
 /* 로딩 (시안엔 없다) */
