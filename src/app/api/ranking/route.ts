@@ -41,10 +41,10 @@ const ETF = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'TLT', 'GLD']);
 //    ※ 이 목록은 /api/ranking/deviation 의 METRICS 와 **같아야 한다.**
 //      갈라지면 두 주소가 다른 답을 주고, 그때 어느 쪽이 맞는지 알 수 없다.
 const DEV_AXES: Array<{ key: string; label: { ko: string; en: string; ja: string } }> = [
-    { key: 'pcr', label: { ko: '풋콜 비율(미결제약정)', en: 'Put/call ratio (OI)', ja: 'プットコール比率(建玉)' } },
-    { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call open interest', ja: 'コール建玉' } },
-    { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put open interest', ja: 'プット建玉' } },
-    { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Options premium', ja: 'オプション資金' } },
+    { key: 'pcr', label: { ko: '풋콜 비율(미결제약정)', en: 'P/C ratio (OI)', ja: 'プットコール比率(建玉)' } },
+    { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call OI', ja: 'コール建玉' } },
+    { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put OI', ja: 'プット建玉' } },
+    { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Option premium', ja: 'オプション資金' } },
 ];
 
 const hist = (table: string, ticker: string, days: number) => queryItems<Row>(
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     //      화면이 카드 제목에 id 를 그대로 찍는다(캐시 10분).
     // v5 — 엔진의 영어 표시명을 줄였다(카드 제목이 잘려서). 이름이 응답에 실려 있으므로
     //      키를 올리지 않으면 옛 긴 이름이 10분 더 나간다.
-    const CACHE = `ranking:v5:${run}:${days}:${top}`;
+    const CACHE = `ranking:v6:${run}:${days}:${top}`;
     if (q.get('refresh') !== '1') {
         const hit = await getFromCache<any>(CACHE);
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
@@ -422,7 +422,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 9, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 10, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta,
         // 실제로 훑은 종목 수를 말한다. 하드코딩 25 를 그대로 말하면 거짓말이 된다.

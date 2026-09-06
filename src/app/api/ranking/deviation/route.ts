@@ -91,11 +91,11 @@ const METRICS: Metric[] = [
     //    «미결제약정» PCR 이다. 그냥 「풋콜 비율」이라고 쓰면 시청자는 그날의
     //    거래량 쏠림으로 읽는다. 라벨이 데이터와 어긋나면 그게 곧 오보다.
     { key: 'pcr', label: { ko: '풋콜 비율(미결제약정)', en: 'Put/call ratio (open interest)', ja: 'プットコール比率(建玉)' }, kind: 'ratio' },
-    { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call open interest', ja: 'コール建玉' }, kind: 'magnitude' },
-    { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put open interest', ja: 'プット建玉' }, kind: 'magnitude' },
+    { key: 'totalCallOI', label: { ko: '콜 미결제약정', en: 'Call OI', ja: 'コール建玉' }, kind: 'magnitude' },
+    { key: 'totalPutOI', label: { ko: '풋 미결제약정', en: 'Put OI', ja: 'プット建玉' }, kind: 'magnitude' },
     // 이력이 3~4일뿐이라 아직 MIN_SESSIONS(8)를 못 넘는다. 선언만 해 두면
     // 자료가 쌓이는 날 저절로 켜진다 — readiness 로 상태를 보고한다.
-    { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Options premium', ja: 'オプション資金' }, kind: 'magnitude' },
+    { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Option premium', ja: 'オプション資金' }, kind: 'magnitude' },
 ];
 
 const MIN_SESSIONS = 8;
