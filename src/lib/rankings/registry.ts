@@ -71,7 +71,7 @@ export const RANKINGS: RankingSpec[] = [
     },
     {
         id: 'money-vs-oi', phase: 'intraday',
-        name: { ko: '돈과 포지션의 불일치', en: 'Dollars vs positions disagree', ja: '資金と建玉の不一致' },
+        name: { ko: '돈과 포지션의 불일치', en: 'Dollars vs positions', ja: '資金と建玉の不一致' },
         what: '«돈»(콜/풋 프리미엄 비)과 «쌓인 포지션»(콜/풋 미결제약정 비)이 서로 반대를 가리키는 정도. 어긋난 순.',
         why: '미결제약정은 풋이 많은데 돈은 콜에 몰리는 상황이 실제로 나온다 — 싼 풋을 수로 깔아두고 비싼 콜에 자금을 넣는 그림이다. 둘 중 하나만 보면 정반대로 읽는다. 이 모순 자체가 정보다.',
         source: 'DynamoDB signum-flow-history (callPremium·putPremium·OI, 같은 스냅샷)',
@@ -82,7 +82,7 @@ export const RANKINGS: RankingSpec[] = [
     // ── 마감 후 ─────────────────────────────────────────────────────────
     {
         id: 'darkpool-volume', phase: 'postclose', needsPostClose: true,
-        name: { ko: '장외 물량 이탈', en: 'Off-exchange volume break', ja: '取引所外の出来高乖離' },
+        name: { ko: '장외 물량 이탈', en: 'Off-exchange volume', ja: '取引所外の出来高乖離' },
         what: '장외(다크풀) 체결량이 그 종목의 20일 평균 대비 몇 배인지를, 다시 그날 시장 전체의 중앙 배수로 나눈 값. 시장 대비 이탈이 큰 순.',
         why: '거래소 밖 체결은 기관이 시장가를 흔들지 않으려 할 때 늘어난다. 다만 시장 전체가 조용한 날엔 모든 종목이 같이 줄어 «이탈»처럼 보인다 — 그래서 시장 대비로 본다.',
         source: 'FINRA Reg SHO (Redis finra:offexchange)',
@@ -91,7 +91,7 @@ export const RANKINGS: RankingSpec[] = [
     },
     {
         id: 'darkpool-short', phase: 'postclose', needsPostClose: true,
-        name: { ko: '장외 공매도 비중 이탈', en: 'Off-exchange short share break', ja: '取引所外の空売り比率乖離' },
+        name: { ko: '장외 공매도 비중 이탈', en: 'Off-exchange shorts', ja: '取引所外の空売り比率乖離' },
         what: '장외 체결 중 공매도 비중이 그 종목의 평소보다 몇 %p 벗어났는지. 이탈이 큰 순.',
         why: '⚠️ 공매도 «비중» 자체는 방향성이 아니다. 시장 중앙값이 약 49% 인데, 도매업자가 소매 매수의 상대가 될 때 일단 공매도로 팔고 되사기 때문에 절반은 구조적으로 찍힌다. 「46% 공매도 = 하락 베팅」은 오독이다. 그 종목의 평소 대비 이탈만이 정보다.',
         source: 'FINRA Reg SHO (Redis finra:offexchange)',
@@ -128,7 +128,7 @@ export const RANKINGS: RankingSpec[] = [
     },
     {
         id: 'volatility-bet', phase: 'postclose',
-        name: { ko: '조용한데 비싸진 옵션', en: 'Priced for a move, no catalyst', ja: '材料なしで高くなったオプション' },
+        name: { ko: '조용한데 비싸진 옵션', en: 'Priced, no catalyst', ja: '材料なしで高くなったオプション' },
         what: 'ATM 내재변동성이 그 종목 자신의 이력에서 상위 백분위(IV 랭크)인데, 실적 일정이 14일 이내에 «없는» 종목. IV 랭크가 높은 순.',
         why: '시장이 움직임에 값을 치르고 있다는 뜻인데, 그 이유가 달력에 없다. ⚠️ 대형주 IV 급등의 대부분은 예정된 실적이다 — 그것만 뽑으면 무료 실적 달력을 다시 말하는 것이고 우위가 없다. 그래서 «아는 것(실적)»을 빼고 남는 것만 본다. 실적이 아니라면 FDA·M&A·소송·가이던스 같은 비정형 사건이다.',
         source: 'DynamoDB signum-gex-history(atmIv) + signum-pattern-db(EARNINGS:)',
