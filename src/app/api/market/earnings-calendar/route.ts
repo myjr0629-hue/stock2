@@ -25,7 +25,9 @@ export const revalidate = 0;
 
 // 응답 모양이 바뀌면(hour·quarter·year 추가) 키를 올린다 — 옛 페이로드가 200 OK 로 나간다.
 // 이 라우트엔 last_good 폴백이 없으므로 키를 올려도 휴장에 화면이 비지 않는다.
-const CACHE_KEY = 'market:earnings-calendar:v3';
+// v4 — 14일 창 분할로 9·10월이 들어왔다. 옛 v3 페이로드는 «11·12월만» 이라
+//      그대로 두면 6시간 더 잘린 목록이 나간다.
+const CACHE_KEY = 'market:earnings-calendar:v4';
 const TTL = 60 * 60 * 6;          // 6h — 발표일은 자주 안 바뀐다
 
 /* 인텔 10섹터 구성종목 — app-view/intel 과 히트맵이 쓰는 것과 같은 목록 */
@@ -78,31 +80,49 @@ export async function GET(req: Request) {
     to.setDate(to.getDate() + 120);                 // 4개월
     const fmt = (d: Date) => d.toISOString().split('T')[0];
 
-    // ★ 벤더 실측(2026-09-06, probe 로 확인):
+    // ★ 벤더 실측(2026-09-06):
     //   · v3/earning_calendar        → HTTP 403 (플랜에 없다)
-    //   · stable/earnings-calendar   → ok, 4,000행. 그런데 주는 필드가
-    //     symbol·date·epsActual·epsEstimated·revenueActual·revenueEstimated·lastUpdated 뿐이라
-    //     **발표 시각(time)이 아예 없다.** 그래서 34행 전부 «시간 미정» 이 나왔다.
-    //   → 시장 전체 목록은 stable 로 받고, 시각은 Finnhub 으로 «가장 임박한 것만» 채운다.
-    const urls = [
-      `https://financialmodelingprep.com/stable/earnings-calendar?from=${fmt(today)}&to=${fmt(to)}&apikey=${key}`,
-    ];
-    let raw: any = null;
-    let usedUrl = '';
-    const probe: Record<string, string> = {};   // ★ 어느 후보가 왜 떨어졌는지 응답에 싣는다
-    for (const u of urls) {
-      const tag = u.includes('/v3/') ? 'v3' : 'stable';
-      try {
-        const r = await fetch(u, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
-        if (!r.ok) { probe[tag] = `http-${r.status}`; continue; }
-        const j = await r.json();
-        if (!Array.isArray(j)) { probe[tag] = `shape-${typeof j}`; continue; }
-        if (!j.length) { probe[tag] = 'empty'; continue; }
-        probe[tag] = `ok-${j.length}`;
-        raw = j; usedUrl = tag; break;
-      } catch (e: any) { probe[tag] = `err-${String(e?.message || e).slice(0, 40)}`; }
+    //   · stable/earnings-calendar   → ok. 단 «두 가지» 함정이 있다.
+    //
+    //   함정 ① 발표 «시각»이 없다
+    //     주는 필드가 symbol·date·epsActual·epsEstimated·revenueActual·revenueEstimated·
+    //     lastUpdated 뿐이다. 그래서 시각은 Finnhub 으로 «임박한 것만» 채운다(아래).
+    //
+    //   함정 ②★ 한 번에 4,000행에서 «잘린다» — 그것도 최신순으로
+    //     120일(9/6~1/4)을 한 콜로 물으면 정확히 4000행이 오는데
+    //       첫 행 2027-01-04 … 끝 행 2026-11-05
+    //     즉 **9월·10월이 통째로 잘려나간다**. 화면에 11·12월만 나온 진짜 이유다.
+    //     (실측: 9/6~10/5 는 841행이고 그 안에 ORCL 9/10 · ADBE 9/10 · COST 9/24 ·
+    //      MU 9/30 · NKE 10/1 이 다 있다. 창을 좁히면 보인다.)
+    //     → 창을 **14일씩** 쪼개서 부른다. 성수기 30일이 4,000(상한)이므로
+    //       14일이면 절반 아래로 안전하다. 그래도 상한에 닿으면 «잘렸다»고 기록한다 —
+    //       조용히 잘리는 것이 이 버그의 본질이었다.
+    const CHUNK_DAYS = 14;
+    const windows: Array<[string, string]> = [];
+    for (let off = 0; off < 120; off += CHUNK_DAYS) {
+      const f = new Date(today); f.setDate(f.getDate() + off);
+      const t2 = new Date(today); t2.setDate(t2.getDate() + Math.min(off + CHUNK_DAYS - 1, 120));
+      windows.push([fmt(f), fmt(t2)]);
     }
-    if (!Array.isArray(raw)) return NextResponse.json({ ok: true, rows: [], reason: 'fmp-empty', probe });
+
+    const probe: Record<string, string> = {};
+    const truncated: string[] = [];               // 상한에 닿은 창 — 있으면 더 쪼개야 한다는 신호
+    const CAP = 4000;
+    const chunks = await Promise.all(windows.map(async ([f, t2]) => {
+      const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${f}&to=${t2}&apikey=${key}`;
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+        if (!r.ok) { probe[f] = `http-${r.status}`; return []; }
+        const j = await r.json();
+        if (!Array.isArray(j)) { probe[f] = `shape-${typeof j}`; return []; }
+        probe[f] = `ok-${j.length}`;
+        if (j.length >= CAP) truncated.push(`${f}~${t2}`);
+        return j;
+      } catch (e: any) { probe[f] = `err-${String(e?.message || e).slice(0, 30)}`; return []; }
+    }));
+    const raw: any[] = chunks.flat();
+    const usedUrl = 'stable';
+    if (!raw.length) return NextResponse.json({ ok: true, rows: [], reason: 'fmp-empty', probe });
     // 벤더가 실제로 주는 필드 — 추측하지 않으려면 이걸 봐야 한다
     const vendorFields = Object.keys(raw[0] || {});
 
@@ -172,6 +192,8 @@ export async function GET(req: Request) {
       to: fmt(to),
       generatedAt: new Date().toISOString(),
       probe,
+      truncated,          // 4,000 상한에 닿은 창 — 비어 있어야 정상
+      windows: windows.length,
       vendorFields,
       hourFilled,
       hourSource: 'Finnhub (nearest 12)',
