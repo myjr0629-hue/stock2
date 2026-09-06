@@ -53,7 +53,7 @@
 .e9Logo{width:32px;height:32px;flex:0 0 auto;display:block}
 .e9Name{font-size:15px;font-weight:800;letter-spacing:.01em;line-height:1.04}
 .e9Name i{font-style:normal;color:#22d3ee}
-.e9Tag{font-size:7.5px;letter-spacing:.24em;color:#94a8c6;font-weight:700;margin-top:2px}
+.e9Tag{font-size:8.5px;letter-spacing:.18em;color:#94a8c6;font-weight:700;margin-top:2px}
 .e9Acts{display:flex;gap:7px}
 .e9Act{width:29px;height:29px;border-radius:50%;position:relative;
   background:rgba(20,32,54,.72);display:grid;place-items:center;
@@ -91,7 +91,7 @@
 .e9Root[data-v="off"] .e9Bear{right:30px;opacity:1}
 .e9Root[data-v="off"] .e9Bull{right:78px;opacity:0;transform:translateX(-22px)}
 .e9StatusIn{position:relative;z-index:1}
-.e9Eyebrow{display:flex;align-items:center;gap:6px;font-size:8px;letter-spacing:.2em;
+.e9Eyebrow{display:flex;align-items:center;gap:6px;font-size:9.5px;letter-spacing:.16em;
   color:#a9bcd6;font-weight:800}
 .e9Eyebrow s{width:4px;height:4px;border-radius:50%;background:#22d3ee;
   text-decoration:none;box-shadow:0 0 6px #22d3ee}
@@ -103,19 +103,19 @@
 .e9Cell{border-radius:9px;padding:5px 8px;background:rgba(5,10,19,.72);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
 .e9Cell.dn{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 0 0 1px rgba(239,68,68,.34)}
-.e9CellL{font-size:8px;color:#a1b5d1;letter-spacing:.03em;
+.e9CellL{font-size:9.5px;color:#a1b5d1;letter-spacing:.03em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .e9CellV{font-size:12px;font-weight:800;letter-spacing:-.02em;margin-top:1px}
-.e9CellV s{text-decoration:none;font-size:8.5px;color:#a1b5d1;font-weight:600}
+.e9CellV s{text-decoration:none;font-size:9.5px;color:#a1b5d1;font-weight:600}
 
 .e9Sect{margin-top:10px}
 .e9SectHead{display:flex;align-items:center;gap:7px;padding:0 16px 6px}
 .e9SectT{font-size:14px;font-weight:800;letter-spacing:-.025em;min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .e9Live{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;background:#22d3ee;color:#04222a;
-  font-size:8px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:2px 6px}
+  font-size:9px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:2px 7px}
 .e9Live s{width:4px;height:4px;border-radius:50%;background:#04222a;text-decoration:none}
-.e9Badge{flex:0 0 auto;font-size:8px;font-weight:800;letter-spacing:.06em;color:#a9bcd6;
+.e9Badge{flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.06em;color:#a9bcd6;
   background:rgba(255,255,255,.07);border-radius:999px;padding:2px 7px}
 .e9All{flex:0 0 auto;margin-left:auto;font-size:10px;color:#22d3ee;font-weight:700;white-space:nowrap}
 .e9Note{padding:5px 16px 0;font-size:9.5px;color:#93a8c8;line-height:1.4;
@@ -129,9 +129,9 @@
 .e9Ix.gr{border-color:rgba(52,211,153,.34)}
 .e9Ix.rd{border-color:rgba(248,113,113,.34)}
 .e9IxTop{display:flex;align-items:center;gap:4px;min-width:0}
-.e9IxBadge{flex:0 0 auto;width:14px;height:14px;border-radius:50%;display:grid;
-  place-items:center;font-size:5.5px;font-weight:800;letter-spacing:-.03em}
-.e9IxName{font-size:8.5px;font-weight:700;color:#b0c1d8;letter-spacing:-.01em;
+.e9IxBadge{flex:0 0 auto;width:17px;height:17px;border-radius:50%;display:grid;
+  place-items:center;font-size:7.5px;font-weight:800;letter-spacing:-.03em}
+.e9IxName{font-size:9.5px;font-weight:700;color:#b0c1d8;letter-spacing:-.01em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .e9IxV{font-size:15px;font-weight:800;letter-spacing:-.04em;margin-top:5px}
 .e9IxP{font-size:9.5px;font-weight:800;margin-top:2px}
@@ -153,13 +153,13 @@
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 46%,transparent)}
 .e9McIco svg{width:9px;height:9px;stroke:var(--c);fill:none;stroke-width:2.1;
   stroke-linecap:round;stroke-linejoin:round}
-.e9McIco b{font-size:8.5px;font-weight:800;color:var(--c);line-height:1}
-.e9McK{font-size:8.5px;line-height:1.1;letter-spacing:.04em;color:#b0c1da;font-weight:700;
+.e9McIco b{font-size:9px;font-weight:800;color:var(--c);line-height:1}
+.e9McK{font-size:9.5px;line-height:1.1;letter-spacing:.04em;color:#b0c1da;font-weight:700;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .e9McV{font-size:12.5px;line-height:1.05;font-weight:800;letter-spacing:-.03em}
-.e9McD{font-size:8.5px;line-height:1.05;margin-top:1px}
+.e9McD{font-size:9.5px;line-height:1.05;margin-top:1px}
 .e9McD.gr{color:#34d399} .e9McD.rd{color:#f87171}
-.e9McB{display:inline-block;margin-top:1px;font-style:normal;font-size:7px;font-weight:800;
+.e9McB{display:inline-block;margin-top:1px;font-style:normal;font-size:9px;font-weight:800;
   letter-spacing:.07em;color:color-mix(in srgb,var(--c) 88%,white);
   background:color-mix(in srgb,var(--c) 16%,transparent);
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 40%,transparent);
@@ -201,11 +201,11 @@
    고정폭 3칸(로고·티커·수치·상태)이 ko/en/ja 에서 같은 자리에 선다. */
 .e9Disc{margin:0 16px;padding:11px 12px 10px}
 .e9DiscTop{display:flex;align-items:center;gap:7px}
-.e9DiscTag{flex:0 0 auto;font-size:7.5px;font-weight:800;letter-spacing:.1em;color:#04222a;
+.e9DiscTag{flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.08em;color:#04222a;
   background:#22d3ee;border-radius:4px;padding:2px 6px}
 .e9DiscName{font-size:12.5px;font-weight:800;letter-spacing:-.025em;min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.e9DiscDate{flex:0 0 auto;margin-left:auto;font-size:8.5px;color:#94a8c6}
+.e9DiscDate{flex:0 0 auto;margin-left:auto;font-size:9.5px;color:#94a8c6}
 .e9DiscWhat{font-size:10px;color:#9fb4d0;line-height:1.38;margin-top:5px}
 .e9DiscRows{margin-top:7px;display:flex;flex-direction:column}
 .e9Dr{display:flex;align-items:center;gap:8px;padding:6px 0;position:relative;--c:#94a3b8}
@@ -222,12 +222,12 @@
 .e9DrMed{position:absolute;top:-3px;bottom:-3px;width:1px;background:rgba(255,255,255,.42)}
 .e9DrV{flex:0 0 22px;text-align:right;font-size:13px;font-weight:800;
   letter-spacing:-.03em;color:var(--c)}
-.e9DrReg{flex:0 0 42px;text-align:right;font-style:normal;font-size:8px;font-weight:800;
+.e9DrReg{flex:0 0 46px;text-align:right;font-style:normal;font-size:9.5px;font-weight:800;
   letter-spacing:.03em;color:var(--c);opacity:.88;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .e9DiscFoot{display:flex;justify-content:space-between;gap:8px;margin-top:8px;
   padding-top:8px;border-top:1px solid rgba(255,255,255,.06);
-  font-size:8.5px;color:#94a8c6;line-height:1.3}
+  font-size:9.5px;color:#94a8c6;line-height:1.3}
 
 /* ══ 무버 — 한 줄. 회사명 삭제, 등락률·가격 한 줄 ══════════ */
 .e9MvTabs{display:flex;gap:5px;padding:0 16px 6px}
@@ -261,17 +261,17 @@
 .e9SigTop{position:relative;display:flex;align-items:center;gap:5px}
 .e9SigT{font-size:9.5px;font-weight:800;color:#cddcee;letter-spacing:-.015em;min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.e9Free{flex:0 0 auto;margin-left:auto;font-size:7px;font-weight:800;letter-spacing:.06em;
+.e9Free{flex:0 0 auto;margin-left:auto;font-size:8.5px;font-weight:800;letter-spacing:.06em;
   color:#04222a;background:var(--c);border-radius:999px;padding:1px 6px}
 .e9Lock{flex:0 0 auto;margin-left:auto;width:11px;height:11px;stroke:#879bbe;fill:none;
   stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.e9SigH{position:relative;font-size:7.5px;color:#94a8c6;margin-top:2px;
+.e9SigH{position:relative;font-size:9px;color:#94a8c6;margin-top:2px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .e9SigV{position:relative;display:flex;align-items:baseline;gap:6px;margin-top:7px;min-height:19px}
 .e9SigV b{font-size:16px;font-weight:800;letter-spacing:-.035em;color:var(--c)}
-.e9SigV em{font-style:normal;font-size:8px;font-weight:800;color:#04222a;
+.e9SigV em{font-style:normal;font-size:9px;font-weight:800;color:#04222a;
   background:color-mix(in srgb,var(--c) 88%,white);border-radius:999px;padding:1px 6px}
-.e9SigLine{position:relative;font-size:8px;color:#9db1cd;line-height:1.4;margin-top:6px;
+.e9SigLine{position:relative;font-size:9px;color:#9db1cd;line-height:1.4;margin-top:6px;
   min-height:11px}
 .e9Bar{display:inline-block;height:9px;border-radius:3px;vertical-align:middle;
   background:linear-gradient(90deg,rgba(255,255,255,.07),rgba(255,255,255,.14),rgba(255,255,255,.07));
@@ -294,7 +294,7 @@
      3. 가격을 쓰지 않는다. 스토어가 준 값을 페이월이 보여준다(한국 ₩13,000).
    ─────────────────────────────────────────────────────────────────────── */
 .e9ProOr{display:flex;align-items:center;gap:8px;margin-top:9px;
-  font-size:8.5px;font-weight:700;letter-spacing:.08em;color:#879bbe}
+  font-size:9.5px;font-weight:700;letter-spacing:.08em;color:#879bbe}
 .e9ProOr s{flex:1;height:1px;background:rgba(255,255,255,.08);text-decoration:none}
 
 .e9ProCta{display:flex;width:100%;align-items:center;justify-content:center;gap:7px;
@@ -319,7 +319,7 @@
 .e9ProRestore:disabled{opacity:.5;cursor:default}
 
 .e9GateSub{margin-top:8px;font-size:9px;color:#a9bcd6;line-height:1.45;text-align:center}
-.e9GateLegal{margin-top:7px;font-size:8px;color:#879bbe;line-height:1.45;text-align:center}
+.e9GateLegal{margin-top:7px;font-size:9px;color:#879bbe;line-height:1.45;text-align:center}
 
 /* ══ 괴리 시그널 — 티커 앞 로고 ═══════════════════════════ */
 .e9DivN{flex:0 0 auto;font-size:9px;font-weight:800;color:#04222a;background:#fbbf24;
@@ -334,7 +334,7 @@
   box-shadow:inset 0 1px 0 rgba(255,255,255,.055)}
 .e9DvTop{display:flex;align-items:center;gap:6px}
 .e9DvT{flex:0 0 auto;font-size:12.5px;font-weight:800;letter-spacing:-.02em}
-.e9DvTag{min-width:0;font-size:7.5px;font-weight:800;color:#0b1220;
+.e9DvTag{min-width:0;font-size:9px;font-weight:800;color:#0b1220;
   background:rgba(226,240,255,.9);border-radius:4px;padding:2px 5px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .e9DvTitle{font-size:10.5px;font-weight:700;line-height:1.4;color:#d5e2f2;margin-top:8px;
@@ -342,7 +342,7 @@
 .e9DvMoney{font-size:9.5px;line-height:1.4;margin-top:7px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .e9DvMoney.gr{color:#34d399} .e9DvMoney.rd{color:#f87171}
-.e9DvSrc{font-size:8px;color:#8b9fc0;margin-top:6px}
+.e9DvSrc{font-size:9px;color:#8b9fc0;margin-top:6px}
 
 /* ══ 빠른 진입 — 맨 아래 · 전폭 1줄 행 · 목적지 표시 ══════ */
 .e9Quick{margin:0 16px;padding:2px 0}
@@ -356,15 +356,15 @@
   stroke-linecap:round;stroke-linejoin:round}
 .e9QT{flex:1;min-width:0;font-size:11.5px;font-weight:700;letter-spacing:-.015em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.e9QDest{flex:0 0 auto;font-size:7.5px;font-weight:800;letter-spacing:.08em;color:#a9bcd6;
+.e9QDest{flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.06em;color:#a9bcd6;
   background:rgba(255,255,255,.07);border-radius:4px;padding:2px 6px}
 .e9QDest.nw{color:#04222a;background:#fbbf24}
 
 .e9Foot{margin:16px 16px 0;padding-top:12px;border-top:1px solid rgba(255,255,255,.055)}
-.e9FootLegal{font-size:8.5px;color:#8496b7;line-height:1.55;text-align:center}
+.e9FootLegal{font-size:9.5px;color:#8496b7;line-height:1.55;text-align:center}
 .e9FootRow{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px;margin-top:9px;font-size:9px;color:#a0b4d0}
 .e9FootRow a{color:#8fb0d4}
-.e9Copy{margin-top:9px;font-size:7.5px;letter-spacing:.08em;color:#7d90b4;text-align:center}
+.e9Copy{margin-top:9px;font-size:9px;letter-spacing:.08em;color:#7d90b4;text-align:center}
   
 
 /* ── 로딩 상태 (시안엔 없다 — 실앱에만 필요) ─────────────────────── */
