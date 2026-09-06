@@ -22,18 +22,18 @@ interface Row {
 
 const T = {
   ko: { title: '실적 캘린더', back: '빠른 진입', amc: '장 마감 후', bmo: '장 시작 전', tbd: '시간 미정',
-        eps: 'EPS 추정', rev: '매출 추정', names: '종목', days: '일', heavy: '가장 몰린 날',
+        eps: 'EPS', rev: '매출', names: '종목', days: '일', heavy: '가장 몰린 날',
         note: '발표일·추정치는 발표 전까지 바뀔 수 있습니다. 확정 전 값은 채우지 않습니다.',
         src: '출처 FMP 실적 캘린더 (시장 전체 1콜)', empty: '예정된 발표가 없습니다.',
         loading: '불러오는 중', wk: ['일','월','화','수','목','금','토'], mon: (m: number) => `${m}월` },
   en: { title: 'Earnings Calendar', back: 'Quick Access', amc: 'After close', bmo: 'Before open', tbd: 'Time TBD',
-        eps: 'EPS est.', rev: 'Rev. est.', names: 'names', days: 'days', heavy: 'Busiest day',
+        eps: 'EPS', rev: 'Rev', names: 'names', days: 'days', heavy: 'Busiest day',
         note: 'Dates and estimates can change before the report. Nothing is filled in before it is confirmed.',
         src: 'Source: FMP earnings calendar (whole market, one call)', empty: 'No scheduled reports.',
         loading: 'Loading', wk: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
         mon: (m: number) => ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m] },
   ja: { title: '決算カレンダー', back: 'クイックアクセス', amc: '引け後', bmo: '寄り前', tbd: '時間未定',
-        eps: 'EPS予想', rev: '売上予想', names: '銘柄', days: '日', heavy: '最も集中する日',
+        eps: 'EPS', rev: '売上', names: '銘柄', days: '日', heavy: '最も集中する日',
         note: '発表日・予想は発表まで変わることがあります。確定前の値は埋めません。',
         src: '出典 FMP 決算カレンダー(市場全体を1コール)', empty: '予定されている発表はありません。',
         loading: '読み込み中', wk: ['日','月','火','水','木','金','土'], mon: (m: number) => `${m}月` },
@@ -155,7 +155,7 @@ export default function EarningsPage() {
                           </span>
                         )}
                         {e.quarter != null && e.year != null && (
-                          <span className={`${s.ecRQ} num`}>Q{e.quarter} FY{e.year}</span>
+                          <span className={`${s.ecRQ} num`}>Q{e.quarter} FY{String(e.year).slice(-2)}</span>
                         )}
                       </span>
                       <span className={s.ecRMet}>
