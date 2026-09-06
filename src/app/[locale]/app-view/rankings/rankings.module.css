@@ -41,10 +41,16 @@
   border-radius:999px;padding:2px 7px}
 
 .rkRows{position:relative;display:flex;flex-direction:column}
-.rkR{display:flex;align-items:center;gap:8px;padding:6px 0;position:relative}
+/* 목록 행 리듬 — 대표 지적(2026-09-06): «위아래 종목이 너무 촘촘하다».
+   실측 26px(패딩 5) 는 훑기엔 촘촘했다. 로고 18 + 위아래 11 = **40px** 로 맞춘다.
+   40 은 iOS 44pt 행보다 얕고 Material dense 36dp 보다 넉넉한 자리 —
+   20행짜리 목록에서 한 화면 15행이 남으면서 줄이 서로 안 붙는다.
+   글자도 한 급 올린다(티커 11→11.5 · 보조 8.5→9 · 등락률 11→11.5).
+   ※ 대시보드 «오늘의 발견/무버» 는 5행짜리 미리보기 카드라 시안 30px 를 유지한다. */
+.rkR{display:flex;align-items:center;gap:8px;padding:11px 0;position:relative}
 .rkR+.rkR::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
   background:rgba(255,255,255,.05)}
-.rkRk{flex:0 0 11px;font-size:9px;font-weight:800;color:#8397ba;text-align:center}
+.rkRk{flex:0 0 13px;font-size:9.5px;font-weight:800;color:#8397ba;text-align:center}
 .rkNT{flex:0 0 18px;width:18px;height:18px;border-radius:5px;display:grid;place-items:center;
   background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
 .rkNT svg{width:11px;height:11px;stroke:#a9bcd6;fill:none;stroke-width:1.5;
@@ -53,7 +59,7 @@
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 .rkL{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px}
 .rkL b{flex:0 0 auto;font-size:11.5px;font-weight:800;letter-spacing:-.015em}
-.rkL small{flex:1;min-width:0;font-size:8.5px;color:#94a8c6;
+.rkL small{flex:1;min-width:0;font-size:9px;color:#94a8c6;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rkV{flex:0 0 auto;font-size:12.5px;font-weight:800;letter-spacing:-.03em;
   color:color-mix(in srgb,var(--c) 62%,#e6eef8)}

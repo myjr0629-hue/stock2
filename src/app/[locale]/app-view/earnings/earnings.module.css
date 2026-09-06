@@ -54,7 +54,13 @@
 .ecRows{display:flex;flex-direction:column}
 /* 한 줄 — 두 줄로 쌓으면 오른쪽이 통째로 빈다(대표 지적 2026-09-06).
    왼쪽 = 신원(로고·티커·시간칩·분기), 오른쪽 = 수치. 남는 폭은 왼쪽이 먹는다. */
-.ecR{display:flex;align-items:center;gap:7px;padding:8px 0 7px;position:relative}
+/* 목록 행 리듬 — 대표 지적(2026-09-06): «위아래 종목이 너무 촘촘하다».
+   실측 26px(패딩 5) 는 훑기엔 촘촘했다. 로고 18 + 위아래 11 = **40px** 로 맞춘다.
+   40 은 iOS 44pt 행보다 얕고 Material dense 36dp 보다 넉넉한 자리 —
+   20행짜리 목록에서 한 화면 15행이 남으면서 줄이 서로 안 붙는다.
+   글자도 한 급 올린다(티커 11→11.5 · 보조 8.5→9 · 등락률 11→11.5).
+   ※ 대시보드 «오늘의 발견/무버» 는 5행짜리 미리보기 카드라 시안 30px 를 유지한다. */
+.ecR{display:flex;align-items:center;gap:7px;padding:11px 0;position:relative}
 .ecR+.ecR::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
   background:rgba(255,255,255,.05)}
 .ecRTop{flex:1;min-width:0;display:flex;align-items:center;gap:6px}

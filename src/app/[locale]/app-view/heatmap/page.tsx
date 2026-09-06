@@ -263,7 +263,7 @@ export default function HeatmapPage() {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${r.t}`); } }}
       >
         <span className={`${s.hmXRk} num`}>{rank}</span>
-        <AppTickerLogo symbol={r.t} size={16} />
+        <AppTickerLogo symbol={r.t} size={18} />
         <b className={s.hmXT2}>{r.t}</b>
         <span className={s.hmXS}><i className={s.hmXI}>{icon(r.sec, 12)}</i>{label(secOf(r.sec))}</span>
         <span className={s.hmXBar}>

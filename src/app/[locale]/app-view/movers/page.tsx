@@ -270,7 +270,7 @@ function MoversPageContent() {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTickerClick(item.ticker); } }}
       >
         <span className={s.mvRk}>{index + 1}</span>
-        <AppTickerLogo symbol={item.ticker} size={16} />
+        <AppTickerLogo symbol={item.ticker} size={18} />
         <b className={s.mvT}>{item.ticker}</b>
         <span className={s.mvS}>${fmtPrice(displayPrice)} · {metric}</span>
         <span className={s.mvBar}>
