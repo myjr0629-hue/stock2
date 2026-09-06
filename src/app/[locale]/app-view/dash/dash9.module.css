@@ -343,16 +343,18 @@
 @media (prefers-reduced-motion: reduce) {
   .e9Skel { animation: none; }
 }
-/* 지표별 «작동 중» 표시 — 그 지표의 값이 바뀔 때 자기 점이 한 번 뛴다(대표 지시).
-   평소엔 흐린 점으로 «자리»만 지킨다. 상시 깜빡이면 멈춘 지표도 도는 것처럼 보인다. */
-.e9McDot{flex:0 0 auto;margin-left:auto;width:4px;height:4px;border-radius:50%;
-  background:rgba(255,255,255,.16);animation:e9McPing 1.5s ease-out 1}
+/* 지표별 «작동 중» 표시 (대표 지시).
+   평소엔 흐린 점으로 자리만 지키고, 최근 90초 안에 값이 바뀐 지표만
+   .on 이 붙어 «계속» 깜빡인다. 한 번만 뛰면 안 보고 있을 때 지나가 버린다.
+   멈춘 지표는 안 깜빡인다 — 도는 척하면 화면이 거짓말을 한다. */
+.e9McDot{flex:0 0 auto;margin-left:auto;width:5px;height:5px;border-radius:50%;
+  background:rgba(255,255,255,.16);transition:background .3s ease}
+.e9McDot.on{background:var(--c);animation:e9McPing 1.5s ease-in-out infinite}
 @keyframes e9McPing{
-  0%{background:var(--c);box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 55%,transparent);transform:scale(1.35)}
-  60%{background:var(--c);box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 0%,transparent);transform:scale(1)}
-  100%{background:rgba(255,255,255,.16);box-shadow:none;transform:scale(1)}
+  0%,100%{opacity:.35;box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 0%,transparent)}
+  45%{opacity:1;box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 26%,transparent)}
 }
-@media (prefers-reduced-motion: reduce){ .e9McDot{animation:none} }
+@media (prefers-reduced-motion: reduce){ .e9McDot.on{animation:none;opacity:1} }
 
 /* 탭 줄 끝의 «전체 ›» — 제목 줄이 아니라 탭과 같은 줄에 둔다 */
 .e9TabAll{margin-left:auto;align-self:center}
