@@ -1,0 +1,408 @@
+/* ══════════════════════════════════════════════════════════════════
+   dash9.module.css — 첫 화면 9차 «시안 그대로»
+
+   ★ 이 파일은 시안(관측소 9차)의 <style> 블록을 그대로 옮긴 것이다.
+     손으로 다시 설계하지 않는다. 시안이 ko/en/ja 3개 언어까지 검증된 정본이고,
+     구현은 «여기에 데이터를 꽂는 일»이다.
+
+   시안 원본: dash-4up.html / app.html 의 paneE9()
+   아티팩트:  https://claude.ai/code/artifact/51bb79d4-9770-46d9-a1b7-e9eee737dc18
+
+   바꾼 것은 두 가지뿐:
+   1) 이미지 data URI → /dash/*.webp 로 (배포 자산으로 뺐다)
+   2) 값이 없을 때를 위한 스켈레톤 규칙 추가 (시안엔 로딩 상태가 없다)
+   ══════════════════════════════════════════════════════════════════ */
+
+
+.e9Wrap{padding-bottom:186px;background:#070c17}
+.e9Surf{position:relative;overflow:hidden;border-radius:20px;
+  background:
+    radial-gradient(78% 120% at 14% 0%,  rgba(56,102,180,.30) 0%, transparent 60%),
+    radial-gradient(86% 110% at 92% 96%, rgba(88,58,168,.26) 0%, transparent 64%),
+    linear-gradient(158deg,#141f33 0%,#0c1524 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+
+
+.e9Hero{position:relative;overflow:hidden;border-radius:0 0 24px 24px;padding:0 0 7px}
+.e9Sky{position:absolute;inset:-40% -20% -10%;z-index:0;
+  background:
+    radial-gradient(52% 40% at 8% 2%,   rgba(124,92,255,.42) 0%, transparent 62%),
+    radial-gradient(46% 34% at 92% 12%, rgba(56,189,248,.22) 0%, transparent 66%),
+    linear-gradient(180deg,#0f1930 0%,#0a1122 56%,#070c17 100%)}
+.e9Earth{position:absolute;right:-70px;top:-28px;width:224px;height:224px;z-index:1;
+  opacity:.46;object-fit:contain;pointer-events:none}
+.e9Veil{position:absolute;left:0;right:0;bottom:0;height:100px;z-index:2;
+  background:linear-gradient(180deg,transparent,rgba(7,12,23,.9) 76%,#070c17)}
+.e9In{position:relative;z-index:3;padding:0 16px}
+/* 헤더 로고/설정이 지구본에 묻히지 않게 */
+.e9Hdr{position:relative;z-index:4}
+
+.e9Hdr{display:flex;align-items:center;justify-content:space-between;padding:0 0 10px}
+.e9Brand{display:flex;align-items:center;gap:9px}
+.e9Logo{width:32px;height:32px;flex:0 0 auto;display:block}
+.e9Name{font-size:15px;font-weight:800;letter-spacing:.01em;line-height:1.04}
+.e9Name i{font-style:normal;color:#22d3ee}
+.e9Tag{font-size:7.5px;letter-spacing:.24em;color:#94a8c6;font-weight:700;margin-top:2px}
+.e9Acts{display:flex;gap:7px}
+.e9Act{width:29px;height:29px;border-radius:50%;position:relative;
+  background:rgba(20,32,54,.72);display:grid;place-items:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.e9Act svg{width:16px;height:16px;stroke:#b3c6de;fill:none;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.e9Dot{position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;
+  background:#f43f5e;box-shadow:0 0 7px #f43f5e}
+
+.e9Signal{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:11px;
+  background:
+    radial-gradient(70% 200% at 4% 50%, rgba(34,211,238,.18) 0%, transparent 62%),
+    linear-gradient(96deg,rgba(19,32,56,.9),rgba(11,19,34,.9));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055)}
+.e9Bolt{width:14px;height:14px;flex:0 0 auto;stroke:#22d3ee;fill:none;stroke-width:2;stroke-linejoin:round}
+.e9SigLab{flex:0 0 auto;font-size:9px;font-weight:800;color:#22d3ee;letter-spacing:.04em}
+.e9SigBar{flex:0 0 auto;width:1px;height:11px;background:rgba(255,255,255,.14)}
+.e9SigTx{flex:1;min-width:0;font-size:10.5px;line-height:1.25;color:#c2d2e8;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9Age{flex:0 0 auto;font-size:9px;color:#93a8c8}
+.e9Chev{flex:0 0 auto;color:#22d3ee;font-size:13px;line-height:1}
+
+.e9Status{padding:9px 12px 10px;margin-top:7px}
+.e9Bull,.e9Bear{position:absolute;bottom:31px;z-index:0;pointer-events:none;opacity:.95;
+  height:auto;display:block;
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 66%,transparent 97%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 66%,transparent 97%);
+  transition:opacity .42s ease, transform .42s ease, right .42s ease}
+.e9Bull{aspect-ratio:560/502;width:86px}
+.e9Bear{aspect-ratio:560/595;width:80px}
+.e9Root[data-v="mix"] .e9Bull{right:78px;opacity:.95}
+.e9Root[data-v="mix"] .e9Bear{right:-6px;opacity:.95}
+.e9Root[data-v="on"]  .e9Bull{right:36px;opacity:1}
+.e9Root[data-v="on"]  .e9Bear{right:-6px;opacity:0;transform:translateX(22px)}
+.e9Root[data-v="off"] .e9Bear{right:30px;opacity:1}
+.e9Root[data-v="off"] .e9Bull{right:78px;opacity:0;transform:translateX(-22px)}
+.e9StatusIn{position:relative;z-index:1}
+.e9Eyebrow{display:flex;align-items:center;gap:6px;font-size:8px;letter-spacing:.2em;
+  color:#a9bcd6;font-weight:800}
+.e9Eyebrow s{width:4px;height:4px;border-radius:50%;background:#22d3ee;
+  text-decoration:none;box-shadow:0 0 6px #22d3ee}
+.e9Verdict{font-size:21px;line-height:1.1;font-weight:800;letter-spacing:-.03em;
+  margin:3px 0 1px;color:#fbbf24}
+.e9Say{font-size:10px;line-height:1.3;color:#9fb4d0;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:186px}
+.e9Cells{display:grid;grid-template-columns:1fr 1fr .82fr;gap:6px;margin-top:8px}
+.e9Cell{border-radius:9px;padding:5px 8px;background:rgba(5,10,19,.72);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.e9Cell.dn{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 0 0 1px rgba(239,68,68,.34)}
+.e9CellL{font-size:8px;color:#a1b5d1;letter-spacing:.03em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9CellV{font-size:12px;font-weight:800;letter-spacing:-.02em;margin-top:1px}
+.e9CellV s{text-decoration:none;font-size:8.5px;color:#a1b5d1;font-weight:600}
+
+.e9Sect{margin-top:10px}
+.e9SectHead{display:flex;align-items:center;gap:7px;padding:0 16px 6px}
+.e9SectT{font-size:14px;font-weight:800;letter-spacing:-.025em;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9Live{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;background:#22d3ee;color:#04222a;
+  font-size:8px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:2px 6px}
+.e9Live s{width:4px;height:4px;border-radius:50%;background:#04222a;text-decoration:none}
+.e9Badge{flex:0 0 auto;font-size:8px;font-weight:800;letter-spacing:.06em;color:#a9bcd6;
+  background:rgba(255,255,255,.07);border-radius:999px;padding:2px 7px}
+.e9All{flex:0 0 auto;margin-left:auto;font-size:10px;color:#22d3ee;font-weight:700;white-space:nowrap}
+.e9Note{padding:5px 16px 0;font-size:9.5px;color:#93a8c8;line-height:1.4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.e9Ixs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px}
+.e9Ix{position:relative;display:flex;flex-direction:column;border-radius:13px;
+  padding:8px 8px 9px;overflow:hidden;
+  background:linear-gradient(163deg,rgba(23,34,54,.96),rgba(12,19,33,.96));
+  border:1px solid rgba(255,255,255,.075)}
+.e9Ix.gr{border-color:rgba(52,211,153,.34)}
+.e9Ix.rd{border-color:rgba(248,113,113,.34)}
+.e9IxTop{display:flex;align-items:center;gap:4px;min-width:0}
+.e9IxBadge{flex:0 0 auto;width:14px;height:14px;border-radius:50%;display:grid;
+  place-items:center;font-size:5.5px;font-weight:800;letter-spacing:-.03em}
+.e9IxName{font-size:8.5px;font-weight:700;color:#b0c1d8;letter-spacing:-.01em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.e9IxV{font-size:15px;font-weight:800;letter-spacing:-.04em;margin-top:5px}
+.e9IxP{font-size:9.5px;font-weight:800;margin-top:2px}
+.e9IxP.gr{color:#34d399} .e9IxP.rd{color:#f87171}
+.e9IxTabs{display:flex;gap:5px;padding:0 16px 6px}
+.e9Tab{font-size:9.5px;font-weight:700;color:#a0b4d0;padding:3px 9px;border-radius:999px;
+  background:rgba(255,255,255,.05);white-space:nowrap}
+.e9Tab.on{background:#22d3ee;color:#04222a;font-weight:800}
+
+/* ── 매크로 — 「전체 ›」(목적지 없음) 대신 그 자리에서 펼친다 ── */
+.e9Macro{margin:0 16px;padding:8px 11px 8px;display:grid;
+  grid-template-columns:repeat(4,1fr);gap:7px 6px}
+.e9Mc{min-width:0}
+.e9MacWrap .e9Mc.ext{display:none}
+.e9MacWrap.open .e9Mc.ext{display:block}
+.e9McTop{display:flex;align-items:center;gap:4px;min-width:0;margin-bottom:2px}
+.e9McIco{flex:0 0 auto;width:14px;height:14px;border-radius:4px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--c) 20%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 46%,transparent)}
+.e9McIco svg{width:9px;height:9px;stroke:var(--c);fill:none;stroke-width:2.1;
+  stroke-linecap:round;stroke-linejoin:round}
+.e9McIco b{font-size:8.5px;font-weight:800;color:var(--c);line-height:1}
+.e9McK{font-size:8.5px;line-height:1.1;letter-spacing:.04em;color:#b0c1da;font-weight:700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.e9McV{font-size:12.5px;line-height:1.05;font-weight:800;letter-spacing:-.03em}
+.e9McD{font-size:8.5px;line-height:1.05;margin-top:1px}
+.e9McD.gr{color:#34d399} .e9McD.rd{color:#f87171}
+.e9McB{display:inline-block;margin-top:1px;font-style:normal;font-size:7px;font-weight:800;
+  letter-spacing:.07em;color:color-mix(in srgb,var(--c) 88%,white);
+  background:color-mix(in srgb,var(--c) 16%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 40%,transparent);
+  border-radius:4px;padding:1px 5px}
+.e9McMore{display:flex;width:calc(100% - 32px);align-items:center;justify-content:center;gap:5px;
+  margin:6px 16px 0;padding:6px;border-radius:10px;font-size:10px;font-weight:700;
+  color:#22d3ee;background:rgba(34,211,238,.08);
+  box-shadow:inset 0 0 0 1px rgba(34,211,238,.22)}
+.e9McMore s{text-decoration:none}
+.e9McMore i{font-style:normal;font-size:9px;transition:transform .2s ease}
+.e9MacWrap .mCl{display:none}
+.e9MacWrap.open .mOp{display:none}
+.e9MacWrap.open .mCl{display:inline}
+.e9MacWrap.open .e9McMore i{transform:rotate(180deg)}
+
+.e9Scs{display:flex;gap:8px;overflow-x:auto;padding:0 16px 2px;scrollbar-width:none}
+.e9Scs::-webkit-scrollbar{display:none}
+.e9Sc{flex:0 0 104px;border-radius:12px;padding:7px 9px 8px;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,rgba(20,30,49,.95),rgba(11,18,31,.95));
+  border:1px solid color-mix(in srgb,var(--c) 26%,transparent)}
+.e9Sc::before{content:'';position:absolute;left:0;right:0;top:0;height:34px;
+  background:radial-gradient(62% 100% at 24% 0%,color-mix(in srgb,var(--c) 22%,transparent),transparent 76%)}
+/* 아이콘 ⊕ 라벨을 한 줄에 — 세로로 쌓지 않는다 */
+.e9ScTop{display:flex;align-items:center;gap:6px;min-width:0;position:relative}
+.e9ScIco{flex:0 0 auto;width:20px;height:20px;border-radius:6px;display:grid;
+  place-items:center;background:color-mix(in srgb,var(--c) 18%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 46%,transparent)}
+.e9ScIco svg{width:12px;height:12px;stroke:var(--c);fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.e9ScN{flex:1;min-width:0;font-size:9.5px;line-height:1.15;color:#b3c4da;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9ScP{display:block;position:relative;font-size:12.5px;line-height:1.1;font-weight:800;
+  letter-spacing:-.03em;margin-top:4px}
+.e9ScP.gr{color:#34d399} .e9ScP.rd{color:#f87171} .e9ScP.mut{color:#94a3b8}
+
+/* ══ 오늘의 발견 — 한 줄 행 ══════════════════════════════════
+   e8: [AVGO/Broadcom 2줄] [바] [87/축적 2줄]  · 행 높이 34px
+   e9: [로고][AVGO] [바] [87][축적]  한 줄       · 행 높이 30px
+   고정폭 3칸(로고·티커·수치·상태)이 ko/en/ja 에서 같은 자리에 선다. */
+.e9Disc{margin:0 16px;padding:11px 12px 10px}
+.e9DiscTop{display:flex;align-items:center;gap:7px}
+.e9DiscTag{flex:0 0 auto;font-size:7.5px;font-weight:800;letter-spacing:.1em;color:#04222a;
+  background:#22d3ee;border-radius:4px;padding:2px 6px}
+.e9DiscName{font-size:12.5px;font-weight:800;letter-spacing:-.025em;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9DiscDate{flex:0 0 auto;margin-left:auto;font-size:8.5px;color:#94a8c6}
+.e9DiscWhat{font-size:10px;color:#9fb4d0;line-height:1.38;margin-top:5px}
+.e9DiscRows{margin-top:7px;display:flex;flex-direction:column}
+.e9Dr{display:flex;align-items:center;gap:8px;padding:6px 0;position:relative;--c:#94a3b8}
+.e9Dr+.e9Dr::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
+  background:rgba(255,255,255,.05)}
+.e9Dr.acc{--c:#22d3ee} .e9Dr.dis{--c:#fbbf24} .e9Dr.neu{--c:#a0b4d0}
+.e9DrT{flex:0 0 46px;font-size:12px;font-weight:800;letter-spacing:-.015em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9DrBar{position:relative;flex:1;min-width:0;height:5px;border-radius:3px;
+  background:rgba(255,255,255,.07);overflow:visible}
+.e9DrFill{position:absolute;left:0;top:0;bottom:0;border-radius:3px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--c) 34%,transparent),var(--c));
+  box-shadow:0 0 10px color-mix(in srgb,var(--c) 44%,transparent)}
+.e9DrMed{position:absolute;top:-3px;bottom:-3px;width:1px;background:rgba(255,255,255,.42)}
+.e9DrV{flex:0 0 22px;text-align:right;font-size:13px;font-weight:800;
+  letter-spacing:-.03em;color:var(--c)}
+.e9DrReg{flex:0 0 42px;text-align:right;font-style:normal;font-size:8px;font-weight:800;
+  letter-spacing:.03em;color:var(--c);opacity:.88;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9DiscFoot{display:flex;justify-content:space-between;gap:8px;margin-top:8px;
+  padding-top:8px;border-top:1px solid rgba(255,255,255,.06);
+  font-size:8.5px;color:#94a8c6;line-height:1.3}
+
+/* ══ 무버 — 한 줄. 회사명 삭제, 등락률·가격 한 줄 ══════════ */
+.e9MvTabs{display:flex;gap:5px;padding:0 16px 6px}
+.e9Mvs{margin:0 16px;padding:1px 0}
+.e9Mv{display:flex;align-items:center;gap:7px;padding:7px 12px;position:relative}
+.e9Mv+.e9Mv::before{content:'';position:absolute;left:12px;right:12px;top:0;height:1px;
+  background:rgba(255,255,255,.055)}
+.e9MvRank{flex:0 0 11px;font-size:9.5px;font-weight:800;color:#8397ba;text-align:center}
+.e9MvT{flex:0 0 44px;font-size:12px;font-weight:800;letter-spacing:-.015em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9MvSpark{flex:1 1 auto;min-width:40px;height:20px}
+.e9MvP{flex:0 0 50px;text-align:right;font-size:11.5px;font-weight:800}
+.e9MvP.gr{color:#34d399} .e9MvP.rd{color:#f87171}
+.e9MvPx{flex:0 0 64px;text-align:right;font-size:10px;color:#abbdd7}
+
+/* ══ 게이트 ═══════════════════════════════════════════════ */
+.e9Gate{margin:0 16px;padding:12px 12px 13px}
+.e9GateTop{display:flex;align-items:center;gap:7px;margin-bottom:10px}
+.e9GateT{font-size:12px;font-weight:800;letter-spacing:-.02em;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9GateN{flex:0 0 auto;margin-left:auto;font-size:9px;color:#a9bcd6;
+  background:rgba(255,255,255,.07);border-radius:999px;padding:2px 8px;font-weight:700}
+.e9Sigs{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.e9Sig{border-radius:12px;padding:9px 9px 10px;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,rgba(17,26,43,.95),rgba(10,16,28,.95));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.e9Sig.open{box-shadow:inset 0 1px 0 rgba(255,255,255,.06),
+  inset 0 0 0 1px color-mix(in srgb,var(--c) 34%,transparent)}
+.e9Sig.open::before{content:'';position:absolute;left:0;right:0;top:0;height:32px;
+  background:radial-gradient(60% 100% at 20% 0%,color-mix(in srgb,var(--c) 22%,transparent),transparent 76%)}
+.e9SigTop{position:relative;display:flex;align-items:center;gap:5px}
+.e9SigT{font-size:9.5px;font-weight:800;color:#cddcee;letter-spacing:-.015em;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9Free{flex:0 0 auto;margin-left:auto;font-size:7px;font-weight:800;letter-spacing:.06em;
+  color:#04222a;background:var(--c);border-radius:999px;padding:1px 6px}
+.e9Lock{flex:0 0 auto;margin-left:auto;width:11px;height:11px;stroke:#879bbe;fill:none;
+  stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.e9SigH{position:relative;font-size:7.5px;color:#94a8c6;margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9SigV{position:relative;display:flex;align-items:baseline;gap:6px;margin-top:7px;min-height:19px}
+.e9SigV b{font-size:16px;font-weight:800;letter-spacing:-.035em;color:var(--c)}
+.e9SigV em{font-style:normal;font-size:8px;font-weight:800;color:#04222a;
+  background:color-mix(in srgb,var(--c) 88%,white);border-radius:999px;padding:1px 6px}
+.e9SigLine{position:relative;font-size:8px;color:#9db1cd;line-height:1.4;margin-top:6px;
+  min-height:11px}
+.e9Bar{display:inline-block;height:9px;border-radius:3px;vertical-align:middle;
+  background:linear-gradient(90deg,rgba(255,255,255,.07),rgba(255,255,255,.14),rgba(255,255,255,.07));
+  background-size:200% 100%;animation:e9Shim 2.4s linear infinite}
+.e9Bar.w1{width:44px;height:15px}
+.e9Bar.w2{width:30px;height:10px}
+.e9Bar.w3{width:76%;height:7px}
+@keyframes e9Shim{to{background-position:-200% 0}}
+.e9Cta{display:flex;width:100%;align-items:center;justify-content:center;gap:7px;margin-top:11px;
+  padding:10px;border-radius:12px;background:linear-gradient(96deg,#22d3ee,#38bdf8);
+  color:#04222a;font-size:12px;font-weight:800;letter-spacing:-.01em;text-align:center}
+.e9Cta svg{flex:0 0 auto;width:14px;height:14px;stroke:#04222a;fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+/* ── 구독 진입점 ─────────────────────────────────────────────────────────
+   시안에 없는 요소라 «시안의 말»로 새로 짠다.
+   원칙 3개:
+     1. 무료(광고 CTA)가 1순위 — 유료를 필수처럼 보이게 하면 심사에서도 문제다.
+        그래서 광고는 «불투명 시안색», 구독은 «테두리 + 옅은 틴트»로 한 단계 낮춘다.
+     2. 그래도 눌리는 곳으로 확실히 보여야 한다 — 전폭 · 별 아이콘 · 시안 테두리.
+     3. 가격을 쓰지 않는다. 스토어가 준 값을 페이월이 보여준다(한국 ₩13,000).
+   ─────────────────────────────────────────────────────────────────────── */
+.e9ProOr{display:flex;align-items:center;gap:8px;margin-top:9px;
+  font-size:8.5px;font-weight:700;letter-spacing:.08em;color:#879bbe}
+.e9ProOr s{flex:1;height:1px;background:rgba(255,255,255,.08);text-decoration:none}
+
+.e9ProCta{display:flex;width:100%;align-items:center;justify-content:center;gap:7px;
+  margin-top:9px;padding:9px 10px;border-radius:12px;border:none;cursor:pointer;
+  background:linear-gradient(96deg,rgba(34,211,238,.14),rgba(56,189,248,.05));
+  box-shadow:inset 0 0 0 1px rgba(34,211,238,.34);
+  transition:box-shadow .16s ease,background .16s ease}
+.e9ProCta svg{flex:0 0 auto;width:13px;height:13px;fill:#22d3ee;stroke:none}
+.e9ProCta b{font-size:11.5px;font-weight:800;letter-spacing:-.01em;color:#7fe6f7}
+.e9ProCta em{font-style:normal;font-size:9px;color:#93a8c8;letter-spacing:-.01em}
+.e9ProCta:active{background:linear-gradient(96deg,rgba(34,211,238,.22),rgba(56,189,248,.09));
+  box-shadow:inset 0 0 0 1px rgba(34,211,238,.55)}
+.e9ProCta:disabled{opacity:.6;cursor:default}
+
+.e9ProErr{margin-top:6px;font-size:9px;line-height:1.4;text-align:center;color:#f87171}
+.e9ProErr.mut{color:#93a8c8}
+
+/* 애플이 요구하는 «구매 복원» — 있어야 하지만 시선을 끌 자리는 아니다 */
+.e9ProRestore{display:block;width:100%;margin-top:7px;padding:2px;border:none;
+  background:none;cursor:pointer;font-size:9px;font-weight:600;color:#879bbe;
+  text-decoration:underline;text-underline-offset:2px}
+.e9ProRestore:disabled{opacity:.5;cursor:default}
+
+.e9GateSub{margin-top:8px;font-size:9px;color:#a9bcd6;line-height:1.45;text-align:center}
+.e9GateLegal{margin-top:7px;font-size:8px;color:#879bbe;line-height:1.45;text-align:center}
+
+/* ══ 괴리 시그널 — 티커 앞 로고 ═══════════════════════════ */
+.e9DivN{flex:0 0 auto;font-size:9px;font-weight:800;color:#04222a;background:#fbbf24;
+  border-radius:999px;padding:1px 7px}
+.e9DivSub{padding:0 16px 7px;font-size:9.5px;color:#94a8c6;margin-top:-4px}
+.e9Divs{display:flex;gap:9px;overflow-x:auto;padding:0 16px 2px;scrollbar-width:none}
+.e9Divs::-webkit-scrollbar{display:none}
+.e9Dv{flex:0 0 214px;display:flex;flex-direction:column;border-radius:14px;padding:11px 12px 12px;
+  background:
+    radial-gradient(88% 130% at 12% 0%, rgba(251,191,36,.16) 0%, transparent 62%),
+    linear-gradient(160deg,rgba(21,31,50,.96),rgba(11,18,31,.96));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055)}
+.e9DvTop{display:flex;align-items:center;gap:6px}
+.e9DvT{flex:0 0 auto;font-size:12.5px;font-weight:800;letter-spacing:-.02em}
+.e9DvTag{min-width:0;font-size:7.5px;font-weight:800;color:#0b1220;
+  background:rgba(226,240,255,.9);border-radius:4px;padding:2px 5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9DvTitle{font-size:10.5px;font-weight:700;line-height:1.4;color:#d5e2f2;margin-top:8px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.e9DvMoney{font-size:9.5px;line-height:1.4;margin-top:7px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.e9DvMoney.gr{color:#34d399} .e9DvMoney.rd{color:#f87171}
+.e9DvSrc{font-size:8px;color:#8b9fc0;margin-top:6px}
+
+/* ══ 빠른 진입 — 맨 아래 · 전폭 1줄 행 · 목적지 표시 ══════ */
+.e9Quick{margin:0 16px;padding:2px 0}
+.e9Q{display:flex;align-items:center;gap:9px;padding:9px 12px;position:relative}
+.e9Q+.e9Q::before{content:'';position:absolute;left:12px;right:12px;top:0;height:1px;
+  background:rgba(255,255,255,.055)}
+.e9QIco{flex:0 0 auto;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--c) 20%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 44%,transparent)}
+.e9QIco svg{width:14px;height:14px;stroke:var(--c);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.e9QT{flex:1;min-width:0;font-size:11.5px;font-weight:700;letter-spacing:-.015em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e9QDest{flex:0 0 auto;font-size:7.5px;font-weight:800;letter-spacing:.08em;color:#a9bcd6;
+  background:rgba(255,255,255,.07);border-radius:4px;padding:2px 6px}
+.e9QDest.nw{color:#04222a;background:#fbbf24}
+
+.e9Foot{margin:16px 16px 0;padding-top:12px;border-top:1px solid rgba(255,255,255,.055)}
+.e9FootLegal{font-size:8.5px;color:#8496b7;line-height:1.55;text-align:center}
+.e9FootRow{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px;margin-top:9px;font-size:9px;color:#a0b4d0}
+.e9FootRow a{color:#8fb0d4}
+.e9Copy{margin-top:9px;font-size:7.5px;letter-spacing:.08em;color:#7d90b4;text-align:center}
+  
+
+/* ── 로딩 상태 (시안엔 없다 — 실앱에만 필요) ─────────────────────── */
+.e9Skel {
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.045),
+    rgba(255, 255, 255, 0.085),
+    rgba(255, 255, 255, 0.045)
+  );
+  background-size: 200% 100%;
+  animation: e9SkelShim 1.6s linear infinite;
+}
+@keyframes e9SkelShim { to { background-position: -200% 0; } }
+.e9SkelIx { height: 74px; }
+.e9SkelRow { height: 30px; margin: 6px 0; }
+.e9SkelSc { flex: 0 0 104px; height: 55px; border-radius: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .e9Skel { animation: none; }
+}
+/* 지표별 «작동 중» 표시 (대표 지시).
+   평소엔 흐린 점으로 자리만 지키고, 최근 90초 안에 값이 바뀐 지표만
+   .on 이 붙어 «계속» 깜빡인다. 한 번만 뛰면 안 보고 있을 때 지나가 버린다.
+   멈춘 지표는 안 깜빡인다 — 도는 척하면 화면이 거짓말을 한다. */
+.e9McDot{flex:0 0 auto;margin-left:auto;width:5px;height:5px;border-radius:50%;
+  background:rgba(255,255,255,.16);transition:background .3s ease}
+.e9McDot.on{background:var(--c);animation:e9McPing 1.5s ease-in-out infinite}
+@keyframes e9McPing{
+  0%,100%{opacity:.35;box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 0%,transparent)}
+  45%{opacity:1;box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 26%,transparent)}
+}
+@media (prefers-reduced-motion: reduce){ .e9McDot.on{animation:none;opacity:1} }
+
+/* 탭 줄 끝의 «전체 ›» — 제목 줄이 아니라 탭과 같은 줄에 둔다 */
+.e9TabAll{margin-left:auto;align-self:center}
+
+/* ══ 44px 터치타깃 무력화 (특이도까지 맞춘 정본) ══════════════════════
+   globals.css @media(max-width:768px) 의 규칙은 선택자마다 특이도가 다르다.
+     [role="button"] · [role="tab"]                                   (0,1,0)
+     a:not([class*="inline"]):not([class*="text-\["])                  (0,2,1)
+     button:not([class*="shrink"]):not([class*="w-3"]):not([class*="w-4"]) (0,3,1)
+   그래서 `.WRAP a` (0,1,1) 로는 «못 이긴다» — 앞서 이 실수로 시안 30px 행이
+   44px 로 남아 있었다(오늘의 발견·빠른 진입·무버·실적 전부). :not() 을 덧붙여
+   각각을 한 단계씩 넘긴다. 높이는 시안이 정본이다.
+   ─────────────────────────────────────────────────────────────────── */
+.e9Root a:not([data-tap]):not([data-tap2]),
+.e9Root button:not([data-tap]):not([data-tap2]):not([data-tap3]),
+.e9Root [role="button"],
+.e9Root [role="tab"],
+.e9Root input, .e9Root select, .e9Root textarea{min-height:0}

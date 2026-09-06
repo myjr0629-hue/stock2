@@ -1,0 +1,104 @@
+/* ══════════════════════════════════════════════════════════════════
+   rankings.module.css — 시안(9차 랭킹)의 <style> 을 그대로 옮긴 것.
+   손으로 다시 설계하지 않는다. 원본: dash-4up.html 의 paneRK()
+   ══════════════════════════════════════════════════════════════════ */
+
+
+.rkWrap{padding-bottom:186px;background:#070c17}
+.rkNav{display:flex;align-items:center;gap:8px;padding:6px 16px 10px}
+.rkBack{width:26px;height:26px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;
+  background:rgba(34,211,238,.10);box-shadow:inset 0 0 0 1px rgba(34,211,238,.30)}
+.rkBack svg{width:13px;height:13px;stroke:#22d3ee;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.rkEy{font-size:8px;letter-spacing:.2em;font-weight:800;color:#a9bcd6}
+.rkHead{padding:0 16px 8px}
+.rkTitle{font-size:19px;font-weight:800;letter-spacing:-.03em}
+.rkSub{font-size:9.5px;color:#94a8c6;margin-top:2px}
+.rkWhy{margin:0 16px 10px;padding:8px 10px;border-radius:10px;font-size:9.5px;line-height:1.45;
+  color:#a9bcd6;background:rgba(255,255,255,.04);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+
+.rkTabs{display:flex;gap:5px;padding:0 16px 9px;overflow-x:auto;scrollbar-width:none}
+.rkTabs::-webkit-scrollbar{display:none}
+.rkT{flex:0 0 auto;font-size:9.5px;font-weight:700;color:#a0b4d0;padding:4px 10px;
+  border-radius:999px;background:rgba(255,255,255,.05);white-space:nowrap}
+.rkT.on{background:#22d3ee;color:#04222a;font-weight:800}
+
+.rkC{margin:0 16px 9px;padding:10px 11px 9px;border-radius:14px;position:relative;overflow:hidden;
+  background:linear-gradient(158deg,#141f33 0%,#0c1524 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.rkC::before{content:'';position:absolute;left:0;right:0;top:0;height:28px;
+  background:radial-gradient(58% 100% at 14% 0%,color-mix(in srgb,var(--c) 11%,transparent),transparent 76%)}
+.rkCTop{position:relative;display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.rkDot{flex:0 0 auto;width:5px;height:5px;border-radius:50%;background:var(--c);
+  box-shadow:0 0 7px var(--c)}
+.rkCN{flex:0 1 auto;min-width:0;font-size:12px;font-weight:800;letter-spacing:-.025em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 제목 옆 한 줄 설명 — 좁아지면 «설명»이 먼저 줄고 제목·단계 칩은 안 밀린다 */
+.rkCW{flex:1 1 auto;min-width:0;font-size:9px;color:#94a8c6;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rkCP{flex:0 0 auto;font-size:7.5px;font-weight:800;letter-spacing:.06em;
+  color:color-mix(in srgb,var(--c) 82%,white);
+  background:color-mix(in srgb,var(--c) 13%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 32%,transparent);
+  border-radius:999px;padding:2px 7px}
+
+.rkRows{position:relative;display:flex;flex-direction:column}
+/* 행 규격 = 대시보드 «가장 많이 움직인 것»(.e9Mv) 과 같은 값(대표 지시 2026-09-06).
+   gap 7 · 위아래 7 · 순위 11px/9.5 · 티커 44px/12 · 보조 10(#abbdd7) · 등락률 50px/11.5 · 로고 18
+   («카드»가 좌우 12px 를 이미 주므로 행은 좌우 패딩을 갖지 않는다) */
+.rkR{display:flex;align-items:center;gap:7px;padding:7px 0;position:relative}
+.rkR+.rkR::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
+  background:rgba(255,255,255,.05)}
+.rkRk{flex:0 0 11px;font-size:9.5px;font-weight:800;color:#8397ba;text-align:center}
+.rkNT{flex:0 0 18px;width:18px;height:18px;border-radius:5px;display:grid;place-items:center;
+  background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
+.rkNT svg{width:11px;height:11px;stroke:#a9bcd6;fill:none;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.rkR.nt .rkL b{font-size:10px;font-weight:700;letter-spacing:-.01em;color:#cddcee;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.rkL{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px}
+.rkL b{flex:0 0 auto;font-size:12px;font-weight:800;letter-spacing:-.015em}
+.rkL small{flex:1;min-width:0;font-size:10px;color:#abbdd7;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rkV{flex:0 0 auto;font-size:12.5px;font-weight:800;letter-spacing:-.03em;
+  color:color-mix(in srgb,var(--c) 62%,#e6eef8)}
+
+.rkFoot{position:relative;display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:8px;
+  border-top:1px solid rgba(255,255,255,.06);font-size:8.5px;color:#94a8c6}
+.rkAll{margin-left:auto;font-size:9.5px;font-weight:600;color:#8fb0d4;white-space:nowrap}
+
+/* 준비 중인 랭킹은 «비어 있음»이 아니라 «왜 비었는지»를 적는다 */
+.rkSoon{position:relative;display:flex;align-items:center;gap:9px;padding:9px 2px 4px}
+.rkSoon svg{flex:0 0 auto;width:19px;height:19px;stroke:#879bbe;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.rkSoon span{min-width:0}
+.rkSoon b{display:block;font-size:10px;font-weight:700;color:#9fb4d0}
+.rkSoon small{display:block;font-size:8.5px;color:#879bbe;margin-top:2px}
+  
+
+/* 로딩 (시안엔 없다) */
+.rkSkel {
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(255,255,255,.045), rgba(255,255,255,.085), rgba(255,255,255,.045));
+  background-size: 200% 100%;
+  animation: rkSkelShim 1.6s linear infinite;
+}
+@keyframes rkSkelShim { to { background-position: -200% 0; } }
+.rkSkelCard { height: 190px; margin: 0 16px 9px; }
+@media (prefers-reduced-motion: reduce) { .rkSkel { animation: none; } }
+
+/* ══ 44px 터치타깃 무력화 (특이도까지 맞춘 정본) ══════════════════════
+   globals.css @media(max-width:768px) 의 규칙은 선택자마다 특이도가 다르다.
+     [role="button"] · [role="tab"]                                   (0,1,0)
+     a:not([class*="inline"]):not([class*="text-\["])                  (0,2,1)
+     button:not([class*="shrink"]):not([class*="w-3"]):not([class*="w-4"]) (0,3,1)
+   그래서 `.WRAP a` (0,1,1) 로는 «못 이긴다» — 앞서 이 실수로 시안 30px 행이
+   44px 로 남아 있었다(오늘의 발견·빠른 진입·무버·실적 전부). :not() 을 덧붙여
+   각각을 한 단계씩 넘긴다. 높이는 시안이 정본이다.
+   ─────────────────────────────────────────────────────────────────── */
+.rkWrap a:not([data-tap]):not([data-tap2]),
+.rkWrap button:not([data-tap]):not([data-tap2]):not([data-tap3]),
+.rkWrap [role="button"],
+.rkWrap [role="tab"],
+.rkWrap input, .rkWrap select, .rkWrap textarea{min-height:0}

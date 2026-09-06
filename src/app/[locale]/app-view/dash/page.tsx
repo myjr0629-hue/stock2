@@ -3,11 +3,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
+import { Link } from '@/i18n/routing';
 import { Sparkline } from '@/components/app/Sparkline';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
-import { ValueWall } from '@/components/app/ValueWall';
+import { useAdUnlockGate } from '@/components/app/ValueWall';
+import { IAP_LIVE } from '@/config/iap';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
@@ -65,6 +67,30 @@ interface MoverItem {
   spark: number[];
 }
 
+/* ── 9차: 오늘의 발견 / 괴리 시그널 ──────────────────────────────
+   둘 다 /api/undercurrent/feed 한 콜에서 나온다(실측 0.67s · 16KB · 카드 12).
+   발견 = money.darkPoolStealth(0~100) + darkPoolRegime
+   괴리 = divergence:true 인 카드 (뉴스 방향과 돈 방향이 어긋난 것)
+   ★ 값이 없는 카드는 «빼고», 지어내지 않는다. */
+interface UcMoney {
+  darkPoolStealth?: number | null;
+  darkPoolRegime?: string | null;
+  darkPoolPct?: number | null;
+  darkPoolMarketAvg?: number | null;
+  darkPoolDate?: string | null;
+}
+interface UcCard {
+  ticker: string;
+  tag?: string;
+  plainTitle?: string;
+  moneyRead?: string;
+  moneyMood?: string;
+  divergence?: boolean;
+  hasMoneyData?: boolean;
+  money?: UcMoney | null;
+  source?: string;
+}
+
 const DEMO_INDICES: PulseItem[] = [
   { sym: 'DOW', px: 39127.14, chg: 0.18, up: true, spark: [5, 6, 5, 7, 6, 8, 7, 8, 9] },
   { sym: 'NASDAQ', px: 17862.64, chg: 0.35, up: true, spark: [4, 5, 6, 5, 7, 8, 7, 9, 10] },
@@ -104,9 +130,9 @@ let lastGoodIndices: PulseItem[] | null = null;
 
 function buildIndexItems(idx: any): PulseItem[] {
   const items: PulseItem[] = [];
-  if (idx?.dow) items.push({ sym: 'DOW', px: idx.dow.price, chg: idx.dow.changePct, up: idx.dow.changePct >= 0, spark: DEMO_INDICES[0].spark });
-  if (idx?.nasdaq) items.push({ sym: 'NASDAQ', px: idx.nasdaq.price, chg: idx.nasdaq.changePct, up: idx.nasdaq.changePct >= 0, spark: DEMO_INDICES[1].spark });
-  if (idx?.spx) items.push({ sym: 'S&P 500', px: idx.spx.price, chg: idx.spx.changePct, up: idx.spx.changePct >= 0, spark: DEMO_INDICES[2].spark });
+  if (idx?.dow) items.push({ sym: 'DOW', px: idx.dow.price, chg: idx.dow.changePct, up: idx.dow.changePct >= 0, spark: [] });
+  if (idx?.nasdaq) items.push({ sym: 'NASDAQ', px: idx.nasdaq.price, chg: idx.nasdaq.changePct, up: idx.nasdaq.changePct >= 0, spark: [] });
+  if (idx?.spx) items.push({ sym: 'S&P 500', px: idx.spx.price, chg: idx.spx.changePct, up: idx.spx.changePct >= 0, spark: [] });
   return items;
 }
 let lastGoodFutures: PulseItem[] | null = null;
@@ -346,114 +372,97 @@ function getTickerLogo(sym: string) {
   return <AppTickerLogo symbol={sym} size={16} style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }} />;
 }
 
-function getSymBadge(sym: string) {
-  switch (sym) {
-    case 'DOW':
-      return <span className={`${s.symbolBadge} ${s.dow}`}>DJI</span>;
-    case 'NASDAQ':
-      return <span className={`${s.symbolBadge} ${s.nasdaq}`}>NDX</span>;
-    case 'S&P 500':
-      return <span className={`${s.symbolBadge} ${s.sp500}`}>500</span>;
-    case 'SPY':
-      return <span className={`${s.symbolBadge} ${s.spy}`}>500</span>;
-    case 'QQQ':
-      return <span className={`${s.symbolBadge} ${s.qqq}`}>100</span>;
-    case 'VIX':
-      return <span className={`${s.symbolBadge} ${s.vix}`}>C</span>;
-    case 'NASDAQ100 F':
-      return <span className={`${s.symbolBadge} ${s.nasdaq}`}>FUT</span>;
-    case 'Russell2k F':
-      return <span className={`${s.symbolBadge} ${s.dow}`}>FUT</span>;
-    case 'S&P500 F':
-      return <span className={`${s.symbolBadge} ${s.sp500}`}>FUT</span>;
-    default:
-      return null;
-  }
+
+/* ── SPDR 8섹터 아이콘 (9차) ───────────────────────────────────────
+   ★ components/intel/mobile/SectorIcon.tsx 는 «인텔 10섹터»(M7·반도체·바이오…)용이라
+     여기 SPDR 8섹터와 분류 체계가 다르다. 그래서 따로 둔다 — 재사용하면 안 된다.
+   섹터 색은 셀 배경(heatBg)이 이미 등락을 칠하므로, 아이콘은 currentColor 로
+   이름과 같은 톤을 쓴다. 색을 두 번 쓰면 화면이 튄다. */
+const SECTOR_ICON: Record<string, string> = {
+  Tech:          '<rect x="7.8" y="7.8" width="8.4" height="8.4" rx="1.5"/><path d="M10 3.8v4M14 3.8v4M10 16.2v4M14 16.2v4M3.8 10h4M3.8 14h4M16.2 10h4M16.2 14h4"/>',
+  Industrials:   '<path d="M3.4 20.6V11l5.6 3.4V11l5.6 3.4V7.2l5.6 3.8v9.6z"/><path d="M7.6 20.6v-3.2M12.4 20.6v-3.2M17.2 20.6v-3.2"/>',
+  Utilities:     '<path d="M12.8 2.8L5.8 13.4h5.2l-.9 7.8 7.3-10.4H12z"/>',
+  Materials:     '<path d="M12 3l7.8 4.4v8.8L12 20.6l-7.8-4.4V7.4z"/><path d="M4.2 7.4L12 11.8l7.8-4.4M12 11.8v8.8"/>',
+  Finance:       '<path d="M3.4 10.6h17.2M5.8 10.6v7M9.6 10.6v7M14.2 10.6v7M18 10.6v7M2.8 20.4h18.4M12 3.6l9 5.2H3z"/>',
+  Energy:        '<path d="M12 3.6c3.5 4.5 5.4 6.9 5.4 9.5a5.4 5.4 0 1 1-10.8 0c0-2.6 1.9-5 5.4-9.5z"/>',
+  Healthcare:    '<circle cx="12" cy="12" r="7.8"/><path d="M12 8.4v7.2M8.4 12h7.2"/>',
+  'Cons. Disc':  '<circle cx="9.8" cy="19.4" r="1.4"/><circle cx="17.4" cy="19.4" r="1.4"/><path d="M2.8 3.8h2.6l2.4 11h9.8l2.6-6.8H6.2"/>',
+};
+
+/* SPDR 8섹터 이름 — 앱은 ko/en/ja 를 다 서비스하는데 여기만 영어로 나가고 있었다.
+   키는 API 가 주는 영어 이름 그대로 두고, 표시만 로케일로 바꾼다. */
+const SECTOR_LABEL: Record<string, { ko: string; en: string; ja: string }> = {
+  Tech:          { ko: '기술',       en: 'Tech',        ja: 'テクノロジー' },
+  Energy:        { ko: '에너지',     en: 'Energy',      ja: 'エネルギー' },
+  'Cons. Disc':  { ko: '임의소비재', en: 'Cons. Disc.', ja: '一般消費財' },
+  Materials:     { ko: '소재',       en: 'Materials',   ja: '素材' },
+  Industrials:   { ko: '산업재',     en: 'Industrials', ja: '資本財' },
+  Finance:       { ko: '금융',       en: 'Financials',  ja: '金融' },
+  Healthcare:    { ko: '헬스케어',   en: 'Health Care', ja: 'ヘルスケア' },
+  Utilities:     { ko: '유틸리티',   en: 'Utilities',   ja: '公益' },
+};
+
+function sectorLabel(name: string, locale: string) {
+  const m = SECTOR_LABEL[name];
+  if (!m) return name;
+  return locale === 'ko' ? m.ko : locale === 'ja' ? m.ja : m.en;
 }
 
-function getMacroBadge(label: string) {
-  switch (label) {
-    case 'US 10Y':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.us10yBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 6h16M4 12h16M4 18h16" strokeDasharray="3 3"/>
-            <path d="M12 2v20M17 7l-5-5-5 5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </span>
-      );
-    case 'DXY':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.dxyBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="1" x2="12" y2="23"></line>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-        </span>
-      );
-    case 'BTC':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.btcBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 4h10a4 4 0 0 1 0 8H6z" />
-            <path d="M6 12h11a4 4 0 0 1 0 8H6z" />
-            <line x1="9" y1="1" x2="9" y2="4" />
-            <line x1="13" y1="1" x2="13" y2="4" />
-            <line x1="9" y1="20" x2="9" y2="23" />
-            <line x1="13" y1="20" x2="13" y2="23" />
-          </svg>
-        </span>
-      );
-    case 'GOLD':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.goldBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 22h20M5 22h14L17 12H7L5 22Z" />
-            <path d="M12 12V22" />
-          </svg>
-        </span>
-      );
-    case 'OIL':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.oilBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2s-8 6-8 11a8 8 0 0 0 16 0c0-5-8-11-8-11Z" />
-          </svg>
-        </span>
-      );
-    case 'SOX':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.soxBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="4" y="4" width="16" height="16" rx="2" />
-            <path d="M9 9h6v6H9z" />
-            <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" />
-          </svg>
-        </span>
-      );
-    case '2s10s':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.yieldBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 12c4-8 14-8 18 0M3 18c4-4 14-4 18 0" />
-            <line x1="3" y1="6" x2="21" y2="6" strokeDasharray="2 2" />
-          </svg>
-        </span>
-      );
-    case 'F&G':
-      return (
-        <span className={`${s.macroBadgeIcon} ${s.fgBadge}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20.24 12.24a8 8 0 0 0-16.48 0" />
-            <line x1="12" y1="18" x2="12" y2="10" />
-            <line x1="12" y1="18" x2="16" y2="14" />
-          </svg>
-        </span>
-      );
-    default:
-      return null;
-  }
+/* 시안(e9)의 섹터 색 — 아이콘 칩에만 쓴다.
+   셀 배경은 heatBg 가 등락으로 칠하므로 색을 두 번 쓰지 않는다. */
+const SECTOR_COLOR: Record<string, string> = {
+  Tech: '#22d3ee', Industrials: '#34d399', Utilities: '#a3e635', Materials: '#94a3b8',
+  Finance: '#60a5fa', Energy: '#fb923c', Healthcare: '#f472b6', 'Cons. Disc': '#c084fc',
+};
+
+/* 섹터 → SPDR ETF 심볼 (WS 오버레이용). 예전엔 렌더 안에 삼항 8단으로 있었다. */
+const SECTOR_ETF: Record<string, string> = {
+  Tech: 'XLK', Energy: 'XLE', 'Cons. Disc': 'XLY', Materials: 'XLB',
+  Industrials: 'XLI', Finance: 'XLF', Healthcare: 'XLV', Utilities: 'XLU',
+};
+
+/* 매크로 8종 — 시안 sim9 macroFull 의 ic/c 를 그대로. 옛 s.macroBadgeIcon(색 원)이 아니다. */
+const MACRO_IC: Record<string, { c: string; ic: string; tx?: string }> = {
+  'BTC':    { c: '#f7931a', ic: '', tx: '\u20BF' },
+  'GOLD':   { c: '#fbbf24', ic: '<path d="M3.4 18.4h17.2l-2.2-6H5.6z"/><path d="M7 12.4l1.6-4.8h6.8l1.6 4.8"/>' },
+  'OIL':    { c: '#cbd5e1', ic: '<path d="M12 3.6c3.5 4.5 5.4 6.9 5.4 9.5a5.4 5.4 0 1 1-10.8 0c0-2.6 1.9-5 5.4-9.5z"/>' },
+  'SOX':    { c: '#22d3ee', ic: '<rect x="7.8" y="7.8" width="8.4" height="8.4" rx="1.5"/><path d="M10 3.8v4M14 3.8v4M10 16.2v4M14 16.2v4M3.8 10h4M3.8 14h4M16.2 10h4M16.2 14h4"/>' },
+  'US 10Y': { c: '#a78bfa', ic: '<rect x="4.6" y="3.4" width="14.8" height="17.2" rx="2.2"/><path d="M8.2 8.2h7.6M8.2 12h7.6M8.2 15.8h4.4"/>' },
+  'DXY':    { c: '#34d399', ic: '', tx: '$' },
+  '2S10S':  { c: '#818cf8', ic: '<path d="M3 15.4c4.2 0 6-8 10-8s4.4 5 8 5"/><path d="M3 19.6h18"/>' },
+  'F&G':    { c: '#60a5fa', ic: '<path d="M4.4 17.4a7.6 7.6 0 1 1 15.2 0"/><path d="M12 17.4l4.2-5.4"/><circle cx="12" cy="17.4" r="1.2"/>' },
+};
+
+/* 지수 뱃지 — 시안 idxCard 의 {code, full, bg, fg}. 선물 3종은 시안 값 그대로,
+   현물·ETF 3종씩은 같은 규칙으로 이어 붙였다(코드 3자 이내 · 지수색). */
+/* 게이트 4신호 색 — 시안 signals[].c */
+const GATE_SIG_C = ['#22d3ee', '#a78bfa', '#fbbf24', '#34d399'];
+
+const IX_BADGE: Record<string, { code: string; full: string; bg: string; fg: string }> = {
+  'NASDAQ100 F': { code: 'N',   full: 'NASDAQ 100',   bg: '#1b3a6b', fg: '#8fc2ff' },
+  'S&P500 F':    { code: '500', full: 'S&P 500',      bg: '#6b1f2a', fg: '#ffb4b4' },
+  'Russell2k F': { code: 'R2K', full: 'RUSSELL 2000', bg: '#17456b', fg: '#8fd4ff' },
+  'NASDAQ':      { code: 'N',   full: 'NASDAQ',       bg: '#1b3a6b', fg: '#8fc2ff' },
+  'S&P 500':     { code: '500', full: 'S&P 500',      bg: '#6b1f2a', fg: '#ffb4b4' },
+  'DOW':         { code: 'DJI', full: 'DOW JONES',    bg: '#3a2f6b', fg: '#c0b4ff' },
+  'SPY':         { code: 'SPY', full: 'SPDR S&P 500', bg: '#6b1f2a', fg: '#ffb4b4' },
+  'QQQ':         { code: 'QQQ', full: 'INVESCO QQQ',  bg: '#1b3a6b', fg: '#8fc2ff' },
+  'VIX':         { code: 'VIX', full: 'VOLATILITY',   bg: '#5c3a12', fg: '#ffce85' },
+};
+
+/* 빠른 진입 3칸 — 시안 e9 의 QUICK 그대로. 목적지는 실재하는 곳만 건다. */
+function QUICK9(t: { qDark: string; qUnusual: string; qEarn: string }) {
+  return [
+    { key: 'darkpool', c: '#a78bfa', to: '/app-view/rankings?tab=postclose', label: t.qDark, dest: 'RANKING',
+      ico: '<path d="M3 8.5c3-2.6 6-2.6 9 0s6 2.6 9 0M3 14c3-2.6 6-2.6 9 0s6 2.6 9 0M3 19.5c3-2.6 6-2.6 9 0s6 2.6 9 0"/>' },
+    { key: 'unusual', c: '#22d3ee', to: '/app-view/rankings?tab=intraday', label: t.qUnusual, dest: 'RANKING',
+      ico: '<circle cx="7.6" cy="15" r="4.2"/><circle cx="16.4" cy="15" r="4.2"/><path d="M7.6 10.8V5.4l3-2M16.4 10.8V5.4l-3-2M11.2 15h1.6"/>' },
+    { key: 'earnings', c: '#fbbf24', to: '/app-view/earnings', label: t.qEarn, dest: 'NEW', nw: true,
+      ico: '<rect x="3.2" y="5" width="17.6" height="15.8" rx="2.4"/><path d="M3.2 10h17.6M8 3v4M16 3v4"/><circle cx="9" cy="14.4" r="1.1"/><circle cx="15" cy="14.4" r="1.1"/>' },
+  ];
 }
+
+
 
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD PAGE
@@ -500,6 +509,17 @@ export default function AppDashPage() {
   //   빈칸은 «없다»고 말하지만 가짜 숫자는 «있다»고 거짓말한다.
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [macroReady, setMacroReady] = useState(false);
+  /* 9차: 매크로 8칸이 항상 2줄을 차지했다. 4칸만 보이고 나머지는 그 자리에서 펼친다.
+     — 「전체 ›」 로 내보내지 않는다. 목적지 페이지가 없고, 10줄짜리는 페이지가 안 된다. */
+  const [macroOpen, setMacroOpen] = useState(false);
+  /* 9차: 선물·현물·ETF 3줄(9카드)이 첫 화면을 다 먹었다. 탭으로 한 줄만 보인다.
+     ★ 각 줄의 로직(WS 오버레이·플래시·세션 판정)은 손대지 않고 «표시 여부»만 감싼다. */
+  const [pulseTab, setPulseTab] = useState<'futures' | 'cash' | 'etf'>('futures');
+
+  /* 9차 신규 — 오늘의 발견 · 괴리 시그널 (둘 다 UC 피드 한 콜) */
+  const [ucCards, setUcCards] = useState<UcCard[]>([]);
+  const [ucReady, setUcReady] = useState(false);
+  const [ucMeta, setUcMeta] = useState<{ marketAvg: number | null; date: string | null }>({ marketAvg: null, date: null });
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
   const [sectorsReady, setSectorsReady] = useState(false);
   const [briefingReady, setBriefingReady] = useState(false);
@@ -781,7 +801,6 @@ export default function AppDashPage() {
       teaserLabel: '무료 미리보기 · 기관급 펄스',
       previewChip: '무료 미리보기',
       cta: '광고 보고 1시간 해제',
-      adFree: '또는 $9.99/월 광고 제거',
       social: '오늘 14.2K 잠금해제',
       teaserUnit: '4개 중 1개',
       signals: {
@@ -797,11 +816,10 @@ export default function AppDashPage() {
       teaserLabel: 'Free preview · Institutional pulse',
       previewChip: 'Free preview',
       cta: 'Watch ad to unlock 1HR',
-      adFree: 'or $9.99/mo ad-free',
       social: '14.2K unlocked today',
       teaserUnit: '1 of 4',
       signals: {
-        instFlow: { label: 'New Institutional Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
+        instFlow: { label: 'New Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
         gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
         rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
         breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
@@ -813,7 +831,6 @@ export default function AppDashPage() {
       teaserLabel: '無料プレビュー · 機関投資家パルス',
       previewChip: '無料プレビュー',
       cta: '広告視聴で1時間解除',
-      adFree: 'または月$9.99で広告なし',
       social: '本日14.2K件解除',
       teaserUnit: '4つ中1つ',
       signals: {
@@ -829,11 +846,10 @@ export default function AppDashPage() {
     teaserLabel: 'Free preview · Institutional pulse',
     previewChip: 'Free preview',
     cta: 'Watch ad to unlock 1HR',
-    adFree: 'or $9.99/mo ad-free',
     social: '14.2K unlocked today',
     teaserUnit: '1 of 4',
     signals: {
-      instFlow: { label: 'New Institutional Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
+      instFlow: { label: 'New Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
       gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
       rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
       breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
@@ -1068,6 +1084,7 @@ export default function AppDashPage() {
     return vals.length ? clampPct(vals.reduce((a, c) => a + c, 0) / vals.length) : null;
   })();
 
+  const adGate = useAdUnlockGate(locale);
   const institutionalSignals = [
     {
       key: 'inst',
@@ -1202,7 +1219,7 @@ export default function AppDashPage() {
 
     async function fetchAll() {
       try {
-        const [, macroRes, briefingRes, quotesRes, premiumRes, indexRes, newsRes] = await Promise.allSettled([
+        const [, macroRes, briefingRes, quotesRes, premiumRes, indexRes, newsRes, ucRes] = await Promise.allSettled([
           fetch('/api/live/market'),
           fetch('/api/market/macro'),
           fetch(`/api/guardian/briefing?locale=${locale}`),
@@ -1210,6 +1227,8 @@ export default function AppDashPage() {
           fetch(`/api/live/premium-metrics?locale=${locale}`),
           fetch('/api/market/index-close', { cache: 'no-store' }),
           fetch(`/api/guardian/news-digest?locale=${locale}`),
+          // 9차: 발견 + 괴리를 한 콜로. SWR 이라 보통 stale hit 으로 즉시 온다.
+          fetch(`/api/undercurrent/feed?locale=${locale}`),
         ]);
 
         if (cancelled) return;
@@ -1280,7 +1299,7 @@ export default function AppDashPage() {
           //   그럴듯한 지수가 떴고, 대표는 그게 오늘 시세인 줄 알 수밖에 없었다.
           //   가짜 숫자는 빈칸보다 나쁘다 — 빈칸은 «없다»고 말하지만
           //   가짜 숫자는 «있다»고 거짓말한다.
-          const pushFuture = (sym: string, f: any, spark: number[]) => {
+          const pushFuture = (sym: string, f: any) => {
             const px = Number(f?.level);
             const chg = Number(f?.chgPct);
             if (!Number.isFinite(px) || px <= 0) return;   // 값이 없으면 줄 자체를 뺀다
@@ -1289,13 +1308,16 @@ export default function AppDashPage() {
               px,
               chg: Number.isFinite(chg) ? chg : 0,
               up: (Number.isFinite(chg) ? chg : 0) >= 0,
-              spark,
+              // ★ 지어낸 곡선 제거(9차). 예전엔 DEMO_FUTURES[n].spark 라는 «형태 상수»를
+              //   실제 가격·등락률 옆에 붙여 그렸다 — 화면은 «오늘의 흐름»처럼 보이는데
+              //   실제로는 매일 같은 모양이었다. 이 페이로드엔 일중 시계열이 없다.
+              spark: [],
               ...feedMetaForItem(f, globexLive, { requireFresh: false }),
             });
           };
-          pushFuture('NASDAQ100 F', fac?.nasdaq100, DEMO_FUTURES[0].spark);
-          pushFuture('S&P500 F', fac?.spx, DEMO_FUTURES[1].spark);
-          pushFuture('Russell2k F', fac?.rut, DEMO_FUTURES[2].spark);
+          pushFuture('NASDAQ100 F', fac?.nasdaq100);
+          pushFuture('S&P500 F', fac?.spx);
+          pushFuture('Russell2k F', fac?.rut);
           return out;
         };
 
@@ -1499,7 +1521,7 @@ export default function AppDashPage() {
                 px: spyQuote.price || prevSpy?.px || DEMO_ETFS[0].px,
                 chg: spyChg,
                 up: spyChg >= 0,
-                spark: DEMO_ETFS[0].spark,
+                spark: [],
                 live: equityExtendedLive,
               },
               {
@@ -1507,7 +1529,7 @@ export default function AppDashPage() {
                 px: qqqQuote.price || prevQqq?.px || DEMO_ETFS[1].px,
                 chg: qqqChg,
                 up: qqqChg >= 0,
-                spark: DEMO_ETFS[1].spark,
+                spark: [],
                 live: equityExtendedLive,
               },
               (() => {
@@ -1519,7 +1541,7 @@ export default function AppDashPage() {
                   chg: kept?.chg ?? 0,
                   up: (kept?.chg ?? 0) >= 0,
                   noData: kept == null,
-                  spark: DEMO_ETFS[2].spark,
+                  spark: [],
                   ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday), { requireFresh: false }),
                 };
               })()
@@ -1590,6 +1612,26 @@ export default function AppDashPage() {
             // silent fail
           }
         }
+
+        // ── 9차: 오늘의 발견 + 괴리 시그널 (UC 피드 한 콜) ──────────────
+        if (ucRes && ucRes.status === 'fulfilled' && ucRes.value.ok) {
+          try {
+            const uc = await ucRes.value.json();
+            const cards: UcCard[] = Array.isArray(uc?.cards) ? uc.cards : [];
+            if (cards.length) {
+              setUcCards(cards);
+              setUcReady(true);
+              // 시장 평균·기준일은 카드 안에 실려 온다 — 없으면 «없는 채로» 둔다.
+              const withMoney = cards.find((c) => c.money?.darkPoolMarketAvg != null);
+              setUcMeta({
+                marketAvg: withMoney?.money?.darkPoolMarketAvg ?? null,
+                date: withMoney?.money?.darkPoolDate ?? null,
+              });
+            }
+          } catch {
+            // silent fail — 섹션 자체가 안 그려진다(빈 껍데기를 남기지 않는다)
+          }
+        }
       } catch {
         // silently fall back to demo data
       } finally {
@@ -1617,602 +1659,613 @@ export default function AppDashPage() {
     return () => clearInterval(timer);
   }, [newsItems.length]);
 
-  /* ── Render ── */
+  /* ── 9차 문구 — 시안(e9)의 L9 를 그대로 옮겼다 ─────────────────── */
+  const c9 = ({
+    ko: {
+      tagline: 'DARK POOL INTEL', secIdx: '지수', tFut: '선물', tCash: '현물', tEtf: 'ETF',
+      idxNote: '지금 움직이는 건 선물뿐 — 현물·ETF는 마감값입니다.',
+      idxNoteLive: '정규장 진행 중 — 선물·현물·ETF 모두 실시간입니다.',
+      secMacro: '매크로', mcMore: (n: number) => `${n}개 더 보기`, mcLess: '접기',
+      secSector: '섹터', heat: '히트맵',
+      secDisc: '오늘의 발견', discAll: '랭킹 11종',
+      discName: '은밀 축적·분산',
+      discWhat: '장외 물량은 늘었는데, 그 물량 중 공매도 비중은 줄었다.',
+      secGate: '기관이 어제 깔아둔 것',
+      secMv: '가장 많이 움직인 것', all: '전체', mvVal: '거래대금', mvUp: '상승률', mvDn: '하락률',
+      secDv: '괴리 시그널', dvSub: '뉴스와 돈이 반대로 움직이는 곳',
+      secQuick: '빠른 진입',
+      qDark: '다크풀 흐름', qUnusual: '이상 옵션 플로우', qEarn: '실적 캘린더',
+      marketAvg: '시장 평균',
+      discTally: (a: number, d: number) => `축적 상위 ${a} · 분산 ${d}`,
+      gateN: (f: number, n: number) => `무료 ${f} / ${n}`, free: '무료',
+      proOr: '또는', proNote: '광고 없이 항상 열림',
+      ftLegal: '교육 및 리서치용 시장 데이터입니다. 투자 조언, 매수/매도 권유, 수익 보장이 아니며 모든 판단과 결과는 사용자 본인 책임입니다.',
+      ftA: '앱 이용약관', ftB: '앱 개인정보처리방침', ftS: '지원: contact@signumhq.com',
+    },
+    en: {
+      tagline: 'DARK POOL INTEL', secIdx: 'Indices', tFut: 'Futures', tCash: 'Cash', tEtf: 'ETF',
+      idxNote: 'Only futures are trading now — cash and ETFs show the close.',
+      idxNoteLive: 'Regular session is open — futures, cash and ETFs are all live.',
+      secMacro: 'Macro', mcMore: (n: number) => `Show ${n} more`, mcLess: 'Show less',
+      secSector: 'Sectors', heat: 'Heatmap',
+      secDisc: "Today's Find", discAll: 'All 11 rankings',
+      discName: 'Stealth Accumulation',
+      discWhat: 'Off-exchange volume rose, while the short share of that volume fell.',
+      secGate: 'What institutions set up yesterday',
+      secMv: 'Biggest Movers', all: 'View all', mvVal: 'Value', mvUp: 'Gainers', mvDn: 'Losers',
+      secDv: 'Divergence', dvSub: 'Where the news and the money disagree',
+      secQuick: 'Quick Access',
+      qDark: 'Dark Pool Flow', qUnusual: 'Unusual Options Flow', qEarn: 'Earnings Calendar',
+      marketAvg: 'Market avg',
+      discTally: (a: number, d: number) => `${a} accumulating · ${d} distributing`,
+      gateN: (f: number, n: number) => `${f} of ${n} free`, free: 'FREE',
+      proOr: 'or', proNote: 'Always open, no ads',
+      ftLegal: 'Market data for education and research only. Not investment advice, not a buy/sell recommendation, and no accuracy or return is guaranteed.',
+      ftA: 'App Terms', ftB: 'App Privacy', ftS: 'Support: contact@signumhq.com',
+    },
+    ja: {
+      tagline: 'DARK POOL INTEL', secIdx: '指数', tFut: '先物', tCash: '現物', tEtf: 'ETF',
+      idxNote: '今動いているのは先物のみ — 現物・ETFは終値です。',
+      idxNoteLive: '通常取引中 — 先物・現物・ETFすべてリアルタイムです。',
+      secMacro: 'マクロ', mcMore: (n: number) => `他${n}件を表示`, mcLess: '折りたたむ',
+      secSector: 'セクター', heat: 'ヒートマップ',
+      secDisc: '今日の発見', discAll: 'ランキング11種',
+      discName: '隠れた蓄積・分散',
+      discWhat: '場外の出来高は増えたが、そのうち空売り比率は下がった。',
+      secGate: '機関が昨日仕込んだもの',
+      secMv: '最も動いた銘柄', all: 'すべて', mvVal: '売買代金', mvUp: '上昇率', mvDn: '下落率',
+      secDv: '乖離シグナル', dvSub: 'ニュースとカネが逆を向く場所',
+      secQuick: 'クイックアクセス',
+      qDark: 'ダークプールの流れ', qUnusual: '異常オプションフロー', qEarn: '決算カレンダー',
+      marketAvg: '市場平均',
+      discTally: (a: number, d: number) => `蓄積 上位${a} · 分散${d}`,
+      gateN: (f: number, n: number) => `無料 ${f} / ${n}`, free: '無料',
+      proOr: 'または', proNote: '広告なしで常に開く',
+      ftLegal: '教育およびリサーチ目的の市場データです。投資助言、売買推奨、収益保証ではなく、すべての判断と結果は利用者本人の責任です。',
+      ftA: 'アプリ利用規約', ftB: 'アプリプライバシー', ftS: 'サポート: contact@signumhq.com',
+    },
+  } as const)[locale as 'ko' | 'en' | 'ja'] ?? ({} as never);
+
+  /* ── 9차 파생 ─────────────────────────────────────────────────
+     발견: stealth 값이 있는 카드만, 높은 순. 12개라 정렬 비용은 무시할 수준.
+     괴리: divergence:true 인 카드만.
+     ★ 둘 다 «값이 없으면 행을 빼는» 규칙. 0 으로 채우지 않는다. */
+  const discoveryRows = ucCards
+    .filter((c) => typeof c.money?.darkPoolStealth === 'number')
+    .sort((a, b) => (b.money!.darkPoolStealth as number) - (a.money!.darkPoolStealth as number))
+    .slice(0, 5);
+  const divergenceRows = ucCards.filter((c) => c.divergence).slice(0, 6);
+  /* 매크로 «작동 중» = 그 지표의 «장이 열려 있는 시간»(대표 지시).
+     값이 바뀔 때만 깜빡이면 안 보고 있을 때 지나가 버린다 — 라이브 표시가 목적이다.
+     판정은 이미 있는 checkIsItemActive 를 쓴다(BTC 24/7 · GOLD·OIL Globex ·
+     DXY FX 24/5 · US 10Y 채권시간 · SOX 정규장 · 2S10S·F&G 는 일 1회 산출이라 항상 꺼짐).
+     시계 기반이라 30초마다 다시 그려 장 시작·마감에 저절로 켜지고 꺼진다. */
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setClockTick((n) => n + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const discAcc = discoveryRows.filter((c) => (c.money?.darkPoolRegime || '').toUpperCase() === 'ACCUMULATION').length;
+  const discDis = discoveryRows.filter((c) => (c.money?.darkPoolRegime || '').toUpperCase() === 'DISTRIBUTION').length;
+  const regimeLabel = (r?: string | null) => {
+    const k = (r || '').toUpperCase();
+    if (k === 'ACCUMULATION') return locale === 'ko' ? '축적' : locale === 'ja' ? '蓄積' : 'ACCUM';
+    if (k === 'DISTRIBUTION') return locale === 'ko' ? '분산' : locale === 'ja' ? '分散' : 'DISTR';
+    return locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'NEUT';
+  };
+  const regimeClass = (r?: string | null) => {
+    const k = (r || '').toUpperCase();
+    return k === 'ACCUMULATION' ? s.discAcc : k === 'DISTRIBUTION' ? s.discDis : s.discNeu;
+  };
+
+  /* 기관 게이트 — 페이월 로직은 손대지 않고 그대로 옮겼다 */
+
+  /* ── Render — 시안(e9) 마크업 그대로. 데이터만 꽂는다. ─────────────
+     ★ 손으로 다시 설계하지 않는다. 클래스는 dash9.module.css(시안 <style> 원본).
+       상태·이펙트·파생 계산은 위 본문 그대로 쓰고 여기서는 그리기만 한다. */
+  const idxItems = pulseTab === 'futures' ? futures
+                 : pulseTab === 'cash'    ? sortPulse(indices, PULSE_INDEX_ORDER)
+                 : sortPulse(etfs, PULSE_ETF_ORDER);
+  const idxReady = pulseTab === 'futures' ? futuresReady
+                 : pulseTab === 'cash'    ? indicesReady
+                 : etfsReady;
+  const topNews = newsItems[tickerIndex];
+  const verdictKey = !regimeReady ? 'mix' : riskScore >= 58 ? 'on' : riskScore <= 42 ? 'off' : 'mix';
+
   return (
-    <div className={s.page}>
-      {/* ══════════════ HEADER ══════════════ */}
-      <header className="app-header">
-        <div className={s.headerBrand}>
-          <img 
-            src="/signum-sg-vectorized.svg"
-            alt="SIGNUM HQ"
-            width="30"
-            height="30"
-            style={{ 
-              filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.35))',
-              flexShrink: 0
-            }} 
-          />
-          <div className={s.brandText}>
-            <span className={s.brandName}>
-              SIGNUM<span style={{ color: 'var(--cyan)' }}>HQ</span>
-            </span>
-            {/* 2026-08-31 다크풀이 FINRA 규제 원본으로 복원돼 다시 사실이 됐다 */}
-            <span className={s.brandSub}>DARK POOL INTEL</span>
-          </div>
-        </div>
-        <div className={s.headerActions}>
-          <button className={s.headerBtn} aria-label="Settings" onClick={() => router.push(`/${locale}/app-view/settings`)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" strokeWidth="1.6" />
-            </svg>
-          </button>
-        </div>
-      </header>
+    <div className={`${n9.e9Wrap} ${n9.e9Root} ${s.page}`} data-v={verdictKey}>
 
-      {/* ══════════════ LIVE TERMINAL TICKER ══════════════ */}
-      {newsItems.length > 0 && (
-        <div className={s.tickerBar} onClick={() => router.push('/app-view/guardian?tab=reality')}>
-          <div className={s.tickerContainer}>
-            {newsItems.map((item, idx) => {
-              if (idx !== tickerIndex) return null;
+      {/* ① 판정 히어로 ─ 시안 e9Hero */}
+      <div className={n9.e9Hero}>
+        <div className={n9.e9Sky} />
+        <img className={n9.e9Earth} src="/dash/earth.webp" alt="" aria-hidden="true"
+             width={672} height={672} decoding="async" />
+        <div className={n9.e9Veil} />
+        <div className={n9.e9In}>
 
-              const isBreaking = item.urgency >= 8;
-              let badgeColor = s.badgeSignal;
-              let badgeText = locale === 'ko' ? '시그널' : 'SIGNAL';
-
-              if (item.category === 'MACRO' || item.category === 'US_MARKET' || item.category === 'GLOBAL') {
-                badgeColor = s.badgeEcon;
-                badgeText = locale === 'ko' ? '지표' : 'ECON';
-              }
-              if (isBreaking) {
-                badgeColor = s.badgeBreaking;
-                badgeText = locale === 'ko' ? '속보' : 'BREAKING';
-              }
-
-              let displayHeadline = item.headline;
-              if (locale === 'ko' && item.summaryKR) {
-                displayHeadline = item.summaryKR;
-              } else if (locale === 'ja' && item.summaryJP) {
-                displayHeadline = item.summaryJP;
-              } else if (item.summaryEN) {
-                displayHeadline = item.summaryEN;
-              }
-
-              return (
-                <div key={item.id} className={s.tickerContent}>
-                  <span className={`${s.tickerBadge} ${badgeColor}`}>{badgeText}</span>
-                  <span className={s.tickerText}>{displayHeadline}</span>
-                  <span className={s.tickerTime}>
-                    {item.ageMinutes < 60
-                      ? `${item.ageMinutes}m`
-                      : `${Math.round(item.ageMinutes / 60)}h`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className={s.regimeStrip}>
-        <div className={s.regimePrimary}>
-          <span className={s.regimeKicker}>{copy.regime}</span>
-          <strong className={!regimeReady ? s.regimeNeutral : riskScore >= 58 ? s.regimePositive : riskScore <= 42 ? s.regimeNegative : s.regimeNeutral}>
-            {regimeReady ? riskTone : '—'}
-          </strong>
-          <span className={s.regimeNote}>{pulseStatusNote}</span>
-        </div>
-        <div className={s.regimeMetrics}>
-          <div className={`${s.regimeMetric} ${futuresAvg > 0.15 ? s.metricUp : futuresAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
-            <span>{copy.futures}</span>
-            <b className={futuresAvg >= 0 ? s.pos : s.neg}>{futuresReady ? `${futuresTone} ${fmtChg(futuresAvg)}` : '—'}</b>
-          </div>
-          <div className={`${s.regimeMetric} ${cashAvg > 0.15 ? s.metricUp : cashAvg < -0.15 ? s.metricDown : s.metricFlat}`}>
-            <span>{copy.cash}</span>
-            <b className={cashAvg >= 0 ? s.pos : s.neg}>{indicesReady ? `${cashTone} ${fmtChg(cashAvg)}` : '—'}</b>
-          </div>
-          <div className={`${s.regimeMetric} ${s.regimeMetricCenter} ${riskScore >= 58 ? s.metricUp : riskScore <= 42 ? s.metricDown : s.metricFlat}`}>
-            <span>{copy.risk}</span>
-            <b>{regimeReady ? Math.round(riskScore) : '—'}</b>
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════ MARKET PULSE ══════════════ */}
-      <div className={s.card}>
-        <div className={s.pulseGlow} />
-        <div className={s.cardHead}>
-          <div className={s.pulseHeaderContainer}>
-            <div className={s.pulseHeader}>
-              <span className={s.pulseHeaderDecorator}>|</span>
-              <span className={s.cardTitle}>Market Pulse</span>
-            </div>
-            <div className={`${s.pulseLiveBadge} ${pulseStatusClass}`}>
-              <div className={`${s.pulseDot} ${pulseStatusClass}`} />
-              <span style={{ fontSize: '10px', fontWeight: '900', color: isLive || futuresLive || volatilityLive ? 'var(--cyan)' : '#64748b', letterSpacing: '0.08em', lineHeight: 1 }}>
-                {pulseStatusLabel}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* ── Futures Row (NASDAQ100 F, Russell2k F, S&P500 F) ── */}
-            <div className={s.pulseRowMeta}>
-              <span>{copy.futuresRow}</span>
-              <em className={futuresLive ? s.metaLive : ''}>{futuresLive ? copy.futuresLive : copy.closed}</em>
-            </div>
-            <div className={s.pulseRow}>
-              {!futuresReady ? [0, 1, 2].map((i) => <div key={`skf-${i}`} className={s.skelPulse} />) : futures.map((p) => (
-                <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
-                  <div className={s.pulseCardSymRow}>
-                    {getSymBadge(p.sym)}
-                    <span className={s.pulseSym}>{p.sym}</span>
-                  </div>
-                  <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
-                  <span className={`${s.pulseChg} ${p.up ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                    {p.up ? '▲' : '▼'} {p.up ? '+' : ''}{p.chg.toFixed(2)}%
-                  </span>
-                  <div className={s.pulseSparkline}>
-                    <Sparkline data={p.spark} up={p.up} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ── Indices Row (DOW, NASDAQ, S&P 500) ── */}
-            <div className={s.pulseRowMeta}>
-              <span>{copy.cashRow}</span>
-              <em className={isLive ? s.metaLive : isMarketHoliday ? s.metaHoliday : ''}>{isLive ? copy.regularLive : isMarketHoliday ? copy.holiday : copy.closed}</em>
-            </div>
-            <div className={s.pulseRow}>
-              {!indicesReady ? [0, 1, 2].map((i) => <div key={`ski-${i}`} className={s.skelPulse} />) : sortPulse(indices, PULSE_INDEX_ORDER).map((p) => {
-                // Cash index row is Redis/index-close based. ETF proxies must not overwrite index change.
-                const displayChg = p.chg;
-                const isUp = displayChg >= 0;
-                
-                // Flash animation class
-                const flashClass = '';
-
-                return (
-                  <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
-                    <div className={s.pulseCardSymRow}>
-                      {getSymBadge(p.sym)}
-                      <span className={s.pulseSym}>{p.sym}</span>
-                    </div>
-                    <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
-                    <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                      {isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%
-                    </span>
-                    <div className={s.pulseSparkline}>
-                      <Sparkline data={p.spark} up={isUp} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* ── ETFs Row (SPY, QQQ, VIX) ── */}
-            <div className={s.pulseRowMeta}>
-              <span>{copy.etfRow}</span>
-              <em className={etfRowLive ? s.metaLive : ''}>{etfRowStatus}</em>
-            </div>
-            <div className={s.pulseRow}>
-              {!etfsReady ? [0, 1, 2].map((i) => <div key={`ske-${i}`} className={s.skelPulse} />) : sortPulse(etfs, PULSE_ETF_ORDER).map((p) => {
-                const wsData = wsGetPrice(p.sym);
-                const useWs = shouldUseWsQuote(p.sym, wsData);
-                
-                // Overlay price & change if available
-                const displayPx = useWs ? wsData.price : p.px;
-                const displayChg = useWs ? wsData.changePct : p.chg;
-                const isUp = displayChg >= 0;
-                
-                // Flash animation class
-                const flashClass = useWs ? (flashStates[p.sym] === 'up' ? s.flashUp : flashStates[p.sym] === 'down' ? s.flashDown : '') : '';
-
-                return (
-                  <div key={p.sym} suppressHydrationWarning className={`${s.pulseCard} ${itemSessionLive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
-                    <div className={s.pulseCardSymRow}>
-                      {getSymBadge(p.sym)}
-                      <span className={s.pulseSym}>{p.sym}</span>
-                    </div>
-                    <span className={s.pulsePrice}>
-                      {p.noData && !useWs ? '—' : p.sym === 'VIX' ? displayPx.toFixed(2) : `$${fmtPrice(displayPx)}`}
-                    </span>
-                    <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                      {p.noData && !useWs ? '—' : <>{isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%</>}
-                    </span>
-                    <div className={s.pulseSparkline}>
-                      <Sparkline data={p.spark} up={isUp} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-        </div>
-      </div>
-
-      {/* ══════════════ MACRO BOARD ══════════════ */}
-      <div className={s.card}>
-        <div className={s.cardHead}>
-          <div className={s.pulseHeader}>
-            <span className={s.pulseHeaderDecorator}>|</span>
-            <span className={s.cardTitle}>Macro Board</span>
-          </div>
-        </div>
-        <div className={s.macroGrid}>
-            {!macroReady ? [0, 1, 2, 3, 4, 5].map((i) => <div key={`skm-${i}`} className={s.skelPulse} />) : macro.map((m) => (
-              <div key={m.label} suppressHydrationWarning className={`${s.macroCell} ${m.live ? s.live : ''}`}>
-                <div className={s.macroLabelRow}>
-                  {getMacroBadge(m.label)}
-                  <span className={s.macroLabel}>{m.label}</span>
-                </div>
-                <span className={s.macroValue}>{m.value}</span>
-                {m.badge ? (
-                  m.label === 'F&G' ? (
-                    <span className={fgBadgeClass(parseFloat(m.value) || 50)}>
-                      {m.badge}
-                    </span>
-                  ) : (
-                    <span className={s.badgeNeutral}>{m.badge}</span>
-                  )
-                ) : (
-                  <span className={`${s.macroChg} ${m.chg > 0 ? s.pos : m.chg < 0 ? s.neg : s.flat}`}>
-                    {m.chg > 0 ? '+' : ''}{m.chg !== 0 ? m.chg.toFixed(2) : '—'}{m.unit}
-                  </span>
-                )}
+          <div className={n9.e9Hdr}>
+            <div className={n9.e9Brand}>
+              <img className={n9.e9Logo} src="/signum-sg-vectorized.svg" alt="" width={32} height={32} />
+              <div>
+                <div className={n9.e9Name}>SIGNUM<i>HQ</i></div>
+                <div className={n9.e9Tag}>{c9.tagline}</div>
               </div>
-            ))}
+            </div>
+            <div className={n9.e9Acts}>
+              <button
+                type="button"
+                className={n9.e9Act}
+                aria-label="Settings"
+                onClick={() => router.push(`/${locale}/app-view/settings`)}
+              >
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* TOP SIGNAL — 실제 뉴스 티커. 뉴스가 없으면 줄 자체를 안 그린다. */}
+          {topNews && (
+            <div
+              className={n9.e9Signal}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push('/app-view/guardian?tab=reality')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/guardian?tab=reality'); } }}
+            >
+              <svg className={n9.e9Bolt} viewBox="0 0 24 24"><path d="M13 2L5 13.5h6L10 22l8.5-11.5H12z" /></svg>
+              <span className={n9.e9SigLab}>TOP SIGNAL</span>
+              <span className={n9.e9SigBar} />
+              <span className={n9.e9SigTx}>
+                {(locale === 'ko' && topNews.summaryKR) ? topNews.summaryKR
+                  : (locale === 'ja' && topNews.summaryJP) ? topNews.summaryJP
+                  : (topNews.summaryEN || topNews.headline)}
+              </span>
+              <span className={n9.e9Age}>
+                {topNews.ageMinutes < 60 ? `${topNews.ageMinutes}m` : `${Math.round(topNews.ageMinutes / 60)}h`}
+              </span>
+              <span className={n9.e9Chev}>&#8250;</span>
+            </div>
+          )}
+
+          {/* ② 마켓 스테이터스 */}
+          <div className={`${n9.e9Surf} ${n9.e9Status}`}>
+            {regimeReady && (
+              <>
+                <img className={n9.e9Bull} src="/dash/bull.webp" alt="" aria-hidden="true"
+                     width={264} height={237} decoding="async" />
+                <img className={n9.e9Bear} src="/dash/bear.webp" alt="" aria-hidden="true"
+                     width={264} height={280} decoding="async" />
+              </>
+            )}
+            <div className={n9.e9StatusIn}>
+              <div className={n9.e9Eyebrow}><s />MARKET STATUS</div>
+              <div className={n9.e9Verdict}>{regimeReady ? riskTone : '—'}</div>
+              <div className={n9.e9Say}>{pulseStatusNote}</div>
+              <div className={n9.e9Cells}>
+                <div className={`${n9.e9Cell} ${futuresAvg < 0 ? n9.dn : ''}`}>
+                  <div className={n9.e9CellL}>{copy.futures}</div>
+                  <div className={`${n9.e9CellV} num`}>{futuresReady ? fmtChg(futuresAvg) : '—'}</div>
+                </div>
+                <div className={`${n9.e9Cell} ${cashAvg < 0 ? n9.dn : ''}`}>
+                  <div className={n9.e9CellL}>{copy.cash}</div>
+                  <div className={`${n9.e9CellV} num`}>{indicesReady ? fmtChg(cashAvg) : '—'}</div>
+                </div>
+                <div className={n9.e9Cell}>
+                  <div className={n9.e9CellL}>{copy.risk}</div>
+                  <div className={`${n9.e9CellV} num`}>
+                    {regimeReady ? Math.round(riskScore) : '—'}<s> /100</s>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ══════════════ TOP MOVERS (Moved for better flow) ══════════════ */}
-      <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
-        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
-          <div className={s.sectionBar} />
-          <span className={s.sectionTitle}>TOP MOVERS</span>
-          
-          {/* Pill Toggle Switch */}
-          <div className={s.moversToggle}>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'value' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('value')}
-            >
-              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代金' : 'Value'}
-            </button>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'gainers' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('gainers')}
-            >
-              {locale === 'ko' ? '상승률' : locale === 'ja' ? '上昇' : 'Gainers'}
-            </button>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'losers' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('losers')}
-            >
-              {locale === 'ko' ? '하락률' : locale === 'ja' ? '下落' : 'Losers'}
-            </button>
-          </div>
+      {/* ③ 지수 — 페이지가 없으므로 「전체 ›」를 그리지 않는다 */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}>
+          <span className={n9.e9SectT}>{c9.secIdx}</span>
+          {(isLive || futuresLive || volatilityLive) && (
+            <span className={n9.e9Live}><s />LIVE</span>
+          )}
         </div>
-        <span
-          className={s.sectionAction}
-          role="button"
-          tabIndex={0}
-          onClick={() => router.push('/app-view/movers')}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}
-          style={{ cursor: 'pointer' }}
-        >
-          VIEW ALL &gt;
-        </span>
-      </div>
-      {loading || moversLoading ? (
-        <div className={s.skelMovers} style={{ padding: '0 var(--s4)' }}>
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={s.skelMoverCard} />
+        <div className={n9.e9IxTabs}>
+          {([['futures', c9.tFut], ['cash', c9.tCash], ['etf', c9.tEtf]] as const).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              className={`${n9.e9Tab} ${pulseTab === k ? n9.on : ''}`}
+              aria-pressed={pulseTab === k}
+              onClick={() => setPulseTab(k)}
+            >
+              {label}
+            </button>
           ))}
         </div>
-      ) : (
-        <div className={s.moversScroll} style={{ padding: '0 var(--s4)' }}>
-          {movers.map((mv) => {
-            const wsData = wsGetPrice(mv.sym);
-            const useWs = shouldUseWsQuote(mv.sym, wsData);
-
-            // Overlay price & change if available
-            const displayPx = useWs ? wsData.price.toFixed(2) : mv.px;
-            const displayChg = useWs
-              ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
-              : mv.chg;
-            const isUp = displayChg.startsWith('+');
-
-            // Flash animation class
-            const flashClass = useWs ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
-
-            return (
-              <div
-                key={mv.sym}
-                className={`${s.moverCard} ${flashClass}`}
-                onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    router.push(`/app-view/cmd?t=${mv.sym}`);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label={`${mv.sym} command`}
-              >
-                <div className={s.moverTop}>
-                  <span className={s.moverSym}>{getSymBadge(mv.sym) || getTickerLogo(mv.sym)} {mv.sym}</span>
-                  <span className={isUp ? s.moverChgUp : s.moverChgDown}>
-                    {displayChg}
-                  </span>
-                </div>
-                <span className={s.moverPrice}>${displayPx}</span>
-                {/* 실측 스파크라인이 있을 때만 자리를 잡는다. 빈 박스도 남기지 않는다. */}
-                {mv.spark.length >= 2 && (
-                  <div className={s.moverSpark}>
-                    <Sparkline data={mv.spark} up={isUp} height={28} fill />
+        <div className={n9.e9Ixs}>
+          {!idxReady
+            ? [0, 1, 2].map((i) => <div key={`skx-${i}`} className={`${n9.e9Skel} ${n9.e9SkelIx}`} />)
+            : idxItems.map((p) => {
+                const wsData = wsGetPrice(p.sym);
+                const useWs = shouldUseWsQuote(p.sym, wsData);
+                const px = useWs ? wsData.price : p.px;
+                const chg = useWs ? wsData.changePct : p.chg;
+                const up = chg >= 0;
+                return (
+                  <div key={p.sym} suppressHydrationWarning
+                       className={`${n9.e9Ix} ${up ? n9.gr : n9.rd}`}>
+                    <span className={n9.e9IxTop}>
+                      <span className={n9.e9IxBadge}
+                            style={{ background: IX_BADGE[p.sym]?.bg || '#1b2b45',
+                                     color: IX_BADGE[p.sym]?.fg || '#9fb4d0' }}>
+                        {IX_BADGE[p.sym]?.code || p.sym.slice(0, 3)}
+                      </span>
+                      <span className={n9.e9IxName}>{IX_BADGE[p.sym]?.full || p.sym}</span>
+                    </span>
+                    <span className={`${n9.e9IxV} num`}>
+                      {p.noData && !useWs ? '—' : p.sym === 'VIX' ? px.toFixed(2) : fmtPrice(px)}
+                    </span>
+                    <span className={`${n9.e9IxP} num ${up ? n9.gr : n9.rd}`}>
+                      {p.noData && !useWs ? '—' : <>{up ? '▲' : '▼'} {up ? '+' : ''}{chg.toFixed(2)}%</>}
+                    </span>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
         </div>
-      )}
+        <div className={n9.e9Note}>{isLive ? c9.idxNoteLive : c9.idxNote}</div>
+      </div>
 
-      {/* ══════════════ SECTOR HEATMAP ══════════════ */}
-      <div className={s.card}>
-        <div className={s.cardHead}>
-          <span className={s.cardTitle}>SECTOR HEATMAP</span>
-          <span suppressHydrationWarning className={`${s.sessionPill} ${sectorSessionClass}`}>{sectorSessionLabel}</span>
-        </div>
-        {loading || !sectorsReady ? (
-          <div className={s.skelSector} />
-        ) : (
-          <div className={s.sectorGrid}>
-            {sectors.map((sec) => {
-              const symbol = sec.name === 'Tech' ? 'XLK'
-                           : sec.name === 'Energy' ? 'XLE'
-                           : sec.name === 'Cons. Disc' ? 'XLY'
-                           : sec.name === 'Materials' ? 'XLB'
-                           : sec.name === 'Industrials' ? 'XLI'
-                           : sec.name === 'Finance' ? 'XLF'
-                           : sec.name === 'Healthcare' ? 'XLV'
-                           : sec.name === 'Utilities' ? 'XLU'
-                           : '';
-              const wsData = wsGetPrice(symbol);
-              const useWs = shouldUseWsQuote(symbol, wsData);
-              const wsChangeLooksStale = useWs
-                && Math.abs(wsData.changePct) < 0.0001
-                && Math.abs(sec.pct) >= 0.0001;
-              const displayPct = useWs && !wsChangeLooksStale ? wsData.changePct : sec.pct;
-              const flashClass = useWs && !wsChangeLooksStale ? (flashStates[symbol] === 'up' ? s.flashUp : flashStates[symbol] === 'down' ? s.flashDown : '') : '';
-
-              return (
-                <div
-                  key={sec.name}
-                  className={`${s.sectorCell} ${flashClass}`}
-                  style={{
-                    background: heatBg(displayPct),
-                    borderColor: heatBorder(displayPct),
-                  }}
-                >
-                  <span className={s.sectorName}>{sec.name}</span>
-                  <span className={`${s.sectorPct} ${displayPct >= 0 ? s.sectorPctUp : s.sectorPctDown}`}>
-                    {displayPct >= 0 ? '+' : ''}{displayPct.toFixed(1)}%
-                  </span>
+      {/* ④ 매크로 — 지수와 같은 «좌표»라 붙인다. 링크 대신 인라인 펼침 */}
+      <div className={`${n9.e9Sect} ${n9.e9MacWrap} ${macroOpen ? n9.open : ''}`}>
+        <div className={n9.e9SectHead}><span className={n9.e9SectT}>{c9.secMacro}</span></div>
+        <div className={`${n9.e9Surf} ${n9.e9Macro}`}>
+          {!macroReady
+            ? [0, 1, 2, 3].map((i) => <div key={`skm-${i}`} className={`${n9.e9Skel} ${n9.e9SkelRow}`} />)
+            : (macroOpen ? macro : macro.slice(0, 4)).map((m) => (
+                <div key={m.label} suppressHydrationWarning className={n9.e9Mc}
+                     style={{ ['--c' as string]: MACRO_IC[m.label]?.c || '#94a3b8' }}>
+                  <div className={n9.e9McTop}>
+                    <span className={n9.e9McIco}>
+                      {MACRO_IC[m.label]?.tx
+                        ? <b>{MACRO_IC[m.label].tx}</b>
+                        : <svg viewBox="0 0 24 24" aria-hidden="true"
+                               dangerouslySetInnerHTML={{ __html: MACRO_IC[m.label]?.ic || '' }} />}
+                    </span>
+                    <span className={n9.e9McK}>{m.label}</span>
+                    {/* 지표별 «도는 표시» — 그 지표의 값이 바뀔 때만 자기 점이 뛴다.
+                        매크로 안에서도 도는 것(BTC·SOX)과 안 도는 것(2s10s·F&G)이 갈린다. */}
+                    <i suppressHydrationWarning aria-hidden="true"
+                       className={`${n9.e9McDot} ${itemSessionLive(m.label) ? n9.on : ''}`} />
+                  </div>
+                  <div className={`${n9.e9McV} num`}>{m.value}</div>
+                  {m.badge
+                    ? <em className={n9.e9McB}>{m.badge}</em>
+                    : <div className={`${n9.e9McD} num ${m.chg > 0 ? n9.gr : m.chg < 0 ? n9.rd : ''}`}>
+                        {m.chg > 0 ? '+' : ''}{m.chg !== 0 ? m.chg.toFixed(2) : '—'}{m.unit}
+                      </div>}
                 </div>
-              );
-            })}
-          </div>
+              ))}
+        </div>
+        {macroReady && macro.length > 4 && (
+          <button type="button" className={n9.e9McMore} onClick={() => setMacroOpen((v) => !v)} aria-expanded={macroOpen}>
+            <s>{macroOpen ? c9.mcLess : c9.mcMore(macro.length - 4)}</s>
+            <i>&#9662;</i>
+          </button>
         )}
       </div>
 
-      {/* ══════════════ AI MORNING BRIEFING ══════════════ */}
-      {loading ? (
-        <div className={s.card}>
-          <div className={s.skelBriefing} />
+      {/* ⑤ 섹터 */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}>
+          <span className={n9.e9SectT}>{c9.secSector}</span>
+          <span suppressHydrationWarning className={n9.e9Badge}>{sectorSessionLabel}</span>
+          <span
+            className={n9.e9All}
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push('/app-view/heatmap')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/heatmap'); } }}
+          >
+            {c9.heat} &#8250;
+          </span>
         </div>
-      ) : (
-        <div className={s.briefingCard}>
-          <div className={s.briefingHeaderContainer}>
-            <div className={s.briefingHeader} style={{ marginBottom: 0 }}>
-              <span className={s.briefingIcon}>✨</span>
-              <span className={s.briefingTitle}>
-                {briefingMode === 'briefing' 
-                  ? (locale === 'ko' ? 'AI 모닝브리핑' : locale === 'ja' ? 'AI モーニングブリーフィング' : 'AI MORNING BRIEFING')
-                  : (locale === 'ko' ? '실시간 뉴스펄스' : locale === 'ja' ? 'リアルタイム・ニュース' : 'LIVE NEWS PULSE')}
-              </span>
-            </div>
-            
-            {/* Pill Toggle Switch */}
-            <div className={s.briefingToggle}>
-              <button 
-                className={`${s.toggleBtn} ${briefingMode === 'briefing' ? s.toggleBtnActive : ''}`}
-                onClick={() => setBriefingMode('briefing')}
-              >
-                {locale === 'ko' ? '브리핑' : locale === 'ja' ? '要約' : 'Brief'}
-              </button>
-              <button 
-                className={`${s.toggleBtn} ${briefingMode === 'news' ? s.toggleBtnActive : ''}`}
-                onClick={() => setBriefingMode('news')}
-              >
-                {locale === 'ko' ? '실시간' : locale === 'ja' ? 'ニュース' : 'Live'}
-              </button>
-            </div>
-          </div>
-
-          {briefingMode === 'briefing' ? (
-            <>
-              {/* Live News Spotlight (Top 2 items) - MOVED ABOVE briefingBody */}
-              {newsItems.length > 0 && (
-                <div className={s.briefingNewsSection} style={{ marginTop: '8px' }}>
-                  <div className={s.briefingNewsHeader}>
-                    <div className={s.briefingNewsDot} />
-                    <span className={s.briefingNewsTitle}>
-                      {locale === 'ko' ? '실시간 주요 속보' : locale === 'ja' ? 'リアルタイム速報' : 'LIVE MARKET SPOTLIGHT'}
+        <div className={n9.e9Scs}>
+          {!sectorsReady
+            ? [0, 1, 2, 3].map((i) => <div key={`sks-${i}`} className={`${n9.e9Skel} ${n9.e9SkelSc}`} />)
+            : sectors.map((sec) => {
+                const symbol = SECTOR_ETF[sec.name] || '';
+                const wsData = wsGetPrice(symbol);
+                const useWs = shouldUseWsQuote(symbol, wsData);
+                const stale = useWs && Math.abs(wsData.changePct) < 0.0001 && Math.abs(sec.pct) >= 0.0001;
+                const pct = useWs && !stale ? wsData.changePct : sec.pct;
+                return (
+                  <div key={sec.name} className={n9.e9Sc}
+                       style={{ ['--c' as string]: SECTOR_COLOR[sec.name] || '#94a3b8' }}>
+                    <span className={n9.e9ScTop}>
+                      <span className={n9.e9ScIco}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"
+                             dangerouslySetInnerHTML={{ __html: SECTOR_ICON[sec.name] || '' }} />
+                      </span>
+                      <span className={n9.e9ScN}>{sectorLabel(sec.name, locale)}</span>
+                    </span>
+                    <span className={`${n9.e9ScP} num ${pct > 0 ? n9.gr : pct < 0 ? n9.rd : n9.mut}`}>
+                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
                     </span>
                   </div>
-                  <div className={s.briefingNewsList}>
-                    {newsItems.slice(0, 2).map((item) => {
-                      let displayHeadline = item.headline;
-                      if (locale === 'ko' && item.summaryKR) {
-                        displayHeadline = item.summaryKR;
-                      } else if (locale === 'ja' && item.summaryJP) {
-                        displayHeadline = item.summaryJP;
-                      } else if (item.summaryEN) {
-                        displayHeadline = item.summaryEN;
-                      }
+                );
+              })}
+        </div>
+      </div>
 
-                      return (
-                        <div 
-                          key={item.id} 
-                          className={s.briefingNewsItem}
-                          onClick={() => router.push('/app-view/guardian?tab=reality')}
-                        >
-                          <span className={s.briefingNewsHeadline}>{displayHeadline}</span>
-                          <span className={s.briefingNewsArrow}>→</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+      {/* ⑥ 오늘의 발견 */}
+      {ucReady && discoveryRows.length > 0 && (
+        <div className={n9.e9Sect}>
+          <div className={n9.e9SectHead}>
+            <span className={n9.e9SectT}>{c9.secDisc}</span>
+            <span className={n9.e9All} role="button" tabIndex={0}
+                  onClick={() => router.push('/app-view/rankings')}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/rankings'); } }}>
+              {c9.discAll} &#8250;
+            </span>
+          </div>
+          <div className={`${n9.e9Surf} ${n9.e9Disc}`}>
+            <div className={n9.e9DiscTop}>
+              <span className={n9.e9DiscTag}>DARK POOL</span>
+              <span className={n9.e9DiscName}>{c9.discName}</span>
+              {ucMeta.date && <span className={`${n9.e9DiscDate} num`}>{ucMeta.date}</span>}
+            </div>
+            <div className={n9.e9DiscWhat}>{c9.discWhat}</div>
+            <div className={n9.e9DiscRows}>
+              {discoveryRows.map((c) => {
+                const v = c.money!.darkPoolStealth as number;
+                const reg = (c.money?.darkPoolRegime || '').toUpperCase();
+                return (
+                  <a key={c.ticker}
+                     className={`${n9.e9Dr} ${reg === 'ACCUMULATION' ? n9.acc : reg === 'DISTRIBUTION' ? n9.dis : n9.neu}`}
+                     role="button" tabIndex={0}
+                     onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
+                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}>
+                    <AppTickerLogo symbol={c.ticker} size={18} />
+                    <b className={n9.e9DrT}>{c.ticker}</b>
+                    <span className={n9.e9DrBar}>
+                      <i className={n9.e9DrFill} style={{ width: `${Math.max(0, Math.min(100, v))}%` }} />
+                      {ucMeta.marketAvg != null && (
+                        <i className={n9.e9DrMed} style={{ left: `${Math.max(0, Math.min(100, ucMeta.marketAvg))}%` }} />
+                      )}
+                    </span>
+                    <b className={`${n9.e9DrV} num`}>{v}</b>
+                    <em className={n9.e9DrReg}>{regimeLabel(c.money?.darkPoolRegime)}</em>
+                  </a>
+                );
+              })}
+            </div>
+            <div className={n9.e9DiscFoot}>
+              <span>{c9.discTally(discAcc, discDis)}</span>
+              {ucMeta.marketAvg != null && (
+                <span className="num">{c9.marketAvg} {ucMeta.marketAvg}</span>
               )}
-
-              {/* ★ 실제 브리핑이 오기 전에는 DEMO_BRIEFING(소스에 박아 둔 영어 문장)이
-                  그대로 떴다. 「NVDA 가 옵션 만기로 $135 에 묶여 있다」 같은 문장이
-                  오늘 시장과 무관하게 나갔다. 도착 전에는 스켈레톤을 보여 준다. */}
-              {briefingReady ? (
-                <div
-                  className={s.briefingBody}
-                  style={{ fontSize: '13.5px', lineHeight: '1.55' }}
-                  dangerouslySetInnerHTML={{ __html: briefing }}
-                />
-              ) : (
-                <div className={s.briefingBody} style={{ fontSize: '13.5px', lineHeight: '1.55' }}>
-                  <div className={s.skelPulse} style={{ height: 14, marginBottom: 8 }} />
-                  <div className={s.skelPulse} style={{ height: 14, marginBottom: 8, width: '92%' }} />
-                  <div className={s.skelPulse} style={{ height: 14, width: '70%' }} />
-                </div>
-              )}
-
-              <div className={s.briefingCta} onClick={() => router.push('/app-view/guardian?tab=briefing')}>
-                {locale === 'ko' ? '전체 리포트 읽기 →' : locale === 'ja' ? 'レポート全文を読む →' : 'Read Full Report →'}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Full news items list in card - SHOWN 5 ITEMS */}
-              <div className={s.briefingNewsList} style={{ marginTop: '8px' }}>
-                {newsItems.slice(0, 5).map((item) => {
-                  let displayHeadline = item.headline;
-                  if (locale === 'ko' && item.summaryKR) {
-                    displayHeadline = item.summaryKR;
-                  } else if (locale === 'ja' && item.summaryJP) {
-                    displayHeadline = item.summaryJP;
-                  } else if (item.summaryEN) {
-                    displayHeadline = item.summaryEN;
-                  }
-
-                  return (
-                    <div 
-                      key={item.id} 
-                      className={s.briefingNewsItem}
-                      onClick={() => router.push('/app-view/guardian?tab=reality')}
-                      style={{ padding: '10px 14px' }}
-                    >
-                      <span className={s.briefingNewsHeadline} style={{ fontSize: '12px' }}>{displayHeadline}</span>
-                      <span className={s.briefingNewsArrow}>→</span>
-                    </div>
-                  );
-                })}
-                {newsItems.length === 0 && (
-                  <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '16px 0', textAlign: 'center' }}>
-                    {locale === 'ko' ? '수신된 뉴스가 없습니다.' : locale === 'ja' ? '受信したニュースはありません。' : 'No recent news bulletins.'}
-                  </div>
-                )}
-              </div>
-              
-              <div className={s.briefingCta} onClick={() => router.push('/app-view/guardian?tab=reality')}>
-                {locale === 'ko' ? '시장 모니터 현황 보기 →' : locale === 'ja' ? '市場現況を見る →' : 'View Live Market Monitor →'}
-              </div>
-            </>
-          )}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ══════════════ INSTITUTIONAL PULSE (PREMIUM) ══════════════ */}
-        <ValueWall
-          locale={locale}
-          title={gateCopy.title}
-          subtitle={gateCopy.subtitle}
-          teaser={{
-            label: gateCopy.teaserLabel,
-            value: `${institutionalSignals[0].value} · ${gateCopy.teaserUnit}`
-          }}
-          ctaLabel={gateCopy.cta}
-          adFreeLabel={gateCopy.adFree}
-          previewChipLabel={gateCopy.previewChip}
-          socialProof={gateCopy.social}
-          lockedPreview={
-            <div className={`${s.instPulseGrid} ${s.instPulsePreview}`} aria-hidden="true">
-              {institutionalSignals.map((signal) => (
-                <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
-                  <div className={s.instHeader}>
-                    <span className={s.instLabel}>{signal.label}</span>
-                    <span className={s.instKicker}>{signal.kicker}</span>
+      {/* ⑦ 게이트 — 시안 e9Gate 그대로. 결제·광고 «동작»은 useAdUnlockGate(=ValueWall 과 같은 코드). */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}><span className={n9.e9SectT}>{c9.secGate}</span></div>
+        <div className={`${n9.e9Surf} ${n9.e9Gate}`}>
+          <div className={n9.e9GateTop}>
+            <span className={n9.e9GateT}>{gateCopy.title}</span>
+            <span className={n9.e9GateN}>
+              {adGate.isUnlocked ? c9.gateN(4, 4) : c9.gateN(1, 4)}
+            </span>
+          </div>
+          <div className={n9.e9Sigs}>
+            {institutionalSignals.map((sig, i) => {
+              const open = adGate.isUnlocked || i === 0;
+              return (
+                <div key={sig.key}
+                     className={`${n9.e9Sig} ${open ? n9.open : n9.locked}`}
+                     style={{ ['--c' as string]: GATE_SIG_C[i] }}>
+                  <div className={n9.e9SigTop}>
+                    <span className={n9.e9SigT}>{sig.label}</span>
+                    {open
+                      ? <span className={n9.e9Free}>{c9.free}</span>
+                      : <svg className={n9.e9Lock} viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
+                          <path d="M8.4 10.5V7.8a3.6 3.6 0 0 1 7.2 0v2.7" />
+                        </svg>}
                   </div>
-                  <div className={s.instValRow}>
-                    <span className={s.instVal}>{signal.value}</span>
-                    <span className={s.instSub}>{signal.sub}</span>
-                  </div>
-                  {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
-                  <div className={s.instTrack}>
-                    {signal.score != null && (
-                      <div className={s.instFill} style={{ width: `${signal.score}%` }} />
-                    )}
-                  </div>
-                  <p className={s.instInsight}>{signal.insight}</p>
+                  <div className={n9.e9SigH}>{sig.kicker}</div>
+                  {open ? (
+                    <>
+                      <div className={n9.e9SigV}><b>{sig.value}</b><em>{sig.sub}</em></div>
+                      <div className={n9.e9SigLine}>{sig.insight}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={n9.e9SigV}>
+                        <i className={`${n9.e9Bar} ${n9.w1}`} /><i className={`${n9.e9Bar} ${n9.w2}`} />
+                      </div>
+                      <div className={n9.e9SigLine}><i className={`${n9.e9Bar} ${n9.w3}`} /></div>
+                    </>
+                  )}
                 </div>
-              ))}
-            </div>
-          }
-        >
-          {loading ? (
-            <div style={{ height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', margin: '16px' }} />
-          ) : (
-            <div className={s.instPulseGrid}>
-              {institutionalSignals.map((signal) => (
-                <div key={signal.key} className={`${s.instCell} ${s.instCellPremium} ${signalToneClass[signal.tone as keyof typeof signalToneClass]}`}>
-                  <div className={s.instHeader}>
-                    <span className={s.instLabel}>{signal.label}</span>
-                    <span className={s.instKicker}>{signal.kicker}</span>
-                  </div>
-                  <div className={s.instValRow}>
-                    <span className={s.instVal}>{signal.value}</span>
-                    <span className={s.instSub}>{signal.sub}</span>
-                  </div>
-                  {/* 못 잰 값은 막대를 «안 그린다». 0% 막대는 «측정된 0» 처럼 보인다. */}
-                  <div className={s.instTrack}>
-                    {signal.score != null && (
-                      <div className={s.instFill} style={{ width: `${signal.score}%` }} />
-                    )}
-                  </div>
-                  <p className={s.instInsight}>{signal.insight}</p>
-                </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+          {!adGate.isUnlocked && (
+            <>
+              <button type="button" className={n9.e9Cta}
+                      onClick={adGate.handleUnlockPress} disabled={adGate.unlocking}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5v11l9-5.5z" /></svg>
+                {adGate.unlocking ? adGate.copy.modalWaitPrefix : gateCopy.cta}
+              </button>
+
+              {/* ★ 구독 진입점 — 시안에는 없는 요소다(시안 작성 시점엔 IAP 가 없었다).
+                  기존 ValueWall(cmd·flow·가디언)은 이 블록을 갖고 있는데 9차 게이트를
+                  다시 만들며 빠뜨렸다. 없으면 IAP 를 켜는 순간 «첫 화면만» 구독 버튼이
+                  없는 상태가 되고, 애플이 요구하는 «구매 복원»도 사라진다.
+                  ⚠️ 가격은 절대 쓰지 않는다 — 스토어가 준 값만 페이월이 보여준다
+                     (한국은 ₩13,000 이라 $9.99 로 쓰면 표시 위반).
+                  순서: 무료(광고)가 1순위, 구독은 2순위. 유료를 필수처럼 보이게 하지 않는다. */}
+              {IAP_LIVE && (
+                <>
+                  <div className={n9.e9ProOr}><s />{c9.proOr}<s /></div>
+                  <button type="button" className={n9.e9ProCta}
+                          onClick={adGate.openPaywall}
+                          disabled={adGate.purchasing || adGate.unlocking}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3.2l2.5 5.4 5.9.5-4.5 3.9 1.4 5.8L12 15.7 6.7 18.8l1.4-5.8-4.5-3.9 5.9-.5z" />
+                    </svg>
+                    <b>{adGate.purchasing ? adGate.copy.modalWaitPrefix : adGate.copy.proCta}</b>
+                    <em>{c9.proNote}</em>
+                  </button>
+                  {adGate.proError && (
+                    <div className={n9.e9ProErr} role="alert">{adGate.copy.proErrorLabel}</div>
+                  )}
+                  {adGate.proNothing && (
+                    <div className={`${n9.e9ProErr} ${n9.mut}`} role="status">{adGate.copy.proNothingLabel}</div>
+                  )}
+                  <button type="button" className={n9.e9ProRestore}
+                          onClick={adGate.handleRestore} disabled={adGate.purchasing}>
+                    {adGate.copy.proRestoreLabel}
+                  </button>
+                </>
+              )}
+            </>
           )}
-        </ValueWall>
+          <div className={n9.e9GateSub}>{gateCopy.subtitle}</div>
+          <div className={n9.e9GateLegal}>{adGate.copy.legalNote}</div>
+        </div>
+        {adGate.portals}
+      </div>
 
+      {/* ⑧ 가장 많이 움직인 것 — 페이지가 실재하므로 「전체 ›」 유지 */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}>
+          <span className={n9.e9SectT}>{c9.secMv}</span>
+        </div>
+        <div className={n9.e9MvTabs}>
+          {([['value', c9.mvVal], ['gainers', c9.mvUp], ['losers', c9.mvDn]] as const).map(([k, label]) => (
+            <button key={k} type="button"
+                    className={`${n9.e9Tab} ${moverSort === k ? n9.on : ''}`}
+                    aria-pressed={moverSort === k}
+                    onClick={() => setMoverSort(k)}>
+              {label}
+            </button>
+          ))}
+          {/* «전체 ›» 는 탭과 같은 줄 끝에 — 제목 줄에 있으면 탭과 동떨어져 보인다(대표 지적) */}
+          <span className={`${n9.e9All} ${n9.e9TabAll}`} role="button" tabIndex={0}
+                onClick={() => router.push('/app-view/movers')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/movers'); } }}>
+            {c9.all} &#8250;
+          </span>
+        </div>
+        <div className={`${n9.e9Surf} ${n9.e9Mvs}`}>
+          {(loading || moversLoading)
+            ? [0, 1, 2, 3].map((i) => <div key={`skv-${i}`} className={`${n9.e9Skel} ${n9.e9SkelRow}`} />)
+            : movers.map((mv, mi) => {
+                const wsData = wsGetPrice(mv.sym);
+                const useWs = shouldUseWsQuote(mv.sym, wsData);
+                const displayPx = useWs ? wsData.price.toFixed(2) : mv.px;
+                const displayChg = useWs
+                  ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
+                  : mv.chg;
+                const isUp = displayChg.startsWith('+');
+                return (
+                  <a key={mv.sym} className={n9.e9Mv} role="button" tabIndex={0}
+                     onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
+                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${mv.sym}`); } }}>
+                    <span className={`${n9.e9MvRank} num`}>{mi + 1}</span>
+                    <AppTickerLogo symbol={mv.sym} size={18} />
+                    <b className={n9.e9MvT}>{mv.sym}</b>
+                    {/* 실측 곡선이 있을 때만 그린다 — 없으면 자리만 비워 둔다 */}
+                    {mv.spark.length >= 2
+                      ? <svg className={n9.e9MvSpark} viewBox="0 0 76 20" preserveAspectRatio="none">
+                          <polyline
+                            points={mv.spark.map((v, i, a) => {
+                              const mn = Math.min(...a), mx = Math.max(...a), rg = mx - mn || 1;
+                              return `${(i / (a.length - 1)) * 76},${20 - ((v - mn) / rg) * 16 - 2}`;
+                            }).join(' ')}
+                            fill="none" stroke={isUp ? '#34d399' : '#f87171'} strokeWidth="1.5" strokeLinejoin="round" />
+                        </svg>
+                      : <span className={n9.e9MvSpark} />}
+                    <b className={`${n9.e9MvP} num ${isUp ? n9.gr : n9.rd}`}>{displayChg}</b>
+                    <span className={`${n9.e9MvPx} num`}>${displayPx}</span>
+                  </a>
+                );
+              })}
+        </div>
+      </div>
 
+      {/* ⑨ 괴리 시그널 */}
+      {ucReady && divergenceRows.length > 0 && (
+        <div className={n9.e9Sect}>
+          <div className={n9.e9SectHead}>
+            <span className={n9.e9SectT}>{c9.secDv}</span>
+            <span className={`${n9.e9DivN} num`}>{divergenceRows.length}</span>
+          </div>
+          <div className={n9.e9DivSub}>{c9.dvSub}</div>
+          <div className={n9.e9Divs}>
+            {divergenceRows.map((c) => (
+              <a key={c.ticker} className={n9.e9Dv} role="button" tabIndex={0}
+                 onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
+                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}>
+                <span className={n9.e9DvTop}>
+                  <AppTickerLogo symbol={c.ticker} size={16} />
+                  <span className={n9.e9DvT}>{c.ticker}</span>
+                  {c.tag && <span className={n9.e9DvTag}>{c.tag}</span>}
+                </span>
+                {c.plainTitle && <span className={n9.e9DvTitle}>{c.plainTitle}</span>}
+                {c.moneyRead && (
+                  <span className={`${n9.e9DvMoney} ${c.moneyMood === 'cautious' ? n9.rd : n9.gr}`}>
+                    {c.moneyRead}
+                  </span>
+                )}
+                {c.source && <span className={n9.e9DvSrc}>{c.source}</span>}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* ══════════════ AD BANNER ══════════════ */}
+      {/* ⑩ 빠른 진입 — 나가는 문은 다 읽은 다음 */}
+      <div className={n9.e9Sect}>
+        <div className={n9.e9SectHead}><span className={n9.e9SectT}>{c9.secQuick}</span></div>
+        <div className={`${n9.e9Surf} ${n9.e9Quick}`}>
+          {QUICK9(c9).map((q) => (
+            <a key={q.key} className={n9.e9Q} style={{ ['--c' as string]: q.c }}
+               role="button" tabIndex={0}
+               onClick={() => router.push(q.to)}
+               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(q.to); } }}>
+              <span className={n9.e9QIco}>
+                <svg viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: q.ico }} />
+              </span>
+              <span className={n9.e9QT}>{q.label}</span>
+              <span className={`${n9.e9QDest} ${q.nw ? n9.nw : ''}`}>{q.dest}</span>
+              <span className={n9.e9Chev}>&#8250;</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* 광고 배너 · 푸터 — 건드리지 않는다 */}
+      {/* 푸터 — 시안 e9Foot. 목적지는 기존 그대로(약관·개인정보·지원). */}
+      <div className={n9.e9Foot}>
+        <div className={n9.e9FootLegal}>{c9.ftLegal}</div>
+        <div className={n9.e9FootRow}>
+          <Link href="/app-view/terms">{c9.ftA}</Link>
+          <Link href="/app-view/privacy">{c9.ftB}</Link>
+          <span>{c9.ftS}</span>
+        </div>
+        <div className={n9.e9Copy}>© 2026 SIGNUM HQ. ALL RIGHTS RESERVED.</div>
+      </div>
       <AdBanner />
-      <MobileAppFooter />
-
     </div>
   );
 }

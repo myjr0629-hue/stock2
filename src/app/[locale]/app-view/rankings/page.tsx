@@ -1,0 +1,329 @@
+'use client';
+
+// ============================================================================
+// 랭킹 — 「오늘의 발견 › 랭킹 11종」 과 빠른 진입(다크풀·이상 옵션)의 목적지
+//
+// ★ 시안(9차 랭킹)을 그대로 옮기고 데이터만 꽂았다. CSS 는 rankings.module.css(시안 원본).
+//
+// ★ 입구 3개가 여기 하나로 모인다. 랭킹 11종의 구성이 그렇다 —
+//   장중 5종(평소 대비 이탈·다축·맥스페인·감마플립·돈과 포지션) = 「이상 옵션 플로우」
+//   장 마감 후 3종(장외 물량·장외 공매도·은밀 축적)          = 「다크풀 흐름」
+//   그래서 별도 페이지 2장을 만들지 않는다.
+//
+// ★ /api/ranking?run=all 한 콜. 콜드 7.1s / 웜 0.56s 이므로 last-good 을 먼저 그리고
+//   갱신되면 갈아끼운다(빈 화면으로 기다리게 하지 않는다).
+// ============================================================================
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import s from './rankings.module.css';
+
+type Phase = 'intraday' | 'postclose' | 'anytime';
+type Tab = 'all' | Phase;
+
+interface RankItem { ticker?: string; company?: string; [k: string]: unknown }
+interface RankBlock {
+  available?: boolean;
+  /* 엔진이 «왜 비었는지» 를 문장으로 준다 — 있으면 짐작 대신 이걸 쓴다 */
+  reason?: string;
+  phase?: Phase;
+  name?: { ko?: string; en?: string; ja?: string };
+  candidates?: number;
+  skipped?: Record<string, number> | number;
+  items?: RankItem[];
+}
+
+const T = {
+  ko: { title: '랭킹', back: '오늘의 발견', all: '전체', intraday: '장중', postclose: '장 마감 후',
+        anytime: '상시', cand: '후보', skip: '제외', more: '전체 보기',
+        why: '절대 크기로 줄 세우면 매일 같은 대형주만 나옵니다. 각 종목을 «자기 평소»와 견줍니다.',
+        soon: '자료가 더 쌓이면 켜집니다', none: '오늘은 조건에 맞는 종목이 없습니다', noTicker: '비상장 · 티커 없음',
+        sub: (u: number) => `11종 · 유니버스 ${u.toLocaleString()}`, loading: '불러오는 중' },
+  en: { title: 'Rankings', back: "Today's Find", all: 'All', intraday: 'Intraday', postclose: 'After close',
+        anytime: 'Anytime', cand: 'candidates', skip: 'skipped', more: 'View all',
+        why: 'Ranking by absolute size returns the same megacaps every day. Each name is measured against its own normal.',
+        soon: 'Turns on once enough data accumulates', none: 'No names meet the bar today', noTicker: 'Unlisted · no ticker',
+        sub: (u: number) => `11 lists · universe ${u.toLocaleString()}`, loading: 'Loading' },
+  ja: { title: 'ランキング', back: '今日の発見', all: 'すべて', intraday: 'ザラ場', postclose: '引け後',
+        anytime: '常時', cand: '候補', skip: '除外', more: 'すべて見る',
+        why: '絶対規模で並べると毎日同じ大型株になります。各銘柄を«自身の平常»と比べます。',
+        soon: 'データが溜まると有効になります', none: '本日は条件を満たす銘柄がありません', noTicker: '非上場 · ティッカーなし',
+        sub: (u: number) => `11種 · ユニバース ${u.toLocaleString()}`, loading: '読み込み中' },
+} as const;
+
+const PHASE_C: Record<Phase, string> = { intraday: '#22d3ee', postclose: '#a78bfa', anytime: '#fbbf24' };
+
+/* 랭킹마다 보여줄 값·보조설명이 다르다. 없는 필드는 «빼고» 지어내지 않는다. */
+/* 카드 제목 옆 «한 줄 설명» — 대표 지시(2026-09-06): 무엇을 뜻하는지 간단히.
+   엔진의 what/why 는 두세 문장짜리라 제목 옆에 못 쓴다. 그 뜻을 한 줄로 줄인 것이다.
+   길면 말줄임으로 잘리므로 한국어 14자 안쪽을 지킨다. */
+const RANK_WHAT: Record<string, { ko: string; en: string; ja: string }> = {
+  'deviation':          { ko: '자기 평소보다 몇 배',      en: 'vs its own normal',        ja: '自分の平常比' },
+  'multi-axis':         { ko: '여러 지표가 한꺼번에',      en: 'several metrics at once',  ja: '複数指標が同時に' },
+  'maxpain-gap':        { ko: '최대고통가와의 거리',      en: 'gap to max pain',          ja: 'マックスペインとの差' },
+  'gamma-flip':         { ko: '딜러 방향이 바뀌는 값',    en: 'where dealers flip',       ja: 'ディーラーが反転する値' },
+  'money-vs-oi':        { ko: '프리미엄과 미결제가 반대', en: 'premium vs open interest', ja: 'プレミアムと建玉が逆' },
+  'darkpool-volume':    { ko: '장외 거래량이 평소보다',   en: 'off-exchange volume vs norm', ja: '場外出来高が平常比' },
+  'darkpool-short':     { ko: '장외 중 공매도 비중',      en: 'short share off-exchange', ja: '場外の空売り比率' },
+  'stealth':            { ko: '물량은 늘고 공매도는 줄고', en: 'volume up, shorts down',  ja: '出来高増・空売り減' },
+  'insider-conviction': { ko: '임원이 자기 돈으로 매수',  en: 'insiders buying, own money', ja: '役員が自腹で買い' },
+  'deep-value-fcf':     { ko: '현금은 버는데 싸다',       en: 'cash-rich but cheap',      ja: '稼ぐのに割安' },
+  'volatility-bet':     { ko: '재료 없이 옵션만 비싸',    en: 'no catalyst, pricey options', ja: '材料なしで割高' },
+};
+
+function readRow(id: string, it: Record<string, any>, locale: string, nt = false) {
+  const L = (o: any) => (o && (o[locale] ?? o.ko ?? o.en)) || '';
+  const n = (v: any, d = 2) => (Number.isFinite(v) ? Number(v).toFixed(d) : null);
+  switch (id) {
+    case 'deviation':
+      return { v: n(it.ratio) ? `${n(it.ratio)}×` : '—',
+               sub: [L(it.label), it.today != null && it.baseline != null
+                 ? `${Number(it.today).toLocaleString()} vs ${Math.round(it.baseline).toLocaleString()}` : null]
+                 .filter(Boolean).join(' · ') };
+    case 'multi-axis': {
+      const ax = Array.isArray(it.axes) ? it.axes.slice(0, 2) : [];
+      return { v: `${it.axisCount ?? ax.length}${locale === 'ko' ? '축' : locale === 'ja' ? '軸' : ' axes'}`,
+               sub: ax.map((a: any) => `${L(a.label)} ${n(a.ratio)}×`).join(' · ') };
+    }
+    case 'maxpain-gap':
+    case 'gamma-flip':
+      return { v: Number.isFinite(it.gapPct) ? `${it.gapPct > 0 ? '+' : ''}${Number(it.gapPct).toFixed(1)}%` : '—',
+               sub: it.price != null && it.level != null
+                 ? `$${Number(it.price).toLocaleString(undefined, { maximumFractionDigits: 2 })} → $${Number(it.level).toLocaleString()}` : L(it.label) };
+    case 'money-vs-oi': {
+      const m = (v: any) => (Number.isFinite(v) ? `$${(Number(v) / 1e6).toFixed(1)}M` : null);
+      const C = locale === 'ko' ? '콜' : locale === 'ja' ? 'コール' : 'Call';
+      const P = locale === 'ko' ? '풋' : locale === 'ja' ? 'プット' : 'Put';
+      return { v: n(it.dollarRatio) ? `${n(it.dollarRatio)}×` : '—',
+               sub: [m(it.callPremium) && m(it.putPremium) ? `${C} ${m(it.callPremium)} vs ${P} ${m(it.putPremium)}` : null,
+                     n(it.oiRatio) ? `OI ${n(it.oiRatio)}×` : null].filter(Boolean).join(' · ') };
+    }
+    case 'darkpool-volume': {
+      const mkt = locale === 'ko' ? '시장' : locale === 'ja' ? '市場' : 'market';
+      return { v: n(it.ratio) ? `${n(it.ratio)}×` : '—',
+               sub: [it.today != null && it.baseline != null
+                       ? `${Number(it.today).toLocaleString()} vs ${Math.round(it.baseline).toLocaleString()}` : null,
+                     n(it.marketRatio) ? `${mkt} ${n(it.marketRatio)}×` : null].filter(Boolean).join(' · ')
+                     || L(it.label) };
+    }
+    case 'darkpool-short': {
+      const usual = locale === 'ko' ? '평소' : locale === 'ja' ? '平常' : 'usual';
+      return { v: Number.isFinite(it.today) ? `${Number(it.today).toFixed(1)}%` : '—',
+               sub: [Number.isFinite(it.baseline) ? `${usual} ${Number(it.baseline).toFixed(1)}%` : null,
+                     Number.isFinite(it.deviationPp)
+                       ? `${it.deviationPp > 0 ? '+' : ''}${Number(it.deviationPp).toFixed(1)}pp` : null,
+                     Number.isFinite(it.percentile) ? `p${Math.round(it.percentile)}` : null]
+                     .filter(Boolean).join(' · ') };
+    }
+    case 'stealth': {
+      const mk = locale === 'ko' ? '시장' : locale === 'ja' ? '市場' : 'market';
+      const reg = String(it.regime || '').toUpperCase() === 'ACCUMULATION'
+        ? (locale === 'ko' ? '축적' : locale === 'ja' ? '蓄積' : 'accumulation')
+        : String(it.regime || '').toUpperCase() === 'DISTRIBUTION'
+          ? (locale === 'ko' ? '분산' : locale === 'ja' ? '分散' : 'distribution')
+          : null;
+      return { v: it.stealth != null ? String(it.stealth) : '—',
+               sub: [it.marketStealth != null ? `${mk} ${it.marketStealth}` : null,
+                     Number.isFinite(it.deviation)
+                       ? `${it.deviation > 0 ? '+' : ''}${it.deviation}` : null,
+                     reg].filter(Boolean).join(' · ') };
+    }
+    case 'insider-conviction': {
+      const b = Array.isArray(it.buyers) && it.buyers[0] ? it.buyers[0] : null;
+      const who = Number.isFinite(it.buyerCount) && it.buyerCount > 1
+        ? (locale === 'ko' ? `임원 ${it.buyerCount}명` : locale === 'ja' ? `役員${it.buyerCount}名` : `${it.buyerCount} insiders`)
+        : (b?.role || null);
+      // 티커가 없는 행은 «이름» 자리에 이미 회사명이 들어간다 — 여기서 또 쓰면 두 번 나온다.
+      return { v: Number.isFinite(it.usd) ? `$${(Number(it.usd) / 1e6).toFixed(1)}M` : '—',
+               sub: [nt ? null : it.company, who].filter(Boolean).join(' · ') };
+    }
+    case 'deep-value-fcf': {
+      const med = locale === 'ko' ? '시장 중앙값' : locale === 'ja' ? '市場中央値' : 'market median';
+      return { v: Number.isFinite(it.fcfYield) ? `${Number(it.fcfYield).toFixed(1)}%` : '—',
+               sub: [Number.isFinite(it.evToEbitda) ? `EV/EBITDA ${Number(it.evToEbitda).toFixed(1)}` : null,
+                     Number.isFinite(it.universeMedianEvToEbitda)
+                       ? `${med} ${Number(it.universeMedianEvToEbitda).toFixed(1)}` : null].filter(Boolean).join(' · ')
+                     || L(it.label) };
+    }
+    case 'volatility-bet': {
+      const ivr = locale === 'ko' ? 'IV 랭크' : locale === 'ja' ? 'IVランク' : 'IV rank';
+      const ss = locale === 'ko' ? '세션' : locale === 'ja' ? 'セッション' : 'sessions';
+      const ern = locale === 'ko' ? '실적 D−' : locale === 'ja' ? '決算 D−' : 'earnings D−';
+      return { v: Number.isFinite(it.ivRank) ? `${it.ivRank}` : '—',
+               sub: [`${ivr}`,
+                     Number.isFinite(it.atmIv) ? `ATM IV ${Number(it.atmIv).toFixed(1)}%` : null,
+                     Number.isFinite(it.daysToEarnings) ? `${ern}${it.daysToEarnings}` : null,
+                     Number.isFinite(it.sessions) ? `${it.sessions}${ss}` : null].filter(Boolean).join(' · ') };
+    }
+    default:
+      return { v: '—', sub: L(it.label) };
+  }
+}
+
+export default function RankingsPage() {
+  const router = useRouter();
+  const params = useParams();
+  const search = useSearchParams();
+  const locale = (params?.locale as string) || 'ko';
+  const t = T[(locale as 'ko' | 'en' | 'ja')] ?? T.en;
+
+  const initial = (search.get('tab') as Tab) || 'all';
+  const [tab, setTab] = useState<Tab>(
+    ['all', 'intraday', 'postclose', 'anytime'].includes(initial) ? initial : 'all',
+  );
+  const [res, setRes] = useState<Record<string, RankBlock> | null>(null);
+  const [meta, setMeta] = useState<{ universe: number | null; date: string | null; phase: string | null }>(
+    { universe: null, date: null, phase: null },
+  );
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/ranking?run=all&limit=5', { cache: 'no-store' });
+        if (!r.ok) throw new Error(String(r.status));
+        const j = await r.json();
+        if (dead) return;
+        if (j?.results && typeof j.results === 'object') {
+          setRes(j.results);
+          setMeta({
+            universe: Number.isFinite(j.universe) ? j.universe : null,
+            date: j?.darkPool?.date ?? null,
+            phase: j?.session?.phase ?? null,
+          });
+        } else { setErr(true); }
+      } catch { if (!dead) setErr(true); }
+    })();
+    return () => { dead = true; };
+  }, []);
+
+  const blocks = useMemo(() => {
+    if (!res) return [];
+    return Object.entries(res).map(([id, b]) => ({ id, ...b }));
+  }, [res]);
+  const list = blocks.filter((b) => tab === 'all' || b.phase === tab);
+  const countOf = (p: Phase) => blocks.filter((b) => b.phase === p).length;
+  const skipTotal = (sk: RankBlock['skipped']) =>
+    typeof sk === 'number' ? sk : sk ? Object.values(sk).reduce((a, c) => a + c, 0) : 0;
+  const noTicker = (tk?: string) => !tk || tk === 'N/A';
+
+  return (
+    <div className={s.rkWrap}>
+      <div className={s.rkNav}>
+        <button type="button" className={s.rkBack} aria-label="Back" onClick={() => router.back()}>
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <span className={s.rkEy}>{t.back.toUpperCase()}</span>
+      </div>
+      <div className={s.rkHead}>
+        <div className={s.rkTitle}>{t.title}</div>
+        <div className={s.rkSub}>
+          {res ? [meta.universe != null ? t.sub(meta.universe) : null, meta.phase, meta.date]
+            .filter(Boolean).join(' · ') : t.loading}
+        </div>
+      </div>
+      <div className={s.rkWhy}>{t.why}</div>
+
+      <div className={s.rkTabs}>
+        {(['all', 'intraday', 'postclose', 'anytime'] as const).map((k) => (
+          <button key={k} type="button"
+                  className={`${s.rkT} ${tab === k ? s.on : ''}`}
+                  aria-pressed={tab === k}
+                  onClick={() => setTab(k)}>
+            {t[k]}{k !== 'all' && blocks.length > 0 ? ` ${countOf(k)}` : ''}
+          </button>
+        ))}
+      </div>
+
+      {/* 못 받았으면 빈 껍데기 대신 «왜 비었는지» 를 적는다 */}
+      {err && <div className={s.rkC}><div className={s.rkSoon}><span><b>—</b></span></div></div>}
+      {!res && !err && [0, 1, 2].map((i) => <div key={i} className={`${s.rkSkel} ${s.rkSkelCard}`} />)}
+
+      {list.map((b) => {
+        const c = PHASE_C[(b.phase as Phase)] || '#7f97ba';
+        const items = b.items || [];
+        return (
+          <div key={b.id} className={s.rkC} style={{ ['--c' as string]: c }}>
+            <div className={s.rkCTop}>
+              <span className={s.rkDot} />
+              <span className={s.rkCN}>{b.name?.[locale as 'ko'] || b.name?.ko || b.id}</span>
+              {RANK_WHAT[b.id] && (
+                <span className={s.rkCW}>{RANK_WHAT[b.id][(locale as 'ko' | 'en' | 'ja')] ?? RANK_WHAT[b.id].en}</span>
+              )}
+              {b.phase && <span className={s.rkCP}>{t[b.phase]}</span>}
+            </div>
+
+            {b.available && items.length > 0 ? (
+              <>
+                <div className={s.rkRows}>
+                  {items.map((raw, i) => {
+                    const it = raw as Record<string, any>;
+                    const nt = noTicker(it.ticker);
+                    const row = readRow(b.id, it, locale, nt);
+                    const name = nt ? (it.company || '—') : it.ticker;
+                    return (
+                      <a key={`${b.id}-${it.ticker ?? i}`}
+                         className={`${s.rkR} ${nt ? s.nt : ''}`}
+                         role="button" tabIndex={0}
+                         onClick={() => { if (!nt) router.push(`/app-view/cmd?t=${it.ticker}`); }}
+                         onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !nt) { e.preventDefault(); router.push(`/app-view/cmd?t=${it.ticker}`); } }}>
+                        <span className={`${s.rkRk} num`}>{i + 1}</span>
+                        {/* SEC Form 4 에는 비상장 발행사가 섞여 온다(ticker:"N/A").
+                            «N/» 두 글자 칩을 그리면 고장으로 보이므로 회사명 + 건물 아이콘으로 둔다. */}
+                        {nt ? (
+                          <span className={s.rkNT}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+                                 strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M4 20.5V7.5l7-3.5v16.5M11 20.5h9V11l-9-3.5" />
+                              <path d="M14.5 14h2M14.5 17h2M6.6 11h1.8M6.6 14h1.8M6.6 17h1.8" />
+                            </svg>
+                          </span>
+                        ) : (
+                          <AppTickerLogo symbol={String(it.ticker)} size={18} />
+                        )}
+                        <span className={s.rkL}>
+                          <b className={nt ? s.ntN : ''}>{name}</b>
+                          <small>{nt ? (row.sub || t.noTicker) : row.sub}</small>
+                        </span>
+                        <span className={`${s.rkV} num`}>{row.v}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+                <div className={s.rkFoot}>
+                  {b.candidates != null && <span className="num">{t.cand} {b.candidates}</span>}
+                  {skipTotal(b.skipped) > 0 && <span className="num">{t.skip} {skipTotal(b.skipped).toLocaleString()}</span>}
+                </div>
+              </>
+            ) : (
+              /* 준비 중인 랭킹은 «비어 있음» 이 아니라 «왜 비었는지» 를 적는다 */
+              <div className={s.rkSoon}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"
+                     strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+                </svg>
+                <span>
+                  {/* «자료가 덜 쌓였다» 와 «오늘 해당 종목이 없다» 는 다른 말이다.
+                      API 가 실제 사유를 주면 그걸 그대로 쓴다(짐작하지 않는다). */}
+                  {/* 엔진은 «0건»도 available:false 로 준다(route.ts: picked.length>0).
+                      그래서 available 만 보면 «돌았는데 오늘 해당 없음»과
+                      «자료가 없어 못 돌았음»이 같은 문장이 된다. 셋을 갈라 쓴다:
+                        reason 있음        → 엔진이 말한 실제 사유 그대로
+                        돌린 흔적 있음     → 오늘은 조건에 맞는 종목이 없다
+                        그 외              → 자료 축적 중                       */}
+                  <b>{b.reason
+                    || (b.candidates != null || skipTotal(b.skipped) > 0 ? t.none : t.soon)}</b>
+                  {b.skipped && typeof b.skipped === 'object' && (
+                    <small>{Object.entries(b.skipped).map(([k, v]) => `${k} ${v}`).join(' · ')}</small>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

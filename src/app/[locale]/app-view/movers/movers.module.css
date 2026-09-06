@@ -517,3 +517,75 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   9차 스타일 — 히트맵 «오늘의 양 끝»(hmX*)과 «같은 문법»으로 맞춘다.
+   대표 지시(2026-09-06): 「실시간 마켓무버도 오늘의 양 끝 같은 스타일로
+   일관성있게」. 치수·색·간격을 heatmap.module.css 에서 그대로 가져왔다.
+   기존 .row/.card 계열은 안 쓰지만 지우지 않는다(다른 진입점 회귀 방지).
+   ══════════════════════════════════════════════════════════════════ */
+.mvWrap{padding-bottom:186px;background:#070c17;min-height:100vh}
+.mvNav{display:flex;align-items:center;gap:8px;padding:6px 16px 10px}
+.mvBack{width:26px;height:26px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;
+  background:rgba(34,211,238,.10);box-shadow:inset 0 0 0 1px rgba(34,211,238,.30);
+  border:none;padding:0;cursor:pointer}
+.mvBack svg{width:13px;height:13px;stroke:#22d3ee;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.mvEy{font-size:8px;letter-spacing:.2em;font-weight:800;color:#a9bcd6}
+.mvHead{padding:0 16px 8px}
+.mvTitle{font-size:19px;font-weight:800;letter-spacing:-.03em;color:#e4edf8}
+.mvSub{font-size:9.5px;color:#94a8c6;margin-top:2px}
+
+/* 탭 — 9차 .e9Tab 과 같은 알약 */
+.mvTabs{display:flex;align-items:center;gap:5px;padding:0 16px 8px}
+.mvTab{font-size:9.5px;font-weight:700;color:#a0b4d0;padding:3px 9px;border-radius:999px;
+  background:rgba(255,255,255,.05);white-space:nowrap;border:none;cursor:pointer}
+.mvTab.on{color:#04222a;background:#22d3ee}
+.mvSess{margin-left:auto;flex:0 0 auto;font-size:8px;font-weight:800;letter-spacing:.06em;
+  color:#a9bcd6;background:rgba(255,255,255,.07);border-radius:999px;padding:2px 7px}
+
+/* 목록 — hmX 와 같은 카드·행 */
+.mvList{margin:0 16px;padding:1px 0;border-radius:14px;
+  background:linear-gradient(158deg,#141f33 0%,#0c1524 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+/* ── 행 규격 = 대시보드 «가장 많이 움직인 것»(.e9Mv) 과 «똑같이» ────────
+   대표 지시(2026-09-06): 「티커 폰트나 간격이 같았으면」.
+   시안 e9Mv 값을 그대로 옮긴다 — 값을 새로 정하지 않는다.
+     gap 7 · padding 7px 12px · 순위 11px/9.5 · 티커 44px/12 ·
+     등락률 50px/11.5 · 보조 64px/10(#abbdd7) · 로고 18
+   한 곳(대시보드)이 정본이라 나중에 바꿔도 네 화면이 같이 움직인다. */
+.mvR{display:flex;align-items:center;gap:7px;padding:7px 12px;position:relative;cursor:pointer}
+.mvR+.mvR::before{content:'';position:absolute;left:12px;right:12px;top:0;height:1px;
+  background:rgba(255,255,255,.055)}
+.mvRk{flex:0 0 11px;font-size:9.5px;font-weight:800;color:#8397ba;text-align:center}
+.mvT{flex:0 0 44px;font-size:12px;font-weight:800;letter-spacing:-.015em;color:#e4edf8;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvS{flex:1 1 auto;min-width:40px;min-height:20px;display:flex;align-items:center;
+  justify-content:flex-end;font-size:10px;color:#abbdd7;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvP{flex:0 0 50px;text-align:right;font-size:11.5px;font-weight:800}
+.mvPx{flex:0 0 64px;text-align:right;font-size:10px;color:#abbdd7;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvGr{color:#34d399} .mvRd{color:#f87171}
+
+.mvSkel{border-radius:10px;background:linear-gradient(90deg,
+  rgba(255,255,255,.05),rgba(255,255,255,.10),rgba(255,255,255,.05));
+  background-size:200% 100%;animation:mvShim 1.5s linear infinite;height:22px;margin:6px 0}
+@keyframes mvShim{to{background-position:-200% 0}}
+@media (prefers-reduced-motion: reduce){ .mvSkel{animation:none} }
+
+
+/* ══ 44px 터치타깃 무력화 (특이도까지 맞춘 정본) ══════════════════════
+   globals.css @media(max-width:768px) 의 규칙은 선택자마다 특이도가 다르다.
+     [role="button"] · [role="tab"]                                   (0,1,0)
+     a:not([class*="inline"]):not([class*="text-\["])                  (0,2,1)
+     button:not([class*="shrink"]):not([class*="w-3"]):not([class*="w-4"]) (0,3,1)
+   그래서 `.WRAP a` (0,1,1) 로는 «못 이긴다» — 앞서 이 실수로 시안 30px 행이
+   44px 로 남아 있었다(오늘의 발견·빠른 진입·무버·실적 전부). :not() 을 덧붙여
+   각각을 한 단계씩 넘긴다. 높이는 시안이 정본이다.
+   ─────────────────────────────────────────────────────────────────── */
+.mvWrap a:not([data-tap]):not([data-tap2]),
+.mvWrap button:not([data-tap]):not([data-tap2]):not([data-tap3]),
+.mvWrap [role="button"],
+.mvWrap [role="tab"],
+.mvWrap input, .mvWrap select, .mvWrap textarea{min-height:0}

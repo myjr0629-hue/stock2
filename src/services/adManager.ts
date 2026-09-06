@@ -123,9 +123,12 @@ function px(name: string, fallback: number): number {
   } catch { return fallback; }
 }
 
+// ⚠️ 폴백 숫자는 app-view.css 의 --app-tabbar-height 와 «같이» 움직여야 한다.
+//    2026-09-06 탭바를 72 → 60 으로 줄였다(내용에 맞춤). 폴백이 72 로 남으면
+//    CSS 를 못 읽는 순간 배너가 12px 떠서 탭바와 벌어진다 — 대표가 예전에 잡았던 그 증상이다.
 function computeBannerMargin(platform: string): number {
   const lift = px('--app-tabbar-lift', 12);
-  const tabbar = px('--app-tabbar-height', 72);
+  const tabbar = px('--app-tabbar-height', 60);
   const gap = px('--app-anchor-ad-gap', 8);
   const safe = px('--app-bottom-safe', 0);
 
@@ -153,7 +156,7 @@ export function bannerGeometryDiag(platform: string): string {
   const inset = (window.screen?.height ?? 0) - (window.innerHeight ?? 0);
   return [
     `lift ${px('--app-tabbar-lift', 12)}`,
-    `tab ${px('--app-tabbar-height', 72)}`,
+    `tab ${px('--app-tabbar-height', 60)}`,
     `gap ${px('--app-anchor-ad-gap', 8)}`,
     `safe ${safe}`,
     `inset ${inset}`,

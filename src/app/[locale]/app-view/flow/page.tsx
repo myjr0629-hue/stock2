@@ -48,7 +48,6 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     lockTitle: '기관급 실시간 옵션 체인',
     lockDesc: '30초 광고를 시청하시면 1시간 동안 실시간 옵션 체인 분석 및 맥스페인 레벨을 즉시 잠금 해제합니다.',
     unlockBtn: '광고 시청 후 해제',
-    unlockSub: '또는 월 $9.99에 무광고 이용',
     regime: '변동성 모드',
     underlyer: '기초자산 가격',
     whaleRadar: '고래 블록 거래 (Whale Sweep)',
@@ -84,7 +83,6 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     lockTitle: 'Institutional Options Flow',
     lockDesc: 'Watch a 30-second video to unlock live options flow and max pain levels for 1 hour.',
     unlockBtn: 'Watch & Unlock',
-    unlockSub: 'or subscribe for $9.99/mo — ad free',
     regime: 'Volatility Regime',
     underlyer: 'Underlying Price',
     whaleRadar: 'Whale Sweep Radar',
@@ -120,7 +118,6 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     lockTitle: '機関投資家向けオプション・フロー',
     lockDesc: '30秒の広告を視聴すると、1時間リアルタイム・オプション・フローとマックス・ペインを即座にアンロックします。',
     unlockBtn: '広告を視聴して解除',
-    unlockSub: 'または月額 $9.99 で広告なし利用',
     regime: 'ボラティリティ・レジーム',
     underlyer: '原資産価格',
     whaleRadar: 'クジラ大口取引 (Whale Sweep)',
@@ -479,7 +476,6 @@ const WHALE_DP_COPY = {
     chainTitle: '기관급 실시간 체인',
     chainSubtitle: '고래 스윕, 내부자 신고 거래, 가격대별 충격도를 1시간 동안 확인합니다.',
     unlockCta: '광고 보고 1시간 해제',
-    adFree: '또는 $9.99/월 광고 제거',
     socialProof: '오늘 14.2K 잠금해제',
     freePreview: '무료 미리보기',
     largestPrint: '최대 체결',
@@ -530,7 +526,6 @@ const WHALE_DP_COPY = {
     chainTitle: 'Institutional Live Chain',
     chainSubtitle: 'Unlock whale sweeps, insider filings, and strike-level impact for 1 hour.',
     unlockCta: 'Watch ad to unlock 1HR',
-    adFree: 'or $9.99/mo ad-free',
     socialProof: '14.2K unlocked today',
     freePreview: 'Free preview',
     largestPrint: 'Largest print',
@@ -581,7 +576,6 @@ const WHALE_DP_COPY = {
     chainTitle: '機関級ライブチェーン',
     chainSubtitle: '大口スイープ、インサイダー報告取引、価格帯別インパクトを1時間確認できます。',
     unlockCta: '広告視聴で1時間解除',
-    adFree: 'または月$9.99で広告なし',
     socialProof: '本日14.2K件解除',
     freePreview: '無料プレビュー',
     largestPrint: '最大約定',
@@ -3406,7 +3400,6 @@ export default function AppFlowPage() {
                 }}
                 previewChipLabel={whaleCopy.freePreview}
                 ctaLabel={whaleCopy.unlockCta}
-                adFreeLabel={whaleCopy.adFree}
                 onUnlock={() => setIsLocked(false)}
               >
                 <div className="premium-card" style={{ padding: '16px', margin: 0, position: 'relative' }}>
@@ -3543,7 +3536,6 @@ export default function AppFlowPage() {
                   social: '오늘 14.2K 잠금해제',
                   teaserLabel: 'FREE PREVIEW · AI 맥락',
                   watchCta: '광고 보고 1시간 해제',
-                  adFree: '또는 월 $9.99 광고 제거',
                   details: '상세 시나리오',
                   riskLabel: '리스크 조건',
                   noAdvice: '참고용 시장 구조 분석'
@@ -3572,7 +3564,6 @@ export default function AppFlowPage() {
                   social: '本日14.2Kが解除',
                   teaserLabel: 'FREE PREVIEW · AI文脈',
                   watchCta: '広告で1時間解除',
-                  adFree: 'または月額$9.99で広告なし',
                   details: '詳細シナリオ',
                   riskLabel: 'リスク条件',
                   noAdvice: '参考用の市場構造分析'
@@ -3600,7 +3591,6 @@ export default function AppFlowPage() {
                   social: '14.2K unlocked today',
                   teaserLabel: 'FREE PREVIEW · AI CONTEXT',
                   watchCta: 'Watch & Unlock · 1HR',
-                  adFree: 'or $9.99/mo ad-free',
                   details: 'Detailed Scenario',
                   riskLabel: 'Risk Condition',
                   noAdvice: 'Market-structure context only'
@@ -3778,7 +3768,6 @@ export default function AppFlowPage() {
                       socialProof={ui.social}
                       teaser={{ label: ui.teaserLabel, value: `${ui.details} · ${directionText}` }}
                       ctaLabel={ui.watchCta}
-                      adFreeLabel={ui.adFree}
                       previewChipLabel={whaleCopy.freePreview}
                       onUnlock={() => setIsLocked(false)}
                       lockedPreview={
@@ -4095,7 +4084,6 @@ export default function AppFlowPage() {
                 socialProof={whaleCopy.socialProof}
                 teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? whaleDayCount : insiderStats.count} ${whaleCopy.prints} / ${formatCompactMoney(flowTab === 'whale' ? largestWhalePrint : insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
-                adFreeLabel={whaleCopy.adFree}
                 previewChipLabel={whaleCopy.freePreview}
                 onUnlock={() => setIsLocked(false)}
                 lockedPreview={
