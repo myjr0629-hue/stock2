@@ -38,7 +38,6 @@ const APP_GATE_COPY: Record<LocaleKey, {
     title: string;
     previewChip: string;
     cta: string;
-    adFree: string;
     social: string;
     teaserLabel: string;
     explain: string;
@@ -48,7 +47,6 @@ const APP_GATE_COPY: Record<LocaleKey, {
         title: '감마 방어 엔진 잠금해제',
         previewChip: '무료 미리보기',
         cta: '광고 보고 1시간 해제',
-        adFree: '또는 $9.99/월 광고 제거',
         social: '오늘 14.2K 잠금해제',
         teaserLabel: '무료 미리보기 · 합성 감마 실드',
         explain: 'SPY+QQQ 옵션 구조를 합성해 변동성 방어, 스퀴즈 압축, 전환 가격대를 한 번에 읽습니다.',
@@ -58,7 +56,6 @@ const APP_GATE_COPY: Record<LocaleKey, {
         title: 'Unlock Gamma Defense Engine',
         previewChip: 'Free Preview',
         cta: 'Watch & Unlock · 1HR',
-        adFree: 'or $9.99/mo ad-free',
         social: '14.2K unlocked today',
         teaserLabel: 'FREE PREVIEW · COMPOSITE GAMMA SHIELD',
         explain: 'Combines SPY+QQQ options structure into volatility defense, squeeze compression, and trigger-zone context.',
@@ -68,7 +65,6 @@ const APP_GATE_COPY: Record<LocaleKey, {
         title: 'ガンマ防御エンジンを解除',
         previewChip: '無料プレビュー',
         cta: '広告を見て1時間解除',
-        adFree: 'または月額$9.99で広告なし',
         social: '本日14.2K件解除',
         teaserLabel: '無料プレビュー · 合成ガンマシールド',
         explain: 'SPY+QQQのオプション構造を統合し、変動性防御、スクイーズ圧縮、転換ゾーンを読み取ります。',
@@ -580,7 +576,6 @@ export default function MobileGuardianShield({ data, verdict, session, useAppVal
                         value: getGammaGateValue(gammaShield, localeKey),
                     }}
                     ctaLabel={appGateCopy.cta}
-                    adFreeLabel={appGateCopy.adFree}
                     previewChipLabel={appGateCopy.previewChip}
                     socialProof={appGateCopy.social}
                     lockedPreview={gammaShieldCard}

@@ -13,7 +13,7 @@
 // false until all of the above is true.
 // ============================================================================
 
-export const IAP_LIVE = true;   // ⚠️ 임시(스크린샷용) — 바로 되돌린다
+export const IAP_LIVE = false;
 
 // Public RevenueCat SDK keys (per-platform, safe to expose — NOT secrets).
 // Set these in Vercel env when going live; empty here so nothing runs by default.

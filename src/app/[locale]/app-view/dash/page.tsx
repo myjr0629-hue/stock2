@@ -801,7 +801,6 @@ export default function AppDashPage() {
       teaserLabel: '무료 미리보기 · 기관급 펄스',
       previewChip: '무료 미리보기',
       cta: '광고 보고 1시간 해제',
-      adFree: '또는 $9.99/월 광고 제거',
       social: '오늘 14.2K 잠금해제',
       teaserUnit: '4개 중 1개',
       signals: {
@@ -817,7 +816,6 @@ export default function AppDashPage() {
       teaserLabel: 'Free preview · Institutional pulse',
       previewChip: 'Free preview',
       cta: 'Watch ad to unlock 1HR',
-      adFree: 'or $9.99/mo ad-free',
       social: '14.2K unlocked today',
       teaserUnit: '1 of 4',
       signals: {
@@ -833,7 +831,6 @@ export default function AppDashPage() {
       teaserLabel: '無料プレビュー · 機関投資家パルス',
       previewChip: '無料プレビュー',
       cta: '広告視聴で1時間解除',
-      adFree: 'または月$9.99で広告なし',
       social: '本日14.2K件解除',
       teaserUnit: '4つ中1つ',
       signals: {
@@ -849,7 +846,6 @@ export default function AppDashPage() {
     teaserLabel: 'Free preview · Institutional pulse',
     previewChip: 'Free preview',
     cta: 'Watch ad to unlock 1HR',
-    adFree: 'or $9.99/mo ad-free',
     social: '14.2K unlocked today',
     teaserUnit: '1 of 4',
     signals: {

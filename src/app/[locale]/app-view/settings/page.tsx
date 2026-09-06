@@ -32,6 +32,10 @@ const T: Record<string, {
   cacheConfirm: string;
   cacheToast: string;
   proTitle: string;
+  /* ⚠️ 여기에 가격을 쓰지 말 것. 애플·구글은 «사용자 스토어 계정 국가 통화»로 청구한다
+     (한국은 ₩13,000). 실제 청구액과 다른 통화 표시는 애플 3.1.1 / 한국 전자상거래법
+     위반이다. 가격은 스토어가 준 priceString 을 ProPaywall 이 보여준다.
+     ValueWall 에서 같은 버그를 2026-09-02 에 고쳤는데 여기가 남아 있었다. */
   proUpgradeSub: string;
   proActiveSub: string;
   proCta: string;
@@ -66,7 +70,7 @@ const T: Record<string, {
     cacheConfirm: '초기화',
     cacheToast: '캐시가 초기화되었습니다',
     proTitle: 'SIGNUM Pro',
-    proUpgradeSub: '광고 없이 · 월 $9.99',
+    proUpgradeSub: '광고 없이 · 월 구독',
     proActiveSub: '광고 없이 이용 중',
     proCta: '업그레이드',
     proRestore: '구매 복원',
@@ -100,7 +104,7 @@ const T: Record<string, {
     cacheConfirm: 'Clear',
     cacheToast: 'Cache cleared successfully',
     proTitle: 'SIGNUM Pro',
-    proUpgradeSub: 'Ad-free · $9.99/mo',
+    proUpgradeSub: 'Ad-free · monthly',
     proActiveSub: 'Ad-free is active',
     proCta: 'Upgrade',
     proRestore: 'Restore purchase',
@@ -132,7 +136,7 @@ const T: Record<string, {
     cacheDialogText: 'キャッシュデータが削除されます。アプリが再読み込みされます。',
     cacheCancel: 'キャンセル',
     proTitle: 'SIGNUM Pro',
-    proUpgradeSub: '広告なし · 月$9.99',
+    proUpgradeSub: '広告なし · 月額',
     proActiveSub: '広告なしで利用中',
     proCta: 'アップグレード',
     proRestore: '購入を復元',
