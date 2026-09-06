@@ -233,10 +233,6 @@ function MoversPageContent() {
   const loc = (locale as 'ko' | 'en' | 'ja') || 'en';
   const activeItems = activeTab === 'value' ? data.value : activeTab === 'gainers' ? data.gainers : data.losers;
   const activeTitle = activeTab === 'value' ? t.valueSec : activeTab === 'gainers' ? t.gainersSec : t.losersSec;
-  const maxRef = Math.max(
-    ...activeItems.map((item) => activeTab === 'value' ? (item.value || item.volume * item.price) : item.volume),
-    1
-  );
 
   /* 행 — 히트맵 «오늘의 양 끝»(hmXR)과 같은 한 줄 문법으로 맞춘다(대표 지시).
      [순위][로고][티커][가격 · 지표][막대][등락률] — 4줄 스택을 한 줄로. */
@@ -255,7 +251,6 @@ function MoversPageContent() {
     const displayValue = item.value || displayVolume * item.price;
     const up = displayChangePercent >= 0;
     const chgText = `${up ? '+' : ''}${displayChangePercent.toFixed(2)}%`;
-    const relativePercent = Math.min(100, Math.max(4, ((activeTab === 'value' ? displayValue : displayVolume) / maxRef) * 100));
     const metric = activeTab === 'value'
       ? `${t.val} ${fmtValue(displayValue)}`
       : `${t.vol} ${fmtVolume(displayVolume)}`;
@@ -269,14 +264,12 @@ function MoversPageContent() {
         onClick={() => handleTickerClick(item.ticker)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTickerClick(item.ticker); } }}
       >
-        <span className={s.mvRk}>{index + 1}</span>
+        <span className={`${s.mvRk} num`}>{index + 1}</span>
         <AppTickerLogo symbol={item.ticker} size={18} />
         <b className={s.mvT}>{item.ticker}</b>
-        <span className={s.mvS}>${fmtPrice(displayPrice)} · {metric}</span>
-        <span className={s.mvBar}>
-          <i style={{ width: `${relativePercent.toFixed(1)}%`, background: up ? '#34d399' : '#f87171' }} />
-        </span>
-        <span className={`${s.mvP} ${up ? s.mvGr : s.mvRd}`}>{chgText}</span>
+        <span className={`${s.mvS} num`}>{metric}</span>
+        <b className={`${s.mvP} num ${up ? s.mvGr : s.mvRd}`}>{chgText}</b>
+        <span className={`${s.mvPx} num`}>${fmtPrice(displayPrice)}</span>
       </a>
     );
   };

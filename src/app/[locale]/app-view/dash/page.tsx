@@ -1735,34 +1735,16 @@ export default function AppDashPage() {
     .sort((a, b) => (b.money!.darkPoolStealth as number) - (a.money!.darkPoolStealth as number))
     .slice(0, 5);
   const divergenceRows = ucCards.filter((c) => c.divergence).slice(0, 6);
-  /* 매크로 «작동 중» 판정 — 지표마다 «마지막으로 값이 바뀐 시각» 을 들고 있다가
-     최근 90초 안에 바뀐 지표만 계속 깜빡인다. 한 번만 뛰면 보고 있지 않을 때 지나가 버린다.
-     세션이 닫혀 값이 안 오는 지표는 안 깜빡인다 — 도는 척하지 않는다. */
-  const macroPrevRef = useRef<Record<string, string>>({});
-  const macroHitRef = useRef<Record<string, number>>({});
-  const [macroBeat, setMacroBeat] = useState(0);
+  /* 매크로 «작동 중» = 그 지표의 «장이 열려 있는 시간»(대표 지시).
+     값이 바뀔 때만 깜빡이면 안 보고 있을 때 지나가 버린다 — 라이브 표시가 목적이다.
+     판정은 이미 있는 checkIsItemActive 를 쓴다(BTC 24/7 · GOLD·OIL Globex ·
+     DXY FX 24/5 · US 10Y 채권시간 · SOX 정규장 · 2S10S·F&G 는 일 1회 산출이라 항상 꺼짐).
+     시계 기반이라 30초마다 다시 그려 장 시작·마감에 저절로 켜지고 꺼진다. */
+  const [, setClockTick] = useState(0);
   useEffect(() => {
-    if (!macroReady) return;
-    const now = Date.now();
-    let touched = false;
-    for (const m of macro) {
-      const k = `${m.value}|${m.chg}`;
-      const prev = macroPrevRef.current[m.label];
-      macroPrevRef.current[m.label] = k;
-      if (prev !== undefined && prev !== k) { macroHitRef.current[m.label] = now; touched = true; }
-    }
-    if (touched) setMacroBeat((b) => b + 1);
-  }, [macro, macroReady]);
-  useEffect(() => {
-    // «최근 90초» 가 지나면 스스로 꺼져야 하므로 주기적으로 다시 그린다.
-    const id = setInterval(() => setMacroBeat((b) => b + 1), 15000);
+    const id = setInterval(() => setClockTick((n) => n + 1), 30000);
     return () => clearInterval(id);
   }, []);
-  const macroIsLive = (label: string) => {
-    void macroBeat;
-    const t = macroHitRef.current[label];
-    return t != null && Date.now() - t < 90000;
-  };
 
   const discAcc = discoveryRows.filter((c) => (c.money?.darkPoolRegime || '').toUpperCase() === 'ACCUMULATION').length;
   const discDis = discoveryRows.filter((c) => (c.money?.darkPoolRegime || '').toUpperCase() === 'DISTRIBUTION').length;
@@ -1958,7 +1940,7 @@ export default function AppDashPage() {
                     {/* 지표별 «도는 표시» — 그 지표의 값이 바뀔 때만 자기 점이 뛴다.
                         매크로 안에서도 도는 것(BTC·SOX)과 안 도는 것(2s10s·F&G)이 갈린다. */}
                     <i suppressHydrationWarning aria-hidden="true"
-                       className={`${n9.e9McDot} ${macroIsLive(m.label) ? n9.on : ''}`} />
+                       className={`${n9.e9McDot} ${itemSessionLive(m.label) ? n9.on : ''}`} />
                   </div>
                   <div className={`${n9.e9McV} num`}>{m.value}</div>
                   {m.badge
