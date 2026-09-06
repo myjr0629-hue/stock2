@@ -206,6 +206,28 @@ export default function SettingsPage() {
     return () => { dead = true; };
   }, []);
 
+  /* ── 설정이 열려 있는 동안 «네이티브» 배너를 내린다 (2026-09-07) ────────────
+     layout.tsx 의 `hideAd = isSettingsRoute` 는 **웹 슬롯**(<AppAnchorAd/>)만 감춘다.
+     실제 광고는 AdMob 네이티브 뷰라 웹뷰 «위에» 그대로 떠 있었고, 설정 시트를 덮었다
+     (대표 실기기 확인 2026-09-07).
+     끄는 함수는 이미 있다 — 온보딩이 같은 방식으로 쓴다(AppFirstRunOnboarding.tsx:157).
+     설정만 이 호출이 빠져 있었다.
+     ※ 언마운트에서 false 로 되돌린다. adManager 는 recomputeWantBanner() 로
+        Pro 여부까지 함께 보고 결정하므로 여기서 «켠다»가 아니라 «억제를 푼다»가 맞다. */
+  useEffect(() => {
+    let dead = false;
+    const apply = async (suppressed: boolean) => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (!Capacitor.isNativePlatform()) return;
+        const { adManager } = await import('@/services/adManager');
+        await adManager.setBannerSuppressed(suppressed);
+      } catch { /* 웹 프리뷰 / 플러그인 없음 */ }
+    };
+    apply(true);
+    return () => { dead = true; void dead; apply(false); };
+  }, []);
+
   // Pro (ad-free) — inert while IAP_LIVE=false (isPro false, no SDK, card hidden).
   const { isPro, restore } = useProStatus();
   const [proBusy, setProBusy] = useState(false);

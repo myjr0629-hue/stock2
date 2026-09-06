@@ -14,7 +14,10 @@
   background:rgba(34,211,238,.10);box-shadow:inset 0 0 0 1px rgba(34,211,238,.30)}
 .hmBack svg{width:13px;height:13px;stroke:#22d3ee;fill:none;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round}
-.hmEy{font-size:8px;letter-spacing:.2em;font-weight:800;color:#a9bcd6}
+/* 상단 라벨 — 8px 는 iOS 최소 정의값(11pt)·Material(11sp) 보다 한참 작았고,
+   자간 .2em 까지 붙어 더 흐렸다(대표 지적 2026-09-07: 「SECTOR MAP 이 너무 작다」).
+   9.5px + 자간 .16em. 뒤로가기 줄이라 폭은 남는다 — 잘림 없음. */
+.hmEy{font-size:9.5px;letter-spacing:.16em;font-weight:800;color:#a9bcd6}
 
 /* 범례 — 15단계 색이 무엇을 뜻하는지 한 줄로 */
 .hmScale{display:flex;align-items:center;gap:7px;padding:0 16px 9px}

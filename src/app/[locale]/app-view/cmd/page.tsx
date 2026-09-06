@@ -796,7 +796,8 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
 /* ═══════════════════════════════════════════
    SPARKLINE (background decoration for price)
    ═══════════════════════════════════════════ */
-function SparklineBg({ up, seed = 'default', series }: { up: boolean; seed?: string; series?: number[] | null }) {
+function SparklineBg({ up, seed = 'default', series, fadeBelow = false }:
+  { up: boolean; seed?: string; series?: number[] | null; fadeBelow?: boolean }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -827,8 +828,22 @@ function SparklineBg({ up, seed = 'default', series }: { up: boolean; seed?: str
   const gradId = `sparkGrad-${seed}`;
 
   return (
+    /* ⚠️ 2026-09-07: inset:0 · height:100% 라 이 곡선이 히어로 카드 «전체»를 채웠다.
+       실측: 카드 570px 중 곡선이 126→695px 를 지나 다크풀 카드(265~405)를 넘어
+       지표 카드(MAX PAIN 등, 419~512)까지 관통했다 — 대표 지적 「위에서 아래까지라 지저분」.
+       카드 높이는 로케일·데이터에 따라 변하므로 «고정 높이»가 아니라 «비율 마스크»로
+       끊는다: 42%까지 그대로 → 62%에서 사라진다(다크풀 카드 언저리에서 끝난다).
+       곡선(stroke)과 면(polygon)에 함께 걸리므로 둘 다 같이 사라진다. */
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%"
-      style={{ position: 'absolute', inset: 0 }}>
+      style={{
+        position: 'absolute', inset: 0,
+        // fadeBelow=true 인 «큰 히어로 카드»에서만 끊는다.
+        // 작은 시간외 박스는 곡선이 장식의 전부라 그대로 둔다.
+        ...(fadeBelow ? {
+          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 42%, transparent 62%)',
+          maskImage: 'linear-gradient(180deg, #000 0%, #000 42%, transparent 62%)',
+        } : {}),
+      }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={up ? 'var(--green)' : 'var(--red)'} stopOpacity="0.15" />
@@ -3052,7 +3067,7 @@ function CmdPageContent() {
         }}
       >
         {/* Background sparkline decoration */}
-        <SparklineBg up={up} seed={data.ticker} series={heroSeries} />
+        <SparklineBg up={up} seed={data.ticker} series={heroSeries} fadeBelow />
 
         {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
         <div className={s.heroIdentity}>
