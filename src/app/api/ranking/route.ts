@@ -88,7 +88,9 @@ export async function GET(req: NextRequest) {
 
     // v4 — 미가용 블록에 name/phase/what/why 를 실었다. 옛 페이로드가 200 OK 로 나가면
     //      화면이 카드 제목에 id 를 그대로 찍는다(캐시 10분).
-    const CACHE = `ranking:v4:${run}:${days}:${top}`;
+    // v5 — 엔진의 영어 표시명을 줄였다(카드 제목이 잘려서). 이름이 응답에 실려 있으므로
+    //      키를 올리지 않으면 옛 긴 이름이 10분 더 나간다.
+    const CACHE = `ranking:v5:${run}:${days}:${top}`;
     if (q.get('refresh') !== '1') {
         const hit = await getFromCache<any>(CACHE);
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
@@ -420,7 +422,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 8, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 9, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta,
         // 실제로 훑은 종목 수를 말한다. 하드코딩 25 를 그대로 말하면 거짓말이 된다.
