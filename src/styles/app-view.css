@@ -159,9 +159,11 @@ html.native-app body {
 /* Glass card */
 .app-card {
   background: var(--surface-1);
-  border: 1px solid var(--border);
+  /* 테두리를 «투명»으로 둔다 — 박스모델을 그대로 두어 1px 도 밀리지 않게.
+     카드의 윤곽은 상단 안쪽 빛선이 대신한다(대시보드와 같은 방식). */
+  border: 1px solid transparent;
   border-radius: var(--r-card);
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
   padding: var(--s4);
   margin: 0 var(--s4) var(--s3);
 }
