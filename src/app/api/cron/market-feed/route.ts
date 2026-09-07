@@ -162,6 +162,26 @@ export async function GET(request: Request) {
     for (const { yahoo, key } of SYMBOLS) {
         const quote = await fetchOneQuote(yahoo);
         if (quote) {
+            // [2026-09-07] «값이 마지막으로 변한 시각»을 이어서 기록한다.
+            // 야후가 피드를 멈춘 채 regularMarketTime 만 전진시키면 marketAgeSec 이
+            // 계속 «몇 분 전»으로 나와 화면이 LIVE 를 유지한다(2026-09-06 일요일 실측:
+            // NQ/ES/RTY/GC/CL 5종이 금요일 종가에 고정된 채 LIVE 배지가 떴다).
+            // price 가 실제로 바뀐 시각만이 «살아 있는가»를 증명한다.
+            const prev = await getFromCache<YahooQuote>(key);
+            const prevPrice = typeof prev?.price === 'number' ? prev.price : null;
+            if (prevPrice === null) {
+                // 이전 관측 자체가 없다(콜드 스타트). 굳었는지 알 길이 없으므로
+                // «지금부터 본다»로 시작한다.
+                quote.lastChangeAt = quote.updatedAt;
+            } else if (prevPrice !== quote.price) {
+                quote.lastChangeAt = quote.updatedAt;
+            } else {
+                // 값이 그대로다. 이전 기록이 있으면 이어받고, 없으면(=이 코드 배포 직전에
+                // 쓰인 항목) **지어내지 않고 undefined 로 둔다.** 여기에 prev.updatedAt 을
+                // 넣으면 «금요일 종가에 5시간 굳어 있던 값»이 «1분 전 값»으로 둔갑한다.
+                quote.lastChangeAt = prev?.lastChangeAt;
+            }
+
             const written = await setInCache(key, quote, 600);
             if (written) {
                 results.push(`${yahoo}=${quote.price}`);

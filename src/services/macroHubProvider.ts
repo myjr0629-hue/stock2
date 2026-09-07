@@ -27,6 +27,10 @@ export interface MacroFactor {
     isStale?: boolean;
     feedAgeSec?: number;
     marketAgeSec?: number;
+    /** 값이 마지막으로 실제로 바뀐 시각(ISO). 벤더 타임스탬프와 달리 조작 불가. */
+    lastChangeAt?: string;
+    /** 값이 굳어 있는 시간(초). undefined = 아직 모름 → 라이브로 취급하지 않는다. */
+    frozenSec?: number;
 }
 
 export interface MacroSnapshot {
@@ -200,6 +204,13 @@ function createYahooFactor(quote: YahooQuote, label: string, symbolUsed: string)
     const marketAgeSec = Number.isFinite(marketTimeMs)
         ? Math.max(0, Math.floor((Date.now() - marketTimeMs) / 1000))
         : undefined;
+    // [2026-09-07] marketAgeSec 은 «신선도»가 아니다. 야후는 선물 피드가 멈춘 채로
+    // regularMarketTime 만 전진시킨다 → marketAgeSec 650초, isStale false, 화면 LIVE.
+    // 실제로 값이 바뀐 시각(lastChangeAt)으로만 «움직이고 있는가»를 답할 수 있다.
+    const lastChangeMs = quote.lastChangeAt ? new Date(quote.lastChangeAt).getTime() : NaN;
+    const frozenSec = Number.isFinite(lastChangeMs)
+        ? Math.max(0, Math.floor((Date.now() - lastChangeMs) / 1000))
+        : undefined;
 
     return {
         level: quote.price,
@@ -216,7 +227,9 @@ function createYahooFactor(quote: YahooQuote, label: string, symbolUsed: string)
         feedSource: quote.source,
         isStale: quote.isStale || quote.source === "DEFAULT",
         feedAgeSec,
-        marketAgeSec
+        marketAgeSec,
+        lastChangeAt: quote.lastChangeAt,
+        frozenSec
     };
 }
 

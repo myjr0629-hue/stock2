@@ -37,6 +37,8 @@ interface PulseItem {
   feedSource?: string;
   isStale?: boolean;
   feedAgeSec?: number;
+  /** 값이 굳어 있는 시간(초). undefined = 아직 모름. */
+  frozenSec?: number;
 }
 
 interface MacroItem {
@@ -207,6 +209,21 @@ function parsePctText(value: string): number | null {
 
 const REDIS_FEED_FRESH_SEC = 390;
 
+/**
+ * [2026-09-07] «값이 굳었다»고 판정하는 한계(초).
+ *
+ * marketAgeSec 하나만 믿던 신선도 판정이 뚫렸다. 2026-09-06(일) 실측:
+ * 야후 선물 피드가 멈췄는데도 regularMarketTime 만 매 분 전진해서
+ * NQ/ES/RTY/GC/CL 5종이 «금요일 종가 + marketAgeSec 650초 + isStale false»로
+ * 들어왔고, 화면은 5시간 넘게 LIVE 배지를 유지했다.
+ *
+ * 임계값은 감이 아니라 실측으로 잡았다 — 정상 세션에서 «값이 안 바뀐 최장 구간»
+ * (1분봉 5일치): ^TNX 33분 · ^VIX 16분 · BTC 13분 · DXY 10분 · ES 6분 · NQ/GC 3분.
+ * 가장 느린 ^TNX(33분)보다 넉넉히 위인 45분으로 둔다 → 정상 장중 오탐 0,
+ * 오늘 같은 수 시간짜리 정지는 확실히 잡는다.
+ */
+const FEED_FROZEN_MAX_SEC = 2700;
+
 function getEtClockParts() {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -272,6 +289,11 @@ function isFreshFeedFactor(factor: any, maxAgeSec = REDIS_FEED_FRESH_SEC): boole
   if (!factor || factor.status !== 'OK' || factor.feedSource === 'DEFAULT' || factor.isStale) {
     return false;
   }
+  // ★ 값이 굳었으면 그 아래 어떤 타임스탬프가 새것이어도 라이브가 아니다.
+  //   벤더는 marketTime 을 전진시킬 수 있지만 «값이 바뀐 시각»은 못 만든다.
+  if (typeof factor.frozenSec === 'number' && factor.frozenSec > FEED_FROZEN_MAX_SEC) {
+    return false;
+  }
   if (typeof factor.marketAgeSec === 'number') {
     return factor.marketAgeSec <= maxAgeSec;
   }
@@ -304,7 +326,13 @@ function feedMetaForItem(
     feedSource: factor?.feedSource,
     isStale: factor?.isStale,
     feedAgeSec: factor?.feedAgeSec,
+    frozenSec: factor?.frozenSec,
   };
+}
+
+/** 값이 실제로 움직이고 있는가. 모르면(undefined) «움직인다»고 말하지 않는다. */
+function isFeedMoving(factor: any): boolean {
+  return typeof factor?.frozenSec === 'number' && factor.frozenSec <= FEED_FROZEN_MAX_SEC;
 }
 
 function fmtMacroValue(level: number | null, label: string): string {
@@ -659,6 +687,8 @@ export default function AppDashPage() {
       futuresRow: '지수 선물',
       cashRow: '현물 지수',
       etfRow: 'ETF / 변동성',
+      futuresStalled: 'DELAYED',
+      futuresStalledNote: '선물 시세가 갱신되지 않고 있습니다 — 마지막 값입니다.',
       futuresOpen: '정규장 밖에도 선물 흐름은 ET 기준으로 추적됩니다.',
       regularOpen: '정규장 실시간 흐름을 반영합니다.',
       marketClosed: '장 마감 데이터와 선물 흐름을 함께 봅니다.',
@@ -681,6 +711,8 @@ export default function AppDashPage() {
       futuresRow: 'Index Futures',
       cashRow: 'Cash Indices',
       etfRow: 'ETF / Volatility',
+      futuresStalled: 'DELAYED',
+      futuresStalledNote: 'Futures quotes are not updating — showing the last value.',
       futuresOpen: 'Futures tracked live on ET.',
       regularOpen: 'Regular-session flow is updating live.',
       marketClosed: 'Last close + live futures.',
@@ -703,6 +735,8 @@ export default function AppDashPage() {
       futuresRow: '指数先物',
       cashRow: '現物指数',
       etfRow: 'ETF / 変動性',
+      futuresStalled: 'DELAYED',
+      futuresStalledNote: '先物気配が更新されていません — 直近値を表示中。',
       futuresOpen: '先物はET基準で追跡中。',
       regularOpen: '通常取引のリアルタイムフローを反映します。',
       marketClosed: '引け後データと先物フロー。',
@@ -725,6 +759,8 @@ export default function AppDashPage() {
     futuresRow: 'Index Futures',
     cashRow: 'Cash Indices',
     etfRow: 'ETF / Volatility',
+    futuresStalled: 'DELAYED',
+    futuresStalledNote: 'Futures quotes are not updating — showing the last value.',
     futuresOpen: 'Futures tracked live on ET.',
     regularOpen: 'Regular-session flow is updating live.',
     marketClosed: 'Last close + live futures.',
@@ -745,6 +781,8 @@ export default function AppDashPage() {
       futuresRow: '지수 선물',
       cashRow: '현물 지수',
       etfRow: 'ETF / 변동성',
+      futuresStalled: 'DELAYED',
+      futuresStalledNote: '선물 시세가 갱신되지 않고 있습니다 — 마지막 값입니다.',
       futuresOpen: '정규장 밖에도 선물 흐름은 ET 기준으로 추적됩니다.',
       regularOpen: '정규장 실시간 흐름을 반영합니다.',
       marketClosed: '장마감 데이터와 활성 선물 흐름을 함께 봅니다.',
@@ -763,6 +801,8 @@ export default function AppDashPage() {
       futuresRow: 'Index Futures',
       cashRow: 'Cash Indices',
       etfRow: 'ETF / Volatility',
+      futuresStalled: 'DELAYED',
+      futuresStalledNote: 'Futures quotes are not updating — showing the last value.',
       futuresOpen: 'Futures tracked live on ET.',
       regularOpen: 'Regular-session flow is updating live.',
       marketClosed: 'Last close + live futures.',
@@ -781,6 +821,8 @@ export default function AppDashPage() {
       futuresRow: '指数先物',
       cashRow: '現物指数',
       etfRow: 'ETF / ボラティリティ',
+      futuresStalled: 'DELAYED',
+      futuresStalledNote: '先物気配が更新されていません — 直近値を表示中。',
       futuresOpen: '先物はET基準で追跡中。',
       regularOpen: '通常取引時間のフローをリアルタイムで反映します。',
       marketClosed: '引け後データと先物フロー。',
@@ -857,7 +899,14 @@ export default function AppDashPage() {
   };
 
   const itemSessionLive = (symOrLabel: string) => checkIsItemActive(symOrLabel);
-  const futuresLive = isCmeGlobexActive('equity', isMarketHoliday);
+  // ★ [2026-09-07] 시계만 보고 LIVE 라고 말하지 않는다.
+  //   글로벡스 세션이 열려 있어도 벤더 피드가 멈추면 값은 «금요일 종가»다.
+  //   2026-09-06(일) 실측: 야후 선물 5종이 5시간 넘게 금요일 종가에 고정됐는데
+  //   regularMarketTime 만 전진해서 화면은 LIVE 를 유지했다.
+  const futuresSessionOpen = isCmeGlobexActive('equity', isMarketHoliday);
+  const futuresFeedMoving = futures.some((it) => !it.noData && isFeedMoving(it));
+  const futuresStalled = futuresSessionOpen && futuresReady && !futuresFeedMoving;
+  const futuresLive = futuresSessionOpen && futuresFeedMoving;
   const volatilityLive = itemSessionLive('VIX');
   const futuresAvg = avgChange(futures);
   const cashAvg = avgChange(indices);
@@ -879,8 +928,8 @@ export default function AppDashPage() {
   // The headline and the risk score are composites of BOTH feeds, so they still wait for
   // both rather than publish a score computed off a demo half.
   const regimeReady = indicesReady && futuresReady;
-  const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : copy.closed;
-  const pulseStatusNote = isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : copy.marketClosed;
+  const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : futuresStalled ? copy.futuresStalled : copy.closed;
+  const pulseStatusNote = isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : futuresStalled ? copy.futuresStalledNote : copy.marketClosed;
   const pulseStatusClass = isLive ? '' : (futuresLive || volatilityLive) ? s.futuresOpen : s.closed;
   const etfRowStatus = equityExtendedLive ? 'LIVE' : volatilityLive ? 'VIX LIVE' : isMarketHoliday ? copy.holiday : copy.closed;
   const etfRowLive = equityExtendedLive || volatilityLive;

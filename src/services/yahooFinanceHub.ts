@@ -20,6 +20,14 @@ export interface YahooQuote {
     exchangeTimezoneName?: string;
     source: "YAHOO" | "CACHE" | "REDIS" | "DEFAULT";
     isStale: boolean;
+    /**
+     * [2026-09-07] 값이 «마지막으로 실제로 바뀐» 시각.
+     * marketTime 은 벤더가 조작한다 — 야후는 선물 피드가 멈춘 동안에도
+     * regularMarketTime 을 매 분 전진시켜서 «11분 전 시세»처럼 보이게 했다
+     * (실측: NQ=F 1분봉 0개 · 값은 금요일 종가 고정 · 타임스탬프만 전진).
+     * 값이 바뀐 시각은 못 속인다. 신선도 판정의 근거는 이쪽이다.
+     */
+    lastChangeAt?: string;
 }
 
 // Extend cache keys for new data
@@ -102,6 +110,7 @@ function getDefaultQuote(symbol: string, defaultPrice: number): YahooQuote {
         updatedAt: new Date().toISOString(),
         source: "DEFAULT",
         isStale: true
+        // lastChangeAt 없음 → 소비자가 «굳었는지 모른다»로 취급(=라이브 아님)
     };
 }
 
