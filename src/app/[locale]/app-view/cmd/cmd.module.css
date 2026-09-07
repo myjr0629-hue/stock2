@@ -1554,7 +1554,11 @@
 .p2Vital:hover {
   border-color: rgba(34, 211, 238, 0.25);
 }
-.p2Vital .k { font: 700 11px/1 var(--f-sans); letter-spacing: 0.12em; color: var(--text-muted); }
+/* [2026-09-07] 라벨이 «줄상자»에 얹히면 부모 line-height 만큼 아래로 밀린다.
+   ⓘ 가 있는 RSI·VWAP 만 inline-flex 였고 DAY RANGE 는 block 이라 실측 17 vs 10px,
+   딱 7px 어긋나 보였다(대표 지적). 항상 블록 흐름에 두어 세 카드를 맞춘다. */
+.p2Vital .k { display: flex; align-items: center; gap: 3px;
+  font: 700 11px/1 var(--f-sans); letter-spacing: 0.12em; color: var(--text-muted); }
 .p2Vital .v { font: 700 15px/1 var(--f-mono); margin-top: 5px; font-variant-numeric: tabular-nums; }
 .p2Vital .bar { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.05); margin-top: 6px; overflow: hidden; }
 .p2Vital .bar > i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--cyan), #67e8f9); box-shadow: var(--glow-cyan); }

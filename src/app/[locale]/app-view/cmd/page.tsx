@@ -3300,7 +3300,7 @@ function CmdPageContent() {
         {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
         <div className={s.heroMetrics}>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} /></span>
+            <span className={s.heroMetricLabel} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
               ${data.premium.maxPain > 0 ? data.premium.maxPain.toFixed(0) : '—'}
             </span>
@@ -3314,7 +3314,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>GAMMA FLIP<MetricInfo term="gammaFlip" locale={locale} size={12} /></span>
+            <span className={s.heroMetricLabel} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>GAMMA FLIP<MetricInfo term="gammaFlip" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>{data.premium.gammaFlip}</span>
             {data.premium.gammaFlipRaw > 0 && (() => {
               const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;
@@ -3329,7 +3329,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>TOTAL PREMIUM<MetricInfo term="netPremium" locale={locale} size={12} /></span>
+            <span className={s.heroMetricLabel} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>TOTAL PREMIUM<MetricInfo term="netPremium" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
               {data.premium.netPremium !== 0
                 ? (Math.abs(data.premium.netPremium) >= 1e6
@@ -3349,7 +3349,7 @@ function CmdPageContent() {
         {/* ── Row 4: Vitals Strip (RSI / VWAP / DAY RANGE) ── */}
         <div className={s.p2Vitals}>
           <div className={s.p2Vital}>
-            <div className={s.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>RSI 14<MetricInfo term="rsi" locale={locale} size={10} /></div>
+            <div className={s.k} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>RSI 14<MetricInfo term="rsi" locale={locale} size={10} /></div>
             {/* ★ [2026-09-04] RSI 0 은 존재할 수 없는 값이다(이론상 하한이 0 이지만
                 실제로는 절대 안 나온다). 벤더가 비어서 0 이 온 것을 «0.0 Cool» 이라고
                 그리고 있었다 — 없는 것은 «—» 로 보여야 한다. 틀린 숫자보다 빈 칸이 낫다. */}
@@ -3366,7 +3366,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.p2Vital}>
-            <div className={s.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>VWAP<MetricInfo term="vwap" locale={locale} size={10} /></div>
+            <div className={s.k} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>VWAP<MetricInfo term="vwap" locale={locale} size={10} /></div>
             <div className={s.v}>{data.vwap > 0 ? `$${data.vwap.toFixed(2)}` : '—'}</div>
             {data.vwap > 0 && (() => {
               const vwapDiff = ((displayPrice - data.vwap) / data.vwap) * 100;

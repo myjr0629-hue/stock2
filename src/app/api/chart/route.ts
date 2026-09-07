@@ -73,7 +73,7 @@ export async function GET(request: Request) {
     // [2026-09-07] v1 → v2: 1D 응답에 «본장 봉»이 들어오게 고쳤다(그 전엔 PRE/POST 만).
     //   키를 안 올리면 옛 페이로드가 최대 10분 동안 200 OK 로 나가고,
     //   프로덕션 트래픽이 계속 그 값으로 덮어써서 «고쳤는데 그대로»가 된다.
-    const cacheKey = `chart:v2:${symbol}:${range}`;
+    const cacheKey = `chart:v3:${symbol}:${range}`;
 
     /** 백그라운드 갱신. 응답을 붙잡지 않는다. */
     const refreshInBackground = () => {

@@ -827,7 +827,22 @@ async function mergeExtendedBars(
     //    기록기는 **ET 날짜**로 키를 만든다. 20:00 ET(=00:00 UTC)를 넘기면
     //    두 날짜가 하루 갈려서 조회가 통째로 빗나간다(실측: POST 봉 사라짐).
     //    그래서 ET 거래일도 후보에 넣는다.
-    const dates = [currentEtTradingDate(), to, from]
+    // ★ [2026-09-07] 후보에 «실제로 봉이 있는 날»을 반드시 넣는다.
+    //   전엔 오늘/조회범위 날짜만 봤다. currentEtTradingDate() 는 주말은 건너뛰지만
+    //   **공휴일은 모른다** — 노동절(월) 10:47 ET 실측에서 후보가 09-07/09-05 뿐이라
+    //   정작 그리는 날(09-04)의 시간외 봉을 못 찾아 PRE 0 · POST 0 이 됐다.
+    //   (반대로 일요일엔 currentEtTradingDate()=09-04 라 잘 붙었다 — 날에 따라
+    //    붙었다 말았다 하는 «조용한» 결함이었다.)
+    const etDateOfMs = (ms: number): string => {
+        const et = new Date(new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York" }));
+        const p = (n: number) => String(n).padStart(2, "0");
+        return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+    };
+    const datesInResults = results
+        .map((r) => (typeof r?.t === "number" ? etDateOfMs(r.t) : ""))
+        .filter(Boolean);
+
+    const dates = [...datesInResults, currentEtTradingDate(), to, from]
         .filter((d, i, a) => ISO_DATE.test(d) && a.indexOf(d) === i);
     if (!dates.length) return results;
 
