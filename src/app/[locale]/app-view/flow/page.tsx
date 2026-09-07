@@ -3827,7 +3827,7 @@ export default function AppFlowPage() {
                     <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                       {L('이상 옵션 활동', 'Unusual options activity', '異常オプション活動')}
                     </span>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: 'rgba(148,163,184,.95)', border: '1px solid rgba(148,163,184,.28)' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: 'rgba(148,163,184,.95)', border: '1px solid transparent' }}>
                       {optionsEod.date} · {L('마감 기준', 'at close', '引け基準')}
                     </span>
                     {optionsEod.summary?.openingCount > 0 && (

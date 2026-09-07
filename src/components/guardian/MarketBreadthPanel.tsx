@@ -660,7 +660,7 @@ export default function RLSIInsightPanel({
                             display: 'flex', flexDirection: 'column',
                             borderRadius: 18, padding: '18px 16px 14px',
                             background: 'linear-gradient(180deg, rgba(17, 27, 46, 0.99), rgba(9, 16, 32, 0.99))',
-                            border: '1px solid rgba(148, 163, 184, 0.18)',
+                            border: '1px solid transparent',
                             boxShadow: '0 24px 64px rgba(0, 0, 0, 0.6)',
                         }}
                     >

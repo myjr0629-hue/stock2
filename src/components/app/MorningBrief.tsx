@@ -258,7 +258,7 @@ export function MorningBrief({ locale, autoOpen = false }: { locale: string; aut
                 type="button" onClick={() => setOpen(false)} aria-label={t.close}
                 style={{
                   width: '30px', height: '30px', borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid transparent',
                   color: 'var(--text-dim, #c3c9d4)', fontSize: '16px', lineHeight: 1, cursor: 'pointer',
                 }}
               >
