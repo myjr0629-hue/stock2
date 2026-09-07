@@ -517,6 +517,10 @@ export default function AppDashPage() {
   const { status: marketStatusInfo, loading: marketStatusLoading } = useMarketStatus();
   const marketSession = marketStatusInfo?.session;
   const isMarketHoliday = Boolean(marketStatusInfo?.isHoliday);
+  // 지금 이 순간이 속한 «선물 거래일»이 휴장인가. 일요일 18:00 ET 세션은
+  // 월요일 거래일이므로, 노동절 전날 일요일 밤부터 이미 휴장 세션이다.
+  const isHolidaySession = Boolean(marketStatusInfo?.isHolidaySession);
+  const holidaySessionName = marketStatusInfo?.holidaySessionName;
   const marketStatusReady = !marketStatusLoading;
   const isLive = marketStatusReady && marketSession === 'regular' && !isMarketHoliday;
   const equityExtendedLive = marketStatusReady && !isMarketHoliday && (marketSession === 'pre' || marketSession === 'regular' || marketSession === 'post');
@@ -693,6 +697,7 @@ export default function AppDashPage() {
       futuresStalledNote: '선물 시세가 갱신되지 않고 있습니다 — 마지막 값입니다.',
       futuresOpen: '정규장 밖에도 선물 흐름은 ET 기준으로 추적됩니다.',
       regularOpen: '정규장 실시간 흐름을 반영합니다.',
+      holidayNote: '미국 증시 휴장 — 선물 시세도 들어오지 않아 직전 값입니다.',
       marketClosed: '장 마감 데이터와 선물 흐름을 함께 봅니다.',
       riskOn: 'Risk-On 우위',
       mixed: '혼조',
@@ -717,7 +722,8 @@ export default function AppDashPage() {
       futuresStalledNote: 'Futures quotes are not updating — showing the last value.',
       futuresOpen: 'Futures tracked live on ET.',
       regularOpen: 'Regular-session flow is updating live.',
-      marketClosed: 'Last close + live futures.',
+      holidayNote: 'US markets closed — no futures quotes; last values shown.',
+    marketClosed: 'Last close + live futures.',
       riskOn: 'Risk-On Tilt',
       mixed: 'Mixed Tape',
       riskOff: 'Risk-Off Watch',
@@ -741,6 +747,7 @@ export default function AppDashPage() {
       futuresStalledNote: '先物気配が更新されていません — 直近値を表示中。',
       futuresOpen: '先物はET基準で追跡中。',
       regularOpen: '通常取引のリアルタイムフローを反映します。',
+      holidayNote: '米国市場は休場 — 先物気配も届かず直近値です。',
       marketClosed: '引け後データと先物フロー。',
       riskOn: 'Risk-On 優勢',
       mixed: 'まちまち',
@@ -765,6 +772,7 @@ export default function AppDashPage() {
     futuresStalledNote: 'Futures quotes are not updating — showing the last value.',
     futuresOpen: 'Futures tracked live on ET.',
     regularOpen: 'Regular-session flow is updating live.',
+    holidayNote: 'US markets closed — no futures quotes; last values shown.',
     marketClosed: 'Last close + live futures.',
     riskOn: 'Risk-On Tilt',
     mixed: 'Mixed Tape',
@@ -787,6 +795,7 @@ export default function AppDashPage() {
       futuresStalledNote: '선물 시세가 갱신되지 않고 있습니다 — 마지막 값입니다.',
       futuresOpen: '정규장 밖에도 선물 흐름은 ET 기준으로 추적됩니다.',
       regularOpen: '정규장 실시간 흐름을 반영합니다.',
+      holidayNote: '미국 증시 휴장 — 선물 시세도 들어오지 않아 직전 값입니다.',
       marketClosed: '장마감 데이터와 활성 선물 흐름을 함께 봅니다.',
       riskOn: 'Risk-On 우위',
       mixed: '혼조',
@@ -807,7 +816,8 @@ export default function AppDashPage() {
       futuresStalledNote: 'Futures quotes are not updating — showing the last value.',
       futuresOpen: 'Futures tracked live on ET.',
       regularOpen: 'Regular-session flow is updating live.',
-      marketClosed: 'Last close + live futures.',
+      holidayNote: 'US markets closed — no futures quotes; last values shown.',
+    marketClosed: 'Last close + live futures.',
       riskOn: 'Risk-On Tilt',
       mixed: 'Mixed Tape',
       riskOff: 'Risk-Off Watch',
@@ -827,6 +837,7 @@ export default function AppDashPage() {
       futuresStalledNote: '先物気配が更新されていません — 直近値を表示中。',
       futuresOpen: '先物はET基準で追跡中。',
       regularOpen: '通常取引時間のフローをリアルタイムで反映します。',
+      holidayNote: '米国市場は休場 — 先物気配も届かず直近値です。',
       marketClosed: '引け後データと先物フロー。',
       riskOn: 'Risk-On 優勢',
       mixed: 'まちまち',
@@ -931,7 +942,9 @@ export default function AppDashPage() {
   // both rather than publish a score computed off a demo half.
   const regimeReady = indicesReady && futuresReady;
   const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : futuresStalled ? copy.futuresStalled : copy.closed;
-  const pulseStatusNote = isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : futuresStalled ? copy.futuresStalledNote : copy.marketClosed;
+  const pulseStatusNote = isHolidaySession
+    ? copy.holidayNote
+    : isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : futuresStalled ? copy.futuresStalledNote : copy.marketClosed;
   const pulseStatusClass = isLive ? '' : (futuresLive || volatilityLive) ? s.futuresOpen : s.closed;
   const etfRowStatus = equityExtendedLive ? 'LIVE' : volatilityLive ? 'VIX LIVE' : isMarketHoliday ? copy.holiday : copy.closed;
   const etfRowLive = equityExtendedLive || volatilityLive;
@@ -1714,6 +1727,8 @@ export default function AppDashPage() {
   const c9 = ({
     ko: {
       tagline: 'DARK POOL INTEL', secIdx: '지수', tFut: '선물', tCash: '현물', tEtf: 'ETF',
+      holiday: '휴장',
+      holidayNote: '미국 증시 휴장 — 선물 시세도 들어오지 않아 직전 값입니다.',
       idxNote: '지금 움직이는 건 선물뿐 — 현물·ETF는 마감값입니다.',
       idxNoteLive: '정규장 진행 중 — 선물·현물·ETF 모두 실시간입니다.',
       secMacro: '매크로', mcMore: (n: number) => `${n}개 더 보기`, mcLess: '접기',
@@ -1735,6 +1750,8 @@ export default function AppDashPage() {
     },
     en: {
       tagline: 'DARK POOL INTEL', secIdx: 'Indices', tFut: 'Futures', tCash: 'Cash', tEtf: 'ETF',
+      holiday: 'HOLIDAY',
+      holidayNote: 'US markets closed — no futures quotes; last values shown.',
       idxNote: 'Only futures are trading now — cash and ETFs show the close.',
       idxNoteLive: 'Regular session is open — futures, cash and ETFs are all live.',
       secMacro: 'Macro', mcMore: (n: number) => `Show ${n} more`, mcLess: 'Show less',
@@ -1756,6 +1773,8 @@ export default function AppDashPage() {
     },
     ja: {
       tagline: 'DARK POOL INTEL', secIdx: '指数', tFut: '先物', tCash: '現物', tEtf: 'ETF',
+      holiday: '休場',
+      holidayNote: '米国市場は休場 — 先物気配も届かず直近値です。',
       idxNote: '今動いているのは先物のみ — 現物・ETFは終値です。',
       idxNoteLive: '通常取引中 — 先物・現物・ETFすべてリアルタイムです。',
       secMacro: 'マクロ', mcMore: (n: number) => `他${n}件を表示`, mcLess: '折りたたむ',
@@ -1921,9 +1940,11 @@ export default function AppDashPage() {
       <div className={n9.e9Sect}>
         <div className={n9.e9SectHead}>
           <span className={n9.e9SectT}>{c9.secIdx}</span>
-          {(isLive || futuresLive || volatilityLive) && (
+          {isHolidaySession ? (
+            <span className={n9.e9Holi} title={holidaySessionName}>{c9.holiday}</span>
+          ) : (isLive || futuresLive || volatilityLive) ? (
             <span className={n9.e9Live}><s />LIVE</span>
-          )}
+          ) : null}
         </div>
         <div className={n9.e9IxTabs}>
           {([['futures', c9.tFut], ['cash', c9.tCash], ['etf', c9.tEtf]] as const).map(([k, label]) => (
@@ -1968,7 +1989,9 @@ export default function AppDashPage() {
                 );
               })}
         </div>
-        <div className={n9.e9Note}>{isLive ? c9.idxNoteLive : c9.idxNote}</div>
+        <div className={n9.e9Note}>
+          {isHolidaySession ? c9.holidayNote : isLive ? c9.idxNoteLive : c9.idxNote}
+        </div>
       </div>
 
       {/* ④ 매크로 — 지수와 같은 «좌표»라 붙인다. 링크 대신 인라인 펼침 */}

@@ -26,6 +26,8 @@ function computeInitialSession(): MarketStatusResult {
         market,
         session,
         isHoliday: false,
+        // 서버가 알려주기 전엔 «모른다» — 휴장 배지를 지레 띄우지 않는다
+        isHolidaySession: false,
         serverTime: now.toISOString(),
         asOfET: '-',
         source: 'FALLBACK',

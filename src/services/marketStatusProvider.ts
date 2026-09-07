@@ -6,6 +6,15 @@ export interface MarketStatusResult extends MarketStatus {
     session: "pre" | "regular" | "post" | "closed";
     isHoliday: boolean;
     holidayName?: string;
+    /**
+     * [2026-09-07] «지금 이 순간이 속한 선물 거래일»이 휴장인가.
+     * CME 글로벡스는 일요일 18:00 ET 에 열려 다음날 17:00 에 닫힌다 —
+     * 즉 일요일 저녁은 **월요일 거래일**이다. isHoliday(오늘 날짜) 만 보면
+     * 노동절 전날인 일요일 밤은 false 가 나오는데, 바로 그때부터
+     * 야후가 선물을 안 준다(실측: 메모리얼데이 5/24 일 0봉 · 5/25 월 0봉).
+     */
+    isHolidaySession: boolean;
+    holidaySessionName?: string;
     serverTime: string;
     asOfET: string; // New: ET Timestamp for UI display
     source: "INTRINIO" | "FALLBACK";
@@ -32,6 +41,20 @@ const HOLIDAYS: Record<string, string> = {
     "11-26": "Thanksgiving Day",
     "12-25": "Christmas Day"
 };
+
+/**
+ * 지금이 속한 «선물 거래일»의 휴장 여부.
+ * ET 18:00 을 넘겼으면 그 세션은 «다음 날» 거래일에 속한다.
+ * 다음 날이 토요일이면(금요일 저녁) 세션이 없으므로 판정하지 않는다.
+ */
+function checkSessionHoliday(etDate: Date): string | null {
+    const target = new Date(etDate.getTime());
+    if (etDate.getHours() >= 18) {
+        target.setDate(target.getDate() + 1);
+    }
+    if (target.getDay() === 6) return null; // 토요일엔 세션이 없다
+    return checkHardcodedHoliday(target);
+}
 
 function checkHardcodedHoliday(etDate: Date): string | null {
     const mo = String(etDate.getMonth() + 1).padStart(2, '0');
@@ -130,11 +153,16 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
             session = "closed";
         }
 
+        // 선물 거래일 기준 휴장 — 일요일 저녁 세션은 월요일 거래일이다
+        const sessionHoliday = checkSessionHoliday(etDate);
+
         const result: MarketStatusResult = {
             market: isPolygonHoliday ? "closed" : (isOpen ? "open" : isExtended ? "extended-hours" : "closed"),
             session,
             isHoliday: isPolygonHoliday,
             holidayName: holidayName || undefined,
+            isHolidaySession: !!sessionHoliday,
+            holidaySessionName: sessionHoliday || undefined,
             serverTime: new Date().toISOString(),
             asOfET: etStr,
             source: "INTRINIO",
@@ -174,6 +202,8 @@ function calculateFallbackStatus(): MarketStatusResult {
     const isHoliday = !!holidayNameString;
 
     // Default Closed
+    const sessionHolidayName = checkSessionHoliday(etDate);
+
     let market: "closed" | "open" | "extended-hours" = "closed";
     let session: "closed" | "pre" | "regular" | "post" = "closed";
 
@@ -195,6 +225,8 @@ function calculateFallbackStatus(): MarketStatusResult {
         session,
         isHoliday: isHoliday || (isWeekend && false),
         holidayName: holidayNameString || undefined,
+        isHolidaySession: !!sessionHolidayName,
+        holidaySessionName: sessionHolidayName || undefined,
         serverTime: new Date().toISOString(),
         asOfET: etStr,
         source: "FALLBACK",

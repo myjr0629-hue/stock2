@@ -115,6 +115,11 @@
 .e9Live{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;background:#22d3ee;color:#04222a;
   font-size:9px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:2px 7px}
 .e9Live s{width:4px;height:4px;border-radius:50%;background:#04222a;text-decoration:none}
+/* 휴장 배지 — LIVE 자리에 대신 선다. 「지금 안 움직이는 게 정상」을 말하는 색이라
+   시안 라이브(시안색)와 달리 차분한 호박색으로 둔다. */
+.e9Holi{flex:0 0 auto;display:inline-flex;align-items:center;background:rgba(251,191,36,.16);
+  color:#fbbf24;border:1px solid rgba(251,191,36,.34);
+  font-size:9px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:2px 7px}
 .e9Badge{flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.06em;color:#a9bcd6;
   background:rgba(255,255,255,.07);border-radius:999px;padding:2px 7px}
 .e9All{flex:0 0 auto;margin-left:auto;font-size:10px;color:#22d3ee;font-weight:700;white-space:nowrap}

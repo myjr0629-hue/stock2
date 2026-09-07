@@ -70,6 +70,7 @@ const INITIAL_SNAPSHOT: MacroSnapshot = {
         nextOpen: "",
         nextClose: "",
         isHoliday: false,
+        isHolidaySession: false,
         session: "closed"
     },
     factors: {
