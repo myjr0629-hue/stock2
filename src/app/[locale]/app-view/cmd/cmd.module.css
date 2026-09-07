@@ -51,7 +51,7 @@
   gap: 8px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.045);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 5px 12px 5px 10px;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -256,7 +256,7 @@
   -webkit-backdrop-filter: var(--glass);
   border: 1px solid rgba(255, 255, 255, 0.055);
   border-radius: var(--r-card);
-  padding: var(--s4);
+  padding: var(--s3);
   margin: 0 var(--s4) var(--s3);
   box-shadow: var(--shadow);
 }
@@ -507,7 +507,7 @@
   position: relative;
   padding: 14px 14px 12px;
   background: rgba(30, 41, 59, 0.35);
-  border-radius: 12px;
+  border-radius: var(--r-card);
   border: 1px solid rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -654,7 +654,7 @@
 .gexBiasNeg {
   flex: 0 0 auto;
   padding: 5px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font: 900 9px/1 var(--f-sans);
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -702,7 +702,7 @@
   gap: 3px;
   height: 100px;
   padding: var(--s3) 0;
-  border-radius: 12px;
+  border-radius: var(--r-card);
   background:
     linear-gradient(90deg, rgba(244, 63, 94, 0.06), transparent 38%, transparent 62%, rgba(16, 185, 129, 0.06));
 }
@@ -1231,7 +1231,7 @@
   backdrop-filter: var(--glass);
   -webkit-backdrop-filter: var(--glass);
   border: 1px solid rgba(255, 255, 255, 0.055);
-  border-radius: 14px; padding: 16px; margin: var(--s3) var(--s4) 12px; box-shadow: var(--shadow);
+  border-radius: 14px; padding: var(--s3); margin: var(--s3) var(--s4) 12px; box-shadow: var(--shadow);
 }
 .heroTopHalf {
   position: relative;
@@ -1477,7 +1477,10 @@
   background: rgba(30, 41, 59, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 9px;
-  padding: 10px 12px;
+  /* [2026-09-07] DAY RANGE 의 «LOW $229.6 / HIGH $234.8» 두 덩어리가 각 37.8px 이라
+     37.8+4+37.8=79.6px 이 필요한데 내용폭이 71.7px 이었다(실측 8px 넘침).
+     글자를 줄이지 않고 자리를 넓힌다 — 밀도 목표와도 같은 방향이다. */
+  padding: 10px 8px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -1509,7 +1512,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
   color: rgba(203, 213, 225, 0.6);
   font: 800 8.5px/1 var(--f-sans);
@@ -1525,7 +1528,7 @@
   position: relative;
   height: 7px;
   margin-top: 3px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: visible;
   background: linear-gradient(90deg, rgba(239, 68, 68, 0.20), rgba(34, 211, 238, 0.16) 50%, rgba(16, 185, 129, 0.20));
   border: 1px solid rgba(255, 255, 255, 0.045);
@@ -1534,7 +1537,7 @@
   display: block;
   height: 100%;
   min-width: 4px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.20);
 }
 .rangePin {
@@ -1542,7 +1545,7 @@
   top: 50%;
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: #06111f;
   border: 2px solid var(--cyan);
   transform: translate(-50%, -50%);
@@ -1577,7 +1580,7 @@
 }
 .segPill {
   position: absolute; top: 3px; bottom: 3px; width: calc((100% - 6px) / 4);
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   background: rgba(255, 255, 255, 0.075);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
@@ -1637,7 +1640,7 @@
   margin: 0;
   padding: 0 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   background: transparent;
   cursor: pointer;
   font-size: 11px;
@@ -1659,11 +1662,11 @@
 }
 
 .nbbo2 { display: flex; align-items: center; justify-content: center; gap: 10px;
-  background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 8px;
+  background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: var(--r-btn);
   padding: 7px 12px; margin-bottom: 10px; }
 .nbbo2 span { font: 600 12px/1 var(--f-mono); color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .nbbo2 .spread { font: 700 11px/1 var(--f-sans); color: var(--amber); background: var(--amber-dim);
-  padding: 3px 7px; border-radius: 999px; letter-spacing: 0.02em; }
+  padding: 3px 7px; border-radius: var(--r-pill); letter-spacing: 0.02em; }
 
 .c2Wrap { position: relative; }
 .c2Svg { width: 100%; height: 190px; display: block; touch-action: none; }
@@ -1745,7 +1748,7 @@
   color: var(--cyan);
   background: rgba(34, 211, 238, 0.08);
   border: 0.5px solid rgba(34, 211, 238, 0.2);
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   box-shadow: 0 0 6px rgba(34, 211, 238, 0.1);
 }
 
@@ -1921,7 +1924,7 @@
   width: 100%;
   background: rgba(2, 6, 23, 0.42);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  border-radius: var(--r-card);
   padding: 14px 48px 14px 15px;
   color: var(--text);
   font-family: var(--f-mono);
@@ -2112,8 +2115,10 @@
 .peerRow {
   display: flex;
   align-items: center;
-  gap: var(--s3);
-  padding: 10px 12px;
+  /* [2026-09-07] 대시보드 무버 행(.e9Mv gap:7px · padding:7px 12px)과 같은 규격.
+     같은 내용(로고·티커·가격·등락률)인데 20px 더 높을 이유가 없다. */
+  gap: 7px;
+  padding: 7px 12px;
   background: rgba(30, 41, 59, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
@@ -2126,9 +2131,11 @@
 }
 
 .peerLogo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  /* 대시보드 무버 행의 AppTickerLogo size={18} 과 동일 — 이 32px 이 행 높이를
+     54px 로 밀어올리고 있었다(안의 이미지는 22px 였다). */
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2137,7 +2144,7 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  font: 700 10px/1 var(--f-sans);
+  font: 700 9px/1 var(--f-sans);
   color: var(--text-dim);
 }
 
@@ -2218,7 +2225,7 @@
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.06);
 }
@@ -2323,7 +2330,7 @@
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.06);
 }
@@ -2373,7 +2380,7 @@
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.06);
   flex: 1;
@@ -2431,7 +2438,7 @@
   -webkit-backdrop-filter: var(--glass);
   border: 1px solid rgba(34, 211, 238, 0.18);
   border-radius: 16px;
-  padding: 16px;
+  padding: var(--s3);
   margin: 0 var(--s4) 14px;
   box-shadow: 
     0 0 20px rgba(34, 211, 238, 0.04),
@@ -2482,7 +2489,7 @@
 .premInsightBadge {
   font: 700 11.5px/1.2 var(--f-sans);
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.25);
   color: #34d399;
@@ -2522,7 +2529,7 @@
   gap: 6px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   padding: 8px 4px;
 }
 .premRatioLabel {
@@ -2540,7 +2547,7 @@
   background: rgba(34, 211, 238, 0.12);
   border: 1px solid rgba(34, 211, 238, 0.25);
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   box-shadow: 0 0 8px rgba(34, 211, 238, 0.15);
 }
 .premDaysText {
@@ -2591,7 +2598,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   font: 600 11px var(--f-sans);
@@ -2664,7 +2671,7 @@
   margin-top: var(--s3);
   padding: var(--s2) var(--s3);
   border: 1px solid transparent;   /* 색은 상태에 따라 인라인으로 */
-  border-radius: 8px;
+  border-radius: var(--r-btn);
 }
 .analystRevisionLabel {
   font: var(--f-micro);
