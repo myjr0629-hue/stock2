@@ -12,7 +12,11 @@ const previewUrl = process.env.CAPACITOR_PREVIEW_URL;
 const config: CapacitorConfig = {
   appId: 'com.signumhq.app',
   appName: 'SIGNUM HQ',
-  webDir: 'out',
+  // ★ 원격 셸 앱이라 로컬 웹자산을 «쓰지 않는다» — 네트워크가 없을 때 뜨는
+  //   오프라인 대체 화면 하나뿐이다. 예전엔 Next 정적 내보내기(out/)를 가리켰는데
+  //   거기 마케팅 영상이 쌓이면서 앱 번들이 464MB 가 됐다(라이브는 15.4MB).
+  //   webDir 은 «앱에 들어갈 것»이므로 전용 폴더로 분리한다.
+  webDir: 'capacitor-shell',
 
   // Production: WebView → signumhq.com
   // 개발용: CAPACITOR_LIVE_RELOAD=true → 로컬 Next.js 개발 서버
