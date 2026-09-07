@@ -1722,13 +1722,35 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
  * 벌크 EOD 가 T+1 로 하루 늦게 게시되므로, 이 날짜와 비교해
  * EOD 종가가 «오늘 종가»인지 «전일 종가»인지를 판정해야 한다.
  */
+/** ET 달력상 «오늘» (거래일 여부와 무관). */
+function etCalendarDateToday(): string {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+}
+
+/**
+ * 마지막 «거래일» (ET).
+ *
+ * ★ [2026-09-07 노동절] 예전엔 주말만 건너뛰고 **휴장일은 안 건너뛰었다.**
+ *   그래서 노동절에 이 함수가 09-07 을 돌려줬고, 벌크 EOD 최신일(09-04)이
+ *   «뒤처진 것»으로 판정돼 prevClose 가 금요일 종가로 잡혔다. 표시가도 금요일
+ *   종가라 등락률이 0 이 되고 — 전 종목이 보합으로 나갔다.
+ *
+ *   휴장일에는 «오늘»이 없다. 마지막 거래일은 그 전 영업일이다.
+ */
 function currentEtTradingDate(): string {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     // 04:00 ET 이전은 아직 전 거래일로 취급 (프리마켓 시작 전)
     if (et.getHours() < 4) et.setDate(et.getDate() - 1);
-    while (et.getDay() === 0 || et.getDay() === 6) et.setDate(et.getDate() - 1);
     const p = (n: number) => String(n).padStart(2, "0");
-    return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+    const asStr = (d: Date) => `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    // 주말 «그리고» 휴장일을 건너뛴다. 최대 10일이면 어떤 연휴도 빠져나온다.
+    for (let i = 0; i < 10; i++) {
+        if (et.getDay() !== 0 && et.getDay() !== 6 && !US_MARKET_HOLIDAYS.has(asStr(et))) break;
+        et.setDate(et.getDate() - 1);
+    }
+    return asStr(et);
 }
 
 async function buildMarketTickers(): Promise<any[]> {
@@ -1758,7 +1780,11 @@ async function buildMarketTickers(): Promise<any[]> {
         // 표시한다 — 조용히 틀린 숫자가 가장 위험하므로 그 종목은 버린다.
         if (eodIsStale && !live) continue;
 
-        const last = live ?? e.c;
+        // 오늘 «세션이 없는» 날(주말·휴장)에는 live 가 마지막 세션의 굳은 체결가다.
+        // 그걸 종가 자리에 쓰면 공식 종가와 몇 센트 어긋나 등락률이 미세하게 틀린다.
+        // (NVDA 230.31 vs 공식 230.36 → +0.81% vs +0.84%)
+        const noSessionToday = currentEtTradingDate() < etCalendarDateToday();
+        const last = noSessionToday ? e.c : (live ?? e.c);
         const change = prevClose > 0 ? last - prevClose : e.chg;
         const changePct = prevClose > 0 ? (change / prevClose) * 100 : e.chgPct;
 
