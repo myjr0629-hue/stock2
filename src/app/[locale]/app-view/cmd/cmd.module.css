@@ -344,6 +344,67 @@
   text-transform: uppercase;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   ① 광학 정렬 — 라벨은 «줄상자»에 얹지 않는다
+   inline-flex 라벨은 부모 line-height 만큼 아래로 밀린다(실측 7px).
+   라벨은 언제나 블록 흐름(flex)에 둔다. 재발 방지 규칙이다.
+
+   ② 숫자 서체 — 금융 화면의 숫자는 «자리»가 맞아야 읽힌다
+   tabular-nums 는 이미 쓰고 있었다. slashed-zero 를 더해 0/O 를 가른다
+   (JetBrains Mono 의 zero 피처). 종목·가격이 섞이는 화면에서 특히 크다.
+
+   ③ 라벨 3단 — 성격이 다른 값은 라벨도 다르게 말한다
+     1차 신호  다크풀·감마플립·옵션 프리미엄  → 색 점 + 가장 밝은 라벨
+     기준선    맥스페인·VWAP·DAY RANGE        → 현행(회색 대문자)
+     보조      RSI·변동성                     → 한 톤 낮춰 물러난다
+   색은 «새로 만들지 않고» 이미 쓰는 상태색을 라벨까지 이어 쓴다.
+   ═══════════════════════════════════════════════════════════════════ */
+.lbl,
+.lblSignal,
+.lblAnchor,
+.lblAux {
+  display: flex;            /* ① 줄상자에 얹지 않는다 */
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-family: var(--f-sans);
+  text-transform: uppercase;
+}
+.lblSignal {
+  font: 800 11px/1 var(--f-sans);
+  letter-spacing: 0.11em;
+  color: #b9cce6;            /* 3단 중 가장 밝다 */
+}
+.lblSignal::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--sig, #22d3ee);
+  box-shadow: 0 0 6px var(--sig, #22d3ee);
+}
+.lblAnchor {
+  font: 700 11px/1 var(--f-sans);
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.lblAux {
+  font: 700 11px/1 var(--f-sans);
+  letter-spacing: 0.12em;
+  color: rgba(148, 163, 184, 0.62);   /* 한 톤 물러난다 */
+}
+
+/* ② 숫자는 자리·모양을 고정한다 */
+.num,
+.p2Vital .v,
+.heroMetricValue,
+.heroExtPrice,
+.p2Price,
+.peerPrice,
+.peerChange,
+.rangeBottom strong {
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
 /* ── Chart Card ── */
 .chartWrap {
   position: relative;
@@ -1517,10 +1578,10 @@
 }
 
 .heroMetricLabel {
-  font: 700 10px/1 var(--f-sans);
+  /* 3단 라벨(.lblSignal/.lblAnchor)이 색·굵기를 정하고, 여기선 공통 치수만 */
+  font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
 }
 
 .heroMetricValue {
@@ -2605,14 +2666,17 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--r-btn);
+  background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016));
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
+  border-radius: 10px;
   padding: 8px 4px;
 }
 .premRatioLabel {
-  font: 600 10px/1 var(--f-sans);
-  color: rgba(255, 255, 255, 0.35);
+  /* 보조 층 — 3단 사다리의 맨 아래. 전엔 .35 / .45 백색이 뒤섞여 있었다 */
+  font: 700 10px/1 var(--f-sans);
+  letter-spacing: 0.08em;
+  color: rgba(148, 163, 184, 0.62);
   text-transform: uppercase;
 }
 .premRatioValue {
@@ -2683,11 +2747,13 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: var(--r-btn);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  font: 600 11px var(--f-sans);
-  color: rgba(255, 255, 255, 0.45);
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016));
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
+  font: 700 11px/1 var(--f-sans);
+  letter-spacing: 0.06em;
+  color: rgba(148, 163, 184, 0.62);
 }
 .premInfoPillValue {
   font-family: var(--f-mono);
@@ -2729,8 +2795,9 @@
   gap: 4px;
 }
 .premForwardLabel {
-  font: 600 9.5px var(--f-sans);
-  color: rgba(255, 255, 255, 0.35);
+  font: 700 10px/1 var(--f-sans);
+  letter-spacing: 0.08em;
+  color: rgba(148, 163, 184, 0.62);
   text-transform: uppercase;
 }
 .premForwardVal {

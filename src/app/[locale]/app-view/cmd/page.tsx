@@ -887,7 +887,7 @@ function GexBarChart({
     <div style={{ marginBottom: 'var(--s3)' }}>
       <div className={s.gexHead}>
         <div>
-          <div className={s.cardTitle} style={{ marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>GEX PROFILE<MetricInfo term="gex" locale={locale} size={11} /></div>
+          <div className={s.cardTitle} style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>GEX PROFILE<MetricInfo term="gex" locale={locale} size={11} /></div>
           <p className={s.gexExplain}>Dealer gamma pressure by strike. Red = hedge pressure, green = stabilizing support.</p>
         </div>
         <span className={netBias >= 0 ? s.gexBiasPos : s.gexBiasNeg}>{biasLabel}</span>
@@ -3213,7 +3213,7 @@ function CmdPageContent() {
               background: `linear-gradient(135deg, ${a(.16)}, rgba(255,255,255,.02))`,
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, letterSpacing: '.14em', color: 'var(--text-dim, #94a3b8)' }}>
+                <span className={s.lblSignal} style={{ ['--sig' as string]: accent }}>
                   {locale === 'ko' ? '다크풀' : locale === 'ja' ? 'ダークプール' : 'DARK POOL'}
                   <MetricInfo term="darkPool" locale={locale} size={12} />
                 </span>
@@ -3300,7 +3300,7 @@ function CmdPageContent() {
         {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
         <div className={s.heroMetrics}>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} /></span>
+            <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
               ${data.premium.maxPain > 0 ? data.premium.maxPain.toFixed(0) : '—'}
             </span>
@@ -3314,7 +3314,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>GAMMA FLIP<MetricInfo term="gammaFlip" locale={locale} size={12} /></span>
+            <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#a78bfa' }}>GAMMA FLIP<MetricInfo term="gammaFlip" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>{data.premium.gammaFlip}</span>
             {data.premium.gammaFlipRaw > 0 && (() => {
               const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;
@@ -3329,7 +3329,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={s.heroMetricLabel} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>TOTAL PREMIUM<MetricInfo term="netPremium" locale={locale} size={12} /></span>
+            <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>TOTAL PREMIUM<MetricInfo term="netPremium" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
               {data.premium.netPremium !== 0
                 ? (Math.abs(data.premium.netPremium) >= 1e6
@@ -3349,7 +3349,7 @@ function CmdPageContent() {
         {/* ── Row 4: Vitals Strip (RSI / VWAP / DAY RANGE) ── */}
         <div className={s.p2Vitals}>
           <div className={s.p2Vital}>
-            <div className={s.k} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>RSI 14<MetricInfo term="rsi" locale={locale} size={10} /></div>
+            <div className={`${s.k} ${s.lblAux}`}>RSI 14<MetricInfo term="rsi" locale={locale} size={10} /></div>
             {/* ★ [2026-09-04] RSI 0 은 존재할 수 없는 값이다(이론상 하한이 0 이지만
                 실제로는 절대 안 나온다). 벤더가 비어서 0 이 온 것을 «0.0 Cool» 이라고
                 그리고 있었다 — 없는 것은 «—» 로 보여야 한다. 틀린 숫자보다 빈 칸이 낫다. */}
@@ -3366,7 +3366,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.p2Vital}>
-            <div className={s.k} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>VWAP<MetricInfo term="vwap" locale={locale} size={10} /></div>
+            <div className={`${s.k} ${s.lblAnchor}`}>VWAP<MetricInfo term="vwap" locale={locale} size={10} /></div>
             <div className={s.v}>{data.vwap > 0 ? `$${data.vwap.toFixed(2)}` : '—'}</div>
             {data.vwap > 0 && (() => {
               const vwapDiff = ((displayPrice - data.vwap) / data.vwap) * 100;
@@ -3387,7 +3387,7 @@ function CmdPageContent() {
             {/* ⚠️ 프리마켓엔 «오늘» 거래가 아직 없다. 그런데 여기 표시되는 고저는
                 전일(마지막 정규장) 범위다. 「DAY RANGE」라고 쓰면 오늘 것처럼 읽힌다.
                 수치가 맞아도 라벨이 틀리면 틀린 화면이다. (2026-08-31 대표 지적) */}
-            <div className={s.k}>{effectiveSession === 'PRE'
+            <div className={`${s.k} ${s.lblAnchor}`}>{effectiveSession === 'PRE'
               ? (locale === 'ko' ? '전일 범위' : locale === 'ja' ? '前日レンジ' : 'PREV RANGE')
               : 'DAY RANGE'}</div>
             {!(data.high > 0 && data.low > 0) ? (
@@ -3460,7 +3460,7 @@ function CmdPageContent() {
               display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, font: '700 11px/1 var(--f-sans)', letterSpacing: '.12em', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                <span className={s.lblAux} style={{ whiteSpace: 'nowrap' }}>
                   {locale === 'ko' ? '변동성' : locale === 'ja' ? 'ボラティリティ' : 'VOLATILITY'}
                   <MetricInfo term="volPremium" locale={locale} size={11} />
                 </span>
