@@ -110,10 +110,10 @@ const shell: CSSProperties = {
     + 'radial-gradient(86% 110% at 92% 96%, rgba(88,58,168,.14) 0%, transparent 64%),'
     + 'linear-gradient(158deg, #141f33 0%, #0c1524 100%)',
 };
-const head: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s3)', marginLeft: 'calc(var(--s3) * -1)', marginRight: 'calc(var(--s3) * -1)' };
+const head: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s3)', marginLeft: -6, marginRight: -6 };
 const titleStyle: CSSProperties = { font: 'var(--f-micro)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)' };
 // 제목 줄을 카드 가장자리(화면 x=16)에 맞춘다 — cmd .cardTitle 과 같은 규칙
-const headEdge: CSSProperties = { marginLeft: 'calc(var(--s3) * -1)', marginRight: 'calc(var(--s3) * -1)' };
+const headEdge: CSSProperties = { marginLeft: -6, marginRight: -6 };
 const pill = (chg: number): CSSProperties => ({ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', borderRadius: 9, background: chg >= 0 ? 'var(--green-dim)' : 'var(--red-dim)', border: `1px solid ${(chg >= 0 ? GREEN : RED)}33` });
 const pillDay: CSSProperties = { fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' };
 

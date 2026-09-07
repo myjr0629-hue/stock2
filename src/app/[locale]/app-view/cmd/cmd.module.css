@@ -330,9 +330,12 @@
      밀렸다 — 대표 지적 「중앙으로만 모이는 느낌」. 대시보드는 제목이 화면 기준
      x=16 에서 시작한다(.e9SectHead). 카드 패딩만큼 되돌려 같은 리듬으로 맞춘다.
      ⚠️ 여기에 padding 을 다시 주면 상쇄되어 제자리다(1차 시도에서 그랬다). */
-  margin-left: calc(var(--s3) * -1);
-  margin-right: calc(var(--s3) * -1);
-  /* [2026-09-07] 라벨은 «라벨 크기»로 일관되게(대표 지시).
+  /* [2026-09-07 2차] 패딩을 «통째로» 되돌렸더니 제목이 카드 벽에 딱 붙었다
+     (대표 지적: 「저렇게 어색하게 벽에 붙어있으면 좀 이상한데」).
+     절반만 되돌려 카드 안쪽 6px 을 남긴다 — 폭은 넓히되 숨 쉴 틈은 둔다. */
+  margin-left: -6px;
+  margin-right: -6px;
+  /* 라벨은 «라벨 크기»로 일관되게(대표 지시).
      애널리스트 컨센서스만 11px 이라 펀더멘탈(13px) 옆에서 작아 보였다.
      .premiumTitle 과 같은 규격으로 맞춘다. */
   font: 800 13px/1 var(--f-sans);
@@ -2517,10 +2520,9 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
 }
 .premiumHeader {
-  /* 제목 줄을 카드 가장자리에 맞춘다(.cardTitle 과 같은 규칙).
-     padding 을 같이 주면 상쇄되므로 마진만 되돌린다. */
-  margin-left: calc(var(--s3) * -1);
-  margin-right: calc(var(--s3) * -1);
+  /* 제목 줄을 .cardTitle 과 같은 규칙으로 — 카드 벽에 붙지 않게 6px 남긴다 */
+  margin-left: -6px;
+  margin-right: -6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
