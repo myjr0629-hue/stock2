@@ -3429,13 +3429,14 @@ function CmdPageContent() {
           const emph = rich || cheap || wide;
           return (
             <div style={{
-              marginTop: 8, padding: '9px 12px', borderRadius: 9,
-              border: `1px solid ${emph ? (rich || wide ? '#fbbf2455' : '#22d3ee55') : 'rgba(255,255,255,0.09)'}`,
-              background: 'rgba(30, 41, 59, 0.35)',
-              backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-              boxShadow: emph
-                ? `0 0 14px ${rich || wide ? 'rgba(251,191,36,.14)' : 'rgba(34,211,238,.14)'}, inset 0 1px 0 rgba(255,255,255,0.05)`
-                : '0 4px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)',
+              // [2026-09-07] 테두리·글로우 대신 «면»으로. 강조(emph)는 색을 지우는 게
+              //   아니라 그라디언트를 진하게 해서 표현한다 — 페이지 전체 규칙과 같다.
+              marginTop: 8, padding: '9px 12px', borderRadius: 10,
+              border: 0,
+              background: emph
+                ? `linear-gradient(160deg, ${rich || wide ? 'rgba(251,191,36,.15)' : 'rgba(34,211,238,.15)'}, rgba(255,255,255,.02))`
+                : 'linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016))',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05)',
               display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
