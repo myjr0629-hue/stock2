@@ -1360,9 +1360,7 @@
   border: 0;
   border-radius: 10px;
   padding: 10px 14px 9px;
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1538,9 +1536,7 @@
      37.8+4+37.8=79.6px 이 필요한데 내용폭이 71.7px 이었다(실측 8px 넘침).
      글자를 줄이지 않고 자리를 넓힌다 — 밀도 목표와도 같은 방향이다. */
   padding: 10px 8px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
   transition: border-color .2s ease;
 }
 .p2Vital:hover {
@@ -2692,8 +2688,9 @@
   gap: 10px;
 }
 .premForwardCard {
-  background: rgba(30, 41, 59, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016));
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
   border-radius: 10px;
   padding: 10px 12px;
   display: flex;

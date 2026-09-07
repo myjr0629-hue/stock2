@@ -95,17 +95,25 @@ export function App5DayTape({ ticker, locale = 'en' }: { ticker: string; locale?
 // Mirror the cmd .card / .cardTitle styles exactly so width, inset margin, border
 // and radius line up pixel-for-pixel with the sibling cards (chart, analyst).
 const shell: CSSProperties = {
-  background: 'rgba(22, 32, 54, 0.45)',
-  backdropFilter: 'var(--glass)',
-  WebkitBackdropFilter: 'var(--glass)',
-  border: '1px solid rgba(255, 255, 255, 0.055)',
+  // [2026-09-07] cmd .card 가 «표면 처리»로 바뀌었다(테두리·바깥그림자 제거 +
+  //   상단 빛선 + 2방향 그라디언트). 이 컴포넌트는 그 스타일을 «베껴» 쓰므로
+  //   같이 안 바꾸면 이 카드만 테두리가 남아 페이지에서 혼자 튄다.
+  position: 'relative',
+  overflow: 'hidden',
+  border: 0,
   borderRadius: 'var(--r-card)',
-  padding: 'var(--s4)',
+  padding: 'var(--s3)',
   margin: '0 var(--s4) var(--s3)',
-  boxShadow: 'var(--shadow)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.06)',
+  background:
+    'radial-gradient(78% 120% at 14% 0%,  rgba(34,211,238,.09) 0%, transparent 60%),'
+    + 'radial-gradient(86% 110% at 92% 96%, rgba(88,58,168,.14) 0%, transparent 64%),'
+    + 'linear-gradient(158deg, #141f33 0%, #0c1524 100%)',
 };
-const head: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s3)' };
+const head: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s3)', marginLeft: 'calc(var(--s3) * -1)', marginRight: 'calc(var(--s3) * -1)' };
 const titleStyle: CSSProperties = { font: 'var(--f-micro)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)' };
+// 제목 줄을 카드 가장자리(화면 x=16)에 맞춘다 — cmd .cardTitle 과 같은 규칙
+const headEdge: CSSProperties = { marginLeft: 'calc(var(--s3) * -1)', marginRight: 'calc(var(--s3) * -1)' };
 const pill = (chg: number): CSSProperties => ({ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', borderRadius: 9, background: chg >= 0 ? 'var(--green-dim)' : 'var(--red-dim)', border: `1px solid ${(chg >= 0 ? GREEN : RED)}33` });
 const pillDay: CSSProperties = { fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' };
 

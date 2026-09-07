@@ -3182,8 +3182,12 @@ function CmdPageContent() {
               //    ⓘ 버튼 클릭이 svg 로 먹혔다(실기기에서 대표가 발견).
               //    쌓임 맥락을 만들어 카드를 배경 위로 올린다.
               position: 'relative', zIndex: 2,
-              margin: '0 0 var(--s3)', padding: '12px 14px', borderRadius: 14,
-              border: `1px solid ${a(.28)}`, background: `linear-gradient(135deg, ${a(.10)}, rgba(255,255,255,.015))`,
+              // [2026-09-07] 테두리 대신 «면»으로. 카드마다 테두리를 그리면 페이지가
+              //   상자 더미가 된다 — 국면 색은 그라디언트로 그대로 살린다.
+              margin: '0 0 var(--s3)', padding: '12px 14px', borderRadius: 12,
+              border: 0,
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,.06)',
+              background: `linear-gradient(135deg, ${a(.16)}, rgba(255,255,255,.02))`,
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 900, letterSpacing: '.14em', color: 'var(--text-dim, #94a3b8)' }}>
