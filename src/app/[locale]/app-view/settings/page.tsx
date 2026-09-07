@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { IAP_LIVE } from '@/config/iap';
 import { ProPaywall } from '@/components/app/ProPaywall';
 import { useProStatus } from '@/hooks/useProStatus';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
@@ -229,7 +228,7 @@ export default function SettingsPage() {
   }, []);
 
   // Pro (ad-free) — inert while IAP_LIVE=false (isPro false, no SDK, card hidden).
-  const { isPro, restore } = useProStatus();
+  const { isPro, restore, iapAvailable } = useProStatus();
   const [proBusy, setProBusy] = useState(false);
 
   // 바이너리 실제 버전 (@capacitor/app). 플러그인 없으면 라이브 스토어 버전으로 폴백
@@ -455,7 +454,7 @@ export default function SettingsPage() {
         <div className={s.content}>
           {/* ── SIGNUM Pro (ad-free) — only when IAP is live (non-purchasable price
                 fails App Store 3.1.1). Upgrade / status / restore / manage. ── */}
-          {IAP_LIVE && (
+          {iapAvailable && (
             <div className={s.card}>
               <div
                 className={s.row}
@@ -729,7 +728,7 @@ export default function SettingsPage() {
       </div>
 
       {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지) */}
-      {IAP_LIVE && paywallOpen && (
+      {iapAvailable && paywallOpen && (
         <ProPaywall locale={locale} onClose={() => setPaywallOpen(false)} />
       )}
     </div>

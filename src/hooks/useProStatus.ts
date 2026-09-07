@@ -23,11 +23,30 @@ import {
 
 export function useProStatus() {
   const [isPro, setIsPro] = useState(false);
+  /**
+   * «여기서 실제로 구매가 되는가».
+   *
+   * IAP_LIVE 만으로는 부족하다 — 앱과 웹이 **같은 URL** 이라 플래그를 켜면
+   * 브라우저 방문자에게도 업그레이드 버튼이 뜬다. 결제 플러그인은 네이티브
+   * 전용이므로 그 버튼은 «가격 없음 · 비활성»으로 끝난다. 살릴 수 없는 버튼은
+   * 아예 보이지 않는 편이 낫다.
+   */
+  const [iapAvailable, setIapAvailable] = useState(false);
   const [ready, setReady] = useState(!IAP_LIVE);
   /** 페이월에 그릴 플랜들. 가격 문자열은 «스토어가 준 현지화 값»이다 —
       우리가 "$9.99" 를 하드코딩하면 통화·세금이 다른 나라에서 거짓말이 되고,
       스토어 심사(가격 표시 의무)에서도 걸린다. */
   const [offers, setOffers] = useState<PlanOffer[]>([]);
+
+  useEffect(() => {
+    if (!IAP_LIVE) return;
+    let alive = true;
+    (async () => {
+      const { Capacitor } = await import('@capacitor/core');
+      if (alive) setIapAvailable(Capacitor.isNativePlatform());
+    })().catch(() => { });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     if (!IAP_LIVE) return;
@@ -87,5 +106,5 @@ export function useProStatus() {
     return result;
   }, []);
 
-  return { isPro, ready, offers, purchase, restore };
+  return { isPro, ready, offers, purchase, restore, iapAvailable };
 }

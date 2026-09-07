@@ -9,7 +9,6 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
-import { IAP_LIVE } from '@/config/iap';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
@@ -2196,7 +2195,7 @@ export default function AppDashPage() {
                   ⚠️ 가격은 절대 쓰지 않는다 — 스토어가 준 값만 페이월이 보여준다
                      (한국은 ₩13,000 이라 $9.99 로 쓰면 표시 위반).
                   순서: 무료(광고)가 1순위, 구독은 2순위. 유료를 필수처럼 보이게 하지 않는다. */}
-              {IAP_LIVE && (
+              {adGate.iapAvailable && (
                 <>
                   <div className={n9.e9ProOr}><s />{c9.proOr}<s /></div>
                   <button type="button" className={n9.e9ProCta}

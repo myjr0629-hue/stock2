@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import styles from './ValueWall.module.css';
-import { IAP_LIVE } from '@/config/iap';
 import { useProStatus } from '@/hooks/useProStatus';
 import { ProPaywall } from './ProPaywall';
 
@@ -161,7 +160,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const [proNothing, setProNothing] = useState(false); // successful restore that found no entitlement
   const { unlocked, unlock } = useUnlockState();
   // Pro (paid, ad-free) is inert while IAP_LIVE=false: isPro stays false, no SDK.
-  const { isPro, purchase, restore } = useProStatus();
+  const { isPro, purchase, restore, iapAvailable } = useProStatus();
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
   const isUnlocked = unlocked || isPro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
@@ -246,10 +245,10 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
           legalNote={copyOut.legalNote}
           onClose={() => setShowAd(false)}
           onReward={finishUnlock}
-          onUpgrade={openPaywall}
+          onUpgrade={iapAvailable ? openPaywall : undefined}
         />
       )}
-      {IAP_LIVE && paywallOpen && (
+      {iapAvailable && paywallOpen && (
         <ProPaywall
           locale={resolveValueWallLocale(locale)}
           onClose={() => setPaywallOpen(false)}
@@ -259,7 +258,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   );
 
   return {
-    isUnlocked, unlocked, isPro,
+    isUnlocked, unlocked, isPro, iapAvailable,
     unlocking, purchasing, proError, proNothing,
     handleUnlockPress, openPaywall, handleRestore, finishUnlock,
     copy: copyOut, portals,
@@ -307,7 +306,7 @@ export function ValueWall({
   // rendered — the paid upgrade is now the proCta button below the free ad CTA.
   // 동작은 useAdUnlockGate 한 곳에만 있다(9차 대시보드 게이트와 공유).
   const {
-    isUnlocked, unlocking, purchasing, proError, proNothing,
+    isUnlocked, unlocking, purchasing, proError, proNothing, iapAvailable,
     handleUnlockPress, openPaywall, handleRestore, copy, portals,
   } = useAdUnlockGate(locale, onUnlock);
   const resolvedCtaLabel = ctaLabel || copy.ctaLabel;
@@ -357,9 +356,9 @@ export function ValueWall({
           <span>{unlocking ? copy.modalWaitPrefix : resolvedCtaLabel}</span>
         </button>
 
-        {/* Paid ad-free Pro upgrade. Inert while IAP_LIVE=false (a non-purchasable
-            price fails App Store 3.1.1); the free ad path above always stays. */}
-        {IAP_LIVE && (
+        {/* 유료 광고제거. 살 수 없는 자리에선 아예 안 보인다(iapAvailable = IAP_LIVE && 네이티브).
+            «가격은 있는데 못 산다»는 App Store 3.1.1 위반이다. 무료 광고 경로는 언제나 남는다. */}
+        {iapAvailable && (
           <>
             <button className={styles.proCta} onClick={openPaywall} disabled={purchasing || unlocking}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -446,7 +445,7 @@ function RewardedAdModal({
               {copy.continueLabel}
             </button>
             {/* 30초를 방금 참은 직후가 전환이 가장 높은 자리다. 밀지 않고 한 줄만 둔다. */}
-            {IAP_LIVE && onUpgrade && (
+            {onUpgrade && (
               <button
                 type="button"
                 className={styles.afterAdUpsell}
