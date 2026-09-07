@@ -1057,8 +1057,27 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
         return await getAggregates(symbol, 1, 'minute', fromDate.toISOString().split('T')[0], to);
       };
 
+      // ★★ [2026-09-07] 이 조건이 «틀린 것»을 세고 있었다.
+      //   getAggregates 의 반환에는 Intrinio 정규장 봉 + EC2 가 기록한 시간외 봉이
+      //   **합쳐져** 들어온다. 주말/연휴에는 2일 창이 거래일에 못 닿아 Intrinio 쪽이
+      //   0개인데, 시간외 봉만 117개가 붙어 `length < 30` 이 거짓이 된다 →
+      //   금요일까지 닿는 5일 창이 **영영 실행되지 않는다.**
+      //   실측(2026-09-06 일, 노동절 연휴): NVDA·AAPL·TSLA·SPY·MSFT 전 종목이
+      //   PRE 67 · 본장 **0** · POST 50 으로 나왔다. 본장이 통째로 빠진 차트다.
+      //   개수가 아니라 «본장 봉이 있는가»를 봐야 한다.
+      const hasRegularSession = (rows: any[]) => {
+        if (!Array.isArray(rows)) return false;
+        return rows.some((r) => {
+          const t = new Date(r?.date).getTime();
+          if (!Number.isFinite(t)) return false;
+          const et = new Date(new Date(t).toLocaleString('en-US', { timeZone: 'America/New_York' }));
+          const min = et.getHours() * 60 + et.getMinutes();
+          return min >= 570 && min < 960;   // 09:30 ~ 16:00 ET
+        });
+      };
+
       let data = await fetchWindow(2);
-      if (!Array.isArray(data) || data.length < 30) {
+      if (!Array.isArray(data) || data.length < 30 || !hasRegularSession(data)) {
         // 연휴/장기 휴장 — 원래의 5일 창으로 다시 본다.
         data = await fetchWindow(5);
       }
