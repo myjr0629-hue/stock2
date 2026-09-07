@@ -110,7 +110,10 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 //
 // ⚠️ RETENTION 이 FRESH 보다 훨씬 길어야 «즉시 주고 뒤에서 갱신»이 성립한다.
 //    둘이 같으면 낡은 값이 남지 않아 콜드 인스턴스가 다시 상류로 간다.
-const MACRO_REDIS_KEY = 'macro:snapshot:v1';
+// [2026-09-07] v1 → v2: factors 에 lastChangeAt / frozenSec 이 추가됐다.
+// 키를 안 올리면 옛 페이로드가 15분 동안 200 OK 로 나가고 새 필드가 조용히 빠진다
+// → 소비자는 «frozenSec 없음 = 모름»으로 읽어 전부 DELAYED 로 보인다.
+const MACRO_REDIS_KEY = 'macro:snapshot:v2';
 const MACRO_FRESH_MS = 60_000;        // 이 안쪽이면 «신선»
 const MACRO_RETENTION_SEC = 15 * 60;  // 낡아도 15분은 들고 있는다 (즉시 응답용)
 let macroRefreshing = false;          // 배경 갱신 중복 방지
