@@ -138,10 +138,11 @@ export function MobileCongressCard({ ticker, locale = 'en' }: { ticker: string; 
 
     const { text, tone } = readOut(sig, lag, insiderDir, loc);
     const toneColor = tone === 'up' ? 'text-emerald-400' : tone === 'down' ? 'text-rose-400' : 'text-slate-300';
-    const accent = tone === 'up' ? 'border-emerald-500/25' : tone === 'down' ? 'border-rose-500/25' : 'border-white/[0.08]';
+    // [2026-09-07] 상태 색을 «테두리»가 아니라 «면»으로 — 커맨드 페이지 전체 규칙
+    const accent = tone === 'up' ? 'bg-emerald-500/[0.10]' : tone === 'down' ? 'bg-rose-500/[0.10]' : 'bg-white/[0.055]';
 
     return (
-        <div className={`rounded-xl bg-white/[0.03] border ${accent} p-3 space-y-2`}>
+        <div className={`rounded-xl ${accent} p-3 space-y-2`}>
             <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-[12px] font-bold text-slate-300">
                     <Landmark className="w-3.5 h-3.5 text-sky-400" />

@@ -413,7 +413,7 @@ export default function IVSkewCurve({
     }, [xScale, W]);
 
     return (
-        <div className="rounded-2xl border border-white/[0.06] bg-[#0f172a]/50 backdrop-blur-xl shadow-2xl flex flex-col relative overflow-hidden transition-all duration-300">
+        <div className="rounded-2xl bg-[#101a2c] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] flex flex-col relative overflow-hidden transition-all duration-300">
             {/* Header */}
             <div className="p-4 border-b border-white/[0.04] flex items-center justify-between bg-white/[0.01]">
                 <div className="flex items-center gap-2">
@@ -690,7 +690,7 @@ export default function IVSkewCurve({
             </div>
 
             {/* Skew Verdict Summary Card (Image 2 style) */}
-            <div className="mx-4 mb-4 p-3.5 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+            <div className="mx-4 mb-4 p-3.5 rounded-xl bg-white/[0.05]">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-indigo-400">

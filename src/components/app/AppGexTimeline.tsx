@@ -392,7 +392,7 @@ function Header({ locale, value, percentile, isPositive }: { locale: string; val
 
 function LevelChip({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div style={{ flex: 1, padding: '8px 10px', borderRadius: 9, background: 'var(--surface-1)', border: '1px solid var(--border)' }}>
+    <div style={{ flex: 1, padding: '8px 10px', borderRadius: 10, background: 'linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.045)' }}>
       <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginBottom: 2 }}>{label}</div>
       <div style={{ fontSize: 14, fontWeight: 700, color, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
     </div>
@@ -408,11 +408,11 @@ const shell: CSSProperties = {
 };
 const skeleton: CSSProperties = { borderRadius: 8, background: 'linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.08), rgba(255,255,255,0.04))' };
 const emptyBox: CSSProperties = { marginTop: 10, padding: '20px 12px', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 };
-const statCard: CSSProperties = { flex: 1, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-1)', border: '1px solid var(--border)' };
+const statCard: CSSProperties = { flex: 1, padding: '10px 12px', borderRadius: 10, background: 'linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.045)' };
 const statBig: CSSProperties = { fontSize: 20, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'baseline', gap: 5, fontVariantNumeric: 'tabular-nums' };
 const statUnit: CSSProperties = { fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' };
 const statLabel: CSSProperties = { fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: 0.4, marginTop: 3, textTransform: 'uppercase' };
-const whatCard: CSSProperties = { marginTop: 12, padding: '11px 12px', borderRadius: 10, background: 'var(--surface-1)', border: '1px solid var(--border)' };
+const whatCard: CSSProperties = { marginTop: 12, padding: '11px 12px', borderRadius: 10, background: 'linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.045)' };
 const whatLabel: CSSProperties = { fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 };
 const interpStrong: CSSProperties = { fontSize: 12.5, fontWeight: 600, lineHeight: 1.5, color: 'var(--text)' };
 const interpLine: CSSProperties = { fontSize: 11.5, lineHeight: 1.55, color: 'var(--text-dim)', marginTop: 4 };

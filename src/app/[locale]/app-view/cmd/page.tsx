@@ -3684,7 +3684,7 @@ function CmdPageContent() {
                     )}
                   </div>
                   {tl(verdictHeader.keyInsight, locale) && (
-                    <div className="mt-2.5 px-3 py-2.5 rounded-xl border border-cyan-500/15" style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(99,102,241,0.04))' }}>
+                    <div className="mt-2.5 px-3 py-2.5 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(99,102,241,0.04))' }}>
                       <p className="text-[12.5px] text-slate-300 leading-relaxed font-sans">{tl(verdictHeader.keyInsight, locale)}</p>
                     </div>
                   )}

@@ -285,7 +285,7 @@ export function MobileCmd13F({ ticker, locale = 'en' }: { ticker: string; locale
             </div>
 
             {/* Toggle Bar */}
-            <div className="flex rounded-xl bg-white/[0.04] border border-white/[0.06] p-1 gap-1">
+            <div className="flex rounded-xl bg-white/[0.055] p-1 gap-1">
                 <button
                     onClick={() => setSub('13f')}
                     className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all ${sub === '13f' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 active:bg-white/[0.06]'}`}
