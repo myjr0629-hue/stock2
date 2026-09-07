@@ -197,7 +197,7 @@ export function SectorCommanderLog({ config, quotes }: SectorCommanderLogProps) 
     }
 
     return (
-        <div className="bg-[#0a0f18]/80 backdrop-blur-lg border border-slate-800/50 rounded-xl p-5 shadow-lg">
+        <div className="bg-[#0a0f18]/80 backdrop-blur-lg border border-slate-800/50 rounded-xl p-5">
             {/* ── Header ── */}
             <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">

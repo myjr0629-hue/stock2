@@ -159,7 +159,7 @@ const stripBox: CSSProperties = {
     appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
     display: 'block', width: '100%', minWidth: 0, textAlign: 'left',
     padding: '9px 12px', margin: '10px 0 0 0', borderRadius: 12, cursor: 'pointer',
-    background: 'rgba(148,163,184,0.04)', border: '1px solid rgba(148,163,184,0.14)',
+    background: 'rgba(148,163,184,0.04)', border: '1px solid transparent',
 };
 const overlay: CSSProperties = {
     position: 'fixed', inset: 0, zIndex: 9999,

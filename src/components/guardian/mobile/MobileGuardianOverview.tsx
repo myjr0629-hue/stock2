@@ -133,7 +133,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
     return (
         <div className="space-y-3">
             {/* ── GRAVITY GAUGE ── */}
-            <div className="backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl overflow-hidden"
+            <div className="backdrop-blur-md border border-slate-800 rounded-lg p-3 relative overflow-hidden"
                 style={{ background: 'radial-gradient(circle at 50% 70%, rgba(52,211,153,0.12) 0%, transparent 50%), radial-gradient(circle at 20% 30%, rgba(6,182,212,0.06) 0%, transparent 40%), rgba(10,14,20,0.85)' }}>
                 {/* HUD Background */}
                 <div className="absolute inset-0 pointer-events-none">
@@ -166,7 +166,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
             </div>
 
             {/* ── RLSI INSIGHT / WHAT-IF ── */}
-            <div className="backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl overflow-hidden"
+            <div className="backdrop-blur-md border border-slate-800 rounded-lg relative overflow-hidden"
                 style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}>
                 <ProGate title="RLSI Insight" fomoMessage={gt('fomoRlsiInsight')} description={gt('descRlsiInsight')} mode="blur" compact>
                     {/* Premium Segment Control */}
@@ -232,7 +232,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
             </div>
 
             {/* ── FEDWATCH & LIQUIDITY (PREMIUM) ── */}
-            <div className="backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl overflow-hidden"
+            <div className="backdrop-blur-md border border-slate-800 rounded-lg relative overflow-hidden"
                 style={{ background: 'linear-gradient(180deg, rgba(139,92,246,0.10) 0%, rgba(139,92,246,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}>
                 <ProGate title="Macro Intelligence" fomoMessage={gt('fomoMacroBriefing')} description={gt('descMacroBriefing')} mode="blur" compact>
                     <div className="p-2.5 space-y-2.5">

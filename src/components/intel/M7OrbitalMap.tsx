@@ -47,7 +47,7 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
     const sunHalo = getHaloColor(sunChange);
 
     return (
-        <div className="relative w-full h-[320px] bg-[#050914] rounded-xl overflow-hidden border border-slate-800/50 shadow-lg flex flex-col items-center justify-center">
+        <div className="relative w-full h-[320px] bg-[#050914] rounded-xl overflow-hidden border border-slate-800/50 flex flex-col items-center justify-center">
             {/* HUD Frame */}
             <div className="absolute inset-0 pointer-events-none border-[0.5px] border-slate-800/30 rounded-xl">
                 <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-emerald-500/30 rounded-tl-lg" />

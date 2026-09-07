@@ -615,8 +615,14 @@ export default function AppDashPage() {
       if (update) {
         const currentPrice = update.price;
         const prevPrice = prevPricesRef.current[sym];
-        
-        if (prevPrice !== undefined && prevPrice > 0 && currentPrice !== prevPrice) {
+
+        // ★ [2026-09-08] 세션이 닫혀 있으면 «깜빡이지 않는다».
+        //   전엔 조건이 «값이 바뀌었나»뿐이었다. 휴장·마감에 벤더가 늦은 정정
+        //   한 건만 보내도 화면이 살아 있는 것처럼 번쩍인다 — 대시보드가
+        //   LIVE 배지를 데이터 기준으로 고친 것과 같은 이유로 여기도 막는다.
+        const flashAllowed = equityExtendedLive && !isMarketHoliday;
+
+        if (flashAllowed && prevPrice !== undefined && prevPrice > 0 && currentPrice !== prevPrice) {
           const direction = currentPrice > prevPrice ? 'up' : 'down';
           setFlashStates(prev => ({ ...prev, [sym]: direction }));
           
@@ -635,7 +641,7 @@ export default function AppDashPage() {
         prevPricesRef.current[sym] = currentPrice;
       }
     });
-  }, [wsPrices, wsSymbols]);
+  }, [wsPrices, wsSymbols, equityExtendedLive, isMarketHoliday]);
 
   // Determine if a specific index/macro cell is currently "active" (trading hours)
   const checkIsItemActive = (symOrLabel: string): boolean => {
@@ -1979,7 +1985,8 @@ export default function AppDashPage() {
                       </span>
                       <span className={n9.e9IxName}>{IX_BADGE[p.sym]?.full || p.sym}</span>
                     </span>
-                    <span className={`${n9.e9IxV} num`}>
+                    <span className={`${n9.e9IxV} num ${flashStates[p.sym] === 'up' ? n9.flashUp
+                      : flashStates[p.sym] === 'down' ? n9.flashDown : ''}`}>
                       {p.noData && !useWs ? '—' : p.sym === 'VIX' ? px.toFixed(2) : fmtPrice(px)}
                     </span>
                     <span className={`${n9.e9IxP} num ${up ? n9.gr : n9.rd}`}>
@@ -2272,7 +2279,11 @@ export default function AppDashPage() {
                         </svg>
                       : <span className={n9.e9MvSpark} />}
                     <b className={`${n9.e9MvP} num ${isUp ? n9.gr : n9.rd}`}>{displayChg}</b>
-                    <span className={`${n9.e9MvPx} num`}>${displayPx}</span>
+                    {/* [2026-09-08] flashStates 는 계산만 하고 «그리는 쪽»이 없었다.
+                        선언부 한 곳에서만 쓰이고 화면엔 전달되지 않았다(조용한 누락).
+                        9차 재설계 때 옛 dash.module.css 의 플래시 규칙이 안 넘어왔다. */}
+                    <span className={`${n9.e9MvPx} num ${flashStates[mv.sym] === 'up' ? n9.flashUp
+                      : flashStates[mv.sym] === 'down' ? n9.flashDown : ''}`}>${displayPx}</span>
                   </a>
                 );
               })}

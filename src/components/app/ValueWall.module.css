@@ -6,7 +6,7 @@
   overflow: hidden;
   margin: 0 var(--s4) var(--s3);
   border: 1px solid rgba(245, 158, 11, 0.30);
-  box-shadow: 0 0 0 1px rgba(245,158,11,0.06), 0 0 38px rgba(245,158,11,0.10), var(--shadow);
+  box-shadow: 0 0 0 1px rgba(245,158,11,0.06), 0 0 38px rgba(245,158,11,0.10);
   min-height: 258px;
 }
 

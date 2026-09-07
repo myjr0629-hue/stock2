@@ -568,7 +568,7 @@ export default function RLSIInsightPanel({
                 {/* A/D Ratio + Volume Breadth — Card Style */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-none" style={!breadthLive ? { opacity: 0.4, filter: 'saturate(0.5)' } : undefined}>
                     {/* A/D Ratio Card — Glassmorphism */}
-                    <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5 shadow-lg">
+                    <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-[12px] text-white font-bold uppercase tracking-wide">{t('adRatioLabel')}</span>
@@ -590,7 +590,7 @@ export default function RLSIInsightPanel({
                     </div>
 
                     {/* Volume Breadth Card — Glassmorphism */}
-                    <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5 shadow-lg">
+                    <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-[12px] text-white font-bold uppercase tracking-wide">{t('volAnalysis')}</span>
@@ -660,7 +660,7 @@ export default function RLSIInsightPanel({
                             display: 'flex', flexDirection: 'column',
                             borderRadius: 18, padding: '18px 16px 14px',
                             background: 'linear-gradient(180deg, rgba(17, 27, 46, 0.99), rgba(9, 16, 32, 0.99))',
-                            border: '1px solid rgba(148, 163, 184, 0.18)',
+                            border: '1px solid transparent',
                             boxShadow: '0 24px 64px rgba(0, 0, 0, 0.6)',
                         }}
                     >

@@ -93,7 +93,7 @@ function GammaGateSubtitle({ locale }: { locale: LocaleKey }) {
     const copy = APP_GATE_COPY[locale];
     return (
         <div style={{ display: 'grid', gap: 8, textAlign: 'left', width: '100%' }}>
-            <div style={{ color: 'rgba(226,232,240,0.92)', lineHeight: 1.45, textAlign: 'center' }}>
+            <div style={{ color: 'var(--app-lbl-signal)', lineHeight: 1.45, textAlign: 'center' }}>
                 {copy.explain}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
@@ -445,10 +445,10 @@ function GammaShieldAiCard({
 
     return (
         <div
-            className="relative overflow-hidden rounded-2xl border border-cyan-300/25 p-4 shadow-2xl"
+            className="relative overflow-hidden rounded-2xl border border-cyan-300/25 p-4"
             style={{
                 background: 'radial-gradient(circle at 16% 0%, rgba(20,184,166,0.18), transparent 34%), linear-gradient(145deg, rgba(15,23,42,0.96), rgba(2,6,23,0.98))',
-                boxShadow: '0 18px 48px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.045)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
             }}
         >
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />

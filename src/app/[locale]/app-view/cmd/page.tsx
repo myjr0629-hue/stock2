@@ -2581,13 +2581,17 @@ function CmdPageContent() {
     displayPriceRef.current = displayPrice;
     displayChangePctRef.current = displayChangePct;
     effectiveSessionRef.current = effectiveSession;
-    if (displayPrice !== prevPriceRef.current) {
+    // [2026-09-08] 세션이 닫혀 있으면 깜빡이지 않는다. 전엔 «값이 바뀌었나»만 봤다 —
+    //   휴장·마감에 벤더의 늦은 정정 한 건에도 화면이 살아 있는 것처럼 번쩍인다.
+    const live = effectiveSession === 'PRE' || effectiveSession === 'REG' || effectiveSession === 'POST';
+    if (live && displayPrice !== prevPriceRef.current) {
       const isUp = displayPrice >= prevPriceRef.current;
       setFlash(isUp ? 'up' : 'down');
       prevPriceRef.current = displayPrice;
-      const tId = setTimeout(() => setFlash(null), 450);
+      const tId = setTimeout(() => setFlash(null), 500);   // 대시보드와 같은 0.5s
       return () => clearTimeout(tId);
     }
+    prevPriceRef.current = displayPrice;
   }, [displayPrice, displayChangePct, effectiveSession]);
 
   useEffect(() => {

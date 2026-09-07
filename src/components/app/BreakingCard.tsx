@@ -186,7 +186,7 @@ export function BreakingCard({ locale }: { locale: string }) {
                 onClick={() => setOpenId(null)}
                 style={{
                   marginLeft: 'auto', appearance: 'none', background: 'rgba(255,255,255,0.07)',
-                  border: '1px solid rgba(255,255,255,0.12)', color: '#C7D2E0',
+                  border: '1px solid transparent', color: '#C7D2E0',
                   borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 800,
                   cursor: 'pointer',
                 }}
