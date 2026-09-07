@@ -2124,6 +2124,35 @@ function CmdPageContent() {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchVal, setSearchVal] = useState('');
+  /* [2026-09-08] 검색이 «입력창 하나»였다. 티커를 모르면 종목을 찾을 수 없었다
+     (실측: q=tes 에 TSLA 가 안 나오고 GTES 가 나왔다).
+     이름으로도 찾고, 비어 있을 땐 «자주 보는 종목»을 먼저 보여준다. */
+  const [searchHits, setSearchHits] = useState<{ symbol: string; name: string }[]>([]);
+  const [searchBusy, setSearchBusy] = useState(false);
+
+  useEffect(() => {
+    const q = searchVal.trim();
+    if (!isSearchOpen || q.length < 1) { setSearchHits([]); setSearchBusy(false); return; }
+    let dead = false;
+    setSearchBusy(true);
+    const id = setTimeout(async () => {          // 타자마다 때리지 않는다
+      try {
+        const r = await fetch(`/api/tickers/search?q=${encodeURIComponent(q)}`).then(x => x.json());
+        if (!dead) setSearchHits(Array.isArray(r?.results) ? r.results : []);
+      } catch { if (!dead) setSearchHits([]); }
+      finally { if (!dead) setSearchBusy(false); }
+    }, 180);
+    return () => { dead = true; clearTimeout(id); };
+  }, [searchVal, isSearchOpen]);
+
+  const goTicker = (sym: string) => {
+    const t = String(sym || '').trim().toUpperCase();
+    if (!t) return;
+    setIsSearchOpen(false);
+    setSearchVal('');
+    setSearchHits([]);
+    router.push(`/${locale}/app-view/cmd?t=${t}`);
+  };
 
   /** 다크풀 해석 펼침 — 기본은 접힘(핵심만). 대표 지적: 화면을 너무 많이 차지한다 */
   const [dpOpen, setDpOpen] = useState(false);
@@ -3049,7 +3078,9 @@ function CmdPageContent() {
       </div>
 
       {/* ── Ticker quick-pick chips (recently-viewed + popular) ── */}
-      <div style={{ display: 'flex', gap: '8px', padding: '8px 16px 4px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="no-scrollbar">
+      {/* [2026-09-08] 위아래 빈 공간이 컸다(실측 44px = 패딩 8/4 + 칩 32).
+          패딩 5/5 · 칩 30 → 40px. 대표 지적 「위아래로 빈공간이 너무 크다」 */}
+      <div style={{ display: 'flex', gap: '7px', padding: '5px 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="no-scrollbar">
         {chipTickers.map((sym) => {
           const isActive = ticker === sym;
           return (
@@ -3058,7 +3089,7 @@ function CmdPageContent() {
               onClick={() => { if (sym !== ticker) router.push(`/${locale}/app-view/cmd?t=${sym}`); }}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                height: '32px', minHeight: 0, padding: '0 12px', boxSizing: 'border-box',
+                height: '30px', minHeight: 0, padding: '0 11px', boxSizing: 'border-box',
                 borderRadius: 'var(--r-pill, 999px)', border: '1px solid',
                 borderColor: isActive ? 'var(--cyan, #06b6d4)' : 'rgba(255,255,255,0.06)',
                 background: isActive ? 'rgba(30,41,59,0.55)' : 'rgba(255,255,255,0.02)',
@@ -4059,22 +4090,21 @@ function CmdPageContent() {
             </div>
             <form onSubmit={(e) => {
               e.preventDefault();
-              if (searchVal.trim()) {
-                setIsSearchOpen(false);
-                router.push(`/app-view/cmd?t=${searchVal.trim().toUpperCase()}`);
-                setSearchVal('');
-              }
+              // 후보가 있으면 첫 후보로 — 티커를 정확히 몰라도 엔터로 간다
+              goTicker(searchHits[0]?.symbol || searchVal);
             }}>
               <div className={s.searchInputWrap}>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className={s.searchInput}
-                  placeholder={locale === 'ko' ? '티커 입력 (예: TSLA, AAPL)...' : locale === 'ja' ? 'ティッカー入力 (例: TSLA, AAPL)...' : 'Enter ticker (e.g. TSLA, AAPL)...'}
+                  placeholder={locale === 'ko' ? '종목명 또는 티커 (예: 테슬라, TSLA)'
+                    : locale === 'ja' ? '銘柄名またはティッカー (例: Tesla, TSLA)'
+                    : 'Company or ticker (e.g. Tesla, TSLA)'}
                   value={searchVal}
                   onChange={(e) => setSearchVal(e.target.value)}
                   autoFocus
                 />
-                <button type="submit" className={s.searchSubmitBtn}>
+                <button type="submit" className={s.searchSubmitBtn} aria-label="search">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <circle cx="11" cy="11" r="7" stroke="#0b111e" strokeWidth="2.5" />
                     <path d="m16.5 16.5 4 4" stroke="#0b111e" strokeWidth="2.5" strokeLinecap="round" />
@@ -4082,6 +4112,49 @@ function CmdPageContent() {
                 </button>
               </div>
             </form>
+
+            {/* 입력 전 — 자주 보는 종목을 먼저 준다(빈 화면을 주지 않는다) */}
+            {!searchVal.trim() && (
+              <div className={s.searchSection}>
+                <div className={s.searchSectionTitle}>
+                  {locale === 'ko' ? '자주 보는 종목' : locale === 'ja' ? 'よく見る銘柄' : 'Frequently viewed'}
+                </div>
+                <div className={s.searchChips}>
+                  {chipTickers.slice(0, 10).map((sym) => (
+                    <button key={sym} type="button" className={s.searchChip} onClick={() => goTicker(sym)}>
+                      <AppTickerLogo symbol={sym} size={16} />
+                      <span>{sym}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 입력 후 — 티커 + 회사명 후보 */}
+            {!!searchVal.trim() && (
+              <div className={s.searchSection}>
+                {searchHits.length > 0 ? (
+                  <div className={s.searchResults}>
+                    {searchHits.map((r) => (
+                      <button key={r.symbol} type="button" className={s.searchResultRow}
+                        onClick={() => goTicker(r.symbol)}>
+                        <AppTickerLogo symbol={r.symbol} size={20} />
+                        <span className={s.searchResultSym}>{r.symbol}</span>
+                        {r.name && <span className={s.searchResultName}>{r.name}</span>}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={s.searchEmpty}>
+                    {searchBusy
+                      ? (locale === 'ko' ? '찾는 중…' : locale === 'ja' ? '検索中…' : 'Searching…')
+                      : (locale === 'ko' ? '결과가 없습니다. 종목명이나 티커를 다시 확인해 주세요.'
+                        : locale === 'ja' ? '結果がありません。銘柄名かティッカーをご確認ください。'
+                        : 'No matches. Check the company name or ticker.')}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
