@@ -419,6 +419,9 @@
 
 /* ── Analyst Consensus ── */
 .analystHead {
+  /* 다른 카드 머리글(.premiumHeader)과 같은 여백 규칙 — 실측에서 여기만 12px 이었다 */
+  margin-left: -6px;
+  margin-right: -6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
