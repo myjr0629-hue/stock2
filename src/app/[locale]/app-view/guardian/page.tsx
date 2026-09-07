@@ -363,7 +363,9 @@ function GuardianPageContent() {
           borderRadius: 18,
           border: '1px solid transparent',
           background: 'linear-gradient(145deg, rgba(15,23,42,0.78), rgba(2,6,23,0.66))',
-          boxShadow: '0 18px 48px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.06)',
+          // [2026-09-08] 바깥 그림자를 지운다 — 카드가 페이지 «위에 뜬» 느낌의 원인.
+          //   대시보드 .e9Surf 처럼 상단 빛선만 남긴다.
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
         }}>
           <div style={{
             position: 'absolute',
@@ -431,7 +433,7 @@ function GuardianPageContent() {
           borderRadius: '18px 18px 13px 13px',
           border: '1px solid rgba(52,211,153,0.14)',
           background: 'linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.68))',
-          boxShadow: '0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.055)',
           WebkitBackdropFilter: 'blur(18px) saturate(1.25)',
           backdropFilter: 'blur(18px) saturate(1.25)'
         }}>
