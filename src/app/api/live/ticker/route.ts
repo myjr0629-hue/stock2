@@ -766,7 +766,11 @@ export async function GET(req: NextRequest) {
         default: // CLOSED session
             // [Fix] Show Regular Close Logic (Intraday) because Post Market is separately displayed
             // Prioritize Regular Close > Post Price (if Reg missing) > Last Trade
-            activePrice = regularCloseToday || regularCloseHoliday || postPrice || liveLast || prevRegularClose;
+            // 휴장일 교정이 돌았다면 «일봉의 공식 종가»가 1순위다.
+            // regularCloseToday(S.day.c)는 휴장일에 마지막 체결가를 그대로 비추기 때문에
+            // 종가와 몇 센트 어긋난다 (NVDA 230.31 vs 공식 230.36 → 0.81% vs 0.84%).
+            activePrice = (baselineHolidayCorrected ? regularCloseHoliday : null)
+                || regularCloseToday || postPrice || liveLast || prevRegularClose;
             baselinePrice = prevRegularClose; // Always use prevClose as baseline for main change%
 
             // Calculate change
