@@ -5,6 +5,23 @@ import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 
+/**
+ * 휴장일의 «오늘 바»인가.
+ *
+ * 벤더는 휴장일에 두 가지로 답한다:
+ *   ① day.c = 0         — 바를 안 준다
+ *   ② day.c = prevDay.c — 전일 종가를 그대로 복사한다(미러)
+ *
+ * ②를 «정상 데이터»로 읽으면 등락률이 0 이 되어 전 종목이 보합으로 나간다.
+ * 값이 있으니 빈칸 검사에도 안 걸린다 — 조용히 틀리는 종류다.
+ */
+function isHolidayDayBar(S: any): boolean {
+    const d = Number(S?.day?.c) || 0;
+    const p = Number(S?.prevDay?.c) || 0;
+    if (!d) return true;
+    return p > 0 && d === p;
+}
+
 export const dynamic = 'force-dynamic'; // No caching allowed
 
 // ── [REDIS OPT] In-memory cache for flow:extended — 60s TTL ──
@@ -110,13 +127,20 @@ export async function GET(request: Request) {
                 })
             );
         }
-        // [HOLIDAY] Reconstruct the last real session for tickers whose snapshot day
-        // bar is empty (day.c=0 on a market holiday) — see src/services/lastSession.ts.
-        // On weekends the snapshot keeps Friday's bar (day.c>0), so this never triggers there.
+        // [HOLIDAY] Reconstruct the last real session — see src/services/lastSession.ts.
+        //
+        // ★ 2026-09-07(노동절) 실측: 휴장의 지문은 «빈 바» 하나가 아니라 둘이다.
+        //     ① day.c = 0        — 벤더가 오늘 바를 아예 안 준다
+        //     ② day.c = prevDay.c — 벤더가 «전일 종가를 그대로 복사»한다  ← 이번 경우
+        //   ②를 빼놨더니 재구성이 안 돌아 NVDA -0.02%(실제 +0.84%) ·
+        //   TSLA -0.05%(실제 -5.92%)로 나갔다. 가격이 «있어서» 조용히 틀렸다.
+        //
+        // 주말은 금요일 바가 남아 day.c ≠ prevDay.c 이므로 여기 걸리지 않는다.
+        // 진짜로 보합 마감한 날에 걸리더라도 재구성 결과가 같은 값이라 해가 없다.
         let reconMap: Record<string, LastSessionData> = {};
         if (session === 'closed') {
             const holidayTickers = results
-                .filter(r => r.snapshot && !(r.snapshot.day?.c))
+                .filter(r => r.snapshot && isHolidayDayBar(r.snapshot))
                 .map(r => r.ticker);
             if (holidayTickers.length > 0) {
                 reconMap = await reconstructLastSession(holidayTickers);
@@ -268,7 +292,7 @@ export async function GET(request: Request) {
             // [HOLIDAY] Override with reconstructed last-session data when the snapshot
             // day bar is empty (day.c=0 on a market holiday), so change% and POST reflect
             // the last real session instead of collapsing to prevClose / 0.00% / a mirror.
-            const recon = (session === 'closed' && !dayClose) ? reconMap[ticker] : undefined;
+            const recon = (session === 'closed' && isHolidayDayBar(S)) ? reconMap[ticker] : undefined;
             const outPrice = recon ? recon.regClose : price;
             const outPrevClose = recon ? recon.prevClose : prevClose;
             const outChangePct = recon ? recon.changePct : changePercent;
