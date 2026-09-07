@@ -26,9 +26,10 @@ async function auditTicker(t) {
     const bad = [];
     const add = (code, msg) => bad.push({ code, msg });
 
-    const [k, q] = await Promise.all([
+    const [k, q, ch] = await Promise.all([
         j(`/api/live/ticker?t=${t}&skip_alpha=1&chain=0`),
         j(`/api/live/quotes?symbols=${t}`),
+        j(`/api/chart?symbol=${t}&range=1M`),
     ]);
     if (!k) return [{ code: 'FETCH', msg: 'live/ticker 응답 없음' }];
     const Q = q?.data?.[t] || null;
@@ -57,6 +58,29 @@ async function auditTicker(t) {
         add('CHG_MISMATCH', `changePct ${(k.changePct * 100).toFixed(2)}% ≠ 재계산 ${(recomputed * 100).toFixed(2)}%`);
     if (Number.isFinite(D.changePctPct) && !near(D.changePctPct, k.changePct * 100, 0.05))
         add('DISPLAY_MISMATCH', `display ${D.changePctPct}% ≠ changePct ${(k.changePct * 100).toFixed(2)}%`);
+
+    // ── ②-B ★ 자기들끼리 맞는 것만으로는 부족하다 — «정답»과 대조한다 ──
+    //   [2026-09-07 노동절] changePct 와 display 가 서로 «맞아서» 검사기가 통과시켰는데
+    //   둘 다 틀렸다. 22종목 중 14종목이 보합(±0.0x%)으로 나갔다.
+    //   정답은 화면이 아니라 «일봉»에 있다: 마지막 두 거래일 종가의 비율.
+    const bars = (ch?.data || [])
+        .map((r) => ({ d: String(r?.date || r?.t || '').slice(0, 10), c: Number(r?.close ?? r?.c) }))
+        .filter((r) => r.d && Number.isFinite(r.c) && r.c > 0)
+        .sort((a, b) => a.d.localeCompare(b.d));
+    if (bars.length >= 2 && (session === 'CLOSED' || session === 'POST')) {
+        const [p2, p1] = [bars[bars.length - 2], bars[bars.length - 1]];
+        const truthPct = ((p1.c - p2.c) / p2.c) * 100;
+        // 표시 등락률
+        if (Number.isFinite(D.changePctPct) && Math.abs(D.changePctPct - truthPct) > 0.05)
+            add('TRUTH_MISMATCH', `display ${D.changePctPct}% ≠ 일봉 정답 ${truthPct.toFixed(2)}% (${p2.d} ${p2.c} → ${p1.d} ${p1.c})`);
+        // 기준선이 «표시 중인 세션 그 자체»면 자기 자신과 비교한 것이다 — 휴장일의 지문
+        if (base > 0 && Math.abs(base - p1.c) / p1.c < 0.0002)
+            add('BASE_IS_SELF', `기준선 ${base} 이 직전장 종가 ${p1.c}(${p1.d}) 와 같다 — 자기 자신과 비교하고 있다`);
+        // /api/live/quotes 도 같은 정답을 봐야 한다 (생산자가 둘이다)
+        const qp = Q?.changePercent;
+        if (Number.isFinite(qp) && Math.abs(qp - truthPct) > 0.05)
+            add('QUOTES_TRUTH_MISMATCH', `quotes ${qp.toFixed(2)}% ≠ 일봉 정답 ${truthPct.toFixed(2)}%`);
+    }
 
     // ── ③ VWAP — 종가의 1/3 조작값이 매일 아침 나갔다 ────────
     const vw = k.vwap;
