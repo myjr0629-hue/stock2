@@ -1,5 +1,58 @@
 /* ── CMD: Command Tab — Ticker Analysis ── */
 
+/* ═══════════════════════════════════════════════════════════════════
+   표면 처리 — 대시보드(.e9Surf)와 «방식»을 공유한다. 색조는 커맨드 것.
+
+   대표 지적: 「대시보드 카드가 페이지에 녹아든다」. 실측해 보니 색이 아니라
+   표면 처리였다.
+
+     대시보드            커맨드(전)
+     테두리 없음         1px solid              ← 카드를 «가둔다»
+     바깥 그림자 없음     0 4px 24px rgba(0,0,0,.4)  ← 페이지 «위에 뜬다»
+     상단 inset 빛선     없음
+     2방향 그라디언트     평평한 단색
+
+   테두리와 바깥 그림자를 지우고 위쪽에 빛선 한 줄 + 방향성 있는 그라디언트를
+   두면, 카드가 페이지 «위에 얹힌» 게 아니라 «페이지에서 솟은» 것처럼 보인다.
+   공유하는 건 이 방식이고 그라디언트의 «색»은 화면마다 자유다.
+   ═══════════════════════════════════════════════════════════════════ */
+.surface {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+  background:
+    radial-gradient(78% 120% at 14% 0%,  rgba(34, 211, 238, .10) 0%, transparent 60%),
+    radial-gradient(86% 110% at 92% 96%, rgba(88, 58, 168, .16) 0%, transparent 64%),
+    linear-gradient(158deg, #141f33 0%, #0c1524 100%);
+}
+
+/* 섹션 = 제목(카드 밖) + 표면(내용만). 대시보드 .e9Sect/.e9SectHead 와 같은 골격.
+   제목이 카드 안에 있으면 모든 글자가 «카드 여백 + 카드 패딩» 두 겹 안쪽으로
+   밀려 «중앙으로만 모이는» 느낌이 난다(실측: 커맨드 375→343→309, 손실 17.6%). */
+.sect { margin-top: 12px; }
+.sectHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 var(--s4) 6px;
+}
+.sectTitle {
+  font: 800 13px/1 var(--f-sans);
+  letter-spacing: -.02em;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sectSub {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font: 700 10px/1 var(--f-sans);
+  color: var(--text-dim);
+}
+
 /* ── Pinned top bar: header + ticker quick-pick chips stay pinned together
       so the quick-pick switcher is always reachable (not just at scroll-top). ── */
 .topBar {
@@ -251,14 +304,17 @@
 }
 
 .card {
-  background: rgba(22, 32, 54, 0.45);
-  backdrop-filter: var(--glass);
-  -webkit-backdrop-filter: var(--glass);
-  border: 1px solid rgba(255, 255, 255, 0.055);
+  position: relative;
+  overflow: hidden;
+  border: 0;
   border-radius: var(--r-card);
   padding: var(--s3);
   margin: 0 var(--s4) var(--s3);
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+  background:
+    radial-gradient(78% 120% at 14% 0%,  rgba(34, 211, 238, .09) 0%, transparent 60%),
+    radial-gradient(86% 110% at 92% 96%, rgba(88, 58, 168, .14) 0%, transparent 64%),
+    linear-gradient(158deg, #141f33 0%, #0c1524 100%);
 }
 
 .cardHead {
@@ -269,7 +325,14 @@
 }
 
 .cardTitle {
-  font: var(--f-micro);
+  /* [2026-09-07] 제목이 카드 패딩 안쪽(x≈28)에서 시작해 내용 전체가 두 겹 안으로
+     밀렸다 — 대표 지적 「중앙으로만 모이는 느낌」. 대시보드는 제목이 화면 기준
+     x=16 에서 시작한다(.e9SectHead). 패딩을 되돌려 같은 리듬으로 맞춘다. */
+  margin-left: calc(var(--s3) * -1);
+  margin-right: calc(var(--s3) * -1);
+  padding: 0 var(--s3);
+  font: 800 12px/1 var(--f-sans);
+  letter-spacing: -.01em;
   color: var(--text-dim);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -316,7 +379,7 @@
   margin-top: var(--s3);
   padding: 2px;
   border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 13px;
+  border-radius: var(--r-card);
   background: rgba(2, 6, 23, 0.44);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
@@ -1230,8 +1293,9 @@
     rgba(22, 32, 54, 0.45);
   backdrop-filter: var(--glass);
   -webkit-backdrop-filter: var(--glass);
-  border: 1px solid rgba(255, 255, 255, 0.055);
-  border-radius: 14px; padding: var(--s3); margin: var(--s3) var(--s4) 12px; box-shadow: var(--shadow);
+  border: 0;
+  border-radius: var(--r-card); padding: var(--s3); margin: var(--s3) var(--s4) 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
 }
 .heroTopHalf {
   position: relative;
@@ -1293,12 +1357,10 @@
   position: relative;
   margin-left: auto;
   min-width: 120px;
-  background: rgba(30, 41, 59, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  border: 0;
   border-radius: 10px;
   padding: 10px 14px 9px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -1429,15 +1491,11 @@
 }
 
 .heroMetricCard {
-  background: rgba(30, 41, 59, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  border: 0;
   border-radius: 10px;
   padding: 10px 10px 9px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -1474,9 +1532,9 @@
    들어오면 그 칸만 넓어지고 나머지가 찌그러진다(2026-08-30 실화면 회귀). */
 .p2Vitals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; position: relative; z-index: 1; }
 .p2Vital {
-  background: rgba(30, 41, 59, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 9px;
+  background: linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  border: 0;
+  border-radius: 10px;
   /* [2026-09-07] DAY RANGE 의 «LOW $229.6 / HIGH $234.8» 두 덩어리가 각 37.8px 이라
      37.8+4+37.8=79.6px 이 필요한데 내용폭이 71.7px 이었다(실측 8px 넘침).
      글자를 줄이지 않고 자리를 넓힌다 — 밀도 목표와도 같은 방향이다. */
@@ -1515,8 +1573,9 @@
   gap: 2px;
   min-width: 0;
   color: rgba(203, 213, 225, 0.6);
-  font: 800 8.5px/1 var(--f-sans);
-  letter-spacing: 0.08em;
+  /* 다른 화면들의 하한(9px)에 맞춘다 — 여기만 8.5px 이었다 */
+  font: 800 9.5px/1 var(--f-sans);
+  letter-spacing: 0.06em;
 }
 .rangeBottom strong {
   color: rgba(226, 232, 240, 0.9);
@@ -1575,7 +1634,7 @@
   backdrop-filter: var(--glass);
   -webkit-backdrop-filter: var(--glass);
   border: 1px solid rgba(255, 255, 255, 0.055);
-  border-radius: 11px;
+  border-radius: var(--r-card);
   padding: 3px; margin: 0 var(--s4) 14px;
 }
 .segPill {
@@ -1712,7 +1771,7 @@
   gap: 0;
   background: rgba(2, 6, 23, 0.44);
   border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 13px;
+  border-radius: var(--r-card);
   padding: 2px;
   margin-top: 10px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
@@ -1760,7 +1819,7 @@
 .gex2FlipTag { position: absolute; top: -16px; transform: translateX(-50%);
   font: 800 8px/1 var(--f-sans); letter-spacing: 0.08em; color: var(--amber); white-space: nowrap; }
 .gex2Bars { display: flex; align-items: center; gap: 4px; height: 96px; position: relative; }
-.gex2Bar { flex: 1; border-radius: 2.5px; position: relative; transition: height .6s var(--ease-spring); }
+.gex2Bar { flex: 1; border-radius: 3px; position: relative; transition: height .6s var(--ease-spring); }
 .gex2Strikes { display: flex; justify-content: space-between; margin-top: 7px; }
 .gex2Strikes span { font: 600 8.5px/1 var(--f-mono); color: var(--text-muted); }
 
@@ -1841,7 +1900,7 @@
   backdrop-filter: blur(30px) saturate(1.25);
   -webkit-backdrop-filter: blur(30px) saturate(1.25);
   border: 1px solid rgba(125, 211, 252, 0.16);
-  border-radius: 20px;
+  border-radius: 16px;
   padding: 18px;
   box-shadow:
     0 28px 70px rgba(0, 0, 0, 0.56),
@@ -1908,7 +1967,7 @@
   position: relative;
   z-index: 1;
   padding: 5px;
-  border-radius: 16px;
+  border-radius: var(--r-card);
   border: 1px solid rgba(34, 211, 238, 0.16);
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.52));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.045), 0 0 24px rgba(34, 211, 238, 0.08);
@@ -1946,7 +2005,7 @@
   right: 11px;
   width: 36px;
   height: 36px;
-  border-radius: 11px;
+  border-radius: var(--r-card);
   border: none;
   background: linear-gradient(135deg, var(--cyan) 0%, #0891b2 100%);
   box-shadow: 0 0 16px rgba(34, 211, 238, 0.34), inset 0 1px 0 rgba(255,255,255,0.24);
@@ -2109,7 +2168,8 @@
 .peerList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;               /* 구분선이 나누므로 간격이 필요 없다 */
+  margin: 0 -12px;      /* 카드 패딩을 되돌려 행이 카드 폭을 다 쓰게 한다 */
 }
 
 .peerRow {
@@ -2119,16 +2179,23 @@
      같은 내용(로고·티커·가격·등락률)인데 20px 더 높을 이유가 없다. */
   gap: 7px;
   padding: 7px 12px;
-  background: rgba(30, 41, 59, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   cursor: pointer;
-  transition: border-color .2s ease;
+  transition: background .18s ease;
 }
 
-.peerRow:active {
-  border-color: rgba(34, 211, 238, 0.2);
+.peerRow:active { background: rgba(34, 211, 238, .07); }
+/* 대시보드 무버 행(.e9Mv)과 같이 «상자»가 아니라 «구분선»으로 나눈다 —
+   행마다 테두리를 그리면 목록이 상자 더미가 된다. */
+.peerRow + .peerRow::before {
+  content: '';
+  position: absolute;
+  left: 12px; right: 12px; top: 0; height: 1px;
+  background: rgba(255, 255, 255, .055);
 }
+.peerRow { position: relative; }
 
 .peerLogo {
   /* ⚠️ 이 클래스는 상관 종목 행에 «쓰이지 않는다». 그 행의 로고는
@@ -2432,27 +2499,24 @@
 .premiumCard {
   position: relative; overflow: hidden;
   background:
-    radial-gradient(120% 120% at 20% 0%, rgba(34, 211, 238, 0.07), transparent 60%),
-    radial-gradient(100% 100% at 80% 100%, rgba(56, 189, 248, 0.02), transparent 60%),
-    rgba(22, 32, 54, 0.45);
-  backdrop-filter: var(--glass);
-  -webkit-backdrop-filter: var(--glass);
-  border: 1px solid rgba(34, 211, 238, 0.18);
-  border-radius: 16px;
+    radial-gradient(78% 120% at 14% 0%,  rgba(34, 211, 238, .11) 0%, transparent 60%),
+    radial-gradient(86% 110% at 92% 96%, rgba(88, 58, 168, .15) 0%, transparent 64%),
+    linear-gradient(158deg, #141f33 0%, #0c1524 100%);
+  border: 0;
+  border-radius: var(--r-card);
   padding: var(--s3);
   margin: 0 var(--s4) 14px;
-  box-shadow: 
-    0 0 20px rgba(34, 211, 238, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 .premiumCard:hover {
-  border-color: rgba(34, 211, 238, 0.28);
-  box-shadow: 
-    0 0 24px rgba(34, 211, 238, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
 }
 .premiumHeader {
+  /* 제목 줄을 카드 가장자리에 맞춘다(.cardTitle 과 같은 규칙) */
+  margin-left: calc(var(--s3) * -1);
+  margin-right: calc(var(--s3) * -1);
+  padding: 0 var(--s3);
   display: flex;
   align-items: center;
   justify-content: space-between;

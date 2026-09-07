@@ -796,8 +796,8 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
 /* ═══════════════════════════════════════════
    SPARKLINE (background decoration for price)
    ═══════════════════════════════════════════ */
-function SparklineBg({ up, seed = 'default', series, fadeBelow = false }:
-  { up: boolean; seed?: string; series?: number[] | null; fadeBelow?: boolean }) {
+function SparklineBg({ up, seed = 'default', series, band = false }:
+  { up: boolean; seed?: string; series?: number[] | null; /** 카드 전체가 아니라 «하단 띠»로 깐다 */ band?: boolean }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -828,30 +828,28 @@ function SparklineBg({ up, seed = 'default', series, fadeBelow = false }:
   const gradId = `sparkGrad-${seed}`;
 
   return (
-    /* ⚠️ 2026-09-07: inset:0 · height:100% 라 이 곡선이 히어로 카드 «전체»를 채웠다.
-       실측: 카드 570px 중 곡선이 126→695px 를 지나 다크풀 카드(265~405)를 넘어
-       지표 카드(MAX PAIN 등, 419~512)까지 관통했다 — 대표 지적 「위에서 아래까지라 지저분」.
-       카드 높이는 로케일·데이터에 따라 변하므로 «고정 높이»가 아니라 «비율 마스크»로
-       끊는다: 42%까지 그대로 → 62%에서 사라진다(다크풀 카드 언저리에서 끝난다).
-       곡선(stroke)과 면(polygon)에 함께 걸리므로 둘 다 같이 사라진다. */
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%"
+    /* ★ [2026-09-07] 「본장 스파크라인이 저렇게 크게 들어가 조잡하다」(대표).
+       실측: 카드 570px 중 곡선이 126→695px 를 지나 다크풀(265~405)·지표(419~512)·
+       RSI/VWAP(526~614) 카드를 **모두 관통**했다. 비율 마스크로 «끊는» 것만으로는
+       여전히 «큰 선»이라 인상이 안 바뀐다 — 방식을 바꾼다.
+       band=true 면 카드 전체가 아니라 **바닥에 붙은 낮은 띠**로 깐다.
+       선이 화면을 가로지르지 않고 지평선처럼 깔려, 위의 숫자가 주인공이 된다. */
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%"
+      height={band ? 64 : '100%'}
       style={{
-        position: 'absolute', inset: 0,
-        // fadeBelow=true 인 «큰 히어로 카드»에서만 끊는다.
-        // 작은 시간외 박스는 곡선이 장식의 전부라 그대로 둔다.
-        ...(fadeBelow ? {
-          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 42%, transparent 62%)',
-          maskImage: 'linear-gradient(180deg, #000 0%, #000 42%, transparent 62%)',
-        } : {}),
+        position: 'absolute', left: 0, right: 0,
+        ...(band ? { bottom: 0, top: 'auto' } : { inset: 0 }),
+        pointerEvents: 'none',
       }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={up ? 'var(--green)' : 'var(--red)'} stopOpacity="0.15" />
+          <stop offset="0%" stopColor={up ? 'var(--green)' : 'var(--red)'} stopOpacity={band ? 0.20 : 0.15} />
           <stop offset="100%" stopColor={up ? 'var(--green)' : 'var(--red)'} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polyline points={pts} fill="none" stroke={up ? 'var(--green)' : 'var(--red)'}
-        strokeWidth="0.8" opacity="0.4" />
+        strokeWidth={band ? 1.1 : 0.8} opacity={band ? 0.55 : 0.4}
+        vectorEffect="non-scaling-stroke" />
       <polygon points={`0,100 ${pts} 100,100`} fill={`url(#${gradId})`} />
     </svg>
   );
@@ -3069,7 +3067,7 @@ function CmdPageContent() {
         }}
       >
         {/* Background sparkline decoration */}
-        <SparklineBg up={up} seed={data.ticker} series={heroSeries} fadeBelow />
+        <SparklineBg up={up} seed={data.ticker} series={heroSeries} band />
 
         {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
         <div className={s.heroIdentity}>
