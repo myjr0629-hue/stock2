@@ -43,7 +43,18 @@ export function useMarketStatus() {
     const [error, setError] = useState<string | null>(null);
     // [FIX] Track previous meaningful fields to prevent unnecessary re-renders
     // Without this, every 30s poll creates a new object → re-render → SWR cascade → chart flicker
-    const prevStateRef = useRef({ market: INITIAL_STATUS.market, session: INITIAL_STATUS.session, isHoliday: INITIAL_STATUS.isHoliday });
+    // ⚠️ [2026-09-07] 이 가드는 «추적하는 필드»만 본다. 여기에 없는 필드는
+    //   응답에 실려 와도 화면에 **영원히 도달하지 않는다**(setStatus 가 안 불린다).
+    //   isHolidaySession 을 서버에 추가하고 여기를 안 고쳤더니, API 는
+    //   isHolidaySession:true 를 주는데 화면엔 휴장 배지가 안 떴다 —
+    //   market·session·isHoliday 셋이 초기값과 같았기 때문이다.
+    //   **여기에 필드를 추가할 때는 이 목록도 함께 늘려야 한다.**
+    const prevStateRef = useRef({
+        market: INITIAL_STATUS.market,
+        session: INITIAL_STATUS.session,
+        isHoliday: INITIAL_STATUS.isHoliday,
+        isHolidaySession: INITIAL_STATUS.isHolidaySession,
+    });
 
     useEffect(() => {
         let isMounted = true;
@@ -64,8 +75,13 @@ export function useMarketStatus() {
                     // [FIX] Only update state when meaningful fields actually change
                     // Prevents 30s poll from causing re-render cascade when market/session unchanged
                     const prev = prevStateRef.current;
-                    if (prev.market !== data.market || prev.session !== data.session || prev.isHoliday !== data.isHoliday) {
-                        prevStateRef.current = { market: data.market, session: data.session, isHoliday: data.isHoliday };
+                    if (prev.market !== data.market || prev.session !== data.session
+                        || prev.isHoliday !== data.isHoliday
+                        || prev.isHolidaySession !== data.isHolidaySession) {
+                        prevStateRef.current = {
+                            market: data.market, session: data.session,
+                            isHoliday: data.isHoliday, isHolidaySession: data.isHolidaySession,
+                        };
                         setStatus(data);
                     }
                     setLoading(false);
