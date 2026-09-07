@@ -54,6 +54,8 @@ interface MacroItem {
   feedSource?: string;
   isStale?: boolean;
   feedAgeSec?: number;
+  /** 값이 굳어 있는 시간(초). undefined = 아직 모름. */
+  frozenSec?: number;
 }
 
 interface SectorItem {
@@ -1989,7 +1991,9 @@ export default function AppDashPage() {
                     {/* 지표별 «도는 표시» — 그 지표의 값이 바뀔 때만 자기 점이 뛴다.
                         매크로 안에서도 도는 것(BTC·SOX)과 안 도는 것(2s10s·F&G)이 갈린다. */}
                     <i suppressHydrationWarning aria-hidden="true"
-                       className={`${n9.e9McDot} ${itemSessionLive(m.label) ? n9.on : ''}`} />
+                       // ★ 세션이 열려 있어도 «값이 굳었으면» 라이브 점을 켜지 않는다.
+                       //   2026-09-06(일) GOLD·OIL 이 금요일 종가에 묶인 채 깜빡였다.
+                       className={`${n9.e9McDot} ${itemSessionLive(m.label) && isFeedMoving(m) ? n9.on : ''}`} />
                   </div>
                   <div className={`${n9.e9McV} num`}>{m.value}</div>
                   {m.badge
