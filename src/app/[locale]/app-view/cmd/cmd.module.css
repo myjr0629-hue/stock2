@@ -2976,3 +2976,46 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   고도화 규칙 확정 — 파일 «끝»에 둔다.
+   앞쪽에 두었더니 뒤의 개별 규칙에 밀렸다(실측):
+     · .p2Vital .v 의 font-variant-numeric: tabular-nums 가 slashed-zero 를 덮었다
+     · .p2Vital .k (0,2,0) 가 .lblAux (0,1,0) 를 이겨 RSI 라벨이 기준선 색으로 나왔다
+   특이도를 올리는 대신 «순서»로 확정한다 — 읽기 쉽고 다음 사람이 안 헤맨다.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ② 숫자: 자리 고정 + 0/O 구분 */
+.p2Vital .v,
+.heroMetricValue,
+.heroExtPrice,
+.p2Price,
+.peerPrice,
+.peerChange,
+.premRatioValue,
+.premForwardVal,
+.rangeBottom strong,
+.num {
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* ③ 라벨 3단 — 색·굵기는 층이 정한다 */
+.p2Vital .k.lblAux,
+.heroMetricLabel.lblAux,
+.lblAux {
+  font-weight: 700;
+  color: rgba(148, 163, 184, 0.62);
+}
+.p2Vital .k.lblAnchor,
+.heroMetricLabel.lblAnchor,
+.lblAnchor {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.p2Vital .k.lblSignal,
+.heroMetricLabel.lblSignal,
+.lblSignal {
+  font-weight: 800;
+  color: #b9cce6;
+}
