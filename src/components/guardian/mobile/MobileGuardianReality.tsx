@@ -30,7 +30,7 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
     return (
         <div className="space-y-3">
             {/* ── REALITY CHECK (full component with all internal tabs) ── */}
-            <div className="backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl overflow-hidden"
+            <div className="backdrop-blur-md border border-slate-800 rounded-lg p-3 relative overflow-hidden"
                 style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.10) 0%, rgba(6,182,212,0.03) 40%, transparent 70%), rgba(10,14,20,0.85)' }}>
                 {/* Infographic: Dot Matrix Grid */}
                 <div className="absolute inset-0 pointer-events-none"

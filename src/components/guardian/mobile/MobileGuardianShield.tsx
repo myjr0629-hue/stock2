@@ -445,7 +445,7 @@ function GammaShieldAiCard({
 
     return (
         <div
-            className="relative overflow-hidden rounded-2xl border border-cyan-300/25 p-4 shadow-2xl"
+            className="relative overflow-hidden rounded-2xl border border-cyan-300/25 p-4"
             style={{
                 background: 'radial-gradient(circle at 16% 0%, rgba(20,184,166,0.18), transparent 34%), linear-gradient(145deg, rgba(15,23,42,0.96), rgba(2,6,23,0.98))',
                 boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',

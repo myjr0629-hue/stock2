@@ -223,7 +223,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             <div className="absolute bottom-[0%] left-[10%] w-[50%] h-[500px] bg-emerald-500/[0.09] blur-[160px] rounded-full pointer-events-none z-0" />
 
             {/* ═══ HERO HEADER ═══ */}
-            <section className="relative z-10 p-6 rounded-xl border border-emerald-500/[0.12] bg-[#0d1117]/80 backdrop-blur-sm shadow-lg overflow-hidden">
+            <section className="relative z-10 p-6 rounded-xl border border-emerald-500/[0.12] bg-[#0d1117]/80 backdrop-blur-sm overflow-hidden">
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute -top-20 -right-20 w-80 h-80 bg-gradient-radial from-emerald-400/10 to-transparent rounded-full blur-3xl animate-pulse" />
                     <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-teal-400/8 to-transparent rounded-full blur-3xl" />

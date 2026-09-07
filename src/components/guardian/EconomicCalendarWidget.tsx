@@ -472,7 +472,7 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10, localize
 
     return (
         <div className="relative">
-            <div className={`border border-slate-800 rounded-lg p-4 flex flex-col shadow-2xl flex-none overflow-hidden ${expanded ? 'absolute top-0 left-0 right-0 z-50 ring-1 ring-amber-500/30' : ''}`}
+            <div className={`border border-slate-800 rounded-lg p-4 flex flex-col flex-none overflow-hidden ${expanded ? 'absolute top-0 left-0 right-0 z-50 ring-1 ring-amber-500/30' : ''}`}
                 style={{
                     background: 'linear-gradient(90deg, rgba(249,115,22,0.12) 0%, rgba(249,115,22,0.03) 30%, transparent 60%), linear-gradient(135deg, rgba(15,23,42,0.98), rgba(10,14,20,1))',
                     backdropFilter: 'blur(20px)',

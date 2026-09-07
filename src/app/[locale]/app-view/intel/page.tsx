@@ -2659,7 +2659,7 @@ export default function AppIntelPage() {
             padding: '16px',
             background: 'linear-gradient(145deg, rgba(12, 33, 52, 0.94), rgba(10, 16, 31, 0.97) 56%, rgba(3, 10, 20, 0.99))',
             border: '1px solid rgba(34, 211, 238, 0.20)',
-            boxShadow: '0 22px 52px rgba(0, 0, 0, 0.38), 0 0 34px rgba(34,211,238,0.06), inset 0 1px 0 rgba(255,255,255,0.07)',
+            boxShadow: '0 0 34px rgba(34,211,238,0.06), inset 0 1px 0 rgba(255,255,255,0.07)',
             overflow: 'hidden',
             marginBottom: '10px',
             position: 'relative'
@@ -4407,7 +4407,7 @@ export default function AppIntelPage() {
                     borderRadius: '22px',
                     padding: '15px',
                     background: `linear-gradient(145deg, rgba(16, 27, 46, 0.93), rgba(5, 10, 22, 0.97) 62%, rgba(3, 8, 17, 0.99)), linear-gradient(135deg, ${sec.color}2f, transparent 54%)`,
-                    boxShadow: `0 20px 42px rgba(0,0,0,0.32), 0 0 30px ${sec.color}0f, inset 0 1px 0 rgba(255,255,255,0.055)`,
+                    boxShadow: `0 0 30px ${sec.color}0f, inset 0 1px 0 rgba(255,255,255,0.055)`,
                     position: 'relative',
                     overflow: 'hidden'
                   }}

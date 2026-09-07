@@ -564,7 +564,7 @@ export function AlphaCard({
             className={cn(
                 // ── M7 Glassmorphism Card Shell ──
                 "relative flex flex-col rounded-xl border transition-all duration-300 overflow-hidden group cursor-pointer",
-                "bg-slate-800/40 backdrop-blur-xl shadow-lg shadow-black/20",
+                "bg-slate-800/40 backdrop-blur-xl",
                 "hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]",
                 borderColor,
             )}

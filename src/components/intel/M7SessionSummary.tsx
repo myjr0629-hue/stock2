@@ -164,7 +164,7 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
     }
 
     return (
-        <div className="w-full bg-[#0a0f14]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl relative overflow-hidden group/container transition-all duration-500 hover:border-white/20">
+        <div className="w-full bg-[#0a0f14]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden group/container transition-all duration-500 hover:border-white/20">
             {/* Ambient Lighting Effect (Subtle background glow) */}
             <div className="absolute top-0 left-1/4 w-1/2 h-1/2 bg-cyan-500/5 blur-[100px] rounded-full pointer-events-none mix-blend-screen" />
 
