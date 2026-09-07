@@ -108,7 +108,7 @@ export interface SubCallDiagnostic {
 
 export interface TickerDiagnostics {
     buildId: string;
-    source: "MASSIVE";
+    source: "INTRINIO";
     anchorDate: string;
     isWeekend: boolean;
     price: SubCallDiagnostic;
@@ -167,7 +167,7 @@ export async function getTickerOverview(
     // Initialize diagnostics
     const diagnostics: TickerDiagnostics = {
         buildId,
-        source: "MASSIVE",
+        source: "INTRINIO",
         anchorDate,
         isWeekend: sessionInfo.isWeekend,
         price: { ok: false },

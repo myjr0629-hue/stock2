@@ -16,7 +16,7 @@ export interface TreasuryYields {
     us10y: number | null;
     us30y: number | null;
     spread2s10s: number | null;
-    source: "US_TREASURY" | "FRED" | "MASSIVE" | "FAIL";
+    source: "US_TREASURY" | "FRED" | "INTRINIO" | "FAIL";
     updatedAt: string;
 }
 
@@ -27,7 +27,7 @@ export interface InflationData {
     pce: number | null;
     pceYoY: number | null;
     expectations: number | null;
-    source: "US_TREASURY" | "FRED" | "MASSIVE" | "FAIL";
+    source: "US_TREASURY" | "FRED" | "INTRINIO" | "FAIL";
     updatedAt: string;
 }
 
@@ -161,7 +161,7 @@ export async function getTreasuryYields(): Promise<TreasuryYields> {
                 us10y,
                 us30y: latest.yield_30_year ?? null,
                 spread2s10s: (us2y !== null && us10y !== null) ? us10y - us2y : null,
-                source: "MASSIVE",
+                source: "INTRINIO",
                 updatedAt: now
             };
         }
@@ -209,7 +209,7 @@ export async function getInflationData(): Promise<InflationData> {
                 pce,
                 pceYoY,
                 expectations,
-                source: "MASSIVE",
+                source: "INTRINIO",
                 updatedAt: now
             };
         }

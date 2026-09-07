@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
                 },
                 diagnostics: {
                     buildId: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "local",
-                    source: "MASSIVE",
+                    source: "INTRINIO",
                     price: { ok: false, code: e.code || "UNKNOWN", reasonKR: e.reasonKR || e.message },
                     chart: { ok: false, code: e.code || "UNKNOWN", reasonKR: "가격 조회 실패로 차트 불가" },
                     vwap: { ok: false, code: e.code || "UNKNOWN", reasonKR: "가격 조회 실패로 VWAP 불가" },

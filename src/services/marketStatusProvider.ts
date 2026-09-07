@@ -8,7 +8,7 @@ export interface MarketStatusResult extends MarketStatus {
     holidayName?: string;
     serverTime: string;
     asOfET: string; // New: ET Timestamp for UI display
-    source: "MASSIVE" | "FALLBACK";
+    source: "INTRINIO" | "FALLBACK";
     cacheAgeSec: number; // New: Cache age for debugging
 }
 
@@ -137,7 +137,7 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
             holidayName: holidayName || undefined,
             serverTime: new Date().toISOString(),
             asOfET: etStr,
-            source: "MASSIVE",
+            source: "INTRINIO",
             cacheAgeSec: 0,
             nextOpen: data.nextOpen,
             nextClose: data.nextClose

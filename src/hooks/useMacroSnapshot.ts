@@ -6,7 +6,7 @@ export interface MacroFactor {
     chgPct?: number | null;
     chgAbs?: number | null;
     label: string;
-    source: string; // "MASSIVE" | "FAIL"
+    source: string; // "YAHOO" | "INTRINIO" | "US_TREASURY" | "FRED" | "FAIL"
     status: "OK" | "UNAVAILABLE";
     symbolUsed: string;
 }

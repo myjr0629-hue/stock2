@@ -16,7 +16,11 @@ export interface MacroFactor {
     chgPct?: number | null;
     chgAbs?: number | null;
     label: string;
-    source: "MASSIVE" | "FRED" | "FAIL"; // Added FRED source
+    // [2026-09-07] 진짜 출처를 적는다. 예전엔 성공하면 무조건 "MASSIVE" 였는데
+    //   ① 매스브는 2026-08-28 권한 상실로 이미 안 쓰고(전부 인트리니오로 라우팅)
+    //   ② 이 화면 값의 실제 출처는 **야후 → Redis** 다.
+    //   라벨이 거짓이면 «어디가 고장났나»를 응답만 보고는 못 찾는다.
+    source: "YAHOO" | "INTRINIO" | "US_TREASURY" | "FRED" | "CNN" | "FAIL";
     status: "OK" | "UNAVAILABLE";
     symbolUsed: string;
     updatedAt?: string;
@@ -162,7 +166,7 @@ async function fetchIndexSnapshot(ticker: string, label: string, multiplier: num
                     chgPct: rawChgPct,
                     chgAbs: rawChgAbs * multiplier,
                     label: label,
-                    source: "MASSIVE",
+                    source: "INTRINIO",
                     status: "OK",
                     symbolUsed: ticker
                 };
@@ -182,7 +186,7 @@ async function fetchIndexSnapshot(ticker: string, label: string, multiplier: num
                 chgPct: 0,
                 chgAbs: 0,
                 label: label + " (Delayed)",
-                source: "MASSIVE",
+                source: "INTRINIO",
                 status: "OK",
                 symbolUsed: ticker
             };
@@ -220,7 +224,7 @@ function createYahooFactor(quote: YahooQuote, label: string, symbolUsed: string)
         chgPct: quote.changePct,
         chgAbs: quote.change,
         label,
-        source: quote.source === "DEFAULT" ? "FAIL" : "MASSIVE",
+        source: quote.source === "DEFAULT" ? "FAIL" : "YAHOO",
         status: quote.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
         symbolUsed,
         updatedAt: quote.updatedAt,
@@ -255,7 +259,7 @@ async function fetchFedYield(): Promise<MacroFactor> {
                 chgPct: Math.round(chgPct * 100) / 100,
                 chgAbs: Math.round(chgAbs * 1000) / 1000,
                 label: "US 10Y (Fed)",
-                source: "MASSIVE",
+                source: "INTRINIO",
                 status: "OK",
                 symbolUsed: "FED:10Y"
             };
@@ -519,7 +523,7 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         : (yieldCurve
             ? { ...us10y, level: yieldCurve.us10y, label: "US 10Y",
                 symbolUsed: yieldCurve.source === "US_TREASURY" ? "UST:10Y" : (us10y.symbolUsed || "FED:10Y"),
-                source: (yieldCurve.source === "US_TREASURY" ? "MASSIVE" : us10y.source) as any }
+                source: (yieldCurve.source === "US_TREASURY" ? "US_TREASURY" : us10y.source) as any }
             : us10y);
 
     // 스프레드는 곡선 «안에서» 만든다. 갈아끼운 10Y 를 섞지 않는다.
