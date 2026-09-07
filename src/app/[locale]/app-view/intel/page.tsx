@@ -2830,7 +2830,7 @@ export default function AppIntelPage() {
                     }}>
                       {item.icon}
                     </span>
-                    <span style={{ fontSize: '10px', fontWeight: 900, color: 'rgba(148, 163, 184, 0.90)', letterSpacing: '0.05em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 900, color: 'var(--app-lbl-anchor)', letterSpacing: '0.05em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.label}
                     </span>
                   </div>
@@ -3768,7 +3768,7 @@ export default function AppIntelPage() {
                           {cached.reportHeadline && (
                             <div style={{
                               marginBottom: '10px',
-                              color: 'rgba(226,232,240,0.96)',
+                              color: 'var(--app-lbl-signal)',
                               fontSize: '15px',
                               lineHeight: 1.42,
                               fontWeight: 900,
@@ -3784,7 +3784,7 @@ export default function AppIntelPage() {
                               borderRadius: '12px',
                               border: '1px solid transparent',
                               background: 'rgba(2, 6, 23, 0.38)',
-                              color: 'rgba(226,232,240,0.92)',
+                              color: 'var(--app-lbl-signal)',
                               fontSize: '13px',
                               lineHeight: 1.68,
                               fontWeight: 650
@@ -3832,7 +3832,7 @@ export default function AppIntelPage() {
                             <div style={{ fontSize: '11px', fontWeight: 900, color: sentimentColor, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '7px' }}>
                               {reportLabels.outlook}
                             </div>
-                            <div style={{ fontSize: '13px', color: 'rgba(226,232,240,0.90)', lineHeight: 1.68, fontWeight: 620 }}>
+                            <div style={{ fontSize: '13px', color: 'var(--app-lbl-signal)', lineHeight: 1.68, fontWeight: 620 }}>
                               {cleanReportText(cached.dayOutlook)}
                             </div>
                           </div>
@@ -3903,7 +3903,7 @@ export default function AppIntelPage() {
                                               <span key={ticker} style={{
                                                 fontSize: '10px',
                                                 fontWeight: 850,
-                                                color: 'rgba(226,232,240,0.78)',
+                                                color: 'var(--app-lbl-signal)',
                                                 background: 'rgba(148,163,184,0.13)',
                                                 border: '1px solid transparent',
                                                 borderRadius: '5px',
@@ -3950,7 +3950,7 @@ export default function AppIntelPage() {
                                     <span style={{ color: '#22d3ee', fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono, monospace)' }}>
                                       {symbol}
                                     </span>
-                                    <span style={{ fontSize: '12.5px', lineHeight: 1.62, color: 'rgba(226,232,240,0.86)', fontWeight: 560 }}>
+                                    <span style={{ fontSize: '12.5px', lineHeight: 1.62, color: 'var(--app-lbl-signal)', fontWeight: 560 }}>
                                       {detail}
                                     </span>
                                   </div>
@@ -3974,7 +3974,7 @@ export default function AppIntelPage() {
                                   background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(15,23,42,0.48))',
                                   fontSize: '12.5px',
                                   lineHeight: 1.6,
-                                  color: 'rgba(226,232,240,0.86)',
+                                  color: 'var(--app-lbl-signal)',
                                   fontWeight: 560
                                 }}>
                                   {risk}
@@ -4005,7 +4005,7 @@ export default function AppIntelPage() {
                             <div style={{
                               fontSize: '13px',
                               lineHeight: 1.65,
-                              color: 'rgba(226, 232, 240, 0.88)',
+                              color: 'var(--app-lbl-signal)',
                               fontWeight: 650
                             }}>
                               {cached.reportSummary}
@@ -4443,7 +4443,7 @@ export default function AppIntelPage() {
                               {sectorCopy.name}
                             </span>
                             {appLocale !== 'en' && englishCopy && (
-                              <span style={{ color: 'rgba(148, 163, 184, 0.72)', fontSize: '9.5px', fontWeight: 850, letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>
+                              <span style={{ color: 'var(--app-lbl-aux)', fontSize: '9.5px', fontWeight: 850, letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>
                                 {englishCopy.name}
                               </span>
                             )}
@@ -4451,7 +4451,7 @@ export default function AppIntelPage() {
                           {/* [2026-09-08] 한 줄 말줄임이라 «문장의 절반»이 잘렸다
                               (실측 186px 자리에 89px 초과 — 「빅테크 7대 기업의 AI 패권 경쟁과…」).
                               설명이 설명 역할을 못 한다. 두 줄까지 허용한다. */}
-                          <p style={{ margin: '6px 0 0', color: 'rgba(203, 213, 225, 0.80)', fontSize: '11.5px', lineHeight: 1.35, fontWeight: 650,
+                          <p style={{ margin: '6px 0 0', color: 'var(--app-lbl-signal)', fontSize: '11.5px', lineHeight: 1.35, fontWeight: 650,
                             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {sectorCopy.desc}
                           </p>
@@ -4486,7 +4486,7 @@ export default function AppIntelPage() {
                         borderRadius: '14px',
                         background: `linear-gradient(135deg, ${sec.color}14, rgba(2, 6, 23, 0.58) 56%)`,
                         border: `1px solid ${sec.color}2f`,
-                        color: 'rgba(226, 232, 240, 0.90)',
+                        color: 'var(--app-lbl-signal)',
                         fontSize: '12px',
                         lineHeight: 1.42,
                         fontWeight: 760,
@@ -4535,7 +4535,7 @@ export default function AppIntelPage() {
                           borderBottom: '1px solid rgba(148, 163, 184, 0.10)'
                         }}>
                           <div style={{ padding: '10px 11px 9px', borderRight: '1px solid rgba(148, 163, 184, 0.10)', minWidth: 0 }}>
-                            <div style={{ color: 'rgba(148, 163, 184, 0.88)', fontSize: '9.5px', fontWeight: 950, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            <div style={{ color: 'var(--app-lbl-anchor)', fontSize: '9.5px', fontWeight: 950, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                               {appCopy.pulse}
                             </div>
                             <div style={{ marginTop: '5px', color: pulseColor, fontSize: '15px', fontWeight: 950, lineHeight: 1, fontFamily: 'var(--font-mono), monospace' }}>
@@ -4543,7 +4543,7 @@ export default function AppIntelPage() {
                             </div>
                           </div>
                           <div style={{ padding: '10px 11px 9px', minWidth: 0 }}>
-                            <div style={{ color: 'rgba(148, 163, 184, 0.88)', fontSize: '9.5px', fontWeight: 950, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            <div style={{ color: 'var(--app-lbl-anchor)', fontSize: '9.5px', fontWeight: 950, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                               {labels.lead}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '5px', minWidth: 0, flexWrap: 'wrap' }}>
@@ -4567,7 +4567,7 @@ export default function AppIntelPage() {
                               borderRight: metricIndex < coreMetrics.length - 1 ? '1px solid rgba(148, 163, 184, 0.10)' : 'none',
                               minWidth: 0
                             }}>
-                              <div style={{ color: 'rgba(148, 163, 184, 0.88)', fontSize: '9px', fontWeight: 950, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+                              <div style={{ color: 'var(--app-lbl-anchor)', fontSize: '9px', fontWeight: 950, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
                                 {metric.label}
                               </div>
                               <div style={{ marginTop: '5px', color: metric.color, fontSize: '12.5px', fontWeight: 950, lineHeight: 1.05, fontFamily: 'var(--font-mono), monospace', overflowWrap: 'anywhere' }}>
@@ -4620,7 +4620,7 @@ export default function AppIntelPage() {
                               border: `1px solid ${sec.color}20`,
                               borderRadius: '999px',
                               padding: '4px 7px',
-                              color: 'rgba(226,232,240,0.78)',
+                              color: 'var(--app-lbl-signal)',
                               whiteSpace: 'nowrap'
                             }}>
                               +{sec.stocks.length - 3}
@@ -5229,7 +5229,7 @@ export default function AppIntelPage() {
 
                                     return (
                                       <div style={{ marginBottom: '14px' }}>
-                                        <div style={{ fontSize: '9.5px', fontWeight: 800, color: 'rgba(148, 163, 184, 0.72)', letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '8px' }}>
+                                        <div style={{ fontSize: '9.5px', fontWeight: 800, color: 'var(--app-lbl-aux)', letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '8px' }}>
                                           {tunnelCopy.title}
                                         </div>
                                         <div style={{
@@ -5423,7 +5423,7 @@ export default function AppIntelPage() {
                                     borderRadius: '10px',
                                     background: 'rgba(15, 23, 42, 0.58)',
                                     border: '1px solid rgba(245, 158, 11, 0.16)',
-                                    color: 'rgba(226, 232, 240, 0.72)',
+                                    color: 'var(--app-lbl-signal)',
                                     fontSize: '10px',
                                     lineHeight: 1.45,
                                     fontWeight: 650

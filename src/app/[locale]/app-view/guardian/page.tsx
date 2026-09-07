@@ -530,7 +530,7 @@ function GuardianPageContent() {
                     : 'rgba(2,6,23,0.38)',
                   boxShadow: widening ? '0 0 14px rgba(239,68,68,.14)' : 'none',
                 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, font: 'var(--f-micro)', fontWeight: 900, letterSpacing: '.09em', textTransform: 'uppercase', color: 'rgba(203,213,225,.8)', whiteSpace: 'nowrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, font: 'var(--f-micro)', fontWeight: 900, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--app-lbl-signal)', whiteSpace: 'nowrap' }}>
                     {locale === 'ko' ? '신용 스프레드' : locale === 'ja' ? 'クレジットSP' : 'CREDIT'}
                     <MetricInfo term="creditSpread" locale={locale} size={11} />
                   </span>
@@ -544,11 +544,11 @@ function GuardianPageContent() {
                   )}
                   <span style={{ font: "800 9px/1 'Inter'", padding: '2px 5px', borderRadius: 4, color: c, border: `1px solid ${c}`, opacity: .95, whiteSpace: 'nowrap' }}>{badge}</span>
                   {cs.percentile != null && (
-                    <span className="tnum" style={{ font: "700 9px/1 'Inter'", color: 'rgba(148,163,184,.8)', whiteSpace: 'nowrap' }}>
+                    <span className="tnum" style={{ font: "700 9px/1 'Inter'", color: 'var(--app-lbl-aux)', whiteSpace: 'nowrap' }}>
                       {locale === 'ko' ? '1년 백분위' : locale === 'ja' ? '1年%タイル' : '1Y pctile'} {cs.percentile}
                     </span>
                   )}
-                  <span style={{ font: "600 9.5px/1.3 'Inter'", color: 'rgba(148,163,184,.72)', flex: '1 1 auto', minWidth: 0 }}>{hint}</span>
+                  <span style={{ font: "600 9.5px/1.3 'Inter'", color: 'var(--app-lbl-aux)', flex: '1 1 auto', minWidth: 0 }}>{hint}</span>
                 </div>
               );
             })()}

@@ -604,7 +604,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
 
     // ── Sector Summary One-Liner ──
     const sectorSummary = useMemo(() => {
-        if (sorted.length === 0) return { text: ss('summNoData'), color: 'rgb(148,163,184)' };
+        if (sorted.length === 0) return { text: ss('summNoData'), color: 'var(--app-lbl-anchor)' };
         const up = sorted.filter(q => q.changePct > 0).length;
         const down = sorted.filter(q => q.changePct < 0).length;
         const total = sorted.length;

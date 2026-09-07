@@ -2600,7 +2600,7 @@ export default function AppFlowPage() {
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" strokeLinejoin="round" /></svg>
                   {L('신규 포지션 감지', 'New position detected', '新規ポジション検知')}
                 </span>
-                <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'rgba(148,163,184,.9)', whiteSpace: 'nowrap' }}>
+                <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--app-lbl-anchor)', whiteSpace: 'nowrap' }}>
                   {L('전일 마감 기준', 'Prior close', '前日引け基準')}
                 </span>
               </div>
@@ -2611,11 +2611,11 @@ export default function AppFlowPage() {
                 <span style={{ fontSize: 15, fontWeight: 900, color: accent, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums' }}>
                   +{(c.oiChange || 0).toLocaleString()}
                 </span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(203,213,225,.85)' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-lbl-signal)' }}>
                   {L('계약', 'contracts', '枚')} · {money}
                 </span>
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(148,163,184,.85)', lineHeight: 1.4 }}>
+              <div style={{ fontSize: 11, color: 'var(--app-lbl-anchor)', lineHeight: 1.4 }}>
                 {isCall
                   ? L('미결제약정이 늘었다 — 청산이 아니라 새로 걸린 상방 베팅이다', 'Open interest rose — a new upside bet, not a close-out', '建玉が増加 — 手仕舞いではなく新規の強気ベット')
                   : L('미결제약정이 늘었다 — 새로 걸린 하방 보험이다', 'Open interest rose — new downside protection', '建玉が増加 — 新規の下方ヘッジ')}
@@ -2851,7 +2851,7 @@ export default function AppFlowPage() {
                   backdropFilter: 'blur(12px)',
                   WebkitBackdropFilter: 'blur(12px)'
                 }}>
-                  <div style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'rgba(148, 163, 184, 0.9)', marginBottom: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'var(--app-lbl-anchor)', marginBottom: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {item.label}
                   </div>
                   <div style={{ font: 'var(--f-micro)', fontWeight: 900, color: item.color, lineHeight: 1.25, minHeight: '22px' }}>
@@ -2971,7 +2971,7 @@ export default function AppFlowPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                 {opiFactorRails.map((factor) => (
                   <div key={factor.label} style={{ display: 'grid', gridTemplateColumns: '74px 1fr 54px', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'rgba(148, 163, 184, 0.95)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'var(--app-lbl-anchor)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {factor.label}
                     </span>
                     <div style={{ height: '5px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', position: 'relative' }}>
@@ -3052,7 +3052,7 @@ export default function AppFlowPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 68px 1fr', gap: '8px', alignItems: 'center' }}>
                   <div style={{ padding: '11px 10px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.38)', border: '1px solid transparent' }}>
-                    <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800, marginBottom: '7px' }}>{flowCopy.compositeIndex}</div>
+                    <div style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800, marginBottom: '7px' }}>{flowCopy.compositeIndex}</div>
                     <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: compColor, lineHeight: 1 }}>
                       {compositeScore > 0 ? '+' : ''}{compositeScore}
                     </div>
@@ -3081,7 +3081,7 @@ export default function AppFlowPage() {
 
                   <div style={{ padding: '11px 10px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.38)', border: '1px solid transparent' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                      <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800 }}>{flowCopy.squeezeProbability}</span>
+                      <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>{flowCopy.squeezeProbability}</span>
                       {renderInfoBtn("squeeze")}
                     </div>
                     <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: sqColor, lineHeight: 1, marginTop: '7px' }}>
@@ -3115,7 +3115,7 @@ export default function AppFlowPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '6px' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#818cf8', boxShadow: '0 0 6px #818cf8' }} />
-                  <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800 }}>VOLUME</span>
+                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>VOLUME</span>
                 </div>
                 <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcRatio >= 1.3 ? '#10b981' : pcRatio <= 0.75 ? '#f43f5e' : '#ffffff', lineHeight: 1, marginBottom: '6px' }}>
                   {pcRatio.toFixed(2)}
@@ -3144,7 +3144,7 @@ export default function AppFlowPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '6px' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 6px #a78bfa' }} />
-                  <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800 }}>OI</span>
+                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>OI</span>
                 </div>
                 <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcRatioOI >= 1.3 ? '#10b981' : pcRatioOI <= 0.75 ? '#f43f5e' : '#ffffff', lineHeight: 1, marginBottom: '6px' }}>
                   {pcRatioOI.toFixed(2)}
@@ -3184,7 +3184,7 @@ export default function AppFlowPage() {
                   background: 'rgba(15, 23, 42, 0.34)',
                   border: '1px solid transparent'
                 }}>
-                  <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800, marginBottom: '5px' }}>{item.label}</div>
+                  <div style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800, marginBottom: '5px' }}>{item.label}</div>
                   <div className="tnum" style={{ font: 'var(--f-small)', color: item.color, fontWeight: 950 }}>{item.value}</div>
                 </div>
               ))}
@@ -3363,7 +3363,7 @@ export default function AppFlowPage() {
                     { label: flowCopy.flipDistance, value: gammaDistanceText, color: gammaDistancePct >= 0 ? '#10b981' : '#f43f5e' }
                   ].map((item) => (
                     <div key={item.label} style={{ padding: '8px 8px', borderRadius: '9px', background: 'rgba(15,23,42,0.34)', border: '1px solid transparent', minWidth: 0 }}>
-                      <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.88)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                      <div style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
                       <div className="tnum" style={{ font: 'var(--f-micro)', color: item.color, fontWeight: 950, marginTop: '4px', whiteSpace: 'nowrap' }}>{item.value}</div>
                     </div>
                   ))}
@@ -3436,13 +3436,13 @@ export default function AppFlowPage() {
                   gap: '10px'
                 }}>
                   <div>
-                    <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800, marginBottom: '3px' }}>{flowCopy.volatilityEffect}</div>
+                    <div style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800, marginBottom: '3px' }}>{flowCopy.volatilityEffect}</div>
                     <div style={{ font: 'var(--f-small)', color: gexRegimeColor, fontWeight: 950 }}>
                       {isAboveGamma ? flowCopy.absorbsVol : flowCopy.amplifiesVol}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.9)', fontWeight: 800, marginBottom: '3px' }}>{flowCopy.flipDistance}</div>
+                    <div style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800, marginBottom: '3px' }}>{flowCopy.flipDistance}</div>
                     <div className="tnum" style={{ font: 'var(--f-small)', color: gexRegimeColor, fontWeight: 950 }}>{gammaDistanceText}</div>
                   </div>
                 </div>
@@ -3705,7 +3705,7 @@ export default function AppFlowPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px', marginTop: '9px' }}>
                           {group.items.map((item) => (
                             <div key={item.label} style={{ minWidth: 0 }}>
-                              <div style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.74)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                              <div style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-aux)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
                               <div className="tnum" style={{ font: 'var(--f-micro)', color: '#f8fafc', fontWeight: 900, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
                             </div>
                           ))}
@@ -3751,7 +3751,7 @@ export default function AppFlowPage() {
                     {evidenceRows.map((row, idx) => (
                       <div key={row.label} style={{ padding: '12px 12px', borderRadius: '11px', background: idx === 0 ? `linear-gradient(135deg, ${scoreColor}16, rgba(15,23,42,0.28))` : 'rgba(15,23,42,0.30)', border: idx === 0 ? `1px solid ${scoreColor}2a` : '1px solid rgba(255,255,255,0.055)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
-                          <span style={{ font: 'var(--f-micro)', color: 'rgba(148,163,184,0.86)', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{row.label}</span>
+                          <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{row.label}</span>
                           {idx === 0 && <span style={{ fontSize: '8px', fontWeight: 950, color: scoreColor, background: `${scoreColor}16`, border: `1px solid ${scoreColor}2a`, padding: '2px 6px', borderRadius: '999px', whiteSpace: 'nowrap' }}>{convictionLabel}</span>}
                         </div>
                         <div style={{ color: idx === 0 ? '#f8fafc' : '#dbeafe', fontWeight: idx === 0 ? 950 : 850, lineHeight: 1.35, fontSize: idx === 0 ? '14px' : '12.5px' }}>{row.value}</div>
@@ -3827,7 +3827,7 @@ export default function AppFlowPage() {
                     <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                       {L('이상 옵션 활동', 'Unusual options activity', '異常オプション活動')}
                     </span>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: 'rgba(148,163,184,.95)', border: '1px solid transparent' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: 'var(--app-lbl-anchor)', border: '1px solid transparent' }}>
                       {optionsEod.date} · {L('마감 기준', 'at close', '引け基準')}
                     </span>
                     {optionsEod.summary?.openingCount > 0 && (
@@ -3867,7 +3867,7 @@ export default function AppFlowPage() {
                           <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'ui-monospace, monospace', color: isCall ? '#34d399' : '#f87171', whiteSpace: 'nowrap' }}>
                             {isCall ? 'C' : 'P'} ${c.strike}
                           </span>
-                          <span style={{ fontSize: 10, color: 'rgba(148,163,184,.8)', fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 10, color: 'var(--app-lbl-aux)', fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap' }}>
                             {String(c.expiration || '').slice(5)}
                           </span>
 
@@ -3875,7 +3875,7 @@ export default function AppFlowPage() {
                             <span style={{ display: 'block', fontSize: 12, fontWeight: 900, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', color: opening ? accent : 'rgba(203,213,225,.85)', whiteSpace: 'nowrap' }}>
                               {c.oiChange == null ? '—' : `${c.oiChange > 0 ? '+' : ''}${nf(c.oiChange)}`}
                             </span>
-                            <span style={{ display: 'block', fontSize: 9, color: 'rgba(148,163,184,.7)', fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'block', fontSize: 9, color: 'var(--app-lbl-aux)', fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap' }}>
                               {L('거래', 'vol', '出来')} {nf(c.volume)} · OI {nf(c.openInterest)}
                             </span>
                           </span>
@@ -3884,7 +3884,7 @@ export default function AppFlowPage() {
                     })}
                   </div>
 
-                  <div style={{ marginTop: 10, fontSize: 10, lineHeight: 1.5, color: 'rgba(148,163,184,.75)' }}>
+                  <div style={{ marginTop: 10, fontSize: 10, lineHeight: 1.5, color: 'var(--app-lbl-aux)' }}>
                     {L(
                       '미결제약정이 늘면 새 포지션, 줄면 청산입니다. 거래량만 보면 둘을 구분할 수 없습니다.',
                       'Rising open interest means new positions; falling means close-outs. Volume alone cannot tell them apart.',

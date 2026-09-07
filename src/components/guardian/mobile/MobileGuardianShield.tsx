@@ -93,7 +93,7 @@ function GammaGateSubtitle({ locale }: { locale: LocaleKey }) {
     const copy = APP_GATE_COPY[locale];
     return (
         <div style={{ display: 'grid', gap: 8, textAlign: 'left', width: '100%' }}>
-            <div style={{ color: 'rgba(226,232,240,0.92)', lineHeight: 1.45, textAlign: 'center' }}>
+            <div style={{ color: 'var(--app-lbl-signal)', lineHeight: 1.45, textAlign: 'center' }}>
                 {copy.explain}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
