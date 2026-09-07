@@ -1994,13 +1994,21 @@ function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, loca
 
   return (
     <div 
-      className="relative overflow-hidden rounded-2xl px-4 py-3.5 transition-all duration-300 backdrop-blur-xl border"
+      /* [2026-09-07] 페이지 전체 표면 규칙과 통일: 테두리·바깥 글로우를 지우고
+         상단 빛선 + 방향성 그라디언트로. 상태 색(colorVal)은 «테두리»가 아니라
+         «면의 농도»로 표현한다 — 강조는 그대로 살고 상자는 사라진다. */
+      className="relative overflow-hidden rounded-2xl px-4 py-3.5 transition-all duration-300"
       style={{
         boxShadow: emphasis
-          ? `0 0 0 1px ${colorVal}55, 0 0 20px ${colorVal}33, inset 0 1px 0 rgba(255,255,255,0.06)`
-          : `0 0 16px ${glowColor.replace('0.15', '0.04')}, inset 0 1px 0 rgba(255, 255, 255, 0.05)`,
-        background: `radial-gradient(120% 120% at 20% 0%, ${emphasis ? colorVal + '18' : glowColor.replace('0.15', '0.05')}, transparent 70%), rgba(22, 32, 54, 0.45)`,
-        borderColor: emphasis ? `${colorVal}66` : glowColor.replace('0.15', '0.22')
+          ? `inset 0 1px 0 ${colorVal}44`
+          : 'inset 0 1px 0 rgba(255, 255, 255, .06)',
+        background: emphasis
+          ? `radial-gradient(78% 120% at 14% 0%, ${colorVal}2e 0%, transparent 62%),`
+            + ` radial-gradient(86% 110% at 92% 96%, ${colorVal}12 0%, transparent 64%),`
+            + ' linear-gradient(158deg, #141f33 0%, #0c1524 100%)'
+          : `radial-gradient(78% 120% at 14% 0%, ${colorVal}16 0%, transparent 62%),`
+            + ' radial-gradient(86% 110% at 92% 96%, rgba(88,58,168,.14) 0%, transparent 64%),'
+            + ' linear-gradient(158deg, #141f33 0%, #0c1524 100%)',
       }}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-transparent pointer-events-none" />

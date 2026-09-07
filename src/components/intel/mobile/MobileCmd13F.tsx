@@ -16,6 +16,9 @@ function fmtNum(n: number): string {
 }
 function fmtDollar(n: number): string {
     const abs = Math.abs(n);
+    // [2026-09-07] 조 단위가 없어 $1742.32B 처럼 나왔다 — 읽기도 어렵고
+    //   3열 타일(내용폭 ~75px)을 18px 넘쳤다(실측). $1.74T 로 끊는다.
+    if (abs >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
     if (abs >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
     if (abs >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
     if (abs >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
@@ -109,15 +112,15 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
         <div className="space-y-3">
             {/* Summary Cards */}
             <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
+                <div className="bg-white/[0.055] rounded-xl p-3">
                     <div className="text-[11px] text-slate-400 font-semibold mb-1">Holders</div>
                     <div className="text-[17px] font-bold text-white font-mono">{summary?.totalHolders || 0}</div>
                 </div>
-                <div className="bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
+                <div className="bg-white/[0.055] rounded-xl p-3">
                     <div className="text-[11px] text-slate-400 font-semibold mb-1">Total Value</div>
                     <div className="text-[17px] font-bold text-emerald-400 font-mono">{fmtDollar(summary?.totalValue || 0)}</div>
                 </div>
-                <div className="bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
+                <div className="bg-white/[0.055] rounded-xl p-3">
                     <div className="text-[11px] text-slate-400 font-semibold mb-1">Period</div>
                     <div className="text-[15px] font-bold text-indigo-400 font-mono">{summary?.period ? getQ(summary.period) : '—'}</div>
                 </div>
@@ -132,7 +135,7 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
                 const weight = summary?.totalValue ? ((h.marketValue / summary.totalValue) * 100) : 0;
                 return (
                     <div key={h.cik || idx}
-                        className={`rounded-xl border p-3 ${idx < 3 ? 'border-indigo-500/20 bg-indigo-500/[0.04]' : 'border-white/[0.06] bg-white/[0.02]'}`}>
+                        className={`rounded-xl p-3 ${idx < 3 ? 'bg-indigo-500/[0.12]' : 'bg-white/[0.055]'}`}>
                         <div className="flex items-center gap-3 mb-2">
                             <span className={`text-[13px] font-bold w-5 text-center ${idx < 3 ? 'text-indigo-400' : 'text-slate-400'}`}>{h.rank}</span>
                             <InstLogo name={h.name} domain={h.domain} />
@@ -227,7 +230,7 @@ function MobileInsiderContent({ ticker }: { ticker: string }) {
                 const dateStr = new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 return (
                     <div key={`${tx.date}-${tx.name}-${idx}`}
-                        className={`rounded-xl border p-3 ${tx.code === 'P' ? 'border-emerald-500/20 bg-emerald-500/[0.04]' : tx.code === 'S' ? 'border-rose-500/20 bg-rose-500/[0.04]' : 'border-white/[0.06] bg-white/[0.02]'}`}>
+                        className={`rounded-xl p-3 ${tx.code === 'P' ? 'bg-emerald-500/[0.12]' : tx.code === 'S' ? 'bg-rose-500/[0.12]' : 'bg-white/[0.055]'}`}>
                         <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2">
                                 <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${cl.bg} ${cl.color}`}>{cl.label}</span>
