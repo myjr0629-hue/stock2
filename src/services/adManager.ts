@@ -467,6 +467,10 @@ class AdManagerService {
   }
 
   async showRewarded(): Promise<RewardResult | null> {
+    // 구독자에게는 «광고 보고 해제»가 애초에 안 보이지만(isUnlocked 가 참),
+    // 광고를 트는 경로는 전부 같은 자리에서 막는다. 한 곳이라도 새면 구독자가
+    // 돈을 내고도 광고를 본다.
+    if (this.proActive) return null;
     if (!this.initialized || !this.rewardedLoaded) return null;
     try {
       const { AdMob, RewardAdPluginEvents } = await import('@capacitor-community/admob');
