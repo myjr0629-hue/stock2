@@ -3073,6 +3073,7 @@
 .heroCompany,
 .heroTime,
 .heroExtLabel,
+.extClosed .heroExtLabel,   /* 변형(0,2,0)이 이겨서 혼자 남았다 */
 .premDaysText,
 .analystRevisionNote,
 .analystTargetChangeNote,
