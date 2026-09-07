@@ -346,6 +346,9 @@ export async function GET(req: NextRequest) {
     // ══════════════════════════════════════════════════════════════
     let prevRegularClose: number | null = null;
     let prevPrevRegularClose: number | null = null;
+    // 휴장일에 «마지막 정규장의 공식 종가». 아래 CLOSED 분기에서 표시가로 쓴다.
+    let regularCloseHoliday: number | null = null;
+    let baselineHolidayCorrected = false;
     let baselineSource: string = "UNKNOWN";
     // ⚠️ 기준선의 «실제 세션 날짜». 예전엔 달력 −1일을 찍어서 일요일(2026-08-30)처럼
     //    존재하지도 않는 세션이 진단에 남았다. 진단이 틀리면 버그를 못 찾는다.
@@ -412,6 +415,57 @@ export async function GET(req: NextRequest) {
             prevRegularClose = lastReg;
             baselineDateET = snapRegDate;
             baselineSource = "snapshot._intrinio.regularClose (PRE=직전 정규장)";
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // [2026-09-07 노동절 실측] 휴장일 기준선 오염 — 전 종목이 «보합»으로 나갔다
+    //
+    //   TSLA  실제 −5.92%  → 화면 −0.05%
+    //   MRVL  실제 +7.05%  → 화면 +0.04%
+    //   22종목 중 **14종목**이 ±0.0x% 로 표시됐다.
+    //
+    // [원인] `_intrinio.prevClose` 는 정의상 «마지막 정규장의 하나 앞»이다.
+    //   평일 장마감 뒤에는 그게 곧 직전 세션이라 맞다. 그러나 휴장일에는
+    //   스냅샷이 굴러가 prevClose 가 «마지막 정규장 그 자체»가 된다.
+    //   그러면 표시가(마지막 정규장 종가)와 기준선이 같아져 등락률이 0 이 된다.
+    //
+    // [지문] baseline.dateET 가 «표시 중인 세션 날짜»와 같거나 그 뒤다.
+    //   기준선은 표시 세션보다 반드시 앞이어야 한다 — 아니면 자기 자신과 비교한 것이다.
+    //
+    // [왜 안 걸렸나] 4종목(MSFT·GOOGL·AMZN·META)은 liveLast 가 없어
+    //   changePctFrac 이 null 이 되고 아래 «값 없음» 폴백이 직전 세션 등락률로
+    //   메워 우연히 맞았다. 나머지 14종목은 값이 «있어서» 폴백이 안 돌았다.
+    //   → 폴백이 마스크하기 전에 기준선 자체를 고친다.
+    // ══════════════════════════════════════════════════════════════
+    if (session === "CLOSED" || session === "POST") {
+        // 배열 순서를 가정하지 않는다 — 날짜로 직접 내림차순 정렬한다.
+        const byDateDesc = historicalResults
+            .filter((r: any) => Number(r?.c) > 0 && aggDateOf(r))
+            .sort((a: any, b: any) => aggDateOf(b).localeCompare(aggDateOf(a)));
+        const shownDate = aggDateOf(byDateDesc[0]) || snapRegDate;
+        const baseDate = baselineDateET || "";
+        const contaminated =
+            !!shownDate &&
+            ((!!baseDate && baseDate >= shownDate) ||
+                (prevRegularClose !== null && Number(byDateDesc[0]?.c) === prevRegularClose));
+        if (contaminated) {
+            const trueBase = byDateDesc.find((r: any) => aggDateOf(r) < shownDate);
+            const trueBasePrev = byDateDesc.find(
+                (r: any) => trueBase && aggDateOf(r) < aggDateOf(trueBase),
+            );
+            if (trueBase?.c) {
+                prevPrevRegularClose = trueBasePrev?.c ?? prevPrevRegularClose;
+                prevRegularClose = trueBase.c;
+                baselineDateET = aggDateOf(trueBase);
+                baselineSource = "prevAgg (휴장일 기준선 교정)";
+                baselineHolidayCorrected = true;   // warnings 는 아래에서 선언된다
+                // 휴장일엔 오늘 정규장이 없으니 «표시가»도 마지막 정규장의 «공식 종가»여야
+                // 한다. 굳은 마지막 체결가(liveLast)를 쓰면 종가와 몇 센트 어긋난다.
+                if (!regularCloseHoliday && Number(byDateDesc[0]?.c) > 0) {
+                    regularCloseHoliday = Number(byDateDesc[0].c);
+                }
+            }
         }
     }
 
@@ -651,6 +705,7 @@ export async function GET(req: NextRequest) {
     };
 
     const warnings: string[] = [];
+    if (baselineHolidayCorrected) warnings.push("BASELINE_HOLIDAY_CORRECTED");
 
     // [S-52.2.1] Calculate changePct as FRACTION
     const changePctFrac_PRE = (prePrice !== null && prevRegularClose !== null && prevRegularClose !== 0)
@@ -711,7 +766,7 @@ export async function GET(req: NextRequest) {
         default: // CLOSED session
             // [Fix] Show Regular Close Logic (Intraday) because Post Market is separately displayed
             // Prioritize Regular Close > Post Price (if Reg missing) > Last Trade
-            activePrice = regularCloseToday || postPrice || liveLast || prevRegularClose;
+            activePrice = regularCloseToday || regularCloseHoliday || postPrice || liveLast || prevRegularClose;
             baselinePrice = prevRegularClose; // Always use prevClose as baseline for main change%
 
             // Calculate change
