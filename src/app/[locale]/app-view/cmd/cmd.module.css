@@ -213,8 +213,9 @@
 .priceCard {
   position: relative;
   overflow: hidden;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016));
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
   border-radius: var(--r-card);
   padding: var(--s5) var(--s4);
   margin: var(--s3) var(--s4);
@@ -331,8 +332,11 @@
      ⚠️ 여기에 padding 을 다시 주면 상쇄되어 제자리다(1차 시도에서 그랬다). */
   margin-left: calc(var(--s3) * -1);
   margin-right: calc(var(--s3) * -1);
-  font: var(--f-micro);
-  color: var(--text-dim);
+  /* [2026-09-07] 라벨은 «라벨 크기»로 일관되게(대표 지시).
+     애널리스트 컨센서스만 11px 이라 펀더멘탈(13px) 옆에서 작아 보였다.
+     .premiumTitle 과 같은 규격으로 맞춘다. */
+  font: 800 13px/1 var(--f-sans);
+  color: var(--text);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -863,9 +867,10 @@
   align-items: center;
   gap: 4px;
   padding: var(--s3);
-  background: var(--surface-2);
-  border-radius: var(--r-btn);
-  border: 1px solid var(--border);
+  background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016));
+  border-radius: 10px;
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
 }
 
 .premiumMetricLabel {
@@ -883,9 +888,10 @@
 /* AI Insight */
 .aiInsight {
   padding: var(--s3);
-  background: var(--surface-2);
-  border-radius: var(--r-btn);
-  border: 1px solid var(--border);
+  background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016));
+  border-radius: 10px;
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
 }
 
 .aiInsightHead {
@@ -1294,7 +1300,7 @@
   backdrop-filter: var(--glass);
   -webkit-backdrop-filter: var(--glass);
   border: 0;
-  border-radius: var(--r-card); padding: var(--s3); margin: var(--s3) var(--s4) 12px;
+  border-radius: var(--r-card); padding: var(--s3); margin: var(--s3) var(--s4) var(--s3);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
 }
 .heroTopHalf {
@@ -1629,7 +1635,7 @@
   -webkit-backdrop-filter: var(--glass);
   border: 1px solid rgba(255, 255, 255, 0.055);
   border-radius: var(--r-card);
-  padding: 3px; margin: 0 var(--s4) 14px;
+  padding: 3px; margin: 0 var(--s4) var(--s3);
 }
 .segPill {
   position: absolute; top: 3px; bottom: 3px; width: calc((100% - 6px) / 4);
@@ -1649,14 +1655,17 @@
 
 /* ── Chart v2 ── */
 .c2Card {
-  background: rgba(22, 32, 54, 0.45);
-  backdrop-filter: var(--glass);
-  -webkit-backdrop-filter: var(--glass);
-  border: 1px solid rgba(255, 255, 255, 0.055);
+  position: relative;
+  overflow: hidden;
+  border: 0;
   border-radius: var(--r-card);
-  padding: 14px;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow);
+  padding: var(--s3);
+  margin-bottom: var(--s3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+  background:
+    radial-gradient(78% 120% at 14% 0%,  rgba(34, 211, 238, .09) 0%, transparent 60%),
+    radial-gradient(86% 110% at 92% 96%, rgba(88, 58, 168, .14) 0%, transparent 64%),
+    linear-gradient(158deg, #141f33 0%, #0c1524 100%);
 }
 .c2Head {
   display: flex;
@@ -1715,7 +1724,7 @@
 }
 
 .nbbo2 { display: flex; align-items: center; justify-content: center; gap: 10px;
-  background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: var(--r-btn);
+  background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.016)); border: 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045); border-radius: 10px;
   padding: 7px 12px; margin-bottom: 10px; }
 .nbbo2 span { font: 600 12px/1 var(--f-mono); color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .nbbo2 .spread { font: 700 11px/1 var(--f-sans); color: var(--amber); background: var(--amber-dim);
@@ -1763,8 +1772,8 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 0;
-  background: rgba(2, 6, 23, 0.44);
-  border: 1px solid rgba(148, 163, 184, 0.08);
+  background: rgba(255, 255, 255, .035);
+  border: 0;
   border-radius: var(--r-card);
   padding: 2px;
   margin-top: 10px;
@@ -2186,7 +2195,7 @@
 .peerRow + .peerRow::before {
   content: '';
   position: absolute;
-  left: 12px; right: 12px; top: 0; height: 1px;
+  left: 12px; right: 12px; top: 0; height: 1px;   /* 구분선은 글자보다 안쪽에서 시작 */
   background: rgba(255, 255, 255, .055);
 }
 .peerRow { position: relative; }
@@ -2499,7 +2508,7 @@
   border: 0;
   border-radius: var(--r-card);
   padding: var(--s3);
-  margin: 0 var(--s4) 14px;
+  margin: 0 var(--s4) var(--s3);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
@@ -2609,11 +2618,18 @@
   border-radius: var(--r-pill);
   box-shadow: 0 0 8px rgba(34, 211, 238, 0.15);
 }
+.premCountdownGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;              /* 배지와 «N일 후»가 겹쳐 보이던 자리 */
+  flex: 0 0 auto;
+}
 .premDaysText {
   font: 600 10px/1 var(--f-sans);
   color: rgba(255, 255, 255, 0.35);
   text-align: right;
-  margin-top: 4px;
+  margin-top: 0;         /* 간격은 그룹의 gap 이 정한다 */
 }
 .premDateRow {
   display: flex;
@@ -2752,9 +2768,9 @@
 }
 
 .analystActionsBlock {
-  /* [2026-09-07] 30행짜리 목록이 카드 패딩 안쪽에서만 그려져 좌우가 답답했다.
-     카드 패딩을 되돌려 행이 카드 폭을 다 쓰게 한다(행 자신이 패딩을 갖는다). */
-  margin: var(--s3) calc(var(--s3) * -1) 0;
+  /* [2026-09-07] 처음엔 카드 패딩을 통째로 되돌려 행을 «가장자리에 딱» 붙였는데
+     대표 지적대로 그게 더 어색했다. 절반만 되돌려 숨 쉴 틈을 남긴다. */
+  margin: var(--s3) calc(var(--s2) * -1) 0;
   padding-top: var(--s3);
   border-top: 1px solid var(--line);
   display: flex;
@@ -2762,7 +2778,7 @@
   gap: 5px;
 }
 .analystActionsHead {
-  padding: 0 var(--s3);
+  padding: 0 var(--s2);
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -2778,7 +2794,7 @@
   font-variant-numeric: tabular-nums;
 }
 .analystActionRow {
-  padding: 5px var(--s3);
+  padding: 5px var(--s2);
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: baseline;

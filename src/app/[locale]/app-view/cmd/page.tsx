@@ -982,7 +982,14 @@ function AnalystConsensus({
     >
       {/* Header: Title + Rating badge inline */}
       <div className={s.analystHead}>
-        <div className={s.cardTitle} style={{ marginBottom: 0 }}>
+        {/* 다른 카드 제목과 «같은 규격»: 14px 아이콘 + 800 13px 라벨 */}
+        <div className={s.premiumTitle} style={{ marginBottom: 0 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
           {locale === 'ko' ? '애널리스트 컨센서스' : locale === 'ja' ? 'アナリスト・コンセンサス' : 'ANALYST CONSENSUS'}
         </div>
         <span className={ratingClass}>{analyst.rating}</span>
@@ -1396,7 +1403,8 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
           </svg>
           {locale === 'ko' ? '실적 발표' : locale === 'ja' ? '決算予定' : 'EARNINGS'}
         </div>
-        <div>
+        {/* [2026-09-07] 배지와 «N일 후»가 겹쳐 보였다 — 세로 정렬 + 간격을 명시한다 */}
+        <div className={s.premCountdownGroup}>
           <span className={s.premCountdownBadge}>{daysLabel}</span>
           {days !== null && days > 0 && (
             <div className={s.premDaysText}>
@@ -2117,7 +2125,9 @@ function CmdPageContent() {
   // (아래 차트가 쓰는 것과 같은 문 `/api/chart`. 한 종목 화면이라 1콜이면 끝난다)
   const [heroSeries, setHeroSeries] = useState<number[] | null>(null);
   
-  // Reorder tabs: OVERVIEW | VERDICT ✱ | QUANT ✱ | HOLDERS ✱
+  // Reorder tabs: OVERVIEW | AI | QUANT | HOLDERS
+  // [2026-09-07] ✱ 제거 — 세 탭에 «전부» 붙어 있어 구분 정보가 0 이었다(장식).
+  //   강조는 활성 탭의 색·밑선으로 한다.
   const [activeTab, setActiveTab] = useState<'overview' | 'verdict' | 'quant' | 'holders'>('overview');
   const [openSections, setOpenSections] = useState<Set<number>>(new Set());
 
@@ -3069,8 +3079,10 @@ function CmdPageContent() {
           borderBottomRightRadius: '0px'
         }}
       >
-        {/* Background sparkline decoration */}
-        <SparklineBg up={up} seed={data.ticker} series={heroSeries} band />
+        {/* [2026-09-07] 히어로 배경 곡선 제거(대표 판단).
+            바로 아래 「가격 히스토리」 카드가 같은 계열을 실제 차트로 그린다 —
+            위아래가 같은 말을 두 번 하고 있었고, 띠로 낮춰도 「변동성」 글자
+            뒤를 지나 읽기를 방해했다. 정보 손실은 0이다. */}
 
         {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
         <div className={s.heroIdentity}>
@@ -3500,20 +3512,20 @@ function CmdPageContent() {
             fontWeight: 900,
             opacity: activeTab === 'verdict' ? 1 : 0.65
           }}>
-            AI ✱
+            AI
           </span>
         </button>
         <button 
           className={activeTab === 'quant' ? s.on : ''}
           onClick={() => setActiveTab('quant')}
         >
-          QUANT ✱
+          QUANT
         </button>
         <button 
           className={activeTab === 'holders' ? s.on : ''}
           onClick={() => setActiveTab('holders')}
         >
-          HOLDERS ✱
+          HOLDERS
         </button>
       </div>
 
