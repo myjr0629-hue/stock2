@@ -4890,7 +4890,7 @@ export default function AppIntelPage() {
                       borderRadius: '16px',
                       padding: '18px 16px 14px',
                       border: '1px solid transparent',
-                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
+                      boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.055)',
                       backdropFilter: 'blur(20px)',
                       WebkitBackdropFilter: 'blur(20px)',
                       position: 'relative',
