@@ -1694,8 +1694,11 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
   const title = locale === 'ko' ? '상관 종목 (Peers)' : locale === 'ja' ? '関連銘柄' : 'Related Peers';
 
   return (
-    <div className={`${s.card} ${s.animateIn} ${s.delay6}`}>
-      <div className={s.cardTitle} style={{ marginBottom: 'var(--s3)' }}>{title}</div>
+    /* [2026-09-07] 카드를 벗긴다. 대시보드는 목록을 «카드 안»이 아니라
+       «제목(x=16) + 행 묶음»으로 둬서 행이 화면 폭을 다 쓴다(.e9Sect/.e9Mvs).
+       카드에 넣으면 여백 16 + 패딩 12 가 겹쳐 행이 매번 28px 안쪽에서 시작한다. */
+    <div className={`${s.sect} ${s.animateIn} ${s.delay6}`}>
+      <div className={s.sectHead}><span className={s.sectTitle}>{title}</span></div>
       <div className={s.peerList}>
         {tickers.map((r: any) => {
           const wsPrice = wsGetPrice(r.ticker);
