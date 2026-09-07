@@ -422,3 +422,27 @@
 .e9Root [role="button"],
 .e9Root [role="tab"],
 .e9Root input, .e9Root select, .e9Root textarea{min-height:0}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   값 변화 플래시 (2026-09-08)
+   flashStates 는 이미 «계산»되고 있었는데 그리는 쪽이 없었다 —
+   9차 재설계 때 옛 dash.module.css 의 규칙이 안 넘어왔다(조용한 누락).
+   커맨드 히어로(0.45s)·시간외(0.95s)와 지속시간이 제각각이라 0.5s 로 통일한다.
+   깜빡임은 «세션이 살아 있을 때»만 걸린다(page.tsx 의 flashAllowed).
+   ═══════════════════════════════════════════════════════════════════ */
+@keyframes e9FlashUp {
+  0%   { color:#34d399; text-shadow:0 0 10px rgba(52,211,153,.55) }
+  100% { color:inherit; text-shadow:none }
+}
+@keyframes e9FlashDown {
+  0%   { color:#f87171; text-shadow:0 0 10px rgba(248,113,113,.55) }
+  100% { color:inherit; text-shadow:none }
+}
+.flashUp   { animation: e9FlashUp   .5s ease-out 1 }
+.flashDown { animation: e9FlashDown .5s ease-out 1 }
+
+/* 움직임을 줄이는 설정을 존중한다 — 색만 바뀌고 잔상은 없앤다 */
+@media (prefers-reduced-motion: reduce) {
+  .flashUp, .flashDown { animation-duration: .01ms; text-shadow: none }
+}
