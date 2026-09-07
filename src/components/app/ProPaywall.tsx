@@ -148,12 +148,18 @@ export function ProPaywall({ locale, onClose, previewPrice }: {
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
   const t = COPY[loc];
 
-  const { isPro, ready, offers, purchase, restore } = useProStatus();
+  const { isPro, ready, offers, purchase, restore, refreshOffers } = useProStatus();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   // 스토어가 준 월간 오퍼. 없으면 «가격을 지어내지 않고» 버튼을 잠근다.
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
+
+  // 열었는데 가격이 없다 = 마운트 때 오퍼링을 못 받았다는 뜻. 여기서 한 번 더 받는다.
+  useEffect(() => {
+    if (!monthly && !previewPrice) void refreshOffers();
+    // 페이월이 열릴 때 한 번만 — 가격이 들어오면 monthly 가 생겨 다시 돌지 않는다
+  }, [monthly, previewPrice, refreshOffers]);
   const shownPrice = monthly?.priceString ?? previewPrice ?? null;
 
   // 이미 구독자면 페이월을 띄울 이유가 없다(복원 직후 포함).

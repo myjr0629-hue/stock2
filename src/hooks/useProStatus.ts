@@ -106,5 +106,23 @@ export function useProStatus() {
     return result;
   }, []);
 
-  return { isPro, ready, offers, purchase, restore, iapAvailable };
+  /**
+   * 오퍼링 다시 받기.
+   *
+   * 마운트 때 한 번만 받으면, 콜드스타트에 네트워크가 한 번 미끄러진 사용자는
+   * 그 세션 내내 페이월이 «가격 없음 · 구매 불가»로 남는다. 사용자는 그걸
+   * «구독이 안 되는 앱»으로 읽고 다시 안 온다. 페이월을 열 때마다 비어 있으면
+   * 다시 받는다 — 성공했으면 아무 일도 하지 않는다.
+   */
+  const refreshOffers = useCallback(async () => {
+    if (!IAP_LIVE) return;
+    try {
+      const list = await getProOffers();
+      if (list.length) setOffers(list);
+    } catch {
+      // 실패하면 «가격 없음»을 유지한다. 지어낸 가격을 보여주지 않는다.
+    }
+  }, []);
+
+  return { isPro, ready, offers, purchase, restore, iapAvailable, refreshOffers };
 }
