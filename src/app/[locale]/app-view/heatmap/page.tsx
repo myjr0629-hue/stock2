@@ -17,6 +17,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import s from './heatmap.module.css';
 
@@ -69,17 +70,26 @@ const T = {
         pick: '섹터를 누르면 종목이 바뀝니다', lead: '주도', lag: '부진',
         sub: (s: number, n: number) => `${s} 섹터 · ${n} 종목`,
         xTitle: '오늘의 양 끝', xOf: (n: number) => `${n}종목 전체`,
-        xMid: (n: number) => `중간 ${n}종목 생략`, loading: '불러오는 중' },
+        xMid: (n: number) => `중간 ${n}종목 생략`, loading: '불러오는 중',
+        holiday: '휴장', closed: '마감', pre: '프리', regular: '정규장', post: '애프터',
+        holidayNote: '미국 증시 휴장 — 직전 거래일 마감값입니다.',
+        closedNote: '장 마감 — 직전 거래일 마감값입니다.' },
   en: { title: 'Heatmap', back: 'SECTOR MAP', scale: 'Weak', scaleUp: 'Strong',
         pick: 'Tap a sector to swap the names below', lead: 'Leader', lag: 'Laggard',
         sub: (s: number, n: number) => `${s} sectors · ${n} names`,
         xTitle: 'Both ends of today', xOf: (n: number) => `ALL ${n} NAMES`,
-        xMid: (n: number) => `${n} IN THE MIDDLE OMITTED`, loading: 'Loading' },
+        xMid: (n: number) => `${n} IN THE MIDDLE OMITTED`, loading: 'Loading',
+        holiday: 'HOLIDAY', closed: 'CLOSED', pre: 'PRE', regular: 'REGULAR', post: 'POST',
+        holidayNote: 'US markets closed — last session\u2019s close.',
+        closedNote: 'Market closed — last session\u2019s close.' },
   ja: { title: 'ヒートマップ', back: 'SECTOR MAP', scale: '弱', scaleUp: '強',
         pick: 'セクターを押すと下の銘柄が変わります', lead: '主導', lag: '不振',
         sub: (s: number, n: number) => `${s}セクター · ${n}銘柄`,
         xTitle: '今日の両端', xOf: (n: number) => `全${n}銘柄`,
-        xMid: (n: number) => `中間の${n}銘柄は省略`, loading: '読み込み中' },
+        xMid: (n: number) => `中間の${n}銘柄は省略`, loading: '読み込み中',
+        holiday: '休場', closed: '引け', pre: 'プレ', regular: '通常', post: 'アフター',
+        holidayNote: '米国市場は休場 — 直前取引日の終値です。',
+        closedNote: '取引終了 — 直前取引日の終値です。' },
 } as const;
 
 export default function HeatmapPage() {
@@ -141,6 +151,20 @@ export default function HeatmapPage() {
     return () => clearTimeout(id);
   }, [full]);
   const ready = full || settled;
+
+  /* 세션 상태 — 대시보드 섹터 배지와 «같은 근거»를 쓴다(화면마다 다르면 안 된다).
+     isHolidaySession 은 선물 거래일 기준이라 노동절 전날 일요일 밤부터 참이다. */
+  const { status: mkt } = useMarketStatus();
+  const isHoliday = Boolean(mkt?.isHoliday || mkt?.isHolidaySession);
+  const sess = mkt?.session;
+  const sessionLabel = isHoliday ? t.holiday
+    : sess === 'pre' ? t.pre
+    : sess === 'regular' ? t.regular
+    : sess === 'post' ? t.post
+    : t.closed;
+  const sessionNote = isHoliday ? t.holidayNote
+    : sess === 'regular' || sess === 'pre' || sess === 'post' ? ''
+    : t.closedNote;
   const loading = bands.length === 0;
 
   return (
@@ -152,8 +176,21 @@ export default function HeatmapPage() {
         <span className={s.hmEy}>{t.back}</span>
       </div>
       <div className={s.hmHead}>
-        <div className={s.hmTitle}>{t.title}</div>
-        <div className={s.hmSub}>{ready ? t.sub(bands.length, total) : t.loading}</div>
+        {/* ★ [2026-09-08] 세션 상태가 아예 없었다(대표 지적: 「히트맵이 휴일을
+            인식하지 못하는 것 같다」). 노동절에 전 섹터가 -0.01% 로 뜨는데
+            화면 어디에도 «휴장»이라는 말이 없었다 — 값이 왜 안 움직이는지
+            알 방법이 없다. 대시보드 섹터 배지와 같은 말을 쓴다. */}
+        <div className={s.hmTitleRow}>
+          <div className={s.hmTitle}>{t.title}</div>
+          <span suppressHydrationWarning
+                className={`${s.hmSess} ${isHoliday ? s.hmSessHoliday : ''}`}>
+            {sessionLabel}
+          </span>
+        </div>
+        <div className={s.hmSub}>
+          {ready ? t.sub(bands.length, total) : t.loading}
+          {ready && sessionNote ? <span className={s.hmSessNote}> · {sessionNote}</span> : null}
+        </div>
       </div>
 
       <div className={s.hmScale}>

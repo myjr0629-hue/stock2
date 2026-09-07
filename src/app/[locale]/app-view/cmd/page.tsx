@@ -4083,34 +4083,44 @@ function CmdPageContent() {
       {/* ── SEARCH MODAL (Premium Glassmorphism) ── */}
       {isSearchOpen && (
         <div className={s.searchOverlay} onClick={() => setIsSearchOpen(false)}>
-          <div className={s.searchDialog} onClick={(e) => e.stopPropagation()}>
-            <div className={s.searchHeader}>
-              <span className={s.searchTitle}>{tCommon('search')}</span>
-              <button className={s.searchClose} onClick={() => setIsSearchOpen(false)}>✕</button>
-            </div>
-            <form onSubmit={(e) => {
+          {/* ★ [2026-09-08] 가운데 뜨는 «작은 상자»를 상단 시트로 바꾼다.
+              대표 지적: 「검색은 작게 써있고 … 검색창 디자인 자체를 고급스럽게,
+              공간을 정확하게 사용」. 제목 「검색」을 지우고 입력창을 주인공으로 둔다 —
+              검색 화면에서 «검색»이라고 다시 말할 필요가 없다.
+              모바일 표준 패턴(상단 고정 바 + 아래로 흐르는 결과)이라 손도 편하다. */}
+          <div className={s.searchSheet} onClick={(e) => e.stopPropagation()}>
+            <form className={s.searchBar} onSubmit={(e) => {
               e.preventDefault();
               // 후보가 있으면 첫 후보로 — 티커를 정확히 몰라도 엔터로 간다
               goTicker(searchHits[0]?.symbol || searchVal);
             }}>
-              <div className={s.searchInputWrap}>
-                <input
-                  type="text"
-                  className={s.searchInput}
-                  placeholder={locale === 'ko' ? '종목명 또는 티커 (예: 테슬라, TSLA)'
-                    : locale === 'ja' ? '銘柄名またはティッカー (例: Tesla, TSLA)'
-                    : 'Company or ticker (e.g. Tesla, TSLA)'}
-                  value={searchVal}
-                  onChange={(e) => setSearchVal(e.target.value)}
-                  autoFocus
-                />
-                <button type="submit" className={s.searchSubmitBtn} aria-label="search">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="11" cy="11" r="7" stroke="#0b111e" strokeWidth="2.5" />
-                    <path d="m16.5 16.5 4 4" stroke="#0b111e" strokeWidth="2.5" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
+              <span className={s.searchIcon} aria-hidden="true">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                  <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.2" />
+                  <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                className={s.searchInput}
+                placeholder={locale === 'ko' ? '종목명 또는 티커'
+                  : locale === 'ja' ? '銘柄名またはティッカー'
+                  : 'Company or ticker'}
+                value={searchVal}
+                onChange={(e) => setSearchVal(e.target.value)}
+                autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="search"
+              />
+              {!!searchVal && (
+                <button type="button" className={s.searchClear} aria-label="clear"
+                        onClick={() => { setSearchVal(''); setSearchHits([]); }}>✕</button>
+              )}
+              <button type="button" className={s.searchCancel} onClick={() => setIsSearchOpen(false)}>
+                {locale === 'ko' ? '취소' : locale === 'ja' ? 'キャンセル' : 'Cancel'}
+              </button>
             </form>
 
             {/* 입력 전 — 자주 보는 종목을 먼저 준다(빈 화면을 주지 않는다) */}
