@@ -2,6 +2,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
 import { KeyboardResize } from '@capacitor/keyboard';
 
 const useLiveReload = process.env.CAPACITOR_LIVE_RELOAD === 'true';
+/**
+ * 프리뷰 배포를 «앱 안에서» 확인할 때 쓴다.
+ *   CAPACITOR_PREVIEW_URL='https://stock2-xxx.vercel.app/en/app-view/dash?x-vercel-protection-bypass=…&x-vercel-set-bypass-cookie=true' npx cap sync ios
+ * 값을 안 주면 항상 프로덕션이다 — 임시 URL 이 저장소에 남지 않는다.
+ */
+const previewUrl = process.env.CAPACITOR_PREVIEW_URL;
 
 const config: CapacitorConfig = {
   appId: 'com.signumhq.app',
@@ -16,10 +22,16 @@ const config: CapacitorConfig = {
         cleartext: true,
         allowNavigation: ['10.0.2.2:3000'],
       }
-    : {
-        url: 'https://www.signumhq.com/en/app-view/dash',
-        cleartext: false,
-      },
+    : previewUrl
+      ? {
+          url: previewUrl,
+          cleartext: false,
+          allowNavigation: ['*.vercel.app', 'www.signumhq.com', 'signumhq.com'],
+        }
+      : {
+          url: 'https://www.signumhq.com/en/app-view/dash',
+          cleartext: false,
+        },
 
   // iOS 설정
   ios: {
