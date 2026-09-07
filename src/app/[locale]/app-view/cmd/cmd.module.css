@@ -3043,3 +3043,55 @@
 .analystRevisionNote {
   font-variant-numeric: tabular-nums slashed-zero;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   라벨 사다리 — 페이지 «전수» 적용 (2026-09-08)
+
+   하나씩 찾아 붙이니 계속 빠졌다(대표 지적 3회). 전 탭의 12.5px 이하 텍스트를
+   전수로 뽑아 분류했다. 실측에서 드러난 진짜 문제:
+     · 각주·노트가 rgb(226,232,240) — 거의 흰색이라 «라벨보다 밝았다».
+       위계가 안 보이던 원인이 이것이다.
+     · 보조 라벨의 색이 .35 / .45 / .58 백색으로 제각각이었다.
+
+   층:
+     기준선 var(--text-muted)          참조값·구획의 이름
+     보조   rgba(148,163,184,.62)      부연·각주·시각·회사명
+   값·배지·상태 표시(색이 뜻을 담은 것)는 «건드리지 않는다».
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 기준선 — 구획의 이름 */
+.premForwardTitle,
+.analystTargetLabel,
+.analystActionsTitle,
+.analystRevisionLabel {
+  font: 700 11px/1 var(--f-sans);
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* 보조 — 부연·각주는 라벨보다 «물러나야» 한다 */
+.heroCompany,
+.heroTime,
+.heroExtLabel,
+.premDaysText,
+.analystRevisionNote,
+.analystTargetChangeNote,
+.analystActionsFootnote,
+.analystTargetRange > span,
+.premRatioLabel,
+.premForwardLabel {
+  color: rgba(148, 163, 184, 0.62);
+}
+
+/* 숫자는 전부 자리 고정 + 0/O 구분 */
+.heroTime,
+.analystTargetPrice,
+.analystTargetChangeVal,
+.analystTargetChangeUpside,
+.analystRevisionNote,
+.premInfoPillValue,
+.premForwardVal,
+.premRatioValue,
+.markerVal {
+  font-variant-numeric: tabular-nums slashed-zero;
+}
