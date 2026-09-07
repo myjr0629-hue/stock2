@@ -199,27 +199,27 @@ function GuardianPageContent() {
 
   // Macro Pill Status Helpers
   const getFgStatus = (score: number) => {
-    if (score >= 75) return { label: t.extremeGreed, color: '#34d399', border: 'rgba(16, 185, 129, 0.25)', bg: 'rgba(16, 185, 129, 0.06)' };
-    if (score >= 55) return { label: t.greed, color: '#86efac', border: 'rgba(16, 185, 129, 0.15)', bg: 'rgba(16, 185, 129, 0.04)' };
-    if (score >= 45) return { label: t.neutral, color: '#94a3b8', border: 'rgba(255,255,255,0.06)', bg: 'rgba(255,255,255,0.02)' };
-    if (score >= 25) return { label: t.fear, color: '#f59e0b', border: 'rgba(245, 158, 11, 0.15)', bg: 'rgba(245, 158, 11, 0.04)' };
-    return { label: t.extremeFear, color: '#f43f5e', border: 'rgba(239, 68, 68, 0.25)', bg: 'rgba(239, 68, 68, 0.06)' };
+    if (score >= 75) return { label: t.extremeGreed, color: '#34d399', border: 'transparent', bg: 'rgba(16, 185, 129, 0.156)' };
+    if (score >= 55) return { label: t.greed, color: '#86efac', border: 'transparent', bg: 'rgba(16, 185, 129, 0.104)' };
+    if (score >= 45) return { label: t.neutral, color: '#94a3b8', border: 'transparent', bg: 'rgba(255, 255, 255, 0.052)' };
+    if (score >= 25) return { label: t.fear, color: '#f59e0b', border: 'transparent', bg: 'rgba(245, 158, 11, 0.104)' };
+    return { label: t.extremeFear, color: '#f43f5e', border: 'transparent', bg: 'rgba(239, 68, 68, 0.156)' };
   };
 
   const getVixStatus = (v: number) => {
-    if (v <= 0) return { label: '—', color: '#94a3b8', border: 'rgba(255, 255, 255, 0.06)', bg: 'rgba(255, 255, 255, 0.02)' };
-    if (v > 30) return { label: t.vixExtreme, color: '#f43f5e', border: 'rgba(239, 68, 68, 0.25)', bg: 'rgba(239, 68, 68, 0.06)' };
-    if (v > 20) return { label: t.vixElevated, color: '#f59e0b', border: 'rgba(245, 158, 11, 0.15)', bg: 'rgba(245, 158, 11, 0.04)' };
-    if (v > 15) return { label: t.vixNormal, color: '#94a3b8', border: 'rgba(255, 255, 255, 0.06)', bg: 'rgba(255, 255, 255, 0.02)' };
-    return { label: t.vixLow, color: '#34d399', border: 'rgba(16, 185, 129, 0.15)', bg: 'rgba(16, 185, 129, 0.04)' };
+    if (v <= 0) return { label: '—', color: '#94a3b8', border: 'transparent', bg: 'rgba(255, 255, 255, 0.052)' };
+    if (v > 30) return { label: t.vixExtreme, color: '#f43f5e', border: 'transparent', bg: 'rgba(239, 68, 68, 0.156)' };
+    if (v > 20) return { label: t.vixElevated, color: '#f59e0b', border: 'transparent', bg: 'rgba(245, 158, 11, 0.104)' };
+    if (v > 15) return { label: t.vixNormal, color: '#94a3b8', border: 'transparent', bg: 'rgba(255, 255, 255, 0.052)' };
+    return { label: t.vixLow, color: '#34d399', border: 'transparent', bg: 'rgba(16, 185, 129, 0.104)' };
   };
 
   const getIndexStatus = (chg: number | null) => {
-    if (chg === null) return { color: '#94a3b8', border: 'rgba(255, 255, 255, 0.06)', bg: 'rgba(255, 255, 255, 0.02)' };
+    if (chg === null) return { color: '#94a3b8', border: 'transparent', bg: 'rgba(255, 255, 255, 0.052)' };
     if (chg >= 0) {
-      return { color: '#34d399', border: 'rgba(52, 211, 153, 0.25)', bg: 'rgba(52, 211, 153, 0.06)' };
+      return { color: '#34d399', border: 'transparent', bg: 'rgba(52, 211, 153, 0.156)' };
     } else {
-      return { color: '#f43f5e', border: 'rgba(239, 68, 68, 0.25)', bg: 'rgba(239, 68, 68, 0.06)' };
+      return { color: '#f43f5e', border: 'transparent', bg: 'rgba(239, 68, 68, 0.156)' };
     }
   };
 
@@ -292,11 +292,11 @@ function GuardianPageContent() {
   const isRiskStreamActive = isCmeGlobexActive(isHoliday);
   const isVolMetricActive = isVixSessionActive(isHoliday);
   const sessionBadge = (() => {
-    if (marketStatusInfo.isHoliday) return { label: 'HOLIDAY', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.35)' };
-    if (session === 'REG') return { label: 'LIVE', color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.32)' };
-    if (session === 'PRE') return { label: 'PRE', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.32)' };
-    if (session === 'POST') return { label: 'AFTER', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.32)' };
-    return { label: 'CLOSED', color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.18)' };
+    if (marketStatusInfo.isHoliday) return { label: 'HOLIDAY', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.18)', border: 'transparent' };
+    if (session === 'REG') return { label: 'LIVE', color: '#34d399', bg: 'rgba(52, 211, 153, 0.18)', border: 'transparent' };
+    if (session === 'PRE') return { label: 'PRE', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.18)', border: 'transparent' };
+    if (session === 'POST') return { label: 'AFTER', color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.18)', border: 'transparent' };
+    return { label: 'CLOSED', color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.18)', border: 'transparent' };
   })();
 
   const macroCards = [
@@ -361,7 +361,7 @@ function GuardianPageContent() {
           position: 'relative',
           overflow: 'hidden',
           borderRadius: 18,
-          border: '1px solid rgba(148,163,184,0.13)',
+          border: '1px solid transparent',
           background: 'linear-gradient(145deg, rgba(15,23,42,0.78), rgba(2,6,23,0.66))',
           boxShadow: '0 18px 48px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.06)',
         }}>
@@ -448,7 +448,7 @@ function GuardianPageContent() {
               gap: 5,
               padding: 4,
               borderRadius: 14,
-              border: '1px solid rgba(255,255,255,0.055)',
+              border: '1px solid transparent',
               background: 'rgba(2,6,23,0.38)',
             }}>
               {macroCards.map(card => (

@@ -2946,7 +2946,7 @@ export default function AppIntelPage() {
           display: 'flex',
           margin: '-1px 16px 12px',
           background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.78))',
-          border: '1px solid rgba(148, 163, 184, 0.12)',
+          border: '1px solid transparent',
           borderTop: '1px solid rgba(34, 211, 238, 0.08)',
           borderRadius: '0 0 16px 16px',
           padding: '4px',
@@ -3042,7 +3042,7 @@ export default function AppIntelPage() {
                 return (
                   <div style={{
                     background: 'linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(139,92,246,0.04) 100%)',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    border: '1px solid transparent',
                     borderRadius: '14px',
                     overflow: 'hidden',
                     marginBottom: '4px'
@@ -3131,7 +3131,7 @@ export default function AppIntelPage() {
                                   display: 'flex', alignItems: 'center', gap: '8px',
                                   padding: '8px 10px', borderRadius: '11px',
                                   background: flat ? 'rgba(255,255,255,0.025)' : up ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.045)',
-                                  border: '1px solid rgba(255,255,255,0.05)',
+                                  border: '1px solid transparent',
                                   borderLeft: `2.5px solid ${c}`
                                 }}>
                                   <div style={{ width: 24, height: 24, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: c, background: flat ? 'rgba(255,255,255,0.05)' : up ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.10)' }}>
@@ -3181,7 +3181,7 @@ export default function AppIntelPage() {
                         const pcrPos = pcr != null ? Math.max(0, Math.min(1, (pcr - 0.5) / 1.0)) * 100 : 50;
                         const pcrColor = pcr == null ? 'var(--text-muted)' : pcr > 1.05 ? '#ef4444' : pcr < 0.95 ? '#10b981' : '#f59e0b';
                         return (
-                          <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid transparent' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                               {/* Regime semicircle gauge */}
                               <div style={{ width: '124px', flexShrink: 0, position: 'relative' }}>
@@ -3359,7 +3359,7 @@ export default function AppIntelPage() {
                               const chain = n.impactChain || [];
                               if (!headline) return null;
                               return (
-                                <div key={i} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div key={i} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid transparent' }}>
                                   <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-dim)', lineHeight: 1.5, marginBottom: impact ? '4px' : '0' }}>{headline}</div>
                                   {impact && <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: chain.length ? '8px' : '0' }}>{impact}</div>}
                                   {chain.length > 0 && (
@@ -3367,7 +3367,7 @@ export default function AppIntelPage() {
                                       {chain.slice(0, 3).map((step, j) => (
                                         <React.Fragment key={j}>
                                           {j > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.6 }}>&#8594;</span>}
-                                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, padding: '4px 8px', borderRadius: '7px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono, monospace)' }}>
+                                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, padding: '4px 8px', borderRadius: '7px', background: 'rgba(255,255,255,0.04)', border: '1px solid transparent', color: 'var(--text-dim)', fontFamily: 'var(--font-mono, monospace)' }}>
                                             {isKnownTicker(step.indicator) && <StockLogo symbol={step.indicator} size={14} />}
                                             {step.indicator}
                                             <span style={{ color: dirColor(step.direction), fontWeight: 900 }}>{step.direction}</span>
@@ -3416,7 +3416,7 @@ export default function AppIntelPage() {
                           padding: '10px 14px',
                           background: 'rgba(255,255,255,0.02)',
                           borderRadius: '8px',
-                          border: '1px solid rgba(255,255,255,0.04)',
+                          border: '1px solid transparent',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between'
@@ -3459,7 +3459,7 @@ export default function AppIntelPage() {
                                 <div key={i} style={{
                                   display: 'inline-flex', alignItems: 'center', gap: '6px',
                                   padding: '6px 10px', borderRadius: '8px',
-                                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
+                                  background: 'rgba(255,255,255,0.03)', border: '1px solid transparent',
                                   borderLeft: `2px solid ${kColor}`
                                 }}>
                                   <span style={{ fontSize: '9px', color: kColor, lineHeight: 1 }}>{kCaret}</span>
@@ -3704,7 +3704,7 @@ export default function AppIntelPage() {
                               type="button"
                               onClick={() => setExpandedReport(null)}
                               aria-label="Close"
-                              style={{ appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', flexShrink: 0, width: '34px', height: '34px', minWidth: '34px', minHeight: '34px', maxWidth: '34px', maxHeight: '34px', aspectRatio: '1 / 1', padding: 0, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-dim)', WebkitTapHighlightColor: 'transparent' }}
+                              style={{ appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box', flexShrink: 0, width: '34px', height: '34px', minWidth: '34px', minHeight: '34px', maxWidth: '34px', maxHeight: '34px', aspectRatio: '1 / 1', padding: 0, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-dim)', WebkitTapHighlightColor: 'transparent' }}
                             >
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
@@ -3782,7 +3782,7 @@ export default function AppIntelPage() {
                             <div style={{
                               padding: '12px 13px',
                               borderRadius: '12px',
-                              border: '1px solid rgba(255,255,255,0.07)',
+                              border: '1px solid transparent',
                               background: 'rgba(2, 6, 23, 0.38)',
                               color: 'rgba(226,232,240,0.92)',
                               fontSize: '13px',
@@ -3799,19 +3799,19 @@ export default function AppIntelPage() {
                             gap: '8px',
                             marginTop: '10px'
                           }}>
-                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.56)' }}>
+                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid transparent', background: 'rgba(15,23,42,0.56)' }}>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px' }}>SCORE</div>
                               <div style={{ fontSize: '17px', color: cached.avgAlpha >= 55 ? '#10b981' : cached.avgAlpha >= 45 ? '#f59e0b' : '#ef4444', fontWeight: 900 }}>
                                 {cached.avgAlpha.toFixed(0)}
                               </div>
                             </div>
-                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.56)' }}>
+                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid transparent', background: 'rgba(15,23,42,0.56)' }}>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>GEX<MetricInfo term="gex" locale={appLocale} size={9} /></div>
                               <div style={{ fontSize: '15px', color: cached.totalGex >= 0 ? '#10b981' : '#ef4444', fontWeight: 900, fontFamily: 'var(--font-mono, monospace)' }}>
                                 {formatGex(cached.totalGex)}
                               </div>
                             </div>
-                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(15,23,42,0.56)' }}>
+                            <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid transparent', background: 'rgba(15,23,42,0.56)' }}>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px' }}>{reportLabels.structure}</div>
                               <div style={{ fontSize: '15px', color: regimeColor, fontWeight: 900 }}>
                                 {cached.dominantRegime}
@@ -3874,7 +3874,7 @@ export default function AppIntelPage() {
                                   <div key={`${title}-${i}`} style={{
                                     padding: '11px 12px',
                                     borderRadius: '12px',
-                                    border: '1px solid rgba(255,255,255,0.065)',
+                                    border: '1px solid transparent',
                                     background: 'linear-gradient(135deg, rgba(15,23,42,0.72), rgba(2,6,23,0.48))',
                                     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.035)'
                                   }}>
@@ -3905,7 +3905,7 @@ export default function AppIntelPage() {
                                                 fontWeight: 850,
                                                 color: 'rgba(226,232,240,0.78)',
                                                 background: 'rgba(148,163,184,0.13)',
-                                                border: '1px solid rgba(148,163,184,0.14)',
+                                                border: '1px solid transparent',
                                                 borderRadius: '5px',
                                                 padding: '2px 5px'
                                               }}>
@@ -3944,7 +3944,7 @@ export default function AppIntelPage() {
                                     alignItems: 'start',
                                     padding: '10px 11px',
                                     borderRadius: '10px',
-                                    border: '1px solid rgba(255,255,255,0.055)',
+                                    border: '1px solid transparent',
                                     background: 'rgba(255,255,255,0.022)'
                                   }}>
                                     <span style={{ color: '#22d3ee', fontSize: '12px', fontWeight: 900, fontFamily: 'var(--font-mono, monospace)' }}>
@@ -4026,7 +4026,7 @@ export default function AppIntelPage() {
                               padding: '10px',
                               background: 'rgba(255,255,255,0.02)',
                               borderRadius: '8px',
-                              border: '1px solid rgba(255,255,255,0.04)',
+                              border: '1px solid transparent',
                               textAlign: 'center' as const
                             }}>
                               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: '4px' }}>
@@ -4041,7 +4041,7 @@ export default function AppIntelPage() {
                               padding: '10px',
                               background: 'rgba(255,255,255,0.02)',
                               borderRadius: '8px',
-                              border: '1px solid rgba(255,255,255,0.04)',
+                              border: '1px solid transparent',
                               textAlign: 'center' as const
                             }}>
                               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: '4px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>GEX<MetricInfo term="gex" locale={appLocale} size={9} /></div>
@@ -4054,7 +4054,7 @@ export default function AppIntelPage() {
                               padding: '10px',
                               background: 'rgba(255,255,255,0.02)',
                               borderRadius: '8px',
-                              border: '1px solid rgba(255,255,255,0.04)',
+                              border: '1px solid transparent',
                               textAlign: 'center' as const
                             }}>
                               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: '4px' }}>
@@ -4192,7 +4192,7 @@ export default function AppIntelPage() {
                                     padding: '12px 14px',
                                     background: 'rgba(255,255,255,0.02)',
                                     borderRadius: '10px',
-                                    border: '1px solid rgba(255,255,255,0.04)'
+                                    border: '1px solid transparent'
                                   }}>
                                     {/* Stock Logo */}
                                     <StockLogo symbol={stock.sym} />
@@ -4448,7 +4448,11 @@ export default function AppIntelPage() {
                               </span>
                             )}
                           </div>
-                          <p style={{ margin: '6px 0 0', color: 'rgba(203, 213, 225, 0.80)', fontSize: '11.5px', lineHeight: 1.35, fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {/* [2026-09-08] 한 줄 말줄임이라 «문장의 절반»이 잘렸다
+                              (실측 186px 자리에 89px 초과 — 「빅테크 7대 기업의 AI 패권 경쟁과…」).
+                              설명이 설명 역할을 못 한다. 두 줄까지 허용한다. */}
+                          <p style={{ margin: '6px 0 0', color: 'rgba(203, 213, 225, 0.80)', fontSize: '11.5px', lineHeight: 1.35, fontWeight: 650,
+                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {sectorCopy.desc}
                           </p>
                         </div>
@@ -4521,7 +4525,7 @@ export default function AppIntelPage() {
                       <div style={{
                         borderRadius: '15px',
                         background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.52))',
-                        border: '1px solid rgba(148, 163, 184, 0.12)',
+                        border: '1px solid transparent',
                         overflow: 'hidden',
                         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.035)'
                       }}>
@@ -4628,7 +4632,7 @@ export default function AppIntelPage() {
                               fontWeight: 850,
                               color: metric.color,
                               background: 'rgba(2, 6, 23, 0.38)',
-                              border: '1px solid rgba(148, 163, 184, 0.10)',
+                              border: '1px solid transparent',
                               borderRadius: '999px',
                               padding: '4px 7px',
                               whiteSpace: 'nowrap'
@@ -4696,7 +4700,7 @@ export default function AppIntelPage() {
                       height: '40px',
                       borderRadius: '10px',
                       background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      border: '1px solid transparent',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -4758,7 +4762,7 @@ export default function AppIntelPage() {
                                 fontSize: '9px',
                                 fontWeight: 600,
                                 background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid rgba(255,255,255,0.06)',
+                                border: '1px solid transparent',
                                 borderRadius: '3px',
                                 padding: '1px 4px',
                                 color: 'var(--text-muted)'
@@ -4841,7 +4845,7 @@ export default function AppIntelPage() {
             style={{
               margin: '0 16px 16px',
               background: 'var(--bg-elev)',
-              border: '1px solid var(--border)',
+              border: '1px solid transparent',
               borderRadius: 'var(--r-btn)',
               padding: '6px 14px',
               font: 'var(--f-small)',
@@ -4885,7 +4889,7 @@ export default function AppIntelPage() {
                       background: 'linear-gradient(135deg, rgba(16, 28, 52, 0.65) 0%, rgba(8, 14, 28, 0.85) 100%)',
                       borderRadius: '16px',
                       padding: '18px 16px 14px',
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      border: '1px solid transparent',
                       boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
                       backdropFilter: 'blur(20px)',
                       WebkitBackdropFilter: 'blur(20px)',
@@ -4900,7 +4904,7 @@ export default function AppIntelPage() {
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                           <div style={{
                             width: '46px', height: '46px', borderRadius: '12px',
-                            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)',
+                            background: 'rgba(255,255,255,0.02)', border: '1px solid transparent',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)'
                           }}>
@@ -5011,7 +5015,7 @@ export default function AppIntelPage() {
                 {/* ═══ SECTION 2: KEY STOCKS (Accordion — Default Open) ═══ */}
                 <div className="app-card" style={{
                   background: 'rgba(255,255,255,0.015)',
-                  border: '1px solid rgba(255,255,255,0.04)',
+                  border: '1px solid transparent',
                   borderRadius: '16px', overflow: 'hidden'
                 }}>
                   {/* Accordion Header */}
@@ -5190,7 +5194,7 @@ export default function AppIntelPage() {
                                   ].map(m => (
                                     <div key={m.label} style={{
                                       background: 'rgba(0,0,0,0.2)', borderRadius: '10px',
-                                      padding: '10px 12px', border: '1px solid rgba(255,255,255,0.04)',
+                                      padding: '10px 12px', border: '1px solid transparent',
                                       display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px'
                                     }}>
                                       <div style={{ fontSize: '9.5px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'inline-flex', alignItems: 'center', gap: 3 }}>{m.label}<MetricInfo term={m.tip as any} locale={appLocale} size={9} /></div>
@@ -5243,7 +5247,7 @@ export default function AppIntelPage() {
                                             height: '18px',
                                             borderRadius: '999px',
                                             background: 'linear-gradient(90deg, rgba(239,68,68,0.34), rgba(245,158,11,0.26) 45%, rgba(16,185,129,0.34))',
-                                            border: '1px solid rgba(255,255,255,0.06)',
+                                            border: '1px solid transparent',
                                             boxShadow: 'inset 0 0 18px rgba(0,0,0,0.34)'
                                           }}>
                                             <div style={{ position: 'absolute', inset: '0 8px', background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 9px)', opacity: 0.55 }} />
@@ -5400,7 +5404,7 @@ export default function AppIntelPage() {
                                         <div style={{
                                           padding: '10px 11px', borderRadius: '12px',
                                           background: 'rgba(2, 6, 23, 0.36)',
-                                          border: '1px solid rgba(148, 163, 184, 0.10)'
+                                          border: '1px solid transparent'
                                         }}>
                                           <div style={{ color: '#94a3b8', fontSize: '9.5px', fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px' }}>
                                             {structuralLabel}
@@ -5465,7 +5469,7 @@ export default function AppIntelPage() {
                 {/* ═══ SECTION 3: AI INTELLIGENCE (Accordion — Commander Log + Verdict) ═══ */}
                 <div className="app-card" style={{
                   background: 'rgba(255,255,255,0.015)',
-                  border: '1px solid rgba(255,255,255,0.04)',
+                  border: '1px solid transparent',
                   borderRadius: '16px', overflow: 'hidden'
                 }}>
                   <button
@@ -5563,7 +5567,7 @@ export default function AppIntelPage() {
                 {reportData.catalysts && reportData.catalysts.length > 0 && (
                   <div className="app-card" style={{
                     background: 'rgba(255,255,255,0.015)',
-                    border: '1px solid rgba(255,255,255,0.04)',
+                    border: '1px solid transparent',
                     borderRadius: '16px', overflow: 'hidden'
                   }}>
                     <button
@@ -5696,7 +5700,7 @@ export default function AppIntelPage() {
                   return (
                     <div className="app-card" style={{
                       background: 'rgba(255,255,255,0.015)',
-                      border: '1px solid rgba(255,255,255,0.04)',
+                      border: '1px solid transparent',
                       borderRadius: '16px', overflow: 'hidden'
                     }}>
                       <button
