@@ -2131,11 +2131,12 @@
 }
 
 .peerLogo {
-  /* 대시보드 무버 행의 AppTickerLogo size={18} 과 동일 — 이 32px 이 행 높이를
-     54px 로 밀어올리고 있었다(안의 이미지는 22px 였다). */
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
+  /* ⚠️ 이 클래스는 상관 종목 행에 «쓰이지 않는다». 그 행의 로고는
+     <AppTickerLogo size> 가 자기 상자를 그린다 — 여기를 고쳐도 행 높이는 안 변한다.
+     (2026-09-07 실측으로 확인: 18px 로 줄였는데 행이 48px 에서 멈췄다) */
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-btn);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2144,7 +2145,7 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  font: 700 9px/1 var(--f-sans);
+  font: 700 10px/1 var(--f-sans);
   color: var(--text-dim);
 }
 

@@ -1720,7 +1720,9 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
               onClick={() => router.push(`/app-view/cmd?t=${r.ticker}`)}
               className={s.peerRow}
             >
-              <AppTickerLogo symbol={r.ticker} size={32} />
+              {/* 대시보드 무버 행과 같은 18px. 32px 이 행을 54px 로 밀어올리고 있었다.
+                  (.peerLogo CSS 는 이 행에 쓰이지 않는다 — 로고는 이 컴포넌트가 그린다) */}
+              <AppTickerLogo symbol={r.ticker} size={18} />
               <span className={s.peerTicker}>{r.ticker}</span>
               <span className={s.peerPrice}>
                 {displayPrice > 0 ? `$${displayPrice < 10 ? displayPrice.toFixed(2) : displayPrice < 1000 ? displayPrice.toFixed(1) : Math.round(displayPrice)}` : '—'}
