@@ -400,10 +400,17 @@ function LevelChip({ label, value, color }: { label: string; value: string; colo
 }
 
 const shell: CSSProperties = {
-  padding: 14,
-  borderRadius: 14,
-  background: 'var(--surface-1)',
-  border: '1px solid var(--border)',
+  // [2026-09-07] 커맨드 페이지 표면 규칙 — 테두리 대신 상단 빛선 + 그라디언트
+  position: 'relative',
+  overflow: 'hidden',
+  padding: 12,
+  borderRadius: 12,
+  border: 0,
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.06)',
+  background:
+    'radial-gradient(78% 120% at 14% 0%, rgba(34,211,238,.09) 0%, transparent 60%),'
+    + ' radial-gradient(86% 110% at 92% 96%, rgba(88,58,168,.14) 0%, transparent 64%),'
+    + ' linear-gradient(158deg, #141f33 0%, #0c1524 100%)',
   marginBottom: 'var(--s3)',
 };
 const skeleton: CSSProperties = { borderRadius: 8, background: 'linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.08), rgba(255,255,255,0.04))' };
