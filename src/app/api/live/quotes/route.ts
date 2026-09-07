@@ -22,6 +22,21 @@ function isHolidayDayBar(S: any): boolean {
     return p > 0 && d === p;
 }
 
+/**
+ * ★ 값으로는 휴장을 다 못 가른다 — 달력을 봐야 한다.
+ *
+ * 2026-09-07(노동절) 실측: day.c 가 0 도 아니고 prevDay.c 의 복사본도 아니었다.
+ * **금요일의 굳은 마지막 체결가**(NVDA 230.31, 금요일 공식 종가는 230.36)가
+ * 들어 있었다. 그래서 day.c ≠ prevDay.c 이고, 값만 보는 검사는 전부 통과한다.
+ * 그 결과 등락률이 (230.31-230.36)/230.36 = -0.02% 가 되어 전 종목이 보합.
+ *
+ * 휴장 여부는 우리가 이미 안다(marketStatusProvider). 값으로 추측하지 말고
+ * 그걸 쓴다.
+ */
+function shouldReconstruct(isHoliday: boolean, S: any): boolean {
+    return isHoliday || isHolidayDayBar(S);
+}
+
 export const dynamic = 'force-dynamic'; // No caching allowed
 
 // ── [REDIS OPT] In-memory cache for flow:extended — 60s TTL ──
@@ -140,7 +155,7 @@ export async function GET(request: Request) {
         let reconMap: Record<string, LastSessionData> = {};
         if (session === 'closed') {
             const holidayTickers = results
-                .filter(r => r.snapshot && isHolidayDayBar(r.snapshot))
+                .filter(r => r.snapshot && shouldReconstruct(marketStatus.isHoliday, r.snapshot))
                 .map(r => r.ticker);
             if (holidayTickers.length > 0) {
                 reconMap = await reconstructLastSession(holidayTickers);
@@ -292,7 +307,7 @@ export async function GET(request: Request) {
             // [HOLIDAY] Override with reconstructed last-session data when the snapshot
             // day bar is empty (day.c=0 on a market holiday), so change% and POST reflect
             // the last real session instead of collapsing to prevClose / 0.00% / a mirror.
-            const recon = (session === 'closed' && isHolidayDayBar(S)) ? reconMap[ticker] : undefined;
+            const recon = (session === 'closed' && shouldReconstruct(marketStatus.isHoliday, S)) ? reconMap[ticker] : undefined;
             const outPrice = recon ? recon.regClose : price;
             const outPrevClose = recon ? recon.prevClose : prevClose;
             const outChangePct = recon ? recon.changePct : changePercent;
