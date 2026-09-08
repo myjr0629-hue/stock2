@@ -262,6 +262,27 @@ GET /v1/subscribers/{id}/offerings   (X-Platform: ios | android)
 AAB(versionCode 5, 16MB) 준비 완료 — `~/Desktop/★대표님 할일 2026-09-08/`.
 Play 내부 테스트 업로드 **전에 라이선스 테스터 등록**을 해야 과금이 안 된다.
 
+## ✅ 2026-09-08 — 양 스토어 테스트 배포 완료
+
+| | 상태 |
+|---|---|
+| iOS TestFlight | **1.7 (build 9)** VALID · 내부 그룹 `Internal` · contact@signumhq.com 초대 |
+| Play 내부 테스트 | **6 (1.2.1)** Active · 참여 링크 `play.google.com/apps/internaltest/4701690970123029710` |
+| Play 라이선스 테스터 | 등록됨(contact@signumhq.com) → 테스트 결제는 과금 없음 |
+
+### 한국 가격 정정 (대표 지적)
+$9.99 인데 한국만 **₩17,000** 이었다(애플 자동 환산 티어).
+미국 $9.99 · 일본 ¥1,500 과 어긋나 **₩13,000** 으로 내렸다.
+> 승인된 구독은 «초기 가격»을 다시 못 만든다(409 `Initial price cannot be created
+> again after subscription is approved`). `territory` + `startDate` 를 함께 보내는
+> **가격 변경** 으로만 된다. 즉시 반영은 안 되고 시작일이 필요하다 → 2026-09-10.
+
+### ⚠️ Play 내부 테스트 빌드는 arm64 전용이다
+브라우저 자동화의 업로드 한도(10MB)를 맞추려고 `abiFilters 'arm64-v8a'` 로
+줄여 본 빌드가 그대로 올라갔다(결국 DEX 25MB 때문에 16MB 그대로였다).
+**저장소 설정은 되돌려 두었으므로 다음 정식 빌드는 전체 ABI 다.**
+이 내부 테스트 릴리스를 프로덕션으로 «승격»하지 말 것.
+
 ## ⛔ 하나만 남았다 — 실제 결제 트랜잭션
 
 
