@@ -144,5 +144,20 @@
       "schedule": "5 13,15,17,19,21 * * 1-5",
       "path": "/api/cron/structure-build"
     }
+  ],
+  "headers": [
+    {
+      "source": "/press/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    }
   ]
 }
