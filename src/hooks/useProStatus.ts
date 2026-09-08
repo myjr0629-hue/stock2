@@ -22,7 +22,7 @@ import {
 } from '@/services/revenueCat';
 
 export function useProStatus() {
-  const [isPro, setIsPro] = useState(true); // TEMP-VERIFY-PRO-ADS — 되돌릴 것
+  const [isPro, setIsPro] = useState(false);
   /**
    * «여기서 실제로 구매가 되는가».
    *
