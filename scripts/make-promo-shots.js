@@ -20,23 +20,55 @@ const OUT = path.join(__dirname, '..', 'promo-shots');
 const RAW = path.join(OUT, '_raw');
 
 // 최종 캔버스 1080x1920 = 캡션 240 + 여백 60 + 앱 1620
-const CANVAS = { w: 1080, h: 1920 };
-const APP = { w: 960, h: 1620 };            // 앱 이미지 최종 크기
-const VIEW = { w: 390, h: 658, dsf: 2.4616 }; // 390*2.4616=960, 658*2.4616=1620
+// 규격은 SHOT_SIZE 로 고른다.
+//   play  1080x1920  — Play 스토어 폰 (기본)
+//   ios65 1242x2688  — App Store 6.5" (APP_IPHONE_65)
+// 캡션 밴드는 캔버스 높이의 12.5%, 앱 이미지는 나머지를 채운다.
+const SIZES = {
+  play:  { canvas: { w: 1080, h: 1920 }, app: { w: 960,  h: 1620 }, view: { w: 390, h: 658, dsf: 2.4616 } },
+  ios65: { canvas: { w: 1242, h: 2688 }, app: { w: 1104, h: 2268 }, view: { w: 390, h: 801, dsf: 2.8308 } },
+};
+const PICK = SIZES[process.env.SHOT_SIZE || 'play'] || SIZES.play;
+const CANVAS = PICK.canvas;
+const APP = PICK.app;
+const VIEW = PICK.view;
 
 const APPS = {
   signum: {
     onboardKey: ['signumhq.app.onboarding.v1', 'accepted'],
     scenes: [
       { key: 'dash', path: (l) => `/${l}/app-view/dash` },
-      { key: 'guardian', path: (l) => `/${l}/app-view/guardian` },
+      { key: 'cmd', path: (l) => `/${l}/app-view/cmd?t=NVDA` },
       { key: 'flow', path: (l) => `/${l}/app-view/flow` },
+      { key: 'guardian', path: (l) => `/${l}/app-view/guardian` },
       { key: 'intel', path: (l) => `/${l}/app-view/intel` },
+      { key: 'heatmap', path: (l) => `/${l}/app-view/heatmap` },
     ],
     copy: {
-      ko: { dash: '기관의 움직임을|한 화면에서', guardian: '시장 리스크를|실시간 감시', flow: '옵션 플로우 · 다크풀|기관 자금의 흔적', intel: '섹터별 AI 리포트|매일 장 마감 후' },
-      en: { dash: 'What institutions do,|on one screen', guardian: 'Market risk,|watched in real time', flow: 'Options flow & dark pool|the footprints of big money', intel: 'Sector AI reports,|every close' },
-      ja: { dash: '機関投資家の動きを|ひとつの画面で', guardian: '市場リスクを|リアルタイム監視', flow: 'オプションフロー・ダークプール|機関資金の足跡', intel: 'セクター別AIレポート|毎日引け後に' },
+      ko: {
+        dash: '기관의 움직임을|한 화면에서',
+        cmd: '한 종목의 모든 것|맥스페인 · 감마 · 다크풀',
+        flow: '옵션 플로우 · 다크풀|기관 자금의 흔적',
+        guardian: '시장 리스크를|실시간 감시',
+        intel: '섹터별 AI 리포트|매일 장 마감 후',
+        heatmap: '10개 섹터 · 70종목|한눈에 보는 시장 지도',
+      },
+      en: {
+        dash: 'What institutions do,|on one screen',
+        cmd: 'One ticker, everything|max pain · gamma · dark pool',
+        flow: 'Options flow & dark pool|the footprints of big money',
+        guardian: 'Market risk,|watched in real time',
+        intel: 'Sector AI reports,|every close',
+        heatmap: '10 sectors · 70 tickers|the market at a glance',
+      },
+      ja: {
+        dash: '機関投資家の動きを|ひとつの画面で',
+        cmd: '一銘柄のすべて|マックスペイン・ガンマ・ダークプール',
+        flow: 'オプションフロー・ダークプール|機関資金の足跡',
+        guardian: '市場リスクを|リアルタイム監視',
+        intel: 'セクター別AIレポート|毎日引け後に',
+        heatmap: '10セクター・70銘柄|ひと目で見る市場地図',
+      },
     },
     bg: [[14, 42, 60], [5, 10, 20]],   // 캔버스 그라디언트 (네이비)
     fg: [255, 255, 255],
