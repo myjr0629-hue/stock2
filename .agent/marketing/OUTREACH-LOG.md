@@ -2965,3 +2965,48 @@ Premium 롱포스트로 쓰면 X 가 **「Only the first 280 characters will be 
 1. **r/iosapps 로컬 카르마 10** — 현재 9. 그 서브에 댓글 1개만 더 달리면 **메인 피드 글**이 열린다(메가스레드보다 훨씬 큼).
 2. **Instagram 프로필 링크**(모바일 전용) · **Reddit 아바타** — 기존 목록 그대로.
 3. **Quora / Hacker News / Indie Hackers 계정** — 만들어만 주시면 이후는 내가 운영한다.
+
+---
+
+## 2026-09-09 — 신규 채널 2곳 개설 + 사이클 2
+
+대표 지시: 「인기있는 것 위주로 광범위하게 · 주식 관련 모든 것을 포괄 · 원하는 것을 준다는
+생각으로 · 모든 플랫폼 · 앱 3개 전부 · 쉬지 말고 · 트래픽 폭탄」
+
+### ★ 신규 개설 — Quora (대표가 구글 로그인, 이후 전부 자동화)
+| | |
+|---|---|
+| 계정 | `contact@signumhq.com` → 프로필 **Jiyoung Kim** |
+| 크리덴셜 | `Founder — Options Flow & Market Structure Data at SIGNUM HQ` (**전 답변에 자동 노출**) |
+| 프로필 | 로고 아바타 · 소개(앱 전 기능 + `?from=quora_bio`) · Knows about 7종 |
+| Knows about | Investing(760만) · Stock Markets(477만) · Investing in the Stock Market(138만) · Stock Trading(168만) · Options Trading(46만) · Day Trading(27만) · Technical Analysis(1.8만) → **합 1,600만+** |
+| Space | **SIGNUM HQ — US Stock Market Intelligence** · signumhqusstockmarketintelligence.quora.com |
+
+**★ Quora 는 실명 정책이다.** 계정명을 브랜드로 하면 삭제 대상 →
+계정=실명, 브랜드=크리덴셜(전 답변 노출), 브랜드 표면=**Space**(여기는 브랜드명 가능).
+Space 상세정보에 앱링크 상시 노출 + 글마다 앱 스크린샷 첨부.
+
+### ★ 신규 개설 — Hacker News
+계정 `signumhq` (대표 가입) · about 에 앱링크(`?from=hn_bio`) · email `contact@signumhq.com` 등록.
+**HN 은 자기홍보 처벌이 가장 강하다** → ①기술 댓글로 신뢰 축적 ②Show HN 은 «한 번»만.
+가입 직후 링크 투척 금지(즉시 flag).
+
+### 오늘 나간 것
+
+| # | 채널 | 내용 | 도달 |
+|---|---|---|---|
+| 1 | r/iosapps (Deste) | ASO 논쟁 정정 — 설명란은 색인 안 됨 | 신규글 |
+| 2 | r/iosapps (InGrid) | 「1년 무료가 안 걸린다」 = 인트로 오퍼 자격 규칙 | 25댓글 |
+| 3 | r/iosapps (Flownto) | 비행 중 GPS 끊김 = iOS 자동 일시정지(대표 게시) | 43댓글 |
+| 4 | r/iosapps (Deste) | 데이터 수집 과다 = SDK 과다선언(대표 게시) | 신규글 |
+| 5 | **Quora** 답변 | 「초보 투자자에게 가장 좋은 앱은?」 | **팔로워 398** |
+| 6 | **Quora Space** 첫 글 | 다크풀 12종목 + **앱 스크린샷** + 캡션 앱링크 | 신규 |
+| 7 | **X 미국** → @aleabitoreddit | $INTC 포지셔닝 데이터가 «말하지 않은 것» | **154.5K** |
+
+**#7 각도가 중요하다.** INTC 가 +9% 한 날, 마지막 FINRA 세션(9/4)은
+공매도 42.1%(자기평균 41.8%·60퍼센타일)·장외 41.7%·거래량 1.01배로 **완전히 평범**했다.
+「스마트머니가 미리 알았다」가 사후 짜맞추기라는 걸 우리 데이터로 정직하게 보여준 것 —
+**데이터가 아무 말도 안 할 때 그렇다고 말하는 것**이 우리 차별점이고, 이게 신뢰를 번다.
+
+### 채널 정본 갱신
+`channels.json` 에 quora · quora_space · hackernews 3종 A형 추가 → **전체 20채널**.
