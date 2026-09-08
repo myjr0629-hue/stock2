@@ -62,7 +62,7 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
   // Also gates interstitials. setPro is safe before adManager.init() completes.
   useEffect(() => {
     if (!_isNative || !proReady) return;
-    import('@/services/adManager').then(({ adManager }) => adManager.setPro(true /* TEMP-VERIFY */)).catch(() => {});
+    import('@/services/adManager').then(({ adManager }) => adManager.setPro(isPro)).catch(() => {});
   }, [isPro, proReady]);
 
   // --- 앱 첫 진입 시 모바일 전용 뷰(/app-view/dash)로 리다이렉트 ---
