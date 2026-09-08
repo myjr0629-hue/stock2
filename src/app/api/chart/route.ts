@@ -46,7 +46,18 @@ const chartHeaders = (isOneDay: boolean, sparse = false): Record<string, string>
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const symbol = searchParams.get('symbol');
-    const range = searchParams.get('range') || '1d';
+    /**
+     * ★ range 는 «문 앞에서» 정규화한다.
+     *
+     * 예전엔 받은 값을 그대로 `range as Range` 로 넘겼다. `1D`(대문자)처럼
+     * 목록에 없는 값이 오면 아래 계층이 기본 분기로 빠져 **5년치 일봉 1,254개**를
+     * 돌려주고, 그게 `chart:v3:SYM:1D` 로 캐시까지 됐다.
+     * 200 OK 에 데이터도 «있어서» 아무 검사에도 안 걸린다 — 조용히 틀리는 종류다.
+     * (앱은 소문자로 보내서 지금까지 안 물렸을 뿐이다.)
+     */
+    const RANGES: Range[] = ['1d', '1w', '1m', '3m', '6m', '1y', 'ytd', 'max'];
+    const rawRange = (searchParams.get('range') || '1d').trim().toLowerCase();
+    const range: Range = (RANGES as string[]).includes(rawRange) ? (rawRange as Range) : '1d';
 
     if (!symbol) {
         return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
@@ -73,13 +84,15 @@ export async function GET(request: Request) {
     // [2026-09-07] v1 → v2: 1D 응답에 «본장 봉»이 들어오게 고쳤다(그 전엔 PRE/POST 만).
     //   키를 안 올리면 옛 페이로드가 최대 10분 동안 200 OK 로 나가고,
     //   프로덕션 트래픽이 계속 그 값으로 덮어써서 «고쳤는데 그대로»가 된다.
-    const cacheKey = `chart:v3:${symbol}:${range}`;
+    // v4 — 창 기준을 UTC→ET 로 바꾸고 세션 수로 자르므로 «내용»이 달라진다.
+    //      키를 안 올리면 옛 페이로드가 200 OK 로 계속 나간다.
+    const cacheKey = `chart:v4:${symbol}:${range}`;
 
     /** 백그라운드 갱신. 응답을 붙잡지 않는다. */
     const refreshInBackground = () => {
         (async () => {
             try {
-                const fresh = await getStockChartData(symbol, range as Range);
+                const fresh = await getStockChartData(symbol, range);
                 if (fresh.length >= 5) {
                     await setInCache(cacheKey, {
                         data: fresh,
@@ -146,7 +159,7 @@ export async function GET(request: Request) {
     } catch { /* continue to Polygon */ }
 
     try {
-        const data = await getStockChartData(symbol, range as Range);
+        const data = await getStockChartData(symbol, range);
 
         // [SMART CACHE BYPASS] Check if data is sparse (e.g. < 5 points, usually just a synthetic anchor)
         const isSparseData = data.length < 5;
