@@ -13,6 +13,9 @@
  */
 
 import { getFromCache, setInCache } from "./redisClient";
+// 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
+// 다른 서비스가 물어볼 수 없었고, 각자 «값»으로 추측하다 버그가 났다.
+import { US_MARKET_HOLIDAYS } from "@/lib/marketCalendar";
 
 /** 마지막으로 성공한 실시간 스냅샷. 벤더 쿼터에 막혔을 때 «보합 거짓말»을 막는다. */
 const SNAP_LAST_GOOD_PREFIX = "intrinio:snap:lastgood:v1:";
@@ -2412,13 +2415,7 @@ export async function getGroupedDailyIntrinio(reqDate: string): Promise<any> {
 //    Massive: /v1/marketstatus/now
 // ─────────────────────────────────────────────────────────────
 
-/** 미국 증시 휴장일 (NYSE/NASDAQ). 필요 시 갱신. */
-const US_MARKET_HOLIDAYS = new Set([
-    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
-    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
-    "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31",
-    "2027-06-18", "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24",
-]);
+// US_MARKET_HOLIDAYS 는 @/lib/marketCalendar 에서 가져온다 (위 import 참조)
 
 export function getMarketStatusIntrinio(): any {
     const now = new Date();

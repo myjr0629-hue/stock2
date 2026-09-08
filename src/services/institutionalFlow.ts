@@ -27,8 +27,24 @@
  */
 
 import { isEtf } from '@/lib/seo/etfSet';
+import { isNonTradingDay } from '@/lib/marketCalendar';
 
 const OPT_KEY = 'intrinio:options:eod';
+
+/**
+ * 마지막으로 «쓸 수 있었던» 스냅샷. 휴장 다음 날을 위해 존재한다.
+ *
+ * 실측(2026-09-09): 수집기 크론이 `30 8 * * 2-6` 이라 «요일»만 보고 돈다.
+ * 9/8(화)에 돌면서 「어제 = 9/7 노동절」 파일을 받아 정상본을 덮었고,
+ * 휴장이라 미결제약정 증감이 전부 0 → 신규진입 종목 0개 → 요약이 null →
+ * **게이트에서 무료로 열어둔 카드 한 장이 통째로 비었다.** 200 OK 였다.
+ *
+ * 앱의 다른 화면은 이미 「휴장이면 직전 완료 세션을 보여준다」로 통일돼 있다.
+ * 여기만 예외였다. 같은 규칙으로 맞춘다.
+ */
+const OPT_LASTGOOD_KEY = 'intrinio:options:eod:lastgood';
+/** 직전 정상본 보존 기간 — 연휴(최장 4일)를 넉넉히 넘긴다 */
+const LASTGOOD_TTL = 10 * 24 * 3600;
 
 /** 「시장 전체」라고 말하려면 최소 이만큼의 종목이 있어야 한다 */
 const MIN_TICKERS_FOR_MARKET = 50;
@@ -79,26 +95,94 @@ export interface InstitutionalFlowTicker {
     date: string | null;
 }
 
-async function readOptionsEod(): Promise<any | null> {
-    const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+function proxyBase() {
+    return {
+        url: process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081',
+        key: process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026',
+    };
+}
+
+async function proxyGet(redisKey: string, timeoutMs = 5000): Promise<any | null> {
+    const { url, key } = proxyBase();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        const res = await fetch(`${proxy}/get?key=${encodeURIComponent(OPT_KEY)}`, {
+        const res = await fetch(`${url}/get?key=${encodeURIComponent(redisKey)}`, {
             headers: { Authorization: `Bearer ${key}` },
             signal: controller.signal,
             cache: 'no-store',
         });
         if (!res.ok) return null;
         const raw = await res.json();
-        const val = typeof raw?.result === 'string' ? JSON.parse(raw.result) : raw?.result;
-        return val?.tickers ? val : null;
+        return typeof raw?.result === 'string' ? JSON.parse(raw.result) : raw?.result;
     } catch {
         return null;
     } finally {
         clearTimeout(timer);
     }
+}
+
+/** 실패해도 조용히 넘어간다 — 보존은 «있으면 좋은 것»이지 응답을 막을 이유가 아니다 */
+async function proxySet(redisKey: string, value: unknown, ttl: number): Promise<void> {
+    const { url, key } = proxyBase();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+        await fetch(`${url}/set`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: redisKey, value: JSON.stringify(value), ttl }),
+            signal: controller.signal,
+            cache: 'no-store',
+        });
+    } catch {
+        /* 무시 */
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/**
+ * 신규 진입(미결제약정 증가)이 하나라도 있는 종목 수.
+ * 스냅샷이 «쓸 수 있는지»를 요약 계산 전에 미리 판정하기 위한 것.
+ */
+function countOpeningTickers(data: any): number {
+    let n = 0;
+    for (const v of Object.values<any>(data?.tickers || {})) {
+        if ((v?.top || []).some((c: any) => (c?.d ?? 0) > 0)) n += 1;
+    }
+    return n;
+}
+
+/** 스냅샷이 «시장 전체」를 말할 만한가 */
+function isUsableSnapshot(data: any): boolean {
+    if (!data?.tickers) return false;
+    // 휴장·주말 날짜의 스냅샷은 값을 보기 전에 달력으로 걸러낸다.
+    // (그날은 거래가 없어 증감이 0 이고, 0 은 「기관이 아무것도 안 했다」가 아니다)
+    if (isNonTradingDay(data.date)) return false;
+    return countOpeningTickers(data) >= MIN_TICKERS_FOR_MARKET;
+}
+
+/**
+ * 옵션 EOD 스냅샷을 읽는다.
+ * 오늘 것이 쓸 만하면 그것을 쓰고 «직전 정상본»으로도 보존한다.
+ * 쓸 수 없으면(휴장 다음 날 등) 직전 정상본으로 되돌아간다 —
+ * 그 경우 `date` 가 그 세션 날짜를 그대로 들고 오므로 화면이 정직해진다.
+ */
+async function readOptionsEod(): Promise<any | null> {
+    const live = await proxyGet(OPT_KEY);
+
+    if (isUsableSnapshot(live)) {
+        // 다음 휴장을 대비해 보존 (응답을 기다리게 하지 않는다)
+        void proxySet(OPT_LASTGOOD_KEY, live, LASTGOOD_TTL);
+        return live;
+    }
+
+    const lastGood = await proxyGet(OPT_LASTGOOD_KEY);
+    if (isUsableSnapshot(lastGood)) return lastGood;
+
+    // 둘 다 못 쓰면 있는 그대로 넘긴다 — 상위에서 최소 종목수로 다시 걸러진다
+    return live?.tickers ? live : null;
 }
 
 /** 한 종목의 신규 진입분을 계약 단위에서 합산한다 */
