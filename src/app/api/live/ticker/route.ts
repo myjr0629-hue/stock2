@@ -443,12 +443,22 @@ export async function GET(req: NextRequest) {
         const byDateDesc = historicalResults
             .filter((r: any) => Number(r?.c) > 0 && aggDateOf(r))
             .sort((a: any, b: any) => aggDateOf(b).localeCompare(aggDateOf(a)));
-        const shownDate = aggDateOf(byDateDesc[0]) || snapRegDate;
+        // ⚠️ [2026-09-09] «표시 중인 세션»을 일봉의 최신 행에서 가져오면 안 된다.
+        //   휴장 «다음» 거래일에는 일봉에 아직 오늘 행이 없어서, 최신 행이
+        //   실제로는 «직전 세션»이다. 그걸 표시 세션으로 착각하면 교정이 한 칸
+        //   더 뒤로 가서 전 종목 기준선이 한 세션 밀린다.
+        //   실측(9/8 장마감 후): 기준선이 9/4(95.8) 이어야 하는데 9/3(91.67) 이었고
+        //   INTC 가 +9.05% 대신 +13.56% 로, TSLA·MU 는 부호까지 뒤집혀 나갔다.
+        //   스냅샷의 regularDate 가 «지금 표시 중인 세션»을 직접 말해 주므로 그걸 먼저 본다.
+        const shownDate = snapRegDate || aggDateOf(byDateDesc[0]);
+        // 값 기반 오염 판정도 «표시 세션의 그 행»과 비교해야 한다.
+        // 최신 일봉 행과 비교하면, 오늘 행이 아직 없는 날 정상 기준선을 오염으로 오판한다.
+        const shownRow = shownDate ? byDateDesc.find((r: any) => aggDateOf(r) === shownDate) : null;
         const baseDate = baselineDateET || "";
         const contaminated =
             !!shownDate &&
             ((!!baseDate && baseDate >= shownDate) ||
-                (prevRegularClose !== null && Number(byDateDesc[0]?.c) === prevRegularClose));
+                (prevRegularClose !== null && !!shownRow && Number(shownRow.c) === prevRegularClose));
         if (contaminated) {
             const trueBase = byDateDesc.find((r: any) => aggDateOf(r) < shownDate);
             const trueBasePrev = byDateDesc.find(
@@ -971,6 +981,10 @@ export async function GET(req: NextRequest) {
             source: baselineSource,
             dateET: baselineDateET,          // 기준선의 «실제» 세션 날짜(달력 −1일이 아니다)
             calendarYesterdayET: yesterdayStr,
+            // ⚠️ 일봉은 «어제까지»만 요청한다 → 오늘 행은 절대 들어오지 않는다.
+            //    그래서 «표시 중인 세션»은 일봉이 아니라 스냅샷이 말해 줘야 한다.
+            //    이 값이 없거나 틀리면 기준선이 한 세션 밀린다(2026-09-09 실측).
+            shownSessionET: snapRegDate || null,
             aggDateRange: `${thirtyDaysAgoStr} to ${yesterdayStr}`
         },
 
