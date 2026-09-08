@@ -186,7 +186,7 @@ export async function GET(request: Request) {
                 if (ageMs > CHART_FRESH_MS) refreshInBackground();   // 오래됐으면 뒤에서 갱신
                 const buildId = getBuildId();
                 return new Response(JSON.stringify({
-                    data: cached.data,
+                    data: stampTradingDate(cached.data),
                     meta: { buildId, timestampISO: new Date().toISOString(), sessionMaskDebug: cached.sessionMaskDebug, _cached: true, _ageMs: ageMs },
                     range, symbol, count: cached.data?.length || 0
                 }), {
