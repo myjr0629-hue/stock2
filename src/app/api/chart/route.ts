@@ -3,6 +3,45 @@ import { getStockChartData, Range } from '@/services/stockApi';
 import { getBuildId } from '@/services/buildIdSSOT'; // [S-56.4.6e]
 import { getFromCache, setInCache } from '@/services/redisClient';
 
+/**
+ * 일봉에 «거래일»을 찍어 준다.
+ *
+ * ★ 일봉은 UTC 자정으로 온다: `2026-09-04T00:00:00.000Z`.
+ *   클라이언트는 x축·툴팁을 만들 때 이걸 ET 로 변환하는데, UTC 자정을 ET 로
+ *   옮기면 **전날 20:00** 이 된다. 그래서 일봉 차트의 날짜가 전부 하루씩
+ *   밀려 표시되고 있었다(2026-09-04 봉이 «9/3» 로 보였다).
+ *
+ *   분봉·시간봉은 서버가 이미 `dateET`/`etDate` 를 실어 보내므로 문제가 없다.
+ *   일봉도 같은 계약을 지키게 한다 — 클라이언트가 «시간대를 다시 계산»할 일이
+ *   없어야 한다. 정규화는 응답 직전 한 곳에서 한다.
+ */
+function stampTradingDate(rows: any): any {
+    if (!Array.isArray(rows)) return rows;
+    const ET = 'America/New_York';
+    const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: ET, year: 'numeric', month: '2-digit', day: '2-digit' });
+    const timeFmt = new Intl.DateTimeFormat('en-US', { timeZone: ET, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const out = rows.map((r: any) => {
+        if (!r || r.dateET) return r;                       // 1D 경로는 이미 실어 보낸다
+        const iso = String(r.date ?? '');
+        // ① 일봉 — UTC 자정 도장. 그 «날짜 자체»가 거래일이다(시간대 변환 금지).
+        const daily = /^(\d{4}-\d{2}-\d{2})T00:00:00/.exec(iso);
+        if (daily) return { ...r, etDate: daily[1], dateET: daily[1].slice(5).replace('-', '/') };
+        // ② 시간봉·분봉 — ET 로 옮겨 «MM/DD HH:MM ET» (1D 경로와 같은 형식)
+        const ms = Date.parse(iso);
+        if (!Number.isFinite(ms)) return r;
+        const d = new Date(ms);
+        const p = timeFmt.formatToParts(d);
+        const g = (k: string) => p.find((x) => x.type === k)?.value ?? '';
+        return { ...r, etDate: dayFmt.format(d), dateET: `${g('month')}/${g('day')} ${g('hour')}:${g('minute')} ET` };
+    });
+    // sessionMaskDebug 같은 배열 부착 속성을 잃지 않는다
+    for (const k of Object.keys(rows as object)) {
+        if (!/^\d+$/.test(k) && k !== 'length') (out as any)[k] = (rows as any)[k];
+    }
+    return out;
+}
+
+
 // [FIX] force-dynamic — 차트는 시간/세션에 따라 결과가 달라지므로 CDN 정적 캐시 불가
 // 이전 revalidate=30이 브라우저 디스크 캐시와 결합되어 Ctrl+Shift+R 없이는 구 데이터 표시되는 버그 유발
 export const dynamic = 'force-dynamic';
@@ -46,7 +85,18 @@ const chartHeaders = (isOneDay: boolean, sparse = false): Record<string, string>
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const symbol = searchParams.get('symbol');
-    const range = searchParams.get('range') || '1d';
+    /**
+     * ★ range 는 «문 앞에서» 정규화한다.
+     *
+     * 예전엔 받은 값을 그대로 `range as Range` 로 넘겼다. `1D`(대문자)처럼
+     * 목록에 없는 값이 오면 아래 계층이 기본 분기로 빠져 **5년치 일봉 1,254개**를
+     * 돌려주고, 그게 `chart:v3:SYM:1D` 로 캐시까지 됐다.
+     * 200 OK 에 데이터도 «있어서» 아무 검사에도 안 걸린다 — 조용히 틀리는 종류다.
+     * (앱은 소문자로 보내서 지금까지 안 물렸을 뿐이다.)
+     */
+    const RANGES: Range[] = ['1d', '1w', '1m', '3m', '6m', '1y', 'ytd', 'max'];
+    const rawRange = (searchParams.get('range') || '1d').trim().toLowerCase();
+    const range: Range = (RANGES as string[]).includes(rawRange) ? (rawRange as Range) : '1d';
 
     if (!symbol) {
         return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
@@ -73,13 +123,15 @@ export async function GET(request: Request) {
     // [2026-09-07] v1 → v2: 1D 응답에 «본장 봉»이 들어오게 고쳤다(그 전엔 PRE/POST 만).
     //   키를 안 올리면 옛 페이로드가 최대 10분 동안 200 OK 로 나가고,
     //   프로덕션 트래픽이 계속 그 값으로 덮어써서 «고쳤는데 그대로»가 된다.
-    const cacheKey = `chart:v3:${symbol}:${range}`;
+    // v4 — 창 기준을 UTC→ET 로 바꾸고 세션 수로 자르므로 «내용»이 달라진다.
+    //      키를 안 올리면 옛 페이로드가 200 OK 로 계속 나간다.
+    const cacheKey = `chart:v5:${symbol}:${range}`;
 
     /** 백그라운드 갱신. 응답을 붙잡지 않는다. */
     const refreshInBackground = () => {
         (async () => {
             try {
-                const fresh = await getStockChartData(symbol, range as Range);
+                const fresh = await getStockChartData(symbol, range);
                 if (fresh.length >= 5) {
                     await setInCache(cacheKey, {
                         data: fresh,
@@ -120,7 +172,7 @@ export async function GET(request: Request) {
                     if (ageMs > CHART_FRESH_MS) refreshInBackground();   // 오래됐으면 뒤에서 갱신
                     const buildId = getBuildId();
                     return new Response(JSON.stringify({
-                        data: cached.data,
+                        data: stampTradingDate(cached.data),
                         meta: { buildId, timestampISO: new Date().toISOString(), sessionMaskDebug: cached.sessionMaskDebug, _cached: true, _ageMs: ageMs },
                         range, symbol, count: cached.data?.length || 0
                     }), {
@@ -146,7 +198,7 @@ export async function GET(request: Request) {
     } catch { /* continue to Polygon */ }
 
     try {
-        const data = await getStockChartData(symbol, range as Range);
+        const data = stampTradingDate(await getStockChartData(symbol, range));
 
         // [SMART CACHE BYPASS] Check if data is sparse (e.g. < 5 points, usually just a synthetic anchor)
         const isSparseData = data.length < 5;

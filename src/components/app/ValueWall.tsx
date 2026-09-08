@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import styles from './ValueWall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
+import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { ProPaywall } from './ProPaywall';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
@@ -361,9 +362,7 @@ export function ValueWall({
         {iapAvailable && (
           <>
             <button className={styles.proCta} onClick={openPaywall} disabled={purchasing || unlocking}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
-              </svg>
+              <AdFreeIcon size={13} />
               <span>{purchasing ? copy.modalWaitPrefix : copy.proCta}</span>
             </button>
             {proError && <div className={styles.proError} role="alert">{copy.proErrorLabel}</div>}

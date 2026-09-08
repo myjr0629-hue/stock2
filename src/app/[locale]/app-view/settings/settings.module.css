@@ -163,6 +163,20 @@
   flex-shrink: 0;
 }
 
+/* 유료 행의 «누를 자리». rowChevron 을 그대로 쓰면 opacity .4 회색이라
+   비활성으로 읽힌다 — 이 줄은 앱에서 유일하게 돈을 받는 자리다. */
+.rowCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: #10b981;
+  font: 700 13.5px/1 var(--f-sans);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.rowCta i { font-style: normal; font-weight: 400; font-size: 15px; opacity: 0.7; }
+
 /* ── Chevron arrow ── */
 .chevron {
   color: var(--text-muted);

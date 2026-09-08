@@ -1364,23 +1364,61 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       return withGapBreaks;
     }
 
-    let fromDate = new Date();
+    /* ═══════════════════════════════════════════════════════════════════
+       창(window)은 «UTC 지금»이 아니라 «ET 달력»을 기준으로 잡는다.
+
+       [왜]  서버는 UTC 로 돈다. ET 20:00 = UTC 자정이므로, 장 마감 뒤에는
+         UTC 날짜가 하루 먼저 넘어간다. 그 상태에서 `now.getDate() - 7` 을 하면
+         창 전체가 하루 밀려 앞쪽 세션이 통째로 잘린다.
+         2026-09-07(노동절) 저녁 실측: «1주» 차트가 9/1~9/4 **4일**만 그렸다
+         (8/31 월요일 세션이 잘려 나갔다).
+
+       [그리고]  주말·휴장 때문에 «달력 일수»는 세션 수보다 항상 적다.
+         연휴가 끼면 더 적다. 그래서 창을 넉넉히 잡아 «많이 받고»,
+         마지막에 **세션 수로** 잘라낸다. 달력으로 자르면 휴장마다 짧아진다.
+       ═══════════════════════════════════════════════════════════════════ */
+    const etNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    let fromDate = new Date(etNow);
     const multiplier = 1;
     let timespan = 'day';
+    /** 이 범위가 «보여줘야 하는» 거래일 수. null 이면 자르지 않는다. */
+    let wantSessions: number | null = null;
 
     if (range === "1w") {
-      fromDate.setDate(now.getDate() - 7);
-      timespan = 'hour'; // [HOTFIX] Use Hourly for 5D to avoid straight line
+      fromDate.setDate(etNow.getDate() - 16);   // 연휴가 껴도 5세션이 남도록 넉넉히
+      timespan = 'hour';
+      wantSessions = 5;
     }
-    else if (range === "1m") fromDate.setMonth(now.getMonth() - 1);
-    else if (range === "3m") fromDate.setMonth(now.getMonth() - 3);
-    else if (range === "6m") fromDate.setMonth(now.getMonth() - 6);
-    else if (range === "1y") fromDate.setFullYear(now.getFullYear() - 1);
-    else if (range === "ytd") fromDate = new Date(now.getFullYear(), 0, 1);
-    else fromDate.setFullYear(now.getFullYear() - 5);
+    else if (range === "1m") { fromDate.setMonth(etNow.getMonth() - 1); fromDate.setDate(fromDate.getDate() - 12); wantSessions = 21; }
+    else if (range === "3m") { fromDate.setMonth(etNow.getMonth() - 3); fromDate.setDate(fromDate.getDate() - 14); wantSessions = 63; }
+    else if (range === "6m") { fromDate.setMonth(etNow.getMonth() - 6); fromDate.setDate(fromDate.getDate() - 18); wantSessions = 126; }
+    else if (range === "1y") { fromDate.setFullYear(etNow.getFullYear() - 1); fromDate.setDate(fromDate.getDate() - 21); wantSessions = 252; }
+    else if (range === "ytd") fromDate = new Date(etNow.getFullYear(), 0, 1);
+    else fromDate.setFullYear(etNow.getFullYear() - 5);
 
     const from = fromDate.toISOString().split('T')[0];
-    return await getAggregates(symbol, multiplier, timespan, from, to);
+    const rows = await getAggregates(symbol, multiplier, timespan, from, to);
+    if (!wantSessions || !Array.isArray(rows) || rows.length === 0) return rows;
+
+    // 세션(ET 날짜) 단위로 뒤에서부터 센다 — 봉 개수로 자르면 시간봉에서 날이 잘린다.
+    const etDateOf = (v: any): string => {
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return '';
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(d);
+    };
+    const seen: string[] = [];
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const k = etDateOf((rows[i] as any)?.date ?? (rows[i] as any)?.t);
+      if (k && !seen.includes(k)) seen.push(k);
+      if (seen.length >= wantSessions) {
+        const oldest = seen[seen.length - 1];
+        const start = rows.findIndex((r: any) => etDateOf(r?.date ?? r?.t) === oldest);
+        return start > 0 ? rows.slice(start) : rows;
+      }
+    }
+    return rows;
 
   } catch (e) {
     console.error(`[Chart Error] ${symbol}:`, e);
