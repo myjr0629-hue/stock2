@@ -3,6 +3,34 @@ import { getStockChartData, Range } from '@/services/stockApi';
 import { getBuildId } from '@/services/buildIdSSOT'; // [S-56.4.6e]
 import { getFromCache, setInCache } from '@/services/redisClient';
 
+/**
+ * 일봉에 «거래일»을 찍어 준다.
+ *
+ * ★ 일봉은 UTC 자정으로 온다: `2026-09-04T00:00:00.000Z`.
+ *   클라이언트는 x축·툴팁을 만들 때 이걸 ET 로 변환하는데, UTC 자정을 ET 로
+ *   옮기면 **전날 20:00** 이 된다. 그래서 일봉 차트의 날짜가 전부 하루씩
+ *   밀려 표시되고 있었다(2026-09-04 봉이 «9/3» 로 보였다).
+ *
+ *   분봉·시간봉은 서버가 이미 `dateET`/`etDate` 를 실어 보내므로 문제가 없다.
+ *   일봉도 같은 계약을 지키게 한다 — 클라이언트가 «시간대를 다시 계산»할 일이
+ *   없어야 한다. 정규화는 응답 직전 한 곳에서 한다.
+ */
+function stampTradingDate(rows: any): any {
+    if (!Array.isArray(rows)) return rows;
+    const out = rows.map((r: any) => {
+        if (!r || r.dateET || r.etDate) return r;          // 인트라데이는 그대로
+        const iso = String(r.date ?? '');
+        const m = /^(\d{4}-\d{2}-\d{2})T00:00:00/.exec(iso);
+        if (!m) return r;                                   // UTC 자정 일봉이 아니면 손대지 않는다
+        return { ...r, etDate: m[1], dateET: m[1] };
+    });
+    // sessionMaskDebug 같은 배열 부착 속성을 잃지 않는다
+    for (const k of Object.keys(rows as object)) {
+        if (!/^\d+$/.test(k) && k !== 'length') (out as any)[k] = (rows as any)[k];
+    }
+    return out;
+}
+
 // [FIX] force-dynamic — 차트는 시간/세션에 따라 결과가 달라지므로 CDN 정적 캐시 불가
 // 이전 revalidate=30이 브라우저 디스크 캐시와 결합되어 Ctrl+Shift+R 없이는 구 데이터 표시되는 버그 유발
 export const dynamic = 'force-dynamic';
@@ -133,7 +161,7 @@ export async function GET(request: Request) {
                     if (ageMs > CHART_FRESH_MS) refreshInBackground();   // 오래됐으면 뒤에서 갱신
                     const buildId = getBuildId();
                     return new Response(JSON.stringify({
-                        data: cached.data,
+                        data: stampTradingDate(cached.data),
                         meta: { buildId, timestampISO: new Date().toISOString(), sessionMaskDebug: cached.sessionMaskDebug, _cached: true, _ageMs: ageMs },
                         range, symbol, count: cached.data?.length || 0
                     }), {
@@ -159,7 +187,7 @@ export async function GET(request: Request) {
     } catch { /* continue to Polygon */ }
 
     try {
-        const data = await getStockChartData(symbol, range);
+        const data = stampTradingDate(await getStockChartData(symbol, range));
 
         // [SMART CACHE BYPASS] Check if data is sparse (e.g. < 5 points, usually just a synthetic anchor)
         const isSparseData = data.length < 5;
