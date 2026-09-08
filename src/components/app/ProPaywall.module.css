@@ -4,7 +4,11 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  /* ★ 페이월은 «앱에서 가장 위»여야 한다.
+     1200 이었을 때 설정 시트(z-index 9999)가 그 위를 덮어, 설정에서 «업그레이드»를
+     눌러도 페이월이 뒤에서 열리고 화면은 아무 일도 안 일어난 것처럼 보였다.
+     결제로 가는 길이 통째로 죽어 있었다(2026-09-08 시뮬레이터 실측). */
+  z-index: 10050;
   display: flex;
   align-items: center;
   justify-content: center;

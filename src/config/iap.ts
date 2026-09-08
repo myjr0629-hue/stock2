@@ -13,7 +13,11 @@
 // false until all of the above is true.
 // ============================================================================
 
-export const IAP_LIVE = false;
+// ★ 2026-09-08 켜짐 — 스토어 쪽이 전부 승인된 뒤(구독 APPROVED · 앱 1.6 READY_FOR_SALE),
+//   RevenueCat 오퍼링이 iOS·Android 양쪽에서 실제로 내려오는 것을 REST 로 확인하고 켰다.
+//   ⚠️ 이 플래그만으로는 «웹 방문자»에게도 버튼이 뜬다(앱과 웹이 같은 URL).
+//      실제 노출 조건은 useProStatus().iapAvailable = IAP_LIVE && 네이티브 다.
+export const IAP_LIVE = true;
 
 // Public RevenueCat SDK keys (per-platform, safe to expose — NOT secrets).
 // Set these in Vercel env when going live; empty here so nothing runs by default.

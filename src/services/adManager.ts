@@ -165,6 +165,9 @@ export function bannerGeometryDiag(platform: string): string {
   ].join(' · ');
 }
 
+/** app-view.css 의 --app-anchor-ad-height 기본값과 같아야 한다. */
+const AD_SLOT_DEFAULT_PX = 50;
+
 // ---------------------------------------------------------------------------
 // Ad Manager Singleton
 // ---------------------------------------------------------------------------
@@ -291,8 +294,8 @@ class AdManagerService {
         AdMob.addListener(BannerAdPluginEvents.SizeChanged, (info: { height?: number }) => {
           const h = Number(info?.height);
           if (!Number.isFinite(h) || h <= 0) return;
-          const el = (document.querySelector('.app-viewport') as HTMLElement) || document.documentElement;
-          el.style.setProperty('--app-anchor-ad-height', `${Math.round(h)}px`);
+          if (this.proActive) return;   // 구독자는 자리를 다시 열지 않는다
+          this.setAdSlotHeight(h);
         });
       } catch { /* 이벤트가 없는 플러그인 버전 — 기본 50px 로 동작 */ }
 
@@ -315,6 +318,8 @@ class AdManagerService {
   async showBanner() {
     if (!this.initialized) return;
     if (this.bannerSuppressed || this.proActive) return;
+    // 뜨기 «전에» 자리를 열어둔다 — 배너가 그려지고 나서 열면 콘텐츠가 한 번 튄다.
+    this.setAdSlotHeight(AD_SLOT_DEFAULT_PX);
     try {
       const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
       const { Capacitor } = await import('@capacitor/core');
@@ -334,7 +339,24 @@ class AdManagerService {
     }
   }
 
+  /**
+   * 하단 광고 «자리»의 높이를 레이아웃에 알려준다.
+   *
+   * ★ 이 변수는 기본값이 50px 이다. 배너가 안 뜨는 사람(구독자)에게도 그 50px 가
+   *   그대로 비워져 하단에 «죽은 띠»가 남는다. 광고를 없앴는데 자리가 남으면
+   *   광고를 없앤 것이 아니다. 배너를 감출 때 0 으로 접는다.
+   */
+  private setAdSlotHeight(px: number) {
+    if (typeof document === 'undefined') return;
+    const el = (document.querySelector('.app-viewport') as HTMLElement) || document.documentElement;
+    el.style.setProperty('--app-anchor-ad-height', `${Math.max(0, Math.round(px))}px`);
+  }
+
   async hideBanner() {
+    // 자리를 접는 것은 «구독자»일 때만이다. 모달 때문에 잠깐 감추는 경우까지
+    // 접으면 레이아웃이 튄다 — 잠깐의 빈 띠가 화면이 들썩이는 것보다 낫다.
+    // 구독은 영구 상태이므로 접는 것이 맞다.
+    if (this.proActive) this.setAdSlotHeight(0);
     if (!this.initialized) return;
     try {
       const { AdMob } = await import('@capacitor-community/admob');
@@ -383,6 +405,9 @@ class AdManagerService {
     this.proActive = isPro;
     this.proKnown = true;
     this.recomputeWantBanner();
+    // 구독자 → 자리까지 접는다. 해지 → 기본 높이로 되돌린다(배너가 뜨면
+    // SizeChanged 가 실측값으로 다시 맞춘다).
+    this.setAdSlotHeight(isPro ? 0 : AD_SLOT_DEFAULT_PX);
     if (!this.initialized) return; // init() applies wantBanner when it finishes
     if (this.wantBanner) await this.showBanner();
     else await this.hideBanner();
@@ -467,6 +492,10 @@ class AdManagerService {
   }
 
   async showRewarded(): Promise<RewardResult | null> {
+    // 구독자에게는 «광고 보고 해제»가 애초에 안 보이지만(isUnlocked 가 참),
+    // 광고를 트는 경로는 전부 같은 자리에서 막는다. 한 곳이라도 새면 구독자가
+    // 돈을 내고도 광고를 본다.
+    if (this.proActive) return null;
     if (!this.initialized || !this.rewardedLoaded) return null;
     try {
       const { AdMob, RewardAdPluginEvents } = await import('@capacitor-community/admob');

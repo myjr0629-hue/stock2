@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SIGNUM HQ</title>
+<style>
+  :root { color-scheme: dark; }
+  html,body { margin:0; height:100%; background:#050a14; color:#e2e8f0;
+    font: 400 15px/1.6 -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', system-ui, sans-serif; }
+  .wrap { min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding: 32px 28px; text-align:center; gap:14px;
+    background:
+      radial-gradient(60% 40% at 20% 12%, rgba(34,211,238,.10), transparent 60%),
+      radial-gradient(50% 40% at 85% 72%, rgba(16,185,129,.08), transparent 60%); }
+  .mark { font-weight:800; letter-spacing:.16em; font-size:12px; color:#22d3ee; }
+  h1 { margin:0; font-size:19px; font-weight:700; letter-spacing:-.01em; }
+  p { margin:0; max-width:22em; color:rgba(148,163,184,.9); font-size:13.5px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:#f59e0b; box-shadow:0 0 12px rgba(245,158,11,.6); }
+</style>
+</head>
+<body>
+  <!-- 원격 셸의 «오프라인 대체 화면». 평소에는 절대 보이지 않는다
+       (server.url 이 www.signumhq.com 을 연다). 네트워크가 없을 때만 이게 뜬다.
+       ⚠️ 이 폴더가 webDir 다 — 여기 있는 것이 그대로 앱 번들 크기가 된다.
+          예전엔 Next 정적 내보내기 폴더(out/)를 썼는데, 마케팅 영상이 쌓이면서
+          앱이 464MB 로 부풀었다(라이브는 15.4MB). 그래서 전용 폴더로 분리했다. -->
+  <div class="wrap">
+    <span class="dot"></span>
+    <span class="mark">SIGNUM HQ</span>
+    <h1>연결을 확인해 주세요</h1>
+    <p>Check your connection · 接続を確認してください</p>
+  </div>
+</body>
+</html>
