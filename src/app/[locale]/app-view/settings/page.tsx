@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { ProPaywall } from '@/components/app/ProPaywall';
+import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
@@ -71,7 +72,7 @@ const T: Record<string, {
     proTitle: 'SIGNUM Pro',
     proUpgradeSub: '광고 없이 · 월 구독',
     proActiveSub: '광고 없이 이용 중',
-    proCta: '업그레이드',
+    proCta: '광고 끄기',
     proRestore: '구매 복원',
     proManage: '구독 관리',
     proActiveBadge: '활성',
@@ -105,7 +106,7 @@ const T: Record<string, {
     proTitle: 'SIGNUM Pro',
     proUpgradeSub: 'Ad-free · monthly',
     proActiveSub: 'Ad-free is active',
-    proCta: 'Upgrade',
+    proCta: 'Turn off ads',
     proRestore: 'Restore purchase',
     proManage: 'Manage subscription',
     proActiveBadge: 'Active',
@@ -137,7 +138,7 @@ const T: Record<string, {
     proTitle: 'SIGNUM Pro',
     proUpgradeSub: '広告なし · 月額',
     proActiveSub: '広告なしで利用中',
-    proCta: 'アップグレード',
+    proCta: '広告を消す',
     proRestore: '購入を復元',
     proManage: 'サブスク管理',
     proActiveBadge: '有効',
@@ -463,9 +464,7 @@ export default function SettingsPage() {
               >
                 <div className={s.rowLeft}>
                   <div className={s.rowIcon} style={{ color: '#04140f', background: 'linear-gradient(135deg,#10b981,#06b6d4)' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
-                    </svg>
+                    <AdFreeIcon size={16} />
                   </div>
                   <div>
                     <div className={s.rowLabel}>{t.proTitle}</div>

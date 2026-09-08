@@ -9,6 +9,7 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
+import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
@@ -2201,9 +2202,7 @@ export default function AppDashPage() {
                   <button type="button" className={n9.e9ProCta}
                           onClick={adGate.openPaywall}
                           disabled={adGate.purchasing || adGate.unlocking}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 3.2l2.5 5.4 5.9.5-4.5 3.9 1.4 5.8L12 15.7 6.7 18.8l1.4-5.8-4.5-3.9 5.9-.5z" />
-                    </svg>
+                    <AdFreeIcon size={14} />
                     <b>{adGate.purchasing ? adGate.copy.modalWaitPrefix : adGate.copy.proCta}</b>
                     <em>{c9.proNote}</em>
                   </button>

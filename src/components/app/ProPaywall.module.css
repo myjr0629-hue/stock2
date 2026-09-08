@@ -28,11 +28,11 @@
 .sheet {
   position: relative;
   width: 100%;
-  max-width: 344px;
+  max-width: 318px;
   max-height: 88vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 22px 20px;
+  padding: 0 18px 16px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.13);
   /* 유리 — 뒤 화면이 비치고, 블러와 채도 보정이 «두께»를 만든다. */
@@ -77,7 +77,7 @@
 .close:hover { color: #cbd5e1; }
 .close:active { background: rgba(148, 163, 184, 0.1); }
 
-.head { padding: 38px 0 0; }
+.head { padding: 30px 0 0; }
 
 .eyebrow {
   display: block;
@@ -88,8 +88,8 @@
 }
 
 .title {
-  margin: 10px 0 0;
-  font-size: 22px;
+  margin: 8px 0 0;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.22;
@@ -98,22 +98,22 @@
 }
 
 .lede {
-  margin: 7px 0 0;
-  font-size: 13px;
+  margin: 5px 0 0;
+  font-size: 12.5px;
   line-height: 1.5;
   color: rgba(148, 163, 184, 0.85);
 }
 
 /* 담는 것 — 가는 선으로만 나눈다. 아이콘·칩 없음. */
 .benefits {
-  margin: 18px 0 0;
+  margin: 13px 0 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
 
 .benefit {
-  padding: 10px 2px;
+  padding: 8px 2px;
   font-size: 12.5px;
   line-height: 1.5;
   color: rgba(148, 163, 184, 0.88);
@@ -122,14 +122,14 @@
 
 /* 첫 줄이 «사는 이유» 다 — 요소를 늘리지 않고 위계만 준다. */
 .benefitLead {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: #e2e8f0;
 }
 
 /* 가격 — 이 화면에서 강조는 여기 한 번뿐이다. */
 .priceCard {
-  margin: 20px 0 14px;
+  margin: 15px 0 11px;
   display: flex;
   align-items: baseline;
   justify-content: center;
@@ -137,7 +137,7 @@
 }
 
 .price {
-  font-size: 33px;
+  font-size: 29px;
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -157,7 +157,7 @@
 
 .cta {
   width: 100%;
-  min-height: 48px;
+  min-height: 46px;
   border: none;
   border-radius: 13px;
   font-size: 15px;
