@@ -13,6 +13,18 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!--
+          이 앱은 «항상 어둡다». 그런데 테마가 DayNight 라, OS 가 라이트 모드면
+          시스템이 상·하단 바를 흰색으로 칠해 어두운 화면 위아래에 «흰 띠»가 생긴다
+          (Android 16 에뮬레이터 실측 2026-09-08).
+
+          런타임에서 StatusBar.setBackgroundColor('#050a14') 를 부르고 있지만
+          targetSdk 35+ 부터 Window.setStatusBarColor 가 «무시»되므로 소용이 없다.
+          그래서 테마에서 못박는다: 창 배경은 앱 색, 아이콘은 밝게(light=false).
+        -->
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
 
