@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { applySplitGuard } from '@/services/splitGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +85,8 @@ const mapTicker = (t: any) => {
   return {
     ticker: t.ticker,
     price,
+    // 기준선을 응답에 실어 둔다 — 없으면 분할 보정이 등락률에서 «유도»해야 한다.
+    prevClose: toNumber(t.prevDay?.c),
     changePercent,
     volume,
     value,
@@ -254,6 +257,20 @@ export async function GET(req: NextRequest) {
         //    getSpark() 를 지워도 last_good:v4 에 7일짜리 사본이 남아 있어
         //    주말/휴장에는 지어낸 상수 배열([5,6,5.5,...])이 그대로 200 OK 로 나갔다.
         //    키를 올리면 주말엔 무버가 통째로 빈다 → 읽는 쪽에서 털어낸다.
+        // ⚠️ 역분할 미반영 걸러내기 — 정규화와 «같은 자리»에서 한다.
+        //    가격은 분할 후인데 기준선이 분할 전이면 +2051% 같은 숫자가 200 OK 로 나간다
+        //    (2026-09-09 실측: GTBP·LRHC·IGR). 벤더 분할 이력으로 확인해 보정하고,
+        //    확인 안 되면 목록에서 뺀다. 의심 종목이 없는 날은 조회 0건이라 비용이 없다.
+        const originalTs = cachedData?.ts ?? Date.now();
+        const guarded = await applySplitGuard({
+            value: cachedData?.value ?? [],
+            gainers: cachedData?.gainers ?? [],
+            losers: cachedData?.losers ?? [],
+        });
+        // ts 는 «자료가 만들어진 시각»이다. 보정 때문에 지금 시각으로 바뀌면
+        // 화면이 오래된 자료를 방금 것으로 오해한다.
+        cachedData = { ...guarded, ts: originalTs };
+
         const strip = (rows: any[]) =>
             (Array.isArray(rows) ? rows : []).slice(0, limit).map((m: any) =>
                 m && m.spark ? { ...m, spark: null } : m
