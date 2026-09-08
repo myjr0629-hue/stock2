@@ -3072,3 +3072,35 @@ FINRA 원본 `CNMSshvol20260908.txt` 이 아직 AccessDenied(미공개), 2026090
 - **Hacker News 게시** — 프론트페이지에 맞는 스레드 없음. 억지로 끼면 신규 계정이 죽는다. 대기.
 - **Bluesky / Threads** — 팔로워 23·3 이라 같은 노력 대비 도달이 X·Quora 의 수백분의 일. 후순위.
 - **광고** — 대표 지시대로 가격 반영·업데이트 완료 후.
+
+### 2026-09-09 (2) — 받은 답글 대응 + 삭제 복구 + 내부자 데이터 개시
+
+#### ★ r/droidappshowcase 글이 삭제됐다 — 원인은 «우리 도메인»
+automod: 「your post was moderated because it contained a restricted link (**signumhq.com**)」
+
+승인 도메인 위키 확인 결과 우리 도메인은 목록에 없다. **필수 링크로 인정되는 것**:
+play.google.com · f-droid · samsung · github · gitlab · codeberg · bitbucket · sourceforge ·
+xda · apkpure · apkmirror · uptodown.
+**추가 허용**: apps.apple.com · medium.com · dev.to · imgur/postimages/imgbb · youtube · x.com · producthunt.
+→ **스마트링크(`signumhq.com/app`)를 쓸 수 없는 서브가 있다.** 스토어 직링크로 재게시해 복구 완료.
+(이 서브는 **댓글 이미지도 막혀 있다** — 스크린샷은 스토어 리스팅으로 안내)
+
+#### 받은 답글 3건 전부 긍정 → 후속 답변
+| 상대 | 반응 | 우리 후속 |
+|---|---|---|
+| **flownto_dev** | 「그 패턴이 정확히 제가 겪던 것 — 클라임엔 되다가 순항에서 죽었다」 우리 진단대로 고치는 중 | **Capacitor 함정 하나 더** 알려줌: CoreLocation 을 고쳐도 **백그라운드에선 WebView JS 가 정지**해 수신자가 없어진다 → 네이티브가 버퍼링하고 resume 때 넘겨야 한다. 안 알려주면 같은 버그를 두 번 쫓는다 |
+| Sad_Tonight8092 | 「Xcode 확인하고 정리하겠다」 | 개인정보 리포트에서 «정당한 항목 vs SDK 과다선언» 구분법 |
+| Sad_Tonight8092 | 「키워드 중복은 생각 못 했다」 | 이름·부제·키워드는 **하나의 합쳐진 색인** → 이름에 있는 단어는 키워드에서 빼고 100자를 다른 말에 |
+
+#### ★ 새 소재 개시 — 내부자 + 의회 매매
+`/api/command/insider` 와 `/api/flow/congress` 를 마케팅에 처음 썼다. 실측:
+- **INTC CEO Tan Lip-Bu, 2026-08-11 에 105,263주 @ $95 = $1,000만 장내매수**
+  (**code P · 10b5-1 아님** · 보유 1,314,669주로 증가) — 오늘 종가권 $104
+- 의회: INTC 90일 순매수 **+$112만**(2명) · 전체 191건 공시 · GS +$328만(17건 매수) · BE +$675만
+
+커뮤니티는 「CEO가 샀다더라」 수준으로만 안다. **정확한 숫자와 코드(P)와 10b5-1 여부**가 우리 값어치다.
+→ @TheProfInvestor(20.6K 조회, 「캐나다 최다 팔로우 트레이딩 계정」) 스레드에 답글, **최상단 노출**.
+
+### 9/9 누계
+Quora 답변 4 · Quora Space 1 · **r/stocks 본문 1(회원 77만)** · r/droidappshowcase 1(복구) ·
+r/iosapps 댓글 4 + 후속답변 3 · X 답글 2(**154.5K + 20.6K**) · 신규계정 2(Quora·HN)
