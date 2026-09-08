@@ -2845,3 +2845,16 @@ ko 키워드 82→97 · ja 80→89. 스크린샷은 **ASC 의 승인된 en-US 8�
 
 ### 채널 상태 (변동 없음)
 가동 14 / 전체 17. StockTwits 제재 유지 — 게시 금지.
+
+### 스크린샷 — 양 스토어 «심사 접수» 완료 (2026-09-08)
+
+| 스토어 | 상태 |
+|---|---|
+| App Store | 1.7 WAITING_FOR_REVIEW · 72장(6화면 × 12로케일) |
+| Play Store | 스토어 등록정보 «Changes in review» · 6장(새 디자인) |
+
+Play 는 API 도 file input 도 없어서 못 올리는 줄 알았는데 길이 있었다 —
+`/press/store` 에 CORS 로 올려두고 → 페이지에서 fetch → **진짜 클릭**으로
+에셋 라이브러리를 열고 → `a.select-button` 을 JS 로 눌러 선택 → Add → Save →
+Publishing overview 에서 **Send for review**. (저장만 하면 안 나간다)
+정본: 메모리 `play-console-upload-via-asset-library`.
