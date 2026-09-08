@@ -31,7 +31,13 @@ export function App5DayTape({ ticker, locale = 'en' }: { ticker: string; locale?
         // Daily close = last close seen for each ET date (points arrive oldest→newest).
         const byDay = new Map<string, number>();
         for (const p of pts) {
-          const d = p?.dateET || (p?.date ? new Date(p.date).toISOString().slice(0, 10) : null);
+          /* ★ 날짜는 «etDate»(YYYY-MM-DD)다. dateET 는 «보여주는 글자»라
+             일봉이면 '09/04', 시간봉이면 '09/04 15:00 ET' 로 온다 —
+             그걸 날짜로 파싱하면 Invalid Date 가 된다(2026-09-08 실측). */
+          const d =
+            (typeof p?.etDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.etDate) ? p.etDate : null)
+            || (typeof p?.dateET === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.dateET) ? p.dateET : null)
+            || (p?.date ? new Date(p.date).toISOString().slice(0, 10) : null);
           const c = typeof p?.close === 'number' ? p.close : null;
           if (d && c != null && c > 0) byDay.set(d, c);
         }
@@ -58,13 +64,15 @@ export function App5DayTape({ ticker, locale = 'en' }: { ticker: string; locale?
   const weekChg = (days.reduce((acc, d) => acc * (1 + d.chg / 100), 1) - 1) * 100;
   const title = locale === 'ko' ? '최근 5일' : locale === 'ja' ? '直近5日' : '5-DAY';
   const sumLabel = locale === 'ko' ? '주간' : locale === 'ja' ? '週間' : 'Week';
-  const wd = (dateET: string) => {
-    try {
-      return new Date(dateET + 'T00:00:00').toLocaleDateString(
-        locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US',
-        { weekday: 'short' },
-      );
-    } catch { return dateET.slice(5); }
+  /** YYYY-MM-DD → 요일. 형식이 다르면 «Invalid Date» 를 그리지 않고 그대로 보여준다. */
+  const wd = (day: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return day.slice(-5);
+    const dt = new Date(day + 'T12:00:00');
+    if (Number.isNaN(dt.getTime())) return day.slice(5).replace('-', '/');
+    return dt.toLocaleDateString(
+      locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US',
+      { weekday: 'short' },
+    );
   };
 
   return (
