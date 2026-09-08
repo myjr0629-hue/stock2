@@ -2896,3 +2896,31 @@ old.reddit 의 **폼 제출은 조용히 실패한다**(textarea 에 값은 들�
 - **r/iosapps 메인 피드 글은 아직 못 올린다** — 로컬 카르마 10 필요(현재 9). 그래서 메가스레드.
   → 그 서브에 가치 댓글 1~2개만 더 쌓으면 메인 피드가 열린다.
 - **Quora 는 계정 생성이 필요** → 금지 행동이라 미실행. 대표 1회 필요 목록에 올린다.
+
+### 2026-09-08 (2) 이어서 — X · Medium
+
+| # | 채널 | 내용 | 도달 |
+|---|---|---|---|
+| 4 | **X 미국** @signumhq | @wliang 반도체 로테이션 글에 **$AMD FINRA 실데이터** 답글 | 호스트 **55.6K 조회** |
+| 5 | **X 미국** @signumhq | @Mr_Derivatives $NVDA 글에 **$NVDA 공매도·장외·체인 프리미엄** 답글 | 호스트 **65.5K 조회** |
+| 6 | **Medium** @signum_hq | 기사 발행 — 영구 검색 자산 | — |
+
+**기사:** 「What "dark pool %" actually measures, and why every mega-cap sits below the market average」
+https://medium.com/@signum_hq/what-dark-pool-actually-measures-and-why-every-mega-cap-sits-below-the-market-average-24ea8f80c17c
+
+논지(전부 실측): **12개 대형주가 «전부» 시장평균(50.6%) 아래**다(30.8~46.1%).
+retail 이 믿는 「대형주가 다크풀에서 많이 거래된다」가 사실과 반대다 —
+장외 비중을 끌어올리는 건 **소매주문 내부화(wholesaler)**이고, 유동성 얕은 종목일수록 높다.
++ 공매도 비중 ≠ 공매도 잔고(SPY 58%·QQQ 59.7% 가 그 증거) · **수준이 아니라 자기 기준선 대비 편차**로 읽어야 한다
+(TSLA 60.6% = 84퍼센타일 vs PLTR 50.5% = 12퍼센타일) · FINRA 는 T+1, OI 는 OCC 야간정산이라 **실시간 다크풀%는 존재하지 않는다**.
+앱 링크 3종(앱스토어·플레이·스마트링크 `?from=medium_darkpool`) 포함.
+
+### ★ X 실측 함정 — 링크는 «앞 280자» 안에 넣어야 한다
+Premium 롱포스트로 쓰면 X 가 **「Only the first 280 characters will be visible on the timeline」**
+경고를 띄운다. 타임라인에서 잘리므로 **스마트링크가 280자 뒤에 있으면 아무도 못 본다.**
+→ 앞으로 X 답글은 280자 이내로 쓰고 링크를 그 안에 넣는다. (첫 시도 2건이 이 경고창에
+가려 전송 실패했던 것도 같은 원인)
+
+### ★ Medium 태그는 «Enter» 키다 (comma·Return 아님)
+`Return` 은 먹지 않고 텍스트가 이어붙는다. `Enter` 를 눌러야 칩이 생긴다.
+그리고 **한 번에 연속으로 치면 삼켜진다** — 태그마다 2초씩 벌려야 들어간다.
