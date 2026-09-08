@@ -17,12 +17,22 @@ import { getFromCache, setInCache } from '@/services/redisClient';
  */
 function stampTradingDate(rows: any): any {
     if (!Array.isArray(rows)) return rows;
+    const ET = 'America/New_York';
+    const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: ET, year: 'numeric', month: '2-digit', day: '2-digit' });
+    const timeFmt = new Intl.DateTimeFormat('en-US', { timeZone: ET, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const out = rows.map((r: any) => {
-        if (!r || r.dateET || r.etDate) return r;          // 인트라데이는 그대로
+        if (!r || r.dateET) return r;                       // 1D 경로는 이미 실어 보낸다
         const iso = String(r.date ?? '');
-        const m = /^(\d{4}-\d{2}-\d{2})T00:00:00/.exec(iso);
-        if (!m) return r;                                   // UTC 자정 일봉이 아니면 손대지 않는다
-        return { ...r, etDate: m[1], dateET: m[1] };
+        // ① 일봉 — UTC 자정 도장. 그 «날짜 자체»가 거래일이다(시간대 변환 금지).
+        const daily = /^(\d{4}-\d{2}-\d{2})T00:00:00/.exec(iso);
+        if (daily) return { ...r, etDate: daily[1], dateET: daily[1].slice(5).replace('-', '/') };
+        // ② 시간봉·분봉 — ET 로 옮겨 «MM/DD HH:MM ET» (1D 경로와 같은 형식)
+        const ms = Date.parse(iso);
+        if (!Number.isFinite(ms)) return r;
+        const d = new Date(ms);
+        const p = timeFmt.formatToParts(d);
+        const g = (k: string) => p.find((x) => x.type === k)?.value ?? '';
+        return { ...r, etDate: dayFmt.format(d), dateET: `${g('month')}/${g('day')} ${g('hour')}:${g('minute')} ET` };
     });
     // sessionMaskDebug 같은 배열 부착 속성을 잃지 않는다
     for (const k of Object.keys(rows as object)) {
@@ -30,6 +40,7 @@ function stampTradingDate(rows: any): any {
     }
     return out;
 }
+
 
 // [FIX] force-dynamic — 차트는 시간/세션에 따라 결과가 달라지므로 CDN 정적 캐시 불가
 // 이전 revalidate=30이 브라우저 디스크 캐시와 결합되어 Ctrl+Shift+R 없이는 구 데이터 표시되는 버그 유발
@@ -114,7 +125,7 @@ export async function GET(request: Request) {
     //   프로덕션 트래픽이 계속 그 값으로 덮어써서 «고쳤는데 그대로»가 된다.
     // v4 — 창 기준을 UTC→ET 로 바꾸고 세션 수로 자르므로 «내용»이 달라진다.
     //      키를 안 올리면 옛 페이로드가 200 OK 로 계속 나간다.
-    const cacheKey = `chart:v4:${symbol}:${range}`;
+    const cacheKey = `chart:v5:${symbol}:${range}`;
 
     /** 백그라운드 갱신. 응답을 붙잡지 않는다. */
     const refreshInBackground = () => {
