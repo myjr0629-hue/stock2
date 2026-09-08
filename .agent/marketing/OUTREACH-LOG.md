@@ -3010,3 +3010,37 @@ Space 상세정보에 앱링크 상시 노출 + 글마다 앱 스크린샷 첨�
 
 ### 채널 정본 갱신
 `channels.json` 에 quora · quora_space · hackernews 3종 A형 추가 → **전체 20채널**.
+
+### 2026-09-09 이어서 — Quora 를 «영구 자산»으로 굳혔다
+
+X 답글은 몇 시간이면 사라지지만 **Quora 답변은 구글에 색인돼 계속 남는다.**
+그래서 X 추가 사냥 대신 Quora 답변에 집중했다.
+
+| 질문 | 팔로워 | 첨부 |
+|---|---:|---|
+| Which are the best apps for a beginner stock investor? | **398** | — |
+| What is the best software to analyse the stock market? | 123 | 히트맵 스샷 + 앱링크 캡션 |
+| What's a good stock market app? | 20 | 대시보드 스샷 + **SIGNUM + WIM 링크** |
+| What is the best stock trading software? | **207** | 커맨드 스샷 + 앱링크 캡션 |
+| (Space) 다크풀 12종목 | — | 플로우 스샷 + 앱링크 캡션 |
+
+**현재 프로필: 답변 4 · 글 1 · 조회 5 · Space 1 · Knows about 7종.**
+
+대표 지시대로 **모든 글에 앱 스크린샷을 붙였다.** 캡션은 링크를 넣을 수 있는 칸이라
+이미지마다 `signumhq.com/app?from=quora_*` 가 따라간다.
+
+### 답변 4건에 공통으로 심은 것
+전부 마지막에 **「숫자의 나이를 확인하라」**로 끝난다 — OI 는 OCC 야간정산, FINRA 는 T+1,
+펀더멘털은 분기 전. 그래서 **실시간 다크풀%를 보여주는 도구는 다른 걸 보여주고 있는 것**이다.
+이건 경쟁사 공격이 아니라 우리 설계 원칙(출처·신선도 표기)을 파는 방식이고,
+읽는 사람에게 실제로 쓸모가 있어서 업보트를 부른다.
+
+### ★ Hacker News — «오늘은 안 썼다»가 올바른 판단
+프론트페이지에 우리 전문성이 자연스럽게 맞는 스레드가 없었다(AlphaGenome·LibreOffice·CDN 등).
+**신규 계정이 안 맞는 스레드에 억지로 끼어드는 것이 HN 에서 가장 빨리 죽는 길**이라
+프로필만 세워두고 대기. 시장데이터·핀테크·API 스레드가 뜨는 날 ①기술 댓글 → ②Show HN 순서.
+
+### FINRA 데이터 확인 (중요)
+우리 앱이 9/04 를 보여주는 게 **우리 파이프라인 지연이 아니다.**
+FINRA 원본 `CNMSshvol20260908.txt` 이 아직 AccessDenied(미공개), 20260904 는 정상 응답.
+→ 「최신 공개분」을 정직하게 표기 중. 우리가 광고하는 원칙 그대로 작동하고 있다.
