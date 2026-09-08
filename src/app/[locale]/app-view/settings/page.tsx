@@ -473,7 +473,7 @@ export default function SettingsPage() {
                 </div>
                 {isPro
                   ? <span className={s.rowValue} style={{ color: '#10b981', fontWeight: 700 }}>✓ {t.proActiveBadge}</span>
-                  : <span className={s.rowChevron}>{proBusy ? '···' : `${t.proCta} ›`}</span>}
+                  : <span className={s.rowCta}>{proBusy ? '···' : <>{t.proCta}<i>›</i></>}</span>}
               </div>
               <div
                 className={s.row}
