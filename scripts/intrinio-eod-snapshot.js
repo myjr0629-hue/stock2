@@ -211,6 +211,123 @@ function parseBulkCsv(csv, acc) {
 }
 
 // ── 메인 ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// ★ [2026-09-09] 벌크는 T+1 이다 — 모자란 세션을 «날짜로» 물어서 채운다.
+//
+//   실측(2026-09-08 21:xx ET): 벌크 최신이 9/4 라서 가디언 시장폭이
+//   asOf 2026-09-04 로 나갔다. 9/8 은 이미 끝난 세션인데도 그랬다.
+//   이 키는 breadth·RLSI·movers 의 단일 공급원이므로 하루 밀리면 다 밀린다.
+//
+//   거래소 EOD 는 «날짜»로 물으면 그 날을 바로 준다
+//   (2026-09-08 실측 12,513종목 · 2페이지 · 6초, 공식 EOD 와 자릿수까지 일치).
+//
+//   [원칙] 벌크가 준 날은 절대 덮지 않는다. «없는 날»만 덧붙인다.
+//          그 날이 진짜 세션인지도 데이터로 판정한다 — 휴장이면 행이 거의 없다.
+// ══════════════════════════════════════════════════════════════════════
+const EXCHANGE = process.env.INTRINIO_EXCHANGE || "USCOMP";
+/** 덧붙일 수 있는 최대 일수 — 폭주 방지 */
+const MAX_APPEND_DAYS = 5;
+
+function etNowParts() {
+    return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+}
+function etTodayStr() {
+    const d = etNowParts();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+/** 그 세션의 거래량이 확정될 만큼 지났는가 (16:15 ET) */
+function etSettled() {
+    const d = etNowParts();
+    return d.getHours() * 60 + d.getMinutes() >= 16 * 60 + 15;
+}
+function nextDay(dateStr) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    if (!m) return null;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+function isWeekend(dateStr) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    if (!m) return true;
+    const dow = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay();
+    return dow === 0 || dow === 6;
+}
+
+/** 그 «날짜»의 전 종목 종가·거래량. 없으면 빈 Map (휴장이면 자연히 비어 온다). */
+async function fetchExchangeDay(dateStr) {
+    const out = new Map();
+    let next = "", pages = 0;
+    while (pages < 40) {
+        const url = `${INTRINIO_BASE}/stock_exchanges/${EXCHANGE}/prices?date=${dateStr}&page_size=10000`
+            + (next ? `&next_page=${encodeURIComponent(next)}` : "")
+            + `&api_key=${encodeURIComponent(API_KEY)}`;
+        const res = await httpRequest(url);
+        if (!res.ok) { log(`  거래소 EOD ${dateStr} HTTP ${res.status}`); break; }
+        const j = res.json();
+        const rows = j.stock_prices || [];
+        for (const r of rows) {
+            const t = r && r.security && r.security.ticker;
+            const c = Number(r && r.close);
+            // ★ 날짜를 «되받아» 확인한다 — 요청한 날이 아닌 행은 쓰지 않는다
+            if (!t || r.date !== dateStr || !Number.isFinite(c) || c <= 0) continue;
+            if (out.has(t)) continue;
+            out.set(t, {
+                o: Number(r.open) || 0,
+                h: Number(r.high) || 0,
+                l: Number(r.low) || 0,
+                c,
+                v: Number(r.volume) || 0,
+            });
+        }
+        pages++;
+        next = j.next_page || "";
+        if (!next) break;
+    }
+    return out;
+}
+
+/**
+ * 벌크가 못 준 «끝난 세션»을 acc 에 덧붙인다. 덧붙인 날짜 배열을 돌려준다.
+ * 등락률은 직전 세션 종가로 «계산»한다 — 벤더 필드가 비어 오는 종목이 있다.
+ */
+async function appendMissingSessions(acc) {
+    const known = [...acc.keys()].sort();
+    if (!known.length) return [];
+    const bulkLatest = known[known.length - 1];
+    const today = etTodayStr();
+    const added = [];
+
+    let d = nextDay(bulkLatest);
+    for (let i = 0; i < MAX_APPEND_DAYS && d && d <= today; i++, d = nextDay(d)) {
+        if (isWeekend(d)) continue;
+        // 오늘 세션은 «끝나고 확정된 뒤»에만 쓴다 — 장중 값은 종가가 아니다
+        if (d === today && !etSettled()) continue;
+        if (acc.has(d)) continue;
+
+        const day = await fetchExchangeDay(d);
+        // 휴장이면 사실상 비어 온다. 벌크 최신일의 절반도 안 되면 세션이 아니다.
+        if (day.size < acc.get(bulkLatest).size * 0.5) {
+            log(`  ${d}: ${day.size}종목 — 세션이 아니다(휴장/미확정), 건너뜀`);
+            continue;
+        }
+        const prevKey = [...acc.keys()].sort().reverse()[0];
+        const prev = acc.get(prevKey);
+
+        const byTicker = new Map();
+        for (const [t, r] of day) {
+            const pr = prev && prev.get(t);
+            const pc = pr ? Number(pr[4]) : 0;          // 직전 종가
+            const chg = pc > 0 ? Math.round((r.c - pc) * 10000) / 10000 : 0;
+            const chgPct = pc > 0 ? Math.round(((r.c - pc) / pc) * 100 * 10000) / 10000 : 0;
+            byTicker.set(t, [t, r.o, r.h, r.l, r.c, r.v, chg, chgPct]);
+        }
+        acc.set(d, byTicker);
+        added.push(d);
+        log(`  + ${d} 덧붙임 — ${byTicker.size}종목 (거래소 EOD · 기준 ${prevKey})`);
+    }
+    return added;
+}
+
 (async () => {
     const t0 = Date.now();
 
@@ -253,6 +370,16 @@ function parseBulkCsv(csv, acc) {
     }
 
     if (!acc.size) throw new Error("파싱된 행이 0 — 적재 중단");
+
+    // 벌크가 T+1 이라 못 준 «끝난 세션»을 날짜로 물어서 채운다
+    try {
+        const added = await appendMissingSessions(acc);
+        if (added.length) log(`거래소 EOD 로 ${added.length}개 세션 보강: ${added.join(", ")}`);
+        else log("보강할 세션 없음 — 벌크가 최신이다");
+    } catch (e) {
+        // 보강은 «있으면 좋은 것»이다. 실패해도 벌크만으로 계속 간다.
+        log(`거래소 EOD 보강 실패(무시): ${e.message}`);
+    }
 
     // 최신 2개 거래일 선택
     const dates = [...acc.keys()].sort().reverse();

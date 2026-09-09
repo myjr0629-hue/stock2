@@ -1211,6 +1211,18 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
         //     GEX 레코드(gex·pcr·maxPain·벽·squeezeScore·ivSkew·impliedMovePct) +
         //     flow-history(netPremium). 정말 빈 필드만 채운다.
         // ══════════════════════════════════════════════════════════════
+        // ★ [2026-09-09] netPremium 이 «정확히 0» 이면 그건 측정값이 아니다.
+        //
+        //   structureService 는 프리미엄 자료가 없으면 callPremium−putPremium 이
+        //   0−0 = 0 이 되어 «0» 을 돌려준다. 그런데 아래 판정은 0 을 «값이 있다»로
+        //   읽어(Number.isFinite(0)===true) AWS 보충 대상에서 빼 버렸다.
+        //   그래서 AMZN 28,903,158 · MSFT 5,976,936 이 저장소에 «있는데도»
+        //   화면엔 0 이 나갔고, 방향 입력이 0이라 고래지수가 정확히 50 이 됐다.
+        //   콜·풋 프리미엄이 센트까지 같을 수는 없다 — 0 은 «합산이 없었다»는 뜻이다.
+        for (const r of results as any[]) {
+            if (r?.realtime && Number(r.realtime.netPremium) === 0) r.realtime.netPremium = null;
+        }
+
         const awsFill: Record<string, any> = {};
         try {
             const cold = results
