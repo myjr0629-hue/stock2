@@ -269,7 +269,15 @@ export async function GET(req: NextRequest) {
         });
         // ts 는 «자료가 만들어진 시각»이다. 보정 때문에 지금 시각으로 바뀌면
         // 화면이 오래된 자료를 방금 것으로 오해한다.
-        cachedData = { ...guarded, ts: originalTs };
+        // 보정으로 등락률 부호가 바뀔 수 있다(역분할 종목은 대개 실제로는 소폭 하락이다).
+        // 목록 «소속»은 등락률로 정해지므로 보정 뒤에 다시 거르고 정렬해야 한다 —
+        // 안 하면 「상승 목록에 하락 종목」이 남는다(실측 2026-09-09).
+        cachedData = {
+            value: guarded.value,   // 거래대금 정렬이라 등락률 보정과 무관
+            gainers: (guarded.gainers ?? []).filter((m: any) => m.changePercent > 0).sort(byGainers),
+            losers: (guarded.losers ?? []).filter((m: any) => m.changePercent < 0).sort(byLosers),
+            ts: originalTs,
+        };
 
         const strip = (rows: any[]) =>
             (Array.isArray(rows) ? rows : []).slice(0, limit).map((m: any) =>
