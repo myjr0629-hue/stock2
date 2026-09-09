@@ -400,17 +400,17 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
   newPositioning: {
     title: { ko: '신규 포지션 구축', en: 'New Positions', ja: '新規建玉' },
     body: {
-      ko: '옵션 미결제약정(OI)이 «늘어난» 만큼을 금액으로 환산한 값입니다. 미결제약정은 아직 청산되지 않고 남아 있는 계약 수를 말합니다.\n\n■ 왜 거래량이 아니라 이걸 보나\n거래량은 신규와 청산을 구분하지 못합니다. 같은 1만 계약이 «새로 깔린 자리»일 수도, «있던 자리를 정리한 것»일 수도 있습니다. 미결제약정이 늘었다면 새 자리가 생긴 것입니다.\n\n■ 장중에는 볼 수 없습니다\n미결제약정은 마감 후 정산되어 다음 날 확정됩니다. 그래서 이 값은 «직전 세션»의 것입니다.\n\n■ 오해하지 마세요\n· 계약에는 산 쪽과 «쓴(매도)» 쪽이 항상 함께 있습니다. 콜이 늘었다고 누가 상승에 걸었다는 뜻은 아닙니다.\n· 누가 열었는지는 이 자료로 알 수 없습니다.\n· 종목별 «주요 계약»을 기준으로 집계한 값입니다.\n\n투자 조언이 아닙니다.',
-      en: 'The dollar value of the increase in options open interest (OI) — the contracts still outstanding after the close.\n\n■ Why this and not volume\nVolume cannot separate opening from closing. The same 10,000 contracts may be a position being built or an old one being unwound. A rise in open interest means new positions now exist.\n\n■ Not visible during the session\nOpen interest settles after the close and is confirmed the next day, so this reflects the prior session.\n\n■ What it does not say\n· Every contract has a buyer and a writer. More calls does not mean someone is betting on upside.\n· This data does not identify who opened them.\n· Aggregated from each ticker\u2019s most active contracts.\n\nNot investment advice.',
-      ja: 'オプションの建玉（OI）が「増えた」分を金額に換算した値です。建玉とは、まだ手仕舞われずに残っている契約数を指します。\n\n■ なぜ出来高ではなくこれを見るのか\n出来高は新規と手仕舞いを区別できません。同じ1万枚でも「新しく建てられた」のか「既存を整理した」のか分かりません。建玉が増えていれば、新しい建玉が生まれたということです。\n\n■ 場中には見えません\n建玉は引け後に清算され翌日確定します。したがってこの値は「直前セッション」のものです。\n\n■ 誤解しないでください\n・契約には買い手と「売り手（ライター）」が必ず同時に存在します。コールが増えても誰かが上昇に賭けたという意味ではありません。\n・誰が建てたかはこの資料では分かりません。\n・銘柄ごとの「主要な限月・行使価格」を基準に集計した値です。\n\n投資助言ではありません。',
+      ko: '어젯밤 «새로 깔린» 옵션 포지션의 금액입니다. 거래량은 신규와 청산을 구분하지 못하지만 미결제약정은 구분합니다 — 늘었다면 새 자리가 생긴 것입니다. 마감 후 확정되므로 장중에는 보이지 않습니다. 콜·풋 비중은 «어디에» 깔렸는지일 뿐, 방향 베팅이 아닙니다.',
+      en: 'The dollar value of options positions opened overnight. Volume cannot separate opening from closing — open interest can: a rise means new positions now exist. It settles after the close, so it is invisible during the session. The call/put split shows where positions sit, not which way anyone is betting.',
+      ja: '昨夜「新しく建てられた」オプション建玉の金額です。出来高は新規と手仕舞いを区別できませんが、建玉は区別します — 増えていれば新しい建玉が生まれたということです。引け後に確定するため場中には見えません。コール・プット比率は「どこに」建ったかであり、方向の賭けではありません。',
     },
   },
   marketBreadth: {
     title: { ko: '시장 폭 (Breadth)', en: 'Market Breadth', ja: '市場の広がり（ブレドス）' },
     body: {
-      ko: '지수를 «몇 종목이» 실제로 끌고 있는지 보는 지표입니다. 20일 이동평균 위에 있는 종목의 비율로 잽니다.\n\n■ 왜 보나\n지수가 올라도 소수 대형주만 오르고 나머지가 빠지면 상승의 «폭»이 좁은 것으로 관찰됩니다. 지수 숫자 하나로는 그 차이가 보이지 않습니다.\n\n· 나스닥100(100종목)과 다우(30종목)를 각각 잽니다.\n· 직전 정규장 종가 기준입니다.\n\n투자 조언이 아닙니다.',
-      en: 'How many names are actually carrying the index — measured as the share of members trading above their 20-day moving average.\n\n■ Why look at it\nAn index can rise while only a few megacaps advance and the rest fall; the advance is then observed to be narrow. The index level alone hides that.\n\n· Measured separately for the Nasdaq-100 (100 names) and the Dow (30 names).\n· Based on the last completed regular session.\n\nNot investment advice.',
-      ja: '指数を「何銘柄が」実際に牽引しているかを見る指標です。20日移動平均を上回る銘柄の比率で測ります。\n\n■ なぜ見るのか\n指数が上がっても一部の大型株だけが上昇し他が下落していれば、上昇の「幅」は狭いと観測されます。指数の数値だけではその差が見えません。\n\n・ナスダック100（100銘柄）とダウ（30銘柄）を別々に測ります。\n・直前の通常取引の終値基準です。\n\n投資助言ではありません。',
+      ko: '지수를 «몇 종목이» 실제로 끌고 있는지입니다. 20일 이동평균 위에 있는 종목의 비율로 재며, 지수가 올라도 이 값이 낮으면 소수 대형주만 오른 «좁은 상승»으로 관찰됩니다.',
+      en: 'How many names are actually carrying the index — the share of members trading above their 20-day average. A rising index with a low reading is observed as a narrow advance led by a few megacaps.',
+      ja: '指数を「何銘柄が」実際に牽引しているかです。20日移動平均を上回る銘柄の比率で測り、指数が上がってもこの値が低ければ一部の大型株だけの「狭い上昇」として観測されます。',
     },
   },
   sectorRotation: {
