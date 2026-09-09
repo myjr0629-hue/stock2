@@ -3271,3 +3271,19 @@ META  $653  +6.1%   총 프리미엄 $52.7M (콜 우위)
 X 는 현재 **@signumhq_jp 로 로그인**돼 있다. 계정 전환 메뉴가 열리지 않아
 영어 답글을 JP 계정으로 올렸다(대표 지시상 허용 — 태그는 겨냥 시장 기준이라 `x_us`).
 `@signumhq`(미국)로 올리려면 대표가 계정 전환을 한 번 해 주면 된다.
+
+### ④ Quora Space — 오늘 2번째 글
+`signumhqusstockmarketintelligence.quora.com`
+Space 는 이미 세팅돼 있었다(설명·첫 글 완료, 조회 6·팔로우 1). 오늘 실측으로 두 번째 글.
+제목: 「META rose 6% today. Here is what the options market actually did around it.」
+내용: 위 수급 실측 + **왜 그런지 메커니즘**(맥스페인은 자석이 아니다 · 감마 플립 위면
+딜러가 롱감마라 움직임을 «줄인다» · 미결제약정이 늘면 신규, 줄면 청산)
+링크 `signumhq.com/app?from=quora` 1개.
+
+**★ Quora 편집기 함정 — 다음에 반복하지 말 것**
+`1. ` `2. ` 로 시작하는 줄을 치면 Quora 가 **자동 번호목록으로 바꾸고**, 내가 친 숫자가
+남아 「2. 2.」로 이중이 된다. 그 뒤 Enter 는 계속 목록으로 이어져 «맺음말과 출처까지»
+번호 항목이 됐다. 부분 수정(백스페이스)은 클릭 위치가 어긋나 **글자를 갉아먹는다**
+(Non→ 삭제돼 "he of this", "Spo" 삭제돼 "t above"). 
+→ **부분 수정하지 말고 Cmd+A 로 지우고 통째로 다시 친다.**
+→ 번호가 필요하면 `First,` `Second,` `Third,` 처럼 **낱말로 쓴다.**
