@@ -1684,70 +1684,84 @@ export default function AppFlowPage() {
   const [aiFlow, setAiFlow] = useState<any | null>(null);
   const [riskExpanded, setRiskExpanded] = useState(false);
   const aiFlowKeyRef = useRef<string>('');
+  const aiPayloadRef = useRef<any>(null);
+
+  // 매 렌더에서 «최신 수치»만 ref 에 담아 둔다.
+  //
+  // ★ [2026-09-10] 처음엔 이 값들을 useEffect 의존성에 넣었다가 버그를 만들었다.
+  //   시세가 틱마다 바뀌면 compositeScore·pcRatio 가 바뀌고 → 이펙트가 재실행되고
+  //   → cleanup 이 «날아가던 응답»을 cancelled 로 버리고 → ref 가드가 재시도를 막아
+  //   **AI 가 영영 안 들어왔다.** 실화면 검증에서 잡았다(API 는 200 인데 화면은 폴백).
+  //   → 의존성은 «종목·세션·로케일·준비됨» 네 개뿐. 수치는 ref 로 읽는다.
+  aiPayloadRef.current = {
+    currentPrice: price,
+    compositeScore,
+    session: effectiveSession,
+    position: {
+      putFloor: putFloorVal || 0,
+      callWall: callWallVal || 0,
+      distToPut: price > 0 && putFloorVal ? `${(((price - putFloorVal) / price) * 100).toFixed(1)}%` : 'N/A',
+      distToCall: price > 0 && callWallVal ? `${(((callWallVal - price) / price) * 100).toFixed(1)}%` : 'N/A',
+      zone: callWallVal && price > callWallVal ? 'ABOVE_CALL_WALL'
+        : putFloorVal && price < putFloorVal ? 'BELOW_PUT_FLOOR' : 'INSIDE_RANGE',
+    },
+    factors: {
+      opi: { value: opi, score: Math.round(opiScore), label: '' },
+      whale: { premium: `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`, score: Math.round(whaleScore), bias: netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
+      squeeze: { probability: squeezeProb ?? 'N/A', score: Math.round(squeezeScore), label: '' },
+      ivSkew: { value: ivSkewVal ?? 'N/A', score: Math.round(skewScore), label: '' },
+      smartMoney: { score: Math.round(smartScore), label: '' },
+      dex: { value: 'N/A', score: Math.round(dexScore), label: '' },
+      uoa: { score: Math.round(uoaScore), label: '' },
+      pcRatio: { value: pcRatio, score: Math.round(pcScore) },
+      gex: { pinStrength: 'N/A', score: Math.round(zdteScore), regime: riskStateLabel },
+    },
+    regime: {
+      ivPercentile: 'N/A',
+      impliedMove: 'N/A',
+      maxPain: 0,
+      maxPainDist: 'N/A',
+      gammaFlipLevel: gammaFlipNumForOverview || 0,
+      flipPercentage: gammaFlipNumForOverview > 0 && price > 0
+        ? `${(((price - gammaFlipNumForOverview) / gammaFlipNumForOverview) * 100).toFixed(1)}%`
+        : 'N/A',
+      gexRegime: riskStateLabel,
+    },
+    ruleVerdict: { status: overviewDirection },
+  };
+
+  // ══════════════════════════════════════════════════════════════════════
+  // 진짜 AI 분석 — /api/flow/ai-analysis (Bedrock, 11팩터 교차분석, 3개 국어)
+  //
+  // ★ 이 화면의 「AI 상세 시나리오」는 **AI 가 아니었다.** 광고를 봐야 열리는 칸에
+  //   하드코딩 문장 3개가 숫자만 갈아 끼워져 나갔다. 진짜 AI 분석은 이미 만들어져
+  //   **웹(FlowRadar)에서 돌고 있었고** 앱만 그 API 를 한 번도 부르지 않았다.
+  //   서버가 종목별로 캐시하므로(세션별 TTL) 화면 전환마다 새로 태우지 않는다.
+  //   실패해도 화면은 비지 않는다 — 아래 fallbackScenario 가 그대로 폴백이다.
+  // ══════════════════════════════════════════════════════════════════════
+  const aiReady = price > 0;
   useEffect(() => {
-    if (!ticker || !(price > 0)) return;
-    const key = `${ticker}:${effectiveSession}`;
-    if (aiFlowKeyRef.current === key) return;   // 같은 종목·같은 세션이면 다시 안 부른다
+    if (!ticker || !aiReady) return;
+    const key = `${ticker}:${effectiveSession}:${locale}`;
+    if (aiFlowKeyRef.current === key) return;   // 같은 종목·세션·언어면 다시 안 부른다
     aiFlowKeyRef.current = key;
     setAiFlow(null);
-    let cancelled = false;
+    setRiskExpanded(false);
     (async () => {
       try {
         const res = await fetch('/api/flow/ai-analysis', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ticker,
-            locale,
-            triggerReason: 'FIRST_LOAD',
-            flowData: {
-              currentPrice: price,
-              compositeScore,
-              session: effectiveSession,
-              position: {
-                putFloor: putFloorVal || 0,
-                callWall: callWallVal || 0,
-                distToPut: price > 0 && putFloorVal ? `${(((price - putFloorVal) / price) * 100).toFixed(1)}%` : 'N/A',
-                distToCall: price > 0 && callWallVal ? `${(((callWallVal - price) / price) * 100).toFixed(1)}%` : 'N/A',
-                zone: callWallVal && price > callWallVal ? 'ABOVE_CALL_WALL'
-                  : putFloorVal && price < putFloorVal ? 'BELOW_PUT_FLOOR' : 'INSIDE_RANGE',
-              },
-              factors: {
-                opi: { value: opi, score: Math.round(opiScore), label: '' },
-                whale: { premium: `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`, score: Math.round(whaleScore), bias: netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
-                squeeze: { probability: squeezeProb ?? 'N/A', score: Math.round(squeezeScore), label: '' },
-                ivSkew: { value: ivSkewVal ?? 'N/A', score: Math.round(skewScore), label: '' },
-                smartMoney: { score: Math.round(smartScore), label: '' },
-                dex: { value: 'N/A', score: Math.round(dexScore), label: '' },
-                uoa: { score: Math.round(uoaScore), label: '' },
-                pcRatio: { value: pcRatio, score: Math.round(pcScore) },
-                gex: { pinStrength: 'N/A', score: Math.round(zdteScore), regime: riskStateLabel },
-              },
-              regime: {
-                ivPercentile: 'N/A',
-                impliedMove: 'N/A',
-                maxPain: 0,
-                maxPainDist: 'N/A',
-                gammaFlipLevel: gammaFlipNumForOverview || 0,
-                flipPercentage: gammaFlipNumForOverview > 0 && price > 0
-                  ? `${(((price - gammaFlipNumForOverview) / gammaFlipNumForOverview) * 100).toFixed(1)}%`
-                  : 'N/A',
-                gexRegime: riskStateLabel,
-              },
-              ruleVerdict: { status: overviewDirection },
-            },
-          }),
+          body: JSON.stringify({ ticker, locale, triggerReason: 'FIRST_LOAD', flowData: aiPayloadRef.current }),
         });
-        if (!res.ok) return;
+        if (!res.ok) { aiFlowKeyRef.current = ''; return; }   // 실패는 다음 기회에 다시
         const data = await res.json();
-        if (!cancelled && data && data.structuralThesis) setAiFlow(data);
-      } catch { /* 폴백이 있으므로 조용히 넘어간다 */ }
+        if (data && data.structuralThesis) setAiFlow(data);
+        else aiFlowKeyRef.current = '';
+      } catch { aiFlowKeyRef.current = ''; }
     })();
-    return () => { cancelled = true; };
-  }, [ticker, price, effectiveSession, locale, compositeScore, putFloorVal, callWallVal, opi, opiScore,
-      netWhalePremium, whaleScore, squeezeProb, squeezeScore, ivSkewVal, skewScore, smartScore,
-      dexScore, uoaScore, pcRatio, pcScore, zdteScore, riskStateLabel, gammaFlipNumForOverview,
-      overviewDirection]);
+    // ★ 의존성은 «무엇을 볼 것인가»만. 수치는 ref 로 읽으므로 여기 넣지 않는다.
+  }, [ticker, effectiveSession, locale, aiReady]);
 
   const convictionLabel = Math.abs(compositeScore) >= 45 || opi >= 68 || opi <= 35
     ? flowCopy.highConviction
