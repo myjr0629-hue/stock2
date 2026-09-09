@@ -69,7 +69,9 @@ export interface RLSIResult {
         gldChange: number;
         btcChange: number;
         safeHavenFlow: number;
-        liquidityScore: number;       // 0-100
+        /** 0-100. **입력(TLT·GLD·BTC)이 하나도 없으면 null** — 50 은 «측정된 중립»과
+         *  «자료 없음»을 구분하지 못한다(수식상 둘 다 정확히 50 이 나온다). */
+        liquidityScore: number | null;
         // [V2.0] Volatility Regime
         vix: number;
         vixTermStructure: number;
@@ -558,9 +560,17 @@ export async function calculateRLSI(
         const gammaResult = calculateGammaScore(gammaData);
 
         // D. Liquidity Flow Score (10%) — 🆕
-        const tltChange = yahooData.tlt?.changePct || 0;
-        const gldChange = yahooData.gold?.changePct || 0;
-        const btcChange = yahooData.btc?.changePct || 0;
+        // ★ [2026-09-09] `|| 0` 이 «자료 없음»을 «변화 0%» 로 둔갑시킨다.
+        //   그러면 calculateLiquidityScore 가 임계(±0.5%)를 못 넘어 **정확히 50** 을
+        //   돌려주는데, 그 50 은 측정된 중립과 구분되지 않는다.
+        //   가중합에는 중립 기여(50)를 그대로 쓰되, «측정했다»는 보고는 하지 않는다.
+        const tltRaw = yahooData.tlt?.changePct;
+        const gldRaw = yahooData.gold?.changePct;
+        const btcRaw = yahooData.btc?.changePct;
+        const hasLiquidityInput = [tltRaw, gldRaw, btcRaw].some((v) => typeof v === 'number' && Number.isFinite(v));
+        const tltChange = Number.isFinite(tltRaw as number) ? (tltRaw as number) : 0;
+        const gldChange = Number.isFinite(gldRaw as number) ? (gldRaw as number) : 0;
+        const btcChange = Number.isFinite(btcRaw as number) ? (btcRaw as number) : 0;
         const liquidityResult = calculateLiquidityScore(tltChange, gldChange, btcChange);
 
         // E. Volatility Regime Score (10%) — 🆕
@@ -659,7 +669,7 @@ export async function calculateRLSI(
                 gldChange: Number(gldChange.toFixed(2)),
                 btcChange: Number(btcChange.toFixed(2)),
                 safeHavenFlow: Number(liquidityResult.safeHavenFlow.toFixed(2)),
-                liquidityScore: liquidityResult.score,
+                liquidityScore: hasLiquidityInput ? liquidityResult.score : null,
                 vix: Number(vix.toFixed(2)),
                 vixTermStructure: Number(vixTermStructure.toFixed(2)),
                 volatilityScore,
@@ -699,7 +709,7 @@ export async function calculateRLSI(
                 volumeBreadth: 50, breadthSignal: 'NEUTRAL', breadthDivergent: false,
                 mcClellanOsc: 0, breadthMcClellanScore: 50,
                 gexIndex: 0, gexLevel: 'NEUTRAL', squeezeRisk: 0, gammaScore: 50,
-                tltChange: 0, gldChange: 0, btcChange: 0, safeHavenFlow: 0, liquidityScore: 50,
+                tltChange: 0, gldChange: 0, btcChange: 0, safeHavenFlow: 0, liquidityScore: null,
                 vix: 15, vixTermStructure: 1.0, volatilityScore: 50,
                 sentimentRaw: 0, sentimentScore: 50,
                 momentumRaw: 1.0, momentumScore: 50,
