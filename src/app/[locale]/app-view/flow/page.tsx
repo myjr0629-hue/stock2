@@ -1682,6 +1682,7 @@ export default function AppFlowPage() {
   //   실패해도 화면은 비지 않는다 — 아래 lockedScenario 가 그대로 폴백이다.
   // ══════════════════════════════════════════════════════════════════════
   const [aiFlow, setAiFlow] = useState<any | null>(null);
+  const [riskExpanded, setRiskExpanded] = useState(false);
   const aiFlowKeyRef = useRef<string>('');
   useEffect(() => {
     if (!ticker || !(price > 0)) return;
@@ -3677,6 +3678,34 @@ export default function AppFlowPage() {
                   riskLabel: 'Risk Condition',
                   noAdvice: 'Market-structure context only'
                 };
+            // ★ [2026-09-10] 여기가 광고를 봐야 열리는 칸이다.
+            //   예전엔 **하드코딩 문장 3개**가 숫자만 바뀌어 나갔다 — 종목이 달라도 문장이 같았다.
+            //   이제 진짜 AI(11팩터 교차분석)가 만든 factorHighlights 를 쓴다.
+            //   AI 가 아직 안 왔거나 실패하면 아래 폴백으로 «빈 화면»만은 만들지 않는다.
+            const aiHighlights: string[] = Array.isArray(aiFlow?.factorHighlights)
+              ? (aiFlow.factorHighlights as any[])
+                  .map((h) => {
+                    const txt = h?.insight?.[locale] || h?.insight?.ko || h?.insight?.en || '';
+                    const name = String(h?.factor || '').trim();
+                    return txt ? (name ? `${name} — ${txt}` : txt) : '';
+                  })
+                  .filter(Boolean)
+              : [];
+            const fallbackScenario = [
+              `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
+              `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
+              `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
+            ];
+            const lockedScenario = aiHighlights.length > 0 ? aiHighlights : fallbackScenario;
+            const aiHighlightsHasAi = aiHighlights.length > 0;
+            // AI 가 붙으면 「가격 조건」 줄은 문장을 반복하지 않고 «레벨»만 말한다
+            // (같은 이야기를 리스크 조건에서 AI 가 이미 더 정확히 한다).
+            const levelSummary = `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} · ${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'}`;
+            // 리스크 조건도 AI 가 있으면 AI 의 «리프라이싱 조건»을 쓴다
+            const riskConditionText: string =
+              (aiFlow?.repricingCondition?.[locale] as string) ||
+              (aiFlow?.repricingCondition?.ko as string) ||
+              overviewSignal.action;
             const factorGroups = [
               {
                 label: ui.flow,
@@ -3710,34 +3739,14 @@ export default function AppFlowPage() {
               }
             ];
             const evidenceRows = [
-              { label: ui.coreConclusion, value: overviewSignal.title, body: overviewSignal.body },
+              // 핵심 결론 본문도 AI 가 있으면 AI 의 «구조적 테시스»를 쓴다.
+              // 없으면 기존 문장(방향별 고정)이 그대로 폴백이다.
+              { label: ui.coreConclusion, value: overviewSignal.title,
+                body: (aiFlow?.structuralThesis?.[locale] as string) || (aiFlow?.structuralThesis?.ko as string) || overviewSignal.body },
               { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.totalPremium} $${(totalPrem / 1000000).toFixed(1)}M, P/C ${pcRatio.toFixed(2)}` },
-              { label: ui.priceCondition, value: overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(2)}` : '--'} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
+              { label: ui.priceCondition, value: aiHighlightsHasAi ? levelSummary : overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(2)}` : '--'} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
             ];
-            // ★ [2026-09-10] 여기가 광고를 봐야 열리는 칸이다.
-            //   예전엔 **하드코딩 문장 3개**가 숫자만 바뀌어 나갔다 — 종목이 달라도 문장이 같았다.
-            //   이제 진짜 AI(11팩터 교차분석)가 만든 factorHighlights 를 쓴다.
-            //   AI 가 아직 안 왔거나 실패하면 아래 폴백으로 «빈 화면»만은 만들지 않는다.
-            const aiHighlights: string[] = Array.isArray(aiFlow?.factorHighlights)
-              ? (aiFlow.factorHighlights as any[])
-                  .map((h) => {
-                    const txt = h?.insight?.[locale] || h?.insight?.ko || h?.insight?.en || '';
-                    const name = String(h?.factor || '').trim();
-                    return txt ? (name ? `${name} — ${txt}` : txt) : '';
-                  })
-                  .filter(Boolean)
-              : [];
-            const fallbackScenario = [
-              `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
-              `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
-              `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
-            ];
-            const lockedScenario = aiHighlights.length > 0 ? aiHighlights : fallbackScenario;
-            // 리스크 조건도 AI 가 있으면 AI 의 «리프라이싱 조건»을 쓴다
-            const riskConditionText: string =
-              (aiFlow?.repricingCondition?.[locale] as string) ||
-              (aiFlow?.repricingCondition?.ko as string) ||
-              overviewSignal.action;
+
 
             return (
               <>
@@ -3896,7 +3905,17 @@ export default function AppFlowPage() {
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{ui.riskLabel}</span>
                       {/* ★ 한 줄 강제(nowrap+ellipsis)로 문장 절반이 잘리고 있었다 — 두 줄까지 허용한다.
                           컨테이너를 키우는 게 아니라 «줄 수»만 연다: 3줄 넘어가면 그때 자른다. */}
-                      <span style={{ font: 'var(--f-small)', fontWeight: 850, color: '#ffffff', marginTop: '2px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.4 }}>{riskConditionText}</span>
+                      {/* 기본 3줄로 접어 카드가 화면을 잡아먹지 않게 하고, 누르면 전문을 편다.
+                          «답답함»은 못 보는 것이지 짧은 것이 아니다 — 볼 길을 열어 둔다. */}
+                      <span
+                        onClick={() => setRiskExpanded((v) => !v)}
+                        style={{ font: 'var(--f-small)', fontWeight: 850, color: '#ffffff', marginTop: '2px', lineHeight: 1.45, cursor: 'pointer',
+                          ...(riskExpanded
+                            ? { display: 'block' }
+                            : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }) }}
+                      >
+                        {riskConditionText}
+                      </span>
                     </div>
                     <span style={{ fontSize: '8px', fontWeight: 950, background: 'rgba(6, 182, 212, 0.07)', color: 'var(--cyan)', border: '1px solid rgba(6, 182, 212, 0.18)', padding: '3px 7px', borderRadius: '12px', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                       {ui.noAdvice}
