@@ -72,10 +72,41 @@ export async function GET(request: Request) {
     let nextExDate = declaredNext;
     let nextExEstimated = false;
     if (!nextExDate && latest?.exDate && perYear > 0) {
-      const intervalMs = Math.round(365 / perYear) * 86_400_000;
+      // ★ [2026-09-09] 365/perYear 고정 간격이 «한 분기를 통째로» 건너뛰었다.
+      //
+      //   NVDA 실측: 마지막 배당락 2026-06-04, 분기 배당.
+      //     91일 뒤 = 2026-09-03 → 오늘(9/8)보다 앞이라 버려지고 2026-12-03 이 됐다.
+      //   그런데 NVDA 의 9월 배당락은 해마다 9/11·9/12·9/11 이었다 —
+      //   **실제 다음 날짜는 일주일 뒤인데 화면엔 3개월 뒤가 떴다.**
+      //   고정 간격은 실제보다 며칠씩 어긋나므로, 그 어긋남이 «오늘»을 스치는
+      //   순간 한 주기를 잃는다.
+      //
+      //   발행사는 «작년 같은 시기»를 거의 그대로 반복한다. 그래서
+      //     ① 관측된 간격의 «중앙값»으로 투영하고,
+      //     ② 과거 배당락일의 52주(364일) 뒤가 미래이면 그중 가장 이른 것을 쓴다.
+      //   ②가 있으면 며칠 오차로 주기를 통째로 잃는 일이 없다.
+      const sameKind = items.filter((x) => x.exDate && (x.cash ?? 0) > 0 && x.type === latest?.type);
+      const stamps = sameKind
+        .map((x) => Date.parse(`${x.exDate}T00:00:00-05:00`))
+        .filter((t) => Number.isFinite(t))
+        .sort((a, b) => b - a);
+
+      const gaps: number[] = [];
+      for (let i = 0; i + 1 < stamps.length; i++) gaps.push(stamps[i] - stamps[i + 1]);
+      gaps.sort((a, b) => a - b);
+      const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
+      const intervalMs = medianGap > 0 ? medianGap : Math.round(365 / perYear) * 86_400_000;
+
       let d = Date.parse(`${latest.exDate}T00:00:00-05:00`);
       while (Number.isFinite(d) && d < now) d += intervalMs;
-      if (Number.isFinite(d)) { nextExDate = new Date(d).toISOString().slice(0, 10); nextExEstimated = true; }
+
+      const WEEKS52 = 364 * 86_400_000;   // 52주 — 요일까지 보존된다
+      let best = d;
+      for (const t of stamps) {
+        const anniversary = t + WEEKS52;
+        if (anniversary > now && anniversary < best) best = anniversary;
+      }
+      if (Number.isFinite(best)) { nextExDate = new Date(best).toISOString().slice(0, 10); nextExEstimated = true; }
     }
 
     return {
