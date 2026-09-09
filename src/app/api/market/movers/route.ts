@@ -82,35 +82,52 @@ function isRegularSessionOpen(): boolean {
     return m >= 9 * 60 + 30 && m < 16 * 60;
 }
 
-/** 정규장이 닫혀 있으면, 마지막으로 끝난 세션의 확정 종가·거래량으로 바로잡는다 */
+/**
+ * 정규장이 닫혀 있으면 «마지막으로 끝난 세션»으로 목록을 다시 만든다.
+ *
+ * 덮어쓰기만으로는 부족했다. 자정(ET)을 넘기면 벤더 스냅샷이 새 세션으로
+ * 리셋되어 **유니버스 자체가 얇아진다** — 실측 2026-09-09 00:45 ET: 상위 20이
+ * 10으로 줄고 NVDA·SPY·TSLA·AAPL 이 통째로 빠졌으며, 그 자리를 시간외에만
+ * 움직인 잡주(ZCSH·LHSW)가 채웠다. **없는 종목은 덮을 수도 없다.**
+ * 게다가 거래량이 새 세션 것이라 거래대금 순위가 무너지고(META 1,562,715 vs
+ * 실제 18,909,714), 그 목록을 먹는 WIM 로스터가 「오늘은 데이터가 없어요」가 됐다.
+ *
+ * EOD 스냅샷에는 그 세션 «전체»(12,512종목)의 종가·거래량·등락률이 있다.
+ * 닫혀 있는 동안은 그걸로 목록을 만든다 — 새벽 몇 시에 열어도 같은 답이 나온다.
+ */
+const CLOSED_MIN_UNIVERSE = 200;        // 이보다 얇으면 EOD 를 믿지 않는다
+const CLOSED_MIN_VALUE = 10_000_000;    // 등락 순위에서 잡주를 걸러내는 최소 거래대금
+
 async function applyRegularClose<T extends Record<string, any[]>>(lists: T): Promise<T> {
     if (isRegularSessionOpen()) return lists;   // 장중엔 EOD 가 직전 세션이다 — 덮지 않는다
     const eod = await readEodCloses();
     if (!eod) return lists;
-    const fix = (rows: any[]): any[] => !Array.isArray(rows) ? rows : rows.map((r) => {
-        const t = String(r?.ticker || '').toUpperCase();
-        const e = eod.rows.get(t);
-        if (!e || !(e.c > 0)) return r;
-        // ★ 거래량도 «그 세션의 것»이어야 한다.
-        //   자정(ET)을 넘기면 벤더의 day 바가 새 날짜로 리셋되어 거래량이 거의 0이 된다
-        //   (실측 2026-09-09 00:30 ET: META 1,562,715 — 실제 9/8 은 18,909,714).
-        //   가격만 9/8 로 맞추고 거래량을 새 세션 것으로 두면 «거래대금 = 거래량×가격»이
-        //   무너져 순위가 통째로 뒤집힌다(상위 20이 10으로 줄고 잡주가 올라왔다).
-        //   그 목록을 먹는 WIM 로스터까지 «오늘은 데이터가 없어요» 가 됐다.
-        const eodVol = e.v > 0 ? e.v : (Number(r?.volume) || 0);
-        const samePrice = Math.abs(Number(r?.price) - e.c) < 0.005;
-        const sameVol = Math.abs((Number(r?.volume) || 0) - eodVol) < 1;
-        if (samePrice && sameVol) return r;                       // 이미 그 세션의 값이다
-        return {
-            ...r, price: e.c, changePercent: e.chgPct, up: e.chgPct >= 0,
-            volume: eodVol,
-            value: eodVol > 0 ? eodVol * e.c : r?.value,
+
+    const rows: any[] = [];
+    for (const [t, e] of eod.rows) {
+        if (!isCommonTickerSymbol(t)) continue;
+        if (!(e.c >= 1) || !(e.v >= 10000)) continue;
+        const denom = 1 + e.chgPct / 100;
+        rows.push({
+            ticker: t,
+            price: e.c,
+            prevClose: denom !== 0 ? e.c / denom : e.c,
+            changePercent: e.chgPct,
+            volume: e.v,
+            value: e.v * e.c,
+            up: e.chgPct >= 0,
+            spark: null,
             regularCloseFrom: eod.date,
-        };
-    });
-    const next: Record<string, any[]> = {};
-    for (const [k, v] of Object.entries(lists)) next[k] = fix(v as any[]);
-    return next as T;
+        });
+    }
+    if (rows.length < CLOSED_MIN_UNIVERSE) return lists;   // 못 믿을 만큼 얇다 — 원래 것을 둔다
+
+    const liquid = rows.filter((r) => r.value >= CLOSED_MIN_VALUE);
+    return {
+        value: [...rows].sort(byTradingValue).slice(0, 30),
+        gainers: liquid.filter((r) => r.changePercent > 0).sort(byGainers).slice(0, 30),
+        losers: liquid.filter((r) => r.changePercent < 0).sort(byLosers).slice(0, 30),
+    } as unknown as T;
 }
 
 const toNumber = (value: any): number => {
