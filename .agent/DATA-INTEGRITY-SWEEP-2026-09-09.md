@@ -394,3 +394,51 @@ Nova 계열은 제외: 금융 용어 오역(「오프엑스체인 프린트」) 
 
 측정 중에도 Haiku 가 **세 번 연속 RPM 스로틀**을 맞았다(라이브 트래픽과 경쟁).
 `L-CCA5DF70` 은 조정 가능하다 — 상향 요청이 근본 대책.
+
+---
+
+## PART 6 — Bedrock 쿼터: 사람에게 가는 케이스 개설 (2026-09-10)
+
+### 결론부터
+**케이스 178896794200630** 개설. 상담원 **Eduardo** 배정·접속 완료.
+
+### 왜 자동 경로로는 안 됐나 (실측)
+- Service Quotas 셀프서비스(L-CCA5DF70 → 10,000): **케이스 178896627600198, 60초 안에 자동 거절**
+- 지원센터 AI 분석기: "unable to offer a recommendation" — 사람 필요
+- 「Service limit increase」 케이스 유형에는 **Bedrock 카테고리가 아예 없다**
+  (SMS/Voice/SES/General 넷뿐 = 자동 거절한 그 파이프라인)
+  → **Technical → Bedrock → API** 로 가야 사람 엔지니어에게 간다
+
+### 케이스 설정 (정본)
+| 칸 | 값 |
+|---|---|
+| Case type | Technical |
+| Service | Bedrock |
+| Category | API |
+| Severity | **Production system impaired** (4h) |
+| Communication | **Chat** (English) |
+| AWS Region | us-east-1 |
+
+Severity 를 「Production system down」으로 올리지 않았다 — 앱은 살아 있다.
+대신 «지금도 진행 중인 열화»를 본문에 명시: 10 RPM 을 견디려고 분석 캐시를
+6h→24h 로 늘려 **사용자가 하루 지난 분석을 보고 있다**. 그것이 실제 열화다.
+
+### 근거 (본문 + 서신에 전부 기재)
+- CloudWatch 24h: Invocations 4,615 vs **Throttles 38,394 (8.3배)** · 13,915,098 토큰/일
+- 피크 RPM 16 · 정상 3.2 · 피크 TPM ~61,000 → **TPM 이 아니라 RPM 이 병목**
+- 계정 전역 증거: Haiku 4.5 **10/10,000** · Opus 4.5 5/10,000 · Sonnet 4.6 10/10,000
+  · Nova 2 Lite 20/2,000 · Cohere Embed V4 20/2,000 · Pegasus 2/120
+  ↔ **Guardrails 1,500/1,500 (100%)** · **Lambda 동시성 10/1,000**
+  = 모델별 판단이 아니라 **계정 레벨 플래그**
+
+### Eduardo 가 되읽은 내용 (오전 12:35)
+요청을 정확히 요약했다 — 「L-CCA5DF70 을 10→10,000, 그리고 Guardrails 는 100% 인데
+Bedrock 모델과 Lambda 동시성만 계정 전역으로 제한된 이유」. 계정 검토 시간 요청 중.
+
+### 배운 것 — 채팅 팝업은 확장 프로그램이 못 잡는다
+AWS 지원 채팅은 **별도 Chrome 팝업 창**으로 열린다.
+- `tabs_context` 에 안 뜬다 (팝업은 탭 그룹 밖)
+- computer-use 로 Chrome 은 **read 티어**라 클릭·타이핑 불가 (정책, 우회 금지)
+- `/support/chat` 을 새 탭에 직접 열면 **백지** (opener 만 아는 파라미터 필요)
+→ **우회로: 케이스 Correspondence 는 내가 직접 쓸 수 있고 상담원이 같은 케이스를 본다.**
+  근거는 전부 서신으로 올렸다(3,376자). 채팅은 가벼운 왕복만 남는다.
