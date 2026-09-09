@@ -68,6 +68,82 @@ const API = "https://api.finra.org/data/group/otcMarket/name/regShoDaily";
  *  `body.length < PAGE` 종료 조건이 첫 페이지에서 오작동하지 않는다. */
 const PAGE = 5000;
 
+// ══════════════════════════════════════════════════════════════════════
+// 당일 연결 거래량 — 벌크 EOD 가 아직 안 나온 «마감 직후»를 위한 분모.
+//
+//   벌크 EOD(intrinio:eod:snapshot)는 T+1 이라 마감 직후에는 전날치다.
+//   그런데 FINRA 는 마감 1~2시간 뒤면 «당일치»가 나온다. 그 시차 때문에
+//   전에는 두 날짜를 나눠 전 종목이 틀렸다(SPCX +39.2%p).
+//   벤더 실시간 스냅샷 CSV 에는 `TOTAL TRADE VOLUME` 이 있으므로,
+//   마감 후에는 그걸 분모로 쓰면 «같은 날짜»로 오늘치를 만들 수 있다.
+//
+//   ⚠️ 장중에 쓰면 «지금까지의 거래량»이라 분모가 작아 비중이 부풀어 오른다.
+//      반드시 정규장 마감(16:00 ET) 이후에만 쓴다.
+// ══════════════════════════════════════════════════════════════════════
+const INTRINIO_BASE = "https://api-v2.intrinio.com";
+
+function etNow() {
+    return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+}
+function etDateStr(d = etNow()) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+/** 정규장이 끝났고 거래량이 확정될 만큼 지났는가 (16:15 ET 이후) */
+function afterCloseSettled() {
+    const d = etNow();
+    return d.getHours() * 60 + d.getMinutes() >= 16 * 60 + 15;
+}
+
+function httpsGetBuffer(url) {
+    return new Promise((resolve, reject) => {
+        https.get(url, { headers: { "User-Agent": UA } }, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                res.resume();
+                return resolve(httpsGetBuffer(res.headers.location));
+            }
+            if (res.statusCode !== 200) { res.resume(); return reject(new Error(`HTTP ${res.statusCode}`)); }
+            const chunks = [];
+            res.on("data", (c) => chunks.push(c));
+            res.on("end", () => resolve(Buffer.concat(chunks)));
+        }).on("error", reject);
+    });
+}
+
+/** 전 시장 «오늘» 거래량 맵. 실패하면 null — 지어내지 않는다. */
+async function loadTodayVolumes() {
+    const key = process.env.INTRINIO_API_KEY;
+    if (!key) { log("실시간 스냅샷: INTRINIO_API_KEY 없음 — 건너뜀"); return null; }
+    try {
+        const metaBuf = await httpsGetBuffer(`${INTRINIO_BASE}/securities/snapshots?api_key=${key}`);
+        const meta = JSON.parse(metaBuf.toString("utf8"));
+        const fileUrl = meta?.snapshots?.[0]?.files?.[0]?.url;
+        if (!fileUrl) { log("실시간 스냅샷: 파일 URL 없음"); return null; }
+
+        let raw = await httpsGetBuffer(fileUrl);
+        if (raw[0] === 0x1f && raw[1] === 0x8b) raw = require("zlib").gunzipSync(raw);
+        const lines = raw.toString("utf8").split("\n");
+        if (lines.length < 2) return null;
+
+        const head = lines[0].split(",").map((h) => h.replace(/^"|"$/g, "").trim().toUpperCase());
+        const iS = head.indexOf("SYMBOL");
+        const iV = head.indexOf("TOTAL TRADE VOLUME");
+        if (iS < 0 || iV < 0) { log("실시간 스냅샷: SYMBOL/VOLUME 열 없음"); return null; }
+
+        const map = {};
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(",");
+            if (cols.length <= Math.max(iS, iV)) continue;
+            const sym = (cols[iS] || "").replace(/^"|"$/g, "").toUpperCase();
+            const vol = Number((cols[iV] || "").replace(/^"|"$/g, ""));
+            if (sym && Number.isFinite(vol) && vol > 0) map[sym] = vol;
+        }
+        return Object.keys(map).length ? map : null;
+    } catch (e) {
+        log(`실시간 스냅샷 실패: ${e.message}`);
+        return null;
+    }
+}
+
 const args = process.argv.slice(2);
 const DRY = args.includes("--dry");
 const dateArg = (args.find((a) => a.startsWith("--date=")) || "").split("=")[1] || null;
@@ -245,21 +321,40 @@ function avg(arr) {
     const snap = await redisGet(EOD_KEY);
     const snapDate = snap?.date || null;
     if (!snapDate) { console.error("[FINRA] EOD 스냅샷 없음 — 분모를 만들 수 없다"); process.exit(1); }
-    if (snapDate !== date) {
+
+    // 분모 선택 — «날짜를 맞추되, 최신을 포기하지 않는다»
+    //   ① 벌크 EOD 날짜 == FINRA 날짜  → 그대로 쓴다 (가장 싸고 정확)
+    //   ② 다르지만 FINRA 날짜가 «오늘 마감된 세션» → 실시간 스냅샷의 당일
+    //      거래량을 분모로 쓴다. 이게 있어야 마감 1~2시간 뒤 «오늘치»가 나온다.
+    //   ③ 둘 다 아니면 벌크 EOD 날짜로 내려간다 (두 날짜를 나누지는 않는다)
+    let consolidated = {};
+    let denomSource = "";
+
+    if (snapDate === date) {
+        for (const r of (snap?.rows || [])) consolidated[r[0]] = r[5];  // [t,o,h,l,c,v,...]
+        denomSource = `벌크 EOD ${snapDate}`;
+    } else if (!dateArg && date === etDateStr() && afterCloseSettled()) {
+        const todayVol = await loadTodayVolumes();
+        if (todayVol) {
+            consolidated = todayVol;
+            denomSource = `실시간 스냅샷 ${date} (마감 후)`;
+            log(`✓ 벌크 EOD 는 ${snapDate} 지만 FINRA 는 ${date} — 당일 거래량으로 ${date} 를 그대로 계산한다`);
+        }
+    }
+
+    if (!denomSource) {
         if (dateArg) {
             console.error(`[FINRA] --date ${date} 인데 EOD 스냅샷은 ${snapDate} — 날짜가 다르면 계산하지 않는다`);
             process.exit(1);
         }
-        log(`⚠️ FINRA 최신 ${date} · EOD 스냅샷 ${snapDate} — 분모에 맞춰 ${snapDate} 로 내려간다`);
+        log(`⚠️ ${date} 용 당일 거래량을 못 구했다 — 분모에 맞춰 ${snapDate} 로 내려간다`);
         date = snapDate;
+        for (const r of (snap?.rows || [])) consolidated[r[0]] = r[5];
+        denomSource = `벌크 EOD ${snapDate}`;
     }
 
     const { off, rows } = await fetchDay(date);
-    log(`${date} · ${rows.toLocaleString()}행 → ${Object.keys(off).length.toLocaleString()}종목`);
-
-    // ── 2. 통합 거래량으로 «장외 비중» 계산 (분자·분모 같은 날짜) ─────
-    const consolidated = {};
-    for (const r of (snap?.rows || [])) consolidated[r[0]] = r[5];   // [t,o,h,l,c,v,...]
+    log(`${date} · ${rows.toLocaleString()}행 → ${Object.keys(off).length.toLocaleString()}종목 · 분모=${denomSource}`);
 
     // ── 2-B. 이력을 붙여 «파생 지표»를 만든다 ─────────────────────────
     //   숫자 하나(47.4%)는 정보가 아니다. 그게 이 종목에서 평소보다 높은지,
@@ -328,6 +423,27 @@ function avg(arr) {
         const r = out[t];
         if (r) log(`  ${t}: ${r.pct}% · 공매도 ${r.shortPct}%(평소 ${r.shortAvg ?? "—"}%, ${r.shortDev != null && r.shortDev > 0 ? "+" : ""}${r.shortDev ?? "—"}%p) · 물량 ${r.volRatio ?? "—"}배 · ${r.regime ?? ""}`);
     }
+
+    // ── 2-C. 이번에 못 채운 종목은 «직전 값»을 그 날짜와 함께 남긴다 ──
+    //   당일 거래량 스냅샷은 «실제로 거래된» 종목만 담는다(9/8 실측 3,699종목,
+    //   전체 장외물량의 96.1%). 나머지를 그냥 버리면 얇은 종목을 찾은 사용자에게
+    //   화면이 통째로 빈다. 그렇다고 오늘 날짜로 어제 값을 내보내면 안 된다 —
+    //   그게 이번 버그의 본질이었다.
+    //   → 행마다 «그 값이 어느 세션의 것인지»(d)를 달아 이월한다. 화면은
+    //     그 날짜를 그대로 표시하므로 사용자가 오해할 수 없다.
+    let carried = 0;
+    {
+        const prev = await redisGet(OUT_KEY);
+        const prevDate = prev?.date || null;
+        if (prev?.tickers && prevDate) {
+            for (const [sym, row] of Object.entries(prev.tickers)) {
+                if (out[sym]) continue;                       // 오늘 값이 있으면 그대로
+                out[sym] = { ...row, d: row.d || prevDate };  // 없으면 «그 날짜»를 달아 이월
+                carried++;
+            }
+        }
+    }
+    log(`오늘 ${matched.toLocaleString()}종목 (${date}) · 이월 ${carried.toLocaleString()}종목 · 합계 ${Object.keys(out).length.toLocaleString()}`);
 
     if (DRY) { log("--dry · 저장 생략"); return; }
     if (matched < 1000) throw new Error(`매칭 ${matched}종목 — 너무 적어 저장하지 않는다`);

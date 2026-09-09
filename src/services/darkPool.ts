@@ -87,6 +87,11 @@ export interface DarkPoolTicker {
 /** Redis 행 → 공개 타입. 없는 파생값은 **null 로 둔다**(0 을 만들지 않는다). */
 function toTicker(t: string, row: any, date: string | null, marketAvg: number | null): DarkPoolTicker {
     const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    // ★ 행이 «자기 날짜»를 들고 있으면 그게 우선이다.
+    //   당일 거래량 스냅샷은 실제로 거래된 종목만 담으므로(9/8 실측 3,699종목),
+    //   얇은 종목은 직전 세션 값이 이월된다. 그 행에 전체 날짜를 붙이면
+    //   «어제 값을 오늘 것으로» 말하게 된다 — 이번 버그의 본질이 그것이었다.
+    const rowDate = typeof row?.d === 'string' && row.d ? row.d : date;
     return {
         ticker: t,
         pct: row.pct,
@@ -101,7 +106,7 @@ function toTicker(t: string, row: any, date: string | null, marketAvg: number | 
         stealth: num(row.stealth),
         regime: row.regime === 'ACCUMULATION' || row.regime === 'DISTRIBUTION' || row.regime === 'NEUTRAL'
             ? row.regime : null,
-        date,
+        date: rowDate,
         marketAvg,
         source: 'FINRA',
     };
