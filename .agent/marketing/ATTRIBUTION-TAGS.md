@@ -25,6 +25,15 @@
 | `seo` | `/{locale}/flow/{ticker}` — 사이트가 이미 자동으로 붙인다 |
 | `ph` | Product Hunt |
 | `note` | note.com (일본 기사) |
+| `quora` | Quora Space 글 |
+| `linkedin` | LinkedIn /in/signumhq 게시물 |
+| `bluesky_post` / `bluesky_bio` | Bluesky 게시물 / 프로필 (자동 파이프라인은 `bsky`) |
+| `medium` | Medium @signum_hq 기사 |
+| `threads` | Threads @signumhq_official |
+| `ig_bio` | Instagram 프로필 링크 |
+| `pinterest` | Pinterest (⚠️ 핀 설명에서 `?from=` 이 잘린 전례) |
+| `tiktok` | TikTok @signumhq |
+| `youtube` | YouTube 설명란 |
 
 규칙: `[a-z0-9_]{1,24}`. 벗어나면 «조용히» 집계에서 빠진다(`src/app/app/route.ts`).
 
@@ -39,6 +48,10 @@ Android 는 여기에 더해 Play install referrer(`utm_source=<태그>&utm_medi
 
 ## 실패 기록
 
+- **2026-09-10: 같은 일이 또 일어났다.** `quora`·`linkedin`·`bluesky_post` 로 하루치를 붙이고
+  나서 보니 `CHANNELS` 에 없었다. 클릭은 Redis 에 쌓이고 있었으므로 배열에 넣자 되살아났다
+  (2026-08-26 과 달리 **데이터는 잃지 않았다**). 배열을 채널 10개로 확장.
+  ★ 교훈: 새 채널에 링크를 붙이기 «전에» 이 표와 `CHANNELS` 를 먼저 고친다.
 - 2026-08-26: 하루 12건을 붙이고 나서 확인해 보니 `CHANNELS` 에 `x_us`/`x_jp`/`seo` 가 없었다.
   링크에 태그 자체를 안 붙인 건도 많아서, 그날 오전 물량은 채널별로 되짚을 수 없다.
   → 그날 오후부터 태그 부착을 강제. 붙이기 전에 이 파일을 열 것.

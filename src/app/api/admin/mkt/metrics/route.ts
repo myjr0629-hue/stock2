@@ -34,6 +34,21 @@ const CHANNELS = [
   'x_kr', // 2026-08-26: 계정 국적(JP)과 무관하게 한국어 청중을 겨냥한 답글에 쓴다.
           // «어느 계정으로 올렸나»가 아니라 «어느 시장을 겨냥했나»로 태그한다.
   'x_bio', 'x_reply', 'toss', // 기존 태그 — 과거 데이터 보존용
+
+  // ★ 2026-09-10 추가. 또 같은 함정에 빠졌다 —
+  //   quora·linkedin·bluesky_post 로 하루치 링크를 붙여 놓고 보니 이 배열에 없었다.
+  //   («클릭은 Redis 에 쌓이는데 화면엔 0» 이라 «효과 없음» 으로 오독하게 된다.)
+  //   Redis 클라이언트에 SCAN 이 없어 자동 발견이 안 되므로 **여기가 정본 목록이다.**
+  //   새 채널에 링크를 붙이기 «전에» 이 배열과 .agent/marketing/ATTRIBUTION-TAGS.md 를 먼저 고친다.
+  'quora',                   // Quora Space (SIGNUM HQ — US Stock Market Intelligence)
+  'linkedin',                // LinkedIn /in/signumhq
+  'bluesky_post', 'bluesky_bio', // Bluesky (기존 자동 파이프라인은 'bsky' 를 쓴다 — 둘 다 센다)
+  'medium',                  // Medium @signum_hq
+  'threads',                 // Threads @signumhq_official
+  'ig_bio',                  // Instagram 프로필 링크(모바일에서만 편집 가능)
+  'pinterest',               // Pinterest (⚠️ 핀 설명에서 `?from=` 이 잘린 전례가 있다)
+  'tiktok',                  // TikTok @signumhq
+  'youtube',                 // YouTube 설명란
 ];
 
 export async function GET() {
