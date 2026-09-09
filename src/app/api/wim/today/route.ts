@@ -323,6 +323,17 @@ ${JSON.stringify(enriched.map((m, i) => ({
     return { success: true, dateET: today, count: units.length, units };
   };
 
+  // ★ 진단 — 503 은 «왜» 를 말해 주지 않는다. 추측 대신 예외를 그대로 본다.
+  //   (generate() 를 캐시·락 없이 한 번 돌려 메시지만 돌려준다)
+  if (searchParams.get('probe') === '1') {
+    try {
+      const out = await generate();
+      return NextResponse.json({ probe: 'ok', count: (out as any)?.count ?? null, units: (out as any)?.units?.length ?? 0 });
+    } catch (e: any) {
+      return NextResponse.json({ probe: 'throw', message: String(e?.message || e).slice(0, 400), stack: String(e?.stack || '').split('\n').slice(0, 4) });
+    }
+  }
+
   try {
     const res = await serveSWR({ key: cacheKey, freshSec: FRESH_SEC, refresh, generate });
     if (!res) {
