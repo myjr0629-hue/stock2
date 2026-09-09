@@ -22,14 +22,50 @@ const pct = (a, b) => (b ? (a - b) / b : NaN);
 
 const j = (u) => fetch(`${BASE}${u}${u.includes('?') ? '&' : '?'}_cb=${Date.now()}`).then((r) => r.json()).catch(() => null);
 
+// ══════════════════════════════════════════════════════════════════════
+// ★ «정답 대조»용 규제 원본 (2026-09-09 추가)
+//
+//   다크풀 91.6% 가 검사를 통과했다 — 0~100 범위 안이었기 때문이다.
+//   실제로는 «9/8 장외물량 ÷ 9/4 거래량» 이라 39%p 부풀어 있었다.
+//   범위·타당성 검사만으로는 이런 걸 못 잡는다. 값을 «다시 계산»해야 한다.
+//
+//   FINRA 일일 공매도 파일(무인증·공개)이 정답이다:
+//     날짜|심볼|공매도량|면제량|**총 장외거래량**|시장
+//   장외비중 = 총 장외거래량 ÷ 그 날의 «연결 거래량»(일봉 volume)
+// ══════════════════════════════════════════════════════════════════════
+const finraCache = new Map();
+async function finraDay(date) {
+    if (!date) return null;
+    if (finraCache.has(date)) return finraCache.get(date);
+    const url = `https://cdn.finra.org/equity/regsho/daily/CNMSshvol${date.replace(/-/g, '')}.txt`;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) { finraCache.set(date, null); return null; }
+        const text = await res.text();
+        const map = new Map();
+        for (const line of text.split('\n')) {
+            const p = line.split('|');
+            if (p.length < 5 || p[0] === 'Date') continue;
+            const short = Number(p[2]), total = Number(p[4]);
+            if (Number.isFinite(short) && Number.isFinite(total) && total > 0) map.set(p[1], { short, total });
+        }
+        finraCache.set(date, map);
+        return map;
+    } catch {
+        finraCache.set(date, null);
+        return null;
+    }
+}
+
 async function auditTicker(t) {
     const bad = [];
     const add = (code, msg) => bad.push({ code, msg });
 
-    const [k, q, ch] = await Promise.all([
+    const [k, q, ch, dp] = await Promise.all([
         j(`/api/live/ticker?t=${t}&skip_alpha=1&chain=0`),
         j(`/api/live/quotes?symbols=${t}`),
         j(`/api/chart?symbol=${t}&range=1M`),
+        j(`/api/flow/dark-pool?ticker=${t}`),
     ]);
     if (!k) return [{ code: 'FETCH', msg: 'live/ticker 응답 없음' }];
     const Q = q?.data?.[t] || null;
@@ -64,7 +100,14 @@ async function auditTicker(t) {
     //   둘 다 틀렸다. 22종목 중 14종목이 보합(±0.0x%)으로 나갔다.
     //   정답은 화면이 아니라 «일봉»에 있다: 마지막 두 거래일 종가의 비율.
     const bars = (ch?.data || [])
-        .map((r) => ({ d: String(r?.date || r?.t || '').slice(0, 10), c: Number(r?.close ?? r?.c) }))
+        .map((r) => ({
+            // etDate 가 «그 세션의 ET 날짜» 정본이다. date 는 UTC 자정이라 하루가 밀 수 있다.
+            d: String(r?.etDate || r?.date || r?.t || '').slice(0, 10),
+            c: Number(r?.close ?? r?.c),
+            h: Number(r?.high ?? r?.h),
+            l: Number(r?.low ?? r?.l),
+            v: Number(r?.volume ?? r?.v),
+        }))
         .filter((r) => r.d && Number.isFinite(r.c) && r.c > 0)
         .sort((a, b) => a.d.localeCompare(b.d));
     if (bars.length >= 2 && (session === 'CLOSED' || session === 'POST')) {
@@ -108,6 +151,45 @@ async function auditTicker(t) {
     }
     if (F.darkPoolPct != null && !(F.darkPoolPct >= 0 && F.darkPoolPct <= 100)) add('DP_RANGE', `다크풀 ${F.darkPoolPct}%`);
     if (F.darkPoolShortPct != null && !(F.darkPoolShortPct >= 0 && F.darkPoolShortPct <= 100)) add('DPS_RANGE', `다크풀 공매도 ${F.darkPoolShortPct}%`);
+
+    // ── ⑤-B ★ 다크풀·공매도를 «규제 원본»으로 다시 계산한다 ─────
+    //   [2026-09-09] 다크풀 91.6% 가 범위검사(0~100)를 통과했다.
+    //   실제는 52.4% 였고, «9/8 장외물량 ÷ 9/4 거래량» 이라 39%p 부풀었다.
+    //   방향이 종목마다 달라(늘면 부풀고 줄면 깎임) 한 종목만 봐선 안 보인다.
+    //   → 값을 다시 계산해서 대조하는 것 말고는 잡을 방법이 없다.
+    if (dp && dp.available !== false && typeof dp.pct === 'number') {
+        const dpDate = dp.date || null;
+        const fin = await finraDay(dpDate);
+        const row = fin && fin.get(t);
+        // 그 날짜의 일봉(= 연결 거래량). 없으면 분모를 못 만드니 판정하지 않는다.
+        const bar = bars.find((b) => b.d === dpDate) || null;
+        const barVol = bar ? Number(bar.v) : NaN;
+
+        if (dpDate && !fin) add('DP_NO_SOURCE', `FINRA 원본(${dpDate})을 못 받아 대조 불가`);
+        else if (row && Number.isFinite(barVol) && barVol > 0) {
+            const truthPct = (row.total / barVol) * 100;
+            if (Math.abs(dp.pct - truthPct) > 2)
+                add('DP_TRUTH', `장외비중 ${dp.pct}% ≠ 원본 재계산 ${truthPct.toFixed(1)}% (${dpDate}: 장외 ${row.total.toLocaleString()} ÷ 연결 ${barVol.toLocaleString()})`);
+            const truthShort = (row.short / row.total) * 100;
+            if (typeof dp.shortPct === 'number' && Math.abs(dp.shortPct - truthShort) > 0.3)
+                add('DPSHORT_TRUTH', `장외 공매도 ${dp.shortPct}% ≠ 원본 ${truthShort.toFixed(1)}%`);
+            // 분자·분모가 «같은 날»인지 — 이번 버그의 지문
+            if (typeof dp.volume === 'number' && Math.abs(dp.volume - row.total) / row.total > 0.02)
+                add('DP_VOL_MISMATCH', `장외 거래량 ${dp.volume.toLocaleString()} ≠ 원본 ${row.total.toLocaleString()} (${dpDate})`);
+        }
+        // 다크풀 날짜가 «있지도 않은 세션»이면 안 된다
+        if (dpDate && bars.length && dpDate > bars[bars.length - 1].d)
+            add('DP_DATE_AHEAD', `다크풀 날짜 ${dpDate} 가 최신 일봉 ${bars[bars.length - 1].d} 보다 앞선다`);
+    }
+
+    // ── ⑤-C 고·저가를 «그 세션의 일봉»과 대조 ────────────────
+    if (bars.length && (session === 'CLOSED' || session === 'POST')) {
+        const last = bars[bars.length - 1];
+        if (P.high != null && Number.isFinite(last.h) && last.h > 0 && Math.abs(P.high - last.h) / last.h > 0.005)
+            add('HIGH_TRUTH', `고가 ${P.high} ≠ 일봉 ${last.h} (${last.d})`);
+        if (P.low != null && Number.isFinite(last.l) && last.l > 0 && Math.abs(P.low - last.l) / last.l > 0.005)
+            add('LOW_TRUTH', `저가 ${P.low} ≠ 일봉 ${last.l} (${last.d})`);
+    }
 
     // ── ⑥ 엔드포인트끼리 일치하는가 (벤더가 둘이다) ──────────
     if (Q) {
