@@ -229,7 +229,7 @@ function TickerLogo({ ticker, size = 34 }: { ticker: string; size?: number }) {
   return (
     <span aria-hidden style={box}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/api/undercurrent/logo?t=${ticker}`} alt="" onError={() => setErrored(true)} style={{ width: '74%', height: '74%', objectFit: 'contain', display: 'block' }} />
+      <img src={`/api/logo/${ticker}`} alt="" onError={() => setErrored(true)} style={{ width: '74%', height: '74%', objectFit: 'contain', display: 'block' }} />
     </span>
   );
 }

@@ -91,16 +91,24 @@ export async function GET(req: NextRequest) {
   // 1) feed ko — awaited alone so the shared core is rebuilt exactly once
   out['feed:ko'] = await warm(baseUrl, '/api/undercurrent/feed?locale=ko&limit=12&refresh=1');
 
-  // 2) feed en/ja (reuse the fresh core) + macro ×3 + wim (locale-independent) — all parallel
+  // ★ [2026-09-09] 일본어 피드만 503 이 나 앱이 통째로 비어 있었다.
+  //   ko/en 은 200·12건인데 ja 만 «unavailable». refresh=1 로는 21초에 정상
+  //   생성되므로 생성 능력의 문제가 아니라 **워밍이 실패해 키가 사라진** 것이다.
+  //   ja 는 en 과 함께 6개 병렬 파도에 섞여 있었고, 일본어는 토큰이 가장 무거워
+  //   경쟁에 밀리면 대상 라우트의 maxDuration(60s)을 넘긴다. 그러면 키가
+  //   안 써지고, 물리 TTL 이 지나면 남은 것도 없어 503 이 된다.
+  //   → ko 처럼 **따로 기다려** 데운다. (ko ~50s + ja ~25s + 나머지 ~30s < 300s)
+  out['feed:ja'] = await warm(baseUrl, '/api/undercurrent/feed?locale=ja&limit=12&refresh=1');
+
+  // 3) feed en + macro ×3 + wim (locale-independent) — 나머지는 병렬
   const wave = await Promise.all([
-    ...(['en', 'ja'] as const).map((l) => warm(baseUrl, `/api/undercurrent/feed?locale=${l}&limit=12&refresh=1`)),
+    warm(baseUrl, '/api/undercurrent/feed?locale=en&limit=12&refresh=1'),
     ...LOCALES.map((l) => warm(baseUrl, `/api/undercurrent/macro?locale=${l}&refresh=1`)),
     warmWim(baseUrl),
   ]);
   out['feed:en'] = wave[0];
-  out['feed:ja'] = wave[1];
-  LOCALES.forEach((l, i) => { out[`macro:${l}`] = wave[2 + i]; });
-  out['wim:today'] = wave[5];
+  LOCALES.forEach((l, i) => { out[`macro:${l}`] = wave[1 + i]; });
+  out['wim:today'] = wave[4];
 
   const failures = Object.entries(out).filter(([, v]) => !v.ok).map(([k]) => k);
   const summary = { success: failures.length === 0, failures, targets: out, totalMs: Date.now() - startTime };

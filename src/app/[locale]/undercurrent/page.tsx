@@ -422,7 +422,9 @@ function DivBadge({ t, small }: { t: Record<string, string>; small?: boolean }) 
 }
 
 // ── real company symbol shown before the ticker (branding icon via our own
-//    proxy /api/undercurrent/logo; the raw URL needs our API key). Monogram
+//    [2026-09-09] /api/undercurrent/logo 는 벤더 브랜딩(Massive)이 사라져
+//    AAPL·TSLA·NVDA·ORCL 까지 전부 404 였다. SIGNUM 쪽 /api/logo/{ticker} 는
+//    실제 로고+큐레이션으로 살아 있으므로 그쪽을 쓴다. Monogram
 //    fallback keeps layout identical when a name has no logo. ──
 function TickerLogo({ ticker, size = 18 }: { ticker: string; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -442,7 +444,7 @@ function TickerLogo({ ticker, size = 18 }: { ticker: string; size?: number }) {
     <span aria-hidden style={box}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`/api/undercurrent/logo?t=${ticker}`} alt=""
+        src={`/api/logo/${ticker}`} alt=""
         onError={() => setFailed(true)}
         style={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block' }}
       />

@@ -1288,7 +1288,7 @@ function TickerLogo({ ticker, size = 22 }: { ticker: string; size?: number }) {
   return (
     <span aria-hidden style={box}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/api/undercurrent/logo?t=${ticker}`} alt="" onError={() => setFailed(true)} style={{ width: '76%', height: '76%', objectFit: 'contain', display: 'block' }} />
+      <img src={`/api/logo/${ticker}`} alt="" onError={() => setFailed(true)} style={{ width: '76%', height: '76%', objectFit: 'contain', display: 'block' }} />
     </span>
   );
 }
@@ -1304,7 +1304,7 @@ function LogoWatermark({ ticker, size = 180, right = -26, top = 6, opacity = 0.1
   if (failed) return null;
   return (
     <img
-      src={`/api/undercurrent/logo?t=${ticker}`} alt="" aria-hidden
+      src={`/api/logo/${ticker}`} alt="" aria-hidden
       onError={() => setFailed(true)}
       style={{ position: 'absolute', right, top, width: size, height: size, objectFit: 'contain', opacity, pointerEvents: 'none', userSelect: 'none' }}
     />

@@ -323,7 +323,12 @@ export async function enforceLanguage(
 // one-time deploy warm. Generation errors serve the last-known-good stale value
 // (never a 500 when we have anything). Best-effort single-flight lock prevents a
 // regeneration stampede; setInCache already blocks null/error payloads (no poison).
-const SWR_PHYSICAL_SEC = 6 * 60 * 60; // keep keys alive far past logical freshness
+// ★ [2026-09-09] 6시간은 «한 번의 워밍 실패»를 화면 붕괴로 만들었다.
+//   일본어 피드가 그렇게 사라져 UC 일본어 앱이 통째로 «読み込めませんでした» 였다.
+//   워밍은 15~30분마다 도는데, 실패가 6시간 이어지면 마지막 정상본까지 없어진다.
+//   물리 보관을 하루로 늘린다 — 신선도(15분)는 그대로이므로 평소 동작은 같고,
+//   워밍이 잠깐 무너져도 «오래된 값»을 줄지언정 화면이 죽지는 않는다.
+const SWR_PHYSICAL_SEC = 24 * 60 * 60; // keep keys alive far past logical freshness
 
 function swrAgeSec(generatedAt: unknown): number {
   const ms = typeof generatedAt === 'number' ? generatedAt
