@@ -13,6 +13,89 @@ export const dynamic = 'force-dynamic';
 //    무버 목록은 최대 20종목이라 비용 판단이 따로 필요하다. 그때까지는 선을 그리지
 //    않는다 — 없는 것을 지어내지 않는다. (소비처 dash/page.tsx 가 spark 없으면 미렌더)
 
+
+// ══════════════════════════════════════════════════════════════════════
+// ★ [2026-09-09] 마감 후에는 «정규장 종가»가 정본이다.
+//
+//   실측(2026-09-08 23:30 ET) — 같은 순간, 같은 종목인데 화면마다 달랐다:
+//     /api/live/quotes    NVDA 225.73 (-2.01%)  SPY 765.96  AMD 505.74
+//     /api/market/movers  NVDA 225.26 (-2.22%)  SPY 765.40  AMD 505.61
+//
+//   원인은 벤더 스냅샷의 `day.c` 다. 종목에 따라 시간외 체결로 갱신되는데,
+//   TSLA 는 갱신되지 않아 값이 같았다 — **일부만 틀려서** 눈에 안 띄었다.
+//   getRegularChangePercent 가 todaysChangePerc 를 피한 것도 같은 이유인데,
+//   정작 그 함수가 믿고 쓰는 day.c 자체가 오염돼 있었다.
+//
+//   전 종목 EOD 스냅샷에는 그 세션의 «확정 정규장 종가»가 있다(12,512종목).
+//   그 날짜가 지금 표시 중인 세션과 같을 때만 덮어쓴다 — 장중에는 EOD 가
+//   전일치라 날짜가 안 맞아 자연히 적용되지 않는다.
+// ══════════════════════════════════════════════════════════════════════
+const EOD_SNAPSHOT_KEY = 'intrinio:eod:snapshot';
+type EodCloses = { date: string; rows: Map<string, { c: number; chgPct: number }> };
+let _eodCache: { at: number; data: EodCloses | null } | null = null;
+
+async function readEodCloses(): Promise<EodCloses | null> {
+    if (_eodCache && Date.now() - _eodCache.at < 5 * 60_000) return _eodCache.data;
+    let data: EodCloses | null = null;
+    try {
+        const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+        const auth = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        try {
+            const res = await fetch(`${proxy}/get?key=${encodeURIComponent(EOD_SNAPSHOT_KEY)}`, {
+                headers: { Authorization: `Bearer ${auth}` }, signal: ctrl.signal, cache: 'no-store',
+            });
+            if (res.ok) {
+                const raw = await res.json();
+                const v = typeof raw?.result === 'string' ? JSON.parse(raw.result) : (raw?.result ?? raw?.value);
+                if (v?.date && Array.isArray(v.rows)) {
+                    const rows = new Map<string, { c: number; chgPct: number }>();
+                    // 행 모양: [ticker, o, h, l, c, v, chg, chgPct]
+                    for (const r of v.rows) {
+                        const t = String(r?.[0] || '').toUpperCase();
+                        const c = Number(r?.[4]);
+                        if (t && Number.isFinite(c) && c > 0) rows.set(t, { c, chgPct: Number(r?.[7]) || 0 });
+                    }
+                    data = { date: String(v.date), rows };
+                }
+            }
+        } finally { clearTimeout(timer); }
+    } catch { data = null; }
+    _eodCache = { at: Date.now(), data };
+    return data;
+}
+
+/** 지금 ET 기준 «마지막으로 끝난 정규장»의 날짜 */
+function etTradingDateNow(): string {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    // 16:00 ET 이전이면 아직 오늘 세션이 안 끝났다 — 어제까지가 «끝난 세션»이다
+    if (d.getHours() * 60 + d.getMinutes() < 16 * 60) d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** EOD 날짜가 «끝난 세션»과 같을 때만, 정규장 종가로 가격·등락률을 바로잡는다 */
+async function applyRegularClose<T extends Record<string, any[]>>(lists: T): Promise<T> {
+    const eod = await readEodCloses();
+    if (!eod || eod.date !== etTradingDateNow()) return lists;   // 장중이거나 아직 확정 전
+    const fix = (rows: any[]): any[] => !Array.isArray(rows) ? rows : rows.map((r) => {
+        const t = String(r?.ticker || '').toUpperCase();
+        const e = eod.rows.get(t);
+        if (!e || !(e.c > 0)) return r;
+        if (Math.abs(Number(r?.price) - e.c) < 0.005) return r;   // 이미 정규장 종가다
+        // 거래대금은 가격에서 나온다 — 가격을 고쳤으면 같이 고쳐야 «거래대금 순»이 맞는다
+        const vol = Number(r?.volume) || 0;
+        return {
+            ...r, price: e.c, changePercent: e.chgPct, up: e.chgPct >= 0,
+            value: vol > 0 ? vol * e.c : r?.value,
+            regularCloseFrom: eod.date,
+        };
+    });
+    const next: Record<string, any[]> = {};
+    for (const [k, v] of Object.entries(lists)) next[k] = fix(v as any[]);
+    return next as T;
+}
+
 const toNumber = (value: any): number => {
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
@@ -262,11 +345,13 @@ export async function GET(req: NextRequest) {
         //    (2026-09-09 실측: GTBP·LRHC·IGR). 벤더 분할 이력으로 확인해 보정하고,
         //    확인 안 되면 목록에서 뺀다. 의심 종목이 없는 날은 조회 0건이라 비용이 없다.
         const originalTs = cachedData?.ts ?? Date.now();
-        const guarded = await applySplitGuard({
+        // 정규장 종가 우선 — 시간외가 섞인 day.c 를 바로잡는다(분할 보정보다 먼저).
+        const regular = await applyRegularClose({
             value: cachedData?.value ?? [],
             gainers: cachedData?.gainers ?? [],
             losers: cachedData?.losers ?? [],
         });
+        const guarded = await applySplitGuard(regular);
         // ts 는 «자료가 만들어진 시각»이다. 보정 때문에 지금 시각으로 바뀌면
         // 화면이 오래된 자료를 방금 것으로 오해한다.
         // 보정으로 등락률 부호가 바뀔 수 있다(역분할 종목은 대개 실제로는 소폭 하락이다).

@@ -3261,7 +3261,7 @@ function CmdPageContent() {
                 <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-.02em', color: accent, lineHeight: 1 }}>{pct.toFixed(1)}%</span>
                 {gap != null && (
                   <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-dim, #94a3b8)' }}>
-                    {locale === 'ko' ? '시장 평균 ' : locale === 'ja' ? '市場平均 ' : 'mkt avg '}{mkt!.toFixed(0)}%
+                    {locale === 'ko' ? '시장 평균 ' : locale === 'ja' ? '市場平均 ' : 'mkt avg '}{mkt!.toFixed(1)}%
                     <span style={{ color: gap >= 0 ? 'var(--green)' : 'var(--red)', marginLeft: 4 }}>
                       {gap >= 0 ? '+' : ''}{gap.toFixed(1)}%p
                     </span>
@@ -3836,7 +3836,7 @@ function CmdPageContent() {
                       sub={<>
                         {gap != null && (
                           <>{locale === 'ko' ? '시장 평균 ' : locale === 'ja' ? '市場平均 ' : 'mkt avg '}
-                          <span className="text-slate-300 font-bold">{d.marketAvg!.toFixed(0)}%</span>
+                          <span className="text-slate-300 font-bold">{d.marketAvg!.toFixed(1)}%</span>
                           {' '}<span className={gap >= 0 ? 'text-emerald-400 font-extrabold' : 'text-rose-400 font-extrabold'}>
                             {gap >= 0 ? '+' : ''}{gap.toFixed(1)}%p
                           </span></>
