@@ -161,10 +161,23 @@ function auditPayload(name, json) {
             //      · 차트/시계열 배열   — 1년 차트의 첫 봉은 365일 전이 정상
             //      · baseline 창 라벨   — «30일 전 ~ 어제» 가 정의 그 자체
             //      · 13F / 내부자 공시  — 제도상 수 주 지연이 정상
+            //      · 공매도 잔고 결제일  — FINRA 는 15일·말일 결제분을 8영업일 뒤
+            //        발표한다. 2026-09-08 시점의 최신본이 8/14 결제분인 것은 정확하다
+            //        (8/31 결제분은 9/10 께 나온다).
             const benign = /^(data|results|intervals|series|bars|history|rlsiHistory)\[/.test(path)
                 || /baseline\./.test(path)
-                || /(filingDate|transactionDate|periodOfReport)$/i.test(leaf)
-                || /(holders|insider|transactions)\[/.test(path);
+                || /(filingDate|transactionDate|periodOfReport|settlementDate)$/i.test(leaf)
+                || /(holders|insider|transactions)\[/.test(path)
+                //      · 이벤트 목록      — «언제 일어났나»이지 «언제 갱신됐나»가 아니다
+                //        [2026-09-09] NVDA 목표가 변경 최신이 8/27(실적일)이라 경고가 났는데,
+                //        같은 시각 AAPL 은 9/8(당일)이었다 — 피드는 살아 있었다.
+                //        종목마다 최신일이 다른 게 정상이므로 여기서 나이를 재면 늘 운다.
+                || /(targetChanges|ratingChanges|upgrades|downgrades|priceTargets|earnings|dividends|splits|events)\[/.test(path)
+                //      · 월별 구성 스냅숏  — 9/1·8/1·7/1 은 시계열 그 자체다
+                || /composition\[/.test(path)
+                //      · «마지막으로 일어난 날» — 연 1회 배당주는 늘 300일 전이 된다.
+                //        신선도는 generatedAt 이 말한다. NVDA 실측 2026-06-04 는 사실이다.
+                || /^last[A-Z]/.test(leaf);
             if (benign) return;
             const m = v.match(/^\d{4}-\d{2}-\d{2}/);
             if (m) {

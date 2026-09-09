@@ -124,7 +124,7 @@ export async function GET(request: Request) {
 
   try {
     if (probe) return NextResponse.json(await generate());
-    const res = await serveSWR({ key: `div:v1:${ticker}`, freshSec: 6 * 3600, refresh: searchParams.get('refresh') === '1', generate });
+    const res = await serveSWR({ key: `div:v2:${ticker}`, freshSec: 6 * 3600, refresh: searchParams.get('refresh') === '1', generate });
     if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
     return NextResponse.json({ ...res.body, _stale: res.stale });
   } catch (e: any) {
