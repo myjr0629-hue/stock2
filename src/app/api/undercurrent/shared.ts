@@ -5,6 +5,7 @@
 
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
+import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 
 // ★ [2026-09-09] «us.» 한도 통이 말라 UC 일본어·WIM 이 통째로 죽었다.
 //   같은 Haiku 4.5 라도 «global.» 은 한도 통이 따로다(27M/일 vs 13.5M/일).
@@ -16,7 +17,7 @@ export const BEDROCK_MODEL_ALT = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 let _bedrock: BedrockRuntimeClient | null = null;
 export function getBedrock(): BedrockRuntimeClient {
   if (_bedrock) return _bedrock;
-  _bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
+  _bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1', ...BEDROCK_CLIENT_RETRY });
   return _bedrock;
 }
 
@@ -270,6 +271,7 @@ async function invokeJSONOn(model: string, system: string, user: string, maxToke
       messages: [{ role: 'user', content: user }],
     }),
   });
+  await reserveBedrockSlot('uc');
   const result = await Promise.race([
     getBedrock().send(command),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error('bedrock timeout')), 50_000)),

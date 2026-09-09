@@ -12,6 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
@@ -140,6 +141,7 @@ function getBedrock(): BedrockRuntimeClient {
             accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         },
+        ...BEDROCK_CLIENT_RETRY,
     });
     return _bedrockClient;
 }
@@ -413,6 +415,7 @@ Output ONLY valid JSON (no markdown fences):
             }),
         });
 
+        await reserveBedrockSlot('guardian-briefing');
         const result = await Promise.race([
             client.send(command),
             new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 60s')), 55000))

@@ -11,6 +11,7 @@
  */
 
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 
 // --- Model Constants ---
 //
@@ -47,6 +48,8 @@ function getClient(): BedrockRuntimeClient {
             accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         },
+        // SDK 기본 재시도 3회는 전부 «스로틀»로 따로 집계된다 — 증폭을 줄인다
+        ...BEDROCK_CLIENT_RETRY,
     });
     return _client;
 }
@@ -227,6 +230,9 @@ async function callWithRetry(
                 }),
             });
             
+            // 분당 한도(10)에 맞춰 «간격»을 벌린다. 줄이 길면 그냥 통과한다.
+            await reserveBedrockSlot(label);
+
             const result = await Promise.race([
                 client.send(command),
                 new Promise<never>((_, reject) => 

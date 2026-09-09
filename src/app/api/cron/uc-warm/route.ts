@@ -80,6 +80,42 @@ async function warm(baseUrl: string, path: string): Promise<{ ok: boolean; ms: n
 // (blank hero). Two-step warm keeps the 4h freshness contract WITHOUT forcing a regen
 // every 15min (the unit AI call is 8k-token — refresh=1 each cycle would burn ~$ for
 // identical content): serve normally, regenerate only when the body says it is stale.
+/**
+ * ★ [2026-09-10] 같은 «엿보고 필요할 때만 재생성» 을 피드에도 적용한다.
+ *
+ *   왜 이제야: WIM 만 고쳐 놓고 feed·macro 는 매 실행 refresh=1 로 강제하고
+ *   있었다. 피드 캐시 수명은 40분인데 크론은 15분마다 돈다 — **세 번 중 두 번은
+ *   멀쩡한 것을 버리고 다시 만들었다.**
+ *
+ *   토큰보다 «분당 요청 10건»이 문제다(AWS 케이스 178896794200630).
+ *   uc-warm 이 15분마다 12건 안팎을 한꺼번에 던지면 그 순간 실사용자 요청까지
+ *   같이 스로틀된다. 낭비 재생성을 없애는 것이 곧 사용자 자리를 되찾는 것이다.
+ *
+ *   macro 는 그대로 강제한다 — 수명이 12분이라 15분 주기에선 어차피 매번 낡았다.
+ *   엿보기를 넣어 봐야 왕복만 늘고 아끼는 게 없다.
+ */
+async function warmFresh(baseUrl: string, path: string, refreshPath: string): Promise<{ ok: boolean; ms: number; note?: string }> {
+  const t0 = Date.now();
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      signal: AbortSignal.timeout(58_000),
+      cache: 'no-store',
+      headers: {
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+          : {}),
+      },
+    });
+    const body = await res.json().catch(() => null);
+    // 못 읽었으면 «없다»고 보고 확실히 만든다 — 빈 화면보다 낫다
+    if (!res.ok || body?.success === false) return await warm(baseUrl, refreshPath);
+    if (body?._stale) return await warm(baseUrl, refreshPath);
+    return { ok: true, ms: Date.now() - t0, note: 'fresh' };
+  } catch (e: any) {
+    return { ok: false, ms: Date.now() - t0, note: e?.message || 'fetch failed' };
+  }
+}
+
 async function warmWim(baseUrl: string): Promise<{ ok: boolean; ms: number; note?: string }> {
   const t0 = Date.now();
   try {
@@ -126,7 +162,7 @@ export async function GET(req: NextRequest) {
   out['wim:today'] = await warmWim(baseUrl);
 
   // 1) feed ko — awaited alone so the shared core is rebuilt exactly once
-  out['feed:ko'] = await warm(baseUrl, '/api/undercurrent/feed?locale=ko&limit=12&refresh=1');
+  out['feed:ko'] = await warmFresh(baseUrl, '/api/undercurrent/feed?locale=ko&limit=12', '/api/undercurrent/feed?locale=ko&limit=12&refresh=1');
 
   // ★ [2026-09-09] 일본어 피드만 503 이 나 앱이 통째로 비어 있었다.
   //   ko/en 은 200·12건인데 ja 만 «unavailable». refresh=1 로는 21초에 정상
@@ -135,11 +171,11 @@ export async function GET(req: NextRequest) {
   //   경쟁에 밀리면 대상 라우트의 maxDuration(60s)을 넘긴다. 그러면 키가
   //   안 써지고, 물리 TTL 이 지나면 남은 것도 없어 503 이 된다.
   //   → ko 처럼 **따로 기다려** 데운다. (ko ~50s + ja ~25s + 나머지 ~30s < 300s)
-  out['feed:ja'] = await warm(baseUrl, '/api/undercurrent/feed?locale=ja&limit=12&refresh=1');
+  out['feed:ja'] = await warmFresh(baseUrl, '/api/undercurrent/feed?locale=ja&limit=12', '/api/undercurrent/feed?locale=ja&limit=12&refresh=1');
 
   // 3) feed en + macro ×3 + wim (locale-independent) — 나머지는 병렬
   const wave = await Promise.all([
-    warm(baseUrl, '/api/undercurrent/feed?locale=en&limit=12&refresh=1'),
+    warmFresh(baseUrl, '/api/undercurrent/feed?locale=en&limit=12', '/api/undercurrent/feed?locale=en&limit=12&refresh=1'),
     ...LOCALES.map((l) => warm(baseUrl, `/api/undercurrent/macro?locale=${l}&refresh=1`)),
   ]);
   out['feed:en'] = wave[0];
