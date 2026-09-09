@@ -232,9 +232,15 @@ export default function SettingsPage() {
   const { isPro, restore, iapAvailable } = useProStatus();
   const [proBusy, setProBusy] = useState(false);
 
-  // 바이너리 실제 버전 (@capacitor/app). 플러그인 없으면 라이브 스토어 버전으로 폴백
-  // — 하드코딩 v1.0.0 이 v1.1 바이너리와 어긋났던 문제(2026-08-08)의 해결.
-  const [appVersion, setAppVersion] = useState('1.1');
+  // 바이너리 실제 버전 (@capacitor/app).
+  //
+  // ★ [2026-09-09] 폴백이 «같은 버그»를 다시 만들고 있었다.
+  //   2026-08-08 에 하드코딩 v1.0.0 이 v1.1 바이너리와 어긋나 고쳤는데,
+  //   그 자리를 «그때의 라이브 버전 1.1» 로 채워 두었다. 그 사이 스토어는
+  //   iOS 1.7(2026-09-08) · Android 1.2.1 로 갔고, 폴백은 그대로 굳었다.
+  //   버전 문자열은 «시간이 지나면 반드시 틀려지는» 상수다.
+  //   → 재지 못했으면 표시하지 않는다. 네이티브에서만 진짜 값이 나온다.
+  const [appVersion, setAppVersion] = useState<string | null>(null);
   // Companion-app cross-promo — UC·WIM 모두 iOS/Android 라이브 (2026-08-08 전 앱 승인).
   const [showCompanions] = useState(true);
 
@@ -682,10 +688,10 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Version — 바이너리 실제 버전 (@capacitor/app, 폴백=라이브 스토어 버전) */}
+          {/* Version — 바이너리 실제 버전 (@capacitor/app). 못 재면 숫자를 내보내지 않는다. */}
           <div className={s.versionBox}>
             <div className={s.versionLogo}>SIGNUM<span>HQ</span></div>
-            <div className={s.versionNum}>v{appVersion}</div>
+            {appVersion && <div className={s.versionNum}>v{appVersion}</div>}
           </div>
 
           {/* ── 하단 정렬 진단 (안드로이드 네이티브 전용, 임시) ──────────────

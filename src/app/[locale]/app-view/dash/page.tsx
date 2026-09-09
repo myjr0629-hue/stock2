@@ -473,7 +473,9 @@ const GATE_SIG_C = ['#22d3ee', '#a78bfa', '#fbbf24', '#34d399'];
 const IX_BADGE: Record<string, { code: string; full: string; bg: string; fg: string }> = {
   'NASDAQ100 F': { code: 'N',   full: 'NASDAQ 100',   bg: '#1b3a6b', fg: '#8fc2ff' },
   'S&P500 F':    { code: '500', full: 'S&P 500',      bg: '#6b1f2a', fg: '#ffb4b4' },
-  'Russell2k F': { code: 'R2K', full: 'RUSSELL 2000', bg: '#17456b', fg: '#8fd4ff' },
+  // 'RUSSELL 2000'(72px)은 칩 폭(70px)을 넘겨 «RUSSELL 200…» 으로 잘렸다.
+  // 코드 배지가 R2K 를 이미 말하므로 트레이더 통용 표기로 줄인다.
+  'Russell2k F': { code: 'R2K', full: 'RUSSELL 2K',   bg: '#17456b', fg: '#8fd4ff' },
   'NASDAQ':      { code: 'N',   full: 'NASDAQ',       bg: '#1b3a6b', fg: '#8fc2ff' },
   'S&P 500':     { code: '500', full: 'S&P 500',      bg: '#6b1f2a', fg: '#ffb4b4' },
   'DOW':         { code: 'DJI', full: 'DOW JONES',    bg: '#3a2f6b', fg: '#c0b4ff' },
@@ -705,7 +707,7 @@ export default function AppDashPage() {
       etfRow: 'ETF / 변동성',
       futuresStalled: 'DELAYED',
       futuresStalledNote: '선물 시세가 갱신되지 않고 있습니다 — 마지막 값입니다.',
-      futuresOpen: '정규장 밖에도 선물 흐름은 ET 기준으로 추적됩니다.',
+      futuresOpen: '선물 흐름은 ET 기준으로 추적 중입니다.',
       regularOpen: '정규장 실시간 흐름을 반영합니다.',
       holidayNote: '미국 증시 휴장 — 직전 값입니다.',
       marketClosed: '장 마감 데이터와 선물 흐름을 함께 봅니다.',
@@ -803,7 +805,7 @@ export default function AppDashPage() {
       etfRow: 'ETF / 변동성',
       futuresStalled: 'DELAYED',
       futuresStalledNote: '선물 시세가 갱신되지 않고 있습니다 — 마지막 값입니다.',
-      futuresOpen: '정규장 밖에도 선물 흐름은 ET 기준으로 추적됩니다.',
+      futuresOpen: '선물 흐름은 ET 기준으로 추적 중입니다.',
       regularOpen: '정규장 실시간 흐름을 반영합니다.',
       holidayNote: '미국 증시 휴장 — 직전 값입니다.',
       marketClosed: '장마감 데이터와 활성 선물 흐름을 함께 봅니다.',
