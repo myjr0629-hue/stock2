@@ -175,11 +175,18 @@ export async function GET(req: NextRequest) {
                 regime,
                 score: regimeScore == null ? null : Math.round(regimeScore),
             },
-            // ★ darkPool 은 제거했다 — 이관으로 영구 상실한 지표다.
-            //   소비처가 옛 키를 계속 읽으면 조용히 undefined 가 되므로,
-            //   «없어졌다»는 사실을 명시적으로 남긴다.
+            // ★ 이 카드에서만 뺐다 — 지표가 없어서가 아니다.
+            //
+            //   [정정 2026-09-09] 바로 위 주석의 «영구 상실»은 **틀린 판단이었다.**
+            //   장외 체결은 법으로 FINRA TRF 에 보고되고 FINRA 가 공개한다.
+            //   다크풀은 복원되어 지금 12,129종목이 당일치로 살아 있다
+            //   (/api/flow/dark-pool · getDarkPoolBatch · finra:offexchange).
+            //   여기 카드를 «기관 신규 포지션»으로 바꾼 것은 그 뒤의 선택이고,
+            //   카드 구성을 되돌릴지는 제품 결정이라 코드가 임의로 하지 않는다.
+            //   ⚠️ 이 표기를 「다크풀은 죽었다」로 읽지 말 것 — 그 오독이 실제로
+            //      대체 지표를 만들게 했고, 원본을 찾는 데 시간이 걸렸다.
             darkPool: null,
-            _darkPoolRetired: 'vendor-unavailable-since-2026-08-28',
+            _darkPoolNote: 'restored-via-finra-2026-08-31; card intentionally replaced by institutionalFlow',
             institutionalFlow: instFlow,
             // 옛 소비처 호환 — 새 카드는 dealerGamma 를 쓴다
             gammaSqueeze: {
