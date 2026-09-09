@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { AiBadge } from '@/components/app/AiBadge';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
@@ -3062,11 +3063,15 @@ function CmdPageContent() {
       <div className={s.topBar}>
       {/* ── HEADER ── */}
       <div className={s.header}>
-        <button className={s.headerBtn} onClick={() => router.back()} aria-label="Back">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M15 19l-7-7 7-7" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        {/* 왼쪽 묶음: 뒤로가기 + AI 배지. 티커는 절대 중앙이라 여기가 넓어져도 안 밀린다. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+          <button className={s.headerBtn} onClick={() => router.back()} aria-label="Back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M15 19l-7-7 7-7" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <AiBadge locale={locale} />
+        </div>
         <div className={s.headerCapsule}>
           <AppTickerLogo symbol={data.ticker} size={22} />
           <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>

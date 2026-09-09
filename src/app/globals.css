@@ -1550,3 +1550,72 @@
 /* ===== NATIVE APP (Capacitor) ===== */
 /* Only active when html.native-app class is present */
 @import "../styles/native-app.css";
+
+/* ============================================================================
+   AI 배지 — 「이 화면은 AI가 만든다」를 상단에서 한눈에 알린다.
+   ★ 대표 지시(2026-09-10): 컨테이너를 «텍스트/아이콘 높이에 맞춰 키우지 말 것».
+     그래서 배지 높이는 20px 고정이고, 존재감은 «후광»이 배지 «밖으로» 퍼져서 낸다.
+     후광은 position:absolute + pointer-events:none 이라 레이아웃 높이를 절대 밀지 않는다.
+   ★ 라벨은 「AI 분석」 하나뿐이다. «분석 완료» 상태는 만들지 않는다 —
+     보여주려는 것은 «결과»가 아니라 «작동하고 있다»는 사실이다.
+   ============================================================================ */
+@keyframes aiStarPulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+@keyframes aiHaloOut {
+  0%   { opacity: 0.7; transform: translate(-50%, -50%) scale(0.35); }
+  72%  { opacity: 0;   transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(1); }
+}
+.ai-badge {
+  height: 20px;                 /* ← 고정. padding 으로 늘리지 않는다 */
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  position: relative;
+  overflow: visible;            /* 후광이 밖으로 나가야 한다 */
+  flex: 0 0 auto;
+  background: rgba(232, 200, 119, 0.13);
+  border: 1px solid rgba(232, 200, 119, 0.36);
+  line-height: 1;
+}
+.ai-badge__label {
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #E8C877;
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+}
+.ai-badge__star {
+  position: relative;
+  z-index: 2;
+  display: block;
+  animation: aiStarPulse 1.2s ease-in-out infinite;
+  transform-origin: center;
+}
+.ai-badge__halo {
+  position: absolute;
+  left: 13px;                   /* 별 중심 */
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(232, 200, 119, 0.60), rgba(232, 200, 119, 0) 66%);
+  animation: aiHaloOut 1.6s ease-out infinite;
+}
+/* 아이콘만 쓰는 좁은 자리(커맨드 티커 바 등) */
+.ai-badge--icon { padding: 0 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-badge__star { animation: none; opacity: 1; transform: none; }
+  .ai-badge__halo { display: none; }
+}

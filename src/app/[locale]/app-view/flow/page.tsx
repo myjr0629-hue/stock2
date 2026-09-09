@@ -14,6 +14,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
+import { AiBadge } from '@/components/app/AiBadge';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
@@ -1668,6 +1669,85 @@ export default function AppFlowPage() {
     : volRegime === 'LOADED'
     ? flowCopy.loaded
     : flowCopy.stable;
+  // ══════════════════════════════════════════════════════════════════════
+  // 진짜 AI 분석 — /api/flow/ai-analysis (Bedrock, 11팩터 교차분석, 3개 국어)
+  //
+  // ★ [2026-09-10] 이 화면의 「AI 상세 시나리오」는 **AI 가 아니었다.**
+  //   광고를 봐야 열리는 칸에 하드코딩 문장 3개가 숫자만 갈아 끼워져 나가고 있었다.
+  //   그런데 진짜 AI 분석은 이미 만들어져 **웹(FlowRadar)에서 돌고 있었다** —
+  //   앱만 그 API 를 한 번도 부르지 않았을 뿐이다.
+  //   (같은 종류: 만들어 둔 것을 화면이 안 쓰는 것. 파일이 아니라 «작동»까지 확인할 것.)
+  //
+  //   서버가 종목별로 캐시하므로(세션별 TTL) 화면 전환마다 새로 태우지 않는다.
+  //   실패해도 화면은 비지 않는다 — 아래 lockedScenario 가 그대로 폴백이다.
+  // ══════════════════════════════════════════════════════════════════════
+  const [aiFlow, setAiFlow] = useState<any | null>(null);
+  const aiFlowKeyRef = useRef<string>('');
+  useEffect(() => {
+    if (!ticker || !(price > 0)) return;
+    const key = `${ticker}:${effectiveSession}`;
+    if (aiFlowKeyRef.current === key) return;   // 같은 종목·같은 세션이면 다시 안 부른다
+    aiFlowKeyRef.current = key;
+    setAiFlow(null);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/flow/ai-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ticker,
+            locale,
+            triggerReason: 'FIRST_LOAD',
+            flowData: {
+              currentPrice: price,
+              compositeScore,
+              session: effectiveSession,
+              position: {
+                putFloor: putFloorVal || 0,
+                callWall: callWallVal || 0,
+                distToPut: price > 0 && putFloorVal ? `${(((price - putFloorVal) / price) * 100).toFixed(1)}%` : 'N/A',
+                distToCall: price > 0 && callWallVal ? `${(((callWallVal - price) / price) * 100).toFixed(1)}%` : 'N/A',
+                zone: callWallVal && price > callWallVal ? 'ABOVE_CALL_WALL'
+                  : putFloorVal && price < putFloorVal ? 'BELOW_PUT_FLOOR' : 'INSIDE_RANGE',
+              },
+              factors: {
+                opi: { value: opi, score: Math.round(opiScore), label: '' },
+                whale: { premium: `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`, score: Math.round(whaleScore), bias: netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
+                squeeze: { probability: squeezeProb ?? 'N/A', score: Math.round(squeezeScore), label: '' },
+                ivSkew: { value: ivSkewVal ?? 'N/A', score: Math.round(skewScore), label: '' },
+                smartMoney: { score: Math.round(smartScore), label: '' },
+                dex: { value: 'N/A', score: Math.round(dexScore), label: '' },
+                uoa: { score: Math.round(uoaScore), label: '' },
+                pcRatio: { value: pcRatio, score: Math.round(pcScore) },
+                gex: { pinStrength: 'N/A', score: Math.round(zdteScore), regime: riskStateLabel },
+              },
+              regime: {
+                ivPercentile: 'N/A',
+                impliedMove: 'N/A',
+                maxPain: 0,
+                maxPainDist: 'N/A',
+                gammaFlipLevel: gammaFlipNumForOverview || 0,
+                flipPercentage: gammaFlipNumForOverview > 0 && price > 0
+                  ? `${(((price - gammaFlipNumForOverview) / gammaFlipNumForOverview) * 100).toFixed(1)}%`
+                  : 'N/A',
+                gexRegime: riskStateLabel,
+              },
+              ruleVerdict: { status: overviewDirection },
+            },
+          }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data && data.structuralThesis) setAiFlow(data);
+      } catch { /* 폴백이 있으므로 조용히 넘어간다 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [ticker, price, effectiveSession, locale, compositeScore, putFloorVal, callWallVal, opi, opiScore,
+      netWhalePremium, whaleScore, squeezeProb, squeezeScore, ivSkewVal, skewScore, smartScore,
+      dexScore, uoaScore, pcRatio, pcScore, zdteScore, riskStateLabel, gammaFlipNumForOverview,
+      overviewDirection]);
+
   const convictionLabel = Math.abs(compositeScore) >= 45 || opi >= 68 || opi <= 35
     ? flowCopy.highConviction
     : Math.abs(compositeScore) >= 20 || (squeezeProb != null && squeezeProb >= 55)
@@ -2076,6 +2156,8 @@ export default function AppFlowPage() {
           <div className={dashStyles.headerTitle} style={{ font: 'var(--f-h2)', fontWeight: 800 }}>
             {t.title}
           </div>
+          {/* ★ AI 배지 — 높이 20px 고정. 후광은 absolute 라 헤더 높이를 밀지 않는다. */}
+          <AiBadge locale={locale} />
         </div>
         <div className={dashStyles.headerActions} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Search Toggle Button */}
@@ -3632,11 +3714,30 @@ export default function AppFlowPage() {
               { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.totalPremium} $${(totalPrem / 1000000).toFixed(1)}M, P/C ${pcRatio.toFixed(2)}` },
               { label: ui.priceCondition, value: overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(2)}` : '--'} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
             ];
-            const lockedScenario = [
+            // ★ [2026-09-10] 여기가 광고를 봐야 열리는 칸이다.
+            //   예전엔 **하드코딩 문장 3개**가 숫자만 바뀌어 나갔다 — 종목이 달라도 문장이 같았다.
+            //   이제 진짜 AI(11팩터 교차분석)가 만든 factorHighlights 를 쓴다.
+            //   AI 가 아직 안 왔거나 실패하면 아래 폴백으로 «빈 화면»만은 만들지 않는다.
+            const aiHighlights: string[] = Array.isArray(aiFlow?.factorHighlights)
+              ? (aiFlow.factorHighlights as any[])
+                  .map((h) => {
+                    const txt = h?.insight?.[locale] || h?.insight?.ko || h?.insight?.en || '';
+                    const name = String(h?.factor || '').trim();
+                    return txt ? (name ? `${name} — ${txt}` : txt) : '';
+                  })
+                  .filter(Boolean)
+              : [];
+            const fallbackScenario = [
               `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
               `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
               `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
             ];
+            const lockedScenario = aiHighlights.length > 0 ? aiHighlights : fallbackScenario;
+            // 리스크 조건도 AI 가 있으면 AI 의 «리프라이싱 조건»을 쓴다
+            const riskConditionText: string =
+              (aiFlow?.repricingCondition?.[locale] as string) ||
+              (aiFlow?.repricingCondition?.ko as string) ||
+              overviewSignal.action;
 
             return (
               <>
@@ -3793,7 +3894,9 @@ export default function AppFlowPage() {
                   <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(245, 158, 11, 0.045)', border: '1px solid rgba(245, 158, 11, 0.16)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                     <div style={{ minWidth: 0 }}>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{ui.riskLabel}</span>
-                      <span style={{ font: 'var(--f-small)', fontWeight: 850, color: '#ffffff', marginTop: '2px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{overviewSignal.action}</span>
+                      {/* ★ 한 줄 강제(nowrap+ellipsis)로 문장 절반이 잘리고 있었다 — 두 줄까지 허용한다.
+                          컨테이너를 키우는 게 아니라 «줄 수»만 연다: 3줄 넘어가면 그때 자른다. */}
+                      <span style={{ font: 'var(--f-small)', fontWeight: 850, color: '#ffffff', marginTop: '2px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.4 }}>{riskConditionText}</span>
                     </div>
                     <span style={{ fontSize: '8px', fontWeight: 950, background: 'rgba(6, 182, 212, 0.07)', color: 'var(--cyan)', border: '1px solid rgba(6, 182, 212, 0.18)', padding: '3px 7px', borderRadius: '12px', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                       {ui.noAdvice}

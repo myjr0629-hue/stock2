@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useLocale } from 'next-intl';
 import { useGuardian } from '@/components/guardian/GuardianProvider';
+import { AiBadge } from '@/components/app/AiBadge';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import GuardianAlertBanner from '@/components/guardian/GuardianAlertBanner';
 import useSWR from 'swr';
@@ -406,6 +407,10 @@ function GuardianPageContent() {
                 </div>
               </div>
             </div>
+
+            {/* ★ AI 배지 — 배너를 늘리지 않는다. space-between 의 «빈 가운데»에 들어가
+                좌측 그룹도 RLSI 박스도 밀지 않는다. 높이 20px 고정. */}
+            <AiBadge locale={locale} style={{ marginLeft: 'auto', marginRight: 'auto' }} />
 
             <div style={{
               border: `1px solid ${rlsiColor}38`,

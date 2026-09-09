@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { useLocale } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
+import { AiBadge } from '@/components/app/AiBadge';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
 import { FlashPrice } from '@/components/ui/PriceDisplay';
@@ -2696,6 +2697,8 @@ export default function AppIntelPage() {
                   }}>
                     {appCopy.kicker}
                   </span>
+                  {/* ★ AI 배지 — 카드는 그대로. 커커 줄(28px)보다 낮은 20px 이라 높이가 안 바뀐다. */}
+                  <AiBadge locale={locale} />
                 </div>
                 <h1 style={{
                   fontSize: '25px',
