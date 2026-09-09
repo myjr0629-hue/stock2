@@ -21,7 +21,8 @@ import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 
 export const maxDuration = 60;
 
-const BEDROCK_MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+// [2026-09-09] us. 한도 통 소진 → 같은 모델의 global. 통으로. (bedrockClient 주석 참조)
+const BEDROCK_MODEL = 'global.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 const SECTOR_NAMES_EN: Record<string, string> = {
     XLK: 'Technology',

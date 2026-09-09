@@ -6,7 +6,12 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 
-export const BEDROCK_MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+// ★ [2026-09-09] «us.» 한도 통이 말라 UC 일본어·WIM 이 통째로 죽었다.
+//   같은 Haiku 4.5 라도 «global.» 은 한도 통이 따로다(27M/일 vs 13.5M/일).
+//   실측: 같은 순간 us. 는 ThrottlingException, global. 은 정상 응답.
+export const BEDROCK_MODEL = 'global.anthropic.claude-haiku-4-5-20251001-v1:0';
+/** 같은 모델·다른 한도 통 — 기본이 스로틀되면 여기로 한 번 더 시도한다 */
+export const BEDROCK_MODEL_ALT = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 let _bedrock: BedrockRuntimeClient | null = null;
 export function getBedrock(): BedrockRuntimeClient {
@@ -241,8 +246,20 @@ export function storyPayload(stories: {
 }
 
 export async function invokeJSON(system: string, user: string, maxTokens = 4096): Promise<any> {
+  try {
+    return await invokeJSONOn(BEDROCK_MODEL, system, user, maxTokens);
+  } catch (e: any) {
+    // 스로틀(한도 소진)이면 «같은 모델의 다른 통»으로 한 번 더. 그 외 오류는 그대로 던진다.
+    const throttled = e?.name === 'ThrottlingException' || /throttl|too many tokens/i.test(String(e?.message || ''));
+    if (!throttled) throw e;
+    console.warn('[bedrock] primary throttled → alt profile');
+    return await invokeJSONOn(BEDROCK_MODEL_ALT, system, user, maxTokens);
+  }
+}
+
+async function invokeJSONOn(model: string, system: string, user: string, maxTokens: number): Promise<any> {
   const command = new InvokeModelCommand({
-    modelId: BEDROCK_MODEL,
+    modelId: model,
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({

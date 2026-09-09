@@ -13,9 +13,28 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
 // --- Model Constants ---
+//
+// ★ [2026-09-09] «us.» 프로파일 하나에 세 앱이 전부 매달려 있었고, 그 통이 말랐다.
+//
+//   실측 (CloudWatch, 24시간):
+//     us.anthropic.claude-haiku-4-5   입력 8.9M + 출력 3.6M = 12.5M 토큰
+//                                     성공 4,170회 · **스로틀 34,487회**
+//     us.anthropic.claude-sonnet-4-6  호출 0회 (선언만 있고 아무도 안 쓴다)
+//   일일 한도는 13.5M — 12.5M 을 썼으니 사실상 소진이다. 그래서 WIM 과
+//   UC 일본어가 「데이터 없음」으로 죽었고, SIGNUM 도 같은 통을 쓰므로
+//   AI 문구가 조용히 «어제 것»으로 굳고 있었다.
+//
+//   **같은 모델인데 «global.» 프로파일은 한도 통이 따로다**(27M/일).
+//   실측: us. 는 ThrottlingException, global. 은 같은 순간 정상 응답.
+//   → 기본을 global 로 두고, 막히면 us 로 넘어간다. 둘 다 같은 Haiku 4.5 라
+//     품질은 동일하고 가용 한도만 두 배가 된다.
 export const MODELS = {
+    /** 기본 — 전 앱 공용 */
+    HAIKU_35: 'global.anthropic.claude-haiku-4-5-20251001-v1:0',
+    /** 같은 모델·다른 한도 통. 기본이 스로틀되면 이쪽으로 */
+    HAIKU_35_US: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    /** @deprecated 호출자 0곳·호출 0회 (2026-09-09 실측). 남겨만 둔다 */
     SONNET_4: 'us.anthropic.claude-sonnet-4-6',
-    HAIKU_35: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
 } as const;
 
 // --- Singleton Client ---
@@ -124,7 +143,8 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
         maxTokens = 4096,
         temperature = 0.3,
         timeoutMs = 55000,
-        fallbackModel = null as string | null,
+        // 기본 폴백 = 같은 모델의 다른 한도 통. 명시적으로 null 을 넘기면 끈다.
+        fallbackModel = MODELS.HAIKU_35_US as string | null,
         jsonPrefill = false,
         maxRetries = 3,
         label = 'Bedrock',
