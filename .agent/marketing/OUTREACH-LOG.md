@@ -3474,3 +3474,29 @@ NVDA $707M + META $74M 두 건을 «미결제약정이 늘었다 = 신규» 라�
 | Bluesky | NVDA $707M | `bluesky_post` |
 | Threads | NVDA+META 묶음 | 없음(도달 우선) |
 | r/options | **규칙(AI 금지)으로 게시 안 함** | — |
+
+### ⑧ 측정이 가리킨 방향으로 «제품»을 고쳤다 — /learn/open-interest 신설
+
+SNS 를 한 곳 더 도는 대신, GSC 가 가리킨 곳에 페이지를 만들었다.
+근거: 개념 설명형(`/learn/put-call-ratio` 157노출)이 **유일하게 노출이 오르는 형태**였다.
+
+`open-interest` 를 3개국어로 추가. 오늘 X·Bluesky·Threads·Quora 에서 반복해 설명한
+바로 그 논지다 — 「거래량만으로는 청산일 수 있고, **미결제약정이 늘어야 신규**다」.
+우리 화면의 「신규 포지션 감지」가 정확히 그 계산인데 설명 페이지가 없었다.
+
+일반론을 쓰지 않았다. 우리가 «실제로 계산하는 방식»으로 썼다:
+- 증감을 명목가로 환산 → $600 종목 1,198계약과 $224 종목 27,189계약을 같은 잣대로
+- 하루 시차를 숨기지 않는다(장중 실시간 건옥은 추정치라고 명시)
+
+검증(Googlebot UA):
+```
+/en/learn/open-interest  200 · canonical ✓ · hreflang 4 · 본문 2,617자
+/ko/learn/open-interest  200 · canonical ✓ · hreflang 4 · 본문 1,372자
+/ja/learn/open-interest  200 · canonical ✓ · hreflang 4 · 본문 1,248자
+사이트맵 3건 등록 · IndexNow 접수 3/3
+```
+⚠️ 배포 직후 ja 만 404 였다 — 정적 생성이 끝나기 전이었고 곧 200 이 됐다.
+**배포 직후 한 번의 404 로 결론 내지 말 것.**
+
+기존 3개념(options-flow·put-call-ratio·max-pain)의 `related` 에 9곳 상호 링크를 넣었다.
+내부 링크가 없으면 새 페이지는 색인되지 않는다.
