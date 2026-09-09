@@ -145,13 +145,39 @@ export interface DynamoFlowData {
  */
 export async function getLatestFlow(ticker: string): Promise<DynamoFlowData | null> {
   try {
+    // ★ [2026-09-09] «최신 1건»만 보면 값이 순간적으로 사라진다.
+    //
+    //   하베스터가 이따금 «얕은» 레코드를 쓴다. TSLA 실측:
+    //     21:05 레코드 12키 — netPremium 없음   ← getLatestFlow 가 고른 것
+    //     20:50 레코드 14키 — netPremium 359,328,823
+    //   그래서 화면의 netPremium 이 0 이 되고, 방향 입력이 0 이면 고래지수가
+    //   수식상 «정확히 50» 으로 붕괴한다. 실제로 그렇게 나가고 있었다.
+    //
+    //   최신을 우선하되 «빈 칸만» 직전 레코드로 채운다. 같은 세션 안에서만
+    //   채우므로 어제 값이 오늘로 새어 들어오지 않는다.
     const items = await queryItems<DynamoFlowData>(
       TABLES.FLOW_HISTORY,
       'ticker = :tk',
       { ':tk': ticker },
-      { limit: 1, scanForward: false }
+      { limit: 5, scanForward: false }
     );
-    return items[0] || null;
+    if (!items.length) return null;
+
+    const newest: any = items[0];
+    const newestTs = Number((newest as any)?.timestamp) || 0;
+    const SAME_SESSION_MS = 6 * 3600 * 1000;
+    const merged: any = { ...newest };
+    for (let i = 1; i < items.length; i++) {
+      const prev: any = items[i];
+      const ts = Number(prev?.timestamp) || 0;
+      // 세션을 넘어가면 채우지 않는다 — «어제 값»을 오늘로 들이지 않기 위해서다
+      if (newestTs && ts && newestTs - ts > SAME_SESSION_MS) break;
+      for (const [k, v] of Object.entries(prev)) {
+        if (v === null || v === undefined) continue;
+        if (merged[k] === null || merged[k] === undefined) merged[k] = v;
+      }
+    }
+    return merged as DynamoFlowData;
   } catch (e) {
     return null;
   }
