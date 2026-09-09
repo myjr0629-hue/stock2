@@ -3287,3 +3287,41 @@ Space 는 이미 세팅돼 있었다(설명·첫 글 완료, 조회 6·팔로우
 (Non→ 삭제돼 "he of this", "Spo" 삭제돼 "t above"). 
 → **부분 수정하지 말고 Cmd+A 로 지우고 통째로 다시 친다.**
 → 번호가 필요하면 `First,` `Second,` `Third,` 처럼 **낱말로 쓴다.**
+
+### ⑤ LinkedIn — /in/signumhq (팔로워 0 · 게시물 0 → 첫 글)
+FINRA 다크풀 실측 12종목 글. **링크는 스마트링크가 아니라 `signumhq.com/en/dark-pool`.**
+
+**★ 스마트링크는 LinkedIn 백링크가 «안 된다» — Post Inspector 로 실측**
+```
+signumhq.com/app?from=linkedin
+ → 307 www.signumhq.com/app?from=linkedin
+ → 301 apps.apple.com/app/...
+ → 카드: 「SIGNUM HQ: Premarket Earnings App - App Store」 · apps.apple.com
+```
+데스크톱 크롤러가 App Store 까지 따라가므로 **우리 도메인 백링크가 0**이 된다.
+우리 SEO 병목이 «참조도메인 2개»인데 백링크를 버리고 있었던 셈.
+→ `www.signumhq.com/en/dark-pool` 로 데우니 카드가 **우리 도메인**으로 잡혔다
+  (제목·이미지 정상). 설치가 목적이면 스마트링크, **백링크가 목적이면 콘텐츠 URL.**
+
+### ⑥ Bluesky — @signumhq.bsky.social (팔로워 22 · 우리 채널 중 최다)
+NVDA 훅으로 게시(640번째 글). 300자 제한이라 압축.
+```
+Sep 11 $260 콜 +27,189계약 $707M · 미결제약정 증가 = 신규
+스팟 $224.35 · 맥스페인 $220 · 감마 플립 $230(스팟이 아래 = 딜러 숏감마)
+```
+
+**★ 기존 Bluesky 글들이 `?from=bluesky-post`(하이픈)를 쓰고 있었다.**
+`FROM_RE=[a-z0-9_]` 라 **하이픈은 통째로 걸러진다** — 지난 글들의 설치 측정이
+전부 죽어 있었다. 프로필 바이오는 이미 `bluesky_bio` 로 고쳐져 있었다(대장 기록이 낡음).
+새 글부터 `bluesky_post`. 옛 글은 Bluesky 가 수정을 지원하지 않아 그대로 둔다.
+→ [[smartlink-from-tag-hyphen-eats-attribution]]
+
+### 오늘 사이클 요약
+| 채널 | 결과 |
+|---|---|
+| X (@signumhq_jp) | 19.1K 조회 스레드에 답글 + 앱 스크린샷 |
+| Reddit r/thetagang | 일일 스레드 댓글 (링크 없이 데이터만) |
+| Quora Space | 2번째 글 (메커니즘 해설 + 링크 1개) |
+| LinkedIn | 첫 글 · **우리 도메인 백링크 확보** |
+| Bluesky | NVDA $707M 훅 |
+| r/options | **규칙(AI 금지)으로 게시 안 함** |
