@@ -30,6 +30,10 @@ type Loc = 'en' | 'ko' | 'ja';
 
 export const CONCEPT_SLUGS = [
   'dark-pool', 'max-pain', 'gamma-exposure', 'call-wall', 'put-call-ratio', 'options-flow',
+  // [2026-09-10] 추가. GSC 실측상 «개념 설명형»이 유일하게 노출이 오르는 형태였고
+  //   (/learn/put-call-ratio 157노출), 미결제약정은 우리 화면의 「신규 포지션 감지」가
+  //   바로 그 계산인데 설명 페이지가 없었다. 경쟁 도구도 이 구분을 잘 안 쓴다.
+  'open-interest',
 ] as const;
 export type ConceptSlug = (typeof CONCEPT_SLUGS)[number];
 
@@ -61,7 +65,7 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: 'When it matters and when it does not', p: 'The pull is strongest in the last days before a monthly expiry on a liquid name with concentrated open interest. It is close to meaningless right after a new cycle opens, or when news is repricing the stock faster than dealers can hedge.' },
         { h: 'How we show it', p: 'We publish max pain next to the current price so the gap is visible at a glance. A wide gap late in an expiry cycle is the setup worth noticing; the same gap on the first day of a cycle usually is not.' },
       ],
-      related: ['gamma-exposure', 'call-wall'],
+      related: ['gamma-exposure', 'call-wall', 'open-interest'],
     },
     'gamma-exposure': {
       slug: 'gamma-exposure',
@@ -103,7 +107,7 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: 'Why extremes are read as contrarian', p: 'When the ratio hits an extreme, positioning is crowded on one side. Crowded positioning is fragile positioning: the marginal buyer is exhausted, so the move that hurts the most people becomes the easier one.' },
         { h: 'Pairing it with flow', p: 'A ratio tells you the balance; it does not tell you who moved. Reading it alongside where the large premium actually printed is what turns it from trivia into context.' },
       ],
-      related: ['options-flow', 'dark-pool'],
+      related: ['options-flow', 'dark-pool', 'open-interest'],
     },
     'options-flow': {
       slug: 'options-flow',
@@ -117,7 +121,21 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: 'The most common misreading', p: 'A large call buy is not automatically bullish. It may be one leg of a spread, a hedge against a short stock position, or a covered-call roll. Treating every big call print as a bet on upside is the single most common error in reading flow.' },
         { h: 'What we show', p: 'We publish the flow alongside standing positioning — open interest, max pain, walls — so a single print can be read in the context of what was already there. One order rarely means much; one order against a shifting position often does.' },
       ],
-      related: ['dark-pool', 'put-call-ratio'],
+      related: ['dark-pool', 'put-call-ratio', 'open-interest'],
+    },
+    'open-interest': {
+      slug: 'open-interest',
+      title: 'Open Interest: How to Tell a New Position From a Close-Out',
+      desc: 'Open interest counts option contracts still outstanding. When it rises, contracts were created. That single distinction separates a new institutional bet from someone unwinding one.',
+      h1: 'Open interest, explained',
+      lead: 'Volume counts how many contracts changed hands today. Open interest counts how many are still outstanding after the session settles. Volume can be one trader closing a position; only open interest tells you whether the position now exists.',
+      sections: [
+        { h: 'What actually creates open interest', p: 'A contract comes into existence only when a buyer opening a position meets a seller opening one. If either side is closing, open interest does not rise. So a strike with enormous volume and flat open interest is churn between existing holders, not accumulation — and it is routinely reported as if it were the opposite.' },
+        { h: 'We read the change, not the level', p: 'The level is accumulated history and tells you where the crowd already sits. The change is what happened. Our screens surface the daily open-interest change per strike and convert it to notional, so 1,198 contracts on a $600 name is comparable to 27,189 on a $224 one rather than looking smaller.' },
+        { h: 'Reading it against price', p: 'Open interest rising while price rises means new long exposure is being added. Rising while price falls means new short or hedge exposure. Falling in either direction means positions are being unwound, and moves driven by unwinding tend to be less durable than moves driven by new money.' },
+        { h: 'The one-day lag is real', p: 'Open interest is published after the session settles, so today\u2019s change describes what was built yesterday. Anyone showing you live intraday open interest is showing you an estimate. We label the session the number belongs to rather than implying it is live.' },
+      ],
+      related: ['options-flow', 'put-call-ratio', 'max-pain'],
     },
   },
 
@@ -148,7 +166,7 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: '의미 있을 때와 없을 때', p: '월물 만기 직전 며칠, 유동성 있는 종목, 미결제약정이 한 곳에 몰렸을 때 가장 강합니다. 새 사이클이 막 열린 직후나, 딜러가 헤지하는 속도보다 뉴스가 주가를 다시 매기는 속도가 빠를 때는 거의 무의미합니다.' },
         { h: '우리 화면에서', p: '현재가 바로 옆에 맥스페인을 띄워 격차가 한눈에 보이게 했습니다. 만기 사이클 후반의 큰 격차가 눈여겨볼 구도이고, 사이클 첫날의 같은 격차는 보통 아닙니다.' },
       ],
-      related: ['gamma-exposure', 'call-wall'],
+      related: ['gamma-exposure', 'call-wall', 'open-interest'],
     },
     'gamma-exposure': {
       slug: 'gamma-exposure',
@@ -190,7 +208,7 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: '극단값을 역발상으로 읽는 이유', p: '비율이 극단에 닿으면 포지션이 한쪽에 몰려 있다는 뜻입니다. 몰린 포지션은 취약한 포지션입니다 — 한계 매수자가 소진되어, 가장 많은 사람을 아프게 하는 움직임이 오히려 «쉬운» 쪽이 됩니다.' },
         { h: '플로우와 함께 보기', p: '비율은 균형을 알려주지 «누가 움직였는지»는 알려주지 않습니다. 큰 프리미엄이 실제로 어디서 찍혔는지와 함께 읽을 때 잡학에서 «맥락»으로 바뀝니다.' },
       ],
-      related: ['options-flow', 'dark-pool'],
+      related: ['options-flow', 'dark-pool', 'open-interest'],
     },
     'options-flow': {
       slug: 'options-flow',
@@ -204,7 +222,21 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: '가장 흔한 오독', p: '큰 콜 매수가 자동으로 강세는 «아닙니다». 스프레드의 한 다리일 수도, 주식 숏에 대한 헤지일 수도, 커버드콜 롤링일 수도 있습니다. 큰 콜 체결을 전부 상승 베팅으로 읽는 것이 플로우 해석에서 가장 흔한 실수입니다.' },
         { h: '우리가 보여주는 것', p: '플로우를 상시 포지션(미결제약정·맥스페인·벽)과 «나란히» 보여줍니다. 한 건의 체결만으로는 알 수 없는 것이, 변하고 있는 포지션과 대조하면 보이기 때문입니다.' },
       ],
-      related: ['dark-pool', 'put-call-ratio'],
+      related: ['dark-pool', 'put-call-ratio', 'open-interest'],
+    },
+    'open-interest': {
+      slug: 'open-interest',
+      title: '미결제약정 — 신규 진입과 청산을 구분하는 법',
+      desc: '미결제약정은 아직 남아 있는 옵션 계약 수입니다. 이 값이 «늘었다»는 것은 계약이 새로 만들어졌다는 뜻입니다. 그 구분 하나가 기관의 신규 베팅과 단순 청산을 갈라놓습니다.',
+      h1: '미결제약정, 제대로 읽기',
+      lead: '거래량은 오늘 손바뀜한 계약 수이고, 미결제약정은 장이 끝난 뒤에도 남아 있는 계약 수입니다. 거래량이 크다고 새 포지션은 아닙니다 — 누군가 정리했을 수도 있습니다. 포지션이 «생겼는지»는 미결제약정만 말해 줍니다.',
+      sections: [
+        { h: '미결제약정은 언제 늘어나나', p: '신규로 사는 쪽과 신규로 파는 쪽이 만나야 계약이 «생깁니다». 어느 한쪽이라도 청산이면 미결제약정은 늘지 않습니다. 그래서 거래량은 폭발했는데 미결제약정이 제자리인 행사가는 기존 보유자끼리의 손바뀜이지 매집이 아닙니다 — 그런데 시장에서는 흔히 반대로 소개됩니다.' },
+        { h: '우리는 «잔고»가 아니라 «증감»을 읽습니다', p: '잔고는 누적된 과거이고 군중이 이미 어디 서 있는지를 말합니다. 증감은 «오늘 무슨 일이 있었나»입니다. 우리 화면은 행사가별 일일 증감을 명목가로 환산해 보여 줍니다. 그래야 $600짜리 종목의 1,198계약과 $224짜리의 27,189계약을 같은 잣대로 비교할 수 있습니다.' },
+        { h: '가격과 같이 볼 때', p: '가격이 오르면서 미결제약정이 늘면 새 매수 노출이 쌓이는 것입니다. 가격이 내리면서 늘면 새 매도 또는 헤지 노출입니다. 방향과 무관하게 «줄어들면» 포지션이 정리되는 중이고, 청산이 만드는 움직임은 새 자금이 만드는 움직임보다 대체로 오래가지 않습니다.' },
+        { h: '하루 시차는 실재합니다', p: '미결제약정은 장 마감 정산 이후에 공표됩니다. 따라서 오늘 보이는 증감은 «어제» 쌓인 것입니다. 장중 실시간 미결제약정을 보여 준다는 곳은 추정치를 보여 주는 것입니다. 우리는 그 숫자가 «어느 세션의 것인지»를 표시하고, 실시간인 척하지 않습니다.' },
+      ],
+      related: ['options-flow', 'put-call-ratio', 'max-pain'],
     },
   },
 
@@ -235,7 +267,7 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: '効く場面と効かない場面', p: '月限の満期直前の数日、流動性のある銘柄、建玉が一点に集中しているときに最も強く働きます。新しいサイクルが始まった直後や、ディーラーのヘッジより速くニュースが株価を値洗いしているときはほぼ無意味です。' },
         { h: '当社の表示', p: '現在値のすぐ横にマックスペインを置き、乖離が一目で分かるようにしています。満期サイクル後半の大きな乖離が注目すべき構図で、サイクル初日の同じ乖離は通常そうではありません。' },
       ],
-      related: ['gamma-exposure', 'call-wall'],
+      related: ['gamma-exposure', 'call-wall', 'open-interest'],
     },
     'gamma-exposure': {
       slug: 'gamma-exposure',
@@ -277,7 +309,7 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: '極端値を逆張りで読む理由', p: 'レシオが極端に振れると、ポジションが片側に偏っているということです。偏ったポジションは脆いポジションです — 限界的な買い手が尽き、最も多くの人が痛む動きの方が「起きやすく」なります。' },
         { h: 'フローと合わせて見る', p: 'レシオはバランスを教えますが「誰が動いたか」は教えません。大きなプレミアムが実際にどこで約定したかと併せて読むことで、雑学から「文脈」に変わります。' },
       ],
-      related: ['options-flow', 'dark-pool'],
+      related: ['options-flow', 'dark-pool', 'open-interest'],
     },
     'options-flow': {
       slug: 'options-flow',
@@ -291,7 +323,21 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: '最もよくある誤読', p: '大きなコール買いが自動的に強気とは「限りません」。スプレッドの一本かもしれず、株式ショートに対するヘッジかもしれず、カバードコールのロールかもしれません。大口のコール約定をすべて上昇への賭けと読むのが、フロー解釈で最も多い誤りです。' },
         { h: '当社が示すもの', p: 'フローを常設ポジション(建玉・マックスペイン・ウォール)と「並べて」表示します。一件の約定だけでは分からないことが、変化しつつあるポジションと対照すると見えてくるからです。' },
       ],
-      related: ['dark-pool', 'put-call-ratio'],
+      related: ['dark-pool', 'put-call-ratio', 'open-interest'],
+    },
+    'open-interest': {
+      slug: 'open-interest',
+      title: '建玉（未決済約定）— 新規建てと手仕舞いを見分ける',
+      desc: '建玉は残っているオプション契約数です。増えたということは契約が新しく作られたということ。この一点が、機関の新規ポジションと単なる手仕舞いを分けます。',
+      h1: '建玉の読み方',
+      lead: '出来高は今日手が変わった契約数、建玉は取引終了後も残っている契約数です。出来高が大きくても新規とは限りません — 誰かが手仕舞っただけかもしれない。ポジションが「存在するようになったか」は建玉だけが答えます。',
+      sections: [
+        { h: '建玉はいつ増えるのか', p: '新規で買う側と新規で売る側が出会って初めて契約が「生まれ」ます。どちらか一方でも手仕舞いなら建玉は増えません。つまり出来高が爆発しているのに建玉が横ばいの権利行使価格は、既存保有者どうしの回転であって蓄積ではありません — 市場ではしばしば逆に語られます。' },
+        { h: '残高ではなく「増減」を読む', p: '残高は積み上がった過去であり、群衆がすでにどこにいるかを示します。増減は「今日何が起きたか」です。当社の画面は権利行使価格ごとの日次増減を想定元本に換算して示します。そうしないと $600 銘柄の 1,198 枚と $224 銘柄の 27,189 枚を同じ物差しで比べられません。' },
+        { h: '価格と併せて読む', p: '価格上昇とともに建玉が増えるなら新規の買い持ちが積まれています。価格下落とともに増えるなら新規の売り持ちかヘッジです。方向を問わず減っているなら手仕舞いが進んでおり、手仕舞いが生む動きは新規資金が生む動きより持続しにくい傾向があります。' },
+        { h: '一日のずれは実在する', p: '建玉は取引終了後の清算を経て公表されます。したがって今日見えている増減は「昨日」積まれたものです。ザラ場中のリアルタイム建玉を示すものは推定値です。当社はその数値が「どのセッションのものか」を明示し、リアルタイムであるかのようには見せません。' },
+      ],
+      related: ['options-flow', 'put-call-ratio', 'max-pain'],
     },
   },
 };
