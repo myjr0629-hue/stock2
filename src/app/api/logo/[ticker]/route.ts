@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { publicBase } from '@/lib/net/publicBase';
 
 // Unified logo proxy — the SINGLE source every page (Flow/Command/Dash/Movers/
 // Intel) should use, so a ticker looks identical everywhere. Two providers, each
@@ -70,9 +71,10 @@ export async function GET(
         return chipResponse(symbol);
     }
 
-    // v3 — bumped when curated bundled logos were added (AMZN) so the old
-    // provider image doesn't linger in cache.
-    const cacheKey = `logo:v3:${symbol}`;
+    // v4 — 2026-09-09. v3 캐시에 «HTML 338KB» 가 로고로 들어가 있었다.
+    //   (요청 origin 으로 자기 자신을 불러 SSO 페이지를 200 으로 받았다)
+    //   응답 «모양»이 바뀌었으므로 키를 올려야 옛 값이 안 나간다.
+    const cacheKey = `logo:v4:${symbol}`;
 
     // 1. Try Redis cache first
     try {
@@ -92,7 +94,11 @@ export async function GET(
 
     // 2. Fetch from origin — try each source in order, return the first hit.
     // Curated bundled logo (self-hosted) wins, then provider order.
-    const origin = new URL(request.url).origin;
+    // ⚠️ 요청 origin 으로 자기 자신을 부르면 안 된다. 보호된 *.vercel.app
+    //    배포 URL 에서는 정적 파일 요청이 **SSO HTML 페이지를 200 으로** 돌려주고,
+    //    아래 루프가 그걸 «로고»로 받아들인다. 실측(2026-09-09): AMZN 만
+    //    image/png 대신 text/html 338KB 가 나가 화면에서 이니셜 «AM» 으로 떨어졌다.
+    const origin = publicBase(new URL(request.url).origin);
     const curatedFile = CURATED[symbol];
     const sources = LOGO_OVERRIDE[symbol] || [
         ...(curatedFile ? [`${origin}/logos/${curatedFile}`] : []),
@@ -107,6 +113,10 @@ export async function GET(
             const buffer = Buffer.from(arrayBuffer);
             if (buffer.byteLength < 64) continue; // skip empty/placeholder responses
             const contentType = res.headers.get('content-type') || 'image/png';
+            // ★ «이미지가 아닌 것»은 절대 로고로 쓰지 않는다.
+            //   크기만 보면(>64B) HTML 오류/로그인 페이지가 통과한다 — 실제로 통과했다.
+            //   <img> 는 그걸 못 그리고 조용히 깨진 아이콘이 되므로 화면에서만 보인다.
+            if (!/^image\//i.test(contentType)) continue;
 
             // 3. Cache the winning image in Redis (base64 encoded)
             try {
