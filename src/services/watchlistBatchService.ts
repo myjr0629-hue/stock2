@@ -1245,6 +1245,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
             console.warn('[watchlist/batch] AWS 폴백 실패:', e?.message);
         }
 
+        const whaleFixups: Array<{ ticker: string; whaleIndex: number; netPremium: number | null }> = [];
         results.forEach((r: any, i: number) => {
             if (!r?.realtime) return;
             r.realtime.liquidityScore = liq[i]?.liquidityScore ?? null;
@@ -1291,7 +1292,41 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
             r.realtime.blockTrades = null;
             r.realtime.blockVolume = null;
             r.realtime.netBuyValue = null;
+
+            // ★ [2026-09-09] 고래지수는 «입력이 다 찬 뒤»에 계산해야 한다.
+            //
+            //   지금까지는 캐시 적중 분기에서 «그때 있던 값»으로 한 번 계산하고
+            //   끝이었다. 그런데 netPremium 은 그 뒤 AWS 저장소에서, 다크풀은
+            //   바로 위에서 채워진다. 방향 입력이 0이면 수식이 **정확히 50**을
+            //   돌려주므로, 실측상 Intel M7 7종목이 전부 «정확히 50» 이었다 —
+            //   측정값처럼 보이는 상수다. 여기가 세 입력이 모두 확정되는 유일한
+            //   지점이므로, 정규화를 응답 직전으로 옮긴다.
+            const rtF = r.realtime;
+            const numOrNull = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : null);
+            const recomputed = calculateWhaleIndex(
+                numOrNull(rtF.gex),
+                numOrNull(rtF.darkPoolPct),
+                numOrNull(rtF.blockTrades),
+                numOrNull(rtF.netPremium),
+            );
+            if (recomputed !== rtF.whaleIndex) {
+                rtF.whaleIndex = recomputed;
+                // 화면들은 이 응답이 아니라 cache:analysis:* 를 직접 읽는다 —
+                // 여기서만 고치면 Intel·티커 SSR 은 계속 옛 값을 본다.
+                whaleFixups.push({
+                    ticker: String(r.ticker || '').toUpperCase(),
+                    whaleIndex: recomputed,
+                    netPremium: numOrNull(rtF.netPremium),
+                });
+            }
         });
+
+        if (whaleFixups.length) {
+            const { patchAnalysisCache } = await import('@/services/analysisCache');
+            await Promise.all(whaleFixups.map((f) =>
+                patchAnalysisCache(f.ticker, { whaleIndex: f.whaleIndex, netPremium: f.netPremium } as any).catch(() => false)
+            ));
+        }
     } catch (e: any) {
         console.warn('[watchlist/batch] 유동성 주입 실패:', e?.message);
     }

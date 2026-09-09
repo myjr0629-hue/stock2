@@ -92,6 +92,25 @@ export async function writeAnalysisCache(
 }
 
 /**
+ * 이미 저장된 항목의 «몇 필드만» 고쳐 쓴다. timestamp 는 건드리지 않는다 —
+ * 그 분석이 계산된 시점은 바뀌지 않았으므로 나이 판정이 정직해야 한다.
+ *
+ * 왜 필요한가: 배치는 고래지수를 «입력이 다 차기 전»에 한 번 계산해 캐시에
+ * 넣는다. netPremium 은 그 뒤 AWS 저장소에서 채워진다. 그래서 캐시에는
+ * 방향 입력이 빠진 채 계산된 값(수식상 정확히 50)이 남았고, Intel M7·섹터·
+ * 티커 SSR 은 배치 응답이 아니라 이 캐시를 직접 읽으므로 계속 50 을 봤다.
+ */
+export async function patchAnalysisCache(
+    ticker: string,
+    patch: Partial<AnalysisCacheEntry>
+): Promise<boolean> {
+    const key = `${ANALYSIS_CACHE_PREFIX}${ticker.toUpperCase()}`;
+    const cur = await getFromCache<AnalysisCacheEntry>(key);
+    if (!cur) return false;
+    return setInCache(key, { ...cur, ...patch }, ANALYSIS_CACHE_TTL);
+}
+
+/**
  * Read analysis cache for a single ticker.
  * Returns null if not found or expired.
  */
