@@ -3389,3 +3389,42 @@ EC2 Redis 프록시로 `mkt:attr:hit:<태그>:<ET날짜>` 를 직접 읽어 7일
 `quora`·`linkedin`·`bluesky_post` 가 `CHANNELS` 에 없어 **화면엔 0 으로 보였다.**
 클릭은 Redis 에 살아 있었으므로 배열에 넣자 그대로 복구됐다(채널 10개 추가).
 → [[new-channel-needs-its-tag-registered-first]]
+
+## 2026-09-10 — 색인 진단 (GSC 실측)
+
+| 원인 | 페이지 |
+|---|---:|
+| **Discovered — currently not indexed** | **5,090** |
+| Duplicate without user-selected canonical | 500 (검증 실패) |
+| Crawled — currently not indexed | 286 |
+| robots.txt 차단 / 리다이렉트 / 404 / soft404 | 41 |
+| **색인됨** | **1,644** |
+
+### 기술 태그는 이미 다 맞다 (Googlebot UA 로 직접 확인)
+```
+/ko/flow/GOOG          canonical → 자기 자신          ✅
+/ko/flow/GOOG?from=rss canonical → 파라미터 없는 원본  ✅
+/flow/GOOG             canonical → /en/flow/GOOG      ✅
+hreflang en/ko/ja + x-default                          ✅
+<html lang="ko">                                       ✅
+제목 로케일별로 분리(한/영 다름)                        ✅
+```
+⚠️ **내가 한 번 오진했다.** `grep 'hreflang='` 이 0을 반환해 「hreflang 없음」이라 판단했는데,
+Next 는 `hrefLang=` (카멜케이스)로 렌더한다. **HTML 속성명은 대소문자를 안 가리므로 정상이다.**
+→ HTML 을 grep 할 때 **속성명은 `-i` 로 찾을 것.**
+
+### 그래서 결론
+**「Discovered — not indexed」 5,090 은 태그 문제가 아니다.** 구글이 URL 을 알고도
+«크롤할 가치가 없다»고 판단한 상태다. 원인은 사이트 권위와 크롤 예산이다.
+[[backlink-gap-is-the-remaining-seo-bottleneck]] 의 진단이 그대로 맞고,
+**빠른 기술적 해결책은 없다.** 페이지를 더 찍어내는 것은 오히려 역효과다
+(이미 5,090건이 «가치 없음» 판정을 받고 있다).
+
+### 다음에 할 것 (우선순위)
+1. **`/learn/put-call-ratio` 가 왜 노출 +970% 인지 본다.** 유일하게 오르는 페이지다.
+   그 형태(개념 설명형)를 늘리는 것이 티커 페이지를 더 찍는 것보다 낫다.
+2. **참조 도메인 확보.** 오늘 LinkedIn 으로 하나 만들었다(우리 도메인 카드 확인).
+   Medium·note.com 도 같은 방식으로 «콘텐츠 URL» 을 걸어야 한다(스마트링크는 App Store 로
+   튕겨서 백링크가 안 된다 — 오늘 Post Inspector 로 실측).
+3. 순위가 31.4위다. 수요 있는 질의(`uso dark pool` 77노출 등)에서 **1페이지에 못 가면
+   노출이 늘어도 클릭은 0** 이다.
