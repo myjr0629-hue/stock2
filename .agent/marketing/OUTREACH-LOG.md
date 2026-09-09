@@ -3456,3 +3456,21 @@ robots.txt   앱 화면·관리자만 차단, 콘텐츠는 허용               
 
 **결론: 기술 SEO 에서 더 짜낼 것이 없다.** 미색인 5,090 의 「Discovered」는
 권위 문제다. 남은 지렛대는 (1) 참조 도메인 확보 (2) `/learn/*` 같은 개념 설명형 확대다.
+
+### ⑦ Threads — @signumhq_official (팔로워 2 · 마지막 글 7/10)
+NVDA $707M + META $74M 두 건을 «미결제약정이 늘었다 = 신규» 라는 한 가지 논지로 묶어 게시.
+**본문에 링크를 넣지 않았다** — Threads 는 외부 링크가 있으면 도달을 깎는다.
+프로필 바이오의 `signumhq.com/app` 이 유입 태그(`?from=threads`) 없이 걸려 있는데,
+**프로필 편집 모달이 데스크톱에서 안 열린다**(Instagram 과 같은 앱 전용 제한으로 보인다).
+→ 대표 폰에서 30초면 되는 항목. `signumhq.com/app?from=threads` 로 바꾸면 계측된다.
+
+### 오늘 최종 (채널 7곳)
+| 채널 | 한 일 | 링크 태그 |
+|---|---|---|
+| X @signumhq_jp | 19.1K 조회 스레드 답글 + 앱 스크린샷 | `x_us` |
+| Reddit r/thetagang | 일일 스레드 댓글 | 없음(규칙) |
+| Quora Space | 2번째 글 | `quora` |
+| LinkedIn | 첫 글 · 우리 도메인 백링크 | (콘텐츠 URL) |
+| Bluesky | NVDA $707M | `bluesky_post` |
+| Threads | NVDA+META 묶음 | 없음(도달 우선) |
+| r/options | **규칙(AI 금지)으로 게시 안 함** | — |
