@@ -3310,11 +3310,16 @@ Sep 11 $260 콜 +27,189계약 $707M · 미결제약정 증가 = 신규
 스팟 $224.35 · 맥스페인 $220 · 감마 플립 $230(스팟이 아래 = 딜러 숏감마)
 ```
 
-**★ 기존 Bluesky 글들이 `?from=bluesky-post`(하이픈)를 쓰고 있었다.**
-`FROM_RE=[a-z0-9_]` 라 **하이픈은 통째로 걸러진다** — 지난 글들의 설치 측정이
-전부 죽어 있었다. 프로필 바이오는 이미 `bluesky_bio` 로 고쳐져 있었다(대장 기록이 낡음).
-새 글부터 `bluesky_post`. 옛 글은 Bluesky 가 수정을 지원하지 않아 그대로 둔다.
-→ [[smartlink-from-tag-hyphen-eats-attribution]]
+**기존 Bluesky 글들은 `?from=bluesky-post`(하이픈)를 쓰고 있다.**
+처음엔 「측정이 죽어 있다」고 적었는데 **그것은 내가 틀렸다.**
+`storeRedirect.normalizeFrom()` 이 이미 하이픈을 밑줄로 흡수하도록 고쳐져 있었다.
+안드로이드 UA 로 실제 리다이렉트를 재서 확인:
+```
+/app?from=bluesky-post  →  referrer=utm_source%3Dbluesky_post%26...   ✅ 정상 집계
+/app?from=bluesky_post  →  referrer=utm_source%3Dbluesky_post%26...   ✅ 동일
+```
+옛 글들도 지금은 제대로 잡힌다. 프로필 바이오도 이미 `bluesky_bio` 였다(대장 기록이 낡음).
+새 글은 그래도 밑줄로 통일한다. → [[smartlink-from-tag-hyphen-eats-attribution]]
 
 ### 오늘 사이클 요약
 | 채널 | 결과 |
