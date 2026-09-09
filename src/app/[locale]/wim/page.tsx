@@ -2913,6 +2913,13 @@ export default function WimPage() {
   const params = useParams();
   const router = useRouter();
   const loc: Lang = params?.locale === 'en' ? 'en' : params?.locale === 'ja' ? 'ja' : 'ko';
+
+  // ★ [2026-09-09] 클라이언트로 언어를 바꾸면 <html lang> 이 안 따라온다.
+  //   router.replace() 는 문서를 다시 만들지 않으므로 최초 SSR 값이 그대로 남는다.
+  //   실측: en → ko/ja 로 바꿔도 lang="en". 화면·제목·URL 은 다 바뀌는데 lang 만 남아
+  //   화면 낭독기가 한국어를 영어 목소리로 읽는다.
+  useEffect(() => { try { document.documentElement.lang = loc; } catch { /* noop */ } }, [loc]);
+
   const t = T[loc];
 
   const [today, setToday] = useState<Today | null>(null);
