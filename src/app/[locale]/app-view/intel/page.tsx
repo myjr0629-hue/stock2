@@ -4443,7 +4443,12 @@ export default function AppIntelPage() {
                               {sectorCopy.name}
                             </span>
                             {appLocale !== 'en' && englishCopy && (
-                              <span style={{ color: 'var(--app-lbl-aux)', fontSize: '9.5px', fontWeight: 850, letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>
+                              // ★ [2026-09-09] 보조 라벨이 자리를 «먼저» 차지해 주제목이 잘렸다.
+                              //   실측(375px, ko): 칸 186px 중 «Cloud Fortress»(9.5px)가
+                              //   flexShrink:0 로 97px+gap 7px 을 가져가, 16px 주제목
+                              //   「클라우드 포트리스」가 82px 만 받고 말줄임됐다(필요 111px).
+                              //   우선순위가 뒤집힌 것이다 — 보조가 먼저 양보해야 한다.
+                              <span style={{ color: 'var(--app-lbl-aux)', fontSize: '9.5px', fontWeight: 850, letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 100, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {englishCopy.name}
                               </span>
                             )}
