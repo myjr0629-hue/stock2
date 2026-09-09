@@ -32,6 +32,24 @@ export function AppTickerLogo({
   const sym = (symbol || '').toUpperCase();
   const pad = Math.max(2, Math.round(size * 0.12));
 
+  // ★ 종목이 바뀌면 «실패 상태»를 반드시 버린다.
+  //
+  //   cmd·flow 는 ?t= 로 종목을 바꿔도 이 컴포넌트가 unmount 되지 않는다.
+  //   그래서 상태가 남으면 **한 종목에서 한 번 실패한 것이 그 뒤 모든 종목으로
+  //   번진다** — 다음 종목의 로고는 «불러보지도 않고» 이니셜이 뜬다.
+  //   실측(2026-09-09): AMZN 로고가 깨진 뒤 TSLA·NVDA 까지 전부 이니셜이 됐다.
+  //   상단 칩은 종목마다 별도 인스턴스라 멀쩡해서, «같은 종목인데 칩은 로고,
+  //   히어로는 이니셜»이라는 모양이 나왔다.
+  //
+  //   렌더 중 초기화가 React 의 «prop 변화에 맞춰 state 조정» 정식 패턴이다
+  //   (useEffect 로 하면 틀린 화면이 한 프레임 보인다).
+  const [prevSym, setPrevSym] = useState(sym);
+  if (sym !== prevSym) {
+    setPrevSym(sym);
+    setFailed(false);
+    setFit(null);
+  }
+
   // On load, decide fill mode from the actual pixels: a near-square image whose
   // corners are opaque is a full app-icon → fill edge-to-edge; anything with
   // transparency (marks/wordmarks) → light chip + contain so it stays visible.
@@ -85,7 +103,7 @@ export function AppTickerLogo({
       {!failed && sym ? (
         <img
           ref={imgRef}
-          src={`/api/logo/${sym}?v=2`}
+          src={`/api/logo/${sym}?v=3`}
           alt={sym}
           loading="lazy"
           onLoad={decideFit}

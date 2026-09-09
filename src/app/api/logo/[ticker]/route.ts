@@ -28,7 +28,12 @@ const FORCE_INITIAL = new Set([
     'UDOW', 'SDOW', 'LABU', 'LABD', 'FNGU', 'FNGD', 'TECL', 'TECS', 'YINN', 'YANG',
     'BOIL', 'KOLD', 'NUGT', 'DUST', 'JNUG', 'JDST', 'UVXY', 'SVXY', 'TMF', 'TMV',
 ]);
-const CACHE_TTL = 86400; // 24 hours
+const CACHE_TTL = 86400; // 24 hours — «진짜 로고»에만 쓴다
+// ★ 폴백(이니셜 칩)은 짧게만 잡는다. 제공사가 잠깐 흔들려 실패한 것을
+//   24시간 굳히면, 멀쩡한 종목이 하루 종일 이니셜로 남는다.
+//   실측(2026-09-09): 캐시 키를 올리자 전 종목이 동시에 재조회되며
+//   일부가 실패했고, 그게 그대로 하루짜리 캐시에 박혔다.
+const FALLBACK_TTL = 600; // 10 minutes
 
 // Deterministic premium fallback — a gradient chip with the ticker's letters, so
 // a logo ALWAYS renders (no blanks, no wrong/issuer marks) with a stable per-ticker color.
@@ -143,7 +148,7 @@ export async function GET(
         await setInCache(cacheKey, {
             buffer: Buffer.from(initialChipSvg(symbol)).toString('base64'),
             contentType: 'image/svg+xml; charset=utf-8',
-        }, CACHE_TTL);
+        }, FALLBACK_TTL);
     } catch { /* non-critical */ }
     return chipResponse(symbol);
 }
