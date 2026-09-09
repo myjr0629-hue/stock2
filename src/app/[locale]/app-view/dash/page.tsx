@@ -563,7 +563,9 @@ export default function AppDashPage() {
   const [moverSort, setMoverSort] = useState<'value' | 'gainers' | 'losers'>('value');
   const [moversLoading, setMoversLoading] = useState(false);
   const [briefing, setBriefing] = useState<string>(DEMO_BRIEFING);
-  // 다크풀은 이관으로 영구 상실했다 — 기관 «신규 옵션 포지션»으로 대체한다.
+  // [정정 2026-09-09] «영구 상실»은 틀렸다 — 다크풀은 FINRA 원본으로 복원됐다.
+  //   이 카드는 그와 별개로 «옵션 미결제약정 증가»를 보여준다. 미결제약정은
+  //   누가 열었는지 말하지 않으므로 «기관»이라고 부르지 않는다.
   const [instFlow, setInstFlow] = useState<{
     notional: number; callPct: number; side: 'call' | 'put';
     tickers: number; topTicker: string | null; topNotional: number; date: string | null;
@@ -875,7 +877,7 @@ export default function AppDashPage() {
     },
     en: {
       title: 'Institutional Market Pulse',
-      subtitle: 'Unlock 4 signals for 1 hour — institutional positioning, dealer gamma, sector rotation, market breadth.',
+      subtitle: 'Unlock 4 signals for 1 hour — position building, dealer gamma, sector rotation, market breadth.',
       teaserLabel: 'Free preview · Institutional pulse',
       previewChip: 'Free preview',
       cta: 'Watch ad to unlock 1HR',
@@ -890,7 +892,7 @@ export default function AppDashPage() {
     },
     ja: {
       title: '機関級マーケットパルス',
-      subtitle: '機関の新規ポジション・ディーラーガンマ・セクター循環・市場の広がり — 4つのシグナルを1時間確認できます。',
+      subtitle: '新規建玉・ディーラーガンマ・セクター循環・市場の広がり — 4つのシグナルを1時間確認できます。',
       teaserLabel: '無料プレビュー · 機関投資家パルス',
       previewChip: '無料プレビュー',
       cta: '広告視聴で1時間解除',
@@ -905,7 +907,7 @@ export default function AppDashPage() {
     },
   }[locale as 'ko' | 'en' | 'ja'] || {
     title: 'Institutional Market Pulse',
-    subtitle: 'Unlock volatility regime, dark-pool flow, and sector rotation for 1 hour.',
+    subtitle: 'Unlock 4 signals for 1 hour — position building, dealer gamma, sector rotation, market breadth.',
     teaserLabel: 'Free preview · Institutional pulse',
     previewChip: 'Free preview',
     cta: 'Watch ad to unlock 1HR',
@@ -1141,7 +1143,7 @@ export default function AppDashPage() {
   //     보여 주고 있었다 — regimeScore 계산식이 `squeezeScore / 4` 를 직접
   //     더한다. 4칸 중 2칸이 중복이었고, 그래서 실제로 보는 정보는 3개였다.
   //
-  //  ① 포지션  기관이 «무엇을» 새로 깔았나        (옵션 미결제약정 증가분)
+  //  ① 포지션  «무엇이» 새로 깔렸나                (옵션 미결제약정 증가분)
   //  ② 구조    딜러가 변동성을 누르나 키우나       (GEX 백분위 + 플립 거리)
   //  ③ 순환    자금이 «어디로» 갔나               (섹터 백분위 + into/outOf)
   //  ④ 폭      넓게 오르나, 소수가 끄나           (지수 구성종목 20일선 위)
@@ -1748,7 +1750,7 @@ export default function AppDashPage() {
       secDisc: '오늘의 발견', discAll: '랭킹 11종',
       discName: '은밀 축적·분산',
       discWhat: '장외 물량은 늘었는데, 그 물량 중 공매도 비중은 줄었다.',
-      secGate: '기관이 어제 깔아둔 것',
+      secGate: '어제 시장이 깔아둔 것',
       secMv: '가장 많이 움직인 것', all: '전체', mvVal: '거래대금', mvUp: '상승률', mvDn: '하락률',
       secDv: '괴리 시그널', dvSub: '뉴스와 돈이 반대로 움직이는 곳',
       secQuick: '빠른 진입',
@@ -1771,7 +1773,7 @@ export default function AppDashPage() {
       secDisc: "Today's Find", discAll: 'All 11 rankings',
       discName: 'Stealth Accumulation',
       discWhat: 'Off-exchange volume rose, while the short share of that volume fell.',
-      secGate: 'What institutions set up yesterday',
+      secGate: 'What the market set up yesterday',
       secMv: 'Biggest Movers', all: 'View all', mvVal: 'Value', mvUp: 'Gainers', mvDn: 'Losers',
       secDv: 'Divergence', dvSub: 'Where the news and the money disagree',
       secQuick: 'Quick Access',
@@ -1794,7 +1796,7 @@ export default function AppDashPage() {
       secDisc: '今日の発見', discAll: 'ランキング11種',
       discName: '隠れた蓄積・分散',
       discWhat: '場外の出来高は増えたが、そのうち空売り比率は下がった。',
-      secGate: '機関が昨日仕込んだもの',
+      secGate: '昨日、市場が仕込んだもの',
       secMv: '最も動いた銘柄', all: 'すべて', mvVal: '売買代金', mvUp: '上昇率', mvDn: '下落率',
       secDv: '乖離シグナル', dvSub: 'ニュースとカネが逆を向く場所',
       secQuick: 'クイックアクセス',
