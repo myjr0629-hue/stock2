@@ -21,8 +21,39 @@ export const maxDuration = 300; // orchestrator: ko feed (~50s worst) + parallel
 
 const LOCALES = ['ko', 'en', 'ja'] as const;
 
+/**
+ * ★ [2026-09-09] 워밍이 하루 560번 «강제 재생성»을 돌려 AI 일일 한도를 태웠다.
+ *
+ *   실측: WIM 이 ThrottlingException «Too many tokens per day» 로 죽어
+ *   「오늘은 데이터가 없어요」가 떴고, UC 일본어 피드도 같은 이유로 비었다.
+ *   계산: 평일 uc-warm 80회 × (feed 3 + macro 3 + wim 1) = 560회.
+ *   그런데 대부분은 «아직 신선한» 것을 다시 만드는 헛일이었다.
+ *
+ *   → 먼저 그냥 불러 보고, 응답이 _stale 일 때만 refresh=1 로 재생성한다.
+ *     신선하면 AI 를 아예 부르지 않는다.
+ */
 async function warm(baseUrl: string, path: string): Promise<{ ok: boolean; ms: number; note?: string }> {
   const t0 = Date.now();
+  // 1) 신선도만 먼저 확인 — 캐시가 살아 있으면 즉시 돌아온다(AI 호출 없음)
+  const probePath = path.replace(/[?&]refresh=1/, (m) => (m === '?refresh=1' ? '' : ''));
+  try {
+    const peek = await fetch(`${baseUrl}${probePath}`, {
+      signal: AbortSignal.timeout(20_000),
+      cache: 'no-store',
+      headers: {
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+          : {}),
+      },
+    });
+    if (peek.ok) {
+      const b = await peek.json().catch(() => null);
+      if (b && b.success !== false && b._stale !== true) {
+        return { ok: true, ms: Date.now() - t0, note: 'fresh (AI 생략)' };
+      }
+    }
+  } catch { /* 확인 실패 → 아래에서 정상 경로로 재생성 */ }
+
   try {
     const res = await fetch(`${baseUrl}${path}`, {
       signal: AbortSignal.timeout(58_000), // within the target route's maxDuration 60

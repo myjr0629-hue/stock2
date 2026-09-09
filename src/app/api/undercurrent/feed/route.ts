@@ -18,7 +18,10 @@ import { getFreshCore } from '../feedCore';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const FEED_TTL_SEC = 15 * 60;
+// ★ [2026-09-09] 15분은 AI 일일 토큰 한도를 태우는 값이었다.
+//   뉴스 에디션은 15분마다 다시 쓸 내용이 아니다(«모닝 에디션»이다).
+//   40분으로 늘려 강제 재생성을 3분의 1로 줄인다 — 화면은 여전히 당일치다.
+const FEED_TTL_SEC = 40 * 60;
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
