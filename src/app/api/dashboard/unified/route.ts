@@ -1264,10 +1264,22 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
         }
 
         // [PERF] Dark Pool % & Short Vol % — direct import (no HTTP loopback)
+        //
+        // ★ [2026-09-09] 같은 엔드포인트가 «호출마다» 다크풀을 줬다 안 줬다 했다.
+        //   대시보드에는 응답을 만드는 길이 둘 있는데, 캐시 경로는 FINRA 값을
+        //   쓰고 이 라이브 경로는 realtimeMetricsService 만 봤다. 그게 비면
+        //   화면에 «—» 가 뜬다. 그런데 같은 함수가 방금 받아 온 /api/live/ticker
+        //   응답 안에 **이미 FINRA 값이 들어 있다**(NVDA flow.darkPoolPct = 42).
+        //   두 경로가 같은 사실을 말하도록 그걸 받침으로 쓴다.
         if (metrics) {
-            structureData.darkPoolPct = metrics.darkPool?.percent ?? null;
+            structureData.darkPoolPct = metrics.darkPool?.percent
+                ?? (tickerData as any)?.flow?.darkPoolPct ?? null;
+            // ⚠️ shortVolPct 는 «전체 거래량 대비 공매도»다. flow.darkPoolShortPct
+            //    (장외 물량 «안에서»의 공매도 비중)와 다른 지표이므로 섞지 않는다.
             structureData.shortVolPct = metrics.shortVolume?.percent ?? null;
             structureData._blockTrades = metrics.blockTrade?.count ?? null; // [V4.1] Block trades for AlphaEngine
+        } else {
+            structureData.darkPoolPct = (tickerData as any)?.flow?.darkPoolPct ?? null;
         }
 
         // [DASHBOARD V2] 0DTE Impact & Implied Move from rawChain (ticker API)
