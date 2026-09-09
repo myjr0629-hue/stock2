@@ -191,9 +191,38 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     const dated = (item.links || [])
         .filter((l) => /^options_prices_eod_/.test(l.name || ""))
         .sort((a, b) => dateOf(a.name).localeCompare(dateOf(b.name)));
-    const pick = WANT_DATE ? dated.find((l) => dateOf(l.name) === WANT_DATE) : dated[dated.length - 1];
+    // ★ 휴장일 파일은 절대 쓰지 않는다 (2026-09-09 실측 버그)
+    //   크론이 `30 8 * * *` 로 «요일»만 보고 돌아, 9/8 실행 때 「어제=9/7 노동절」
+    //   파일을 받아 정상 스냅샷을 덮었다. 휴장일엔 거래가 없어 미결제약정 증감이
+    //   전부 0 → 신규진입 0종목 → 요약이 null → **게이트에서 무료로 열어둔
+    //   카드 한 장이 통째로 비었다.** 200 OK 였고 에러도 없었다.
+    //   휴장은 값으로 추측하지 않는다 — 달력이 정본이다.
+    //   (정본: src/lib/marketCalendar.ts · 매년 갱신할 것)
+    const US_HOLIDAYS = new Set([
+        "2026-01-01","2026-01-19","2026-02-16","2026-04-03","2026-05-25",
+        "2026-06-19","2026-07-03","2026-09-07","2026-11-26","2026-12-25",
+        "2027-01-01","2027-01-18","2027-02-15","2027-03-26","2027-05-31",
+        "2027-06-18","2027-07-05","2027-09-06","2027-11-25","2027-12-24",
+    ]);
+    const isNonTrading = (d) => {
+        if (!d) return false;
+        if (US_HOLIDAYS.has(d)) return true;
+        const [y, m, dd] = d.split("-").map(Number);
+        const dow = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
+        return dow === 0 || dow === 6;
+    };
+    const tradingOnly = dated.filter((l) => !isNonTrading(dateOf(l.name)));
+    const skipped = dated.length - tradingOnly.length;
+    if (skipped > 0) log(`휴장·주말 파일 ${skipped}건 제외`);
+
+    const pool = WANT_DATE ? dated : tradingOnly;   // --date 는 명시 의도이므로 그대로 존중
+    const pick = WANT_DATE ? pool.find((l) => dateOf(l.name) === WANT_DATE) : pool[pool.length - 1];
     if (!pick) throw new Error(`대상 파일 없음 (${WANT_DATE || "최신"})`);
     const fileDate = dateOf(pick.name);
+    if (!WANT_DATE && isNonTrading(fileDate)) {
+        log(`최신 파일 ${fileDate} 이 휴장일 — 쓰지 않는다 (직전 정상본 유지)`);
+        return;
+    }
 
     const uni = await universe();
     const prevOi = (await redisGet(OI_KEY)) || { date: "", oi: {} };
@@ -364,9 +393,11 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     //
     //   덮어쓰기를 막으면 재실행이 안전해진다 — 같은 날 몇 번을 돌려도
     //   기준선은 «어제»로 남는다.
-    if (!prevOi.date || fileDate > prevOi.date) {
+    //   ⚠️ 단 --force 는 «내가 알고 한다»는 뜻이다. 휴장일 파일이 기준선을
+    //      오염시킨 것을 되돌리려면 뒤로 갈 수 있어야 한다(2026-09-09 복구 때 필요했다).
+    if (!prevOi.date || fileDate > prevOi.date || FORCE) {
         await redisSet(OI_KEY, oiPayload, TTL_SEC);
-        log(`기준선 갱신 ${prevOi.date || "없음"} → ${fileDate}`);
+        log(`기준선 갱신 ${prevOi.date || "없음"} → ${fileDate}${FORCE && prevOi.date && fileDate <= prevOi.date ? " (--force 로 되돌림)" : ""}`);
     } else {
         log(`기준선 유지 (${prevOi.date}) — 파일일(${fileDate})이 앞서지 않는다. 재실행 안전`);
     }
