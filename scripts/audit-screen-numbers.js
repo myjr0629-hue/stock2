@@ -114,8 +114,15 @@ async function auditTicker(t) {
     const recomputed = pct(price, base);
     if (Number.isFinite(recomputed) && Number.isFinite(k.changePct) && !near(recomputed, k.changePct, 0.0005))
         add('CHG_MISMATCH', `changePct ${(k.changePct * 100).toFixed(2)}% ≠ 재계산 ${(recomputed * 100).toFixed(2)}%`);
-    if (Number.isFinite(D.changePctPct) && !near(D.changePctPct, k.changePct * 100, 0.05))
-        add('DISPLAY_MISMATCH', `display ${D.changePctPct}% ≠ changePct ${(k.changePct * 100).toFixed(2)}%`);
+    // ⚠️ [2026-09-10] 정규장 중에는 이 검사가 «경합»으로 오탐한다.
+    //   display 와 changePct 는 서로 다른 fetch 에서 오고, 그 사이에 시세가 움직인다.
+    //   실측: TSLA 가 「display 0.18% ≠ changePct -0.00%」로 걸렸는데, 곧바로 다시 읽으니
+    //   display 0.02% = changePct 0.0244% 로 «완전히 일치»했고 재실행에서도 20/20 통과했다.
+    //   → 장중에는 허용오차를 넓힌다(0.05 → 0.25%p). 휴장·마감 후엔 값이 굳으므로 그대로 조인다.
+    //   (대표 원칙: 위반이 뜨면 앱보다 «검사기»를 먼저 의심할 것.)
+    const chgTol = String(k.session || '').toUpperCase() === 'REG' ? 0.25 : 0.05;
+    if (Number.isFinite(D.changePctPct) && !near(D.changePctPct, k.changePct * 100, chgTol))
+        add('DISPLAY_MISMATCH', `display ${D.changePctPct}% ≠ changePct ${(k.changePct * 100).toFixed(2)}% (tol ${chgTol})`);
 
     // ── ②-B ★ 자기들끼리 맞는 것만으로는 부족하다 — «정답»과 대조한다 ──
     //   [2026-09-07 노동절] changePct 와 display 가 서로 «맞아서» 검사기가 통과시켰는데
