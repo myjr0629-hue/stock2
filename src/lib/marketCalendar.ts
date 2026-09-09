@@ -45,3 +45,46 @@ export function isNonTradingDay(dateStr: string | null | undefined): boolean {
     const dow = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay();
     return dow === 0 || dow === 6;
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// «언제의 값인가» — 캐시가 낡았는지 판정할 때 쓴다.
+//
+//   [2026-09-09 실측] cache:analysis:* 가 전 종목 24~35시간 전 값이었다.
+//   TTL 이 3일인데 «적중하면 다시 계산하지 않는» 구조라, 설계가 전제한
+//   「2분마다 도는 크론」이 없자 **TTL 이 곧 갱신 주기**가 돼 버렸다.
+//   나이를 시간으로만 재면 주말·휴장에 멀쩡한 직전 세션 값까지 버린다.
+//   → «그 값이 어느 거래일의 것인가»로 판정한다. 여기서도 달력이 정본이다.
+// ══════════════════════════════════════════════════════════════════════
+
+function etParts(ms: number): Date {
+    return new Date(new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York" }));
+}
+
+/** 그 시점의 ET 달력 날짜 (YYYY-MM-DD) */
+export function etDateOf(ms: number): string {
+    const d = etParts(ms);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** 그 시점의 ET 자정 기준 분 (00:00 = 0, 16:00 = 960) */
+export function etMinutesOf(ms: number): number {
+    const d = etParts(ms);
+    return d.getHours() * 60 + d.getMinutes();
+}
+
+function shiftDay(dateStr: string, delta: number): string {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    if (!m) return dateStr;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + delta));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+/**
+ * 그 시점이 «속한 거래일». 주말·휴장이면 직전 거래일로 걸어 내려간다.
+ * 금요일 15:00 에 만든 값은 토·일 내내 여전히 «금요일의 값»이므로 유효하다.
+ */
+export function etTradingDateOf(ms: number = Date.now()): string {
+    let s = etDateOf(ms);
+    for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
+    return s;
+}

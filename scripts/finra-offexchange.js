@@ -144,8 +144,57 @@ async function loadTodayVolumes() {
     }
 }
 
+/**
+ * 그 «날짜»의 전 종목 연결 거래량 — 분모의 정본.
+ *
+ *   실시간 스냅샷은 «지금 상태»라서 두 가지로 배신한다.
+ *     · 장중에 쓰면 분모가 덜 차서 비중이 부풀고,
+ *     · 마감이 지날수록 «최근 체결이 있는 종목»만 남아 커버리지가 녹는다.
+ *       실측(2026-09-08): 15:57 ET 13,160종목 → 20:25 ET 3,956종목.
+ *       그래서 TSLA·AAPL·META 같은 대형주까지 분모를 못 찾아 통째로
+ *       직전 세션 값으로 이월됐다(11,757종목 중 8,058종목 = 69%).
+ *
+ *   이 엔드포인트는 «날짜»를 인자로 받는다. 그래서 분모가 분자와
+ *   어긋날 수가 없고, 마감 당일 저녁에 이미 확정치가 나온다.
+ *   실측(2026-09-08 21:10 ET): 12,513종목 · 2페이지 · 6.1초,
+ *   값은 공식 EOD 와 자릿수까지 일치(SPY 44,746,095 · NVDA 122,965,555).
+ */
+const EXCHANGE = process.env.INTRINIO_EXCHANGE || "USCOMP";
+
+async function loadEodVolumes(date) {
+    const key = process.env.INTRINIO_API_KEY;
+    if (!key) { log("EOD 거래량: INTRINIO_API_KEY 없음 — 건너뜀"); return null; }
+    const map = {};
+    let next = "", pages = 0;
+    try {
+        while (pages < 40) {
+            const url = `${INTRINIO_BASE}/stock_exchanges/${EXCHANGE}/prices?date=${date}&page_size=10000`
+                + (next ? `&next_page=${encodeURIComponent(next)}` : "")
+                + `&api_key=${key}`;
+            const j = JSON.parse((await httpsGetBuffer(url)).toString("utf8"));
+            const rows = j?.stock_prices || [];
+            for (const p of rows) {
+                const t = p?.security?.ticker;
+                const v = Number(p?.volume);
+                // ★ 날짜를 «되받아» 확인한다. 요청한 날이 아닌 행은 분모로 쓰지 않는다.
+                if (t && p?.date === date && Number.isFinite(v) && v > 0) map[t] = v;
+            }
+            pages++;
+            next = j?.next_page || "";
+            if (!next) break;
+        }
+    } catch (e) {
+        log(`EOD 거래량 조회 실패(${pages}페이지까지): ${e.message}`);
+    }
+    const n = Object.keys(map).length;
+    if (!n) return null;
+    log(`EOD 거래량 ${date} · ${n.toLocaleString()}종목 (${pages}페이지)`);
+    return map;
+}
+
 const args = process.argv.slice(2);
 const DRY = args.includes("--dry");
+const FORCE = args.includes("--force");
 const dateArg = (args.find((a) => a.startsWith("--date=")) || "").split("=")[1] || null;
 const backfillArg = +((args.find((a) => a.startsWith("--backfill=")) || "").split("=")[1] || 0);
 const log = (m) => console.log(`[FINRA] ${m}`);
@@ -322,29 +371,38 @@ function avg(arr) {
     const snapDate = snap?.date || null;
     if (!snapDate) { console.error("[FINRA] EOD 스냅샷 없음 — 분모를 만들 수 없다"); process.exit(1); }
 
-    // 분모 선택 — «날짜를 맞추되, 최신을 포기하지 않는다»
-    //   ① 벌크 EOD 날짜 == FINRA 날짜  → 그대로 쓴다 (가장 싸고 정확)
-    //   ② 다르지만 FINRA 날짜가 «오늘 마감된 세션» → 실시간 스냅샷의 당일
-    //      거래량을 분모로 쓴다. 이게 있어야 마감 1~2시간 뒤 «오늘치»가 나온다.
-    //   ③ 둘 다 아니면 벌크 EOD 날짜로 내려간다 (두 날짜를 나누지는 않는다)
+    // 분모 선택 — «분자와 같은 날짜»가 절대 조건이다.
+    //   분모를 «지금 상태»에서 주워 오면 날짜도 커버리지도 흔들린다.
+    //   그래서 날짜를 인자로 넘겨 그 날의 확정 거래량을 받아 온다.
     let consolidated = {};
     let denomSource = "";
 
-    if (snapDate === date) {
+    // ① 그 날짜의 EOD 거래량을 «날짜로» 직접 조회한다 — 어긋날 수가 없다.
+    //    지난 세션은 이미 확정이고, 오늘 세션은 마감이 지나야 확정이다.
+    if (date !== etDateStr() || afterCloseSettled()) {
+        const eodVol = await loadEodVolumes(date);
+        if (eodVol) {
+            consolidated = eodVol;
+            denomSource = `EOD 거래량 ${date}`;
+        }
+    }
+    // ② 벌크 EOD 스냅샷이 «같은 날짜»일 때만 쓴다
+    if (!denomSource && snapDate === date) {
         for (const r of (snap?.rows || [])) consolidated[r[0]] = r[5];  // [t,o,h,l,c,v,...]
         denomSource = `벌크 EOD ${snapDate}`;
-    } else if (!dateArg && date === etDateStr() && afterCloseSettled()) {
+    }
+    // ③ 마지막 수단 — 실시간 스냅샷(마감 후에만, 커버리지가 얇을 수 있다)
+    if (!denomSource && !dateArg && date === etDateStr() && afterCloseSettled()) {
         const todayVol = await loadTodayVolumes();
         if (todayVol) {
             consolidated = todayVol;
-            denomSource = `실시간 스냅샷 ${date} (마감 후)`;
-            log(`✓ 벌크 EOD 는 ${snapDate} 지만 FINRA 는 ${date} — 당일 거래량으로 ${date} 를 그대로 계산한다`);
+            denomSource = `실시간 스냅샷 ${date} (마감 후·얇음)`;
         }
     }
 
     if (!denomSource) {
         if (dateArg) {
-            console.error(`[FINRA] --date ${date} 인데 EOD 스냅샷은 ${snapDate} — 날짜가 다르면 계산하지 않는다`);
+            console.error(`[FINRA] --date ${date} 용 거래량을 못 구했다 — 날짜가 다르면 계산하지 않는다`);
             process.exit(1);
         }
         log(`⚠️ ${date} 용 당일 거래량을 못 구했다 — 분모에 맞춰 ${snapDate} 로 내려간다`);
@@ -432,9 +490,10 @@ function avg(arr) {
     //   → 행마다 «그 값이 어느 세션의 것인지»(d)를 달아 이월한다. 화면은
     //     그 날짜를 그대로 표시하므로 사용자가 오해할 수 없다.
     let carried = 0;
+    let prevDate = null;
     {
         const prev = await redisGet(OUT_KEY);
-        const prevDate = prev?.date || null;
+        prevDate = prev?.date || null;
         if (prev?.tickers && prevDate) {
             for (const [sym, row] of Object.entries(prev.tickers)) {
                 if (out[sym]) continue;                       // 오늘 값이 있으면 그대로
@@ -447,6 +506,16 @@ function avg(arr) {
 
     if (DRY) { log("--dry · 저장 생략"); return; }
     if (matched < 1000) throw new Error(`매칭 ${matched}종목 — 너무 적어 저장하지 않는다`);
+
+    // ★ 뒤로 가지 않는다.
+    //   실측(2026-09-08): 9/8 로 9,223종목이 저장돼 있는 상태에서 --date=2026-09-04
+    //   로 한 번 돌리자 그 종목들이 전부 9/4 로 되돌아갔다. 그 다음 정상 실행이
+    //   이월하며 «9/4» 꼬리표를 그대로 물려받아, 화면 69%가 나흘 전 값이 됐다.
+    //   재계산은 데이터를 좋게만 만들어야 한다.
+    if (prevDate && date < prevDate && !FORCE) {
+        log(`⚠️ 저장본은 ${prevDate} 인데 이번 계산은 ${date} — 뒤로 가지 않는다 (--force 로 강제)`);
+        return;
+    }
 
     await redisSet(OUT_KEY, JSON.stringify({
         date, source: "FINRA", tickers: out, marketAvg, covered: matched, _ts: Date.now(),

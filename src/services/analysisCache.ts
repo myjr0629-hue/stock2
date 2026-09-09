@@ -7,6 +7,7 @@
 
 import { getFromCache, setInCache, mgetFromCache } from '@/services/redisClient';
 import { xsSnapshotOverride, ensureXsScores } from '@/services/xsScores';
+import { etTradingDateOf, etMinutesOf } from '@/lib/marketCalendar';
 
 // Cache key prefix — separate namespace from flow:ticker:* (used by live/ticker)
 const ANALYSIS_CACHE_PREFIX = 'cache:analysis:';
@@ -99,8 +100,75 @@ export async function getAnalysisCache(
 ): Promise<AnalysisCacheEntry | null> {
     const key = `${ANALYSIS_CACHE_PREFIX}${ticker.toUpperCase()}`;
     const entry = await getFromCache<AnalysisCacheEntry>(key);
+    if (isStaleEntry(entry)) return null;   // 낡은 값은 «없는 것»이다 — 부르는 쪽이 다시 계산한다
     await ensureXsScores();
-    return applyXs(ticker, entry);
+    const out = applyXs(ticker, entry);
+    if (out) {
+        const one: Record<string, AnalysisCacheEntry> = { [ticker.toUpperCase()]: out };
+        await overlayLiveDarkPool(one);
+        return one[ticker.toUpperCase()];
+    }
+    return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ★ [2026-09-09] 이 캐시는 «영원히 어제 것»이 될 수 있었다.
+//
+//   실측: cache:analysis:* 가 전 종목 24~35시간 전 값이었다.
+//     NVDA 23.8h · AAPL 28.6h · META 35.1h …
+//   위 주석은 「크론이 2분마다 돌아 항상 신선하다」고 적혀 있고 TTL 3일은
+//   그 전제 위에서 «주말 보존용»으로 고른 값이었다. 그런데 그 크론은
+//   **존재하지 않는다.** 게다가 배치는 캐시가 맞으면 다시 계산하지 않는다
+//   (`missingTickers = tickers.filter(t => !cached[t])`).
+//   두 사실이 겹치자 **TTL 이 곧 갱신 주기**가 됐다 — 최대 3일.
+//   화면(Intel M7·섹터·대시보드·티커 SSR)은 그 값을 오늘의 사실로 읽는다.
+//
+//   나이를 «시간»으로만 재면 주말·휴장에 멀쩡한 직전 세션 값까지 버려
+//   화면이 빈다. 그래서 «어느 거래일의 값인가»로 판정한다.
+// ══════════════════════════════════════════════════════════════════════
+const ACTIVE_START_ET = 4 * 60;    // 04:00 ET — 프리마켓 시작
+const ACTIVE_END_ET = 20 * 60;     // 20:00 ET — 애프터마켓 종료
+const MAX_AGE_ACTIVE_MS = 15 * 60 * 1000;
+
+function isStaleEntry(entry: AnalysisCacheEntry | null | undefined): boolean {
+    if (!entry || !entry.timestamp) return true;
+    const now = Date.now();
+    // ① 다른 거래일의 값이면 오늘의 사실이 아니다
+    if (etTradingDateOf(entry.timestamp) !== etTradingDateOf(now)) return true;
+    // ② 같은 거래일이라도 거래 시간대에는 15분이 지나면 낡았다
+    const m = etMinutesOf(now);
+    if (m >= ACTIVE_START_ET && m < ACTIVE_END_ET) return now - entry.timestamp > MAX_AGE_ACTIVE_MS;
+    // 마감 후~다음 프리마켓 전: 그 세션의 값이므로 유효하다
+    return false;
+}
+
+/**
+ * ★ 되살아난 다크풀을 읽는 쪽에서 실제로 «주입»한다.
+ *
+ *   stripDeadTickFields 는 2026-08-28 벤더 상실 때 굳어 버린 값을 막으려고
+ *   읽는 입구에서 darkPoolPct 를 null 로 자른다. 그건 지금도 옳다 —
+ *   하베스트 Lambda 가 여전히 옛 값을 써 넣기 때문이다.
+ *   그런데 다크풀은 FINRA 로 **복원됐다.** 자르기만 하고 넣어 주지 않으니
+ *   Intel M7 의 darkPoolPct 가 계속 null 이었고, 그 결과 고래지수가
+ *   전 종목 정확히 50 으로 붕괴해 있었다(수식상 방향 입력이 0이면 50).
+ *   → 자른 자리에 «오늘의 진짜 값»을 넣는다. Redis 키 하나, 배치 1회.
+ */
+async function overlayLiveDarkPool(map: Record<string, AnalysisCacheEntry>): Promise<void> {
+    const tickers = Object.keys(map);
+    if (!tickers.length) return;
+    try {
+        const { getDarkPoolBatch } = await import('@/services/darkPool');
+        const dp = await getDarkPoolBatch(tickers);
+        for (const t of tickers) {
+            const row: any = (dp as any)[t];
+            if (row && typeof row.pct === 'number' && row.pct > 0) {
+                (map[t] as any).darkPoolPct = row.pct;
+                (map[t] as any).darkPoolDate = row.date ?? null;
+            }
+        }
+    } catch {
+        // 못 구하면 null 그대로 둔다 — 지어내지 않는다.
+    }
 }
 
 // XS-2.0 display switch: the harvest Lambda keeps stamping V8 values into
@@ -157,8 +225,9 @@ export async function getAnalysisCacheForTickers(
 
         await ensureXsScores();
         values.forEach((data, i) => {
-            if (data) results[tickers[i].toUpperCase()] = applyXs(tickers[i], data);
+            if (data && !isStaleEntry(data)) results[tickers[i].toUpperCase()] = applyXs(tickers[i], data);
         });
+        await overlayLiveDarkPool(results);
     } catch (e) {
         // Fallback: MGET failed → use original individual GETs (zero-regression guarantee)
         console.warn('[AnalysisCache] MGET failed, falling back to individual GETs:', e);

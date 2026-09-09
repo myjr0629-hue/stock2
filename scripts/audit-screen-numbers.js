@@ -20,6 +20,28 @@ const DEFAULT = 'NVDA,TSLA,AAPL,MSFT,GOOGL,AMZN,META,AMD,MU,AVGO,PLTR,TSM,INTC,N
 const near = (a, b, tol) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= tol;
 const pct = (a, b) => (b ? (a - b) / b : NaN);
 
+/**
+ * 그 날짜의 «확정» 연결 거래량. 벤더를 직접 부르므로 앱과 독립이다.
+ * 키가 없는 곳(로컬)에서는 null 을 주고, 호출부가 일봉 기반 판정으로 내려간다.
+ */
+const EOD_KEY_PRESENT = !!process.env.INTRINIO_API_KEY;
+const _eodCache = new Map();
+async function eodVolume(ticker, date) {
+    if (!EOD_KEY_PRESENT || !date) return null;
+    const k = `${ticker}|${date}`;
+    if (_eodCache.has(k)) return _eodCache.get(k);
+    let v = null;
+    try {
+        const r = await fetch(`https://api-v2.intrinio.com/securities/${ticker}/prices`
+            + `?start_date=${date}&end_date=${date}&api_key=${process.env.INTRINIO_API_KEY}`);
+        const b = await r.json();
+        const row = (b?.stock_prices || [])[0];
+        if (row && row.date === date && Number(row.volume) > 0) v = Number(row.volume);
+    } catch { /* 못 구하면 일봉으로 내려간다 */ }
+    _eodCache.set(k, v);
+    return v;
+}
+
 const j = (u) => fetch(`${BASE}${u}${u.includes('?') ? '&' : '?'}_cb=${Date.now()}`).then((r) => r.json()).catch(() => null);
 
 // ══════════════════════════════════════════════════════════════════════
@@ -167,9 +189,32 @@ async function auditTicker(t) {
 
         if (dpDate && !fin) add('DP_NO_SOURCE', `FINRA 원본(${dpDate})을 못 받아 대조 불가`);
         else if (row && Number.isFinite(barVol) && barVol > 0) {
-            const truthPct = (row.total / barVol) * 100;
-            if (Math.abs(dp.pct - truthPct) > 2)
-                add('DP_TRUTH', `장외비중 ${dp.pct}% ≠ 원본 재계산 ${truthPct.toFixed(1)}% (${dpDate}: 장외 ${row.total.toLocaleString()} ÷ 연결 ${barVol.toLocaleString()})`);
+            // ★ 분모는 «앱이 실제로 쓴 값»을 역산해서 본다.
+            //
+            //   [2026-09-09] 여기서 UBER 에 헛경보가 났다. 검사기가 일봉을
+            //   «정답»으로 삼았는데, **최신 세션의 일봉은 아직 정산 중**이라
+            //   진짜보다 작다(실측 5/20종목 −0.46%~−7.22%, 방향은 전부 음수).
+            //   직전 세션들은 20/20 정확히 일치했으므로 일봉은 T+1 에 스스로
+            //   맞춰진다 — 앱의 결함이 아니다.
+            //
+            //   그래서 판정을 방향으로 가른다.
+            //     · 분모가 일봉보다 «작다»  → 정산으로 설명 안 된다. 결함이다.
+            //     · 분모가 일봉보다 «크다»  → 정상(정산이 덜 됐을 뿐).
+            //       단 정산으로 설명 못 할 만큼 크면 그것도 결함이다.
+            const impliedDenom = row.total / (dp.pct / 100);   // 앱이 쓴 분모
+            const authoritative = await eodVolume(t, dpDate);  // 키가 있을 때만
+            const truthPct = (row.total / (authoritative || barVol)) * 100;
+
+            if (authoritative) {
+                if (Math.abs(dp.pct - truthPct) > 2)
+                    add('DP_TRUTH', `장외비중 ${dp.pct}% ≠ 원본 재계산 ${truthPct.toFixed(1)}% (${dpDate}: 장외 ${row.total.toLocaleString()} ÷ 연결 ${authoritative.toLocaleString()})`);
+            } else {
+                const gap = (impliedDenom - barVol) / barVol;
+                if (gap < -0.02)
+                    add('DP_TRUTH', `분모 ${Math.round(impliedDenom).toLocaleString()} 이 ${dpDate} 일봉 ${barVol.toLocaleString()} 보다 작다 (${(gap * 100).toFixed(1)}%) — 정산으로 설명되지 않는다`);
+                else if (gap > 0.10)
+                    add('DP_DENOM_FAR', `분모 ${Math.round(impliedDenom).toLocaleString()} 이 ${dpDate} 일봉 ${barVol.toLocaleString()} 보다 ${(gap * 100).toFixed(1)}% 크다 — 정산 오차를 넘는다`);
+            }
             const truthShort = (row.short / row.total) * 100;
             if (typeof dp.shortPct === 'number' && Math.abs(dp.shortPct - truthShort) > 0.3)
                 add('DPSHORT_TRUTH', `장외 공매도 ${dp.shortPct}% ≠ 원본 ${truthShort.toFixed(1)}%`);

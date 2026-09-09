@@ -45,6 +45,9 @@ const WARM_CHART_TICKERS = [
 ];
 const WARM_LOCALES = ['ko', 'en', 'ja'] as const;
 
+/** 분석 캐시를 데울 종목 — Intel M7 화면이 «전부 적중»해야 빠른 경로를 탄다. */
+const WARM_ANALYSIS_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
+
 function baseUrl(): string {
     // ⚠️ 내부 self-call 은 «공개 도메인»으로 쳐야 한다. 크론은 보호된 호스트에서
     //    돌기 때문에 request origin 을 쓰면 자기 자신을 못 부른다(전에 겪었다).
@@ -148,6 +151,13 @@ export async function GET() {
         '/api/intel/cross-sector-brief',
         ...['m7', 'silicon_core', 'power_matrix', 'bio_pulse', 'cloud_fortress'].map((s) => `/api/intel/snapshot?sector=${s}`),
     ];
+    // ★ [2026-09-09] 분석 캐시(cache:analysis:*)를 «실제로» 갱신한다.
+    //   이 캐시는 Intel M7·섹터·대시보드·티커 SSR 이 그대로 읽는다. 그런데
+    //   이걸 채우는 크론이 없어서 전 종목이 24~35시간 전 값이었다.
+    //   watchlist/batch 가 유일한 생산자이므로 여기서 주기적으로 부른다.
+    //   (읽는 쪽에 나이 판정을 넣었으므로, 안 데우면 매 조회가 재계산이 된다.)
+    paths.push(`/api/watchlist/batch?tickers=${WARM_ANALYSIS_TICKERS.join(',')}`);
+
     // Flow 화면 (대표 종목 하나면 함수가 데워진다)
     paths.push('/api/flow/dark-pool-trades?ticker=NVDA&limit=10');
     paths.push('/api/flow/iv-percentile?t=NVDA');
