@@ -223,14 +223,41 @@ function avg(arr) {
         return;
     }
 
-    const date = await resolveDate();
+    let date = await resolveDate();
     if (!date) { console.error("[FINRA] 최근 8일 내 데이터 없음"); process.exit(1); }
+
+    // ══════════════════════════════════════════════════════════════
+    // ★ 분자와 분모의 «날짜»가 같아야 한다 (2026-09-09 실측 버그)
+    //
+    //   FINRA 는 «당일 저녁», Intrinio EOD 스냅샷은 «다음날 아침»에 나온다.
+    //   그 시차에 이 스크립트가 돌면 9/8 장외물량을 9/4 거래량으로 나눈다.
+    //   실측 오차:
+    //     SPCX 실제 52.4% → 표시 91.6% (+39.2%p)
+    //     INTC 실제 47.8% → 표시 68.8% (+21.0%p)
+    //     NVDA 실제 42.0% → 표시 38.2% (−3.8%p)
+    //   거래량이 늘어난 종목은 부풀고 줄어든 종목은 깎인다 — 방향도 제각각이라
+    //   «전 종목이 조용히 틀린» 상태가 된다. 화면에는 「거래의 92%가 호가창
+    //   밖에서 체결됐습니다」로 단정해서 나갔다.
+    //
+    //   그래서 스냅샷 날짜에 맞춰 내려간다. 못 맞추면 «안 쓴다» — 두 날짜를
+    //   나눈 숫자를 내보내느니 어제 값을 그대로 두는 게 낫다.
+    // ══════════════════════════════════════════════════════════════
+    const snap = await redisGet(EOD_KEY);
+    const snapDate = snap?.date || null;
+    if (!snapDate) { console.error("[FINRA] EOD 스냅샷 없음 — 분모를 만들 수 없다"); process.exit(1); }
+    if (snapDate !== date) {
+        if (dateArg) {
+            console.error(`[FINRA] --date ${date} 인데 EOD 스냅샷은 ${snapDate} — 날짜가 다르면 계산하지 않는다`);
+            process.exit(1);
+        }
+        log(`⚠️ FINRA 최신 ${date} · EOD 스냅샷 ${snapDate} — 분모에 맞춰 ${snapDate} 로 내려간다`);
+        date = snapDate;
+    }
 
     const { off, rows } = await fetchDay(date);
     log(`${date} · ${rows.toLocaleString()}행 → ${Object.keys(off).length.toLocaleString()}종목`);
 
-    // ── 2. 통합 거래량으로 «장외 비중» 계산 ───────────────────────────
-    const snap = await redisGet(EOD_KEY);
+    // ── 2. 통합 거래량으로 «장외 비중» 계산 (분자·분모 같은 날짜) ─────
     const consolidated = {};
     for (const r of (snap?.rows || [])) consolidated[r[0]] = r[5];   // [t,o,h,l,c,v,...]
 
