@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic';
 //   전일치라 날짜가 안 맞아 자연히 적용되지 않는다.
 // ══════════════════════════════════════════════════════════════════════
 const EOD_SNAPSHOT_KEY = 'intrinio:eod:snapshot';
-type EodCloses = { date: string; rows: Map<string, { c: number; chgPct: number }> };
+type EodCloses = { date: string; rows: Map<string, { c: number; chgPct: number; v: number }> };
 let _eodCache: { at: number; data: EodCloses | null } | null = null;
 
 async function readEodCloses(): Promise<EodCloses | null> {
@@ -50,12 +50,12 @@ async function readEodCloses(): Promise<EodCloses | null> {
                 const raw = await res.json();
                 const v = typeof raw?.result === 'string' ? JSON.parse(raw.result) : (raw?.result ?? raw?.value);
                 if (v?.date && Array.isArray(v.rows)) {
-                    const rows = new Map<string, { c: number; chgPct: number }>();
+                    const rows = new Map<string, { c: number; chgPct: number; v: number }>();
                     // 행 모양: [ticker, o, h, l, c, v, chg, chgPct]
                     for (const r of v.rows) {
                         const t = String(r?.[0] || '').toUpperCase();
                         const c = Number(r?.[4]);
-                        if (t && Number.isFinite(c) && c > 0) rows.set(t, { c, chgPct: Number(r?.[7]) || 0 });
+                        if (t && Number.isFinite(c) && c > 0) rows.set(t, { c, chgPct: Number(r?.[7]) || 0, v: Number(r?.[5]) || 0 });
                     }
                     data = { date: String(v.date), rows };
                 }
@@ -66,28 +66,45 @@ async function readEodCloses(): Promise<EodCloses | null> {
     return data;
 }
 
-/** 지금 ET 기준 «마지막으로 끝난 정규장»의 날짜 */
-function etTradingDateNow(): string {
+/**
+ * 지금 정규장이 «열려 있는가» (평일 09:30~16:00 ET).
+ *
+ * 날짜를 맞춰 비교하려다 주말·휴장·자정 넘김에서 계속 어긋났다.
+ * 물어야 할 것은 «오늘이 며칠인가»가 아니라 «지금 값이 살아 움직이는가»다.
+ *   · 열려 있다  → EOD 는 직전 세션이다. 덮으면 안 된다.
+ *   · 닫혀 있다  → EOD 가 곧 «마지막으로 끝난 세션»이다. 그것이 정본이다.
+ */
+function isRegularSessionOpen(): boolean {
     const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    // 16:00 ET 이전이면 아직 오늘 세션이 안 끝났다 — 어제까지가 «끝난 세션»이다
-    if (d.getHours() * 60 + d.getMinutes() < 16 * 60) d.setDate(d.getDate() - 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) return false;
+    const m = d.getHours() * 60 + d.getMinutes();
+    return m >= 9 * 60 + 30 && m < 16 * 60;
 }
 
-/** EOD 날짜가 «끝난 세션»과 같을 때만, 정규장 종가로 가격·등락률을 바로잡는다 */
+/** 정규장이 닫혀 있으면, 마지막으로 끝난 세션의 확정 종가·거래량으로 바로잡는다 */
 async function applyRegularClose<T extends Record<string, any[]>>(lists: T): Promise<T> {
+    if (isRegularSessionOpen()) return lists;   // 장중엔 EOD 가 직전 세션이다 — 덮지 않는다
     const eod = await readEodCloses();
-    if (!eod || eod.date !== etTradingDateNow()) return lists;   // 장중이거나 아직 확정 전
+    if (!eod) return lists;
     const fix = (rows: any[]): any[] => !Array.isArray(rows) ? rows : rows.map((r) => {
         const t = String(r?.ticker || '').toUpperCase();
         const e = eod.rows.get(t);
         if (!e || !(e.c > 0)) return r;
-        if (Math.abs(Number(r?.price) - e.c) < 0.005) return r;   // 이미 정규장 종가다
-        // 거래대금은 가격에서 나온다 — 가격을 고쳤으면 같이 고쳐야 «거래대금 순»이 맞는다
-        const vol = Number(r?.volume) || 0;
+        // ★ 거래량도 «그 세션의 것»이어야 한다.
+        //   자정(ET)을 넘기면 벤더의 day 바가 새 날짜로 리셋되어 거래량이 거의 0이 된다
+        //   (실측 2026-09-09 00:30 ET: META 1,562,715 — 실제 9/8 은 18,909,714).
+        //   가격만 9/8 로 맞추고 거래량을 새 세션 것으로 두면 «거래대금 = 거래량×가격»이
+        //   무너져 순위가 통째로 뒤집힌다(상위 20이 10으로 줄고 잡주가 올라왔다).
+        //   그 목록을 먹는 WIM 로스터까지 «오늘은 데이터가 없어요» 가 됐다.
+        const eodVol = e.v > 0 ? e.v : (Number(r?.volume) || 0);
+        const samePrice = Math.abs(Number(r?.price) - e.c) < 0.005;
+        const sameVol = Math.abs((Number(r?.volume) || 0) - eodVol) < 1;
+        if (samePrice && sameVol) return r;                       // 이미 그 세션의 값이다
         return {
             ...r, price: e.c, changePercent: e.chgPct, up: e.chgPct >= 0,
-            value: vol > 0 ? vol * e.c : r?.value,
+            volume: eodVol,
+            value: eodVol > 0 ? eodVol * e.c : r?.value,
             regularCloseFrom: eod.date,
         };
     });
