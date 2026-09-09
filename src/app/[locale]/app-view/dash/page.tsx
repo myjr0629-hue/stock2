@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Link } from '@/i18n/routing';
 import { Sparkline } from '@/components/app/Sparkline';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { MetricInfo } from '@/components/app/MetricInfo';
+import type { MetricTerm } from '@/components/app/metricGlossary';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
@@ -858,14 +860,14 @@ export default function AppDashPage() {
   const gateCopy = {
     ko: {
       title: '기관급 마켓 펄스',
-      subtitle: '기관 신규 포지션 · 딜러 감마 · 섹터 순환 · 시장 폭 — 4개 신호를 1시간 동안 확인합니다.',
+      subtitle: '신규 포지션 구축 · 딜러 감마 · 섹터 순환 · 시장 폭 — 4개 신호를 1시간 동안 확인합니다.',
       teaserLabel: '무료 미리보기 · 기관급 펄스',
       previewChip: '무료 미리보기',
       cta: '광고 보고 1시간 해제',
       social: '오늘 14.2K 잠금해제',
       teaserUnit: '4개 중 1개',
       signals: {
-        instFlow: { label: '기관 신규 포지션', kicker: '어제 새로 깔린 옵션', insight: '장중엔 보이지 않는 미결제약정 증가분입니다.' },
+        instFlow: { label: '신규 포지션 구축', kicker: '어제 새로 깔린 옵션', insight: '장중엔 보이지 않는 미결제약정 증가분입니다.' },
         gamma: { label: '딜러 감마 구조', kicker: '변동성을 누르나 키우나', insight: '딜러가 헤지하는 방향이 시장의 진폭을 결정합니다.' },
         rotation: { label: '섹터 순환 강도', kicker: '자금 이동 방향', insight: '공격/방어 섹터로 자금이 이동하는 강도를 확인합니다.' },
         breadth: { label: '시장 폭', kicker: '넓게 오르나, 소수가 끄나', insight: '지수 구성종목 중 20일선 위 비율입니다.' },
@@ -880,7 +882,7 @@ export default function AppDashPage() {
       social: '14.2K unlocked today',
       teaserUnit: '1 of 4',
       signals: {
-        instFlow: { label: 'New Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
+        instFlow: { label: 'Position Building', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
         gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
         rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
         breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
@@ -895,7 +897,7 @@ export default function AppDashPage() {
       social: '本日14.2K件解除',
       teaserUnit: '4つ中1つ',
       signals: {
-        instFlow: { label: '機関の新規ポジション', kicker: '昨日建てられたオプション', insight: '場中には見えない建玉の増加分です。' },
+        instFlow: { label: '新規建玉', kicker: '昨日建てられたオプション', insight: '場中には見えない建玉の増加分です。' },
         gamma: { label: 'ディーラー・ガンマ', kicker: '変動を抑えるか広げるか', insight: 'ディーラーのヘッジ方向が相場の振幅を決めます。' },
         rotation: { label: 'セクター循環強度', kicker: '資金移動', insight: '資金がリスク側か防御側へ回る強さを確認します。' },
         breadth: { label: '市場の広がり', kicker: '全体か、一部の銘柄か', insight: '指数構成銘柄のうち20日線より上の比率です。' },
@@ -910,7 +912,7 @@ export default function AppDashPage() {
     social: '14.2K unlocked today',
     teaserUnit: '1 of 4',
     signals: {
-      instFlow: { label: 'New Positioning', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
+      instFlow: { label: 'Position Building', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
       gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
       rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
       breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
@@ -1049,7 +1051,7 @@ export default function AppDashPage() {
     return L3('최근 중 조용한 편 — 섹터 이동이 약합니다.', 'Quieter than usual — little sector movement.', '直近では静かな部類 — セクター移動は弱いです。');
   };
   /**
-   * 기관 신규 포지션 판독.
+   * 신규 포지션 구축 판독.
    *   집계 금액만 보여 주면 «규모»만 알 수 있다. 프리미엄이라면 「무엇에
    *   걸었나」가 있어야 한다 — 가장 크게 늘어난 단일 계약을 붙인다.
    *   실측(8/28): NVDA 콜 $200 · 2027-01 만기 · +188,333계약 = $3.77B
@@ -1158,6 +1160,7 @@ export default function AppDashPage() {
   const institutionalSignals = [
     {
       key: 'inst',
+      term: 'newPositioning' as MetricTerm,
       tone: 'green',
       label: gateCopy.signals.instFlow.label,
       kicker: gateCopy.signals.instFlow.kicker,
@@ -1168,6 +1171,7 @@ export default function AppDashPage() {
     },
     {
       key: 'gamma',
+      term: 'gex' as MetricTerm,
       tone: 'cyan',
       label: gateCopy.signals.gamma.label,
       kicker: gateCopy.signals.gamma.kicker,
@@ -1183,6 +1187,7 @@ export default function AppDashPage() {
     },
     {
       key: 'rotation',
+      term: 'sectorRotation' as MetricTerm,
       tone: 'amber',
       label: gateCopy.signals.rotation.label,
       kicker: gateCopy.signals.rotation.kicker,
@@ -1196,6 +1201,7 @@ export default function AppDashPage() {
     },
     {
       key: 'breadth',
+      term: 'marketBreadth' as MetricTerm,
       tone: 'pink',
       label: gateCopy.signals.breadth.label,
       kicker: gateCopy.signals.breadth.kicker,
@@ -2156,6 +2162,11 @@ export default function AppDashPage() {
                      style={{ ['--c' as string]: GATE_SIG_C[i] }}>
                   <div className={n9.e9SigTop}>
                     <span className={n9.e9SigT}>{sig.label}</span>
+                    {/* ★ 라벨은 업계 표준어로 짧게 두고, 뜻은 눌러서 본다.
+                        줄로 붙이면 4칸짜리 게이트가 설명문으로 가득 찬다.
+                        e9SigT 가 min-width:0 + ellipsis 라 이 버튼은 자리를 «밀지» 않는다.
+                        FREE 배지는 margin-left:auto 라 계속 오른쪽 끝에 붙는다. */}
+                    <MetricInfo term={sig.term} locale={locale} size={11} />
                     {open
                       ? <span className={n9.e9Free}>{c9.free}</span>
                       : <svg className={n9.e9Lock} viewBox="0 0 24 24" aria-hidden="true">
