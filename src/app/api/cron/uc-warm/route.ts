@@ -119,6 +119,12 @@ export async function GET(req: NextRequest) {
   const baseUrl = req.url.split('/api/')[0];
   const out: Record<string, { ok: boolean; ms: number; note?: string }> = {};
 
+  // ★ [2026-09-09] WIM 을 «맨 앞»으로. 예전엔 마지막 병렬 파도에 있었는데,
+  //   AI 일일 토큰이 바닥나면 항상 WIM 부터 굶어 「오늘은 데이터가 없어요」가 됐다.
+  //   WIM 은 신선도 4시간이라 실제 재생성은 드물다 — 앞에 둬도 비용이 거의 없고,
+  //   드물게 필요할 때 확실히 받는다.
+  out['wim:today'] = await warmWim(baseUrl);
+
   // 1) feed ko — awaited alone so the shared core is rebuilt exactly once
   out['feed:ko'] = await warm(baseUrl, '/api/undercurrent/feed?locale=ko&limit=12&refresh=1');
 
@@ -135,11 +141,9 @@ export async function GET(req: NextRequest) {
   const wave = await Promise.all([
     warm(baseUrl, '/api/undercurrent/feed?locale=en&limit=12&refresh=1'),
     ...LOCALES.map((l) => warm(baseUrl, `/api/undercurrent/macro?locale=${l}&refresh=1`)),
-    warmWim(baseUrl),
   ]);
   out['feed:en'] = wave[0];
   LOCALES.forEach((l, i) => { out[`macro:${l}`] = wave[1 + i]; });
-  out['wim:today'] = wave[4];
 
   const failures = Object.entries(out).filter(([, v]) => !v.ok).map(([k]) => k);
   const summary = { success: failures.length === 0, failures, targets: out, totalMs: Date.now() - startTime };
