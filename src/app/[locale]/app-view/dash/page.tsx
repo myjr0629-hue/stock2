@@ -877,14 +877,14 @@ export default function AppDashPage() {
     },
     en: {
       title: 'Institutional Market Pulse',
-      subtitle: 'Unlock 4 signals for 1 hour — position building, dealer gamma, sector rotation, market breadth.',
+      subtitle: 'Unlock 4 signals for 1 hour — new positions, dealer gamma, sector rotation, market breadth.',
       teaserLabel: 'Free preview · Institutional pulse',
       previewChip: 'Free preview',
       cta: 'Watch ad to unlock 1HR',
       social: '14.2K unlocked today',
       teaserUnit: '1 of 4',
       signals: {
-        instFlow: { label: 'Position Building', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
+        instFlow: { label: 'New Positions', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
         gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
         rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
         breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
@@ -907,14 +907,14 @@ export default function AppDashPage() {
     },
   }[locale as 'ko' | 'en' | 'ja'] || {
     title: 'Institutional Market Pulse',
-    subtitle: 'Unlock 4 signals for 1 hour — position building, dealer gamma, sector rotation, market breadth.',
+    subtitle: 'Unlock 4 signals for 1 hour — new positions, dealer gamma, sector rotation, market breadth.',
     teaserLabel: 'Free preview · Institutional pulse',
     previewChip: 'Free preview',
     cta: 'Watch ad to unlock 1HR',
     social: '14.2K unlocked today',
     teaserUnit: '1 of 4',
     signals: {
-      instFlow: { label: 'Position Building', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
+      instFlow: { label: 'New Positions', kicker: 'Options opened yesterday', insight: 'Open-interest additions — invisible during the session.' },
       gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
       rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
       breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },

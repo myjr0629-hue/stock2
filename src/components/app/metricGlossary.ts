@@ -398,7 +398,7 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
     },
   },
   newPositioning: {
-    title: { ko: '신규 포지션 구축', en: 'Position Building', ja: '新規建玉' },
+    title: { ko: '신규 포지션 구축', en: 'New Positions', ja: '新規建玉' },
     body: {
       ko: '옵션 미결제약정(OI)이 «늘어난» 만큼을 금액으로 환산한 값입니다. 미결제약정은 아직 청산되지 않고 남아 있는 계약 수를 말합니다.\n\n■ 왜 거래량이 아니라 이걸 보나\n거래량은 신규와 청산을 구분하지 못합니다. 같은 1만 계약이 «새로 깔린 자리»일 수도, «있던 자리를 정리한 것»일 수도 있습니다. 미결제약정이 늘었다면 새 자리가 생긴 것입니다.\n\n■ 장중에는 볼 수 없습니다\n미결제약정은 마감 후 정산되어 다음 날 확정됩니다. 그래서 이 값은 «직전 세션»의 것입니다.\n\n■ 오해하지 마세요\n· 계약에는 산 쪽과 «쓴(매도)» 쪽이 항상 함께 있습니다. 콜이 늘었다고 누가 상승에 걸었다는 뜻은 아닙니다.\n· 누가 열었는지는 이 자료로 알 수 없습니다.\n· 종목별 «주요 계약»을 기준으로 집계한 값입니다.\n\n투자 조언이 아닙니다.',
       en: 'The dollar value of the increase in options open interest (OI) — the contracts still outstanding after the close.\n\n■ Why this and not volume\nVolume cannot separate opening from closing. The same 10,000 contracts may be a position being built or an old one being unwound. A rise in open interest means new positions now exist.\n\n■ Not visible during the session\nOpen interest settles after the close and is confirmed the next day, so this reflects the prior session.\n\n■ What it does not say\n· Every contract has a buyer and a writer. More calls does not mean someone is betting on upside.\n· This data does not identify who opened them.\n· Aggregated from each ticker\u2019s most active contracts.\n\nNot investment advice.',
