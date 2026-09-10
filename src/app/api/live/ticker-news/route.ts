@@ -48,6 +48,9 @@ const SYSTEM = [
     '    walking a tightrope → 줄타기·아슬아슬한 균형 (NOT 긴장 상태)',
     '    bucks the trend → 흐름을 거스르다 · headwind/tailwind → 역풍/순풍',
     '  Translate the MEANING for an investor, never word by word.',
+    '- Company/product names WITHOUT an established Korean/Japanese form stay in ENGLISH.',
+    '    Groq → Groq (NOT 구로크) · Anthropic → 앤스로픽 · Palantir → 팔란티어',
+    '    If you are not certain the Korean form is what investors actually use, keep the English.',
     '- ACRONYMS of institutions are NEVER transliterated by sound. Use the established form:',
     '    DOJ → 미 법무부 / 米司法省 (NOT 도잉)   ·  SEC → 미 증권거래위원회 / 米SEC',
     '    FTC → 미 연방거래위원회   ·  FDA → 미 식품의약국   ·  Fed / FOMC → 연준 / FOMC',
@@ -93,7 +96,7 @@ function hasGhostCompany(translated: string, sourceTitle: string): boolean {
  *   DOJ 는 미 법무부다. 금융 뉴스에 자주 나오는 약어라 틀리면 뜻이 통째로 바뀐다.
  *   프롬프트에 대응표를 넣었지만 그것만 믿지 않는다.
  */
-const BAD_TRANSLITERATIONS = ['도잉', '도제이', '에스이씨', '에프티씨', '에프디에이', '아이피오'];
+const BAD_TRANSLITERATIONS = ['도잉', '도제이', '에스이씨', '에프티씨', '에프디에이', '아이피오', '구로크', '그로크'];
 function hasBadTransliteration(translated: string): boolean {
     return BAD_TRANSLITERATIONS.some((w) => translated.includes(w));
 }
@@ -103,7 +106,15 @@ function hasBadTransliteration(translated: string): boolean {
  *   헤드라인 필터를 넓혔지만 원문 표현은 무한하다. 두 겹으로 막는다 —
  *   걸리면 그 항목만 영어 원문으로 떨어지므로 화면은 비지 않는다.
  */
-const ADVICE_RE = /매수\s*(기회|타이밍|시점|추천)|매도\s*(추천|시점)|사야\s*할|팔아야\s*할|담아야|저가\s*매수|하락\s*매수|지금\s*사|買い(場|時)|売り時|今が買い/;
+const ADVICE_RE = new RegExp([
+    '매수\\s*(기회|타이밍|시점|추천)', '매도\\s*(추천|시점)',
+    // ★ 「투자자들이 둘 다 **매수해야 한다**」가 첫 판을 통과했다 — 어미 변형을 넓힌다
+    '(매수|매도|투자|보유)\\s*해야\\s*(한다|합니다|할)',
+    '사야\\s*(한다|할|합니다)', '팔아야\\s*(한다|할|합니다)',
+    '담아야', '저가\\s*매수', '하락\\s*매수', '지금\\s*사',
+    '(사|살)\\s*(때|타이밍)', '주목할\\s*만한\\s*매수',
+    '買い(場|時)', '売り時', '今が買い', '買うべき', '売るべき',
+].join('|'));
 function hasAdvice(translated: string): boolean {
     return ADVICE_RE.test(translated);
 }
@@ -128,7 +139,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
-    const cacheKey = `ticker-news:v6:${ticker}`;
+    const cacheKey = `ticker-news:v7:${ticker}`;
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.items?.length) {
         return NextResponse.json({ ...cached, fromCache: true });
