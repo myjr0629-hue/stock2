@@ -33,6 +33,67 @@ function getSessionTTL(session: string): number {
     }
 }
 
+/**
+ * ★ [2026-09-10] 같은 «호출 한 번»에 더 많은 재료를 담는다.
+ *
+ *   실측으로 확인한 제약: Bedrock 한도가 «호출 수»(RPM 10)로 묶여 있고
+ *   토큰은 기본값 100%(TPM 5,000,000)다. 즉 **콜을 늘리는 건 비싸고,
+ *   프롬프트를 키우는 건 사실상 공짜다.**
+ *
+ *   그런데 이 분석은 옵션 지표만 보고 있었다. 「OPI +68 인데 고래는 중립」 같은
+ *   구조는 읽어도, **왜 그런 구조가 생겼는지**(실적 임박·내부자 매도·목표가 괴리·
+ *   다크풀 비중)를 설명할 재료가 없었다. 그건 인사이트의 상한을 정한다.
+ *
+ *   그래서 우리 API 에서 이미 만들어 둔 값을 끌어와 프롬프트에 붙인다.
+ *   Bedrock 콜은 0건 늘어난다. 전부 병렬·짧은 타임아웃이고, 실패한 것은 조용히 뺀다
+ *   (보강 실패가 분석 자체를 막으면 안 된다).
+ */
+async function buildEnrichment(ticker: string, baseUrl: string): Promise<string> {
+    const bypass: Record<string, string> = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+        ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+        : {};
+    const grab = async (path: string) => {
+        try {
+            const r = await fetch(baseUrl + path, { headers: bypass, cache: 'no-store', signal: AbortSignal.timeout(6000) });
+            return r.ok ? await r.json() : null;
+        } catch { return null; }
+    };
+
+    const [insider, analyst, earnings, darkpool] = await Promise.all([
+        grab(`/api/command/insider?ticker=${ticker}`),
+        grab(`/api/live/analyst?t=${ticker}`),
+        grab(`/api/live/earnings?t=${ticker}`),
+        grab(`/api/flow/dark-pool-trades?ticker=${ticker}&limit=1`),
+    ]);
+
+    const parts: string[] = [];
+
+    const ins = insider?.summary || insider?.data || insider;
+    if (ins && (ins.buyCount != null || ins.sellCount != null || ins.netValue != null)) {
+        parts.push(`  <insider window="recent" buys="${ins.buyCount ?? 'N/A'}" sells="${ins.sellCount ?? 'N/A'}" net_usd="${ins.netValue ?? 'N/A'}" note="Corporate insiders. Selling into call-heavy options flow is a contradiction worth naming." />`);
+    }
+
+    const an = analyst?.data || analyst;
+    const target = an?.targetMedian ?? an?.priceTarget ?? an?.targetMean;
+    if (target != null) {
+        parts.push(`  <analyst target_median="$${target}" count="${an?.analystCount ?? an?.numberOfAnalysts ?? 'N/A'}" note="Street target. A price far above or below it changes what the options positioning implies." />`);
+    }
+
+    const ea = earnings?.data || earnings;
+    const nextDate = ea?.nextEarningsDate || ea?.date || ea?.earningsDate;
+    if (nextDate) {
+        parts.push(`  <earnings next_date="${nextDate}" note="Elevated IV and dated flow near an earnings date usually means event positioning, not directional conviction." />`);
+    }
+
+    const dpRatio = darkpool?.summary?.darkPoolRatio ?? darkpool?.darkPoolRatio ?? darkpool?.ratio;
+    if (dpRatio != null) {
+        parts.push(`  <dark_pool off_exchange_ratio="${dpRatio}" note="Off-exchange share of volume (FINRA). High ratio with quiet lit tape suggests accumulation away from the screen." />`);
+    }
+
+    if (!parts.length) return '';
+    return `\n  <context note="cross_asset_evidence_use_only_if_it_changes_the_read">\n${parts.join('\n')}\n  </context>`;
+}
+
 export async function POST(req: Request) {
     const startTime = Date.now();
 
@@ -57,6 +118,12 @@ export async function POST(req: Request) {
                 return NextResponse.json({ ...cached, fromCache: true });
             }
         }
+
+        // 옵션 지표 밖의 근거를 모은다 — Bedrock 콜은 안 늘어난다(위 buildEnrichment 주석 참조).
+        const enrichBase = new URL(req.url).origin.includes('localhost')
+            ? new URL(req.url).origin
+            : (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com');
+        const enrichment = await buildEnrichment(String(ticker).toUpperCase(), enrichBase);
 
         // --- Build XML Context from Flow Data ---
         const d = flowData || {};
@@ -102,7 +169,7 @@ export async function POST(req: Request) {
   </alpha_trade>
 
   <rule_based_verdict status="${d.ruleVerdict?.status || ''}" composite="${d.compositeScore ?? 0}" />
-  <trigger_reason>${triggerReason}</trigger_reason>
+  <trigger_reason>${triggerReason}</trigger_reason>${enrichment}
 </flow_analysis>`;
 
         // --- System Prompt (V2: Trilingual Output) ---
@@ -168,6 +235,13 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
   → FORBIDDEN: "~해야 한다/should", "매수/매도/buy/sell", "~될 것이다/will happen", "breakout expected"
   → ALL sentences must describe CURRENT or PAST conditions, NEVER predict future outcomes.
 - ALPHA TRADE: If significant (>$100K), analyze strategic intent.
+- CROSS-ASSET CONTEXT (if a <context> block is present): it carries evidence from OUTSIDE the options
+  chain — insider transactions, the street target, the next earnings date, off-exchange (dark pool) share.
+  → Use it ONLY where it CHANGES the read. Naming it without a consequence is noise.
+  → It is most valuable when it CONTRADICTS the options structure. Say the contradiction plainly.
+    e.g. call-heavy flow while insiders sell; price far above the street target while whales stay neutral;
+    dated flow with elevated IV right before an earnings date (that is event positioning, not conviction).
+  → If nothing in <context> changes the conclusion, ignore it entirely. Do not pad.
 - EXPLAIN MECHANICS (CRITICAL): Do NOT merely state values. For each factor:
   → Explain the MECHANISM (WHY this reading matters for dealer/institutional positioning)
   → Explain the INTERACTION (HOW it connects to other factors in the structural thesis)
