@@ -151,6 +151,8 @@ export default function EarningsPage() {
                        onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); router.push(`/app-view/cmd?t=${e.ticker}`); } }}>
                       {/* 한 줄 — 왼쪽에 신원(로고·티커·시간·분기), 오른쪽에 수치.
                           두 줄로 쌓으면 오른쪽이 통째로 빈다(대표 지적 2026-09-06). */}
+                      {/* 윗줄 — 예전과 동일(좌: 신원 / 우: 수치). 아랫줄에 관전 포인트. */}
+                      <span className={s.ecRLine}>
                       <span className={s.ecRTop}>
                         <AppTickerLogo symbol={e.ticker} size={18} />
                         <b className={s.ecRT}>{e.ticker}</b>
@@ -173,6 +175,7 @@ export default function EarningsPage() {
                       <span className={s.ecRMet}>
                         <span className={s.ecRM}><s>{t.eps}</s><b className="num">{fmtEps(e.epsEstimate)}</b></span>
                         <span className={s.ecRM}><s>{t.rev}</s><b className="num">{fmtRev(e.revenueEstimate)}</b></span>
+                      </span>
                       </span>
                       {/* 관전 포인트 — 숫자만으로는 «뭘 봐야 하는지»를 알 수 없다.
                           한 줄로 접는다. 없으면 아예 그리지 않아 행 높이가 그대로다. */}

@@ -121,15 +121,32 @@
 .ecWrap input, .ecWrap select, .ecWrap textarea{min-height:0}
 
 /* ── [2026-09-10] 회사명 · 관전 포인트 · AI 배지 ────────────────────────
-   ★ 셋 다 «있을 때만» 그려진다. 없으면 DOM 에 없으므로 기존 행 높이가 그대로다.
-     (대표 반복 지시: 컨테이너를 내용에 맞춰 키우지 말 것) */
+   ★ 첫 판에서 .ecRWatch 에 grid-column 을 줬는데 **.ecR 은 grid 가 아니라 한 줄 flex** 였다.
+     그래서 관전 포인트가 티커·EPS·매출과 **같은 줄에 끼어들어 전부 겹쳤다.**
+     → 행을 «윗줄(기존 그대로) + 아랫줄(관전 포인트)» 두 줄로 감싼다.
+       관전 포인트가 없으면 아랫줄 자체가 DOM 에 없으므로 기존 행 높이 그대로다.
+     (대표 반복 지시: 넣어서 틀어지게 하지 말 것) */
 .ecTitleRow {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-/* 티커 옆 회사명 — 보조 정보이므로 작고 흐리게, 넘치면 자른다 */
+
+/* 행을 세로로 쌓는다. 윗줄은 예전과 똑같이 좌우로 벌어진다. */
+.ecR {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.ecRLine {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+/* 티커 옆 회사명 — 보조 정보라 작고 흐리게, 넘치면 자른다 */
 .ecRName {
   font: 600 11px/1.2 'Inter', system-ui, sans-serif;
   color: var(--text-muted, #94a3b8);
@@ -137,13 +154,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 108px;
+  max-width: 92px;
   flex: 0 1 auto;
 }
-/* 관전 포인트 — 행의 세 번째 줄. 한 줄로 자른다(카드 높이 고정) */
+
+/* 관전 포인트 — 아랫줄 전체. 한 줄로 자른다(카드 높이 고정) */
 .ecRWatch {
-  grid-column: 1 / -1;
-  margin-top: 5px;
+  display: block;
+  margin-top: 4px;
   font: 500 11.5px/1.45 'Inter', system-ui, sans-serif;
   color: #b4c6ef;
   white-space: nowrap;
