@@ -575,3 +575,122 @@ API 는 200 이고 응답에 `structuralThesis`·`factorHighlights`(4건)·`repr
 요청의 88%가 «실패»로 기록되면 «막 굴리는 워크로드»로 읽힌다. 오늘부터는
 «시간당 200~270건의 작고 꾸준한 워크로드가 10 RPM 천장에 부딪히는 것»으로 읽힌다.
 누가 이 계정을 들여다볼 때 **기록이 사실대로 보이는 편**이 낫다. 케이스에 그대로 올렸다.
+
+---
+
+## PART 9 — 「어떤 때는 되고 어떤 때는 안 된다」의 정체 (2026-09-10)
+
+### 대표 지적
+「어제 보니까 모닝브리핑이 정확하게 생성이 안 된 거 같은데 **언제든지 확실하게**
+생성될 수 있도록 해줘. 어떤 때는 잘 되고, 어떤 때는 안 되고, 그런 것이 지금 관찰되거든」
+
+### 실측 — 대표가 본 것이 정확했다
+EC2 Redis 프록시로 세 로케일을 직접 읽었다.
+```
+guardian:morning_briefing:ko  source: template-error   11.9시간 전
+guardian:morning_briefing:en  source: template-error   11.9시간 전
+guardian:morning_briefing:ja  source: template-error   11.9시간 전
+본문: "9/9/2026 프리마켓 브리핑입니다. 시장 건강도(RLSI)는 37로 관찰됩니다.
+       VIX는 16.2로 현재 변동성 배경을 형성합니다…"  (숫자 나열 214자)
+```
+AI 가 쓴 글이 아니라 **템플릿에 숫자를 끼운 것**이 하루 종일 앉아 있었다.
+
+### 원인은 하나였다 — 「실패가 성공과 똑같이 생겼다」
+그리고 그것이 **네 곳**에 있었다.
+
+| # | 자리 | 무엇이 잘못됐나 |
+|---|---|---|
+| 1 | 두 생산자의 폴백 저장 | 폴백을 **진짜 AI 와 같은 24시간 TTL** 로 **같은 키**에 저장 |
+| 2 | EC2 워커의 판정 | 「오늘 날짜 + 글자 있음」 → 템플릿을 성공으로 봄 → **폴백을 저장한 순간 이후 모든 시도가 스스로 건너뜀** |
+| 3 | EC2 워커의 창 | `hour !== 8` + `session === "PRE"` → **08:00~08:59 ET 한 시간뿐** |
+| 4 | 자가복구(GET) | 「오늘 브리핑이 **없을 때**」만 발동 → 템플릿도 오늘 것이라 영영 안 걸림 |
+| 5 | health-check | `briefingExists ? 'OK'` → 키만 보고 11.9시간을 «정상»으로 보고 |
+
+즉 **한 번의 Bedrock 실패가 하루를 확정**시키는 구조였다. 스로틀 폭주 시기와 겹쳤다.
+
+### 고친 방식 — 「있다/없다」가 아니라 「진짜냐/땜빵이냐」
+
+폴백에 `degraded: true` 를 박고, **그 플래그가 교체를 끌고 가게** 했다.
+
+**TTL 을 짧게 만드는 방법은 일부러 택하지 않았다.** 만료되는 순간 화면이 비고,
+하필 그때 들어온 «사용자» 요청이 재생성 55초를 떠안는다. 그래서
+TTL 은 24시간 그대로 두고, 교체는 만료가 아니라 플래그가 끈다.
+
+| 자리 | 고침 |
+|---|---|
+| 생성 라우트 · EC2 워커 | 폴백 저장 시 `degraded: true` |
+| EC2 워커 판정 | `source === 'claude'` 를 조건에 추가 |
+| EC2 워커 창 | **08~15 ET** · `PRE` 뿐 아니라 `REG` 에서도 |
+| GET | 땜빵을 봐도 **사용자에겐 즉시 그대로 준다**(`degraded: true` 만 붙임). 교체는 크론만 |
+| signum-warm | `/api/guardian/briefing?repair=1` 로 호출 + 교체 후에도 남으면 **위반으로 기록** |
+| health-check | `source !== 'claude'` → **DEGRADED** (어느 판이 땜빵인지도 남김) |
+
+### 시간 상한을 두지 않은 이유
+처음엔 복구를 아침 창(08~12 ET)에만 걸었다. 그런데 대표가 실제로 본 장면은
+**저녁 8시에도 템플릿**이었다. 아침에만 고치면 그 장면이 그대로 남는다.
+→ 상한을 없애고, 비용은 «시간»이 아니라 **«횟수»** 로 묶었다.
+
+| 경로 | 간격 | 하루 상한 | 최악 비용 |
+|---|---|---|---|
+| Vercel 복구 | 30분 | 12회 | 12콜 |
+| EC2 워커 | 10분 | 12사이클 | 36콜 |
+> 워커는 메인 루프가 **30초**다. 창을 넓히면서 고삐를 안 채웠다면
+> 4시간 × 120회 × 3재시도 = **1,440콜**이 됐다. 방금 없앤 스로틀 폭주의 재발이었다.
+
+### 검증 — 실제로 교체됐다 (프로덕션)
+```
+POST 전:  세 로케일 전부 source=template-error, 11.9시간
+크론 경로: /api/guardian/briefing?locale=ko&repair=1   → 21.0초, selfHealed: true
+POST 후:  ko/en/ja 전부 source=claude · degraded=false · 0.3분 전
+          ko 645자 · en 1307자 · ja 635자
+사용자 경로: ko 0.75s · en 0.86s · ja 0.71s — 전부 claude, degraded 없음
+게이트:    repair=1 즉시 재호출 → 0.79초 (21초가 아니다 = 막혔다)
+```
+실제 본문(하드코딩이 절대 못 하는 것):
+> 수요일 개장 전 거래에서 S&P 500 선물이 7651.75(+0.10%), NASDAQ 100 선물이
+> 29465.75(+0.06%)로 소폭 상승 출발… 미국 10년물 수익률이 4.84%로 65bp 급등…
+
+---
+
+## PART 10 — 「AI 인 척하는 자리」 전수검사기 (npm run audit:ai)
+
+브리핑 하나를 고치고 끝내면 [[fix-the-class-not-the-instance]] 위반이다.
+같은 실패 모양이 다른 AI 자리에도 있을 수 있으므로 **전부 재는 도구**를 만들었다.
+
+### 왜 기존 검사기가 다 통과시켰나
+폴백은 «에러»가 아니라 **«글자»** 로 온다.
+`HTTP 200` · 필드 있음 · `null` 아님 · 화면 차 있음 → 상태·속도·빈칸 검사를 전부 통과한다.
+**값의 «출처»를 봐야만 보인다.**
+
+### 판정 3종
+1. **라우트가 스스로 말하는 것** — `source === 'claude'` · `usedFallback === false`
+   (flow/ai-analysis 와 cmd/deep-analysis 는 이미 `usedFallback` 을 준다)
+2. **폴백일 때만 나오는 지문** — `Insight generation failed` · `프리마켓 브리핑입니다`
+   · `Pre-market conditions as of` · `のプレマーケットブリーフィングです` 등
+3. **로케일 결손** — 세 언어가 다 차 있는지. 뉴스는 번역 실패 시
+   `summaryKR` 에 **영어 원문이 그대로 앉는다**(200 OK 인데 한국어가 아니다).
+   → [[ai-localization-silent-english-fallback]]
+
+### 첫 실행 결과 — 15/15 AI (기준선)
+```
+✅ briefing ko/en/ja            claude · 645/1307/635자
+✅ guardian rotation/reality/gamma  651/423/152자
+✅ intel:cross-sector           tone=MIXED · 3개국어
+✅ intel:snapshot m7/silicon_core/power_matrix/bio_pulse/cloud_fortress
+✅ flow:ai-analysis             202자 · 팩터 4건 · claude-haiku-4.5
+✅ cmd:deep-analysis            162자 · 섹션 4개 · claude-haiku-4.5
+✅ guardian:news-digest         10건 · 3개국어 요약·분석 충족
+```
+
+### ★ 검사기가 자기 자신을 6건 오탐했다
+첫 실행에서 EMPTY 6건이 떴는데 **전부 검사기의 필드 경로가 틀린 것**이었다.
+앱은 정상이었다.
+```
+내가 찍은 경로                     실제 경로
+body.headline                     → structured.marketOverview.summary.{ko,en,ja}
+body.briefing.headline            → snapshot.sector_summary.briefing.{headline,headlineEN,headlineJP}
+body.structuralThesis (문자열 가정) → {ko,en,ja} 딕셔너리 (String() 하면 15자 «[object Object]»)
+GET /command/deep-analysis        → POST 전용 (405)
+body.digest[].summary             → items[].summaryKR / analysisKR
+```
+[[audit-scripts-for-every-screen]] 의 「위반이 뜨면 앱보다 검사기를 먼저 의심」이 또 맞았다.
