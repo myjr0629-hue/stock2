@@ -104,6 +104,11 @@ function record(surface, verdict, detail) {
     }
 
     // 4) 섹터 스냅샷 헤드라인 — 앱 인텔 «판정문»이 이걸 읽는다
+    //    ★ 첫 판에서 이 자리를 «AI» 로 통과시켰는데 **틀렸다.**
+    //      generateNextDayBriefing() 의 하드코딩 분기 4갈래였다. 글자는 멀쩡하고
+    //      3개국어도 다 차 있어서 «폴백 지문»·«로케일 결손» 어느 쪽에도 안 걸렸다.
+    //      → 라우트가 스스로 말하게 만들었다: headlineSource === 'claude' 일 때만 AI.
+    //        그리고 템플릿 골격 자체를 지문으로 등록한다.
     //    실제 경로: snapshot.sector_summary.briefing.{headline,headlineEN,headlineJP}
     for (const sec of ['m7', 'silicon_core', 'power_matrix', 'bio_pulse', 'cloud_fortress']) {
         const { status, body } = await get(`/api/intel/snapshot?sector=${sec}`);
@@ -113,9 +118,23 @@ function record(surface, verdict, detail) {
         const missing = [['ko', 'headline'], ['en', 'headlineEN'], ['ja', 'headlineJP']]
             .filter(([, k]) => String(b[k] || '').length < 12).map(([l]) => l);
         const mark = hasFallbackMark(b.headline);
+        // 템플릿 골격(하드코딩 4갈래)의 지문
+        const TEMPLATE = [
+            /^전 종목 상승 — .+ 선도, 리스크 온 모드$/,
+            /^전 종목 하락 — .+ 최대 낙폭, 방어적 환경 관측$/,
+            /주도 반등, 그러나 \d+종 중 \d+종 하락 — 변동성 지속 관측$/,
+            /^\d+종 상승 vs \d+종 하락 — .+ 장세, 혼조 환경 관측$/,
+        ];
+        const looksTemplate = TEMPLATE.some((re) => re.test(String(b.headline || '')));
+        const isAi = String(b.headlineSource || '') === 'claude';
         if (mark) record(`intel:snapshot:${sec}`, 'FALLBACK', `mark="${mark}"`);
         else if (missing.length) record(`intel:snapshot:${sec}`, 'EMPTY', `로케일 결손: ${missing.join(',')}`);
-        else record(`intel:snapshot:${sec}`, 'AI', `"${String(b.headline).slice(0, 40)}"`);
+        else if (!isAi || looksTemplate) {
+            record(`intel:snapshot:${sec}`, 'FALLBACK',
+                `템플릿 판정문${looksTemplate ? '(골격 일치)' : ''} · headlineSource=${b.headlineSource || '없음'}`);
+        } else {
+            record(`intel:snapshot:${sec}`, 'AI', `${b.headlineAgeMin}분 전 · "${String(b.headline).slice(0, 34)}"`);
+        }
     }
 
     // 5) 플로우 AI 분석 — 앱 «상세 시나리오»가 읽는다. usedFallback 을 라우트가 직접 준다.

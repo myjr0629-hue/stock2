@@ -159,6 +159,18 @@
     {
       "schedule": "*/30 * * * 0,6",
       "path": "/api/cron/ai-warm"
+    },
+    {
+      "schedule": "20 12 * * 1-5",
+      "path": "/api/cron/sector-headlines"
+    },
+    {
+      "schedule": "5 14-20 * * 1-5",
+      "path": "/api/cron/sector-headlines"
+    },
+    {
+      "schedule": "50 20 * * 1-5",
+      "path": "/api/cron/sector-headlines"
     }
   ],
   "headers": [

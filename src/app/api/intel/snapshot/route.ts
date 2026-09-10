@@ -98,6 +98,55 @@ const SECTOR_ID_ALIASES: Record<string, string> = {
     quantum_edge: 'quantumedge',
 };
 
+/**
+ * ★ [2026-09-10] 섹터 «판정문»을 진짜 AI 로 덮는다.
+ *
+ *   원래 이 한 줄은 generateNextDayBriefing() 의 **하드코딩 분기 4갈래**였다
+ *   (전 종목 상승 / 전 종목 하락 / 상승 2종 이하 / 그 외). 섹터가 달라도
+ *   문장 골격이 같고 숫자만 바뀐다. 게다가 마감 후 한 번만 만들어져
+ *   다음 거래일 장중 내내 «어제»를 설명했다(실측 4.6시간 전 · 날짜는 어제).
+ *
+ *   /api/cron/sector-headlines 가 10섹터를 **1콜**로 만들어 Redis 에 둔다.
+ *   여기서는 «오늘 것이고 충분히 신선할 때만» 덮는다. 없거나 낡으면
+ *   기존 템플릿이 그대로 나가므로 화면이 비지 않는다.
+ */
+async function overlayAiHeadline(snapshotData: any, sector: string): Promise<any> {
+    try {
+        if (!snapshotData?.sector_summary?.briefing) return snapshotData;
+        const pack = await getFromCache<any>('intel:ai_headlines:v1');
+        if (!pack?.sectors) return snapshotData;
+
+        const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        if (pack.date !== todayET) return snapshotData;
+
+        const ageMin = (Date.now() - new Date(pack.generatedAt).getTime()) / 60000;
+        if (!Number.isFinite(ageMin) || ageMin > 120) return snapshotData;
+
+        // 크론과 이 라우트의 섹터 표기가 다를 수 있다(언더바 문제) — 둘 다 시도한다.
+        const hit = pack.sectors[sector] || pack.sectors[sector.replace(/_/g, '')];
+        if (!hit?.headline) return snapshotData;
+
+        return {
+            ...snapshotData,
+            sector_summary: {
+                ...snapshotData.sector_summary,
+                briefing: {
+                    ...snapshotData.sector_summary.briefing,
+                    headline: hit.headline,
+                    headlineEN: hit.headlineEN || snapshotData.sector_summary.briefing.headlineEN,
+                    headlineJP: hit.headlineJP || snapshotData.sector_summary.briefing.headlineJP,
+                    // 읽는 쪽이 «이게 AI 가 쓴 것»임을 알 수 있어야 검사기가 판정할 수 있다.
+                    headlineSource: 'claude',
+                    headlineAgeMin: Math.round(ageMin),
+                    headlineSession: pack.session,
+                },
+            },
+        };
+    } catch {
+        return snapshotData;   // 덮기에 실패하면 원본 그대로 — 절대 화면을 비우지 않는다
+    }
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const sector = searchParams.get('sector');
@@ -131,7 +180,7 @@ export async function GET(request: Request) {
             const s1 = sanitizeStoredSnapshot(cached.data_json);
             return NextResponse.json({
                 success: true,
-                snapshot: s1.data,
+                snapshot: await overlayAiHeadline(s1.data, sector),
                 snapshot_date: cached.snapshot_date,
                 created_at: cached.created_at,
                 source: 'REDIS',
@@ -162,7 +211,7 @@ export async function GET(request: Request) {
         const s2 = sanitizeStoredSnapshot(snapshot.data_json);
         return NextResponse.json({
             success: true,
-            snapshot: s2.data,
+            snapshot: await overlayAiHeadline(s2.data, sector),
             snapshot_date: snapshot.snapshot_date,
             created_at: snapshot.created_at,
             source: 'DB',
