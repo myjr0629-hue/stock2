@@ -61,12 +61,41 @@ export interface EarningsRow {
   year: number | null;
 }
 
+/**
+ * ★ [2026-09-10] 실적 캘린더에 «회사 이름»과 «관전 포인트»를 얹는다.
+ *
+ *   이 화면은 티커·날짜·EPS·매출 숫자만 보여 줬다. 162개 회사가 전부 그랬다.
+ *   ORCL 을 봐도 무슨 회사인지, 이번 분기에 뭘 봐야 하는지 알 수 없었다.
+ *   /api/cron/earnings-brief 가 만들어 Redis 에 두고, 여기서 행에 붙인다.
+ *   없으면 붙이지 않는다 — 기존 화면 그대로라 절대 비지 않는다.
+ */
+async function attachEarningsBrief(rows: any[]): Promise<{ rows: any[]; aiCount: number; aiAt: string | null }> {
+    try {
+        const pack = await getFromCache<any>('earnings:brief:v1');
+        if (!pack?.tickers) return { rows, aiCount: 0, aiAt: null };
+        let n = 0;
+        const merged = rows.map((r) => {
+            const b = pack.tickers[r.ticker];
+            if (!b) return r;
+            n++;
+            return { ...r, brief: b };   // { ko:{name,watch}, en:{...}, ja:{...} }
+        });
+        return { rows: merged, aiCount: n, aiAt: pack.generatedAt || null };
+    } catch {
+        return { rows, aiCount: 0, aiAt: null };
+    }
+}
+
 export async function GET(req: Request) {
   try {
     const fresh = new URL(req.url).searchParams.get('fresh') === '1';
     if (!fresh) {
       const cached = await getFromCache<any>(CACHE_KEY);
-      if (cached) return NextResponse.json({ ...cached, _cache: 'hit' });
+      if (cached) {
+        // 캘린더 캐시와 브리프는 수명이 다르다 — 응답 직전에 합친다.
+        const m = await attachEarningsBrief(cached.rows || []);
+        return NextResponse.json({ ...cached, rows: m.rows, aiCount: m.aiCount, aiAt: m.aiAt, _cache: 'hit' });
+      }
     }
 
     const key = process.env.FMP_API_KEY || process.env.NEXT_PUBLIC_FMP_API_KEY;
@@ -229,7 +258,10 @@ export async function GET(req: Request) {
       hourSource: 'Finnhub (nearest 12)',
     };
     if (rows.length) setInCache(CACHE_KEY, payload, TTL).catch(() => {});
-    return NextResponse.json({ ...payload, _cache: 'miss' });
+    // ⚠️ 캐시에는 «브리프 없는» 원본을 넣는다. 브리프는 응답 직전에만 얹는다 —
+    //    그래야 브리프가 갱신돼도 캘린더 캐시를 비울 필요가 없다.
+    const m = await attachEarningsBrief(rows);
+    return NextResponse.json({ ...payload, rows: m.rows, aiCount: m.aiCount, aiAt: m.aiAt, _cache: 'miss' });
   } catch (e: any) {
     return NextResponse.json({ ok: true, rows: [], reason: e?.message || 'error' });
   }

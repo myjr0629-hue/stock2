@@ -12,12 +12,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { AiBadge } from '@/components/app/AiBadge';
 import s from './earnings.module.css';
 
 interface Row {
   ticker: string; date: string; hour: string;
   epsEstimate: number | null; revenueEstimate: number | null;
   quarter: number | null; year: number | null;
+  /** ★ [2026-09-10] AI 가 붙인 회사명·관전 포인트. 없으면 기존 화면 그대로다. */
+  brief?: Partial<Record<'ko' | 'en' | 'ja', { name?: string; watch?: string }>>;
 }
 
 const T = {
@@ -88,7 +91,12 @@ export default function EarningsPage() {
         <span className={s.ecEy}>{t.back.toUpperCase()}</span>
       </div>
       <div className={s.ecHead}>
-        <div className={s.ecTitle}>{t.title}</div>
+        {/* ★ 배지는 제목 «옆»에 둔다. 줄을 새로 만들지 않으므로 헤더 높이가 변하지 않는다.
+            모델 이름은 쓰지 않는다(대표 지시) — 「AI 가 만들었다」만 알리면 된다. */}
+        <div className={s.ecTitleRow}>
+          <div className={s.ecTitle}>{t.title}</div>
+          <AiBadge locale={locale} />
+        </div>
         <div className={s.ecSub}>
           {rows == null ? t.loading
             : rows.length === 0 ? t.empty
@@ -157,11 +165,20 @@ export default function EarningsPage() {
                         {e.quarter != null && e.year != null && (
                           <span className={`${s.ecRQ} num`}>Q{e.quarter} FY{String(e.year).slice(-2)}</span>
                         )}
+                        {/* 회사명 — 티커만으로는 무슨 회사인지 모른다. 있을 때만 그린다. */}
+                        {e.brief?.[locale as 'ko' | 'en' | 'ja']?.name && (
+                          <span className={s.ecRName}>{e.brief[locale as 'ko' | 'en' | 'ja']!.name}</span>
+                        )}
                       </span>
                       <span className={s.ecRMet}>
                         <span className={s.ecRM}><s>{t.eps}</s><b className="num">{fmtEps(e.epsEstimate)}</b></span>
                         <span className={s.ecRM}><s>{t.rev}</s><b className="num">{fmtRev(e.revenueEstimate)}</b></span>
                       </span>
+                      {/* 관전 포인트 — 숫자만으로는 «뭘 봐야 하는지»를 알 수 없다.
+                          한 줄로 접는다. 없으면 아예 그리지 않아 행 높이가 그대로다. */}
+                      {e.brief?.[locale as 'ko' | 'en' | 'ja']?.watch && (
+                        <span className={s.ecRWatch}>{e.brief[locale as 'ko' | 'en' | 'ja']!.watch}</span>
+                      )}
                     </a>
                   ))}
                 </div>

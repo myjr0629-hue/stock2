@@ -119,3 +119,35 @@
 .ecWrap [role="button"],
 .ecWrap [role="tab"],
 .ecWrap input, .ecWrap select, .ecWrap textarea{min-height:0}
+
+/* ── [2026-09-10] 회사명 · 관전 포인트 · AI 배지 ────────────────────────
+   ★ 셋 다 «있을 때만» 그려진다. 없으면 DOM 에 없으므로 기존 행 높이가 그대로다.
+     (대표 반복 지시: 컨테이너를 내용에 맞춰 키우지 말 것) */
+.ecTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+/* 티커 옆 회사명 — 보조 정보이므로 작고 흐리게, 넘치면 자른다 */
+.ecRName {
+  font: 600 11px/1.2 'Inter', system-ui, sans-serif;
+  color: var(--text-muted, #94a3b8);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 108px;
+  flex: 0 1 auto;
+}
+/* 관전 포인트 — 행의 세 번째 줄. 한 줄로 자른다(카드 높이 고정) */
+.ecRWatch {
+  grid-column: 1 / -1;
+  margin-top: 5px;
+  font: 500 11.5px/1.45 'Inter', system-ui, sans-serif;
+  color: #b4c6ef;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.92;
+}

@@ -171,6 +171,10 @@
     {
       "schedule": "50 20 * * 1-5",
       "path": "/api/cron/sector-headlines"
+    },
+    {
+      "schedule": "40 11 * * *",
+      "path": "/api/cron/earnings-brief"
     }
   ],
   "headers": [
