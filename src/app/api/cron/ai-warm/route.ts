@@ -34,8 +34,19 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** 앱 칩에 뜨는 순서 그대로 — cmd/flow 의 POPULAR_TICKERS 와 같아야 한다. */
-const TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ'];
+/**
+ * 앞 9개는 앱 칩에 뜨는 순서 그대로(cmd/flow 의 POPULAR_TICKERS).
+ * 뒤 7개는 차트 예열 목록에 이미 들어 있는 «그다음으로 많이 눌리는» 종목이다.
+ *
+ * ★ [2026-09-10] 9 → 16 으로 넓혔다.
+ *   칩 9개만 데워도 «칩 밖» 종목을 누른 사용자는 여전히 30초를 기다린다.
+ *   비용은 여유 안에 있다: 커서가 한 바퀴 도는 데 시간이 더 걸릴 뿐,
+ *   생성 횟수 자체는 캐시 TTL 이 정한다(만료된 것만 다시 만든다).
+ */
+const TICKERS = [
+    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ',
+    'AMD', 'MU', 'AVGO', 'PLTR', 'NFLX', 'COIN', 'IWM',
+];
 
 /** 앱 화면이 실제로 읽는 AI 라우트 둘. */
 const ROUTES = [
