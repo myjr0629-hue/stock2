@@ -51,6 +51,21 @@ async function readOptions(): Promise<any | null> {
     }
 }
 
+// ★ 만기가 «이미 지난» 계약은 신규 포지션이 아니다 — 존재하지 않는다.
+//   EOD 스냅샷은 «전일 마감» 기준이라, SPY 처럼 매일 만기가 있는 종목은
+//   상위 미결제약정 증가가 사실상 전부 그날 만기(0DTE)다. 필터가 없으니
+//   그 계약이 다음 날에도 「신규 하방 보험」으로 떠 있었다(2026-09-10 실측:
+//   SPY 상위 OPENING 6건 전부 exp=2026-09-09).
+//   오늘(ET) 만기는 아직 살아 있으므로 남긴다 — 경계는 «미만»이다.
+function etToday(): string {
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+}
+const isExpired = (exp: unknown, today: string): boolean =>
+    typeof exp === "string" && exp.length >= 10 && exp.slice(0, 10) < today;
+
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const ticker = (searchParams.get("t") || searchParams.get("ticker") || "").toUpperCase();
@@ -71,11 +86,14 @@ export async function GET(req: NextRequest) {
             );
         }
         const opening: Record<string, { contracts: number; notional: number; side: "call" | "put" }> = {};
+        const today = etToday();
         for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
             let contracts = 0, notional = 0, callN = 0, putN = 0;
             for (const c of (v.top || [])) {
                 // 미결제약정이 «늘어난» 것만 신규 포지션이다
                 if (!(c.d > 0)) continue;
+                // 만기가 지난 계약은 더 이상 포지션이 아니다
+                if (isExpired(c.e, today)) continue;
                 const n = c.d * 100 * (c.k || 0);
                 contracts += c.d; notional += n;
                 if (c.t === "C") callN += n; else putN += n;
@@ -115,11 +133,14 @@ export async function GET(req: NextRequest) {
         return "INTRADAY";                        // 그대로 = 당일 사고팜
     };
 
+    const today = etToday();
     const contracts = top.map((c) => ({
         contract: c.c,
         type: c.t === "C" ? "call" : "put",
         strike: c.k,
         expiration: c.e,
+        // 소비처가 «지난 만기»를 신규 포지션으로 그리지 않도록 실어 보낸다
+        expired: isExpired(c.e, today),
         volume: c.v,
         openInterest: c.oi,
         oiChange: c.d,
@@ -130,7 +151,7 @@ export async function GET(req: NextRequest) {
         volOverOi: c.oi > 0 ? Math.round((c.v / c.oi) * 100) / 100 : null,
     }));
 
-    const opening = contracts.filter((c) => c.kind === "OPENING");
+    const opening = contracts.filter((c) => c.kind === "OPENING" && !c.expired);
     const netOiChange = contracts.reduce((s, c) => s + (c.oiChange ?? 0), 0);
 
     return NextResponse.json(
@@ -141,6 +162,7 @@ export async function GET(req: NextRequest) {
             prevDate: data.prevDate ?? null,
             // 세션이 아니라 «전일 마감» 기준임을 명시 — 소비처가 라벨에 써야 한다
             basis: "EOD",
+            etToday: today,
             summary: {
                 callOI: v.callOI, putOI: v.putOI,
                 callVol: v.callVol, putVol: v.putVol,

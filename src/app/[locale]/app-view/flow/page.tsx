@@ -805,8 +805,22 @@ export default function AppFlowPage() {
   /** 신규 진입만 추려 «명목가» 순으로 — 대형주·소형주가 공평하게 겨루도록 */
   const openingPositions = useMemo(() => {
     const cs: any[] = optionsEod?.contracts || [];
+    // ★ 만기가 지난 계약을 「신규 포지션 감지」로 띄우면 안 된다 — 그 계약은
+    //   오늘 존재하지 않는다. EOD 는 전일 마감 기준이라 SPY 처럼 매일 만기가
+    //   있는 종목은 상위 미결제약정 증가가 전부 그날 만기(0DTE)였다.
+    //   라우트가 `expired` 를 실어 주지만, s-maxage 600 짜리 «예전 응답»에는
+    //   그 필드가 없을 수 있으므로 날짜 비교를 폴백으로 같이 둔다.
+    const today = optionsEod?.etToday || new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+    const alive = (c: any) => {
+      if (c.expired === true) return false;
+      const e = typeof c.expiration === 'string' ? c.expiration.slice(0, 10) : '';
+      return !e || e >= today;
+    };
     return cs
       .filter((c) => c.kind === 'OPENING' && (c.oiChange ?? 0) > 0)
+      .filter(alive)
       .map((c) => ({ ...c, notional: (c.oiChange || 0) * 100 * (c.strike || 0) }))
       .sort((a, b) => b.notional - a.notional);
   }, [optionsEod]);
