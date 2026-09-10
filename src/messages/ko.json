@@ -897,7 +897,9 @@
     "sfDescExIn": "기관의 공격적 롱 매집",
     "sfDescIn": "점진적 롱 자금 유입 추세",
     "sfDescOut": "자금 이탈 및 숏 헤징 전환",
-    "sfDescExOut": "고래 자금의 대량 매도 이탈"
+    "sfDescExOut": "고래 자금의 대량 매도 이탈",
+    "appCta": "무료 앱 — AI가 체인 전체를 읽습니다",
+    "appNote": "iOS·안드로이드. 위의 모든 터미널을 무료로 실시간으로."
   },
   "dashboardGuide": {
     "subtitle": "옵션 파생 시장 데이터를 실시간으로 집약하여 개별 종목의 구조적 현황을 한 화면에 제공합니다",

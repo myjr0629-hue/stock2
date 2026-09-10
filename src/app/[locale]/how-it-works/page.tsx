@@ -391,6 +391,20 @@ export default async function HowItWorksPage() {
                     </Link>
                 ))}
             </div>
+
+            {/* ★ 「어떻게 동작하나」를 끝까지 읽은 사람에게 갈 곳이 없었다 —
+                이 페이지에 앱 링크가 하나도 없었다. /app 은 UA 로 분기해
+                App Store / Play(install referrer 포함) 로 꽂히므로 설치가 측정된다. */}
+            <div className="mt-12 mx-auto w-full max-w-md flex flex-col gap-2.5">
+                <a
+                    href="/app?from=seo_howitworks"
+                    rel="noopener"
+                    className="block text-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 px-5 py-3.5 text-[15px] font-black text-white shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all"
+                >
+                    {t('appCta')} →
+                </a>
+                <p className="text-center text-[12px] text-slate-400">{t('appNote')}</p>
+            </div>
         </HowItWorksLayout>
     );
 }

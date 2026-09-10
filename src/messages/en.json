@@ -897,7 +897,9 @@
     "sfDescExIn": "Aggressive Institutional Accumulation",
     "sfDescIn": "Consistent Capital Inflow",
     "sfDescOut": "Distribution & Puts Hedging",
-    "sfDescExOut": "Massive Whale Capital Exit"
+    "sfDescExOut": "Massive Whale Capital Exit",
+    "appCta": "Free app — our AI reads the whole chain",
+    "appNote": "iOS and Android. Every terminal above, live and free."
   },
   "dashboardGuide": {
     "subtitle": "Comprehensive single-ticker analytics with AI-powered structural analysis, options flow data, and institutional positioning indicators",

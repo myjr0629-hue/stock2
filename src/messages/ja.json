@@ -897,7 +897,9 @@
     "sfDescExIn": "機関の攻撃的なロング買い集め",
     "sfDescIn": "漸進的なロング資金流入",
     "sfDescOut": "資金流出およびショートヘッジ",
-    "sfDescExOut": "クジラ資金の大量売り抜け"
+    "sfDescExOut": "クジラ資金の大量売り抜け",
+    "appCta": "無料アプリ — AIがチェーン全体を読みます",
+    "appNote": "iOS・Android。上のすべてのターミナルを無料でリアルタイムに。"
   },
   "dashboardGuide": {
     "subtitle": "AI構造分析、オプションフロー、機関ポジショニング指標を統合したシングルティッカー総合分析システム",

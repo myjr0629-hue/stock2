@@ -24,6 +24,7 @@ type Loc = (typeof LOCALES)[number];
 const L: Record<Loc, {
   title: string; desc: string; h1: string; lead: string;
   count: (n: number) => string; sec: string; back: string; disc: string;
+  appCta: string; appNote: string;
   daily: string; flow: string;
 }> = {
   en: {
@@ -33,6 +34,8 @@ const L: Record<Loc, {
     lead: 'Dark pool share, max pain, call wall, put floor and unusual options flow — one page per ticker, refreshed through every US session. Free, no account.',
     count: (n) => `${n} tickers`,
     sec: 'Browse by first letter',
+    appCta: 'Free app — our AI reads the whole chain',
+    appNote: 'iOS and Android. Any ticker below, with the AI read attached.',
     daily: 'Today’s off-exchange leaders — ranked against each name’s own baseline →',
     flow: 'Today’s biggest new options positions — open interest that actually rose →',
     back: 'Undercurrent — the money behind the news',
@@ -45,6 +48,8 @@ const L: Record<Loc, {
     lead: '다크풀 비중, 맥스페인, 콜월, 풋플로어, 이상 옵션 플로우 — 종목당 한 페이지, 미국장 세션마다 갱신됩니다. 무료, 가입 없이.',
     count: (n) => `${n}개 종목`,
     sec: '첫 글자로 찾기',
+    appCta: '무료 앱 — AI가 체인 전체를 읽습니다',
+    appNote: 'iOS·안드로이드. 아래 어느 종목이든 AI 해석까지 함께.',
     daily: '오늘의 장외 상위 종목 — 각 종목의 «자기 기준선» 대비 순위 →',
     flow: '오늘 새로 열린 옵션 포지션 상위 — 미결제약정이 «실제로 늘어난» 것만 →',
     back: '언더커런트 — 뉴스 뒤의 돈',
@@ -57,6 +62,8 @@ const L: Record<Loc, {
     lead: 'ダークプール比率、マックスペイン、コールウォール、プットフロア、異常オプションフロー — 銘柄ごとに1ページ、米国市場のセッションごとに更新。無料、登録不要。',
     count: (n) => `${n}銘柄`,
     sec: '頭文字で探す',
+    appCta: '無料アプリ — AIがチェーン全体を読みます',
+    appNote: 'iOS・Android。下のどの銘柄でもAIの解釈つきで。',
     daily: '今日の場外上位銘柄 — 各銘柄の「自分の基準線」との差で順位 →',
     flow: '今日あらたに建てられたオプション建玉の上位 — 建玉が「実際に増えた」ものだけ →',
     back: 'アンダーカレント — ニュースの裏のお金',
@@ -139,6 +146,9 @@ export default async function TickersIndex({ params }: { params: Promise<{ local
     grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))', gap: 6 } as const,
     cell: { display: 'block', fontSize: 14, fontWeight: 700, color: '#17191E', textDecoration: 'none', border: '1px solid #E7E3DA', borderRadius: 8, padding: '8px 10px', background: '#fff' } as const,
     daily: { display: 'block', margin: '4px 0 18px', fontSize: 14, fontWeight: 800, color: '#C2410C', textDecoration: 'none' } as const,
+    ctaBox: { margin: '2px 0 24px', padding: '14px 16px', background: '#FAF8F3', border: '1px solid #E7E3DA', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 7, maxWidth: 420 } as const,
+    cta: { display: 'block', textAlign: 'center' as const, background: '#17191E', color: '#fff', textDecoration: 'none', fontWeight: 800, borderRadius: 12, padding: '12px 16px' },
+    appNote: { fontSize: 12, color: '#7C848E', textAlign: 'center' as const, margin: 0 },
     back: { display: 'inline-block', marginTop: 30, fontSize: 14, fontWeight: 700, color: '#C2410C', textDecoration: 'none' },
     disc: { fontSize: 12, color: '#9AA3AD', marginTop: 26, borderTop: '1px solid #EEE9E0', paddingTop: 14 },
   };
@@ -151,6 +161,13 @@ export default async function TickersIndex({ params }: { params: Promise<{ local
       <h1 style={S.h1}>{l.h1}</h1>
       <p style={S.lead}>{l.lead}</p>
       <p style={S.count}>{l.count(FLOW_TICKERS.length)}</p>
+
+      {/* ★ 595개 티커의 «입구»인데 앱 링크가 하나도 없었다 — 내부 웹 경로로만
+          보내면 페이지뷰만 늘고 설치가 안 는다. 스마트링크를 목록 위에 둔다. */}
+      <div style={S.ctaBox}>
+        <a style={S.cta} href={`${base}/app?from=seo_tickers`} rel="noopener">{l.appCta} →</a>
+        <p style={S.appNote}>{l.appNote}</p>
+      </div>
 
       {/* 순위표를 사이트맵에만 두면 «고아»가 된다 — 티커 허브가 그 입구다. */}
       <a href={`/${lc}/dark-pool`} style={S.daily}>{l.daily}</a>
