@@ -50,6 +50,9 @@ const SYSTEM = [
     '  Translate the MEANING for an investor, never word by word.',
     '- Company/product names WITHOUT an established Korean/Japanese form stay in ENGLISH.',
     '    Groq → Groq (NOT 구로크) · Anthropic → 앤스로픽 · Palantir → 팔란티어',
+    '    Micron → 마이크론 (NOT 미크론) · Broadcom → 브로드컴 · Arm → ARM',
+    '    bull / bear (market stance) → 강세론·약세론 (NOT 불립/베어)',
+    '    bullish/bearish bets → 강세/약세 베팅 · kill switch → 킬 스위치',
     '    If you are not certain the Korean form is what investors actually use, keep the English.',
     '- ACRONYMS of institutions are NEVER transliterated by sound. Use the established form:',
     '    DOJ → 미 법무부 / 米司法省 (NOT 도잉)   ·  SEC → 미 증권거래위원회 / 米SEC',
@@ -96,7 +99,7 @@ function hasGhostCompany(translated: string, sourceTitle: string): boolean {
  *   DOJ 는 미 법무부다. 금융 뉴스에 자주 나오는 약어라 틀리면 뜻이 통째로 바뀐다.
  *   프롬프트에 대응표를 넣었지만 그것만 믿지 않는다.
  */
-const BAD_TRANSLITERATIONS = ['도잉', '도제이', '에스이씨', '에프티씨', '에프디에이', '아이피오', '구로크', '그로크'];
+const BAD_TRANSLITERATIONS = ['도잉', '도제이', '에스이씨', '에프티씨', '에프디에이', '아이피오', '구로크', '그로크', '미크론', '불립', '베어리시', '불리시'];
 function hasBadTransliteration(translated: string): boolean {
     return BAD_TRANSLITERATIONS.some((w) => translated.includes(w));
 }
@@ -113,6 +116,7 @@ const ADVICE_RE = new RegExp([
     '사야\\s*(한다|할|합니다)', '팔아야\\s*(한다|할|합니다)',
     '담아야', '저가\\s*매수', '하락\\s*매수', '지금\\s*사',
     '(사|살)\\s*(때|타이밍)', '주목할\\s*만한\\s*매수',
+    '다음\\s*[A-Z가-힣]+(가|이)\\s*될', '제2의\\s*[A-Z가-힣]+',
     '買い(場|時)', '売り時', '今が買い', '買うべき', '売るべき',
 ].join('|'));
 function hasAdvice(translated: string): boolean {
@@ -139,7 +143,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
-    const cacheKey = `ticker-news:v7:${ticker}`;
+    const cacheKey = `ticker-news:v8:${ticker}`;
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.items?.length) {
         return NextResponse.json({ ...cached, fromCache: true });
@@ -184,6 +188,9 @@ export async function GET(req: Request) {
         "\\b(buying|selling) opportunity\\b",
         "\\b(top|best) \\d+ .* (stocks?|picks?) to (buy|own)\\b",
         "\\bstock to buy\\b",
+        // ★ 「다음 엔비디아가 될 수 있다」류 — 예측도 권유도 아닌 척하지만 사실상 종목 추천이다
+        "\\bcould be the next\\b", "\\bthe next (nvidia|tesla|apple|amazon|google|microsoft|amd)\\b",
+        "\\bmillionaire[- ]maker\\b", "\\bif you invested\\b", "\\b\\$1,?000 in\\b",
     ].join('|'), 'i');
     raw = raw.filter((n: any) => !FORECAST_HEADLINE.test(String(n.title || '')));
     if (!raw.length) {
