@@ -16,6 +16,8 @@ const BASE = (() => {
 
 // 폴백일 때만 나오는 지문. 하나라도 걸리면 «AI 아님».
 const FALLBACK_MARKS = [
+    // ★ 예열이 빈 입력으로 호출해 캐시에 앉힌 «정직한 무능력» 문장들 (2026-09-10)
+    '분석 불가능', '판단 불가', '데이터 부재', '데이터 전무', '피드 단절',
     'Insight generation failed',
     'temporarily unavailable',
     'Briefing not available',
@@ -48,10 +50,17 @@ function hasFallbackMark(text) {
     return FALLBACK_MARKS.find((m) => s.includes(m)) || null;
 }
 
+/** ET 기준 지금 몇 시인가 — «아직 안 만들어진 것»과 «못 만든 것»을 가르는 데 쓴다. */
+function etClock() {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    return { hours: d.getHours() + d.getMinutes() / 60, weekday: d.getDay() >= 1 && d.getDay() <= 5 };
+}
+
 const results = [];
 function record(surface, verdict, detail) {
     results.push({ surface, verdict, detail });
-    const icon = verdict === 'AI' ? '✅' : verdict === 'FALLBACK' ? '🔴' : verdict === 'EMPTY' ? '⚪' : '⚠️';
+    const icon = verdict === 'AI' ? '✅' : verdict === 'FALLBACK' ? '🔴'
+        : verdict === 'PENDING' ? '⏳' : verdict === 'EMPTY' ? '⚪' : '⚠️';
     console.log(`${icon} ${surface.padEnd(38)} ${verdict.padEnd(9)} ${detail}`);
 }
 
@@ -63,7 +72,15 @@ function record(surface, verdict, detail) {
         const { status, body } = await get(`/api/guardian/briefing?locale=${loc}`);
         if (status !== 200 || !body) { record(`briefing:${loc}`, 'HTTP', `status ${status}`); continue; }
         const text = body.briefing;
-        if (!text) { record(`briefing:${loc}`, 'EMPTY', body.message || '본문 없음'); continue; }
+        if (!text) {
+            // 아침 브리핑은 08:00 ET 에 만들어진다. 그 전이나 주말이면 «없는 것»이 정상이다.
+            const { hours, weekday } = etClock();
+            const tooEarly = !weekday || hours < 8.5;
+            record(`briefing:${loc}`, tooEarly ? 'PENDING' : 'EMPTY',
+                tooEarly ? `아직 생성 전 (ET ${hours.toFixed(1)}시${weekday ? '' : ' · 주말'}) — 정상`
+                         : (body.message || '본문 없음'));
+            continue;
+        }
         const mark = hasFallbackMark(text);
         if (body.degraded === true || String(body.source) !== 'claude' || mark) {
             record(`briefing:${loc}`, 'FALLBACK', `source=${body.source} degraded=${body.degraded}${mark ? ` mark="${mark}"` : ''}`);
@@ -158,13 +175,31 @@ function record(surface, verdict, detail) {
     }
 
     // 6) 커맨드 심층분석 — POST 전용. 이것도 usedFallback 을 준다.
+    //    ★ [2026-09-10] 이 라우트는 화면이 계산한 snapshot 을 받아야 한다. 빈 몸으로 부르면
+    //      422 로 막힌다(예열이 캐시를 오염시킨 뒤 넣은 가드다). 검사기는 «실제 화면이
+    //      보내는 모양»을 흉내 내야 진짜 경로를 잰다.
     {
+        const snapshot = {
+            session: 'CLOSED',
+            signalCore: { score: 62, label: 'ACCUMULATION', rsi: 54.2, rvol: 1.1 },
+            structure: { support: 218, resistance: 232, trend: 'RANGE' },
+            sma: { sma20: 224.1, sma50: 219.8, sma200: 198.4, goldenCross: true },
+            volatility: { ivPercentile: 38, impliedMovePct: 3.2, atrPct: 2.4 },
+            flow: { netPremium: 2800000, pcRatio: 2.16, opi: 68 },
+            squeeze: { probability: 18, label: 'LOW' },
+            technicals: { adx: { value: 21.4, regime: 'WEAK_TREND', diPos: 24, diNeg: 19 },
+                          obv: { slopePct: 1.8, divergence: 'NONE' },
+                          bb: { widthPct: 4.2, percentile: 31, squeeze: false },
+                          atr: { pct: 2.4 } },
+        };
         const { status, body } = await get('/api/command/deep-analysis', {
             method: 'POST',
             headers: { ...UA, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ticker: 'NVDA', locale: 'ko', triggerReason: 'AUDIT' }),
+            body: JSON.stringify({ ticker: 'NVDA', locale: 'ko', triggerReason: 'AUDIT', snapshot }),
         });
-        if (status !== 200 || !body) record('cmd:deep-analysis', 'HTTP', `status ${status}`);
+        if (status === 422) {
+            record('cmd:deep-analysis', 'HTTP', '422 — 검사기 snapshot 이 가드 기준에 못 미친다(검사기를 고칠 것)');
+        } else if (status !== 200 || !body) record('cmd:deep-analysis', 'HTTP', `status ${status}`);
         else {
             const insight = pick(body.keyInsight);
             const missing = ['ko', 'en', 'ja'].filter((l) => pick(body.keyInsight, l).length < 30);
@@ -195,8 +230,11 @@ function record(surface, verdict, detail) {
         }
     }
 
-    const bad = results.filter((r) => r.verdict !== 'AI');
-    console.log(`\n── 결과: ${results.length - bad.length}/${results.length} 진짜 AI ──`);
+    // PENDING = 「아직 만들 때가 아니다」. 실패가 아니므로 세지 않는다.
+    const bad = results.filter((r) => r.verdict !== 'AI' && r.verdict !== 'PENDING');
+    const pending = results.filter((r) => r.verdict === 'PENDING').length;
+    const scored = results.length - pending;
+    console.log(`\n── 결과: ${scored - bad.length}/${scored} 진짜 AI${pending ? ` (대기 ${pending}건 제외)` : ''} ──`);
     if (bad.length) {
         console.log('\n⚠ AI 가 아닌 자리:');
         for (const b of bad) console.log(`   ${b.verdict.padEnd(9)} ${b.surface} — ${b.detail}`);
