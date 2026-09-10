@@ -41,8 +41,11 @@ const SYSTEM = [
     '  NEVER introduce a company that is not in the headline. If unsure of a Korean/Japanese form,',
     '  keep the original English spelling.',
     '- Numbers must match exactly ($18 Million = 1,800만 달러).',
-    '- Idioms are not literal. "Guilty by association" is 연좌·동반 하락, not 유죄.',
-    '  Translate the MEANING for an investor, not word by word.',
+    '- Idioms and market terms are NOT literal. Use the phrase Korean/Japanese investors actually use:',
+    '    all-time high → 사상 최고치 (NOT 전시간 고점) · 史上最高値',
+    '    guilty by association → 연좌·동반 하락 (NOT 유죄)',
+    '    outpacing → 앞서다·상회 · take-or-pay → 테이크 오어 페이',
+    '  Translate the MEANING for an investor, never word by word.',
     '',
     'RULES',
     '- ko: 35-70자 · ja: 25-55자. One sentence. What happened, for THIS ticker.',
@@ -75,7 +78,12 @@ function hasGhostCompany(translated: string, sourceTitle: string): boolean {
     const src = sourceTitle.toLowerCase();
     return GHOST_NAMES.some(([ko, en]) => translated.includes(ko) && !src.includes(en));
 }
-const PREDICT = /전망|예상\s*(됩니다|된다|상회)|상회할|하회할|will\s+(rise|fall|beat|miss)|予想されます/i;
+/**
+ * 예측 표현. 실측으로 계속 새 형태가 나와 넓혀 왔다.
+ *   「지속될 것으로 예상됨」 — 첫 정규식(예상\s*됩니다)이 «예상됨»을 못 잡았다.
+ *   금융 앱에서 예측은 규정 위험이라 조사·어미 변형까지 포괄한다.
+ */
+const PREDICT = /전망|예상\s*(됩니다|된다|됨|되며|상회)|것으로\s*(예상|전망)|상회할|하회할|will\s+(rise|fall|beat|miss|continue)|expected\s+to|予想され/i;
 
 function ageLabel(iso: string): string {
     const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
@@ -91,7 +99,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
-    const cacheKey = `ticker-news:v2:${ticker}`;
+    const cacheKey = `ticker-news:v3:${ticker}`;
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.items?.length) {
         return NextResponse.json({ ...cached, fromCache: true });
