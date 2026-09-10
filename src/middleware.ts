@@ -45,6 +45,23 @@ export async function middleware(request: NextRequest) {
     intlResponse.headers.set('x-url', request.url);
     intlResponse.headers.set('x-pathname', request.nextUrl.pathname);
 
+    // ★ [2026-09-10] 사용자 화면에서 Vercel Toolbar 를 지운다.
+    //
+    //   대표: 「완성품 앱에서 이런것이 나온다는것이 말이되냐?」 — 맞는 말이다.
+    //   9/7 iOS 빌드에 프리뷰 주소가 «x-vercel-set-bypass-cookie=true» 와 함께 박혀 나갔다.
+    //   그 파라미터가 _vercel_jwt 쿠키를 심고, 그 쿠키가 개발자용 Toolbar 를 띄운다.
+    //   프로젝트 보호를 껐으므로 새 설치엔 더 이상 안 심긴다. 그런데 **이미 설치된 폰엔
+    //   쿠키가 남아** 앱을 지웠다 깔지 않는 한 계속 뜬다. 그래서 서버가 지워 준다.
+    //   (HttpOnly 라 앱 쪽 자바스크립트로는 못 지운다 — 응답 헤더로만 지워진다)
+    if (request.cookies.has('_vercel_jwt')) {
+        for (const domain of [undefined, request.nextUrl.hostname]) {
+            intlResponse.cookies.set({
+                name: '_vercel_jwt', value: '', path: '/', maxAge: 0,
+                ...(domain ? { domain } : {}),
+            });
+        }
+    }
+
     return intlResponse;
 }
 

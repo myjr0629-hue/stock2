@@ -267,8 +267,56 @@ def audit_live(tag: str, aid: str, pkg: str, in_flight: bool):
                 f"라이브 이름이 의도와 다르다 — 원함 {exp!r} / 실제 {got!r}")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# ★ [2026-09-10] 앱이 «어디에 접속하는지»를 업로드 전에 못 박는다.
+#
+#   실제로 난 사고: 9/7 iOS 빌드(1.7/build 9)에 프리뷰 주소가 박혀 나갔다.
+#     https://stock2-git-feat-…vercel.app/…?x-vercel-set-bypass-cookie=true
+#   결과 ① 스토어에서 받은 사용자 화면에 **Vercel Toolbar** 가 떴다.
+#        ② 웹을 고쳐도 앱에 반영이 안 됐다(프리뷰는 그 시점 코드에서 멈춰 있다).
+#        ③ 보호 우회 토큰이 공개 바이너리에 실려 나갔다.
+#   데이터는 같은 Redis 를 보므로 «최신»이어서 겉보기엔 멀쩡했고, 그래서 늦게 발견됐다.
+#
+#   capacitor.config.json 은 gitignore 라 «커밋 검토»로는 절대 안 잡힌다.
+#   사람이 눈으로 볼 파일이 아니므로 **기계가 본다.**
+# ══════════════════════════════════════════════════════════════════════
+PROD_HOSTS = {"www.signumhq.com", "signumhq.com"}
+NATIVE_CONFIGS = [
+    ("iOS", "ios/App/App/capacitor.config.json"),
+    ("Android", "android/app/src/main/assets/capacitor.config.json"),
+]
+
+
+def audit_native_server_url():
+    """네이티브 빌드 설정이 프로덕션을 가리키는지. 아니면 업로드하면 안 된다."""
+    import os
+    from urllib.parse import urlparse
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for tag, rel in NATIVE_CONFIGS:
+        path = os.path.join(root, rel)
+        if not os.path.exists(path):
+            warn(f"{tag} 빌드설정", f"{rel} 없음 — cap sync 전이면 정상")
+            continue
+        try:
+            cfg = json.load(open(path, encoding="utf-8"))
+        except Exception as e:
+            bad(f"{tag} 빌드설정", f"{rel} 읽기 실패: {e}")
+            continue
+        url = (cfg.get("server") or {}).get("url") or ""
+        host = urlparse(url).netloc
+        if host not in PROD_HOSTS:
+            bad(f"{tag} 빌드설정",
+                f"앱이 프로덕션이 아닌 곳을 본다 → {host or '(빈 값)'} · 고치기: "
+                f"CAPACITOR_PREVIEW_URL 없이 `npx cap sync {tag.lower()}`")
+        for banned in ("x-vercel-protection-bypass", "x-vercel-set-bypass-cookie", "vercel.app"):
+            if banned in url:
+                bad(f"{tag} 빌드설정", f"프리뷰 전용 값이 남아 있다 → {banned}")
+
+
 def main():
     as_json = "--json" in sys.argv
+    # 스토어 상태보다 먼저 본다 — 이게 틀리면 나머지가 다 맞아도 올리면 안 된다.
+    audit_native_server_url()
     for tag, aid, pid, pkg in APPS:
         in_flight = audit_app(tag, aid)
         audit_live(tag, aid, pkg, in_flight)
