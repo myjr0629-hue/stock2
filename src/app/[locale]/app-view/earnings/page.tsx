@@ -167,20 +167,23 @@ export default function EarningsPage() {
                         {e.quarter != null && e.year != null && (
                           <span className={`${s.ecRQ} num`}>Q{e.quarter} FY{String(e.year).slice(-2)}</span>
                         )}
-                        {/* 회사명 — 티커만으로는 무슨 회사인지 모른다. 있을 때만 그린다. */}
-                        {e.brief?.[locale as 'ko' | 'en' | 'ja']?.name && (
-                          <span className={s.ecRName}>{e.brief[locale as 'ko' | 'en' | 'ja']!.name}</span>
-                        )}
                       </span>
                       <span className={s.ecRMet}>
                         <span className={s.ecRM}><s>{t.eps}</s><b className="num">{fmtEps(e.epsEstimate)}</b></span>
                         <span className={s.ecRM}><s>{t.rev}</s><b className="num">{fmtRev(e.revenueEstimate)}</b></span>
                       </span>
                       </span>
-                      {/* 관전 포인트 — 숫자만으로는 «뭘 봐야 하는지»를 알 수 없다.
-                          한 줄로 접는다. 없으면 아예 그리지 않아 행 높이가 그대로다. */}
+                      {/* 아랫줄 — «회사명 — 관전 포인트».
+                          ★ 회사명을 윗줄(티커 옆)에 뒀더니 분기 칩과 공간을 다퉈
+                            「오…」「코스…」로 잘렸다. 아랫줄은 폭을 다 쓸 수 있다.
+                          없으면 아예 그리지 않아 행 높이가 예전 그대로다. */}
                       {e.brief?.[locale as 'ko' | 'en' | 'ja']?.watch && (
-                        <span className={s.ecRWatch}>{e.brief[locale as 'ko' | 'en' | 'ja']!.watch}</span>
+                        <span className={s.ecRWatch}>
+                          {e.brief[locale as 'ko' | 'en' | 'ja']!.name && (
+                            <b className={s.ecRName}>{e.brief[locale as 'ko' | 'en' | 'ja']!.name}</b>
+                          )}
+                          {e.brief[locale as 'ko' | 'en' | 'ja']!.watch}
+                        </span>
                       )}
                     </a>
                   ))}

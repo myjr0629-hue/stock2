@@ -146,16 +146,19 @@
   min-width: 0;
 }
 
-/* 티커 옆 회사명 — 보조 정보라 작고 흐리게, 넘치면 자른다 */
+/* 회사명 — 아랫줄 맨 앞. 관전 포인트와 한 줄로 이어진다.
+   ★ 윗줄(티커 옆)에 뒀더니 분기 칩과 공간을 다퉈 「오…」「코스…」로 잘렸다.
+     아랫줄은 폭을 다 쓸 수 있어 잘리지 않는다. */
 .ecRName {
-  font: 600 11px/1.2 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+  color: #dbe6ff;
+  margin-right: 6px;
+}
+.ecRName::after {
+  content: '·';
+  margin-left: 6px;
   color: var(--text-muted, #94a3b8);
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 92px;
-  flex: 0 1 auto;
+  font-weight: 400;
 }
 
 /* 관전 포인트 — 아랫줄 전체. 한 줄로 자른다(카드 높이 고정) */
