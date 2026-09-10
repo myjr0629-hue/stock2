@@ -3500,3 +3500,54 @@ SNS 를 한 곳 더 도는 대신, GSC 가 가리킨 곳에 페이지를 만들�
 
 기존 3개념(options-flow·put-call-ratio·max-pain)의 `related` 에 9곳 상호 링크를 넣었다.
 내부 링크가 없으면 새 페이지는 색인되지 않는다.
+
+---
+
+## 2026-09-11 (사이클 2) — X 답글 + Bluesky, 그리고 «블루스카이 링크가 죽어 있었다»
+
+### ① X @signumhq — Whale Insider 40.7K 조회 스레드에 답글
+PLTR/NVDA 파트너십 헤드라인 스레드. 헤드라인이 아니라 **체인**으로 반박했다.
+- `$NVDA -2.49%` 인데 `$235C`(내일 만기)에 **+24,245 계약 · $570M 신규 건옥** — 청산이 아니다
+- 맥스페인 $225, 가격은 감마플립 $187.50 위
+- 278자(링크가 240자 부근 = 280 안쪽이라 안 잘림) + `nvda-flow-en.png` 첨부(골드 AI 배지 노출)
+- https://x.com/signumhq/status/2098075066932318580 · 태그 `x_us`
+
+### ② Bluesky @signumhq.bsky.social — MU 훅 (어제 NVDA 와 종목 분리)
+- `$MU -4.31%`(장중 실측) · 맥스페인 $990 · **26/09/11 $1000 P +3,792계약 · $379M 신규 건옥**
+- 265/300자 · https://bsky.app/profile/signumhq.bsky.social/post/3mv6fyzr2hk2g · 태그 `bluesky_post`
+- 이미지 첨부 실패: Bluesky 는 `input[type=file]` 을 **클릭 시점에 생성**해서 붙일 훅이 없고,
+  네이티브 파일창은 이 세션에서 조작 불가. → 아래 ③ 이 이 문제까지 같이 푼다.
+
+### ③ ★ 발견 — 자동 발행된 Bluesky 글은 «링크가 클릭되지 않는 텍스트»였다
+
+`src/lib/marketing-console/bluesky.ts` 가 **facets 를 하나도 만들지 않았다.**
+AT 프로토콜은 스스로 링크를 만들지 않는다 — bsky.app 작성창이 **클라이언트에서** facets 를
+계산하기 때문에 손으로 쓴 글만 링크가 살아 있고, API 로 올린 같은 문장은 죽은 텍스트다.
+
+그런데 `autopilot.ts:288` 은 발행 직전에 스마트링크를 **반드시 붙인다**:
+```
+const textWithLink = /https?:\/\//.test(text) ? text : `${text}\n${land}`;
+```
+즉 오토파일럿이 올린 모든 Bluesky 글은 CTA 링크가 눌리지 않았다.
+(라이브러리 주석의 「our posts carry no link anyway」는 사실이 아니었다 — 같이 고쳤다.)
+
+**고친 것** — `buildFacets()` 신설 후 `bskyPost`·`bskyReply` 양쪽에 연결:
+- 인덱스가 **UTF-8 바이트 오프셋**이다. `String.length` 로 재면 ko/ja 에서 전부 어긋난다.
+- 링크: `https://` 없는 맨 도메인(`signumhq.com/app?from=…`)도 잡고 `uri` 에는 스킴을 붙인다.
+- 문장 끝 구두점은 URL 이 아니다(`…$990.` 의 마침표를 링크에서 제외).
+- `#태그` + **캐시태그**. 캐시태그는 `facet#tag` 인데 값에 `$` 를 **남긴다**(`tag:"$MU"`).
+  → 이게 있어야 Bluesky 의 `$TICKER` 검색 피드에 우리 글이 들어간다. 도달이 늘어난다.
+- `text.slice(0,300)` **뒤에** 계산한다(자르고 나서 재야 인덱스가 맞는다).
+
+**검증** — 방금 작성창으로 올린 글을 공개 API 로 되읽어 «정답»과 대조했다:
+```
+com.atproto.repo.getRecord … rkey=3mv6fyzr2hk2g
+정답: [{tag:"$MU",0,3}, {uri:"https://signumhq.com/app?from=bluesky_post",233,267}]
+우리: [{tag:"$MU",0,3}, {uri:"https://signumhq.com/app?from=bluesky_post",233,267}]
+✅ 바이트까지 동일
+```
+추가로 ko/ja 멀티바이트 3케이스 통과 · `$1000`·`$379M` 은 캐시태그로 오인하지 않음 ·
+`e.g.` / `U.S.` 는 링크로 오인하지 않음.
+
+⚠️ 로컬에 `BLUESKY_HANDLE`/`BLUESKY_APP_PASSWORD` 가 없다(Vercel Preview·Production 에만 있다).
+`vercel env pull` 은 **금지**(.env.local 의 AWS 키를 덮는다) → 실제 발행 경로 검증은 배포 후 오토파일럿 첫 글에서 확인한다.

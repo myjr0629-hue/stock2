@@ -28,6 +28,62 @@ async function createSession(): Promise<Session | null> {
   return { accessJwt: j.accessJwt, did: j.did, handle: j.handle };
 }
 
+// ---------------------------------------------------------------------------
+// Rich-text facets. AT Protocol linkifies NOTHING on its own — the bsky.app
+// composer computes facets client-side, which is why a hand-typed post has a
+// live link and an API post of the same text ships it as dead plain text.
+// autopilot appends our smartlink to every Bluesky post, so without this the
+// CTA was unclickable on every auto-published post.
+// Indices are UTF-8 BYTE offsets — ko/ja text must never be measured with
+// String.length.
+// ---------------------------------------------------------------------------
+const ENC = new TextEncoder();
+const FACET_URL_RE = /(^|\s|\()((?:https?:\/\/\S+)|(?:[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/\S*)?))/gim;
+const FACET_TAG_RE = /(^|\s)(#[^\s#]{1,64})/g;
+// Cashtags are a #tag facet whose value KEEPS the '$' (verified against a post
+// made by the official composer). This is what puts us in $TICKER search feeds.
+const FACET_CASHTAG_RE = /(^|\s)(\$[A-Za-z][A-Za-z.-]{0,6})\b/g;
+
+export function buildFacets(text: string): unknown[] {
+  const facets: unknown[] = [];
+  const byteOf = (upTo: number) => ENC.encode(text.slice(0, upTo)).length;
+
+  for (const m of text.matchAll(FACET_URL_RE)) {
+    const start = (m.index ?? 0) + m[1].length;
+    // Trailing punctuation belongs to the sentence, not the URL.
+    let raw = m[2].replace(/[.,;:!?'"]+$/, '');
+    if (raw.endsWith(')') && !raw.includes('(')) raw = raw.slice(0, -1);
+    if (!raw) continue;
+    const uri = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    facets.push({
+      index: { byteStart: byteOf(start), byteEnd: byteOf(start + raw.length) },
+      features: [{ $type: 'app.bsky.richtext.facet#link', uri }],
+    });
+  }
+
+  for (const m of text.matchAll(FACET_TAG_RE)) {
+    const start = (m.index ?? 0) + m[1].length;
+    const tag = m[2].replace(/[.,;:!?]+$/, '');
+    if (tag.length < 2) continue;
+    facets.push({
+      index: { byteStart: byteOf(start), byteEnd: byteOf(start + tag.length) },
+      features: [{ $type: 'app.bsky.richtext.facet#tag', tag: tag.slice(1) }],
+    });
+  }
+
+  for (const m of text.matchAll(FACET_CASHTAG_RE)) {
+    const start = (m.index ?? 0) + m[1].length;
+    const cash = m[2].replace(/[.-]+$/, '').toUpperCase();
+    if (cash.length < 2) continue;
+    facets.push({
+      index: { byteStart: byteOf(start), byteEnd: byteOf(start + cash.length) },
+      features: [{ $type: 'app.bsky.richtext.facet#tag', tag: cash }],
+    });
+  }
+
+  return facets;
+}
+
 // Bluesky does NOT auto-fetch an OG image from a URL (and our posts carry no
 // link anyway) — the level card must be uploaded as a BLOB and embedded, or the
 // post ships text-only (the gap the user spotted 2026-07-21). Blob cap ~1MB; our
@@ -58,7 +114,11 @@ export async function bskyPost(text: string, imageUrl?: string, altText = 'SIGNU
   const s = await createSession();
   if (!s) return { ok: false, error: 'BLUESKY_HANDLE / BLUESKY_APP_PASSWORD 미설정 또는 인증 실패' };
   try {
-    const record: Record<string, unknown> = { $type: 'app.bsky.feed.post', text: text.slice(0, 300), createdAt: new Date().toISOString() };
+    // Facets are byte-indexed into the FINAL text, so truncate first.
+    const finalText = text.slice(0, 300);
+    const record: Record<string, unknown> = { $type: 'app.bsky.feed.post', text: finalText, createdAt: new Date().toISOString() };
+    const facets = buildFacets(finalText);
+    if (facets.length) record.facets = facets;
     let withImage = false;
     if (imageUrl) {
       const blob = await uploadBskyImage(s, imageUrl);
@@ -148,6 +208,8 @@ export async function bskySearchTargets(limit = 30): Promise<BskyTarget[]> {
 export async function bskyReply(target: BskyTarget, text: string): Promise<{ ok: boolean; uri?: string; error?: string }> {
   const s = await createSession();
   if (!s) return { ok: false, error: 'BLUESKY 인증 실패' };
+  const replyText = text.slice(0, 300);
+  const replyFacets = buildFacets(replyText);
   try {
     const res = await fetch(`${PDS}/xrpc/com.atproto.repo.createRecord`, {
       method: 'POST',
@@ -157,8 +219,9 @@ export async function bskyReply(target: BskyTarget, text: string): Promise<{ ok:
         collection: 'app.bsky.feed.post',
         record: {
           $type: 'app.bsky.feed.post',
-          text: text.slice(0, 300),
+          text: replyText,
           createdAt: new Date().toISOString(),
+          ...(replyFacets.length ? { facets: replyFacets } : {}),
           reply: { root: { uri: target.uri, cid: target.cid }, parent: { uri: target.uri, cid: target.cid } },
         },
       }),
