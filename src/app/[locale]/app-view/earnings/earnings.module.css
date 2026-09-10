@@ -161,14 +161,22 @@
   font-weight: 400;
 }
 
-/* 관전 포인트 — 아랫줄 전체. 한 줄로 자른다(카드 높이 고정) */
+/* 관전 포인트 — 아랫줄. **두 줄까지 쓴다.**
+   ★ 처음엔 한 줄로 자르고 말줄임을 붙였는데, 대표 지적대로 「주…」처럼 잘려서
+     정작 «왜 중요한지»가 안 보였다. 잘라 내면 그 줄을 넣은 의미가 없다.
+   ★ 그리고 한 줄 기준으로 잡으면 **언어마다 다르게 잘린다** — 같은 뜻이라도
+     영어가 한국어보다 1.7배쯤 길다. 두 줄을 주면 세 언어가 모두 들어간다.
+     (프롬프트 상한: ko 95자 · ja 70자 · en 165자 → 375px 두 줄 안)
+   line-clamp 2 라 세 줄로 늘어나지 않는다. 카드 높이는 «두 줄»로 고정이다. */
 .ecRWatch {
-  display: block;
-  margin-top: 4px;
-  font: 500 11.5px/1.45 'Inter', system-ui, sans-serif;
-  color: #b4c6ef;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  margin-top: 5px;
+  font: 500 11.5px/1.5 'Inter', system-ui, sans-serif;
+  color: #b4c6ef;
   opacity: 0.92;
+  word-break: keep-all;      /* 한국어를 어절 단위로 접는다 */
+  overflow-wrap: anywhere;   /* 영어 긴 단어가 넘치지 않게 */
 }

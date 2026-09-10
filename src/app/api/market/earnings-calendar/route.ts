@@ -71,7 +71,7 @@ export interface EarningsRow {
  */
 async function attachEarningsBrief(rows: any[]): Promise<{ rows: any[]; aiCount: number; aiAt: string | null }> {
     try {
-        const pack = await getFromCache<any>('earnings:brief:v1');
+        const pack = await getFromCache<any>('earnings:brief:v2');
         if (!pack?.tickers) return { rows, aiCount: 0, aiAt: null };
         let n = 0;
         const merged = rows.map((r) => {

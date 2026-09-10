@@ -25,10 +25,26 @@ import { publicBase } from '@/lib/net/publicBase';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-export const EARNINGS_BRIEF_KEY = 'earnings:brief:v1';
+// v2 — 모델과 프롬프트가 바뀌었다. 옛 판(얕은 문장)이 남으면 안 되므로 키를 올린다.
+export const EARNINGS_BRIEF_KEY = 'earnings:brief:v2';
 
-/** 가벼운 모델. RPM 200 · 단가 입력 $0.06 / 출력 $0.24 per 1M. */
-const LIGHT_MODEL = 'us.amazon.nova-lite-v1:0';
+/**
+ * ★ [2026-09-10] 가벼운 모델(Nova Lite)에서 Haiku 로 되돌렸다.
+ *
+ *   처음엔 «회사명 현지화 + 정형 서술»이라 보고 가벼운 모델을 썼다. 형식은 통과했다.
+ *   그런데 대표가 「조금 더 깊이를 줬으면 좋겠는데 그러면 이상하게 나오나?」라고 물어
+ *   깊이를 요구하는 프롬프트로 두 모델을 실제로 돌려 봤다. 결과가 갈렸다:
+ *
+ *     Nova Lite  「메모리 가격 상승으로 인한 수익 증가가 **예상됩니다**」  ← 금지한 예측 표현
+ *                「회원 유지 비용을 주목하세요; 회원 유지 비용은 운영 효율성을 반영합니다」 ← 동어반복
+ *     Haiku      「DRAM·낸드 평균판매가(ASP) 추이와 서버 수요 강도;
+ *                  메모리 사이클 회복 지속 여부가 분기 수익성을 결정」
+ *                「클라우드 인프라(OCI) 매출 성장률…」 「FICC 거래 수익…」 「풀프라이스 상품 비중…」
+ *
+ *   깊이를 요구하면 가벼운 모델은 **더 나빠진다** — 아는 척을 하다가 예측 표현이 샌다.
+ *   비용은 162종목 월 $6.98(분기 1회 갱신이면 그보다 훨씬 적다). 값어치가 있다.
+ */
+const LIGHT_MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 /**
  * ★ 회사명은 «지어내게» 두지 않는다.
@@ -75,25 +91,32 @@ const bedrock = () => new BedrockRuntimeClient({
 });
 
 const SYSTEM = [
-    'You add a short native-language line to each upcoming US earnings event in a stock app.',
-    'For each ticker produce: name (company name in that language) and watch (what to look at this quarter).',
+    'You write the "what to watch" line for upcoming US earnings in an institutional-grade stock app.',
+    'For each ticker produce: name (company name in that language) and watch.',
     '',
-    'RULES (strict)',
-    '- name: the company name as investors in that language actually call it. English name for "en".',
-    '- watch: Korean 30-55자 · Japanese 20-40자 · English 40-75 chars. ONE thing to watch,',
-    "  tied to that company's actual business — not a generic 'check the results'.",
-    '- NEVER predict a result or a direction. No "will beat/miss", "전망", "예상 상회", "상회할".',
-    '  Describe WHAT to look at, never what will happen.',
+    'DEPTH — this is the whole point. A generic line is worthless.',
+    '- Name the SPECIFIC line item, segment, or metric that decides this quarter for THIS company.',
+    '  Not "revenue growth" — say which segment. Not "margins" — say which margin and what drives it.',
+    '- Tie it to something real about the company: a business shift, a product cycle, a pricing',
+    '  regime, a capex cycle, a regulatory change, a competitive position.',
+    '- Where the estimate given is unusual (very high EPS, huge revenue), say what that implies',
+    '  structurally — a memory pricing cycle, a buyback-shrunk share count, a seasonal quarter.',
+    '- Two clauses is the shape: WHAT to look at ; WHY that number moves the read.',
+    '',
+    'HARD RULES',
+    '- Korean 55-95자 · Japanese 40-70자 · English 90-165 chars.',
+    '- NEVER predict a result or a direction. No "전망", "예상됩니다", "상회할", "will beat/miss",',
+    '  "expected to". Describe what to LOOK at and why it matters structurally — observation, not forecast.',
     '- No investment advice. Do not invent numbers; you may reference the estimate given.',
     '- LANGUAGE PURITY: "ko" Korean only, "en" English only, "ja" Japanese only.',
-    '  Ticker symbols and numbers are fine in any language.',
+    '  Ticker symbols and standard finance acronyms (OCI, FICC, ASP, DRAM) are fine in any language.',
     '',
     'Return ONLY JSON keyed by ticker: {"ORCL":{"ko":{"name":"..","watch":".."},"en":{...},"ja":{...}}, ...}',
 ].join('\n');
 
 const HANGUL = /[가-힣]/, KANA = /[぀-ヿ]/, KANJI = /[一-鿿]/;
 /** 예측 표현은 우리 규칙상 절대 나가면 안 된다 — 여기서 잘라 낸다. */
-const PREDICT = /전망|예상\s*상회|상회할|하회할|will\s+(beat|miss|rise|fall)|expected\s+to/i;
+const PREDICT = /전망|예상\s*(상회|됩니다|된다)|상회할|하회할|증가가\s*예상|will\s+(beat|miss|rise|fall|increase)|expected\s+(to|increase)|予想されます/i;
 
 export async function GET(request: Request) {
     const t0 = Date.now();
@@ -127,7 +150,8 @@ export async function GET(request: Request) {
     //   같은 8종목을 따로 돌리니 8/8 통과했다 — 모델 능력이 아니라 출력 토큰 한계였다.
     //   14 × 3개국어 × (회사명+한 줄) 이면 4,000 토큰으로 모자란다.
     //   → 배치를 10 으로 줄이고 토큰을 6,000 으로 올린다. 토큰은 이 모델에서 사실상 공짜다.
-    const BATCH = 10;
+    // Haiku 는 RPM 10 이라 «호출 수»가 비싸다 → 배치를 키우고 토큰을 넉넉히 준다.
+    const BATCH = 8;
     const client = bedrock();
     const out: Record<string, any> = { ...(prev.tickers || {}) };
     let made = 0, rejected: string[] = [], calls = 0;
@@ -162,9 +186,10 @@ export async function GET(request: Request) {
                 const entry: any = {};
                 // 언어별로 따로 받는다 — 하나가 오염돼도 나머지는 살린다.
                 for (const [lang, ok] of [
-                    ['ko', (w: string) => w.length >= 18 && HANGUL.test(w) && !PREDICT.test(w)],
-                    ['en', (w: string) => w.length >= 25 && !HANGUL.test(w) && !KANA.test(w) && !PREDICT.test(w)],
-                    ['ja', (w: string) => w.length >= 12 && !HANGUL.test(w) && (KANA.test(w) || KANJI.test(w)) && !PREDICT.test(w)],
+                    // 깊이 판이므로 하한을 올린다 — 짧으면 «일반론»이라는 뜻이다.
+                    ['ko', (w: string) => w.length >= 34 && HANGUL.test(w) && !PREDICT.test(w)],
+                    ['en', (w: string) => w.length >= 60 && !HANGUL.test(w) && !KANA.test(w) && !PREDICT.test(w)],
+                    ['ja', (w: string) => w.length >= 26 && !HANGUL.test(w) && (KANA.test(w) || KANJI.test(w)) && !PREDICT.test(w)],
                 ] as [string, (w: string) => boolean][]) {
                     const cell = v[lang] || {};
                     const watch = String(cell.watch || '').trim();
