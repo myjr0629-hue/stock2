@@ -3637,38 +3637,16 @@ function CmdPageContent() {
           {/* 5-Day daily-change tape — recent momentum between chart & forward view */}
           <App5DayTape ticker={data.ticker} locale={locale} />
 
-          <AnalystConsensus analyst={data.analyst} price={displayPrice} locale={locale} />
-          <FundamentalsCard raw={data.fundRaw || null} locale={locale} />
-          <EarningsCardPremium raw={data.earnRaw || null} locale={locale} />
-
-          {/* Company Description */}
-          {companyDescription && (
-            <div className={`${s.premiumCard} ${s.animateIn} ${s.delay6}`}>
-              <div className={s.premiumHeader}>
-                <div className={s.premiumTitle}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="2" width="20" height="20" rx="2" ry="2" />
-                    <path d="M7 22V14h10v8" />
-                    <path d="M9 8h2" />
-                    <path d="M13 8h2" />
-                    <path d="M9 12h2" />
-                    <path d="M13 12h2" />
-                  </svg>
-                  {locale === 'ko' ? '기업 개요' : locale === 'ja' ? '企業概要' : 'Company Overview'}
-                </div>
-              </div>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-dim)', lineHeight: 1.6, margin: 0 }}>{companyDescription}</p>
-            </div>
-          )}
-
-          {/* Related Peers Live */}
-          {relatedPeers.length > 0 && (
-            <RelatedPeersLive tickers={relatedPeers.slice(0, 4)} currentPrice={displayPrice} locale={locale} />
-          )}
-
           {/* ── 종목 뉴스 ──
-              없으면 카드 자체를 그리지 않는다(뉴스가 없는 종목은 정상이다).
-              현지화가 실패한 항목은 ko 가 빈 문자열로 오므로 «영어 원문»으로 떨어진다. */}
+              ★ [2026-09-11] 맨 아래에서 «5일 테이프 바로 아래»로 옮겼다.
+                대표 지적: 「가장 하단에 있는 것은 아닌 것 같은데 위치를 고민해봐」.
+                ① 5일 테이프에서 「어제 -2.5%」를 본 사용자가 바로 던지는 질문이
+                   «왜 떨어졌지?» 다. 그 답이 맨 아래면 카드 여섯 개를 지나야 만난다.
+                   가격 움직임과 그 이유는 붙어 있어야 한다.
+                ② 뉴스는 신선도가 생명(4h)인데 분기 단위로 바뀌는 펀더멘털·실적 «뒤»에
+                   두면 순서가 거꾸로다.
+                아래로 내려간 카드는 전부 «회사 자체» 정보라 성격이 깔끔하게 갈린다.
+              없으면 카드 자체를 그리지 않는다. 현지화 실패분은 영어 원문으로 떨어진다. */}
           {tickerNews && tickerNews.length > 0 && (
             <div className="premium-card" style={{ padding: '16px 16px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -3700,6 +3678,37 @@ function CmdPageContent() {
               </div>
             </div>
           )}
+
+
+          <AnalystConsensus analyst={data.analyst} price={displayPrice} locale={locale} />
+          <FundamentalsCard raw={data.fundRaw || null} locale={locale} />
+          <EarningsCardPremium raw={data.earnRaw || null} locale={locale} />
+
+          {/* Company Description */}
+          {companyDescription && (
+            <div className={`${s.premiumCard} ${s.animateIn} ${s.delay6}`}>
+              <div className={s.premiumHeader}>
+                <div className={s.premiumTitle}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="2" ry="2" />
+                    <path d="M7 22V14h10v8" />
+                    <path d="M9 8h2" />
+                    <path d="M13 8h2" />
+                    <path d="M9 12h2" />
+                    <path d="M13 12h2" />
+                  </svg>
+                  {locale === 'ko' ? '기업 개요' : locale === 'ja' ? '企業概要' : 'Company Overview'}
+                </div>
+              </div>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-dim)', lineHeight: 1.6, margin: 0 }}>{companyDescription}</p>
+            </div>
+          )}
+
+          {/* Related Peers Live */}
+          {relatedPeers.length > 0 && (
+            <RelatedPeersLive tickers={relatedPeers.slice(0, 4)} currentPrice={displayPrice} locale={locale} />
+          )}
+
         </div>
       )}
 
