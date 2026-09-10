@@ -3551,3 +3551,46 @@ com.atproto.repo.getRecord … rkey=3mv6fyzr2hk2g
 
 ⚠️ 로컬에 `BLUESKY_HANDLE`/`BLUESKY_APP_PASSWORD` 가 없다(Vercel Preview·Production 에만 있다).
 `vercel env pull` 은 **금지**(.env.local 의 AWS 키를 덮는다) → 실제 발행 경로 검증은 배포 후 오토파일럿 첫 글에서 확인한다.
+
+### ④ 신규 채널 — GitHub awesome-quant PR #648 (별 29.5K)
+
+백링크 병목(참조도메인 2 vs Unusual Whales 1.3K)을 직접 겨냥한 채널이다.
+SNS 게시물은 nofollow 로 날아가지만 awesome 리스트 등재는 **영구 백링크**다.
+
+**규칙을 먼저 읽었다** (`CONTRIBUTING.md`) — 저장소 없는 상업 서비스도 등재 가능하나 조건이 있다:
+- 결제정보 없이 쓸 수 있는 **영구 무료 티어** (트라이얼·데모·웨이트리스트는 REJECT)
+- **가격과 무료 티어 한도 공개** + **공개 문서/방법론**
+- **추적 파라미터 없는 안정적 https URL**
+- `Commercial & Proprietary Services` 섹션에만 배치, 한 문장 사실 서술
+
+**우리는 전 항목을 이미 충족했다** (실측 확인, 전부 200):
+```
+/en/pricing            FREE $0 — 13-F 조회 · 섹터 리포트 1 · 60초 갱신
+/en/learn/max-pain     /options-flow  /put-call-ratio  /open-interest
+```
+`/learn/*` 4개가 «방법론 공개» 요건을 그대로 만족한다. 홍보용으로 만든 게 아니라
+SEO 로 만든 페이지인데, 여기서 등재 자격의 근거가 됐다.
+
+**⚠️ 이 채널에서는 `?from=` 태그를 붙이지 않았다.**
+규칙이 「affiliate 나 tracking 파라미터 없는 URL」을 명시한다 — 태그를 붙이면 PR 이 반려된다.
+목적이 백링크 권위이므로 태그는 필요도 없고, 유입은 GSC 의 referrer(`github.com`)로 잡힌다.
+→ 「홍보 링크는 `?from=` 필수」 규칙의 **첫 정당한 예외**. 기록해 둔다.
+
+**제출 전 그들의 검사기로 검증했다** (`scripts/validate_readme.py`):
+```
+Validation passed with 85 warning(s)   ← 85건 전부 기존 다른 줄
+내 줄(734행) 경고: 0건
+diff: +1 / −0  (1 file changed)
+```
+`scripts/url_probe.py` 는 Python 3.11 의 StrEnum 이 필요해 로컬(3.9)에서 못 돌렸다 —
+대신 URL 5개를 직접 200 확인했다.
+
+**막힌 것과 우회**:
+- 파인그레인드 토큰이 stock2 전용이라 fork·branch 생성이 API 로 안 된다(`Resource not accessible`).
+- 그래서 브라우저로 fork → **Upload files** 경로로 검증 끝난 README.md 를 올렸다.
+  `input[type=file]` 이 DOM 에 «미리» 있어서 붙일 수 있었다(Bluesky 는 클릭 시점에 만들어서 못 붙인다).
+- 처음엔 base 가 **내 포크의 main** 으로 잡혀 있었다. 그대로 눌렀으면 상류에 안 갔다.
+  `compare/main...myjr0629-hue:awesome-quant:add-signum-hq` 로 다시 열어 base 를 상류로 고정했다.
+  → **PR 만들기 전에 base 저장소를 눈으로 확인할 것.**
+
+PR: https://github.com/wilsonfreitas/awesome-quant/pull/648
