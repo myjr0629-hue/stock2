@@ -698,8 +698,10 @@ async function generateMorningBriefing() {
     // [FIX] 08:00~08:59 ET window (was 08:00~08:05 — too narrow, single failure killed the day)
     // ★ [2026-09-10] 그래도 좁았다. 한 시간 안에 Bedrock 이 계속 막히면(스로틀 폭주 때 실제로 그랬다)
     //   그날은 끝이었다. 게다가 아래 폴백 저장이 «오늘 것이 있다»를 만들어 남은 시도까지 전부 건너뛰었다.
-    //   → 창을 08~11 ET 로 넓히고, 폴백은 아래 판정에서 «없는 것»으로 친다.
-    if (hour < 8 || hour > 11) return;
+    //   → 창을 08~15 ET(장 마감까지) 로 넓히고, 폴백은 아래 판정에서 «없는 것»으로 친다.
+    //     대표가 본 장면이 «저녁까지 템플릿»이었으므로 아침에만 고쳐선 안 된다.
+    //     비용은 아래 게이트(10분 간격·하루 12사이클)가 묶는다.
+    if (hour < 8 || hour > 15) return;
 
     const now = new Date();
     const etDateStr = now.toLocaleDateString("en-US", { timeZone: "America/New_York" });

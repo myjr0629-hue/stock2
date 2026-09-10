@@ -129,15 +129,17 @@ export async function GET(req: NextRequest) {
         // This covers: cron failure, deployment timing, cold start issues
         // ================================================================
         // 「없다」와 「땜빵이 앉아 있다」는 급한 정도가 다르다.
-        //   없다  → 화면이 빈다. 하루 중 언제든, 5분 간격으로 즉시 고친다.
-        //   땜빵  → 화면은 차 있다. 아침 창(08~12 ET) 안에서만, 20분 간격·하루 8회까지만
-        //           고친다. 오후에 «오전 브리핑»을 다시 만들자고 Bedrock 을 태울 이유가 없다.
-        const repairWindow = degradedPayload ? etTime < 12 : true;
-
-        if (isWeekday && etTime >= 8.08 && repairWindow) {
+        //   없다  → 화면이 빈다. 5분 간격으로 즉시 고친다.
+        //   땜빵  → 화면은 차 있다. 30분 간격으로 느긋하게 고친다.
+        //
+        // 시간 상한은 두지 않는다. 대표 지시가 「언제든지 확실하게」이고, 실제로
+        // 대표가 본 것도 «저녁 8시에 아직 템플릿»이었다. 아침에만 고치면 그 장면이 남는다.
+        // 대신 하루 시도 횟수를 못 박아 비용을 묶는다 — 최악 12콜/일은 현재 여유분
+        // (약 4,000콜/일)의 0.3% 다.
+        if (isWeekday && etTime >= 8.08) {
             const healReason = degradedPayload ? `degraded(${degradedPayload.source})` : 'missing';
-            const gapMs = degradedPayload ? 20 * 60 * 1000 : 5 * 60 * 1000;
-            const maxTries = degradedPayload ? 8 : 24;
+            const gapMs = degradedPayload ? 30 * 60 * 1000 : 5 * 60 * 1000;
+            const maxTries = degradedPayload ? 12 : 24;
 
             const healingKey = degradedPayload
                 ? `briefing:repair:${todayET}`
