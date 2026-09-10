@@ -48,6 +48,36 @@ function getSessionTTL(session: string): number {
  *   Bedrock 콜은 0건 늘어난다. 전부 병렬·짧은 타임아웃이고, 실패한 것은 조용히 뺀다
  *   (보강 실패가 분석 자체를 막으면 안 된다).
  */
+/**
+ * ★ [2026-09-10] «분석 불가능»이 캐시에 앉는 사고를 막는다.
+ *
+ *   이 라우트는 옵션 지표를 **호출자가 넘겨 준다**(flowData). 화면은 그걸 계산해서
+ *   보내지만, 서버끼리 부르는 경로(예열 크론)는 그 계산을 못 한다.
+ *   그런데 가드가 없어서 빈 데이터로도 Bedrock 을 부르고, 모델이 정직하게
+ *   「모든 팩터가 N/A 라 분석 불가능」이라고 쓴 것을 **그대로 캐시에 저장**했다.
+ *   실측(2026-09-10): 인기 9종목 중 **8개가 이 문장으로 오염**돼 있었다.
+ *   내가 만든 예열 크론이 저지른 일이다. → [[cmd-ai-stale-ticker-cache-poisoning]]
+ *
+ *   두 겹으로 막는다: ①빈 입력이면 아예 생성하지 않는다 ②이미 앉은 오염은 읽을 때 버린다.
+ */
+const POISON_RE = /분석\s*불가능|판단\s*불가|데이터\s*(부재|전무|결측)|피드\s*단절|N\/A\s*또는\s*0|data (is )?unavailable|cannot (be )?analyz|分析(が)?不可能/i;
+
+function isPoisoned(payload: any): boolean {
+    const t = payload?.structuralThesis;
+    const s = typeof t === 'string' ? t : [t?.ko, t?.en, t?.ja].filter(Boolean).join(' ');
+    return !s || POISON_RE.test(s);
+}
+
+/** 생성을 시도할 만큼 재료가 있는가. 없으면 부르지 않는다 — 콜과 캐시를 둘 다 아낀다. */
+function hasEnoughFlowData(d: any): boolean {
+    if (!d || typeof d !== 'object') return false;
+    if (!(Number(d.currentPrice) > 0)) return false;
+    const f = d.factors || {};
+    const signals = [f.opi?.value, f.whale?.premium, f.squeeze?.probability, f.ivSkew?.value,
+                     f.dex?.value, f.pcRatio?.value, f.gex?.pinStrength, d.compositeScore];
+    return signals.filter((v) => v !== undefined && v !== null && v !== 'N/A').length >= 3;
+}
+
 async function buildEnrichment(ticker: string, baseUrl: string): Promise<string> {
     const bypass: Record<string, string> = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
         ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
@@ -113,10 +143,24 @@ export async function POST(req: Request) {
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'SQUEEZE_CHANGE' || triggerReason === 'MANUAL_REFRESH';
         if (!forceRefresh) {
             const cached = await getFromCache<any>(cacheKey);
-            if (cached && cached.structuralThesis) {
+            if (cached && cached.structuralThesis && !isPoisoned(cached)) {
                 console.log(`[FlowAI] Cache HIT for ${ticker} (locale: ${locale})`);
                 return NextResponse.json({ ...cached, fromCache: true });
             }
+            if (cached && isPoisoned(cached)) {
+                // 옛 오염분은 «없는 것»으로 친다. 재료가 있으면 아래에서 다시 만든다.
+                console.warn(`[FlowAI] 오염 캐시 폐기: ${ticker}`);
+            }
+        }
+
+        // ★ 재료가 없으면 여기서 끝낸다. Bedrock 을 부르지도, 캐시에 쓰지도 않는다.
+        //   (예열 크론처럼 flowData 를 만들 수 없는 호출자가 캐시를 오염시키던 자리)
+        if (!hasEnoughFlowData(flowData)) {
+            return NextResponse.json({
+                error: 'insufficient_flow_data',
+                message: 'flowData(currentPrice + 최소 3개 팩터)가 필요합니다. 이 라우트는 화면이 계산한 값을 받아야 합니다.',
+                ticker, cached: false,
+            }, { status: 422 });
         }
 
         // 옵션 지표 밖의 근거를 모은다 — Bedrock 콜은 안 늘어난다(위 buildEnrichment 주석 참조).

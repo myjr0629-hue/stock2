@@ -43,6 +43,31 @@ function getNewsWeight(ageHours: number, title: string): string {
 
 
 
+/**
+ * ★ [2026-09-10] «데이터 부재» 분석이 캐시에 앉는 사고를 막는다.
+ *
+ *   이 라우트의 기술·옵션 자료(snapshot)는 **화면이 계산해서 실어 보낸다.**
+ *   서버끼리 부르는 경로는 그걸 못 만든다. 그런데 가드가 없어서 빈 snapshot 으로도
+ *   Bedrock 을 부르고, 모델이 정직하게 「기술적·옵션 데이터 부재로 판단 불가」라고
+ *   쓴 것을 **그대로 캐시에 저장**했다. 내가 만든 예열 크론이 저지른 일이다.
+ *   실측(2026-09-10): 인기 9종목 대부분이 이 문장으로 오염돼 있었다.
+ *   → [[cmd-ai-stale-ticker-cache-poisoning]]
+ */
+const POISON_RE = /분석\s*불가능|판단\s*불가|데이터\s*(부재|전무|결측)|피드\s*단절|N\/A\s*또는\s*0|data (is )?unavailable|cannot (be )?analyz|分析(が)?不可能/i;
+
+function isPoisoned(payload: any): boolean {
+    const k = payload?.keyInsight, c = payload?.currentState;
+    const txt = [k, c].map((v) => (typeof v === 'string' ? v : [v?.ko, v?.en, v?.ja].filter(Boolean).join(' '))).join(' ');
+    return !txt.trim() || POISON_RE.test(txt);
+}
+
+/** 생성을 시도할 만큼 재료가 있는가. 없으면 부르지 않는다 — 콜과 캐시를 둘 다 아낀다. */
+function hasEnoughSnapshot(s: any): boolean {
+    if (!s || typeof s !== 'object') return false;
+    const groups = [s.signalCore, s.structure, s.sma, s.volatility, s.flow, s.technicals, s.squeeze];
+    return groups.filter((g) => g && typeof g === 'object' && Object.keys(g).length > 0).length >= 3;
+}
+
 export async function POST(req: Request) {
     const startTime = Date.now();
     let body: any = {};
@@ -56,13 +81,25 @@ export async function POST(req: Request) {
         }
 
         const session = snapshot?.session || 'CLOSED';
+
+        // ★ 재료가 없으면 여기서 끝낸다. Bedrock 을 부르지도, 캐시에 쓰지도 않는다.
+        if (!hasEnoughSnapshot(snapshot)) {
+            return NextResponse.json({
+                error: 'insufficient_snapshot',
+                message: 'snapshot(기술·옵션 지표 3개 그룹 이상)이 필요합니다. 이 라우트는 화면이 계산한 값을 받아야 합니다.',
+                ticker, cached: false,
+            }, { status: 422 });
+        }
         const cacheKey = `ai-deep-analysis:v2:${ticker}`;
 
         // --- Check Cache (unless PRICE_MOVE or GAMMA_FLIP forces refresh) ---
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'GAMMA_FLIP' || triggerReason === 'MANUAL_REFRESH';
         if (!forceRefresh) {
             const cached = await getFromCache<any>(cacheKey);
-            if (cached && (cached.currentState || cached.narrative)) {
+            if (cached && (cached.currentState || cached.narrative) && isPoisoned(cached)) {
+                // 옛 오염분(「데이터 부재로 판단 불가」)은 «없는 것»으로 친다.
+                console.warn(`[DeepAnalysis] 오염 캐시 폐기: ${ticker}`);
+            } else if (cached && (cached.currentState || cached.narrative)) {
                 console.log(`[DeepAnalysis] Cache HIT for ${ticker}:${locale}`);
                 return NextResponse.json({
                     ...cached,
