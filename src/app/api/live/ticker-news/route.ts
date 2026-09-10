@@ -58,7 +58,8 @@ const SYSTEM = [
     '- ko: 35-70자 · ja: 25-55자. One sentence. What happened, for THIS ticker.',
     '- impact: "BULLISH" | "BEARISH" | "NEUTRAL" — how the market would read it for this ticker.',
     '- NEVER predict. No 전망/예상/will rise. Report what happened.',
-    '- No investment advice.',
+    '- No investment advice. If the headline itself is a buy/sell recommendation, state the FACT it',
+    '  reports (who said it, what changed) — never repeat the recommendation.',
     '- LANGUAGE PURITY: "ko" Korean only, "ja" Japanese only.',
     '',
     'Return ONLY JSON: {"items":[{"id":1,"ko":"..","ja":"..","impact":".."}]}',
@@ -96,6 +97,16 @@ const BAD_TRANSLITERATIONS = ['도잉', '도제이', '에스이씨', '에프티�
 function hasBadTransliteration(translated: string): boolean {
     return BAD_TRANSLITERATIONS.some((w) => translated.includes(w));
 }
+
+/**
+ * ★ 번역문에 «매매 권유»가 남아 있으면 버린다.
+ *   헤드라인 필터를 넓혔지만 원문 표현은 무한하다. 두 겹으로 막는다 —
+ *   걸리면 그 항목만 영어 원문으로 떨어지므로 화면은 비지 않는다.
+ */
+const ADVICE_RE = /매수\s*(기회|타이밍|시점|추천)|매도\s*(추천|시점)|사야\s*할|팔아야\s*할|담아야|저가\s*매수|하락\s*매수|지금\s*사|買い(場|時)|売り時|今が買い/;
+function hasAdvice(translated: string): boolean {
+    return ADVICE_RE.test(translated);
+}
 /**
  * 예측 표현. 실측으로 계속 새 형태가 나와 넓혀 왔다.
  *   「지속될 것으로 예상됨」 — 첫 정규식(예상\s*됩니다)이 «예상됨»을 못 잡았다.
@@ -117,7 +128,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
-    const cacheKey = `ticker-news:v5:${ticker}`;
+    const cacheKey = `ticker-news:v6:${ticker}`;
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.items?.length) {
         return NextResponse.json({ ...cached, fromCache: true });
@@ -144,7 +155,25 @@ export async function GET(req: Request) {
      *   번역은 정확했지만(「예측: …」) **우리 앱은 예측을 싣지 않는다**(규정 위험).
      *   번역 단계에서 막을 일이 아니라 **고르는 단계에서 빼야** 하는 것이다.
      */
-    const FORECAST_HEADLINE = /^\s*(prediction|forecast|outlook)\b|\b(price target|could (be )?(headed|soar|surge|plunge)|here'?s why .* will|is it time to buy|should you buy|buy or sell)\b/i;
+    //   ★ 2차 실측: 예측 필터를 통과한 «투자 권유» 기사가 그대로 실렸다.
+    //       "Alphabet's Decline Is a Clear Buying Opportunity" → 「분명한 매수 기회입니다」
+    //       "Is September a Buy-the-Dip Month?"                → 「하락 매수의 달일까요?」
+    //     예측(무엇이 일어날까)과 권유(사라/팔라)는 다른 것이라 정규식도 따로 필요하다.
+    //     우리는 둘 다 싣지 않는다.
+    const FORECAST_HEADLINE = new RegExp([
+        // ① 예측물
+        "^\\s*(prediction|forecast|outlook)\\b",
+        "\\b(price target|could (be )?(headed|soar|surge|plunge|jump|crash))\\b",
+        "\\bhere'?s why .* (will|could)\\b",
+        // ② 투자 권유·매매 판단
+        "\\b(buy|sell|hold) (now|this|these|the dip)\\b",
+        "\\bbuy[- ]the[- ]dip\\b",
+        "\\b(is it time to|should you|why you should|reasons? to) (buy|sell|own|hold)\\b",
+        "\\b(buy or sell|screaming buy|no[- ]brainer|must[- ]own|table[- ]pounding)\\b",
+        "\\b(buying|selling) opportunity\\b",
+        "\\b(top|best) \\d+ .* (stocks?|picks?) to (buy|own)\\b",
+        "\\bstock to buy\\b",
+    ].join('|'), 'i');
     raw = raw.filter((n: any) => !FORECAST_HEADLINE.test(String(n.title || '')));
     if (!raw.length) {
         await setInCache(cacheKey, { ticker, items: [], generatedAt: new Date().toISOString() }, 15 * 60).catch(() => {});
@@ -191,8 +220,9 @@ export async function GET(req: Request) {
         const ko = String(ai.ko || '').trim(), ja = String(ai.ja || '').trim();
         // 언어별로 따로 판정한다 — 하나가 오염돼도 나머지는 쓴다.
         const okKo = ko.length >= 18 && HANGUL.test(ko) && !PREDICT.test(ko)
-                     && !hasGhostCompany(ko, p.title) && !hasBadTransliteration(ko);
-        const okJa = ja.length >= 12 && !HANGUL.test(ja) && (KANA.test(ja) || KANJI.test(ja)) && !PREDICT.test(ja);
+                     && !hasGhostCompany(ko, p.title) && !hasBadTransliteration(ko) && !hasAdvice(ko);
+        const okJa = ja.length >= 12 && !HANGUL.test(ja) && (KANA.test(ja) || KANJI.test(ja))
+                     && !PREDICT.test(ja) && !hasAdvice(ja);
         const impact = ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(String(ai.impact)) ? ai.impact : 'NEUTRAL';
         return {
             id: p.id,
