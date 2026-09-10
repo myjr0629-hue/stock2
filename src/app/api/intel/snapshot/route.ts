@@ -132,9 +132,11 @@ async function overlayAiHeadline(snapshotData: any, sector: string): Promise<any
                 ...snapshotData.sector_summary,
                 briefing: {
                     ...snapshotData.sector_summary.briefing,
+                    // 언어별로 «있는 것만» 덮는다. 크론이 en/ja 를 검증에서 뺐다면
+                    // 그 언어는 기존 템플릿이 남아야 한다(빈 값으로 덮으면 화면이 빈다).
                     headline: hit.headline,
-                    headlineEN: hit.headlineEN || snapshotData.sector_summary.briefing.headlineEN,
-                    headlineJP: hit.headlineJP || snapshotData.sector_summary.briefing.headlineJP,
+                    ...(hit.headlineEN ? { headlineEN: hit.headlineEN } : {}),
+                    ...(hit.headlineJP ? { headlineJP: hit.headlineJP } : {}),
                     // 읽는 쪽이 «이게 AI 가 쓴 것»임을 알 수 있어야 검사기가 판정할 수 있다.
                     headlineSource: 'claude',
                     headlineAgeMin: Math.round(ageMin),

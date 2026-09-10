@@ -164,6 +164,8 @@ export async function GET(request: Request) {
         '- No investment advice, no buy/sell language.',
         '- Do not invent numbers. Only use numbers present in the facts.',
         '- Korean: 관측/확인 같은 관찰형 종결. Japanese: 観測/確認. English: observed/holding/diverging.',
+        '- LANGUAGE PURITY (strict): the "ko" field must be Korean ONLY, "en" English ONLY, "ja" Japanese ONLY.',
+        '  Never let one language leak into another field. Ticker symbols and numbers are fine everywhere.',
         '- Each sector must read differently. If two sectors have similar numbers, separate them by what',
         '  is actually distinct (which name leads, how wide the spread is, breadth vs magnitude).',
         '',
@@ -204,26 +206,34 @@ export async function GET(request: Request) {
     }
 
     // ── 4) 검증 — AI 가 준 것 중 «쓸 수 있는 것»만 저장한다 ──
-    const HANGUL = /[가-힣]/, KANA = /[぀-ヿ]/;
+    const HANGUL = /[가-힣]/, KANA = /[぀-ヿ]/, KANJI = /[一-鿿]/;
     const out: Record<string, any> = {};
     let kept = 0;
     // «모델이 아예 안 준 것»과 «주긴 줬는데 검증에 걸린 것»을 구분한다.
-    //   첫 실행에서 bio_pulse 하나가 빠졌는데, 둘 중 무엇인지 모르면 고칠 수가 없다.
     const missing: string[] = [], rejected: string[] = [];
+
+    // ★ 언어별로 «따로» 받는다.
+    //   첫 판은 셋 중 하나만 오염돼도 그 섹터를 통째로 버렸다(bio_pulse 가 그랬다 —
+    //   영어·일본어 칸에 한글이 섞였다). 그러면 멀쩡한 한국어까지 같이 버려진다.
+    //   → 통과한 언어만 채택하고 나머지는 기존 템플릿이 남게 둔다. 부분 성공이 전패보다 낫다.
+    const okKo = (t: string) => t.length >= 12 && HANGUL.test(t);
+    const okEn = (t: string) => t.length >= 16 && !HANGUL.test(t) && !KANA.test(t) && !KANJI.test(t);
+    const okJa = (t: string) => t.length >= 8 && !HANGUL.test(t) && (KANA.test(t) || KANJI.test(t));
+
     for (const f of facts) {
         const v = parsed?.[f.id];
         if (!v) { missing.push(f.id); continue; }
         const ko = String(v?.ko || '').trim(), en = String(v?.en || '').trim(), ja = String(v?.ja || '').trim();
-        const why: string[] = [];
-        if (ko.length < 12) why.push('ko짧음');
-        if (en.length < 16) why.push('en짧음');
-        if (ja.length < 8) why.push('ja짧음');
-        if (!HANGUL.test(ko)) why.push('ko에한글없음');           // 번역 실패로 영어가 앉는 사고
-        if (!KANA.test(ja) && !/[一-鿿]/.test(ja)) why.push('ja에가나·한자없음');
-        if (HANGUL.test(en) || HANGUL.test(ja)) why.push('en·ja에한글섞임');
-        const bad = why.length > 0;
-        if (bad) { rejected.push(`${f.id}(${why.join('/')})`); continue; }
-        out[f.id] = { headline: ko, headlineEN: en, headlineJP: ja };
+        const entry: Record<string, string> = {};
+        const dropped: string[] = [];
+        if (okKo(ko)) entry.headline = ko; else dropped.push('ko');
+        if (okEn(en)) entry.headlineEN = en; else dropped.push('en');
+        if (okJa(ja)) entry.headlineJP = ja; else dropped.push('ja');
+
+        // 한국어가 없으면 이 섹터는 쓰지 않는다 — 앱 기본 표시가 한국어 필드다.
+        if (!entry.headline) { rejected.push(`${f.id}(ko실패)`); continue; }
+        if (dropped.length) rejected.push(`${f.id}(부분:${dropped.join(',')}만 탈락)`);
+        out[f.id] = entry;
         kept++;
     }
     if (!kept) {
