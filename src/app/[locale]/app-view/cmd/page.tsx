@@ -2167,6 +2167,29 @@ function CmdPageContent() {
   // [2026-09-07] ✱ 제거 — 세 탭에 «전부» 붙어 있어 구분 정보가 0 이었다(장식).
   //   강조는 활성 탭의 색·밑선으로 한다.
   const [activeTab, setActiveTab] = useState<'overview' | 'verdict' | 'quant' | 'holders'>('overview');
+
+  // ★ [2026-09-10] 종목별 뉴스 — 앱에 «이 종목 무슨 일이 있었나»가 아예 없었다.
+  //   가디언 뉴스는 전체 시장 뉴스라 종목 태그가 없고, 종목 뉴스는 deep-analysis 안에서
+  //   재료로만 쓰이고 버려졌다. /api/live/ticker-news 가 벤더 뉴스를 받아 3개국어로 준다.
+  //   ⚠️ 의존성에 시세를 넣지 않는다 — 시세 틱마다 재요청하면 응답을 버리게 된다.
+  //      (오늘 플로우 AI 에서 정확히 그 사고를 냈다)
+  const [tickerNews, setTickerNews] = useState<any[] | null>(null);
+  const newsKeyRef = useRef<string>('');
+  useEffect(() => {
+    if (!ticker) return;
+    const key = `${ticker}`;
+    if (newsKeyRef.current === key) return;
+    newsKeyRef.current = key;
+    setTickerNews(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/live/ticker-news?t=${ticker}`, { cache: 'no-store' });
+        if (!res.ok) { newsKeyRef.current = ''; return; }
+        const d = await res.json();
+        setTickerNews(Array.isArray(d?.items) ? d.items : []);
+      } catch { newsKeyRef.current = ''; }
+    })();
+  }, [ticker]);
   const [openSections, setOpenSections] = useState<Set<number>>(new Set());
 
   // Deep AI states
@@ -3641,6 +3664,41 @@ function CmdPageContent() {
           {/* Related Peers Live */}
           {relatedPeers.length > 0 && (
             <RelatedPeersLive tickers={relatedPeers.slice(0, 4)} currentPrice={displayPrice} locale={locale} />
+          )}
+
+          {/* ── 종목 뉴스 ──
+              없으면 카드 자체를 그리지 않는다(뉴스가 없는 종목은 정상이다).
+              현지화가 실패한 항목은 ko 가 빈 문자열로 오므로 «영어 원문»으로 떨어진다. */}
+          {tickerNews && tickerNews.length > 0 && (
+            <div className="premium-card" style={{ padding: '16px 16px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span className="app-card-title" style={{ color: '#dff7ff', fontWeight: 950, fontSize: '12.5px', textTransform: 'uppercase', letterSpacing: '0.055em' }}>
+                  {locale === 'ja' ? 'ニュース' : locale === 'en' ? 'NEWS' : '뉴스'}
+                </span>
+                <AiBadge locale={locale} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {tickerNews.slice(0, 5).map((n: any) => {
+                  const text = (locale === 'ko' ? n.ko : locale === 'ja' ? n.ja : '') || n.headline;
+                  const tone = n.impact === 'BULLISH' ? '#34d399' : n.impact === 'BEARISH' ? '#f87171' : '#94a3b8';
+                  return (
+                    <a key={n.id} href={n.url || undefined} target="_blank" rel="noopener noreferrer"
+                       style={{ display: 'block', paddingLeft: 10, borderLeft: `2px solid ${tone}55`, textDecoration: 'none' }}>
+                      <div style={{ color: '#dbe6ff', fontSize: 12.5, fontWeight: 700, lineHeight: 1.5,
+                                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                                    wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                        {text}
+                      </div>
+                      <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-muted)' }}>
+                        <span style={{ color: tone, fontWeight: 900 }}>●</span>
+                        <span>{n.source}</span>
+                        {n.age && <><span>·</span><span className="num">{n.age}</span></>}
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}
