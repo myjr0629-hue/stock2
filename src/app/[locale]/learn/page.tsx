@@ -12,13 +12,15 @@ const LOCALES = ['en', 'ko', 'ja'] as const;
 type Loc = (typeof LOCALES)[number];
 const loc = (l: string): Loc => (LOCALES as readonly string[]).includes(l) ? (l as Loc) : 'en';
 
-const UI: Record<Loc, { title: string; desc: string; h1: string; lead: string; tickers: string; disc: string }> = {
+const UI: Record<Loc, { title: string; desc: string; h1: string; lead: string; tickers: string; disc: string; appCta: string; appNote: string }> = {
   en: {
     title: 'Learn — Dark Pool, Max Pain, Gamma & Options Flow',
     desc: 'Plain-language explanations of the institutional data we publish: dark pool volume, max pain, gamma exposure, call wall, put/call ratio and options flow.',
     h1: 'Learn the numbers',
     lead: 'Six concepts that explain what institutions are doing — written the way we actually calculate them, including what each one cannot tell you.',
     tickers: 'See all of it on a live ticker',
+    appCta: 'Free app — our AI reads the whole chain',
+    appNote: 'iOS and Android. Every concept here, live on real tickers.',
     disc: 'Information and education only. Not investment advice and not a recommendation to buy or sell any security.',
   },
   ko: {
@@ -27,6 +29,8 @@ const UI: Record<Loc, { title: string; desc: string; h1: string; lead: string; t
     h1: '숫자를 읽는 법',
     lead: '기관이 무엇을 하는지 설명하는 여섯 개념 — 우리가 «실제로 계산하는 방식»으로, 각 지표가 알려주지 «못하는» 것까지 함께.',
     tickers: '실제 종목에서 전부 보기',
+    appCta: '무료 앱 — AI가 체인 전체를 읽습니다',
+    appNote: 'iOS·안드로이드. 여기 개념 전부를 실제 종목에서 실시간으로.',
     disc: '정보 제공·교육 목적입니다. 투자 자문이나 매수·매도 추천이 아닙니다.',
   },
   ja: {
@@ -35,6 +39,8 @@ const UI: Record<Loc, { title: string; desc: string; h1: string; lead: string; t
     h1: '数字の読み方',
     lead: '機関投資家が何をしているかを説明する6つの概念 — 当社が「実際に計算している方法」で、各指標が示せ「ない」ことまで含めて。',
     tickers: '実際の銘柄ですべて見る',
+    appCta: '無料アプリ — AIがチェーン全体を読みます',
+    appNote: 'iOS・Android。ここの概念すべてを実銘柄でリアルタイムに。',
     disc: '情報提供・教育目的です。投資助言や売買推奨ではありません。',
   },
 };
@@ -94,6 +100,9 @@ export default async function LearnIndex({ params }: { params: Promise<{ locale:
     cardH: { fontSize: 17, fontWeight: 850 as any, color: '#17191E', margin: 0 },
     cardP: { fontSize: 14, color: '#55606B', margin: '5px 0 0' },
     cta: { display: 'block', textAlign: 'center' as const, background: '#17191E', color: '#fff', textDecoration: 'none', fontWeight: 800, borderRadius: 12, padding: '13px 16px', marginTop: 26 },
+    ctaBox: { marginTop: 26, display: 'flex', flexDirection: 'column', gap: 8 } as const,
+    cta2: { display: 'block', textAlign: 'center' as const, background: '#fff', color: '#17191E', textDecoration: 'none', fontWeight: 750 as any, borderRadius: 12, padding: '12px 16px', border: '1px solid #DED9CE' },
+    appNote: { fontSize: 12, color: '#7C848E', textAlign: 'center' as const, margin: 0 },
     disc: { fontSize: 12, color: '#9AA3AD', marginTop: 26, borderTop: '1px solid #EEE9E0', paddingTop: 14 },
   };
 
@@ -114,7 +123,13 @@ export default async function LearnIndex({ params }: { params: Promise<{ locale:
         );
       })}
 
-      <a href={`/${lc}/tickers`} style={S.cta}>{t.tickers} →</a>
+      {/* ★ 개념 허브에도 앱 링크가 없었다. 스마트링크를 «첫 번째»로 둔다 —
+          내부 웹 경로로만 보내면 페이지뷰만 늘고 설치가 안 는다. */}
+      <div style={S.ctaBox}>
+        <a style={{ ...S.cta, marginTop: 0 }} href={`${base}/app?from=seo_learn_hub`} rel="noopener">{t.appCta} →</a>
+        <p style={S.appNote}>{t.appNote}</p>
+        <a href={`/${lc}/tickers`} style={S.cta2}>{t.tickers} →</a>
+      </div>
       <footer style={S.disc}>{t.disc}</footer>
     </main>
   );

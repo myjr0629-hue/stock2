@@ -24,11 +24,13 @@ type Loc = (typeof LOCALES)[number];
 const loc = (l: string): Loc => (LOCALES as readonly string[]).includes(l) ? (l as Loc) : 'en';
 const isSlug = (s: string): s is ConceptSlug => (CONCEPT_SLUGS as readonly string[]).includes(s);
 
-const UI: Record<Loc, { back: string; more: string; tickers: string; disc: string; leaders: string; flowLeaders: string }> = {
+const UI: Record<Loc, { back: string; more: string; tickers: string; disc: string; leaders: string; flowLeaders: string; appCta: string; appNote: string }> = {
   en: {
     back: 'All concepts',
     more: 'Related',
     tickers: 'See this on a live ticker',
+    appCta: 'Free app — our AI reads the whole chain',
+    appNote: 'iOS and Android. The same numbers explained here, live.',
     leaders: 'Today’s off-exchange leaders — the whole market, ranked',
     flowLeaders: 'Today’s biggest new options positions — the whole market, ranked',
     disc: 'Information and education only. Not investment advice and not a recommendation to buy or sell any security.',
@@ -37,6 +39,8 @@ const UI: Record<Loc, { back: string; more: string; tickers: string; disc: strin
     back: '전체 개념',
     more: '관련 개념',
     tickers: '실제 종목에서 보기',
+    appCta: '무료 앱 — AI가 체인 전체를 읽습니다',
+    appNote: 'iOS·안드로이드. 여기서 설명한 수치를 실시간으로.',
     leaders: '오늘의 장외 상위 종목 — 시장 전체 순위',
     flowLeaders: '오늘 새로 열린 옵션 포지션 상위 — 시장 전체 순위',
     disc: '정보 제공·교육 목적입니다. 투자 자문이나 매수·매도 추천이 아닙니다.',
@@ -45,6 +49,8 @@ const UI: Record<Loc, { back: string; more: string; tickers: string; disc: strin
     back: 'すべての概念',
     more: '関連する概念',
     tickers: '実際の銘柄で見る',
+    appCta: '無料アプリ — AIがチェーン全体を読みます',
+    appNote: 'iOS・Android。ここで説明した数値をリアルタイムで。',
     leaders: '今日の場外上位銘柄 — 市場全体のランキング',
     flowLeaders: '今日の新規オプション建玉の上位 — 市場全体のランキング',
     disc: '情報提供・教育目的です。投資助言や売買推奨ではありません。',
@@ -116,8 +122,10 @@ export default async function ConceptPage(
     lead: { fontSize: 17, color: '#3A424C', margin: '0 0 30px' },
     h2: { fontSize: 19, fontWeight: 850 as any, margin: '30px 0 8px' },
     p: { fontSize: 16, color: '#3A424C', margin: 0 },
-    ctaBox: { margin: '34px 0 0', padding: '16px 18px', background: '#FAF8F3', border: '1px solid #E7E3DA', borderRadius: 14 } as const,
+    ctaBox: { margin: '34px 0 0', padding: '16px 18px', background: '#FAF8F3', border: '1px solid #E7E3DA', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 8 } as const,
     cta: { display: 'block', textAlign: 'center' as const, background: '#17191E', color: '#fff', textDecoration: 'none', fontWeight: 800, borderRadius: 12, padding: '13px 16px' },
+    cta2: { display: 'block', textAlign: 'center' as const, background: '#fff', color: '#17191E', textDecoration: 'none', fontWeight: 750 as any, borderRadius: 12, padding: '12px 16px', border: '1px solid #DED9CE' },
+    appNote: { fontSize: 12, color: '#7C848E', textAlign: 'center' as const, margin: 0 },
     relH: { fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#8A939E', margin: '30px 0 8px' },
     relA: { display: 'block', fontSize: 15, fontWeight: 700, color: '#17191E', textDecoration: 'none', borderTop: '1px solid #EEE9E0', padding: '11px 0' },
     back: { display: 'inline-block', marginTop: 26, fontSize: 14, fontWeight: 700, color: '#C2410C', textDecoration: 'none' },
@@ -140,15 +148,24 @@ export default async function ConceptPage(
       ))}
 
       <div style={S.ctaBox}>
+        {/* ★ 개념 페이지는 «노출이 유일하게 오르는» 표면인데 여기엔 앱 링크가
+            아예 없었다 — 읽고 나가는 것 말고 갈 곳이 없었다. 앱 스마트링크를
+            «첫 번째» 버튼으로 둔다. /app 은 UA 로 분기해 App Store / Play(install
+            referrer 포함) 로 꽂히므로 설치가 측정된다. 내부 웹 경로로 보내면
+            페이지뷰만 늘고 설치가 안 는다(다크풀 페이지가 이미 적어 둔 규칙이다).
+            from 태그는 `[a-z0-9_]` 만 허용된다 — 슬러그의 하이픈을 지워야
+            install referrer 가 에러 없이 삼켜지지 않는다. */}
+        <a style={S.cta} href={`${base}/app?from=seo_learn_${concept.replace(/-/g, '')}`} rel="noopener">{t.appCta} →</a>
+        <p style={S.appNote}>{t.appNote}</p>
         {/* 다크풀 개념을 읽고 온 사람에게 「오늘 실제로 그런 종목」을 바로 준다.
             순위표는 이 개념 페이지의 자연스러운 다음 단계다. */}
         {concept === 'dark-pool' && (
-          <a href={`/${lc}/dark-pool`} style={S.cta}>{t.leaders} →</a>
+          <a href={`/${lc}/dark-pool`} style={S.cta2}>{t.leaders} →</a>
         )}
         {concept === 'options-flow' && (
-          <a href={`/${lc}/options-flow`} style={S.cta}>{t.flowLeaders} →</a>
+          <a href={`/${lc}/options-flow`} style={S.cta2}>{t.flowLeaders} →</a>
         )}
-        <a href={`/${lc}/tickers`} style={S.cta}>{t.tickers} →</a>
+        <a href={`/${lc}/tickers`} style={S.cta2}>{t.tickers} →</a>
       </div>
 
       <div style={S.relH}>{t.more}</div>
