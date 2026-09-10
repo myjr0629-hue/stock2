@@ -107,7 +107,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     bearishPressure: 'BEARISH PRESSURE',
   },
   ja: {
-    title: 'リアルタイム・オプション・フロー',
+    title: 'オプション・フロー',
     searchPlaceholder: 'ティッカー入力 (例: NVDA)...',
     opiGauge: 'オプション圧力指数 (OPI)',
     pcRatio: 'Volume P/C比率',
@@ -2163,7 +2163,7 @@ export default function AppFlowPage() {
     <div className={dashStyles.page} style={{ paddingBottom: '160px' }}>
       {/* HEADER */}
       <header className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
           {/* Heartbeat/Pulse Icon SVG */}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))' }}>
             <path d="M22 12h-4l-3 9L9 3l-3 9H2" />

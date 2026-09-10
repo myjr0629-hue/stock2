@@ -1939,3 +1939,16 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 4px 10px rgba(0, 0, 0, 0.14);
 }
+
+/* ★ 화면 제목. JSX 가 dashStyles.headerTitle 을 쓰고 있었는데 이 클래스가
+   «없어서» undefined 로 나갔다 — 즉 아무 규칙도 안 걸려 있었다.
+   그래서 ja 제목이 두 줄로 감기며 헤더가 44px → 56px 로 커졌다(실측 375px).
+   헤더는 텍스트 높이에 맞춰 커져선 안 되므로 한 줄로 고정한다. 말줄임은
+   «안전망»이고, 제목 자체를 짧게 유지해 실제로는 걸리지 않아야 한다
+   (실측 폭: en 147 · ko 129 · ja 148). */
+.headerTitle {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
