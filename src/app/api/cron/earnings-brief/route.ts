@@ -122,8 +122,12 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: true, skipped: 'all-cached', have: have.size, ms: Date.now() - t0 });
     }
 
-    // ── 2) 배치로 만든다. 한 번에 너무 많이 넣으면 뒤쪽이 잘린다(출력 토큰). ──
-    const BATCH = 14;
+    // ── 2) 배치로 만든다. ──
+    // ★ 첫 판은 14개씩 넣었는데 **뒤쪽 8종목이 통째로 잘렸다**(DHR·GE·KO·NFLX…).
+    //   같은 8종목을 따로 돌리니 8/8 통과했다 — 모델 능력이 아니라 출력 토큰 한계였다.
+    //   14 × 3개국어 × (회사명+한 줄) 이면 4,000 토큰으로 모자란다.
+    //   → 배치를 10 으로 줄이고 토큰을 6,000 으로 올린다. 토큰은 이 모델에서 사실상 공짜다.
+    const BATCH = 10;
     const client = bedrock();
     const out: Record<string, any> = { ...(prev.tickers || {}) };
     let made = 0, rejected: string[] = [], calls = 0;
@@ -146,7 +150,7 @@ export async function GET(request: Request) {
                 modelId: LIGHT_MODEL,
                 system: [{ text: SYSTEM }],
                 messages: [{ role: 'user', content: [{ text: user }] }],
-                inferenceConfig: { maxTokens: 4000, temperature: 0.3 },
+                inferenceConfig: { maxTokens: 6000, temperature: 0.3 },
             }));
             const txt = (r.output?.message?.content || []).map((x: any) => x.text || '').join('').trim();
             const m = txt.match(/\{[\s\S]*\}/);
