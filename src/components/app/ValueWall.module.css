@@ -1,10 +1,19 @@
 /* ── ValueWall v2 — Premium Content Gate ── */
 
+/* ★ [2026-09-10] 좌우 마진을 걷어냈다.
+   대표 지적(두 번째): 「게이트 폭이 중앙으로 너무 좁게 나온다」.
+   실측 375px — 카드 343 → 게이트 277 → 베일 235 → **버튼 207 (카드의 60%)**.
+   여백이 세 겹으로 겹친 것이 원인이었다:
+     카드 자체 padding 16  +  .vault margin 16  +  .veil padding 20  = 한쪽 52px.
+   그런데 «카드 안에 넣을 때 여백을 주는» 변형이 이미 따로 있다(.inset) — 아무도
+   안 쓰고 있었고, .vault 가 그 일을 중복으로 하고 있었다.
+   → .vault 는 폭을 다 쓰고, 여백이 필요한 자리만 inset 을 넘긴다.
+   (compactVault 는 이미 margin: 0 이라 «다른 게이트가 더 넓었던» 이유가 이것이다) */
 .vault {
   position: relative;
   border-radius: 16px;
   overflow: hidden;
-  margin: 0 var(--s4) var(--s3);
+  margin: 0 0 var(--s3);
   border: 1px solid rgba(245, 158, 11, 0.30);
   box-shadow: 0 0 0 1px rgba(245,158,11,0.06), 0 0 38px rgba(245,158,11,0.10);
   min-height: 258px;
@@ -114,7 +123,8 @@
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 8px; text-align: center;
-  padding: 16px 20px 14px;
+  /* 좌우 20 → 14: 위 주석의 «세 겹 여백» 중 마지막 겹 */
+  padding: 16px 14px 14px;
   min-height: 258px;
   background:
     radial-gradient(110% 70% at 50% 26%, rgba(245,158,11,0.13), transparent 58%),
@@ -176,9 +186,11 @@
 .cta {
   position: relative; overflow: hidden;
   flex: 0 0 auto;
-  width: auto;
-  min-width: min(268px, 88%);
-  max-width: 100%;
+  /* 늘어나야 한다 — 88% 상한이 버튼을 카드의 60%로 묶고 있었다 */
+  width: 100%;
+  min-width: 0;
+  max-width: 340px;
+  align-self: stretch;
   height: 44px !important;
   min-height: 44px !important;
   margin-top: 5px;
@@ -218,9 +230,11 @@
 .proCta {
   position: relative;
   flex: 0 0 auto;
-  width: auto;
-  min-width: min(268px, 88%);
-  max-width: 100%;
+  /* 늘어나야 한다 — 88% 상한이 버튼을 카드의 60%로 묶고 있었다 */
+  width: 100%;
+  min-width: 0;
+  max-width: 340px;
+  align-self: stretch;
   height: 40px; min-height: 40px;
   margin-top: 8px;
   padding: 0 20px;

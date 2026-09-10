@@ -187,6 +187,50 @@ export default async function RootLayout({
             });
           }
         `}</Script>
+        {/* ★ [2026-09-10] «화면이 낡았는지» 스스로 확인하고 고친다.
+            대표: 「업데이트하고 실행하니까 상단에 AI 로고가 안 나오네」.
+            실측 결론 — 배포는 정상이었고 앱의 **API 는 최신**(같은 화면의 모닝브리핑이
+            25분 전 생성분이었다)인데 **HTML/JS 만 배포 전 판**이었다.
+            범인은 위 SW 의 HTML 폴백(fetch 실패 → caches.match)이다. 앱 콜드스타트에서
+            네트워크가 한 번 삐끗하면 지난 세션의 화면이 나가고, 기한도 회복 경로도 없다.
+            → 서버에 빌드 스탬프를 물어보고 다르면 **캐시를 버리고** 한 번 새로고침한다.
+              앱 복귀(visibilitychange)마다 확인하므로 사용자가 강제종료할 필요가 없다. */}
+        <Script id="stale-shell-guard" strategy="afterInteractive">{`
+          (function(){
+            var MINE = '${process.env.NEXT_PUBLIC_BUILD_STAMP || 'dev'}';
+            if (!MINE || MINE === 'dev') return;
+            var busy = false, lastAt = 0;
+            function ss(k, v){ try { return v === undefined ? sessionStorage.getItem(k) : sessionStorage.setItem(k, v); } catch(e) { return null; } }
+            async function check(){
+              if (busy || document.visibilityState !== 'visible') return;
+              if (Date.now() - lastAt < 60000) return;
+              busy = true; lastAt = Date.now();
+              try {
+                var r = await fetch('/api/app/build-stamp', { cache: 'no-store' });
+                if (!r.ok) return;
+                var srv = (await r.json()).stamp;
+                if (!srv || srv === MINE) return;
+                // 같은 스탬프로 이미 한 번 새로고침했다면 더 돌지 않는다(무한루프 방지)
+                if (ss('signum.stampReload') === srv) return;
+                ss('signum.stampReload', srv);
+                // 캐시를 안 버리면 SW 가 같은 옛 HTML 을 또 내줘서 새로고침이 헛돈다
+                try {
+                  if (window.caches) { var ns = await caches.keys(); await Promise.all(ns.map(function(n){ return caches.delete(n); })); }
+                  if (navigator.serviceWorker) {
+                    var regs = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(regs.map(function(g){ return g.unregister(); }));
+                  }
+                } catch(e) {}
+                location.reload();
+              } catch(e) {
+                // 오프라인이면 그냥 지금 화면을 쓴다 — 빈 화면보다 낡은 화면이 낫다
+              } finally { busy = false; }
+            }
+            document.addEventListener('visibilitychange', check);
+            window.addEventListener('focus', check);
+            setTimeout(check, 2500);
+          })();
+        `}</Script>
       </body>
     </html>
   );
