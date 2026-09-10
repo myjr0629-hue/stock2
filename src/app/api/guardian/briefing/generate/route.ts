@@ -112,15 +112,33 @@ async function saveBriefingTexts(briefing: BriefingTexts, meta: {
     const locales = ['ko', 'en', 'ja'] as const;
     const generatedAt = new Date().toISOString();
 
+    // ★ [2026-09-10] 「어떤 날은 되고 어떤 날은 안 된다」의 원인이 여기 있었다.
+    //   AI 생성이 실패하면 숫자 나열 템플릿으로 떨어지는데(source: template-error),
+    //   그것을 **진짜 AI 와 똑같은 24시간 TTL** 로 저장했다.
+    //   → 아침에 한 번 실패하면 그 키가 하루 종일 자리를 잡고 앉아
+    //     이후 어떤 시도도 «이미 있으니 됐다»가 되어 하루가 통째로 템플릿이 됐다.
+    //   실측(2026-09-09): 세 로케일 모두 source=template-error 로 11.7시간째.
+    //
+    //   고치는 방법으로 «폴백 TTL 을 짧게» 를 먼저 검토했는데, 그러면 만료된 순간
+    //   화면이 빈다(그리고 그 순간 들어온 «사용자» 요청이 재생성을 떠안아 55초를 기다린다).
+    //   → TTL 은 24시간 그대로 두어 화면이 절대 비지 않게 하고, 대신 «폴백이라는 사실»을
+    //     플래그로 남겨 **크론·EC2 워커가** 그걸 보고 덮어쓰게 한다.
+    //     사용자 경로는 언제나 즉시 응답한다.
+    const isFallback = meta.source !== 'claude';
+    const ttl = 24 * 60 * 60;
+
     for (const loc of locales) {
         await setInCache(`guardian:morning_briefing:${loc}`, {
             date: meta.date,
             generatedAt,
             briefing: briefing[loc],
             source: meta.source,
+            // 읽는 쪽이 «진짜인지»를 판단할 수 있어야 한다. source 만 보면 문자열 비교가
+            // 흩어지므로 플래그로 못 박는다.
+            degraded: isFallback,
             newsCount: meta.newsCount || 0,
             calendarCount: meta.calendarCount || 0,
-        }, 24 * 60 * 60);
+        }, ttl);
     }
 
     await setInCache('guardian:morning_briefing', {
@@ -129,8 +147,12 @@ async function saveBriefingTexts(briefing: BriefingTexts, meta: {
         text: briefing.ko || briefing.en,
         briefing: briefing.ko || briefing.en,
         source: meta.source,
-    }, 24 * 60 * 60);
+        degraded: isFallback,
+    }, ttl);
 }
+
+/** 폴백은 45분만 산다 — 다음 시도(크론·워밍)가 진짜 AI 로 덮을 수 있어야 한다 */
+const FALLBACK_TTL_SEC = 24 * 60 * 60;
 
 let _bedrockClient: BedrockRuntimeClient | null = null;
 function getBedrock(): BedrockRuntimeClient {
@@ -503,13 +525,18 @@ Output ONLY valid JSON (no markdown fences):
                 newsCount: fallbackNewsCount,
                 calendarCount: fallbackCalendarCount,
             });
+            // ★ success:true 는 유지한다 — 화면은 비면 안 되므로 «무언가»를 줘야 한다.
+            //   그러나 **부르는 쪽이 실패를 알 수 있어야 한다.** 예전엔 이 응답이
+            //   성공과 구분되지 않아 워커의 재시도 루프가 첫 시도에 «성공»으로 끝났다.
             return NextResponse.json({
                 success: true,
+                degraded: true,          // ← 부르는 쪽은 이걸 보고 다시 시도한다
                 briefing: fallback,
                 newsCount: fallbackNewsCount,
                 calendarCount: fallbackCalendarCount,
                 savedToRedis: true,
                 source: 'template-error',
+                ttlSec: FALLBACK_TTL_SEC,
                 warning: e.message,
             });
         } catch (fallbackError: any) {

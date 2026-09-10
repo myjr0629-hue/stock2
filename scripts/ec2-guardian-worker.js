@@ -696,7 +696,10 @@ async function generateMorningBriefing() {
     if (isWeekend) return;
 
     // [FIX] 08:00~08:59 ET window (was 08:00~08:05 — too narrow, single failure killed the day)
-    if (hour !== 8) return;
+    // ★ [2026-09-10] 그래도 좁았다. 한 시간 안에 Bedrock 이 계속 막히면(스로틀 폭주 때 실제로 그랬다)
+    //   그날은 끝이었다. 게다가 아래 폴백 저장이 «오늘 것이 있다»를 만들어 남은 시도까지 전부 건너뛰었다.
+    //   → 창을 08~11 ET 로 넓히고, 폴백은 아래 판정에서 «없는 것»으로 친다.
+    if (hour < 8 || hour > 11) return;
 
     const now = new Date();
     const etDateStr = now.toLocaleDateString("en-US", { timeZone: "America/New_York" });
@@ -715,17 +718,50 @@ async function generateMorningBriefing() {
                     existing = null;
                 }
             }
-            if (!existing || existing.date !== etDateStr || !isBriefingUsableForLocale(locale, existing)) {
+            // ★ 「있다/없다」가 아니라 「진짜냐/땜빵이냐」로 본다.
+            //   AI 실패 시 저장되는 템플릿(source: template / template-error)도 글자는 멀쩡해서
+            //   usable 판정을 통과한다 → 예전엔 여기서 «다 됐다»가 되어 재시도가 죽었다.
+            const isRealAi = existing && existing.source === "claude" && existing.degraded !== true;
+            if (!existing || existing.date !== etDateStr || !isRealAi || !isBriefingUsableForLocale(locale, existing)) {
                 missingLocales.push(locale);
             }
         }
         if (missingLocales.length === 0) return;
-        console.log(`[Briefing] Regenerating; missing/stale/contaminated locales: ${missingLocales.join(", ")}`);
+        console.log(`[Briefing] Regenerating; missing/stale/contaminated/degraded locales: ${missingLocales.join(", ")}`);
     } catch (e) {
         console.warn("[Briefing] Redis check error (will attempt generation):", e.message);
     }
 
-    console.log("[Briefing] 🌅 Generating narrative morning briefing...");
+    // ══════════════════════════════════════════════════════════
+    // ★ [2026-09-10] 재시도 고삐.
+    //
+    //   창을 08~11 ET 로 넓히고 «폴백=미생성» 으로 판정을 바꾸자 새 위험이 생겼다 —
+    //   메인 루프는 30초마다 돌기 때문에, Bedrock 이 계속 막히면 4시간 동안
+    //   480회 × 3재시도 = 1,440콜을 때리게 된다. 그건 우리가 방금 없앤 스로틀 폭주다.
+    //   → «10분에 한 번, 하루 12사이클»로 묶는다. 실패해도 커버는 4시간 내내 유지되고,
+    //     비용은 최악의 경우에도 36콜을 넘지 않는다.
+    // ══════════════════════════════════════════════════════════
+    const GATE_KEY = `briefing:worker:gate:${etDateStr}`;
+    const GATE_MIN_GAP_MS = 10 * 60 * 1000;
+    const GATE_MAX_TRIES = 12;
+    let gate = { last: 0, tries: 0 };
+    try {
+        const raw = await redis.get(GATE_KEY);
+        if (raw) gate = JSON.parse(raw);
+    } catch { /* 게이트를 못 읽으면 시도는 한다 — 브리핑이 없는 게 더 나쁘다 */ }
+
+    if (gate.tries >= GATE_MAX_TRIES) {
+        console.warn(`[Briefing] ⛔ 오늘 재생성 시도 ${gate.tries}회로 상한 도달 — 더 두드리지 않는다`);
+        return;
+    }
+    if (gate.last && Date.now() - gate.last < GATE_MIN_GAP_MS) return;
+
+    gate = { last: Date.now(), tries: (gate.tries || 0) + 1 };
+    try {
+        await redis.setex(GATE_KEY, 12 * 60 * 60, JSON.stringify(gate));
+    } catch { /* 기록 실패는 치명적이지 않다 */ }
+
+    console.log(`[Briefing] 🌅 Generating narrative morning briefing... (cycle ${gate.tries}/${GATE_MAX_TRIES})`);
 
     // Get current snapshot from Redis
     const snapshotRaw = await redis.get(`${CONFIG.SNAPSHOT_KEY_PREFIX}ko`);
@@ -877,6 +913,8 @@ async function generateMorningBriefing() {
                 generatedAt: new Date().toISOString(),
                 briefing: fallbackTexts[locale] || fallbackTexts.en,
                 source: "template",
+                // ★ 읽는 쪽(앱·헬스체크)과 다음 시도가 «이건 땜빵»임을 알아야 교체가 일어난다.
+                degraded: true,
             }));
         }
         await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
@@ -885,6 +923,7 @@ async function generateMorningBriefing() {
             text: fallbackTexts.ko || fallbackTexts.en,
             briefing: fallbackTexts.ko || fallbackTexts.en,
             source: "template",
+            degraded: true,
         }));
         console.log("[Briefing] ⚠️ Template fallback saved (users will see data-driven briefing, not an error)");
     } catch (fallbackErr) {
@@ -989,8 +1028,9 @@ async function mainLoop() {
             }
         }
 
-        // Morning briefing (08:00 ET, during PRE session)
-        if (session === "PRE") {
+        // Morning briefing — 창(08~11 ET)은 generateMorningBriefing 안에서 정한다.
+        // PRE 는 09:30 에 끝나므로 여기서 PRE 로 묶으면 09:30 이후 복구 시도가 통째로 사라진다.
+        if (session === "PRE" || session === "REG") {
             await generateMorningBriefing().catch(e =>
                 console.warn("[Worker] Morning briefing error:", e.message)
             );

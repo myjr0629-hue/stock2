@@ -473,7 +473,18 @@ export async function GET(req: NextRequest) {
     const harvestRealProblem = et.isMarketHours && commandCache.hitRate < 50; // 본장인데 절반 미만 = 진짜 문제
 
     const briefingExists = !!(briefingKo || briefingEn || briefingJa || briefingLegacy);
-    const briefingStatus = briefingExists ? 'OK' : (et.isPreMarket || et.isMarketHours ? 'MISSING' : 'PENDING');
+    // ★ [2026-09-10] 「키가 있으면 OK」가 «어떤 날은 되고 어떤 날은 안 된다»를 숨기고 있었다.
+    //   AI 생성이 실패하면 숫자 나열 템플릿이 같은 키에 저장된다(source: template / template-error).
+    //   키는 채워져 있으니 이 검사는 OK 라고 답했고, 실측에서 세 로케일 모두
+    //   11.7시간째 template-error 인데 «정상»으로 보고되고 있었다.
+    //   → 진짜 AI(source: 'claude') 일 때만 OK 다. 폴백이면 DEGRADED 로 드러낸다.
+    const briefingSources = [briefingKo, briefingEn, briefingJa, briefingLegacy]
+        .filter(Boolean)
+        .map((b: any) => String(b?.source || ''));
+    const briefingIsReal = briefingSources.length > 0 && briefingSources.every((src) => src === 'claude');
+    const briefingStatus = !briefingExists
+        ? (et.isPreMarket || et.isMarketHours ? 'MISSING' : 'PENDING')
+        : (briefingIsReal ? 'OK' : 'DEGRADED');
 
     const crossSectorExists = !!(crossSectorToday || crossSectorYesterday);
 
@@ -574,6 +585,9 @@ export async function GET(req: NextRequest) {
           ja: briefingJa ? { exists: true, date: briefingJa.date || briefingJa.generatedAt } : { exists: false },
           legacy: briefingLegacy ? { exists: true, date: briefingLegacy.date || briefingLegacy.generatedAt } : { exists: false },
           status: briefingStatus,
+          // 어느 판이 폴백인지 눈으로 보이게 남긴다
+          generatedBy: briefingSources.length ? Array.from(new Set(briefingSources)).join(',') : null,
+          degraded: briefingExists && !briefingIsReal,
           source: 'EC2 Guardian Worker → ElastiCache (ioredis)',
         },
         crossSectorBrief: {

@@ -143,7 +143,9 @@ export async function GET() {
         `/api/live/quotes?symbols=${WARM_TICKERS.join(',')}`,
         // Guardian 화면
         '/api/debug/guardian',
-        '/api/guardian/briefing',
+        // ?repair=1 — 폴백(source: template*)이 앉아 있으면 진짜 AI 로 교체를 시도한다.
+        //   사용자 요청에는 절대 이 작업을 태우지 않는다(최대 55초). 크론만 진다.
+        '/api/guardian/briefing?repair=1',
         '/api/guardian/economic-calendar',
         '/api/guardian/fedwatch',
         '/api/guardian/news-digest',
