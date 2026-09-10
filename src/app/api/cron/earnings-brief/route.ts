@@ -214,12 +214,15 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: 'nothing produced', rejected, ms: Date.now() - t0 }, { status: 502 });
     }
 
-    // 실적 일정은 분기 단위라 오래 살아도 된다. 7일.
+    // ★ 실적 «관전 포인트»는 분기 단위 정보다 — 매일 다시 만들 이유가 없다.
+    //   크론은 이미 «새로 들어온 종목만» 만들고(이미 있으면 all-cached 로 즉시 종료,
+    //   Bedrock 호출 0건), TTL 만 짧으면 그 이점이 주 1회 리셋된다. 30일로 둔다.
+    //   실적 일정 자체가 바뀌면 캘린더가 새 티커를 물고 오고, 그때만 그 종목을 만든다.
     await setInCache(EARNINGS_BRIEF_KEY, {
         generatedAt: new Date().toISOString(),
         source: 'ai',
         tickers: out,
-    }, 7 * 24 * 3600);
+    }, 30 * 24 * 3600);
 
     return NextResponse.json({
         success: true, made, total: Object.keys(out).length, todo: todo.length,

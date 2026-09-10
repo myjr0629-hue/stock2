@@ -33,15 +33,21 @@ const bedrock = () => new BedrockRuntimeClient({
 });
 
 const SYSTEM = [
-    'You localize US market news for a Korean/Japanese/English stock app, per ticker.',
+    'You localize US market news for a Korean/Japanese stock app, for ONE ticker.',
     'For each item produce: ko, ja (natural native summaries) and impact.',
     '',
-    'RULES (strict)',
+    'ACCURACY — this is the hard part. Get it wrong and the app is worthless.',
+    '- Every company, product and person named in your output MUST appear in the source headline.',
+    '  NEVER introduce a company that is not in the headline. If unsure of a Korean/Japanese form,',
+    '  keep the original English spelling.',
+    '- Numbers must match exactly ($18 Million = 1,800만 달러).',
+    '- Idioms are not literal. "Guilty by association" is 연좌·동반 하락, not 유죄.',
+    '  Translate the MEANING for an investor, not word by word.',
+    '',
+    'RULES',
     '- ko: 35-70자 · ja: 25-55자. One sentence. What happened, for THIS ticker.',
-    '- Keep tickers, company names and numbers EXACT. Never transliterate a company name',
-    '  that has a normal Korean/Japanese form (Anthropic→앤스로픽, NVIDIA→엔비디아).',
     '- impact: "BULLISH" | "BEARISH" | "NEUTRAL" — how the market would read it for this ticker.',
-    '- NEVER predict. No "전망", "예상", "will rise/fall". Report what happened.',
+    '- NEVER predict. No 전망/예상/will rise. Report what happened.',
     '- No investment advice.',
     '- LANGUAGE PURITY: "ko" Korean only, "ja" Japanese only.',
     '',
@@ -49,6 +55,26 @@ const SYSTEM = [
 ].join('\n');
 
 const HANGUL = /[가-힣]/, KANA = /[぀-ヿ]/, KANJI = /[一-鿿]/;
+
+/**
+ * ★ [2026-09-10] «원문에 없는 회사명»을 잡아 낸다.
+ *
+ *   첫 판 프롬프트에 예시로 「Anthropic→앤스로픽, NVIDIA→엔비디아」를 넣었더니,
+ *   모델이 그 예시를 잘못 붙들어 **NVIDIA 를 「앤스로픽」으로 세 번 오역**했다.
+ *   길이·언어 검사는 전부 통과했다 — 회사명이 바뀐 것은 형식으로는 안 잡힌다.
+ *   프롬프트에서 예시를 걷어내니 0/5 로 잡혔지만, 프롬프트만 믿지 않는다.
+ *   원문에 없는 유명 회사명이 번역에 나타나면 그 항목은 버린다(영어 원문으로 떨어진다).
+ */
+const GHOST_NAMES: [string, string][] = [
+    ['앤스로픽', 'anthropic'], ['오픈AI', 'openai'], ['엔비디아', 'nvidia'],
+    ['구글', 'google'], ['알파벳', 'alphabet'], ['애플', 'apple'], ['테슬라', 'tesla'],
+    ['마이크로소프트', 'microsoft'], ['아마존', 'amazon'], ['메타', 'meta'],
+    ['인텔', 'intel'], ['AMD', 'amd'], ['브로드컴', 'broadcom'], ['넷플릭스', 'netflix'],
+];
+function hasGhostCompany(translated: string, sourceTitle: string): boolean {
+    const src = sourceTitle.toLowerCase();
+    return GHOST_NAMES.some(([ko, en]) => translated.includes(ko) && !src.includes(en));
+}
 const PREDICT = /전망|예상\s*(됩니다|된다|상회)|상회할|하회할|will\s+(rise|fall|beat|miss)|予想されます/i;
 
 function ageLabel(iso: string): string {
@@ -65,7 +91,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
-    const cacheKey = `ticker-news:v1:${ticker}`;
+    const cacheKey = `ticker-news:v2:${ticker}`;
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.items?.length) {
         return NextResponse.json({ ...cached, fromCache: true });
@@ -125,7 +151,8 @@ export async function GET(req: Request) {
         const ai = byId.get(p.id) || {};
         const ko = String(ai.ko || '').trim(), ja = String(ai.ja || '').trim();
         // 언어별로 따로 판정한다 — 하나가 오염돼도 나머지는 쓴다.
-        const okKo = ko.length >= 18 && HANGUL.test(ko) && !PREDICT.test(ko);
+        const okKo = ko.length >= 18 && HANGUL.test(ko) && !PREDICT.test(ko)
+                     && !hasGhostCompany(ko, p.title);
         const okJa = ja.length >= 12 && !HANGUL.test(ja) && (KANA.test(ja) || KANJI.test(ja)) && !PREDICT.test(ja);
         const impact = ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(String(ai.impact)) ? ai.impact : 'NEUTRAL';
         return {
