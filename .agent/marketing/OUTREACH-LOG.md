@@ -3594,3 +3594,63 @@ diff: +1 / −0  (1 file changed)
   → **PR 만들기 전에 base 저장소를 눈으로 확인할 것.**
 
 PR: https://github.com/wilsonfreitas/awesome-quant/pull/648
+
+### ⑤ X @signumhq — Shay Boloor(78.7K 조회) JPM META 업그레이드 스레드 답글
+
+@StockSavvyShay = Futurum Equities 수석전략가, 로이터·블룸버그·포브스 고정 출연.
+JPMorgan 이 META 를 Overweight·목표가 $820 로 올린 글(517 좋아요)에 **포지셔닝 레이어**를 붙였다.
+
+> Positioning layer on this: $650C expiring tomorrow holds +7,502 contracts of NEW
+> open interest — $488M as of the 9/9 close, so new positions, not a close-out.
+> Spot $652 on $META sits 9.6% above max pain $595.
+> Our AI reads the whole chain, free: signumhq.com/app?from=x_us
+
+- 270/280자 · 이미지 첨부(META 플로우, 골드 AI 배지 노출) · 링크는 t.co 로 단축돼 **실제로 눌린다**
+- https://x.com/signumhq/status/2098089074326421577 · 태그 `x_us`
+- 수치 교차검증: 상대 글에 붙은 public 위젯이 «어제 종가 $653.69» 라고 표시 →
+  우리 화면 $652.15 / −0.24% 와 정확히 일치했다. 남의 데이터로 우리 숫자를 검증한 셈이다.
+
+**X 이미지 첨부 방법(재사용)**: X 의 `input[data-testid="fileInput"]` 은 DOM 에 «있지만»
+접근성 트리에 안 잡혀 `find` 로 ref 를 못 얻는다. style 을 잠깐 보이게 바꾸고
+`aria-label` 을 붙여 ref 를 얻은 뒤 업로드하고 원복하면 된다.
+(Bluesky 는 이 방법도 안 된다 — 거기엔 클릭 전까지 input 자체가 «없다».)
+
+### ⑥ 오늘 발견해 고친 «앱 결함» 3건 — 홍보물을 만들다 나왔다
+
+홍보 스크린샷을 실제로 «읽으면서» 만들면 결함이 드러난다. 오늘 3건 나왔다.
+
+**(1) 개념·허브 페이지에 앱 링크가 아예 없었다** → 커밋 d4139f87 · 926df5e0
+색인되는 페이지 유형을 전수로 훑었다(사이트맵 /en 2,256장):
+```
+/flow/*      2,228장  smartlink O (tag=seo)
+/rankings*      12장  smartlink O
+/learn/*         7장  smartlink ✗   ← GSC 상 «노출이 오르는 유일한» 유형인데
+/learn            1장  smartlink ✗
+/tickers          1장  smartlink ✗   ← 595개 티커의 입구
+/how-it-works     1장  smartlink ✗
+```
+CTA 박스가 `/tickers`·`/dark-pool` 같은 «내부 웹 경로»로만 보내고 있었다 —
+다크풀 페이지가 이미 적어 둔 규칙을 그대로 위반했다:
+「내부 웹 경로로 보내면 페이지뷰만 늘고 설치가 안 는다」.
+3개 로케일 모두 AI 를 앞세운 문안 + 375px 실측(감김·잘림·가로스크롤 전부 없음).
+⚠️ 오진 1건 정정: `/undercurrent`·`/wim` 은 결함이 아니다 — 'use client' 프로토타입이라
+CTA 가 런타임 조건부 뷰 안에 있어 초기 HTML 에만 안 보인다.
+
+**(2) 일본어 Flow 헤더가 두 줄로 감겼다** → 커밋 0b6d2444
+`dashStyles.headerTitle` 을 쓰는데 **그 클래스가 어디에도 없었다**(undefined).
+실측 375px: en 147px·ko 129px 는 1줄인데 ja 264px 라 2줄 → 헤더 44px→56px.
+ja 를 「オプション・フロー」(148px, en 과 사실상 동폭)로 줄이고 클래스를 실제로 정의했다.
+
+**(3) ★「신규 포지션 감지」가 이미 만기된 계약을 띄우고 있었다** → 커밋 6113ec36
+SPY 카드가 「26/09/09 $760 P +8,030계약 · $610M · 새로 걸린 하방 보험」이라고 떠 있었다.
+오늘은 ET 09/10 — 그 계약은 **어제 사라졌다.**
+```
+/api/flow/options-eod?ticker=SPY → date=2026-09-09, 상위 OPENING 6건 만기 «전부» 09-09
+고친 뒤: expired=12 / alive=0 / openingCount=0 → 카드가 «안 뜬다»(정상)
+META: expired=11 / alive=1 → 09/11 $650C $488M 유지 · GOOGL 11/20 $440C $1.21B 유지
+```
+SPY 처럼 매일 만기가 있는 종목은 상위 미결제약정 증가가 사실상 전부 0DTE라
+필터가 없으면 카드가 «항상» 죽은 계약을 가리킨다. UC 큰손 레이더(`all=1`)도
+같은 결함이었어서 라우트에서 한 번에 막았다.
+→ 이것이 오늘 홍보를 멈추고 고칠 값이 있던 이유다. SPY 훅으로 글을 썼다면
+   만기된 계약을 근거로 올렸을 것이다.
