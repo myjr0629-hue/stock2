@@ -45,6 +45,8 @@ const SYSTEM = [
     '    all-time high → 사상 최고치 (NOT 전시간 고점) · 史上最高値',
     '    guilty by association → 연좌·동반 하락 (NOT 유죄)',
     '    outpacing → 앞서다·상회 · take-or-pay → 테이크 오어 페이',
+    '    walking a tightrope → 줄타기·아슬아슬한 균형 (NOT 긴장 상태)',
+    '    bucks the trend → 흐름을 거스르다 · headwind/tailwind → 역풍/순풍',
     '  Translate the MEANING for an investor, never word by word.',
     '- ACRONYMS of institutions are NEVER transliterated by sound. Use the established form:',
     '    DOJ → 미 법무부 / 米司法省 (NOT 도잉)   ·  SEC → 미 증권거래위원회 / 米SEC',
@@ -115,7 +117,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
-    const cacheKey = `ticker-news:v4:${ticker}`;
+    const cacheKey = `ticker-news:v5:${ticker}`;
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.items?.length) {
         return NextResponse.json({ ...cached, fromCache: true });
@@ -134,6 +136,19 @@ export async function GET(req: Request) {
         // 뉴스가 없는 것은 «정상»이다. 빈 배열을 짧게 캐시해 벤더를 반복해 두드리지 않는다.
         await setInCache(cacheKey, { ticker, items: [], generatedAt: new Date().toISOString() }, 15 * 60).catch(() => {});
         return NextResponse.json({ ticker, items: [], reason: 'no-news' });
+    }
+
+    /**
+     * ★ 원문 헤드라인 자체가 «예측 기사»면 아예 싣지 않는다.
+     *   실측: "Prediction: Apple Stock Could Be Headed for a Big Move" →
+     *   번역은 정확했지만(「예측: …」) **우리 앱은 예측을 싣지 않는다**(규정 위험).
+     *   번역 단계에서 막을 일이 아니라 **고르는 단계에서 빼야** 하는 것이다.
+     */
+    const FORECAST_HEADLINE = /^\s*(prediction|forecast|outlook)\b|\b(price target|could (be )?(headed|soar|surge|plunge)|here'?s why .* will|is it time to buy|should you buy|buy or sell)\b/i;
+    raw = raw.filter((n: any) => !FORECAST_HEADLINE.test(String(n.title || '')));
+    if (!raw.length) {
+        await setInCache(cacheKey, { ticker, items: [], generatedAt: new Date().toISOString() }, 15 * 60).catch(() => {});
+        return NextResponse.json({ ticker, items: [], reason: 'all-forecast' });
     }
 
     const picked = raw.slice(0, MAX_ITEMS).map((n: any, i: number) => ({
