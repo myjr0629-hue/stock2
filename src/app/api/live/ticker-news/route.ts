@@ -46,6 +46,11 @@ const SYSTEM = [
     '    guilty by association → 연좌·동반 하락 (NOT 유죄)',
     '    outpacing → 앞서다·상회 · take-or-pay → 테이크 오어 페이',
     '  Translate the MEANING for an investor, never word by word.',
+    '- ACRONYMS of institutions are NEVER transliterated by sound. Use the established form:',
+    '    DOJ → 미 법무부 / 米司法省 (NOT 도잉)   ·  SEC → 미 증권거래위원회 / 米SEC',
+    '    FTC → 미 연방거래위원회   ·  FDA → 미 식품의약국   ·  Fed / FOMC → 연준 / FOMC',
+    '    IPO · M&A · EPS · GDP · CPI · AI keep the acronym as-is.',
+    '  If you do not know the established Korean/Japanese form, keep the English acronym.',
     '',
     'RULES',
     '- ko: 35-70자 · ja: 25-55자. One sentence. What happened, for THIS ticker.',
@@ -78,6 +83,17 @@ function hasGhostCompany(translated: string, sourceTitle: string): boolean {
     const src = sourceTitle.toLowerCase();
     return GHOST_NAMES.some(([ko, en]) => translated.includes(ko) && !src.includes(en));
 }
+
+/**
+ * ★ 기관 약어를 «소리나는 대로» 옮긴 것을 잡는다.
+ *   실측: "DOJ Probes $20 Billion Groq Deal" → 「**도잉** 조사가 …」.
+ *   DOJ 는 미 법무부다. 금융 뉴스에 자주 나오는 약어라 틀리면 뜻이 통째로 바뀐다.
+ *   프롬프트에 대응표를 넣었지만 그것만 믿지 않는다.
+ */
+const BAD_TRANSLITERATIONS = ['도잉', '도제이', '에스이씨', '에프티씨', '에프디에이', '아이피오'];
+function hasBadTransliteration(translated: string): boolean {
+    return BAD_TRANSLITERATIONS.some((w) => translated.includes(w));
+}
 /**
  * 예측 표현. 실측으로 계속 새 형태가 나와 넓혀 왔다.
  *   「지속될 것으로 예상됨」 — 첫 정규식(예상\s*됩니다)이 «예상됨»을 못 잡았다.
@@ -99,7 +115,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
-    const cacheKey = `ticker-news:v3:${ticker}`;
+    const cacheKey = `ticker-news:v4:${ticker}`;
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.items?.length) {
         return NextResponse.json({ ...cached, fromCache: true });
@@ -160,7 +176,7 @@ export async function GET(req: Request) {
         const ko = String(ai.ko || '').trim(), ja = String(ai.ja || '').trim();
         // 언어별로 따로 판정한다 — 하나가 오염돼도 나머지는 쓴다.
         const okKo = ko.length >= 18 && HANGUL.test(ko) && !PREDICT.test(ko)
-                     && !hasGhostCompany(ko, p.title);
+                     && !hasGhostCompany(ko, p.title) && !hasBadTransliteration(ko);
         const okJa = ja.length >= 12 && !HANGUL.test(ja) && (KANA.test(ja) || KANJI.test(ja)) && !PREDICT.test(ja);
         const impact = ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(String(ai.impact)) ? ai.impact : 'NEUTRAL';
         return {
