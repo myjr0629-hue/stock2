@@ -84,19 +84,30 @@ export async function GET(request: Request) {
     // ── 1) 오늘 시세를 한 번에 받는다 (70종목 1콜) ──
     const all = Array.from(new Set(Object.values(SECTOR_TICKERS).flat()));
     let quotes: Record<string, Quote> = {};
+    let quoteSession = '';
     try {
         const res = await fetch(`${baseUrl}/api/live/quotes?symbols=${all.join(',')}`, {
             headers: bypass, cache: 'no-store', signal: AbortSignal.timeout(20000),
         });
         const body = await res.json();
-        const rows: any[] = Array.isArray(body) ? body : (body?.quotes || body?.data || []);
-        for (const r of rows) {
-            const t = String(r.ticker || r.symbol || r.T || '').toUpperCase();
-            if (!t) continue;
-            quotes[t] = {
-                ticker: t,
-                price: Number.isFinite(Number(r.price)) ? Number(r.price) : null,
-                changePct: Number.isFinite(Number(r.changePct ?? r.change_pct)) ? Number(r.changePct ?? r.change_pct) : null,
+        // ⚠️ 이 라우트는 배열이 아니라 **티커로 키가 잡힌 객체**를 준다:
+        //    { data: { AAPL: { price, changePercent, extendedChangePercent, ... } }, session }
+        //    첫 판에서 배열로 가정해 502 가 났다. 실제 응답을 보고 맞춘 형태다.
+        const data: Record<string, any> = (body?.data && typeof body.data === 'object' && !Array.isArray(body.data))
+            ? body.data
+            : {};
+        quoteSession = String(body?.session || '').toLowerCase();
+        // 프리·애프터장에는 정규장 등락률이 «어제 종가 대비 어제»라 지금을 설명하지 못한다.
+        //   → 그 시간대엔 연장 세션 등락률을 쓴다. [[premarket-baseline-off-by-one-session]]
+        const useExtended = quoteSession === 'pre' || quoteSession === 'post' || quoteSession === 'closed';
+        for (const [t, r] of Object.entries(data)) {
+            const reg = Number(r?.changePercent ?? r?.regChangePct);
+            const ext = Number(r?.extendedChangePercent);
+            const pick = useExtended && Number.isFinite(ext) ? ext : reg;
+            quotes[t.toUpperCase()] = {
+                ticker: t.toUpperCase(),
+                price: Number.isFinite(Number(r?.price)) ? Number(r.price) : null,
+                changePct: Number.isFinite(pick) ? Number(pick) : null,
             };
         }
     } catch (e: any) {
@@ -125,10 +136,22 @@ export async function GET(request: Request) {
             spreadPct: Number(((sorted[0].changePct as number) - (sorted[sorted.length - 1].changePct as number)).toFixed(2)),
         });
     }
-    if (!facts.length) return NextResponse.json({ success: false, error: 'no measurable sector' }, { status: 503 });
+    if (!facts.length) {
+        return NextResponse.json({
+            success: false,
+            error: 'no measurable sector',
+            // 진단을 응답에 싣는다 — 「200 OK 인데 값만 없음」을 밖에서 못 보면 또 헤맨다
+            diag: { quotesParsed: Object.keys(quotes).length, quoteSession, sampleTicker: Object.keys(quotes)[0] || null },
+        }, { status: 503 });
+    }
 
     // ── 3) 한 번의 호출로 10섹터 × 3개국어 ──
-    const session = sessionLabel(time);
+    // 시각으로 추정하지 말고 시세 라우트가 알려 준 세션을 우선한다(휴장·조기마감 포함).
+    const SESSION_MAP: Record<string, string> = {
+        pre: 'PRE-MARKET', regular: 'REGULAR SESSION', reg: 'REGULAR SESSION',
+        post: 'AFTER HOURS', closed: 'CLOSED',
+    };
+    const session = SESSION_MAP[quoteSession] || sessionLabel(time);
     const system = [
         'You write one-line sector verdicts for an institutional-grade US equity intelligence app.',
         'You are given measured facts only. Interpret them — do not restate them.',
