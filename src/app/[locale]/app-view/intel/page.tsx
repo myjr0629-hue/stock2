@@ -2005,11 +2005,28 @@ export default function AppIntelPage() {
       : appLocale === 'ja'
         ? `${sectorCopy.name}は、${lead.sym}を中心にコンテキスト、オプション・ガンマ、ホエールのフローと流動性を圧縮したセクターレポートです。現在のバイアスは${sentiment}、ガンマは${dominantRegime}、ネットプレミアムは${formatMoneyCompact(netPremium)}、平均PCRは${avgPcrText}です。`
         : `${sectorCopy.name} compresses ${lead.sym}-led context, options gamma, whale flow and liquidity into one sector report. Current bias is ${sentiment}; ${dominantRegime} gamma, ${formatMoneyCompact(netPremium)} net premium and ${avgPcrText} average PCR are the main confirmation axes.`;
-    const appReportVerdict = appLocale === 'ko'
+    // ★ [2026-09-10] 「AI 해석」 자리에 **AI 가 아닌 템플릿**이 나가고 있었다.
+    //   아래 문장은 숫자만 갈아 끼울 뿐 구조가 늘 같다 — 값을 «되읽을» 뿐 해석하지 않는다.
+    //   그런데 진짜 AI 가 만든 섹터 헤드라인이 **같은 응답 안에 이미 들어 있었다**:
+    //     sector_summary.briefing.headline / headlineEN / headlineJP
+    //     예) 「META 주도 반등, 그러나 7종 중 6종 하락 — 변동성 지속 관측」
+    //   화면이 그걸 안 쓰고 있었을 뿐이다(엔드포인트를 쓴다 ≠ 응답을 다 쓴다).
+    //   → AI 헤드라인이 있으면 그것을 쓰고, 없을 때만 아래 템플릿으로 내려간다.
+    //   Bedrock 추가 호출은 0건이다 — 이미 받아 온 자료다.
+    const aiSectorHeadline = cleanReportText(String(
+      (appLocale === 'ko'
+        ? reportBriefing.headline
+        : appLocale === 'ja'
+          ? (reportBriefing.headlineJP || reportBriefing.headline)
+          : (reportBriefing.headlineEN || reportBriefing.headline)) || ''
+    )).trim();
+    const appReportVerdictFallback = appLocale === 'ko'
       ? `${lead.sym}가 섹터 기준점 역할을 하며 ${leadMove} 움직임과 Context ${ctxText(lead.score)}를 기록했습니다. ${topGainer.sym}는 ${topGainerMove}로 상대 강도를 보였고, ${topLoser.sym}는 ${topLoserMove}로 압력 구간을 형성했습니다.`
       : appLocale === 'ja'
         ? `${lead.sym}がセクターの基準点となり、${leadMove}、Context ${ctxText(lead.score)}を示しています。${topGainer.sym}は${topGainerMove}で相対的な強さ、${topLoser.sym}は${topLoserMove}で圧力ゾーンを形成しています。`
         : `${lead.sym} is the sector anchor with a ${leadMove} move and Context ${ctxText(lead.score)}. ${topGainer.sym} shows relative strength at ${topGainerMove}, while ${topLoser.sym} marks the pressure pocket at ${topLoserMove}.`;
+    // 너무 짧은 헤드라인(한 단어 등)은 해석이라 보기 어려우니 템플릿을 쓴다
+    const appReportVerdict = aiSectorHeadline.length >= 12 ? aiSectorHeadline : appReportVerdictFallback;
     const appReportDayOutlook = appLocale === 'ko'
       ? `${gainers}개 상승 / ${losers}개 하락. ${dominantRegime} 감마와 평균 PCR ${avgPcrText}를 기준으로 다음 세션에서는 콜월·풋플로어 근처의 반응을 우선 확인해야 합니다.`
       : appLocale === 'ja'
