@@ -41,6 +41,9 @@ const SYSTEM = [
     '  NEVER introduce a company that is not in the headline. If unsure of a Korean/Japanese form,',
     '  keep the original English spelling.',
     '- Numbers must match exactly ($18 Million = 1,800만 달러).',
+    '- Add NOTHING that is not in the headline. No extra day, date, venue, cause or comparison.',
+    '    "down over 2% on Thursday" → 「목요일 2% 넘게 하락」 (NOT 「목요일 화요일 종가 대비…」).',
+    '  If the headline names ONE day, your output names exactly that one day.',
     '- Idioms and market terms are NOT literal. Use the phrase Korean/Japanese investors actually use:',
     '    all-time high → 사상 최고치 (NOT 전시간 고점) · 史上最高値',
     '    guilty by association → 연좌·동반 하락 (NOT 유죄)',
@@ -122,6 +125,21 @@ const ADVICE_RE = new RegExp([
 function hasAdvice(translated: string): boolean {
     return ADVICE_RE.test(translated);
 }
+
+/**
+ * ★ 원문에 없는 «요일»을 지어냈는지 본다.
+ *   실측: 원문 "down over 2% on Thursday" → 「**목요일 화요일** 종가 대비 2% 하락」.
+ *   원문엔 요일이 하나인데 번역엔 둘이다. 날짜를 지어내면 사실이 바뀐다.
+ *   길이·언어·권유 검사는 전부 통과하는 유형이라 따로 센다.
+ */
+const KO_DAYS = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+const EN_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+function inventsWeekday(translated: string, sourceTitle: string): boolean {
+    const src = sourceTitle.toLowerCase();
+    const srcCount = EN_DAYS.filter((d) => src.includes(d)).length;
+    const outCount = KO_DAYS.filter((d) => translated.includes(d)).length;
+    return outCount > Math.max(srcCount, 0);
+}
 /**
  * 예측 표현. 실측으로 계속 새 형태가 나와 넓혀 왔다.
  *   「지속될 것으로 예상됨」 — 첫 정규식(예상\s*됩니다)이 «예상됨»을 못 잡았다.
@@ -143,7 +161,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
-    const cacheKey = `ticker-news:v8:${ticker}`;
+    const cacheKey = `ticker-news:v9:${ticker}`;
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached?.items?.length) {
         return NextResponse.json({ ...cached, fromCache: true });
@@ -238,7 +256,8 @@ export async function GET(req: Request) {
         const ko = String(ai.ko || '').trim(), ja = String(ai.ja || '').trim();
         // 언어별로 따로 판정한다 — 하나가 오염돼도 나머지는 쓴다.
         const okKo = ko.length >= 18 && HANGUL.test(ko) && !PREDICT.test(ko)
-                     && !hasGhostCompany(ko, p.title) && !hasBadTransliteration(ko) && !hasAdvice(ko);
+                     && !hasGhostCompany(ko, p.title) && !hasBadTransliteration(ko) && !hasAdvice(ko)
+                     && !inventsWeekday(ko, p.title);
         const okJa = ja.length >= 12 && !HANGUL.test(ja) && (KANA.test(ja) || KANJI.test(ja))
                      && !PREDICT.test(ja) && !hasAdvice(ja);
         const impact = ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(String(ai.impact)) ? ai.impact : 'NEUTRAL';
