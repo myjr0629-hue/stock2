@@ -18,7 +18,7 @@
 //    조용히 넘어간다. 이 라우트가 앱 동작에 영향을 주면 안 된다.
 // ============================================================================
 import { NextResponse } from 'next/server';
-import { setInCache } from '@/services/redisClient';
+import { setInCache, getFromCache } from '@/services/redisClient';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -268,6 +268,40 @@ export async function GET() {
     if (tileGaps.length) {
         console.error(`[signum-warm] ⚠⚠ 화면 빈칸 ${tileGaps.length}건`, tileGaps);
         violations.push(...tileGaps);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ★ [2026-09-10] 아침 브리핑이 «땜빵»으로 앉아 있지 않은지 본다.
+    //
+    //   대표가 발견한 상태: 세 로케일 전부 source=template-error 로 11.9시간.
+    //   화면은 «차 있어서» 기존 빈칸 검사에 한 건도 안 걸렸다 —
+    //   숫자 나열 템플릿도 글자는 멀쩡하기 때문이다.
+    //   위에서 ?repair=1 로 교체를 시도했으니, 그러고도 남아 있으면 사람에게 알린다.
+    // ══════════════════════════════════════════════════════════════
+    try {
+        const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const etTime = et.getHours() + et.getMinutes() / 60;
+        const isWeekday = et.getDay() >= 1 && et.getDay() <= 5;
+        // 08:30 ET 전에는 «아직 안 만들어진 것»이 정상이다.
+        if (isWeekday && etTime >= 8.5) {
+            const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+            const todayUS = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+            const stale: string[] = [];
+            for (const loc of ['ko', 'en', 'ja']) {
+                const b = await getFromCache<any>(`guardian:morning_briefing:${loc}`);
+                if (!b) { stale.push(`${loc}:없음`); continue; }
+                const isToday = b.date === todayET || b.date === todayUS;
+                if (!isToday) { stale.push(`${loc}:날짜 ${b.date}`); continue; }
+                if (String(b.source || '') !== 'claude' || b.degraded === true) {
+                    stale.push(`${loc}:${b.source || '?'}`);
+                }
+            }
+            if (stale.length) {
+                violations.push(`아침 브리핑이 AI 판이 아니다 — ${stale.join(' / ')} (교체 시도 후에도 남음)`);
+            }
+        }
+    } catch (e: any) {
+        console.warn('[signum-warm] 브리핑 검사 실패:', e?.message);
     }
 
     // 대표가 화면에서 발견하기 전에 잡히게 — 로그와 Redis 양쪽에 남긴다.
