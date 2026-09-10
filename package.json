@@ -17,7 +17,8 @@
     "audit:speed": "node scripts/audit-load-speed.js",
     "audit:fields": "node scripts/audit-field-contract.js",
     "audit:intrinio": "node scripts/audit-intrinio-capabilities.js",
-    "audit:all": "node scripts/audit-expiration-selection.js && node scripts/audit-screens.js && node scripts/audit-screen-numbers.js && node scripts/audit-field-contract.js && node scripts/audit-load-speed.js"
+    "audit:all": "node scripts/audit-expiration-selection.js && node scripts/audit-screens.js && node scripts/audit-screen-numbers.js && node scripts/audit-field-contract.js && node scripts/audit-load-speed.js && npm run audit:ai",
+    "audit:ai": "node scripts/audit-ai-surfaces.js"
   },
   "dependencies": {
     "@aws-sdk/client-backup": "^3.1014.0",
