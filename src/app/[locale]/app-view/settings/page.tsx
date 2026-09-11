@@ -206,27 +206,14 @@ export default function SettingsPage() {
     return () => { dead = true; };
   }, []);
 
-  /* ── 설정이 열려 있는 동안 «네이티브» 배너를 내린다 (2026-09-07) ────────────
-     layout.tsx 의 `hideAd = isSettingsRoute` 는 **웹 슬롯**(<AppAnchorAd/>)만 감춘다.
-     실제 광고는 AdMob 네이티브 뷰라 웹뷰 «위에» 그대로 떠 있었고, 설정 시트를 덮었다
-     (대표 실기기 확인 2026-09-07).
-     끄는 함수는 이미 있다 — 온보딩이 같은 방식으로 쓴다(AppFirstRunOnboarding.tsx:157).
-     설정만 이 호출이 빠져 있었다.
-     ※ 언마운트에서 false 로 되돌린다. adManager 는 recomputeWantBanner() 로
-        Pro 여부까지 함께 보고 결정하므로 여기서 «켠다»가 아니라 «억제를 푼다»가 맞다. */
-  useEffect(() => {
-    let dead = false;
-    const apply = async (suppressed: boolean) => {
-      try {
-        const { Capacitor } = await import('@capacitor/core');
-        if (!Capacitor.isNativePlatform()) return;
-        const { adManager } = await import('@/services/adManager');
-        await adManager.setBannerSuppressed(suppressed);
-      } catch { /* 웹 프리뷰 / 플러그인 없음 */ }
-    };
-    apply(true);
-    return () => { dead = true; void dead; apply(false); };
-  }, []);
+  /* ── 설정에서 배너를 «내리지 않는다» (2026-09-11 대표 지시) ────────────────
+     2026-09-07 에는 설정 시트를 네이티브 배너가 덮는 문제를 «배너를 숨겨서» 풀었다.
+     그러면 설정에 머무는 동안 노출이 0 이 된다 —
+     대표 지시: 「광고는 무조건 노출이 되게 해야 광고인 것이다」.
+     그래서 억제를 걷어내고, 대신 시트 본문 하단 여백에 배너 높이를 «예약»한다
+     (settings.module.css 의 --app-anchor-ad-height + --app-anchor-ad-gap).
+     배너는 계속 보이고, 시트 내용은 배너에 가리지 않는다.
+     ※ 온보딩(AppFirstRunOnboarding)은 «첫 실행 전체 화면»이라 성격이 달라 그대로 둔다. */
 
   // Pro (ad-free) — inert while IAP_LIVE=false (isPro false, no SDK, card hidden).
   const { isPro, restore, iapAvailable } = useProStatus();
