@@ -58,6 +58,23 @@ const CHANNELS = [
   'github_gex',              // awesome-options-analytics (GEX > Tools) PR
   'reddit_sp',               // r/SideProject 정식 글 — 자기홍보가 «허용»되는 서브라
                              //   댓글과 달리 본문에 링크를 넣을 수 있다(83.6만 회원)
+
+  // ★★ 2026-09-12 «게이트 없는 채널» 개척분. 대표 지시:
+  //   「없으면 할수있는곳을 찾고 나라 지역 모든것을 가리지말고」
+  //   레딧은 카르마가 링크 글을 막는다 → «평판 게이트가 아예 없는» 곳을 판다.
+  //   여기 먼저 등록하고 나서 링크를 붙인다(같은 실수 네 번은 하지 않는다).
+  'alternativeto',           // AlternativeTo — 「Unusual Whales alternative」 검색이 실제로 있다(고의도)
+  'saashub',                 // SaaSHub — 동일 카테고리 + dofollow 백링크
+  'slant',                   // Slant.co — 「best stock market apps」 질의 표면
+  'lemmy',                   // Lemmy(연합우주) — 카르마 개념 자체가 없어 링크 글이 즉시 선다
+  'mastodon',                // Mastodon — 게이트 없음, 유럽권 사용자 비중이 높다
+  'devto',                   // dev.to — 글 본문 링크 허용, 신규 계정 제한 없음
+  'qiita',                   // Qiita(일본) — 개발자 트래픽 최대
+  'zenn',                    // Zenn(일본)
+  'velog',                   // velog(한국)
+  'tistory',                 // 티스토리(한국) — 네이버·다음 색인
+  'uneed', 'fazier', 'microlaunch', 'peerlist', 'devhunt', // 무료 런치 플랫폼(유럽·글로벌)
+  'hn',                      // Hacker News — 단발성, 타이밍 맞춰 쏜다
 ];
 
 export async function GET() {
