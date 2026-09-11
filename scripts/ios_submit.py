@@ -7,7 +7,7 @@
 #   3) 버전에 빌드를 연결한다
 #   4) whatsNew 를 «모든 로케일에» 채운다 ← 비어 있으면 제출이 막힌다
 #   5) reviewSubmission 생성 → item 추가 → submitted:true
-import os, sys, time
+import os, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from asc_client import call
 
@@ -83,6 +83,17 @@ for l in call("GET", f"/appStoreVersions/{ver}/appStoreVersionLocalizations")["d
         "attributes": {"whatsNew": WN.get(loc, WN_FALLBACK)}}})
     time.sleep(1)
 print("  ✓ 새로운 기능 작성")
+
+# 4.5) 제출 «전» 훅 — 이름·부제·키워드 같은 메타데이터는 제출되는 순간 잠긴다.
+#      버전이 생긴 뒤 제출 직전에만 끼울 수 있어서 여기에 둔다.
+#      PRE_SUBMIT_HOOK 에 스크립트 경로를 주면 실행하고, 실패하면 «제출하지 않는다».
+hook = os.environ.get("PRE_SUBMIT_HOOK", "").strip()
+if hook:
+    print(f"  ▸ 제출 전 훅 실행: {hook}")
+    rc = subprocess.call([sys.executable, hook])
+    if rc != 0:
+        sys.exit(f"✗ 제출 전 훅 실패(rc={rc}) — 메타데이터가 안 들어갔으므로 제출하지 않는다")
+    print("  ✓ 제출 전 훅 완료")
 
 # 5) 제출
 r = call("POST", "/reviewSubmissions", {"data": {
