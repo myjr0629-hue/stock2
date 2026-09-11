@@ -3774,7 +3774,7 @@ function CmdPageContent() {
                 <img src="/signum-sg-vectorized.svg" alt="AI" width={15} height={15}
                   style={{ filter: 'drop-shadow(0 0 4px rgba(245,158,11,0.4))' }} />
                 <span className="text-[11px] font-black text-white uppercase tracking-[0.15em]">AI Deep Analysis</span>
-                <span className="text-[9px] bg-cyan-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-mono">CLAUDE S4</span>
+                <span className="text-[9px] bg-cyan-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-mono">CLAUDE</span>
               </div>
 
               {/* Verdict Indicator */}

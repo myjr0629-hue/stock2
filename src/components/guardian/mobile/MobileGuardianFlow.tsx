@@ -397,7 +397,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
                             <span className="text-[12px] text-amber-500 font-mono font-jakarta">· {effectiveSession === 'REG' ? 'Regular Session' : effectiveSession === 'PRE' ? 'Pre-Market' : effectiveSession === 'POST' ? 'Post-Market' : 'Off-Hours'}</span>
                         </div>
                         <span className="text-[10px] bg-gradient-to-r from-cyan-950/80 to-indigo-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-jakarta">
-                            CLAUDE S4
+                            CLAUDE
                         </span>
                     </div>
 

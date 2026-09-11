@@ -209,7 +209,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
                     <img src="/signum-sg-vectorized.svg" alt="AI" width={14} height={14}
                         style={{ filter: 'drop-shadow(0 0 3px rgba(245,158,11,0.35))' }} />
                     <span className="text-[11px] font-black text-white uppercase tracking-[0.12em]">AI Deep Analysis</span>
-                    <span className="text-[9px] bg-cyan-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold">CLAUDE S4</span>
+                    <span className="text-[9px] bg-cyan-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold">CLAUDE</span>
                     <div className="flex-1" />
                     {aiLoading && <Loader2 size={12} className="text-cyan-400 animate-spin" />}
                 </div>

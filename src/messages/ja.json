@@ -978,7 +978,7 @@
       "aiVerdict": {
         "title": "AI Verdict",
         "badge": "AI分析",
-        "meaning": "Gemini 2.5 AIがダッシュボード全指標を統合し生成する構造分析レポート。現況（事実概要）、分析（構造解釈）、見通し（データ示唆の方向性）の3セクション出力です。",
+        "meaning": "Claudeがダッシュボード全指標を統合し生成する構造分析レポート。現況（事実概要）、分析（構造解釈）、見通し（データ示唆の方向性）の3セクション出力です。",
         "currentLabel": "現況",
         "analysisLabel": "分析",
         "actionLabel": "見通し"
@@ -1450,8 +1450,8 @@
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
-      "subtitle": "Claude S4 — Institutional-Grade AI Analysis",
-      "desc": "<gold>Claude Sonnet 4</gold>を搭載した機関級AI分析エンジンです。オプション構造、テクニカル指標、インサイダー取引、ニュースコンテキストを<cyan>4つの独立分析軸</cyan>で交差処理し、包括的な構造診断を提供します。各分析サイクルごとにRISK等級(LOW/MEDIUM/HIGH/CRITICAL)が自動算出され、次回分析更新時刻がリアルタイム表示されます。",
+      "subtitle": "Claude — Institutional-Grade AI Analysis",
+      "desc": "<gold>Claude</gold>を搭載した機関級AI分析エンジンです。オプション構造、テクニカル指標、インサイダー取引、ニュースコンテキストを<cyan>4つの独立分析軸</cyan>で交差処理し、包括的な構造診断を提供します。各分析サイクルごとにRISK等級(LOW/MEDIUM/HIGH/CRITICAL)が自動算出され、次回分析更新時刻がリアルタイム表示されます。",
       "verdictTitle": "AI VERDICT (総合判断)",
       "verdictDesc": "すべての分析軸の結果を<emerald>単一の方向性判断</emerald>に収束させます。BULLISH/NEUTRAL/BEARISH方向と核心根拠要約が1〜2文で提供され、AIコメントが解釈の文脈を補強します。",
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — 移動平均交差、サポート・レジスタンスレベル、トレンド構造を総合したテクニカル構造分析",
@@ -1554,9 +1554,9 @@
       "tip": "各銘柄カード下部の分析テキストで価格レベル($xxx)、比率(%)、レジーム名(SHORT/LONG Gamma)が自動ハイライトされ、核心数値を即座に識別できます。"
     },
     "perplexityAI": {
-      "title": "Perplexity AIリアルタイム分析",
+      "title": "Claude リアルタイム分析",
       "tagline": "リアルタイムAI自然言語分析",
-      "desc": "Session Gridは規則ベース分析に加え、<gold>Perplexity AI</gold>が銘柄ごとの<cyan>知的な自然言語インサイト</cyan>をリアルタイム生成します。11のデリバティブ指標（価格、GEX、PCR、Gamma Regime、Net Premium、Call Wall、Put Floor、Max Pain、Whale Index、Dark Pool、IV Skew）をAIに入力し、各銘柄のポジショニング状態を韓国語・英語・日本語で同時に分析します。",
+      "desc": "Session Gridは規則ベース分析に加え、<gold>Claude</gold>が銘柄ごとの<cyan>知的な自然言語インサイト</cyan>をリアルタイム生成します。11のデリバティブ指標（価格、GEX、PCR、Gamma Regime、Net Premium、Call Wall、Put Floor、Max Pain、Whale Index、Dark Pool、IV Skew）をAIに入力し、各銘柄のポジショニング状態を韓国語・英語・日本語で同時に分析します。",
       "feature1": "銘柄別個別分析 — 各セクターの7銘柄それぞれに独立したAIインサイトが生成されます",
       "feature2": "3か国語同時生成 — 韓国語・英語・日本語の分析が単一APIコールで同時生成され、ロケールに合った分析が即座に表示されます",
       "feature3": "自動トリガー — セクタータブ切替時に該当セクターの7銘柄データが自動送信されAI分析が開始されます",
@@ -1620,7 +1620,7 @@
       "tagline": "AI駆動デイリー分析",
       "desc": "マーケットクローズごとに<gold>AI Cross-Sector Intelligence</gold>が全10セクターのフロー・構造・モメンタムデータを交差分析し<cyan>総合分析レポート</cyan>を生成。個別セクターレポートは<emerald>アコーディオンUI</emerald>で選択的に詳細確認可能。",
       "aiTitle": "Cross-Sector Intelligence",
-      "aiDesc": "<gold>Gemini AI</gold>が全10セクターの日次スナップショットとマクロデータを交差分析し統合インサイトを生成。マーケット概要、セクター間資金フローパターン、キーシグナル、リスク要因を体系的にカバー。",
+      "aiDesc": "<gold>Claude</gold>が全10セクターの日次スナップショットとマクロデータを交差分析し統合インサイトを生成。マーケット概要、セクター間資金フローパターン、キーシグナル、リスク要因を体系的にカバー。",
       "aiTiming": "米国市場クローズ後、毎日16:50 ET（東部時間）に自動生成",
       "aiContent": "マーケット概要、セクター間資金ローテーション、キーシグナル、リスク分析",
       "aiSectors": "10セクター + マクロデータ統合交差分析",
@@ -2573,8 +2573,8 @@
     },
     "aiFlowIntel": {
       "title": "AI Flow Intelligence",
-      "badge": "CLAUDE S4",
-      "desc": "<cyan>AI Flow Intelligence</cyan>は<gold>Claude S4 AIエンジン</gold>が OPI · Whale · Squeeze · IV Skew · Smart Money · DEX · UOA · P/C Ratio · GEX · IV Percentile · Price Position の<purple>11ファクターをクロス分析</purple>し、構造的な市場診断をAI自動生成する<rose>機関級AI分析モジュール</rose>です。AI Verdict内部に搭載され、単なる方向性判断を超えて<emerald>なぜその判断に至ったのか</emerald>まで解説します。",
+      "badge": "CLAUDE",
+      "desc": "<cyan>AI Flow Intelligence</cyan>は<gold>Claude AIエンジン</gold>が OPI · Whale · Squeeze · IV Skew · Smart Money · DEX · UOA · P/C Ratio · GEX · IV Percentile · Price Position の<purple>11ファクターをクロス分析</purple>し、構造的な市場診断をAI自動生成する<rose>機関級AI分析モジュール</rose>です。AI Verdict内部に搭載され、単なる方向性判断を超えて<emerald>なぜその判断に至ったのか</emerald>まで解説します。",
       "structuralThesis": "構造分析 (Structural Thesis)",
       "structuralThesisDesc": "11ファクターを統合し、<cyan>現在の市場の構造的状態と方向性の根拠</cyan>を自然言語で出力します。機関リサーチノート水準の洞察を提供します。",
       "factorHighlights": "主要ファクターインサイト (Factor Highlights)",

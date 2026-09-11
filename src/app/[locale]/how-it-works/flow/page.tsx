@@ -309,7 +309,7 @@ export default async function FlowGuidePage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h3 className="text-xl font-bold text-white mb-1">{t('aiFlowIntel.title')}</h3>
-                        <p className="text-[12px] text-amber-400 font-medium uppercase tracking-wider">CLAUDE S4 — AI STRUCTURAL ANALYSIS</p>
+                        <p className="text-[12px] text-amber-400 font-medium uppercase tracking-wider">CLAUDE — AI STRUCTURAL ANALYSIS</p>
                     </div>
                     <div className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30">
                         <span className="text-[12px] font-bold text-amber-300">{t('aiFlowIntel.badge')}</span>

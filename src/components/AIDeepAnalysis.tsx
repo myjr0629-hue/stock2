@@ -404,7 +404,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexSta
                         <CardTooltip tooltip={COMMAND_TOOLTIPS.AI_DEEP_ANALYSIS.tooltip} badge={COMMAND_TOOLTIPS.AI_DEEP_ANALYSIS.badge}>AI Deep Analysis</CardTooltip>
                     </span>
                     <span className="text-[10px] bg-gradient-to-r from-cyan-950/80 to-indigo-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-jakarta">
-                        CLAUDE S4
+                        CLAUDE
                     </span>
                 </div>
                 <div className="flex items-center gap-2">

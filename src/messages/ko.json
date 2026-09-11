@@ -1368,8 +1368,8 @@
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
-      "subtitle": "Claude S4 — Institutional-Grade AI Analysis",
-      "desc": "<gold>Claude Sonnet 4</gold> 기반의 기관급 AI 분석 엔진입니다. 옵션 구조, 기술적 지표, 내부자 거래, 뉴스 컨텍스트를 <cyan>4개 독립 분석축</cyan>으로 교차 처리하여 종합적인 구조 진단을 제공합니다. 각 분석 사이클마다 RISK 등급(LOW/MEDIUM/HIGH/CRITICAL)이 자동 산출되며, 다음 분석 갱신 시각이 실시간 표시됩니다.",
+      "subtitle": "Claude — Institutional-Grade AI Analysis",
+      "desc": "<gold>Claude</gold> 기반의 기관급 AI 분석 엔진입니다. 옵션 구조, 기술적 지표, 내부자 거래, 뉴스 컨텍스트를 <cyan>4개 독립 분석축</cyan>으로 교차 처리하여 종합적인 구조 진단을 제공합니다. 각 분석 사이클마다 RISK 등급(LOW/MEDIUM/HIGH/CRITICAL)이 자동 산출되며, 다음 분석 갱신 시각이 실시간 표시됩니다.",
       "verdictTitle": "AI VERDICT (종합 판단)",
       "verdictDesc": "모든 분석 축의 결과를 <emerald>단일 방향성 판단</emerald>으로 수렴시킵니다. BULLISH/NEUTRAL/BEARISH 방향과 함께 핵심 근거 요약이 1~2문장으로 제공되며, AI 코멘트가 해석의 맥락을 보강합니다.",
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — 이동평균 교차, 지지·저항 레벨, 추세 구조를 종합한 기술적 구조 분석",
@@ -1472,9 +1472,9 @@
       "tip": "각 종목 카드 하단의 분석 텍스트에 가격 레벨($xxx), 비율(%), 레짐명(SHORT/LONG Gamma)이 자동 하이라이트되어 핵심 수치를 즉시 식별할 수 있습니다."
     },
     "perplexityAI": {
-      "title": "Perplexity AI 실시간 분석",
+      "title": "Claude 실시간 분석",
       "tagline": "Real-Time AI Natural Language Analysis",
-      "desc": "Session Grid는 규칙 기반 분석에 더해 <gold>Perplexity AI</gold>가 종목별 <cyan>지능형 자연어 인사이트</cyan>를 실시간으로 생성합니다. 11개 파생 지표(가격, GEX, PCR, Gamma Regime, Net Premium, Call Wall, Put Floor, Max Pain, Whale Index, Dark Pool, IV Skew 등)를 AI에 전달하여 각 종목의 현재 포지셔닝 상태를 한국어·영어·일본어로 동시 분석합니다.",
+      "desc": "Session Grid는 규칙 기반 분석에 더해 <gold>Claude</gold>가 종목별 <cyan>지능형 자연어 인사이트</cyan>를 실시간으로 생성합니다. 11개 파생 지표(가격, GEX, PCR, Gamma Regime, Net Premium, Call Wall, Put Floor, Max Pain, Whale Index, Dark Pool, IV Skew 등)를 AI에 전달하여 각 종목의 현재 포지셔닝 상태를 한국어·영어·일본어로 동시 분석합니다.",
       "feature1": "종목별 개별 분석 — 7개 종목 각각에 대해 독립적인 AI 인사이트가 생성됩니다",
       "feature2": "3개 국어 동시 생성 — 한국어·영어·일본어 분석이 단일 API 호출로 동시에 생성되어 로케일에 맞는 분석이 즉시 표시됩니다",
       "feature3": "자동 트리거 — 섹터 탭 전환 시 해당 섹터의 7개 종목 데이터가 자동으로 전송되어 AI 분석이 시작됩니다",
@@ -1538,7 +1538,7 @@
       "tagline": "AI-Powered Daily Analysis",
       "desc": "매일 장 마감 후 <gold>AI Cross-Sector Intelligence</gold>가 당일 10개 섹터의 수급·구조·모멘텀 데이터를 교차 분석하여 <cyan>종합 분석 리포트</cyan>를 생성합니다. 개별 섹터 리포트는 <emerald>아코디언 UI</emerald>로 관심 섹터만 선별하여 확인할 수 있습니다.",
       "aiTitle": "Cross-Sector Intelligence",
-      "aiDesc": "<gold>Gemini AI</gold>가 10개 섹터의 당일 스냅샷과 매크로 데이터를 교차 분석하여 생성하는 통합 인사이트입니다. 시장 요약, 섹터 간 자금 이동 패턴, 핵심 시그널, 리스크 요인을 체계적으로 정리합니다.",
+      "aiDesc": "<gold>Claude</gold>가 10개 섹터의 당일 스냅샷과 매크로 데이터를 교차 분석하여 생성하는 통합 인사이트입니다. 시장 요약, 섹터 간 자금 이동 패턴, 핵심 시그널, 리스크 요인을 체계적으로 정리합니다.",
       "aiTiming": "매일 미국 장 마감 후 4:50 PM ET에 자동 생성",
       "aiContent": "시장 요약, 섹터 간 자금 이동, 핵심 시그널, 리스크 분석",
       "aiSectors": "10개 섹터 + 매크로 데이터 통합 교차 분석",
@@ -2491,8 +2491,8 @@
     },
     "aiFlowIntel": {
       "title": "AI Flow Intelligence",
-      "badge": "CLAUDE S4",
-      "desc": "<cyan>AI Flow Intelligence</cyan>는 <gold>Claude S4 AI 엔진</gold>이 OPI · Whale · Squeeze · IV Skew · Smart Money · DEX · UOA · P/C Ratio · GEX · IV Percentile · Price Position 등 <purple>11개 팩터를 교차 분석</purple>하여 구조적 시장 진단을 자동 생성하는 <rose>기관급 AI 분석 모듈</rose>입니다. AI Verdict 내부에 탑재되어 단순 방향성 판단을 넘어 <emerald>왜 그런 판단인지</emerald>까지 설명합니다.",
+      "badge": "CLAUDE",
+      "desc": "<cyan>AI Flow Intelligence</cyan>는 <gold>Claude AI 엔진</gold>이 OPI · Whale · Squeeze · IV Skew · Smart Money · DEX · UOA · P/C Ratio · GEX · IV Percentile · Price Position 등 <purple>11개 팩터를 교차 분석</purple>하여 구조적 시장 진단을 자동 생성하는 <rose>기관급 AI 분석 모듈</rose>입니다. AI Verdict 내부에 탑재되어 단순 방향성 판단을 넘어 <emerald>왜 그런 판단인지</emerald>까지 설명합니다.",
       "structuralThesis": "구조적 분석 (Structural Thesis)",
       "structuralThesisDesc": "11개 팩터를 종합하여 <cyan>현재 시장의 구조적 상태와 방향성 근거</cyan>를 자연어로 출력합니다. 기관 리서치 노트 수준의 통찰을 제공합니다.",
       "factorHighlights": "핵심 팩터 인사이트 (Factor Highlights)",

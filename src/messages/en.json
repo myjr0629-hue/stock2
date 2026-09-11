@@ -978,7 +978,7 @@
       "aiVerdict": {
         "title": "AI Verdict",
         "badge": "AI Analysis",
-        "meaning": "A Gemini 2.5 AI-generated structural analysis integrating all dashboard indicators. The three-section output covers: Current Status (factual overview), Analysis (structural interpretation), and Outlook (data-implied trajectory).",
+        "meaning": "A Claude-generated structural analysis integrating all dashboard indicators. The three-section output covers: Current Status (factual overview), Analysis (structural interpretation), and Outlook (data-implied trajectory).",
         "currentLabel": "Status",
         "analysisLabel": "Analysis",
         "actionLabel": "Outlook"
@@ -1450,8 +1450,8 @@
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
-      "subtitle": "Claude S4 — Institutional-Grade AI Analysis",
-      "desc": "An institutional-grade AI analysis engine powered by <gold>Claude Sonnet 4</gold>. Cross-processes options structure, technical indicators, insider transactions, and news context across <cyan>4 independent analytical axes</cyan> to deliver comprehensive structural diagnostics. Each analysis cycle auto-computes a RISK tier (LOW/MEDIUM/HIGH/CRITICAL) with next update ETA displayed in real-time.",
+      "subtitle": "Claude — Institutional-Grade AI Analysis",
+      "desc": "An institutional-grade AI analysis engine powered by <gold>Claude</gold>. Cross-processes options structure, technical indicators, insider transactions, and news context across <cyan>4 independent analytical axes</cyan> to deliver comprehensive structural diagnostics. Each analysis cycle auto-computes a RISK tier (LOW/MEDIUM/HIGH/CRITICAL) with next update ETA displayed in real-time.",
       "verdictTitle": "AI VERDICT (Composite Judgment)",
       "verdictDesc": "Converges all analytical axis outputs into a <emerald>single directional judgment</emerald>. BULLISH/NEUTRAL/BEARISH direction with 1-2 sentence core rationale summary, supplemented by AI commentary that enriches interpretive context.",
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — Moving average crossovers, support/resistance levels, and trend structure synthesized into technical structural analysis",
@@ -1554,9 +1554,9 @@
       "tip": "Analysis text at the bottom of each ticker card auto-highlights price levels ($xxx), percentages (%), and regime names (SHORT/LONG Gamma) for instant identification of key metrics."
     },
     "perplexityAI": {
-      "title": "Perplexity AI Real-Time Analysis",
+      "title": "Claude Real-Time Analysis",
       "tagline": "Real-Time AI Natural Language Analysis",
-      "desc": "Beyond rule-based analysis, Session Grid leverages <gold>Perplexity AI</gold> to generate <cyan>intelligent natural language insights</cyan> per ticker in real time. 11 derivative indicators (price, GEX, PCR, Gamma Regime, Net Premium, Call Wall, Put Floor, Max Pain, Whale Index, Dark Pool, IV Skew) are fed to the AI, producing positioning analysis simultaneously in Korean, English, and Japanese.",
+      "desc": "Beyond rule-based analysis, Session Grid leverages <gold>Claude</gold> to generate <cyan>intelligent natural language insights</cyan> per ticker in real time. 11 derivative indicators (price, GEX, PCR, Gamma Regime, Net Premium, Call Wall, Put Floor, Max Pain, Whale Index, Dark Pool, IV Skew) are fed to the AI, producing positioning analysis simultaneously in Korean, English, and Japanese.",
       "feature1": "Per-ticker analysis — independent AI insights are generated for each of the 7 stocks in every sector",
       "feature2": "Trilingual simultaneous generation — Korean, English, and Japanese analysis produced in a single API call, instantly displayed matching the user's locale",
       "feature3": "Auto-trigger — switching sector tabs automatically transmits that sector's 7-ticker data to initiate AI analysis",
@@ -1620,7 +1620,7 @@
       "tagline": "AI-Powered Daily Analysis",
       "desc": "Every market close, <gold>AI Cross-Sector Intelligence</gold> cross-analyzes flow, structure, and momentum data across all 10 sectors to produce a <cyan>comprehensive analysis report</cyan>. Individual sector reports are accessible via <emerald>accordion UI</emerald> for selective deep-dives.",
       "aiTitle": "Cross-Sector Intelligence",
-      "aiDesc": "<gold>Gemini AI</gold> cross-analyzes all 10 sectors' daily snapshots and macro data to produce integrated insights. Systematically covers market summary, inter-sector capital flow patterns, key signals, and risk factors.",
+      "aiDesc": "<gold>Claude</gold> cross-analyzes all 10 sectors' daily snapshots and macro data to produce integrated insights. Systematically covers market summary, inter-sector capital flow patterns, key signals, and risk factors.",
       "aiTiming": "Auto-generated daily at 4:50 PM ET after U.S. market close",
       "aiContent": "Market summary, inter-sector capital rotation, key signals, risk analysis",
       "aiSectors": "10 sectors + macro data integrated cross-analysis",
@@ -2573,8 +2573,8 @@
     },
     "aiFlowIntel": {
       "title": "AI Flow Intelligence",
-      "badge": "CLAUDE S4",
-      "desc": "<cyan>AI Flow Intelligence</cyan> is an <rose>institutional-grade AI analysis module</rose> powered by <gold>Claude S4</gold> that cross-analyzes 11 factors — OPI, Whale, Squeeze, IV Skew, Smart Money, DEX, UOA, P/C Ratio, GEX, IV Percentile, and Price Position — to auto-generate <purple>structural market diagnoses</purple>. Embedded within AI Verdict, it goes beyond directional signals to explain <emerald>the why behind each assessment</emerald>.",
+      "badge": "CLAUDE",
+      "desc": "<cyan>AI Flow Intelligence</cyan> is an <rose>institutional-grade AI analysis module</rose> powered by <gold>Claude</gold> that cross-analyzes 11 factors — OPI, Whale, Squeeze, IV Skew, Smart Money, DEX, UOA, P/C Ratio, GEX, IV Percentile, and Price Position — to auto-generate <purple>structural market diagnoses</purple>. Embedded within AI Verdict, it goes beyond directional signals to explain <emerald>the why behind each assessment</emerald>.",
       "structuralThesis": "Structural Thesis",
       "structuralThesisDesc": "Synthesizes all 11 factors to deliver <cyan>the current market's structural state and directional rationale</cyan> in natural language. Provides insights at the level of institutional research notes.",
       "factorHighlights": "Key Factor Insights (Factor Highlights)",
