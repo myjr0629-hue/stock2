@@ -3720,3 +3720,42 @@ GET /search/issues?q=author:myjr0629-hue+type:pr
 → **아직 판정하지 않는다.** Apple 이 「최근 3시간 데이터 미반영」을 명시했고,
    내 판정 기준은 **24시간**이다(`ASA-US-KR-CAMPAIGN-PLAN.md`).
    24시간 뒤에도 0 이면 입찰가 $1.50 으로 올려 바닥값을 찾는다.
+
+## 2026-09-11 (금) — 사이클 5: 인디해커 개설 + CPI 3개국 답글 + 백링크 PR 2건
+
+### 신규 채널: Indie Hackers (DS 69 · 월 85만)
+- 계정 `signumhq` 개설(구글 OAuth 한 경로뿐 — 마지막 SIGN UP 만 대표가 클릭)
+- **제품 등재** https://www.indiehackers.com/product/signum-hq
+  태그라인 `AI Options Flow & Dark Pool Intelligence` · 링크 `/app?from=indiehackers`
+- **프로필** https://www.indiehackers.com/signumhq — 3앱 전부 등재
+- ❌ 커뮤니티 글쓰기는 신규 계정 잠금(「You can't create posts yet.」)
+- ⚠️ 실측: 외부 링크 **전부 nofollow** → 백링크 권위 해결책이 아니다(추천 트래픽·브랜드 페이지)
+
+### X — 오늘 CPI 발표 직후 3개 시장 (같은 데이터, 3개 언어 카드)
+| 시장 | 대상 | 호스트 조회 | 우리 답글 | 우리 조회(15분 시점) |
+|---|---|---|---|---|
+| US | @KobeissiLetter | 100K | status/2098400638900306025 | 2 |
+| JP | @goto_finance | 59.5K | status/2098401397851189267 | 3 |
+| KR | @rklb_invest | 6.9K | status/2098401959242002858 | 3 |
+
+**결론(기존 실측 재확인): 호스트 조회는 우리 도달이 아니다.** 팔로워 4명이라 답글 자체는 2~3조회.
+X 답글을 더 늘려도 이 숫자는 안 바뀐다 → 수요형 채널로 무게를 옮긴다.
+
+### 백링크 PR (누적 6건 열림 · 합산 3.6만 스타)
+- **NEW** FlashAlpha-lab/awesome-options-analytics #7 — `GEX > Tools` (주제 적합도 최고)
+- **NEW** LabinatorSolutions/awesome-institutional-trading #16 — `Free GEX & Options Data`
+  ※ CONTRIBUTING 1번이 «추적 파라미터 즉시 반려» → `?from=` 없는 깨끗한 링크로 제출(2번째 정당 예외)
+- 기존: awesome-quant #648 · awesome-ai-in-finance #254 · jplock #128 · Jera-Value #40
+
+### 오늘 데이터(훅) — 2026-09-10 미국장 신규 미결제약정 상위
+GLD 풋 $2.97B / IWM 풋 $2.44B / NVDA 콜 $2.42B / META 콜 $1.75B / SMH 풋 $1.17B / HYG 풋 $0.71B
+→ 최대 신규 포지션이 NVDA 콜이 아니라 **GLD 풋**이었다는 것이 훅.
+
+### 도구: 홍보 카드 렌더 파이프라인 신설
+`promo-cards/card-{en,ja,ko}.html` → 헤드리스 크롬 2배 렌더 → PNG.
+라이브 웹 캡처는 **못 쓴다**(결제바 $49/mo + 예측형 「BEAR TRAP」 + 모델명 배지).
+
+### 일본 캠페인 — 12시간째 **노출 0** (지출 0이 아니라 «노출»이 0)
+캠페인/광고그룹/키워드/소재 전부 정상 실행 중인데 impressions=0.
+원인 후보: ①완전일치 18개 전부 저볼륨 ②`日本株` 계열은 **미국주식 앱에 관련성 미달** ③입찰 $0.95 가 JP 금융 경매 미달.
+→ 제안: Search Match ON + 입찰 상향($0.95→$2.00), 일예산 $10 유지. **대표 승인 대기.**
