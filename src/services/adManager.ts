@@ -357,7 +357,12 @@ class AdManagerService {
     // 접으면 레이아웃이 튄다 — 잠깐의 빈 띠가 화면이 들썩이는 것보다 낫다.
     // 구독은 영구 상태이므로 접는 것이 맞다.
     if (this.proActive) this.setAdSlotHeight(0);
-    if (!this.initialized) return;
+    // ★ 2026-09-12: 여기서 `if (!this.initialized) return;` 으로 빠져나가고 있었다.
+    //   그런데 AdMob 배너는 «네이티브 뷰»라 웹뷰가 리로드돼도 화면에 그대로 남는다.
+    //   언어 변경처럼 리로드가 일어나면 이 모듈은 initialized=false 로 «새로» 시작하는데,
+    //   그 순간 설정 시트가 뜨면서 보낸 숨기기 요청이 조용히 버려져
+    //   **이전 세션의 배너가 설정 위에 그대로 떠 있었다**(대표 실기기 재현).
+    //   숨기기는 우리 JS 상태와 무관하게 항상 시도한다 — 플러그인이 없으면 catch 가 삼킨다.
     try {
       const { AdMob } = await import('@capacitor-community/admob');
       await AdMob.hideBanner();
@@ -390,9 +395,11 @@ class AdManagerService {
   async setBannerSuppressed(suppressed: boolean) {
     this.bannerSuppressed = suppressed;
     this.recomputeWantBanner();
-    if (!this.initialized) return; // init() applies wantBanner when it finishes
-    if (suppressed) await this.hideBanner();
-    else if (this.wantBanner) await this.showBanner();
+    // 숨기기는 초기화 전에도 반드시 실행한다(리로드 직후 남아 있는 네이티브 배너를 내리려면
+    // 여기서 빠져나가면 안 된다). 보여주기만 init 완료 뒤로 미룬다.
+    if (suppressed) { await this.hideBanner(); return; }
+    if (!this.initialized) return; // init() 이 끝나면 wantBanner 를 적용한다
+    if (this.wantBanner) await this.showBanner();
   }
 
   /**
