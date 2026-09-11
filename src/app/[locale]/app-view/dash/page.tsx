@@ -1299,18 +1299,27 @@ export default function AppDashPage() {
 
     async function fetchAll() {
       try {
-        const [, macroRes, briefingRes, quotesRes, premiumRes, indexRes, newsRes, ucRes] = await Promise.allSettled([
-          fetch('/api/live/market'),
-          fetch('/api/market/macro'),
-          fetch(`/api/guardian/briefing?locale=${locale}`),
-          fetch('/api/live/quotes?symbols=XLK,XLE,XLY,XLB,XLI,XLF,XLV,XLU,SPY,QQQ', { cache: 'no-store' }),
-          fetch(`/api/live/premium-metrics?locale=${locale}`),
-          fetch('/api/market/index-close', { cache: 'no-store' }),
-          fetch(`/api/guardian/news-digest?locale=${locale}`),
-          // 9차: 발견 + 괴리를 한 콜로. SWR 이라 보통 stale hit 으로 즉시 온다.
-          fetch(`/api/undercurrent/feed?locale=${locale}`),
-        ]);
+        // ★ 콜드 로딩 수리 (2026-09-11, 대표 실기기 확인): 8개 요청은 예전처럼 «동시에»
+        //   던지되, 하나의 Promise.allSettled 로 묶어 기다리지 않는다. 묶으면 가장 느린
+        //   응답(premium-metrics — 내부 volatility-regime 콜드 12~16초)이 올 때까지
+        //   매크로(0.7초)·섹터(0.6초)까지 스켈레톤으로 남았다. 빠른 것부터 차례로 기다려
+        //   먼저 그린다. 데이터·주기·TTL 은 그대로다 — 바뀌는 건 «기다리는 순서»뿐이다.
+        const settle = <T,>(p: Promise<T>) => p.then(
+          (value) => ({ status: 'fulfilled' as const, value }),
+          (reason) => ({ status: 'rejected' as const, reason }),
+        );
+        const marketP   = settle(fetch('/api/live/market'));
+        const macroP    = settle(fetch('/api/market/macro'));
+        const briefingP = settle(fetch(`/api/guardian/briefing?locale=${locale}`));
+        const quotesP   = settle(fetch('/api/live/quotes?symbols=XLK,XLE,XLY,XLB,XLI,XLF,XLV,XLU,SPY,QQQ', { cache: 'no-store' }));
+        const premiumP  = settle(fetch(`/api/live/premium-metrics?locale=${locale}`));
+        const indexP    = settle(fetch('/api/market/index-close', { cache: 'no-store' }));
+        const newsP     = settle(fetch(`/api/guardian/news-digest?locale=${locale}`));
+        // 9차: 발견 + 괴리를 한 콜로. SWR 이라 보통 stale hit 으로 즉시 온다.
+        const ucP       = settle(fetch(`/api/undercurrent/feed?locale=${locale}`));
+        void marketP; // 응답은 안 쓰지만 예전과 같이 요청은 보낸다(서버 워밍)
 
+        const macroRes = await macroP;
         if (cancelled) return;
 
         let macroSnap: any = null;
@@ -1326,6 +1335,8 @@ export default function AppDashPage() {
           }
         }
 
+        const indexRes = await indexP;
+        if (cancelled) return;
         // ── DOW, NASDAQ, S&P 500 Indices ──
         let indicesApplied = false;
         if (indexRes && indexRes.status === 'fulfilled' && indexRes.value.ok) {
@@ -1553,6 +1564,8 @@ export default function AppDashPage() {
           });
         }
 
+        const quotesRes = await quotesP;
+        if (cancelled) return;
         // ── Sector Heatmap & Top Movers from quotesRes ──
         if (quotesRes.status === 'fulfilled' && quotesRes.value.ok) {
           const quotesData = await quotesRes.value.json();
@@ -1634,6 +1647,8 @@ export default function AppDashPage() {
           if ((spyQuote.price ?? 0) > 0 && (qqqQuote.price ?? 0) > 0) setEtfsReady(true);
         }
 
+        const briefingRes = await briefingP;
+        if (cancelled) return;
         // ── Briefing ──
         if (briefingRes.status === 'fulfilled' && briefingRes.value.ok) {
           const bData = await briefingRes.value.json();
@@ -1652,6 +1667,44 @@ export default function AppDashPage() {
           }
         }
 
+        const newsRes = await newsP;
+        if (cancelled) return;
+        // ── News Digest (Terminal Ticker) ──
+        if (newsRes && newsRes.status === 'fulfilled' && newsRes.value.ok) {
+          try {
+            const newsData = await newsRes.value.json();
+            if (newsData && Array.isArray(newsData.items)) {
+              setNewsItems(newsData.items);
+            }
+          } catch {
+            // silent fail
+          }
+        }
+
+        const ucRes = await ucP;
+        if (cancelled) return;
+        // ── 9차: 오늘의 발견 + 괴리 시그널 (UC 피드 한 콜) ──────────────
+        if (ucRes && ucRes.status === 'fulfilled' && ucRes.value.ok) {
+          try {
+            const uc = await ucRes.value.json();
+            const cards: UcCard[] = Array.isArray(uc?.cards) ? uc.cards : [];
+            if (cards.length) {
+              setUcCards(cards);
+              setUcReady(true);
+              // 시장 평균·기준일은 카드 안에 실려 온다 — 없으면 «없는 채로» 둔다.
+              const withMoney = cards.find((c) => c.money?.darkPoolMarketAvg != null);
+              setUcMeta({
+                marketAvg: withMoney?.money?.darkPoolMarketAvg ?? null,
+                date: withMoney?.money?.darkPoolDate ?? null,
+              });
+            }
+          } catch {
+            // silent fail — 섹션 자체가 안 그려진다(빈 껍데기를 남기지 않는다)
+          }
+        }
+        // ── 가장 느린 요청은 맨 마지막에 기다린다 — 위 섹션들은 이미 그려졌다 ──
+        const premiumRes = await premiumP;
+        if (cancelled) return;
         // ── Premium Metrics (Volatility Regime, Dark Pool, Squeeze Risk, Sector Rotation) ──
         if (premiumRes.status === 'fulfilled' && premiumRes.value.ok) {
           try {
@@ -1681,37 +1734,6 @@ export default function AppDashPage() {
           }
         }
 
-        // ── News Digest (Terminal Ticker) ──
-        if (newsRes && newsRes.status === 'fulfilled' && newsRes.value.ok) {
-          try {
-            const newsData = await newsRes.value.json();
-            if (newsData && Array.isArray(newsData.items)) {
-              setNewsItems(newsData.items);
-            }
-          } catch {
-            // silent fail
-          }
-        }
-
-        // ── 9차: 오늘의 발견 + 괴리 시그널 (UC 피드 한 콜) ──────────────
-        if (ucRes && ucRes.status === 'fulfilled' && ucRes.value.ok) {
-          try {
-            const uc = await ucRes.value.json();
-            const cards: UcCard[] = Array.isArray(uc?.cards) ? uc.cards : [];
-            if (cards.length) {
-              setUcCards(cards);
-              setUcReady(true);
-              // 시장 평균·기준일은 카드 안에 실려 온다 — 없으면 «없는 채로» 둔다.
-              const withMoney = cards.find((c) => c.money?.darkPoolMarketAvg != null);
-              setUcMeta({
-                marketAvg: withMoney?.money?.darkPoolMarketAvg ?? null,
-                date: withMoney?.money?.darkPoolDate ?? null,
-              });
-            }
-          } catch {
-            // silent fail — 섹션 자체가 안 그려진다(빈 껍데기를 남기지 않는다)
-          }
-        }
       } catch {
         // silently fall back to demo data
       } finally {
