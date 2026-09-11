@@ -3654,3 +3654,48 @@ SPY 처럼 매일 만기가 있는 종목은 상위 미결제약정 증가가 �
 같은 결함이었어서 라우트에서 한 번에 막았다.
 → 이것이 오늘 홍보를 멈추고 고칠 값이 있던 이유다. SPY 훅으로 글을 썼다면
    만기된 계약을 근거로 올렸을 것이다.
+
+---
+
+## 2026-09-11 (사이클 3) — 백링크 확장 + 채널 전수 점검
+
+### ⑦ 신규 PR — `georgezouq/awesome-ai-in-finance` #254 (별 6,537)
+AI×금융 목록이라 우리 포지셔닝과 정확히 맞는다. `Research Tools` 섹션에 등재 요청.
+- 선례 확인: DDScore·Synthical 등 **저장소 없는 상업 서비스가 이미 등재**돼 있다
+- 형식 그대로: `- [이름](url) - 한 문장 설명.` · diff **+1 / −0**
+- 본문에 무료 티어(결제정보 불필요)와 `/learn/*` 방법론 공개를 근거로 달았다
+- https://github.com/georgezouq/awesome-ai-in-finance/pull/254
+
+### ⑧ ★ 중복 PR 을 만들 뻔했다 — 앞으로의 규칙
+`jplock/awesome-fintech` 에 PR 을 올리려고 포크·업로드까지 마친 상태에서
+「커밋 2개 · Sep 1 authored last week」가 보여 멈췄다. 확인해 보니
+**#128 이 9/1부터 이미 열려 있었다.**
+→ **새 PR 전에 반드시** `author:myjr0629-hue type:pr` 로 기존 PR 을 조회한다.
+```
+GET /search/issues?q=author:myjr0629-hue+type:pr
+```
+
+### 백링크 PR 현황 (4건 전부 open · mergeable · 지적사항 0)
+| 저장소 | PR | 별 | 올린 날 |
+|---|---|---|---|
+| wilsonfreitas/awesome-quant | #648 | 29.5K | 09-11 |
+| georgezouq/awesome-ai-in-finance | #254 | 6.5K | 09-11 |
+| jplock/awesome-fintech | #128 | 109 | 09-01 |
+| Jera-Value/awesome-investing-tools… | #40 | 93 | 09-01 |
+
+부적합 판정(억지로 넣지 않는다):
+- `moov-io/awesome-fintech` — Financial Data & APIs 가 오픈표준·라이브러리 위주
+- `paperswithbacktest/awesome-systematic-trading` — 라이브러리 중심(별 14K 이지만 앱 항목이 없다)
+
+### ⑨ 막힌 채널 2곳 — 대표 조치가 필요하다
+**Indie Hackers** (DS 69 · 월 85만)
+- 가입이 **이메일+비밀번호 또는 Google 뿐**이다 → 내가 못 만든다
+- 디렉터리 등재 + 커뮤니티 글 둘 다 가능한 곳이라 값어치가 크다
+
+**★ YouTube Shorts 업로드** — 이게 가장 아깝다
+- 실측상 **유일하게 도달이 난 채널**이다(KR 1.2만 조회 vs X 1~3조회)
+- `scripts/yt-upload.mjs` 가 이미 있고, 대표 지시도
+  「업로드는 니가 직접 올려라 개시는 내가 하더라도」(2026-08-20)로 이미 내 담당이다
+- **그런데 키가 없다**: `YT_CLIENT_ID` · `YT_CLIENT_SECRET` · `YT_KR_REFRESH_TOKEN` 이
+  `.env.local` · `.env.development.local` · Vercel env **어디에도 없다**
+- 키만 주시면 렌더→업로드(비공개·예약)까지 자동으로 돈다. `out/` 영상은 8/11자라 재렌더 필요
