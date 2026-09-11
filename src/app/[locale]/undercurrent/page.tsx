@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { useParams, useRouter } from 'next/navigation';
-import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
+import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, hideBanner, resumeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
 
 type Locale = 'ko' | 'en' | 'ja';
@@ -795,6 +795,11 @@ export default function UndercurrentPage() {
   const sheetOpen = showSettings || showBreaking;
   useEffect(() => {
     if (!sheetOpen) return;
+    // ── 시트(설정·속보)가 열린 동안 네이티브 배너를 내린다 (2026-09-12, 대표 실기기) ──
+    //   AdMob 배너는 OS 가 웹뷰 «위»에 그리므로 시트가 덮을 수 없다. SIGNUM 설정은
+    //   2026-09-07 부터 같은 방식(setBannerSuppressed)으로 잘 작동한다 — 그대로 따른다.
+    //   닫히면 resumeBanner 로 되돌린다. 웹·구독자·플러그인 없음은 ads.ts 가 try/catch 로 삼킨다.
+    void hideBanner();
     const y = window.scrollY;
     const b = document.body.style;
     const prev = { position: b.position, top: b.top, left: b.left, right: b.right, overflow: b.overflow };
@@ -802,6 +807,7 @@ export default function UndercurrentPage() {
     return () => {
       b.position = prev.position; b.top = prev.top; b.left = prev.left; b.right = prev.right; b.overflow = prev.overflow;
       window.scrollTo(0, y);
+      void resumeBanner();
     };
   }, [sheetOpen]);
 
