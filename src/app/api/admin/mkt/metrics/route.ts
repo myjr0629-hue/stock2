@@ -56,6 +56,8 @@ const CHANNELS = [
                              //   가치 댓글로 프로필 방문을 만들고 «여기»서 전환시킨다)
   'indiehackers',            // indiehackers.com/product/signum-hq + 프로필 3앱
   'github_gex',              // awesome-options-analytics (GEX > Tools) PR
+  'reddit_sp',               // r/SideProject 정식 글 — 자기홍보가 «허용»되는 서브라
+                             //   댓글과 달리 본문에 링크를 넣을 수 있다(83.6만 회원)
 ];
 
 export async function GET() {
