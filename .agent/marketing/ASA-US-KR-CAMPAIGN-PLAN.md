@@ -74,3 +74,43 @@ Apple 이 콘솔에 «최근 3시간 데이터는 반영되지 않을 수 있다
 → **3시간 이내의 0 은 증거가 아니다.** 24시간 뒤에도 0 이면 점검:
    ①입찰가 < 추천가 ②Default Ad 비활성 ③상태 일시정지 ④예산 소진 ⑤그래도 0 이면 $1.50
 감시는 `signum-ios-19-review-watch` 작업이 30분마다 같이 본다.
+
+---
+
+## 집행 기록 — 미국 (2026-09-12 개설, 실행 중)
+**전제 확인 완료**: `itunes.apple.com/lookup` 로 3개 스토어프론트 전부 **1.9 메타데이터 반영** 확인.
+US 이름이 `SIGNUM HQ: Stock Market AI` 로 바뀌어 있다(1.8 때는 `Premarket Earnings`).
+ASC API 로도 1.9 `READY_FOR_SALE` 확인. → 「반영 전엔 켜지 말 것」 조건 충족.
+
+```
+캠페인   SIGNUM US - Search Results - Exact   ID 2144649814
+국가     미 합중국 · 지면 검색 결과 · 입찰 관리(수동) · 예산 $10.00/일
+애플 추천 CPT $6.33 (계획서 실측과 일치)
+```
+| 광고그룹 | 최대 CPT | Search Match | 키워드 |
+|---|---|---|---|
+| `US-Core-Exact` | $2.00 | **끔** | [stock market](인기도 3) · [stocks](**4**) |
+| `US-Intent-Exact` | $1.20 | **끔** | [options trading] [options flow] [dark pool] [max pain] [gex] [unusual options activity] [0dte] [earnings calendar] — 전부 인기도 1 |
+| `US-Competitor-Exact` | $1.50 | **끔** | [optionstrat] [stocktwits] [unusual whales] [spotgamma] [market chameleon] [barchart] — 전부 인기도 1 |
+
+## 집행 기록 — 한국 (2026-09-12 개설, 실행 중)
+```
+캠페인   SIGNUM KR - Search Results - Exact   ID 2144650799
+국가     대한민국 · 지면 검색 결과 · 입찰 관리(수동) · 예산 $10.00/일
+애플 추천 CPT $5.55 (계획서 실측과 일치)
+```
+| 광고그룹 | 최대 CPT | Search Match | 키워드 |
+|---|---|---|---|
+| `KR-Core-Exact` | $0.80 | **끔** | [주식] [주식어플] [투자] |
+| `KR-Intent-Exact` | $0.50 | **끔** | [미국주식] [해외주식] [서학개미] [미국증시] [다크풀] [옵션] [실적발표일정] |
+
+⚠️ 콘솔이 보여주는 인기도가 계획서 수치보다 낮다(주식=1로 표시). 계획서 수치는 다른
+도구 기준이었던 듯하다. **7일 게이트에서 실제 노출로 판정한다** — 인기도 표시는 근거가 아니다.
+
+### 콘솔 조작 메모 (다음에 헤매지 말 것)
+* 주소는 `app-ads.apple.com` (`app.searchads.apple.com` 은 404)
+* 캠페인 생성: `/cm/app/<appId>/campaign` · 광고그룹 추가: `/cm/app/<appId>/campaign/<campId>/adgroup`
+* **국가 선택 필드는 타이핑만으로 필터가 안 걸린다.** 마지막 글자를 지웠다 다시 쳐야 목록이 좁혀진다
+* **완전일치는 대괄호로 감싼다**: `[stock market],[stocks]` 를 쉼표로 한 번에 붙여넣으면 된다
+* **Search Match 는 광고그룹마다 기본 ON** 이라 매번 직접 꺼야 한다
+* 폼이 렌더되기 전에 입력하면 «조용히 빈 칸»이 된다 — 입력 후 반드시 스크린샷으로 확인
