@@ -2352,7 +2352,7 @@ export default function UndercurrentPage() {
           <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
             width: '100%', maxWidth: 560, maxHeight: '78vh', overflowY: 'auto', overscrollBehavior: 'contain',
             background: C.bg, borderRadius: '22px 22px 0 0',
-            padding: '16px 18px calc(26px + var(--uc-safe, 0px) + var(--uc-ad-h, 0px))',
+            padding: '16px 18px calc(26px + var(--uc-safe, 0px))',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="mbz-pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: C.diverge, display: 'inline-block' }} />
@@ -2398,7 +2398,7 @@ export default function UndercurrentPage() {
           <div onClick={(e) => e.stopPropagation()} className="uc-slideup" style={{
             width: '100%', maxWidth: 560, maxHeight: '82vh', overflowY: 'auto', overscrollBehavior: 'contain',
             background: C.bg, borderRadius: '22px 22px 0 0',
-            padding: '16px 18px calc(26px + var(--uc-safe, 0px) + var(--uc-ad-h, 0px))',
+            padding: '16px 18px calc(26px + var(--uc-safe, 0px))',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 17, fontWeight: 900 }}>{t.stTitle}</span>

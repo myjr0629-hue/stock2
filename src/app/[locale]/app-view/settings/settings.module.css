@@ -74,10 +74,7 @@
 
 /* ── Content ── */
 .content {
-  padding: 0 16px calc(
-    env(safe-area-inset-bottom, 20px) + 20px +
-    var(--app-anchor-ad-height, 0px) + var(--app-anchor-ad-gap, 0px)
-  );
+  padding: 0 16px calc(env(safe-area-inset-bottom, 20px) + 20px);
   display: flex;
   flex-direction: column;
   gap: 12px;

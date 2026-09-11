@@ -19,10 +19,7 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     pathname?.includes('/app-view/privacy') ||
     pathname?.includes('/app-view/onboarding');
   const isSettingsRoute = pathname?.includes('/app-view/settings');
-  // 설정에서도 광고 슬롯을 띄운다 — 대표 지시(2026-09-11): 광고는 무조건 노출.
-  // 시트가 배너를 비켜 가도록 settings.module.css 에서 하단 여백을 예약했다.
-  // (isDocumentRoute = 약관·개인정보 전문은 그대로 광고 없이 둔다.)
-  const hideAd = isDocumentRoute;
+  const hideAd = isDocumentRoute || isSettingsRoute;
 
   // ── Native-only: start in the device's language (or the user's saved choice). ──
   // IMPORTANT: this performs only a SAME-ORIGIN client navigation. It never makes the
