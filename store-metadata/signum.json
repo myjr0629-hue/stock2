@@ -2,120 +2,435 @@
  "appId": "6783130444",
  "slug": "signum",
  "bundleId": "com.signumhq.app",
- "name": "SIGNUM HQ: Stock Market Intel",
+ "name": "SIGNUM HQ: Premarket Earnings",
  "primaryLocale": "en-US",
  "contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT",
  "localizations": {
-  "ja": {
-   "name": "SIGNUM HQ: 米国株オプション分析",
-   "subtitle": "ダークプール・ガンマ・マックスペイン",
-   "privacyPolicyUrl": "https://www.signumhq.com/ja/app-view/privacy"
+  "it": {
+   "name": "SIGNUM HQ: Pre-mercato USA",
+   "subtitle": "Pre e after hours, calendario",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
   },
-  "en-US": {
-   "name": "SIGNUM HQ: Stock Market Intel",
-   "subtitle": "Stocks, options & AI insights",
+  "pt-BR": {
+   "name": "SIGNUM HQ: Pré-mercado EUA",
+   "subtitle": "Pré e pós-mercado, agenda",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
+  },
+  "zh-Hant": {
+   "name": "SIGNUM HQ: 美股盤前財報",
+   "subtitle": "盤前、盤後、財報日曆與資金流",
    "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
   },
   "ko": {
-   "name": "SIGNUM HQ: 미국주식 옵션 분석",
-   "subtitle": "다크풀·감마·맥스페인을 매일 한눈에",
+   "name": "SIGNUM HQ: 서학개미 미국증시 실적",
+   "subtitle": "프리마켓·애프터마켓·옵션 흐름 알림",
    "privacyPolicyUrl": "https://www.signumhq.com/ko/app-view/privacy"
+  },
+  "en-US": {
+   "name": "SIGNUM HQ: Premarket Earnings",
+   "subtitle": "After Hours, Calendar & Alerts",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
+  },
+  "id": {
+   "name": "SIGNUM HQ: Pramarket Saham AS",
+   "subtitle": "Pramarket, after hours, laba",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
+  },
+  "ja": {
+   "name": "SIGNUM HQ: 米国株リアルタイム決算",
+   "subtitle": "プレマーケット・時間外・無料アラート",
+   "privacyPolicyUrl": "https://www.signumhq.com/ja/app-view/privacy"
+  },
+  "vi": {
+   "name": "SIGNUM HQ: Chứng khoán Mỹ",
+   "subtitle": "Trước giờ mở, sau giờ, lịch",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
+  },
+  "es-ES": {
+   "name": "SIGNUM HQ: Premercado EEUU",
+   "subtitle": "Preapertura, cierre y agenda",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
+  },
+  "es-MX": {
+   "name": "SIGNUM HQ: Premercado EEUU",
+   "subtitle": "Preapertura, cierre y agenda",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
+  },
+  "de-DE": {
+   "name": "SIGNUM HQ: US-Aktien Zahlen",
+   "subtitle": "Vorbörse, Nachbörse, Kalender",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
+  },
+  "fr-FR": {
+   "name": "SIGNUM HQ: Préouverture US",
+   "subtitle": "Avant-Bourse, après-Bourse",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/app-view/privacy"
   }
  },
  "versionLocalizations": {
-  "1.4 (READY_FOR_SALE)": {
-   "ko": {
-    "keywords": "시그넘,미장,해외주식,증시,나스닥,주가,종목,관심종목,옵션플로우,다크풀,감마,맥스페인,실적,급등주,프리마켓,선물,공매도,세력,고래,변동성,트레이딩,투자,수급,체결,배당,ETF,금리",
-    "keywordsLen": 100,
-    "keywordsRoom": 0,
+  "1.8 (READY_FOR_SALE)": {
+   "it": {
+    "keywords": "azioni,USA,borsa,utili,pre-mercato,after hours,opzioni,dark pool,Nasdaq,gratis",
+    "keywordsLen": 78,
+    "keywordsRoom": 22,
     "promotionalText": null,
-    "description": "처음 미국 주식을 보는 사람도, 매일 옵션을 거래하는 전문가도——SIGNUM HQ는 미국 시장을 '읽히게' 만듭니다. 무료.\n\n매 거래일, AI가 날것의 시장 데이터를 몇 분이면 읽는 리포트로 바꿉니다. 무엇이 움직였는지, 왜 움직였는지, 그 뒤의 자금 흐름까지. 전문용어 없이 시작하고, 더 깊이 보고 싶으면 얼마든지 파고들 수 있습니다.\n\n[주요 기능]\n· 매일 아침 AI 브리핑과 섹터별 리포트\n· 실시간 마켓 무버 (급등·급락)\n· 옵션 플로우, 감마, 맥스페인\n· 다크풀, 대형 매매(웨일) 흐름\n· 실적, 뉴스, 관심종목\n\n초보부터 전문가까지. 미국주식·나스닥을 매일 한 앱에서.\n\n※본 앱은 정보 제공 목적이며 투자자문이 아닙니다.",
+    "description": "Che tu stia seguendo la tua prima azione o facendo trading di opzioni ogni giorno, SIGNUM HQ rende il mercato USA leggibile. Gratis.\n\nOgni giorno di borsa l'IA trasforma i dati grezzi in una lettura chiara che finisci in pochi minuti: cosa si è mosso, perché, e quale denaro c'era dietro.\n\n■ Pre-mercato e after hours\nChi si è mosso prima dell'apertura e dopo la chiusura, e perché.\n\n■ Calendario deg",
+    "whatsNew": "Aggiunto un indicatore AI nella barra superiore. Corretto un problema di configurazione: le schermate caricano sempre la versione piu recente. Migliorata la larghezza e la leggibilita della scheda di ",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "en-US": {
+    "keywords": "free,realtime,movers,gappers,unusual,options,flow,gamma,darkpool,maxpain,0dte,nasdaq,tesla,nvidia",
+    "keywordsLen": 97,
+    "keywordsRoom": 3,
+    "promotionalText": null,
+    "description": "Whether you're following your first stock or trading options every day, SIGNUM HQ makes the market make sense — free.\n\nEvery trading day, AI turns raw market data into a clear read you can finish in minutes: what moved, why it moved, and the money flow behind it. No jargon needed to start — all the depth you want when you go deeper.\n\nWHAT YOU GET\n• Live market movers — see what's driving stocks ri",
+    "whatsNew": "Added an AI indicator to the top bar. Fixed an app configuration issue so screens always load the latest version. Improved the width and readability of the unlock card. Improved morning briefing relia",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "id": {
+    "keywords": "saham,AS,bursa,laba,pramarket,after hours,opsi,dark pool,Nasdaq,Tesla,gratis",
+    "keywordsLen": 76,
+    "keywordsRoom": 24,
+    "promotionalText": null,
+    "description": "Baik Anda baru mengikuti satu saham atau memperdagangkan opsi setiap hari, SIGNUM HQ membuat pasar AS mudah dibaca. Gratis.\n\nSetiap hari bursa, AI mengubah data mentah menjadi bacaan jelas yang selesai dalam beberapa menit: apa yang bergerak, mengapa, dan uang di baliknya.\n\n■ Pramarket dan after hours\nSiapa yang bergerak sebelum pembukaan dan setelah penutupan, beserta alasannya.\n\n■ Kalender laba\n",
+    "whatsNew": "Menambahkan indikator AI di bilah atas. Memperbaiki masalah konfigurasi sehingga layar selalu memuat versi terbaru. Meningkatkan lebar dan keterbacaan kartu buka kunci. Meningkatkan keandalan briefing",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ko": {
+    "keywords": "미국주식,미장,증시,시황,오늘의증시,증시캘린더,실적발표일정,기업실적,배당주,나스닥,테슬라,엔비디아,주가,종목,무료,실시간,속보,리포트,공시,해외주식,장마감,종목분석,실시간주가",
+    "keywordsLen": 97,
+    "keywordsRoom": 3,
+    "promotionalText": null,
+    "description": "처음 미국 주식을 보는 사람도, 매일 옵션을 거래하는 전문가도——SIGNUM HQ는 미국 시장을 '읽히게' 만듭니다. 무료.\n\n매 거래일, AI가 날것의 시장 데이터를 몇 분이면 읽는 리포트로 바꿉니다. 무엇이 움직였는지, 왜 움직였는지, 그 뒤의 자금 흐름까지. 전문용어 없이 시작하고, 더 깊이 보고 싶으면 얼마든지 파고들 수 있습니다.\n\n[주요 기능]\n· 매일 아침 AI 브리핑과 섹터별 리포트\n· 실시간 마켓 무버 (급등·급락)\n· 옵션 플로우, 감마, 맥스페인\n· 다크풀, 대형 매매(웨일) 흐름\n· 실적, 뉴스, 관심종목\n\n초보부터 전문가까지. 미국주식·나스닥을 매일 한 앱에서.\n\n※본 앱은 정보 제공 목적이며 투자자문이 아닙니다.\n\nSIGNUM Pro 는 광고를 제거하는 월간 자동갱신 구독입니다. 결",
+    "whatsNew": "AI 분석 표시를 상단에 추가했습니다. 앱 접속 설정 오류를 수정해 화면이 항상 최신 버전으로 표시됩니다. 광고 해제 카드의 폭과 가독성을 개선했습니다. 아침 브리핑 생성 안정성을 높였습니다.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "es-ES": {
+    "keywords": "acciones,EEUU,bolsa,resultados,premercado,after hours,opciones,dark pool,Nasdaq,gratis",
+    "keywordsLen": 86,
+    "keywordsRoom": 14,
+    "promotionalText": null,
+    "description": "Tanto si sigues tu primera acción como si operas opciones a diario, SIGNUM HQ hace que el mercado estadounidense se entienda. Gratis.\n\nCada día de mercado, la IA convierte datos brutos en una lectura clara que terminas en minutos: qué se movió, por qué, y qué dinero había detrás.\n\n■ Premercado y after hours\nQuién se movió antes de la apertura y después del cierre, y por qué.\n\n■ Calendario de resul",
+    "whatsNew": "Se anadio un indicador de IA en la barra superior. Se corrigio un problema de configuracion para que las pantallas carguen siempre la version mas reciente. Se mejoro el ancho y la legibilidad de la ta",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "pt-BR": {
+    "keywords": "ações,EUA,bolsa,balanços,pré-mercado,after hours,opções,dark pool,Nasdaq,grátis",
+    "keywordsLen": 79,
+    "keywordsRoom": 21,
+    "promotionalText": null,
+    "description": "Se você acompanha sua primeira ação ou opera opções todo dia, o SIGNUM HQ torna o mercado dos EUA legível. Grátis.\n\nA cada pregão, a IA transforma dados brutos em uma leitura clara que você termina em minutos: o que se moveu, por quê, e qual dinheiro estava por trás.\n\n■ Pré-mercado e pós-mercado\nQuem se moveu antes da abertura e depois do fechamento, e por quê.\n\n■ Calendário de balanços\nQuem divul",
+    "whatsNew": "Adicionado um indicador de IA na barra superior. Corrigido um problema de configuracao para que as telas sempre carreguem a versao mais recente. Melhorada a largura e a legibilidade do cartao de desbl",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "vi": {
+    "keywords": "cổ phiếu,Mỹ,chứng khoán,báo cáo,trước giờ mở,sau giờ,quyền chọn,dark pool,Nasdaq",
+    "keywordsLen": 80,
+    "keywordsRoom": 20,
+    "promotionalText": null,
+    "description": "Dù bạn đang theo dõi cổ phiếu đầu tiên hay giao dịch quyền chọn mỗi ngày, SIGNUM HQ giúp bạn đọc được thị trường Mỹ. Miễn phí.\n\nMỗi phiên giao dịch, AI biến dữ liệu thô thành một bản đọc rõ ràng trong vài phút: điều gì đã biến động, vì sao, và dòng tiền phía sau.\n\n■ Trước giờ mở cửa và sau giờ đóng cửa\nCổ phiếu nào biến động ngoài phiên chính, và vì sao.\n\n■ Lịch báo cáo lợi nhuận\nAi công bố trước ",
+    "whatsNew": "Da them chi bao AI o thanh tren. Da sua loi cau hinh de cac man hinh luon tai ban moi nhat. Cai thien chieu rong va do de doc cua the mo khoa. Cai thien do on dinh cua ban tin buoi sang.",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "zh-Hant": {
+    "keywords": "美股,財報,盤前,盤後,選擇權,暗池,那斯達克,特斯拉,免費,即時,股票,投資,行事曆,美國股市,大戶,成交量,個股,道瓊,標普,籌碼,新聞,盤中",
+    "keywordsLen": 73,
+    "keywordsRoom": 27,
+    "promotionalText": null,
+    "description": "無論你剛開始看第一檔股票，還是每天交易選擇權，SIGNUM HQ 讓美股變得看得懂。免費。\n\n每個交易日，AI 把原始市場數據變成幾分鐘就能讀完的解讀：什麼在動、為什麼動、背後的資金是誰。\n\n■ 盤前與盤後\n開盤前和收盤後誰在動，以及背後的原因。\n\n■ 財報行事曆\n哪些公司在開盤前或收盤後公布，附日期與預估每股盈餘。\n\n■ AI 類股報告\n全部 10 個類股，每日收盤報告與早盤簡報。\n\n■ 選擇權結構\nGEX（Gamma 曝險）、Put/Call 比、最大痛點、Call Wall 與 Put Floor。\n\n■ 資金流向\n暗池成交比重、大單交易、淨權利金。\n\n注意：本 App 提供資訊與教育參考，並非投資建議。\n\nSIGNUM Pro 為每月自動續訂的訂閱，可移除廣告。確認購買時由 Apple 帳戶扣款，除非在期間結束前 24 小時取消，否則自動續訂。可於 Apple 帳戶設定中管理或取消",
+    "whatsNew": "在頂部列新增 AI 分析標示。修正應用程式連線設定問題，畫面將always載入最新版本。改善解鎖卡片的寬度與可讀性。提升早晨簡報的生成穩定性。",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ja": {
+    "keywords": "ニュース,決算発表,決算カレンダー,テスラ,エヌビディア,ナスダック,株価,個別株,銘柄,速報,経済指標,市況,相場,出来高,需給,オプション,ガンマ,オルカン,決算,時間外取引",
+    "keywordsLen": 89,
+    "keywordsRoom": 11,
+    "promotionalText": null,
+    "description": "はじめての米国株でも、毎日オプションを取引するプロでも——SIGNUM HQは米国マーケットを「読める」ものに変えます。無料。\n\n毎営業日、AIが生のマーケットデータを数分で読めるレポートに変換。何が動いたか、なぜ動いたか、その裏の資金の流れまで。専門用語なしで始められ、深掘りしたい人には十分な深さを。\n\n【主な機能】\n・毎朝のAIブリーフィングとセクター別レポート\n・リアルタイムのマーケットムーバー（値上がり・値下がり）\n・オプションフロー、ガンマ、マックスペイン\n・ダークプール、大口（ホエール）の動き\n・決算、ニュース、ウォッチリスト\n\n初心者にもプロにも。米国株・ナスダックを毎日ひとつのアプリで。\n\n※本アプリは情報提供を目的としており、投資助言ではありません。\n\nSIGNUM Pro は広告を非表示にする月額自動更新サブスクリプションです。購入確定時にApple アカウントへ 請求",
+    "whatsNew": "AI分析の表示を上部に追加しました。アプリの接続設定の不具合を修正し、画面が常に最新版で表示されるようになりました。ロック解除カードの幅と可読性を改善しました。モーニングブリーフィングの生成安定性を向上させました。",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "fr-FR": {
+    "keywords": "actions,US,bourse,résultats,préouverture,after hours,options,dark pool,Nasdaq,gratuit",
+    "keywordsLen": 85,
+    "keywordsRoom": 15,
+    "promotionalText": null,
+    "description": "Que vous suiviez votre première action ou que vous tradiez des options chaque jour, SIGNUM HQ rend le marché américain lisible. Gratuit.\n\nChaque jour de Bourse, l'IA transforme des données brutes en une lecture claire, terminée en quelques minutes : ce qui a bougé, pourquoi, et quel argent était derrière.\n\n■ Avant-Bourse et après-Bourse\nQui a bougé avant l'ouverture et après la clôture, et pourquo",
+    "whatsNew": "Ajout d un indicateur IA dans la barre supérieure. Correction d un probleme de configuration pour que les ecrans chargent toujours la derniere version. Amelioration de la largeur et de la lisibilite d",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "de-DE": {
+    "keywords": "Aktien,USA,Börse,Quartalszahlen,Vorbörse,Nachbörse,Optionen,Dark Pool,Nasdaq,Tesla,gratis",
+    "keywordsLen": 89,
+    "keywordsRoom": 11,
+    "promotionalText": null,
+    "description": "Ob du deine erste Aktie verfolgst oder täglich Optionen handelst — SIGNUM HQ macht den US-Markt lesbar. Kostenlos.\n\nAn jedem Handelstag verwandelt KI rohe Marktdaten in eine klare Lesart, die du in Minuten schaffst: was sich bewegt hat, warum, und welches Geld dahintersteckt.\n\n■ Vorbörse und Nachbörse\nWer sich vor der Eröffnung und nach dem Schluss bewegt hat — und was dahintersteckt.\n\n■ Quartalsz",
+    "whatsNew": "AI-Anzeige in der oberen Leiste hinzugefuegt. Ein Konfigurationsproblem behoben, sodass Bildschirme immer die neueste Version laden. Breite und Lesbarkeit der Freischaltkarte verbessert. Zuverlaessigk",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "es-MX": {
+    "keywords": "acciones,EEUU,bolsa,resultados,premercado,after hours,opciones,dark pool,Nasdaq,gratis",
+    "keywordsLen": 86,
+    "keywordsRoom": 14,
+    "promotionalText": null,
+    "description": "Tanto si sigues tu primera acción como si operas opciones a diario, SIGNUM HQ hace que el mercado estadounidense se entienda. Gratis.\n\nCada día de mercado, la IA convierte datos brutos en una lectura clara que terminas en minutos: qué se movió, por qué, y qué dinero había detrás.\n\n■ Premercado y after hours\nQuién se movió antes de la apertura y después del cierre, y por qué.\n\n■ Calendario de resul",
+    "whatsNew": "Se anadio un indicador de IA en la barra superior. Se corrigio un problema de configuracion para que las pantallas carguen siempre la version mas reciente. Se mejoro el ancho y la legibilidad de la ta",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   }
+  },
+  "1.7 (READY_FOR_SALE)": {
+   "en-US": {
+    "keywords": "free,realtime,movers,gappers,unusual,options,flow,gamma,darkpool,maxpain,0dte,nasdaq,tesla,nvidia",
+    "keywordsLen": 97,
+    "keywordsRoom": 3,
+    "promotionalText": null,
+    "description": "Whether you're following your first stock or trading options every day, SIGNUM HQ makes the market make sense — free.\n\nEvery trading day, AI turns raw market data into a clear read you can finish in minutes: what moved, why it moved, and the money flow behind it. No jargon needed to start — all the depth you want when you go deeper.\n\nWHAT YOU GET\n• Live market movers — see what's driving stocks ri",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "es-ES": {
+    "keywords": "acciones,EEUU,bolsa,resultados,premercado,after hours,opciones,dark pool,Nasdaq,gratis",
+    "keywordsLen": 86,
+    "keywordsRoom": 14,
+    "promotionalText": null,
+    "description": "Tanto si sigues tu primera acción como si operas opciones a diario, SIGNUM HQ hace que el mercado estadounidense se entienda. Gratis.\n\nCada día de mercado, la IA convierte datos brutos en una lectura clara que terminas en minutos: qué se movió, por qué, y qué dinero había detrás.\n\n■ Premercado y after hours\nQuién se movió antes de la apertura y después del cierre, y por qué.\n\n■ Calendario de resul",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "id": {
+    "keywords": "saham,AS,bursa,laba,pramarket,after hours,opsi,dark pool,Nasdaq,Tesla,gratis",
+    "keywordsLen": 76,
+    "keywordsRoom": 24,
+    "promotionalText": null,
+    "description": "Baik Anda baru mengikuti satu saham atau memperdagangkan opsi setiap hari, SIGNUM HQ membuat pasar AS mudah dibaca. Gratis.\n\nSetiap hari bursa, AI mengubah data mentah menjadi bacaan jelas yang selesai dalam beberapa menit: apa yang bergerak, mengapa, dan uang di baliknya.\n\n■ Pramarket dan after hours\nSiapa yang bergerak sebelum pembukaan dan setelah penutupan, beserta alasannya.\n\n■ Kalender laba\n",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "vi": {
+    "keywords": "cổ phiếu,Mỹ,chứng khoán,báo cáo,trước giờ mở,sau giờ,quyền chọn,dark pool,Nasdaq",
+    "keywordsLen": 80,
+    "keywordsRoom": 20,
+    "promotionalText": null,
+    "description": "Dù bạn đang theo dõi cổ phiếu đầu tiên hay giao dịch quyền chọn mỗi ngày, SIGNUM HQ giúp bạn đọc được thị trường Mỹ. Miễn phí.\n\nMỗi phiên giao dịch, AI biến dữ liệu thô thành một bản đọc rõ ràng trong vài phút: điều gì đã biến động, vì sao, và dòng tiền phía sau.\n\n■ Trước giờ mở cửa và sau giờ đóng cửa\nCổ phiếu nào biến động ngoài phiên chính, và vì sao.\n\n■ Lịch báo cáo lợi nhuận\nAi công bố trước ",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "pt-BR": {
+    "keywords": "ações,EUA,bolsa,balanços,pré-mercado,after hours,opções,dark pool,Nasdaq,grátis",
+    "keywordsLen": 79,
+    "keywordsRoom": 21,
+    "promotionalText": null,
+    "description": "Se você acompanha sua primeira ação ou opera opções todo dia, o SIGNUM HQ torna o mercado dos EUA legível. Grátis.\n\nA cada pregão, a IA transforma dados brutos em uma leitura clara que você termina em minutos: o que se moveu, por quê, e qual dinheiro estava por trás.\n\n■ Pré-mercado e pós-mercado\nQuem se moveu antes da abertura e depois do fechamento, e por quê.\n\n■ Calendário de balanços\nQuem divul",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ja": {
+    "keywords": "ニュース,決算発表,決算カレンダー,テスラ,エヌビディア,ナスダック,株価,個別株,銘柄,速報,経済指標,市況,相場,出来高,需給,オプション,ガンマ,オルカン,決算,時間外取引",
+    "keywordsLen": 89,
+    "keywordsRoom": 11,
+    "promotionalText": null,
+    "description": "はじめての米国株でも、毎日オプションを取引するプロでも——SIGNUM HQは米国マーケットを「読める」ものに変えます。無料。\n\n毎営業日、AIが生のマーケットデータを数分で読めるレポートに変換。何が動いたか、なぜ動いたか、その裏の資金の流れまで。専門用語なしで始められ、深掘りしたい人には十分な深さを。\n\n【主な機能】\n・毎朝のAIブリーフィングとセクター別レポート\n・リアルタイムのマーケットムーバー（値上がり・値下がり）\n・オプションフロー、ガンマ、マックスペイン\n・ダークプール、大口（ホエール）の動き\n・決算、ニュース、ウォッチリスト\n\n初心者にもプロにも。米国株・ナスダックを毎日ひとつのアプリで。\n\n※本アプリは情報提供を目的としており、投資助言ではありません。\n\nSIGNUM Pro は広告を非表示にする月額自動更新サブスクリプションです。購入確定時にApple アカウントへ 請求",
+    "whatsNew": "・広告なしの SIGNUM Pro を追加しました。データと機能はそのまま、画面から広告だけが消えます。\n・ダッシュボード/ガーディアン/フロー/インテル/コマンドの画面を整えました。\n・休場・週末でも直前取引日の株価とチャートが正確に出るよう修正しました。\n・銘柄検索を作り直しました。日本語の企業名でも探せます。",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "zh-Hant": {
+    "keywords": "美股,財報,盤前,盤後,選擇權,暗池,那斯達克,特斯拉,免費,即時,股票,投資,行事曆,美國股市,大戶,成交量,個股,道瓊,標普,籌碼,新聞,盤中",
+    "keywordsLen": 73,
+    "keywordsRoom": 27,
+    "promotionalText": null,
+    "description": "無論你剛開始看第一檔股票，還是每天交易選擇權，SIGNUM HQ 讓美股變得看得懂。免費。\n\n每個交易日，AI 把原始市場數據變成幾分鐘就能讀完的解讀：什麼在動、為什麼動、背後的資金是誰。\n\n■ 盤前與盤後\n開盤前和收盤後誰在動，以及背後的原因。\n\n■ 財報行事曆\n哪些公司在開盤前或收盤後公布，附日期與預估每股盈餘。\n\n■ AI 類股報告\n全部 10 個類股，每日收盤報告與早盤簡報。\n\n■ 選擇權結構\nGEX（Gamma 曝險）、Put/Call 比、最大痛點、Call Wall 與 Put Floor。\n\n■ 資金流向\n暗池成交比重、大單交易、淨權利金。\n\n注意：本 App 提供資訊與教育參考，並非投資建議。\n\nSIGNUM Pro 為每月自動續訂的訂閱，可移除廣告。確認購買時由 Apple 帳戶扣款，除非在期間結束前 24 小時取消，否則自動續訂。可於 Apple 帳戶設定中管理或取消",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "de-DE": {
+    "keywords": "Aktien,USA,Börse,Quartalszahlen,Vorbörse,Nachbörse,Optionen,Dark Pool,Nasdaq,Tesla,gratis",
+    "keywordsLen": 89,
+    "keywordsRoom": 11,
+    "promotionalText": null,
+    "description": "Ob du deine erste Aktie verfolgst oder täglich Optionen handelst — SIGNUM HQ macht den US-Markt lesbar. Kostenlos.\n\nAn jedem Handelstag verwandelt KI rohe Marktdaten in eine klare Lesart, die du in Minuten schaffst: was sich bewegt hat, warum, und welches Geld dahintersteckt.\n\n■ Vorbörse und Nachbörse\nWer sich vor der Eröffnung und nach dem Schluss bewegt hat — und was dahintersteckt.\n\n■ Quartalsz",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "fr-FR": {
+    "keywords": "actions,US,bourse,résultats,préouverture,after hours,options,dark pool,Nasdaq,gratuit",
+    "keywordsLen": 85,
+    "keywordsRoom": 15,
+    "promotionalText": null,
+    "description": "Que vous suiviez votre première action ou que vous tradiez des options chaque jour, SIGNUM HQ rend le marché américain lisible. Gratuit.\n\nChaque jour de Bourse, l'IA transforme des données brutes en une lecture claire, terminée en quelques minutes : ce qui a bougé, pourquoi, et quel argent était derrière.\n\n■ Avant-Bourse et après-Bourse\nQui a bougé avant l'ouverture et après la clôture, et pourquo",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "es-MX": {
+    "keywords": "acciones,EEUU,bolsa,resultados,premercado,after hours,opciones,dark pool,Nasdaq,gratis",
+    "keywordsLen": 86,
+    "keywordsRoom": 14,
+    "promotionalText": null,
+    "description": "Tanto si sigues tu primera acción como si operas opciones a diario, SIGNUM HQ hace que el mercado estadounidense se entienda. Gratis.\n\nCada día de mercado, la IA convierte datos brutos en una lectura clara que terminas en minutos: qué se movió, por qué, y qué dinero había detrás.\n\n■ Premercado y after hours\nQuién se movió antes de la apertura y después del cierre, y por qué.\n\n■ Calendario de resul",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ko": {
+    "keywords": "미국주식,미장,증시,시황,오늘의증시,증시캘린더,실적발표일정,기업실적,배당주,나스닥,테슬라,엔비디아,주가,종목,무료,실시간,속보,리포트,공시,해외주식,장마감,종목분석,실시간주가",
+    "keywordsLen": 97,
+    "keywordsRoom": 3,
+    "promotionalText": null,
+    "description": "처음 미국 주식을 보는 사람도, 매일 옵션을 거래하는 전문가도——SIGNUM HQ는 미국 시장을 '읽히게' 만듭니다. 무료.\n\n매 거래일, AI가 날것의 시장 데이터를 몇 분이면 읽는 리포트로 바꿉니다. 무엇이 움직였는지, 왜 움직였는지, 그 뒤의 자금 흐름까지. 전문용어 없이 시작하고, 더 깊이 보고 싶으면 얼마든지 파고들 수 있습니다.\n\n[주요 기능]\n· 매일 아침 AI 브리핑과 섹터별 리포트\n· 실시간 마켓 무버 (급등·급락)\n· 옵션 플로우, 감마, 맥스페인\n· 다크풀, 대형 매매(웨일) 흐름\n· 실적, 뉴스, 관심종목\n\n초보부터 전문가까지. 미국주식·나스닥을 매일 한 앱에서.\n\n※본 앱은 정보 제공 목적이며 투자자문이 아닙니다.\n\nSIGNUM Pro 는 광고를 제거하는 월간 자동갱신 구독입니다. 결",
+    "whatsNew": "· 광고 없이 보는 SIGNUM Pro 를 추가했습니다. 데이터와 기능은 그대로, 화면에서 광고만 사라집니다.\n· 대시보드·가디언·플로우·인텔·커맨드 화면을 다시 다듬었습니다.\n· 휴장·주말에도 직전 거래일 시세와 차트가 정확하게 나오도록 고쳤습니다.\n· 종목 검색을 새로 만들었습니다. 한국어·일본어 회사명으로도 찾을 수 있습니다.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "it": {
+    "keywords": "azioni,USA,borsa,utili,pre-mercato,after hours,opzioni,dark pool,Nasdaq,gratis",
+    "keywordsLen": 78,
+    "keywordsRoom": 22,
+    "promotionalText": null,
+    "description": "Che tu stia seguendo la tua prima azione o facendo trading di opzioni ogni giorno, SIGNUM HQ rende il mercato USA leggibile. Gratis.\n\nOgni giorno di borsa l'IA trasforma i dati grezzi in una lettura chiara che finisci in pochi minuti: cosa si è mosso, perché, e quale denaro c'era dietro.\n\n■ Pre-mercato e after hours\nChi si è mosso prima dell'apertura e dopo la chiusura, e perché.\n\n■ Calendario deg",
+    "whatsNew": "· Added SIGNUM Pro — an ad-free view. Same data, same features; only the ads go away.\n· Refreshed the Dashboard, Guardian, Flow, Intel and Command screens.\n· Fixed prices and charts so the last tradin",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   }
+  },
+  "1.6 (READY_FOR_SALE)": {
+   "es-MX": {
+    "keywords": "acciones,EEUU,bolsa,resultados,premercado,after hours,opciones,dark pool,Nasdaq,gratis",
+    "keywordsLen": 86,
+    "keywordsRoom": 14,
+    "promotionalText": null,
+    "description": "Tanto si sigues tu primera acción como si operas opciones a diario, SIGNUM HQ hace que el mercado estadounidense se entienda. Gratis.\n\nCada día de mercado, la IA convierte datos brutos en una lectura clara que terminas en minutos: qué se movió, por qué, y qué dinero había detrás.\n\n■ Premercado y after hours\nQuién se movió antes de la apertura y después del cierre, y por qué.\n\n■ Calendario de resul",
+    "whatsNew": "Mejoras de estabilidad e información actualizada en la App Store.",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "pt-BR": {
+    "keywords": "ações,EUA,bolsa,balanços,pré-mercado,after hours,opções,dark pool,Nasdaq,grátis",
+    "keywordsLen": 79,
+    "keywordsRoom": 21,
+    "promotionalText": null,
+    "description": "Se você acompanha sua primeira ação ou opera opções todo dia, o SIGNUM HQ torna o mercado dos EUA legível. Grátis.\n\nA cada pregão, a IA transforma dados brutos em uma leitura clara que você termina em minutos: o que se moveu, por quê, e qual dinheiro estava por trás.\n\n■ Pré-mercado e pós-mercado\nQuem se moveu antes da abertura e depois do fechamento, e por quê.\n\n■ Calendário de balanços\nQuem divul",
+    "whatsNew": "Melhorias de estabilidade e informações atualizadas na App Store.",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "zh-Hant": {
+    "keywords": "美股,財報,盤前,盤後,選擇權,暗池,那斯達克,特斯拉,免費,即時,股票,投資,行事曆,美國股市,大戶,成交量,個股,道瓊,標普,籌碼,新聞,盤中",
+    "keywordsLen": 73,
+    "keywordsRoom": 27,
+    "promotionalText": null,
+    "description": "無論你剛開始看第一檔股票，還是每天交易選擇權，SIGNUM HQ 讓美股變得看得懂。免費。\n\n每個交易日，AI 把原始市場數據變成幾分鐘就能讀完的解讀：什麼在動、為什麼動、背後的資金是誰。\n\n■ 盤前與盤後\n開盤前和收盤後誰在動，以及背後的原因。\n\n■ 財報行事曆\n哪些公司在開盤前或收盤後公布，附日期與預估每股盈餘。\n\n■ AI 類股報告\n全部 10 個類股，每日收盤報告與早盤簡報。\n\n■ 選擇權結構\nGEX（Gamma 曝險）、Put/Call 比、最大痛點、Call Wall 與 Put Floor。\n\n■ 資金流向\n暗池成交比重、大單交易、淨權利金。\n\n注意：本 App 提供資訊與教育參考，並非投資建議。\n\nSIGNUM Pro 為每月自動續訂的訂閱，可移除廣告。確認購買時由 Apple 帳戶扣款，除非在期間結束前 24 小時取消，否則自動續訂。可於 Apple 帳戶設定中管理或取消",
+    "whatsNew": "穩定性改善與 App Store 資訊更新。",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "it": {
+    "keywords": "azioni,USA,borsa,utili,pre-mercato,after hours,opzioni,dark pool,Nasdaq,gratis",
+    "keywordsLen": 78,
+    "keywordsRoom": 22,
+    "promotionalText": null,
+    "description": "Che tu stia seguendo la tua prima azione o facendo trading di opzioni ogni giorno, SIGNUM HQ rende il mercato USA leggibile. Gratis.\n\nOgni giorno di borsa l'IA trasforma i dati grezzi in una lettura chiara che finisci in pochi minuti: cosa si è mosso, perché, e quale denaro c'era dietro.\n\n■ Pre-mercato e after hours\nChi si è mosso prima dell'apertura e dopo la chiusura, e perché.\n\n■ Calendario deg",
+    "whatsNew": "Miglioramenti della stabilità e informazioni App Store aggiornate.",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "es-ES": {
+    "keywords": "acciones,EEUU,bolsa,resultados,premercado,after hours,opciones,dark pool,Nasdaq,gratis",
+    "keywordsLen": 86,
+    "keywordsRoom": 14,
+    "promotionalText": null,
+    "description": "Tanto si sigues tu primera acción como si operas opciones a diario, SIGNUM HQ hace que el mercado estadounidense se entienda. Gratis.\n\nCada día de mercado, la IA convierte datos brutos en una lectura clara que terminas en minutos: qué se movió, por qué, y qué dinero había detrás.\n\n■ Premercado y after hours\nQuién se movió antes de la apertura y después del cierre, y por qué.\n\n■ Calendario de resul",
+    "whatsNew": "Mejoras de estabilidad e información actualizada en la App Store.",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "de-DE": {
+    "keywords": "Aktien,USA,Börse,Quartalszahlen,Vorbörse,Nachbörse,Optionen,Dark Pool,Nasdaq,Tesla,gratis",
+    "keywordsLen": 89,
+    "keywordsRoom": 11,
+    "promotionalText": null,
+    "description": "Ob du deine erste Aktie verfolgst oder täglich Optionen handelst — SIGNUM HQ macht den US-Markt lesbar. Kostenlos.\n\nAn jedem Handelstag verwandelt KI rohe Marktdaten in eine klare Lesart, die du in Minuten schaffst: was sich bewegt hat, warum, und welches Geld dahintersteckt.\n\n■ Vorbörse und Nachbörse\nWer sich vor der Eröffnung und nach dem Schluss bewegt hat — und was dahintersteckt.\n\n■ Quartalsz",
+    "whatsNew": "Stabilitätsverbesserungen und aktualisierte App-Store-Informationen.",
+    "marketingUrl": null,
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "en-US": {
+    "keywords": "free,realtime,movers,gappers,unusual,options,flow,gamma,darkpool,maxpain,0dte,nasdaq,tesla,nvidia",
+    "keywordsLen": 97,
+    "keywordsRoom": 3,
+    "promotionalText": null,
+    "description": "Whether you're following your first stock or trading options every day, SIGNUM HQ makes the market make sense — free.\n\nEvery trading day, AI turns raw market data into a clear read you can finish in minutes: what moved, why it moved, and the money flow behind it. No jargon needed to start — all the depth you want when you go deeper.\n\nWHAT YOU GET\n• Live market movers — see what's driving stocks ri",
+    "whatsNew": "SIGNUM HQ is now listed in 9 more languages. Stability and performance improvements.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ko": {
+    "keywords": "미국주식,미장,증시,시황,오늘의증시,증시캘린더,실적발표일정,기업실적,배당주,나스닥,테슬라,엔비디아,주가,종목,무료,실시간,속보,리포트,공시,해외주식,장마감,종목분석,실시간주가",
+    "keywordsLen": 97,
+    "keywordsRoom": 3,
+    "promotionalText": null,
+    "description": "처음 미국 주식을 보는 사람도, 매일 옵션을 거래하는 전문가도——SIGNUM HQ는 미국 시장을 '읽히게' 만듭니다. 무료.\n\n매 거래일, AI가 날것의 시장 데이터를 몇 분이면 읽는 리포트로 바꿉니다. 무엇이 움직였는지, 왜 움직였는지, 그 뒤의 자금 흐름까지. 전문용어 없이 시작하고, 더 깊이 보고 싶으면 얼마든지 파고들 수 있습니다.\n\n[주요 기능]\n· 매일 아침 AI 브리핑과 섹터별 리포트\n· 실시간 마켓 무버 (급등·급락)\n· 옵션 플로우, 감마, 맥스페인\n· 다크풀, 대형 매매(웨일) 흐름\n· 실적, 뉴스, 관심종목\n\n초보부터 전문가까지. 미국주식·나스닥을 매일 한 앱에서.\n\n※본 앱은 정보 제공 목적이며 투자자문이 아닙니다.\n\nSIGNUM Pro 는 광고를 제거하는 월간 자동갱신 구독입니다. 결",
     "whatsNew": "안정성 개선과 스토어 정보 업데이트입니다.",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
    },
-   "en-US": {
-    "keywords": "options flow,dark pool,gamma,GEX,max pain,unusual,whale,premarket,put call,trading,investing,ticker",
-    "keywordsLen": 99,
-    "keywordsRoom": 1,
-    "promotionalText": null,
-    "description": "Whether you're following your first stock or trading options every day, SIGNUM HQ makes the market make sense — free.\n\nEvery trading day, AI turns raw market data into a clear read you can finish in minutes: what moved, why it moved, and the money flow behind it. No jargon needed to start — all the depth you want when you go deeper.\n\nWHAT YOU GET\n• Live market movers — see what's driving stocks ri",
-    "whatsNew": "The App Store now correctly shows that SIGNUM HQ is available in Korean and Japanese, not English only. Dark pool share, max pain, gamma exposure and the dealer gamma flip, call walls and put floors, ",
-    "marketingUrl": "https://www.signumhq.com",
-    "supportUrl": "https://www.signumhq.com"
-   },
    "ja": {
-    "keywords": "シグナム,ダークプール,ガンマ,決算,相場,投資,デイトレ,出来高,ティッカー,プレマーケット,先物,空売り,クジラ,ボラティリティ,GEX,IV,建玉,需給,騰落,材料株,株価,注目株,金利,ETF",
-    "keywordsLen": 100,
-    "keywordsRoom": 0,
+    "keywords": "ニュース,決算発表,決算カレンダー,テスラ,エヌビディア,ナスダック,株価,個別株,銘柄,速報,経済指標,市況,相場,出来高,需給,オプション,ガンマ,オルカン,決算,時間外取引",
+    "keywordsLen": 89,
+    "keywordsRoom": 11,
     "promotionalText": null,
-    "description": "はじめての米国株でも、毎日オプションを取引するプロでも——SIGNUM HQは米国マーケットを「読める」ものに変えます。無料。\n\n毎営業日、AIが生のマーケットデータを数分で読めるレポートに変換。何が動いたか、なぜ動いたか、その裏の資金の流れまで。専門用語なしで始められ、深掘りしたい人には十分な深さを。\n\n【主な機能】\n・毎朝のAIブリーフィングとセクター別レポート\n・リアルタイムのマーケットムーバー（値上がり・値下がり）\n・オプションフロー、ガンマ、マックスペイン\n・ダークプール、大口（ホエール）の動き\n・決算、ニュース、ウォッチリスト\n\n初心者にもプロにも。米国株・ナスダックを毎日ひとつのアプリで。\n\n※本アプリは情報提供を目的としており、投資助言ではありません。",
+    "description": "はじめての米国株でも、毎日オプションを取引するプロでも——SIGNUM HQは米国マーケットを「読める」ものに変えます。無料。\n\n毎営業日、AIが生のマーケットデータを数分で読めるレポートに変換。何が動いたか、なぜ動いたか、その裏の資金の流れまで。専門用語なしで始められ、深掘りしたい人には十分な深さを。\n\n【主な機能】\n・毎朝のAIブリーフィングとセクター別レポート\n・リアルタイムのマーケットムーバー（値上がり・値下がり）\n・オプションフロー、ガンマ、マックスペイン\n・ダークプール、大口（ホエール）の動き\n・決算、ニュース、ウォッチリスト\n\n初心者にもプロにも。米国株・ナスダックを毎日ひとつのアプリで。\n\n※本アプリは情報提供を目的としており、投資助言ではありません。\n\nSIGNUM Pro は広告を非表示にする月額自動更新サブスクリプションです。購入確定時にApple アカウントへ 請求",
     "whatsNew": "安定性の改善とApp Store情報の更新です。",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
-   }
-  },
-  "1.3 (READY_FOR_SALE)": {
-   "ja": {
-    "keywords": "シグナム,ダークプール,ガンマ,決算,相場,投資,デイトレ,出来高,ティッカー,プレマーケット,先物,空売り,クジラ,ボラティリティ,GEX,IV,建玉,需給,騰落,材料株,株価,注目株,金利,ETF",
-    "keywordsLen": 100,
-    "keywordsRoom": 0,
+   },
+   "fr-FR": {
+    "keywords": "actions,US,bourse,résultats,préouverture,after hours,options,dark pool,Nasdaq,gratuit",
+    "keywordsLen": 85,
+    "keywordsRoom": 15,
     "promotionalText": null,
-    "description": "はじめての米国株でも、毎日オプションを取引するプロでも——SIGNUM HQは米国マーケットを「読める」ものに変えます。無料。\n\n毎営業日、AIが生のマーケットデータを数分で読めるレポートに変換。何が動いたか、なぜ動いたか、その裏の資金の流れまで。専門用語なしで始められ、深掘りしたい人には十分な深さを。\n\n【主な機能】\n・毎朝のAIブリーフィングとセクター別レポート\n・リアルタイムのマーケットムーバー（値上がり・値下がり）\n・オプションフロー、ガンマ、マックスペイン\n・ダークプール、大口（ホエール）の動き\n・決算、ニュース、ウォッチリスト\n\n初心者にもプロにも。米国株・ナスダックを毎日ひとつのアプリで。\n\n※本アプリは情報提供を目的としており、投資助言ではありません。",
-    "whatsNew": "安定性の改善とApp Store情報の更新です。ダークプール比率、マックスペイン、ガンマエクスポージャーとガンマフリップ、コールウォールとプットフロア、異常な取引、セクター別AIレポートはすべて無料のまま、登録も不要です。",
-    "marketingUrl": "https://www.signumhq.com",
+    "description": "Que vous suiviez votre première action ou que vous tradiez des options chaque jour, SIGNUM HQ rend le marché américain lisible. Gratuit.\n\nChaque jour de Bourse, l'IA transforme des données brutes en une lecture claire, terminée en quelques minutes : ce qui a bougé, pourquoi, et quel argent était derrière.\n\n■ Avant-Bourse et après-Bourse\nQui a bougé avant l'ouverture et après la clôture, et pourquo",
+    "whatsNew": "Améliorations de la stabilité et informations App Store mises à jour.",
+    "marketingUrl": null,
     "supportUrl": "https://www.signumhq.com"
    },
-   "ko": {
-    "keywords": "시그넘,미장,해외주식,증시,나스닥,주가,종목,관심종목,옵션플로우,다크풀,감마,맥스페인,실적,급등주,프리마켓,선물,공매도,세력,고래,변동성,트레이딩,투자,수급,체결,배당,ETF,금리",
-    "keywordsLen": 100,
-    "keywordsRoom": 0,
-    "promotionalText": null,
-    "description": "처음 미국 주식을 보는 사람도, 매일 옵션을 거래하는 전문가도——SIGNUM HQ는 미국 시장을 '읽히게' 만듭니다. 무료.\n\n매 거래일, AI가 날것의 시장 데이터를 몇 분이면 읽는 리포트로 바꿉니다. 무엇이 움직였는지, 왜 움직였는지, 그 뒤의 자금 흐름까지. 전문용어 없이 시작하고, 더 깊이 보고 싶으면 얼마든지 파고들 수 있습니다.\n\n[주요 기능]\n· 매일 아침 AI 브리핑과 섹터별 리포트\n· 실시간 마켓 무버 (급등·급락)\n· 옵션 플로우, 감마, 맥스페인\n· 다크풀, 대형 매매(웨일) 흐름\n· 실적, 뉴스, 관심종목\n\n초보부터 전문가까지. 미국주식·나스닥을 매일 한 앱에서.\n\n※본 앱은 정보 제공 목적이며 투자자문이 아닙니다.",
-    "whatsNew": "안정성 개선과 스토어 정보 업데이트입니다. 다크풀 비중, 맥스페인, 감마 익스포저와 감마 플립, 콜월·풋플로어, 이상 거래, 섹터별 AI 리포트는 그대로 무료이며 가입도 필요 없습니다.",
-    "marketingUrl": "https://www.signumhq.com",
-    "supportUrl": "https://www.signumhq.com"
-   },
-   "en-US": {
-    "keywords": "options flow,dark pool,gamma,GEX,max pain,unusual,whale,premarket,put call,trading,investing,ticker",
-    "keywordsLen": 99,
-    "keywordsRoom": 1,
-    "promotionalText": null,
-    "description": "Whether you're following your first stock or trading options every day, SIGNUM HQ makes the market make sense — free.\n\nEvery trading day, AI turns raw market data into a clear read you can finish in minutes: what moved, why it moved, and the money flow behind it. No jargon needed to start — all the depth you want when you go deeper.\n\nWHAT YOU GET\n• Live market movers — see what's driving stocks ri",
-    "whatsNew": "Stability and performance improvements, plus updated App Store information. Dark pool share, max pain, gamma exposure and the dealer gamma flip, call walls and put floors, unusual sweeps and the AI se",
-    "marketingUrl": "https://www.signumhq.com",
-    "supportUrl": "https://www.signumhq.com"
-   }
-  },
-  "1.2 (READY_FOR_SALE)": {
-   "en-US": {
-    "keywords": "options flow,dark pool,gamma,GEX,max pain,unusual,whale,premarket,put call,trading,investing,ticker",
-    "keywordsLen": 99,
-    "keywordsRoom": 1,
-    "promotionalText": "See what institutions actually do. Dark pool share, options flow, gamma and max pain — free, every trading day. Data, not advice.",
-    "description": "Whether you're following your first stock or trading options every day, SIGNUM HQ makes the market make sense — free.\n\nEvery trading day, AI turns raw market data into a clear read you can finish in minutes: what moved, why it moved, and the money flow behind it. No jargon needed to start — all the depth you want when you go deeper.\n\nWHAT YOU GET\n• Live market movers — see what's driving stocks ri",
-    "whatsNew": "Stability and layout fixes for system navigation bars. Internal updates.",
-    "marketingUrl": "https://www.signumhq.com",
-    "supportUrl": "https://www.signumhq.com"
-   },
-   "ja": {
-    "keywords": "シグナム,米国株,オプション,ダークプール,ガンマ,決算,相場,投資,デイトレ,出来高,ティッカー,プレマーケット,先物,マックスペイン,空売り,クジラ",
+   "id": {
+    "keywords": "saham,AS,bursa,laba,pramarket,after hours,opsi,dark pool,Nasdaq,Tesla,gratis",
     "keywordsLen": 76,
     "keywordsRoom": 24,
-    "promotionalText": "機関投資家が実際に何をしているかを見る。ダークプール比率、オプションフロー、ガンマとマックスペインを毎日無料で。投資助言ではなくデータです。",
-    "description": "はじめての米国株でも、毎日オプションを取引するプロでも——SIGNUM HQは米国マーケットを「読める」ものに変えます。無料。\n\n毎営業日、AIが生のマーケットデータを数分で読めるレポートに変換。何が動いたか、なぜ動いたか、その裏の資金の流れまで。専門用語なしで始められ、深掘りしたい人には十分な深さを。\n\n【主な機能】\n・毎朝のAIブリーフィングとセクター別レポート\n・リアルタイムのマーケットムーバー（値上がり・値下がり）\n・オプションフロー、ガンマ、マックスペイン\n・ダークプール、大口（ホエール）の動き\n・決算、ニュース、ウォッチリスト\n\n初心者にもプロにも。米国株・ナスダックを毎日ひとつのアプリで。\n\n※本アプリは情報提供を目的としており、投資助言ではありません。",
-    "whatsNew": "システムナビゲーションバー周りのレイアウト・安定性の改善。内部アップデート。",
-    "marketingUrl": "https://www.signumhq.com",
+    "promotionalText": null,
+    "description": "Baik Anda baru mengikuti satu saham atau memperdagangkan opsi setiap hari, SIGNUM HQ membuat pasar AS mudah dibaca. Gratis.\n\nSetiap hari bursa, AI mengubah data mentah menjadi bacaan jelas yang selesai dalam beberapa menit: apa yang bergerak, mengapa, dan uang di baliknya.\n\n■ Pramarket dan after hours\nSiapa yang bergerak sebelum pembukaan dan setelah penutupan, beserta alasannya.\n\n■ Kalender laba\n",
+    "whatsNew": "Peningkatan stabilitas dan pembaruan informasi App Store.",
+    "marketingUrl": null,
     "supportUrl": "https://www.signumhq.com"
    },
-   "ko": {
-    "keywords": "시그넘,미국주식,미장,해외주식,증시,나스닥,주가,종목,관심종목,옵션,옵션플로우,다크풀,감마,맥스페인,실적,급등주,프리마켓,선물,공매도,세력,고래,변동성,트레이딩,투자",
-    "keywordsLen": 92,
-    "keywordsRoom": 8,
-    "promotionalText": "기관이 실제로 무엇을 하는지 봅니다. 다크풀 비중, 옵션 플로우, 감마·맥스페인을 매일 무료로. 투자 조언이 아니라 데이터입니다.",
-    "description": "처음 미국 주식을 보는 사람도, 매일 옵션을 거래하는 전문가도——SIGNUM HQ는 미국 시장을 '읽히게' 만듭니다. 무료.\n\n매 거래일, AI가 날것의 시장 데이터를 몇 분이면 읽는 리포트로 바꿉니다. 무엇이 움직였는지, 왜 움직였는지, 그 뒤의 자금 흐름까지. 전문용어 없이 시작하고, 더 깊이 보고 싶으면 얼마든지 파고들 수 있습니다.\n\n[주요 기능]\n· 매일 아침 AI 브리핑과 섹터별 리포트\n· 실시간 마켓 무버 (급등·급락)\n· 옵션 플로우, 감마, 맥스페인\n· 다크풀, 대형 매매(웨일) 흐름\n· 실적, 뉴스, 관심종목\n\n초보부터 전문가까지. 미국주식·나스닥을 매일 한 앱에서.\n\n※본 앱은 정보 제공 목적이며 투자자문이 아닙니다.",
-    "whatsNew": "시스템 내비게이션 바 관련 레이아웃·안정성 개선. 내부 업데이트.",
-    "marketingUrl": "https://www.signumhq.com",
+   "vi": {
+    "keywords": "cổ phiếu,Mỹ,chứng khoán,báo cáo,trước giờ mở,sau giờ,quyền chọn,dark pool,Nasdaq",
+    "keywordsLen": 80,
+    "keywordsRoom": 20,
+    "promotionalText": null,
+    "description": "Dù bạn đang theo dõi cổ phiếu đầu tiên hay giao dịch quyền chọn mỗi ngày, SIGNUM HQ giúp bạn đọc được thị trường Mỹ. Miễn phí.\n\nMỗi phiên giao dịch, AI biến dữ liệu thô thành một bản đọc rõ ràng trong vài phút: điều gì đã biến động, vì sao, và dòng tiền phía sau.\n\n■ Trước giờ mở cửa và sau giờ đóng cửa\nCổ phiếu nào biến động ngoài phiên chính, và vì sao.\n\n■ Lịch báo cáo lợi nhuận\nAi công bố trước ",
+    "whatsNew": "Cải thiện độ ổn định và cập nhật thông tin trên App Store.",
+    "marketingUrl": null,
     "supportUrl": "https://www.signumhq.com"
    }
   }

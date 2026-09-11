@@ -2,119 +2,254 @@
  "appId": "6788779895",
  "slug": "undercurrent",
  "bundleId": "com.signumhq.undercurrent",
- "name": "Undercurrent: News & Money",
+ "name": "Undercurrent: AI Stock News",
  "primaryLocale": "en-US",
  "contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT",
  "localizations": {
+  "pt-BR": {
+   "name": "Undercurrent: IA Bolsa EUA",
+   "subtitle": "IA lê notícias e o fluxo",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
+  "it": {
+   "name": "Undercurrent: IA Borsa USA",
+   "subtitle": "L'IA legge news e flussi",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
+  "id": {
+   "name": "Undercurrent: AI Saham AS",
+   "subtitle": "AI baca berita & aliran dana",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
+  "es-MX": {
+   "name": "Undercurrent: IA Bolsa EEUU",
+   "subtitle": "IA lee noticias y el flujo",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
   "ko": {
-   "name": "언더커런트: 미국주식 뉴스와 수급",
-   "subtitle": "기관 자금 흐름과 뉴스의 괴리를 매일",
+   "name": "언더커런트: AI 주식 뉴스 캘린더",
+   "subtitle": "AI 요약 · 증시 브리핑 · 실적 캘린더",
    "privacyPolicyUrl": "https://www.signumhq.com/ko/undercurrent/privacy"
   },
+  "zh-Hant": {
+   "name": "Undercurrent: AI 美股新聞",
+   "subtitle": "AI 解讀新聞背後的資金流向",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
+  "vi": {
+   "name": "Undercurrent: AI Chứng khoán",
+   "subtitle": "AI đọc tin & dòng tiền",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
+  "fr-FR": {
+   "name": "Undercurrent: IA Bourse US",
+   "subtitle": "L'IA lit l'actu et les flux",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
+  "de-DE": {
+   "name": "Undercurrent: KI Börsennews",
+   "subtitle": "KI liest News und Flüsse",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
+  "es-ES": {
+   "name": "Undercurrent: IA Bolsa EEUU",
+   "subtitle": "IA lee noticias y el flujo",
+   "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
+  },
   "ja": {
-   "name": "アンダーカレント：米国株ニュースと資金",
-   "subtitle": "機関投資家の資金フローとニュースの乖離",
+   "name": "アンダーカレント: AI 株式ニュース",
+   "subtitle": "AI要約・市況ブリーフィング・決算",
    "privacyPolicyUrl": "https://www.signumhq.com/ja/undercurrent/privacy"
   },
   "en-US": {
-   "name": "Undercurrent: News & Money",
-   "subtitle": "The money behind the news",
+   "name": "Undercurrent: AI Stock News",
+   "subtitle": "AI news, recap & calendar",
    "privacyPolicyUrl": "https://www.signumhq.com/en/undercurrent/privacy"
   }
  },
  "versionLocalizations": {
-  "1.0.3 (READY_FOR_SALE)": {
-   "en-US": {
-    "keywords": "stocks,investing,market,options,dark pool,institutional,daily brief,earnings,SEC,whale,flow,ticker",
-    "keywordsLen": 98,
-    "keywordsRoom": 2,
+  "1.0.6 (READY_FOR_SALE)": {
+   "pt-BR": {
+    "keywords": "ações,EUA,bolsa,notícias,IA,opções,dark pool,balanços,investir,mercado",
+    "keywordsLen": 70,
+    "keywordsRoom": 30,
     "promotionalText": null,
-    "description": "The news tells you a story. The money tells you the truth.\n\nUndercurrent reads every headline side-by-side with what big money actually did — institutional off-exchange activity, options positioning, squeeze pressure — translated into plain words anyone can follow. When the story and the money disagree, you'll see it instantly.\n\nWHY PEOPLE OPEN IT EVERY DAY\n• News ≠ Money — a bullish story with de",
-    "whatsNew": "Stability and performance improvements, plus updated App Store information. Market news paired with what the money actually did, the divergence flag, dark pool activity and options positioning are all",
+    "description": "Toda manchete diz que move o mercado — mas o dinheiro realmente acompanha?\n\nO Undercurrent lê cada notícia da bolsa americana com IA e a confronta com o fluxo real de capital da mesma hora.\n\n■ Leitura da notícia por IA\nO que a manchete realmente diz, quais ações são afetadas, e o que aconteceu depois de notícias semelhantes.\n\n■ Comparação com o fluxo\nFluxo de opções, parcela negociada fora da bols",
+    "whatsNew": "Melhorias de estabilidade e informações atualizadas na App Store.",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
    },
-   "ja": {
-    "keywords": "株,投資,経済ニュース,決算,ブリーフィング,金融,相場,ナスダック,銘柄,出来高,ダークプール,プレマーケット,材料,需給,金利,FRB,テーマ株,騰落,注目株,速報,決算速報,ETF,空売り,株価",
+   "it": {
+    "keywords": "azioni,USA,borsa,notizie,IA,opzioni,dark pool,utili,investire,mercato",
+    "keywordsLen": 69,
+    "keywordsRoom": 31,
+    "promotionalText": null,
+    "description": "Ogni titolo dice di muovere il mercato — ma i soldi lo seguono?\n\nUndercurrent legge ogni notizia della borsa americana con l'IA, poi la confronta con i flussi di capitale reali della stessa ora.\n\n■ Lettura IA della notizia\nCosa dice davvero il titolo, quali azioni tocca, cosa è successo dopo notizie simili.\n\n■ Confronto con i flussi\nFlussi sulle opzioni, quota di scambi fuori borsa (dark pool), tr",
+    "whatsNew": "Miglioramenti della stabilità e informazioni App Store aggiornate.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "fr-FR": {
+    "keywords": "actions,US,bourse,actualité,IA,options,dark pool,résultats,investir,marché",
+    "keywordsLen": 74,
+    "keywordsRoom": 26,
+    "promotionalText": null,
+    "description": "Chaque titre prétend faire bouger le marché — mais l'argent suit-il ?\n\nUndercurrent lit chaque actualité boursière américaine avec l'IA, puis la confronte aux flux de capitaux réels du même moment.\n\n■ Lecture IA de l'actualité\nCe que dit vraiment le titre, quelles actions sont concernées, ce qui s'est passé après des nouvelles similaires.\n\n■ Comparaison avec les flux\nFlux d'options, part des échan",
+    "whatsNew": "Améliorations de la stabilité et informations App Store mises à jour.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "es-MX": {
+    "keywords": "acciones,EEUU,bolsa,noticias,IA,opciones,dark pool,resultados,invertir,mercado",
+    "keywordsLen": 78,
+    "keywordsRoom": 22,
+    "promotionalText": null,
+    "description": "Cada titular dice que mueve el mercado — ¿pero el dinero lo sigue?\n\nUndercurrent lee cada noticia del mercado estadounidense con IA y la compara con el flujo real de capital de esa misma hora.\n\n■ Lectura de noticias con IA\nQué dice de verdad el titular, a qué acciones toca, y qué pasó tras noticias parecidas.\n\n■ Comparación con el flujo\nFlujo de opciones, porcentaje operado fuera de bolsa (dark po",
+    "whatsNew": "Mejoras de estabilidad e información actualizada en la App Store.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "vi": {
+    "keywords": "cổ phiếu,Mỹ,chứng khoán,tin tức,AI,quyền chọn,dark pool,báo cáo,đầu tư",
+    "keywordsLen": 70,
+    "keywordsRoom": 30,
+    "promotionalText": null,
+    "description": "Mọi tiêu đề đều nói rằng nó làm thị trường biến động — nhưng tiền có đi theo không?\n\nUndercurrent dùng AI đọc từng tin tức chứng khoán Mỹ, rồi đối chiếu với dòng tiền thực tế cùng thời điểm.\n\n■ AI đọc tin\nTiêu đề thực sự nói gì, ảnh hưởng cổ phiếu nào, trước đây sau những tin tương tự đã xảy ra điều gì.\n\n■ Đối chiếu dòng tiền\nDòng tiền quyền chọn, tỷ trọng giao dịch ngoài sàn (dark pool), dấu vết ",
+    "whatsNew": "Cải thiện độ ổn định và cập nhật thông tin trên App Store.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "zh-Hant": {
+    "keywords": "美股,財報,盤前,選擇權,暗池,新聞,股票,投資,AI,即時報價",
+    "keywordsLen": 32,
+    "keywordsRoom": 68,
+    "promotionalText": null,
+    "description": "每則頭條都聲稱推動市場 — 但資金真的跟著走嗎？\n\nUndercurrent 用 AI 讀每一則美股新聞，再與同一時間的實際資金流向對照。新聞說的話與錢走的路不一致的地方，就是你該看的地方。\n\n■ AI 新聞解讀\n這則頭條實際在說什麼、影響哪幾檔、過去同類新聞之後發生了什麼。\n\n■ 資金流向對照\n同一時間的選擇權資金、場外（暗池）成交比重、大單跡象。\n\n■ 背離提醒\n新聞利多但資金流出？新聞利空但大單在接？那個背離才是重點。\n\n■ 財報行事曆\n你關注的美股何時公布財報、市場預期多少。\n\n■ 免費\n核心功能全部免費，不用註冊。\n\n注意：本 App 提供資訊參考，並非投資建議。投資有風險。\n\nData source: FINRA",
+    "whatsNew": "穩定性改善與 App Store 資訊更新。",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "en-US": {
+    "keywords": "stocks,news,calendar,investing,finance,money,market,trading,alerts,recap,earnings,chart,ticker,brief",
     "keywordsLen": 100,
     "keywordsRoom": 0,
     "promotionalText": null,
-    "description": "ニュースは物語を伝えます。お金は真実を語ります。\n\nアンダーカレントは記事の一つひとつを「大きなお金が実際にしたこと」と並べて読みます — 機関投資家の場外取引、オプションの構え、スクイーズ圧力を、誰にでもわかる言葉で。物語とお金が食い違った瞬間、すぐに見えます。\n\n毎日開きたくなる理由\n• ニュース ≠ マネー — 強気な記事の裏に防御的なポジションが付いていたら?流されるまえに、カード上で乖離をすぐ表示します。\n• 読み切れるデイリーエディション — モーニング・アフタヌーン・イブニング版が決まった数のストーリーで構成。読み終えたら今日はおしまい。無限スクロールはありません。\n• 企業が自ら明かしたこと — 報道の隣に、SEC公式の8-K開示を一行ずつ要約して並べ、インサイダーの最近の売買も。\n• 乖離スコアボード — ニュースとお金が割れたとき、3営業日後にどちらが正しかったかを公開",
-    "whatsNew": "安定性の改善とApp Store情報の更新です。ニュースと実際の資金の動きを並べて見せる構成、乖離の表示、ダークプールとオプションのポジショニングはすべて無料のまま、登録も不要です。",
+    "description": "The news tells you a story. The money tells you the truth.\n\nUndercurrent reads every headline side-by-side with what big money actually did — institutional off-exchange activity, options positioning, squeeze pressure — translated into plain words anyone can follow. When the story and the money disagree, you'll see it instantly.\n\nWHY PEOPLE OPEN IT EVERY DAY\n• News ≠ Money — a bullish story with de",
+    "whatsNew": "12 new languages, plus stability and performance improvements.",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
    },
    "ko": {
-    "keywords": "해외주식,증시,나스닥,종목,공시,실적,어닝,프리마켓,다크풀,옵션플로우,고래,세력,변동성,급등주,관심종목,시황브리핑,경제지표,금리,연준,테마주,배당,ETF,주가,서학개미,급락,수급",
-    "keywordsLen": 99,
-    "keywordsRoom": 1,
+    "keywords": "주식,뉴스,캘린더,알림,투자,증권,경제,시황,브리핑,실적,차트,종목,금융,미국주식,해외주식,나스닥,요약,재테크,배당",
+    "keywordsLen": 64,
+    "keywordsRoom": 36,
     "promotionalText": null,
     "description": "뉴스는 이야기를 들려줍니다. 돈은 진실을 말합니다.\n\n언더커런트는 기사 하나하나를 '큰돈이 실제로 한 일'과 나란히 읽습니다 — 기관 장외 거래, 옵션 포지션, 스퀴즈 압력을 누구나 이해할 수 있는 쉬운 말로. 이야기와 돈이 어긋나는 순간, 바로 보입니다.\n\n매일 열게 되는 이유\n• 뉴스 ≠ 돈 — 낙관적인 기사 뒤에 방어적인 수급이 붙어 있다면? 휩쓸리기 전에 카드에서 괴리를 바로 표시합니다.\n• 끝이 있는 데일리 에디션 — 모닝·애프터눈·이브닝 에디션이 정해진 개수의 이야기로 구성됩니다. 다 읽으면 오늘 치 끝. 무한 스크롤이 없습니다.\n• 회사가 직접 밝힌 것 — 언론 보도 옆에 SEC 공식 8-K 공시를 한 줄씩 요약해 나란히, 내부자들의 최근 매매까지.\n• 괴리 스코어보드 — 뉴스와 돈이 갈렸을 때",
-    "whatsNew": "안정성 개선과 스토어 정보 업데이트입니다. 뉴스와 실제 자금 흐름을 함께 보여주는 구성, 괴리 표시, 다크풀과 옵션 포지셔닝은 그대로 무료이며 가입도 필요 없습니다.",
-    "marketingUrl": "https://www.signumhq.com",
-    "supportUrl": "https://www.signumhq.com"
-   }
-  },
-  "1.0.2 (READY_FOR_SALE)": {
-   "ko": {
-    "keywords": "주식,미국주식,투자,경제뉴스,옵션,기관,수급,공시,브리핑,시황,티커,금융",
-    "keywordsLen": 40,
-    "keywordsRoom": 60,
-    "promotionalText": "뉴스는 오르라 하는데 기관 자금은 반대로 흐를 때가 있습니다. 그 «괴리»를 매일 무료로 보여드립니다. 다크풀 비중·옵션 수급·기관 거래를 한 화면에.",
-    "description": "뉴스는 이야기를 들려줍니다. 돈은 진실을 말합니다.\n\n언더커런트는 기사 하나하나를 '큰돈이 실제로 한 일'과 나란히 읽습니다 — 기관 장외 거래, 옵션 포지션, 스퀴즈 압력을 누구나 이해할 수 있는 쉬운 말로. 이야기와 돈이 어긋나는 순간, 바로 보입니다.\n\n매일 열게 되는 이유\n• 뉴스 ≠ 돈 — 낙관적인 기사 뒤에 방어적인 수급이 붙어 있다면? 휩쓸리기 전에 카드에서 괴리를 바로 표시합니다.\n• 끝이 있는 데일리 에디션 — 모닝·애프터눈·이브닝 에디션이 정해진 개수의 이야기로 구성됩니다. 다 읽으면 오늘 치 끝. 무한 스크롤이 없습니다.\n• 회사가 직접 밝힌 것 — 언론 보도 옆에 SEC 공식 8-K 공시를 한 줄씩 요약해 나란히, 내부자들의 최근 매매까지.\n• 괴리 스코어보드 — 뉴스와 돈이 갈렸을 때",
-    "whatsNew": "시스템 내비게이션 바 관련 레이아웃·안정성 개선. 내부 업데이트.",
-    "marketingUrl": "https://www.signumhq.com",
-    "supportUrl": "https://www.signumhq.com"
-   },
-   "en-US": {
-    "keywords": "stocks,investing,market,options,dark pool,institutional,daily brief,earnings,SEC,whale,flow,ticker",
-    "keywordsLen": 98,
-    "keywordsRoom": 2,
-    "promotionalText": "Sometimes the news says up while institutional money moves the other way. We show that gap — free, every day. Dark pool, options flow, institutional prints.",
-    "description": "The news tells you a story. The money tells you the truth.\n\nUndercurrent reads every headline side-by-side with what big money actually did — institutional off-exchange activity, options positioning, squeeze pressure — translated into plain words anyone can follow. When the story and the money disagree, you'll see it instantly.\n\nWHY PEOPLE OPEN IT EVERY DAY\n• News ≠ Money — a bullish story with de",
-    "whatsNew": "Stability and layout fixes for system navigation bars. Internal updates.",
+    "whatsNew": "안정성 개선과 스토어 정보 업데이트입니다.",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
    },
    "ja": {
-    "keywords": "株,米国株,投資,経済ニュース,オプション,機関投資家,決算,ブリーフィング,金融,相場",
-    "keywordsLen": 44,
-    "keywordsRoom": 56,
-    "promotionalText": "ニュースは強気でも、機関の資金は逆に動くことがある。その「乖離」を毎日無料で。ダークプール比率・オプション需給・機関の売買を一画面で。",
+    "keywords": "株式,ニュース,カレンダー,投資,経済,決算,相場,チャート,銘柄,通知,要約,米国株,資産運用,金融,速報,配当,為替",
+    "keywordsLen": 60,
+    "keywordsRoom": 40,
+    "promotionalText": null,
     "description": "ニュースは物語を伝えます。お金は真実を語ります。\n\nアンダーカレントは記事の一つひとつを「大きなお金が実際にしたこと」と並べて読みます — 機関投資家の場外取引、オプションの構え、スクイーズ圧力を、誰にでもわかる言葉で。物語とお金が食い違った瞬間、すぐに見えます。\n\n毎日開きたくなる理由\n• ニュース ≠ マネー — 強気な記事の裏に防御的なポジションが付いていたら?流されるまえに、カード上で乖離をすぐ表示します。\n• 読み切れるデイリーエディション — モーニング・アフタヌーン・イブニング版が決まった数のストーリーで構成。読み終えたら今日はおしまい。無限スクロールはありません。\n• 企業が自ら明かしたこと — 報道の隣に、SEC公式の8-K開示を一行ずつ要約して並べ、インサイダーの最近の売買も。\n• 乖離スコアボード — ニュースとお金が割れたとき、3営業日後にどちらが正しかったかを公開",
-    "whatsNew": "システムナビゲーションバー周りのレイアウト・安定性の改善。内部アップデート。",
+    "whatsNew": "安定性の改善とApp Store情報の更新です。",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "id": {
+    "keywords": "saham,AS,bursa,berita,AI,opsi,dark pool,laporan,investasi,pasar",
+    "keywordsLen": 63,
+    "keywordsRoom": 37,
+    "promotionalText": null,
+    "description": "Setiap berita mengaku menggerakkan pasar — tapi apakah uangnya mengikuti?\n\nUndercurrent membaca setiap berita saham Amerika dengan AI, lalu membandingkannya dengan aliran dana nyata pada jam yang sama.\n\n■ Pembacaan berita oleh AI\nApa yang sebenarnya dikatakan berita, saham mana yang terdampak, apa yang terjadi setelah berita serupa.\n\n■ Perbandingan dengan aliran dana\nAliran opsi, porsi transaksi d",
+    "whatsNew": "Peningkatan stabilitas dan pembaruan informasi App Store.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "es-ES": {
+    "keywords": "acciones,EEUU,IA,noticias,bolsa,invertir,mercado,análisis,finanzas,tiempo real",
+    "keywordsLen": 78,
+    "keywordsRoom": 22,
+    "promotionalText": null,
+    "description": "¿Por qué se movió realmente esta acción hoy?\n\nUndercurrent conecta cada titular con lo que hizo el dinero. La noticia es el gancho; el flujo de opciones y la actividad institucional son la historia real.\n\n■ Noticias con contexto de IA\nCada titular llega con una explicación breve: qué pasó y por qué importa.\n\n■ Divergencia\nCuando el titular dice una cosa y el posicionamiento dice otra, lo marcamos.",
+    "whatsNew": "Mejoras de estabilidad e información actualizada en la App Store.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "de-DE": {
+    "keywords": "Aktien,USA,Börse,News,KI,Optionen,Dark Pool,Quartalszahlen,investieren,Markt",
+    "keywordsLen": 76,
+    "keywordsRoom": 24,
+    "promotionalText": null,
+    "description": "Jede Schlagzeile behauptet, den Markt zu bewegen — aber folgt das Geld?\n\nUndercurrent liest jede US-Börsennachricht mit KI und stellt sie den tatsächlichen Kapitalflüssen derselben Stunde gegenüber.\n\n■ KI-Lesart der Nachricht\nWas die Schlagzeile wirklich sagt, welche Aktien betroffen sind, was früher nach ähnlichen Nachrichten geschah.\n\n■ Abgleich mit den Flüssen\nOptionsflüsse, Anteil außerbörslic",
+    "whatsNew": "Stabilitätsverbesserungen und aktualisierte App-Store-Informationen.",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
    }
   },
-  "1.0.1 (READY_FOR_SALE)": {
+  "1.0.5 (READY_FOR_SALE)": {
    "ko": {
-    "keywords": "주식,미국주식,투자,경제뉴스,옵션,기관,수급,공시,브리핑,시황,티커,금융",
-    "keywordsLen": 40,
-    "keywordsRoom": 60,
+    "keywords": "주식,뉴스,캘린더,알림,투자,증권,경제,시황,브리핑,실적,차트,종목,금융,미국주식,해외주식,나스닥,요약,재테크,배당",
+    "keywordsLen": 64,
+    "keywordsRoom": 36,
     "promotionalText": null,
     "description": "뉴스는 이야기를 들려줍니다. 돈은 진실을 말합니다.\n\n언더커런트는 기사 하나하나를 '큰돈이 실제로 한 일'과 나란히 읽습니다 — 기관 장외 거래, 옵션 포지션, 스퀴즈 압력을 누구나 이해할 수 있는 쉬운 말로. 이야기와 돈이 어긋나는 순간, 바로 보입니다.\n\n매일 열게 되는 이유\n• 뉴스 ≠ 돈 — 낙관적인 기사 뒤에 방어적인 수급이 붙어 있다면? 휩쓸리기 전에 카드에서 괴리를 바로 표시합니다.\n• 끝이 있는 데일리 에디션 — 모닝·애프터눈·이브닝 에디션이 정해진 개수의 이야기로 구성됩니다. 다 읽으면 오늘 치 끝. 무한 스크롤이 없습니다.\n• 회사가 직접 밝힌 것 — 언론 보도 옆에 SEC 공식 8-K 공시를 한 줄씩 요약해 나란히, 내부자들의 최근 매매까지.\n• 괴리 스코어보드 — 뉴스와 돈이 갈렸을 때",
-    "whatsNew": "최신 기기에서 화면 상단이 상태바에 물리던 문제를 고쳤고, 시스템 글꼴을 크게 설정해도 레이아웃이 깨지지 않도록 했습니다.",
+    "whatsNew": "안정성 개선과 스토어 정보 업데이트입니다.",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
    },
    "en-US": {
-    "keywords": "stocks,investing,market,options,dark pool,institutional,daily brief,earnings,SEC,whale,flow,ticker",
-    "keywordsLen": 98,
-    "keywordsRoom": 2,
-    "promotionalText": "Wall Street watches the money, not the headlines. Now you can too — the institutional flows behind every story, explained in plain English. Free.",
+    "keywords": "stocks,news,calendar,investing,finance,money,market,trading,alerts,recap,earnings,chart,ticker,brief",
+    "keywordsLen": 100,
+    "keywordsRoom": 0,
+    "promotionalText": null,
     "description": "The news tells you a story. The money tells you the truth.\n\nUndercurrent reads every headline side-by-side with what big money actually did — institutional off-exchange activity, options positioning, squeeze pressure — translated into plain words anyone can follow. When the story and the money disagree, you'll see it instantly.\n\nWHY PEOPLE OPEN IT EVERY DAY\n• News ≠ Money — a bullish story with de",
-    "whatsNew": "Fixes layout problems on newer devices where content could sit under the status bar, and keeps the layout intact when the system font size is enlarged.",
+    "whatsNew": "Updated App Store information.",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
    },
    "ja": {
-    "keywords": "株,米国株,投資,経済ニュース,オプション,機関投資家,決算,ブリーフィング,金融,相場",
-    "keywordsLen": 44,
-    "keywordsRoom": 56,
+    "keywords": "株式,ニュース,カレンダー,投資,経済,決算,相場,チャート,銘柄,通知,要約,米国株,資産運用,金融,速報,配当,為替",
+    "keywordsLen": 60,
+    "keywordsRoom": 40,
     "promotionalText": null,
     "description": "ニュースは物語を伝えます。お金は真実を語ります。\n\nアンダーカレントは記事の一つひとつを「大きなお金が実際にしたこと」と並べて読みます — 機関投資家の場外取引、オプションの構え、スクイーズ圧力を、誰にでもわかる言葉で。物語とお金が食い違った瞬間、すぐに見えます。\n\n毎日開きたくなる理由\n• ニュース ≠ マネー — 強気な記事の裏に防御的なポジションが付いていたら?流されるまえに、カード上で乖離をすぐ表示します。\n• 読み切れるデイリーエディション — モーニング・アフタヌーン・イブニング版が決まった数のストーリーで構成。読み終えたら今日はおしまい。無限スクロールはありません。\n• 企業が自ら明かしたこと — 報道の隣に、SEC公式の8-K開示を一行ずつ要約して並べ、インサイダーの最近の売買も。\n• 乖離スコアボード — ニュースとお金が割れたとき、3営業日後にどちらが正しかったかを公開",
-    "whatsNew": "新しい端末でコンテンツがステータスバーに重なる問題を修正し、システムの文字サイズを大きくしてもレイアウトが崩れないようにしました。",
+    "whatsNew": "安定性の改善とApp Store情報の更新です。",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   }
+  },
+  "1.0.4 (READY_FOR_SALE)": {
+   "ko": {
+    "keywords": "미국주식,해외주식,미장,실적발표,증시캘린더,속보,요약,브리핑,경제,환율,나스닥,테슬라,공시,리포트,무료,실시간,종목,주가,수급,기업실적,배당주,증권",
+    "keywordsLen": 82,
+    "keywordsRoom": 18,
+    "promotionalText": null,
+    "description": "뉴스는 이야기를 들려줍니다. 돈은 진실을 말합니다.\n\n언더커런트는 기사 하나하나를 '큰돈이 실제로 한 일'과 나란히 읽습니다 — 기관 장외 거래, 옵션 포지션, 스퀴즈 압력을 누구나 이해할 수 있는 쉬운 말로. 이야기와 돈이 어긋나는 순간, 바로 보입니다.\n\n매일 열게 되는 이유\n• 뉴스 ≠ 돈 — 낙관적인 기사 뒤에 방어적인 수급이 붙어 있다면? 휩쓸리기 전에 카드에서 괴리를 바로 표시합니다.\n• 끝이 있는 데일리 에디션 — 모닝·애프터눈·이브닝 에디션이 정해진 개수의 이야기로 구성됩니다. 다 읽으면 오늘 치 끝. 무한 스크롤이 없습니다.\n• 회사가 직접 밝힌 것 — 언론 보도 옆에 SEC 공식 8-K 공시를 한 줄씩 요약해 나란히, 내부자들의 최근 매매까지.\n• 괴리 스코어보드 — 뉴스와 돈이 갈렸을 때",
+    "whatsNew": "안정성 개선과 스토어 정보 업데이트입니다.",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "ja": {
+    "keywords": "リアルタイム,決算発表,経済,要約,ブリーフィング,投資,株価,ナスダック,指標,為替,個別株,銘柄,相場,解説,まとめ,テスラ,無料,決算カレンダー,時間外",
+    "keywordsLen": 79,
+    "keywordsRoom": 21,
+    "promotionalText": null,
+    "description": "ニュースは物語を伝えます。お金は真実を語ります。\n\nアンダーカレントは記事の一つひとつを「大きなお金が実際にしたこと」と並べて読みます — 機関投資家の場外取引、オプションの構え、スクイーズ圧力を、誰にでもわかる言葉で。物語とお金が食い違った瞬間、すぐに見えます。\n\n毎日開きたくなる理由\n• ニュース ≠ マネー — 強気な記事の裏に防御的なポジションが付いていたら?流されるまえに、カード上で乖離をすぐ表示します。\n• 読み切れるデイリーエディション — モーニング・アフタヌーン・イブニング版が決まった数のストーリーで構成。読み終えたら今日はおしまい。無限スクロールはありません。\n• 企業が自ら明かしたこと — 報道の隣に、SEC公式の8-K開示を一行ずつ要約して並べ、インサイダーの最近の売買も。\n• 乖離スコアボード — ニュースとお金が割れたとき、3営業日後にどちらが正しかったかを公開",
+    "whatsNew": "安定性の改善とApp Store情報の更新です。",
+    "marketingUrl": "https://www.signumhq.com",
+    "supportUrl": "https://www.signumhq.com"
+   },
+   "en-US": {
+    "keywords": "free,premarket,afterhours,brief,digest,alerts,calendar,movers,nasdaq,tesla,nvidia,economy,flow",
+    "keywordsLen": 94,
+    "keywordsRoom": 6,
+    "promotionalText": null,
+    "description": "The news tells you a story. The money tells you the truth.\n\nUndercurrent reads every headline side-by-side with what big money actually did — institutional off-exchange activity, options positioning, squeeze pressure — translated into plain words anyone can follow. When the story and the money disagree, you'll see it instantly.\n\nWHY PEOPLE OPEN IT EVERY DAY\n• News ≠ Money — a bullish story with de",
+    "whatsNew": "Korean and Japanese are now declared as supported languages, plus stability improvements.",
     "marketingUrl": "https://www.signumhq.com",
     "supportUrl": "https://www.signumhq.com"
    }
