@@ -3983,3 +3983,29 @@ Search Match 「켬」·일예산 $10 인데 **7일간 노출 0 · 탭 0 · 지�
 ### 오늘 레딧은 여기서 멈춘다
 댓글 10 + 글 2 = **12건**. 안전선(하루 3건 금융 서브)을 이미 넘겼다.
 「계정이 밴당할 선을 넘지 말 것」이 원칙이므로 오늘 레딧 추가 활동 없음.
+
+## 2026-09-12 (사이클 N+2) — Quora 4건 완성 · 3앱 전부 커버
+
+### 게시 (전부 «이전에 답변 0» 이던 질문)
+| 질문 | 배정 앱 | 왜 |
+|---|---|---|
+| best free stock market app available? pros and cons | SIGNUM | 토픽 13개, 장단점 질문이라 단점을 진짜로 써서 신뢰 확보 |
+| best free stock market app with live updates and news | **Undercurrent** | 뉴스×수급이 UC 의 정체성. 설치 0건 앱에 의도 배정 |
+| good websites that provide free stock market data and charts | SIGNUM | 1차 출처(FINRA·EDGAR·Treasury·FRED)를 먼저 가르쳐 주고 그 다음 우리 |
+| good stock trading apps for beginners | **Why'd It Move?** | 초보자 교육 앱의 정확한 자리 |
+
+★ **Quora 가 링크를 앱스토어 «리치 카드»로 자동 변환한다.** 평문 링크보다 클릭률이 훨씬 높다.
+`signumhq.com/app`·`/app-wim` 스마트링크를 넣으면 앱스토어 미리보기 카드(아이콘·설명)가 생성됐다.
+→ **Quora 에는 스마트링크를 그대로 쓰는 게 맞다**(직링크보다 카드가 예쁘게 뜬다).
+
+### 이번 사이클 «새 채널» 조사 — 지역 확장 시도
+* **ko.quora.com(한국어 Quora)**: 「미국주식 앱」 검색 결과 **0건**. 사실상 죽은 채널 → 폐기.
+* **jp.quora.com(일본어 Quora)**: 살아 있으나 계정에 «日本語版を追加» **설정 추가가 필요**.
+  계정 설정 변경은 대표 확인 사항이라 보류 → 바탕화면 할일에 10초짜리로 등록.
+* 참고: 「options flow app」 같은 **전문어는 무응답 질문이 0**이었다.
+  일상어(`best stock app`, `free stock market data`)에만 수요가 있다 —
+  메모리 [[aso-target-broad-words-not-jargon]] 가 Quora 에서도 그대로 성립한다.
+
+### 애플 광고 일본
+변경 후 1시간 경과, 여전히 노출 0. **애플 보고는 3시간 지연**이라 아직 판단 구간이 아니다.
+다음 사이클에서 다시 본다.
