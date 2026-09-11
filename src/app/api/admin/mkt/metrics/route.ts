@@ -49,6 +49,13 @@ const CHANNELS = [
   'pinterest',               // Pinterest (⚠️ 핀 설명에서 `?from=` 이 잘린 전례가 있다)
   'tiktok',                  // TikTok @signumhq
   'youtube',                 // YouTube 설명란
+
+  // ★ 2026-09-12 추가. 또 걸렸다 — 세 번째다.
+  //   레딧 프로필·인디해커 등재·GitHub awesome 목록에 이미 링크를 붙여 놓고 보니 없었다.
+  'reddit_bio',              // u/SignumHQ 프로필 소셜 링크 (댓글엔 링크 금지 서브가 많다 →
+                             //   가치 댓글로 프로필 방문을 만들고 «여기»서 전환시킨다)
+  'indiehackers',            // indiehackers.com/product/signum-hq + 프로필 3앱
+  'github_gex',              // awesome-options-analytics (GEX > Tools) PR
 ];
 
 export async function GET() {

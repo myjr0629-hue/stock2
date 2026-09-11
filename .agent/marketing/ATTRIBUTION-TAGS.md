@@ -55,3 +55,11 @@ Android 는 여기에 더해 Play install referrer(`utm_source=<태그>&utm_medi
 - 2026-08-26: 하루 12건을 붙이고 나서 확인해 보니 `CHANNELS` 에 `x_us`/`x_jp`/`seo` 가 없었다.
   링크에 태그 자체를 안 붙인 건도 많아서, 그날 오전 물량은 채널별로 되짚을 수 없다.
   → 그날 오후부터 태그 부착을 강제. 붙이기 전에 이 파일을 열 것.
+
+## 2026-09-12 추가
+
+| 태그 | 어디에 붙였나 | 왜 이 형태인가 |
+|---|---|---|
+| `reddit_bio` | u/SignumHQ 프로필 소셜 링크 | r/stocks·r/investing·r/wallstreetbets·r/StockMarket 은 **댓글 내 자기홍보 링크 금지**(투고 시 자동삭제·영구밴). 그래서 링크는 프로필에만 두고, 댓글은 «가치만» 넣어 프로필 방문을 만든다. 전환은 여기서 일어난다. |
+| `indiehackers` | indiehackers.com/product/signum-hq · 프로필 3앱 | 외부링크가 전부 nofollow 라 SEO 가 아니라 «추천 트래픽» 채널이다. |
+| `github_gex` | awesome-options-analytics PR (GEX > Tools) | 목록이 자기 링크에 utm 을 쓰므로 추적 파라미터 허용. 반대로 awesome-quant·awesome-institutional-trading 은 **금지**라 태그 없이 넣었다. |
