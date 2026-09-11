@@ -3699,3 +3699,24 @@ GET /search/issues?q=author:myjr0629-hue+type:pr
 - **그런데 키가 없다**: `YT_CLIENT_ID` · `YT_CLIENT_SECRET` · `YT_KR_REFRESH_TOKEN` 이
   `.env.local` · `.env.development.local` · Vercel env **어디에도 없다**
 - 키만 주시면 렌더→업로드(비공개·예약)까지 자동으로 돈다. `out/` 영상은 8/11자라 재렌더 필요
+
+### ⑩ X @signumhq — 오늘 최대 도달 스레드 (200,049 조회)
+`@aleabitoreddit`(반도체·AI 공급망 리서치 계정, 팔로워 다수)의
+「AI 트레이드에 높은 확신」 글. 726 좋아요 · 261 북마크 · **200,049 조회**.
+
+프리마켓 실데이터로 «포지셔닝 증거»를 붙였다:
+> Someone put a date on that conviction. $210C expiring 11/20 took +60,962
+> contracts — $1.3B of NEW open interest, not a close-out.
+> $NVDA $218 pre-market. Max pain $225, gamma flip $187.50.
+> Our AI reads the whole chain, free: signumhq.com/app?from=x_us
+
+- 252/280자 · 이미지 첨부(프리마켓 화면, 골드 AI 배지) · 태그 `x_us`
+- https://x.com/signumhq/status/2098378909503127960
+- ★ 이 화면이 오늘 고친 «만기 필터»의 결과다 — 만기 지난 0DTE 가 아니라
+  **11/20 만기 $1.3B 포지션**을 잡았다. 안 고쳤으면 죽은 계약을 근거로 올릴 뻔했다.
+
+### 일본 캠페인 관찰 (개설 후 약 5시간)
+`실행 중` · 일본 · $10/일 · 검색결과 · 18키워드 $0.95 · 지출 $0.00
+→ **아직 판정하지 않는다.** Apple 이 「최근 3시간 데이터 미반영」을 명시했고,
+   내 판정 기준은 **24시간**이다(`ASA-US-KR-CAMPAIGN-PLAN.md`).
+   24시간 뒤에도 0 이면 입찰가 $1.50 으로 올려 바닥값을 찾는다.
