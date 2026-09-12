@@ -95,13 +95,55 @@ function isRegularSessionOpen(): boolean {
  * EOD 스냅샷에는 그 세션 «전체»(12,512종목)의 종가·거래량·등락률이 있다.
  * 닫혀 있는 동안은 그걸로 목록을 만든다 — 새벽 몇 시에 열어도 같은 답이 나온다.
  */
+/**
+ * 마지막으로 «끝난» 정규장 세션 날짜 (ET, YYYY-MM-DD).
+ *
+ * ★ 2026-09-12 대표 지적: 마켓 무버의 등락률이 틀렸다.
+ *   실측 — 화면 SPY $757.83 / −0.60%, MU $977.41 / −4.90%.
+ *   외부 대조 실제값 — SPY 764.29(+0.85%), MU 975.26(−0.22%).
+ *   화면에 찍힌 값은 «직전 세션(9/10)의 종가»였고 등락률은 그보다 한 세션 더 전 기준이었다.
+ *   MU 상세 화면은 정상($975.26 / −0.22%)이었다 — 그 화면은 이 덮어쓰기를 안 타기 때문이다.
+ *
+ *   범인은 아래 applyRegularClose 의 전제였다:
+ *     「닫혀 있다 → EOD 가 곧 마지막으로 끝난 세션이다」
+ *   그런데 **벌크 EOD 는 T+1 이다**(scripts/finra-offexchange.js 주석에 이미 적혀 있었다).
+ *   마감 직후에는 EOD 가 «전날치»라, 그대로 덮으면 화면이 한 세션 통째로 밀린다.
+ *
+ * 휴장일은 판별하지 않는다. 판별 못 해 날짜가 어긋나면 «덮지 않는» 쪽으로 실패하므로
+ * 안전하다 — 틀린 숫자를 보여주느니 살아 있는(적을 수도 있는) 값을 그대로 둔다.
+ */
+function lastCompletedSessionDateET(): string {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const d = new Date(now);
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const dow = now.getDay();
+    const finishedToday = dow >= 1 && dow <= 5 && minutes >= 16 * 60;
+    if (!finishedToday) d.setDate(d.getDate() - 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** 진단용 — 마지막 판정 결과를 응답 meta 에 실어 «조용히 틀리는» 것을 막는다. */
+let _lastEodVerdict: { eodDate: string | null; expected: string; applied: boolean } | null = null;
+
 const CLOSED_MIN_UNIVERSE = 200;        // 이보다 얇으면 EOD 를 믿지 않는다
 const CLOSED_MIN_VALUE = 10_000_000;    // 등락 순위에서 잡주를 걸러내는 최소 거래대금
 
 async function applyRegularClose<T extends Record<string, any[]>>(lists: T): Promise<T> {
     if (isRegularSessionOpen()) return lists;   // 장중엔 EOD 가 직전 세션이다 — 덮지 않는다
     const eod = await readEodCloses();
-    if (!eod) return lists;
+    const expected = lastCompletedSessionDateET();
+    if (!eod) { _lastEodVerdict = { eodDate: null, expected, applied: false }; return lists; }
+
+    // ★ 날짜 게이트 — EOD 가 «마지막으로 끝난 세션»이 아니면 절대 덮지 않는다.
+    //   벌크 EOD 는 T+1 이라 마감 직후엔 한 세션 뒤처져 있다. 그대로 덮으면
+    //   직전 세션 종가가 «현재가»로, 그보다 한 세션 전 등락률이 «오늘 등락률»로 나간다.
+    if (eod.date !== expected) {
+        _lastEodVerdict = { eodDate: eod.date, expected, applied: false };
+        return lists;
+    }
+    _lastEodVerdict = { eodDate: eod.date, expected, applied: true };
 
     const rows: any[] = [];
     for (const [t, e] of eod.rows) {
@@ -415,7 +457,10 @@ export async function GET(req: NextRequest) {
                 value: strip(cachedData.value),
                 gainers: strip(cachedData.gainers),
                 losers: strip(cachedData.losers),
-                ts: cachedData.ts
+                ts: cachedData.ts,
+                // ★ 진단을 응답에 싣는다 — 「조용히 한 세션 밀림」을 다음엔 바로 잡아낸다.
+                //   applied=false 면 EOD 가 아직 T+1 지연이라 live 값을 그대로 쓰고 있다는 뜻.
+                eod: _lastEodVerdict,
             });
         }
     } catch (err: any) {
