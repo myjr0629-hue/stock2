@@ -12,6 +12,8 @@ interface MiniGaugeProps {
     size?: 'sm' | 'md' | 'lg' | 'xl';
     fillPercent?: number;
     secondaryValue?: string;
+    /** 주면 게이지가 «누를 수 있는» 상태가 되고, 눌렀을 때 호출된다. */
+    onPress?: () => void;
 }
 
 /**
@@ -27,7 +29,8 @@ export function MiniGauge({
     colorClass = 'text-white',
     size = 'md',
     fillPercent,
-    secondaryValue
+    secondaryValue,
+    onPress
 }: MiniGaugeProps) {
     // Sizes tuned for 12px Jakarta labels
     const sizeConfig = {
@@ -53,8 +56,19 @@ export function MiniGauge({
     };
     const color = resolveColor();
 
+    // ★ 2026-09-12: subLabel 이 «문장» 이면 원 아래에서 줄바꿈되며 그리드를 통째로 밀어낸다
+    //   (대표 지적: NDX 20D / DOW 20D 가 화면을 깨뜨렸다).
+    //   개별 문구를 짧게 고치는 것으로 끝내지 않고 **컴포넌트가 구조적으로 못 깨지게** 만든다:
+    //   폭을 원 크기로 묶고 subLabel 은 한 줄로 자른다. 설명은 onPress 팝업이 맡는다.
+    const Root: React.ElementType = onPress ? 'button' : 'div';
     return (
-        <div className="group flex flex-col items-center gap-1.5">
+        <Root
+            type={onPress ? 'button' : undefined}
+            onClick={onPress}
+            aria-label={onPress ? `${label} ${value}` : undefined}
+            className={`group flex flex-col items-center gap-1.5 ${onPress ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+            style={{ width: cfg.px }}
+        >
             {/* Gauge circle */}
             <div
                 className="relative transition-transform duration-300 ease-out group-hover:scale-110"
@@ -111,12 +125,26 @@ export function MiniGauge({
                 </div>
             </div>
 
-            {/* Labels below circle */}
-            <div className="flex flex-col items-center">
-                {description && <span className="text-[10px] text-white/60 uppercase tracking-wide font-jakarta">{description}</span>}
-                {subLabel && <span className={`${cfg.subCls} font-bold ${colorClass} uppercase tracking-wider font-jakarta`}>{subLabel}</span>}
+            {/* Labels below circle — «절대» 여러 줄이 되지 않는다 */}
+            <div className="flex flex-col items-center w-full min-w-0">
+                {description && (
+                    <span className="text-[10px] text-white/60 uppercase tracking-wide font-jakarta w-full truncate text-center">
+                        {description}
+                    </span>
+                )}
+                {subLabel && (
+                    <span
+                        className={`${cfg.subCls} font-bold ${colorClass} uppercase tracking-wider font-jakarta w-full truncate text-center leading-tight`}
+                        title={subLabel}
+                    >
+                        {subLabel}
+                    </span>
+                )}
+                {onPress && (
+                    <span className="mt-0.5 w-1 h-1 rounded-full bg-white/35 group-active:bg-white/70" aria-hidden />
+                )}
             </div>
-        </div>
+        </Root>
     );
 }
 

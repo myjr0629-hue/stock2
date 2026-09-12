@@ -35,6 +35,13 @@ const config: CapacitorConfig = {
       : {
           url: 'https://www.signumhq.com/en/app-view/dash',
           cleartext: false,
+          // ★ 2026-09-12: 프로덕션에만 allowNavigation 이 «빠져 있었다».
+          //   라이브리로드·프리뷰 분기엔 둘 다 있는데 여기만 없었다.
+          //   Capacitor 는 허용 목록 밖 호스트로의 이동을 «시스템 브라우저»로 넘긴다
+          //   → 앱은 그대로 있고 크롬 창만 따로 뜨는 증상이 된다(대표 관찰).
+          //   실측: `signumhq.com` → `www.signumhq.com` 301. 아펙스는 «다른 호스트»라
+          //   허용 목록에 없으면 그 리다이렉트 한 번에 밖으로 튕긴다.
+          allowNavigation: ['www.signumhq.com', 'signumhq.com'],
         },
 
   // iOS 설정

@@ -63,6 +63,10 @@ export function RealityCheck({
     const locale = useLocale();
     const [activeTab, setActiveTab] = useState<'gauges' | 'radar'>('gauges');
     const [bottomTab, setBottomTab] = useState<'alerts' | 'news'>('news');
+    // ★ 2026-09-12 대표 지적: 게이지 아래에 «해석 문장»을 넣어 화면이 깨졌다.
+    //   라벨은 짧은 판정만 남기고 설명은 «누르면 뜨는 팝업» 으로 옮긴다.
+    //   (GuardianTooltip 은 hover 전용이라 터치 기기에서는 아예 뜨지 않는다.)
+    const [breadthInfo, setBreadthInfo] = useState<null | { idx: 'NDX' | 'DOW'; pct: number; covered: number }>(null);
     const isDivergent = divergenceCase === 'A' || divergenceCase === 'B';
     const statusText = isDivergent ? "DIVERGENCE" : "ALIGNED";
     const statusColor = isDivergent
@@ -152,8 +156,67 @@ export function RealityCheck({
         return `${hours}${bt('hour')} ${bt('ago')}`;
     };
 
+    const breadthReading = (p: number) =>
+        p >= 0.7 ? t('breadthReadStrong')
+            : p >= 0.55 ? t('breadthReadPositive')
+                : p >= 0.45 ? t('breadthReadMixed')
+                    : p >= 0.3 ? t('breadthReadNegative') : t('breadthReadWeak');
+
     return (
         <div className="h-full flex flex-col p-3">
+            {/* ===== 브레드스 설명 팝업 (탭) ===== */}
+            {breadthInfo && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-5 bg-black/70 backdrop-blur-sm"
+                    onClick={() => setBreadthInfo(null)}
+                    role="dialog"
+                    aria-modal="true"
+                >
+                    <div
+                        className="w-full max-w-[340px] rounded-2xl border border-slate-600/50 bg-slate-900/95 shadow-2xl shadow-black/60 p-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-baseline justify-between mb-3">
+                            <span className="text-[13px] font-black tracking-[0.14em] text-white font-jakarta">
+                                {breadthInfo.idx} 20D
+                            </span>
+                            <span className={`text-[20px] font-black tabular-nums ${getBreadthColor(breadthInfo.pct)}`}>
+                                {Math.round(breadthInfo.pct * 100)}%
+                            </span>
+                        </div>
+
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-white/45 mb-1">
+                            {t('breadthWhatTitle')}
+                        </p>
+                        <p className="text-[12.5px] leading-[1.65] text-slate-300 mb-3">
+                            {t('breadthWhatBody')}
+                        </p>
+
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-white/45 mb-1">
+                            {t('breadthNowTitle')}
+                        </p>
+                        <p className="text-[12.5px] leading-[1.65] text-slate-300">
+                            {t('breadthNowBody', { pct: Math.round(breadthInfo.pct * 100), covered: breadthInfo.covered })}
+                        </p>
+                        <p className={`text-[12.5px] leading-[1.65] mt-1 ${getBreadthColor(breadthInfo.pct)}`}>
+                            {breadthReading(breadthInfo.pct)}
+                        </p>
+
+                        <p className="text-[11px] leading-[1.6] text-slate-500 mt-3 pt-3 border-t border-slate-700/50">
+                            {t('breadthCaveat')}
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={() => setBreadthInfo(null)}
+                            className="mt-3 w-full py-2 rounded-xl bg-slate-700/60 border border-slate-600/50 text-[12.5px] font-bold text-white active:bg-slate-700"
+                        >
+                            {t('close')}
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* HEADER with tab toggle */}
             <div className="flex justify-between items-center mb-3 flex-none">
                 <div className="flex items-center gap-2">
@@ -205,11 +268,13 @@ export function RealityCheck({
                         <MiniGauge label="NDX 20D" value={ndxPct != null ? `${Math.round(ndxPct * 100)}%` : '—'}
                             subLabel={ndxPct == null ? t('noData') : breadthLabel(ndxPct)}
                             colorClass={ndxPct == null ? 'text-slate-500' : getBreadthColor(ndxPct)} size="lg"
-                            fillPercent={ndxPct != null ? ndxPct * 100 : 0} />
+                            fillPercent={ndxPct != null ? ndxPct * 100 : 0}
+                            onPress={ndxPct == null ? undefined : () => setBreadthInfo({ idx: 'NDX', pct: ndxPct, covered: ma20Ndx?.covered ?? 0 })} />
                         <MiniGauge label="DOW 20D" value={dowPct != null ? `${Math.round(dowPct * 100)}%` : '—'}
                             subLabel={dowPct == null ? t('noData') : breadthLabel(dowPct)}
                             colorClass={dowPct == null ? 'text-slate-500' : getBreadthColor(dowPct)} size="lg"
-                            fillPercent={dowPct != null ? dowPct * 100 : 0} />
+                            fillPercent={dowPct != null ? dowPct * 100 : 0}
+                            onPress={dowPct == null ? undefined : () => setBreadthInfo({ idx: 'DOW', pct: dowPct, covered: ma20Dow?.covered ?? 0 })} />
                         <MiniGauge label="US10Y" value={yieldCurve ? `${yieldCurve.us10y.toFixed(2)}%` : '—'}
                             secondaryValue={`${us10yChangePct >= 0 ? '+' : ''}${us10yChangePct.toFixed(2)}%`}
                             subLabel={us10yChangePct > 0 ? t('yieldUp') : us10yChangePct < 0 ? t('yieldDown') : t('yieldFlat')}
