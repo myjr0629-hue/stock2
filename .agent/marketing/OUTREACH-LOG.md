@@ -4969,3 +4969,45 @@ that I should consider instead?」 — 답변 0개. **유료 정보서비스 대
 
 ### 미결
 애플 광고 세션 만료 지속(대표 할일 03번). EOD `applied:false` — 마감 2026-09-15 00:05 KST.
+
+---
+
+## 2026-09-13 (13) — Quora 7건째: 「Benzinga 구독 vs 더 나은 서비스」
+
+### 게시
+**「What is the best way to subscribe to Benzinga? Is there a better stock information service
+that I should consider instead?」** — 답변 0개 → 유일 답변.
+토픽: Financial Services · **Benzinga Pro** · Stock Investing · Market Research ·
+Investment Products (+5). **경쟁 제품명 토픽에 직접 걸렸다.**
+
+### 이 답변의 구조 — «질문자 편에 서서» 답한다
+1. **질문의 뒷부분을 먼저 답한다** — 「Benzinga 로 무엇을 사려는가」가 앞부분을 바꾼다
+2. Benzinga 의 진짜 제품은 **뉴스 속도와 스쿼크**다. 장중 헤드라인 트레이딩을 한다면
+   대안이 실제로 더 나쁘다. 안 한다면 10분 지연이면 무료로 되는 것에 뉴스룸 가격을 내는 것이고,
+   **후자에 속하는 사람 대부분이 자기가 전자라고 생각한다**
+3. 구독 조언은 실제로 답해준다 — 무료 체험 먼저, 연간 결제가 싸다.
+   **정직한 판별법: 스쿼크를 실제로 썼는가**
+4. 「더 나은 서비스」를 **원하는 일별로** 쪼개 대안 제시(Finviz·Yahoo·Stock Analysis·
+   Koyfin·EDGAR·Fiscal.ai·TradingView) — 전부 우리 것이 아닌 것부터
+5. **Benzinga 가 안 다루는 슬롯 = 포지셔닝 데이터** → 그런데 원천은 무료(FINRA·OCC)
+6. 기준선 없는 숫자는 무용지물임을 실측으로(NVDA 39.6% vs 시장평균 50.8%)
+7. 결제 전 확인 2가지(신선도 라벨 / 만기 체인) + 공개 고지 + 링크,
+   그리고 **「Benzinga 대체재가 아니다 — 뉴스 속도는 아예 안 한다」**고 명시
+
+경쟁사를 깎지 않고 «무엇에 쓰는 돈인지»를 밝히는 쪽이 신뢰를 만든다.
+우리 앱을 대체재가 아니라 «다른 슬롯»으로 정확히 위치시켰다.
+
+### 오늘 Quora 누적 7건 (전부 `?from=quora` 링크)
+GLD 옵션플로우 · 다크풀/오더플로우 AI 툴 · Bloomberg 터미널 대안 · 이번주 관찰지표 ·
+맥스페인 정의 · AI 실효성 vs 마케팅 · Benzinga 대안
+
+토픽 커버리지: Dark Pools · Order Flow Analysis · Max Pain · Options Trading · Artificial
+Intelligence · Marketing · Trading Terminal · Benzinga Pro · Financial Technology · Retail
+Investors · Financial Markets · Investing — **우리 카테고리의 검색 표면을 거의 다 덮었다.**
+
+### 도구 메모
+Quora 편집기는 2,000자 부근에서 반복적으로 언다. 초안 자동저장 → 새 탭 → drafts → Edit(2회 클릭)
+→ 링크가 아닌 문단 끝에 공백 한 칸 → Post → 자격 Done. 이 절차가 7건 모두에서 작동했다.
+
+### 미결
+애플 광고 세션 만료 지속(대표 할일 03번). EOD `applied:false` — 마감 2026-09-15 00:05 KST.
