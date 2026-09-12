@@ -4732,3 +4732,43 @@ EOD 적재 여전히 `applied:false` (스냅샷 2026-09-10 고착) — 마감 **
 ### 대표 판단 필요 (둘 다 돈 문제)
 1. **JP 예산 인상** — 유일한 전환처인데 예산 $10 에 $29.89 지출 중. $20 으로 올리면 하루 $60~90 가능.
 2. **전체 지출 상한** — 예산이 막지 못하므로, 하루 총 지출 한도를 정하면 그에 맞춰 입찰가로 조절하겠다.
+
+---
+
+## 2026-09-13 (7) — 정지가 지출을 멈췄다 · 전문용어가 일반어보다 잘 먹힌다
+
+### 검색탭 정지 효과 (36분 경과)
+| | 정지 직후 | 36분 뒤 |
+|---|---|---|
+| 총 지출 | $81.20 | **$81.20 (증가 0)** |
+| 총 노출 | 16,866 | 17,116 |
+| US 검색결과 노출 | 86 | **113** |
+| KR 검색결과 노출 | 10 | **14** |
+정지가 의도대로 작동했다. 노출은 남은 캠페인에서 계속 늘고 지출은 멈췄다.
+
+### ★ 미국 키워드 실측 — 일반어보다 «전문용어»가 낫다
+오늘 미국 검색결과 114 노출의 내역:
+| 키워드 | 매칭 | 노출 |
+|---|---|---|
+| `finance app` | 확장 | 36 (탭 1 · $2.60) |
+| **`options open interest`** | **확장** | **26** |
+| **`options flow`** | **확장** | **17** |
+| `earnings calendar` | 확장 | 16 |
+| `investing app` / `stocks app` / `stock app` | 확장 | 6 / 5 / 2 |
+| `watchlist` / `stock alerts` / `stock market` / `finance` (신규) | 확장 | 3 / 1 / 1 / 1 |
+| 일치검색 `[...]` 16개 | 일치 | `[market chameleon]` 1 외 전부 0 |
+
+**우리 차별점 용어(옵션 미결제약정·옵션 플로우)가 2·3위다.** 일반어(`stocks`·`trading`)는
+아직 0인데 전문용어는 이미 노출이 붙는다 — 경쟁이 적고 의도가 뚜렷하기 때문으로 보인다.
+「일상어를 공략하라」([[aso-target-broad-words-not-jargon]])는 **스토어 검색 노출** 이야기였고,
+**광고 경매에서는 반대로 전문용어가 값싸게 뚫린다**. 두 채널을 같은 규칙으로 다루면 안 된다.
+
+### 조치
+US-Intent-Exact 에 **전문용어 확장 14개 추가** → 32개 전부 $9.90
+open interest · implied volatility · option chain · iv rank · put call ratio · short interest ·
+insider trading · institutional ownership · 13f filings · market breadth · sector rotation ·
+after hours trading · options greeks · stock screener
+
+### 대표 결정 대기 (변동 없음)
+1. JP 예산 인상 여부 2. 하루 총 지출 한도
+EOD 적재 여전히 `applied:false` — 마감 2026-09-15 00:05 KST.
