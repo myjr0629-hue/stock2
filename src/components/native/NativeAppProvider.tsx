@@ -203,59 +203,73 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  // --- ★ 아펙스 도메인 탈출 차단 (네이티브 전용) --------------------------
+  // --- ★ 「앱은 그대로인데 크롬 창이 따로 뜨는」 버그 차단 (네이티브 전용) -----
   //
-  // [왜 있는가] 2026-09-13 대표 보고: 앱을 켜둔 채 다른 일을 하다 «전환»해서
-  //   돌아오거나 전면광고를 닫았을 때, 앱은 그대로인데 크롬 창이 따로 뜬다.
-  //   스크린샷의 주소창이 «www 없는» signumhq.com 이었다.
+  // [증상] 2026-09-13 대표 보고: 앱을 켜둔 채 다른 일을 하다 «전환»해 돌아오거나
+  //   전면광고를 닫았을 때, 앱은 멀쩡한데 크롬 창이 따로 뜨고 거기에 «우리 앱이
+  //   처음 실행된 것처럼» 고지 화면이 보인다. 매번은 아니고 시간이 지난 뒤에만.
   //
-  // [원인] 기기에 설치된 네이티브 설정에 `server.allowNavigation` 이 없다
-  //   (android/app/src/main/assets/capacitor.config.json 실측 — 릴리스 자산도 동일).
-  //   그 상태에서 Capacitor 는 `server.url` 호스트(www.signumhq.com) «이외의 모든
-  //   호스트»를 시스템 브라우저로 넘긴다. 우리 아펙스 도메인도 «다른 호스트»다.
-  //   → 앱은 WebView 에 남고 크롬만 따로 뜨는, 정확히 그 증상이 된다.
+  // [진짜 원인 — Capacitor iOS 소스 실측]
+  //   WebViewDelegationHandler.decidePolicyFor 의 판정은 두 단계다.
+  //     1) config.shouldAllowNavigation(host)  ← allowNavigation 목록
+  //     2) navURL.absoluteString.starts(with: config.serverURL.absoluteString)
+  //   그런데 `serverURL` 은 호스트가 아니라 **전체 URL** 이다:
+  //     https://www.signumhq.com/en/app-view/dash
+  //   기기에 깔린 빌드에는 allowNavigation 이 «없어서» 1)이 항상 false 였고,
+  //   그러면 **같은 도메인이라도 경로가 /en/app-view/dash 로 시작하지 않는 모든
+  //   전체 페이지 로드가 UIApplication.open() 으로 시스템 브라우저에 넘어간다.**
+  //   (앞서 나는 이걸 «아펙스 도메인» 문제로 잘못 짚었다. 크롬 주소창이 www 를
+  //    떼고 보여준 것에 속았다. 호스트가 아니라 «경로»가 원인이다.)
   //
-  // [왜 여기서 막는가] capacitor.config.ts 쪽 허용목록 수정은 **네이티브 리빌드가
-  //   있어야** 기기에 닿는다. 이 가드는 웹 배포만으로 «오늘» 닿는다.
-  //   둘 다 필요하다 — 이건 리빌드 전까지의 방어선이자, 리빌드 후에도
-  //   아펙스로 새는 링크를 www 로 정규화해 주는 안전망이다.
+  // [왜 가끔, 왜 복귀할 때만] Next 의 클라이언트 라우팅은 pushState 라 이 판정을
+  //   타지 않는다. 판정을 타는 건 «전체 페이지 로드»뿐이다 — WebView 가 메모리
+  //   압박으로 폐기된 뒤 복귀 시 마지막 URL 을 다시 로드할 때가 대표적이다.
+  //   그때 마지막 URL 이 /ko/app-view/intel 같은 다른 경로면 그대로 밖으로 튕긴다.
+  //   전면광고는 메모리를 크게 쓰므로 폐기 확률을 올린다. 전부 들어맞는다.
   //
-  // [무엇을 막고 무엇을 통과시키는가] 우리 «아펙스»로 가는 이동만 www 로 되돌린다.
-  //   진짜 외부 도메인(뉴스 원문 등)은 건드리지 않는다 — 그건 밖에서 열리는 게 맞다.
+  // [이 가드가 할 수 있는 것 / 없는 것]
+  //   할 수 있는 것: «우리 코드가 일으키는» 전체 로드를 클라이언트 라우팅으로
+  //     바꿔 판정 자체를 타지 않게 한다. 이건 웹 배포로 오늘 적용된다.
+  //   할 수 없는 것: WebView 폐기 후 «네이티브가 하는» 재로드. 이건 JS 가 못 막는다.
+  //     → 그건 allowNavigation 을 넣은 **네이티브 리빌드**로만 닫힌다.
   useEffect(() => {
     if (!_isNative) return;
 
-    const APEX = 'signumhq.com';
-    const CANON = 'www.signumhq.com';
+    const OURS = new Set(['www.signumhq.com', 'signumhq.com']);
 
-    const toCanonical = (raw: string): string | null => {
+    // 우리 사이트면 «앱 안에서» 열 경로를 돌려준다. 아니면 null(= 밖에서 열려야 함).
+    const internalPathOf = (raw: string): string | null => {
       try {
         const u = new URL(raw, window.location.href);
-        if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-        if (u.hostname !== APEX) return null;   // 아펙스일 때만 손댄다
-        u.hostname = CANON;
-        u.protocol = 'https:';
-        return u.toString();
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+        if (!OURS.has(u.hostname)) return null;
+        return `${u.pathname}${u.search}${u.hash}`;
       } catch { return null; }
     };
 
-    // 1) 링크 클릭 — 캡처 단계에서 아펙스를 www 로 바꿔 «앱 안에서» 연다.
+    // 1) 링크 클릭 — 우리 사이트로 가는 전체 로드를 클라이언트 라우팅으로 바꾼다.
+    //    (Next <Link> 는 원래 pushState 라 안전하다. 문제는 평범한 <a> 다.)
     const onClick = (e: MouseEvent) => {
-      const el = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
-      if (!el) return;
-      const fixed = toCanonical(el.getAttribute('href') || '');
-      if (!fixed) return;
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const a = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!a) return;
+      if (a.hasAttribute('download')) return;
+      const href = a.getAttribute('href') || '';
+      if (href.startsWith('#')) return;
+      const path = internalPathOf(href);
+      if (!path) return;                       // 진짜 외부 링크 → 밖에서 열리는 게 맞다
       e.preventDefault();
       e.stopPropagation();
-      window.location.assign(fixed);
+      router.push(path);
     };
     document.addEventListener('click', onClick, true);
 
-    // 2) window.open — 아펙스면 새 창 대신 현재 WebView 에서 연다.
+    // 2) window.open — 우리 사이트면 새 창 대신 앱 안에서 연다.
+    //    (iOS 는 createWebViewWith 에서 호스트를 보지도 않고 밖으로 넘긴다.)
     const nativeOpen = window.open;
     window.open = function (url?: string | URL, target?: string, features?: string) {
-      const fixed = typeof url === 'string' ? toCanonical(url) : null;
-      if (fixed) { window.location.assign(fixed); return null; }
+      const path = typeof url === 'string' ? internalPathOf(url) : null;
+      if (path) { router.push(path); return null; }
       return nativeOpen.call(window, url as never, target as never, features as never);
     } as typeof window.open;
 
@@ -263,7 +277,7 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener('click', onClick, true);
       window.open = nativeOpen;
     };
-  }, []);
+  }, [router]);
 
   // --- 페이지 전환 애니메이션 ---
   useEffect(() => {
