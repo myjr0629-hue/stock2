@@ -203,6 +203,68 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  // --- ★ 아펙스 도메인 탈출 차단 (네이티브 전용) --------------------------
+  //
+  // [왜 있는가] 2026-09-13 대표 보고: 앱을 켜둔 채 다른 일을 하다 «전환»해서
+  //   돌아오거나 전면광고를 닫았을 때, 앱은 그대로인데 크롬 창이 따로 뜬다.
+  //   스크린샷의 주소창이 «www 없는» signumhq.com 이었다.
+  //
+  // [원인] 기기에 설치된 네이티브 설정에 `server.allowNavigation` 이 없다
+  //   (android/app/src/main/assets/capacitor.config.json 실측 — 릴리스 자산도 동일).
+  //   그 상태에서 Capacitor 는 `server.url` 호스트(www.signumhq.com) «이외의 모든
+  //   호스트»를 시스템 브라우저로 넘긴다. 우리 아펙스 도메인도 «다른 호스트»다.
+  //   → 앱은 WebView 에 남고 크롬만 따로 뜨는, 정확히 그 증상이 된다.
+  //
+  // [왜 여기서 막는가] capacitor.config.ts 쪽 허용목록 수정은 **네이티브 리빌드가
+  //   있어야** 기기에 닿는다. 이 가드는 웹 배포만으로 «오늘» 닿는다.
+  //   둘 다 필요하다 — 이건 리빌드 전까지의 방어선이자, 리빌드 후에도
+  //   아펙스로 새는 링크를 www 로 정규화해 주는 안전망이다.
+  //
+  // [무엇을 막고 무엇을 통과시키는가] 우리 «아펙스»로 가는 이동만 www 로 되돌린다.
+  //   진짜 외부 도메인(뉴스 원문 등)은 건드리지 않는다 — 그건 밖에서 열리는 게 맞다.
+  useEffect(() => {
+    if (!_isNative) return;
+
+    const APEX = 'signumhq.com';
+    const CANON = 'www.signumhq.com';
+
+    const toCanonical = (raw: string): string | null => {
+      try {
+        const u = new URL(raw, window.location.href);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+        if (u.hostname !== APEX) return null;   // 아펙스일 때만 손댄다
+        u.hostname = CANON;
+        u.protocol = 'https:';
+        return u.toString();
+      } catch { return null; }
+    };
+
+    // 1) 링크 클릭 — 캡처 단계에서 아펙스를 www 로 바꿔 «앱 안에서» 연다.
+    const onClick = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!el) return;
+      const fixed = toCanonical(el.getAttribute('href') || '');
+      if (!fixed) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.assign(fixed);
+    };
+    document.addEventListener('click', onClick, true);
+
+    // 2) window.open — 아펙스면 새 창 대신 현재 WebView 에서 연다.
+    const nativeOpen = window.open;
+    window.open = function (url?: string | URL, target?: string, features?: string) {
+      const fixed = typeof url === 'string' ? toCanonical(url) : null;
+      if (fixed) { window.location.assign(fixed); return null; }
+      return nativeOpen.call(window, url as never, target as never, features as never);
+    } as typeof window.open;
+
+    return () => {
+      document.removeEventListener('click', onClick, true);
+      window.open = nativeOpen;
+    };
+  }, []);
+
   // --- 페이지 전환 애니메이션 ---
   useEffect(() => {
     if (!_isNative || !mounted) return;
