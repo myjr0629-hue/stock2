@@ -167,13 +167,16 @@ export function RealityCheck({
             {/* ===== 브레드스 설명 팝업 (탭) ===== */}
             {breadthInfo && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-5 bg-black/70 backdrop-blur-sm"
+                    // ★ 하단은 광고 배너 + 탭바가 «네이티브로» 덮는다(웹 z-index 로 못 이긴다).
+                    //   그래서 카드가 그 위로 올라오도록 아래쪽 여백을 크게 두고,
+                    //   내용이 길어져도 버튼이 잘리지 않게 카드 자체를 스크롤시킨다.
+                    className="fixed inset-0 z-[100] flex items-center justify-center px-5 pt-5 pb-32 bg-black/70 backdrop-blur-sm"
                     onClick={() => setBreadthInfo(null)}
                     role="dialog"
                     aria-modal="true"
                 >
                     <div
-                        className="w-full max-w-[340px] rounded-2xl border border-slate-600/50 bg-slate-900/95 shadow-2xl shadow-black/60 p-4"
+                        className="w-full max-w-[340px] max-h-full overflow-y-auto overscroll-contain rounded-2xl border border-slate-600/50 bg-slate-900/95 shadow-2xl shadow-black/60 p-4"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-baseline justify-between mb-3">
