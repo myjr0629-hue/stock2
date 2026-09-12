@@ -89,6 +89,20 @@ const SNAPSHOT_KEY = "intrinio:eod:snapshot";
  */
 const HISTORY_KEY = "intrinio:eod:history";
 const HISTORY_DAYS = 20;
+/**
+ * 누적기가 들고 있을 «최대 날짜 수».
+ *
+ * ⚠️ 2026-09-11 사고: 트라이얼 벌크(«6개월»)가 만료되자 벤더 목록의 첫
+ *    «Stock Prices» 가 «5년»으로 바뀌었다. 누적기가 벌크의 «모든» 날짜를
+ *    메모리에 쌓는 구조라 1,250일 × 12,500종목이 되어 EC2(1.9GB·스왑0)에서
+ *    OOM 으로 매 실행 죽었다. 에러 로그도 없이 조용히 — 앱은 이틀 동안
+ *    수요일 종가를 «직전장»이라고 표시했다.
+ *
+ *    그래서 «6개월 벌크로 되돌린다»가 아니라 «벌크가 몇 년치든 상관없게»
+ *    고친다. 파일 하나 파싱할 때마다 최신 N일만 남기면 메모리 상한이
+ *    벌크 깊이와 무관해진다.
+ */
+const KEEP_DATES = HISTORY_DAYS + 10;   // 이력 20일 + 보강·휴장 여유
 const TTL_SEC = 3 * 24 * 3600;          // 3일 — 적재가 며칠 실패해도 화면이 안 죽게
 const INTRINIO_BASE = "https://api-v2.intrinio.com";
 const DRY = process.argv.includes("--dry");
@@ -164,6 +178,17 @@ function unzipSingleEntry(buf) {
 }
 
 // ── 벌크 CSV 파싱: 최신 2개 거래일 수집 ─────────────────────────────
+/**
+ * 누적기를 «최신 KEEP_DATES 일»로 잘라낸다.
+ * 파일은 임의 순서로 오므로 매 파일 뒤에 부른다. 더 최신 날짜가 나중에
+ * 들어와도 그때 다시 잘리므로 결과는 순서와 무관하다.
+ */
+function pruneAcc(acc) {
+    if (acc.size <= KEEP_DATES) return;
+    const keep = new Set([...acc.keys()].sort().reverse().slice(0, KEEP_DATES));
+    for (const d of [...acc.keys()]) if (!keep.has(d)) acc.delete(d);
+}
+
 function parseBulkCsv(csv, acc) {
     const nl = csv.indexOf("\n");
     if (nl < 0) return;
@@ -338,9 +363,17 @@ async function appendMissingSessions(acc) {
     if (!metaRes.ok) throw new Error(`bulk_downloads/links HTTP ${metaRes.status}`);
     const meta = metaRes.json();
 
-    const item = (meta.bulk_downloads || []).find((b) =>
-        String(b?.name || "").includes("Stock Prices")
-    );
+    // 이름에 적힌 기간을 개월로 환산해 «가장 짧은» 것을 고른다.
+    // 첫 매치를 쓰면 벤더 목록 순서가 바뀌는 순간(트라이얼 만료 등)
+    // 5년치를 받게 된다 — 필요한 건 최근 20거래일뿐이다.
+    function spanMonths(name) {
+        const m = String(name || "").match(/(\d+)\s*(month|year)/i);
+        if (!m) return 9999;
+        return Number(m[1]) * (/year/i.test(m[2]) ? 12 : 1);
+    }
+    const item = (meta.bulk_downloads || [])
+        .filter((b) => String(b?.name || "").includes("Stock Prices"))
+        .sort((x, y) => spanMonths(x.name) - spanMonths(y.name))[0];
     if (!item) {
         log("사용 가능한 벌크:", (meta.bulk_downloads || []).map((b) => b.name).join(" | "));
         throw new Error("«Stock Prices» 벌크를 찾지 못함");
@@ -360,6 +393,7 @@ async function appendMissingSessions(acc) {
             const csv = unzipSingleEntry(buf);
             if (!csv) { log(`  ✗ [${i + 1}/${links.length}] 압축 해제 실패`); continue; }
             parseBulkCsv(csv, acc);
+            pruneAcc(acc);          // ← 벌크가 5년치여도 메모리가 안 터진다
             okFiles++;
             if ((i + 1) % 5 === 0 || i === links.length - 1) {
                 log(`  … ${i + 1}/${links.length} (${okFiles} OK, 누적 날짜 ${acc.size}개)`);
