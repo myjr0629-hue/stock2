@@ -4804,3 +4804,39 @@ IH=계정 연령, 디렉터리=서명된 APK, HN=카르마.
 - Quora 무응답 질문 추가 점령(링크가 앱스토어 카드로 변환되는 유일한 채널)
 - HN 은 **링크 없는 기여**로 카르마를 쌓는다(도달은 0이어도 신용이 자산)
 - 릴리스 APK 는 대표 할일로 올려 디렉터리 경로를 연다
+
+---
+
+## 2026-09-13 (9) — Quora: 우리 «제품 카테고리를 그대로 묻는» 무응답 질문 점령
+
+### 게시
+**「What are the best AI tools for investing that track dark pool volume and order flow?」**
+— 답변 0개였던 질문의 **유일한 답변**. 토픽: Artificial Intelligence · Investment Strategies ·
+Order Flow Analysis · Financial Technology · Dark Pools · Stock Trading Tools · Algorithmic Trading
+(+5). 자격: Founder — Options Flow & Market Structure Data at SIGNUM HQ.
+링크 `?from=quora` 포함.
+
+이 질문은 **우리 제품 카테고리를 문자 그대로 묻고 있다.** 여기서는 링크가 스팸이 아니라
+질문자가 원하는 답이다 — HN 과 정반대 상황이고, 그래서 Quora 가 지금 유일하게
+«링크가 통하는» 채널이라는 판단이 다시 확인됐다.
+
+### 답변의 뼈대(그대로 쓸 수 있는 형식)
+1. 먼저 **돈을 아끼게 해준다** — 다크풀 데이터는 FINRA 무료 공개이고 모든 유료툴이 이걸 재포장한다
+2. 벤더가 못 넘는 한계 2개를 명시 — T+1 일단위 집계 / 방향이 아니라 «거래 장소»
+3. **실측 예시** — NVDA 장외 39.6% vs 시장평균 50.8%, 공매도 37.9% vs 자기평균 37.7%
+   → 기준선 없이 39.6%만 보면 «높다»고 오독한다. **기준선이 신호 전부다**
+4. 경쟁툴을 정직하게 평가(Unusual Whales·Cheddar Flow·BlackBoxStocks·Barchart·Market Chameleon)
+5. AI 가 실제로 돕는 지점 = 정규화와 «어제 대비 무엇이 변했나», 못 돕는 지점 = 방향
+6. 결제 전 확인할 3가지 — 기준선 표시 / 신선도 라벨 / **만기 지난 체인 포함 여부**
+   (우리가 이번 주에 직접 겪은 GLD 사례를 근거로 제시: 맥스페인 405·감마 −32k vs 400·+504k)
+7. 공개 고지 + 앱 링크
+
+### 도구상의 교훈
+Quora 편집기는 CDP 타이핑 1,500자 부근에서 렌더러가 얼어붙는다(3회 재현).
+**초안은 자동 저장되므로 얼면 새 탭에서 이어서 하면 된다.** 또 복원된 초안은
+Post 버튼이 비활성 상태로 뜨는데, 본문에 변경을 한 번 주면(공백 한 칸) 활성화된다.
+탭을 닫다가 탭 그룹이 깨지면 `tabs_context_mcp({createIfEmpty:true})` 로 재생성.
+
+### 이번 사이클 요약
+애플 광고는 세션 만료로 수치 확인 불가(대표 할일 03번). 검색탭 정지 상태 유지.
+새 채널 게시는 **Quora 로 달성**(IH·디렉터리·HN 은 앞 항목대로 막힘).
