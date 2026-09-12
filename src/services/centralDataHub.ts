@@ -440,15 +440,29 @@ export const CentralDataHub = {
                 //   → 한 종목만 조용히 죽는 형태라 알아채기 어렵다.
                 const lcProbe = Array.isArray(lambdaCache?.probeResults) ? lambdaCache.probeResults : null;
                 const lcExact = Array.isArray(lambdaCache?.exactResults) ? lambdaCache.exactResults : null;
-                const lcUsable = !!(lcProbe?.length && lcExact?.length && lambdaCache?.weeklyExpiry);
+                //   ★ [2026-09-13] 두 번째 구멍: **캐시가 «만기된» 계약을 붙들고 있었다.**
+                //   신선한 조회 경로는 `expiration_date.gte: todayStr` 로 지난 만기를
+                //   잘라내지만, 캐시 경로는 그 필터를 한 번도 안 거친다. TTL 이 72시간
+                //   (주말 보존용)이라 **금요일에 계산한 만기가 주말 내내 살아남는다.**
+                //
+                //   실측(2026-09-12 토): GLD weeklyExpiration=2026-09-11 → 맥스페인·콜월·
+                //   풋플로어·감마가 전부 **전날 만기된 체인** 기준이었다. 같은 시각 SPY 는
+                //   2026-09-18 로 정상이라, 한 종목만 조용히 틀리는 형태였다.
+                //
+                //   만기를 «날짜로» 다시 판정한다 — 종목마다 만기 주기가 달라서
+                //   (GLD·SPY 는 주 3회, 개별주는 주 1회) 한 종목이 멀쩡하다고
+                //   다른 종목도 멀쩡하지 않다.
+                const lcExpiryAlive = !!(lambdaCache?.weeklyExpiry && lambdaCache.weeklyExpiry >= todayStr);
+                const lcUsable = !!(lcProbe?.length && lcExact?.length && lcExpiryAlive);
                 if (lambdaCache && !lcUsable) {
-                    console.warn(`[CentralDataHub] Lambda 캐시 거부 ${ticker} — probe ${lcProbe?.length ?? 'n/a'} · exact ${lcExact?.length ?? 'n/a'} · expiry ${lambdaCache?.weeklyExpiry || 'none'}`);
+                    console.warn(`[CentralDataHub] Lambda 캐시 거부 ${ticker} — probe ${lcProbe?.length ?? 'n/a'} · exact ${lcExact?.length ?? 'n/a'} · expiry ${lambdaCache?.weeklyExpiry || 'none'}${lambdaCache?.weeklyExpiry && !lcExpiryAlive ? ` (만기 지남 · 오늘 ${todayStr})` : ''}`);
                 }
                 if (lcUsable
                     && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 259200000) { // 72h max (weekend preservation)
                     // Lambda cache hit — skip all Polygon API calls
                     probeResults = lambdaCache.probeResults;
-                    expirations = lambdaCache.expirations || [];
+                    // 지난 만기는 목록에서도 지운다 — 화면이 죽은 만기를 고르지 못하게.
+                    expirations = (lambdaCache.expirations || []).filter((d: string) => d >= todayStr);
                     weeklyExpiry = lambdaCache.weeklyExpiry || '';
                     cacheGreeksSource = lambdaCache.greeksSource || null;
                     results = lambdaCache.exactResults;
