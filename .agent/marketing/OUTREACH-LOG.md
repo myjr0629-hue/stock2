@@ -4203,3 +4203,34 @@ r/thetagang 데일리 스레드 내 댓글에 달린 답글: **「Damn the bots 
 타이핑 타임아웃과 «별개»로, **열자마자 본문에 포커스가 안 잡혀 있을 때가 있다.**
 그대로 치면 통째로 사라진다(오늘 한 번 날렸다). → **본문을 클릭한 뒤 짧게 한 덩어리만
 쳐 보고 스크린샷으로 확인한 다음** 긴 본문을 이어 칠 것.
+
+## 2026-09-12 (사이클 N+9) — ★ Medium 원본 리서치 발행
+
+### 발행
+**「Two telecoms doubled their put open interest on the same day. Here is how to tell
+whether that means anything.」** (4분 분량)
+https://medium.com/@signum_hq/two-telecoms-doubled-their-put-open-interest-on-the-same-day-7d7975f01322
+토픽 5개: Investing · Stock Market · Finance · Options Trading · Data Science
+
+**남이 발행한 적 없는 «원본 발견»으로 썼다** — 오늘 마감 실측의 T·VZ 동시 2.08배.
+글의 구조 자체가 우리 제품의 논리를 가르치는 형태다:
+
+1. 「풋 OI 가 두 배」는 그 자체로 무가치하다 — 2,000종목 스캔하면 매일 수십 개가 두 배가 된다
+2. 분모를 «시장»이 아니라 «그 종목 자신»으로 바꿔라 (T 29,297 vs 14,077 · VZ 29,681 vs 14,286)
+3. 그 다음 «그날 시장 전체 배수»를 나눠라 — 안 하면 «이상 활동» 목록이 그냥 지수 온도계가 된다
+4. 한 종목 2배는 걸러낸 노이즈지만 **같은 섹터 두 종목이 같은 배수·같은 세션**은 다른 사건이다
+5. **OI 가 말할 수 없는 것** — 보호매수·인컴매도·딜러헤지 전부 OI 를 올린다.
+   「방향으로 바꾸는 사람은 데이터가 뒷받침 못 하는 주장을 더한 것이고, 대개 뭔가를 팔고 있다」
+6. 출처는 전부 공개 — FINRA ATS/OTC · 옵션 체인 산술. 「비밀이 아니라 «귀찮을» 뿐이고,
+   그 귀찮음이 월 $50~89 받는 제품들의 사업모델 전부다」
+
+링크 `?from=medium` + Medium 이 앱스토어 카드를 자동 생성했다. 말미에 투자자문 아님 명시.
+
+### Medium 조작 메모
+* **토픽 입력은 «타이핑 → 2~3초 대기 → Enter»** 순서여야 칩이 생긴다.
+  바로 Enter 치면 전부 한 문자열로 이어붙고(「InvestingStock MarketFinance…」) 25자 초과 에러가 난다.
+* 쉼표 구분은 거부된다(「Tags only support letters, numbers, spaces and dashes」)
+* 계정 상태: 발행 3건(최근 2건은 품질 양호) · 초안 5건(테스트 잔해 — **발행물 아님, 브랜드 손상 없음**)
+
+### 애플 광고
+**여전히 로그아웃.** 대표 재로그인 대기(할일 00번). 그 전까지 광고는 확인 불가.
