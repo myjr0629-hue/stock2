@@ -41,7 +41,15 @@ const config: CapacitorConfig = {
           //   → 앱은 그대로 있고 크롬 창만 따로 뜨는 증상이 된다(대표 관찰).
           //   실측: `signumhq.com` → `www.signumhq.com` 301. 아펙스는 «다른 호스트»라
           //   허용 목록에 없으면 그 리다이렉트 한 번에 밖으로 튕긴다.
-          allowNavigation: ['www.signumhq.com', 'signumhq.com'],
+          // ★ 2026-09-13 정정: 원인은 «아펙스 도메인»이 아니라 «경로 접두사»였다.
+          //   Capacitor iOS 는 allowNavigation 이 비어 있으면
+          //     navURL.starts(with: serverURL «전체 문자열»)
+          //   만 통과시킨다. serverURL 이 .../en/app-view/dash 이므로
+          //   **같은 도메인의 다른 경로도 전부 시스템 브라우저로 나간다.**
+          //   (WebView 가 폐기된 뒤 복귀 재로드 때 실제로 터졌다.)
+          //   호스트를 허용해 두면 경로와 무관하게 앱 안에서 처리된다.
+          //   `*.signumhq.com` 은 앞으로 서브도메인이 생겨도 같은 사고가 안 나게.
+          allowNavigation: ['www.signumhq.com', 'signumhq.com', '*.signumhq.com'],
         },
 
   // iOS 설정
