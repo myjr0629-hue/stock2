@@ -4840,3 +4840,46 @@ Post 버튼이 비활성 상태로 뜨는데, 본문에 변경을 한 번 주면
 ### 이번 사이클 요약
 애플 광고는 세션 만료로 수치 확인 불가(대표 할일 03번). 검색탭 정지 상태 유지.
 새 채널 게시는 **Quora 로 달성**(IH·디렉터리·HN 은 앞 항목대로 막힘).
+
+---
+
+## 2026-09-13 (10) — Quora 2건째: 「Bloomberg 터미널 대안」 유일 답변
+
+### 게시
+**「What is the best Bloomberg Terminal alternative that a retail investor can actually afford?」**
+— 답변 0개 · **Quora 가 직접 요청(Requests from Quora)한 질문**. 유일 답변으로 게시.
+토픽: Financial Technology · Trading Terminal · Retail Investors · Stock Trading and Analysis (+5)
+`?from=quora` 링크 포함.
+
+이 질문은 우리 포지셔닝(**기관급 데이터를 무료로**)을 그대로 묻는다.
+「비싸서 못 쓰는 사람」이 던진 질문이라 무료 앱이 정답이 되는 구조다.
+
+### 답변 뼈대 — «팔지 않고 먼저 쓸모를 준다»
+1. 터미널은 대체 불가이고, 그래서 **살 이유가 없다** — $25~30k 중 대부분(메시징 네트워크·
+   채권/파생 프라이싱·FX·애널리스트 지원)은 개인에게 쓸모가 없다
+2. 개인에게 필요한 건 5가지 일로 쪼개진다. 각각에 무료·저가 답을 «경쟁사 포함» 정직하게 제시
+   - 차트/실시간 시세 → TradingView(무료~$60/월)
+   - 펀더멘털/공시 → SEC EDGAR(무료) · Koyfin · Fiscal.ai · Stock Analysis
+   - 스크리닝 → Finviz 무료
+3. **다섯 번째가 진짜 구멍** — 기관 포지셔닝(장외 비중·미결제약정·딜러 감마).
+   이게 터미널처럼 «느껴지는» 부분이고 유료 제품이 가장 비싸게 받는 부분
+4. **그런데 원천 데이터는 무료다** — FINRA(장외 볼륨)·OCC(미결제약정).
+   유료 구독은 «접근»이 아니라 «표현과 맥락»에 내는 돈이다
+5. 실측으로 맥락의 가치를 증명 — NVDA 장외 39.6%는 그 자체로 무의미,
+   시장평균 50.8% 옆에 놓아야 「오히려 밝은 종목」이라는 뜻이 된다
+6. 실전 스택 제안($0~50/월) + 경쟁사 정직 배치(Unusual Whales·Cheddar Flow·Barchart·Market Chameleon)
+7. 공개 고지 + 앱 링크. **「무료 소스와 무료 앱부터 써보고, 매일 쓰게 되면 그때 결제하라」**
+   로 닫아 과장 없이 마무리
+
+### 오늘 Quora 누적 3건 (전부 무응답 질문의 «유일 답변»)
+| 질문 | 성격 |
+|---|---|
+| What should I make of the mixed options flows in GLD? | 우리 데이터로만 답할 수 있는 질문 |
+| What are the best AI tools ... dark pool volume and order flow? | 우리 «카테고리»를 그대로 묻는 질문 |
+| What is the best Bloomberg Terminal alternative ...? | 우리 «포지셔닝»을 그대로 묻는 질문 |
+
+세 건 모두 구글 롱테일에 영구 색인되고, 링크가 앱스토어 카드로 변환된다.
+
+### 미결
+애플 광고 세션 만료 지속(대표 할일 03번) — 수치 확인 불가, 검색탭은 정지 상태 유지.
+EOD 적재 `applied:false` — 마감 2026-09-15 00:05 KST.
