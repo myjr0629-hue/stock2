@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Shield, AlertTriangle, Briefcase, Star, BarChart3, Settings2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 
 interface Props {
     isOpen: boolean;
@@ -14,6 +15,7 @@ interface Props {
 
 export default function DeleteAccountModal({ isOpen, onClose, user }: Props) {
     const t = useTranslations('settings');
+    const router = useRouter();
     const [step, setStep] = useState<'warning' | 'confirm'>('warning');
     const [loading, setLoading] = useState(false);
     const [counts, setCounts] = useState({ portfolio: 0, watchlist: 0 });
@@ -48,7 +50,7 @@ export default function DeleteAccountModal({ isOpen, onClose, user }: Props) {
             });
 
             await supabase.auth.signOut();
-            window.location.href = '/';
+            router.replace('/');   // 전체 로드는 네이티브에서 시스템 브라우저로 샌다
         } catch (err) {
             console.error('Deactivation error:', err);
         } finally {

@@ -273,11 +273,74 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
       return nativeOpen.call(window, url as never, target as never, features as never);
     } as typeof window.open;
 
+    // 3) ★ 이미 설치된 «옛 바이너리»를 업데이트 없이 구해내는 장치.
+    //
+    //    [문제] iOS 는 앱이 백그라운드에 오래 있으면 웹뷰 내용을 폐기한다.
+    //    복귀하면 웹뷰가 «현재 주소»를 전체 로드로 다시 읽는데, 그때 Capacitor 가
+    //    판정한다(WebViewDelegationHandler.decidePolicyFor):
+    //      ① allowNavigation 목록  ② 주소가 serverURL «문자열 전체»로 시작하는가
+    //    옛 바이너리는 ①이 비어 있고 ②의 serverURL 이 `/en/app-view/dash` 까지라,
+    //    **대시보드가 아닌 화면에 있다가 복귀하면 전부 탈락** →
+    //    UIApplication.open(...) → 시스템 브라우저 창이 따로 뜬다.
+    //    (13개 화면 중 12개가 해당. 그래서 「가끔」 처럼 보였다.)
+    //
+    //    [해법] 판정은 네이티브가 하지만, «무엇을 다시 읽을지»는 우리가 정한다.
+    //    백그라운드로 갈 때 주소창만 안전한 접두사로 바꿔 두면, 복귀 시 리로드가
+    //    ②를 통과해 앱 안에 머문다. 돌아오면 원래 화면으로 되돌린다.
+    //    새 바이너리에는 ①이 있어 필요 없지만, 있어도 해롭지 않다.
+    const SAFE = '/en/app-view/dash';
+    const KEY = 'signum.nativeRestorePath';
+    const MAX_AGE_MS = 2 * 60 * 60 * 1000;   // 2시간 — 다음 날 실행은 대시보드로
+
+    const here = () => `${location.pathname}${location.search}${location.hash}`;
+
+    const stash = () => {
+      try {
+        if (location.pathname.startsWith(SAFE)) return;   // 이미 안전하다
+        localStorage.setItem(KEY, JSON.stringify({ p: here(), t: Date.now() }));
+        history.replaceState(history.state, '', SAFE);
+      } catch { /* 저장소가 막혀 있으면 그냥 둔다 — 최악이라도 지금과 같다 */ }
+    };
+
+    // 리로드가 «일어나지 않고» 그냥 돌아온 경우: 주소만 원래대로 되돌린다.
+    const unstash = () => {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return;
+        localStorage.removeItem(KEY);
+        const { p, t } = JSON.parse(raw);
+        if (!p || Date.now() - t > MAX_AGE_MS) return;
+        if (location.pathname.startsWith(SAFE)) history.replaceState(history.state, '', p);
+      } catch { /* noop */ }
+    };
+
+    const onVisibility = () => { document.visibilityState === 'hidden' ? stash() : unstash(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', stash);
+
     return () => {
       document.removeEventListener('click', onClick, true);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', stash);
       window.open = nativeOpen;
     };
   }, [router]);
+
+  // 리로드가 «실제로 일어난» 경우: SAFE 로 로드됐을 테니 원래 화면으로 되돌린다.
+  // 위 이펙트의 unstash 는 주소만 고치고, 이건 화면까지 되돌린다(클라이언트 라우팅).
+  useEffect(() => {
+    if (!_isNative) return;
+    try {
+      const raw = localStorage.getItem('signum.nativeRestorePath');
+      if (!raw) return;
+      localStorage.removeItem('signum.nativeRestorePath');
+      const { p, t } = JSON.parse(raw);
+      if (!p || Date.now() - t > 2 * 60 * 60 * 1000) return;
+      if (p !== `${location.pathname}${location.search}${location.hash}`) router.replace(p);
+    } catch { /* noop */ }
+    // 최초 1회만 — 의존성에 pathname 을 넣으면 매 전환마다 돈다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- 페이지 전환 애니메이션 ---
   useEffect(() => {
