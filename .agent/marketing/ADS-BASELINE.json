@@ -1,0 +1,17 @@
+{
+  "note": "애플 서치애즈 기준선. 매 사이클 `node scripts/ads-baseline.js add` 로 한 줄씩 쌓아 추세를 본다. 창=최근7일(콘솔 기본), 시간대=UTC. 보고서는 최근 3시간 데이터를 반영하지 않는다.",
+  "records": [
+    {
+      "at": "2026-09-14 01:30",
+      "window": "최근 7일",
+      "campaigns": [
+        { "name": "US Search Tab",     "state": "paused",  "budget": 5,  "spend": 48.71, "impr": 17599, "taps": 14, "installs": 0, "cpa": 0,     "cpt": 3.48, "cpm": 2.77 },
+        { "name": "US Search Results", "state": "paused",  "budget": 10, "spend": 44.67, "impr": 448,   "taps": 8,  "installs": 1, "cpa": 44.67, "cpt": 5.58, "cpm": 99.71 },
+        { "name": "JP Search Results", "state": "running", "budget": 5,  "spend": 29.89, "impr": 183,   "taps": 9,  "installs": 1, "cpa": 29.89, "cpt": 3.32, "cpm": 163.34 },
+        { "name": "KR Search Results", "state": "running", "budget": 10, "spend": 14.28, "impr": 486,   "taps": 5,  "installs": 0, "cpa": 0,     "cpt": 2.86, "cpm": 29.38 }
+      ],
+      "total": { "spend": 137.55, "impr": 18716, "taps": 36, "installs": 2, "cpa": 68.78, "cpt": 3.82, "cpm": 7.35 },
+      "finding": "문제는 «과소비»가 아니라 «미소진»이다. 돌아가는 두 캠페인의 실제 일지출은 KR $2.04/일(예산 $10), JP $4.27/일(예산 $5) — 합 $6.31/일. 대표가 말한 $20/일의 3분의 1도 못 쓴다. 노출이 안 나와서 못 쓰는 것이다(KR 7일 486회 = 하루 69회). 예산을 올릴 문제가 아니라 «검색어»를 바꿀 문제다."
+    }
+  ]
+}
