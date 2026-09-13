@@ -312,6 +312,27 @@ def audit_native_server_url():
             if banned in url:
                 bad(f"{tag} 빌드설정", f"프리뷰 전용 값이 남아 있다 → {banned}")
 
+        # ── 2026-09-13 추가: allowNavigation 이 없으면 «앱 안에서 크롬 창이 뜬다» ──
+        #   이 함수는 server.url 만 보느라 그 사고를 그대로 통과시켰다.
+        #   Capacitor iOS 는 allowNavigation 이 비면
+        #     navURL.starts(with: serverURL «전체 문자열»)
+        #   만 앱 안에서 처리하고 나머지는 시스템 브라우저로 넘긴다.
+        #   serverURL 에 경로(/en/app-view/dash)가 들어 있어 «같은 도메인 다른 경로»도
+        #   전부 밖으로 나갔다. 리뷰로는 못 잡는다 — 이 파일은 gitignore 다.
+        allow = (cfg.get("server") or {}).get("allowNavigation")
+        if not isinstance(allow, list) or not allow:
+            bad(f"{tag} 빌드설정",
+                "server.allowNavigation 이 비어 있다 → 같은 도메인의 다른 경로가 "
+                "시스템 브라우저로 나간다(«앱 옆에 크롬 창»). 고치기: capacitor.config.ts 에 "
+                "allowNavigation 을 넣고 `npx cap copy` (Node>=22)")
+        elif host and not any(
+            len(pat.split(".")) == len(host.split("."))
+            and all(s == "*" or s == h for s, h in zip(pat.lower().split("."), host.lower().split(".")))
+            for pat in allow
+        ):
+            bad(f"{tag} 빌드설정",
+                f"allowNavigation 이 server.url 호스트({host})를 못 덮는다 → {allow}")
+
 
 def main():
     as_json = "--json" in sys.argv
