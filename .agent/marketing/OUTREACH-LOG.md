@@ -5114,9 +5114,33 @@ GEX 부호 관례는 벤더마다 다름)를 같이 적었다. 링크·제품명
 설치 유입엔 제일 좋아 보였지만 계정을 잃는 선이라 건너뛰었다.
 「VOO/QQQM $950k 배분」 스레드도 개인화된 투자 조언이라 답하지 않았다.
 
-### 6) 새로 확인된 제약
+### 6) 레딧 2건째 — r/StockMarket (라이브 확인)
+`/r/StockMarket/comments/1wdcuzb/` 「Understanding Unusual Options Activity in Plain Terms」
+답글 `p9gdx8z` · 1,999자 · banned/removed 아님 · **스레드 댓글 2개 중 하나**라 사실상 그 글의 내용이 된다.
+원글을 반박하지 않고 «빠진 조각»을 보탰다 — **거래량만으로는 신규진입/청산을 구분할 수 없고,
+다음날 아침 OCC 파일의 미결제약정 «변화»가 그걸 가른다**(무료). 여기에 오늘 훅(지수 롱감마 /
+개별주 숏감마)을 붙여 「큰 체결 뒤의 움직임이 인과처럼 보이지만 절반은 기계적 헤지」라는
+실질적 판독법을 줬다.
+
+### 7) Quora 8건째 — 답변 0개 질문 점령 (라이브 확인)
+`quora.com/What-are-some-common-mistakes-new-traders-make-when-trying-to-predict-market-tops-and-bottoms.../answer/Jiyoung-Kim-236`
+3,922자 · `signumhq.com/app?from=quora` 링크 작동 확인 · 토픽 Finance·Trading Pitfalls·
+Investment Strategies·Financial Markets·Technical Analysis +5.
+
+**질문이 「고점·저점을 맞히려다 하는 실수」라 우리 입장과 정확히 맞았다.**
+오늘 내가 실제로 겪은 실수를 그대로 썼다 — ①죽은 체인을 살아 있는 값으로 읽음(XLF 실측
+58·+38M → 실제 55·+193M) ②거래량을 의도로 읽음 ③기계적 헤지를 방향 신호로 오독
+④무료 원본(OCC·FINRA·EDGAR·재무부) 전에 유료 결제. 「포지셔닝 데이터는 메커니즘을 말하지
+다음을 말하지 않는다 — 타이밍 신호로 파는 쪽은 데이터가 못 하는 걸 파는 것」이라고 못박았다.
+**예측형 표현 0건.**
+
+편집기는 이번에도 2,212자에서 얼었고 확립된 복구 절차(초안→새 탭→drafts→Edit 2회→이어쓰기)로
+3,922자까지 완주했다. **복구 절차가 두 번째로 검증됐다.**
+
+### 8) 새로 확인된 제약
 레딧 저카르마 계정은 **댓글 사이 8분 쿨다운**이 걸린다(`RATELIMIT`). 하루 3건 계획은
 어차피 간격을 둬야 한다는 뜻.
+탭을 닫으면 **MCP 탭 그룹이 깨진다** — `tabs_context_mcp({createIfEmpty:true})` 로 새로 만들고 이어간다.
 
 ### 미결
 애플 광고 **세션 또 만료**(대표 할일 03번) — 이번 사이클도 수치 확인 불가.
