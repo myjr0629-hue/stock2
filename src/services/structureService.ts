@@ -883,9 +883,22 @@ export async function getStructureData(
         structureCache.set(cacheKey, { data: successResponse, timestamp: Date.now() });
         return successResponse;
     } else {
+        // ⚠️ [2026-09-13] 여기까지 왔다는 건 «파생값을 하나도 못 만들었다»는 뜻이다.
+        //    그런데 options_status 는 옵션 «체인의 OI 커버리지»만 보고 정해져서,
+        //    체인이 멀쩡하고 기초자산 가격만 없으면 그대로 "OK" 로 나갔다.
+        //    실측(DIA): underlyingPrice·maxPain·netGex 전부 null 인데 status="OK".
+        //    소비처들이 그 라벨을 믿는다 —
+        //      · dashboard/unified 의 optionsDataAvailable → Alpha 엔진이 «옵션 있다»로 채점
+        //      · DecisionGate 는 confidence 로 겨우 걸러냈을 뿐 status 는 통과시킨다
+        //    2026-09-03 에 command/unified 에서 «소비처만» 우회했고 뿌리는 그대로였다.
+        //    라벨이 데이터와 다르면 그건 라벨이 틀린 것이다 → 여기서 내린다.
+        if (options_status === "OK") options_status = "PENDING";
+
         gexNotes = totalStatsContracts === 0
             ? `netGex null: target expiration ${targetExpiry} not found or no contracts`
-            : (options_status === "PENDING" ? "netGex null: options_status is PENDING" : "netGex null: insufficient data");
+            : (!(underlyingPrice > 0)
+                ? "netGex null: underlyingPrice missing (chain OK) — status downgraded OK→PENDING"
+                : "netGex null: insufficient data");
 
         const failResponse = {
             ticker,
