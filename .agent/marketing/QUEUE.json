@@ -34,10 +34,11 @@
    "title": "JP 키워드 앱중심 정리",
    "detail": "지표 전문어(株価予想·マーケット·相場 등) 일시정지, 앱 의도어(株アプリ·証券アプリ·決算カレンダー·チャート) 유지·확대.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "JP-Core 진단: 그룹 1개뿐, 오늘 $15.48/설치0/탭단가$5.16. KR 대비 Intent 그룹 부재가 구조적 차이. 입찰 이미 $2.00 적용됨.",
+   "closed": "2026-09-13"
   },
   {
    "id": "t004",
@@ -433,6 +434,42 @@
    "state": "todo",
    "tries": 0,
    "created": "2026-09-14",
+   "note": ""
+  },
+  {
+   "id": "t037",
+   "type": "ads",
+   "region": "JP",
+   "title": "JP-Intent 그룹 신설(KR 승리구조 복제)",
+   "detail": "KR-Intent-Exact 가 CPA $11.12 로 이겼고 그 안 프리마켓 한 키워드가 $0.72 에 설치를 냈다. JP 엔 Intent 그룹이 없다. プレマーケット·決算カレンダー·株アプリ·証券アプリ·米国株アプリ 로 신설.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-13",
+   "note": ""
+  },
+  {
+   "id": "t038",
+   "type": "ads",
+   "region": "ALL",
+   "title": "서학개미 계열 고비용 키워드 격리",
+   "detail": "서학개미가 KR 두 그룹 합쳐 $14.95 쓰고 설치 0(탭당 $5.20). $2.00 캡은 걸었으나 계속 0이면 일시정지. 매 사이클 확인.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-13",
+   "note": ""
+  },
+  {
+   "id": "t039",
+   "type": "ads",
+   "region": "US",
+   "title": "premarket 키워드 US 복제",
+   "detail": "KR 프리마켓이 설치당 $0.72. 영어 premarket / pre market stocks / after hours 를 US 그룹에 추가.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-13",
    "note": ""
   }
  ]
