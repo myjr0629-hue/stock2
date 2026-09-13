@@ -314,14 +314,16 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
       } catch { /* noop */ }
     };
 
+    //    ※ pagehide 는 일부러 쓰지 않는다. 그건 «진짜 이동»에서도 발동해서,
+    //      사용자가 다른 데로 가는 중인데 저장해 뒀다가 되돌려 버릴 수 있다.
+    //      그리고 iOS 가 웹뷰를 폐기할 때는 통보 없이 죽이므로 pagehide 가 오지도 않는다.
+    //      백그라운드 전환 신호는 visibilitychange 하나로 충분하다.
     const onVisibility = () => { document.visibilityState === 'hidden' ? stash() : unstash(); };
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('pagehide', stash);
 
     return () => {
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('pagehide', stash);
       window.open = nativeOpen;
     };
   }, [router]);
