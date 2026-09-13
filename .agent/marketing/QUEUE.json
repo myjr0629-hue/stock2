@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-14",
+ "updated": "2026-09-13",
  "items": [
   {
    "id": "t001",
@@ -9,10 +9,11 @@
    "title": "KR 캠페인 입찰가 인하",
    "detail": "KR 을 JP 와 동일하게: 수동입찰 전환 + 키워드 최대CPT 를 평균CPT($3.31) 아래인 $2.00 로. 예산은 증액 금지.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "KR 수동입찰 전환 + KR-Core-Exact 29개 키워드 $9.90→$2.00. KR-Intent-Exact(CPA $11.12, 전체 최저)는 이기고 있어 보존.",
+   "closed": "2026-09-13"
   },
   {
    "id": "t002",
