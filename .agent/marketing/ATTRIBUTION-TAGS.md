@@ -63,3 +63,11 @@ Android 는 여기에 더해 Play install referrer(`utm_source=<태그>&utm_medi
 | `reddit_bio` | u/SignumHQ 프로필 소셜 링크 | r/stocks·r/investing·r/wallstreetbets·r/StockMarket 은 **댓글 내 자기홍보 링크 금지**(투고 시 자동삭제·영구밴). 그래서 링크는 프로필에만 두고, 댓글은 «가치만» 넣어 프로필 방문을 만든다. 전환은 여기서 일어난다. |
 | `indiehackers` | indiehackers.com/product/signum-hq · 프로필 3앱 | 외부링크가 전부 nofollow 라 SEO 가 아니라 «추천 트래픽» 채널이다. |
 | `github_gex` | awesome-options-analytics PR (GEX > Tools) | 목록이 자기 링크에 utm 을 쓰므로 추적 파라미터 허용. 반대로 awesome-quant·awesome-institutional-trading 은 **금지**라 태그 없이 넣었다. |
+
+### 2026-09-14 추가
+| 태그 | 표면 | 왜 나눴나 |
+|---|---|---|
+| `quora_premarket` | Quora **무응답 질문** 답변 | Space 는 팔로워가 봐야 도달하고, 무응답 질문은 구글 색인으로 시간이 갈수록 도달한다. 같은 `quora` 로 묶으면 어느 쪽이 설치를 만드는지 영원히 모른다. |
+
+**근거**: 광고에서 증명된 유일한 승자 낱말이 «프리마켓」이다(CPT $0.85 · 최저 CPA $0.72).
+같은 낱말을 돈 안 드는 표면에 복제하는 것이 성장규칙 (c) 다.

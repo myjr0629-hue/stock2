@@ -63,6 +63,10 @@ const CHANNELS = [
   //   「없으면 할수있는곳을 찾고 나라 지역 모든것을 가리지말고」
   //   레딧은 카르마가 링크 글을 막는다 → «평판 게이트가 아예 없는» 곳을 판다.
   //   여기 먼저 등록하고 나서 링크를 붙인다(같은 실수 네 번은 하지 않는다).
+  // ★ 2026-09-14 추가. Quora «무응답 질문» 은 Space 와 성격이 다르다 —
+  //   Space 는 팔로워가 봐야 도달하고, 무응답 질문은 구글 색인으로 «시간이 갈수록» 도달한다.
+  //   둘을 같은 태그로 묶으면 어느 쪽이 설치를 만드는지 영원히 모른다. 그래서 나눈다.
+  'quora_premarket',         // 무응답 질문 답변 — 광고에서 증명된 승자 낱말(프리마켓)을 무료 표면에 복제
   'alternativeto',           // AlternativeTo — 「Unusual Whales alternative」 검색이 실제로 있다(고의도)
   'saashub',                 // SaaSHub — 동일 카테고리 + dofollow 백링크
   'slant',                   // Slant.co — 「best stock market apps」 질의 표면
