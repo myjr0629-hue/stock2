@@ -5388,3 +5388,41 @@ KR-Core-Exact 로 넘어가서 «검색 유형» 열을 켰다(열 편집 ▸ �
 변경 이력에는 9/12 `$4.00 → $9.90` 이 남아 있는데 현재 값은 $2.00 이다.
 올렸다고 «쓴» 것과 살아 있는 값이 다르다. 메모리를 정정하고, t042(입찰가 되돌아감 감시)를
 큐에 넣어 **매 사이클 내가 마지막에 넣은 값과 화면을 대조**하게 만들었다.
+
+### 같은 사이클 — 새 표면 1건 개척 (t043 판정 → t044 실행)
+
+**t043 판정 — 스타트업 디렉터리는 «종류»가 안 맞는다.**
+Startup Stash 를 열어보니 스스로를 「창업자가 스택 고를 때 보는 곳」이라 소개한다.
+Startup Buffer·Inspire·Make.rs·10words·DevHunt 도 같은 청중이다. 우리는 개인 투자자용 앱이다.
+DIRECTORY-LIST.md 가 AI툴 디렉터리 30여 곳을 제외한 것과 같은 이유 → **하나씩 확인하지 않고 종류로 닫았다.**
+
+**t044 — 광고에서 이긴 낱말을 «돈 안 드는 표면»에 복제했다(성장규칙 c).**
+유일하게 증명된 승자가 `프리마켓`(CPT $0.85 · 최저 CPA $0.72)이다.
+Quora 에 `premarket` 무응답 질문이 줄줄이 있다. 답이 0이면 내 답이 곧 1등이고 구글에 영구 색인된다.
+
+**게시**: [What should investors know about major moves in premarket trading?](https://www.quora.com/What-should-investors-know-about-major-moves-in-premarket-trading/answer/Jiyoung-Kim-236)
+(0답변 · 팔로워 1 · 상시형 질문)
+
+**내용의 축** — 실측으로만 썼다:
+> 「퍼센트 상위 무버」와 「돈이 실제로 있는 곳」은 거의 겹치지 않는 두 목록이다.
+> 우리 무버 피드를 직접 세어보니 **퍼센트 상위 20개 중 16개가 $10 미만** 종목이었다
+> ($1.37 종목 +107% ~ $5.10 종목 −49%). 같은 유니버스를 «거래대금»으로 정렬하면
+> SPY·NVDA·MU·QQQ·AAPL·TSLA·ORCL·AMD 가 나온다 — 겹치는 이름이 거의 없다.
+> 프리마켓 거래량이 얇아서 생기는 구조적 현상이다.
+
+한계도 적었다(「구성에 대한 진술이지 인과가 아니다」), 우리 코드의 기준선 버그도 1인칭으로 인정했다.
+예측 표현 없음 · 투자권유 없음 · 「Not advice」 명시.
+
+**링크 함정 하나 잡았다.** Quora 가 URL 을 자동 변환하며 표시문구를
+「SIGNUM HQ: Stock Market AI App - App Store」로 바꿨다. 그대로 두면 안드로이드 사용자가
+애플 스토어 문구를 보게 된다. 카드 메뉴를 열어 **실제 href 를 확인**하니
+`http://signumhq.com/app?from=quora_premarket` — 우리 스마트링크가 살아 있었다.
+본문에 「iOS and Android. Free on both stores.」 + 「routes to the App Store or Play Store
+depending on your device」를 넣어 문구 오해를 막았다.
+
+**종단 검증(curl)**
+* iPhone UA → `apps.apple.com/...id6783130444`
+* Android UA → `play.google.com/...&referrer=utm_source%3Dquora_premarket%26utm_medium%3Dsmartlink`
+→ **설치 리퍼러까지 태그가 살아서 들어간다.** 측정 가능.
+
+태그 `quora_premarket` 는 링크를 붙이기 **전에** CHANNELS 배열에 등록했다(네 번 당한 함정).

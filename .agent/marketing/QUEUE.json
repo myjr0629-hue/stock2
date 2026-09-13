@@ -526,6 +526,44 @@
    "tries": 0,
    "created": "2026-09-13",
    "note": ""
+  },
+  {
+   "id": "t043",
+   "type": "expand",
+   "region": "ALL",
+   "title": "무계정 디렉터리 개척 — Startup Stash",
+   "detail": "계정 생성 없이 제출 가능한 디렉터리부터 연다. Startup Stash(DS56·185K) → Startup Buffer(DS42·57K) → StartupInspire 순. 계정이 필요하면 즉시 다음으로 넘어가고 필요 목록에 적는다.",
+   "prio": 1,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-13",
+   "note": "판정: 남은 스타트업 디렉터리(Startup Stash·Buffer·Inspire·Make.rs·10words·DevHunt)는 «종류»가 전부 창업자·SaaS 청중이다. 우리는 개인 투자자용 앱 — DIRECTORY-LIST.md 가 AI툴 디렉터리를 제외한 것과 같은 이유로 제외한다. 하나씩 확인해도 같은 결론이라 종류로 닫는다. 확장 예산을 «청중이 실제로 있는» 표면으로 돌린다.",
+   "steps": [
+    {
+     "at": "2026-09-13 16:44",
+     "what": "Startup Stash 확인: add-listing 은 살아있으나 스스로를 «창업자가 스택 고를 때 보는 곳»이라 소개한다(Advertise 문구: get your product in front of founders while they are picking their stack)."
+    }
+   ],
+   "closed": "2026-09-13 16:44"
+  },
+  {
+   "id": "t044",
+   "type": "expand",
+   "region": "ALL",
+   "title": "청중이 실제로 있는 표면 — Quora 무응답 질문(프리마켓)",
+   "detail": "광고에서 증명된 유일한 승자가 «프리마켓»이다(CPT $0.85, 최저 CPA $0.72). 같은 말을 무료 표면에 복제한다 — Quora 무응답 질문은 답이 0이면 내 답이 곧 1등이고 구글에 영구 색인된다. premarket/프리마켓 질문을 찾아 답한다. 계정 보유중.",
+   "prio": 1,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-13",
+   "note": "게시 완료 + 종단 검증. answer/Jiyoung-Kim-236. iPhone→App Store, Android→Play Store(+referrer utm_source=quora_premarket) 확인. quora_premarket 태그를 CHANNELS 에 «먼저» 등록하고 붙였다.",
+   "steps": [
+    {
+     "at": "2026-09-13 16:55",
+     "what": "Quora 무응답 질문 «What should investors know about major moves in premarket trading?» 에 답변 게시. 링크 자동변환 문제 발견·수정: Quora 가 표시문구를 «App Store»로 바꿨지만 실제 href 는 우리 스마트링크 그대로였다."
+    }
+   ],
+   "closed": "2026-09-13 16:55"
   }
  ]
 }
