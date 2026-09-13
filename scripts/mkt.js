@@ -15,6 +15,9 @@
  *   node scripts/mkt.js fail <id> <이유> doing → failed (3회 실패하면 보류)
  *   node scripts/mkt.js add <type> <region> <제목> <상세> [우선순위]
  *   node scripts/mkt.js report          전체 현황
+ *   node scripts/mkt.js checkpoint <id> <무엇을했나>   진행 중 단계 기록
+ *   node scripts/mkt.js resume          끊긴 일이 어디서 멈췄는지
+ *   node scripts/mkt.js close           ★ 사이클 종료 게이트 (doing 남으면 exit 1)
  *   node scripts/mkt.js reset           doing 을 todo 로 되돌림(중단 복구)
  * ===========================================================================
  */
@@ -54,7 +57,7 @@ switch (cmd) {
     }
     case 'done': {
         const x = find(d, args[0]); if (!x) { console.error('없는 id'); process.exit(1); }
-        x.state = 'done'; x.note = args.slice(1).join(' ') || x.note; x.closed = d.updated;
+        x.state = 'done'; x.note = args.slice(1).join(' ') || x.note; x.closed = new Date().toISOString().slice(0,16).replace('T',' ');
         save(d); console.log('완료:', line(x)); break;
     }
     case 'fail': {
@@ -74,6 +77,45 @@ switch (cmd) {
     case 'reset': {
         let c = 0; d.items.forEach((x) => { if (x.state === 'doing') { x.state = 'todo'; c++; } });
         save(d); console.log(`doing ${c}건을 todo 로 되돌렸다.`); break;
+    }
+    case 'checkpoint': {
+        // 진행 중인 일의 «어디까지 했는지» 를 남긴다. 사이클이 끊겨도 여기서 이어받는다.
+        const x = find(d, args[0]); if (!x) { console.error('없는 id'); process.exit(1); }
+        if (x.state !== 'doing') { console.error(`${x.id} 는 doing 이 아니다 (${x.state}). 먼저 start 할 것.`); process.exit(1); }
+        x.steps = x.steps || [];
+        x.steps.push({ at: new Date().toISOString().slice(0, 16).replace('T', ' '), what: args.slice(1).join(' ') });
+        save(d); console.log(`체크포인트 [${x.id}] ${x.steps.length}단계: ${x.steps[x.steps.length - 1].what}`); break;
+    }
+    case 'resume': {
+        // 끊긴 일이 «정확히 어디서» 멈췄는지 보여준다
+        const doing = d.items.filter((x) => x.state === 'doing');
+        if (!doing.length) { console.log('진행 중인 일 없음 — next 로 새로 집으면 된다.'); break; }
+        doing.forEach((x) => {
+            console.log('\n■ ' + line(x));
+            console.log('  ' + x.detail);
+            (x.steps || []).forEach((s, i) => console.log(`  ${i + 1}. [${s.at}] ${s.what}`));
+            console.log('  → 위 마지막 단계 «다음»부터 이어서 할 것.');
+        });
+        break;
+    }
+    case 'close': {
+        // ★ 사이클 종료 게이트 — 대표 지시(2026-09-14):
+        //   「작업을 하다 말고 다음 스케줄로 넘기지 마라.」
+        //   doing 이 하나라도 남아 있으면 사이클을 닫을 수 없다.
+        const doing = d.items.filter((x) => x.state === 'doing');
+        if (doing.length) {
+            console.log('\n✗ 사이클을 닫을 수 없다 — 끝내지 않은 일이 있다:\n');
+            doing.forEach((x) => {
+                console.log('  ' + line(x));
+                const last = (x.steps || []).slice(-1)[0];
+                console.log('    마지막 단계: ' + (last ? last.what : '(체크포인트 없음)'));
+            });
+            console.log('\n  → 끝내고 `done` 하거나, 진짜 막혔으면 `fail <id> <이유>` 로 닫을 것.');
+            console.log('    둘 다 안 하고 다음 사이클로 넘기는 것은 금지다.\n');
+            process.exit(1);
+        }
+        console.log('✓ 사이클 종료 가능 — 진행 중인 일 없음.');
+        break;
     }
     case 'report':
     default: {
