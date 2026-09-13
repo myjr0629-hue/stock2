@@ -272,11 +272,21 @@ export async function getStructureData(
             && lambdaCache.exactResults && lambdaCache.exactResults.length > 0
             && lambdaCache.weeklyExpiry) {
             
+            // ⚠️ [2026-09-13] 캐시 TTL 이 72시간이라 «주말을 넘기면 만기가 죽는다».
+            //   실측(9/13 토): XLF·XLE·XLK·SLV 가 2026-09-11 체인으로 응답했고
+            //   status=OK · confidence=HIGH 였다. 금요일에 이미 만료된 계약이다.
+            //   centralDataHub 에서 같은 버그를 고쳤지만 «여기»는 그대로였다.
+            //   캐시는 신선도(_ts)만 봤지 «내용의 유효기간»은 안 봤다 — 둘은 다르다.
+            const lcExpiryAlive = lambdaCache.weeklyExpiry >= todayStr;
+            if (!lcExpiryAlive) {
+                console.log(`[STRUCTURE] LAMBDA CACHE REJECTED for ${ticker}: expiry ${lambdaCache.weeklyExpiry} < ${todayStr} (이미 만료)`);
+            }
             // Lambda has everything we need: expiry + full chain
-            if (!requestedExp || lambdaCache.weeklyExpiry === requestedExp) {
+            if (lcExpiryAlive && (!requestedExp || lambdaCache.weeklyExpiry === requestedExp)) {
                 allContracts = lambdaCache.exactResults;
                 targetExpiry = lambdaCache.weeklyExpiry;
-                availableExpirations = lambdaCache.expirations || [];
+                // 목록에서도 지운다 — 화면이 죽은 만기를 «고를 수» 없게.
+                availableExpirations = (lambdaCache.expirations || []).filter((d: string) => d >= todayStr);
                 pagesFetched = 1;
                 usedLambdaCache = true;
                 console.log(`[STRUCTURE] LAMBDA CACHE HIT for ${ticker}: ${allContracts.length} contracts, expiry=${targetExpiry}`);
@@ -307,9 +317,12 @@ export async function getStructureData(
                     isNoMarketDetected = true;
                 } else if (probeRes.data?.results) {
                     isNoMarketDetected = false; // Reset just in case
-                    const exps = Array.from(new Set(
+                    // ⚠️ [2026-09-13] 만든 «그 자리»에서 지난 만기를 거른다.
+                    //   probeUrl 에 expiration_date.gte 가 걸려 있지만 그건 벤더의 약속일 뿐이고,
+                    //   이 목록은 그대로 화면의 만기 선택지가 된다. 약속이 아니라 값으로 막는다.
+                    const exps = (Array.from(new Set(
                         probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
-                    )).filter(Boolean).sort() as string[];
+                    )).filter(Boolean).sort() as string[]).filter((d) => d >= todayStr);
 
                     console.log(`[OPTIONS] ${ticker} probe expirations:`, exps.slice(0, 8).join(', '));
 

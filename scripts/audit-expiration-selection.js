@@ -141,6 +141,69 @@ for (const day of ['2026-09-04', '2026-09-11', '2026-09-18']) {
     console.log(`  ${day}(${dw(day)}) → 주간 ${w} ${ok ? '✓ 그날 만기를 본다' : '✗ 건너뛰었다'}`);
 }
 
-console.log(`\n검사 ${checks}건 · 실패 ${fail}건`);
-if (fail) { console.log('\n❌ 만기 선택 규칙에 문제가 있다. 배포하지 말 것.'); process.exit(1); }
-console.log('✅ 두 구현이 모든 경우에 같은 만기를 고른다.');
+// ── ⑦ 실 응답 검사 (--live) ─────────────────────────────────────────────
+//
+// ★ 2026-09-13: 위 ①~⑥ 은 전부 통과하는데 «운영 응답»은 죽은 만기를 줬다.
+//   XLF·XLE·XLK·SLV 가 2026-09-11(전 금요일) 체인으로 응답했고
+//   options_status=OK · gexConfidence=HIGH 였다.
+//
+//   왜 못 잡았나 — 이 검사기는 «규칙 함수»를 검사한다. 그런데 버그는 규칙이
+//   아니라 **캐시가 규칙을 건너뛴 것**이었다(72h TTL 람다 스냅샷이 주말을
+//   넘기며 만기가 죽었는데 신선도 _ts 만 보고 통과). 계산기를 아무리 검사해도
+//   계산기를 안 쓰는 경로는 안 잡힌다.
+//
+//   그래서 «규칙»이 아니라 «나가는 값»을 본다. 이건 배포된 것만 검사할 수 있다.
+async function auditLive() {
+    const BASE = process.env.AUDIT_BASE || 'https://www.signumhq.com';
+    // 섹터·상품 ETF 를 반드시 포함한다 — 이번에 터진 게 정확히 거기다.
+    const BASKET = ['SPY', 'QQQ', 'IWM', 'DIA', 'XLF', 'XLE', 'XLK', 'XLV', 'GLD', 'SLV',
+                    'NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMD', 'META'];
+    // «오늘 이후»의 기준 = 다음 거래일 (토·일이면 월요일)
+    const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const d = new Date(nowET);
+    if (d.getDay() === 6) d.setDate(d.getDate() + 2);
+    else if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+    const floor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    console.log(`\n── 실 응답 검사 (${BASE}) · 기준일 ${floor} 이상 ──`);
+    let liveFail = 0;
+    for (const t of BASKET) {
+        let j;
+        try {
+            const r = await fetch(`${BASE}/api/live/options/structure?t=${t}`, { signal: AbortSignal.timeout(60000) });
+            j = await r.json();
+        } catch (e) {
+            console.log(`  ${t.padEnd(6)} ✗ 호출 실패: ${e.message}`);
+            liveFail++; continue;
+        }
+        const exp = j.expiration || '';
+        const stale = exp && exp < floor;
+        const listStale = (j.availableExpirations || []).filter((x) => x < floor);
+        // 라벨과 데이터가 어긋나는지도 같이 본다 — «OK 인데 값이 없다»
+        const labelLies = j.options_status === 'OK' && (j.netGex == null || j.maxPain == null || !(j.underlyingPrice > 0));
+
+        if (stale) {
+            liveFail++;
+            console.log(`  ${t.padEnd(6)} ✗ 죽은 만기 ${exp} (기준 ${floor}) · status=${j.options_status} conf=${j.gexConfidence}`);
+        } else if (listStale.length) {
+            liveFail++;
+            console.log(`  ${t.padEnd(6)} ✗ 선택은 ${exp} 로 맞지만 «선택지»에 지난 만기가 남아 있다 → ${JSON.stringify(listStale)}`);
+        } else if (labelLies) {
+            liveFail++;
+            console.log(`  ${t.padEnd(6)} ✗ status=OK 인데 값이 없다 (netGex=${j.netGex} maxPain=${j.maxPain} spot=${j.underlyingPrice})`);
+        } else {
+            console.log(`  ${t.padEnd(6)} ✓ ${exp} · maxPain=${j.maxPain} netGex=${j.netGex == null ? 'null' : Math.round(j.netGex / 1e6) + 'M'}`);
+        }
+    }
+    return liveFail;
+}
+
+(async () => {
+    let liveFail = 0;
+    if (process.argv.includes('--live')) liveFail = await auditLive();
+
+    console.log(`\n검사 ${checks}건 · 실패 ${fail}건` + (process.argv.includes('--live') ? ` · 실응답 실패 ${liveFail}건` : ''));
+    if (fail) { console.log('\n❌ 만기 선택 규칙에 문제가 있다. 배포하지 말 것.'); process.exit(1); }
+    if (liveFail) { console.log('\n❌ 규칙은 맞지만 «실제로 나가는 값»이 틀렸다. 캐시 경로를 의심할 것.'); process.exit(1); }
+    console.log('✅ 두 구현이 모든 경우에 같은 만기를 고른다.' + (process.argv.includes('--live') ? ' 실 응답도 살아 있는 만기만 준다.' : ''));
+})();
