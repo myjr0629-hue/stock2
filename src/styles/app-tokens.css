@@ -18,6 +18,16 @@
   --red: #ef4444;
   --red-dim: rgba(239,68,68,0.14);
   --text: #f8fafc;
+
+  /* 라벨 3단 — 신호(값·주도 라벨) > 기준(지표 이름) > 보조(단위·시각·부연).
+     ★ 반드시 :root 에 둔다. 예전엔 .app-main 에만 있었는데, 리포트 시트가
+     createPortal(document.body) 로 뜨면서 .app-main 밖으로 나가 변수가 죽었고,
+     color 가 body 상속색(hsl(222 47% 11%) — 거의 검정)으로 떨어져
+     «어두운 시트 위 검은 글씨» = 글자가 통째로 안 보였다. 티커 칩도 같은 이유로 흐렸다.
+     의미색(초록·빨강·섹터색)은 각 페이지의 «성격»이므로 여기 들어오지 않는다. */
+  --app-lbl-signal: rgba(226, 232, 240, 0.92);
+  --app-lbl-anchor: rgba(148, 163, 184, 0.90);
+  --app-lbl-aux: rgba(148, 163, 184, 0.62);
   --text-dim: #e2e8f0;
   --text-muted: #94a3b8;
   --r-card: 12px;
@@ -41,6 +51,11 @@
 
   /* 모노스페이스 (금융 숫자) */
   --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Roboto Mono', monospace;
+  /* 별칭 — 코드 43곳이 --font-mono 로 쓰고 있었는데 정의된 이름은 --f-mono 뿐이었다.
+     `font-family: var(--font-mono), monospace` 는 폴백처럼 보이지만 아니다:
+     var() 가 해석 실패하면 «선언 전체»가 무효가 되어 monospace 로도 안 가고
+     본문 폰트를 상속한다. 숫자가 모노로 안 찍히는 이유였다(조용히 틀린 자리). */
+  --font-mono: var(--f-mono);
   --f-jakarta: var(--f-sans);
 
   /* 글로우 토큰 — 배지/라인/CTA 공용 */
