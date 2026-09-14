@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-13",
+ "updated": "2026-09-14",
  "items": [
   {
    "id": "t001",
@@ -564,6 +564,42 @@
     }
    ],
    "closed": "2026-09-13 16:55"
+  },
+  {
+   "id": "t045",
+   "type": "ads",
+   "region": "US",
+   "title": "US 캠페인 2개 켜기 — 대표 승인 완료, 로그인만 대기",
+   "detail": "대표가 2026-09-14 켜라고 승인했다. 애플광고 세션이 만료돼 로그인 화면으로 튄다(비밀번호·2FA 는 내가 못 한다). 대표가 로그인하면 즉시: US Search Tab($5/일)·US Search Results($10/일) 둘 다 재개. Search Results 는 Maximize Conversions 라 입찰전략도 확인할 것.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-13",
+   "note": ""
+  },
+  {
+   "id": "t046",
+   "type": "expand",
+   "region": "ALL",
+   "title": "미사용 등록채널 8곳 개통",
+   "detail": "lemmy·mastodon·devto·qiita·zenn·velog·tistory·slant — 9/12 에 태그만 등록하고 한 번도 안 썼다. 각각 계정이 필요한지부터 확인하고, 계정 없이 되는 곳부터 연다. 계정이 필요하면 대표 할일 목록에 적는다.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-14",
+   "note": ""
+  },
+  {
+   "id": "t047",
+   "type": "publish",
+   "region": "ALL",
+   "title": "매 사이클 최소 2채널 발행",
+   "detail": "광고 점검은 몇 분이면 끝난다. 사이클의 몸통은 발행이어야 한다. 서로 다른 청중 2곳 이상에 사람 품질의 글을 쓴다.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-14",
+   "note": ""
   }
  ]
 }
