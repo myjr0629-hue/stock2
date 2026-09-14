@@ -1829,7 +1829,13 @@ export default function AppIntelPage() {
   // 리포트를 «실제로 연» 순간이 SIGNUM 의 성공 순간이다. 여기서만 평점을 청한다.
   // 4·11회를 쓰는 이유: 아래 전면광고가 3회마다 뜨므로, 3의 배수를 고르면 시트와
   // 전면광고가 겹친다.
-  const markReportOpened = useReviewPrompt({ storageKey: 'signum.reportOpens' });
+  // ★ 2026-09-14: 마일스톤을 [4,11] → [2,7] 로 낮췄다.
+  //   안드로이드 설치가 6건인데 «리포트 4회 열람»을 조건으로 두면 산수상 요청이
+  //   거의 안 뜬다. 게다가 Play 는 자체적으로 시트 표시를 강하게 제한한다.
+  //   평점 0 은 버그가 아니라 모수 부족이었고, 이 규모에서 앱 안의 유일한 지렛대가
+  //   «언제 묻는가» 다. 리포트를 2번 연 사용자는 이미 핵심 가치를 봤다.
+  //   2·7 은 3의 배수가 아니라 전면광고(3회마다)와 겹치지 않는다.
+  const markReportOpened = useReviewPrompt({ storageKey: 'signum.reportOpens', milestones: [2, 7] });
 
   // Trigger Interstitial Ad logic on report click
   const handleSectorClick = async (sectorId: string) => {
