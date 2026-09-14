@@ -36,14 +36,24 @@ export interface MacroMetric {
     asOf: string;
     /** 직전 관측 대비 변화 */
     change: number | null;
-    /** 변화의 방향 — 좋고 나쁨은 지표마다 달라서 여기서 판정하지 않는다 */
+    /** 변화의 방향 */
     trend: MacroTrend;
+    /**
+     * 어느 방향이 «우호적»인가.
+     * 실업률 상승과 고용 상승은 뜻이 정반대다 — 그래서 색을 화면에서 정하면 안 되고
+     * 지표마다 여기서 선언해야 한다. neutral = 좋고 나쁨을 우리가 말하지 않는다.
+     */
+    favorable: "up" | "down" | "neutral";
+    /** 지금 «주목해야 할» 상태인가. 이유를 함께 준다(빈 문자열이면 평상시) */
+    watch: { on: boolean; reason: { en: string; ko: string; ja: string } } | null;
     /** 갱신 주기 */
     cadence: "daily" | "monthly" | "quarterly";
 }
 
 export interface MacroEconomy {
     metrics: MacroMetric[];
+    /** 출처 표기 — 화면에 반드시 보여준다. 출처 없는 거시지표는 신뢰를 못 얻는다 */
+    attribution: string;
     /** 가장 최근 관측일 — 블록 전체의 신선도 */
     newestAsOf: string | null;
     /** 실패한 계열 수. 0 이 아니면 화면에서 조용히 빠진 것이 있다는 뜻 */
@@ -86,6 +96,7 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
         value: r2(dff[0].value), unit: "percent", asOf: dff[0].date,
         change: r2(dff[0].value - dff[1].value),
         trend: trendOf(dff[0].value - dff[1].value, 0.005), cadence: "daily",
+        favorable: "neutral", watch: null,
     } : null);
 
     // ── 실업률 (월간)
@@ -95,6 +106,11 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
         value: r1(unrate[0].value), unit: "percent", asOf: unrate[0].date,
         change: r1(unrate[0].value - unrate[1].value),
         trend: trendOf(unrate[0].value - unrate[1].value, 0.05), cadence: "monthly",
+        favorable: "down",
+        // 실업률이 한 달에 0.2%p 이상 뛰면 과거에 국면 전환의 초기 신호였던 적이 많다
+        watch: unrate.length >= 2 && (unrate[0].value - unrate[1].value) >= 0.2
+            ? { on: true, reason: { en: "Jumped in one month", ko: "한 달 만에 급등", ja: "1カ月で急上昇" } }
+            : null,
     } : null);
 
     // ── CPI 전년동월비 (원시 지수값은 쓸모없다 → YoY 로 바꾼다)
@@ -107,6 +123,11 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
             value: r1(yoy), unit: "percent", asOf: cpi[0].date,
             change: yoyPrev == null ? null : r1(yoy - yoyPrev),
             trend: trendOf(yoyPrev == null ? null : yoy - yoyPrev, 0.05), cadence: "monthly",
+            favorable: "down",
+            // 연준 목표는 2% 다. 3% 를 넘으면 금리 경로가 바뀔 수 있는 구간이다.
+            watch: yoy >= 3
+                ? { on: true, reason: { en: "Above the 2% target", ko: "연준 목표 2% 상회", ja: "FRB目標2%を上回る" } }
+                : null,
         });
     } else missing += 1;
 
@@ -117,6 +138,10 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
         value: Math.round(payems[0].value - payems[1].value), unit: "thousands", asOf: payems[0].date,
         change: payems.length >= 3 ? Math.round((payems[0].value - payems[1].value) - (payems[1].value - payems[2].value)) : null,
         trend: trendOf(payems[0].value - payems[1].value, 1), cadence: "monthly",
+        favorable: "up",
+        watch: payems.length >= 2 && (payems[0].value - payems[1].value) < 0
+            ? { on: true, reason: { en: "Payrolls contracted", ko: "고용이 줄었다", ja: "雇用が減少" } }
+            : null,
     } : null);
 
     // ── 소비자심리 (월간)
@@ -126,6 +151,7 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
         value: r1(umcsent[0].value), unit: "index", asOf: umcsent[0].date,
         change: r1(umcsent[0].value - umcsent[1].value),
         trend: trendOf(umcsent[0].value - umcsent[1].value, 0.1), cadence: "monthly",
+        favorable: "up", watch: null,
     } : null);
 
     // ── GDP 전분기비 연율 아님 — «전분기 대비 증감률»로만 말한다(과장 금지)
@@ -135,6 +161,10 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
         value: r1(((gdp[0].value / gdp[1].value) - 1) * 100), unit: "percent", asOf: gdp[0].date,
         change: null,
         trend: trendOf(gdp[0].value - gdp[1].value, 1), cadence: "quarterly",
+        favorable: "up",
+        watch: gdp.length >= 2 && gdp[0].value < gdp[1].value
+            ? { on: true, reason: { en: "Contracted vs prior quarter", ko: "전분기 대비 역성장", ja: "前期比マイナス成長" } }
+            : null,
     } : null);
 
     // ── 10Y-2Y 커브 (일간) — 음수면 역전
@@ -144,11 +174,23 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
         value: r2(curve[0].value), unit: "percent", asOf: curve[0].date,
         change: r2(curve[0].value - curve[Math.min(20, curve.length - 1)].value),
         trend: trendOf(curve[0].value - curve[Math.min(20, curve.length - 1)].value, 0.02), cadence: "daily",
+        favorable: "up",
+        // 음수 = 장단기 금리 역전. 역사적으로 침체를 앞선 신호로 가장 많이 인용된다.
+        watch: curve.length >= 1 && curve[0].value < 0
+            ? { on: true, reason: { en: "Yield curve inverted", ko: "장단기 금리 역전", ja: "長短金利の逆転" } }
+            : null,
     } : null);
 
     const newestAsOf = metrics.length
         ? metrics.map((m) => m.asOf).sort().slice(-1)[0]
         : null;
 
-    return { metrics, newestAsOf, missing };
+    return {
+        metrics,
+        // 원천은 미국 공공기관(연준/노동통계국/상무부)이 발표하고 세인트루이스 연준 FRED 가
+        // 집계한 계열이다. 우리는 Intrinio 를 경유해 받는다 — 둘 다 밝힌다.
+        attribution: "FRED (St. Louis Fed) via Intrinio",
+        newestAsOf,
+        missing,
+    };
 }
