@@ -805,7 +805,9 @@ async function generateMorningBriefing() {
                 const IMC = getInvokeModelCommand();
                 if (!client || !IMC) throw new Error("Bedrock SDK not available (Node 16 TransformStream limitation)");
                 const command = new IMC({
-                    modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+                    // ★ 2026-09-14: 구 모델 claude-sonnet-4-20250514 는 AWS 공지상 2026-10-14 EOL.
+                    //   그날 이후 호출이 통째로 실패하므로 만료 전에 4.6 으로 올렸다.
+                    modelId: 'us.anthropic.claude-sonnet-4-6',
                     contentType: 'application/json',
                     accept: 'application/json',
                     body: JSON.stringify({
