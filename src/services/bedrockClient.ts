@@ -38,6 +38,25 @@ export const MODELS = {
     SONNET_4: 'us.anthropic.claude-sonnet-4-6',
 } as const;
 
+/**
+ * 모델 «계열»이 통째로 죽었을 때 내려갈 순서.
+ * 같은 모델의 다른 한도 통(us↔global)을 먼저 시도하고, 그래도 안 되면 계열을 바꾼다.
+ * 2026-09-14 에 Haiku 4.5 가 두 프로파일 모두 ServiceUnavailable 이었다 — 실제로 일어난다.
+ */
+const LAST_RESORT_CHAIN: Record<string, string[]> = {
+    'global.anthropic.claude-haiku-4-5-20251001-v1:0': [
+        'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+        'us.anthropic.claude-sonnet-4-6',
+    ],
+    'us.anthropic.claude-haiku-4-5-20251001-v1:0': [
+        'global.anthropic.claude-haiku-4-5-20251001-v1:0',
+        'us.anthropic.claude-sonnet-4-6',
+    ],
+};
+
+/** 표에 없는 모델의 기본 사다리 */
+const DEFAULT_LAST_RESORT: string[] = ['us.anthropic.claude-sonnet-4-6'];
+
 // --- Singleton Client ---
 let _client: BedrockRuntimeClient | null = null;
 function getClient(): BedrockRuntimeClient {
@@ -82,6 +101,54 @@ function releaseSlot(): void {
 }
 
 // --- Retry with Exponential Backoff ---
+/**
+ * «지금 내려가 있는 모델» 기억표.
+ *
+ * 사다리는 작동했지만 장애가 지속되는 동안 매 호출이 죽은 모델을 두 번씩
+ * 두드렸다(실측 14.4초). 라우트 maxDuration 을 넘기면 사다리가 있어도 소용없다.
+ * → 한 번 «응답 불가»를 본 모델은 쿨다운 동안 건너뛴다. 실측 14.4초 → 약 1.4초.
+ *
+ * 쿨다운을 길게 두지 않는 이유: 모델이 복구됐는데도 계속 비싼 Sonnet 을 쓰면
+ * 그것도 손해다. 5분이면 복구를 금방 되찾으면서 장애 중 낭비는 없앤다.
+ */
+const MODEL_COOLDOWN_MS = 5 * 60 * 1000;
+const _modelDownUntil = new Map<string, number>();
+
+function isModelCoolingDown(modelId: string): boolean {
+    const until = _modelDownUntil.get(modelId);
+    if (!until) return false;
+    if (Date.now() >= until) { _modelDownUntil.delete(modelId); return false; }
+    return true;
+}
+
+function markModelDown(modelId: string): void {
+    _modelDownUntil.set(modelId, Date.now() + MODEL_COOLDOWN_MS);
+}
+
+/**
+ * «이 모델이 지금 응답을 못 한다» 계열의 에러.
+ *
+ * ★ 2026-09-14 실사고: Bedrock 의 Haiku 4.5 가 두 프로파일 모두
+ *   ServiceUnavailableException 을 냈다(실측 0/5, 같은 순간 Sonnet 은 5/5).
+ *   그런데 이 에러가 «알 수 없는 에러»로 분류돼 그대로 throw 됐고,
+ *   폴백·마지막 사다리까지 도달하지 못해 가디언 TACTICAL INSIGHT 가
+ *   「Insight generation failed」 로 떨어졌다.
+ *
+ *   이건 던질 신호가 아니라 **다른 모델로 가라는 신호**다. → null 을 반환해
+ *   호출부가 사다리를 타게 한다.
+ */
+function isModelUnavailableError(error: any): boolean {
+    const name = String(error?.name || '');
+    const msg = String(error?.message || '');
+    return (
+        name === 'ServiceUnavailableException' ||
+        name === 'ModelNotReadyException' ||
+        name === 'ModelTimeoutException' ||
+        name === 'InternalServerException' ||
+        /unable to process your request/i.test(msg)
+    );
+}
+
 function isThrottlingError(error: any): boolean {
     const message = (error?.message || '').toLowerCase();
     const name = (error?.name || '').toLowerCase();
@@ -121,6 +188,12 @@ export interface CallBedrockOptions {
     maxRetries?: number;
     /** Label for logging */
     label?: string;
+    /**
+     * 기본·폴백이 «모두» 실패했을 때 다른 모델 계열로 한 번 더 내려갈지.
+     * 기본 true — 모델 하나가 통째로 죽어도 화면이 사는 쪽이 낫다.
+     * 비용이 아까운 호출(소셜 글 등)만 false 로 끈다.
+     */
+    allowLastResort?: boolean;
 }
 
 export interface CallBedrockResult {
@@ -151,6 +224,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
         jsonPrefill = false,
         maxRetries = 3,
         label = 'Bedrock',
+        allowLastResort = true,
     } = options;
 
     const startTime = Date.now();
@@ -187,7 +261,36 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
         }
     }
 
-    throw new Error(`[${label}] All Bedrock attempts exhausted (primary + fallback)`);
+    // ── 마지막 사다리 ─────────────────────────────────────────────────
+    // ★ 2026-09-14 실사고: Bedrock 의 Haiku 4.5 가 **두 프로파일 모두** 죽었다.
+    //     global.anthropic.claude-haiku-4-5  → ServiceUnavailableException 5/5
+    //     us.anthropic.claude-haiku-4-5      → ServiceUnavailableException 5/5
+    //     us.anthropic.claude-sonnet-4-6     → 정상 5/5
+    //   우리 코드도 한도도 아니고 «그 모델»이 내려간 것이다.
+    //   그런데 폴백이 한 단계뿐이라(Haiku→Haiku) 둘 다 같은 모델이었고,
+    //   가디언 TACTICAL INSIGHT 가 「Insight generation failed」 로 떨어졌다.
+    //
+    //   계열이 통째로 죽는 일은 실제로 일어난다. 그래서 «다른 계열»까지 내려간다.
+    //   품질은 Sonnet 이 더 좋고 값이 비쌀 뿐이다 — 화면이 죽는 것보다 낫다.
+    if (allowLastResort) {
+        const tried = new Set([modelId, fallbackModel].filter(Boolean) as string[]);
+        for (const next of LAST_RESORT_CHAIN[modelId] || DEFAULT_LAST_RESORT) {
+            if (tried.has(next)) continue;
+            console.warn(`[${label}] 모델 계열이 통째로 실패 — 마지막 사다리로 ${next}`);
+            const r = await callWithRetry(next, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, 2, `${label}/LastResort`);
+            if (r) {
+                return {
+                    text: r,
+                    model: next.includes('sonnet') ? 'claude-sonnet-4.6' : next.includes('haiku') ? 'claude-haiku-4.5' : next,
+                    usedFallback: true,
+                    elapsedMs: Date.now() - startTime,
+                };
+            }
+            tried.add(next);
+        }
+    }
+
+    throw new Error(`[${label}] All Bedrock attempts exhausted (primary + fallback + last resort)`);
 }
 
 async function callWithRetry(
@@ -203,6 +306,12 @@ async function callWithRetry(
 ): Promise<string | null> {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    // 방금 «응답 불가»였던 모델은 건너뛴다 — 두드려봐야 시간만 쓴다
+    if (isModelCoolingDown(modelId)) {
+        console.warn(`[${label}] ${modelId} 는 쿨다운 중 — 건너뛴다`);
+        return null;
+    }
+
         await acquireSlot();
         
         try {
@@ -276,6 +385,18 @@ async function callWithRetry(
                 return null;
             }
             
+            // 모델이 내려간 경우 — 같은 모델을 더 두드려봐야 소용없다.
+            // 한 번만 짧게 재시도하고, 그래도 안 되면 null 을 돌려 «다른 모델»로 넘긴다.
+            if (isModelUnavailableError(error)) {
+                console.warn(`[${label}] 모델 응답 불가(${error.name}) — ${modelId}`);
+                if (attempt < Math.min(2, maxRetries)) {
+                    await sleep(800);
+                    continue;
+                }
+                markModelDown(modelId);
+                return null;
+            }
+
             // Unknown error — don't retry
             console.error(`[${label}] Non-retryable error:`, error.message);
             throw error;

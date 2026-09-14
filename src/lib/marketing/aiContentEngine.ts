@@ -146,7 +146,8 @@ async function generateForLang(
       maxTokens: 1500,
       temperature: 0.7, // Higher for creative variety
       timeoutMs: 20000,
-      fallbackModel: null, // Don't waste Sonnet on social posts
+      fallbackModel: null,
+      allowLastResort: false,   // 소셜 글에 Sonnet 값을 쓰지 않는다 — 여기만 사다리를 끈다
       jsonPrefill: true,
       maxRetries: 2,
       label: `ContentEngine-${lang}`,
