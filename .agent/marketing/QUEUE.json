@@ -600,6 +600,18 @@
    "tries": 0,
    "created": "2026-09-14",
    "note": ""
+  },
+  {
+   "id": "t048",
+   "type": "ads",
+   "region": "US",
+   "title": "US Search Results 목표CPA $8 과 실제 $44.67 괴리 관찰",
+   "detail": "Maximize Conversions 인데 목표 CPA 가 실제의 1/5.6 이다. 애플이 입찰을 억제해 노출이 안 날 수 있다. 48시간 뒤 노출·지출을 보고, 안 나오면 «입찰 관리(수동)»로 바꾸는 안을 대표에게 올린다 — 예산 증액이 아니라 전략 변경이다.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-14",
+   "note": ""
   }
  ]
 }
