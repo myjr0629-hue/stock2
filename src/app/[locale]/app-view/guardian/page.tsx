@@ -11,6 +11,7 @@ import GuardianAlertBanner from '@/components/guardian/GuardianAlertBanner';
 import useSWR from 'swr';
 import { Eye, Shield, Activity, Map } from 'lucide-react';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import MacroEconomyStrip from '@/components/app/MacroEconomyStrip';
 import s from '../dash/dash.module.css';
 import { AdBanner } from '@/components/app/AdBanner';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
@@ -557,6 +558,14 @@ function GuardianPageContent() {
                 </div>
               );
             })()}
+
+            {/* ── 실물경제 (고용·물가·정책금리·소비심리) ─────────────
+                위 카드와 신용스프레드까지 전부 «가격»이다. 가격은 무엇이
+                일어났는지는 말해도 왜인지는 말하지 않는다. 고용·물가·정책금리는
+                어떤 가격 피드도 주지 않는 축이라 따로 붙인다.
+                월간·분기간 관측이므로 값마다 관측일을 함께 찍는다 —
+                날짜 없는 거시지표는 오늘 값으로 읽혀 거짓말이 된다. */}
+            <MacroEconomyStrip locale={locale as any} />
           </div>
 
           <div style={{
