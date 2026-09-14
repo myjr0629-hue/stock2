@@ -189,37 +189,39 @@ function pruneAcc(acc) {
     for (const d of [...acc.keys()]) if (!keep.has(d)) acc.delete(d);
 }
 
-function parseBulkCsv(csv, acc) {
-    const nl = csv.indexOf("\n");
-    if (nl < 0) return;
-    const H = headerIndex(csv.slice(0, nl));
-    const iT = H.get("TICKER"), iD = H.get("DATE"),
-        iO = H.get("OPEN"), iH = H.get("HIGH"), iL = H.get("LOW"),
-        iC = H.get("CLOSE"), iV = H.get("VOLUME"),
-        iCh = H.get("CHANGE"), iPc = H.get("PERCENT_CHANGE");
-    if (iT == null || iD == null || iC == null) return;
-    const maxIx = Math.max(iT, iD, iO ?? 0, iH ?? 0, iL ?? 0, iC, iV ?? 0, iCh ?? 0, iPc ?? 0);
+/**
+ * 헤더 한 줄 → 열 인덱스 묶음. 스트리밍 파서가 첫 줄에서 한 번만 만든다.
+ */
+function buildColumnIndex(headerLine) {
+    const H = headerIndex(headerLine);
+    const ix = {
+        iT: H.get("TICKER"), iD: H.get("DATE"),
+        iO: H.get("OPEN"), iH: H.get("HIGH"), iL: H.get("LOW"),
+        iC: H.get("CLOSE"), iV: H.get("VOLUME"),
+        iCh: H.get("CHANGE"), iPc: H.get("PERCENT_CHANGE"),
+    };
+    if (ix.iT == null || ix.iD == null || ix.iC == null) return null;
+    ix.maxIx = Math.max(ix.iT, ix.iD, ix.iO ?? 0, ix.iH ?? 0, ix.iL ?? 0, ix.iC, ix.iV ?? 0, ix.iCh ?? 0, ix.iPc ?? 0);
+    return ix;
+}
 
-    let pos = nl + 1;
-    while (pos < csv.length) {
-        let end = csv.indexOf("\n", pos);
-        if (end < 0) end = csv.length;
-        const line = csv.slice(pos, end);
-        pos = end + 1;
-        if (line.length < 10) continue;
-
-        const cols = parseCsvLine(line);
-        if (cols.length <= maxIx) continue;
+/** 데이터 한 줄을 누적기에 넣는다. (스트리밍·일괄 파서가 공유) */
+function consumeBulkLine(line, ix, acc) {
+    if (line.length < 10) return;
+    const cols = parseCsvLine(line);
+    const { iT, iD, iO, iH, iL, iC, iV, iCh, iPc, maxIx } = ix;
+    {
+        if (cols.length <= maxIx) return;
         const date = cols[iD];
-        if (!ISO_DATE.test(date)) continue;                     // 밀린 행 방어
+        if (!ISO_DATE.test(date)) return;                       // 밀린 행 방어
         const c = Number(cols[iC]);
-        if (!Number.isFinite(c) || c <= 0) continue;
+        if (!Number.isFinite(c) || c <= 0) return;
         const ticker = (cols[iT] || "").toUpperCase();
-        if (!ticker) continue;
+        if (!ticker) return;
 
         let byDate = acc.get(date);
         if (!byDate) { byDate = new Map(); acc.set(date, byDate); }
-        if (byDate.has(ticker)) continue;
+        if (byDate.has(ticker)) return;
 
         byDate.set(ticker, [
             ticker,
@@ -233,6 +235,86 @@ function parseBulkCsv(csv, acc) {
             Math.round((Number(cols[iPc]) || 0) * 100 * 10000) / 10000,
         ]);
     }
+}
+
+/**
+ * ★ 2026-09-14 — EC2 가 3시간마다 OOM 으로 죽고 있었다.
+ *
+ *   증상: /var/log/intrinio-eod.log 가 매번 «파일 27개» 까지만 찍히고 끝.
+ *         에러도 스택도 없다 — 커널이 죽였기 때문이다.
+ *         dmesg 실측: `Out of memory: Killed process (node) anon-rss:~1,000,000kB`,
+ *         크론 시각(12:05·15:05…)과 정확히 일치. EC2 총 메모리는 1,936MB.
+ *
+ *   원인: 파일 하나를 처리할 때 «세 벌»을 동시에 들고 있었다.
+ *           res.buffer()                     ZIP 압축본
+ *           inflateRawSync(…512MB 허용)      펼친 Buffer (수백 MB)
+ *           .toString("utf8")                다시 JS 문자열 (UTF-16 = 2배)
+ *         벌크는 5년치라 파일 하나가 펼치면 수백 MB 다. 가용 869MB 를 넘는다.
+ *
+ *   고침: 펼치는 것을 «스트림»으로 바꾸고 줄 단위로 흘려보낸다.
+ *         전체 CSV 를 메모리에 올리지 않으므로 피크가 ZIP 버퍼 + 줄 버퍼로 떨어진다.
+ *
+ *   이 키(intrinio:eod:snapshot)는 Market Breadth·RLSI·movers 의 단일 공급원이라
+ *   여기가 죽으면 화면이 «에러 없이» 중립값 50 을 보여준다. 가장 위험한 실패다.
+ */
+function parseBulkZipStream(buf, acc) {
+    return new Promise((resolve, reject) => {
+        if (buf.readUInt32LE(0) !== 0x04034b50) return resolve(0);   // PK\x03\x04 아님
+        const method = buf.readUInt16LE(8);
+        const nameLen = buf.readUInt16LE(26);
+        const extraLen = buf.readUInt16LE(28);
+        const start = 30 + nameLen + extraLen;
+
+        let compSize = buf.readUInt32LE(18);
+        if (!compSize) {
+            const cd = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+            if (cd > 0) compSize = buf.readUInt32LE(cd + 20);
+        }
+        const body = compSize ? buf.subarray(start, start + compSize) : buf.subarray(start);
+
+        let ix = null;
+        let carry = "";
+        let rows = 0;
+        let done = false;
+
+        const feed = (text) => {
+            carry += text;
+            let pos = 0;
+            for (;;) {
+                const nl = carry.indexOf("\n", pos);
+                if (nl < 0) break;
+                let line = carry.slice(pos, nl);
+                if (line.endsWith("\r")) line = line.slice(0, -1);
+                pos = nl + 1;
+                if (ix === null) {
+                    ix = buildColumnIndex(line);
+                    if (!ix) { done = true; return; }            // 헤더를 못 읽으면 이 파일은 버린다
+                    continue;
+                }
+                consumeBulkLine(line, ix, acc);
+                rows++;
+            }
+            carry = pos ? carry.slice(pos) : carry;
+            // 개행 없는 비정상 입력으로 carry 가 무한정 커지는 것을 막는다
+            if (carry.length > 8 * 1024 * 1024) carry = "";
+        };
+
+        if (method === 0) {                                      // stored(무압축)
+            feed(body.toString("utf8"));
+            if (carry && ix) { consumeBulkLine(carry, ix, acc); rows++; }
+            return resolve(rows);
+        }
+
+        const inflate = zlib.createInflateRaw();
+        inflate.setEncoding("utf8");
+        inflate.on("data", (chunk) => { if (!done) feed(chunk); });
+        inflate.on("end", () => {
+            if (!done && carry && ix) { consumeBulkLine(carry, ix, acc); rows++; }
+            resolve(rows);
+        });
+        inflate.on("error", reject);
+        inflate.end(body);
+    });
 }
 
 // ── 메인 ────────────────────────────────────────────────────────────
@@ -390,9 +472,9 @@ async function appendMissingSessions(acc) {
             const res = await httpRequest(link.url);
             if (!res.ok) { log(`  ✗ [${i + 1}/${links.length}] HTTP ${res.status}`); continue; }
             const buf = res.buffer();
-            const csv = unzipSingleEntry(buf);
-            if (!csv) { log(`  ✗ [${i + 1}/${links.length}] 압축 해제 실패`); continue; }
-            parseBulkCsv(csv, acc);
+            // 전체 CSV 를 문자열로 만들지 않는다 — 그게 OOM 의 원인이었다(위 주석 참조)
+            const parsed = await parseBulkZipStream(buf, acc);
+            if (!parsed) { log(`  ✗ [${i + 1}/${links.length}] 파싱 0행`); continue; }
             pruneAcc(acc);          // ← 벌크가 5년치여도 메모리가 안 터진다
             okFiles++;
             if ((i + 1) % 5 === 0 || i === links.length - 1) {
