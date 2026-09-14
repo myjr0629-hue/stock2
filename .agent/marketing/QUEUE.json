@@ -95,10 +95,11 @@
    "title": "Reddit 가치댓글 3건",
    "detail": "하루 한도. r/stocks·r/StockMarket·r/ETFs 등. 링크 금지, 전환은 프로필. 8분 간격.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "레딧 3건 완료(하루 한도). 10년물 5% 스레드에 신용스프레드 1년 3백분위 vs SOX -5.2% 괴리 실측 댓글.",
+   "closed": "2026-09-14 16:33"
   },
   {
    "id": "t008",
@@ -228,9 +229,15 @@
    "detail": "한국판 ProductHunt. 한국 네이티브 채널이 0개라 가장 큰 구멍. 등재문안 준비됨.",
    "prio": 1,
    "state": "todo",
-   "tries": 0,
+   "tries": 1,
    "created": "2026-09-14",
-   "note": ""
+   "note": "계정 생성 필요 — 대표만 가능. ~/Desktop/★대표님 할일 2026-09-14/ 에 이미 올려둠. 가입만 해주시면 등재문안 작성·게시는 내가 한다.",
+   "steps": [
+    {
+     "at": "2026-09-14 17:42",
+     "what": "disquiet.io 실제 확인: 글쓰기 클릭 → /login 으로 튄다. 구글 OAuth 또는 이메일 매직링크뿐이고 우리 계정이 없다. 새로 만드는 것은 «계정 생성»이라 내 안전선에 걸린다."
+    }
+   ]
   },
   {
    "id": "t019",
@@ -383,10 +390,17 @@
    "title": "안드로이드 첫 평점 확보 경로",
    "detail": "노출 1,620 → 설치 6 (0.37%). 평점 0 이 병목. 인앱 평가 프롬프트 실제 발동 확인.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "앱 안의 유일한 지렛대인 «언제 묻는가»를 조정: SIGNUM 마일스톤 [4,11]→[2,7]. 3의 배수를 피해 전면광고와 겹치지 않는다. 근본 해법은 설치 자체를 늘리는 것이라 홍보로 되돌아간다.",
+   "steps": [
+    {
+     "at": "2026-09-14 17:44",
+     "what": "전수 확인 결과 «버그 아님»: 훅·호출부(3앱 전부)·안드로이드 플러그인 등록(capacitor.plugins.json)·gradle 의존성 모두 정상. 평점 0 의 원인은 모수 부족 — 설치 6건인데 리포트 4회 열람을 조건으로 두면 요청이 거의 안 뜬다."
+    }
+   ],
+   "closed": "2026-09-14 17:44"
   },
   {
    "id": "t032",
@@ -607,6 +621,42 @@
    "region": "US",
    "title": "US Search Results 목표CPA $8 과 실제 $44.67 괴리 관찰",
    "detail": "Maximize Conversions 인데 목표 CPA 가 실제의 1/5.6 이다. 애플이 입찰을 억제해 노출이 안 날 수 있다. 48시간 뒤 노출·지출을 보고, 안 나오면 «입찰 관리(수동)»로 바꾸는 안을 대표에게 올린다 — 예산 증액이 아니라 전략 변경이다.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-14",
+   "note": ""
+  },
+  {
+   "id": "t049",
+   "type": "tech",
+   "region": "ALL",
+   "title": "Haiku 4.5 복구 확인 후 비용 점검",
+   "detail": "2026-09-14 Bedrock Haiku 4.5 가 두 프로파일 모두 ServiceUnavailable. 지금은 Sonnet 사다리로 버티는데 값이 비싸다. 복구되면 자동으로 Haiku 로 돌아가지만, 하루 뒤 Bedrock 비용을 확인해 예상 밖 증가가 없는지 볼 것.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-14",
+   "note": ""
+  },
+  {
+   "id": "t050",
+   "type": "tech",
+   "region": "ALL",
+   "title": "lambda-cross-sector 재배포 — EOL 모델 교체분 반영",
+   "detail": "소스는 이미 sonnet-4-6 으로 고쳤고 커밋됐다. Lambda 에 실제로 반영하려면 재배포가 필요한데, 배포가 Environment 를 전체 치환하므로 반드시 기존 env 를 읽어 머지할 것(안 하면 INTRINIO_API_KEY 가 날아간다 — 전례 있음). 2026-10-14 전까지.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-14",
+   "note": ""
+  },
+  {
+   "id": "t051",
+   "type": "tech",
+   "region": "ALL",
+   "title": "Bedrock 한도 복구 신청 결과 확인",
+   "detail": "2026-09-14 접수(둘 다 PENDING). L-E5084BBA(global·주경로) b172e6fb…, L-CCA5DF70(us) aab9523e…. 현재 10 → 희망 10,000(=AWS 기본값). 승인되면 값이 바뀐다 — ListServiceQuotas 로 현재값을 직접 볼 것. 거절되면 사유를 받아 케이스로 올린다.",
    "prio": 1,
    "state": "todo",
    "tries": 0,
