@@ -42,8 +42,48 @@ switch (cmd) {
         const todo = d.items
             .filter((x) => x.state === 'todo' && x.tries < 3)
             .sort((a, b) => a.prio - b.prio || a.id.localeCompare(b.id));
-        const pick = [...doing, ...todo].slice(0, n);
+
+        // ★ 2026-09-14 대표 지적: 「왜 광고 관련해서만 작업하냐」
+        //   원인은 내 게으름이 아니라 «이 함수»였다 — 우선순위만 보고 뽑는데
+        //   광고 항목을 전부 p1 로 넣어놔서, 매 사이클 광고만 세 개가 나왔다.
+        //   편식을 막으려던 규칙이 단일작물을 만들었다.
+        //   → 종류를 «돌아가며» 뽑는다. 같은 종류를 연속으로 주지 않는다.
+        const ORDER = ['ads', 'publish', 'expand', 'aso', 'tech'];
+        const byType = new Map();
+        for (const x of todo) {
+            if (!byType.has(x.type)) byType.set(x.type, []);
+            byType.get(x.type).push(x);
+        }
+        // 오래 굶은 종류부터 — 마지막으로 done 된 시각이 가장 예전인 종류가 앞선다
+        const lastDone = new Map();
+        for (const x of d.items) {
+            if (x.state !== 'done') continue;
+            const t = x.doneAt || x.created || '';
+            if (!lastDone.has(x.type) || t > lastDone.get(x.type)) lastDone.set(x.type, t);
+        }
+        const types = [...byType.keys()].sort((a, b) => {
+            const la = lastDone.get(a) || '';
+            const lb = lastDone.get(b) || '';
+            if (la !== lb) return la < lb ? -1 : 1;        // 굶은 쪽 먼저
+            return ORDER.indexOf(a) - ORDER.indexOf(b);
+        });
+        const roundRobin = [];
+        for (let i = 0; roundRobin.length < todo.length; i++) {
+            let moved = false;
+            for (const t of types) {
+                const q = byType.get(t);
+                if (q[i]) { roundRobin.push(q[i]); moved = true; }
+            }
+            if (!moved) break;
+        }
+
+        const pick = [...doing, ...roundRobin].slice(0, n);
         if (!pick.length) { console.log('큐가 비었다. `add` 로 새 일을 넣거나 `report` 로 확인할 것.'); break; }
+        const kinds = new Set(pick.map((x) => x.type));
+        if (pick.length >= 2 && kinds.size === 1) {
+            console.log(`⚠︎ 이번에 뽑힌 ${pick.length}건이 전부 «${[...kinds][0]}» 한 종류다 — 다른 종류의 todo 가 없다는 뜻이다.`);
+            console.log('   `add` 로 다른 종류를 채우고 다시 뽑을 것. 한 종류만 파는 사이클은 금지다.\n');
+        }
         pick.forEach((x) => {
             console.log(line(x));
             console.log('   ' + x.detail);
