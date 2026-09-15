@@ -799,10 +799,11 @@
    "title": "애플 광고 콘솔 재로그인 대기 — 대표 할일 폴더에 안내 완료",
    "detail": "세션 만료(9/15 17:41 KST). 비밀번호는 입력 불가. 로그인되면 즉시: 일 지출 점검 → ADS-BASELINE add → t005·t037·t038·t039·t041·t042·t048 재개.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "대표가 ego lite 의 Profile 1(jiyoung) 프로필에서 재로그인. 광고 점검 재개 — 7일 .85·설치 3·CPA .95 기준선 기록.",
+   "closed": "2026-09-15 12:42"
   },
   {
    "id": "t063",

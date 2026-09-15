@@ -212,3 +212,8 @@ mkt.js checkpoint <id> "1차 20개 투입 완료, 나머지 20개 남음"
 스크립트 첫 줄은 `listTaskSpaces()` 로 id 를 확인하고 없으면 만든다. 
 페이지 7개가 전부 `url()` 타임아웃(DEAD) 이면 Node 헬퍼가 굳은 것 — 스크립트가 아니라 앱을 재시작한다
 (`osascript quit` → 안 죽으면 `pkill -9 -f "ego lite.app"` → `open -a "ego lite"`).
+
+### ego lite 프로필은 «두 개»다 (2026-09-15 실측)
+- `Profile 1` = **jiyoung** — 대표가 ego lite 창에서 직접 쓰는 프로필. **Apple Ads 로그인이 여기 산다.** `newTaskSpace('ads', )` 처럼 profile 인자를 «생략»하면 이 프로필이 잡힌다.
+- `Default` = **내 Chrome** — Quora·X @signumhq·note·Medium 등 마케팅 로그인이 산다. `newTaskSpace('marketing','Default')`.
+작업공간은 세션 객체라 언제든 비어 있을 수 있다 → 스크립트 첫 줄에서 `listTaskSpaces()` 로 «프로필 기준»으로 찾고 없으면 만든다.

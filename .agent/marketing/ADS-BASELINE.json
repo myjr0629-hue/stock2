@@ -5,13 +5,147 @@
       "at": "2026-09-14 01:30",
       "window": "최근 7일",
       "campaigns": [
-        { "name": "US Search Tab",     "state": "paused",  "budget": 5,  "spend": 48.71, "impr": 17599, "taps": 14, "installs": 0, "cpa": 0,     "cpt": 3.48, "cpm": 2.77 },
-        { "name": "US Search Results", "state": "paused",  "budget": 10, "spend": 44.67, "impr": 448,   "taps": 8,  "installs": 1, "cpa": 44.67, "cpt": 5.58, "cpm": 99.71 },
-        { "name": "JP Search Results", "state": "running", "budget": 5,  "spend": 29.89, "impr": 183,   "taps": 9,  "installs": 1, "cpa": 29.89, "cpt": 3.32, "cpm": 163.34 },
-        { "name": "KR Search Results", "state": "running", "budget": 10, "spend": 14.28, "impr": 486,   "taps": 5,  "installs": 0, "cpa": 0,     "cpt": 2.86, "cpm": 29.38 }
+        {
+          "name": "US Search Tab",
+          "state": "paused",
+          "budget": 5,
+          "spend": 48.71,
+          "impr": 17599,
+          "taps": 14,
+          "installs": 0,
+          "cpa": 0,
+          "cpt": 3.48,
+          "cpm": 2.77
+        },
+        {
+          "name": "US Search Results",
+          "state": "paused",
+          "budget": 10,
+          "spend": 44.67,
+          "impr": 448,
+          "taps": 8,
+          "installs": 1,
+          "cpa": 44.67,
+          "cpt": 5.58,
+          "cpm": 99.71
+        },
+        {
+          "name": "JP Search Results",
+          "state": "running",
+          "budget": 5,
+          "spend": 29.89,
+          "impr": 183,
+          "taps": 9,
+          "installs": 1,
+          "cpa": 29.89,
+          "cpt": 3.32,
+          "cpm": 163.34
+        },
+        {
+          "name": "KR Search Results",
+          "state": "running",
+          "budget": 10,
+          "spend": 14.28,
+          "impr": 486,
+          "taps": 5,
+          "installs": 0,
+          "cpa": 0,
+          "cpt": 2.86,
+          "cpm": 29.38
+        }
       ],
-      "total": { "spend": 137.55, "impr": 18716, "taps": 36, "installs": 2, "cpa": 68.78, "cpt": 3.82, "cpm": 7.35 },
+      "total": {
+        "spend": 137.55,
+        "impr": 18716,
+        "taps": 36,
+        "installs": 2,
+        "cpa": 68.78,
+        "cpt": 3.82,
+        "cpm": 7.35
+      },
       "finding": "문제는 «과소비»가 아니라 «미소진»이다. 돌아가는 두 캠페인의 실제 일지출은 KR $2.04/일(예산 $10), JP $4.27/일(예산 $5) — 합 $6.31/일. 대표가 말한 $20/일의 3분의 1도 못 쓴다. 노출이 안 나와서 못 쓰는 것이다(KR 7일 486회 = 하루 69회). 예산을 올릴 문제가 아니라 «검색어»를 바꿀 문제다."
+    },
+    {
+      "at": "2026-09-15 18:50",
+      "window": "최근 7일",
+      "campaigns": [
+        {
+          "name": "US Search Tab",
+          "state": "running",
+          "budget": 5,
+          "spend": 54.62,
+          "impr": 17627,
+          "taps": 16,
+          "installs": 0,
+          "cpa": 0,
+          "cpt": 3.41,
+          "cpm": 3.1
+        },
+        {
+          "name": "US Search Results",
+          "state": "running",
+          "budget": 10,
+          "spend": 52.52,
+          "impr": 637,
+          "taps": 10,
+          "installs": 1,
+          "cpa": 52.52,
+          "cpt": 5.25,
+          "cpm": 82.44
+        },
+        {
+          "name": "JP Search Results",
+          "state": "running",
+          "budget": 5,
+          "spend": 52.25,
+          "impr": 570,
+          "taps": 15,
+          "installs": 1,
+          "cpa": 52.25,
+          "cpt": 3.48,
+          "cpm": 91.67
+        },
+        {
+          "name": "KR Search Results",
+          "state": "running",
+          "budget": 10,
+          "spend": 44.46,
+          "impr": 2464,
+          "taps": 15,
+          "installs": 1,
+          "cpa": 44.46,
+          "cpt": 2.96,
+          "cpm": 18.04
+        }
+      ],
+      "total": {
+        "spend": 203.85,
+        "impr": 21298,
+        "taps": 56,
+        "installs": 3,
+        "cpa": 67.95,
+        "cpt": 3.64,
+        "cpm": 9.57
+      },
+      "daily": {
+        "yesterday_utc_0914": {
+          "KR": 11.35,
+          "JP": 6.87,
+          "US_tab": 1.5,
+          "US_sr": 0.83,
+          "total": 20.55,
+          "installs": 0
+        },
+        "today_partial_utc_0915_0940": {
+          "KR": 8,
+          "JP": 5.95,
+          "US_tab": 0,
+          "US_sr": 1.67,
+          "total": 15.61,
+          "installs": 0
+        }
+      },
+      "finding": "어제(9/14 UTC) 합 $20.55 — 상한 $30 안. 캠페인별 1.5배 규칙: KR $11.35(113%) 통과, JP $6.87(137%) 통과이나 오늘 09:40 UTC 에 이미 $5.95 → 하루 끝엔 1.5배($7.50) 초과 예상. 원인: JP-Core-Exact 그룹 기본입찰 $5.00 + Search Match 켬 → 키워드 $2.00 캡을 우회해 CPT $2.97~3.48 로 나간다. 조치: 그룹 기본입찰 $5→$2(예산 증액 없음). 이틀 연속 설치 0. US Search Results 는 Maximize Conversions(목표 $8)가 노출을 억제해 하루 $0.83~1.67 만 쓴다 — 수동입찰 $2.00 전환."
     }
   ]
 }
