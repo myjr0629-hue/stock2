@@ -5889,3 +5889,8 @@ v2 18장·업로드 스크립트 준비 완료. 새 버전 생성+업로드는 �
 897자 본문이 편집기에서 «문자당 1줄»(charsPerLine 2)로 깨져 **발행하지 않고 초안 삭제**(품질 규칙). 원인: note ProseMirror 문자단위 type 하드브레이크. 붙여넣기 방식으로 낮에 재작성(t082). 메모리에 렌더 검증 절차 추가.
 ### 관리 — t073(NV Access 포워드 규칙) 종결. 광고: 직전 클린 점검(03:2x) 유지, 예산 이상무.
 ### 밤 성과 누계(9/16 KST): Quora EN·JP 2건 + Reddit 2건(전부 앱 화면/이름·무링크·생존). 카드 채널 클릭 어제 19(LinkedIn7·Bluesky6·X6).
+
+## 2026-09-16 (9) — 04:3x 사이클
+### 발행 — de.quora 「Was ist ein dark pool und wofür wird es genutzt?」(무응답 → 첫 답변, 앱 화면 첨부)
+[답변](https://de.quora.com/Was-ist-ein-dark-pool-und-wof%C3%BCr-wird-es-genutzt/answer/Jiyoung-Kim-236) · 정의·용도(기관 대량주문)→개인의 비율 오독→앱 전체(프리마켓·결산·마크로·섹터·AI 요약→기관 흔적). **앱 종목화면 첨부(img 확인)·본문 무링크.** 유럽(독일어) 2번째 답변. setInputFiles 첨부·탭 정리로 안정.
+### 밤 누계(9/16 KST): Quora EN·JP·DE 3건 + Reddit 2건 = 5건, 전부 앱 화면/이름·무링크·생존. 3개 언어·미국/일본/독일 3개 지역.
