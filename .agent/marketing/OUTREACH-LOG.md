@@ -5826,3 +5826,13 @@ X 게시 확인: https://x.com/signumhq/status/2099884373860581759 (15:33 UTC, �
 · 관리: 광고 $19.26/$30·드리프트 없음 · Quora 3건 복원 확인 · ASO 첫 3장 판정(t070)
 · 개척: es.quora 개통(질문 대기) · de.quora 답변 생존
 · 다음(01:00): 앱 디렉터리·미등록 채널 개통(t029/t046) → 09:00 KST 이후 Quora EN·JP·DE 카드 답변 · note.com JA 카드 · Medium KR 카드 · 레딧 질문 스레드(스크린샷)
+
+## 2026-09-16 (2) — 01:00 KST 사이클 (교리 적용 첫 사이클)
+### 광고 — 숫자만 읽으려 했으나 세션 재만료
+01:00 `app-ads.apple.com` 이 다시 로그인 화면(18:5x 재로그인 → 약 6시간). 티켓 #T1 재발로 갱신 — 2단계 인증에서 **「이 브라우저를 신뢰」** 체크 안내. 우회: 캠페인은 $2.00 캡으로 정리돼 있어 폭주 위험 낮음, 로그인되면 어제 실지출 즉시 적재.
+### #T4 — 스마트링크 OG 를 «앱 전체 카드»로 (코드 배포)
+`/app` 이 미리보기 봇에게 스토어로 302 하던 것을, 봇 UA(LinkedIn·FB·X·Slack·Discord·Telegram·WhatsApp·카카오·Bluesky·Reddit…)에겐 OG 태그 + `public/promo/card-app-{en,ja,ko}.png`(1200×675) HTML 로 응답하게 바꿨다. `from` 태그로 언어 선택(_jp/note→ja, _kr→ko). 봇은 클릭 카운터에 안 센다. 사람은 그대로 302. 배포 후 curl 로 검증(아래).
+### 앱 디렉터리 실측(t029)
+SaaSHub·Uptodown 검색 404, Slant·AlternativeTo·APKPure 는 봇 차단 403 — «등재 여부»를 curl 로는 못 본다 → ego 로 재확인 필요(다음 사이클).
+### 준비
+Quora EN 다크풀 3탄 초안(앱 전체 소개 프레임, 본문 무링크, Command 화면 카드 첨부) — 09:00 KST(UTC 새 날) 이후 게시.

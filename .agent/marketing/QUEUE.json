@@ -977,6 +977,18 @@
    "tries": 0,
    "created": "2026-09-15",
    "note": ""
+  },
+  {
+   "id": "t076",
+   "type": "tech",
+   "region": "ALL",
+   "title": "#T4 검증 — 배포 후 LinkedIn Post Inspector 로 /app?from=linkedin 카드가 앱 화면인지 확인",
+   "detail": "curl 봇 UA 로 og:image 확인 + Post Inspector 재스크랩(캐시 7일). 카카오톡 미리보기도 확인.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }
