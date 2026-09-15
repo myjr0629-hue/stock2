@@ -965,6 +965,18 @@
    "tries": 0,
    "created": "2026-09-15",
    "note": ""
+  },
+  {
+   "id": "t075",
+   "type": "publish",
+   "region": "ALL",
+   "title": "★ 앱 전체 카드(card-app-en/ja/ko)를 기본으로 — 내일 첫 게시물은 «미국 시장 전체를 무료 앱 하나로» 헤드라인",
+   "detail": "X·Bluesky·LinkedIn·note·Medium·Quora 프로필 소개글까지 앱 전체 카드로. 지표 카드는 답변 증거로만. 게시 후 스크린샷으로 이미지 확인.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }
