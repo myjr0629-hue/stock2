@@ -881,10 +881,11 @@
    "title": "WIM 하단 탭바 실종 수리 — 배포 후 실서비스 확인",
    "detail": "퀴즈·플레이·트랙 조기 return 이 탭바를 잘라먹던 것을 PlayShell tabBar prop 으로 수리(커밋 완료). signumhq.com/ko/wim 모바일 폭에서 퀴즈 화면 탭바 확인 후 done.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "프로덕션(f9c2870d) 375×812 실화면: 트랙 시트·퀴즈 화면 모두 하단 탭바 표시, 탭 탭 → 홈 복귀 확인. WIM 앱은 웹을 로드하므로 기기에서 재실행 시 반영.",
+   "closed": "2026-09-15 14:02"
   }
  ]
 }
