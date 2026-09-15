@@ -222,3 +222,8 @@ Quora·LinkedIn·Medium·X·Reddit·Apple Ads·**note.com·Bluesky** 로그인�
 - `Profile 1` = **jiyoung** — 대표가 ego lite 창에서 직접 쓰는 프로필. **Apple Ads 로그인이 여기 산다.** `newTaskSpace('ads', )` 처럼 profile 인자를 «생략»하면 이 프로필이 잡힌다.
 - `Default` = **내 Chrome** — Quora·X @signumhq·note·Medium 등 마케팅 로그인이 산다. `newTaskSpace('marketing','Default')`.
 작업공간은 세션 객체라 언제든 비어 있을 수 있다 → 스크립트 첫 줄에서 `listTaskSpaces()` 로 «프로필 기준»으로 찾고 없으면 만든다.
+
+## 11. 대표 지적(2026-09-16 00:3x) — 세 가지 강제 규칙
+1. **앱 화면 없는 게시물 금지.** 이미지가 되는 곳(Quora·Reddit 글·LinkedIn·Bluesky·X·note·Medium)엔 스토어 스크린샷(`/tmp/ego/shots/*.png`, 원본 1242×2688: dash·cmd·flow·guardian·intel) 또는 홍보 카드를 반드시 붙인다. 앱을 파는 글에 앱이 안 보이면 실패다.
+2. **사이클 체크리스트(빠지면 게이트 실패로 본다):** ⓐ 광고 «숫자만» ⓑ 발행 ≥1(이미지 포함) ⓒ 새 표면 ≥1 ⓓ 생존·알림 점검(Quora·Bluesky·Reddit) ⓔ 큐에 새 항목 ≥1 ⓕ 기록·커밋. 같은 종류만 반복한 사이클은 실패다.
+3. **간격 15분.** 사이클 안에서 끝낼 수 있는 만큼 끝내고 남기지 않는다. 대표 메시지가 끼어들면 답하고 «계속» 한다 — 멈추지 않는다.

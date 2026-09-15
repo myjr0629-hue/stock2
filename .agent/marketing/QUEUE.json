@@ -938,6 +938,18 @@
    "tries": 0,
    "created": "2026-09-15",
    "note": ""
+  },
+  {
+   "id": "t073",
+   "type": "publish",
+   "region": "US",
+   "title": "Bluesky: NV Access(스크린리더 NVDA 개발사) 답글에 사과 답글 + 이후 티커는 반드시 $NVDA 캐시태그",
+   "detail": "14일 전 자동발행 글에 「우리 프로그램 이름으로 스팸하지 말아 달라」 답글. 짧게 사과하고 캐시태그로 구분. 구 글들의 링크 태그가 bluesky-post(하이픈)라 클릭이 유실됐음 — 신규는 bluesky_post.",
+   "prio": 3,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }
