@@ -215,7 +215,7 @@ mkt.js checkpoint <id> "1차 20개 투입 완료, 나머지 20개 남음"
 
 ### ego lite 프로필 — 2026-09-15 23:5x 이후 «하나»뿐이다
 «내 Chrome»(Default) 프로필이 사라졌다(API: Profile not found). **모든 작업은 `Profile 1`(jiyoung)** 로 한다:
-Quora·LinkedIn·Medium·X·Reddit·Apple Ads 로그인이 여기 있다. note.com·Bluesky 는 대표 재로그인 대기(할일 3번).
+Quora·LinkedIn·Medium·X·Reddit·Apple Ads·**note.com·Bluesky** 로그인이 전부 여기 있다(9/16 00:0x 에디터 열어 재확인 — «로그인 문구» 정규식 점검은 오진을 낸다, 에디터/작성 버튼으로 확인할 것).
 `newTaskSpace('marketing')` 처럼 profile 인자를 생략하면 Profile 1 이다.
 
 ### (구) ego lite 프로필은 «두 개»다 (2026-09-15 실측)
