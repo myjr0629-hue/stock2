@@ -5728,3 +5728,16 @@ US-Core-Exact 32개 · US-Intent-Exact 32개 **전부 $2.00**(작업 › 최대 
 앱 의도어는 이미 대부분 있었다: Core 에 premarket·stock market app·stocks app·stock tracker·investing app, Intent 에 premarket movers·after hours trading·earnings calendar.
 없는 4개(pre market stocks·after hours stocks·earnings this week·market news app)는 추가가 반영되지 않아 t067 로 재시도.
 검증 후 캠페인 재가동(아래 확인).
+
+### 재가동 확인 + 생존 점검 (22:4x KST)
+US Search Results: **실행 중 · 입찰 관리 · 일일 $10.00** / US-Core-Exact·US-Intent-Exact 실행 중, 기본입찰 $2.00, 키워드 64개 $2.00, finance 정지.
+Quora 생존: 삭제 알림 새로 없음(3건 그대로, 이의제기 대기) · 프리마켓·콜월 답변 살아 있음(앵커 1) · jp.quora 다크풀 답변 살아 있음(오늘 8클릭).
+
+### 이 사이클 요약 — 광고 계정 전면 재정비 (예산 $30/일 상한 불변)
+| 캠페인 | 전 | 후 |
+|---|---|---|
+| JP ($5) | 그룹 기본 $5.00 + SM 켬 → 어제 137% 소진 | 그룹 기본 **$2.00** · 配当·投資信託 정지 · **JP-Intent-Broad 신설**(11개 확장 $2.00) |
+| KR ($10) | Core/Intent 6개 중복 자기경쟁 · 서학개미 $26.60/설치0 | Core 중복 6개 정지(이긴 프리마켓은 Intent 에 유지) · 서학개미 Intent $1.00 은 **미반영(t038 계속)** |
+| US SR ($10) | Maximize Conversions(애플: "$240/일 필요") · finance 가 71% | **입찰 관리** · 그룹·키워드 전부 $2.00 · finance 정지 · 재가동 |
+| US Tab ($5) | 17.6K 노출·설치 0 | 그대로(관찰) |
+다음 사이클: t038 서학개미 $1.00(행 인라인 편집 시도) · t067 의도어 4개 · 레딧 3건(US 오전) · 새 표면 1곳 · t061 람다 검증(06:50 KST 이후).
