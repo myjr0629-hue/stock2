@@ -824,10 +824,11 @@
    "title": "Quora 삭제 3건 이의제기 (Appeal)",
    "detail": "9/13 다크풀1탄 · 9/14 GLD/맥스페인 · 9/15 다크풀2탄. 실측·출처(FINRA)·한계 인정이 있는 답변임을 근거로. 링크는 한 줄뿐이었음을 명시.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "3건 모두 «Appeal submitted for review by Quora Moderation» 확인(다크풀2탄·GLD·무료앱 질문). 결과는 알림함으로 온다 — 다음 사이클마다 확인.",
+   "closed": "2026-09-15 09:25"
   },
   {
    "id": "t065",
@@ -836,6 +837,18 @@
    "title": "Quora 프로필 자기소개에 앱 링크 (quora_bio) + 기존 생존 답변 2건은 그대로",
    "detail": "레딧 방식 복제: 본문 무링크 → 프로필이 전환을 받는다. 자기소개·자격(credential) 줄에 signumhq.com/app?from=quora_bio. 태그는 CHANNELS 에 등록 완료.",
    "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
+  },
+  {
+   "id": "t066",
+   "type": "tech",
+   "region": "ALL",
+   "title": "X 게시가 «조용히» 안 나간다 — 모달은 닫히는데 타임라인에 없음",
+   "detail": "9/15 @signumhq 3회 시도: 버튼 클릭 후 모달 닫힘·에러 토스트 없음·프로필/with_replies 에 글 없음. 자동화 차단(무음 실패) 의심. 다음: 클릭 직후 스크린샷 + 네트워크 응답(CreateTweet) 확인. X 도달은 2~3조회라 우선순위 낮음.",
+   "prio": 2,
    "state": "todo",
    "tries": 0,
    "created": "2026-09-15",
