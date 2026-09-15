@@ -146,10 +146,11 @@
    "title": "X 영어 게시",
    "detail": "@signumhq. 링크는 앞 280자 안.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "X 영어 게시 완료 — 다크풀 실측 + 카드 이미지, signumhq.com/app?from=x_us",
+   "closed": "2026-09-15 15:34"
   },
   {
    "id": "t012",
@@ -860,10 +861,11 @@
    "title": "X 게시가 «조용히» 안 나간다 — 모달은 닫히는데 타임라인에 없음",
    "detail": "9/15 @signumhq 3회 시도: 버튼 클릭 후 모달 닫힘·에러 토스트 없음·프로필/with_replies 에 글 없음. 자동화 차단(무음 실패) 의심. 다음: 클릭 직후 스크린샷 + 네트워크 응답(CreateTweet) 확인. X 도달은 2~3조회라 우선순위 낮음.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "해결 — 이미지 첨부(input[data-testid=fileInput] >> nth=0 에 setInputFiles) + 배너 닫기 + 클릭 직전 버튼 재측정으로 게시됨. 이전 실패는 «Try out the new article composer» 배너가 뜨며 버튼이 밀린 것(측정 후 이동) — 무음 차단이 아니었다.",
+   "closed": "2026-09-15 15:34"
   },
   {
    "id": "t067",

@@ -5812,3 +5812,9 @@ Quora 편집기에 base64→File→drop 이벤트로 앱 스크린샷이 실제�
 ### 발행 — LinkedIn (t013, 5회 시도 끝에)
 `linkedin.com/feed/?shareActive=true&text=` 로 본문 선채움 → 링크는 키보드로 직접 타이핑(선채움에 넣으면 `?from=` 이 잘린다) → 「업데이트」는 iframe 안이라 좌표 클릭. 게시·앵커 `?from=linkedin` 확인.
 카드 이미지는 drop·paste 둘 다 작성기가 거부(iframe) — 링크 미리보기가 앱스토어 이미지를 보여 준다. 채널별 원칙(대표): 긴 글엔 카드, 짧은 곳엔 스크린샷 한 장 — 능동적으로.
+
+### 발행 — X @signumhq (t011) · 「무음 실패」의 진짜 원인 (t066)
+카드(`card-darkpool-0914-en.png`)를 `input[data-testid="fileInput"] >> nth=0` 로 첨부하고, 「Try out the new article composer」 배너를 닫은 뒤 **클릭 직전에 버튼 좌표를 다시 재서** 게시 → 홈 타임라인에 카드 포함 게시물 확인.
+어제 3회 실패의 원인은 자동화 차단이 아니라 **타이핑 후 배너가 뜨며 Post 버튼이 48px 밀린 것**(측정 시점과 클릭 시점 불일치). 교훈: 버튼은 «클릭 직전» 재측정.
+한국어 카드(`card-darkpool-0914-ko.png`)까지 3개 언어 카드 완성 — Medium KR·네이버 계열에 쓴다.
+채널별 이미지 원칙(대표): 긴 글(Quora·note·Medium·LinkedIn)은 카드, 짧은 글(X·Bluesky·레딧)은 스크린샷 한 장 — 능동적으로 고른다.
