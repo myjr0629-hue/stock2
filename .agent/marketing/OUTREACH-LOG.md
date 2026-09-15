@@ -5836,3 +5836,5 @@ X 게시 확인: https://x.com/signumhq/status/2099884373860581759 (15:33 UTC, �
 SaaSHub·Uptodown 검색 404, Slant·AlternativeTo·APKPure 는 봇 차단 403 — «등재 여부»를 curl 로는 못 본다 → ego 로 재확인 필요(다음 사이클).
 ### 준비
 Quora EN 다크풀 3탄 초안(앱 전체 소개 프레임, 본문 무링크, Command 화면 카드 첨부) — 09:00 KST(UTC 새 날) 이후 게시.
+### 크리에이티브 A/B (교리 STAGE 5)
+A안 `card-app-en.png`: 대시보드 화면(홈에 가까움 — 교리는 홈 화면 금지이나 «시장 전체» 메시지엔 이 화면이 가치 순간이라 A안으로 유지) · B안 `card-app-en-b.png`: Command 화면(결과 화면) + 「Type a ticker. See what institutions are doing.」 트리거=호기심+자기이해. 내일 X·Bluesky·Quora 에 A/B 로 나눠 쓰고 클릭으로 승자 판정.
