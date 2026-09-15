@@ -486,10 +486,11 @@
    "title": "서학개미 계열 고비용 키워드 격리",
    "detail": "서학개미가 KR 두 그룹 합쳐 $14.95 쓰고 설치 0(탭당 $5.20). $2.00 캡은 걸었으나 계속 0이면 일시정지. 매 사이클 확인.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-13",
-   "note": ""
+   "note": "Core 의 서학개미는 일시정지, Intent 의 서학개미는 $2.00→$1.00(«선택된 키워드» 다이얼로그 — 입력창 y 가 매번 달라 딥워커로 찾아야 했다). 탭당 $5.20 짜리에 $1 넘게 안 준다. 다음 7일 지출·설치 관찰.",
+   "closed": "2026-09-15 14:07"
   },
   {
    "id": "t039",
@@ -869,10 +870,11 @@
    "title": "US-Intent 에 미반영 의도어 4개 재추가",
    "detail": "pre market stocks · after hours stocks · earnings this week · market news app — 확장 $2.00. 키워드 추가 모달 저장 후 목록에 없었음(중복 판정 또는 저장 실패). 재시도 후 목록에서 확인.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "pre market stocks · after hours stocks · earnings this week · market news app — US-Intent-Exact 에 확장 $2.00 으로 추가, 목록에서 4개 존재 확인.",
+   "closed": "2026-09-15 14:07"
   },
   {
    "id": "t068",

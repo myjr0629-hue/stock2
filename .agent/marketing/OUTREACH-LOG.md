@@ -5763,3 +5763,8 @@ u/SignumHQ 는 ego `Profile 1` 에 산다(`Default` 의 레딧은 정체불명 �
 — 「Diese Frage wurde noch nicht beantwortet」 확인 후 답변. FINRA OTC Transparency(주간 ATS)·Reg SHO 일일 파일·Cboe → 읽는 법(비율은 «어디서»지 «방향» 아님, 9/14 NVDA·AMD 실측) → 「SIGNUM HQ 라는 무료 앱」(링크 없음).
 **스팸 정책 학습 적용: 본문 무링크.** 클릭은 프로필 링크(quora_bio)로 잡힌다. 남은 후보 「Was ist ein dark pool und wofür wird es genutzt?」 은 내일.
 오늘 클릭(ET): 다크풀2탄 10 · jp 다크풀 8 · note 5 · x_us 5 · quora_bio 1.
+
+### 광고 마무리 — t067·t038
+US-Intent-Exact 에 의도어 4개 추가 확인(pre market stocks · after hours stocks · earnings this week · market news app, 확장 $2.00).
+KR-Intent 서학개미 $2.00 → **$1.00** 저장 확인(「서학개미 | 실행 중 | $1.00 | 확장」). 다이얼로그의 금액 입력창은 고정 좌표(377)가 아니라 매번 다르다(430) — 딥워커로 찾아 해결. 메모리에 반영.
+이 시점 광고 큐: 남은 ads 항목 t042(입찰가 되돌아감 감시 — 매 사이클) 뿐.
