@@ -146,6 +146,81 @@
         }
       },
       "finding": "어제(9/14 UTC) 합 $20.55 — 상한 $30 안. 캠페인별 1.5배 규칙: KR $11.35(113%) 통과, JP $6.87(137%) 통과이나 오늘 09:40 UTC 에 이미 $5.95 → 하루 끝엔 1.5배($7.50) 초과 예상. 원인: JP-Core-Exact 그룹 기본입찰 $5.00 + Search Match 켬 → 키워드 $2.00 캡을 우회해 CPT $2.97~3.48 로 나간다. 조치: 그룹 기본입찰 $5→$2(예산 증액 없음). 이틀 연속 설치 0. US Search Results 는 Maximize Conversions(목표 $8)가 노출을 억제해 하루 $0.83~1.67 만 쓴다 — 수동입찰 $2.00 전환."
+    },
+    {
+      "at": "2026-09-15 23:55",
+      "window": "최근 7일",
+      "campaigns": [
+        {
+          "name": "US Search Tab",
+          "state": "running",
+          "budget": 5,
+          "spend": 54.62,
+          "impr": 17627,
+          "taps": 16,
+          "installs": 0,
+          "cpa": 0,
+          "cpt": 3.41,
+          "cpm": 3.1
+        },
+        {
+          "name": "US Search Results",
+          "state": "running",
+          "budget": 10,
+          "spend": 52.52,
+          "impr": 637,
+          "taps": 10,
+          "installs": 1,
+          "cpa": 52.52,
+          "cpt": 5.25,
+          "cpm": 82.44
+        },
+        {
+          "name": "JP Search Results",
+          "state": "running",
+          "budget": 5,
+          "spend": 52.25,
+          "impr": 570,
+          "taps": 15,
+          "installs": 1,
+          "cpa": 52.25,
+          "cpt": 3.48,
+          "cpm": 91.67
+        },
+        {
+          "name": "KR Search Results",
+          "state": "running",
+          "budget": 10,
+          "spend": 44.46,
+          "impr": 2464,
+          "taps": 15,
+          "installs": 1,
+          "cpa": 44.46,
+          "cpt": 2.96,
+          "cpm": 18.04
+        }
+      ],
+      "total": {
+        "spend": 203.85,
+        "impr": 21298,
+        "taps": 56,
+        "installs": 3,
+        "cpa": 67.95,
+        "cpt": 3.64,
+        "cpm": 9.57
+      },
+      "daily": {
+        "today_utc_0915_1440": {
+          "KR": 8,
+          "JP": 5.95,
+          "US_tab": 0,
+          "US_sr": 5.31,
+          "total": 19.26,
+          "installs": 0,
+          "impr": 1383
+        }
+      },
+      "finding": "재정비 후 첫 읽기(보고 3h 지연). 오늘 합 $19.26/상한 $30. US Search Results 수동입찰 전환 후 노출 42→295·탭 3·CPT $1.77(자동 때 $5+). JP $5.95(119%) — 그룹 기본입찰 인하 효과는 내일 수치로. 입찰 드리프트 없음(KR-Intent 프리마켓 $3.50·주식앱/주식투자/주식차트 $3.20·Core 증권 $3.00 은 의도된 값). 이번 사이클 광고 작업은 점검만."
     }
   ]
 }

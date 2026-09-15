@@ -5774,3 +5774,7 @@ KR-Intent 서학개미 $2.00 → **$1.00** 저장 확인(「서학개미 | 실�
 US 실측 캡션: ①「What institutions do, on one screen」②「One ticker, everything — max pain · gamma · dark pool」③「Options flow & dark pool — the footprints of big money」.
 **3장 중 2장이 지표 이름으로 시작하고, «Free»·premarket·earnings calendar·stock app 같은 검색을 이기는 말이 첫 3장에 없다.** 브랜드는 앱이지 지표가 아니다.
 t070 으로 재캡션·순서 교체(프리마켓/실적발표 화면을 3장 안에)를 잡았다 — ASC API 로 올릴 수 있으니 웹 로그인 없이 진행 가능.
+
+### 광고 점검(23:55) — 숫자만 읽고 끝
+오늘(UTC 14:40 시점) 합 **$19.26 / 상한 $30** · 설치 0(보고 3h 지연). US Search Results 수동입찰 전환 뒤 노출 **42→295**, 탭 3, CPT $1.77(자동 때 $5+). JP $5.95(119%) — 인하 효과는 내일 판정.
+입찰 드리프트 감시(t042): 6그룹 전부 «내가 넣은 값» 그대로 — $2.00 이 아닌 것은 KR-Intent 프리마켓 $3.50·주식앱/주식투자/주식차트 $3.20·Core 증권 $3.00 뿐이고 전부 의도된 값. 조치 없음.
