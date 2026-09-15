@@ -1002,6 +1002,30 @@
    "tries": 0,
    "created": "2026-09-15",
    "note": ""
+  },
+  {
+   "id": "t078",
+   "type": "aso",
+   "region": "ALL",
+   "title": "t070-1 스토어 스크린샷 재제작: 앱 실화면 캡처(프리마켓·실적·대시보드·Command·AI 브리핑) → compose-promo-shots.py 로 앱 일상어 캡션 합성 (en/ko/ja)",
+   "detail": "규격 1242×2688(6.5인치)·1290×2796(6.7인치). 캡션 A안: ① Free US stock app — premarket, earnings calendar, live quotes ② Every ticker in plain English ③ An AI market brief every morning. 홈·온보딩 화면 금지(교리 STAGE 5).",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
+  },
+  {
+   "id": "t079",
+   "type": "aso",
+   "region": "ALL",
+   "title": "t070-2 ASC 에 새 버전(메타데이터) 만들고 스크린샷 업로드(asc_upload_screenshots.py) → 제출은 빌드 필요 → 대표 티켓 또는 자동 빌드",
+   "detail": "asc-dump-metadata.py 로 현재 버전 상태 확인 후 진행. 메모리: 이름 변경엔 빌드 필요, iOS 빌드·업로드 자동화 가능.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }
