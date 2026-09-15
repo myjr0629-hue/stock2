@@ -803,6 +803,19 @@
    "tries": 0,
    "created": "2026-09-15",
    "note": ""
+  },
+  {
+   "id": "t063",
+   "type": "expand",
+   "region": "JP",
+   "title": "jp.quora.com 개통 + 다크풀 무응답 답변 (이긴 패턴의 일본어 복제)",
+   "detail": "같은 계정에 日本語版 추가 → 「金融取引のダークプールとは？メリット・デメリット」 0답변 확인 후 답변. 태그 quora_jp_darkpool.",
+   "prio": 1,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": "게시 완료 — jp.quora.com/…/answers/1477743918562925. 앵커 https://signumhq.com/app?from=quora_jp_darkpool 검증. 남은 무응답 후보: 「ダークプールの問題点とは？」(내일).",
+   "closed": "2026-09-15 09:04"
   }
  ]
 }
