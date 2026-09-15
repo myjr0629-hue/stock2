@@ -5904,3 +5904,8 @@ v2 18장·업로드 스크립트 준비 완료. 새 버전 생성+업로드는 �
 ### note.com 재시도 — 붙여넣기도 실패 → 티켓 #T7(computer-use, 낮)
 합성 ClipboardEvent paste 는 ProseMirror 가 무시(신뢰 이벤트 아님). 문자단위 type 는 시각 깨짐. 남은 3번째 = 실제 Cmd+V(computer-use write_clipboard) = 데스크톱 제어라 낮 감시 실행. 빈 초안 삭제 완료. es.quora 무응답 탐색 5쿼리 = 적합 질문 0.
 ### 새벽(05:0x) 판단: 3개 타깃 지역 저활동 + note/Medium 편집기 블록 + es 무응답 없음 + 레딧 앱언급 삭제 확인. 이 시간대는 «관리·정정·준비»가 최선이고, 깨질/삭제될/도달0 콘텐츠를 억지로 밀지 않는다(도달0=손실·계정=엔진). 이미지-무링크 Quora·note(Cmd+V)·Medium 는 09:00 KST(UTC 자정) 이후 재개. 밤 발행 누계는 5건(EN·JP·DE Quora + Reddit 2) 전부 생존.
+
+## 2026-09-16 (11) — 08:4x 사이클 (KR/JP 기상 진입)
+### 발행 — Quora EN #2 「recommend resources to simplify SMA/MACD/RSI?」(무응답 → 첫 답변, 앱 화면 첨부)
+[답변](https://www.quora.com/Can-you-recommend-books-or-resources-that-simplify-the-complex-concepts-of-SMA-MACD-and-RSI-for-someone-new-to-technical-trading/answer/Jiyoung-Kim-236) · RSI/MACD/SMA 를 평이하게 설명 + Investopedia·Murphy 책 추천(진짜 도움) → 앱의 «탭하면 해석» 팝업으로 «맥락에서 지표 학습»을 소개. 이미지 첨부(img)·무링크. setInputFiles 는 accept="image/*" 인풋에 바로(첫 시도 실패 시 «Add image» 버튼 후 재시도가 폴백). t081 2/2 완료.
+### 밤→아침 발행 누계(9/16 KST): Quora 4건(EN×2·JP·DE) + Reddit 2건. Quora 전건 생존.

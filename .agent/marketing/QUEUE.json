@@ -1052,10 +1052,11 @@
    "title": "Quora EN 앱 프레임 무응답 2건 — 「What is the difference between stock market research and random trading tips?」(초안 준비) · 「books/resources that simplify SMA, MACD, RSI」",
    "detail": "1/2 완료: 「research vs random trading tips」 게시(앱 화면 첨부·앱 전체 프레임·본문 무링크) — quora.com/…/answer/Jiyoung-Kim-236. 남은 1건: SMA·MACD·RSI 를 쉽게 설명하는 리소스 질문(앱의 지표 팝업 «해석» 소개). 다음 사이클.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "2/2 완료 — ①research vs tips ②SMA/MACD/RSI 리소스(둘 다 앱 전체 프레임·이미지 첨부·무링크, 첫 답변). SMA/MACD/RSI 답변은 앱의 «해석» 팝업(맥락에서 지표 학습)을 자연스럽게 소개. quora.com/…SMA-MACD-RSI…/answer/Jiyoung-Kim-236.",
+   "closed": "2026-09-15 23:46"
   },
   {
    "id": "t082",
