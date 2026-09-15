@@ -914,6 +914,18 @@
    "tries": 0,
    "created": "2026-09-15",
    "note": ""
+  },
+  {
+   "id": "t071",
+   "type": "publish",
+   "region": "ALL",
+   "title": "Quora 복원 3건 사후 점검(내일) — 앵커·클릭 재개 여부",
+   "detail": "복원된 다크풀2탄·GLD·무료앱 답변의 앵커와 quora_darkpool_daily/quora_maxpain/quora_darkpool 클릭이 다시 늘어나는지 9/16 확인.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }
