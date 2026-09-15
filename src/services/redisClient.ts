@@ -11,6 +11,36 @@ let upstashClient: UpstashRedis | null = null;
 let lastError: string | null = null;
 let ecProxyAvailable: boolean | null = null; // null = not tested yet
 
+/**
+ * ★ 2026-09-15 — «한 번 실패하면 영원히 포기» 를 고친다.
+ *
+ * 예전엔 프록시 호출이 한 번이라도 타임아웃되면 ecProxyAvailable=false 로 두고
+ * 그 인스턴스가 살아 있는 동안 EC2 캐시를 **다시는 쓰지 않았다.**
+ * 실측: guardian:snapshot:ko 는 24,651바이트다. 평소 0.6~1.0초에 오지만
+ * 한 번 3초를 넘기면 그 뒤로는 멀쩡한 캐시를 두고도 전부 건너뛴다.
+ * Upstash 가 받쳐주면 티가 안 나지만, 느려지고 비용이 든다.
+ *
+ * [원칙] 일시적 흔들림이 영구 저하가 되면 안 된다 → 쿨다운으로 바꾼다.
+ */
+const EC_COOLDOWN_MS = 30 * 1000;
+let ecProxyDownUntil = 0;
+
+function ecProxyUsable(): boolean {
+    if (ecProxyAvailable === false && Date.now() >= ecProxyDownUntil) {
+        // 쿨다운이 끝났다 — 다시 시도해 본다
+        ecProxyAvailable = null;
+    }
+    return ecProxyAvailable !== false;
+}
+
+function markEcProxyDown(reason: string): void {
+    if (ecProxyAvailable !== false) {
+        console.warn(`[Redis] EC2 Proxy 일시 중단(${Math.round(EC_COOLDOWN_MS / 1000)}초): ${reason}`);
+    }
+    ecProxyAvailable = false;
+    ecProxyDownUntil = Date.now() + EC_COOLDOWN_MS;
+}
+
 // EC2 Redis Proxy configuration
 const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
@@ -49,21 +79,23 @@ async function ecProxyGet<T>(key: string): Promise<T | null> {
     try {
         const res = await fetch(`${EC2_PROXY_URL}/get?key=${encodeURIComponent(key)}`, {
             headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
-            signal: AbortSignal.timeout(3000), // 3s timeout
+            // ★ 2026-09-15 — 3초는 너무 빡빡했다.
+            //   guardian:snapshot 처럼 큰 키(실측 24,651바이트)는 런타임이 바쁠 때
+            //   3초를 넘긴다. 그러면 «멀쩡한 캐시»를 두고도 못 쓰고, 예전에는
+            //   그 한 번으로 인스턴스 전체가 캐시를 영구히 포기했다.
+            //   넘겨봐야 잃는 게 더 크므로 6초로 늘린다(쿨다운도 함께 도입했다).
+            signal: AbortSignal.timeout(6000),
             cache: 'no-store'
         });
         if (!res.ok) return null;
         const data = await res.json();
         if (ecProxyAvailable === null) {
             ecProxyAvailable = true;
-            console.log('[Redis] ??EC2 Proxy connected');
+            console.log('[Redis] EC2 Proxy connected');
         }
         return data.result as T;
     } catch (e: any) {
-        if (ecProxyAvailable !== false) {
-            ecProxyAvailable = false;
-            console.warn(`[Redis] EC2 Proxy unavailable: ${e.message}`);
-        }
+        markEcProxyDown(e.message);
         return null;
     }
 }
@@ -125,7 +157,7 @@ function isMojibake(value: unknown): boolean {
 
 export async function getFromCache<T>(key: string): Promise<T | null> {
     // Try EC2 Proxy first (ElastiCache via HTTP)
-    if (ecProxyAvailable !== false) {
+    if (ecProxyUsable()) {
         const result = await ecProxyGet<T>(key);
         // Skip a corrupted EC2 value (mojibake) and let Upstash serve the clean copy.
         if (result !== null && !isMojibake(result)) return result;
@@ -224,7 +256,7 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
     const effectiveTtl = ttlSeconds ? applyJitter(ttlSeconds) : undefined;
 
     // Write to EC2 Proxy (ElastiCache)
-    if (ecProxyAvailable !== false) {
+    if (ecProxyUsable()) {
         ecOk = await ecProxySet(key, value, effectiveTtl);
     }
 

@@ -1,10 +1,18 @@
 // src/app/api/live/premium-metrics/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
-import { publicBase } from '@/lib/net/publicBase';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * 인스턴스 자체 기억.
+ *
+ * Redis 가 흔들리면(큰 키 타임아웃 등) 마지막 정상본조차 못 읽는다. 그때
+ * «이 인스턴스가 직전에 성공적으로 만든 값»이라도 있으면 화면은 살아 있다.
+ * 3단 방어: Redis 정상본 → 인스턴스 기억 → 실제 계산.
+ */
+const memo = new Map<string, unknown>();
 
 export async function GET(req: NextRequest) {
     const localeQuery = req.nextUrl.searchParams.get('locale') || 'ko';
@@ -12,7 +20,67 @@ export async function GET(req: NextRequest) {
         ? localeQuery
         : 'ko';
         
-    const origin = publicBase(req.nextUrl.origin || req.url.split('/api/')[0]);
+    // (origin 은 내부 HTTP 왕복을 없애면서 쓸 곳이 사라졌다 — 아래 주석 참조)
+
+    // ★ 2026-09-15 — 어디가 느린지는 «응답에 실어야» 안다.
+    //   예전엔 콜드 15초의 원인을 찾으려고 코드를 읽어야 했다.
+    //   이제 각 소스의 소요 시간을 _timings 로 함께 돌려준다(진단은 공짜여야 한다).
+    const T0 = Date.now();
+    const timings: Record<string, number> = {};
+
+    /**
+     * ★ 「사용자를 기다리게 하지 않는다」 — 이 라우트의 공통 규칙.
+     *
+     * 무거운 계산은 사용자 요청 경로에서 «기다리지» 않는다.
+     *   1) 마지막 정상본이 있으면 즉시 주고, 갱신은 뒤에서 건다
+     *   2) 없으면 계산을 기다리되(첫 사용자 한 명), 결과를 정상본으로 남긴다
+     *
+     * 이 지표들은 초 단위로 뒤집히지 않는다(기관 신규 포지션 = 어제 확정된 OI,
+     * 시장 폭 = 20일선 위 비율). 몇 분 된 값이 «빈 화면»보다 언제나 낫다.
+     * 나이는 _timings 와 함께 드러나므로 숨기는 것이 아니다.
+     */
+    const LASTGOOD_TTL = 72 * 60 * 60;
+    async function withLastGood<T>(name: string, key: string, fn: () => Promise<T>): Promise<T | null> {
+        try {
+            const cached = await getFromCache<T>(key);
+            if (cached != null) {
+                timings[name] = 0;
+                memo.set(key, cached);
+                // 뒤에서 갱신 — 이번 응답은 붙잡지 않는다
+                void fn().then((fresh) => {
+                    if (fresh != null) return setInCache(key, fresh, LASTGOOD_TTL);
+                }).catch((e) => console.warn(`[premium-metrics] ${name} 배경 갱신 실패:`, e?.message));
+                return cached;
+            }
+        } catch (e) {
+            console.warn(`[premium-metrics] ${name} 정상본 조회 실패:`, (e as any)?.message);
+        }
+        // Redis 를 못 읽었어도 이 인스턴스가 직전에 만든 값이 있으면 그것부터 쓴다
+        if (memo.has(key)) {
+            timings[name] = 0;
+            void fn().then((fresh) => {
+                if (fresh != null) { memo.set(key, fresh); return setInCache(key, fresh, LASTGOOD_TTL); }
+            }).catch(() => {});
+            return memo.get(key) as T;
+        }
+
+        // 아무것도 없다 — 이번 한 번은 기다리고, 다음부터는 즉시 나간다
+        const t = Date.now();
+        try {
+            const fresh = await fn();
+            if (fresh != null) {
+                memo.set(key, fresh);
+                void setInCache(key, fresh, LASTGOOD_TTL).catch(() => {});
+            }
+            return fresh;
+        } finally {
+            timings[name] = Date.now() - t;
+        }
+    }
+    const timed = async <T>(name: string, fn: () => Promise<T>): Promise<T> => {
+        const t = Date.now();
+        try { return await fn(); } finally { timings[name] = Date.now() - t; }
+    };
 
     try {
         // 1. Volatility Regime & Gamma Squeeze Risk (Internal fetch to volatility-regime)
@@ -35,7 +103,7 @@ export async function GET(req: NextRequest) {
         const instFlowP = (async () => {
             try {
                 const { getInstitutionalFlowSummary } = await import('@/services/institutionalFlow');
-                return await getInstitutionalFlowSummary();
+                return await withLastGood('instFlow', 'premium:instflow:lastgood', () => getInstitutionalFlowSummary());
             } catch (e) {
                 console.warn('[premium-metrics] 기관 신규 포지션 조회 실패:', e);
                 return null;
@@ -45,41 +113,83 @@ export async function GET(req: NextRequest) {
         const breadthP = (async () => {
             try {
                 const { getIndexBreadth } = await import('@/services/indexBreadth');
-                return await getIndexBreadth();
+                return await withLastGood('breadth', 'premium:breadth:lastgood', () => getIndexBreadth());
             } catch (e) {
                 console.warn('[premium-metrics] 시장 폭 조회 실패:', e);
                 return null;
             }
         })();
 
+        // ★ 2026-09-15 — 한 필드 때문에 가디언 스냅샷 «전체»를 계산하지 않는다.
+        //
+        //   실측: 이 한 줄이 **25,868ms** 였다. 사용자가 보려는 건 rotationIntensity
+        //   하나인데, 캐시가 비면 스냅샷 전체(수십 개 지표)를 인라인으로 만들었다.
+        //   그동안 마켓 펄스는 아무것도 못 보여준다.
+        //
+        //   [원칙] 사용자 요청 경로에서 «무거운 전체 계산»을 기다리지 않는다.
+        //     1) 스냅샷 캐시에 있으면 그대로 (가장 빠름)
+        //     2) 없으면 마지막 정상본을 즉시 주고, 갱신은 뒤에서
+        //     3) 그것도 없으면 null — 카드가 «준비 중»으로 뜨는 게
+        //        26초 동안 화면이 멈추는 것보다 낫다. 갱신은 역시 뒤에서 건다.
+        const ROTATION_LASTGOOD = `premium:rotation:lastgood:${locale}`;
         const rotationP = (async () => {
             try {
                 const snap = await getFromCache<any>(`guardian:snapshot:${locale}`);
-                if (snap?.rotationIntensity) return snap.rotationIntensity;
-                const fresh = await GuardianDataHub.getGuardianSnapshot(false, locale);
-                return fresh?.rotationIntensity ?? null;
+                if (snap?.rotationIntensity) {
+                    timings.rotation = 0;
+                    void setInCache(ROTATION_LASTGOOD, snap.rotationIntensity, 72 * 60 * 60).catch(() => {});
+                    return snap.rotationIntensity;
+                }
+
+                // 뒤에서 채운다 — 이번 요청은 기다리지 않는다
+                void GuardianDataHub.getGuardianSnapshot(false, locale)
+                    .then((fresh) => {
+                        if (fresh?.rotationIntensity) {
+                            return setInCache(ROTATION_LASTGOOD, fresh.rotationIntensity, 72 * 60 * 60);
+                        }
+                    })
+                    .catch((e) => console.warn('[premium-metrics] 섹터 순환 배경 갱신 실패:', e?.message));
+
+                const lastGood = await getFromCache<any>(ROTATION_LASTGOOD);
+                timings.rotation = 0;
+                if (lastGood) {
+                    console.log('[premium-metrics] 섹터 순환: 마지막 정상본 사용 + 배경 갱신');
+                    return lastGood;
+                }
+                console.log('[premium-metrics] 섹터 순환: 값 없음 — 배경 갱신만 걸고 null 반환');
+                return null;
             } catch (e) {
                 console.warn('[premium-metrics] Failed to fetch sector snapshot:', e);
                 return null;
             }
         })();
 
+        // ★ 2026-09-15 — 자기 서버를 HTTP 로 다시 부르지 않는다.
+        //
+        //   예전엔 `fetch(origin + '/api/live/volatility-regime?t=SPY')` 였다.
+        //   같은 프로세스 안에서 쓸 수 있는 값을 굳이 네트워크로 한 바퀴 돌렸고,
+        //   그 라우트의 `revalidate = 60` 때문에 60초마다 첫 요청이 전체 비용을 냈다.
+        //   실측: 이 라우트 콜드 응답 **15,986ms**. 사용자는 그동안 마켓 펄스를 못 본다.
+        //
+        //   같은 데이터를 만드는 것은 getStructureData 하나뿐이므로 직접 부른다.
+        //   왕복(DNS·TLS·콜드 람다)이 사라지고, structureService 의 공유 Redis 캐시가
+        //   그대로 적용된다.
         try {
-            const res = await fetch(`${origin}/api/live/volatility-regime?t=SPY`);
-            if (res.ok) {
-                const vData = await res.json();
-                gammaFlipLevel = typeof vData.flipLevel === 'number' ? vData.flipLevel : null;
-                // flipDistance 는 % 이므로 여기서 현재가를 역산한다
-                spyPrice = (gammaFlipLevel && typeof vData.flipDistance === 'number')
-                    ? gammaFlipLevel * (1 + vData.flipDistance / 100)
-                    : null;
-                regime = vData.regime ?? regime;
-                regimeScore = typeof vData.regimeScore === 'number' ? vData.regimeScore : regimeScore;
-                squeezeScore = typeof vData.squeezeScore === 'number' ? vData.squeezeScore : squeezeScore;
-                squeezeRisk = vData.squeezeRisk ?? squeezeRisk;
+            const { getStructureData } = await import('@/services/structureService');
+            const { computeVolatilityRegime } = await import('@/services/volatilityRegime');
+            const st: any = await timed('structure', () => getStructureData('SPY'));
+            if (st) {
+                // 레짐 계산은 «공용 함수»를 쓴다 — 라우트와 같은 식이라 값이 갈라지지 않는다
+                const vr = computeVolatilityRegime(st);
+                gammaFlipLevel = vr.flipLevel > 0 ? vr.flipLevel : null;
+                spyPrice = vr.underlyingPrice > 0 ? vr.underlyingPrice : null;
+                regime = vr.regime;
+                regimeScore = vr.regimeScore;
+                squeezeScore = vr.squeezeScore;
+                squeezeRisk = vr.squeezeRisk;
             }
         } catch (e) {
-            console.warn('[premium-metrics] Failed to fetch volatility-regime:', e);
+            console.warn('[premium-metrics] 구조 데이터 조회 실패:', e);
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -116,7 +226,7 @@ export async function GET(req: NextRequest) {
         let dealerGamma: import('@/services/dealerGamma').DealerGammaSignal | null = null;
         try {
             const { getDealerGamma } = await import('@/services/dealerGamma');
-            dealerGamma = await getDealerGamma('SPY', gammaFlipLevel, spyPrice);
+            dealerGamma = await timed('dealerGamma', () => getDealerGamma('SPY', gammaFlipLevel, spyPrice));
         } catch (e) {
             console.warn('[premium-metrics] 딜러 감마 조회 실패:', e);
         }
@@ -171,6 +281,8 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
+            // 진단 — 콜드일 때 «어느 소스»가 붙잡는지 응답만 보고 알 수 있어야 한다
+            _timings: { ...timings, total: Date.now() - T0 },
             volatilityRegime: {
                 regime,
                 score: regimeScore == null ? null : Math.round(regimeScore),

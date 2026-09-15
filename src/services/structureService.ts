@@ -1,7 +1,7 @@
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
-import { getFromCache } from "@/services/redisClient";
+import { getFromCache, setInCache } from "@/services/redisClient";
 
 // [S-69] Get next valid trading day for options expiration (skips weekends)
 // [V45.17 FIX] Uses getETComponents for reliable ET timezone handling
@@ -50,6 +50,39 @@ interface CachedResult {
 const structureCache = new Map<string, CachedResult>();
 const CACHE_TTL_MARKET_MS = 60 * 1000; // 60 seconds during market
 const CACHE_TTL_OFFHOURS_MS = 72 * 60 * 60 * 1000; // 72 hours off-hours (covers weekends + holidays)
+
+/**
+ * ★ 2026-09-15 — 인메모리 캐시만으로는 «항상 빠를» 수 없다.
+ *
+ * [대표 원칙] 「언제 어디에서 어느 순간에 보더라도 빛의 속도로 정확한 값」
+ *
+ * [무엇이 문제였나]  structureCache 는 `new Map()` 이다. Vercel 서버리스는
+ *   인스턴스가 수시로 새로 뜨고, 새 인스턴스의 Map 은 비어 있다. 그래서
+ *   «캐시가 있다»고 믿는 코드가 실제로는 자주 전체 계산을 다시 했다.
+ *   실측: /api/live/premium-metrics 가 콜드에 **15,986ms**.
+ *   그 안의 volatility-regime → getStructureData 사슬이 원인이었다.
+ *
+ * [고침]  인메모리 아래에 Redis 층을 하나 더 둔다.
+ *   인메모리 미스 → Redis 조회 → 있으면 즉시 반환(그리고 인메모리에 채운다).
+ *   인스턴스가 새로 떠도 «다른 인스턴스가 이미 계산해 둔 값»을 즉시 쓴다.
+ *
+ * [왜 TTL 을 두 벌로 두나]  장중엔 60초가 맞지만 장 마감 후에는 값이 안 변한다.
+ *   주말 내내 같은 값을 다시 계산할 이유가 없다(72시간).
+ *   나이는 응답의 `cached`·`_redisAgeSec` 로 드러내므로 «오래된 걸 숨기지» 않는다.
+ */
+const STRUCTURE_REDIS_PREFIX = "structure:v1:";
+const STRUCTURE_LASTGOOD_PREFIX = "structure:lastgood:";
+const structureRedisKey = (cacheKey: string) => `${STRUCTURE_REDIS_PREFIX}${cacheKey}`;
+const structureLastGoodKey = (cacheKey: string) => `${STRUCTURE_LASTGOOD_PREFIX}${cacheKey}`;
+
+/** 마지막 정상본 보관 기간 — 주말·휴장을 건너뛸 만큼 넉넉히 */
+const LASTGOOD_TTL_SEC = 72 * 60 * 60;
+
+/**
+ * 같은 티커를 여러 요청이 동시에 재계산하는 것을 막는다(썬더링 허드).
+ * 하나가 계산하는 동안 나머지는 마지막 정상본을 받아 간다.
+ */
+const inFlight = new Map<string, Promise<any>>();
 
 function getStructureCacheTtl(): number {
     const now = new Date();
@@ -152,10 +185,27 @@ function validateCalculations(
  *    계산 로직은 건드리지 않는다. 스냅샷 모양만 만들어 끼워 넣어
  *    아래 흐름이 «네트워크로 받았을 때»와 한 글자도 다르지 않게 한다.
  */
+/**
+ * 배경 갱신용 래퍼. 마지막 정상본을 돌려준 뒤 «뒤에서» 이걸 돌린다.
+ * 캐시를 건너뛰고 실제 계산 경로를 타야 하므로 전용 플래그로 재진입한다.
+ */
+async function computeAndStore(
+    ticker: string,
+    requestedExp: string | null | undefined,
+    spot: { price: number; prevClose?: number | null } | null | undefined,
+    cacheKey: string,
+): Promise<any> {
+    // 인메모리 항목을 지워 아래 getStructureData 가 계산 경로로 들어가게 한다.
+    structureCache.delete(cacheKey);
+    return getStructureData(ticker, requestedExp, spot, true);
+}
+
 export async function getStructureData(
     ticker: string,
     requestedExp?: string | null,
     spot?: { price: number; prevClose?: number | null } | null,
+    /** 배경 갱신 경로 — 마지막 정상본으로 되돌아가지 않고 실제로 계산한다 */
+    skipLastGood = false,
 ) {
     const cacheKey = `${ticker}:${requestedExp || 'auto'}`;
 
@@ -164,6 +214,54 @@ export async function getStructureData(
     if (cached && (Date.now() - cached.timestamp) < getStructureCacheTtl()) {
         console.log(`[CACHE HIT] ${ticker}: returning cached data (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
         return { ...cached.data, cached: true };
+    }
+
+    // ★ 인메모리가 비었다고 «계산부터» 하지 않는다 — 다른 인스턴스가 이미 해뒀을 수 있다.
+    //   서버리스에서 인스턴스는 수시로 새로 뜬다. 그때마다 15초를 다시 쓰면
+    //   사용자는 «가끔 앱이 멈춘다»고 느낀다. Redis 를 한 번 더 본다(수십 ms).
+    try {
+        const shared = await getFromCache<{ data: any; timestamp: number }>(structureRedisKey(cacheKey));
+        if (shared?.data && shared.timestamp && (Date.now() - shared.timestamp) < getStructureCacheTtl()) {
+            const ageSec = Math.round((Date.now() - shared.timestamp) / 1000);
+            console.log(`[REDIS HIT] ${ticker}: 공유 캐시 사용 (age: ${ageSec}s)`);
+            // 이번 인스턴스의 인메모리에도 채워 다음 호출은 더 빠르게
+            structureCache.set(cacheKey, { data: shared.data, timestamp: shared.timestamp });
+            return { ...shared.data, cached: true, _redisAgeSec: ageSec };
+        }
+    } catch (e) {
+        // Redis 가 죽어도 계산으로 넘어가면 된다 — 캐시는 «빠르게 하는 것»이지 «필수»가 아니다
+        console.warn(`[structure] Redis 공유 캐시 조회 실패(${ticker}):`, (e as any)?.message);
+    }
+
+    // ★★ 마지막 정상본 — 「사용자를 기다리게 하지 않는다」
+    //
+    //   신선본 TTL 은 장중 60초다. 그 60초가 지난 «첫» 요청이 전체 계산(실측 15~21초)을
+    //   혼자 뒤집어쓰면, 그 사람에겐 앱이 멈춘 것으로 보인다. 서버리스에서 인스턴스가
+    //   새로 뜨면 더 자주 그렇게 된다.
+    //
+    //   그래서 조금 오래된 값이라도 **즉시 돌려주고, 갱신은 뒤에서 한다.**
+    //   시장 구조 데이터는 초 단위로 뒤집히지 않는다 — 몇 초 된 값이
+    //   «15초 동안 아무것도 없는 화면»보다 언제나 낫다.
+    //
+    //   숨기지는 않는다: `_staleSec` 으로 나이를 실어 보내고, 다음 호출은 갱신본을 받는다.
+    if (!requestedExp && !skipLastGood) {
+        try {
+            const lastGood = await getFromCache<{ data: any; timestamp: number }>(structureLastGoodKey(cacheKey));
+            if (lastGood?.data && lastGood.timestamp) {
+                const staleSec = Math.round((Date.now() - lastGood.timestamp) / 1000);
+                // 뒤에서 갱신을 건다(이미 돌고 있으면 또 걸지 않는다 — 썬더링 허드 방지)
+                if (!inFlight.has(cacheKey)) {
+                    const job = computeAndStore(ticker, requestedExp, spot, cacheKey)
+                        .catch((err) => { console.warn(`[structure] 배경 갱신 실패(${ticker}):`, err?.message); })
+                        .finally(() => { inFlight.delete(cacheKey); });
+                    inFlight.set(cacheKey, job);
+                }
+                console.log(`[LAST-GOOD] ${ticker}: ${staleSec}s 된 값을 즉시 반환하고 뒤에서 갱신한다`);
+                return { ...lastGood.data, cached: true, _staleSec: staleSec };
+            }
+        } catch (e) {
+            console.warn(`[structure] 마지막 정상본 조회 실패(${ticker}):`, (e as any)?.message);
+        }
     }
 
     const spotUrl = `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`;
@@ -893,7 +991,19 @@ export async function getStructureData(
             }
         };
 
-        structureCache.set(cacheKey, { data: successResponse, timestamp: Date.now() });
+        const now = Date.now();
+        structureCache.set(cacheKey, { data: successResponse, timestamp: now });
+        // 다른 인스턴스도 쓸 수 있게 공유 캐시에 남긴다.
+        // await 하지 않는다 — 저장이 늦어도 «이번» 응답을 붙잡을 이유가 없다.
+        const payload = { data: successResponse, timestamp: now };
+        void setInCache(
+            structureRedisKey(cacheKey),
+            payload,
+            Math.round(getStructureCacheTtl() / 1000),
+        ).catch(() => { /* 저장 실패는 조용히 — 다음 호출이 다시 계산할 뿐이다 */ });
+        // 마지막 정상본은 따로, 훨씬 길게 남긴다 — 신선본이 만료돼도 «즉시 줄 것»이 있어야 한다
+        void setInCache(structureLastGoodKey(cacheKey), payload, LASTGOOD_TTL_SEC)
+            .catch(() => { /* 위와 같다 */ });
         return successResponse;
     } else {
         // ⚠️ [2026-09-13] 여기까지 왔다는 건 «파생값을 하나도 못 만들었다»는 뜻이다.
