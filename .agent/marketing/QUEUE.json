@@ -22,10 +22,11 @@
    "title": "US 검색결과 재가동 검토",
    "detail": "CPA $51.69 로 가장 비쌌다. 입찰가 $2.00 로 낮춘 뒤에만 재가동. 낮추기 전엔 정지 유지.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "입찰가 $2.00(그룹·키워드 전부) 확인 후 재가동. 예산 $10 그대로.",
+   "closed": "2026-09-15 13:21"
   },
   {
    "id": "t003",
@@ -70,10 +71,11 @@
    "title": "US 키워드 앱중심 전면교체",
    "detail": "stock app·investing app·stock tracker·earnings calendar·premarket·after hours·market news·portfolio tracker 등으로 교체. ★ 9/15 실측: finance(확장)이 US SR 7일 지출 71%($37.28)·설치 0, finance app 은 $8.14/설치. 순서: 입찰관리 전환→전체 $2.00→finance 일시정지→의도어 12개 확장 $2.00 추가. 예산 $10 불변.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "US 두 그룹 키워드 64개 전부 $2.00(입찰관리 전환 후) · finance(확장, 7일 $37.28·설치0) 일시정지 · 앱 의도어 12개 중 8개는 이미 있었음(premarket·stock market app·stocks app·stock tracker·investing app / premarket movers·after hours trading·earnings calendar), 없는 4개(pre market stocks·after hours stocks·earnings this week·market news app)는 추가 시도했으나 반영 안 됨 → 다음 사이클 재시도.",
+   "closed": "2026-09-15 13:21"
   },
   {
    "id": "t006",
@@ -496,10 +498,11 @@
    "title": "premarket 키워드 US 복제",
    "detail": "KR 프리마켓이 설치당 $0.72. 영어 premarket / pre market stocks / after hours 를 US 그룹에 추가.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-13",
-   "note": ""
+   "note": "premarket 계열은 US 에 이미 있었다(premarket·premarket movers·after hours trading, 확장 $2.00). 복제 완료 상태.",
+   "closed": "2026-09-15 13:21"
   },
   {
    "id": "t040",
@@ -627,10 +630,11 @@
    "title": "US Search Results 목표CPA $8 과 실제 $44.67 괴리 관찰",
    "detail": "Maximize Conversions 인데 목표 CPA 가 실제의 1/5.6 이다. 애플이 입찰을 억제해 노출이 안 날 수 있다. 48시간 뒤 노출·지출을 보고, 안 나오면 «입찰 관리(수동)»로 바꾸는 안을 대표에게 올린다 — 예산 증액이 아니라 전략 변경이다.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "괴리의 원인은 애플이 직접 말했다: Maximize Conversions 는 일일 $240 이상 필요. 예산 증액 대신 입찰 관리($2.00)로 전환. 이후 노출·지출 추이를 매 사이클 확인.",
+   "closed": "2026-09-15 13:21"
   },
   {
    "id": "t049",
@@ -852,6 +856,18 @@
    "region": "ALL",
    "title": "X 게시가 «조용히» 안 나간다 — 모달은 닫히는데 타임라인에 없음",
    "detail": "9/15 @signumhq 3회 시도: 버튼 클릭 후 모달 닫힘·에러 토스트 없음·프로필/with_replies 에 글 없음. 자동화 차단(무음 실패) 의심. 다음: 클릭 직후 스크린샷 + 네트워크 응답(CreateTweet) 확인. X 도달은 2~3조회라 우선순위 낮음.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
+  },
+  {
+   "id": "t067",
+   "type": "ads",
+   "region": "US",
+   "title": "US-Intent 에 미반영 의도어 4개 재추가",
+   "detail": "pre market stocks · after hours stocks · earnings this week · market news app — 확장 $2.00. 키워드 추가 모달 저장 후 목록에 없었음(중복 판정 또는 저장 실패). 재시도 후 목록에서 확인.",
    "prio": 2,
    "state": "todo",
    "tries": 0,

@@ -5722,3 +5722,9 @@ t048 의 괴리($8 목표 vs 실제 $44.67)는 이것이었다. 예산은 올리
 ### 조치 6 — US 그룹 기본입찰: 애플이 채워 넣은 $6.50 / $3.50 → $2.00
 전환 직후 애플이 US-Core-Exact 에 **$6.50**, US-Intent-Exact 에 **$3.50** 을 «추천 입찰가»로 자동 채웠다(재가동했다면 탭당 $6.50 이 나갔을 것).
 둘 다 $2.00 으로 저장 — 그룹 목록 `보류 중 | 켬 | $2.00` 확인. 저장과 동시에 일시정지한 판단이 맞았다.
+
+### 조치 7 — US 키워드 재구성 (t005·t039) 후 재가동
+US-Core-Exact 32개 · US-Intent-Exact 32개 **전부 $2.00**(작업 › 최대 CPT 입찰가 편집 › 모두 32 키워드). Core 의 **finance(확장) 일시정지**(7일 $37.28·설치 0 — US 지출 71%).
+앱 의도어는 이미 대부분 있었다: Core 에 premarket·stock market app·stocks app·stock tracker·investing app, Intent 에 premarket movers·after hours trading·earnings calendar.
+없는 4개(pre market stocks·after hours stocks·earnings this week·market news app)는 추가가 반영되지 않아 t067 로 재시도.
+검증 후 캠페인 재가동(아래 확인).
