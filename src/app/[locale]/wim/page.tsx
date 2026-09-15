@@ -1501,7 +1501,7 @@ function CorrectBurst({ gain, xpLabel = 'XP' }: { gain: number; xpLabel?: string
 // ── W5-A open/close chrome shared by every full-screen play + the quiz:
 // backdrop fades in while the sheet slides up 24px (260ms); closing is a quick
 // 150ms fade (the parent unmounts after it). Never blocks interaction.
-function PlayShell({ closing, children }: { closing: boolean; children: ReactNode }) {
+function PlayShell({ closing, children, tabBar }: { closing: boolean; children: ReactNode; tabBar?: ReactNode }) {
   return (
     <div style={closing ? { animation: 'wimFadeOut 0.15s ease both', pointerEvents: 'none' } : undefined}>
       <style>{WIM_KEYFRAMES}</style>
@@ -1510,8 +1510,44 @@ function PlayShell({ closing, children }: { closing: boolean; children: ReactNod
           block for fixed children (glossary sheet, toasts) and break their anchoring */}
       <div style={{ position: 'relative', zIndex: 1, animation: `wimSlideUp 0.26s ${EASE_OUT}` }}>
         {children}
+        {/* 탭바가 마지막 내용을 덮지 않도록 바닥에 그만큼 자리를 비운다 */}
+        {tabBar && <div aria-hidden style={{ height: 'calc(92px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }} />}
       </div>
+      {/* ★ 2026-09-15 대표 지적: 퀴즈·플레이·트랙 화면이 홈 셸 바깥에서 «조기 return» 으로 그려져
+          하단 탭바가 사라졌다. 탭바는 모든 화면에 있어야 하므로 셸이 직접 받아 그린다. */}
+      {tabBar}
     </div>
+  );
+}
+
+// ── 하단 유리 탭바 — 홈 셸과 오버레이 화면(퀴즈·플레이·트랙)이 «같은 것»을 쓴다 ──
+type WimTab = 'home' | 'lib' | 'search' | 'me';
+function WimTabBar({ homeTab, labels, onSelect }: { homeTab: WimTab; labels: Record<string, string>; onSelect: (id: WimTab) => void }) {
+  return (
+    <nav id="wim-tabbar" style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.52))', backdropFilter: 'blur(36px) saturate(1.9)', WebkitBackdropFilter: 'blur(36px) saturate(1.9)', border: '1px solid rgba(255,255,255,0.75)', borderRadius: 28, boxShadow: '0 20px 46px rgba(76,63,175,0.22), 0 2px 10px rgba(76,63,175,0.10), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(120,100,220,0.06)', display: 'flex', padding: 6, gap: 2 }}>
+      {([
+        { id: 'home', icon: 'home', label: labels.tabHome },
+        { id: 'lib', icon: 'book2', label: labels.tabLib },
+        { id: 'search', icon: 'search', label: labels.tabSearch },
+        { id: 'me', icon: 'journal', label: labels.tabMe },
+      ] as const).map((tb) => {
+        const active = homeTab === tb.id;
+        return (
+          <button key={tb.id} type="button" aria-label={tb.label} onClick={() => onSelect(tb.id)} style={{
+            font: 'inherit', flex: 1, border: 'none', cursor: 'pointer', borderRadius: 18, padding: '9px 0 8px',
+            background: active ? `linear-gradient(150deg, ${P.hero}, ${P.heroDeep})` : 'transparent',
+            color: active ? '#fff' : P.sub,
+            boxShadow: active ? '0 8px 18px rgba(84,68,214,0.34)' : 'none',
+            transform: active ? 'translateY(-1px)' : 'none',
+            transition: 'background 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, color 0.2s ease',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+          }}>
+            <Ic name={tb.icon} size={19} color={active ? '#fff' : P.sub} sw={active ? 2 : 1.7} />
+            <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: active ? '0.01em' : 0, opacity: active ? 1 : 0.9 }}>{tb.label}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -3464,6 +3500,15 @@ export default function WimPage() {
     setTrackClosing(true);
     window.setTimeout(() => { setTrackOpen(null); setTrackClosing(false); window.scrollTo(0, 0); }, 150);
   }, []);
+  // 탭바는 어느 화면에서 눌러도 «홈 셸의 그 탭»으로 간다 — 열린 오버레이는 닫는다
+  const selectTab = useCallback((id: WimTab) => {
+    if (activeIdx != null) closeQuiz(false);
+    if (playOpen != null) closePlay();
+    if (trackOpen != null) closeTrack();
+    setHomeTab(id);
+    window.scrollTo(0, 0);
+  }, [activeIdx, playOpen, trackOpen, closeQuiz, closePlay, closeTrack]);
+  const tabBar = <WimTabBar homeTab={homeTab} labels={t} onSelect={selectTab} />;
 
   // [SHELL] Android hardware back: 최상단 시트부터 순서대로 닫고, 홈 탭이면 앱
   // 최소화 (UC 패턴 그대로 — 리스너는 마운트 1회, 상태는 ref 미러로 판독).
@@ -3667,7 +3712,7 @@ export default function WimPage() {
     const isLast = activeIdx >= units.length - 1;
     const allDoneAfter = units.every((x) => x.id === u.id ? true : !!done[x.id]);
     return (
-      <PlayShell closing={quizClosing}>
+      <PlayShell closing={quizClosing} tabBar={tabBar}>
       <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
         <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
           {/* top bar: close + progress + countdown */}
@@ -3865,7 +3910,7 @@ export default function WimPage() {
   // ════════════════════════ PLAY OVERLAYS (P3 level hunt · P4 number sense · P2 replay · P5 macro domino) ════════════════════════
   if (playOpen === 'hunt' && heroU) {
     return (
-      <PlayShell closing={playClosing}>
+      <PlayShell closing={playClosing} tabBar={tabBar}>
         <LevelHuntPlay
           ticker={heroU.ticker}
           fallbackCloses={heroU.spark?.closes || null}
@@ -3888,7 +3933,7 @@ export default function WimPage() {
   }
   if (playOpen === 'sense' && units.length > 0) {
     return (
-      <PlayShell closing={playClosing}>
+      <PlayShell closing={playClosing} tabBar={tabBar}>
         <NumberSensePlay
           tickers={Array.from(new Set(units.slice(0, 5).map((u) => u.ticker)))}
           requestLab={requestLab}
@@ -3907,7 +3952,7 @@ export default function WimPage() {
   }
   if (playOpen === 'replay') {
     return (
-      <PlayShell closing={playClosing}>
+      <PlayShell closing={playClosing} tabBar={tabBar}>
         <ReplayPlay
           unit={replayU}
           loc={loc}
@@ -3925,7 +3970,7 @@ export default function WimPage() {
   }
   if (playOpen === 'domino') {
     return (
-      <PlayShell closing={playClosing}>
+      <PlayShell closing={playClosing} tabBar={tabBar}>
         <MacroDominoPlay
           t={t}
           loc={loc}
@@ -3939,7 +3984,7 @@ export default function WimPage() {
   }
   if (playOpen === 'news' && ucCard) {
     return (
-      <PlayShell closing={playClosing}>
+      <PlayShell closing={playClosing} tabBar={tabBar}>
         <NewsLessonPlay
           card={ucCard}
           unitPct={units.find((u) => u.ticker === ucCard.ticker)?.moveMagnitude ?? null}
@@ -3969,7 +4014,7 @@ export default function WimPage() {
       else if (heroIdx >= 0) startQuiz(heroIdx);
     };
     return (
-      <PlayShell closing={trackClosing}>
+      <PlayShell closing={trackClosing} tabBar={tabBar}>
         <div style={{ minHeight: '100vh', background: P.bg, color: P.ink, fontFamily: WIM_FONT }}>
           <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 18px calc(40px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))' }}>
             <PlayTopBar
@@ -4830,31 +4875,8 @@ export default function WimPage() {
         </div>
       )}
 
-      {/* glass bottom tab bar */}
-      <nav id="wim-tabbar" style={{ position: 'fixed', left: 14, right: 14, bottom: 'calc(14px + max(env(safe-area-inset-bottom), var(--wim-bottom-floor, 0px)))', zIndex: 50, maxWidth: 532, margin: '0 auto', background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.52))', backdropFilter: 'blur(36px) saturate(1.9)', WebkitBackdropFilter: 'blur(36px) saturate(1.9)', border: '1px solid rgba(255,255,255,0.75)', borderRadius: 28, boxShadow: '0 20px 46px rgba(76,63,175,0.22), 0 2px 10px rgba(76,63,175,0.10), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(120,100,220,0.06)', display: 'flex', padding: 6, gap: 2 }}>
-        {([
-          { id: 'home', icon: 'home', label: t.tabHome },
-          { id: 'lib', icon: 'book2', label: t.tabLib },
-          { id: 'search', icon: 'search', label: t.tabSearch },
-          { id: 'me', icon: 'journal', label: t.tabMe },
-        ] as const).map((tb) => {
-          const active = homeTab === tb.id;
-          return (
-            <button key={tb.id} type="button" aria-label={tb.label} onClick={() => { setHomeTab(tb.id); window.scrollTo(0, 0); }} style={{
-              font: 'inherit', flex: 1, border: 'none', cursor: 'pointer', borderRadius: 18, padding: '9px 0 8px',
-              background: active ? `linear-gradient(150deg, ${P.hero}, ${P.heroDeep})` : 'transparent',
-              color: active ? '#fff' : P.sub,
-              boxShadow: active ? '0 8px 18px rgba(84,68,214,0.34)' : 'none',
-              transform: active ? 'translateY(-1px)' : 'none',
-              transition: 'background 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, color 0.2s ease',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            }}>
-              <Ic name={tb.icon} size={19} color={active ? '#fff' : P.sub} sw={active ? 2 : 1.7} />
-              <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: active ? '0.01em' : 0, opacity: active ? 1 : 0.9 }}>{tb.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      {/* glass bottom tab bar — 오버레이 화면들도 PlayShell 로 같은 것을 받는다 */}
+      {tabBar}
 
       {/* settings sheet — language lives here now */}
       {/* [WIM PUSH] soft opt-in after the first full completion (inert on web / no plugin) */}
