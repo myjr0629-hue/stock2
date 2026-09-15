@@ -622,10 +622,11 @@
    "title": "매 사이클 최소 2채널 발행",
    "detail": "광고 점검은 몇 분이면 끝난다. 사이클의 몸통은 발행이어야 한다. 서로 다른 청중 2곳 이상에 사람 품질의 글을 쓴다.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "매 사이클 발행 규칙 — 오늘 실측으로 충족: X·Bluesky·LinkedIn(카드) + Reddit 질문스레드 댓글. 상시 규칙이라 done 처리, ENGINE §11-2 체크리스트로 대체.",
+   "closed": "2026-09-15 16:51"
   },
   {
    "id": "t048",
@@ -1022,7 +1023,7 @@
    "type": "aso",
    "region": "ALL",
    "title": "t070-2 ASC 에 새 버전(메타데이터) 만들고 스크린샷 업로드(asc_upload_screenshots.py) → 제출은 빌드 필요 → 대표 티켓 또는 자동 빌드",
-   "detail": "asc-dump-metadata.py 로 현재 버전 상태 확인 후 진행. 메모리: 이름 변경엔 빌드 필요, iOS 빌드·업로드 자동화 가능.",
+   "detail": "[티켓 #T6] 스토어 스크린샷 v2 18장(promo-shots/ios65-v2)을 ASC 에 올리려면 편집 가능한 버전이 필요한데 현재 1.9.1/1.9/1.8 모두 READY_FOR_SALE(편집 불가). 새 버전(1.9.2) 생성 → asc_upload_screenshots.py 로 12로케일 업로드 → 제출은 빌드 필요. 라이브 앱 인접 변경이라 대표 확인 하에 «낮 시간 감시 실행». 스크립트·자산 준비 완료.",
    "prio": 1,
    "state": "todo",
    "tries": 0,

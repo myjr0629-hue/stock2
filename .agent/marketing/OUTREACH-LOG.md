@@ -5859,3 +5859,11 @@ Quora 무응답 탐색: 내부 검색은 «앱·거시·실적» 질의에 결�
 토픽 피드 URL 은 무효(앵커 0). Answer 피드가 정본. 앱 프레임 후보: 「stock market research vs random trading tips」(초안 준비, 앱 전체 소개 + Command 카드) · 「SMA·MACD·RSI 를 쉽게 설명하는 리소스」. 종목 방향·풀백 예측 질문은 제외.
 ### 스토어 스크린샷 v2 — 18장 완성 (t078)
 `promo-shots/ios65-v2/` · 1242×2688 · en/ko/ja · 첫 3장 캡션: 「The whole US market, free, on one screen」「One ticker, in plain English」「See what institutions are doing right now」(ko/ja 동형). 기존 파일명이 규격을 속이던 버그(1080x1920 고정)를 고쳤다. 다음(t079): ASC 새 버전에 업로드 — 제출은 빌드 필요 → 「승인 대기」로 올린다.
+
+## 2026-09-16 (4) — 01:48 KST 사이클
+### 광고 — 7일 $203.85/설치 3, 4캠페인 실행·입찰 $2 캡 유지·드리프트 없음. 예산 $30/일 상한 이상무.
+### 발행 — Reddit r/Daytrading (질문 스레드, 앱 이름·무링크)
+「How do you actually practice day trading as a beginner?」에 가치 댓글: 페이퍼트레이딩 실전처럼·«왜» 먼저 기록·5종목만·프리마켓 맥락. 앱은 「탭 8개를 대신한 무료 앱」으로 1회 언급(링크 없음). **생존 확인 p9zoc5u(제거 안 됨, score 1).**
+어제 데일리 스레드 숫자 9개 댓글은 8분 만에 제거됐는데, 오늘 질문 스레드 무링크·숫자 최소 댓글은 살았다 — 규칙(질문스레드·숫자 3개 이하·무링크) 실증.
+### ASO — t079 를 티켓 #T6 로 (라이브 앱 인접, 낮 감시 실행)
+v2 18장·업로드 스크립트 준비 완료. 새 버전 생성+업로드는 대표 확인 하 낮 시간에 실행(제출은 빌드 필요).
