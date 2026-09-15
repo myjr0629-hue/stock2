@@ -528,6 +528,15 @@ export default function AppDashPage() {
   const marketStatusReady = !marketStatusLoading;
   const isLive = marketStatusReady && marketSession === 'regular' && !isMarketHoliday;
   const equityExtendedLive = marketStatusReady && !isMarketHoliday && (marketSession === 'pre' || marketSession === 'regular' || marketSession === 'post');
+
+  // ★ 2026-09-15 실측 수리. 무버스 응답이 2.2초에 왔는데 화면엔 4.1초에 떴다.
+  //   원인: 아래 무버스 useEffect 의존성에 equityExtendedLive 가 들어 있었다.
+  //   장상태(/api/market/status)가 1.6초·2.9초에 두 번 해석되며 값이 바뀌자
+  //   effect 가 정리(active=false)되어 **이미 받은 응답이 버려지고** 다시 받았다.
+  //   시세·세션 같은 «자주 바뀌는 값»은 의존성이 아니라 ref 로 읽는다.
+  //   (같은 종류를 전에도 겪었다 — live-quotes-in-deps-discard-responses)
+  const equityExtendedLiveRef = useRef(equityExtendedLive);
+  useEffect(() => { equityExtendedLiveRef.current = equityExtendedLive; }, [equityExtendedLive]);
   const [loading, setLoading] = useState(true);
   const [indices, setIndices] = useState<PulseItem[]>(lastGoodIndices ?? DEMO_INDICES);
   const [futures, setFutures] = useState<PulseItem[]>(lastGoodFutures ?? DEMO_FUTURES);
@@ -1257,7 +1266,7 @@ export default function AppDashPage() {
           if (mapped.length > 0) {
             setMovers(prev => mapped.map(item => {
               const currentPct = parsePctText(item.chg) ?? 0;
-              if (equityExtendedLive || Math.abs(currentPct) >= 0.0001) {
+              if (equityExtendedLiveRef.current || Math.abs(currentPct) >= 0.0001) {
                 return item;
               }
               const previous = prev.find(p => p.sym === item.sym);
@@ -1291,7 +1300,7 @@ export default function AppDashPage() {
       active = false;
       clearInterval(interval);
     };
-  }, [moverSort, equityExtendedLive]);
+  }, [moverSort]);   // ★ equityExtendedLive 를 뺐다 — 값이 바뀔 때마다 응답을 버렸다(위 주석)
 
   /* ── Fetch live data from APIs ── */
   useEffect(() => {
@@ -2285,7 +2294,14 @@ export default function AppDashPage() {
           </span>
         </div>
         <div className={`${n9.e9Surf} ${n9.e9Mvs}`}>
-          {(loading || moversLoading)
+          {/* ★ 2026-09-15 실측 수리. 무버스 응답은 1.56초에 오는데 화면은 3.59초에 그려졌다.
+              원인: 전역 `loading` 에 묶여 있었고, 그 플래그는 fetchAll 의 finally 에서야
+              풀린다 — 즉 «가장 느린» premium-metrics(4.1초)를 기다렸다.
+              무버스는 자기 데이터·자기 플래그가 따로 있으므로 남의 지연을 기다릴 이유가 없다.
+              (loading 을 게이트로 쓰는 곳은 여기 하나뿐이라 수정 범위가 좁다.)
+              moversLoading 은 초기값이 false 라 첫 프레임에 빈 목록이 보일 수 있으므로
+              «아직 데이터가 없다» 조건을 같이 둔다. */}
+          {(moversLoading || movers.length === 0)
             ? [0, 1, 2, 3].map((i) => <div key={`skv-${i}`} className={`${n9.e9Skel} ${n9.e9SkelRow}`} />)
             : movers.map((mv, mi) => {
                 const wsData = wsGetPrice(mv.sym);
