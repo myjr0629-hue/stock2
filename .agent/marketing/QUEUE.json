@@ -989,6 +989,18 @@
    "tries": 0,
    "created": "2026-09-15",
    "note": ""
+  },
+  {
+   "id": "t077",
+   "type": "publish",
+   "region": "US",
+   "title": "Quora EN 무응답 탐색 스크립트 디버그 — 검색 결과 앵커 필터가 0건(앱·거시·실적 질의 5개)",
+   "detail": "search?q=&type=question 페이지의 링크 구조가 바뀐 듯. 스크린샷 찍고 셀렉터 교정. 목표: «best free app to follow the US market» «earnings calendar app» «why did a stock move» 류 무응답 질문(앱 전체 프레임).",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }

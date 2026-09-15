@@ -5838,3 +5838,7 @@ SaaSHub·Uptodown 검색 404, Slant·AlternativeTo·APKPure 는 봇 차단 403 �
 Quora EN 다크풀 3탄 초안(앱 전체 소개 프레임, 본문 무링크, Command 화면 카드 첨부) — 09:00 KST(UTC 새 날) 이후 게시.
 ### 크리에이티브 A/B (교리 STAGE 5)
 A안 `card-app-en.png`: 대시보드 화면(홈에 가까움 — 교리는 홈 화면 금지이나 «시장 전체» 메시지엔 이 화면이 가치 순간이라 A안으로 유지) · B안 `card-app-en-b.png`: Command 화면(결과 화면) + 「Type a ticker. See what institutions are doing.」 트리거=호기심+자기이해. 내일 X·Bluesky·Quora 에 A/B 로 나눠 쓰고 클릭으로 승자 판정.
+### 준비 완료(09:00 KST 이후 게시) · 탐색 디버그
+초안 3건: Quora EN 다크풀 3탄 · jp.quora 「ダークプールの問題点とは？」 · de.quora 「Was ist ein dark pool und wofür wird es genutzt?」 — 전부 «앱 전체» 프레임(프리마켓·실적·거시·섹터·AI 브리핑 → 그 위에 기관 흔적), 본문 무링크, Command 카드 첨부.
+Quora 알림: 복원 알림만, 새 삭제 없음.
+앱·거시·실적 질의 5개의 무응답 탐색은 앵커 필터 0건 → 셀렉터 교정 큐(t077). 
