@@ -5867,3 +5867,9 @@ Quora 무응답 탐색: 내부 검색은 «앱·거시·실적» 질의에 결�
 어제 데일리 스레드 숫자 9개 댓글은 8분 만에 제거됐는데, 오늘 질문 스레드 무링크·숫자 최소 댓글은 살았다 — 규칙(질문스레드·숫자 3개 이하·무링크) 실증.
 ### ASO — t079 를 티켓 #T6 로 (라이브 앱 인접, 낮 감시 실행)
 v2 18장·업로드 스크립트 준비 완료. 새 버전 생성+업로드는 대표 확인 하 낮 시간에 실행(제출은 빌드 필요).
+
+## 2026-09-16 (5) — 02:2x 사이클
+### 발행 — Quora EN 「research vs random trading tips」(무응답 → 첫 답변, 앱 화면 첨부)
+[답변](https://www.quora.com/What-is-the-difference-between-stock-market-research-and-random-trading-tips/answer/Jiyoung-Kim-236) · 앱 전체 프레임(가격·옵션·다크풀·프리마켓·실적·거시·AI 브리핑을 한 화면에), 「tips 가 살아남아야 할 숫자를 준다」로 앱을 위치. **Command 스크린샷 첨부(img 확인), 본문 무링크**(스팸 회피 — 어제 학습 적용). 트리거: 호기심+자기이해.
+실무 메모: base64 를 page.evaluate 로 넘기면 큰 이미지에서 페이지가 굳는다 → **setInputFiles('input[type=file][accept="image/*"]') 로 첨부**가 안전. ego 탭 8개 상한(page budget)에 걸리면 stale 탭부터 닫고 이어서 한다.
+### 광고 — 세션 살아 있음, 7일 $203.85·설치 3, 예산 이상무(어제 $20.55/$30).
