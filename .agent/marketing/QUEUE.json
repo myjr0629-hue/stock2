@@ -588,10 +588,11 @@
    "title": "US 캠페인 2개 켜기 — 대표 승인 완료, 로그인만 대기",
    "detail": "대표가 2026-09-14 켜라고 승인했다. 애플광고 세션이 만료돼 로그인 화면으로 튄다(비밀번호·2FA 는 내가 못 한다). 대표가 로그인하면 즉시: US Search Tab($5/일)·US Search Results($10/일) 둘 다 재개. Search Results 는 Maximize Conversions 라 입찰전략도 확인할 것.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-13",
-   "note": ""
+   "note": "US Search Tab·US Search Results 둘 다 켬(대표 승인분). 이후 ADS-BASELINE 로 추적.",
+   "closed": "2026-09-15 08:49"
   },
   {
    "id": "t046",
@@ -648,10 +649,11 @@
    "title": "lambda-cross-sector 재배포 — EOL 모델 교체분 반영",
    "detail": "소스는 이미 sonnet-4-6 으로 고쳤고 커밋됐다. Lambda 에 실제로 반영하려면 재배포가 필요한데, 배포가 Environment 를 전체 치환하므로 반드시 기존 env 를 읽어 머지할 것(안 하면 INTRINIO_API_KEY 가 날아간다 — 전례 있음). 2026-10-14 전까지.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "코드만 재배포(scripts/deploy-cross-sector-code-only.js 신설). 환경변수 9→9 보존, CodeSize 2604→2928KB, 모델 us.anthropic.claude-sonnet-4-6. 검증은 오늘 21:50 UTC 정기 실행 로그로.",
+   "closed": "2026-09-15 08:49"
   },
   {
    "id": "t051",
@@ -684,10 +686,11 @@
    "title": "Quora 무응답 — 다크풀 2탄 (이긴 주제 확대)",
    "detail": "다크풀 답변이 하루 7클릭. 무응답 질문이 더 있다: 「How does institutional dark pool trading affect daily stock prices?」 「What are dark pools, and why should I learn about them?」 열어서 «정말 0답변인지» 확인하고 쓸 것.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "t058 로 발행 완료 — quora.com/How-does-institutional-dark-pool-trading-affect-daily-stock-prices/answer/Jiyoung-Kim-236",
+   "closed": "2026-09-15 08:49"
   },
   {
    "id": "t054",
@@ -720,10 +723,11 @@
    "title": "premium-metrics 콜드 12~16초 — 마켓 펄스 지연의 뿌리",
    "detail": "실측 15,986ms. 내부에서 /api/live/volatility-regime 를 HTTP 로 다시 부르고(revalidate=60), 그 60초 TTL 이 만료될 때마다 첫 요청이 전부를 낸다. 마켓 펄스의 무료 카드가 그만큼 기다린다. 대안: (a) 내부 HTTP 호출을 함수 직접호출로 바꿔 왕복 제거 (b) TTL 을 늘리고 백그라운드 갱신 (c) 값이 없으면 마지막 정상본을 먼저 주고 뒤에서 갱신. 앱뷰 최대 체감지연이라 우선순위 높다.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "premium-metrics 콜드 26.5s→0.85s: 내부 HTTP 자기호출 제거 + Redis 마지막정상값 + 백그라운드 갱신. 대시보드 movers 게이트도 수정.",
+   "closed": "2026-09-15 08:49"
   },
   {
    "id": "t057",
@@ -775,6 +779,30 @@
    "created": "2026-09-15",
    "note": "note.com 공개 완료 — note.com/signumhq/n/n274e616e1133 「NVDAが-3.4%、AMDが-4.4%の日、ダークプール比率は市場平均以下だった」. 1,122자·임베드 카드 ?from=note 유지·태그 5개(米国株·ダークプール·NVDA·AMD·投資).",
    "closed": "2026-09-15 08:41"
+  },
+  {
+   "id": "t061",
+   "type": "tech",
+   "region": "ALL",
+   "title": "cross-sector 람다 재배포 검증 — 21:50 UTC 실행 로그 확인",
+   "detail": "scripts/check_lambda_logs.js 로 signum-cross-sector-intel 의 9/15 21:50 UTC 실행이 새 모델(us.anthropic.claude-sonnet-4-6)로 성공했는지 확인. 실패면 즉시 롤백 판단(이전 코드 2026-08-29 판).",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
+  },
+  {
+   "id": "t062",
+   "type": "ads",
+   "region": "ALL",
+   "title": "애플 광고 콘솔 재로그인 대기 — 대표 할일 폴더에 안내 완료",
+   "detail": "세션 만료(9/15 17:41 KST). 비밀번호는 입력 불가. 로그인되면 즉시: 일 지출 점검 → ADS-BASELINE add → t005·t037·t038·t039·t041·t042·t048 재개.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }

@@ -3,12 +3,19 @@ const { CloudWatchLogsClient, FilterLogEventsCommand } = require('@aws-sdk/clien
 const fs = require('fs');
 const c = new CloudWatchLogsClient({ region: 'us-east-1' });
 
+// 사용: node scripts/check_lambda_logs.js [함수명=signum-harvest] [시간=2] [필터문자열]
+//   예) node scripts/check_lambda_logs.js signum-cross-sector-intel 12 sonnet
+const FN = process.argv[2] || 'signum-harvest';
+const HOURS = Number(process.argv[3] || 2);
+const FILTER = process.argv[4] || '';
+
 (async () => {
   const now = Date.now();
-  const twoHoursAgo = now - (2 * 60 * 60 * 1000);
+  const twoHoursAgo = now - (HOURS * 60 * 60 * 1000);
   
   const r = await c.send(new FilterLogEventsCommand({
-    logGroupName: '/aws/lambda/signum-harvest',
+    logGroupName: '/aws/lambda/' + FN,
+    ...(FILTER ? { filterPattern: '"' + FILTER + '"' } : {}),
     startTime: twoHoursAgo,
     endTime: now,
     limit: 200

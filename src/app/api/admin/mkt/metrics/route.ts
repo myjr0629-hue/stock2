@@ -71,6 +71,8 @@ const CHANNELS = [
   'quora_maxpain',           // 무응답 질문 「맥스페인 이론의 장단점」 — 맥스페인은 우리 간판 기능이다
   'quora_darkpool',          // 무응답 질문 「개별 종목 다크풀을 무료로 어디서 보나」 — 직접 구매의도
   'quora_premarket',         // 무응답 질문 답변 — 광고에서 증명된 승자 낱말(프리마켓)을 무료 표면에 복제
+  // ★ 2026-09-15 이긴 패턴(Quora 무응답)을 «일본어 Quora» 로 복제. jp.quora.com 은 같은 계정·다른 청중.
+  'quora_jp_darkpool',       // jp.quora.com 무응답 — ダークプール(다크풀) 질문. 태그를 먼저 등록하고 링크를 붙인다
   'alternativeto',           // AlternativeTo — 「Unusual Whales alternative」 검색이 실제로 있다(고의도)
   'saashub',                 // SaaSHub — 동일 카테고리 + dofollow 백링크
   'slant',                   // Slant.co — 「best stock market apps」 질의 표면

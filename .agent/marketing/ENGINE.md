@@ -204,3 +204,11 @@ mkt.js checkpoint <id> "1차 20개 투입 완료, 나머지 20개 남음"
 광고 «작업»(키워드·입찰 조정)은 데이터가 바뀌었을 때만 한다 —
 애플 보고가 3시간 지연이므로 매 사이클 만질 이유가 없다.
 사이클의 몸통은 **발행과 개척**이어야 한다.
+
+### ego lite 작업공간 — 재시작하면 번호가 바뀐다 (2026-09-15 실측)
+`taskSpace(5)` 는 고정값이 아니다. ego lite 를 강제 재시작하자 작업공간이 **전부 사라졌고**
+`listTaskSpaces()` 가 `[]` 를 돌려줬다. 로그인은 프로필(«내 Chrome» = `Default`)에 살아 있으므로
+`newTaskSpace('marketing', 'Default')` 로 만들면 그대로 쓸 수 있다(현재 id **0**).
+스크립트 첫 줄은 `listTaskSpaces()` 로 id 를 확인하고 없으면 만든다. 
+페이지 7개가 전부 `url()` 타임아웃(DEAD) 이면 Node 헬퍼가 굳은 것 — 스크립트가 아니라 앱을 재시작한다
+(`osascript quit` → 안 죽으면 `pkill -9 -f "ego lite.app"` → `open -a "ego lite"`).
