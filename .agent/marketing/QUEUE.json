@@ -773,10 +773,11 @@
    "title": "Quora 무응답 — 다크풀 3탄 「What is dark pool trading, and how does it affect stock prices?」",
    "detail": "2026-09-15 확인 시 정말 0답변. 하루 1편 규칙 때문에 내일(ET 9/16) 이후. 태그는 quora_darkpool_basics 로 새로 등록할 것. ★ 규칙 변경(9/15): 본문에 링크 금지 — 앱 이름만 언급, 링크는 프로필 자기소개(quora_bio). 스팸 삭제 3건 뒤 첫 시험 발행.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "다크풀 3탄은 jp.quora 「ダークプールの問題点とは？」로 대체 발행(앱 화면 첨부·무링크·앱 전체 프레임). EN 3탄은 별도 무응답 질문이 나오면.",
+   "closed": "2026-09-16"
   },
   {
    "id": "t060",
