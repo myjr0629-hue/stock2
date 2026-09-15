@@ -985,10 +985,11 @@
    "title": "#T4 검증 — 배포 후 LinkedIn Post Inspector 로 /app?from=linkedin 카드가 앱 화면인지 확인",
    "detail": "curl 봇 UA 로 og:image 확인 + Post Inspector 재스크랩(캐시 7일). 카카오톡 미리보기도 확인.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "배포 7a2a4641 검증: LinkedInBot UA → 200 OG HTML, og:image = card-app-en/ja/ko (from 태그별) · 카드 200 image/png 369KB · 사람 UA(iOS/Android/데스크톱) 302 스토어 유지(Android 는 referrer 포함). Post Inspector 재스크랩은 다음 사이클 ego 로.",
+   "closed": "2026-09-15 16:04"
   },
   {
    "id": "t077",

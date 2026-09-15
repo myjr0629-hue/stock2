@@ -72,7 +72,7 @@ const OG_COPY = {
 
 function previewHtml(lang: 'en' | 'ja' | 'ko', canonical: string): string {
   const c = OG_COPY[lang];
-  const img = `https://signumhq.com/promo/card-app-${lang}.png`;
+  const img = `https://www.signumhq.com/promo/card-app-${lang}.png`; // www 직접 — 이미지 스크래퍼가 apex→www 307 을 안 따라갈 수 있다
   const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <title>${esc(c.title)}</title>

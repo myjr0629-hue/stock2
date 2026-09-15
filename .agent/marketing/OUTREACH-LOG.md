@@ -5842,3 +5842,5 @@ A안 `card-app-en.png`: 대시보드 화면(홈에 가까움 — 교리는 홈 �
 초안 3건: Quora EN 다크풀 3탄 · jp.quora 「ダークプールの問題点とは？」 · de.quora 「Was ist ein dark pool und wofür wird es genutzt?」 — 전부 «앱 전체» 프레임(프리마켓·실적·거시·섹터·AI 브리핑 → 그 위에 기관 흔적), 본문 무링크, Command 카드 첨부.
 Quora 알림: 복원 알림만, 새 삭제 없음.
 앱·거시·실적 질의 5개의 무응답 탐색은 앵커 필터 0건 → 셀렉터 교정 큐(t077). 
+### #T4 검증 — 배포 7a2a4641
+봇(LinkedInBot) → 200 OG HTML, `og:image`=card-app-en/ja/ko(from 태그별) · 카드 200 image/png · 사람 UA(iOS/Android/데스크톱) → 302 스토어 그대로(Android 는 install referrer 유지). og:image 호스트를 www 로 고정(스크래퍼가 apex→www 307 을 안 따라갈 수 있어서). 이제 링크만 붙는 곳(LinkedIn·카카오·슬랙·텔레그램)에서도 «앱 화면 카드»가 뜬다.
