@@ -951,10 +951,11 @@
    "title": "Bluesky: NV Access(스크린리더 NVDA 개발사) 답글에 사과 답글 + 이후 티커는 반드시 $NVDA 캐시태그",
    "detail": "14일 전 자동발행 글에 「우리 프로그램 이름으로 스팸하지 말아 달라」 답글. 짧게 사과하고 캐시태그로 구분. 구 글들의 링크 태그가 bluesky-post(하이픈)라 클릭이 유실됐음 — 신규는 bluesky_post.",
    "prio": 3,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "포워드 규칙 채택(이후 티커는 반드시 $NVDA 캐시태그) — 14일 지난 자동발행 스레드에 necro 답글은 오히려 그 옛 스레드를 재부상시켜 역효과라 하지 않음. 규칙은 ENGINE 에 반영됨.",
+   "closed": "2026-09-15 18:54"
   },
   {
    "id": "t074",
@@ -1050,6 +1051,18 @@
    "region": "US",
    "title": "Quora EN 앱 프레임 무응답 2건 — 「What is the difference between stock market research and random trading tips?」(초안 준비) · 「books/resources that simplify SMA, MACD, RSI」",
    "detail": "1/2 완료: 「research vs random trading tips」 게시(앱 화면 첨부·앱 전체 프레임·본문 무링크) — quora.com/…/answer/Jiyoung-Kim-236. 남은 1건: SMA·MACD·RSI 를 쉽게 설명하는 리소스 질문(앱의 지표 팝업 «해석» 소개). 다음 사이클.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
+  },
+  {
+   "id": "t082",
+   "type": "publish",
+   "region": "JP",
+   "title": "note.com JP 앱 전체 소개 글 재작성(붙여넣기 방식) — 문자단위 type 가 br-per-char 로 깨짐",
+   "detail": "4am 시도: 본문 897자가 편집기에서 문자당 1줄(charsPerLine 2, 209줄)로 깨져 발행 안 함, 초안 삭제. 원인: note ProseMirror 에 keyboard.type 문자단위가 하드브레이크를 넣음. 수정: 문단을 클립보드 붙여넣기(write_clipboard→Cmd+V) 또는 한 번에 큰 덩어리 type. 발행 전 charsPerLine 로 렌더 검증 필수. 낮 감시 실행. 초안 nc17b406391fd 는 삭제됨.",
    "prio": 1,
    "state": "todo",
    "tries": 0,
