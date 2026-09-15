@@ -837,10 +837,11 @@
    "title": "Quora 프로필 자기소개에 앱 링크 (quora_bio) + 기존 생존 답변 2건은 그대로",
    "detail": "레딧 방식 복제: 본문 무링크 → 프로필이 전환을 받는다. 자기소개·자격(credential) 줄에 signumhq.com/app?from=quora_bio. 태그는 CHANNELS 에 등록 완료.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "이미 있었다 — 자기소개 끝(접힌 부분)에 https://www.signumhq.com/app?from=quora_bio, 답변마다 «Founder — Options Flow & Market Structure Data at SIGNUM HQ» 자격 줄 노출. 중복 줄은 저장하지 않고 버림. 남은 건 본문 무링크 규칙 적용뿐.",
+   "closed": "2026-09-15 09:28"
   },
   {
    "id": "t066",
