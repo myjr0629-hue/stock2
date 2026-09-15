@@ -409,10 +409,11 @@
    "title": "Play 한국어 리스팅 점검",
    "detail": "제목·짧은설명에 검색어 포함 여부.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "Play 리스팅 3로케일 실측: KR 「SIGNUM HQ: 서학개미 미국증시 실적」+실적발표·프리마켓·시황 / US 「Premarket Earnings」 / JP 「米国株リアルタイム決算」. 검색어는 이미 들어가 있다. 병목은 키워드가 아니라 평점(0)이다 — t031 판정과 동일. 다운로드 표기 10+.",
+   "closed": "2026-09-15 08:11"
   },
   {
    "id": "t033",
@@ -736,6 +737,44 @@
    "created": "2026-09-15",
    "note": "Medium 발행 완료 — medium.com/@signum_hq/b8cedc35325b. 제목 'Open interest does not create resistance'. 태그 링크(?from=medium) 앵커 확인. 주제 5개(Options Trading·Stock Market·Investing·Trading·Finance).",
    "closed": "2026-09-15 07:52"
+  },
+  {
+   "id": "t058",
+   "type": "publish",
+   "region": "ALL",
+   "title": "Quora 무응답 — 다크풀 2탄 (기관 다크풀이 일중 가격에 미치는 영향)",
+   "detail": "다크풀 답변이 하루 7클릭. 「How does institutional dark pool trading affect daily stock prices?」 — 열어서 정말 0답변인지 확인 후 FINRA 실측으로 답한다.",
+   "prio": 1,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": "게시 완료 — quora.com/How-does-institutional-dark-pool-trading-affect-daily-stock-prices/answer/Jiyoung-Kim-236. 9/14 실측(NVDA -3.4%·AMD -4.4% 인데 장외 비중은 시장평균 이하, 장외 공매도 비중만 자기평균 대비 상승)으로 «다크풀이 일중 가격을 만든다»는 통설을 뒤집음. 앵커 검증 ✅",
+   "closed": "2026-09-15 08:31"
+  },
+  {
+   "id": "t059",
+   "type": "publish",
+   "region": "ALL",
+   "title": "Quora 무응답 — 다크풀 3탄 「What is dark pool trading, and how does it affect stock prices?」",
+   "detail": "2026-09-15 확인 시 정말 0답변. 하루 1편 규칙 때문에 내일(ET 9/16) 이후. 태그는 quora_darkpool_basics 로 새로 등록할 것.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
+  },
+  {
+   "id": "t060",
+   "type": "publish",
+   "region": "JP",
+   "title": "note.com — 9/14 하락일 다크풀 실측 (일본어)",
+   "detail": "NVDA -3.4%·AMD -4.4% 인데 장외 비중은 시장평균(49.1%) 아래, 공매도 비중만 자기평균 대비 상승. Quora 다크풀 답변의 일본어판.",
+   "prio": 1,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": "note.com 공개 완료 — note.com/signumhq/n/n274e616e1133 「NVDAが-3.4%、AMDが-4.4%の日、ダークプール比率は市場平均以下だった」. 1,122자·임베드 카드 ?from=note 유지·태그 5개(米国株·ダークプール·NVDA·AMD·投資).",
+   "closed": "2026-09-15 08:41"
   }
  ]
 }

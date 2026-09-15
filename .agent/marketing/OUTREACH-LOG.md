@@ -5580,3 +5580,33 @@ Quora 콜월 답변을 영어 장문으로 확장. TSLA 콜월 990 vs 주가 359
 ### 같은 날 성능 수리 (홍보와 별개지만 설치 전환에 직결)
 기관급 마켓 펄스 **26.5초 → 0.85초**(운영 실측 0.60~0.76초). 값은 6/6 운영과 동일.
 앱이 느리면 아무리 끌고 와도 남지 않는다.
+
+## 2026-09-15 (1) — 새 UTC 일 · 이긴 채널부터 · 두 청중
+
+모델을 Fable 5.1 로 바꿨지만 같은 세션이라 큐·교리·예약이 그대로 이어졌다.
+공급원 4종 신선(EOD 가 9/14 월요일 종가로 갱신됨).
+
+### Quora 무응답 — 다크풀 2탄 (EN)
+[How does institutional dark pool trading affect daily stock prices?](https://www.quora.com/How-does-institutional-dark-pool-trading-affect-daily-stock-prices/answer/Jiyoung-Kim-236)
+열어서 «정말 0답변»임을 먼저 확인(세 번째 후보는 답변이 있어 제외).
+훅은 9/14 실측 — **NVDA -3.4%·AMD -4.4% 하락일인데 장외 비중은 시장평균(49.1%) 아래**
+(NVDA 39.9%·AMD 43.1%). 「다크풀에서 팔았다」는 통설의 반례. 대신 방향과 맞은 건
+**장외 안의 공매도 비중 vs 자기 20일 평균**(AMD 63.7% vs 53.4 · NVDA 44.0 vs 38.0 · AAPL 46.3 vs 47.3).
+앵커 검증 `http://signumhq.com/app?from=quora_darkpool_daily` ✅
+
+⚠️ 실무 메모: 입력 검증에서 `hasTag:false` 가 떴는데 **본문은 전부 들어가 있었다.**
+Quora 가 문장 중간의 URL 을 자동 링크로 바꾸며 표시 문구를 제목으로 치환하기 때문.
+innerText 에 태그가 없어도 href 는 유지된다 — **게시 후 앵커로 검증**하는 게 정본.
+
+### note.com — 같은 실측의 일본어판 (JP)
+[NVDAが-3.4%、AMDが-4.4%の日、ダークプール比率は市場平均以下だった](https://note.com/signumhq/n/n274e616e1133)
+1,122자 · 임베드 카드 `?from=note` 유지 · 태그 米国株·ダークプール·NVDA·AMD·投資.
+일본이 깨어 있는 시간(JST 17시대)에 맞춰 냈다.
+
+### t032 Play 한국어 리스팅 — 이미 검색어가 들어가 있다
+KR 「SIGNUM HQ: 서학개미 미국증시 실적」+ 실적발표·프리마켓·시황 / US 「Premarket Earnings」 / JP 「米国株リアルタイム決算」.
+병목은 키워드가 아니라 평점(0) — t031 판정과 같다.
+
+### 다음
+· 다크풀 3탄 「What is dark pool trading, and how does it affect stock prices?」 — 0답변 확인됨, 하루 1편 규칙으로 내일.
+· 레딧 3/3 초기화됐지만 04시 ET 라 미국이 잠들어 있다 — 다음 사이클(US 오전)에.
