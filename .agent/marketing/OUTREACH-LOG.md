@@ -5799,3 +5799,12 @@ ego lite «내 Chrome» 프로필 소실 → Profile 1 로 통일. note.com·Blu
 Bluesky 알림: 예전 자동발행 글들이 `?from=bluesky-post`(하이픈)로 나가 있었다 — FROM_RE 밖이라 그 클릭은 전부 유실됐다(메모리에 있던 함정 그대로). 신규는 `bluesky_post`.
 NV Access(윈도우 스크린리더 «NVDA» 개발사)가 「우리 프로그램 이름으로 스팸하지 말라」고 답글 — 앞으로 티커는 반드시 `$NVDA` 캐시태그(t073 사과 답글).
 첫 시도는 300자 초과로 「게시하기」 비활성 → 줄여서 재게시.
+
+## 2026-09-16 (1) — 대표 지적: 「앱 화면을 왜 안 쓰나」 → 이미지 첨부 자동화 + 홍보 카드
+### 발행 — Bluesky (오늘 1편, 캐시태그·올바른 태그)
+게시 확인: `bsky.app/profile/signumhq.bsky.social` — $NVDA/$AMD 다크풀 실측 + `signumhq.com/app?from=bluesky_post`. 첫 시도는 300자 초과로 버튼 비활성 → 295자로 줄여 게시.
+### 이미지 첨부 — 되는 경로 확보(메모리 attach-images-to-web-editors-via-ego)
+Quora 편집기에 base64→File→drop 이벤트로 앱 스크린샷이 실제로 들어갔다(img 0→1, 화면으로 확인). `page.setInputFiles` 도 있다(선택자 유일하게).
+스토어 원본 스크린샷 5장(1242×2688) 확보: `/tmp/ego/shots/signum-{dash,cmd,flow,guardian,intel}.png`.
+### 홍보 카드 렌더 — 「"Dark pools were selling." FINRA's file says the opposite.」
+`recipt/promo-cards/card-darkpool-0914-{en,ja}.png`(2400×1350): 헤드라인 + NVDA/AMD/AAPL 실측 표 + 앱 화면(폰 프레임) + 「FREE APP/無料アプリ」 배지. 텍스트만 올리던 게시물을 전부 이 방식으로 바꾼다(교리 §11).

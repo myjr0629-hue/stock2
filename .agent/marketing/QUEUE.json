@@ -950,6 +950,18 @@
    "tries": 0,
    "created": "2026-09-15",
    "note": ""
+  },
+  {
+   "id": "t074",
+   "type": "publish",
+   "region": "ALL",
+   "title": "★ 모든 게시물에 카드/앱 화면 첨부 — 내일(UTC 9/16) Quora EN 3탄·JP·DE, note.com, Reddit 질문 스레드, X 전부 카드로",
+   "detail": "카드: promo-cards/card-darkpool-0914-{en,ja}.png · 앱 화면: /tmp/ego/shots/signum-*.png. Quora 는 drop 이벤트, LinkedIn/X/Bluesky 는 setInputFiles. 발행 뒤 이미지가 실제로 보이는지 스크린샷으로 확인.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }
