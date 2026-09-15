@@ -5855,3 +5855,5 @@ Quora 알림: 복원 알림만, 새 삭제 없음.
 앱 디렉터리 실측(ego): SaaSHub·Slant·APKPure·Uptodown 에 SIGNUM 미등재, AlternativeTo 불명확, Product Hunt 프로필만 → t029 에 단계 기록(APKPure 무계정 제출·SaaSHub 이메일 폼·AlternativeTo/Slant 계정 티켓).
 Quora 무응답 탐색: 내부 검색은 «앱·거시·실적» 질의에 결과 0, DDG 202 차단, Bing 미색인 → 토픽 피드 방식으로 전환(t080, 진행 중).
 스토어 스크린샷 공장(make-promo-shots.js) 캡션을 앱 일상어로 교체 — ① 미국 시장 전체를 무료 앱 하나로 ② 종목 하나, 전부 쉬운 말로 ③ 기관이 지금 무엇을 하는지 … (en/ko/ja) — 6.5인치 규격으로 18장 렌더 중.
+### Quora 무응답 발굴 경로 확정 — `quora.com/answer` 피드(«No answer yet» 라벨, 44건)
+토픽 피드 URL 은 무효(앵커 0). Answer 피드가 정본. 앱 프레임 후보: 「stock market research vs random trading tips」(초안 준비, 앱 전체 소개 + Command 카드) · 「SMA·MACD·RSI 를 쉽게 설명하는 리소스」. 종목 방향·풀백 예측 질문은 제외.
