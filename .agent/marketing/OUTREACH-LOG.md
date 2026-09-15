@@ -5808,3 +5808,7 @@ Quora 편집기에 base64→File→drop 이벤트로 앱 스크린샷이 실제�
 스토어 원본 스크린샷 5장(1242×2688) 확보: `/tmp/ego/shots/signum-{dash,cmd,flow,guardian,intel}.png`.
 ### 홍보 카드 렌더 — 「"Dark pools were selling." FINRA's file says the opposite.」
 `recipt/promo-cards/card-darkpool-0914-{en,ja}.png`(2400×1350): 헤드라인 + NVDA/AMD/AAPL 실측 표 + 앱 화면(폰 프레임) + 「FREE APP/無料アプリ」 배지. 텍스트만 올리던 게시물을 전부 이 방식으로 바꾼다(교리 §11).
+
+### 발행 — LinkedIn (t013, 5회 시도 끝에)
+`linkedin.com/feed/?shareActive=true&text=` 로 본문 선채움 → 링크는 키보드로 직접 타이핑(선채움에 넣으면 `?from=` 이 잘린다) → 「업데이트」는 iframe 안이라 좌표 클릭. 게시·앵커 `?from=linkedin` 확인.
+카드 이미지는 drop·paste 둘 다 작성기가 거부(iframe) — 링크 미리보기가 앱스토어 이미지를 보여 준다. 채널별 원칙(대표): 긴 글엔 카드, 짧은 곳엔 스크린샷 한 장 — 능동적으로.

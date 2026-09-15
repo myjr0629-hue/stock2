@@ -170,10 +170,11 @@
    "title": "LinkedIn 게시",
    "detail": "링크카드는 Post Inspector 로 먼저 데운다. ★ 9/16 00:1x 실측: 「글 올리기」 좌표 클릭이 피드 레이아웃에 따라 빗나가 4회 실패(모달 미열림·엉뚱한 프로필로 이동). 다음: linkedin.com/feed/?shareActive=true&text=<urlencoded> 로 컴포저를 선채워 열고, 스크린샷으로 모달 확인 후 「업데이트」 클릭. 5일 전 글 노출 24 — 우선순위 낮음.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "게시 완료 — linkedin.com/in/signumhq/recent-activity (shareActive 선채움 + 링크 직접 타이핑 + 좌표 클릭). ?from=linkedin 앵커 확인. 카드 이미지 붙여넣기는 iframe 작성기가 거부 → 링크 미리보기(앱스토어 이미지)가 화면 역할. 다음: 이미지 버튼→파일 input 경로 시도.",
+   "closed": "2026-09-15 15:31"
   },
   {
    "id": "t014",
