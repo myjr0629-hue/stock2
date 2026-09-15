@@ -5513,3 +5513,43 @@ NKE: 장외 44.1%(시장평균 50.8%)인데 **장외 공매도 비중 55.0% vs �
 * **TACTICAL INSIGHT 실패** — Bedrock 의 Haiku 4.5 가 두 프로파일 모두 503.
   모델 계열을 바꾸는 폴백 사다리 + 5분 쿨다운을 넣어 화면이 살아났다.
 * 덤으로 **10/14 EOL 예정 모델**을 운영 2곳에서 쓰던 것을 찾아 교체했다.
+
+### 2026-09-14 (3) — 측정으로 이긴 채널을 찾아 키웠다
+
+**클릭 실측(ET 일자별, `mkt:attr:hit:<태그>:<날짜>`)**
+
+| 날짜 | quora 계열 | note | seo | 기타 |
+|---|---|---|---|---|
+| 9/11 | **23** | — | 6 | reddit_sp 4 · indiehackers 2 |
+| 9/12 | **30** | 3 | 1 | reddit_bio 2 |
+| 9/13 | **23** (프리마켓 15 · 다크풀 7) | 4 | 2 | x_us 4 |
+
+**Quora 가 압도적이다.** 어제 올린 답변 2건이 하루 만에 22클릭.
+성장규칙 (a)·(c) 대로 이긴 것을 키운다 — 주제별로 태그를 나눠 «무엇이» 먹히는지 본다.
+
+**오늘 게시**: [How does having the highest open interest on a call option at a specific
+price create a resistance level at that price for the stock?](https://www.quora.com/How-does-having-the-highest-open-interest-on-a-call-option-at-a-specific-price-create-a-resistance-level-at-that-price-for-the-stock/answer/Jiyoung-Kim-236)
+
+내용의 축 — 실측 반례 하나로 통설을 무너뜨렸다(2026-09-14 기준):
+
+| 종목 | 종가 | 콜월 | 거리 |
+|---|---|---|---|
+| MSFT | 505.40 | 525 | +3.9% |
+| AAPL | 333.11 | 350 | +5.1% |
+| META | 665.71 | 700 | +5.2% |
+| NVDA | 210.89 | 230 | +9.1% |
+| AMZN | 253.52 | 280 | +10.4% |
+| GOOGL | 349.49 | 400 | +14.5% |
+| **TSLA** | **359.01** | **990** | **+175.8%** |
+
+> TSLA 의 최대 콜 미결제약정이 990 인데 주가는 359 다. 아무도 TSLA 가 990 에서
+> 저항을 만난다고 생각하지 않는다. 미결제약정 «자체»가 저항을 만든다면 그 스트라이크가
+> 차트에서 가장 중요한 선이어야 하는데, 명백히 아니다.
+
+그리고 진짜 메커니즘(딜러 헤지)과 그것이 성립하는 세 조건(근접·만기임박·감마 부호)을 적었다.
+인과를 거꾸로 말하는 통설을 바로잡는 형식이라 «봇»으로 읽히지 않는다.
+
+**검증**: 게시 후 앵커 확인 `http://signumhq.com/app?from=quora_callwall` ✅
+
+**배운 것**: `/unanswered/` URL 은 «뷰»일 뿐이다. 맥스페인 장단점 질문은 그 URL 로 열렸지만
+실제로는 9년 된 답변이 9,983 업보트를 받고 있었다 — 열어서 «정말 0개인지» 확인하고 쓸 것.
