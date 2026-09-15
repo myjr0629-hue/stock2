@@ -76,6 +76,7 @@ const CHANNELS = [
   // ★ 2026-09-15 Quora 가 «스팸 정책»으로 답변 3건(9/13·9/14·9/15)을 지웠다 — 본문 링크가 원인으로 보인다.
   //   레딧과 같은 구조로 간다: 본문엔 링크 없이 앱 이름만, 링크는 프로필(자기소개)이 받는다.
   'quora_bio',               // Quora 프로필 자기소개 링크 — 본문 무링크 답변의 전환 깔때기
+  'quora_de_darkpool',       // de.quora.com(독일어) — 유럽 첫 표면. 본문 무링크 원칙이라 클릭은 quora_bio 로 잡힌다; 태그는 장래용
   'alternativeto',           // AlternativeTo — 「Unusual Whales alternative」 검색이 실제로 있다(고의도)
   'saashub',                 // SaaSHub — 동일 카테고리 + dofollow 백링크
   'slant',                   // Slant.co — 「best stock market apps」 질의 표면

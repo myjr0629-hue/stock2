@@ -886,6 +886,18 @@
    "created": "2026-09-15",
    "note": "프로덕션(f9c2870d) 375×812 실화면: 트랙 시트·퀴즈 화면 모두 하단 탭바 표시, 탭 탭 → 홈 복귀 확인. WIM 앱은 웹을 로드하므로 기기에서 재실행 시 반영.",
    "closed": "2026-09-15 14:02"
+  },
+  {
+   "id": "t069",
+   "type": "expand",
+   "region": "EU",
+   "title": "de.quora.com 개통 + 다크풀 데이터 접근 무응답 답변 (유럽 첫 표면)",
+   "detail": "같은 Quora 계정에 Deutsch 추가. 「Wie/wo erhält man Zugriff auf Dark-Pool-Handelsaktivitätsdaten?」 0답변. 본문 무링크(앱 이름만) — 스팸 정책 학습 적용.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }
