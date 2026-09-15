@@ -5768,3 +5768,9 @@ u/SignumHQ 는 ego `Profile 1` 에 산다(`Default` 의 레딧은 정체불명 �
 US-Intent-Exact 에 의도어 4개 추가 확인(pre market stocks · after hours stocks · earnings this week · market news app, 확장 $2.00).
 KR-Intent 서학개미 $2.00 → **$1.00** 저장 확인(「서학개미 | 실행 중 | $1.00 | 확장」). 다이얼로그의 금액 입력창은 고정 좌표(377)가 아니라 매번 다르다(430) — 딥워커로 찾아 해결. 메모리에 반영.
 이 시점 광고 큐: 남은 ads 항목 t042(입찰가 되돌아감 감시 — 매 사이클) 뿐.
+
+## 2026-09-15 (5) — 23:45 KST 사이클 (대표: «광고만 들락날락 말고 성과를»)
+### ASO — 앱스토어 첫 3장 (t033 → t070)
+US 실측 캡션: ①「What institutions do, on one screen」②「One ticker, everything — max pain · gamma · dark pool」③「Options flow & dark pool — the footprints of big money」.
+**3장 중 2장이 지표 이름으로 시작하고, «Free»·premarket·earnings calendar·stock app 같은 검색을 이기는 말이 첫 3장에 없다.** 브랜드는 앱이지 지표가 아니다.
+t070 으로 재캡션·순서 교체(프리마켓/실적발표 화면을 3장 안에)를 잡았다 — ASC API 로 올릴 수 있으니 웹 로그인 없이 진행 가능.

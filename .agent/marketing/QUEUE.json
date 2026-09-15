@@ -424,10 +424,11 @@
    "title": "스토어 스크린샷 첫 3장 점검",
    "detail": "전환은 첫 3장이 정한다. 앱이 하는 일이 보이는지.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "앱스토어(US) 첫 3장 실측: ①「What institutions do, on one screen」 대시보드 ②「One ticker, everything — max pain · gamma · dark pool」 ③「Options flow & dark pool — the footprints of big money」. 판정: 3장 중 2장이 «지표 이름»으로 시작하고, 검색을 이기는 일상어(free · premarket · earnings calendar · stock app)와 «무료» 표기가 첫 3장 어디에도 없다. 재캡션·순서 교체 항목으로 분리(t070).",
+   "closed": "2026-09-15 14:45"
   },
   {
    "id": "t034",
@@ -901,6 +902,18 @@
    "created": "2026-09-15",
    "note": "게시 완료 — de.quora.com/Wie-wo-erhält-man-Zugriff-auf-Dark-Pool-Handelsaktivitätsdaten/answer/Jiyoung-Kim-236 (1,977자, 본문 무링크·앱 이름만). 남은 무응답: 「Was ist ein dark pool und wofür wird es genutzt?」(내일).",
    "closed": "2026-09-15 14:05"
+  },
+  {
+   "id": "t070",
+   "type": "aso",
+   "region": "ALL",
+   "title": "앱스토어 스크린샷 첫 3장 재캡션 — 지표어 → 앱 일상어",
+   "detail": "제안 캡션: ① Free US stock app — premarket movers, earnings calendar, live quotes ② Every ticker in plain English — price, options, dark pool ③ An AI market brief every morning. 프리마켓/실적발표 화면을 3장 안에 넣는다. ASC API 로 업로드(웹 로그인 불필요). ko·ja 도 같은 원칙.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-15",
+   "note": ""
   }
  ]
 }
