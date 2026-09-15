@@ -527,10 +527,11 @@
    "title": "KR 중복 키워드 정리 — Core 와 Intent 가 서로 경쟁한다",
    "detail": "프리마켓·주식앱·주식차트·해외주식·미국주식이 KR-Core-Exact 와 KR-Intent-Exact 양쪽에 있다. 같은 캠페인 안에서 자기들끼리 경매 경쟁 중. 한쪽으로 몰아야 한다 — 확장은 Core, 일치는 Intent 로 정리.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-13",
-   "note": ""
+   "note": "KR-Core-Exact 에서 Intent 와 겹치던 6개(서학개미·프리마켓·주식앱·주식차트·해외주식·미국주식) 일시정지 — 이긴 프리마켓($0.72/설치)은 Intent 쪽에 그대로. 같은 캠페인 안 자기경쟁 해소. 예산 불변.",
+   "closed": "2026-09-15 13:01"
   },
   {
    "id": "t042",
