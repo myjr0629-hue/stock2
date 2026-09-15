@@ -73,6 +73,9 @@ const CHANNELS = [
   'quora_premarket',         // 무응답 질문 답변 — 광고에서 증명된 승자 낱말(프리마켓)을 무료 표면에 복제
   // ★ 2026-09-15 이긴 패턴(Quora 무응답)을 «일본어 Quora» 로 복제. jp.quora.com 은 같은 계정·다른 청중.
   'quora_jp_darkpool',       // jp.quora.com 무응답 — ダークプール(다크풀) 질문. 태그를 먼저 등록하고 링크를 붙인다
+  // ★ 2026-09-15 Quora 가 «스팸 정책»으로 답변 3건(9/13·9/14·9/15)을 지웠다 — 본문 링크가 원인으로 보인다.
+  //   레딧과 같은 구조로 간다: 본문엔 링크 없이 앱 이름만, 링크는 프로필(자기소개)이 받는다.
+  'quora_bio',               // Quora 프로필 자기소개 링크 — 본문 무링크 답변의 전환 깔때기
   'alternativeto',           // AlternativeTo — 「Unusual Whales alternative」 검색이 실제로 있다(고의도)
   'saashub',                 // SaaSHub — 동일 카테고리 + dofollow 백링크
   'slant',                   // Slant.co — 「best stock market apps」 질의 표면
