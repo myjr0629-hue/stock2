@@ -5705,3 +5705,9 @@ KR 7일 키워드 실측: **서학개미 두 그룹 합 $26.60 · 탭 6 · 설�
 Core 와 Intent 양쪽에 있던 6개(서학개미·프리마켓·주식앱·주식차트·해외주식·미국주식)를 **Core 에서 일시정지** — 전부 「일시 정지됨」 확인. Intent 쪽은 그대로(이긴 자리).
 Intent 의 서학개미는 $2.00 → **$1.00** 으로(죽이지 않고 줄인다 — 탭당 $5.20 짜리에 $1 이상 안 준다).
 캠페인 예산 $10 그대로.
+
+### US Search Results 키워드 실측 (7일) — 「finance」 한 단어가 US 지출의 71%
+US-Core-Exact: **finance(확장) $37.28 · 탭 6 · 설치 0** / finance app(확장) $8.14 · 탭 2 · **설치 1(CPA $8.14 — US 최저)** / stock charts 0.
+US-Intent-Exact: options open interest $6.27 · 탭 1 · 설치 0 / 나머지 0.
+Maximize Conversions(목표 $8) 아래라 키워드 입찰 열 자체가 없다(자동). 「finance」는 뜻이 넓어(은행·가계부) 우리 앱 의도가 아니다.
+계획(예산 불변): 캠페인을 «입찰 관리»로 전환 → 그룹 기본·키워드 전부 $2.00 → finance(확장) 일시정지 → 앱 의도어(premarket·after hours·earnings calendar·stock market app…) 확장 $2.00 추가(t005·t039).
