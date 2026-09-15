@@ -1011,10 +1011,11 @@
    "title": "t070-1 스토어 스크린샷 재제작: 앱 실화면 캡처(프리마켓·실적·대시보드·Command·AI 브리핑) → compose-promo-shots.py 로 앱 일상어 캡션 합성 (en/ko/ja)",
    "detail": "규격 1242×2688(6.5인치)·1290×2796(6.7인치). 캡션 A안: ① Free US stock app — premarket, earnings calendar, live quotes ② Every ticker in plain English ③ An AI market brief every morning. 홈·온보딩 화면 금지(교리 STAGE 5).",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "18장 렌더 완료 — promo-shots/ios65-v2/signum-{dash,cmd,flow,guardian,intel,heatmap}-{en,ko,ja}-1242x2688.png. 캡션 앱 일상어(① 미국 시장 전체를 무료 앱 하나로 ② 종목 하나, 전부 쉬운 말로 ③ 기관이 지금 무엇을 하는지). 라이브 데이터(9/14) 실화면. 스크립트 파일명 버그(1080x1920 고정) 수정.",
+   "closed": "2026-09-15 16:30"
   },
   {
    "id": "t079",

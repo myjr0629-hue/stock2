@@ -5857,3 +5857,5 @@ Quora 무응답 탐색: 내부 검색은 «앱·거시·실적» 질의에 결�
 스토어 스크린샷 공장(make-promo-shots.js) 캡션을 앱 일상어로 교체 — ① 미국 시장 전체를 무료 앱 하나로 ② 종목 하나, 전부 쉬운 말로 ③ 기관이 지금 무엇을 하는지 … (en/ko/ja) — 6.5인치 규격으로 18장 렌더 중.
 ### Quora 무응답 발굴 경로 확정 — `quora.com/answer` 피드(«No answer yet» 라벨, 44건)
 토픽 피드 URL 은 무효(앵커 0). Answer 피드가 정본. 앱 프레임 후보: 「stock market research vs random trading tips」(초안 준비, 앱 전체 소개 + Command 카드) · 「SMA·MACD·RSI 를 쉽게 설명하는 리소스」. 종목 방향·풀백 예측 질문은 제외.
+### 스토어 스크린샷 v2 — 18장 완성 (t078)
+`promo-shots/ios65-v2/` · 1242×2688 · en/ko/ja · 첫 3장 캡션: 「The whole US market, free, on one screen」「One ticker, in plain English」「See what institutions are doing right now」(ko/ja 동형). 기존 파일명이 규격을 속이던 버그(1080x1920 고정)를 고쳤다. 다음(t079): ASC 새 버전에 업로드 — 제출은 빌드 필요 → 「승인 대기」로 올린다.

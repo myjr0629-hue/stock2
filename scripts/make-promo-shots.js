@@ -98,7 +98,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const app = APPS[appArg];
   if (!app) { console.error('signum | uc'); process.exit(1); }
 
-  fs.mkdirSync(OUT, { recursive: true });
+  fs.mkdirSync(path.join(OUT, process.env.SHOT_SIZE || 'play'), { recursive: true });
   fs.mkdirSync(RAW, { recursive: true });
   const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--hide-scrollbars'] });
   const jobs = [];
@@ -170,7 +170,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ---- 합성 (Python/PIL) ----
   const spec = jobs.map((j) => ({
     raw: j.raw,
-    out: path.join(OUT, `${appArg}-${j.key}-${j.loc}-1080x1920.png`),
+    // 2026-09-16: 파일명이 1080x1920 으로 고정돼 있어 ios65 산출물이 이름을 속였다 → 실제 캔버스 크기 + 규격 폴더
+    out: path.join(OUT, process.env.SHOT_SIZE || 'play', `${appArg}-${j.key}-${j.loc}-${CANVAS.w}x${CANVAS.h}.png`),
     caption: app.copy[j.loc][j.key],
     loc: j.loc,
   }));
