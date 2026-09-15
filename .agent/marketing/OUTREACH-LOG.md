@@ -5756,3 +5756,10 @@ u/SignumHQ 는 ego `Profile 1` 에 산다(`Default` 의 레딧은 정체불명 �
 규칙 추가: 레딧 댓글은 «숫자 3개 이하 + 1인칭 판단 + 한계 인정», 데일리 스레드보다 «질문 스레드»에.
 프로덕션 검증(f9c2870d, 375×812): 트랙 시트 ✓ · 퀴즈 화면 ✓ · 탭 탭 → 홈 복귀 ✓. 앱 셸은 웹을 로드하므로 기기에서 앱을 다시 열면 반영된다.
 레딧 2번 재시도도 RATELIMIT(37초) — 오늘 레딧은 여기서 멈춘다(삭제 신호 뒤 추가 시도는 계정 위험).
+
+### 확장 — 유럽 첫 표면: de.quora.com (독일어 Quora)
+같은 계정에 Deutsch 를 추가해 열었다. 무응답 후보는 «Dark Pool» 검색에만 3건(Premarket·Max Pain·App 은 독일어 질문 자체가 없다).
+[Wie/wo erhält man Zugriff auf Dark-Pool-Handelsaktivitätsdaten?](https://de.quora.com/Wie-wo-erh%C3%A4lt-man-Zugriff-auf-Dark-Pool-Handelsaktivit%C3%A4tsdaten/answer/Jiyoung-Kim-236)
+— 「Diese Frage wurde noch nicht beantwortet」 확인 후 답변. FINRA OTC Transparency(주간 ATS)·Reg SHO 일일 파일·Cboe → 읽는 법(비율은 «어디서»지 «방향» 아님, 9/14 NVDA·AMD 실측) → 「SIGNUM HQ 라는 무료 앱」(링크 없음).
+**스팸 정책 학습 적용: 본문 무링크.** 클릭은 프로필 링크(quora_bio)로 잡힌다. 남은 후보 「Was ist ein dark pool und wofür wird es genutzt?」 은 내일.
+오늘 클릭(ET): 다크풀2탄 10 · jp 다크풀 8 · note 5 · x_us 5 · quora_bio 1.

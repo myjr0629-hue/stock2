@@ -894,10 +894,11 @@
    "title": "de.quora.com 개통 + 다크풀 데이터 접근 무응답 답변 (유럽 첫 표면)",
    "detail": "같은 Quora 계정에 Deutsch 추가. 「Wie/wo erhält man Zugriff auf Dark-Pool-Handelsaktivitätsdaten?」 0답변. 본문 무링크(앱 이름만) — 스팸 정책 학습 적용.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "게시 완료 — de.quora.com/Wie-wo-erhält-man-Zugriff-auf-Dark-Pool-Handelsaktivitätsdaten/answer/Jiyoung-Kim-236 (1,977자, 본문 무링크·앱 이름만). 남은 무응답: 「Was ist ein dark pool und wofür wird es genutzt?」(내일).",
+   "closed": "2026-09-15 14:05"
   }
  ]
 }
