@@ -257,8 +257,8 @@ Quora·LinkedIn·Medium·X·Reddit·Apple Ads·**note.com·Bluesky** 로그인�
 ## 12. 운영 모델 확정 — «마케팅 자동화 = 이 루프» (대표 지시 2026-09-17)
 대표 지시: 「크론을 vercel 에서 하는 것이 아닌 마케팅자동화는 지금 현 클로드코드에서 작동하는 것으로 해야지」.
 
-1. **Vercel/GitHub 크론은 마케팅에 쓰지 않는다.** `mkt-autopilot`·`mkt-originals`·`mkt-replies`·`buffer-dispatch`·`daily-content`·`spotlight` 라우트와 Redis 모드(`mkt:auto:modes` = live)는 남아 있지만 **트리거를 붙이지 않는다**(9/1 이후 370시간 무발행 상태를 «고장»이 아니라 «정책»으로 확정). 근거: 그 체제가 돌던 8월에 하루 17~26건을 자동발행하고도 설치 0.
-2. **관리자 텍스트 전용 라우트**(`/api/admin/mkt/bluesky/post`)도 쓰지 않는다 — §11(앱 화면 없는 게시 금지) 위반이며 9/9·9/10·9/15 이미지 없는 글의 출처였다.
+1. **마케팅 자동화는 이 루프(로컬)에서만 돈다.** 서버측 자동발행(Buffer 경유 등)은 대표가 이미 제거했다 — 다시 언급하거나 되살리려 하지 말 것. 남은 라우트 잔재는 «과거 유물»이며 현재 상태 보고에 올리지 않는다.
+2. **모든 발행은 브라우저(ego lite)로 내가 직접 한다.** 앱 화면/카드 첨부는 §11 로 이미 상시 규칙.
 3. **자동화의 실체는 루프다**: 매 사이클 ① `node scripts/mkt-plan.js` 로 열린 채널·남은 캡·다음 고정 점검을 «시계»처럼 받고 ② 큐(`mkt.js`)에서 일감을 받고 ③ 발행 후 **반드시** `mkt-plan.js pub <채널> <URL>` 로 원장에 남긴다(캡 계산의 유일한 근거) ④ OUTREACH-LOG 기록·커밋.
 4. **원장 파일**: `.agent/marketing/PUBLISH-LEDGER.json` — 채널별 캡을 KST/UTC 달력 중 맞는 쪽으로 계산한다(레딧·Quora 는 UTC일, 나머지는 KST일).
 5. 고정 점검(KST): 05:00 GitHub 스냅샷 · 06:50 cross-sector · 07:25 XS‑3.0/XS‑2.0 · 09:00 UTC 전환(레딧·Quora 창) · 22:30 미국 개장(X 답글·레딧 댓글) · 대표 광고 콘솔 로그인 직후 30분(세션 3.5시간).
