@@ -6052,3 +6052,9 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **생존 실측**: Quora **EN t008(밈주식 답변, 무링크·앱 우선) 당일 삭제 확인**(4건째) · Quora JP 2건(다크풀·매크로) 생존 · EN 순수 가치 답변들 생존 · Pinterest 핀 정상(링크 3) · Threads 글 정상. → ENGINE §11-6 신설: EN Quora 는 «점령»이 아니라 «신용 축적» 채널, 앱 언급 0~1회·데이터 화면만(커밋 a377121d).
 - **새 표면 — Instagram(t114)**: @signumhq_official 에 앱 카드(16:9 원본) + 캡션(무료·iOS/Android·link in bio·해시태그) 게시 → `/p/DdWUwZCD-59/` 12:49Z, 캡션·시각 검증. 링크는 클릭 불가라 바이오 경유(C형·비용 0).
 - **발행 합계**: IG 1. 오늘 누계 14(Quora 3→2 생존·note 1·Medium KR 1·LinkedIn 1·X 1·Reddit 2·GitHub 1·Pinterest 1·Threads 1·IH 1·IG 1).
+
+## 사이클 27 — 2026-09-16 22:52~23:10 KST
+- **광고**: 콘솔 세션 만료(22:53 확인). 이후 ego 가 «stopForUserControl» 로 스크립트를 중단 → **대표가 브라우저를 직접 사용 중**(재로그인 가능성) → 이 사이클은 브라우저 조작 전면 보류(충돌 방지).
+- **게이트**: audit --live 341/0 통과. 큐 상위 3건 대표 게이트 유지.
+- **브라우저 없이 한 일**: 내일 발행 초안 2건 작성 — `assets/note-jp-2-darkpool-maxpain.md`(t113, 「株価アプリ」 의도어 제목·다크풀/맥스페인/감마플립 읽는 법·앱 화면 3장·예측 부인) · `assets/medium-en-2-fed-day-positioning.md`(t086, Fed 데이 «priced in» vs 포지셔닝·SPY 9/18 실측 레벨·GitHub 데이터셋 링크·예측어 0건).
+- **발행**: 0(의도적 보류). 다음 창: 00:00 KST note JP #2 → 07:25 XS‑3.0 라이브 확인 → 09:00 Medium EN·Quora EN(순수 가치).
