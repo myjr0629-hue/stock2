@@ -235,3 +235,8 @@ Quora·LinkedIn·Medium·X·Reddit·Apple Ads·**note.com·Bluesky** 로그인�
 - 이미지+무링크여도 EN 답변은 앱 문장이 «광고 어투»면 삭제된다(“free app called X (iOS and Android, no signup)”).
 - EN: 앱 언급은 1문장, 맥락 속 «이름만»(무료·플랫폼·가입불요를 한 문장에 쌓지 말 것). JP/DE 는 현행 유지하되 같은 원칙 권장.
 - 삭제 통지가 “can be restored by the moderation team” 유형이면 카드에 이의제기 버튼이 없다 → 알림/메뉴 경유, 없으면 기록하고 다음 답변에서 어투를 고친다(같은 질문 재답변 금지).
+
+### 11-6. EN Quora 실측 정정 (2026-09-16 21:5x KST)
+- 9/16 새 UTC일 첫 EN 답변(t008 「Is meme stock trading still profitable in 2026?」, 앱 우선 구성·본문 무링크·스크린샷)이 **당일 삭제**됐다 — 링크가 없어도 «앱을 앞세운 답변»은 EN 스팸 정책에 걸린다(9/13·14·15·16 누적 4건). 같은 날 JP 답변 2건(다크풀·매크로)은 생존.
+- **규칙**: EN Quora 는 질문에 대한 순수 가치 답변만(앱 언급은 §11-5 의 «한 문장 안»보다 더 줄여 0~1회, 스크린샷은 «데이터 화면»으로만). 전환은 프로필(bio)·JP 채널·Reddit 프로필로. EN 은 «점령»이 아니라 «신용 축적» 채널로 재분류.
+- 점검: 발행 후 2시간·다음 사이클마다 `profile/<me>/answers` 로 생존 확인, 삭제되면 같은 유형 재발행 금지.
