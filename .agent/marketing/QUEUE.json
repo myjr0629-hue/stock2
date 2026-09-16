@@ -689,10 +689,11 @@
    "title": "Quora 무응답 질문 — 맥스페인 (이긴 채널 확대)",
    "detail": "실측: quora 계열이 클릭의 압도적 다수(9/11~13 각 23·30·23). 어제 답변 2건이 하루 22클릭. 이긴 것을 키운다 — 맥스페인 무응답 질문에 답한다.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "Quora JP 무응답 점령(맥스페인 대신 매크로 훅 — jp 검색 5쿼리 무응답 0, /answer 피드에서 「米国債とAI企業の資金の奪い合い?」 확보): https://jp.quora.com/…/answers/1477743918632113 — 국채 발행·기대인플레·텀프리미엄 vs AI 설비투자 자금원, 할인율 메커니즘, 예측 부인; 대시보드 스크린샷 첨부·본문 무링크·mine·img 확인. JP 채널 오늘 1편.",
+   "closed": "2026-09-16 02:35"
   },
   {
    "id": "t053",
@@ -1166,6 +1167,31 @@
    "title": "생존·성과 일일 점검(note·Medium·Quora·Reddit) + 광고 날짜범위 «오늘·이번달» 재설정",
    "detail": "매일 아침: 4채널 게시물 생존(삭제/스팸)·조회/스키/클랩 수치·from 태그 클릭(mkt:attr:hit) 기록. 애플광고 콘솔 날짜범위를 «어제»에서 «오늘»+«이번 달»로 되돌려 당일·당월 지출 읽기.",
    "prio": 1,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": "일일 점검 완료. 광고(오늘): US Search $10.73·KR $10.15·JP $5.95·US Tab $1.50 = $28.33, JP+KR $16.10(캡 $15 의 1.07x, 1.5x 미만), 설치 0(3h 지연). «이번 달» 프리셋 없음 → «최근 30일» 사용. 귀속(ET 9/15): quora_jp_darkpool 8·linkedin 7·x_us 6·note 5·medium_ko 2·quora_bio 1. 생존: note·Medium 라이브, Quora EN 12답/76뷰, JP 26답, DE 2답; Reddit 앱언급 2건 «Removed by Reddit»(기지), 순수가치 댓글 생존. **Quora EN meme 답변 삭제됨(2.5h) → 이의제기 UI 미확인, 재시도.**",
+   "closed": "2026-09-16 02:35"
+  },
+  {
+   "id": "t091",
+   "type": "expand",
+   "region": "US",
+   "title": "r/options 가치 댓글 — 새 서브레딧 표면(오늘 레딧 2/3 남음)",
+   "detail": "r/options 최신 질문 스레드(스프레드 방향성·그릭스 적용 등)에 판단·한계·1인칭 순수가치 댓글. 앱 이름·링크 금지(§14), UTC 8분 간격, 게시 후 생존 확인.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t092",
+   "type": "publish",
+   "region": "US",
+   "title": "Quora EN 무응답 재개 — §11-5 어투로(다음 UTC일)",
+   "detail": "EN 은 오늘 1편(삭제) 소진. 내일 UTC 부터 재개: 앱 언급 1문장·이름만, 이미지+무링크. 후보: 주말 트레이딩/방어주/AI 준비 질문.",
+   "prio": 2,
    "state": "todo",
    "tries": 0,
    "created": "2026-09-16",
