@@ -6115,3 +6115,9 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 ## 사이클 32 — 2026-09-17 07:41~ KST
 - **광고 세션 수명 실측 정정**: 대표가 04:0x 재로그인 → **07:4x 만료**(idmsa 리다이렉트). 즉 Apple Ads 세션은 약 3.5시간. t106 은 «그때는 되었다»로 종료하고 t127 신설 — 앞으로 «대표 로그인 직후 30분 내»에 그날의 점검·키워드·예산 작업을 몰아서 한다.
 - **Indie Hackers #2 게시(오늘 신규 발행)**: 「We now publish our own market data as an open dataset — day 1 numbers from a Fed day」 — 데이터셋 공개 이유(데이터는 해자가 아니다), 9/16 실측(SPY 752.30·맥스페인 755·콜월 790·풋플로어 620), 배운 것 3가지(GitHub 업로드 함정·«확인해보라»식 글쓰기·차용청중 전략). GitHub 링크 1 + 앱 링크 3 렌더 확인.
+
+## 사이클 33 — 2026-09-17 08:2x KST (대표 재로그인 직후 일괄 처리)
+- **오늘 첫 유료 설치 발생**: 합계 $28.15 · 노출 1,170 · 탭 16 · **설치 1** · CPA $28.15. US 검색결과가 $12.03/8탭/**1설치**(TTR 2.35%·전환 12.5%).
+- **설치를 만든 최소 단위 = 키워드 「market data」**: $1.61 · 11노출 · 1탭 · **1설치** → **CPA $1.61**(30일 평균 $77 대비 1/48). 어제 추가분이 아니라 잠들어 있던 기존 키워드가 새 확장검색 조합에서 살아남.
+- **즉시 확장(예산·입찰 불변)**: US-Core 에 «market data» 계열 8개 추가·전수 검증 — stock market data · live market data · market data app · real time market data · options data · free market data · market data free · stock data (전부 실행 중 $2.00).
+- 검색탭은 $2.00 예산 반영 확인(오늘 지출 $0.00·노출 7).
