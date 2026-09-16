@@ -253,3 +253,12 @@ Quora·LinkedIn·Medium·X·Reddit·Apple Ads·**note.com·Bluesky** 로그인�
 - **칩 추가도 거부된다(3회 실측 2026-09-17)**: 설정›프로필›소셜 링크›맞춤 → 표시텍스트+URL 입력(딥 워커로 shadow DOM 진입) → 내부 「저장」 시 목록에 «들어간 것처럼 보이고»(inList true) → 외부 「저장」 후 다이얼로그를 다시 열면 **목록이 비어 있다**. 쿼리스트링 유무와 무관. 카르마 12 신규 계정 게이트로 추정.
 - **그래서 현재 레딧 전환 경로 = 프로필 «소개»(bio) 텍스트의 앱 이름뿐**: bio 가 "I build SIGNUM HQ — a free app showing options flow, dark pool prints, GEX and max pain for US equities" 로 살아 있으므로, 좋은 댓글 → 프로필 → 이름 검색 → 스토어. 태그(`reddit_bio`)가 안 붙으니 **레딧 유입은 측정되지 않는다**(attribution 0 이 «효과 0» 이 아니다 — 혼동 금지).
 - 규칙: 레딧 작업 전 `submitted.json` 으로 내 글 생존 확인. 칩은 카르마가 쌓인 뒤(월 1회) 재시도. 댓글 품질이 유일한 지렛대이므로 하루 2~3건·생존 우선.
+
+## 12. 운영 모델 확정 — «마케팅 자동화 = 이 루프» (대표 지시 2026-09-17)
+대표 지시: 「크론을 vercel 에서 하는 것이 아닌 마케팅자동화는 지금 현 클로드코드에서 작동하는 것으로 해야지」.
+
+1. **Vercel/GitHub 크론은 마케팅에 쓰지 않는다.** `mkt-autopilot`·`mkt-originals`·`mkt-replies`·`buffer-dispatch`·`daily-content`·`spotlight` 라우트와 Redis 모드(`mkt:auto:modes` = live)는 남아 있지만 **트리거를 붙이지 않는다**(9/1 이후 370시간 무발행 상태를 «고장»이 아니라 «정책»으로 확정). 근거: 그 체제가 돌던 8월에 하루 17~26건을 자동발행하고도 설치 0.
+2. **관리자 텍스트 전용 라우트**(`/api/admin/mkt/bluesky/post`)도 쓰지 않는다 — §11(앱 화면 없는 게시 금지) 위반이며 9/9·9/10·9/15 이미지 없는 글의 출처였다.
+3. **자동화의 실체는 루프다**: 매 사이클 ① `node scripts/mkt-plan.js` 로 열린 채널·남은 캡·다음 고정 점검을 «시계»처럼 받고 ② 큐(`mkt.js`)에서 일감을 받고 ③ 발행 후 **반드시** `mkt-plan.js pub <채널> <URL>` 로 원장에 남긴다(캡 계산의 유일한 근거) ④ OUTREACH-LOG 기록·커밋.
+4. **원장 파일**: `.agent/marketing/PUBLISH-LEDGER.json` — 채널별 캡을 KST/UTC 달력 중 맞는 쪽으로 계산한다(레딧·Quora 는 UTC일, 나머지는 KST일).
+5. 고정 점검(KST): 05:00 GitHub 스냅샷 · 06:50 cross-sector · 07:25 XS‑3.0/XS‑2.0 · 09:00 UTC 전환(레딧·Quora 창) · 22:30 미국 개장(X 답글·레딧 댓글) · 대표 광고 콘솔 로그인 직후 30분(세션 3.5시간).
