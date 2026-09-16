@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStructureData } from "@/services/structureService";
+import { getStructureData, normalizeExpirationsForToday } from "@/services/structureService";
 import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { recordGexSnapshot } from "@/lib/aws/historyMiddleware";
@@ -83,5 +83,6 @@ export async function GET(req: NextRequest) {
         const spot = result.gex.spotPrice || (result as any).spotPrice || 0;
         result.gex.maxPain = sanitizeMaxPain(result.gex.maxPain, spot);
     }
-    return NextResponse.json(result);
+    // [2026-09-16] 응답 경계에서 한 번 더 — 어느 캐시 경로로 왔든 오늘(ET) 이전 만기는 나가지 않는다.
+    return NextResponse.json(normalizeExpirationsForToday(result));
 }

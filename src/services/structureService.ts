@@ -200,6 +200,31 @@ async function computeAndStore(
     return getStructureData(ticker, requestedExp, spot, true);
 }
 
+/**
+ * [2026-09-16] 캐시가 ET 날짜 경계를 넘어 살아남는다(장외 TTL 72h · lastgood 72h).
+ * 9/15(월) 만기가 9/16 새벽에도 «선택지»로 나갔다(audit-expiration-selection --live 실측).
+ * 캐시 «읽기» 에서 오늘(ET) 이전 만기를 걷어내고, 선택된 만기 자체가 지났으면 그 캐시는
+ * 없는 것으로 본다 — 지난 계약의 스트라이크·OI 를 새 날짜 라벨로 내보내면
+ * «라벨과 데이터 불일치»(조용히 틀리는 5유형)가 된다. 신선 계산 경로는 이미
+ * todayStr 로 거르므로, 이 함수는 «캐시가 어제 만든 목록»을 위한 안전망이다.
+ */
+export function normalizeExpirationsForToday<T extends { expiration?: string; availableExpirations?: string[] }>(
+    d: T,
+    todayStr: string = getTodayETString(),
+): T {
+    if (!d || typeof d !== 'object') return d;
+    const list = Array.isArray(d.availableExpirations)
+        ? d.availableExpirations.filter((x) => typeof x === 'string' && x >= todayStr)
+        : d.availableExpirations;
+    return { ...d, availableExpirations: list };
+}
+
+/** 캐시된 응답의 «선택 만기»가 오늘(ET)보다 앞이면 그 캐시는 쓰면 안 된다. */
+function isCachedExpiryStale(data: any, todayStr: string): boolean {
+    const exp = data?.expiration;
+    return typeof exp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(exp) && exp < todayStr;
+}
+
 export async function getStructureData(
     ticker: string,
     requestedExp?: string | null,
@@ -210,10 +235,16 @@ export async function getStructureData(
     const cacheKey = `${ticker}:${requestedExp || 'auto'}`;
 
     // [DATA CONSISTENCY] Check cache first
+    const todayET = getTodayETString();
     const cached = structureCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp) < getStructureCacheTtl()) {
-        console.log(`[CACHE HIT] ${ticker}: returning cached data (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
-        return { ...cached.data, cached: true };
+        if (isCachedExpiryStale(cached.data, todayET)) {
+            console.log(`[CACHE STALE-EXPIRY] ${ticker}: 캐시 만기 ${cached.data?.expiration} < ${todayET} — 버리고 다시 계산`);
+            structureCache.delete(cacheKey);
+        } else {
+            console.log(`[CACHE HIT] ${ticker}: returning cached data (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
+            return normalizeExpirationsForToday({ ...cached.data, cached: true }, todayET);
+        }
     }
 
     // ★ 인메모리가 비었다고 «계산부터» 하지 않는다 — 다른 인스턴스가 이미 해뒀을 수 있다.
@@ -221,12 +252,14 @@ export async function getStructureData(
     //   사용자는 «가끔 앱이 멈춘다»고 느낀다. Redis 를 한 번 더 본다(수십 ms).
     try {
         const shared = await getFromCache<{ data: any; timestamp: number }>(structureRedisKey(cacheKey));
-        if (shared?.data && shared.timestamp && (Date.now() - shared.timestamp) < getStructureCacheTtl()) {
+        if (shared?.data && isCachedExpiryStale(shared.data, todayET)) {
+            console.log(`[REDIS STALE-EXPIRY] ${ticker}: 공유 캐시 만기 ${shared.data?.expiration} < ${todayET} — 무시`);
+        } else if (shared?.data && shared.timestamp && (Date.now() - shared.timestamp) < getStructureCacheTtl()) {
             const ageSec = Math.round((Date.now() - shared.timestamp) / 1000);
             console.log(`[REDIS HIT] ${ticker}: 공유 캐시 사용 (age: ${ageSec}s)`);
             // 이번 인스턴스의 인메모리에도 채워 다음 호출은 더 빠르게
             structureCache.set(cacheKey, { data: shared.data, timestamp: shared.timestamp });
-            return { ...shared.data, cached: true, _redisAgeSec: ageSec };
+            return normalizeExpirationsForToday({ ...shared.data, cached: true, _redisAgeSec: ageSec }, todayET);
         }
     } catch (e) {
         // Redis 가 죽어도 계산으로 넘어가면 된다 — 캐시는 «빠르게 하는 것»이지 «필수»가 아니다
@@ -247,7 +280,9 @@ export async function getStructureData(
     if (!requestedExp && !skipLastGood) {
         try {
             const lastGood = await getFromCache<{ data: any; timestamp: number }>(structureLastGoodKey(cacheKey));
-            if (lastGood?.data && lastGood.timestamp) {
+            if (lastGood?.data && isCachedExpiryStale(lastGood.data, todayET)) {
+                console.log(`[LAST-GOOD STALE-EXPIRY] ${ticker}: 마지막 정상본 만기 ${lastGood.data?.expiration} < ${todayET} — 즉시 반환하지 않고 계산한다`);
+            } else if (lastGood?.data && lastGood.timestamp) {
                 const staleSec = Math.round((Date.now() - lastGood.timestamp) / 1000);
                 // 뒤에서 갱신을 건다(이미 돌고 있으면 또 걸지 않는다 — 썬더링 허드 방지)
                 if (!inFlight.has(cacheKey)) {
@@ -257,7 +292,7 @@ export async function getStructureData(
                     inFlight.set(cacheKey, job);
                 }
                 console.log(`[LAST-GOOD] ${ticker}: ${staleSec}s 된 값을 즉시 반환하고 뒤에서 갱신한다`);
-                return { ...lastGood.data, cached: true, _staleSec: staleSec };
+                return normalizeExpirationsForToday({ ...lastGood.data, cached: true, _staleSec: staleSec }, todayET);
             }
         } catch (e) {
             console.warn(`[structure] 마지막 정상본 조회 실패(${ticker}):`, (e as any)?.message);
