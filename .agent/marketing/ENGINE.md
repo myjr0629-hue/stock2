@@ -250,4 +250,6 @@ Quora·LinkedIn·Medium·X·Reddit·Apple Ads·**note.com·Bluesky** 로그인�
 ### 11-8. 레딧 전환 깔때기 정정 — 고정글은 «삭제돼 있었다» (2026-09-17 실측)
 - `u/SignumHQ/submitted.json` 실측: 프로필 고정글(1wdljo7)과 r/SideProject·r/droidappshowcase·r/stocks 글 **전부 `removed_by_category: reddit`(사이트 필터) 또는 moderator**. 즉 «고정글 깔때기»는 존재하지 않는 상태로 며칠 지나 있었다 — 살아남은 댓글들의 전환 경로가 **0** 이었다(reddit_bio 유입 0 의 원인).
 - 프로필 사이드바에도 소셜 링크 칩이 없었다. → 전환은 **설정 › 프로필 › 소셜 링크 › «맞춤»**(표시 텍스트 + 맞춤 URL, 최대 5개)로만 만든다. 글은 어차피 죽으므로 재시도하지 않는다.
-- 규칙: 레딧 작업 시작 전 `submitted.json` 으로 내 글 생존을 확인하고, 프로필 칩에 `?from=reddit_bio` 링크가 있는지 매주 점검한다.
+- **칩 추가도 거부된다(3회 실측 2026-09-17)**: 설정›프로필›소셜 링크›맞춤 → 표시텍스트+URL 입력(딥 워커로 shadow DOM 진입) → 내부 「저장」 시 목록에 «들어간 것처럼 보이고»(inList true) → 외부 「저장」 후 다이얼로그를 다시 열면 **목록이 비어 있다**. 쿼리스트링 유무와 무관. 카르마 12 신규 계정 게이트로 추정.
+- **그래서 현재 레딧 전환 경로 = 프로필 «소개»(bio) 텍스트의 앱 이름뿐**: bio 가 "I build SIGNUM HQ — a free app showing options flow, dark pool prints, GEX and max pain for US equities" 로 살아 있으므로, 좋은 댓글 → 프로필 → 이름 검색 → 스토어. 태그(`reddit_bio`)가 안 붙으니 **레딧 유입은 측정되지 않는다**(attribution 0 이 «효과 0» 이 아니다 — 혼동 금지).
+- 규칙: 레딧 작업 전 `submitted.json` 으로 내 글 생존 확인. 칩은 카르마가 쌓인 뒤(월 1회) 재시도. 댓글 품질이 유일한 지렛대이므로 하루 2~3건·생존 우선.
