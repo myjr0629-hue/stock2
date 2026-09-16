@@ -44,12 +44,18 @@ probe() { # label key → prints http code only
 if [ "${FINALIZE:-0}" = "1" ]; then
   OLD=$(getenv "$ENVF" REDIS_PROXY_KEY_PREV)
   NEW=$(getenv "$ENVF" REDIS_PROXY_KEY)
+  # PREV may already be gone from the file (re-run): take the old key from the newest proxy backup for the probe
+  if [ -z "$OLD" ]; then BK=$(ls -t "$PROXY".bak-* 2>/dev/null | head -1); [ -n "$BK" ] && OLD=$(grep -oE 'REDIS_PROXY_KEY \|\| "[^"]+"' "$BK" | head -1 | sed -E 's/.*"([^"]+)"/\1/' || true); fi
+  [ "$OLD" = "$NEW" ] && OLD=""
   [ -n "$NEW" ] || { echo "FATAL: no REDIS_PROXY_KEY in $ENVF"; exit 1; }
   sed -i '/^REDIS_PROXY_KEY_PREV=/d' "$ENVF"
-  export REDIS_PROXY_KEY="$NEW"; unset REDIS_PROXY_KEY_PREV
+  # pm2 keeps the env it saved at the last restart, so an absent variable is NOT removed by --update-env:
+  # overwrite PREV with an empty string (the proxy ignores keys shorter than 16 chars) and save.
+  export REDIS_PROXY_KEY="$NEW" REDIS_PROXY_KEY_PREV=""
   pm2 restart redis-proxy --update-env >/dev/null
+  pm2 save >/dev/null 2>&1 || true
   sleep 2
-  echo "finalized: PREV removed"
+  echo "finalized: PREV removed (file + pm2 env)"
   probe new "$NEW"
   [ -n "$OLD" ] && probe old "$OLD"
   probe junk "not-a-key-$(date +%s)"
