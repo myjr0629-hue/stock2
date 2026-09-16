@@ -6085,3 +6085,8 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - 오늘(9/17 KST) 누계: note JP 1 · Pinterest 1 · X 1 · LinkedIn 1 · Threads 1 · Instagram 1 · Reddit 1 · Medium EN 1 = 8. 광고: 키워드 +24·정지 2.
 - **Quora EN(§11-6 순수 가치)**: 「What is the best stock screener for finding meme stocks?」(무응답) 답변 본문 8문단 입력·Flow 데이터 화면 첨부까지 진행 → JS 다이얼로그가 떠서 스크립트 중단(미게시, 초안은 Quora 자동저장 가능성). **Quora JP 탐색 중 대표가 브라우저 제어를 가져감(ego 하드 스톱)** → 대표가 «계속» 하기 전까지 브라우저 조작 전면 정지.
 - 남은 오늘 항목: Quora EN 게시 마무리 · Quora JP 1편 · 검색탭 예산 $5→$2(분류기 차단, 대표 클릭 1회) · GitHub 스냅샷(미국 마감 후) · XS‑3.0 첫 라이브 확인 07:25 KST · cross-sector 21:50Z 검증.
+
+## 사이클 29 — 2026-09-17 00:02 KST (브라우저: 대표 제어 중 → 조작 없음)
+- **게이트**: audit --live 341/0. 큐 상위 3건 대표 게이트 유지.
+- **스마트링크 유입 실측(Redis mkt:attr:hit, ET 날짜)**: 9/15 = linkedin 7 · x_us 6 · note 5 · medium_ko 2 · quora_bio 1 (21) / 9/16(진행 중) = x_us 2 · threads 1 · medium 1 · note 1 (5). pinterest·github·indiehackers·instagram(bio) 태그는 아직 0 → 신설 표면은 도달 축적 전. **이긴 것**: LinkedIn·X·note(직접 링크 클릭). 성장규칙: 이 셋은 매일 1편 고정, 나머지는 주 2~3회로 배분.
+- **큐 보충**: Quora EN 마무리 · Quora JP · GitHub 9/16 스냅샷 · XS‑3.0 첫 라이브 확인 · cross-sector 검증.

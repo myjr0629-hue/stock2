@@ -1542,6 +1542,66 @@
    "tries": 0,
    "created": "2026-09-16",
    "note": "instagram.com/signumhq_official/p/DdWiU54DyyQ (14:48Z) 캡션 검증"
+  },
+  {
+   "id": "t120",
+   "type": "publish",
+   "region": "US",
+   "title": "Quora EN 게시 마무리 — «best stock screener for meme stocks» 초안(8문단·Flow 화면) 확인 후 Post·생존 확인",
+   "detail": "§11-6: 무링크·앱명 0회·데이터 화면 1장. JS 다이얼로그 처리 후 게시.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t121",
+   "type": "publish",
+   "region": "JP",
+   "title": "Quora JP 9/17 — 검색(米国株 アプリ·ダークプール·決算) 무응답 질문 1편, 앱 화면 첨부",
+   "detail": "jp.quora.com 은 앱 우선 답변도 생존. /answer 피드가 비면 search?type=question 으로.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t122",
+   "type": "tech",
+   "region": "ALL",
+   "title": "GitHub 스냅샷 9/16 마감분 — data JSON 생성(05:00 KST 이후) + 웹 업로드 커밋",
+   "detail": "t104 자동화 전까지 수동: 12종목 ?t= 호출 → 2026-09-16.json 갱신 → 업로드 페이지로 커밋(토큰 없음).",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t123",
+   "type": "tech",
+   "region": "ALL",
+   "title": "XS-3.0 첫 라이브 실행 확인(07:25 KST) — _REPORT_/2026-09-16·cache:xs3:trade fresh·로그 입력줄",
+   "detail": "실패 시 원인 지목·수정·재실행. 앱/웹 무접촉.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t124",
+   "type": "tech",
+   "region": "ALL",
+   "title": "cross-sector 람다 21:50Z(06:50 KST) 실행 검증 — JSON ok 로그·소비 API 날짜",
+   "detail": "t099 후속. 실패면 max_tokens/프롬프트 압축안을 대표 승인 티켓으로(웹 영향).",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
   }
  ]
 }
