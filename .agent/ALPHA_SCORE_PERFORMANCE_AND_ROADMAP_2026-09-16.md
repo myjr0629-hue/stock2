@@ -141,7 +141,15 @@ raw(앙상블) IC 0.026 → res(피어잔차) 0.022 → xs(EMA·백분위) 0.036
 
 ## 7. 부록
 
-**A. 배포 Lambda 코드 vs 저장소 대조** — 별도 실측 진행 중(도착 즉시 추가).
+**A. 배포 Lambda 코드 vs 저장소 대조 (실측, 2026-09-16 04:10~04:38 UTC)**
+- `signum-xs`(8/29 배포, 9/16 04:35Z 이전): zip = `index.js`(md5 = 저장소 HEAD `scripts/lambda-xs/index.js`) + `intrinio-adapter.js`(= HEAD). **`api.polygon.io` 참조 0건.** `POLYGON_API_KEY` 는 라벨링 on/off 게이트로만 2회 참조(HTTP 호출 없음). 배포 경로는 `scripts/deploy-lambda-intrinio.js`(L47) — `scripts/deploy-xs.js` 는 PowerShell 단일파일 zip 이라 어댑터를 빠뜨려 실행 불가(퇴역 대상).
+- 라벨 종가: `__intrinio.getGroupedDaily` → 어댑터 L489-519 → EC2 Redis `intrinio:eod:history`(`_ts` 09-16 03:09Z, 08-18~09-15 20일, 11,984종목). **라이브.**
+- `signum-harvest`(9/4 배포): zip = `harvest_lambda/index.js` 와 바이트 동일. 배포 코드에서 `signum-unified-cache`·`buildUnifiedCache`·`v8-structureService` **0건**; CloudWatch 7일 «unified» 이벤트 0. 기록 대상은 gex/flow/alpha-history·pattern-db·sector-daily·iv-surface·rlsi 뿐.
+- 계보 증명: `v8-structureService` 태그를 쓰는 유일한 작성기는 `scripts/lambda-harvest/index.js`(L1195 `buildUnifiedCache`, L1428 태그; `deploy-lambda-v7.js` 로 배포되던 계보). **2026-08-29 03:40 KST(커밋 19947399) `deploy-lambda-intrinio.js` L43 이 `signum-harvest → harvest_lambda/`(2026-03-17 생성, 작성기 없음)로 매핑**했고 9/4 `deploy-harvest-code-only.js` L18 도 같은 SRC. 구 계보를 되살려도 marketCap/float/short-interest/related URL 이 어댑터에서 미지원(UNSUPPORTED) 이라 그대로는 못 돈다.
+- unified-cache 전수: 2,876행(순수 티커 2,316·로케일키 560), 태그 v8-structureService 2,023 / 없음 279 / v7 14. `updatedAt` **2026-08-28 = 1,875행**, 9/1 이후 1~23행/일(Vercel `putUnifiedCache`, `unifiedCacheProvider.ts` L27-36, version 미기록). 4일 이내 31행 중 XS 적격 **0**(underlyingPrice 3/31, marketCap 0/31 — 어댑터 `getTickerDetails` L391-408 에 market_cap 필드 없음; Intrinio 는 `data_point/marketcap` 로 제공 가능, Vercel 만 사용).
+- 입력별 판정: 옵션 구조(price·gex·pcr·iv) → gex-history(100종목)+`structure:part:v2`(1,992행, Vercel 크론) 라이브 / marketCap → **매핑 누락** / 다크풀·공매도량 → Polygon 경로(`rt-metrics`) 사망, **FINRA `finra:offexchange`(12,747종목) 라이브이나 unified-cache 에 미배관** / blockTrades → **원천 없음**(Intrinio Startup 에 체결 피드 없음) / short-interest·DTC → FINRA 라이브 / 애널리스트 → 라이브 / SMA → Intrinio technicals 라이브 / peers(related-companies) → 어댑터 UNSUPPORTED, **8/28 동결**(피어 잔차 50% 에만 사용, 비차단).
+- **복구 진행(별도 세션):** 9/16 04:35Z `signum-xs` 재배포(index.js + adapter + 신규 `source-adapter.js`, 타임아웃 900s, env 에 REDIS_PROXY_KEY 추가). DRY 실행: `source snapshots: 1757`, scored 1,754, 커버리지 struct 1,962·mcap 1,757·gex 1,139·pcr 1,139·iv 1,148·darkPool 1,752·shortVol 1,752·analyst 1,340·sma 1,738·dtc 1,752·peers 1,065·noMcap 193. 첫 실제 `_REPORT_` 는 9/16 22:10 UTC 정기 실행에서 생성 예정. 잔여 공백: blockTrades(원천 없음 → 팩터 폐기 결정 필요), peers 동결(FMP `stock-peers` 등으로 대체), noMcap 193, 옵션 구조 커버리지 ~1,140(과거 1,772 대비 축소 — 스퀴즈·GEX 계열 표본 감소).
+- 한 문장: **엔진은 이관됐고, 엔진의 유일한 먹이 파이프(unified-cache 대량 작성기)는 이관 배포 때 «교체된 코드 계보» 와 함께 사라졌으며, 두 필드(marketCap·다크풀/공매도)는 벤더 매핑 또는 배관을 잃었다.**
 
 **B. 재현** — `scripts/xs-analysis/README.md`. 원자료 추출 ~3분(읽기 전용), 분석 4종 각 수초~수십초.
 
