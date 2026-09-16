@@ -1576,10 +1576,11 @@
    "title": "GitHub 스냅샷 9/16 마감분 — data JSON 생성(05:00 KST 이후) + 웹 업로드 커밋",
    "detail": "t104 자동화 전까지 수동: 12종목 ?t= 호출 → 2026-09-16.json 갱신 → 업로드 페이지로 커밋(토큰 없음).",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "GitHub 9/16 마감 스냅샷 반영: raw 2026-09-16.json(유효·takenAt 20:01:54Z·SPY 752.3·12종목) + 2026-09-16.md 표. 웹 업로드는 동일 파일명 충돌로 커밋 안 됨 → edit/main(덮어쓰기)+new/main(신규) 경로로 성공. 생성기 scripts/marketing/github-structure-snapshot.js",
+   "closed": "2026-09-16 20:53"
   },
   {
    "id": "t123",
