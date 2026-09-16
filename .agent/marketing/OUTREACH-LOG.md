@@ -5937,3 +5937,4 @@ v2 18장·업로드 스크립트 준비 완료. 새 버전 생성+업로드는 �
 - 복제: execCommand 기법을 Medium EN(t086)·향후 다른 ProseMirror 편집기로.
 - 정정: 「note 는 데스크톱 제어 없이는 불가」 판정을 뒤집음(3번째 길이 있었다 — 「안 됩니다」로 끝내지 않기).
 ### 누계(9/16 KST): Quora 5(EN×3·JP·DE) + Reddit 3 + **note.com 1** = 9건, 전건 생존. 3개 언어·US/JP/DE/KR-prep.
+### 정정(같은 사이클) — note 외부링크는 `rel="noopener nofollow"` 로 렌더된다. 즉 «클릭 가능한 CTA»(설치 경로)는 확보됐지만 SEO 권위(백링크)는 주지 않는다(IndieHackers 와 같은 유형). 위 「실제 백링크」 표현을 «클릭 가능한 앵커»로 읽을 것. 가치는 note 내부 도달·구글 JP 검색 노출(기사 자체 색인)·from=note 귀속.
