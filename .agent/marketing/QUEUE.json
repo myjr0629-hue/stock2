@@ -1446,10 +1446,11 @@
    "title": "Pinterest 핀 #2 (9/17) — 다크풀 화면 세로 캡처 + «dark pool share explained» 검색어 제목",
    "detail": "1일 1핀. 링크 /app?from=pinterest, 입력 후 값 재읽기→저장→공개 href 검증 3단.",
    "prio": 3,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "Pinterest #2 게시: pinterest.com/pin/1102115340098160344 — 다크풀 카드(16:9)·제목 «Dark pool share explained…»·링크 /app?from=pinterest 공개 페이지 href·이미지 검증. 링크는 delay 40 타이핑+재읽기로 한 번에 정확",
+   "closed": "2026-09-16 14:43"
   },
   {
    "id": "t113",
@@ -1489,6 +1490,32 @@
    "created": "2026-09-16",
    "note": "실행 완료: US-Core 앱 의도어 10개 추가(전부 실행 중 $2.00) · KR-Intent 8개 추가($3.00) + 서학개미·증권 일시 정지 · JP-Core 6개 추가($2.00). 예산·입찰 불변. 검색탭 예산 축소만 분류기 차단(t103 잔존)",
    "closed": "2026-09-16 14:31"
+  },
+  {
+   "id": "t116",
+   "type": "publish",
+   "region": "US",
+   "title": "X @signumhq 9/17 — Fed day·월물 만기 SPY 구조 훅 + Command 화면",
+   "detail": "링크 앞 280자 안, from=x_us",
+   "prio": 2,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": "X @signumhq 게시: x.com/signumhq/status/2100233989143580913 — Fed day·9/18 월물 만기 SPY 구조(맥스페인 755·콜월 790·풋플로어 620·딜러 감마 +$0.9B) + Command 화면, 링크 from=x_us 279자, 프로필 10초 전 검증",
+   "closed": "2026-09-16 14:44"
+  },
+  {
+   "id": "t117",
+   "type": "publish",
+   "region": "US",
+   "title": "LinkedIn 9/17 — Fed day 포지셔닝 글 + 스마트링크(from=linkedin)",
+   "detail": "Post Inspector 예열된 /app 링크, 「업데이트」 버튼",
+   "prio": 2,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": "LinkedIn 게시: /in/signumhq 최근 활동에 «Priced in is about the rate…» 본문 + signumhq.com/app?from=linkedin 확인. 1차는 링크카드 위 클릭으로 태그 누락 → 전체 재입력(delay 2)으로 성공",
+   "closed": "2026-09-16 14:45"
   }
  ]
 }

@@ -6075,3 +6075,7 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 ## 사이클 28 — 2026-09-17 00:4x~01:2x KST (대표 «전방위·끝까지» 지시)
 - **note.com JP #2(t113) 공개**: `note.com/signumhq/n/nf1a55a9ffe1d` — 「株価アプリ」 의도어 제목·다크풀/맥스페인/감마플립 읽는 법·아이캐치 JA Command 화면·해시태그 5. 1차 게시 시 링크가 평문 → 편집기에서 텍스트 범위 클릭+Shift+End+「リンク」+TEXTAREA+「適用」+「更新する」로 교정, 공개 페이지 `a[href=signumhq.com/app?from=note]`(nofollow) 검증. 5일 연속 투고.
 - **Pinterest #2(t112)**: 초안(제목·설명·링크 검증·보드) 준비, 이미지 프리뷰 감지 실패로 게시 보류 → 아래 줄에 결과.
+- **Pinterest #2(t112) 게시**: `pinterest.com/pin/1102115340098160344` — 다크풀 카드·«Dark pool share explained…»·링크 정확(delay 40 타이핑+재읽기, 1회 성공)·공개 페이지 이미지·href 검증.
+- **X @signumhq(t116)**: `x.com/signumhq/status/2100233989143580913` — Fed day·월물 만기 SPY 구조 훅(279자, 링크 from=x_us) + Command 화면, 프로필 검증.
+- **LinkedIn(t117)**: Fed day 포지셔닝 글 + `signumhq.com/app?from=linkedin`, 최근 활동 검증. 교훈: 링크 미리보기 카드 위를 클릭하면 타이핑이 무시됨 → 편집기 전체 재입력.
+- 오늘(9/17 KST) 누계: note JP 1 · Pinterest 1 · X 1 · LinkedIn 1. 광고: US +10·KR +8(−2 정지)·JP +6 키워드.
