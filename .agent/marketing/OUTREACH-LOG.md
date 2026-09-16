@@ -5938,3 +5938,13 @@ v2 18장·업로드 스크립트 준비 완료. 새 버전 생성+업로드는 �
 - 정정: 「note 는 데스크톱 제어 없이는 불가」 판정을 뒤집음(3번째 길이 있었다 — 「안 됩니다」로 끝내지 않기).
 ### 누계(9/16 KST): Quora 5(EN×3·JP·DE) + Reddit 3 + **note.com 1** = 9건, 전건 생존. 3개 언어·US/JP/DE/KR-prep.
 ### 정정(같은 사이클) — note 외부링크는 `rel="noopener nofollow"` 로 렌더된다. 즉 «클릭 가능한 CTA»(설치 경로)는 확보됐지만 SEO 권위(백링크)는 주지 않는다(IndieHackers 와 같은 유형). 위 「실제 백링크」 표현을 «클릭 가능한 앵커»로 읽을 것. 가치는 note 내부 도달·구글 JP 검색 노출(기사 자체 색인)·from=note 귀속.
+
+## 2026-09-16 (14) — 10:4x~11:3x 사이클 — ★ Medium 채널 개통(KR)
+### 광고 점검 — 통과
+어제 확정 $20.55(캡 이내), 런어웨이 없음, 예산 무변경. 주의: 콘솔 날짜범위가 «어제»로 고정돼 있어 오늘/당월 값은 못 읽음 → 다음 사이클에 «오늘»·«이번 달»로 재설정해 읽을 것. 발행 전 만기 감사 341건 0실패.
+### 발행(t010) — Medium 한국어 「미국 시장 전체를 무료 앱 하나로 보는 법」
+[기사](https://medium.com/@signum_hq/%EB%AF%B8%EA%B5%AD-%EC%8B%9C%EC%9E%A5-%EC%A0%84%EC%B2%B4%EB%A5%BC-%EB%AC%B4%EB%A3%8C-%EC%95%B1-%ED%95%98%EB%82%98%EB%A1%9C-%EB%B3%B4%EB%8A%94-%EB%B2%95-1f9633307bf6) · H3 제목·6문단 1,067자(앱 전체→종목별 기관 흐름→9/14 NVDA/AMD 다크풀 실측→공개데이터·무예측) · **card-app-ko 를 1문단 뒤 인라인 삽입(스토리 프리뷰 이미지로도 채택)** · smartlink `from=medium_ko` 앵커(편집기에선 medium.com/r/?url= 래퍼, **공개 페이지에선 직결 href**) · 토픽 5개(미국주식·투자·주식·서학개미·앱) · 2 min read.
+**Medium 편집기 실측:** execCommand insertText 문단삽입은 본문에 정상(charsPerLine 35). 단 ① 플레이스홀더 h3 에 넣은 제목과 1문단이 유실 → 선두 P 에 제목 삽입 후 **⌘⌥1** 로 h3 화, 빈 P 에 1문단 재삽입. ② 「+」 인서터의 aria-label 이 “Add an image, video…”라 정규식이 «+» 자체를 재클릭 → 정확일치 “Add an image”(x+54) 로 해결, waitForFileChooser 로 첨부. ③ 링크는 선택→인라인 툴바 «link»→자동포커스 입력칸에 «클릭 없이» 타이핑→Enter. ④ 게시 다이얼로그는 `/p/<id>/submission` 라우트, 최종 버튼은 «Publish now»가 아니라 **«Publish»**(가장 아래쪽), 토픽 입력 “Add a topic...”.
+### 확장 — 아침 한 번에 ProseMirror 계열 편집기 2곳(note·Medium) 개통. Medium 은 KR 독자 + 구글 KR 색인 + 앱 카드 프리뷰. 같은 절차로 Medium EN(t086, 내일)·JP(t089) 복제. 한 채널 하루 1편 준수(Medium 오늘 1편).
+### 성장 규칙 적용 — 이긴 것(롱폼+앱카드+앵커) 을 채널 2→4(Quora·Reddit·note·Medium)로 복제. 진 것 없음. 정정: 「Medium 도 데스크톱 제어 필요」 판정 폐기.
+### 누계(9/16 KST): Quora 5(EN×3·JP·DE) + Reddit 3 + note 1 + **Medium 1** = 10건, 전건 생존 확인(note·Medium 공개페이지 검증).

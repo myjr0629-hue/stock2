@@ -136,10 +136,11 @@
    "title": "Medium 한국어 기사",
    "detail": "서학개미 대상. 앱이 해결하는 일 → 근거 수치 순서.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "Medium KR 발행: https://medium.com/@signum_hq/미국-시장-전체를-무료-앱-하나로-보는-법-1f9633307bf6 — H3 제목·6문단 1,067자·9/14 다크풀 실측 예시·card-app-ko 인라인(프리뷰 이미지 겸)·smartlink from=medium_ko 앵커(공개페이지 href 직결)·토픽 5(미국주식·투자·주식·서학개미·앱). execCommand insertText 기법 복제 성공.",
+   "closed": "2026-09-16 01:54"
   },
   {
    "id": "t011",
@@ -1141,6 +1142,30 @@
    "title": "X @signumhq_jp — note 기사 공유(카드+링크)",
    "detail": "발행한 note 기사를 X JP 에 카드 이미지와 함께 공유. 도달 낮아도 비용 0·백링크 신호. 계정 등록(#T2) 대기 시 스킵하고 기록.",
    "prio": 3,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t089",
+   "type": "publish",
+   "region": "JP",
+   "title": "Medium JP 앱 소개 롱폼(execCommand 절차 재사용)",
+   "detail": "note 기사 본문(일본어)을 Medium 에 재사용. ⌘⌥1 제목화·Add an image 정확일치·link 툴바·/submission Publish. 이미지=card-app-ja. from=medium_ja. Medium 하루 1편 → t086(EN) 다음 날.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t090",
+   "type": "ads",
+   "region": "ALL",
+   "title": "생존·성과 일일 점검(note·Medium·Quora·Reddit) + 광고 날짜범위 «오늘·이번달» 재설정",
+   "detail": "매일 아침: 4채널 게시물 생존(삭제/스팸)·조회/스키/클랩 수치·from 태그 클릭(mkt:attr:hit) 기록. 애플광고 콘솔 날짜범위를 «어제»에서 «오늘»+«이번 달»로 되돌려 당일·당월 지출 읽기.",
+   "prio": 1,
    "state": "todo",
    "tries": 0,
    "created": "2026-09-16",
