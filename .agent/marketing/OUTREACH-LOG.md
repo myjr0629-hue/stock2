@@ -6014,3 +6014,13 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **t101 종결(실측)**: 카드 OG 104KB(<976KB)·`bskyPost` 임베드 지원 확인. 9/9·9/10·9/15 텍스트만 글은 레벨카드 문체가 아니라 다른 발행 레그가 카드 없이 게시 중(§11 위반). 코드 수정은 웹 변경 → 대표 승인 대기 t105. (분류기가 cron 파일 grep 을 차단해 정확한 레그 지목은 다음 사이클 Read 로.)
 - **발행**: GitHub 1건(신규). Reddit 은 US 시간대(KST 저녁) t093, Quora EN/Medium EN 은 다음 UTC일(t092/t086), note/Medium JP 는 오늘 1편 소진으로 내일(t087/t089).
 - **대표 지시(16:0x)**: 「절대로 앱이나 웹에 영향 금지(스코어 제외)」 → 감사 실패 시 앱 수정 대신 보고; 마케팅 웹 코드 변경(t100·t102·t105)은 승인 후에만.
+
+## 사이클 22 — 2026-09-16 17:09~ KST
+- **광고 점검**: app-ads 콘솔이 idmsa 로그인 페이지로 리다이렉트(세션 만료). 비밀번호 입력 금지 → 재로그인 티켓 t106(#T7). 직전 실측(16:0x)은 사이클 21 기록 유효. 키워드 감사(30일 설치 0 키워드 정리·앱 의도어 추가)는 재로그인 후.
+- **게이트**: audit --live 341/0 통과.
+- **큐 상위 3건 전부 대표 게이트**(t079 ASC 새 버전·t103 예산 축소·t054 Quora EN 다음 UTC일) → 실행 가능 항목으로 진행.
+- **GitHub 표면 보강**: 저장소에 토픽 7개(options-trading·max-pain·gamma-exposure·gex·stock-market·dataset·market-structure) 추가 — 토픽 페이지 노출.
+- **HN**: Algolia 검색 2일 내 옵션/시장 관련 스레드 0 → 오늘 무링크 기여 없음(억지 기여 금지).
+- **Pinterest(t107)**: 비즈니스 계정 로그인 확인(기존 핀 3개 존재 — 자동발행 흔적). 앱 커맨드 화면(세로) 업로드·제목/설명/링크(/app?from=pinterest) 채움. 결과는 아래 줄에.
+- **Pinterest 결과**: 게시 완료 → pinterest.com/pin/1102115340098142211 (보드 Options Flow & Market Structure, 노출 6 즉시). **결함 발견·정정**: 링크 입력이 자동저장과 경합해 `https://www.signumhq`(잘림)로 저장됨 → 핀 수정(••• → 핀 수정 → 저장 → «참여 지표 손실» 확인창 저장)으로 `signumhq.com/app?from=pinterest` 로 교정, 공개 페이지에서 href 검증. 교훈: 입력 후 «값 검증→저장→공개 페이지 href 재확인» 3단을 발행 절차에 고정.
+- **발행 합계(사이클 22)**: Pinterest 1건(신규 표면). 다음 창: Reddit t093(KST 21시), Quora EN/Medium EN(UTC 0시), note/Medium JP(JST 내일).

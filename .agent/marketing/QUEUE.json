@@ -1361,6 +1361,31 @@
    "tries": 0,
    "created": "2026-09-16",
    "note": ""
+  },
+  {
+   "id": "t106",
+   "type": "ads",
+   "region": "ALL",
+   "title": "애플광고 콘솔 세션 만료 — 대표 재로그인(#T7)",
+   "detail": "17:1x KST 실측: app-ads.apple.com → idmsa 로그인 페이지로 리다이렉트. 비밀번호 입력 금지라 자동 재로그인 불가. 재로그인 후: 일일 광고 점검 재개 + 키워드 감사(30일 설치 0 키워드 정리·앱 의도어 추가, 예산 불변).",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t107",
+   "type": "expand",
+   "region": "US",
+   "title": "새 표면: Pinterest 핀(앱 화면·스마트링크 from=pinterest)",
+   "detail": "pinterest.com 비즈니스 계정 로그인 확인(17:2x). 세로 앱 화면(커맨드) 핀 + 검색어형 제목/설명(max pain·gamma exposure·dark pool), 링크 /app?from=pinterest. 핀은 검색에 영구 노출되는 B형 표면.",
+   "prio": 2,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": "Pinterest 핀 게시: pinterest.com/pin/1102115340098142211 — 앱 커맨드 화면(세로)·보드 Options Flow & Market Structure·링크 /app?from=pinterest. 토스트 «핀이 게시되었습니다» + 프로필 _created 에 제목 확인",
+   "closed": "2026-09-16 08:17"
   }
  ]
 }
