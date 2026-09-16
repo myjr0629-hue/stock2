@@ -6114,3 +6114,4 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 
 ## 사이클 32 — 2026-09-17 07:41~ KST
 - **광고 세션 수명 실측 정정**: 대표가 04:0x 재로그인 → **07:4x 만료**(idmsa 리다이렉트). 즉 Apple Ads 세션은 약 3.5시간. t106 은 «그때는 되었다»로 종료하고 t127 신설 — 앞으로 «대표 로그인 직후 30분 내»에 그날의 점검·키워드·예산 작업을 몰아서 한다.
+- **Indie Hackers #2 게시(오늘 신규 발행)**: 「We now publish our own market data as an open dataset — day 1 numbers from a Fed day」 — 데이터셋 공개 이유(데이터는 해자가 아니다), 9/16 실측(SPY 752.30·맥스페인 755·콜월 790·풋플로어 620), 배운 것 3가지(GitHub 업로드 함정·«확인해보라»식 글쓰기·차용청중 전략). GitHub 링크 1 + 앱 링크 3 렌더 확인.
