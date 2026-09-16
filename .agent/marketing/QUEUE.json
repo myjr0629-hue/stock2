@@ -1458,10 +1458,11 @@
    "title": "note.com JP #2 (9/17 JST) — 「株価アプリ」 검색 의도어 제목·앱 화면 3장·마케팅 링크",
    "detail": "9/16 t082 재작성분과 겹치지 않는 주제(다크풀·맥스페인 읽는 법). execCommand 방식·아이캐치·리ンク 적용·更新する.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "note JP #2 공개: note.com/signumhq/n/nf1a55a9ffe1d (00:5x JST, 5일 연속) — 다크풀 비율·맥스페인·감마플립 읽는 법, 아이캐치 JA Command 화면, 앱 링크 リンク 적용(rel=nofollow) 공개 페이지 검증, 해시태그 5",
+   "closed": "2026-09-16 14:39"
   },
   {
    "id": "t114",
