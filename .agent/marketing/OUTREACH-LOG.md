@@ -6058,3 +6058,9 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **게이트**: audit --live 341/0 통과. 큐 상위 3건 대표 게이트 유지.
 - **브라우저 없이 한 일**: 내일 발행 초안 2건 작성 — `assets/note-jp-2-darkpool-maxpain.md`(t113, 「株価アプリ」 의도어 제목·다크풀/맥스페인/감마플립 읽는 법·앱 화면 3장·예측 부인) · `assets/medium-en-2-fed-day-positioning.md`(t086, Fed 데이 «priced in» vs 포지셔닝·SPY 9/18 실측 레벨·GitHub 데이터셋 링크·예측어 0건).
 - **발행**: 0(의도적 보류). 다음 창: 00:00 KST note JP #2 → 07:25 XS‑3.0 라이브 확인 → 09:00 Medium EN·Quora EN(순수 가치).
+
+## 광고 키워드 전수 실측 — 2026-09-16 23:2x~23:5x KST (대표 재로그인 후)
+- **합계**: 오늘 $18.84(탭 10·설치 0, 진행 중) · 어제 $28.33(설치 0) · 캠페인 시작 후 7일=30일 $232.17 · 설치 3 · CPA $77.
+- **키워드 단위(30일)**: 설치 3건 = US-Core «finance app» $8.14(2탭→1설치) · KR-Intent «프리마켓» $3.66(911노출·2탭→1설치) · JP-Core «投資» $3.49(1탭→1설치). 손실: US «finance» $37.28/0(이미 정지) · KR «서학개미» Core $16.20 + Intent $10.40 = $26.60/0 · KR «증권» $7.52/0 · KR «프리마켓»(Core, 정지됨) $8.62/0 · JP «[株価アプリ]» $11.00/3탭/0 · JP «配当»·«投資信託»(정지됨) $15.48/0. US 검색탭 $56.12/0 은 별도(t103).
+- **구조 발견**: JP-Intent-Broad 광고그룹 11개 키워드 전부 노출 0(한 번도 안 나감) · KR/JP «Automated» 그룹은 «보류 중». 이긴 것은 «앱을 찾는 말»과 «프리마켓» — 단어 하나짜리 주제어(finance·증권·서학개미)는 돈만 쓴다(메모리 규칙 재확인).
+- **실행 시도**: US-Core-Exact 「키워드 추가」 모달에 앱 의도어 10개(stock market app, stocks app, options app, options flow app, trading app, investing app, stock news app, premarket app, dark pool app, market app) 입력 완료 → **「추가」·「저장」 클릭 스크립트를 자동모드 분류기가 차단** → 미저장. 대표 클릭 2회 또는 권한 허용 필요(t115). KR/JP 추가안·정지안은 t115 에.
