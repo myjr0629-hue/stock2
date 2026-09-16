@@ -149,9 +149,14 @@ async function loadSP500() {
   }
 }
 async function loadEod() { const v = await proxyGet('intrinio:eod:history'); if (!v || !v.dates || !v.closes) return null; return v; }
-async function loadEarnings(tickers) {
-  const soon = new Set(); const out = {}; const chunks = []; for (let i = 0; i < tickers.length; i += 20) chunks.push(tickers.slice(i, i + 20));
-  for (const ch of chunks) { await Promise.all(ch.map(async (t) => { try { const r = await ddb.send(new QueryCommand({ TableName: PDB, KeyConditionExpression: 'pattern = :p', ExpressionAttributeValues: { ':p': `EARNINGS:${t.replace(/-/g, '.')}` }, ScanIndexForward: false, Limit: 1 })); const it = (r.Items || [])[0]; if (it && it.nextDate) out[t] = it.nextDate; } catch { /* skip */ } })); }
+/** 실적일: pattern-db EARNINGS:{t}.nextDate ∪ FMP stable earnings-calendar(srcDate+1 … +14일) → {normT: [dates]} */
+async function loadEarnings(tickers, srcDate) {
+  const out = {}; const add = (t, d) => { if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(String(d))) return; const k = normT(t); (out[k] = out[k] || []).push(String(d)); };
+  const chunks = []; for (let i = 0; i < tickers.length; i += 20) chunks.push(tickers.slice(i, i + 20));
+  for (const ch of chunks) { await Promise.all(ch.map(async (t) => { try { const r = await ddb.send(new QueryCommand({ TableName: PDB, KeyConditionExpression: 'pattern = :p', ExpressionAttributeValues: { ':p': `EARNINGS:${t.replace(/-/g, '.')}` }, ScanIndexForward: false, Limit: 1 })); const it = (r.Items || [])[0]; if (it && it.nextDate) add(t, it.nextDate); } catch { /* skip */ } })); }
+  const pdbNames = Object.keys(out).length; let fmpRows = 0;
+  if (FMP_KEY && srcDate) { try { const from = new Date(srcDate + 'T00:00:00Z'); from.setUTCDate(from.getUTCDate() + 1); const to = new Date(from); to.setUTCDate(to.getUTCDate() + 13); const r = await fetch(`https://financialmodelingprep.com/stable/earnings-calendar?from=${from.toISOString().slice(0, 10)}&to=${to.toISOString().slice(0, 10)}&apikey=${FMP_KEY}`, { signal: AbortSignal.timeout(15000) }); const j = await r.json(); if (Array.isArray(j)) { const want = new Set(tickers.map(normT)); for (const x of j) { if (want.has(normT(x.symbol))) { add(x.symbol, x.date); fmpRows++; } } } } catch (e) { console.warn('[XS3] FMP earnings-calendar failed:', e.message); } }
+  console.log(`[XS3] earnings sources: pattern-db ${pdbNames} names · FMP calendar S&P rows ${fmpRows}`);
   return out;
 }
 async function loadVix() { try { if (FMP_KEY) { const r = await fetch(`https://financialmodelingprep.com/stable/quote?symbol=%5EVIX&apikey=${FMP_KEY}`, { signal: AbortSignal.timeout(10000) }); const j = await r.json(); const p = Array.isArray(j) && j[0] ? Number(j[0].price) : NaN; if (Number.isFinite(p)) return p; } } catch { /* fallthrough */ } const v = await proxyGet('yahoo:vix'); const p = v && Number(v.price); return Number.isFinite(p) ? p : null; }
@@ -175,10 +180,12 @@ module.exports.handler = async (event) => {
   const { scored, ema } = scoreDay(rows, prevEma, sp.map);
   const spScored = scored.filter((s) => s.sp500);
   // 실적 제외 (S&P 후보만)
-  const earn = await loadEarnings(spScored.map((s) => normT(s.t)));
-  const soon = new Set(); if (eod) { const idx = eod.dates.indexOf(srcDate); const horizonDates = idx >= 0 ? eod.dates.slice(idx + 1, idx + 1 + EARN_EXCL_SESSIONS) : []; const lastKnown = horizonDates.length ? horizonDates[horizonDates.length - 1] : null; for (const [t, d] of Object.entries(earn)) { if (d > srcDate && (lastKnown ? d <= lastKnown : true)) soon.add(t); } }
+  const earn = await loadEarnings(spScored.map((s) => normT(s.t)), srcDate);
+  // 제외 창: srcDate 다음 EARN_EXCL_SESSIONS 세션(EOD 달력이 충분하면 세션 기준, 아니면 7 캘린더일 근사)
+  const soon = new Set(); { let lastKnown = null; if (eod) { const idx = eod.dates.indexOf(srcDate); const h = idx >= 0 ? eod.dates.slice(idx + 1, idx + 1 + EARN_EXCL_SESSIONS) : []; if (h.length === EARN_EXCL_SESSIONS) lastKnown = h[h.length - 1]; } if (!lastKnown) { const x = new Date(srcDate + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + 7); lastKnown = x.toISOString().slice(0, 10); } for (const [t, ds] of Object.entries(earn)) { if (ds.some((d) => d > srcDate && d <= lastKnown)) soon.add(t); } }
+  const soonSample = [...soon].slice(0, 8).join(',');
   const list = tradeList(scored, soon, vix);
-  console.log(`[XS3] scored ${scored.length} (S&P ${spScored.length}) · eligible ${list.eligible} · earnings-excluded ${soon.size} · top${TOP_N}: ${list.top.slice(0, 8).map((x) => x.t + ':' + x.xs3).join(' ')}`);
+  console.log(`[XS3] scored ${scored.length} (S&P ${spScored.length}) · eligible ${list.eligible} · earnings-excluded ${soon.size} [${soonSample}] · top${TOP_N}: ${list.top.slice(0, 8).map((x) => x.t + ':' + x.xs3).join(' ')}`);
   // 라벨: srcDate 의 HORIZON 세션 전 행에 f5 부여 (EOD 매트릭스)
   let labelStats = null, labelDate = null;
   if (eod) { const i = eod.dates.indexOf(srcDate); if (i >= HORIZON) { labelDate = eod.dates[i - HORIZON]; const past = await loadRowsForDate(labelDate); if (past.length) { const spy = eod.closes.SPY; const spyF = spy && spy[i] > 0 && spy[i - HORIZON] > 0 ? spy[i] / spy[i - HORIZON] - 1 : null; const lab = []; for (const p of past) { const c = eod.closes[p.ticker] || eod.closes[p.ticker.replace(/-/g, '.')]; if (!c || !(c[i] > 0) || !(c[i - HORIZON] > 0)) continue; const f5 = c[i] / c[i - HORIZON] - 1; if (Math.abs(f5) > 1.5) continue; lab.push({ ...p, t: p.ticker, f5 }); } if (lab.length >= 100) { const mu = mean(lab.map((x) => x.f5)); for (const x of lab) { x.adj5 = x.f5 - mu; x.spyAdj5 = spyF == null ? null : x.f5 - spyF; } const trade = await ddb.send(new GetCommand({ TableName: TABLE, Key: { ticker: '_TRADE_', date: labelDate } })); labelStats = dayStats(lab, trade.Item && trade.Item.top ? trade.Item.top.map((x) => x.t) : [], trade.Item && trade.Item.topB, trade.Item && trade.Item.topD); labelStats.d = labelDate; labelStats.spyF5 = r4(spyF); if (!dry) await batchPut(lab.map((x) => ({ ...x, ticker: x.t, f5: r4(x.f5), adj5: r4(x.adj5), spyAdj5: r4(x.spyAdj5), labeledAt: new Date().toISOString() }))); console.log(`[XS3] labeled ${labelDate}: n=${labelStats.n} icSp=${labelStats.icSp} icSpB=${labelStats.icSpB} icSpXs2=${labelStats.icSpXs2} top20=${JSON.stringify(labelStats.top20)}`); } } } }
