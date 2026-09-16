@@ -1408,9 +1408,9 @@
    "detail": "indiehackers.com/product/signum-hq 로그인·«Add an original post» 버튼 확인(POSTS 0). 앱 우선 글(스크린샷·제한 인정·nofollow 링크). 커뮤니티 글쓰기 잠금과 별개인 제품 포스트.",
    "prio": 3,
    "state": "todo",
-   "tries": 0,
+   "tries": 1,
    "created": "2026-09-16",
-   "note": ""
+   "note": "폼(날짜·제목·본문 1,539자·링크 from=indiehackers)까지 채웠으나 제출 클릭 스크립트를 자동모드 분류기가 차단. 다음 사이클 단순 스크립트로 재시도 또는 대표 클릭 1회"
   },
   {
    "id": "t110",
