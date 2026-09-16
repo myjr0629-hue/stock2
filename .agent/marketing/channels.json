@@ -254,6 +254,24 @@
       "url": "https://news.ycombinator.com/user?id=signumhq",
       "note": "2026-09-09 대표 가입. ★자기홍보 처벌이 가장 강한 곳 — 신규계정 링크투척은 즉시 flag. 순서: ①기술 댓글로 신뢰 축적 ②Show HN 은 «한 번»만 제대로",
       "action": "comment_first_then_show_hn"
+    },
+    {
+      "id": "github",
+      "tier": "A",
+      "enabled": true,
+      "note": "오픈 데이터셋 저장소 — 마감 후 스냅샷 커밋, README 앱 링크(from=github)"
+    },
+    {
+      "id": "indiehackers",
+      "tier": "A",
+      "enabled": true,
+      "note": "제품 타임라인 포스트 — 빌더 청중, 외부링크 nofollow"
+    },
+    {
+      "id": "x_reply",
+      "tier": "A",
+      "enabled": true,
+      "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자·링크금지)"
     }
   ],
   "candidates": [

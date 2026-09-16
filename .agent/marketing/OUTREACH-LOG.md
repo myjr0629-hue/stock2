@@ -6128,3 +6128,8 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **GitHub Actions**: cron-fedwatch(하루 4회)만 살아 있고 cron-reports 는 주석 처리. 마케팅 트리거 없음.
 - **9/9·9/10·9/15 Bluesky 텍스트전용 글의 출처 규명(t101/t105 종결)**: autopilot 은 `bskyPost(text, ogUrl)` 로 **카드 첨부**(9/1 글 embed=images 로 확인), 관리자 라우트 `/api/admin/mkt/bluesky/post` 는 `bskyPost(text)` **텍스트 전용**. 9/9 이후 글이 전부 embed=null 이므로 **자동발행이 아니라 관리자 라우트 경유**였다. 자동화 버그가 아님.
 - **현재 «자동»으로 도는 마케팅 관련 크론 = 0건**. 대신 내가 매 사이클 도는 도구: `scripts/mkt.js`(큐 128건: done 82/todo 46) · `scripts/marketing/github-structure-snapshot.js`(마감 후 데이터셋) · `scripts/audit-expiration-selection.js`(발행 전 게이트).
+
+## 채널 전수 점검 — 2026-09-17 08:5x KST (대표 질의: 20개 중 왜 다 안 도는가)
+- 등록표 20 → **신설 3개 등재(github·indiehackers·x_reply)로 23개**. 어제·오늘 실제 가동 **11개**.
+- **미가동 9개의 실제 사유**(추측 아님): ① 디스콰이엇·네이버블로그·はてな = **계정생성 금지 안전선**(대표 계정 필요, 티켓 #T8) ② x_jp = JP 계정 없음(#T2) ③ youtube = 대표가 윈도우에서 관리(내 접근 금지) ④ stocktwits = 무기한 제재 ⑤ tiktok = 신생 계정 도달 0 실측 ⑥ bluesky = 자격증명이 Vercel env 에만 있고 관리자 라우트는 텍스트 전용(§11 위반) ⑦ buffer = 봉인한 자동발행의 집배 계층 ⑧ seo·aso = 게시 채널이 아니라 사이트·스토어 작업(aso 는 빌드·대표 계정 필요, t079).
+- **정정**: t074·t075(모든 게시물에 앱 화면/카드)는 이미 상시 규칙으로 정착 — 티켓 종료하고 ENGINE §11 로 승계.
