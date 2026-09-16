@@ -5970,3 +5970,12 @@ note·Medium 라이브(スキ 0·클랩 0). Quora EN 12답·76뷰 / JP 26답 / D
 ### 생존 — jp.quora 매크로 답변 생존(26답). 
 ### 성장 규칙 — 레딧 «순수가치→프로필 전환» 패턴 확정(2/2 생존). 3/3 은 미국 아침(KST 저녁)에 r/thetagang 또는 r/StockMarket (t093). Quora 는 언어별 1편/일을 지키며 EN 은 §11-5 어투로 내일 재개.
 ### 누계(9/16 KST): 발행 12 / 생존 11. 채널: Quora EN·JP·DE, Reddit(stocks·options·Daytrading·StockMarket), note, Medium.
+
+## 2026-09-16 (17) — 13:xx 사이클 — LinkedIn 오늘분 + Bedrock 비용 점검
+### 광고 점검 — 통과·무변경. 오늘 $28.33(3h 지연 동일), 어제 $20.55. 만기 감사 0실패.
+### 큐 — t054(Quora 프리마켓)는 오늘 실행 불가 유지, t079 대표 액션. t049(tech) 실행: **Haiku 4.5 복구 확인** — global 프로파일 일 4.5~4.7k 호출·입력 ~9.6M/출력 ~3.9M 토큰(평시), 폴백 Sonnet 4.6 은 9/14 179회(≈$5)→9/15 29회(≈$0.6) 로 소멸. 장애 추가비용 ≈ $6, 예상 밖 증가 없음. Haiku 평시 ≈ $30/일.
+### 발행(t094) — LinkedIn 「Eight tabs every morning…」 앱 소개(EN)
+[프로필 활동](https://www.linkedin.com/in/signumhq/recent-activity/all/) · 앱 전체(프리마켓·실적·매크로·섹터·옵션/다크풀)→«한 화면·평이한 해석»→무료·무가입·공개데이터·무예측 + smartlink from=linkedin. 앱스토어 미리보기 카드. **실측:** shareActive 프리필은 URL 의 쿼리를 떨어뜨린다 → 작성창에서 링크 끝에 `?from=linkedin` 을 타이핑으로 보강. 새 작성창은 섀도 DOM(일반 querySelector 로 편집기 0개) → 딥워커 필요, 버튼은 «업데이트»(한국어 UI).
+### 큐 보강 — 오늘분 카드 채널 t095(X US)·t096(Bluesky), 새 표면 t097(Quora Spaces/HN 무링크). 
+### 누계(9/16 KST): 발행 13 / 생존 12. 채널: Quora EN·JP·DE, Reddit(stocks·options), note, Medium, LinkedIn.
+### 별도 — 알파스코어 실측 보고 완료(.agent/ALPHA_SCORE_FULL_REPORT_2026-09-16.md, 아티팩트 발행). XS 엔진 9/1 정지·앱 V8 폴백·보안 2건은 작업 칩으로 분리.
