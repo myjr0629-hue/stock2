@@ -6024,3 +6024,10 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **Pinterest(t107)**: 비즈니스 계정 로그인 확인(기존 핀 3개 존재 — 자동발행 흔적). 앱 커맨드 화면(세로) 업로드·제목/설명/링크(/app?from=pinterest) 채움. 결과는 아래 줄에.
 - **Pinterest 결과**: 게시 완료 → pinterest.com/pin/1102115340098142211 (보드 Options Flow & Market Structure, 노출 6 즉시). **결함 발견·정정**: 링크 입력이 자동저장과 경합해 `https://www.signumhq`(잘림)로 저장됨 → 핀 수정(••• → 핀 수정 → 저장 → «참여 지표 손실» 확인창 저장)으로 `signumhq.com/app?from=pinterest` 로 교정, 공개 페이지에서 href 검증. 교훈: 입력 후 «값 검증→저장→공개 페이지 href 재확인» 3단을 발행 절차에 고정.
 - **발행 합계(사이클 22)**: Pinterest 1건(신규 표면). 다음 창: Reddit t093(KST 21시), Quora EN/Medium EN(UTC 0시), note/Medium JP(JST 내일).
+
+## 사이클 23 — 2026-09-16 18:26~18:45 KST
+- **광고 점검**: 콘솔 세션 여전히 만료(idmsa) → t106 대표 재로그인 대기. 게이트 audit --live 341/0 통과. 큐 상위 3건은 여전히 대표 게이트(t079·t103·t054).
+- **Reddit(t110, 오늘 2/3)**: r/thetagang 데일리 스레드(1whl7gd)에 9/18 월물 만기 구조 레벨 가치 댓글 `t1_pa4ob7a` — SPY 758/맥스페인 755/콜월 790/풋플로어 620/딜러 감마 +$0.9B, QQQ 700 이중 역할, NVDA 단일종목 숏감마, AMD 맥스페인 420 vs 504 «랠리 중 쌓인 OI 발자국» 판단 + EOD OI 한계 + 질문으로 마무리. 무링크·무앱명. 검증: 게시 직후 score 1·미삭제.
+- **새 표면 — Threads(t108)**: @signumhq_official 에 앱 카드+텍스트+`/app?from=threads` 게시(`post/DdV-lvoGXhY`, 09:36Z), 프로필에서 본문·링크 활성 확인. **1차 시도는 무발행**: 작성 패널이 dialog 가 아닌 플로팅 패널이라 상단 피드의 빈 「게시」를 눌렀고, 이미지 게이트가 배경 썸네일을 셌다(블루스카이 사고와 같은 모양) → 패널 좌표 범위로 스코프 고정 후 성공.
+- **후보 탐침**: Indie Hackers 제품 페이지 «Add an original post» 가능(POSTS 0) → t109 내일 expand. HN 관련 스레드 없음.
+- **발행 합계**: Reddit 1 + Threads 1. 남은 창: Reddit 1건(KST 21시~), UTC 0시 Quora EN/Medium EN, JST 내일 note/Medium JP/IH.

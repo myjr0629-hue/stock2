@@ -1386,6 +1386,44 @@
    "created": "2026-09-16",
    "note": "Pinterest 핀 게시: pinterest.com/pin/1102115340098142211 — 앱 커맨드 화면(세로)·보드 Options Flow & Market Structure·링크 /app?from=pinterest. 토스트 «핀이 게시되었습니다» + 프로필 _created 에 제목 확인",
    "closed": "2026-09-16 08:17"
+  },
+  {
+   "id": "t108",
+   "type": "expand",
+   "region": "US",
+   "title": "새 표면: Threads(@signumhq 계열) 앱 카드 게시",
+   "detail": "threads.com 로그인 확인(18:3x). 카드 이미지+짧은 텍스트+스마트링크 ?from=threads. C형(청중형)이라 도달은 낮지만 비용 0·알고리즘 배포 가능성. 하루 1편.",
+   "prio": 2,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": "Threads 게시: threads.com/@signumhq_official/post/DdV-lvoGXhY (09:36Z) — 앱 카드+텍스트+/app?from=threads 링크 활성 확인. 교훈: 작성 패널은 dialog 가 아닌 플로팅 패널, 상단 피드 «게시»는 빈 버튼(1차 시도 무발행)",
+   "closed": "2026-09-16 09:36"
+  },
+  {
+   "id": "t109",
+   "type": "expand",
+   "region": "US",
+   "title": "새 표면: Indie Hackers 제품 페이지 «original post» 1편",
+   "detail": "indiehackers.com/product/signum-hq 로그인·«Add an original post» 버튼 확인(POSTS 0). 앱 우선 글(스크린샷·제한 인정·nofollow 링크). 커뮤니티 글쓰기 잠금과 별개인 제품 포스트.",
+   "prio": 3,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t110",
+   "type": "publish",
+   "region": "US",
+   "title": "r/thetagang 데일리 스레드 가치 댓글 — 9/18 만기 SPY·QQQ 구조 레벨(무링크·무앱명)",
+   "detail": "오늘 1/3→2/3 사용. 데일리 스레드(1whl7gd, 6h, 댓글 4). 실측 레벨(max pain·gamma flip·call wall/put floor)+판단·한계. 전환은 프로필.",
+   "prio": 1,
+   "state": "done",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": "r/thetagang 데일리(1whl7gd) 가치 댓글 t1_pa4ob7a 게시·검증(score 1·미삭제). SPY/QQQ/NVDA/AMD 9/18 월물 구조 레벨+판단+한계, 무링크·무앱명. 오늘 레딧 2/3",
+   "closed": "2026-09-16 09:32"
   }
  ]
 }
