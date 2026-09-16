@@ -6094,3 +6094,10 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 ## 사이클 30 — 2026-09-17 01:05 KST (브라우저: 대표 제어 중 지속)
 - 게이트 341/0. 브라우저 조작 없음(하드 스톱 유지).
 - 준비: GitHub 일일 스냅샷 생성기 `scripts/marketing/github-structure-snapshot.js`(t104 데이터 절반, 커밋 ab2900aa) · Lambda 검증 스크립트 `/tmp/ego/verify-lambdas.js`(XS‑3.0 07:25·cross-sector 06:50 용).
+
+## 사이클 31 — 2026-09-17 01:10~02:05 KST (브라우저 인수 완료, 대표 «쉬지말고» 지시)
+- **광고 점검**: 오늘 합계 $22.28 · 노출 989 · 탭 12 · 설치 0. **어제 추가한 키워드가 살아 서빙 중** — US TTR 1.5%→**2.47%**(162노출), KR 402노출, JP 421노출. 검색탭은 오늘 $0.00(노출 4).
+- **t103 완료(비용 절감)**: US 검색탭 일일예산 **$5 → $2 저장 확인**(캠페인 설정 → $2.00 → 저장 → 보고서 $2.00). 일 상한 $30 → $27. 증액 0.
+- **t120 완료(Quora EN)**: 원래 목표 질문(«meme screener»)이 이미 답변 2개라 폐기하고 무응답 질문으로 교체 → `quora.com/Why-did-Oracles-stock-later-reverse-course-and-decline-after-a-jump-in-the-shares-on-Friday/answer/Jiyoung-Kim-236`. ORCL 실측(넷감마 +$5M·플립 123·ATM IV 59%·PCR 0.49·콜월 170·핀존 150)으로 «급등 후 되돌림»의 기계적 원인 3가지 + OI 증감으로 숏커버/신규자금 구분 + 다크풀 해석. §11-6 준수(앱명 0회·무링크·데이터 화면 1장), mine·img 검증.
+- **t121 실패(실측 기록)**: jp.quora 무응답 금융질문 0 — /answer 피드 전체 2건이 비금융, 검색 5쿼리 결과 파싱 0. 억지 발행 금지 원칙대로 보류(JP 는 note #2 로 커버됨).
+- **Reddit 2/3**: r/StockMarket 「Fed Credibility (94% chance) & SPY」(1whzu5p) 에 장중 실측 답변 `t1_pa734qx` — SPY 760/핀 755/콜월 790/풋플로어 620/넷감마 +$0.7B/플립 646/ATM IV 20/PCR 3.3 + «755–760 이탈·유지» 판정 기준 + 만기 주 감마 소멸 경고. 무링크·무앱.

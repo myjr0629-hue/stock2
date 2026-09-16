@@ -1335,10 +1335,11 @@
    "title": "애플광고 US 검색탭 일일예산 $5→$2 축소(대표 승인/실행)",
    "detail": "7일 실측: 지출 $56.12·노출 17,633·탭 17·설치 0·TTR 0.1%(CPM 탭 광고). 성장규칙 «진 것은 줄이되 죽이지 말고» → $2 로 축소 제안. 자동조작은 분류기가 예산 편집을 차단(9/16 16:2x) → 대표가 콘솔에서 직접 또는 승인 후 재시도. 증액 아님.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "US 검색탭 일일예산 $5→$2 저장 완료(캠페인 설정 편집 → $2.00 → 저장, 보고서에 $2.00 반영 확인). 총 상한 $30→$27. 오늘 실측: 합계 $22.28·노출 989·탭 12·설치 0, 검색탭은 $0.00(노출 4)",
+   "closed": "2026-09-16 16:41"
   },
   {
    "id": "t104",
@@ -1550,10 +1551,11 @@
    "title": "Quora EN 게시 마무리 — «best stock screener for meme stocks» 초안(8문단·Flow 화면) 확인 후 Post·생존 확인",
    "detail": "§11-6: 무링크·앱명 0회·데이터 화면 1장. JS 다이얼로그 처리 후 게시.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "Quora EN 게시: quora.com/Why-did-Oracles-stock-later-reverse-course-and-decline-after-a-jump-in-the-shares-on-Friday/answer/Jiyoung-Kim-236 — ORCL 실측(넷감마 +5M·플립 123·ATM IV 59%·PCR 0.49·콜월 170·핀 150)으로 급등후 되돌림 메커니즘 8문단, 앱명 0·무링크·데이터화면 1장, mine·img 검증",
+   "closed": "2026-09-16 16:52"
   },
   {
    "id": "t121",
@@ -1563,9 +1565,9 @@
    "detail": "jp.quora.com 은 앱 우선 답변도 생존. /answer 피드가 비면 search?type=question 으로.",
    "prio": 2,
    "state": "todo",
-   "tries": 0,
+   "tries": 1,
    "created": "2026-09-16",
-   "note": ""
+   "note": "jp.quora 무응답 금융질문 0: /answer 피드 전체 2건(기업가치담보권·다이아몬드) 비금융, 검색 5쿼리(ダークプール·オプション建玉·米国株アプリ·ガンマ株価·決算株価) 결과 파싱 0. 억지 발행 대신 note JP(오늘 #2 공개)로 JP 커버. 다음 UTC일 재시도"
   },
   {
    "id": "t122",
@@ -1598,6 +1600,18 @@
    "title": "cross-sector 람다 21:50Z(06:50 KST) 실행 검증 — JSON ok 로그·소비 API 날짜",
    "detail": "t099 후속. 실패면 max_tokens/프롬프트 압축안을 대표 승인 티켓으로(웹 영향).",
    "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t125",
+   "type": "publish",
+   "region": "US",
+   "title": "Reddit 3/3 — Fed 발표 후(03:00 KST 이후) «왜 움직였나» 스레드에 실측 구조 답변",
+   "detail": "발표 직후 SPY/QQQ 재측정 → 딜러 감마·핀 755 이탈 여부로 설명. 무링크·무앱.",
+   "prio": 1,
    "state": "todo",
    "tries": 0,
    "created": "2026-09-16",
