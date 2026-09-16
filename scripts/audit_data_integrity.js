@@ -1,7 +1,7 @@
 // Alpha Engine Data Integrity Audit
 // Verifies all source data is present and properly loaded
 
-const POLYGON_API_KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 const BASE_URL = 'https://api.polygon.io';
 
 async function runDataIntegrityAudit() {

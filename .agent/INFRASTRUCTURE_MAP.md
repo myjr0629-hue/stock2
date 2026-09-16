@@ -2123,8 +2123,8 @@ if (endIdx > 0) parsed = JSON.parse(text.slice(0, endIdx + 1));
 ### 9.1 AWS
 | 변수 | 값 (앞 20자) | 용도 |
 |------|-------------|------|
-| `AWS_ACCESS_KEY_ID` | `AKIARBHTX7L4WODUFRIF` | IAM 접근 |
-| `AWS_SECRET_ACCESS_KEY` | `t5N4C9RJdCnoR0Q9Vf10` | IAM 시크릿 |
+| `AWS_ACCESS_KEY_ID` | `[.env.local 에만 — 문서에 적지 않는다]` | IAM 접근 |
+| `AWS_SECRET_ACCESS_KEY` | `[.env.local 에만 — 앞 20자도 적지 않는다]` | IAM 시크릿 |
 | `AWS_DEFAULT_REGION` | `us-east-1` | 리전 |
 | `AWS_REGION` | `us-east-1` | 리전 (중복) |
 | `AWS_ELASTICACHE_ENDPOINT` | `signum-redis.dhzfzt` | ElastiCache 엔드포인트 |

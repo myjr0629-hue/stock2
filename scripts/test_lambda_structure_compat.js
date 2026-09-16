@@ -5,7 +5,7 @@
 require('dotenv').config({ path: '.env.local' });
 const https = require('https');
 
-const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
 
 function httpsGet(url, timeoutMs = 15000) {

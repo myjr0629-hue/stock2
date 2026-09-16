@@ -8,7 +8,7 @@
 //
 //   node scan-candidates.js            → today's ranked candidates
 //   node scan-candidates.js 2026-08-10 → as of a given date
-const KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const KEY = process.env.POLYGON_API_KEY;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const mean = (a) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
 const std = (a) => { if (a.length < 2) return NaN; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1)); };

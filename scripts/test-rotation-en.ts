@@ -3,7 +3,7 @@
  * Run: npx tsx scripts/test-rotation-en.ts
  */
 
-const POLYGON_KEY = "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 const BASE = "https://api.polygon.io";
 
 const SECTORS: Record<string, string> = {

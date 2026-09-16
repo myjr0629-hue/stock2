@@ -39,7 +39,7 @@ async function readEodCloses(): Promise<EodCloses | null> {
     let data: EodCloses | null = null;
     try {
         const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-        const auth = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+        const auth = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 4000);
         try {

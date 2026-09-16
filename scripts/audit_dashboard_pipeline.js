@@ -10,7 +10,7 @@
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const EC2_PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const EC2_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const EC2_KEY = process.env.REDIS_PROXY_KEY || '';
 
 // TEST TICKERS: Mix of ones with DP and without
 const TEST_TICKERS = ['TSLA', 'MCD', 'NVDA', 'AAPL', 'GOOGL', 'WDC', 'RIVN', 'AMD', 'PLTR', 'COST', 'CEG', 'ASTS', 'AMZN', 'MSFT'];

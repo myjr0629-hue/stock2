@@ -1,6 +1,6 @@
 // Check ATM IV from today's expiry (2026-02-20)
 const https = require('https');
-const KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const KEY = process.env.POLYGON_API_KEY;
 
 function get(url) {
     return new Promise((resolve, reject) => {

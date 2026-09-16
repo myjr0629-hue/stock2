@@ -6,7 +6,7 @@ require('dotenv').config({ path: '.env.local' });
 const fs = require('fs');
 const https = require('https');
 
-const POLYGON_KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 
 function httpsGet(url) {
     return new Promise((resolve, reject) => {

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "postinstall": "patch-package",
+    "postinstall": "patch-package && (git config core.hooksPath .githooks 2>/dev/null || true)",
     "dev": "next dev --turbo",
     "build": "next build",
     "start": "next start",

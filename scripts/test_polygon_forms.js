@@ -1,4 +1,4 @@
-const apiKey = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const apiKey = process.env.POLYGON_API_KEY;
 
 async function testPolygon(endpoint) {
   const url = `https://api.polygon.io${endpoint}`;

@@ -33,7 +33,7 @@ export interface ShortVolumeData {
 
 // [V5.0 SSOT] Primary: EC2 ElastiCache (100% accuracy, $0 cost)
 const EC2_REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-const EC2_REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const EC2_REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
 
 // Fetch Trades for Dark Pool & Block Trade analysis + Buy/Sell classification (Quote Rule)
 export async function fetchTradeData(ticker: string): Promise<TradeData | null> {

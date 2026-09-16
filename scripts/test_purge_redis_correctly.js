@@ -1,6 +1,6 @@
 require('dotenv').config({ path: '.env.local' });
 const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || '';
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;

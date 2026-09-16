@@ -1,7 +1,7 @@
 // V4.0 Final Stock List Generator
 // Shows the complete 312 stock universe
 
-const POLYGON_API_KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 const BASE_URL = 'https://api.polygon.io';
 
 const MAGNIFICENT_7 = ['AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA'];

@@ -16,6 +16,6 @@ nohup /usr/local/bin/node redis-proxy.js > /tmp/redis-proxy.log 2>&1 &
 sleep 3
 cat /tmp/redis-proxy.log
 echo "--- Curl test ---"
-curl -s http://localhost:8081/health -H "Authorization: Bearer signum-redis-proxy-2026"
+curl -s http://localhost:8081/health -H "Authorization: Bearer ${REDIS_PROXY_KEY:?REDIS_PROXY_KEY not set}"
 echo ""
 echo "--- DONE ---"

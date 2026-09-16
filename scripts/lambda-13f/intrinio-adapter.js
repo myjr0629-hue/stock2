@@ -464,7 +464,7 @@ async function getOpenClose(ticker, date) {
 //   intrinio:eod:history  — 20거래일 종가 행렬 (signum-xs 가 17일치를 요구)
 // ─────────────────────────────────────────────────────────────
 const REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
 const _redisCache = new Map();          // key → { at, val }
 const REDIS_TTL_MS = 30 * 60 * 1000;
 

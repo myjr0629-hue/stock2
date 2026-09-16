@@ -43,7 +43,7 @@ Your role: CURATE the most impactful global market news and provide institutiona
 
 async function go() {
     console.log('Fetching news...');
-    const url = 'https://api.polygon.io/v2/reference/news?limit=30&order=desc&sort=published_utc&apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+    const url = 'https://api.polygon.io/v2/reference/news?limit=30&order=desc&sort=published_utc&apiKey=' + process.env.POLYGON_API_KEY;
     const data = await httpsGet(url);
     const articles = data?.results || [];
 

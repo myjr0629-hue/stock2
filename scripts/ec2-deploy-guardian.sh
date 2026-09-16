@@ -71,7 +71,7 @@ echo "════════════════════════�
 
 echo ""
 echo "--- Redis Proxy (8081) ---"
-curl -s http://localhost:8081/health -H "Authorization: Bearer signum-redis-proxy-2026" | python3 -m json.tool 2>/dev/null || echo "FAIL"
+curl -s http://localhost:8081/health -H "Authorization: Bearer ${REDIS_PROXY_KEY:?REDIS_PROXY_KEY not set}" | python3 -m json.tool 2>/dev/null || echo "FAIL"
 
 echo ""
 echo "--- Guardian Worker (8083) ---"

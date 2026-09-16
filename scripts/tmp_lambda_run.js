@@ -33,7 +33,7 @@ const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east
   marshallOptions: { removeUndefinedValues: true }
 });
 
-const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 

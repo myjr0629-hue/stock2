@@ -50,7 +50,7 @@ async function testMACDDirect(ticker) {
     // Test Polygon MACD API directly to confirm data availability
     console.log(`\n--- Testing Polygon MACD API for ${ticker} ---`);
 
-    const APIKEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+    const APIKEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
     const url = `https://api.polygon.io/v1/indicators/macd/${ticker}?timespan=day&short_window=12&long_window=26&signal_window=9&limit=1&apiKey=${APIKEY}`;
 
     try {

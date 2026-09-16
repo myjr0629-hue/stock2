@@ -162,7 +162,7 @@ async function fetchShortVolumePct(ticker: string): Promise<number | undefined> 
 // Replaces old Polygon REST 1,000-trade sampling (0.025% accuracy)
 // Data source: EC2 Flow Accumulator → ElastiCache → Redis Proxy
 const EC2_REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-const EC2_REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const EC2_REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
 
 async function fetchDarkPoolPct(ticker: string): Promise<number | undefined> {
     try {

@@ -14,7 +14,7 @@ const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand } = require('@aws-
 const https = require('https');
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
-const POLYGON_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
 
 const client = DynamoDBDocumentClient.from(
     new DynamoDBClient({

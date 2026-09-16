@@ -21,7 +21,7 @@ async function main(){
   console.log('HAS SMA:'+hasSMA+' NO SMA:'+noSMA);
   // Check if these tickers exist in Polygon snapshot
   const https=require('https');
-  const snap=await new Promise((res,rej)=>{https.get('https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>res(JSON.parse(d)));}).on('error',rej);});
+  const snap=await new Promise((res,rej)=>{https.get('https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=' + process.env.POLYGON_API_KEY,r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>res(JSON.parse(d)));}).on('error',rej);});
   const allTickers=new Set((snap?.tickers||[]).map(t=>t.ticker));
   let inSnap=0,notInSnap=0,notInSnapList=[];
   for(const t of noSMAList){

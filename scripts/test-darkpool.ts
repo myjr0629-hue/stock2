@@ -3,7 +3,7 @@
  * Tests /v3/trades/{stockTicker} API to analyze dark pool activity
  */
 
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
 const MASSIVE_BASE_URL = "https://api.polygon.io";
 
 // Dark Pool Exchange Codes (ADF/FINRA TRF are primary dark pools)

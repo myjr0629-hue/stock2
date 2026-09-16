@@ -2,7 +2,7 @@ const https = require('https');
 
 // We want to find where $214.40 came from in the post-market data.
 // 16:00 ET (1772053200000) to 20:00 ET (1772067600000)
-const url = `https://api.polygon.io/v2/aggs/ticker/AMD/range/1/minute/1772053200000/1772067600000?adjusted=true&sort=desc&limit=500&apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF`;
+const url = `https://api.polygon.io/v2/aggs/ticker/AMD/range/1/minute/1772053200000/1772067600000?adjusted=true&sort=desc&limit=500&apiKey=${process.env.POLYGON_API_KEY}`;
 
 https.get(url, (res) => {
     let data = '';

@@ -1,5 +1,5 @@
 const fs = require('fs');
-const MASSIVE_API_KEY = "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const MASSIVE_API_KEY = process.env.POLYGON_API_KEY;
 const ticker = "TSLA";
 const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${MASSIVE_API_KEY}`;
 

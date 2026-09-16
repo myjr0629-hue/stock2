@@ -8,7 +8,7 @@ import os
 import time
 import sys
 
-POLYGON_KEY = "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF"
+POLYGON_KEY = os.environ["POLYGON_API_KEY"]
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Load current universe

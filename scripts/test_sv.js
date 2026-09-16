@@ -1,4 +1,4 @@
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 const POLYGON_BASE = "https://api.polygon.io";
 
 async function run() {

@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const BUFFER_TOKEN = 'afILPK3AZJt0aOMG03pXv-L7cALR_tQgYZlMXln3ORX';
+const BUFFER_TOKEN = process.env.BUFFER_ACCESS_TOKEN;
 const CRON_SECRET = 'eunhoon2912stock';
 const BASE = 'https://www.signumhq.com/api/cron/marketing-dispatch';
 

@@ -1,6 +1,6 @@
 // 20-ticker batch test — Lambda structureService compat
 const https = require('https');
-const K = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const K = process.env.POLYGON_API_KEY;
 
 function get(u) {
   return new Promise((r, j) => {

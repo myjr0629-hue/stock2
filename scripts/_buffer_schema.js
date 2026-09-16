@@ -1,5 +1,5 @@
 async function main() {
-  const token = 'afILPK3AZJt0aOMG03pXv-L7cALR_tQgYZlMXln3ORX';
+  const token = process.env.BUFFER_ACCESS_TOKEN;
   
   // Get createPost mutation schema
   const q = `{

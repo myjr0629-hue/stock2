@@ -1,7 +1,7 @@
 
 const https = require('https');
 
-const url = "https://api.massive.com/fed/v1/treasury-yields?limit=1&sort=date.desc&apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const url = "https://api.massive.com/fed/v1/treasury-yields?limit=1&sort=date.desc&apiKey=" + process.env.POLYGON_API_KEY;
 
 console.log(`Fetching: ${url}`);
 

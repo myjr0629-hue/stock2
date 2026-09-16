@@ -7,7 +7,7 @@
  * 실행: npx ts-node --project tsconfig.json scripts/test-rotation.ts
  */
 
-const POLYGON_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_KEY = process.env.MASSIVE_API_KEY;
 const BASE_URL = "https://api.polygon.io";
 
 // === 12 섹터 ETF (SECTOR_MAP 기준) ===

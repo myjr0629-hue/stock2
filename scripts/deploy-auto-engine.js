@@ -23,7 +23,7 @@ const PEM = 'signum-websocket-key.pem';
 const USER = 'ec2-user';
 const DIR = '/home/ec2-user/toss-executor';
 const SSH = `-i ${PEM} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes`;
-const PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || '';
 
 (async () => {
   // ── 1. sync Upstash creds from local .env.local into EC2 .env.toss ────────

@@ -9,7 +9,7 @@ const doc = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1'
 });
 
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
-const POLYGON_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
 const today = new Date().toISOString().slice(0, 10);
 
 console.log('Finnhub key:', FINNHUB_KEY ? FINNHUB_KEY.slice(0, 6) + '...' : 'EMPTY');

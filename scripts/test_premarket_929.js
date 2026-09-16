@@ -5,7 +5,7 @@ const https = require('https');
 const start = new Date("2026-02-24T09:25:00-05:00").getTime();
 const end = new Date("2026-02-24T09:29:59-05:00").getTime();
 
-const url = `https://api.polygon.io/v2/aggs/ticker/AMD/range/1/minute/${start}/${end}?adjusted=true&sort=asc&limit=10&apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF`;
+const url = `https://api.polygon.io/v2/aggs/ticker/AMD/range/1/minute/${start}/${end}?adjusted=true&sort=asc&limit=10&apiKey=${process.env.POLYGON_API_KEY}`;
 
 https.get(url, (res) => {
     let data = '';

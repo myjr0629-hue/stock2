@@ -1,5 +1,5 @@
 // Minimal test to replicate exactly what Probe does
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY;
 
 async function test() {
     console.log('=== Direct API Test (Same as Probe) ===');

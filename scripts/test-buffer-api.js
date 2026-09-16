@@ -10,7 +10,7 @@ function bufferQuery(queryStr) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer afILPK3AZJt0aOMG03pXv-L7cALR_tQgYZlMXln3ORX',
+        'Authorization': 'Bearer ' + process.env.BUFFER_ACCESS_TOKEN,
         'Content-Length': Buffer.byteLength(body)
       }
     };

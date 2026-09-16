@@ -1,4 +1,4 @@
-const API_KEY = "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const API_KEY = process.env.POLYGON_API_KEY;
 const BASE = "https://api.polygon.io";
 const fs = require('fs');
 

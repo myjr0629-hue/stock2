@@ -4,7 +4,7 @@ const https = require('https');
 function ecGet(key) {
   return new Promise((resolve) => {
     const req = http.get('http://52.23.98.13:8081/get?key=' + encodeURIComponent(key), {
-      headers: { 'Authorization': 'Bearer signum-redis-proxy-2026' },
+      headers: { 'Authorization': 'Bearer ' + (process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '') },
       timeout: 5000
     }, (res) => {
       let d = '';

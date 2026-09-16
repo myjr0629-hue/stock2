@@ -19,7 +19,7 @@
 // 사용: node scripts/edge-rsi.mjs
 // ============================================================================
 
-const KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const KEY = process.env.POLYGON_API_KEY;
 const FROM = '2021-01-01', TO = '2026-08-19';
 const TICKERS = ['AAPL', 'MSFT', 'NVDA', 'AMD', 'TSLA', 'META', 'AMZN', 'GOOGL', 'AVGO', 'MU', 'QCOM', 'INTC'];
 const RSI_N = 14, HI = 70, FWD = 5;

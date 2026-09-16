@@ -13,7 +13,7 @@ const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-be
 const https = require('https');
 
 // ─── Config ───
-const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 const GEMINI_KEY = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_API_KEY;
 
 // Bedrock Models — Amazon Nova (ON_DEMAND, no form needed)

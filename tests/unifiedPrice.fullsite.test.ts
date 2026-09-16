@@ -22,7 +22,7 @@ function fetchH(url: string): Promise<any> {
     });
 }
 
-const KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const KEY = process.env.POLYGON_API_KEY;
 const TICKERS = ['NVDA', 'AAPL', 'TSLA', 'GOOGL', 'META', 'AMD', 'MSFT'];
 
 // ── 각 세션에 맞는 현실적 input 생성 ──

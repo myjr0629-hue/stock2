@@ -41,7 +41,7 @@ const CSV_URL =
     `&field_tdr_date_value=${YEAR}&page&_format=csv`;
 
 const PROXY = process.env.EC2_REDIS_PROXY_URL || "http://127.0.0.1:8081";
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
 const OUT_KEY = "treasury:curve";
 const DRY = process.argv.includes("--dry");
 

@@ -54,7 +54,7 @@ async function checkCacheKeys(prefix: string, tickers: string[]): Promise<{ resu
 async function checkElastiCache(key: string): Promise<any> {
   try {
     const proxyUrl = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-    const proxyKey = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+    const proxyKey = process.env.EC2_REDIS_PROXY_KEY || '';
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(`${proxyUrl}/get?key=${encodeURIComponent(key)}`, {
@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
 
     // ═══ 2. EC2 INFRASTRUCTURE ═══
     const proxyUrl = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-    const proxyKey = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+    const proxyKey = process.env.EC2_REDIS_PROXY_KEY || '';
 
     // EC2 Redis Proxy 상태
     let ec2ProxyOk = false;

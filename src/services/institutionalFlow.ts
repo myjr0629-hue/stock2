@@ -98,7 +98,7 @@ export interface InstitutionalFlowTicker {
 function proxyBase() {
     return {
         url: process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081',
-        key: process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026',
+        key: process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '',
     };
 }
 
@@ -381,7 +381,7 @@ const MIN_FLOW_SAMPLES = 10;
 
 async function readFlowHistory(): Promise<Array<{ date: string; notional: number; callPct: number }>> {
     const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 4000);
     try {

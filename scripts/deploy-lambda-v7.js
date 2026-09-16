@@ -60,7 +60,7 @@ function httpsGet(url, timeoutMs) {
   });
 }
 
-const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 const FMP_KEY = process.env.FMP_API_KEY || '';
 const UNIVERSE = ${JSON.stringify(universe)};
@@ -76,7 +76,7 @@ const REDIS_TTL = 259200; // 3 days (same as analysisCache.ts)
 // [v9 FIX] EC2 ElastiCache Proxy — SSOT for dark pool (100% WebSocket data)
 // Same endpoint Vercel realtimeMetricsService.ts uses as PRIMARY (L35-36)
 const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const EC2_PROXY_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const EC2_PROXY_KEY = process.env.REDIS_PROXY_KEY || '';
 const http = require('http');
 
 // HTTP GET helper for EC2 proxy (HTTP, not HTTPS)

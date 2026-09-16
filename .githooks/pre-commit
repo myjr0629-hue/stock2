@@ -1,0 +1,5 @@
+#!/bin/sh
+# Secret guard (2026-09-16). Installed via `git config core.hooksPath .githooks`
+# (package.json postinstall does this on every `npm install`). Bypass only for
+# a deliberate placeholder: add "secret-guard: allow" to that line, never --no-verify.
+exec node scripts/check-secrets.js --staged

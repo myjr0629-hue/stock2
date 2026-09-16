@@ -21,7 +21,7 @@ function fetchH(url: string): Promise<any> {
     });
 }
 
-const KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const KEY = process.env.POLYGON_API_KEY;
 const TICKERS = ['NVDA', 'AAPL', 'TSLA', 'GOOGL', 'META', 'AMD', 'MSFT'];
 
 async function main() {

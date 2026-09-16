@@ -43,7 +43,7 @@ guardian/news      10건 (Massive 유지 — 정상)
 | Intrinio API key | `OmNiNGE3NDY1ODZjNGU5MTNhODQwNDYzMmJlMWQxMzQx` |
 | Intrinio base | `https://api-v2.intrinio.com` · 인증 `?api_key=` |
 | 계정 | contact@signumhq.com (Google OAuth) · Startup Plan · 14일 체험 (8/28 시작) |
-| Massive key (뉴스 전용 유지) | `iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF` |
+| Massive key (뉴스 전용 유지) | `[redacted — POLYGON_API_KEY, key rotated 2026-09-16]` |
 | Massive 해지 | Stocks/Options Advanced 모두 **2026-09-23 종료 예약** |
 | Vercel CLI | 로그인됨 (`myjr0629-8945`) |
 | AWS CLI | **미설치** — Lambda 배포 경로 확인 필요 |

@@ -9,7 +9,7 @@ import { saveOptionsToCache, loadOptionsFromCache, listCachedTickers, isWeekend 
 const TICKERS = ['NVDA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'INTC', 'PLTR', 'COIN', 'SNAP'];
 
 async function fetchAndCacheOptions(ticker: string) {
-    const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+    const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY;
 
     // Calculate date range
     const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));

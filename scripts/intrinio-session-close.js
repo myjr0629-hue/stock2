@@ -45,7 +45,7 @@ const { URL } = require("url");
 
 const ENV_PATH = process.env.ENV_PATH || "/opt/signum-ws/.env";
 const PROXY = process.env.REDIS_PROXY_URL || "http://127.0.0.1:8081";
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
 const OUT_KEY = "intrinio:eod:sessionclose";
 const TTL_SEC = 5 * 24 * 3600;             // 5일 — 연휴에도 값이 남게
 const BASE = "https://api-v2.intrinio.com";

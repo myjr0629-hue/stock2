@@ -26,7 +26,7 @@
 // Zero-dependency: writes go through the Upstash REST pipeline via fetch, so this
 // file runs identically as a local CLI script and as the signum-13f Lambda (no
 // node_modules to bundle).
-const API_KEY = process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const API_KEY = process.env.MASSIVE_API_KEY;
 const BASE = process.env.MASSIVE_BASE_URL || 'https://api.polygon.io';
 const DRY = process.env.DRY === '1';
 const MAXPAGES = process.env.MAXPAGES ? parseInt(process.env.MAXPAGES, 10) : Infinity;

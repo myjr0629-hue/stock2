@@ -1,7 +1,7 @@
 // E2E Stress Test - Full Pipeline Data Integrity Check
 // 목적: 모든 310개 종목에 대해 각 데이터 레이어별 누락 여부 확인
 
-const POLYGON_API_KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 const BASE_URL = 'https://api.polygon.io';
 
 // === Core Elite (must be tested) ===

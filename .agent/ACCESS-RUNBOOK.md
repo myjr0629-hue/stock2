@@ -28,22 +28,41 @@ const cfg = { region: 'us-east-1', credentials: {
 |---|---|---|
 | `AWS_ACCESS_KEY_ID` / `SECRET` | `.env.local` (11줄) | ⚠️ `vercel env pull` 로 덮지 말 것 |
 | **`INTRINIO_API_KEY`** | **`.env.local` 에 없다 → Lambda `signum-flow-harvest` 환경변수** (44자) | 위 SDK 로 꺼낸다 |
-| `REDIS_PROXY_KEY` | 기본값 `signum-redis-proxy-2026` | Lambda env 에 미설정 |
+| `REDIS_PROXY_KEY` | **값은 env 에만 산다** — EC2 `/opt/signum-ws/.env` · `~/toss-executor/.env.toss` · root crontab 상단 · Vercel `EC2_REDIS_PROXY_KEY`+`REDIS_PROXY_KEY` · Lambda env(둘 다) | 2026-09-16 회전. **코드에 기본값 없음(빠지면 401 = 의도된 fail-closed)**. 값은 채팅·레포·문서에 절대 적지 말 것 |
+| `EXECUTOR_SECRET` | EC2 `.env.toss` + `/opt/signum-ws/.env`(프록시가 trade:* 쓰기 서명 검증용) + Vercel | 셋이 같아야 한다. 회전하면 세 곳 동시에 |
 
 ## EC2 Redis 프록시 — `http://52.23.98.13:8081`
 
 인증은 **`Authorization: Bearer <REDIS_PROXY_KEY>`**. (`x-api-key`·`key_auth` 아님 → Unauthorized)
+값은 위 표의 env 에서 꺼낸다(로컬에서 쓰려면 `REDIS_PROXY_KEY=… node scripts/…` 처럼 환경변수로 넘길 것).
 
-| 경로 | 메서드 |
-|---|---|
-| `/get?key=X` · `/mget` | **GET + 쿼리스트링** |
-| `/set` · `/setnx` · `/mset` | **POST + JSON 바디** |
+| 경로 | 메서드 | 비고 |
+|---|---|---|
+| `/get?key=X` · `/mget` | **GET + 쿼리스트링** | |
+| `/set` · `/mset` | **POST + JSON 바디** | **`trade:*` 키는 원격에서 쓰려면 HMAC 필수** (`X-Exec-Ts` + `X-Exec-Sign` = HMAC_SHA256(`EXECUTOR_SECRET`, `ts + "." + rawBody`), ±30초). 없으면 403. 같은 박스(루프백)는 면제 |
+| `/del?key=X` | **DELETE** | `trade:*` 는 `ts + "." + key` 서명 |
 
 ```bash
-curl -s -H "Authorization: Bearer signum-redis-proxy-2026" \
+curl -s -H "Authorization: Bearer $REDIS_PROXY_KEY" \
   "http://52.23.98.13:8081/get?key=flow-harvest:cursor:0"
 # → {"result":"240"}
 ```
+
+### 키 회전 절차 (2026-09-16 실측 · `scripts/ec2-rotate-proxy-key.sh`)
+
+1. `openssl rand -hex 32` 로 새 키를 만든다(파일로만 다룬다).
+2. EC2: `node scripts/ec2-ssm.js --file scripts/ec2-redis-proxy.js /opt/signum-ws/redis-proxy.js` 로 프록시를 올리고,
+   `scripts/ec2-rotate-proxy-key.sh` 를 올려 `NEW_KEY_FILE=… bash ec2-rotate-proxy-key.sh` 로 실행한다.
+   → `/opt/signum-ws/.env` 에 `REDIS_PROXY_KEY`(새)·`REDIS_PROXY_KEY_PREV`(옛)·`EXECUTOR_SECRET`(.env.toss 와 동일) 기록,
+   `.env.toss` 에 `REDIS_PROXY_KEY`, root crontab 상단에 `REDIS_PROXY_KEY=`, `pm2 restart redis-proxy intrinio-ext-bars --update-env`.
+   프록시는 자기 옆 `.env` 를 스스로 읽으므로 pm2 env 유실(resurrect)에도 안전하다.
+3. Vercel: `vercel env add EC2_REDIS_PROXY_KEY <env> < keyfile` + `REDIS_PROXY_KEY` (production·preview·development 셋 다) → 재배포.
+4. Lambda: `signum-*` 전부 `REDIS_PROXY_KEY`·`EC2_REDIS_PROXY_KEY` 를 **기존 env 와 병합**해 넣는다(전체 치환 금지).
+5. 전부 옮겼으면 `/opt/signum-ws/.env` 에서 `REDIS_PROXY_KEY_PREV` 줄을 지우고 `pm2 restart redis-proxy` → 옛 키로 `curl` 하면 401 이어야 끝.
+
+⚠️ 실주문 무장 키 `trade:auto:real` 은 프록시 키와 무관하게 **`EXECUTOR_SECRET` 서명이 있어야** 엔진이 받는다
+(`src/lib/trade/executor.ts` `signRealArm` ↔ `scripts/ec2-auto-engine.js` `verifyRealArm`, `at` 는 단조 nonce).
+Redis 에 아무 값을 써 넣어도 무장되지 않는다.
 
 ## Intrinio — `https://api-v2.intrinio.com/{path}?api_key=`
 

@@ -31,7 +31,7 @@ function computeRSI(closes, period) {
 }
 
 async function test() {
-  const key = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+  const key = process.env.POLYGON_API_KEY;
   const today = new Date().toISOString().slice(0, 10);
   const ago = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
 

@@ -14,6 +14,23 @@ export function executorConfigured(): boolean {
   return Boolean(URL_() && SECRET());
 }
 
+// ── real-money arm key signature (2026-09-16) ────────────────────────────────
+// trade:auto:real used to be trusted by the engine purely because this server
+// was "the only writer". The EC2 Redis proxy is reachable from the internet, so
+// that assumption does not hold. The payload now carries an HMAC over
+// `trade:auto:real.${mode}.${capital|0}.${at}` with EXECUTOR_SECRET, and the
+// engine verifies it (and treats `at` as a monotonic nonce) before arming.
+// Must stay byte-for-byte in sync with realArmSig() in scripts/ec2-auto-engine.js.
+export interface RealArmPayload { mode: 'armed' | 'off'; capital?: number; at: number; by?: string; sig?: string }
+export function signRealArm(p: Omit<RealArmPayload, 'sig'>): RealArmPayload | null {
+  const secret = SECRET();
+  if (!secret) return null;
+  const sig = crypto.createHmac('sha256', secret)
+    .update(`trade:auto:real.${p.mode}.${Number(p.capital) || 0}.${p.at}`)
+    .digest('hex');
+  return { ...p, sig };
+}
+
 export interface TossCall {
   path: string;
   method?: 'GET' | 'POST' | 'DELETE';

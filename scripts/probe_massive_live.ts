@@ -1,5 +1,5 @@
 
-const API_KEY = "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const API_KEY = process.env.POLYGON_API_KEY;
 
 async function probe() {
     console.log("Probing Massive API for Live Data (QQQ, VIXY, UUP)...");

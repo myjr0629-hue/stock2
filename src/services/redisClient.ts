@@ -4,6 +4,7 @@
 // Upstash: HTTP REST API (works everywhere, ~30ms)
 // ===========================================================================
 
+import crypto from 'crypto';
 import { Redis as UpstashRedis } from '@upstash/redis';
 
 // Lazy initialization
@@ -42,8 +43,32 @@ function markEcProxyDown(reason: string): void {
 }
 
 // EC2 Redis Proxy configuration
+// ★ 2026-09-16 — the bearer key has NO default any more (the old default was
+//   printed in docs/source and the proxy accepted POST /set with it). Without
+//   EC2_REDIS_PROXY_KEY the proxy answers 401 and every read falls through to
+//   Upstash; that is the intended fail-closed behaviour, not an outage.
 const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || process.env.REDIS_PROXY_KEY || '';
+if (!EC2_PROXY_KEY) console.error('[Redis] EC2_REDIS_PROXY_KEY is not set — EC2 proxy reads/writes will be rejected (fail closed)');
+
+// ★ trade:* writes (killswitch, auto config, real-money arm key) must be signed:
+//   the proxy rejects remote writes to trade:* that lack X-Exec-Ts/X-Exec-Sign
+//   = HMAC_SHA256(EXECUTOR_SECRET, ts + "." + rawBody) — the executor's scheme.
+//   Without EXECUTOR_SECRET those writes only land in Upstash; the engine reads
+//   killswitch from ElastiCache, so a missing secret is logged loudly.
+const PROTECTED_KEY = /^trade:/;
+let warnedNoWriteSecret = false;
+function signedWriteHeaders(rawBody: string, keys: string[]): Record<string, string> {
+    if (!keys.some((k) => PROTECTED_KEY.test(k))) return {};
+    const secret = (process.env.EXECUTOR_SECRET || '').trim();
+    if (!secret) {
+        if (!warnedNoWriteSecret) { warnedNoWriteSecret = true; console.error('[Redis] EXECUTOR_SECRET missing — trade:* writes to the EC2 proxy will be rejected (403)'); }
+        return {};
+    }
+    const ts = String(Date.now());
+    const sign = crypto.createHmac('sha256', secret).update(ts + '.' + rawBody).digest('hex');
+    return { 'X-Exec-Ts': ts, 'X-Exec-Sign': sign };
+}
 
 // Cache keys
 export const CACHE_KEYS = {
@@ -102,15 +127,18 @@ async function ecProxyGet<T>(key: string): Promise<T | null> {
 
 async function ecProxySet<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
     try {
+        const rawBody = JSON.stringify({ key, value, ttl: ttlSeconds });
         const res = await fetch(`${EC2_PROXY_URL}/set`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${EC2_PROXY_KEY}`,
                 'Content-Type': 'application/json',
+                ...signedWriteHeaders(rawBody, [key]),
             },
-            body: JSON.stringify({ key, value, ttl: ttlSeconds }),
+            body: rawBody,
             signal: AbortSignal.timeout(3000),
         });
+        if (!res.ok && PROTECTED_KEY.test(key)) console.error(`[Redis] EC2 proxy refused trade write key=${key} status=${res.status}`);
         return res.ok;
     } catch {
         return false;
@@ -309,7 +337,8 @@ export async function deleteFromCache(key: string): Promise<boolean> {
         try {
             const res = await fetch(`${EC2_PROXY_URL}/del?key=${encodeURIComponent(key)}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
+                // protected keys: the proxy verifies HMAC(ts + "." + key) for /del
+                headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}`, ...signedWriteHeaders(key, [key]) },
                 signal: AbortSignal.timeout(3000),
             });
             ecOk = res.ok;

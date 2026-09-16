@@ -12,7 +12,7 @@
 //   대조  같은 기간 모든 날의 메모리3 평균 5일 수익률
 //   판정  표본 40+ AND 대조군 대비 8%p+
 // ============================================================================
-const KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const KEY = process.env.POLYGON_API_KEY;
 const FROM = '2021-01-01', TO = '2026-08-20';
 const MEM = ['MU', 'WDC', 'STX'];            // SNDK 는 상장 이력이 짧다 → STX 로 대체
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTradeAdmin } from '@/lib/trade/auth';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { tradeJournal } from '@/lib/trade/executor';
+import { tradeJournal, signRealArm } from '@/lib/trade/executor';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -84,11 +84,22 @@ export async function POST(req: NextRequest) {
       if (!Number.isFinite(cap) || cap < 100 || cap > 60_000) {
         return NextResponse.json({ ok: false, error: '실전 자본은 $100–$60,000 (슬롯당 실행기 $2,000 캡 정렬)' }, { status: 400 });
       }
-      await setInCache('trade:auto:real', { mode: 'armed', capital: Math.round(cap * 100) / 100, at: Date.now(), by: gate.admin.email });
+      // ★ 2026-09-16 — the engine no longer trusts this key by provenance: the
+      //   payload is HMAC-signed with EXECUTOR_SECRET and `at` is a monotonic
+      //   nonce (see refreshReal() in scripts/ec2-auto-engine.js). Redis alone
+      //   — even with the proxy bearer key — cannot arm real trading.
+      const capital = Math.round(cap * 100) / 100;
+      const armed = signRealArm({ mode: 'armed', capital, at: Date.now(), by: gate.admin.email });
+      if (!armed) return NextResponse.json({ ok: false, error: 'EXECUTOR_SECRET 미설정 — 무장 키에 서명할 수 없어 무장하지 않습니다' }, { status: 503 });
+      const stored = await setInCache('trade:auto:real', armed);
+      if (!stored) return NextResponse.json({ ok: false, error: '무장 키 저장 실패 — 잠시 후 재시도' }, { status: 502 });
       await tradeJournal({ at: Date.now(), who: gate.admin.email, action: 'real-arm', detail: `$${cap}` });
       return NextResponse.json({ ok: true, real: { mode: 'armed', capital: cap } });
     }
-    await setInCache('trade:auto:real', { mode: 'off', at: Date.now(), by: gate.admin.email });
+    // disarm is also signed so its `at` advances the engine's nonce high-water
+    // mark: a captured "armed" blob re-set afterwards is older → refused.
+    const off = signRealArm({ mode: 'off', at: Date.now(), by: gate.admin.email }) ?? { mode: 'off', at: Date.now(), by: gate.admin.email };
+    await setInCache('trade:auto:real', off);
     await tradeJournal({ at: Date.now(), who: gate.admin.email, action: 'real-disarm', detail: '' });
     return NextResponse.json({ ok: true, real: { mode: 'off' } });
   }

@@ -33,7 +33,7 @@ const FUNCTION_NAME = 'signum-13f';
 const RULE_NAME = 'signum-13f-weekly';
 
 const env = {
-  MASSIVE_API_KEY: process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF',
+  MASSIVE_API_KEY: process.env.MASSIVE_API_KEY,
   MASSIVE_BASE_URL: process.env.MASSIVE_BASE_URL || 'https://api.polygon.io',
   UPSTASH_REDIS_REST_URL: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim(),
   UPSTASH_REDIS_REST_TOKEN: (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim(),

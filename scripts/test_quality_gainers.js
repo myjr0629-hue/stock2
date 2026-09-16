@@ -7,7 +7,7 @@
 
 require('dotenv').config({ path: '.env.local' });
 
-const POLYGON_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
 
 if (!POLYGON_API_KEY) {
     console.error('❌ POLYGON_API_KEY not found in .env.local');

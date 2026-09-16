@@ -15,7 +15,7 @@
 // 사용: node scripts/edge-dispersion.mjs
 // ============================================================================
 
-const KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const KEY = process.env.POLYGON_API_KEY;
 const FROM = '2021-01-01', TO = '2026-08-19';
 const IDX_MAX = 0.30, SPREAD_MIN = 6.0, FWD = 5;
 const MEGA = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMD'];

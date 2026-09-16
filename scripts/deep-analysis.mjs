@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // N-DIMENSIONAL COMBINATION ANALYSIS — 조합의 조합의 조합
 // 28,802+ pairs × T+1/3/5/10/20 × up to 5D conditions
-const API_KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const API_KEY = process.env.POLYGON_API_KEY;
 const BASE = 'https://api.polygon.io';
 const fs = await import('fs');
 

@@ -10,7 +10,7 @@ const POLYGON_BASE = "https://api.polygon.io";
 
 // [SSOT V3] EC2 Redis Proxy — reads from ElastiCache (VPC internal, $0 cost)
 const EC2_REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-const EC2_REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const EC2_REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
 
 async function fetchFromElastiCache(key: string): Promise<any | null> {
     try {

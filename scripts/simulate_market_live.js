@@ -9,7 +9,7 @@ require('dotenv').config({ path: '.env.local' });
 const https = require('https');
 const { processTrade, tickerStats } = require('./ec2-flow-accumulator');
 
-const POLYGON_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY;
 const TEST_TICKER = 'TSLA';
 
 function httpsGet(url) {

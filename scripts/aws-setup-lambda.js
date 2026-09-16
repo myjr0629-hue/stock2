@@ -123,7 +123,7 @@ function httpsGet(url) {
   });
 }
 
-const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 
 // ====== Full Universe (150+ tickers) ======
 const UNIVERSE = [

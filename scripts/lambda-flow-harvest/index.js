@@ -53,7 +53,7 @@ const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 
 // [COST OPT] EC2 ElastiCache Proxy — internal VPC writes (zero Upstash cost)
 const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const EC2_PROXY_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const EC2_PROXY_KEY = process.env.REDIS_PROXY_KEY || '';
 const http = require('http');
 
 // TTLs matching Vercel API routes exactly (MARKET HOURS)

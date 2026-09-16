@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 // Fallback key from weekend cache script
-const API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const API_KEY = process.env.MASSIVE_API_KEY;
 const BASE_URL = 'https://api.polygon.io';
 
 async function checkSnapshot(ticker: string) {

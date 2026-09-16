@@ -5,7 +5,7 @@ const https = require('https');
 // HARDCODED KEY FOR DEBUG (Replace with valid key if expired, but using env var or fallback in client)
 // We will try without key first, relying on environment or manual insert if needed.
 // Actually let's use the one from massiveClient fallback for safety: "iKNEARt..."
-const API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const API_KEY = process.env.MASSIVE_API_KEY;
 
 const TICKERS = ["QQQ", "VIXY", "UUP"];
 

@@ -1,6 +1,6 @@
 // Base rate for the copper story: how unusual is it for copper miners to beat
 // Nvidia over a 5-week window — and what happened next?
-const KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const KEY = process.env.POLYGON_API_KEY;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const mean = (a) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
 const med = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : NaN; };

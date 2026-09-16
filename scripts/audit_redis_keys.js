@@ -5,7 +5,7 @@ const http = require('http');
 function ecGet(key) {
   return new Promise(resolve => {
     http.get('http://52.23.98.13:8081/get?key=' + encodeURIComponent(key), {
-      headers: {'Authorization': 'Bearer signum-redis-proxy-2026'}, timeout: 5000
+      headers: {'Authorization': 'Bearer ' + (process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '')}, timeout: 5000
     }, res => {
       let d = ''; res.on('data', c => d += c);
       res.on('end', () => { try { const j = JSON.parse(d); resolve(j.result); } catch { resolve(null); } });
@@ -17,7 +17,7 @@ function ecPing() {
   return new Promise(resolve => {
     const start = Date.now();
     http.get('http://52.23.98.13:8081/ping', {
-      headers: {'Authorization': 'Bearer signum-redis-proxy-2026'}, timeout: 3000
+      headers: {'Authorization': 'Bearer ' + (process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '')}, timeout: 3000
     }, res => {
       let d = ''; res.on('data', c => d += c);
       res.on('end', () => resolve({ ok: true, latency: Date.now() - start, body: d }));

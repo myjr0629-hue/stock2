@@ -46,7 +46,7 @@ const REDIS_TTL = 259200; // 3 days (same as analysisCache.ts)
 // [v9 FIX] EC2 ElastiCache Proxy — SSOT for dark pool (100% WebSocket data)
 // Same endpoint Vercel realtimeMetricsService.ts uses as PRIMARY (L35-36)
 const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const EC2_PROXY_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const EC2_PROXY_KEY = process.env.REDIS_PROXY_KEY || '';
 const http = require('http');
 
 // HTTP GET helper for EC2 proxy (HTTP, not HTTPS)

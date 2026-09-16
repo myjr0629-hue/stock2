@@ -1,7 +1,7 @@
 // Full Pipeline Alpha Engine Test - Zero Defects Edition
 // Complete workflow with detailed tracking
 
-const POLYGON_API_KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
 const BASE_URL = 'https://api.polygon.io';
 
 // === V4.1 Core Elite (23 stocks) ===

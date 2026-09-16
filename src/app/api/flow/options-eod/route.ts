@@ -31,7 +31,7 @@ type TopContract = {
 
 async function readOptions(): Promise<any | null> {
     const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {

@@ -66,7 +66,7 @@ function httpsGet(url, timeoutMs) {
   });
 }
 
-const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 const UNIVERSE = ${JSON.stringify(universe)};
 const GEX_TICKERS = ${JSON.stringify(GEX_TICKERS)};

@@ -1,6 +1,6 @@
 // Standalone script
 async function fetchConditions() {
-    const API_KEY = "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+    const API_KEY = process.env.POLYGON_API_KEY;
     const url = `https://api.polygon.io/v3/reference/conditions?limit=1000&apiKey=${API_KEY}`;
 
     try {

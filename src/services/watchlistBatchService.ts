@@ -19,7 +19,7 @@ export const revalidate = 30;
 type WatchlistBatchMode = 'full' | 'price' | 'price-dp' | 'ssr';
 
 const EC2_REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-const EC2_REDIS_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const EC2_REDIS_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || process.env.REDIS_PROXY_KEY || "";
 const INST_LAST_PREFIX = 'cache:inst-last:';
 const INST_LAST_TTL = 259200;
 

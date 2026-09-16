@@ -48,7 +48,7 @@ const { URL } = require("url");
 
 const ENV_PATH = process.env.ENV_PATH || "/opt/signum-ws/.env";
 const PROXY = process.env.REDIS_PROXY_URL || "http://127.0.0.1:8081";
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
 const BASE = "https://api-v2.intrinio.com";
 
 const EOD_KEY = "intrinio:eod:snapshot";        // 유니버스 순위 재료

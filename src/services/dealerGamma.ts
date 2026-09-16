@@ -27,7 +27,7 @@
  */
 
 const PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
 
 /** 백분위를 말하려면 최소 이만큼의 과거 관측이 있어야 한다 */
 const MIN_POINTS = 10;

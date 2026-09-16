@@ -119,11 +119,22 @@ async function tossPost(p, body) {
 }
 
 // ── redis: local proxy (ElastiCache) — ASCII values only ────────────────────
+// REDIS_PROXY_KEY comes from ~/toss-executor/.env.toss. There is NO default:
+// a missing key means every read returns null (kill/arm/config all read as
+// "absent" → entries blocked, real stays off) and writes are skipped. Fail closed.
+let warnedNoProxyKey = false;
+function proxyKey(env) {
+  const k = (env.REDIS_PROXY_KEY || '').trim();
+  if (!k && !warnedNoProxyKey) { warnedNoProxyKey = true; console.error('[auto] REDIS_PROXY_KEY not installed in .env.toss — proxy reads/writes disabled'); }
+  return k;
+}
 async function rGet(key) {
   try {
     const env = loadEnv();
+    const k = proxyKey(env);
+    if (!k) return null;
     const r = await httpJson(`${REDIS_URL}/get?key=${encodeURIComponent(key)}`, {
-      headers: { Authorization: `Bearer ${env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026'}` }, timeoutMs: 4000,
+      headers: { Authorization: `Bearer ${k}` }, timeoutMs: 4000,
     });
     return r.json ? r.json.result : null;
   } catch { return null; }
@@ -131,9 +142,11 @@ async function rGet(key) {
 async function rSet(key, value, ttl) {
   try {
     const env = loadEnv();
+    const k = proxyKey(env);
+    if (!k) return;
     await httpJson(`${REDIS_URL}/set`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026'}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${k}`, 'Content-Type': 'application/json' },
       body: { key, value, ttl }, timeoutMs: 4000,
     });
   } catch { /* mirror is best-effort; file state is the source of truth */ }
@@ -326,11 +339,51 @@ function flattenAll(px, reason, type) {
 // Paper stays the measurement twin — real fills never feed paper state.
 // Deterministic clientOrderId = idempotent: a retry can never double-order.
 let REAL = { mode: 'off', capital: 0 };
+// ── arm-key authenticity (2026-09-16) ────────────────────────────────────────
+// Redis alone must not be able to arm real trading: the proxy key has been
+// public, and anyone who can POST /set could otherwise write {mode:'armed'}.
+// The console signs the payload with EXECUTOR_SECRET (the Vercel↔executor
+// secret; never stored in Redis):
+//   sig = HMAC_SHA256(EXECUTOR_SECRET, `trade:auto:real.${mode}.${capital|0}.${at}`)
+// and `at` (ms, issued by the console) doubles as a monotonic nonce: a payload
+// older than the last one this engine accepted is a replay and is ignored,
+// so re-setting a captured "armed" blob after a disarm does nothing. The
+// high-water mark lives in the persisted state file (S.realArmSeq).
+// Anything unverifiable — no secret installed, missing/invalid sig, non-numeric
+// at, stale at — resolves to OFF. Fail closed.
+function realArmSig(secret, mode, capital, at) {
+  return crypto.createHmac('sha256', secret).update(`trade:auto:real.${mode}.${Number(capital) || 0}.${at}`).digest('hex');
+}
+function verifyRealArm(r) {
+  if (!r || typeof r !== 'object') return { ok: false, why: 'absent' };
+  const secret = (loadEnv().EXECUTOR_SECRET || '').trim();
+  if (!secret) return { ok: false, why: 'EXECUTOR_SECRET not installed' };
+  const at = Number(r.at);
+  if (!Number.isFinite(at) || at <= 0) return { ok: false, why: 'no timestamp' };
+  if (typeof r.sig !== 'string' || !/^[0-9a-f]{64}$/.test(r.sig)) return { ok: false, why: 'unsigned' };
+  const expect = realArmSig(secret, r.mode, r.capital, at);
+  let same = false;
+  try { same = crypto.timingSafeEqual(Buffer.from(expect), Buffer.from(r.sig)); } catch { same = false; }
+  if (!same) return { ok: false, why: 'bad signature' };
+  const seq = Number(S.realArmSeq) || 0;
+  if (at < seq) return { ok: false, why: 'replayed (older than last accepted)' };
+  if (at > seq) { S.realArmSeq = at; saveState(); }
+  return { ok: true };
+}
+let lastRealReject = null;
 async function refreshReal() {
   let r = await IO.rGet('trade:auto:real');
   if (!r) r = await IO.upstashGet('trade:auto:real');
-  const cap = r && Number(r.capital);
-  REAL = (r && r.mode === 'armed' && Number.isFinite(cap) && cap >= 100)
+  const v = verifyRealArm(r);
+  if (!v.ok) {
+    // log once per distinct reason while an "armed"-looking blob is being refused
+    if (r && r.mode === 'armed' && lastRealReject !== v.why) { lastRealReject = v.why; log('INFO', { reason: `real arm key REFUSED: ${v.why}` }); }
+    REAL = { mode: 'off', capital: 0 };
+    return;
+  }
+  lastRealReject = null;
+  const cap = Number(r.capital);
+  REAL = (r.mode === 'armed' && Number.isFinite(cap) && cap >= 100)
     ? { mode: 'armed', capital: Math.min(cap, 60_000) } : { mode: 'off', capital: 0 };
 }
 const realArmed = () => REAL.mode === 'armed';

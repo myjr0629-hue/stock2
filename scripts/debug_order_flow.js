@@ -1,7 +1,7 @@
 // Debug script to examine raw Polygon option trade data
 // Run: node scripts/debug_order_flow.js
 
-const MASSIVE_API_KEY = "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const MASSIVE_API_KEY = process.env.POLYGON_API_KEY;
 const BASE_URL = "https://api.polygon.io";
 
 async function debugOptionTrades(ticker) {

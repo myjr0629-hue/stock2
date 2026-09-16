@@ -793,7 +793,7 @@ async function loadExtBars(date: string): Promise<Record<string, number[][]>> {
         return _extCache.bars;
     }
     const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3000);
     try {
@@ -1416,7 +1416,7 @@ async function loadBulkEod(): Promise<{ date: string; prevDate: string; rows: Ma
 /** 우리가 직접 찍은 세션 종가 (scripts/intrinio-session-close.js) */
 async function readSessionClose(): Promise<{ date: string; rows: Record<string, number[]> } | null> {
     const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 4000);
     try {
@@ -1442,7 +1442,7 @@ interface EodPayload { date: string; prevDate?: string; rows: any[][]; _ts?: num
 /** 1순위: EC2 Redis Proxy → ElastiCache (비용 $0) */
 async function readEodFromElastiCache(): Promise<EodPayload | null> {
     const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 4000);
     try {
@@ -1485,7 +1485,7 @@ let _histCache: { at: number; data: EodHistory | null } | null = null;
 async function loadEodHistory(): Promise<EodHistory | null> {
     if (_histCache && Date.now() - _histCache.at < EOD_TTL_MS) return _histCache.data;
     const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
@@ -1873,7 +1873,7 @@ let _liqCache: { at: number; rows: Record<string, { s: number; q: number }> } | 
 async function loadLastRegLiquidity(): Promise<Record<string, { s: number; q: number }>> {
     if (_liqCache && Date.now() - _liqCache.at < EOD_TTL_MS) return _liqCache.rows;
     const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+    const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 4000);
     try {
@@ -2616,7 +2616,7 @@ export async function getTreasuryCurveOfficial(): Promise<any[] | null> {
 async function readTreasuryCurveFromRedis(): Promise<any[] | null> {
     try {
         const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-        const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+        const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 3000);
         try {

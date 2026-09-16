@@ -21,7 +21,7 @@
  *        REDIS_PROXY_URL / REDIS_PROXY_KEY 로 프록시 지정 가능
  */
 const PROXY = process.env.REDIS_PROXY_URL || "http://52.23.98.13:8081";
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
 
 /** 미국 동부 기준 «마지막으로 완료된 거래일»(주말만 처리 — 휴장은 여유일수로 흡수) */
 function lastTradingDate(now = new Date()) {

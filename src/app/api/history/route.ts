@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     // 실패해도 라이브만으로 응답한다(복원은 «보강»이지 «의존»이 아니다).
     async function readGexBackfill(sym: string): Promise<BackfillPoint[]> {
         const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-        const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+        const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 3000);
         try {

@@ -5,7 +5,7 @@
 // Usage: node scripts/backtest-sim.mjs
 // ============================================================================
 
-const API_KEY = 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const API_KEY = process.env.POLYGON_API_KEY;
 const BASE = 'https://api.polygon.io';
 
 // 50 tickers across sectors

@@ -14,7 +14,7 @@ const bedrock = new BedrockRuntimeClient({
     },
 });
 
-const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 
 async function fetchNews(ticker) {
     const res = await fetch(`https://api.polygon.io/v2/reference/news?ticker=${ticker}&limit=5&order=desc&sort=published_utc&apiKey=${POLYGON_KEY}`);

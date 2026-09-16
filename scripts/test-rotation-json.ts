@@ -1,7 +1,7 @@
 /**
  * Compact rotation validation - JSON output to file
  */
-const POLYGON_KEY = "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
 const BASE = "https://api.polygon.io";
 const fs = require('fs');
 const path = require('path');

@@ -41,7 +41,7 @@ const { URL } = require("url");
 // ── 설정 ────────────────────────────────────────────────────────────
 const ENV_PATH = process.env.ENV_PATH || "/opt/signum-ws/.env";
 const PROXY = process.env.REDIS_PROXY_URL || "http://127.0.0.1:8081";
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
 const EOD_KEY = "intrinio:eod:snapshot";
 const BARS_KEY = (d) => `intrinio:extbars:${d}`;
 const BARS_TTL = 3 * 24 * 3600;

@@ -4,7 +4,7 @@ const https = require('https');
 // 16:00 ET is 1771966800000 ms
 // 20:00 ET is 1771981200000 ms
 
-const url = `https://api.polygon.io/v2/aggs/ticker/AMD/range/1/minute/1771966800000/1771981200000?adjusted=true&sort=desc&limit=1000&apiKey=iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF`;
+const url = `https://api.polygon.io/v2/aggs/ticker/AMD/range/1/minute/1771966800000/1771981200000?adjusted=true&sort=desc&limit=1000&apiKey=${process.env.POLYGON_API_KEY}`;
 
 https.get(url, (res) => {
     let data = '';
