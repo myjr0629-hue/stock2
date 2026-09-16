@@ -1589,10 +1589,11 @@
    "title": "XS-3.0 첫 라이브 실행 확인(07:25 KST) — _REPORT_/2026-09-16·cache:xs3:trade fresh·로그 입력줄",
    "detail": "실패 시 원인 지목·수정·재실행. 앱/웹 무접촉.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "XS-3.0 첫 라이브 성공(22:25 UTC): _REPORT_/2026-09-16 fresh=true·scored 1755·S&P 496·eligible 492·실적제외 4(AZO,GIS,PAYX,CTAS)·VIX 17.71·top20 기록·5.68s. 입력 로그 정상(rows 1756·sp500 503 wikipedia·eod 20d/11972). 게이트 0/5 daysLabeled=0 은 정상(T+5 라벨 미도래). XS-2.0 도 같은 날짜 _REPORT_ ver XS-2.0.0 universe 1757 로 복구 확인",
+   "closed": "2026-09-16 22:28"
   },
   {
    "id": "t124",
@@ -1601,10 +1602,11 @@
    "title": "cross-sector 람다 21:50Z(06:50 KST) 실행 검증 — JSON ok 로그·소비 API 날짜",
    "detail": "t099 후속. 실패면 max_tokens/프롬프트 압축안을 대표 승인 티켓으로(웹 영향).",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "cross-sector 검증 완료: signum-cross-sector-intel 21:51:59Z 실행 — 1차 max_tokens 절단(len 15350) → 내 재시도 패치가 작동해 end_turn 성공(len 14244). 소비 API 정상. max_tokens 8192→16384 상향은 웹 소비처에 영향 가능하므로 «대표 승인 후»로 남김(t099)",
+   "closed": "2026-09-16 22:10"
   },
   {
    "id": "t125",
