@@ -1,0 +1,234 @@
+{
+ "oosDays": [
+  "2026-07-16",
+  "2026-07-17",
+  "2026-07-20",
+  "2026-07-21",
+  "2026-07-22",
+  "2026-07-23",
+  "2026-07-24",
+  "2026-07-27",
+  "2026-07-28",
+  "2026-07-29",
+  "2026-07-30",
+  "2026-07-31",
+  "2026-08-03",
+  "2026-08-04",
+  "2026-08-05",
+  "2026-08-06",
+  "2026-08-07",
+  "2026-08-10",
+  "2026-08-11",
+  "2026-08-12",
+  "2026-08-13",
+  "2026-08-14",
+  "2026-08-17",
+  "2026-08-18",
+  "2026-08-19",
+  "2026-08-20",
+  "2026-08-21",
+  "2026-08-24",
+  "2026-08-25",
+  "2026-08-26",
+  "2026-08-27",
+  "2026-08-28",
+  "2026-08-31"
+ ],
+ "sets": {
+  "2026-07-16": [
+   "revChg",
+   "smaExt",
+   "squeeze",
+   "gexInv",
+   "dtc"
+  ],
+  "2026-07-17": [
+   "revChg",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-07-20": [
+   "revChg",
+   "revRet3",
+   "squeeze"
+  ],
+  "2026-07-21": [
+   "revChg",
+   "revRet3",
+   "squeeze"
+  ],
+  "2026-07-22": [
+   "revChg",
+   "revRet3",
+   "squeeze"
+  ],
+  "2026-07-23": [
+   "revChg",
+   "revRet3",
+   "squeeze"
+  ],
+  "2026-07-24": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-07-27": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-07-28": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-07-29": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-07-30": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-07-31": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-03": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-04": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze",
+   "pcr"
+  ],
+  "2026-08-05": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-06": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-07": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-10": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-11": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-12": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-13": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-14": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-17": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-18": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-19": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-20": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-21": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-24": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-25": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-26": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-27": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-28": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ],
+  "2026-08-31": [
+   "revChg",
+   "revRet3",
+   "smaExt",
+   "squeeze"
+  ]
+ }
+}
