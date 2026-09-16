@@ -6090,3 +6090,7 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **게이트**: audit --live 341/0. 큐 상위 3건 대표 게이트 유지.
 - **스마트링크 유입 실측(Redis mkt:attr:hit, ET 날짜)**: 9/15 = linkedin 7 · x_us 6 · note 5 · medium_ko 2 · quora_bio 1 (21) / 9/16(진행 중) = x_us 2 · threads 1 · medium 1 · note 1 (5). pinterest·github·indiehackers·instagram(bio) 태그는 아직 0 → 신설 표면은 도달 축적 전. **이긴 것**: LinkedIn·X·note(직접 링크 클릭). 성장규칙: 이 셋은 매일 1편 고정, 나머지는 주 2~3회로 배분.
 - **큐 보충**: Quora EN 마무리 · Quora JP · GitHub 9/16 스냅샷 · XS‑3.0 첫 라이브 확인 · cross-sector 검증.
+
+## 사이클 30 — 2026-09-17 01:05 KST (브라우저: 대표 제어 중 지속)
+- 게이트 341/0. 브라우저 조작 없음(하드 스톱 유지).
+- 준비: GitHub 일일 스냅샷 생성기 `scripts/marketing/github-structure-snapshot.js`(t104 데이터 절반, 커밋 ab2900aa) · Lambda 검증 스크립트 `/tmp/ego/verify-lambdas.js`(XS‑3.0 07:25·cross-sector 06:50 용).
