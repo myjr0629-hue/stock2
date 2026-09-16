@@ -6080,3 +6080,4 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **LinkedIn(t117)**: Fed day 포지셔닝 글 + `signumhq.com/app?from=linkedin`, 최근 활동 검증. 교훈: 링크 미리보기 카드 위를 클릭하면 타이핑이 무시됨 → 편집기 전체 재입력.
 - 오늘(9/17 KST) 누계: note JP 1 · Pinterest 1 · X 1 · LinkedIn 1. 광고: US +10·KR +8(−2 정지)·JP +6 키워드.
 - **Threads 9/17**: `threads.com/@signumhq_official/post/DdWiM-8GecH` — Fed day SPY 구조 텍스트 + 앱 카드 + from=threads, 프로필 검증. **Instagram 9/17**: `instagram.com/signumhq_official/p/DdWiU54DyyQ` — 9/14 다크풀 카드 + «FINRA 파일은 반대» 설명 캡션(link in bio). 페이지 예산 8/8 사고 재발 → 정리 후 재실행(스크립트마다 page.close() 필수).
+- **Reddit 9/17(t111)**: r/stocks 「why 25bp good but 50bp bad」(1why1e4) 순수 가치 답변 `t1_pa69ecl`(확률가중 가격·서프라이즈 리프라이싱·딜러 감마 강도, 무링크·무앱). 사전 확인 규칙 적용(내 스레드 22개 제외·사이트 삭제 신규 0). 오늘 1/3.
