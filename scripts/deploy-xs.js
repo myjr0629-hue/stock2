@@ -1,4 +1,10 @@
 /**
+ * ⚠️ OBSOLETE (2026-09-16) — DO NOT RUN. Uses powershell (fails on macOS) and
+ * replaces the Lambda Environment with 3 keys (live function has 8, incl. the
+ * Intrinio + proxy keys). Use `node scripts/deploy-xs-code-only.js xs|paper`,
+ * which uploads code only and verifies the env key count. Kept for the
+ * table/EventBridge bootstrap reference only.
+ *
  * Deploy the XS Engine (scripts/xs-engine.js) as the `signum-xs` Lambda.
  *
  *   1. Creates DynamoDB table `signum-xs-history` (PK ticker / SK date,

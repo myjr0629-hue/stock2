@@ -3,9 +3,13 @@
 // ============================================================================
 //
 // The shadow "quantum" engine. Runs once daily after US close. Fully isolated:
-//   READS  (read-only): DynamoDB `signum-unified-cache` (2k tickers: options,
-//           flow, analyst, SMA, fundamentals, peer graph — written by harvest)
-//   WRITES (own stores only): DynamoDB `signum-xs-history` + Redis `cache:xs:*`
+//   READS  (read-only): the live per-ticker sources assembled by
+//           ./source-adapter.js (Vercel structure bake, FINRA feeds, pattern-db,
+//           Intrinio). ⚠ 2026-09-16: `signum-unified-cache` is NO LONGER the
+//           input — its bulk writer retired with the Massive→Intrinio migration
+//           (08-28) and the engine had thrown `universe too small: 0` since 09-01.
+//   WRITES (own stores only): DynamoDB `signum-xs-history` (score/state rows +
+//           the adapter's `_SRC_` cache rows) + Redis `cache:xs:*`
 // It never touches the live alphaScore, any UI, or any existing pipeline.
 //
 // Why it's different from every prior engine version (V3→V8):
@@ -31,8 +35,9 @@
 // ============================================================================
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, BatchGetCommand, BatchWriteCommand, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, BatchGetCommand, BatchWriteCommand, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const __intrinio = require('./intrinio-adapter');   // Massive → Intrinio 라우팅
+const __source = require('./source-adapter');       // 2026-09-16: live-pipeline input adapter
 
 // 1.1.0: main xsScore path is IDENTICAL to 1.0.0 — the bump only adds shadow
 // variant instrumentation (frozen / anti composites, see FROZEN_PRIORS note).
@@ -45,8 +50,8 @@ const __intrinio = require('./intrinio-adapter');   // Massive → Intrinio 라�
 // main earns its own gate record from day one.
 const ENGINE_VERSION = 'XS-2.0.0';
 const TABLE = 'signum-xs-history';
-const SOURCE_TABLE = 'signum-unified-cache';
-const DRY = process.env.DRY === '1';
+// DRY: env DRY=1 (local CLI) or Lambda event {dry:true} (manual invoke) — reset per invocation
+let DRY = process.env.DRY === '1';
 
 const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim();
 const REDIS_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim();
@@ -143,44 +148,20 @@ async function run() {
     const today = new Date().toISOString().slice(0, 10);
     console.log(`[XS] ${ENGINE_VERSION} run ${today} ${DRY ? '(DRY)' : ''}`);
 
-    // 1. Scan unified-cache (read-only source of truth for today's snapshot)
-    // Zombie guard (2026-08-07): delisted/renamed tickers keep frozen cache
-    // rows forever (harvest never rewrites symbols absent from the snapshot
-    // feed — e.g. BK→BNY left BK frozen since 05-21 yet scored daily). A row
-    // whose updatedAt is older than 4 days cannot be a live listing.
+    // 1. Today's per-ticker snapshot from the LIVE pipeline (./source-adapter.js).
+    // Zombie guard (2026-08-07, kept): delisted/renamed tickers used to keep frozen
+    // cache rows forever (e.g. BK→BNY left BK frozen since 05-21 yet scored
+    // daily). A ticker whose structure bake or official EOD bar is older than
+    // 4 days cannot be a live listing — the adapter enforces both.
+    // [2026-09-16] The unified-cache scan that stood here died with the vendor
+    // migration (bulk writer retired 08-28 → 0 fresh rows → `universe too small`
+    // every run since 09-01). The snapshot shape below is unchanged; only where
+    // each field comes from moved. Scoring code from step 2 on is untouched.
     const STALE_CUTOFF = Date.now() - 4 * 86400000;
-    const snaps = new Map(); // ticker → snapshot
-    let lastKey;
-    do {
-        const res = await ddb.send(new ScanCommand({ TableName: SOURCE_TABLE, ExclusiveStartKey: lastKey }));
-        for (const it of (res.Items || [])) {
-            const ticker = it.pk;
-            if (!ticker || typeof ticker !== 'string' || ticker.includes(':')) continue;
-            if (!(Date.parse(it.updatedAt || '') > STALE_CUTOFF)) continue; // zombie/garbage row
-            const d = typeof it.data === 'string' ? safeParse(it.data) : it.data;
-            if (!d) continue;
-            const price = num(d.structure?.underlyingPrice);
-            const mcap = num(d.fundamentals?.marketCap);
-            if (!(price > 1) || !(mcap >= MCAP_MIN)) continue; // stocks only, no micro/ETF-ish
-            snaps.set(ticker, {
-                price,
-                mcap,
-                netGex: num(d.structure?.netGex ?? d.volatility?.gex),
-                pcr: num(d.structure?.pcRatio),
-                iv: num(d.volatility?.iv),
-                squeeze: num(d.volatility?.squeezeScore),
-                darkPool: num(d.institutional?.darkPool?.percent),
-                shortVol: num(d.squeeze?.shortVolPercent ?? d.institutional?.shortVolume?.percent),
-                blockTrades: num(d.institutional?.blockTrade?.count),
-                bullishPct: num(d.analyst?.bullishPct),
-                smaDist: num(d.sma?.distance),
-                dtc: num(d.squeeze?.daysToCover),
-                peers: Array.isArray(d.related?.topRelated) ? d.related.topRelated.map(p => p.ticker).filter(Boolean).slice(0, 8) : [],
-            });
-        }
-        lastKey = res.LastEvaluatedKey;
-    } while (lastKey);
+    const src = await __source.buildSourceSnapshots({ ddb, table: TABLE, today, staleCutoff: STALE_CUTOFF, mcapMin: MCAP_MIN, seedAll: process.env.XS_SEED_ALL === '1' });
+    const snaps = src.snaps; // ticker → snapshot
     console.log(`[XS] source snapshots: ${snaps.size} tickers (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
+    console.log(`[XS] sources ${JSON.stringify(src.sources)}`);
     if (snaps.size < MIN_UNIVERSE) throw new Error(`universe too small: ${snaps.size}`);
 
     // 2. BatchGet own _STATE_ items (close/gex/analyst rings + z history)
@@ -199,6 +180,19 @@ async function run() {
         }
     }
     console.log(`[XS] states loaded: ${states.size}`);
+    // [2026-09-16] Ring hygiene after the 09-01→09-15 outage: back-fill the own
+    // close ring with official EOD closes for the missing sessions (so revChg /
+    // revRet3 really are 1 / 3 sessions), and drop GEX / analyst ring entries
+    // older than 14 days (so dGex5 / analystRev can never span the gap).
+    // No-op on a healthy day. Formulas untouched — see source-adapter.js.
+    let ringsTouched = 0;
+    for (const [t, st] of states) {
+        const sig = () => JSON.stringify([st.closes?.length, st.gexes?.length, st.bulls?.length, st.closes?.[st.closes.length - 1]?.d]);
+        const before = sig();
+        __source.sanitizeRings(st, src.eodCloses.get(t), today, CLOSE_RING);
+        if (before !== sig()) ringsTouched++;
+    }
+    if (ringsTouched) console.log(`[XS] rings sanitized: ${ringsTouched} tickers (close back-fill / stale-delta prune)`);
 
     // 3. Load weights doc (rolling ICs) — single item
     let wdoc = null;
@@ -500,7 +494,7 @@ async function run() {
     };
 
     if (DRY) {
-        console.log('[XS DRY] scored:', rawMap.size, 'labeled:', labeledTotal);
+        console.log('[XS DRY] scored:', rawMap.size, 'labeled:', labeledTotal, 'srcWrites(skipped):', src.srcWrites.length);
         console.log('[XS DRY] weights:', JSON.stringify(report.weights));
         console.log('[XS DRY] variants:', JSON.stringify(report.variants));
         console.log('[XS DRY] top10:', report.top10.join(' '));
@@ -509,7 +503,8 @@ async function run() {
     }
 
     // batch write (25/req) with unprocessed retry
-    const allWrites = [...historyItems, ...stateItems,
+    // (src.srcWrites = the adapter's own `_SRC_` cache rows: market cap + close ring)
+    const allWrites = [...historyItems, ...stateItems, ...src.srcWrites,
         { ticker: '_WEIGHTS_', date: '_CURRENT_', icHist, calibHist, hitHist, weights, varIcHist, mainVer: ENGINE_VERSION, icDays: [...icDays].sort().slice(-90), updatedAt: nowIso },
         { ticker: '_REPORT_', date: today, ...report, updatedAt: nowIso },
     ];
@@ -542,9 +537,11 @@ function compactZ(z) { const o = {}; for (const k in z) o[k] = round(z[k], 4); r
 function daysBetween(d1, d2) { return Math.round((new Date(d2) - new Date(d1)) / 86400000); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-exports.handler = async () => {
+exports.handler = async (event) => {
+    // manual verification: invoke with {"dry": true} → full run, nothing written
+    DRY = process.env.DRY === '1' || !!(event && event.dry === true);
     const r = await run();
-    return { statusCode: 200, body: JSON.stringify({ date: r.date, scored: r.scored, dayIC: r.dayIC }) };
+    return { statusCode: 200, body: JSON.stringify({ date: r.date, universe: r.universe, scored: r.scored, dayIC: r.dayIC, dry: DRY }) };
 };
 
 if (require.main === module) {

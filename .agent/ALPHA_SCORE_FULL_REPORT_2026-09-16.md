@@ -152,7 +152,7 @@ XS-2.0 팩터(`xs-engine.js:60-74`): revChg(1일 반전), revRet3(3일 반전), 
 
 ## 8. 개선안 — 우선순위
 
-**P0 · 복구 (이번 주, 측정을 다시 살리는 일)**
+**P0 · 복구 (이번 주, 측정을 다시 살리는 일)** — ✅ 2026-09-16 착수·배포 완료: 원천 어댑터·SPY 종가·알람 5종. 정본 `XS_SOURCE_RESTORE_2026-09-16.md`. 남은 것은 «무음 폴백 차단»(앱 표시) 한 항목.
 - `signum-xs` 원천 복구: unified-cache 대량 갱신기를 Intrinio 시대 파이프라인에 재연결하거나, XS 가 `signum-harvest`/`gex-history` 등 살아 있는 원천을 직접 읽도록 어댑터 교체. 복구 후 좀비 가드 4일 규칙은 유지.
 - CloudWatch 알람 3종: `signum-xs` 에러/`universe<40`, unified-cache 신선도(유니버스 행 24h 이내 갱신 비율), `cache:xs:scores` 부재. 슬랙/푸시로.
 - SPY 종가 캡처 복구(성공기준 ① 계산).
