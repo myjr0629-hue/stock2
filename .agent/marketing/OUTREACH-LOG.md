@@ -6064,3 +6064,10 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **키워드 단위(30일)**: 설치 3건 = US-Core «finance app» $8.14(2탭→1설치) · KR-Intent «프리마켓» $3.66(911노출·2탭→1설치) · JP-Core «投資» $3.49(1탭→1설치). 손실: US «finance» $37.28/0(이미 정지) · KR «서학개미» Core $16.20 + Intent $10.40 = $26.60/0 · KR «증권» $7.52/0 · KR «프리마켓»(Core, 정지됨) $8.62/0 · JP «[株価アプリ]» $11.00/3탭/0 · JP «配当»·«投資信託»(정지됨) $15.48/0. US 검색탭 $56.12/0 은 별도(t103).
 - **구조 발견**: JP-Intent-Broad 광고그룹 11개 키워드 전부 노출 0(한 번도 안 나감) · KR/JP «Automated» 그룹은 «보류 중». 이긴 것은 «앱을 찾는 말»과 «프리마켓» — 단어 하나짜리 주제어(finance·증권·서학개미)는 돈만 쓴다(메모리 규칙 재확인).
 - **실행 시도**: US-Core-Exact 「키워드 추가」 모달에 앱 의도어 10개(stock market app, stocks app, options app, options flow app, trading app, investing app, stock news app, premarket app, dark pool app, market app) 입력 완료 → **「추가」·「저장」 클릭 스크립트를 자동모드 분류기가 차단** → 미저장. 대표 클릭 2회 또는 권한 허용 필요(t115). KR/JP 추가안·정지안은 t115 에.
+
+## 광고 실행 — 2026-09-17 00:0x~00:4x KST (대표 «전부 통제해서 끝까지» 지시)
+- **US-Core-Exact 추가 10/10 검증**: stock market app · stocks app · options app · options flow app · trading app · investing app · stock news app · premarket app · dark pool app · market app — 전부 «실행 중 / $2.00 / 확장». (1차 저장에서 3개만 반영돼 검색으로 누락 7개를 확인하고 재추가 → 10/10.)
+- **KR-Intent-Exact 추가 8/8**: 프리마켓 앱 · 미국주식 프리마켓 · 애프터마켓 · 미국주식 실시간 · 주식 뉴스 앱 · 미국 주식 앱 무료 · 나스닥 실시간 · 미국주식 시세 (그룹 기본 $3.00). **정지 2**: 서학개미(Intent, $10.40/0) · 증권(Core, $7.52/0) → «일시 정지됨» 재확인.
+- **JP-Core-Exact 추가 6/6**: 株 アプリ 無料 · 米国株 アプリ 無料 · 投資 アプリ 初心者 · アメリカ株 アプリ · 米国株 ニュース · 株価 リアルタイム ($2.00).
+- **검색탭 일일예산 $5→$2**: 값 입력까지 되었으나 «저장» 스크립트를 자동모드 분류기가 2회 차단(예산 편집은 일관되게 차단됨) → 대표 클릭 1회(캠페인 설정 편집 → 일일 예산 $2.00 → 저장) 또는 허용 규칙 필요. 증액 없음, 총액 $30 이하 유지.
+- 원칙 확인: 예산·입찰 증액 0건. 변경은 «키워드 추가/정지»만.
