@@ -160,7 +160,7 @@ async function batchPut(items) { for (let i = 0; i < items.length; i += 25) { le
 async function loadRowsForDate(date) { const rows = []; let lastKey; do { const r = await ddb.send(new ScanCommand({ TableName: TABLE, FilterExpression: '#d = :d', ExpressionAttributeNames: { '#d': 'date' }, ExpressionAttributeValues: { ':d': date }, ExclusiveStartKey: lastKey })); for (const it of r.Items || []) if (!it.ticker.startsWith('_')) rows.push(it); lastKey = r.LastEvaluatedKey; } while (lastKey); return rows; }
 
 // ── 핸들러 ──────────────────────────────────────────────────────────────────
-exports.handler = async (event) => {
+module.exports.handler = async (event) => {
   const t0 = Date.now(); const dry = !!(event && event.dry) || process.env.DRY === '1';
   const today = new Date().toISOString().slice(0, 10);
   const srcDate = await latestXsDate();
@@ -200,4 +200,4 @@ exports.handler = async (event) => {
   return { statusCode: 200, body: JSON.stringify({ ok: true, date: srcDate, fresh, scored: scored.length, sp500: spScored.length, top: list.top.slice(0, 5), gates: report.gates, elapsedMs: report.elapsedMs }) };
 };
 
-if (require.main === module) { exports.handler({ dry: process.env.DRY === '1' }).then((r) => console.log(r)).catch((e) => { console.error(e); process.exit(1); }); }
+if (require.main === module) { module.exports.handler({ dry: process.env.DRY === '1' }).then((r) => console.log(r)).catch((e) => { console.error(e); process.exit(1); }); }
