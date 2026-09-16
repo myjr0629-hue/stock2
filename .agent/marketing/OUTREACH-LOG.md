@@ -5997,3 +5997,11 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 ### t096 — Bluesky ego 게시 불가(기록): bsky.app 작성창(tiptap)의 «이미지 추가»는 네이티브 파일피커라 setInputFiles/waitForFileChooser 미포착, 합성 drop/paste 무시, 링크 카드 버튼 없음. 검증 게이트의 배경 썸네일 오탐으로 «게시하기» 를 눌렀으나 **공개 API 로 확인 — 게시 안 됨**(최신 글 9/15 15:20). 작성창 폐기. 교훈: 이미지 존재 판정은 «작성창 컨테이너 안» 의 blob 이미지로만. 대안 t098(서버측 API 경로, 자격 Vercel).
 ### 확장 — 실패에서 표면 정의를 고침: Bluesky 는 ego 가 아니라 API 채널(자동발행 체제)로 분류.
 ### 누계(9/16 KST): 발행 14 / 생존 13. 채널: Quora EN·JP·DE, Reddit(stocks·options), note, Medium, LinkedIn, X US.
+
+## 2026-09-16 (20) — 15:1x~15:3x 사이클 — 측정 점검·Bluesky 경로 확정 (발행 0)
+### 광고 점검 — 통과·무변경(어제 확정 $28.33, 캡 이내). 만기 감사 0실패.
+### t035 설치 기여 측정 점검 — 클릭 측정은 봇 제외로 신뢰 가능(코드 확인), **설치 측은 미구현**(iOS pt/ct 토큰 없음·Android referrer 수신 없음·installs 수동). → t102 로 구체화(App Analytics 캠페인 토큰 + /api/attr/install).
+### t098 Bluesky API 경로 — 관리자 라우트가 세션 전용(자동화 키 없음)·텍스트 전용(bskyPost(text)); 이미지 블롭 함수(uploadBskyImage)는 있으나 라우트가 안 씀 → t100(라우트 확장). **부수 발견:** 자동발행 Bluesky 글 3건(9/9·9/10·9/15)이 embed 없이 텍스트만 나갔다(공개 API 실측, 9/1 만 이미지) — §11 위반 상태 → t101(실패 시 발행 중단으로 변경).
+### 발행 — 0건. 오늘 채널별 1편 소진(Quora EN·JP·DE, Reddit 2/3, note, Medium, LinkedIn, X US) + Bluesky 경로 차단. 저녁 사이클: 레딧 3/3(미국 아침), 새 표면 t097; UTC 자정(09:00 KST) 후 EN Quora(t092)·Medium EN(t086) 재개.
+### 큐 보강 — t100·t101·t102 추가(측정·이미지 규율의 구조적 결함을 기술 항목으로).
+### 누계(9/16 KST): 발행 14 / 생존 13.

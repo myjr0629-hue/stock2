@@ -455,10 +455,11 @@
    "title": "설치 기여 측정 점검",
    "detail": "?from= 태그별 클릭 vs 실제 설치. 봇 제외.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "설치 기여 측정 점검(실측): 클릭은 ?from= 태그별 mkt:attr:hit:<from>:<ET일> 에 기록되며 **봇 미리보기는 제외**(app/route.ts — 봇 분기가 recordHit 앞에서 반환, #T4 로 이미 수정). 설치 측은 미구현: iOS 스토어 URL 에 캠페인 토큰(pt/ct) 없음, Android 는 referrer 를 붙이지만 앱에 수신 엔드포인트 없음, 지표 라우트 installs 는 수동 입력. 결론: 채널별 «클릭»은 신뢰 가능, «설치»는 현재 측정 불가(애플광고 설치 3/7일만 Apple 리포트로 확인). 처방 = t102(pt/ct + install-referrer 엔드포인트). 오늘(ET 9/16) 클릭: note 1·x_us 2(ET 일 시작 2.5h).",
+   "closed": "2026-09-16 06:16"
   },
   {
    "id": "t036",
@@ -1271,9 +1272,9 @@
    "detail": "ego 대신 Vercel 크론/관리자 라우트로 bluesky.ts 를 호출해 card-app-en 첨부 + from=bluesky facets 링크 게시. 자격은 Vercel env(BLUESKY_HANDLE/APP_PASSWORD). 관리자 트리거 라우트 존재 여부 확인 후 실행.",
    "prio": 2,
    "state": "todo",
-   "tries": 0,
+   "tries": 1,
    "created": "2026-09-16",
-   "note": ""
+   "note": "API 경로도 현재는 불가: /api/admin/mkt/bluesky/post 는 requireMktAdmin(Supabase 세션 전용, 자동화 키 없음) + 텍스트만 받음(bskyPost(text)). 이미지 블롭 업로드 함수(uploadBskyImage)는 콘솔 모듈에 있으나 라우트가 안 씀. → 라우트 확장 필요(t100)."
   },
   {
    "id": "t099",
@@ -1282,6 +1283,42 @@
    "title": "크로스섹터 Lambda max_tokens 상향(8192→16384)·출력 축약으로 재시도 비용 제거",
    "detail": "9/16 실측: Sonnet 4.6 출력이 8192 토큰에서 잘려 재시도 경로(2회 호출·190s)로 성공. 프롬프트의 «1-2 sentences max» 를 강화하고 max_tokens 를 16384 로 올려 1회 호출로 끝나게 한다. 21:50Z 정기 실행 로그에서 stop_reason=end_turn 확인.",
    "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t100",
+   "type": "tech",
+   "region": "ALL",
+   "title": "Bluesky 게시 라우트에 imageUrl 옵션 + 자동화용 서명 헤더",
+   "detail": "src/app/api/admin/mkt/bluesky/post: body.imageUrl 을 받아 uploadBskyImage(session,url) 로 블롭 임베드(§11 앱 화면 필수), requireMktAdmin 외에 X-Mkt-Sign(HMAC, EXECUTOR_SECRET 류) 허용. 완료 후 card-app-en 으로 from=bluesky 게시.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t101",
+   "type": "tech",
+   "region": "ALL",
+   "title": "자동발행 Bluesky 글 이미지 누락 점검(9/9·9/10·9/15 embed 없음)",
+   "detail": "공개 API 실측: 최근 자동발행 3건 embedType=null(9/1 글만 images). uploadBskyImage 실패가 조용히 텍스트만 나가는지 로그 확인 → 실패 시 발행 중단(§11)으로 바꾼다.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t102",
+   "type": "tech",
+   "region": "ALL",
+   "title": "설치 귀속: iOS 앱스토어 캠페인 토큰(pt/ct=from) + Android install-referrer 수신 엔드포인트",
+   "detail": "스마트링크 302 대상 App Store URL 에 ?pt=<ASC provider>&ct=<from>&mt=8 을 붙이면 App Analytics 에서 채널별 설치가 잡힌다(대표: ASC 캠페인 링크 생성기에서 pt 확인). Android 는 Capacitor install-referrer 플러그인 → /api/attr/install 로 from 전송·mkt:attr:install:<from>:<date> 기록. 지표 라우트의 installs 수동 입력을 대체.",
+   "prio": 1,
    "state": "todo",
    "tries": 0,
    "created": "2026-09-16",
