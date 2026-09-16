@@ -5989,3 +5989,11 @@ note·Medium 라이브(スキ 0·클랩 0). Quora EN 12답·76뷰 / JP 26답 / D
 [게시물](https://x.com/signumhq/status/2100085786825912558) · «프리마켓·실적·연준/CPI/금리·섹터·옵션/다크풀을 한 화면에, 무료·무가입·공개데이터·무예측» + card-app-en + from=x_us. 도달 낮은 채널(팔로워 소수)이나 비용 0·귀속 6클릭/일 실적.
 ### 누계(9/16 KST): 발행 14 / 생존 13. 채널: Quora EN·JP·DE, Reddit(stocks·options), note, Medium, LinkedIn, X US.
 ### 별도 — 알파스코어 성능·로드맵 보고 완료(.agent/ALPHA_SCORE_PERFORMANCE_AND_ROADMAP_2026-09-16.md, 아티팩트). XS 복구·보안 세션은 대표가 별도 실행 중(복구 세션이 signum-xs 재배포, 첫 리포트 22:10 UTC).
+
+## 2026-09-16 (19) — 14:2x~14:4x 사이클 — 크로스섹터 브리프 복구·Bluesky 실측
+### 광고 점검 — 통과·무변경(어제 확정 $28.33). 만기 감사 0실패(전 사이클 수정 유지).
+### t061 — 크로스섹터 Lambda 재배포 검증 → **9/15 21:50 실패 확인·수정·재검증**
+CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 바깥 중괄호 추출·후행콤마/제어문자 복구·stop_reason 기록·잘림 시 컴팩트 1회 재요청 → 코드전용 배포(05:35Z, env 11개 보존) → 수동 1회 실행 **성공**: 로그에 «output truncated (stop_reason=max_tokens, len=16384) → retry» 뒤 200, 키 cross-brief-v3:2026-09-16 생성(Upstash·EC2 프록시 모두 확인). 앱 소비 라우트 실호출: tone=CAUTIOUS date=2026-09-16 ko=S&P500 -0.45%, 나스닥 -0.78% 하락 속 미 10년물 5.00% 돌파로 성장주 밸류에이션 압박. 원인 = Sonnet 4.6 출력이 8192 토큰에서 잘림 → 후속 t099(max_tokens 상향·출력 축약). 커밋 d257d100.
+### t096 — Bluesky ego 게시 불가(기록): bsky.app 작성창(tiptap)의 «이미지 추가»는 네이티브 파일피커라 setInputFiles/waitForFileChooser 미포착, 합성 drop/paste 무시, 링크 카드 버튼 없음. 검증 게이트의 배경 썸네일 오탐으로 «게시하기» 를 눌렀으나 **공개 API 로 확인 — 게시 안 됨**(최신 글 9/15 15:20). 작성창 폐기. 교훈: 이미지 존재 판정은 «작성창 컨테이너 안» 의 blob 이미지로만. 대안 t098(서버측 API 경로, 자격 Vercel).
+### 확장 — 실패에서 표면 정의를 고침: Bluesky 는 ego 가 아니라 API 채널(자동발행 체제)로 분류.
+### 누계(9/16 KST): 발행 14 / 생존 13. 채널: Quora EN·JP·DE, Reddit(stocks·options), note, Medium, LinkedIn, X US.

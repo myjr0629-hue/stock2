@@ -806,10 +806,11 @@
    "title": "cross-sector 람다 재배포 검증 — 21:50 UTC 실행 로그 확인",
    "detail": "scripts/check_lambda_logs.js 로 signum-cross-sector-intel 의 9/15 21:50 UTC 실행이 새 모델(us.anthropic.claude-sonnet-4-6)로 성공했는지 확인. 실패면 즉시 롤백 판단(이전 코드 2026-08-29 판).",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "검증 결과: 9/14 21:50 성공(57s), **9/15 21:50 실패** — 'JSON parse failed', 원인은 Sonnet 4.6 출력이 max_tokens 8192 에서 잘림(실측 stop_reason=max_tokens, 추출 길이 16,384자). 롤백 대신 «종류 수정»: 바깥 중괄호 추출·후행콤마/제어문자 복구·stop_reason 기록·잘림 시 컴팩트 1회 재요청(커밋 d257d100, 코드전용 배포 05:35Z, env 11개 보존). 수동 1회 실행 성공(cross-brief-v3:2026-09-16, 190s). 다음 정기 실행 21:50Z 가 9/16 마감본으로 덮어씀.",
+   "closed": "2026-09-16 05:40"
   },
   {
    "id": "t062",
@@ -1246,9 +1247,9 @@
    "detail": "facets 링크(바이트 인덱스)로 from=bluesky. 하루 1편.",
    "prio": 3,
    "state": "todo",
-   "tries": 0,
+   "tries": 1,
    "created": "2026-09-16",
-   "note": ""
+   "note": "ego 경로 불가: bsky.app 작성창(tiptap)이 «이미지 추가»를 네이티브 파일피커(File System Access)로 열어 setInputFiles/waitForFileChooser 가 안 잡히고, 합성 drop/paste 도 무시. 링크 카드 버튼도 없음. 공개 API 로 확인 — 게시는 나가지 않음(§11 위반 없음). 대안 = 서버측 API 자동발행(src/lib/marketing-v2/platforms/bluesky.ts, 자격 Vercel)."
   },
   {
    "id": "t097",
@@ -1256,6 +1257,30 @@
    "region": "ALL",
    "title": "새 표면: Quora Spaces 또는 HN «Ask» 무링크 기여",
    "detail": "Quora Space(미국주식/옵션) 게시 가능 여부 확인 → 가능하면 앱 화면 첨부 무링크 게시. HN 은 링크 없는 순수 기여로 신용부터.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t098",
+   "type": "publish",
+   "region": "US",
+   "title": "Bluesky 앱 카드 — 서버측 API 경로(mkt-autopilot/bluesky.ts, 이미지+facets)",
+   "detail": "ego 대신 Vercel 크론/관리자 라우트로 bluesky.ts 를 호출해 card-app-en 첨부 + from=bluesky facets 링크 게시. 자격은 Vercel env(BLUESKY_HANDLE/APP_PASSWORD). 관리자 트리거 라우트 존재 여부 확인 후 실행.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t099",
+   "type": "tech",
+   "region": "ALL",
+   "title": "크로스섹터 Lambda max_tokens 상향(8192→16384)·출력 축약으로 재시도 비용 제거",
+   "detail": "9/16 실측: Sonnet 4.6 출력이 8192 토큰에서 잘려 재시도 경로(2회 호출·190s)로 성공. 프롬프트의 «1-2 sentences max» 를 강화하고 max_tokens 를 16384 로 올려 1회 호출로 끝나게 한다. 21:50Z 정기 실행 로그에서 stop_reason=end_turn 확인.",
    "prio": 2,
    "state": "todo",
    "tries": 0,
