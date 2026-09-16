@@ -716,9 +716,9 @@
    "detail": "프리마켓 답변이 하루 15클릭으로 최고. 「What are some of the biggest moves in premarket trading?」 등 상시형 무응답 질문이 남아 있다.",
    "prio": 1,
    "state": "todo",
-   "tries": 0,
+   "tries": 1,
    "created": "2026-09-15",
-   "note": ""
+   "note": "오늘 실행 불가: de.quora 검색 5쿼리(vorbörslich·Premarket·nachbörslich·App·Earnings Kalender) 결과 0, EN 은 §11-5 로 다음 UTC일 재개, JP 는 오늘 1편 소진. 목적은 t092(EN Quora 재개, 프리마켓 후보 포함)가 승계."
   },
   {
    "id": "t055",
@@ -1180,10 +1180,11 @@
    "title": "r/options 가치 댓글 — 새 서브레딧 표면(오늘 레딧 2/3 남음)",
    "detail": "r/options 최신 질문 스레드(스프레드 방향성·그릭스 적용 등)에 판단·한계·1인칭 순수가치 댓글. 앱 이름·링크 금지(§14), UTC 8분 간격, 게시 후 생존 확인.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "r/options 「Does direction even matter」 가치 댓글: https://www.reddit.com/r/options/comments/1whhjbp/does_direction_even_matter/pa3b4x3/ — 기존 6댓글이 «방향은 중요하다·손실이 3~4배» 까지 말한 것을 이어 «큰 역행은 날짜에 균등하지 않고 촉매·거대 OI 스트라이크·얇은 참여에 몰린다» + 사전 필터 3개, 한계 인정(방향 예측 아님). 앱 이름·링크 없음. u/SignumHQ 200·생존(score 1). 새 서브레딧 표면 개통. 레딧 오늘 2/3.",
+   "closed": "2026-09-16 03:14"
   },
   {
    "id": "t092",
@@ -1191,6 +1192,18 @@
    "region": "US",
    "title": "Quora EN 무응답 재개 — §11-5 어투로(다음 UTC일)",
    "detail": "EN 은 오늘 1편(삭제) 소진. 내일 UTC 부터 재개: 앱 언급 1문장·이름만, 이미지+무링크. 후보: 주말 트레이딩/방어주/AI 준비 질문.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t093",
+   "type": "expand",
+   "region": "US",
+   "title": "레딧 3/3 — r/thetagang 또는 r/StockMarket 가치 댓글(미국 아침=KST 저녁)",
+   "detail": "UTC 8분 간격·앱 이름·링크 금지(§14). 신선한 질문 스레드(스프레드·프리마켓·왜 움직였나)에 판단·한계·1인칭. 게시 후 생존 확인.",
    "prio": 2,
    "state": "todo",
    "tries": 0,

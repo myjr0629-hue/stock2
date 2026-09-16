@@ -5961,3 +5961,12 @@ note·Medium 라이브(スキ 0·클랩 0). Quora EN 12답·76뷰 / JP 26답 / D
 ### 확장 — 측정 루틴(t090) 정착: 캠페인별 지출·from 클릭·4채널 생존을 매일 한 번에. 다음 새 표면 = r/options 가치 댓글(t091, 오늘 레딧 2/3 남음).
 ### 누계(9/16 KST): 발행 11건 / 생존 10건(Quora EN 1건 삭제·이의제기 중). 채널: Quora EN·JP·DE, Reddit, note, Medium.
 ### 정정(같은 사이클) — Quora EN meme 답변 이의제기 결과: 알림 「Your answer has been deleted as it was found to be in violation of our Spam policy」(2h) 는 답변 페이지로만 연결되고, 통지 카드(“This post can be restored by the Quora moderation team”)·«…» 메뉴·알림 어디에도 Appeal 컨트롤이 없다(전날 유형과 다름 — 전날은 카드에 Appeal 버튼). 4회 시도 후 중단: 모더레이션 자체 복원에 맡기고, EN 은 §11-5 어투로 다음 UTC일에 재개(t092). 같은 질문 재답변 금지.
+
+## 2026-09-16 (16) — 12:1x~12:4x 사이클 — r/options 표면 개통
+### 광고 점검 — 통과·무변경. 오늘 $28.33(3h 지연으로 11:3x 와 동일), 설치 0. 만기 감사 341건 0실패.
+### 도달·확장(t091) — r/options 「Does direction even matter」(20델타 숏 버티컬, 방향성이 중요한가) 가치 댓글
+[댓글](https://www.reddit.com/r/options/comments/1whhjbp/does_direction_even_matter/pa3b4x3/) · 스레드의 최고 논점(«20% 손실이 3~4배라 그게 게임 전부»)을 받아, 아무도 말하지 않은 «큰 역행은 날마다 균등하지 않다 — 예정 촉매·거대 OI 스트라이크·얇은 참여에 몰린다»를 추가하고 사전 필터 3개(촉매 창·OI 위치·참여의 질) + 한계(방향을 맞히는 게 아니라 최악의 타이밍을 걸러낸다) + 1인칭. **앱 이름·링크 0**(§14). 게시 200·생존(score 1). 레딧 오늘 2/3(r/stocks·r/options 둘 다 생존) — 순수가치 패턴 2/2 vs 앱언급 0/2. 새 서브레딧 표면.
+### t054(Quora 프리마켓 2탄) — 오늘 보류(tries 1): de.quora 검색 5쿼리 결과 0(피드도 0), EN 은 §11-5 로 다음 UTC일, JP 오늘 소진. t092 가 승계.
+### 생존 — jp.quora 매크로 답변 생존(26답). 
+### 성장 규칙 — 레딧 «순수가치→프로필 전환» 패턴 확정(2/2 생존). 3/3 은 미국 아침(KST 저녁)에 r/thetagang 또는 r/StockMarket (t093). Quora 는 언어별 1편/일을 지키며 EN 은 §11-5 어투로 내일 재개.
+### 누계(9/16 KST): 발행 12 / 생존 11. 채널: Quora EN·JP·DE, Reddit(stocks·options·Daytrading·StockMarket), note, Medium.
