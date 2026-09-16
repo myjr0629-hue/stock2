@@ -5909,3 +5909,18 @@ v2 18장·업로드 스크립트 준비 완료. 새 버전 생성+업로드는 �
 ### 발행 — Quora EN #2 「recommend resources to simplify SMA/MACD/RSI?」(무응답 → 첫 답변, 앱 화면 첨부)
 [답변](https://www.quora.com/Can-you-recommend-books-or-resources-that-simplify-the-complex-concepts-of-SMA-MACD-and-RSI-for-someone-new-to-technical-trading/answer/Jiyoung-Kim-236) · RSI/MACD/SMA 를 평이하게 설명 + Investopedia·Murphy 책 추천(진짜 도움) → 앱의 «탭하면 해석» 팝업으로 «맥락에서 지표 학습»을 소개. 이미지 첨부(img)·무링크. setInputFiles 는 accept="image/*" 인풋에 바로(첫 시도 실패 시 «Add image» 버튼 후 재시도가 폴백). t081 2/2 완료.
 ### 밤→아침 발행 누계(9/16 KST): Quora 4건(EN×2·JP·DE) + Reddit 2건. Quora 전건 생존.
+
+## 2026-09-16 (12) — 09:1x 사이클 (새 UTC일·KR/JP 아침)
+### 광고 점검(t042) — 통과
+어제 합계 지출 $20.55(캡 $30 이내, JP+KR 1.5x 임계 $22.5 미만), 노출 1,668·탭 10·CPT $2.05·설치 0. 유효 입찰 ~$2 로 안정 — 9/12 의 $9.90 미복귀, 런어웨이 없음. 집계 CPT $2.05 이므로 어떤 키워드도 $9.90 로 서빙 중이 아님(수학적 상한). **예산 이상무·증액 안 함.** 설치 0 은 관찰 지속(t070 리캡션·앱-우선 카피가 전환 레버).
+### 발행(t008) — Quora EN #1 「Is meme stock trading still profitable in 2026?」(무응답 → 첫 답변)
+[답변](https://www.quora.com/Is-meme-stock-trading-still-profitable-in-2026/answer/Jiyoung-Kim-236) · 솔직한 답(밈 수익은 대부분 사라짐)→«밈 대신 뭘 봐야 하나»(실적일·옵션 포지션·다크풀·공매도)→앱 전체를 한 화면에. **대시보드 스크린샷 첨부(「What institutions do, on one screen」)·본문 무링크·mine·img 확인.** 이미지: setInputFiles 는 편집기 «재접속» 후 accept="image/*" 정적 인풋에 성공(첫 시도 실패 원인=인풋이 타이핑 직후 아직 미마운트 → 대기·재접속이 해법). 메모리 갱신.
+### 도달(레딧) — r/stocks 「Stopped chasing every scanner alert, now what」 가치 댓글
+[댓글](https://www.reddit.com/r/stocks/comments/1wha7ue/stopped_chasing_every_scanner_alert_now_what/pa2gasz/) · «움직인다»와 «왜 움직이나»를 분리하는 사전 체크리스트(예정 촉매·다크풀 비율 vs 자기평균·옵션 편중), 한계 인정(예측 아님)·1인칭. **앱 이름·링크 전혀 없음**(§14). 계정 u/SignumHQ 확인(modhash)·게시 200·생존(score 1·미삭제). 첫 UTC일 레딧 1/3.
+### 확장(KR 갭) — 디스콰이엇 등재문안 준비완료
+한국 네이티브 채널 0 을 메우는 첫 등재 에셋 작성: .agent/marketing/assets/disquiet-signum-listing-ko.md (태그라인·본문·링크 from=disquiet·이미지 3종·안전선). 계정 생성만 대표 액션(구글 OAuth), 문안·업로드·댓글은 내가. t018 진척.
+### 성장 규칙 적용
+- 이긴 것 키우기: 이미지+무링크 Quora = 확정 승자 → 오늘도 반복(EN meme). 이미지 첨부 실패 시 «대기·재접속» 절차를 표준화(메모리).
+- 진 것 정정: 레딧 앱언급 삭제(§14) 이후 첫 «순수 가치» 댓글 생존 확인 → 패턴 정착.
+- 복제: KR native 표면(디스콰이엇) 준비로 확장 축을 미국→한국으로.
+### 밤→아침 발행 누계(9/16 KST): Quora 5건(EN×3·JP·DE) + Reddit 3건. Quora 전건 생존, Reddit 최신건 생존.
