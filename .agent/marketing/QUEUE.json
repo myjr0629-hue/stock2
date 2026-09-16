@@ -1123,10 +1123,11 @@
    "title": "Medium EN 앱 소개 롱폼 — execCommand 기법으로 개통 시도",
    "detail": "note.com 을 뚫은 document.execCommand('insertText') 문단삽입을 Medium(ProseMirror 계열)에 적용. 앱-우선 본문+card-app-en 이미지+smartlink from=medium 앵커. 렌더 검증(charsPerLine) 후 발행.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "Medium EN #2 공개: medium.com/@signum_hq/what-priced-in-doesnt-tell-you-on-a-fed-day-reading-dealer-positioning-959a679d4617 — 제목·Command 화면·앱 링크(from=medium)·GitHub 데이터셋 링크·토픽 5 공개 페이지 검증. 1차 초안(d1a35e54136f)은 제목/1문단 소실+이미지 최상단 삽입으로 폐기(드래프트 잔존)",
+   "closed": "2026-09-16 14:58"
   },
   {
    "id": "t087",
