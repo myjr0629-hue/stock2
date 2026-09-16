@@ -1259,10 +1259,11 @@
    "title": "새 표면: Quora Spaces 또는 HN «Ask» 무링크 기여",
    "detail": "Quora Space(미국주식/옵션) 게시 가능 여부 확인 → 가능하면 앱 화면 첨부 무링크 게시. HN 은 링크 없는 순수 기여로 신용부터.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "GitHub 새 표면 개설 완료 — options-market-structure-daily (README 앱우선+스크린샷+from=github, 12종목 스냅샷 JSON). 자동화는 t104",
+   "closed": "2026-09-16 07:06"
   },
   {
    "id": "t098",
@@ -1307,10 +1308,11 @@
    "title": "자동발행 Bluesky 글 이미지 누락 점검(9/9·9/10·9/15 embed 없음)",
    "detail": "공개 API 실측: 최근 자동발행 3건 embedType=null(9/1 글만 images). uploadBskyImage 실패가 조용히 텍스트만 나가는지 로그 확인 → 실패 시 발행 중단(§11)으로 바꾼다.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "실측: 카드 OG 104KB(상한 976KB 이내)·bskyPost 는 이미지 임베드 지원. 9/9·9/10·9/15 텍스트만 글은 레벨카드 오토파일럿 문체가 아님 → 다른 발행 레그(originals/Buffer)가 카드 없이 Bluesky 게시. 코드 수정은 웹 변경이라 대표 승인 대기(t105)",
+   "closed": "2026-09-16 07:06"
   },
   {
    "id": "t102",
@@ -1318,6 +1320,42 @@
    "region": "ALL",
    "title": "설치 귀속: iOS 앱스토어 캠페인 토큰(pt/ct=from) + Android install-referrer 수신 엔드포인트",
    "detail": "스마트링크 302 대상 App Store URL 에 ?pt=<ASC provider>&ct=<from>&mt=8 을 붙이면 App Analytics 에서 채널별 설치가 잡힌다(대표: ASC 캠페인 링크 생성기에서 pt 확인). Android 는 Capacitor install-referrer 플러그인 → /api/attr/install 로 from 전송·mkt:attr:install:<from>:<date> 기록. 지표 라우트의 installs 수동 입력을 대체.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t103",
+   "type": "ads",
+   "region": "ALL",
+   "title": "애플광고 US 검색탭 일일예산 $5→$2 축소(대표 승인/실행)",
+   "detail": "7일 실측: 지출 $56.12·노출 17,633·탭 17·설치 0·TTR 0.1%(CPM 탭 광고). 성장규칙 «진 것은 줄이되 죽이지 말고» → $2 로 축소 제안. 자동조작은 분류기가 예산 편집을 차단(9/16 16:2x) → 대표가 콘솔에서 직접 또는 승인 후 재시도. 증액 아님.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t104",
+   "type": "tech",
+   "region": "ALL",
+   "title": "GitHub 저장소 options-market-structure-daily 일일 스냅샷 자동화",
+   "detail": "레포 생성 후 data/YYYY-MM-DD.json 을 매일 US 마감 후 커밋하는 스크립트(로컬 cron 또는 EC2). 공개 API 12종목 ?t= 호출 → 파생지표만(시세 재배포 금지). 앱 링크 ?from=github.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t105",
+   "type": "tech",
+   "region": "ALL",
+   "title": "Bluesky 비카드 발행 레그 §11 정합(대표 승인 후)",
+   "detail": "originals/Buffer 경로의 Bluesky 게시를 카드 첨부 또는 중단으로 바꾼다. 웹 코드 변경이므로 대표 «절대 앱·웹 무영향» 지시에 따라 승인 후에만 배포.",
    "prio": 1,
    "state": "todo",
    "tries": 0,
