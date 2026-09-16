@@ -125,12 +125,19 @@ async function mapPool(items, n, fn) {
 }
 
 // ── EC2 Redis proxy (GET + querystring, Bearer) ─────────────────────────────
+// A wrong/rotated proxy key does NOT throw — every read just comes back null and the
+// universe quietly loses IV / dark pool / SMA. Say so once per status so the log
+// (and a reader of `[XS-SRC] coverage`) can tell "no data" from "locked out".
 let _proxyKeyWarned = false;
+const _proxyStatusWarned = new Set();
 async function proxyGet(key, timeoutMs) {
     if (!REDIS_PROXY_KEY) { if (!_proxyKeyWarned) { _proxyKeyWarned = true; console.log('[XS-SRC] ⚠ REDIS_PROXY_KEY missing — EC2 Redis reads disabled'); } return null; }
     const r = await fetchText(`${REDIS_PROXY}/get?key=${encodeURIComponent(key)}`,
         { headers: { Authorization: `Bearer ${REDIS_PROXY_KEY}` } }, timeoutMs || 30000);
-    if (!r.ok) return null;
+    if (!r.ok) {
+        if (!_proxyStatusWarned.has(r.status)) { _proxyStatusWarned.add(r.status); console.log(`[XS-SRC] ⚠ EC2 Redis proxy GET ${key} → HTTP ${r.status}${r.status === 401 ? ' (key rotated? check REDIS_PROXY_KEY / EC2_REDIS_PROXY_KEY in the Lambda env)' : ''}`); }
+        return null;
+    }
     const j = parseMaybeJson(r.body);
     return j && typeof j === 'object' && 'result' in j ? parseMaybeJson(j.result) : null;
 }
