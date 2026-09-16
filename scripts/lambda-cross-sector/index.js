@@ -436,19 +436,43 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
             body: JSON.stringify(requestBody),
         });
 
-        const bedrockResponseRaw = await bedrockClient.send(command);
-        const bedrockResponseStr = new TextDecoder().decode(bedrockResponseRaw.body);
-        const bedrockResult = JSON.parse(bedrockResponseStr);
-        let responseText = bedrockResult.content?.[0]?.text || '';
-        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        // ★ 2026-09-16: 9/15 21:50 실행이 «JSON parse failed» 로 죽어 그날 브리프가 비었다(원문은 `{`
+        //   로 시작 — 펜스 문제가 아니라 잘림(max_tokens) 또는 문자열 안 제어문자·후행 콤마).
+        //   처방은 사례가 아니라 종류: ① 바깥 중괄호만 추출 ② 후행 콤마·제어문자 복구 ③ stop_reason 기록
+        //   ④ 잘림(max_tokens)이면 «같은 JSON 을 더 짧게» 1회 재요청. 그래도 안 되면 그때 500.
+        const invokeOnce = async (body) => {
+            const raw = await bedrockClient.send(new InvokeModelCommand({ modelId: command.input.modelId, contentType: 'application/json', accept: 'application/json', body: JSON.stringify(body) }));
+            const parsed = JSON.parse(new TextDecoder().decode(raw.body));
+            return { text: parsed.content?.[0]?.text || '', stopReason: parsed.stop_reason || null, usage: parsed.usage || null };
+        };
+        const extractJson = (txt) => {
+            let t = String(txt || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+            const s = t.indexOf('{'), e = t.lastIndexOf('}');
+            if (s >= 0 && e > s) t = t.slice(s, e + 1);
+            return t;
+        };
+        const tryParse = (txt) => {
+            try { return JSON.parse(txt); } catch (_) { /* fallthrough */ }
+            // 복구 시도: 후행 콤마, 문자열 안 원시 제어문자(개행 등)
+            const repaired = txt.replace(/,\s*([}\]])/g, '$1').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ');
+            try { const v = JSON.parse(repaired); console.warn('[CrossSector] JSON repaired (trailing commas / control chars)'); return v; } catch (_) { return null; }
+        };
 
-        let structured;
-        try {
-            structured = JSON.parse(responseText);
-        } catch (parseErr) {
-            console.error('JSON parse failed. Raw:', responseText.substring(0, 500));
+        let attempt = await invokeOnce(requestBody);
+        let responseText = extractJson(attempt.text);
+        let structured = tryParse(responseText);
+        if (!structured && attempt.stopReason === 'max_tokens') {
+            console.warn(`[CrossSector] output truncated (stop_reason=max_tokens, len=${responseText.length}) — retrying once with a compact instruction`);
+            const compactBody = { ...requestBody, messages: [{ role: 'user', content: prompt + '\n\n## OUTPUT SIZE\nThe previous answer was cut off. Return the SAME JSON schema but HALVE every text field. Absolute maximum 1 short sentence per field. Return ONLY the JSON object.' }] };
+            attempt = await invokeOnce(compactBody);
+            responseText = extractJson(attempt.text);
+            structured = tryParse(responseText);
+        }
+        if (!structured) {
+            console.error(`JSON parse failed (stop_reason=${attempt.stopReason}, len=${responseText.length}, usage=${JSON.stringify(attempt.usage)}). Head:`, responseText.substring(0, 300), '| Tail:', responseText.slice(-200));
             return { statusCode: 500, body: 'Bedrock returned invalid JSON' };
         }
+        console.log(`[CrossSector] Bedrock JSON ok (stop_reason=${attempt.stopReason}, len=${responseText.length})`);
 
         if (!structured.marketOverview) {
             return { statusCode: 500, body: 'Bedrock response missing required sections' };
