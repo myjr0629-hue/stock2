@@ -5979,3 +5979,13 @@ note·Medium 라이브(スキ 0·클랩 0). Quora EN 12답·76뷰 / JP 26답 / D
 ### 큐 보강 — 오늘분 카드 채널 t095(X US)·t096(Bluesky), 새 표면 t097(Quora Spaces/HN 무링크). 
 ### 누계(9/16 KST): 발행 13 / 생존 12. 채널: Quora EN·JP·DE, Reddit(stocks·options), note, Medium, LinkedIn.
 ### 별도 — 알파스코어 실측 보고 완료(.agent/ALPHA_SCORE_FULL_REPORT_2026-09-16.md, 아티팩트 발행). XS 엔진 9/1 정지·앱 V8 폴백·보안 2건은 작업 칩으로 분리.
+
+## 2026-09-16 (18) — 13:3x~14:0x 사이클 — 감사 게이트 실패 → 앱 수정·검증 → 발행 재개
+### 광고 점검 — 통과·무변경. 어제(PT 9/15) 확정 $28.33(캡 $30 이내).
+### 감사 게이트 실패 → 앱부터 수정 (교리 4번)
+`audit-expiration-selection --live`: SPY·IWM·XLF·GLD 의 «선택 만기»는 9/18 로 맞지만 «선택지 목록»에 이미 만료된 **9/15(월)** 가 남아 있었다. 원인 = 장외 캐시 TTL 72h + lastgood 72h 가 ET 날짜 경계를 넘어 «어제 만든 목록»을 그대로 내보냄(9/13 주석에 예고됐던 유형). **처방(사례가 아니라 종류):** `normalizeExpirationsForToday()` 를 캐시 읽기 3경로(인메모리·Redis structure:v1·lastgood)와 라우트 응답 경계에 적용해 오늘(ET) 이전 만기를 제거하고, 캐시의 «선택 만기» 자체가 지났으면(금요일 만기 뒤 월요일) 그 캐시를 무효로 보고 재계산(라벨·데이터 불일치 방지). 커밋 9139c262 → Vercel 배포 13:52 반영(폴러 실측: 목록 첫 값 9/15 → 9/16) → **감사 재실행 341건 0실패**, 4개 ETF 목록 모두 9/16 부터. 메모리(cache-ttl-became-the-refresh-interval) 갱신.
+### t051 — Bedrock 한도: 두 신청(global L-E5084BBA·us L-CCA5DF70) 9/15 CASE_CLOSED, 현재값 10 RPM 그대로(자동 거절 유형). 운영은 global/us 분리로 정상(Haiku 일 4.5k 호출). 재신청 대신 엔지니어링·이력 축적.
+### 발행(t095) — X @signumhq 앱 카드
+[게시물](https://x.com/signumhq/status/2100085786825912558) · «프리마켓·실적·연준/CPI/금리·섹터·옵션/다크풀을 한 화면에, 무료·무가입·공개데이터·무예측» + card-app-en + from=x_us. 도달 낮은 채널(팔로워 소수)이나 비용 0·귀속 6클릭/일 실적.
+### 누계(9/16 KST): 발행 14 / 생존 13. 채널: Quora EN·JP·DE, Reddit(stocks·options), note, Medium, LinkedIn, X US.
+### 별도 — 알파스코어 성능·로드맵 보고 완료(.agent/ALPHA_SCORE_PERFORMANCE_AND_ROADMAP_2026-09-16.md, 아티팩트). XS 복구·보안 세션은 대표가 별도 실행 중(복구 세션이 signum-xs 재배포, 첫 리포트 22:10 UTC).

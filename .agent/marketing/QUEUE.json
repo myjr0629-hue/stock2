@@ -678,10 +678,11 @@
    "title": "Bedrock 한도 복구 신청 결과 확인",
    "detail": "2026-09-14 접수(둘 다 PENDING). L-E5084BBA(global·주경로) b172e6fb…, L-CCA5DF70(us) aab9523e…. 현재 10 → 희망 10,000(=AWS 기본값). 승인되면 값이 바뀐다 — ListServiceQuotas 로 현재값을 직접 볼 것. 거절되면 사유를 받아 케이스로 올린다.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "Bedrock 한도 신청 결과(실측): L-E5084BBA(global)·L-CCA5DF70(us) 모두 9/15 02:32 CASE_CLOSED, 현재값 **10 RPM 그대로**(희망 10,000 미반영) — 메모리대로 자동 거절 유형. 운영은 global/us 프로파일 분리로 버티는 중(Haiku 일 4.5~4.7k 호출 정상). 해법은 재신청이 아니라 엔지니어링(배치·캐시·프로파일 분산) + 사용 이력 축적 후 자동 상향 대기. 케이스 사유 확인은 대표 콘솔에서만 가능.",
+   "closed": "2026-09-16 04:46"
   },
   {
    "id": "t052",
@@ -1231,10 +1232,11 @@
    "title": "X @signumhq 앱 카드 게시(오늘분)",
    "detail": "card-app-en 첨부 + 앞 280자 안에 smartlink from=x_us. 도달 낮아도 비용 0, 어제 클릭 6.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "X @signumhq 앱 카드 게시(오늘분): https://x.com/signumhq/status/2100085786825912558 — 앱 전체 한 줄 + card-app-en 첨부, 링크 from=x_us 앞 280자 안(가중 ~271). 게시 버튼 클릭 직전 재측정. 프로필 검증 완료.",
+   "closed": "2026-09-16 04:54"
   },
   {
    "id": "t096",
