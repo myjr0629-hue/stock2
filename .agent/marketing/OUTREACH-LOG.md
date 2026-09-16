@@ -6121,3 +6121,10 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **설치를 만든 최소 단위 = 키워드 「market data」**: $1.61 · 11노출 · 1탭 · **1설치** → **CPA $1.61**(30일 평균 $77 대비 1/48). 어제 추가분이 아니라 잠들어 있던 기존 키워드가 새 확장검색 조합에서 살아남.
 - **즉시 확장(예산·입찰 불변)**: US-Core 에 «market data» 계열 8개 추가·전수 검증 — stock market data · live market data · market data app · real time market data · options data · free market data · market data free · stock data (전부 실행 중 $2.00).
 - 검색탭은 $2.00 예산 반영 확인(오늘 지출 $0.00·노출 7).
+
+## 마케팅 자동화 전수 실측 — 2026-09-17 08:5x KST (대표 질의)
+- **자동발행 엔진(autopilot)은 9/1 이후 «정지»**: `mkt:audit:log` 마지막 항목 2026-09-01T13:33Z = **370시간 전**. 일자별 로그는 8/18~9/1 매일 17~26건이었다가 그 뒤 0.
+- **원인 = 트리거 부재**: `vercel.json` 크론 44개 중 **마케팅 크론 0개**. 라우트 파일(`mkt-autopilot`·`mkt-originals`·`mkt-replies`·`buffer-dispatch`·`daily-content`·`dispatch-v2/spotlight`)은 전부 존재하고, Redis 모드도 여전히 `{"x-us":"live","x-jp":"live","bluesky-post":"live","bluesky-reply":"live"}`, 킬스위치 없음·데드맨 fails 0 — **엔진은 «장전된 채» 아무도 방아쇠를 당기지 않는 상태**(기억 규칙 «읽는 쪽만 만들면 조용히 죽는다»의 재발).
+- **GitHub Actions**: cron-fedwatch(하루 4회)만 살아 있고 cron-reports 는 주석 처리. 마케팅 트리거 없음.
+- **9/9·9/10·9/15 Bluesky 텍스트전용 글의 출처 규명(t101/t105 종결)**: autopilot 은 `bskyPost(text, ogUrl)` 로 **카드 첨부**(9/1 글 embed=images 로 확인), 관리자 라우트 `/api/admin/mkt/bluesky/post` 는 `bskyPost(text)` **텍스트 전용**. 9/9 이후 글이 전부 embed=null 이므로 **자동발행이 아니라 관리자 라우트 경유**였다. 자동화 버그가 아님.
+- **현재 «자동»으로 도는 마케팅 관련 크론 = 0건**. 대신 내가 매 사이클 도는 도구: `scripts/mkt.js`(큐 128건: done 82/todo 46) · `scripts/marketing/github-structure-snapshot.js`(마감 후 데이터셋) · `scripts/audit-expiration-selection.js`(발행 전 게이트).
