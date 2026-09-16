@@ -6046,3 +6046,9 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **생존 실측(중요)**: `/user/SignumHQ/comments` — 최근 24h 댓글 중 **2건 「Removed by Reddit」**(r/stocks 데일리·r/investing_discussion 스크리너 글) = 사이트 필터. 오늘 r/options·r/thetagang·r/StockMarket 댓글은 생존(score 1). 규칙 추가: 댓글 전 내 댓글 목록으로 오늘 스레드 확인 · r/Daytrading 제외 · 삭제 신호 있는 날은 2건에서 정지.
 - **발행 합계**: IH 1(신규 표면). 오늘 누계: Quora 3·note 1·Medium KR 1·LinkedIn 1·X 1·Reddit 2·GitHub 1·Pinterest 1·Threads 1·IH 1 = 13.
 - **큐 보충**: t111 레딧 9/17(사전 확인 규칙) · t112 Pinterest #2 · t113 note JP #2.
+
+## 사이클 26 — 2026-09-16 21:44~22:15 KST
+- **광고**: 콘솔 세션 만료 지속(t106). 게이트 audit --live 341/0 통과.
+- **생존 실측**: Quora **EN t008(밈주식 답변, 무링크·앱 우선) 당일 삭제 확인**(4건째) · Quora JP 2건(다크풀·매크로) 생존 · EN 순수 가치 답변들 생존 · Pinterest 핀 정상(링크 3) · Threads 글 정상. → ENGINE §11-6 신설: EN Quora 는 «점령»이 아니라 «신용 축적» 채널, 앱 언급 0~1회·데이터 화면만(커밋 a377121d).
+- **새 표면 — Instagram(t114)**: @signumhq_official 에 앱 카드(16:9 원본) + 캡션(무료·iOS/Android·link in bio·해시태그) 게시 → `/p/DdWUwZCD-59/` 12:49Z, 캡션·시각 검증. 링크는 클릭 불가라 바이오 경유(C형·비용 0).
+- **발행 합계**: IG 1. 오늘 누계 14(Quora 3→2 생존·note 1·Medium KR 1·LinkedIn 1·X 1·Reddit 2·GitHub 1·Pinterest 1·Threads 1·IH 1·IG 1).
