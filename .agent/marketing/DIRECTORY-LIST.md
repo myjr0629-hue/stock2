@@ -101,3 +101,19 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 
 ## Website Hunt — BLOCKED (2026-08-27)
 - "Get Featured"가 계정(/accounts/my-websites/) 필요, 유료 가능성 높음(Sponsored 표시 다수) — 자동화 불가/대표 전용으로 보류.
+
+
+## SaaSHub — ✅ 제출 완료 (2026-09-17)
+- 페이지: `https://www.saashub.com/signum-hq` (승인 대기). 계정 생성 없이 **무료 티어**로 제출 — 결제 없음.
+- **dofollow 아웃바운드 링크**를 주는 몇 안 되는 디렉터리라 참조도메인 병목(2 vs Unusual Whales 1,300)에 직접 들어간다.
+- **경쟁 제품 7곳의 페이지에 «대안»으로 등재**됨(GoCharting·Morningstar·NVSTly·Seeking Alpha·Simply Wall Street·wallmine·Yahoo! Finance). SaaSHub 안내: 「Products with identified competitors will be approved first」 — 경쟁사를 안 적으면 큐 바닥으로 내려간다.
+- 카테고리 5개: personal-finance · trading · fintech · stock-charts · analytics.
+- 태그라인은 **앱을 앞에 놓고 직접 작성**: "Free iOS and Android app for US stock market structure. Dark pool share, max pain, gamma exposure and unusual options flow per ticker, refreshed through each session, in English, Korean and Japanese. Information only, not investment advice." (240/250자)
+- **증권사(Robinhood·eToro·MetaTrader5)는 일부러 뺐다** — 카테고리 불일치이고, 금소법 제22조① 상 금융상품 판매업자와 엮이는 인상은 피한다.
+
+### 실무 함정 4개 (다음에 30분 아낀다)
+1. `category_names[]`·`service_names[]` 는 **hidden input** 이다. 보이는 위젯은 **react-select**(`#react-select-2-input` 카테고리 / `#react-select-3-input` 경쟁사). hidden 에 타이핑하면 아무 일도 안 일어난다.
+2. **react-select 드롭다운의 첫 항목이 내가 친 단어라는 보장이 없다.** 「Unusual Whales」를 치고 Enter 를 눌렀더니 SaaSHub 에 없는 이름이라 **「Barudion」**(무관한 제품)이 선택됐다. → **첫 항목 텍스트가 입력어와 정규화 일치할 때만 Enter**, 아니면 지운다. 실재 확인된 것: FinViz · StockTwits · Investing.com · Koyfin · TradingView.
+3. 드롭다운 옵션을 「화면에 보이는 작은 요소」로 넓게 잡아 클릭하면 **푸터 링크(Product Promotion)를 눌러 페이지가 날아간다.** 찾기와 클릭을 분리하고 `[class*="__option"]` 으로 좁힐 것.
+4. **LinkedIn 칸은 `/in/` 개인 프로필을 거부**한다(「must be a company or a product page」). 우리 주소가 `/in/signumhq` 라 제출이 막혔다 → 선택 항목이니 비우고 제출. 회사 페이지를 만들면 채울 수 있다.
+5. 제출 버튼 텍스트는 단계마다 다르다: `Continue`(name=commit) → `Free` → `Proceed with selection` ×2. 전부 화면 밖(y>1300)이라 **scrollIntoView 후 클릭**해야 한다.

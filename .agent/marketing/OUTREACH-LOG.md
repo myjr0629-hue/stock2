@@ -6222,3 +6222,28 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 - **tiktok**: 신생 계정 조회 0(폰 실사용 이력이 전제) — 기록된 구조적 차단. 대표 승인 없이는 진전 불가.
 - **quora_jp / quora_de**: 무응답 질문 피드가 마르면 억지 발행 금지가 규칙 — 이번 사이클은 KR/JP 조사 회수와 스토어 실측에 시간을 썼다. 다음 사이클 우선.
 - **directories / seo / aso**: aso 는 이번 사이클에 **실측으로 처리**(§15 신설 + t139/t140). directories·seo 는 미처리.
+
+## 사이클 — 2026-09-17 10:4x~11:1x KST · 백링크 병목 직격
+
+큐 상위 3건(t139·t079·t127)이 **전부 대표 승인 대기**라 교리대로 이동했다. 지난 사이클에 손 못 댄 `directories` 를 잡았다.
+
+### ✅ SaaSHub 등재 제출 — `https://www.saashub.com/signum-hq` (승인 대기)
+- 계정 생성 없이 **무료**로 완료. 결제·비밀번호 없음.
+- **경쟁 제품 7곳 페이지에 «대안»으로 등재**: GoCharting · Morningstar · NVSTly · Seeking Alpha · Simply Wall Street · wallmine · **Yahoo! Finance**. SaaSHub 는 「경쟁사를 적지 않으면 큐 바닥으로 내린다」고 명시하고 있어서 이 단계가 승인 속도를 가른다.
+- 카테고리 5: personal-finance · trading · fintech · stock-charts · analytics.
+- **이 채널을 고른 이유**: SaaSHub 아웃바운드 링크가 **dofollow** 다. 우리 참조도메인은 2개고 Unusual Whales 는 1,300개다. 이 격차가 SEO 병목의 전부인데, 우리가 접근 가능한 무료 dofollow 소스가 거의 없다. note·인디해커·깃허브 README 는 전부 nofollow 다.
+- **증권사(Robinhood·eToro·MetaTrader5)는 일부러 제외**했다. 카테고리도 안 맞고, 금소법 제22조①(비판매업자의 금융상품 광고 금지) 관점에서 증권사와 나란히 놓이는 인상을 만들 이유가 없다.
+- 태그라인은 자동생성본을 버리고 **앱을 문장 맨 앞에** 놓고 새로 썼다(240/250자). 예측·권유 표현 0, 「Information only, not investment advice」 명시.
+
+### ⚠️ 내가 낸 사고 1건과 그 원인
+경쟁사 칸에 「Unusual Whales」를 치고 **드롭다운 첫 항목을 확인하지 않고 Enter** 를 눌렀다. Unusual Whales 는 SaaSHub 에 없어서 **「Barudion」이라는 무관한 제품이 선택**됐다. 발견 즉시 칩을 제거하고, 이후로는 **첫 항목 텍스트가 입력어와 정규화 일치할 때만 Enter** 를 누르는 방식으로 바꿨다. 그렇게 해서 FinViz·StockTwits·Investing.com 은 실재 확인 후 들어갔다.
+같은 뿌리로 한 번 더 깨졌다. 드롭다운 옵션을 「작고 보이는 요소」로 넓게 잡아 클릭했더니 **푸터의 «Product Promotion» 링크를 눌러 입력한 폼이 통째로 날아갔다.** 기록해 둔 원칙(찾기와 클릭을 분리한다)을 안 지킨 대가다.
+
+### 실무 메모 — SaaSHub 폼 구조
+`category_names[]`·`service_names[]` 는 **hidden input** 이고 실제 위젯은 **react-select**(`#react-select-2-input`·`#react-select-3-input`)다. hidden 에 타이핑해도 아무 일이 없다.
+**LinkedIn 칸은 `/in/` 개인 프로필을 거부**한다(「must be a company or a product page」). 우리는 `/in/signumhq` 뿐이라 비우고 제출했다. 회사 페이지가 생기면 채울 수 있다.
+제출 버튼이 단계마다 다르다: `Continue`(name=commit) → `Free` → `Proceed with selection` ×2. 전부 y>1300 이라 scrollIntoView 후 클릭해야 한다.
+
+### 남은 것
+- 승인 후 **verify** 하면 우선순위가 올라가는데 도메인 이메일(contact@signumhq.com) 수신이 필요하다 → 대표.
+- 로고 업로드·확장 설명은 로그인이 필요한 영역이라 미처리.
