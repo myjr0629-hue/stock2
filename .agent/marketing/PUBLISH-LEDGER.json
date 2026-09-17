@@ -1,6 +1,70 @@
 {
  "entries": [
   {
+   "ch": "apple_iap_events",
+   "url": "https://apps.apple.com/app/id6783130444",
+   "note": "",
+   "at": "2026-09-17T19:13:02.794Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=40102&docId=406855930&answerNo=13",
+   "note": "",
+   "at": "2026-09-17T19:10:34.995Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=40102&docId=495081637&answerNo=3",
+   "note": "",
+   "at": "2026-09-17T19:09:57.940Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=40102&docId=495163854&answerNo=5",
+   "note": "",
+   "at": "2026-09-17T19:07:19.153Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?dirId=40102&docId=489481469&answerNo=3",
+   "note": "",
+   "at": "2026-09-17T18:39:27.791Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "okky",
+   "url": "https://okky.kr/articles/1564223",
+   "note": "",
+   "at": "2026-09-17T16:48:10.306Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mvq324ncmk2p",
+   "note": "",
+   "at": "2026-09-17T16:27:48.572Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?dirId=40102&docId=493664277&answerNo=7",
+   "note": "",
+   "at": "2026-09-17T13:01:49.032Z",
+   "kst": "2026-09-17",
+   "utc": "2026-09-17"
+  },
+  {
    "ch": "seo",
    "url": "indexnow:6768/6768 accepted (Bing·Yandex·Seznam·Naver)",
    "note": "",

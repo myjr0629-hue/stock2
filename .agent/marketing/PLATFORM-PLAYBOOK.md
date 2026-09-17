@@ -3,6 +3,17 @@
 대표 지시(2026-09-17): **「플랫폼별로 어떻게 했는지 잘 기록하고 기억하고」**
 이 파일은 «검증된 것만» 적는다. 추측·미확인은 적지 않는다. 새로 뚫으면 여기에 한 절을 추가한다.
 
+## 정본 앱 ID — 짐작하지 말고 여기서 본다
+2026-09-18 에 UC·WIM 의 App Store ID 를 짐작해서 404 를 냈다. 세 개다.
+
+| 앱 | App Store (ASC) | 번들 ID | Play |
+|---|---|---|---|
+| SIGNUM HQ: Stock Market AI | `6783130444` | `com.signumhq.app` | `4974871698649706116` |
+| Undercurrent: AI Stock News | `6788779895` | `com.signumhq.undercurrent` | `4976096296089482490` |
+| Why'd It Move?: Stock Quiz | `6794356135` | `com.signumhq.wim` | — |
+
+의심되면 `GET /apps?fields[apps]=name,bundleId` 한 번으로 전부 나온다. Play 개발자 ID 는 `4769683602295618218`.
+
 ## 0. 모든 웹 조작의 기본 원칙 (2026-09-17 대표 지적으로 확립)
 > 「인간처럼 하면 되는것 아니야? 웹제어가 안되면 인간처럼 하면 되야 되는것이자나」
 
@@ -37,6 +48,7 @@
 5. **`Input.insertText` 로 한 줄씩** 넣고 줄바꿈은 **Enter 키**(`windowsVirtualKeyCode: 13`). `\n` 을 insertText 에 넣지 않는다.
 6. **등록 전 `button._draftAnswerSaveButton`(임시저장)으로 검증한다.** 「임시저장 글 수 0 → 1」이면 모델이 텍스트를 본 것이다. 안 보였으면 `alert: 답변을 작성해주세요.` 가 뜬다.
 7. 등록: `button._answerRegisterButton`. 성공하면 URL 에 `&answerNo=N` 이 붙는다.
+   **입력과 등록을 «같은 스크립트 실행» 안에서 해야 한다.** ego 실행 경계를 넘으면 편집기 상태를 잃어 클릭이 나가도 `answerNo` 가 붙지 않는다(2026-09-18 실측). 또 **편집기가 열린 상태의 본문 검사는 오판이다** — 내 초안이 페이지에 보이는 것을 「게시됨」으로 읽을 뻔했다. 검증은 **페이지를 새로 열어 답변 블록 수가 늘었는지**로 한다.
 8. 즉시 `node scripts/mkt-plan.js pub naver_kin <URL>` 기록 → **24시간 뒤 생존 확인**(Quora 는 8클릭 뒤 33분 만에 지웠다).
 
 ### 이 채널의 글쓰기 규칙
@@ -172,3 +184,44 @@ Badges `/product/badge/getBadgeList.as` · Coupons `/product/promotion/promotion
 4. **Comments 는 1,500자 한도다.** 앱 소개를 쓰는 자리이고, 여기서 교리를 적용한다 — 기능 나열이 아니라 「무엇을 얻는가」, 무료·계정 불필요·다국어를 앞에.
 5. **⛔막는 칸은 `Payment Account`** (Bank Account / PayPal 라디오)다. 결제 정보라 대표 영역.
 6. **경고**: 접수·승인 뒤에는 Basic/Financial Information 을 못 바꾼다(Support 요청 필요). 한 번에 맞게 넣는다.
+
+---
+
+## 9. App Store 인앱 이벤트 (In-App Events)  ✅2026-09-18 3앱 전부 제출
+**계정** ASC API 키(팀 키) · **태그** `from=iap_event` / `iap_event_uc` / `iap_event_wim` · **채널 등급** A(무료 표면)
+
+### 왜 이 채널인가
+인앱 이벤트는 앱 페이지 밖으로 나가는 **무료 노출 표면**이다 — App Store 검색 결과에 카드로 한 줄 더 붙고, Today/게임·앱 탭에 편집 선정될 수 있고, 이벤트 페이지 자체가 공유 가능한 링크를 갖는다. 빌드 없이 만들 수 있고 31일까지 돌 수 있다. 3앱 모두 0건이었다.
+
+### 절차 (전부 API, 웹 UI 불필요)
+`python3 scripts/asc_inapp_event.py <앱ID> <스펙.json>` 이 아래 6단계를 한 번에 돈다.
+
+1. `POST /appEvents` — `badge`(SPECIAL_EVENT·CHALLENGE·COMPETITION·LIVE_EVENT·MAJOR_UPDATE·NEW_SEASON·PREMIERE), `purpose`(ATTRACT_NEW_USERS), `primaryLocale`, `priority`, `purchaseRequirement`, `deepLink`, `territorySchedules: []`
+2. `POST /appEventLocalizations` — `locale`·`name`(30자)·`shortDescription`(50자)·`longDescription`(120자)
+3. `POST /appEventScreenshots` — `fileSize`·`fileName`·**`appEventAssetType`**(EVENT_CARD / EVENT_DETAILS_PAGE) + `appEventLocalization` 관계
+4. `PUT` 각 `uploadOperations`
+5. `PATCH /appEventScreenshots/{id}` — **`uploaded:true` 만.** `sourceFileChecksum` 은 이 리소스에 없다(409)
+6. `assetDeliveryState.state == COMPLETE` 폴링 → `PATCH /appEvents/{id}` 로 `territorySchedules` → `POST /reviewSubmissions` → `POST /reviewSubmissionItems`(appEvent 관계) → `PATCH submitted:true`
+
+### 이미지 규격 (여기서 두 번 실패했다)
+| 에셋 | 비율 | 최소 | 최대 |
+|---|---|---|---|
+| EVENT_CARD | **16:9** | 1920×1080 | 3840×2160 |
+| EVENT_DETAILS_PAGE | **9:16** | 1080×1920 | 2160×3840 |
+
+- 형식 `.jpg`/`.jpeg`/`.png`, 최대 500MB
+- **글자·로고·CTA 금지.** 애플이 이름·짧은설명을 카드 위에 덮는다 → 앱 화면만 쓴다
+- 중요한 요소는 가운데로. 크롭된다
+- 렌더 정본: `/tmp/evcard/render_app.py`(브랜드 그라디언트 + 둥근 모서리 + 그림자, 로케일별 실제 화면)
+
+### 일정
+`territorySchedules: [{ territories:[…], publishStart, eventStart, eventEnd }]` — 시각은 UTC(`…Z`). 판매국가는 **`/v2/appAvailabilities/{appId}/territoryAvailabilities`** 에서 읽는다(v1 에 없는 경로). id 가 base64 JSON 이라 디코딩해야 국가코드가 나온다. 3앱 전부 174개국.
+
+### 게시 이력 (2026-09-18)
+| 앱 | 이벤트 ID | 배지 | 로케일 | 일정 |
+|---|---|---|---|---|
+| SIGNUM | `6813171830` Earnings Week | SPECIAL_EVENT | en/ko/ja | 09-28 → 10-23 |
+| UC | `6813176541` Earnings Week News | SPECIAL_EVENT | en/ko/ja | 09-28 → 10-23 |
+| WIM | `6813176699` Earnings Week Quiz | CHALLENGE | en | 09-28 → 10-23 |
+
+**남은 일** WIM 의 ko·ja 로케일(한국어·일본어 앱 화면을 렌더해야 붙일 수 있다) · 심사 결과 확인 · `publishStart`(09-24) 전까지 승인이 안 나면 일정을 미룬다.
