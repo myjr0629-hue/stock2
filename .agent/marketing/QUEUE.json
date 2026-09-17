@@ -2245,11 +2245,11 @@
       "type": "ceo",
       "region": "ALL",
       "prio": 1,
-      "state": "todo",
+      "state": "done",
       "tries": 0,
       "created": "2026-09-17T15:00:00.000Z",
-      "title": "갤럭시 스토어 Commercial 승격 — 제가 다 채웠습니다. 남은 것은 «Payment Account» 한 칸",
-      "detail": "셀러 계정·API 는 이미 확보했고, Commercial 승격 신청서도 **제가 채울 수 있는 칸은 전부 채웠습니다.** 남은 건 결제 정보 한 칸입니다.\n\n**제가 채운 것** (`/member/getContractSeller.as`)\n| 칸 | 값 |\n|---|---|\n| D-U-N-S 인증 | `145040194` — **통과.** 회사명·대표자·주소·ZIP+4(`19713-4324`)가 자동 입력됐고 설립증서와 일치한다 |\n| Company Name (Native Language) | `SIGNUM HQ, LLC` |\n| 대표/담당 전화 | +1 (302) 525-1962 (USA) |\n| 담당자 | JIYOUNG KIM · contact@signumhq.com |\n| Minimum Remittance | `150.00` (기본값 유지. 최소 지원액은 USD 50.00) |\n| **Certificate of Business Registration** | ✅ 델라웨어 **설립증서** PDF 첨부 |\n| **Online Sales Registration Number** | ✅ **IRS EIN 확인서(147C)** 첨부 — 이 칸의 안내문이 「전자상거래법 제13조, 공정거래위원회」라고 명시해 **한국법 전용 번호**다. 미국 법인엔 없으므로 미국 정부 발급 서류 중 가장 가까운 것을 넣고 본문에 사정을 적었다 |\n| Comments (1,320/1,500자) | 3앱을 **기능 나열이 아니라** 「증권계좌 없이 미국 시장에서 오늘 무슨 일이 있었는지 아는 앱」으로 썼다. 무료·계정 불필요·3개 언어를 앞에, 주문흐름 데이터는 뒤쪽 예시로. Play·App Store 링크와 D-U-N-S 인증 완료 사실 포함 |\n| Taxation Type | **숨겨진 칸이다**(라디오 2개 모두 `vis:false`). 한국 부가세 구분(일반/간이과세자)이라 미국 셀러엔 안 뜬다 — 제출을 막지 않는다 |\n\n**⛔남은 한 칸 — 대표님**: `Payment Account*` 에 빨간 글씨로 `Required field cannot be left blank.` 가 떠 있다. **Bank Account** 또는 **PayPal** 중 하나를 골라 입력해야 `Request` 가 넘어간다. 결제·금융 정보 입력은 내 금지선이다.\n· 계좌는 **머큐리**(대표 확인). PayPal 선택지도 있으니 더 간단한 쪽을 고르시면 된다.\n· ⚠️**한 번에 맞게 넣어야 한다**: 화면 경고 — 「신청이 접수되거나 승인된 뒤에는 Basic/Financial Information 을 바꿀 수 없고 Support 에 요청해야 한다.」\n· 심사 안내: 「서류는 관리자가 검토하고, 문제없으면 **며칠 내** 메일로 완료를 알린다. 그 메일을 받은 뒤 유료 앱을 추가할 수 있다.」 우리 배포 계획 문서엔 D-U-N-S 검증이 **최대 10영업일 ×2** 로 적혀 있으니 기다리는 동안 다른 채널을 돌린다.\n\n**승격되면 그 뒤는 전부 제가 한다**: 3앱 APK(`/tmp/apk/` 빌드 완료) 등록 → 등록정보(en/ko/ja) → 심사 제출 → 이후 **API 자동화**(바이너리 교체·단계적 배포·리뷰 답글·다운로드 통계) → Promotion 도구(배지·리딤코드) 가동."
+      "title": "✅갤럭시 스토어 Commercial 승격 신청 제출 완료 (심사 대기)",
+      "detail": "셀러 계정·API 는 이미 확보했고, Commercial 승격 신청서도 **제가 채울 수 있는 칸은 전부 채웠습니다.** 남은 건 결제 정보 한 칸입니다.\n\n**제가 채운 것** (`/member/getContractSeller.as`)\n| 칸 | 값 |\n|---|---|\n| D-U-N-S 인증 | `145040194` — **통과.** 회사명·대표자·주소·ZIP+4(`19713-4324`)가 자동 입력됐고 설립증서와 일치한다 |\n| Company Name (Native Language) | `SIGNUM HQ, LLC` |\n| 대표/담당 전화 | +1 (302) 525-1962 (USA) |\n| 담당자 | JIYOUNG KIM · contact@signumhq.com |\n| Minimum Remittance | `150.00` (기본값 유지. 최소 지원액은 USD 50.00) |\n| **Certificate of Business Registration** | ✅ 델라웨어 **설립증서** PDF 첨부 |\n| **Online Sales Registration Number** | ✅ **IRS EIN 확인서(147C)** 첨부 — 이 칸의 안내문이 「전자상거래법 제13조, 공정거래위원회」라고 명시해 **한국법 전용 번호**다. 미국 법인엔 없으므로 미국 정부 발급 서류 중 가장 가까운 것을 넣고 본문에 사정을 적었다 |\n| Comments (1,320/1,500자) | 3앱을 **기능 나열이 아니라** 「증권계좌 없이 미국 시장에서 오늘 무슨 일이 있었는지 아는 앱」으로 썼다. 무료·계정 불필요·3개 언어를 앞에, 주문흐름 데이터는 뒤쪽 예시로. Play·App Store 링크와 D-U-N-S 인증 완료 사실 포함 |\n| Taxation Type | **숨겨진 칸이다**(라디오 2개 모두 `vis:false`). 한국 부가세 구분(일반/간이과세자)이라 미국 셀러엔 안 뜬다 — 제출을 막지 않는다 |\n\n**⛔남은 한 칸 — 대표님**: `Payment Account*` 에 빨간 글씨로 `Required field cannot be left blank.` 가 떠 있다. **Bank Account** 또는 **PayPal** 중 하나를 골라 입력해야 `Request` 가 넘어간다. 결제·금융 정보 입력은 내 금지선이다.\n· 계좌는 **머큐리**(대표 확인). PayPal 선택지도 있으니 더 간단한 쪽을 고르시면 된다.\n· ⚠️**한 번에 맞게 넣어야 한다**: 화면 경고 — 「신청이 접수되거나 승인된 뒤에는 Basic/Financial Information 을 바꿀 수 없고 Support 에 요청해야 한다.」\n· 심사 안내: 「서류는 관리자가 검토하고, 문제없으면 **며칠 내** 메일로 완료를 알린다. 그 메일을 받은 뒤 유료 앱을 추가할 수 있다.」 우리 배포 계획 문서엔 D-U-N-S 검증이 **최대 10영업일 ×2** 로 적혀 있으니 기다리는 동안 다른 채널을 돌린다.\n\n**승격되면 그 뒤는 전부 제가 한다**: 3앱 APK(`/tmp/apk/` 빌드 완료) 등록 → 등록정보(en/ko/ja) → 심사 제출 → 이후 **API 자동화**(바이너리 교체·단계적 배포·리뷰 답글·다운로드 통계) → Promotion 도구(배지·리딤코드) 가동.\n\n[2026-09-18 01:0x ✅제출] `Type of Sales: Commercial Distribution Request in Progress`. 계좌번호는 대표님이 입력(`9917048075*****` 마스킹 확인).\n**두 번 실패하고 세 번째에 됐다. 원인은 파일 형식이었다.**\n1차 `ERR_ACCESS_DENIED`(브라우저 단계에서 차단) → 첨부를 외장 볼륨(`/Volumes/macportable`)에서 로컬 `/tmp/samsung/` 으로 옮겼다.\n2차 `Saving changes failed. Please retry.`(서버 거부) → **필드 이름이 `ScanImage2`/`ScanImage3` 였다. 삼성은 «스캔 이미지»를 기대하는데 PDF 를 올렸다.**\n3차 `sips -s format jpeg` 로 PDF→JPEG 변환(612×792, 56KB / 610×818, 74KB) 후 제출 → **통과.**\n제출 내용 검증: Column N.A. · San Francisco · `1 Letterman Dr Ste A4-700, SF CA 94129` · Signum Hq, LLC · SWIFT `CLNOUS66MER` · 중개 `CHASUS33XXX` · Min Remittance USD 150.00.\n안드로이드 등록은 **아직 막혀 있다**(`You do not have access to this function`) — 승인 메일을 기다린다. 안내문: 「서류는 관리자가 검토하고 문제없으면 며칠 내 메일로 알린다」."
     },
     {
       "id": "t180",
@@ -2261,6 +2261,17 @@
       "created": "2026-09-17T15:00:00.000Z",
       "title": "갤럭시 스토어 Promotion 도구 4종 — 승격 후 즉시 쓸 것 (대표 지시: 적극 활용)",
       "detail": "대표 지시(2026-09-17): 「캠페인등 여러가지 할수있는것들이 많은것같은데 그런것도 적극적으로 활용하도록해라」. 사이트맵에서 전수 확인한 도구:\n| 도구 | 경로 | 우리 쓸 곳 |\n|---|---|---|\n| **Badges** | `/product/badge/getBadgeList.as` | 스토어 목록에서 눈에 띄는 배지. 무료 앱도 대상 |\n| **Coupons** | `/product/promotion/promotioncoupon.as` | 광고제거 구독에 쓸 수 있다 |\n| **Redeem Code** | `/product/redeemCode/redeemCodeList.as` | 리뷰어·매체 제공용(일본 매체 제보와 묶으면 강하다) |\n| **Discounts** | `/product/discount/discountList.as` | 구독 할인 |\n| **My Followers** | `/comment/getFollowerList.as` | 갤럭시 스토어 팔로워 — 우리가 한 번도 안 본 채널 |\n그리고 API 의 GSS 권한으로 **다운로드·매출 통계를 프로그램으로** 읽는다(애플 Analytics API 가 403 인 것과 대비 — 안드로이드 쪽은 이제 두 경로가 열렸다)."
+    },
+    {
+      "id": "t181",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 2,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-18T01:10:00.000Z",
+      "title": "갤럭시 스토어 셀러 페이지가 «백지»다 — 딥링크 000000257823 가 있는데 보여줄 게 없다",
+      "detail": "프로필 하단 「Information for Seller Page」 섹션을 끝까지 읽어서 찾았다(대표 지적: 「아래까지 전부다 확인하고 숙지해야지」).\n**`Seller DeepLink` = `000000257823`** — 우리 3앱을 한 화면에 모아 보여주는 셀러 페이지 ID다. 게시물·보도자료에서 «3앱 전부»를 한 링크로 보낼 수 있는 자산인데, 정작 그 페이지가 비어 있다.\n\n| 칸 | 상태 | 넣을 것 |\n|---|---|---|\n| Seller's Home URL | ⬜ | `https://www.signumhq.com` |\n| Seller's Help URL | ⬜ | 지원/문의 페이지 |\n| Introduction | ⬜ | 셀러 소개 — 교리대로 「미국 경제를 아우르는 무료 앱을 만든다」로, 기능 나열 금지 |\n| Profile Image | ⬜ | 앱 아이콘 계열 |\n| Banner Image | ⬜ | `promo-shots/` 자산 재사용 |\n| Background Image | ⬜ | 동일 |\n| Contact E-Mail 1~3 | ⬜ | **심사 결과 메일을 놓칠 수 있다** → contact@signumhq.com |\n| Galaxy Watch Brand 정보 | ⬜ | 워치 앱 낼 때(후순위). 「Specifications for the Deeplink to the Brand Page」도 있다 |\n\n**막는 것**: `Edit` 을 누르면 삼성이 **비밀번호 재확인 게이트**(`confirmPasswordGate`)를 띄운다. 지금은 세션 만료로 `401 The session is not valid` 다. 이 계정은 Google 연동이라 비밀번호가 없으니 대표님이 Google 로 한 번 재확인해 주시면 그 뒤 칸 채우기·이미지 업로드는 내가 한다.\n덧: `License Tester` 는 0명이다 — 유료 콘텐츠(광고제거 구독)를 무료로 시험 구매하는 기능이니 구독 테스트 때 쓴다."
     }
   ]
 }
