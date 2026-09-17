@@ -99,6 +99,46 @@ let REG = [];
 try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => ({ id: x.id || x.key || x.name, tier: x.tier || x.type || '?', note: x.note || '' })); } catch {}
 const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp' };
 
+if (cmd === 'slot') {
+  // 이번 사이클의 «담당 구역»을 결정론적으로 배정한다.
+  // 목적: 매번 같은 2~3채널만 들락거리는 것을 구조적으로 막는다.
+  // 원리: 「가장 오래 방치된 것부터」 + 「이 시간에 캡·창이 열린 것만」.
+  //      새 채널이 등록되면 기록이 없어 맨 앞에 선다 → 자동으로 전 채널을 돈다.
+  const led = load();
+  const lastAt = {};
+  for (const e of led.entries) { if (!lastAt[e.ch] || e.at > lastAt[e.ch]) lastAt[e.ch] = e.at; }
+  const ageH = (k) => (lastAt[k] ? (Date.now() - Date.parse(lastAt[k])) / 36e5 : 99999);
+  const fmtAge = (h) => (h > 9000 ? '기록없음' : h < 48 ? Math.round(h) + '시간 전' : Math.round(h / 24) + '일 전');
+
+  const rows = [];
+  for (const r of REG) {
+    const id = r.id; const key = ALIAS[id] || id;
+    if (EXCLUDED[id]) continue;
+    const v = c[key];
+    if (!v) { rows.push({ id, state: '규칙없음', age: ageH(key), note: r.note }); continue; }
+    const inWin = hour >= v.window[0] && hour < v.window[1];
+    const acct = /★계정 필요|★작가 신청|★무료\. ASC|대표 승인|계정 필요/.test(r.note || '');
+    const st = acct ? '계정대기' : (v.left <= 0 ? '소진' : (!inWin ? '창밖' : '열림'));
+    rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, note: (r.note || '').slice(0, 44) });
+  }
+  const by = (s) => rows.filter((x) => x.state === s).sort((a, b) => b.age - a.age);
+  const open = by('열림'), acct = by('계정대기'), norule = by('규칙없음');
+  const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖');
+
+  console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
+  console.log('■ 실행 — 이 4개를 «반드시» 처리한다 (오래 방치된 순)');
+  if (!open.length) console.log('   (열린 채널 없음 → 아래 «뚫기»가 이번 사이클의 본업이다)');
+  open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + r.note));
+  if (open.length > 4) console.log('   대기(' + (open.length - 4) + '): ' + open.slice(4).map((r) => r.id).join(', '));
+  console.log('\n■ 뚫기 — 계정이 막힌 곳 중 가장 오래된 2개. 우회로를 «실제로» 시도한 뒤에만 보류로 적는다(ENGINE §22)');
+  acct.slice(0, 2).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + r.note));
+  if (!acct.length) console.log('   (없음)');
+  console.log('\n■ 확장 — 신규 표면 1개: 발굴 → 실행 또는 티켓 → channels.json 등록 (매 사이클 의무)');
+  console.log('\n■ 고정 5단계 — ①게이트 audit-expiration-selection.js --live ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시');
+  if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
+  console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id).join(', '));
+  process.exit(0);
+}
 if (cmd === 'today') { const led = load(); const k = kstDate(); for (const e of led.entries.filter((x) => x.kst === k)) console.log(`${e.at.slice(11, 16)}Z ${e.ch.padEnd(14)} ${e.url}`); process.exit(0); }
 console.log(`■ 지금 ${now} KST (UTC ${utcDate()} / KST ${kstDate()})`);
 const open = [], closed = [];
