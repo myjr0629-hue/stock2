@@ -262,3 +262,12 @@ Quora·LinkedIn·Medium·X·Reddit·Apple Ads·**note.com·Bluesky** 로그인�
 3. **자동화의 실체는 루프다**: 매 사이클 ① `node scripts/mkt-plan.js` 로 열린 채널·남은 캡·다음 고정 점검을 «시계»처럼 받고 ② 큐(`mkt.js`)에서 일감을 받고 ③ 발행 후 **반드시** `mkt-plan.js pub <채널> <URL>` 로 원장에 남긴다(캡 계산의 유일한 근거) ④ OUTREACH-LOG 기록·커밋.
 4. **원장 파일**: `.agent/marketing/PUBLISH-LEDGER.json` — 채널별 캡을 KST/UTC 달력 중 맞는 쪽으로 계산한다(레딧·Quora 는 UTC일, 나머지는 KST일).
 5. 고정 점검(KST): 05:00 GitHub 스냅샷 · 06:50 cross-sector · 07:25 XS‑3.0/XS‑2.0 · 09:00 UTC 전환(레딧·Quora 창) · 22:30 미국 개장(X 답글·레딧 댓글) · 대표 광고 콘솔 로그인 직후 30분(세션 3.5시간).
+
+## 13. 전 채널 의무 점검 + 매 사이클 확장 (대표 지시 2026-09-17)
+「몇개의 플랫폼만 하는것이 아닌 매번 등록된 플랫폼 전부 관리하는 플랫폼 전부를 검토 진행해라 … 매 스케쥴 작동시 1~2개의 추가 확장 플랫폼을 발굴해서 … 엔진에 기본 관리 플랫폼으로 등록하도록하고 능동적으로 하도록해라」
+
+1. **매 사이클 첫 명령은 `node scripts/mkt-plan.js`** — 등록 채널 «전수»를 출력하고, 규칙이 없는 채널이 하나라도 있으면 경고한다(현재 0건). 몇 개만 골라 도는 것을 도구가 막는다.
+2. **채널 성격별 규칙**(요약): 원글 1/일 = x_us·x_jp·threads·instagram·pinterest·linkedin·note·medium·indiehackers·github·quora_space · 답글/댓글 = reddit 3(UTC일)·x_reply 3·threads_reply 2 · UTC일 기준 = reddit·quora_en/jp · 주간 = hackernews(카르마 축적)·aso·seo·tiktok(유지 게시) · directories 는 매일 미시도 1곳.
+3. **관리 제외 3곳은 사유 고정**: youtube(대표 윈도우 운영) · stocktwits(무기한 제재) · buffer(대표 지시 영구 정지). 제외는 «안 한 것»이 아니라 «정해진 것»이며 매 사이클 출력에 사유가 함께 찍힌다.
+4. **확장 의무**: 매 사이클 **신규 표면 1~2개**를 발굴해 ① 즉시 실행하거나 ② 계정이 필요하면 #T8 티켓으로 올리고, 어느 쪽이든 **`channels.json` 에 등록**해 다음 사이클부터 전수 점검에 포함시킨다.
+5. **원장 강제**: 발행 즉시 `mkt-plan.js pub <채널> <URL>`. 원장에 없으면 캡 계산이 틀어지고, 「했다」는 말만 남는다.
