@@ -350,6 +350,18 @@
       "tier": "A",
       "enabled": false,
       "note": "★계정 필요. forums.macrumors.com «iOS Apps and Apple Arcade» — 개발자가 «자기 스레드 안에서» 자사 앱을 홍보하는 것이 명시 허용. 앱당 스레드 «하나», 영구. 업데이트는 그 스레드 안에 이어 쓰고 새 스레드 금지(범프·복수 스레드는 밴). 개발자임을 밝힐 것"
+    },
+    {
+      "id": "mybest_jp",
+      "tier": "A",
+      "enabled": false,
+      "note": "일본 앱의도 질의를 소유한 비교랭킹 매체. my-best.com/15770 「米国株アプリのおすすめ人気ランキング」에 楽天証券·SBI·松井·moomoo·ウィブル·マネックス 가 실려 있다. 페이지에 붙은 구글폼은 «기사 신고»용이고 게재 신청이 아니다. corp.my-best.com 루트는 404. 편집부가 직접 구매·테스트해 순위를 만드는 구조라 신청 경로가 공개돼 있지 않다 → 문의 필요(메일 발송은 대표 승인)"
+    },
+    {
+      "id": "apple_iap_events",
+      "tier": "A",
+      "enabled": false,
+      "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요"
     }
   ],
   "candidates": [
