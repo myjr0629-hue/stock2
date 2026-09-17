@@ -162,10 +162,11 @@
    "title": "X 일본 게시",
    "detail": "@signumhq_jp. 일본어 1자=2자 계산.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "감사 정리: X 일본 게시 — 9/17 사이클 34 로 발행 완료(계정 전환 확인 후)",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t013",
@@ -187,10 +188,11 @@
    "title": "Bluesky 게시",
    "detail": "facets 인덱스는 UTF-8 바이트.",
    "prio": 3,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "감사 정리: Bluesky — 9/17 실측으로 이미지 첨부 불가 확인, 해법은 t130(#T9)",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t015",
@@ -211,10 +213,11 @@
    "title": "IndieHackers 게시",
    "detail": "대시보드 URL 재확인 필요(Not found). 외부링크 nofollow.",
    "prio": 3,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "감사 정리: IndieHackers — 9/16·9/17 2회 발행 완료",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t017",
@@ -235,16 +238,17 @@
    "title": "디스콰이엇 등재",
    "detail": "한국판 ProductHunt. 한국 네이티브 채널이 0개라 가장 큰 구멍. 등재문안 준비됨.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 1,
    "created": "2026-09-14",
-   "note": "계정 생성 필요 — 대표만 가능. ~/Desktop/★대표님 할일 2026-09-14/ 에 이미 올려둠. 가입만 해주시면 등재문안 작성·게시는 내가 한다.",
+   "note": "감사 정리: 디스콰이엇 — t129(#T8)로 단일화",
    "steps": [
     {
      "at": "2026-09-14 17:42",
      "what": "disquiet.io 실제 확인: 글쓰기 클릭 → /login 으로 튄다. 구글 OAuth 또는 이메일 매직링크뿐이고 우리 계정이 없다. 새로 만드는 것은 «계정 생성»이라 내 안전선에 걸린다."
     }
-   ]
+   ],
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t019",
@@ -349,10 +353,11 @@
    "title": "Threads / Pinterest 재개 검토",
    "detail": "청중형이라 도달 낮음. 비용 0 이므로 자동발행만.",
    "prio": 3,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "감사 정리: Threads·Pinterest 재개 — 둘 다 매일 발행 중",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t028",
@@ -468,10 +473,11 @@
    "title": "IndieHackers 대시보드 URL 재확인",
    "detail": "/dashboard 가 Not found. 올바른 경로 확보.",
    "prio": 3,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-14",
-   "note": ""
+   "note": "감사 정리: IH 대시보드 URL — 해결됨",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t037",
@@ -718,10 +724,11 @@
    "title": "Quora 무응답 — 프리마켓 2탄",
    "detail": "프리마켓 답변이 하루 15클릭으로 최고. 「What are some of the biggest moves in premarket trading?」 등 상시형 무응답 질문이 남아 있다.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 1,
    "created": "2026-09-15",
-   "note": "오늘 실행 불가: de.quora 검색 5쿼리(vorbörslich·Premarket·nachbörslich·App·Earnings Kalender) 결과 0, EN 은 §11-5 로 다음 UTC일 재개, JP 는 오늘 1편 소진. 목적은 t092(EN Quora 재개, 프리마켓 후보 포함)가 승계."
+   "note": "감사 정리: Quora 프리마켓 2탄 — t092 가 승계",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t055",
@@ -730,10 +737,11 @@
    "title": "레딧 고정글이 스팸필터에 죽어 있다 — 대안 확인",
    "detail": "u_SignumHQ 고정글이 removed=reddit. 프로필 소셜링크 칩(reddit_bio)은 살아 있고 종단 검증도 통과(iPhone→App Store, Android→Play+referrer). 댓글이 쌓일수록 프로필 유입이 늘 텐데 고정글이 죽어 있으면 설명이 없다 — 소개문만으로 충분한지, 아니면 다른 방식이 있는지 확인.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "감사 정리: 레딧 고정글 대안 — §11-8 로 결론(bio 뿐), t126 승계",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t056",
@@ -768,11 +776,11 @@
    "title": "Quora 무응답 — 다크풀 2탄 (기관 다크풀이 일중 가격에 미치는 영향)",
    "detail": "다크풀 답변이 하루 7클릭. 「How does institutional dark pool trading affect daily stock prices?」 — 열어서 정말 0답변인지 확인 후 FINRA 실측으로 답한다.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 1,
    "created": "2026-09-15",
-   "note": "게시 33분 뒤 Quora Moderation 이 «Spam policy» 로 삭제(9/13·9/14 답변도 같은 사유로 삭제 — 5건 중 3건). 8클릭까지 나왔던 답변. 본문 링크가 원인으로 판단.",
-   "closed": "2026-09-15 08:31"
+   "note": "감사 정리: Quora 다크풀 2탄 — t053 으로 종료됨",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t059",
@@ -936,10 +944,11 @@
    "title": "Quora 복원 3건 사후 점검(내일) — 앵커·클릭 재개 여부",
    "detail": "복원된 다크풀2탄·GLD·무료앱 답변의 앵커와 quora_darkpool_daily/quora_maxpain/quora_darkpool 클릭이 다시 늘어나는지 9/16 확인.",
    "prio": 2,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-15",
-   "note": ""
+   "note": "감사 정리: Quora 복원 사후점검 — 기한 경과, 생존 점검은 매 사이클 상시화",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t072",
@@ -1089,10 +1098,11 @@
    "title": "디스콰이엇 등재(에셋 완료·계정 대기)",
    "detail": "문안 .agent/marketing/assets/disquiet-signum-listing-ko.md 준비완료. 대표 구글OAuth 가입 시 즉시 등재·이미지3종·from=disquiet. 계정 생성만 대표.",
    "prio": 1,
-   "state": "todo",
+   "state": "done",
    "tries": 0,
    "created": "2026-09-16",
-   "note": ""
+   "note": "감사 정리: 디스콰이엇 에셋 — t129(#T8)로 단일화",
+   "closed": "2026-09-17 00:20"
   },
   {
    "id": "t084",
@@ -1683,6 +1693,42 @@
    "state": "todo",
    "tries": 0,
    "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t131",
+   "type": "aso",
+   "region": "ALL",
+   "title": "★1순위 — 플레이 «첫 평점 5~10개» 만들기(설치 전환율 0.37%의 진짜 관문)",
+   "detail": "감사 실측: Play 28일 노출 1,620 → 획득 6 = 전환율 0.37%(정상 5~30%), 평점 0개. 같은 앱이 앱스토어는 「실적 발표 일정」 #1. 평점 게이트가 광범위 검색을 막고 있어 안드로이드로 보낸 클릭의 99.6%가 버려진다. 조치: (1) 인앱 평점 프롬프트가 3앱 모두 자동으로 뜨는지 실기기 확인 (2) 월간 활성 16대에 평점 요청 노출 (3) 대표·지인 실사용 후 평점. 0.37%→2% 만 되어도 같은 노출에서 월 6→32 설치.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-17",
+   "note": ""
+  },
+  {
+   "id": "t132",
+   "type": "tech",
+   "region": "ALL",
+   "title": "★설치 귀속 배선 복구(t102 상세) — 코드 2줄 + 대표 1회 조회, 대표 승인 필요",
+   "detail": "감사 실측: src/lib/marketing/storeRedirect.ts:50-52 appleUrlWithCampaign() 은 baseUrl 을 그대로 돌려주는 스텁이고 저장소 전체 사용처 0회(src/app/app/route.ts:3 이 import 조차 안 함) → iOS 귀속 «배선 끊김». Android 는 referrer 가 이미 나가는데 Play Console 획득 보고서를 채널별로 읽은 기록 0건 → «계기판 미열람». 처방: (a) 스텁을 ${base}?pt=<ASC provider id>&ct=${from}&mt=8 로 채우고 route.ts 에서 호출(웹 코드 2줄 — 대표 승인 필요) (b) 대표가 ASC 캠페인 링크 생성기에서 provider id 1회 조회 (c) Play 획득 보고서를 주 1회 INSTALL-BY-SOURCE.json 으로 적재(코드 변경 0).",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-17",
+   "note": ""
+  },
+  {
+   "id": "t133",
+   "type": "tech",
+   "region": "ALL",
+   "title": "귀속 태그 배열 4번째 재발 — metrics CHANNELS 에 medium_ko·github 누락(대표 승인 필요)",
+   "detail": "감사 실측: src/app/api/admin/mkt/metrics/route.ts:26-92 CHANNELS 54개에 medium_ko·github·disquiet 없음. 앞의 둘은 이미 라이브 게시물에 붙어 있어 클릭이 집계에서 조용히 사라진다. ENGINE §5·ATTRIBUTION-TAGS 가 «링크 붙이기 전에 배열부터»라고 세 번 적어둔 바로 그 함정. 웹 코드라 승인 후 수정. 함께: mkt-plan.js pub 이 from= 태그가 배열에 없으면 발행을 막도록(로컬 도구, 승인 불필요).",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-17",
    "note": ""
   }
  ]

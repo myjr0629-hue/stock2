@@ -21,6 +21,7 @@ const CH = {
   reddit:      { cap: 3, day: 'utc', window: [0, 24], note: '무링크·무앱명·같은 스레드 중복 금지·8분 간격·r/Daytrading 제외' },
   quora_en:    { cap: 1, day: 'utc', window: [0, 24], note: '§11-6 순수 가치·앱명 0~1회·데이터 화면 1장' },
   quora_jp:    { cap: 1, day: 'utc', window: [0, 24], note: '피드가 마르면 억지 발행 금지' },
+  quora_de:    { cap: 1, day: 'utc', window: [0, 24], note: '2026-09-15 개통된 유럽 표면. 무응답은 «Dark Pool» 계열에만 있었다' },
   x_post:      { cap: 1, day: 'kst', window: [0, 24], note: '링크는 앞 280자 안' },
   x_reply:     { cap: 3, day: 'kst', window: [21, 24], note: '청중 차용. 280자 하드 제한·링크 금지·with_replies 로 검증' },
   threads:     { cap: 1, day: 'kst', window: [0, 24], note: '패널 좌표로 스코프·프로필 time 으로 검증' },
@@ -61,7 +62,7 @@ function counts() {
     const used = r.day === 'week'
       ? led.entries.filter((e) => e.ch === ch && e.kst >= weekAgo).length
       : led.entries.filter((e) => e.ch === ch && (r.day === 'utc' ? e.utc === d : e.kst === d)).length;
-    out[ch] = { used, cap: r.cap, left: Math.max(0, r.cap - used), day: r.day, window: r.window, note: r.note };
+    out[ch] = { used, cap: r.cap, left: Math.max(0, r.cap - used), over: used > r.cap, day: r.day, window: r.window, note: r.note };
   }
   return out;
 }
@@ -84,17 +85,17 @@ console.log(`■ 지금 ${now} KST (UTC ${utcDate()} / KST ${kstDate()})`);
 const open = [], closed = [];
 for (const [ch, v] of Object.entries(c)) {
   const inWindow = hour >= v.window[0] && hour < v.window[1];
-  const line = `${ch.padEnd(14)} ${v.used}/${v.cap}${v.day === 'utc' ? ' (UTC일)' : ''}${inWindow ? '' : ` [창 ${v.window[0]}~${v.window[1]}시]`}  ${v.note}`;
+  const line = `${ch.padEnd(14)} ${v.used}/${v.cap}${v.over ? ' ⛔초과' : ''}${v.day === 'utc' ? ' (UTC일)' : ''}${inWindow ? '' : ` [창 ${v.window[0]}~${v.window[1]}시]`}  ${v.note}`;
   (v.left > 0 && inWindow ? open : closed).push(line);
 }
 console.log('\n● 지금 열린 채널(' + open.length + ')'); open.forEach((l) => console.log('  ' + l));
 console.log('\n○ 마감/대기(' + closed.length + ')'); closed.forEach((l) => console.log('  ' + l));
 console.log('\n■ 등록 채널 전수 점검(' + REG.length + ')');
-for (const r of REG) { const key = ALIAS[r.id] || r.id; const v = c[key]; const state = v ? `${v.used}/${v.cap}${v.left > 0 ? ' 가능' : ' 소진'}` : '규칙표 없음 → 성격에 맞는 행동 정의 필요'; console.log(`  [${r.tier}] ${String(r.id).padEnd(14)} ${state}${r.note ? '  · ' + String(r.note).slice(0, 48) : ''}`); }
+for (const r of REG) { const key = ALIAS[r.id] || r.id; const v = c[key]; const state = EXCLUDED[r.id] ? ('관리 제외 · ' + EXCLUDED[r.id]) : (v ? `${v.used}/${v.cap}${v.over ? ' ⛔초과' : v.left > 0 ? ' 가능' : ' 소진'}` : '규칙표 없음 → 성격에 맞는 행동 정의 필요'); console.log(`  [${r.tier}] ${String(r.id).padEnd(14)} ${state}${r.note ? '  · ' + String(r.note).slice(0, 48) : ''}`); }
 const NOT_IN_RULES = REG.filter((r) => !c[ALIAS[r.id] || r.id] && !EXCLUDED[r.id]).map((r) => r.id);
-for (const [k, why] of Object.entries(EXCLUDED)) console.log(`  [-] ${k.padEnd(14)} 관리 제외 · ${why}`);
 if (NOT_IN_RULES.length) console.log('  ⚠ 규칙 미정의: ' + NOT_IN_RULES.join(', ') + ' → 이번 사이클에 행동을 정할 것');
 else console.log('  ✔ 모든 등록 채널에 규칙이 정의돼 있음');
+{ const led2 = load(); const today = kstDate(); const stale = []; for (const ch of Object.keys(CH)) { if (EXCLUDED[ch]) continue; const last = led2.entries.find((e) => e.ch === ch); const days = last ? Math.round((new Date(today) - new Date(last.kst)) / 86400000) : 99; if (days >= 3) stale.push(`${ch}(${days === 99 ? '기록없음' : days + '일'})`); } if (stale.length) console.log('\n⛔ 3일 이상 방치: ' + stale.join(' · ') + ' → 이번 사이클에 처리하거나 사유를 로그에 남길 것'); }
 console.log('\n★ 이번 사이클 확장 의무: 신규 표면 1~2개 발굴 → 실행 또는 계정 티켓 → channels.json 에 등록');
 const next = CHECKS.find((x) => x.at > now) || CHECKS[0];
 console.log(`\n▲ 다음 고정 점검: ${next.at} ${next.what}${next.cmd ? '  →  ' + next.cmd : ''}`);

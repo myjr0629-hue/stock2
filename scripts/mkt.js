@@ -58,7 +58,7 @@ switch (cmd) {
         const lastDone = new Map();
         for (const x of d.items) {
             if (x.state !== 'done') continue;
-            const t = x.doneAt || x.created || '';
+            const t = x.closed || x.doneAt || x.created || '';
             if (!lastDone.has(x.type) || t > lastDone.get(x.type)) lastDone.set(x.type, t);
         }
         const types = [...byType.keys()].sort((a, b) => {
