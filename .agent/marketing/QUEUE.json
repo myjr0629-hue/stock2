@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-16",
+ "updated": "2026-09-17",
  "items": [
   {
    "id": "t001",
@@ -1667,6 +1667,18 @@
    "region": "ALL",
    "title": "★대표 계정 생성 4건 — 확장이 막힌 유일한 원인(#T8)",
    "detail": "안전선(계정생성 금지) 때문에 제가 못 여는 표면: (1) 디스콰이엇 — 한국판 ProductHunt, 등재문안 .agent/marketing/assets/disquiet-signum-listing-ko.md 준비완료 (2) 네이버 블로그 — 한국 검색 1위, KR 네이티브 채널 0개인 구멍 (3) はてなブックマーク — 일본 최대 큐레이션, note 글 부트스트랩 (4) X 일본 계정(#T2) — JP 원글용. 대표가 계정만 만들어 주시면(로그인 상태로) 제가 등재·발행·운영 전부 이어받습니다.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-16",
+   "note": ""
+  },
+  {
+   "id": "t130",
+   "type": "tech",
+   "region": "ALL",
+   "title": "블루스카이 되살리기 — .env.local 에 앱 비밀번호 1줄(#T9)",
+   "detail": "실측(9/17): bsky.app 웹 컴포저에 input[type=file] 이 0개이고 링크카드 프롬프트도 안 뜬다 → ego 로는 이미지 첨부 불가 = §11 위반이라 발행 보류 중. 해법: 대표가 Bluesky 설정에서 «앱 비밀번호»를 발급해 .env.local 에 BLUESKY_HANDLE·BLUESKY_APP_PASSWORD 두 줄만 넣어주시면, 로컬 스크립트가 AT 프로토콜로 텍스트+카드(blob)까지 정상 발행한다(웹·앱 코드 무수정). 비밀번호는 제가 입력하지 않는다.",
    "prio": 1,
    "state": "todo",
    "tries": 0,
