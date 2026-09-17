@@ -6544,3 +6544,26 @@ Medium 기존 글 **수정**(신규 발행 아님)이라 원장 캡에 계상하
 
 ### RUNBOOK.md 신설 — 인수인계용 정본
 다른 에이전트가 이 문서 하나로 이어받을 수 있게 썼다. 담은 것: 스케줄이 실제로 어떻게 도는가 · 9단계 절차 · 안전선 · **이미 확인된 차단 7건**(다시 시도해 시간 낭비하지 않게) · **반복하면 안 되는 실수 10건**(전부 내가 실제로 저지른 것) · 성과 판정 기준(발행 수가 아니라 클릭) · 읽어야 할 파일 목록.
+
+
+## ★ UC·WIM 「복귀하면 크롬이 뜨는」 버그 — 제출까지 완료 (2026-09-17 14:0x KST)
+
+### 원인 (시그넘과 동일)
+Capacitor iOS 는 `allowNavigation` 이 비어 있으면 **「이동할 주소가 server.url 전체 문자열로 시작하는가」**만 본다. UC 의 server.url 이 `/en/undercurrent` 라서 같은 도메인의 다른 경로가 전부 시스템 브라우저로 나간다.
+**방아쇠는 로케일 이동이 아니다** — 그건 이미 `router.replace`(문서 재생성 없음)라 안전하다. **iOS 가 메모리 압박으로 웹뷰를 버린 뒤 «복귀 시 재로드»** 할 때, 재로드 대상이 부트스트랩 후의 현재 URL(`/ko/undercurrent`)이라 접두사 검사에 걸려 튕긴다.
+
+### 처리 (전부 완료)
+1. `uc-app`·`wim-app` `capacitor.config.ts` 에 `allowNavigation: ['www.signumhq.com','signumhq.com','*.signumhq.com']` 추가 (커밋 88dd8a427)
+2. **`npx cap copy` 로 네이티브에 동기화** — 스크립트가 이걸 안 해서 내가 따로 했다. iOS·안드로이드 4개 프로젝트 전부 반영 확인. **Capacitor CLI 는 Node ≥22 가 필요**한데 기본이 v20 이라 `~/.nvm/versions/node/v22.23.1/bin` 을 PATH 앞에 붙여야 한다.
+3. **시뮬레이터 실화면 검증** — iPhone 17 Pro 에 Debug 빌드 설치·실행. 앱이 한국어로 정상 로드(로케일 부트스트랩이 `/ko/undercurrent` 로 이동한 상태). **홈 버튼으로 나갔다가 복귀 → 크롬이 뜨지 않고 앱 안에서 재로드**됐고 콘텐츠도 갱신됐다(강세 6→7). 대표가 보고한 바로 그 순간을 재현해 통과시켰다.
+4. **`./scripts/ios-release.sh` 로 버전업→아카이브→서명→업로드→심사제출**
+   - **UC 1.0.7 (build 9)** → `WAITING_FOR_REVIEW`
+   - **WIM 1.0.4 (build 7)** → `WAITING_FOR_REVIEW`
+   - 릴리스노트(en): "Fixes an issue where leaving the app and returning could open the page in an external browser."
+   - 출시 전수검사: 「앱스토어: 멈춰 있는 것 없음」
+
+### 배운 것
+- **이 값은 네이티브 번들에 컴파일된다 — 웹 배포로는 절대 안 바뀐다.** 빌드 산출물(`ios/App/App/capacitor.config.json`, `android/.../assets/capacitor.config.json`, `.xcarchive` 안)을 직접 확인해야 «반영됐다»고 말할 수 있다.
+- **`ios-release.sh` 는 `cap copy` 를 하지 않는다.** 설정을 고친 뒤에는 반드시 먼저 sync 하고, **빌드 산출물의 capacitor.config.json 을 열어 값이 들어갔는지 확인**한 다음 릴리스를 돌린다.
+- 시뮬레이터 빌드는 `-destination 'generic/platform=iOS Simulator'` 로는 「Supported platforms ... is empty」로 실패한다. **구체적 시뮬레이터 id 를 지정**해야 한다.
+- 안드로이드는 같은 수정이 assets 에 들어갔다. **Play 제출은 아직 안 했다** — 다음 사이클 대상.
