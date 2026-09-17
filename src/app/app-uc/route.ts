@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { normalizeFrom, playUrlWithReferrer } from '@/lib/marketing/storeRedirect';
+import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
 
 // /app-uc — device-aware store smart link for Undercurrent (cross-promo from SIGNUM etc.).
 // Mirrors /app: counts ?from=<channel> into `mkt:attr:hit:<from>:<etDate>` via after() so
@@ -46,7 +46,7 @@ export function GET(request: NextRequest) {
   after(() => recordHit(fromTag));
 
   if (/android/i.test(ua)) {
-    return NextResponse.redirect(playUrlWithReferrer(UC_PLAY_STORE_URL, fromTag), 302);
+    return NextResponse.redirect(playUrlWithReferrer(UC_PLAY_STORE_URL, fromTag, 'uc'), 302);
   }
-  return NextResponse.redirect(UC_APP_STORE_URL, 302);
+  return NextResponse.redirect(appleUrlWithProductPage(UC_APP_STORE_URL, fromTag, 'uc'), 302);
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { normalizeFrom, playUrlWithReferrer } from '@/lib/marketing/storeRedirect';
+import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -114,9 +114,9 @@ export function GET(request: NextRequest) {
   after(() => recordHit(fromTag));
 
   if (/android/i.test(ua)) {
-    return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag), 302);
+    return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum'), 302);
   }
 
   // iOS opens the native App Store sheet; desktop lands on the App Store web page.
-  return NextResponse.redirect(APP_STORE_URL, 302);
+  return NextResponse.redirect(appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'), 302);
 }

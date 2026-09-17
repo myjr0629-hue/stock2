@@ -32,14 +32,48 @@ export function normalizeFrom(raw: string | null | undefined): string | null {
 }
 
 /**
+ * 스토어 «맞춤 표면» 등록부 — from 태그별로 다른 스토어 페이지를 보여준다.
+ *
+ * 왜 필요했나 (2026-09-18): Play 맞춤 스토어 등록정보와 App Store 맞춤 제품 페이지(CPP)를
+ * 만들어 놨는데 스마트링크가 기본 페이지로만 보내서 «트래픽 0» 이었다. 여기서 붙인다.
+ *
+ * 안전성 실측(2026-09-18, 심사중 상태에서 확인):
+ *   · 존재하지 않는 `ppid` → apps.apple.com 301 (기본 제품 페이지로 간다)
+ *   · 존재하지 않는 `listing` → play.google.com 200 (기본 등록정보로 폴백)
+ *   즉 «심사 통과 전이거나 값이 틀려도 링크가 깨지지 않는다.» 그래서 승인 전에 붙여도 안전하다.
+ */
+export type StoreApp = 'signum' | 'uc' | 'wim';
+
+/** Play 맞춤 스토어 등록정보가 «있는» from 태그. 없으면 안 붙인다(붙여도 무해하지만 의도를 남긴다). */
+const PLAY_CUSTOM_LISTINGS: Record<StoreApp, ReadonlySet<string>> = {
+  signum: new Set(['home']),
+  uc: new Set<string>(),
+  wim: new Set<string>(),
+};
+
+/** App Store 맞춤 제품 페이지(CPP): from 태그 → ppid. 전부 「web home」용으로 만든 것이다. */
+const APPLE_CUSTOM_PRODUCT_PAGES: Record<StoreApp, Readonly<Record<string, string>>> = {
+  signum: { home: 'a0522489-c6f8-4050-8e56-bc89b27f0927' },
+  uc: { home: 'f2559d55-be1a-41a1-989b-5940a5ff4d8a' },
+  wim: { home: '4347070b-174a-4620-bd93-942caca7cf2c' },
+};
+
+const join = (url: string, qs: string) => `${url}${url.includes('?') ? '&' : '?'}${qs}`;
+
+/**
  * Play 스토어 URL 에 install referrer 를 붙인다.
  * referrer 값 자체가 `utm_source=...&utm_medium=...` 형태의 «인코딩된 쿼리»다.
  */
-export function playUrlWithReferrer(baseUrl: string, from: string | null): string {
+export function playUrlWithReferrer(
+  baseUrl: string,
+  from: string | null,
+  app: StoreApp = 'signum',
+): string {
   if (!from) return baseUrl;
   const referrer = `utm_source=${from}&utm_medium=smartlink&utm_campaign=signumhq_web`;
-  const sep = baseUrl.includes('?') ? '&' : '?';
-  return `${baseUrl}${sep}referrer=${encodeURIComponent(referrer)}`;
+  let out = join(baseUrl, `referrer=${encodeURIComponent(referrer)}`);
+  if (PLAY_CUSTOM_LISTINGS[app].has(from)) out = join(out, `listing=${from}`);
+  return out;
 }
 
 /**
@@ -49,4 +83,17 @@ export function playUrlWithReferrer(baseUrl: string, from: string | null): strin
  */
 export function appleUrlWithCampaign(baseUrl: string, _from: string | null): string {
   return baseUrl;
+}
+
+/**
+ * App Store 맞춤 제품 페이지(CPP)를 붙인다 — `?ppid=<uuid>`.
+ * 해당 from 태그에 CPP 가 없으면 원본을 그대로 돌려준다.
+ */
+export function appleUrlWithProductPage(
+  baseUrl: string,
+  from: string | null,
+  app: StoreApp = 'signum',
+): string {
+  const ppid = from ? APPLE_CUSTOM_PRODUCT_PAGES[app][from] : undefined;
+  return ppid ? join(baseUrl, `ppid=${ppid}`) : baseUrl;
 }

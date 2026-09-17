@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { normalizeFrom, playUrlWithReferrer } from '@/lib/marketing/storeRedirect';
+import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
 
 // /app-wim — device-aware store smart link for Why'd It Move? (cross-promo from SIGNUM/UC).
 // Mirrors /app-uc: counts ?from=<channel> into `mkt:attr:hit:<from>:<etDate>` via after() so
@@ -45,7 +45,7 @@ export function GET(request: NextRequest) {
   after(() => recordHit(fromTag));
 
   if (/android/i.test(ua)) {
-    return NextResponse.redirect(playUrlWithReferrer(WIM_PLAY_STORE_URL, fromTag), 302);
+    return NextResponse.redirect(playUrlWithReferrer(WIM_PLAY_STORE_URL, fromTag, 'wim'), 302);
   }
-  return NextResponse.redirect(WIM_APP_STORE_URL, 302);
+  return NextResponse.redirect(appleUrlWithProductPage(WIM_APP_STORE_URL, fromTag, 'wim'), 302);
 }
