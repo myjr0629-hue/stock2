@@ -409,6 +409,12 @@
       "tier": "A",
       "enabled": false,
       "note": "★무료·자격 게이트 없음. 구글 «데이터셋 검색»(datasetsearch.research.google.com)은 schema.org Dataset 구조화 데이터로 색인된다. 우리 티커 페이지 2,228×3로케일이 **이미 `@type: Dataset` 을 싣고 있다**(/en/flow/USO 실측: name·description·license·creator·url·isAccessibleForFree). 빠진 것은 구글이 «권장»하는 `distribution`(DataDownload + contentUrl + encodingFormat) 이라 «다운로드 없는 데이터셋»으로 취급된다. 한 템플릿 수정으로 6,768 URL 이 동시에 대상이 된다. 경쟁이 거의 없다 — 허깅페이스에서 «options flow» 검색 결과가 0건인 것과 같은 니치. 웹 코드 변경이라 승인 필요"
+    },
+    {
+      "id": "mastodon",
+      "tier": "A",
+      "enabled": false,
+      "note": "★블루스카이 승리 패턴의 «직접 복제». 2026-09-17 실측: 블루스카이는 글 한 편으로 18클릭(전 채널 1위)이고 레딧은 21일 60건 댓글로 5클릭이었다. 차이는 «구조»다 — 알고리즘 방송이 아니라 해시태그/연합 타임라인이 팔로워 0에게도 도달하고, 이미지와 링크가 «감점 없이» 붙는다. 마스토돈은 그 구조가 같다(ActivityPub·시간순·링크 무감점·이미지 4장). 우리 쪽 준비물은 이미 있다: 앱 카드 렌더 파이프라인 + 스마트링크. 500자 한도(블루스카이 300자보다 넉넉). 인스턴스는 mastodon.social(범용·최대) 또는 fosstodon.org(기술). 금융 전용 인스턴스는 규모가 작아 범용이 낫다. 계정 생성이 필요해 대표 가입 대기."
     }
   ],
   "candidates": [
