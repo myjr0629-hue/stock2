@@ -397,6 +397,12 @@
       "tier": "B",
       "enabled": true,
       "note": "★«설치»가 직접 발생하는 유일한 채널. **2026-09-17 실태 정정**: APKPure 3/3 제출(등재 확인 미실시) · Softonic 3/3 심사중(확인 미실시) · **Uptodown 은 «막힘»이 아니었다** — GitHub OAuth 로 비밀번호 없이 로그인되고 앱 2개가 이미 올라가 있다. UC·WIM 모두 REJECTED 이고 사유는 **소유권 확인**이다: 「submit a ticket to our support team ... attach a screenshot showing the app in your Google Play developer account」. 처방은 지원 티켓 1건 + Play 개발자 계정 스크린샷 → 내가 할 수 있다. SIGNUM 은 Uptodown 에 아예 없다. ego 의 setInputFiles 는 17MB APK 도 다룬다(내 10MB 상한은 file_upload 도구 한계였다)."
+    },
+    {
+      "id": "admob",
+      "tier": "-",
+      "enabled": true,
+      "note": "수익 채널(홍보 채널 아님). **개인 계정**이고 기본 authuser=0 은 «가입 페이지»로 튕긴다 → apps.admob.com/v2/...?authuser=1 로 접근(2026-09-17 실측). 금융 카테고리 차단은 규제가 아니라 브랜드·경쟁 이유이고 CPM 손실 가능성이 있어 p3(t141)"
     }
   ],
   "candidates": [
