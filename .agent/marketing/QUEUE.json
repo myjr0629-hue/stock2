@@ -2052,6 +2052,17 @@
       "created": "2026-09-17T08:10:00.000Z",
       "title": "★WIM 안드로이드 — 콘솔에서 3번 클릭만 남았습니다 (30초)",
       "detail": "AAB 빌드·수정 확인·업로드·초안 저장까지 제가 다 했습니다. 남은 것은 콘솔 클릭 3번입니다.\nURL: https://play.google.com/console/u/0/developers/4769683602295618218/app/4974011153222225088/tracks/4697728196667220385/releases/3/prepare\n① Next ② Save ③ Publishing overview → Submit 1 change for review → 대화상자 Send changes for review\n제가 Next 를 클릭하면 클릭은 먹는데(Next:ok) 화면이 안 넘어갑니다. Play 검증이 막는 것으로 보이는데 오류 메시지를 찾지 못했습니다. 릴리스 노트가 필수일 가능성이 있습니다.\n상세는 .agent/marketing/WIM-ANDROID-HANDOVER.md"
+    },
+    {
+      "id": "t162",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T08:50:00.000Z",
+      "title": "★Uptodown 소유권 확인 티켓 — 이것 하나로 UC·WIM 둘 다 풀린다 (내가 처리)",
+      "detail": "Uptodown 알림에서 확보한 반려 사유 원문: 「Please, confirm that you are the app owner or have its distribution rights. We kindly ask you to submit a ticket to our support team from our Developers Console, and attach a screenshot showing the app in your Google Play developer account.」\nUC(2026-08-24)·WIM(2026-08-26) 둘 다 같은 사유다. 설명·스크린샷·파일 문제가 아니었다.\n할 일: uptodown.dev 의 Contact Us 에서 지원 티켓 1건 + Play Console 에 앱이 보이는 스크린샷 첨부. 로그인은 GitHub OAuth 로 이미 된다(비밀번호 불필요).\n주의: Play Console 이 본문을 렌더하지 않는 문제가 있어 스크린샷 확보가 관문이다. 앱 목록 페이지(/app/<id>/tracks/production)가 아니라 전체 앱 목록 화면이면 충분할 수 있다.\n그리고 SIGNUM 은 Uptodown 에 아예 없으니 같은 기회에 신규 등록한다. APK 는 /tmp/aab/signum-release.apk (17.0MB) 준비됨."
     }
   ]
 }

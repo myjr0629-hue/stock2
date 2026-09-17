@@ -396,7 +396,7 @@
       "id": "android_alt_stores",
       "tier": "B",
       "enabled": true,
-      "note": "★계정 없이 제출 가능한 경로가 있다. APKPure 는 blueimp 업로더가 jQuery 이벤트를 듣기 때문에 계정 없이 제출이 된다(기록됨). Uptodown·Aptoide·APKCombo 는 미시도. Softonic 은 «invalid-apk-signature» 로 반려되는데 진짜 원인은 패키지명으로 Play 를 조회해 인증서를 대조하는 것 — Play 서명 APK 가 필요하다. 서드파티 스토어는 설치가 직접 발생하므로 «클릭»이 아니라 «설치» 채널이다. AAB 가 아니라 APK 가 필요하니 bundletool 또는 assembleRelease 로 별도 산출."
+      "note": "★«설치»가 직접 발생하는 유일한 채널. **2026-09-17 실태 정정**: APKPure 3/3 제출(등재 확인 미실시) · Softonic 3/3 심사중(확인 미실시) · **Uptodown 은 «막힘»이 아니었다** — GitHub OAuth 로 비밀번호 없이 로그인되고 앱 2개가 이미 올라가 있다. UC·WIM 모두 REJECTED 이고 사유는 **소유권 확인**이다: 「submit a ticket to our support team ... attach a screenshot showing the app in your Google Play developer account」. 처방은 지원 티켓 1건 + Play 개발자 계정 스크린샷 → 내가 할 수 있다. SIGNUM 은 Uptodown 에 아예 없다. ego 의 setInputFiles 는 17MB APK 도 다룬다(내 10MB 상한은 file_upload 도구 한계였다)."
     }
   ],
   "candidates": [

@@ -6647,3 +6647,38 @@ ego 가 **`stopForUserControl`** 로 두 번 제어를 놓았다. 대표님이 �
 ### 반성
 16회를 시도하며 대표님을 두 번 기다리게 했다. 원인은 **첫 8회를 섀도 DOM 을 모른 채 «콘솔이 고장났다»는 잘못된 전제로 반복한 것**이다. 화면을 직접 볼 수 있었는데 DOM 읽기만 믿었다. 대표님 스크린샷 한 장이 전제를 깼다.
 개선: **「렌더 안 됨」 판단 전에 ①딥 워커 ②스크린샷 둘 다 확인한다.** RUNBOOK 4절(반복 금지 실수)에 추가했다.
+
+
+## 사이클 — 2026-09-17 16:44~17:4x KST · Uptodown 반려 사유 확정 + 내 실수 1건
+
+`slot` 배정: 실행 tiktok·seo·aso·discord_usstock / 뚫기 okky·geeknews / 확장 1. 게이트 341건 0실패.
+
+### WIM 안드로이드 — 릴리스 노트 가설 기각, 여전히 막힘
+prepare 화면의 **접힌 섹션을 펼치니 릴리스 노트 textarea 가 나왔다**(842자 로케일 템플릿). 3개 언어를 채우고(`hasEn=true`) `Next` 를 눌렀다. **클릭은 성공(`Next:ok`)했는데 화면이 넘어가지 않았다.** 노트는 원인이 아니었다.
+원인을 더 좁혔다: 보이는 텍스트를 전수로 뽑으니 **좌측 내비게이션만 나오고 본문 영역이 전부 `offsetParent` 없음**이다. 뷰포트는 정상(1190×903)이고 `main` 도 1190×903 인데 **요소 1,835개 중 969개가 크기 0**이고 `scrollHeight` 가 뷰포트와 같다 — 릴리스 편집 영역만 접혀 있다. 대표님 스크린샷(작은 미리보기는 정상, 전체화면은 흰색)과 같은 현상이다.
+→ 대표님 인수인계 상태 유지(`WIM-ANDROID-HANDOVER.md`, t161). 클릭 3번이면 끝난다.
+
+### ★ Uptodown — 「막혔다」던 기록이 틀렸고, 진짜 사유를 찾았다
+기존 기록: 「Uptodown — GitHub 계정 필요 / APK 16.2MB > 내 업로드 상한 10MB 라 막힘」.
+**실측 정정**: **GitHub OAuth 로 비밀번호 없이 로그인된다.** 계정은 `myjr0629-hue`(개인)이고 앱이 이미 2개 올라가 있다.
+
+| 앱 | Uptodown 상태 |
+|---|---|
+| Undercurrent | **REJECTED** (2026-08-24) |
+| Why'd It Move | **REJECTED** (2026-08-26) → 목록에는 DRAFT |
+| SIGNUM | **아예 없음** |
+
+**진짜 반려 사유(알림에서 원문 확보)**:
+> 「Please, confirm that you are the app owner or have its distribution rights. We kindly ask you to submit a ticket to our support team from our Developers Console, and attach a screenshot showing the app in your Google Play developer account.」
+
+**소유권 확인**이다. 설명·스크린샷·파일 문제가 아니었다. 처방은 **Developers Console 에서 지원 티켓 + Play 개발자 계정에 앱이 보이는 스크린샷 첨부** 한 번이고, 그러면 UC·WIM 둘 다 풀린다. 내가 할 수 있는 일이다(계정 생성도 비밀번호도 아니다) → **다음 사이클 1순위**.
+부수 확인: 업로드 상한 문제는 애초에 존재하지 않았다 — 파일 탭에 이미 2개가 올라가 있다. 내 10MB 상한은 `file_upload` 도구의 한계였고 **ego 의 `setInputFiles` 는 17MB APK 도 다룬다**(Play 에서 8.6MB AAB 로 확인).
+
+### ⚠️ 내가 낸 사고 1건 — 기존 설명을 덮어썼다
+DESCRIPTIONS 탭의 편집 필드를 **높이 오름차순으로 정렬해 «가장 작은 것=짧은 설명»으로 가정**했다. 그런데 숨은 필드(높이 0)가 2개 섞여 있어서 짧은 설명을 숨은 칸에 넣고, **기존 1,306자 전체 설명을 651자로 덮어썼다.**
+즉시 발견해서 **1,685자로 다시 썼다**(원문보다 길고, 규제 문구까지 넣었다 — 「does not provide investment advice, does not recommend buying or selling any security, and makes no claim about future prices」). 덮어쓴 원문은 복구 불가다.
+**교훈**: 필드를 «크기 순서»로 추정하지 말 것. **높이 10px 이상만 남긴 뒤** 「60px 미만=짧은 설명 / 100px 이상=전체 설명」처럼 **절대 기준**으로 고른다. RUNBOOK 4절에 실수 13번으로 추가했다.
+
+### 확장 — android_alt_stores 실태 정정
+기존 기록이 「APKPure 3/3 완료·Softonic 3/3 심사중·Uptodown 막힘」이었다. Uptodown 은 위와 같이 정정했다. **APKPure·Softonic 도 실제 등재 여부를 확인한 적이 없다**(「제출 완료」까지만 기록). 서드파티 스토어는 «클릭»이 아니라 «설치»가 직접 발생하는 유일한 채널이라 생존 확인이 중요하다 → t159 에 반영.
+SIGNUM 릴리스 APK(17.0MB)를 `/tmp/aab/signum-release.apk` 에 준비해 뒀다.
