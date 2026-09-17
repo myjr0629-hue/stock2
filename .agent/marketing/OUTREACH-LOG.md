@@ -6247,3 +6247,32 @@ CloudWatch: 9/14 성공(57s), 9/15 «JSON parse failed»(107s). 처방(종류): 
 ### 남은 것
 - 승인 후 **verify** 하면 우선순위가 올라가는데 도메인 이메일(contact@signumhq.com) 수신이 필요하다 → 대표.
 - 로고 업로드·확장 설명은 로그인이 필요한 영역이라 미처리.
+
+## 사이클 — 2026-09-17 10:1x~10:4x KST · 레딧 규칙 전수감사에서 «우리를 막는 규칙»을 찾았다
+
+### ⛔ 가장 중요한 발견 — 레딧에 「AI 작성 콘텐츠 금지」 서브가 있다
+12개 서브의 `about/rules.json` 을 전수 조회했다. **4곳이 AI/LLM 작성물을 규칙으로 금지**한다.
+- **r/options** — 「No AI/LLM-Authored Content」: 「Posts, comments, or images **wholly or partly** authored by AI or LLM are not allowed」. «부분적으로라도» 라고 못박혀 있다.
+- **r/StockMarket** — 「No Low Effort Posts」 안에 포함.
+- **r/investing** — 「No low effort posts」 안에 포함(앱 언급 영구밴과 «별개»로, 이제 어떤 댓글도 금지).
+- **r/iosapps** — 「No AI」.
+규칙 없는 곳: r/stocks · r/thetagang · r/Trading · r/wallstreetbets · r/algotrading · r/options_trading · r/Vitards.
+
+**나는 LLM 이다. 저 4곳에 내가 쓴 댓글을 올리는 건 그 서브의 명시 규칙 위반이다.** 게시 금지 목록에 올리고 `mkt-plan.js` 의 reddit 규칙 문자열에도 박았다. 모르고 이미 올린 것이 3건 있다(r/options 22시간 전·r/StockMarket 8시간 전·r/iosapps 1시간 전). 셋 다 현재 살아 있지만 **추가 게시는 중단**한다. 이게 우리 «유일하게 작동하는 채널»을 좁히는 나쁜 소식이라 더 정확히 적어 둔다.
+교리 추가: **새 서브 첫 게시 전 `about/rules.json` 의 AI 조항 확인은 캡·링크 규칙 확인과 같은 급의 선행 조건**이다.
+
+### 댓글 생존율 실측 (최근 25건)
+살아있음 **23** · 「Removed by Reddit」 **2**(r/investing_discussion 31시간 전, r/stocks 35시간 전). 서브 모더가 아니라 **레딧 사이트 차원 삭제**이고 삭제율 8%다. 매 사이클 `user/SignumHQ/comments.json` 으로 재측정한다.
+
+### ✅ 발행 1건 — r/thetagang (AI 규칙 없음, 사전 확인함)
+`https://www.reddit.com/r/thetagang/comments/1wi15ut/.../paa57dv/` — 오늘 실측(만기 09-18) SPY 맥스페인 757·딜러 넷감마 **+$1.14B**, QQQ 700·**+$379M**, **NVDA −$135M** 을 프리미엄 매도자 관점에서 «왜 중요한가»로 설명. 지수와 최대 종목이 반대 레짐이라는 게 이번 주 개별주 변동폭이 지수보다 컸던 설명이 된다는 판단을 붙였고, 한계 2가지(OI 추정이지 딜러 장부 아님·금요일 만기로 대부분 소멸)를 명시. **무링크·무앱명.** 공개 스레드 JSON 에서 존재 확인 완료 → 오늘 레딧 2/3.
+
+### 확장 1건 — MacRumors 등록 (t146)
+`forums.macrumors.com` «iOS Apps and Apple Arcade» 는 **개발자가 자기 스레드 안에서 자사 앱을 홍보하는 것이 명시 허용**된 드문 표면이다. 앱당 스레드 하나·영구, 업데이트는 그 스레드에 이어 쓴다(새 스레드·범프는 밴). iOS 3앱이니 영구 자산 3개가 된다. 가입에 이메일/비밀번호가 필요해 대표 승인. 등록 채널 35 → **36**.
+
+### 이번 사이클 미처리 사유
+- **r/options 기반 계획 전부 폐기** — 위 규칙 때문. 대체로 r/thetagang·r/Trading·r/algotrading 을 쓴다.
+- naver_kin·qiita·zenn·okky·geeknews·fmkorea·brunch·discord·hatena·macrumors: 전부 **계정 필요**로 티켓(t142·t143·t146 등). 내가 계정을 못 만든다.
+- dcinside: 유동닉 글쓰기에 **게시물 비밀번호 입력**이 필요하다. 「비밀번호 입력 금지」 안전선에 걸릴 소지가 있어 **대표 확인 전까지 보류**한다. 판단을 미루지 않고 적어 둔다.
+- bluesky: 컴포저에 file input 이 0개라 앱 화면 첨부 불가 → §11 로 의도적 보류(t130).
+- apple_featuring·jp_media: ASC 접근/메일 발송이라 대표 건(t137·t138).

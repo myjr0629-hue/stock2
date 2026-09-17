@@ -1872,6 +1872,17 @@
       "created": "2026-09-17T01:09:10.483Z",
       "title": "링크드인 «회사 페이지» 부재가 디렉터리 등재를 막는다",
       "detail": "SaaSHub 가 LinkedIn 칸에서 /in/ 개인 프로필을 거부했다(must be a company or a product page). 우리는 linkedin.com/in/signumhq 만 있다. 회사 페이지가 있으면 이 칸을 채울 수 있고 다른 디렉터리에서도 같은 요구가 반복될 가능성이 높다. 회사 페이지 생성은 링크드인 계정 권한이라 대표 판단."
+    },
+    {
+      "id": "t146",
+      "type": "ceo",
+      "region": "ALL",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T01:16:54.252Z",
+      "title": "MacRumors 포럼 계정 (대표) — 개발자 자사홍보가 «명시 허용»된 드문 표면",
+      "detail": "forums.macrumors.com 의 «iOS Apps and Apple Arcade» 게시판은 개발자가 자기 스레드 안에서 자사 앱을 홍보하는 것을 허용한다. 규칙: 앱당 스레드 하나만, 영구히 그 스레드에 업데이트를 이어 쓴다. 새 스레드 생성·범프·복수 스레드는 밴. 개발자임을 밝혀야 한다. 가입에 이메일/비밀번호가 필요해 내가 못 만든다. 우리 iOS 3앱이라 스레드 3개를 영구 자산으로 가질 수 있다."
     }
   ]
 }
