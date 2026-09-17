@@ -1766,6 +1766,30 @@
    "tries": 0,
    "created": "2026-09-17",
    "note": ""
+  },
+  {
+   "id": "t137",
+   "type": "aso",
+   "region": "ALL",
+   "title": "★Apple «Featuring Nomination» — 일본 스토어지정 무료 추천 신청(설치 직결)",
+   "detail": "실측: developer.apple.com/contact/app-store/promote → App Store Connect 의 Featuring Nominations. **Relevant Countries or Regions 필드로 «일본 스토어» 지정 가능**, Localizations 필드로 ja 로컬라이즈 명시. 무료. 필수: Nomination Name·Type(New Content/App Enhancements/App Launch)·Description·Publish Date, 선택: 관련 앱 10개·In-App Events·보조자료 URL 5개. 리드타임은 Apple 문서가 2주(promote 페이지)와 3주(ASC 도움말)로 엇갈리므로 **3개월 전 제출 권장**. 편성은 지역별 큐레이션이라 일본팀이 별도 심사. → 3앱 각각 ja 설명·스크린샷 정리 후 신청.",
+   "prio": 1,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-17",
+   "note": ""
+  },
+  {
+   "id": "t138",
+   "type": "expand",
+   "region": "JP",
+   "title": "일본 앱매체 무료 제보 3곳(대표 메일 발송 필요) + Appliv 무료 등재는 사망",
+   "detail": "실측 2026-09-17: **Appliv 무료 掲載依頼 URL 전부 404** — 지금은 유료 전용(타이업 20만엔·오버레이 10만엔·잭 50만엔). 반면 무료로 열려 있는 곳: ① **AppBank** pressrelease@appbank.net (레뷰 의뢰 공식 창구) + 제보 구글폼 ② **GIGAZINE** gigazine.net/news/contact3 (네타 타레코미, 유료는 GIGAZINE.BIZ 로 완전 분리) ③ **iPhone Mania** — 문의폼 말고 /about 의 프레스 주소로. ④ 窓の杜 mado-no-mori-info@impress.co.jp(윈도우 소프트 중심이라 적합도 낮음). 메일 발송은 대표 승인 필요. PR 와이어는 **ValuePress 가 가성비 1위**(무료 플랜 존재·스탠다드 3.5만엔/월 무제한 배포+원고작성 무제한) — PR TIMES 는 건당 3만엔+기업심사.",
+   "prio": 2,
+   "state": "todo",
+   "tries": 0,
+   "created": "2026-09-17",
+   "note": ""
   }
  ]
 }

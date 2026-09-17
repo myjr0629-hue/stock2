@@ -302,6 +302,18 @@
       "tier": "A",
       "enabled": false,
       "note": "★작가 신청 필요. brunch.co.kr/keyword/미국주식 허브 존재·카카오뱅크(782편) 같은 법인 계정 승인 선례. KR 소유미디어·SEO 자산으로 최고. 설치 채널이 아니라 권위 채널"
+    },
+    {
+      "id": "apple_featuring",
+      "tier": "A",
+      "enabled": true,
+      "note": "★무료. ASC Featuring Nominations — 국가/지역 필드로 일본·한국 스토어 지정 가능. 3개월 전 제출 권장. 설치에 직결되는 유일한 «무료 스토어 편성» 경로"
+    },
+    {
+      "id": "jp_media",
+      "tier": "A",
+      "enabled": false,
+      "note": "일본 앱매체 무료 제보: AppBank(pressrelease@appbank.net)·GIGAZINE(/news/contact3)·iPhone Mania(/about 프레스주소). Appliv 무료등재는 2026 기준 404(유료 전용). 메일 발송은 대표 승인 필요"
     }
   ],
   "candidates": [
