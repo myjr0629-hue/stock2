@@ -272,6 +272,36 @@
       "tier": "A",
       "enabled": true,
       "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자·링크금지)"
+    },
+    {
+      "id": "dcinside",
+      "tier": "A",
+      "enabled": true,
+      "note": "KR 최대 미국주식 청중(미국주식갤 stockus·미국주식옵션갤 untie·해외주식갤 tenbagger). 계정 불필요(유동닉·캡차 없음) 그러나 링크·홍보 금지(운영원칙 명문) → 무링크 가치글/댓글만. 2025년부터 비로그인 문제글에 IP 차단"
+    },
+    {
+      "id": "okky",
+      "tier": "A",
+      "enabled": false,
+      "note": "★계정 필요. okky.kr/events/promote = 무료 전용 홍보판(858페이지·앱 베타모집·SaaS 런칭 선례 다수). 개발자 청중. 본인인증 없음·SNS 로그인"
+    },
+    {
+      "id": "geeknews",
+      "tier": "A",
+      "enabled": false,
+      "note": "★계정 필요. news.hada.io — 자작 앱은 반드시 «Show» 로만, 가입 7일 경과 후 링크 등록 가능, 프로젝트당 1회(반복시 배포채널 취급). 상위글 24~48점 규모"
+    },
+    {
+      "id": "fmkorea",
+      "tier": "A",
+      "enabled": false,
+      "note": "★계정 필요(이메일 또는 휴대폰). fmkorea.com/stock 에 «해외주식» 하위탭·동접 7.5만. 규정 제4조는 홍보 금지지만 «평상시 활동하던 유저가 자기가 만든 것 자랑/언급 정도는 ㅇㅋ» 명문 예외 → 계정을 먼저 재워야 함. 제12조가 로고 스크린샷 우회도 선제 금지"
+    },
+    {
+      "id": "brunch",
+      "tier": "A",
+      "enabled": false,
+      "note": "★작가 신청 필요. brunch.co.kr/keyword/미국주식 허브 존재·카카오뱅크(782편) 같은 법인 계정 승인 선례. KR 소유미디어·SEO 자산으로 최고. 설치 채널이 아니라 권위 채널"
     }
   ],
   "candidates": [
