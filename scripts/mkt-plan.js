@@ -18,6 +18,7 @@ const save = (o) => fs.writeFileSync(LEDGER, JSON.stringify(o, null, 1));
 
 // 채널 규칙: cap 은 «하루 몇 편», day 는 캡을 재는 달력(kst | utc), window 는 KST 시간대(열림~닫힘)
 const CH = {
+  admob:       { cap: 0, day: 'week', window: [0, 24], note: '수익 채널(홍보 아님). 개인 계정 — authuser=1 필수. 금융 차단은 p3(t141), 브랜드·경쟁 이유이고 CPM 손실 가능' },
   dcinside:    { cap: 0, day: 'kst', window: [9, 24], note: '⛔관리 제외(검증) — 글쓰기 화면에 password 입력란 실재. 안전선 「비밀번호 입력 금지」 위반. 대표 전용' },
   okky:        { cap: 1, day: 'kst', window: [9, 24], note: '★계정 필요. /events/promote 는 «무료 서비스 전용» 홍보판이라 우리가 정확히 해당' },
   geeknews:    { cap: 1, day: 'week', window: [9, 24], note: '★계정 필요. 자작 앱은 반드시 [Show] 태그. 가입 7일 대기. 1회성 — 남발 금지' },
@@ -138,6 +139,20 @@ if (cmd === 'slot') {
   console.log('\n■ 고정 5단계 — ①게이트 audit-expiration-selection.js --live ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시');
   if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
   console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id).join(', '));
+
+  // ── 대표 가입 체크 감지 ──────────────────────────────────────────
+  // CEO-SIGNUP-LIST.md 의 `- [x]` 를 매 사이클 읽는다. 체크된 것은 «지금 가동할 것»이다.
+  try {
+    const sl = fs.readFileSync(path.join(ROOT, '.agent/marketing/CEO-SIGNUP-LIST.md'), 'utf8');
+    const done = [...sl.matchAll(/^- \[x\]\s+\*\*([^*]+)\*\*/gim)].map((m) => m[1].trim());
+    const open2 = [...sl.matchAll(/^- \[ \]\s+\*\*([^*]+)\*\*/gim)].map((m) => m[1].trim());
+    if (done.length) {
+      console.log('\n🔔 대표님이 체크한 신규 가입 ' + done.length + '건 — 이번 사이클에 «즉시» 가동한다');
+      done.forEach((d) => console.log('   ✅ ' + d));
+      console.log('   → channels.json 에서 enabled:true 로 바꾸고, 그 채널 성격에 맞게 첫 발행까지 한다');
+    }
+    console.log('\n· 대표 가입 대기 ' + open2.length + '건: ' + open2.join(', '));
+  } catch { console.log('\n· CEO-SIGNUP-LIST.md 를 못 읽었다 — 경로 확인'); }
   process.exit(0);
 }
 if (cmd === 'today') { const led = load(); const k = kstDate(); for (const e of led.entries.filter((x) => x.kst === k)) console.log(`${e.at.slice(11, 16)}Z ${e.ch.padEnd(14)} ${e.url}`); process.exit(0); }
