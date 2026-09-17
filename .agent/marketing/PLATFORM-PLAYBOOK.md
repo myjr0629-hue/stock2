@@ -225,3 +225,53 @@ Badges `/product/badge/getBadgeList.as` · Coupons `/product/promotion/promotion
 | WIM | `6813176699` Earnings Week Quiz | CHALLENGE | en | 09-28 → 10-23 |
 
 **남은 일** WIM 의 ko·ja 로케일(한국어·일본어 앱 화면을 렌더해야 붙일 수 있다) · 심사 결과 확인 · `publishStart`(09-24) 전까지 승인이 안 나면 일정을 미룬다.
+
+---
+
+## 10. Google Play 맞춤 스토어 등록정보 (Custom store listings)  ✅2026-09-18 1호 제출
+**계정** 회사 contact@signumhq.com (u/0) · **태그** `listing=home` · **채널 등급** A(무료·자격 게이트 없음·앱당 50개)
+
+### 왜 이 채널인가
+같은 앱에 **다른 문안·다른 그래픽**을 오디언스별로 보여줄 수 있다. 기본 등록정보는 검색어에 맞춰야 하니까 문안이 딱딱해지는데, **URL 타깃 맞춤 등록정보는 기본 등록정보의 검색 순위에 영향을 주지 않는다** — 그래서 거기선 검색어 최적화를 버리고 «순수 설득»으로 쓸 수 있다. 우리 실측 Play 방문 31명·CTR 29% 이므로 전환율이 곧 설치다.
+
+### 경로
+`play.google.com/console/u/0/developers/<개발자ID>/app/<앱ID>/store-listings` → 우상단 **Create custom listing**
+(`custom-store-listings` 같은 경로는 없다 — 개발자 홈으로 튕긴다)
+
+### 4단계
+1. **Setup** — `Duplicate an existing listing` 이 기본값이고 가장 빠르다(에셋 재사용, 새 업로드 불필요). `Select listing` → `Default store listing`
+2. **Details** — 참조 이름(**나중에 변경 불가**), 롤아웃 %(**내릴 수 없다**, 올리기만 가능), 기간, **Target audience**
+3. **Assets** — 언어별 앱이름·짧은설명(80)·긴설명(4000). 앱의 **모든 언어가 이미 들어 있고** 각 언어는 기본 등록정보 문안을 상속한다 → **고칠 언어만 고치면 된다**
+4. **Review** — AI 에셋 선언(그래픽을 생성 AI 로 만들지 않았으면 «Don't label assets») → **Save** → 「Publishing overview 에서 심사 전송」 → `Submit N changes for review`
+
+### Target audience 6종 (실측)
+| 종류 | 설명 |
+|---|---|
+| Buyer state ▸ | 구매 이력 |
+| User state ▸ | 신규/복귀/비활성 |
+| Ads traffic | 내 광고로 온 사용자 |
+| Country/region | 특정 지역 |
+| Pre-registration state | 사전등록 가능 사용자 |
+| **Search keyword** | **Play 검색어로 들어온 사용자** |
+| **URL** | **특정 URL 파라미터로 들어온 사용자** ← 우리가 고른 것 |
+
+우리는 **URL** 을 골랐다. 이유: Play 검색 설치가 실측 0 이고(유입은 explore 90일 15건), 클릭은 우리 자체 채널에서 온다(`from=home` 21일 412클릭·52%). 파라미터 규칙은 **소문자 영숫자와 `- . _ ~`**.
+
+### 조작 함정 (전부 밟았다 — ENGINE §32·§33)
+- **드롭다운 옵션 클릭이 안 먹는다**: 열기와 고르기를 «다른 스크립트 실행»으로 나누면 실패한다. 한 실행 안에서.
+- **버튼이 화면 밖이면 클릭이 허공으로 간다**: `y>900` 은 뷰포트 밖이다. `scrollIntoView` 후 **좌표 재측정** + `inView` 확인.
+- **언어 전환은 드롭다운이 아니라 「Next language →」 버튼으로** 된다(드롭다운 옵션 클릭은 실패했다). 12개 언어를 돌면서 ko-KR·ja-JP 를 만나면 그 자리에서 채운다.
+- **긴 칸(1871자) 교체는 백스페이스로 하지 말 것**: 실제 클릭으로 포커스 → `document.execCommand('selectAll')` → `Input.insertText` 가 한 번에 된다(선택만 DOM 으로 하고 입력은 CDP 로 하니 앵귤러가 본다).
+- **placeholder 는 값이 들어가면 지워진다** → 칸을 `placeholder` 로 찾지 말고 **값의 길이·태그**로 찾는다.
+
+### 1호 (2026-09-18)
+`web home (listing=home)` · URL 타깃 `home` · 롤아웃 50%(의도적 A/B, 최대 채널에서 맞춤 문안 효과 첫 측정) · 무기한 · en-US·ko-KR·ja-JP 3개 언어 새로 씀 · **14개 언어 항목 Changes in review**
+
+**활성화에 남은 한 줄** `src/lib/marketing/storeRedirect.ts` 의 `playUrlWithReferrer()`(39~44행)에 `from` 이 맞춤 등록정보 목록에 있으면 `&listing=<from>` 을 붙인다. 지금은 웹 코드 무수정 안전선이라 손대지 않았다 → **t186**.
+
+## 11. TikTok  ⛔2026-09-18 계정 오류 발견
+**게시는 되지만 계정이 틀렸다.** ego lite 세션은 `@signumhq` 가 아니라 **`@daldalkelly`**(대표 개인·쿠팡 파트너스 살림템 리뷰)다. 2026-08-31 우리 앱 게시물도 그 계정에 있다(68회).
+- **핸들 확정법**: 스튜디오 `tiktokstudio/content` 의 `a[href*="/video/"]` 경로. 패스포트 API 의 `screen_name`(「JY Naru」)·프로필 텍스트·소개 문구는 근거가 안 된다(ENGINE §34).
+- 사진 게시 절차: `tiktokstudio/upload` → **「사진」 탭** → `setInputFiles('input[type=file]', [3장])` → 제목(90) + 본문(4000, contenteditable) → **스크롤 후** 「게시」.
+- 게시 직후 상태는 **「콘텐츠 검토 중 · 나만」** — 「게시물 수 1→2」는 제출 증거이고 공개 증거가 아니다.
+- **대표 확인 필요(t187)**: `@signumhq` 로 로그인 전환 + 개인 계정에 남은 우리 게시물 2건(8/31 공개·9/18 검토중) 처리 방침.
