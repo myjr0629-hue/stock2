@@ -371,6 +371,12 @@
       "tier": "B",
       "enabled": false,
       "note": "★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다"
+    },
+    {
+      "id": "kr_media",
+      "tier": "A",
+      "enabled": false,
+      "note": "★무료. 한국 스타트업 매체 보도자료 — 벤처스퀘어가 FAQ에 「보도자료는 무상 게재를 원칙으로 합니다」를 명문화(editor@venturesquare.net, 접수→검수→게재). 플래텀도 무료(editor@platum.kr + 폼). 스타트업레시피 news@startuprecipe.co.kr. 게재되면 네이버·다음·줌 «뉴스 검색»에 노출된다 → SEO 채널과 직결. 앱스토리는 유료(150~300만원). 뉴스와이어 스타트업 무료지원은 «국내 법인» 한정이라 우리는 대상 아님. 메일 발송은 대표 승인"
     }
   ],
   "candidates": [
