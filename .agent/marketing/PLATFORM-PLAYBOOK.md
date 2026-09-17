@@ -101,3 +101,31 @@
 `node scripts/mkt-clicks.js` **만** 쓴다. 태그 목록을 머리에서 적으면 채널이 통째로 빠진다(`from=home` 412클릭을 21일간 못 셌다).
 이 스크립트는 매번 라이브 HTML 에서 `from=` 을 긁어 channels.json 과 합집합을 만들고, 미등록 태그를 경고한다. 동시 12건·3회 재시도·**못 잰 건수 경고**(실패를 0 으로 삼키면 «없는 채널»이 생긴다).
 날짜는 **ET** 다. UTC 로 물으면 0 이 나온다.
+
+---
+
+## 6. Google Play — 등록정보 수정 (빌드 불필요) ✅2026-09-17 UC 한국어 수리
+**앱스토어와 다르다: Play 는 제목·설명을 빌드 없이 바꿀 수 있다.**
+1. `/app/<id>/main-store-listing`
+2. **언어 전환은 URL 파라미터로 안 된다**(`?language=ko-KR`·`?lang=ko-KR` 모두 무시). 화면 상단의 `Default – English (United States) – en-US` 드롭다운을 **실제 클릭**해서 `Korean – ko-KR` 을 고른다. 사이드바의 `Translations` 는 다른 것이다.
+3. 필드는 폭 200 이상 + 값이 있는 input 순서로 [제목, 짧은 설명], textarea 가 전체 설명.
+4. **덮어쓰기 전에 원문 길이를 읽고 기록한다**(Uptodown 설명 1,306자를 정렬 실수로 날린 적이 있다).
+5. 입력은 실제 클릭 → `End` → `Backspace` 반복 → `Input.insertText`. **`Cmd+A` 는 쓰지 말 것**(입력칸이 아니라 페이지를 잡는다).
+6. `Save` → `Publishing overview` → `Submit N changes for review` → `Send changes for review`.
+
+### 설치·유입 데이터를 읽는 곳 (애플 API 가 막혀도 여기는 된다)
+- **활성 설치**: 앱 목록 화면 `Installed audience` 열
+- **유입 경로별 취득**: `/app/<id>/grow-overview` → `Show details for Device acquisitions` 클릭 → `Google Play explore / Paid and direct / Not attributed` 별 수치. **없는 행이 가장 중요하다**(Play search 행이 없으면 검색 설치 0)
+- **스토어 전환율**: 같은 화면 `Your conversion rate is NN%` — **앱별로 따로 본다**(UC 22% 가 SIGNUM 60% 에 묻혀 있었다)
+- 기간 기본값은 `Last 28 days`
+
+---
+
+## 7. Uptodown (서드파티 스토어) ✅2026-09-17 Claim 티켓
+계정 = **개인** myjr0629 (GitHub OAuth). 콘솔 `uptodown.dev` → `/apps`
+- 앱 상태를 **화면에서 직접 본다.** 우리 기록의 「3/3 제출 완료」는 허수였다(실제: UC=REJECTED · WIM=DRAFT · SIGNUM 없음).
+- `CLAIM OWNERSHIP` 은 셀프서비스인데 우리에겐 비어 있다(「There are no organizations available to claim」) → `Contact Us` 로 간다.
+- 티켓 양식: `select[name=ticketTypes]`(Issue/Request/**Claim**) · `input[name=ticketSubject]` · `textarea[name=ticketMessage]` · `input[type=file]`(accept=*)
+- **본문 줄바꿈**: `Input.insertText` + Enter 키로는 줄바꿈이 사라진다(한 덩어리가 된다). **평범한 textarea 는 `page.fill` 을 쓴다** — 24줄이 그대로 들어간다.
+- 첨부는 `setInputFiles` 로 된다. Play 콘솔 앱 목록 스크린샷 1장이면 소유권 증빙으로 충분하다(개발자 계정 ID + 3앱 + 패키지명이 한 화면에 나온다).
+- **한계**: 티켓 목록 화면이 없다(`/tickets`·`/support` 404). 접수 확인은 `/notifications` 의 회신으로만 된다 → 「보냈다」와 「접수됐다」를 구분해 적는다.

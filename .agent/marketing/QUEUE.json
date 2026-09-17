@@ -2058,11 +2058,11 @@
       "type": "mkt",
       "region": "ALL",
       "prio": 1,
-      "state": "todo",
+      "state": "done",
       "tries": 0,
       "created": "2026-09-17T08:50:00.000Z",
       "title": "★Uptodown 소유권 확인 티켓 — 이것 하나로 UC·WIM 둘 다 풀린다 (내가 처리)",
-      "detail": "Uptodown 알림에서 확보한 반려 사유 원문: 「Please, confirm that you are the app owner or have its distribution rights. We kindly ask you to submit a ticket to our support team from our Developers Console, and attach a screenshot showing the app in your Google Play developer account.」\nUC(2026-08-24)·WIM(2026-08-26) 둘 다 같은 사유다. 설명·스크린샷·파일 문제가 아니었다.\n할 일: uptodown.dev 의 Contact Us 에서 지원 티켓 1건 + Play Console 에 앱이 보이는 스크린샷 첨부. 로그인은 GitHub OAuth 로 이미 된다(비밀번호 불필요).\n주의: Play Console 이 본문을 렌더하지 않는 문제가 있어 스크린샷 확보가 관문이다. 앱 목록 페이지(/app/<id>/tracks/production)가 아니라 전체 앱 목록 화면이면 충분할 수 있다.\n그리고 SIGNUM 은 Uptodown 에 아예 없으니 같은 기회에 신규 등록한다. APK 는 /tmp/aab/signum-release.apk (17.0MB) 준비됨."
+      "detail": "Uptodown 알림에서 확보한 반려 사유 원문: 「Please, confirm that you are the app owner or have its distribution rights. We kindly ask you to submit a ticket to our support team from our Developers Console, and attach a screenshot showing the app in your Google Play developer account.」\nUC(2026-08-24)·WIM(2026-08-26) 둘 다 같은 사유다. 설명·스크린샷·파일 문제가 아니었다.\n할 일: uptodown.dev 의 Contact Us 에서 지원 티켓 1건 + Play Console 에 앱이 보이는 스크린샷 첨부. 로그인은 GitHub OAuth 로 이미 된다(비밀번호 불필요).\n주의: Play Console 이 본문을 렌더하지 않는 문제가 있어 스크린샷 확보가 관문이다. 앱 목록 페이지(/app/<id>/tracks/production)가 아니라 전체 앱 목록 화면이면 충분할 수 있다.\n그리고 SIGNUM 은 Uptodown 에 아예 없으니 같은 기회에 신규 등록한다. APK 는 /tmp/aab/signum-release.apk (17.0MB) 준비됨.\n\n[2026-09-17 22:5x ✅제출] Uptodown 개발자 콘솔에 **Claim 티켓 발송.** 로그인 상태였다(myjr0629-hue).\n**실제 상태는 기록과 달랐다**: UC=REJECTED · WIM=**DRAFT**(알림에는 08/26 반려 기록이 있다) · **SIGNUM 은 아예 없다**. 「3/3 제출 완료」는 허수였다.\n`CLAIM OWNERSHIP` 셀프서비스는 「There are no organizations available to claim」 → 안내대로 Contact Us 로 갔다.\n티켓: 유형 **Claim** · 제목 「Ownership verification: Undercurrent (rejected) and Why'd It Move? Stock Quiz」 · 본문 1,139자 24줄 · **첨부 = Play 콘솔 앱 목록 스크린샷**(개발자 계정 ID 4769683602295618218 + 3앱 + 패키지명이 한 화면에). SIGNUM 신규 등록도 같은 티켓에서 요청했다.\n**검증 한계**: 양식이 오류 없이 닫혔지만 이 콘솔에 «티켓 목록» 화면이 없어(/tickets·/support 404) 접수를 독립적으로 확인하지 못했다. 회신을 알림에서 확인한다."
     },
     {
       "id": "t163",
@@ -2084,7 +2084,7 @@
       "tries": 0,
       "created": "2026-09-17T08:45:00.000Z",
       "title": "서드파티 스토어 «등재 여부»를 브라우저로 확인 — curl 로는 판정 불가",
-      "detail": "기록에 「APKPure 3/3 제출 완료 · Softonic 3/3 심사중」이라고만 있고 **실제 등재를 한 번도 확인한 적이 없다.**\n2026-09-17 curl 시도 결과: APKPure 는 패키지 경로 3개 모두 **403**(봇 차단) · Softonic 검색 **빈 응답** · Uptodown 공개 페이지 3개 모두 **404**(REJECTED 상태와 일치) · DuckDuckGo HTML 도 빈 응답이라 검색엔진 우회도 막혔다.\n→ **브라우저로 확인해야 한다.** 서드파티 스토어는 «클릭»이 아니라 «설치»가 직접 발생하는 유일한 채널이라 생존 확인이 중요하다. 등재돼 있으면 클릭 표에 안 잡히는 설치가 있다는 뜻이고, 안 돼 있으면 지금까지의 «제출 완료» 기록이 허수다."
+      "detail": "기록에 「APKPure 3/3 제출 완료 · Softonic 3/3 심사중」이라고만 있고 **실제 등재를 한 번도 확인한 적이 없다.**\n2026-09-17 curl 시도 결과: APKPure 는 패키지 경로 3개 모두 **403**(봇 차단) · Softonic 검색 **빈 응답** · Uptodown 공개 페이지 3개 모두 **404**(REJECTED 상태와 일치) · DuckDuckGo HTML 도 빈 응답이라 검색엔진 우회도 막혔다.\n→ **브라우저로 확인해야 한다.** 서드파티 스토어는 «클릭»이 아니라 «설치»가 직접 발생하는 유일한 채널이라 생존 확인이 중요하다. 등재돼 있으면 클릭 표에 안 잡히는 설치가 있다는 뜻이고, 안 돼 있으면 지금까지의 «제출 완료» 기록이 허수다.\n\n[2026-09-17 22:5x 부분 확인] Uptodown 은 콘솔에서 직접 봤다: UC=REJECTED · WIM=DRAFT · SIGNUM 없음. **기록의 「3/3 제출 완료」는 사실이 아니었다.** APKPure·Softonic 은 아직 미확인."
     },
     {
       "id": "t165",
@@ -2195,6 +2195,17 @@
       "created": "2026-09-17T13:25:00.000Z",
       "title": "UC·WIM 앱스토어 ASO — 심사 통과 «직후» 처리 (지금은 WAITING_FOR_REVIEW 라 잠김)",
       "detail": "2026-09-17 ASC API 실측:\n· **UC ko 이름** `언더커런트: AI 주식 뉴스 캘린더` — 「미국」 0회. ko 키워드는 64/100자로 **36자가 빈다**(서학개미 없음).\n· **WIM ko 이름** `Why'd It Move? 서학개미 미국주식 퀴즈` — 이미 최적. ko 키워드 76/100, 이름에 있는 말은 중복 안 넣는다(§24).\n둘 다 지금 `WAITING_FOR_REVIEW`(UC 1.0.7 · WIM 1.0.4 — 앱 복귀 버그 수정분)이라 메타데이터가 잠겨 있다. 심사에서 빼면 버그 수정 배포가 늦어지므로 **건드리지 않는다.**\n**트리거**: 두 앱이 READY_FOR_SALE 이 되는 순간 → UC 는 이름에 미국주식 + 키워드 36자에 서학개미·프리마켓·실적발표일정 추가. 애플은 이름 변경에 새 빌드가 필요하므로 다음 버전에 태운다."
+    },
+    {
+      "id": "t175",
+      "type": "ceo",
+      "region": "KR",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T13:55:00.000Z",
+      "title": "★삼성 갤럭시 스토어 + ONE스토어 개발자 등록 — Play 검색 설치가 «0» 이라서 필요하다",
+      "detail": "오늘 Play 콘솔 실측: SIGNUM 28일 취득 9건의 경로가 **탐색 4 · 광고+직접 4 · 미귀속 1** 이고 **「Google Play search」 행이 아예 없습니다 — 검색 설치 0.** 반면 스토어 등록정보 전환율은 60.61% 로 좋습니다.\n즉 **등록정보 문제가 아니라 «앞에 서는 것»이 문제**입니다. 그래서 검색에 의존하지 않는 **기본 탑재 스토어**가 답입니다.\n1. **삼성 갤럭시 스토어** — https://seller.samsungapps.com (무료). 한국 안드로이드 기기 대부분에 기본 설치. 서드파티 스토어와 달리 «소유권 심사»가 아니라 개발자 등록이라 Uptodown 같은 반려 루프가 없습니다.\n2. **ONE스토어** — https://dev.onestore.co.kr (SK·KT·LGU+ 합작, 한국 전용, 통신사 기본 탑재)\n가입만 해 주시면 AAB/APK 업로드·등록정보·심사 제출은 전부 제가 합니다. **비밀번호는 적지 마세요.**"
     }
   ]
 }
