@@ -2085,6 +2085,17 @@
       "created": "2026-09-17T08:45:00.000Z",
       "title": "서드파티 스토어 «등재 여부»를 브라우저로 확인 — curl 로는 판정 불가",
       "detail": "기록에 「APKPure 3/3 제출 완료 · Softonic 3/3 심사중」이라고만 있고 **실제 등재를 한 번도 확인한 적이 없다.**\n2026-09-17 curl 시도 결과: APKPure 는 패키지 경로 3개 모두 **403**(봇 차단) · Softonic 검색 **빈 응답** · Uptodown 공개 페이지 3개 모두 **404**(REJECTED 상태와 일치) · DuckDuckGo HTML 도 빈 응답이라 검색엔진 우회도 막혔다.\n→ **브라우저로 확인해야 한다.** 서드파티 스토어는 «클릭»이 아니라 «설치»가 직접 발생하는 유일한 채널이라 생존 확인이 중요하다. 등재돼 있으면 클릭 표에 안 잡히는 설치가 있다는 뜻이고, 안 돼 있으면 지금까지의 «제출 완료» 기록이 허수다."
+    },
+    {
+      "id": "t165",
+      "type": "ceo",
+      "region": "ALL",
+      "prio": 2,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T09:40:00.000Z",
+      "title": "GitHub 데이터셋 저장소 쓰기 토큰 — 이것만 있으면 일일 커밋이 완전 자동이 된다",
+      "detail": "데이터셋 저장소(`myjr0629-hue/options-market-structure-daily`)에 **클론은 되는데 푸시가 403** 이다. 오류 원문: 「Permission to myjr0629-hue/options-market-structure-daily.git denied to myjr0629-hue」 — 자격은 맞는 사용자로 해석되는데 **이 저장소에 쓰기 권한이 없다**(fine-grained PAT 범위 밖이거나 repo 스코프 누락).\n그래서 지금은 매일 웹 업로드 페이지로 파일 2개를 올려야 하고, 그게 브라우저에 묶여 있다.\n필요한 것: 이 저장소 하나에 **Contents: Read and write** 권한을 가진 fine-grained PAT. GitHub → Settings → Developer settings → Personal access tokens → Fine-grained → Repository access 에서 이 저장소만 선택.\n토큰을 `.env.local` 에 `GITHUB_DATASET_TOKEN=` 으로 넣어 주시면 제가 일일 커밋을 완전 자동화한다. **토큰 값을 대화에 붙여넣지 마시고 파일에만 넣어 주세요.**\n지금 상태: 오늘치 스냅샷(2026-09-17, 12종목)과 CC BY 4.0 LICENSE 파일을 `/tmp/omsd` 에 커밋까지 해 뒀다. 토큰이 생기거나 브라우저가 열리면 즉시 올라간다."
     }
   ]
 }

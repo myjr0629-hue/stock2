@@ -6730,3 +6730,28 @@ SIGNUM 릴리스 APK(17.0MB)를 `/tmp/aab/signum-release.apk` 에 준비해 뒀�
 ### 확장 1건 — 등록 44 → 45
 **`google_dataset_search` (t163)**: 구글 데이터셋 검색은 schema.org `Dataset` 구조화 데이터로 색인되는데, **우리 티커 페이지가 이미 그걸 싣고 있다**(실측: name·description·license·creator·url·isAccessibleForFree). 빠진 것은 구글이 권장하는 **`distribution`**(DataDownload + contentUrl + encodingFormat)이라 「다운로드 없는 데이터셋」으로 취급된다.
 **레버리지가 크다**: 템플릿 한 곳을 고치면 **2,228종목 × 3로케일 = 6,768 URL 이 동시에** 대상이 된다. 경쟁도 거의 없다(허깅페이스에서 「options flow」 검색 결과가 0건인 것과 같은 빈 니치). 웹 코드 변경이라 대표 한마디가 필요하다.
+
+
+## 사이클 — 2026-09-17 18:36~19:0x KST · ✅ 1위 채널에 직접 밀었다 (브라우저 없이)
+
+`slot` 배정: 실행 tiktok·seo·aso·discord_usstock / 뚫기 okky·geeknews / 확장 1. 게이트 341건 0실패.
+브라우저는 여전히 대표님 제어 하에 있다(읽기 프로브도 hard stop 반환). 규칙대로 되찾지 않았다. **그래서 브라우저 없이 되는 일을 찾아서 «실제 작업»을 했다.**
+
+### ✅ IndexNow 전량 제출 — SEO 채널, 6,768/6,768 접수
+`node scripts/indexnow-submit.js` → **7배치 전부 HTTP 200, 6,768건 전량 접수.**
+이게 지금 가장 값어치 있는 이유 세 가지다.
+1. **SEO 가 우리 클릭 1위 채널**이다(21일 141클릭·39.5%). 그 채널에 직접 미는 작업이다.
+2. IndexNow 는 **네이버에 전달된다**(Bing·Yandex·Seznam·Naver). 네이버가 우리 한국 SEO 표면이고, 「사이트 등록 절차는 없다」는 게 확인된 상태라 «미는 것»이 유일한 능동 수단이다.
+3. **티커 페이지가 3일 묵은 데이터를 주고 있는 상태**(t153)에서 사이트맵 lastmod 는 09-16 을 말한다 → 엔진에 «지금 다시 와서 보라»고 통보하는 것이 재크롤을 당긴다.
+구글은 IndexNow 미참여라 sitemap + GSC 담당이다. 이건 교리에 이미 적혀 있다.
+
+### 데이터셋 일일 커밋 — 푸시 403 을 «검증»했다 (t165)
+스크립트가 「no push token on this machine」이라고 주장하는데, 믿지 않고 직접 확인했다. **클론은 되고 푸시는 403** 이다.
+오류 원문: 「Permission to myjr0629-hue/options-market-structure-daily.git denied to myjr0629-hue」 — 자격이 맞는 사용자로 해석되는데 **이 저장소에 쓰기 권한이 없다**(fine-grained PAT 범위 밖).
+그동안 해 둔 것: 오늘치 스냅샷(2026-09-17, **12/12 종목 ok**)과 **CC BY 4.0 LICENSE 파일**을 만들어 `/tmp/omsd` 에 커밋까지 해 뒀다. LICENSE 에는 FINRA 가 요구하는 귀속 문구(「OTC Transparency data is provided via ... and is copyrighted by FINRA 2026」)와 「투자자문이 아니다」 면책을 넣었다.
+**연구팀이 지적한 결함이 사실이었다**: README 는 CC BY 4.0 을 선언하는데 **LICENSE 파일이 없어서** GitHub API 가 `license: None` 을 보고한다. 데이터셋 신뢰도와 구글 데이터셋 검색 자격에 모두 불리하다. 이제 파일이 있다.
+**영구 해법**: 이 저장소 하나에 Contents 쓰기 권한을 가진 fine-grained PAT 하나면 일일 커밋이 완전 자동이 된다 → t165. **토큰 값은 대화에 붙이지 말고 `.env.local` 에만** 넣어 주시면 된다.
+
+### 배정 4채널 미처리 사유
+tiktok·aso·discord_usstock 은 전부 브라우저가 필요하다. seo 는 **처리했다**(위 IndexNow). 뚫기 okky·geeknews 도 브라우저가 필요하다.
+브라우저가 열리면 순서: ①Uptodown 소유권 티켓 ②서드파티 스토어 등재 확인(t164) ③한국 보도자료 3곳 ④일본 매체 3곳 ⑤WIM 안드로이드 ⑥데이터셋 웹 업로드.
