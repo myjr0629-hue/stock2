@@ -130,3 +130,29 @@ node scripts/audit-expiration-selection.js --live   # ② 발행 게이트
 **기록 규칙**: 사이클마다 «한 일 · 결과 · 개선사항»을 `OUTREACH-LOG.md` 에 남긴다. 실패도 남긴다.
 판정이 뒤집히면 새 글을 쓰지 말고 **원래 판정을 고친다**(§20·§21·§22 가 그렇게 만들어졌다).
 같은 실수를 두 번 하면 그건 기록의 실패다 — 위 4절에 항목을 추가한다.
+
+---
+
+## 9. Play 콘솔 실무 — 2026-09-17 에 알아낸 것 (이것 없이는 WIM 에서 두 사이클 헤맸다)
+
+**① 콘솔 내용은 «섀도 DOM» 안에 있다.** `document.body.innerText` 로 읽으면 700~2,800자만 보이고 릴리스 표가 «없는 것처럼» 보인다. 반드시 딥 워커로 읽는다:
+```js
+const walk=(root,acc)=>{const k=root.querySelectorAll?root.querySelectorAll('*'):[];for(const e of k){if(e.shadowRoot)walk(e.shadowRoot,acc);acc.push(e);}return acc;};
+```
+딥 워커로 세면 같은 페이지가 **요소 2,200개**다. 「콘솔이 고장났다」는 내 판단은 오진이었다.
+
+**② 좌표 클릭보다 `element.click()` 이 확실하다.** ego 창이 흰색으로 그려질 때가 있어 좌표 클릭이 허공에 떨어진다. 딥 워커로 요소를 찾아 `.click()` 을 부르면 렌더링 상태와 무관하게 먹는다.
+
+**③ 초안이 있으면 「Create new release」는 «무효»다.** 클릭은 되는데 이동이 없다. 그때는 **Releases 탭 → 「Edit release」** 로 들어간다. 이게 유일한 문이다.
+
+**④ 실제 트랙 ID (프로덕션)**
+| 앱 | Play 앱 ID | 프로덕션 트랙 ID |
+|---|---|---|
+| SIGNUM | 4974871698649706116 | (미확인) |
+| Undercurrent | 4976096296089482490 | 4698411096118275380 |
+| **WIM** | 4974011153222225088 | **4697728196667220385** |
+편집 URL 형식: `/app/<앱ID>/tracks/<트랙ID>/releases/<n>/prepare`
+
+**⑤ 저장은 제출이 아니다.** `Save` 뒤 `/publishing` 에서 **「Submit N change for review」 → 대화상자의 「Send changes for review」** 까지 눌러야 `Changes in review` 가 된다. 겉 버튼만 누르면 그대로 대기다.
+
+**⑥ ego 재시작은 함부로 하지 말 것.** 작업공간 번호가 초기화되고 `listTaskSpaces()` 가 빈 배열이 된다. 그때는 `newTaskSpace('mkt','Profile 1')` 로 만든다(인자 2개 필수 — 없으면 실패).
