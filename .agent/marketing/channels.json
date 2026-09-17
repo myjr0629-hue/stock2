@@ -378,7 +378,7 @@
       "tier": "B",
       "enabled": true,
       "note": "★2026-09-18 **개인 계정으로 가입돼 있었다**(회사 계정 아님). 대표가 로그인해 두고 내가 관리한다. **GitHub 가입 경로는 없다**(대표 확인 — 내 오독 정정). ★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다",
-      "account": "개인 계정 (myjr0629 계열) — 대표가 로그인해 둠"
+      "account": "eunhoon (myjr0629@gmail.com · 개인) — 2026-09-18 whoami 확인"
     },
     {
       "id": "kr_media",
