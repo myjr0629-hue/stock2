@@ -342,7 +342,7 @@
       "id": "discord_usstock",
       "tier": "C",
       "enabled": false,
-      "note": "일본 «米国株村» discord.gg/usstock ~956명. 규칙은 «영리목적 행동(제휴링크·광고)» 금지 — 도구 논의는 금지 아님. 미국주식+파이썬 실사용자, 우리 도메인과 정확 일치. 참여 후에만 언급, 콜드 링크 금지"
+      "note": "일본 «米国株村» discord.gg/usstock — **2026-09-17 실측: 멤버 2,448명 · 온라인 86명**(이전 기록 956명은 낡은 값이라 정정). 규칙은 «영리목적 행동(제휴링크·광고)» 금지 — 도구 논의는 금지 아님. **초대 페이지가 «계정 만들기» 폼(별명+생년월일)을 띄운다 → Discord 계정이 없어 가입 필요.** 실화면으로 확인했다."
     },
     {
       "id": "hatena_bookmark",
@@ -391,6 +391,12 @@
       "tier": "A",
       "enabled": false,
       "note": "★무료. App Store 맞춤 제품 페이지(CPP) + «키워드 할당». 2025-07-30 부터 CPP 가 광고뿐 아니라 «유기 검색 결과»에도 나온다 — 우리 100자 키워드 필드의 특정 단어를 지정 CPP 에 묶으면 그 검색에서 기본 페이지 대신 그 페이지가 뜬다. 2025-10-29 에 상한이 35→70개로 올랐다. 한 키워드는 하나의 CPP 에만 묶을 수 있다(중복하면 반려). CPP 마다 심사 필요(24~48h). ASC → App Store → 맞춤 제품 페이지 → 키워드 할당"
+    },
+    {
+      "id": "android_alt_stores",
+      "tier": "B",
+      "enabled": true,
+      "note": "★계정 없이 제출 가능한 경로가 있다. APKPure 는 blueimp 업로더가 jQuery 이벤트를 듣기 때문에 계정 없이 제출이 된다(기록됨). Uptodown·Aptoide·APKCombo 는 미시도. Softonic 은 «invalid-apk-signature» 로 반려되는데 진짜 원인은 패키지명으로 Play 를 조회해 인증서를 대조하는 것 — Play 서명 APK 가 필요하다. 서드파티 스토어는 설치가 직접 발생하므로 «클릭»이 아니라 «설치» 채널이다. AAB 가 아니라 APK 가 필요하니 bundletool 또는 assembleRelease 로 별도 산출."
     }
   ],
   "candidates": [
