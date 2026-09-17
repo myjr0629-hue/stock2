@@ -2044,14 +2044,14 @@
     },
     {
       "id": "t161",
-      "type": "ceo",
+      "type": "mkt",
       "region": "ALL",
       "prio": 1,
       "state": "todo",
       "tries": 0,
       "created": "2026-09-17T08:10:00.000Z",
-      "title": "★WIM 안드로이드 — 콘솔에서 3번 클릭만 남았습니다 (30초)",
-      "detail": "AAB 빌드·수정 확인·업로드·초안 저장까지 제가 다 했습니다. 남은 것은 콘솔 클릭 3번입니다.\nURL: https://play.google.com/console/u/0/developers/4769683602295618218/app/4974011153222225088/tracks/4697728196667220385/releases/3/prepare\n① Next ② Save ③ Publishing overview → Submit 1 change for review → 대화상자 Send changes for review\n제가 Next 를 클릭하면 클릭은 먹는데(Next:ok) 화면이 안 넘어갑니다. Play 검증이 막는 것으로 보이는데 오류 메시지를 찾지 못했습니다. 릴리스 노트가 필수일 가능성이 있습니다.\n상세는 .agent/marketing/WIM-ANDROID-HANDOVER.md"
+      "title": "WIM 안드로이드 마지막 3클릭 — 내 일이다 (대표 목록에서 뺐다)",
+      "detail": "AAB 빌드·수정 확인·업로드·초안 저장까지 제가 다 했습니다. 남은 것은 콘솔 클릭 3번입니다.\nURL: https://play.google.com/console/u/0/developers/4769683602295618218/app/4974011153222225088/tracks/4697728196667220385/releases/3/prepare\n① Next ② Save ③ Publishing overview → Submit 1 change for review → 대화상자 Send changes for review\n제가 Next 를 클릭하면 클릭은 먹는데(Next:ok) 화면이 안 넘어갑니다. Play 검증이 막는 것으로 보이는데 오류 메시지를 찾지 못했습니다. 릴리스 노트가 필수일 가능성이 있습니다.\n상세는 .agent/marketing/WIM-ANDROID-HANDOVER.md\n\n[2026-09-17 21:2x 재분류] 대표 지적: 「이것같은경우 니가 다 했었자나」 — 맞다. AAB 빌드·수정 확인·업로드·초안 저장·릴리스 노트까지 내가 다 했고, 그런데 막힌 3클릭을 «대표 할 일»로 적어 올렸다. 내 오분류다. 대표 목록에서 제거했다.\n우회로도 추측 말고 찾아서 확인했다: **Play Publisher API 자격이 이 기계에 없다** — 서비스 계정 JSON 0건(`~/.config/gcloud`·저장소·Documents 전수), `gcloud` 미설치, `.env.local` 에 ANDROID_PUBLISHER/PLAY_* 키 없음. 그래서 콘솔이 유일한 문이고, 브라우저가 열리는 즉시 내가 끝낸다. AAB 는 `/tmp/aab/wim-1.0.4-4.aab` 에 그대로 있다."
     },
     {
       "id": "t162",
@@ -2140,6 +2140,28 @@
       "created": "2026-09-17T12:05:00.000Z",
       "title": "측정기가 조용히 0을 보고했다 — 재시도·동시성 제한을 넣었다 (재발 방지 완료분 기록)",
       "detail": "`scripts/mkt-clicks.js` 를 처음 돌렸을 때 `home` 이 **412 → 140** 으로 나왔다. 같은 키, 같은 날짜, 다른 답이다.\n원인: 51태그 × 21일 = **1,071건을 동시에** 던지자 프록시가 일부를 거절했고, `.catch(() => 0)` 이 그 실패를 «0클릭»으로 바꿨다.\n고침: 동시 12건 제한 + 3회 재시도 + **못 잰 건수를 화면에 찍고 「아래 숫자는 하한이다」라고 경고**. 실패를 0 과 구분한다(null).\n**교리**: 같은 키를 두 번 재서 다른 답이 나오면 숫자가 아니라 «측정기»를 의심한다. 이건 URL 전역 클래스를 가려 fetch 가 조용히 죽었던 사고와 같은 종류다."
+    },
+    {
+      "id": "t170",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T12:25:00.000Z",
+      "title": "★★Play Publisher API 서비스 계정 — 콘соль 렌더 문제를 «종류째로» 없앤다 (사례 아니라 종류)",
+      "detail": "Play 콘솔은 두 달 동안 반복해서 병목이었다: 스크린샷 업로드(에셋 라이브러리로 우회), 커스텀 스토어 목록(미착수), 그리고 지금 WIM 릴리스 제출 — **클릭은 먹는데 릴리스 편집 영역이 레이아웃을 안 받아** 화면이 안 넘어간다(1,835요소 중 969개 size 0).\n매번 우회로를 찾는 대신 **문을 하나 만든다.** Google Play Android Publisher API 는 릴리스 생성·AAB 업로드·트랙 배정·**심사 제출**·스토어 목록 수정을 전부 REST 로 한다. 브라우저 렌더에 의존하지 않으므로 이 병목이 «종류째로» 사라진다.\n\n**설정 절차(1회, 약 10분 · 브라우저 필요)**\n1. Google Cloud Console → 프로젝트 생성 → **Google Play Android Developer API** 활성화\n2. 서비스 계정 생성 → JSON 키 발급 → `~/.appstoreconnect/` 옆에 `~/.playconsole/service-account.json` 로 저장\n3. Play Console → 설정 → **API 액세스** → 그 서비스 계정을 연결 → 권한: 「릴리스 관리」 + 「스토어 등록정보 관리」\n4. `.env.local` 에 `PLAY_SERVICE_ACCOUNT_JSON=~/.playconsole/service-account.json`\n**주의**: 서비스 계정 JSON 도 비밀이다 — 대화에 붙여넣지 않고 파일로만 둔다.\n설정만 되면 이후 3앱 × 모든 Play 작업이 스크립트로 간다. 지금 막힌 WIM 3클릭도 API 로 `edits.commit` 한 번이다.\n**교리 근거**: 「사례가 아니라 종류를 고친다」(대표 지시 2026-09-04)."
+    },
+    {
+      "id": "t171",
+      "type": "mkt",
+      "region": "KR",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T12:30:00.000Z",
+      "title": "네이버 지식iN 첫 3편 — 문안 완성, 브라우저만 기다린다",
+      "detail": "대표 확인: 계정 **가입 완료**. 네이버는 우리가 들어갈 수 있는 **유일한 무게이트 문**이다(블로그·카페는 등급·승인 벽, VIEW 탭은 2024-02-01 폐지).\n`.agent/marketing/press/READY-네이버지식iN.md` 에 3편 확정: ①미국 주식 실적발표 일정(우리 최강 축 — 앱스토어 「실적 발표 일정」 #1) ②프리마켓 확인(기준가 불일치라는 실제 함정을 씀) ③서학개미 정보 출처(얇은 문 — 앱스토어 결과 14개뿐).\n규칙은 레딧·Quora 에서 배운 것을 그대로: **본문 무링크**(네이버는 자기링크를 광고로 신고받는다) · 앱 이름 0~1회 · 무응답 질문 우선 · 예측·권유 표현 0 · 하루 1편 · **24시간 뒤 생존 확인**."
     }
   ]
 }
