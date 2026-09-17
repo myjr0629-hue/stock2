@@ -6380,3 +6380,21 @@ Medium·Quora 의 AI 정책 URL 을 4개 추측해 넣었는데 **전부 404** �
 
 ### 이번 사이클 발행 계상
 Medium 기존 글 **수정**(신규 발행 아님)이라 원장 캡에 계상하지 않았다. 레딧은 오늘 3/3 소진, quora_en·quora_space·directories 도 소진 상태였다.
+
+### t152 완료 — Medium 8편 전부 표시 부착, 8/8 공개 검증
+같은 사이클 안에서 백필까지 끝냈다. 반쯤 하고 넘기지 않았다.
+
+| 글 | 본문 길이 | 이미지 | 표시 |
+|---|---|---|---|
+| 959a679d4617 (Fed day dealer positioning) | 2,811 | 3 | ✅ |
+| 7d7975f01322 (two telecoms puts) | 5,993 | 2 | ✅ |
+| 24ea8f80c17c (what dark pool measures) | 5,712 | 2 | ✅ |
+| af4691c653cf (11 rankings, two lying) | 2,913 | 2 | ✅ |
+| ea9c8562284c (AAPL market dynamics) | 6,260 | 7 | ✅ |
+| 1f9633307bf6 (미국 시장 전체를 무료 앱 하나로) | 1,243 | 3 | ✅ |
+| 98342a04b146 (헤지는 지수에 콜은 개별주에) | 2,326 | 2 | ✅ |
+| aa4769e54597 (지수는 풋 개별주는 콜) | 1,964 | 2 | ✅ |
+
+로케일을 맞췄다 — EN 4편은 「Written with AI assistance. All data and measurements are our own, taken from live market feeds on the date shown.」, KR 3편은 「이 글은 AI 의 도움을 받아 작성했습니다. 모든 수치와 측정값은 표기된 날짜의 실시간 시장 데이터에서 직접 산출한 자체 자료입니다.」
+**이미지가 전부 보존됐다**(2~7장). 편집으로 본문이 깨지지 않았다는 확인이다.
+7편 일괄 처리는 120초를 넘겨 백그라운드로 돌렸다 — ego 로 여러 글을 편집할 때는 처음부터 백그라운드로 보내고 출력 파일을 폴링하는 편이 낫다.
