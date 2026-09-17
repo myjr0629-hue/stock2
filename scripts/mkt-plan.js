@@ -18,7 +18,7 @@ const save = (o) => fs.writeFileSync(LEDGER, JSON.stringify(o, null, 1));
 
 // 채널 규칙: cap 은 «하루 몇 편», day 는 캡을 재는 달력(kst | utc), window 는 KST 시간대(열림~닫힘)
 const CH = {
-  dcinside:    { cap: 1, day: 'kst', window: [9, 24], note: '계정 불필요(유동닉). 링크·앱명 절대 금지 — 측정값만. 미국주식옵션갤(untie) 우선' },
+  dcinside:    { cap: 0, day: 'kst', window: [9, 24], note: '⛔관리 제외(검증) — 글쓰기 화면에 password 입력란 실재. 안전선 「비밀번호 입력 금지」 위반. 대표 전용' },
   okky:        { cap: 1, day: 'kst', window: [9, 24], note: '★계정 필요. /events/promote 는 «무료 서비스 전용» 홍보판이라 우리가 정확히 해당' },
   geeknews:    { cap: 1, day: 'week', window: [9, 24], note: '★계정 필요. 자작 앱은 반드시 [Show] 태그. 가입 7일 대기. 1회성 — 남발 금지' },
   fmkorea:     { cap: 1, day: 'kst', window: [9, 24], note: '★계정 필요. 주식게시판 해외주식 하위. 포인트 게이트 있음 — 댓글부터' },
@@ -34,6 +34,7 @@ const CH = {
   reddit:      { cap: 3, day: 'utc', window: [0, 24], note: '무링크·무앱명·같은 스레드 중복 금지·8분 간격 · ⛔AI작성 금지 서브 제외: r/options·r/StockMarket·r/investing·r/iosapps · r/Daytrading 제외' },
   hf_datasets: { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 깃허브 데이터셋 미러 → 구글 데이터셋 검색 색인. 금융 니치가 비어 있다(검색 0건)' },
   mybest_jp:   { cap: 1, day: 'week', window: [0, 24], note: '편집 큐레이션. 신청 경로 미공개 → 문의는 대표 승인. 기사에 붙은 구글폼은 «신고»용이니 쓰지 말 것' },
+  play_custom_listings: { cap: 1, day: 'week', window: [0, 24], note: '★무료·자격 게이트 없음. Play 검색 키워드로 타깃되는 맞춤 스토어 등록정보(앱당 50개). 한 국가당 하나·저장≠제출' },
   apple_iap_events: { cap: 1, day: 'week', window: [0, 24], note: '★검색 결과에 «별도 행»을 얻는 유일한 무료 수단. 날짜 박힌 시장 이벤트만(반복 일상 과제는 반려). ASC API 로 크론화' },
   macrumors:   { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 앱당 스레드 «하나»만, 영구. 업데이트는 그 스레드에 이어 쓴다. 새 스레드·범프는 밴' },
   quora_en:    { cap: 1, day: 'utc', window: [0, 24], note: '§11-6 순수 가치·앱명 0~1회·데이터 화면 1장' },
