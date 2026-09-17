@@ -1940,6 +1940,17 @@
       "created": "2026-09-17T02:15:27.585Z",
       "title": "허깅페이스·Kaggle 계정 (대표) — 옵션 데이터 니치가 비어 있다",
       "detail": "실측: 허깅페이스에서 «options flow»·«max pain»·«open interest» 검색 결과가 0건이다. HF 전체 옵션 카테고리가 데이터셋 2개(다운로드 39·13)뿐이고, 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드를 받는다. Kaggle 의 최고 «options flow» 데이터셋은 2022년산에 432 다운로드. 우리는 이미 깃허브에 options-market-structure-daily 를 매일 커밋하고 있어서 미러만 하면 된다. 핵심 이유: HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색»에 잡히는데 깃허브 저장소 페이지는 둘 다 없다 — 새 색인 표면이 생긴다. 계정 생성이 필요해 대표 건."
+    },
+    {
+      "id": "t152",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T02:50:00.000Z",
+      "title": "★Medium 기존 글 7편에 AI 지원 표시 백필 — 지금은 도달이 팔로워(0)로 잘려 있다",
+      "detail": "Medium 정책 원문: 표시가 없으면 금지가 아니라 Network Only 로 배포가 잘린다 — 우리 팔로워가 사실상 0이라 도달 0이다. 9/17 에 1편(959a679d4617)은 붙여서 공개 페이지 검증 완료. 남은 7편: /@signum_hq/미국-시장-전체를-무료-앱-하나로-보는-법-1f9633307bf6 | /@signum_hq/헤지는-지수에-콜은-개별주에-9-18-만기-12종목-미결제약정이-정확히-갈렸다-98342a04b146 | /@signum_hq/지수는-풋-개별주는-콜-같은-날-미국-옵션시장이-정반대로-보이는-이유-aa4769e54597 | /@signum_hq/two-telecoms-doubled-their-put-open-interest-on-the-same-day-7d7975f01322 | /@signum_hq/what-dark-pool-actually-measures-and-why-every-mega-cap-sits-below-the-market-average-24ea8f80c17c | /@signum_hq/i-built-11-daily-stock-rankings-two-of-them-were-quietly-lying-af4691c653cf | /@signum_hq/aapl-market-dynamics-analyzing-smart-flow-momentum-and-institutional-activity-ea9c8562284c . 방법: medium.com/p/<id>/edit → 보이는 contenteditable 중 글자수 최대인 것 선택(숨은 것 2개가 같이 잡히고, 마지막 것을 고르면 x=-9999 빈 요소가 잡혀 실패한다) → Range.selectNodeContents + collapse(false) 로 커서 끝으로 → Enter → execCommand(insertText) → Save and publish. 문구: Written with AI assistance. All data and measurements are our own, taken from live market feeds on the date shown. 사이클당 1~2편씩."
     }
   ]
 }

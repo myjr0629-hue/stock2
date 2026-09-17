@@ -6348,3 +6348,35 @@ KR-Intent-Exact(23개 키워드) 지출 내역: **«프리마켓» 하나가 $9.
 
 ### 확장 1건 — 등록 38 → 39
 **`hf_datasets` — 허깅페이스/Kaggle 데이터셋 (t151)**: 실측으로 **«options flow»·«max pain»·«open interest» 검색 결과가 HF 에서 0건**이다. 옵션 카테고리 전체가 데이터셋 2개(다운로드 39·13)뿐인데, 일반 미국시장 일일 데이터셋 하나는 월 1,899 다운로드를 받는다. 우리는 이미 깃허브에 `options-market-structure-daily` 를 매일 커밋하니 미러만 하면 된다. 핵심 이유는 다운로드가 아니라 색인이다 — **HF·Kaggle 데이터셋 페이지는 schema.org `Dataset` JSON-LD 와 canonical 을 싣고 구글 «데이터셋 검색»에 잡히는데 깃허브 저장소 페이지는 둘 다 없다.**
+
+
+## 사이클 — 2026-09-17 11:16~11:5x KST · AI 작성물 정책 전수 확인에서 죽은 채널의 원인을 찾았다
+
+직전 사이클에서 레딧 4개 서브가 AI 작성 댓글을 금지하는 걸 발견했으니(§18), 이번엔 **우리가 실제로 발행하는 채널을 전수 확인**했다. 두 건이 나왔고 하나는 우리 채널을 조용히 죽이고 있었다.
+
+### 해커뉴스 — 내가 쓸 수 있는 채널이 아니다 (관리 제외로 재분류)
+`newsguidelines.html` 원문: 「Don't post generated text or AI-edited text. HN is for conversation between humans.」
+서브 단위가 아니라 **사이트 전체**이고, 「생성된 텍스트」뿐 아니라 **「AI 가 편집한 텍스트」까지** 금지한다. 나는 LLM 이므로 게시 자체가 규정 위반이다.
+계정은 살아 있다(`signumhq` 로그인 유지·**카르마 1**). 이번 달 스레드 「Ask HN: What are you working on? (September 2026)」(id 49686380 · 371점 · 1,171댓글 · 9/13)도 찾았고 **댓글 폼이 열려 있었다.** 그런데 **올리지 않았다.** 규정을 먼저 읽었기 때문이다.
+→ 「무링크 가치 댓글로 카르마를 쌓는다」는 기존 계획 **폐기**. `hackernews` 를 **관리 제외(대표 전용)** 로 옮겼다. 대표가 직접 쓰는 것은 규정 위반이 아니다. 참고로 조사팀 확인 사실: 2025-01 이후 금융 제목 Show HN 약 83건 중 **30점 넘긴 것이 0건**(최고 26점)이라 Show HN 자체가 애초에 틀린 표면이었다.
+
+### Medium — 「AI 지원 미표시」가 도달을 팔로워(0)로 잘라내고 있었다
+`help.medium.com` 「Artificial Intelligence (AI) content policy」 원문 요지:
+- 「We require that any story incorporating AI assistance be **clearly labeled as such**. **AI-assisted text without a disclosure will similarly be restricted to distribution on the author's personal network.**」
+- 「Undisclosed AI-generated writing will be given **Network Only distribution** … **It is not eligible for wider distribution.**」
+
+**금지가 아니라 도달 0이다.** 우리 Medium 팔로워는 사실상 0이니 Network Only = 아무도 안 본다. **「Medium 에 올렸는데 반응이 없다」의 기계적 원인이 여기 있었다 — 콘텐츠 품질 문제가 아니었다.** 「청중을 요구하는 채널은 전부 같은 방식으로 실패한다」로 분류해 둔 것 중 일부가 실은 이 규정 때문이었다.
+
+**즉시 조치(무료·우리 권한)**: 오늘 글(`959a679d4617`)에 표시를 추가하고 **공개 페이지에서 검증 완료**(hasDisc true, 이미지 3장 유지). 문구는 「Written with AI assistance. All data and measurements are our own, taken from live market feeds on the date shown.」
+**남은 일**: 총 8편 중 1편만 처리됐다 → **7편 백필을 t152 로 등록**(사이클당 1~2편).
+편집 실무: `medium.com/p/<id>/edit` → 보이는 contenteditable 중 **글자수 최대인 것**을 골라야 한다. 숨은 것 2개가 같이 잡히고, 그냥 마지막 것을 고르면 x=-9999 의 빈 요소가 잡혀 실패한다(실제로 한 번 실패했다) → Range.selectNodeContents + collapse(false) 로 커서를 끝으로 → Enter → execCommand(insertText) → 「Save and publish」.
+부수 확인: AI 글은 **페이월에 걸 수 없다**(파트너 프로그램 자격 박탈). 우리는 페이월을 안 쓰니 무관.
+
+### Quora — 금지 규정 없음 (오늘 발행은 문제없다)
+헬프센터 검색 결과 AI 관련 문서가 「Can I opt-out of having my Quora content used to train LLMs?」 **하나뿐**이고 작성물 금지·표시 의무가 **없다**. 본문 링크 금지 규칙은 그대로 유효하다.
+
+### 실무 메모 — 정책 문서는 추측하면 전부 404다
+Medium·Quora 의 AI 정책 URL 을 4개 추측해 넣었는데 **전부 404** 였다. 정답 경로는 **Zendesk 헬프센터 검색 API**: `/api/v2/help_center/articles/search.json?query=AI&per_page=8`. 이걸로 Medium 은 「Artificial Intelligence (AI) content policy」를 즉시 찾고 Quora 는 「없다」는 것을 확인했다. ENGINE §19 교리에 경로를 박았다.
+
+### 이번 사이클 발행 계상
+Medium 기존 글 **수정**(신규 발행 아님)이라 원장 캡에 계상하지 않았다. 레딧은 오늘 3/3 소진, quora_en·quora_space·directories 도 소진 상태였다.

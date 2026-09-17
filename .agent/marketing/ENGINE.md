@@ -443,3 +443,34 @@ note 는 **`money.note.com` 에 미국 종목 페이지 8,319개**를 운영한�
 **댓글 생존율 실측(최근 25건)**: 살아있음 23 · **「Removed by Reddit」 2건**(r/investing_discussion 31시간 전, r/stocks 35시간 전). 서브 모더가 아니라 **레딧 사이트 차원의 삭제**다. 8% 삭제율. 매 사이클 `user/SignumHQ/comments.json` 으로 생존을 재고, 삭제가 늘면 원인을 찾는다.
 
 **교리 추가**: 새 서브에 처음 올리기 전 **반드시 `about/rules.json` 을 읽고 AI 조항을 확인**한다. 이 확인은 캡·창·링크 규칙 확인과 같은 급의 선행 조건이다.
+
+---
+
+## §19 플랫폼별 「AI 작성물」 정책 — 전수 확인 (2026-09-17)
+
+레딧에서 4개 서브가 AI 작성 댓글을 금지하는 걸 발견한 뒤(§18), 우리가 «실제로 발행하는» 채널을 전수 확인했다. 두 건이 나왔고 하나는 우리 채널을 죽이고 있었다.
+
+### 19-1 ⛔ 해커뉴스 — 사이트 전체 금지. 내가 쓸 수 있는 채널이 아니다
+`news.ycombinator.com/newsguidelines.html` 원문:
+> 「**Don't post generated text or AI-edited text. HN is for conversation between humans.**」
+
+서브 단위가 아니라 **사이트 전체 가이드라인**이다. 「generated text」뿐 아니라 **「AI-edited text」까지** 금지한다. 나는 LLM 이므로 **해커뉴스는 내가 게시할 수 없는 채널**이다. 「무링크 가치 댓글로 카르마를 쌓는다」는 기존 계획은 **폐기**한다.
+계정 상태 실측: `signumhq` 로그인 유지·**카르마 1**. 이번 달 스레드 「Ask HN: What are you working on? (September 2026)」(id 49686380, 371점·1,171댓글, 9/13)는 댓글 폼이 열려 있었지만 **올리지 않았다.**
+→ `hackernews` 를 **관리 제외(대표 전용)** 로 재분류한다. 대표가 직접 쓰는 것은 규정 위반이 아니다.
+
+### 19-2 ★ Medium — 「AI 지원 미표시」는 도달을 «내 팔로워»로 잘라낸다
+`help.medium.com` 「Artificial Intelligence (AI) content policy」 원문:
+> 「We require that any story incorporating AI assistance be **clearly labeled as such**. **AI-assisted text without a disclosure will similarly be restricted to distribution on the author's personal network.**」
+> 「Undisclosed AI-generated writing will be given **Network Only distribution**. This means it is distributed to the author's direct network of followers and subscribers only. **It is not eligible for wider distribution.**」
+
+**즉 금지가 아니라 «도달 0»이다.** 우리 Medium 팔로워는 사실상 0이므로 Network Only = 아무도 안 본다. **표시를 안 한 우리 기존 Medium 글은 그동안 도달이 0이었을 가능성이 크다.** 「Medium 에 올렸는데 반응이 없다」의 기계적 원인이 여기 있었다 — 콘텐츠 품질 문제가 아니었다.
+**조치(무료·우리 권한)**: **모든 Medium 글 말미에 AI 지원 표시를 넣는다.** 예: 「Written with AI assistance. Data and measurements are our own, taken from live market feeds on the date shown.」 이미지도 생성물이면 캡션에 표시해야 한다.
+부수 확인: AI 글은 **페이월에 걸 수 없다**(파트너 프로그램 자격 박탈 사유). 우리는 페이월을 쓰지 않으니 무관.
+그리고 「SEO 순위만을 목적으로 제휴 링크를 밀기 위해 생성한 콘텐츠」는 별도로 금지다 — 우리는 제휴 링크가 없다.
+
+### 19-3 ✅ Quora — 금지 규정 없음
+헬프센터 검색 결과 AI 관련 문서가 **「Can I opt-out of having my Quora content used to train LLMs?」 하나뿐**이다. 작성물에 대한 금지·표시 의무가 **없다**. 오늘 발행한 답변은 문제없다.
+단 별개로 [[quora-spam-policy-deletes-linked-answers]] — **본문 링크 금지**는 그대로 유효하다.
+
+### §19 교리
+**새 채널 첫 발행 전에 ①AI 작성물 정책 ②자기홍보 정책 두 가지를 «그 플랫폼 원문»에서 확인한다.** 캡·창·링크 규칙 확인과 같은 급의 선행 조건이다. 확인 경로: 레딧 `about/rules.json` · HN `newsguidelines.html` · Zendesk 계열은 `/api/v2/help_center/articles/search.json?query=AI`(Medium·Quora 둘 다 이 경로로 찾았다 — URL 을 추측하면 전부 404 다).

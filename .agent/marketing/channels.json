@@ -148,7 +148,8 @@
       "login": "ok",
       "profile": "ok",
       "tag": "medium",
-      "action": "post"
+      "action": "post",
+      "note": "★AI 지원 표시 필수. 미표시는 Network Only 로 도달이 팔로워(0)로 잘린다 — 금지가 아니라 도달 0. 말미에 disclosure 한 줄 고정. "
     },
     {
       "id": "seo",
@@ -252,8 +253,10 @@
       "tag": "hn_bio",
       "link": "https://www.signumhq.com/app?from=hn_bio",
       "url": "https://news.ycombinator.com/user?id=signumhq",
-      "note": "2026-09-09 대표 가입. ★자기홍보 처벌이 가장 강한 곳 — 신규계정 링크투척은 즉시 flag. 순서: ①기술 댓글로 신뢰 축적 ②Show HN 은 «한 번»만 제대로",
-      "action": "comment_first_then_show_hn"
+      "note": "⛔관리 제외(대표 전용) — 사이트 전체 가이드라인이 생성 텍스트와 AI 편집 텍스트를 모두 금지한다. 나는 LLM 이라 게시 자체가 규정 위반. 계정 signumhq 카르마 1 로 살아 있고 대표가 직접 쓰는 것은 문제없다",
+      "action": "comment_first_then_show_hn",
+      "enabled": false,
+      "excluded": true
     },
     {
       "id": "github",
