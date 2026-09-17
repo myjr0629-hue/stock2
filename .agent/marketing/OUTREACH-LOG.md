@@ -6567,3 +6567,31 @@ Capacitor iOS 는 `allowNavigation` 이 비어 있으면 **「이동할 주소�
 - **`ios-release.sh` 는 `cap copy` 를 하지 않는다.** 설정을 고친 뒤에는 반드시 먼저 sync 하고, **빌드 산출물의 capacitor.config.json 을 열어 값이 들어갔는지 확인**한 다음 릴리스를 돌린다.
 - 시뮬레이터 빌드는 `-destination 'generic/platform=iOS Simulator'` 로는 「Supported platforms ... is empty」로 실패한다. **구체적 시뮬레이터 id 를 지정**해야 한다.
 - 안드로이드는 같은 수정이 assets 에 들어갔다. **Play 제출은 아직 안 했다** — 다음 사이클 대상.
+
+
+## 사이클 — 2026-09-17 14:36~15:2x KST · UC/WIM 안드로이드 + 티켓 오분류 정정
+
+`slot` 배정: 실행 tiktok·seo·aso·discord_usstock / 뚫기 okky·geeknews / 확장 1. 게이트 341건 0실패.
+이번 사이클은 **aso 배정을 「안드로이드 배달」로 해석**해 처리했다 — iOS 는 이미 제출했는데 안드로이드 사용자에게는 같은 수정이 안 갔기 때문이다.
+
+### ✅ UC 안드로이드 — Play 검토 제출 완료
+- 버전 `versionCode 5→6`, `versionName 1.0.3→1.0.7`(iOS 와 맞춤). `bundleRelease` 로 AAB 7.3MB.
+- **AAB 안의 `base/assets/capacitor.config.json` 을 열어 `allowNavigation` 이 들어갔는지 직접 확인**했다. 이게 없으면 올려도 의미가 없다.
+- Play 콘솔 업로드는 `input[type=file] >> nth=0` 이 먹었다.
+- 경고 1건 「지원 기기 변화」가 떴지만 표를 보면 **잃은 기기 0 · 새 기기 0**(휴대폰 12,477 동일)로 무해했다. 오류가 아니다.
+- **「저장≠제출」 함정을 그대로 밟았다가 잡았다**: Save 후 게시 개요가 「Changes not yet submitted for review」였다. 「Submit 1 change for review」 → **대화상자 안의 「Send changes for review」**까지 눌러야 끝난다. 겉 버튼만 누르면 안 된다. 최종 확인 `Changes in review` ✅
+
+### ⛔ WIM 안드로이드 — 미완, 다음 사이클 재시도
+AAB 8.6MB 빌드 완료(`versionCode 3→4`, `1.0.1→1.0.4`), **AAB 안 설정 확인도 통과**, 업로드까지 됐다. 그런데 이후 Play 콘솔이 **「Loading Google Play Console」에서 90초 넘게 멈춰** 클릭이 전혀 안 먹었다. 초안도 사라졌다.
+원인은 내 탐색이 잦아 탭 상태가 나빠진 것으로 보인다. **다음 사이클에 새 탭에서 처음부터 다시 한다.** AAB 는 `/tmp/aab/wim-1.0.4-4.aab` 에 그대로 있다.
+**교훈**: Play 콘솔은 `/Loading Google Play Console/` 이 사라질 때까지 기다린 뒤에 클릭해야 한다. 고정 대기(16초)로는 부족하다.
+
+### ★ 티켓 오분류 정정 (대표 지적)
+「스토어 콘솔 작업은 제 권한 밖」이라고 적은 것은 **내 오분류**였다. ASC API 쓰기·Play 콘솔 조작·애플광고 콘솔은 내가 계속 해왔고 오늘도 했다.
+**8건을 내 몫으로 되돌렸다**: t139(한국 제목) · t140(미국 키워드) · t144(SaaSHub verify) · t147(서학개미 키워드) · t149(인앱 이벤트) · t153(티커 ISR) · t155(Play 맞춤 등록정보) · t158(CPP).
+**대표님 몫은 7건으로 줄었고 전부 «내가 규칙상 못 하는 것»뿐이다**: 계정 생성(t142 지식iN · t143 Qiita/Zenn · t146 MacRumors · t151 HF) · 외부 메일 발송(t150 · t154) · 광고 인벤토리 설정(t141).
+
+### 신설 — 보고 양식과 인수인계를 문서로 고정
+- `RUNBOOK.md` §7 **보고 양식**: 매 보고에 ①어느 플랫폼에 무엇을 했는가 ②기본 관리 플랫폼 전체 리스트(가동/계정대기/제외 + **오늘 추가분 구분**) ③성과 ④대표님 몫(링크 포함) 네 블록을 반드시 넣는다.
+- `RUNBOOK.md` §8 **인수인계 점검**: 새 에이전트가 읽을 순서 9단계와 기록 규칙. 「판정이 뒤집히면 새 글이 아니라 원래 판정을 고친다」, 「같은 실수를 두 번 하면 그건 기록의 실패다」를 명문화.
+- `CEO-SIGNUP-LIST.md` **신설**: 대표님이 가입/발송할 14곳을 **가입 링크·필요한 것·왜 필요한가·우선순위**와 함께 표로. 대표님이 바로 누를 수 있게.
