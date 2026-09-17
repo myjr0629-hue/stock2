@@ -1688,9 +1688,9 @@
       "type": "tech",
       "region": "ALL",
       "title": "블루스카이 되살리기 — .env.local 에 앱 비밀번호 1줄(#T9)",
-      "detail": "실측(9/17): bsky.app 웹 컴포저에 input[type=file] 이 0개이고 링크카드 프롬프트도 안 뜬다 → ego 로는 이미지 첨부 불가 = §11 위반이라 발행 보류 중. 해법: 대표가 Bluesky 설정에서 «앱 비밀번호»를 발급해 .env.local 에 BLUESKY_HANDLE·BLUESKY_APP_PASSWORD 두 줄만 넣어주시면, 로컬 스크립트가 AT 프로토콜로 텍스트+카드(blob)까지 정상 발행한다(웹·앱 코드 무수정). 비밀번호는 제가 입력하지 않는다.",
+      "detail": "실측(9/17): bsky.app 웹 컴포저에 input[type=file] 이 0개이고 링크카드 프롬프트도 안 뜬다 → ego 로는 이미지 첨부 불가 = §11 위반이라 발행 보류 중. 해법: 대표가 Bluesky 설정에서 «앱 비밀번호»를 발급해 .env.local 에 BLUESKY_HANDLE·BLUESKY_APP_PASSWORD 두 줄만 넣어주시면, 로컬 스크립트가 AT 프로토콜로 텍스트+카드(blob)까지 정상 발행한다(웹·앱 코드 무수정). 비밀번호는 제가 입력하지 않는다.\n\n[2026-09-17 해결] 앱 비밀번호 없이 «웹 컴포저 + 드롭/붙여넣기»로 이미지 첨부가 된다는 것을 실측으로 확인했다. input[type=file] 이 0개인 것은 맞지만 DataTransfer 를 만들어 drop 과 paste 이벤트를 쏘면 붙는다. 첫 발행 검증 완료: https://bsky.app/profile/signumhq.bsky.social/post/3mvotcy6q6s26 . 대표님 조치 불필요 — 티켓 닫는다.",
       "prio": 1,
-      "state": "todo",
+      "state": "done",
       "tries": 0,
       "created": "2026-09-16",
       "note": ""

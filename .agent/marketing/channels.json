@@ -46,8 +46,9 @@
       "followers": 23,
       "tag": "bluesky_bio",
       "link": "https://signumhq.com/app?from=bluesky_bio",
-      "note": "2026-09-01 소개·링크 정비 + 동종 4곳 팔로우(Unusual Whales 11.4만·InsiderFinance·TipDrop·TradesAlertsAI)",
-      "action": "reply_only"
+      "note": "✅2026-09-17 차단 해제. 컴포저에 input[type=file] 이 «0개»인 건 맞지만, base64→File→DataTransfer→drop + ClipboardEvent('paste') 로 이미지가 붙는다(ALT 배지 등장으로 확인). 300자 «그래파임» 한도 — 넘으면 게시 버튼이 aria-disabled=true 로 잠긴다(324자에서 실제로 막혔다). 링크는 웹 컴포저가 알아서 인식하므로 facets 를 직접 만들 필요 없다. 계정 @signumhq.bsky.social",
+      "action": "reply_only",
+      "enabled": true
     },
     {
       "id": "threads",
