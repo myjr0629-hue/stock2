@@ -40,6 +40,7 @@ const CH = {
   mastodon:    { cap: 1, day: 'kst', window: [0, 24], note: '★계정 필요. 블루스카이(글 1편→18클릭) 구조의 복제 — 시간순·해시태그 도달·링크 무감점·이미지 4장·500자. 앱 카드 + ?from=mastodon 필수' },
   home:        { cap: 0, day: 'kst', window: [0, 24], note: '★발행 채널이 아니라 «측정·개선» 채널이다(21일 412클릭=전체 52%). 하는 일: CTA 위치·문구·앱 구분 태그(home_signum|home_uc|home_wim) 점검. 웹 코드 변경은 승인 후 → t168' },
   seo_darkpool:{ cap: 0, day: 'kst', window: [0, 24], note: '/dark-pool 전용 태그(21일 31클릭). 발행 아니라 점검 채널 — 구글봇에 307(임시)을 주는 것을 301 로 고칠 것(승인 필요). 다크풀 순위 갱신 여부 확인' },
+  galaxy_store: { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요(무료). 한국 안드로이드 기기 «기본 탑재» — Play 검색 설치가 0 이라 검색에 의존하지 않는 유일한 대안. 소유권 심사 아니라 개발자 등록이라 Uptodown 식 반려 루프가 없다. ONE스토어도 같이' },
   play_custom_listings: { cap: 1, day: 'week', window: [0, 24], note: '★무료·자격 게이트 없음. Play 검색 키워드로 타깃되는 맞춤 스토어 등록정보(앱당 50개). 한 국가당 하나·저장≠제출' },
   apple_cpp:   { cap: 1, day: 'week', window: [0, 24], note: '★무료. 맞춤 제품 페이지가 «유기 검색»에도 나온다(2025-07-30~). 키워드 1개=CPP 1개, 중복 반려. 심사 24~48h' },
   apple_iap_events: { cap: 1, day: 'week', window: [0, 24], note: '★검색 결과에 «별도 행»을 얻는 유일한 무료 수단. 날짜 박힌 시장 이벤트만(반복 일상 과제는 반려). ASC API 로 크론화' },
