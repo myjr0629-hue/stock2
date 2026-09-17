@@ -2294,6 +2294,17 @@
       "created": "2026-09-18T01:30:00.000Z",
       "title": "함께 가입할 3곳 — 허깅페이스·MacRumors·Zenn (OAuth 한 번씩이면 끝날 가능성)",
       "detail": "대표 지시: 「Hugging Face·MacRumors·Zenn 3개는 나랑 같이 해야할듯하다. 허깅페이스부터」.\n**내가 할 수 있는 것과 못 하는 것**: 계정 «생성»과 비밀번호 입력은 내 금지선이다. 하지만 **Google OAuth 경로면 대표님 클릭 한 번**으로 끝난다 — Qiita·OKKY·프로덕트헌트·인디해커를 그렇게 했고, 긱뉴스는 자동저장 자격으로 내가 로그인까지 했다.\n| 사이트 | 예상 경로 | 비고 |\n|---|---|---|\n| **Hugging Face** | huggingface.co/join — Google/GitHub OAuth 있음 | 금융 니치가 비어 있다(「options flow」 검색 0건). 데이터셋 미러 → 구글 데이터셋 검색 색인 |\n| **Zenn** | zenn.dev/enter — **GitHub·Google 로그인** | 홍보는 «말미 고정 메시지» 한 블록만 허용. 일일트렌드 48칸·좋아요 1~2로도 진입 |\n| **MacRumors** | forums.macrumors.com/register — **이메일+비번**(OAuth 없음) | 여기만 비밀번호가 필요하다 → 대표님이 만드셔야 한다 |\n**제안**: 허깅페이스·Zenn 는 브라우저를 주시면 OAuth 버튼 직전까지 몰아 두고 «Authorize» 한 번만 눌러 주시면 된다. MacRumors 는 비밀번호가 필요하니 대표님 몫이다."
+    },
+    {
+      "id": "t184",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-18T01:40:00.000Z",
+      "title": "전 채널 프로필 소개를 «앱 중심»으로 전수 교체 — 블루스카이에서 지표 나열을 발견했다",
+      "detail": "2026-09-18 블루스카이 발행 중 프로필 소개가 이랬다: 「Options flow · Dark pool % · GEX · Max pain — what institutions actually did.」\n대표님이 세 번 하지 말라고 하신 그것이다 — 지표 나열. 22 팔로워가 보는 첫 문장이 이거였다. 즉시 교체하고 검증했다:\n「What happened in the US market today — in 3 minutes. / Earnings, pre-market, indices, sectors, macro, AI briefings. / No brokerage account, no signup. Free in EN/KO/JA. / signumhq.com/app」\n\n새로 배운 함정 2개:\n① 블루스카이 소개는 256자 한도다. 넘으면 «오류 문구 없이 저장 버튼만 비활성»이 된다 — 버튼 상태로만 알 수 있다.\n② 여러 줄 textarea 에서 End 는 «줄 끝»까지만 간다 → 기존 내용이 남는다. page.fill 로 교체해야 확실하다.\n\n할 일 — 같은 문제가 있을 곳 전수 점검:\nX(영어·일본) · Quora 프로필 · 레딧 프로필 · LinkedIn · Threads · Instagram · note · Medium · GitHub 프로필 · IndieHackers · Product Hunt · 갤럭시 스토어 셀러 페이지(백지, t181).\n기준: 첫 문장에 기능 용어 금지 · 「무엇을 얻는가」를 일상어로 · 무료·계정 불필요·다국어를 앞에 · 전문 용어는 뒤쪽 예시로만.\n"
     }
   ]
 }
