@@ -313,3 +313,45 @@ CPP 는 **자기 URL(`?ppid=…`)** 을 갖고 **스크린샷·앱 프리뷰·�
 `PATCH /appStoreVersionLocalizations/{id} {promotionalText}`. **새 빌드도 심사도 필요 없다**(실측: 버전 상태 `READY_FOR_DISTRIBUTION` 그대로). 제품 페이지 설명 위에 붙는 최상단 170자다.
 2026-09-18 에 **3앱 × 12로케일 = 36칸이 전부 비어 있었고** 전부 채웠다. ko·ja 는 현지어, 나머지 9개 로케일은 앱 UI 가 영어라 영문을 쓴다.
 스토어 필드는 세 종류로 나눠 본다: **빌드 필요**(이름·부제·키워드) / **심사 필요**(스크린샷·설명·CPP) / **즉시·무심사**(promotionalText).
+
+---
+
+## 14. Uptodown (서드파티 안드로이드 스토어) — 정본 절차  ✅2026-09-18 3앱 등재
+**계정** 개인 `myjr0629-hue` / myjr0629@gmail.com (GitHub OAuth, 비밀번호 없음) · **콘솔** `https://www.uptodown.dev/apps`
+(`en.uptodown.com/panel` 은 404 다. 개발자 콘솔은 **`uptodown.dev`** 다.)
+
+### 상태 (2026-09-18 07:2x)
+| 앱 | 상태 | 비고 |
+|---|---|---|
+| SIGNUM HQ | **PENDING REVISION** | 이번에 신규 등록. APK 1.2.2(7)·스크린샷 3·설명 182단어 |
+| Why'd It Move? | **PENDING REVISION** | DRAFT 였던 것을 APK 1.0.4(5) 로 갱신해 제출 |
+| Undercurrent | REJECTED | 소유권 확인 대기 — 지원 티켓 전송 |
+
+### 신규 등록 절차
+1. `ADD NEW APP` → OS=Android → **APK 만 올리면** 이름·패키지·카테고리·웹사이트가 자동 채워진다
+2. **INFORMATION 탭에서 `Nationality` 를 반드시 확인한다** — 기본값이 `Afghanistan` 으로 들어왔다. `United States of America` 로 고치고 `SAVE`
+3. **SCREENSHOTS**: `+ ADD` 를 눌러야 `input[type=file]` 이 생긴다(§29·§38). **라벨이 아니라 버튼 좌표**를 눌러야 한다(같은 `+ ADD` 문구가 2~3개 있다). 붙이면 **UPLOAD 버튼 없이 즉시 올라간다**. 안내문은 「자사 팀이 찍는다」지만 **제출 검증은 3장을 요구**한다
+4. **DESCRIPTIONS**: 짧은설명 ≤70자, 본문 **≥100단어**. `SAVE ENGLISH DESCRIPTION`. **탭 배지가 `DESCRIPTIONS 0` 으로 남아도 저장은 된다**(리로드해도 값이 남으면 저장된 것). 배지를 근거로 판단하지 말 것
+5. **FILES**: `+ ADD NEW VERSION` → 모달의 `input[type=file]` 에 APK → **Version 칸을 APK 와 같게** 채운다(플레이스홀더가 엉뚱한 버전을 보여준다) → `UPLOAD`
+6. `SUBMIT FOR REVIEW` → 모달 **`CONFIRM`**(y≈534). 「제출 후 수정 불가」 경고가 뜬다 → 제출 전에 **APK 버전을 반드시 확인**한다(1.0.1 이 올라가 있었다)
+
+### 소유권 반려 처방 (실측 원문)
+반려 알림(`uptodown.dev/notifications`) 원문: 「Please, confirm that you are the app owner or have its distribution rights. We kindly ask you to submit a ticket to our support team from our Developers Console, and attach a screenshot showing the app in your Google Play developer account.」
+- **`CLAIM OWNERSHIP` 버튼은 우리 경우가 아니다** — 「There are no organizations available to claim」 이 나온다. 이미 Uptodown 에 등재된 조직을 가져오는 기능이다.
+- 정답은 **`Contact Us` 지원 티켓**: `ticketSubject` + `ticketMessage` + `input[type=file]` 에 **Play 콘솔 스크린샷**. 스크린샷에 계정명·Account ID·앱 3개의 패키지명이 다 보이게 찍는다(`app-list` 화면, 알림 패널은 닫고).
+
+## 15. Hugging Face 데이터셋 → 구글 데이터셋 검색  ✅2026-09-18 생성·공개
+**계정** 대표 개인 `eunhoon` (브라우저 세션) · **태그** `from=hf_datasets` · **저장소** `eunhoon/options-market-structure-daily`
+
+### 왜 이 경로인가
+구글 «데이터셋 검색»은 schema.org `Dataset` JSON-LD 를 색인한다. **HF 데이터셋 페이지는 그 JSON-LD 를 실어 주고 깃허브 저장소 페이지는 싣지 않는다.** 우리 티커 페이지에 `distribution` 을 추가하는 건 웹 코드 변경(승인 필요)이지만, **HF 미러는 코드 변경이 0**이다.
+
+### 절차
+1. `huggingface.co/new-dataset` → Owner·이름·License(`cc-by-4.0`) → `Create Dataset`
+2. `.../upload/main` → `input[type=file] >> nth=0` 로 파일 첨부 (**`input[type=file]` 단독 선택자는 요소 2개(보임 1·숨김 1)에 걸려 실패한다**)
+3. 커밋 메시지 입력 → **`Commit changes to main`** — 이 버튼의 `innerText` 는 `"Commit changes to\nmain"` 이다. **공백 정규화 없이는 못 찾는다**(§37). 세 번 헛손질했다
+4. 검증은 API 로: `api/datasets/<owner>/<name>/tree/main` 에 파일이 다 보이는지. **저장소 생성 시 27바이트 README 스텁이 자동 생성되므로 「README.md 가 있다」는 커밋 증거가 아니다**
+
+### 데이터셋 카드에 넣은 것
+HF YAML 프런트매터(`license`·`language`·`pretty_name`·`tags` 6개·`size_categories`·`configs`) + 앱 화면 이미지 + 스마트링크 `signumhq.com/app?from=hf_datasets`.
+검증 결과: HTTP 200 · JSON-LD `"@type": "Dataset"` 존재 · 태그 10개 색인(`finance`·`options`·`market-structure` 등) · 스마트링크 페이지에 노출.

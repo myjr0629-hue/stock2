@@ -7083,3 +7083,58 @@ CPP 는 자기 URL(`?ppid=`)을 갖고 스크린샷·홍보문구를 따로 두�
 - **t186** 이제 **두 개를 한 번에** 켠다 — `src/lib/marketing/storeRedirect.ts` 에서 ①Play 에 `&listing=<from>` ②App Store 에 `&ppid=<uuid>`. 이 한 곳이 오늘 만든 Play 맞춤 등록정보 1개 + CPP 3개를 모두 살린다. 지금은 트래픽이 0 이다.
 - **t185** 지식iN 프로필 「정보 공개 동의」 체크(클릭 경로 0).
 - **t187** 틱톡 `@signumhq` 로그인 전환 + 개인 계정에 남은 우리 게시물 2건 처리 방침.
+
+---
+
+# 사이클 11 — 2026-09-18 07:3x KST
+
+게이트 341건 0실패. 크론 정상.
+
+## ✅✅ Uptodown — 3앱 전부 등재됐다 (설치가 직접 발생하는 채널)
+| 앱 | 전 | 후 |
+|---|---|---|
+| SIGNUM HQ | **없었다** | **PENDING REVISION** (신규 등록, APK 1.2.2/7·스크린샷 3·설명 182단어) |
+| Why'd It Move? | DRAFT (APK 1.0.1/3) | **PENDING REVISION** (APK **1.0.4/5** 로 갱신) |
+| Undercurrent | REJECTED | REJECTED — 소유권 지원 티켓 전송 |
+
+**기존 기록을 정정한다.** 채널 노트에 「UC·WIM 모두 REJECTED」라고 적혀 있었는데 실제로는 **WIM 은 DRAFT**(제출조차 안 된 상태)였고 **SIGNUM 은 아예 없었다.** 콘솔을 열어 보니 달랐다.
+
+**WIM 은 낡은 APK 가 올라가 있었다** — 1.0.1(버전코드 3)인데 현재 릴리스는 1.0.4(5)다. 「제출 후 수정 불가」 경고를 보고 제출 전에 FILES 탭을 확인해서 잡았다. 새 APK 로 갈아 올리고 제출했다.
+
+**반려 사유를 원문으로 읽었다**(`uptodown.dev/notifications`): 「Please, confirm that you are the app owner or have its distribution rights ... submit a ticket to our support team from our Developers Console, and attach a screenshot showing the app in your Google Play developer account.」
+- **`CLAIM OWNERSHIP` 은 우리 경우가 아니었다** — 「There are no organizations available to claim」. 이미 Uptodown 에 등재된 조직을 가져오는 기능이다.
+- 정답은 지원 티켓이었고, **Play 콘솔 스크린샷**(계정명 `Signum HQ`·Account ID `4769683602295618218`·3개 패키지명이 한 화면에)을 첨부해 보냈다. **전송 후 수신 확인 화면은 없었다** — 폼이 닫히고 오류가 없었다는 것까지만 확인했다. 수신 확인은 다음 사이클에 알림으로 본다.
+
+**부수로 안드로이드 설치 기반을 실측했다**: Play 콘솔 `app-list` 의 Installed audience — **SIGNUM 26 · UC 14 · WIM 12**, 3앱 모두 Production. (7월에 UC 는 0이었다.)
+
+## ✅ 구글 데이터셋 검색 — 웹 코드 변경 없이 뚫었다
+채널 노트는 「우리 티커 페이지에 `distribution` 을 추가해야 한다 → 웹 코드 변경이라 승인 필요」로 막혀 있었다. **HF 미러는 코드 변경이 0이다**: 구글 데이터셋 검색은 schema.org `Dataset` JSON-LD 를 색인하고, **HF 데이터셋 페이지는 그 JSON-LD 를 실어 준다**(깃허브 저장소 페이지는 안 싣는다).
+
+`huggingface.co/datasets/eunhoon/options-market-structure-daily` — 대표 개인 계정(`eunhoon`)으로 생성·공개.
+검증: **HTTP 200** · **JSON-LD `"@type": "Dataset"` 존재** · 태그 10개 색인(`finance`·`options`·`market-structure`·`open-interest` 등) · **스마트링크 `signumhq.com/app?from=hf_datasets` 페이지에 노출** · 앱 화면 이미지 포함 · 파일 5개(카드·LICENSE·앱화면·일일 스냅샷 2건) 커밋 확인(API `tree/main`).
+경쟁 상황은 기존 실측대로다 — HF 에서 «options flow»·«max pain» 검색 결과가 0건인 니치다.
+
+**남은 웹 경로는 티켓으로 둔다(t188)**: 티커 페이지 2,228×3로케일의 `Dataset` JSON-LD 에 `distribution`(DataDownload+contentUrl+encodingFormat)을 넣으면 **한 템플릿 수정으로 6,768 URL 이 동시에 대상**이 된다.
+
+## ⛔ 「있는데 안 눌린다」의 세 번째 원인을 찾았다 (ENGINE §37)
+허깅페이스 커밋 버튼을 **세 번** 놓쳤다. 버튼 `innerText` 가 `"Commit changes to\nmain"` 인데 정규식은 `/Commit changes to main/i` 였다. `.trim()` 만으로는 **가운데 줄바꿈이 안 없어진다.** 화면엔 한 줄로 보이고 버튼은 존재하고 클릭도 나가는데 아무 일도 안 난다.
+그리고 **「README.md 가 있다」를 커밋 성공으로 읽을 뻔했다** — 저장소 생성 시 자동 생성되는 **27바이트 스텁**이었다. API `tree/main` 으로 파일 크기까지 확인해야 진짜다. §32(편집기 오판)와 같은 모양이다.
+
+이제 클릭 전 체크리스트 4항: ①텍스트 공백 정규화 ②`scrollIntoView` 후 좌표 **재측정** ③`inView` 확인 ④찾기·클릭을 **한 실행 안에서**.
+
+또 하나(§38): Uptodown 스크린샷의 `+ ADD` 는 **라벨과 버튼이 따로**다. 라벨 좌표(x=766)를 누르면 무반응, 버튼(x=415)을 눌러야 `input[type=file]` 이 생긴다. 같은 문구 요소가 여러 개면 좌표를 다 뽑아 하나씩 시도한다.
+
+## ⛔ 나머지 — 근거와 함께
+- **틱톡**: **t187 미해결이라 이번에도 집행하지 않았다.** 세션이 개인 계정(`@daldalkelly`)이다. 대표 전환 전까지 중단이 맞다.
+- **하테나 북마크**: 계정 게이트(대표). 1사이클 전 직접 확인, 변화 없음.
+- **긱뉴스**: 09-25 해금(원문 「가입 후 일주일」). Show 글 초안은 이미 완성돼 있다.
+- **에펨코리아**: 계정 게이트(대표).
+
+## 확장 — 이번 사이클 신규 표면 = 허깅페이스 데이터셋(구글 데이터셋 검색 진입)
+「웹 코드 변경이 필요해서 막혔다」고 적혀 있던 채널을 **코드 변경 없는 다른 문으로** 열었다. 막힘의 이유가 «채널»이 아니라 «내가 고른 경로»였던 사례다(§5).
+
+## 대표님께
+- **t186**(그대로) `storeRedirect.ts` 한 곳에 Play `&listing=` + App Store `&ppid=`. Play 맞춤 등록정보 1개 + CPP 3개가 아직 트래픽 0이다.
+- **t185**(그대로) 지식iN 프로필 「정보 공개 동의」 체크.
+- **t187**(그대로) 틱톡 `@signumhq` 로그인 전환 + 개인 계정에 남은 우리 게시물 2건 처리 방침.
+- **t188**(신규) 티커 페이지 `Dataset` JSON-LD 에 `distribution` 추가 — 6,768 URL 이 구글 데이터셋 검색 대상이 된다. 웹 코드 변경이라 대기.
