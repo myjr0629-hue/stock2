@@ -2300,11 +2300,11 @@
       "type": "mkt",
       "region": "ALL",
       "prio": 1,
-      "state": "todo",
+      "state": "doing",
       "tries": 0,
       "created": "2026-09-18T01:40:00.000Z",
       "title": "전 채널 프로필 소개를 «앱 중심»으로 전수 교체 — 블루스카이에서 지표 나열을 발견했다",
-      "detail": "2026-09-18 블루스카이 발행 중 프로필 소개가 이랬다: 「Options flow · Dark pool % · GEX · Max pain — what institutions actually did.」\n대표님이 세 번 하지 말라고 하신 그것이다 — 지표 나열. 22 팔로워가 보는 첫 문장이 이거였다. 즉시 교체하고 검증했다:\n「What happened in the US market today — in 3 minutes. / Earnings, pre-market, indices, sectors, macro, AI briefings. / No brokerage account, no signup. Free in EN/KO/JA. / signumhq.com/app」\n\n새로 배운 함정 2개:\n① 블루스카이 소개는 256자 한도다. 넘으면 «오류 문구 없이 저장 버튼만 비활성»이 된다 — 버튼 상태로만 알 수 있다.\n② 여러 줄 textarea 에서 End 는 «줄 끝»까지만 간다 → 기존 내용이 남는다. page.fill 로 교체해야 확실하다.\n\n할 일 — 같은 문제가 있을 곳 전수 점검:\nX(영어·일본) · Quora 프로필 · 레딧 프로필 · LinkedIn · Threads · Instagram · note · Medium · GitHub 프로필 · IndieHackers · Product Hunt · 갤럭시 스토어 셀러 페이지(백지, t181).\n기준: 첫 문장에 기능 용어 금지 · 「무엇을 얻는가」를 일상어로 · 무료·계정 불필요·다국어를 앞에 · 전문 용어는 뒤쪽 예시로만.\n"
+      "detail": "전 채널 프로필 소개를 「앱 중심」으로 교체하는 작업. 대표 교리: 우리는 앱을 판다, 지표를 팔지 않는다.\n\n[2026-09-18 진행 상황]\n✅ Bluesky — 「Options flow · Dark pool % · GEX · Max pain」 → 「What happened in the US market today — in 3 minutes / Earnings, pre-market, indices, sectors, macro, AI briefings / No brokerage account, no signup. Free in EN/KO/JA / signumhq.com/app」 (256자 한도)\n✅ X 일본 @signumhq_jp — 「機関投資家の動きを解読 — オプションフロー、ガンマ(GEX)、ダークプール」 → 「米国市場で今日何が起きたかを3分で。決算カレンダー・プレマーケット・指数・セクター・AI要約。証券口座も登録も不要、完全無料。日英韓対応。投資助言ではありません。」 (81/160자)\n✅ X 영어 @signumhq — 「Decoding what institutions actually do — options flow, gamma (GEX), dark pool prints」 → 「What happened in the US market today — in 3 minutes. Earnings, pre-market, indices, sectors, macro, AI briefings. Free app, no signup. EN/KO/JA. Not advice.」 (156/160자)\n\n[실무 메모]\n· X 소개 한도 160자. URL 은 별도 칸이고 이미 ?from=x_bio / ?from=x_bio_jp 가 들어가 있다.\n· X 는 계정 두 개가 «같은 브라우저 세션»에 있다. 좌측 하단 계정 전환 버튼 → 목록에서 정확히 「@signumhq」 텍스트를 가진 항목을 클릭하면 전환된다(「@signumhq_jp」와 부분일치하니 «정확일치»로 찾아야 한다).\n· 「Edit profile」 버튼이 없고 「Follow」가 보이면 = 다른 계정으로 로그인된 상태다. 좌측 내비의 Profile 링크 href 가 현재 계정 핸들을 준다.\n· 소개 교체는 page.fill 로 한다(여러 줄·긴 텍스트에서 End+Backspace 는 줄 끝까지만 간다).\n\n[남은 곳]\nQuora 프로필 · 레딧 프로필 · LinkedIn · Threads · Instagram · note · Medium · GitHub 프로필 · IndieHackers · Product Hunt · Pinterest · 갤럭시 스토어 셀러 페이지(백지, t181) · 허깅페이스 프로필(eunhoon)\n기준: 첫 문장에 기능 용어 금지 · 「무엇을 얻는가」를 일상어로 · 무료·계정 불필요·다국어를 앞에 · 전문 용어는 뒤쪽 예시로만.\n"
     }
   ]
 }
