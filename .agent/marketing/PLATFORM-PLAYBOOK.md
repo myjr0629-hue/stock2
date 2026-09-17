@@ -160,3 +160,15 @@
 
 ### Promotion 도구 (경로 정본)
 Badges `/product/badge/getBadgeList.as` · Coupons `/product/promotion/promotioncoupon.as` · Redeem Code `/product/redeemCode/redeemCodeList.as` · Discounts `/product/discount/discountList.as` · My Followers `/comment/getFollowerList.as` · 앱 목록 `/content/common/summaryContentList.as` · 사이트맵 `/help/siteMap.as`(막히면 여기서 경로를 받는다)
+
+### Commercial Seller 승격 신청서 실무 (2026-09-18)
+경로 `/member/getContractSeller.as` (프로필의 `Request Commercial Seller Status`)
+1. **D-U-N-S 인증이 첫 관문이고, 넣으면 나머지가 자동으로 채워진다.** 우리 번호 `145040194`(애플 조직 계정 발급분) → 회사명·대표자·주소·ZIP+4 가 D&B 기록에서 그대로 들어온다. **번호가 우리 것인지는 「되돌아온 회사명·주소」로 확인한다** — 남의 번호면 그 회사에 묶인다.
+2. **미국 셀러에게 숨겨지는 칸이 있다**: `Taxation Type`(한국 부가세 일반/간이과세자), `Business Registration Number`, `Corporation Registration Number` 는 라디오·입력이 `vis:false` 로 숨는다 → 라벨에 `*` 가 있어도 제출을 막지 않는다. **「필수인데 비어 있다」를 판정할 때 `getBoundingClientRect().width > 0` 를 반드시 같이 본다.**
+3. **서류 2건은 미국 서류로 된다**
+   · `Certificate of Business Registration` * → **델라웨어 설립증서**
+   · `Online Sales Registration Number` * → 안내문이 「전자상거래법 제13조, 공정거래위원회」라고 명시한 **한국법 전용 번호**다. 미국 법인엔 없으니 **IRS EIN 확인서(147C)** 를 넣고 Comments 에 사정을 적는다.
+   · 둘 다 `setInputFiles('#Image2' / '#Image3', …)` 로 그냥 붙는다(드롭·우회 불필요).
+4. **Comments 는 1,500자 한도다.** 앱 소개를 쓰는 자리이고, 여기서 교리를 적용한다 — 기능 나열이 아니라 「무엇을 얻는가」, 무료·계정 불필요·다국어를 앞에.
+5. **⛔막는 칸은 `Payment Account`** (Bank Account / PayPal 라디오)다. 결제 정보라 대표 영역.
+6. **경고**: 접수·승인 뒤에는 Basic/Financial Information 을 못 바꾼다(Support 요청 필요). 한 번에 맞게 넣는다.
