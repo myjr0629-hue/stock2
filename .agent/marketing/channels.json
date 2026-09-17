@@ -314,6 +314,36 @@
       "tier": "A",
       "enabled": false,
       "note": "일본 앱매체 무료 제보: AppBank(pressrelease@appbank.net)·GIGAZINE(/news/contact3)·iPhone Mania(/about 프레스주소). Appliv 무료등재는 2026 기준 404(유료 전용). 메일 발송은 대표 승인 필요"
+    },
+    {
+      "id": "naver_kin",
+      "tier": "A",
+      "enabled": false,
+      "note": "★한국 유일의 «열린 문». 타깃질의마다 16~27건 SERP 노출·등업/매니저/이력 게이트 전무·네이버 메이트 대상. 무응답 질문 선점 전략(Quora와 동형). 계정 필요 → 대표 승인"
+    },
+    {
+      "id": "qiita",
+      "tier": "B",
+      "enabled": false,
+      "note": "★일본. 가이드라인 명문 허용: 자사·자작 기술해설은 광고가 아니다. 트렌드 문턱 5~10 LGTM(실측). 금융태그는 텅 비어 있어 «엔지니어링이 본문»이어야 함. 계정 필요"
+    },
+    {
+      "id": "zenn",
+      "tier": "B",
+      "enabled": false,
+      "note": "★일본. 홍보는 «기사 말미 고정 메시지»만 허용(명문). 일일트렌드 48칸에 좋아요 1~2로도 진입(실측). Qiita와 같은 글을 프레이밍만 바꿔 양쪽에. 계정 필요"
+    },
+    {
+      "id": "discord_usstock",
+      "tier": "C",
+      "enabled": false,
+      "note": "일본 «米国株村» discord.gg/usstock ~956명. 규칙은 «영리목적 행동(제휴링크·광고)» 금지 — 도구 논의는 금지 아님. 미국주식+파이썬 실사용자, 우리 도메인과 정확 일치. 참여 후에만 언급, 콜드 링크 금지"
+    },
+    {
+      "id": "hatena_bookmark",
+      "tier": "C",
+      "enabled": false,
+      "note": "자기 사이트 자기 북마크는 «공식 허용»(단 홍보·SEO 목적 북마크는 스팸 명문, 서브계정·상호북마크는 사이트 영구제재). 테크놀로지 카테고리 하한 4·중위 20(2026 실측, 3년새 문턱 6배 하락). 레인은 엔지니어링 기록 하나뿐"
     }
   ],
   "candidates": [
