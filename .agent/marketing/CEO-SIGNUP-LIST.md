@@ -25,7 +25,7 @@
 
 ## 2순위 — 일본·개발자 표면
 
-- [ ] **Qiita** — https://qiita.com/signup  (GitHub·Google 로그인 가능)
+- [x] **Qiita** — https://qiita.com/signup  (GitHub·Google 로그인 가능)
       일본에서 **자사 기술해설이 「광고가 아니다」라고 가이드라인에 명문화된** 유일한 곳입니다. 트렌드 문턱이 5~10 LGTM 으로 매우 낮습니다.
       아이디 `________`
 
@@ -33,7 +33,7 @@
       Qiita 와 같은 글을 「기사 말미 고정 메시지」 형태로 올립니다. 일일 트렌드 48칸에 좋아요 1~2개로도 들어갑니다.
       아이디 `________`
 
-- [ ] **Discord** — https://discord.com/invite/usstock
+- [x] **Discord** — https://discord.com/invite/usstock
       일본 「米国株村」 멤버 **2,448명**(온라인 86명). 미국주식에 파이썬까지 쓰는 커뮤니티라 우리 도메인과 정확히 일치합니다. 규칙은 제휴링크·광고만 금지하고 도구 논의는 금지가 아닙니다.
       아이디 `________`
 
@@ -55,15 +55,15 @@
 
 ## 3순위 — 한국 커뮤니티
 
-- [ ] **OKKY** — https://okky.kr/join
+- [x] **OKKY** — https://okky.kr/join
       `okky.kr/events/promote` 가 **무료 서비스 전용 홍보판**이라 우리가 정확히 해당합니다.
       아이디 `________`
 
-- [ ] **긱뉴스** — https://news.hada.io/register
+- [x] **긱뉴스** — https://news.hada.io/register
       자작 앱은 `Show` 태그로만 올립니다. **가입 후 7일이 지나야 링크를 걸 수 있어** 미리 만들어 두시는 게 좋습니다.
       아이디 `________`
 
-- [ ] **브런치 (작가 신청)** — https://brunch.co.kr/apply  (카카오 계정 + 작가 심사)
+- [x] **브런치 (작가 신청)** — https://brunch.co.kr/apply  (카카오 계정 + 작가 심사)
       「미국주식」 키워드 허브가 있고 법인 계정 승인 선례도 있습니다.
       아이디 `________`
 

@@ -287,14 +287,16 @@
     {
       "id": "okky",
       "tier": "A",
-      "enabled": false,
-      "note": "★계정 필요. okky.kr/events/promote = 무료 전용 홍보판(858페이지·앱 베타모집·SaaS 런칭 선례 다수). 개발자 청중. 본인인증 없음·SNS 로그인"
+      "enabled": true,
+      "note": "★2026-09-18 **대표 가입 완료** (구글연동 contact@signumhq.com). ★계정 필요. okky.kr/events/promote = 무료 전용 홍보판(858페이지·앱 베타모집·SaaS 런칭 선례 다수). 개발자 청중. 본인인증 없음·SNS 로그인",
+      "account": "구글연동 contact@signumhq.com"
     },
     {
       "id": "geeknews",
       "tier": "A",
-      "enabled": false,
-      "note": "★계정 필요. news.hada.io — 자작 앱은 반드시 «Show» 로만, 가입 7일 경과 후 링크 등록 가능, 프로젝트당 1회(반복시 배포채널 취급). 상위글 24~48점 규모"
+      "enabled": true,
+      "note": "★2026-09-18 **대표 가입 완료** (signumhq). ★계정 필요. news.hada.io — 자작 앱은 반드시 «Show» 로만, 가입 7일 경과 후 링크 등록 가능, 프로젝트당 1회(반복시 배포채널 취급). 상위글 24~48점 규모",
+      "account": "signumhq"
     },
     {
       "id": "fmkorea",
@@ -305,8 +307,9 @@
     {
       "id": "brunch",
       "tier": "A",
-      "enabled": false,
-      "note": "★작가 신청 필요. brunch.co.kr/keyword/미국주식 허브 존재·카카오뱅크(782편) 같은 법인 계정 승인 선례. KR 소유미디어·SEO 자산으로 최고. 설치 채널이 아니라 권위 채널"
+      "enabled": true,
+      "note": "★2026-09-18 **대표 가입 완료** (카카오연동). ★작가 신청 필요. brunch.co.kr/keyword/미국주식 허브 존재·카카오뱅크(782편) 같은 법인 계정 승인 선례. KR 소유미디어·SEO 자산으로 최고. 설치 채널이 아니라 권위 채널",
+      "account": "카카오연동"
     },
     {
       "id": "apple_featuring",
@@ -329,8 +332,9 @@
     {
       "id": "qiita",
       "tier": "B",
-      "enabled": false,
-      "note": "★일본. 가이드라인 명문 허용: 자사·자작 기술해설은 광고가 아니다. 트렌드 문턱 5~10 LGTM(실측). 금융태그는 텅 비어 있어 «엔지니어링이 본문»이어야 함. 계정 필요"
+      "enabled": true,
+      "note": "★2026-09-18 **대표 가입 완료** (구글연동 contact@signumhq.com). ★일본. 가이드라인 명문 허용: 자사·자작 기술해설은 광고가 아니다. 트렌드 문턱 5~10 LGTM(실측). 금융태그는 텅 비어 있어 «엔지니어링이 본문»이어야 함. 계정 필요",
+      "account": "구글연동 contact@signumhq.com"
     },
     {
       "id": "zenn",
@@ -341,8 +345,9 @@
     {
       "id": "discord_usstock",
       "tier": "C",
-      "enabled": false,
-      "note": "일본 «米国株村» discord.gg/usstock — **2026-09-17 실측: 멤버 2,448명 · 온라인 86명**(이전 기록 956명은 낡은 값이라 정정). 규칙은 «영리목적 행동(제휴링크·광고)» 금지 — 도구 논의는 금지 아님. **초대 페이지가 «계정 만들기» 폼(별명+생년월일)을 띄운다 → Discord 계정이 없어 가입 필요.** 실화면으로 확인했다."
+      "enabled": true,
+      "note": "★2026-09-18 **대표 가입 완료** (아이디 contact@signumhq.com). 일본 «米国株村» discord.gg/usstock — **2026-09-17 실측: 멤버 2,448명 · 온라인 86명**(이전 기록 956명은 낡은 값이라 정정). 규칙은 «영리목적 행동(제휴링크·광고)» 금지 — 도구 논의는 금지 아님. **초대 페이지가 «계정 만들기» 폼(별명+생년월일)을 띄운다 → Discord 계정이 없어 가입 필요.** 실화면으로 확인했다.",
+      "account": "아이디 contact@signumhq.com"
     },
     {
       "id": "hatena_bookmark",
