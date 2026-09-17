@@ -2063,6 +2063,28 @@
       "created": "2026-09-17T08:50:00.000Z",
       "title": "★Uptodown 소유권 확인 티켓 — 이것 하나로 UC·WIM 둘 다 풀린다 (내가 처리)",
       "detail": "Uptodown 알림에서 확보한 반려 사유 원문: 「Please, confirm that you are the app owner or have its distribution rights. We kindly ask you to submit a ticket to our support team from our Developers Console, and attach a screenshot showing the app in your Google Play developer account.」\nUC(2026-08-24)·WIM(2026-08-26) 둘 다 같은 사유다. 설명·스크린샷·파일 문제가 아니었다.\n할 일: uptodown.dev 의 Contact Us 에서 지원 티켓 1건 + Play Console 에 앱이 보이는 스크린샷 첨부. 로그인은 GitHub OAuth 로 이미 된다(비밀번호 불필요).\n주의: Play Console 이 본문을 렌더하지 않는 문제가 있어 스크린샷 확보가 관문이다. 앱 목록 페이지(/app/<id>/tracks/production)가 아니라 전체 앱 목록 화면이면 충분할 수 있다.\n그리고 SIGNUM 은 Uptodown 에 아예 없으니 같은 기회에 신규 등록한다. APK 는 /tmp/aab/signum-release.apk (17.0MB) 준비됨."
+    },
+    {
+      "id": "t163",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 2,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T08:45:00.000Z",
+      "title": "구글 «데이터셋 검색» — 한 템플릿 수정으로 6,768 URL 이 동시에 대상이 된다",
+      "detail": "우리 티커 페이지가 이미 schema.org `@type: Dataset` 을 싣고 있다(/en/flow/USO 실측: name·description·license·creator·url·isAccessibleForFree). 빠진 것은 구글이 권장하는 **`distribution`**(DataDownload + contentUrl + encodingFormat)이고, 그게 없으면 «다운로드 없는 데이터셋»이라 데이터셋 검색에서 쓸모가 없다고 판단된다.\n같이 넣을 것: `keywords` · `temporalCoverage` · `dateModified` · `identifier`. 그리고 `license` 가 지금 `/en/terms` 를 가리키는데 실제 라이선스 URL(CC BY 4.0)로 바꾼다.\n레버리지: 템플릿 한 곳을 고치면 2,228종목 × 3로케일 = **6,768 URL 이 동시에** 대상이 된다. 경쟁도 거의 없다 — 허깅페이스에서 «options flow»·«max pain» 검색 결과가 0건인 것과 같은 빈 니치다.\n웹 코드 변경이라 대표 한마디가 필요하다. Rich Results Test 로 검증 후 배포한다."
+    },
+    {
+      "id": "t164",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T08:45:00.000Z",
+      "title": "서드파티 스토어 «등재 여부»를 브라우저로 확인 — curl 로는 판정 불가",
+      "detail": "기록에 「APKPure 3/3 제출 완료 · Softonic 3/3 심사중」이라고만 있고 **실제 등재를 한 번도 확인한 적이 없다.**\n2026-09-17 curl 시도 결과: APKPure 는 패키지 경로 3개 모두 **403**(봇 차단) · Softonic 검색 **빈 응답** · Uptodown 공개 페이지 3개 모두 **404**(REJECTED 상태와 일치) · DuckDuckGo HTML 도 빈 응답이라 검색엔진 우회도 막혔다.\n→ **브라우저로 확인해야 한다.** 서드파티 스토어는 «클릭»이 아니라 «설치»가 직접 발생하는 유일한 채널이라 생존 확인이 중요하다. 등재돼 있으면 클릭 표에 안 잡히는 설치가 있다는 뜻이고, 안 돼 있으면 지금까지의 «제출 완료» 기록이 허수다."
     }
   ]
 }

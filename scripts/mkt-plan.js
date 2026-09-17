@@ -34,6 +34,7 @@ const CH = {
   hatena_bookmark: { cap: 1, day: 'week', window: [0, 24], note: '자기 사이트 자기 북마크만 허용(1건·사람 속도). 서브계정·상호북마크 = 사이트 영구제재. 레인은 테크놀로지 엔지니어링 글 하나뿐' },
   reddit:      { cap: 3, day: 'utc', window: [0, 24], note: '무링크·무앱명·같은 스레드 중복 금지·8분 간격 · ⛔AI작성 금지 서브 제외: r/options·r/StockMarket·r/investing·r/iosapps · r/Daytrading 제외' },
   android_alt_stores: { cap: 1, day: 'week', window: [0, 24], note: '★계정 없이 제출 가능한 경로 있음(APKPure). «클릭»이 아니라 «설치»가 직접 발생하는 유일한 채널. APK 필요(AAB 아님)' },
+  google_dataset_search: { cap: 1, day: 'week', window: [0, 24], note: '★무료·게이트 없음. 티커 페이지가 이미 @type:Dataset 을 싣는다 — distribution 만 넣으면 6,768 URL 이 동시에 대상(t163)' },
   hf_datasets: { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 깃허브 데이터셋 미러 → 구글 데이터셋 검색 색인. 금융 니치가 비어 있다(검색 0건)' },
   mybest_jp:   { cap: 1, day: 'week', window: [0, 24], note: '편집 큐레이션. 신청 경로 미공개 → 문의는 대표 승인. 기사에 붙은 구글폼은 «신고»용이니 쓰지 말 것' },
   play_custom_listings: { cap: 1, day: 'week', window: [0, 24], note: '★무료·자격 게이트 없음. Play 검색 키워드로 타깃되는 맞춤 스토어 등록정보(앱당 50개). 한 국가당 하나·저장≠제출' },

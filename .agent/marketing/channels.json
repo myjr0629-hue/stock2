@@ -403,6 +403,12 @@
       "tier": "-",
       "enabled": true,
       "note": "수익 채널(홍보 채널 아님). **개인 계정**이고 기본 authuser=0 은 «가입 페이지»로 튕긴다 → apps.admob.com/v2/...?authuser=1 로 접근(2026-09-17 실측). 금융 카테고리 차단은 규제가 아니라 브랜드·경쟁 이유이고 CPM 손실 가능성이 있어 p3(t141)"
+    },
+    {
+      "id": "google_dataset_search",
+      "tier": "A",
+      "enabled": false,
+      "note": "★무료·자격 게이트 없음. 구글 «데이터셋 검색»(datasetsearch.research.google.com)은 schema.org Dataset 구조화 데이터로 색인된다. 우리 티커 페이지 2,228×3로케일이 **이미 `@type: Dataset` 을 싣고 있다**(/en/flow/USO 실측: name·description·license·creator·url·isAccessibleForFree). 빠진 것은 구글이 «권장»하는 `distribution`(DataDownload + contentUrl + encodingFormat) 이라 «다운로드 없는 데이터셋»으로 취급된다. 한 템플릿 수정으로 6,768 URL 이 동시에 대상이 된다. 경쟁이 거의 없다 — 허깅페이스에서 «options flow» 검색 결과가 0건인 것과 같은 니치. 웹 코드 변경이라 승인 필요"
     }
   ],
   "candidates": [
