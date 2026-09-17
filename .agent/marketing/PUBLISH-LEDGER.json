@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=401&docId=495198039&answerNo=7",
+   "note": "",
+   "at": "2026-09-17T23:24:29.761Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=409&docId=493712383&answerNo=13",
+   "note": "",
+   "at": "2026-09-17T23:23:17.273Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=409&docId=484249787&answerNo=9",
+   "note": "",
+   "at": "2026-09-17T23:21:21.348Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
    "ch": "apple_featuring",
    "url": "https://appstoreconnect.apple.com/featuring-nominations",
    "note": "",
