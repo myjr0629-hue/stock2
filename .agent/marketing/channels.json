@@ -362,6 +362,12 @@
       "tier": "A",
       "enabled": false,
       "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요"
+    },
+    {
+      "id": "hf_datasets",
+      "tier": "B",
+      "enabled": false,
+      "note": "★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다"
     }
   ],
   "candidates": [
