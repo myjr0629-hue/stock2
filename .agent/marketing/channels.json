@@ -38,7 +38,7 @@
     {
       "id": "bluesky",
       "name": "Bluesky",
-      "tier": "C",
+      "tier": "A",
       "handle": "@signumhq.bsky.social",
       "login": "ok",
       "profile": "ok",
@@ -46,7 +46,7 @@
       "followers": 23,
       "tag": "bluesky_bio",
       "link": "https://signumhq.com/app?from=bluesky_bio",
-      "note": "✅2026-09-17 차단 해제. 컴포저에 input[type=file] 이 «0개»인 건 맞지만, base64→File→DataTransfer→drop + ClipboardEvent('paste') 로 이미지가 붙는다(ALT 배지 등장으로 확인). 300자 «그래파임» 한도 — 넘으면 게시 버튼이 aria-disabled=true 로 잠긴다(324자에서 실제로 막혔다). 링크는 웹 컴포저가 알아서 인식하므로 facets 를 직접 만들 필요 없다. 계정 @signumhq.bsky.social",
+      "note": "★★2026-09-17 실측: **글 한 편으로 하루 18클릭** — 그날 전 채널 1위. 21일 누적 0 이었으니 순수 신규 유입이다. 비교: 레딧은 21일 60건 댓글로 5클릭. C형에서 A형으로 승격. 첨부는 base64→File→DataTransfer→drop + ClipboardEvent('paste')(파일 입력은 0개인 게 맞다). 300자 «그래파임» 한도 — 넘으면 게시 버튼이 aria-disabled. 링크는 웹 컴포저가 알아서 인식. 계정 @signumhq.bsky.social",
       "action": "reply_only",
       "enabled": true
     },
