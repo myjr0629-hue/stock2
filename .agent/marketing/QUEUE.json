@@ -2041,6 +2041,17 @@
       "created": "2026-09-17T06:40:00.000Z",
       "title": "Discord 계정 (대표) — 일본 米国株村 2,448명, 우리 도메인과 정확히 일치",
       "detail": "discord.gg/usstock 초대 페이지를 실제로 열었더니 «계정 만들기» 폼(별명+생년월일)이 떴다 — Discord 계정이 없다. 계정 생성은 내가 못 한다.\n서버 실측: 멤버 2,448명 · 온라인 86명(내가 기록해 둔 956명은 낡은 값이라 정정했다). 미국주식 + 파이썬 실사용자 커뮤니티로 우리 도메인과 정확히 일치한다.\n규칙은 «영리목적 행동(제휴링크·광고)» 금지고 도구 논의는 금지가 아니다 → 참여 후 빌더로 알려진 다음에만 언급한다. 콜드 링크 투척은 규칙 4 위반."
+    },
+    {
+      "id": "t161",
+      "type": "ceo",
+      "region": "ALL",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T08:10:00.000Z",
+      "title": "★WIM 안드로이드 — 콘솔에서 3번 클릭만 남았습니다 (30초)",
+      "detail": "AAB 빌드·수정 확인·업로드·초안 저장까지 제가 다 했습니다. 남은 것은 콘솔 클릭 3번입니다.\nURL: https://play.google.com/console/u/0/developers/4769683602295618218/app/4974011153222225088/tracks/4697728196667220385/releases/3/prepare\n① Next ② Save ③ Publishing overview → Submit 1 change for review → 대화상자 Send changes for review\n제가 Next 를 클릭하면 클릭은 먹는데(Next:ok) 화면이 안 넘어갑니다. Play 검증이 막는 것으로 보이는데 오류 메시지를 찾지 못했습니다. 릴리스 노트가 필수일 가능성이 있습니다.\n상세는 .agent/marketing/WIM-ANDROID-HANDOVER.md"
     }
   ]
 }
