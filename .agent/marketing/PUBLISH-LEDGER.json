@@ -1,6 +1,22 @@
 {
  "entries": [
   {
+   "ch": "x_post",
+   "url": "https://x.com/signumhq_jp JP Fed",
+   "note": "",
+   "at": "2026-09-17T00:00:49.383Z",
+   "kst": "2026-09-17",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "reddit",
+   "url": "t1_pa9ra8j r/iosapps indie-dev",
+   "note": "",
+   "at": "2026-09-17T00:00:49.346Z",
+   "kst": "2026-09-17",
+   "utc": "2026-09-17"
+  },
+  {
    "ch": "threads_reply",
    "url": "stockdataquant-FOMC정정",
    "note": "",
