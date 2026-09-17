@@ -2234,11 +2234,33 @@
       "type": "ceo",
       "region": "KR",
       "prio": 1,
-      "state": "todo",
+      "state": "done",
       "tries": 0,
       "created": "2026-09-17T14:10:00.000Z",
-      "title": "갤럭시 스토어 — 한국 삼성계정으로는 «미국 셀러»가 안 된다. 미국 계정을 새로 만들어야 한다 (실측)",
-      "detail": "대표 지적이 처음부터 맞았다(「글로벌/미국 계정으로 만들어야 한다」). 내가 구글 연동으로 만든 계정은 **한국 지역**이 박혀서 미국 셀러가 안 된다. 실측 근거:\n\n| 확인한 것 | 결과 |\n|---|---|\n| Seller Portal 의 Country/Region 칸 | `class=\"input disabled\"` — **비활성. 삼성 계정 국가를 그대로 따라간다** |\n| State/Region 드롭다운 | **한국 시·도 19개만**(Busan·Gyeonggi-do…). 미국 주가 없다 |\n| Business Registration Number | `maxLength=10` — **한국 사업자등록번호 형식.** 우리 EIN(36-5171643)은 들어가도 검증을 못 넘는다 |\n| 삼성 계정 프로필 | `국가 또는 지역: 대한민국` · 푸터 `Korea / 한국어` |\n| 계정의 국가 변경 목록 | **Europe · Asia Pacific 두 그룹만 뜬다. United States 가 선택지에 없다** |\n\n공식 문서 확인(samsung.com 지원): 「Seller Portal 의 국가는 삼성 계정 프로필의 국가가 결정한다. 셀러 등록 «전»이면 계정 국가를 바꾼 뒤 등록하면 되고, 등록 «후»면 셀러 계정을 삭제하고 다시 등록해야 한다.」 그리고 **국가를 바꾸면 180일간 재변경이 잠긴다.** 즉 지금이 바꿀 타이밍인 것은 맞지만, **이 계정에는 미국이 아예 선택지에 없다.**\n\n**결론**: 미국 지역으로 «새로 만든» 삼성 계정이 필요하다. 이메일은 contact@signumhq.com 이 이미 한국 계정에 묶여 있으니 **다른 주소**가 필요하다.\n**대표님께 필요한 것**: ①미국에서 쓸 이메일 주소 하나(예: `dev@signumhq.com`·`press@signumhq.com` — 있는 것 알려주시면 제가 확인) ②그 주소로 미국 지역 삼성 계정 생성(계정 생성·비밀번호는 제 금지선).\n생성 후 제가 하는 것: Corporate Seller 등록(회사명 SIGNUM HQ, LLC · EIN 36-5171643 · 대표자 JIYOUNG KIM · 주소 131 Continental Dr Ste 305, Newark, DE 19713) → 3앱 APK 업로드 → 등록정보 → ADV 지문 → 심사 제출."
+      "title": "✅갤럭시 스토어 셀러 계정 + Developer API 확보 (안드로이드 등록은 Commercial 승격 대기)",
+      "detail": "대표 지적이 처음부터 맞았다(「글로벌/미국 계정으로 만들어야 한다」). 내가 구글 연동으로 만든 계정은 **한국 지역**이 박혀서 미국 셀러가 안 된다. 실측 근거:\n\n| 확인한 것 | 결과 |\n|---|---|\n| Seller Portal 의 Country/Region 칸 | `class=\"input disabled\"` — **비활성. 삼성 계정 국가를 그대로 따라간다** |\n| State/Region 드롭다운 | **한국 시·도 19개만**(Busan·Gyeonggi-do…). 미국 주가 없다 |\n| Business Registration Number | `maxLength=10` — **한국 사업자등록번호 형식.** 우리 EIN(36-5171643)은 들어가도 검증을 못 넘는다 |\n| 삼성 계정 프로필 | `국가 또는 지역: 대한민국` · 푸터 `Korea / 한국어` |\n| 계정의 국가 변경 목록 | **Europe · Asia Pacific 두 그룹만 뜬다. United States 가 선택지에 없다** |\n\n공식 문서 확인(samsung.com 지원): 「Seller Portal 의 국가는 삼성 계정 프로필의 국가가 결정한다. 셀러 등록 «전»이면 계정 국가를 바꾼 뒤 등록하면 되고, 등록 «후»면 셀러 계정을 삭제하고 다시 등록해야 한다.」 그리고 **국가를 바꾸면 180일간 재변경이 잠긴다.** 즉 지금이 바꿀 타이밍인 것은 맞지만, **이 계정에는 미국이 아예 선택지에 없다.**\n\n**결론**: 미국 지역으로 «새로 만든» 삼성 계정이 필요하다. 이메일은 contact@signumhq.com 이 이미 한국 계정에 묶여 있으니 **다른 주소**가 필요하다.\n**대표님께 필요한 것**: ①미국에서 쓸 이메일 주소 하나(예: `dev@signumhq.com`·`press@signumhq.com` — 있는 것 알려주시면 제가 확인) ②그 주소로 미국 지역 삼성 계정 생성(계정 생성·비밀번호는 제 금지선).\n생성 후 제가 하는 것: Corporate Seller 등록(회사명 SIGNUM HQ, LLC · EIN 36-5171643 · 대표자 JIYOUNG KIM · 주소 131 Continental Dr Ste 305, Newark, DE 19713) → 3앱 APK 업로드 → 등록정보 → ADV 지문 → 심사 제출.\n\n[2026-09-17 23:5x ✅완료분] 삼성 계정 미국 전환 → 셀러 가입 4단계 전부 통과 → **SIGNUM HQ, LLC · Corporate Seller · Free Distribution Seller** 활성.\n**API 까지 열었다**(대표 지시 「api로 할수있다면서 그럼 그런것이 더 편하면 그렇게 하고」): API Service → 약관 동의 → 서비스 계정 생성(권한 Publishing & ITEM + GSS) → 비밀키를 화면에서 읽어 `~/.galaxystore/service-account-private.pem`(mode 600)에 저장(대화에 찍지 않았다) → `scripts/galaxy_client.py` 로 accessToken 발급 확인.\n실동작 확인: `GET /seller/contentList` → `[]` · `POST /seller/createUploadSessionId` → sessionId + 업로드 URL 반환.\n**단 신규 앱 등록은 API 에 엔드포인트가 없다** — 문서 확인: create/register 엔드포인트 부재, 첫 등록은 포털 필수. 그리고 포털의 안드로이드 등록은 Commercial 승격 게이트에 막힌다 → t179"
+    },
+    {
+      "id": "t179",
+      "type": "ceo",
+      "region": "ALL",
+      "prio": 1,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T15:00:00.000Z",
+      "title": "★갤럭시 스토어 — 안드로이드 앱 등록에 «Commercial Distribution Seller» 승격이 필요합니다 (무료 앱도 예외 없음)",
+      "detail": "셀러 계정은 제가 다 만들었고 API 까지 살렸습니다. **마지막 한 칸만 남았습니다.**\n\n게이트 팝업 원문(`checkAndroidAddNewPopup`):\n> 「To sell Android content, a status change to **corporate Commercial Distribution Seller** is necessary. If you are not a corporate Commercial Distribution Seller, existing Android content will be discontinued and **you will not be able to register Android content**. 'Request Corporate Commercial Seller' from your profile.」\n\n확인한 사실: 갤럭시 워치는 `application/main.as?platform=watch` 로 열리는데 **안드로이드만** `You do not have access to this function` 이 뜹니다. 무료 배포 셀러로는 안드로이드 등록이 아예 안 됩니다.\n신청 경로: https://seller.samsungapps.com/member/getSellerDetail.as → `Request Commercial Seller Status`\n**제가 못 하는 이유**: Commercial(상업) 셀러는 판매 대금 수취가 전제라 통상 **은행 계좌·세금 정보**를 요구합니다. 결제·금융 정보 입력은 제 금지선입니다. 신청 화면을 열어 무엇을 요구하는지까지 확인하려 했으나 그 버튼도 jQuery 핸들러라 제 클릭으로는 안 열렸습니다 — 대표님이 눌러 주시면 그 화면을 보고 «제가 채울 수 있는 칸»은 제가 채우겠습니다.\n\n**승격만 되면 그 뒤는 전부 제가 합니다**: 3앱 APK(이미 빌드 완료 — `/tmp/apk/{signum,uc,wim}-release.apk`) 등록 → 등록정보(en/ko/ja) → 심사 제출 → 그다음부터는 **API 로 자동화**(바이너리 교체·단계적 배포·리뷰 답글·다운로드 통계)."
+    },
+    {
+      "id": "t180",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 2,
+      "state": "todo",
+      "tries": 0,
+      "created": "2026-09-17T15:00:00.000Z",
+      "title": "갤럭시 스토어 Promotion 도구 4종 — 승격 후 즉시 쓸 것 (대표 지시: 적극 활용)",
+      "detail": "대표 지시(2026-09-17): 「캠페인등 여러가지 할수있는것들이 많은것같은데 그런것도 적극적으로 활용하도록해라」. 사이트맵에서 전수 확인한 도구:\n| 도구 | 경로 | 우리 쓸 곳 |\n|---|---|---|\n| **Badges** | `/product/badge/getBadgeList.as` | 스토어 목록에서 눈에 띄는 배지. 무료 앱도 대상 |\n| **Coupons** | `/product/promotion/promotioncoupon.as` | 광고제거 구독에 쓸 수 있다 |\n| **Redeem Code** | `/product/redeemCode/redeemCodeList.as` | 리뷰어·매체 제공용(일본 매체 제보와 묶으면 강하다) |\n| **Discounts** | `/product/discount/discountList.as` | 구독 할인 |\n| **My Followers** | `/comment/getFollowerList.as` | 갤럭시 스토어 팔로워 — 우리가 한 번도 안 본 채널 |\n그리고 API 의 GSS 권한으로 **다운로드·매출 통계를 프로그램으로** 읽는다(애플 Analytics API 가 403 인 것과 대비 — 안드로이드 쪽은 이제 두 경로가 열렸다)."
     }
   ]
 }

@@ -129,3 +129,34 @@
 - **본문 줄바꿈**: `Input.insertText` + Enter 키로는 줄바꿈이 사라진다(한 덩어리가 된다). **평범한 textarea 는 `page.fill` 을 쓴다** — 24줄이 그대로 들어간다.
 - 첨부는 `setInputFiles` 로 된다. Play 콘솔 앱 목록 스크린샷 1장이면 소유권 증빙으로 충분하다(개발자 계정 ID + 3앱 + 패키지명이 한 화면에 나온다).
 - **한계**: 티켓 목록 화면이 없다(`/tickets`·`/support` 404). 접수 확인은 `/notifications` 의 회신으로만 된다 → 「보냈다」와 「접수됐다」를 구분해 적는다.
+
+---
+
+## 8. 삼성 갤럭시 스토어 ✅2026-09-17 셀러 계정 + Developer API 확보
+**계정** contact@signumhq.com (삼성 계정 = Google 연동, 비밀번호 없음) · **SIGNUM HQ, LLC · Corporate Seller · 미국 · Free Distribution Seller**
+
+### 가입에서 실제로 막힌 것 두 개 (둘 다 «국가» 문제였다)
+1. **Seller Portal 의 Country 칸은 `disabled` 이고 삼성 계정 국가를 그대로 따라간다.** 한국 계정이면 ①`사업자등록번호`(maxLength 10 = 한국 형식) 칸이 필수로 뜨고 ②State 목록이 한국 시·도 19개만 나온다. **미국으로 바꾸면 사업자등록번호 칸이 «사라진다».**
+2. 계정 국가는 프로필에서 바꿀 수 있다: `account.samsung.com` → 프로필 → **개인정보 수정** → 국가 또는 지역 → (아코디언에서 **Americas 그룹을 펼쳐야** USA 가 보인다 — 접혀 있으면 Europe·Asia Pacific 둘만 보여서 「미국이 없다」고 오진한다) → 저장. **이메일 확인 링크(10분 유효)** 를 거쳐야 저장되고, 저장되면 기존 세션이 전부 로그아웃된다. **변경 후 180일 재변경 잠김.**
+   · 전화 국가 목록(238개)에는 **한국이 의도적으로 빠져 있다**(Kiribati → Kosovo → Kuwait). 그래서 미국 번호가 필요하다 → 회사 정보 메모리 참조.
+
+### ⛔안드로이드 신규 등록의 진짜 게이트
+`application/main.as?platform=android` 는 `You do not have access to this function`, `?platform=watch` 는 열린다. 원인은 팝업 `checkAndroidAddNewPopup` 에 적혀 있다:
+> To sell Android content, a status change to **corporate Commercial Distribution Seller** is necessary … you will not be able to register Android content.
+
+**무료 앱도 예외가 없다.** 프로필의 `Request Commercial Seller Status` 로 승격해야 한다. Commercial 은 대금 수취가 전제라 은행·세금 정보를 요구할 가능성이 높다(= 내 금지선).
+
+### ✅Developer API — 여기까지는 다 열었다
+포털 UI 의 「Add New App」 다이얼로그는 Next 가 `<a href="#1">` 이고 jQuery 핸들러가 걸려 있어 합성 클릭으로 안 넘어간다. **API 가 그 전부를 건너뛴다.**
+1. `Assistance → API Service` = `/content/apiConsole/main.as`
+2. `Create Service Account` → **API 약관 동의창**(체크박스 `#termsCheck` + Agree)이 먼저 뜬다. 동의 후 다시 누르면 권한 선택창이 나온다: **Publishing & ITEM**(앱 등록·수정) · **GSS**(다운로드·매출 통계) — **둘 다 켠다.**
+3. 생성 직후 **비밀키가 화면에 한 번만** 표시된다. `Download Key` 를 누르지 않고 **DOM 에서 정규식으로 뽑아 파일로 저장했다** — 패턴은 PEM 의 BEGIN/END 머리말을 앵커로 삼고 그 사이를 `[\s\S]*?` 로 최소일치시킨다.
+   ⚠ `div` 로 넓게 잡으면 페이지 전체가 딸려온다 — 반드시 정규식으로 키만 자른다.
+4. 저장 위치 `~/.galaxystore/service-account-private.pem` (mode 600, RSA 2048 — `openssl rsa -noout -check` 로 검증). 서비스 계정 ID 는 `.env.local` 의 `GALAXY_STORE_SERVICE_ACCOUNT_ID`.
+5. 클라이언트 `scripts/galaxy_client.py` — JWT(RS256, `iss`=서비스계정ID, `scopes`=[publishing, gss]) → `POST /auth/accessToken` → 이후 **두 헤더를 «둘 다»** 보낸다: `Authorization: Bearer <token>` + `service-account-id: <id>`. 하나라도 빠지면 인증 오류.
+
+**실동작 확인**: `GET /seller/contentList` → `[]` · `POST /seller/createUploadSessionId` → `{url, sessionId}`(24시간 유효).
+**한계**: Content Publish API 에는 **«신규 앱 생성» 엔드포인트가 없다**(공식 레퍼런스 확인) — 첫 등록은 포털 필수. API 는 그 뒤의 바이너리 추가/교체·앱 정보 수정·단계적 배포·리뷰 답글·제출·통계를 담당한다.
+
+### Promotion 도구 (경로 정본)
+Badges `/product/badge/getBadgeList.as` · Coupons `/product/promotion/promotioncoupon.as` · Redeem Code `/product/redeemCode/redeemCodeList.as` · Discounts `/product/discount/discountList.as` · My Followers `/comment/getFollowerList.as` · 앱 목록 `/content/common/summaryContentList.as` · 사이트맵 `/help/siteMap.as`(막히면 여기서 경로를 받는다)

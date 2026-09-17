@@ -432,7 +432,7 @@
       "id": "galaxy_store",
       "tier": "A",
       "enabled": false,
-      "note": "★오늘(2026-09-17) 실측이 가리키는 방향. Play 유입표에 **«Google Play search» 행이 아예 없다**(검색 설치 0) — 우리 문제는 등록정보가 아니라(전환율 60.61%) «앞에 서는 것»이다. 그래서 검색에 의존하지 않는 **1st-party 스토어**가 답이다.\n삼성 갤럭시 스토어는 한국 안드로이드 기기 대부분에 «기본 설치»돼 있고, Seller Portal 등록이 무료다(seller.samsungapps.com). 서드파티 스토어(APKPure·Softonic·Uptodown)와 달리 소유권 심사가 아니라 개발자 등록이라 «반려 루프»가 없다. AAB/APK 그대로 올린다.\n같이 볼 것: **ONE스토어**(SK·KT·LGU+ 합작, 한국 전용, onestore.co.kr) — 통신사 기본 탑재. 둘 다 계정 생성이 필요해 대표 가입 대기."
+      "note": "★2026-09-17 **셀러 계정 생성 완료** — SIGNUM HQ, LLC · Corporate Seller · 미국 · Free Distribution Seller. **Developer API 도 살렸다**: 서비스 계정 `1367013a-4392-431c-85b5-172d86a0324d`(권한 Publishing & ITEM + GSS), 비밀키 `~/.galaxystore/service-account-private.pem`(RSA 2048, mode 600), 클라이언트 `scripts/galaxy_client.py`. accessToken 발급·`GET /seller/contentList`·`POST /seller/createUploadSessionId` 전부 실동작 확인.\n⛔**남은 게이트 하나**: 안드로이드 앱 «신규 등록»은 **Commercial Distribution Seller** 승격이 필요하다. 게이트 팝업(`checkAndroidAddNewPopup`) 원문: 「To sell Android content, a status change to corporate Commercial Distribution Seller is necessary. If you are not a corporate Commercial Distribution Seller, existing Android content will be discontinued and you will not be able to register Android content.」 **무료 앱이어도 예외가 없다.** 프로필의 `Request Commercial Seller Status` 로 신청한다. Content Publish API 에는 «신규 앱 생성» 엔드포인트가 없어 첫 등록은 포털을 거쳐야 한다(문서 확인)."
     }
   ],
   "candidates": [
