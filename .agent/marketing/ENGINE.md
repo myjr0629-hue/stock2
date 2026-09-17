@@ -952,3 +952,17 @@ CPP 실무 요약은 `PLATFORM-PLAYBOOK.md` §12, 재사용 정본은 `scripts/a
 Uptodown 스크린샷 업로드에서 `+ ADD` 를 텍스트로 찾았더니 **라벨 요소**(x=766)가 먼저 잡혔다. 그걸 누르면 아무 일도 안 나고, 실제 버튼(x=415)을 눌러야 `input[type=file]` 이 생긴다. §29(OKKY)와 같은 패턴이고 추가 교훈은 **같은 문구를 가진 요소가 여러 개면 좌표가 다른 것을 다 뽑아서 하나씩 시도한다**는 것이다.
 
 부수 확인: Uptodown 은 **스크린샷을 자사 콘텐츠팀이 찍는 것이 기본**이라고 명문화돼 있다(「By default, screenshots on Uptodown are taken by our in-house content team」). 그래도 **제출 검증은 3장을 요구**한다 — 안내문과 검증이 어긋나 있으니 3장을 올려야 넘어간다.
+
+---
+
+## §39 `400` 과 `404` 는 «경로가 없다» 와 «요청이 틀렸다» 를 가른다 (2026-09-18 08:2x KST)
+
+애플 피처링 추천을 API 로 찾을 때 여섯 가지 경로를 찍어 봤다. 다섯 개는 `404`, 하나만 **`400`** 이었다 — `/v1/nominations`. 400 은 **「경로는 있는데 파라미터가 빠졌다」**는 뜻이고, 실제로 본문이 `filter[state]' is required` 라고 알려 줬다. 그 한 글자 차이로 새 표면 하나가 열렸다.
+
+이건 §24 의 「403 은 키 문제, 406 은 권한 통과」와 같은 가족이다. **상태 코드를 «있다/없다» 두 값으로 읽지 말 것.** 정리하면:
+- `404` / `PATH_ERROR` → 그 경로는 존재하지 않는다. 다른 이름을 찾는다.
+- `400` / `PARAMETER_ERROR` → **경로가 있다.** 본문이 무엇이 빠졌는지 말해 준다.
+- `409` / `ENTITY_ERROR.*.REQUIRED` → 쓰기 스키마를 모를 때 **가장 빠른 학습법**이다. 최소 본문으로 POST 하고 「required」 목록을 읽어 한 라운드에 한 겹씩 채운다. 이번에 4라운드로 스키마 전체를 알아냈다(`name`→`description`·`publishStartDate`→`submitted`→`type`·`relatedApps`).
+- `409` 의 「Expected one of: …」 는 **열거형 값을 그대로 알려 준다**(`APP_LAUNCH`·`APP_ENHANCEMENTS`·`NEW_CONTENT`). 문서를 찾기 전에 오류를 읽는 편이 빠를 때가 있다.
+
+문서는 여전히 먼저 읽는다 — 애플 안내문이 「App Store Connect 의 Featuring Nominations 로 제출하고 **최소 2주 전**(권장 3개월)」이라고 못박아 준 덕에 `publishStartDate` 를 10-06 으로 잡을 수 있었다. **문서로 «무엇을», 오류로 «어떻게»를 배운다.**

@@ -355,3 +355,48 @@ CPP 는 **자기 URL(`?ppid=…`)** 을 갖고 **스크린샷·앱 프리뷰·�
 ### 데이터셋 카드에 넣은 것
 HF YAML 프런트매터(`license`·`language`·`pretty_name`·`tags` 6개·`size_categories`·`configs`) + 앱 화면 이미지 + 스마트링크 `signumhq.com/app?from=hf_datasets`.
 검증 결과: HTTP 200 · JSON-LD `"@type": "Dataset"` 존재 · 태그 10개 색인(`finance`·`options`·`market-structure` 등) · 스마트링크 페이지에 노출.
+
+---
+
+## 16. App Store 피처링 추천 (Featuring Nominations)  ✅2026-09-18 3앱 제출
+**계정** ASC API 키 · **채널 등급** A(무료·편집 선정 창구) · **API** `/v1/nominations`
+
+### 왜 이 채널인가
+애플 편집팀에 **직접** 앱을 추천하는 창구다. 무료이고, **인앱이벤트·앱 업데이트·개발자 스토리**까지 대상이다. 애플 안내문 기준 **최소 2주 전, 권장 3개월 전** 제출.
+평가 기준(애플 명문): 사용자 경험 · UI 디자인 · 혁신 · 독창성 · **접근성** · **현지화** · 제품 페이지 품질. 우리 강점은 **완전 현지화(EN/KO/JA 전체)**·무료·가입 없음·「숫자가 무엇 대비인지 라벨링」이다.
+
+### API (문서엔 없고 오류로 찾았다 — §39)
+- `GET /v1/nominations?filter[state]=SUBMITTED|DRAFT|ARCHIVED` — **`filter[state]` 가 필수**다. 빼면 400
+- `/v1/featuringNominations` 는 **404** 다. 이름은 `nominations`
+- `POST /v1/nominations` 필수: `name` · `description` · `type` · `publishStartDate`(ISO 8601 datetime) · `submitted` + 관계 `relatedApps`
+- `type` 열거형: **`APP_LAUNCH` · `APP_ENHANCEMENTS` · `NEW_CONTENT`** (`IN_APP_EVENT`·`APP_UPDATE` 는 무효)
+- **`relatedAppEvents` 관계는 없다** — 인앱이벤트를 걸 수 없고 `NEW_CONTENT` 로 본문에 적는다
+- 제출: `PATCH /v1/nominations/{id} {submitted:true}` → `state: SUBMITTED`
+
+### 이번 제출 (publishStartDate 2026-10-06 = 18일 후, 2주 규정 충족)
+| 앱 | id | 타입 |
+|---|---|---|
+| SIGNUM | `608525e6` | NEW_CONTENT — This week's earnings (EN/KO/JA) |
+| UC | `71d6f443` | NEW_CONTENT — the news, in plain language |
+| WIM | `9473bc18` | NEW_CONTENT — learn the market by guessing |
+
+**기록에 없던 사실**: 2026-07-10·07-16 에 **APP_LAUNCH 추천 2건이 이미 제출돼 있었다**(SIGNUM v1.0·UC 1.0). 창구를 쓴 적이 있는데 채널 문서에 없었고 결과 확인도 안 했다. 이제 `filter[state]=SUBMITTED` 로 매번 확인한다.
+
+## 17. Galaxy Store 셀러 포털 — 정본 경로 (2026-09-18 확인)
+`seller.samsungapps.com` · 메뉴는 **짐작하지 말고** `sellerMain.as` 의 링크에서 읽는다(내가 찍은 `member/sellerPageInfo.as`·`member/memberInfo.as` 는 둘 다 404였다).
+
+| 기능 | 경로 |
+|---|---|
+| 셀러 상세/프로필 | `/member/getSellerDetail.as` |
+| 쿠폰 | `/product/promotion/promotioncoupon.as` |
+| 리딤 코드 | `/product/redeemCode/redeemCodeList.as` |
+| 할인 | `/product/discount/discountList.as` |
+| 배지 | `/product/badge/getBadgeList.as` |
+| 팔로워 | `/comment/getFollowerList.as` |
+| API 콘솔 | `/content/apiConsole/main.as` |
+| 문의 | `/notice/ask.as` |
+| Commercial Seller 안내서 | `/qa/downloadSupportFiles.as?type=9` |
+
+**상태(2026-09-18 08:0x)**: `Type of Sales: Commercial Distribution Request in Progress` — 승격 **대기 중**, 등록 앱 0건, 다운로드 0. Developer API 는 정상(`GET /seller/contentList` → `[]`).
+**셀러 페이지에서 채울 수 있는 것**: `Seller's Home URL` · `Seller's Help URL`(+ Themes/Watch 전용 이미지 칸들). 딥링크는 `000000257823`.
+⛔ **`Edit` 를 누르면 삼성 계정 «비밀번호 재확인» 게이트가 새 탭으로 열린다**(`account.samsung.com/.../confirmPasswordGate`). 안전선상 내가 못 넘는다 → **t181**. 대표가 한 번 통과해 주면 그 세션에서 내가 URL 두 개를 넣는다.
