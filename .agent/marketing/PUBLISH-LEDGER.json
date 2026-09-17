@@ -1,6 +1,22 @@
 {
  "entries": [
   {
+   "ch": "aso",
+   "url": "https://apps.apple.com/us/app/id6783130444",
+   "note": "",
+   "at": "2026-09-17T20:55:00.582Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
+   "ch": "apple_cpp",
+   "url": "https://apps.apple.com/us/app/signum-hq-stock-market-ai/id6783130444?ppid=a0522489-c6f8-4050-8e56-bc89b27f0927",
+   "note": "",
+   "at": "2026-09-17T20:55:00.536Z",
+   "kst": "2026-09-18",
+   "utc": "2026-09-17"
+  },
+  {
    "ch": "play_custom_listings",
    "url": "https://play.google.com/store/apps/details?id=com.signumhq.app&listing=home",
    "note": "",

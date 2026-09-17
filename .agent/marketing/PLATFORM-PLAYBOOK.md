@@ -275,3 +275,41 @@ Badges `/product/badge/getBadgeList.as` · Coupons `/product/promotion/promotion
 - 사진 게시 절차: `tiktokstudio/upload` → **「사진」 탭** → `setInputFiles('input[type=file]', [3장])` → 제목(90) + 본문(4000, contenteditable) → **스크롤 후** 「게시」.
 - 게시 직후 상태는 **「콘텐츠 검토 중 · 나만」** — 「게시물 수 1→2」는 제출 증거이고 공개 증거가 아니다.
 - **대표 확인 필요(t187)**: `@signumhq` 로 로그인 전환 + 개인 계정에 남은 우리 게시물 2건(8/31 공개·9/18 검토중) 처리 방침.
+
+---
+
+## 12. App Store 맞춤 제품 페이지 (CPP)  ✅2026-09-18 3앱 전부 제출
+**계정** ASC API 키 · **태그** `?ppid=<uuid>` · **채널 등급** A(무료·앱당 35개·검색광고 광고그룹에 붙일 수 있음)
+
+### 왜 이 채널인가
+CPP 는 **자기 URL(`?ppid=…`)** 을 갖고 **스크린샷·앱 프리뷰·홍보문구를 따로** 둘 수 있다. 기본 등록정보는 검색어에 묶이지만 CPP 는 안 묶이므로 «순수 설득»으로 쓸 수 있다. 애플 검색광고 광고그룹에도 붙는다. 앱당 35개, 전부 무료. 3앱 모두 0건이었다.
+
+### 절차 — `python3 scripts/asc_custom_product_page.py <앱ID> <스펙.json>`
+1. `POST /appCustomProductPages` — **버전과 로케일을 «인라인»으로 함께** 보낸다(`included` + `${}` 링키지). 둘 다 필수 관계라 따로 만들면 409 `RELATIONSHIP.REQUIRED`
+2. `POST /appScreenshotSets` — 관계는 **`appCustomProductPageLocalization`**, `screenshotDisplayType: APP_IPHONE_65`
+3. `POST /appScreenshots` → `PUT` uploadOperations → `PATCH {uploaded:true, sourceFileChecksum}`
+   (**`appScreenshots` 에는 `sourceFileChecksum` 이 있다.** `appEventScreenshots` 와 다르다 — §31)
+4. `assetDeliveryState == COMPLETE` 폴링
+5. `POST /reviewSubmissions` → `POST /reviewSubmissionItems`(**`appCustomProductPageVersion`** 관계) → `PATCH {submitted:true}`
+
+### 규격·한도
+- 스크린샷 6.5" = **1242×2688**. 렌더는 `scripts/compose-promo-shots.py` + `{canvas:{1242,2688}, appSize:{1100,2280}}`
+- `promotionalText` **170자**. 이름·부제·설명은 CPP 에서 **못 바꾼다**
+- 앱당 35개
+
+### 제출 취소·교체 (실제로 했다)
+`PATCH /reviewSubmissions/{id} {canceled:true}` → 즉시 `CANCELING`, CPP 버전이 `PREPARE_FOR_SUBMISSION` 으로 복귀 → `DELETE /appScreenshotSets/{id}` → 새로 업로드 → 재제출. **기본 등록정보와 같은 스크린샷을 올리면 CPP 가 무의미하다**(§36).
+
+### 1호 3건 (2026-09-18)
+| 앱 | ppid | 로케일 | 상태 |
+|---|---|---|---|
+| SIGNUM | `a0522489-c6f8-4050-8e56-bc89b27f0927` | en·ko·ja | WAITING_FOR_REVIEW |
+| UC | `f2559d55-be1a-41a1-989b-5940a5ff4d8a` | en·ko·ja | WAITING_FOR_REVIEW |
+| WIM | `4347070b-174a-4620-bd93-942caca7cf2c` | en | WAITING_FOR_REVIEW |
+
+**활성화** 스마트링크의 App Store URL 에 `&ppid=<uuid>` 를 붙여야 트래픽이 온다 → **t186 에 Play `&listing=` 과 함께 묶었다**(`src/lib/marketing/storeRedirect.ts`).
+
+## 13. App Store 홍보문구 (promotionalText) — 즉시·무심사 170자
+`PATCH /appStoreVersionLocalizations/{id} {promotionalText}`. **새 빌드도 심사도 필요 없다**(실측: 버전 상태 `READY_FOR_DISTRIBUTION` 그대로). 제품 페이지 설명 위에 붙는 최상단 170자다.
+2026-09-18 에 **3앱 × 12로케일 = 36칸이 전부 비어 있었고** 전부 채웠다. ko·ja 는 현지어, 나머지 9개 로케일은 앱 UI 가 영어라 영문을 쓴다.
+스토어 필드는 세 종류로 나눠 본다: **빌드 필요**(이름·부제·키워드) / **심사 필요**(스크린샷·설명·CPP) / **즉시·무심사**(promotionalText).
