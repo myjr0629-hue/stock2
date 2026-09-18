@@ -37,6 +37,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  // 네이버 서치어드바이저 소유확인 (2026-09-18, searchadvisor.naver.com → HTML 태그 방식)
+  verification: { other: { 'naver-site-verification': '4b8793fa022687de93bb08e112e1c0a74ac3629b' } },
   title: "SIGNUM HQ",
   description: "Institutional Intelligence, Democratized — GEX · Dark Pool · Options Flow · AI Verdicts",
   metadataBase: new URL('https://www.signumhq.com'),
