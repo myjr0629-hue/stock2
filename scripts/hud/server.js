@@ -139,15 +139,46 @@ function marketing() {
         const log = fs.readFileSync(path.join(MKT, 'OUTREACH-LOG.md'), 'utf8');
         cycles = [...log.matchAll(/^## (사이클[^\n]*|[^\n]*사이클[^\n]*)$/gm)].map((m) => m[1].trim()).slice(-12).reverse();
     } catch {}
+    const todayBy = {}; for (const r of todayRows) todayBy[r.ch] = (todayBy[r.ch] || 0) + 1;
     return {
-        today, todayCount: todayRows.length, todayRows: todayRows.slice(-40).reverse(),
+        today, todayCount: todayRows.length, todayRows: todayRows.slice(-40).reverse(), todayBy,
         byDay: Object.fromEntries(Object.entries(byDay).sort().slice(-14)),
         total: rows.length,
         tickets: tickets.map((t) => ({ id: t.id, type: t.type, prio: t.prio, state: t.state, title: (t.title || '').slice(0, 130) })),
         ceoTickets: tickets.filter((t) => t.type === 'ceo').length,
-        channels: { total: chans.length, enabled: chans.filter((c) => c.enabled !== false).length },
+        channels: { total: chans.length, enabled: chans.filter((c) => c.enabled !== false).length,
+            list: chans.map((c) => ({ id: c.id, tier: c.tier || '', enabled: c.enabled !== false, gate: /계정 필요|가입|보류|게이트|약관|보안문자/.test(String(c.note || '')) })) },
         cycles,
     };
+}
+
+// ── ③-b 이번 시간 슬롯 배정 (mkt-plan.js slot · 60초 캐시) ─────────────────
+let slotCache = { at: 0, data: null };
+function slot() {
+    if (Date.now() - slotCache.at < 60000 && slotCache.data) return slotCache.data;
+    let out = '';
+    try { out = execSync('node scripts/mkt-plan.js slot', { cwd: ROOT, encoding: 'utf8', timeout: 25000, stdio: ['ignore', 'pipe', 'ignore'] }); }
+    catch { slotCache = { at: Date.now(), data: slotCache.data }; return slotCache.data; }
+    const pick = (head) => {
+        const i = out.indexOf(head); if (i < 0) return [];
+        const seg = out.slice(i, out.indexOf('\n\n', i) < 0 ? undefined : out.indexOf('\n\n', i));
+        // ⚠ mkt-plan 은 id 를 padEnd 로 정렬해 출력한다 — id 가 길면 다음 칸이 «붙어» 나온다(naver_search_advisor기록없음).
+        return [...seg.matchAll(/^\s+\d+\.\s+(\S+)\s*(.*)$/gm)].map((m) => {
+            let id = m[1].replace(/(기록없음|\d+시간 전|\d+분 전|어제|오늘).*$/, '');
+            return { id, note: (m[1].slice(id.length) + ' ' + m[2]).replace(/\s+/g, ' ').trim().slice(0, 90) };
+        });
+    };
+    const ceo = [...out.matchAll(/^\s+✅\s*(.+)$/gm)].map((m) => m[1].trim());
+    const waiting = (out.match(/대표 가입 대기 (\d+)건: (.+)$/m) || []);
+    const data = {
+        run: pick('■ 실행'), unblock: pick('■ 뚫기'),
+        pending: (out.match(/대기\((\d+)\):/) || [])[1] || null,
+        ceoActivate: ceo, ceoWaiting: waiting[1] ? Number(waiting[1]) : 0, ceoWaitingList: (waiting[2] || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 10),
+        norule: (out.match(/규칙 미정의 \d+개 — 지금 정할 것: (.+)$/m) || [])[1] || null,
+        at: new Date().toISOString(),
+    };
+    slotCache = { at: Date.now(), data };
+    return data;
 }
 
 // ── ④ git ──────────────────────────────────────────────────────────────────
@@ -171,6 +202,7 @@ function snapshot() {
         state,
         usage: { file: usage.file, msgs: usage.msgs, byModel: usage.byModel, byHour: usage.byHour, tools: usage.tools, firstTs: usage.firstTs, lastTs: usage.lastTs, scanning: usage.scanning },
         marketing: marketing(),
+        slot: (() => { try { return slot(); } catch { return null; } })(),
         metrics, otel,
         git: gitInfo(),
         events: events.slice(-120).reverse(),

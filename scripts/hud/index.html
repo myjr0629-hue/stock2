@@ -27,10 +27,10 @@ button:hover{border-color:var(--dim)}
 button.on{background:rgba(248,113,113,.14);border-color:var(--bad);color:#FFD4D4}
 button.on.pub{background:rgba(251,191,36,.14);border-color:var(--warn);color:#FFE9B8}
 main{padding:14px 16px 40px;max-width:1680px;margin:0 auto}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:10px;margin-bottom:14px}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
 .tile .k{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
-.tile .v{font-size:24px;font-weight:640;margin-top:3px;letter-spacing:-.4px}
+.tile .v{font-size:22px;font-weight:640;margin-top:3px;letter-spacing:-.4px}
 .tile .s{font-size:11px;color:var(--dim);margin-top:2px}
 .grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;align-items:start}
 @media(max-width:1100px){.grid{grid-template-columns:1fr}}
@@ -69,6 +69,37 @@ a{color:var(--info);text-decoration:none}a:hover{text-decoration:underline}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid rgba(31,38,51,.5);font-size:12px}
 .kv:last-child{border-bottom:0}.kv b{font-weight:600}
 .warnbox{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);color:#FFE9B8;border-radius:8px;padding:8px 10px;font-size:11.5px;margin:0 13px 11px}
+
+/* ── 그래픽 메인 ───────────────────────────────────────── */
+.canvas{background:linear-gradient(180deg,#0E131C,#0B0E14);border:1px solid var(--line);border-radius:14px;padding:0;overflow:hidden}
+.canvas .hd{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--line);font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--mut)}
+.canvas .hd .legend{margin-left:auto;display:flex;gap:10px;font-size:10.5px;text-transform:none;letter-spacing:0;color:var(--dim)}
+.canvas .hd .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.cv-wrap{overflow-x:auto;overflow-y:hidden}
+.cv-wrap::-webkit-scrollbar{height:8px}.cv-wrap::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
+svg .node{cursor:pointer}
+svg .node rect{transition:.15s}
+svg .node:hover rect.card{stroke:var(--tx)}
+svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.gcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+@media(max-width:1200px){.gcols{grid-template-columns:1fr}}
+.chip-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.cmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;padding:12px 13px}
+.cmap a{display:block;border:1px solid var(--line2);border-radius:7px;padding:5px 7px;font-size:10.5px;color:var(--mut);background:var(--panel2);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.cmap a.pub{border-color:rgba(52,211,153,.55);background:rgba(52,211,153,.12);color:#CFF7E6}
+.cmap a.gate{border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.10);color:#FFE9B8}
+.cmap a.off{opacity:.42}
+.cmap a b{color:var(--tx);font-weight:650}
+/* ── 세부 탭 ───────────────────────────────────────────── */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 10px}
+.tabs button{padding:6px 12px;border-radius:999px;font-size:12px;background:var(--panel2);border:1px solid var(--line)}
+.tabs button.sel{background:rgba(242,169,59,.13);border-color:var(--accent);color:#FFE3B0}
+.tabs button .n{color:var(--dim);margin-left:5px;font-variant-numeric:tabular-nums}
+.tabs button.sel .n{color:var(--accent)}
+.panes>section{display:none}
+.panes>section.show{display:block}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:1100px){.two{grid-template-columns:1fr}}
 </style></head><body>
 <header><div class="hrow">
   <h1>SIGNUM <span>관제·제어 콘솔</span></h1>
@@ -83,23 +114,40 @@ a{color:var(--info);text-decoration:none}a:hover{text-decoration:underline}
 </div></header>
 <main>
   <div class="tiles" id="tiles"></div>
-  <div class="grid">
-    <div>
-      <section><h2>실시간 이벤트<span class="tag" id="ev-n"></span></h2><div class="body flush scroll" id="events"></div></section>
-      <section><h2>모델별 토큰 — 이 세션 전사 실측<span class="tag">추측 없음 · 전사 usage 합산</span></h2><div class="body" id="models"></div></section>
-      <section><h2>도구 호출 분포<span class="tag" id="tools-n"></span></h2><div class="body" id="tools"></div></section>
+
+  <div class="canvas">
+    <div class="hd">사이클 파이프라인 — 지금 이 시간
+      <span class="legend"><span><i style="background:var(--ok)"></i>완료</span><span><i style="background:var(--info)"></i>진행</span><span><i style="background:var(--warn)"></i>대표 대기</span><span><i style="background:var(--dim)"></i>대기</span><span><i style="background:var(--bad)"></i>차단</span></span>
     </div>
-    <div>
-      <section><h2>대표 결정 대기 · 티켓<span class="tag" id="tk-n"></span></h2><div class="body flush scroll" id="tickets"></div></section>
-      <section><h2>오늘 발행<span class="tag" id="pub-n"></span></h2><div class="body flush scroll" id="pubs"></div></section>
-      <section><h2>지표 — 클릭 · 광고 · Redis<span class="tag" id="met-age"></span></h2><div class="body" id="metrics"></div></section>
-      <section><h2>사이클 기록</h2><div class="body" id="cycles"></div></section>
-      <section><h2>커밋<span class="tag" id="git-b"></span></h2><div class="body flush scroll" id="git"></div></section>
-      <section><h2>대표 지시 — 다음 프롬프트에 주입</h2><div class="body">
-        <textarea class="note" id="note" placeholder="예) 오늘은 발행보다 서치어드바이저 마무리를 먼저. — 저장하면 다음 사이클 시작 시 내가 읽습니다."></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px"><button id="b-note">저장</button><span class="pill" id="note-st">–</span></div>
-      </div></section>
+    <svg id="pipe" viewBox="0 0 1120 306" style="width:100%;height:auto;display:block"></svg>
+  </div>
+
+  <div class="gcols">
+    <div class="canvas">
+      <div class="hd">모델 · 에이전트 레인<span class="legend" id="lane-note"></span></div>
+      <svg id="lanes" viewBox="0 0 760 196" style="width:100%;height:auto;display:block;padding:8px 4px"></svg>
     </div>
+    <div class="canvas">
+      <div class="hd">채널 맵<span class="legend"><span><i style="background:var(--ok)"></i>오늘 발행</span><span><i style="background:var(--warn)"></i>게이트</span><span><i style="background:var(--line2)"></i>대기</span></span></div>
+      <div class="cmap" id="cmap"></div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="panes" id="panes">
+    <section data-tab="tickets" class="show"><h2>대표 결정 대기 · 티켓<span class="tag" id="tk-n"></span></h2><div class="body flush scroll" id="tickets"></div></section>
+    <section data-tab="pubs"><h2>오늘 발행<span class="tag" id="pub-n"></span></h2><div class="body flush scroll" id="pubs"></div></section>
+    <section data-tab="events"><h2>실시간 이벤트<span class="tag" id="ev-n"></span></h2><div class="body flush scroll" id="events"></div></section>
+    <section data-tab="models"><h2>모델별 토큰 — 이 세션 전사 실측<span class="tag">추측 없음 · usage 합산</span></h2><div class="body" id="models"></div></section>
+    <section data-tab="tools"><h2>도구 호출 분포<span class="tag" id="tools-n"></span></h2><div class="body" id="tools"></div></section>
+    <section data-tab="metrics"><h2>지표 — 클릭 · 광고 · Redis<span class="tag" id="met-age"></span></h2><div class="body" id="metrics"></div></section>
+    <section data-tab="slot"><h2>이번 시간 배정<span class="tag" id="slot-at"></span></h2><div class="body" id="slotd"></div></section>
+    <section data-tab="cycles"><h2>사이클 기록</h2><div class="body" id="cycles"></div></section>
+    <section data-tab="git"><h2>커밋<span class="tag" id="git-b"></span></h2><div class="body flush scroll" id="git"></div></section>
+    <section data-tab="control"><h2>제어 — 대표 지시(다음 프롬프트에 주입 · 24시간 만료)</h2><div class="body">
+      <textarea class="note" id="note" placeholder="예) 오늘은 발행보다 서치어드바이저 마무리를 먼저. — 저장하면 다음 턴부터 내가 참고 정보로 읽습니다."></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button id="b-note">저장</button><span class="pill" id="note-st">–</span></div>
+    </div></section>
   </div>
 </main>
 <script>
@@ -187,8 +235,109 @@ function git(s){
   $('#git-b').textContent=s.git.branch||'';
   $('#git').innerHTML=`<table>${(s.git.recent||[]).map(l=>{const [h,d,m]=l.split('\t');return `<tr><td class="mono" style="width:62px;color:var(--accent)">${esc(h)}</td><td class="mono" style="width:86px;color:var(--dim)">${esc(d)}</td><td>${esc(String(m||'').slice(0,72))}</td></tr>`;}).join('')}</table>`;
 }
+
+/* ══ 그래픽 렌더러 ══════════════════════════════════════════════════ */
+const SC={ok:'var(--ok)',run:'var(--info)',warn:'var(--warn)',bad:'var(--bad)',idle:'var(--dim)'};
+const svgesc=esc;
+function card(n){ // n:{x,y,w,h,t,s,st,tab,dia}
+  const w=n.w||144,h=n.h||56,c=SC[n.st]||SC.idle;
+  if(n.dia){ const cx=n.x+w/2, cy=n.y+h/2, rx=w/2, ry=h/2+6;
+    return `<g class="node" data-tab="${n.tab||''}"><polygon points="${cx},${cy-ry} ${cx+rx},${cy} ${cx},${cy+ry} ${cx-rx},${cy}" fill="#141A25" stroke="${c}" stroke-width="1.4"/>`
+      +`<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="11" font-weight="680" fill="var(--tx)">${svgesc(n.t)}</text>`
+      +`<text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${svgesc(n.s||'')}</text></g>`; }
+  return `<g class="node" data-tab="${n.tab||''}"><rect class="card" x="${n.x}" y="${n.y}" width="${w}" height="${h}" rx="9" fill="#141A25" stroke="var(--line2)"/>`
+    +`<rect x="${n.x}" y="${n.y}" width="3.5" height="${h}" rx="2" fill="${c}"/>`
+    +`<circle cx="${n.x+w-13}" cy="${n.y+14}" r="3.6" fill="${c}"/>`
+    +`<text x="${n.x+12}" y="${n.y+21}" font-size="11.5" font-weight="680" fill="var(--tx)">${svgesc(n.t)}</text>`
+    +`<text x="${n.x+12}" y="${n.y+37}" font-size="10" fill="var(--mut)">${svgesc((n.s||'').slice(0,21))}</text>`
+    +(n.s2?`<text x="${n.x+12}" y="${n.y+49}" font-size="9.5" fill="var(--dim)">${svgesc(n.s2.slice(0,23))}</text>`:'')
+    +`</g>`;
+}
+function link(a,b,color){ // 오른쪽 변 → 왼쪽 변, 직교 연결
+  const ax=a.x+(a.w||144), ay=a.y+(a.h||56)/2, bx=b.x, by=b.y+(b.h||56)/2, mx=ax+Math.max(18,(bx-ax)/2);
+  const c=color||'var(--line2)';
+  return `<path d="M${ax},${ay} H${mx} V${by} H${bx}" fill="none" stroke="${c}" stroke-width="1.3" marker-end="url(#ar)"/>`;
+}
+function pipeline(s){
+  const mk=s.marketing, sl=s.slot||{run:[],unblock:[]}, met=s.metrics||{}, st=s.state;
+  const gateOk=/0실패/.test(met.gate||'');
+  const N={
+    cron:{x:16,y:125,t:'크론 :13',s:'매시 자동 · 반복',st:'ok',tab:'cycles'},
+    cons:{x:176,y:125,t:'관제 상태',s:st.paused?'일시정지':(st.noPublish?'발행 금지':'실행 중'),s2:st.note?'대표 메모 있음':'',st:st.paused?'bad':(st.noPublish?'warn':'ok'),tab:'control'},
+    slot:{x:336,y:125,t:'슬롯 배정',s:`실행 ${(sl.run||[]).length} · 뚫기 ${(sl.unblock||[]).length}`,s2:sl.norule?('규칙 미정의 '+sl.norule):'확장 1건 의무',st:sl.run&&sl.run.length?'ok':'idle',tab:'slot'},
+    gate:{x:496,y:125,w:126,t:'발행 게이트',s:met.gate?met.gate.replace(/\s*\(.*\)/,''):'미측정',st:gateOk?'ok':(met.gate?'warn':'idle'),dia:1,tab:'metrics'},
+    run:{x:672,y:22,t:'채널 실행',s:`오늘 ${mk.todayCount}건 발행`,s2:Object.keys(mk.todayBy||{}).slice(0,3).join(' · '),st:mk.todayCount?'ok':'idle',tab:'pubs'},
+    unb:{x:672,y:125,t:'뚫기',s:(sl.unblock||[]).map(u=>u.id).join(' · ')||'–',s2:'계정·약관 게이트',st:(sl.unblock||[]).length?'warn':'idle',tab:'slot'},
+    exp:{x:672,y:228,t:'확장',s:`표면 ${mk.channels.total}개 등록`,s2:'매 사이클 1건',st:'run',tab:'slot'},
+    ver:{x:832,y:125,w:126,t:'공개 검증',s:mk.todayCount?'공개 페이지 확인':'대기',st:mk.todayCount?'ok':'idle',dia:1,tab:'pubs'},
+    ads:{x:976,y:22,t:'광고 점검',s:met.ads?`${met.ads.spend} · 설치 ${met.ads.installs}`:'미판독',s2:met.ads?`탭 ${met.ads.taps} · 노출 ${met.ads.impr}`:'',st:met.ads?'ok':'idle',tab:'metrics'},
+    rec:{x:976,y:125,t:'기록·커밋',s:s.git.dirty?`${s.git.dirty}개 변경`:'정리됨',s2:(s.git.head||'').split('\t')[0],st:s.git.dirty>40?'warn':'ok',tab:'git'},
+    rep:{x:976,y:228,t:'보고 · 티켓',s:`대표 대기 ${mk.ceoTickets}건`,s2:`열린 티켓 ${mk.tickets.length}`,st:mk.ceoTickets?'warn':'ok',tab:'tickets'},
+  };
+  const L=[[N.cron,N.cons],[N.cons,N.slot],[N.slot,N.gate],[N.gate,N.run],[N.gate,N.unb],[N.gate,N.exp],
+           [N.run,N.ver],[N.unb,N.ver],[N.exp,N.ver],[N.ver,N.ads],[N.ver,N.rec],[N.ver,N.rep]];
+  const svg=$('#pipe');
+  svg.innerHTML = `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--line2)"/></marker></defs>`
+    + L.map(([a,b])=>link(a,b)).join('') + Object.values(N).map(card).join('');
+  [...svg.querySelectorAll('.node')].forEach(g=>g.onclick=()=>{ const t=g.getAttribute('data-tab'); if(t) selectTab(t); });
+}
+const AGENTS={'opus':['세션 주력','verifier'],'fable':['analyst'],'sonnet':['reader','drafter'],'haiku':['classifier(+표본검증)']};
+function lanes(s){
+  const bm=s.usage.byModel||{};
+  const fam=(k)=>/opus/.test(k)?'opus':/fable/.test(k)?'fable':/sonnet/.test(k)?'sonnet':/haiku/.test(k)?'haiku':'other';
+  const agg={}; for(const [k,v] of Object.entries(bm)){ const f=fam(k); if(f==='other')continue; agg[f]=agg[f]||{tok:0,msgs:0,models:[]}; agg[f].tok+=v.output+v.cacheCreate; agg[f].msgs+=v.msgs; agg[f].models.push(MN(k)); }
+  const order=['opus','fable','sonnet','haiku']; const max=Math.max(1,...order.map(f=>(agg[f]||{tok:0}).tok));
+  const rows=order.map((f,i)=>{ const a=agg[f]||{tok:0,msgs:0,models:[]}; const y=18+i*44, bw=Math.max(2,(a.tok/max)*296);
+    return `<g><text x="10" y="${y+14}" font-size="12.5" font-weight="700" fill="var(--tx)">${f}</text>`
+      +`<circle cx="${'92'}" cy="${y+10}" r="4" fill="var(--${f})"/>`
+      +`<text x="104" y="${y+14}" font-size="10.5" fill="var(--dim)">${svgesc((AGENTS[f]||[]).join(' · '))}</text>`
+      +`<rect x="348" y="${y+2}" width="296" height="9" rx="4.5" fill="var(--line2)"/>`
+      +`<rect x="348" y="${y+2}" width="${bw}" height="9" rx="4.5" fill="var(--${f})"/>`
+      +`<text x="754" y="${y+11}" font-size="11" font-weight="600" fill="var(--tx)" text-anchor="end">${a.tok?kf(a.tok):'–'}</text>`
+      +`<text x="104" y="${y+28}" font-size="10" fill="var(--dim)">${a.msgs?nf(a.msgs)+'메시지 · '+a.models.join(', '):'정책상 대기 — 이번 세션 사용 0'}</text></g>`;});
+  $('#lanes').innerHTML = rows.join('');
+  $('#lane-note').innerHTML = '<span>출력+캐시생성 토큰 · 전사 실측</span>';
+}
+function chanmap(s){
+  const list=(s.marketing.channels.list||[]).slice().sort((a,b)=>(a.tier||'z').localeCompare(b.tier||'z')||a.id.localeCompare(b.id));
+  const today=s.marketing.todayBy||{};
+  $('#cmap').innerHTML = list.map(c=>{
+    const n=today[c.id]||0; const cls=n?'pub':(!c.enabled?'off':(c.gate?'gate':''));
+    return `<a class="${cls}" data-tab="pubs" title="${esc(c.id)} · ${c.tier||'-'}급 ${c.enabled?'':'(비활성)'}${c.gate?' · 게이트':''}${n?' · 오늘 '+n+'건':''}">${n?'<b>'+n+'</b> ':''}${esc(c.id)}</a>`;}).join('');
+  [...$('#cmap').querySelectorAll('a')].forEach(a=>a.onclick=(e)=>{e.preventDefault();selectTab('pubs');});
+}
+function slotDetail(s){
+  const sl=s.slot; $('#slot-at').textContent = sl? new Date(sl.at).toLocaleTimeString('ko-KR',{hour12:false}) : '미판독';
+  if(!sl){ $('#slotd').innerHTML='<div class="empty">배정 미판독</div>'; return; }
+  const rows=(t,arr)=>arr.length?`<table><tr><th style="width:170px">${t}</th><th>메모</th></tr>${arr.map(r=>`<tr><td class="mono">${esc(r.id)}</td><td style="color:var(--mut)">${esc(r.note)}</td></tr>`).join('')}</table>`:'';
+  $('#slotd').innerHTML = rows('실행',sl.run) + rows('뚫기',sl.unblock)
+    + (sl.ceoActivate.length?`<div class="kv"><span style="color:var(--mut)">대표 체크 · 즉시 가동</span><b>${sl.ceoActivate.map(esc).join(' · ')}</b></div>`:'')
+    + (sl.ceoWaiting?`<div class="kv"><span style="color:var(--mut)">대표 가입/승인 대기 ${sl.ceoWaiting}건</span><b style="font-weight:500;text-align:right">${sl.ceoWaitingList.map(esc).join(' · ')}</b></div>`:'')
+    + (sl.norule?`<div class="warnbox" style="margin:10px 0 0">규칙 미정의: ${esc(sl.norule)} — 이번 사이클에 행동을 정할 것</div>`:'');
+}
+/* ── 탭 ─────────────────────────────────────────────── */
+const TABS=[['tickets','대표 대기',(s)=>s.marketing.ceoTickets],['pubs','오늘 발행',(s)=>s.marketing.todayCount],['events','이벤트',(s)=>(s.events||[]).length],
+ ['slot','배정',(s)=>(s.slot&&s.slot.run?s.slot.run.length:0)],['models','모델',(s)=>Object.keys(s.usage.byModel||{}).length],['tools','도구',(s)=>Object.keys(s.usage.tools||{}).length],
+ ['metrics','지표',()=>null],['cycles','사이클',(s)=>s.marketing.cycles.length],['git','커밋',(s)=>s.git.dirty],['control','제어',()=>null]];
+let curTab='tickets';
+function selectTab(t){ curTab=t;
+  [...document.querySelectorAll('#panes > section')].forEach(x=>x.classList.toggle('show', x.dataset.tab===t));
+  [...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('sel', b.dataset.tab===t));
+}
+function tabs(s){
+  const host=$('#tabs');
+  // 탭 버튼은 «한 번만» 만든다 — 10초 갱신마다 다시 만들면 클릭·포커스가 초기화된다(실측 결함)
+  if(!host.dataset.built){
+    host.innerHTML = TABS.map(([id,label])=>`<button data-tab="${id}" class="${id===curTab?'sel':''}">${label}<span class="n" data-n="${id}"></span></button>`).join('');
+    [...host.querySelectorAll('button')].forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
+    host.dataset.built='1'; selectTab(curTab);
+  }
+  for(const [id,,cnt] of TABS){ const el=host.querySelector(`[data-n="${id}"]`); if(!el) continue; const n=cnt(s); el.textContent = n==null?'':nf(n); }
+}
+
 function paint(s){
   S=s; tiles(s); events(s.events||[]); models(s); tools(s); tickets(s); pubs(s); metrics(s); cycles(s); git(s);
+  pipeline(s); lanes(s); chanmap(s); slotDetail(s); tabs(s);
   $('#t-msgs').textContent=nf(s.usage.msgs); $('#t-scan').textContent=s.usage.scanning?'스캔 중…':(s.usage.file?'동기':'없음');
   $('#t-now').textContent=hm(s.now);
   $('#b-pause').className=s.state.paused?'on':''; $('#b-pause').textContent=s.state.paused?'▶ 재개':'⏸ 일시정지';
@@ -196,7 +345,15 @@ function paint(s){
   if(document.activeElement!==$('#note')) $('#note').value=s.state.note||'';
   $('#note-st').textContent=s.state.note?('지시 있음 · '+(s.state.updatedAt?hm(s.state.updatedAt):'')):'지시 없음';
 }
-async function refresh(){ try{ const r=await fetch('/api/snapshot',{cache:'no-store'}); paint(await r.json()); $('#d-live').className='dot live'; $('#t-live').textContent='연결됨'; }catch(e){ $('#d-live').className='dot off'; $('#t-live').textContent='서버 끊김'; } }
+async function refresh(){
+  const keep=[...document.querySelectorAll('.scroll')].map(e=>[e,e.scrollTop]);
+  const noteFocused = document.activeElement===$('#note');
+  try{ const r=await fetch('/api/snapshot',{cache:'no-store'}); const j=await r.json(); paint(j);
+       $('#d-live').className='dot live'; $('#t-live').textContent='연결됨';
+  }catch(e){ $('#d-live').className='dot off'; $('#t-live').textContent='서버 끊김'; }
+  for(const [e,t] of keep){ if(document.contains(e)) e.scrollTop=t; }
+  if(noteFocused) $('#note').focus();
+}
 async function control(patch){ try{ await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); await refresh(); }catch(e){} }
 $('#b-pause').onclick=()=>control({paused:!(S&&S.state.paused)});
 $('#b-pub').onclick=()=>control({noPublish:!(S&&S.state.noPublish)});
