@@ -4,3 +4,4 @@ upstash-usage-1028: writes 8,820,906 reads 10,295,012 bw 496 GB cost $47.14
 upstash-usage-1040: writes 8,821,922 reads 10,295,652 bw 496 GB cost $47.14
 upstash-usage-predeploy: writes 8,819,676 reads 10,294,081 bw 496 GB cost $47.13
 upstash-usage-1047: writes 8,822,232 reads 10,295,762
+upstash-usage-1102: writes 8,823,390 reads 10,296,738
