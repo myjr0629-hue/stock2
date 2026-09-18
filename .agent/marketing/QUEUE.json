@@ -2336,8 +2336,8 @@
       "state": "open",
       "tries": 0,
       "created": "2026-09-18T03:02:26Z",
-      "title": "Qiita — 메일 인증 1클릭 (인증 전엔 기사 발행이 막힘)",
-      "detail": "qiita.com/drafts/new 가 /settings/notifications 로 튕기며 「メールアドレスの認証が完了していません。一部の機能を制限しています」. contact@signumhq.com 받은편지함의 Qiita 인증 메일 링크를 한 번 눌러 주시면 됩니다(인증 메일은 제가 2026-09-18 12:2x 에 발송 버튼을 눌렀습니다 — 없으면 설정 페이지의 「こちら」를 다시). 첫 기사(FINRA 다크풀 비율 자체 계산, Node.js, 7,400자)는 /tmp/qiita/article.md 에 완성돼 있어 인증 즉시 발행합니다."
+      "title": "Qiita — 발행 대화상자의 「利用規約とプライバシーポリシー (必須)」 체크 1회 (기사는 초안에 완성·미리보기 검증 완료)",
+      "detail": "qiita.com/drafts/new 가 /settings/notifications 로 튕기며 「メールアドレスの認証が完了していません。一部の機能を制限しています」. contact@signumhq.com 받은편지함의 Qiita 인증 메일 링크를 한 번 눌러 주시면 됩니다(인증 메일은 제가 2026-09-18 12:2x 에 발송 버튼을 눌렀습니다 — 없으면 설정 페이지의 「こちら」를 다시). 첫 기사(FINRA 다크풀 비율 자체 계산, Node.js, 7,400자)는 /tmp/qiita/article.md 에 완성돼 있어 인증 즉시 발행합니다.\n[14:2x] 메일 인증 완료 확인 → 기사 전체 입력(제목·태그 5·본문 7,400자, 미리보기에서 시작/코드/라이선스/끝 표식 전부 확인, 중복 0) → 초안 자동저장 https://qiita.com/drafts/83af587caae35f5307f5/edit → 「記事を投稿する」 대화상자에 약관 동의 체크(必須)가 있어 멈춤(약관 동의는 제 금지 항목). ego 창에서 체크 후 「記事を投稿する」 한 번, 또는 「Qiita 약관 체크 OK」 라고 답해 주시면 제가 마무리·공개 페이지 검증합니다."
     },
     {
       "id": "t193",
@@ -2366,11 +2366,22 @@
       "type": "ceo",
       "region": "KR",
       "prio": 1,
-      "state": "open",
+      "state": "done",
       "tries": 0,
       "created": "2026-09-18T04:44:38Z",
       "title": "네이버 서치어드바이저 «이용약관 동의» 1클릭 — 그 뒤 등록·소유확인·사이트맵은 제가 합니다",
-      "detail": "searchadvisor.naver.com → 웹마스터 도구 (지식iN 계정으로 로그인은 이미 통과) → 첫 진입 대화상자 「네이버 서치어드바이저 이용 동의 — 이용약관에 동의합니다 ☐ [확인]」. 약관 동의는 제 금지 항목이라 대표님 1클릭이 필요합니다(ego lite 창에서 그대로 누르셔도 됩니다). 동의되면 같은 사이클에 ②사이트 등록 ③소유확인 meta 태그 배포(layout.tsx, 실화면 curl 검증) ④sitemap.xml 제출까지 끝냅니다. 근거: 네이버 site:signumhq.com 색인 0건(8/18 실측), 한국 검색 유입의 문."
+      "detail": "searchadvisor.naver.com → 웹마스터 도구 (지식iN 계정으로 로그인은 이미 통과) → 첫 진입 대화상자 「네이버 서치어드바이저 이용 동의 — 이용약관에 동의합니다 ☐ [확인]」. 약관 동의는 제 금지 항목이라 대표님 1클릭이 필요합니다(ego lite 창에서 그대로 누르셔도 됩니다). 동의되면 같은 사이클에 ②사이트 등록 ③소유확인 meta 태그 배포(layout.tsx, 실화면 curl 검증) ④sitemap.xml 제출까지 끝냅니다. 근거: 네이버 site:signumhq.com 색인 0건(8/18 실측), 한국 검색 유입의 문.\n[14:2x 완료] 대표 동의 → 사이트 등록 완료 → meta 태그 배포·라이브 확인(curl·Yeti UA) → 소유확인 버튼은 보안문자(자동등록 방지) 단계 → t196"
+    },
+    {
+      "id": "t196",
+      "type": "ceo",
+      "region": "KR",
+      "prio": 1,
+      "state": "open",
+      "tries": 0,
+      "created": "2026-09-18T05:18:04Z",
+      "title": "네이버 서치어드바이저 «소유확인» 보안문자 1회 — 등록·태그 배포는 끝났습니다",
+      "detail": "searchadvisor.naver.com → 웹마스터 도구 → 사이트 목록의 https://www.signumhq.com «소유확인 진행» → 방법 «HTML 태그» 선택(태그는 이미 라이브: <meta name=\"naver-site-verification\" content=\"4b8793fa…\">, 루트 307→/en 뒤 본문에 존재, Yeti UA 로도 확인) → [소유확인] → 「프로그램을 이용한 자동등록을 방지하기 위해 보안절차」 보안문자 입력. 보안문자는 제 금지 항목이라 이 1회만 부탁드립니다. 통과되면 제가 사이트맵(https://www.signumhq.com/sitemap.xml, 200·1.09MB) 제출과 /ko 수집 요청까지 이어서 합니다."
     }
   ]
 }
