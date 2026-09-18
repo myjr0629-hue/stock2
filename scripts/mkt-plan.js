@@ -27,6 +27,7 @@ const CH = {
   apple_featuring: { cap: 1, day: 'week', window: [0, 24], note: '★무료·최대 레버리지. ASC Featuring Nominations. 국가/지역 필드로 JP·KR 스토어 지정. 3개월 전 제출. In-App Event 와 묶어야 «타이밍 훅»이 생긴다' },
   kr_media:    { cap: 1, day: 'week', window: [0, 24], note: '★무료. 벤처스퀘어·플래텀·스타트업레시피 — 게재되면 네이버 뉴스 검색에 노출(SEO 직결). 메일 발송은 대표 승인' },
   jp_media:    { cap: 1, day: 'week', window: [0, 24], note: '메일 발송은 대표 승인 필요. AppBank·GIGAZINE·iPhone Mania 무료. Appliv 무료등재는 404(유료 전용)' },
+  producthunt: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-19 확장 등록(57번째). ★계정 대기(t200) — 메이커 계정이 런치 시점에 «약 1주일 이상» 돼 있어야 한다(당일 생성·당일 런치 금지)라 cap 0 으로 잠근다. 계정이 생기면 cap 1 로 올리고 «한 번만» 쏜다 — 6개월 내 재런치는 메이저 업데이트 심사 대상. 태그라인 60자 제한 · 링크는 제품을 받을 수 있는 대표 페이지 하나 · 런치는 1개월 전까지 예약 가능. 화·수·목 태평양시 아침이 노출이 높다. 준비물(한국어·영문 스크린샷, OG 이미지, 스마트링크)은 이미 있다.' },
   apple_ppo:   { cap: 1, day: 'week', window: [0, 24], note: '★(선행: 스크린샷 변형 3장 렌더 — t194) App Store «제품 페이지 최적화»(PPO) — 아이콘·스크린샷·미리보기 A/B(무료, ASC API appStoreVersionExperimentsV2). Play 실험의 iOS 짝. 텍스트는 대상 아님 → 스크린샷 변형(첫 장=프리마켓/실적) 준비가 먼저' },
   naver_search_advisor: { cap: 1, day: 'week', window: [0, 24], note: '★네이버 색인 0건(8/18 실측)의 가장 값싼 카드. 서치어드바이저 사이트 등록→소유확인(meta)→사이트맵 제출. 첫 문턱 = 이용약관 동의 1클릭(대표, t195)' },
   daum_search: { cap: 1, day: 'week', window: [0, 24], note: '★Daum 검색등록(register.search.daum.net) — 무료·로그인 불필요·사이트검색 신규등록 폼. 처리 결과는 이메일. 보안문자가 있으면 대표 1클릭' },

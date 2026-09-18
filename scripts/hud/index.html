@@ -118,6 +118,7 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
 .perf h4{margin:0 0 8px;font-size:11.5px;font-weight:700;color:var(--mut);letter-spacing:.04em}
 .perf table{width:100%;border-collapse:collapse;font-size:11.5px}
 .perf th{text-align:left;font-weight:600;color:var(--dim);padding:4px 6px;border-bottom:1px solid var(--line2)}
+.perf th.n{text-align:right}
 .perf td{padding:5px 6px;border-bottom:1px solid var(--line2);font-variant-numeric:tabular-nums}
 .perf td.n{text-align:right}
 .perf .win{color:var(--ok);font-weight:700}
@@ -125,6 +126,9 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
 .perf .bar{height:7px;border-radius:4px;background:var(--line2);overflow:hidden}
 .perf .bar i{display:block;height:100%;background:var(--info)}
 .perf .warn{color:var(--warn);font-size:10.5px;margin-top:6px}
+
+.perf .chd{display:block;font-size:9.5px;color:var(--dim);margin-top:1px;line-height:1.3}
+.perf td:first-child{max-width:0;width:44%}
 </style></head><body>
 <header><div class="hrow">
   <h1>SIGNUM <span>관제·제어 콘솔</span></h1>
@@ -357,6 +361,23 @@ function pipeline(s){
 const AGENTS={'opus':['세션 주력','verifier'],'fable':['analyst'],'sonnet':['reader','drafter'],'haiku':['classifier(+표본검증)']};
 
 /* 성과 — 활동이 아니라 «결과»를 본다. 값이 없으면 «미측정»이라 쓴다(0 으로 채우지 않는다). */
+
+/* 유입 태그의 «뜻». 화면이 스스로 답해야 한다 — 「home 이 뭐냐」를 다시 묻게 하지 않는다. */
+const CHDESC={
+  home:'우리 홈페이지 signumhq.com 의 앱 내려받기 버튼 (3앱 공통)',
+  seo:'검색으로 들어온 콘텐츠 페이지의 앱 링크',
+  seo_darkpool:'다크풀 설명 페이지의 앱 링크',
+  quora:'Quora 답변 본문', quora_bio:'Quora 프로필 링크', quora_space:'Quora 스페이스',
+  reddit:'레딧 댓글', reddit_bio:'레딧 프로필 링크',
+  x_us:'X 미국 계정', x_jp:'X 일본 계정', x_reply:'X 답글',
+  bluesky:'블루스카이', threads:'스레즈', mastodon:'마스토돈', linkedin:'링크드인',
+  note:'note.com (일본)', medium:'Medium', qiita:'Qiita (일본)', zenn:'Zenn (일본)',
+  okky:'OKKY (한국 개발자 커뮤니티)', naver_kin:'네이버 지식iN', naver_blog:'네이버 블로그',
+  github:'GitHub', indiehackers:'Indie Hackers', pinterest:'핀터레스트', instagram:'인스타그램',
+  directories:'앱 디렉터리 등재', llms_txt:'llms.txt (AI 크롤러용)', indexnow:'IndexNow 색인',
+  macrumors:'맥루머스 포럼', producthunt:'Product Hunt', naver_sa:'네이버 서치어드바이저', daum:'다음 검색등록',
+};
+
 function perf(s){
   const m = s.metrics || {}, ads = m.ads || null, cl = m.clicks || null;
   const host = $('#perf'), when = $('#perf-when');
@@ -381,7 +402,8 @@ function perf(s){
   if (cl && cl.rows && cl.rows.length) {
     const max = Math.max.apply(null, [1].concat(cl.rows.map(function(r){return r.d21;})));
     right += '<table><tr><th>채널</th><th class="n">오늘</th><th class="n">3일</th><th class="n">21일</th><th style="width:28%"></th></tr>'
-      + cl.rows.slice(0,10).map(function(r){ return '<tr><td>' + esc(r.ch) + '</td>'
+      + cl.rows.slice(0,10).map(function(r){ const d=CHDESC[r.ch]||''; return '<tr><td title="' + esc(d) + '">' + esc(r.ch)
+          + (d ? '<span class="chd">' + esc(d) + '</span>' : '') + '</td>'
           + '<td class="n ' + (r.today ? '' : 'zero') + '">' + r.today + '</td><td class="n">' + r.d3 + '</td>'
           + '<td class="n"><b>' + r.d21 + '</b></td>'
           + '<td><div class="bar"><i style="width:' + Math.round(r.d21/max*100) + '%"></i></div></td></tr>'; }).join('')
