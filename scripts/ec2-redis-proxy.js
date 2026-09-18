@@ -107,9 +107,15 @@ function deny(req, res, code, msg) {
     res.end(JSON.stringify({ error: msg }));
 }
 async function readBody(req) {
-    let body = "";
-    for await (const chunk of req) body += chunk;
-    return body;
+    // ★ 2026-09-18 — 청크마다 문자열로 바꾸면(`body += chunk`) TCP 청크 경계에 걸린
+    //   다바이트 UTF-8 글자(한·일·이모지)가 U+FFFD 로 깨진 채 ElastiCache 에 «쓰기 시점»에
+    //   박혔다. 실측: 한글 4.7KB·7KB·18.8KB·28KB 페이로드 깨짐, 1.2KB·2.3KB·9.4KB 는 멀쩡
+    //   (경계 위치에 따라 비결정적). 바이트를 다 모은 뒤 한 번에 디코드한다.
+    //   HMAC(writeAllowed) 는 이 문자열을 서명하므로, 클라이언트가 보낸 원문과 바이트 단위로
+    //   동일해져 비ASCII trade:* 페이로드의 서명 불일치도 함께 사라진다.
+    const chunks = [];
+    for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    return Buffer.concat(chunks).toString("utf8");
 }
 
 // ── HTTP Server ──
