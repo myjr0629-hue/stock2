@@ -2404,6 +2404,17 @@
       "created": "2026-09-18T09:21:15Z",
       "title": "애플 광고 ↔ App Store Connect «계정 연결» 1회 — 이게 있어야 광고에 맞춤 제품 페이지(CPP)를 붙일 수 있습니다",
       "detail": "실측(09-18 18:4x): KR-Core-Exact 광고그룹 → «광고 소재» 탭에 현재 «Default Ad · 기본 제품 페이지»만 있고, 애플이 「사용 가능한 제품 페이지 없음 — App Store Connect 계정 연결」이라고 안내합니다. 우리 CPP 는 ASC 에 이미 승인·노출 상태(web home, ko/ja/en 3로케일·스크린샷 3장)인데 광고 쪽에서 안 보이는 원인이 이 «계정 연결» 입니다.\n\n절차(공식 문서 ads.apple.com/kr/app-store/help/get-started/0012-link-app-store-connect-accounts):\n① Apple Ads 로그인 → 캠페인 대시보드 → 좌측 상단 «캠페인» 위 아래화살표 → «설정» → «계정 연결»(또는 «변경»)\n② 필요한 역할: ASC 는 계정 소유자/앱 관리자/관리자/마케터, Apple Ads 는 계정 관리자 — 두 계정의 이메일이 같아야 합니다(우리는 둘 다 contact@signumhq.com).\n③ 연결 후 브라우저 캐시를 지우고 다시 로그인.\n\n연결되면 제가 바로: KR·JP·US 광고그룹에 CPP 를 붙이고(광고 생성 = 크리에이티브만, 예산·입찰 무변경), 광고 전용 CPP(검색의도 문구: 프리마켓·실적·무료)를 ASC API 로 만들어 A/B 합니다."
+    },
+    {
+      "id": "t199",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 2,
+      "state": "open",
+      "tries": 0,
+      "created": "2026-09-18T09:48:23Z",
+      "title": "Quora 삭제율 추적 — 무링크 규칙 뒤에도 답변이 지워진다(2건 확인)",
+      "detail": "2026-09-18 생존확인: 최근 24시간 발행 중 quora_en 2건·quora_space 1건이 서버 fetch 403 → 로그인 브라우저에서 «Page Not Found». 즉 삭제. 기록상 «본문 링크» 가 원인이라고 적었는데 무링크 이후에도 삭제가 있었는지, 삭제된 3건이 링크 포함본인지 원문을 확인해야 한다. 다음 사이클: ①삭제된 3건의 발행 당시 본문(로그·초안)에서 링크 유무 확인 ②Quora 발행을 계속할지 판정(21일 클릭 57건은 살아 있는 답변에서 나온 것인지) ③검사기 scripts/check-survival.js 를 매 사이클 돌린다."
     }
   ]
 }
