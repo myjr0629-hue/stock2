@@ -1,0 +1,638 @@
+{
+ "from": "/tmp/sweep-ego-ctl",
+ "ts": "2026-09-18T01:00:29.217Z",
+ "rows": [
+  {
+   "path": "/api/live/market",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 2,
+   "diffProdSelf": 0,
+   "diffPaths": [
+    ".ndx.price",
+    ".ndx.changePct"
+   ],
+   "p50": [
+    218,
+    213
+   ],
+   "p95": [
+    463,
+    234
+   ],
+   "bytes": [
+    302,
+    300
+   ]
+  },
+  {
+   "path": "/api/market/index-close",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    230,
+    280
+   ],
+   "p95": [
+    254,
+    418
+   ],
+   "bytes": [
+    247,
+    247
+   ]
+  },
+  {
+   "path": "/api/market/movers",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    231,
+    229
+   ],
+   "p95": [
+    290,
+    246
+   ],
+   "bytes": [
+    5566,
+    5566
+   ]
+  },
+  {
+   "path": "/api/market/macro",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    214,
+    209
+   ],
+   "p95": [
+    257,
+    219
+   ],
+   "bytes": [
+    4837,
+    4837
+   ]
+  },
+  {
+   "path": "/api/live/premium-metrics?t=NVDA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 2,
+   "diffProdSelf": 2,
+   "diffPaths": [
+    "._timings.dealerGamma",
+    "._timings.total"
+   ],
+   "p50": [
+    255,
+    261
+   ],
+   "p95": [
+    330,
+    299
+   ],
+   "bytes": [
+    956,
+    956
+   ]
+  },
+  {
+   "path": "/api/debug/guardian",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    405,
+    393
+   ],
+   "p95": [
+    414,
+    409
+   ],
+   "bytes": [
+    25716,
+    25716
+   ]
+  },
+  {
+   "path": "/api/guardian/briefing",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    235,
+    237
+   ],
+   "p95": [
+    351,
+    290
+   ],
+   "bytes": [
+    631,
+    631
+   ]
+  },
+  {
+   "path": "/api/guardian/economic-calendar",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    225,
+    222
+   ],
+   "p95": [
+    551,
+    229
+   ],
+   "bytes": [
+    20386,
+    20386
+   ]
+  },
+  {
+   "path": "/api/guardian/fedwatch",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    218,
+    232
+   ],
+   "p95": [
+    348,
+    263
+   ],
+   "bytes": [
+    275,
+    275
+   ]
+  },
+  {
+   "path": "/api/guardian/news-digest",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    246,
+    220
+   ],
+   "p95": [
+    483,
+    264
+   ],
+   "bytes": [
+    5976,
+    5976
+   ]
+  },
+  {
+   "path": "/api/flow/dark-pool-trades?ticker=NVDA&limit=10",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    213,
+    227
+   ],
+   "p95": [
+    227,
+    330
+   ],
+   "bytes": [
+    217,
+    217
+   ]
+  },
+  {
+   "path": "/api/flow/iv-percentile?t=NVDA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    216,
+    226
+   ],
+   "p95": [
+    270,
+    347
+   ],
+   "bytes": [
+    184,
+    184
+   ]
+  },
+  {
+   "path": "/api/flow/options-eod?t=NVDA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    236,
+    237
+   ],
+   "p95": [
+    280,
+    241
+   ],
+   "bytes": [
+    2921,
+    2921
+   ]
+  },
+  {
+   "path": "/api/command/insider?ticker=NVDA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    213,
+    214
+   ],
+   "p95": [
+    229,
+    216
+   ],
+   "bytes": [
+    9077,
+    9077
+   ]
+  },
+  {
+   "path": "/api/intel/cross-sector-brief",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    221,
+    225
+   ],
+   "p95": [
+    385,
+    406
+   ],
+   "bytes": [
+    14542,
+    14542
+   ]
+  },
+  {
+   "path": "/api/flow/unified?t=NVDA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    411,
+    270
+   ],
+   "p95": [
+    417,
+    475
+   ],
+   "bytes": [
+    212382,
+    212382
+   ]
+  },
+  {
+   "path": "/api/flow/realtime-metrics?ticker=NVDA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    224,
+    228
+   ],
+   "p95": [
+    230,
+    259
+   ],
+   "bytes": [
+    98,
+    98
+   ]
+  },
+  {
+   "path": "/api/dashboard/unified?tickers=NVDA,AAPL,TSLA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 1,
+   "diffProdSelf": 1,
+   "diffPaths": [
+    "._cacheAge"
+   ],
+   "p50": [
+    307,
+    219
+   ],
+   "p95": [
+    597,
+    276
+   ],
+   "bytes": [
+    4371,
+    4369
+   ]
+  },
+  {
+   "path": "/api/intel/m7",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    292,
+    314
+   ],
+   "p95": [
+    326,
+    583
+   ],
+   "bytes": [
+    4228,
+    4228
+   ]
+  },
+  {
+   "path": "/api/intel/snapshot?sector=m7",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    223,
+    220
+   ],
+   "p95": [
+    343,
+    225
+   ],
+   "bytes": [
+    8507,
+    8507
+   ]
+  },
+  {
+   "path": "/api/ticker/overview?ticker=NVDA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    526,
+    529
+   ],
+   "p95": [
+    634,
+    1104
+   ],
+   "bytes": [
+    146501,
+    146502
+   ]
+  },
+  {
+   "path": "/en",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    633,
+    652
+   ],
+   "p95": [
+    704,
+    779
+   ],
+   "bytes": [
+    198468,
+    198468
+   ]
+  },
+  {
+   "path": "/ko",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    634,
+    631
+   ],
+   "p95": [
+    787,
+    830
+   ],
+   "bytes": [
+    161005,
+    161005
+   ]
+  },
+  {
+   "path": "/ja",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    639,
+    642
+   ],
+   "p95": [
+    923,
+    848
+   ],
+   "bytes": [
+    159503,
+    159503
+   ]
+  },
+  {
+   "path": "/en/tickers",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    919,
+    975
+   ],
+   "p95": [
+    1606,
+    1046
+   ],
+   "bytes": [
+    878334,
+    878334
+   ]
+  },
+  {
+   "path": "/en/ticker?ticker=NVDA",
+   "status": [
+    200,
+    200
+   ],
+   "statusOk": true,
+   "keysOk": true,
+   "diffPreview": 0,
+   "diffProdSelf": 0,
+   "diffPaths": [],
+   "p50": [
+    731,
+    706
+   ],
+   "p95": [
+    932,
+    882
+   ],
+   "bytes": [
+    294213,
+    294213
+   ]
+  }
+ ]
+}
