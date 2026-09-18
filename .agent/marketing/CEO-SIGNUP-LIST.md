@@ -18,6 +18,8 @@
 
 ## 1순위
 
+- [ ] **Daum 검색등록 동의 2개 + 제출** — https://register.search.daum.net/searchForm.daum?act=insert (t197, 2분)
+
 - [ ] **네이버 서치어드바이저 소유확인 보안문자 1회** — https://searchadvisor.naver.com/console/board (사이트 등록·meta 태그 배포는 완료, 마지막 [소유확인] 버튼 뒤 보안문자만 대표님 몫 · t196)
 
 - [완료] **네이버 지식iN** (2026-09-17~18 답변 11건 발행(원장)) — — https://nid.naver.com/user2/V2Join

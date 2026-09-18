@@ -2382,6 +2382,17 @@
       "created": "2026-09-18T05:18:04Z",
       "title": "네이버 서치어드바이저 «소유확인» 보안문자 1회 — 등록·태그 배포는 끝났습니다",
       "detail": "searchadvisor.naver.com → 웹마스터 도구 → 사이트 목록의 https://www.signumhq.com «소유확인 진행» → 방법 «HTML 태그» 선택(태그는 이미 라이브: <meta name=\"naver-site-verification\" content=\"4b8793fa…\">, 루트 307→/en 뒤 본문에 존재, Yeti UA 로도 확인) → [소유확인] → 「프로그램을 이용한 자동등록을 방지하기 위해 보안절차」 보안문자 입력. 보안문자는 제 금지 항목이라 이 1회만 부탁드립니다. 통과되면 제가 사이트맵(https://www.signumhq.com/sitemap.xml, 200·1.09MB) 제출과 /ko 수집 요청까지 이어서 합니다."
+    },
+    {
+      "id": "t197",
+      "type": "ceo",
+      "region": "KR",
+      "prio": 2,
+      "state": "open",
+      "tries": 0,
+      "created": "2026-09-18T06:45:02Z",
+      "title": "Daum 검색등록 — 동의 체크 2개 + 제출(약관 동의는 제 금지 항목)",
+      "detail": "register.search.daum.net → 등록하기 → 신규등록 → «사이트검색» 선택 → URL https://www.signumhq.com → [확인] → 2단계: [필수] 개인정보 수집·이용 동의 ☐ · [필수] 서비스이용 동의 ☐ → 이름/이메일(contact@signumhq.com)·사이트명 «SIGNUM HQ — 미국주식 프리마켓·실적·AI 브리핑 무료 앱»·소개 1~2줄·카테고리 경제/증권 → 제출. 로그인·보안문자 없음(실측). 결과는 이메일로 옵니다. 네이버 서치어드바이저(t196)와 짝."
     }
   ]
 }

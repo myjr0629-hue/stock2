@@ -481,6 +481,16 @@
       "link": "https://signumhq.com/app?from=naver_sa",
       "action": "register",
       "note": "★2026-09-18 확장: 내 계획서(.agent/DIRECT_INFLOW_PLAN_2026-08-18.md §④)에 «가장 값싼 최대 카드»로 적어 두고 한 달 방치했던 것. 네이버 site: 색인 0건. 절차: ①이용약관 동의(첫 진입 대화상자 — 대표 1클릭, t195) ②사이트 등록 signumhq.com ③소유확인 meta 태그를 src/app/layout.tsx metadata.verification 에 추가·배포·curl 로 확인 ④사이트맵 제출(/sitemap.xml) ⑤수집 요청. 로그인은 지식iN 계정으로 이미 통과(auth/callback 까지 확인)."
+    },
+    {
+      "id": "daum_search",
+      "name": "Daum 검색등록",
+      "tier": "B",
+      "enabled": true,
+      "tag": "daum",
+      "link": "https://signumhq.com/app?from=daum",
+      "action": "register",
+      "note": "★2026-09-18 확장: 카카오/다음 검색에 사이트 등록(무료, 로그인 불필요, 결과는 이메일 통보). 네이버 서치어드바이저의 짝. 신규등록 → 사이트검색 → URL 확인 → 정보 입력(사이트명·소개·이메일 contact@signumhq.com·카테고리 경제) → 제출."
     }
   ],
   "candidates": [
