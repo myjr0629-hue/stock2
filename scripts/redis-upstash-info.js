@@ -11,10 +11,9 @@ if (!url || !token) { console.error('Upstash 자격 없음 — `npx vercel env p
     const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(['INFO']) });
     const txt = (await r.json()).result || '';
     const kv = {}; for (const line of txt.split('\n')) { const m = line.trim().match(/^([a-z_0-9]+):(.*)$/); if (m) kv[m[1]] = m[2]; }
-    const pick = ['total_commands_processed', 'keyspace_hits', 'keyspace_misses', 'total_net_input_bytes', 'total_net_output_bytes', 'used_memory_human', 'db0', 'instantaneous_ops_per_sec', 'uptime_in_seconds'];
+    const pick = ['total_commands_processed', 'total_reads_processed', 'total_writes_processed', 'keyspace_hits', 'keyspace_misses', 'total_keys', 'expired_keys', 'evicted_keys', 'used_memory_human', 'total_data_size_human', 'max_data_size_human', 'maxmemory_policy', 'instantaneous_ops_per_sec', 'max_ops_per_sec', 'redis_mode', 'cluster_enabled', 'local_member', 'primary_member', 'all_members', 'db0'];
     const out = { ts: new Date().toISOString(), epoch: Date.now() };
     for (const k of pick) out[k] = kv[k];
-    out._all_keys = Object.keys(kv);
     const label = process.argv[2] || 'now';
     fs.writeFileSync(`/tmp/redis-info-${label}.json`, JSON.stringify(out, null, 1));
     console.log(JSON.stringify(out, null, 1));
