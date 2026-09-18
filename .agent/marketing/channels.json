@@ -528,6 +528,16 @@
    "link": "https://signumhq.com/app?from=producthunt",
    "action": "launch",
    "note": "★2026-09-19 확장 발굴. 56개 채널에 없던 «앱 발견 플랫폼»의 가장 큰 구멍. 무료·일회성 이벤트형이라 A티어. ★계정 필요(대표). **규칙 실측(2026-09-19 조사)**: ①메이커 계정은 런치 «약 1주 전»에 만들어져 있어야 한다 — 당일 생성·당일 런치 금지. ②태그라인 최대 60자, 과장·이모지 금지. ③제품명은 이름만. ④링크는 «제품을 쓰거나 받을 수 있는» 대표 페이지 하나. ⑤런치는 최대 1개월 전 예약 가능. ⑥6개월 내 재런치는 «메이저 업데이트인가» 심사를 받는다 — 한 번에 제대로 쏜다. 우리 준비물은 이미 있다: 한국어·영문 스크린샷, OG 이미지, 스마트링크. 태그라인 초안(58자): «The whole US stock market in one free app — no account»"
+  },
+  {
+   "id": "alternativeto",
+   "name": "AlternativeTo",
+   "tier": "B",
+   "enabled": false,
+   "tag": "alternativeto",
+   "link": "https://signumhq.com/app?from=alternativeto",
+   "action": "list",
+   "note": "★2026-09-19 확장 발굴. **오늘의 광고 실측이 근거다** — 전환한 키워드가 «market data»(CPA $1.61)와 «finance app»($8.14)였다. 즉 우리를 찾는 말은 브랜드가 아니라 «앱이 무엇을 하는가»다. AlternativeTo 는 「X 대안」 검색에서 구글 상위에 뜨는 고권위 디렉터리라 그 의도와 정확히 겹친다. 무료·사용자 제출형. ★계정 필요(t202). 등재 후에는 Robinhood·Yahoo Finance·Stocktwits 등의 «alternatives» 페이지에 우리 앱이 후보로 노출된다. ⚠️ 추적 파라미터를 금지하는 디렉터리가 있다 — 등재 규칙을 먼저 읽고 금지면 순수 URL 로 넣는다."
   }
  ],
  "candidates": [
@@ -602,5 +612,5 @@
    "blocker": "YT_CLIENT_ID / YT_CLIENT_SECRET / YT_KR_REFRESH_TOKEN 이 .env.local·.env.development.local·Vercel 어디에도 없다. 키만 있으면 즉시 자동화된다. out/ 영상은 8/11자라 재렌더 필요"
   }
  ],
- "updated": "2026-09-18T15:26:05.139630Z"
+ "updated": "2026-09-18T16:46:56.108738Z"
 }
