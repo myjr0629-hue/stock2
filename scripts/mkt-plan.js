@@ -31,6 +31,8 @@ const CH = {
   naver_search_advisor: { cap: 1, day: 'week', window: [0, 24], note: '★네이버 색인 0건(8/18 실측)의 가장 값싼 카드. 서치어드바이저 사이트 등록→소유확인(meta)→사이트맵 제출. 첫 문턱 = 이용약관 동의 1클릭(대표, t195)' },
   daum_search: { cap: 1, day: 'week', window: [0, 24], note: '★Daum 검색등록(register.search.daum.net) — 무료·로그인 불필요·사이트검색 신규등록 폼. 처리 결과는 이메일. 보안문자가 있으면 대표 1클릭' },
   play_listing_experiments: { cap: 0, day: 'week', window: [0, 24], note: '⏸보류(2026-09-18): 28일 스토어 방문 31명 → A/B 유의성 불가(내 기록 9/17). 트래픽 100/일 넘으면 재개. 지금은 «직접 개선»으로 대체' },
+  indexnow:    { cap: 1, day: 'week', window: [0, 24], note: '★계정·게이트 없음. `node scripts/indexnow-submit.js` — sitemap 전량을 Bing·Yandex·Seznam·Naver 에 즉시 통보. 2026-08 에 만들어 1,800건만 쓰고 한 달 방치 → 09-18 6,768건 전량 200. 새 페이지가 늘면 다시 돌린다' },
+  llms_txt:    { cap: 1, day: 'week', window: [0, 24], note: '★AI 검색(ChatGPT·Perplexity·Claude)이 읽는 표면. src/app/llms.txt/route.ts. 09-18 앱 섹션·?from=llms 3개 추가(그전 0개). 앱 사실이 바뀌면 갱신하고 IndexNow 로 통보' },
   naver_blog:  { cap: 1, day: 'kst', window: [0, 24], note: '★대표 결정 대기(t190): 지식iN 계정에 기존 블로그 «인싸이트팟»(donneum)이 있다. 결정 전 발행 금지. 되면 지식iN 답변→블로그 글(앱 화면)→스마트링크' },
   naver_kin:   { cap: 12, day: 'kst', window: [0, 24], note: '★계정 필요. 답변 0건 질문 선점 = 영구 1등. 본문 링크 금지(사업자 홍보 판정) — 프로필 경유. 네이버 메이트 인용수 누적' },
   qiita:       { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 자사 기술해설은 광고 아님(명문). 엔지니어링이 본문·미국옵션은 소재. 금융태그로는 아무도 안 온다 → 전체 트렌드 노림. 5~10 LGTM' },

@@ -491,6 +491,26 @@
       "link": "https://signumhq.com/app?from=daum",
       "action": "register",
       "note": "★2026-09-18 확장: 카카오/다음 검색에 사이트 등록(무료, 로그인 불필요, 결과는 이메일 통보). 네이버 서치어드바이저의 짝. 신규등록 → 사이트검색 → URL 확인 → 정보 입력(사이트명·소개·이메일 contact@signumhq.com·카테고리 경제) → 제출."
+    },
+    {
+      "id": "indexnow",
+      "name": "IndexNow 즉시 색인",
+      "tier": "A",
+      "enabled": true,
+      "tag": "seo",
+      "link": "https://www.signumhq.com/sitemap.xml",
+      "action": "submit",
+      "note": "★2026-09-18 등록: 키 파일 public/a23324ff…txt 라이브 200. 사이트맵 전량 제출 = Bing·Yandex·Seznam·Naver 동시 통보(구글 미참여 → GSC 담당). 09-18 6,768/6,768 HTTP 200."
+    },
+    {
+      "id": "llms_txt",
+      "name": "llms.txt (AI 검색)",
+      "tier": "A",
+      "enabled": true,
+      "tag": "llms",
+      "link": "https://www.signumhq.com/app?from=llms",
+      "action": "maintain",
+      "note": "★2026-09-18 등록·개선: 앱 설치 링크가 0개였다 → 3앱 스마트링크(?from=llms)와 «하지 않는 일» 명시 추가. 라이브 4,938B 검증."
     }
   ],
   "candidates": [
