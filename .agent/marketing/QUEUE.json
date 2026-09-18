@@ -2322,11 +2322,11 @@
       "type": "mkt",
       "region": "KR",
       "prio": 1,
-      "state": "open",
+      "state": "hold",
       "tries": 0,
       "created": "2026-09-18T02:44:20Z",
       "title": "Play 스토어 등록정보 실험 1호 — SIGNUM KR 짧은 설명·첫 스크린샷 A/B",
-      "detail": "Play 콘솔(회사 계정 u/0) → SIGNUM(4974871698649706116) → Store presence → Store listing experiments. 변형 B: 짧은 설명에 «미국주식 앱» 붙여쓰기(ASO 실측: 띄어쓰기 한 칸이 순위 12칸), 첫 스크린샷을 프리마켓/실적 화면으로. 트래픽 50/50, 최소 7일. 성공 기준: 설치 전환율(현재 SIGNUM 60% vs UC 22% — Play 콘솔 실측) 변화. 다음 사이클에 콘솔 딥워커로 실행(런북 §9)."
+      "detail": "Play 콘솔(회사 계정 u/0) → SIGNUM(4974871698649706116) → Store presence → Store listing experiments. 변형 B: 짧은 설명에 «미국주식 앱» 붙여쓰기(ASO 실측: 띄어쓰기 한 칸이 순위 12칸), 첫 스크린샷을 프리마켓/실적 화면으로. 트래픽 50/50, 최소 7일. 성공 기준: 설치 전환율(현재 SIGNUM 60% vs UC 22% — Play 콘솔 실측) 변화. 다음 사이클에 콘솔 딥워커로 실행(런북 §9).\n\n[2026-09-18 13:5x 정정] 내 기록(OUTREACH-LOG 7007~7010, 9/17 Play 콘솔 실측)을 다시 읽음: SIGNUM 스토어 방문 28일 31명·설치 클릭 9 → A/B 실험은 유의성이 나올 수 없다(이미 «아직 못 쓴다»로 적어 둔 것을 잊고 티켓을 만들었다 — §40②). 전환: 실험 대신 «직접 개선». SIGNUM 은 ko 제목에 이미 검색어가 있고, 9/17 에 UC 짧은 설명을 «미국주식» 포함으로 고쳤다. 남은 대상은 WIM ko 짧은 설명 확인. 트래픽이 100/일 을 넘기 전까지 실험은 보류."
     },
     {
       "id": "t192",
@@ -2349,6 +2349,28 @@
       "created": "2026-09-18T03:05:56Z",
       "title": "darkpool-hooks.js 를 새 키 형식(tickers 맵)에 맞추거나 운영 API 기반으로 교체",
       "detail": "EC2 /opt/signum-ws/darkpool-hooks.js 가 finra:offexchange 의 옛 형식(rows)을 기대해 «FINRA 데이터 없음»으로 종료. 현재 형식은 {date,tickers:{SYM:{pct,vol,shortPct,volRatio,shortDev,pctP,regime}},marketAvg}. 사이클 15 는 /api/flow/dark-pool?ticker= 로 대체했다."
+    },
+    {
+      "id": "t194",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 2,
+      "state": "open",
+      "tries": 0,
+      "created": "2026-09-18T03:38:03Z",
+      "title": "App Store PPO 실험 1호 — SIGNUM ko·ja 첫 스크린샷 A/B (프리마켓/실적 장면)",
+      "detail": "scripts/asc_client.py 로 appStoreVersionExperimentsV2 생성 → treatments(처리군 1~2) → treatmentLocalizations 에 스크린샷 업로드(appScreenshotSets). 변형 스크린샷은 promo-shots 파이프라인으로 렌더(ko: 대시보드 프리마켓 강조, ja: 決算 캘린더). 성공 기준: ASC 의 conversion rate 차이(최소 7일). Play 실험(t191)과 같은 가설·같은 기간에 돌려 국가별로 비교."
+    },
+    {
+      "id": "t195",
+      "type": "ceo",
+      "region": "KR",
+      "prio": 1,
+      "state": "open",
+      "tries": 0,
+      "created": "2026-09-18T04:44:38Z",
+      "title": "네이버 서치어드바이저 «이용약관 동의» 1클릭 — 그 뒤 등록·소유확인·사이트맵은 제가 합니다",
+      "detail": "searchadvisor.naver.com → 웹마스터 도구 (지식iN 계정으로 로그인은 이미 통과) → 첫 진입 대화상자 「네이버 서치어드바이저 이용 동의 — 이용약관에 동의합니다 ☐ [확인]」. 약관 동의는 제 금지 항목이라 대표님 1클릭이 필요합니다(ego lite 창에서 그대로 누르셔도 됩니다). 동의되면 같은 사이클에 ②사이트 등록 ③소유확인 meta 태그 배포(layout.tsx, 실화면 curl 검증) ④sitemap.xml 제출까지 끝냅니다. 근거: 네이버 site:signumhq.com 색인 0건(8/18 실측), 한국 검색 유입의 문."
     }
   ]
 }

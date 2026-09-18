@@ -27,6 +27,8 @@ const CH = {
   apple_featuring: { cap: 1, day: 'week', window: [0, 24], note: '★무료·최대 레버리지. ASC Featuring Nominations. 국가/지역 필드로 JP·KR 스토어 지정. 3개월 전 제출. In-App Event 와 묶어야 «타이밍 훅»이 생긴다' },
   kr_media:    { cap: 1, day: 'week', window: [0, 24], note: '★무료. 벤처스퀘어·플래텀·스타트업레시피 — 게재되면 네이버 뉴스 검색에 노출(SEO 직결). 메일 발송은 대표 승인' },
   jp_media:    { cap: 1, day: 'week', window: [0, 24], note: '메일 발송은 대표 승인 필요. AppBank·GIGAZINE·iPhone Mania 무료. Appliv 무료등재는 404(유료 전용)' },
+  apple_ppo:   { cap: 1, day: 'week', window: [0, 24], note: '★App Store «제품 페이지 최적화»(PPO) — 아이콘·스크린샷·미리보기 A/B(무료, ASC API appStoreVersionExperimentsV2). Play 실험의 iOS 짝. 텍스트는 대상 아님 → 스크린샷 변형(첫 장=프리마켓/실적) 준비가 먼저' },
+  naver_search_advisor: { cap: 1, day: 'week', window: [0, 24], note: '★네이버 색인 0건(8/18 실측)의 가장 값싼 카드. 서치어드바이저 사이트 등록→소유확인(meta)→사이트맵 제출. 첫 문턱 = 이용약관 동의 1클릭(대표, t195)' },
   naver_blog:  { cap: 1, day: 'kst', window: [0, 24], note: '★대표 결정 대기(t190): 지식iN 계정에 기존 블로그 «인싸이트팟»(donneum)이 있다. 결정 전 발행 금지. 되면 지식iN 답변→블로그 글(앱 화면)→스마트링크' },
   play_listing_experiments: { cap: 1, day: 'week', window: [0, 24], note: '★Play 콘솔 «스토어 등록정보 실험»(A/B, 무료). KR 탭→설치 0 의 병목이 스토어 페이지라 여기가 직접 레버. 변형: 첫 스크린샷·짧은 설명 «미국주식 앱» 문구. 실험은 7일 이상 돌린다' },
   naver_kin:   { cap: 12, day: 'kst', window: [0, 24], note: '★계정 필요. 답변 0건 질문 선점 = 영구 1등. 본문 링크 금지(사업자 홍보 판정) — 프로필 경유. 네이버 메이트 인용수 누적' },
