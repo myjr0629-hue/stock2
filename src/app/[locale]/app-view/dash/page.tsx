@@ -206,6 +206,39 @@ function stableChangePct(quote: any, fallback: number, allowZero: boolean): numb
   return pct;
 }
 
+/**
+ * 확장시간(프리·애프터) 시세 선택.
+ *
+ * ★ 2026-09-18 대표 지적: 「ETF 는 프리에도 거래되는데 앱은 본장에만 움직인다.」
+ *   원인은 두 겹이었다.
+ *   ① wss://ws.signumhq.com 인증서가 2026-09-15 만료 → 실시간 틱이 전부 끊겼다(별건, 서버 작업).
+ *   ② 소켓이 끊기면 30초 REST 폴링이 유일한 경로인데, 그 폴링이 확장시간 필드를
+ *      «아예 읽지 않았다». /api/live/quotes 는 두 벌을 같이 준다:
+ *        price · changePercent                              = 정규장 값(프리엔 어제 종가·어제 등락)
+ *        extendedPrice · extendedChangePercent · extendedLabel = 확장시간 값
+ *      화면이 앞의 것만 그려서 프리마켓 내내 «어제 종가»가 라이브처럼 찍혔다.
+ *      실측 2026-09-18 07:3x ET: SPY price 762.60/+1.13%(목요일) · extendedPrice 761.88/-0.09%(금 프리).
+ *
+ * ⚠️ 정규장에도 extendedLabel 이 'PRE'(그날 아침 프리 종가)로 같이 온다.
+ *    그래서 라벨이 아니라 «세션»으로 게이팅한다 — 라벨만 보고 고르면 정규장이 아침값에 묶인다.
+ *    확장시간 체결이 없으면 API 가 extendedPrice 를 0 으로 내려 주므로 그때는 정규장 값으로 돌아간다.
+ */
+function sessionQuote(quote: any, fallbackSession?: string): { px: number; pct: number; ext: boolean } {
+  const regPx = Number(quote?.price);
+  const regPct = Number(quote?.changePercent);
+  const reg = {
+    px: Number.isFinite(regPx) ? regPx : 0,
+    pct: Number.isFinite(regPct) ? regPct : 0,
+    ext: false,
+  };
+  const session = String(quote?.session || fallbackSession || '');
+  if (session !== 'pre' && session !== 'post') return reg;
+  const extPx = Number(quote?.extendedPrice);
+  const extPct = Number(quote?.extendedChangePercent);
+  if (!quote?.extendedLabel || !Number.isFinite(extPx) || extPx <= 0 || !Number.isFinite(extPct)) return reg;
+  return { px: extPx, pct: extPct, ext: true };
+}
+
 function parsePctText(value: string): number | null {
   const parsed = Number(String(value).replace('%', '').replace('+', '').trim());
   return Number.isFinite(parsed) ? parsed : null;
@@ -1579,6 +1612,8 @@ export default function AppDashPage() {
         if (quotesRes.status === 'fulfilled' && quotesRes.value.ok) {
           const quotesData = await quotesRes.value.json();
           const q = quotesData.data || {};
+          // 응답이 스스로 말하는 세션(pre|regular|post|closed). 종목별 quote.session 이 먼저다.
+          const quotesSession = String(quotesData?.meta?.session || '');
 
           // 1. Sector Heatmap (mapped from XL* ETFs)
           setSectorsReady(true);
@@ -1587,15 +1622,21 @@ export default function AppDashPage() {
               const previous = prev.find(sec => sec.name === name)?.pct;
               return Number.isFinite(previous) && Math.abs(previous ?? 0) > 0.0001 ? previous! : demo;
             };
+            // 섹터 타일도 같은 결함이었다 — 머리에 PRE 배지를 달고 «어제 등락»을 그렸다.
+            // 확장시간엔 확장시간 등락률을, 그 외엔 기존 보호 로직(stableChangePct)을 쓴다.
+            const sectorPct = (quote: any, fb: number) => {
+              const sess = sessionQuote(quote, quotesSession);
+              return sess.ext ? sess.pct : stableChangePct(quote, fb, false);
+            };
             return [
-              { name: 'Tech', pct: stableChangePct(q.XLK, fallback('Tech', 2.1), false) },
-              { name: 'Energy', pct: stableChangePct(q.XLE, fallback('Energy', 1.2), false) },
-              { name: 'Cons. Disc', pct: stableChangePct(q.XLY, fallback('Cons. Disc', 0.9), false) },
-              { name: 'Materials', pct: stableChangePct(q.XLB, fallback('Materials', 0.6), false) },
-              { name: 'Industrials', pct: stableChangePct(q.XLI, fallback('Industrials', 0.4), false) },
-              { name: 'Finance', pct: stableChangePct(q.XLF, fallback('Finance', 0.3), false) },
-              { name: 'Healthcare', pct: stableChangePct(q.XLV, fallback('Healthcare', -0.5), false) },
-              { name: 'Utilities', pct: stableChangePct(q.XLU, fallback('Utilities', -0.8), false) },
+              { name: 'Tech', pct: sectorPct(q.XLK, fallback('Tech', 2.1)) },
+              { name: 'Energy', pct: sectorPct(q.XLE, fallback('Energy', 1.2)) },
+              { name: 'Cons. Disc', pct: sectorPct(q.XLY, fallback('Cons. Disc', 0.9)) },
+              { name: 'Materials', pct: sectorPct(q.XLB, fallback('Materials', 0.6)) },
+              { name: 'Industrials', pct: sectorPct(q.XLI, fallback('Industrials', 0.4)) },
+              { name: 'Finance', pct: sectorPct(q.XLF, fallback('Finance', 0.3)) },
+              { name: 'Healthcare', pct: sectorPct(q.XLV, fallback('Healthcare', -0.5)) },
+              { name: 'Utilities', pct: sectorPct(q.XLU, fallback('Utilities', -0.8)) },
             ];
           });
 
@@ -1615,12 +1656,19 @@ export default function AppDashPage() {
           setEtfs(prev => {
             const prevSpy = prev.find(item => item.sym === 'SPY');
             const prevQqq = prev.find(item => item.sym === 'QQQ');
-            const spyChg = stableChangePct(spyQuote, prevSpy?.chg ?? DEMO_ETFS[0].chg, equityExtendedLive);
-            const qqqChg = stableChangePct(qqqQuote, prevQqq?.chg ?? DEMO_ETFS[1].chg, equityExtendedLive);
+            // ★ 대표 지적의 본체. 프리·애프터엔 확장시간 체결가·등락률을 그린다.
+            const spySess = sessionQuote(spyQuote, quotesSession);
+            const qqqSess = sessionQuote(qqqQuote, quotesSession);
+            const spyChg = spySess.ext
+              ? spySess.pct
+              : stableChangePct(spyQuote, prevSpy?.chg ?? DEMO_ETFS[0].chg, equityExtendedLive);
+            const qqqChg = qqqSess.ext
+              ? qqqSess.pct
+              : stableChangePct(qqqQuote, prevQqq?.chg ?? DEMO_ETFS[1].chg, equityExtendedLive);
             const next: PulseItem[] = [
               {
                 sym: 'SPY',
-                px: spyQuote.price || prevSpy?.px || DEMO_ETFS[0].px,
+                px: spySess.px || prevSpy?.px || DEMO_ETFS[0].px,
                 chg: spyChg,
                 up: spyChg >= 0,
                 spark: [],
@@ -1628,7 +1676,7 @@ export default function AppDashPage() {
               },
               {
                 sym: 'QQQ',
-                px: qqqQuote.price || prevQqq?.px || DEMO_ETFS[1].px,
+                px: qqqSess.px || prevQqq?.px || DEMO_ETFS[1].px,
                 chg: qqqChg,
                 up: qqqChg >= 0,
                 spark: [],
@@ -1778,6 +1826,8 @@ export default function AppDashPage() {
       holidayNote: '미국 증시 휴장 — 선물 시세도 들어오지 않아 직전 값입니다.',
       idxNote: '지금 움직이는 건 선물뿐 — 현물·ETF는 마감값입니다.',
       idxNoteLive: '정규장 진행 중 — 선물·현물·ETF 모두 실시간입니다.',
+      idxNotePre: '프리마켓 진행 중 — 선물·ETF는 실시간, 현물 지수는 마감값입니다.',
+      idxNotePost: '애프터마켓 진행 중 — 선물·ETF는 실시간, 현물 지수는 마감값입니다.',
       secMacro: '매크로', mcMore: (n: number) => `${n}개 더 보기`, mcLess: '접기',
       secSector: '섹터', heat: '히트맵',
       secDisc: '오늘의 발견', discAll: '랭킹 11종',
@@ -1801,6 +1851,8 @@ export default function AppDashPage() {
       holidayNote: 'US markets closed — no futures quotes; last values shown.',
       idxNote: 'Only futures are trading now — cash and ETFs show the close.',
       idxNoteLive: 'Regular session is open — futures, cash and ETFs are all live.',
+      idxNotePre: 'Pre-market is open — futures and ETFs are live; cash indices show the close.',
+      idxNotePost: 'After-hours is open — futures and ETFs are live; cash indices show the close.',
       secMacro: 'Macro', mcMore: (n: number) => `Show ${n} more`, mcLess: 'Show less',
       secSector: 'Sectors', heat: 'Heatmap',
       secDisc: "Today's Find", discAll: 'All 11 rankings',
@@ -1824,6 +1876,8 @@ export default function AppDashPage() {
       holidayNote: '米国市場は休場 — 先物気配も届かず直近値です。',
       idxNote: '今動いているのは先物のみ — 現物・ETFは終値です。',
       idxNoteLive: '通常取引中 — 先物・現物・ETFすべてリアルタイムです。',
+      idxNotePre: 'プレマーケット中 — 先物・ETFはリアルタイム、現物指数は終値です。',
+      idxNotePost: '時間外取引中 — 先物・ETFはリアルタイム、現物指数は終値です。',
       secMacro: 'マクロ', mcMore: (n: number) => `他${n}件を表示`, mcLess: '折りたたむ',
       secSector: 'セクター', heat: 'ヒートマップ',
       secDisc: '今日の発見', discAll: 'ランキング11種',
@@ -2038,7 +2092,13 @@ export default function AppDashPage() {
               })}
         </div>
         <div className={n9.e9Note}>
-          {isHolidaySession ? c9.holidayNote : isLive ? c9.idxNoteLive : c9.idxNote}
+          {/* 프리·애프터에 「현물·ETF는 마감값」이라고 말하던 문구가 틀렸다.
+              그 시간대에 ETF 는 실제로 거래된다 — 현물 «지수»만 마감값이다. */}
+          {isHolidaySession ? c9.holidayNote
+            : isLive ? c9.idxNoteLive
+            : equityExtendedLive && marketSession === 'pre' ? c9.idxNotePre
+            : equityExtendedLive && marketSession === 'post' ? c9.idxNotePost
+            : c9.idxNote}
         </div>
       </div>
 
