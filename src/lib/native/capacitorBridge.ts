@@ -202,12 +202,23 @@ export async function getNativeAppVersion(): Promise<string | null> {
   }
 }
 
-// 진짜로 유지된(retained) 사용자에게만 노출: 앱을 사용한 "서로 다른 날"이
-// 3일째·8일째 될 때 한 번씩. 네이티브가 추가로 throttle하므로 천장 아래로 조용히 유지된다.
-// 첫 실행/온보딩 중에는 절대 뜨지 않는다(누적 사용일 기준이므로).
+// 유지된(retained) 사용자에게만 노출한다. 첫 실행/온보딩 중에는 절대 뜨지 않는다.
+//
+// ★ 2026-09-19 실측으로 기준을 내렸다 — 예전 기준(3일째·8일째)은 «도달 불가»였다.
+//   Play 콘솔 28일: 노출 2,190 → 등록정보 열람 약 11 → 설치 7 → 첫 실행 6 → **7일 잔존 1대**.
+//   「서로 다른 날 3일째」에 닿는 사용자가 사실상 없어 **리뷰 요청이 뜬 적이 없다.**
+//   그 결과 세 앱 모두 Play 별점 0개·리뷰 0건이고, 별 없는 줄은 검색 결과에서 건너뛰어진다
+//   (노출→열람 0.5%). 별점 없음 → 안 눌림 → 설치 적음 → 잔존 적음 → 평점 없음 의 «닫힌 고리».
+//
+//   그래서 두 갈래로 연다:
+//     ① 서로 다른 사용일 2일째·7일째  ② 누적 앱 실행 4회째 (같은 날 여러 번 여는 사용자)
+//   둘 중 먼저 닿는 쪽에서 한 번. 구글·애플이 자체적으로 추가 throttle 하므로 과노출되지 않는다.
+//   ⚠️ 첫 세션에는 여전히 뜨지 않는다 — 온보딩 중 요청은 낮은 별점을 부른다.
 const REVIEW_DAYS_KEY = 'signumhq.review.days';
 const REVIEW_DONE_KEY = 'signumhq.review.prompted';
-const REVIEW_MILESTONES = [3, 8];
+const REVIEW_SESSIONS_KEY = 'signumhq.review.sessions';
+const REVIEW_MILESTONES = [2, 7];
+const REVIEW_SESSION_MILESTONE = 4;
 
 export function maybePromptReview(delayMs = 2500): void {
   if (!canRequestReview()) return;
@@ -221,8 +232,24 @@ export function maybePromptReview(delayMs = 2500): void {
       days.push(today);
       localStorage.setItem(REVIEW_DAYS_KEY, JSON.stringify(days.slice(-30)));
     }
+    // 누적 «앱 실행» 횟수도 센다 — 같은 날 여러 번 여는 사용자는 «사용일» 기준에 영영 안 걸린다.
+    // ⚠️ 이 함수는 대시보드 마운트마다 불린다. SPA 안에서 화면을 오가며 재마운트되면
+    //    한 번 연 것을 여러 번으로 셀 수 있다 → sessionStorage 로 «앱 실행당 1회»만 센다
+    //    (sessionStorage 는 WebView 를 새로 열 때 비워진다).
+    let sessions = Number(localStorage.getItem(REVIEW_SESSIONS_KEY)) || 0;
+    try {
+      if (!sessionStorage.getItem(REVIEW_SESSIONS_KEY)) {
+        sessions += 1;
+        localStorage.setItem(REVIEW_SESSIONS_KEY, String(sessions));
+        sessionStorage.setItem(REVIEW_SESSIONS_KEY, '1');
+      }
+    } catch { /* sessionStorage 불가 → 세션 경로만 건너뛴다 */ }
+
     const prompted: number[] = JSON.parse(localStorage.getItem(REVIEW_DONE_KEY) || '[]');
-    const hit = REVIEW_MILESTONES.find(m => days.length >= m && !prompted.includes(m));
+    let hit = REVIEW_MILESTONES.find(m => days.length >= m && !prompted.includes(m));
+    // 세션 경로(0 으로 표시): 앱을 4번째 여는 사람이면 «사용일»이 하루여도 충분히 관여한 것이다.
+    // 첫 세션·둘째 세션에는 절대 뜨지 않는다 — 온보딩 중 요청은 낮은 별점을 부른다.
+    if (hit == null && sessions >= REVIEW_SESSION_MILESTONE && !prompted.includes(0)) hit = 0;
     if (hit == null) return;
     prompted.push(hit);
     localStorage.setItem(REVIEW_DONE_KEY, JSON.stringify(prompted));

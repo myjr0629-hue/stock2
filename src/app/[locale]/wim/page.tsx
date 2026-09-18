@@ -3373,6 +3373,15 @@ export default function WimPage() {
       // ② 세트 완료 = 학습자가 이미 «나가는» 순간. 정답 공개 «뒤»에만 뜬다.
       //    하루 1회 상한·설치 3일 침묵은 ads.ts 가 강제한다.
       void showWimInterstitial();
+      // ★ 2026-09-19: 평점 요청이 «설정 버튼» 하나뿐이라 아무도 누르지 않았고 Play 별점이 0이다.
+      //   별점 0 인 줄은 검색 결과에서 건너뛰어진다(실측: 노출 2,190 → 등록정보 열람 약 11).
+      //   UC 와 같은 규칙으로 «세트를 다 푼» 성공 순간에 2회째·7회째 한 번씩 요청한다.
+      //   전면광고와 겹치지 않도록 4초 뒤로 민다. 네이티브가 추가로 throttle 한다.
+      try {
+        const n = (parseInt(localStorage.getItem('wim.setsDone') || '0', 10) || 0) + 1;
+        localStorage.setItem('wim.setsDone', String(n));
+        if (n === 2 || n === 7) setTimeout(requestReview, 4000);
+      } catch { /* storage 불가 → 건너뛴다 */ }
     }
   }, [stopTimer, setDoneShown, markSetFinished]);
 
