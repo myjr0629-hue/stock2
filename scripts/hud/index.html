@@ -111,6 +111,20 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
 .nowline .how{color:var(--dim);font-size:10.5px}
 @keyframes nodepulse{0%,100%{opacity:.25}50%{opacity:.9}}
 .node.active .halo{animation:nodepulse 1.6s ease-in-out infinite}
+
+/* 성과 패널 — 활동이 아니라 «결과»를 본다 */
+.perf{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:4px 2px}
+@media (max-width:900px){.perf{grid-template-columns:1fr}}
+.perf h4{margin:0 0 8px;font-size:11.5px;font-weight:700;color:var(--mut);letter-spacing:.04em}
+.perf table{width:100%;border-collapse:collapse;font-size:11.5px}
+.perf th{text-align:left;font-weight:600;color:var(--dim);padding:4px 6px;border-bottom:1px solid var(--line2)}
+.perf td{padding:5px 6px;border-bottom:1px solid var(--line2);font-variant-numeric:tabular-nums}
+.perf td.n{text-align:right}
+.perf .win{color:var(--ok);font-weight:700}
+.perf .zero{color:var(--dim)}
+.perf .bar{height:7px;border-radius:4px;background:var(--line2);overflow:hidden}
+.perf .bar i{display:block;height:100%;background:var(--info)}
+.perf .warn{color:var(--warn);font-size:10.5px;margin-top:6px}
 </style></head><body>
 <header><div class="hrow">
   <h1>SIGNUM <span>관제·제어 콘솔</span></h1>
@@ -132,6 +146,13 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
     </div>
     <div id="nowline" class="nowline"></div>
     <svg id="pipe" viewBox="0 0 1120 306" style="width:100%;height:auto;display:block"></svg>
+  </div>
+
+  <!-- ★ 성과 — 대표 지시(2026-09-19): 「관제 제어에 성과부분도 만들어서 보고하도록해」
+       활동(발행 건수·토큰)이 아니라 «결과»만 본다: 설치·CPA·유입 클릭. 추측값은 넣지 않는다. -->
+  <div class="canvas">
+    <div class="hd">성과 — 광고와 유입<span class="legend" id="perf-when"></span></div>
+    <div id="perf"></div>
   </div>
 
   <div class="gcols">
@@ -334,6 +355,41 @@ function pipeline(s){
   [...svg.querySelectorAll('.node')].forEach(g=>g.onclick=()=>{ const t=g.getAttribute('data-tab'); if(t) selectTab(t); });
 }
 const AGENTS={'opus':['세션 주력','verifier'],'fable':['analyst'],'sonnet':['reader','drafter'],'haiku':['classifier(+표본검증)']};
+
+/* 성과 — 활동이 아니라 «결과»를 본다. 값이 없으면 «미측정»이라 쓴다(0 으로 채우지 않는다). */
+function perf(s){
+  const m = s.metrics || {}, ads = m.ads || null, cl = m.clicks || null;
+  const host = $('#perf'), when = $('#perf-when');
+  when.textContent = ads && ads.at ? new Date(ads.at).toLocaleString('ko-KR',{hour12:false}).slice(5,17) + ' 판독' : '미측정';
+  host.className = 'perf';
+  if (!ads && !cl) { host.innerHTML = '<div class="warn">아직 측정값이 없다 — node scripts/hud/collect.js 로 채운다.</div>'; return; }
+  let left = '<h4>애플 광고 · 오늘</h4>';
+  if (ads) {
+    const per = ads.per || [];
+    left += '<table><tr><th>캠페인</th><th class="n">지출</th><th class="n">탭</th><th class="n">설치</th><th class="n">CPA</th></tr>'
+      + per.map(function(p){
+          const nm = String(p.name).replace(/^SIGNUM /,'').replace(/ - Search Results - Exact/,'').replace(/ - Search Tab/,' 탭');
+          return '<tr><td>' + esc(nm) + (p.state==='일시 정지됨' ? ' <span class="zero">(정지)</span>' : '') + '</td>'
+            + '<td class="n">$' + (+p.spend).toFixed(2) + '</td><td class="n">' + p.taps + '</td>'
+            + '<td class="n ' + (p.installs ? 'win' : 'zero') + '">' + p.installs + '</td>'
+            + '<td class="n">' + (p.installs ? ('$' + (+p.cpa).toFixed(2)) : '—') + '</td></tr>'; }).join('')
+      + '<tr><td><b>합계</b></td><td class="n"><b>' + esc(ads.spend) + '</b></td><td class="n"><b>' + esc(ads.taps) + '</b></td>'
+      + '<td class="n ' + ((+ads.installs) ? 'win' : 'zero') + '"><b>' + esc(ads.installs) + '</b></td><td class="n">—</td></tr></table>';
+    if (ads.isToday === false) left += '<div class="warn">⚠ 기간이 «오늘»로 고정된 판독이 아니다 — 하루 한도와 비교하지 말 것</div>';
+  } else left += '<div class="warn">미측정</div>';
+  let right = '<h4>유입 클릭 · 채널별</h4>';
+  if (cl && cl.rows && cl.rows.length) {
+    const max = Math.max.apply(null, [1].concat(cl.rows.map(function(r){return r.d21;})));
+    right += '<table><tr><th>채널</th><th class="n">오늘</th><th class="n">3일</th><th class="n">21일</th><th style="width:28%"></th></tr>'
+      + cl.rows.slice(0,10).map(function(r){ return '<tr><td>' + esc(r.ch) + '</td>'
+          + '<td class="n ' + (r.today ? '' : 'zero') + '">' + r.today + '</td><td class="n">' + r.d3 + '</td>'
+          + '<td class="n"><b>' + r.d21 + '</b></td>'
+          + '<td><div class="bar"><i style="width:' + Math.round(r.d21/max*100) + '%"></i></div></td></tr>'; }).join('')
+      + '<tr><td><b>합계</b></td><td class="n"><b>' + cl.today + '</b></td><td class="n"><b>' + cl.total3 + '</b></td><td class="n"><b>' + cl.total21 + '</b></td><td></td></tr></table>';
+  } else right += '<div class="warn">미측정</div>';
+  host.innerHTML = '<div>' + left + '</div><div>' + right + '</div>';
+}
+
 function lanes(s){
   const bm=s.usage.byModel||{};
   const fam=(k)=>/opus/.test(k)?'opus':/fable/.test(k)?'fable':/sonnet/.test(k)?'sonnet':/haiku/.test(k)?'haiku':'other';
@@ -389,7 +445,7 @@ function tabs(s){
 
 function paint(s){
   S=s; tiles(s); events(s.events||[]); models(s); tools(s); tickets(s); pubs(s); metrics(s); cycles(s); git(s);
-  pipeline(s); lanes(s); chanmap(s); slotDetail(s); tabs(s);
+  pipeline(s); perf(s); lanes(s); chanmap(s); slotDetail(s); tabs(s);
   $('#t-msgs').textContent=nf(s.usage.msgs); $('#t-scan').textContent=s.usage.scanning?'스캔 중…':(s.usage.file?'동기':'없음');
   $('#t-now').textContent=hm(s.now);
   $('#b-pause').className=s.state.paused?'on':''; $('#b-pause').textContent=s.state.paused?'▶ 재개':'⏸ 일시정지';

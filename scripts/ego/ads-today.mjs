@@ -14,8 +14,22 @@ if (!/\/report(\?|$)/.test(await page.url())) {
 await L.wait(9000);
 if (/idmsa\.apple\.com|signin/.test(await page.url())) { console.log('SESSION_EXPIRED — 대표 로그인 필요(t176). 오늘 수치 판독 불가.'); process.exit(0); }
 // 기간을 «오늘»로 고정한다(30일치와 섞어 읽던 사고 방지)
-const picker = await L.clickText(page, /^(오늘|Today)$/, { deep: true, after: 9000 });
+// ★ 2026-09-19 수리. 예전엔 clickText(/^오늘$/) 하나였는데 «선택기를 열지 않은 채» 눌러서
+//   적용이 안 됐다. 화면은 계속 「최근 7일」이었고, 그 7일 합계($284.62)를 하루 한도($25)와
+//   비교해 ⛔ 거짓 경보를 냈다(캠페인을 정지할 뻔했다). 절차는 두 단계다:
+//   ① 우상단 기간 선택기를 «열고»(실측 위치 977,224) ② 드롭다운의 「오늘」을 누른다.
+await page.mouse.click(977, 224);
+await L.wait(3000);
+const picker = await page.evaluate(() => {
+    const o = [...document.querySelectorAll('button,li,a,div,span')].filter((e) => e.offsetParent)
+        .map((e) => { const b = e.getBoundingClientRect();
+            return { t: (e.innerText || '').replace(/\s+/g, ' ').trim(), x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2), h: Math.round(b.height) }; })
+        .filter((z) => z.h > 0 && z.h < 50 && z.t === '오늘');
+    return o[0] || null;
+});
 console.log('기간 선택=' + JSON.stringify(picker));
+if (picker) { await page.mouse.click(picker.x, picker.y); await L.wait(9000); }
+else { console.log('⚠ 기간 선택기를 못 열었다 — 아래 수치는 «오늘»이 아닐 수 있다. 화면을 볼 것.'); }
 const rows = await page.evaluate(() => {
     const t = (document.body.innerText || '');
     const i = Math.max(0, t.indexOf('캠페인 관리'));
