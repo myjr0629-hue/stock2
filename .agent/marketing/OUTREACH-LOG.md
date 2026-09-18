@@ -7251,3 +7251,23 @@ CPP 는 자기 URL(`?ppid=`)을 갖고 스크린샷·홍보문구를 따로 두�
 **개선**: ①note 발행 스크립트가 해시태그 칸(placeholder 「ハッシュタグを追加する」)을 못 찾아 태그 없이 발행됐다 → 발행 후 `/publish/` 화면에서 «更新する» 로 추가하는 경로가 통했다(다음부터 이 placeholder 로 찾는다). ②핀터레스트 «이미지 첨부 확인»을 `naturalWidth>500 && x>400` 로 하니 첨부돼 있어도 false → `input[type=file].files.length || pinimg/blob img` 로 고쳤다(첫 시도는 «held» 로 안전하게 멈췄다). ③ego `page.evaluate` 는 인자를 하나만 넘긴다(메모리 기록).
 
 **광고 정정(오늘치, `ads-cycle.mjs` 로 기간 «오늘» 고정 성공)**: 합계 지출 **$23.10** · 노출 938 · 탭 14 · 설치 **1**(JP, CPA $5.33) — KR Exact $9.51/탭 4/설치 0 · US Exact $8.26/탭 6/설치 0 · JP Exact $5.33/탭 4/설치 1 · US Search Tab 일시정지 $0. 한도(JP $5+KR $10+US $10=$25)의 1.5배 $37.5 이내. 어제 $29.36(설치 1, US Exact $12.03 이 예산 $10 을 20% 초과 — 애플 초과집행) · 7일 $261.53/설치 4/CPA $65.38(Search Tab 이 $57.32 로 설치 0 → 정지 유지가 맞다). KR-Intent 키워드 8개가 $3.00~3.50(이전 사이클 설정) — 증액 없음·변경 없음. 판정: **JP Exact 가 오늘의 승자**(유일한 설치), KR 은 탭은 오는데 설치 0 이 이어진다(페이지 문제, 메모리 «kr-ads-taps-convert-at-zero-page-not-keyword»).
+
+---
+## 사이클 15 — 2026-09-18 11:40~12:3x KST (크론 c5e53356, 11:13 분이 보고 작성 뒤 발화)
+
+배정: 실행 tiktok·hatena_bookmark·x_us·linkedin / 뚫기 geeknews·fmkorea / 확장 1 / 대표 체크 Qiita·긱뉴스·브런치. 게이트 341건 0실패. 규칙 미정의(naver_blog) → RULES 에 정의(발행 금지·t190 대기).
+
+**데이터 훅**: EC2 의 `darkpool-hooks.js` 는 옛 키 형식(`rows`)을 읽어 「FINRA 데이터 없음」(env 를 실어도 동일) → 운영 API `/api/flow/dark-pool?ticker=` 로 직접 뽑았다. 9/17(연준 25bp 인상일, SPY +1.1%·QQQ +1.7%·AMD +6.4%·NVDA +2.5%): NVDA 장외비중 **38.6%**(자기 20일 범위 7백분위, 시장평균 50.8%, 물량 0.74배) · SPY 30.4%·장외 공매도 43.1% vs 평소 58.2%(−15pt, ACCUMULATION) · AMD 46.8%·물량 1.56배·공매도 61.4%(평소 55). → «매수는 밝은 거래소에서 찍혔다» 훅.
+
+| 채널 | 한 일 | 공개 URL | 검증 |
+|---|---|---|---|
+| **LinkedIn** | 「Rate-hike day, and the tape rallied. Here is where it actually traded, from FINRA's own file.」 1,288자 + 링크 `?from=linkedin` + 해시태그 4 | https://www.linkedin.com/feed/update/urn:li:activity:7506546091358863360/ | ✅ 영구링크에서 본문·링크카드(signumhq.com) 확인. 이미지 첨부는 `input[type=file]` 미검출로 실패 → 링크 카드(이미지 2장)로 게시 |
+| **x_us** | @unusual_whales(5.3M) 연준 인상 확률 스레드에 답글(247자, 링크 앞 280자 안, 앱 카드 첨부) | (스레드 https://x.com/unusual_whales/status/2100707279255519383) | ⚠ **게시는 됐으나 노출 0**: 「reply was sent」 토스트 + 프로필 게시물 수 207→208. 그런데 스레드(«Show probable spam» 펼쳐도)·프로필 with_replies·검색(`from:signumhq "tape rallied"`) 어디에도 없다 → X 가 스팸 확률로 숨겼다. **원장에 «발행»으로 적지 않는다.** 1차 시도는 클릭이 허공(버튼 선택 오류)이라 미게시였고 2차만 게시됨 |
+| tiktok / hatena / fmkorea | 대표 보류 · 계정 게이트(변화 없음) | — | — |
+| geeknews (뚫기) | 09-25 해금 대기(변화 없음) | — | — |
+| **Qiita (대표 체크)** | 첫 기사 완성: 「FINRA の公開 API で「ダークプール比率」を自前計算する（Node.js）」 7,400자, 코드 3블록·라이선스·분모 함정 — `/tmp/qiita/article.md`. 발행 시도 → `/drafts/new` 가 `/settings/notifications` 로 튕김: **「メールアドレスの認証が完了していません…一部の機能を制限」** | — | 인증 메일 발송 링크를 눌렀으나 확인 문구 없음(발송 여부 불명). **t192(대표: 메일 링크 1클릭)** |
+| **확장** | `play_listing_experiments` 등록 + **t191**(SIGNUM KR 짧은 설명 «미국주식 앱»·첫 스크린샷 A/B) — KR 광고 탭→설치 0 의 병목이 스토어 페이지라는 실측에 근거 | — | 다음 사이클 콘솔 딥워커로 실행 |
+
+**광고(오늘 고정, 11:4x 재판독)**: 콘솔 3시간 지연이라 사이클 14 와 동일 — 합계 $23.10·설치 1(JP $5.33). 변경 없음.
+
+**개선**: ① X 답글 버튼은 상태 페이지에선 `tweetButtonInline` 이고 화면 안(inView)인 것을 골라야 한다 — 1차는 보이지 않는 `tweetButton` 좌표를 눌러 허공. ② **링크+이미지 답글은 X 스팸 필터에 숨겨진다**(게시됨 ≠ 보임). 다음 x_us 는 «링크 없이 데이터만» 답글로 노출 여부를 대조한다(프로필 링크 경유). ③ Qiita 는 신규 계정 «메일 인증» 게이트가 있다 — 대표 가입 직후 인증까지 한 번에 부탁드릴 것(CEO-SIGNUP-LIST 에 메모). ④ EC2 `darkpool-hooks.js` 는 키 형식이 바뀌어 죽어 있다(`finra:offexchange` 가 `{date,tickers,marketAvg}` 인데 `rows` 를 기대) — 훅은 운영 API 로 뽑는 편이 정확하다(t193 mkt: 스크립트 갱신).

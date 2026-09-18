@@ -451,6 +451,16 @@
       "link": "https://signumhq.com/app?from=naver_blog",
       "action": "post",
       "note": "★2026-09-18 발굴(확장): 지식iN 계정에 블로그가 «이미» 있다 — blog.naver.com/donneum 「인싸이트팟」(kin.naver.com 헤더 «내 블로그» 클릭으로 확인, 주소 추측 아님). 대표의 기존 블로그일 수 있어 SIGNUM 글을 올려도 되는지 «대표 결정» 필요(t190). 되면 지식iN 답변→블로그 글(앱 화면)→스마트링크 깔때기가 열린다(지식iN 본문은 무링크 규칙)."
+    },
+    {
+      "id": "play_listing_experiments",
+      "name": "Play 스토어 등록정보 실험",
+      "tier": "A",
+      "enabled": true,
+      "tag": "play_exp",
+      "link": "https://signumhq.com/app?from=play_exp",
+      "action": "experiment",
+      "note": "★2026-09-18 발굴(확장): Play 콘솔 Store listing experiments — 기본 등록정보의 아이콘·스크린샷·짧은 설명을 A/B 로 시험(무료·빌드 불필요). 근거: KR 광고 탭 4~6/일에 설치 0 = 스토어 페이지 전환 문제(메모리 kr-ads-taps-convert-at-zero-page-not-keyword). 첫 실험 = SIGNUM KR 짧은 설명 «미국주식 앱» + 첫 스크린샷 교체. t191"
     }
   ],
   "candidates": [

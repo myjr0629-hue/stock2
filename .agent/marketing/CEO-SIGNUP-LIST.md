@@ -25,7 +25,7 @@
 
 ## 2순위 — 일본·개발자 표면
 
-- [x] **Qiita** — https://qiita.com/signup  (GitHub·Google 로그인 가능)
+- [x] **Qiita** — ⚠ **메일 인증 1클릭 필요**(t192: contact@signumhq.com 의 Qiita 인증 메일 링크). 인증 전엔 발행 불가 · https://qiita.com/signup  (GitHub·Google 로그인 가능)
       일본에서 **자사 기술해설이 「광고가 아니다」라고 가이드라인에 명문화된** 유일한 곳입니다. 트렌드 문턱이 5~10 LGTM 으로 매우 낮습니다.
       아이디 `________`
 

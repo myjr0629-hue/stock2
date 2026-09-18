@@ -2316,6 +2316,39 @@
       "created": "2026-09-18T01:59:51Z",
       "title": "네이버 블로그 — 지식iN 계정의 기존 블로그 «인싸이트팟»(blog.naver.com/donneum)에 SIGNUM 글을 올려도 되는지",
       "detail": "확장 발굴(2026-09-18 11:0x). 지식iN 로그인 계정의 «내 블로그» 를 눌러 보니 blog.naver.com/donneum(제목 인싸이트팟)이 이미 있다. 대표님 기존 블로그로 보여 제가 SIGNUM 앱 글을 올리지 않았다(틱톡 개인계정 사고 t187 과 같은 유형). 선택지: (a) 이 블로그에 «미국주식 앱» 카테고리를 만들어 올린다 (b) SIGNUM 전용 네이버 계정을 따로 만든다(계정 생성은 대표 몫) (c) 안 한다. 결정해 주시면 지식iN 답변→블로그 글(앱 화면)→스마트링크 깔때기를 엽니다."
+    },
+    {
+      "id": "t191",
+      "type": "mkt",
+      "region": "KR",
+      "prio": 1,
+      "state": "open",
+      "tries": 0,
+      "created": "2026-09-18T02:44:20Z",
+      "title": "Play 스토어 등록정보 실험 1호 — SIGNUM KR 짧은 설명·첫 스크린샷 A/B",
+      "detail": "Play 콘솔(회사 계정 u/0) → SIGNUM(4974871698649706116) → Store presence → Store listing experiments. 변형 B: 짧은 설명에 «미국주식 앱» 붙여쓰기(ASO 실측: 띄어쓰기 한 칸이 순위 12칸), 첫 스크린샷을 프리마켓/실적 화면으로. 트래픽 50/50, 최소 7일. 성공 기준: 설치 전환율(현재 SIGNUM 60% vs UC 22% — Play 콘솔 실측) 변화. 다음 사이클에 콘솔 딥워커로 실행(런북 §9)."
+    },
+    {
+      "id": "t192",
+      "type": "ceo",
+      "region": "JP",
+      "prio": 1,
+      "state": "open",
+      "tries": 0,
+      "created": "2026-09-18T03:02:26Z",
+      "title": "Qiita — 메일 인증 1클릭 (인증 전엔 기사 발행이 막힘)",
+      "detail": "qiita.com/drafts/new 가 /settings/notifications 로 튕기며 「メールアドレスの認証が完了していません。一部の機能を制限しています」. contact@signumhq.com 받은편지함의 Qiita 인증 메일 링크를 한 번 눌러 주시면 됩니다(인증 메일은 제가 2026-09-18 12:2x 에 발송 버튼을 눌렀습니다 — 없으면 설정 페이지의 「こちら」를 다시). 첫 기사(FINRA 다크풀 비율 자체 계산, Node.js, 7,400자)는 /tmp/qiita/article.md 에 완성돼 있어 인증 즉시 발행합니다."
+    },
+    {
+      "id": "t193",
+      "type": "mkt",
+      "region": "ALL",
+      "prio": 3,
+      "state": "open",
+      "tries": 0,
+      "created": "2026-09-18T03:05:56Z",
+      "title": "darkpool-hooks.js 를 새 키 형식(tickers 맵)에 맞추거나 운영 API 기반으로 교체",
+      "detail": "EC2 /opt/signum-ws/darkpool-hooks.js 가 finra:offexchange 의 옛 형식(rows)을 기대해 «FINRA 데이터 없음»으로 종료. 현재 형식은 {date,tickers:{SYM:{pct,vol,shortPct,volRatio,shortDev,pctP,regime}},marketAvg}. 사이클 15 는 /api/flow/dark-pool?ticker= 로 대체했다."
     }
   ]
 }
