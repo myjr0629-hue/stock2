@@ -217,6 +217,7 @@ export async function getNativeAppVersion(): Promise<string | null> {
 const REVIEW_DAYS_KEY = 'signumhq.review.days';
 const REVIEW_DONE_KEY = 'signumhq.review.prompted';
 const REVIEW_SESSIONS_KEY = 'signumhq.review.sessions';
+const REVIEW_LAST_KEY = 'signumhq.review.lastAsked';
 const REVIEW_MILESTONES = [2, 7];
 const REVIEW_SESSION_MILESTONE = 4;
 
@@ -246,6 +247,15 @@ export function maybePromptReview(delayMs = 2500): void {
     } catch { /* sessionStorage 불가 → 세션 경로만 건너뛴다 */ }
 
     const prompted: number[] = JSON.parse(localStorage.getItem(REVIEW_DONE_KEY) || '[]');
+
+    // ⚠️ 2026-09-19 자체 결함 수리. 기준을 [3,8]→[2,7] 로 내리면서 생긴 문제다:
+    //    이미 7일 넘게 쓴 «기존» 사용자는 prompted 가 비어 있으므로 다음 실행에 2 가 걸리고,
+    //    그다음 실행에 7 이 «바로» 걸린다 → 연속 두 번 요청. 스토어가 자체 throttle 하더라도
+    //    같은 사람에게 이틀 연속 묻는 모양은 낮은 별점을 부른다.
+    //    → 한 번 요청했으면 그날은 더 묻지 않는다.
+    const lastAsked = localStorage.getItem(REVIEW_LAST_KEY);
+    if (lastAsked === today) return;
+
     let hit = REVIEW_MILESTONES.find(m => days.length >= m && !prompted.includes(m));
     // 세션 경로(0 으로 표시): 앱을 4번째 여는 사람이면 «사용일»이 하루여도 충분히 관여한 것이다.
     // 첫 세션·둘째 세션에는 절대 뜨지 않는다 — 온보딩 중 요청은 낮은 별점을 부른다.
@@ -253,6 +263,7 @@ export function maybePromptReview(delayMs = 2500): void {
     if (hit == null) return;
     prompted.push(hit);
     localStorage.setItem(REVIEW_DONE_KEY, JSON.stringify(prompted));
+    localStorage.setItem(REVIEW_LAST_KEY, today);
     // Delay so the prompt lands after the user is settled on the dashboard, not mid-transition.
     setTimeout(() => { requestAppReview(); }, delayMs);
   } catch { /* storage unavailable → skip */ }
