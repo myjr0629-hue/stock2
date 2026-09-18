@@ -7332,3 +7332,19 @@ CPP 는 자기 URL(`?ppid=`)을 갖고 스크린샷·홍보문구를 따로 두�
 
 **대표 질문 실측(모델)**: 같은 원장 집계 작업을 새 세션 `claude -p` 로 — Haiku $0.10(0/3)·Sonnet $0.24(3/3, 12.3s)·**Opus $0.50(3/3, 10.1s)**·Fable $0.99(3/3, 14.4s). Opus 가 정확·최단·Fable 의 절반 비용 → 사이클 운영은 Opus 주력이 맞다(보고에 기재).
 **개선**: ①Daum 폼의 URL 칸은 검색창(`q`)과 다르다(`url2`) ②Daum·Naver 계열 페이지는 goto 15초 타임아웃이 흔하다 → try/catch 후 진행 ③네이티브 alert 는 평가를 막는다 → 클릭 전에 `window.alert` 가로채기(메시지 기록).
+
+---
+## 사이클 20 — 2026-09-18 16:43~17:1x KST
+
+배정: 실행 tiktok·hatena_bookmark·**apple_ppo**·naver_search_advisor / 뚫기 geeknews·fmkorea / 확장 1. 게이트 341건 0실패. 관제 콘솔 상태 확인(paused=false·메모 없음)으로 사이클 시작 — 새 절차 §1 이 처음 작동했다.
+
+| 항목 | 한 일 | 결과 |
+|---|---|---|
+| **apple_ppo — 제품 페이지 최적화 실험 1호** | ASC API 에 PPO 가 «우리 키로 열려 있다»는 것을 먼저 실측(GET 200·실험 0건). 생성 스키마는 §39 방식으로 학습: **POST `/v2/appStoreVersionExperiments`**(name·platform·trafficProportion·app), 처리군 관계는 `appStoreVersionExperimentV2`/타입 `appStoreVersionExperiments`. 처리군 로케일(ko)을 만들면 **원본 6장이 자동 복사**되므로 업로드 없이 `PATCH /appScreenshotSets/{id}/relationships/appScreenshots` 로 **순서만 바꿨다**(새 렌더 0·되돌리기 쉬움). 가설: 첫 프레임을 경쟁 앱과 같은 «가격 대시보드»에서 우리 차별점 «AI 브리핑»으로 | ✅ 검증: 처리군 순서 guardian→dash→cmd→flow→intel→heatmap · 실험 state `PREPARE_FOR_SUBMISSION`(=**아무 사용자도 아직 못 본다**) · 트래픽 50%. 재사용 스크립트 `scripts/asc_ppo.py`, ID 기록 `.agent/marketing/ppo-ko-2026-09-18.json`. **시작은 라이브 노출 변경이라 대표 승인(t194)** |
+| **정정: iOS 버전** | ASC 실측 — SIGNUM iOS **1.9.2 READY_FOR_SALE**(1.9·1.9.1 도 승인). 내 상태판·메모리가 «1.8» 로 낡아 있었다 | STATE.md 수정 |
+| naver_search_advisor | 네이버 `site:signumhq.com` 여전히 «검색결과 없음» = 소유확인 전. 콘솔 진입은 브라우저 필요 | t196 대기 |
+| tiktok·hatena·geeknews(09-25)·fmkorea | 변화 없음(대표 보류·계정 게이트) | — |
+| play_listing_experiments | 규칙 미정의 경고 정리: RULES 에 **cap 0 보류 항목**으로 복원(슬롯은 안 잡고 이력은 남는다) | — |
+| 광고 | **이번 사이클 미판독** — ego 작업공간을 대표님이 직접 쓰고 계셔서(하드 스톱) 되찾지 않았다. 오늘 15:36 판독분: $13.77·노출 1,055·탭 10·설치 1(한도 내) | 다음 사이클 |
+
+**개선**: ①ASC 신규 리소스는 «타입 이름»과 «경로 버전»이 다를 수 있다(타입 `…V2`, 경로 `/v2/…`) — 404 는 경로, 409 는 필드를 말해 준다(§39 재확인). ②처리군은 원본 자산을 자동 복사하므로 «재배열»만으로 A/B 가 된다 — 렌더 파이프라인을 돌릴 필요가 없었다. ③사이클 시작에 관제 콘솔 상태를 먼저 읽는 절차가 실제로 도움이 됐다(스위치·대표 메모를 놓치지 않는다).

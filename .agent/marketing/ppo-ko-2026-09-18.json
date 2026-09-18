@@ -1,0 +1,24 @@
+{
+ "app": "6783130444",
+ "locale": "ko",
+ "exp": "c6db5925-7db0-43ce-a271-4348d78f9abb",
+ "treatment": "dc29c607-3fac-4e98-854d-b73d0f236223",
+ "tl": "bbae59af-b9d4-403f-8a44-90858222bb79",
+ "set": "ab82e442-03f7-44d6-af97-16323a1496b7",
+ "order": [
+  "guardian",
+  "dash",
+  "cmd",
+  "flow",
+  "intel",
+  "heatmap"
+ ],
+ "control": [
+  "dash",
+  "cmd",
+  "flow",
+  "guardian",
+  "intel",
+  "heatmap"
+ ]
+}

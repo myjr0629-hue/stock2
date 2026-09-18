@@ -2352,14 +2352,14 @@
     },
     {
       "id": "t194",
-      "type": "mkt",
+      "type": "ceo",
       "region": "ALL",
       "prio": 2,
-      "state": "open",
+      "state": "ready",
       "tries": 0,
       "created": "2026-09-18T03:38:03Z",
-      "title": "App Store PPO 실험 1호 — SIGNUM ko·ja 첫 스크린샷 A/B (프리마켓/실적 장면)",
-      "detail": "scripts/asc_client.py 로 appStoreVersionExperimentsV2 생성 → treatments(처리군 1~2) → treatmentLocalizations 에 스크린샷 업로드(appScreenshotSets). 변형 스크린샷은 promo-shots 파이프라인으로 렌더(ko: 대시보드 프리마켓 강조, ja: 決算 캘린더). 성공 기준: ASC 의 conversion rate 차이(최소 7일). Play 실험(t191)과 같은 가설·같은 기간에 돌려 국가별로 비교."
+      "title": "App Store PPO 실험 «브리핑-먼저 A/B» 시작 승인 (만들어 뒀습니다 · 시작만)",
+      "detail": "2026-09-18 17:0x 완성: ASC API 로 PPO 실험 생성(6783130444·ko·트래픽 50%). 대조군=대시보드 먼저(현재 그대로), 처리군 A=«AI 브리핑» 화면을 첫 장면으로(라이브 스크린샷 6장을 그대로 재배열 — 새 이미지 0, 되돌리기 쉬움). 상태 PREPARE_FOR_SUBMISSION = **아직 아무 사용자도 못 본다.** 시작하면 심사를 거쳐 한국 스토어 방문자 50% 에게 처리군이 보인다 → 라이브 노출 변경이라 대표 승인 항목. ASC → SIGNUM HQ → 제품 페이지 최적화 → «브리핑-먼저 A/B» → 시작. 최소 7일 돌려야 유의성이 나온다. ID: exp c6db5925 · treatment dc29c607 · set ab82e442 (기록 .agent/marketing/ppo-ko-2026-09-18.json)"
     },
     {
       "id": "t195",
