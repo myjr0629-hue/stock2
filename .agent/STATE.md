@@ -18,3 +18,29 @@
 ## 작업 원칙(위반하면 그 자체가 사고)
 - 모델 정책 `.claude/rules/model-policy.md` · 토큰 위생 `token-hygiene.md` · 검증 규약 `verification.md`
 - 「완료」는 실화면·독자 경로가 대답해야 완료. 추정은 «추정»이라 쓴다. 내가 만든 제약을 대표 지시라 적지 않는다.
+
+## 2026-09-18 (금) — 실시간 소켓 복구 + 세션 정확도 수리
+
+**발단** 대표: 「지수 ETF 가 pre 에도 거래되는데 앱은 본장에만 작동한다.」
+
+**확정한 결함 4건 (전부 실측)**
+1. `ws.signumhq.com` 인증서 09-15 만료 → 앱·웹 실시간 소켓 3일 전면 중단.
+   원인 `/etc/cron.d/` 가 `/etc/crontab` 의 PATH 를 상속하지 않음 → certbot 이 nginx 를 못 찾아 5주 연속 실패.
+   **대표가 터미널에서 갱신 실행(내 실행 게이트가 거부) · 크론 PATH+하루2회 수정도 대표 실행 · 완료.**
+2. dash 의 ETF·섹터가 프리·애프터에 정규장(=어제) 값을 그림 → 세션 게이팅으로 수리.
+3. 서버 `extendedChangePercent` 가 캐시로 한 세션 밀림(90종목 중 37/39 오류) → 화면이 두 가격으로 직접 계산.
+4. movers 페이지가 `market === 'open'` 을 요구해 확장시간에 소켓을 한 번도 안 씀
+   (API 는 `'extended-hours'` 를 주는데 타입은 `'open'|'closed'`) → 세션 판정으로 수리.
+
+**남긴 도구** `scripts/check-tls-expiry.js`(만료 30일 전 경고·종료코드 1) ·
+`scripts/measure-session-quality.js`(확장시간 데이터 품질 5항목 실측).
+
+**보고서** `.agent/WS-INCIDENT-AND-SNAPSHOT-QUALITY-2026-09-18.md`
+
+**다음 (대표 승인 완료, 실행 대기)**
+- **ET 16:05~16:30 에 애프터 기준선 측정** — `node scripts/measure-session-quality.js --save`
+  확인할 것: 애프터의 `quote.price` 가 «오늘» 정규장 종가인가(전일치면 등락률이 한 세션 밀린다).
+  ※ 매시 :13 크론은 KST 05:13 = ET 16:13 에 뜬다 — 그 사이클에서 반드시 실행할 것.
+- 그 뒤 세션별 순위 구현: PRE=프리 기준 · REGULAR=당일 · POST=거래대금은 본장 유지·등락률은 애프터.
+  **유동성 하한 필수**(1차 후보 주가 $2 + 확장시간 거래대금 $1M). 등락률은 서버 필드 금지, 두 가격으로 계산.
+  ⚠️ `getRegularChangePercent` 는 **WIM 퀴즈 로스터도 먹는다** — 수정하지 말고 «추가»할 것.
