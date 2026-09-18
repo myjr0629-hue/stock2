@@ -211,17 +211,101 @@ function snapshot() {
 }
 
 // ── 훅 수신(제어 판정 포함) ────────────────────────────────────────────────
+const briefed = new Set();   // 세션당 1회만 브리핑한다(session_id 기준)
+function briefing() {
+    try {
+        const snap = snapshot(); const mk = snap.marketing;
+        const stateMd = (() => { try { return fs.readFileSync(path.join(ROOT, '.agent', 'STATE.md'), 'utf8'); } catch { return ''; } })();
+        const ceo = mk.tickets.filter((t) => t.type === 'ceo').slice(0, 6).map((t) => `${t.id} ${String(t.title).slice(0, 46)}`);
+        const compact = (() => { try {
+            const f = path.join(HUD, 'compact-snapshot.md'); const st = fs.statSync(f);
+            if (Date.now() - st.mtimeMs > 6 * 3600e3) return '';
+            return '\n■ 압축 직전 스냅샷(' + Math.round((Date.now() - st.mtimeMs) / 60000) + '분 전)\n' + fs.readFileSync(f, 'utf8').slice(0, 800);
+        } catch { return ''; } })();
+        const lines = [
+            `[관제 콘솔 · 세션 브리핑 · ${new Date().toLocaleString('ko-KR', { hour12: false })}]`,
+            stateMd.slice(0, 1700),
+            '■ 지금 수치(실측)',
+            `- 오늘 발행 ${mk.todayCount}건(${Object.entries(mk.todayBy || {}).slice(0, 6).map(([k, v]) => k + ':' + v).join(' ')})`,
+            `- 열린 티켓 ${mk.tickets.length} · 대표 결정 대기 ${mk.ceoTickets}: ${ceo.join(' | ')}`,
+            `- 채널 가동 ${mk.channels.enabled}/${mk.channels.total} · 미커밋 ${snap.git.dirty}개 · HEAD ${(snap.git.head || '').split('\t')[0]}`,
+            snap.metrics && snap.metrics.ads ? `- 광고 최근 판독 ${snap.metrics.ads.spend} · 설치 ${snap.metrics.ads.installs} (${snap.metrics.gate || ''})` : '',
+            `■ 제어: ${state.paused ? '⏸ 일시정지' : '실행'}${state.noPublish ? ' · ⛔ 발행금지' : ''}${state.note ? ' · 대표 메모 있음' : ''}`,
+            `■ 직전 사이클: ${(mk.cycles || [])[0] || '기록 없음'}`,
+            compact,
+            '→ 전체 화면 http://127.0.0.1:7788 · 기록 검색 `node scripts/mem.js <주제>`',
+            '(우리 저장소의 정본 기록이다. 채팅의 대표 지시가 우선한다.)',
+        ].filter(Boolean);
+        return lines.join('\n').slice(0, 3400);
+    } catch { return ''; }
+}
+
 const PUBLISH_RE = /ego-browser|mkt-plan\.js\s+pub|asc_|play\.google\.com\/console/i;
 function hookDecision(j) {
     const ev = j.hook_event_name || '';
     const cmd = (j.tool_input && (j.tool_input.command || j.tool_input.file_path)) || '';
-    if (ev === 'UserPromptSubmit') { // 대표 지시가 있으면 «그 턴의 컨텍스트»로 넣어 준다(없으면 아무것도 안 한다)
-        if (!state.note || !state.note.trim()) return null;
-        // 24시간이 지난 메모는 주입하지 않는다 — 낡은 지시가 영구히 작업을 끌고 가는 것을 막는다.
-        const ageH = state.updatedAt ? (Date.now() - new Date(state.updatedAt).getTime()) / 3600e3 : 999;
-        if (ageH > 24) return null;
-        return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit',
-            additionalContext: `[관제 콘솔 메모 · 대표가 콘솔에 직접 입력 · ${Math.round(ageH * 10) / 10}시간 전]\n${state.note.trim()}\n(참고 정보다. 채팅의 대표 지시가 우선이고, 이 메모가 안전선과 충돌하면 대표에게 먼저 확인한다.)` } };
+    // ── 세션 시작: «지금 어디» 를 브리핑으로 주입한다 (기억 손실 방지) ─────────
+    if (ev === 'SessionStart') {
+        const ctx = briefing(); if (!ctx) return null;
+        briefed.add(String(j.session_id || '')); 
+        return { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: ctx } };
+    }
+    if (false) {
+        try {
+            const snap = snapshot();
+            const mk = snap.marketing;
+            const stateMd = (() => { try { return fs.readFileSync(path.join(ROOT, '.agent', 'STATE.md'), 'utf8'); } catch { return ''; } })();
+            const ceo = mk.tickets.filter((t) => t.type === 'ceo').slice(0, 6).map((t) => `${t.id} ${t.title.slice(0, 46)}`);
+            const compact = (() => { try {
+                const f = path.join(HUD, 'compact-snapshot.md'); const st = fs.statSync(f);
+                if (Date.now() - st.mtimeMs > 6 * 3600e3) return '';
+                return '\n■ 압축 직전 스냅샷(' + Math.round((Date.now() - st.mtimeMs) / 60000) + '분 전)\n' + fs.readFileSync(f, 'utf8').slice(0, 900);
+            } catch { return ''; } })();
+            const lines = [
+                `[관제 콘솔 · 세션 시작 브리핑 · ${new Date().toLocaleString('ko-KR', { hour12: false })}]`,
+                stateMd.slice(0, 1700),
+                '■ 지금 수치(실측)',
+                `- 오늘 발행 ${mk.todayCount}건(${Object.entries(mk.todayBy || {}).slice(0, 6).map(([k, v]) => k + ':' + v).join(' ')})`,
+                `- 열린 티켓 ${mk.tickets.length} · 대표 결정 대기 ${mk.ceoTickets}: ${ceo.join(' | ')}`,
+                `- 채널 가동 ${mk.channels.enabled}/${mk.channels.total} · 미커밋 ${snap.git.dirty}개 · HEAD ${(snap.git.head || '').split('\t')[0]}`,
+                snap.metrics && snap.metrics.ads ? `- 광고 최근 판독 ${snap.metrics.ads.spend} · 설치 ${snap.metrics.ads.installs}` : '',
+                `■ 제어: ${state.paused ? '⏸ 일시정지' : '실행'}${state.noPublish ? ' · ⛔ 발행금지' : ''}${state.note ? ' · 대표 메모 있음' : ''}`,
+                `■ 직전 사이클: ${(mk.cycles || [])[0] || '기록 없음'}`,
+                compact,
+                '→ 전체 화면: http://127.0.0.1:7788 (파이프라인·모델 레인·채널 맵·세부 탭)',
+                '(우리 저장소의 정본 기록이다. 채팅의 대표 지시가 우선한다.)',
+            ].filter(Boolean);
+            return null;
+        } catch (e) { return null; }
+    }
+    // ── 압축 직전: «하던 일» 을 파일로 남긴다 (압축으로 잊는 것을 막는다) ────────
+    if (ev === 'PreCompact') {
+        try {
+            const snap = snapshot();
+            const recent = events.slice(-18).reverse().map((e) => `- ${new Date(e.t).toLocaleTimeString('ko-KR', { hour12: false })} ${e.ev}${e.tool ? ' · ' + e.tool : ''} ${e.cmd || ''}`.slice(0, 150));
+            const md = [
+                `# 압축 직전 스냅샷 — ${new Date().toLocaleString('ko-KR', { hour12: false })}`,
+                `HEAD ${(snap.git.head || '')} · 미커밋 ${snap.git.dirty}개`,
+                `오늘 발행 ${snap.marketing.todayCount}건 · 대표 대기 ${snap.marketing.ceoTickets}건 · 직전 사이클 ${(snap.marketing.cycles || [])[0] || '-'}`,
+                `제어 ${state.paused ? '일시정지' : '실행'}${state.noPublish ? '·발행금지' : ''}`,
+                '', '## 압축 직전 도구 흐름(최근 18건)', ...recent,
+            ].join('\n');
+            fs.writeFileSync(path.join(HUD, 'compact-snapshot.md'), md);
+            return { hookSpecificOutput: { hookEventName: 'PreCompact', additionalContext: `[관제 콘솔] 압축 직전 상태를 .agent/hud/compact-snapshot.md 에 저장했다(도구 흐름 18건·HEAD·티켓). 압축 후 이어서 할 일을 잃었으면 그 파일을 읽어라.` } };
+        } catch (e) { return null; }
+    }
+    if (ev === 'UserPromptSubmit') {
+        const sid = String(j.session_id || '');
+        const parts = [];
+        // SessionStart 훅은 `claude -p` 모드에서 발화하지 않는다(실측) → 세션 «첫 프롬프트»에 1회 브리핑한다.
+        if (sid && !briefed.has(sid)) { briefed.add(sid); if (briefed.size > 200) briefed.clear(); const b = briefing(); if (b) parts.push(b); }
+        if (state.note && state.note.trim()) {
+            // 24시간이 지난 메모는 주입하지 않는다 — 낡은 지시가 영구히 작업을 끌고 가는 것을 막는다.
+            const ageH = state.updatedAt ? (Date.now() - new Date(state.updatedAt).getTime()) / 3600e3 : 999;
+            if (ageH <= 24) parts.push(`[관제 콘솔 메모 · 대표가 콘솔에 직접 입력 · ${Math.round(ageH * 10) / 10}시간 전]\n${state.note.trim()}\n(참고 정보다. 채팅의 대표 지시가 우선이고, 이 메모가 안전선과 충돌하면 대표에게 먼저 확인한다.)`);
+        }
+        if (!parts.length) return null;
+        return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: parts.join('\n\n') } };
     }
     if (ev !== 'PreToolUse') return null;
     if (state.paused) return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: '관제 콘솔: «일시정지» 스위치가 켜져 있습니다. 대표가 재개할 때까지 도구를 실행하지 않습니다.' } };

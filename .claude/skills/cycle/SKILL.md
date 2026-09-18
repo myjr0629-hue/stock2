@@ -8,7 +8,7 @@ description: 마케팅 사이클 1회를 규약대로 끝까지 돈다 — 슬�
 1. **관제 콘솔 확인**: `curl -s localhost:7788/api/snapshot | node -e '...state'` → `paused`/`noPublish`/`note`(대표 지시)를 먼저 읽는다. 꺼져 있으면 `bash scripts/hud/start.sh`.
 2. `node scripts/mkt-plan.js slot` — 출력이 지시다. 골라서 하지 않는다.
 3. `node scripts/audit-expiration-selection.js --live` — 실패 1건이라도 있으면 발행 금지.
-4. **티켓·확장 전에 내 기록 검색**: `grep -n <주제> .agent/marketing/OUTREACH-LOG.md .agent/*.md` (같은 판단을 두 번 하지 않는다).
+4. **티켓·확장 전에 내 기록 검색**: `node scripts/mem.js <주제>` (같은 판단을 두 번 하지 않는다).
 5. 초안이 필요하면 `drafter`(sonnet) 병렬 → 내가 검수. 조작·발행·검증은 내가 한다(모델 정책).
 6. 발행 즉시 `node scripts/mkt-plan.js pub <채널> <URL>` + **비로그인 공개 페이지 검증**. 검증 못 하면 «발행했다»고 쓰지 않는다.
 7. 광고: 기간을 «오늘»로 고정(`/tmp/ego/ads-cycle.mjs`)해 지출·설치·CPA. **예산·입찰 증액 금지.**
