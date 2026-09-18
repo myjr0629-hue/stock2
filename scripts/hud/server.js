@@ -68,14 +68,14 @@ function findTranscripts() {
             .sort((a, b) => b.st.mtimeMs - a.st.mtimeMs);
     } catch { return []; }
 }
-let usage = readJson(F.usage, null) || { file: null, offset: 0, byModel: {}, byHour: {}, tools: {}, msgs: 0, firstTs: null, lastTs: null, scanning: false };
+let usage = readJson(F.usage, null) || { file: null, offset: 0, byModel: {}, byHour: {}, tools: {}, msgs: 0, firstTs: null, lastTs: null, lastTool: null, scanning: false };
 const EMPTY_M = () => ({ input: 0, output: 0, thinking: 0, cacheRead: 0, cacheCreate: 0, msgs: 0 });
 
 function scanTranscript(limitBytes) {
     const list = findTranscripts(); if (!list.length) return;
     const cur = list[0];
     if (usage.file !== cur.f) { // 새 세션 파일 → 처음부터(너무 크면 꼬리부터)
-        usage = { file: cur.f, offset: 0, byModel: {}, byHour: {}, tools: {}, msgs: 0, firstTs: null, lastTs: null, scanning: false };
+        usage = { file: cur.f, offset: 0, byModel: {}, byHour: {}, tools: {}, msgs: 0, firstTs: null, lastTs: null, lastTool: null, scanning: false };
     }
     const size = cur.st.size;
     if (size <= usage.offset) return;
@@ -112,7 +112,16 @@ function scanTranscript(limitBytes) {
                     hb.out += u.output_tokens || 0; hb.cacheCreate += u.cache_creation_input_tokens || 0; hb.msgs += 1; }
             }
             if (hasTool && Array.isArray(m.content)) {
-                for (const c of m.content) if (c && c.type === 'tool_use' && c.name) usage.tools[c.name] = (usage.tools[c.name] || 0) + 1;
+                for (const c of m.content) if (c && c.type === 'tool_use' && c.name) {
+                    usage.tools[c.name] = (usage.tools[c.name] || 0) + 1;
+                    // ★ 2026-09-18: «지금 무엇을 하는가»의 정본은 훅이 아니라 «전사»다.
+                    //   훅은 세션 시작 시점에 배선되므로 이번 세션에는 붙지 않는다(6시간 묵은
+                    //   이벤트를 «지금»이라고 그리고 있었다 — 대표 지적). 전사는 15초마다 살아 있다.
+                    const i = c.input || {};
+                    const hint = String(i.command || i.file_path || i.pattern || i.prompt || i.description || i.url || '')
+                        .replace(/\s+/g, ' ').trim().slice(0, 160);
+                    usage.lastTool = { name: c.name, hint, ts: ts || null };
+                }
             }
         }
     }
@@ -200,7 +209,7 @@ function snapshot() {
     return {
         now: new Date().toISOString(),
         state,
-        usage: { file: usage.file, msgs: usage.msgs, byModel: usage.byModel, byHour: usage.byHour, tools: usage.tools, firstTs: usage.firstTs, lastTs: usage.lastTs, scanning: usage.scanning },
+        usage: { file: usage.file, msgs: usage.msgs, byModel: usage.byModel, byHour: usage.byHour, tools: usage.tools, firstTs: usage.firstTs, lastTs: usage.lastTs, lastTool: usage.lastTool || null, scanning: usage.scanning },
         marketing: marketing(),
         slot: (() => { try { return slot(); } catch { return null; } })(),
         metrics, otel,

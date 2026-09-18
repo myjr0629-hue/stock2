@@ -100,6 +100,17 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
 .panes>section.show{display:block}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:1100px){.two{grid-template-columns:1fr}}
+
+/* «지금 무엇을 하는가» — 파이프라인이 집계만 보여 주고 현재 작업을 안 보여 줬다(대표 지적 2026-09-18) */
+.nowline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 10px;
+  border:1px solid var(--line2);border-radius:9px;background:#10161F;font-size:11.5px}
+.nowline .k{font-weight:700;color:var(--tx)}
+.nowline .v{color:var(--mut)}
+.nowline .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+.nowline .sep{color:var(--line2)}
+.nowline .how{color:var(--dim);font-size:10.5px}
+@keyframes nodepulse{0%,100%{opacity:.25}50%{opacity:.9}}
+.node.active .halo{animation:nodepulse 1.6s ease-in-out infinite}
 </style></head><body>
 <header><div class="hrow">
   <h1>SIGNUM <span>관제·제어 콘솔</span></h1>
@@ -119,6 +130,7 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
     <div class="hd">사이클 파이프라인 — 지금 이 시간
       <span class="legend"><span><i style="background:var(--ok)"></i>완료</span><span><i style="background:var(--info)"></i>진행</span><span><i style="background:var(--warn)"></i>대표 대기</span><span><i style="background:var(--dim)"></i>대기</span><span><i style="background:var(--bad)"></i>차단</span></span>
     </div>
+    <div id="nowline" class="nowline"></div>
     <svg id="pipe" viewBox="0 0 1120 306" style="width:100%;height:auto;display:block"></svg>
   </div>
 
@@ -242,10 +254,16 @@ const svgesc=esc;
 function card(n){ // n:{x,y,w,h,t,s,st,tab,dia}
   const w=n.w||144,h=n.h||56,c=SC[n.st]||SC.idle;
   if(n.dia){ const cx=n.x+w/2, cy=n.y+h/2, rx=w/2, ry=h/2+6;
-    return `<g class="node" data-tab="${n.tab||''}"><polygon points="${cx},${cy-ry} ${cx+rx},${cy} ${cx},${cy+ry} ${cx-rx},${cy}" fill="#141A25" stroke="${c}" stroke-width="1.4"/>`
+    return `<g class="node${n.active?' active':''}" data-tab="${n.tab||''}">`
+      +(n.d?`<title>${svgesc(n.t)} — ${svgesc(n.d)}</title>`:'')
+      +(n.active?`<polygon class="halo" points="${cx},${cy-ry-5} ${cx+rx+5},${cy} ${cx},${cy+ry+5} ${cx-rx-5},${cy}" fill="none" stroke="${c}" stroke-width="2"/>`:'')
+      +`<polygon points="${cx},${cy-ry} ${cx+rx},${cy} ${cx},${cy+ry} ${cx-rx},${cy}" fill="#141A25" stroke="${c}" stroke-width="1.4"/>`
       +`<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="11" font-weight="680" fill="var(--tx)">${svgesc(n.t)}</text>`
       +`<text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${svgesc(n.s||'')}</text></g>`; }
-  return `<g class="node" data-tab="${n.tab||''}"><rect class="card" x="${n.x}" y="${n.y}" width="${w}" height="${h}" rx="9" fill="#141A25" stroke="var(--line2)"/>`
+  return `<g class="node${n.active?' active':''}" data-tab="${n.tab||''}">`
+    +(n.d?`<title>${svgesc(n.t)} — ${svgesc(n.d)}</title>`:'')
+    +(n.active?`<rect class="halo" x="${n.x-4}" y="${n.y-4}" width="${w+8}" height="${h+8}" rx="12" fill="none" stroke="${c}" stroke-width="2"/>`:'')
+    +`<rect class="card" x="${n.x}" y="${n.y}" width="${w}" height="${h}" rx="9" fill="#141A25" stroke="${n.active?c:'var(--line2)'}"/>`
     +`<rect x="${n.x}" y="${n.y}" width="3.5" height="${h}" rx="2" fill="${c}"/>`
     +`<circle cx="${n.x+w-13}" cy="${n.y+14}" r="3.6" fill="${c}"/>`
     +`<text x="${n.x+12}" y="${n.y+21}" font-size="11.5" font-weight="680" fill="var(--tx)">${svgesc(n.t)}</text>`
@@ -258,24 +276,58 @@ function link(a,b,color){ // 오른쪽 변 → 왼쪽 변, 직교 연결
   const c=color||'var(--line2)';
   return `<path d="M${ax},${ay} H${mx} V${by} H${bx}" fill="none" stroke="${c}" stroke-width="1.3" marker-end="url(#ar)"/>`;
 }
+/* 지금 무엇을 하고 있는가 — 훅이 보내 온 도구 이벤트로 «현재 단계»를 고른다.
+   집계(오늘 N건)만 보여 주고 현재 작업을 안 보여 준다는 대표 지적(2026-09-18)의 수리.
+   사이클 단계에 안 맞으면 «사이클 외 작업»이라고 정직하게 말한다 — 없는 진행을 그리지 않는다. */
+const STAGE=[
+  [/mkt-plan\.js\s+slot/,'slot'], [/audit-expiration-selection/,'gate'],
+  [/mkt-plan\.js\s+pub/,'ver'],   [/ads-today|app-ads\.apple/,'ads'],
+  [/git\s+(add|commit|push)/,'rec'], [/QUEUE\.json|mkt-plan\.js\s+(ticket|done|fail)/,'rep'],
+  [/channels\.json/,'exp'],        [/ego-browser|scripts\/ego\//,'run'],
+];
+function whatNow(s){
+  // 소스 둘: ①전사 스캔의 lastTool(15초마다 갱신 — 항상 살아 있다) ②훅 이벤트(다음 세션부터)
+  // 더 «최근»인 쪽을 쓴다. 예전엔 훅만 봐서 6시간 묵은 이벤트를 «지금»이라 그렸다.
+  const lt=s.usage&&s.usage.lastTool;
+  const evs=(s.events||[]);
+  const ev=evs.find(e=>e.ev==='PreToolUse'||e.ev==='PostToolUse')||evs[0]||null;
+  const ltT=lt&&lt.ts?Date.parse(lt.ts):0, evT=ev&&ev.t?ev.t:0;
+  const last = (ltT>=evT&&lt) ? {t:ltT,tool:lt.name,cmd:lt.hint} : ev;
+  if(!last) return {node:null,label:'대기 중',detail:'도구 기록 없음',age:null};
+  const hay=String(last.cmd||'')+' '+String(last.tool||'');
+  for(const [re,key] of STAGE) if(re.test(hay)) return {node:key,label:null,detail:hay.trim().slice(0,90),age:last.t,tool:last.tool};
+  return {node:null,label:'사이클 외 작업',detail:hay.trim().slice(0,90)||(last.tool||last.ev),age:last.t,tool:last.tool};
+}
+function ago(t){ if(!t) return ''; const d=Math.max(0,(Date.now()-t)/1000);
+  return d<60?`${d|0}초 전`:d<3600?`${d/60|0}분 전`:`${d/3600|0}시간 전`; }
+
 function pipeline(s){
   const mk=s.marketing, sl=s.slot||{run:[],unblock:[]}, met=s.metrics||{}, st=s.state;
+  const now=whatNow(s);
   const gateOk=/0실패/.test(met.gate||'');
   const N={
-    cron:{x:16,y:125,t:'크론 :13',s:'매시 자동 · 반복',st:'ok',tab:'cycles'},
-    cons:{x:176,y:125,t:'관제 상태',s:st.paused?'일시정지':(st.noPublish?'발행 금지':'실행 중'),s2:st.note?'대표 메모 있음':'',st:st.paused?'bad':(st.noPublish?'warn':'ok'),tab:'control'},
-    slot:{x:336,y:125,t:'슬롯 배정',s:`실행 ${(sl.run||[]).length} · 뚫기 ${(sl.unblock||[]).length}`,s2:sl.norule?('규칙 미정의 '+sl.norule):'확장 1건 의무',st:sl.run&&sl.run.length?'ok':'idle',tab:'slot'},
-    gate:{x:496,y:125,w:126,t:'발행 게이트',s:met.gate?met.gate.replace(/\s*\(.*\)/,''):'미측정',st:gateOk?'ok':(met.gate?'warn':'idle'),dia:1,tab:'metrics'},
-    run:{x:672,y:22,t:'채널 실행',s:`오늘 ${mk.todayCount}건 발행`,s2:Object.keys(mk.todayBy||{}).slice(0,3).join(' · '),st:mk.todayCount?'ok':'idle',tab:'pubs'},
-    unb:{x:672,y:125,t:'뚫기',s:(sl.unblock||[]).map(u=>u.id).join(' · ')||'–',s2:'계정·약관 게이트',st:(sl.unblock||[]).length?'warn':'idle',tab:'slot'},
-    exp:{x:672,y:228,t:'확장',s:`표면 ${mk.channels.total}개 등록`,s2:'매 사이클 1건',st:'run',tab:'slot'},
-    ver:{x:832,y:125,w:126,t:'공개 검증',s:mk.todayCount?'공개 페이지 확인':'대기',st:mk.todayCount?'ok':'idle',dia:1,tab:'pubs'},
-    ads:{x:976,y:22,t:'광고 점검',s:met.ads?`${met.ads.spend} · 설치 ${met.ads.installs}`:'미판독',s2:met.ads?`탭 ${met.ads.taps} · 노출 ${met.ads.impr}`:'',st:met.ads?'ok':'idle',tab:'metrics'},
-    rec:{x:976,y:125,t:'기록·커밋',s:s.git.dirty?`${s.git.dirty}개 변경`:'정리됨',s2:(s.git.head||'').split('\t')[0],st:s.git.dirty>40?'warn':'ok',tab:'git'},
-    rep:{x:976,y:228,t:'보고 · 티켓',s:`대표 대기 ${mk.ceoTickets}건`,s2:`열린 티켓 ${mk.tickets.length}`,st:mk.ceoTickets?'warn':'ok',tab:'tickets'},
+    cron:{x:16,y:125,t:'크론 :13',s:'매시 자동 · 반복',d:'이 세션 안의 반복 알람. 매시 :13 에 사이클 프롬프트를 넣는다. 7일 뒤 자동 만료되므로 매 사이클 남은 수명을 본다',st:'ok',tab:'cycles'},
+    cons:{x:176,y:125,t:'관제 상태',d:'이 콘솔의 스위치. «일시정지»면 PreToolUse 훅이 모든 도구를 거부하고, «발행 금지»면 브라우저 발행·스토어 쓰기만 거부한다',s:st.paused?'일시정지':(st.noPublish?'발행 금지':'실행 중'),s2:st.note?'대표 메모 있음':'',st:st.paused?'bad':(st.noPublish?'warn':'ok'),tab:'control'},
+    slot:{x:336,y:125,t:'슬롯 배정',d:'mkt-plan.js slot 이 이번 시간에 할 일을 배정한다 — 실행 4 · 뚫기 2 · 확장 1. 골라서 하지 않는다',s:`실행 ${(sl.run||[]).length} · 뚫기 ${(sl.unblock||[]).length}`,s2:sl.norule?('규칙 미정의 '+sl.norule):'확장 1건 의무',st:sl.run&&sl.run.length?'ok':'idle',tab:'slot'},
+    gate:{x:496,y:125,w:126,t:'발행 게이트',d:'audit-expiration-selection.js --live. 만기·라벨이 한 건이라도 틀리면 발행을 막고 앱부터 고친다',s:met.gate?met.gate.replace(/\s*\(.*\)/,''):'미측정',st:gateOk?'ok':(met.gate?'warn':'idle'),dia:1,tab:'metrics'},
+    run:{x:672,y:22,t:'채널 실행',d:'열린 채널에 실제로 게시한다. 모든 글에 앱 화면 또는 앱 카드 + ?from= 스마트링크. 레딧·Quora·HN 은 무링크',s:`오늘 ${mk.todayCount}건 발행`,s2:Object.keys(mk.todayBy||{}).slice(0,3).join(' · '),st:mk.todayCount?'ok':'idle',tab:'pubs'},
+    unb:{x:672,y:125,t:'뚫기',d:'계정·약관 게이트로 막힌 곳. 우회로 4가지를 «실제로» 시도한 뒤에만 보류로 적는다 — 방법이 막힌 것을 채널이 막혔다고 쓰지 않는다',s:(sl.unblock||[]).map(u=>u.id).join(' · ')||'–',s2:'계정·약관 게이트',st:(sl.unblock||[]).length?'warn':'idle',tab:'slot'},
+    exp:{x:672,y:228,t:'확장',d:'매 사이클 신규 표면 1건 발굴 → 실행 또는 티켓 → channels.json 등록',s:`표면 ${mk.channels.total}개 등록`,s2:'매 사이클 1건',st:'run',tab:'slot'},
+    ver:{x:832,y:125,w:126,t:'공개 검증',d:'발행 즉시 공개 페이지에서 본문·이미지·링크를 눈으로 확인한다. 검증 못 하면 «발행했다»고 쓰지 않는다',s:mk.todayCount?'공개 페이지 확인':'대기',st:mk.todayCount?'ok':'idle',dia:1,tab:'pubs'},
+    ads:{x:976,y:22,t:'광고 점검',d:'기간을 «오늘»로 고정하고 지출·설치·CPA·키워드를 읽는다. 이긴 키워드 확장·진 키워드 정지. 예산·입찰 증액은 절대 금지',s:met.ads?`${met.ads.spend} · 설치 ${met.ads.installs}`:'미판독',s2:met.ads?`탭 ${met.ads.taps} · 노출 ${met.ads.impr}`:'',st:met.ads?'ok':'idle',tab:'metrics'},
+    rec:{x:976,y:125,t:'기록·커밋',d:'OUTREACH-LOG 에 성공·실패를 모두 적고 git add <경로>(-A 금지) 로 커밋·푸시',s:s.git.dirty?`${s.git.dirty}개 변경`:'정리됨',s2:(s.git.head||'').split('\t')[0],st:s.git.dirty>40?'warn':'ok',tab:'git'},
+    rep:{x:976,y:228,t:'보고 · 티켓',d:'대표 개입이 필요한 것은 티켓으로 쌓아 한 번에 보고한다. 판정이 뒤집히면 그 자리에서 정정한다',s:`대표 대기 ${mk.ceoTickets}건`,s2:`열린 티켓 ${mk.tickets.length}`,st:mk.ceoTickets?'warn':'ok',tab:'tickets'},
   };
   const L=[[N.cron,N.cons],[N.cons,N.slot],[N.slot,N.gate],[N.gate,N.run],[N.gate,N.unb],[N.gate,N.exp],
            [N.run,N.ver],[N.unb,N.ver],[N.exp,N.ver],[N.ver,N.ads],[N.ver,N.rec],[N.ver,N.rep]];
+  if(now.node && N[now.node]) N[now.node].active=true;
+  const NL=$('#nowline'), cur=now.node&&N[now.node];
+  NL.innerHTML = `<span class="dot" style="background:${cur?(SC[cur.st]||SC.idle):'var(--dim)'}"></span>`
+    + `<span class="k">${cur?'지금: '+esc(cur.t):esc(now.label||'대기 중')}</span>`
+    + `<span class="sep">·</span><span class="v">${esc(now.detail||'')}</span>`
+    + (now.age?`<span class="sep">·</span><span class="v">${esc(ago(now.age))}</span>`:'')
+    + (cur&&cur.d?`<span class="sep">·</span><span class="how">${esc(cur.d)}</span>`
+                 :`<span class="sep">·</span><span class="how">사이클 단계에 해당하지 않는 작업이다 — 없는 진행을 그리지 않는다</span>`);
   const svg=$('#pipe');
   svg.innerHTML = `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--line2)"/></marker></defs>`
     + L.map(([a,b])=>link(a,b)).join('') + Object.values(N).map(card).join('');
