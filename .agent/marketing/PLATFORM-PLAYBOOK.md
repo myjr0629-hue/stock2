@@ -400,3 +400,11 @@ HF YAML 프런트매터(`license`·`language`·`pretty_name`·`tags` 6개·`size
 **상태(2026-09-18 08:0x)**: `Type of Sales: Commercial Distribution Request in Progress` — 승격 **대기 중**, 등록 앱 0건, 다운로드 0. Developer API 는 정상(`GET /seller/contentList` → `[]`).
 **셀러 페이지에서 채울 수 있는 것**: `Seller's Home URL` · `Seller's Help URL`(+ Themes/Watch 전용 이미지 칸들). 딥링크는 `000000257823`.
 ⛔ **`Edit` 를 누르면 삼성 계정 «비밀번호 재확인» 게이트가 새 탭으로 열린다**(`account.samsung.com/.../confirmPasswordGate`). 안전선상 내가 못 넘는다 → **t181**. 대표가 한 번 통과해 주면 그 세션에서 내가 URL 두 개를 넣는다.
+
+## 네이버 블로그 (SmartEditor ONE) ✅2026-09-18 첫 글 — 실측 절차
+- 글쓰기: `blog.naver.com/<id>/postwrite` (블로그 홈 «글쓰기» 링크가 이 주소를 준다). 편집기는 **최상위 문서**(iframe 아님). 수정은 `blog.naver.com/<id>/postupdate?logNo=<n>`(글의 «수정»이 mainFrame 안에서 여는 주소).
+- 제목 = `.se-title-text` 중심 클릭 → `Input.insertText`. **`.se-documentTitle` 컨테이너 중심(y≈179)을 누르면 본문 클릭도 제목에 떨어져 첫 문단이 제목에 섞인다**(첫 글 사고 — 수정으로 복구). 본문 = `.se-section-text`/`.se-component.se-text` 중심(y≈363).
+- 본문은 줄마다 insertText + Enter(keyCode 13). URL 줄은 자동으로 OG 링크 카드가 되고 텍스트도 남는다(HTML 에선 `=` 가 `&#x3D;`).
+- 사진: 툴바 «사진 추가» 클릭이 **곧바로 OS 파일 선택기**를 연다 → 클릭 «전에» `waitForFileChooser` → `setFiles`. 여러 장을 넘겨도 1장만 붙었다(실측) → 장수만큼 반복. drop 이벤트는 안 먹는다.
+- 발행: 헤더 «발행» 은 **JS `.click()`** 으로만 레이어가 열린다(마우스 클릭은 수정 모드에서 무반응). 레이어의 «카테고리 여행» 을 클릭하면 레이어가 닫힌다 — 카테고리는 블로그 관리에서 바꿀 것. 레이어의 마지막 «발행»(`confirm_btn__…`) JS click → PostView 로 이동. `page.evaluate` 는 인자 하나만 넘긴다(객체로 묶기).
+- 검증: 비로그인 `curl PostView.naver?blogId=&logNo=` 의 og:title·본문·`from&#x3D;naver_blog`.
