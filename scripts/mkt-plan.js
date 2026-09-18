@@ -103,6 +103,12 @@ const cmd = process.argv[2];
 if (cmd === 'pub') {
   const [, , , ch, url, ...rest] = process.argv;
   if (!CH[ch]) { console.error('알 수 없는 채널. 가능: ' + Object.keys(CH).join(', ')); process.exit(1); }
+  // ★ 2026-09-18 — 잘린 URL(«...» 포함)이 원장에 들어가 있었고, 그것 때문에 «삭제됨»으로 오판했다.
+  //   http 로 시작하는 값은 형태를 검사한다(레딧 댓글 ID 같은 «비 URL 식별자»는 그대로 허용).
+  if (typeof url === 'string' && /^https?:/i.test(url) && (/\.\.\./.test(url) || /\s/.test(url) || url.length < 20)) {
+    console.error('✗ URL 이 잘렸거나 공백이 있다 — 기록하지 않는다:\n  ' + url + '\n  공개 페이지에서 주소를 «복사»해 다시 시도하라(추측 금지).');
+    process.exit(1);
+  }
   const led = load(); led.entries.unshift({ ch, url: url || '', note: rest.join(' '), at: new Date().toISOString(), kst: kstDate(), utc: utcDate() });
   led.entries = led.entries.slice(0, 500); save(led);
   const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)`);

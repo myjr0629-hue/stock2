@@ -7,6 +7,12 @@ const fs = await import('node:fs');
 const urls = fs.readFileSync('/tmp/urls.txt', 'utf8').split('\n').map(s => s.trim()).filter(Boolean);
 for (const u of urls) {
   await page.goto(u); await L.wait(6000);
+  // ★ SPA 는 셸(200자)만 먼저 그린다 — 그 상태로 읽으면 «Page Not Found» 를 오판한다(2026-09-18 실측 오보).
+  //   본문이 충분히 길어질 때까지 최대 4회 더 기다린 뒤에만 판정한다.
+  for (let i = 0; i < 4; i++) {
+    const len = await page.evaluate(() => (document.body.innerText || '').replace(/\s+/g, ' ').length);
+    if (len > 600) break; await L.wait(4000);
+  }
   console.log(JSON.stringify(await page.evaluate(() => {
     const t = (document.body.innerText || '').replace(/\s+/g, ' ');
     return { url: location.href.slice(0, 70), gone: /삭제|deleted|not found|no longer available|이 페이지를 찾을 수 없/i.test(t.slice(0, 1500)),

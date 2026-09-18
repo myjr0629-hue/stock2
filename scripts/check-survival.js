@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/* 발행물 생존 확인 — 플랫폼이 조용히 지우는 일이 있다(Quora: 8클릭 뒤 33분 만에 삭제 실측).
+/* 발행물 생존 확인 — ⚠ 403/999 는 봇 차단이다. SPA(Quora·LinkedIn)는 브라우저로 보되
+ *   «본문이 다 그려질 때까지» 기다린 뒤 판정할 것(2026-09-18: 셸만 읽고 삭제로 오보했다) — 플랫폼이 조용히 지우는 일이 있다(Quora: 8클릭 뒤 33분 만에 삭제 실측).
  * 사용: node scripts/check-survival.js [일수=2] */
 const fs = require('fs'), path = require('path');
 const days = Number(process.argv[2] || 2);
