@@ -1,588 +1,591 @@
 {
-  "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-09-09",
-  "_tiers": {
-    "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
-    "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
-    "C": "청중형 — 팔로워 0이면 도달 0. 우리 계정에 올리지 말고 «청중이 있는 곳»에 답글로 간다."
+ "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
+ "_updated": "2026-09-09",
+ "_tiers": {
+  "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
+  "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
+  "C": "청중형 — 팔로워 0이면 도달 0. 우리 계정에 올리지 말고 «청중이 있는 곳»에 답글로 간다."
+ },
+ "channels": [
+  {
+   "id": "x_us",
+   "name": "X 미국",
+   "tier": "C",
+   "handle": "@signumhq",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 181,
+   "followers": 5,
+   "tag": "x_us",
+   "link": "https://signumhq.com/app?from=x_bio",
+   "note": "Premium+. 프로필 완비. 원글은 도달 0 → 대형 스레드 답글로 전환",
+   "action": "reply_only"
   },
-  "channels": [
-    {
-      "id": "x_us",
-      "name": "X 미국",
-      "tier": "C",
-      "handle": "@signumhq",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 181,
-      "followers": 5,
-      "tag": "x_us",
-      "link": "https://signumhq.com/app?from=x_bio",
-      "note": "Premium+. 프로필 완비. 원글은 도달 0 → 대형 스레드 답글로 전환",
-      "action": "reply_only"
-    },
-    {
-      "id": "x_jp",
-      "name": "X 일본",
-      "tier": "C",
-      "handle": "@signumhq_jp",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 145,
-      "followers": 3,
-      "tag": "x_jp",
-      "link": "https://signumhq.com/app?from=x_bio",
-      "note": "Premium+. 콘텐츠 언어는 계정 국적과 무관",
-      "action": "reply_only"
-    },
-    {
-      "id": "bluesky",
-      "name": "Bluesky",
-      "tier": "A",
-      "handle": "@signumhq.bsky.social",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 639,
-      "followers": 23,
-      "tag": "bluesky_bio",
-      "link": "https://signumhq.com/app?from=bluesky_bio",
-      "note": "★★2026-09-17 실측: **글 한 편으로 하루 18클릭** — 그날 전 채널 1위. 21일 누적 0 이었으니 순수 신규 유입이다. 비교: 레딧은 21일 60건 댓글로 5클릭. C형에서 A형으로 승격. 첨부는 base64→File→DataTransfer→drop + ClipboardEvent('paste')(파일 입력은 0개인 게 맞다). 300자 «그래파임» 한도 — 넘으면 게시 버튼이 aria-disabled. 링크는 웹 컴포저가 알아서 인식. 계정 @signumhq.bsky.social",
-      "action": "reply_only",
-      "enabled": true
-    },
-    {
-      "id": "threads",
-      "name": "Threads",
-      "tier": "C",
-      "handle": "@signumhq_official",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 2,
-      "followers": 3,
-      "tag": "threads_bio",
-      "link": "https://signumhq.com/app?from=threads_bio",
-      "note": "2026-09-01 소개·링크·관심사 4개 신규. 소개 150자 제한. 좌표클릭 금지 → ref 로만",
-      "action": "reply_only"
-    },
-    {
-      "id": "instagram",
-      "name": "Instagram",
-      "tier": "C",
-      "handle": "@signumhq_official",
-      "login": "ok",
-      "profile": "partial",
-      "posts": 109,
-      "followers": 0,
-      "tag": "ig_bio",
-      "link": "https://signumhq.com/app?from=ig_bio",
-      "blocker": "링크 칸이 모바일 앱 전용 → 대표 1회",
-      "note": "소개에 앱주소 명기 완료",
-      "action": "reply_only"
-    },
-    {
-      "id": "pinterest",
-      "name": "Pinterest",
-      "tier": "A",
-      "handle": "SIGNUMHQ",
-      "login": "ok",
-      "profile": "ok",
-      "tag": "pinterest_bio",
-      "link": "https://signumhq.com/app?from=pinterest_bio",
-      "note": "★ 방치된 2위 채널 — 팔로워 2로 월 6,318 조회. 핀 랜딩링크는 ?from= 유지(프로필 칸만 잘림)",
-      "action": "post",
-      "monthlyViews": 6318,
-      "followers": 2
-    },
-    {
-      "id": "reddit",
-      "name": "Reddit",
-      "tier": "A",
-      "handle": "u/SignumHQ",
-      "login": "ok",
-      "profile": "ok",
-      "karma": 4,
-      "tag": "reddit_bio",
-      "link": "https://signumhq.com/app?from=reddit_bio",
-      "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형)",
-      "action": "answer"
-    },
-    {
-      "id": "tiktok",
-      "name": "TikTok",
-      "tier": "B",
-      "handle": "@signumhq",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 2,
-      "followers": 0,
-      "tag": "tiktok",
-      "link": "https://signumhq.com/app?from=tiktok",
-      "action": "post",
-      "enabled": false,
-      "note": "★2026-09-18 대표 지시 「틱톡은 일단 두기로」 + 로그인 세션이 개인계정 @daldalkelly(t187) → 게시 보류. 차단이 아니라 대표 결정."
-    },
-    {
-      "id": "youtube",
-      "name": "YouTube",
-      "tier": "B",
-      "handle": "시그넘 KR / SIGNUM HQ / SIGNUM_JP",
-      "login": "ok",
-      "profile": "ok",
-      "tag": "youtube",
-      "note": "Shorts KR 1.2만 조회 실적 — 우리가 가진 유일한 «작동하는» 배포 채널",
-      "action": "post"
-    },
-    {
-      "id": "note",
-      "name": "note.com",
-      "tier": "A",
-      "handle": "note.com/signumhq",
-      "login": "ok",
-      "profile": "ok",
-      "tag": "note",
-      "note": "일본 검색 수요",
-      "action": "post"
-    },
-    {
-      "id": "medium",
-      "name": "Medium",
-      "tier": "A",
-      "handle": "@signum_hq",
-      "login": "ok",
-      "profile": "ok",
-      "tag": "medium",
-      "action": "post",
-      "note": "★AI 지원 표시 필수. 미표시는 Network Only 로 도달이 팔로워(0)로 잘린다 — 금지가 아니라 도달 0. 말미에 disclosure 한 줄 고정. "
-    },
-    {
-      "id": "seo",
-      "name": "자사 SEO",
-      "tier": "A",
-      "login": "ok",
-      "profile": "ok",
-      "note": "2026-09-03 진단 정정: 돈이 되는 질의는 **이미 1페이지**였다 (uso dark pool 6.3위·75노출, wdc max pain 7.5위, mrvl 9.6위) — 그런데 CTR 0%. 평균 31위는 put call ratio(91위) 같은 설명형이 만든 착시였다. 원인=meta description 에 AI 서술요약을 넣어 「볼 것 없다」고 말하고 있었다 → 숫자 먼저로 교체(배포됨). 백링크는 «설명형 질의»(put call ratio·gamma exposure, 67~92위)의 병목이지 티커 질의의 병목이 아니다. 다음 판단은 GSC **CTR**로만 한다 — 순위 말고.",
-      "action": "build"
-    },
-    {
-      "id": "aso",
-      "name": "앱스토어 ASO",
-      "tier": "A",
-      "login": "ok",
-      "profile": "ok",
-      "note": "2026-09-03 실측: 앱스토어는 SIGNUM 이 「실적 발표 일정」 #1 인데 **플레이는 한국어 10개 검색어 전부 부재**였다 — 그 단어들이 플레이 목록에 한 글자도 없었다. SIGNUM 플레이 3언어 교체·심사통과(premarket earnings US #1 즉시). UC·WIM 은 대조군으로 남겼다 → scripts/aso-play-rank.py --save 로 재측정. 조사 도구는 aso-demand-scan.py(자동완성=수요 × 경쟁). 정본=.agent/marketing/ASO-PLAN.md",
-      "action": "build"
-    },
-    {
-      "id": "directories",
-      "name": "앱·스타트업 디렉터리",
-      "tier": "A",
-      "login": "ok",
-      "profile": "ok",
-      "note": "DIRECTORY-LIST.md 107곳. 영구 백링크 = SEO 병목 직격",
-      "action": "submit"
-    },
-    {
-      "id": "stocktwits",
-      "name": "StockTwits",
-      "tier": "C",
-      "handle": "@SIGNUMHQ",
-      "login": "ok",
-      "profile": "ok",
-      "status": "BANNED",
-      "blocker": "House Rules 무기한 제재 — 대표 확인 전 게시 금지",
-      "action": "none"
-    },
-    {
-      "id": "linkedin",
-      "name": "LinkedIn",
-      "tier": "C",
-      "handle": "linkedin.com/in/signumhq",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 0,
-      "followers": 0,
-      "tag": "li_profile",
-      "link": "https://signumhq.com/app?from=li_profile",
-      "note": "2026-09-03 프로필 전면 정비 — 영문 기본 프로필(헤드라인 215자·소개 1.5천자)·맞춤 URL(/in/signumhq)·배너·스페셜 3개(세 앱 스마트링크 li_feat)·경력 설명·연락처 웹사이트. 회사 페이지 없음(동명이인 Signum HQ 토론토 결제사가 검색 차지). 한국어 2차 프로필 헤드라인은 링크드인 저장 버튼이 안 먹어 미적용. 링크 미리보기는 Post Inspector 로 «먼저 데워야» 붙는다.",
-      "action": "reply_only"
-    },
-    {
-      "id": "buffer",
-      "name": "Buffer",
-      "tier": "-",
-      "status": "KILLED",
-      "note": "2026-09-01 대표 지시로 영구 정지. vercel.json 크론 제거 + autopilot.ts BUFFER_AUTOPILOT_DISABLED",
-      "action": "none"
-    },
-    {
-      "id": "quora",
-      "name": "Quora",
-      "tier": "A",
-      "handle": "Jiyoung Kim (Founder, SIGNUM HQ)",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 0,
-      "followers": 0,
-      "tag": "quora_bio",
-      "link": "https://www.signumhq.com/app?from=quora_bio",
-      "url": "https://www.quora.com/profile/Jiyoung-Kim-236",
-      "note": "★2026-09-18 생존확인: 최근 발행 답변 2건이 «Page Not Found»=삭제 확인(로그인 브라우저). 무링크 규칙 이후에도 삭제가 계속된다 → 발행 전 기존 답변 톤 확인·삭제율 추적. 2026-09-09 개설(contact@signumhq.com 구글). 실명 정책이라 계정명은 실명, 브랜드는 크리덴셜로 전 답변에 노출. Knows about 7종(팔로워 합 1,600만+). 답변이 구글에 색인되는 «영구 검색 자산»이 본체",
-      "action": "answer_popular_questions"
-    },
-    {
-      "id": "quora_space",
-      "name": "Quora Space — SIGNUM HQ",
-      "tier": "A",
-      "handle": "SIGNUM HQ — US Stock Market Intelligence",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 1,
-      "followers": 0,
-      "tag": "quora_space",
-      "link": "https://www.signumhq.com/app?from=quora_space",
-      "url": "https://signumhqusstockmarketintelligence.quora.com/",
-      "note": "★2026-09-18 생존확인: 최근 발행 답변 2건이 «Page Not Found»=삭제 확인(로그인 브라우저). 무링크 규칙 이후에도 삭제가 계속된다 → 발행 전 기존 답변 톤 확인·삭제율 추적. 브랜드명을 쓸 수 있는 유일한 Quora 표면. 상세정보에 앱링크 상시 노출. 글마다 앱 스크린샷 첨부",
-      "action": "post_daily_data"
-    },
-    {
-      "id": "hackernews",
-      "name": "Hacker News",
-      "tier": "A",
-      "handle": "signumhq",
-      "login": "ok",
-      "profile": "ok",
-      "posts": 0,
-      "followers": 0,
-      "tag": "hn_bio",
-      "link": "https://www.signumhq.com/app?from=hn_bio",
-      "url": "https://news.ycombinator.com/user?id=signumhq",
-      "note": "⛔관리 제외(대표 전용) — 사이트 전체 가이드라인이 생성 텍스트와 AI 편집 텍스트를 모두 금지한다. 나는 LLM 이라 게시 자체가 규정 위반. 계정 signumhq 카르마 1 로 살아 있고 대표가 직접 쓰는 것은 문제없다",
-      "action": "comment_first_then_show_hn",
-      "enabled": false,
-      "excluded": true
-    },
-    {
-      "id": "github",
-      "tier": "A",
-      "enabled": true,
-      "note": "오픈 데이터셋 저장소 — 마감 후 스냅샷 커밋, README 앱 링크(from=github)"
-    },
-    {
-      "id": "indiehackers",
-      "tier": "A",
-      "enabled": true,
-      "note": "제품 타임라인 포스트 — 빌더 청중, 외부링크 nofollow"
-    },
-    {
-      "id": "x_reply",
-      "tier": "A",
-      "enabled": true,
-      "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자·링크금지)"
-    },
-    {
-      "id": "dcinside",
-      "tier": "A",
-      "enabled": false,
-      "note": "⛔관리 제외(검증된 사유) — 2026-09-17 실화면 확인: 미국주식옵션 갤러리(untie) 글쓰기 페이지에 password 타입 입력란이 «실재»하고 needLogin=true 다. 유동닉으로 써도 게시물 비밀번호를 만들어 넣어야 한다 → 안전선 「비밀번호 입력 금지」에 걸린다. 추측이 아니라 화면으로 확인했다. 갤러리는 살아 있고(총 97,678갤·어제 85만 글) 상단에 LS증권·삼성선물·NH선물 광고가 붙어 있다. 대표님이 직접 쓰시거나, 계정을 주시면 재개 가능",
-      "excluded": true
-    },
-    {
-      "id": "okky",
-      "tier": "A",
-      "enabled": true,
-      "note": "★2026-09-18 **대표 가입 완료** (구글연동 contact@signumhq.com). ★계정 필요. okky.kr/events/promote = 무료 전용 홍보판(858페이지·앱 베타모집·SaaS 런칭 선례 다수). 개발자 청중. 본인인증 없음·SNS 로그인",
-      "account": "구글연동 contact@signumhq.com"
-    },
-    {
-      "id": "geeknews",
-      "tier": "A",
-      "enabled": true,
-      "note": "★2026-09-18 **대표 가입 완료** (signumhq). ★계정 필요. news.hada.io — 자작 앱은 반드시 «Show» 로만, 가입 7일 경과 후 링크 등록 가능, 프로젝트당 1회(반복시 배포채널 취급). 상위글 24~48점 규모 ★해금 2026-09-25(가입 후 일주일). Show 글 초안 완성 상태 — 해금일 사이클에 등록.",
-      "account": "signumhq"
-    },
-    {
-      "id": "fmkorea",
-      "tier": "A",
-      "enabled": false,
-      "note": "★계정 필요(이메일 또는 휴대폰). fmkorea.com/stock 에 «해외주식» 하위탭·동접 7.5만. 규정 제4조는 홍보 금지지만 «평상시 활동하던 유저가 자기가 만든 것 자랑/언급 정도는 ㅇㅋ» 명문 예외 → 계정을 먼저 재워야 함. 제12조가 로고 스크린샷 우회도 선제 금지"
-    },
-    {
-      "id": "brunch",
-      "tier": "A",
-      "enabled": true,
-      "note": "★2026-09-18 **대표 가입 완료** (카카오연동). ★작가 신청 필요. brunch.co.kr/keyword/미국주식 허브 존재·카카오뱅크(782편) 같은 법인 계정 승인 선례. KR 소유미디어·SEO 자산으로 최고. 설치 채널이 아니라 권위 채널",
-      "account": "카카오연동"
-    },
-    {
-      "id": "apple_featuring",
-      "tier": "A",
-      "enabled": true,
-      "note": "★무료. ASC Featuring Nominations — 국가/지역 필드로 일본·한국 스토어 지정 가능. 3개월 전 제출 권장. 설치에 직결되는 유일한 «무료 스토어 편성» 경로"
-    },
-    {
-      "id": "jp_media",
-      "tier": "A",
-      "enabled": false,
-      "note": "일본 앱매체 무료 제보: AppBank(pressrelease@appbank.net)·GIGAZINE(/news/contact3)·iPhone Mania(/about 프레스주소). Appliv 무료등재는 2026 기준 404(유료 전용). 메일 발송은 대표 승인 필요"
-    },
-    {
-      "id": "naver_kin",
-      "tier": "A",
-      "enabled": true,
-      "note": "★2026-09-17 대표 확인: **계정 가입 완료.** 네이버는 「최적화/저품질 블로그」 등급이 공식 부인됐고 VIEW 탭도 2024-02-01 폐지됐다. 지식iN 은 우리가 들어갈 수 있는 **유일한 무게이트 문**이다(블로그·카페는 등급·가입승인 벽). AI 브리핑이 우리 타깃 SERP 전부를 끌고 있고, 네이버 메이트는 «AI 브리핑 누적 인용»으로 뽑는다 → 지식iN 답변이 인용원이 될 수 있다. **링크 정책**: 본문 자기링크는 광고 신고 대상. 레딧·Quora 와 같은 규칙으로 간다 — 본문 무링크 + 앱 이름 0~1회 + 프로필/소개에 링크. 크롤러 UA 는 `Yeti`, robots.txt 는 이미 허용."
-    },
-    {
-      "id": "qiita",
-      "tier": "B",
-      "enabled": true,
-      "note": "★2026-09-18 **대표 가입 완료** (구글연동 contact@signumhq.com). ★일본. 가이드라인 명문 허용: 자사·자작 기술해설은 광고가 아니다. 트렌드 문턱 5~10 LGTM(실측). 금융태그는 텅 비어 있어 «엔지니어링이 본문»이어야 함. 계정 필요",
-      "account": "구글연동 contact@signumhq.com"
-    },
-    {
-      "id": "zenn",
-      "tier": "B",
-      "enabled": false,
-      "note": "★일본. 홍보는 «기사 말미 고정 메시지»만 허용(명문). 일일트렌드 48칸에 좋아요 1~2로도 진입(실측). Qiita와 같은 글을 프레이밍만 바꿔 양쪽에. 계정 필요"
-    },
-    {
-      "id": "discord_usstock",
-      "tier": "excluded",
-      "enabled": false,
-      "note": "⛔2026-09-18 **규칙 원문 확인 — 홍보 채널이 아니다.** 서버(米国株村, 2022년 개설, Discord 파트너) 규칙 채널 원문: 「営利目的の行動を行わない。アフェリエイトリンクや広告など。」 = **영리 목적 행동 금지(광고·어필리에이트 포함)** · 「見つけた場合は強制退会させて頂きます」 = **발견되면 강제 퇴회**. 「こちらで得た情報を公開しない」 = 여기서 얻은 정보를 외부에 공개하지 말 것.\n즉 앱 링크·앱 소개는 «규칙 위반»이고 계정이 날아간다. 「참여 우선」이 아니라 **홍보 자체가 금지**다.\n가입은 돼 있다(`signumhq` / `signumhq_68119`). 채널 구조: 규칙(961046904437878924) · 管理人から · 入室通知 · 株雑談 · チャート · 米国株情報 · ヒートマップ(공지). 서버 ID 960810824828588044. 봇이 정보를 자동 수집·게시하는 구조라 «정보 제공»으로 끼어들 여지도 없다.\n**판정: 관리 제외.** 홍보 목적으로는 쓸 수 없다. 일본 시장은 note·Qiita·Zenn·X(@signumhq_jp)로 간다.",
-      "account": "아이디 contact@signumhq.com"
-    },
-    {
-      "id": "hatena_bookmark",
-      "tier": "C",
-      "enabled": false,
-      "note": "자기 사이트 자기 북마크는 «공식 허용»(단 홍보·SEO 목적 북마크는 스팸 명문, 서브계정·상호북마크는 사이트 영구제재). 테크놀로지 카테고리 하한 4·중위 20(2026 실측, 3년새 문턱 6배 하락). 레인은 엔지니어링 기록 하나뿐 ★계정 게이트(대표 가입 대기) — 우회로 없음(북마크 자체가 로그인 필수)."
-    },
-    {
-      "id": "macrumors",
-      "tier": "A",
-      "enabled": false,
-      "note": "★계정 필요. forums.macrumors.com «iOS Apps and Apple Arcade» — 개발자가 «자기 스레드 안에서» 자사 앱을 홍보하는 것이 명시 허용. 앱당 스레드 «하나», 영구. 업데이트는 그 스레드 안에 이어 쓰고 새 스레드 금지(범프·복수 스레드는 밴). 개발자임을 밝힐 것"
-    },
-    {
-      "id": "mybest_jp",
-      "tier": "A",
-      "enabled": false,
-      "note": "일본 앱의도 질의를 소유한 비교랭킹 매체. my-best.com/15770 「米国株アプリのおすすめ人気ランキング」에 楽天証券·SBI·松井·moomoo·ウィブル·マネックス 가 실려 있다. 페이지에 붙은 구글폼은 «기사 신고»용이고 게재 신청이 아니다. corp.my-best.com 루트는 404. 편집부가 직접 구매·테스트해 순위를 만드는 구조라 신청 경로가 공개돼 있지 않다 → 문의 필요(메일 발송은 대표 승인)"
-    },
-    {
-      "id": "apple_iap_events",
-      "tier": "A",
-      "enabled": false,
-      "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요"
-    },
-    {
-      "id": "hf_datasets",
-      "tier": "B",
-      "enabled": true,
-      "note": "★2026-09-18 **개인 계정으로 가입돼 있었다**(회사 계정 아님). 대표가 로그인해 두고 내가 관리한다. **GitHub 가입 경로는 없다**(대표 확인 — 내 오독 정정). ★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다",
-      "account": "eunhoon (myjr0629@gmail.com · 개인) — 2026-09-18 whoami 확인"
-    },
-    {
-      "id": "kr_media",
-      "tier": "A",
-      "enabled": false,
-      "note": "★무료. 한국 스타트업 매체 보도자료 — 벤처스퀘어가 FAQ에 「보도자료는 무상 게재를 원칙으로 합니다」를 명문화(editor@venturesquare.net, 접수→검수→게재). 플래텀도 무료(editor@platum.kr + 폼). 스타트업레시피 news@startuprecipe.co.kr. 게재되면 네이버·다음·줌 «뉴스 검색»에 노출된다 → SEO 채널과 직결. 앱스토리는 유료(150~300만원). 뉴스와이어 스타트업 무료지원은 «국내 법인» 한정이라 우리는 대상 아님. 메일 발송은 대표 승인"
-    },
-    {
-      "id": "play_custom_listings",
-      "tier": "A",
-      "enabled": false,
-      "note": "★무료·자격 게이트 없음. 구글플레이 «맞춤 스토어 등록정보» — 앱당 50개까지, 국가·사용자상태·광고캠페인에 더해 «Play 검색 키워드»로 타깃팅된다. 우리는 Play 미국에서 premarket earnings #2, 한국에서 서학개미 #2 라 이미 잡히는 검색어가 있다. LiveOps(프로모션 콘텐츠)와 달리 28일 활성 80만 요건이 «없다». 주의: 한 국가는 동시에 하나의 맞춤 등록정보만 받고, 저장≠제출이라 게시 개요에서 검토 제출까지 해야 한다"
-    },
-    {
-      "id": "apple_cpp",
-      "tier": "A",
-      "enabled": false,
-      "note": "★무료. App Store 맞춤 제품 페이지(CPP) + «키워드 할당». 2025-07-30 부터 CPP 가 광고뿐 아니라 «유기 검색 결과»에도 나온다 — 우리 100자 키워드 필드의 특정 단어를 지정 CPP 에 묶으면 그 검색에서 기본 페이지 대신 그 페이지가 뜬다. 2025-10-29 에 상한이 35→70개로 올랐다. 한 키워드는 하나의 CPP 에만 묶을 수 있다(중복하면 반려). CPP 마다 심사 필요(24~48h). ASC → App Store → 맞춤 제품 페이지 → 키워드 할당"
-    },
-    {
-      "id": "android_alt_stores",
-      "tier": "B",
-      "enabled": true,
-      "note": "★«설치»가 직접 발생하는 유일한 채널. **2026-09-17 실태 정정**: APKPure 3/3 제출(등재 확인 미실시) · Softonic 3/3 심사중(확인 미실시) · **Uptodown 은 «막힘»이 아니었다** — GitHub OAuth 로 비밀번호 없이 로그인되고 앱 2개가 이미 올라가 있다. UC·WIM 모두 REJECTED 이고 사유는 **소유권 확인**이다: 「submit a ticket to our support team ... attach a screenshot showing the app in your Google Play developer account」. 처방은 지원 티켓 1건 + Play 개발자 계정 스크린샷 → 내가 할 수 있다. SIGNUM 은 Uptodown 에 아예 없다. ego 의 setInputFiles 는 17MB APK 도 다룬다(내 10MB 상한은 file_upload 도구 한계였다)."
-    },
-    {
-      "id": "admob",
-      "tier": "-",
-      "enabled": true,
-      "note": "수익 채널(홍보 채널 아님). **개인 계정**이고 기본 authuser=0 은 «가입 페이지»로 튕긴다 → apps.admob.com/v2/...?authuser=1 로 접근(2026-09-17 실측). 금융 카테고리 차단은 규제가 아니라 브랜드·경쟁 이유이고 CPM 손실 가능성이 있어 p3(t141)"
-    },
-    {
-      "id": "google_dataset_search",
-      "tier": "A",
-      "enabled": false,
-      "note": "★무료·자격 게이트 없음. 구글 «데이터셋 검색»(datasetsearch.research.google.com)은 schema.org Dataset 구조화 데이터로 색인된다. 우리 티커 페이지 2,228×3로케일이 **이미 `@type: Dataset` 을 싣고 있다**(/en/flow/USO 실측: name·description·license·creator·url·isAccessibleForFree). 빠진 것은 구글이 «권장»하는 `distribution`(DataDownload + contentUrl + encodingFormat) 이라 «다운로드 없는 데이터셋»으로 취급된다. 한 템플릿 수정으로 6,768 URL 이 동시에 대상이 된다. 경쟁이 거의 없다 — 허깅페이스에서 «options flow» 검색 결과가 0건인 것과 같은 니치. 웹 코드 변경이라 승인 필요"
-    },
-    {
-      "id": "mastodon",
-      "tier": "A",
-      "enabled": false,
-      "note": "★블루스카이 승리 패턴의 «직접 복제». 2026-09-17 실측: 블루스카이는 글 한 편으로 18클릭(전 채널 1위)이고 레딧은 21일 60건 댓글로 5클릭이었다. 차이는 «구조»다 — 알고리즘 방송이 아니라 해시태그/연합 타임라인이 팔로워 0에게도 도달하고, 이미지와 링크가 «감점 없이» 붙는다. 마스토돈은 그 구조가 같다(ActivityPub·시간순·링크 무감점·이미지 4장). 우리 쪽 준비물은 이미 있다: 앱 카드 렌더 파이프라인 + 스마트링크. 500자 한도(블루스카이 300자보다 넉넉). 인스턴스는 mastodon.social(범용·최대) 또는 fosstodon.org(기술). 금융 전용 인스턴스는 규모가 작아 범용이 낫다. 계정 생성이 필요해 대표 가입 대기."
-    },
-    {
-      "id": "home",
-      "tier": "A",
-      "enabled": true,
-      "note": "★★★2026-09-17 발견: **21일 412클릭 = 전체의 52%, 최근 3일 55클릭으로 2위(블루스카이 18)의 3배.** 우리 최대 유입구인데 21일 내내 어떤 클릭 표에도 없었다 — 내가 태그 목록을 머리에서 적었기 때문이다. `/en`·`/ko`·`/ja` 홈의 앱 CTA 가 `?from=home` 을 쓴다. 페이지 1개(×3로케일)가 412클릭인데 티커 6,684페이지는 137클릭 — **페이지당 약 2만 배**. 외부 45채널을 도는 동안 정작 최대 전환구를 한 번도 손대지 않았다 → t168"
-    },
-    {
-      "id": "seo_darkpool",
-      "tier": "B",
-      "enabled": true,
-      "note": "2026-09-17 발견: `/dark-pool` 전용 태그. 21일 31클릭. 이것도 클릭 표에 없었다. 구글봇에 307(임시)로 응답하는 것도 같이 확인 필요."
-    },
-    {
-      "id": "galaxy_store",
-      "tier": "A",
-      "enabled": false,
-      "note": "★2026-09-17 **셀러 계정 생성 완료** — SIGNUM HQ, LLC · Corporate Seller · 미국 · Free Distribution Seller. **Developer API 도 살렸다**: 서비스 계정 `1367013a-4392-431c-85b5-172d86a0324d`(권한 Publishing & ITEM + GSS), 비밀키 `~/.galaxystore/service-account-private.pem`(RSA 2048, mode 600), 클라이언트 `scripts/galaxy_client.py`. accessToken 발급·`GET /seller/contentList`·`POST /seller/createUploadSessionId` 전부 실동작 확인.\n⛔**남은 게이트 하나**: 안드로이드 앱 «신규 등록»은 **Commercial Distribution Seller** 승격이 필요하다. 게이트 팝업(`checkAndroidAddNewPopup`) 원문: 「To sell Android content, a status change to corporate Commercial Distribution Seller is necessary. If you are not a corporate Commercial Distribution Seller, existing Android content will be discontinued and you will not be able to register Android content.」 **무료 앱이어도 예외가 없다.** 프로필의 `Request Commercial Seller Status` 로 신청한다. Content Publish API 에는 «신규 앱 생성» 엔드포인트가 없어 첫 등록은 포털을 거쳐야 한다(문서 확인).\n★2026-09-18 **Commercial 승격 신청 제출 완료** — `Type of Sales: Commercial Distribution Request in Progress`. **셀러 딥링크 `000000257823`** = 우리 3앱을 한 화면에 모아 보여주는 갤럭시 스토어 셀러 페이지 ID(마케팅 자산). 셀러 페이지가 아직 **백지**다 — Home URL·Help URL·Introduction·Profile/Banner/Background 이미지·Contact E-Mail 전부 비어 있다 → t181."
-    },
-    {
-      "id": "naver_blog",
-      "name": "네이버 블로그",
-      "tier": "A",
-      "enabled": true,
-      "tag": "naver_blog",
-      "link": "https://signumhq.com/app?from=naver_blog",
-      "action": "post",
-      "note": "★2026-09-18 14:0x 대표 승인: 기존 블로그 «인싸이트팟»(blog.naver.com/donneum) 사용. 첫 글 초안 drafts/naver-blog-01.md. 규칙: 하루 1편·링크 말미 1회·예측 금지·앱 화면 3장. ★2026-09-18 발굴(확장): 지식iN 계정에 블로그가 «이미» 있다 — blog.naver.com/donneum 「인싸이트팟」(kin.naver.com 헤더 «내 블로그» 클릭으로 확인, 주소 추측 아님). 대표의 기존 블로그일 수 있어 SIGNUM 글을 올려도 되는지 «대표 결정» 필요(t190). 되면 지식iN 답변→블로그 글(앱 화면)→스마트링크 깔때기가 열린다(지식iN 본문은 무링크 규칙)."
-    },
-    {
-      "id": "play_listing_experiments",
-      "name": "Play 스토어 등록정보 실험",
-      "tier": "A",
-      "enabled": false,
-      "tag": "play_exp",
-      "link": "https://signumhq.com/app?from=play_exp",
-      "action": "experiment",
-      "note": "★2026-09-18 발굴(확장): Play 콘솔 Store listing experiments — 기본 등록정보의 아이콘·스크린샷·짧은 설명을 A/B 로 시험(무료·빌드 불필요). 근거: KR 광고 탭 4~6/일에 설치 0 = 스토어 페이지 전환 문제(메모리 kr-ads-taps-convert-at-zero-page-not-keyword). 첫 실험 = SIGNUM KR 짧은 설명 «미국주식 앱» + 첫 스크린샷 교체. t191 ★정정(13:5x): 28일 방문 31명이라 실험 유의성 불가(내 기록 9/17). 직접 개선으로 전환·트래픽 100/일 전까지 비활성."
-    },
-    {
-      "id": "apple_ppo",
-      "name": "App Store 제품 페이지 최적화(PPO)",
-      "tier": "A",
-      "enabled": true,
-      "tag": "apple_ppo",
-      "link": "https://signumhq.com/app?from=apple_ppo",
-      "action": "experiment",
-      "note": "★2026-09-18 발굴(확장): ASC «Product Page Optimization» — 기본 제품 페이지의 아이콘·스크린샷·앱 미리보기를 최대 3개 처리군으로 A/B(무료·빌드 불필요·API 로 생성 가능: appStoreVersionExperimentsV2 + appStoreVersionExperimentTreatments). 첫 실험 = SIGNUM ko/ja 첫 스크린샷을 «프리마켓/실적» 장면으로. t194"
-    },
-    {
-      "id": "naver_search_advisor",
-      "name": "네이버 서치어드바이저",
-      "tier": "A",
-      "enabled": true,
-      "tag": "naver_sa",
-      "link": "https://signumhq.com/app?from=naver_sa",
-      "action": "register",
-      "note": "★2026-09-18 확장: 내 계획서(.agent/DIRECT_INFLOW_PLAN_2026-08-18.md §④)에 «가장 값싼 최대 카드»로 적어 두고 한 달 방치했던 것. 네이버 site: 색인 0건. 절차: ①이용약관 동의(첫 진입 대화상자 — 대표 1클릭, t195) ②사이트 등록 signumhq.com ③소유확인 meta 태그를 src/app/layout.tsx metadata.verification 에 추가·배포·curl 로 확인 ④사이트맵 제출(/sitemap.xml) ⑤수집 요청. 로그인은 지식iN 계정으로 이미 통과(auth/callback 까지 확인)."
-    },
-    {
-      "id": "daum_search",
-      "name": "Daum 검색등록",
-      "tier": "B",
-      "enabled": true,
-      "tag": "daum",
-      "link": "https://signumhq.com/app?from=daum",
-      "action": "register",
-      "note": "★2026-09-18 확장: 카카오/다음 검색에 사이트 등록(무료, 로그인 불필요, 결과는 이메일 통보). 네이버 서치어드바이저의 짝. 신규등록 → 사이트검색 → URL 확인 → 정보 입력(사이트명·소개·이메일 contact@signumhq.com·카테고리 경제) → 제출."
-    },
-    {
-      "id": "indexnow",
-      "name": "IndexNow 즉시 색인",
-      "tier": "A",
-      "enabled": true,
-      "tag": "seo",
-      "link": "https://www.signumhq.com/sitemap.xml",
-      "action": "submit",
-      "note": "★2026-09-18 등록: 키 파일 public/a23324ff…txt 라이브 200. 사이트맵 전량 제출 = Bing·Yandex·Seznam·Naver 동시 통보(구글 미참여 → GSC 담당). 09-18 6,768/6,768 HTTP 200."
-    },
-    {
-      "id": "llms_txt",
-      "name": "llms.txt (AI 검색)",
-      "tier": "A",
-      "enabled": true,
-      "tag": "llms",
-      "link": "https://www.signumhq.com/app?from=llms",
-      "action": "maintain",
-      "note": "★2026-09-18 등록·개선: 앱 설치 링크가 0개였다 → 3앱 스마트링크(?from=llms)와 «하지 않는 일» 명시 추가. 라이브 4,938B 검증."
-    }
-  ],
-  "candidates": [
-    {
-      "id": "github_awesome",
-      "name": "GitHub awesome-list",
-      "tier": "A",
-      "why": "awesome-quant 등 PR 등재 = 영구 백링크 + 개발자 청중. 백링크 병목 직격",
-      "status": "active",
-      "prs": [
-        "wilsonfreitas/awesome-quant#648 — Commercial & Proprietary Services (2026-09-11, 별 29.5K, 그들 CI validate 통과)",
-        "georgezouq/awesome-ai-in-finance#254 — Research Tools (2026-09-11, 별 6.5K)",
-        "jplock/awesome-fintech#128 — Capital Markets (2026-09-01)",
-        "Jera-Value/awesome-investing-tools-and-software-directory#40 (2026-09-01)"
-      ],
-      "rejected": [
-        "mr-karan/awesome-investing — 2026-05-15 아카이브(읽기전용). PR 불가",
-        "moov-io/awesome-fintech — Financial Data & APIs 가 오픈표준·라이브러리 위주라 앱은 부적합",
-        "paperswithbacktest/awesome-systematic-trading — 라이브러리 중심, 앱 항목 없음"
-      ],
-      "note": "4건 전부 open·mergeable·지적사항 0 (관리자 대기). ⚠️ 새 PR 전에 반드시 `author:myjr0629-hue type:pr` 로 중복 확인할 것 — 2026-09-11 에 jplock 중복을 만들 뻔했다."
-    },
-    {
-      "id": "devto",
-      "name": "Dev.to / Hashnode",
-      "tier": "A",
-      "why": "옵션 데이터 파이프라인 기술글. 개발자 검색 수요",
-      "status": "todo"
-    },
-    {
-      "id": "qiita_zenn",
-      "name": "Qiita / Zenn",
-      "tier": "A",
-      "why": "일본 개발자. note 와 다른 수요층",
-      "status": "todo"
-    },
-    {
-      "id": "jisiklin",
-      "name": "네이버 지식iN",
-      "tier": "A",
-      "why": "한국 검색 수요를 직접 받는다",
-      "status": "todo"
-    },
-    {
-      "id": "chiebukuro",
-      "name": "Yahoo!知恵袋",
-      "tier": "A",
-      "why": "일본 검색 수요",
-      "status": "todo"
-    },
-    {
-      "id": "minkabu",
-      "name": "みんかぶ / Yahoo!ファイナンス掲示板",
-      "tier": "C",
-      "why": "일본 개인투자자 밀집",
-      "status": "todo"
-    },
-    {
-      "id": "indiehackers",
-      "name": "Indie Hackers",
-      "tier": "A",
-      "why": "1인 개발 스토리. 디렉터리 목록에도 있음",
-      "status": "blocked",
-      "blocker": "계정 생성이 이메일+비밀번호 또는 Google 뿐이다 → 내가 못 한다. 대표 가입 필요 (DS 69 · 월 85만)"
-    },
-    {
-      "id": "youtube_shorts_upload",
-      "name": "YouTube Shorts 업로드(자동)",
-      "tier": "A",
-      "why": "실측상 «유일하게» 도달이 난 채널(KR 1.2만 조회). scripts/yt-upload.mjs 가 이미 있고 대표가 「업로드는 니가, 개시는 내가」로 지시했다",
-      "status": "blocked",
-      "blocker": "YT_CLIENT_ID / YT_CLIENT_SECRET / YT_KR_REFRESH_TOKEN 이 .env.local·.env.development.local·Vercel 어디에도 없다. 키만 있으면 즉시 자동화된다. out/ 영상은 8/11자라 재렌더 필요"
-    }
-  ]
+  {
+   "id": "x_jp",
+   "name": "X 일본",
+   "tier": "C",
+   "handle": "@signumhq_jp",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 145,
+   "followers": 3,
+   "tag": "x_jp",
+   "link": "https://signumhq.com/app?from=x_bio",
+   "note": "Premium+. 콘텐츠 언어는 계정 국적과 무관",
+   "action": "reply_only"
+  },
+  {
+   "id": "bluesky",
+   "name": "Bluesky",
+   "tier": "A",
+   "handle": "@signumhq.bsky.social",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 639,
+   "followers": 23,
+   "tag": "bluesky_bio",
+   "link": "https://signumhq.com/app?from=bluesky_bio",
+   "note": "★★2026-09-17 실측: **글 한 편으로 하루 18클릭** — 그날 전 채널 1위. 21일 누적 0 이었으니 순수 신규 유입이다. 비교: 레딧은 21일 60건 댓글로 5클릭. C형에서 A형으로 승격. 첨부는 base64→File→DataTransfer→drop + ClipboardEvent('paste')(파일 입력은 0개인 게 맞다). 300자 «그래파임» 한도 — 넘으면 게시 버튼이 aria-disabled. 링크는 웹 컴포저가 알아서 인식. 계정 @signumhq.bsky.social",
+   "action": "reply_only",
+   "enabled": true
+  },
+  {
+   "id": "threads",
+   "name": "Threads",
+   "tier": "C",
+   "handle": "@signumhq_official",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 2,
+   "followers": 3,
+   "tag": "threads_bio",
+   "link": "https://signumhq.com/app?from=threads_bio",
+   "note": "2026-09-01 소개·링크·관심사 4개 신규. 소개 150자 제한. 좌표클릭 금지 → ref 로만",
+   "action": "reply_only"
+  },
+  {
+   "id": "instagram",
+   "name": "Instagram",
+   "tier": "C",
+   "handle": "@signumhq_official",
+   "login": "ok",
+   "profile": "partial",
+   "posts": 109,
+   "followers": 0,
+   "tag": "ig_bio",
+   "link": "https://signumhq.com/app?from=ig_bio",
+   "blocker": "링크 칸이 모바일 앱 전용 → 대표 1회",
+   "note": "소개에 앱주소 명기 완료",
+   "action": "reply_only"
+  },
+  {
+   "id": "pinterest",
+   "name": "Pinterest",
+   "tier": "A",
+   "handle": "SIGNUMHQ",
+   "login": "ok",
+   "profile": "ok",
+   "tag": "pinterest_bio",
+   "link": "https://signumhq.com/app?from=pinterest_bio",
+   "note": "★ 방치된 2위 채널 — 팔로워 2로 월 6,318 조회. 핀 랜딩링크는 ?from= 유지(프로필 칸만 잘림)",
+   "action": "post",
+   "monthlyViews": 6318,
+   "followers": 2
+  },
+  {
+   "id": "reddit",
+   "name": "Reddit",
+   "tier": "A",
+   "handle": "u/SignumHQ",
+   "login": "ok",
+   "profile": "ok",
+   "karma": 4,
+   "tag": "reddit_bio",
+   "link": "https://signumhq.com/app?from=reddit_bio",
+   "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형)",
+   "action": "answer"
+  },
+  {
+   "id": "tiktok",
+   "name": "TikTok",
+   "tier": "B",
+   "handle": "@signumhq",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 2,
+   "followers": 0,
+   "tag": "tiktok",
+   "link": "https://signumhq.com/app?from=tiktok",
+   "action": "post",
+   "enabled": false,
+   "note": "★2026-09-18 대표 지시 「틱톡은 일단 두기로」 + 로그인 세션이 개인계정 @daldalkelly(t187) → 게시 보류. 차단이 아니라 대표 결정."
+  },
+  {
+   "id": "youtube",
+   "name": "YouTube",
+   "tier": "B",
+   "handle": "시그넘 KR / SIGNUM HQ / SIGNUM_JP",
+   "login": "ok",
+   "profile": "ok",
+   "tag": "youtube",
+   "note": "Shorts KR 1.2만 조회 실적 — 우리가 가진 유일한 «작동하는» 배포 채널",
+   "action": "post"
+  },
+  {
+   "id": "note",
+   "name": "note.com",
+   "tier": "A",
+   "handle": "note.com/signumhq",
+   "login": "ok",
+   "profile": "ok",
+   "tag": "note",
+   "note": "일본 검색 수요",
+   "action": "post"
+  },
+  {
+   "id": "medium",
+   "name": "Medium",
+   "tier": "A",
+   "handle": "@signum_hq",
+   "login": "ok",
+   "profile": "ok",
+   "tag": "medium",
+   "action": "post",
+   "note": "★AI 지원 표시 필수. 미표시는 Network Only 로 도달이 팔로워(0)로 잘린다 — 금지가 아니라 도달 0. 말미에 disclosure 한 줄 고정. "
+  },
+  {
+   "id": "seo",
+   "name": "자사 SEO",
+   "tier": "A",
+   "login": "ok",
+   "profile": "ok",
+   "note": "2026-09-03 진단 정정: 돈이 되는 질의는 **이미 1페이지**였다 (uso dark pool 6.3위·75노출, wdc max pain 7.5위, mrvl 9.6위) — 그런데 CTR 0%. 평균 31위는 put call ratio(91위) 같은 설명형이 만든 착시였다. 원인=meta description 에 AI 서술요약을 넣어 「볼 것 없다」고 말하고 있었다 → 숫자 먼저로 교체(배포됨). 백링크는 «설명형 질의»(put call ratio·gamma exposure, 67~92위)의 병목이지 티커 질의의 병목이 아니다. 다음 판단은 GSC **CTR**로만 한다 — 순위 말고.",
+   "action": "build"
+  },
+  {
+   "id": "aso",
+   "name": "앱스토어 ASO",
+   "tier": "A",
+   "login": "ok",
+   "profile": "ok",
+   "note": "2026-09-03 실측: 앱스토어는 SIGNUM 이 「실적 발표 일정」 #1 인데 **플레이는 한국어 10개 검색어 전부 부재**였다 — 그 단어들이 플레이 목록에 한 글자도 없었다. SIGNUM 플레이 3언어 교체·심사통과(premarket earnings US #1 즉시). UC·WIM 은 대조군으로 남겼다 → scripts/aso-play-rank.py --save 로 재측정. 조사 도구는 aso-demand-scan.py(자동완성=수요 × 경쟁). 정본=.agent/marketing/ASO-PLAN.md",
+   "action": "build"
+  },
+  {
+   "id": "directories",
+   "name": "앱·스타트업 디렉터리",
+   "tier": "A",
+   "login": "ok",
+   "profile": "ok",
+   "note": "DIRECTORY-LIST.md 107곳. 영구 백링크 = SEO 병목 직격",
+   "action": "submit"
+  },
+  {
+   "id": "stocktwits",
+   "name": "StockTwits",
+   "tier": "C",
+   "handle": "@SIGNUMHQ",
+   "login": "ok",
+   "profile": "ok",
+   "status": "BANNED",
+   "blocker": "House Rules 무기한 제재 — 대표 확인 전 게시 금지",
+   "action": "none"
+  },
+  {
+   "id": "linkedin",
+   "name": "LinkedIn",
+   "tier": "C",
+   "handle": "linkedin.com/in/signumhq",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 0,
+   "followers": 0,
+   "tag": "li_profile",
+   "link": "https://signumhq.com/app?from=li_profile",
+   "note": "2026-09-03 프로필 전면 정비 — 영문 기본 프로필(헤드라인 215자·소개 1.5천자)·맞춤 URL(/in/signumhq)·배너·스페셜 3개(세 앱 스마트링크 li_feat)·경력 설명·연락처 웹사이트. 회사 페이지 없음(동명이인 Signum HQ 토론토 결제사가 검색 차지). 한국어 2차 프로필 헤드라인은 링크드인 저장 버튼이 안 먹어 미적용. 링크 미리보기는 Post Inspector 로 «먼저 데워야» 붙는다.",
+   "action": "reply_only"
+  },
+  {
+   "id": "buffer",
+   "name": "Buffer",
+   "tier": "-",
+   "status": "KILLED",
+   "note": "2026-09-01 대표 지시로 영구 정지. vercel.json 크론 제거 + autopilot.ts BUFFER_AUTOPILOT_DISABLED",
+   "action": "none"
+  },
+  {
+   "id": "quora",
+   "name": "Quora",
+   "tier": "A",
+   "handle": "Jiyoung Kim (Founder, SIGNUM HQ)",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 0,
+   "followers": 0,
+   "tag": "quora_bio",
+   "link": "https://www.signumhq.com/app?from=quora_bio",
+   "url": "https://www.quora.com/profile/Jiyoung-Kim-236",
+   "note": "★2026-09-18 생존확인: 최근 발행 답변 2건이 «Page Not Found»=삭제 확인(로그인 브라우저). 무링크 규칙 이후에도 삭제가 계속된다 → 발행 전 기존 답변 톤 확인·삭제율 추적. 2026-09-09 개설(contact@signumhq.com 구글). 실명 정책이라 계정명은 실명, 브랜드는 크리덴셜로 전 답변에 노출. Knows about 7종(팔로워 합 1,600만+). 답변이 구글에 색인되는 «영구 검색 자산»이 본체",
+   "action": "answer_popular_questions"
+  },
+  {
+   "id": "quora_space",
+   "name": "Quora Space — SIGNUM HQ",
+   "tier": "A",
+   "handle": "SIGNUM HQ — US Stock Market Intelligence",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 1,
+   "followers": 0,
+   "tag": "quora_space",
+   "link": "https://www.signumhq.com/app?from=quora_space",
+   "url": "https://signumhqusstockmarketintelligence.quora.com/",
+   "note": "★2026-09-18 생존확인: 최근 발행 답변 2건이 «Page Not Found»=삭제 확인(로그인 브라우저). 무링크 규칙 이후에도 삭제가 계속된다 → 발행 전 기존 답변 톤 확인·삭제율 추적. 브랜드명을 쓸 수 있는 유일한 Quora 표면. 상세정보에 앱링크 상시 노출. 글마다 앱 스크린샷 첨부",
+   "action": "post_daily_data"
+  },
+  {
+   "id": "hackernews",
+   "name": "Hacker News",
+   "tier": "A",
+   "handle": "signumhq",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 0,
+   "followers": 0,
+   "tag": "hn_bio",
+   "link": "https://www.signumhq.com/app?from=hn_bio",
+   "url": "https://news.ycombinator.com/user?id=signumhq",
+   "note": "⛔관리 제외(대표 전용) — 사이트 전체 가이드라인이 생성 텍스트와 AI 편집 텍스트를 모두 금지한다. 나는 LLM 이라 게시 자체가 규정 위반. 계정 signumhq 카르마 1 로 살아 있고 대표가 직접 쓰는 것은 문제없다",
+   "action": "comment_first_then_show_hn",
+   "enabled": false,
+   "excluded": true
+  },
+  {
+   "id": "github",
+   "tier": "A",
+   "enabled": true,
+   "note": "오픈 데이터셋 저장소 — 마감 후 스냅샷 커밋, README 앱 링크(from=github)"
+  },
+  {
+   "id": "indiehackers",
+   "tier": "A",
+   "enabled": true,
+   "note": "제품 타임라인 포스트 — 빌더 청중, 외부링크 nofollow"
+  },
+  {
+   "id": "x_reply",
+   "tier": "A",
+   "enabled": true,
+   "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자·링크금지)"
+  },
+  {
+   "id": "dcinside",
+   "tier": "A",
+   "enabled": false,
+   "note": "⛔관리 제외(검증된 사유) — 2026-09-17 실화면 확인: 미국주식옵션 갤러리(untie) 글쓰기 페이지에 password 타입 입력란이 «실재»하고 needLogin=true 다. 유동닉으로 써도 게시물 비밀번호를 만들어 넣어야 한다 → 안전선 「비밀번호 입력 금지」에 걸린다. 추측이 아니라 화면으로 확인했다. 갤러리는 살아 있고(총 97,678갤·어제 85만 글) 상단에 LS증권·삼성선물·NH선물 광고가 붙어 있다. 대표님이 직접 쓰시거나, 계정을 주시면 재개 가능",
+   "excluded": true
+  },
+  {
+   "id": "okky",
+   "tier": "A",
+   "enabled": true,
+   "note": "★2026-09-18 **대표 가입 완료** (구글연동 contact@signumhq.com). ★계정 필요. okky.kr/events/promote = 무료 전용 홍보판(858페이지·앱 베타모집·SaaS 런칭 선례 다수). 개발자 청중. 본인인증 없음·SNS 로그인",
+   "account": "구글연동 contact@signumhq.com"
+  },
+  {
+   "id": "geeknews",
+   "tier": "A",
+   "enabled": true,
+   "note": "★2026-09-18 **대표 가입 완료** (signumhq). ★계정 필요. news.hada.io — 자작 앱은 반드시 «Show» 로만, 가입 7일 경과 후 링크 등록 가능, 프로젝트당 1회(반복시 배포채널 취급). 상위글 24~48점 규모 ★해금 2026-09-25(가입 후 일주일). Show 글 초안 완성 상태 — 해금일 사이클에 등록.",
+   "account": "signumhq"
+  },
+  {
+   "id": "fmkorea",
+   "tier": "A",
+   "enabled": false,
+   "note": "★계정 필요(이메일 또는 휴대폰). fmkorea.com/stock 에 «해외주식» 하위탭·동접 7.5만. 규정 제4조는 홍보 금지지만 «평상시 활동하던 유저가 자기가 만든 것 자랑/언급 정도는 ㅇㅋ» 명문 예외 → 계정을 먼저 재워야 함. 제12조가 로고 스크린샷 우회도 선제 금지"
+  },
+  {
+   "id": "brunch",
+   "tier": "A",
+   "enabled": true,
+   "note": "★2026-09-18 **대표 가입 완료** (카카오연동). ★작가 신청 필요. brunch.co.kr/keyword/미국주식 허브 존재·카카오뱅크(782편) 같은 법인 계정 승인 선례. KR 소유미디어·SEO 자산으로 최고. 설치 채널이 아니라 권위 채널",
+   "account": "카카오연동"
+  },
+  {
+   "id": "apple_featuring",
+   "tier": "A",
+   "enabled": true,
+   "note": "★무료. ASC Featuring Nominations — 국가/지역 필드로 일본·한국 스토어 지정 가능. 3개월 전 제출 권장. 설치에 직결되는 유일한 «무료 스토어 편성» 경로"
+  },
+  {
+   "id": "jp_media",
+   "tier": "A",
+   "enabled": false,
+   "note": "일본 앱매체 무료 제보: AppBank(pressrelease@appbank.net)·GIGAZINE(/news/contact3)·iPhone Mania(/about 프레스주소). Appliv 무료등재는 2026 기준 404(유료 전용). 메일 발송은 대표 승인 필요"
+  },
+  {
+   "id": "naver_kin",
+   "tier": "A",
+   "enabled": true,
+   "note": "★2026-09-17 대표 확인: **계정 가입 완료.** 네이버는 「최적화/저품질 블로그」 등급이 공식 부인됐고 VIEW 탭도 2024-02-01 폐지됐다. 지식iN 은 우리가 들어갈 수 있는 **유일한 무게이트 문**이다(블로그·카페는 등급·가입승인 벽). AI 브리핑이 우리 타깃 SERP 전부를 끌고 있고, 네이버 메이트는 «AI 브리핑 누적 인용»으로 뽑는다 → 지식iN 답변이 인용원이 될 수 있다. **링크 정책**: 본문 자기링크는 광고 신고 대상. 레딧·Quora 와 같은 규칙으로 간다 — 본문 무링크 + 앱 이름 0~1회 + 프로필/소개에 링크. 크롤러 UA 는 `Yeti`, robots.txt 는 이미 허용."
+  },
+  {
+   "id": "qiita",
+   "tier": "B",
+   "enabled": true,
+   "note": "★2026-09-18 **대표 가입 완료** (구글연동 contact@signumhq.com). ★일본. 가이드라인 명문 허용: 자사·자작 기술해설은 광고가 아니다. 트렌드 문턱 5~10 LGTM(실측). 금융태그는 텅 비어 있어 «엔지니어링이 본문»이어야 함. 계정 필요",
+   "account": "구글연동 contact@signumhq.com"
+  },
+  {
+   "id": "zenn",
+   "tier": "B",
+   "enabled": false,
+   "note": "★일본. 홍보는 «기사 말미 고정 메시지»만 허용(명문). 일일트렌드 48칸에 좋아요 1~2로도 진입(실측). Qiita와 같은 글을 프레이밍만 바꿔 양쪽에. 계정 필요"
+  },
+  {
+   "id": "discord_usstock",
+   "tier": "excluded",
+   "enabled": false,
+   "note": "⛔2026-09-18 **규칙 원문 확인 — 홍보 채널이 아니다.** 서버(米国株村, 2022년 개설, Discord 파트너) 규칙 채널 원문: 「営利目的の行動を行わない。アフェリエイトリンクや広告など。」 = **영리 목적 행동 금지(광고·어필리에이트 포함)** · 「見つけた場合は強制退会させて頂きます」 = **발견되면 강제 퇴회**. 「こちらで得た情報を公開しない」 = 여기서 얻은 정보를 외부에 공개하지 말 것.\n즉 앱 링크·앱 소개는 «규칙 위반»이고 계정이 날아간다. 「참여 우선」이 아니라 **홍보 자체가 금지**다.\n가입은 돼 있다(`signumhq` / `signumhq_68119`). 채널 구조: 규칙(961046904437878924) · 管理人から · 入室通知 · 株雑談 · チャート · 米国株情報 · ヒートマップ(공지). 서버 ID 960810824828588044. 봇이 정보를 자동 수집·게시하는 구조라 «정보 제공»으로 끼어들 여지도 없다.\n**판정: 관리 제외.** 홍보 목적으로는 쓸 수 없다. 일본 시장은 note·Qiita·Zenn·X(@signumhq_jp)로 간다.",
+   "account": "아이디 contact@signumhq.com"
+  },
+  {
+   "id": "hatena_bookmark",
+   "tier": "C",
+   "enabled": false,
+   "note": "자기 사이트 자기 북마크는 «공식 허용»(단 홍보·SEO 목적 북마크는 스팸 명문, 서브계정·상호북마크는 사이트 영구제재). 테크놀로지 카테고리 하한 4·중위 20(2026 실측, 3년새 문턱 6배 하락). 레인은 엔지니어링 기록 하나뿐 ★계정 게이트(대표 가입 대기) — 우회로 없음(북마크 자체가 로그인 필수)."
+  },
+  {
+   "id": "macrumors",
+   "tier": "A",
+   "enabled": true,
+   "note": "★2026-09-18 **대표 가입·이메일 확인 완료**. 프로필에 Website https://signumhq.com/app?from=macrumors 와 About(3앱 명시)을 넣었다 — 포럼 규칙상 «개발자로 등록된» 계정은 자기 앱 언급이 허용된다. iOS Apps 포럼의 «자기 앱 소개» 규칙을 읽고 첫 글을 올릴 것. 주의: 신규 계정의 즉시 홍보는 스팸으로 읽힌다 — 먼저 다른 스레드에 실질 답글 몇 개를 남긴 뒤 소개글.",
+   "account": "signumhq (contact@signumhq.com · Mac/iOS developer 체크 · 이메일 확인 완료)"
+  },
+  {
+   "id": "mybest_jp",
+   "tier": "A",
+   "enabled": false,
+   "note": "일본 앱의도 질의를 소유한 비교랭킹 매체. my-best.com/15770 「米国株アプリのおすすめ人気ランキング」에 楽天証券·SBI·松井·moomoo·ウィブル·マネックス 가 실려 있다. 페이지에 붙은 구글폼은 «기사 신고»용이고 게재 신청이 아니다. corp.my-best.com 루트는 404. 편집부가 직접 구매·테스트해 순위를 만드는 구조라 신청 경로가 공개돼 있지 않다 → 문의 필요(메일 발송은 대표 승인)"
+  },
+  {
+   "id": "apple_iap_events",
+   "tier": "A",
+   "enabled": false,
+   "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요"
+  },
+  {
+   "id": "hf_datasets",
+   "tier": "B",
+   "enabled": true,
+   "note": "★2026-09-18 **개인 계정으로 가입돼 있었다**(회사 계정 아님). 대표가 로그인해 두고 내가 관리한다. **GitHub 가입 경로는 없다**(대표 확인 — 내 오독 정정). ★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다",
+   "account": "eunhoon (myjr0629@gmail.com · 개인) — 2026-09-18 whoami 확인"
+  },
+  {
+   "id": "kr_media",
+   "tier": "A",
+   "enabled": false,
+   "note": "★무료. 한국 스타트업 매체 보도자료 — 벤처스퀘어가 FAQ에 「보도자료는 무상 게재를 원칙으로 합니다」를 명문화(editor@venturesquare.net, 접수→검수→게재). 플래텀도 무료(editor@platum.kr + 폼). 스타트업레시피 news@startuprecipe.co.kr. 게재되면 네이버·다음·줌 «뉴스 검색»에 노출된다 → SEO 채널과 직결. 앱스토리는 유료(150~300만원). 뉴스와이어 스타트업 무료지원은 «국내 법인» 한정이라 우리는 대상 아님. 메일 발송은 대표 승인"
+  },
+  {
+   "id": "play_custom_listings",
+   "tier": "A",
+   "enabled": false,
+   "note": "★무료·자격 게이트 없음. 구글플레이 «맞춤 스토어 등록정보» — 앱당 50개까지, 국가·사용자상태·광고캠페인에 더해 «Play 검색 키워드»로 타깃팅된다. 우리는 Play 미국에서 premarket earnings #2, 한국에서 서학개미 #2 라 이미 잡히는 검색어가 있다. LiveOps(프로모션 콘텐츠)와 달리 28일 활성 80만 요건이 «없다». 주의: 한 국가는 동시에 하나의 맞춤 등록정보만 받고, 저장≠제출이라 게시 개요에서 검토 제출까지 해야 한다"
+  },
+  {
+   "id": "apple_cpp",
+   "tier": "A",
+   "enabled": false,
+   "note": "★무료. App Store 맞춤 제품 페이지(CPP) + «키워드 할당». 2025-07-30 부터 CPP 가 광고뿐 아니라 «유기 검색 결과»에도 나온다 — 우리 100자 키워드 필드의 특정 단어를 지정 CPP 에 묶으면 그 검색에서 기본 페이지 대신 그 페이지가 뜬다. 2025-10-29 에 상한이 35→70개로 올랐다. 한 키워드는 하나의 CPP 에만 묶을 수 있다(중복하면 반려). CPP 마다 심사 필요(24~48h). ASC → App Store → 맞춤 제품 페이지 → 키워드 할당"
+  },
+  {
+   "id": "android_alt_stores",
+   "tier": "B",
+   "enabled": true,
+   "note": "★«설치»가 직접 발생하는 유일한 채널. **2026-09-17 실태 정정**: APKPure 3/3 제출(등재 확인 미실시) · Softonic 3/3 심사중(확인 미실시) · **Uptodown 은 «막힘»이 아니었다** — GitHub OAuth 로 비밀번호 없이 로그인되고 앱 2개가 이미 올라가 있다. UC·WIM 모두 REJECTED 이고 사유는 **소유권 확인**이다: 「submit a ticket to our support team ... attach a screenshot showing the app in your Google Play developer account」. 처방은 지원 티켓 1건 + Play 개발자 계정 스크린샷 → 내가 할 수 있다. SIGNUM 은 Uptodown 에 아예 없다. ego 의 setInputFiles 는 17MB APK 도 다룬다(내 10MB 상한은 file_upload 도구 한계였다)."
+  },
+  {
+   "id": "admob",
+   "tier": "-",
+   "enabled": true,
+   "note": "수익 채널(홍보 채널 아님). **개인 계정**이고 기본 authuser=0 은 «가입 페이지»로 튕긴다 → apps.admob.com/v2/...?authuser=1 로 접근(2026-09-17 실측). 금융 카테고리 차단은 규제가 아니라 브랜드·경쟁 이유이고 CPM 손실 가능성이 있어 p3(t141)"
+  },
+  {
+   "id": "google_dataset_search",
+   "tier": "A",
+   "enabled": false,
+   "note": "★무료·자격 게이트 없음. 구글 «데이터셋 검색»(datasetsearch.research.google.com)은 schema.org Dataset 구조화 데이터로 색인된다. 우리 티커 페이지 2,228×3로케일이 **이미 `@type: Dataset` 을 싣고 있다**(/en/flow/USO 실측: name·description·license·creator·url·isAccessibleForFree). 빠진 것은 구글이 «권장»하는 `distribution`(DataDownload + contentUrl + encodingFormat) 이라 «다운로드 없는 데이터셋»으로 취급된다. 한 템플릿 수정으로 6,768 URL 이 동시에 대상이 된다. 경쟁이 거의 없다 — 허깅페이스에서 «options flow» 검색 결과가 0건인 것과 같은 니치. 웹 코드 변경이라 승인 필요"
+  },
+  {
+   "id": "mastodon",
+   "tier": "A",
+   "enabled": false,
+   "note": "★블루스카이 승리 패턴의 «직접 복제». 2026-09-17 실측: 블루스카이는 글 한 편으로 18클릭(전 채널 1위)이고 레딧은 21일 60건 댓글로 5클릭이었다. 차이는 «구조»다 — 알고리즘 방송이 아니라 해시태그/연합 타임라인이 팔로워 0에게도 도달하고, 이미지와 링크가 «감점 없이» 붙는다. 마스토돈은 그 구조가 같다(ActivityPub·시간순·링크 무감점·이미지 4장). 우리 쪽 준비물은 이미 있다: 앱 카드 렌더 파이프라인 + 스마트링크. 500자 한도(블루스카이 300자보다 넉넉). 인스턴스는 mastodon.social(범용·최대) 또는 fosstodon.org(기술). 금융 전용 인스턴스는 규모가 작아 범용이 낫다. 계정 생성이 필요해 대표 가입 대기."
+  },
+  {
+   "id": "home",
+   "tier": "A",
+   "enabled": true,
+   "note": "★★★2026-09-17 발견: **21일 412클릭 = 전체의 52%, 최근 3일 55클릭으로 2위(블루스카이 18)의 3배.** 우리 최대 유입구인데 21일 내내 어떤 클릭 표에도 없었다 — 내가 태그 목록을 머리에서 적었기 때문이다. `/en`·`/ko`·`/ja` 홈의 앱 CTA 가 `?from=home` 을 쓴다. 페이지 1개(×3로케일)가 412클릭인데 티커 6,684페이지는 137클릭 — **페이지당 약 2만 배**. 외부 45채널을 도는 동안 정작 최대 전환구를 한 번도 손대지 않았다 → t168"
+  },
+  {
+   "id": "seo_darkpool",
+   "tier": "B",
+   "enabled": true,
+   "note": "2026-09-17 발견: `/dark-pool` 전용 태그. 21일 31클릭. 이것도 클릭 표에 없었다. 구글봇에 307(임시)로 응답하는 것도 같이 확인 필요."
+  },
+  {
+   "id": "galaxy_store",
+   "tier": "A",
+   "enabled": false,
+   "note": "★2026-09-17 **셀러 계정 생성 완료** — SIGNUM HQ, LLC · Corporate Seller · 미국 · Free Distribution Seller. **Developer API 도 살렸다**: 서비스 계정 `1367013a-4392-431c-85b5-172d86a0324d`(권한 Publishing & ITEM + GSS), 비밀키 `~/.galaxystore/service-account-private.pem`(RSA 2048, mode 600), 클라이언트 `scripts/galaxy_client.py`. accessToken 발급·`GET /seller/contentList`·`POST /seller/createUploadSessionId` 전부 실동작 확인.\n⛔**남은 게이트 하나**: 안드로이드 앱 «신규 등록»은 **Commercial Distribution Seller** 승격이 필요하다. 게이트 팝업(`checkAndroidAddNewPopup`) 원문: 「To sell Android content, a status change to corporate Commercial Distribution Seller is necessary. If you are not a corporate Commercial Distribution Seller, existing Android content will be discontinued and you will not be able to register Android content.」 **무료 앱이어도 예외가 없다.** 프로필의 `Request Commercial Seller Status` 로 신청한다. Content Publish API 에는 «신규 앱 생성» 엔드포인트가 없어 첫 등록은 포털을 거쳐야 한다(문서 확인).\n★2026-09-18 **Commercial 승격 신청 제출 완료** — `Type of Sales: Commercial Distribution Request in Progress`. **셀러 딥링크 `000000257823`** = 우리 3앱을 한 화면에 모아 보여주는 갤럭시 스토어 셀러 페이지 ID(마케팅 자산). 셀러 페이지가 아직 **백지**다 — Home URL·Help URL·Introduction·Profile/Banner/Background 이미지·Contact E-Mail 전부 비어 있다 → t181."
+  },
+  {
+   "id": "naver_blog",
+   "name": "네이버 블로그",
+   "tier": "A",
+   "enabled": true,
+   "tag": "naver_blog",
+   "link": "https://signumhq.com/app?from=naver_blog",
+   "action": "post",
+   "note": "★2026-09-18 14:0x 대표 승인: 기존 블로그 «인싸이트팟»(blog.naver.com/donneum) 사용. 첫 글 초안 drafts/naver-blog-01.md. 규칙: 하루 1편·링크 말미 1회·예측 금지·앱 화면 3장. ★2026-09-18 발굴(확장): 지식iN 계정에 블로그가 «이미» 있다 — blog.naver.com/donneum 「인싸이트팟」(kin.naver.com 헤더 «내 블로그» 클릭으로 확인, 주소 추측 아님). 대표의 기존 블로그일 수 있어 SIGNUM 글을 올려도 되는지 «대표 결정» 필요(t190). 되면 지식iN 답변→블로그 글(앱 화면)→스마트링크 깔때기가 열린다(지식iN 본문은 무링크 규칙). ★2026-09-18 대표 지시: **하루 3편**으로 올린다. 카테고리는 «여행»에서 옮길 것(첫 글이 잘못 들어가 있다). 글마다 앱 스크린샷 3장 + signumhq.com/app?from=naver_blog. 제목은 .se-title-text 를 클릭해야 한다(컨테이너 클릭 시 제목 오염).",
+   "cadence": "하루 3편 (대표 지시 2026-09-18)"
+  },
+  {
+   "id": "play_listing_experiments",
+   "name": "Play 스토어 등록정보 실험",
+   "tier": "A",
+   "enabled": false,
+   "tag": "play_exp",
+   "link": "https://signumhq.com/app?from=play_exp",
+   "action": "experiment",
+   "note": "★2026-09-18 발굴(확장): Play 콘솔 Store listing experiments — 기본 등록정보의 아이콘·스크린샷·짧은 설명을 A/B 로 시험(무료·빌드 불필요). 근거: KR 광고 탭 4~6/일에 설치 0 = 스토어 페이지 전환 문제(메모리 kr-ads-taps-convert-at-zero-page-not-keyword). 첫 실험 = SIGNUM KR 짧은 설명 «미국주식 앱» + 첫 스크린샷 교체. t191 ★정정(13:5x): 28일 방문 31명이라 실험 유의성 불가(내 기록 9/17). 직접 개선으로 전환·트래픽 100/일 전까지 비활성."
+  },
+  {
+   "id": "apple_ppo",
+   "name": "App Store 제품 페이지 최적화(PPO)",
+   "tier": "A",
+   "enabled": true,
+   "tag": "apple_ppo",
+   "link": "https://signumhq.com/app?from=apple_ppo",
+   "action": "experiment",
+   "note": "★2026-09-18 발굴(확장): ASC «Product Page Optimization» — 기본 제품 페이지의 아이콘·스크린샷·앱 미리보기를 최대 3개 처리군으로 A/B(무료·빌드 불필요·API 로 생성 가능: appStoreVersionExperimentsV2 + appStoreVersionExperimentTreatments). 첫 실험 = SIGNUM ko/ja 첫 스크린샷을 «프리마켓/실적» 장면으로. t194"
+  },
+  {
+   "id": "naver_search_advisor",
+   "name": "네이버 서치어드바이저",
+   "tier": "A",
+   "enabled": true,
+   "tag": "naver_sa",
+   "link": "https://signumhq.com/app?from=naver_sa",
+   "action": "register",
+   "note": "★2026-09-18 확장: 내 계획서(.agent/DIRECT_INFLOW_PLAN_2026-08-18.md §④)에 «가장 값싼 최대 카드»로 적어 두고 한 달 방치했던 것. 네이버 site: 색인 0건. 절차: ①이용약관 동의(첫 진입 대화상자 — 대표 1클릭, t195) ②사이트 등록 signumhq.com ③소유확인 meta 태그를 src/app/layout.tsx metadata.verification 에 추가·배포·curl 로 확인 ④사이트맵 제출(/sitemap.xml) ⑤수집 요청. 로그인은 지식iN 계정으로 이미 통과(auth/callback 까지 확인)."
+  },
+  {
+   "id": "daum_search",
+   "name": "Daum 검색등록",
+   "tier": "B",
+   "enabled": true,
+   "tag": "daum",
+   "link": "https://signumhq.com/app?from=daum",
+   "action": "register",
+   "note": "★2026-09-18 확장: 카카오/다음 검색에 사이트 등록(무료, 로그인 불필요, 결과는 이메일 통보). 네이버 서치어드바이저의 짝. 신규등록 → 사이트검색 → URL 확인 → 정보 입력(사이트명·소개·이메일 contact@signumhq.com·카테고리 경제) → 제출."
+  },
+  {
+   "id": "indexnow",
+   "name": "IndexNow 즉시 색인",
+   "tier": "A",
+   "enabled": true,
+   "tag": "seo",
+   "link": "https://www.signumhq.com/sitemap.xml",
+   "action": "submit",
+   "note": "★2026-09-18 등록: 키 파일 public/a23324ff…txt 라이브 200. 사이트맵 전량 제출 = Bing·Yandex·Seznam·Naver 동시 통보(구글 미참여 → GSC 담당). 09-18 6,768/6,768 HTTP 200."
+  },
+  {
+   "id": "llms_txt",
+   "name": "llms.txt (AI 검색)",
+   "tier": "A",
+   "enabled": true,
+   "tag": "llms",
+   "link": "https://www.signumhq.com/app?from=llms",
+   "action": "maintain",
+   "note": "★2026-09-18 등록·개선: 앱 설치 링크가 0개였다 → 3앱 스마트링크(?from=llms)와 «하지 않는 일» 명시 추가. 라이브 4,938B 검증."
+  }
+ ],
+ "candidates": [
+  {
+   "id": "github_awesome",
+   "name": "GitHub awesome-list",
+   "tier": "A",
+   "why": "awesome-quant 등 PR 등재 = 영구 백링크 + 개발자 청중. 백링크 병목 직격",
+   "status": "active",
+   "prs": [
+    "wilsonfreitas/awesome-quant#648 — Commercial & Proprietary Services (2026-09-11, 별 29.5K, 그들 CI validate 통과)",
+    "georgezouq/awesome-ai-in-finance#254 — Research Tools (2026-09-11, 별 6.5K)",
+    "jplock/awesome-fintech#128 — Capital Markets (2026-09-01)",
+    "Jera-Value/awesome-investing-tools-and-software-directory#40 (2026-09-01)"
+   ],
+   "rejected": [
+    "mr-karan/awesome-investing — 2026-05-15 아카이브(읽기전용). PR 불가",
+    "moov-io/awesome-fintech — Financial Data & APIs 가 오픈표준·라이브러리 위주라 앱은 부적합",
+    "paperswithbacktest/awesome-systematic-trading — 라이브러리 중심, 앱 항목 없음"
+   ],
+   "note": "4건 전부 open·mergeable·지적사항 0 (관리자 대기). ⚠️ 새 PR 전에 반드시 `author:myjr0629-hue type:pr` 로 중복 확인할 것 — 2026-09-11 에 jplock 중복을 만들 뻔했다."
+  },
+  {
+   "id": "devto",
+   "name": "Dev.to / Hashnode",
+   "tier": "A",
+   "why": "옵션 데이터 파이프라인 기술글. 개발자 검색 수요",
+   "status": "todo"
+  },
+  {
+   "id": "qiita_zenn",
+   "name": "Qiita / Zenn",
+   "tier": "A",
+   "why": "일본 개발자. note 와 다른 수요층",
+   "status": "todo"
+  },
+  {
+   "id": "jisiklin",
+   "name": "네이버 지식iN",
+   "tier": "A",
+   "why": "한국 검색 수요를 직접 받는다",
+   "status": "todo"
+  },
+  {
+   "id": "chiebukuro",
+   "name": "Yahoo!知恵袋",
+   "tier": "A",
+   "why": "일본 검색 수요",
+   "status": "todo"
+  },
+  {
+   "id": "minkabu",
+   "name": "みんかぶ / Yahoo!ファイナンス掲示板",
+   "tier": "C",
+   "why": "일본 개인투자자 밀집",
+   "status": "todo"
+  },
+  {
+   "id": "indiehackers",
+   "name": "Indie Hackers",
+   "tier": "A",
+   "why": "1인 개발 스토리. 디렉터리 목록에도 있음",
+   "status": "blocked",
+   "blocker": "계정 생성이 이메일+비밀번호 또는 Google 뿐이다 → 내가 못 한다. 대표 가입 필요 (DS 69 · 월 85만)"
+  },
+  {
+   "id": "youtube_shorts_upload",
+   "name": "YouTube Shorts 업로드(자동)",
+   "tier": "A",
+   "why": "실측상 «유일하게» 도달이 난 채널(KR 1.2만 조회). scripts/yt-upload.mjs 가 이미 있고 대표가 「업로드는 니가, 개시는 내가」로 지시했다",
+   "status": "blocked",
+   "blocker": "YT_CLIENT_ID / YT_CLIENT_SECRET / YT_KR_REFRESH_TOKEN 이 .env.local·.env.development.local·Vercel 어디에도 없다. 키만 있으면 즉시 자동화된다. out/ 영상은 8/11자라 재렌더 필요"
+  }
+ ],
+ "updated": "2026-09-18T13:56:29.506805Z"
 }
