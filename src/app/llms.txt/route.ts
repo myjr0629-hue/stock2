@@ -73,6 +73,25 @@ cannot tell you.
 
 ${CONCEPT_SLUGS.map((c) => `- [${c}](${base}/en/learn/${c})`).join('\n')}
 
+## Mobile apps (free, no account)
+
+The same data ships as free mobile apps — iOS and Android, no sign-up, no paywall,
+interface and AI summaries in English, Korean and Japanese.
+
+- [SIGNUM HQ](${base}/app?from=llms) — pre-market / regular / after-hours prices that
+  always state which session the percentage is measured against, this week's earnings
+  calendar split into before-open (BMO) and after-close (AMC), a daily post-close
+  summary of what moved and why, 10 sectors and 70 tickers on one screen alongside
+  index futures, oil, gold and bitcoin, plus options max pain, gamma exposure and
+  FINRA-derived off-exchange (dark pool) share per ticker.
+- [Undercurrent](${base}/app-uc?from=llms) — news paired with the money: options flow
+  and dark pool activity next to the story, with divergence when they disagree.
+- [Why'd It Move?](${base}/app-wim?from=llms) — a daily quiz that explains why a US
+  stock actually moved, built from the same measured data.
+
+These apps do not predict prices and do not tell anyone what to buy. When data is
+delayed or missing the screen says so.
+
 ## Products
 
 - [Undercurrent](${base}/en/undercurrent) — the money behind the news, 2–3 editions daily.
