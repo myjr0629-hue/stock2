@@ -129,6 +129,11 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
 
 .perf .chd{display:block;font-size:9.5px;color:var(--dim);margin-top:1px;line-height:1.3}
 .perf td:first-child{max-width:0;width:44%}
+
+.perf .rt{grid-column:1/-1;padding:8px 10px;margin:0 0 4px;border-radius:8px;font-size:11.5px;border:1px solid var(--line2)}
+.perf .rt.bad{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.35)}
+.perf .rt.ok{background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.35)}
+.perf .rt b{margin-right:8px;color:var(--tx)}
 </style></head><body>
 <header><div class="hrow">
   <h1>SIGNUM <span>관제·제어 콘솔</span></h1>
@@ -384,7 +389,21 @@ function perf(s){
   when.textContent = ads && ads.at ? new Date(ads.at).toLocaleString('ko-KR',{hour12:false}).slice(5,17) + ' 판독' : '미측정';
   host.className = 'perf';
   if (!ads && !cl) { host.innerHTML = '<div class="warn">아직 측정값이 없다 — node scripts/hud/collect.js 로 채운다.</div>'; return; }
-  let left = '<h4>애플 광고 · 오늘</h4>';
+  // ★ 별점 — 2026-09-19 실측으로 확정한 병목. 광고·클릭보다 위에 둔다.
+  const rt = m.ratings;
+  if (rt && rt.rows) {
+    const withStar = rt.rows.filter(function(r){ return r.rating; }).length;
+    host.insertAdjacentHTML; // no-op, 아래에서 통째로 그린다
+    var ratingBlock = '<div class="rt ' + (withStar ? 'ok' : 'bad') + '">'
+      + '<b>Play 별점</b> '
+      + rt.rows.map(function(r){
+          return esc(r.name.replace(/ HQ$/,'').replace(/^Why.d It Move\?$/,'WIM')) + ' '
+            + (r.rating ? '<span class="win">★' + esc(r.rating) + '</span>' : '<span class="zero">0</span>'); }).join(' · ')
+      + (withStar ? '' : ' — <span class="zero">세 앱 모두 0. 노출→열람 0.5% 의 고리가 안 풀렸다</span>')
+      + '</div>';
+  } else { var ratingBlock = '<div class="rt bad"><b>Play 별점</b> <span class="zero">미측정</span></div>'; }
+
+  let left = ratingBlock + '<h4>애플 광고 · 오늘</h4>';
   if (ads) {
     const per = ads.per || [];
     left += '<table><tr><th>캠페인</th><th class="n">지출</th><th class="n">탭</th><th class="n">설치</th><th class="n">CPA</th></tr>'

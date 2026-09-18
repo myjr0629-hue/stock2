@@ -58,6 +58,21 @@ if (af) {
                            per, isToday, at: out.at };
     } catch (e) { console.error('ads 실패:', e.message.slice(0, 60)); }
 }
+// ★ 별점 — 2026-09-19 실측으로 확정한 병목이다(노출 2,190 → 열람 11 → 설치 7, 별점 0).
+//   브라우저 없이 읽는다. 대표가 taskspace 를 잡으면 브라우저 검증이 통째로 멈추므로
+//   «가장 중요한 지표»를 그 의존에 묶지 않는다.
+if (has('--ratings') || !A.length) {
+    try {
+        const t = execSync('node scripts/check-store-ratings.js --json', { cwd: ROOT, encoding: 'utf8', timeout: 90000 });
+        const j = JSON.parse(t);
+        out.ratings = { at: j.at, rows: (j.rows || []).map((r) => ({ name: r.name, rating: r.rating, reviews: r.reviews, downloads: r.downloads, error: r.error || null })) };
+    } catch (e) {
+        // 종료코드 1(별점 0) 도 예외로 온다 — stdout 이 있으면 그걸 쓴다
+        const so = e && e.stdout ? String(e.stdout) : '';
+        try { const j = JSON.parse(so); out.ratings = { at: j.at, rows: j.rows.map((r) => ({ name: r.name, rating: r.rating, reviews: r.reviews, downloads: r.downloads, error: r.error || null })) }; }
+        catch { console.error('ratings 실패:', String(e.message).slice(0, 70)); }
+    }
+}
 const gate = val('--gate'); if (gate) out.gate = gate;
 fs.writeFileSync(OUT, JSON.stringify(out, null, 1));
 console.log('metrics.json 갱신:', Object.keys(out).filter((k) => k !== 'at').join(', '));
