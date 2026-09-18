@@ -100,7 +100,8 @@ export function getRedisStatus() {
 }
 
 // ?�?� EC2 Redis Proxy helpers ?�?�
-async function ecProxyGet<T>(key: string): Promise<T | null> {
+/** EC2 프록시 읽기 — `ok:true` 는 «프록시가 정상 응답했다»(값이 null 이어도)를 뜻한다. */
+async function ecProxyGetEx<T>(key: string): Promise<{ ok: boolean; value: T | null }> {
     try {
         const res = await fetch(`${EC2_PROXY_URL}/get?key=${encodeURIComponent(key)}`, {
             headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
@@ -112,17 +113,25 @@ async function ecProxyGet<T>(key: string): Promise<T | null> {
             signal: AbortSignal.timeout(6000),
             cache: 'no-store'
         });
-        if (!res.ok) return null;
+        if (!res.ok) {
+            // ★ 401/5xx 는 «미스»가 아니라 «프록시 이상»이다. 예전엔 null 로 돌려 미스처럼 보였고,
+            //   키가 틀린 배포에서도 모든 읽기가 조용히 Upstash 로 갔다. 쿨다운으로 넘긴다.
+            markEcProxyDown(`HTTP ${res.status}`);
+            return { ok: false, value: null };
+        }
         const data = await res.json();
         if (ecProxyAvailable === null) {
             ecProxyAvailable = true;
             console.log('[Redis] EC2 Proxy connected');
         }
-        return data.result as T;
+        return { ok: true, value: (data.result ?? null) as T | null };
     } catch (e: any) {
         markEcProxyDown(e.message);
-        return null;
+        return { ok: false, value: null };
     }
+}
+async function ecProxyGet<T>(key: string): Promise<T | null> {
+    return (await ecProxyGetEx<T>(key)).value;
 }
 
 async function ecProxySet<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
@@ -183,13 +192,75 @@ function isMojibake(value: unknown): boolean {
     } catch { return false; }
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ★ 2026-09-18 — Upstash «복제본» → «폴백 + 내구 저장소» (비용 감축, 동작 불변)
+//
+// 실측: 9월 Upstash 명령 1,903만(8월 369만의 5.2배)·대역폭 495GB·$47.
+//   · 쓰기 880만 = setInCache 가 모든 쓰기를 Upstash 에 «무조건» 복제한 것
+//   · 읽기 1,028만 = EC2 미스마다 Upstash 를 다시 읽은 것(적중률 46% — 없는 키 유료 조회)
+//   · 대역폭 = flow:ticker(257KB·비ASCII) 를 프록시가 깨뜨려 Upstash 사본으로 폴백한 것
+//     → 프록시 readBody 결함은 scripts/ec2-redis-proxy.js 에서 같은 날 수정·검증했다
+//
+// 정책(순수 함수, scripts/test-redis-policy.ts 가 고정한다):
+//   복제(Upstash 에도 쓴다) = TTL 없음(내구 데이터) | 장애-필수 접두사 | EC2 쓰기 실패
+//   lastgood 류는 EC2 엔 매번, Upstash 엔 «키당 N초에 한 번»만(인스턴스별 스로틀)
+//   폴백(EC2 가 «정상 응답으로 null» 인데도 Upstash 를 읽는다) = Upstash 전용 접두사 | 복제 접두사
+//   프록시가 죽었거나 쿨다운이면 → 예전과 똑같이 전부 Upstash
+// 실측 근거: Upstash 접두사 60개 중 EC2 에 없는 것은 cache:13f·push:tokens·guardian:gemini·
+//   reports:*·split:recent·cache:xs·flow-harvest:lock 뿐(2026-09-18 프로브). 그 외 전부 EC2 3/3.
+// ═══════════════════════════════════════════════════════════════════════════
+/** 장애 때 없으면 화면이 비거나 상태를 잃는 키 — Upstash 복제를 유지한다. */
+const REPLICATE_PREFIXES: readonly RegExp[] = [
+    /^trade:/, /^mkt:/, /^push:/, /^guardian:/, /^yahoo:/, /^vix:/, /^cnn:/,
+    /^market:movers:last_good/, /^structure:lastgood:/, /^intrinio:options:eod/,
+    /^intrinio:snap:lastgood:/, /^flow:ticker:lastgood:/,
+];
+/** Upstash 에만 존재하는 키(래퍼 밖 작성자) — EC2 미스여도 Upstash 를 읽는다. */
+const UPSTASH_ONLY_PREFIXES: readonly RegExp[] = [
+    /^cache:13f:/, /^push:/, /^reports:/, /^guardian:gemini/, /^split:/, /^cache:xs/, /^flow-harvest:/,
+];
+/** 크고 자주 쓰는 «마지막 정상값» — Upstash 복제를 키당 N초에 한 번으로 묶는다. */
+const THROTTLED_REPLICATE: readonly { re: RegExp; windowMs: number }[] = [
+    { re: /^flow:ticker:lastgood:/, windowMs: 5 * 60 * 1000 },   // 257KB — 대역폭의 주범
+    { re: /^intrinio:snap:lastgood:/, windowMs: 60 * 1000 },      // 호출마다 쓰이던 것
+];
+const _lastReplicated = new Map<string, number>();
+export type ReplicateDecision = 'replicate' | 'throttled' | 'skip';
+/** 순수 함수 — 테스트 가능. now 는 주입한다. */
+export function decideReplicate(key: string, ttlSeconds: number | undefined, ecOk: boolean, now = Date.now()): ReplicateDecision {
+    if (!ecOk) return 'replicate';                       // EC2 에 못 썼으면 예전처럼 Upstash 가 받는다
+    if (ttlSeconds === undefined) return 'replicate';    // 내구 데이터(킬스위치·토큰 등)
+    const th = THROTTLED_REPLICATE.find((t) => t.re.test(key));
+    if (th) {
+        const last = _lastReplicated.get(key);           // 기록 없음 = 첫 쓰기 → 복제(시계값에 기대지 않는다)
+        if (last !== undefined && now - last < th.windowMs) return 'throttled';
+        if (_lastReplicated.size > 5000) _lastReplicated.clear(); // 인스턴스 메모리 상한
+        _lastReplicated.set(key, now);
+        return 'replicate';
+    }
+    return REPLICATE_PREFIXES.some((r) => r.test(key)) ? 'replicate' : 'skip';
+}
+/** 순수 함수 — EC2 가 «정상 응답으로 null» 을 줬을 때 Upstash 를 읽을지. */
+export function shouldFallbackToUpstash(key: string, ecAuthoritative: boolean): boolean {
+    if (!ecAuthoritative) return true;                   // 프록시 죽음/쿨다운/오류 → 예전과 동일
+    return UPSTASH_ONLY_PREFIXES.some((r) => r.test(key)) || REPLICATE_PREFIXES.some((r) => r.test(key));
+}
+/** 테스트 전용 — 스로틀 상태 초기화 */
+export function _resetReplicateThrottle(): void { _lastReplicated.clear(); }
+
 export async function getFromCache<T>(key: string): Promise<T | null> {
     // Try EC2 Proxy first (ElastiCache via HTTP)
+    let ecAuthoritative = false;
     if (ecProxyUsable()) {
-        const result = await ecProxyGet<T>(key);
+        const r = await ecProxyGetEx<T>(key);
         // Skip a corrupted EC2 value (mojibake) and let Upstash serve the clean copy.
-        if (result !== null && !isMojibake(result)) return result;
+        if (r.ok && r.value !== null && !isMojibake(r.value)) return r.value;
+        // 정상 응답인데 null(진짜 미스) → 래퍼로만 쓰는 키는 Upstash 에도 없으므로 묻지 않는다.
+        // 깨진 값(mojibake)은 «비권위»로 두어 예전처럼 Upstash 사본을 시도한다.
+        ecAuthoritative = r.ok && r.value === null;
     }
+    if (ecAuthoritative && !shouldFallbackToUpstash(key, true)) return null;
 
     // Fallback to Upstash
     const upstash = getUpstashClient();
@@ -232,6 +303,17 @@ export async function mgetFromCache<T>(keys: string[]): Promise<(T | null)[]> {
                     if (ecProxyAvailable === null) {
                         ecProxyAvailable = true;
                         console.log('[Redis] EC2 Proxy connected (via mget)');
+                    }
+                    // Upstash 에만 있을 수 있는 키(cache:13f 등)의 미스만 골라 채운다.
+                    const need = keys.map((k, i) => (results[i] === null && shouldFallbackToUpstash(k, true) ? i : -1)).filter((i) => i >= 0);
+                    if (need.length) {
+                        const upstash = getUpstashClient();
+                        if (upstash) {
+                            try {
+                                const extra = await upstash.mget(...need.map((i) => keys[i]));
+                                need.forEach((i, j) => { if (extra[j] != null) results[i] = extra[j] as T; });
+                            } catch (e: any) { console.warn(`[Redis/Upstash] mget(fill) failed:`, e.message); }
+                        }
                     }
                     return results;
                 }
@@ -288,8 +370,9 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
         ecOk = await ecProxySet(key, value, effectiveTtl);
     }
 
-    // Write to Upstash (always, for fallback consistency)
-    const upstash = getUpstashClient();
+    // Upstash 복제는 정책이 정한다(내구 키·장애-필수 키·EC2 실패 시). 그 외는 EC2 만.
+    const decision = decideReplicate(key, ttlSeconds, ecOk);
+    const upstash = decision === 'replicate' ? getUpstashClient() : null;
     if (upstash) {
         try {
             if (effectiveTtl) {
