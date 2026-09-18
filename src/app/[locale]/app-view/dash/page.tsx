@@ -235,8 +235,19 @@ function sessionQuote(quote: any, fallbackSession?: string): { px: number; pct: 
   if (session !== 'pre' && session !== 'post') return reg;
   const extPx = Number(quote?.extendedPrice);
   const extPct = Number(quote?.extendedChangePercent);
-  if (!quote?.extendedLabel || !Number.isFinite(extPx) || extPx <= 0 || !Number.isFinite(extPct)) return reg;
-  return { px: extPx, pct: extPct, ext: true };
+  if (!quote?.extendedLabel || !Number.isFinite(extPx) || extPx <= 0) return reg;
+  // ⚠️ extendedChangePercent 를 그대로 믿지 않는다 (2026-09-18 실측).
+  //    서버가 캐시된 preChangePct 로 덮어쓰는 경로가 있는데, 그 캐시가 한 세션
+  //    밀리면 등락률만 어제 값이 된다. 실측: XLK API +2.18% vs 실제 -0.066%,
+  //    XLE +0.87% vs +0.163% (SPY·QQQ 는 캐시가 안 걸려 맞았다).
+  //    두 가격을 다 받으므로 «직접 계산»한다 — PRE 의 기준선은 직전 정규장 종가,
+  //    POST 의 기준선은 당일 종가이고 둘 다 quote.price 가 그 값이다.
+  //    서버 값은 계산이 불가능할 때만 쓴다.
+  const basis = reg.px;
+  const computed = basis > 0 ? ((extPx - basis) / basis) * 100 : NaN;
+  const pct = Number.isFinite(computed) ? computed : extPct;
+  if (!Number.isFinite(pct)) return reg;
+  return { px: extPx, pct, ext: true };
 }
 
 function parsePctText(value: string): number | null {
