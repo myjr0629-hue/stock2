@@ -2357,6 +2357,9 @@ export default function AppDashPage() {
               {label}
             </button>
           ))}
+          {/* 이 숫자가 «어느 장»의 것인지 탭 옆에서 바로 읽히게 한다(대표 지시 2026-09-18).
+              섹터 배지와 같은 값·같은 모양을 쓴다 — 화면마다 다른 말을 만들지 않는다. */}
+          <span suppressHydrationWarning className={n9.e9Badge}>{sectorSessionLabel}</span>
           {/* «전체 ›» 는 탭과 같은 줄 끝에 — 제목 줄에 있으면 탭과 동떨어져 보인다(대표 지적) */}
           <span className={`${n9.e9All} ${n9.e9TabAll}`} role="button" tabIndex={0}
                 onClick={() => router.push('/app-view/movers')}

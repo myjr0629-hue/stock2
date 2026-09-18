@@ -86,7 +86,14 @@ function MoversPageContent() {
   ), [data]);
 
   const { prices } = useRealtimeData(allTickers);
-  const equityWsActive = !marketStatus.isHoliday && marketStatus.market === 'open'
+  // ⚠️ 2026-09-18 대표 지적의 기전. 예전엔 `market === 'open'` 을 함께 요구했다.
+  //    그런데 /api/market/status 는 프리·애프터에 market 을 **'extended-hours'** 로 준다
+  //    (useMarketStatus 의 타입은 'open'|'closed' 라 컴파일러도 못 잡았다).
+  //    그래서 확장시간엔 소켓 값을 «한 번도» 쓰지 않고 전날 일봉을 그렸다 —
+  //    같은 시각 대시보드의 무버는 프리마켓 실시간을 보여 주고 있었다.
+  //    (대표 실측: 전체 페이지 SPY +1.13% $762.60 vs 대시보드 SPY -0.29% $760.36)
+  //    세션만으로 판정한다. 대시보드의 equityExtendedLive 와 «같은 규칙»이다.
+  const equityWsActive = !marketStatus.isHoliday
     && (marketStatus.session === 'pre' || marketStatus.session === 'regular' || marketStatus.session === 'post');
 
   // Session-accurate badge (mirrors the Intel screen): LIVE / PRE-MKT / POST-MKT / CLOSED.
@@ -232,7 +239,16 @@ function MoversPageContent() {
 
   const loc = (locale as 'ko' | 'en' | 'ja') || 'en';
   const activeItems = activeTab === 'value' ? data.value : activeTab === 'gainers' ? data.gainers : data.losers;
-  const activeTitle = activeTab === 'value' ? t.valueSec : activeTab === 'gainers' ? t.gainersSec : t.losersSec;
+  // ★ 2026-09-18 대표 지적: 프리마켓인데 「거래대금」이라고만 써서 «지금의 거래대금»으로 읽힌다.
+  //   실제로는 순위도 거래량도 «직전 정규장»의 것이다 — 이건 결함이 아니라 의도된 설계다.
+  //   확장시간 원자료(todaysChangePerc·day.c)가 오염돼 있어서, 전 종목 EOD 스냅샷의
+  //   «확정 정규장 종가»로 순위를 만든다(movers 라우트 상단 주석). 프리마켓 얇은 거래로
+  //   순위를 만들면 잡주가 상위를 점령한다 — ranking-universe-widening-breaks-thin-names.
+  //   그러니 순위는 그대로 두되 «어느 장의 숫자인지»를 말한다. 가격·등락률만 실시간으로 덮는다.
+  const rankIsPrevSession = marketStatus.session === 'pre';
+  const prevTag = ({ ko: '전일', en: 'Prev.', ja: '前日' } as Record<string, string>)[loc] || 'Prev.';
+  const withPrev = (label: string) => (rankIsPrevSession ? `${prevTag} ${label}` : label);
+  const activeTitle = withPrev(activeTab === 'value' ? t.valueSec : activeTab === 'gainers' ? t.gainersSec : t.losersSec);
 
   /* 행 — 히트맵 «오늘의 양 끝»(hmXR)과 같은 한 줄 문법으로 맞춘다(대표 지시).
      [순위][로고][티커][가격 · 지표][막대][등락률] — 4줄 스택을 한 줄로. */
@@ -251,9 +267,10 @@ function MoversPageContent() {
     const displayValue = item.value || displayVolume * item.price;
     const up = displayChangePercent >= 0;
     const chgText = `${up ? '+' : ''}${displayChangePercent.toFixed(2)}%`;
+    // 거래대금·거래량은 day.v 가 비면 prevDay.v 로 떨어진다 → 프리마켓엔 «전일» 수치다.
     const metric = activeTab === 'value'
-      ? `${t.val} ${fmtValue(displayValue)}`
-      : `${t.vol} ${fmtVolume(displayVolume)}`;
+      ? `${withPrev(t.val)} ${fmtValue(displayValue)}`
+      : `${withPrev(t.vol)} ${fmtVolume(displayVolume)}`;
 
     return (
       <a
