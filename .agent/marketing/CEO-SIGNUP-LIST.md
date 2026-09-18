@@ -18,6 +18,8 @@
 
 ## 1순위
 
+- [ ] **애플 광고 ↔ App Store Connect 계정 연결 1회** — Apple Ads → 캠페인 위 ▾ → 설정 → 계정 연결 (t198, 2분 · 이게 있어야 광고에 맞춤 제품 페이지를 붙입니다)
+
 - [ ] **Daum 검색등록 동의 2개 + 제출** — https://register.search.daum.net/searchForm.daum?act=insert (t197, 2분)
 
 - [ ] **네이버 서치어드바이저 소유확인 보안문자 1회** — https://searchadvisor.naver.com/console/board (사이트 등록·meta 태그 배포는 완료, 마지막 [소유확인] 버튼 뒤 보안문자만 대표님 몫 · t196)
