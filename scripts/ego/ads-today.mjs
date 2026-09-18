@@ -3,7 +3,14 @@
  * 출력: 캠페인별 지출·노출·탭·설치 + 한도 초과 경고. 예산·입찰은 절대 만지지 않는다(읽기 전용). */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const ts = await L.space(); if (!ts) { console.log('SPACE_BUSY — 대표가 브라우저를 쓰고 있다. 되찾지 않는다.'); process.exit(0); }
-const page = await L.findPage(ts, /app-ads\.apple\.com/, 'https://app-ads.apple.com/cm/app/23872040/report');
+const REPORT = 'https://app-ads.apple.com/cm/app/23872040/report';
+const page = await L.findPage(ts, /app-ads\.apple\.com/, REPORT);
+await L.wait(4000);
+// ★ 2026-09-18: 이전 사이클이 «키워드 관리» 화면에 탭을 두고 끝나면 findPage 가 그 탭을
+//   그대로 재사용해 합계를 못 읽었다(「지출 파싱 실패」). 캠페인 목록이 아니면 강제로 돌아간다.
+if (!/\/report(\?|$)/.test(await page.url())) {
+    await page.goto(REPORT, { waitUntil: 'domcontentloaded', timeout: 60000 });
+}
 await L.wait(9000);
 if (/idmsa\.apple\.com|signin/.test(await page.url())) { console.log('SESSION_EXPIRED — 대표 로그인 필요(t176). 오늘 수치 판독 불가.'); process.exit(0); }
 // 기간을 «오늘»로 고정한다(30일치와 섞어 읽던 사고 방지)
