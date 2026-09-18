@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIGNUM 관제 콘솔</title>
+<style>
+:root{
+  --bg:#0B0E14; --panel:#131823; --panel2:#0F141E; --line:#1F2633; --line2:#2A3346;
+  --tx:#E4E8F1; --mut:#8A93A6; --dim:#5C6479;
+  --accent:#F2A93B; --ok:#34D399; --warn:#FBBF24; --bad:#F87171; --info:#38BDF8;
+  --opus:#A78BFA; --fable:#F2A93B; --sonnet:#38BDF8; --haiku:#4ADE80; --other:#7C8598;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0B0E14 70%,rgba(11,14,20,.92));border-bottom:1px solid var(--line);padding:10px 16px}
+.hrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:14px;margin:0;letter-spacing:.3px;font-weight:650}
+h1 span{color:var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:3px 10px;font-size:11.5px;color:var(--mut)}
+.pill b{color:var(--tx);font-weight:600}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.dot.live{background:var(--ok);box-shadow:0 0 0 3px rgba(52,211,153,.15)}
+.dot.off{background:var(--bad)}
+.spacer{flex:1}
+button{font:inherit;color:var(--tx);background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:6px 12px;cursor:pointer;transition:.12s}
+button:hover{border-color:var(--dim)}
+button.on{background:rgba(248,113,113,.14);border-color:var(--bad);color:#FFD4D4}
+button.on.pub{background:rgba(251,191,36,.14);border-color:var(--warn);color:#FFE9B8}
+main{padding:14px 16px 40px;max-width:1680px;margin:0 auto}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+.tile .k{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+.tile .v{font-size:24px;font-weight:640;margin-top:3px;letter-spacing:-.4px}
+.tile .s{font-size:11px;color:var(--dim);margin-top:2px}
+.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;align-items:start}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+section>h2{margin:0;padding:10px 13px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--mut);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+section>h2 .tag{margin-left:auto;font-size:10.5px;color:var(--dim);text-transform:none;letter-spacing:0}
+.body{padding:11px 13px}
+.body.flush{padding:0}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:left;padding:6px 13px;border-bottom:1px solid rgba(31,38,51,.7)}
+th{font-size:10.5px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td.mono,.mono{font-family:var(--mono);font-size:11.5px}
+.scroll{max-height:340px;overflow:auto}
+.scroll::-webkit-scrollbar{width:8px}.scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
+.bar{height:7px;border-radius:4px;background:var(--line2);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.lane{display:grid;grid-template-columns:118px 1fr 86px;gap:9px;align-items:center;margin-bottom:9px}
+.lane .nm{font-size:11.5px;display:flex;align-items:center;gap:6px;color:var(--tx)}
+.chip{font-size:10px;padding:1px 7px;border-radius:999px;border:1px solid var(--line2);color:var(--mut)}
+.chip.ceo{border-color:rgba(242,169,59,.5);color:var(--accent);background:rgba(242,169,59,.09)}
+.chip.mkt{border-color:rgba(56,189,248,.4);color:var(--info);background:rgba(56,189,248,.08)}
+.ev{display:grid;grid-template-columns:52px 96px 1fr;gap:9px;padding:4px 13px;border-bottom:1px solid rgba(31,38,51,.55);font-size:11.5px;align-items:baseline}
+.ev:hover{background:rgba(255,255,255,.02)}
+.ev .ts{color:var(--dim);font-family:var(--mono);font-size:11px}
+.ev .nm{color:var(--tx);font-weight:560;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .cm{color:var(--mut);font-family:var(--mono);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev.pre .nm{color:var(--info)}.ev.post .nm{color:var(--mut)}.ev.stop .nm{color:var(--accent)}
+.ev.fail .nm{color:var(--bad)}.ev.ctrl{background:rgba(242,169,59,.06)}.ev.ctrl .nm{color:var(--accent)}
+.ev.sub .nm{color:var(--opus)}
+.spark{display:flex;align-items:flex-end;gap:2px;height:44px}
+.spark i{flex:1;background:linear-gradient(180deg,var(--info),rgba(56,189,248,.25));border-radius:2px 2px 0 0;min-height:2px}
+.note{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;color:var(--tx);font:inherit;padding:8px 10px;resize:vertical;min-height:58px}
+a{color:var(--info);text-decoration:none}a:hover{text-decoration:underline}
+.empty{color:var(--dim);font-size:12px;padding:10px 0}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid rgba(31,38,51,.5);font-size:12px}
+.kv:last-child{border-bottom:0}.kv b{font-weight:600}
+.warnbox{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);color:#FFE9B8;border-radius:8px;padding:8px 10px;font-size:11.5px;margin:0 13px 11px}
+</style></head><body>
+<header><div class="hrow">
+  <h1>SIGNUM <span>관제·제어 콘솔</span></h1>
+  <span class="pill"><i class="dot" id="d-live"></i><span id="t-live">연결 중</span></span>
+  <span class="pill">세션 <b id="t-msgs">–</b> 메시지</span>
+  <span class="pill">전사 <b id="t-scan">–</b></span>
+  <span class="pill">갱신 <b id="t-now">–</b></span>
+  <div class="spacer"></div>
+  <button id="b-pause">⏸ 일시정지</button>
+  <button id="b-pub" class="pub">⛔ 발행 금지</button>
+  <button id="b-reload">↻ 새로고침</button>
+</div></header>
+<main>
+  <div class="tiles" id="tiles"></div>
+  <div class="grid">
+    <div>
+      <section><h2>실시간 이벤트<span class="tag" id="ev-n"></span></h2><div class="body flush scroll" id="events"></div></section>
+      <section><h2>모델별 토큰 — 이 세션 전사 실측<span class="tag">추측 없음 · 전사 usage 합산</span></h2><div class="body" id="models"></div></section>
+      <section><h2>도구 호출 분포<span class="tag" id="tools-n"></span></h2><div class="body" id="tools"></div></section>
+    </div>
+    <div>
+      <section><h2>대표 결정 대기 · 티켓<span class="tag" id="tk-n"></span></h2><div class="body flush scroll" id="tickets"></div></section>
+      <section><h2>오늘 발행<span class="tag" id="pub-n"></span></h2><div class="body flush scroll" id="pubs"></div></section>
+      <section><h2>지표 — 클릭 · 광고 · Redis<span class="tag" id="met-age"></span></h2><div class="body" id="metrics"></div></section>
+      <section><h2>사이클 기록</h2><div class="body" id="cycles"></div></section>
+      <section><h2>커밋<span class="tag" id="git-b"></span></h2><div class="body flush scroll" id="git"></div></section>
+      <section><h2>대표 지시 — 다음 프롬프트에 주입</h2><div class="body">
+        <textarea class="note" id="note" placeholder="예) 오늘은 발행보다 서치어드바이저 마무리를 먼저. — 저장하면 다음 사이클 시작 시 내가 읽습니다."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px"><button id="b-note">저장</button><span class="pill" id="note-st">–</span></div>
+      </div></section>
+    </div>
+  </div>
+</main>
+<script>
+const $=(s)=>document.querySelector(s);
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nf=(n)=>n==null?'–':Intl.NumberFormat('ko-KR').format(Math.round(n));
+const kf=(n)=>n==null?'–':(n>=1e9?(n/1e9).toFixed(2)+'B':n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(Math.round(n)));
+const hm=(t)=>new Date(t).toLocaleTimeString('ko-KR',{hour12:false});
+const MC=(m)=>/opus/.test(m)?'var(--opus)':/fable/.test(m)?'var(--fable)':/sonnet/.test(m)?'var(--sonnet)':/haiku/.test(m)?'var(--haiku)':'var(--other)';
+const MN=(m)=>String(m).replace('claude-','').replace(/-\d{8}$/,'').replace('-5-1','-5.1');
+let S=null;
+
+function tiles(s){
+  const mk=s.marketing, tot=Object.values(s.usage.byModel||{}).reduce((a,b)=>a+b.output+b.cacheCreate,0);
+  const t=[
+    ['오늘 발행', mk.todayCount, mk.today+' (KST) · 원장 누적 '+mk.total],
+    ['대표 결정 대기', mk.ceoTickets, '전체 열린 티켓 '+mk.tickets.length],
+    ['채널', mk.channels.enabled+'/'+mk.channels.total, '가동 / 등록'],
+    ['출력+캐시생성 토큰', kf(tot), '이 세션 전사 합산'],
+    ['도구 호출', kf(Object.values(s.usage.tools||{}).reduce((a,b)=>a+b,0)), '전사 tool_use 합산'],
+    ['제어', (s.state.paused?'정지':'실행')+(s.state.noPublish?' · 발행금지':''), s.state.updatedAt?hm(s.state.updatedAt):'–'],
+    ['커밋', s.git.dirty+'개 변경', (s.git.head||'').split('\t')[0]||'–'],
+  ];
+  $('#tiles').innerHTML=t.map(([k,v,sub])=>`<div class="tile"><div class="k">${esc(k)}</div><div class="v num">${esc(v)}</div><div class="s">${esc(sub)}</div></div>`).join('');
+}
+function evClass(e){ const v=e.ev||''; if(v==='CONTROL')return 'ctrl'; if(/Failure/.test(v))return 'fail'; if(v==='PreToolUse')return 'pre'; if(v==='Stop')return 'stop'; if(/Subagent|Task/.test(v))return 'sub'; return 'post'; }
+function events(list){
+  $('#ev-n').textContent=list.length?('최근 '+list.length+'건'):'';
+  $('#events').innerHTML = list.length? list.map(e=>`<div class="ev ${evClass(e)}"><span class="ts">${hm(e.t)}</span><span class="nm">${esc(e.ev)}${e.tool?' · '+esc(e.tool):''}</span><span class="cm">${esc(e.err||e.cmd||'')}</span></div>`).join('')
+    : `<div class="empty" style="padding:12px 13px">아직 이벤트가 없습니다 — 훅이 붙으면 도구 호출이 여기에 실시간으로 흐릅니다.</div>`;
+}
+function models(s){
+  const bm=s.usage.byModel||{}; const keys=Object.keys(bm);
+  if(!keys.length){ $('#models').innerHTML='<div class="empty">전사 스캔 대기 중…</div>'; return; }
+  const rows=keys.map(k=>({k,...bm[k],w:bm[k].output+bm[k].cacheCreate})).sort((a,b)=>b.w-a.w);
+  const max=Math.max(...rows.map(r=>r.w))||1;
+  const cost=(s.otel&&s.otel.cost)||null;
+  $('#models').innerHTML = rows.map(r=>`<div class="lane">
+    <div class="nm"><i class="dot" style="background:${MC(r.k)}"></i>${esc(MN(r.k))}</div>
+    <div class="bar"><i style="width:${(r.w/max*100).toFixed(1)}%;background:${MC(r.k)}"></i></div>
+    <div class="num" style="text-align:right;font-size:11.5px">${kf(r.w)}</div>
+  </div>`).join('')
+  + `<table style="margin-top:6px"><tr><th>모델</th><th style="text-align:right">메시지</th><th style="text-align:right">출력</th><th style="text-align:right">사고</th><th style="text-align:right">캐시생성</th><th style="text-align:right">캐시읽기</th><th style="text-align:right">비용</th></tr>`
+  + rows.map(r=>`<tr><td><i class="dot" style="display:inline-block;background:${MC(r.k)}"></i> ${esc(MN(r.k))}</td><td class="num" style="text-align:right">${nf(r.msgs)}</td><td class="num" style="text-align:right">${kf(r.output)}</td><td class="num" style="text-align:right">${kf(r.thinking)}</td><td class="num" style="text-align:right">${kf(r.cacheCreate)}</td><td class="num" style="text-align:right">${kf(r.cacheRead)}</td><td class="num" style="text-align:right">${cost&&cost[r.k]!=null?('$'+Number(cost[r.k]).toFixed(2)):'<span style="color:var(--dim)">미설정</span>'}</td></tr>`).join('')
+  + `</table>`
+  + (cost? '' : `<div class="warnbox" style="margin:11px 0 0">비용 열은 텔레메트리가 켜진 세션에서만 채워집니다(추측하지 않습니다). 켜는 법: 세션 시작 전 <span class="mono">CLAUDE_CODE_ENABLE_TELEMETRY=1 OTEL_METRICS_EXPORTER=otlp OTEL_EXPORTER_OTLP_PROTOCOL=http/json OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:7788/otlp</span></div>`);
+  const hrs=Object.entries(s.usage.byHour||{}).sort().slice(-24);
+  if(hrs.length){ const mx=Math.max(...hrs.map(([,v])=>v.out+v.cacheCreate))||1;
+    $('#models').innerHTML += `<div style="margin-top:12px"><div class="k" style="font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">시간대별 부하(최근 24시간 · UTC)</div><div class="spark">${hrs.map(([h,v])=>`<i title="${h} · ${nf(v.out+v.cacheCreate)} tok · ${v.msgs}msg" style="height:${Math.max(3,(v.out+v.cacheCreate)/mx*44)}px"></i>`).join('')}</div></div>`; }
+}
+function tools(s){
+  const t=Object.entries(s.usage.tools||{}).sort((a,b)=>b[1]-a[1]).slice(0,12); const sum=Object.values(s.usage.tools||{}).reduce((a,b)=>a+b,0);
+  $('#tools-n').textContent=sum?('합계 '+nf(sum)):'';
+  if(!t.length){ $('#tools').innerHTML='<div class="empty">–</div>'; return; }
+  const max=t[0][1];
+  $('#tools').innerHTML=t.map(([k,v])=>`<div class="lane"><div class="nm mono">${esc(k)}</div><div class="bar"><i style="width:${(v/max*100).toFixed(1)}%;background:var(--info)"></i></div><div class="num" style="text-align:right;font-size:11.5px">${nf(v)}</div></div>`).join('');
+}
+function tickets(s){
+  const t=s.marketing.tickets.slice().sort((a,b)=>(a.type===b.type?0:a.type==='ceo'?-1:1)||(a.prio||9)-(b.prio||9));
+  $('#tk-n').textContent=t.length?('열림 '+t.length+'건'):'없음';
+  $('#tickets').innerHTML=t.length? `<table>${t.map(x=>`<tr><td style="width:56px"><span class="chip ${x.type==='ceo'?'ceo':'mkt'}">${esc(x.id)}</span></td><td>${esc(x.title)}</td></tr>`).join('')}</table>` : '<div class="empty" style="padding:12px 13px">열린 티켓 없음</div>';
+}
+function pubs(s){
+  const r=s.marketing.todayRows; $('#pub-n').textContent=r.length+'건 · '+s.marketing.today;
+  $('#pubs').innerHTML=r.length? `<table>${r.map(x=>`<tr><td style="width:150px" class="mono">${esc(x.ch)}</td><td>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noreferrer">${esc(String(x.url).replace(/^https?:\/\//,'').slice(0,58))}</a>`:'–'}</td></tr>`).join('')}</table>` : '<div class="empty" style="padding:12px 13px">오늘 발행 없음</div>';
+  const d=Object.entries(s.marketing.byDay); if(d.length){ const mx=Math.max(...d.map(([,v])=>v))||1;
+    $('#pubs').innerHTML += `<div style="padding:10px 13px 12px"><div style="font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">최근 14일 발행</div><div class="spark">${d.map(([k,v])=>`<i title="${k} · ${v}건" style="height:${Math.max(3,v/mx*44)}px;background:linear-gradient(180deg,var(--accent),rgba(242,169,59,.25))"></i>`).join('')}</div></div>`; }
+}
+function metrics(s){
+  const m=s.metrics;
+  if(!m){ $('#met-age').textContent='미측정'; $('#metrics').innerHTML=`<div class="empty">아직 수집 안 됨 — <span class="mono">node scripts/hud/collect.js</span> 를 사이클마다 돌리면 채워집니다.</div>`; return; }
+  const age=Math.round((Date.now()-new Date(m.at).getTime())/60000); $('#met-age').textContent=age+'분 전 측정';
+  const kv=[];
+  if(m.clicks){ kv.push(['스마트링크 클릭 21일', nf(m.clicks.total21)]); kv.push(['최근 3일', nf(m.clicks.total3)]); if(m.clicks.top) kv.push(['상위 채널', m.clicks.top.map(([k,v])=>k+' '+v).join(' · ')]); }
+  if(m.ads){ kv.push(['광고 오늘 지출', m.ads.spend||'–']); kv.push(['노출/탭/설치', [m.ads.impr,m.ads.taps,m.ads.installs].filter(Boolean).join(' / ')||'–']); }
+  if(m.redis){ kv.push(['Upstash INFO 누계(멤버 '+(m.redis.member||'?')+' · 청구값 아님)', nf(m.redis.writes)+' / '+nf(m.redis.reads)]); if(m.redis.rate) kv.push(['분당(같은 멤버 관찰창)', m.redis.rate]); }
+  if(m.gate) kv.push(['발행 게이트', m.gate]);
+  $('#metrics').innerHTML = kv.map(([k,v])=>`<div class="kv"><span style="color:var(--mut)">${esc(k)}</span><b class="num">${esc(v)}</b></div>`).join('') || '<div class="empty">–</div>';
+}
+function cycles(s){
+  const c=s.marketing.cycles;
+  $('#cycles').innerHTML=c.length? c.map(x=>`<div class="kv"><span>${esc(x.replace(/^사이클\s*/,'사이클 '))}</span></div>`).join('') : '<div class="empty">–</div>';
+}
+function git(s){
+  $('#git-b').textContent=s.git.branch||'';
+  $('#git').innerHTML=`<table>${(s.git.recent||[]).map(l=>{const [h,d,m]=l.split('\t');return `<tr><td class="mono" style="width:62px;color:var(--accent)">${esc(h)}</td><td class="mono" style="width:86px;color:var(--dim)">${esc(d)}</td><td>${esc(String(m||'').slice(0,72))}</td></tr>`;}).join('')}</table>`;
+}
+function paint(s){
+  S=s; tiles(s); events(s.events||[]); models(s); tools(s); tickets(s); pubs(s); metrics(s); cycles(s); git(s);
+  $('#t-msgs').textContent=nf(s.usage.msgs); $('#t-scan').textContent=s.usage.scanning?'스캔 중…':(s.usage.file?'동기':'없음');
+  $('#t-now').textContent=hm(s.now);
+  $('#b-pause').className=s.state.paused?'on':''; $('#b-pause').textContent=s.state.paused?'▶ 재개':'⏸ 일시정지';
+  $('#b-pub').className='pub'+(s.state.noPublish?' on':''); $('#b-pub').textContent=s.state.noPublish?'✅ 발행 허용':'⛔ 발행 금지';
+  if(document.activeElement!==$('#note')) $('#note').value=s.state.note||'';
+  $('#note-st').textContent=s.state.note?('지시 있음 · '+(s.state.updatedAt?hm(s.state.updatedAt):'')):'지시 없음';
+}
+async function refresh(){ try{ const r=await fetch('/api/snapshot',{cache:'no-store'}); paint(await r.json()); $('#d-live').className='dot live'; $('#t-live').textContent='연결됨'; }catch(e){ $('#d-live').className='dot off'; $('#t-live').textContent='서버 끊김'; } }
+async function control(patch){ try{ await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); await refresh(); }catch(e){} }
+$('#b-pause').onclick=()=>control({paused:!(S&&S.state.paused)});
+$('#b-pub').onclick=()=>control({noPublish:!(S&&S.state.noPublish)});
+$('#b-reload').onclick=refresh;
+$('#b-note').onclick=()=>control({note:$('#note').value});
+let es; function connect(){ try{ es=new EventSource('/api/stream');
+  es.addEventListener('hook',(m)=>{ try{ const e=JSON.parse(m.data); const cur=(S&&S.events)||[]; const list=[e,...cur].slice(0,120); if(S)S.events=list; events(list); $('#t-now').textContent=hm(Date.now()); }catch{} });
+  es.onopen=()=>{ $('#d-live').className='dot live'; $('#t-live').textContent='실시간'; };
+  es.onerror=()=>{ $('#d-live').className='dot off'; $('#t-live').textContent='재연결…'; };
+}catch(e){} }
+refresh(); connect(); setInterval(refresh,10000);
+</script></body></html>

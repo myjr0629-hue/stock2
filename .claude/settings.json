@@ -4,13 +4,24 @@
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "node scripts/hooks/pre-bash-guard.js",
-            "timeout": 180
-          }
+          { "type": "command", "command": "node scripts/hooks/pre-bash-guard.js", "timeout": 180 },
+          { "type": "command", "command": "node scripts/hooks/hud-hook.js", "timeout": 10 }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [ { "type": "command", "command": "node scripts/hooks/hud-hook.js", "timeout": 10 } ]
       }
-    ]
+    ],
+    "PostToolUse": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "PostToolUseFailure": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "Stop": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "SubagentStart": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "SubagentStop": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "TaskCompleted": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "Notification": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "SessionStart": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "PreCompact": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 3 } ] } ],
+    "UserPromptSubmit": [ { "matcher": ".*", "hooks": [ { "type": "http", "url": "http://127.0.0.1:7788/hook", "timeout": 5 } ] } ]
   }
 }

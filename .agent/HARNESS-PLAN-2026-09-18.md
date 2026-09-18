@@ -66,6 +66,23 @@
 - 화면: 상태판(사이클·채널·티켓·배포) · 실시간 이벤트 · 토큰/비용(모델·시간·사이클) · 워크플로(에이전트·모델·진행) · Redis/광고/클릭 지표.
 - 제어: 일시정지/재개(PreToolUse 거부, 실증) · 발행 금지 스위치 · 예산 상한(비용 초과 시 거부) · 모델 정책 편집(에이전트 정의 파일) · 사이클 지시 입력(UserPromptSubmit 주입) · 티켓 승인.
 
+## 6-A. 실행 결과 — 1·2단계 완료 (2026-09-18 16:3x~16:4x KST)
+
+| 산출물 | 경로 | 검증(실측) |
+|---|---|---|
+| 관제·제어 콘솔(서버) | `scripts/hud/server.js` | 기동 OK · 전사 23,537메시지 스캔(모델 opus-5·fable-5.1·opus-4.8) · 스냅샷 필드 16항 계약 통과 |
+| 콘솔 UI | `scripts/hud/index.html` | 브라우저 없이 기계 검증 22항 통과(JS 문법·참조 id 26개·9패널 렌더 길이 789~10,712B·KPI 7타일·모델표에 opus·지표 라벨) |
+| 훅 래퍼(fail-open) | `scripts/hooks/hud-hook.js` | **격리 4경우 통과**: 서버 down→허용 · up→허용 · 일시정지→차단(이유 표시) · 재개→허용. 지연 30ms/호출(1,263회/일 ≈ 38초) |
+| 감시 훅(http) | `.claude/settings.json` 11이벤트 | http 타입 실측 0.9~2ms · 서버 down 시 차단·노이즈 없음 |
+| 대표 지시 주입 | 콘솔 메모 → UserPromptSubmit | 서버 down→프롬프트 정상(PROMPT_OK) · 24시간 만료 · «참고 정보»로 주입(명령이 아님 — 모델이 안전하게 취급) |
+| 지표 수집기 | `scripts/hud/collect.js` | Redis INFO(멤버 표기·청구값 아님)·게이트·광고 실측 기록 |
+| 에이전트 5종 | `.claude/agents/` | frontmatter·모델 검증(reader/drafter=sonnet, verifier=opus, analyst=fable, classifier=haiku) |
+| 규칙 3종·스킬 3종 | `.claude/rules/`, `.claude/skills/` | 모델 정책·토큰 위생·검증 규약 / cycle·report·measure |
+| 상태판·헌법 | `.agent/STATE.md`, `CLAUDE.md` | CLAUDE.md +20줄(기존 11절 보존) |
+
+**정정**: 이전 보고의 «훅 0» 은 틀렸다 — `pre-bash-guard.js`(푸시 전 동기화·tsc 검사)가 이미 돌고 있었고, 그것을 보존한 채 옆에 붙였다.
+**알아 둘 것**: 훅 설정은 세션 시작 시 읽히므로 **이 세션에서는 이벤트가 안 흐르고 다음 세션부터 흐른다**. 단 «모델별 토큰·도구 호출·시간대 부하»는 전사 스캔이라 **지금도 실시간**이다.
+
 ## 6. 실행 순서·측정
 | 단계 | 산출물 | 측정 |
 |---|---|---|

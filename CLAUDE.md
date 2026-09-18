@@ -1,5 +1,8 @@
 # SIGNUM HQ — Claude Code Context
 
+> **세션 시작 시 이 순서로 읽는다**: `.agent/STATE.md`(지금 어디) → `.claude/rules/`(모델 정책·토큰 위생·검증 규약) → 이 문서(프로젝트 사실).
+> 관제·제어 콘솔: `bash scripts/hud/start.sh` → http://127.0.0.1:7788 (일시정지·발행금지·대표 지시 주입·모델별 토큰 실측)
+
 ## 프로젝트 개요
 - **SIGNUM HQ**: 옵션 플로우 / 주식 분석 플랫폼 (웹 + 모바일 앱)
 - **웹**: https://www.signumhq.com (Next.js 15, Vercel 배포)
@@ -79,3 +82,20 @@ npm run dev          # 개발 서버 (port 3000, --turbo)
 npx tsc --noEmit     # 타입 체크
 npm run build        # 프로덕션 빌드
 ```
+
+---
+
+## 하네스 (2026-09-18 구축 · 계획 `.agent/HARNESS-PLAN-2026-09-18.md`)
+
+| 층 | 파일 | 역할 |
+|---|---|---|
+| 상태판 | `.agent/STATE.md` | 지금 어디 — 세션 첫 읽기 |
+| 규칙 | `.claude/rules/model-policy.md` · `token-hygiene.md` · `verification.md` | 모델 선택·토큰 위생·검증 규약 |
+| 에이전트 | `.claude/agents/` reader(sonnet)·drafter(sonnet)·verifier(opus)·analyst(fable)·classifier(haiku) | 작업별 최적 모델 — 부르는 것이 곧 모델 선택 |
+| 스킬 | `.claude/skills/` cycle·report·measure | 사이클 절차·보고 양식·실측 절차 |
+| 훅 | `.claude/settings.json` + `scripts/hooks/` | ①푸시 가드(동기화·tsc) ②관제·제어(fail-open) |
+| 관제·제어 | `scripts/hud/` (server.js·index.html·collect.js) | 실시간 이벤트·모델별 토큰·발행·티켓·지표 + 일시정지/발행금지/지시 주입 |
+
+**모델 주력은 Opus 5**(실측: 같은 작업 정확 3/3·10.1초·Fable 의 절반 비용). 상위 모델이 필요 없는 일에 상위 모델을 쓰지 않는다 — 집계·검사는 스크립트(모델 0), 읽기·초안은 sonnet, 분류는 haiku+표본검증, 원인분석은 fable, 검증은 opus.
+**훅은 절대 fail-open** 이다: 콘솔이 꺼져 있어도 작업을 막지 않는다(격리 시험으로 검증 — 서버 down/up·정지/재개 4경우).
+
