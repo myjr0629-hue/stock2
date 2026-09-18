@@ -451,8 +451,13 @@
    "tag": "naver_blog",
    "link": "https://signumhq.com/app?from=naver_blog",
    "action": "post",
-   "note": "★2026-09-18 14:0x 대표 승인: 기존 블로그 «인싸이트팟»(blog.naver.com/donneum) 사용. 첫 글 초안 drafts/naver-blog-01.md. 규칙: 하루 1편·링크 말미 1회·예측 금지·앱 화면 3장. ★2026-09-18 발굴(확장): 지식iN 계정에 블로그가 «이미» 있다 — blog.naver.com/donneum 「인싸이트팟」(kin.naver.com 헤더 «내 블로그» 클릭으로 확인, 주소 추측 아님). 대표의 기존 블로그일 수 있어 SIGNUM 글을 올려도 되는지 «대표 결정» 필요(t190). 되면 지식iN 답변→블로그 글(앱 화면)→스마트링크 깔때기가 열린다(지식iN 본문은 무링크 규칙). ★2026-09-18 대표 지시: **하루 3편**으로 올린다. 카테고리는 «여행»에서 옮길 것(첫 글이 잘못 들어가 있다). 글마다 앱 스크린샷 3장 + signumhq.com/app?from=naver_blog. 제목은 .se-title-text 를 클릭해야 한다(컨테이너 클릭 시 제목 오염).",
-   "cadence": "하루 3편 (대표 지시 2026-09-18)"
+   "note": "★2026-09-18 14:0x 대표 승인: 기존 블로그 «인싸이트팟»(blog.naver.com/donneum) 사용. 첫 글 초안 drafts/naver-blog-01.md. 규칙: 하루 1편·링크 말미 1회·예측 금지·앱 화면 3장. ★2026-09-18 발굴(확장): 지식iN 계정에 블로그가 «이미» 있다 — blog.naver.com/donneum 「인싸이트팟」(kin.naver.com 헤더 «내 블로그» 클릭으로 확인, 주소 추측 아님). 대표의 기존 블로그일 수 있어 SIGNUM 글을 올려도 되는지 «대표 결정» 필요(t190). 되면 지식iN 답변→블로그 글(앱 화면)→스마트링크 깔때기가 열린다(지식iN 본문은 무링크 규칙). ★2026-09-18 대표 지시: **하루 3편 · 한국 낮시간에만**(KST 08·12·16시 전후). 한국 독자용 블로그이므로 한국 밤·새벽에 올리지 않는다 — 매시 :13 크론 기준 08:13·12:13·16:13 사이클이 담당. 카테고리는 «여행»에서 옮길 것(첫 글이 잘못 들어가 있다). 글마다 앱 스크린샷 3장 + signumhq.com/app?from=naver_blog. 제목은 .se-title-text 를 클릭해야 한다(컨테이너 클릭 시 제목 오염). 발행 버튼은 JS .click() 필요.",
+   "cadence": "하루 3편 · KST 08·12·16시 (대표 지시 2026-09-18)",
+   "windows": [
+    "08:13 KST",
+    "12:13 KST",
+    "16:13 KST"
+   ]
   },
   {
    "id": "play_listing_experiments",
@@ -587,5 +592,5 @@
    "blocker": "YT_CLIENT_ID / YT_CLIENT_SECRET / YT_KR_REFRESH_TOKEN 이 .env.local·.env.development.local·Vercel 어디에도 없다. 키만 있으면 즉시 자동화된다. out/ 영상은 8/11자라 재렌더 필요"
   }
  ],
- "updated": "2026-09-18T13:56:29.506805Z"
+ "updated": "2026-09-18T13:58:21.854628Z"
 }
