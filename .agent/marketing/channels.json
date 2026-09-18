@@ -117,7 +117,9 @@
       "followers": 0,
       "tag": "tiktok",
       "link": "https://signumhq.com/app?from=tiktok",
-      "action": "post"
+      "action": "post",
+      "enabled": false,
+      "note": "★2026-09-18 대표 지시 「틱톡은 일단 두기로」 + 로그인 세션이 개인계정 @daldalkelly(t187) → 게시 보류. 차단이 아니라 대표 결정."
     },
     {
       "id": "youtube",
@@ -295,7 +297,7 @@
       "id": "geeknews",
       "tier": "A",
       "enabled": true,
-      "note": "★2026-09-18 **대표 가입 완료** (signumhq). ★계정 필요. news.hada.io — 자작 앱은 반드시 «Show» 로만, 가입 7일 경과 후 링크 등록 가능, 프로젝트당 1회(반복시 배포채널 취급). 상위글 24~48점 규모",
+      "note": "★2026-09-18 **대표 가입 완료** (signumhq). ★계정 필요. news.hada.io — 자작 앱은 반드시 «Show» 로만, 가입 7일 경과 후 링크 등록 가능, 프로젝트당 1회(반복시 배포채널 취급). 상위글 24~48점 규모 ★해금 2026-09-25(가입 후 일주일). Show 글 초안 완성 상태 — 해금일 사이클에 등록.",
       "account": "signumhq"
     },
     {
@@ -353,7 +355,7 @@
       "id": "hatena_bookmark",
       "tier": "C",
       "enabled": false,
-      "note": "자기 사이트 자기 북마크는 «공식 허용»(단 홍보·SEO 목적 북마크는 스팸 명문, 서브계정·상호북마크는 사이트 영구제재). 테크놀로지 카테고리 하한 4·중위 20(2026 실측, 3년새 문턱 6배 하락). 레인은 엔지니어링 기록 하나뿐"
+      "note": "자기 사이트 자기 북마크는 «공식 허용»(단 홍보·SEO 목적 북마크는 스팸 명문, 서브계정·상호북마크는 사이트 영구제재). 테크놀로지 카테고리 하한 4·중위 20(2026 실측, 3년새 문턱 6배 하락). 레인은 엔지니어링 기록 하나뿐 ★계정 게이트(대표 가입 대기) — 우회로 없음(북마크 자체가 로그인 필수)."
     },
     {
       "id": "macrumors",
@@ -439,6 +441,16 @@
       "tier": "A",
       "enabled": false,
       "note": "★2026-09-17 **셀러 계정 생성 완료** — SIGNUM HQ, LLC · Corporate Seller · 미국 · Free Distribution Seller. **Developer API 도 살렸다**: 서비스 계정 `1367013a-4392-431c-85b5-172d86a0324d`(권한 Publishing & ITEM + GSS), 비밀키 `~/.galaxystore/service-account-private.pem`(RSA 2048, mode 600), 클라이언트 `scripts/galaxy_client.py`. accessToken 발급·`GET /seller/contentList`·`POST /seller/createUploadSessionId` 전부 실동작 확인.\n⛔**남은 게이트 하나**: 안드로이드 앱 «신규 등록»은 **Commercial Distribution Seller** 승격이 필요하다. 게이트 팝업(`checkAndroidAddNewPopup`) 원문: 「To sell Android content, a status change to corporate Commercial Distribution Seller is necessary. If you are not a corporate Commercial Distribution Seller, existing Android content will be discontinued and you will not be able to register Android content.」 **무료 앱이어도 예외가 없다.** 프로필의 `Request Commercial Seller Status` 로 신청한다. Content Publish API 에는 «신규 앱 생성» 엔드포인트가 없어 첫 등록은 포털을 거쳐야 한다(문서 확인).\n★2026-09-18 **Commercial 승격 신청 제출 완료** — `Type of Sales: Commercial Distribution Request in Progress`. **셀러 딥링크 `000000257823`** = 우리 3앱을 한 화면에 모아 보여주는 갤럭시 스토어 셀러 페이지 ID(마케팅 자산). 셀러 페이지가 아직 **백지**다 — Home URL·Help URL·Introduction·Profile/Banner/Background 이미지·Contact E-Mail 전부 비어 있다 → t181."
+    },
+    {
+      "id": "naver_blog",
+      "name": "네이버 블로그",
+      "tier": "A",
+      "enabled": false,
+      "tag": "naver_blog",
+      "link": "https://signumhq.com/app?from=naver_blog",
+      "action": "post",
+      "note": "★2026-09-18 발굴(확장): 지식iN 계정에 블로그가 «이미» 있다 — blog.naver.com/donneum 「인싸이트팟」(kin.naver.com 헤더 «내 블로그» 클릭으로 확인, 주소 추측 아님). 대표의 기존 블로그일 수 있어 SIGNUM 글을 올려도 되는지 «대표 결정» 필요(t190). 되면 지식iN 답변→블로그 글(앱 화면)→스마트링크 깔때기가 열린다(지식iN 본문은 무링크 규칙)."
     }
   ],
   "candidates": [
