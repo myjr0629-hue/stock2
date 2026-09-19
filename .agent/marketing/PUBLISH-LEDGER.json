@@ -1,6 +1,22 @@
 {
  "entries": [
   {
+   "ch": "reddit",
+   "url": "https://www.reddit.com/r/investing_discussion/comments/1wk7dfa/the_fed_raised_rates_but_tech_is_still_holding_up/pap5sr1/",
+   "note": "",
+   "at": "2026-09-19T03:01:24.402Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
+   "ch": "reddit",
+   "url": "https://www.reddit.com/r/Trading/comments/1wjyfsq/if_us_stocks_actually_move_toward_24hour_trading/pap43gc/",
+   "note": "",
+   "at": "2026-09-19T02:50:13.699Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
    "ch": "play_app_tags",
    "url": "https://play.google.com/store/apps/details?id=com.signumhq.app",
    "note": "SIGNUM 0→3개, UC 1→4개 태그 적용",

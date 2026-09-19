@@ -7945,7 +7945,8 @@ RUNBOOK 에 사이클 고정 한 줄로 넣었다.
 | 구역 | 결과 |
 |---|---|
 | **reddit 1/3** | ✅ r/thetagang 「Triple Witching effect on AMD $550 call」 — 핀 리스크·감마 메커니즘. [댓글](https://www.reddit.com/r/thetagang/comments/1wk4d9v/triple_witching_effect_on_amd_550_call_today/pap2hu9/) · 무링크·무앱명 확인 |
-| reddit 2·3 | ⏳ **레딧 자체 rate limit** 에 걸려 대기(내 8분 가드는 통과했는데 서버가 더 길게 잡는다) |
+| **reddit 2/3** | ✅ r/Trading 「If US stocks actually move toward 24-hour trading…」 — 옵션은 밤에 안 열린다는 청산·헤지 메커니즘 + «세션 라벨» 습관. [댓글](https://www.reddit.com/r/Trading/comments/1wjyfsq/if_us_stocks_actually_move_toward_24hour_trading/pap43gc/) |
+| **reddit 3/3** | ✅ r/investing_discussion 「The Fed Raised Rates — But Tech Is Still Holding Up」 — 지수가 아니라 «섹터»로 갈린다는 실측(SOX +2.78%·MU +3.92% vs 유틸/소재 -1.42%·VIX 14.81 -16.4%). [댓글](https://www.reddit.com/r/investing_discussion/comments/1wk7dfa/the_fed_raised_rates_but_tech_is_still_holding_up/pap5sr1/) · **rate limit 때문에 3번째는 백그라운드 sleep 으로 두 번 재시도해서 들어갔다** |
 | **play_app_tags** | 🆕 확장 — **발굴에서 끝내지 않고 실행까지** 했다 |
 | 실행 4 | tiktok·hatena·naver_search_advisor·daum_search 전부 기존 대표 게이트 |
 | 광고 | 세션 만료 지속 |
@@ -8000,3 +8001,11 @@ news→News & magazines · crypto→Cryptocurrency · educat→Education.
 - 레딧 오늘 2건 — r/thetagang(16분 경과)·r/Trading(6분 경과) **둘 다 살아 있음**, 삭제 0.
 - MacRumors 첫 스레드 — **살아 있고 스마트링크도 본문에 그대로**(모더 제거 없음). 신규 계정 첫 글이라 확인이 필요했다.
 - 네이버 블로그 오늘 — 08:00(엔비디아·허깅페이스)·12:00(어느 장 기준인지) **둘 다 발행됨**, 16:00(마이크론) 예약 대기. 총 229편.
+
+### 다음 사이클 Quora 순서 (이미 쓴 글 3편이 대기 중)
+초안함에 미발행 3건이 그대로 있다. **새 답을 쓰기 전에 이 순서로 비운다** — 하루 1편 상한이라 3사이클 분량이다.
+1. **What are the pros and cons of the max pain option theory?** — 우리 주제 정면, 본문 완성돼 있음
+2. **What is the best stock screener for finding meme stocks?** — 본문 완성돼 있음
+3. **What is dark pool trading, and how does it affect stock prices?** — **본문이 비어 있다**(제목만) → 새로 써야 함
+발행 절차: 초안 [Edit] → **본문 «가운데» 클릭으로 포커스** → 한 글자라도 바꿔 [Post] 활성화 → 게시 →
+`/answer/Jiyoung-Kim-236` 공개 URL 로 검증(§ 확인 전엔 «발행했다» 금지).
