@@ -588,6 +588,16 @@
       "link": "https://play.google.com/store/apps/details?id=com.signumhq.app",
       "action": "edit",
       "note": "★2026-09-19 확장 발굴·실행. 경로: 앱 → Grow users → Store presence → **Store settings** → Tags [Manage tags]. **즉시 반영이고 AI 신고 모달이 없다**(등록정보 저장과 다른 경로) — Play 에서 내가 심사 없이 건드릴 수 있는 몇 안 되는 칸. 태그는 «노출 위치»와 «비교 피어그룹»을 함께 바꾼다. 어휘는 고정 172개라 「stock」·「quiz」·「trivia」·「budget」은 **없다**; 우리 것은 fin→Finance/Personal finance, invest→Investment, aggregator→News aggregator, news→News & magazines, crypto→Cryptocurrency, educat→Education. 실측 적용: SIGNUM 0→**Finance/Investment/News aggregator**, UC 1→**Finance/Investment/News & magazines/News aggregator**, WIM 은 이미 5칸 만석(Finance/Investment/News & magazines/Study guide/Test preparation)이라 손대지 않음. 조작 요령: 모달의 검색칸은 `aria-label=\"Search tags\"`, 선택은 행 «왼쪽 30px»를 클릭, 확인은 「Selected tags: …」 문자열로 읽는다."
+    },
+    {
+      "id": "android_deep_links",
+      "name": "안드로이드 딥링크(웹→앱)",
+      "tier": "A",
+      "enabled": false,
+      "tag": "deeplink",
+      "link": "https://www.signumhq.com/.well-known/assetlinks.json",
+      "action": "config",
+      "note": "★2026-09-19 확장 발굴. Play Console → Deep links 실측: **「No web links found」 — 앱 매니페스트에 웹 링크가 하나도 없다.** 우리 1위 유입원이 자사 웹(home 412·seo 141 클릭)인데 그 트래픽이 앱으로 이어지는 길이 «전혀 없는» 상태다. 필요한 것은 두 쪽뿐: ①웹 `.well-known/assetlinks.json` — **2026-09-19 내가 배포함**(package com.signumhq.app, SHA-256 83:5E:A0:64:93:5C:E7:9B:38:84:33:EF:83:BA:00:E5:D6:FC:A0:38:5F:63:DC:4E:DD:17:76:71:7D:4C:3C:24, Play Console→App integrity→App signing 에서 복사) ②**안드로이드 매니페스트에 intent-filter + android:autoVerify=\"true\"** — 이건 앱 코드라 내 안전선 밖이다(대표/빌드 1회). 두 쪽이 맞물리면 안드로이드 크롬에서 signumhq.com 을 연 사용자가 앱으로 직행하고, 미설치자에겐 설치 경로가 뜬다. 검증은 같은 Deep links 화면에서 Status 를 본다."
     }
   ],
   "candidates": [

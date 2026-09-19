@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.signumhq.app",
+      "sha256_cert_fingerprints": [
+        "83:5E:A0:64:93:5C:E7:9B:38:84:33:EF:83:BA:00:E5:D6:FC:A0:38:5F:63:DC:4E:DD:17:76:71:7D:4C:3C:24"
+      ]
+    }
+  }
+]

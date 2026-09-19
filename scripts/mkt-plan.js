@@ -58,6 +58,7 @@ const CH = {
   tistory:     { cap: 1, day: 'kst', window: [8, 20], note: '★블로그 개설 대기(대표 1회). 다음 검색 전용 레인 — 네이버 블로그와 «같은 글» 금지, 제목·앵글을 달리한다' },
   apple_app_preview: { cap: 1, day: 'week', window: [0, 24], note: 'Remotion 으로 렌더 → appPreviewSets 업로드. 심사 대상이라 «버전과 함께» 나간다. en-US 한 편 검증 후 ko/ja 복제' },
   play_app_tags: { cap: 1, day: 'week', window: [0, 24], note: 'Store settings → Manage tags. 즉시·무심사. 어휘 고정 172개(stock·quiz 없음). 피어그룹도 같이 바뀌니 «약한 태그로 5칸 채우기» 금지' },
+  android_deep_links: { cap: 1, day: 'week', window: [0, 24], note: '★대표 1회(매니페스트 intent-filter + autoVerify). 웹쪽 assetlinks.json 은 배포 완료. Play Console→Deep links 의 Status 로 검증' },
   taaft:       { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요(t203). 디렉터리 등재는 «1회»다 — 무료 경로만, 유료 승급 금지. 등재문에 «AI가 무엇을 하는가»를 구체로: 프리마켓·섹터·매크로·기관수급을 읽어 매일 ko/en/ja 브리핑. 재등록·중복 제출 금지' },
   quora_en:    { cap: 1, day: 'utc', window: [0, 24], note: '§11-6 순수 가치·앱명 0~1회·데이터 화면 1장' },
   quora_jp:    { cap: 1, day: 'utc', window: [0, 24], note: '피드가 마르면 억지 발행 금지' },
