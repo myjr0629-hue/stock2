@@ -1,6 +1,22 @@
 {
  "entries": [
   {
+   "ch": "naver_blog",
+   "url": "https://blog.naver.com/donneum/224417388186",
+   "note": "",
+   "at": "2026-09-19T17:04:09.422Z",
+   "kst": "2026-09-20",
+   "utc": "2026-09-19"
+  },
+  {
+   "ch": "rss_feed",
+   "url": "https://www.signumhq.com/ko/feed.xml",
+   "note": "네이버 RSS 제출 완료(대표가 보안문자 입력) 01:06",
+   "at": "2026-09-19T16:11:23.018Z",
+   "kst": "2026-09-20",
+   "utc": "2026-09-19"
+  },
+  {
    "ch": "x_jp",
    "url": "https://x.com/signumhq_jp/status/2101335920884711789",
    "note": "링크를 본문에 포함(교정 적용)",
