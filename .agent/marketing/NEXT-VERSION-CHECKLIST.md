@@ -93,3 +93,48 @@ UC·WIM 에는 그 그물이 없다. 특히 **UC 는 5회째 기사 열람**이�
 3. 12로케일 전부 채운다 — 비워 두면 애플이 영어를 그대로 보여 준다.
 4. 도구는 이미 있다: `scripts/asc-promo-text.py` 와 같은 모양으로 `appStoreVersionLocalizations` 를 PATCH 하면 된다
    (**편집 가능 상태의 버전에서만** — 라이브는 409).
+
+---
+
+### ★★★ 즉시. 스마트링크가 «봇 프리뷰 HTML»을 사람에게 캐시로 내주고 있다 (2026-09-20 실측·재현)
+
+**이건 다음 빌드가 아니라 «웹 배포 한 줄»이다. 지금 안드로이드 설치를 실제로 깨고 있다.**
+
+**증상(재현됨)**
+`src/app/app/route.ts` 의 미리보기-봇 분기가 `cache-control: public, max-age=600` 을 달고 HTML 을 돌려주는데
+응답의 `Vary` 에 **`User-Agent` 가 없다**. 그래서 Vercel CDN 이 그 HTML 을 **URL 단위로** 캐시하고,
+**링크 미리보기 봇이 한 번 긁은 뒤 10분 동안 «사람»이 같은 URL 을 눌러도 302 대신 그 HTML 을 받는다.**
+
+```
+$ curl -A "<안드로이드 크롬 UA>" https://www.signumhq.com/app?from=okky -D -
+HTTP/2 200 · age: 97 · cache-control: public, max-age=600 · x-vercel-cache: HIT
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch   ← User-Agent 없음
+```
+
+**왜 치명적인가 — 안드로이드가 애플 스토어로 간다**
+그 HTML 의 탈출구는 `<meta http-equiv="refresh" content="0;url=…">` 하나인데 **항상 `APP_STORE_URL`(애플)** 이다.
+```
+http-equiv="refresh" content="0;url=https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444"
+```
+→ 캐시에 걸린 **안드로이드 사용자는 apps.apple.com 으로 보내진다. 설치할 수 없다.**
+→ Play install referrer 도 사라지고, `recordHit` 이 봇 분기에서 안 불리므로 **그 클릭은 집계도 안 된다.**
+
+**언제 터지나**: 우리가 링크를 올릴 때마다다. 카카오톡·슬랙·디스코드·블루스카이·X 미리보기 봇이 게시 즉시 긁고,
+게시 직후 10분이 바로 사람 클릭이 가장 몰리는 구간이다.
+2026-09-20 06:4x 관측: `home` · `bluesky` · `okky` · `naver_blog` 이 동시에 `x-vercel-cache: HIT`(age 95~98s) 였다.
+⚠️ 정직하게: 그중 일부는 **내가 이번 점검에서 카카오톡 UA 로 긁어 만든 것**이다. 다만 메커니즘은 동일하고,
+실제 게시 때마다 남의 봇이 똑같이 만든다. (그래서 앞으로 라이브 태그를 봇 UA 로 긁지 않는다.)
+
+**고칠 것 (택1, 한 줄)**
+1. 봇 분기 헤더를 `'cache-control': 'private, no-store'` 로 — 가장 안전하다. 미리보기 봇은 매번 새로 받으면 된다.
+2. 또는 `'vary': 'User-Agent'` 를 같이 보낸다(캐시는 유지하되 UA 별로 분리).
+3. 덤으로: `previewHtml` 의 meta refresh 를 **UA 에 따라** Play/App Store 로 나눠 준다(캐시를 고쳐도 남는 안전망).
+
+**같이 고칠 것 — UC·WIM 은 미리보기 카드가 «아예 없다»**
+`src/app/app-uc/route.ts` · `src/app/app-wim/route.ts` 에는 `PREVIEW_BOT_RE`/`previewHtml` 분기가 **0개**다.
+→ 두 앱 스마트링크를 어디에 공유해도 **카드가 안 뜬다**(봇이 302 를 받고 끝). `/app` 과 같은 분기를 넣는다.
+
+**언어**: `previewLang` 이 한국어를 고르는 조건이 `/_kr$|^x_kr$|_ko$/` 뿐이라
+`naver_blog`·`okky`·`naver_kin`·`daum_search`·`tistory` 가 전부 **영문 카드**를 받는다(일본어도 `qiita`·`zenn`·`hatena_bookmark` 누락).
+한국어·일본어 카드 이미지와 카피는 **이미 있다**(`/promo/card-app-ko.png` 200). 태그 목록만 추가하면 된다.
+**그전까지의 임시 우회(코드 수정 없음)**: 링크에 `&l=ko` / `&l=ja` 를 붙인다 — 실측으로 한국어 카드가 뜬다.

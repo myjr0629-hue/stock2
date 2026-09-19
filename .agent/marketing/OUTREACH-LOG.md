@@ -8804,3 +8804,61 @@ tiktok(대표 지시 보류) · hatena_bookmark(미로그인 확인 완료, 우�
   나는 그때마다 «대표 게이트»로만 적었다. **반복은 도구를 보라는 신호다.**
 - 지표는 «3일»과 «21일»을 같이 본다. 21일만 보면 죽은 채널(quora 57)이 살아 있어 보이고,
   막 살아난 채널(bluesky)이 작아 보인다.
+
+---
+
+## 2026-09-20 06:3x KST 사이클 — ★스마트링크가 «안드로이드 사용자를 애플 스토어로» 보내고 있었다
+
+크론 생존 · 게이트 341건 0실패 · 브라우저 4사이클째 대표 사용 중(되찾지 않음).
+클릭 실측(캐시 갱신): home 62 / **bluesky 44** / seo 11 / okky 11 / note 9 (3일). quora 3일 1(사실상 사망) 그대로.
+
+### 1) ★★★ 발견 — 봇용 프리뷰 HTML 이 CDN 캐시를 타고 «사람»에게 간다
+
+스마트링크 리디렉션이 제대로 도는지 curl 로 훑다가 **같은 URL 이 조금 전엔 302, 지금은 200** 인 것을 봤다.
+헤더까지 읽으니 구조적 결함이었다.
+
+```
+curl -A "<Android Chrome UA>" https://www.signumhq.com/app?from=okky -D -
+HTTP/2 200 · age: 97 · cache-control: public, max-age=600 · x-vercel-cache: HIT
+vary: rsc, next-router-state-tree, next-router-prefetch, …     ← User-Agent 가 없다
+```
+
+- `src/app/app/route.ts` 의 **미리보기-봇 분기**가 HTML 을 `public, max-age=600` 으로 돌려주는데 `Vary: User-Agent` 가 없다.
+- Vercel CDN 은 URL 단위로 캐시한다 → **봇이 한 번 긁으면 10분 동안 사람도 302 대신 그 HTML 을 받는다.**
+- 그 HTML 의 탈출구는 `<meta http-equiv="refresh">` 하나인데 **항상 `APP_STORE_URL`(애플)** 이다.
+  → **안드로이드 사용자가 apps.apple.com 으로 보내진다. 설치할 수 없다.**
+  → Play install referrer 소실 · 봇 분기는 `recordHit` 을 안 타므로 **그 클릭은 집계도 안 된다**(= 우리 클릭 수는 «하한»).
+
+**언제 터지나**: 우리가 링크를 올릴 때마다. 카카오톡·슬랙·디스코드·블루스카이·X 봇이 게시 즉시 긁고,
+**게시 직후 10분이 사람 클릭이 가장 몰리는 구간**이다.
+06:4x 관측: `home`·`bluesky`·`okky`·`naver_blog` 이 동시에 `x-vercel-cache: HIT`(age 95~98s).
+⚠️ **정직하게**: 그중 일부는 이번 점검에서 내가 카카오톡 UA 로 긁어 만든 것이다. 메커니즘은 같고 실제 게시 때 남의 봇이 똑같이 만든다.
+→ **규칙 추가: 라이브 태그를 봇 UA 로 긁지 않는다. 확인은 `from=zz_probe1` 같은 일회용 태그로**(실제로 이 태그는 정상 302 를 냈다).
+
+**고치는 법은 한 줄** — 봇 분기 헤더를 `private, no-store` 로(또는 `Vary: User-Agent`). 덤으로 meta refresh 를 UA 별로 분기.
+**앱·웹 코드 무수정이 안전선이라 내가 고치지 않았다.** 대표 목록 **1순위**로 올렸다(결정대기 8건).
+
+### 2) 같이 나온 것 두 가지
+
+- **UC·WIM 스마트링크는 미리보기 카드가 «아예 없다»** — `app-uc/route.ts`·`app-wim/route.ts` 에
+  `PREVIEW_BOT_RE`/`previewHtml` 분기가 **0개**다. 두 앱 링크는 어디에 공유해도 카드가 안 뜬다.
+- **한국·일본 채널이 전부 «영문 카드»를 받는다** — `previewLang` 의 한국어 조건이 `/_kr$|^x_kr$|_ko$/` 뿐이라
+  `naver_blog`·`okky`·`naver_kin`·`daum_search`·`tistory` 가 하나도 안 걸린다(일본도 `qiita`·`zenn`·`hatena_bookmark` 누락).
+  **카드 이미지·카피는 이미 있다**(`/promo/card-app-ko.png` 200).
+  → **코드 수정 없이 오늘부터 되는 우회**: 링크에 **`&l=ko` / `&l=ja`** 를 붙인다(실측: 한국어 제목·한국어 카드 확인).
+  `channels.json` 의 한국·일본 채널 **13곳에 링크와 규칙을 박아 넣었다**.
+  대표 지시 「한글 글에 영어 이미지 금지」가 이 표면에도 그대로 적용된다.
+
+### 3) 애플 쪽 귀속 현황(같이 확인)
+
+- 안드로이드는 `referrer=utm_source=<채널>…` 이 정상으로 붙는다(3앱 × 3태그 전수 확인).
+- **iOS 는 `from=home` 에만 `ppid` 가 붙고 나머지는 «무귀속»** 이다. ASC API 로 확인: 앱당 CPP 가 **1개**(`web home`)뿐이고
+  35개까지 만들 수 있다. 기존 CPP 는 en-US·ja·ko 3로케일 + iPhone 6.5" 스크린샷 1세트로 **APPROVED**(즉 심사를 탄다).
+  `ct=` 캠페인 토큰은 코드가 «발급 전이라 일부러 안 붙인다»고 명시 — 그 판단을 확인하려면 브라우저/분석 API 가 필요하다.
+  → 채널별 iOS 귀속을 원하면 **앱당 «소셜» CPP 1개**(기존 스크린샷 재사용)가 최소 비용이다. 티켓으로 남긴다.
+
+### 4) 개선사항
+
+- **리디렉션 점검은 상태코드만 보지 말고 `-D -` 로 `x-vercel-cache`·`age`·`vary` 까지 읽는다.**
+  이번에 `%{http_code}` 만 봤으면 「200? 이상하네」로 끝났을 것이다.
+- **UA 로 분기하는 모든 라우트는 캐시 가능성을 같이 설계해야 한다** — 사례가 아니라 «종류»다.

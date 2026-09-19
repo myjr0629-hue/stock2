@@ -1305,3 +1305,49 @@ https://itunes.apple.com/lookup?id=<앱ID>&country=<us|kr|jp>
 - 따라서 레버는 **편수**다. 하루 1편(안전선)을 «빠뜨리지 않는 것»이 이 채널의 성장 전략 전부다.
 - 남은 의심: 일반 UA 스크레이퍼는 여전히 걸러지지 않는다([[our-click-counter-counts-bots-too]]).
   설치로 확정하려면 Play 설치 리퍼러(`from=bluesky`)를 Play 콘솔 획득 보고서에서 봐야 한다 — 브라우저 필요.
+
+---
+
+## §50 스마트링크가 «봇용 HTML»을 사람에게 캐시로 내준다 — 안드로이드가 애플로 간다 (2026-09-20 실측)
+
+리디렉션이 도는지 curl 로 확인하다가, **같은 URL 이 조금 전엔 302 였는데 지금은 200** 인 것을 봤다. 재현해 보니 구조적 결함이다.
+
+`src/app/app/route.ts` 의 미리보기-봇 분기는 HTML 을 `cache-control: public, max-age=600` 으로 돌려주는데
+응답 `Vary` 에 **`User-Agent` 가 없다**. Vercel CDN 은 URL 단위로 캐시한다 →
+**미리보기 봇이 한 번 긁으면 그 뒤 10분 동안 «사람»도 302 대신 그 HTML 을 받는다.**
+
+```
+curl -A "<Android Chrome UA>" .../app?from=okky -D -
+HTTP/2 200 · age 97 · cache-control: public, max-age=600 · x-vercel-cache: HIT
+vary: rsc, next-router-state-tree, …            ← User-Agent 없음
+```
+
+**치명적인 이유**: 그 HTML 의 유일한 탈출구인 `<meta http-equiv="refresh">` 가 **항상 애플 스토어**다.
+→ 캐시에 걸린 **안드로이드 사용자는 apps.apple.com 으로 보내져 설치를 못 한다.**
+→ Play install referrer 소실 · 봇 분기에서 `recordHit` 을 안 타므로 **그 클릭은 집계도 안 된다.**
+
+**언제 터지나**: 우리가 링크를 올릴 때마다. 카카오톡·슬랙·디스코드·블루스카이·X 봇이 게시 즉시 긁고,
+게시 직후 10분이 사람 클릭이 가장 몰리는 구간이다.
+
+**규칙**
+1. **리디렉션은 «상태코드와 캐시 헤더»까지 본다.** `-o /dev/null -w "%{http_code} %{redirect_url}"` 만으로는
+   200 을 «리디렉션 없음»으로만 읽고 원인을 못 본다. `-D -` 로 `x-vercel-cache`·`age`·`vary` 를 같이 읽는다.
+2. **봇에게 주는 응답은 캐시 가능하게 만들지 않는다**(`private, no-store`) 또는 **`Vary: User-Agent`** 를 반드시 붙인다.
+   UA 로 분기하는 모든 라우트에 해당한다 — 이건 «종류»다.
+3. **라이브 태그를 봇 UA 로 긁지 않는다.** 점검 자체가 캐시를 오염시킨다. 확인은 `from=zz_probe1` 같은 «일회용 태그»로.
+4. 고치기 전까지 **안드로이드 유입이 있는 채널의 클릭 수는 «하한»으로 읽는다**(봇 분기 클릭은 집계 밖).
+
+### 50-b. 한국어·일본어 공유 카드가 영문으로 뜬다 — `&l=ko` / `&l=ja` 를 붙인다
+
+`previewLang` 이 한국어를 고르는 조건은 `/_kr$|^x_kr$|_ko$/` 뿐이다. 우리 한국 채널
+(`naver_blog`·`naver_kin`·`okky`·`daum_search`·`tistory`…)은 **하나도 안 걸린다** → 전부 영문 카드다.
+일본도 `qiita`·`zenn`·`hatena_bookmark` 가 빠져 있다. **카드 이미지와 카피는 이미 있다**(`/promo/card-app-ko.png` 200).
+
+**코드 수정 없이 지금 되는 길**: 링크에 **`&l=ko`(또는 `&l=ja`)** 를 붙인다 — 실측으로 한국어 제목·한국어 카드가 뜬다.
+`channels.json` 의 한국·일본 채널 13곳에 이 규칙과 링크를 박아 넣었다.
+대표 지시 「한글 글에 영어 이미지 금지」가 여기에도 그대로 적용된다.
+
+### 50-c. UC·WIM 스마트링크는 미리보기 카드가 «아예 없다»
+
+`src/app/app-uc/route.ts` · `app-wim/route.ts` 에 `PREVIEW_BOT_RE`/`previewHtml` 분기가 **0개**다 →
+두 앱 링크는 어디에 공유해도 카드가 안 뜬다. `/app` 과 같은 분기를 넣는 것이 티켓에 있다.
