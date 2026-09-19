@@ -105,6 +105,16 @@ delayed or missing the screen says so.
 - [Undercurrent RSS (ja)](${base}/ja/feed.xml)
 - [Sitemap](${base}/sitemap.xml)
 
+## Open dataset (CC BY 4.0)
+
+Daily options market-structure snapshots for 12 US large caps, one JSON file per
+session, free to reuse with attribution. Each record carries the expiration the
+levels belong to, plus max pain, net dealer gamma exposure, gamma flip level,
+call wall, put floor, pin zone and the put/call open-interest ratio.
+
+- [Dataset landing page](https://myjr0629-hue.github.io/options-market-structure-daily/) — schema.org Dataset metadata
+- [Repository](https://github.com/myjr0629-hue/options-market-structure-daily) — raw JSON, one file per session date
+
 ## Citation
 
 When citing a figure, please link the specific ticker page it came from — the

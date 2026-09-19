@@ -623,11 +623,11 @@
       "id": "rss_feed",
       "name": "사이트 RSS 피드",
       "tier": "B",
-      "enabled": false,
+      "enabled": true,
       "tag": "rss",
-      "link": "https://www.signumhq.com/rss",
+      "link": "https://www.signumhq.com/en/feed.xml",
       "action": "config",
-      "note": "★2026-09-19 확장 발굴 — **오늘 네이버 소유확인을 끝내고 나서야 드러난 빈칸이다.** 서치어드바이저 「요청」에는 사이트맵 제출과 **RSS 제출**이 나란히 있는데, 우리는 **피드가 없어서 절반만 썼다**. 실측: `/rss` 와 `/feed` 는 307 로 `/en/rss` 에 보내는데 **그 대상이 404** 다(깨진 리다이렉트). `/rss.xml`·`/feed.xml`·`/ko/rss.xml`·`/api/rss` 전부 404. 필요한 것: `src/app/[locale]/rss.xml/route.ts` 류의 피드 라우트 하나(티커 페이지 말고 «글»이 도는 곳 — 뉴스 다이제스트/브리핑). ★앱·웹 코드라 내 안전선 밖 → 대표/개발 1회. 생기면 ①네이버 RSS 제출 ②피드리더·AI 크롤러 ③IndexNow 와 별개의 능동 통보 경로가 한 번에 열린다. 덧: 깨진 리다이렉트 자체도 SEO 에 나쁘다(크롤러가 404 를 받는다)."
+      "note": "★2026-09-19 **정정.** 직전 사이클에 「피드가 없다」고 적었는데 **틀렸다.** 피드는 **2026-08-22에 내가 직접 만들었고**(커밋 420ee2ec) 지금도 살아 있다 — `/en/feed.xml` 200(10,013B) · `/ko/feed.xml` 200(9,792B) · `/ja/feed.xml` 200(10,203B). 내가 틀린 이유: **짐작한 경로만 찔러 봤다**(`/rss` `/feed` `/rss.xml` `/feed.xml` `/ko/rss.xml`). 실제 경로는 `src/app/[locale]/feed.xml` 이라 **로케일이 앞에 붙는다.** 저장소와 내 커밋 메시지에 답이 있었다. 실제로 깨진 것은 **`/rss`·`/feed` 리다이렉트의 «대상»뿐**이다 — 307 로 `/en/rss` 에 보내는데 그 주소가 404. 대상이 `/en/feed.xml` 이어야 맞다(웹 코드라 내 안전선 밖 → 대표/개발 1회, 우선순위 낮음). ★할 일: **네이버 서치어드바이저 「요청 → RSS 제출」에 `https://www.signumhq.com/ko/feed.xml` 을 넣는다** — 코드 없이 지금 가능하고 브라우저만 있으면 된다."
     }
   ],
   "candidates": [
