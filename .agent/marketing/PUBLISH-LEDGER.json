@@ -1,6 +1,14 @@
 {
  "entries": [
   {
+   "ch": "llms_txt",
+   "url": "https://www.signumhq.com/llms.txt",
+   "note": "공개 데이터셋 섹션 추가 · 4938→5517B",
+   "at": "2026-09-19T07:41:39.054Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
    "ch": "indexnow",
    "url": "https://www.signumhq.com/sitemap.xml",
    "note": "6768/6768 접수 200",
