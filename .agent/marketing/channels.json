@@ -377,6 +377,17 @@
       "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요 ★2026-09-19 실측 3건. ①3앱 모두 이벤트 **APPROVED** 상태이고 일정은 동일하다 — publishStart **2026-09-24**(카드 노출 시작) · eventStart 2026-09-28 · eventEnd 2026-10-23 · **174개국**. 즉 아직 안 보인다. ②**SIGNUM 이벤트의 deepLink 에 `?from=` 태그가 없다**(`https://www.signumhq.com/app`). UC·WIM 은 `?from=iap_event_uc`·`iap_event_wim` 로 제대로 붙어 있다. ③**고칠 수 없다** — `PATCH /appEvents/{id}` 가 409 `STATE_ERROR.UPDATE_APP_EVENT_LIMITED_UPDATE_ALLOWED`: 「Only updates to 'territorySchedules' and 'priority' are permitted in current event state」. ★그러므로 **딥링크의 `?from=` 는 «생성 시점»에 반드시 넣는다. 승인 후엔 잠긴다.** 이번 건은 되돌리면 재심사 위험(발행 4일 전)이 커서 그대로 둔다 — 대신 **09-24 전후의 from=home 클릭 단차**로 기여도를 읽는다."
     },
     {
+      "id": "play_promotional_content",
+      "name": "Play 프로모션 콘텐츠(구 LiveOps)",
+      "tier": "B",
+      "enabled": false,
+      "tag": "play_promo",
+      "link": "https://signumhq.com/app?from=play_promo",
+      "action": "store_surface",
+      "note": "★2026-09-20 확장 «발굴(티켓)» — 아직 콘솔에서 존재 여부를 확인하지 못했다(대표가 작업공간 사용 중이라 브라우저 불가). 근거: 애플 «인앱 이벤트»(apple_iap_events)가 빌드·심사 없이 도는 무료 스토어 표면인데 Play 쪽 대응물(프로모션 콘텐츠/LiveOps)을 우리가 한 번도 안 봤다. 되면 Play 스토어 «이벤트·혜택» 면과 등록정보에 카드가 붙는다 — 설치 직전 표면이라 가치가 높다. ⚠️ 자격 요건(설치 수·정책 준수)이 있을 수 있어 «있다»고 단정하지 않는다. 첫 행동은 발행이 아니라 «확인»: Play Console → 앱 → Grow users → Store presence 하위에 Promotional content/LiveOps 항목이 있는지 눈으로 본다(주소 직타 금지). 없으면 그 자리에서 enabled:false 로 닫고 이유를 적는다 — Play Developer page 때처럼.",
+      "cadence": "확인 1회 → 있으면 주 1건"
+    },
+    {
       "id": "hf_datasets",
       "tier": "B",
       "enabled": true,
