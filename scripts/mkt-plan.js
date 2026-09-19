@@ -36,6 +36,7 @@ const CH = {
   indexnow:    { cap: 1, day: 'week', window: [0, 24], note: '★계정·게이트 없음. `node scripts/indexnow-submit.js` — sitemap 전량을 Bing·Yandex·Seznam·Naver 에 즉시 통보. 2026-08 에 만들어 1,800건만 쓰고 한 달 방치 → 09-18 6,768건 전량 200. 새 페이지가 늘면 다시 돌린다' },
   llms_txt:    { cap: 1, day: 'week', window: [0, 24], note: '★AI 검색(ChatGPT·Perplexity·Claude)이 읽는 표면. src/app/llms.txt/route.ts. 09-18 앱 섹션·?from=llms 3개 추가(그전 0개). 앱 사실이 바뀌면 갱신하고 IndexNow 로 통보' },
   naver_blog:  { cap: 1, day: 'kst', window: [0, 24], note: '★대표 승인 완료(2026-09-18) — 발행 중. blog.naver.com/donneum «인싸이트팟». 하루 1편(전역 안전선). ★2026-09-20 실측: 색인은 되는데 «자기 제목으로도» 30위 밖 = 권위 문제 → 제목은 «얇은 문»(상위30 제목 적합 0~3건) 질의를 맨 앞에 그대로. 카테고리 투자(주제 비즈니스·경제 자동). 평문 URL 은 링크가 아니다 — 빈 줄 URL+Enter 로 OG 카드. 발행 후 curl 로 <a href> 확인. 에디터에서 Meta+a 금지' },
+  android_install_banner: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 발행 채널이 아니라 «1회 설정»이다. public/manifest.json 에 related_applications + prefer_related_applications 를 넣는 웹 자산 변경(대표 승인 필요). 붙기 전까지 할 일은 «확인» 하나: curl https://www.signumhq.com/manifest.json 에 두 키가 있는지. 붙은 뒤엔 Play 획득 보고서로 효과를 잰다' },
   apple_whats_new: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 빌드 게이트다. 라이브 버전에서 PATCH 하면 409 STATE_ERROR(2026-09-20 실측). 다시 시도하지 말 것. 편집 가능한 버전이 생기는 «그 사이클»에만 12로케일을 채운다(규칙은 NEXT-VERSION-CHECKLIST)' },
   play_promotional_content: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 아직 «있는지»도 확인 못 했다. 첫 행동은 발행이 아니라 확인: Play Console → 앱 → Grow users → Store presence 아래에 Promotional content(구 LiveOps) 항목이 있는가. 있으면 cap 1 로 올리고 애플 인앱이벤트와 같은 리듬으로 운영, 없으면 enabled:false 로 닫고 이유를 적는다(Play Developer page 처럼). 주소 직타 금지 — 눌러서 간다' },
   naver_topic_feed: { cap: 0, day: 'week', window: [0, 24], note: '★발행하지 않는다 — 네이버 블로그 글이 그대로 흘러드는 «피드»다(section.blog.naver.com/ThemePost.naver?directoryNo=33 비즈니스·경제). 행동은 주 1회 «노출 확인» 하나: directoryNo=33 에서 donneum 링크가 보이는지 재고 OUTREACH-LOG 에 적는다. 보이면 naver_blog 제목·주제 선택이 듣는 것이고, 안 보이면 피드가 선별형이라는 뜻이다. 비용 0' },
@@ -176,7 +177,8 @@ if (cmd === 'slot') {
     for (const [t, n] of top) {
       const v = c[ALIAS[t] || t];
       const room = v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음';
-      console.log('   ★ ' + t.padEnd(16) + '3일 ' + String(n).padStart(3) + '클릭 · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
+      const cm = (cc.contam || {})[t] || 0;
+      console.log('   ★ ' + t.padEnd(16) + '3일 ' + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
     }
     if (ageH > 6) console.log('   ⚠ 클릭 캐시가 ' + Math.round(ageH) + '시간 전 것이다 → `node scripts/mkt-clicks.js` 를 먼저 돌려라');
     console.log('');

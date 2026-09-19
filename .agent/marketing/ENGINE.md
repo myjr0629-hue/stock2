@@ -1351,3 +1351,28 @@ vary: rsc, next-router-state-tree, …            ← User-Agent 없음
 
 `src/app/app-uc/route.ts` · `app-wim/route.ts` 에 `PREVIEW_BOT_RE`/`previewHtml` 분기가 **0개**다 →
 두 앱 링크는 어디에 공유해도 카드가 안 뜬다. `/app` 과 같은 분기를 넣는 것이 티켓에 있다.
+
+---
+
+## §51 내 점검이 지표를 만든다 — 실채널 태그로 스마트링크를 부르지 않는다 (2026-09-20)
+
+07:3x 에 클릭을 다시 재니 **bluesky 44→50, okky 11→21, note 9→16** 으로 올라 있었다.
+한 시간 만에 오른 이유는 하나였다 — **직전 사이클에 내가 §50 을 찾느라 `/app?from=<실채널>` 을 사람 UA 로 반복 호출했다.**
+봇 UA 는 `recordHit` 을 안 타지만 **사람 UA 는 탄다.** 증가분(bluesky +6·okky +10·note +7·seo +1·x_us +1)이
+내가 보낸 요청 수와 **정확히** 일치했다.
+
+**규칙**
+1. **스마트링크 점검은 반드시 «일회용 태그»로.** `?from=zz_probe1` 처럼 채널에 없는 태그를 쓴다.
+   (봇 UA 도 금지 — 그건 CDN 캐시를 오염시킨다, §50-3.)
+2. **오염을 없앤 척하지 않는다. 적어 둔다.** `.agent/marketing/clicks-contamination.json` 에
+   «날짜·태그·건수·이유»를 남기고, `mkt-clicks.js` 가 그걸 빼서 **「내점검」·「실3일」 두 칸을 같이** 찍는다.
+   운영 카운터를 «되돌리려고» 쓰지 않는다 — 기록으로 푼다.
+3. `mkt-plan.js slot` 의 «키우기» 레인은 **뺀 값(실3일)** 으로 채널을 고른다.
+4. 일반화: **관측이 대상을 바꾸는 도구는 전부 이 모양이다.** 클릭 카운터·조회수·설치 리퍼러가 그렇다.
+   내가 만든 값은 «측정값»이 아니다([[our-click-counter-counts-bots-too]]).
+
+### 51-b. 라이브 iOS 버전에서 바꿀 수 있는 건 `promotionalText` 하나뿐 (실측 완결)
+
+같은 무해 PATCH 탐침으로 `description` 도 재 봤다 → **409 `STATE_ERROR`**.
+`whatsNew`·`marketingUrl`·`supportUrl`·`appPreviewSets` 와 같다.
+→ **라이브 버전에서 유일하게 열려 있는 카피 자리는 `promotionalText`(170자)뿐이다.** 다른 필드는 시도하지 않는다.

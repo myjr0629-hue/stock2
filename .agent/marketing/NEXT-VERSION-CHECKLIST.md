@@ -13,6 +13,7 @@
 | 앱 미리보기(`appPreviewSets`) | ❌ 409 | `ENTITY_ERROR.ATTRIBUTE.INVALID.INVALID_STATE` |
 | 인앱이벤트 `deepLink` | ❌ 409(승인 후) | `territorySchedules`·`priority` 만 허용 |
 | **릴리스 노트 `whatsNew`** | **❌ 409** | 2026-09-20 실측: `STATE_ERROR — Attribute 'whatsNew' cannot be edited at this time` |
+| **`description`(설명 본문)** | **❌ 409** | 2026-09-20 실측: 같은 `STATE_ERROR`. → **라이브 iOS 버전에서 바꿀 수 있는 것은 `promotionalText` «하나뿐»이다** |
 | 이름·부제·키워드 | ❌ 빌드 필요 | 기존 기록 |
 
 ## 체크리스트
@@ -138,3 +139,29 @@ http-equiv="refresh" content="0;url=https://apps.apple.com/app/signum-hq-stock-m
 `naver_blog`·`okky`·`naver_kin`·`daum_search`·`tistory` 가 전부 **영문 카드**를 받는다(일본어도 `qiita`·`zenn`·`hatena_bookmark` 누락).
 한국어·일본어 카드 이미지와 카피는 **이미 있다**(`/promo/card-app-ko.png` 200). 태그 목록만 추가하면 된다.
 **그전까지의 임시 우회(코드 수정 없음)**: 링크에 `&l=ko` / `&l=ja` 를 붙인다 — 실측으로 한국어 카드가 뜬다.
+
+
+---
+
+### 안드로이드에는 «설치 배너»가 없다 — manifest 두 줄 (2026-09-20 실측)
+
+우리 유입 1위는 자사 웹이다(`from=home` 21일 **407클릭**). iOS 는 이미 스마트 앱 배너가 붙어 있다:
+`/ko`·`/ja`·`/en` 모두 `<meta name="apple-itunes-app" content="app-id=6783130444">`.
+
+**안드로이드 대응물이 없다.** 라이브 `manifest.json`(200)의 키 13개에
+`related_applications` 도 `prefer_related_applications` 도 **둘 다 없다.**
+
+- 안드로이드 방문자에게 **「Play 앱 설치」 네이티브 프롬프트가 안 뜬다.**
+- 크롬이 대신 **PWA 설치**를 권할 수 있다 — PWA 설치는 Play 설치가 아니라 **우리 지표에도, 평점에도 안 잡힌다.**
+- 안드로이드가 약한 쪽(Play 별점 0)이라는 증상과 방향이 맞는다.
+
+**고칠 것**(`public/manifest.json`):
+```json
+"related_applications": [
+  { "platform": "play", "id": "com.signumhq.app",
+    "url": "https://play.google.com/store/apps/details?id=com.signumhq.app" }
+],
+"prefer_related_applications": true
+```
+**선행 조건**: 위 §「스마트링크 봇 HTML 캐시」를 **먼저** 고친다. 안 고치면 배너로 늘어난 안드로이드 유입이
+캐시된 프리뷰를 만나 **애플 스토어로 샌다.**

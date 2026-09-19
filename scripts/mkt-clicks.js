@@ -78,11 +78,33 @@ async function liveTags() {
     return { t, d3: v.slice(0, 3).reduce((a, b) => a + b, 0), all: v.reduce((a, b) => a + b, 0), head: v.slice(0, 3) };
   });
 
+  // ★2026-09-20 — 내가 점검하며 만든 클릭을 빼고 «실사용자 추정»을 같이 찍는다.
+  //   실제로 2026-09-19(ET) 에 스마트링크 점검으로 bluesky+6·okky+10·note+7 를 내가 만들었고,
+  //   그걸 모르면 「블루스카이가 또 올랐다」로 오독한다. 추측으로 빼지 않는다 — 보낸 요청 수만 적는다.
+  let CONTAM = {};
+  try {
+    const cf = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-contamination.json'), 'utf8'));
+    for (const e of cf.entries || []) {
+      if (!dates.includes(e.et)) continue;
+      const recent = dates.slice(0, 3).includes(e.et);
+      for (const [t, n] of Object.entries(e.hits || {})) {
+        CONTAM[t] = CONTAM[t] || { d3: 0, all: 0 };
+        if (recent) CONTAM[t].d3 += n;
+        CONTAM[t].all += n;
+      }
+    }
+  } catch { /* 파일 없으면 그냥 원값 */ }
+
   const live2 = rows.filter((r) => r.all).sort((a, b) => b.d3 - a.d3 || b.all - a.all);
-  console.log(`채널             3일   오늘/어제/그제      ${days}일`);
+  const anyC = Object.keys(CONTAM).length > 0;
+  console.log(`채널             3일   오늘/어제/그제      ${days}일` + (anyC ? '   내점검   실3일' : ''));
   for (const r of live2) {
-    console.log(`${r.t.padEnd(16)}${String(r.d3).padStart(4)}   ${r.head.join('/').padEnd(14)}${String(r.all).padStart(5)}`);
+    const cm = CONTAM[r.t];
+    const tail = anyC ? (cm ? String(-cm.d3).padStart(7) + String(Math.max(0, r.d3 - cm.d3)).padStart(7)
+                            : ''.padStart(7) + String(r.d3).padStart(7)) : '';
+    console.log(`${r.t.padEnd(16)}${String(r.d3).padStart(4)}   ${r.head.join('/').padEnd(14)}${String(r.all).padStart(5)}${tail}`);
   }
+  if (anyC) console.log('\n⚠ «내점검» 은 내가 점검하며 만든 클릭이다(.agent/marketing/clicks-contamination.json). «실3일» 로 판단한다.');
   const s3 = live2.reduce((a, b) => a + b.d3, 0);
   const sa = live2.reduce((a, b) => a + b.all, 0);
   console.log(`${'합계'.padEnd(15)}${String(s3).padStart(4)}                 ${String(sa).padStart(5)}`);
@@ -94,8 +116,11 @@ async function liveTags() {
   //   그래서 여기서 캐시를 남기고 slot 이 «키우기» 레인으로 먼저 보여 준다.
   try {
     const cache = { at: new Date().toISOString(), days, failed,
-      d3: Object.fromEntries(live2.map((r) => [r.t, r.d3])),
-      all: Object.fromEntries(live2.map((r) => [r.t, r.all])) };
+      // d3 는 «내 점검분을 뺀» 값이다 — 큐가 이걸로 키울 채널을 고른다.
+      d3: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.d3 - ((CONTAM[r.t] || {}).d3 || 0))])),
+      d3raw: Object.fromEntries(live2.map((r) => [r.t, r.d3])),
+      contam: Object.fromEntries(Object.entries(CONTAM).map(([t, v]) => [t, v.d3])),
+      all: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.all - ((CONTAM[r.t] || {}).all || 0))])) };
     fs.writeFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), JSON.stringify(cache, null, 1) + '\n');
     console.log('· 캐시 기록: .agent/marketing/clicks-cache.json (slot 의 «키우기» 레인이 읽는다)');
   } catch (e) { console.log('· 캐시 기록 실패: ' + String(e.message).slice(0, 60)); }

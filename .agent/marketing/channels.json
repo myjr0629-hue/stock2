@@ -465,6 +465,17 @@
       "note": "★★★2026-09-17 발견: **21일 412클릭 = 전체의 52%, 최근 3일 55클릭으로 2위(블루스카이 18)의 3배.** 우리 최대 유입구인데 21일 내내 어떤 클릭 표에도 없었다 — 내가 태그 목록을 머리에서 적었기 때문이다. `/en`·`/ko`·`/ja` 홈의 앱 CTA 가 `?from=home` 을 쓴다. 페이지 1개(×3로케일)가 412클릭인데 티커 6,684페이지는 137클릭 — **페이지당 약 2만 배**. 외부 45채널을 도는 동안 정작 최대 전환구를 한 번도 손대지 않았다 → t168"
     },
     {
+      "id": "android_install_banner",
+      "name": "안드로이드 네이티브 설치 배너(manifest related_applications)",
+      "tier": "A",
+      "enabled": false,
+      "tag": "home",
+      "link": "https://signumhq.com/app?from=home",
+      "action": "site_surface",
+      "note": "★2026-09-20 확장 발굴(실측). 우리 유입 1위는 자사 웹(from=home 21일 407클릭)이다. iOS 는 «스마트 앱 배너»가 이미 붙어 있다(/ko·/ja·/en 에 meta name=apple-itunes-app content=app-id=6783130444). 그런데 안드로이드 쪽 대응물이 «없다»: 라이브 manifest.json(200)에 related_applications 도 prefer_related_applications 도 없다(키 13개 중 둘 다 부재). 결과 ①안드로이드 방문자에게 「Play 앱 설치」 네이티브 프롬프트가 안 뜨고 ②크롬이 대신 PWA 설치를 권할 수 있다 — PWA 설치는 Play 설치가 아니라 우리 지표에도 평점에도 안 잡힌다. 안드로이드가 약한 쪽(Play 별점 0·§50 리디렉션 결함)이라는 증상과 방향이 맞는다. 고칠 것: manifest 에 related_applications = [{platform: play, id: com.signumhq.app, url: play 상세 URL}] + prefer_related_applications = true. ⚠️ 웹 자산이라 내 안전선 밖 → 대표 승인. 붙인 뒤 Play 콘솔 획득 보고서의 「웹사이트」 유입 변화로 잰다. ⚠️ 선행: §50(스마트링크 봇 HTML 캐시) 을 먼저 고쳐야 한다 — 안 고치면 배너로 늘어난 안드로이드 유입이 애플 스토어로 샌다.",
+      "cadence": "1회 설정 후 측정"
+    },
+    {
       "id": "seo_darkpool",
       "tier": "B",
       "enabled": true,
