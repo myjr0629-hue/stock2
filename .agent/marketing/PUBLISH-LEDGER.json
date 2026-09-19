@@ -1,6 +1,14 @@
 {
  "entries": [
   {
+   "ch": "x_jp",
+   "url": "https://x.com/signumhq_jp/status/2101335920884711789",
+   "note": "링크를 본문에 포함(교정 적용)",
+   "at": "2026-09-19T15:42:44.473Z",
+   "kst": "2026-09-20",
+   "utc": "2026-09-19"
+  },
+  {
    "ch": "threads",
    "url": "https://www.threads.com/@signumhq_official/post/DdeS_thE8dl",
    "note": "본문+앱카드 게시 · 가치 답글은 실패(링크 미포함)",
