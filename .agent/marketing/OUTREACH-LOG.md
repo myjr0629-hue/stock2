@@ -8246,3 +8246,29 @@ API 가 「저장됐다」고 한 것과 **사람이 보는 페이지에 뜨는 
 - Quora 초안함의 2건(max pain / meme screener)도 이 구간에 순서대로 내보낸다.
 
 브라우저가 풀리는 즉시 순서: ①네이버 RSS 제출(`ko/feed.xml`) ②robots.txt 점검 ③W1 발행 ④Quora 초안 비우기.
+
+## 2026-09-19 19:36~20:1x KST — 인앱 이벤트 점검: «승인됐다»는 «보인다»가 아니었다
+
+브라우저 대표 제어 유지(5번째). 게이트 341건·실패 0. 실행 4개 전부 게이트 → API 로 되는 표면을 팠다.
+
+### 인앱 이벤트 실측 — 3앱을 «나란히» 뽑아서 알았다
+| 앱 | 이벤트 | 상태 | deepLink |
+|---|---|---|---|
+| SIGNUM | Earnings Week | APPROVED | `…/app` ← **`?from=` 없음** |
+| Undercurrent | Earnings Week News | APPROVED | `…/app-uc?from=iap_event_uc` ✅ |
+| WIM | Earnings Week Quiz | APPROVED | `…/app-wim?from=iap_event_wim` ✅ |
+
+**일정(3앱 동일·174개국)**: `publishStart` **2026-09-24** · `eventStart` 09-28 · `eventEnd` 10-23.
+→ **아직 아무것도 안 보인다.** `eventState: APPROVED` 는 「승인됐다」지 「노출 중」이 아니다. 9/24부터 카드가 붙는다.
+
+### 고치려다 벽을 확인했다
+`PATCH /appEvents/{id}` 로 SIGNUM 딥링크에 `?from=iap_event` 를 붙이려 했으나 **409**:
+`STATE_ERROR.UPDATE_APP_EVENT_LIMITED_UPDATE_ALLOWED` — 「**territorySchedules 와 priority 만** 수정 가능」.
+
+**판단**: 되돌려 재심사받는 위험(발행 4일 전, 174개국)이 태그 하나보다 크다 → **그대로 둔다.**
+대신 **09-24 전후의 무태그 유입(`from=home`) 단차**로 SIGNUM 이벤트 기여도를 읽는다. UC·WIM 은 태그로 직접 읽힌다.
+
+### 교리로 박았다 (§45)
+1. **승인·심사가 붙은 표면은 링크를 «만들 때» 태그를 같이 넣는다.** 나중에 못 고친다.
+2. **형제 항목과 나란히 대조한다** — 3개 중 2개만 태그가 있으면 하나가 빠진 것이다. 하나만 봤으면 못 봤다.
+3. 점검은 `eventState` 가 아니라 **`territorySchedules` 의 기간**으로 한다.

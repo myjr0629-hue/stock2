@@ -374,7 +374,7 @@
       "id": "apple_iap_events",
       "tier": "A",
       "enabled": false,
-      "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요"
+      "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요 ★2026-09-19 실측 3건. ①3앱 모두 이벤트 **APPROVED** 상태이고 일정은 동일하다 — publishStart **2026-09-24**(카드 노출 시작) · eventStart 2026-09-28 · eventEnd 2026-10-23 · **174개국**. 즉 아직 안 보인다. ②**SIGNUM 이벤트의 deepLink 에 `?from=` 태그가 없다**(`https://www.signumhq.com/app`). UC·WIM 은 `?from=iap_event_uc`·`iap_event_wim` 로 제대로 붙어 있다. ③**고칠 수 없다** — `PATCH /appEvents/{id}` 가 409 `STATE_ERROR.UPDATE_APP_EVENT_LIMITED_UPDATE_ALLOWED`: 「Only updates to 'territorySchedules' and 'priority' are permitted in current event state」. ★그러므로 **딥링크의 `?from=` 는 «생성 시점»에 반드시 넣는다. 승인 후엔 잠긴다.** 이번 건은 되돌리면 재심사 위험(발행 4일 전)이 커서 그대로 둔다 — 대신 **09-24 전후의 from=home 클릭 단차**로 기여도를 읽는다."
     },
     {
       "id": "hf_datasets",

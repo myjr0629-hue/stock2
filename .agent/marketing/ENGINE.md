@@ -1106,3 +1106,21 @@ KST 기준으로 **토·일, 그리고 월요일 낮까지는 새 마감이 없�
   큐가 없으면 매 사이클 각도를 새로 고민하다 결국 같은 글을 쓰게 된다.
 - **판정법**: 사이클 시작 때 `/api/live/options/structure?t=SPY` 의 `session` 이 `CLOSED` 이고
   ET 요일이 토·일이면 이 구간이다. 화요일 05:00 KST 이후 첫 사이클부터 일일 훅으로 복귀한다.
+
+## §45 추적 태그는 «생성 시점»에 넣는다 — 승인 뒤엔 잠긴다 (2026-09-19)
+
+App Store 인앱 이벤트 3건을 점검하다 **SIGNUM 것만 `?from=` 태그가 빠져 있는 걸** 발견했다
+(UC·WIM 은 `?from=iap_event_uc`·`iap_event_wim` 로 붙어 있었다).
+
+고치려고 `PATCH /appEvents/{id}` 를 했더니 **409**:
+`STATE_ERROR.UPDATE_APP_EVENT_LIMITED_UPDATE_ALLOWED` —
+「Only updates to **'territorySchedules' and 'priority'** are permitted in current event state」.
+
+**규칙**
+1. **스토어·광고·제휴처럼 «승인/심사가 붙은 표면»은 링크를 만들 때 태그를 같이 넣는다.** 나중에 못 고친다.
+2. 만들기 전에 **형제 항목과 대조**한다 — 3개 중 2개에만 태그가 있으면 하나가 빠진 것이다.
+   (이번엔 3앱을 «나란히» 뽑아 본 덕에 잡혔다. 하나만 봤으면 못 봤다.)
+3. 이미 잠겼으면 되돌리지 말고 **단차로 읽는다** — 노출 시작일 전후의 무태그 유입(`from=home`) 변화가 기여도다.
+   심사를 다시 받는 위험이 태그 하나보다 크다.
+4. 점검 시 **«지금 보이는가»를 기간으로 확인한다**: `territorySchedules` 의 `publishStart`·`eventStart`·`eventEnd`.
+   `eventState: APPROVED` 는 「승인됐다」지 「보인다」가 아니다.
