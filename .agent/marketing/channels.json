@@ -558,6 +558,16 @@
       "link": "https://play.google.com/store/apps/details?id=com.signumhq.app",
       "action": "edit",
       "note": "★2026-09-19 확장 발굴. Play 등록정보에서 사람이 «가장 먼저 읽는 80자»다. 실측: 등록정보를 연 사람의 61%가 설치하므로 첫 줄이 전환의 병목. ASC promotionalText 의 Play 대응물. ⚠️ 실측된 제약 — 저장 버튼을 누르면 «Label AI-generated assets» 모달(에셋 20개 체크박스)이 뜨고 **이걸 신고하지 않으면 저장이 안 된다**. 에셋 제작 방식은 대표만 확정할 수 있으므로 신고는 대표 몫. 경로: 앱 → Grow users → Store presence → Store listings → /store-listings/0 → Edit listing → (짧은설명 수정) → Next → Save → AI신고 모달."
+    },
+    {
+      "id": "tistory",
+      "name": "티스토리 (카카오)",
+      "tier": "A",
+      "enabled": false,
+      "tag": "tistory",
+      "link": "https://signumhq.com/app?from=tistory",
+      "action": "post",
+      "note": "★2026-09-19 확장 발굴. **브런치의 «승인 없는» 대체재**다 — 브런치는 작가 신청 심사가 있지만 티스토리는 카카오 계정(이미 있음)으로 블로그를 만들면 바로 쓴다. 다음/카카오 검색에 기본 색인되고 네이버도 수집한다. 네이버 블로그는 이미 하루 3편을 쓰고 있으므로 티스토리는 «같은 글의 KR 두 번째 색인 자산»이 아니라 **다음 검색 전용 레인**으로 쓴다(제목·앵글을 달리한다). ★대표 1회: 카카오 계정으로 블로그 개설(개설은 계정 생성이 아니라 내 금지선 밖이지만, 주소·블로그명 결정은 대표 몫). 개설되면 내가 발행부터 검증까지 한다."
     }
   ],
   "candidates": [

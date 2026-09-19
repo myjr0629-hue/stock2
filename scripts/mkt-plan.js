@@ -54,6 +54,8 @@ const CH = {
   apple_cpp:   { cap: 1, day: 'week', window: [0, 24], note: '★무료. 맞춤 제품 페이지가 «유기 검색»에도 나온다(2025-07-30~). 키워드 1개=CPP 1개, 중복 반려. 심사 24~48h' },
   apple_iap_events: { cap: 1, day: 'week', window: [0, 24], note: '★검색 결과에 «별도 행»을 얻는 유일한 무료 수단. 날짜 박힌 시장 이벤트만(반복 일상 과제는 반려). ASC API 로 크론화' },
   macrumors:   { cap: 1, day: 'week', window: [0, 24], note: '앱당 스레드 «하나»만, 영구. 업데이트는 그 스레드에 이어 쓴다. 새 스레드·범프는 밴. ★2026-09-19 SIGNUM 스레드 개설(2489848) — 앞으로는 «그 글에 이어쓰기»만' },
+  play_short_description: { cap: 1, day: 'week', window: [0, 24], note: 'Play 등록정보 첫 80자. ⚠️ 저장 끝에 「Label AI-generated assets」 모달이 필수로 뜬다 — 에셋 신고는 대표 몫이라 내 선에서 저장 불가. 문구만 준비해 두고 대표 확인 때 한 번에 넣는다' },
+  tistory:     { cap: 1, day: 'kst', window: [8, 20], note: '★블로그 개설 대기(대표 1회). 다음 검색 전용 레인 — 네이버 블로그와 «같은 글» 금지, 제목·앵글을 달리한다' },
   taaft:       { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요(t203). 디렉터리 등재는 «1회»다 — 무료 경로만, 유료 승급 금지. 등재문에 «AI가 무엇을 하는가»를 구체로: 프리마켓·섹터·매크로·기관수급을 읽어 매일 ko/en/ja 브리핑. 재등록·중복 제출 금지' },
   quora_en:    { cap: 1, day: 'utc', window: [0, 24], note: '§11-6 순수 가치·앱명 0~1회·데이터 화면 1장' },
   quora_jp:    { cap: 1, day: 'utc', window: [0, 24], note: '피드가 마르면 억지 발행 금지' },
