@@ -1248,3 +1248,26 @@ under certain circumstances.」 ○ Don't label assets ○ Label assets as creat
 2. **드래프트를 남겼으면 그 사이클 안에 Publishing overview 까지 가서 «제출»한다.** 안 하면 영영 안 나간다.
 3. 막힌 관문이 ②여도 **①에서 만든 드래프트가 이미 ②를 지나 있으면 ③은 혼자 된다** — 실제로 SIGNUM 은
    이번에 ③만 눌러서 심사로 보냈다. **「채널이 막혔다」가 아니라 «앱마다 관문 위치가 다르다».**
+
+---
+
+## §48 스토어 지표는 «스토어프런트별»이다 — 한 창구만 보고 0 이라고 쓰지 않는다 (2026-09-20)
+
+사이클 성적표가 「세 앱 모두 별점 0」을 며칠간 찍었다. **틀린 말이었다.**
+검사기가 **Play 만** 보고 있었고, 애플 쪽은 아무도 안 봤다.
+무인증 lookup API 로 재니 — **SIGNUM US ★5(1)·KR ★5(1) · Undercurrent KR ★5(1)** 이 이미 있었다.
+
+```
+https://itunes.apple.com/lookup?id=<앱ID>&country=<us|kr|jp>
+→ averageUserRating / userRatingCount (누계) · ...ForCurrentVersion (현재 버전)
+```
+
+**왜 놓쳤나**: 애플 평점은 **스토어프런트마다 따로 쌓인다.** `country` 하나만 물으면 다른 나라의 평점이 0 으로 보인다.
+그리고 Play 공개 페이지는 평점이 적으면 **표시 자체를 생략**한다 → 「Play 0」은 «공개 표시 0»이지 «평점 0»의 증명이 아니다.
+
+**규칙**
+1. 스토어 지표는 **스토어 × 국가**의 곱으로 센다. 하나만 재고 「없다」라고 쓰지 않는다([[silent-blanks-share-one-shape]]).
+2. **검사기가 이상하면 앱보다 검사기를 먼저 의심한다** — 이번에도 앱이 아니라 검사기가 반쪽이었다.
+3. 정정은 «그 자리에서» 정본 문서까지 고친다. RUNBOOK 의 성적표 문단과 `check-store-ratings.js` 를 같이 고쳤다.
+4. 이 정정으로 **처방이 바뀐다**: 「리뷰 요청이 안 뜬다」가 아니라 **「iOS 는 뜬다 · Android 와 WIM 이 구멍」** 이다.
+   메커니즘을 다시 지목한 뒤에만 처방한다([[name-the-mechanism-before-prescribing]]).

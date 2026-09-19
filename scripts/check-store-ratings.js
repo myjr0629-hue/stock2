@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /**
- * Play 스토어 별점·리뷰·다운로드를 «브라우저 없이» 읽는다.
+ * Play + App Store 별점·리뷰를 «브라우저 없이» 읽는다.
+ *
+ * ★2026-09-20 정정: 이 스크립트가 Play 만 보고 「세 앱 모두 별점 0」이라고 찍어 왔는데 «틀렸다».
+ *   애플 lookup API(무인증)로 재니 SIGNUM 은 US·KR 각 ★5(1건), UC 는 KR ★5(1건)이 이미 있었다.
+ *   애플 평점은 «스토어프런트별»이라 한 나라만 보면 0 으로 보인다 → us·kr·jp 를 다 읽는다.
  *
  * 왜: 2026-09-19 실측으로 확정한 병목이 «별점 0» 이다.
  *   Play 노출 2,190 → 등록정보 열람 약 11(0.5%) → 열면 61% 설치.
@@ -16,10 +20,26 @@
  * 종료코드 0 = 정상 · 1 = 세 앱 모두 별점 0 (아직 고리가 안 풀렸다는 신호)
  */
 const APPS = [
-  ['SIGNUM HQ', 'com.signumhq.app'],
-  ['Undercurrent', 'com.signumhq.undercurrent'],
-  ["Why'd It Move?", 'com.signumhq.wim'],
+  ['SIGNUM HQ', 'com.signumhq.app', '6783130444'],
+  ['Undercurrent', 'com.signumhq.undercurrent', '6788779895'],
+  ["Why'd It Move?", 'com.signumhq.wim', '6794356135'],
 ];
+// 애플 평점은 스토어프런트별로 따로 쌓인다 — 판매 상위 3개국을 다 읽어야 «있다/없다»가 정확하다.
+const APPLE_CC = ['us', 'kr', 'jp'];
+
+// itunes lookup: 무인증·무브라우저. averageUserRating 은 «전 버전 누계», ...ForCurrentVersion 은 현재 버전.
+async function apple(id) {
+  const out = {};
+  for (const cc of APPLE_CC) {
+    try {
+      const r = await fetch(`https://itunes.apple.com/lookup?id=${id}&country=${cc}`, { headers: { 'User-Agent': UA } });
+      const j = await r.json();
+      const a = (j.results || [])[0];
+      out[cc] = a ? { ver: a.version, avg: a.averageUserRating || 0, n: a.userRatingCount || 0 } : { error: 'no result' };
+    } catch (e) { out[cc] = { error: String(e.message).slice(0, 40) }; }
+  }
+  return out;
+}
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 const asJson = process.argv.includes('--json');
 
@@ -27,7 +47,7 @@ const asJson = process.argv.includes('--json');
 // 별점이 생기면 같은 자리에 «4.5» / «star» 쌍이 늘어난다 — 라벨을 열쇠로 쓴다.
 const STAT = /<div class="ClM7O">([^<]{1,20})<\/div><div class="g1rdde">([^<]{1,30})<\/div>/g;
 
-async function one(name, id) {
+async function one(name, id, appleId) {
   const url = `https://play.google.com/store/apps/details?id=${id}&hl=en&gl=US`;
   try {
     const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' } });
@@ -46,28 +66,40 @@ async function one(name, id) {
       reviews: reviews ? reviews[1] : null,
       downloads: downloads ? downloads[1] : null,
       stats,
+      apple: await apple(appleId),
     };
-  } catch (e) { return { name, id, error: e.message.slice(0, 60) }; }
+  } catch (e) { return { name, id, error: e.message.slice(0, 60), apple: await apple(appleId) }; }
 }
 
 (async () => {
   const rows = [];
-  for (const [n, id] of APPS) rows.push(await one(n, id));
+  for (const [n, id, aid] of APPS) rows.push(await one(n, id, aid));
   if (asJson) { console.log(JSON.stringify({ at: new Date().toISOString(), rows }, null, 1)); }
   else {
-    console.log('Play 스토어 별점 — 브라우저 없이 읽음');
+    console.log('스토어 별점 — 브라우저 없이 읽음 (Play + App Store us/kr/jp)');
     for (const r of rows) {
       if (r.error) { console.log(`  ✗ ${r.name.padEnd(15)} ${r.error}`); continue; }
       const star = r.rating || '없음';
       const mark = r.rating ? '★' : '·';
-      console.log(`  ${mark} ${r.name.padEnd(15)} 별점 ${String(star).padEnd(8)} 리뷰 ${String(r.reviews || '없음').padEnd(10)} 다운로드 ${r.downloads || '?'}`);
+      console.log(`  ${mark} ${r.name.padEnd(15)} Play 별점 ${String(star).padEnd(8)} 리뷰 ${String(r.reviews || '없음').padEnd(8)} 다운로드 ${r.downloads || '?'}`);
+      const ap = r.apple || {};
+      const cells = APPLE_CC.map((cc) => {
+        const a = ap[cc] || {};
+        if (a.error) return `${cc} ✗`;
+        return `${cc} ${a.n > 0 ? '★' + a.avg + '(' + a.n + ')' : '0'}`;
+      }).join(' · ');
+      const ver = (ap.us && ap.us.ver) || (ap.kr && ap.kr.ver) || '?';
+      console.log(`    ${' '.repeat(16)}App Store v${String(ver).padEnd(7)} ${cells}`);
     }
-    const none = rows.filter((r) => !r.error && !r.rating).length;
-    console.log(`\n별점이 붙은 앱 ${rows.filter((r) => r.rating).length} / ${rows.length}`);
-    if (none === rows.length) {
-      console.log('⚠ 세 앱 모두 별점 0 — 노출→열람 0.5% 의 고리가 아직 안 풀렸다.');
-      console.log('  리뷰 요청 수정은 2026-09-19 배포됨(사용일 2·7일 + 앱 실행 4회째, 하루 1회).');
+    const hasAny = (r) => !!r.rating || APPLE_CC.some((cc) => (r.apple?.[cc]?.n || 0) > 0);
+    const withStars = rows.filter(hasAny).length;
+    console.log(`\n별점이 «어느 스토어에든» 붙은 앱 ${withStars} / ${rows.length}`);
+    const playZero = rows.filter((r) => !r.error && !r.rating).length;
+    if (playZero === rows.length) console.log('· Play 는 여전히 3앱 0 — 안드로이드 쪽 고리가 아직 안 풀렸다.');
+    for (const r of rows) {
+      if (!hasAny(r)) console.log(`⚠ ${r.name} — 두 스토어 전부 0. 리뷰 요청 경로부터 확인할 것.`);
     }
   }
-  if (rows.filter((r) => r.rating).length === 0) process.exit(1);
+  const anyStar = rows.some((r) => !!r.rating || APPLE_CC.some((cc) => (r.apple?.[cc]?.n || 0) > 0));
+  if (!anyStar) process.exit(1);
 })();

@@ -12,6 +12,7 @@
 | `supportUrl` | ❌ 409 | `Attribute 'supportUrl' cannot be edited at this time` |
 | 앱 미리보기(`appPreviewSets`) | ❌ 409 | `ENTITY_ERROR.ATTRIBUTE.INVALID.INVALID_STATE` |
 | 인앱이벤트 `deepLink` | ❌ 409(승인 후) | `territorySchedules`·`priority` 만 허용 |
+| **릴리스 노트 `whatsNew`** | **❌ 409** | 2026-09-20 실측: `STATE_ERROR — Attribute 'whatsNew' cannot be edited at this time` |
 | 이름·부제·키워드 | ❌ 빌드 필요 | 기존 기록 |
 
 ## 체크리스트
@@ -44,7 +45,11 @@
 
 ### ★ 최우선. 2026-09-19 «평점 안전망»이 SIGNUM 한 앱에만 들어갔다 (2026-09-20 코드 실측)
 
-별점 0/3 은 측정된 1순위 병목이다(노출 2,190 → 등록정보 열람 11 → 설치 7, 그런데 **열면 61% 가 설치**).
+★2026-09-20 정정: 「0/3」은 Play 만 본 숫자였다. 애플은 **SIGNUM US ★5(1)·KR ★5(1), UC KR ★5(1)** 이 이미 있다 →
+**iOS 리뷰 요청은 작동한다.** 남은 구멍은 ①Play 3앱 전부 ②**WIM 은 두 스토어 다 0** 이다.
+→ 아래 수정의 **1순위는 WIM**(유일하게 어디에도 평점이 없고, 안전망도 없다).
+
+별점 공백은 측정된 1순위 병목이다(노출 2,190 → 등록정보 열람 11 → 설치 7, 그런데 **열면 61% 가 설치**).
 9/19 에 기준을 고쳤는데 **세 앱 중 하나에만 적용됐다.**
 
 | 앱 | 9/19 안전망 `maybePromptReview()` | 행동 마일스톤(구) |
@@ -69,3 +74,22 @@ UC·WIM 에는 그 그물이 없다. 특히 **UC 는 5회째 기사 열람**이�
 `canRequestReview()` 는 `Capacitor.Plugins.InAppReview.requestReview` 존재로만 판정하므로 네이티브에서 참이다.
 
 ⚠️ 안전선상 **앱·웹 코드는 제가 고치지 않습니다** — 대표 승인 후 반영합니다.
+
+
+---
+
+### 릴리스 노트(`whatsNew`)가 3앱 × 12로케일 전부 «안정성 개선»이다 (2026-09-20 실측)
+
+라이브 버전에서는 **못 고친다(409)** — 그래서 «다음 빌드»에 반드시 같이 한다.
+이 자리는 제품 페이지의 「새로운 기능」이자, **기존 사용자의 업데이트 탭에 뜨는 유일한 문장**이다.
+
+현재(SIGNUM 1.9.2 en-US 를 뺀 11개 로케일):
+`안정성 개선과 스토어 정보 업데이트입니다.` / `安定性の改善とApp Store情報の更新です。` /
+`Stabilitätsverbesserungen und aktualisierte App-Store-Informationen.` … 전부 같은 말이다.
+
+**다음 빌드에서 지킬 규칙**
+1. **그 버전에서 실제로 바뀐 것**을 한 줄로 쓴다(거짓 금지 — 안 바뀐 기능을 적지 않는다).
+2. 그다음 줄에 §42 «가치 한 줄»을 붙인다(무료·가입 불필요). 내용과 광고를 섞지 않는다.
+3. 12로케일 전부 채운다 — 비워 두면 애플이 영어를 그대로 보여 준다.
+4. 도구는 이미 있다: `scripts/asc-promo-text.py` 와 같은 모양으로 `appStoreVersionLocalizations` 를 PATCH 하면 된다
+   (**편집 가능 상태의 버전에서만** — 라이브는 409).
