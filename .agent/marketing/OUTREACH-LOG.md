@@ -8582,3 +8582,63 @@ bluesky · x_us(본문+답글) · threads(부분) · **x_jp**
 `idmsa.apple.com/IDMSWebAuth/signin` 으로 튄다 = **세션 재만료**. 비밀번호 입력은 금지 항목이라
 대표 목록 맨 위에 「애플 광고 콘솔에 로그인만 (30초)」를 올렸다(결정대기 5건).
 예산 상한($25/일)이 걸려 있어 몇 시간 미점검의 위험은 제한적이지만, 매 사이클 의무 점검이 막힌 상태다.
+
+---
+
+## 2026-09-20 02:1x KST 사이클 — Play 짧은설명이 «드래프트로 누워 있었다»(SIGNUM 심사 제출) + 규칙 1건 정의
+
+크론 `c5e53356` 생존(7일 만료 ~09-24, 여유 4일). 게이트 341건 0실패(2회).
+별점 성적표: **3앱 전부 별점 0 · 리뷰 0 · 다운로드 10+** — 병목 그대로(리뷰 요청 수정은 9/19 배포분이 아직 익는 중).
+
+### 1) 규칙 미정의 해소 + 낡은 규칙 정정
+
+- `naver_topic_feed` 규칙 정의: **cap 0 — 발행하지 않는다.** 네이버 블로그 글이 그대로 흘러드는 피드이므로
+  행동은 «주 1회 노출 확인» 하나다(directoryNo=33 에 donneum 링크가 보이는지).
+- `naver_blog` 규칙 노트가 **「대표 결정 대기(t190)·결정 전 발행 금지」로 낡아 있었다** — 9/18 에 승인됐고 그 뒤로 5편을 올렸다.
+  okky 때와 같은 «낡은 노트가 살아 있는 채널을 숨기는» 덫이라 즉시 현행화(얇은 문 규칙·OG 카드 규칙 포함).
+
+### 2) play_short_description — 「막혔다」가 아니라 «앱마다 관문 위치가 달랐다» (§22)
+
+**먼저 라이브 값을 읽었다(§47 의 계기).** 콘솔 편집기에는 §42 문구가 들어 있는데
+공개 Play 페이지의 짧은설명은 **다른 문장**이었다.
+
+| 앱 | 공개 페이지(라이브) | 콘솔 |
+|---|---|---|
+| SIGNUM | Premarket movers, after-hours prices, earnings calendar and daily market recap. | **§42 문구가 드래프트로 누워 있었다** |
+| UC | (렌더 안 됨) / 콘솔: AI-summarized stock market news, a daily recap, and an earnings calendar. | 기능 나열만 |
+| WIM | Daily stock market quiz and finance trivia — learn investing from real moves. | 무료 표기 없음 |
+
+→ **이전 사이클에 고쳐 놓고 «심사 제출»을 안 해 며칠을 드래프트로 흘려보냈다.**
+
+**한 것**
+- **SIGNUM: Publishing overview → 「Submit 1 change for review」 → 「Send changes for review」 → 「Changes in review」**
+  변경 내용 전문 확인 후 제출: `Premarket, dark pool, options flow. Others charge $50-99/mo. Free, no signup.` (76/80)
+  (경쟁사 이름 없음 — 스토어 심사 위험 회피)
+- **UC 새 짧은설명 초안 저장(76/80)**: `AI market news, daily recap, earnings calendar. Free, no signup, no paywall.`
+- **WIM 새 짧은설명 초안 저장(68/80)**: `Daily quiz built from today's real US market moves. Free, no signup.`
+- UC·WIM 은 Publishing overview 에 «제출 가능 변경»이 안 뜬다 → **편집기 드래프트 단계에서 AI 신고에 막혀 있다.**
+
+**AI 신고 문구를 실측했다** — 라디오 «두 개»뿐이다:
+「Review AI asset declaration — Regulations require that content that uses AI-generated assets be labeled
+under certain circumstances.」 ○ **Don't label assets** ○ **Label assets as created or edited using AI**
+대상 에셋은 **App icon · Feature graphic · Phone screenshots** 셋뿐(동영상·태블릿·XR 은 «--»). **둘 다 미선택 = 한 번도 신고한 적 없음.**
+내가 확인한 사실: 피처그래픽은 손으로 쓴 HTML/CSS 를 Puppeteer 로 렌더(`wim-app/make-feature-graphic.js`),
+스크린샷은 실제 앱 화면 캡처, 아이콘은 손으로 쓴 SVG 패스(`public/signum-sg-vectorized.svg`).
+**모르는 것은 하나뿐 — 아이콘 원안이 AI 이미지 생성인지.** 새 법적 선언이므로 대표 몫이 맞다.
+대표 목록 항목을 «질문 하나 + 라디오 두 개» 형태로 다시 썼다.
+
+**Play Developer API 우회는 불가** — 서비스 계정 키가 저장소·gcloud 어디에도 없다(`androidpublisher` 흔적 0).
+연결하면 Play 등록정보 전체가 자동화되지만 «5분 안»에 끝나는 일이 아니라 즉시 목록엔 넣지 않았다.
+
+### 3) daum_search — 여기까지 갔고, 여기서 멈췄다(정직하게)
+
+`register.search.daum.net/index.daum` 는 **로그인·보안문자 없이 열린다**(랜딩 기준). 「신규등록하기」 → 사이트 검색 → URL → 확인 구조.
+**내 실수 2건**: ①「첫 번째 보이는 text input」을 등록칸으로 집었는데 그건 다음 **검색창(`name=q`)** 이었다 —
+우리 URL 이 검색창에 들어갔다(제출된 것 없음, 무해). ②확인을 누르자 **네이티브 dialog** 가 떠 evaluate 가 막혔다.
+→ 교훈: **폼 필드는 «보이는 순서»가 아니라 «name」으로 집는다**(등록칸은 `urlread`). 다이얼로그는 누르기 «전에» 가로챈다(`trapDialogs`).
+재시도하려던 차에 **대표가 작업공간을 가져가 브라우저 작업을 중단**했다(하드 스톱 준수, 되찾지 않음).
+남은 것: `urlread` 에 `https://www.signumhq.com` → 확인 → 동의 2건 → 제출(보안문자가 나오면 대표).
+
+### 4) 나머지 배정
+
+tiktok(대표 지시 보류) · hatena_bookmark(미로그인 확인 완료, 우회 없음) · geeknews(9/25 해금) · fmkorea(계정 금지) — 지난 사이클과 동일, 재확인 생략.

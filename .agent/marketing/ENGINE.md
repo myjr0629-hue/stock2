@@ -1218,3 +1218,33 @@ App Store 인앱 이벤트 3건을 점검하다 **SIGNUM 것만 `?from=` 태그�
 - `/ko` 로케일 OG 이미지가 **영문**이라 네이버 OG 카드가 한글 글에 영문 이미지를 얹는다 → 한국어 OG 이미지 추가(웹 티켓).
 - 9/19 글 3편의 per-post 주제는 여전히 «선택 안 함» → 수정 발행으로 채운다(자동 분류는 «앞으로»에만 적용된다).
 - 블로그 기본 카테고리가 아직 «여행» → 관리에서 «투자»로 바꾼다.
+
+---
+
+## §47 콘솔 폼의 값은 «라이브 값»이 아니다 — 스토어 변경은 3단 관문이다 (2026-09-20)
+
+Play 콘솔 등록정보 편집기에 「Premarket, dark pool, options flow. Others charge $50-99/mo. Free, no signup.」가
+들어 있어서 **§42 짧은설명이 이미 적용된 줄 알았다.** 공개 스토어 페이지를 읽으니 실제로는
+「Premarket movers, after-hours prices, earnings calendar and daily market recap.」였다.
+**이전 사이클에 고쳐 놓고 «심사 제출»을 안 해서 몇 날을 드래프트로 누워 있었다.**
+
+**Play 스토어 텍스트는 관문이 셋이다. 하나라도 안 지나면 라이브가 아니다.**
+
+| 단계 | 화면 | 지나면 생기는 것 |
+|---|---|---|
+| ① 편집기 드래프트 | Store listings → Edit listing → **Save as draft** | 「Your changes have been saved」 — **콘솔에만 보인다** |
+| ② 제출 가능 변경 | 같은 편집기에서 **Next → AI asset declaration 라디오 → Save** | Publishing overview 에 「Submit N change for review」가 뜬다 |
+| ③ 심사 제출 | Publishing overview → **Submit N change for review → Send changes for review** | 「Changes in review」 · 최대 7일 |
+
+**②의 AI 신고는 라디오 «두 개» 중 하나다**(실측 문구):
+「Review AI asset declaration — Regulations require that content that uses AI-generated assets be labeled
+under certain circumstances.」 ○ Don't label assets ○ Label assets as created or edited using AI.
+대상 에셋은 **App icon · Feature graphic · Phone screenshots** 뿐(동영상·태블릿·XR 은 «--»).
+**둘 다 미선택 상태**라 한 번도 신고한 적이 없다 = 새 법적 선언이다 → **대표만 답할 수 있다.**
+
+**규칙**
+1. **스토어 필드를 고쳤으면 «공개 페이지»에서 읽어 확인한다.** 콘솔 폼은 내 드래프트를 보여 준다([[open-editor-makes-false-positives]]와 같은 모양).
+   Play 공개 페이지는 curl 로는 빈 HTML 이 온다 → **ego 로 열어 `meta[name=description]`** 을 읽는다(이게 짧은설명이다).
+2. **드래프트를 남겼으면 그 사이클 안에 Publishing overview 까지 가서 «제출»한다.** 안 하면 영영 안 나간다.
+3. 막힌 관문이 ②여도 **①에서 만든 드래프트가 이미 ②를 지나 있으면 ③은 혼자 된다** — 실제로 SIGNUM 은
+   이번에 ③만 눌러서 심사로 보냈다. **「채널이 막혔다」가 아니라 «앱마다 관문 위치가 다르다».**

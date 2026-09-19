@@ -16,9 +16,15 @@
       링크드인 「글 올리기」에 붙여넣고 올리시면 끝입니다. 제가 3번 시도했는데 작성창이 자동화로 안 잡힙니다.
       링크(`?from=linkedin`)가 본문에 있어 유입 추적은 그대로 됩니다.
 
-- [ ] **Play 「AI 생성 에셋」 답만 주세요 (10초)** — 질문 하나입니다: **앱 아이콘과 피처그래픽을 AI 로 만드셨나요?**
-      (스크린샷은 실제 앱 화면이라 아닙니다.) 답만 주시면 신고·저장까지 제가 합니다.
-      지금 이것 때문에 **Play 짧은 설명 교체가 막혀 있습니다** — 등록정보를 연 사람의 첫 줄입니다.
+- [ ] **Play 「AI 생성 에셋」 라디오 하나만 골라 주세요 (10초)** — 이것 때문에 앱 2개의 스토어 첫 줄이 막혀 있습니다.
+      경로: Play Console → 앱 → Store listings → **Edit listing** → **Next** → 「Review AI asset declaration」
+      ○ **Don't label assets**   ○ **Label assets as created or edited using AI**
+      대상 에셋은 **앱 아이콘 · 피처그래픽 · 폰 스크린샷** 셋뿐입니다(동영상·태블릿·XR 없음).
+      제가 확인한 사실 — 피처그래픽은 손으로 쓴 HTML/CSS 를 Puppeteer 로 렌더한 것이고(`wim-app/make-feature-graphic.js`),
+      스크린샷은 실제 앱 화면 캡처, 아이콘은 손으로 쓴 SVG 패스(`public/signum-sg-vectorized.svg`)입니다.
+      **제가 모르는 것은 하나뿐입니다: 아이콘 원안을 AI 이미지 생성으로 만드신 적이 있습니까?**
+      없으면 「Don't label assets」, 있으면 「Label assets…」 를 고르고 Save 만 눌러 주시면 됩니다.
+      (Undercurrent·Why'd It Move? 의 새 짧은설명은 이미 초안으로 저장해 뒀습니다 — 라디오만 고르면 바로 심사로 갑니다.)
 
 - [ ] **마스토돈 가입 (2분)** — https://mastodon.social/auth/sign_up (이메일만, 사용자명 `signumhq` 권장)
       근거: **블루스카이가 최근 39클릭으로 외부 1위**입니다. 마스토돈이 정확히 같은 구조(시간순·해시태그·링크 무감점)입니다.
