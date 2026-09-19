@@ -1,6 +1,22 @@
 {
  "entries": [
   {
+   "ch": "indexnow",
+   "url": "https://www.signumhq.com/sitemap.xml",
+   "note": "6768/6768 접수 200",
+   "at": "2026-09-19T06:38:06.215Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
+   "ch": "naver_search_advisor",
+   "url": "https://searchadvisor.naver.com/console/site/summary?site=https%3A%2F%2Fwww.signumhq.com",
+   "note": "소유확인 통과 + 사이트맵 제출 완료",
+   "at": "2026-09-19T06:37:00.505Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
    "ch": "github_pages",
    "url": "https://myjr0629-hue.github.io/options-market-structure-daily/",
    "note": "Dataset JSON-LD 랜딩 개설",
