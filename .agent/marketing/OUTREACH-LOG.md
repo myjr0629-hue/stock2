@@ -7841,3 +7841,40 @@ RUNBOOK 에 사이클 고정 한 줄로 넣었다.
 - X·Threads 에서 ③을 답글로 빼면 «도달에도» 유리하다(본문 링크 벌점 회피). 구조와 도달이 일치한다.
 - 네이버 문단 편집: 빈 문단 앞에서 Backspace 는 **한 글자 남았을 때 문단을 병합**한다.
   안전한 길은 「비워진 문단에 그대로 타이핑 → Enter 로 빈 줄 복구」다.
+
+## 2026-09-19 08:46~09:4x KST — 사이클: 실행4 + 뚫기2 + 확장1
+
+**게이트**: `audit-expiration-selection.js --live` 341건·실패 0 통과. 크론 `c5e53356` 만료 ≈09-24(5일 남음).
+
+| 구역 | 채널 | 결과 |
+|---|---|---|
+| 실행 | **macrumors** | ✅ **첫 스레드 게시·검증 완료** → [2489848](https://forums.macrumors.com/threads/signum-hq-options-flow-dark-pool-share-and-session-labeled-pre-after-hours-quotes-free-ios-android.2489848/) |
+| 실행 | **naver_search_advisor** | ✅ **내 몫 완료**(인증 파일 배포·200 확인) / ⛔ 마지막 [소유확인] 이 **CAPTCHA** — 대표 1회 |
+| 실행 | tiktok | ⏸ 대표 지시로 보류(개인계정 사고 이후) |
+| 실행 | hatena_bookmark | ⛔ 계정 게이트(대표 가입 대기) — 북마크 자체가 로그인 필수라 우회로 없음 |
+| 뚫기 | geeknews | ⛔ 가입 후 7일 = **2026-09-25 해금**. Show 글 초안 대기 |
+| 뚫기 | fmkorea | ⛔ 계정 게이트(이메일/휴대폰) |
+| 확장 | **play_short_description** | 🆕 표면 발굴·등록. 문구 작성·입력까지 했으나 **저장이 AI신고 모달에 막힘** → 대표 |
+| 광고 | apple ads | ⛔ 세션 만료 — 대표 로그인 필요(수치 판독 불가) |
+
+### MacRumors — 플랫폼 지식(다시는 헤매지 않게)
+- 포럼 id **136 은 「Code Sharing and Software Promos」** 이고 **프로모코드 전용**이다. 무료 앱은 여기가 아니다.
+- 우리 자리는 **「iOS Apps and Apple Arcade」(133)**. 개발자 가이드라인 정본:
+  **앱당 스레드 «하나»**, 제목에 앱 이름, 첫 글에 **회사명+URL 로 신원 표시 필수**, **범프 금지**,
+  업데이트는 **그 스레드에 이어쓴다**. 프로필 Website·About 는 «의무».
+- 작성 폼의 제목 칸은 `input` 이 아니라 **`textarea[name=title]`** 이다(여기서 한 번 헛손질).
+- 「Post thread」 버튼은 첨부 후 화면 밖으로 밀린다 → **scrollIntoView 후 재측정**해야 클릭된다.
+
+### 네이버 서치어드바이저 — 「보안문자」의 정체를 확정했다
+기록엔 「보안문자 1회」로만 적혀 있었다. 실제로 몰아 보니 **소유확인 방법 자체엔 보안문자가 없다**
+(HTML 파일 / 메타태그 둘뿐). **[소유확인] 버튼이 `/api/captcha/key` 를 호출**하는 것이 원인이다(네트워크로 확인).
+→ 내가 못 하는 건 **버튼 클릭 뒤의 CAPTCHA 하나**뿐이고, 그 앞은 전부 끝냈다.
+
+### Play 짧은 설명 — 새 벽을 하나 찾았다
+저장 경로 끝에 **「Label AI-generated assets」 모달**이 있고 **닫을 수도, 건너뛸 수도 없다**(close 두 번 시도·Escape 실패).
+에셋 20개가 전부 «미체크» 상태인데, 이건 «AI로 만들지 않았다»는 **신고**다.
+스크린샷은 실제 앱 화면이라 확실하지만 **피처그래픽 제작 방식을 내가 확정할 수 없어 신고하지 않았다.**
+준비된 문구(77자): `Premarket, dark pool, options flow. Others charge $50-99/mo. Free, no signup.`
+
+### 실측 (Play 콘솔)
+설치 **SIGNUM 28 · UC 16 · WIM 14 = 58** (어제와 동일) · 7일 기기획득 7 · 첫실행 6 · 월간활성기기 15.
