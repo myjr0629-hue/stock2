@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "github_pages",
+   "url": "https://myjr0629-hue.github.io/options-market-structure-daily/",
+   "note": "Dataset JSON-LD 랜딩 개설",
+   "at": "2026-09-19T05:47:40.497Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
+   "ch": "indiehackers",
+   "url": "https://www.indiehackers.com/post/58-installs-0-ratings-and-the-one-number-that-explains-both-aZJAMkESVLK2c22gqlx2",
+   "note": "",
+   "at": "2026-09-19T05:44:28.840Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
+   "ch": "github",
+   "url": "https://github.com/myjr0629-hue/options-market-structure-daily/blob/main/2026-09-18.json",
+   "note": "12종목 구조 스냅샷 · 웹 업로드",
+   "at": "2026-09-19T05:40:39.890Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
    "ch": "okky",
    "url": "https://okky.kr/articles/1564308",
    "note": "",

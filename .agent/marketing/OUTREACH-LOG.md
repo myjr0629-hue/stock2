@@ -8094,3 +8094,33 @@ SHA-256 지문을 정규식으로 뽑았더니 **앞 1바이트(`83:`)가 빠진
 - 예산·입찰 증액은 금지선.
 
 한도 대비 지출은 $4.94/$25 로 여유가 크다. **다음 사이클부터 «탭률»을 추적 지표로 올린다** — 지출이 아니라 탭률이 움직여야 이긴 것이다.
+
+## 2026-09-19 14:36~15:1x KST — 사이클: 데이터셋 3종 세트(스냅샷·빌더글·데이터셋 랜딩)
+
+**게이트** 341건·실패 0.
+
+| 구역 | 결과 |
+|---|---|
+| **github** | ✅ [2026-09-18 스냅샷](https://github.com/myjr0629-hue/options-market-structure-daily/blob/main/2026-09-18.json) 커밋 — 12종목, raw 200 확인. 09-16 이후 이틀 밀려 있던 것 |
+| **indiehackers** | ✅ [58 installs, 0 ratings, and the one number that explains both](https://www.indiehackers.com/post/58-installs-0-ratings-and-the-one-number-that-explains-both-aZJAMkESVLK2c22gqlx2) — 실측 깔때기 공개, 스마트링크 anchor 확인 |
+| **확장: github_pages** | 🆕 **발굴에서 끝내지 않고 실행** — Pages 라이브 200 + Dataset JSON-LD 파싱 확인 |
+| 실행 4 | 변동 없음 |
+| 광고 | (직전 사이클에서 판독·무변경) |
+
+### ★ 계정 게이트를 «구조»로 우회했다 — GitHub Pages + schema.org
+기존 기록의 판정은 이랬다: 「HF·Kaggle 데이터셋 페이지는 schema.org `Dataset` JSON-LD 와 canonical 을 실어
+구글 «데이터셋 검색»에 잡히는데, **깃허브 저장소 페이지는 둘 다 없다**」. 그런데 HF·Kaggle 은 **계정 게이트**다.
+→ **계정이 필요한 건 «호스팅»이지 «자격»이 아니다.** 우리 저장소에 Pages 를 켜고 `index.html` 에
+JSON-LD 를 직접 실으면 같은 자격을 얻는다.
+
+실행: `index.html` 커밋(Dataset JSON-LD · 필드표 · CC BY 4.0 · 앱링크 `?from=github_pages`)
+→ Settings → Pages → Deploy from a branch = `main` 저장(「GitHub Pages source saved.」)
+→ 약 1분 뒤 **200**, JSON-LD 파싱 성공(`@type` Dataset · 변수 7개 · 라이선스 · canonical 존재).
+
+**갱신 규칙(안 지키면 썩는다)**: 스냅샷을 새로 올릴 때 `distribution.contentUrl` 과 `temporalCoverage` 를 같이 갱신한다.
+
+### 오늘 두 번 반복한 실수 — 내 «추출»이 값을 자른다
+- 어제: SHA-256 지문에서 앞 1바이트가 빠졌다(31/32).
+- 오늘: `Object.keys(j).slice(0,12)` 로 API 응답 키를 12개에서 잘라 **maxPain·netGex 가 «없다»고 오판**했다.
+  실제로는 32개 필드가 있었고 감사 스크립트는 그 값을 잘 쓰고 있었다.
+→ **탐침에 `slice`/정규식을 쓸 때는 «자른 것»을 자른 줄 알고 봐야 한다.** 길이·개수를 함께 찍는다.
