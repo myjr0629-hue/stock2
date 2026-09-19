@@ -460,6 +460,17 @@
       ]
     },
     {
+      "id": "naver_topic_feed",
+      "name": "네이버 블로그 주제별 보기(비즈니스·경제)",
+      "tier": "B",
+      "enabled": true,
+      "tag": "naver_blog",
+      "link": "https://signumhq.com/app?from=naver_blog",
+      "action": "surface",
+      "note": "★2026-09-20 확장 발굴·개방. section.blog.naver.com/ThemePost.naver?directoryNo=33 (비즈니스·경제, activeDirectorySeq=4). 글마다 «주제»를 지정해야 들어가는데 우리 글은 전부 «주제 선택 안 함»이라 한 번도 들어간 적이 없었다 → 2026-09-20 에 ①블로그 주제 ②「투자」 카테고리 주제분류 ③「이 카테고리 글은 항상 이 주제로 분류」 로 열었다. 계정 생성 없음(기존 네이버 블로그 로그인). 진입: section.blog.naver.com → 「주제별 보기」 → 「비즈니스·경제」(주소 직타 금지, 눌러서 간다). ⚠️ 2026-09-20 시점 피드에 우리 글은 «아직» 안 보인다 — 반영 지연인지 추천 선별인지 미확인. 다음 사이클에 directoryNo=33 에서 donneum 링크 존재를 다시 잰다. 별도 발행 불필요(네이버 블로그 글이 그대로 흘러든다) — 비용 0.",
+      "cadence": "발행 없음 · 주 1회 노출 확인"
+    },
+    {
       "id": "play_listing_experiments",
       "name": "Play 스토어 등록정보 실험",
       "tier": "A",
