@@ -161,6 +161,27 @@ if (cmd === 'slot') {
   const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖');
 
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
+
+  // ★2026-09-20 «키우기» 레인 — 아래 «실행»은 오래 방치된 순이라, 매일 클릭을 내는 채널이
+  //   구조적으로 영영 안 뽑힌다(bluesky 가 4사이클 내리 «대상 아님»에 있었다).
+  //   그로스 규칙은 「이긴 것을 최소 단위로 찾아 키운다」이므로 이 레인을 «맨 앞»에 둔다.
+  try {
+    const cc = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), 'utf8'));
+    const ageH = (Date.now() - Date.parse(cc.at)) / 36e5;
+    const SELF = new Set(['home', 'seo', 'seo_darkpool']); // 우리 자산 — 게시로 키우는 대상이 아니다
+    const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !SELF.has(t))
+      .sort((a, b) => b[1] - a[1]).slice(0, 3);
+    console.log('■ 키우기 — 최근 3일 «클릭이 실제로 나온» 채널. 이번 사이클에 최소 1편을 여기에 쓴다');
+    if (!top.length) console.log('   (3일 클릭 0 — 키울 것이 없다)');
+    for (const [t, n] of top) {
+      const v = c[ALIAS[t] || t];
+      const room = v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음';
+      console.log('   ★ ' + t.padEnd(16) + '3일 ' + String(n).padStart(3) + '클릭 · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
+    }
+    if (ageH > 6) console.log('   ⚠ 클릭 캐시가 ' + Math.round(ageH) + '시간 전 것이다 → `node scripts/mkt-clicks.js` 를 먼저 돌려라');
+    console.log('');
+  } catch { console.log('■ 키우기 — 클릭 캐시 없음 → `node scripts/mkt-clicks.js` 를 먼저 돌려라\n'); }
+
   console.log('■ 실행 — 이 4개를 «반드시» 처리한다 (오래 방치된 순)');
   if (!open.length) console.log('   (열린 채널 없음 → 아래 «뚫기»가 이번 사이클의 본업이다)');
   open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + r.note));

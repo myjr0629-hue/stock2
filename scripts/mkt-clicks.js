@@ -87,4 +87,16 @@ async function liveTags() {
   const sa = live2.reduce((a, b) => a + b.all, 0);
   console.log(`${'합계'.padEnd(15)}${String(s3).padStart(4)}                 ${String(sa).padStart(5)}`);
   console.log(`\n· 0클릭 채널 ${rows.length - live2.length}개는 생략했다. 태그 ${tags.length}개 전수 조회.`);
+
+  // ★2026-09-20 — 이 표를 «큐»가 쓰게 한다.
+  //   mkt-plan.js slot 은 «오래 방치된 순»으로만 골라서, 매일 클릭을 내는 채널(bluesky)이
+  //   4사이클 내리 «대상 아님»에 있었다. 이긴 것을 키우라는 규칙과 정면으로 어긋난다.
+  //   그래서 여기서 캐시를 남기고 slot 이 «키우기» 레인으로 먼저 보여 준다.
+  try {
+    const cache = { at: new Date().toISOString(), days, failed,
+      d3: Object.fromEntries(live2.map((r) => [r.t, r.d3])),
+      all: Object.fromEntries(live2.map((r) => [r.t, r.all])) };
+    fs.writeFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), JSON.stringify(cache, null, 1) + '\n');
+    console.log('· 캐시 기록: .agent/marketing/clicks-cache.json (slot 의 «키우기» 레인이 읽는다)');
+  } catch (e) { console.log('· 캐시 기록 실패: ' + String(e.message).slice(0, 60)); }
 })();
