@@ -628,6 +628,16 @@
       "link": "https://www.signumhq.com/en/feed.xml",
       "action": "config",
       "note": "★2026-09-19 **정정.** 직전 사이클에 「피드가 없다」고 적었는데 **틀렸다.** 피드는 **2026-08-22에 내가 직접 만들었고**(커밋 420ee2ec) 지금도 살아 있다 — `/en/feed.xml` 200(10,013B) · `/ko/feed.xml` 200(9,792B) · `/ja/feed.xml` 200(10,203B). 내가 틀린 이유: **짐작한 경로만 찔러 봤다**(`/rss` `/feed` `/rss.xml` `/feed.xml` `/ko/rss.xml`). 실제 경로는 `src/app/[locale]/feed.xml` 이라 **로케일이 앞에 붙는다.** 저장소와 내 커밋 메시지에 답이 있었다. 실제로 깨진 것은 **`/rss`·`/feed` 리다이렉트의 «대상»뿐**이다 — 307 로 `/en/rss` 에 보내는데 그 주소가 404. 대상이 `/en/feed.xml` 이어야 맞다(웹 코드라 내 안전선 밖 → 대표/개발 1회, 우선순위 낮음). ★할 일: **네이버 서치어드바이저 「요청 → RSS 제출」에 `https://www.signumhq.com/ko/feed.xml` 을 넣는다** — 코드 없이 지금 가능하고 브라우저만 있으면 된다."
+    },
+    {
+      "id": "app_share",
+      "name": "앱 안의 «공유» — 사용자를 배포자로",
+      "tier": "A",
+      "enabled": false,
+      "tag": "share",
+      "link": "https://signumhq.com/app?from=share",
+      "action": "config",
+      "note": "★2026-09-19 확장 발굴. 우리 유입 1위가 «자사 웹»(from=home 21일 393클릭)인데, **이미 앱을 쓰는 사람이 남에게 건넬 길이 없다.** 공유 버튼 하나가 있으면 스마트링크(`?from=share`)가 사용자 손으로 퍼지고, 설치 깔때기의 «맨 앞»(노출 0.5%만 등록정보를 연다)을 우회한다 — 지인에게 받은 링크는 검색 노출과 전환율이 다르다. 붙일 자리: 종목 상세·다크풀/맥스페인 화면처럼 «남에게 보여주고 싶은 숫자»가 있는 화면. 네이티브는 Capacitor Share 플러그인, 웹은 navigator.share 폴백. ★앱 코드라 내 안전선 밖 → 대표/개발. 붙으면 내가 from=share 클릭을 추적표에 올려 즉시 효과를 잰다."
     }
   ],
   "candidates": [
