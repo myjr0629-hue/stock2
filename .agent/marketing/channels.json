@@ -578,6 +578,16 @@
       "link": "https://apps.apple.com/app/id6783130444",
       "action": "upload",
       "note": "★2026-09-19 확장 발굴. 제품 페이지 «첫 칸»이 정지 스크린샷이 아니라 자동재생 영상이 된다 — 등록정보를 연 사람의 전환을 올리는 몇 안 되는 지렛대이고, 우리 병목이 바로 «등록정보를 열고도 안 받는 것»이다. 우리는 이미 Remotion 40종 템플릿 + Lambda 렌더(편당 $0.02)를 갖고 있어 «만들 수단»이 있다. 필요 사양: 6.5\" 1080x1920(또는 886x1920) · 15~30초 · H.264/HEVC · 첫 프레임이 포스터. 업로드는 appPreviewSets/appPreviews(예약 업로드 → 청크 PUT → commit), scripts/asc_upload_screenshots.py 의 흐름을 재사용. ⚠️ 스크린샷과 달리 **심사 대상**이다(버전과 함께 검토). 먼저 en-US 한 편으로 검증한 뒤 ko/ja 로 복제한다."
+    },
+    {
+      "id": "play_app_tags",
+      "name": "Google Play 앱 태그(최대 5)",
+      "tier": "A",
+      "enabled": true,
+      "tag": "play_tags",
+      "link": "https://play.google.com/store/apps/details?id=com.signumhq.app",
+      "action": "edit",
+      "note": "★2026-09-19 확장 발굴·실행. 경로: 앱 → Grow users → Store presence → **Store settings** → Tags [Manage tags]. **즉시 반영이고 AI 신고 모달이 없다**(등록정보 저장과 다른 경로) — Play 에서 내가 심사 없이 건드릴 수 있는 몇 안 되는 칸. 태그는 «노출 위치»와 «비교 피어그룹»을 함께 바꾼다. 어휘는 고정 172개라 「stock」·「quiz」·「trivia」·「budget」은 **없다**; 우리 것은 fin→Finance/Personal finance, invest→Investment, aggregator→News aggregator, news→News & magazines, crypto→Cryptocurrency, educat→Education. 실측 적용: SIGNUM 0→**Finance/Investment/News aggregator**, UC 1→**Finance/Investment/News & magazines/News aggregator**, WIM 은 이미 5칸 만석(Finance/Investment/News & magazines/Study guide/Test preparation)이라 손대지 않음. 조작 요령: 모달의 검색칸은 `aria-label=\"Search tags\"`, 선택은 행 «왼쪽 30px»를 클릭, 확인은 「Selected tags: …」 문자열로 읽는다."
     }
   ],
   "candidates": [

@@ -7937,3 +7937,33 @@ RUNBOOK 에 사이클 고정 한 줄로 넣었다.
 ### 판정 정정
 「Quora 답변을 올렸다」고 적힌 과거 기록 중 일부는 **초안까지만 간 것**일 수 있다.
 원장의 URL 이 `/answer/Jiyoung-Kim-236` 형태로 남아 있고 공개 페이지가 열리는 건만 «발행»으로 친다.
+
+## 2026-09-19 11:36~12:1x KST — 사이클: 레딧 재개 + Play 태그 표면을 «열어서 실행»했다
+
+**게이트** 341건·실패 0. UTC 일이 바뀌어 레딧 3칸이 비어 있었다.
+
+| 구역 | 결과 |
+|---|---|
+| **reddit 1/3** | ✅ r/thetagang 「Triple Witching effect on AMD $550 call」 — 핀 리스크·감마 메커니즘. [댓글](https://www.reddit.com/r/thetagang/comments/1wk4d9v/triple_witching_effect_on_amd_550_call_today/pap2hu9/) · 무링크·무앱명 확인 |
+| reddit 2·3 | ⏳ **레딧 자체 rate limit** 에 걸려 대기(내 8분 가드는 통과했는데 서버가 더 길게 잡는다) |
+| **play_app_tags** | 🆕 확장 — **발굴에서 끝내지 않고 실행까지** 했다 |
+| 실행 4 | tiktok·hatena·naver_search_advisor·daum_search 전부 기존 대표 게이트 |
+| 광고 | 세션 만료 지속 |
+
+### ★ Play 앱 태그 — 심사 없이 바꿀 수 있는 칸이 또 있었다
+경로: 앱 → Grow users → Store presence → **Store settings** → Tags [Manage tags].
+**즉시 반영되고 「Label AI-generated assets」 모달이 뜨지 않는다** — 등록정보 저장과 «다른 경로»다.
+Play 에서 내가 심사 없이 건드릴 수 있는 칸이 짧은 설명 말고 하나 더 있었던 셈이다.
+
+실측 상태와 조치:
+- **SIGNUM: 태그 0개였다** → Finance · Investment · News aggregator
+- **UC: 1개(Investment)** → Finance · Investment · News & magazines · News aggregator
+- **WIM: 이미 5칸 만석**(Finance·Investment·News & magazines·Study guide·Test preparation) → **건드리지 않았다**
+
+어휘는 고정 172개다. 「stock」·「quiz」·「trivia」·「budget」은 **검색해도 안 나온다**(없는 단어다).
+우리 쪽 유효어: fin→Finance/Personal finance · invest→Investment · aggregator→News aggregator ·
+news→News & magazines · crypto→Cryptocurrency · educat→Education.
+⚠️ 태그는 «노출 위치»뿐 아니라 **«비교 피어그룹»도 같이 바꾼다** → 약한 태그로 5칸을 채우지 않는다.
+
+조작 요령(다음에 헤매지 않게): 모달 검색칸은 `aria-label="Search tags"`.
+선택은 행 **왼쪽 30px** 를 클릭(체크박스가 폭 0이라 안 잡힌다). 확인은 화면의 **「Selected tags: …」** 문자열로 읽는다.

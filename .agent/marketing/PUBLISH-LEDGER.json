@@ -1,6 +1,22 @@
 {
  "entries": [
   {
+   "ch": "play_app_tags",
+   "url": "https://play.google.com/store/apps/details?id=com.signumhq.app",
+   "note": "SIGNUM 0→3개, UC 1→4개 태그 적용",
+   "at": "2026-09-19T02:48:40.257Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
+   "ch": "reddit",
+   "url": "https://www.reddit.com/r/thetagang/comments/1wk4d9v/triple_witching_effect_on_amd_550_call_today/pap2hu9/",
+   "note": "",
+   "at": "2026-09-19T02:40:14.297Z",
+   "kst": "2026-09-19",
+   "utc": "2026-09-19"
+  },
+  {
    "ch": "quora_en",
    "url": "https://www.quora.com/Can-options-be-a-good-predictor-of-a-stock-price/answer/Jiyoung-Kim-236",
    "note": "",
