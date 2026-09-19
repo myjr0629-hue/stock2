@@ -7908,3 +7908,32 @@ RUNBOOK 에 사이클 고정 한 줄로 넣었다.
 `SideNav_AccountSwitcher_Button` 의 innerText 는 **빈 문자열**이라(사이드바 접힘) 전환 확인에 쓸 수 없다.
 전환 직후 `x.com/<핸들>` 로 가서 **「Edit profile」이 보이는지**로 판정해야 한다(남의 프로필이면 Follow).
 오늘 이 가드가 실제로 **오발행을 한 번 막았다**(전환 실패 상태에서 중단). 발행 후 EN 계정으로 되돌려 놨다.
+
+## 2026-09-19 10:36~11:1x KST — 사이클: Quora 발행 + 「조용히 초안으로 가던 것」을 잡았다
+
+**게이트** 341건·실패 0.
+
+| 구역 | 채널 | 결과 |
+|---|---|---|
+| 발행 | **quora_en** | ✅ [Can options be a good predictor of a stock price?](https://www.quora.com/Can-options-be-a-good-predictor-of-a-stock-price/answer/Jiyoung-Kim-236) — 본문 2,056자·**링크 0**·앱명 1회·가격 대조 포함, 공개 페이지 검증 |
+| 실행 4 | tiktok / hatena / naver_search_advisor / daum_search | 전부 이전 사이클에서 원인 확정된 대표 게이트(보류·계정·CAPTCHA·동의2건) |
+| 뚫기 | geeknews(09-25 해금) / fmkorea(계정) | 변동 없음 |
+| 확장 | **apple_app_preview** | 🆕 App Store 미리보기 «영상» 칸 — 등록정보 전환의 지렛대. Remotion 40종+Lambda 렌더가 이미 있어 수단은 갖췄다 |
+| 광고 | apple ads | ⛔ 세션 만료 지속 |
+
+### ★ Quora — 「Post」가 조용히 «초안»으로 가고 있었다
+오늘 답변을 쓰고 [Post] 를 눌렀는데 **아무 일도 일어나지 않았다.** 프로필 답변 목록에도 없었다.
+초안함에 가 보니 **미발행 4건**이 쌓여 있었다 — 오늘 것 1건 + **예전 사이클의 3건**
+(meme stock screener / dark pool trading / max pain 장단점).
+
+원인: **Quora 의 [Post] 는 «이번 세션에서 내용이 바뀌어야» 활성화된다.**
+- 초안을 [Edit] 로 열기만 하면 `aria-disabled="true"` 이고, 눌러도 **네트워크 요청이 0건**이다(조용히 무반응).
+- 본문 «가운데»를 클릭해 `contenteditable` 에 포커스가 잡힌 뒤 **한 글자라도 바꾸면** 즉시 활성화된다.
+- 편집기 «아래쪽»을 클릭하면 링크 입력줄에 포커스가 가서 타이핑이 본문에 안 들어간다(길이가 안 변한다 = 신호).
+
+**바꾼 것**: 다음 사이클부터 Quora 는 **새 답을 쓰기 전에 초안함부터 비운다.** 남은 3건은 하루 1편 상한 때문에
+오늘은 올리지 않고 다음 사이클에 순서대로 발행한다.
+
+### 판정 정정
+「Quora 답변을 올렸다」고 적힌 과거 기록 중 일부는 **초안까지만 간 것**일 수 있다.
+원장의 URL 이 `/answer/Jiyoung-Kim-236` 형태로 남아 있고 공개 페이지가 열리는 건만 «발행»으로 친다.
