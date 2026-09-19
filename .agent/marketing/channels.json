@@ -577,7 +577,7 @@
       "tag": "apple_preview",
       "link": "https://apps.apple.com/app/id6783130444",
       "action": "upload",
-      "note": "★2026-09-19 확장 발굴. 제품 페이지 «첫 칸»이 정지 스크린샷이 아니라 자동재생 영상이 된다 — 등록정보를 연 사람의 전환을 올리는 몇 안 되는 지렛대이고, 우리 병목이 바로 «등록정보를 열고도 안 받는 것»이다. 우리는 이미 Remotion 40종 템플릿 + Lambda 렌더(편당 $0.02)를 갖고 있어 «만들 수단»이 있다. 필요 사양: 6.5\" 1080x1920(또는 886x1920) · 15~30초 · H.264/HEVC · 첫 프레임이 포스터. 업로드는 appPreviewSets/appPreviews(예약 업로드 → 청크 PUT → commit), scripts/asc_upload_screenshots.py 의 흐름을 재사용. ⚠️ 스크린샷과 달리 **심사 대상**이다(버전과 함께 검토). 먼저 en-US 한 편으로 검증한 뒤 ko/ja 로 복제한다."
+      "note": "★2026-09-19 확장 발굴. 제품 페이지 «첫 칸»이 정지 스크린샷이 아니라 자동재생 영상이 된다 — 등록정보를 연 사람의 전환을 올리는 몇 안 되는 지렛대이고, 우리 병목이 바로 «등록정보를 열고도 안 받는 것»이다. 우리는 이미 Remotion 40종 템플릿 + Lambda 렌더(편당 $0.02)를 갖고 있어 «만들 수단»이 있다. 필요 사양: 6.5\" 1080x1920(또는 886x1920) · 15~30초 · H.264/HEVC · 첫 프레임이 포스터. 업로드는 appPreviewSets/appPreviews(예약 업로드 → 청크 PUT → commit), scripts/asc_upload_screenshots.py 의 흐름을 재사용. ⚠️ 스크린샷과 달리 **심사 대상**이다(버전과 함께 검토). 먼저 en-US 한 편으로 검증한 뒤 ko/ja 로 복제한다. ★2026-09-19 실측으로 확정: **라이브 버전에는 넣을 수 없다.** `POST /appPreviewSets`(previewType IPHONE_65, 현 v1.9.2 READY_FOR_SALE) → **409 `ENTITY_ERROR.ATTRIBUTE.INVALID.INVALID_STATE`**. 즉 편집 가능한 새 버전(PREPARE_FOR_SUBMISSION)이 있어야 하고, 그건 빌드·심사를 동반한다 → 다음 앱 버전 나갈 때 «같이» 넣는다. 덧: 같은 조회에서 en-US 스크린샷은 6장 COMPLETE 로 정상(관계를 include 하지 않으면 0으로 보이니 오판 금지)."
     },
     {
       "id": "play_app_tags",
@@ -598,6 +598,16 @@
       "link": "https://www.signumhq.com/.well-known/assetlinks.json",
       "action": "config",
       "note": "★2026-09-19 확장 발굴. Play Console → Deep links 실측: **「No web links found」 — 앱 매니페스트에 웹 링크가 하나도 없다.** 우리 1위 유입원이 자사 웹(home 412·seo 141 클릭)인데 그 트래픽이 앱으로 이어지는 길이 «전혀 없는» 상태다. 필요한 것은 두 쪽뿐: ①웹 `.well-known/assetlinks.json` — **2026-09-19 내가 배포함**(package com.signumhq.app, SHA-256 83:5E:A0:64:93:5C:E7:9B:38:84:33:EF:83:BA:00:E5:D6:FC:A0:38:5F:63:DC:4E:DD:17:76:71:7D:4C:3C:24, Play Console→App integrity→App signing 에서 복사) ②**안드로이드 매니페스트에 intent-filter + android:autoVerify=\"true\"** — 이건 앱 코드라 내 안전선 밖이다(대표/빌드 1회). 두 쪽이 맞물리면 안드로이드 크롬에서 signumhq.com 을 연 사용자가 앱으로 직행하고, 미설치자에겐 설치 경로가 뜬다. 검증은 같은 Deep links 화면에서 Status 를 본다."
+    },
+    {
+      "id": "disquiet",
+      "name": "디스콰이엇 (한국 메이커 커뮤니티)",
+      "tier": "A",
+      "enabled": false,
+      "tag": "disquiet",
+      "link": "https://signumhq.com/app?from=disquiet",
+      "action": "post",
+      "note": "★2026-09-19 확장 발굴. **한국판 Product Hunt** — 메이커가 자기 제품을 올리는 곳이고, 홍보가 «금지»가 아니라 «취지»다(okky 홍보판과 달리 삭제 위험이 없다). 근거: 오늘 실측에서 **okky 가 최근 11클릭으로 외부 2위**였다 — 한국 개발자·메이커 커뮤니티가 우리에게 실제로 전환된다는 신호다. 피드 실측(2026-09-19): 개인 개발자의 무료 앱·도구가 상단을 차지하고 있어 우리 결과 정확히 맞는다. ★계정 필요(대표 1회) — 로그인 없이는 글쓰기 불가. 계정이 생기면 내가 「프로덕트 등록 + 메이커 로그」까지 한다. 글감은 이미 있다: okky 에 쓴 «시간외/정규장 세션 혼동» 개발기(https://okky.kr/articles/1564308)를 메이커 관점으로 고쳐 쓴다."
     }
   ],
   "candidates": [

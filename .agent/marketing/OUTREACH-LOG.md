@@ -8042,3 +8042,32 @@ news→News & magazines · crypto→Cryptocurrency · educat→Education.
 ### 내 추출식이 값을 잘랐다 (§41 반복)
 SHA-256 지문을 정규식으로 뽑았더니 **앞 1바이트(`83:`)가 빠진 31바이트**가 나왔다.
 「32바이트인지」를 세어 보고서야 알았다. **지문·해시·ID 는 길이를 세어 검증한다.**
+
+## 2026-09-19 13:36~14:2x KST — 사이클: Medium + okky 2편 발행, 앱 미리보기 게이트 확정
+
+**게이트** 341건·실패 0.
+
+| 구역 | 결과 |
+|---|---|
+| **medium** | ✅ [Your stock app is probably mixing two different sessions in one row](https://medium.com/@signum_hq/your-stock-app-is-probably-mixing-two-different-sessions-in-one-row-497c82e43269) — 770단어·AI 공시 포함·링크 카드(`?from=medium` 보존)·태그 2개 |
+| **okky** | ✅ [미국 주식 시세를 붙이면서 겪은 것](https://okky.kr/articles/1564308) — 같은 주제를 **개발자 관점**으로. 본문 1,408자·가격 대조 포함 |
+| **apple_app_preview** | ⛔ **라이브 버전엔 불가 확정**(아래) |
+| 확장 | 🆕 **disquiet(디스콰이엇)** 등록 — 한국판 Product Hunt, 계정만 있으면 내가 끝낸다 |
+| 실행 4 | 변동 없음(네이버는 재확인했는데 여전히 미인증) |
+
+### ★ App Store 미리보기 영상 — 1시간 쓰기 전에 5분으로 확정했다
+영상을 만들기 전에 **쓰기가 되는지부터 물었다.**
+`POST /appPreviewSets` (previewType `IPHONE_65`, 현재 v1.9.2 `READY_FOR_SALE`)
+→ **409 `ENTITY_ERROR.ATTRIBUTE.INVALID.INVALID_STATE`**
+즉 **편집 가능한 새 버전이 있어야** 넣을 수 있고, 그건 빌드·심사를 동반한다.
+→ **다음 앱 버전이 나갈 때 «같이» 넣는다.** Remotion 1080×1920/30fps 는 규격에 맞지만,
+   애플은 미리보기에 «앱이 실제로 동작하는 화면»을 요구하므로 데이터 모션그래픽이 아니라
+   **앱 화면 캡처**로 만들어야 한다(이것도 같이 기록해 둔다).
+덧: 같은 조회에서 en-US 스크린샷이 «0장»으로 보였는데, `include=appScreenshots` 를 빼면 관계가 안 와서 그런 것이고
+**실제로는 6장 COMPLETE** 다. 관계를 include 하지 않고 «없다»고 판단하지 말 것.
+
+### okky — 노트가 낡아서 채널을 놓치고 있었다
+규칙에 `★계정 필요` 가 남아 있어 플래너가 okky 를 **계정대기로 분류**하고 있었다.
+그런데 실제로는 09-18 에 이미 발행했고 계정도 살아 있다 — **낡은 노트 한 줄이 2위 채널(최근 11클릭)을 큐에서 지우고 있었다.**
+노트를 고쳤고, 게시판 규칙(영리 광고성 글은 예고 없이 삭제 · 링크 자동연결 안 됨)도 같이 적었다.
+**교훈: «계정 필요» 같은 상태 표시는 사실이 바뀌면 그 자리에서 지운다.**

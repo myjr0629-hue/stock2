@@ -20,7 +20,7 @@ const save = (o) => fs.writeFileSync(LEDGER, JSON.stringify(o, null, 1));
 const CH = {
   admob:       { cap: 0, day: 'week', window: [0, 24], note: '수익 채널(홍보 아님). 개인 계정 — authuser=1 필수. 금융 차단은 p3(t141), 브랜드·경쟁 이유이고 CPM 손실 가능' },
   dcinside:    { cap: 0, day: 'kst', window: [9, 24], note: '⛔관리 제외(검증) — 글쓰기 화면에 password 입력란 실재. 안전선 「비밀번호 입력 금지」 위반. 대표 전용' },
-  okky:        { cap: 1, day: 'kst', window: [9, 24], note: '★계정 필요. /events/promote 는 «무료 서비스 전용» 홍보판이라 우리가 정확히 해당' },
+  okky:        { cap: 1, day: 'kst', window: [9, 24], note: '계정 살아있음(signumhq). /events/promote 는 «무료 서비스 전용» 홍보판. ⚠️영리 광고성 글은 예고 없이 삭제 — «개발자에게 유익한 정보»로 써야 산다. 링크는 자동 링크화 안 됨(평문)' },
   geeknews:    { cap: 1, day: 'week', window: [9, 24], note: '★계정 필요. 자작 앱은 반드시 [Show] 태그. 가입 7일 대기. 1회성 — 남발 금지' },
   fmkorea:     { cap: 1, day: 'kst', window: [9, 24], note: '★계정 필요. 주식게시판 해외주식 하위. 포인트 게이트 있음 — 댓글부터' },
   brunch:      { cap: 1, day: 'week', window: [0, 24], note: '★작가 신청 필요. 키워드 «미국주식» 허브 존재. 에세이 톤, 링크는 말미 1회' },
@@ -59,6 +59,7 @@ const CH = {
   apple_app_preview: { cap: 1, day: 'week', window: [0, 24], note: 'Remotion 으로 렌더 → appPreviewSets 업로드. 심사 대상이라 «버전과 함께» 나간다. en-US 한 편 검증 후 ko/ja 복제' },
   play_app_tags: { cap: 1, day: 'week', window: [0, 24], note: 'Store settings → Manage tags. 즉시·무심사. 어휘 고정 172개(stock·quiz 없음). 피어그룹도 같이 바뀌니 «약한 태그로 5칸 채우기» 금지' },
   android_deep_links: { cap: 1, day: 'week', window: [0, 24], note: '★대표 1회(매니페스트 intent-filter + autoVerify). 웹쪽 assetlinks.json 은 배포 완료. Play Console→Deep links 의 Status 로 검증' },
+  disquiet:    { cap: 1, day: 'week', window: [9, 24], note: '★계정 필요(대표 1회). 한국판 Product Hunt — 홍보가 취지라 삭제 위험 없음. okky 11클릭이 근거' },
   taaft:       { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요(t203). 디렉터리 등재는 «1회»다 — 무료 경로만, 유료 승급 금지. 등재문에 «AI가 무엇을 하는가»를 구체로: 프리마켓·섹터·매크로·기관수급을 읽어 매일 ko/en/ja 브리핑. 재등록·중복 제출 금지' },
   quora_en:    { cap: 1, day: 'utc', window: [0, 24], note: '§11-6 순수 가치·앱명 0~1회·데이터 화면 1장' },
   quora_jp:    { cap: 1, day: 'utc', window: [0, 24], note: '피드가 마르면 억지 발행 금지' },
