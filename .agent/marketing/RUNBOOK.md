@@ -52,6 +52,7 @@ node scripts/audit-expiration-selection.js --live   # ② 발행 게이트
 
 ```bash
 node scripts/check-store-ratings.js      # Play + App Store(us/kr/jp) · 종료코드 1 = 어느 스토어에도 별점 0
+node scripts/aso-thin-door.js kr        # 스토어 검색어 «얇은 문» 실측(us|jp 도) — 빌드 직전에 다시 잰다
 ```
 **★2026-09-20 정정 — 「세 앱 모두 별점 0」은 틀린 말이었다.** 이 검사가 **Play 만** 보고 있었다.
 애플 lookup API(무인증·무브라우저)로 재니 **SIGNUM US ★5(1)·KR ★5(1), Undercurrent KR ★5(1)** 이 이미 있다.
