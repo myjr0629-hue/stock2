@@ -8009,3 +8009,36 @@ news→News & magazines · crypto→Cryptocurrency · educat→Education.
 3. **What is dark pool trading, and how does it affect stock prices?** — **본문이 비어 있다**(제목만) → 새로 써야 함
 발행 절차: 초안 [Edit] → **본문 «가운데» 클릭으로 포커스** → 한 글자라도 바꿔 [Post] 활성화 → 게시 →
 `/answer/Jiyoung-Kim-236` 공개 URL 로 검증(§ 확인 전엔 «발행했다» 금지).
+
+## 2026-09-19 12:36~13:1x KST — 사이클: note(JP) 발행 + 「웹→앱 길이 아예 없었다」를 발견
+
+**게이트** 341건·실패 0. 레딧·Quora·X JP 는 UTC 일 소진 상태.
+
+| 구역 | 결과 |
+|---|---|
+| **note_jp** | ✅ [マイクロンが1,000ドルを取り戻した日](https://note.com/signumhq/n/nb1b313772a23) — 본문 1,280자·이미지 1·스마트링크(카드) 검증. §42 대로 ①실측 ②「무엇을 봐야 하나」 ③가격 대조(월50/85/99달러→무료) ④링크 |
+| **확장: android_deep_links** | 🆕 Play Console → Deep links 가 **「No web links found」**. 웹 쪽 `assetlinks.json` 을 **배포·200 확인**, 나머지는 대표 티켓 |
+| 실행 4 | tiktok·hatena·naver_search_advisor(재확인: 여전히 미인증)·daum_search — 변동 없음 |
+| 광고 | 세션 만료 지속 |
+
+### ★ 우리 1위 유입원이 앱으로 이어지지 않고 있었다
+클릭 표에서 **home 412 · seo 141** 로 자사 웹이 압도적 1위인데, Play Console 의 Deep links 화면은
+**「No web links found」** 였다. 즉 안드로이드에서 signumhq.com 을 연 사람이 **앱으로 갈 길이 없다.**
+필요한 것은 두 쪽뿐이다.
+1. **웹**: `.well-known/assetlinks.json` — **오늘 배포 완료**(200 확인). package `com.signumhq.app`,
+   SHA-256 은 Play Console → App integrity → App signing 에서 복사한 32바이트 전체.
+2. **앱**: 안드로이드 매니페스트에 `intent-filter` + `android:autoVerify="true"` — **앱 코드라 내 안전선 밖**. 빌드 1회.
+두 쪽이 맞물리면 기존 웹 방문자가 설치 사용자로 넘어가고, 미설치자에겐 설치 경로가 뜬다.
+
+### note 편집기 — 오늘 헤맨 지점 세 개 (다음에 반복하지 않게)
+1. **제목 칸은 편집기가 아니라 `textarea[placeholder="記事タイトル"]` 다.** contenteditable 이 하나뿐이라
+   거기에 제목을 치면 **본문 맨 끝으로 밀려 들어간다**(내가 그렇게 만들었다가 지웠다).
+2. **블록 `.remove()` 는 쓰지 말 것.** ProseMirror 상태와 어긋나 **엉뚱한 블록(링크 카드)이 지워졌다.**
+   실제 키보드(클릭 → Cmd+↓ → Backspace 반복)로 지우고, **본문이 화면 밖이면 클릭이 안 먹으므로
+   `scrollIntoView` 후 «좌표를 다시 재고» 클릭**한다(MacRumors 때와 같은 실수를 또 했다).
+3. URL 을 치고 Enter 하면 **임베드 카드로 바뀌는데 `?from=note` 는 살아남는다**(a[href] 로 확인함).
+   본문 텍스트에는 URL 이 안 남으므로 «본문에 링크 문자열이 있는지»로 검증하면 오탐이다 — **a 태그 href 로 본다.**
+
+### 내 추출식이 값을 잘랐다 (§41 반복)
+SHA-256 지문을 정규식으로 뽑았더니 **앞 1바이트(`83:`)가 빠진 31바이트**가 나왔다.
+「32바이트인지」를 세어 보고서야 알았다. **지문·해시·ID 는 길이를 세어 검증한다.**
