@@ -47,11 +47,18 @@ async function recordHit(fromRaw: string | null): Promise<void> {
 const PREVIEW_BOT_RE =
   /LinkedInBot|facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|TelegramBot|WhatsApp|kakaotalk-scrap|Kakao|Bluesky|cardyb|redditbot|Pinterest|Embedly|vkShare|Quora Link Preview|Applebot|Googlebot|bingbot|Mastodon|Threads/i;
 
+// ★2026-09-20 실측 수리: 한국어 조건이 `_kr$|_ko$` 뿐이라 우리 한국 채널
+//   (naver_blog·okky·naver_kin·daum·tistory…)이 «하나도» 안 걸려 전부 영문 카드를 받고 있었다.
+//   일본도 qiita·zenn·hatena 가 빠져 있었다. 카드 이미지·카피는 이미 있다(/promo/card-app-ko.png).
+//   대표 지시 「한글 글에 영어 이미지 금지」가 이 표면에도 그대로 적용된다.
+const KO_TAGS = /_kr$|_ko$|^x_kr$|^naver|^okky$|^daum|^tistory$|^fmkorea$|^dcinside$|^kr_/;
+const JA_TAGS = /_jp$|^note$|^quora_jp|^x_jp$|^qiita$|^zenn$|^hatena|^mybest|^jp_/;
+
 function previewLang(fromTag: string | null, explicit: string | null): 'en' | 'ja' | 'ko' {
   if (explicit === 'ja' || explicit === 'ko' || explicit === 'en') return explicit;
   const f = fromTag || '';
-  if (/_jp$|^note$|^quora_jp|^x_jp$/.test(f)) return 'ja';
-  if (/_kr$|^x_kr$|_ko$/.test(f)) return 'ko';
+  if (JA_TAGS.test(f)) return 'ja';
+  if (KO_TAGS.test(f)) return 'ko';
   return 'en';
 }
 
@@ -70,7 +77,7 @@ const OG_COPY = {
   },
 } as const;
 
-function previewHtml(lang: 'en' | 'ja' | 'ko', canonical: string): string {
+function previewHtml(lang: 'en' | 'ja' | 'ko', canonical: string, storeUrl: string = APP_STORE_URL): string {
   const c = OG_COPY[lang];
   const img = `https://www.signumhq.com/promo/card-app-${lang}.png`; // www 직접 — 이미지 스크래퍼가 apex→www 307 을 안 따라갈 수 있다
   const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -88,8 +95,8 @@ function previewHtml(lang: 'en' | 'ja' | 'ko', canonical: string): string {
 <meta name="twitter:title" content="${esc(c.title)}">
 <meta name="twitter:description" content="${esc(c.desc)}">
 <meta name="twitter:image" content="${img}">
-<meta http-equiv="refresh" content="0;url=${esc(APP_STORE_URL)}">
-</head><body><a href="${esc(APP_STORE_URL)}">${esc(c.title)}</a></body></html>`;
+<meta http-equiv="refresh" content="0;url=${esc(storeUrl)}">
+</head><body><a href="${esc(storeUrl)}">${esc(c.title)}</a></body></html>`;
 }
 
 export function GET(request: NextRequest) {
@@ -98,9 +105,19 @@ export function GET(request: NextRequest) {
   if (PREVIEW_BOT_RE.test(ua)) {
     const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
     const lang = previewLang(fromTag, request.nextUrl.searchParams.get('l'));
-    return new NextResponse(previewHtml(lang, request.nextUrl.href), {
+    // ★2026-09-20 §50 수리 — 이 응답을 «캐시 가능»하게 내보내면 안 된다.
+    //   Vercel CDN 은 URL 단위로 캐시하고 Vary 에 User-Agent 가 없다 → 미리보기 봇이 한 번 긁으면
+    //   그 뒤 10분 동안 «사람»도 302 대신 이 HTML 을 받았다. 그리고 이 HTML 의 유일한 탈출구인
+    //   meta refresh 가 «항상 애플»이었으므로 **안드로이드 사용자가 apps.apple.com 으로 보내져
+    //   설치를 못 했다**(실측·재현: x-vercel-cache HIT, age 97s, 안드로이드 UA).
+    //   그 클릭은 recordHit 도 안 타므로 집계에서도 사라졌다.
+    return new NextResponse(previewHtml(lang, request.nextUrl.href, /android/i.test(ua) ? PLAY_STORE_URL : APP_STORE_URL), {
       status: 200,
-      headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=600' },
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'private, no-store, max-age=0',
+        vary: 'User-Agent',
+      },
     });
   }
 

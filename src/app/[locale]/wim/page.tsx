@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
+import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
 import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
@@ -3316,6 +3317,12 @@ export default function WimPage() {
   useEffect(() => {
     try { setIsNativeShell(!!(window as any).Capacitor?.isNativePlatform?.()); } catch { /* web */ }
   }, []);
+
+  // ★2026-09-20 — 9/19 에 내린 «잔존 사용자» 안전망이 SIGNUM dash 에만 붙어 있었다.
+  //   UC·WIM 은 행동 마일스톤만 있어, 거기 못 닿는 사용자는 평가 요청을 영영 못 본다
+  //   (실측 7일 잔존 1대). 두 갈래(서로 다른 사용일 2·7일 / 누적 앱 실행 4회째) 중 먼저 닿는 쪽.
+  //   네이티브 플러그인이 없으면 완전 무동작이므로 웹에는 아무 영향이 없다.
+  useEffect(() => { maybePromptReview(); }, []);
 
   const markSetFinished = useReviewPrompt({ storageKey: 'wim.setsFinished', milestones: [2, 8] });
 

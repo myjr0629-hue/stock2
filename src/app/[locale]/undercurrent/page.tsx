@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
+import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import { useParams, useRouter } from 'next/navigation';
 import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, hideBanner, resumeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
@@ -1170,7 +1171,13 @@ export default function UndercurrentPage() {
   // 기존엔 설정 메뉴의 «앱 평가» 버튼을 직접 눌러야만 시트가 떴다. 아무도 안 누른다.
   // (2026-08-22 실측: 3앱 평점 전부 0. SIGNUM 만 자동 호출이 있었다)
   // 전면광고는 시간 간격(3분)으로 제어되므로 회차 충돌 걱정이 없다.
-  const markStoryOpened = useReviewPrompt({ storageKey: 'uc.storyOpens', milestones: [5, 14] });
+  const markStoryOpened = useReviewPrompt({ storageKey: 'uc.storyOpens', milestones: [3, 9] });
+
+  // ★2026-09-20 — 9/19 에 내린 «잔존 사용자» 안전망이 SIGNUM dash 에만 붙어 있었다.
+  //   UC·WIM 은 행동 마일스톤만 있어, 거기 못 닿는 사용자는 평가 요청을 영영 못 본다
+  //   (실측 7일 잔존 1대). 두 갈래(서로 다른 사용일 2·7일 / 누적 앱 실행 4회째) 중 먼저 닿는 쪽.
+  //   네이티브 플러그인이 없으면 완전 무동작이므로 웹에는 아무 영향이 없다.
+  useEffect(() => { maybePromptReview(); }, []);
 
   const openDetail = (c: Card) => { setDetail(c); markRead(c); markStoryOpened(); window.scrollTo(0, 0); };
   // leaving a story is the ONE acceptable interstitial moment (never mid-read);
