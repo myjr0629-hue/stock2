@@ -205,3 +205,17 @@ const walk=(root,acc)=>{const k=root.querySelectorAll?root.querySelectorAll('*')
 **⑤ 저장은 제출이 아니다.** `Save` 뒤 `/publishing` 에서 **「Submit N change for review」 → 대화상자의 「Send changes for review」** 까지 눌러야 `Changes in review` 가 된다. 겉 버튼만 누르면 그대로 대기다.
 
 **⑥ ego 재시작은 함부로 하지 말 것.** 작업공간 번호가 초기화되고 `listTaskSpaces()` 가 빈 배열이 된다. 그때는 `newTaskSpace('mkt','Profile 1')` 로 만든다(인자 2개 필수 — 없으면 실패).
+
+## 10. 앱 버전을 «제출»할 때 반드시 먼저 돌리는 것 (2026-09-21 추가)
+
+```
+python3 scripts/asc-apply-next-keywords.py --live
+```
+
+**왜**: `keywords` 는 **빌드 게이트**다(라이브 버전에 PATCH 하면 409 STATE_ERROR — 2026-09-21 실측).
+그래서 «지금» 못 쓰고 다음 제출까지 기다려야 하는데, 이 저장소엔
+**「7/10 준비 → 7/29 제출 때 전달 안 돼 한국어 키워드가 45/100 로 방치」** 사고가 있다.
+준비값은 `store-metadata/NEXT-BUILD-keywords.json` 에 버전관리돼 있고,
+위 한 줄이 그걸 편집 가능한 버전에 밀어 넣는다. 편집 가능한 버전이 없으면 «대기»로 끝난다(무해).
+
+**같은 급의 즉시 반영 필드**(빌드 불필요): `python3 scripts/asc-promo-text.py --live` — promotionalText 36칸.
