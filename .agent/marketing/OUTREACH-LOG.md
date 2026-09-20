@@ -9182,3 +9182,54 @@ US Search Results → 일시 정지됨 · KR → 일시 정지됨 · JP → 일�
 **무료 체험 0건 · 오퍼 코드 0건 · 프로모션 오퍼 0건.** 둘 다 빌드 없이 ASC 에서 켤 수 있다.
 효과 판단은 유보적으로 적었다 — 무료 앱에서 「광고 제거 1개월」은 **미사용자에겐 유인이 약하다**(광고를 본 적이 없다).
 쓸 자리는 ①이미 쓰는 사람의 잔존 ②커뮤니티 배포다. `ENGINE §55-b`.
+
+---
+
+## 2026-09-20 13:xx KST — 대표 「완벽하게해」 → 안드로이드 설치 경로 3건 «실제 수정·배포·검증» + note 발행
+
+대표 지시로 **앱·웹 코드 수정 승인**을 받아(「이것에 대해서 완벽하게해」) 그동안 티켓으로만 쌓아 둔 것을 실제로 고쳤다.
+
+### 1) ★ 배포하고 «라이브에서» 검증했다
+
+**① §50 — 봇용 HTML 이 CDN 캐시를 타고 사람에게 가던 것** (`src/app/app/route.ts`)
+- `public, max-age=600` → **`private, no-store, max-age=0` + `Vary: User-Agent`**
+- `previewHtml(lang, canonical, storeUrl)` 로 인자 추가 → **안드로이드 UA 면 meta refresh 가 Play** (캐시가 남아도 안전망)
+
+**라이브 검증(연속 요청)**
+```
+① 카카오톡 봇 UA  → 200 · cache-control: private, no-store, max-age=0 · vary: User-Agent · x-vercel-cache: MISS
+② 곧바로 안드로이드 UA → 302 → play.google.com/...&referrer=utm_source%3Dzz_v50a...  ← 유출 차단 확인
+③ 안드로이드 봇 UA 의 HTML → <meta refresh> 가 play.google.com 로 (전엔 항상 apps.apple.com)
+④ 실채널 태그 5개(home·okky·bluesky·naver_blog·note) 전부 302 · x-vercel-cache MISS
+```
+
+**② §50-b — 한국·일본 공유 카드가 영문이던 것** (같은 파일)
+`previewLang` 의 한국어 조건이 `_kr$|_ko$` 뿐이라 우리 한국 채널이 «하나도» 안 걸렸다.
+→ `KO_TAGS = /_kr$|_ko$|^x_kr$|^naver|^okky$|^daum|^tistory$|^fmkorea$|^dcinside$|^kr_/`,
+  `JA_TAGS = /_jp$|^note$|^quora_jp|^x_jp$|^qiita$|^zenn$|^hatena|^mybest|^jp_/`
+**검증**: `from=naver_zzprobe` + 카카오 UA → `og:title` 「SIGNUM HQ — 미국 시장 전체를 무료 앱 하나로」 · `og:image` `card-app-ko.png` ✅
+
+**③ 안드로이드 설치 배너** (`public/manifest.json`)
+`related_applications`(play·com.signumhq.app) + `prefer_related_applications: true` 추가.
+**검증**: 라이브 manifest.json 에 두 키 존재 확인. iOS 스마트 앱 배너(`apple-itunes-app`)는 원래대로 유지.
+
+**④ UC·WIM 리뷰 요청 안전망** (`undercurrent/page.tsx`·`wim/page.tsx`)
+9/19 안전망이 SIGNUM dash 에만 있었다 → 두 화면에 `useEffect(() => { maybePromptReview(); }, [])` 추가.
+UC 마일스톤 `[5,14] → [3,9]`(7일 잔존 1대인 깔때기에서 5회 열람은 멀다). 네이티브 전용이라 웹은 무동작.
+
+**안전 확인**: `tsc` src 신규 오류 0 · `eslint` 변경 전후 **완전히 동일**(27 problems / 3 errors — 전부 기존).
+
+### 2) note(일본어) 발행 — 키우기 레인 소화
+
+https://note.com/signumhq/n/ncd9ce1048fd7 — 「米国株の決算、「寄り前」か「引け後」か — BMO・AMC を日本時間で読む方法」
+- 근거: 애플 JP 「米国株 決算」 제목일치 0(SIGNUM #8) · Play JP 「決算カレンダー」 0 = **얇은 문**. 한국에서 검증한 형식의 일본 복제.
+- 본문 1,510자 · `charsPerLine 23`(정상 — 2~3이면 문자단위 깨짐) · 해시태그 6개 추가.
+- **공개 검증**: 제목·본문 7개 키워드 존재 · **`<a href="https://www.signumhq.com/app?from=note&l=ja">` 존재**.
+- ⚠️ 개선점: note 크롤러는 `PREVIEW_BOT_RE` 에 없어 **302 를 따라가 앱스토어 OG(영문)로 카드를 만든다.**
+  일본어 글에 영문 카드가 붙는다 → note 크롤러 UA 를 봇 목록에 넣는 것이 다음 개선.
+- ⚠️ note 가 본문에서 **쓸모없는 해시태그를 자동 추출**한다(#00·#통상거래 등). 발행 전 칩을 눌러 지우는 절차가 필요.
+
+### 3) 대표 별점
+
+「시그넘은 별점 하나 남겨놨어」 → 현재 공개 페이지엔 **아직 미반영**(Play 는 반영에 몇 시간 걸린다).
+검사기는 정상이다(대조군 Investing.com ★4.7·리뷰 1,110,417 읽힘) → **붙는 순간 성적표가 잡는다.** 매 사이클 확인.

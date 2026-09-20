@@ -1,5 +1,5 @@
 {
- "at": "2026-09-20T02:37:11.661Z",
+ "at": "2026-09-20T03:39:58.033Z",
  "days": 21,
  "failed": 0,
  "d3": {
@@ -18,6 +18,7 @@
   "quora": 1,
   "linkedin": 1,
   "github": 1,
+  "naver_blog": 1,
   "seo_darkpool": 0,
   "quora_bio": 0,
   "reddit_bio": 0,
@@ -40,6 +41,7 @@
   "quora": 1,
   "linkedin": 1,
   "github": 1,
+  "naver_blog": 1,
   "seo_darkpool": 0,
   "quora_bio": 0,
   "reddit_bio": 0,
@@ -69,6 +71,7 @@
   "quora": 57,
   "linkedin": 9,
   "github": 2,
+  "naver_blog": 1,
   "seo_darkpool": 31,
   "quora_bio": 7,
   "reddit_bio": 5,
