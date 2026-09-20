@@ -224,9 +224,16 @@ export async function openStoreReview(app: ReviewApp = 'signum'): Promise<void> 
     return;
   }
   if (platform === 'android') {
-    // Play 인앱 리뷰 시트가 뜨면 그게 최선(앱을 안 떠난다). 안 뜨면 스토어로 보낸다.
-    const shown = await requestAppReview();
-    if (!shown) openSystemUrl(playScheme, playHttps);
+    // ★2026-09-21 대표 실기기(Android 13) 보고 수리: 「눌러도 이동하지 않는다」.
+    //   원인: 여기서 먼저 부르던 `requestAppReview()` 는 **예외가 안 나면 무조건 true** 를 준다.
+    //   그런데 Play 인앱 리뷰 API 는 **아무것도 띄우지 않아도 정상 resolve** 한다
+    //   (할당량 소진·이미 리뷰함·기기 조건 불충족 등 — 구글이 표시를 통제한다).
+    //   그래서 `shown === true` 가 되어 **스토어로 보내는 폴백을 영영 안 탔다** → 화면상 무반응.
+    //   iOS 는 같은 이유로 이미 조용한 API 를 건너뛰고 있었는데(SKStoreReviewController)
+    //   **안드로이드만 옛 경로로 남아 있었다** — 한쪽만 고친 불일치였다.
+    //   수동 버튼은 «항상 눈에 보이는 결과»가 원칙이다 → iOS 와 똑같이 스토어로 직접 보낸다.
+    //   (조용한 인앱 시트는 자동 프롬프트 `maybePromptReview` 의 몫으로 남긴다 — 그게 원래 용도다.)
+    openSystemUrl(playScheme, playHttps);
     return;
   }
   // 웹(개발 확인용) — 스토어 페이지로
