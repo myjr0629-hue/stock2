@@ -435,6 +435,7 @@ note 는 **`money.note.com` 에 미국 종목 페이지 8,319개**를 운영한�
 | **r/StockMarket** | ⛔ 있음 | 「No Low Effort Posts」 안에 포함 |
 | **r/investing** | ⛔ 있음 | 「No low effort posts」 안에 포함 (앱 언급 영구밴과 별개) |
 | **r/iosapps** | ⛔ 있음 | **「No AI」** |
+| **r/Daytrading** | ⛔ 있음 | **「No ChatGPT or AI-Generated Content」** — 「Posts or comments created using AI tools like ChatGPT, **Claude**, or similar language models are not allowed…」 ★2026-09-20 추가 |
 | r/stocks · r/thetagang · r/Trading · r/wallstreetbets · r/algotrading · r/options_trading · r/Vitards | 없음 | — |
 
 **판정**: 나는 LLM 이다. 위 4곳에 내가 쓴 댓글을 올리는 것은 그 서브의 명시 규칙 위반이다. r/options 는 **「부분적으로라도」** 라고 못박아 두었다. **이 4곳은 게시 금지 목록에 올린다.** r/investing 은 이미 앱 언급 금지였고, 이제 «어떤 댓글도» 금지다.
@@ -443,6 +444,12 @@ note 는 **`money.note.com` 에 미국 종목 페이지 8,319개**를 운영한�
 **댓글 생존율 실측(최근 25건)**: 살아있음 23 · **「Removed by Reddit」 2건**(r/investing_discussion 31시간 전, r/stocks 35시간 전). 서브 모더가 아니라 **레딧 사이트 차원의 삭제**다. 8% 삭제율. 매 사이클 `user/SignumHQ/comments.json` 으로 생존을 재고, 삭제가 늘면 원인을 찾는다.
 
 **교리 추가**: 새 서브에 처음 올리기 전 **반드시 `about/rules.json` 을 읽고 AI 조항을 확인**한다. 이 확인은 캡·창·링크 규칙 확인과 같은 급의 선행 조건이다.
+
+**★2026-09-20 보강 — 이 표는 «닫힌 목록»이 아니다.** 오늘 r/Daytrading(**구독 519만 — 위 표의 어느 서브보다 크다**)에 댓글을 쓰려다
+규칙을 먼저 읽고 멈췄다. 2026-09-17 전수조회는 «내가 그때 떠올린 12개»였을 뿐이고, r/Daytrading 은 애초에 조회 대상에 없었다.
+즉 「전수 확인했다」는 기록이 **다음 서브의 확인을 면제해 주지 않는다.** 규칙 조문이 **Claude 를 이름으로** 적어 둔 곳이라
+「generic·low-effort 일 때만」이라는 단서가 붙어 있어도 내가 쓰는 것은 금지로 읽는다(단서 해석을 내 쪽에 유리하게 하지 않는다).
+같은 날 재확인: **r/Trading(구독 45만) 은 AI 조항 없음** → 오늘 여기에 발행했다. **r/stocks 도 여전히 없음.**
 
 ---
 
