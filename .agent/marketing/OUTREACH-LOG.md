@@ -9447,3 +9447,38 @@ https://www.quora.com/Are-there-any-reliable-ways-to-separate-stock-market-hype-
 - **«한 시점의 관측»을 채널 판정으로 굳히지 않는다.** 9/18 의 Page Not Found 2건이 «무링크도 소용없다»로 적혔고,
   그 문장이 이틀간 이 채널을 죽은 것으로 만들었다. 실제로는 이의신청이 먹히는 채널이었다.
 - 발행 전에 «왜 안 되는지»를 먼저 본 것이 이번 정정을 만들었다. 막힌 것 같은 채널일수록 **한 번 더 들여다본다.**
+
+---
+
+## 2026-09-20 19:xx KST 사이클 — Quora Space 발행(브랜드·링크·스크린샷이 허용되는 유일한 Quora 표면)
+
+게이트 341건 0실패 · 크론 생존.
+
+### 발행
+
+https://signumhqusstockmarketintelligence.quora.com/BMO-vs-AMC-and-why-the-percentage-you-saw-at-8pm-is-not-the-one-you-will-see-tomorrow-…
+
+「BMO vs AMC, and why the percentage you saw at 8pm is not the one you will see tomorrow.」
+본문 1,721자 + **영문 실적 캘린더 앱 화면 1장** + 스마트링크 `?from=quora_space`.
+내용: BMO/AMC 시각 정의 → **BMO 는 정규장이 통째로 소화하고 AMC 는 시간외에서 먼저 움직인 뒤 다음 정규장에서 재가격된다**
+(그래서 「장 마감 후 +8%」가 「11시에 +2%」가 된다 — 서로 다른 창·다른 기준가) → 회사가 "after the close" 만 쓰면
+캘린더마다 라벨이 엇갈리고 확정 기준은 IR 공지 → 실제 일정(COST 9/24·MU 9/30 둘 다 AMC, 10월 92건·최다 10/29 17건).
+
+**검증**: Space 게시물 수 **3 → 4**, 새 글 전용 URL 존재, 스크린샷 렌더됨, `<a href=…?from=quora_space>` 확인.
+
+### 조작 정본 2건 (둘 다 실제로 밟았다)
+
+1. **Space 의 `input[type=file]` 2개가 전부 hidden 이다** → `setInputFiles` 가 «0 visible» 로 거절한다.
+   §22 우회 그대로: JS 로 `style` 을 덮어 노출시킨 뒤(`position:fixed;opacity:1;display:block`) 업로드하면 들어간다.
+   accept 로 구분된다 — `image/*` 가 사진, `.mp4,.mov,.webm` 이 영상.
+2. **컴포저에 URL 을 타이핑하면 «두 번» 들어간다.** 한 줄에 같은 URL 이 두 개 붙었다.
+   지우려고 문단 끝에서 Backspace 46회를 했더니 **문단이 사라진 뒤 앞 문단까지 먹어** 마지막 문장이 잘렸다
+   (contenteditable 은 문단 경계에서 병합된다). 잘린 문장을 다시 치고 URL 을 한 번만 넣어 복구했다.
+   → **다음부터: URL 은 마지막에 한 번만 치고 «Enter 를 누르지 않는다». 지울 때는 문단 단위 Backspace 를 쓰지 않는다.**
+
+### 이 채널의 «도달»에 대한 정직한 기록
+
+Space 관리자 대시보드 실측: **최근 7일 조회 7 · 팔로워 1 · 업보트 0 · 댓글 0.**
+즉 **지금 이 표면의 즉시 도달은 사실상 0**이다. 가치는 ①브랜드·링크·스크린샷이 허용되는 유일한 Quora 자리
+②구글 색인되는 영구 자산 — 둘 다 «나중에» 값이 나오는 종류다.
+**판정 규칙(§46-6) 대로 7일 뒤 조회수를 다시 재서, 여전히 한 자릿수면 이 표면의 주기를 낮춘다.**
