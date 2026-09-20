@@ -1,13 +1,13 @@
 {
- "at": "2026-09-20T04:36:55.334Z",
+ "at": "2026-09-20T05:37:00.437Z",
  "days": 21,
  "failed": 0,
  "d3": {
-  "home": 35,
+  "home": 37,
   "bluesky": 14,
+  "okky": 7,
   "note": 9,
-  "okky": 6,
-  "seo": 7,
+  "seo": 8,
   "x_us": 3,
   "macrumors": 4,
   "x_jp": 2,
@@ -26,11 +26,11 @@
   "threads": 0
  },
  "d3raw": {
-  "home": 35,
+  "home": 37,
   "bluesky": 20,
+  "okky": 17,
   "note": 16,
-  "okky": 16,
-  "seo": 8,
+  "seo": 9,
   "x_us": 4,
   "macrumors": 4,
   "x_jp": 2,
@@ -56,11 +56,11 @@
   "x_us": 1
  },
  "all": {
-  "home": 385,
+  "home": 387,
   "bluesky": 45,
+  "okky": 16,
   "note": 27,
-  "okky": 15,
-  "seo": 140,
+  "seo": 141,
   "x_us": 41,
   "macrumors": 4,
   "x_jp": 26,
