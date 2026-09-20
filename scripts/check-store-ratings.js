@@ -57,9 +57,15 @@ async function one(name, id, appleId) {
     const stats = {};
     for (const m of html.matchAll(STAT)) stats[m[2].trim()] = m[1].trim();
     // 별점은 라벨이 «star»/«reviews» 로 오거나, 값 옆 aria 로 온다. 없으면 없는 것이다.
-    const star = Object.entries(stats).find(([k]) => /star/i.test(k));
-    const reviews = Object.entries(stats).find(([k]) => /review/i.test(k));
-    const downloads = Object.entries(stats).find(([k]) => /download/i.test(k));
+    // ★2026-09-20 수리. 예전 코드는 ClM7O/g1rdde 쌍에서 «star/review» 라벨을 찾았는데,
+    //   그 자리엔 «다운로드»만 남아 있다 — 별점 111만개인 Investing.com 도 «없음»으로 나왔다.
+    //   즉 이 검사기는 «어떤 앱의 별점도» 못 읽고 있었다. 결론(우리 앱 0)이 맞았어도 근거는 무효였다.
+    //   Play 는 별점을 세 군데로 준다. 가장 단단한 JSON-LD 를 쓴다.
+    const rv = /"ratingValue"\s*:\s*"?([0-9.]+)/.exec(html);
+    const rc = /"ratingCount"\s*:\s*"?([0-9]+)/.exec(html);
+    const star = rv ? [null, Number(rv[1]).toFixed(1)] : null;
+    const reviews = rc ? [null, Number(rc[1]).toLocaleString()] : null;
+    const downloads = Object.entries(stats).find(([k]) => /download|다운로드/i.test(k));
     return {
       name, id, len: html.length,
       rating: star ? star[1] : null,
@@ -71,9 +77,13 @@ async function one(name, id, appleId) {
   } catch (e) { return { name, id, error: e.message.slice(0, 60), apple: await apple(appleId) }; }
 }
 
+// ★검사기는 «양성 대조군»으로 시험한다 — 2026-09-20 에 이걸 안 해서 «못 읽는 검사기»를 며칠 썼다.
+const CONTROL = ['com.fusionmedia.investing', 'Investing.com(별점이 «있어야» 하는 앱)'];
+
 (async () => {
   const rows = [];
   for (const [n, id, aid] of APPS) rows.push(await one(n, id, aid));
+  const ctl = await one(CONTROL[1], CONTROL[0], '0');
   if (asJson) { console.log(JSON.stringify({ at: new Date().toISOString(), rows }, null, 1)); }
   else {
     console.log('스토어 별점 — 브라우저 없이 읽음 (Play + App Store us/kr/jp)');
@@ -99,6 +109,10 @@ async function one(name, id, appleId) {
     for (const r of rows) {
       if (!hasAny(r)) console.log(`⚠ ${r.name} — 두 스토어 전부 0. 리뷰 요청 경로부터 확인할 것.`);
     }
+  }
+  if (!asJson) {
+    console.log(ctl.rating ? `\n· 대조군 ${CONTROL[1]}: ★${ctl.rating} · 리뷰 ${ctl.reviews} → 검사기 정상`
+                           : `\n⛔ 대조군(${CONTROL[1]})에서도 별점을 못 읽었다 — 위 «별점 없음»은 «앱의 사실»이 아니라 «검사기 고장»이다.`);
   }
   const anyStar = rows.some((r) => !!r.rating || APPLE_CC.some((cc) => (r.apple?.[cc]?.n || 0) > 0));
   if (!anyStar) process.exit(1);
