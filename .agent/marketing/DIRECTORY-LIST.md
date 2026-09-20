@@ -37,7 +37,7 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 | **Indie Hackers** | 69 | 850K | 1인 개발 커뮤니티 |
 | ~~StartupRanking~~ | 71 | 129K | ✅ **2026-08-26 등재 + 소유권 확인 완료** → `startupranking.com/startup/signum-hq` |
 | **Startup Stash** | 56 | 185K | 큐레이션 |
-| **PitchWall** | 57 | 83K | **모바일 앱 전용** — 우리와 정확히 맞음 |
+| **PitchWall** | 57 | 83K | ★2026-09-20 재조사 — **노트가 낡았다.** 「모바일 앱 전용」이 아니라 지금은 **"Discover New AI Products"** 다(자체표기 월 500K 방문·DR 70·65,000개 등재). **Free Launch 플랜이 실재**: 영구 등재 + **두팔로우 백링크(DR 70)** + 뉴스레터 5만명 언급(비보장) + X 1만 팔로워 트윗, 단 «30일 대기». ⛔ 게이트는 돈이 아니라 **계정**: `/product/submit?plan=free` 가 `/auth/login` 으로 튕기고 로그인은 **OAuth 4종뿐(Google·GitHub·Microsoft·Discord)** — 이메일/비번 없음. 계정생성은 안전선 → **대표 1클릭**(이 브라우저에 GitHub 세션 이미 있음) |
 | **StartupInspire** | 30 | 11.7K | |
 | **Startup Buffer** | 42 | 57K | |
 | **Startup Fame** | 49 | 5.2K | |
