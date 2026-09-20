@@ -3,7 +3,11 @@
 // One page per ticker: the money snapshot (dark pool, max pain, option walls) +
 // where the news and the money diverge. Unique proprietary data per page = clears
 // Google's "scaled content" bar; structured data feeds LLM answer engines. Funnels
-// to the apps via ?from=seo. ISR (hourly) → self-updating, zero daily human.
+// to the apps via ?from=seo_* . ISR (hourly) → self-updating, zero daily human.
+// ★2026-09-20 태그 분리: 다른 SEO 표면(darkpool·learn·rankings…)은 이미 제 태그가 있는데
+//   «가장 큰» 이 표면(티커 6,684장)만 통짜 `seo` 였다. 3개 CTA 가 한 태그를 공유해
+//   «티커 페이지 방문자가 어느 앱을 원하는지»를 알 길이 없었다 → seo_uc / seo_sg / seo_wim.
+//   기존 `seo` 계열 누적(21일 142)은 분리 전 기준선으로 남는다.
 // Does NOT touch the mobile apps or the app-view UI — a separate discovery surface.
 // ============================================================================
 import { notFound } from 'next/navigation';
@@ -474,12 +478,12 @@ export default async function FlowTickerPage(
 
       <section style={{ margin: '28px 0', padding: '16px 18px', background: '#FAF8F3', border: '1px solid #E7E3DA', borderRadius: 14 }}>
         <div style={{ fontSize: 16, fontWeight: 900, textAlign: 'center', marginBottom: 10 }}>{l.ctaT}</div>
-        <a href="https://www.signumhq.com/app-uc?from=seo" style={S.cta} rel="noopener">{l.ctaUc} →</a>
-        <a href="https://www.signumhq.com/app?from=seo" style={S.cta2} rel="noopener">{l.ctaSg} →</a>
+        <a href="https://www.signumhq.com/app-uc?from=seo_uc" style={S.cta} rel="noopener">{l.ctaUc} →</a>
+        <a href="https://www.signumhq.com/app?from=seo_sg" style={S.cta2} rel="noopener">{l.ctaSg} →</a>
         {/* WIM — 2026-08-18 실측: /app-wim 링크가 사이트 «전체»에 0회였다. 즉 WIM 은
             웹에서 설치될 경로가 아예 없었다. 티커 페이지는 「왜 움직였나」가 주제라
             Why'd It Move? 와 정확히 겹치므로 여기가 가장 자연스러운 자리다. */}
-        <a href="https://www.signumhq.com/app-wim?from=seo" style={S.cta2} rel="noopener">{l.ctaWim} →</a>
+        <a href="https://www.signumhq.com/app-wim?from=seo_wim" style={S.cta2} rel="noopener">{l.ctaWim} →</a>
       </section>
 
       <section>
