@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
-import { maybePromptReview } from '@/lib/native/capacitorBridge';
+import { maybePromptReview, openStoreReview } from '@/lib/native/capacitorBridge';
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
 import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
@@ -3013,11 +3013,23 @@ export default function WimPage() {
   // in the WIM shell; web is a clean no-op. (Mirrors the UC pattern.)
   const [canRate, setCanRate] = useState(false);
   useEffect(() => {
-    try { const cap = (window as any).Capacitor; setCanRate(!!(cap?.isNativePlatform?.() && cap?.Plugins?.InAppReview)); } catch { /* web */ }
+    // ★2026-09-20: 플러그인 유무로 버튼을 감추던 것을 걷었다. 수동 버튼은 이제
+    //   스토어 리뷰 페이지로 직접 간다(openStoreReview) — 플러그인과 무관하게 동작한다.
+    try { const cap = (window as any).Capacitor; setCanRate(!!cap?.isNativePlatform?.()); } catch { /* web */ }
   }, []);
   const requestReview = () => {
     try { const cap = (window as any).Capacitor; const p = cap?.Plugins?.InAppReview; if (cap?.isNativePlatform?.() && p?.requestReview) p.requestReview().catch(() => {}); } catch { /* noop */ }
   };
+  // ── 설정 시트가 열린 동안 네이티브 배너를 내린다 (2026-09-20, 대표 실기기) ──
+  //   AdMob 배너는 OS 가 웹뷰 «위»에 그리므로 시트가 덮을 수 없다 → 설정 위로 광고가 올라온다.
+  //   UC 는 2026-09-12 에, SIGNUM 은 2026-09-07 에 같은 방식으로 이미 고쳤는데 WIM 만 빠져 있었다.
+  //   닫히면 되돌린다. 웹·플러그인 없음은 ads.ts 가 try/catch 로 삼킨다.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    void hideWimBanner();
+    return () => { void showWimBanner(); };
+  }, [settingsOpen]);
+
   const [searchQ, setSearchQ] = useState('');
   // real lab snapshots, cached per ticker (hero powers the concept demos; the
   // W2 plays request their own tickers through the same cache)
@@ -4927,7 +4939,7 @@ export default function WimPage() {
 
             {/* rate this app — native in-app review (only shown in the shell) */}
             {canRate && (
-              <button type="button" onClick={() => { requestReview(); setSettingsOpen(false); }} style={{ font: 'inherit', width: '100%', marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: P.amberSoft, color: '#8A5B00', border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 13.5, fontWeight: 900, cursor: 'pointer' }}>
+              <button type="button" onClick={() => { void openStoreReview('wim'); setSettingsOpen(false); }} style={{ font: 'inherit', width: '100%', marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: P.amberSoft, color: '#8A5B00', border: 'none', borderRadius: 14, padding: '12px 0', fontSize: 13.5, fontWeight: 900, cursor: 'pointer' }}>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="#F5A623" aria-hidden><path d="M12 2.2l2.95 6.32 6.85.86-5.06 4.72 1.34 6.9L12 18.5l-6.03 3.5 1.34-6.9L2.25 9.38l6.85-.86z"/></svg>
                 {loc === 'ko' ? '앱 평가하기' : loc === 'ja' ? 'アプリを評価' : 'Rate this app'}
               </button>

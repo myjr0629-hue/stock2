@@ -170,23 +170,67 @@ export async function requestAppReview(): Promise<boolean> {
 //   iOS      → App Store 리뷰 작성 딥링크 (항상 스토어 리뷰 시트가 뜬다)
 //   Android  → Google Play 인앱 리뷰 시트 (실기기 동작 확인됨) → 실패 시 Play 상세로
 // 자동 마일스톤 프롬프트(maybePromptReview)는 조용한 API 를 그대로 쓴다 — 그게 원래 용도.
-const IOS_WRITE_REVIEW_URL =
-  'https://apps.apple.com/app/id6783130444?action=write-review';
-const PLAY_DETAILS_URL =
-  'https://play.google.com/store/apps/details?id=com.signumhq.app';
+// ★2026-09-20 대표 실기기 보고로 두 결함을 같이 고쳤다.
+//   ① 스토어 식별자가 **SIGNUM 것으로 하드코딩**돼 있었다 → UC·WIM 이 이 함수를 쓰면
+//      «남의 앱» 리뷰 페이지로 간다. 그래서 두 앱은 아예 이 함수를 못 쓰고 조용한 API 를
+//      직접 부르고 있었고, 그게 「눌러도 아무 일도 안 일어난다」의 원인이었다.
+//   ② `openExternalUrl` 은 @capacitor/browser(= iOS SFSafariViewController)로 연다.
+//      앱스토어 딥링크를 «인앱 브라우저»로 열면 네이티브 리뷰 시트가 뜨지 않는다.
+//      스토어로 넘기려면 **시스템 핸들러**로 보내야 한다(App.openUrl).
+export type ReviewApp = 'signum' | 'uc' | 'wim';
 
-export async function openStoreReview(): Promise<void> {
+const STORE_IDS: Record<ReviewApp, { ios: string; android: string }> = {
+  signum: { ios: '6783130444', android: 'com.signumhq.app' },
+  uc:     { ios: '6788779895', android: 'com.signumhq.undercurrent' },
+  wim:    { ios: '6794356135', android: 'com.signumhq.wim' },
+};
+
+// 시스템 핸들러로 연다(인앱 브라우저가 아니라 «앱 밖»).
+// ⚠️ `@capacitor/app` 에는 openUrl 이 **없다**(Capacitor 3 에서 제거됐고, 이 저장소의
+//    8.x 정의 파일에도 없음을 확인했다). `@capacitor/browser` 는 «인앱» 브라우저라
+//    스토어 앱을 깨우지 못한다 — 리뷰 버튼이 죽어 보이던 두 번째 원인이 이것이다.
+//    쓸 수 있는 성질은 하나다: **Capacitor 는 http(s) 가 아닌 스킴으로의 내비게이션을
+//    가로채 시스템으로 넘긴다**(iOS UIApplication.open · Android Intent).
+//    그래서 itms-apps:// · market:// 로 «이동»시킨다.
+// 스킴이 안 먹으면 화면에 아무 일도 안 일어나므로, 앱이 백그라운드로 가지 않았을 때만
+// https 로 폴백한다(사용자가 최소한 «보이는 결과»를 얻게 한다 — 이 함수의 원래 목적).
+function openSystemUrl(schemeUrl: string, httpsFallback: string): void {
+  if (!isNativeApp) { window.open(httpsFallback, '_blank'); return; }
+  let left = false;
+  const onVis = () => { if (document.visibilityState === 'hidden') left = true; };
+  try { document.addEventListener('visibilitychange', onVis); } catch { /* noop */ }
+  try {
+    window.location.href = schemeUrl;
+  } catch {
+    try { document.removeEventListener('visibilitychange', onVis); } catch { /* noop */ }
+    openExternalUrl(httpsFallback);
+    return;
+  }
+  window.setTimeout(() => {
+    try { document.removeEventListener('visibilitychange', onVis); } catch { /* noop */ }
+    if (!left) openExternalUrl(httpsFallback);
+  }, 1500);
+}
+
+export async function openStoreReview(app: ReviewApp = 'signum'): Promise<void> {
+  const id = STORE_IDS[app] || STORE_IDS.signum;
+  const iosHttps = `https://apps.apple.com/app/id${id.ios}?action=write-review`;
+  const iosScheme = `itms-apps://apps.apple.com/app/id${id.ios}?action=write-review`;
+  const playHttps = `https://play.google.com/store/apps/details?id=${id.android}`;
+  const playScheme = `market://details?id=${id.android}`;
+
   if (platform === 'ios') {
-    openExternalUrl(IOS_WRITE_REVIEW_URL);
+    openSystemUrl(iosScheme, iosHttps);
     return;
   }
   if (platform === 'android') {
+    // Play 인앱 리뷰 시트가 뜨면 그게 최선(앱을 안 떠난다). 안 뜨면 스토어로 보낸다.
     const shown = await requestAppReview();
-    if (!shown) openExternalUrl(PLAY_DETAILS_URL);
+    if (!shown) openSystemUrl(playScheme, playHttps);
     return;
   }
   // 웹(개발 확인용) — 스토어 페이지로
-  openExternalUrl(IOS_WRITE_REVIEW_URL);
+  openExternalUrl(iosHttps);
 }
 
 // 네이티브 바이너리의 실제 버전 (@capacitor/app App.getInfo). 플러그인이 바이너리에

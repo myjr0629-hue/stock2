@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
-import { maybePromptReview } from '@/lib/native/capacitorBridge';
+import { maybePromptReview, openStoreReview } from '@/lib/native/capacitorBridge';
 import { useParams, useRouter } from 'next/navigation';
 import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, hideBanner, resumeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
@@ -819,8 +819,11 @@ export default function UndercurrentPage() {
   const [canPrivacy, setCanPrivacy] = useState(false);
   useEffect(() => {
     try {
+      // ★2026-09-20: 예전엔 InAppReview «플러그인 유무»로 버튼을 감췄다. 수동 버튼은 이제
+      //   스토어 리뷰 페이지로 직접 가므로(openStoreReview) 플러그인과 무관하게 항상 동작한다.
+      //   네이티브이기만 하면 보여 준다 — 플러그인이 빠진 빌드에서 버튼이 죽어 있던 원인.
       const cap = (window as any).Capacitor;
-      setCanRate(!!(cap?.isNativePlatform?.() && cap?.Plugins?.InAppReview));
+      setCanRate(!!cap?.isNativePlatform?.());
     } catch { /* web */ }
   }, []);
   const requestReview = () => {
@@ -2460,7 +2463,7 @@ export default function UndercurrentPage() {
 
             {/* rate the app — native only, official OS review sheet, no rewards */}
             {canRate && (
-              <button type="button" onClick={() => { requestReview(); setShowSettings(false); }} style={{
+              <button type="button" onClick={() => { void openStoreReview('uc'); setShowSettings(false); }} style={{
                 font: 'inherit', textAlign: 'left', cursor: 'pointer', width: '100%',
                 marginTop: 11, background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadow,
                 padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 10,
