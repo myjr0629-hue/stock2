@@ -39,14 +39,14 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 | **Startup Stash** | 56 | 185K | 큐레이션 |
 | **PitchWall** | 57 | 83K | ★2026-09-20 재조사 — **노트가 낡았다.** 「모바일 앱 전용」이 아니라 지금은 **"Discover New AI Products"** 다(자체표기 월 500K 방문·DR 70·65,000개 등재). **Free Launch 플랜이 실재**: 영구 등재 + **두팔로우 백링크(DR 70)** + 뉴스레터 5만명 언급(비보장) + X 1만 팔로워 트윗, 단 «30일 대기». ⛔ 게이트는 돈이 아니라 **계정**: `/product/submit?plan=free` 가 `/auth/login` 으로 튕기고 로그인은 **OAuth 4종뿐(Google·GitHub·Microsoft·Discord)** — 이메일/비번 없음. 계정생성은 안전선 → **대표 1클릭**(이 브라우저에 GitHub 세션 이미 있음) |
 | **StartupInspire** | 30 | 11.7K | |
-| **Startup Buffer** | 42 | 57K | |
+| **Startup Buffer** | 42 | 57K | ✅ **2026-09-20 제출 — 심사대기.** 무계정 3단계 폼. ⚠️**Screenshot 이 필수**(max 500kb, 우리 카드 369KB OK) — 안 올리면 CONTINUE 가 «아무 말 없이» 안 먹는다. 3단계는 전부 선택(country=United States·category=Finance·tags·twitter). 제출 후 `?status=aftersubmit` + 유료 프로모션 안내로 이동(구매 안 함). 공개 검색 미노출 → «발행» 아님 |
 | **Startup Fame** | 49 | 5.2K | |
 | **OpenHunts** | 37 | 48K | |
 | **PeerPush** | 47 | - | ⛔ 로그인이 «이메일 6자리 코드» 또는 구글뿐. 회사 메일함 접근이 없어 코드를 못 읽는다 → 대표 |
 | **Make.rs** | 29 | 2.2K | |
 | ~~SideProjectors~~ | 48 | 53K | ✂️ **대상 아님.** 사이드 프로젝트를 «사고파는» 마켓플레이스다. 라이브 앱을 올리면 매물로 읽힌다 |
 | **AppRater** | 14 | 11.3K | ✅ **2026-09-20 SIGNUM 제출 — 심사대기.** 등재 «무료»(자체표기 주간방문 67.4K·등재앱 10,844). $5 는 순위 «입찰»용일 뿐 등재 조건이 아니다. 계정 불필요. ⚠️함정 2개: ①`[name="website"]`(x=-9859)는 **허니팟 — 반드시 공백** ②`[name="description"]` 이 **둘**이라 선택자로 잡으면 숨은 쪽(w=0)을 쥔다 → 화면 좌표로 클릭. 제출 후 폼이 「already been submitted and is still waiting for review」로 바뀐다(=접수 확인). **공개 아카이브 미노출 → «발행» 아님** |
-| **Website Hunt** | 21 | 56K | |
+| **Website Hunt** | 21 | 56K | ✅ **2026-09-20 제출 — 심사대기.** ★**이미 로그인돼 있었다**(jiyoung) — 「계정 필요」로 적어 둘 뻔했다. 진입은 `/submit` 이 아니라 헤더 **「Post Website」**(→ `/websites/submit/create`). 필수: url·title(40)·tagline(65)·description(2000) + **logo**(HTML 엔 required 아닌데 **서버가 요구**: 「Please select a logo image.」) + categories·topics(**select2**, AJAX 라 옵션이 비어 보인다 → 위젯 클릭 후 «타이핑»해 필터: Finance / Stocks). ⚠️검증 실패로 되돌아오면 **file input 이 비워진다** — 재업로드 필수. 성공 시 `/sponsor/<slug>/?just_submitted=true`. 공개 URL 은 아직 404 → «발행» 아님 |
 | **Tool Battles** | 11 | 100 | |
 | **10words.io** | 22 | 1.4K | 한 줄 소개 |
 | **DevHunt** | 44 | 104K | 개발자 대상 |
