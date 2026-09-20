@@ -184,9 +184,15 @@ if (cmd === 'slot') {
     //   건당 1 미만 채널은 노력 대비 회수가 없다. 죽이지는 않되 신규 투입을 줄인다.
     const pp = cc.perPost || {};
     const lose = Object.entries(pp).filter(([, v]) => v.per < 1).sort((a, b) => a[1].per - b[1].per);
-    const win = Object.entries(pp).filter(([, v]) => v.per >= 4).sort((a, b) => b[1].per - a[1].per);
-    if (win.length || lose.length) {
-      if (win.length) console.log('   ▲ 건당 높음(여기로 옮긴다): ' + win.map(([c, v]) => c + ' ' + v.per).join(' · '));
+    // ★2026-09-21(2차) 신선도 반영 — 21일 건당만 보면 «죽은 채널»이 1위로 올라온다.
+    //   실제로 quora(12.8)·linkedin(4.5)은 최근 3일 0 이었다. 옮길 곳은 «건당 × 최근에도 난다» 둘 다여야 한다.
+    const win = Object.entries(pp).filter(([, v]) => v.per >= 4 && (v.d3 || 0) > 0).sort((a, b) => b[1].per - a[1].per);
+    const stale = Object.entries(pp).filter(([, v]) => v.per >= 4 && !(v.d3 || 0)).sort((a, b) => b[1].per - a[1].per);
+    const rise = Object.entries(pp).filter(([, v]) => (v.fresh || 0) >= 50 && (v.d3 || 0) >= 3).sort((a, b) => b[1].d3 - a[1].d3);
+    if (win.length || lose.length || stale.length || rise.length) {
+      if (win.length) console.log('   ▲ 건당 높고 «최근에도» 난다(여기로 옮긴다): ' + win.map(([c, v]) => c + ' ' + v.per + '(3일 ' + v.d3 + ')').join(' · '));
+      if (rise.length) console.log('   ▲▲ 가속 중(순위 낮아도 더 쓴다): ' + rise.map(([c, v]) => c + ' 3일 ' + v.d3 + '·' + v.fresh + '%').join(' · '));
+      if (stale.length) console.log('   ◇ 건당은 높은데 최근 3일 0 — «과거 실적», 옮기지 말 것: ' + stale.map(([c, v]) => c + ' ' + v.per).join(' · '));
       if (lose.length) console.log('   ▼ 건당 1 미만(신규 투입 줄임): ' + lose.map(([c, v]) => c + ' ' + v.per + '(' + v.n + '건)').join(' · '));
     }
     if (ageH > 6) console.log('   ⚠ 클릭 캐시가 ' + Math.round(ageH) + '시간 전 것이다 → `node scripts/mkt-clicks.js` 를 먼저 돌려라');

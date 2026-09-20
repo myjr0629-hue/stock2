@@ -133,16 +133,28 @@ async function liveTags() {
     for (const [ch, n] of Object.entries(nPosts)) {
       if (STANDING.has(ch) || n < 2) continue;          // 표본 1건은 순위로 쓰지 않는다
       const clicks = (PAIR[ch] || [ch]).reduce((a, t) => a + Math.max(0, netAll(t)), 0);
-      perPost[ch] = { n, clicks, per: +(clicks / n).toFixed(2) };
+      // ★2026-09-21(2차) «신선도» — 21일 건당만 보면 «죽은 채널»과 «가속 중»이 구분되지 않는다.
+      //   실제로 x_us 는 건당 13.67 로 1위인데 최근 3일 클릭이 0 이었고(죽음),
+      //   indiehackers 는 건당 3.67 로 9위인데 21일치의 82%가 최근 3일에 났다(가속).
+      //   «어디로 옮길지»는 건당 × 신선도 둘 다 봐야 한다.
+      const net3 = (t) => Math.max(0, ((rows.find((x) => x.t === t) || {}).d3 || 0) - ((CONTAM[t] || {}).d3 || 0));
+      const c3 = (PAIR[ch] || [ch]).reduce((a, t) => a + net3(t), 0);
+      perPost[ch] = { n, clicks, per: +(clicks / n).toFixed(2),
+                      d3: c3, fresh: clicks ? Math.round((c3 / clicks) * 100) : 0 };
     }
     const ranked = Object.entries(perPost).sort((a, b) => b[1].per - a[1].per);
     if (ranked.length) {
       console.log('\n── 건당 클릭 (' + days + '일 · 발행 2건 이상 · 상시표면 제외 · 레딧/쿼라는 프로필 경유 합산) ──');
-      console.log('채널             발행   클릭    건당');
+      console.log('채널             발행   클릭    건당   3일   신선도');
       for (const [ch, v] of ranked)
-        console.log(ch.padEnd(16) + String(v.n).padStart(4) + String(v.clicks).padStart(7) + String(v.per).padStart(8));
+        console.log(ch.padEnd(16) + String(v.n).padStart(4) + String(v.clicks).padStart(7) + String(v.per).padStart(8)
+                    + String(v.d3).padStart(6) + (String(v.fresh) + '%').padStart(8) + (v.fresh === 0 ? '  ← 최근 3일 0' : ''));
       const lose = ranked.filter(([, v]) => v.per < 1).map(([ch]) => ch);
       if (lose.length) console.log('⚠ 건당 1 미만 — 신규 투입을 줄일 후보: ' + lose.join(', '));
+      const dead = ranked.filter(([, v]) => v.per >= 4 && v.d3 === 0).map(([ch, v]) => ch + '(건당 ' + v.per + ')');
+      if (dead.length) console.log('⚠ 건당은 높은데 «최근 3일 0» — 과거 실적이다, 여기로 옮기지 말 것: ' + dead.join(', '));
+      const rising = ranked.filter(([, v]) => v.fresh >= 50 && v.d3 >= 3).map(([ch, v]) => ch + '(3일 ' + v.d3 + '·' + v.fresh + '%)');
+      if (rising.length) console.log('▲ 가속 중(순위가 낮아도 여기에 더 쓴다): ' + rising.join(', '));
     }
   } catch (e) { console.log('· 건당 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
 

@@ -1,14 +1,14 @@
 {
- "at": "2026-09-20T20:37:52.729Z",
+ "at": "2026-09-20T23:38:45.248Z",
  "days": 21,
  "failed": 0,
  "d3": {
-  "home": 54,
+  "home": 57,
   "bluesky": 14,
   "okky": 7,
   "note": 9,
-  "seo": 8,
-  "indiehackers": 6,
+  "seo": 9,
+  "indiehackers": 9,
   "x_us": 3,
   "medium": 4,
   "macrumors": 4,
@@ -31,12 +31,12 @@
   "threads": 0
  },
  "d3raw": {
-  "home": 54,
+  "home": 57,
   "bluesky": 20,
   "okky": 17,
   "note": 16,
-  "seo": 9,
-  "indiehackers": 6,
+  "seo": 10,
+  "indiehackers": 9,
   "x_us": 4,
   "medium": 4,
   "macrumors": 4,
@@ -66,12 +66,12 @@
   "x_us": 1
  },
  "all": {
-  "home": 404,
+  "home": 407,
   "bluesky": 45,
   "okky": 16,
   "note": 27,
-  "seo": 141,
-  "indiehackers": 8,
+  "seo": 142,
+  "indiehackers": 11,
   "x_us": 41,
   "medium": 18,
   "macrumors": 4,
@@ -97,92 +97,128 @@
   "x_reply": {
    "n": 4,
    "clicks": 0,
-   "per": 0
+   "per": 0,
+   "d3": 0,
+   "fresh": 0
   },
   "instagram": {
    "n": 3,
    "clicks": 2,
-   "per": 0.67
+   "per": 0.67,
+   "d3": 2,
+   "fresh": 100
   },
   "indiehackers": {
    "n": 3,
-   "clicks": 8,
-   "per": 2.67
+   "clicks": 11,
+   "per": 3.67,
+   "d3": 9,
+   "fresh": 82
   },
   "reddit": {
    "n": 15,
    "clicks": 7,
-   "per": 0.47
+   "per": 0.47,
+   "d3": 0,
+   "fresh": 0
   },
   "quora_space": {
    "n": 2,
    "clicks": 3,
-   "per": 1.5
+   "per": 1.5,
+   "d3": 1,
+   "fresh": 33
   },
   "quora": {
    "n": 5,
    "clicks": 64,
-   "per": 12.8
+   "per": 12.8,
+   "d3": 0,
+   "fresh": 0
   },
   "medium": {
    "n": 3,
    "clicks": 18,
-   "per": 6
+   "per": 6,
+   "d3": 4,
+   "fresh": 22
   },
   "github": {
    "n": 3,
    "clicks": 3,
-   "per": 1
+   "per": 1,
+   "d3": 2,
+   "fresh": 67
   },
   "pinterest": {
    "n": 4,
    "clicks": 0,
-   "per": 0
+   "per": 0,
+   "d3": 0,
+   "fresh": 0
   },
   "note": {
    "n": 4,
    "clicks": 27,
-   "per": 6.75
+   "per": 6.75,
+   "d3": 9,
+   "fresh": 33
   },
   "okky": {
    "n": 3,
    "clicks": 16,
-   "per": 5.33
+   "per": 5.33,
+   "d3": 7,
+   "fresh": 44
   },
   "naver_blog": {
    "n": 2,
    "clicks": 2,
-   "per": 1
+   "per": 1,
+   "d3": 2,
+   "fresh": 100
   },
   "x_jp": {
    "n": 3,
    "clicks": 26,
-   "per": 8.67
+   "per": 8.67,
+   "d3": 2,
+   "fresh": 8
   },
   "threads": {
    "n": 3,
    "clicks": 1,
-   "per": 0.33
+   "per": 0.33,
+   "d3": 0,
+   "fresh": 0
   },
   "x_us": {
    "n": 3,
    "clicks": 41,
-   "per": 13.67
+   "per": 13.67,
+   "d3": 3,
+   "fresh": 7
   },
   "bluesky": {
    "n": 4,
    "clicks": 45,
-   "per": 11.25
+   "per": 11.25,
+   "d3": 14,
+   "fresh": 31
   },
   "linkedin": {
    "n": 2,
    "clicks": 9,
-   "per": 4.5
+   "per": 4.5,
+   "d3": 0,
+   "fresh": 0
   },
   "naver_kin": {
    "n": 8,
    "clicks": 2,
-   "per": 0.25
+   "per": 0.25,
+   "d3": 2,
+   "fresh": 100
   }
  }
 }
