@@ -1,5 +1,5 @@
 {
- "at": "2026-09-20T19:38:08.415Z",
+ "at": "2026-09-20T20:37:52.729Z",
  "days": 21,
  "failed": 0,
  "d3": {
@@ -8,7 +8,7 @@
   "okky": 7,
   "note": 9,
   "seo": 8,
-  "indiehackers": 5,
+  "indiehackers": 6,
   "x_us": 3,
   "medium": 4,
   "macrumors": 4,
@@ -36,7 +36,7 @@
   "okky": 17,
   "note": 16,
   "seo": 9,
-  "indiehackers": 5,
+  "indiehackers": 6,
   "x_us": 4,
   "medium": 4,
   "macrumors": 4,
@@ -71,7 +71,7 @@
   "okky": 16,
   "note": 27,
   "seo": 141,
-  "indiehackers": 7,
+  "indiehackers": 8,
   "x_us": 41,
   "medium": 18,
   "macrumors": 4,
@@ -92,5 +92,97 @@
   "reddit_bio": 5,
   "reddit": 2,
   "threads": 1
+ },
+ "perPost": {
+  "x_reply": {
+   "n": 4,
+   "clicks": 0,
+   "per": 0
+  },
+  "instagram": {
+   "n": 3,
+   "clicks": 2,
+   "per": 0.67
+  },
+  "indiehackers": {
+   "n": 3,
+   "clicks": 8,
+   "per": 2.67
+  },
+  "reddit": {
+   "n": 15,
+   "clicks": 7,
+   "per": 0.47
+  },
+  "quora_space": {
+   "n": 2,
+   "clicks": 3,
+   "per": 1.5
+  },
+  "quora": {
+   "n": 5,
+   "clicks": 64,
+   "per": 12.8
+  },
+  "medium": {
+   "n": 3,
+   "clicks": 18,
+   "per": 6
+  },
+  "github": {
+   "n": 3,
+   "clicks": 3,
+   "per": 1
+  },
+  "pinterest": {
+   "n": 4,
+   "clicks": 0,
+   "per": 0
+  },
+  "note": {
+   "n": 4,
+   "clicks": 27,
+   "per": 6.75
+  },
+  "okky": {
+   "n": 3,
+   "clicks": 16,
+   "per": 5.33
+  },
+  "naver_blog": {
+   "n": 2,
+   "clicks": 2,
+   "per": 1
+  },
+  "x_jp": {
+   "n": 3,
+   "clicks": 26,
+   "per": 8.67
+  },
+  "threads": {
+   "n": 3,
+   "clicks": 1,
+   "per": 0.33
+  },
+  "x_us": {
+   "n": 3,
+   "clicks": 41,
+   "per": 13.67
+  },
+  "bluesky": {
+   "n": 4,
+   "clicks": 45,
+   "per": 11.25
+  },
+  "linkedin": {
+   "n": 2,
+   "clicks": 9,
+   "per": 4.5
+  },
+  "naver_kin": {
+   "n": 8,
+   "clicks": 2,
+   "per": 0.25
+  }
  }
 }

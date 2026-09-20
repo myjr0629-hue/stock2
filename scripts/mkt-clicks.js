@@ -110,6 +110,42 @@ async function liveTags() {
   console.log(`${'합계'.padEnd(15)}${String(s3).padStart(4)}                 ${String(sa).padStart(5)}`);
   console.log(`\n· 0클릭 채널 ${rows.length - live2.length}개는 생략했다. 태그 ${tags.length}개 전수 조회.`);
 
+  // ★2026-09-21 «건당 클릭» — 총클릭만 보면 «많이 한 채널»이 위로 올라온다(레딧이 그랬다: 15건 발행).
+  //   발행 건수로 나눠야 효율이 보인다. 이 값을 캐시에 실어 slot 이 «줄일 것»을 같이 보여 준다(ENGINE §57).
+  //   · 상시 표면(자사 웹·SEO·피드류)은 «발행 1건»이 아니므로 제외한다.
+  //   · 본문 링크가 금지된 채널(레딧·쿼라)은 프로필 경유 태그를 «합산»해야 공정하다.
+  const STANDING = new Set(['home','seo','seo_darkpool','seo_uc','seo_sg','seo_wim','llms_txt',
+    'indexnow','rss_feed','github_pages','hf_datasets','aso','google_dataset_search']);
+  const PAIR = { reddit: ['reddit','reddit_bio'], quora: ['quora','quora_bio'] };
+  const LEDGER_ALIAS = { note_jp:'note', x_post:'x_us', x:'x_us', quora_en:'quora' };
+  let perPost = {};
+  try {
+    const led = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/PUBLISH-LEDGER.json'), 'utf8')).entries || [];
+    const cut = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+    const nPosts = {};
+    for (const r of led) {
+      const d = r.kst || r.utc || String(r.at || '').slice(0, 10);
+      if (d < cut) continue;
+      const ch = LEDGER_ALIAS[r.ch] || r.ch;
+      nPosts[ch] = (nPosts[ch] || 0) + 1;
+    }
+    const netAll = (t) => Math.max(0, (rows.find((x) => x.t === t) || {}).all || 0) - ((CONTAM[t] || {}).all || 0);
+    for (const [ch, n] of Object.entries(nPosts)) {
+      if (STANDING.has(ch) || n < 2) continue;          // 표본 1건은 순위로 쓰지 않는다
+      const clicks = (PAIR[ch] || [ch]).reduce((a, t) => a + Math.max(0, netAll(t)), 0);
+      perPost[ch] = { n, clicks, per: +(clicks / n).toFixed(2) };
+    }
+    const ranked = Object.entries(perPost).sort((a, b) => b[1].per - a[1].per);
+    if (ranked.length) {
+      console.log('\n── 건당 클릭 (' + days + '일 · 발행 2건 이상 · 상시표면 제외 · 레딧/쿼라는 프로필 경유 합산) ──');
+      console.log('채널             발행   클릭    건당');
+      for (const [ch, v] of ranked)
+        console.log(ch.padEnd(16) + String(v.n).padStart(4) + String(v.clicks).padStart(7) + String(v.per).padStart(8));
+      const lose = ranked.filter(([, v]) => v.per < 1).map(([ch]) => ch);
+      if (lose.length) console.log('⚠ 건당 1 미만 — 신규 투입을 줄일 후보: ' + lose.join(', '));
+    }
+  } catch (e) { console.log('· 건당 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
+
   // ★2026-09-20 — 이 표를 «큐»가 쓰게 한다.
   //   mkt-plan.js slot 은 «오래 방치된 순»으로만 골라서, 매일 클릭을 내는 채널(bluesky)이
   //   4사이클 내리 «대상 아님»에 있었다. 이긴 것을 키우라는 규칙과 정면으로 어긋난다.
@@ -120,7 +156,8 @@ async function liveTags() {
       d3: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.d3 - ((CONTAM[r.t] || {}).d3 || 0))])),
       d3raw: Object.fromEntries(live2.map((r) => [r.t, r.d3])),
       contam: Object.fromEntries(Object.entries(CONTAM).map(([t, v]) => [t, v.d3])),
-      all: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.all - ((CONTAM[r.t] || {}).all || 0))])) };
+      all: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.all - ((CONTAM[r.t] || {}).all || 0))])),
+      perPost };
     fs.writeFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), JSON.stringify(cache, null, 1) + '\n');
     console.log('· 캐시 기록: .agent/marketing/clicks-cache.json (slot 의 «키우기» 레인이 읽는다)');
   } catch (e) { console.log('· 캐시 기록 실패: ' + String(e.message).slice(0, 60)); }

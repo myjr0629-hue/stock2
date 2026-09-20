@@ -180,6 +180,15 @@ if (cmd === 'slot') {
       const cm = (cc.contam || {})[t] || 0;
       console.log('   ★ ' + t.padEnd(16) + '3일 ' + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
     }
+    // ★2026-09-21 «줄일 것» — 키우기만 보여 주면 «무엇을 그만둘지»는 영영 안 보인다(ENGINE §57).
+    //   건당 1 미만 채널은 노력 대비 회수가 없다. 죽이지는 않되 신규 투입을 줄인다.
+    const pp = cc.perPost || {};
+    const lose = Object.entries(pp).filter(([, v]) => v.per < 1).sort((a, b) => a[1].per - b[1].per);
+    const win = Object.entries(pp).filter(([, v]) => v.per >= 4).sort((a, b) => b[1].per - a[1].per);
+    if (win.length || lose.length) {
+      if (win.length) console.log('   ▲ 건당 높음(여기로 옮긴다): ' + win.map(([c, v]) => c + ' ' + v.per).join(' · '));
+      if (lose.length) console.log('   ▼ 건당 1 미만(신규 투입 줄임): ' + lose.map(([c, v]) => c + ' ' + v.per + '(' + v.n + '건)').join(' · '));
+    }
     if (ageH > 6) console.log('   ⚠ 클릭 캐시가 ' + Math.round(ageH) + '시간 전 것이다 → `node scripts/mkt-clicks.js` 를 먼저 돌려라');
     console.log('');
   } catch { console.log('■ 키우기 — 클릭 캐시 없음 → `node scripts/mkt-clicks.js` 를 먼저 돌려라\n'); }
