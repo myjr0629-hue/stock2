@@ -9578,3 +9578,31 @@ Space 관리자 대시보드 실측: **최근 7일 조회 7 · 팔로워 1 · �
 
 ### 오늘 누적(KST 2026-09-20) — 발행 13건
 okky · note(JP) · pinterest · reddit×3(r/stocks 2 + r/Trading 1) · github · medium · quora_en · quora_space · naver_blog · x_jp/threads/x/bluesky(전일자 이월분 제외) · **indiehackers**
+
+### ★정정 — 「레딧 프로필에 링크가 없다」는 내 오보였다 (같은 사이클 안에서 잡음)
+
+r/Trading 이 규칙으로 홍보를 막아 전환을 «프로필»에 맡긴 뒤, 프로필을 점검하다 이렇게 적을 뻔했다:
+**「64건의 댓글이 전부 프로필로 전환을 보내는데 프로필에 클릭 가능한 링크가 하나도 없다 — §50 과 같은 종류의 끊긴 경로」.**
+근거는 프로필 페이지를 shadow DOM 까지 훑어 `signumhq.com` 앵커가 **0개**로 나온 것이었다(`raw: []`).
+
+**틀렸다.** 소셜 링크를 «추가»하려 하자 서버가 답을 줬다:
+```
+setSocialLinks { ok: false, errors: [{ message: "number of links cannot exceed maximum" }],
+  socialLinks: [ {CUSTOM, "SIGNUM HQ app (free)",  https://signumhq.com/app?from=reddit_bio},
+                 {CUSTOM, "Free app: options + dark pool", https://signumhq.com/app?from=reddit_bio}, … ] }
+```
+**링크는 이미 있고, 개수 상한까지 차 있었다.** 그리고 결정적 증거는 내가 이미 갖고 있던 클릭표다:
+**`reddit_bio` 21일 5클릭** (대조: `reddit` 본문/댓글 경로는 2클릭). 5번 눌렸다면 보이는 것이다.
+
+**Why:** 렌더된 DOM 에 없다는 것을 «존재하지 않는다»로 읽었다. 로그인한 «주인» 화면에서 사이드바가
+「소셜 링크 / 소셜 링크 추가」만 보여 준 것도 오판을 굳혔다(주인에게 보이는 화면 ≠ 상태).
+**이건 별점 검사기 사건과 같은 종류다** — 「없음」을 내는 점검에 **양성 대조군이 없었다.**
+여기서 대조군은 만들 필요도 없었다. **클릭표라는 실측이 이미 있었는데 화면부터 믿었다.**
+
+**How to apply:**
+- **「X 가 없다」를 적기 전에, X 가 있었다면 남았을 «흔적»을 먼저 뒤진다.** 클릭·로그·카운터가 화면보다 강하다.
+- 소셜 링크는 **상한이 있다** → 앞으로 레딧 프로필은 «추가»가 아니라 **«교체»** 문제로 다룬다(지금 2칸이 앱 링크라 손댈 이유 없음).
+- 시도한 mutation 은 `ok:false` 라 **아무것도 바뀌지 않았다**(기존 링크 3개 그대로).
+
+**부수 성과 — 레딧 전환 경로의 실제 크기를 처음 쟀다**: 21일 `reddit_bio` 5 + `reddit` 2 = **7클릭 / 댓글 64건**.
+프로필 경유가 본문 경유보다 **2.5배** 크다. 링크를 금지하는 서브(r/Trading·r/stocks)에서 프로필에 맡기는 판단은 옳았다.
