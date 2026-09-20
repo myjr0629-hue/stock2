@@ -9373,3 +9373,35 @@ GPU는 소프트웨어·생태계 해자라 가격이 버티고, 대신 순환�
   「작가 신청 필요」는 틀린 요약이었고, 실제로는 그 앞 단계(로그인)에서 멈춘다. 이런 반쪽 기술이 사이클을 낭비시킨다.
 - 레딧은 «우리 데이터»가 아니라 «우리가 아는 메커니즘 + 검증 가능한 날짜 하나»를 줄 때 글이 선다.
   숫자만 나열하면 봇으로 읽힌다는 기존 교훈의 반대편 실천이다.
+
+---
+
+## 2026-09-20 17:xx KST 사이클 — Medium 영문 장문 발행(오늘 측정 결과를 그대로 콘텐츠로)
+
+게이트 341건 0실패 · 크론 생존 · 별점 변화 없음(대조군 Investing.com ★4.7·리뷰 1,110,455 → 검사기 정상).
+
+### Medium — 「I measured whether my app shows up in Play Store search. In 31 of 32 queries, it does not.」
+
+https://medium.com/@signum_hq/i-measured-whether-my-app-shows-up-in-play-store-search-in-31-of-32-queries-it-does-not-22875e6bbc4e
+
+- 오늘·어제 실측을 **그대로** 영문 장문으로 옮겼다(본문 3,882자 + 가치 블록 ~500자 → §42 비율 충족).
+  ①재현 가능한 방법(Play 검색 페이지는 curl 로 읽힌다 · 애플은 무인증 API · **결과 수가 아니라 «이름에 든 개수»를 센다**)
+  ②31/32 부재, 그중 11개는 제목 경쟁 0(미국 `max pain` 1위가 Max Payne Mobile, 일본 ダークプール 1위가 다크판타지 게임)
+  ③내 첫 설명이 틀렸음을 3단으로 반증(등록정보엔 그 말이 있다 / 제목 첫 단어로도 안 나온다 / 브랜드명은 1위)
+  ④**내 검사기가 고장 나 있었다**는 것까지 공개 — 「결론은 맞았는데 근거가 무효였다. 그게 틀린 것보다 나쁘다.
+    안 보이니까.」 그리고 고친 방식(양성 대조군을 검사기 «안»에 넣기)
+  ⑤애플에선 같은 문구로 1위 → 차이는 카피가 아니라 «평점»
+  ⑥순서를 바꿨다(Play 는 사용 신호 전에는 문구 작업이 이르다)
+- 태그 5개: App Store Optimization · Mobile App Development · Google Play · Startup Lessons · Indie Hacking
+- **AI 지원 표시 한 줄을 말미에 고정**(§메모리: 미표시는 Network Only 로 도달이 팔로워 0 으로 잘린다).
+- **공개 검증**: og:title 일치 · Draft 아님 · 본문 키워드 4종 존재 ·
+  `<a href="https://www.signumhq.com/app?from=medium&source=post_page…">` — Medium 이 `source=` 를 덧붙여도 **우리 태그는 살아남았다.**
+- 조작 메모: Medium 은 URL 한 줄을 **임베드 카드**로 바꾸고 `medium.com/r/?url=…` 리다이렉터로 감싸는데,
+  그 안에 원본 쿼리(`?from=medium`)가 인코딩돼 그대로 남는다. 카드 제목은 우리 영문 OG 가 붙는다(영문 글이라 맞다).
+  ⚠️ 공개 검증을 curl 로 하면 **Cloudflare 가 막아 5KB 짜리 「Attention Required!」** 가 온다 → 브라우저로 확인해야 한다.
+
+### 오늘 누적(KST 2026-09-20)
+
+발행 **9건** — naver_blog · bluesky · okky · note(JP) · pinterest · reddit ×2 · github 데이터셋 · medium.
+**전부 공개 페이지에서 검증**했고 스마트링크 태그 생존까지 확인했다.
+그 외: 웹 코드 4건 배포·라이브 검증 · 애플 광고 4캠페인 정지 · 대표 별점 반영 확인(SIGNUM KR 1→2).
