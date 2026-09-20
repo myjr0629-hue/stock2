@@ -8,6 +8,21 @@
 
 ## 🔴 급한 것 (설치에 직결, 합쳐서 2분)
 
+- [ ] **⓪ Bluesky 앱 비밀번호 2줄 — 1분. «브라우저가 막혀도 발행되게» 만드는 유일한 스위치** ★신규
+      지금 대표님이 브라우저를 쓰시는 동안 **발행이 4사이클 연속 멈췄습니다.** 그런데 저장소에는
+      이미 Bluesky 자동 발행 함수가 있고(관리자 콘솔이 쓰는 그것), **라이브러리 자체는 브라우저도
+      세션도 필요 없습니다.** 제가 로컬 실행기(`scripts/bsky-publish.mjs`)를 만들어 전 구간을
+      검증해 뒀습니다 — **자격증명 한 곳에서만 멈춥니다.**
+      하실 일: bsky.app → Settings → **App Passwords** 에서 «앱 비밀번호» 발급(계정 비밀번호 아님,
+      언제든 폐기 가능) → `~/.gemini/antigravity/scratch/stock2/.env.local` 에 두 줄 추가:
+      ```
+      BLUESKY_HANDLE=signumhq.bsky.social
+      BLUESKY_APP_PASSWORD=(발급받은 값)
+      ```
+      **값은 저에게 보내지 마세요** — 파일에 직접 넣으시면 저는 존재 여부만 확인하고 씁니다.
+      효과: 클릭 1위 채널(3일 14 · 21일 45)이 **브라우저 상태와 영구히 무관**해집니다.
+      원고도 이미 대기 중입니다(`drafts/READY-bluesky-shortvolume.md`, 297자/300).
+
 - [ ] **① 아이폰으로 별점 2개 — 30초** ★가장 급합니다
       · **Why'd It Move?** — 미국·한국·일본 App Store, Play **전부 0**. 어디에도 별점이 없는 유일한 앱입니다.
       · **Undercurrent** — 한국 App Store 1건뿐.
