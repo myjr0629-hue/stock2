@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
+import { PREVIEW_BOT_RE, previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
 
 // /app-wim — device-aware store smart link for Why'd It Move? (cross-promo from SIGNUM/UC).
 // Mirrors /app-uc: counts ?from=<channel> into `mkt:attr:hit:<from>:<etDate>` via after() so
@@ -36,6 +37,16 @@ async function recordHit(fromRaw: string | null): Promise<void> {
 
 export function GET(request: NextRequest) {
   const ua = request.headers.get('user-agent') || '';
+
+  // ★2026-09-20 신설 — 이 라우트엔 미리보기 분기가 «0개»였다. 그래서 카카오톡·슬랙·X·
+  //   블루스카이에 이 링크를 붙이면 카드 없이 맨 URL 로 떴고, 봇 요청이 recordHit 까지 타서
+  //   클릭 수도 부풀렸다. 봇은 클릭이 아니므로 여기서 «세지 않고» 되돌려 보낸다.
+  if (PREVIEW_BOT_RE.test(ua)) {
+    const botFrom = normalizeFrom(request.nextUrl.searchParams.get('from'));
+    const lang = previewLang(botFrom, request.nextUrl.searchParams.get('l'));
+    const storeUrl = /android/i.test(ua) ? WIM_PLAY_STORE_URL : WIM_APP_STORE_URL;
+    return new NextResponse(previewHtml('wim', lang, request.nextUrl.href, storeUrl), previewResponseInit());
+  }
   const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
 
   // Play Install Referrer — 이게 있어야 Play Console 획득 보고서가 «어느 채널이

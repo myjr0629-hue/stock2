@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
+import { PREVIEW_BOT_RE, previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -40,65 +41,9 @@ async function recordHit(fromRaw: string | null): Promise<void> {
   }
 }
 
-// ★ 2026-09-16 (#T4, 대표 지적 «앱 화면을 써라»): 링크 미리보기 봇에게는 스토어로 보내지 않고
-//   OG 태그가 달린 얇은 HTML 을 준다. 그래야 LinkedIn·Slack·카카오·X 카드에 «앱 전체 카드»가
-//   그려진다(스토어로 307 시키면 아이콘만 뜬다). 사람은 아래 302 그대로.
-//   봇은 클릭이 아니므로 attr hit 도 기록하지 않는다(카운터가 봇을 세던 문제도 함께 막힌다).
-const PREVIEW_BOT_RE =
-  /LinkedInBot|facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|TelegramBot|WhatsApp|kakaotalk-scrap|Kakao|Bluesky|cardyb|redditbot|Pinterest|Embedly|vkShare|Quora Link Preview|Applebot|Googlebot|bingbot|Mastodon|Threads/i;
-
-// ★2026-09-20 실측 수리: 한국어 조건이 `_kr$|_ko$` 뿐이라 우리 한국 채널
-//   (naver_blog·okky·naver_kin·daum·tistory…)이 «하나도» 안 걸려 전부 영문 카드를 받고 있었다.
-//   일본도 qiita·zenn·hatena 가 빠져 있었다. 카드 이미지·카피는 이미 있다(/promo/card-app-ko.png).
-//   대표 지시 「한글 글에 영어 이미지 금지」가 이 표면에도 그대로 적용된다.
-const KO_TAGS = /_kr$|_ko$|^x_kr$|^naver|^okky$|^daum|^tistory$|^fmkorea$|^dcinside$|^kr_/;
-const JA_TAGS = /_jp$|^note$|^quora_jp|^x_jp$|^qiita$|^zenn$|^hatena|^mybest|^jp_/;
-
-function previewLang(fromTag: string | null, explicit: string | null): 'en' | 'ja' | 'ko' {
-  if (explicit === 'ja' || explicit === 'ko' || explicit === 'en') return explicit;
-  const f = fromTag || '';
-  if (JA_TAGS.test(f)) return 'ja';
-  if (KO_TAGS.test(f)) return 'ko';
-  return 'en';
-}
-
-const OG_COPY = {
-  en: {
-    title: 'SIGNUM HQ — the whole US market in one free app',
-    desc: 'Premarket movers, earnings calendar, macro & rates, sector heatmap, an AI brief every morning, and institutional footprints (options, dark pool, short volume). Free on iOS & Android, no account needed.',
-  },
-  ja: {
-    title: 'SIGNUM HQ — 米国市場のすべてを、無料アプリひとつで',
-    desc: 'プレマーケット・決算カレンダー・マクロ・セクター・毎朝のAI要約・機関投資家の足跡（オプション・ダークプール・空売り）。iOS・Android 無料、登録不要。',
-  },
-  ko: {
-    title: 'SIGNUM HQ — 미국 시장 전체를 무료 앱 하나로',
-    desc: '프리마켓·실적 일정·거시·섹터·매일 아침 AI 브리핑·기관의 흔적(옵션·다크풀·공매도). iOS·Android 무료, 가입 없이 바로.',
-  },
-} as const;
-
-function previewHtml(lang: 'en' | 'ja' | 'ko', canonical: string, storeUrl: string = APP_STORE_URL): string {
-  const c = OG_COPY[lang];
-  const img = `https://www.signumhq.com/promo/card-app-${lang}.png`; // www 직접 — 이미지 스크래퍼가 apex→www 307 을 안 따라갈 수 있다
-  const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
-<title>${esc(c.title)}</title>
-<meta name="description" content="${esc(c.desc)}">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="SIGNUM HQ">
-<meta property="og:title" content="${esc(c.title)}">
-<meta property="og:description" content="${esc(c.desc)}">
-<meta property="og:url" content="${esc(canonical)}">
-<meta property="og:image" content="${img}">
-<meta property="og:image:width" content="1200"><meta property="og:image:height" content="675">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${esc(c.title)}">
-<meta name="twitter:description" content="${esc(c.desc)}">
-<meta name="twitter:image" content="${img}">
-<meta http-equiv="refresh" content="0;url=${esc(storeUrl)}">
-</head><body><a href="${esc(storeUrl)}">${esc(c.title)}</a></body></html>`;
-}
-
+// 링크 미리보기 기계는 `@/lib/marketing/linkPreview` 한 곳에 있다.
+// ★2026-09-20: 예전엔 이 파일 안에만 있었고 /app-uc·/app-wim 에는 아예 없었다
+//   (UC·WIM 링크가 카드 없이 맨 URL 로 떴다). 공용 모듈로 빼서 세 라우트가 같은 것을 쓴다.
 export function GET(request: NextRequest) {
   const ua = request.headers.get('user-agent') || '';
 
@@ -111,14 +56,10 @@ export function GET(request: NextRequest) {
     //   meta refresh 가 «항상 애플»이었으므로 **안드로이드 사용자가 apps.apple.com 으로 보내져
     //   설치를 못 했다**(실측·재현: x-vercel-cache HIT, age 97s, 안드로이드 UA).
     //   그 클릭은 recordHit 도 안 타므로 집계에서도 사라졌다.
-    return new NextResponse(previewHtml(lang, request.nextUrl.href, /android/i.test(ua) ? PLAY_STORE_URL : APP_STORE_URL), {
-      status: 200,
-      headers: {
-        'content-type': 'text/html; charset=utf-8',
-        'cache-control': 'private, no-store, max-age=0',
-        vary: 'User-Agent',
-      },
-    });
+    return new NextResponse(
+      previewHtml('signum', lang, request.nextUrl.href, /android/i.test(ua) ? PLAY_STORE_URL : APP_STORE_URL),
+      previewResponseInit(),
+    );
   }
 
   // Count the hit AFTER the response is sent (zero added latency to the redirect).
