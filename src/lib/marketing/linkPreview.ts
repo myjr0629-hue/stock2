@@ -28,7 +28,7 @@ export function previewLang(fromTag: string | null, explicit: string | null): Pr
   return 'en';
 }
 
-type Copy = { title: string; desc: string };
+export type Copy = { title: string; desc: string };
 
 /**
  * 앱별 카드 문구. 예측·투자권유 표현은 넣지 않는다(스토어·플랫폼 공통 안전선).
@@ -36,7 +36,7 @@ type Copy = { title: string; desc: string };
  *         카드 종류를 `summary`(작은 정사각)로 내린다 — 가로 카드에 정사각을 넣으면 잘린다.
  *         전용 카드가 생기면 `image.wide` 를 채우고 그때 summary_large_image 로 올린다.
  */
-const COPY: Record<StoreApp, Record<PreviewLang, Copy>> = {
+export const COPY: Record<StoreApp, Record<PreviewLang, Copy>> = {
   signum: {
     en: {
       title: 'SIGNUM HQ — the whole US market in one free app',
@@ -86,11 +86,14 @@ const SITE = 'https://www.signumhq.com'; // www 직접 — 이미지 스크래�
 /** 앱별 og:image. wide 가 있으면 큰 가로 카드, 없으면 아이콘 + 작은 카드. */
 const IMAGE: Record<StoreApp, { wide?: (lang: PreviewLang) => string; square: string }> = {
   signum: { wide: (l) => `${SITE}/promo/card-app-${l}.png`, square: `${SITE}/app-icons/signum.png` },
-  uc: { square: `${SITE}/app-icons/uc.png` },
-  wim: { square: `${SITE}/app-icons/wim-1024.png` },
+  // ★2026-09-20(2차) — 「한글 TTF 가 없어 못 한다」는 내 판단이 틀렸다. Google Fonts 의
+  //   `text=` 서브셋이 TTF 를 준다(한국어 9.5KB). 방법이 막힌 것을 못 한다고 적었던 것.
+  //   → /api/og/app 로 1200×675 카드를 즉석 생성해 UC·WIM 도 풀카드로 올린다.
+  uc: { wide: (l) => `${SITE}/api/og/app?app=uc&l=${l}`, square: `${SITE}/app-icons/uc.png` },
+  wim: { wide: (l) => `${SITE}/api/og/app?app=wim&l=${l}`, square: `${SITE}/app-icons/wim-1024.png` },
 };
 
-const SITE_NAME: Record<StoreApp, string> = {
+export const SITE_NAME: Record<StoreApp, string> = {
   signum: 'SIGNUM HQ',
   uc: 'Undercurrent',
   wim: "Why'd It Move?",
