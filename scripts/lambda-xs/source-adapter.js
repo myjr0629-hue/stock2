@@ -170,13 +170,25 @@ async function intrinioGet(path, params) {
 }
 
 // ── 1. structure rows (Vercel structure-build bake) ─────────────────────────
+/**
+ * 구조 캐시(가격·감마·맥스페인)를 읽는다.
+ *
+ * ★2026-09-22 사고 수리 — «창고가 둘로 갈라져 있었다».
+ *   Vercel 크론(`/api/cron/structure-build`)은 **EC2 레디스 프록시**에 굽는데,
+ *   여기서는 **Upstash** 만 읽고 있었다. 9/16 프록시 이관 때 이 함수만 남겨졌다.
+ *   그 결과 Upstash 에는 `structure:part:v2:*` 가 아예 없어서(실측: DBSIZE 31,596 인데 해당 키는 null)
+ *   rows 가 0 이 되고, 호출부가 **「캐시가 비었다 — 크론이 죽었나?」**라고 «엉뚱한 범인»을 지목했다.
+ *   크론은 멀쩡히 21:05 UTC 에 8조각(각 250행)을 구워 두고 있었다.
+ *
+ *   → Upstash 에서 한 조각도 못 얻으면 **프록시로 폴백**한다. 어느 쪽에서 읽었는지 `src` 로 돌려준다.
+ *      («조용한 null» 이 장애를 숨기지 못하게. 폴백은 있되 «보이는» 폴백이어야 한다.)
+ */
 async function loadStructureRows(staleCutoff) {
     const rows = new Map(); // t → row
-    const res = await upstash(Array.from({ length: STRUCT_PARTS }, (_, i) => ['GET', STRUCT_PART_KEY(i)]));
-    let parts = 0, newestTs = 0;
-    for (const r of (Array.isArray(res) ? res : [])) {
-        const v = parseMaybeJson(r && r.result);
-        if (!v || !Array.isArray(v.rows)) continue;
+    let parts = 0, newestTs = 0, src = 'ec2-proxy';
+
+    const take = (v) => {
+        if (!v || !Array.isArray(v.rows)) return false;
         parts++;
         if (v.ts > newestTs) newestTs = v.ts;
         for (const x of v.rows) {
@@ -185,8 +197,25 @@ async function loadStructureRows(staleCutoff) {
             const prev = rows.get(x.t);
             if (!prev || (x.rt || 0) > (prev.rt || 0)) rows.set(x.t, x);
         }
+        return true;
+    };
+
+    // ★순서가 중요하다: 크론이 «실제로 굽는 곳»을 먼저 읽는다(현재 EC2 프록시).
+    //   Upstash 를 먼저 읽으면, 거기 «오래된» 조각이 되살아났을 때 신선한 프록시 조각 대신
+    //   그걸 집는다 — 폴백이 장애를 숨기는 전형적인 모양이다. 그래서 «있는 쪽»이 1순위다.
+    const got = await Promise.all(
+        Array.from({ length: STRUCT_PARTS }, (_, i) => proxyGet(STRUCT_PART_KEY(i), 20000).catch(() => null)),
+    );
+    for (const v of got) take(v);
+
+    if (parts === 0) {
+        src = 'upstash';
+        const res = await upstash(Array.from({ length: STRUCT_PARTS }, (_, i) => ['GET', STRUCT_PART_KEY(i)]));
+        for (const r of (Array.isArray(res) ? res : [])) take(parseMaybeJson(r && r.result));
+        if (parts > 0) console.log(`[XS-SRC] structure cache: EC2 프록시 0조각 → Upstash 에서 ${parts}조각 읽음(크론 기록처가 바뀌었는지 확인할 것)`);
     }
-    return { rows, parts, newestTs };
+
+    return { rows, parts, newestTs, src };
 }
 
 // ── 2. FINRA off-exchange (dark pool % · short volume %) via EC2 Redis ─────
@@ -409,7 +438,14 @@ async function buildSourceSnapshots(p) {
         loadShortInterest().catch((e) => { log(`[XS-SRC] short-interest fail: ${e.message}`); return { map: new Map(), date: null }; }),
         loadEodHistory().catch((e) => { log(`[XS-SRC] eod:history fail: ${e.message}`); return { dates: [], closes: {} }; }),
     ]);
-    if (struct.rows.size === 0) throw new Error('structure cache empty (structure:part:v2:* missing or all stale) — is the Vercel structure-build cron alive?');
+    if (struct.rows.size === 0) {
+        // ★메시지가 «범인»을 지목하게 한다. 조각을 읽었는데 행이 0 이면 «오래됨»이고,
+        //   조각 자체가 0 이면 «못 읽음»(자격·창고 문제)이다. 둘은 처방이 완전히 다르다.
+        const age = struct.newestTs ? Math.round((Date.now() - struct.newestTs) / 60000) + '분' : '알 수 없음';
+        throw new Error(struct.parts === 0
+            ? `structure cache unreadable — Upstash·EC2 프록시 양쪽에서 ${STRUCT_PARTS}조각 중 0조각(자격증명 또는 저장소 불일치를 먼저 본다. 크론 문제가 아니다)`
+            : `structure cache all stale — ${struct.parts}조각을 ${struct.src} 에서 읽었으나 staleCutoff 를 통과한 행이 0 (최신 굽기 ${age} 전)`);
+    }
 
     // zombie guard #2: must have an official EOD bar within the last 4 sessions
     const recentDates = eod.dates.slice(-4);
