@@ -309,6 +309,9 @@ class AdManagerService {
       // banner is intentionally NOT shown here unconditionally — it appears only
       // once Pro status is known (wantBanner), so a subscriber never sees a flash.
       if (this.wantBanner) await this.showBanner();
+      // ★2026-09-21 — 포그라운드 복귀 시 배너를 되살리는 리스너(안드로이드에서 배너가
+      //   백그라운드 전환에 사라지던 문제). init 성공 뒤 한 번만 건다.
+      void this.bindResumeHook();
     } catch (err) {
       console.error('[AdManager] ❌ Init failed:', err);
     }
@@ -367,6 +370,48 @@ class AdManagerService {
       const { AdMob } = await import('@capacitor-community/admob');
       await AdMob.hideBanner();
     } catch {}
+  }
+
+  /**
+   * 백그라운드에 갔다 돌아왔을 때 배너를 되살린다.
+   *
+   * ★2026-09-21 대표 실기기(Android 13) 보고 수리:
+   *   「SIGNUM 앱을 켜 두고 다른 앱 보다가 돌아오면 하단 광고가 사라진다 — 안드로이드에서만」.
+   *   원인(코드에서 확인): 안드로이드는 앱이 백그라운드로 가면 AdMob 배너 «네이티브 뷰»가
+   *   일시정지/제거된다. 플러그인은 그래서 `resumeBanner()` 를 제공하는데,
+   *   **이 adManager 에는 그 호출이 아예 없었고**(show/hide 뿐) 복귀를 듣는 리스너도 없었다.
+   *   UC 는 자기 ads.ts 에 resumeBanner 를 갖고 있어 같은 증상이 덜 보였다 —
+   *   즉 «SIGNUM 에만, 안드로이드에서만» 이라는 관찰과 정확히 맞는다.
+   *
+   *   wantBanner(구독자 아님 + 억제 아님 + Pro 판정 완료)일 때만 되살린다.
+   *   resume 이 실패하면 showBanner 로 다시 그린다(플러그인 상태가 날아간 경우).
+   */
+  async resumeBanner() {
+    if (!this.initialized || !this.wantBanner) return;
+    try {
+      const { AdMob } = await import('@capacitor-community/admob');
+      await AdMob.resumeBanner();
+      console.log('[AdManager] ▶ Banner resumed');
+    } catch {
+      // 플러그인이 resume 을 못 하면 처음부터 다시 띄운다.
+      try { await this.showBanner(); } catch { /* noop */ }
+    }
+  }
+
+  /**
+   * 포그라운드 복귀를 듣고 배너를 되살린다. init() 에서 한 번만 등록한다.
+   * ⚠️ 중복 등록되면 복귀마다 resume 이 여러 번 불려 로그가 시끄러워진다 → 가드를 둔다.
+   */
+  private resumeHookBound = false;
+  private async bindResumeHook() {
+    if (this.resumeHookBound) return;
+    this.resumeHookBound = true;
+    try {
+      const { App } = await import('@capacitor/app');
+      App.addListener('appStateChange', ({ isActive }: { isActive: boolean }) => {
+        if (isActive) void this.resumeBanner();
+      });
+    } catch { /* 네이티브 아님 — 웹에서는 할 일이 없다 */ }
   }
 
   /** 구글이 이 사용자에게 «광고 개인정보 설정» 진입점을 요구하는가 */
