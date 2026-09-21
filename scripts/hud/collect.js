@@ -54,8 +54,16 @@ if (af) {
                            taps: +x[5], installs: +x[6], cpa: +x[7].replace(/,/g, '') }));
         // 기간이 «오늘»로 고정된 판독인지 표시한다 — 예전에 7일치를 하루로 읽어 거짓 경보를 냈다
         const isToday = /기간 선택=\{"t":"오늘"/.test(t);
+        // ★2026-09-21 — 판독 «파일»이 며칠 묵어도 화면은 「오늘」이라고 떠 있었다.
+        //   실제로 2.5일 전 값($21.26·설치 1)이 오늘로 보였고, 같은 시각 콘솔은 $0.00·전부 정지였다.
+        //   화면이 지표를 «지어내는» 전형이다 → 파일의 나이를 같이 싣고, 6시간을 넘으면 stale 로 표시한다.
+        let ageH = null;
+        try { ageH = (Date.now() - fs.statSync(af).mtimeMs) / 36e5; } catch {}
+        const stale = ageH == null || ageH > 6;
         if (m) out.ads = { spend: m[1], impr: m[2], taps: m[3], installs: m[4],
-                           per, isToday, at: out.at };
+                           per, isToday: isToday && !stale, stale, ageH: ageH == null ? null : +ageH.toFixed(1),
+                           readAt: (() => { try { return new Date(fs.statSync(af).mtimeMs).toISOString(); } catch { return null; } })(),
+                           at: out.at };
     } catch (e) { console.error('ads 실패:', e.message.slice(0, 60)); }
 }
 // ★ 별점 — 2026-09-19 실측으로 확정한 병목이다(노출 2,190 → 열람 11 → 설치 7, 별점 0).

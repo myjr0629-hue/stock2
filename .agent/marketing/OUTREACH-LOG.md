@@ -10577,3 +10577,42 @@ CPP 는 **앱당 35개·무료**인데 1/35 만 쓰고 있다. 이번 사이클�
 삼성 거절 메일은 no-reply 다. **남은 길은 발급 케이스(34589960) 메일에 «답장» 한 통.**
 → 본문을 그대로 쓸 수 있게 작성해 뒀다: `.agent/marketing/drafts/DUNS-UPDATE-EMAIL.md`
    (SIC 7372 / NAICS 513210 / signumhq.com / Trade style SIGNUM HQ). 대표님은 복사·전송만 하시면 된다.
+
+## 2026-09-21 19:xx~21:xx KST — 채널당 1편 상한 해제, «되는 채널»에 몰아서 5건 추가 (오늘 17건)
+
+대표 지시 둘: 「플랫폼이 허용하는 최대 한도로 올려라」 + 「읽지 않는 것은 올리지 마라」.
+두 지시는 같은 방향이다 — **상한은 풀되, 대상은 «클릭이 실제로 나오는 채널»로 좁힌다**(§57).
+오늘 건당: bluesky 10.2 · x_us 10.75 · indiehackers 4(3일 12·신선도 75%) / naver_blog 0.67 · threads 0.5 · reddit 0.47.
+→ 뒤쪽 셋은 오늘 더 쓰지 않았다.
+
+### ★블루스카이 «브라우저 없는» 발행 경로가 열렸다 (대표가 앱 비밀번호 발급)
+`.env.local` 두 줄 → `설정됨 ✅ · 연결 ✅ signumhq.bsky.social`. 파일은 `.gitignore` 의 `.env*.local` 에 걸려
+커밋되지 않는 것을 확인했고 값은 어디에도 출력하지 않는다.
+**이 경로의 의미**: 대표가 브라우저를 쓰는 동안에도 1위 채널이 발행된다(전에 이것 때문에 4사이클 연속 멈췄다).
+- bluesky #2 https://bsky.app/profile/signumhq.bsky.social/post/3mvzqscye5h24 (넷감마 10종목)
+- bluesky #3 https://bsky.app/profile/signumhq.bsky.social/post/3mvzqxdtdlo2k (시간외/프리 기준 바뀜)
+- bluesky #4 https://bsky.app/profile/signumhq.bsky.social/post/3mvzqyayznq27 (다크풀 오해) **+ 앱 카드 이미지**
+  → `--image` 로 1200×675 앱 카드가 붙는다(`embed: app.bsky.embed.images`, 실측 확인). 앞으로 CLI 발행엔 항상 붙인다.
+**검증**: 셋 다 `public.api.bsky.app` **무인증** 조회로 작성자·본문·링크 facet 확인.
+함정: 링크는 «글자수 그대로» 센다(단축 없음). `https://` 를 빼면 41→29자가 되고 그래도 클릭 가능한 facet 이 붙는다.
+
+### x_us 2번째 (건당 1위 채널)
+https://x.com/signumhq/status/2102018631211307509 — 넷감마 지수/개별주 갈림.
+**검증**: 로그아웃 syndication 조회 — 작성자 signumhq · 본문 · **카드 summary_large_image**.
+계정이 @signumhq_jp 로 남아 있어 전환부터 했다(메뉴는 `#layers` 안, 어제 기록대로 한 번에 됐다).
+
+### quora_space (링크가 허용되는 유일한 Quora 표면)
+https://signumhqusstockmarketintelligence.quora.com/Same-expiry-opposite-sign-...
+
+### ⛔ 관제 화면이 «오늘»이라며 2.5일 전 숫자를 띄우고 있었다 — 고쳤다
+대표가 관제를 열어 달라고 해서 띄웠는데(`http://127.0.0.1:7788`), 「광고 점검 **$21.26 · 설치 1 · 탭 14**」로 떠 있었다.
+같은 시각 애플 콘솔에서 기간을 「오늘」로 고정해 다시 읽으면 **$0.00 · 설치 0 · 4개 전부 일시정지**다.
+원인: HUD 가 `/tmp/ads-today.txt` 를 읽는데 그 파일이 **9/19 00:33** 판독이었다. 파일이 묵어도 라벨은 「오늘」이었다.
+**고침**: `scripts/hud/collect.js` 가 파일의 **mtime 나이(ageH)** 와 `stale`(6시간 초과) 을 같이 싣는다.
+6시간이 지나면 `isToday` 가 자동으로 꺼진다 — 화면이 오래된 값을 «오늘»이라고 말할 수 없게 된 것이다.
+(§screens-fabricate-metrics-when-data-missing 의 변형: 값이 없는 게 아니라 «늙은» 값이었다.)
+그리고 현재 상태(전부 정지·$0)를 같은 형식으로 파일에 다시 써 넣어 화면을 사실과 맞췄다.
+
+### 광고 판단 — 유지 (오늘 세 번째 확인)
+기간 오늘 고정: 지출 $0.00 · 노출 0 · 탭 0 · 설치 0. **US 검색탭 영구정지 · US/KR 정지유지 · JP 는 일본 별점이 붙으면 기존 예산으로만 재개.**
+근거는 그대로다: 7일 $156.63 → 설치 5 → **설치당 $31.33**, 탭 90 → 설치 5. 새는 곳은 키워드가 아니라 제품 페이지다.
