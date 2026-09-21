@@ -25,19 +25,12 @@ const ROOT = path.join(__dirname, '..');
 const DAYS = Number(process.argv[2] || 7);
 const PLATS = ['android', 'ios', 'desktop'];
 
-function env(name) {
-    for (const f of ['.env.local', '.env']) {
-        try {
-            const m = fs.readFileSync(path.join(ROOT, f), 'utf8').match(new RegExp('^' + name + '=(.*)$', 'm'));
-            if (m) return m[1].trim();
-        } catch { /* 파일이 없을 수 있다 */ }
-    }
-    return process.env[name] || null;
-}
-
-const BASE = env('KV_REST_API_URL') || env('UPSTASH_REDIS_REST_URL');
-const KEY = env('KV_REST_API_TOKEN') || env('UPSTASH_REDIS_REST_TOKEN');
-if (!BASE || !KEY) { console.error('Redis REST 자격이 없다(.env.local 의 KV_REST_API_URL/TOKEN).'); process.exit(1); }
+// ⚠ mkt-clicks.js 와 «같은» 경로를 쓴다 — EC2 레디스 프록시다(Upstash REST 가 아니다).
+//   const 이름을 URL 로 쓰면 전역 URL 클래스를 가려 fetch 가 조용히 죽는다(기존 파일의 경고 그대로).
+const BASE = 'http://52.23.98.13:8081';
+const KEY = (fs.readFileSync(path.join(ROOT, '.env.local'), 'utf8')
+    .match(/^EC2_REDIS_PROXY_KEY=(.+)$/m) || [])[1]?.trim();
+if (!KEY) { console.error('.env.local 에 EC2_REDIS_PROXY_KEY 가 없다.'); process.exit(1); }
 
 const etDay = (d) => new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
