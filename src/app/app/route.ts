@@ -29,13 +29,30 @@ function etDate(): string {
 
 // Attribution is best-effort: the `from` tag is bounded (no arbitrary key-space growth),
 // the write is TTL'd, and any failure is swallowed so measurement never affects the redirect.
-async function recordHit(fromRaw: string | null): Promise<void> {
+/**
+ * ★2026-09-22 — 클릭을 «기기»로도 센다.
+ * 왜: 21일 클릭 882 건인데 Play 등록정보 열람은 11 건이었다. 등록정보를 연 사람의 61% 가 설치하므로
+ * 클릭이 스토어까지 갔다면 설치는 수백이어야 한다. 즉 «클릭이 스토어에 닿지 못한다».
+ * 가장 유력한 구멍은 데스크톱이다 — Medium·LinkedIn·IndieHackers·Quora 는 데스크톱 독자가 많은데
+ * 데스크톱에서 apps.apple.com 을 열면 «설치할 방법이 없다». 그런데 지금 집계는 기기를 구분하지 않아
+ * 그 구멍의 «크기»를 잴 수가 없었다. 태그당 하루 한 칸을 더 쓰는 것으로 그걸 잰다.
+ * 리다이렉트에는 영향이 없다(응답 후 after() 안에서 돌고, 실패는 삼킨다).
+ */
+type HitPlatform = 'android' | 'ios' | 'desktop';
+
+async function bump(key: string): Promise<void> {
+  const current = (await getFromCache<number>(key)) || 0;
+  await setInCache(key, current + 1, 60 * 60 * 24 * 45); // 45-day TTL auto-cleans old daily keys
+}
+
+async function recordHit(fromRaw: string | null, platform?: HitPlatform): Promise<void> {
   const from = (fromRaw || '').toLowerCase();
   if (!/^[a-z0-9_]{1,24}$/.test(from)) return; // ignore missing / malformed tags
   try {
-    const key = `mkt:attr:hit:${from}:${etDate()}`;
-    const current = (await getFromCache<number>(key)) || 0;
-    await setInCache(key, current + 1, 60 * 60 * 24 * 45); // 45-day TTL auto-cleans old daily keys
+    const day = etDate();
+    // 기존 키는 «그대로» 둔다 — 21일치 추세가 여기에 쌓여 있다(형식을 바꾸면 과거가 끊긴다).
+    await bump(`mkt:attr:hit:${from}:${day}`);
+    if (platform) await bump(`mkt:attr:hit:${from}:${platform}:${day}`);
   } catch {
     /* swallow — a metrics write must never break the store redirect */
   }
@@ -69,7 +86,9 @@ export function GET(request: NextRequest) {
   // 설치를 만들었는지»를 보여준다. 없으면 클릭만 알고 설치는 영영 모른다.
   // ⚠️ 정규화된 값을 넘긴다. 원본을 넘기면 하이픈 태그가 recordHit 의
   //    같은 정규식에 다시 걸려 클릭 카운터만 «조용히» 비게 된다.
-  after(() => recordHit(fromTag));
+  const hitPlatform: HitPlatform = /android/i.test(ua) ? 'android'
+    : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop';
+  after(() => recordHit(fromTag, hitPlatform));
 
   if (/android/i.test(ua)) {
     return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum'), 302);
