@@ -132,7 +132,7 @@ if (cmd === 'pub') {
 }
 const c = counts(); const now = hhmm(); const hour = Number(now.slice(0, 2));
 let REG = [];
-try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => ({ id: x.id || x.key || x.name, tier: x.tier || x.type || '?', note: x.note || '' })); } catch {}
+try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => ({ id: x.id || x.key || x.name, tier: x.tier || x.type || '?', note: x.note || '', gate: x.gate || null })); } catch {}
 const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp' };
 
 if (cmd === 'slot') {
@@ -154,11 +154,16 @@ if (cmd === 'slot') {
     if (!v) { rows.push({ id, state: '규칙없음', age: ageH(key), note: r.note }); continue; }
     const inWin = hour >= v.window[0] && hour < v.window[1];
     const acct = /★계정 필요|★작가 신청|★무료\. ASC|대표 승인|계정 필요/.test(r.note || '');
-    const st = acct ? '계정대기' : (v.left <= 0 ? '소진' : (!inWin ? '창밖' : '열림'));
-    rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, note: (r.note || '').slice(0, 44) });
+    // ★2026-09-21 «게이트» — 내가 아무리 시간을 써도 못 여는 것(대표 결정·법적 동의·해금일)은
+    //   «실행» 레인에서 빼고 따로 세운다. 안 그러면 기록이 영영 안 생겨 «가장 오래 방치된 순»의
+    //   맨 앞을 영구 점유하고, 실행 4칸이 매 사이클 통째로 낭비된다(§49 와 같은 고장, 다른 얼굴).
+    const g = r.gate;
+    const gateOn = !!g && (!g.until || g.until > utcDate());
+    const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (!inWin ? '창밖' : '열림')));
+    rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, note: (r.note || '').slice(0, 44), gate: g });
   }
   const by = (s) => rows.filter((x) => x.state === s).sort((a, b) => b.age - a.age);
-  const open = by('열림'), acct = by('계정대기'), norule = by('규칙없음');
+  const open = by('열림'), acct = by('계정대기'), norule = by('규칙없음'), gated = by('게이트');
   const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖');
 
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
@@ -206,6 +211,15 @@ if (cmd === 'slot') {
   console.log('\n■ 뚫기 — 계정이 막힌 곳 중 가장 오래된 2개. 우회로를 «실제로» 시도한 뒤에만 보류로 적는다(ENGINE §22)');
   acct.slice(0, 2).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + r.note));
   if (!acct.length) console.log('   (없음)');
+  // ★게이트 레인 — «내가 못 여는 것»을 여기 세워 둔다. 실행 4칸을 점유하지 않는다.
+  if (gated.length) {
+    console.log('\n▣ 게이트 — 내 힘으로 못 연다. 여는 사람·여는 날이 정해져 있다 (실행 대상 아님)');
+    gated.forEach((r) => {
+      const g = r.gate || {};
+      const when = g.until ? ('해금 ' + g.until) : (g.who ? (g.who + ' 1회') : '조건 미정');
+      console.log('   · ' + r.id.padEnd(18) + ('[' + (g.kind || '게이트') + ']').padEnd(10) + when.padEnd(16) + (g.why || ''));
+    });
+  }
   console.log('\n■ 확장 — 신규 표면 1개: 발굴 → 실행 또는 티켓 → channels.json 등록 (매 사이클 의무)');
   console.log('\n■ 고정 5단계 — ①게이트 audit-expiration-selection.js --live ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시');
   if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
