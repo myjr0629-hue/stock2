@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T07:37:43.611Z",
+  "at": "2026-09-21T23:16:40.531Z",
   "ok": [
     {
       "name": "x",
@@ -11,7 +11,7 @@
       "name": "bluesky",
       "group": "publish",
       "url": "https://bsky.app/",
-      "head": "둘러보기 팔로우 중 Video 무슨 일이 일어나고 있나요? The Washington Post @washingtonpost.com · 1시간 The chief e"
+      "head": "둘러보기 팔로우 중 Video 무슨 일이 일어나고 있나요? The Washington Post @washingtonpost.com · 1분 Leaders of t"
     },
     {
       "name": "medium",
@@ -23,43 +23,43 @@
       "name": "reddit",
       "group": "publish",
       "url": "https://www.reddit.com/",
-      "head": "메인 콘텐츠로 바로가기 Reddit - 인터넷의 맥박 메뉴 열기 채팅 열기 만들기 게시물 만들기 받은 편지함 열기 사용자 메뉴 펼치기 리포스트 Finished w"
+      "head": "메인 콘텐츠로 바로가기 Reddit - 인터넷의 맥박 메뉴 열기 채팅 열기 만들기 게시물 만들기 받은 편지함 열기 사용자 메뉴 펼치기 리포스트 Daily r/th"
     },
     {
       "name": "note_jp",
       "group": "publish",
       "url": "https://note.com/",
-      "head": "メインコンテンツへスキップ 12 投稿 すべて フォロー中 注目 投稿企画 急上昇 1 マッチョ華道 2 Jev 3 リアリティ・フラクチャー 4 さとこはいつも 5 台風25号 "
+      "head": "メインコンテンツへスキップ 13 投稿 すべて フォロー中 注目 投稿企画 急上昇 1 マッチョ華道 2 さとこはいつも 3 東京ゲームショウ2026 4 PISA2025 5 J"
     },
     {
       "name": "quora",
       "group": "publish",
       "url": "https://www.quora.com/",
-      "head": "Skip to content Skip to search Home Following 30 Answer Spaces 2 Notifications Try Quora+ "
+      "head": "Skip to content Skip to search Home Following 31 Answer Spaces 3 Notifications Try Quora+ "
     },
     {
       "name": "indiehackers",
       "group": "publish",
       "url": "https://www.indiehackers.com/",
-      "head": "Starting Up Case Studies Ideas DB Products DB 7 I have one AI write my code and a second o"
+      "head": "Starting Up Case Studies Ideas DB Products DB 7 I spent a week building my app's different"
     },
     {
       "name": "linkedin",
       "group": "publish",
       "url": "https://www.linkedin.com/feed/",
-      "head": "알림 0 검색으로 가기 본문 내용으로 가기 사이드바(으)로 건너뛰기 주요 콘텐츠(으)로 건너뛰기 보조 영역(으)로 건너뛰기 홈 인맥 채용공고 1 메시지 19 알림"
+      "head": "알림 0 검색으로 가기 본문 내용으로 가기 사이드바(으)로 건너뛰기 주요 콘텐츠(으)로 건너뛰기 보조 영역(으)로 건너뛰기 홈 인맥 채용공고 1 메시지 20 알림"
     },
     {
       "name": "threads",
       "group": "publish",
       "url": "https://www.threads.com/",
-      "head": "추천 새로운 스레드 검색 메시지 활동 프로필 인사이트 기타 피드 수정 팔로잉 저장됨 좋아요 유령 게시물 보관함 추천 새로운 소식이 있나요? 게시 trader_pp"
+      "head": "추천 새로운 스레드 검색 메시지 활동 프로필 인사이트 기타 피드 수정 팔로잉 저장됨 좋아요 유령 게시물 보관함 추천 새로운 소식이 있나요? 게시 seoulzips"
     },
     {
       "name": "instagram",
       "group": "publish",
       "url": "https://www.instagram.com/",
-      "head": "the_ict_lab • 2주 팔로우 _amtrades bentrades_ttfm 1.5천 19 89 the_ict_lab 𝗗𝗮𝗶𝗹𝘆 𝗥𝗲𝘃𝗲𝗿"
+      "head": "oakleymeta • 3일 Oakley Meta 안경 팔로우 oakley tom.r.black meta.ai oakley_us 1만 100 809 oakleym"
     },
     {
       "name": "pinterest",
@@ -80,18 +80,6 @@
       "head": "상단영역 바로가기 서비스 메뉴 바로가기 새소식 블록 바로가기 쇼핑 블록 바로가기 관심사 블록 바로가기 MY 영역 바로가기 위젯 보드 바로가기 보기 설정 바로가기 "
     },
     {
-      "name": "brunch",
-      "group": "publish",
-      "url": "https://brunch.co.kr/",
-      "head": "본문 바로가기 메뉴 바로가기 브런치 키워드 바로가기 요일별 연재 바로가기 브런치 추천 작가 바로가기 브런치 추천글 바로가기 푸터 바로가기 배너 현재페이지 01 0"
-    },
-    {
-      "name": "tistory",
-      "group": "publish",
-      "url": "https://smartbox.tistory.com/manage",
-      "head": "본문 바로가기메뉴 바로가기 티스토리 서비스 주요 메뉴 홈 피드 스킨 포럼 검색 티스토리 검색 검색 공지사항 불법촬영물 유통 방지 조치 대상 확대 안내 글쓰기 알림"
-    },
-    {
       "name": "geeknews",
       "group": "publish",
       "url": "https://news.hada.io/",
@@ -104,12 +92,6 @@
       "head": "Skip to content Dashboard Type / to search Top repositories New myjr0629-hue/stock2 myjr06"
     },
     {
-      "name": "asc",
-      "group": "store",
-      "url": "https://appstoreconnect.apple.com/apps",
-      "head": "앱 Xcode Cloud 모듈 둘러보기 Xcode Cloud가 전용 모듈로 이동했습니다. 해당 모듈에서 계속해서 제품을 빌드, 테스트 및 배포할 수 있습니다. 추"
-    },
-    {
       "name": "play_console",
       "group": "store",
       "url": "https://play.google.com/console/u/0/developers",
@@ -120,20 +102,32 @@
       "group": "store",
       "url": "https://www.uptodown.dev/apps",
       "head": "Apps Notifications Organization Connected Accounts Terms of Service for Developers FAQ & H"
-    },
-    {
-      "name": "apple_ads",
-      "group": "money",
-      "url": "https://app-ads.apple.com/cm/app/23872040/report",
-      "head": "Advanced Signum HQ JIYOUNG K. 312 Signum HQ_ads 추천 캠페인 관리 캠페인 생성 필터 보기: 열 편집 SIGNUM US - S"
     }
   ],
   "dead": [
+    {
+      "name": "tistory",
+      "group": "publish",
+      "url": "https://www.tistory.com/auth/login?redirectUrl=https%3A%2F%2Fsmartbox.tistory.co",
+      "head": "본문 바로가기 메뉴 바로가기 로그인 TISTORY 당신의 이야기가 값진 수익이 됩니다. 카카오계정으로 로그인 내 티스토리 계정을 모르겠어요"
+    },
+    {
+      "name": "asc",
+      "group": "store",
+      "url": "https://appstoreconnect.apple.com/login?targetUrl=%2Fapps&authResult=FAILED",
+      "head": "Apple.com Copyright © 2026 Apple Inc. 모든 권리 보유. 서비스 약관 개인정보 처리방침"
+    },
     {
       "name": "samsung",
       "group": "store",
       "url": "https://seller.samsungapps.com/login/signIn.as?returnURL=%2Fmain%2FsellerMain.as",
       "head": "로그인 회원가입 한국어(한국) prev next 공지사항 셀러포털 지원 및 앱 리뷰 지연 안내 (9/24~9/27) 2026-09-21 안녕하세요, Galaxy "
+    },
+    {
+      "name": "apple_ads",
+      "group": "money",
+      "url": "https://idmsa.apple.com/IDMSWebAuth/signin?appIdKey=a01459d797984726ee0914a7097e",
+      "head": "Apple Store Mac iPad iPhone Watch Vision AirPods TV & Home Entertainment Accessories Suppo"
     },
     {
       "name": "admob",
@@ -142,5 +136,12 @@
       "head": "help_outline Let's get you started Get more out of AdMob Yes, send me customized help and "
     }
   ],
-  "unsure": []
+  "unsure": [
+    {
+      "name": "brunch",
+      "group": "publish",
+      "url": "https://brunch.co.kr/",
+      "head": "본문 바로가기 메뉴 바로가기 브런치 키워드 바로가기 요일별 연재 바로가기 브런치 추천 작가 바로가기 브런치 추천글 바로가기 푸터 바로가기 배너 현재페이지 01 0"
+    }
+  ]
 }
