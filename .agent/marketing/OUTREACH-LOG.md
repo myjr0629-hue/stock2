@@ -10514,3 +10514,22 @@ SPY +186.5M · QQQ +18.8M / NVDA −66.7M · AAPL −35.4M · AMZN −24.7M · G
 `/apply` 에 들어가니 **「브런치 작가 신청이 완료 되었습니다」** 화면 + 「작가신청 취소할래요」 버튼.
 내 기록은 「제출 직전 중단」이었는데 **틀렸다**. 영업일 5일 이내 결과(이메일·앱 알림).
 → `channels.json` 에 `gate{kind:심사, until:2026-09-29}` 로 기록. 승인 전까지 발행 레인은 안 연다.
+
+### 발행 추가 2건 — quora_en · threads (오늘 합계 **12건**)
+4. **quora_en** — «무응답» 질문을 골랐다(0답변 = 1등 자리가 비어 있다):
+   「What percentage of stock transactions occur through dark pools **instead of being executed by market makers**…」
+   질문의 전제부터 틀렸다는 점을 첫 줄에 놓았다 — **오프익스체인지의 상당 부분이 «마켓메이커»(도매업자 내부체결)다.**
+   ATS(진짜 다크풀) / OTC 비-ATS(도매업자) 두 통을 FINRA 가 따로 낸다는 것, 대형주가 평균보다 «낮다»는 것,
+   프린트 비중은 방향 신호가 아니라는 것. **본문 링크 0 · 앱명 1회**(레딧/Quora 규칙).
+   https://www.quora.com/What-percentage-of-stock-transactions-occur-through-dark-pools-instead-of-being-executed-by-market-makers-in-public-markets-like-NYSE-and-NASDAQ/answer/Jiyoung-Kim-236
+   ⚠ **하마터면 «발행했다»고 쓸 뻔했다** — Post 를 눌렀다고 생각했는데 `findPage` 가 **검색 탭**을 집어서
+   질문 탭의 Post 를 누른 적이 없었다. 질문 탭을 따로 확인하니 `contenteditable` 에 1,729자가 그대로 «초안»으로 있었다.
+   → **탭이 여러 개면 `findPage` 의 정규식이 «가장 먼저 맞는 탭»을 준다. 작업 탭은 URL 로 «정확히» 지목한다.**
+   → 게시 직후 **「Choose answer credential」 모달**이 뜬다. 크리덴셜을 고르고 Done 까지 눌러야 끝난다.
+5. **threads** https://www.threads.com/@signumhq_official/post/DdiwR2aGfYM
+   ★**계정 정정: 우리 스레드는 `@signumhq_official` 이다.** `@signumhq` 는 **다른 사람**(Signum Pay)이다.
+   프로필을 `/@signumhq` 로 열고 「내 글이 없다」고 판단할 뻔했다(§34 틱톡 사고와 같은 모양).
+   첫 시도는 작성칸 좌표가 `y=3599`(스크롤된 상태)라 클릭이 허공으로 갔다 → **`window.scrollTo(0,0)` 먼저.**
+
+### 오늘 발행 12건 (KST) — 채널 편중 없이
+bluesky · indiehackers · note_jp · okky · x_us · x_jp · medium · naver_blog · tistory · linkedin · quora_en · threads
