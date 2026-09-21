@@ -10701,3 +10701,37 @@ https://signumhqusstockmarketintelligence.quora.com/Same-expiry-opposite-sign-..
 - 리다이렉트 자체는 정상임을 UA 3종으로 재확인(Android→Play+referrer, iPhone→App Store, Desktop→App Store).
   `vary` 에 User-Agent 가 없지만 `max-age=0, must-revalidate` + 매번 MISS 라 §50 재발은 아니다.
 **이 값이 며칠 쌓이면 「데스크톱 몇 %」가 숫자로 나온다. 그때 데스크톱 착지 페이지를 바꿀지 결정한다.**
+
+## 2026-09-22 07:00~08:30 KST — XS 람다 장애 수리 + 하루 궤적으로 3개 채널 추가 (오늘 7건)
+
+### CloudWatch 경보 `signum-xs-errors` — 원인은 «창고가 갈라진 것»이었다
+람다 메시지는 「구조 캐시가 비었다 — Vercel 크론이 죽었나?」였는데 **크론은 멀쩡했다**(21:05 UTC, 8조각×250행).
+- Vercel 크론은 **EC2 레디스 프록시**에 굽는데, 람다의 `loadStructureRows` 만 **Upstash** 를 읽고 있었다.
+  9/16 프록시 이관 때 이 함수만 남겨진 채 배포됐다(람다 최종수정 9/16 04:49가 그 시각이다).
+- Upstash 실측: DBSIZE 31,596 로 살아 있는데 `structure:part:v2:*` 는 **null**.
+- `upstash()` 는 실패 시 **조용히 null** 을 돌려준다 → 행 0 → 호출부가 «멀쩡한 크론»을 범인으로 지목.
+**고침**: 크론이 실제로 굽는 곳(프록시)을 1순위로 읽고 0조각일 때만 Upstash 폴백.
+순서가 반대면 Upstash 의 «오래된» 조각이 신선한 프록시 조각을 이긴다 — 폴백이 장애를 숨기는 모양이다.
+실패 메시지도 범인을 가르게 고쳤다(조각 0 = 못 읽음 / 조각>0·행 0 = 오래됨).
+**검증**: 배포 후 2회 실행 200·에러 0·parts 8/8·**universe 1757 scored 1757 wrote 3516**. 환경변수 8개 보존.
+
+#### 헛다리 하나를 «검증으로» 걸렀다
+`cache:xs:scores` 가 프록시에 없어서 「쓰기 경로도 갈라졌다」고 의심했는데 **아니었다.**
+앱의 `redisClient.ts` 에 `UPSTASH_ONLY_PREFIXES = [... /^cache:xs/ ...]` 가 있어 **프록시 미스면 Upstash 를 읽는다**.
+Upstash 에 `date 2026-09-21 · 1,757종목` 이 실제로 있다 → 앱이 볼 수 있는 자리에 있다. **두 번째 고장은 없다.**
+→ 규칙대로였다: «의심을 보고하기 전에 읽어서 확인한다».
+
+### 발행 3건 추가 — 하루 궤적(3시점)을 소재로
+| | 02:00 ET | 11:15 ET | 18:56 ET(마감 후) |
+|---|---|---|---|
+| SPY 넷감마 | **+186.5M** | −90.4M | **−220.3M** |
+| QQQ | +18.8M | −53.5M | −88.6M |
+| NVDA | −66.7M | −117.7M | **−215.3M** |
+META +10.8% · AMD +10.5% 마감. 지수가 하루 만에 롱감마→숏감마로 넘어갔고 개별주는 «더 깊어졌다».
+**세 시점 모두 그때그때 공개해 둔 기록이라 «고른 숫자»가 아니다** — 이게 이 소재의 힘이다.
+- **bluesky** https://bsky.app/profile/signumhq.bsky.social/post/3mw2spo4wtv2l (앱카드 이미지)
+- **note_jp** https://note.com/signumhq/n/n7c7ea1ea3107 — JST 07:30, §17-3 일본 아침 프라임 창에 맞춰 발행.
+  검증: 공개 HTML 에서 제목·본문(ネットガンマ 25회)·`from=note` 링크 9회 확인.
+- **naver_blog** https://blog.naver.com/donneum/224419431110 — 얇은 문 **「넷감마 뜻」(상위30 제목 적합 0/9)** 을 제목 맨 앞에.
+  검증: `PostView.naver` 에서 `<a href=...from=naver_blog&l=ko>` 와 본문 16회 확인.
+**오늘 7건**: bluesky×2 · x_us · x_jp · medium · note_jp · naver_blog.
