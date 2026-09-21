@@ -1,5 +1,5 @@
 {
- "at": "2026-09-21T06:37:14.195Z",
+ "at": "2026-09-21T07:46:33.379Z",
  "days": 21,
  "failed": 0,
  "d3": {
@@ -7,9 +7,9 @@
   "bluesky": 13,
   "okky": 5,
   "note": 5,
-  "indiehackers": 11,
+  "indiehackers": 12,
   "seo": 6,
-  "medium": 6,
+  "medium": 7,
   "seo_darkpool": 5,
   "x_us": 3,
   "macrumors": 2,
@@ -35,9 +35,9 @@
   "bluesky": 19,
   "okky": 15,
   "note": 12,
-  "indiehackers": 11,
+  "indiehackers": 12,
   "seo": 7,
-  "medium": 6,
+  "medium": 7,
   "seo_darkpool": 5,
   "x_us": 4,
   "macrumors": 2,
@@ -70,9 +70,9 @@
   "bluesky": 51,
   "okky": 16,
   "note": 27,
-  "indiehackers": 15,
+  "indiehackers": 16,
   "seo": 140,
-  "medium": 20,
+  "medium": 21,
   "seo_darkpool": 23,
   "x_us": 43,
   "macrumors": 4,
@@ -94,6 +94,13 @@
   "threads": 1
  },
  "perPost": {
+  "medium": {
+   "n": 4,
+   "clicks": 21,
+   "per": 5.25,
+   "d3": 7,
+   "fresh": 33
+  },
   "x_jp": {
    "n": 4,
    "clicks": 24,
@@ -124,10 +131,10 @@
   },
   "indiehackers": {
    "n": 4,
-   "clicks": 15,
-   "per": 3.75,
-   "d3": 11,
-   "fresh": 73
+   "clicks": 16,
+   "per": 4,
+   "d3": 12,
+   "fresh": 75
   },
   "bluesky": {
    "n": 5,
@@ -170,13 +177,6 @@
    "per": 12.8,
    "d3": 0,
    "fresh": 0
-  },
-  "medium": {
-   "n": 3,
-   "clicks": 20,
-   "per": 6.67,
-   "d3": 6,
-   "fresh": 30
   },
   "github": {
    "n": 3,
