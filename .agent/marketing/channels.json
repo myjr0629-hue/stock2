@@ -775,6 +775,16 @@
         "who": "대표",
         "why": "developer.amazon.com 계정 생성(무료·2분). 이후 업로드·등록정보는 내가 한다"
       }
+    },
+    {
+      "id": "apple_cpp_channels",
+      "name": "App Store 맞춤 제품 페이지 — 채널별",
+      "tier": "A",
+      "enabled": true,
+      "tag": "cpp",
+      "link": "https://apps.apple.com/app/id6783130444",
+      "action": "edit",
+      "note": "★2026-09-21 확장 발굴. CPP 는 앱당 35개·무료인데 지금 «1개»만 쓴다(web home). 나머지 전 채널(naver_blog·tistory·medium·x_us·x_jp·linkedin·quora·bluesky·note)은 기본 제품 페이지로 간다. 첫 스크린샷·문구를 채널 언어에 맞추면 «탭→설치» 전환을 채널별로 따로 잰다. 1순위 3개: ko / ja / en-tech. ★진짜 막는 것은 스크린샷이 아니라 storeRedirect.ts 의 APPLE_CUSTOM_PRODUCT_PAGES 매핑 한 줄(코드 티켓)."
     }
   ],
   "candidates": [

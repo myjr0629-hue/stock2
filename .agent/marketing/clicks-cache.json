@@ -1,9 +1,9 @@
 {
- "at": "2026-09-21T07:46:33.379Z",
+ "at": "2026-09-21T08:43:10.847Z",
  "days": 21,
  "failed": 0,
  "d3": {
-  "home": 50,
+  "home": 52,
   "bluesky": 13,
   "okky": 5,
   "note": 5,
@@ -20,18 +20,19 @@
   "seo_sg": 2,
   "seo_wim": 2,
   "x_jp": 1,
+  "linkedin": 1,
   "quora_space": 1,
+  "threads": 1,
   "hf_datasets": 1,
+  "tistory": 1,
   "quora": 0,
-  "linkedin": 0,
   "quora_bio": 0,
   "reddit_bio": 0,
   "reddit": 0,
-  "naver_kin": 0,
-  "threads": 0
+  "naver_kin": 0
  },
  "d3raw": {
-  "home": 50,
+  "home": 52,
   "bluesky": 19,
   "okky": 15,
   "note": 12,
@@ -48,15 +49,16 @@
   "seo_sg": 2,
   "seo_wim": 2,
   "x_jp": 1,
+  "linkedin": 1,
   "quora_space": 1,
+  "threads": 1,
   "hf_datasets": 1,
+  "tistory": 1,
   "quora": 0,
-  "linkedin": 0,
   "quora_bio": 0,
   "reddit_bio": 0,
   "reddit": 0,
-  "naver_kin": 0,
-  "threads": 0
+  "naver_kin": 0
  },
  "contam": {
   "bluesky": 6,
@@ -66,7 +68,7 @@
   "x_us": 1
  },
  "all": {
-  "home": 394,
+  "home": 396,
   "bluesky": 51,
   "okky": 16,
   "note": 27,
@@ -83,17 +85,46 @@
   "seo_sg": 2,
   "seo_wim": 2,
   "x_jp": 24,
+  "linkedin": 10,
   "quora_space": 3,
+  "threads": 2,
   "hf_datasets": 1,
+  "tistory": 1,
   "quora": 57,
-  "linkedin": 9,
   "quora_bio": 7,
   "reddit_bio": 5,
   "reddit": 2,
-  "naver_kin": 2,
-  "threads": 1
+  "naver_kin": 2
  },
  "perPost": {
+  "threads": {
+   "n": 4,
+   "clicks": 2,
+   "per": 0.5,
+   "d3": 1,
+   "fresh": 50
+  },
+  "quora": {
+   "n": 6,
+   "clicks": 64,
+   "per": 10.67,
+   "d3": 0,
+   "fresh": 0
+  },
+  "linkedin": {
+   "n": 3,
+   "clicks": 10,
+   "per": 3.33,
+   "d3": 1,
+   "fresh": 10
+  },
+  "naver_blog": {
+   "n": 3,
+   "clicks": 2,
+   "per": 0.67,
+   "d3": 2,
+   "fresh": 100
+  },
   "medium": {
    "n": 4,
    "clicks": 21,
@@ -171,13 +202,6 @@
    "d3": 1,
    "fresh": 33
   },
-  "quora": {
-   "n": 5,
-   "clicks": 64,
-   "per": 12.8,
-   "d3": 0,
-   "fresh": 0
-  },
   "github": {
    "n": 3,
    "clicks": 3,
@@ -189,27 +213,6 @@
    "n": 4,
    "clicks": 0,
    "per": 0,
-   "d3": 0,
-   "fresh": 0
-  },
-  "naver_blog": {
-   "n": 2,
-   "clicks": 2,
-   "per": 1,
-   "d3": 2,
-   "fresh": 100
-  },
-  "threads": {
-   "n": 3,
-   "clicks": 1,
-   "per": 0.33,
-   "d3": 0,
-   "fresh": 0
-  },
-  "linkedin": {
-   "n": 2,
-   "clicks": 9,
-   "per": 4.5,
    "d3": 0,
    "fresh": 0
   },

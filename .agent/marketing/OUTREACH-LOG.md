@@ -10533,3 +10533,47 @@ SPY +186.5M · QQQ +18.8M / NVDA −66.7M · AAPL −35.4M · AMZN −24.7M · G
 
 ### 오늘 발행 12건 (KST) — 채널 편중 없이
 bluesky · indiehackers · note_jp · okky · x_us · x_jp · medium · naver_blog · tistory · linkedin · quora_en · threads
+
+## 2026-09-21 17:4x~18:xx KST — 스토어 «전환» 쪽 실측 4건 + DUNS 해소 준비
+
+게이트 341/0. 오늘 12건을 이미 발행했고 건당 4 이상인 채널은 전부 소진(1/1)이라,
+이번 사이클은 §57 배분 규칙대로 «건당 1 미만 채널에 억지로 더 쓰지 않고» **전환 쪽**을 팠다.
+
+### ① 인앱 이벤트 — «날짜 없음»이 아니었다 (내 첫 판독을 즉시 정정)
+3앱 모두 `publishStart/eventStart/eventEnd` 가 **null** 로 보여서 「승인만 되고 안 뜨는 상태」로 읽을 뻔했다.
+**틀렸다.** 날짜는 최상위가 아니라 **`territorySchedules` 안**에 있다. 실제 값:
+**publishStart 2026-09-24 · eventStart 09-28 13:30Z · eventEnd 10-23 20:00Z · 174개 지역** (3앱 동일, 전부 APPROVED).
+→ **9/24 부터 App Store 검색결과·제품페이지에 카드가 붙는다.** 정상이다.
+
+### ② 승인된 인앱 이벤트는 «두 칸»만 고칠 수 있다 (실측으로 확정)
+SIGNUM 이벤트의 딥링크에 `?from=` 태그가 없어(UC·WIM 은 있다) 고치려 했더니 **409**:
+`STATE_ERROR.UPDATE_APP_EVENT_LIMITED_UPDATE_ALLOWED` —
+**「Only updates to 'territorySchedules' and 'priority' are permitted in current event state」**
+→ §45(「추적 태그는 생성 시점에 넣는다 — 승인 뒤엔 잠긴다」)가 **정확히 무엇까지 잠기는지** 확정됐다.
+→ SIGNUM 이벤트 유입은 `from` 없이 들어온다(측정 불가). **고치는 유일한 길은 «새 이벤트»**(앱당 5개까지).
+   다음 이벤트 만들 때 딥링크에 `?from=iap_event_sg` 를 **반드시** 넣는다. 지금 것은 날짜를 건드리지 않는다
+   — 2일 더 노출하자고 승인된 창(9/28~10/23)을 재심사 위험에 넣지 않는다.
+
+### ③ PPO(제품페이지 A/B)는 «빈 껍데기»였다 — 만들어 두고 안 돌렸다
+SIGNUM 에 실험 「브리핑-먼저 A/B」가 **`PREPARE_FOR_SUBMISSION`** 으로 남아 있다(trafficProportion 50).
+**처치(treatment)가 0개다.** 대안 스크린샷이 없으니 제출이 될 리가 없다. UC·WIM 은 실험 자체가 0건.
+우리 병목이 «탭 90 → 설치 5» 인데 **그 병목을 재는 장치를 만들다 말았다.**
+→ 다음 사이클 과제로 못 박는다: 처치 1개(대안 스크린샷 세트) → 제출 → 실행.
+
+### ④ 맞춤 제품 페이지(CPP)는 «home» 하나에만 연결돼 있다
+3앱 모두 CPP 가 **1개씩**(`web home (from=home)`, APPROVED·visible). 코드도 `home` 만 매핑한다
+(`storeRedirect.ts` 의 `APPLE_CUSTOM_PRODUCT_PAGES`). **나머지 전 채널은 기본 제품 페이지로 간다** —
+naver_blog·tistory·medium·x_us·x_jp·linkedin·quora·bluesky·note 전부.
+CPP 는 **앱당 35개·무료**인데 1/35 만 쓰고 있다. 이번 사이클의 «확장»은 이것으로 잡는다(아래).
+
+### 확장 — 채널별 CPP (무료 스토어 표면, 현재 1/35 사용)
+언어·채널별로 첫 스크린샷과 문구가 다른 제품 페이지를 붙인다. 측정도 CPP 단위로 따로 나온다.
+1순위 3개: **ko(naver_blog·tistory·okky)** · **ja(x_jp·note)** · **en-tech(medium·indiehackers·linkedin)**.
+막는 것은 스크린샷 제작이 아니라 **매핑 상수 한 줄**(`storeRedirect.ts`)이다 → 코드 티켓으로 올린다.
+
+### 갤럭시 스토어 — DUNS 를 «보낼 수 있는 형태»로 만들어 뒀다 (대표 지시)
+거절 사유는 D-U-N-S 레코드의 **업종 공란(non-classifiable) + 웹사이트 없음**이다.
+애플 전용 창구로 발급돼 이름·주소·법인형태 세 칸만 차 있다. D&B 자가수정은 계정 생성이 필요해 내 안전선 밖이고,
+삼성 거절 메일은 no-reply 다. **남은 길은 발급 케이스(34589960) 메일에 «답장» 한 통.**
+→ 본문을 그대로 쓸 수 있게 작성해 뒀다: `.agent/marketing/drafts/DUNS-UPDATE-EMAIL.md`
+   (SIC 7372 / NAICS 513210 / signumhq.com / Trade style SIGNUM HQ). 대표님은 복사·전송만 하시면 된다.
