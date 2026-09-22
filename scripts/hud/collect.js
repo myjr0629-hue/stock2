@@ -10,13 +10,32 @@ const A = process.argv.slice(2); const has = (f) => A.includes(f); const val = (
 const want = { clicks: has('--clicks') || !A.length, redis: has('--redis') || !A.length };
 const prev = (() => { try { return JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch { return {}; } })();
 const out = Object.assign({}, prev, { at: new Date().toISOString() });
+// 이전 실행의 블록을 그대로 물려받을 때는 «몇 시간 전 것인지»를 반드시 함께 싣는다.
+// 그러지 않으면 화면이 옛 숫자를 «지금»이라고 말한다(2026-09-22 실측: 4일 전 클릭이 오늘로 떴다).
+for (const k of ['clicks', 'ads', 'ratings']) {
+    if (prev[k] && prev[k].at) {
+        const h = (Date.now() - Date.parse(prev[k].at)) / 36e5;
+        if (Number.isFinite(h)) out[k] = Object.assign({}, prev[k], { ageH: +h.toFixed(1) });
+    }
+}
 
 if (want.clicks) {
     try {
         const t = execSync('node scripts/mkt-clicks.js', { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
-        // 행 모양: 채널 | 3일 | 오늘/어제/그제 | 21일
-        const rows = [...t.matchAll(/^(\w+)\s+(\d+)\s+(\d+)\/(\d+)\/(\d+)\s+(\d+)\s*$/gm)]
-            .map((m) => ({ ch: m[1], d3: +m[2], today: +m[3], y1: +m[4], y2: +m[5], d21: +m[6] }));
+        // ★2026-09-22 파서 수리 — 표에 열이 늘어 정규식이 «행 끝»에서 어긋나 있었다.
+        //   실측: 21일 합계가 **5** 로 나왔다(실제 821). 행이 하나도 안 잡히면 합계 보정도 못 한다.
+        //   현재 모양: `채널  3일  오늘/어제/그제  21일  [내점검]  실3일`
+        //   → 정규식으로 끝을 고정하지 말고 «토큰 위치»로 읽는다. 열이 또 늘어도 안 깨진다.
+        //   그리고 3일은 «실3일»(자가점검 제외본)이 있으면 그것을 쓴다 — 내 점검 클릭을 성과로 세지 않는다.
+        const rows = t.split('\n').map((ln) => {
+            const x = ln.trim().split(/\s+/);
+            if (x.length < 4) return null;
+            const m = /^(\d+)\/(\d+)\/(\d+)$/.exec(x[2]);
+            if (!m || !/^[a-z0-9_]+$/i.test(x[0]) || !/^\d+$/.test(x[1]) || !/^\d+$/.test(x[3])) return null;
+            const last = x[x.length - 1];
+            const real3 = x.length > 4 && /^\d+$/.test(last) ? +last : +x[1];
+            return { ch: x[0], d3: real3, d3raw: +x[1], today: +m[1], y1: +m[2], y2: +m[3], d21: +x[3] };
+        }).filter(Boolean);
         const tot = t.match(/합계\s+(\d+)\s+\S*\s*(\d+)/);
         out.clicks = {
             // ⚠️ 합계 줄 정규식이 21일 칸을 잘못 집는 경우가 있다(실측: 1 로 나왔다).
@@ -28,6 +47,11 @@ if (want.clicks) {
             top: rows.slice(0, 5).map((r) => [r.ch, r.d21]),
             at: out.at,
         };
+        // ★2026-09-22 — 광고에서 고친 것과 «같은 고장»이 클릭에도 있었다.
+        //   `--ads-file` 만 주고 돌리면 want.clicks 가 false 라 예전 블록이 prev 로 살아남는데,
+        //   화면은 그것을 «오늘»이라고 불렀다(실측: clicks.at 09-18, 화면은 현재값처럼 표시).
+        //   블록을 새로 만든 이 경로에서는 나이가 0 이다. 아래 else 가 «안 만든 경우»를 표시한다.
+        out.clicks.ageH = 0;
     } catch (e) { console.error('clicks 실패:', String(e.message).slice(0, 80)); }
 }
 if (want.redis) {

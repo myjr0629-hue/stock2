@@ -27,7 +27,18 @@ button:hover{border-color:var(--dim)}
 button.on{background:rgba(248,113,113,.14);border-color:var(--bad);color:#FFD4D4}
 button.on.pub{background:rgba(251,191,36,.14);border-color:var(--warn);color:#FFE9B8}
 main{padding:14px 16px 40px;max-width:1680px;margin:0 auto}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:10px;margin-bottom:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:8px}
+.tile.big .v{font-size:30px;line-height:1.12;letter-spacing:-.5px}
+.tile.big .k{font-size:11.5px;letter-spacing:.2px}
+.tile.big .s{font-size:10.5px}
+.tile.big{border-left:3px solid var(--line2)}
+.tile.big.good{border-left-color:#34D399}.tile.big.warn{border-left-color:#FBBF24}.tile.big.bad{border-left-color:#F87171}
+.substrip{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 14px;padding:7px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}
+.sub-i{display:inline-flex;gap:6px;align-items:baseline;font-size:11px}
+.sub-i i{color:var(--dim);font-style:normal}.sub-i b{color:var(--mut);font-weight:600}
+.cmap a.live{border-color:rgba(96,165,250,.45);background:rgba(96,165,250,.10);color:#DBEAFE}
+.cmap a i{color:#93C5FD;font-style:normal;font-weight:700}
+.cmap a.more{grid-column:1/-1;text-align:center;color:var(--dim);border-style:dashed}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
 .tile .k{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
 .tile .v{font-size:22px;font-weight:640;margin-top:3px;letter-spacing:-.4px}
@@ -148,6 +159,7 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
 </div></header>
 <main>
   <div class="tiles" id="tiles"></div>
+  <div class="substrip" id="substrip"></div>
 
   <div class="canvas">
     <div class="hd">사이클 파이프라인 — 지금 이 시간
@@ -202,18 +214,46 @@ const MC=(m)=>/opus/.test(m)?'var(--opus)':/fable/.test(m)?'var(--fable)':/sonne
 const MN=(m)=>String(m).replace('claude-','').replace(/-\d{8}$/,'').replace('-5-1','-5.1');
 let S=null;
 
+/**
+ * ★2026-09-22 가독성 수리(대표 지적) — 「상단이 서로 경쟁한다」.
+ * 예전엔 7칸이 같은 크기로 놓여 토큰·도구호출 같은 «내부 수치»가 앞자리를 차지했다.
+ * 대표가 화면을 열 때 묻는 것은 언제나 넷이다: **오늘 얼마나 냈나 · 사람이 얼마나 왔나 ·
+ * 돈을 얼마나 썼나 · 내가 뭘 해야 하나.** 그 넷만 크게 두고 나머지는 얇은 띠로 내린다.
+ */
 function tiles(s){
-  const mk=s.marketing, tot=Object.values(s.usage.byModel||{}).reduce((a,b)=>a+b.output+b.cacheCreate,0);
-  const t=[
-    ['오늘 발행', mk.todayCount, mk.today+' (KST) · 원장 누적 '+mk.total],
-    ['대표 결정 대기', mk.ceoTickets, '전체 열린 티켓 '+mk.tickets.length],
-    ['채널', mk.channels.enabled+'/'+mk.channels.total, '가동 / 등록'],
-    ['출력+캐시생성 토큰', kf(tot), '이 세션 전사 합산'],
-    ['도구 호출', kf(Object.values(s.usage.tools||{}).reduce((a,b)=>a+b,0)), '전사 tool_use 합산'],
-    ['제어', (s.state.paused?'정지':'실행')+(s.state.noPublish?' · 발행금지':''), s.state.updatedAt?hm(s.state.updatedAt):'–'],
-    ['커밋', s.git.dirty+'개 변경', (s.git.head||'').split('\t')[0]||'–'],
+  const mk=s.marketing, m=s.metrics||{}, ads=m.ads||null, cl=m.clicks||null;
+  const tot=Object.values(s.usage.byModel||{}).reduce((a,b)=>a+b.output+b.cacheCreate,0);
+
+  // 오늘 유입 — collect.js 가 만드는 모양은 {today, total3, total21, rows[], ageH}
+  const todayClicks = cl && typeof cl.today==='number' ? cl.today : null;
+  const d3 = cl && typeof cl.total3==='number' ? cl.total3 : null;
+  const clStale = cl && (cl.ageH==null || cl.ageH > 6);
+  const spend = ads ? String(ads.spend||'$0.00') : '–';
+  const inst  = ads ? (ads.installs!=null?ads.installs:'–') : '–';
+  const stale = ads && ads.stale;
+
+  const prim=[
+    ['오늘 발행', mk.todayCount, mk.today+' (KST) · 누적 '+mk.total, mk.todayCount>=7?'good':(mk.todayCount>=4?'warn':'bad')],
+    ['오늘 유입 클릭', todayClicks==null?'–':todayClicks,
+      (clStale?('⚠ '+(cl&&cl.ageH!=null?Math.round(cl.ageH)+'시간 전 판독':'판독 시각 불명')+' — '):'')
+        + (d3!=null?('최근 3일 '+d3):'클릭 캐시 미판독'),
+      clStale?'warn':(todayClicks>0?'good':'warn')],
+    ['오늘 광고 지출', spend, (stale?'⚠ 오래된 판독 — ':'')+'설치 '+inst, stale?'warn':'good'],
+    ['대표 결정 대기', mk.ceoTickets, '열린 티켓 '+mk.tickets.length, mk.ceoTickets>0?'warn':'good'],
   ];
-  $('#tiles').innerHTML=t.map(([k,v,sub])=>`<div class="tile"><div class="k">${esc(k)}</div><div class="v num">${esc(v)}</div><div class="s">${esc(sub)}</div></div>`).join('');
+  $('#tiles').innerHTML=prim.map(([k,v,sub,tone])=>
+    `<div class="tile big ${tone}"><div class="k">${esc(k)}</div><div class="v num">${esc(String(v))}</div><div class="s">${esc(sub)}</div></div>`).join('');
+
+  // 얇은 띠 — 참고 수치(클릭 대상 아님)
+  const sec=[
+    ['채널', mk.channels.enabled+'/'+mk.channels.total],
+    ['토큰', kf(tot)],
+    ['도구', kf(Object.values(s.usage.tools||{}).reduce((a,b)=>a+b,0))],
+    ['제어', (s.state.paused?'정지':'실행')+(s.state.noPublish?' · 발행금지':'')],
+    ['커밋', s.git.dirty+'개 변경'],
+  ];
+  const strip=$('#substrip');
+  if(strip) strip.innerHTML = sec.map(([k,v])=>`<span class="sub-i"><i>${esc(k)}</i><b>${esc(String(v))}</b></span>`).join('');
 }
 function evClass(e){ const v=e.ev||''; if(v==='CONTROL')return 'ctrl'; if(/Failure/.test(v))return 'fail'; if(v==='PreToolUse')return 'pre'; if(v==='Stop')return 'stop'; if(/Subagent|Task/.test(v))return 'sub'; return 'post'; }
 function events(list){
@@ -447,13 +487,29 @@ function lanes(s){
   $('#lanes').innerHTML = rows.join('');
   $('#lane-note').innerHTML = '<span>출력+캐시생성 토큰 · 전사 실측</span>';
 }
+/**
+ * ★2026-09-22 — 78칸이 «회색 덩어리»라 볼 게 안 보였다.
+ * 지금 «의미가 있는» 칸만 앞에 둔다: ①오늘 발행한 곳 ②게이트(내가 못 여는 곳)
+ * ③최근 3일에 클릭이 난 곳. 나머지는 접어 두고 숫자로만 알린다(필요하면 펼친다).
+ */
+let cmapOpen=false;
 function chanmap(s){
-  const list=(s.marketing.channels.list||[]).slice().sort((a,b)=>(a.tier||'z').localeCompare(b.tier||'z')||a.id.localeCompare(b.id));
+  const list=(s.marketing.channels.list||[]).slice();
   const today=s.marketing.todayBy||{};
-  $('#cmap').innerHTML = list.map(c=>{
-    const n=today[c.id]||0; const cls=n?'pub':(!c.enabled?'off':(c.gate?'gate':''));
-    return `<a class="${cls}" data-tab="pubs" title="${esc(c.id)} · ${c.tier||'-'}급 ${c.enabled?'':'(비활성)'}${c.gate?' · 게이트':''}${n?' · 오늘 '+n+'건':''}">${n?'<b>'+n+'</b> ':''}${esc(c.id)}</a>`;}).join('');
-  [...$('#cmap').querySelectorAll('a')].forEach(a=>a.onclick=(e)=>{e.preventDefault();selectTab('pubs');});
+  const d3={}; (((s.metrics||{}).clicks||{}).rows||[]).forEach(r=>{ d3[r.ch]=r.d3||0; });
+  const score=c=>{const n=today[c.id]||0; if(n)return 0; if(c.gate)return 1; if((d3[c.id]||0)>0)return 2; return 3;};
+  const rows=list.map(c=>({c,n:today[c.id]||0,rank:score(c),cl:(d3[c.id]||0)}))
+    .sort((a,b)=>a.rank-b.rank||b.n-a.n||b.cl-a.cl||a.c.id.localeCompare(b.c.id));
+  const show=rows.filter(r=>r.rank<3), rest=rows.filter(r=>r.rank===3);
+  const cell=r=>{const c=r.c; const cls=r.n?'pub':(r.rank===1?'gate':(r.rank===2?'live':(!c.enabled?'off':'')));
+    const badge=r.n?('<b>'+r.n+'</b> '):(r.cl?('<i>'+r.cl+'</i> '):'');
+    return `<a class="${cls}" data-tab="pubs" title="${esc(c.id)}${c.gate?' · 게이트':''}${r.n?' · 오늘 '+r.n+'건':''}${r.cl?' · 3일 '+r.cl+'클릭':''}">${badge}${esc(c.id)}</a>`;};
+  $('#cmap').innerHTML = show.map(cell).join('')
+    + (rest.length?`<a class="more" id="cmap-more">나머지 ${rest.length}개 ${cmapOpen?'접기':'펼치기'}</a>`:'')
+    + (cmapOpen?rest.map(cell).join(''):'');
+  const more=$('#cmap-more');
+  if(more) more.onclick=(e)=>{e.preventDefault();cmapOpen=!cmapOpen;chanmap(s);};
+  [...$('#cmap').querySelectorAll('a:not(.more)')].forEach(a=>a.onclick=(e)=>{e.preventDefault();selectTab('pubs');});
 }
 function slotDetail(s){
   const sl=s.slot; $('#slot-at').textContent = sl? new Date(sl.at).toLocaleTimeString('ko-KR',{hour12:false}) : '미판독';
