@@ -52,8 +52,19 @@ const SITES = [
   ['uptodown',    'store',   'https://uptodown.dev/apps',             /Log in|Sign in/i,         'Apps|Organization'],
   // ── 돈이 오가는 곳 ───────────────────────────────────────────
   ['apple_ads',   'money',   'https://app-ads.apple.com/cm/app/23872040/report', /idmsa|Apple Account/i, '캠페인|Campaign'],
-  ['admob',       'money',   'https://apps.admob.com/v2/apps/list',   /Let's get you started|signup/i, '앱|Apps|수익'],
 ];
+
+/**
+ * ⛔ 여기에 절대 넣지 않는 곳 — 열어 봐야 얻을 게 없고 «사고 자리»인 곳.
+ *
+ * · admob (apps.admob.com) — 애드몹은 **대표 개인 구글 계정**이다.
+ *   이 브라우저의 구글 세션은 회사 계정(contact@signumhq.com)이라, 주소로 들어가면
+ *   매번 `admob.google.com/signup` 즉 **「새 애드몹 계정 만들기」** 화면에 떨어진다.
+ *   ①정보는 0 이고 ②「Start using AdMob」을 잘못 누르면 회사 계정으로 계정이 하나 더 생긴다.
+ *   2026-09-22 대표 지적(「왜 자꾸 애드몹은 들어가는데」)으로 목록에서 제거.
+ *   애드몹 수치가 필요하면 **대표 개인 계정 화면에서** 본다. 여기서 자동으로 열지 않는다.
+ */
+const NEVER_VISIT = ['admob (개인 계정 — 주소로 열면 «신규 가입» 화면이 뜬다)'];
 
 const only = (process.argv.find((a) => a.startsWith('--only=')) || '').split('=')[1] || null;
 const rows = SITES.filter((s) => !only || s[1] === only);
@@ -96,3 +107,4 @@ if (result.unsure.length) {
   result.unsure.forEach((d) => console.log('   · ' + d.name + '  ' + d.head.slice(0, 60)));
 }
 console.log('\n기록: .agent/marketing/SESSION-STATE.json');
+console.log('· 의도적으로 열지 않는 곳: ' + NEVER_VISIT.join(' · '));
