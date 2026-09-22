@@ -10,7 +10,7 @@
 //   - Cron runs every 15 min → fresher news, no timeout risk
 // ============================================================================
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
@@ -204,8 +204,14 @@ Your role: CURATE the most impactful global market news and provide institutiona
 </analysis_format>
 
 <output_rules>
-- Select EXACTLY TOP ${BATCH_SIZE} most impactful news from the provided articles
-- Prioritize: geopolitical > macro policy > market-moving > sector rotation > commentary
+- Select EXACTLY TOP ${BATCH_SIZE} news from the provided articles
+- RECENCY IS A HARD REQUIREMENT. Every article carries ageMin (minutes since publication).
+  · Strongly prefer articles under 180 minutes old.
+  · Include an article older than 360 minutes ONLY if it is genuinely major (policy decision,
+    geopolitical event, index-level move). Never fill the slate with old commentary.
+  · If several articles cover the same event, keep the FRESHEST one, not the longest.
+- Among articles of similar freshness, prioritize: geopolitical > macro policy > market-moving > sector rotation > commentary
+- NEVER select a routine commentary or explainer piece over a fresher market-moving headline
 - DEDUPLICATE: same event → keep most detailed article only
 - Each summary: 1-2 concise sentences with key facts and numbers
 - Each analysis: exactly 1 dense conditional sentence — no filler words — MUST reference provided market data
@@ -361,6 +367,17 @@ export async function GET(req: NextRequest) {
 
     // Return cached if not refreshing and cache has items
     if (!forceRefresh && !isUrgent && existingDigest && existingDigest.items?.length > 0) {
+        // ★2026-09-23 — 신선도를 «크론»에 의존하지 않게 한다.
+        //   실측: 캐시 generatedAt 이 2.7시간 전이었다(크론은 15분 주기인데 돌지 않았다).
+        //   TTL(6h)은 «누적본을 지키는» 값이지 «얼마나 자주 새로 만드는가»가 아니다. 둘을 분리한다.
+        //   화면은 기다리지 않게 즉시 캐시를 주고, 오래됐으면 응답 «후»에 조용히 다시 만든다.
+        const ageMin = existingDigest.generatedAt
+            ? Math.floor((Date.now() - Date.parse(existingDigest.generatedAt)) / 60000) : 9999;
+        if (ageMin > 20) {
+            const self = publicBase(req.url.split('/api/')[0]);
+            after(() => fetch(`${self}/api/guardian/news-digest?refresh=1&locale=${locale}`,
+                { signal: AbortSignal.timeout(90000) }).catch(() => { /* 조용히 — 다음 요청이 다시 시도한다 */ }));
+        }
         const items = forLocale(existingDigest.items, locale).map(it => ({
             ...it,
             ageMinutes: getAgeMinutes(it.publishedAt),
@@ -424,8 +441,15 @@ export async function GET(req: NextRequest) {
     const translated = uniqueItems.filter(it =>
         HAS_KO.test(it.summaryKR || '') || HAS_JA.test(it.summaryJP || ''));
     const keep = translated.length > 0 ? translated : uniqueItems;
-    const displayItems = keep
-        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+    // ★2026-09-23 — 「8시간 전 뉴스만 뜬다」 수리.
+    //   누적은 옛 항목을 계속 살려 두는데, 새 항목이 5개씩만 들어오고 AI 가 «영향력»만 보고 고르면
+    //   낡은 거시 논평이 신선한 시장 헤드라인을 계속 이긴다. 그래서 «나이 상한»을 둔다.
+    //   상한을 넘겨 10개가 안 되면 그건 «채우지 못한 것»이 아니라 «낡은 걸 안 보여준 것»이다.
+    const MAX_AGE_MIN = 18 * 60; // 18시간 — 주말·휴장에도 화면이 비지 않을 만큼만 남긴다
+    const sorted = keep
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    const fresh = sorted.filter(it => getAgeMinutes(it.publishedAt) <= MAX_AGE_MIN);
+    const displayItems = (fresh.length >= 3 ? fresh : sorted)   // 다 낡았으면 빈 화면보다 낫다
         .slice(0, DISPLAY_SIZE)
         .map(it => ({ ...it, ageMinutes: getAgeMinutes(it.publishedAt) }));
 
