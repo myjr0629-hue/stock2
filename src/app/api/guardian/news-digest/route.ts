@@ -164,6 +164,81 @@ async function fmpNewsPool(path: string, limit: number, tag: string): Promise<an
     }
 }
 
+// ===== 공개 RSS 원본 — «지연 없는» 시장 헤드라인 ==========================
+//
+// ★2026-09-23 실측이 범인을 지목했다.
+//   `?debug=sources` 로 풀별 최신 경과분을 재 보니 **세 풀이 전부 248~249분**이었다:
+//       polygon 249분 · fmpGeneral 249분 · fmpStock 248분
+//   서로 다른 엔드포인트가 «같은 4시간»만큼 늦다 = 우리가 고르는 방식의 문제가 아니라
+//   **벤더(FMP)의 뉴스가 통째로 4시간 지연**이라는 뜻이다. 프롬프트를 아무리 조여도
+//   들어오는 기사가 4시간 전 것이면 화면은 4시간 전 뉴스만 보여 준다.
+//
+//   그리고 §벤더는-공개-원본을-재포장한다 가 그대로 맞았다. 같은 순간 실측:
+//       Google News 1분 · CNBC 6분 · MarketWatch 8분 · Yahoo Finance 9분
+//   전부 **키 없이·무료로** 열리는 공개 RSS 다. 벤더가 이 원본들을 4시간 늦게 재포장해 팔고 있었다.
+//
+//   그래서 원본을 직접 읽는다. FMP 풀은 그대로 둔다 — 최종 목록은 최신순 절단이라
+//   느린 풀이 섞여도 밀려날 뿐이고, RSS 가 죽는 날의 안전망이 된다.
+const RSS_FEEDS: Array<{ tag: string; url: string; limit: number }> = [
+    { tag: 'cnbc', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114', limit: 20 },
+    { tag: 'marketwatch', url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', limit: 12 },
+    { tag: 'yahoo', url: 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US', limit: 15 },
+    // 지정학·거시까지 폭을 넓히는 집계기. 블로그성 기사가 섞이므로 건수를 적게 잡는다.
+    { tag: 'gnews', url: 'https://news.google.com/rss/search?q=(stock+market+OR+Federal+Reserve+OR+Treasury+yields+OR+oil+prices)+when:3h&hl=en-US&gl=US&ceid=US:en', limit: 15 },
+];
+
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+function decodeEntities(s: string): string {
+    return (s || '')
+        .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+        .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+        .replace(/&([a-z]+);/gi, (m, n) => ENTITIES[String(n).toLowerCase()] ?? m);
+}
+function stripTags(s: string): string {
+    return decodeEntities(String(s || '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+}
+function pick(item: string, tag: string): string {
+    const m = item.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`));
+    return m ? decodeEntities(m[1].trim()) : '';
+}
+
+async function fetchRssPool(tag: string, url: string, limit: number): Promise<any[]> {
+    try {
+        const res = await fetch(url, {
+            signal: AbortSignal.timeout(8000),
+            cache: 'no-store',
+            headers: { 'user-agent': 'Mozilla/5.0 (compatible; SignumNews/1.0; +https://www.signumhq.com)' },
+        });
+        if (!res.ok) return [];
+        const xml = await res.text();
+        const items = [...xml.matchAll(/<item[\s>][\s\S]*?<\/item>/g)].map(m => m[0]);
+        const out: any[] = [];
+        for (const it of items) {
+            const rawTitle = pick(it, 'title');
+            const ms = Date.parse(pick(it, 'pubDate'));
+            if (!rawTitle || !Number.isFinite(ms)) continue;
+            // 구글 뉴스는 제목 끝에 « - 매체명»을 붙인다. 매체명은 source 태그가 정본이다.
+            const srcTag = pick(it, 'source');
+            const dash = rawTitle.lastIndexOf(' - ');
+            const title = (tag === 'gnews' && dash > 20) ? rawTitle.slice(0, dash) : rawTitle;
+            const link = pick(it, 'link');
+            out.push({
+                id: `${tag}-${(link || title).slice(-24)}`,
+                title,
+                description: stripTags(pick(it, 'description')).slice(0, 300),
+                published_utc: new Date(ms).toISOString(),
+                publisher: { name: srcTag || (tag === 'cnbc' ? 'CNBC' : tag === 'marketwatch' ? 'MarketWatch' : tag === 'yahoo' ? 'Yahoo Finance' : 'News') },
+                _source: tag,
+            });
+            if (out.length >= limit) break;
+        }
+        return out;
+    } catch (e) {
+        console.error(`[NewsDigest] RSS ${tag} failed:`, e);
+        return [];
+    }
+}
+
 // ===== Merge & Deduplicate raw articles =====
 function mergeAndDeduplicate(...pools: any[][]): any[] {
     const all = pools.flat();
@@ -433,10 +508,11 @@ export async function GET(req: NextRequest) {
     // Step 2: Fetch fresh articles from BOTH sources
     const baseUrl = publicBase(req.url.split('/api/')[0]); // self-call must hit public domain, not the protected cron origin
     const t0 = Date.now();
-    const [polygonArticles, fmpArticles, stockArticles, macroContext] = await Promise.all([
+    const [polygonArticles, fmpArticles, stockArticles, rssPools, macroContext] = await Promise.all([
         fetchMarketNews(30),
         fetchFMPGeneralNews(15),
         fetchFMPStockNews(40),
+        Promise.all(RSS_FEEDS.map(f => fetchRssPool(f.tag, f.url, f.limit))),
         getMacroContext(baseUrl),
     ]);
     const newest = (arr: any[]) => (arr.length
@@ -445,21 +521,23 @@ export async function GET(req: NextRequest) {
     console.log(`[NewsDigest] Fetch done in ${Date.now() - t0}ms: `
         + `Polygon=${polygonArticles.length}(최신 ${newest(polygonArticles)}분) `
         + `FMPgeneral=${fmpArticles.length}(${newest(fmpArticles)}분) `
-        + `FMPstock=${stockArticles.length}(${newest(stockArticles)}분)`);
+        + `FMPstock=${stockArticles.length}(${newest(stockArticles)}분) `
+        + RSS_FEEDS.map((f, i) => `${f.tag}=${rssPools[i].length}(${newest(rssPools[i])}분)`).join(' '));
 
-    const articles = mergeAndDeduplicate(polygonArticles, fmpArticles, stockArticles);
+    const articles = mergeAndDeduplicate(polygonArticles, fmpArticles, stockArticles, ...rssPools);
 
     // 풀별 신선도를 «밖에서» 잴 수 있게 한다 — 안 그러면 「왜 옛날 뉴스냐」를 매번 짐작하게 된다.
     if (debugSources) {
         const top = (arr: any[]) => arr.slice(0, 3).map(a => `${getAgeMinutes(a.published_utc)}분 ${String(a.title).slice(0, 70)}`);
-        return NextResponse.json({
-            pools: {
-                polygon: { n: polygonArticles.length, newestMin: newest(polygonArticles), top: top(polygonArticles) },
-                fmpGeneral: { n: fmpArticles.length, newestMin: newest(fmpArticles), top: top(fmpArticles) },
-                fmpStock: { n: stockArticles.length, newestMin: newest(stockArticles), top: top(stockArticles) },
-            },
-            merged: { n: articles.length, newestMin: newest(articles), top: top(articles) },
+        const pools: Record<string, any> = {
+            polygon: { n: polygonArticles.length, newestMin: newest(polygonArticles), top: top(polygonArticles) },
+            fmpGeneral: { n: fmpArticles.length, newestMin: newest(fmpArticles), top: top(fmpArticles) },
+            fmpStock: { n: stockArticles.length, newestMin: newest(stockArticles), top: top(stockArticles) },
+        };
+        RSS_FEEDS.forEach((f, i) => {
+            pools[f.tag] = { n: rssPools[i].length, newestMin: newest(rssPools[i]), top: top(rssPools[i]) };
         });
+        return NextResponse.json({ pools, merged: { n: articles.length, newestMin: newest(articles), top: top(articles) } });
     }
 
     if (articles.length === 0) {
