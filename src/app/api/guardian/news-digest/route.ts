@@ -124,9 +124,49 @@ async function fetchFMPGeneralNews(limit: number = 15): Promise<any[]> {
     }
 }
 
+// ===== Fetch fast-moving market headlines (FMP stock feed) =====
+//
+// ★2026-09-23 추가한 이유 — 「너무 과거 뉴스만 나온다」(대표 지적)의 «원인»:
+//   장중 11:49 ET 에 재생성한 다이제스트의 최신 기사가 **270분(4.5시간) 전**이었다.
+//   장이 열려 있는데 4시간 반 동안 새 기사가 0건일 수는 없다 — 즉 «고르는 쪽»이 아니라
+//   «들어오는 쪽»이 막혀 있었다. 우리가 보던 풀은 `news/general-latest` 하나뿐인데,
+//   그건 FMP 의 «일반·논평» 피드라 갱신이 느리다(Seeking Alpha·유튜브 영상 위주).
+//   분 단위로 움직이는 시장 헤드라인은 `news/stock-latest` 에 들어온다.
+//
+//   그래서 풀을 늘린다. 최종 목록은 publishedAt 내림차순으로 자르므로
+//   풀이 넓어져서 «더 오래된» 기사가 올라올 일은 없다 — 늘어나는 건 최신 쪽뿐이다.
+async function fetchFMPStockNews(limit: number = 30): Promise<any[]> {
+    return fmpNewsPool('news/stock-latest', limit, 'fmp-stock');
+}
+
+async function fmpNewsPool(path: string, limit: number, tag: string): Promise<any[]> {
+    if (!FMP_API_KEY) return [];
+    try {
+        const res = await fetch(
+            `https://financialmodelingprep.com/stable/${path}?limit=${limit}&apikey=${FMP_API_KEY}`,
+            { signal: AbortSignal.timeout(8000), cache: 'no-store' }
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (!Array.isArray(data)) return [];
+        return data.map((n: any) => ({
+            id: `${tag}-${n.url?.slice(-20) || Math.random()}`,
+            title: n.title || '',
+            description: n.text?.substring(0, 300) || '',
+            published_utc: n.publishedDate || new Date().toISOString(),
+            publisher: { name: n.publisher || n.site || 'FMP' },
+            tickers: n.symbol ? [n.symbol] : [],
+            _source: tag,
+        }));
+    } catch (e) {
+        console.error(`[NewsDigest] ${tag} fetch failed:`, e);
+        return [];
+    }
+}
+
 // ===== Merge & Deduplicate raw articles =====
-function mergeAndDeduplicate(polygonNews: any[], fmpNews: any[]): any[] {
-    const all = [...polygonNews, ...fmpNews];
+function mergeAndDeduplicate(...pools: any[][]): any[] {
+    const all = pools.flat();
     all.sort((a, b) => new Date(b.published_utc || 0).getTime() - new Date(a.published_utc || 0).getTime());
     const seen = new Set<string>();
     return all.filter(n => {
@@ -354,7 +394,8 @@ function forLocale(items: NewsDigestItem[], locale: string): NewsDigestItem[] {
 // ===== Main API Handler =====
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
-    const forceRefresh = searchParams.get('refresh') === '1';
+    const debugSources = searchParams.get('debug') === 'sources';
+    const forceRefresh = searchParams.get('refresh') === '1' || debugSources;
     const isUrgent = searchParams.get('urgent') === '1';
     const rawLocale = (searchParams.get('locale') || 'en').toLowerCase();
     const locale = rawLocale.startsWith('ko') ? 'ko' : rawLocale.startsWith('ja') ? 'ja' : 'en';
@@ -392,14 +433,34 @@ export async function GET(req: NextRequest) {
     // Step 2: Fetch fresh articles from BOTH sources
     const baseUrl = publicBase(req.url.split('/api/')[0]); // self-call must hit public domain, not the protected cron origin
     const t0 = Date.now();
-    const [polygonArticles, fmpArticles, macroContext] = await Promise.all([
+    const [polygonArticles, fmpArticles, stockArticles, macroContext] = await Promise.all([
         fetchMarketNews(30),
         fetchFMPGeneralNews(15),
+        fetchFMPStockNews(40),
         getMacroContext(baseUrl),
     ]);
-    console.log(`[NewsDigest] Fetch done in ${Date.now() - t0}ms: Polygon=${polygonArticles.length}, FMP=${fmpArticles.length}`);
+    const newest = (arr: any[]) => (arr.length
+        ? Math.min(...arr.map(a => getAgeMinutes(a.published_utc)))
+        : -1);
+    console.log(`[NewsDigest] Fetch done in ${Date.now() - t0}ms: `
+        + `Polygon=${polygonArticles.length}(최신 ${newest(polygonArticles)}분) `
+        + `FMPgeneral=${fmpArticles.length}(${newest(fmpArticles)}분) `
+        + `FMPstock=${stockArticles.length}(${newest(stockArticles)}분)`);
 
-    const articles = mergeAndDeduplicate(polygonArticles, fmpArticles);
+    const articles = mergeAndDeduplicate(polygonArticles, fmpArticles, stockArticles);
+
+    // 풀별 신선도를 «밖에서» 잴 수 있게 한다 — 안 그러면 「왜 옛날 뉴스냐」를 매번 짐작하게 된다.
+    if (debugSources) {
+        const top = (arr: any[]) => arr.slice(0, 3).map(a => `${getAgeMinutes(a.published_utc)}분 ${String(a.title).slice(0, 70)}`);
+        return NextResponse.json({
+            pools: {
+                polygon: { n: polygonArticles.length, newestMin: newest(polygonArticles), top: top(polygonArticles) },
+                fmpGeneral: { n: fmpArticles.length, newestMin: newest(fmpArticles), top: top(fmpArticles) },
+                fmpStock: { n: stockArticles.length, newestMin: newest(stockArticles), top: top(stockArticles) },
+            },
+            merged: { n: articles.length, newestMin: newest(articles), top: top(articles) },
+        });
+    }
 
     if (articles.length === 0) {
         return NextResponse.json({ items: [], error: 'No news available', _source: 'empty' });
