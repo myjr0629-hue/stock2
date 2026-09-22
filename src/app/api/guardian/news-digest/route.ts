@@ -17,7 +17,23 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { publicBase } from '@/lib/net/publicBase';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
-const REDIS_TTL = 20 * 60; // 20 min (buffer over 15 min cron interval)
+/**
+ * ★2026-09-22 수리 — 「10개인데 5개만 뜬다」의 원인.
+ *
+ * 10개는 «저장된 목표치»가 아니라 **누적의 결과**다(BATCH_SIZE 5 × 2회).
+ * 그런데 TTL 이 20분, 크론이 15분이라 **여유가 5분뿐**이었다. 크론이 한 번만 어긋나거나
+ * (콜드스타트·타임아웃·Vercel 스케줄 흔들림) 실행이 27초를 넘기면 캐시가 먼저 죽고,
+ * 다음 실행은 `existingItems = []` 에서 시작해 **5개로 되돌아간다.**
+ * 그 다음 실행에서 다시 10개가 되므로 화면은 5↔10 을 오간다 — 대표가 본 것이 그 «5» 쪽이다.
+ *
+ * 고침: 캐시 수명을 6시간으로 늘린다. 갱신 주기는 그대로 15분이다.
+ *   · 누적된 10개가 «한 번의 실패»로 사라지지 않는다.
+ *   · 항목은 매 갱신마다 publishedAt 내림차순으로 다시 정렬해 최신 10개만 남으므로,
+ *     오래된 것은 새 뉴스에 밀려 자동으로 빠진다(수명이 길다고 낡은 목록이 굳지 않는다).
+ *   · 크론이 죽어도 사용자는 «빈 화면»이나 27초 대기 대신 최근 목록을 본다(UI 가 경과분을 표시한다).
+ * 분석이 비어 있을 때의 3분 안전밸브는 그대로 둔다.
+ */
+const REDIS_TTL = 6 * 60 * 60; // 6h — 누적본이 «한 번의 실패»로 무너지지 않게 (갱신은 여전히 15분 크론)
 const BATCH_SIZE = 5;       // AI processes 5 items per call (~25s, safe within timeout)
 const DISPLAY_SIZE = 10;    // UI shows 10 items total (accumulated from 2 batches)
 
