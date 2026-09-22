@@ -327,6 +327,17 @@ Your role: CURATE the most impactful global market news and provide institutiona
   · If several articles cover the same event, keep the FRESHEST one, not the longest.
 - Among articles of similar freshness, prioritize: geopolitical > macro policy > market-moving > sector rotation > commentary
 - NEVER select a routine commentary or explainer piece over a fresher market-moving headline
+- MARKET SIGNIFICANCE IS ALSO A HARD REQUIREMENT. The feed now carries general newsroom
+  headlines, so freshness alone is no longer a filter. An article qualifies ONLY if a US
+  equity/bond/commodity/FX investor would act or re-price on it: index moves, Fed/central-bank
+  policy, rates, inflation, earnings, guidance, M&A, regulation, tariffs, energy, war, elections
+  WITH a stated market consequence.
+  · REJECT even when it is the freshest item: campaign-finance horse-race, consumer
+    health/wellness tips, lifestyle, sports, celebrity, crime, weather, human-interest.
+  · A story about a public company or a traded commodity qualifies; a story that merely
+    mentions politics or a disease does not.
+  · If fewer than ${BATCH_SIZE} articles qualify, reach further down the list for older but
+    genuinely market-relevant ones rather than filling slots with off-topic fresh headlines.
 - DEDUPLICATE: same event → keep most detailed article only
 - Each summary: 1-2 concise sentences with key facts and numbers
 - Each analysis: exactly 1 dense conditional sentence — no filler words — MUST reference provided market data
@@ -334,7 +345,10 @@ Your role: CURATE the most impactful global market news and provide institutiona
 </output_rules>`;
 
 async function analyzeWithClaude(articles: any[], macroContext: string): Promise<NewsDigestItem[]> {
-    const inputItems = articles.slice(0, 20).map((a, i) => ({
+    // 후보창 20 → 28. 풀이 «분 단위»로 신선해진 뒤로는 상위 20이 전부 몇 분 전 기사라서
+    // AI 가 «관련 없는 최신 기사»를 거절할 여지가 없었다(정치자금·건강기사가 뽑혔다).
+    // 후보를 넓혀야 거절하고도 5건을 채울 수 있다.
+    const inputItems = articles.slice(0, 28).map((a, i) => ({
         id: a.id || `news-${i}`,
         title: a.title || '',
         desc: (a.description || '').substring(0, 200),
