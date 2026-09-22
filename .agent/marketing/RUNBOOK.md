@@ -71,6 +71,24 @@ Play 노출 2,190 → 등록정보 열람 약 11(**0.5%**) → 설치 7, 그런�
 **브라우저가 대표 제어로 잠겨도 이 검사는 돈다** — 가장 중요한 지표를 브라우저에 묶어 두지 않는다.
 관제 성과 패널 맨 위에도 같은 값이 뜬다(`node scripts/hud/collect.js --ratings`).
 
+
+### 매 사이클 «데이터셋 문» 한 줄 (2026-09-22 추가)
+
+```bash
+node scripts/marketing/github-structure-snapshot.js /tmp/ego/gh    # 오늘치 스냅샷 생성
+node scripts/marketing/gh-dataset-index.js /tmp/ego/gh             # index.html 의 JSON-LD 재생성
+# → 두 파일(+index.html)을 github.com/myjr0629-hue/options-market-structure-daily 에 업로드
+#   (Add file → Upload files → Commit changes. 토큰 없이 브라우저 세션으로 된다)
+```
+**왜 고정인가**: 이 저장소는 **구글 «데이터셋 검색»에 잡히는 문**이다(schema.org Dataset JSON-LD).
+계정도 승인도 필요 없는 몇 안 되는 문인데, **9/19 이후 나흘 비어 있었다**. 「Daily」라고 이름 붙인 데이터셋이
+며칠 비면 색인에서 가치를 잃는다. 생성은 스크립트인데 «게시»가 손이라 한 번 건너뛰면 그대로 멈췄다.
+- 업로드는 **덮어쓰기**다. 같은 이름을 올리면 그 파일이 갱신된다.
+- `gh-dataset-index.js` 는 저장소에 «실제로 있는» 파일 목록을 읽어 JSON-LD 를 다시 만든다 —
+  목록 조회에 실패하면 **아무것도 쓰지 않는다**(빈 목록으로 덮으면 데이터셋이 «비어 있는 것»이 된다).
+- 빈 구간이 3일을 넘으면 스크립트가 경고한다(주말 2일은 정상).
+- 반영 확인은 **GitHub Pages** 로 한다. `raw.githubusercontent.com` 은 CDN 캐시가 남아 옛 값을 준다(실측).
+
 ### 시간대 규칙 (대표 지시 2026-09-18)
 
 | 채널 | 언제 |
