@@ -11232,3 +11232,20 @@ https://myjr0629-hue.github.io/options-market-structure-daily/congress.html 의 
 | **reddit** ⏸ 2/3 | 3시간 안 새 스레드 중 맞는 것 없음(메타 «Muse» 스레드는 기사 확인 없이 숫자만 얹기 어려움). 미국 개장 뒤, UTC 일 마감(09:00 KST) 전 |
 
 HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
+
+---
+
+## 2026-09-23 (KST) 22:30~23:10 — 시간 사이클: 레딧 3/3 · X 답글 2/3 · ⚠ FMP 429 장애 발견·수리 준비
+
+| 항목 | 결과 |
+|---|---|
+| **reddit** ✅ 3/3 | r/MU_Stock «Citi PT $1,150→$1,300»(2.6h) — 목표가 대비 10/2 만기 콜 OI($1,000 12.1k·$1,100 5.4k·$1,200 2.7k·$1,300 1.0k), ATM IV ~80%, **다크풀 비중 50.8%(시장 49.8%)·그중 공매도 31%(평소 43%)**(FINRA 9/22). 첫 댓글과 다른 각도. https://www.reddit.com/comments/1wo2ogq/comment/pbkar4p/ |
+| **x_reply** ✅ 2/3 | @StockMKTNewz(110만) «피트 세션스, 애플 최대 25만 달러 매도 신고»(7m) — «같은 의원 이전 신고: 9/14 알파벳·애브비 매도($15K~50K, 일주일 뒤 공시). 알파벳은 최근 90일 하원 공시가 한쪽: 매수 0·매도 6(3명)». 첫 확인은 답글 탭 갱신 지연으로 빗나갔고 재확인에서 **탭·스레드 모두 노출**(발행기에 3회 재확인 추가). https://x.com/signumhq/status/2102754598410973193 |
+
+### ⚠ FMP 호출 한도 초과(429) — 운영 로그로 확인, 수리는 브랜치에 준비
+- 증상: `/api/flow/congress` 가 **available:false «no-data»**(오후엔 정상). 뉴스 진단: **Polygon=0 FMPgeneral=0 FMPstock=0**, cnbc 20·marketwatch 10·yahoo 15·gnews 15(오늘 붙인 RSS 가 뉴스를 살렸다).
+- 근거: `vercel logs --since 3h --query fmp` → «[Intrinio] /v2/reference/news 실패: API 호출 한도 초과 … **FMP 429**» 반복, «[NewsDigest] Fetch done: Polygon=0 FMPgeneral=0 FMPstock=0 …».
+- 영향 범위(읽기 확인): 실적 캘린더(11:40 UTC 생성본)·MU 실적일·애널리스트·개요·검색은 **캐시로 아직 응답**. 의회 거래 카드만 즉시 비었다(대체 원천 없음).
+- 구조적 원인: 의회 라우트는 빈 결과를 캐시하지 않아 **사용자가 카드를 열 때마다 FMP 를 다시 불러 한도 초과를 키운다**(«벤더 한도가 사용자 경로를 깬다» 종류).
+- 수리(브랜치 `fix/congress-person-key`, b225fb1c0): 마지막 정상본(7일) + stale 표시, 실패 10분 기억(그동안 재호출 안 함). esbuild 컴파일 확인. **운영 반영은 ⑩ 해결 후 실화면 검증과 함께** — 대표 할 일 ⑮(FMP 대시보드 사용량·한도 확인)·⑩ 갱신.
+- 제안: 뉴스 다이제스트의 FMP 풀 제거 검토(15분 크론 × 3콜 ≈ 하루 288콜 추정, 4시간 늦은 원천 — RSS 원본이 더 빠르다).
