@@ -11340,3 +11340,8 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 ### ⑤ 대표 보고서(02:0x KST) — https://claude.ai/artifact/TMnvt2dXRoXtfLa3MZpxBy
 밤사이 9건 · 뉴스 판정 정정(용도별 최적 조합: 가디언=RSS 주력+FMP 보조 / 종목=FMP 주력+Intrinio 보충 / UC=FMP 태그 유지) · 속보 푸시 검토(선행 수리 4 + 설계 + KST 야간 방해금지 결정) · 리딤 최대 성과 계획(0단계 PC QR 수리 → 채널별 맞춤 코드 → 측정 순위대로 배포 → 70% 소진 시 2차) · 결정 5건(⑰⑱⑲·①②·③).
 정밀도 정정: «12/12 초 단위 일치»로 적었던 것 → **12건 전부 +240분 중 11건 초 단위 일치, MarketBeat 1건 2초 차**(페이지가 초를 :00 으로 표기). 브랜치 주석도 53cbacc5f 로 고쳤다.
+
+### ⑥ 발견 — UC 일본어 피드 11시간 정지(조용한 실패)
+- JA 대시보드 «今日の発見»이 EN 과 다른 종목이라 추적 → `/api/undercurrent/feed?locale=ja` generatedAt **05:41Z** vs en·ko 15:59Z. uc-warm 15:30 «failures:[] 3초».
+- `refresh=1` 1회(크론과 같은 호출) → 34초에 정상 생성 16:53Z, 재조회 3회 모두 새 사본. 캐시 계층 가설 기각(실측).
+- 원인: `serveSWR` 가 재생성 실패를 로그 없이 옛 사본 200 으로 돌려줌 → 사유 불명(같은 시간대 bedrock throttled 28회는 후보일 뿐). 수리 브랜치 `fix/swr-silent-failure`(89e93ee4e) → 대표 할 일 ⑳. 임시: 사이클마다 로케일별 나이 점검.
