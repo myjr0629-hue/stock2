@@ -9,12 +9,13 @@
  */
 import { NextResponse } from "next/server";
 import { getFromCache, setInCache } from "@/services/redisClient";
+import { fmpEtToMs } from "@/lib/fmpTime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const CACHE_KEY = "debug:news-compare:v2";
+const CACHE_KEY = "debug:news-compare:v3"; // v3(9/24): FMP 시각을 뉴욕 벽시계로 해석 — v2 는 FMP 를 4시간 늙게 쟀다
 const TTL = 900;
 const FMP_KEY = process.env.FMP_API_KEY || "";
 const INTRINIO_KEY = process.env.INTRINIO_API_KEY || "";
@@ -55,8 +56,8 @@ function parseRss(xml: string): Item[] {
 }
 function fmpItems(json: any): Item[] {
     return (Array.isArray(json) ? json : []).map((a: any) => {
-        const d = Date.parse(String(a.publishedDate || "").replace(" ", "T") + "Z"); // FMP 는 UTC
-        return { title: String(a.title || ""), body: String(a.text || ""), ts: Number.isFinite(d) ? d : null, publisher: String(a.site || a.publisher || "") };
+        const d = fmpEtToMs(a.publishedDate); // ★FMP 는 UTC 가 아니라 뉴욕 벽시계(9/24 원문 페이지 대조 12/12 = +240분)
+        return { title: String(a.title || ""), body: String(a.text || ""), ts: d, publisher: String(a.site || a.publisher || "") };
     });
 }
 function intrinioItems(json: any): Item[] {
