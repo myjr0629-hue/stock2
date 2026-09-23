@@ -404,7 +404,11 @@ export async function serveSWR<T extends Record<string, any>>(opts: {
     await setInCache(key, fresh, SWR_PHYSICAL_SEC).catch(() => {});
     return { body: fresh, stale: false };
   } catch (e) {
-    if (cached) return { body: cached, stale: true, error: true }; // serve-stale-on-error
+    // ★2026-09-24: 여기서 조용히 옛 사본만 돌려줘 UC 일본어 피드가 11시간(05:41Z→16:53Z) 멈춰 있었다 —
+    //   로그 0줄, 응답은 200·success, uc-warm 은 «실패 0»으로 보고. 실패를 로그와 응답(_genError)에 남긴다.
+    const msg = String((e as any)?.message || e).slice(0, 160);
+    console.error(`[SWR] generate failed key=${key}: ${msg}`);
+    if (cached) return { body: { ...cached, _genError: msg }, stale: true, error: true }; // serve-stale-on-error (응답에만 표시, 캐시엔 안 씀)
     return null; // truly nothing to serve
   } finally {
     if (gotLock) await deleteFromCache(`${key}:swrlock`).catch(() => {});
