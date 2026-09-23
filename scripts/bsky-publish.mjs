@@ -20,6 +20,7 @@
 //   node scripts/bsky-publish.mjs --file <원고.md>            원고의 「## 본문」 블록을 발행
 //   node scripts/bsky-publish.mjs --text "..." [--image <url>]
 //   node scripts/bsky-publish.mjs --text-file <본문.txt> --image-file <16:9 카드.png> --alt "이미지 설명"
+//   node scripts/bsky-publish.mjs --text-file <정정.txt> --reply-to at://did:plc:…/app.bsky.feed.post/<rkey>   (정정 답글, 이미지 없음)
 // ============================================================================
 
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
@@ -93,7 +94,18 @@ if (text.length > 300) {
 }
 console.log(`본문 ${text.length}자 / 300${image ? ' · 이미지 ' + image : ''}`);
 
-const res = await M.bskyPost(text, image, alt);
+// ★2026-09-24 --reply-to <at://…/app.bsky.feed.post/…> — 정정 답글. 블루스카이 글은 편집이 없어서(삭제는 안전선 밖),
+//   틀린 수치는 «자기 글에 정정 답글»로 바로잡는다(9/24 COST 스트래들: 전일 종가를 13:37 ET 로 잘못 표기).
+let res;
+if (arg('--reply-to')) {
+  const uri = arg('--reply-to');
+  const th = await (await fetch('https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?depth=0&uri=' + encodeURIComponent(uri))).json();
+  const cid = th?.thread?.post?.cid;
+  if (!cid) { console.error('답글 대상 cid 를 못 찾았다:', uri); process.exit(1); }
+  res = await M.bskyReply({ uri, cid, text: '', author: '', ticker: null, likes: 0 }, text);
+} else {
+  res = await M.bskyPost(text, image, alt);
+}
 if (server) server.close();
 if (!res.ok) { console.error('발행 실패:', res.error); process.exit(1); }
 

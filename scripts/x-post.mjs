@@ -82,7 +82,9 @@ for (let i = 0; i < 3 && !found; i++) {
         text: (a.innerText || '').replace(/\s+/g, ' ') };
     });
   }, task.handle);
-  found = top.find((t) => !t.pinned && t.status && t.text.includes(mark)) || null;
+  // ★2026-09-24: X 는 캐시태그 앞뒤에 공백을 넣어 그린다(«コストコ($COST)» → «コストコ( $COST )») → 공백을 모두 빼고 비교
+  const sq = (x) => (x || '').replace(/\s+/g, '');
+  found = top.find((t) => !t.pinned && t.status && sq(t.text).includes(sq(mark))) || null;
 }
 console.log(JSON.stringify(top.map((t) => ({ ...t, text: t.text.slice(0, 40) }))));
 if (found) console.log('\n✅ 공개 URL: https://x.com' + found.status + ' · 이미지 ' + found.img);

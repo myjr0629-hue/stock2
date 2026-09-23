@@ -957,6 +957,16 @@
    "link": "https://signumhq.com/app?from=bluesky",
    "action": "none",
    "note": "⛔2026-09-24 실측 후 기각(만들지 않는다). 공개 API app.bsky.graph.searchStarterPacks: 금융 스타터팩(stocks·investing·options·trading·finance 검색 상위 41개)의 «누적 가입» 대부분 0~4명, 최대는 ESG 투자팩 46명. 금융 분야에선 스타터팩 발견 경로가 죽어 있다 → 설치로 이어질 경로 없음. 우리 도달은 해시태그→피드(Stock Market·Trading·Investing)에서 나온다(channels.json bluesky 노트). 다시 제안하지 말 것 — 조건이 바뀌면(가입 수 100+ 금융팩 등장) 재측정."
+  },
+  {
+   "id": "linkedin_articles",
+   "name": "LinkedIn 아티클(장문)",
+   "tier": "A",
+   "enabled": true,
+   "tag": "linkedin",
+   "link": "https://signumhq.com/app?from=linkedin",
+   "action": "post",
+   "note": "★2026-09-24 확장 «발굴(티켓)». 실측: 피드 상단에 「글쓰기」 링크(href /article/new/)가 있다(로그인 세션 SIGNUM HQ). 왜: LinkedIn 아티클은 구글 색인되는 고권위 도메인의 장문 표면 — 우리 블로그·Medium 보다 검색 진입이 빠를 수 있고, 피드 글(건당 2.4클릭)과 달리 오래 남는다. 첫 글 후보: «What Dark Pool Percentage Tells You — and What It Doesn't (FINRA data)» 에버그린 제목 + MU/TSLA 9/22 실측 + 앱 화면 + 스마트링크. 다음 행동: 피드에서 「글쓰기」를 «눌러» 편집기 구조(제목칸·본문·커버 이미지·게시)를 먼저 재고, 발행기 scripts/linkedin-article.mjs 를 만든다. 뉴스레터(「뉴스레터」 메뉴)는 첫 호 발행 때 팔로워에게 알림이 가므로 아티클 2~3편 뒤 검토."
   }
  ],
  "candidates": [

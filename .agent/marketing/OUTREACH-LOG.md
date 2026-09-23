@@ -11376,3 +11376,30 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - `scripts/instagram-post.mjs`: 캡션 누락 시 «…→수정→실제 키 입력(Shift+Enter)→완료 실클릭» 자동 복구 + 재검증.
 - `scripts/naver-kin-answer.mjs`: 공개 확인이 «S&P» 의 `&amp;` 를 못 풀어 오판 → 엔티티 디코드 + 공개 answerList API(page·count=5) 페이지 넘김.
 - `scripts/note-post.mjs`(신설): 見出し画像 = 제목 위 «글자 없는 40px 버튼» → 메뉴 「画像をアップロード」 → 선택기 → 「保存」(실측 좌표 517,121) · URL 은 붙여넣기.
+
+---
+
+## 2026-09-24 (KST) 02:45~03:25 — 시간 사이클: 실행 4/4 · ⚠ 정정 1건(COST 스트래들 = 전일 종가를 «13:37 ET»로 표기) · 확장(링크드인 아티클)
+
+게이트: 341·실패 0.
+
+| 채널 | 소재·화면 | 공개 URL | 검증 |
+|---|---|---|---|
+| note(JP) | 초안 그대로 — **예약 투고는 note 프리미엄(유료) 전용**(「この機能はnoteプレミアムを契約すると利用できます」, 대화상자만 열고 닫음) → 06~07시 JST 사이클에서 발행 | 초안 https://editor.note.com/notes/na72a61c95067/edit/ | — |
+| naver_blog | 「다크풀 비율 뜻, 같은 51%인데 마이크론과 테슬라는 정반대였던 이유 (FINRA 실측)」 — 얇은 문 실측 «다크풀 비율» **0/30**(«코스트코 실적 발표»는 9/30 이라 피함) + 한국어 대시보드 «은밀 축적» 화면 | https://blog.naver.com/donneum/224421463808 | 비로그인 PostView: 제목·이미지·링크(`from&#x3D;naver_blog` 로 인코딩돼 있음) |
+| x_jp | コストコ決算(日本時間25日早朝): 금요일 만기 스트래들 **실시간 중간가** 약 30.2달러 → ±3.4% + 일본어 Flow 화면 카드 | https://x.com/signumhq_jp/status/2102821650823848105 | syndication: 본문·이미지·`from=x_jp` (발행기는 캐시태그 공백 때문에 «못 찾음»으로 오판 → 수리) |
+| threads #2 | 코스트코 실적(한국 시간 25일 새벽) 스트래들 ±3.4% + 한국어 Flow 화면 | https://www.threads.com/@signumhq_official/post/Ddo67KiGcFA | 봇 UA: og 본문·이미지·링크 |
+
+### ⚠ 정정 — 02:3x 에 올린 COST 글 2편(X·블루스카이)의 «13:37 ET 스트래들 $28 → ±3.1%»는 **전일(9/22) 종가**였다
+- 기전: 내 계산 함수가 `last_quote.bid/ask` 가 없으면 `day.close` 로 떨어졌는데, 체인의 last_quote 에는 `midpoint` 만 있다 → 전부 전일 종가로 계산. 체인 `day.*`·거래량·프리미엄은 EOD(chainDate 9/22), 실시간은 midpoint·greeks·IV 뿐.
+- 실시간 중간가: 13:54 ET 15.85+14.50 = **$30.35**, 14:03 ET 15.975+14.25 = **$30.23**(값이 바뀌어 실시간 확인) → **±3.4%**.
+- **X**: Premium 편집 2회(18:39 UTC 편집 창 안). 이미지는 편집으로 안 바뀐다(X 는 원래 미디어를 유지) → 본문에 «Card = Tuesday's close: $28 (±3.1%) / Live 13:54 ET mid: ~$30.35, ±3.4%»로 명시. 최신판 2102820638536937886(원래 주소가 최신판을 보여 줌).
+- **블루스카이**: 편집이 없어 **정정 답글** https://bsky.app/profile/signumhq.bsky.social/post/3mw7d6q75mb2i (공개 API 에서 원글 replyCount 1 확인). `bsky-publish.mjs --reply-to` 추가.
+- 삭제는 안전선(영구 삭제) 밖이라 하지 않았다. 같은 날 NVDA 거래량(EOD)은 발행 전에 잡았는데 같은 종류를 두 번째에 놓쳤다 → 메모리 `chain-day-fields-are-eod-not-live`.
+
+### 확장
+- **linkedin_articles — 티켓 등록**: 피드 「글쓰기」(/article/new/) 확인. 구글 색인되는 장문 표면. 다음 사이클에 편집기 실측 → 발행기.
+
+### 도구 수리
+- `scripts/x-post.mjs`: 확인 비교를 공백 제거 후(«コストコ($COST)» 가 «コストコ( $COST )»로 렌더됨).
+- `scripts/bsky-publish.mjs`: `--reply-to <at-uri>` 정정 답글.
