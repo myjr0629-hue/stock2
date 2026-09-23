@@ -92,11 +92,11 @@
 | ⑦ | 디렉터리 3곳 가입: 10words.io · Startup Fame · StartupInspire(무료 플랜) | 가입은 내 몫이 아니다. 가입만 해 두시면 등재·소개문은 내가 | 각 1분 |
 | ⑧ | Zenn 가입(zenn.dev) | 일본에서 자사 링크가 명문 허용된 두 곳 중 하나 | 1분 |
 | ⑨ | (선택) 아이폰으로 JP·US 별점 | JP 는 «유입으로 만든다»가 대표 방침 — 급하지 않음 | — |
-| **⑩** | **ego 브라우저에서 vercel.com 로그인 1회** — 또는 «의회 거래 수리는 운영 반영 후 실화면 확인으로 가라» 한마디 (브랜치에 수리 2건: 의원 수 표기 합치기 + FMP 실패 시 마지막 정상본/재호출 억제) | 프리뷰(*.vercel.app)는 SSO 보호라 ego 로그인 세션 안에서만 잰다. 9/23 로그인 만료 확인. 비밀번호 입력은 내 안전선 밖 → `fix/congress-person-key`(의원 수 부풀림 수리)가 브랜치에 대기 중 | 30초 |
+| ~~⑩~~ | ~~✅ 9/23 대표 «운영 반영하고 실화면으로 확인해» — 의회 거래 수리 2건 배포·실화면 확인 완료~~ **(원문)** ego 브라우저에서 vercel.com 로그인 1회 — 또는 «의회 거래 수리는 운영 반영 후 실화면 확인으로 가라» 한마디 (브랜치에 수리 2건: 의원 수 표기 합치기 + FMP 실패 시 마지막 정상본/재호출 억제) | 프리뷰(*.vercel.app)는 SSO 보호라 ego 로그인 세션 안에서만 잰다. 9/23 로그인 만료 확인. 비밀번호 입력은 내 안전선 밖 → `fix/congress-person-key`(의원 수 부풀림 수리)가 브랜치에 대기 중 | 30초 |
 | **⑪** | **«오늘 14.2K 잠금해제» 문구 처리 승인** — cmd·dash·flow 잠금 카드 6곳(3개 언어)에 **하드코딩된 고정 숫자**. 실제 집계가 아니다 | 광고 UI 는 대표 보호 구역이라 내가 임의로 못 고친다. 권고: 문구 삭제(또는 실제 해제 수로 교체). 스토어 심사(허위 표시)·우리 교리(화면이 지표를 지어낸다) 둘 다 걸린다 | 한마디 |
 | **⑬** | **SIGNUM 을 «애플 실리콘 맥»에서도 받게 할지 결정** — ASC → 가격 및 사용 가능 여부 → «사용 가능한 앱으로 변경» 체크 1개(현재 **해제**, 1.9.2 는 «호환 가능» 표시) | 소셜 클릭의 81%가 PC 다(오늘도 17 중 16). 맥 사용자는 지금 «설치할 방법이 없다» — QR 스캔은 오늘 0/16. 켜면 우리 넘겨주기 페이지·스토어 링크의 App Store 버튼으로 **맥에서 바로 설치**된다. 끈 이유는 기록에 없다(Undercurrent 출시 때 «Mac/Vision Pro 해제»만 적힘). 위험: 맥 화면·광고(AdMob) 동작 미검증 → 권고: 켜기 전 대표 맥에서 1회 실행 확인 | 한마디 |
 | **⑭** | **awesome-quant(외부 저장소)에 우리 데이터셋 한 줄 PR 을 올려도 되는지** | 퀀트·개발자가 보는 큐레이션 목록(«The Gold Barometer» 같은 무료 CC BY 데이터셋 항목이 실린 곳). 규칙에 맞춘 한 줄·README 사용 예시(우리 저장소에 반영 완료)까지 준비됐다. **남의 저장소에 PR 을 여는 것은 대외 행동이라 자동 판정기가 막았다** — 우회하지 않았다. 편집기에 친 줄은 커밋·포크·PR 전혀 안 됨. 허락하시면 PR 1건(«Disclosure: I maintain the dataset» 명시) | 한마디 |
-| **⑮** | **FMP 호출 한도 초과(429) — FMP 대시보드에서 사용량·요금제 한도 확인** (9/23 22:4x 운영 로그로 확인) | 의회 거래 카드가 «no-data», 뉴스의 FMP 원천 3개가 0(오늘 붙인 RSS 로 뉴스는 버팀). 실적 캘린더·애널리스트는 11:40 UTC 캐시로 아직 보임. 큰 소비원 추정: 뉴스 다이제스트 15분 크론 × FMP 3콜 ≈ 하루 288콜(추정, 대시보드로 확인 필요). 준비된 수리: `fix/congress-person-key` 에 «마지막 정상본 + 실패 10분 기억»(사용자 요청이 한도를 태우지 않게) 커밋 완료 — ⑩ 과 함께 검증 후 반영. 제안: 뉴스 다이제스트에서 FMP 풀 제거(4시간 늦고, RSS 원본이 더 빠르다) | 대시보드 1분 |
+| ~~⑮~~ | ~~✅ 9/23 원인 규명·수리(가디언 매 요청 재계산 루프) — FMP 429 0건 확인~~ **(원문)** FMP 호출 한도 초과(429) — FMP 대시보드에서 사용량·요금제 한도 확인** (9/23 22:4x 운영 로그로 확인) | 의회 거래 카드가 «no-data», 뉴스의 FMP 원천 3개가 0(오늘 붙인 RSS 로 뉴스는 버팀). 실적 캘린더·애널리스트는 11:40 UTC 캐시로 아직 보임. 큰 소비원 추정: 뉴스 다이제스트 15분 크론 × FMP 3콜 ≈ 하루 288콜(추정, 대시보드로 확인 필요). 준비된 수리: `fix/congress-person-key` 에 «마지막 정상본 + 실패 10분 기억»(사용자 요청이 한도를 태우지 않게) 커밋 완료 — ⑩ 과 함께 검증 후 반영. 제안: 뉴스 다이제스트에서 FMP 풀 제거(4시간 늦고, RSS 원본이 더 빠르다) | 대시보드 1분 |
 | ⑫ | **Ego Lite 업데이트 승인**(`ego-browser upgrade`) — 실행할 때마다 «update available» 알림 | 업그레이드는 대표 승인 후에만 | 한마디 |
 
 **끝난 것(목록에서 내림)**: Bluesky 앱 비밀번호(.env.local 에 있음) · 마스토돈 가입(9/23) · ASC 재로그인(9/23)
@@ -124,7 +124,7 @@
    ⚠ `fix/congress-person-key` 운영 반영 전에는 GOOGL·JPM·NVDA 카드의 «N명»이 부풀려져 있다 → 그 종목 화면은 소재로 쓰지 말 것(GS 는 정확).
 7-b. **✅ 의회 거래 공개 데이터셋(9/23 확장)** — https://myjr0629-hue.github.io/options-market-structure-daily/congress.html · 주 1회 갱신: `node scripts/congress-dataset.mjs` → `/tmp/ego/gh-task.json` 에 세 파일 → `scripts/github-upload.mjs`. 다음 갱신 9/30.
 7-c. **hf_datasets** — 대표 개인 계정으로 로그인돼 있고 «내가 관리» 합의(채널 노트). 막힌 게 아니다 → 다음 뚫기 사이클에 의회 거래·옵션 구조 데이터셋을 허깅페이스에 미러(세션 생존부터 확인).
-7-d. **CPP «ko naver» 심사 중(9/23 제출, ppid 8202cd7d-a522-41a8-b372-47e0e2806c8c)** — 승인 확인: `GET /appCustomProductPageVersions/ba515daa-4802-429c-a5d5-b4b11f22a3fa` state. 승인 + ⑩ 해결 → storeRedirect.ts `APPLE_CUSTOM_PRODUCT_PAGES.signum` 에 naver_blog·naver_kin·tistory·threads 매핑 → 실화면(한국 아이폰 UA 로 /app?from=naver_blog 302 Location 에 ppid) 확인 후 배포.
+7-d. **✅ CPP «ko naver» 승인·연결(9/23 23:2x)** — naver_blog·naver_kin·tistory·okky·naver_sa·daum·kr_media 의 아이폰 링크가 ppid 8202cd7d 로 간다(실측: iOS 302 Location·PC 넘겨주기 버튼·KR 스토어 200). (원문) — 승인 확인: `GET /appCustomProductPageVersions/ba515daa-4802-429c-a5d5-b4b11f22a3fa` state. 승인 + ⑩ 해결 → storeRedirect.ts `APPLE_CUSTOM_PRODUCT_PAGES.signum` 에 naver_blog·naver_kin·tistory·threads 매핑 → 실화면(한국 아이폰 UA 로 /app?from=naver_blog 302 Location 에 ppid) 확인 후 배포.
 7-e. **커맨드 화면 값 섞임 수리(대기)** — 만기 미지정 structure 응답이 10.8시간 캐시를 준다(맥스페인·감마플립이 서로 다른 날의 미결제약정). ⑩ 이후 원인(캐시 키·TTL) 확인 → 실화면 검증 후 배포.
 8. **(제안·대표 판단) 의원별 거래 페이지 SEO** — «Pelosi stock trades», «[의원] stock trades» 는 검색 수요가 큰데 우리 웹엔 없다. 원자료는 이미 있다(`getCongressTrades`). 웹 신규 페이지라 실화면 검증(⑩)이 먼저다.
 
