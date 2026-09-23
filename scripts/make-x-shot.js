@@ -44,7 +44,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const page = await browser.newPage();
   const alang = loc === 'ko' ? 'ko-KR,ko' : loc === 'ja' ? 'ja-JP,ja' : 'en-US,en';
   await page.setExtraHTTPHeaders({ 'Accept-Language': alang });
-  await page.evaluateOnNewDocument(([loc, onboard]) => {
+  await page.evaluateOnNewDocument(([loc, onboard, unlock]) => {
     try {
       // 세 앱 모두 자기 로케일 키를 읽는다. 하나라도 빠지면 셀프라우팅이 되돌려
       // «일본어로 찍었는데 한국어가 나오는» 사고가 난다(2026-08-25 WIM 에서 실제 발생).
@@ -52,8 +52,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       localStorage.setItem('undercurrent.locale', loc);
       localStorage.setItem('wim.locale', loc);
       if (onboard) localStorage.setItem(onboard[0], onboard[1]);
+      // X_SHOT_UNLOCK=1 — «광고 보고 1시간 해제»를 한 사용자와 같은 화면(잠금 카드 대신 실제 데이터)을 찍는다.
+      //   앱의 실제 해제 저장값(adManager.grantPremiumAccess)과 같은 모양이다.
+      if (unlock) localStorage.setItem('signum_ad_unlock', JSON.stringify({ unlockedUntil: Date.now() + 3600000, tier: 'premium' }));
     } catch {}
-  }, [loc, cfg.onboard]);
+  }, [loc, cfg.onboard, !!process.env.X_SHOT_UNLOCK]);
   await page.setViewport({ width: VIEW.w, height: VIEW.h, deviceScaleFactor: VIEW.dsf });
   // ⚠️ 캐시를 끄지 않으면 «배포는 됐는데 이미지는 옛 화면»이 나온다.
   //    URL 쿼리로는 안 막혔다(puppeteer 자체 캐시). 실제로 겪었다.
@@ -123,6 +126,45 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.error(`[검수 실패] 화면이 안 채워졌다 — loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell} 글자=${st.len}. 저장하지 않는다.`);
     await browser.close();
     process.exit(2);
+  }
+
+  // ★2026-09-23 추가 — 화면 «한가운데 카드»를 찍고 싶을 때(예: Command 의 «의회 거래» 카드).
+  //   X_SHOT_SCROLL_TEXT="Congress Trades" 처럼 카드 제목을 주면 그 카드가 화면 위쪽에 오도록 스크롤한다.
+  //   주지 않으면 이전과 완전히 같다(맨 위부터 찍는다).
+  // 탭 안에 있는 카드면 먼저 그 탭을 누른다(예: Command 의 «HOLDERS» 탭 안 «의회 거래»).
+  if (process.env.X_SHOT_CLICK_TEXT) {
+    const clicked = await page.evaluate((txt) => {
+      const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
+      const b = [...document.querySelectorAll('button,[role=tab],a')].find((e) => n(e.innerText) === txt && e.getBoundingClientRect().width > 0);
+      if (!b) return false; b.click(); return true;
+    }, process.env.X_SHOT_CLICK_TEXT);
+    console.log(`[탭] «${process.env.X_SHOT_CLICK_TEXT}» ${clicked ? '누름' : '못 찾음'}`);
+    await sleep(6000);
+  }
+  if (process.env.X_SHOT_SCROLL_TEXT) {
+    // 카드 «제목»이 고정 헤더(뒤로·종목칩, 약 85px) 바로 아래에 오게 맞춘다.
+    // ★2026-09-23 두 번 지나쳤다: ① closest() 로 큰 컨테이너를 잡아서 ② 스크롤 뒤 위쪽 스켈레톤이 줄어들어서.
+    //   그래서 «한 번 스크롤»이 아니라 «맞추고 → 기다리고 → 다시 재서 맞추기»를 반복하고, 스크롤 주체도
+    //   window 로 단정하지 않는다(앱 화면은 안쪽 컨테이너가 스크롤할 수 있다). 최종 위치를 찍어 남긴다.
+    const pad = Number(process.env.X_SHOT_SCROLL_PAD) || 100;
+    let top = null;
+    for (let i = 0; i < 4; i++) {
+      top = await page.evaluate((txt, pad) => {
+        const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
+        const el = [...document.querySelectorAll('h1,h2,h3,h4,div,span,p')].find((e) => n(e.innerText) === txt && e.getBoundingClientRect().height > 0);
+        if (!el) return null;
+        const before = el.getBoundingClientRect().top;
+        if (Math.abs(before - pad) > 8) {
+          let sc = el.parentElement;
+          while (sc && !(sc.scrollHeight > sc.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+          if (sc) sc.scrollTop += before - pad; else window.scrollBy(0, before - pad);
+        }
+        return Math.round(el.getBoundingClientRect().top);
+      }, process.env.X_SHOT_SCROLL_TEXT, pad);
+      if (top === null) break;
+      await sleep(1500);
+    }
+    console.log(`[스크롤] «${process.env.X_SHOT_SCROLL_TEXT}» ${top === null ? '못 찾음 — 맨 위로 찍는다' : `제목 위치 y=${top}px(목표 ${pad})`}`);
   }
 
   const bottom = await page.evaluate(() => {
