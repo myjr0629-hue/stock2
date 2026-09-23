@@ -68,7 +68,18 @@ const after = await page.url();
 const ansNo = (after.match(/answerNo=(\d+)/) || [])[1];
 const V = ansNo ? `${Q}&answerNo=${ansNo}` : Q;
 const html = await (await fetch(V, { headers: { 'user-agent': 'Mozilla/5.0 (Macintosh)' } })).text();
-const ok = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').includes(T.mark);
+// ★2026-09-24: 표식에 «S&P» 가 있으면 HTML 은 &amp; 로 적는다 → 엔티티를 풀고 비교(이걸 몰라 공개된 답변을 «안 보인다»고 판정했다)
+const decode = (x) => x.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0*39;|&#x27;/gi, "'").replace(/&nbsp;/g, ' ');
+let ok = decode(html.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').includes(T.mark);
+if (!ok) {
+  // 질문 페이지는 답변 5개만 그린다 — 나머지는 공개 API(로그인 없음)로 페이지를 넘기며 찾는다(9/24 실측: page=2&count=5 에 9번째 답변)
+  for (let pg = 1; pg <= 6 && !ok; pg++) {
+    const api = `https://kin.naver.com/ajax/detail/answerList.naver?dirId=${T.dirId}&docId=${T.docId}&answerSortType=&answerViewType=DETAIL&answerNo=&page=${pg}&count=5`;
+    const j = await (await fetch(api, { headers: { 'user-agent': 'Mozilla/5.0 (Macintosh)', referer: Q, 'x-requested-with': 'XMLHttpRequest' } })).text().catch(() => '');
+    ok = decode(JSON.parse(JSON.stringify(j)).replace(/<[^>]*>/g, ' ')).replace(/\\u0026/g, '&').replace(/\s+/g, ' ').includes(T.mark);
+    if (!/"detailAnswerList":\[\{/.test(j)) break;
+  }
+}
 console.log('답변 번호:', ansNo || '(없음)');
 console.log('공개 확인(로그인 없이):', ok);
 if (!ok) { console.log('⛔ 공개 페이지에 우리 답변이 안 보인다 — «올렸다»고 적지 않는다(검수 대기일 수 있다)'); process.exit(1); }

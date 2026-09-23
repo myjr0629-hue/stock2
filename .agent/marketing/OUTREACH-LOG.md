@@ -11345,3 +11345,34 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - JA 대시보드 «今日の発見»이 EN 과 다른 종목이라 추적 → `/api/undercurrent/feed?locale=ja` generatedAt **05:41Z** vs en·ko 15:59Z. uc-warm 15:30 «failures:[] 3초».
 - `refresh=1` 1회(크론과 같은 호출) → 34초에 정상 생성 16:53Z, 재조회 3회 모두 새 사본. 캐시 계층 가설 기각(실측).
 - 원인: `serveSWR` 가 재생성 실패를 로그 없이 옛 사본 200 으로 돌려줌 → 사유 불명(같은 시간대 bedrock throttled 28회는 후보일 뿐). 수리 브랜치 `fix/swr-silent-failure`(89e93ee4e) → 대표 할 일 ⑳. 임시: 사이클마다 로케일별 나이 점검.
+
+---
+
+## 2026-09-24 (KST) 01:58~02:55 — 시간 사이클: 실행 4/4 · 키우기 2 · 확장 1 · 발견 2(UC·WIM 10Y 전일값 / Quora Space 글 2편 삭제)
+
+게이트: `audit-expiration-selection.js --live` 341·실패 0. 로케일 피드 나이: ja 16:53Z(내 재생성 후 유지)·en 16:56Z·ko 15:59Z.
+
+| 채널 | 소재·화면 | 공개 URL | 검증 |
+|---|---|---|---|
+| note(JP) — **초안** | 「ダークプールの見方：同じ「51%」でもマイクロンとテスラは正反対だった」 917자 + 見出し画像(일본어 대시보드 «隠れた蓄積» 16:9 카드) + 스마트링크 카드 | 편집 https://editor.note.com/notes/na72a61c95067/edit/ | 초안: 제목·본문·헤더(assets.st-note.com)·링크카드 href=`from=note&l=ja`. **발행은 06~07시 JST 사이클**(ENGINE §17-3) |
+| instagram | 대시보드 상단(Risk-Off Watch·10Y 5.08%·F&G 36) 4:5 + 영어 캡션 | https://www.instagram.com/signumhq_official/p/Ddo0NOpD0JM/ | ⚠ 처음엔 **캡션 없이** 올라갔다(9/23 과 같은 실패) → «…→수정»에 실제 키 입력(Shift+Enter)+「완료」 실클릭으로 복구 → 봇 UA og:description 에 캡션·og:image 확인 |
+| quora_space | «Why the 'dark pool %' headline misleads…» + 영어 대시보드 화면 + 스마트링크 | https://signumhqusstockmarketintelligence.quora.com/Why-the-dark-pool-headline-misleads-and-the-two-FINRA-columns-that-don-t-Every-morning-FINRA-publishes-how-much-of | 관리자(로그인) 화면: mark·이미지·a[href]. **비로그인 확인 불가**(Quora 는 CLI 전부 403) |
+| naver_kin | 「국내상장·해외상장 ETF 차이점」(조회 1,398) — 세금·계좌·거래시간·괴리율 사실 정리, 링크 0·앱 이름 1회(제작자 공개) | https://kin.naver.com/qna/detail.naver?d1id=4&dirId=40102&docId=486953542 | 공개 API(로그인 없음) answerList page=2 에 본문·표식 확인(답변 수 8→9) |
+| bluesky #3 | $COST 실적 D-1: 금요일 만기 $900 스트래들 ≈ $28 → ±3.1%, 맥스페인 $910·감마플립 $770·$945 콜 +885 신규 — 16:9 카드(Flow COST 화면) | https://bsky.app/profile/signumhq.bsky.social/post/3mw7btb7w3y2z | 공개 API: 링크·태그 3·$COST·이미지 |
+| x_post #2 | 같은 COST 실적 지도 | https://x.com/signumhq/status/2102815248436830663 | syndication: 본문·이미지 1·`from=x_us` |
+
+오늘(KST) 누계 16건: bluesky 3/3 · x_post 2/2 · x_jp · indiehackers · medium · threads · pinterest · linkedin · instagram · quora_space · naver_kin (+ note 초안).
+
+### 확장
+- **bluesky_starter_pack — 실측 후 기각**: 공개 API `searchStarterPacks` 금융 검색 상위 41개의 누적 가입 대부분 0~4명(최대 ESG 팩 46). 금융 분야엔 이 발견 경로가 죽어 있다 → channels.json 에 «다시 제안하지 말 것»으로 등록.
+- **medium_publications — 티켓 등록**: 발행 패널의 «Publication — Submit» 링크. 다음 Medium 발행 때 «눌러서» 목록 확인(⚠ 이번에 주소를 짐작해 쳤다가 404 — `click-dont-type-urls` 위반, 다시 안 한다).
+
+### 발견·정정
+- **UC «THE MARKET NOW»·WIM 칩의 US 10Y = FRED 전일 종가(4.96%, 9/22)** — 같은 순간 SIGNUM 대시보드 5.08%. change 0 이라 UC AI 가 «yields hold firm»이라고 썼다(실제 +11bp). 홍보 화면으로 쓰지 않음, 대표 할 일 ㉑.
+- **Quora Space 글 2편 «Quora deleted this post»**(9/23 의회 거래 GS · «Same expiry, opposite sign»). 알림 없음·페이지 내 이의신청 없음 → 대표 할 일 ㉒.
+- SIGNUM Flow «Options Flow Overview» 문구가 SPY(감마플립 아래)와 COST(플립보다 17% 위)에서 **완전히 같다**(«Downside hedge pressure… Short Gamma transition») — 템플릿 규칙 점검 후보(미확정, 다음 조사).
+
+### 도구 수리
+- `scripts/instagram-post.mjs`: 캡션 누락 시 «…→수정→실제 키 입력(Shift+Enter)→완료 실클릭» 자동 복구 + 재검증.
+- `scripts/naver-kin-answer.mjs`: 공개 확인이 «S&P» 의 `&amp;` 를 못 풀어 오판 → 엔티티 디코드 + 공개 answerList API(page·count=5) 페이지 넘김.
+- `scripts/note-post.mjs`(신설): 見出し画像 = 제목 위 «글자 없는 40px 버튼» → 메뉴 「画像をアップロード」 → 선택기 → 「保存」(실측 좌표 517,121) · URL 은 붙여넣기.

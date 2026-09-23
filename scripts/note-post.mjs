@@ -55,29 +55,41 @@ if (T.edit_url) {
   if (!bd) { console.log('⛔ 본문칸 없음'); process.exit(1); }
   await page.mouse.click(bd.x, bd.y, { label: '본문' }); await L.wait(700);
   for (const line of T.lines) {
+    // URL 은 붙여넣는다 — 타이핑하면 편집기가 https:// 를 깨뜨린 적이 있다(memory paste-urls-never-type-them)
+    if (URL_RE.test(line)) { await page.keyboard.paste({ text: line }); await L.wait(600); await page.keyboard.press('Enter'); await L.wait(3500); continue; }
     await page.keyboard.type(line, { delay: 4 }); await page.keyboard.press('Enter');
-    await L.wait(URL_RE.test(line) ? 3500 : 260);
+    await L.wait(260);
   }
   await L.wait(2500);
-  // 見出し画像 — 편집기 위쪽 이미지 버튼(aria-label 또는 글자) → 선택기
+  // 見出し画像 — ★2026-09-24 실측: 제목칸 «위»의 글자·aria 없는 40px 둥근 버튼(517,121) → 메뉴
+  //   「画像をアップロード 推奨サイズ：1280×670」·「記事にあう画像を選ぶ」·「Adobe Express…」 → 업로드 항목에서 파일 선택기 → 자르기 모달 «保存»
   if (T.header) {
-    let chooser = page.waitForFileChooser({ timeout: 8000 }).catch(() => null);
-    const opened = await clickText(/画像を追加|見出し画像|画像をアップロード/, '見出し画像');
-    let fc = opened ? await chooser : null;
-    if (opened && !fc) {
+    await page.evaluate(() => window.scrollTo(0, 0)); await L.wait(600);
+    const hb = await page.evaluate(() => {
+      const t = [...document.querySelectorAll('textarea')].find((x) => /記事タイトル/.test(x.getAttribute('placeholder') || '')) || document.querySelector('textarea');
+      const ty = t ? t.getBoundingClientRect().top : 400;
+      const e = [...document.querySelectorAll('button')].find((x) => { const b = x.getBoundingClientRect(); return b.width >= 32 && b.width <= 56 && b.height >= 32 && !(x.innerText || '').trim() && !x.getAttribute('aria-label') && b.top < ty && b.left > 380; });
+      if (!e) return null; const b = e.getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }; });
+    if (!hb) { console.log('⛔ 見出し画像 버튼(제목 위 둥근 아이콘) 없음'); process.exit(1); }
+    let chooser = page.waitForFileChooser({ timeout: 6000 }).catch(() => null);
+    await page.mouse.click(hb.x, hb.y, { label: '見出し画像' });
+    let fc = await chooser;
+    if (!fc) {
+      await L.wait(1000);
       chooser = page.waitForFileChooser({ timeout: 8000 }).catch(() => null);
-      if (await clickText(/画像をアップロード/, '画像をアップロード')) fc = await chooser;
+      if (await clickText(/画像をアップロード/, '画像をアップロード', 'button,[role=button],[role=menuitem],a,li')) fc = await chooser;
     }
-    if (!fc) { console.log('⛔ 見出し画像 선택기가 안 열렸다 — 버튼 후보:', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('button,[role=button]')].map((e) => { const b = e.getBoundingClientRect(); return { t: (e.innerText || '').trim().slice(0, 16), a: e.getAttribute('aria-label') || '', y: Math.round(b.y) }; }).filter((c) => c.y < 400 && (c.t || c.a)).slice(0, 12)))); process.exit(1); }
-    await fc.setFiles(T.header); await L.wait(6000);
+    if (!fc) { console.log('⛔ 見出し画像 파일 선택기가 안 열렸다'); process.exit(1); }
+    await fc.setFiles(T.header); await L.wait(7000);
     if (!(await clickText(/^保存$/, '자르기 保存'))) console.log('(자르기 모달 없음 — 그대로 진행)');
-    await L.wait(5000);
+    await L.wait(8000);
   }
 }
 
 const st = await page.evaluate((a) => { const t = (document.body.innerText || '').replace(/\s+/g, ' ');
   return { title: a.title ? t.includes(a.title.slice(0, 12)) : true, link: t.includes('signumhq') || !!document.querySelector('a[href*="signumhq.com/app"]') || !!document.querySelector('iframe[src*="signumhq"], [data-src*="signumhq"]'),
     header: [...document.querySelectorAll('img')].some((i) => /assets\.st-note\.com|note-cakes|blob:/.test(i.src) && i.getBoundingClientRect().width > 400) }; }, { title: T.title || '' });
+// ★실측: URL 줄은 링크 카드(figure/embed, href=스마트링크)가 된다 — 편집기 안 a[href] 로 확인
 console.log('초안:', JSON.stringify(st), '주소:', await page.url());
 await page.screenshot({ path: '/tmp/ego/note-draft.png' });
 if (!st.title || !st.link) { console.log('⛔ 초안이 불완전 — 발행하지 않는다'); process.exit(1); }

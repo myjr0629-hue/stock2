@@ -63,5 +63,35 @@ try { await page.goto(first, { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(8000);
 const ok = await page.evaluate((mark) => (document.body.innerText || '').replace(/\s+/g, ' ').includes(mark), T.mark);
 console.log('검증:', first, ok);
-if (!ok) { console.log('⛔ 최신 글에 캡션 표식이 없다 — «발행했다»고 적지 않는다'); process.exit(1); }
+let fixed = ok;
+if (!ok) {
+  // ★2026-09-24 두 번째 «캡션 없는 글»(9/23·9/24): 만들기 모달에선 글자가 칸에 있어도(664자) 저장이 안 됐다.
+  //   «…(옵션 더 보기) → 수정 → 캡션 칸 실제 클릭 → keyboard.type(줄바꿈은 Shift+Enter) → 「완료」 실제 마우스 클릭»은 두 번 다 저장됐다 → 자동 복구
+  console.log('캡션 누락 → 수정으로 복구 시도');
+  const more = await page.evaluate(() => { const e = [...document.querySelectorAll('svg[aria-label]')].find((s) => /옵션 더 보기|More options/.test(s.getAttribute('aria-label') || ''));
+    const b = e ? (e.closest('[role=button],button') || e) : null; if (!b) return null; const r = b.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
+  if (more) {
+    await page.mouse.click(more.x, more.y, { label: '옵션 더 보기' }); await L.wait(2500);
+    const ed = await page.evaluate(() => { const e = [...document.querySelectorAll('[role=dialog] button, [role=dialog] [role=button]')].find((x) => /^(수정|Edit)$/.test((x.innerText || '').trim()));
+      if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
+    if (ed) {
+      await page.mouse.click(ed.x, ed.y, { label: '수정' }); await L.wait(4000);
+      const box = await page.evaluate(() => { const e = [...document.querySelectorAll('[role=dialog] [contenteditable="true"]')].find((x) => x.getBoundingClientRect().width > 100);
+        if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x + 30), y: Math.round(r.y + 14) }; });
+      if (box) {
+        await page.mouse.click(box.x, box.y, { label: '캡션 칸' }); await L.wait(600);
+        for (let i = 0; i < cap.length; i++) { if (cap[i]) await page.keyboard.type(cap[i], { delay: 6 }); if (i < cap.length - 1) await page.keyboard.press('Shift+Enter'); await L.wait(120); }
+        await L.wait(1200);
+        const done = await page.evaluate(() => { const e = [...document.querySelectorAll('[role=dialog] [role=button], [role=dialog] button, [role=dialog] div')].find((x) => /^(완료|Done)$/.test((x.innerText || '').trim()) && x.getBoundingClientRect().width > 0 && x.children.length <= 1);
+          if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
+        if (done) { await page.mouse.click(done.x, done.y, { label: '완료' }); await L.wait(7000); }
+      }
+    }
+  }
+  try { await page.goto(first, { waitUntil: 'domcontentloaded' }); } catch {}
+  await L.wait(9000);
+  fixed = await page.evaluate((mark) => (document.body.innerText || '').replace(/\s+/g, ' ').includes(mark), T.mark);
+  console.log('복구 후 검증:', fixed);
+}
+if (!fixed) { console.log('⛔ 최신 글에 캡션 표식이 없다 — «발행했다»고 적지 않는다(글은 남아 있음: …→수정으로 캡션 입력)', first); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', first);

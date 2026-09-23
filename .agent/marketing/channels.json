@@ -937,6 +937,26 @@
    "link": "https://myjr0629-hue.github.io/options-market-structure-daily/congress.html",
    "action": "notify",
    "note": "★2026-09-23 확장·실행. 프로젝트 폴더에 IndexNow 키 파일을 두고 keyLocation 으로 그 폴더 URL 18개(데이터셋 첫 페이지·의회 거래·의원 16명)를 Bing·Naver·Yandex·Seznam·Yep 에 통보 → 202 Accepted. `node scripts/indexnow-ghpages.mjs` — 주간 갱신 뒤에 돌린다. 측정: 7일 뒤 Bing 에서 site:myjr0629-hue.github.io congress 검색."
+  },
+  {
+   "id": "medium_publications",
+   "name": "Medium 출판물(Publication) 제출",
+   "tier": "B",
+   "enabled": true,
+   "tag": "medium",
+   "link": "https://signumhq.com/app?from=medium",
+   "action": "post",
+   "note": "★2026-09-24 확장 «발굴(티켓)». 근거(실측): Medium 발행 패널(/p/<id>/submission)에 «Publication — Submit your story to connect with community» 링크가 있다(9/24 10Y 글 발행 때 화면 확인). 우리 Medium 은 건당 3.5클릭·팔로워 ≈0 이라 도달이 태그 추천뿐 — 출판물에 실리면 그 출판물 팔로워 피드로 간다. 다음 행동: 다음 Medium 발행 때 패널의 Submit 을 «눌러서» 제출 가능한 출판물 목록을 본다(주소를 짐작해 치지 말 것 — 9/24 짐작 주소는 404). 금융·데이터 출판물이 있으면 1편 제출, 편집자 승인 여부를 다음 사이클에 확인. AI 지원 표시 유지."
+  },
+  {
+   "id": "bluesky_starter_pack",
+   "name": "Bluesky 스타터팩",
+   "tier": "C",
+   "enabled": false,
+   "tag": "bluesky",
+   "link": "https://signumhq.com/app?from=bluesky",
+   "action": "none",
+   "note": "⛔2026-09-24 실측 후 기각(만들지 않는다). 공개 API app.bsky.graph.searchStarterPacks: 금융 스타터팩(stocks·investing·options·trading·finance 검색 상위 41개)의 «누적 가입» 대부분 0~4명, 최대는 ESG 투자팩 46명. 금융 분야에선 스타터팩 발견 경로가 죽어 있다 → 설치로 이어질 경로 없음. 우리 도달은 해시태그→피드(Stock Market·Trading·Investing)에서 나온다(channels.json bluesky 노트). 다시 제안하지 말 것 — 조건이 바뀌면(가입 수 100+ 금융팩 등장) 재측정."
   }
  ],
  "candidates": [
