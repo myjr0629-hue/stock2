@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-23 13:50 KST** (시간 사이클 — 반복 배정 정리·핀터레스트·블루스카이 피드 규칙)
+마지막 갱신: **2026-09-23 14:20 KST** (시간 사이클 — 티스토리·LinkedIn·인스타 발행 · 대표가 브라우저 사용 시작해 중단)
 
 ---
 
@@ -39,7 +39,7 @@
 ### 1-1. 로그인 상태 (2026-09-23 실측)
 - **살아 있음**: X(@signumhq·@signumhq_jp) · Bluesky(CLI 앱비밀번호 포함) · Medium · IndieHackers · note · OKKY · Threads ·
   **Mastodon(@signumhq@mastodon.social, 신규)** · Reddit · Play Console · **App Store Connect(대표 9/23 재로그인)** · GitHub
-- **끊김**: **애플 광고 콘솔**(ASC 와 «별개 세션») · 티스토리(카카오 로그인 필요)
+- **끊김**: **애플 광고 콘솔**(ASC 와 «별개 세션») · (티스토리는 9/23 살아 있음 확인)
 - 전수 점검: `ego-browser nodejs < scripts/session-audit.mjs` → `SESSION-STATE.json`
 - ⛔ **애드몹은 대표 «개인» 계정** — 주소로 열면 회사 계정의 «신규 가입» 화면이 뜬다. 자동으로 열지 않는다.
 
@@ -72,7 +72,8 @@
 
 ### 2-3. 발행 — `PUBLISH-LEDGER.json`
 - 누적 **140건 · 40개 채널**. 일별: 9/17 26 · 9/18 24 · 9/19 25 · 9/20 19 · 9/21 17 · 9/22 19
-- **9/23(KST) 14건 + 데이터셋 문 1**: bluesky×2 · x_post · x_jp×2 · threads×2 · indiehackers · medium · note_jp · okky · mastodon×2(신규) · naver_blog · (google_dataset_search)
+- **9/23(KST) 18건 + 데이터셋 문 1**(오후: pinterest·tistory·linkedin·instagram 추가)
+- (오전) 9/23(KST) 14건 + 데이터셋 문 1: bluesky×2 · x_post · x_jp×2 · threads×2 · indiehackers · medium · note_jp · okky · mastodon×2(신규) · naver_blog · (google_dataset_search)
 - 소재 원칙(대표 9/23): «사람들이 가장 관심 가질 것» — 이번 주는 **코스트코 9/24 AMC · 마이크론 9/30 · 나이키 10/1** 실적. 우리 실적 캘린더 `/api/market/earnings-calendar` 의 `rows[].brief.{ko,en,ja}.watch` 가 «발표 때 볼 것»이다
 - 오늘 쓴 앱 화면: `public/promo/live/flow-cost-{en,ko,ja}.png` · `wim-quiz-{ko,en}.png` (퀴즈 앱 첫 홍보)
 
@@ -85,7 +86,7 @@
 | **①** | **Play Console → Monetize → Promo codes → «Create promo code» → 약관 [Accept]** | 약관 동의는 내 안전선 밖. 누르기 전엔 Play 코드를 한 장도 못 만든다 | 10초 |
 | **②** | **애플 구독 오퍼코드 발급 «승인»** (조건: 1개월 무료 · NEW+EXISTING+EXPIRED · 채널별 맞춤코드) | 오퍼코드는 **DELETE 가 없다**(CREATE/GET/UPDATE 만) — 만들면 못 지운다 | 한마디 |
 | ③ | **애플 광고 콘솔 재로그인** (`app-ads.apple.com`) | ASC 와 별개 세션. 끊겨서 오늘 지출·설치를 못 본다 | 30초 |
-| ④ | 티스토리 카카오 로그인 1회 | 세션 끊김 | 30초 |
+| ~~④~~ | ~~티스토리 카카오 로그인~~ | ✅ 9/23 확인: 로그인 살아 있었다(점검 스크립트 오판이었다). 발행 중 | — |
 | ⑤ | Play 「AI 생성 에셋」 라디오 1개 | 없으면 Play 짧은 설명(80자) 저장이 막힌다 | 10초 |
 | ⑥ | **Qiita 첫 글 약관 체크 2개**(`利用規約に同意する`·`プライバシーポリシーに同意する`) — qiita.com/drafts 의 초안 4편 중 하나를 열어 「公開設定へ」에서 체크 | 약관 동의는 내 몫이 아니다. 한 번 체크해 두시면 이후 발행은 내가 | 30초 |
 | ⑦ | 디렉터리 3곳 가입: 10words.io · Startup Fame · StartupInspire(무료 플랜) | 가입은 내 몫이 아니다. 가입만 해 두시면 등재·소개문은 내가 | 각 1분 |
@@ -110,6 +111,7 @@
 4. **앱 안 «코드 사용» 버튼** — RevenueCat `presentCodeRedemptionSheet()` 가 SDK 에 이미 있다(미연결). 다음 빌드 후보.
 5. **Mastodon** — ✅ 두 글 모두 ALT 소급 완료(사이트 API). 다음부터 `scripts/mastodon-post.mjs`(ALT 필수) — 첫 실사용 때 검증할 것.
 5-b. **블루스카이 해시태그** — 다음 글부터 `#stocks #optionstrading #investing` + `$티커`(피드 4곳 진입, channels.json bluesky 노트).
+5-d. **지식iN — 답변 가능한 질문 후보(9/23 스캔)**: 495279006(답 1) · 495278190 · 495278635 · 495279419 · 495279091 · 495270267 · 495277618 · 495260490 — 본문 쪽 「답변하기」(y>200) 확인됨. 제목 확인 후 «투자 조언 요청·AI 금지» 아닌 것에 답한다(본문 링크 금지·앱 이름 0~1회).
 5-c. **지식iN 답변 정본 스크립트** — `scripts/naver-kin-answer.mjs` 가 아직 없다. 「쓰기 버튼 유무」부터 확인(닫힌 질문엔 버튼이 없다, GNB 「답변하기」는 목록 메뉴).
 6. **구독 대표 이미지(1024×1024)** — ASC 구독 페이지에 «비어 있음». 오퍼코드 리딤 화면·제품 페이지에 뜨는 자리다.
 
