@@ -37,11 +37,23 @@ const etDay = (d) => new Intl.DateTimeFormat('en-CA', {
 }).format(d);
 
 const tags = (() => {
+    // ★2026-09-23 수리 — 예전엔 `c.tag || c.id` 를 썼다. 그런데 bluesky 의 tag 는 «bluesky_bio»(프로필 링크)라
+    //   실제 게시물 링크(from=bluesky)를 통째로 놓쳤다 — 하루 15클릭 채널이 표에서 «사라졌다».
+    //   이제 mkt-clicks.js 와 같은 방식으로 id·tag·bio 태그의 «합집합»을 본다.
+    //   그리고 클릭 캐시(clicks-cache.json)에 실제로 찍힌 태그도 더한다 — 원장과 채널표의 이름이 달라도
+    //   (x_post↔x_us, note_jp↔note) «실제로 클릭이 들어온 이름»은 빠지지 않는다.
+    const out = new Set(['reddit_bio', 'quora_bio', 'x_reply', 'github_profile', 'bluesky_bio']);
     try {
         const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8'));
         const arr = Array.isArray(raw) ? raw : (raw.channels || []);
-        return [...new Set(arr.map((c) => c.tag || c.id).filter((t) => /^[a-z0-9_]{1,24}$/.test(t || '')))];
-    } catch { return []; }
+        for (const c of arr) for (const t of [c.id, c.tag]) if (/^[a-z0-9_]{1,24}$/.test(t || '')) out.add(t);
+    } catch { /* 채널표가 없어도 캐시 쪽으로 진행 */ }
+    try {
+        const cache = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), 'utf8'));
+        const txt = JSON.stringify(cache);
+        for (const m of txt.matchAll(/"([a-z0-9_]{2,24})"/g)) if (!/^\d/.test(m[1])) out.add(m[1]);
+    } catch { /* 캐시가 없으면 채널표만 */ }
+    return [...out];
 })();
 
 async function get(key) {
