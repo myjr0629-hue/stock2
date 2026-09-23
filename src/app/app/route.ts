@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
 import { PREVIEW_BOT_RE, previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
+import { desktopHandoffHtml } from '@/lib/marketing/desktopHandoff';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -60,6 +61,13 @@ async function recordHit(fromRaw: string | null, platform?: HitPlatform): Promis
   }
 }
 
+/** PC 넘겨주기 QR 로 «폰에서» 들어온 클릭 — 넘겨주기가 먹히는지 따로 잰다. */
+async function recordQrHit(fromRaw: string | null) {
+    const from = (fromRaw || '').toLowerCase();
+    if (!/^[a-z0-9_]{1,24}$/.test(from)) return;
+    try { await bump(`mkt:attr:qr:${from}:${etDate()}`); } catch { /* 집계 실패가 이동을 막지 않는다 */ }
+}
+
 /** 코드 링크 클릭 — 일반 클릭과 «따로» 센다. 섞으면 코드가 먹혔는지 영영 못 잰다. */
 async function recordCodeHit(fromRaw: string | null) {
     const from = (fromRaw || '').toLowerCase();
@@ -70,7 +78,7 @@ async function recordCodeHit(fromRaw: string | null) {
 // 링크 미리보기 기계는 `@/lib/marketing/linkPreview` 한 곳에 있다.
 // ★2026-09-20: 예전엔 이 파일 안에만 있었고 /app-uc·/app-wim 에는 아예 없었다
 //   (UC·WIM 링크가 카드 없이 맨 URL 로 떴다). 공용 모듈로 빼서 세 라우트가 같은 것을 쓴다.
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const ua = request.headers.get('user-agent') || '';
 
   if (PREVIEW_BOT_RE.test(ua)) {
@@ -127,10 +135,34 @@ export function GET(request: NextRequest) {
       `https://apps.apple.com/redeem?ctx=offercodes&id=${APPLE_APP_ID}&code=${encodeURIComponent(code)}`, 302);
   }
 
+  // PC 넘겨주기 QR 로 폰에서 들어온 것은 따로도 센다(원래 채널 집계는 위 recordHit 이 이미 했다).
+  if (hitPlatform !== 'desktop' && request.nextUrl.searchParams.get('via') === 'qr') {
+    after(() => recordQrHit(fromTag));
+  }
+
   if (/android/i.test(ua)) {
     return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum'), 302);
   }
+  if (hitPlatform === 'ios') {
+    // iOS opens the native App Store sheet.
+    return NextResponse.redirect(appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'), 302);
+  }
 
-  // iOS opens the native App Store sheet; desktop lands on the App Store web page.
-  return NextResponse.redirect(appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'), 302);
+  // ── PC: 스토어로 바로 보내지 않고 «폰으로 넘겨주기» 페이지를 보여준다 ──
+  // ★2026-09-23 실측: 소셜 클릭의 81% 가 PC 였다(2일 83클릭 중 67). PC 에서 apps.apple.com 을 열면
+  //   폰에 설치할 방법이 없다 — 발행을 늘려도 설치가 안 늘던 기계적 원인. 자세한 근거는 desktopHandoff.ts.
+  //   스토어 버튼 2개는 그대로 둔다(애플 실리콘 맥은 앱스토어에서 설치할 수 있다).
+  //   ⚠ 반드시 no-store + Vary: User-Agent — CDN 이 이 HTML 을 폰에게 주면 폰이 스토어로 못 간다.
+  try {
+    const html = await desktopHandoffHtml({
+      fromTag,
+      lang: previewLang(fromTag, request.nextUrl.searchParams.get('l')),
+      appStoreUrl: appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'),
+      playStoreUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum'),
+    });
+    return new NextResponse(html, previewResponseInit());
+  } catch {
+    // 페이지를 못 만들면 예전처럼 앱스토어로 보낸다 — 넘겨주기 실패가 이동을 막으면 안 된다.
+    return NextResponse.redirect(appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'), 302);
+  }
 }
