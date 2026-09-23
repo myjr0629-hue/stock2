@@ -11013,3 +11013,38 @@ QUEUE t205 Play 약관(대표) · t206 애플 오퍼코드 승인(대표) · t20
 ### 배운 것
 - 네이버는 `waitForFileChooser` 가 «먹는다»(Medium 은 안 먹었다) — 에디터마다 다르다. 한 장이면 「개별사진」 창이 안 뜬다.
 - 마스토돈 웹 작성기의 ALT 칸은 렌더 타이밍마다 달라 두 번 못 찾았다 → **사이트 API(로그인된 페이지 안에서)** 가 정답.
+
+---
+
+## 2026-09-23 (KST) 12:40~13:50 — 시간 사이클: «반복 배정» 정리 · 핀터레스트 · 블루스카이 피드 진입 규칙
+
+### 크론 정리
+`a05cab72` → **`9712d5a0`** 재생성. 안전선 문구를 새 캡 규칙과 맞췄다(예전 문구 「한 채널 하루 1편」이 캡 상향과 충돌).
+소재 원칙(«지금 사람들이 가장 관심 가질 것»)과 «지표의 뜻 + 앱 가치로 설치 유도»를 절차 (3)에 넣었다. HANDOFF 부록 A 동기화.
+
+### 반복 배정 4건 → 게이트(«도구의 신호»를 고쳤다)
+play_short_description·apple_app_preview·android_deep_links·app_share 가 9/19 부터 매시간 실행 1~4번을 차지했다.
+전부 «내가 이 시간 안에 못 끝내는 이유»가 있었다: Play AI 에셋 신고(대표) / 미리보기 영상은 «다음 버전»에 붙음 /
+딥링크는 매니페스트 = 다음 안드로이드 빌드 / 공유 버튼은 개발(t210 — `@capacitor/share` 미설치 확인, 단 앱이
+server.url 로 웹을 띄우므로 «웹 쪽 복사·공유 버튼»은 빌드 없이 전원에게 간다). 게이트로 등록하자 슬롯이
+**실제로 할 수 있는 것**(directories·naver_kin·pinterest·github)을 배정하기 시작했다.
+
+### 실행
+| 항목 | 결과 |
+|---|---|
+| **pinterest** ✅ | 「What open interest tells you before an earnings report (Costco example)」 + 코스트코 앱 화면 → pin/1102115340098704841 — 제목·랜딩 `from=pinterest` 확인. **함정**: 게시 버튼이 y=26 으로 옮겨 있었고(예전 184), 마우스 클릭은 안 먹고 `element.click()` 이 먹었다 → `scripts/pinterest-post.mjs` 에 둘 다 반영 |
+| **github** ✅ | 데이터셋 저장소 9/22 스냅샷 커밋 da26a42(README 에 `from=github` 링크 확인) |
+| **directories** ⛔(가입) | 남은 무료 후보 4곳을 «실제로» 열었다: 10words(가입) · Startup Fame(구글 연동 = 새 계정) · StartupInspire(무료 플랜 → /signup) · Make.rs(유료). 짐작한 `/submit` 은 404 였다 — 누른 버튼은 `/pricing`. → 게이트(대표 3곳 가입) |
+| **naver_kin** ✗(미발행) | 「미국주식 실적 발표 모아놓은 사이트 있나요?」(6/2) 를 찾았으나 **답변 버튼이 없는 질문**이었다(오래돼 닫힘). 상단 GNB 의 「답변하기」는 «답변할 질문 목록»으로 가는 메뉴다 — 착각 주의. 최신 질문 목록 파싱은 구조가 달라 0건. **올렸다고 적지 않는다.** 다음: `scripts/naver-kin-answer.mjs` 를 정본으로 만든다(쓰기 버튼 유무부터 확인) |
+
+### 뚫기
+- **qiita** — 로그인 살아 있음 · **초안 4편 준비**(「FINRA の公開…」). 발행 화면에 `利用規約に同意する`·`プライバシーポリシーに同意する` 체크 2개 필수 → 약관 동의라 **누르지 않았다**. 대표 1회.
+- **zenn** — 로그아웃(Log in) → 가입 필요, 대표.
+
+### 확장 — 블루스카이 금융 피드 진입 규칙(공개 API 실측)
+도달은 팔로워가 아니라 «피드»다(§age-sorted-queue… 에서 이미 확인). 해시태그만 넣으면 끌어가는 피드:
+Stock Market(♥113, `#stocks`) · Trading(♥73, `#optionstrading #stockmarket #stocks #investing` 외) · Investing(♥24, `#Investing #S&P500`) · Quant Finance(♥25, `#options #volatility`).
+**오늘까지 우리 블루스카이 글의 해시태그는 0개였다.** 발행기는 #tag·$cash facet 을 이미 만든다 → 다음 글부터 `#stocks #optionstrading #investing` + `$티커`.
+
+### 광고
+애플 광고 콘솔 세션 끊김(대표 로그인 대기) → 오늘 지출·설치 미확인. JP 캠페인 일 $5 상한 유지.

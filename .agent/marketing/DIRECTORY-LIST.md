@@ -117,3 +117,12 @@ Pop = SaaSHub 인기도 / DS = 도메인 점수 / Traffic = 월 방문
 3. 드롭다운 옵션을 「화면에 보이는 작은 요소」로 넓게 잡아 클릭하면 **푸터 링크(Product Promotion)를 눌러 페이지가 날아간다.** 찾기와 클릭을 분리하고 `[class*="__option"]` 으로 좁힐 것.
 4. **LinkedIn 칸은 `/in/` 개인 프로필을 거부**한다(「must be a company or a product page」). 우리 주소가 `/in/signumhq` 라 제출이 막혔다 → 선택 항목이니 비우고 제출. 회사 페이지를 만들면 채울 수 있다.
 5. 제출 버튼 텍스트는 단계마다 다르다: `Continue`(name=commit) → `Free` → `Proceed with selection` ×2. 전부 화면 밖(y>1300)이라 **scrollIntoView 후 클릭**해야 한다.
+
+## 2026-09-23 실측 — 남은 무료 후보 4곳, 전부 «가입» 벽
+| 디렉터리 | 결과 | 근거(화면) |
+|---|---|---|
+| **10words.io** | 가입 필요 | 「Submit Your Startup」 → `portal.10words.io/auth/register`(이메일+비밀번호). 등재 자체는 무료·뉴스레터·확장프로그램 노출 |
+| **Startup Fame** (DS 49) | 가입 필요 | 「Submit your startup」 → `/login`(Continue with Google). 구글 연동도 «새 계정 생성»이라 안전선 밖 |
+| **StartupInspire** (DS 30) | 가입 필요 | 「Submit Startup」 → `/pricing` 무료 플랜(1개·즉시승인·영구등재) → 「Submit now」 → `/signup` |
+| **Make.rs** | 유료 | 가격표 3곳 |
+→ **대표 1회**: 세 곳 가입(각 1분)만 해 두시면 등재·소개문 작성은 내가 한다. `/submit` 같은 주소는 짐작하지 말 것 — StartupInspire 는 짐작한 `/submit` 이 404 였고, 누른 버튼은 `/pricing` 이었다.
