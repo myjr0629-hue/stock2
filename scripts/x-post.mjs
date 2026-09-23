@@ -64,20 +64,26 @@ if (task.image) {
 await L.wait(5500);
 await page.keyboard.down('Meta'); await page.keyboard.press('Enter'); await page.keyboard.up('Meta');
 await L.wait(9000);
-try { await page.goto('https://x.com'+task.handle, { waitUntil:'domcontentloaded' }); } catch {}
-await L.wait(6000);
-// 검증 — 고정글을 빼고 «가장 최근 원글»의 status 주소를 뽑는다.
-// ⚠ 2026-09-23 수리: 예전엔 템플릿 안의 정규식 이스케이프가 두 번 먹어 href 가 항상 null 이었다(글은 올라가 있었다).
-const top = await page.evaluate((h) => {
-  const handle = h.replace('/', '').toLowerCase();
-  return [...document.querySelectorAll('article[data-testid="tweet"]')].slice(0, 4).map((a) => {
-    const own = [...a.querySelectorAll('a[href*="/status/"]')].map((x) => x.getAttribute('href'))
-      .find((x) => x.toLowerCase().startsWith('/' + handle + '/status/') && /\/status\/\d+$/.test(x)) || null;
-    return { pinned: /Pinned|고정/.test(a.innerText), status: own, img: a.querySelectorAll('[data-testid="tweetPhoto"] img').length,
-      text: (a.innerText || '').replace(/\s+/g, ' ').slice(0, 40) };
-  });
-}, task.handle);
-const newest = top.find((t) => !t.pinned && t.status);
-console.log(JSON.stringify(top));
-if (newest) console.log('\n✅ 공개 URL: https://x.com' + newest.status + ' · 이미지 ' + newest.img);
-else console.log('⛔ 새 글의 주소를 못 찾았다 — «발행했다»고 적지 않는다');
+// 검증 — «본문 첫 줄»이 들어 있는 글을 찾는다(최대 3번, 갱신 지연 대비).
+// ⚠ 2026-09-24 수리: 예전엔 «고정글 아닌 첫 글»을 새 글로 보고했다 → 프로필 갱신이 늦자 12시간 전 글을
+//   «공개 URL»로 찍었다(새 글은 1분 뒤 목록에 나타났다). 내용으로 맞추지 않으면 확인이 아니다.
+// (2026-09-23: 템플릿 안 정규식 이스케이프가 두 번 먹어 href 가 늘 null 이던 것도 고쳐져 있다)
+const mark = readFileSync(task.file, 'utf8').trim().split('\n')[0].replace(/https?:\/\/\S+/g, '').trim().slice(0, 24);
+let found = null, top = [];
+for (let i = 0; i < 3 && !found; i++) {
+  try { await page.goto('https://x.com'+task.handle, { waitUntil:'domcontentloaded' }); } catch {}
+  await L.wait(6000 + i * 5000);
+  top = await page.evaluate((h) => {
+    const handle = h.replace('/', '').toLowerCase();
+    return [...document.querySelectorAll('article[data-testid="tweet"]')].slice(0, 5).map((a) => {
+      const own = [...a.querySelectorAll('a[href*="/status/"]')].map((x) => x.getAttribute('href'))
+        .find((x) => x.toLowerCase().startsWith('/' + handle + '/status/') && /\/status\/\d+$/.test(x)) || null;
+      return { pinned: /Pinned|고정/.test(a.innerText), status: own, img: a.querySelectorAll('[data-testid="tweetPhoto"] img').length,
+        text: (a.innerText || '').replace(/\s+/g, ' ') };
+    });
+  }, task.handle);
+  found = top.find((t) => !t.pinned && t.status && t.text.includes(mark)) || null;
+}
+console.log(JSON.stringify(top.map((t) => ({ ...t, text: t.text.slice(0, 40) }))));
+if (found) console.log('\n✅ 공개 URL: https://x.com' + found.status + ' · 이미지 ' + found.img);
+else console.log('⛔ 본문(«' + mark + '»)이 든 새 글을 못 찾았다 — «발행했다»고 적지 않는다');
