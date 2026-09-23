@@ -58,13 +58,17 @@ await page.mouse.click(st.x, st.y, { label: 'Reply' });
 await L.wait(9000);
 
 // ④ 공개 확인 — 내 «답글» 탭에서 mark 가 보이는가(스레드 안은 «스팸 가능성» 접힘에 숨을 수 있다)
+// ★2026-09-23: 답글 탭 갱신이 늦어 8초 한 번 확인은 «안 보인다»로 빗나갔다(재확인하니 스레드·탭 모두 노출) → 최대 3번 다시 본다
+let v = { seen: false, link: null };
+for (let i = 0; i < 3 && !v.seen; i++) {
 try { await page.goto('https://x.com/signumhq/with_replies', { waitUntil: 'domcontentloaded' }); } catch {}
-await L.wait(8000);
-const v = await page.evaluate((mark) => {
+await L.wait(8000 + i * 4000);
+v = await page.evaluate((mark) => {
   const a = [...document.querySelectorAll('article')].find((x) => (x.innerText || '').includes(mark));
   const link = a ? [...a.querySelectorAll('a[href*="/status/"]')].map((y) => y.getAttribute('href')).find((h) => /^\/signumhq\/status\/\d+$/.test(h)) : null;
   return { seen: !!a, link };
 }, T.mark);
+}
 console.log('내 답글 탭:', JSON.stringify(v));
 if (!v.seen) { console.log('⛔ 답글 탭에서 안 보인다 — «발행했다»고 적지 않는다(스팸 분류 가능성, 스레드에서 따로 확인)'); process.exit(1); }
 console.log('\n✅ 답글 게시·확인:', 'https://x.com' + v.link);
