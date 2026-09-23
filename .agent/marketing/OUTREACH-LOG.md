@@ -11098,3 +11098,33 @@ Stock Market(♥113, `#stocks`) · Trading(♥73, `#optionstrading #stockmarket 
 ### 보류·다음
 - 레딧 0/3(UTC) — 미국 새벽이라 22:30 사이클로. 후보: r/thetagang «Options selling isn't free money»(5.6h, ♥118), r/stocks META $194B 스레드
 - 블루스카이 #3 — 의회 거래 카드 + `#stocks #optionstrading #investing` `$GS` 를 미국 오전(21:30 KST 이후)에
+
+---
+
+## 2026-09-23 (KST) 16:00~17:00 — 시간 사이클: 블루스카이 3/3 · Quora Space · 지식iN 10 · 확장=의회 거래 데이터셋(GitHub Pages) · 반복 배정 원인 4개 수리
+
+게이트 341건 0실패 · 크론 9712d5a0 생존.
+
+### 실행
+| 항목 | 결과 |
+|---|---|
+| **bluesky** ✅ 3/3 | 의회 거래 GS 카드(16:9 합성, `make-x-card.py`) + `#stocks #investing #optionstrading` `$GS`. 공개 API: 링크 facet(from=bluesky)·해시태그 3·캐시태그·이미지 1+ALT. https://bsky.app/profile/signumhq.bsky.social/post/3mw66copjky2c · **발행기 수리**: `--image-file`(로컬 임시 서버로 넘김)·`--alt`·`--text-file`. ⚠ `bskyPost` 는 aspectRatio 를 1200×675 로 고정 → 이미지는 반드시 16:9 카드로 |
+| **quora_space** ✅ | 「Congress bought Goldman Sachs 18 times and sold Big Tech…」 — 답변과 다른 각도(대형주 매도 쪽 GOOGL 0/6·JPM 0/5·NVDA 1/4, 의원 수는 표기 합쳐 셈). 카드 이미지 + 앱 링크(미리보기 카드). 게시물 4→5, 새 글에서 mark·이미지·`a[href]…from=quora_space` 확인(로그인 화면). 발행기 신설 `scripts/quora-space-post.mjs` — **9/20 의 «URL 이 두 번 들어간다»는 실은 링크 미리보기 카드가 주소를 두 번 보여 준 것**이었다(중복 아님) |
+| **naver_kin** ✅ 10/12 | 리딩방 «공모주 선입고 양도» 질문 — 정상 거래 방식이 아니고 금감원이 경고한 사기 수법임을 청약→배정→상장일 입고 구조로 설명, 이미 송금했으면 은행·경찰·1332. 비로그인 공개 확인 |
+| **reddit** ⏸ 0/3 | 17시 KST = 미국 04시. 7시간 넘은 스레드에 다는 댓글은 안 보인다 → 런북대로 22:30 사이클로 넘김(«못 한 것»이 아니라 «시각 선택») |
+
+### 확장 — 의회 거래 공개 데이터셋 (신규 표면, 실행까지)
+https://myjr0629-hue.github.io/options-market-structure-daily/congress.html — 200 · schema.org **Dataset JSON-LD**(distribution CSV·JSON, temporalCoverage) · 표 25행 · 앱 링크 `?from=github_pages`.
+CSV(192행, 행마다 공식 공시 링크) · JSON(60종목). 기존 데이터셋 첫 페이지에 «Related dataset» 링크를 걸어 크롤러가 찾게 했다(라이브 확인).
+우리 웹·앱은 무변경 — Vercel 검증 문제(대표 할 일 ⑩)를 비켜 가는 경로. 같은 의원 표기 합치기를 여기서는 이미 적용.
+생성기 `scripts/congress-dataset.mjs`, 채널 `github_pages_congress`(주 1회 갱신 규칙 — 90일 창이 밀리므로 거르면 죽은 데이터).
+측정: from=github_pages 클릭 + 9/30 datasetsearch 에서 «congress stock trades» 노출 여부.
+
+### 반복 배정 = 도구의 신호 → 원인 4개 수리
+1. **android_install_banner** 가 «기록없음»으로 매 사이클 뚫기에 떴다 — **9/20 에 이미 배포**(커밋 5bb290072)돼 있었고 라이브 manifest 에 `related_applications`+`prefer_related_applications` 확인. 채널 기록을 안 고친 것이 원인 → 게이트 [측정] 9/30(Play 획득 보고서 «웹사이트» 유입 비교).
+2. 계정 막힌 곳이 뚫기 레인을 차례로 점유 → producthunt·alternativeto·taaft·devto·disquiet 를 [계정] 게이트로. (hf_datasets 는 «대표 개인 계정으로 로그인, 내가 관리» — 막힌 게 아니라 다음 사이클 실행 대상)
+3. «규칙 미정의 6개» 경고 → seo_uc/sg/wim(측정 전용 cap 0) · devto(cap 1+게이트) · amazon_appstore(cap 0, 게이트) · apple_cpp_channels(주 1) 규칙 추가.
+4. «대표 가입 대기 8건»이 9/20 낡은 목록(끝난 마스토돈 가입 등)을 읽고 있었다 → **HANDOFF §3 표**를 읽도록 `mkt-plan.js` 수정.
+
+### 광고
+애플 광고 콘솔 세션 끊김(대표 할 일 ③) — 이번 사이클 지출·설치 미확인. 예산·입찰 변경 없음.

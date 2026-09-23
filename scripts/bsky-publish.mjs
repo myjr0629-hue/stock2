@@ -19,6 +19,7 @@
 //   node scripts/bsky-publish.mjs --check                     상태만 확인(발행 안 함)
 //   node scripts/bsky-publish.mjs --file <원고.md>            원고의 「## 본문」 블록을 발행
 //   node scripts/bsky-publish.mjs --text "..." [--image <url>]
+//   node scripts/bsky-publish.mjs --text-file <본문.txt> --image-file <16:9 카드.png> --alt "이미지 설명"
 // ============================================================================
 
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
@@ -60,7 +61,7 @@ function bodyFromDraft(path) {
 
 const M = await loadBluesky();
 
-if (has('--check') || (!arg('--text') && !arg('--file'))) {
+if (has('--check') || (!arg('--text') && !arg('--file') && !arg('--text-file'))) {
   const configured = M.blueskyConfigured();
   console.log('설정됨:', configured ? '✅' : '❌  (.env.local 에 BLUESKY_HANDLE / BLUESKY_APP_PASSWORD 필요)');
   if (configured) {
@@ -70,8 +71,21 @@ if (has('--check') || (!arg('--text') && !arg('--file'))) {
   process.exit(configured ? 0 : 1);
 }
 
-const text = arg('--text') || bodyFromDraft(arg('--file'));
-const image = arg('--image') || undefined;
+const text = arg('--text') || (arg('--text-file') ? readFileSync(arg('--text-file'), 'utf8').trim() : bodyFromDraft(arg('--file')));
+// ★2026-09-23 --image-file <로컬 경로> — bskyPost 는 «URL»로만 이미지를 받는다(Node fetch 는 file: 를 못 연다).
+//   이 프로세스 안에 127.0.0.1 임시 서버를 띄워 그 주소를 넘기고, 발행이 끝나면 닫는다.
+//   ⚠ bskyPost 는 aspectRatio 를 1200×675 로 고정해 보낸다 → 이미지는 반드시 16:9 카드(make-x-card.py)로 만든다.
+//     세로 앱 화면을 그대로 넣으면 피드에서 비율이 틀어진다.
+let image = arg('--image') || undefined;
+let server = null;
+if (arg('--image-file')) {
+  const http = await import('node:http');
+  const buf = readFileSync(arg('--image-file'));
+  server = http.createServer((q, r) => { r.writeHead(200, { 'content-type': 'image/png' }); r.end(buf); });
+  await new Promise((z) => server.listen(0, '127.0.0.1', z));
+  image = `http://127.0.0.1:${server.address().port}/card.png`;
+}
+const alt = arg('--alt') || undefined;
 
 if (text.length > 300) {
   console.error(`본문 ${text.length}자 — Bluesky 한도 300자를 넘는다. 줄이고 다시 실행한다.`);
@@ -79,7 +93,8 @@ if (text.length > 300) {
 }
 console.log(`본문 ${text.length}자 / 300${image ? ' · 이미지 ' + image : ''}`);
 
-const res = await M.bskyPost(text, image);
+const res = await M.bskyPost(text, image, alt);
+if (server) server.close();
 if (!res.ok) { console.error('발행 실패:', res.error); process.exit(1); }
 
 // at://did:plc:xxx/app.bsky.feed.post/<rkey> → 공개 URL

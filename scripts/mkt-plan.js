@@ -34,6 +34,14 @@ const CH = {
   kr_media:    { cap: 1, day: 'week', window: [0, 24], note: '★무료. 벤처스퀘어·플래텀·스타트업레시피 — 게재되면 네이버 뉴스 검색에 노출(SEO 직결). 메일 발송은 대표 승인' },
   jp_media:    { cap: 1, day: 'week', window: [0, 24], note: '메일 발송은 대표 승인 필요. AppBank·GIGAZINE·iPhone Mania 무료. Appliv 무료등재는 404(유료 전용)' },
   alternativeto: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-19 확장 등록(58번째). ★계정 대기(t202) — 계정이 생기면 cap 1. 근거: 오늘 광고 실측에서 전환한 말이 «market data»($1.61)·«finance app»($8.14)·«프리마켓»이었다 — 사람들은 브랜드가 아니라 «기능»으로 찾는다. 「X alternatives」 검색이 그 의도와 겹친다. 무료·사용자 제출형·고권위. 등재는 3앱 각각(설명·스크린샷·카테고리·라이선스) + 관련 alternatives 페이지에 후보 추가. ⚠️ 추적 파라미터 금지 디렉터리가 있다 — 규칙을 먼저 읽고 금지면 순수 URL 로 넣는다.' },
+  // ★2026-09-23 «규칙 미정의 6개»를 정했다(매 사이클 경고가 떴다 = 도구의 신호)
+  seo_uc:      { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그(티커 페이지 CTA 3개 분리, 9/20) — 발행 대상 아님. 9/27 에 seo_uc·seo_sg·seo_wim 클릭을 비교해 이긴 앱을 1순위 CTA 로' },
+  seo_sg:      { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그 — seo_uc 참고' },
+  seo_wim:     { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그 — seo_uc 참고' },
+  devto:       { cap: 1, day: 'kst', window: [0, 24], note: 'dev.to — 계정 필요(대표 1회, POST /api/articles 401). 자기 제품은 «공개하면» 허용 · canonical_url 로 원본 지정. 원고 준비됨' },
+  amazon_appstore: { cap: 0, day: 'week', window: [0, 24], note: '1급 스토어(설치가 직접 난다). 개발자 계정 대표 1회 → 그 뒤 cap 1 로 올려 APK 3개 업로드' },
+  apple_cpp_channels: { cap: 1, day: 'week', window: [0, 24], note: 'CPP 를 채널 언어별로(ko/ja/en-tech). ASC API 로 생성 → 심사 24~48h → storeRedirect.ts 매핑(라이브 웹 변경 = 실화면 검증 후 배포)' },
+  github_pages_congress: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 갱신 — node scripts/congress-dataset.mjs → github-upload.mjs(세 파일). 90일 창이 밀리므로 갱신을 거르면 «죽은 데이터»가 된다' },
   producthunt: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-19 확장 등록(57번째). ★계정 대기(t200) — 메이커 계정이 런치 시점에 «약 1주일 이상» 돼 있어야 한다(당일 생성·당일 런치 금지)라 cap 0 으로 잠근다. 계정이 생기면 cap 1 로 올리고 «한 번만» 쏜다 — 6개월 내 재런치는 메이저 업데이트 심사 대상. 태그라인 60자 제한 · 링크는 제품을 받을 수 있는 대표 페이지 하나 · 런치는 1개월 전까지 예약 가능. 화·수·목 태평양시 아침이 노출이 높다. 준비물(한국어·영문 스크린샷, OG 이미지, 스마트링크)은 이미 있다.' },
   apple_ppo:   { cap: 1, day: 'week', window: [0, 24], note: '★(선행: 스크린샷 변형 3장 렌더 — t194) App Store «제품 페이지 최적화»(PPO) — 아이콘·스크린샷·미리보기 A/B(무료, ASC API appStoreVersionExperimentsV2). Play 실험의 iOS 짝. 텍스트는 대상 아님 → 스크린샷 변형(첫 장=프리마켓/실적) 준비가 먼저' },
   naver_search_advisor: { cap: 1, day: 'week', window: [0, 24], note: '★네이버 색인 0건(8/18 실측)의 가장 값싼 카드. 서치어드바이저 사이트 등록→소유확인(meta)→사이트맵 제출. 첫 문턱 = 이용약관 동의 1클릭(대표, t195)' },
@@ -231,19 +239,16 @@ if (cmd === 'slot') {
   if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
   console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id).join(', '));
 
-  // ── 대표 가입 체크 감지 ──────────────────────────────────────────
-  // CEO-SIGNUP-LIST.md 의 `- [x]` 를 매 사이클 읽는다. 체크된 것은 «지금 가동할 것»이다.
+  // ── 대표 할 일 ──────────────────────────────────────────────────
+  // ★2026-09-23: 예전엔 CEO-SIGNUP-LIST.md(9/20 기준)를 읽어 이미 끝난 «마스토돈 가입» 등을 계속 띄웠다.
+  //   정본은 HANDOFF.md §3 표다 — 거기서 취소선(~~) 없는 행만 센다.
   try {
-    const sl = fs.readFileSync(path.join(ROOT, '.agent/marketing/CEO-SIGNUP-LIST.md'), 'utf8');
-    const done = [...sl.matchAll(/^- \[x\]\s+\*\*([^*]+)\*\*/gim)].map((m) => m[1].trim());
-    const open2 = [...sl.matchAll(/^- \[ \]\s+\*\*([^*]+)\*\*/gim)].map((m) => m[1].trim());
-    if (done.length) {
-      console.log('\n🔔 대표님이 체크한 신규 가입 ' + done.length + '건 — 이번 사이클에 «즉시» 가동한다');
-      done.forEach((d) => console.log('   ✅ ' + d));
-      console.log('   → channels.json 에서 enabled:true 로 바꾸고, 그 채널 성격에 맞게 첫 발행까지 한다');
-    }
-    console.log('\n· 대표 가입 대기 ' + open2.length + '건: ' + open2.join(', '));
-  } catch { console.log('\n· CEO-SIGNUP-LIST.md 를 못 읽었다 — 경로 확인'); }
+    const hf = fs.readFileSync(path.join(ROOT, '.agent/marketing/HANDOFF.md'), 'utf8');
+    const sec = (hf.split('## 3. 대표 할 일')[1] || '').split('\n## ')[0];
+    const items = sec.split('\n').filter((l) => /^\|\s*\**[①-⑳]/.test(l) && !/~~/.test(l))
+      .map((l) => l.split('|')[2].replace(/\*\*/g, '').replace(/`/g, '').trim().slice(0, 34));
+    console.log('\n· 대표 할 일 ' + items.length + '건(HANDOFF §3 정본): ' + items.join(' / '));
+  } catch { console.log('\n· HANDOFF.md §3 을 못 읽었다 — 경로 확인'); }
   process.exit(0);
 }
 if (cmd === 'today') { const led = load(); const k = kstDate(); for (const e of led.entries.filter((x) => x.kst === k)) console.log(`${e.at.slice(11, 16)}Z ${e.ch.padEnd(14)} ${e.url}`); process.exit(0); }
