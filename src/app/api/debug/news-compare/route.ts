@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const CACHE_KEY = "debug:news-compare:v1";
+const CACHE_KEY = "debug:news-compare:v2";
 const TTL = 900;
 const FMP_KEY = process.env.FMP_API_KEY || "";
 const INTRINIO_KEY = process.env.INTRINIO_API_KEY || "";
@@ -25,6 +25,8 @@ const TICKERS: Record<string, RegExp> = {
     COST: /\bcostco\b/i, NKE: /\bnike\b/i, AMD: /\bamd\b|advanced micro/i, META: /\bmeta\b|facebook/i, PLTR: /\bpalantir\b/i,
 };
 
+// 구글 뉴스 검색어 — 티커만 쓰면 «COST stock»이 비용 기사로 샌다(v1 실측 COST 정확도 6%) → 회사명으로
+const GQ: Record<string, string> = { NVDA: "Nvidia", AAPL: "Apple", TSLA: "Tesla", MU: "Micron", GS: "Goldman Sachs", COST: "Costco", NKE: "Nike", AMD: "AMD", META: "Meta Platforms", PLTR: "Palantir" };
 type Item = { title: string; body: string; ts: number | null; publisher: string };
 
 async function getText(url: string, init?: RequestInit): Promise<{ status: number; text: string; ms: number }> {
@@ -85,6 +87,11 @@ function metrics(items: Item[], now: number, rel?: { sym: string; name: RegExp }
         const hit = items.filter((i) => symRe.test(i.title) || rel.name.test(i.title) || rel.name.test(i.body.slice(0, 600)) || symRe.test(i.body.slice(0, 600))).length;
         out.relevantPct = items.length ? Math.round((hit / items.length) * 100) : null;
         out.relevantN = hit;
+        // 종목과 무관한 기사를 걸러낸 «뒤»에도 신선한가 — 거른 뒤의 최신 기사 나이와 24시간 건수
+        const relItems = items.filter((i) => symRe.test(i.title) || rel.name.test(i.title) || rel.name.test(i.body.slice(0, 600)) || symRe.test(i.body.slice(0, 600)));
+        const relAges = relItems.map((i) => (i.ts ? (now - i.ts) / 60000 : null)).filter((x): x is number => x !== null && x >= -5).sort((a, b) => a - b);
+        out.relNewestMin = relAges.length ? Math.round(relAges[0]) : null;
+        out.rel24h = relAges.filter((a) => a <= 1440).length;
     }
     return out;
 }
@@ -99,7 +106,7 @@ async function measure() {
             FMP_KEY ? getText(`https://financialmodelingprep.com/stable/news/stock?symbols=${sym}&limit=50&apikey=${FMP_KEY}`) : Promise.resolve({ status: -1, text: "", ms: 0 }),
             INTRINIO_KEY ? getText(`${INTRINIO_BASE}/companies/${sym}/news?page_size=50`, { headers: { Authorization: `Bearer ${INTRINIO_KEY}` } }) : Promise.resolve({ status: -1, text: "", ms: 0 }),
             getText(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${sym}&region=US&lang=en-US`, { headers: { "user-agent": "Mozilla/5.0" } }),
-            getText(`https://news.google.com/rss/search?q=${encodeURIComponent(sym + " stock when:2d")}&hl=en-US&gl=US&ceid=US:en`, { headers: { "user-agent": "Mozilla/5.0" } }),
+            getText(`https://news.google.com/rss/search?q=${encodeURIComponent(GQ[sym] + " stock when:2d")}&hl=en-US&gl=US&ceid=US:en`, { headers: { "user-agent": "Mozilla/5.0" } }),
         ]);
         const safe = (fn: () => Item[]) => { try { return fn(); } catch { return []; } };
         perTicker.fmp[sym] = { http: f.status, ms: f.ms, ...metrics(safe(() => fmpItems(JSON.parse(f.text))), now, rel) };
@@ -132,6 +139,7 @@ async function measure() {
         const n = sum("n");
         summary[src] = { tickersOk: v.filter((r: any) => r.http === 200 && r.n > 0).length, items: n, items24h: sum("n24h"),
             relevantPct: n ? Math.round((sum("relevantN") / n) * 100) : null, medianNewestMin: medOf("newestMin"), medianOfMedianMin48h: medOf("medianMin48h"),
+            medianRelNewestMin: medOf("relNewestMin"), rel24h: sum("rel24h"),
             medianPublishers: medOf("publishers"), medianBodyPct: medOf("bodyPct"), dupTitles: sum("dupTitles") };
     }
     return { generatedAt: new Date(now).toISOString(), tickers: Object.keys(TICKERS), keys: { fmp: !!FMP_KEY, intrinio: !!INTRINIO_KEY }, summary, perTicker, market };
