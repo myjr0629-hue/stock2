@@ -11189,3 +11189,14 @@ https://myjr0629-hue.github.io/options-market-structure-daily/congress.html 의 
 - `quora-answer.mjs`: 일본어(回答する·下書きを編集·投稿)·독일어(Antworten·Entwurf bearbeiten·Veröffentlichen) 버튼, 답변 주소 패턴(/answer/ 와 jp 의 /answers/<id>), 검증은 «게시 직후 답변 주소»로.
 - `/tmp/ego/reddit-find.mjs`: page.evaluate 15초 제한에 18개 fetch 를 한 번에 넣어 시간 초과 → 요청마다 따로 부르도록.
 - ⚠ 주소는 «받은 값»을 쓴다: 독일어 질문 주소를 잘린 출력에서 이어 붙여 짐작할 뻔했다 — 후보 파일의 원래 href 로 교체(실제 주소는 훨씬 길었다).
+
+---
+
+## 2026-09-23 (KST) 18:30~19:05 — 시간 사이클: 레딧 보류(새 스레드 없음) · 데이터셋 README 사용 예시 · awesome-quant PR 은 대표 승인으로
+
+- **reddit** ⏸ 1/3 — 6시간 안 새 스레드 중 우리 데이터로 답할 만한 것이 없었다(뜨거운 것은 이탈리아어 «트럼프 투자 목록·내부자거래» — 우리 데이터는 의회 공시라 대상이 다르고 정치적). 남은 2건은 22:30 미국 개장 사이클.
+- **확장(조사→준비)**: 퀀트 큐레이션 목록 **awesome-quant** 의 «Market Data & Data Sources» 는 무료 CC BY 데이터셋을 받는다(예: The Gold Barometer). 품질 조건 = 최근 커밋 + «사용 예시가 있는 README».
+  → 우리 저장소 README 에 **의회 거래 파일 설명 + Python 사용 예시**(일일 스냅샷→DataFrame, 맥스페인 괴리, 의원별 거래 집계)를 추가·반영(GitHub API 로 확인; 예시가 가리키는 필드 전부 실재 확인).
+  → PR 한 줄은 규칙대로 작성: `- [Options Market Structure Daily](…) - `Data` `JSON` `CSV` - Daily open dataset … CC BY 4.0. [Website](…)`
+  → **남의 저장소에 PR 을 여는 단계에서 자동 판정기가 «외부 시스템 쓰기»로 차단** — 우회하지 않고 대표 할 일 ⑭ 로 올렸다. 편집기에 입력한 줄은 커밋·포크·PR 전혀 없음(외부 반영 0).
+- 도구 메모: GitHub 새 편집기의 CodeMirror 핸들은 `.cm-content.cmTile.view`(예전 `cmView` 아님) — 커서 위치만 이걸로 잡고 입력은 실제 키보드로.
