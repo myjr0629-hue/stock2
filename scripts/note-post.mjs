@@ -87,7 +87,8 @@ if (T.edit_url) {
 }
 
 const st = await page.evaluate((a) => { const t = (document.body.innerText || '').replace(/\s+/g, ' ');
-  return { title: a.title ? t.includes(a.title.slice(0, 12)) : true, link: t.includes('signumhq') || !!document.querySelector('a[href*="signumhq.com/app"]') || !!document.querySelector('iframe[src*="signumhq"], [data-src*="signumhq"]'),
+  const tv = [...document.querySelectorAll('textarea')].map((x) => x.value || '').join(' '); // ★9/24: 제목은 textarea 값이라 innerText 에 없다
+  return { title: a.title ? (t.includes(a.title.slice(0, 12)) || tv.includes(a.title.slice(0, 12))) : true, link: t.includes('signumhq') || !!document.querySelector('a[href*="signumhq.com/app"]') || !!document.querySelector('iframe[src*="signumhq"], [data-src*="signumhq"]'),
     header: [...document.querySelectorAll('img')].some((i) => /assets\.st-note\.com|note-cakes|blob:/.test(i.src) && i.getBoundingClientRect().width > 400) }; }, { title: T.title || '' });
 // ★실측: URL 줄은 링크 카드(figure/embed, href=스마트링크)가 된다 — 편집기 안 a[href] 로 확인
 console.log('초안:', JSON.stringify(st), '주소:', await page.url());

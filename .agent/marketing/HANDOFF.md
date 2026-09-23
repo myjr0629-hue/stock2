@@ -136,6 +136,7 @@
 7-f. **★ 뉴스 원천 고도화 조사(대표 지시 9/24, 홍보 사이사이)** — 용도별로 성격이 다르다: ①가디언 뉴스 펄스 = 거시·시장 충격 뉴스(RSS 전환 후 최신성 좋음 — 대표 관찰) ②종목 뉴스 = 종목 특화 ③UC 앱 = 고유 특성. Intrinio(결제 중)를 놀리지 말 것. «FMP 가 발행사가 월등히 많다»는 한 종목이 아니라 여러 종목 근거로. 브레이킹 뉴스 푸시 알림 가능성 검토. 1차 실측: `.agent/research/NEWS-SOURCES-MEASURED-2026-09-24.md`(10종목). 측정 경로 `/api/debug/news-compare`.
    **9/24 01:1x 정정·재측정(v3)**: «FMP 4시간 지연»은 시간대 오독 → FMP 가 종목 뉴스 1위(정확도 86%·최신 42분·발행사 18 vs Intrinio 60%·72분·11). «Intrinio 주력» 권고 철회.
    **note(JP) 초안 대기**: https://editor.note.com/notes/na72a61c95067/edit/ — 06~07시 JST 사이클에서 `/tmp/ego/note-task.json`={"edit_url":<위 주소>,"title":"ダークプールの見方：同じ「51%」でもマイクロンとテスラは正反対だった","tags":["米国株","ダークプール","投資"]} 로 `scripts/note-post.mjs` 발행 → 비로그인 검증 → `pub note_jp`.
+   **X 예약 게시 가능(9/24 실측)**: 작성창 «Schedule post» → 날짜·시간(KST) → Confirm. 다음: `x-post.mjs` 에 schedule 옵션 → X JP 07:30 JST·X US 미 장중 예약. **내일 소재 1순위**: 10년물 5.13% 돌파 + 10월 금리 인상 확률 64%(Kobeissi) — 가디언 FedWatch·10년물 화면(UC·WIM 의 10Y 는 전일값이라 쓰지 않는다 ㉑).
    남은 것: ⑱ 합친 뒤 가디언·UC 속보 띠 실화면 재측정 · Intrinio 는 «관련성 필터 + 제목 중복 제거» 보조로만 가치 검증(6/10 종목에서 24h 관련 건수가 FMP 보다 많다) · RSS 상업 약관 확인 · 브레이킹 푸시 설계(보고서 참조).
 8. **(제안·대표 판단) 의원별 거래 페이지 SEO** — «Pelosi stock trades», «[의원] stock trades» 는 검색 수요가 큰데 우리 웹엔 없다. 원자료는 이미 있다(`getCongressTrades`). 웹 신규 페이지라 실화면 검증(⑩)이 먼저다.
 

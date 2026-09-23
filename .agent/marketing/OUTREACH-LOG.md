@@ -11438,3 +11438,23 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ### 확장 — x_communities 1차 탐색
 - More→Communities 진입 확인. 검색은 드롭다운으로만 떠서 추출 실패(방법 문제 — 다음엔 Explore 검색의 Communities 탭). 추천에서 금융 커뮤니티 «世界情勢と米国株・日本株を読む会»(297명) 확인. 가입 시 규칙 동의는 대표 몫.
+
+---
+
+## 2026-09-24 (KST) 05:30~06:10 — 시간 사이클: 실행 3/3(note·github·naver_kin) · 확장(X 예약 게시 실측)
+
+게이트: 341·실패 0.
+
+| 채널 | 소재 | 공개 URL | 검증 |
+|---|---|---|---|
+| **note(JP)** | 「ダークプールの見方：同じ「51%」でもマイクロンとテスラは正反対だった」 — 일본 아침 창(05:3x JST)에 초안 발행, 태그 3(米国株·ダークプール·投資), 見出し画像=일본어 대시보드 카드 | https://note.com/signumhq/n/na72a61c95067 | 비로그인: 제목·본문(31.0%)·`from=note` 링크·태그 3·og:image |
+| **github** | 데이터셋 9/23 마감 스냅샷(12/12, 16:35 ET) json+md 업로드 → index.html 재생성·업로드 → IndexNow 18 URL 200 | https://github.com/myjr0629-hue/options-market-structure-daily/blob/main/2026-09-23.json | raw 200 · Pages dateModified 2026-09-23(재빌드 1~2분 뒤) · README `from=github` |
+| naver_kin | 「주식으로 1억 벌고 다시 잃어도 세금 나오나」(조회 800) — 국내 소액 비과세 / 해외 연간 손익통산·이월공제 없음·원화환산·결제일 기준. 링크·앱 0 | https://kin.naver.com/qna/detail.naver?dirId=403&docId=493548716&answerNo=6 | 비로그인 공개 확인 |
+
+- note 발행기 수리: 초안 확인의 «제목» 검사가 textarea 값을 못 읽어 false → textarea 값 포함(`scripts/note-post.mjs`). 이 한 줄로 발행이 멈췄다가 재실행으로 성공.
+- 스냅샷 관찰: SPY 감마 플립이 마감 스냅샷에서 778(15:20 ET 781·정오 775~776) — 하루 안에 계속 움직인다(오늘 네이버 글의 요지와 일치).
+
+### 확장 — X «예약 게시» 실측(보기만, 예약 0건)
+- 홈 작성창 «Schedule post» → 대화상자: 월·일·년 / 시·분·AM·PM 선택, **시간대 Korean Standard Time**, Confirm, «Scheduled posts» 목록. Esc 로 닫음.
+- 쓰임: X JP 는 07:30 JST, X US 는 미 장중(23:00~05:00 KST)에 맞춰 미리 걸 수 있다 → 발행기 `x-post.mjs` 에 `schedule`(KST 시각) 옵션을 다음에 추가.
+- 같은 화면에서 본 시장 뉴스: «10년물 5.13% 돌파», Kobeissi «10월 금리 **인상** 확률 64%»(24분 전) — 다음 날 캡이 풀리면 가장 관심 높은 소재(가디언 FedWatch·10년물 화면으로).
