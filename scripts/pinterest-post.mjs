@@ -40,19 +40,21 @@ const chk = await page.evaluate(() => { const n = (s) => (s || '').replace(/\s+/
   return { t: g('제목 추가').length, d: g('핀에 대해').length, l: g('랜딩 페이지 링크'), img: document.querySelectorAll('img[src^="blob:"]').length }; });
 console.log('채움:', JSON.stringify(chk));
 if (!chk.img || !chk.t || !/from=pinterest/.test(chk.l)) { console.log('⛔ 이미지·제목·링크 중 빠진 게 있다 — 게시하지 않는다'); process.exit(1); }
-await page.evaluate(() => window.scrollTo(0, 0)); await L.wait(900);
-const pub = await page.evaluate(() => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
-  const c = [...document.querySelectorAll('div,button')].filter((e) => /^게시$/.test(n(e.innerText)))
-    .map((e) => { const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })
-    .filter((x) => x.y > 0 && x.y < 260);   // 2026-09-23: 레이아웃이 바뀌어 y=26 에 있었다(예전 184). 상단 260 안이면 받는다
-  return c[0] || null; });
+// ★2026-09-24: 빌더는 «안쪽 스크롤 상자»라 window.scrollTo 로는 안 올라간다 — 칸을 채우고 나면 「게시」가 y=-17(화면 밖)에 있었다.
+//   → 「게시」 요소 자체를 scrollIntoView 한 뒤 좌표를 다시 잰다(9/24 이렇게 해서 게시됨: y=184).
+const findPub = () => page.evaluate(() => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
+  const e = [...document.querySelectorAll('div,button')].filter((x) => /^게시$/.test(n(x.innerText)) && x.getBoundingClientRect().width > 0 && x.children.length <= 1).pop();
+  if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
+await page.evaluate(() => window.scrollTo(0, 0)); await L.wait(600);
+let pub = await findPub(); await L.wait(700); pub = await findPub();
+if (pub && (pub.y < 40 || pub.y > 700)) { console.log('⛔ 게시 버튼이 화면 밖:', JSON.stringify(pub)); process.exit(1); }
 if (!pub) { console.log('⛔ 게시 버튼 없음'); process.exit(1); }
 // 보드 선택기가 비어 있으면 게시가 조용히 무시된다 — 게시 버튼 왼쪽의 보드 이름을 먼저 읽는다
 const board = await page.evaluate(() => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
   return [...document.querySelectorAll('[data-test-id*="board"], button, div[role=button]')].map((e) => { const r = e.getBoundingClientRect(); return { t: n(e.innerText).slice(0, 30), y: Math.round(r.y), w: Math.round(r.width) }; })
     .filter((c) => c.y < 120 && c.w > 60 && c.t && !/게시|프로필|홈|탐색|만들기/.test(c.t)).slice(0, 4); });
 console.log('상단 보드/버튼:', JSON.stringify(board));
-const published = async () => page.evaluate(() => /게시되었습니다|핀을 게시했|저장되었습니다|Your Pin|핀 보기|See it now|보기$/.test((document.body.innerText || '')) || document.querySelectorAll('img[src^="blob:"]').length === 0);
+const published = async () => page.evaluate(() => /핀을 만들었습니다|게시되었습니다|핀을 게시했|저장되었습니다|Your Pin|핀 보기|See it now|보기$/.test((document.body.innerText || '')) || document.querySelectorAll('img[src^="blob:"]').length === 0);
 await page.mouse.move(pub.x, pub.y); await L.wait(400); await page.mouse.down(); await L.wait(130); await page.mouse.up();
 await L.wait(9000);
 if (!(await published())) {
@@ -63,10 +65,16 @@ if (!(await published())) {
   await L.wait(9000);
 }
 console.log('게시 판정:', await published());
-await L.wait(6000);
-try { await page.goto('https://www.pinterest.com/SIGNUMHQ/_created/', { waitUntil: 'domcontentloaded' }); } catch {}
-await L.wait(12000);
-const first = await page.evaluate(() => [...new Set([...document.querySelectorAll('a[href^="/pin/"]')].map((a) => a.getAttribute('href')).filter((h) => /^\/pin\/\d+\/$/.test(h)))][0] || null);
+// 성공 대화상자 «핀을 만들었습니다!»의 「내 핀 보기」가 새 핀 주소를 준다(9/24 실측: /pin/<id>/) — 없으면 _created 첫 핀
+let first = await page.evaluate(() => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
+  const e = [...document.querySelectorAll('a')].find((a) => n(a.innerText) === '내 핀 보기' || n(a.innerText) === 'See your Pin');
+  const h = e ? e.getAttribute('href') : null; return h && /^\/pin\/\d+\/$/.test(h) ? h : null; });
+if (!first) {
+  await L.wait(6000);
+  try { await page.goto('https://www.pinterest.com/SIGNUMHQ/_created/', { waitUntil: 'domcontentloaded' }); } catch {}
+  await L.wait(12000);
+  first = await page.evaluate(() => [...new Set([...document.querySelectorAll('a[href^="/pin/"]')].map((a) => a.getAttribute('href')).filter((h) => /^\/pin\/\d+\/$/.test(h)))][0] || null);
+}
 if (!first) { console.log('⛔ 새 핀 주소를 못 찾았다'); process.exit(1); }
 const pinUrl = 'https://www.pinterest.com' + first;
 try { await page.goto(pinUrl, { waitUntil: 'domcontentloaded' }); } catch {}

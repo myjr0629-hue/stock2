@@ -11291,3 +11291,48 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - **운영 로그 24시간**: MassiveClient 0 · ENV_MISSING 0 · MASSIVE_API_KEY 0 · polygon.io 0 · massive.com 0 줄.
 - 결론: 뉴스의 Massive 의존은 **실측상 없었다**(대표 말씀이 맞다). 어제 보고의 «Massive 가 받아 주다가 해지돼 드러났다»는 **코드 주석을 실측 없이 인용한 틀린 설명** — 정정하고 메모리도 고쳤다. FMP 429 의 기전(가디언 재계산 루프)은 로그로 잰 사실 그대로다.
 - 429 가 «언제부터» 있었는지는 48시간 로그 전체 조회가 수십 분 걸려 중단했다(분당 ~360요청 × 48h ≈ 100만 줄). 필요하면 시간대를 잘라 재겠다.
+
+---
+
+## 2026-09-24 (KST) 00:38~01:50 — 시간 사이클 2회분: 발행 9건(전부 공개 검증) · ⚠ FMP «4시간 지연» 판정 정정(시간대 오독) · 보안 1건 · 비율 필드 뒤집힘
+
+### 발행 (오늘 KST 합계 9 — 전부 비로그인 공개 확인)
+| 채널 | 소재(편마다 다른 소재·다른 화면) | 공개 URL | 공개 검증 |
+|---|---|---|---|
+| bluesky #1 | 10년물 5.07% vs 하이일드 스프레드 2.68%·VIX 14.6 — «아직 금리 이야기» | https://bsky.app/profile/signumhq.bsky.social/post/3mw73bca5xs24 | 공개 API |
+| x_jp | (일본어) 같은 날 금리·신용 대조 | https://x.com/signumhq_jp/status/2102785813696352425 | 프로필 |
+| indiehackers | 「디렉터리 등재에 시간을 얼마나 쓸 가치가 있나」 스레드에 우리 21일 실측(디렉터리 유입) 댓글 | https://www.indiehackers.com/post/how-much-time-is-a-directory-listing-worth-when-you-re-doing-everything-yourself-875fbc4e54 | 댓글 표시 |
+| medium | «The 10-Year Yield Hit 5.07%. Credit Spreads Say This Is Still a Rates Story.» + 가디언 화면 + AI 지원 표시 | https://medium.com/@signum_hq/the-10-year-yield-hit-5-07-credit-spreads-say-this-is-still-a-rates-story-835fda5aa15f | 크롬 UA: 제목·이미지 29·`from=medium`·AI 표시 |
+| threads | (한국어) SPY 이번 주(9/25 만기) 옵션 지도 — 감마플립 776 아래·맥스페인 766·콜월 772·풋플로어 745 + Flow 화면(ko) | https://www.threads.com/@signumhq_official/post/DdouK5zGc0- | 봇 UA: og 본문·이미지·`from=threads` |
+| pinterest | «What Is a Gamma Flip? Reading SPY's Weekly Options Map» 에버그린 핀 + Flow 화면(en) | https://www.pinterest.com/pin/1102115340098747665/ | 제목·설명·`from=pinterest&l=en` |
+| linkedin | MU vs TSLA — 둘 다 장외 ~51%인데 FINRA 두 칸(물량 20일 대비·공매도 비중)이 반대 | https://www.linkedin.com/feed/update/urn:li:activity:7508562726038990849/ | 본문·`from=linkedin`·링크 카드 |
+| bluesky #2 | 같은 MU/TSLA 대조를 16:9 카드(대시보드 «Stealth Accumulation» 화면)로 + `#stocks #investing #optionstrading $MU $TSLA` | https://bsky.app/profile/signumhq.bsky.social/post/3mw75z2hc3o2o | 공개 API: 링크 facet·태그 3·캐시태그 2·이미지 1 |
+| x_post(US) | $SPY 주간 옵션 지도 16:9 카드(감마플립 $775·맥스페인 $766·콜월 $772·풋플로어 $745) | https://x.com/signumhq/status/2102798273065164807 | oEmbed·syndication: 본문·이미지 1·`from=x_us` |
+
+- **note(JP) 는 일부러 미뤘다**: ENGINE §17-3 일본 시계(05:30~08:00 JST) — 01시 발행은 창 밖. 06~07시 사이클에서 발행.
+- 게이트: `audit-expiration-selection.js --live` 341건·실패 0.
+- **발행 전에 잡은 오류 1건**: 옵션 «거래량·프리미엄»은 EOD(chainDate 9/22)다 — «오늘 엔비디아가 -1.7%인데 콜이 2배» 로 쓸 뻔했다(전일 수치). 그리고 그 비율 필드 자체가 뒤집혀 있었다(아래 ③).
+
+### 도구 수리 (다음 사이클이 같은 데서 안 막히게)
+- `scripts/medium-post.mjs`: 발행 패널 확정 버튼은 «Publish»(«Publish now» 아님 — 첫 실행이 초안으로 멈췄다) · 비로그인 검증은 온전한 크롬 UA 만 200(«Mozilla/5.0 (Macintosh)»·curl 은 403) · `edit_url` 로 기존 초안만 발행(AI 표시·링크·이미지 확인 후).
+- `scripts/pinterest-post.mjs`: 빌더는 «안쪽 스크롤 상자»라 window.scrollTo 로 안 올라간다 — 「게시」가 y=-17(화면 밖) → 요소 scrollIntoView 후 재측정(y=184 게시됨) · 성공 대화상자 «핀을 만들었습니다!»의 「내 핀 보기」 href 로 새 핀 주소.
+
+### ① ⚠⚠ 판정 정정 — «FMP 4시간 지연»은 틀렸다: FMP 시각은 «뉴욕 벽시계»인데 우리가 UTC 로 읽었다
+- 백그라운드 조사(뉴스 소비처 17곳 지도)가 «248~249분 ≈ EDT 오프셋 240 + α» 가설을 냈다 → **원문 페이지 대조로 확정**: FMP 기사 20건 중 대조 가능 14건, **12건이 정확히 +240분·초 단위 일치**(FMP `11:00:09` = 247wallst `15:00:09+00:00`, fool.com `09:47:00` = `13:47:00Z`). 원자료 `.agent/research/fmp-timezone-check-2026-09-23.json`.
+- 사용자 영향(코드 확인): 커맨드 종목 뉴스 «4h 전»(실제 36분 전) · UC 2시간 «속보» 띠에 FMP 기사 0 · 가디언 뉴스 AI 가 FMP 를 «오래된 것»으로 후순위 · 속보 «이유» 45분 창.
+- 측정 경로 v3(main ffa577128, FMP 를 뉴욕 시각으로): **FMP 정확도 86%·관련 최신 42분·발행사 18 vs Intrinio 60%·72분·11** — FMP 가 8/10 종목 더 최신, 정확도는 10/10 종목 FMP ≥ Intrinio. → 00:3x 보고의 «Intrinio 주력» 권고 **철회**. 정정 문서: `.agent/research/NEWS-SOURCES-MEASURED-2026-09-24.md` 맨 위. 9/23 메모리(«벤더 통째 지연»)도 정정.
+- 수리: `src/lib/fmpTime.ts`(서머타임 경계 포함 7케이스 통과) · 앱 경로 3곳은 브랜치 `fix/fmp-et-timezone`(4b947ac0b, 프리뷰 빌드 Ready — 첫 빌드 실패는 next/font 일회성, 재배포 Ready). **대표 승인·실화면 검증 후 합친다.**
+
+### ② 보안 — WIM 푸시 크론에 인증이 없다(누구든 GET 한 번 = WIM 전 기기 푸시)
+- `/api/cron/wim-push` 는 CRON_SECRET 검사도 하루 1회 제한도 없다(미들웨어는 /api 제외). 형제 `/api/cron/push` 의 검사를 그대로 옮긴 수리 = 브랜치 `fix/wim-push-auth`(808541349, 프리뷰 Ready).
+- 근거: CRON_SECRET Production 존재(`vercel env ls`) · 같은 검사를 거친 아침 푸시가 9/23 12:10:45Z 크론으로 정상 발송(push-status probe) → 예약 발송 영향 없음.
+- **main 푸시는 자동 분류기가 [Production Deploy] 로 거부** → 우회하지 않았다. 대표 할 일 ⑰.
+- 검증한다고 이 경로를 호출하지 않았다(수리 전 호출 = 실발송).
+
+### ③ 발견 — `volumePcr` 는 이름과 반대로 «콜÷풋»
+- `/api/live/ticker` `flow.volumePcr = 콜거래량÷풋거래량`(NVDA 277,074/139,533 = 1.99), 형제 `flow.oiPcr = 풋OI÷콜OI`(0.68). 업계 P/C 는 풋÷콜.
+- WIM 은 이 값을 «풋/콜 비율»로 표시, UC AI 는 `oiPcr ?? volumePcr` 를 «>1.2 = 풋 우세»로 해석 → oiPcr 가 비는 종목에서 방향이 뒤집힌다. 대시보드·FlowRadar 는 라벨 «P/C» 인데 값·해석은 콜÷풋으로 일관. 수리는 화면 변경이라 대표 판단(⑲).
+
+### ④ 리딤코드 — PC 코드 링크는 막다른 길(실측)
+- 애플 웹 리딤(`apps.apple.com/redeem?ctx=offercodes…`) = JS 셸이 즉시 `itms-apps://…&mt=12`(맥 앱스토어) → 크롬 «사이트에 연결할 수 없음». 구글 = 로그인 PC 는 코드가 채워진 «Redeem Code» 대화상자(웹에서 사용 가능), 비로그인은 게임 홈. (버튼은 하나도 누르지 않았다, 존재하지 않는 테스트 코드)
+- 우리 `/app?code=` 은 PC 코드 클릭을 전부 애플 링크로 보낸다 + 소셜 클릭 81%가 PC → 코드를 뿌리기 «전에» PC 는 «코드가 든 QR + 코드 글자 + 두 스토어 안내»로 바꿔야 한다(라이브 웹 변경 = 승인).

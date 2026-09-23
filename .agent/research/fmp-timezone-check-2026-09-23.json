@@ -1,0 +1,182 @@
+[
+ {
+  "t": "NVDA",
+  "source": "Proactive Investors",
+  "ours": "2026-09-23T11:28:16Z",
+  "page": "2026-09-23T20:36:00+10:00",
+  "hasTz": true,
+  "deltaMin": -52,
+  "status": 200
+ },
+ {
+  "t": "NVDA",
+  "source": "24/7 Wall Street",
+  "ours": "2026-09-23T11:00:09Z",
+  "page": "2026-09-23T15:00:09+00:00",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "NVDA",
+  "source": "MarketBeat",
+  "ours": "2026-09-23T10:25:02Z",
+  "page": "2026-09-23T14:25:00.0000000Z",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "NVDA",
+  "source": "Fool - Investing News",
+  "ours": "2026-09-23T09:47:00Z",
+  "page": "2026-09-23T13:47:00Z",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "NVDA",
+  "source": "FXEmpire",
+  "ours": "2026-09-23T09:33:51Z",
+  "page": "2026-09-23T13:33:51+00:00",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "AAPL",
+  "source": "Benzinga",
+  "ours": "2026-09-23T11:46:45Z",
+  "page": null,
+  "hasTz": false,
+  "deltaMin": null,
+  "status": 403
+ },
+ {
+  "t": "AAPL",
+  "source": "Business Wire",
+  "ours": "2026-09-23T11:00:00Z",
+  "page": null,
+  "hasTz": false,
+  "deltaMin": null,
+  "status": 403
+ },
+ {
+  "t": "AAPL",
+  "source": "Fool - Investing News",
+  "ours": "2026-09-23T09:59:01Z",
+  "page": "2026-09-23T13:59:01Z",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "AAPL",
+  "source": "Fool - Investing News",
+  "ours": "2026-09-23T07:30:00Z",
+  "page": "2026-09-23T11:30:00Z",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "AAPL",
+  "source": "Benzinga",
+  "ours": "2026-09-23T07:20:16Z",
+  "page": null,
+  "hasTz": false,
+  "deltaMin": null,
+  "status": 403
+ },
+ {
+  "t": "TSLA",
+  "source": "Benzinga",
+  "ours": "2026-09-23T11:10:16Z",
+  "page": null,
+  "hasTz": false,
+  "deltaMin": null,
+  "status": 403
+ },
+ {
+  "t": "TSLA",
+  "source": "Benzinga",
+  "ours": "2026-09-23T10:38:06Z",
+  "page": null,
+  "hasTz": false,
+  "deltaMin": null,
+  "status": 403
+ },
+ {
+  "t": "TSLA",
+  "source": "The Motley Fool",
+  "ours": "2026-09-23T09:13:00Z",
+  "page": "2026-09-23T13:13:00Z",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "TSLA",
+  "source": "Barrons",
+  "ours": "2026-09-23T07:59:00Z",
+  "page": null,
+  "hasTz": false,
+  "deltaMin": null,
+  "status": 401
+ },
+ {
+  "t": "TSLA",
+  "source": "Fool - Investing News",
+  "ours": "2026-09-22T23:00:00Z",
+  "page": "2026-09-23T03:00:00Z",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "MU",
+  "source": "Proactive Investors",
+  "ours": "2026-09-23T11:28:20Z",
+  "page": "2026-09-23T20:16:00+10:00",
+  "hasTz": true,
+  "deltaMin": -72,
+  "status": 200
+ },
+ {
+  "t": "MU",
+  "source": "Finbold",
+  "ours": "2026-09-23T10:56:16Z",
+  "page": "2026-09-23T14:56:16+00:00",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "MU",
+  "source": "24/7 Wall Street",
+  "ours": "2026-09-23T10:12:27Z",
+  "page": "2026-09-23T14:12:27+00:00",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "MU",
+  "source": "Fool - Investing News",
+  "ours": "2026-09-23T09:47:00Z",
+  "page": "2026-09-23T13:47:00Z",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ },
+ {
+  "t": "MU",
+  "source": "24/7 Wall Street",
+  "ours": "2026-09-23T09:20:24Z",
+  "page": "2026-09-23T13:20:24+00:00",
+  "hasTz": true,
+  "deltaMin": 240,
+  "status": 200
+ }
+]
