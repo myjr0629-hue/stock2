@@ -11164,3 +11164,8 @@ CSV(192행, 행마다 공식 공시 링크) · JSON(60종목). 기존 데이터�
 
 ### 도구 — 뚫기 레인 오판
 «계정대기»를 메모 속 옛 문구(«★계정 필요»)로 판정해, 오늘 발행한 okky·5일 전 발행한 apple_featuring 이 «계정 막힘»으로 올라왔다. **최근 7일 발행 기록이 있으면 계정대기가 아니다**(기록이 문구를 이긴다)로 수리 → 뚫기 레인 (없음). 계정 막힌 곳은 전부 게이트로 이미 빠져 있다.
+
+### 17:10~17:25 확장 — 의원별 거래 페이지 16개 (이름 검색 롱테일)
+https://myjr0629-hue.github.io/options-market-structure-daily/congress.html 의 «By member» 에서 16명(April Delaney 73건 · Richard Blumenthal 42 · Gil Cisneros 18 · David McCormick 17 · Scott Franklin 14 · Maria Salazar 6 · Ro Khanna 6 …).
+각 페이지: 거래 표 + 공식 공시 링크 + 중앙값 지연 + Dataset JSON-LD + 앱 링크. **라이브 16/16(비로그인 200), JSON-LD 17개 전부 파싱 성공.**
+도구: `github-upload.mjs` 가 17개 파일에서 «목록이 다 안 떴다»로 멈춤 → 고정 8초 대기를 «모든 이름이 보이고 버튼이 켜질 때까지 최대 90초»로 수리. 채널 `congress_member_pages` 등록(주간 갱신).

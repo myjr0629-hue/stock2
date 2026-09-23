@@ -25,18 +25,21 @@ const page = await L.findPage(ts, /github/, null);
 try { await page.goto(`https://github.com/${REPO}/upload/main`, { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(10000);
 await page.setInputFiles('input[type=file]', files);
-await L.wait(8000);
-const b = await page.evaluate((names) => {
+// ★2026-09-23: 파일 17개를 한 번에 올리자 8초 고정 대기로는 목록이 다 안 떴다(커밋 버튼도 업로드가 끝나야 켜진다).
+//   고정 대기 대신 «모든 이름이 보이고 버튼이 켜질 때까지» 최대 90초 기다린다.
+const check = () => page.evaluate((names) => {
   const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
   const t = norm(document.body.innerText);
   const c = [...document.querySelectorAll('button')].map((e) => ({ e, t: norm(e.innerText), r: e.getBoundingClientRect() }))
     .filter((o) => o.r.width > 30 && /^Commit changes$/.test(o.t) && !o.e.disabled);
-  const seen = names.every((n) => t.includes(n));
-  if (!c.length) return { seen, btn: null };
+  const missing = names.filter((n) => !t.includes(n));
+  if (!c.length) return { seen: !missing.length, missing: missing.length, btn: null };
   c[0].e.scrollIntoView({ block: 'center' });
   const r = c[0].e.getBoundingClientRect();
-  return { seen, btn: { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } };
+  return { seen: !missing.length, missing: missing.length, btn: { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } };
 }, files.map((f) => f.split('/').pop()));
+let b = { seen: false, btn: null };
+for (let i = 0; i < 18; i++) { await L.wait(5000); b = await check(); if (b.seen && b.btn) break; }
 console.log('업로드 목록 확인:', JSON.stringify(b));
 if (!b.btn || !b.seen) { console.log('⛔ 파일이 목록에 안 보이거나 커밋 버튼이 없다'); process.exit(1); }
 await page.mouse.click(b.btn.x, b.btn.y);

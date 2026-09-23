@@ -86,7 +86,7 @@ const ld = {
   ],
 };
 const lead = tickers[0];
-const html = `<!doctype html>
+let html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -130,6 +130,60 @@ ${top.map((t) => `<tr><td><b>${esc(t.ticker)}</b></td><td class="num">${t.buys}<
 <p>The same per-ticker view (with options flow and 13F holders next to it) is in the free SIGNUM HQ app for iOS and Android: <a href="${APP}">signumhq.com/app</a>.</p>
 </main></body></html>
 `;
+// ── 의원별 페이지(롱테일 검색 «<의원> stock trades») ──────────────────────────
+// ★2026-09-23 확장: 사람 이름으로 찾는 수요를 받는다. 같은 의원의 표기 차이는 member_key 로 합친다.
+const slugOf = (name) => name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]/g, '').trim().split(/\s+/).filter((w) => !HONORIFIC.has(w)).join('-');
+const byMember = new Map();
+for (const r of rows) {
+  const k = r.member_key;
+  if (!byMember.has(k)) byMember.set(k, { key: k, chamber: r.chamber, names: new Map(), trades: [] });
+  const m = byMember.get(k); m.trades.push(r);
+  const clean = String(r.person || '').split(/\s+/).filter((w) => !HONORIFIC.has(w.toLowerCase().replace(/[.,]/g, ''))).join(' ');
+  m.names.set(clean, (m.names.get(clean) || 0) + 1);
+}
+const members = [...byMember.values()].map((m) => {
+  // 표시 이름: 가장 짧은 표기(중간 이름 없는 쪽) — «David Harold McCormick» 보다 «David McCormick» 이 검색어에 가깝다
+  const full = [...m.names.keys()].sort((a, b) => a.length - b.length)[0];
+  const parts = full.split(/\s+/); const display = parts.length > 2 ? `${parts[0]} ${parts[parts.length - 1]}` : full;
+  const buys = m.trades.filter((t) => t.side === 'buy').length, sells = m.trades.filter((t) => t.side === 'sell').length;
+  const lags = m.trades.map((t) => t.lagDays).filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+  return { ...m, display, fullName: full, slug: `congress-${slugOf(display)}.html`, buys, sells,
+    tickers: [...new Set(m.trades.map((t) => t.ticker))], lagMedian: lags.length ? lags[Math.floor(lags.length / 2)] : null };
+}).sort((a, b) => b.trades.length - a.trades.length);
+const chamberName = (c) => (c === 'senate' ? 'Senate' : 'House');
+for (const m of members) {
+  const title = `${m.display} stock trades — last 90 days (${chamberName(m.chamber)} disclosures)`;
+  const mld = { '@context': 'https://schema.org/', '@type': 'Dataset', name: title,
+    description: `Stock trades disclosed by ${m.fullName} (US ${chamberName(m.chamber)}) under the STOCK Act in the 90 days ending ${today}: ${m.trades.length} trades (${m.buys} buys, ${m.sells} sells) across ${m.tickers.length} tickers, with transaction date, disclosure date, reporting lag, amount range and official filing link. Public records; not investment advice.`,
+    url: `${SITE}/${m.slug}`, isPartOf: `${SITE}/congress.html`, license: 'https://creativecommons.org/licenses/by/4.0/', isAccessibleForFree: true,
+    creator: { '@type': 'Organization', name: 'SIGNUM HQ', url: 'https://www.signumhq.com' }, temporalCoverage: `${cut}/${today}`, dateModified: today,
+    keywords: [`${m.display} stock trades`, `${m.display} stocks`, 'congress stock trades', 'STOCK Act'] };
+  const trs = m.trades.slice().sort((a, b) => (a.transactionDate < b.transactionDate ? 1 : -1)).map((t) =>
+    `<tr><td><b>${esc(t.ticker)}</b></td><td class="${t.side === 'buy' ? 'pos' : 'neg'}">${t.side}</td><td class="num">${esc(t.transactionDate)}</td><td class="num">${esc(t.disclosureDate)}</td><td class="num">${t.lagDays ?? ''}</td><td class="num">${esc(t.amountRange)}</td><td>${t.link ? `<a href="${esc(t.link)}" rel="nofollow">filing</a>` : ''}</td></tr>`).join('\n');
+  const page = html.split('<body>')[0].replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>`)
+    .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(mld.description.slice(0, 300))}">`)
+    .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${SITE}/${m.slug}">`)
+    .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, `<script type="application/ld+json">\n${JSON.stringify(mld, null, 1)}\n</script>`)
+    + `<body><main>
+<p class="sub"><a href="congress.html">← US Congress stock trades, all members</a></p>
+<h1>${esc(m.display)} stock trades — last 90 days</h1>
+<p class="sub">US ${chamberName(m.chamber)} · window ${cut} → ${today} · updated ${today}</p>
+<p>${esc(m.fullName)} disclosed <b>${m.trades.length}</b> stock trade${m.trades.length === 1 ? '' : 's'} in this window: ${m.buys} buy${m.buys === 1 ? '' : 's'} and ${m.sells} sell${m.sells === 1 ? '' : 's'} across ${m.tickers.length} ticker${m.tickers.length === 1 ? '' : 's'} (${m.tickers.slice(0, 12).map(esc).join(', ')}${m.tickers.length > 12 ? ', …' : ''}). ${m.lagMedian != null ? `Median time from trade to disclosure: <b>${m.lagMedian} days</b>.` : ''}</p>
+<div class="wrap"><table>
+<thead><tr><th>Ticker</th><th>Side</th><th>Traded</th><th>Disclosed</th><th>Lag (days)</th><th>Amount range</th><th>Source</th></tr></thead>
+<tbody>
+${trs}
+</tbody></table></div>
+<p class="sub">Amounts are disclosed as ranges. A disclosure records a past trade, often weeks late; it is not a signal of future prices and not investment advice. Spelling variants of the same member are merged.</p>
+<p>The same per-ticker view — who in Congress traded it, next to options flow and 13F holders — is in the free SIGNUM HQ app for iOS and Android: <a href="${APP}">signumhq.com/app</a>.</p>
+</main></body></html>
+`;
+  writeFileSync(join(OUT, m.slug), page);
+}
+const memberList = `<h2>By member</h2>\n<p>${members.map((m) => `<a href="${m.slug}">${esc(m.display)}</a> (${chamberName(m.chamber)}, ${m.trades.length})`).join(' · ')}</p>\n`;
+html = html.replace('<h2>Files</h2>', memberList + '<h2>Files</h2>');
+writeFileSync(join(OUT, 'members.json'), JSON.stringify(members.map((m) => ({ slug: m.slug, display: m.display, chamber: m.chamber, trades: m.trades.length })), null, 1));
 writeFileSync(join(OUT, 'congress.html'), html);
 console.log(`✅ ${tickers.length} tickers · ${rows.length} rows · 1위 ${lead.ticker} ${lead.buys}/${lead.sells} members ${lead.distinct_members}`);
-console.log(['congress-trades-90d.csv', 'congress-by-ticker-90d.json', 'congress.html'].map((f) => join(OUT, f)).join('\n'));
+console.log(['congress-trades-90d.csv', 'congress-by-ticker-90d.json', 'congress.html', ...members.map((m) => m.slug)].map((f) => join(OUT, f)).join('\n'));
+console.log(`의원 페이지 ${members.length}개`);

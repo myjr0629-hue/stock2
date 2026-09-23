@@ -906,6 +906,15 @@
    "link": "https://myjr0629-hue.github.io/options-market-structure-daily/congress.html",
    "action": "dataset_refresh",
    "note": "★2026-09-23 확장·실행. 의회 거래(STOCK Act 공시) 90일치를 종목별로 접은 공개 데이터셋 페이지 — schema.org Dataset JSON-LD + distribution(CSV·JSON) → 구글 데이터셋 검색·일반 검색 대상. 우리 웹·앱 무변경(기존 GitHub Pages 사이트에 얹음). 기존 index.html 의 «Related dataset» 링크로 크롤러가 찾는다. 같은 의원의 표기 차이를 합쳐 «서로 다른 의원 수»를 정확히 센다(앱 수리 대기 중인 것과 같은 규칙). 갱신: 주 1회 `node scripts/congress-dataset.mjs` → `/tmp/ego/gh-task.json` 에 세 파일 → `scripts/github-upload.mjs`. 측정: from=github_pages 클릭 + 7일 뒤 datasetsearch.research.google.com 에서 «congress stock trades» 검색 노출 여부 ★같은 날 허깅페이스 미러: https://huggingface.co/datasets/eunhoon/us-congress-stock-trades (README 카드·CSV·JSON·카드 이미지, 태그 finance/stocks/congress/stock-act, CC BY 4.0, 비로그인 200·JSON-LD Dataset 확인). 주간 갱신 때 두 곳을 같이 올린다(HF 는 /upload/main 에 숨은 file input 노출 후 setInputFiles → «Commit changes to main»)."
+  },
+  {
+   "id": "congress_member_pages",
+   "name": "의원별 거래 페이지(GitHub Pages, congress-<이름>.html)",
+   "tier": "A",
+   "enabled": true,
+   "tag": "github_pages",
+   "link": "https://myjr0629-hue.github.io/options-market-structure-daily/congress.html",
+   "note": "★2026-09-23 확장·실행. «<의원> stock trades» 이름 검색 롱테일을 받는 페이지 16개(90일 창에 거래가 있는 의원 전원). 각 페이지: 거래 표(티커·매수/매도·거래일·공시일·지연·금액 구간·공식 공시 링크)·중앙값 지연·Dataset JSON-LD·앱 링크(from=github_pages)·통합 페이지로 돌아가는 링크. 같은 의원 표기 합침·표시 이름은 가운데 이름 없는 쪽. 생성: `node scripts/congress-dataset.mjs`(통합 페이지와 함께) → gh-task.json 에 congress.html + congress-*.html → github-upload.mjs(17개도 목록이 다 뜰 때까지 기다리게 수리). 주간 갱신 때 같이. 측정: from=github_pages 클릭 + 2주 뒤 구글에서 «<의원> stock trades» 노출 여부(Search Console 없음 — 수동 검색)."
   }
  ],
  "candidates": [
