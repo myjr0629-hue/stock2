@@ -11475,3 +11475,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 가이드라인 실측(news.hada.io 의 링크를 따라가 읽음): 자작 앱은 **Show** 필수 · 써 볼 수 있는 것만(가입 없이 권장 — 우리 앱은 무가입) · 짧은 기간 반복 등록 금지 · **AI 사용 자체는 금지 아님**(검토 없는 대량 요약·SEO형은 제한 — 해커뉴스와 다르다) · YouTube 링크 금지.
 - Show GN 초안: `.agent/marketing/drafts/READY-geeknews-show.md`(기술 청중용 — FINRA 원본 복원·뉴스 시각 오독·EOD 폴백 교훈, 스택).
 - 채널 태그 `geeknews` + 링크 `?from=geeknews&l=ko` 등록(태그가 없으면 클릭 집계에서 빠진다 — `new-channel-needs-its-tag-registered-first`).
+
+---
+
+## 2026-09-24 (KST) 07:30~08:25 — 시간 사이클: 실행 1/1(naver_kin) · 확장 실행(링크드인 아티클 첫 편)
+
+게이트: 341·실패 0.
+
+| 채널 | 소재 | 공개 URL | 검증 |
+|---|---|---|---|
+| naver_kin | 「고1 통합사회: 금리 내리면 주식·실물 투자가 같이 늘어난다는데 금융자산이면 반대 아닌가」 — 둘 다 «돈의 값»에 같은 방향으로 반응(할인율·차입비용·예금 대체), 9/23 10년물 5%·나스닥100 선물 -0.9% 예시(인과 단정 안 함), 예외(경기 악화 인하). 링크·앱 0 | https://kin.naver.com/qna/detail.naver?dirId=409&docId=495288364&answerNo=2 | 비로그인 공개 확인 |
+| **linkedin_articles(신규 표면)** | 「A Gamma Flip Is Not a Fixed Line: SPY's Moved $6 in One Afternoon」 — 실측: 12:11 ET $776 · 12:19 $775 · 15:20 $781 · 마감 후 재계산 $778(체인이 9/23 정산으로 바뀌며 맥스페인 $766→$768 동시 변화, chainDate 확인) · 왜 움직이나(감마=실시간, OI=전일 정산) · 다른 종목 거리 · 가치 설명 · `from=linkedin` + 16:9 커버(영문 Flow 화면) | https://www.linkedin.com/pulse/gamma-flip-fixed-line-spys-moved-6-one-afternoon-signum-hq-ar1fc/ | 비로그인: 제목·첫 문단·15:20 줄·링크·og:image |
+
+### 아티클 실측·사고
+- 편집기는 iframe — DOM 질의로 칸을 못 찾는다. 커버는 `text=컴퓨터에서 업로드` + 파일 선택기 → 대화상자 «다음».
+- **제목 클릭이 «입력 불가»로 거절 → 제목이 본문 첫 줄로 들어갔다.** 그 줄만 지우려고 Home·Shift+End·Backspace·Delete 를 했더니 **본문 전체가 지워졌다**(Shift+End 가 문서 끝까지 선택). 초안 단계라 제목칸 좌표 클릭 → 제목 입력, 본문 재입력으로 복구 후 발행. 공개 본문은 첫 문단이 «A gamma flip is…»로 정상.
+- 발행기 `scripts/linkedin-article.mjs` 로 정본화(제목은 textarea focus, 줄 편집 금지) — 통째 실행은 다음 편에서 첫 검증. `mkt-plan.js` 에 linkedin_articles(1/일)·medium_publications(주1)·x_communities(0)·bluesky_starter_pack(0) 규칙 추가.
