@@ -17,6 +17,12 @@ const load = () => { try { return JSON.parse(fs.readFileSync(LEDGER, 'utf8')); }
 const save = (o) => fs.writeFileSync(LEDGER, JSON.stringify(o, null, 1));
 
 // 채널 규칙: cap 은 «하루 몇 편», day 는 캡을 재는 달력(kst | utc), window 는 KST 시간대(열림~닫힘)
+// ★2026-09-23 캡 상향(대표 지시: 「플랫폼들 올릴 수 있는 최대 한도로 많이 올려 소극적으로 하지 말고」
+//   「수단과 방법을 가리지 말고」). 「한 채널 하루 1편」은 9/1 «게시마다 승인받던» 시절의 규칙이었다
+//   (memory/publishing-requires-explicit-approval.md). 그 뒤 자동 게시가 기승인됐고(GROWTH-DOCTRINE §9)
+//   대표가 최대치를 거듭 요구했다. 하루 여러 편이 «정상 사용»인 시간순 피드만 올린다:
+//   bluesky 3 · mastodon 2 · x_post 2 · x_jp 2 · threads 2. 장문 채널(medium·note·IH·okky·linkedin)은 1 유지 —
+//   거기서 같은 날 두 편은 도달이 아니라 스팸 신호다. 편마다 «다른 소재 + 다른 앱 화면»이 조건이다.
 const CH = {
   admob:       { cap: 0, day: 'week', window: [0, 24], note: '수익 채널(홍보 아님). 개인 계정 — authuser=1 필수. 금융 차단은 p3(t141), 브랜드·경쟁 이유이고 CPM 손실 가능' },
   dcinside:    { cap: 0, day: 'kst', window: [9, 24], note: '⛔관리 제외(검증) — 글쓰기 화면에 password 입력란 실재. 안전선 「비밀번호 입력 금지」 위반. 대표 전용' },
@@ -50,7 +56,7 @@ const CH = {
   google_dataset_search: { cap: 1, day: 'week', window: [0, 24], note: '★무료·게이트 없음. 티커 페이지가 이미 @type:Dataset 을 싣는다 — distribution 만 넣으면 6,768 URL 이 동시에 대상(t163)' },
   hf_datasets: { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 깃허브 데이터셋 미러 → 구글 데이터셋 검색 색인. 금융 니치가 비어 있다(검색 0건)' },
   mybest_jp:   { cap: 1, day: 'week', window: [0, 24], note: '편집 큐레이션. 신청 경로 미공개 → 문의는 대표 승인. 기사에 붙은 구글폼은 «신고»용이니 쓰지 말 것' },
-  mastodon:    { cap: 1, day: 'kst', window: [0, 24], note: '★계정 필요. 블루스카이(글 1편→18클릭) 구조의 복제 — 시간순·해시태그 도달·링크 무감점·이미지 4장·500자. 앱 카드 + ?from=mastodon 필수' },
+  mastodon:    { cap: 2, day: 'kst', window: [0, 24], note: '★계정 필요. 블루스카이(글 1편→18클릭) 구조의 복제 — 시간순·해시태그 도달·링크 무감점·이미지 4장·500자. 앱 카드 + ?from=mastodon 필수' },
   home:        { cap: 0, day: 'kst', window: [0, 24], note: '★발행 채널이 아니라 «측정·개선» 채널이다(21일 412클릭=전체 52%). 하는 일: CTA 위치·문구·앱 구분 태그(home_signum|home_uc|home_wim) 점검. 웹 코드 변경은 승인 후 → t168' },
   seo_darkpool:{ cap: 0, day: 'kst', window: [0, 24], note: '/dark-pool 전용 태그(21일 31클릭). 발행 아니라 점검 채널 — 구글봇에 307(임시)을 주는 것을 301 로 고칠 것(승인 필요). 다크풀 순위 갱신 여부 확인' },
   galaxy_store: { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요(무료). 한국 안드로이드 기기 «기본 탑재» — Play 검색 설치가 0 이라 검색에 의존하지 않는 유일한 대안. 소유권 심사 아니라 개발자 등록이라 Uptodown 식 반려 루프가 없다. ONE스토어도 같이' },
@@ -71,9 +77,9 @@ const CH = {
   quora_en:    { cap: 1, day: 'utc', window: [0, 24], note: '§11-6 순수 가치·앱명 0~1회·데이터 화면 1장' },
   quora_jp:    { cap: 1, day: 'utc', window: [0, 24], note: '피드가 마르면 억지 발행 금지' },
   quora_de:    { cap: 1, day: 'utc', window: [0, 24], note: '2026-09-15 개통된 유럽 표면. 무응답은 «Dark Pool» 계열에만 있었다' },
-  x_post:      { cap: 1, day: 'kst', window: [0, 24], note: '링크는 앞 280자 안' },
+  x_post:      { cap: 2, day: 'kst', window: [0, 24], note: '링크는 앞 280자 안' },
   x_reply:     { cap: 3, day: 'kst', window: [21, 24], note: '청중 차용. 280자 하드 제한·링크 금지·with_replies 로 검증' },
-  threads:     { cap: 1, day: 'kst', window: [0, 24], note: '패널 좌표로 스코프·프로필 time 으로 검증' },
+  threads:     { cap: 2, day: 'kst', window: [0, 24], note: '패널 좌표로 스코프·프로필 time 으로 검증' },
   threads_reply: { cap: 2, day: 'kst', window: [0, 24], note: '오독 정정은 반드시 원문 확인 후' },
   instagram:   { cap: 1, day: 'kst', window: [0, 24], note: '자르기 «원본»·링크는 바이오' },
   pinterest:   { cap: 1, day: 'kst', window: [0, 24], note: '링크 입력 후 값 재읽기→저장→공개 href 3단 검증' },
@@ -82,8 +88,8 @@ const CH = {
   medium:      { cap: 1, day: 'kst', window: [0, 24], note: '★AI 지원 표시 «필수» — 미표시는 Network Only 로 도달이 팔로워(≈0)로 잘린다. 말미에 disclosure 한 줄. 제목 복구 ⌘⌥1 → 1문단 → 이미지 순서' },
   indiehackers:{ cap: 1, day: 'kst', window: [0, 24], note: '제품 타임라인 포스트' },
   github:      { cap: 1, day: 'kst', window: [5, 24], note: '미국 마감 후 스냅샷 → edit/new 경로로 커밋' },
-  x_jp:        { cap: 1, day: 'kst', window: [0, 24], note: 'JP 원글. 계정 전환 후 프로필 링크가 /signumhq_jp 인지 확인하고 쓴다(오발행 전례)' },
-  bluesky:     { cap: 1, day: 'kst', window: [0, 24], note: '웹 컴포저. 이미지 첨부는 ego 불가 → 앱 스마트링크의 OG 카드가 자동 임베드되는지 확인하고, 카드가 붙을 때만 발행' },
+  x_jp:        { cap: 2, day: 'kst', window: [0, 24], note: 'JP 원글. 계정 전환 후 프로필 링크가 /signumhq_jp 인지 확인하고 쓴다(오발행 전례)' },
+  bluesky:     { cap: 3, day: 'kst', window: [0, 24], note: '웹 컴포저. 이미지 첨부는 ego 불가 → 앱 스마트링크의 OG 카드가 자동 임베드되는지 확인하고, 카드가 붙을 때만 발행' },
   quora_space: { cap: 1, day: 'kst', window: [0, 24], note: '브랜드명·앱링크가 허용되는 유일한 Quora 표면 — 답변 재활용 금지, Space 전용 글' },
   hackernews:  { cap: 0, day: 'week', window: [0, 24], note: '⛔관리 제외(대표 전용) — 사이트 전체 가이드라인 「Don\'t post generated text or AI-edited text」. 내가 쓰면 규정 위반' },
   directories: { cap: 1, day: 'kst', window: [0, 24], note: 'DIRECTORY-LIST.md 에서 미시도 1곳씩. 계정 생성 필요하면 즉시 #T8 티켓' },
