@@ -11200,3 +11200,12 @@ https://myjr0629-hue.github.io/options-market-structure-daily/congress.html 의 
   → PR 한 줄은 규칙대로 작성: `- [Options Market Structure Daily](…) - `Data` `JSON` `CSV` - Daily open dataset … CC BY 4.0. [Website](…)`
   → **남의 저장소에 PR 을 여는 단계에서 자동 판정기가 «외부 시스템 쓰기»로 차단** — 우회하지 않고 대표 할 일 ⑭ 로 올렸다. 편집기에 입력한 줄은 커밋·포크·PR 전혀 없음(외부 반영 0).
 - 도구 메모: GitHub 새 편집기의 CodeMirror 핸들은 `.cm-content.cmTile.view`(예전 `cmView` 아님) — 커서 위치만 이걸로 잡고 입력은 실제 키보드로.
+
+---
+
+## 2026-09-23 (KST) 19:30~20:00 — 시간 사이클: 확장 후보 2개 판정(스타터팩 기각 · Play 프로모션 콘텐츠 «자격 없음» 확정)
+
+- **reddit** ⏸ 1/3 — 미국 06:30. 22:30 개장 사이클에 2건(8분 간격, UTC 일 리셋 09:00 KST 전).
+- **확장 검토 ① 블루스카이 스타터팩** — 공개 API 로 금융 계정 45개 후보를 뽑았지만 검색 잡음이 많고(금융 외 계정 다수), 유명 계정을 브랜드 계정이 묶으면 «기회주의적» 인상 위험이 커서 **만들지 않았다**(판단 기록).
+- **확장 검토 ② Play «프로모션 콘텐츠»(LiveOps)** — channels 에 «첫 행동 = 존재 확인»으로 cap 0 이던 항목. 콘솔을 클릭으로 들어가 확인: SIGNUM 의 Grow users = Store presence(**Store listings 만**) · Store performance(Store analysis) · Translations · Deep links. **메뉴 자체가 없다** → `play_promotional_content` 게이트 [자격·구글], enabled:false. 애플 인앱 이벤트가 대체 표면.
+- 덤 실측(콘솔 대시보드): **Installs 31 · Device acquisitions 17(−11%) · Device first opens 11(+175%)** — 기간 표기는 콘솔 기본(최근 28일 추정, 단정하지 않음).
