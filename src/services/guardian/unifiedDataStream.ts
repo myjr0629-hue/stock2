@@ -368,7 +368,10 @@ export class GuardianDataHub {
                         console.log(`[Guardian FIX] Session mismatch: cached=${cachedSession}, current=${currentSession} — recomputing for ${locale}`);
                         // Don't return stale cache, fall through to recompute
                     } else {
-                        // [FIX] Staleness check: if data is older than 25s, recompute for real-time freshness
+                        // [FIX] Staleness check: if data is older than FRESH_MS, recompute for real-time freshness
+                        // ★2026-09-23 실측: 워커는 약 30초마다 쓰는데(읽힌 나이 25~41초) 기준이 25초라 거의 모든 요청이
+                        //   «오래됨» → 재계산(분당 137회)이었다. 워커 주기 + 여유로 45초.
+                        const FRESH_MS = 45000;
                         // ★2026-09-23 23:2x 운영 로그로 확인: Vercel 이 계산해 쓴 스냅샷(아래 973행)에는 _workerTimestamp 가
                         //   없어서 «나이 = 현재 시각(1,790,172,997초)» → 매 요청 재계산 → 같은 키를 또 덮어씀(워커의 신선한 사본까지)
                         //   → 영원히 반복됐다(6분에 384회, 매회 FMP 뉴스 + 137종목 시세). 오늘 뉴스가 Massive→FMP 로 넘어오며
@@ -376,7 +379,7 @@ export class GuardianDataHub {
                         const stamp = cached._workerTimestamp || cached.timestamp;
                         const workerTs = stamp ? new Date(stamp).getTime() : 0;
                         const dataAge = now - workerTs;
-                        if (dataAge > 25000) {
+                        if (dataAge > FRESH_MS) {
                             console.log(`[Guardian] Redis cache stale (${(dataAge/1000).toFixed(0)}s old) — recomputing for ${locale}`);
                             // Fall through to recompute
                         } else {
@@ -406,6 +409,22 @@ export class GuardianDataHub {
                 console.log(`[Guardian FIX] In-memory session mismatch: cached=${memSession}, current=${currentSession} — recomputing for ${locale}`);
             } else {
                 return _cachedContext[locale]!;
+            }
+        }
+
+        // ★2026-09-23 인스턴스 간 재계산 제한: 다른 인스턴스가 20초 안에 재계산을 시작했으면 여기서 또 계산하지 않고
+        //   방금 저장된 직전 정상본(lastgood, 72h·Upstash 복제)을 준다. 재계산 한 번이 FMP 뉴스 + 137종목 시세를 부르므로
+        //   인스턴스마다 따로 계산하면 벤더 분당 한도를 태운다(9/23 FMP 429). 줄 것이 없으면 그대로 계산한다.
+        if (!force) {
+            const lockKey = `${GUARDIAN_SNAPSHOT_PREFIX}recompute:${locale}`;
+            const lockedAt = await getFromCache<number>(lockKey).catch(() => null);
+            if (typeof lockedAt === 'number' && now - lockedAt < 20000) {
+                const mem = _cachedContext[locale] as any;
+                if (mem?.sectors?.length) return mem;
+                const lg = await getFromCache<any>(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`).catch(() => null);
+                if (lg?.sectors?.length && lg?.rlsi?.score !== undefined) return lg;
+            } else {
+                setInCache(lockKey, now, 20).catch(() => { /* non-critical */ });
             }
         }
 
