@@ -178,6 +178,18 @@
 
 ## 부록 B. 핵심 명령
 
+**9/23 추가 발행기(전부 «발행 + 스스로 공개 확인»):**
+| 명령 | 용도 |
+|---|---|
+| `ego-browser nodejs < scripts/x-reply.mjs` | X 답글 — 루트 18만 미만·링크 거부, 키 입력만, 내 답글 탭 확인(`/tmp/ego/xr-task.json`) |
+| `ego-browser nodejs < scripts/quora-answer.mjs` | Quora 답변 en/jp/de — 링크 거부·이미지 파일칸·답변 주소로 확인(`/tmp/ego/quora-task.json`, dry 지원) |
+| `ego-browser nodejs < scripts/quora-space-post.mjs` | Quora Space 글(브랜드·링크 허용) |
+| `ego-browser nodejs < scripts/reddit-edit.mjs` | 내 레딧 댓글 정정(사이트 API) |
+| `ego-browser nodejs < scripts/naver-kin-answer.mjs` | 지식iN 답변(answerNo 로 비로그인 확인) |
+| `node scripts/bsky-publish.mjs --text-file … --image-file <16:9> --alt …` | 블루스카이(로컬 이미지 가능) |
+| `node scripts/congress-dataset.mjs` → `scripts/github-upload.mjs` → `node scripts/indexnow-ghpages.mjs` | 의회 거래 데이터셋·의원 페이지 주간 갱신 + 색인 통보 |
+| `python3 scripts/asc_custom_product_page.py <appId> <spec.json>` | CPP 생성·심사 제출(기본 언어 필수) |
+
 | 목적 | 명령 |
 |---|---|
 | 이번 시간 배정 | `node scripts/mkt-plan.js slot` |
