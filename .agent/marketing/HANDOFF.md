@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-23 03:xx KST** (Opus 5.5 전환 직후)
+마지막 갱신: **2026-09-23 13:10 KST** (Opus 5.5 인수 사이클 끝)
 
 ---
 
@@ -72,7 +72,9 @@
 
 ### 2-3. 발행 — `PUBLISH-LEDGER.json`
 - 누적 **140건 · 40개 채널**. 일별: 9/17 26 · 9/18 24 · 9/19 25 · 9/20 19 · 9/21 17 · 9/22 19
-- **9/23(KST) 9건**: bluesky · x_post · x_jp · threads · indiehackers · medium(앱 화면 포함) · note_jp · okky · **mastodon(신규)**
+- **9/23(KST) 14건 + 데이터셋 문 1**: bluesky×2 · x_post · x_jp×2 · threads×2 · indiehackers · medium · note_jp · okky · mastodon×2(신규) · naver_blog · (google_dataset_search)
+- 소재 원칙(대표 9/23): «사람들이 가장 관심 가질 것» — 이번 주는 **코스트코 9/24 AMC · 마이크론 9/30 · 나이키 10/1** 실적. 우리 실적 캘린더 `/api/market/earnings-calendar` 의 `rows[].brief.{ko,en,ja}.watch` 가 «발표 때 볼 것»이다
+- 오늘 쓴 앱 화면: `public/promo/live/flow-cost-{en,ko,ja}.png` · `wim-quiz-{ko,en}.png` (퀴즈 앱 첫 홍보)
 
 ---
 
@@ -149,6 +151,12 @@
 대표의 「라이브 변경은 실화면 검증 후 배포」를 확장한 것이었다(`memory/dont-invent-constraints-and-attribute-them.md`,
 대표 원문: 「오히려 나는 너보고 다 하라고 하는데」). 대표의 실제 규칙으로 되돌렸다.
 
+## 4-b. 오늘 밤(미국 장 시간, KST 22:30~) 사이클이 할 것
+- **X 미국 #2 · LinkedIn · Reddit 댓글(UTC 0/3) · Bluesky #3** — 코스트코 발표 당일(9/24 ET) 소재가 가장 뜨겁다.
+  발표 «후»에는 결과 숫자(스토어에서 확인한 것만) + «발표 전 옵션이 어디 깔려 있었나»를 비교하는 글이 가장 읽힌다.
+- **UC(Undercurrent) 첫 홍보** — 세 앱 중 이 앱만 최근 홍보가 없다. `make-x-shot.js uc en home` 으로 화면을 뽑는다.
+- 네이버 2·3편(KST 16:13 · 다음날 08:13) — `scripts/naver-blog-post.mjs`.
+
 ## 부록 B. 핵심 명령
 
 | 목적 | 명령 |
@@ -160,6 +168,12 @@
 | 기기별 클릭 | `node scripts/mkt-clicks-platform.js [일수]` |
 | 블루스카이(브라우저 없음) | `node scripts/bsky-publish.mjs --text-file … --image <공개URL>` |
 | 레딧 댓글(클릭 없음) | `/tmp/ego/reddit-task.json` 작성 후 `ego-browser nodejs < scripts/reddit-comment.mjs` |
+| 마스토돈(클릭 없음·ALT 필수) | `/tmp/ego/mastodon-task.json` → `ego-browser nodejs < scripts/mastodon-post.mjs` |
+| X 미국·일본 | `/tmp/ego/x-task.json` {handle,file,image} → `ego-browser nodejs < scripts/x-post.mjs` |
+| 네이버 블로그 | `/tmp/ego/naver-task.json` → `ego-browser nodejs < scripts/naver-blog-post.mjs` |
+| Threads | `/tmp/ego/th-task.json` {file,image,mark} → `ego-browser nodejs < scripts/threads-post.mjs` |
+| 데이터셋 저장소 업로드 | `/tmp/ego/gh-task.json` {files} → `ego-browser nodejs < scripts/github-upload.mjs` |
+| 앱 화면 1장(종목 지정) | `X_SHOT_OUT=/tmp/ego/shots node scripts/make-x-shot.js signum en flow COST` (앱: signum/uc/wim) |
 | 로그인 전수 점검 | `ego-browser nodejs < scripts/session-audit.mjs` |
 | 뉴스펄스 풀 신선도 | `curl 'https://www.signumhq.com/api/guardian/news-digest?debug=sources&locale=en'` |
 | 데이터셋 문 갱신 | `node scripts/marketing/gh-dataset-index.js` |
