@@ -42,7 +42,8 @@ const SITES = [
   ['okky',        'publish', 'https://okky.kr/',                      /로그인/,                   'user menu|사용자|OKKY'],
   ['naver',       'publish', 'https://www.naver.com/',                /NAVER 로그인|로그인 하세요/, '메일|카페|블로그'],
   ['brunch',      'publish', 'https://brunch.co.kr/',                 /시작하기$/,                '작가신청|작가의 서랍|글쓰기'],
-  ['tistory',     'publish', 'https://smartbox.tistory.com/manage',   /권한이 없|로그인/,          '블로그 관리|글쓰기'],
+  // 2026-09-23 수리: /manage 는 로그인 상태에서도 «권한이 없»/«로그인» 문구가 섞여 «끊김» 오판을 냈다 → 첫 화면으로 본다
+  ['tistory',     'publish', 'https://www.tistory.com/',              /^\s*로그인\s*$/,           '글쓰기|내 블로그'],
   ['geeknews',    'publish', 'https://news.hada.io/',                 /로그인/,                   'signumhq|글등록'],
   ['github',      'publish', 'https://github.com/',                   /Sign in|Sign up/i,        'Dashboard|Top repositories'],
   // ── 스토어·콘솔 ──────────────────────────────────────────────
