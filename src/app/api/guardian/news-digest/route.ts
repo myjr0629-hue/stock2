@@ -15,6 +15,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { publicBase } from '@/lib/net/publicBase';
+import { fmpEtToIso } from '@/lib/fmpTime';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 /**
@@ -114,7 +115,7 @@ async function fetchFMPGeneralNews(limit: number = 15): Promise<any[]> {
             id: `fmp-${n.url?.slice(-20) || Math.random()}`,
             title: n.title || '',
             description: n.text?.substring(0, 300) || '',
-            published_utc: n.publishedDate || new Date().toISOString(),
+            published_utc: fmpEtToIso(n.publishedDate) || new Date().toISOString(), // FMP = 뉴욕 벽시계(9/24 실측)
             publisher: { name: n.site || 'FMP' },
             _source: 'fmp',
         }));
@@ -153,7 +154,7 @@ async function fmpNewsPool(path: string, limit: number, tag: string): Promise<an
             id: `${tag}-${n.url?.slice(-20) || Math.random()}`,
             title: n.title || '',
             description: n.text?.substring(0, 300) || '',
-            published_utc: n.publishedDate || new Date().toISOString(),
+            published_utc: fmpEtToIso(n.publishedDate) || new Date().toISOString(), // FMP = 뉴욕 벽시계(9/24 실측)
             publisher: { name: n.publisher || n.site || 'FMP' },
             tickers: n.symbol ? [n.symbol] : [],
             _source: tag,
