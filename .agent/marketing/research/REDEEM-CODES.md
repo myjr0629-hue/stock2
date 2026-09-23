@@ -121,3 +121,87 @@
 - 구독 APPROVED · 오퍼코드 **0개** → 발급만 하면 된다.
 - **대표 승인 대기**: 1개월 무료 · 맞춤 코드 채널별 6개 · 총 200장 · 30일 만료.
 - 승인되면 내가 ASC API 로 발급하고, 위 표대로 배포 + 매 사이클 소진율을 관제에 올린다.
+
+---
+
+# ★ 2026-09-23 전면 실측 (대표 지시: 「추측말고 실측으로해」)
+
+위 1~7절은 «조사»였다. 아래는 **실제로 API 를 두드리고 콘솔을 열어 확인한 것**만 적는다.
+추측이었다가 실측으로 뒤집힌 것은 ⚠ 로 표시한다.
+
+## A. 애플 — 두 가지가 «따로» 있다 (이걸 구분 안 하고 있었다)
+
+### A-1. 앱 프로모션 코드 — **지금 100장이 놀고 있다**
+ASC → 앱 → 성장 및 마케팅 → **프로모션 코드 → 코드 생성** 화면 실측 문구:
+
+> SIGNUM HQ: Stock Market AI · 1.9.2 · iOS · **100개의 코드 남음**
+
+- **버전당 100장, 무료, 이미 발급 가능 상태**다. 무료 앱이라 「깔 수 있게 해주는」 값어치는 없다.
+- 그런데 **쓸 곳이 하나 있다**: MacRumors 개발자 포럼 **136번 스레드는 «프로모코드 전용»**이다
+  (§macrumors-dev-forum-rules). 지금까지 못 쓰던 자리가 코드 100장으로 열린다.
+- 페이지가 «iframe» 안에 그려진다 → 바깥 innerText 로 읽으면 빈 페이지로 보인다(실측 함정).
+
+### A-2. 구독 오퍼 코드 — 만들 수 있다. 다만 **지우지 못한다**
+- 구독 `com.signumhq.app.pro.monthly`(id **6786909663**) **APPROVED**, 판매 **175개국**, 기존 오퍼코드 **0개**.
+- 엔드포인트 3개 모두 우리 키로 «쓰기 가능»함을 409 스키마 응답으로 확인:
+  `subscriptionOfferCodes` · `subscriptionOfferCodeCustomCodes` · `subscriptionOfferCodeOneTimeUseCodes`
+- **허용값(서버가 알려준 그대로)**
+  · `duration`: THREE_DAYS · ONE_WEEK · TWO_WEEKS · **ONE_MONTH** · TWO_MONTHS · THREE_MONTHS · SIX_MONTHS · ONE_YEAR
+  · `customerEligibilities`: **NEW · EXISTING · EXPIRED** (셋 다 넣으면 기존·만료 사용자도 쓸 수 있다)
+  · `offerEligibility`: STACK_WITH_INTRO_OFFERS · REPLACE_INTRO_OFFERS
+- ⚠ **`totalNumberOfCodes` 는 생성 때 넣을 수 없다**("can not be included in a 'CREATE' operation").
+  수량은 «오퍼»가 아니라 **코드 발급(customCodes / oneTimeUseCodes)** 쪽에서 정해진다.
+  → 5절의 「총 200장을 이렇게 나눈다」는 **오퍼 단위가 아니라 발급 단위**로 다시 읽어야 한다.
+- ⚠ **`prices` 관계가 필수**다(무료 체험이어도). 지역 + 가격점을 inline 으로 같이 보내야 한다.
+- ⚠ **DELETE 가 없다** — 허용 동작은 `CREATE, GET_INSTANCE, UPDATE` 뿐이다.
+  한 번 만든 오퍼는 **끌 수는 있어도(active=false) 지울 수 없다.** 그래서 이름·조건을 처음에 맞게 넣어야 한다.
+- **페이로드는 이미 검증했다.** 가격점만 일부러 가짜로 넣고 보냈더니 «가격점 id 형식» 하나만 걸렸다
+  = 나머지(속성·구독 관계·prices 관계 모양)는 서버가 받아들인다. 승인 나면 그대로 보내면 된다.
+
+## B. 구글 Play — 된다. 단 **대표가 약관을 눌러야 열린다**
+Play Console → Monetize with Play → **Promo codes** 페이지 실측 문구:
+
+> Give users a paid app, one-time product, or **subscription** for free.
+> You can automatically generate **one-time codes**, or create your own **reusable custom codes**.
+
+- ⚠ 1절에서 「맞춤 코드는 애플만」이라고 적었는데 **틀렸다. Play 도 재사용 맞춤 코드가 있다.**
+- ⛔ **「Create promo code」를 누르면 «Promo codes 이용약관» 동의 창이 먼저 뜬다.**
+  약관 동의는 내 안전선 밖이라 **취소로 닫았다**(누른 적 없음). **대표 클릭 1회가 필요하다.**
+- 참고: Play 콘솔 실측 부수 확인 — 최근 28일 **평균 별점 5.00**, 총 사용자 5.
+
+## C. ★가장 중요한 실측 — 「코드를 어떻게 쓰게 하느냐」가 진짜 병목이었다
+- **앱 안에 «코드 사용» 입구가 없다.** 코드 검색 결과 `presentCodeRedemptionSheet` 호출이 앱 어디에도 없다.
+  RevenueCat SDK(`@revenuecat/purchases-capacitor` 13.2.1)에는 그 함수가 **들어는 있다**
+  (`dist/esm/definitions.d.ts:555`) — 화면에 연결만 안 돼 있다. 붙이려면 **빌드·심사**가 필요하다.
+- 코드만 뿌리면 사용자는 스토어 앱을 열어 「기프트카드 또는 코드 사용」을 직접 찾아야 한다. 대부분 거기서 떨어진다.
+- **빌드 없이 한 번에 여는 길을 실측했다:**
+  · 애플 `apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=X` → **302**, code·id 보존(데스크톱 웹도 열림)
+  · Play `play.google.com/redeem?code=X` → **302** (`store/redeem` 은 **400**)
+- → **오늘 배포했다**: `signumhq.com/app?from=<채널>&code=<코드>` 한 줄이면 두 스토어 모두 리딤 화면으로 간다.
+  코드가 없으면 동작은 **이전과 완전히 같다**. 코드 링크 클릭은 `mkt:attr:code:<채널>:<날짜>` 로 **따로 센다**
+  (일반 클릭과 섞으면 코드가 먹혔는지 채널별로 영영 못 잰다).
+
+## D. ⚠ 4절 채널표 수정 — 「레딧에 «글»로 올린다」는 틀렸다
+§reddit-posts-are-all-spam-filtered 실측: **우리 레딧 «글»은 전부 스팸필터에 죽는다**(작성자에게도 404).
+사는 것은 **댓글**뿐이고, 댓글 본문에는 링크를 넣을 수 없다.
+→ 레딧에서 코드를 쓰려면 **댓글에 코드 문자열만**(링크 없이) 넣고, 링크는 프로필로 가게 해야 한다.
+그래서 순위를 다시 매긴다(건당 클릭·최근 3일 실측 기준):
+
+| 순위 | 채널 | 근거(실측) | 코드 형태 |
+|---|---|---|---|
+| 1 | **Bluesky** | 3일 49클릭·건당 6.27, 링크 무감점, 이미지 4장 | 맞춤 코드 + 앱 화면 + `?code=` 한 줄 링크 |
+| 2 | **IndieHackers** | 3일 26클릭·건당 7.5(가속 중) | 맞춤 코드, 「만든 사람이 드리는 것」 |
+| 3 | **Mastodon** | 2026-09-23 개통. 시간순·해시태그 도달·링크 무감점 | 블루스카이와 같은 형태 |
+| 4 | **note(JP)** | 3일 6클릭·건당 5.5, 일본은 «無料コード» 반응 좋음 | 기사 말미 고정 블록 |
+| 5 | **MacRumors 136** | **앱 프로모션 코드 전용 자리**(A-1로 이제 열린다) | 애플 앱 프로모 코드 |
+| 6 | Reddit | 도달은 되지만 **댓글만·링크 금지** | 코드 문자열만 |
+| ✗ | Quora·Medium·블로그 | 검색 유입이 몇 달 가는데 코드는 한 달 뒤 죽는다 | 만료 문구 교체를 전제로만 |
+
+## E. 승인만 하면 바로 되는 것 / 대표가 눌러야 하는 것
+| | 상태 |
+|---|---|
+| 애플 구독 오퍼 코드 발급 | **페이로드까지 검증 완료.** 「해」 한마디면 발급 (지울 수 없으니 조건 확정 필요) |
+| 애플 앱 프로모션 코드 100장 | 콘솔에서 바로 생성 가능 — MacRumors 136 용 |
+| Play 프로모션 코드 | ⛔ **대표가 약관 [Accept] 1회** (그 전엔 아무것도 못 만든다) |
+| 코드 한 줄 링크 | ✅ **오늘 배포 완료** — `signumhq.com/app?from=X&code=Y` |
+| 앱 안 «코드 사용» 버튼 | 빌드·심사 필요. SDK 함수는 이미 있음 → 다음 버전 후보 |
