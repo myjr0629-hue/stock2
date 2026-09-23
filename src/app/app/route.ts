@@ -14,6 +14,8 @@ const APP_STORE_URL =
 // Play listing live since 2026-07-13 (com.signumhq.app returns 200).
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.signumhq.app';
+// 리딤 주소(apps.apple.com/redeem)가 요구하는 «숫자 id». 위 APP_STORE_URL 의 id 와 같은 값이다.
+const APPLE_APP_ID = '6783130444';
 
 // ET market-day key component — MUST stay identical to mkt.ts etDate() / K.attrHit()
 // so the metrics tab reads the same keys we write here. Replicated (not imported) to keep
@@ -58,6 +60,13 @@ async function recordHit(fromRaw: string | null, platform?: HitPlatform): Promis
   }
 }
 
+/** 코드 링크 클릭 — 일반 클릭과 «따로» 센다. 섞으면 코드가 먹혔는지 영영 못 잰다. */
+async function recordCodeHit(fromRaw: string | null) {
+    const from = (fromRaw || '').toLowerCase();
+    if (!/^[a-z0-9_]{1,24}$/.test(from)) return;
+    try { await bump(`mkt:attr:code:${from}:${etDate()}`); } catch { /* 집계 실패가 이동을 막지 않는다 */ }
+}
+
 // 링크 미리보기 기계는 `@/lib/marketing/linkPreview` 한 곳에 있다.
 // ★2026-09-20: 예전엔 이 파일 안에만 있었고 /app-uc·/app-wim 에는 아예 없었다
 //   (UC·WIM 링크가 카드 없이 맨 URL 로 떴다). 공용 모듈로 빼서 세 라우트가 같은 것을 쓴다.
@@ -89,6 +98,34 @@ export function GET(request: NextRequest) {
   const hitPlatform: HitPlatform = /android/i.test(ua) ? 'android'
     : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop';
   after(() => recordHit(fromTag, hitPlatform));
+
+  // ── 리딤코드 한 줄 링크 ──────────────────────────────────────────────
+  //
+  // ★2026-09-23 실측으로 설계했다. 리딤코드의 문제는 «코드를 어떻게 쓰게 하느냐»다:
+  //   · 앱 안에는 코드 사용 입구가 «없다». RevenueCat SDK 에 presentCodeRedemptionSheet()
+  //     가 들어는 있지만(node_modules 확인) 어떤 화면에도 연결돼 있지 않다 → 붙이려면 빌드·심사.
+  //   · 그래서 코드만 뿌리면 사용자는 스토어 앱을 직접 열어 «기프트카드 또는 코드 사용»을
+  //     찾아 들어가야 한다. 그 몇 단계에서 대부분이 떨어진다.
+  //
+  //   빌드 없이 한 번에 여는 길이 있다 — 스토어의 «리딤 주소»다. 둘 다 실측했다:
+  //     애플  apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=X
+  //           → 302, code·id 가 그대로 살아남는다(데스크톱 웹에서도 열린다)
+  //     Play  play.google.com/redeem?code=X → 302 (store/redeem 은 400 이다)
+  //
+  //   그래서 «한 줄 링크»를 여기서 만든다: signumhq.com/app?from=<채널>&code=<코드>.
+  //   기기 분기와 채널 집계는 이미 있는 것을 그대로 타고, 코드가 있을 때만 목적지가 바뀐다.
+  //   코드가 없으면 동작이 «완전히 이전과 같다» — 기존 링크는 아무 영향이 없다.
+  const rawCode = (request.nextUrl.searchParams.get('code') || '').trim().toUpperCase();
+  const code = /^[A-Z0-9]{4,24}$/.test(rawCode) ? rawCode : '';   // 형식이 아니면 «없는 것»으로 본다
+  if (code) {
+    // 코드 링크 클릭은 따로 센다 — 일반 클릭과 섞으면 «코드가 먹혔는지»를 영영 못 잰다.
+    after(() => recordCodeHit(fromTag));
+    if (/android/i.test(ua)) {
+      return NextResponse.redirect(`https://play.google.com/redeem?code=${encodeURIComponent(code)}`, 302);
+    }
+    return NextResponse.redirect(
+      `https://apps.apple.com/redeem?ctx=offercodes&id=${APPLE_APP_ID}&code=${encodeURIComponent(code)}`, 302);
+  }
 
   if (/android/i.test(ua)) {
     return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum'), 302);
