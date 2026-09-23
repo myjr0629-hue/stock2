@@ -11169,3 +11169,23 @@ CSV(192행, 행마다 공식 공시 링크) · JSON(60종목). 기존 데이터�
 https://myjr0629-hue.github.io/options-market-structure-daily/congress.html 의 «By member» 에서 16명(April Delaney 73건 · Richard Blumenthal 42 · Gil Cisneros 18 · David McCormick 17 · Scott Franklin 14 · Maria Salazar 6 · Ro Khanna 6 …).
 각 페이지: 거래 표 + 공식 공시 링크 + 중앙값 지연 + Dataset JSON-LD + 앱 링크. **라이브 16/16(비로그인 200), JSON-LD 17개 전부 파싱 성공.**
 도구: `github-upload.mjs` 가 17개 파일에서 «목록이 다 안 떴다»로 멈춤 → 고정 8초 대기를 «모든 이름이 보이고 버튼이 켜질 때까지 최대 90초»로 수리. 채널 `congress_member_pages` 등록(주간 갱신).
+
+---
+
+## 2026-09-23 (KST) 17:30~18:05 — 시간 사이클: 레딧 1/3 · Quora 일본어·독일어 · 확장=IndexNow(GitHub Pages)
+
+게이트 341건 0실패(16:5x 실행분, 이후 발행은 데이터·설명 글) · 크론 생존. 오늘 KST 캡이 남은 채널은 레딧·Quora JP/DE(UTC 일) 뿐이었다.
+
+| 채널 | 결과 |
+|---|---|
+| **reddit** ✅ 1/3 | r/stocks «What is the bull case for Micron and Sandisk beyond rising AI demand?»(5h) — 강세 근거를 주장하지 않고 9/30 실적 앞 옵션 포지션만: 10/2 만기 콜 1위 $1,000 ~12.1k·$1,100 ~5.4k·풋 1위 $900, P/C 0.67, ATM IV 80% vs 69%, 맥스페인 935/955 는 실적 앞에서 약한 효과. 링크 0·앱명 0. 세션 안 스레드 JSON 에서 found·not removed(비로그인 curl 은 레딧 차단). https://www.reddit.com/comments/1wnushx/comment/pbj184o/ · 남은 2건은 22:30 미국 개장 사이클 |
+| **quora_jp** ✅ | 「S&P500 投信から米国個別株へ — 銘柄スクリーニングに使えるサイトやアプリは？」(답 1) — Finviz·TradingView·ネット証券スクリーナー(マネックス 銘柄スカウター米国株)·Yahoo! Finance + 조건 2~3개부터 + 자작 앱 1회 공개(«私が自作している無料アプリ»)·MU 데이터 화면(ja)·«売買を勧めるものではありません». 게시 후 «たった今» 확인, 답변 주소 …/answers/1477743919273686 |
+| **quora_de** ✅ | 「Wären Sie mit einem Gesetz einverstanden, das … US-Kongress … Aktien … zu halten …?」(무응답) — 찬반 대신 STOCK Act 현실(45일·구간 공시), McCormick GS 17건(8~30일 지연)·대형주 매도 우세, 양쪽 논거(금지 vs 블라인드 트러스트), «빠르고 정확한 공시가 논쟁을 사실 위에 올린다» + 공개(Offenlegung) 1회 + GS 카드. 답변 주소 …/answer/Jiyoung-Kim-236 에서 확인 |
+
+### 확장 — IndexNow 를 GitHub Pages 데이터셋 사이트로
+프로젝트 폴더(`/options-market-structure-daily/`)에 키 파일을 올리고 keyLocation 으로 18개 URL(데이터셋 첫 페이지·의회 거래·의원 16명)을 통보 → **202 → 재통보 200**(키 검증 완료). `scripts/indexnow-ghpages.mjs`, 채널 `indexnow_ghpages`(주간 갱신 직후).
+
+### 도구
+- `quora-answer.mjs`: 일본어(回答する·下書きを編集·投稿)·독일어(Antworten·Entwurf bearbeiten·Veröffentlichen) 버튼, 답변 주소 패턴(/answer/ 와 jp 의 /answers/<id>), 검증은 «게시 직후 답변 주소»로.
+- `/tmp/ego/reddit-find.mjs`: page.evaluate 15초 제한에 18개 fetch 를 한 번에 넣어 시간 초과 → 요청마다 따로 부르도록.
+- ⚠ 주소는 «받은 값»을 쓴다: 독일어 질문 주소를 잘린 출력에서 이어 붙여 짐작할 뻔했다 — 후보 파일의 원래 href 로 교체(실제 주소는 훨씬 길었다).

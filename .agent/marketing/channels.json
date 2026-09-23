@@ -915,6 +915,16 @@
    "tag": "github_pages",
    "link": "https://myjr0629-hue.github.io/options-market-structure-daily/congress.html",
    "note": "★2026-09-23 확장·실행. «<의원> stock trades» 이름 검색 롱테일을 받는 페이지 16개(90일 창에 거래가 있는 의원 전원). 각 페이지: 거래 표(티커·매수/매도·거래일·공시일·지연·금액 구간·공식 공시 링크)·중앙값 지연·Dataset JSON-LD·앱 링크(from=github_pages)·통합 페이지로 돌아가는 링크. 같은 의원 표기 합침·표시 이름은 가운데 이름 없는 쪽. 생성: `node scripts/congress-dataset.mjs`(통합 페이지와 함께) → gh-task.json 에 congress.html + congress-*.html → github-upload.mjs(17개도 목록이 다 뜰 때까지 기다리게 수리). 주간 갱신 때 같이. 측정: from=github_pages 클릭 + 2주 뒤 구글에서 «<의원> stock trades» 노출 여부(Search Console 없음 — 수동 검색)."
+  },
+  {
+   "id": "indexnow_ghpages",
+   "name": "IndexNow — GitHub Pages 데이터셋 사이트",
+   "tier": "A",
+   "enabled": true,
+   "tag": "github_pages",
+   "link": "https://myjr0629-hue.github.io/options-market-structure-daily/congress.html",
+   "action": "notify",
+   "note": "★2026-09-23 확장·실행. 프로젝트 폴더에 IndexNow 키 파일을 두고 keyLocation 으로 그 폴더 URL 18개(데이터셋 첫 페이지·의회 거래·의원 16명)를 Bing·Naver·Yandex·Seznam·Yep 에 통보 → 202 Accepted. `node scripts/indexnow-ghpages.mjs` — 주간 갱신 뒤에 돌린다. 측정: 7일 뒤 Bing 에서 site:myjr0629-hue.github.io congress 검색."
   }
  ],
  "candidates": [

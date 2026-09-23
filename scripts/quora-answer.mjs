@@ -50,7 +50,7 @@ const btn = await page.evaluate(() => {
     .map((e) => ({ e, t: n(e.innerText), r: e.getBoundingClientRect() }))
     // 질문 제목 오른쪽의 «Answer · 2»(답 수가 붙는다) 또는 본문 «Answer». 맨 위 알림 배지(y≈0)는 뺀다
     //   초안이 저장돼 있으면 같은 자리 버튼이 «Edit draft · 2» 로 바뀐다(9/23 실측)
-    .filter((o) => /^(Answer|Edit draft)(\s*·\s*\d+)?$/i.test(o.t) && o.r.width > 0 && o.r.top > 40)
+    .filter((o) => /^(Answer|Edit draft|回答する|下書きを編集|Antworten|Beantworten|Entwurf bearbeiten)(\s*·\s*\d+)?$/i.test(o.t) && o.r.width > 0 && o.r.top > 40)
     .sort((a, b) => a.r.top - b.r.top)[0];
   return c ? { x: Math.round(c.r.left + c.r.width / 2), y: Math.round(c.r.top + c.r.height / 2) } : null;
 });
@@ -103,7 +103,7 @@ if (T.image) {
 const shot = await page.screenshot({ path: '/tmp/ego/quora-filled.png' });
 const st = await page.evaluate(() => {
   const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
-  const b = [...document.querySelectorAll('div[role=button],button')].filter((e) => n(e.innerText) === 'Post' && e.getBoundingClientRect().width > 0).pop();
+  const b = [...document.querySelectorAll('div[role=button],button')].filter((e) => /^(Post|投稿|投稿する|Posten|Veröffentlichen)$/.test(n(e.innerText)) && e.getBoundingClientRect().width > 0).pop();   // jp·de Quora 버튼 이름
   if (!b) return null;
   const r = b.getBoundingClientRect();
   const txt = [...document.querySelectorAll('[contenteditable=true]')].sort((a, c) => c.getBoundingClientRect().width - a.getBoundingClientRect().width)[0]?.innerText || '';
@@ -123,14 +123,18 @@ console.log('게시 후:', JSON.stringify(after));
 
 // ⑤ 검증 — 질문 페이지를 다시 열어 우리 답(mark)이 보이는지. /unanswered/ 주소는 답이 생기면 일반 주소로 바뀐다
 const canon = T.url.replace('/unanswered/', '/');
-try { await page.goto(canon, { waitUntil: 'domcontentloaded' }); } catch {}
+// ★2026-09-23: 질문 페이지는 긴 답을 접어 보여 줘 mark 가 안 보였다(게시는 됐는데 «실패»로 끝났다).
+//   게시 직후 주소가 …/answer/<이름> 이면 그 «답변 주소»를 열어 확인한다.
+const ansUrl = /\/answers?\//.test(after.url) ? after.url.split('?')[0] : null;
+try { await page.goto(ansUrl || canon, { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(7000);
 const v = await page.evaluate((mark) => {
   const txt = document.body.innerText || '';
-  const a = [...document.querySelectorAll('a[href*="/answer/"]')].map((x) => x.href.split('?')[0]);
+  const a = [...document.querySelectorAll('a[href*="/answer"]')].map((x) => x.href.split('?')[0]);
   return { seen: txt.includes(mark), answerLinks: [...new Set(a)].slice(0, 5) };
 }, T.mark);
 console.log('검증(로그인 화면):', JSON.stringify(v));
 if (!v.seen) { console.log('⛔ 질문 페이지에서 우리 답이 안 보인다 — «발행했다»고 적지 않는다'); process.exit(1); }
-console.log('\n✅ 게시·검증 완료:', canon);
-console.log('다음: node scripts/mkt-plan.js pub quora_en "' + (v.answerLinks.find((h) => /signum/i.test(h)) || canon) + '"');
+console.log('\n✅ 게시·검증 완료:', ansUrl || canon);
+console.log('답변 주소:', ansUrl || canon);
+console.log('다음: node scripts/mkt-plan.js pub <quora_en|quora_jp|quora_de> "' + (ansUrl || canon) + '"');

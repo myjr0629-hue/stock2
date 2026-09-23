@@ -41,6 +41,7 @@ const CH = {
   devto:       { cap: 1, day: 'kst', window: [0, 24], note: 'dev.to — 계정 필요(대표 1회, POST /api/articles 401). 자기 제품은 «공개하면» 허용 · canonical_url 로 원본 지정. 원고 준비됨' },
   amazon_appstore: { cap: 0, day: 'week', window: [0, 24], note: '1급 스토어(설치가 직접 난다). 개발자 계정 대표 1회 → 그 뒤 cap 1 로 올려 APK 3개 업로드' },
   apple_cpp_channels: { cap: 1, day: 'week', window: [0, 24], note: 'CPP 를 채널 언어별로(ko/ja/en-tech). ASC API 로 생성 → 심사 24~48h → storeRedirect.ts 매핑(라이브 웹 변경 = 실화면 검증 후 배포)' },
+  indexnow_ghpages: { cap: 1, day: 'week', window: [0, 24], note: '데이터셋 주간 갱신 직후 1회 — node scripts/indexnow-ghpages.mjs' },
   congress_member_pages: { cap: 1, day: 'week', window: [0, 24], note: '의원별 페이지 — github_pages_congress 와 같은 주간 갱신에 묶는다' },
   github_pages_congress: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 갱신 — node scripts/congress-dataset.mjs → github-upload.mjs(세 파일). 90일 창이 밀리므로 갱신을 거르면 «죽은 데이터»가 된다' },
   producthunt: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-19 확장 등록(57번째). ★계정 대기(t200) — 메이커 계정이 런치 시점에 «약 1주일 이상» 돼 있어야 한다(당일 생성·당일 런치 금지)라 cap 0 으로 잠근다. 계정이 생기면 cap 1 로 올리고 «한 번만» 쏜다 — 6개월 내 재런치는 메이저 업데이트 심사 대상. 태그라인 60자 제한 · 링크는 제품을 받을 수 있는 대표 페이지 하나 · 런치는 1개월 전까지 예약 가능. 화·수·목 태평양시 아침이 노출이 높다. 준비물(한국어·영문 스크린샷, OG 이미지, 스마트링크)은 이미 있다.' },
