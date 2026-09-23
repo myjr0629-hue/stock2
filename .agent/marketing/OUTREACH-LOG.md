@@ -11458,3 +11458,20 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 홈 작성창 «Schedule post» → 대화상자: 월·일·년 / 시·분·AM·PM 선택, **시간대 Korean Standard Time**, Confirm, «Scheduled posts» 목록. Esc 로 닫음.
 - 쓰임: X JP 는 07:30 JST, X US 는 미 장중(23:00~05:00 KST)에 맞춰 미리 걸 수 있다 → 발행기 `x-post.mjs` 에 `schedule`(KST 시각) 옵션을 다음에 추가.
 - 같은 화면에서 본 시장 뉴스: «10년물 5.13% 돌파», Kobeissi «10월 금리 **인상** 확률 64%»(24분 전) — 다음 날 캡이 풀리면 가장 관심 높은 소재(가디언 FedWatch·10년물 화면으로).
+
+---
+
+## 2026-09-24 (KST) 06:30~06:58 — 시간 사이클: 실행 1/1(naver_kin) · 확장(GeekNews 규칙 실측·Show GN 초안·태그 등록)
+
+게이트: 341·실패 0.
+
+| 채널 | 소재 | 공개 URL | 검증 |
+|---|---|---|---|
+| naver_kin | 「미국 급등주 — 뉴스 보는 법·검색 키워드·급등주 찾는 법」(3시간 전 질문) — 서머타임 기준 프리·정규·애프터 시간(KST), CNBC·MarketWatch·야후·SEC EDGAR 8-K, 촉매 키워드(earnings·guidance·FDA·merger·offering), 거래량·이유 확인, 기본 용어. 앱 1회(제작자 공개: Why'd It Move?) | https://kin.naver.com/qna/detail.naver?dirId=40102&docId=495288520&answerNo=2 | 비로그인 공개 확인 |
+
+오늘(KST) 지식iN 5/12.
+
+### 확장 — GeekNews(오늘 09:00 KST 해금) 준비
+- 가이드라인 실측(news.hada.io 의 링크를 따라가 읽음): 자작 앱은 **Show** 필수 · 써 볼 수 있는 것만(가입 없이 권장 — 우리 앱은 무가입) · 짧은 기간 반복 등록 금지 · **AI 사용 자체는 금지 아님**(검토 없는 대량 요약·SEO형은 제한 — 해커뉴스와 다르다) · YouTube 링크 금지.
+- Show GN 초안: `.agent/marketing/drafts/READY-geeknews-show.md`(기술 청중용 — FINRA 원본 복원·뉴스 시각 오독·EOD 폴백 교훈, 스택).
+- 채널 태그 `geeknews` + 링크 `?from=geeknews&l=ko` 등록(태그가 없으면 클릭 집계에서 빠진다 — `new-channel-needs-its-tag-registered-first`).

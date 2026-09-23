@@ -312,14 +312,16 @@
    "id": "geeknews",
    "tier": "A",
    "enabled": true,
-   "note": "★2026-09-18 대표 가입 완료 (signumhq). news.hada.io — 자작 앱은 반드시 «Show» 로만, 프로젝트당 1회(반복시 배포채널 취급). ★2026-09-20 «사이트 원문으로» 확정: /write 상단에 「가입 후 일주일이 지나야 작성할 수 있습니다」. 프로필 실측 가입일 **2026-09-17** → **해금 2026-09-24**(내 이전 노트의 09-25 는 틀렸다). 로그인 세션은 «살아 있다»(헤더 signumhq(1), @signumhq). 폼 필드도 확인: title·url·contents + 「등록」. Show 는 1회뿐이라 3일 일찍 시도해 삭제·제한을 무릅쓰지 않는다. 09-24 사이클에 등록. 진입은 주소를 치지 말고 헤더 「글등록」 클릭(→ /write).",
+   "note": "★2026-09-18 대표 가입 완료 (signumhq). news.hada.io — 자작 앱은 반드시 «Show» 로만, 프로젝트당 1회(반복시 배포채널 취급). ★2026-09-20 «사이트 원문으로» 확정: /write 상단에 「가입 후 일주일이 지나야 작성할 수 있습니다」. 프로필 실측 가입일 **2026-09-17** → **해금 2026-09-24**(내 이전 노트의 09-25 는 틀렸다). 로그인 세션은 «살아 있다»(헤더 signumhq(1), @signumhq). 폼 필드도 확인: title·url·contents + 「등록」. Show 는 1회뿐이라 3일 일찍 시도해 삭제·제한을 무릅쓰지 않는다. 09-24 사이클에 등록. 진입은 주소를 치지 말고 헤더 「글등록」 클릭(→ /write). ★2026-09-24 규칙 실측(guidelines): 자작 앱은 반드시 Show · 써 볼 수 있는 것만(가입 없이 권장) · 짧은 기간 반복 등록 금지 · AI 사용 자체는 금지 아님(검토 없는 대량 요약·SEO형 제한). 초안 .agent/marketing/drafts/READY-geeknews-show.md · 태그 geeknews 등록(l=ko 로 한국어 카드). 발행은 게이트 해금(UTC 9/24 = 09:00 KST) 뒤, 글쓰기 화면은 «눌러서»(/write 메뉴) 들어간다.",
    "account": "signumhq",
    "gate": {
     "kind": "시간",
     "until": "2026-09-24",
     "who": null,
     "why": "가입 7일 대기(실측 가입일 9/17). Show 는 프로젝트당 1회"
-   }
+   },
+   "tag": "geeknews",
+   "link": "https://signumhq.com/app?from=geeknews&l=ko"
   },
   {
    "id": "fmkorea",
