@@ -85,6 +85,20 @@ async function get(key) {
         }
     }));
 
+    // ★2026-09-23 — QR 넘겨주기(`mkt:attr:qr:<태그>:<날짜>`)·리딤코드 링크(`mkt:attr:code:…`)는 라우트가 «쓰기만» 하고
+    //   읽는 도구가 없었다(= 효과를 못 잰다). 같은 태그·날짜로 같이 읽는다. QR 은 «PC 에서 본 사람이 폰으로 넘어온» 수다.
+    const extra = {};
+    let idx2 = 0; const jobs2 = [];
+    for (const t of tags) for (const d of dates) { jobs2.push(['qr', t, d]); jobs2.push(['code', t, d]); }
+    await Promise.all([...Array(12)].map(async () => {
+        while (idx2 < jobs2.length) {
+            const [k, t, d] = jobs2[idx2++];
+            const v = await get(`mkt:attr:${k}:${t}:${d}`);
+            if (v === null) { failed++; continue; }
+            if (v) { if (!extra[t]) extra[t] = { qr: 0, code: 0 }; extra[t][k] += v; }
+        }
+    }));
+
     const rows = Object.entries(sum)
         .map(([t, v]) => ({ t, ...v, all: v.android + v.ios + v.desktop }))
         .filter((r) => r.all > 0)
@@ -111,5 +125,10 @@ async function get(key) {
     console.log('합계'.padEnd(16) + String(tA).padStart(6) + String(tI).padStart(7) + String(tD).padStart(9) +
         String(all).padStart(7) + String(all ? Math.round(((tA + tI) / all) * 100) : 0 + '%').padStart(9) + '%');
     console.log('\n«설치가능%» = 안드로이드+iOS 비율. 데스크톱 클릭은 스토어 페이지에 닿아도 설치로 이어지지 않는다.');
+    const ex = Object.entries(extra);
+    const qrAll = ex.reduce((a, [, v]) => a + v.qr, 0), codeAll = ex.reduce((a, [, v]) => a + v.code, 0);
+    console.log(`\n── PC→폰 QR 넘겨주기 · 리딤코드 링크 (최근 ${DAYS}일) ──`);
+    console.log(`QR 로 폰에 넘어온 클릭 ${qrAll}건(데스크톱 클릭 ${tD}건 대비 ${tD ? Math.round((qrAll / tD) * 100) : 0}%) · 코드 링크 ${codeAll}건`);
+    for (const [t, v] of ex.sort((a, b) => (b[1].qr + b[1].code) - (a[1].qr + a[1].code))) console.log('   ' + t.padEnd(16) + ` QR ${v.qr} · 코드 ${v.code}`);
     if (failed) console.log(`⚠ 조회 실패 ${failed}건 — 0 이 아니라 «못 쟀다»다.`);
 })();

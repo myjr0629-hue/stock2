@@ -11133,3 +11133,9 @@ CSV(192행, 행마다 공식 공시 링크) · JSON(60종목). 기존 데이터�
 - **hf_datasets** ✅ — https://huggingface.co/datasets/eunhoon/us-congress-stock-trades (대표 개인 계정 `eunhoon`, 9/18 옵션 데이터셋과 같은 관리 합의). README 카드(YAML: cc-by-4.0·태그 7·configs 로 CSV 뷰어)·CSV·JSON·카드 이미지. **비로그인 curl 200 · JSON-LD `Dataset` · 앱 링크 `?from=hf_datasets` · 태그 색인** 확인. 주간 캡(1)은 9/18 미러가 7일 창 안이라 2/1 로 넘었다 — 같은 데이터셋 갱신이 아니라 «새 데이터셋»이라 진행했고 여기 밝혀 둔다.
   함정: 이름칸을 두 번 치면 이어 붙는다(비우고 입력) · «Create Dataset» 텍스트 정확일치 0건 → `loc=role:button[...]`.
 - **naver_kin** ✅ 11·12 — ①해외 CFD 브로커(Vantage) 질문: CFD 는 실물 주식이 아님·국내 등록 여부(파인)·계약 주체 법인·금감원 불법 FX 경보·국내 CFD 는 전문투자자만 ②«달러로는 이익, 원화로는 손실이면 양도세가 줄어드나»: 원화 환산(결제일 기준환율) 규칙 + 연간 손익통산 + 계산 예(77만 vs 99만) + 평가손실 제외·이월 불가·연말 결제일. 둘 다 비로그인 공개 확인. **오늘 지식iN 12/12 완료.**
+
+### 16:45 측정 — PC→폰 QR 은 오늘 0/16, 그리고 «맥 설치»가 꺼져 있었다
+- `mkt-clicks-platform.js` 에 QR·코드 칸 추가(라우트가 `mkt:attr:qr:*`·`mkt:attr:code:*` 를 «쓰기만» 하고 읽는 도구가 없었다 — 오늘 배포한 기능의 효과를 못 재는 상태였다).
+  오늘(ET) 클릭 17 = 데스크톱 16 · iOS 1(home) · 안드로이드 0. **QR 로 폰에 넘어온 것 0건.** 채널: x_us 6 · bluesky 5 · linkedin 2 · quora_space 2 · tistory 1 · home 1.
+  (x_us 6 은 새벽 02시 ET 의 의회 거래 글 이후다 — 그 글에서 나왔을 가능성이 높지만 글 단위 태그가 없어 단정하지 않는다)
+- **ASC 실측(읽기만): «Apple Silicon Mac 사용 가능 여부» 체크 해제**, 1.9.2 는 «호환 가능». → 맥으로 들어온 PC 클릭은 지금 설치 경로가 없다. 설정 변경은 대표 결정(HANDOFF §3 ⑬). QR 이 0 인 지금, 이것이 PC 트래픽을 설치로 바꾸는 가장 직접적인 스위치다.
