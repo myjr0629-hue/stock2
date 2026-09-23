@@ -51,9 +51,18 @@ const PLAY_CUSTOM_LISTINGS: Record<StoreApp, ReadonlySet<string>> = {
   wim: new Set<string>(),
 };
 
-/** App Store 맞춤 제품 페이지(CPP): from 태그 → ppid. 전부 「web home」용으로 만든 것이다. */
+/**
+ * App Store 맞춤 제품 페이지(CPP): from 태그 → ppid.
+ * ★2026-09-23: 한국어 독자 채널용 CPP «ko naver (from=naver_blog)» 승인(Apple 메일, 제출 ID 08234251…).
+ *   첫 스크린샷이 의회 거래·옵션 지도인 ko 세트 — 네이버·티스토리·OKKY 등 l=ko 링크로 오는 사람에게 보인다.
+ */
+const KO_NAVER_CPP = '8202cd7d-a522-41a8-b372-47e0e2806c8c';
 const APPLE_CUSTOM_PRODUCT_PAGES: Record<StoreApp, Readonly<Record<string, string>>> = {
-  signum: { home: 'a0522489-c6f8-4050-8e56-bc89b27f0927' },
+  signum: {
+    home: 'a0522489-c6f8-4050-8e56-bc89b27f0927',
+    naver_blog: KO_NAVER_CPP, naver_kin: KO_NAVER_CPP, tistory: KO_NAVER_CPP, okky: KO_NAVER_CPP,
+    naver_sa: KO_NAVER_CPP, daum: KO_NAVER_CPP, kr_media: KO_NAVER_CPP,
+  },
   uc: { home: 'f2559d55-be1a-41a1-989b-5940a5ff4d8a' },
   wim: { home: '4347070b-174a-4620-bd93-942caca7cf2c' },
 };
