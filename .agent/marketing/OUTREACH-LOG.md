@@ -11209,3 +11209,15 @@ https://myjr0629-hue.github.io/options-market-structure-daily/congress.html 의 
 - **확장 검토 ① 블루스카이 스타터팩** — 공개 API 로 금융 계정 45개 후보를 뽑았지만 검색 잡음이 많고(금융 외 계정 다수), 유명 계정을 브랜드 계정이 묶으면 «기회주의적» 인상 위험이 커서 **만들지 않았다**(판단 기록).
 - **확장 검토 ② Play «프로모션 콘텐츠»(LiveOps)** — channels 에 «첫 행동 = 존재 확인»으로 cap 0 이던 항목. 콘솔을 클릭으로 들어가 확인: SIGNUM 의 Grow users = Store presence(**Store listings 만**) · Store performance(Store analysis) · Translations · Deep links. **메뉴 자체가 없다** → `play_promotional_content` 게이트 [자격·구글], enabled:false. 애플 인앱 이벤트가 대체 표면.
 - 덤 실측(콘솔 대시보드): **Installs 31 · Device acquisitions 17(−11%) · Device first opens 11(+175%)** — 기간 표기는 콘솔 기본(최근 28일 추정, 단정하지 않음).
+
+---
+
+## 2026-09-23 (KST) 20:30~20:50 — 시간 사이클: 레딧 2/3(나이키) · 레딧 1번 댓글 정정 · ASC 웹 세션 만료
+
+| 항목 | 결과 |
+|---|---|
+| **reddit** ✅ 2/3 | r/stocks «Nike earnings October 1 - can Nike afford cautious guidance?»(1.3h) — 실적 직후 만기(10/2) ATM IV ~67% vs 이번 주 ~41%, OI $40 콜 ~4.7k·$35 풋 ~5.5k(주가 ~$36), P/C 0.76, 맥스페인 $37(현재가와 같아 정보 약함) → «방향이 아니라 평소보다 큰 움직임을 가격에 넣었다». 링크 0·앱명 0. https://www.reddit.com/comments/1wo1yzu/comment/pbjo9t7/ |
+| **정정** ✅ | 17:40 마이크론 댓글에 9/22 를 **«Monday»** 로 적었다 — **9/22 는 화요일**. `/api/editusertext`(로그인 페이지 안)로 «Tuesday» 두 곳을 고치고 본문 일치 확인. 도구 정본 `scripts/reddit-edit.mjs`. 오늘 다른 글(블로그·Quora·X)은 날짜로만 적어 해당 없음 |
+| **확장(측정)** ✗ | App Store Connect «분석»(설치 출처)을 읽으려 했으나 **웹 세션 만료**(login?authResult=FAILED). 비밀번호 입력은 안전선 밖 → HANDOFF §3 ③ 에 합쳤다. API 키(CPP·메타데이터)는 계속 작동 |
+
+남은 레딧 1건은 22:30 미국 개장 사이클(8분 간격 충족).
