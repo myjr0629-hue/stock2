@@ -167,7 +167,11 @@ if (cmd === 'slot') {
     const v = c[key];
     if (!v) { rows.push({ id, state: '규칙없음', age: ageH(key), note: r.note }); continue; }
     const inWin = hour >= v.window[0] && hour < v.window[1];
-    const acct = /★계정 필요|★작가 신청|★무료\. ASC|대표 승인|계정 필요/.test(r.note || '');
+    // ★2026-09-23 «계정대기» 판정은 메모의 옛 문구(«★계정 필요» 등)로 했다 → 계정이 이미 생겨 오늘 발행한 okky 나
+    //   5일 전에 발행한 apple_featuring 까지 «계정 막힘»으로 뚫기 레인에 올라왔다. 최근 7일 안에 실제 발행 기록이
+    //   있으면 계정은 살아 있는 것이다 — 기록이 문구를 이긴다.
+    const recentPub = ageH(key) < 24 * 7;
+    const acct = !recentPub && /★계정 필요|★작가 신청|★무료\. ASC|대표 승인|계정 필요/.test(r.note || '');
     // ★2026-09-21 «게이트» — 내가 아무리 시간을 써도 못 여는 것(대표 결정·법적 동의·해금일)은
     //   «실행» 레인에서 빼고 따로 세운다. 안 그러면 기록이 영영 안 생겨 «가장 오래 방치된 순»의
     //   맨 앞을 영구 점유하고, 실행 4칸이 매 사이클 통째로 낭비된다(§49 와 같은 고장, 다른 얼굴).

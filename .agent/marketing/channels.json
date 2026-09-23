@@ -895,7 +895,7 @@
    "tag": "cpp",
    "link": "https://apps.apple.com/app/id6783130444",
    "action": "edit",
-   "note": "★2026-09-21 확장 발굴. CPP 는 앱당 35개·무료인데 지금 «1개»만 쓴다(web home). 나머지 전 채널(naver_blog·tistory·medium·x_us·x_jp·linkedin·quora·bluesky·note)은 기본 제품 페이지로 간다. 첫 스크린샷·문구를 채널 언어에 맞추면 «탭→설치» 전환을 채널별로 따로 잰다. 1순위 3개: ko / ja / en-tech. ★진짜 막는 것은 스크린샷이 아니라 storeRedirect.ts 의 APPLE_CUSTOM_PRODUCT_PAGES 매핑 한 줄(코드 티켓)."
+   "note": "★2026-09-23 첫 채널 CPP 생성·심사 제출: «ko naver (from=naver_blog)» ppid=8202cd7d-a522-41a8-b372-47e0e2806c8c (WAITING_FOR_REVIEW). 스크린샷 4장(의회 거래·옵션 지도·고래 신규 포지션·개장 전) ko+en-US, 스토어 규격 1242×2688 을 make-x-shot(X_SHOT_VIEW=390x801@2.8308 X_SHOT_NOADS=1) + compose-promo-shots.py(/tmp spec)로 만들었다 — promo-shots/ 는 다른 작업이 쓰고 있어 건드리지 않았다. 남은 일: 승인 후 storeRedirect.ts APPLE_CUSTOM_PRODUCT_PAGES 에 naver_blog·naver_kin·tistory·threads(ko) → 이 ppid 매핑(라이브 웹 변경 = 대표 할 일 ⑩ 해결 후 실화면 검증). 함정: CPP 는 기본 언어(en-US) 로컬라이제이션이 필수 — 없으면 엉뚱한 409 RELATIONSHIP.REQUIRED. ★2026-09-21 확장 발굴. CPP 는 앱당 35개·무료인데 지금 «1개»만 쓴다(web home). 나머지 전 채널(naver_blog·tistory·medium·x_us·x_jp·linkedin·quora·bluesky·note)은 기본 제품 페이지로 간다. 첫 스크린샷·문구를 채널 언어에 맞추면 «탭→설치» 전환을 채널별로 따로 잰다. 1순위 3개: ko / ja / en-tech. ★진짜 막는 것은 스크린샷이 아니라 storeRedirect.ts 의 APPLE_CUSTOM_PRODUCT_PAGES 매핑 한 줄(코드 티켓)."
   },
   {
    "id": "github_pages_congress",

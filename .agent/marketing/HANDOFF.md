@@ -122,6 +122,8 @@
    ⚠ `fix/congress-person-key` 운영 반영 전에는 GOOGL·JPM·NVDA 카드의 «N명»이 부풀려져 있다 → 그 종목 화면은 소재로 쓰지 말 것(GS 는 정확).
 7-b. **✅ 의회 거래 공개 데이터셋(9/23 확장)** — https://myjr0629-hue.github.io/options-market-structure-daily/congress.html · 주 1회 갱신: `node scripts/congress-dataset.mjs` → `/tmp/ego/gh-task.json` 에 세 파일 → `scripts/github-upload.mjs`. 다음 갱신 9/30.
 7-c. **hf_datasets** — 대표 개인 계정으로 로그인돼 있고 «내가 관리» 합의(채널 노트). 막힌 게 아니다 → 다음 뚫기 사이클에 의회 거래·옵션 구조 데이터셋을 허깅페이스에 미러(세션 생존부터 확인).
+7-d. **CPP «ko naver» 심사 중(9/23 제출, ppid 8202cd7d-a522-41a8-b372-47e0e2806c8c)** — 승인 확인: `GET /appCustomProductPageVersions/ba515daa-4802-429c-a5d5-b4b11f22a3fa` state. 승인 + ⑩ 해결 → storeRedirect.ts `APPLE_CUSTOM_PRODUCT_PAGES.signum` 에 naver_blog·naver_kin·tistory·threads 매핑 → 실화면(한국 아이폰 UA 로 /app?from=naver_blog 302 Location 에 ppid) 확인 후 배포.
+7-e. **커맨드 화면 값 섞임 수리(대기)** — 만기 미지정 structure 응답이 10.8시간 캐시를 준다(맥스페인·감마플립이 서로 다른 날의 미결제약정). ⑩ 이후 원인(캐시 키·TTL) 확인 → 실화면 검증 후 배포.
 8. **(제안·대표 판단) 의원별 거래 페이지 SEO** — «Pelosi stock trades», «[의원] stock trades» 는 검색 수요가 큰데 우리 웹엔 없다. 원자료는 이미 있다(`getCongressTrades`). 웹 신규 페이지라 실화면 검증(⑩)이 먼저다.
 
 ---

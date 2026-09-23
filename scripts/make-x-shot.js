@@ -20,7 +20,9 @@ const { execFileSync } = require('child_process');
 
 const BASE = 'https://www.signumhq.com';
 const OUT = process.env.X_SHOT_OUT || path.join(process.env.HOME, 'Desktop', 'X 댓글용 이미지');
-const VIEW = { w: 460, h: 900, dsf: 3 };
+// X_SHOT_VIEW="390x801@2.8308" — 스토어 규격 원본(1104×2268 = App Store 6.5\" 캔버스의 앱 영역)을 찍을 때
+const VIEW = (() => { const m = String(process.env.X_SHOT_VIEW || '').match(/^(\d+)x(\d+)@([\d.]+)$/);
+  return m ? { w: +m[1], h: +m[2], dsf: +m[3] } : { w: 460, h: 900, dsf: 3 }; })();
 
 const SCENES = {
   signum: {
@@ -165,6 +167,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       await sleep(1500);
     }
     console.log(`[스크롤] «${process.env.X_SHOT_SCROLL_TEXT}» ${top === null ? '못 찾음 — 맨 위로 찍는다' : `제목 위치 y=${top}px(목표 ${pad})`}`);
+  }
+
+  // X_SHOT_NOADS=1 — 스토어 스크린샷용: 광고·스폰서 카드를 지운다(make-promo-shots.js 와 같은 선택자).
+  //   스토어 스샷에 광고가 들어가면 안 된다. SNS 용 캡처에는 쓰지 않는다(앱의 실제 모습 그대로).
+  if (process.env.X_SHOT_NOADS) {
+    const n = await page.evaluate(() => {
+      const els = [...document.querySelectorAll('.app-anchor-ad, [aria-label="Sponsored"], .uc-ad, [id*="google_ads"], iframe[src*="ads"]')];
+      // 본문 안 «SPONSOR» 하우스 카드도 뺀다(글자로 찾는다)
+      for (const e of document.querySelectorAll('div')) { if (/^SPONSOR/.test((e.innerText || '').trim()) && e.getBoundingClientRect().height < 160 && e.getBoundingClientRect().height > 40) els.push(e); }
+      els.forEach((el) => el.remove());
+      document.documentElement.style.setProperty('--app-anchor-ad-height', '0px');
+      return els.length;
+    });
+    console.log(`[광고 제거] ${n}개`);
+    await sleep(800);
   }
 
   const bottom = await page.evaluate(() => {

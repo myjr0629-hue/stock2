@@ -51,6 +51,12 @@ def _upload(set_id, path):
 
 
 def create(app_id: str, spec: dict):
+    # ★2026-09-23 실측: CPP 는 «앱 기본 언어(primaryLocale)» 로컬라이제이션이 반드시 있어야 한다.
+    #   없으면 ASC 는 엉뚱하게 409 RELATIONSHIP.REQUIRED('appCustomProductPageLocalizations')를 돌려준다
+    #   (관계를 더하면 UNKNOWN, 역참조를 넣으면 INVALID — 세 번 헛돌았다). 기본 언어를 넣자 바로 201.
+    prim = (call('GET', f'/apps/{app_id}?fields[apps]=primaryLocale').get('data') or {}).get('attributes', {}).get('primaryLocale')
+    if prim and prim not in spec['locales']:
+        print(f'⛔ 기본 언어 {prim} 로컬라이제이션이 spec 에 없다 — CPP 는 이것 없이 만들어지지 않는다'); return None
     locs = list(spec['locales'].keys())
     body = {'data': {'type': 'appCustomProductPages', 'attributes': {'name': spec['name']},
         'relationships': {'app': {'data': {'type': 'apps', 'id': app_id}},
@@ -102,6 +108,21 @@ def create(app_id: str, spec: dict):
         if not bad:
             print(f'   ✓ 에셋 COMPLETE ({i}회차)'); break
         print(f'   {i}회차 대기 {len(bad)}장'); time.sleep(12)
+        # ★2026-09-23: 8장 중 2장이 UPLOAD_COMPLETE 에서 6분 넘게 멈췄다 → 지우고 다시 올리자 즉시 COMPLETE.
+        #   4회차부터 멈춘 장을 한 번 다시 올리고, 세트 순서를 spec 순서로 되돌린다(다시 올린 장은 맨 뒤로 붙는다).
+        if i == 4:
+            for loc, s in sets.items():
+                g = call('GET', f'/appScreenshotSets/{s}/appScreenshots')
+                for d in g.get('data', []):
+                    if d['attributes'].get('assetDeliveryState', {}).get('state') != 'COMPLETE':
+                        fn = d['attributes'].get('fileName')
+                        call('DELETE', f"/appScreenshots/{d['id']}")
+                        src = next((p for p in spec['locales'][loc]['shots'] if os.path.basename(p) == fn), None)
+                        if src: print(f'      ↻ {fn} 다시 올림', '✓' if _upload(s, src) else '✗')
+                g = call('GET', f'/appScreenshotSets/{s}/appScreenshots')
+                by = {d['attributes']['fileName']: d['id'] for d in g.get('data', [])}
+                want = [by[os.path.basename(p)] for p in spec['locales'][loc]['shots'] if os.path.basename(p) in by]
+                call('PATCH', f'/appScreenshotSets/{s}/relationships/appScreenshots', {'data': [{'type': 'appScreenshots', 'id': x} for x in want]})
     else:
         print('✗ 에셋 미완 — 제출 보류'); return cpp['id']
 
