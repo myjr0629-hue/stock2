@@ -92,6 +92,9 @@
 | ⑦ | 디렉터리 3곳 가입: 10words.io · Startup Fame · StartupInspire(무료 플랜) | 가입은 내 몫이 아니다. 가입만 해 두시면 등재·소개문은 내가 | 각 1분 |
 | ⑧ | Zenn 가입(zenn.dev) | 일본에서 자사 링크가 명문 허용된 두 곳 중 하나 | 1분 |
 | ⑨ | (선택) 아이폰으로 JP·US 별점 | JP 는 «유입으로 만든다»가 대표 방침 — 급하지 않음 | — |
+| **⑩** | **ego 브라우저에서 vercel.com 로그인 1회** — 또는 «의회 거래 수리는 운영 반영 후 실화면 확인으로 가라» 한마디 | 프리뷰(*.vercel.app)는 SSO 보호라 ego 로그인 세션 안에서만 잰다. 9/23 로그인 만료 확인. 비밀번호 입력은 내 안전선 밖 → `fix/congress-person-key`(의원 수 부풀림 수리)가 브랜치에 대기 중 | 30초 |
+| **⑪** | **«오늘 14.2K 잠금해제» 문구 처리 승인** — cmd·dash·flow 잠금 카드 6곳(3개 언어)에 **하드코딩된 고정 숫자**. 실제 집계가 아니다 | 광고 UI 는 대표 보호 구역이라 내가 임의로 못 고친다. 권고: 문구 삭제(또는 실제 해제 수로 교체). 스토어 심사(허위 표시)·우리 교리(화면이 지표를 지어낸다) 둘 다 걸린다 | 한마디 |
+| ⑫ | **Ego Lite 업데이트 승인**(`ego-browser upgrade`) — 실행할 때마다 «update available» 알림 | 업그레이드는 대표 승인 후에만 | 한마디 |
 
 **끝난 것(목록에서 내림)**: Bluesky 앱 비밀번호(.env.local 에 있음) · 마스토돈 가입(9/23) · ASC 재로그인(9/23)
 오래된 대표 몫 목록 `CEO-SIGNUP-LIST.md` 는 9/20 기준이라 낡았다 — **이 표가 정본이다.**
@@ -111,9 +114,12 @@
 4. **앱 안 «코드 사용» 버튼** — RevenueCat `presentCodeRedemptionSheet()` 가 SDK 에 이미 있다(미연결). 다음 빌드 후보.
 5. **Mastodon** — ✅ 두 글 모두 ALT 소급 완료(사이트 API). 다음부터 `scripts/mastodon-post.mjs`(ALT 필수) — 첫 실사용 때 검증할 것.
 5-b. **블루스카이 해시태그** — 다음 글부터 `#stocks #optionstrading #investing` + `$티커`(피드 4곳 진입, channels.json bluesky 노트).
-5-d. **지식iN — 답변 가능한 질문 후보(9/23 스캔)**: 495279006(답 1) · 495278190 · 495278635 · 495279419 · 495279091 · 495270267 · 495277618 · 495260490 — 본문 쪽 「답변하기」(y>200) 확인됨. 제목 확인 후 «투자 조언 요청·AI 금지» 아닌 것에 답한다(본문 링크 금지·앱 이름 0~1회).
-5-c. **지식iN 답변 정본 스크립트** — `scripts/naver-kin-answer.mjs` 가 아직 없다. 「쓰기 버튼 유무」부터 확인(닫힌 질문엔 버튼이 없다, GNB 「답변하기」는 목록 메뉴).
+5-d. **지식iN — ✅ 9/23 9건 답변(정본 `scripts/naver-kin-answer.mjs`, 후보 스캐너 `/tmp/ego/kin-scan4.mjs` = 검색어×최신순)** · 예전 후보(9/23 스캔): 495279006(답 1) · 495278190 · 495278635 · 495279419 · 495279091 · 495270267 · 495277618 · 495260490 — 본문 쪽 「답변하기」(y>200) 확인됨. 제목 확인 후 «투자 조언 요청·AI 금지» 아닌 것에 답한다(본문 링크 금지·앱 이름 0~1회).
+5-c. **지식iN 답변 정본 스크립트** — ✅ `scripts/naver-kin-answer.mjs`(커밋됨). Quora 는 `scripts/quora-answer.mjs`(9/23 신설). 「쓰기 버튼 유무」부터 확인(닫힌 질문엔 버튼이 없다, GNB 「답변하기」는 목록 메뉴).
 6. **구독 대표 이미지(1024×1024)** — ASC 구독 페이지에 «비어 있음». 오퍼코드 리딤 화면·제품 페이지에 뜨는 자리다.
+7. **★ 의회 거래 = 새 소재 축(9/23 개척)** — 사람 이름이 붙은 데이터라 «관심»이 가장 크다(펠로시 추적이 괜히 유명한 게 아니다). 앱 화면: Command → HOLDERS → «의회 거래»(`X_SHOT_UNLOCK=1 X_SHOT_CLICK_TEXT=HOLDERS X_SHOT_SCROLL_TEXT="Congress Trades"|"의회 거래" node scripts/make-x-shot.js signum en|ko cmd <티커>`). 원자료: `/api/flow/congress?t=<티커>`(person·chamber·lagDays·link). 오늘: X·Quora·네이버 발행. 남은 곳: **블루스카이 #3(21:30 이후, `#stocks #optionstrading #investing $GS`)**·Threads·note(JP)·Mastodon(내일).
+   ⚠ `fix/congress-person-key` 운영 반영 전에는 GOOGL·JPM·NVDA 카드의 «N명»이 부풀려져 있다 → 그 종목 화면은 소재로 쓰지 말 것(GS 는 정확).
+8. **(제안·대표 판단) 의원별 거래 페이지 SEO** — «Pelosi stock trades», «[의원] stock trades» 는 검색 수요가 큰데 우리 웹엔 없다. 원자료는 이미 있다(`getCongressTrades`). 웹 신규 페이지라 실화면 검증(⑩)이 먼저다.
 
 ---
 

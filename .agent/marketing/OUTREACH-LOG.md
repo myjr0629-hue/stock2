@@ -11067,3 +11067,34 @@ Stock Market(♥113, `#stocks`) · Trading(♥73, `#optionstrading #stockmarket 
 
 ### 반성
 - 지식iN 에서 **내 기록을 먼저 읽지 않아** 같은 실수를 반복했다(§read-my-own-records-before-acting). 발행 전 채널 메모 + 관련 메모리 grep 을 먼저 한다.
+
+---
+
+## 2026-09-23 (KST) 14:20~16:00 — 지식iN 9건 · «의회 거래» 소재 개척(X·Quora·네이버) · 의원 수 부풀림 버그 발견
+
+### 새 소재 — 의회 거래(STOCK Act 공시) = 우리 앱에만 있는 «사람 이름이 붙은» 데이터
+`/api/flow/congress` 90일 실측: 금액 기준 순매수 1위 **골드만삭스(GS) 매수 18·매도 0, 추정 +$3.28M**(2위는 −$1.13M).
+18건 중 17건 = **데이비드 매코믹 상원의원**(R-PA, 7/28~8/19 거래 → 8/27 일괄 공시, 지연 8~30일), 1건 = **길 시스네로스 하원의원**(D-CA, 8/26).
+대형주는 매도 쪽: GOOGL 0/6(3명) · JPM 0/5(2명) · NVDA 1/4(3명). 앱 화면: Command → HOLDERS 탭 «의회 거래» 카드(30초 광고로 1시간 해제).
+
+| 채널 | 결과 |
+|---|---|
+| **x_post** ✅ | GS 의회 순매수 1위 + 앱 카드 이미지. https://x.com/signumhq/status/2102643297902809162 (프로필에서 이미지 1 확인) |
+| **quora_en** ✅ | **무응답 질문 선점** 「How do I track Congress stock trades?」 — 링크 0, 앱명 1회(«I build»), 데이터 화면 1장. 원본 2곳·STOCK Act 규칙·읽는 법 4가지(지연·건수 vs 사람·계좌 주인·이름 표기). https://www.quora.com/How-do-I-track-Congress-stock-trades/answer/Jiyoung-Kim-236 — 로그인 화면에서 본문·이미지·외부링크 0 확인. ⚠ 비로그인 curl 은 Cloudflare 가 막아 «공개 화면»은 못 쟀다 |
+| **naver_blog** ✅ 2/3 | 「미국 국회의원 주식 공시, 최근 90일 순매수 1위는 골드만삭스(매수 18·매도 0)」 — 제목 앞 질의는 **얇은 문 실측 0/30**(「미국 의원 주식 거래」는 6/30 이라 피함). https://blog.naver.com/donneum/224421001895 — 비로그인 curl 로 본문·이미지·링크 확인 |
+| **naver_kin** ✅ 9/12 | 오늘 9건 전부 `answerNo` 주소로 비로그인 공개 확인. 이번 구간 2건: 러셀2000 지수 설명(답 2→3) · 1997 아시아 금융위기 전파 경로(태국→필리핀·말레이시아·인도네시아→대만·홍콩→한국, 날짜 검증). 조언 요청·19금·AI 사절 질문은 제외 |
+
+### 발견 → 수리(보류) — «서로 다른 의원 N명»이 부풀려져 있었다
+벤더가 같은 의원을 다른 표기로 준다(«Scott Mr Franklin»/«Scott Franklin», «Gilbert Ray Cisneros»/«Gilbert Cisneros»). 이름 문자열로 세서 **JPM 3명(실제 2)·GOOGL 4(3)·NVDA 4(3)**.
+그 숫자가 카드의 «우연일 가능성이 낮다» 문구를 켠다 — 코드 주석이 막으려던 착시를 그대로 만들었다.
+수리: `personKey()`(호칭·접미사 제거, 이름 첫 단어+성+원) — 실제 모듈을 번들해 실데이터 표기로 테스트 통과, tsc 통과. **브랜치 `fix/congress-person-key`(d1cc6fbd1)에만 있다.**
+프리뷰 검증은 ego 의 **Vercel 로그인이 만료**돼 막혔다(비밀번호 입력은 안전선 밖) → 규칙대로 **운영 미반영**. 대표 할 일에 올림.
+※ GS(2명)는 원래 맞다 — 오늘 발행물의 숫자는 전부 원자료로 다시 셌다.
+
+### 도구
+- `scripts/quora-answer.mjs` 신설(흩어진 q1~q19 정본화): 링크 거부 · «우리» 초안만 비우고 다시 씀 · 이미지는 편집기의 `input[type=file][accept="image/*"]`(**합성 드롭은 «Drop images here» 덮개만 띄우고 파일은 안 받았다**) · 빈 줄은 치지 않음(빈 문단이 간격을 두 배로) · 답변 주소로 검증(질문 페이지는 답을 접어 보여 문구 검사가 빗나간다)
+- `scripts/make-x-shot.js`: 카드 제목을 고정 헤더 아래(y=100)로 «재측정·보정» 반복 — 두 번 지나친 원인(closest() 큰 컨테이너 / 스크롤 뒤 위쪽 스켈레톤 축소) 기록
+
+### 보류·다음
+- 레딧 0/3(UTC) — 미국 새벽이라 22:30 사이클로. 후보: r/thetagang «Options selling isn't free money»(5.6h, ♥118), r/stocks META $194B 스레드
+- 블루스카이 #3 — 의회 거래 카드 + `#stocks #optionstrading #investing` `$GS` 를 미국 오전(21:30 KST 이후)에
