@@ -967,6 +967,16 @@
    "link": "https://signumhq.com/app?from=linkedin",
    "action": "post",
    "note": "★2026-09-24 확장 «발굴(티켓)». 실측: 피드 상단에 「글쓰기」 링크(href /article/new/)가 있다(로그인 세션 SIGNUM HQ). 왜: LinkedIn 아티클은 구글 색인되는 고권위 도메인의 장문 표면 — 우리 블로그·Medium 보다 검색 진입이 빠를 수 있고, 피드 글(건당 2.4클릭)과 달리 오래 남는다. 첫 글 후보: «What Dark Pool Percentage Tells You — and What It Doesn't (FINRA data)» 에버그린 제목 + MU/TSLA 9/22 실측 + 앱 화면 + 스마트링크. 다음 행동: 피드에서 「글쓰기」를 «눌러» 편집기 구조(제목칸·본문·커버 이미지·게시)를 먼저 재고, 발행기 scripts/linkedin-article.mjs 를 만든다. 뉴스레터(「뉴스레터」 메뉴)는 첫 호 발행 때 팔로워에게 알림이 가므로 아티클 2~3편 뒤 검토."
+  },
+  {
+   "id": "x_communities",
+   "name": "X 커뮤니티(Communities)",
+   "tier": "C",
+   "enabled": true,
+   "tag": "x_us",
+   "link": "https://signumhq.com/app?from=x_us",
+   "action": "post",
+   "note": "★2026-09-24 확장 «발굴(티켓)». 실측: X 왼쪽 메뉴 «More» 안에 Communities(/signumhq_jp/communities, /signumhq/communities). 왜: 우리 X 는 팔로워가 거의 없어 원글 도달이 0 에 가깝다([[x-reach-is-zero-until-followers-exist]]) — 커뮤니티 글은 «그 커뮤니티 멤버 피드»로 간다(팔로워 불필요). 다음 행동: More→Communities 를 «눌러» 들어가 검색(Options·Stock Market·米国株)으로 멤버 수·규칙(홍보 허용 여부)을 표로 잰다. ⚠️ 가입 시 «규칙 동의(Agree and join)» 대화상자가 뜨면 약관 동의 = 대표 몫 — 누르지 않고 대표 할 일로. 같은 탐색에서 본 것: 왼쪽 메뉴 «Articles»(/compose/articles, Premium 장문)·작성창 «Schedule post»(예약 게시 — 일본·미국 시간대 맞춤 발행에 쓸 수 있다, 다음 사이클 실측)."
   }
  ],
  "candidates": [
