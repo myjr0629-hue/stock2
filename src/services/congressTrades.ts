@@ -134,6 +134,24 @@ export async function getCongressTrades(): Promise<CongressTrade[]> {
 }
 
 /**
+ * «같은 사람» 판정 키.
+ *
+ * ★2026-09-23 실측: 같은 의원이 공시마다 다른 표기로 온다 —
+ *   "Scott Mr Franklin" / "Scott Franklin", "Gilbert Ray Cisneros" / "Gilbert Cisneros".
+ *   이름 문자열 그대로 세면 한 사람이 «서로 다른 의원 2명»이 되고(JPM 3명→실제 2명, GOOGL 4→3, NVDA 4→3),
+ *   그 숫자가 카드의 «우연일 가능성이 낮다» 문구를 켠다 — 아래 foldByTicker 가 막으려던 착시를 그대로 만든다.
+ *   호칭·접미사를 빼고 «이름 첫 단어 + 성»에 원(院)을 붙여 묶는다. 못 묶는 표기(애칭 등)는 예전처럼 따로 센다.
+ */
+const HONORIFIC = new Set(["mr", "mrs", "ms", "miss", "dr", "hon", "honorable", "sen", "senator", "rep", "representative"]);
+const SUFFIX = new Set(["jr", "sr", "ii", "iii", "iv"]);
+export function personKey(person: string, chamber?: string): string {
+    const toks = String(person || "").toLowerCase().replace(/[.,]/g, " ").split(/\s+/).filter((w) => w && !HONORIFIC.has(w));
+    while (toks.length > 2 && SUFFIX.has(toks[toks.length - 1])) toks.pop();
+    const name = toks.length > 1 ? `${toks[0]} ${toks[toks.length - 1]}` : toks[0] || "—";
+    return `${chamber || ""}:${name}`;
+}
+
+/**
  * 종목별 신호로 접는다.
  *
  * ⚠️ «건수»가 아니라 «사람 수»를 같이 센다. 한 의원이 같은 종목을 여러 번
@@ -149,7 +167,7 @@ export function foldByTicker(trades: CongressTrade[], sinceDays = 90): CongressT
         const e = map.get(t.ticker) || { buys: 0, sells: 0, net: 0, people: new Set<string>(), lastT: "", lastD: "" };
         if (t.side === "buy") { e.buys++; e.net += t.amountMid ?? 0; }
         else { e.sells++; e.net -= t.amountMid ?? 0; }
-        e.people.add(t.person);
+        e.people.add(personKey(t.person, t.chamber));
         if (t.transactionDate > e.lastT) e.lastT = t.transactionDate;
         if (t.disclosureDate > e.lastD) e.lastD = t.disclosureDate;
         map.set(t.ticker, e);
