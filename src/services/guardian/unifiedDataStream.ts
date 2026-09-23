@@ -369,7 +369,12 @@ export class GuardianDataHub {
                         // Don't return stale cache, fall through to recompute
                     } else {
                         // [FIX] Staleness check: if data is older than 25s, recompute for real-time freshness
-                        const workerTs = cached._workerTimestamp ? new Date(cached._workerTimestamp).getTime() : 0;
+                        // ★2026-09-23 23:2x 운영 로그로 확인: Vercel 이 계산해 쓴 스냅샷(아래 973행)에는 _workerTimestamp 가
+                        //   없어서 «나이 = 현재 시각(1,790,172,997초)» → 매 요청 재계산 → 같은 키를 또 덮어씀(워커의 신선한 사본까지)
+                        //   → 영원히 반복됐다(6분에 384회, 매회 FMP 뉴스 + 137종목 시세). 오늘 뉴스가 Massive→FMP 로 넘어오며
+                        //   이 반복이 FMP 분당 한도를 태워 429 를 냈다. 워커 시각이 없으면 스냅샷 자체의 timestamp 로 잰다.
+                        const stamp = cached._workerTimestamp || cached.timestamp;
+                        const workerTs = stamp ? new Date(stamp).getTime() : 0;
                         const dataAge = now - workerTs;
                         if (dataAge > 25000) {
                             console.log(`[Guardian] Redis cache stale (${(dataAge/1000).toFixed(0)}s old) — recomputing for ${locale}`);
