@@ -1143,6 +1143,16 @@
     "why": "원스토어 개발자 등록 = 계정 생성(안전선 밖). 등록 요건(해외 법인 SIGNUM HQ, LLC 가능 여부·본인/사업자 인증)도 대표가 가입 화면에서 확인"
    },
    "note": "★2026-09-24 확장 «발굴→티켓». 실측: 원스토어 모바일 검색 «미국주식» → 앱 결과 «4개»뿐(미국주식 쉽게알기-미주알 · 초이스스탁US · 미국 경제 통계 · Passive). 구글 플레이의 같은 검색어와 달리 문이 얇다 — 등재만 해도 첫 화면. 연관 검색어: 주식 분석·미국 경제·금융. 비즈니스/금융 TOP 20 에 증권사 앱들 — 우리 같은 «데이터 앱»은 드물다. 할 일(계정 생긴 뒤): ①Play 릴리스 APK 업로드 ②등록정보는 Play 한국어 재사용(제목에 «미국주식» 붙여쓰기 — [[korean-aso-spacing-changes-rank]]) ③⚠ 원스토어는 인앱결제를 자사 결제로 요구할 수 있다 → 광고제거 구독은 그 빌드에서 비활성, 무료+광고로만(Amazon 과 같은 처리 — amazon_appstore 노트). 태그 onestore 는 스마트링크 등록이 먼저([[new-channel-needs-its-tag-registered-first]])."
+  },
+  {
+   "id": "bluesky_reply",
+   "name": "블루스키 답글 — 큰 금융 계정 글에 데이터 한 줄(무링크)",
+   "tier": "B",
+   "enabled": true,
+   "tag": "bluesky",
+   "link": "https://signumhq.com/app?from=bluesky",
+   "action": "reply",
+   "note": "★2026-09-24 확장·실행. X 는 x_reply 가 있는데 1위 채널 블루스키엔 «답글» 표면이 없었다. 찾는 법(실측): 공개 searchPosts 는 403(로그인 필요) → 공개 getFeed 로 FinSky·EconSky 피드 최근 80편을 읽어 키워드(yield·treasury·Fed…)로 거르고 getProfiles 로 팔로워 수 정렬. 첫 답글: @carlquintanilla(CNBC 앵커, 팔로워 284,733) «10-year yields higher 7 months in a row»(게시 36분 뒤, 답글 2개일 때) ← 9/23 재무부 곡선(2Y+14·5Y+16·30Y+11bp, 10s/30s 33→29bp)으로 «연준 경로 재가격 vs 기간 프리미엄» 구분. 도구: node scripts/bsky-publish.mjs --text-file <답.txt> --reply-to <루트 at-uri>. 공개 검증 = getPostThread 의 replies 에 우리 uri. 규칙: 링크 없음·예측 없음·같은 문장 재사용 금지(X 답글과 문구를 바꾼다)·하루 2편까지·게시 1시간 안의 글."
   }
  ],
  "candidates": [

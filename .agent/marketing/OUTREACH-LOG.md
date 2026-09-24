@@ -11716,3 +11716,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ### 조사 중 발견 — 웹 화면의 가짜 스폰서 카드
 - 브라우저로 앱 화면을 열면 광고 자리에 «SPONSOR · Apex Clearing Intelligence Feed [연결]»이 뜬다. `src/components/app/AppAnchorAd.tsx` 의 웹 전용 자리표시(네이티브 앱에선 안 뜸). **실존 회사(Apex Clearing) 이름을 스폰서처럼 쓴 가짜 카드**라 오해·상표 문제 소지 → 교체 제안(대표 결정).
+
+
+---
+
+## 2026-09-24 (KST) 21:40~22:15 — 시간 사이클: 실행 2(X 답글 ✅ · 지식iN — 확인 못 한 제도라 답 안 함) · 확장 1(블루스키 답글 — 실행·공개 검증)
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅** | @LizAnnSonders(팔로워 817,300) «30-year Treasury yield now at highest level since 2004»(게시 18분 뒤) ← 9/23 재무부 곡선으로 «어느 쪽 끝이 올렸나»(2Y+14·5Y+16 vs 30Y+11bp, 10s/30s 33→29bp = 연준 경로형, 30Y 주도면 다른 이야기). 링크 0·키 입력 | https://x.com/signumhq/status/2103104449686438103 · syndication 공개 확인(in_reply_to LizAnnSonders) |
+| naver_kin — 답하지 않음 | 새 질문 「ISA 납입한도 — 배당금 10만원 출금 시 올해·총 한도가 줄어드나」: 현행 «중도인출 = 원금 간주·한도 복원 여부»를 권위 있는 최신 출처로 확정 못 함(금융위 문답은 2015년판, 삼성증권 9/9 개편 해설엔 인출 규칙 없음) → 확인 못 한 제도는 답하지 않음. 「미국 ETF 포트폴리오 상담」 = 상품 조언 요청 | — |
+| **bluesky_reply(신규 표면·실행)** | 공개 searchPosts 403 → getFeed(FinSky·EconSky)로 후보 → @carlquintanilla(CNBC, 284,733) «10-year yields higher for 7 months in a row»(36분 뒤, 답글 2) 에 곡선 데이터 답글(X 와 다른 문구) | https://bsky.app/profile/signumhq.bsky.social/post/3mwbcfywcom2z · 공개 getPostThread 에서 우리 답글 확인 |
+
+### 도구
+- `scripts/x-switch.mjs` 신설 — 세션이 @signumhq_jp 에 있어 x-reply 가 멈췄다(계정 확인 가드가 제대로 작동). 전환만 하는 도구로 @signumhq 전환 후 답글.
