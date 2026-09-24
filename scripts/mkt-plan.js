@@ -52,6 +52,7 @@ const CH = {
   linkedin_newsletter: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(자격) — 편집기 «올리는 대상»에 개별 글뿐. 생기면 대표 승인(구독 초대 대량 알림) 후 개설' },
   quora_spaces_share: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 티켓 — 큰 금융 Space 팔로워·제출 허용 여부 측정 전(검색 목록엔 팔로워 수 없음)' },
   bluesky_buildinpublic: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 — 블루스키 #buildinpublic 제작기(수치 1개 중심, 카드+from=bluesky_bip). 금융 글 캡과 별도. 9/28 판정' },
+  note_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 note 고정 기사(소개 글). 카드 … → クリエイターページに固定表示' },
   x_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 X 미국 프로필 고정 소개 글(from=x_pin) — scripts/x-pin.mjs. 분기 1회 교체' },
   bluesky_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 프로필 고정 소개 글(from=bluesky_pin) — scripts/bsky-pin.mjs. 분기 1회 교체' },
   bluesky_reply: { cap: 2, day: 'kst', window: [0, 24], note: '큰 금융 계정 글(게시 1시간 안)에 데이터 한 줄 답글 — getFeed(FinSky·EconSky)로 찾고 bsky-publish --reply-to. 링크·예측 없음' },
