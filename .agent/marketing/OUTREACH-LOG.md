@@ -11608,3 +11608,18 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ### 지식iN 배정 — 도구 신호 판정(뒤집음)
 - 한낮 지식iN 확인 5회 중 2회가 답변으로 이어졌다(11:00 QLD 규정 정정 · 12:40 LS증권 첫 답변). «한낮엔 헛돈다»는 판단은 틀렸다 → 창을 좁히지 않는다. 확인 1회 약 2분이라 비용도 작다.
+
+
+---
+
+## 2026-09-24 (KST) 15:30~16:05 — 시간 사이클: 실행 1(지식iN — 투자 조언 요청이라 답하지 않음) · 확장 1(FINRA 공매도 비율 데이터셋 — 실행·공개 검증)
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| naver_kin — 답하지 않음 | 새 질문 1건 「미성년자 펀드」(고1, «어떤 펀드를 해보는 게 괜찮을까요») = 상품 추천 요청 → 규칙상 답하지 않음(기존 답도 특정 펀드를 권함). 금융 전체 신규는 개인회생·카드뿐 | — |
+| **github_pages_finra(신규 표면·실행)** | FINRA Reg SHO 일일 공매도 거래량(CNMS) 20거래일 × 49종목 → CSV 980행 + 설명 페이지(Dataset JSON-LD). 9/23 원자료 대조: SPY 9,963,243 ÷ 14,533,748 = 68.55% 일치. 마지막 날 vs 20일 평균: SHOP +16.4%p · SOFI +12.7 · META +12.5 · IWM +11.1 · SPY +10.6 / NFLX −20.6 · ADBE −18.0 · MPC −17.1. «잔고 아님·장외만·시장조성자 공매도» 명시 | https://myjr0629-hue.github.io/options-market-structure-daily/finra-short-volume.html · **로그인 없이** 200·ld+json·앱 링크 / CSV 200·981줄 / index 200·새 링크 · IndexNow 19 URL 200 |
+
+### 개선
+- 생성기 정본화 `scripts/finra-short-dataset.py`(끝날짜·거래일 수·출력 폴더 인자) — 주 1회 갱신 규칙 mkt-plan `github_pages_finra`.
+- `scripts/indexnow-ghpages.mjs` URL 목록에 새 페이지 추가.
+- GitHub Pages 반영은 업로드 후 1분 안팎 — 고정 대기 대신 «200 이 될 때까지» 폴링(최대 5분)으로 확인했다.

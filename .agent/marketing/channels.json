@@ -1071,6 +1071,16 @@
     "why": "Microsoft Partner Center 개발자 계정 생성(개인·법인) — 계정 생성은 안전선 밖. 계정이 생기면 PWABuilder 로 패키지(MSIX) 만들고 등록정보·스크린샷은 내가 한다"
    },
    "note": "★2026-09-24 확장 «발굴→티켓». 왜: 소셜 클릭의 81%가 PC 다([[social-clicks-are-desktop]]) — PC 방문자는 폰 앱을 못 깔아서 지금은 «폰 넘겨주기 QR»로 돌린다. Microsoft Store 에 올리면 PC 에서 바로 «설치»가 된다(윈도 검색·Bing 에도 노출). 실측(2026-09-24): signumhq.com 은 이미 PWA 요건을 갖췄다 — /manifest.json 200(name «SIGNUM HQ», display standalone, scope /, 아이콘 192·512 maskable), /sw.js 200, 페이지 head 에 rel=manifest. → PWABuilder(무료)로 MSIX 패키지 생성 가능. 할 일(계정 생긴 뒤): ①스토어용 start_url 을 앱 화면(/en/app-view/dash)으로 하는 별도 매니페스트 검토 ②등록정보 3언어·스크린샷(PC 해상도) ③스마트링크 태그 msstore 등록(태그 먼저 — [[new-channel-needs-its-tag-registered-first]]). 관련 대표 할 일: «애플 실리콘 맥에서도 받게 할지»(맥 쪽 같은 문제)."
+  },
+  {
+   "id": "github_pages_finra",
+   "name": "GitHub Pages FINRA 공매도 비율 데이터셋(finra-short-volume.html)",
+   "tier": "A",
+   "enabled": true,
+   "tag": "github_pages",
+   "link": "https://myjr0629-hue.github.io/options-market-structure-daily/finra-short-volume.html",
+   "action": "dataset_refresh",
+   "note": "★2026-09-24 확장·실행(데이터셋 문 2번째). FINRA Reg SHO 일일 공매도 거래량 공개 파일(CNMS 통합, 장외 보고분·정규장)로 대형주·ETF 49종목 × 최근 20거래일(2026-08-26~09-23, 980행) CSV + 설명 페이지(schema.org Dataset JSON-LD·distribution CSV·CC BY 4.0·isBasedOn FINRA). 페이지는 «마지막 날 비율 vs 그 종목 20일 평균» 차이 순 표 — 9/23: SHOP +16.4%p · SOFI +12.7 · META +12.5 / NFLX −20.6 · ADBE −18.0 · MPC −17.1. «공매도 잔고가 아니다·장외 공매도의 상당수는 시장조성자 유동성 공급·40~60%가 보통» 을 본문에 명시(오독 방지 — Quora Space 다크풀 글과 같은 원칙). 앱 링크 from=github_pages. 색인: index.html 본문에 링크 추가 + IndexNow 19개 URL 200 접수. 실측 검증(로그인 없음): 페이지 200·ld+json·앱 링크 / CSV 200·981줄 / index 200·새 링크. 갱신: 주 1회 `python3 scripts/finra-short-dataset.py <끝날짜YYYYMMDD> 20 /tmp/ego/gh-finra` → gh-task.json 에 csv·html → github-upload.mjs → indexnow-ghpages.mjs. FINRA 페이지에 재배포 제한 문구 없음(9/24 확인), 출처 명시."
   }
  ],
  "candidates": [
