@@ -11581,3 +11581,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - Threads 주제 태그: 우리 글에 이미 붙어 있다(stocks·options trading·investing·daytrading 태그 링크 확인).
 - Indie Hackers 그룹: /groups·/group/* 가 410 Gone(폐지).
 - App Store promotionalText: 9/18 이후 이미 채워져 있다(OUTREACH-LOG 9947행).
+
+
+---
+
+## 2026-09-24 (KST) 13:30~14:05 — 시간 사이클: 실행 1(지식iN — 적합 질문 없음) · 확장 1(네이버 카페 티켓) · 도구 신호 진단
+
+| 채널 | 결과 | 근거 |
+|---|---|---|
+| naver_kin — 적합 질문 없음 | 주식·증권(40102) 2시간째 신규 0(마지막이 12:26 LS증권 질문 — 이미 첫 답변). 금융 전체(401) 신규는 카드·대출·개인회생·적금 질문뿐 — 우리 영역 밖이고 틀리면 해를 끼칠 수 있어 답하지 않음. 경제 동향(409) 5시간째 신규 없음 | — |
+| **naver_cafe(신규 표면·티켓)** | 카페 홈 검색 «미국주식»→카페명 탭 실측(멤버·오늘 새 글): 미국 주식이 미래다 470,249·340 · 주식광장 280,754·97 · ETF 투자자 모임 285,970·7 · 배당 투자자 모임 151,286·90 · 라오어 무한매수법 134,285·96 · 수페빌리지 70,237·113 외 6곳. **네이버 세션이 대표 개인 계정(iEldora)**이라 가입은 대표 결정 | channels.json `naver_cafe`(게이트 대표결정) · 대표 할 일 ㉙ |
+
+### 도구의 신호 — 한낮엔 실행 칸이 지식iN 하나뿐인 이유(실측)
+- 오늘(KST 9/24) 발행 34건: naver_kin 9 · reddit 3 · bluesky 3 · naver_blog 3 · x_post 2 · x_jp 2 · threads 2 · 그 밖 1씩(quora_en·quora_space·geeknews·linkedin·linkedin_articles·github·note_jp·instagram·pinterest·medium·indiehackers). **자정(KST) 캡 초기화 직후 밤 사이클(=미국 장중)에 하루 캡을 다 쓴다** → 한국 낮엔 남은 게 지식iN 뿐. 막힌 게 아니라 캡 설계대로다.
+- 점검할 것(다음): x_jp 두 편이 일본 자정 무렵에 나간다 — 일본 투자자 시간대(아침 7~9시·점심 12~13시·밤 21~23시)와 클릭을 비교해 창을 조정할지 9/27 클릭 표로 판단.

@@ -1039,6 +1039,22 @@
     "why": "웹 신규 경로 배포가 필요하다(/.well-known/did.json · /xrpc/app.bsky.feed.describeFeedGenerator · /xrpc/app.bsky.feed.getFeedSkeleton) — 운영 배포는 대표 승인. 승인되면 브랜치로 만들고 실응답 검증 후 반영"
    },
    "note": "★2026-09-24 확장 «발굴→티켓». 실측(공개 API getPopularFeedGenerators, 검색어별 결과): «options trading» 2개(좋아요 14·1) · «options flow» 1개(좋아요 1) · «gamma»·«max pain»·«dark pool» 금융 피드 0개 · «macro»는 사진·팬아트 피드뿐 · «treasury» 좋아요 0~1. → 우리 주제어로 피드를 검색하면 상단이 비어 있다(얇은 문). 선례: @bluestocks.app 이 자기 앱 이름으로 «Stocks»(좋아요 56)·«Trending Finance»(49)·종목별 피드를 운영하며 설명란에 앱을 건다. 설계안: 피드 2개 — ①«Options Market Structure»(감마·맥스페인·딜러 포지션·옵션 플로 글: 공개 searchPosts 로 #optionstrading #gex «max pain» «gamma flip» «dark pool» 수집 + 스팸 필터) ②«Rates & Macro Tape»(#econsky 등 금리·거시 데이터 글). 우리 글은 그 기준을 만족할 때만 들어간다(자기 글 도배 금지 — 피드가 스팸으로 신고되면 끝). 구현: did:web:signumhq.com + getFeedSkeleton(Redis 5분 캐시) + 우리 계정에 app.bsky.feed.generator 레코드(putRecord, 앱 비밀번호로 가능). 측정: 피드 좋아요·피드 경유 우리 글 도달·from=bluesky 클릭. 블루스키는 3일 82클릭으로 1위 채널이라 여기서의 도달 확대가 설치로 가장 직접 이어진다."
+  },
+  {
+   "id": "naver_cafe",
+   "name": "네이버 카페(미국주식 투자자 카페)",
+   "tier": "A",
+   "enabled": false,
+   "tag": "naver_cafe",
+   "link": "https://signumhq.com/app?from=naver_cafe&l=ko",
+   "action": "post",
+   "gate": {
+    "kind": "대표결정",
+    "until": null,
+    "who": "대표",
+    "why": "이 브라우저의 네이버 세션은 대표 «개인» 계정(닉네임 iEldora — 아사모·벤츠 E클래스 동호회 등 가입). 카페 가입 = 개인 명의로 카페 규칙 동의·가입 질문 답변이라 대표 몫. 가입할지·어느 카페인지·어느 게시판(홍보/정보)에 쓸지 대표 결정"
+   },
+   "note": "★2026-09-24 확장 «발굴→티켓». 카페 홈 검색(«미국주식» → 카페명 탭)을 «눌러서» 실측, 멤버수 · 오늘 새 글/전체 글: ①미국 주식이 미래다(대표카페, 2016 개설) 470,249 · 340/984,855 ②주식광장 280,754 · 97/1,196,641 ③ETF 상장지수펀드 투자자 모임 285,970 · 7/463,935 ④배당 투자자 모임 151,286 · 90/52,130 ⑤라오어 미국주식 무한매수법(TQQQ) 134,285 · 96/71,796 ⑥그리드센서 RMS 85,419 · 1 ⑦수페빌리지 70,237 · 113/119,283 ⑧주식제값찾기 56,262 · 7 ⑨미국주식에 미치다(미주미) 52,246 · 13 ⑩미국주식 투자 카페(미투카) 38,184 · 12 ⑪평생 ETF 20,368 · 8 ⑫미국주식 퀀트투자 9,129 · 8. 왜: 한국 광고는 탭률이 미국과 같은데 설치 0 — 한국 사용자는 «아는 곳»에서 온다([[kr-ads-taps-convert-at-zero-page-not-keyword]]). 미국주식 투자자가 가장 많이 모이는 곳이 카페다(1위 카페 하루 새 글 340). 방식(가입 후): 카페마다 «홍보 게시판» 규정을 먼저 읽고, 정보 게시판엔 데이터 글(링크 없이), 앱 소개는 홍보판 규칙대로 1회. 주의: 다수 카페가 등급(활동 점수)이 올라야 글쓰기가 열린다 — 댓글부터."
   }
  ],
  "candidates": [
