@@ -11595,3 +11595,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 ### 도구의 신호 — 한낮엔 실행 칸이 지식iN 하나뿐인 이유(실측)
 - 오늘(KST 9/24) 발행 34건: naver_kin 9 · reddit 3 · bluesky 3 · naver_blog 3 · x_post 2 · x_jp 2 · threads 2 · 그 밖 1씩(quora_en·quora_space·geeknews·linkedin·linkedin_articles·github·note_jp·instagram·pinterest·medium·indiehackers). **자정(KST) 캡 초기화 직후 밤 사이클(=미국 장중)에 하루 캡을 다 쓴다** → 한국 낮엔 남은 게 지식iN 뿐. 막힌 게 아니라 캡 설계대로다.
 - 점검할 것(다음): x_jp 두 편이 일본 자정 무렵에 나간다 — 일본 투자자 시간대(아침 7~9시·점심 12~13시·밤 21~23시)와 클릭을 비교해 창을 조정할지 9/27 클릭 표로 판단.
+
+
+---
+
+## 2026-09-24 (KST) 14:30~14:50 — 시간 사이클: 실행 1(지식iN — 적합 질문 없음) · 확장 1(Microsoft Store PWA 티켓)
+
+| 채널 | 결과 | 근거 |
+|---|---|---|
+| naver_kin — 적합 질문 없음 | 주식·증권 3시간째 신규 0 · 금융 전체 신규는 뱅킹·카드·신용회복뿐(우리 영역 밖) | — |
+| **microsoft_store_pwa(신규 표면·티켓)** | 소셜 클릭 81%가 PC 인데 PC 엔 설치 경로가 없다(QR 넘겨주기뿐). 실측: signumhq.com 은 이미 PWA — /manifest.json 200(SIGNUM HQ·standalone·아이콘 192/512 maskable) · /sw.js 200 · head 에 rel=manifest → PWABuilder 로 Microsoft Store 패키지 가능 | channels.json `microsoft_store_pwa`(게이트 계정) · 대표 할 일 ㉚ |
+
+### 지식iN 배정 — 도구 신호 판정(뒤집음)
+- 한낮 지식iN 확인 5회 중 2회가 답변으로 이어졌다(11:00 QLD 규정 정정 · 12:40 LS증권 첫 답변). «한낮엔 헛돈다»는 판단은 틀렸다 → 창을 좁히지 않는다. 확인 1회 약 2분이라 비용도 작다.

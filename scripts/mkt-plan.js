@@ -99,6 +99,7 @@ const CH = {
   bluesky_feeds: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 블루스키 글의 진입 태그(#econsky 매크로·#quantfinance #derivatives 옵션 구조). 규칙은 channels.json bluesky 노트' },
   bluesky_own_feed: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — 우리 이름의 블루스키 커스텀 피드(검색 «options trading» 2개·«gamma/max pain/dark pool» 0개 = 얇은 문). 웹 경로 배포가 필요해 대표 승인 게이트' },
   naver_cafe: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 티켓 — 미국주식 카페(1위 «미국 주식이 미래다» 47만·하루 새 글 340). 네이버 세션이 대표 개인 계정이라 가입은 대표 결정 게이트' },
+  microsoft_store_pwa: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — PC 방문자(소셜 클릭 81%)용 설치 경로. 사이트는 이미 PWA(매니페스트·서비스워커). Partner Center 계정 = 대표' },
   medium_publications: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-24 티켓 — 다음 Medium 발행 때 패널 «Submit» 을 눌러 출판물 목록 확인' },
   x_communities: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 티켓 — 가입 전(규칙 동의는 대표 몫)이라 cap 0' },
   bluesky_starter_pack: { cap: 0, day: 'week', window: [0, 24], note: '⛔2026-09-24 실측 기각(금융 팩 가입 0~4)' },
