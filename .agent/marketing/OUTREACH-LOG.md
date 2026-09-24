@@ -11746,3 +11746,18 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - «급등»·«리딩» 검색 결과 0.
 - 계정 수익(애드몹 홈): 이번 달(9/1~24) US$8.33 · 지난달 US$6.03.
 - 소재별 30일 수익은 1편만 실측(US$0.09) — 나머지 상세를 여는 중에 **대표가 브라우저 제어권을 가져가 중단**(규칙대로 되찾지 않음). 차단·알림은 아직 하지 않았다.
+
+
+---
+
+## 2026-09-24 (KST) 22:5x~ — 대표 지시 실행: 리딩방 광고만 차단 + 알림(애드몹 광고 심사 센터)
+
+대표 확인(스크린샷 «pdkbjxvjx — 2026년 주목받는 종목은»): «폭등·종목추천·유망종목에 나오는 것은 막는 게 좋겠다 — 리딩방 광고만 차단, 영향은 크게 신경 안 써도 된다(그 자리에 다른 광고가 들어온다)».
+
+- 방식: 검색어(폭등·종목 추천·유망 종목·주목받는 종목)마다 결과를 읽고 **도착 도메인이 일회용 .shop/.vip 인 소재만** 한 장씩 «광고 차단»(그 밖의 광고는 건드리지 않음 — 건너뛴 정상 광고 0건). 한 쪽(6개)을 비우면 다음 쪽이 차는 구조라 «남은 미검토 0» 이 될 때까지 반복.
+- 결과: **소재 66편 차단 · 서로 다른 도메인 53개**(검색어별: 폭등 8, 종목 추천 4, 유망 종목 43, 주목받는 종목 11). 도메인은 전부 ah/aw/tz/xb + 문자 + w + 번호 .shop 꼴(+ .vip 2개) — 한 조직이 도메인을 돌려 쓰는 흔적. 대표 첫 캡처의 «xbdcnfww3»(9월 종목 분석 80% 폭등)도 포함.
+- 검증: 네 검색어 모두 «미검토 남음 0» 확인(새 탭에서 재검색).
+- 차단 범위: 애드몹 계정 전체(구글 도움말: ARC 차단은 계정 전체 적용 + 비슷한 모양 광고도 자동 차단 시도). 이 광고들은 SIGNUM·WIM 에만 나왔다.
+- 알림: 감시 규칙 4개(«리딩방 감시 - 폭등 / 종목 추천 / 유망 종목 / 주목받는 종목»: 상태 미검토 + 텍스트 검색) · 알림 사용 · 필요한 노출수 1 · 수신자 myjr0629@gmail.com(애드몹 계정 메일) — 저장 후 목록에서 4개 확인. 새 리딩방 소재가 1회라도 노출되면 메일 → 같은 방식으로 추가 차단
+- 도구 교훈: 애드몹 탭을 재사용하면 페이지가 멈춘다(evaluate 15초 초과) → 매 실행 새 탭 + 스냅샷으로만 읽기. 카드의 도착 URL 은 «loc=href:» 와 «url=» 두 꼴이 있다.
+- 도메인 목록: ahfkgww4.shop, ahkngvw5.shop, ahmvtw3.shop, ahreksdw3.shop, ahreksdw7.shop, ahreksdw8.shop, ahreksdw9.shop, ahtyew8.shop, ahyturew9.shop, ahyyjrw2.shop, ahyyjrw4.shop, awbmvd3.shop, awdcfbw10.shop, awdcfbw7.shop, awgbcmgw9.shop, awikdfw7.shop, awkukw1.shop, awkygw3.shop, awodfhw19.shop, awprtw1.shop, awprtw5.shop, awxdfgw10.shop, dvpzkw.vip, hsjzpf.vip, tzgbcmgw10.shop, tzgbcmgw11.shop, tzgbcmgw14.shop, tzgbcmgw6.shop, tzkgtew3.shop, tzkvgnw1.shop, tzkvgnw4.shop, tzlhkmw13.shop, tzlhkmw15.shop, tzlodkw3.shop, tzloytw1.shop, tzodfhw10.shop, tzodfhw15.shop, tzodfhw7.shop, tzodfhw9.shop, tzutyw1.shop, tzxdkrw6.shop, tzytirw1.shop, tzytirw15.shop, tzytirw3.shop, tzytirw7.shop, xbdcnfww3.shop, xbgbcmgw1.shop, xbgbcmgw3.shop, xbimhw4.shop, xbimhw5.shop, xbjghtw2.shop, xbkgbvw3.shop, xbyyjrw5.shop
