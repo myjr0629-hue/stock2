@@ -11623,3 +11623,21 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 생성기 정본화 `scripts/finra-short-dataset.py`(끝날짜·거래일 수·출력 폴더 인자) — 주 1회 갱신 규칙 mkt-plan `github_pages_finra`.
 - `scripts/indexnow-ghpages.mjs` URL 목록에 새 페이지 추가.
 - GitHub Pages 반영은 업로드 후 1분 안팎 — 고정 대기 대신 «200 이 될 때까지» 폴링(최대 5분)으로 확인했다.
+
+
+---
+
+## 2026-09-24 (KST) 16:30~17:10 — 시간 사이클: 실행 2(github_pages_finra 발행 기록 누락 보정 · 지식iN 신규 없음) · 확장 1(Google Search Console — 데이터셋 사이트 속성·사이트맵·색인 요청)
+
+| 채널 | 결과 | 근거 |
+|---|---|---|
+| github_pages_finra | 지난 사이클에 올리고 `pub` 기록을 빠뜨려 «기록없음»으로 배정됐다(절차 ④ 누락 — 내 실수) → 기록 보정(주 1/1) | PUBLISH-LEDGER |
+| naver_kin — 신규 없음 | 주식·증권 최신이 2시간 전 «미성년자 펀드»(상품 추천 요청 — 지난 사이클에 답 안 함) | — |
+| **gsc_ghpages(신규 표면·실행)** | GSC → URL prefix 속성 추가 → HTML 파일 검증(고정 한 줄 파일을 만들어 업로드, 다운로드 없음) «Ownership auto verified» → sitemap.xml 19 URL 제출 «Sitemap submitted successfully»(직후 상태 Couldn't fetch — 직접 요청 200, 내일 재확인) → finra-short-volume.html URL 검사 «not on Google» → **Request indexing: priority crawl queue** | channels.json `gsc_ghpages` · mkt-plan 주 1회 확인 |
+
+### 레딧 오늘 3건의 성적(실측, 5~7시간 뒤)
+- r/Economics 10년물(t1_pbogdvw) 점수 1 · r/finance 단기물(t1_pbop46t) 1 · r/Economics 디젤(t1_pboy9kr) 1 — 셋 다 살아 있고(삭제 0) 반응 0.
+- 원인 추정 아닌 사실: 세 스레드 모두 댓글 50~257개·게시 4~8시간 뒤에 단 «늦은 최상위 댓글»이었다. 교훈: 레딧은 **스레드 초기(게시 2시간 안)·댓글 50개 미만**에서 쓸 때만 읽힌다 → 다음부터 후보를 «나이·댓글 수»로 거른다(채널 노트).
+
+### 발견
+- GSC «Add property» 에 Instagram·TikTok·X·YouTube «소셜 속성»이 새로 생겼다 — 우리 소셜 프로필의 구글 검색 성과를 볼 수 있다. 계정 연동이라 대표 결정(할 일 ㉛).

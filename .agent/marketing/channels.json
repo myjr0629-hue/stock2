@@ -103,7 +103,7 @@
    "karma": 4,
    "tag": "reddit_bio",
    "link": "https://signumhq.com/app?from=reddit_bio",
-   "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형)",
+   "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형) ★2026-09-24 실측: 늦은 최상위 댓글(댓글 50~257개·게시 4~8시간 뒤) 3건이 5~7시간 뒤 전부 점수 1 — 읽히지 않았다. 후보는 «게시 2시간 안·댓글 50개 미만» 스레드로 거른다.",
    "action": "answer"
   },
   {
@@ -1081,6 +1081,16 @@
    "link": "https://myjr0629-hue.github.io/options-market-structure-daily/finra-short-volume.html",
    "action": "dataset_refresh",
    "note": "★2026-09-24 확장·실행(데이터셋 문 2번째). FINRA Reg SHO 일일 공매도 거래량 공개 파일(CNMS 통합, 장외 보고분·정규장)로 대형주·ETF 49종목 × 최근 20거래일(2026-08-26~09-23, 980행) CSV + 설명 페이지(schema.org Dataset JSON-LD·distribution CSV·CC BY 4.0·isBasedOn FINRA). 페이지는 «마지막 날 비율 vs 그 종목 20일 평균» 차이 순 표 — 9/23: SHOP +16.4%p · SOFI +12.7 · META +12.5 / NFLX −20.6 · ADBE −18.0 · MPC −17.1. «공매도 잔고가 아니다·장외 공매도의 상당수는 시장조성자 유동성 공급·40~60%가 보통» 을 본문에 명시(오독 방지 — Quora Space 다크풀 글과 같은 원칙). 앱 링크 from=github_pages. 색인: index.html 본문에 링크 추가 + IndexNow 19개 URL 200 접수. 실측 검증(로그인 없음): 페이지 200·ld+json·앱 링크 / CSV 200·981줄 / index 200·새 링크. 갱신: 주 1회 `python3 scripts/finra-short-dataset.py <끝날짜YYYYMMDD> 20 /tmp/ego/gh-finra` → gh-task.json 에 csv·html → github-upload.mjs → indexnow-ghpages.mjs. FINRA 페이지에 재배포 제한 문구 없음(9/24 확인), 출처 명시."
+  },
+  {
+   "id": "gsc_ghpages",
+   "name": "Google Search Console — 데이터셋 사이트 속성(myjr0629-hue.github.io/options-market-structure-daily/)",
+   "tier": "A",
+   "enabled": true,
+   "tag": "github_pages",
+   "link": "https://search.google.com/search-console?resource_id=https%3A%2F%2Fmyjr0629-hue.github.io%2Foptions-market-structure-daily%2F",
+   "action": "seo",
+   "note": "★2026-09-24 확장·실행. 왜: 데이터셋 페이지(의회 거래·FINRA 공매도·의원별 16개)의 존재 이유가 구글(데이터셋 검색·일반 검색)인데, IndexNow 는 Bing·Yandex 만 받는다 — 구글 쪽 통로가 없었다. 실행: GSC(회사 계정 contact@) → Add property → URL prefix → HTML 파일 검증(google6e97f76b221ce429.html — 내용은 고정 한 줄 «google-site-verification: google6e97f76b221ce429.html» 이라 내려받지 않고 만들어 올림) → «Ownership auto verified» → sitemap.xml(19 URL) 제출 «Sitemap submitted successfully»(제출 직후 상태 Couldn't fetch — 직접 요청은 200, 다음 날 재확인) → URL 검사: finra-short-volume.html «URL is not on Google» → Request indexing «added to a priority crawl queue». ⚠ 검증 파일·sitemap.xml 을 저장소에서 지우지 말 것(검증이 풀린다). 새 데이터셋 페이지를 만들면 sitemap.xml 에 추가 → 업로드 → GSC 가 주기적으로 읽는다. 발견: GSC «Add property» 에 Instagram·TikTok·X·YouTube «소셜 속성» 추가가 새로 생겼다(계정 연동 = 대표 결정)."
   }
  ],
  "candidates": [
