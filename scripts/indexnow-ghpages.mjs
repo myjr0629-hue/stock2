@@ -15,7 +15,7 @@ const KEY = 'cf002e9d2c3f3d071dd811dc2a9c25d4';
 const B = 'https://myjr0629-hue.github.io/options-market-structure-daily';
 const mp = process.argv[2] || '/tmp/ego/gh/members.json';
 const members = existsSync(mp) ? JSON.parse(readFileSync(mp, 'utf8')) : [];
-const urlList = [B + '/', B + '/congress.html', B + '/finra-short-volume.html', ...members.map((m) => B + '/' + m.slug)];
+const urlList = [B + '/', B + '/congress.html', B + '/finra-short-volume.html', B + '/finra-short-volume-ko.html', B + '/finra-short-volume-ja.html', ...members.map((m) => B + '/' + m.slug)];
 const k = await fetch(B + '/' + KEY + '.txt').then((r) => r.text()).catch(() => '');
 if (k.trim() !== KEY) { console.error('⛔ 키 파일이 사이트에 없다 — 먼저 저장소 루트에 ' + KEY + '.txt 를 올릴 것'); process.exit(1); }
 const r = await fetch('https://api.indexnow.org/indexnow', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' },

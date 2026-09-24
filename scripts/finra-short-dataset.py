@@ -23,6 +23,105 @@ APP = 'https://signumhq.com/app?from=github_pages'
 UA = {'User-Agent': 'Mozilla/5.0 (research dataset builder; contact@signumhq.com)'}
 
 
+# ★2026-09-24 한국어·일본어 페이지 — 앱이 ko·ja 를 지원하는데 데이터셋 문은 영어뿐이었다.
+#   같은 표·같은 CSV, 설명만 현지어. 세 페이지를 hreflang 으로 서로 묶고 앱 링크에 &l= 을 붙인다.
+HREFLANG = '\n'.join(
+    f'<link rel="alternate" hreflang="{h}" href="{BASE}/finra-short-volume{s}.html">'
+    for h, s in (('en', ''), ('ko', '-ko'), ('ja', '-ja'), ('x-default', '')))
+
+L10N = {
+    'ko': {
+        'title': '미국 대형주·ETF 공매도 거래 비율(FINRA) — {n}종목, 최근 {d}거래일',
+        'desc': 'FINRA 공개 파일로 계산한 미국 대형주·ETF {n}종목의 일별 공매도 거래 비율({first}~{last}). 마지막 날 비율과 종목별 평균의 차이. 공매도 잔고가 아닙니다. CSV 제공.',
+        'meta': '{last} 기준 · 원천: FINRA Reg SHO 일일 공매도 거래량(통합 파일) · 정리: SIGNUM HQ',
+        'h_what': '이 숫자가 뜻하는 것 — 그리고 뜻하지 않는 것',
+        'li': ['<b>공매도 비율</b> = FINRA 보고 시설(TRF·ADF·ORF)에 보고된 <b>장외 거래</b> 중 공매도로 표시된 거래량 ÷ 전체 거래량(정규장). 거래소에서 체결된 물량은 들어 있지 않습니다.',
+               '<b>공매도 잔고(short interest)가 아닙니다.</b> 장외 공매도의 상당수는 시장조성자가 유동성을 대는 과정의 매도라서 40~60%대가 보통입니다.',
+               '의미 있는 신호는 그 종목이 <b>자기 평균</b>에서 벗어나는 변화입니다 — 아래 표는 마지막 날을 그 차이 순으로 정렬했습니다.'],
+        'h_table': '마지막 날({last}) vs 종목별 {d}거래일 평균',
+        'th': ['종목', '공매도 비율', '{d}일 평균', '차이(%p)', '장외 거래량'],
+        'h_dl': '내려받기',
+        'dl': '— 종목·날짜별 한 줄: date, symbol, short_volume, short_exempt_volume, total_volume, short_ratio_pct. 이 정리본은 CC BY 4.0, 원자료는 FINRA 가 공개합니다.',
+        'h_app': '옵션 포지션과 나란히 보기',
+        'app': '무료 앱 SIGNUM HQ 는 종목마다 이 장외 공매도 비율을 맥스페인·감마 노출·콜월/풋플로어와 함께 보여줍니다 — 보통 월 $50~99 유료 단말에서 보는 화면입니다.',
+        'foot': '영어판: <a href="finra-short-volume.html">English</a> · 일본어판: <a href="finra-short-volume-ja.html">日本語</a> · 연구용 데이터이며 투자 권유가 아닙니다.',
+    },
+    'ja': {
+        'title': '米国大型株・ETFの空売り比率(FINRA)— {n}銘柄・直近{d}営業日',
+        'desc': 'FINRAの公開ファイルから算出した米国大型株・ETF {n}銘柄の日次空売り比率({first}〜{last})。最終日の比率と各銘柄の平均との差。空売り残高ではありません。CSVあり。',
+        'meta': '{last}時点 · 出典:FINRA Reg SHO 日次空売り出来高(統合ファイル) · 作成:SIGNUM HQ',
+        'h_what': 'この数字が示すもの・示さないもの',
+        'li': ['<b>空売り比率</b> = FINRAの報告施設(TRF・ADF・ORF)に報告された<b>取引所外の取引</b>のうち空売りとされた出来高 ÷ 総出来高(通常取引時間)。取引所で約定した出来高は含まれません。',
+               '<b>空売り残高(short interest)ではありません。</b>取引所外の空売りの多くはマーケットメイカーが流動性を供給する際の売りで、40〜60%台が普通です。',
+               '意味のあるシグナルは、その銘柄が<b>自分自身の平均</b>から離れる変化です — 下の表は最終日をその差の順に並べています。'],
+        'h_table': '最終日({last})と各銘柄の{d}営業日平均',
+        'th': ['銘柄', '空売り比率', '{d}日平均', '差(pt)', '取引所外出来高'],
+        'h_dl': 'ダウンロード',
+        'dl': '— 銘柄・日付ごとに1行:date, symbol, short_volume, short_exempt_volume, total_volume, short_ratio_pct。この整理版は CC BY 4.0、元データは FINRA が公開しています。',
+        'h_app': 'オプションのポジションと並べて見る',
+        'app': '無料アプリ SIGNUM HQ は銘柄ごとにこの取引所外の空売り比率を、マックスペイン・ガンマエクスポージャー・コールウォール/プットフロアと一緒に表示します — 通常は月額$50〜99の有料端末で見る画面です。',
+        'foot': '英語版:<a href="finra-short-volume.html">English</a> · 韓国語版:<a href="finra-short-volume-ko.html">한국어</a> · 研究用データであり、投資助言ではありません。',
+    },
+}
+
+
+def write_localized(out, lang, summ, days, first, last, csv_name, ld_en):
+    t = L10N[lang]
+    n, d = len(summ), len(days)
+    fmt = lambda s: s.format(n=n, d=d, first=first, last=last)
+    name = fmt(t['title'])
+    app = f'{APP}&l={lang}'
+    ld = dict(ld_en, name=name, description=fmt(t['desc']), url=f'{BASE}/finra-short-volume-{lang}.html', inLanguage=lang)
+    tr = '\n'.join(
+        f'<tr><td>{html.escape(x["s"])}</td><td>{x["latest"]:.1f}%</td><td>{x["avg"]:.1f}%</td>'
+        f'<td class="{"up" if x["delta"] > 0 else "dn"}">{x["delta"]:+.1f}</td><td>{x["vol_m"]:.1f}M</td></tr>' for x in summ)
+    th = ''.join(f'<th>{fmt(h)}</th>' for h in t['th'])
+    lis = '\n'.join(f'<li>{li}</li>' for li in t['li'])
+    page = f'''<!doctype html>
+<html lang="{lang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{html.escape(name)}</title>
+<meta name="description" content="{html.escape(fmt(t['desc']))}">
+<link rel="canonical" href="{BASE}/finra-short-volume-{lang}.html">
+{HREFLANG}
+<script type="application/ld+json">
+{json.dumps(ld, ensure_ascii=False, indent=1)}
+</script>
+<style>
+:root{{--ink:#15202b;--mute:#5b6b7a;--line:#dde3ea;--up:#b42318;--dn:#0b6e4f;--bg:#fbfcfd}}
+body{{font:16px/1.65 -apple-system,"Apple SD Gothic Neo","Hiragino Sans","Noto Sans KR","Noto Sans JP",Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg);max-width:860px;margin:0 auto;padding:24px 16px}}
+h1{{font-size:1.4rem;line-height:1.35;text-wrap:balance}} p,li{{max-width:68ch}} .mute{{color:var(--mute)}}
+table{{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;margin:12px 0}} th,td{{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}}
+th:first-child,td:first-child{{text-align:left}} .up{{color:var(--up)}} .dn{{color:var(--dn)}} .wrap{{overflow-x:auto}}
+</style>
+</head>
+<body>
+<h1>{html.escape(name)}</h1>
+<p class="mute">{fmt(t['meta'])}</p>
+<h2>{t['h_what']}</h2>
+<ul>
+{lis}
+</ul>
+<h2>{fmt(t['h_table'])}</h2>
+<div class="wrap"><table>
+<thead><tr>{th}</tr></thead>
+<tbody>
+{tr}
+</tbody></table></div>
+<h2>{t['h_dl']}</h2>
+<p><a href="{csv_name}">{csv_name}</a> {t['dl']}</p>
+<h2>{t['h_app']}</h2>
+<p>{t['app']} <a href="{app}">{app}</a></p>
+<p class="mute">{t['foot']}</p>
+</body>
+</html>
+'''
+    with open(os.path.join(out, f'finra-short-volume-{lang}.html'), 'w', encoding='utf-8') as f:
+        f.write(page)
+
+
 def fetch_day(d):
     url = f'https://cdn.finra.org/equity/regsho/daily/CNMSshvol{d:%Y%m%d}.txt'
     try:
@@ -108,6 +207,7 @@ def main():
 <title>{html.escape(name)} (open dataset)</title>
 <meta name="description" content="FINRA short sale volume ratio for {len(summ)} US large caps and ETFs, {first} to {last}: latest ratio vs each ticker's own average. CSV, CC BY 4.0. Not short interest.">
 <link rel="canonical" href="{BASE}/finra-short-volume.html">
+{HREFLANG}
 <script type="application/ld+json">
 {json.dumps(ld, ensure_ascii=False, indent=1)}
 </script>
@@ -144,6 +244,8 @@ th:first-child,td:first-child{{text-align:left}} .up{{color:var(--up)}} .dn{{col
 '''
     with open(os.path.join(out, 'finra-short-volume.html'), 'w', encoding='utf-8') as f:
         f.write(page)
+    for lang in ('ko', 'ja'):
+        write_localized(out, lang, summ, days, first, last, csv_name, ld)
     print(json.dumps({'days': len(days), 'first': first, 'last': last, 'rows': len(rows), 'tickers': len(summ), 'csv': csv_name,
                       'top_gap': summ[:5], 'bottom_gap': summ[-3:]}, ensure_ascii=False))
 

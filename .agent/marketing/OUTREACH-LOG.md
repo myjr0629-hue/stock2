@@ -11655,3 +11655,18 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ### 확장 후보 중 버린 것
 - GPT 스토어(맞춤 GPT): 웹 검색으로는 GPT 스토어 내부가 안 보인다(로그인 필요) — «얇은 문» 근거를 잴 수 없어 티켓도 만들지 않았다.
+
+
+---
+
+## 2026-09-24 (KST) 18:30~19:05 — 시간 사이클: 실행 1(지식iN — 신규 없음) · 확장 1(FINRA 데이터셋 한국어·일본어판 — 실행·공개 검증·구글 색인 요청)
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| naver_kin — 신규 없음 | 주식·증권 최신이 CMA-RP(지난 사이클 답변 완료) | — |
+| **github_pages_finra_i18n(신규 표면·실행)** | 앱은 ko·ja 인데 데이터셋 문은 영어뿐이었다 → 같은 표·CSV 에 현지어 설명(«공매도 잔고 아님·장외만·시장조성자 공매도» 포함) 페이지 2개 + en/ko/ja hreflang 상호 연결 + 앱 링크 &l=ko/ja. CSV 는 게시본과 바이트 동일(재업로드 안 함) | https://myjr0629-hue.github.io/options-market-structure-daily/finra-short-volume-ko.html · …-ja.html · **로그인 없이** 세 페이지 200·lang·hreflang 4·ld+json·앱 링크 / sitemap 21 URL · IndexNow 21 URL 200 · GSC ko·ja «not on Google» → Request indexing(priority crawl queue) |
+
+### 개선
+- `scripts/finra-short-dataset.py` 에 L10N(ko·ja)·HREFLANG 추가 — 주 1회 갱신 때 세 언어가 같이 나온다.
+- 확장 등록 스크립트가 **등록과 같은 단계에서 `pub` 을 부른다**(지난 두 시간 «기록없음» 재배정의 종류 수리).
+- GSC URL 검사 스크립트를 URL 인자형으로(`/tmp/ego/gsc-url.json`) — 새 페이지마다 재사용.
