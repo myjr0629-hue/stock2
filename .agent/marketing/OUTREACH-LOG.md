@@ -11890,3 +11890,22 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 ### 앱 화면에서 본 것(다음 앱 점검 후보 — 이번엔 홍보 이미지에서 잘라 냄)
 - Flow 화면 «OPTIONS FLOW OVERVIEW — HIGH CONVICTION — Downside hedge pressure … Support defense matters before chasing rebounds» 와 바로 아래 «Call/put volume: Call dominant» 가 서로 다른 말을 한다 + «before chasing rebounds» 는 권유처럼 읽힌다(㉓ 와 같은 종류).
 - «NEW POSITION DETECTED 27/01/15 $1600 C +602 contracts · $96M» — $96M 은 602×100×$1,600 = 행사가 명목금액으로 보인다(프리미엄이 아님). «$96M 베팅»으로 오해될 수 있다.
+
+
+---
+
+## 2026-09-25 (KST) 02:38~03:00 — 시간 사이클: 실행 4 전부(블루스키 답글·Threads·LinkedIn 아티클·X 미국 #2 ✅) · 고정 ⑥ 스윕(1편) · 확장 1(LinkedIn 뉴스레터 — 자격 게이트) · 배정 도구 수리(시간 창)
+
+게이트 341건 0실패 · 옵션 구조 수리 main 미반영(㊲ 대기).
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_reply ✅ 1/2** | @peark.es(팔로워 99,111) «Another tail — US 7Y draws 5.085% vs 5.078% WI»(게시 37분 뒤) ← TreasuryDirect 공식 결과로 이번 주 쿠폰 3개: 2Y 4.787%(응찰률 2.63·딜러 13.2%) · 5Y 5.033%(2.21·15.8%) · 7Y 5.085%(2.42·12.5%) — 딜러 몫은 경쟁 낙찰 대비로 직접 계산. 링크·예측 없음 | https://bsky.app/profile/signumhq.bsky.social/post/3mwbsgdqsmt2c · 공개 스레드 확인 |
+| **threads ✅ 1/2** | COST 스트래들 실측 카드 + 본문 끝 링크 | https://www.threads.com/@signumhq_official/post/Ddrcu17GQTJ · 로그인 화면: 본문·링크(l.threads.com→from=threads)·이미지 1. 비로그인 HTML 은 본문을 안 싣는다 |
+| **linkedin_articles ✅** | «Congress filed 192 stock trades in 90 days. The median one was 25 days old when it went public.»(Medium 글 각색 + AI 지원 표시) — 아티클 발행기 첫 «통째» 실행 | https://www.linkedin.com/pulse/congress-filed-192-stock-trades-90-days-median-one-25-signum-hq-5qdcc/ · 비로그인 200: 10문단 전부·from=linkedin·og:image |
+| **x_post(X 미국) ✅ 2/2** | COST 스트래들 카드 + 본문(중간값만) | https://x.com/signumhq/status/2103180697964077325 · 로그인 화면: 본문·t.co→from=x_us·사진 |
+| **고정 ⑥ 애드몹 스윕** | 1편 차단(awodfhw2.shop) · 누계 81편 | — |
+| **확장: linkedin_newsletter(게이트)** | 편집기 «올리는 대상»에 «개별 글»뿐 — 뉴스레터 선택지 없음(자격) | channels.json 등록 |
+
+### 배정 도구 수리 — «같은 항목이 계속 배정되면 도구의 신호»
+- x_jp·naver_blog 가 한국·일본 새벽(02시)에 «실행 1순위»로 두 사이클 연속 배정됐다 → 창 [0,24] 가 원인(note_jp 가 9/24 에 같은 이유로 고쳐진 종류). mkt-plan: **x_jp [5,9]**(ENGINE §17-3 일본 아침) · **naver_blog [8,18]**(RUNBOOK 08·12·16시) · **naver_kin [7,24]**(한국 낮 우선).

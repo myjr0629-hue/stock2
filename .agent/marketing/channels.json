@@ -1183,6 +1183,18 @@
    "link": "https://www.signumhq.com/app?from=quora_space",
    "action": "share",
    "note": "★2026-09-25 01:5x 확장(발굴·티켓). 실측: Quora 검색 «stock market investing» → Spaces 필터(type=tribe, 화면 클릭으로 진입) 상위 15개가 대부분 인도 증시 중심의 개인 Space(«Investment in Indian stock market» 등). 검색 목록엔 팔로워 수가 안 나온다. 다음: 상위 Space 를 눌러 팔로워 수·«게시물 제출/공유 허용» 여부·미국 시장 비중을 표로 재고, 미국 시장 중심·팔로워 1만+ 이고 제출을 받는 곳만 1주 1회 공유. ⚠ 9/23 우리 Space 글 2편이 Quora 에 삭제됐다(㉒) — 남의 Space 공유는 자기홍보로 보일 수 있으니 규칙(About)부터 읽는다."
+  },
+  {
+   "id": "linkedin_newsletter",
+   "name": "LinkedIn 뉴스레터 — 아티클을 구독자 알림으로(구독 시 매 편 알림)",
+   "tier": "C",
+   "enabled": false,
+   "tag": "linkedin",
+   "link": "https://signumhq.com/app?from=linkedin",
+   "action": "article",
+   "gate": "자격",
+   "until": null,
+   "note": "★2026-09-25 02:5x 확장(발굴·게이트). 실측: 아티클 편집기(피드 «글쓰기»→/article/new/) 머리의 «SIGNUM HQ · 개별 글» 메뉴 = 올리는 주체 SIGNUM HQ, 올리는 대상 «개별 글» 하나뿐 — «뉴스레터 만들기» 선택지가 없다(링크드인이 팔로워·활동 기준으로 여는 기능). 우회 없음(자격 문제). 선택지가 생기면: 뉴스레터를 만들면 링크드인이 팔로워·인맥에게 구독 초대를 보낸다 = 우리 이름으로 가는 대량 알림이라 대표 승인 후 개설. 분기 1회 편집기 메뉴를 다시 본다."
   }
  ],
  "candidates": [
