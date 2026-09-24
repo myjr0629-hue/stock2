@@ -1091,6 +1091,22 @@
    "link": "https://search.google.com/search-console?resource_id=https%3A%2F%2Fmyjr0629-hue.github.io%2Foptions-market-structure-daily%2F",
    "action": "seo",
    "note": "★2026-09-24 확장·실행. 왜: 데이터셋 페이지(의회 거래·FINRA 공매도·의원별 16개)의 존재 이유가 구글(데이터셋 검색·일반 검색)인데, IndexNow 는 Bing·Yandex 만 받는다 — 구글 쪽 통로가 없었다. 실행: GSC(회사 계정 contact@) → Add property → URL prefix → HTML 파일 검증(google6e97f76b221ce429.html — 내용은 고정 한 줄 «google-site-verification: google6e97f76b221ce429.html» 이라 내려받지 않고 만들어 올림) → «Ownership auto verified» → sitemap.xml(19 URL) 제출 «Sitemap submitted successfully»(제출 직후 상태 Couldn't fetch — 직접 요청은 200, 다음 날 재확인) → URL 검사: finra-short-volume.html «URL is not on Google» → Request indexing «added to a priority crawl queue». ⚠ 검증 파일·sitemap.xml 을 저장소에서 지우지 말 것(검증이 풀린다). 새 데이터셋 페이지를 만들면 sitemap.xml 에 추가 → 업로드 → GSC 가 주기적으로 읽는다. 발견: GSC «Add property» 에 Instagram·TikTok·X·YouTube «소셜 속성» 추가가 새로 생겼다(계정 연동 = 대표 결정)."
+  },
+  {
+   "id": "bing_webmaster",
+   "name": "Bing Webmaster Tools(빙·코파일럿·ChatGPT 검색의 색인·성과·GEO)",
+   "tier": "B",
+   "enabled": false,
+   "tag": "seo",
+   "link": "https://www.bing.com/webmasters",
+   "action": "seo",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표",
+    "why": "2026-09-24 17:5x 실측: bing.com/webmasters 로그인 안 됨(Sign In). 로그인(구글/마이크로소프트)하면 BWT 계정이 새로 생긴다 = 안전선 밖. 대표가 contact@ 구글로 1회 로그인하면 «GSC 에서 가져오기»로 signumhq.com·데이터셋 사이트 두 속성을 한 번에 가져올 수 있다"
+   },
+   "note": "★2026-09-24 확장 «발굴→티켓». 왜: 우리는 IndexNow 로 빙에 URL 을 «보내기만» 하고 결과(노출·클릭·색인·크롤 오류)를 한 번도 본 적이 없다. 빙 색인은 빙 검색뿐 아니라 ChatGPT 검색·코파일럿·DuckDuckGo·Yahoo 가 쓴다. 소개 페이지 문구에 «free SEO/GEO tools» — AI 답변 인용(GEO) 쪽 보고서가 있다. 로그인 후 할 일: ①GSC 가져오기(두 속성) ②사이트맵 제출 ③검색 성과·AI 인용 보고서를 주 1회 표로(llms_txt·seo 채널 판단 근거)."
   }
  ],
  "candidates": [

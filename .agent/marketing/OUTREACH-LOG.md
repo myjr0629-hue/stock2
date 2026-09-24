@@ -11641,3 +11641,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ### 발견
 - GSC «Add property» 에 Instagram·TikTok·X·YouTube «소셜 속성»이 새로 생겼다 — 우리 소셜 프로필의 구글 검색 성과를 볼 수 있다. 계정 연동이라 대표 결정(할 일 ㉛).
+
+
+---
+
+## 2026-09-24 (KST) 17:30~18:00 — 시간 사이클: 실행 2(gsc_ghpages 기록·사이트맵 재확인 · 지식iN ✅) · 확장 1(Bing Webmaster 티켓)
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| gsc_ghpages | 발행 기록 보정(2시간 연속 같은 누락 — 확장 실행 직후 `pub` 을 같은 스크립트에서 부르도록 바꾼다) · 사이트맵 1시간 뒤에도 «Couldn't fetch» → 원인 점검: 호스트 robots.txt 404(제한 없음) · sitemap.xml 200·application/xml·유효 XML 19 URL · Googlebot UA 200 → 기술 문제 없음, 새 속성의 첫 처리 대기로 판단(내일 재확인). FINRA 페이지는 이미 우선 크롤 대기열 | GSC Sitemaps |
+| **naver_kin ✅** | 「미래에셋 CMA-RP 수익 — 누적 153원인데 통장엔 133원, 20원은 세금?」 → 이자소득 원천징수 계산을 원 단위까지 맞춤: 소득세 153×14%=21.42원→10원 미만 절사 20원, 지방소득세 2원→절사 0원, 합계 20원 → 133원(실효 약 13%인 이유 포함). 링크 0·앱 0 | https://kin.naver.com/qna/detail.naver?dirId=40102&docId=495293122&answerNo=2 · **로그인 없이** 공개 확인 ✅ |
+| **bing_webmaster(신규 표면·티켓)** | bing.com/webmasters 로그인 안 됨 — 로그인 = 새 BWT 계정(대표). 로그인되면 «GSC 가져오기»로 두 속성 + «SEO/GEO tools»(AI 인용) 보고서. 빙 색인은 ChatGPT 검색·코파일럿·DuckDuckGo 가 쓴다 | channels.json `bing_webmaster`(게이트 계정) · 대표 할 일 ㉜ |
+
+### 확장 후보 중 버린 것
+- GPT 스토어(맞춤 GPT): 웹 검색으로는 GPT 스토어 내부가 안 보인다(로그인 필요) — «얇은 문» 근거를 잴 수 없어 티켓도 만들지 않았다.
