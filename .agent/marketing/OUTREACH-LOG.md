@@ -11940,3 +11940,29 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | bluesky #3 — 시각 선택 | 유일한 배정. COST 발표 16:15 ET(05:15 KST) 뒤 «매긴 ±3.2% vs 실제» 로 다음 사이클에 쓴다 | — |
 | **고정 ⑥ 애드몹 스윕** | 1편 차단(ahprtw8.shop) · 누계 82편 | — |
 | **확장: bluesky_pin(신규·실행)** | 프로필 고정 게시물이 없었다(pinnedPost=None, 팔로워 25) — 오늘 답글이 닿은 곳은 팔로워 9.9만~28.5만 계정 스레드. 상시 소개 글(앱이 보여 주는 것 3줄·$50~99 대비 무료·from=bluesky_pin) + 카드 발행 → `scripts/bsky-pin.mjs`(신설: 프로필 레코드 pinnedPost 갱신, swapRecord) 로 고정 | 글: https://bsky.app/profile/signumhq.bsky.social/post/3mwbypge4ou2o (링크 facet·이미지+ALT) · 고정: 공개 getProfile.pinnedPost = 이 글(저장 직후 12초엔 안 보였고 수십 초 뒤 확인) |
+
+
+---
+
+## 2026-09-25 (KST) 05:30~05:58 — 시간 사이클: 실행 4 전부(블루스키 #3 COST 결과·X 일본·note·GitHub 스냅샷 ✅) · 게이트 먼저(341/0) · 스윕 0 · ★COST 화면에서 옛 사본 실물 확인
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky ✅ 3/3** | COST 발표(16:15 ET, GlobeNewswire 원문 확인: EPS 6.75(관세 환급 일회성 0.15 포함)·총수입 957.23억·순매출 939억 +11.2%·기존점 +9.4%(유가·환율 제외 +6.7%)) vs 발표 전 옵션 ±3.2%(13:14 ET 중간값) — 시간외 첫 읽기: Nasdaq 실시간 16:33 ET $897.42, 종가 896.48 대비 +0.10% | https://bsky.app/profile/signumhq.bsky.social/post/3mwc45jhhcp2i · 공개 API: 링크·태그·$COST·이미지+ALT |
+| **x_jp ✅ 1/2** | 같은 내용 일본어 카드(히라기노) + 본문 | https://x.com/signumhq_jp/status/2103222481133953346 · 로그인 화면: 본문·t.co→from=x_jp·사진 |
+| **note ✅** | 「コストコ決算、発表前のオプションは±3.2%を織り込んでいた——時間外の初動は+0.1%」 — 발표 내용·스트래들의 뜻(방향 아님)·시간외는 중간 경과·건옥 분포(목표 아님)·앱 가치·투자조언 아님·AI 지원 표시 | https://note.com/signumhq/n/n5b0bfc1cf31a · 비로그인 200: 9개 문단 전부·from=note·og 이미지 |
+| **github ✅** | 9/24 스냅샷(12종목) + index.html(날짜 파일 7개, 9/16~9/24) 웹 업로드 | https://github.com/myjr0629-hue/options-market-structure-daily/blob/main/2026-09-24.json · GitHub Pages 200(12종목·ageSec 포함)·색인 페이지에 9/24 반영 |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+
+### 검증에서 걸러 낸 것
+- 검색 요약이 «시간외 $904.89(+1%)»라고 했지만 시각이 없다 → 쓰지 않았다. 시각이 찍힌 Nasdaq 실시간(16:33 ET)만 인용. 우리 시세 API 는 시간외 가격 0(미제공), /api/live/ticker 는 16:16~16:18 ET 체결.
+- 발표 전 컨센서스 대비 «상회» 표현은 쓰지 않았다(우리 캘린더 추정치 6.54 와 요약문 «6.53» 불일치 — HANDOFF 7-h).
+
+### ★ 옵션 구조 «옛 사본» — COST 화면에서 실물로 봤다(㊲ 근거 추가)
+- 16:33 ET 에 찍은 COST Flow 화면: «AFTER HOURS · POST $898.66 +0.28%» — 898.66 은 13:15 ET 정규장 값과 같다. 같은 시각 운영 structure API 는 `_staleSec` 11,771(3.3시간, session REG). Nasdaq 은 $897.42.
+- 내 요청 몇 번 뒤 운영 값이 POST·900·`_staleSec` 150 으로 바뀌었다(배경 갱신 도착) — 첫 방문자가 옛 값을 보는 바로 그 구조. **오늘 가장 많이 볼 종목에서 난다.** 이 화면은 홍보 이미지로 쓰지 않았다(13:15 발표 전 화면을 씀).
+
+### 도구
+- `scripts/marketing/github-structure-snapshot.js`: 종목별 `ageSec`(값의 나이)을 싣고 900초 넘으면 경고 — 데이터셋이 옛 사본을 «오늘 값»으로 굳히지 않게. 첫 실행에서 NFLX 2,686초(POST) 경고 → 재생성해 12종목 모두 ≤844초로 올렸다.
+
+- 확장(05:5x): X 일본 프로필 고정 글 확인 — 이미 있음(8/26 소개 글, 팔로워 3) → 할 것 없음. 새 표면 = **note_magazine**(티켓: 다음 일본 아침 창에 マガジン 유무 확인·개설·기존 글 추가).

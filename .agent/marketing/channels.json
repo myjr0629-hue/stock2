@@ -1215,6 +1215,16 @@
    "link": "https://signumhq.com/app?from=bluesky_pin",
    "action": "pin",
    "note": "★2026-09-25 04:3x 확장·실행. 왜: bluesky_reply 는 링크가 없어 큰 계정 스레드에서 우리를 본 사람의 길은 프로필뿐인데, 프로필에 고정 게시물이 없었다(공개 getProfile.pinnedPost=None, 팔로워 25). 실행: 상시용 소개 글(앱이 보여 주는 것 3줄 + $50~99 단말 대비 무료 + from=bluesky_pin) + 16:9 카드 → scripts/bsky-pin.mjs 로 프로필 레코드 pinnedPost 갱신 → 공개 API 에서 고정 확인(저장 후 수십 초 지연). 측정: from=bluesky_pin 클릭(답글 스레드 유입의 대리 지표). 소재가 낡으면(분기 1회) 새 카드로 교체."
+  },
+  {
+   "id": "note_magazine",
+   "name": "note マガジン — 우리 일본어 글을 묶은 팔로우 가능한 모음(note 검색 «マガジン» 탭 노출)",
+   "tier": "A",
+   "enabled": false,
+   "tag": "note",
+   "link": "https://signumhq.com/app?from=note&l=ja",
+   "action": "magazine",
+   "note": "★2026-09-25 05:5x 확장(티켓). 왜: note 는 건당 5클릭(21일)으로 이긴 채널인데 글이 계정 타임라인에만 흩어져 있다(9/15~9/25 10편+). マガジン은 note 검색의 별도 탭·팔로우 대상이라 «米国株 需給データ» 같은 묶음 하나가 새 입구가 된다. 다음 일본 아침 사이클(창 5~9시)에 ① 계정에 マガジン 이 있는지 화면으로 확인 ② 없으면 1개 만들어(무료 マガジン, 제목에 «米国株»·«ダークプール»·«オプション») 기존 글 추가 ③ 공개 페이지 확인. 같은 사이클 확인: X 일본 프로필은 이미 고정 소개 글이 있다(8/26 「このアカウントは何をするのか」, 팔로워 3) — 새로 할 것 없음."
   }
  ],
  "candidates": [

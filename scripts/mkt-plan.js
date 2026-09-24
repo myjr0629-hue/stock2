@@ -107,6 +107,7 @@ const CH = {
   linkedin:    { cap: 1, day: 'kst', window: [0, 24], note: '카드 위 클릭 금지·전체 재입력' },
   linkedin_articles: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 첫 아티클 발행(피드 «글쓰기»→/article/new/). 편집기는 iframe — 커버=«컴퓨터에서 업로드»(text 선택자)→다음, 제목칸은 좌표 클릭(텍스트 선택자는 textarea 입력 불가), 본문은 키 입력. ⚠ Shift+End 는 문서 끝까지 선택(본문이 통째로 지워졌다)' },
   linkedin_groups: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — «US Stock Market | Trading & Investing»(공개·6,033명·금융업 963명) 가입 요청(운영자 승인 대기). 그룹 화면은 iframe — 버튼은 snapshot ref 로 누른다(좌표·DOM 질의는 IFRAME 만 잡힌다)' },
+  note_magazine: { cap: 1, day: 'week', window: [5, 9], note: '★2026-09-25 확장 티켓 — note マガジン 1개(우리 일본어 글 묶음) 개설·기존 글 추가. 일본 아침 창' },
   note_odai: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 note 글의 お題 태그(#わたしの新NISA 등, 내용이 맞을 때만). 상금 콘테스트는 응모조건 수락이라 하지 않음. 규칙은 channels.json note_odai' },
   bluesky_feeds: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 블루스키 글의 진입 태그(#econsky 매크로·#quantfinance #derivatives 옵션 구조). 규칙은 channels.json bluesky 노트' },
   bluesky_own_feed: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — 우리 이름의 블루스키 커스텀 피드(검색 «options trading» 2개·«gamma/max pain/dark pool» 0개 = 얇은 문). 웹 경로 배포가 필요해 대표 승인 게이트' },
