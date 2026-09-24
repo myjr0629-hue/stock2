@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
@@ -78,18 +79,89 @@ const structureLastGoodKey = (cacheKey: string) => `${STRUCTURE_LASTGOOD_PREFIX}
 /** 마지막 정상본 보관 기간 — 주말·휴장을 건너뛸 만큼 넉넉히 */
 const LASTGOOD_TTL_SEC = 72 * 60 * 60;
 
+/** 환경변수 숫자(없거나 숫자가 아니면 기본값) — 운영에서 코드 수정 없이 조절할 수 있게 */
+export const envNum = (name: string, dflt: number, min: number, max: number) => {
+    const v = Number(process.env[name]);
+    return Number.isFinite(v) && process.env[name] !== '' ? Math.max(min, Math.min(max, v)) : dflt;
+};
+
+/**
+ * ★★ [2026-09-24] 마지막 정상본의 «나이 상한» — 빠르되, 무한히 낡지는 않게.
+ *
+ * [실측 2026-09-24 11:33~11:50 ET, 본장]  `_staleSec` 이 NVDA 66s·SPY 188s 인 동안
+ *   JNJ 152,937s(42h, session POST) · MCD 135,457s(가격 251.32, 갱신 후 240.72 = 4.2% 틀림)
+ *   · COST 57,917s(POST) 가 «지금 값»처럼 나갔다. 조용한 종목은 누가 열기 전엔 아무도
+ *   갱신하지 않았고, 그 «첫 사람»이 이틀 전 값을 받았다.
+ *
+ * [규칙]  가격이 움직이는 시간(isStructureLiveWindow)에 이 나이를 넘은 정상본은
+ *   «그대로» 내보내지 않는다 — 갱신을 LASTGOOD_SYNC_WAIT_MS 만큼 기다려 새 값을 주고,
+ *   그 안에 안 끝나면 낡은 값을 `_stale:true`·`_asOf` 로 «낡았다고 밝혀서» 준다.
+ *   갱신은 after() 로 끝까지 돌아 다음 사람은 새 값을 받는다.
+ *
+ * [왜 15분]  대형주 일중 변동 σ≈1.5%/일 → 15분이면 ≈0.3%(1σ, √(15/390)), 대부분
+ *   종목의 행사가 간격(≈1%)보다 작아 콜월·풋플로어·감마플립 판정이 안 바뀐다.
+ *   동시에 한 종목당 «기다리는 요청»은 최대 15분에 한 번뿐이다.
+ * [왜 3초]  같은 날 운영 강제 동기 계산 8건(exp 지정, 한국→iad1 왕복 포함): 0.70~3.51s, 중앙값 ~2.1s, 7/8 이 3초 안
+ *   (KO 1.02 · XOM 2.74 · MFC 0.70 · OTIS 0.85 · RARE 1.78 · SG 2.47 · TECK 2.66 · NEM 3.51).
+ *   벤더가 막힌 때(JNJ 실측 ~56s)는 기다려도 소용없으니 3초 뒤 낡은 값+표시로 간다.
+ * [주 수단은 이것이 아니다]  «미리 신선하게»는 /api/cron/structure-build(매분 한 조각)가 맡는다.
+ *   이 상한은 그 사이로 새는 조용한 종목을 위한 안전망이다.
+ * 두 값 모두 환경변수 STRUCTURE_MAX_SERVE_SEC · STRUCTURE_SYNC_WAIT_MS 로 조절한다.
+ */
+export const LASTGOOD_MAX_SERVE_SEC = envNum('STRUCTURE_MAX_SERVE_SEC', 15 * 60, 60, 24 * 3600);
+const LASTGOOD_SYNC_WAIT_MS = envNum('STRUCTURE_SYNC_WAIT_MS', 3000, 0, 10_000);
+
 /**
  * 같은 티커를 여러 요청이 동시에 재계산하는 것을 막는다(썬더링 허드).
  * 하나가 계산하는 동안 나머지는 마지막 정상본을 받아 간다.
  */
 const inFlight = new Map<string, Promise<any>>();
 
+/**
+ * 가격이 움직이는 시간 = ET 평일 04:00~20:00 (PRE·REG·POST).
+ *
+ * ⚠️ [2026-09-24] 예전 판정은 UTC 13:30~21:00 고정이었다. 그 밖(프리마켓 포함)에서는
+ *   신선본 TTL 이 72시간이 되어, 실측 13:05 UTC(09:05 ET, 프리마켓) 크론이
+ *   «REDIS HIT age 57,586s» — 전날 저녁 값을 신선본으로 받았다. 한국 저녁(=미국 프리마켓)에
+ *   보는 사람은 그 값을 봤다. 서머타임에 따라 한 시간씩 어긋나기도 했다.
+ *   ET 로 판정하면 둘 다 사라진다.
+ */
+export function isStructureLiveWindow(date: Date = new Date()): boolean {
+    const et = getETComponents(date);
+    if (et.dayOfWeek === 0 || et.dayOfWeek === 6) return false;
+    const m = et.hour * 60 + et.minute;
+    return m >= 240 && m < 1200;
+}
+
 function getStructureCacheTtl(): number {
-    const now = new Date();
-    const utcDay = now.getUTCDay();
-    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
-    const isMarket = utcDay >= 1 && utcDay <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
-    return isMarket ? CACHE_TTL_MARKET_MS : CACHE_TTL_OFFHOURS_MS;
+    return isStructureLiveWindow() ? CACHE_TTL_MARKET_MS : CACHE_TTL_OFFHOURS_MS;
+}
+
+/** 응답에 «이 값이 언제 것인가»를 싣는다. 가격·세션 라벨은 이 시각의 것이다. */
+const asOfIso = (ts: number) => new Date(ts).toISOString();
+
+/** 지금의 세션 라벨(계산 경로의 판정과 같은 규칙). 정상본의 `session` 은 «그때» 라벨이라 둘을 나란히 싣는다. */
+function sessionNowET(): 'PRE' | 'REG' | 'POST' | 'CLOSED' {
+    const et = getETComponents();
+    if (et.dayOfWeek === 0 || et.dayOfWeek === 6) return 'CLOSED';
+    const m = et.hour * 60 + et.minute;
+    return m >= 240 && m < 570 ? 'PRE' : m >= 570 && m < 960 ? 'REG' : m >= 960 && m < 1200 ? 'POST' : 'CLOSED';
+}
+
+/**
+ * 응답을 보낸 뒤에도 갱신이 «끝까지» 돌게 한다.
+ *
+ * [2026-09-24] 예전엔 `void promise` 였다. Vercel 은 응답 후 인스턴스를 얼리거나
+ *   회수할 수 있어, 갱신이 붙을 때도 있고 안 붙을 때도 있었다(Fluid 에서 우연히 살아 있으면 붙음).
+ *   after() = waitUntil 이라 함수 수명(이 라우트는 기본 300초) 안에서 끝까지 기다린다.
+ *   요청 범위 밖(스크립트 등)에서 불리면 after() 가 던지므로 그때는 예전처럼 둔다.
+ */
+function keepAliveUntilDone(p: Promise<unknown>): void {
+    try {
+        after(p);
+    } catch {
+        /* 요청 범위 밖 — 기다려 줄 수단이 없다 */
+    }
 }
 
 // [DATA VALIDATION] Ensure calculated values are within valid ranges
@@ -201,6 +273,56 @@ async function computeAndStore(
 }
 
 /**
+ * 갱신 작업을 하나만 띄운다(인스턴스 안 중복 방지). 이미 돌고 있으면 그것을 돌려준다.
+ * @param keepAlive  true 면 응답 후에도 끝까지 돌게 after() 에 건다(사용자 경로).
+ *                   크론은 자기 60초 예산 안에서 직접 기다리므로 false.
+ */
+function startRefresh(
+    ticker: string,
+    spot: { price: number; prevClose?: number | null } | null | undefined,
+    cacheKey: string,
+    keepAlive: boolean,
+): Promise<any> {
+    const running = inFlight.get(cacheKey);
+    if (running) return running;
+    const job = computeAndStore(ticker, null, spot, cacheKey)
+        .catch((err) => { console.warn(`[structure] 배경 갱신 실패(${ticker}):`, err?.message); return null; })
+        .finally(() => { inFlight.delete(cacheKey); });
+    inFlight.set(cacheKey, job);
+    if (keepAlive) keepAliveUntilDone(job);
+    return job;
+}
+
+/** 갱신 결과가 «쓸 수 있는 새 값»인가 — 성공 경로만 정상본으로 저장되므로 같은 기준을 쓴다. */
+function isUsableResult(d: any): boolean {
+    return !!d && d.options_status === 'OK' && Number(d.underlyingPrice) > 0;
+}
+
+/**
+ * [크론 전용] 계산 없이 «지금 가진 정상본»과 그 시각만 본다. 부작용(배경 갱신) 없음.
+ * 만기가 이미 지난 사본은 없는 것으로 친다 — 지난 계약의 위치를 오늘 값으로 쓰면 안 된다.
+ */
+export async function peekStructureData(ticker: string): Promise<{ data: any; timestamp: number } | null> {
+    const lg = await getFromCache<{ data: any; timestamp: number }>(structureLastGoodKey(`${ticker}:auto`));
+    if (!lg?.data || !lg.timestamp) return null;
+    if (isCachedExpiryStale(lg.data, getTodayETString())) return null;
+    return { data: lg.data, timestamp: lg.timestamp };
+}
+
+/**
+ * [크론 전용] 실제로 다시 계산한다(마지막 정상본으로 돌아가지 않는다). 성공하면
+ * 정상본·신선본이 함께 저장된다. 다른 인스턴스가 60초 안에 방금 계산했으면 그 값을 받는다.
+ * 반환: 계산 결과(성공이 아니면 null). `_asOf` 로 데이터 시각을 알 수 있다.
+ */
+export async function refreshStructureData(
+    ticker: string,
+    spot?: { price: number; prevClose?: number | null } | null,
+): Promise<any | null> {
+    const d = await startRefresh(ticker, spot, `${ticker}:auto`, false);
+    return isUsableResult(d) ? d : null;
+}
+
+/**
  * [2026-09-16] 캐시가 ET 날짜 경계를 넘어 살아남는다(장외 TTL 72h · lastgood 72h).
  * 9/15(월) 만기가 9/16 새벽에도 «선택지»로 나갔다(audit-expiration-selection --live 실측).
  * 캐시 «읽기» 에서 오늘(ET) 이전 만기를 걷어내고, 선택된 만기 자체가 지났으면 그 캐시는
@@ -243,7 +365,7 @@ export async function getStructureData(
             structureCache.delete(cacheKey);
         } else {
             console.log(`[CACHE HIT] ${ticker}: returning cached data (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
-            return normalizeExpirationsForToday({ ...cached.data, cached: true }, todayET);
+            return normalizeExpirationsForToday({ ...cached.data, cached: true, _asOf: asOfIso(cached.timestamp) }, todayET);
         }
     }
 
@@ -259,7 +381,7 @@ export async function getStructureData(
             console.log(`[REDIS HIT] ${ticker}: 공유 캐시 사용 (age: ${ageSec}s)`);
             // 이번 인스턴스의 인메모리에도 채워 다음 호출은 더 빠르게
             structureCache.set(cacheKey, { data: shared.data, timestamp: shared.timestamp });
-            return normalizeExpirationsForToday({ ...shared.data, cached: true, _redisAgeSec: ageSec }, todayET);
+            return normalizeExpirationsForToday({ ...shared.data, cached: true, _redisAgeSec: ageSec, _asOf: asOfIso(shared.timestamp) }, todayET);
         }
     } catch (e) {
         // Redis 가 죽어도 계산으로 넘어가면 된다 — 캐시는 «빠르게 하는 것»이지 «필수»가 아니다
@@ -277,6 +399,11 @@ export async function getStructureData(
     //   «15초 동안 아무것도 없는 화면»보다 언제나 낫다.
     //
     //   숨기지는 않는다: `_staleSec` 으로 나이를 실어 보내고, 다음 호출은 갱신본을 받는다.
+    //
+    //   ★ [2026-09-24] 단, 나이에 상한이 있다(LASTGOOD_MAX_SERVE_SEC 설명 참고).
+    //     가격이 움직이는 시간에 15분을 넘긴 정상본은 갱신을 최대 3초 기다려 보고,
+    //     그래도 없으면 `_stale:true`·`_asOf` 를 붙여 «낡은 값»이라고 밝혀서 준다.
+    //     `session`·가격·파생값은 모두 `_asOf` 시각의 것으로 서로 맞는다(섞지 않는다).
     if (!requestedExp && !skipLastGood) {
         try {
             const lastGood = await getFromCache<{ data: any; timestamp: number }>(structureLastGoodKey(cacheKey));
@@ -284,15 +411,30 @@ export async function getStructureData(
                 console.log(`[LAST-GOOD STALE-EXPIRY] ${ticker}: 마지막 정상본 만기 ${lastGood.data?.expiration} < ${todayET} — 즉시 반환하지 않고 계산한다`);
             } else if (lastGood?.data && lastGood.timestamp) {
                 const staleSec = Math.round((Date.now() - lastGood.timestamp) / 1000);
-                // 뒤에서 갱신을 건다(이미 돌고 있으면 또 걸지 않는다 — 썬더링 허드 방지)
-                if (!inFlight.has(cacheKey)) {
-                    const job = computeAndStore(ticker, requestedExp, spot, cacheKey)
-                        .catch((err) => { console.warn(`[structure] 배경 갱신 실패(${ticker}):`, err?.message); })
-                        .finally(() => { inFlight.delete(cacheKey); });
-                    inFlight.set(cacheKey, job);
+                // 뒤에서 갱신을 건다(이미 돌고 있으면 그것을 쓴다 — 썬더링 허드 방지).
+                // after() 에 걸어 응답 뒤에도 끝까지 돈다.
+                const job = startRefresh(ticker, spot, cacheKey, true);
+                const tooOld = staleSec > LASTGOOD_MAX_SERVE_SEC && isStructureLiveWindow();
+                if (tooOld) {
+                    let timer: ReturnType<typeof setTimeout> | undefined;
+                    const fresh = await Promise.race([
+                        job,
+                        new Promise<null>((r) => { timer = setTimeout(() => r(null), LASTGOOD_SYNC_WAIT_MS); }),
+                    ]);
+                    if (timer) clearTimeout(timer);
+                    if (isUsableResult(fresh)) {
+                        console.log(`[LAST-GOOD→SYNC] ${ticker}: ${staleSec}s 된 정상본 대신 방금 계산한 값을 준다`);
+                        return normalizeExpirationsForToday({ ...fresh, _replacedStaleSec: staleSec }, todayET);
+                    }
+                    console.log(`[LAST-GOOD STALE] ${ticker}: ${staleSec}s — ${LASTGOOD_SYNC_WAIT_MS}ms 안에 갱신이 안 끝나 «낡음» 표시로 준다(갱신은 계속)`);
+                } else {
+                    console.log(`[LAST-GOOD] ${ticker}: ${staleSec}s 된 값을 즉시 반환하고 뒤에서 갱신한다`);
                 }
-                console.log(`[LAST-GOOD] ${ticker}: ${staleSec}s 된 값을 즉시 반환하고 뒤에서 갱신한다`);
-                return normalizeExpirationsForToday({ ...lastGood.data, cached: true, _staleSec: staleSec }, todayET);
+                // `session` 은 `_asOf` 시각의 라벨(가격과 짝), `_sessionNow` 는 지금 — 다르면 옛 세션 값이다.
+                return normalizeExpirationsForToday({
+                    ...lastGood.data, cached: true,
+                    _staleSec: staleSec, _asOf: asOfIso(lastGood.timestamp), _stale: tooOld, _sessionNow: sessionNowET(),
+                }, todayET);
             }
         } catch (e) {
             console.warn(`[structure] 마지막 정상본 조회 실패(${ticker}):`, (e as any)?.message);
@@ -1031,15 +1173,22 @@ export async function getStructureData(
         // 다른 인스턴스도 쓸 수 있게 공유 캐시에 남긴다.
         // await 하지 않는다 — 저장이 늦어도 «이번» 응답을 붙잡을 이유가 없다.
         const payload = { data: successResponse, timestamp: now };
-        void setInCache(
-            structureRedisKey(cacheKey),
-            payload,
-            Math.round(getStructureCacheTtl() / 1000),
-        ).catch(() => { /* 저장 실패는 조용히 — 다음 호출이 다시 계산할 뿐이다 */ });
-        // 마지막 정상본은 따로, 훨씬 길게 남긴다 — 신선본이 만료돼도 «즉시 줄 것»이 있어야 한다
-        void setInCache(structureLastGoodKey(cacheKey), payload, LASTGOOD_TTL_SEC)
-            .catch(() => { /* 위와 같다 */ });
-        return successResponse;
+        const writes = Promise.allSettled([
+            setInCache(
+                structureRedisKey(cacheKey),
+                payload,
+                Math.round(getStructureCacheTtl() / 1000),
+            ), // 저장 실패는 조용히 — 다음 호출이 다시 계산할 뿐이다
+            // 마지막 정상본은 따로, 훨씬 길게 남긴다 — 신선본이 만료돼도 «즉시 줄 것»이 있어야 한다
+            setInCache(structureLastGoodKey(cacheKey), payload, LASTGOOD_TTL_SEC),
+        ]);
+        // ⚠️ [2026-09-24] 배경 갱신(skipLastGood)은 «저장까지» 끝나야 갱신이다.
+        //   예전엔 저장을 띄워 두고 바로 반환해서, 응답 뒤 인스턴스가 얼면 계산만 하고
+        //   저장은 못 한 채 사라질 수 있었다. 갱신 경로는 저장을 기다리고(사람이 안 기다림),
+        //   사용자 경로는 응답을 붙잡지 않되 after() 로 저장이 끝나게 한다.
+        if (skipLastGood) await writes;
+        else keepAliveUntilDone(writes);
+        return { ...successResponse, _asOf: asOfIso(now) };
     } else {
         // ⚠️ [2026-09-13] 여기까지 왔다는 건 «파생값을 하나도 못 만들었다»는 뜻이다.
         //    그런데 options_status 는 옵션 «체인의 OI 커버리지»만 보고 정해져서,
