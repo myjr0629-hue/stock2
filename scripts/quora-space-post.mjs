@@ -106,7 +106,8 @@ await L.wait(7000);
 const after = await countPosts();
 // 새 글 주소는 «제목 앞 단어로 만든 슬러그»로 찾는다. Space 목록은 인기순이라 새 글이 화면에 없을 수 있고,
 //   앵커 글자에 제목이 안 들어 있는 경우도 있었다(9/23 실측: 게시물 4→5 인데 제목 글자 매칭은 실패).
-const slug = T.title.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).slice(0, 4).join('-').toLowerCase();
+// ★2026-09-25: Quora 슬러그는 문장부호를 «지우지» 않고 «-»로 바꾼다(today's → today-s). 지우면 todays 가 되어 못 찾았다.
+const slug = T.title.replace(/[^A-Za-z0-9]+/g, ' ').trim().split(/\s+/).slice(0, 4).join('-').toLowerCase();
 const link = await page.evaluate((slug) => {
   const a = [...document.querySelectorAll('a[href*="signumhqusstockmarketintelligence.quora.com/"]')].find((x) => x.href.toLowerCase().includes(slug));
   return a ? a.href.split('?')[0] : null;
@@ -116,7 +117,8 @@ if (!link) { console.log('⛔ 새 글 주소를 못 찾았다 — «발행했다
 try { await page.goto(link, { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(7000);
 const v = await page.evaluate((a) => ({
-  mark: (document.body.innerText || '').includes(a.mark),
+  // ★2026-09-25: Quora 는 곧은 따옴표(')를 둥근 따옴표(’)로 바꿔 보여 준다 → 양쪽을 같은 모양으로 맞춰 비교
+  mark: (document.body.innerText || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').includes(a.mark.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')),
   img: [...document.querySelectorAll('img')].filter((i) => /qimg/.test(i.src)).length,
   href: [...document.querySelectorAll('a[href]')].some((x) => /signumhq\.com\/app\?from=quora_space/.test(decodeURIComponent(x.href))),
 }), { mark: T.mark });

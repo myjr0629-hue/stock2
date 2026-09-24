@@ -26,9 +26,17 @@ const byText = async (re, fb) => { const b = await page.evaluate((src) => { cons
 await page.evaluate(() => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim(); const b = [...document.querySelectorAll('button')].find((x) => /^(나중에 하기|Not Now|나중에)$/.test(n(x.innerText))); if (b) b.click(); });
 await L.wait(2000);
 // «만들기»·«게시물»은 글자로 못 찾는다(채널 노트) → 정본 좌표로 먼저 누르고, 파일 입력이 생겼는지 본다
-await page.mouse.click(36, 504); await L.wait(3000);
-await page.mouse.click(112, 554); await L.wait(3500);
-let fin = await page.evaluate(() => document.querySelectorAll('input[type=file]').length);
+// ★2026-09-25: 고정 대기(3초·3.5초)로는 파일 입력이 아직 없을 때가 있었다(«파일 입력: 0»으로 멈춤 — 같은 좌표를 사람이 눌러 보니 2초 뒤 생겼다).
+//   조건을 기다린다: «만들기»(새로운 게시물 svg) → 메뉴의 «게시물» 링크가 보일 때까지 → 누른 뒤 input[type=file] 이 생길 때까지. 두 번까지 시도.
+const poll = async (fn, ms) => { const end = Date.now() + ms; while (Date.now() < end) { const v = await page.evaluate(fn); if (v) return v; await L.wait(500); } return null; };
+let fin = 0;
+for (let attempt = 0; attempt < 2 && !fin; attempt++) {
+  const plus = await page.evaluate(() => { const e = document.querySelector('svg[aria-label="새로운 게시물"], svg[aria-label="New post"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; }) || { x: 36, y: 504 };
+  await page.mouse.click(plus.x, plus.y);
+  const item = await poll(() => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim(); const a = [...document.querySelectorAll('a[role=link], a')].find((x) => /^(게시물|Post)$/.test(n(x.innerText)) && x.getBoundingClientRect().width > 0); if (!a) return null; const r = a.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; }, 6000);
+  if (item) await page.mouse.click(item.x, item.y); else await page.mouse.click(112, 554);
+  fin = (await poll(() => document.querySelectorAll('input[type=file]').length, 10000)) || 0;
+}
 if (!fin) { await byText(/^(만들기|Create)$/, null); await byText(/^(게시물|Post)$/, null); fin = await page.evaluate(() => document.querySelectorAll('input[type=file]').length); }
 console.log('파일 입력:', fin);
 await L.wait(2500);

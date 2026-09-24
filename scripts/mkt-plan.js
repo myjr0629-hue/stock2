@@ -49,6 +49,7 @@ const CH = {
   github_pages_finra_i18n: { cap: 2, day: 'week', window: [0, 24], note: '한국어·일본어판 — finra-short-dataset.py 가 영어판과 함께 생성. 갱신 때 세 페이지 함께 업로드 + GSC URL 검사' },
   github_topics: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-24 — 저장소 About·토픽(얇은 토픽: short-volume 1·max-pain 9·congress-trading 11·dark-pool 19). 새 데이터셋을 올리면 토픽도 같이' },
   onestore: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — 원스토어 «미국주식» 검색 결과 앱 4개(얇은 문). 개발자 등록 = 대표' },
+  quora_spaces_share: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 티켓 — 큰 금융 Space 팔로워·제출 허용 여부 측정 전(검색 목록엔 팔로워 수 없음)' },
   bluesky_buildinpublic: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 — 블루스키 #buildinpublic 제작기(수치 1개 중심, 카드+from=bluesky_bip). 금융 글 캡과 별도. 9/28 판정' },
   bluesky_reply: { cap: 2, day: 'kst', window: [0, 24], note: '큰 금융 계정 글(게시 1시간 안)에 데이터 한 줄 답글 — getFeed(FinSky·EconSky)로 찾고 bsky-publish --reply-to. 링크·예측 없음' },
   github_pages_congress: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 갱신 — node scripts/congress-dataset.mjs → github-upload.mjs(세 파일). 90일 창이 밀리므로 갱신을 거르면 «죽은 데이터»가 된다' },

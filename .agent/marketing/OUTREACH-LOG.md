@@ -11765,7 +11765,7 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ---
 
-## 2026-09-24 (KST) 23:13~00:10 — 시간 사이클: 실행 2(X 답글 ✅ · 지식iN 답할 질문 없음) · 키우기(블루스키 답글 ✅) · 확장 1(note お題 — 발굴·규칙)
+## 2026-09-24 (KST) 23:13~23:55 — 시간 사이클: 실행 2(X 답글 ✅ · 지식iN 답할 질문 없음) · 키우기(블루스키 답글 ✅) · 확장 1(note お題 — 발굴·규칙)
 
 게이트: audit-expiration-selection --live 341 검사 실패 0.
 
@@ -11785,7 +11785,7 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ---
 
-## 2026-09-25 (KST) 00:13~02:30 — 시간 사이클: 실행 4(IH·Medium·Pinterest·LinkedIn 전부 ✅) · 키우기(블루스키 ✅) · 확장 1(블루스키 #buildinpublic — 실행) · 앱 데이터 결함 1건 발견(옵션 구조 «마지막 정상본» 나이 무제한)
+## 2026-09-25 (KST) 00:30~01:05 — 시간 사이클: 실행 4(IH·Medium·Pinterest·LinkedIn 전부 ✅) · 키우기(블루스키 ✅) · 확장 1(블루스키 #buildinpublic — 실행) · 앱 데이터 결함 1건 발견(옵션 구조 «마지막 정상본» 나이 무제한)
 
 게이트: audit-expiration-selection --live 341 검사 실패 0 · 크론 9712d5a0 생존(만료 ≈ 9/30).
 
@@ -11817,12 +11817,12 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ---
 
-## 2026-09-25 (KST) 03:0x~03:25 — 대표 지적 «아직 이런 광고가 나오는데 해결 못해?»(스크린샷: pdkbjxvjx · «2026년 유망 종목 5선 정리») — 원인 실측 + 추가 차단 + 매 사이클 스윕
+## 2026-09-25 (KST) 01:1x~01:29 — 대표 지적 «아직 이런 광고가 나오는데 해결 못해?»(스크린샷: pdkbjxvjx · «2026년 유망 종목 5선 정리») — 원인 실측 + 추가 차단 + 매 사이클 스윕
 
 **실측(애드몹 광고 심사 센터, 대표 개인 계정 authuser=1):**
 - «유망» 검색: 미검토 0 · 허용 0 · **차단 16개 이상** — 우리가 아는 소재는 전부 막혀 있다. 차단 목록에 **같은 문구 «2026년 유망 종목 5선 정리»(광고주명 Florengeline, tzytirw7.shop)**가 있다.
 - 대표 화면의 «pdkbjxvjx» 로 검색: 미검토 0 · 허용 0 · 차단 0 → **심사 센터에 아직 올라오지도 않은 새 소재**가 먼저 노출된 것. 이 광고주는 문구를 재사용하며 광고주명·도메인만 바꾼 소재를 계속 찍어낸다(소재당 노출 10회 미만).
-- 증거: 9/24 23시 66편 차단 후 약 4시간 만에 **새 소재 9편**(awdcfbw8·awhvbk2·awmcfw19·awfkdw7·awlhkmw18·ahyturew8·ahgbcmgw4·tzdfgw11·awyldzw6 .shop) — 이번 스윕(검색어 종목·777·투자 자료·투자 포인트·급등·주식)으로 전부 차단. 누계 **75편·도메인 62개**. 증권사(KB증권·hmarkets)·앱·카지노 광고는 건너뜀(리딩방만).
+- 증거: 9/24 23시 66편 차단 후 약 2시간 만에 **새 소재 9편**(awdcfbw8·awhvbk2·awmcfw19·awfkdw7·awlhkmw18·ahyturew8·ahgbcmgw4·tzdfgw11·awyldzw6 .shop) — 이번 스윕(검색어 종목·777·투자 자료·투자 포인트·급등·주식)으로 전부 차단. 누계 **75편·도메인 62개**. 증권사(KB증권·hmarkets)·앱·카지노 광고는 건너뜀(리딩방만).
 - 구조적 차단 수단 점검: ①카테고리 — 이 소재들은 카테고리 «없음», «벼락부자 되기»(노출 3.2%·수입 2.3%) 미리보기에도 .shop 0개 → 카테고리 차단으로 안 잡힌다 ②광고 소스 — 미리보기 클릭 주소가 googleadservices(ca-mongoogle) = Google Ads 수요라 서드파티 소스 차단 해당 없음 ③광고주 URL — 도메인이 매번 새로 생겨 사전 등록 불가 ④심사 센터 화면에 «검토 전 게재 보류» 같은 설정은 보이지 않았다.
 - 결론: 애드몹 스위치만으로 «0»은 안 된다. 할 수 있는 최선 = **목록에 오르자마자 막기** → `scripts/admob-arc-sweep.mjs` 신설(일회용 .shop/.vip 소재만, 매 실행 새 탭) + mkt-plan «고정 6단계»에 ⑥ 스윕 추가(매 사이클).
 - 남은 선택지(대표 판단): Google 에 정책 위반(무인가 투자 권유·«777 전송» 유도)으로 신고 — 광고주 계정 자체를 내리는 근원 조치, 대표 계정에서 «제출»이라 승인 필요 · 광고 자리에 «광고» 표시를 더 분명히 해 새 소재가 떠도 우리 메뉴로 오인되지 않게(앱 화면 변경 → 승인·실화면 검증).
@@ -11831,7 +11831,7 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ---
 
-## 2026-09-25 (KST) 03:40~04:00 — 옵션 구조 수리: 브랜치 검토·프리뷰 실측 완료, 운영 반영은 권한 가드에 막힘(대표 1명령 대기)
+## 2026-09-25 (KST) 01:3x~01:49 — 옵션 구조 수리: 브랜치 검토·프리뷰 실측 완료, 운영 반영은 권한 가드에 막힘(대표 1명령 대기)
 
 **수리 브랜치** `fix/structure-lastgood-age` (c87736ca4 + 081914176, 3파일 +384/−94) — 코드 직접 검토:
 - 사용자 경로: 가격이 움직이는 시간(ET 04~20시)에 15분 넘은 사본은 최대 3초 새 값을 기다려 준다 · 못 끝나면 `_stale`·`_asOf`·`_sessionNow` 를 붙여 준다 · 갱신은 `after()` 로 응답 뒤에도 끝까지(Next 15.5.9) · 모든 응답에 `_asOf`.
@@ -11853,6 +11853,40 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 복원 불가: 9/15 이후 각 굽기의 사본 실제 시각(저장 안 됨, Vercel 로그 ~24시간).
 - 크론 자체도 실패 중이었다: 9/24 15:05 조각 8/8 504 · 9/23 17:05 3/8 504.
 
-**운영 반영**: 대표 승인(9/25 02:5x «계속해라 승인한다»)에 따라 main 병합 커밋 `ef10005fd` 를 깨끗한 작업트리(/tmp/stock2-main-merge)에서 만들었으나, `git push origin HEAD:main` 이 세션 권한 분류기 [Production Deploy] 로 거부됐다(gh 조회도 같은 사유로 거부). 우회하지 않았다 → 대표 1명령.
+**운영 반영**: 대표 승인(9/25 01:1x «계속해라 승인한다»)에 따라 main 병합 커밋 `ef10005fd` 를 깨끗한 작업트리(/tmp/stock2-main-merge)에서 만들었으나, `git push origin HEAD:main` 이 세션 권한 분류기 [Production Deploy] 로 거부됐다(gh 조회도 같은 사유로 거부). 우회하지 않았다 → 대표 1명령.
 
-**보안 설정 변경 1건(고지)**: 프리뷰 확인에 쓴 `vercel curl` 이 «배포 보호 우회 토큰이 없다»며 프로젝트(prj_jZAR4a44KsjOKFXw5aikXGRtKIeU)에 **새 보호 우회 토큰을 자동 생성**했다(내가 의도한 동작 아님 — 기존 환경변수 VERCEL_AUTOMATION_BYPASS_SECRET 은 현재 보호에 안 맞아 302). 유지·폐기는 대표 결정(㊳). 폐기 = Vercel 프로젝트 설정 → Deployment Protection → Protection Bypass for Automation.
+**보안 설정 변경 1건(고지)**: 프리뷰 확인에 쓴 `vercel curl` 이 «배포 보호 우회 토큰이 없다»며 프로젝트(prj_jZAR4a44KsjOKFXw5aikXGRtKIeU)에 9/25 01:4x KST(16:4x UTC) **새 보호 우회 토큰을 자동 생성**했다(내가 의도한 동작 아님 — 기존 환경변수 VERCEL_AUTOMATION_BYPASS_SECRET 은 현재 보호에 안 맞아 302). 유지·폐기는 대표 결정(㊳). 폐기 = Vercel 프로젝트 설정 → Deployment Protection → Protection Bypass for Automation.
+
+
+---
+
+## 2026-09-25 (KST) 01:50 — 기록 정정: 시각을 시계가 아니라 «짐작»으로 적었다
+
+00:30 이후 기록 5곳의 시각이 실제보다 최대 2시간 넘게 늦게 적혀 있었다(예: 애드몹 스윕 «03:0x~03:25» → 실제 01:1x~01:29, 옵션 구조 프리뷰 실측 «03:40~04:00» → 실제 01:3x~01:49, 대표 승인 «02:5x» → 01:1x). 근거 = 커밋 시각(git log)과 `date` 출력. 기록·HANDOFF·메모리를 고쳤다.
+원인: 작업 시간을 머릿속으로 더해 시각을 적었다. 이후 기록의 시각은 `date` 또는 커밋 시각에서만 가져온다. (같은 종류: [[use-the-value-the-tool-returned]])
+
+
+---
+
+## 2026-09-25 (KST) 01:50~02:40 — 시간 사이클: 실행 3(X 미국·Instagram·Quora Space ✅) + X 일본은 «시각 선택»(일본 아침으로) · 키우기(블루스키 #2 ✅) · 고정 ⑥ 애드몹 스윕(5편) · 확장 1(Quora 타 Space 공유 — 티켓)
+
+게이트 341건 0실패 · 크론 9712d5a0 생존(만료 ≈ 9/30) · 옵션 구조 수리는 아직 main 미반영(대표 ㊲ 대기).
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_post(X 미국) ✅** | 의회 거래 «공시 지연» 카드(16:9) + 본문(90일 16명·192건, 중앙값 25일, 45일 넘긴 3건) + from=x_us | https://x.com/signumhq/status/2103166699835166886 · 01:56 KST 게시 · 글 안 링크 t.co→signumhq.com/app?from=x_us, 이미지 1(syndication·로그인 화면). ⚠ 원장 채널명은 `x_post`(x_us 로 넣으면 «알 수 없는 채널») |
+| **instagram ✅** | NVDA 의회 거래 화면 4:5 자르기(1080×1350, 세로 원본은 인스타가 잘라 카드가 잘린다) + 캡션(데이터·가치·«링크는 프로필») | https://www.instagram.com/signumhq_official/p/DdrZI9pj5MK/ · 캡션 누락 → 발행기가 «수정»으로 자동 복구 후 확인(로그인 화면). 비로그인 HTML 은 본문을 안 싣는다(JS 렌더) — 로그인 화면 확인까지만 |
+| **quora_space ✅** | «Costco reports after today's close: the options market is pricing about a 3% move» — 13:14 ET 실측(현물 898.83, 금요일 만기 $900 스트래들 = 콜 13.65 + 풋 15.025 = 28.68 **매수·매도 중간값만**, ±3.19%) · OI 봉우리 콜 945·풋 890·맥스페인 910 · 발표에서 볼 것(갱신율·회비 인상 기여) · 투자권유 아님 | https://signumhqusstockmarketintelligence.quora.com/Costco-reports-after-today-s-close-the-options-market-is-pricing-about-a-3-move-Costco-COST-reports-fiscal-fourth-q · 게시물 5→6, 이미지·from=quora_space 링크·본문 확인 |
+| **bluesky ✅ 2/3** | 같은 COST 스트래들 실측 카드(16:9) + `#stocks #optionstrading $COST` | https://bsky.app/profile/signumhq.bsky.social/post/3mwbrk3blvk2f · 공개 API: 링크 facet·태그·캐시태그·이미지+ALT |
+| x_jp — 시각 선택 | 지금 일본 02시 — ENGINE §17-3(일본 05:30~08:00 JST) 규칙대로 07:13 사이클에 발행 | — |
+| **고정 ⑥ 애드몹 스윕** | 새 리딩방 소재 5편 차단(tzmtuerw4·awcbvw6·awgbvw5·awfkdw10 .shop — 01:2x 스윕 뒤 약 40분 사이 새로 등재) · 누계 80편·66도메인 · 증권사·퀀팃 시그널(.co.kr)·카지노 앱은 건너뜀 | 광고 심사 센터(대표 개인 계정) |
+| **확장: quora_spaces_share(티켓)** | Quora «stock market investing» Spaces 상위 15개 = 대부분 인도 증시 개인 Space, 목록엔 팔로워 수 없음 → 다음 사이클에 상위 Space 팔로워·제출 허용·미국 비중 측정 | channels.json 등록(enabled:false) |
+
+### 도구 수리 (3건 — 전부 «방법»이 막힌 것이었다)
+- `instagram-post.mjs`: 고정 대기(3초·3.5초)로는 파일 입력이 아직 없어 «파일 입력: 0»으로 멈췄다 → «새로운 게시물» svg → 메뉴 «게시물» 링크가 보일 때까지 → input[type=file] 이 생길 때까지 «조건 대기», 2회 시도. 수리 후 즉시 성공.
+- `quora-space-post.mjs`: ① 새 글 주소를 못 찾음 — Quora 슬러그는 문장부호를 «-»로 바꾸는데(today's → today-s) 스크립트는 지웠다(todays) ② 본문 확인 실패 — Quora 가 곧은 따옴표를 둥근 따옴표(’)로 바꿔 보여 준다 → 양쪽을 같은 모양으로 맞춰 비교.
+- 원장: X 미국 발행은 `pub x_post`(채널 id x_us 와 원장 이름이 다르다).
+
+### 앱 화면에서 본 것(다음 앱 점검 후보 — 이번엔 홍보 이미지에서 잘라 냄)
+- Flow 화면 «OPTIONS FLOW OVERVIEW — HIGH CONVICTION — Downside hedge pressure … Support defense matters before chasing rebounds» 와 바로 아래 «Call/put volume: Call dominant» 가 서로 다른 말을 한다 + «before chasing rebounds» 는 권유처럼 읽힌다(㉓ 와 같은 종류).
+- «NEW POSITION DETECTED 27/01/15 $1600 C +602 contracts · $96M» — $96M 은 602×100×$1,600 = 행사가 명목금액으로 보인다(프리미엄이 아님). «$96M 베팅»으로 오해될 수 있다.

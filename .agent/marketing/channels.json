@@ -1173,6 +1173,16 @@
    "link": "https://signumhq.com/app?from=bluesky_bip",
    "action": "post",
    "note": "★2026-09-25 확장·실행. 왜: IH(건당 6.5)·GeekNews Show(1편 28클릭)처럼 «새것을 보러 온 빌더»에게 수치 있는 제작기가 먹혔다 — 블루스키(건당 6.85)의 빌더 피드에 같은 형식을 복제. 실측(공개 API getPopularFeedGenerators·getFeed): #buildinpublic 피드 좋아요 241(해시태그 수집, 6.7시간에 50편 = 시간당 약 7.5편, 글 좋아요 중앙값 1·최고 13) · Build In Public 114(8.5시간 49편) · Indie Dev 339(개인 프로젝트 전반). 금융 피드(EconSky 1,431)보다 작고 홍보글이 많다 → 시험 채널. 첫 글: «67 of 83 tagged clicks came from desktop → QR 넘겨주기» 카드(16:9) + #buildinpublic, 태그 from=bluesky_bip 로 분리 측정(관리자 대시보드 CHANNELS 배열엔 없음 — 코드 배포 필요, 우리 mkt-clicks 는 channels.json 태그로 센다). 규칙: 하루 1편·금융 글 캡(bluesky 3)과 별도 · 제작기만(실측 수치 1개 중심) · 같은 제작기 재탕 금지. 판정: 9/28 에 건당 클릭이 bluesky 금융 글의 절반(≈3) 미만이면 줄인다."
+  },
+  {
+   "id": "quora_spaces_share",
+   "name": "Quora 다른 Space 로 우리 Space 글 공유(Share to Space) — 큰 금융 Space 팔로워에 노출",
+   "tier": "C",
+   "enabled": false,
+   "tag": "quora_space",
+   "link": "https://www.signumhq.com/app?from=quora_space",
+   "action": "share",
+   "note": "★2026-09-25 01:5x 확장(발굴·티켓). 실측: Quora 검색 «stock market investing» → Spaces 필터(type=tribe, 화면 클릭으로 진입) 상위 15개가 대부분 인도 증시 중심의 개인 Space(«Investment in Indian stock market» 등). 검색 목록엔 팔로워 수가 안 나온다. 다음: 상위 Space 를 눌러 팔로워 수·«게시물 제출/공유 허용» 여부·미국 시장 비중을 표로 재고, 미국 시장 중심·팔로워 1만+ 이고 제출을 받는 곳만 1주 1회 공유. ⚠ 9/23 우리 Space 글 2편이 Quora 에 삭제됐다(㉒) — 남의 Space 공유는 자기홍보로 보일 수 있으니 규칙(About)부터 읽는다."
   }
  ],
  "candidates": [
