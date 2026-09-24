@@ -359,7 +359,9 @@
    "id": "apple_featuring",
    "tier": "A",
    "enabled": true,
-   "note": "★무료. ASC Featuring Nominations — 국가/지역 필드로 일본·한국 스토어 지정 가능. 3개월 전 제출 권장. 설치에 직결되는 유일한 «무료 스토어 편성» 경로"
+   "note": "무료 App Store 편집 추천 창구(ASC Featuring Nominations). ★2026-09-25 08:5x 실측: 웹 세션이 끊겨도(login?authResult=FAILED) **ASC API 로 조회·제출된다** — GET /v1/nominations?filter[state]=SUBMITTED (state 는 하나씩: DRAFT|SUBMITTED|ARCHIVED, scripts/asc_client.py). 현재 SUBMITTED 5건: SIGNUM 출시(7/10)·UC 출시(7/16) + NEW_CONTENT 3건(WIM «learn the market by guessing»·UC «the news, in plain language»·SIGNUM «This week's earnings», 게재 희망 10/06). 초안 0·보관 0. 다음: 10/06 이후 결과(피처링 여부)를 스토어·ASC 로 확인 → 새 추천은 인앱 이벤트와 묶어 3개월 앞서 1건씩. 【옛 노트】 ★무료. ASC Featuring Nominations — 국가/지역 필드로 일본·한국 스토어 지정 가능. 3개월 전 제출 권장. 설치에 직결되는 유일한 «무료 스토어 편성» 경로",
+   "gate": "심사대기",
+   "until": "2026-10-06"
   },
   {
    "id": "jp_media",
@@ -1245,6 +1247,16 @@
    "link": "https://signumhq.com/app?from=note&l=ja",
    "action": "pin",
    "note": "★2026-09-25 07:4x 확장·실행 — 블루스키·X 고정 소개 글의 복제(블루스키 고정 2시간 12클릭). 글 카드 «…» 메뉴 = マガジン·«クリエイターページに固定表示»·編集·削除 → 소개 글 「米国市場のすべてを、無料アプリひとつで見る方法」(9/17)을 고정 → 프로필 «固定された記事» 확인. 교체 기준: 새 소개 글이 생기거나 분기 1회."
+  },
+  {
+   "id": "apple_promoted_iap",
+   "name": "App Store 프로모션 인앱 구입 — 구독이 검색 결과에 앱과 별도 카드로 뜨는 자리",
+   "tier": "A",
+   "enabled": false,
+   "tag": "aso",
+   "link": "https://apps.apple.com/app/id6783130444",
+   "action": "store",
+   "note": "★2026-09-25 08:5x 확장(발굴·티켓). ASC API 실측: /apps/6783130444/promotedPurchases total 0 · 구독 com.signumhq.app.pro.monthly(6786909663, APPROVED) images 0 · promotedPurchase null → 검색 결과의 추가 카드 자리를 전혀 안 쓰고 있다. 할 일(API, scripts/asc_client.py): ① 1024×1024 PNG(투명 없음) 구독 대표 이미지 제작 — 앱 아이콘 계열 + «Pro · 광고 없음», 과장·가격·순위 문구 금지 ② subscriptionImages 예약→업로드→커밋 ③ POST /v1/promotedPurchases(app·subscription, visibleForAllUsers, enabled) ④ 애플 심사(이미지) 통과 후 US·KR·JP 스토어 검색에서 카드 확인. HANDOFF §4-6 «구독 대표 이미지 비어 있음»과 같은 일 — 오퍼코드 리딤 화면에도 쓰인다."
   }
  ],
  "candidates": [
