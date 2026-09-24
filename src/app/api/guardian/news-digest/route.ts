@@ -15,6 +15,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { publicBase } from '@/lib/net/publicBase';
+import { guardYears, yearsIn } from '@/lib/newsYearGuard';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 /**
@@ -58,6 +59,19 @@ export interface NewsDigestItem {
     publishedAtET: string;
     ageMinutes: number;
     _rawTitleKey?: string;  // Original article title key for accurate dedup
+    _srcYears?: string[];   // 원문(제목·요약)에 있던 연도 — 캐시에서 나갈 때도 연도 검사를 하려고 저장
+}
+
+// 원문에 없는 연도를 걷어낸다(고칠 수 없으면 항목 제외). 규칙·실측 사례는 lib/newsYearGuard.ts.
+function guardItems(items: NewsDigestItem[], where: string, srcTextOf?: (it: NewsDigestItem) => string | undefined): NewsDigestItem[] {
+    const out: NewsDigestItem[] = [];
+    for (const it of items) {
+        const r = guardYears(it, srcTextOf?.(it));
+        if (r.fixed.length) console.warn(`[NewsDigest] ${where}: 원문에 없는 연도를 지움 ${r.fixed.join(' ')} (${it.id})`);
+        if (!r.item) { console.warn(`[NewsDigest] ${where}: 원문에 없는 연도 → 항목 제외 ${r.dropped} (${it.id})`); continue; }
+        out.push(r.item);
+    }
+    return out;
 }
 
 export interface NewsDigest {
@@ -406,7 +420,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
         if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty Claude response');
         console.log(`[NewsDigest] Claude: ${parsed.length} items in ${Date.now() - t0}ms (model: ${bedrockResult.model})`);
 
-        return parsed.map((item, i) => {
+        return guardItems(parsed.map((item, i) => {
             const matchedArticle = articles.find(a => a.id === item.id) || articles[i];
             return {
                 id: item.id || `digest-${i}`,
@@ -425,8 +439,9 @@ Output ONLY the JSON array — no explanation, no markdown.`;
                 publishedAtET: formatET(matchedArticle?.published_utc || new Date().toISOString()),
                 ageMinutes: getAgeMinutes(matchedArticle?.published_utc || new Date().toISOString()),
                 _rawTitleKey: titleKey(matchedArticle?.title || ''),  // Store original for dedup
+                _srcYears: yearsIn(`${matchedArticle?.title || ''} ${matchedArticle?.description || ''}`),
             };
-        });
+        }), '새 항목');
     } catch (e) {
         console.error('[NewsDigest] Claude analysis failed:', e);
         // Fallback: return raw top items without AI
@@ -508,7 +523,7 @@ export async function GET(req: NextRequest) {
             after(() => fetch(`${self}/api/guardian/news-digest?refresh=1&locale=${locale}`,
                 { signal: AbortSignal.timeout(90000) }).catch(() => { /* 조용히 — 다음 요청이 다시 시도한다 */ }));
         }
-        const items = forLocale(existingDigest.items, locale).map(it => ({
+        const items = forLocale(guardItems(existingDigest.items, '캐시 응답'), locale).map(it => ({
             ...it,
             ageMinutes: getAgeMinutes(it.publishedAt),
         }));
@@ -560,8 +575,10 @@ export async function GET(req: NextRequest) {
 
     // Step 3: Filter out articles already in cache (avoid duplicates)
     // Use BOTH Claude-rewritten headline AND original raw title key for matching
+    // 연도 검사로 빠진 캐시 항목은 «이미 있음»에서도 빠진다 → 날짜가 박힌 새 프롬프트로 다시 만들어질 기회를 준다.
+    const guardedExisting = guardItems(existingDigest?.items || [], '누적');
     const existingKeys = new Set<string>();
-    (existingDigest?.items || []).forEach(it => {
+    guardedExisting.forEach(it => {
         existingKeys.add(titleKey(it.headline));
         if (it._rawTitleKey) existingKeys.add(it._rawTitleKey);
     });
@@ -579,7 +596,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Step 5: Accumulate — merge new + existing, keep latest 10 unique
-    const existingItems = existingDigest?.items || [];
+    const existingItems = guardedExisting;
     const allItems = [...newItems, ...existingItems]; // New first (higher priority)
     const uniqueItems = deduplicateItems(allItems);
 
