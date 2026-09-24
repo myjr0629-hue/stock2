@@ -46,7 +46,7 @@
    "followers": 23,
    "tag": "bluesky_bio",
    "link": "https://signumhq.com/app?from=bluesky_bio",
-   "note": "★★2026-09-17 실측: **글 한 편으로 하루 18클릭** — 그날 전 채널 1위. 21일 누적 0 이었으니 순수 신규 유입이다. 비교: 레딧은 21일 60건 댓글로 5클릭. C형에서 A형으로 승격. 첨부는 base64→File→DataTransfer→drop + ClipboardEvent('paste')(파일 입력은 0개인 게 맞다). 300자 «그래파임» 한도 — 넘으면 게시 버튼이 aria-disabled. 링크는 웹 컴포저가 알아서 인식. 계정 @signumhq.bsky.social ★2026-09-23 확장(피드 진입 규칙 실측, 공개 API getPopularFeedGenerators): 블루스카이 도달은 팔로워가 아니라 «피드»다. 해시태그만 넣으면 자동으로 끌어가는 금융 피드 — Stock Market(♥113, #stocks) · Trading(♥73, #trading #stockmarket #optionstrading #stocks #investing #fintwit …) · Investing(♥24, #Investing #Investments #S&P500 — 트레이딩 스팸 필터) · Quant Finance(♥25, #options #volatility #derivatives). 9/23 까지 우리 글엔 해시태그가 «0개»였다. → 매 글 끝에 #stocks #optionstrading #investing (+종목 캐시태그 $COST 등, 캐시태그도 tag facet 으로 등록됨) 를 넣는다. 발행기(src/lib/marketing-console/bluesky.ts)는 #tag·$cash facet 을 이미 만든다. 300자 안에서 27자를 쓴다.",
+   "note": "★★2026-09-17 실측: **글 한 편으로 하루 18클릭** — 그날 전 채널 1위. 21일 누적 0 이었으니 순수 신규 유입이다. 비교: 레딧은 21일 60건 댓글로 5클릭. C형에서 A형으로 승격. 첨부는 base64→File→DataTransfer→drop + ClipboardEvent('paste')(파일 입력은 0개인 게 맞다). 300자 «그래파임» 한도 — 넘으면 게시 버튼이 aria-disabled. 링크는 웹 컴포저가 알아서 인식. 계정 @signumhq.bsky.social ★2026-09-23 확장(피드 진입 규칙 실측, 공개 API getPopularFeedGenerators): 블루스카이 도달은 팔로워가 아니라 «피드»다. 해시태그만 넣으면 자동으로 끌어가는 금융 피드 — Stock Market(♥113, #stocks) · Trading(♥73, #trading #stockmarket #optionstrading #stocks #investing #fintwit …) · Investing(♥24, #Investing #Investments #S&P500 — 트레이딩 스팸 필터) · Quant Finance(♥25, #options #volatility #derivatives). 9/23 까지 우리 글엔 해시태그가 «0개»였다. → 매 글 끝에 #stocks #optionstrading #investing (+종목 캐시태그 $COST 등, 캐시태그도 tag facet 으로 등록됨) 를 넣는다. 발행기(src/lib/marketing-console/bluesky.ts)는 #tag·$cash facet 을 이미 만든다. 300자 안에서 27자를 쓴다. ★2026-09-24 피드 태그 규칙(실측, bluesky_feeds 참조): 매크로·금리·에너지 글 = #econsky 추가(#EconSky 피드 좋아요 1,431, 4시간에 약 12편 — 시장 글도 들어감. 하루 1편·데이터 글만, 앱 선전 글엔 붙이지 않는다) · 옵션 구조(GEX·맥스페인·딜러 포지션) 글 = #quantfinance #derivatives 추가(Quant Finance 피드, 38시간에 12편 → 경쟁 적음). #trading·#stockmarket 피드는 크립토 스팸이 1시간에 12편 — 넣어도 묻힌다. 발행기(bluesky.ts buildFacets)가 #태그를 tag 파셋으로 만든다(9/23 글 5건에서 확인) → 본문에 쓰기만 하면 된다.",
    "action": "reply_only",
    "enabled": true
   },
@@ -1013,6 +1013,16 @@
     "why": "2026-09-24 10:5x 가입 요청 전송(공개 그룹인데도 운영자 승인제 — 화면 문구 «가입 요청을 그룹 운영자에게 전송했습니다»). 9/26 에 승인 여부를 다시 본다"
    },
    "note": "★2026-09-24 확장 «발굴→가입 요청». 링크드인 검색(options trading → 그룹 필터)을 «눌러서» 들어감(결과 745). 후보 실측: ①Algorithmic Traders Association(공개·15만) — 가입 전에 외부 사이트(atassn.com) 회원가입을 요구 = 계정 생성이라 제외 ②US Stock Market | Trading & Investing | Stocks, Options, Futures(/groups/12274630, 공개·6,033명·금융업 종사 963명·한국 8명, 운영자 Stavros Georgiadis CFA, 고정글=투자위험 면책) — 가입 요청 ③Equity Options Sales & Trading Group(비공개·6천)·Options Traders Trading Post(비공개·5천)·Stock and Options Trading Group(비공개·5천)는 다음 후보. 왜: 우리 링크드인은 팔로워 ≈0 이라 피드 글 도달이 없다 — 그룹 글은 그 그룹 회원에게 간다(팔로워 불필요). 그룹 화면은 iframe 이라 DOM 질의·elementFromPoint 는 IFRAME 만 잡는다 → page.snapshot() 의 ref 로 누른다. 승인 후: 그룹 규칙(모두 표시)을 읽고 홍보 허용 범위 확인 → 데이터 글 1편(앱 화면 + 스마트링크 ?from=linkedin). 태그는 기존 linkedin 을 쓴다(새 태그는 코드 등록·배포가 먼저라)."
+  },
+  {
+   "id": "bluesky_feeds",
+   "name": "블루스키 커스텀 피드(해시태그 진입)",
+   "tier": "B",
+   "enabled": true,
+   "tag": "bluesky",
+   "link": "https://signumhq.com/app?from=bluesky",
+   "action": "hashtag",
+   "note": "★2026-09-24 확장 «발굴→규칙화». 공개 API app.bsky.unspecced.getPopularFeedGenerators(finance·stocks·options·markets·economics·trading·investing)로 피드 전수 → getFeed 로 각 피드의 최근 12편을 직접 읽어 «살아 있나·무엇이 들어가나·우리 글이 있나»를 쟀다. 결과: ①#EconSky(paulgp.com, 좋아요 1,431, «Post with: #econsky») — 12편이 1.3~4.1시간 안, 디젤 수출 금지 같은 시장 글도 포함, 우리 글 0 ②Quant Finance(antonvorobets.com, 좋아요 25, #quant #quantsky #quantfinance #volatility #derivatives 등) — 12편이 2.4~37.8시간 = 한가함, crossvol(«딜러 쿠션» 류)·quantdiary 등 우리와 같은 결의 글 ③Trading(insiderfinance)·Stock Market(bullwinkle) — 12편이 0.1~0.9시간, 대부분 크립토 스팸 ④FinSky(jonatkins)·Econ Popular Posts — 해시태그가 아니라 큐레이션/외부 등록이라 제외. 우리는 이미 #stocks(Stock Market)·#investing(Investing) 피드에 들어간다. 실행: 다음 블루스키 글부터 주제별 태그 추가(bluesky 노트). 별도 발행 채널이 아니다(cap 0) — 블루스키 글의 «진입로». 측정: 태그 붙인 글의 좋아요·리포스트·from=bluesky 클릭을 태그 없는 글과 비교(9/27 1차)."
   }
  ],
  "candidates": [
