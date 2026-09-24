@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-24 10:15 KST** (시간 사이클 — GeekNews Show GN·Quora·Reddit 발행 · OKKY 는 OKKY 측 구글 로그인 차단 · Medium 출판물 기고 경로 실측)
+마지막 갱신: **2026-09-24 11:05 KST** (시간 사이클 — Reddit r/finance·지식iN(레버리지 ETF 기본예탁금 규정 정정) 발행 · LinkedIn 그룹 가입 요청(신규 표면) · Quora 생존 확인)
 
 ---
 

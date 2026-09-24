@@ -95,6 +95,7 @@ const CH = {
   pinterest:   { cap: 1, day: 'kst', window: [0, 24], note: '링크 입력 후 값 재읽기→저장→공개 href 3단 검증' },
   linkedin:    { cap: 1, day: 'kst', window: [0, 24], note: '카드 위 클릭 금지·전체 재입력' },
   linkedin_articles: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 첫 아티클 발행(피드 «글쓰기»→/article/new/). 편집기는 iframe — 커버=«컴퓨터에서 업로드»(text 선택자)→다음, 제목칸은 좌표 클릭(텍스트 선택자는 textarea 입력 불가), 본문은 키 입력. ⚠ Shift+End 는 문서 끝까지 선택(본문이 통째로 지워졌다)' },
+  linkedin_groups: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — «US Stock Market | Trading & Investing»(공개·6,033명·금융업 963명) 가입 요청(운영자 승인 대기). 그룹 화면은 iframe — 버튼은 snapshot ref 로 누른다(좌표·DOM 질의는 IFRAME 만 잡힌다)' },
   medium_publications: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-24 티켓 — 다음 Medium 발행 때 패널 «Submit» 을 눌러 출판물 목록 확인' },
   x_communities: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 티켓 — 가입 전(규칙 동의는 대표 몫)이라 cap 0' },
   bluesky_starter_pack: { cap: 0, day: 'week', window: [0, 24], note: '⛔2026-09-24 실측 기각(금융 팩 가입 0~4)' },
