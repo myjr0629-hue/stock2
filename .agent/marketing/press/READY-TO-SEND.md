@@ -130,6 +130,42 @@ SIGNUM HQ, LLC / contact@signumhq.com
 
 ---
 
+## ⑤ Medium 출판물 «Investor’s Handbook» 기고자 등록 (medium_publications, 2026-09-24)
+
+**왜**: 우리 Medium 은 팔로워 ≈0 → 도달이 태그 추천뿐(건당 3.5클릭). Investor’s Handbook 은 **팔로워 30K·편집자 2명**, 주제가 시장·거시·투자(최신 글이 «미 국채가 위험자산이 될 때» — 우리 10년물 글과 같은 주제).
+**조건(실측, 가이드 원문 medium.com/the-investors-handbook/submission-guidelines-…-a6bc732b063a)**:
+① 편집자에게 **이메일**로 기고자 등록 요청(원고 링크 + 이전 글 링크) → 승인되면 자매지 The Alternative Ledger 까지 둘 다 제출권.
+② 이후 초안 «…» → Add to publication → Submit.
+③ AI: 브레인스토밍·교정·팩트체크 보조는 허용, «대량 생성·가볍게 다듬은 범용 AI 글»은 불가, Medium 공개 정책 준수. → 우리 글은 «당일 실측 + 출처 명시 + 말미 AI 지원 표시». **편집자가 AI 비중을 문제 삼을 수 있다 — 보낼지는 대표 판단.**
+
+**받는 곳**: `ToddLincoln34@gmail.com` (가이드에 적힌 주소)  ·  **보내는 곳**: contact@signumhq.com
+
+### 제목
+Contributor request: data-first market pieces (rates, credit, options positioning)
+
+### 본문
+Hi Todd,
+
+I write data-first market pieces on Medium as SIGNUM HQ. Each one is built from a measurement taken the same day (Treasury curve moves, credit spreads, options positioning), with the public source named in the text.
+
+Most recent:
+The 10-year yield hit 5.07%. Credit spreads say this is still a rates story
+https://medium.com/@signum_hq/the-10-year-yield-hit-5-07-credit-spreads-say-this-is-still-a-rates-story-835fda5aa15f
+
+Earlier:
+- What "priced in" doesn't tell you on a Fed day
+  https://medium.com/@signum_hq/what-priced-in-doesnt-tell-you-on-a-fed-day-959a679d4617
+- Spot is above max pain on every mega-cap right now. Here is the board
+  https://medium.com/@signum_hq/spot-is-above-max-pain-on-every-mega-cap-right-now-here-is-the-board-a63abd5f3df1
+
+To be upfront: I use AI assistance in drafting and disclose it at the end of each story, per Medium's policy. The numbers come from the public sources cited in each piece (Treasury, FRED, exchange data), and I'm happy to answer any question about a figure.
+
+If the work fits Investor's Handbook, I'd be glad to be added as a contributor.
+
+Thanks,
+SIGNUM HQ
+contact@signumhq.com
+
 ## 발송 원칙 (내가 지킨다)
 1. **보내기 직전 내용을 대표에게 보고한다.** 승인 없이 새 수신처를 추가하지 않는다.
 2. 발송 후 **수신처·제목·발송시각**을 `OUTREACH-LOG.md` 에 남긴다.

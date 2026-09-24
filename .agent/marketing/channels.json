@@ -304,9 +304,15 @@
    "id": "okky",
    "tier": "A",
    "enabled": true,
-   "note": "★2026-09-18 **대표 가입 완료** (구글연동 contact@signumhq.com). ★계정 필요. okky.kr/events/promote = 무료 전용 홍보판(858페이지·앱 베타모집·SaaS 런칭 선례 다수). 개발자 청중. 본인인증 없음·SNS 로그인 ★2026-09-21 확인: previewLang 정규식에 이 채널 태그가 «이미» 들어 있다(76채널 전수 대조, 불일치 0) → 카드 언어는 자동. 티켓 아님.",
+   "note": "★2026-09-18 **대표 가입 완료** (구글연동 contact@signumhq.com). ★계정 필요. okky.kr/events/promote = 무료 전용 홍보판(858페이지·앱 베타모집·SaaS 런칭 선례 다수). 개발자 청중. 본인인증 없음·SNS 로그인 ★2026-09-21 확인: previewLang 정규식에 이 채널 태그가 «이미» 들어 있다(76채널 전수 대조, 불일치 0) → 카드 언어는 자동. 티켓 아님. ★2026-09-24 발행기 정본화 scripts/okky-post.mjs(본문은 HTML «진짜 붙여넣기» — 키 입력은 :/ 를 😕 로 바꾼다·게시판은 키보드 선택·dry=게시판 후보만). 구글 로그인 org_internal 차단(gate 참조).",
    "account": "구글연동 contact@signumhq.com",
-   "link": "https://signumhq.com/app?from=okky&l=ko"
+   "link": "https://signumhq.com/app?from=okky&l=ko",
+   "gate": {
+    "kind": "로그인",
+    "until": "2026-09-25",
+    "who": "OKKY(재시도 매일)·대표",
+    "why": "2026-09-24 09:4x 실측: 세션 만료로 /login 으로 튕김 → «Sign in with Google» 을 눌렀더니 구글이 «Access blocked: eBrain Tech Talent Management System can only be used within its organization»(org_internal) — OKKY 의 구글 로그인 앱이 운영사 조직 내부 전용으로 막혀 있다(우리 쪽 문제 아님). 우리 계정은 구글 연동(contact@)이라 다른 로그인 수단 = 새 계정(안전선 밖). 발행기 scripts/okky-post.mjs + 원고(타임존 버그 개발기)는 준비됨 → 다음 날 자동 재시도, 계속 막히면 대표가 OKKY 에 문의(외부 발신) 여부 결정"
+   }
   },
   {
    "id": "geeknews",
@@ -954,7 +960,13 @@
    "tag": "medium",
    "link": "https://signumhq.com/app?from=medium",
    "action": "post",
-   "note": "★2026-09-24 확장 «발굴(티켓)». 근거(실측): Medium 발행 패널(/p/<id>/submission)에 «Publication — Submit your story to connect with community» 링크가 있다(9/24 10Y 글 발행 때 화면 확인). 우리 Medium 은 건당 3.5클릭·팔로워 ≈0 이라 도달이 태그 추천뿐 — 출판물에 실리면 그 출판물 팔로워 피드로 간다. 다음 행동: 다음 Medium 발행 때 패널의 Submit 을 «눌러서» 제출 가능한 출판물 목록을 본다(주소를 짐작해 치지 말 것 — 9/24 짐작 주소는 404). 금융·데이터 출판물이 있으면 1편 제출, 편집자 승인 여부를 다음 사이클에 확인. AI 지원 표시 유지. ★2026-09-24 08:5x 실측: 글 메뉴(More options) → «Submit to publication» → «팔로우 중이고 현재 원고를 받는 출판물에만 제출할 수 있다. 열린 출판물을 팔로우하면 제출이 열린다»(지금 팔로우 0 → 목록 없음). Medium Staff 추천 목록(59개)은 대부분 일반·라이프 — 금융 출판물은 따로 찾아야 한다. 다음: 금융·데이터 출판물 1~2곳의 «제출 가이드»를 읽고 팔로우 → 10Y 글 제출."
+   "note": "★2026-09-24 확장 «발굴(티켓)». 근거(실측): Medium 발행 패널(/p/<id>/submission)에 «Publication — Submit your story to connect with community» 링크가 있다(9/24 10Y 글 발행 때 화면 확인). 우리 Medium 은 건당 3.5클릭·팔로워 ≈0 이라 도달이 태그 추천뿐 — 출판물에 실리면 그 출판물 팔로워 피드로 간다. 다음 행동: 다음 Medium 발행 때 패널의 Submit 을 «눌러서» 제출 가능한 출판물 목록을 본다(주소를 짐작해 치지 말 것 — 9/24 짐작 주소는 404). 금융·데이터 출판물이 있으면 1편 제출, 편집자 승인 여부를 다음 사이클에 확인. AI 지원 표시 유지. ★2026-09-24 08:5x 실측: 글 메뉴(More options) → «Submit to publication» → «팔로우 중이고 현재 원고를 받는 출판물에만 제출할 수 있다. 열린 출판물을 팔로우하면 제출이 열린다»(지금 팔로우 0 → 목록 없음). Medium Staff 추천 목록(59개)은 대부분 일반·라이프 — 금융 출판물은 따로 찾아야 한다. 다음: 금융·데이터 출판물 1~2곳의 «제출 가이드»를 읽고 팔로우 → 10Y 글 제출. ★2026-09-24 10:0x 발굴: Medium 검색(stock market investing → Publications 탭)을 «눌러서» 들어감. Investor’s Handbook 가이드 원문 확인(이메일 등록 → Add to publication → Submit). DataDrivenInvestor 는 사이드바 링크 클릭이 이동하지 않아 미확인(다음 확장 때).",
+   "gate": {
+    "kind": "메일승인",
+    "until": null,
+    "who": "대표",
+    "why": "2026-09-24 10:0x 실측: 금융 출판물 1위 후보 Investor’s Handbook(팔로워 30K·편집자 2, 주제=시장·거시·투자) — 기고자 등록은 편집자 «이메일»(ToddLincoln34@gmail.com)로만. 외부 메일 발송은 대표 승인. 초안: press/READY-TO-SEND.md §⑤. AI 정책: 보조 허용·대량생성 불가·Medium 공개정책 준수 → 우리 글(당일 실측·출처·AI 표시)이 통할지는 편집자 판단"
+   }
   },
   {
    "id": "bluesky_starter_pack",

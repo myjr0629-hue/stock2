@@ -11507,3 +11507,22 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 ### 발견 — 가디언 Gravity Gauge 의 예측 문구(대표 할 일 ㉓)
 - 실화면(ko, 9/23 AFTER): RLSI **40** 인데 배지 «역사적 극단 공포 · 반등 임박». 코드: `zSignal === 'EXTREME_FEAR_REVERSAL'` 이면 점수와 무관하게 이 문구(영 «Extreme Fear · Reversal», 일 «反発接近»), 과열 쪽은 «조정 임박».
 - 앱 면책(«투자 조언·매수매도 권유 아님»)·우리 원칙(예측 금지)과 충돌. 홍보 화면에서는 이 게이지를 잘라 쓴다(오늘 티스토리 원고도 상단만 잘랐다).
+
+---
+
+## 2026-09-24 (KST) 09:13~10:15 — 시간 사이클: 발행 3(GeekNews Show GN · Quora · Reddit) · OKKY ⛔(OKKY 측 구글 로그인 차단) · Medium 출판물 기고 경로 실측(대표 메일 승인)
+
+게이트: 341·실패 0(09:39 재실행 포함). 오늘 소재의 숫자는 **미 재무부 일일 par 수익률 곡선**으로 확인했다(9/22→9/23): 3M 4.16→4.19 · 2Y 4.71→4.85 · 5Y 4.83→4.99 · **10Y 4.96→5.11** · 30Y 5.29→5.40. FRED DGS10 은 아직 9/22(4.96)까지만 있다.
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| **geeknews ✅(첫 편)** | 「Show GN: SIGNUM HQ - 미국 주식 옵션·장외거래(FINRA) 지표를 공개 데이터로 계산해 보여주는 무료 앱」(규칙: Show 는 자동 «Show GN:» 접두·프로젝트당 1회·AI 금지 조항 없음) | https://news.hada.io/topic?id=34205 · 비로그인 제목·`from=geeknews&l=ko` 확인 · 주 1/1 |
+| **quora_en ✅** | 무응답 질문 「What does a 10-year Treasury yield at 5% mean for the stock market?」 — 허들(PER 20배=이익수익률 5%)·듀레이션·차입비용 + «속도·어느 쪽 끝이 움직였나·신용스프레드(2.68%, 1년 백분위 8)». 링크 0·앱 이름 1회(제작자 공개)·이미지 = 가디언 EN 매크로 화면(워터마크·예측 게이지 잘라냄) | https://www.quora.com/What-does-a-10-year-Treasury-yield-at-5-mean-for-the-stock-market/answer/Jiyoung-Kim-236 · **로그인 화면에서** 질문 페이지에 우리 답 노출 확인(Quora 는 CLI 403 — 비로그인 확인 불가). 다음 사이클 생존 확인 |
+| **reddit ✅ 1/3(UTC)** | r/Economics 「10-year Treasury yield hits highest level since 2007」(점수 1.4K·댓글 257, Yahoo 기사) — 기사가 든 두 설명(지표·금리 인상 확률 vs 기간 프리미엄)을 **곡선으로 구분**: 2Y +14·5Y +16·10Y +15·30Y +11bp → 10s30s 33→29bp 평탄화, 2s10s 25→26bp → 이날은 «연준 경로 재가격». 규칙 확인(Rule VI: 기사 본문과 연결된 실질 댓글) 후 기사 원문을 읽고 PMI 57 vs 53.6·Barr·10월 인상 확률 ~70% 인용. 링크 0·앱 0 | https://www.reddit.com/r/Economics/comments/1wock1q/comment/pbogdvw/ · 로그인 세션의 스레드 JSON 재조회 = found·not removed(비로그인 CLI 는 302) |
+| **okky ⛔** | 세션 만료 → `/login` → «Sign in with Google» 을 눌렀더니 구글이 **«Access blocked: eBrain Tech Talent Management System can only be used within its organization»**(org_internal). OKKY 의 구글 로그인 앱이 운영사 조직 전용으로 막혀 있다 — 우리 쪽 문제가 아니다. 계정이 구글 연동이라 다른 수단 = 새 계정(안전선 밖). 비밀번호 입력·동의 클릭 없음 | 게이트 [로그인, until 9/25 → 내일 자동 재시도]. 원고(「API 가 준 시각이 UTC 가 아니었다 — 원문 14건 대조」, DST 경계 테스트 결과 포함)와 발행기 준비 완료 |
+| **medium_publications (발굴)** | Medium 검색 → Publications 탭을 «눌러서» 진입. **Investor's Handbook**(팔로워 30K·편집자 2, 최신 글 «미 국채가 위험자산이 될 때») 가이드 원문: 기고자 등록은 편집자 **이메일**로만 → Add to publication → Submit. AI 는 보조 허용·대량생성 불가 | 게이트 [메일승인]. 초안 `press/READY-TO-SEND.md §⑤`, 대표 할 일 ㉕. DataDrivenInvestor 는 사이드바 클릭이 이동하지 않아 미확인 |
+
+### 개선
+- **OKKY 발행기 정본화 `scripts/okky-post.mjs`** — 9/22·9/23 의 /tmp 조각 20여 개를 한 파일로. 본문은 HTML «진짜 붙여넣기»(`keyboard.paste {text, html}`) — 키 입력은 `:/` 를 😕 로 바꿔 링크를 깬다(9/23). 등록 전 점검: 제목 일치·필수 문구·스마트링크 앵커·😕 없음. 등록 후 비로그인 fetch 검증. dry = 게시판 후보만 출력.
+- 원고의 코드(뉴욕 벽시계 → UTC)는 붙이기 전에 경계값으로 돌려 봤다: EDT/EST·서머타임 시작 직전/직후·두 번 있는 01:30(→앞쪽 EDT)·없는 02:30(→06:30Z). 전부 기대값.
+- 로그인 복구 시도는 «회사 구글 계정(contact@)만·동의 화면이면 멈춤·가입 화면이면 멈춤» 조건으로 걸었다 → 동의가 아니라 **차단** 화면에서 멈췄다.
