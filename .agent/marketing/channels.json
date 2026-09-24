@@ -1163,6 +1163,16 @@
    "link": "https://signumhq.com/app?from=note",
    "action": "tag",
    "note": "★2026-09-24 확장(발굴·규칙). note 홈의 «投稿企画» → note.com/contests 실측: ①상금 콘테스트 3개 — #疑問が学びに変わるとき(國學院大學×note, 8/31~9/30, 2.5만건+) · #AIとできたこと(10/18, «Google AI 와 한 일» 한정 → 우리 AI 는 해당 없음) · #わたしとラジオ(10/9, 무관). 상금 콘테스트는 응모 = «応募上の注意»(게재 콘텐츠 재사용·본인 확인) 수락 + 주최 계정 팔로우가 조건이고 2.5만건 속 노출이라 하지 않는다. ②상시 お題(상금·조건 없음, 해시태그만) 중 금융: #わたしの新NISA(12,351건, 인기글 좋아요 20~160, «PBRってなに？»·«日銀が1.25%へ利上げ。なぜ円安に動いたのか» 같은 시장 해설도 상위) · #お金について考える · #最近の学び(32만). 규칙: note 글의 내용이 그 お題에 실제로 맞을 때만 태그 3개 중 하나로 쓴다(#米国株 + お題 + 1). 예: 新NISA 로 미국주식을 가진 사람 관점의 글 → #わたしの新NISA. 맞지 않는 글에 붙이지 않는다(운영이 태그를 떼고, 독자에게는 소음). 별도 발행이 아니라 note 발행의 태그 선택이므로 cap 0."
+  },
+  {
+   "id": "bluesky_buildinpublic",
+   "name": "블루스키 #buildinpublic — 빌더 피드에 «수치 있는 제작기» 1편(IH 에서 먹힌 형식의 복제)",
+   "tier": "B",
+   "enabled": true,
+   "tag": "bluesky_bip",
+   "link": "https://signumhq.com/app?from=bluesky_bip",
+   "action": "post",
+   "note": "★2026-09-25 확장·실행. 왜: IH(건당 6.5)·GeekNews Show(1편 28클릭)처럼 «새것을 보러 온 빌더»에게 수치 있는 제작기가 먹혔다 — 블루스키(건당 6.85)의 빌더 피드에 같은 형식을 복제. 실측(공개 API getPopularFeedGenerators·getFeed): #buildinpublic 피드 좋아요 241(해시태그 수집, 6.7시간에 50편 = 시간당 약 7.5편, 글 좋아요 중앙값 1·최고 13) · Build In Public 114(8.5시간 49편) · Indie Dev 339(개인 프로젝트 전반). 금융 피드(EconSky 1,431)보다 작고 홍보글이 많다 → 시험 채널. 첫 글: «67 of 83 tagged clicks came from desktop → QR 넘겨주기» 카드(16:9) + #buildinpublic, 태그 from=bluesky_bip 로 분리 측정(관리자 대시보드 CHANNELS 배열엔 없음 — 코드 배포 필요, 우리 mkt-clicks 는 channels.json 태그로 센다). 규칙: 하루 1편·금융 글 캡(bluesky 3)과 별도 · 제작기만(실측 수치 1개 중심) · 같은 제작기 재탕 금지. 판정: 9/28 에 건당 클릭이 bluesky 금융 글의 절반(≈3) 미만이면 줄인다."
   }
  ],
  "candidates": [

@@ -51,9 +51,27 @@ await page.mouse.click(p.x, p.y); await L.wait(12000);
 //   글 요소 선택자([data-urn])도 0개였다(클래스가 난독화됨) → HTML 에서 urn 정규식으로 뽑는다.
 try { await page.goto('https://www.linkedin.com/in/signumhq/recent-activity/all/', { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(14000);
+// ★2026-09-25: HTML 의 «첫 번째» urn 은 새 글이 아니었다(프로필 상단 글·기사 활동이 먼저 나온다) → 도구가
+//   예전 기사 주소를 «게시·검증 완료»로 찍었다. 활동 id 는 시간순(스노플레이크)이다: 큰 것부터 후보로 두고,
+//   «로그아웃 공개 페이지에 표식 문구가 실제로 있는» urn 만 채택한다. 못 찾으면 발행했다고 쓰지 않는다.
 const v = await page.evaluate((mark) => { const t = (document.body.innerText || '').replace(/\s+/g, ' ');
-  const urns = [...new Set((document.body.innerHTML.match(/urn:li:activity:\d{15,}/g) || []))];
-  return { has: t.includes(mark), urn: urns[0] || null }; }, T.mark || '');
-console.log('활동 확인:', JSON.stringify(v));
-if (!v.has || !v.urn) { console.log('⛔ 내 활동에서 새 글을 못 찾았다 — «발행했다»고 적지 않는다'); process.exit(1); }
-console.log('\n✅ 게시·검증 완료: https://www.linkedin.com/feed/update/' + v.urn + '/  (링크는 linkedin.com/safety/go 래퍼 안에 from=linkedin 으로 남는다)');
+  const urns = [...new Set((document.documentElement.innerHTML.match(/urn:li:activity:\d{15,}/g) || []))];
+  return { has: t.includes(mark), urns }; }, T.mark || '');
+const cands = (v.urns || []).sort((a, b) => (BigInt(b.split(':').pop()) > BigInt(a.split(':').pop()) ? 1 : -1)).slice(0, 4);
+console.log('활동 확인:', JSON.stringify({ has: v.has, cands }));
+if (!v.has || !cands.length) { console.log('⛔ 내 활동에서 새 글을 못 찾았다 — «발행했다»고 적지 않는다'); process.exit(1); }
+const CUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
+const unesc = (h) => h.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+let hit = null;
+for (const u of cands) {
+  try {
+    const r = await fetch('https://www.linkedin.com/feed/update/' + u + '/', { headers: { 'user-agent': CUA }, redirect: 'follow' });
+    const h = unesc(await r.text());
+    const ok = r.status === 200 && h.includes(T.mark || '');
+    console.log('공개 확인', u, r.status, ok ? '표식 있음' : '표식 없음');
+    if (ok) { hit = { urn: u, link: /from(=|%3D)linkedin/.test(h) }; break; }
+  } catch (e) { console.log('공개 확인 실패', u, String(e.message).slice(0, 60)); }
+}
+if (!hit) { console.log('⛔ 로그아웃 공개 페이지에서 표식 문구를 가진 글을 못 찾았다 — «발행했다»고 적지 않는다'); process.exit(1); }
+console.log('공개 링크(from=linkedin):', hit.link);
+console.log('\n✅ 게시·검증 완료: https://www.linkedin.com/feed/update/' + hit.urn + '/  (링크는 linkedin.com/safety/go 래퍼 안에 from=linkedin 으로 남는다)');

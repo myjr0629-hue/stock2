@@ -11781,3 +11781,35 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ### 개선
 - 블루스키 답글 숫자는 발행 직전 EIA 원본(dnav LeafHandler)에서 다시 읽었다 — 요약에 남은 값이 아니라 원천 값으로.
+
+
+---
+
+## 2026-09-25 (KST) 00:13~02:30 — 시간 사이클: 실행 4(IH·Medium·Pinterest·LinkedIn 전부 ✅) · 키우기(블루스키 ✅) · 확장 1(블루스키 #buildinpublic — 실행) · 앱 데이터 결함 1건 발견(옵션 구조 «마지막 정상본» 나이 무제한)
+
+게이트: audit-expiration-selection --live 341 검사 실패 0 · 크론 9712d5a0 생존(만료 ≈ 9/30).
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky ✅ 1/3** | 의회 거래 «공시 지연» 카드(16:9, make-x-card: 25일 중앙값·192건·16명·45일 넘긴 3건, 폰 = NVDA Congress Trades 패널) + `#stocks $NVDA`. 수치는 데이터셋 CSV(90일, 9/23 종료)에서 재계산해 확인 | https://bsky.app/profile/signumhq.bsky.social/post/3mwblypeeyl2o · 공개 API: 링크 facet(from=bluesky)·태그·이미지+ALT |
+| **medium ✅** | «Congress filed 192 stock trades in 90 days. The median one was 25 days old when it went public.» — 지연·집중(두 의원 115건, TKNO 40건)·금액 구간(99건이 최소 구간)·쓰임새(신호 아닌 맥락) + 가치($50~99 단말 → 무료) + AI 지원 표시 | https://medium.com/@signum_hq/congress-filed-192-stock-trades-in-90-days-the-median-one-was-25-days-old-when-it-went-public-e954857333d9 · 비로그인 200: 제목·이미지·링크·표시문 |
+| **pinterest ✅** | NVDA 의회 거래 화면 핀(제목 75자·설명 459자) | https://www.pinterest.com/pin/1102115340098828409/ · 비로그인 200: 제목·from=pinterest |
+| **linkedin ✅** | «AI 뉴스 다이제스트가 "January 10, 2025"를 썼다» — 원인(출처에 없는 연도를 모델이 채움)·수리 3단(날짜 주입·출력 연도 검사·캐시분까지)·«지시는 무시될 수 있고 검사는 못 무시한다» + 앱 링크 | https://www.linkedin.com/feed/update/urn:li:activity:7508916749375959040/ · 비로그인 200: 본문·from=linkedin·링크 카드 이미지 |
+| **indiehackers ✅(댓글)** | «런치 가이드대로 9곳 다 했는데 조용하다 — 첫 사용자를 만든 건 뭐였나» 스레드(8시간, 50댓글)에 실측 답: 태그 클릭 2일 83건 중 67건 데스크톱 → 폰 앱은 설치 불가 → QR 넘겨주기 · 21일 건당 클릭(블루스키 6.9·IH 6.5·X 5.4·레딧 댓글 0.3·지식iN 0.1) · GeekNews Show 1편 28클릭 | https://www.indiehackers.com/post/i-did-everything-the-launch-guides-say-heres-what-they-don-t-tell-you-890482a12e · 비로그인 HTML 에 문구·from=indiehackers |
+| **확장: bluesky_buildinpublic(신규·실행)** | 공개 API 실측: #buildinpublic 피드 좋아요 241(6.7시간 50편, 글 좋아요 중앙값 1)·Build In Public 114·Indie Dev 339 → IH·GeekNews 에서 먹힌 «수치 있는 제작기»를 블루스키 빌더 피드로 복제. 첫 글 = «67 of 83 clicks from desktop → QR» 카드 + #buildinpublic, 태그 from=bluesky_bip 로 분리 측정, 하루 1편·9/28 판정 | https://bsky.app/profile/signumhq.bsky.social/post/3mwbmzozbg22m · 공개 API: 링크 facet(from=bluesky_bip)·태그·이미지+ALT |
+
+### ★ 앱 데이터 결함 발견 — 옵션 구조가 «몇 시간~며칠 전 값»을 지금 값처럼 준다 (실측)
+- 9/24 11:33~11:50 ET(정규장) `/api/live/options/structure?t=` 응답의 `_staleSec`(마지막 정상본 나이): COST 57,917초(16시간, 세션 표시 POST — 실적 발표 당일) · JNJ 152,937(42시간) · MCD 135,457(38시간, 가격 251.32 → 갱신 후 240.72 = 4.2% 틀림) · NKE 101,266 · PEP 95,010 · DIS·BA 66,553 · XOM 58,858 · WMT 52,572 · HD 32,353 · INTC 26,423 · KO·PG 8,948(세션 PRE) · PLTR 5,644 · ORCL 3,022. 인기 종목은 신선(NVDA 66초·TSLA 65·AAPL 67·SPY 188).
+- 대조 실험: JNJ·MCD 에 한 번씩 요청 → 75초 뒤 둘 다 신선(76·75초, REG). **배경 갱신은 도착한다** — 문제는 조용한 종목을 아무도 갱신하지 않아 «첫 방문자»가 며칠 된 값을 받는 것.
+- 워밍 크론 structure-build(평일 UTC 13·15·17·19·21시 05분, 2,001종목)는 15:05 UTC 에 돌았는데 JNJ 는 15:40 UTC 에도 42시간 → 크론이 갱신하지 못했다. 코드: 크론이 `getStructureData(t, null, q)` 를 skipLastGood 없이 불러 «마지막 정상본 즉시 반환 + 기다리지 않는 배경 계산»을 탄다.
+- 조치: 원인 확정·수리 브랜치 준비를 별도 작업으로 돌렸다(운영 배포 없음 — 벤더 분당 한도 산수 포함). 결과가 오면 HANDOFF 대표 할 일에 «브랜치·검증 근거»로 올린다.
+- 마케팅 영향: COST 실적 글은 어제 이미 나갔고(정정 포함), 오늘은 옵션 «지금 값»을 쓰는 글을 내지 않았다.
+
+### 그 밖의 실측
+- **실적 캘린더 요약의 EPS 가 추정치와 어긋난다**: COST `epsEstimate 6.54` vs 요약 «$6.53» · MU `31.49` vs «$31.16». 요약문에 숫자를 박아 넣어 추정치가 바뀌면 낡는다(같은 종류: 화면이 지표를 지어낸다). 발행 글엔 요약의 숫자를 쓰지 않는다. 수리(요약에서 숫자 제거 또는 추정치 변경 시 재생성)는 코드 변경 → 다음 작업.
+- **의회 거래 라이브 ≠ 어제 데이터셋**: 라이브 API(9/24) NVDA = 매수 0·매도 4·3명, 9/23 데이터셋 CSV 엔 Cisneros 매수(7/17 거래·9/07 공시)가 하나 더 있다. 라이브 원천(FMP)이 9/23 새 공시로 바뀌면서 행이 빠졌다(TKNO 도 40 → 매도 67). 발행 문구는 «9/23 종료 90일 데이터셋» 기준임을 명시했다.
+- **가디언 화면에 «Extreme Fear · Reversal»**(㉓ 대표 결정 대기) — 이 화면은 홍보 이미지로 쓰지 않았다. 대시보드 «US 10Y 5.17% +1.02» 는 단위(%·bp) 표기가 없다 — 확인 필요.
+- **GeekNews Show 1편 = 3일 28클릭**(21일 누적도 28, 9/24 09:35 KST 게시) — 편당 기준 전 채널 1위. Show 는 프로젝트당 1회라 재게시 불가 → 키우는 방법은 그 글의 댓글 응대·후속 «Ask/일반 글»(규칙 확인 후).
+
+### 도구 수리
+- `scripts/linkedin-post.mjs`: 게시 후 활동 페이지 HTML 의 «첫 번째» urn 을 새 글로 찍었는데, 실제로는 예전 LinkedIn 기사(7508658559073636353 = «A Gamma Flip Is Not a Fixed Line»)였다 → «게시·검증 완료»가 틀린 주소를 냈다. 이제 활동 id(시간순)를 큰 것부터 후보로 두고 **로그아웃 공개 페이지에 표식 문구가 실제로 있는 urn 만** 채택한다(Node fetch 로 시험 통과). 과거 LinkedIn 원장 5건은 전부 우리 글로 확인(오기록 없음).
