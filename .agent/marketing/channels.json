@@ -1023,6 +1023,22 @@
    "link": "https://signumhq.com/app?from=bluesky",
    "action": "hashtag",
    "note": "★2026-09-24 확장 «발굴→규칙화». 공개 API app.bsky.unspecced.getPopularFeedGenerators(finance·stocks·options·markets·economics·trading·investing)로 피드 전수 → getFeed 로 각 피드의 최근 12편을 직접 읽어 «살아 있나·무엇이 들어가나·우리 글이 있나»를 쟀다. 결과: ①#EconSky(paulgp.com, 좋아요 1,431, «Post with: #econsky») — 12편이 1.3~4.1시간 안, 디젤 수출 금지 같은 시장 글도 포함, 우리 글 0 ②Quant Finance(antonvorobets.com, 좋아요 25, #quant #quantsky #quantfinance #volatility #derivatives 등) — 12편이 2.4~37.8시간 = 한가함, crossvol(«딜러 쿠션» 류)·quantdiary 등 우리와 같은 결의 글 ③Trading(insiderfinance)·Stock Market(bullwinkle) — 12편이 0.1~0.9시간, 대부분 크립토 스팸 ④FinSky(jonatkins)·Econ Popular Posts — 해시태그가 아니라 큐레이션/외부 등록이라 제외. 우리는 이미 #stocks(Stock Market)·#investing(Investing) 피드에 들어간다. 실행: 다음 블루스키 글부터 주제별 태그 추가(bluesky 노트). 별도 발행 채널이 아니다(cap 0) — 블루스키 글의 «진입로». 측정: 태그 붙인 글의 좋아요·리포스트·from=bluesky 클릭을 태그 없는 글과 비교(9/27 1차)."
+  },
+  {
+   "id": "bluesky_own_feed",
+   "name": "블루스키 자체 피드(SIGNUM HQ 가 운영하는 커스텀 피드)",
+   "tier": "B",
+   "enabled": true,
+   "tag": "bluesky",
+   "link": "https://signumhq.com/app?from=bluesky",
+   "action": "build",
+   "gate": {
+    "kind": "대표승인",
+    "until": null,
+    "who": "대표",
+    "why": "웹 신규 경로 배포가 필요하다(/.well-known/did.json · /xrpc/app.bsky.feed.describeFeedGenerator · /xrpc/app.bsky.feed.getFeedSkeleton) — 운영 배포는 대표 승인. 승인되면 브랜치로 만들고 실응답 검증 후 반영"
+   },
+   "note": "★2026-09-24 확장 «발굴→티켓». 실측(공개 API getPopularFeedGenerators, 검색어별 결과): «options trading» 2개(좋아요 14·1) · «options flow» 1개(좋아요 1) · «gamma»·«max pain»·«dark pool» 금융 피드 0개 · «macro»는 사진·팬아트 피드뿐 · «treasury» 좋아요 0~1. → 우리 주제어로 피드를 검색하면 상단이 비어 있다(얇은 문). 선례: @bluestocks.app 이 자기 앱 이름으로 «Stocks»(좋아요 56)·«Trending Finance»(49)·종목별 피드를 운영하며 설명란에 앱을 건다. 설계안: 피드 2개 — ①«Options Market Structure»(감마·맥스페인·딜러 포지션·옵션 플로 글: 공개 searchPosts 로 #optionstrading #gex «max pain» «gamma flip» «dark pool» 수집 + 스팸 필터) ②«Rates & Macro Tape»(#econsky 등 금리·거시 데이터 글). 우리 글은 그 기준을 만족할 때만 들어간다(자기 글 도배 금지 — 피드가 스팸으로 신고되면 끝). 구현: did:web:signumhq.com + getFeedSkeleton(Redis 5분 캐시) + 우리 계정에 app.bsky.feed.generator 레코드(putRecord, 앱 비밀번호로 가능). 측정: 피드 좋아요·피드 경유 우리 글 도달·from=bluesky 클릭. 블루스키는 3일 82클릭으로 1위 채널이라 여기서의 도달 확대가 설치로 가장 직접 이어진다."
   }
  ],
  "candidates": [

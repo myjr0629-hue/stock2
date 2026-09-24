@@ -15,6 +15,9 @@
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const T = JSON.parse(fs.readFileSync('/tmp/ego/kin-task.json', 'utf8'));
+// ★2026-09-24: 표식은 본문에 «그대로» 있어야 한다 — «1,000만원당 2만원»을 표식으로 주고 본문엔 «약 2만원»이라 써서
+//   다 쳐 놓고도 «입력 실패»로 멈췄다. 치기 전에 여기서 거른다.
+if (!(T.lines || []).join('\n').replace(/\s+/g, ' ').includes(T.mark)) { console.log('⛔ 표식(mark)이 본문(lines)에 그대로 없다 — 표식을 본문에서 복사해 넣을 것'); process.exit(1); }
 if (T.lines.some((l) => /https?:\/\//.test(l))) { console.log('⛔ 본문 링크 금지(지식iN 광고 신고 대상)'); process.exit(1); }
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
