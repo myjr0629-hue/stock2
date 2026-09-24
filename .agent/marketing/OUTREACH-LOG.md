@@ -11761,3 +11761,23 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 알림: 감시 규칙 4개(«리딩방 감시 - 폭등 / 종목 추천 / 유망 종목 / 주목받는 종목»: 상태 미검토 + 텍스트 검색) · 알림 사용 · 필요한 노출수 1 · 수신자 myjr0629@gmail.com(애드몹 계정 메일) — 저장 후 목록에서 4개 확인. 새 리딩방 소재가 1회라도 노출되면 메일 → 같은 방식으로 추가 차단
 - 도구 교훈: 애드몹 탭을 재사용하면 페이지가 멈춘다(evaluate 15초 초과) → 매 실행 새 탭 + 스냅샷으로만 읽기. 카드의 도착 URL 은 «loc=href:» 와 «url=» 두 꼴이 있다.
 - 도메인 목록: ahfkgww4.shop, ahkngvw5.shop, ahmvtw3.shop, ahreksdw3.shop, ahreksdw7.shop, ahreksdw8.shop, ahreksdw9.shop, ahtyew8.shop, ahyturew9.shop, ahyyjrw2.shop, ahyyjrw4.shop, awbmvd3.shop, awdcfbw10.shop, awdcfbw7.shop, awgbcmgw9.shop, awikdfw7.shop, awkukw1.shop, awkygw3.shop, awodfhw19.shop, awprtw1.shop, awprtw5.shop, awxdfgw10.shop, dvpzkw.vip, hsjzpf.vip, tzgbcmgw10.shop, tzgbcmgw11.shop, tzgbcmgw14.shop, tzgbcmgw6.shop, tzkgtew3.shop, tzkvgnw1.shop, tzkvgnw4.shop, tzlhkmw13.shop, tzlhkmw15.shop, tzlodkw3.shop, tzloytw1.shop, tzodfhw10.shop, tzodfhw15.shop, tzodfhw7.shop, tzodfhw9.shop, tzutyw1.shop, tzxdkrw6.shop, tzytirw1.shop, tzytirw15.shop, tzytirw3.shop, tzytirw7.shop, xbdcnfww3.shop, xbgbcmgw1.shop, xbgbcmgw3.shop, xbimhw4.shop, xbimhw5.shop, xbjghtw2.shop, xbkgbvw3.shop, xbyyjrw5.shop
+
+
+---
+
+## 2026-09-24 (KST) 23:13~00:10 — 시간 사이클: 실행 2(X 답글 ✅ · 지식iN 답할 질문 없음) · 키우기(블루스키 답글 ✅) · 확장 1(note お題 — 발굴·규칙)
+
+게이트: audit-expiration-selection --live 341 검사 실패 0.
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅** | @unusual_whales «Trump has executed an average of 50 to 85 stock trades per market day…» ← 의회 쪽 규모: 최근 90일 상·하원 공시 16명·192건(매수 58·매도 134), 공시 중앙값 거래 25일 뒤, 45일 STOCK Act 기한 넘긴 3건. 링크 0·키 입력 | https://x.com/signumhq/status/2103130925219663992 · syndication 공개 확인(in_reply_to unusual_whales) |
+| **bluesky_reply ✅** | @justinwolfers(팔로워 170,256) «디젤 수출 금지 = 립아이·브리스킷(공동생산)» 글(게시 38분 뒤, 답글 8) ← EIA 주간 재측정: 9/18 주 증류유 수출 1.331M b/d · 2026 평균 1.481M · 90일분 120~133M 배럴 vs 미국 증류유 재고 전부 107.4M(2021~25 같은 주 평균 122.4M 보다 15M 적음). 스레드의 «저장하면 된다(공간 많다)» 답글에 대한 숫자. 링크·예측 없음, 레딧 디젤 댓글과 다른 문구 | https://bsky.app/profile/signumhq.bsky.social/post/3mwbibwbvu72h · 공개 getPostThread 에서 확인 |
+| naver_kin — 답하지 않음 | 새 질문 3개(키움 매도대금 외화예수금·미국 ETF 모으기 vs 직투·미성년 토스증권 계좌) — 앞의 둘은 기존 답변이 핵심(T+1 결제)을 이미 맞게 답했거나 상품 선택 조언 요청, 셋째도 절차 답변 완료. 더할 검증 가능한 사실 없음 | — |
+| **확장: note_odai(신규)** | note 홈 «投稿企画» → /contests 실측. 상금 콘테스트 3개는 하지 않음(응모 = 応募上の注意 수락·주최 팔로우, #AIとできたこと 는 Google AI 한정). 상시 お題 중 금융 #わたしの新NISA(12,351건, 시장 해설글도 인기 상위)·#お金について考える 를 «내용이 맞을 때» 3번째 태그로 쓰는 규칙을 channels.json·mkt-plan 에 등록 | note.com/contest/わたしの新NISA (공개 お題 페이지) |
+
+### 측정
+- 클릭 캐시 15시간 묵음 → mkt-clicks 재실행. 21일 건당: bluesky 6.85(3일 57·42%) · indiehackers 6.5 · x_us 5.36 · note 5 · okky 4.4. 답글형(x_reply·bluesky_reply)은 무링크라 ?from= 클릭이 구조적으로 0 — 효과는 프로필 방문으로만 나타난다(측정 수단 없음, 판정 보류).
+
+### 개선
+- 블루스키 답글 숫자는 발행 직전 EIA 원본(dnav LeafHandler)에서 다시 읽었다 — 요약에 남은 값이 아니라 원천 값으로.

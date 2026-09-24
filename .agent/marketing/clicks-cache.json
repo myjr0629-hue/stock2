@@ -1,66 +1,68 @@
 {
- "at": "2026-09-23T23:31:54.362Z",
+ "at": "2026-09-24T14:43:30.174Z",
  "days": 21,
  "failed": 0,
  "d3": {
-  "bluesky": 82,
-  "home": 56,
-  "indiehackers": 25,
-  "x_us": 18,
-  "note": 13,
-  "medium": 10,
+  "bluesky": 57,
+  "home": 45,
+  "geeknews": 28,
+  "x_us": 15,
+  "indiehackers": 13,
+  "note": 9,
   "x_jp": 8,
-  "seo_darkpool": 7,
-  "seo": 6,
   "okky": 5,
-  "naver_blog": 5,
-  "linkedin": 3,
+  "medium": 5,
+  "seo_sg": 5,
+  "seo_darkpool": 4,
+  "seo_uc": 4,
+  "seo_wim": 4,
+  "naver_blog": 3,
   "quora_space": 3,
-  "threads": 3,
-  "seo_sg": 3,
   "mastodon": 3,
-  "tistory": 3,
+  "seo": 2,
+  "linkedin": 2,
   "github": 2,
+  "threads": 2,
+  "tistory": 2,
   "naver_kin": 1,
-  "seo_uc": 1,
-  "seo_wim": 1,
+  "hf_datasets": 1,
   "quora": 0,
   "quora_bio": 0,
   "reddit_bio": 0,
   "macrumors": 0,
   "instagram": 0,
-  "reddit": 0,
-  "hf_datasets": 0
+  "reddit": 0
  },
  "d3raw": {
-  "bluesky": 82,
-  "home": 56,
-  "indiehackers": 25,
-  "x_us": 18,
-  "note": 13,
-  "medium": 10,
+  "bluesky": 57,
+  "home": 45,
+  "geeknews": 28,
+  "x_us": 15,
+  "indiehackers": 13,
+  "note": 9,
   "x_jp": 8,
-  "seo_darkpool": 7,
-  "seo": 6,
   "okky": 5,
-  "naver_blog": 5,
-  "linkedin": 3,
+  "medium": 5,
+  "seo_sg": 5,
+  "seo_darkpool": 4,
+  "seo_uc": 4,
+  "seo_wim": 4,
+  "naver_blog": 3,
   "quora_space": 3,
-  "threads": 3,
-  "seo_sg": 3,
   "mastodon": 3,
-  "tistory": 3,
+  "seo": 2,
+  "linkedin": 2,
   "github": 2,
+  "threads": 2,
+  "tistory": 2,
   "naver_kin": 1,
-  "seo_uc": 1,
-  "seo_wim": 1,
+  "hf_datasets": 1,
   "quora": 0,
   "quora_bio": 0,
   "reddit_bio": 0,
   "macrumors": 0,
   "instagram": 0,
-  "reddit": 0,
-  "hf_datasets": 0
+  "reddit": 0
  },
  "contam": {
   "bluesky": 0,
@@ -70,42 +72,78 @@
   "x_us": 0
  },
  "all": {
-  "bluesky": 133,
-  "home": 403,
-  "indiehackers": 37,
+  "bluesky": 137,
+  "home": 394,
+  "geeknews": 28,
   "x_us": 59,
+  "indiehackers": 39,
   "note": 40,
-  "medium": 28,
   "x_jp": 31,
+  "okky": 22,
+  "medium": 28,
+  "seo_sg": 8,
   "seo_darkpool": 22,
-  "seo": 141,
-  "okky": 21,
+  "seo_uc": 7,
+  "seo_wim": 6,
   "naver_blog": 7,
-  "linkedin": 12,
   "quora_space": 6,
-  "threads": 4,
-  "seo_sg": 4,
   "mastodon": 3,
-  "tistory": 3,
+  "seo": 141,
+  "linkedin": 12,
   "github": 5,
+  "threads": 4,
+  "tistory": 3,
   "naver_kin": 3,
-  "seo_uc": 3,
-  "seo_wim": 2,
+  "hf_datasets": 2,
   "quora": 57,
   "quora_bio": 7,
   "reddit_bio": 5,
   "macrumors": 4,
   "instagram": 2,
-  "reddit": 2,
-  "hf_datasets": 1
+  "reddit": 2
  },
  "perPost": {
+  "bluesky_reply": {
+   "n": 2,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0
+  },
+  "x_reply": {
+   "n": 9,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0
+  },
   "naver_kin": {
-   "n": 26,
+   "n": 31,
    "clicks": 3,
-   "per": 0.12,
+   "per": 0.1,
    "d3": 1,
    "fresh": 33
+  },
+  "github_pages_finra_i18n": {
+   "n": 2,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0
+  },
+  "reddit": {
+   "n": 24,
+   "clicks": 7,
+   "per": 0.29,
+   "d3": 0,
+   "fresh": 0
+  },
+  "quora": {
+   "n": 8,
+   "clicks": 64,
+   "per": 8,
+   "d3": 0,
+   "fresh": 0
   },
   "github": {
    "n": 5,
@@ -118,22 +156,22 @@
    "n": 8,
    "clicks": 40,
    "per": 5,
-   "d3": 13,
-   "fresh": 33
+   "d3": 9,
+   "fresh": 23
   },
   "naver_blog": {
    "n": 11,
    "clicks": 7,
    "per": 0.64,
-   "d3": 5,
-   "fresh": 71
+   "d3": 3,
+   "fresh": 43
   },
   "threads": {
    "n": 9,
    "clicks": 4,
    "per": 0.44,
-   "d3": 3,
-   "fresh": 75
+   "d3": 2,
+   "fresh": 50
   },
   "x_jp": {
    "n": 10,
@@ -146,15 +184,15 @@
    "n": 11,
    "clicks": 59,
    "per": 5.36,
-   "d3": 18,
-   "fresh": 31
+   "d3": 15,
+   "fresh": 25
   },
   "bluesky": {
    "n": 20,
-   "clicks": 133,
-   "per": 6.65,
-   "d3": 82,
-   "fresh": 62
+   "clicks": 137,
+   "per": 6.85,
+   "d3": 57,
+   "fresh": 42
   },
   "quora_space": {
    "n": 5,
@@ -174,8 +212,8 @@
    "n": 5,
    "clicks": 12,
    "per": 2.4,
-   "d3": 3,
-   "fresh": 25
+   "d3": 2,
+   "fresh": 17
   },
   "pinterest": {
    "n": 6,
@@ -188,43 +226,22 @@
    "n": 8,
    "clicks": 28,
    "per": 3.5,
-   "d3": 10,
-   "fresh": 36
+   "d3": 5,
+   "fresh": 18
   },
   "indiehackers": {
    "n": 6,
-   "clicks": 37,
-   "per": 6.17,
-   "d3": 25,
-   "fresh": 68
-  },
-  "x_reply": {
-   "n": 7,
-   "clicks": 0,
-   "per": 0,
-   "d3": 0,
-   "fresh": 0
-  },
-  "reddit": {
-   "n": 21,
-   "clicks": 7,
-   "per": 0.33,
-   "d3": 0,
-   "fresh": 0
-  },
-  "quora": {
-   "n": 7,
-   "clicks": 64,
-   "per": 9.14,
-   "d3": 0,
-   "fresh": 0
+   "clicks": 39,
+   "per": 6.5,
+   "d3": 13,
+   "fresh": 33
   },
   "tistory": {
    "n": 2,
    "clicks": 3,
    "per": 1.5,
-   "d3": 3,
-   "fresh": 100
+   "d3": 2,
+   "fresh": 67
   },
   "mastodon": {
    "n": 3,
@@ -235,10 +252,10 @@
   },
   "okky": {
    "n": 5,
-   "clicks": 21,
-   "per": 4.2,
+   "clicks": 22,
+   "per": 4.4,
    "d3": 5,
-   "fresh": 24
+   "fresh": 23
   }
  }
 }

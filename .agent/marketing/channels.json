@@ -146,7 +146,7 @@
    "login": "ok",
    "profile": "ok",
    "tag": "note",
-   "note": "일본 검색 수요 ★2026-09-21 확인: previewLang 정규식에 이 채널 태그가 «이미» 들어 있다(76채널 전수 대조, 불일치 0) → 카드 언어는 자동. 티켓 아님.",
+   "note": "일본 검색 수요 ★2026-09-21 확인: previewLang 정규식에 이 채널 태그가 «이미» 들어 있다(76채널 전수 대조, 불일치 0) → 카드 언어는 자동. 티켓 아님. ★2026-09-24 お題 태그: 내용이 맞으면 3번째 태그로 상시 お題(#わたしの新NISA·#お金について考える) — 규칙은 note_odai.",
    "action": "post",
    "link": "https://signumhq.com/app?from=note&l=ja"
   },
@@ -1153,6 +1153,16 @@
    "link": "https://signumhq.com/app?from=bluesky",
    "action": "reply",
    "note": "★2026-09-24 확장·실행. X 는 x_reply 가 있는데 1위 채널 블루스키엔 «답글» 표면이 없었다. 찾는 법(실측): 공개 searchPosts 는 403(로그인 필요) → 공개 getFeed 로 FinSky·EconSky 피드 최근 80편을 읽어 키워드(yield·treasury·Fed…)로 거르고 getProfiles 로 팔로워 수 정렬. 첫 답글: @carlquintanilla(CNBC 앵커, 팔로워 284,733) «10-year yields higher 7 months in a row»(게시 36분 뒤, 답글 2개일 때) ← 9/23 재무부 곡선(2Y+14·5Y+16·30Y+11bp, 10s/30s 33→29bp)으로 «연준 경로 재가격 vs 기간 프리미엄» 구분. 도구: node scripts/bsky-publish.mjs --text-file <답.txt> --reply-to <루트 at-uri>. 공개 검증 = getPostThread 의 replies 에 우리 uri. 규칙: 링크 없음·예측 없음·같은 문장 재사용 금지(X 답글과 문구를 바꾼다)·하루 2편까지·게시 1시간 안의 글."
+  },
+  {
+   "id": "note_odai",
+   "name": "note お題 페이지 — 상시 お題 해시태그(#わたしの新NISA 등)로 お題 목록에 노출",
+   "tier": "A",
+   "enabled": true,
+   "tag": "note",
+   "link": "https://signumhq.com/app?from=note",
+   "action": "tag",
+   "note": "★2026-09-24 확장(발굴·규칙). note 홈의 «投稿企画» → note.com/contests 실측: ①상금 콘테스트 3개 — #疑問が学びに変わるとき(國學院大學×note, 8/31~9/30, 2.5만건+) · #AIとできたこと(10/18, «Google AI 와 한 일» 한정 → 우리 AI 는 해당 없음) · #わたしとラジオ(10/9, 무관). 상금 콘테스트는 응모 = «応募上の注意»(게재 콘텐츠 재사용·본인 확인) 수락 + 주최 계정 팔로우가 조건이고 2.5만건 속 노출이라 하지 않는다. ②상시 お題(상금·조건 없음, 해시태그만) 중 금융: #わたしの新NISA(12,351건, 인기글 좋아요 20~160, «PBRってなに？»·«日銀が1.25%へ利上げ。なぜ円安に動いたのか» 같은 시장 해설도 상위) · #お金について考える · #最近の学び(32만). 규칙: note 글의 내용이 그 お題에 실제로 맞을 때만 태그 3개 중 하나로 쓴다(#米国株 + お題 + 1). 예: 新NISA 로 미국주식을 가진 사람 관점의 글 → #わたしの新NISA. 맞지 않는 글에 붙이지 않는다(운영이 태그를 떼고, 독자에게는 소음). 별도 발행이 아니라 note 발행의 태그 선택이므로 cap 0."
   }
  ],
  "candidates": [
