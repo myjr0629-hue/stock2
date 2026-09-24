@@ -116,7 +116,7 @@
 | ㉝ | **원스토어 개발자 등록** | 실측: 원스토어 «미국주식» 검색 결과 앱 «4개»뿐 — 등재만 해도 첫 화면(플레이와 정반대). 등록 = 계정 생성이라 대표 몫(해외 법인 가능 여부도 가입 화면에서 확인). 이후 APK·등록정보는 내가 하고, 구독(인앱결제)은 그 빌드에서 끄고 무료+광고로 | 10분 |
 | ㉟ | **웹 화면 가짜 스폰서 카드 교체** — `AppAnchorAd.tsx` 가 실존 회사 «Apex Clearing» 을 SPONSOR 로 표시(웹 전용, 네이티브 앱엔 없음) | 오해·상표 문제 소지. «광고» 중립 문구나 우리 앱 안내로 교체 제안 — 웹 배포라 승인 필요 | 결정 |
 | ㊱ | **리딩방 광고 Google 신고 승인** — 이 광고주 소재(«777 전송 후 투자 자료», 일회용 .shop)를 정책 위반(무인가 투자 권유)으로 애드몹 안에서 신고 | 차단은 사후적이다(새 소재가 심사 센터에 오르기 전 몇 회 노출). 신고는 광고주 계정 자체를 내리는 근원 조치지만 대표 계정에서 «제출»이라 승인 필요 | 한마디 |
-| **㊲** | **옵션 구조 수리 운영 반영 — 명령 1줄**: `git -C /tmp/stock2-main-merge push origin HEAD:main` (병합 커밋 ef10005fd = fix/structure-lastgood-age). 또는 GitHub 에서 fix/structure-lastgood-age → main 병합 | 대표 승인은 받았지만 이 세션의 권한 분류기가 main 푸시를 [Production Deploy] 로 거부 — 우회하지 않는다. 푸시되면 운영 실화면·사본 나이·429 를 바로 잰다 | 10초 |
+| **㊲** | **옵션 구조 수리 운영 반영 — 명령 1줄**: `git -C /tmp/stock2-main-merge fetch origin && git -C /tmp/stock2-main-merge reset -q --hard origin/main && git -C /tmp/stock2-main-merge merge -q --no-ff origin/fix/structure-lastgood-age -m "merge: 옵션 구조 수리(대표 승인)" && git -C /tmp/stock2-main-merge push origin HEAD:main` (최신 main 위에 병합 후 푸시 — 내 기록 커밋이 main 을 계속 움직여도 거부되지 않게). 또는 GitHub 에서 fix/structure-lastgood-age → main 병합 | 대표 승인은 받았지만 이 세션의 권한 분류기가 main 푸시를 [Production Deploy] 로 거부 — 우회하지 않는다. 푸시되면 운영 실화면·사본 나이·429 를 바로 잰다 | 10초 |
 | ㊳ | **Vercel 배포 보호 우회 토큰 유지/폐기** — 프리뷰 확인용 `vercel curl` 이 9/25 03:5x 에 자동 생성(의도 외 보안 설정 변경) | 자동화용 우회 토큰은 프리뷰를 로그인 없이 여는 열쇠다. 유지하면 이후 프리뷰 검증이 자동, 폐기하면 대표 로그인 필요 | 한마디 |
 | ⑫ | **Ego Lite 업데이트 승인**(`ego-browser upgrade`) — 실행할 때마다 «update available» 알림 | 업그레이드는 대표 승인 후에만 | 한마디 |
 
