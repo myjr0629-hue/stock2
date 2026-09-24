@@ -1205,6 +1205,16 @@
    "link": "https://signumhq.com/app?from=bluesky",
    "action": "tag",
    "note": "⛔2026-09-25 03:4x 실측 후 기각. 공개 API getPopularFeedGenerators «earnings»·«earnings season»·«stock earnings»: 최대가 «NVIDIA Earnings» 좋아요 43(최근 30편이 7,413시간에 걸침 = 사실상 멈춤) · «Pure Finance» 5(80시간 30편) · 나머지 0~2. 실적 글은 #stocks·#optionstrading(+종목 캐시태그)로 이미 Stock Market·Investing 피드에 들어간다(bluesky 노트) — #earnings 를 따로 붙일 이유 없음. 조건이 바뀌면(좋아요 500+ 실적 피드) 재측정."
+  },
+  {
+   "id": "bluesky_pin",
+   "name": "블루스키 프로필 고정 게시물 — 답글로 온 방문자의 입구",
+   "tier": "A",
+   "enabled": true,
+   "tag": "bluesky_pin",
+   "link": "https://signumhq.com/app?from=bluesky_pin",
+   "action": "pin",
+   "note": "★2026-09-25 04:3x 확장·실행. 왜: bluesky_reply 는 링크가 없어 큰 계정 스레드에서 우리를 본 사람의 길은 프로필뿐인데, 프로필에 고정 게시물이 없었다(공개 getProfile.pinnedPost=None, 팔로워 25). 실행: 상시용 소개 글(앱이 보여 주는 것 3줄 + $50~99 단말 대비 무료 + from=bluesky_pin) + 16:9 카드 → scripts/bsky-pin.mjs 로 프로필 레코드 pinnedPost 갱신 → 공개 API 에서 고정 확인(저장 후 수십 초 지연). 측정: from=bluesky_pin 클릭(답글 스레드 유입의 대리 지표). 소재가 낡으면(분기 1회) 새 카드로 교체."
   }
  ],
  "candidates": [

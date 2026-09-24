@@ -11928,3 +11928,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 ### UC(Undercurrent) 홍보 보류 — 화면 확인 결과
 - 홈 «THE MARKET NOW»: «10-year Treasury yield to 5.11% (up 0.15%)» — ㉑(UC·WIM 10Y 가 FRED 전일 종가) 와 같은 칸이다. 오늘 실시간 값인지 확인 전엔 홍보 이미지로 쓰지 않는다.
 - 대표 카드 BAC «WHAT THE MONEY IS DOING: Large new put positions opened yesterday ($401M notional)…» — «명목(notional)» 금액이라 «$4억 풋 베팅»으로 읽힐 수 있다(SIGNUM Flow 의 «$96M» 과 같은 종류, HANDOFF 7-i).
+
+
+---
+
+## 2026-09-25 (KST) 04:30~04:39 — 시간 사이클: 게이트 먼저(341/0) · 블루스키 #3 은 COST 발표(≈05:15) 뒤 · 고정 ⑥ 스윕(1편) · 확장 1(블루스키 프로필 고정 게시물 — 실행)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 게이트 | slot 직후 먼저 실행 — 341건 0실패 | — |
+| bluesky #3 — 시각 선택 | 유일한 배정. COST 발표 16:15 ET(05:15 KST) 뒤 «매긴 ±3.2% vs 실제» 로 다음 사이클에 쓴다 | — |
+| **고정 ⑥ 애드몹 스윕** | 1편 차단(ahprtw8.shop) · 누계 82편 | — |
+| **확장: bluesky_pin(신규·실행)** | 프로필 고정 게시물이 없었다(pinnedPost=None, 팔로워 25) — 오늘 답글이 닿은 곳은 팔로워 9.9만~28.5만 계정 스레드. 상시 소개 글(앱이 보여 주는 것 3줄·$50~99 대비 무료·from=bluesky_pin) + 카드 발행 → `scripts/bsky-pin.mjs`(신설: 프로필 레코드 pinnedPost 갱신, swapRecord) 로 고정 | 글: https://bsky.app/profile/signumhq.bsky.social/post/3mwbypge4ou2o (링크 facet·이미지+ALT) · 고정: 공개 getProfile.pinnedPost = 이 글(저장 직후 12초엔 안 보였고 수십 초 뒤 확인) |

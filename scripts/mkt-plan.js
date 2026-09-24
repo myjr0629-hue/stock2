@@ -52,6 +52,7 @@ const CH = {
   linkedin_newsletter: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(자격) — 편집기 «올리는 대상»에 개별 글뿐. 생기면 대표 승인(구독 초대 대량 알림) 후 개설' },
   quora_spaces_share: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 티켓 — 큰 금융 Space 팔로워·제출 허용 여부 측정 전(검색 목록엔 팔로워 수 없음)' },
   bluesky_buildinpublic: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 — 블루스키 #buildinpublic 제작기(수치 1개 중심, 카드+from=bluesky_bip). 금융 글 캡과 별도. 9/28 판정' },
+  bluesky_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 프로필 고정 소개 글(from=bluesky_pin) — scripts/bsky-pin.mjs. 분기 1회 교체' },
   bluesky_reply: { cap: 2, day: 'kst', window: [0, 24], note: '큰 금융 계정 글(게시 1시간 안)에 데이터 한 줄 답글 — getFeed(FinSky·EconSky)로 찾고 bsky-publish --reply-to. 링크·예측 없음' },
   github_pages_congress: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 갱신 — node scripts/congress-dataset.mjs → github-upload.mjs(세 파일). 90일 창이 밀리므로 갱신을 거르면 «죽은 데이터»가 된다' },
   producthunt: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-19 확장 등록(57번째). ★계정 대기(t200) — 메이커 계정이 런치 시점에 «약 1주일 이상» 돼 있어야 한다(당일 생성·당일 런치 금지)라 cap 0 으로 잠근다. 계정이 생기면 cap 1 로 올리고 «한 번만» 쏜다 — 6개월 내 재런치는 메이저 업데이트 심사 대상. 태그라인 60자 제한 · 링크는 제품을 받을 수 있는 대표 페이지 하나 · 런치는 1개월 전까지 예약 가능. 화·수·목 태평양시 아침이 노출이 높다. 준비물(한국어·영문 스크린샷, OG 이미지, 스마트링크)은 이미 있다.' },
