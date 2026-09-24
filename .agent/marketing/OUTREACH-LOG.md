@@ -11909,3 +11909,22 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ### 배정 도구 수리 — «같은 항목이 계속 배정되면 도구의 신호»
 - x_jp·naver_blog 가 한국·일본 새벽(02시)에 «실행 1순위»로 두 사이클 연속 배정됐다 → 창 [0,24] 가 원인(note_jp 가 9/24 에 같은 이유로 고쳐진 종류). mkt-plan: **x_jp [5,9]**(ENGINE §17-3 일본 아침) · **naver_blog [8,18]**(RUNBOOK 08·12·16시) · **naver_kin [7,24]**(한국 낮 우선).
+
+
+---
+
+## 2026-09-25 (KST) 03:30~03:44 — 시간 사이클: 블루스키 답글 #2 ✅ · Threads #2 ✅ · 블루스키 #3 은 «시각 선택»(COST 발표 뒤) · 고정 ⑥ 스윕 0편 · 확장 1(블루스키 실적 피드 — 기각)
+
+게이트는 이번 사이클 새 발행 전 직전 사이클(02:38) 341/0 — 이번 글은 데이터 답글·검증된 의회 카드라 옵션 만기 값을 새로 쓰지 않았다. 옵션 구조 수리 main 미반영(㊲).
+
+| 채널 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_reply ✅ 2/2** | CNBC 칼 퀸타닐라(284,754) «#ExportBan ⛽️ @reuters $CVX $XOM $CRAK»(게시 27분 뒤, 답글 13) — 이미지 속 로이터 속보: 에너지 장관이 정유사에 «디젤 수출 자발적 제한» 지지 여부를 타진(단기 수출 금지의 대안). ← EIA 주간 재측정: 9/18 주 증류유 수출 1.331M b/d = 생산 5.159M 의 25.8%(2026 평균 29.2%) · 재고 107.4M 배럴 = 국내 소비(3.975M b/d) 27.0일분. 울퍼스 답글(재고 대비 90일 금지 물량)과 다른 각도·다른 수치 | https://bsky.app/profile/signumhq.bsky.social/post/3mwbvftuui22i · 공개 스레드 확인 |
+| **threads ✅ 2/2** | 의회 거래 «공시 지연» 카드 + 본문 끝 링크 | https://www.threads.com/@signumhq_official/post/Ddri65CE53B · 로그인 화면: 본문·l.threads.com→from=threads |
+| bluesky #3 — 시각 선택 | 오늘 마지막 칸을 COST 발표(≈05:15 KST) 뒤 «옵션이 매긴 ±3.2% vs 실제 움직임»에 쓴다(X 미국은 오늘 2/2 소진이라 블루스키가 유일한 시간순 채널) | — |
+| **고정 ⑥ 애드몹 스윕** | 새 소재 0편(누계 81) | — |
+| **확장: bluesky_earnings_feeds(기각)** | 실적 피드 최대 좋아요 43·사실상 정지 → #earnings 태그 불필요 | channels.json 등록(enabled:false) |
+
+### UC(Undercurrent) 홍보 보류 — 화면 확인 결과
+- 홈 «THE MARKET NOW»: «10-year Treasury yield to 5.11% (up 0.15%)» — ㉑(UC·WIM 10Y 가 FRED 전일 종가) 와 같은 칸이다. 오늘 실시간 값인지 확인 전엔 홍보 이미지로 쓰지 않는다.
+- 대표 카드 BAC «WHAT THE MONEY IS DOING: Large new put positions opened yesterday ($401M notional)…» — «명목(notional)» 금액이라 «$4억 풋 베팅»으로 읽힐 수 있다(SIGNUM Flow 의 «$96M» 과 같은 종류, HANDOFF 7-i).

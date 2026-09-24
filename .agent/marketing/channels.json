@@ -1195,6 +1195,16 @@
    "gate": "자격",
    "until": null,
    "note": "★2026-09-25 02:5x 확장(발굴·게이트). 실측: 아티클 편집기(피드 «글쓰기»→/article/new/) 머리의 «SIGNUM HQ · 개별 글» 메뉴 = 올리는 주체 SIGNUM HQ, 올리는 대상 «개별 글» 하나뿐 — «뉴스레터 만들기» 선택지가 없다(링크드인이 팔로워·활동 기준으로 여는 기능). 우회 없음(자격 문제). 선택지가 생기면: 뉴스레터를 만들면 링크드인이 팔로워·인맥에게 구독 초대를 보낸다 = 우리 이름으로 가는 대량 알림이라 대표 승인 후 개설. 분기 1회 편집기 메뉴를 다시 본다."
+  },
+  {
+   "id": "bluesky_earnings_feeds",
+   "name": "블루스키 «실적(earnings)» 피드 진입 태그",
+   "tier": "B",
+   "enabled": false,
+   "tag": "bluesky",
+   "link": "https://signumhq.com/app?from=bluesky",
+   "action": "tag",
+   "note": "⛔2026-09-25 03:4x 실측 후 기각. 공개 API getPopularFeedGenerators «earnings»·«earnings season»·«stock earnings»: 최대가 «NVIDIA Earnings» 좋아요 43(최근 30편이 7,413시간에 걸침 = 사실상 멈춤) · «Pure Finance» 5(80시간 30편) · 나머지 0~2. 실적 글은 #stocks·#optionstrading(+종목 캐시태그)로 이미 Stock Market·Investing 피드에 들어간다(bluesky 노트) — #earnings 를 따로 붙일 이유 없음. 조건이 바뀌면(좋아요 500+ 실적 피드) 재측정."
   }
  ],
  "candidates": [
