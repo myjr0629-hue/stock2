@@ -48,6 +48,7 @@ const CH = {
   bing_webmaster: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — BWT 로그인 = 새 계정(대표). 로그인되면 GSC 가져오기로 두 속성 + GEO(AI 인용) 보고서' },
   github_pages_finra_i18n: { cap: 2, day: 'week', window: [0, 24], note: '한국어·일본어판 — finra-short-dataset.py 가 영어판과 함께 생성. 갱신 때 세 페이지 함께 업로드 + GSC URL 검사' },
   github_topics: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-24 — 저장소 About·토픽(얇은 토픽: short-volume 1·max-pain 9·congress-trading 11·dark-pool 19). 새 데이터셋을 올리면 토픽도 같이' },
+  onestore: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — 원스토어 «미국주식» 검색 결과 앱 4개(얇은 문). 개발자 등록 = 대표' },
   github_pages_congress: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 갱신 — node scripts/congress-dataset.mjs → github-upload.mjs(세 파일). 90일 창이 밀리므로 갱신을 거르면 «죽은 데이터»가 된다' },
   producthunt: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-19 확장 등록(57번째). ★계정 대기(t200) — 메이커 계정이 런치 시점에 «약 1주일 이상» 돼 있어야 한다(당일 생성·당일 런치 금지)라 cap 0 으로 잠근다. 계정이 생기면 cap 1 로 올리고 «한 번만» 쏜다 — 6개월 내 재런치는 메이저 업데이트 심사 대상. 태그라인 60자 제한 · 링크는 제품을 받을 수 있는 대표 페이지 하나 · 런치는 1개월 전까지 예약 가능. 화·수·목 태평양시 아침이 노출이 높다. 준비물(한국어·영문 스크린샷, OG 이미지, 스마트링크)은 이미 있다.' },
   apple_ppo:   { cap: 1, day: 'week', window: [0, 24], note: '★(선행: 스크린샷 변형 3장 렌더 — t194) App Store «제품 페이지 최적화»(PPO) — 아이콘·스크린샷·미리보기 A/B(무료, ASC API appStoreVersionExperimentsV2). Play 실험의 iOS 짝. 텍스트는 대상 아님 → 스크린샷 변형(첫 장=프리마켓/실적) 준비가 먼저' },

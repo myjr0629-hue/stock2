@@ -1127,6 +1127,22 @@
    "link": "https://github.com/myjr0629-hue/options-market-structure-daily",
    "action": "seo",
    "note": "★2026-09-24 확장·실행. 저장소 About 의 Website 칸이 비어 있었다 → «Use your GitHub Pages website» 체크로 데이터셋 사이트 연결(타이핑 없음). 토픽 7→12개(finra·short-volume·dark-pool·congress-trading·open-data 추가) — 저장소에 FINRA·의회 데이터셋이 생겼는데 토픽은 옵션뿐이었다. 실측(GitHub API 토픽별 저장소 수): short-volume 1(우리뿐) · max-pain 9 · congress-trading 11 · dark-pool 19 · finra 41 · gamma-exposure 53 · open-data 9,149 → 앞의 네 토픽은 첫 화면에 우리 저장소가 뜬다(얇은 문). API 확인: homepage·topics 반영. 주의: 저장소 설명(Description)은 옵션 스냅샷만 말한다 — 다음 갱신 때 FINRA·의회 데이터셋까지 한 줄로."
+  },
+  {
+   "id": "onestore",
+   "name": "원스토어(ONE store) — 한국 안드로이드 스토어",
+   "tier": "A",
+   "enabled": false,
+   "tag": "onestore",
+   "link": "https://signumhq.com/app?from=onestore&l=ko",
+   "action": "store",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표",
+    "why": "원스토어 개발자 등록 = 계정 생성(안전선 밖). 등록 요건(해외 법인 SIGNUM HQ, LLC 가능 여부·본인/사업자 인증)도 대표가 가입 화면에서 확인"
+   },
+   "note": "★2026-09-24 확장 «발굴→티켓». 실측: 원스토어 모바일 검색 «미국주식» → 앱 결과 «4개»뿐(미국주식 쉽게알기-미주알 · 초이스스탁US · 미국 경제 통계 · Passive). 구글 플레이의 같은 검색어와 달리 문이 얇다 — 등재만 해도 첫 화면. 연관 검색어: 주식 분석·미국 경제·금융. 비즈니스/금융 TOP 20 에 증권사 앱들 — 우리 같은 «데이터 앱»은 드물다. 할 일(계정 생긴 뒤): ①Play 릴리스 APK 업로드 ②등록정보는 Play 한국어 재사용(제목에 «미국주식» 붙여쓰기 — [[korean-aso-spacing-changes-rank]]) ③⚠ 원스토어는 인앱결제를 자사 결제로 요구할 수 있다 → 광고제거 구독은 그 빌드에서 비활성, 무료+광고로만(Amazon 과 같은 처리 — amazon_appstore 노트). 태그 onestore 는 스마트링크 등록이 먼저([[new-channel-needs-its-tag-registered-first]])."
   }
  ],
  "candidates": [
