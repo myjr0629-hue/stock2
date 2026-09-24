@@ -293,6 +293,26 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
     throw new Error(`[${label}] All Bedrock attempts exhausted (primary + fallback + last resort)`);
 }
 
+// ============================================================================
+// ★2026-09-24 — 모든 AI 호출의 system 앞에 «오늘 날짜»를 붙인다.
+// 실측: 뉴스 펄스가 CNBC «will now be extended to Jan. 10»(연도 없음, 2026-09-24 발행)을
+//   «2025년 1월 10일»로 옮겼다(KR·EN·JP 셋 다). Haiku 4.5 는 날짜를 모르면 학습 시점(2025년 초)을
+//   «지금»으로 가정하고 연도를 채운다. callBedrock 호출 지점 20곳 중 날짜를 주던 곳은 2곳뿐이었다
+//   → 지점마다가 아니라 요청을 만드는 이 한 곳에서 준다(주 모델·대체·최후 시도 전부 여기를 지난다).
+//   날짜만 넣는다(시·분 없음) — 같은 날 안에서는 system 이 같다.
+// ============================================================================
+export function dateAnchor(now: Date = new Date()): string {
+    const tz = 'America/New_York';
+    const long = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(now);
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+        .formatToParts(now).map((x) => [x.type, x.value]));
+    return `<current_date>Today is ${long} (${p.year}-${p.month}-${p.day}, New York time). This is the real current date; your training data is older.
+- If a source gives a date without a year (e.g. "Jan. 10"), write it without a year. Never attach a year the source does not state.
+- Resolve words like "this year" or "next month" from today's date, not from your training data.</current_date>
+
+`;
+}
+
 async function callWithRetry(
     modelId: string,
     system: string,
@@ -334,7 +354,7 @@ async function callWithRetry(
                     anthropic_version: 'bedrock-2023-05-31',
                     max_tokens: maxTokens,
                     temperature,
-                    system,
+                    system: dateAnchor() + system,
                     messages,
                 }),
             });
