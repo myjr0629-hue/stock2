@@ -11670,3 +11670,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - `scripts/finra-short-dataset.py` 에 L10N(ko·ja)·HREFLANG 추가 — 주 1회 갱신 때 세 언어가 같이 나온다.
 - 확장 등록 스크립트가 **등록과 같은 단계에서 `pub` 을 부른다**(지난 두 시간 «기록없음» 재배정의 종류 수리).
 - GSC URL 검사 스크립트를 URL 인자형으로(`/tmp/ego/gsc-url.json`) — 새 페이지마다 재사용.
+
+
+---
+
+## 2026-09-24 (KST) 19:30~20:00 — 시간 사이클: 실행 1(지식iN — 예측 요청이라 답 안 함) · 확장 1(GitHub 토픽·About — 실행·API 검증)
+
+| 채널 | 결과 | 근거 |
+|---|---|---|
+| naver_kin — 답하지 않음 | 새 질문 「ETF 주식 손해」(봄에 1,400만원 → −280만원, «계속 묵히면 언젠가는 오를까요») = 예측 요청 → 규칙상 답하지 않음. 그 밖 신규는 인스타 아이디 요청·메리츠 차트 UI | — |
+| **github_topics(신규 표면·실행)** | 저장소 About Website 빈칸 → GitHub Pages 주소 연결(체크박스) · 토픽 7→12(finra·short-volume·dark-pool·congress-trading·open-data). 토픽별 저장소 수 실측: short-volume **1(우리뿐)** · max-pain 9 · congress-trading 11 · dark-pool 19 · finra 41 | GitHub API: homepage=데이터셋 사이트 · topics 12 |
+
+### 확장 후보 중 버린 것
+- Data Is Plural(데이터셋 뉴스레터): 사이트에 보이는 최신호가 2025-08-27 — 1년 넘게 발행이 없어 보인다. 제보 창구도 첫 화면에 없음 → 티켓 안 만듦.
