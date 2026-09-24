@@ -1,23 +1,24 @@
 {
- "at": "2026-09-24T14:43:30.174Z",
+ "at": "2026-09-24T21:31:40.473Z",
  "days": 21,
  "failed": 0,
  "d3": {
-  "bluesky": 57,
-  "home": 45,
-  "geeknews": 28,
+  "bluesky": 74,
+  "home": 53,
+  "geeknews": 30,
+  "indiehackers": 17,
   "x_us": 15,
-  "indiehackers": 13,
-  "note": 9,
+  "note": 13,
+  "bluesky_pin": 12,
   "x_jp": 8,
+  "medium": 8,
   "okky": 5,
-  "medium": 5,
   "seo_sg": 5,
   "seo_darkpool": 4,
+  "quora_space": 4,
   "seo_uc": 4,
   "seo_wim": 4,
   "naver_blog": 3,
-  "quora_space": 3,
   "mastodon": 3,
   "seo": 2,
   "linkedin": 2,
@@ -34,21 +35,22 @@
   "reddit": 0
  },
  "d3raw": {
-  "bluesky": 57,
-  "home": 45,
-  "geeknews": 28,
+  "bluesky": 74,
+  "home": 53,
+  "geeknews": 30,
+  "indiehackers": 17,
   "x_us": 15,
-  "indiehackers": 13,
-  "note": 9,
+  "note": 13,
+  "bluesky_pin": 12,
   "x_jp": 8,
+  "medium": 8,
   "okky": 5,
-  "medium": 5,
   "seo_sg": 5,
   "seo_darkpool": 4,
+  "quora_space": 4,
   "seo_uc": 4,
   "seo_wim": 4,
   "naver_blog": 3,
-  "quora_space": 3,
   "mastodon": 3,
   "seo": 2,
   "linkedin": 2,
@@ -72,21 +74,22 @@
   "x_us": 0
  },
  "all": {
-  "bluesky": 137,
-  "home": 394,
-  "geeknews": 28,
+  "bluesky": 154,
+  "home": 402,
+  "geeknews": 30,
+  "indiehackers": 43,
   "x_us": 59,
-  "indiehackers": 39,
-  "note": 40,
+  "note": 44,
+  "bluesky_pin": 12,
   "x_jp": 31,
+  "medium": 31,
   "okky": 22,
-  "medium": 28,
   "seo_sg": 8,
   "seo_darkpool": 22,
+  "quora_space": 7,
   "seo_uc": 7,
   "seo_wim": 6,
   "naver_blog": 7,
-  "quora_space": 6,
   "mastodon": 3,
   "seo": 141,
   "linkedin": 12,
@@ -103,12 +106,103 @@
   "reddit": 2
  },
  "perPost": {
+  "github": {
+   "n": 6,
+   "clicks": 5,
+   "per": 0.83,
+   "d3": 2,
+   "fresh": 40
+  },
+  "note": {
+   "n": 9,
+   "clicks": 44,
+   "per": 4.89,
+   "d3": 13,
+   "fresh": 30
+  },
+  "x_jp": {
+   "n": 11,
+   "clicks": 31,
+   "per": 2.82,
+   "d3": 8,
+   "fresh": 26
+  },
+  "bluesky": {
+   "n": 23,
+   "clicks": 154,
+   "per": 6.7,
+   "d3": 74,
+   "fresh": 48
+  },
+  "threads": {
+   "n": 11,
+   "clicks": 4,
+   "per": 0.36,
+   "d3": 2,
+   "fresh": 50
+  },
   "bluesky_reply": {
+   "n": 4,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0
+  },
+  "x_us": {
+   "n": 13,
+   "clicks": 59,
+   "per": 4.54,
+   "d3": 15,
+   "fresh": 25
+  },
+  "linkedin_articles": {
    "n": 2,
    "clicks": 0,
    "per": 0,
    "d3": 0,
    "fresh": 0
+  },
+  "quora_space": {
+   "n": 6,
+   "clicks": 7,
+   "per": 1.17,
+   "d3": 4,
+   "fresh": 57
+  },
+  "instagram": {
+   "n": 6,
+   "clicks": 2,
+   "per": 0.33,
+   "d3": 0,
+   "fresh": 0
+  },
+  "indiehackers": {
+   "n": 7,
+   "clicks": 43,
+   "per": 6.14,
+   "d3": 17,
+   "fresh": 40
+  },
+  "linkedin": {
+   "n": 6,
+   "clicks": 12,
+   "per": 2,
+   "d3": 2,
+   "fresh": 17
+  },
+  "pinterest": {
+   "n": 7,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0
+  },
+  "medium": {
+   "n": 9,
+   "clicks": 31,
+   "per": 3.44,
+   "d3": 8,
+   "fresh": 26
   },
   "x_reply": {
    "n": 9,
@@ -145,96 +239,12 @@
    "d3": 0,
    "fresh": 0
   },
-  "github": {
-   "n": 5,
-   "clicks": 5,
-   "per": 1,
-   "d3": 2,
-   "fresh": 40
-  },
-  "note": {
-   "n": 8,
-   "clicks": 40,
-   "per": 5,
-   "d3": 9,
-   "fresh": 23
-  },
   "naver_blog": {
    "n": 11,
    "clicks": 7,
    "per": 0.64,
    "d3": 3,
    "fresh": 43
-  },
-  "threads": {
-   "n": 9,
-   "clicks": 4,
-   "per": 0.44,
-   "d3": 2,
-   "fresh": 50
-  },
-  "x_jp": {
-   "n": 10,
-   "clicks": 31,
-   "per": 3.1,
-   "d3": 8,
-   "fresh": 26
-  },
-  "x_us": {
-   "n": 11,
-   "clicks": 59,
-   "per": 5.36,
-   "d3": 15,
-   "fresh": 25
-  },
-  "bluesky": {
-   "n": 20,
-   "clicks": 137,
-   "per": 6.85,
-   "d3": 57,
-   "fresh": 42
-  },
-  "quora_space": {
-   "n": 5,
-   "clicks": 6,
-   "per": 1.2,
-   "d3": 3,
-   "fresh": 50
-  },
-  "instagram": {
-   "n": 5,
-   "clicks": 2,
-   "per": 0.4,
-   "d3": 0,
-   "fresh": 0
-  },
-  "linkedin": {
-   "n": 5,
-   "clicks": 12,
-   "per": 2.4,
-   "d3": 2,
-   "fresh": 17
-  },
-  "pinterest": {
-   "n": 6,
-   "clicks": 0,
-   "per": 0,
-   "d3": 0,
-   "fresh": 0
-  },
-  "medium": {
-   "n": 8,
-   "clicks": 28,
-   "per": 3.5,
-   "d3": 5,
-   "fresh": 18
-  },
-  "indiehackers": {
-   "n": 6,
-   "clicks": 39,
-   "per": 6.5,
-   "d3": 13,
-   "fresh": 33
   },
   "tistory": {
    "n": 2,

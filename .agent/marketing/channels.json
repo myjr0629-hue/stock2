@@ -1225,6 +1225,16 @@
    "link": "https://signumhq.com/app?from=note&l=ja",
    "action": "magazine",
    "note": "★2026-09-25 05:5x 확장(티켓). 왜: note 는 건당 5클릭(21일)으로 이긴 채널인데 글이 계정 타임라인에만 흩어져 있다(9/15~9/25 10편+). マガジン은 note 검색의 별도 탭·팔로우 대상이라 «米国株 需給データ» 같은 묶음 하나가 새 입구가 된다. 다음 일본 아침 사이클(창 5~9시)에 ① 계정에 マガジン 이 있는지 화면으로 확인 ② 없으면 1개 만들어(무료 マガジン, 제목에 «米国株»·«ダークプール»·«オプション») 기존 글 추가 ③ 공개 페이지 확인. 같은 사이클 확인: X 일본 프로필은 이미 고정 소개 글이 있다(8/26 「このアカウントは何をするのか」, 팔로워 3) — 새로 할 것 없음."
+  },
+  {
+   "id": "x_pin",
+   "name": "X 미국 프로필 고정 소개 글 — 답글로 온 방문자의 입구",
+   "tier": "A",
+   "enabled": true,
+   "tag": "x_pin",
+   "link": "https://signumhq.com/app?from=x_pin",
+   "action": "pin",
+   "note": "★2026-09-25 07:1x 확장·실행 — bluesky_pin(2시간에 12클릭, 봇 필터 없는 원 집계)의 복제. X 미국 프로필은 8/31 글이 고정돼 있었다. 상시 소개 글(앱이 보여 주는 것 3줄·$50~99 대비 무료·from=x_pin) + 16:9 카드 → scripts/x-pin.mjs(신설: 글 메뉴 caret → Pin to your profile → confirmationSheetConfirm → 프로필 첫 글 Pinned·status 일치 확인). 측정: from=x_pin 클릭. X 일본은 8/26 소개 글이 이미 고정."
   }
  ],
  "candidates": [
