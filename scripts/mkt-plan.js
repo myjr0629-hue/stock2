@@ -259,7 +259,7 @@ if (cmd === 'slot') {
     });
   }
   console.log('\n■ 확장 — 신규 표면 1개: 발굴 → 실행 또는 티켓 → channels.json 등록 (매 사이클 의무)');
-  console.log('\n■ 고정 5단계 — ①게이트 audit-expiration-selection.js --live ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시');
+  console.log('\n■ 고정 6단계 — ①게이트 audit-expiration-selection.js --live ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시 ⑥애드몹 리딩방 스윕 ego-browser nodejs < scripts/admob-arc-sweep.mjs (대표 지시 9/24·25 — 일회용 .shop/.vip 소재만 차단, 결과를 로그에)');
   if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
   console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id).join(', '));
 
