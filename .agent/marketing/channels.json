@@ -1285,7 +1285,13 @@
    "link": "https://www.signumhq.com/app?from=quora_bio",
    "url": "https://jp.quora.com/",
    "action": "answer_unanswered_questions",
-   "note": "★2026-09-25 12:1x 확장(재등록): mkt-plan 에 규칙(quora_jp: 하루 1·UTC)은 있었는데 channels.json 에 항목이 없어 배정이 한 번도 안 됐다(규칙 107개 중 고아 3개: quora_jp·quora_de·threads_reply). 답변 이력: OUTREACH-LOG t052(米国債とAI企業…, 첫 답변)·스크리닝 앱 질문 등. 실측(9/25): jp.quora 로그인 유지(ホーム·回答·通知 3), 검색 期間=過去1週間 에서 米国債·米国株·マイクロン·金利上昇 株価·コストコ 決算 모두 0건, 過去1か月 은 2건(하나는 이미 우리 답) → 피드가 마르면 억지 발행 금지. 본문 무링크·앱명 0~1회·데이터 화면 1장(quora 규칙과 같다)."
+   "note": "★2026-09-25 12:1x 확장(재등록): mkt-plan 에 규칙(quora_jp: 하루 1·UTC)은 있었는데 channels.json 에 항목이 없어 배정이 한 번도 안 됐다(규칙 107개 중 고아 3개: quora_jp·quora_de·threads_reply). 답변 이력: OUTREACH-LOG t052(米国債とAI企業…, 첫 답변)·스크리닝 앱 질문 등. 실측(9/25): jp.quora 로그인 유지(ホーム·回答·通知 3), 검색 期間=過去1週間 에서 米国債·米国株·マイクロン·金利上昇 株価·コストコ 決算 모두 0건, 過去1か月 은 2건(하나는 이미 우리 답) → 피드가 마르면 억지 발행 금지. 본문 무링크·앱명 0~1회·데이터 화면 1장(quora 규칙과 같다).",
+   "gate": {
+    "kind": "피드 마름",
+    "until": "2026-09-28",
+    "who": "데이터(질문 유입)",
+    "why": "2026-09-25 12:1x·12:4x 두 번 실측: jp.quora 검색 期間 過去1週間 5개 질의 0건·過去1か月 2건(1건은 우리 답), /answer 피드 20건은 전부 답 1~53개거나 비금융 → «피드가 마르면 억지 발행 금지». 주 2회 확인 주기로 9/28 재개."
+   }
   },
   {
    "id": "quora_de",
@@ -1300,7 +1306,13 @@
    "link": "https://www.signumhq.com/app?from=quora_bio",
    "url": "https://de.quora.com/",
    "action": "answer_unanswered_questions",
-   "note": "★2026-09-25 재등록(고아 규칙) — 2026-09-15 개통된 유럽 표면, 무응답은 «Dark Pool» 계열에만 있었다(9/23 마지막 답변). 본문 무링크·앱명 0~1회."
+   "note": "★2026-09-25 재등록(고아 규칙) — 2026-09-15 개통된 유럽 표면, 무응답은 «Dark Pool» 계열에만 있었다(9/23 마지막 답변). 본문 무링크·앱명 0~1회.",
+   "gate": {
+    "kind": "피드 마름",
+    "until": "2026-09-28",
+    "who": "데이터(질문 유입)",
+    "why": "2026-09-25 12:4x 실측: de.quora 검색(US-Aktien·Anleihen Rendite·Zinsen steigen Aktien·Optionen Aktien·Micron·Dark Pool, 期間 month) 전부 0건, /answer 피드 14건은 답 1~54개·비금융 위주 → 억지 발행 금지. 9/28 재개."
+   }
   },
   {
    "id": "threads_reply",
@@ -1315,6 +1327,22 @@
    "link": "https://signumhq.com/app?from=threads_bio",
    "action": "reply_only",
    "note": "★2026-09-25 재등록(고아 규칙) — 규칙 threads_reply(하루 2·KST, «오독 정정은 반드시 원문 확인 후»)만 있고 항목이 없었다. 마지막 기록 9/16. bluesky_reply 가 4건 0클릭(▼)이라 같은 형식은 우선순위 낮음 — 배정되면 원문 확인·데이터 1개·링크 없이."
+  },
+  {
+   "id": "google_play_featuring",
+   "name": "Google Play 피처링 추천·Apps Accelerator",
+   "tier": "C",
+   "enabled": false,
+   "tag": "play_featuring",
+   "link": "https://play.google.com/store/apps/details?id=com.signumhq.app",
+   "action": "nomination",
+   "gate": {
+    "kind": "자격",
+    "until": null,
+    "who": "구글(자격) · 대표(Accelerator 신청)",
+    "why": "2026-09-25 13:0x 확장 발굴: 구글 공식 안내(google.play/business/guides/featuring — play.google.com/console/about/guides/featuring 에서 302)의 추천 폼(forms.gle/S7JFvLvAWMjidws58)은 «premium title»의 «promotional details»(할인 판매)용 — 우리 앱은 무료라 대상이 아니다. 제3자 블로그의 «신규 앱 4개월·평점 3.0» 조건은 공식 문서에 없다(과장). 대안 = Apps Accelerator(12주 멘토링·구글 직원 접근, 신청 rsvp.withgoogle.com/events/play-apps-accelerator, 모집 일정 미표기) — 회사 명의 신청서라 대표 결정. 애플 쪽은 apple_featuring(API 5건 제출)로 이미 하고 있다."
+   },
+   "note": "확장(9/25): 발굴 → 자격 없음 확인 + 대표 결정 티켓. 폼 제출은 하지 않았다."
   }
  ],
  "candidates": [
