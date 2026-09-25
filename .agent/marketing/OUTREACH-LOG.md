@@ -12229,3 +12229,21 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **고정 ⑥ 스윕 — 1편 차단** | «종목» 검색에서 새 일회용 도메인 **ahfdrtuw5.shop**(ah+문자+w+번호 꼴, 같은 조직) 1편 차단 → 누계 84편 | /tmp/ego/arc-blocked-*.json |
 | 확장 — candidates 미탐색 2개 정리 | channels.json candidates(8개) 중 손대지 않은 «todo» 2개를 실측: **minkabu.jp** 로그아웃(«ログイン», 첫 화면 상단이 «今買う大化け株·推奨株» 광고) · **Yahoo!知恵袋** 로그아웃(«IDでもっと便利に新規取得»). 둘 다 게시에 새 계정 필요 = 안전선 밖 → 계정 게이트로 channels.json 에 옮김(다시 탐색하지 않게). 지식iN 과 같은 형식이라 계정이 생겨도 기대치 낮음(지식iN 건당 0.09) | channels.json minkabu·chiebukuro |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 00:30~01:15 — 시간 사이클(새 KST 날): 실행 4 중 3(미디엄 ✅·링크드인 ✅(이미지 실패)·핀터레스트 ✅, 인디해커스 = 세션 만료 → ㊹) + 키우기 블루스키 ✅ · 게이트 341/0 · 스윕 0 · **대표 질문: AWS 경보 메일(XS 페이퍼) 원인 확정·수리 브랜치 → ㊸** · 앱 수치 버그 1건 추가 발견(PRE CLOSE)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **대표 질문 — «signum-xs-paper-errors» 경보 메일** | AWS CloudWatch 자동 경보. 실측(node SDK·.env.local — ACCESS-RUNBOOK 대로): 경보 이력 9/24 22:41 UTC OK→ALARM, 9/25 01:44 UTC ALARM→OK · 7일 호출/오류 9/24 = 3/3(원 실행+비동기 재시도 2회) · 로그 22:40:30 «weekly kill: NAV 1271.66 < 1284.65 (weekStart 1324.38)» 직후 «ValidationException: Provided list of item keys contains duplicates». 원인 = 킬 청산 기록 키 «날짜#종목#KILL» 이 같은 종목 여러 로트에서 겹침(실제 보유 30로트·22종목, 7종목 2~3로트 → 고유키 22/30) → BatchWrite 전체 거부 → STATE(halted=false)·POS·9/24 NAV 전부 미저장. 수리 = 브랜치 `fix/xs-paper-kill-dupkey`(3dbad210e, 키에 매수일+로트 순번 → 30/30). **배포 안 함** → 대표 할 일 ㊸(배포 명령·9/24 누락 킬 처리 결정). 메모리 rare-branches-carry-latent-bugs | CloudWatch·DynamoDB signum-trade-journal |
+| **bluesky ✅ 1/3(계정 합계 1/3)** | $COST 후속: 목요일 옵션이 금요일까지 ±3.2%($900 스트래들 $28.68, 1:14pm ET 중간값) → 금요일 11:36 ET +2.3%($916.80), 범위 안 · 목요일 장외 비중 37.4% vs 시장 49.6%·거래량 평소 1.5배(FINRA) · #stocks. 이미지 = COST 커맨드 화면 머리글+다크풀 카드만(아래 버그 칸 제외) | https://bsky.app/profile/signumhq.bsky.social/post/3mwe44ranqc2o · 공개 API: 본문·링크 facet(from=bluesky)·이미지 |
+| ⚠ 앱 수치 버그 추가(발행 전 차단) | 커맨드 화면 «PRE CLOSE $916.26 +2.21%»(COST, 11:37 ET) — 나스닥 프리마켓 마지막 체결은 09:30:00 **$887.53(−1.00%)**. API `/api/live/ticker` 가 정규장에 `extended.prePrice=916.26` 을 내려보낸다(현재가 수준). 나이키 화면도 «PRE CLOSE $36.16 +0.47%»·감마플립 $31(+15%)·«IV 15»(10/2 스트래들 ±8.3% 와 모순) → 이미지에서 전부 잘라 냄. 별도 작업 칩 «Fix PRE CLOSE showing live price on Command screen» | api.nasdaq.com extended-trading |
+| **medium ✅** | «Nike beat EPS estimates four times in a row. Twice, the stock still fell double digits the next day.» — 최근 4번 EPS 상회(81.5/43.2/20.7/81.8%)와 다음 날 +6.4/−10.5/−15.5/+4.9%(평균 9.3%), 작은 상회 두 번이 두 자릿수 하락(«규칙 아님» 명시) · 10/2 만기 35.5~36 스트래들 약 $2.95 = ±8.3%(11:49 ET 중간값, 앞 4거래일 포함) · 9/24 장외 38.8% vs 49.6%(FINRA) · 다음 실적 10/1 장 마감 뒤 예정, 컨센서스 $0.44. 첫 시도는 도구가 «줄 머리 글머리표 금지»로 막아 문장형으로 고쳐 재발행 | https://medium.com/@signum_hq/nike-beat-eps-estimates-four-times-in-a-row-de14360e58fd · 비로그인: 제목·이미지·링크·AI 고지 |
+| **linkedin ✅(텍스트만)** | 금리 곡선 분해(8/24→9/24 3개월 +37·2년 +63·5년 +62·10년 +48·30년 +24bp · 9/17 인상·목표 3.75~4.00% · 10년 TIPS 2.38→2.85, 기대인플레 ~2.3% · 5년 입찰 2.21/딜러 13.6% · 업종 ETF 8/24→9/23 XLU −8.0·XLRE −7.7·IWM −5.4·XLK +8.5) + 앱 링크. **이미지 첨부 실패**(도구 «이미지 첨부: false») · 도구의 URN 후보 검증도 실패(새 화면이 DOM 에 URN 을 안 싣는다) → 글 «관리 메뉴 열기 → 링크 복사»로 lnkd.in/p/gnwGmtke 를 받아 풀어서 검증 | https://www.linkedin.com/posts/signumhq_the-10-year-treasury-yield-is-at-its-highest-share-7509279973413675009-5uZ9/ · 비로그인 200·본문 표식·본문 링크 lnkd.in/gTuxkF34 → signumhq.com/app?from=linkedin |
+| **pinterest ✅** | «Micron earnings Sep 30: what the last 4 reports did to the stock» — 다음 날 −2.8/+10.2/−3.8/+15.7%(평균 ±8.1%, 네 번 모두 EPS 상회) · 9/24 종가 기준 10/2 만기 ±9.3% · 이미지 = MU 커맨드 머리글+다크풀(확장시간 칸 제외) | https://www.pinterest.com/pin/1102115340098906988/ · 비로그인: 제목·링크 from=pinterest·이미지 |
+| indiehackers — 세션 만료 → ㊹ | IH 가 «Sign in»(로그아웃). 계정은 구글 OAuth 인데 **어느 구글 계정인지 기록 없음**(선택 화면: contact@signumhq.com·myjr0629@gmail.com 외 2) → 잘못 고르면 새 계정이 생길 수 있어 선택하지 않고 창 닫음. 준비된 댓글: «I'm trying to grow a mobile app without relying on paid ads»(좋아요 15·댓글 138)에 채널별 건당 클릭 실측 | 대표 할 일 ㊹ |
+| 고정 ⑥ 스윕 | 0편(누계 84) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 개선 필요(다음) | linkedin-post.mjs: ①이미지 첨부 경로(§22 우회 — setInputFiles·drop·paste) ②검증을 «관리 메뉴 → 링크 복사 → lnkd.in 풀기»로 교체 | — |

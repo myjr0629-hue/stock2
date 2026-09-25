@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-25 23:45 KST** (시간 사이클 — X 답글 3/3(코스트코·나이키·금리 곡선) · 리딩방 소재 누계 84 · minkabu·知恵袋 계정 게이트 · 코스트코 장중 +2.4%(옵션 ±3.2% 안) · 옵션 구조 수리 main 미반영(㊲·㊲-2))
+마지막 갱신: **2026-09-26 01:15 KST** (시간 사이클 — 블루스키·미디엄(나이키)·링크드인(금리 곡선, 이미지 실패)·핀터레스트(마이크론) 발행 · 인디해커스 세션 만료 ㊹ · **AWS 경보 = XS 페이퍼 주간 킬 중복 키 버그 ㊸(수리 브랜치, 배포 대기)** · PRE CLOSE 표시 버그(작업 칩) · 옵션 구조 수리 main 미반영(㊲·㊲-2))
 
 ---
 
@@ -123,6 +123,7 @@
 | ㊶ | **영어권 매체 제보 2곳 발송 승인** — 9to5Mac «Indie App Spotlight»(주간)·TapSmart «Indie Apps Showcase»(월간), 초안 press/READY-TO-SEND.md §⑥. ㊲·㊲-2 운영 반영 뒤 보내는 것을 권장 | 외부 메일 = 대표 승인 | 5분 |
 | ㊷ | (선택) **팟캐스트 채널 개설 여부** — 매일 2분 AI 음성 미국장 브리핑(Apple Podcasts 는 AI 음성 허용·고지 의무). 대표가 Apple Podcasts Connect 약관 동의·쇼 제출 1회 → 이후 RSS(GitHub Pages) 갱신은 내가. 설계 = channels.json podcast_daily_brief | 약관 = 대표 | 10분 |
 | **㊸** | **XS 페이퍼(signum-xs-paper) 주간 킬 버그 — 수리 배포 승인 + 9/24 누락 킬 처리 결정** (AWS 경보 메일 «signum-xs-paper-errors», 9/25 07:41 KST) — 실측: 9/24 22:40 UTC 정기 실행에서 주간 −3% 킬 발동(NAV 1271.66 < 1284.65, 주초 1324.38) → 청산 기록 키 «날짜#종목#KILL» 이 같은 종목 여러 로트(보유 30로트 중 7종목 2~3로트)에서 겹쳐 DynamoDB BatchWrite 전체 거부(«Provided list of item keys contains duplicates»), 재시도 2회 포함 3회 실패 → STATE(halted=false)·POS·9/24 NAV 전부 미저장. 경보는 9/25 10:44 KST 에 OK 로 돌아옴(다음 실행 전까지 호출이 없어서). 수리 = 브랜치 `fix/xs-paper-kill-dupkey`(키에 매수일+로트 순번, 실제 30로트로 고유키 22/30 → 30/30 확인). 배포 명령: `cd ~/.gemini/antigravity/scratch/stock2 && git fetch -q origin && git merge --no-edit origin/fix/xs-paper-kill-dupkey && git push -q origin main && node scripts/deploy-xs-paper.js`. 다음 정기 실행 = 9/26 07:40 KST — 그 전에 배포하지 않으면 NAV 가 기준선 아래일 때 같은 실패가 반복된다(경보 메일 재발). 결정 필요: 9/24 에 규칙상 했어야 할 청산을 «하루 늦게 실행되는 것으로 기록»(권장 — 운영 사고도 페이퍼가 재야 할 실측) vs «9/24 종가로 소급 기록» | 배포 = 대표 승인 | 3분 |
+| ㊹ | **인디해커스 재로그인 1회** — 세션 만료(9/26 00:5x «Sign in» 확인). 우리 IH 계정 `signumhq` 은 구글 OAuth 인데 **어느 구글 계정에 연결됐는지 기록이 없다**(선택 화면: contact@signumhq.com · myjr0629@gmail.com 외 2개). 잘못 고르면 새 계정이 생길 수 있어 고르지 않았다. 대표가 한 번 로그인(또는 연결 계정 알려 주기) → 이후 댓글은 내가. IH 는 건당 6.7클릭 2위 채널이고, 준비된 댓글(모바일 앱 무광고 성장 실험 스레드·좋아요 15·댓글 138에 채널별 실측 수치)이 대기 중 | 로그인 = 대표 | 1분 |
 | ⑫ | **Ego Lite 업데이트 승인**(`ego-browser upgrade`) — 실행할 때마다 «update available» 알림 | 업그레이드는 대표 승인 후에만 | 한마디 |
 
 **끝난 것(목록에서 내림)**: ㉞ 리딩방 광고 차단(9/24 밤 66편 → 9/25 01시 75편·62도메인, 알림 설정 + **매 사이클 스윕** `scripts/admob-arc-sweep.mjs` — 새 소재는 심사 센터에 오르기 전 몇 회 노출되므로 «0»은 애드몹 스위치로 불가, 근원 조치는 ㊱) · ㉗ AI 지어낸 연도 차단(9/24 21:2x 운영 반영·실화면 확인) · Bluesky 앱 비밀번호(.env.local 에 있음) · 마스토돈 가입(9/23) · ASC 재로그인(9/23)
