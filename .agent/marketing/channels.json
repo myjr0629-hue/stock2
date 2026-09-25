@@ -1475,6 +1475,36 @@
     "why": "2026-09-25 22:5x 확장 발굴: Apple Podcasts 는 AI 합성 음성 쇼를 허용하되 «오디오와 에피소드·쇼 메타데이터 둘 다에 눈에 띄게 AI 사용을 밝힐 것»(지침 요약, 출처 podcasters.apple.com 콘텐츠 지침·RSS.com 해설). 제출은 Apple Podcasts Connect(애플 ID) + 약관 동의 = 대표 몫. Spotify for Creators 는 새 계정(대표)."
    },
    "note": "설계: GitHub Pages(기존 데이터셋 저장소)에 feed.xml + 에피소드 MP3(매일 2분: 전일 지수·금리·섹터·옵션 구조 한 가지, 우리 음성 도구 scripts/tts-ad.mjs·voice 스크립트 재사용), 오디오 첫 문장과 설명란에 AI 음성 고지, 설명란 끝에 ?from=podcast 링크. 팟캐스트 앱 검색(«stock market daily» 등)이라는 새 발견 경로. 대표가 약관 동의·쇼 제출 1회 하면 이후 에피소드는 RSS 갱신만으로 자동."
+  },
+  {
+   "id": "minkabu",
+   "name": "みんかぶ(일본 개인투자자 SNS·주가 예상)",
+   "tier": "C",
+   "enabled": false,
+   "tag": "minkabu",
+   "action": "post",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표 1회",
+    "why": "2026-09-25 23:4x 실측: minkabu.jp 첫 화면 «ログイン»(로그아웃 상태). 글·예상 게시는 회원 필요 = 계정 생성(안전선 밖). 첫 화면 상단이 «今買う大化け株·プロ厳選・推奨株·テンバガー» 광고라 우리 톤과 떨어진 곳."
+   },
+   "note": "candidates 목록(minkabu, todo)에서 옮김."
+  },
+  {
+   "id": "chiebukuro",
+   "name": "Yahoo!知恵袋(일본 Q&A)",
+   "tier": "C",
+   "enabled": false,
+   "tag": "chiebukuro",
+   "action": "answer",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표 1회",
+    "why": "2026-09-25 23:4x 실측: chiebukuro.yahoo.co.jp «IDでもっと便利に新規取得 ログイン»(로그아웃). 답변은 Yahoo! JAPAN ID 필요 = 계정 생성(안전선 밖). 참고: 같은 형식의 네이버 지식iN 은 건당 0.09 클릭(32건) — 계정이 생겨도 기대치는 낮다."
+   },
+   "note": "candidates 목록(chiebukuro, todo)에서 옮김."
   }
  ],
  "candidates": [
@@ -1523,14 +1553,14 @@
    "name": "Yahoo!知恵袋",
    "tier": "A",
    "why": "일본 검색 수요",
-   "status": "todo"
+   "status": "gated(계정) 2026-09-25 — channels.json 으로 옮김"
   },
   {
    "id": "minkabu",
    "name": "みんかぶ / Yahoo!ファイナンス掲示板",
    "tier": "C",
    "why": "일본 개인투자자 밀집",
-   "status": "todo"
+   "status": "gated(계정) 2026-09-25 — channels.json 으로 옮김"
   },
   {
    "id": "indiehackers",

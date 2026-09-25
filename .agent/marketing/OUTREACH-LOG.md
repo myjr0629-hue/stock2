@@ -12216,3 +12216,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **고정 ⑥ 스윕 — 1편 차단** | 검색어 «종목» 에서 새 일회용 도메인 **tzkhmbvw1.shop** 소재 1편 차단(누계 83편·69도메인). tz+문자+w+번호 .shop 꼴 = 같은 조직의 새 도메인 | /tmp/ego/arc-blocked-*.json |
 | **확장 — podcast_daily_brief(티켓 ㊷)** | 기록에 팟캐스트 0건. Apple Podcasts 는 AI 합성 음성 쇼를 허용하되 오디오·메타데이터 둘 다에 눈에 띄는 고지를 요구(지침 요약). 설계: GitHub Pages 에 feed.xml + 매일 2분 MP3(기존 음성 도구 재사용), 첫 문장·설명란 AI 고지, 설명란 ?from=podcast. 막힌 곳 = Apple Podcasts Connect 약관·쇼 제출(대표 1회), Spotify 는 새 계정 | channels.json podcast_daily_brief |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 23:30~23:45 — 시간 사이클: 실행 1(x_reply ✅ 3/3 @KobeissiLetter 금리 곡선) · 게이트 341/0 · **스윕 1편 차단(ahfdrtuw5.shop, 누계 84)** · 확장(candidates 의 미탐색 2개 — minkabu·chiebukuro 둘 다 계정 게이트)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 참고 — 코스트코 장중 | 10:33 ET $917.60 **+2.36%**(나스닥) — 프리마켓 −0.5% 에서 뒤집혔다. 옵션이 금요일까지 매긴 ±3.2% 안쪽. 금요일 종가로 «내재 vs 실제»를 다시 잰다 | api.nasdaq.com |
+| **x_reply ✅ 3/3** | @KobeissiLetter «The last time US Treasury yields were this high, total US national debt stood at just $8.9 trillion…»(게시 0.7시간) ← 데이터 답글(255자, 링크 0, 오늘 앞의 두 답글과 다른 소재): 재무부 곡선 8/24→9/24 2년 +63·10년 +48·30년 +24bp — 앞쪽이 끈다 = 장기 부채 공급 파업보다 연준 경로 재가격에 가깝게 읽힌다 · 10년 TIPS +47bp, 기대인플레 ~2.3% 그대로 | https://x.com/signumhq/status/2103493897351766061 · 내 답글 탭 + 비로그인 syndication 본문·in_reply_to=KobeissiLetter |
+| **고정 ⑥ 스윕 — 1편 차단** | «종목» 검색에서 새 일회용 도메인 **ahfdrtuw5.shop**(ah+문자+w+번호 꼴, 같은 조직) 1편 차단 → 누계 84편 | /tmp/ego/arc-blocked-*.json |
+| 확장 — candidates 미탐색 2개 정리 | channels.json candidates(8개) 중 손대지 않은 «todo» 2개를 실측: **minkabu.jp** 로그아웃(«ログイン», 첫 화면 상단이 «今買う大化け株·推奨株» 광고) · **Yahoo!知恵袋** 로그아웃(«IDでもっと便利に新規取得»). 둘 다 게시에 새 계정 필요 = 안전선 밖 → 계정 게이트로 channels.json 에 옮김(다시 탐색하지 않게). 지식iN 과 같은 형식이라 계정이 생겨도 기대치 낮음(지식iN 건당 0.09) | channels.json minkabu·chiebukuro |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
