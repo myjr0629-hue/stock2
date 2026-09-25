@@ -108,7 +108,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     //    (한 번 더 만들면 채워진다 — 렌더 타이밍 문제라 재시도로 낫는다)
     const dash = /(MAX PAIN|GAMMA FLIP|TOTAL PREMIUM)\s*\n?\s*[$]?[—–-]\s*$/m.test(t)
       || /\$—|＄—/.test(t);
+    // ★2026-09-26 추가: 스켈레톤(회색 막대 자리표시)은 글자가 없어 위 검사를 통과했다 — 일본어 가디언 «実体経済» 칸이
+    //   빈 막대로 찍혔다. 화면에 보이는 스켈레톤/펄스 요소가 있으면 «덜 그려짐»으로 본다.
+    const skel = [...document.querySelectorAll('[class*="skeleton" i], [class*="Skeleton"], .animate-pulse, [class*="shimmer" i]')]
+      .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 40 && r.height > 6 && r.top < window.innerHeight && r.bottom > 0; }).length;
     return {
+      skeleton: skel,
       loading: /Loading\.\.\.|로딩\s*중|読み込み/.test(t),
       nums: (t.match(/\$-?[\d,.]+|-?[\d,.]+%/g) || []).length,
       blankCell: dash,
@@ -118,11 +123,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let st = await inspect();
   // 한 번만 더 기다리면 «주말·장마감» 처럼 느린 경로에서 그냥 실패한다.
   // 실패를 늘리지 말고 몇 번 더 기다린다 — 게이트는 유지된다.
-  const bad = (x) => x.loading || x.nums < 6 || x.blankCell;
+  const bad = (x) => x.loading || x.nums < 6 || x.blankCell || x.skeleton > 0;
   for (let i = 0; i < (Number(process.env.X_SHOT_RETRIES) || 3) && bad(st); i++) {
     await sleep(9000);
     st = await inspect();
-    console.log(`[재시도 ${i + 1}] loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell}`);
+    console.log(`[재시도 ${i + 1}] loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell} 스켈레톤=${st.skeleton}`);
   }
   if (bad(st)) {
     console.error(`[검수 실패] 화면이 안 채워졌다 — loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell} 글자=${st.len}. 저장하지 않는다.`);
