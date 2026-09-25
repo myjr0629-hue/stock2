@@ -290,7 +290,13 @@
    "id": "indiehackers",
    "tier": "A",
    "enabled": true,
-   "note": "제품 타임라인 포스트 — 빌더 청중, 외부링크 nofollow. ★2026-09-20 실측: **글 작성에 «간격 게이트»가 있다** — 9/19 글 하나 쓴 뒤 `/new-post` 가 「You can't create posts yet」. 계정 정지가 아니다(댓글은 정상). **막히면 댓글로 간다**: 댓글은 링크가 살아 있는 `<a href>` 로 들어가고 로그아웃 공개 검증됨. 댓글칸은 plain textarea → 클릭 후 `document.execCommand('insertText')`, 제출은 작성칸 «아래»의 POST COMMENT(동명 버튼이 댓글마다 있으니 좌표로 구분)."
+   "note": "제품 타임라인 포스트 — 빌더 청중, 외부링크 nofollow. ★2026-09-20 실측: **글 작성에 «간격 게이트»가 있다** — 9/19 글 하나 쓴 뒤 `/new-post` 가 「You can't create posts yet」. 계정 정지가 아니다(댓글은 정상). **막히면 댓글로 간다**: 댓글은 링크가 살아 있는 `<a href>` 로 들어가고 로그아웃 공개 검증됨. 댓글칸은 plain textarea → 클릭 후 `document.execCommand('insertText')`, 제출은 작성칸 «아래»의 POST COMMENT(동명 버튼이 댓글마다 있으니 좌표로 구분).",
+   "gate": {
+    "kind": "로그인",
+    "until": null,
+    "who": "대표 1회(㊹)",
+    "why": "2026-09-26 00:5x 실측: IH «Sign in»(세션 만료). 구글 OAuth 계정인데 연결된 구글 계정 기록이 없어(선택지 contact@·myjr0629@ 외 2) 잘못 고르면 새 계정 위험 → 고르지 않음. 대표 재로그인 후 해제. 준비된 댓글: 모바일 앱 무광고 성장 실험 스레드(좋아요 15·댓글 138)에 채널별 건당 클릭"
+   }
   },
   {
    "id": "x_reply",

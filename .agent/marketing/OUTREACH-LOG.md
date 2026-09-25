@@ -12247,3 +12247,18 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 고정 ⑥ 스윕 | 0편(누계 84) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
 | 개선 필요(다음) | linkedin-post.mjs: ①이미지 첨부 경로(§22 우회 — setInputFiles·drop·paste) ②검증을 «관리 메뉴 → 링크 복사 → lnkd.in 풀기»로 교체 | — |
+
+
+---
+
+## 2026-09-26 (KST) 01:30~01:53 — 시간 사이클: 실행 4 전부(블루스키 제작기 ✅·X 미국 ✅·Quora 스페이스 ✅·링크드인 아티클 ✅) · 인디해커스 게이트(로그인 ㊹) · 게이트 341/0 · **스윕 1편 차단(ahfdrtuw10.shop, 누계 85)**
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| indiehackers — 게이트 등록 | 00:5x 세션 만료(대표 재로그인 ㊹)인데 slot 이 계속 1순위로 배정 → 도구의 신호 → channels.json 게이트(로그인) | channels.json indiehackers.gate |
+| **bluesky_buildinpublic ✅(계정 합계 2/3)** | #buildinpublic 제작기: «발행 계획기가 채널별 하루 캡만 세고 계정 합계를 안 셌다 → 고정 소개글·제작기를 같은 계정에 더하자 하루 5편(내 한도 3) → 이제 계정 합계로 센다». 앱 사용자에게 보이는 버그는 공개하지 않음. 이미지 = 가디언 화면(«모든 게시물에 앱 화면»), 링크 from=bluesky_bip | https://bsky.app/profile/signumhq.bsky.social/post/3mwe72krfej26 · 공개 API: 본문·링크 facet·#buildinpublic 태그·이미지 |
+| **x_us ✅(계정 합계 1/2)** | «Wednesday, Sept 30 stacks three events»: 8:30 ET 8월 PCE + 2분기 GDP 3차 · 장 마감 뒤 $MU 4분기 · MU 최근 4번 다음 날 -2.8/+10.2/-3.8/+15.7%(모두 EPS 상회) · 10/2 만기 옵션 목요일 종가 기준 ~±9% · 이미지 = MU 머리글+다크풀. 첫 시도는 가중 293자(링크 23자 계산)로 280자 초과 → 게시 안 됨(도구가 «새 글 없음»으로 멈춤), 남은 작성창 없음 확인 후 276자로 줄이고 유니코드 «−»(X 가중치 2)를 «-» 로 바꿔 재발행 | https://x.com/signumhq/status/2103524929027383606 · 비로그인 syndication: 본문·사진 1·링크 from=x_us |
+| **quora_space ✅** | «Nike beat EPS estimates four times in a row. Twice, the stock fell double digits the next day.» — 나이키 4번 상회·다음 날 반응·평균 9.3%·«규칙 아님» · 10/2 스트래들 ±8.3%(11:49 ET) · 9/24 장외 38.8% vs 49.6%(FINRA) · 이미지 = 나이키 머리글+다크풀, 링크 from=quora_space | https://signumhqusstockmarketintelligence.quora.com/Nike-beat-EPS-estimates-four-times-in-a-row-Twice-the-stock-fell-double-digits-the-next-day-Nike-reports-fiscal-Q1-o · 로그인 화면: Space 게시물 5→6·본문·이미지 1·링크 / **비로그인 curl 은 403(Quora 자동 요청 차단) — 공개 화면은 못 쟀다** |
+| **linkedin_articles ✅** | «September 30: PCE, GDP and Micron in one session» — BEA 일정(8:30 ET PCE 8월·GDP 3차) · 7월 PCE 3.7%·근원 3.3%(샌프란 연은 FedViews 9/3) · 9/17 인상·목표 3.75~4.00%·EFFR 3.88% · 8/24 이후 2년 +63·10년 +48·30년 +24bp · MU 컨센서스 $31.24 vs 1년 전 $2.86·최근 4번 반응·10/2 옵션 ±9.3%(9/24 종가) · SK하이닉스 -1.0/+0.2/-4.1/+13.1%·삼성 +0.8/-0.3/-3.8/+5.3%(한국이 먼저 반응) · «방향 아님» · AI 고지 · 표지 = MU 앱 화면(1200×675) | https://www.linkedin.com/pulse/september-30-pce-gdp-micron-one-session-signum-hq-33lec/ · 비로그인: 제목·첫 문단·링크·표지 |
+| 고정 ⑥ 스윕 — 1편 차단 | «종목» 에서 새 일회용 도메인 **ahfdrtuw10.shop** 차단 → 누계 85편 | /tmp/ego/arc-blocked-*.json |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
