@@ -51,6 +51,7 @@ const CH = {
   github_topics: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-24 — 저장소 About·토픽(얇은 토픽: short-volume 1·max-pain 9·congress-trading 11·dark-pool 19). 새 데이터셋을 올리면 토픽도 같이' },
   onestore: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — 원스토어 «미국주식» 검색 결과 앱 4개(얇은 문). 개발자 등록 = 대표' },
   linkedin_newsletter: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(자격) — 편집기 «올리는 대상»에 개별 글뿐. 생기면 대표 승인(구독 초대 대량 알림) 후 개설' },
+  naver_stock_discussion: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류(대표결정) — 대표 개인 네이버 계정·클린봇·자본시장법 민감' },
   en_media: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(메일승인) — 9to5Mac·TapSmart 인디 코너 제보, 초안 press/READY-TO-SEND.md §⑥' },
   tradingview_ideas: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류 — 사이트 전체 홍보 금지(회사명·링크 포함), 예외는 유료 Premium 서명' },
   note_joint_magazine: { cap: 0, day: 'kst', window: [7, 23], note: '★2026-09-25 게이트(약관 체크) — note 첫 댓글 모달 체크박스는 대표 몫. 참가 승인 후 cap 1(글을 마가진에 추가, 연속 금지)' },
