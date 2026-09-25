@@ -12096,3 +12096,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 고정 ⑥ 스윕 | 0편(누계 82) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
 | 키우기 | bluesky 3/3·geeknews 주 1/1·indiehackers 1/1, 그 다음(note·x_us·medium·x_jp)도 오늘 캡 소진 → 추가 없음 | — |
+
+
+---
+
+## 2026-09-25 (KST) 14:30~14:38 — 시간 사이클: ⚠ 안전선 초과 발견·수리(계정 합계 캡) · 실행 0(threads_jp 배정 → 계정 합계 초과라 발행 안 함) · 게이트 341/0 · 스윕 0 · 확장(threads_kr 후보·bluesky_jp 보류) · 7-j 판정 정정
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **⚠ 안전선 초과(9/25 KST, 원장 실측)** | 블루스키 본글 **5편**(bluesky 00:45·02:24·05:34 + bluesky_buildinpublic 01:04 + bluesky_pin 새 소개글 04:39) > 안전선 3 · X 미국 **3편**(x_post 01:58·02:53 + x_pin 새 소개글 07:14) > 2. 원인: 확장으로 만든 하위 채널마다 자기 캡만 있고 «계정 합계»를 세는 곳이 없었다. 이번 사이클 slot 이 새 채널 threads_jp 를 배정했는데 이것도 Threads 오늘 3번째 본글이 되는 것이었다 → **발행하지 않았다**. 이미 올라간 글은 지우지 않는다(반응 소실) — 오늘은 두 계정에 더 올리지 않는다 | PUBLISH-LEDGER.json |
+| **종류 수리 — 계정 합계 캡** | `scripts/mkt-plan.js` 에 `ACCOUNTS` 묶음(bluesky_acct 3·threads_acct 2·x_us_acct 2·x_jp_acct 2·mastodon_acct 2·naver_acct 3). 묶음 합이 캡에 닿으면 묶음 전체 «소진», `pub` 은 초과 때 경고. 적용 후 slot: 실행 레인 «열린 채널 없음»(threads_jp 가 소진으로 바뀜). 답글 채널은 본글이 아니라 따로 센다. 메모리 account-cap-must-sum-subchannels | mkt-plan.js |
+| **판정 정정 — HANDOFF 7-j** | 11:5x 에 적은 «부분 체인(630계약)» 가설은 **틀렸다**. 별도 작업 세션(브랜치 `fix/maxpain-chain-vintage`) 실측: 630계약은 9/25 만기 전체였고 **미결제약정 날짜가 9/23(하루 늦음)** — 수집 Lambda 체인 캐시가 날짜 없이 20시간 적중 + 같은 레벨을 만드는 생산자가 5개라 문마다 값이 달랐다(1020/1000/970). 수리는 그 브랜치(구조 한 벌을 모든 문 출구에서 덮기 + 체인 판본). main 의 7-j 줄은 그 브랜치가 이미 고쳐 두었으므로 충돌을 피하려고 여기(로그)에만 정정을 적는다 | origin/fix/maxpain-chain-vintage |
+| 실행 — threads_jp | 배정됐지만 계정 합계(Threads 오늘 본글 2/2) 때문에 발행 안 함 → 9/26 07시 이후 | — |
+| 확장 — threads_kr(후보, cap 0) | Threads «미국주식» 인기글 좋아요 97~651·답글 16~64 — 계정 합계 2 가 영어 1 + 일본어 1 로 차 있어, threads_jp 첫 주(9/26~10/2) 클릭을 본 뒤 번갈아 쓸지 결정 | channels.json threads_kr |
+| 확장 — bluesky_jp(보류) | 일본어 주식 피드(getPopularFeedGenerators query=株) 좋아요 21·12·7·5·4·2 — 작다. 공개 searchPosts 는 JSON 이 아닌 응답(인증 필요 추정)이라 글 반응은 못 쟀다 | channels.json bluesky_jp |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |

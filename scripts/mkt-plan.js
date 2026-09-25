@@ -105,6 +105,8 @@ const CH = {
   x_post:      { cap: 2, day: 'kst', window: [0, 24], note: '링크는 앞 280자 안' },
   x_reply:     { cap: 3, day: 'kst', window: [21, 24], note: '청중 차용. 280자 하드 제한·링크 금지·with_replies 로 검증' },
   threads:     { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 하루 2→1: 영어 글 건당 0.36클릭(11건) — 한 자리를 threads_jp 로 옮겼다(계정 합계 하루 2 유지). 패널 좌표로 스코프·프로필 time 으로 검증' },
+  threads_kr:  { cap: 0, day: 'kst', window: [8, 23], note: '★2026-09-25 후보 — threads_jp 첫 주 결과 뒤 결정(계정 합계 2 안에서)' },
+  bluesky_jp:  { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류 — 일본어 주식 피드가 작다(좋아요 2~21)' },
   threads_jp:  { cap: 1, day: 'kst', window: [7, 23], note: '★2026-09-25 확장 — 같은 Threads 계정의 일본어 글 + 주제 태그 #米国株(글당 태그 1개, 본문 해시태그가 주제로 바뀐다). 실측: 米国株·NISA 주제 인기글 좋아요 365~879·답글 64~131. 앱 화면(ja)+ ?from=threads_jp. 예측·권유 금지' },
   threads_reply: { cap: 2, day: 'kst', window: [0, 24], note: '오독 정정은 반드시 원문 확인 후' },
   instagram:   { cap: 2, day: 'week', window: [0, 24], note: '★2026-09-25 하루 1 → 주 2(줄이되 죽이지 않는다): 9/25 01:58 게시물 9시간 인사이트 = 조회 0·반응 0·프로필 방문 0·링크 누름 0, 21일 건당 0.4클릭. 자르기 «원본»·링크는 바이오. 웹엔 «프로필 고정» 메뉴 없음(앱 전용)' },
@@ -145,6 +147,19 @@ const CHECKS = [
   { at: '22:30', what: '미국 정규장 개장 — X 답글·레딧 가치 댓글', cmd: '' },
 ];
 
+// ★2026-09-25 계정 합계 캡 — 한 계정에 채널이 여러 개(본글·고정 소개글·제작기·언어판)면 채널별 캡만 보고는
+//   계정 전체가 안전선을 넘는다. 실측(원장, KST 9/25): 블루스키 본글 5(bluesky 3 + bluesky_buildinpublic 1 + bluesky_pin 소개글 1)
+//   > 안전선 3 · X 미국 3(x_post 2 + x_pin 소개글 1) > 2. 그리고 새로 만든 threads_jp 가 같은 날 Threads 3번째 본글로 배정됐다.
+//   → 계정 묶음의 합이 캡에 닿으면 묶음 안 모든 채널을 «소진»으로 본다(답글 채널은 본글이 아니라 따로 센다).
+const ACCOUNTS = {
+  bluesky_acct:  { cap: 3, members: ['bluesky', 'bluesky_buildinpublic', 'bluesky_pin'] },
+  threads_acct:  { cap: 2, members: ['threads', 'threads_jp', 'threads_kr'] },
+  x_us_acct:     { cap: 2, members: ['x_post', 'x_pin'] },
+  x_jp_acct:     { cap: 2, members: ['x_jp'] },
+  mastodon_acct: { cap: 2, members: ['mastodon'] },
+  naver_acct:    { cap: 3, members: ['naver_blog'] },
+};
+function acctOf(ch) { for (const [k, a] of Object.entries(ACCOUNTS)) if (a.members.includes(ch)) return k; return null; }
 function counts() {
   const led = load(); const k = kstDate(); const u = utcDate();
   const out = {};
@@ -155,6 +170,16 @@ function counts() {
       ? led.entries.filter((e) => e.ch === ch && e.kst >= weekAgo).length
       : led.entries.filter((e) => e.ch === ch && (r.day === 'utc' ? e.utc === d : e.kst === d)).length;
     out[ch] = { used, cap: r.cap, left: Math.max(0, r.cap - used), over: used > r.cap, day: r.day, window: r.window, note: r.note };
+  }
+  // 계정 합계 캡 적용(KST 하루)
+  for (const [k, a] of Object.entries(ACCOUNTS)) {
+    const total = led.entries.filter((e) => a.members.includes(e.ch) && e.kst === kstDate()).length;
+    for (const m of a.members) {
+      if (!out[m]) continue;
+      out[m].acct = k; out[m].acctUsed = total; out[m].acctCap = a.cap;
+      if (total >= a.cap) { out[m].left = 0; }
+      if (total > a.cap) { out[m].acctOver = true; }
+    }
   }
   return out;
 }
@@ -170,7 +195,8 @@ if (cmd === 'pub') {
   }
   const led = load(); led.entries.unshift({ ch, url: url || '', note: rest.join(' '), at: new Date().toISOString(), kst: kstDate(), utc: utcDate() });
   led.entries = led.entries.slice(0, 500); save(led);
-  const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)`);
+  const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)` + (c.acct ? ` · 계정 합계 ${c.acctUsed}/${c.acctCap}(${c.acct})` : ''));
+  if (c.acctOver) console.log(`⚠ 계정 합계 캡 초과 — ${c.acct} 오늘 ${c.acctUsed}/${c.acctCap}. 안전선 위반이다: OUTREACH-LOG 에 기록하고 오늘은 이 계정에 더 올리지 않는다.`);
   process.exit(0);
 }
 const c = counts(); const now = hhmm(); const hour = Number(now.slice(0, 2));

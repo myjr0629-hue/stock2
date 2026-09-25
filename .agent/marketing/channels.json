@@ -1357,6 +1357,27 @@
    "link": "https://signumhq.com/app?from=threads_jp&l=ja",
    "action": "post_topic",
    "note": "★2026-09-25 13:4x 확장 발굴(실측): Threads 검색 «米国株» → 주제 태그(株初心者·株) 인기글 좋아요 143~365·답글 47~64, «NISA» 주제 좋아요 458~879·답글 43~131 — 일본 Threads 투자 주제가 영어 쪽보다 반응이 훨씬 크다. 우리 영어 글은 건당 0.36클릭(11건). 한국어 «미국주식»(좋아요 97~651)·대만어 «投資»(2만)도 크다 → 일본어부터 하루 1(threads 영어 2→1 로 계정 합계 2 유지). 형식: 일본어 본문(오늘의 사실 1개+왜 의미 있나)+앱 화면(ja)+스마트링크+본문 해시태그 1개(#米国株)로 주제 진입. 발행기 scripts/threads-post.mjs(그대로 사용). 첫 발행 = 9/26 KST(오늘 threads 캡 소진)."
+  },
+  {
+   "id": "threads_kr",
+   "name": "Threads 한국어 글(주제 태그 #미국주식)",
+   "tier": "B",
+   "enabled": false,
+   "handle": "@signumhq_official",
+   "tag": "threads_kr",
+   "link": "https://signumhq.com/app?from=threads_kr&l=ko",
+   "action": "post_topic",
+   "note": "★2026-09-25 14:4x 확장 후보(실측): Threads 검색 «미국주식» 인기글 좋아요 97~651·답글 16~64(«커버드콜» 주제 651). 계정 합계 하루 2(threads 영어 1 + threads_jp 1)가 이미 차 있어 지금은 cap 0 — threads_jp 첫 주(9/26~10/2) 클릭을 본 뒤, 영어 자리와 번갈아 쓸지 결정한다(mkt-plan ACCOUNTS.threads_acct 에 넣을 것)."
+  },
+  {
+   "id": "bluesky_jp",
+   "name": "블루스키 일본어 주식 피드",
+   "tier": "B",
+   "enabled": false,
+   "handle": "signumhq.bsky.social",
+   "tag": "bluesky",
+   "action": "rejected",
+   "note": "★2026-09-25 14:4x 확장 발굴 → 보류(실측): getPopularFeedGenerators(query=株) 일본어 주식 피드는 좋아요 21(株主倶楽部)·12(日本株)·7·5·4·2 로 작다(우리 영어 FinSky 쪽이 이미 건당 6.7 클릭). 공개 searchPosts 는 JSON 이 아닌 응답(인증 필요로 추정)이라 글 반응은 못 쟀다. 일본은 X·note·Threads 쪽이 크다."
   }
  ],
  "candidates": [

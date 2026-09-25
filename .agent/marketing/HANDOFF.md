@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-25 13:50 KST** (시간 사이클 — Threads 답글 2/2(yahoofinance 답글은 비로그인 invalid_post = 공개 미확인, 도구에 공개 검사 추가) · 확장 threads_jp(일본 Threads 투자 주제, 영어 2→1, 첫 발행 9/26) · 스윕 0 · Command MAX PAIN 불일치 7-j · 옵션 구조 수리 main 미반영(㊲))
+마지막 갱신: **2026-09-25 14:38 KST** (시간 사이클 — ⚠ 9/25 블루스키 본글 5·X 미국 3 = 안전선 초과 발견 → mkt-plan 계정 합계 캡(ACCOUNTS) 신설 · threads_jp 발행 보류(9/26) · 확장 threads_kr 후보·bluesky_jp 보류 · 7-j «부분 체인» 가설 정정(실제는 하루 늦은 OI — fix/maxpain-chain-vintage, §3 ㊲-2) · 옵션 구조 수리 main 미반영(㊲))
 
 ---
 
