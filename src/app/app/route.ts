@@ -61,6 +61,34 @@ async function recordHit(fromRaw: string | null, platform?: HitPlatform): Promis
   }
 }
 
+/**
+ * ★2026-09-26 — «데스크톱 클릭»이 사람인지 잰다(동작은 그대로, 카운터만 더한다).
+ * 왜: 9/23~25 블루스키 계열 태그(bluesky·bluesky_bip·bluesky_pin) 91클릭이 «폰 0»이었다. 블루스키는 모바일 앱
+ * 사용자가 많아서, 사람이 누른 것이라면 나오기 어려운 비율이다. 게시물은 대부분 좋아요 0·팔로워 25였다.
+ * PREVIEW_BOT_RE 에 없는 수집기(meta-externalagent·Go-http-client·python-requests·헤드리스 브라우저 등)는
+ * 지금 전부 «desktop 클릭»으로 잡힌다 — 그 숫자가 «키우기» 레인(어디에 더 쓸지)을 정하고 있다.
+ * 그래서 데스크톱으로 분류된 요청을 UA 계열로 한 칸 더 센다: mkt:attr:ua:<from>:<kind>:<ET날짜>
+ *   nomoz = UA 에 Mozilla/ 가 없다(라이브러리·스크립트) · bot = 수집기 표지 · nolang = Accept-Language 없음
+ *   mac · win · linux · other = 사람 브라우저로 보이는 것
+ */
+const UA_BOT_RE = /bot|crawl|spider|slurp|headless|python|curl|wget|go-http|okhttp|java\/|axios|node-fetch|undici|libwww|http-?client|scrapy|externalagent|externalfetcher|preview|monitor|checker|lighthouse|phantom|puppeteer|playwright/i;
+
+function uaKind(ua: string, acceptLanguage: string | null): string {
+  if (!/Mozilla\//.test(ua)) return 'nomoz';
+  if (UA_BOT_RE.test(ua)) return 'bot';
+  if (!acceptLanguage) return 'nolang';
+  if (/Macintosh|Mac OS X/.test(ua)) return 'mac';
+  if (/Windows/.test(ua)) return 'win';
+  if (/Linux|X11|CrOS/.test(ua)) return 'linux';
+  return 'other';
+}
+
+async function recordUa(fromRaw: string | null, kind: string) {
+    const from = (fromRaw || '').toLowerCase();
+    if (!/^[a-z0-9_]{1,24}$/.test(from)) return;
+    try { await bump(`mkt:attr:ua:${from}:${kind}:${etDate()}`); } catch { /* 집계 실패가 이동을 막지 않는다 */ }
+}
+
 /** PC 넘겨주기 QR 로 «폰에서» 들어온 클릭 — 넘겨주기가 먹히는지 따로 잰다. */
 async function recordQrHit(fromRaw: string | null) {
     const from = (fromRaw || '').toLowerCase();
@@ -106,6 +134,10 @@ export async function GET(request: NextRequest) {
   const hitPlatform: HitPlatform = /android/i.test(ua) ? 'android'
     : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop';
   after(() => recordHit(fromTag, hitPlatform));
+  if (hitPlatform === 'desktop') {
+    const kind = uaKind(ua, request.headers.get('accept-language'));
+    after(() => recordUa(fromTag, kind));
+  }
 
   // ── 리딤코드 한 줄 링크 ──────────────────────────────────────────────
   //
