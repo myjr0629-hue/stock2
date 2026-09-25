@@ -1521,9 +1521,12 @@ export default function AppFlowPage() {
     return { callWallDerived: cStrike, putFloorDerived: pStrike };
   }, [rawChain]);
 
-  // Use rawChain-derived values (web standard), fall back to API if rawChain empty
-  const putFloorVal = putFloorDerived > 0 ? putFloorDerived : putFloorValApi;
-  const callWallVal = callWallDerived > 0 ? callWallDerived : callWallValApi;
+  // ★ [2026-09-25] 콜월·풋플로어는 API(구조 한 벌: 주간 만기 미결제약정, 현물 ±20%)의 값을 먼저 쓴다.
+  //   예전엔 이 화면만 0~7DTE «거래량»(전일 EOD) 최대 행사가를 같은 이름으로 불러 Command·구조 API 와
+  //   값이 갈렸다(COST 9/25: Flow 900/900 vs 구조 945/890). 이름이 같으면 값도 같아야 한다.
+  //   거래량 최대 행사가는 API 가 비었을 때만 대신한다(거래량 분포는 STRIKE 탭 막대로 그대로 보인다).
+  const putFloorVal = putFloorValApi ?? (putFloorDerived > 0 ? putFloorDerived : null);
+  const callWallVal = callWallValApi ?? (callWallDerived > 0 ? callWallDerived : null);
   const impliedMoveRaw = tickerData?.flow?.impliedMove ?? (atmIvVal != null ? (atmIvVal / Math.sqrt(252) * 100) : null);
   const impliedMoveStr = impliedMoveRaw != null ? `±${impliedMoveRaw.toFixed(1)}%` : '—';
 
@@ -4499,10 +4502,10 @@ export default function AppFlowPage() {
         });
         selectedStrikes.sort((a, b) => b - a);
         maxVal = Math.max(100, ...selectedStrikes.map(stk => Math.max(strikeMap[stk].call || 0, strikeMap[stk].put || 0)));
-        // [MATCH WEB] Use rawChain-derived VOLUME values (not API OI cache)
-        // API levels only used as fallback when rawChain calculation found nothing
-        if (wallStrike <= 0 && flowCallWall != null) wallStrike = flowCallWall;
-        if (floorStrike <= 0 && flowPutFloor != null) floorStrike = flowPutFloor;
+        // ★ [2026-09-25] 콜월·풋플로어 표시는 위 callWallVal·putFloorVal(= API 구조 한 벌)을 따른다.
+        //   이 창 안의 거래량 최대 행사가는 그 값이 없을 때만 대신한다 — 같은 이름에 다른 값을 두지 않는다.
+        if (flowCallWall != null) wallStrike = flowCallWall;
+        if (flowPutFloor != null) floorStrike = flowPutFloor;
 
         const closestStrike = selectedStrikes.reduce((prev, curr) => 
           Math.abs(curr - displayPrice) < Math.abs(prev - displayPrice) ? curr : prev

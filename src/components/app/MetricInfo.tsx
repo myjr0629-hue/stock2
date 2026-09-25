@@ -24,10 +24,14 @@ export function MetricInfo({
   term,
   locale = 'en',
   size = 16,
+  note,
 }: {
   term: MetricTerm;
   locale?: string;
   size?: number;
+  /** 이 화면의 «그 값»이 무엇을 기준으로 계산됐는지(예: 만기·자료 날짜). 뜻풀이 아래 한 줄로 보인다.
+   *  라벨은 업계어 그대로 두고, 기준은 팝업에서 밝힌다(카드 크기를 키우지 않는다). */
+  note?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const entry = METRIC_GLOSSARY[term];
@@ -68,6 +72,7 @@ export function MetricInfo({
           <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <div style={titleStyle}>{title}</div>
             <div style={bodyStyle}>{body}</div>
+            {note ? <div style={noteStyle}>{note}</div> : null}
             <button type="button" style={closeStyle} onClick={() => setOpen(false)}>{close}</button>
           </div>
         </div>,
@@ -90,6 +95,10 @@ const cardStyle: CSSProperties = {
 };
 const titleStyle: CSSProperties = { fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8 };
 const bodyStyle: CSSProperties = { fontSize: 13, lineHeight: 1.65, color: 'var(--text-dim)' };
+const noteStyle: CSSProperties = {
+  marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-strong)',
+  fontSize: 12, lineHeight: 1.55, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums',
+};
 const closeStyle: CSSProperties = {
   marginTop: 18, width: '100%', padding: 12, borderRadius: 12,
   background: 'var(--cyan-dim)', color: 'var(--cyan)', border: '1px solid var(--cyan)',

@@ -147,12 +147,28 @@ const DEMO = {
     callWall: 0,
     putFloor: 0,
     maxPain: 0,
+    // 맥스페인의 기준(만기·미결제약정 자료 날짜) — live/ticker 가 준 값일 때만 채운다
+    maxPainBasis: null as { exp: string | null; chainDate: string | null } | null,
     netPremium: 0,
     darkPool: '—',
     blockTrades: 0,
     aiInsight: '',
   },
 };
+
+/**
+ * 맥스페인이 «어느 만기·며칠 자 미결제약정»으로 계산됐는지 — MAX PAIN 팝업(ⓘ) 한 줄. [2026-09-25]
+ * 카드 크기를 키우지 않으려고 라벨은 업계어(MAX PAIN) 그대로 두고 기준은 팝업에서 밝힌다.
+ */
+function levelsBasisNote(basis: { exp: string | null; chainDate: string | null } | null | undefined, locale: string): string | null {
+  if (!basis?.exp || !/^\d{4}-\d{2}-\d{2}$/.test(basis.exp)) return null;
+  const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  const exp = md(basis.exp);
+  const oi = basis.chainDate && /^\d{4}-\d{2}-\d{2}$/.test(basis.chainDate) ? md(basis.chainDate) : null;
+  if (locale === 'ko') return `기준: ${exp} 만기${oi ? ` · 미결제약정 ${oi} 자료` : ''}`;
+  if (locale === 'ja') return `基準：${exp}満期${oi ? ` · 建玉 ${oi}付データ` : ''}`;
+  return `Basis: ${exp} expiry${oi ? ` · open interest dated ${oi}` : ''}`;
+}
 
 /* ═══════════════════════════════════════════
    CANDLESTICK DATA GENERATOR
@@ -2429,6 +2445,11 @@ function CmdPageContent() {
           callWall: flow.callWall ?? u?.structure?.callWall ?? DEMO.premium.callWall,
           putFloor: flow.putFloor ?? u?.structure?.putFloor ?? DEMO.premium.putFloor,
           maxPain: flow.maxPain ?? u?.structure?.maxPain ?? 0,
+          // ★ [2026-09-25] 그 맥스페인이 «어느 만기·며칠 자 미결제약정»인지. live/ticker 는 옵션 레벨을
+          //   구조 한 벌에서 주며 levelsExpiration·levelsChainDate 를 싣는다. 폴백 값엔 라벨을 붙이지 않는다.
+          maxPainBasis: flow.maxPain != null && flow.levelsExpiration
+            ? { exp: flow.levelsExpiration ?? null, chainDate: flow.levelsChainDate ?? null }
+            : null,
           // ⚠️ API 가 내보내는 이름은 `netPremium` 이다. `netFlow` 는 존재하지
           //    않아 항상 undefined → 0 이었다. 그래서 Flow 화면엔 $22.4M 이
           //    뜨는데 Command 만 «—» 였다(대표가 두 화면을 나란히 놓고 발견).
@@ -3363,7 +3384,7 @@ function CmdPageContent() {
         {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
         <div className={s.heroMetrics}>
           <div className={s.heroMetricCard}>
-            <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} /></span>
+            <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} note={levelsBasisNote(data.premium.maxPainBasis, locale)} /></span>
             <span className={s.heroMetricValue}>
               ${data.premium.maxPain > 0 ? data.premium.maxPain.toFixed(0) : '—'}
             </span>
