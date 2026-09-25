@@ -418,6 +418,9 @@ async function fetchOptionsSnapshotRaw(ticker) {
       ? probeResults.filter((c) => c.details && c.details.expiration_date === weeklyExpiry)
       : [];
 
+    // 만기별 EOD 날짜(어댑터가 체인에서 읽어 실어 준다) — 아래 페이로드에 싣는다.
+    const chainDates = Object.assign({}, (probeRaw && probeRaw.chainDates) || {});
+
     // 방어: probe 창(0~35 DTE) 밖에 주간이 있는 이상 상황이면 그때만 직접 받는다.
     if (weeklyExpiry && exactResults.length === 0) {
       console.warn('[flow-harvest] ' + ticker + ' 주간(' + weeklyExpiry + ')이 probe 에 없다 — 직접 조회');
@@ -426,6 +429,7 @@ async function fetchOptionsSnapshotRaw(ticker) {
         + '?limit=250&expiration_date=' + weeklyExpiry + '&apiKey=' + POLYGON_KEY, 12000
       ).catch(() => null);
       exactResults = (data && data.results) || [];
+      if (data && data.chainDates) Object.assign(chainDates, data.chainDates);
     }
 
     // [COST OPT] Slim contract — keep ONLY fields used by Vercel's structureService + centralDataHub
@@ -480,12 +484,32 @@ async function fetchOptionsSnapshotRaw(ticker) {
       //   어댑터가 greeksSource / greeksRealtimeCount 를 실어 준다.
       greeksSource: (probeRaw && probeRaw.greeksSource) || 'eod',
       greeksRealtimeCount: (probeRaw && probeRaw.greeksRealtimeCount) || 0,
+      // ★ [2026-09-25] 미결제약정이 «며칠 자 EOD» 인지. 슬림 계약에는 날짜가 없어서
+      //   Vercel 이 알 방법이 없었다(dataFreshness.chainDate 가 늘 null) — 그래서
+      //   하루 늦은 체인이 «지금 값»처럼 나가도 아무도 몰랐다.
+      //   chainDate = 주간 만기 체인의 날짜(맥스페인·콜월·풋플로어가 이걸로 계산된다).
+      chainDate: chainDates[weeklyExpiry] || null,
+      chainDates,
       _ts: Date.now(),
       _ticker: ticker,
       _source: 'lambda-flow-harvest',
     };
 
-    await redisSet('polygon:snapshot:probe:' + ticker, cachePayload, getEffectiveTTL(OPTIONS_SNAPSHOT_TTL));
+    const probeTtl = getEffectiveTTL(OPTIONS_SNAPSHOT_TTL);
+    const wrote = await redisSet('polygon:snapshot:probe:' + ticker, cachePayload, probeTtl);
+
+    // ★ [2026-09-25] 작은 «판본표» — Vercel 의 옵션 구조 캐시(장외 72시간)가 이 체인보다
+    //   오래된 체인으로 계산된 것인지 수십 바이트로 판정하게 한다(프로브 본문은 수백 KB).
+    //   예전엔 장중에 계산한 전날 체인 값이 새 EOD 공표 뒤에도 밤새(=한국 낮) 나갔다.
+    //   프로브를 못 썼으면 판본표도 쓰지 않는다 — 없는 새 판본을 광고하면 안 된다.
+    if (wrote) {
+      await redisSet('polygon:snapshot:probe:meta:' + ticker, {
+        chainDate: cachePayload.chainDate,
+        chainDates: cachePayload.chainDates,
+        weeklyExpiry,
+        _ts: cachePayload._ts,
+      }, probeTtl);
+    }
 
     return true;
   } catch (e) {
