@@ -12081,3 +12081,18 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 고정 ⑥ 스윕 | 0편(누계 82) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속(11:4x 확인) | — |
 | 도구 사고 | 로그 추가 파이썬을 heredoc 으로 넘겼더니 «Non-UTF-8 code \xc2» 로 실패 → 커밋엔 로그가 빠졌다. 파일로 써서 다시 실행(이 항목) | — |
+
+
+---
+
+## 2026-09-25 (KST) 13:30~13:50 — 시간 사이클: 실행 1(threads_reply 2/2 — ⚠ 공개 미확인) · 게이트 341/0 · 클릭 캐시 갱신 · 스윕 0 · 확장(threads_jp — 일본 Threads 투자 주제, threads 영어 2→1)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 클릭 재측정 | `mkt-clicks.js`(캐시 7시간 경과 경고): 21일 건당 bluesky 6.7(3일 42) · indiehackers 6.57(14) · note 4.89(8) · x_us 4.54(13) · medium 3.44(5) · x_jp 2.58(4) · quora_space 1.17(3) · naver_blog 0.5(3) · threads 0.36(1) · reddit 0.26(0) · threads_reply·bluesky_reply·x_reply 0 | clicks-cache.json |
+| **threads_reply 2/2 — ⚠ 공개 미확인** | @yahoofinance «The last time the 10-year yield was this high, it was July 2007…»(조회 558·좋아요 3 — 큰 계정인데 반응은 작았다) ← 데이터 답글: 8/24→9/24 2년 +63·10년 +48·30년 +24bp(앞쪽이 끈다) · 10년 TIPS 2.38→2.85, 기대인플레 ~2.3% 그대로 · 5년 입찰 응찰률 2.21(직전 4개월 2.28~2.37) · 링크 0 · 이미지 = 가디언 상단(영문: 공포탐욕 36·VIX 15.7·신용 2.73%·연방기금 3.88%·10Y-2Y 0.31%, «Reversal» 게이지는 잘라 냄). 새 도구(threads-reply.mjs)가 한 번에 통과 → 내 답글 탭·부모 글 아래(로그인 화면)에는 보인다. **그런데 비로그인 크롤러는 2분·9분 뒤 모두 `?error=invalid_post`** — 같은 방식의 첫 답글(stasserfes)은 공개로 보이므로 부모 계정(브랜드)의 답글 필터나 스팸 필터로 추정. «공개 발행»으로 세지 않는다(원장은 캡 계산용으로 남김). **종류 수리**: threads-reply.mjs 가 게시 후 20초 뒤 비로그인 og:description 으로 공개 여부를 따로 재서 «공개 미확인»을 출력하게 했다 | https://www.threads.com/@signumhq_official/post/DdsnubpmQ_q (로그인 화면에서만 확인) |
+| **확장 — threads_jp(신규 등록)** | Threads 검색 실측: «米国株» 주제(株初心者·株) 인기글 좋아요 143~365·답글 47~64, «NISA» 좋아요 458~879·답글 43~131, 한국어 «미국주식» 97~651, 대만 «投資» 2만 — 우리 영어 글(건당 0.36클릭)이 있는 곳보다 반응이 훨씬 크다. → 채널 threads_jp 등록(일본어 글 + 본문 해시태그 #米国株 1개로 주제 진입 + 앱 화면 ja + ?from=threads_jp), 하루 1. 계정 합계 하루 2 를 지키려고 threads(영어) 캡 2→1. 오늘은 threads 캡 소진이라 첫 발행은 9/26 | channels.json threads_jp · mkt-plan.js |
+| 참고 — Threads «Investing» 주제 | 멤버 22만·«가입함». 영어 글엔 이미 주제 태그를 붙여 왔다(기존 기록) | — |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 키우기 | bluesky 3/3·geeknews 주 1/1·indiehackers 1/1, 그 다음(note·x_us·medium·x_jp)도 오늘 캡 소진 → 추가 없음 | — |

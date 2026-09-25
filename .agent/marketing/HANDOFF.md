@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-25 13:07 KST** (시간 사이클 — 레딧 3/3(r/Economics 연은 글 데이터 댓글) · Threads 답글 도구 신설·첫 답글(MU) · quora_jp·quora_de 피드 마름 게이트 9/28 · 구글 플레이 피처링 자격 없음·㊴(선택) · Command MAX PAIN 불일치 7-j · 옵션 구조 수리 main 미반영(㊲))
+마지막 갱신: **2026-09-25 13:50 KST** (시간 사이클 — Threads 답글 2/2(yahoofinance 답글은 비로그인 invalid_post = 공개 미확인, 도구에 공개 검사 추가) · 확장 threads_jp(일본 Threads 투자 주제, 영어 2→1, 첫 발행 9/26) · 스윕 0 · Command MAX PAIN 불일치 7-j · 옵션 구조 수리 main 미반영(㊲))
 
 ---
 

@@ -1343,6 +1343,20 @@
     "why": "2026-09-25 13:0x 확장 발굴: 구글 공식 안내(google.play/business/guides/featuring — play.google.com/console/about/guides/featuring 에서 302)의 추천 폼(forms.gle/S7JFvLvAWMjidws58)은 «premium title»의 «promotional details»(할인 판매)용 — 우리 앱은 무료라 대상이 아니다. 제3자 블로그의 «신규 앱 4개월·평점 3.0» 조건은 공식 문서에 없다(과장). 대안 = Apps Accelerator(12주 멘토링·구글 직원 접근, 신청 rsvp.withgoogle.com/events/play-apps-accelerator, 모집 일정 미표기) — 회사 명의 신청서라 대표 결정. 애플 쪽은 apple_featuring(API 5건 제출)로 이미 하고 있다."
    },
    "note": "확장(9/25): 발굴 → 자격 없음 확인 + 대표 결정 티켓. 폼 제출은 하지 않았다."
+  },
+  {
+   "id": "threads_jp",
+   "name": "Threads 일본어 글(주제 태그 #米国株)",
+   "tier": "B",
+   "handle": "@signumhq_official",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 0,
+   "followers": 3,
+   "tag": "threads_jp",
+   "link": "https://signumhq.com/app?from=threads_jp&l=ja",
+   "action": "post_topic",
+   "note": "★2026-09-25 13:4x 확장 발굴(실측): Threads 검색 «米国株» → 주제 태그(株初心者·株) 인기글 좋아요 143~365·답글 47~64, «NISA» 주제 좋아요 458~879·답글 43~131 — 일본 Threads 투자 주제가 영어 쪽보다 반응이 훨씬 크다. 우리 영어 글은 건당 0.36클릭(11건). 한국어 «미국주식»(좋아요 97~651)·대만어 «投資»(2만)도 크다 → 일본어부터 하루 1(threads 영어 2→1 로 계정 합계 2 유지). 형식: 일본어 본문(오늘의 사실 1개+왜 의미 있나)+앱 화면(ja)+스마트링크+본문 해시태그 1개(#米国株)로 주제 진입. 발행기 scripts/threads-post.mjs(그대로 사용). 첫 발행 = 9/26 KST(오늘 threads 캡 소진)."
   }
  ],
  "candidates": [

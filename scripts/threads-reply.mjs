@@ -77,5 +77,16 @@ const out = await page.evaluate(function (M) {
   return { found: !!hit, url: hit ? 'https://www.threads.com' + hit.h.replace(/\/media$/, '') : null, bodyHas: (document.body.innerText || '').includes(M) };
 }, task.mark);
 console.log(JSON.stringify(out));
-if (out.found) console.log('\n✅ 게시·확인(내 답글 탭):', out.url);
-else console.log('\n⚠ 내 답글 탭에서 mark 를 못 찾았다 — «게시됨»이라 쓰지 않는다');
+if (!out.found) { console.log('\n⚠ 내 답글 탭에서 mark 를 못 찾았다 — «게시됨»이라 쓰지 않는다'); process.exit(1); }
+console.log('\n✅ 게시(내 답글 탭에서 확인):', out.url);
+// ★2026-09-25 추가: «내 화면에 보임» ≠ «공개». @yahoofinance 글에 단 답글은 내 로그인 화면·부모 글 아래엔 보였지만
+//   비로그인(크롤러)에선 ?error=invalid_post 였다(부모 계정의 답글 필터 또는 스팸 필터 추정). 그래서 공개 여부를 따로 잰다.
+await L.wait(20000);
+try {
+  const r = await fetch(out.url, { headers: { 'user-agent': 'facebookexternalhit/1.1' }, redirect: 'follow' });
+  const html = await r.text();
+  const m = html.match(/property="og:description"[^>]*content="([^"]*)"/);
+  const desc = m ? m[1].replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&amp;/g, '&') : '';
+  const pub = !/invalid_post/.test(r.url) && desc.includes(task.mark.slice(0, 20));
+  console.log(pub ? '✅ 공개 확인(비로그인 크롤러 og:description)' : `⚠ 공개 미확인 — 비로그인 응답 ${r.url.includes('invalid_post') ? 'invalid_post' : '본문 없음'} (부모 계정 답글 필터/스팸 필터 가능). «공개 발행»이라 쓰지 않는다`);
+} catch (e) { console.log('공개 확인 실패:', String(e.message).slice(0, 60)); }
