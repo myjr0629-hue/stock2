@@ -533,8 +533,11 @@ export const useDashboardStore = create<DashboardState>()(
                     session: session as MarketSession,
                     pollPrice: existing.regularCloseToday || existing.underlyingPrice || 0,
                     pollPrevClose: existing.prevClose || existing.prevRegularClose || 0,
-                    pollExtPrice: 0,
-                    pollExtLabel: '',
+                    // ★ [2026-09-25] 폴링(서버)이 확인한 시간외 값이 있을 때만 WS 를 시간외 가격으로 쓴다
+                    //   (computeOnePipe 의 게이트 — WS 엔 체결 시각이 없어 종가 인쇄·어제 애프터를 못 가른다)
+                    pollExtPrice: session === 'PRE' ? (existing.extended?.prePrice || 0)
+                        : (session === 'POST' || session === 'CLOSED') ? (existing.extended?.postPrice || 0) : 0,
+                    pollExtLabel: session === 'PRE' ? 'PRE' : (session === 'POST' || session === 'CLOSED') ? 'POST' : '',
                     pollChangePct: null,
                     wsPrice: price,
                     regularCloseToday: existing.regularCloseToday,

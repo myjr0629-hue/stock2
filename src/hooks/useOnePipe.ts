@@ -108,7 +108,9 @@ export function computeOnePipe(params: {
             // PRE 본장 등락률: null이면 기존 값 유지 (Phase 0 race condition 방지)
             changePct = pollChangePct ?? changePct ?? 0;
             source = 'POLL';
-            const preRealtime = (wsPrice && wsPrice > 0) ? wsPrice : (pollExtPrice > 0 ? pollExtPrice : 0);
+            // ★ [2026-09-25] WS 가격엔 체결 시각·조건이 없다 — 04:00 직후 WS 최신가는 어제 애프터 체결일 수 있다.
+            //   서버(폴링)가 오늘 프리 체결을 확인(pollExtPrice > 0)한 뒤에만 WS 를 PRE 가격으로 쓴다.
+            const preRealtime = pollExtPrice > 0 ? ((wsPrice && wsPrice > 0) ? wsPrice : pollExtPrice) : 0;
             if (preRealtime > 0) {
                 extPrice = preRealtime;
                 extChangePct = lastRegClose > 0 ? round2(((preRealtime - lastRegClose) / lastRegClose) * 100) : 0;
@@ -124,7 +126,9 @@ export function computeOnePipe(params: {
             price = regClose;
             changePct = prevClose > 0 ? round2(((regClose - prevClose) / prevClose) * 100) : 0;
             source = 'POLL';
-            const postRealtime = (wsPrice && wsPrice > 0) ? wsPrice : (pollExtPrice > 0 ? pollExtPrice : 0);
+            // ★ [2026-09-25] 16:00 직후 WS 최신가는 «종가 인쇄»일 수 있다 — 서버가 오늘 애프터 체결을
+            //   확인(pollExtPrice > 0)한 뒤에만 WS 를 POST 가격으로 쓴다(그 뒤로는 WS 가 더 최신).
+            const postRealtime = pollExtPrice > 0 ? ((wsPrice && wsPrice > 0) ? wsPrice : pollExtPrice) : 0;
             if (postRealtime > 0) {
                 extPrice = postRealtime;
                 extChangePct = regClose > 0 ? round2(((postRealtime - regClose) / regClose) * 100) : 0;

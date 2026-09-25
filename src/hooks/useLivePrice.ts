@@ -106,7 +106,12 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
             //   previousClose 는 그 하나 앞(prevDay.c)이라 PRE 등락률이 한 세션 밀렸다.
             //   애프터의 quotes.price = 오늘 정규장 종가(= POST 기준선).
             let extChangePct = q?.extendedChangePercent || 0;
-            if (!isRegular) {
+            // ★ [2026-09-25] WS 메시지엔 체결 시각·조건이 없다({price, changePct, volume}뿐).
+            //   16:00 직후 WS 최신가는 종가 인쇄일 수 있고(9/25 COST: 화면 «POST $922.72 −0.05%» 인데
+            //   서버는 아직 애프터 체결 없음), 04:00 직후엔 어제 애프터 체결일 수 있다.
+            //   → 서버(quotes)가 «이 세션의 시간외 체결이 있다»고 확인한 뒤에만 WS 를 시간외 칸에 쓴다.
+            const extConfirmed = (q?.extendedPrice || 0) > 0;
+            if (!isRegular && extConfirmed) {
                 const basePrice = q?.price;
                 if (basePrice > 0) {
                     extChangePct = ((wsPrice.price - basePrice) / basePrice) * 100;
@@ -119,7 +124,7 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
                 prevClose: q?.previousClose || q?.prevClose || 0,
                 // [CRITICAL BUGFIX] Never route wsPrice.price to extendedPrice during REGULAR session.
                 // If it is regular session, extendedPrice MUST remain the frozen PRE/POST snapshot.
-                extendedPrice: !isRegular ? wsPrice.price : (q?.extendedPrice || 0),
+                extendedPrice: !isRegular ? (extConfirmed ? wsPrice.price : 0) : (q?.extendedPrice || 0),
                 extendedChangePercent: extChangePct,
                 extendedLabel: extLabel,
                 volume: wsPrice.volume || q?.volume || 0,
