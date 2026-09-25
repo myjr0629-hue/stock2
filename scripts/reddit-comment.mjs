@@ -17,6 +17,7 @@
  * 안전선(스크립트가 강제한다):
  *   · 본문 링크 금지 — 레딧에서 링크는 삭제 사유다. http(s) 가 있으면 거부한다.
  *   · AI 작성 금지 서브 제외: r/options · r/StockMarket · r/investing · r/iosapps · r/Daytrading
+ *     (+9/25 규칙 실측: r/ValueInvesting · r/Bogleheads · r/economy · r/personalfinance · r/quant · r/CanadianInvestor · r/fatFIRE · r/JapanFinance)
  *   · 하루 3건(UTC일)·8분 간격은 «사이클 규칙»이다. 이 스크립트는 한 번에 하나만 올린다.
  *
  * 사용:
@@ -32,7 +33,10 @@
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const { readFileSync } = await import('node:fs');
 
-const BANNED = ['options', 'stockmarket', 'investing', 'iosapps', 'daytrading'];
+// ★2026-09-25 규칙 전수 실측(/r/<sub>/about/rules.json, 48개 서브에서 AI·LLM·ChatGPT·generated 검색)으로 확장:
+//   valueinvesting(«AI-generated content» 삭제 사유) · bogleheads(«AI-generated responses» 금지) · economy(«ChatGPT-generated articles» 금지)
+//   personalfinance(«AI-generated content») · quant(«No AI Content») · canadianinvestor(«No AI») · fatfire(«No … AI posts») · japanfinance(«LLM-generated content»)
+const BANNED = ['options', 'stockmarket', 'investing', 'iosapps', 'daytrading', 'valueinvesting', 'bogleheads', 'economy', 'personalfinance', 'quant', 'canadianinvestor', 'fatfire', 'japanfinance'];
 const TASK = '/tmp/ego/reddit-task.json';
 let task = {};
 try { task = JSON.parse(readFileSync(TASK, 'utf8')); } catch { /* 없으면 상태 확인만 한다 */ }

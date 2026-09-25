@@ -387,7 +387,13 @@
    "tier": "A",
    "enabled": true,
    "note": "★2026-09-17 대표 확인: **계정 가입 완료.** 네이버는 「최적화/저품질 블로그」 등급이 공식 부인됐고 VIEW 탭도 2024-02-01 폐지됐다. 지식iN 은 우리가 들어갈 수 있는 **유일한 무게이트 문**이다(블로그·카페는 등급·가입승인 벽). AI 브리핑이 우리 타깃 SERP 전부를 끌고 있고, 네이버 메이트는 «AI 브리핑 누적 인용»으로 뽑는다 → 지식iN 답변이 인용원이 될 수 있다. **링크 정책**: 본문 자기링크는 광고 신고 대상. 레딧·Quora 와 같은 규칙으로 간다 — 본문 무링크 + 앱 이름 0~1회 + 프로필/소개에 링크. 크롤러 UA 는 `Yeti`, robots.txt 는 이미 허용. ★2026-09-21 확인: previewLang 정규식에 이 채널 태그가 «이미» 들어 있다(76채널 전수 대조, 불일치 0) → 카드 언어는 자동. 티켓 아님.",
-   "link": "https://signumhq.com/app?from=naver_kin&l=ko"
+   "link": "https://signumhq.com/app?from=naver_kin&l=ko",
+   "gate": {
+    "kind": "휴면(추석)",
+    "until": "2026-09-27",
+    "who": "데이터(질문 유입)",
+    "why": "2026-09-25 10:30·11:5x 두 번 스캔(검색어 10개×최신순): 우리 영역 새 질문 0 — 최근 질문은 전부 답 2~6개(증권사 지식파트너가 먼저 답함)이거나 계좌 개설·세금·건강보험 등 다른 분야. 추석 연휴(9/24~26)라 유입 자체가 적다. 건당 0.1 클릭(31건) ▼ 채널이라 연휴 동안 매시 스캔은 도구의 신호 → 9/27 부터 재개(줄이되 유지)."
+   }
   },
   {
    "id": "qiita",
@@ -1265,6 +1271,50 @@
    "note": "★2026-09-25 08:5x 확장(발굴·티켓). ASC API 실측: /apps/6783130444/promotedPurchases total 0 · 구독 com.signumhq.app.pro.monthly(6786909663, APPROVED) images 0 · promotedPurchase null → 검색 결과의 추가 카드 자리를 전혀 안 쓰고 있다. 할 일(API, scripts/asc_client.py): ① 1024×1024 PNG(투명 없음) 구독 대표 이미지 제작 — 앱 아이콘 계열 + «Pro · 광고 없음», 과장·가격·순위 문구 금지 ② subscriptionImages 예약→업로드→커밋 ③ POST /v1/promotedPurchases(app·subscription, visibleForAllUsers, enabled) ④ 애플 심사(이미지) 통과 후 US·KR·JP 스토어 검색에서 카드 확인. HANDOFF §4-6 «구독 대표 이미지 비어 있음»과 같은 일 — 오퍼코드 리딤 화면에도 쓰인다. ★2026-09-25 09:4x 실행: 1024 이미지(남색 그라데이션·맥박선·«PRO»·«No ads», 앱 아이콘과 다른 그림) → scripts/asc_promoted_iap.py(신설): subscriptionImages 예약·업로드·커밋 → promotedPurchases 생성(enabled·visibleForAllUsers) → subscriptionSubmissions 제출 → 이미지 WAITING_FOR_REVIEW · 프로모션 IN_REVIEW · 구독 APPROVED 유지. 승인 후 US·KR·JP 스토어 검색에서 «SIGNUM HQ Pro» 카드 확인이 다음 일.",
    "gate": "심사대기",
    "until": "2026-09-29"
+  },
+  {
+   "id": "quora_jp",
+   "name": "Quora 日本語版(jp.quora.com)",
+   "tier": "A",
+   "handle": "Jiyoung Kim (Founder, SIGNUM HQ) — quora.com 과 같은 계정",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 0,
+   "followers": 0,
+   "tag": "quora_bio",
+   "link": "https://www.signumhq.com/app?from=quora_bio",
+   "url": "https://jp.quora.com/",
+   "action": "answer_unanswered_questions",
+   "note": "★2026-09-25 12:1x 확장(재등록): mkt-plan 에 규칙(quora_jp: 하루 1·UTC)은 있었는데 channels.json 에 항목이 없어 배정이 한 번도 안 됐다(규칙 107개 중 고아 3개: quora_jp·quora_de·threads_reply). 답변 이력: OUTREACH-LOG t052(米国債とAI企業…, 첫 답변)·스크리닝 앱 질문 등. 실측(9/25): jp.quora 로그인 유지(ホーム·回答·通知 3), 검색 期間=過去1週間 에서 米国債·米国株·マイクロン·金利上昇 株価·コストコ 決算 모두 0건, 過去1か月 은 2건(하나는 이미 우리 답) → 피드가 마르면 억지 발행 금지. 본문 무링크·앱명 0~1회·데이터 화면 1장(quora 규칙과 같다)."
+  },
+  {
+   "id": "quora_de",
+   "name": "Quora Deutsch(de.quora.com)",
+   "tier": "B",
+   "handle": "Jiyoung Kim (Founder, SIGNUM HQ) — quora.com 과 같은 계정",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 0,
+   "followers": 0,
+   "tag": "quora_bio",
+   "link": "https://www.signumhq.com/app?from=quora_bio",
+   "url": "https://de.quora.com/",
+   "action": "answer_unanswered_questions",
+   "note": "★2026-09-25 재등록(고아 규칙) — 2026-09-15 개통된 유럽 표면, 무응답은 «Dark Pool» 계열에만 있었다(9/23 마지막 답변). 본문 무링크·앱명 0~1회."
+  },
+  {
+   "id": "threads_reply",
+   "name": "Threads 답글(대형 금융 계정 글에 데이터 답글)",
+   "tier": "C",
+   "handle": "@signumhq_official",
+   "login": "ok",
+   "profile": "ok",
+   "posts": 0,
+   "followers": 3,
+   "tag": "threads_bio",
+   "link": "https://signumhq.com/app?from=threads_bio",
+   "action": "reply_only",
+   "note": "★2026-09-25 재등록(고아 규칙) — 규칙 threads_reply(하루 2·KST, «오독 정정은 반드시 원문 확인 후»)만 있고 항목이 없었다. 마지막 기록 9/16. bluesky_reply 가 4건 0클릭(▼)이라 같은 형식은 우선순위 낮음 — 배정되면 원문 확인·데이터 1개·링크 없이."
   }
  ],
  "candidates": [
