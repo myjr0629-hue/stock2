@@ -421,6 +421,8 @@ export const CentralDataHub = {
             let weeklyExpiry = '';
             // Lambda 캐시가 실어 준 그릭스 신선도. 블록 밖에서 라벨을 붙일 때 쓴다.
             let cacheGreeksSource: string | null = null;
+            // Lambda 캐시가 실어 준 체인 EOD 날짜(2026-09-25~). 슬림 계약엔 날짜가 없어 예전엔 늘 null 이었다.
+            let cacheChainDate: string | null = null;
             let results: any[] = [];
             let usedLambdaCache = false;
 
@@ -465,6 +467,7 @@ export const CentralDataHub = {
                     expirations = (lambdaCache.expirations || []).filter((d: string) => d >= todayStr);
                     weeklyExpiry = lambdaCache.weeklyExpiry || '';
                     cacheGreeksSource = lambdaCache.greeksSource || null;
+                    cacheChainDate = lambdaCache.chainDate ?? lambdaCache.chainDates?.[weeklyExpiry] ?? null;
                     results = lambdaCache.exactResults;
                     usedLambdaCache = true;
                     console.log(`[CentralDataHub] LAMBDA CACHE HIT for ${ticker}: ${probeResults.length} probe, ${results.length} exact, expiry=${weeklyExpiry}`);
@@ -520,17 +523,31 @@ export const CentralDataHub = {
                 // So subsequent requests hit the fast path (Redis instead of Polygon)
                 if (probeResults.length > 0 && results.length > 0 && weeklyExpiry) {
                     try {
+                        // ★ [2026-09-25] 이 키는 쓰는 곳이 둘이다(수집기 Lambda · 여기). 둘이 같은 모양으로
+                        //   «체인 EOD 날짜»를 실어야 소비처(구조·티커)가 판본을 알 수 있다.
+                        //   직접 경로 계약은 `_intrinio.date` 를 갖고 있다 — 만기별로 가장 늦은 날짜를 모은다.
+                        const chainDates: Record<string, string> = {};
+                        for (const c of probeResults as any[]) {
+                            const e = c?.details?.expiration_date, d = c?._intrinio?.date;
+                            if (e && typeof d === 'string' && (!chainDates[e] || d > chainDates[e])) chainDates[e] = d;
+                        }
                         const rawCachePayload = {
                             probeResults,
                             exactResults: results,
                             expirations,
                             weeklyExpiry,
+                            chainDate: chainDates[weeklyExpiry] ?? null,
+                            chainDates,
                             _ts: Date.now(),
                             _ticker: ticker,
                             _source: 'vercel-ondemand',
                         };
                         // TTL: 10 min (Lambda will take over refreshing within 5 min)
                         await setInCache(`polygon:snapshot:probe:${ticker}`, rawCachePayload, 600);
+                        // 작은 판본표 — 구조 캐시(장외 72시간)가 이보다 오래된 체인으로 계산됐는지 판정한다.
+                        await setInCache(`polygon:snapshot:probe:meta:${ticker}`, {
+                            chainDate: rawCachePayload.chainDate, chainDates, weeklyExpiry, _ts: rawCachePayload._ts,
+                        }, 600);
 
                         // Register in dynamic universe — Lambda reads this list
                         // Use individual key per ticker (Lambda scans known pattern)
@@ -629,7 +646,9 @@ export const CentralDataHub = {
                 impliedVolatility: anyRealtimeGreeks ? 'REALTIME' : 'EOD',
                 volume: 'EOD',                 // OPRA 미보유 — 전일
                 premium: 'EOD',                // 위와 같은 이유
-                chainDate: (results[0] as any)?._intrinio?.date
+                // 미결제약정이 «며칠 자 EOD» 인가. Lambda 경로는 페이로드의 chainDate, 직접 경로는 계약의 _intrinio.date.
+                chainDate: cacheChainDate
+                    ?? (results[0] as any)?._intrinio?.date
                     ?? (results[0] as any)?.last_quote?.last_updated ?? null,
                 note: 'OI 는 OCC 야간 정산이라 EOD 가 곧 현재값이다. 거래량·프리미엄은 전일이다.',
             };

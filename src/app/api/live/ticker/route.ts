@@ -174,14 +174,91 @@ function mergeFreshOverStale(stale: any, fresh: any): any {
         if (typeof v === 'number' && v === 0 && stale?.[k]) continue;
         out[k] = v;
     }
+    mergeLevelGroup(out, stale, fresh);
     return out;
+}
+
+/**
+ * ★★ 옵션 레벨(맥스페인·콜월·풋플로어·핀존·감마플립)은 «한 벌»로 다룬다  [2026-09-25]
+ *
+ * [사고] Command 화면 MU MAX PAIN $1000 — 구조 API 는 $1020, 나스닥 공개 체인으로 직접 계산해도 $1020.
+ *   이 라우트는 맥스페인을 자기 체인(CentralDataHub._fetchOptionsChain)으로 계산하고 콜월·풋플로어·
+ *   감마플립은 구조(getStructureData)에서 가져와, «두 계산»을 한 응답에 섞고 있었다. 둘은 같은 Redis 키
+ *   (polygon:snapshot:probe)를 «다른 때» 읽는데, 그 키를 쓰는 쪽이 둘(수집기 Lambda·온디맨드)이라
+ *   서로 다른 날의 미결제약정을 볼 수 있었다(MU: 이 라우트 9/23 EOD · 구조 9/24 EOD).
+ *   게다가 폴백 콜월·풋플로어는 정의도 달랐다(전 행사가 최대 OI ↔ 현물 ±20% 안 최대 OI).
+ *
+ * [규칙] 구조 결과가 있으면 다섯 값을 모두 그 «한 벌»에서 가져오고, 어느 만기·며칠 자 체인인지
+ *   (levelsExpiration·levelsChainDate)와 출처(levelsSource)를 싣는다. 구조가 비었을 때만 이 라우트의
+ *   체인으로 «같은 정의»로 계산하고, 그때도 만기·출처를 밝힌다. 화면·공유카드·AI 문구는 이 값을
+ *   그대로 쓴다 — 다시 계산하지 않는다.
+ */
+const LEVEL_KEYS = ['maxPain', 'callWall', 'putFloor', 'pinZone', 'gammaFlipLevel',
+    'levelsExpiration', 'levelsChainDate', 'levelsSource'] as const;
+
+/**
+ * 병합은 필드 단위(null 은 옛 값 유지)라, 레벨을 낱개로 섞으면 «새 만기 라벨 + 옛 맥스페인»이 된다.
+ * 레벨 묶음은 통째로 고른다: 이번 계산에 출처가 있으면 이번 것 전부, 없으면 옛 것 전부.
+ */
+function mergeLevelGroup(out: any, stale: any, fresh: any): void {
+    if (!out?.flow) return;
+    const src = fresh?.flow?.levelsSource ? fresh.flow : (stale?.flow?.levelsSource ? stale.flow : null);
+    if (!src) return;   // 둘 다 라벨이 없는 옛 모양 — 예전 병합 그대로
+    for (const k of LEVEL_KEYS) out.flow[k] = src[k] ?? null;
+}
+
+/** structureService 와 같은 정의의 콜월·풋플로어(현물 ±20% 안 최대 OI) — 구조가 비었을 때만 쓴다. */
+function bandedWalls(chain: any[] | undefined, spot: number): { callWall: number | null; putFloor: number | null } {
+    if (!(spot > 0) || !Array.isArray(chain)) return { callWall: null, putFloor: null };
+    let cw = 0, cwOi = -1, pf = 0, pfOi = -1;
+    for (const c of chain) {
+        const k = Number(c?.details?.strike_price), oi = c?.open_interest, t = c?.details?.contract_type;
+        if (!(k > 0) || typeof oi !== 'number') continue;
+        if (t === 'call' && k > spot && k <= spot * 1.2 && oi > cwOi) { cwOi = oi; cw = k; }
+        if (t === 'put' && k < spot && k >= spot * 0.8 && oi > pfOi) { pfOi = oi; pf = k; }
+    }
+    return { callWall: cw || null, putFloor: pf || null };
+}
+
+function pickOptionLevels(structureResult: any, flowData: any, spot: number | null) {
+    const sr = structureResult || {};
+    const srMaxPain = sanitizeMaxPain(sr.maxPain, spot);
+    // 구조가 계산에 성공했으면(맥스페인이 타당성 게이트에 걸려 비더라도) 전부 그 한 벌에서 — 섞지 않는다.
+    if (sr.options_status === 'OK' && (sr.maxPain != null || sr.levels?.callWall != null || sr.levels?.putFloor != null)) {
+        return {
+            maxPain: srMaxPain,
+            callWall: sr.levels?.callWall ?? null,
+            putFloor: sr.levels?.putFloor ?? null,
+            pinZone: srMaxPain != null ? (sr.levels?.pinZone ?? srMaxPain) : null,
+            gammaFlipLevel: sr.gammaFlipLevel ?? null,
+            levelsExpiration: sr.expiration || null,
+            levelsChainDate: sr.chainDate ?? null,
+            levelsSource: 'structure' as string | null,
+        };
+    }
+    const fd = flowData || {};
+    const fromDynamo = !!fd._awsFallback;
+    // DynamoDB 폴백은 한 레코드(GEX 이력)에서 나온 값끼리만 쓴다. 체인 폴백은 구조와 같은 정의로 다시 계산한다.
+    const walls = fromDynamo ? { callWall: fd.callWall ?? null, putFloor: fd.putFloor ?? null } : bandedWalls(fd.rawChain, Number(spot));
+    const hasAny = fd.maxPain != null || walls.callWall != null || walls.putFloor != null;
+    return {
+        maxPain: fd.maxPain ?? null,   // 위 flowData 에서 이미 sanitize 됐다
+        callWall: sr.levels?.callWall ?? walls.callWall,
+        putFloor: sr.levels?.putFloor ?? walls.putFloor,
+        pinZone: fd.maxPain ?? null,
+        gammaFlipLevel: sr.gammaFlipLevel ?? null,
+        levelsExpiration: fromDynamo ? null : (fd.weeklyExpiration || null),
+        levelsChainDate: fromDynamo ? null : (fd.dataFreshness?.chainDate ?? null),
+        levelsSource: (hasAny ? (fromDynamo ? 'dynamodb-gex' : 'flow-chain') : null) as string | null,
+    };
 }
 // ⚠️ 응답 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛 페이로드가
 //    그대로 나가서 새 필드가 «조용히» 빠진다(2026-08-30 에 두 번 겪었다).
 //    v2 = 다크풀(FINRA) 필드 추가 2026-08-31
 //    v3 = PRE 기준선 한 세션 밀림 수정 2026-08-31 (값이 바뀐다 → 옛 캐시 폐기)
+//    v4 = 옵션 레벨 한 벌 + levelsExpiration·levelsChainDate·levelsSource 2026-09-25 (값·모양이 바뀐다)
 function tickerCacheKey(ticker: string): string {
-    return `flow:ticker:v3:${ticker}`;
+    return `flow:ticker:v4:${ticker}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -215,8 +292,8 @@ export async function GET(req: NextRequest) {
     // ⚠️ 체인 유무로 응답 «모양»이 달라진다 → 캐시를 반드시 분리한다.
     //    섞이면 Command 가 캐시에 넣은 체인 없는 응답을 Flow 가 받아 차트가 빈다.
     const cacheKey = skipAlpha
-        ? `flow:ticker:lite:v3:${ticker}`
-        : (noChain ? `flow:ticker:nochain:v3:${ticker}` : tickerCacheKey(ticker));
+        ? `flow:ticker:lite:v4:${ticker}`
+        : (noChain ? `flow:ticker:nochain:v4:${ticker}` : tickerCacheKey(ticker));
     try {
         const cached = await getFromCache<any>(cacheKey);
         const verdict = isUsableTickerCache(cached);
@@ -713,6 +790,8 @@ export async function GET(req: NextRequest) {
         squeezeRisk,
         maxPain: sanitizeMaxPain((flowRes as any)?.maxPain, liveLast || prevRegularClose),
     };
+    // 옵션 레벨은 한 벌만(위 pickOptionLevels 설명). 응답·알파 입력 모두 이걸 쓴다.
+    const optionLevels = pickOptionLevels(structureResult, flowData, liveLast || prevRegularClose);
 
     const warnings: string[] = [];
     if (baselineHolidayCorrected) warnings.push("BASELINE_HOLIDAY_CORRECTED");
@@ -870,9 +949,8 @@ export async function GET(req: NextRequest) {
             ...(flowData as any),
             rawChain: noChain ? undefined : slimOptionChain((flowData as any)?.rawChain, true),
             allExpiryChain: noChain ? undefined : slimOptionChain((flowData as any)?.allExpiryChain, false),
-            gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
-            callWall: (structureResult as any)?.levels?.callWall ?? (flowData as any)?.callWall ?? null,
-            putFloor: (structureResult as any)?.levels?.putFloor ?? (flowData as any)?.putFloor ?? null,
+            // 맥스페인·콜월·풋플로어·핀존·감마플립 + 만기·체인 날짜·출처 — 한 벌(pickOptionLevels)
+            ...optionLevels,
             oiPcr: (structureResult as any)?.pcr ?? null,  // [PCR] OI-based Put/Call Ratio from structureService
             volumePcr: _vpcr,
             volumePcrCallVol: _cvol > 0 ? _cvol : null,
@@ -1079,9 +1157,9 @@ export async function GET(req: NextRequest) {
                     // Structure data (from structureResult + flowData)
                     pcr: (structureResult as any)?.pcr ?? (flowData as any)?.pcr ?? null,
                     gex: effectiveGex,
-                    callWall: (structureResult as any)?.levels?.callWall ?? (flowData as any)?.callWall ?? null,
-                    putFloor: (structureResult as any)?.levels?.putFloor ?? (flowData as any)?.putFloor ?? null,
-                    gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
+                    callWall: optionLevels.callWall,
+                    putFloor: optionLevels.putFloor,
+                    gammaFlipLevel: optionLevels.gammaFlipLevel,
                     rawChain: alphaRawChain,
                     squeezeScore: squeezeScore ?? null,
                     atmIv: (structureResult as any)?.atmIv ?? null,

@@ -225,6 +225,69 @@ function isCachedExpiryStale(data: any, todayStr: string): boolean {
     return typeof exp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(exp) && exp < todayStr;
 }
 
+/**
+ * ★★ [2026-09-25] 체인 «판본» — 미결제약정이 며칠 자 EOD 인가.
+ *
+ * [사고] 9/25 12:50 KST(=9/24 23:50 ET) 표본 7종목 중 COST·MCD 의 맥스페인·콜월이 나스닥 공개
+ *   체인과 달랐다(COST 910 vs 905 · MCD 250 vs 242.5, 콜월 255 vs 250). 계산은 맞았다 — 입력이
+ *   하루 늦었다. 장중(9/24)에 9/23 EOD 체인으로 계산한 값이 장외 신선 TTL(72시간) 동안,
+ *   즉 새 EOD(9/24)가 공표된 뒤 밤새(=한국 낮) 그대로 나갔다. 수집기의 체인 캐시도 하루
+ *   늦었다(scripts/lambda-flow-harvest/intrinio-adapter.js 의 cachedChain — 같은 날 수리).
+ *
+ * [규칙] 수집기는 프로브와 함께 수십 바이트짜리 «판본표»(polygon:snapshot:probe:meta:{T})를
+ *   쓴다. 캐시된 값의 chainDate 가 판본표의 같은 만기 체인 날짜보다 앞이면 그 캐시는 쓰지
+ *   않는다(다시 계산 = 프로브를 읽을 뿐, 벤더 호출 없음). 판본표가 없으면(수집기 배포 전·
+ *   프로브 없음) 판단하지 않는다 — 예전과 같다. 장중(신선 TTL 60초)에는 어차피 곧 다시
+ *   계산하므로 판본표를 읽지 않는다.
+ */
+type ProbeMeta = { chainDate?: string | null; chainDates?: Record<string, string> | null; weeklyExpiry?: string | null; _ts?: number };
+const probeMetaMemo = new Map<string, { at: number; meta: ProbeMeta | null }>();
+const PROBE_META_MEMO_MS = 30_000;
+
+async function readProbeMeta(ticker: string): Promise<ProbeMeta | null> {
+    const hit = probeMetaMemo.get(ticker);
+    if (hit && Date.now() - hit.at < PROBE_META_MEMO_MS) return hit.meta;
+    let meta: ProbeMeta | null = null;
+    try { meta = await getFromCache<ProbeMeta>(`polygon:snapshot:probe:meta:${ticker}`); } catch { meta = null; }
+    probeMetaMemo.set(ticker, { at: Date.now(), meta });
+    return meta;
+}
+
+/** 캐시 값이 판본표보다 오래된 체인으로 계산됐으면 그 이유를, 아니면 null. */
+function chainBehindProbe(data: any, meta: ProbeMeta | null): string | null {
+    if (!meta || !data) return null;
+    const exp = data.expiration;
+    const want = (exp && meta.chainDates?.[exp]) || (exp && exp === meta.weeklyExpiry ? meta.chainDate : null);
+    if (!want) return null;
+    const have = data.chainDate;
+    if (!have) return `체인 날짜 없음(판본표 ${want})`;   // 이 수리 전에 계산된 값 — 한 번 다시 계산한다
+    return have < want ? `체인 ${have} < 판본표 ${want}` : null;
+}
+
+/** 이 캐시 값을 써도 되는가 — 만기가 지났거나 체인 판본이 뒤처졌으면 안 된다(이유를 로그에 남긴다). */
+function cachedStructureUnusable(data: any, todayStr: string, meta: ProbeMeta | null, ticker: string, where: string): boolean {
+    if (isCachedExpiryStale(data, todayStr)) {
+        console.log(`[${where} STALE-EXPIRY] ${ticker}: 캐시 만기 ${data?.expiration} < ${todayStr} — 쓰지 않는다`);
+        return true;
+    }
+    const behind = chainBehindProbe(data, meta);
+    if (behind) {
+        console.log(`[${where} STALE-CHAIN] ${ticker}: ${behind} — 쓰지 않는다(프로브로 다시 계산)`);
+        return true;
+    }
+    return false;
+}
+
+/** 계약 목록이 밝힌 EOD 날짜(가장 늦은 것). Vercel 직접 경로 계약은 `_intrinio.date` 를 싣는다. */
+function contractsChainDate(contracts: any[]): string | null {
+    let d: string | null = null;
+    for (const c of contracts || []) {
+        const x = c?._intrinio?.date;
+        if (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && (!d || x > d)) d = x;
+    }
+    return d;
+}
+
 export async function getStructureData(
     ticker: string,
     requestedExp?: string | null,
@@ -236,10 +299,11 @@ export async function getStructureData(
 
     // [DATA CONSISTENCY] Check cache first
     const todayET = getTodayETString();
+    // 장외(신선 TTL 72시간)에만 판본표를 본다 — 장중 60초 캐시는 어차피 곧 다시 계산한다.
+    const probeMeta = getStructureCacheTtl() > CACHE_TTL_MARKET_MS ? await readProbeMeta(ticker) : null;
     const cached = structureCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp) < getStructureCacheTtl()) {
-        if (isCachedExpiryStale(cached.data, todayET)) {
-            console.log(`[CACHE STALE-EXPIRY] ${ticker}: 캐시 만기 ${cached.data?.expiration} < ${todayET} — 버리고 다시 계산`);
+        if (cachedStructureUnusable(cached.data, todayET, probeMeta, ticker, 'CACHE')) {
             structureCache.delete(cacheKey);
         } else {
             console.log(`[CACHE HIT] ${ticker}: returning cached data (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
@@ -252,8 +316,8 @@ export async function getStructureData(
     //   사용자는 «가끔 앱이 멈춘다»고 느낀다. Redis 를 한 번 더 본다(수십 ms).
     try {
         const shared = await getFromCache<{ data: any; timestamp: number }>(structureRedisKey(cacheKey));
-        if (shared?.data && isCachedExpiryStale(shared.data, todayET)) {
-            console.log(`[REDIS STALE-EXPIRY] ${ticker}: 공유 캐시 만기 ${shared.data?.expiration} < ${todayET} — 무시`);
+        if (shared?.data && cachedStructureUnusable(shared.data, todayET, probeMeta, ticker, 'REDIS')) {
+            /* 쓰지 않는다 — 이유(만기 지남·체인 판본 뒤처짐)는 위 함수가 로그에 남겼다 */
         } else if (shared?.data && shared.timestamp && (Date.now() - shared.timestamp) < getStructureCacheTtl()) {
             const ageSec = Math.round((Date.now() - shared.timestamp) / 1000);
             console.log(`[REDIS HIT] ${ticker}: 공유 캐시 사용 (age: ${ageSec}s)`);
@@ -397,6 +461,8 @@ export async function getStructureData(
     let attemptsTotal = 0;
     let usedLambdaCache = false;
     let isNoMarketDetected = false; // [NEW] Track definitive lack of options
+    // [2026-09-25] 이 체인의 EOD 날짜 — 맥스페인·콜월·풋플로어가 «며칠 자 미결제약정»인지 응답에 싣는다.
+    let chainDate: string | null = null;
 
     // [PERF] Check Lambda-warmed raw snapshot cache FIRST — skip ALL Polygon calls if hit
     try {
@@ -418,6 +484,7 @@ export async function getStructureData(
             if (lcExpiryAlive && (!requestedExp || lambdaCache.weeklyExpiry === requestedExp)) {
                 allContracts = lambdaCache.exactResults;
                 targetExpiry = lambdaCache.weeklyExpiry;
+                chainDate = lambdaCache.chainDate ?? lambdaCache.chainDates?.[targetExpiry] ?? null;
                 // 목록에서도 지운다 — 화면이 죽은 만기를 «고를 수» 없게.
                 availableExpirations = (lambdaCache.expirations || []).filter((d: string) => d >= todayStr);
                 pagesFetched = 1;
@@ -520,6 +587,9 @@ export async function getStructureData(
             debug: { apiStatus: 404, pagesFetched, contractsFetched: 0 }
         };
     }
+
+    // 직접 경로(벤더)는 계약마다 `_intrinio.date` 를 싣는다 — 수집기 캐시 경로는 위에서 채웠다.
+    if (!chainDate) chainDate = contractsChainDate(allContracts);
 
     const relevantContracts = allContracts;
 
@@ -970,6 +1040,9 @@ export async function getStructureData(
         const successResponse = {
             ticker,
             expiration: targetExpiry,
+            // ★ 미결제약정의 EOD 날짜. 맥스페인·콜월·풋플로어·핀존·OI 분포는 전부 «이 날짜 × 이 만기» 값이다.
+            //   화면은 만기와 함께 이 날짜를 보여 줄 수 있고, 캐시는 이걸로 판본을 판정한다.
+            chainDate,
             availableExpirations,
             underlyingPrice: underlyingPrice || null,
             prevClose: prevClose || null,
@@ -1008,6 +1081,7 @@ export async function getStructureData(
                 apiStatus: 200,
                 pagesFetched,
                 contractsFetched: allContracts.length,
+                chainSource: usedLambdaCache ? 'lambda-probe' : 'vendor-direct',
                 attempts: attemptsTotal,
                 latencyMs: latencyTotal,
                 gammaCoverage,
