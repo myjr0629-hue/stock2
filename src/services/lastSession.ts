@@ -24,6 +24,7 @@
 
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { getExtendedSessionClose } from '@/services/extendedSessionClose';
 
 // 직전 «완료된» 세션의 종가는 다음 개장까지 변하지 않는다. 그런데도 티커마다
 // 벤더 호출 2회(일봉 + open-close)를 매 요청마다 했다. 휴장일 아침처럼 요청이
@@ -32,7 +33,8 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 // (프리뷰에선 22/22 맞았다. 부하가 없었기 때문이다.)
 const LS_TTL = 6 * 3600;
 // 키에 날짜를 넣는다 — 캐시가 «날짜를 건너» 남으면 어제 세션을 오늘로 내보낸다.
-const lsKey = (t: string, day: string) => `lastsession:v1:${day}:${t}`;
+// v2 = 애프터 종가를 체결 테이프에서 가져온다(2026-09-25) — v1 에는 postPrice 0 이 앉아 있다.
+const lsKey = (t: string, day: string) => `lastsession:v2:${day}:${t}`;
 
 export interface LastSessionData {
   /** last completed regular session close (e.g. Thursday's close) */
@@ -100,23 +102,18 @@ export async function reconstructLastSession(
 
         const changePct = ((regClose - prevClose) / prevClose) * 100;
 
-        // Last session's after-hours from its daily open-close bar.
+        // Last session's after-hours — 그 세션 애프터마켓의 마지막 Form T 체결(통합 테이프).
+        // ★ [2026-09-25] 예전엔 /v1/open-close 의 afterHours 를 읽었다. Intrinio 이관 뒤 그 칸은
+        //   «지어내지 않으려고» 늘 null 이다 → 휴장일 POST 가 한 번도 나온 적이 없다.
+        //   테이프 값은 실제 체결이므로 정규장 종가와 같아도 버리지 않는다.
         let postPrice = 0;
         let postChangePct = 0;
         const lastTs = rs[0]?.t;
         if (lastTs) {
-          const oc = await fetchMassive(
-            `/v1/open-close/${t}/${utcDate(lastTs)}`,
-            { adjusted: 'true' },
-            false,
-            undefined,
-            CACHE_POLICY.LIVE,
-          ).catch(() => null);
-          const ah = oc?.afterHours || 0;
-          // require a real, distinct after-hours print (avoid mirroring the close)
-          if (ah > 0 && Math.abs(ah - regClose) / regClose > 0.0001) {
-            postPrice = ah;
-            postChangePct = ((ah - regClose) / regClose) * 100;
+          const pc = await getExtendedSessionClose(t, utcDate(lastTs), 'post').catch(() => null);
+          if (pc && pc.price > 0) {
+            postPrice = pc.price;
+            postChangePct = ((pc.price - regClose) / regClose) * 100;
           }
         }
 

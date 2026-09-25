@@ -5,7 +5,7 @@
 // ============================================================================
 
 import { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { getFromCache } from '@/services/redisClient';
@@ -13,7 +13,8 @@ import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { xsSnapshotOverride } from '@/services/xsScores';
-import { fetchTruePreMarket } from '@/services/marketDataLight';
+import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, type ExtSessionClose } from '@/services/extendedSessionClose';
+import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 
 /** null·undefined·빈문자를 먼저 거른다. `Number(null)===0` 함정 방지. */
@@ -72,16 +73,13 @@ export async function GET(request: Request) {
             // 2. Market status for session detection
             CentralDataHub.getMarketStatus().catch(() => ({ session: 'closed' })),
 
-            // 3. Redis cached data + persistent extended prices (interleaved)
-            ...tickers.flatMap(t => [
-                getFromCache<any>(tickerCacheKey(t)).catch(() => null),
-                getFromCache<any>(`flow:extended:${t}`).catch(() => null)
-            ]),
+            // 3. Redis cached data
+            // ★ [2026-09-25] 날짜 없는 flow:extended(24h) 읽기를 뺐다 — «정규장 분봉 PRE»(COST 916.26)와
+            //   어제 POST 가 그 통로로 오늘 목록에 앉았다. 시간외 종가는 아래에서 날짜 키로 읽는다.
+            ...tickers.map(t => getFromCache<any>(tickerCacheKey(t)).catch(() => null)),
         ]);
 
-        // De-interleave: [cached0, ext0, cached1, ext1, ...] → separate arrays
-        const cachedTickers = tickers.map((_, i) => interleaved[i * 2]);
-        const extendedCache = tickers.map((_, i) => interleaved[i * 2 + 1]);
+        const cachedTickers = tickers.map((_, i) => interleaved[i]);
 
         // [CACHE WARMER] Also fetch analysis cache as additional data source
         const analysisCache = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
@@ -123,21 +121,23 @@ export async function GET(request: Request) {
             });
         }
 
-        // [FIX] During REG, pre-fetch true PM prices for tickers missing from persistent cache
-        // This ensures ALL sector tickers consistently show PRE badge
-        let truePmMap: Record<string, number> = {};
-        if (session === 'REG') {
-            const tickersNeedingPm = tickers.filter((_, i) => !(extendedCache[i]?.prePrice > 0));
-            if (tickersNeedingPm.length > 0) {
-                const pmResults = await Promise.all(
-                    tickersNeedingPm.map(t => fetchTruePreMarket(t).catch(() => null))
+        // ── 시간외 «종가» (날짜 키) ─────────────────────────────────────
+        // 정규장: 오늘 PRE CLOSE · CLOSED: 화면이 보여주는 정규장 날짜의 POST CLOSE.
+        // 저장된 값은 즉시 쓰고, 없는 종목은 뒤에서 몇 개만 계산해 둔다 — 목록이 종목 수만큼
+        // 벤더(체결 테이프)를 기다리지 않게 한다. 정의는 services/extendedSessionClose.ts.
+        const nowMs = Date.now();
+        const todayET = etDateOf(nowMs);
+        const shownDate = shownRegularSessionDate(nowMs);
+        const extCloseMap: Record<string, ExtSessionClose | null | undefined> = {};
+        if (session === 'REG' || session === 'CLOSED') {
+            const kind = session === 'REG' ? 'pre' : 'post';
+            try {
+                const { values, warm } = await peekExtendedSessionClosesAndWarm(
+                    tickers, kind === 'pre' ? todayET : shownDate, kind, 3,
                 );
-                tickersNeedingPm.forEach((t, idx) => {
-                    if (pmResults[idx] && pmResults[idx]! > 0) {
-                        truePmMap[t] = pmResults[idx]!;
-                    }
-                });
-            }
+                tickers.forEach((t, i) => { extCloseMap[t] = values[i]; });
+                if (warm) after(() => warm);
+            } catch { /* 없으면 시간외 블록을 비운다 — 날짜 없는 값으로 메우지 않는다 */ }
         }
 
         // [HOLIDAY] Reconstruct the last real session for tickers whose snapshot day
@@ -344,7 +344,9 @@ export async function GET(request: Request) {
             }
 
             if (session === 'PRE') {
-                displayPrice = prevClose;
+                // ⚠️ [2026-09-25] 프리마켓의 «본장»은 마지막 정규장(= 스냅샷 day.c)이다. prevDay.c 는 그
+                //   하나 앞이라 한 세션 밀린다 — live/ticker·live/quotes 는 8/31 에 고쳤고 여기만 남아 있었다.
+                displayPrice = todayClose || prevClose;
                 // [FIX] Use daily aggregates for accurate regular session change
                 // Priority: 1) daily aggs, 2) snapshot day.c diff, 3) cached prevChangePct, 4) 0
                 const agg = aggMap[ticker];
@@ -364,39 +366,47 @@ export async function GET(request: Request) {
                 }
             }
 
-            // Extended hours — uses persistent Redis key (flow:extended:{ticker})
-            // This key only gets written when pre/post prices are valid (never overwritten with null)
+            // Extended hours — ★ [2026-09-25] «세션·날짜·체결 시각»으로 고른다(live/ticker·live/quotes 와 같은 규칙).
+            //   예전: PRE·POST = 시각을 안 본 마지막 체결(지연 피드라 04:0x 엔 어제 애프터, 16:0x 엔 정규장 체결),
+            //         REG = 날짜 없는 flow:extended(«정규장 분봉 PRE»가 앉아 있었다) → 종목별 분봉 조회.
+            //   등락률은 두 가격으로 직접 계산한다(캐시된 등락률로 덮지 않는다).
             let extendedPrice = 0;
             let extendedChangePct = 0;
             let extendedLabel = '';
-            const persistedExt = extendedCache[i]; // from flow:extended:{ticker} (24h TTL)
+            const lastTradeMs = Number(snap?.lastTrade?.t) > 0 ? Math.round(Number(snap.lastTrade.t) / 1e6) : 0;
+            const lastP = Number(snap?.lastTrade?.p) || 0;
 
             if (session === 'PRE') {
-                extendedPrice = latestPrice;
-                extendedLabel = 'PRE';
-                if (prevClose > 0) {
-                    extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
+                // 기준 = 마지막 정규장 종가(프리마켓의 day.c) — prevDay.c 는 한 세션 앞이다
+                const preBase = todayClose || prevClose;
+                if (lastP > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre')) {
+                    extendedPrice = lastP;
+                    extendedLabel = 'PRE';
+                    if (preBase > 0) extendedChangePct = ((lastP - preBase) / preBase) * 100;
                 }
-            } else if (session === 'POST' || session === 'CLOSED') {
-                // Post-market: Polygon afterHours → lastTrade → persistent cache → ticker cache
-                const postExt = snap?.afterHours?.p || latestPrice || persistedExt?.postPrice || 0;
+            } else if (session === 'POST') {
+                if (lastP > 0 && displayPrice > 0 && isTradeInExtSession(lastTradeMs, todayET, 'post')) {
+                    extendedPrice = lastP;
+                    extendedLabel = 'POST';
+                    extendedChangePct = ((lastP - displayPrice) / displayPrice) * 100;
+                }
+            } else if (session === 'CLOSED') {
+                // 화면 날짜의 애프터 종가(마지막 Form T) → 확정 전·계산 전이면 그날 애프터 체결
+                const pc = extCloseMap[ticker];
+                const postExt = (pc && pc.price > 0) ? pc.price
+                    : ((lastP > 0 && isTradeInExtSession(lastTradeMs, shownDate, 'post')) ? lastP : 0);
                 if (postExt > 0 && displayPrice > 0) {
                     extendedPrice = postExt;
                     extendedLabel = 'POST';
-                    extendedChangePct = persistedExt?.postChangePct || ((extendedPrice - displayPrice) / displayPrice) * 100;
+                    extendedChangePct = ((postExt - displayPrice) / displayPrice) * 100;
                 }
             } else if (session === 'REG') {
-                // During REG: show pre-market close from persistent cache
-                const cachedPrePrice = persistedExt?.prePrice || 0;
-                if (cachedPrePrice > 0) {
-                    extendedPrice = cachedPrePrice;
+                // 오늘 프리마켓 종가(확정 뒤에만). 기준 = 전일 종가
+                const pc = extCloseMap[ticker];
+                if (pc && pc.price > 0) {
+                    extendedPrice = pc.price;
                     extendedLabel = 'PRE';
-                    extendedChangePct = persistedExt?.preChangePct || 0;
-                } else if (truePmMap[ticker]) {
-                    // [FIX] Fallback: use true PM close fetched in parallel batch above
-                    extendedPrice = truePmMap[ticker];
-                    extendedLabel = 'PRE';
-                    extendedChangePct = prevClose > 0 ? ((truePmMap[ticker] - prevClose) / prevClose) * 100 : 0;
+                    extendedChangePct = prevClose > 0 ? ((pc.price - prevClose) / prevClose) * 100 : 0;
                 }
             }
 

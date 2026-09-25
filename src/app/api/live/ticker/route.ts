@@ -1,6 +1,6 @@
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
-import { NextRequest } from 'next/server';
+import { NextRequest, after } from 'next/server';
 import { getBuildMeta } from '@/services/buildMeta';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedMovePct, computeIVSkew, type AlphaSession } from '@/services/alphaEngine';
@@ -10,7 +10,8 @@ import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
-import { fetchTruePreMarket } from '@/services/marketDataLight'; // [V5.5 FIX] True PM Fetcher
+import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, type ExtSessionClose } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25)
+import { shownRegularSessionDate } from '@/lib/marketCalendar';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
 
@@ -144,7 +145,8 @@ const TICKER_CACHE_TTL = 60; // 60 seconds
  *   QQQ 12.1초가 됐다. 위 cacheKey 가 이미 같은 이유로 분리돼 있었는데 이걸 놓쳤다.
  *   **모양이 다르면 캐시도 달라야 한다.**
  */
-const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v2:';
+// v3 = 시간외 필드를 세션·날짜로 고르게 된 2026-09-25 (v2 에는 «정규장 분봉 PRE»·«어제 POST» 가 앉아 있다)
+const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v3:';
 function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): string {
     const shape = skipAlpha ? 'lite' : (noChain ? 'nochain' : 'full');
     return `${LAST_GOOD_PREFIX}${shape}:${ticker}`;
@@ -176,12 +178,16 @@ function mergeFreshOverStale(stale: any, fresh: any): any {
     }
     return out;
 }
+
+// ★ [2026-09-25] 시간외 칸은 옛 정상값에서 가져오지 않는다 → keepSessionScopedFresh (services/extendedSessionClose.ts)
 // ⚠️ 응답 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛 페이로드가
 //    그대로 나가서 새 필드가 «조용히» 빠진다(2026-08-30 에 두 번 겪었다).
 //    v2 = 다크풀(FINRA) 필드 추가 2026-08-31
 //    v3 = PRE 기준선 한 세션 밀림 수정 2026-08-31 (값이 바뀐다 → 옛 캐시 폐기)
+//    v4 = 시간외 PRE/POST 를 세션·날짜·체결 테이프로 고른다 2026-09-25 (값·필드가 바뀐다)
+//         ⚠️ 프리뷰와 운영은 같은 Redis 를 쓴다 — 올리지 않으면 운영(옛 코드)이 쓴 독을 프리뷰가 읽는다
 function tickerCacheKey(ticker: string): string {
-    return `flow:ticker:v3:${ticker}`;
+    return `flow:ticker:v4:${ticker}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -215,8 +221,8 @@ export async function GET(req: NextRequest) {
     // ⚠️ 체인 유무로 응답 «모양»이 달라진다 → 캐시를 반드시 분리한다.
     //    섞이면 Command 가 캐시에 넣은 체인 없는 응답을 Flow 가 받아 차트가 빈다.
     const cacheKey = skipAlpha
-        ? `flow:ticker:lite:v3:${ticker}`
-        : (noChain ? `flow:ticker:nochain:v3:${ticker}` : tickerCacheKey(ticker));
+        ? `flow:ticker:lite:v4:${ticker}`
+        : (noChain ? `flow:ticker:nochain:v4:${ticker}` : tickerCacheKey(ticker));
     try {
         const cached = await getFromCache<any>(cacheKey);
         const verdict = isUsableTickerCache(cached);
@@ -588,8 +594,27 @@ export async function GET(req: NextRequest) {
         } catch { return null; }
     };
 
+    // ★ [2026-09-25] 시간외 «종가»(PRE CLOSE·POST CLOSE)는 통합 체결 테이프에서 가져온다.
+    //   먼저 «어느 날짜»의 것인지 정한다 — 날짜 없이 고르면 어제 값이 오늘 자리에 앉는다.
+    //   PRE(진행 중)는 아직 종가가 없다. REG·POST 는 오늘, CLOSED 는 화면이 보여주는 정규장 날짜.
+    //   애프터 «종가»는 CLOSED 에서만 쓴다(PRE·REG 엔 오늘 애프터가 없고, POST 는 진행 중).
+    const extDate = session === "CLOSED" ? shownRegularSessionDate() : todayStr;
+    const EXT_CLOSE_BUDGET_MS = 3500;    // 넘기면 이번엔 비우고 뒤에서 계산·저장(다음 요청이 읽는다)
+    const extPending: Promise<unknown>[] = [];
+    const fetchExtClose = async (kind: "pre" | "post"): Promise<ExtSessionClose | null> => {
+        if (kind === "pre" && session === "PRE") return null;
+        if (kind === "post" && session !== "CLOSED") return null;
+        try {
+            const r = await getExtendedSessionCloseWithin(ticker, extDate, kind, EXT_CLOSE_BUDGET_MS);
+            if (r.pending) extPending.push(r.pending);
+            return r.value;
+        } catch {
+            return null;
+        }
+    };
+
     // [PERF] skip_alpha: skip 5 alpha-only APIs (SMA20, MACD, macro, feargreed, vix3m)
-    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData, truePmRes, macdData, vix3mCacheData, finraDp] = await Promise.all([
+    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData, preCloseRes, macdData, vix3mCacheData, finraDp, postCloseRes] = await Promise.all([
         fetchOC(),
         fetchFlow(),
         fetchStructure(),
@@ -597,10 +622,11 @@ export async function GET(req: NextRequest) {
         skipAlpha ? Promise.resolve(null) : fetchMacro(),
         skipAlpha ? Promise.resolve(null) : fetchSMA20(),
         skipAlpha ? Promise.resolve(null) : getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),
-        fetchTruePreMarket(ticker), // [V5.5 FIX] Parallel True PM Fetcher
+        fetchExtClose("pre"),   // 프리마켓 종가 — 그날 마지막 Form T 체결
         skipAlpha ? Promise.resolve(null) : fetchMACD(),  // [V5.5+] MACD for trend crossover
         skipAlpha ? Promise.resolve(null) : getFromCache<{ price: number; changePct: number }>('yahoo:vix3m').catch(() => null),  // [V5.5+] VIX3M for term structure
         fetchFinraDarkPool(),   // 다크풀 — FINRA 규제 원본 (T+1)
+        fetchExtClose("post"),  // 애프터마켓 종가 — CLOSED 에서만
     ]);
 
     // ══════════════════════════════════════════════════════════════
@@ -650,56 +676,70 @@ export async function GET(req: NextRequest) {
     const hasMarketClosed = session === "POST" || session === "CLOSED";
     const regularCloseToday = hasMarketClosed ? (S.day?.c || OC.close || null) : null;
 
-    // [FIX] Pre-market price: during PRE session use live price, otherwise use true 09:29 close
+    // ══════════════════════════════════════════════════════════════
+    // ★★ 시간외 값은 «라벨»이 아니라 «세션·날짜·체결 시각»으로 고른다  [2026-09-25]
+    //
+    //   실측(COST 9/25 11:37 ET, 정규장): 화면 PRE CLOSE $916.26 +2.21% · POST $898.04 +0.17%
+    //     진짜 프리마켓 종가는 $887.53(−1.00%, 나스닥). 916.26 은 «정규장 분봉»이었다
+    //       — fetchTruePreMarket 의 시간창(04:00~09:29)이 Intrinio 어댑터에서 버려졌다.
+    //     POST 898.04 는 «어제» 애프터 마지막 체결 — 오늘 애프터는 16:00 전엔 존재하지 않는다.
+    //
+    //   규칙
+    //     PRE    : PRE 가격 = 마지막 체결이 «오늘 04:00~09:30» 일 때만. 지연 피드(15분)는 04:0x 에
+    //              어제 애프터 체결을 마지막 체결로 준다 — 그건 프리마켓 가격이 아니다.
+    //     REG·POST·CLOSED : PRE CLOSE = 그 날짜(extDate) 프리마켓의 마지막 Form T 체결(확정 뒤에만)
+    //     POST   : POST 가격 = 마지막 체결이 «오늘 16:00 이후 시간외» 일 때만(16:00~16:15 엔 정규장 체결이 온다)
+    //     CLOSED : POST = 그 날짜 애프터 마지막 Form T 체결 → 확정 전(20:00~20:17)·실패 땐 그날 애프터 체결
+    //     PRE·REG: POST 없음 — 어제 애프터를 오늘 화면에 쓰지 않는다
+    //   예전 폴백(OC.preMarket·flow:extended 24h)은 전부 «날짜 없는 값»이라 뺐다.
+    // ══════════════════════════════════════════════════════════════
+    const lastTradeMs = Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : 0;
+    // 스냅샷이 «정규장 마지막 체결 뒤의 체결»이라고 판정했는가(Intrinio 어댑터). 없으면 시각만 본다.
+    const snapHasExt = S._intrinio ? S._intrinio.hasExtendedTrade !== false : true;
+
     let prePrice: number | null = null;
+    let preKind: "live" | "close" | null = null;
+    let preDate: string | null = null;
+    let preTime: string | null = null;
     if (session === "PRE") {
-        prePrice = liveLast;
-    } else if (truePmRes !== null) {
-        prePrice = truePmRes;
-    } else {
-        // Absolute Fallbacks
-        // `S.preMarket` 은 숫자다(스냅샷 규격) — `?.p` 로 읽으면 늘 undefined
-        const snapPre = typeof S.preMarket === "number" ? S.preMarket : (S.preMarket?.p ?? null);
-        const ocPre = OC.preMarket || snapPre || null;
-
-        // Validation: If it's too close to yesterday's close, it's likely a stale early-morning snapshot.
-        let isStale = false;
-        if (ocPre && prevRegularClose) {
-            const diffPct = Math.abs((ocPre - prevRegularClose) / prevRegularClose) * 100;
-            if (liveLast && liveLast > 0 && Math.abs((ocPre - liveLast) / liveLast) > 0.03) {
-                isStale = true;
-            } else if (diffPct < 0.1) {
-                isStale = true;
-            }
+        if (liveLast && snapHasExt && isTradeInExtSession(lastTradeMs, todayStr, "pre")) {
+            prePrice = liveLast;
+            preKind = "live";
+            preDate = todayStr;
+            preTime = new Date(lastTradeMs).toISOString();
         }
-
-        if (ocPre && !isStale) {
-            prePrice = ocPre;
-        } else {
-            // OC.preMarket is stale or missing → use Redis cache strictly
-            try {
-                const cachedExt = await getFromCache<any>(`flow:extended:${ticker}`);
-                if (cachedExt?.prePrice && cachedExt.prePrice > 0) {
-                    prePrice = cachedExt.prePrice;
-                } else if (ocPre) {
-                    // Fallback to ocPre only if Redis is completely empty
-                    prePrice = ocPre;
-                }
-            } catch {
-                if (ocPre) prePrice = ocPre;
-            }
-        }
+    } else if (preCloseRes) {
+        prePrice = preCloseRes.price;
+        preKind = "close";
+        preDate = preCloseRes.date;
+        preTime = preCloseRes.time;
     }
 
-    // ⚠️ `S.afterHours` 는 **숫자**다(스냅샷 규격). 예전 코드는 `S.afterHours?.p` 로
-    //   읽어 항상 undefined 였고, 그래서 지어낸 `OC.afterHours`(= 정규장 종가)로
-    //   흘러가 POST 등락률이 늘 0.00% 였다.
-    const snapAfter = typeof S.afterHours === "number" ? S.afterHours : (S.afterHours?.p ?? null);
-    const postPrice = (session === "POST" ? liveLast : null)
-        || OC.afterHoursClose
-        || snapAfter
-        || OC.afterHours
-        || null;
+    let postPrice: number | null = null;
+    let postKind: "live" | "close" | null = null;
+    let postDate: string | null = null;
+    let postTime: string | null = null;
+    if (session === "POST") {
+        if (liveLast && snapHasExt && isTradeInExtSession(lastTradeMs, todayStr, "post")) {
+            postPrice = liveLast;
+            postKind = "live";
+            postDate = todayStr;
+            postTime = new Date(lastTradeMs).toISOString();
+        }
+    } else if (session === "CLOSED") {
+        if (postCloseRes) {
+            postPrice = postCloseRes.price;
+            postKind = "close";
+            postDate = postCloseRes.date;
+            postTime = postCloseRes.time;
+        } else if (liveLast && snapHasExt && isTradeInExtSession(lastTradeMs, extDate, "post")) {
+            // 확정 전(20:00~20:17)이거나 테이프가 실패 — 그날 애프터 체결이면 잠정값으로 쓴다
+            postPrice = liveLast;
+            postKind = "live";
+            postDate = extDate;
+            postTime = new Date(lastTradeMs).toISOString();
+        }
+    }
 
     // [SQUEEZE FIX] Get squeezeScore from structureService for unified display
     const squeezeScore: number | null = structureResult.squeezeScore ?? null;
@@ -724,7 +764,9 @@ export async function GET(req: NextRequest) {
     const changePctFrac_REG = (liveLast !== null && prevRegularClose !== null && prevRegularClose !== 0)
         ? (liveLast - prevRegularClose) / prevRegularClose : null;
 
-    const postBaseline = regularCloseToday || prevRegularClose;
+    // POST 기준선 = 그 날짜의 «정규장 종가». 없으면 계산하지 않는다 —
+    // 예전처럼 전일 종가로 대신하면 «오늘 전체 등락»이 POST 등락률로 둔갑한다.
+    const postBaseline = (baselineHolidayCorrected ? regularCloseHoliday : null) || regularCloseToday || null;
     const changePctFrac_POST = (postPrice !== null && postBaseline !== null && postBaseline !== 0)
         ? (postPrice - postBaseline) / postBaseline : null;
 
@@ -743,9 +785,14 @@ export async function GET(req: NextRequest) {
 
     switch (session) {
         case "PRE":
-            activePrice = prePrice;
+            // 메인 가격은 예전과 같다(마지막 체결). 오늘 프리 체결로 제한하는 건 PRE «블록» 칸
+            // (extended.prePrice · prices.prePrice · changes*.PRE)뿐이다 — 04:00~04:15 지연 창에
+            // 메인 가격까지 비우면 화면이 통째로 빈다.
+            activePrice = prePrice ?? liveLast;
             baselinePrice = prevRegularClose;
-            changePctFrac = changePctFrac_PRE;
+            changePctFrac = prePrice !== null
+                ? changePctFrac_PRE
+                : ((activePrice !== null && prevRegularClose) ? (activePrice - prevRegularClose) / prevRegularClose : null);
             baselineLabel = "PRE vs Prev Close";
             priceLabel = "Pre-Market";
             break;
@@ -969,7 +1016,15 @@ export async function GET(req: NextRequest) {
             prePrice,
             postPrice,
             preChangePct: changePctFrac_PRE,
-            postChangePct: changePctFrac_POST
+            postChangePct: changePctFrac_POST,
+            // ★ [2026-09-25] «어느 날·어떤 값»인지 같이 싣는다 — 날짜 없는 시간외 값이 날을 넘겨 살았다.
+            //   kind: live = 진행 중 세션의 마지막 체결 · close = 확정된 종가(마지막 Form T 체결)
+            preDate,
+            preKind,
+            preTime,
+            postDate,
+            postKind,
+            postTime,
         },
 
         calc,
@@ -1169,7 +1224,8 @@ export async function GET(req: NextRequest) {
     try { lastGood = await getFromCache<any>(lastGoodKey(ticker, skipAlpha, noChain)); } catch { lastGood = null; }
     const lastGoodOk = !!(lastGood && isUsableTickerCache(lastGood).ok);
     if (lastGoodOk) {
-        finalPayload = mergeFreshOverStale(lastGood, response);
+        // 시간외 칸은 옛 값에서 가져오지 않는다(keepSessionScopedFresh 주석 참조)
+        finalPayload = keepSessionScopedFresh(mergeFreshOverStale(lastGood, response), response);
         const goodAt = freshVerdict.ok ? Date.now() : Number(lastGood._goodAt || 0);
         finalPayload._goodAt = goodAt;
         finalPayload._stale = !freshVerdict.ok;
@@ -1179,10 +1235,14 @@ export async function GET(req: NextRequest) {
         finalPayload._goodAt = Date.now();
     }
 
+    // 시간외 종가를 뒤에서 계산 중이면(예산 초과) 응답 캐시를 짧게 — 다음 요청이 저장된 값을 읽게 한다
+    if (extPending.length) after(() => Promise.allSettled(extPending));
+    const responseTtl = extPending.length ? 10 : TICKER_CACHE_TTL;
+
     const finalVerdict = isUsableTickerCache(finalPayload);
     if (finalVerdict.ok) {
         // [PERF] 60초 응답 캐시 + 12시간 last-good. 둘 다 «병합된 합»을 넣는다.
-        setInCache(cacheKey, finalPayload, TICKER_CACHE_TTL).catch(e => {
+        setInCache(cacheKey, finalPayload, responseTtl).catch(e => {
             console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
         });
         setInCache(lastGoodKey(ticker, skipAlpha, noChain), finalPayload, LAST_GOOD_TTL).catch(() => { });
@@ -1192,22 +1252,9 @@ export async function GET(req: NextRequest) {
         console.warn(`[live/ticker] 캐시 저장 거부 ${ticker} — ${finalVerdict.why}`);
     }
 
-    // [FIX] Persist pre/post prices separately — survives session transitions
-    // Only write when we have valid values (avoid overwriting with null)
-    const extPrices: Record<string, any> = {};
-    if (prePrice && prePrice > 0) {
-        extPrices.prePrice = prePrice;
-        // ⚠️ 계산 못 했으면 **쓰지 않는다.** 예전엔 `: 0` 이라 «0.00%» 라는
-        //    지어낸 값이 24시간짜리 캐시에 앉았고, 화면엔 PRE CLOSE +0.00% 로 떴다.
-        if (changePctFrac_PRE !== null) extPrices.preChangePct = changePctFrac_PRE * 100;
-    }
-    if (postPrice && postPrice > 0) {
-        extPrices.postPrice = postPrice;
-        if (changePctFrac_POST !== null) extPrices.postChangePct = changePctFrac_POST * 100;
-    }
-    if (Object.keys(extPrices).length > 0) {
-        setInCache(`flow:extended:${ticker}`, extPrices, 86400).catch(() => { }); // 24h TTL
-    }
+    // ★ [2026-09-25] 예전엔 여기서 시간외 값을 flow:extended:{T}(24h)에 따로 저장했다.
+    //   날짜가 없어 어제 PRE·POST 와 «정규장 분봉 PRE»가 24시간 동안 오늘 화면(live/quotes·intel/fast)에
+    //   앉는 통로였다. 읽던 두 곳은 이제 날짜 키(ext:close:v1:*)와 체결 시각으로 고르므로 저장을 없앴다.
 
     // ★ 마지막 방어선. 어떤 경로로 들어왔든 `chain=0` 이면 체인은 나가지 않는다.
     //   (병합·캐시·폴백이 늘어날수록 «어디선가 다시 붙는» 사고가 난다. 출구에서 막는다)

@@ -1,9 +1,10 @@
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
-import { getFromCache, setInCache } from '@/services/redisClient';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
+import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, type ExtSessionClose } from '@/services/extendedSessionClose';
+import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 /**
  * 휴장일의 «오늘 바»인가.
@@ -39,12 +40,11 @@ function shouldReconstruct(isHoliday: boolean, S: any): boolean {
 
 export const dynamic = 'force-dynamic'; // No caching allowed
 
-// ── [REDIS OPT] In-memory cache for flow:extended — 60s TTL ──
-// flow:extended data has 24h Redis TTL and changes rarely (pre/post prices).
-// Caching in memory for 60s eliminates ~96% of Redis GET calls from 2s polling.
-// Before: 14 tickers × Redis GET / 2s = 420 GET/min
-// After:  14 tickers × Redis GET / 60s = 14 GET/min
-const EXT_MEM_CACHE = new Map<string, { data: any; expiry: number }>();
+// ── 시간외 «종가» 인스턴스 메모리 캐시 — 60초 ──
+// 확정된 종가는 그날 안에 바뀌지 않는다. 폴링(2~15초)마다 Redis 를 치지 않게 한다.
+// ★ [2026-09-25] 예전엔 여기서 날짜 없는 flow:extended(24h)를 읽었다 — 어제 PRE·POST 와
+//   «정규장 분봉 PRE»(COST 916.26)가 그 통로로 오늘 화면에 앉았다. 이제 키에 날짜가 있다.
+const EXT_MEM_CACHE = new Map<string, { data: ExtSessionClose | null; expiry: number }>();
 const EXT_MEM_TTL_MS = 60_000; // 60 seconds
 
 export async function GET(request: Request) {
@@ -114,33 +114,35 @@ export async function GET(request: Request) {
 
         const data: Record<string, any> = {};
 
-        // [REDIS OPT] Batch-fetch extended price cache — memory-first, Redis fallback
-        // These are populated by /api/live/ticker (24h Redis TTL) and contain accurate pre/post prices.
-        // Memory cache (60s TTL) avoids hitting Redis on every 2s poll cycle.
-        const extCacheMap: Record<string, any> = {};
-        const tickersNeedRedisExt: string[] = [];
-        const now = Date.now();
-        for (const ticker of tickers) {
-            const memEntry = EXT_MEM_CACHE.get(ticker);
-            if (memEntry && now < memEntry.expiry) {
-                extCacheMap[ticker] = memEntry.data;
-            } else {
-                if (memEntry) EXT_MEM_CACHE.delete(ticker);
-                tickersNeedRedisExt.push(ticker);
+        // ── 시간외 «종가» (날짜 키) — 정규장엔 오늘 PRE CLOSE, 마감 뒤엔 화면 날짜의 POST CLOSE ──
+        //   저장된 값은 즉시 쓰고, 없는 종목은 뒤에서 몇 개만 계산해 둔다(다음 폴링이 읽는다).
+        //   pre·post 진행 중엔 스냅샷의 마지막 체결을 «시각»으로 걸러 쓴다(아래).
+        const nowMs = Date.now();
+        const todayET = etDateOf(nowMs);
+        const shownDate = shownRegularSessionDate(nowMs);
+        const closeKind: 'pre' | 'post' | null = session === 'regular' ? 'pre' : session === 'closed' ? 'post' : null;
+        const closeDate = closeKind === 'pre' ? todayET : shownDate;
+        const closeMap: Record<string, ExtSessionClose | null> = {};
+        if (closeKind) {
+            const need: string[] = [];
+            for (const ticker of tickers) {
+                const mem = EXT_MEM_CACHE.get(`${closeKind}:${ticker}:${closeDate}`);
+                if (mem && nowMs < mem.expiry) closeMap[ticker] = mem.data;
+                else need.push(ticker);
             }
-        }
-        if (tickersNeedRedisExt.length > 0) {
-            await Promise.all(
-                tickersNeedRedisExt.map(async (ticker) => {
-                    try {
-                        const cached = await getFromCache<any>(`flow:extended:${ticker}`);
-                        if (cached) {
-                            extCacheMap[ticker] = cached;
-                            EXT_MEM_CACHE.set(ticker, { data: cached, expiry: Date.now() + EXT_MEM_TTL_MS });
-                        }
-                    } catch { /* non-critical */ }
-                })
-            );
+            if (need.length > 0) {
+                try {
+                    const { values, warm } = await peekExtendedSessionClosesAndWarm(need, closeDate, closeKind, 3);
+                    need.forEach((ticker, i) => {
+                        const v = values[i];
+                        if (v === undefined) return;               // 아직 계산 전 — 메모리에 «없음»을 굳히지 않는다
+                        closeMap[ticker] = v;
+                        EXT_MEM_CACHE.set(`${closeKind}:${ticker}:${closeDate}`, { data: v, expiry: Date.now() + EXT_MEM_TTL_MS });
+                    });
+                    if (EXT_MEM_CACHE.size > 5000) EXT_MEM_CACHE.clear();
+                    if (warm) after(() => warm);
+                } catch { /* non-critical */ }
+            }
         }
         // [HOLIDAY] Reconstruct the last real session — see src/services/lastSession.ts.
         //
@@ -206,102 +208,76 @@ export async function GET(request: Request) {
             }
 
             // Session-aware price & extended price selection
+            // ★ [2026-09-25] 시간외 값은 «라벨»이 아니라 «세션·날짜·체결 시각»으로 고른다.
+            //   지연 피드(15분)는 04:0x 에 어제 애프터 체결을, 16:0x 에 정규장 체결을 «마지막 체결»로 준다.
             let price = 0;
             let extendedPrice = 0;
             let extendedLabel = '';
-            // [FIX] Redis-cached extended data (populated by /api/live/ticker, 24h TTL)
-            const cachedExt = extCacheMap[ticker];
+            let extendedDate: string | null = null;
+            const lastTradeMs = Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : 0;
 
             if (session === 'regular') {
                 price = liveLast || dayClose || prevClose;
-                // [FIX V2] PRE CLOSE badge during REG: multiple fallback chain
-                // Polygon preMarket.c is UNRELIABLE during REG (often 0/undefined)
-                // Fallback order: preMarket.c → preMarket.o/h/l → Redis cache → day.o (today's open ≈ pre-market close)
-                const preMarketClose = S.preMarket?.c || S.preMarket?.o || S.preMarket?.h || S.preMarket?.l || 0;
-                if (preMarketClose > 0) {
-                    extendedPrice = preMarketClose;
+                // PRE CLOSE = 오늘 프리마켓의 마지막 Form T 체결(확정 뒤에만).
+                // ⚠️ 예전 폴백 두 개를 뺐다: flow:extended(날짜 없음 · 정규장 분봉이 앉아 있었다)와
+                //    스냅샷 시가(day.o = 개장 단일가 ≠ 프리마켓 종가 — COST 9/25 시가 887 vs 프리 종가 887.53).
+                const pc = closeMap[ticker];
+                if (pc && pc.price > 0) {
+                    extendedPrice = pc.price;
                     extendedLabel = 'PRE';
-                } else if (cachedExt?.prePrice > 0) {
-                    extendedPrice = cachedExt.prePrice;
-                    extendedLabel = 'PRE';
-                } else if (S.day?.o && S.day.o > 0 && prevDayClose > 0 && S.day.o !== prevDayClose) {
-                    // day.o = today's market open price ≈ pre-market close
-                    // Only use if different from prevClose (indicates pre-market activity)
-                    extendedPrice = S.day.o;
-                    extendedLabel = 'PRE';
+                    extendedDate = pc.date;
                 }
             } else if (session === 'pre') {
                 // ══════════════════════════════════════════════════════
                 // [2026-08-31 수정] PRE 에서 두 값이 모두 틀려 있었다.
-                //
-                //   실측(월요일 프리마켓, 프로덕션):
-                //     TSLA  price 354.81(목) · extendedPrice 348.75
-                //     → 화면 「PRE $348.75 +0.00%」. 실제 프리 체결가는 346.8 이었다.
-                //
                 //   ① price 는 «마지막 정규장 종가»여야 한다. prevClose(= prevDay.c)는
-                //      그 하나 앞(목요일)이라 한 세션 밀린다. post/closed 분기는 이미
-                //      `dayClose || prevClose` 를 쓰고 있다 — PRE 만 빠져 있었다.
-                //   ② Massive 는 프리마켓 체결을 주지 않는다. 그래서 min.c/lastTrade 가
-                //      금요일 «종가» 그대로 온다. 그건 프리마켓 가격이 아니다.
-                //      /api/live/ticker(Intrinio)가 채워 둔 flow:extended 캐시를 우선한다.
-                //      둘 다 없으면 0 을 내보내 클라이언트가 정확한 소스로 폴백하게 둔다
+                //      그 하나 앞(목요일)이라 한 세션 밀린다.
+                //   ② 마지막 체결이 오늘 프리마켓 체결이 아니면 프리마켓 가격이 아니다.
+                //      없으면 0 을 내보내 클라이언트가 다른 소스로 폴백하게 둔다
                 //      — 그럴듯한 가짜 숫자보다 «값 없음»이 언제나 낫다.
                 // ══════════════════════════════════════════════════════
                 price = dayClose || prevClose;
-                const rawPre = S.min?.c || liveLast || 0;
-                const isRealPre = rawPre > 0 && dayClose > 0 && Math.abs(rawPre - dayClose) > 0.005;
-                extendedPrice = (cachedExt?.prePrice > 0 ? cachedExt.prePrice : 0)
-                    || (isRealPre ? rawPre : 0);
+                if (liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre')) {
+                    extendedPrice = liveLast;
+                    extendedDate = todayET;
+                }
                 extendedLabel = 'PRE';
             } else if (session === 'post') {
                 price = dayClose || prevClose;
-                extendedPrice = S.min?.c || liveLast || 0;
-                if (!extendedPrice && cachedExt?.postPrice > 0) {
-                    extendedPrice = cachedExt.postPrice;
+                // ⚠️ 예전엔 S.min?.c 를 먼저 봤다 — 어댑터의 min.c 는 «정규장 종가»라 POST 가 늘 비었다.
+                if (liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'post')) {
+                    extendedPrice = liveLast;
+                    extendedDate = todayET;
                 }
                 extendedLabel = 'POST';
             } else {
-                // CLOSED
+                // CLOSED — 화면 날짜의 애프터 종가(마지막 Form T). 확정 전(20:00~20:17)·계산 전이면
+                // 그날 애프터 체결만 잠정값으로 쓴다. 날짜 없는 캐시는 읽지 않는다.
                 price = dayClose || prevClose;
-                if (S.afterHours?.p && S.afterHours.p > 0) {
-                    extendedPrice = S.afterHours.p;
+                const pc = closeMap[ticker];
+                if (pc && pc.price > 0) {
+                    extendedPrice = pc.price;
                     extendedLabel = 'POST';
-                } else if (liveLast > 0 && dayClose > 0 && liveLast !== dayClose) {
-                    // [FIX] lastTrade differs from regular close → after-hours trade occurred
-                    // Polygon day.c = regular session close, lastTrade.p includes AH trades
-                    // Threshold: prices must differ by >0.01% to avoid floating-point noise
-                    const diff = Math.abs(liveLast - dayClose) / dayClose;
-                    if (diff > 0.0001) {
-                        extendedPrice = liveLast;
-                        extendedLabel = 'POST';
-                    }
-                } else if (cachedExt?.postPrice > 0) {
-                    extendedPrice = cachedExt.postPrice;
+                    extendedDate = pc.date;
+                } else if (liveLast > 0 && isTradeInExtSession(lastTradeMs, shownDate, 'post')) {
+                    extendedPrice = liveLast;
                     extendedLabel = 'POST';
+                    extendedDate = shownDate;
                 }
             }
 
-            // [FIX V2] Calculate extendedChangePct with correct baseline
-            // PRE: (prePrice - prevDayClose) / prevDayClose (measures pre-market movement from yesterday's close)
-            // POST: (postPrice - dayClose) / dayClose (measures after-hours movement from today's close)
+            // 등락률은 두 가격으로 직접 계산한다(서버 캐시 값으로 덮지 않는다 — 한 세션 밀린 값이 앉아 있었다).
+            //   PRE(진행 중) 기준 = 마지막 정규장 종가(프리마켓엔 day.c 가 그것이다)
+            //   PRE CLOSE(정규장 중) 기준 = 전일 종가 — day.c 는 정규장 중엔 «실시간 가격»이다
+            //   POST 기준 = 그날 정규장 종가(price)
             let extendedChangePct = 0;
             if (extendedPrice > 0) {
-                // ⚠️ 프리마켓 등락률의 기준은 «마지막 정규장 종가»(금요일)다.
-                //    prevDayClose(목요일)를 쓰면 위 price 와 같은 이유로 한 세션 밀린다.
-                const preBaseline = dayClose || prevDayClose;
+                const preBaseline = session === 'pre' ? (dayClose || prevDayClose) : prevDayClose;
                 if (extendedLabel === 'PRE' && preBaseline > 0) {
                     extendedChangePct = ((extendedPrice - preBaseline) / preBaseline) * 100;
                 } else if (extendedLabel === 'POST' && price > 0) {
                     extendedChangePct = ((extendedPrice - price) / price) * 100;
-                } else if (price > 0) {
-                    extendedChangePct = ((extendedPrice - price) / price) * 100;
                 }
-            }
-            // Override with cached changePct for better accuracy
-            if (extendedLabel === 'PRE' && cachedExt?.preChangePct !== undefined && extendedPrice === cachedExt?.prePrice) {
-                extendedChangePct = cachedExt.preChangePct;
-            } else if (extendedLabel === 'POST' && cachedExt?.postChangePct !== undefined && extendedPrice === cachedExt?.postPrice) {
-                extendedChangePct = cachedExt.postChangePct;
             }
 
             // [HOLIDAY] Override with reconstructed last-session data when the snapshot
@@ -330,6 +306,7 @@ export async function GET(request: Request) {
                 extendedChange: outExtPrice > 0 ? outExtPrice - outPrice : 0,
                 extendedChangePercent: outExtChangePct,
                 extendedLabel: outExtLabel,
+                extendedDate: recon ? null : (outExtPrice > 0 ? extendedDate : null),
                 volume: S.day?.v || 0,
                 session,
                 lastUpdate: Date.now()

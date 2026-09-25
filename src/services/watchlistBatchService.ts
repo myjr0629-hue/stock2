@@ -11,6 +11,8 @@ import { getAnalysisCacheForTickers, writeAnalysisCache } from '@/services/analy
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, runAfterResponse, type ExtSessionClose } from '@/services/extendedSessionClose';
+import { etDateOf, isNonTradingDay, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
@@ -224,13 +226,19 @@ async function getStockDataLight(symbol: string) {
     const sparkline = dailyResults.slice(-20).map((d: any) => d.close);
 
     // [V5] PM extended change calculation for PM Gate 11
-    // PRE session: PM price vs previous regular close (prevClose)
-    // POST session: PM price vs today's close
+    // ★ [2026-09-25] 시간외 체결일 때만 계산한다(지연 피드는 04:0x 에 어제 애프터, 16:0x 에 정규장 체결을 준다).
+    //   PRE 기준 = 마지막 정규장 종가(프리마켓의 day.c) — prevDay.c 는 그 하나 앞이라 한 세션 밀린다.
+    //   POST 기준 = 오늘 정규장 종가(day.c). 휴장일은 시계로 모른다 → 달력으로 거른다.
+    const lastTradeMs = Number(t?.lastTrade?.t) > 0 ? Math.round(Number(t.lastTrade.t) / 1e6) : 0;
+    const lastP = Number(t?.lastTrade?.p) || 0;
     let extendedChangePct: number | null = null;
-    if (session === 'pre' && prevClose > 0) {
-        extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
-    } else if (session === 'post' && todayClose > 0) {
-        extendedChangePct = ((latestPrice - todayClose) / todayClose) * 100;
+    if (!isNonTradingDay(et.dateString) && lastP > 0) {
+        const preBase = Number(t?.day?.c) || prevClose;
+        if (session === 'pre' && preBase > 0 && isTradeInExtSession(lastTradeMs, et.dateString, 'pre')) {
+            extendedChangePct = ((lastP - preBase) / preBase) * 100;
+        } else if (session === 'post' && todayClose > 0 && isTradeInExtSession(lastTradeMs, et.dateString, 'post')) {
+            extendedChangePct = ((lastP - todayClose) / todayClose) * 100;
+        }
     }
 
     return {
@@ -310,6 +318,19 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
         } catch { /* ignore */ }
     }
 
+    // ★ [2026-09-25] 시간외 기준 날짜 + 마감 뒤 애프터 «종가»(날짜 키). 저장값은 즉시, 없는 것만 뒤에서 계산.
+    const extNowMs = Date.now();
+    const extTodayET = etDateOf(extNowMs);
+    const extShownDate = shownRegularSessionDate(extNowMs);
+    const postCloseMap: Record<string, ExtSessionClose | null | undefined> = {};
+    if (currentSession === 'closed') {
+        try {
+            const { values, warm } = await peekExtendedSessionClosesAndWarm(tickers, extShownDate, 'post', 3);
+            tickers.forEach((t, i) => { postCloseMap[t] = values[i]; });
+            runAfterResponse(warm);
+        } catch { /* 없으면 POST 를 비운다 — 날짜 없는 값으로 메우지 않는다 */ }
+    }
+
     // [STEP 1] Concurrency Control: Progressive Batching to prevent Vercel TCP connection drops
     // Processes up to 10 tickers at a time in parallel
     const results: any[] = [];
@@ -376,18 +397,24 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
             }
 
             // ★ Extended: PRE/POST 가격은 별도 필드로 (Command 페이지의 서브 라인)
+            // ★ [2026-09-25] «세션·날짜·체결 시각»으로 고른다. 예전엔 시각을 안 본 마지막 체결이라
+            //   04:0x 엔 어제 애프터가 PRE 로, 16:0x 엔 정규장 체결이 POST 로, 애프터 거래가 없던 날
+            //   마감 뒤엔 Cboe 정규장 마지막 체결(공식 종가와 몇 센트 차이)이 «POST −0.01%» 로 나갔다.
+            //   snap.min.c 는 어댑터에서 «정규장 종가»라 시간외 가격이 아니다.
             let extendedPrice: number | null = null;
             let extendedLabel: string | undefined = undefined;
             let extendedChangePct: number | null = null;
+            const lastTradeMs = Number(snap.lastTrade?.t) > 0 ? Math.round(Number(snap.lastTrade.t) / 1e6) : 0;
             if (currentSession === 'pre') {
-                const prePrice = liveLast || snap.min?.c;
-                if (prePrice > 0 && prePrice !== displayPrice) {
-                    extendedPrice = prePrice;
+                if (liveLast > 0 && liveLast !== displayPrice && isTradeInExtSession(lastTradeMs, extTodayET, 'pre')) {
+                    extendedPrice = liveLast;
                     extendedLabel = 'PRE';
-                    extendedChangePct = displayPrice > 0 ? ((prePrice - displayPrice) / displayPrice) * 100 : 0;
+                    extendedChangePct = displayPrice > 0 ? ((liveLast - displayPrice) / displayPrice) * 100 : 0;
                 }
             } else if (currentSession === 'post' || currentSession === 'closed') {
-                const postPrice = liveLast || snap.afterHours?.p || snap.min?.c;
+                const pc = currentSession === 'closed' ? postCloseMap[ticker] : undefined;
+                const postPrice = (pc && pc.price > 0) ? pc.price
+                    : (liveLast > 0 && isTradeInExtSession(lastTradeMs, currentSession === 'post' ? extTodayET : extShownDate, 'post') ? liveLast : 0);
                 if (postPrice > 0 && postPrice !== displayPrice) {
                     extendedPrice = postPrice;
                     extendedLabel = 'POST';

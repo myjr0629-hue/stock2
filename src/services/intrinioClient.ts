@@ -88,6 +88,9 @@ function vendorTtlSec(path: string): number {
     if (/^options\//.test(path)) return 60;
     // 기술지표(MACD·RSI 등) — 일봉 기반이라 장중에도 거의 안 변한다.
     if (/\/prices\/technicals\//.test(path)) return 600;
+    // 체결 목록 — 한 페이지가 최대 ~1MB 다. 공유 캐시에 넣지 않는다.
+    //   쓰는 쪽(extendedSessionClose)이 «뽑아낸 체결 한 건»만 날짜 키로 따로 저장한다.
+    if (/\/trades$/.test(path)) return 0;
     // 분봉
     if (/\/prices\/intervals$/.test(path)) return 60;
     // 일봉 — 마지막 봉만 장중에 움직인다.
@@ -130,7 +133,7 @@ function _looksEmpty(path: string, data: any): boolean {
     // securities/{t}/prices → { stock_prices: [] }
     if (Array.isArray((data as any).stock_prices)) return (data as any).stock_prices.length === 0;
     // 그 외 배열형 응답들
-    for (const k of ['intervals', 'chain', 'contracts', 'securities']) {
+    for (const k of ['intervals', 'chain', 'contracts', 'securities', 'trades']) {
         if (Array.isArray((data as any)[k])) return (data as any)[k].length === 0;
     }
     return false;
@@ -708,13 +711,23 @@ export async function getIntradayAggregates(
     span: string,
     from: string,
     to: string,
-    opts: { sort?: "asc" | "desc"; limit?: number } = {}
+    opts: {
+        sort?: "asc" | "desc";
+        limit?: number;
+        /**
+         * ★ [2026-09-25] 호출부가 «시각» 창(epoch ms)을 물었을 때 — 라우터가 날짜로 바꿔 부르고 이걸 넘긴다.
+         *   날짜 하루치를 받아 합친 뒤 이 창으로 자르고, 그다음에 limit 을 적용한다
+         *   (limit 을 먼저 자르면 최신 봉만 남아 창이 통째로 비거나 엉뚱한 봉이 남는다).
+         */
+        window?: { fromMs: number | null; toMs: number | null };
+    } = {}
 ): Promise<any | undefined> {
     const interval = toIntrinioInterval(mult, span);
     if (!interval) return undefined;
 
     const sym = ticker.toUpperCase();
     const limit = Math.min(opts.limit ?? 1000, 1000);
+    const win = opts.window;
 
     // ⚠️ Intrinio intervals 의 실측 제약 두 가지 (2026-08-29 확인)
     //   1) end_date 는 **배타적(exclusive)**. from==to 로 보내면 빈 배열이 온다.
@@ -726,14 +739,14 @@ export async function getIntradayAggregates(
         interval_size: interval,
         start_date: from,
         end_date: endExclusive,
-        page_size: String(Math.min(Math.max(limit, 100), 1000)),
+        page_size: String(win ? 1000 : Math.min(Math.max(limit, 100), 1000)),
     });
 
     const rows: any[] = data?.intervals || [];
     // Intrinio 는 최신순(desc) 반환
     const ordered = opts.sort === "desc" ? rows : [...rows].reverse();
 
-    const results = ordered.slice(0, limit).map((r) => ({
+    const results = (win ? ordered : ordered.slice(0, limit)).map((r) => ({
         t: toMs(r.time),
         o: num(r.open) ?? 0,
         h: num(r.high) ?? 0,
@@ -749,7 +762,25 @@ export async function getIntradayAggregates(
     // Intrinio intervals 는 **정규장만** 준다(실측: 390봉, PRE 0 / POST 0).
     // EC2 `intrinio-ext-bars` 서비스가 기록해 둔 시간외 봉을 여기서 합쳐,
     // 1D 차트의 PRE/본장/POST 구분이 살아 있게 한다.
-    const merged = await mergeExtendedBars(sym, from, to, results);
+    let merged = await mergeExtendedBars(sym, from, to, results);
+
+    if (win) {
+        // 시각 창으로 자른 뒤(오름차순) 요청 순서로 돌려 limit 을 적용한다.
+        // ⚠️ mergeExtendedBars 는 시간외 봉이 없으면 받은 순서를 그대로 돌려준다(desc 일 수 있다) → 직접 정렬한다.
+        merged = [...merged].sort((a, b) => a.t - b.t).filter((r) =>
+            (win.fromMs == null || r.t >= win.fromMs) && (win.toMs == null || r.t <= win.toMs));
+        const inOrder = opts.sort === "desc" ? [...merged].reverse() : merged;
+        const cut = inOrder.slice(0, limit);
+        return {
+            ticker: sym,
+            queryCount: cut.length,
+            resultsCount: cut.length,
+            adjusted: true,
+            results: cut,
+            status: "OK",
+            request_id: `intrinio-intraday-${sym}-${interval}`,
+        };
+    }
 
     return {
         ticker: sym,
@@ -2486,6 +2517,91 @@ export async function getOpenCloseIntrinio(ticker: string, date: string): Promis
         preMarket: null,
         _extendedUnavailable: "intrinio-daily-bar-has-no-extended-session",
     };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 9) 시간외 «마지막 체결» — 통합 체결 테이프(SIP)  ★ [2026-09-25]
+//    securities/{t}/trades?source=delayed_sip
+//      → 실제 피드는 상장 시장별로 utp_delayed · cta_a_delayed · cta_b_delayed (15분 지연)
+//    기본 source(cboe_one_delayed)는 Cboe 거래소 체결만 담아 «통합 마지막 체결»과 다르다
+//    (9/24 애프터 COST 898.04 vs 통합 898). 정의·실측은 services/extendedSessionClose.ts 머리말.
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Form T(시간외 체결) 표시가 있는가.
+ *   UTP 는 «@ TI»·«@FTI»·«@ T», CTA 는 «TI»·«FT»·«T» 처럼 온다 — 둘 다 글자 T 로 판정한다.
+ *   U(시간외 · 순서 어긋난 늦은 보고)는 «마지막 체결» 자격이 없다.
+ *   가격 0·조건 «512» 행은 체결이 아닌 제어 메시지다(가격 검사로 걸러진다).
+ */
+export function isFormTCondition(condition: unknown): boolean {
+    const c = String(condition ?? "");
+    return c.includes("T") && !c.includes("U");
+}
+
+export interface LastExtendedTrade {
+    price: number;
+    /** 체결 시각 (ISO, UTC) */
+    time: string;
+    size: number;
+    condition: string;
+    /** 실제로 응답한 피드 (utp_delayed 등) */
+    source: string;
+}
+
+/**
+ * ET 창 [startTime, endTime] 안의 «마지막 Form T 체결».
+ *   반환: 체결 · null(창을 끝까지 봤는데 Form T 가 없다) · undefined(페이지 상한에 걸려 판정 못 함)
+ *   ⚠️ 응답은 «최신순»이다 → Form T 가 처음 나온 페이지 안의 가장 늦은 것이 창 전체의 마지막이다.
+ *   ⚠️ end_time 은 초 단위로 «포함»이다(09:30:00 은 09:30:00.000 까지만 준다 — 실측).
+ */
+export async function getLastExtendedTradeIntrinio(
+    ticker: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    opts: { pageSize?: number; maxPages?: number } = {}
+): Promise<LastExtendedTrade | null | undefined> {
+    const sym = ticker.toUpperCase();
+    const pageSize = String(Math.min(Math.max(opts.pageSize ?? 1000, 50), 10000));
+    const maxPages = Math.max(1, opts.maxPages ?? 3);
+    let next: string | undefined;
+
+    for (let page = 0; page < maxPages; page++) {
+        const params: Record<string, string> = {
+            source: "delayed_sip",
+            start_date: date,
+            start_time: startTime,
+            end_date: date,
+            end_time: endTime,
+            timezone: "America/New_York",
+            page_size: pageSize,
+        };
+        if (next) params.next_page = next;
+        const data = await callIntrinio(`securities/${sym}/trades`, params, undefined, 15000);
+        const rows: any[] = Array.isArray(data?.trades) ? data.trades : [];
+
+        let best: any = null;
+        for (const r of rows) {
+            const p = num(r?.price);
+            if (p == null || !(p > 0) || !isFormTCondition(r?.condition)) continue;
+            if (!best) { best = r; continue; }
+            // 같은 밀리초 안에서는 누적 거래량(total_volume)이 큰 쪽이 나중 체결이다
+            const dt = toMs(r.timestamp) - toMs(best.timestamp);
+            if (dt > 0 || (dt === 0 && (num(r.total_volume) ?? 0) > (num(best.total_volume) ?? 0))) best = r;
+        }
+        if (best) {
+            return {
+                price: num(best.price) as number,
+                time: new Date(toMs(best.timestamp)).toISOString(),
+                size: num(best.size) ?? 0,
+                condition: String(best.condition ?? ""),
+                source: String(data?.source ?? ""),
+            };
+        }
+        next = data?.next_page || undefined;
+        if (!next) return null;
+    }
+    return undefined;
 }
 
 // ════════════════════════════════════════════════════════════════════════
