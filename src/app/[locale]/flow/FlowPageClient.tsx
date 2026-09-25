@@ -81,15 +81,23 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
         liveChangePct: livePrice?.changePercent,
         apiDisplayPrice: flowSsrFallback?.display?.price || liveQuote?.display?.price,
         apiDisplayChangePct: flowSsrFallback?.display?.changePctPct || liveQuote?.display?.changePctPct,
-        session: flowSession === 'REG' ? 'REG' : (flowSsrFallback?.session || liveQuote?.session || 'CLOSED'),
+        // ★ [2026-09-25] 세션·시간외 칸은 «최신» 값이 먼저다. SSR(페이지 로드 시점)을 먼저 쓰면 정규장에 연 페이지가
+        //   16시 뒤에도 PRE CLOSE 에 멈추고, 프리마켓 가격이 로드 시점 값에서 안 움직였다.
+        //   폴링(useLivePrice = live/quotes)의 시간외 값도 커맨드처럼 넘긴다 — 서버가 세션·날짜로 골라 준다.
+        liveExtPrice: livePrice?.extendedPrice,
+        liveExtChangePct: livePrice?.extendedChangePercent,
+        liveExtLabel: livePrice?.extendedLabel
+            ? (flowSession === 'CLOSED' ? `${livePrice.extendedLabel} (CLOSED)` : livePrice.extendedLabel)
+            : undefined,
+        session: flowSession,
         prevRegularClose: flowSsrFallback?.prices?.prevRegularClose || liveQuote?.prices?.prevRegularClose,
         prevClose: flowSsrFallback?.prevClose || liveQuote?.prevClose,
         regularCloseToday: flowSsrFallback?.prices?.regularCloseToday || liveQuote?.prices?.regularCloseToday,
         prevChangePct: liveQuote?.prices?.prevChangePct,
         fallbackChangePct: flowSsrFallback?.changePercent || liveQuote?.changePercent || 0,
         lastTrade: flowSsrFallback?.prices?.lastTrade || liveQuote?.prices?.lastTrade || liveQuote?.price,
-        extended: flowSsrFallback?.extended || liveQuote?.extended,
-        prices: flowSsrFallback?.prices || liveQuote?.prices,
+        extended: liveQuote?.extended || flowSsrFallback?.extended,
+        prices: liveQuote?.prices || flowSsrFallback?.prices,
     });
 
     const isPositive = displayChangePct >= 0;
