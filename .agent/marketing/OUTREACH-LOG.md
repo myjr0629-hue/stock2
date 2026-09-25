@@ -12262,3 +12262,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **linkedin_articles ✅** | «September 30: PCE, GDP and Micron in one session» — BEA 일정(8:30 ET PCE 8월·GDP 3차) · 7월 PCE 3.7%·근원 3.3%(샌프란 연은 FedViews 9/3) · 9/17 인상·목표 3.75~4.00%·EFFR 3.88% · 8/24 이후 2년 +63·10년 +48·30년 +24bp · MU 컨센서스 $31.24 vs 1년 전 $2.86·최근 4번 반응·10/2 옵션 ±9.3%(9/24 종가) · SK하이닉스 -1.0/+0.2/-4.1/+13.1%·삼성 +0.8/-0.3/-3.8/+5.3%(한국이 먼저 반응) · «방향 아님» · AI 고지 · 표지 = MU 앱 화면(1200×675) | https://www.linkedin.com/pulse/september-30-pce-gdp-micron-one-session-signum-hq-33lec/ · 비로그인: 제목·첫 문단·링크·표지 |
 | 고정 ⑥ 스윕 — 1편 차단 | «종목» 에서 새 일회용 도메인 **ahfdrtuw10.shop** 차단 → 누계 85편 | /tmp/ego/arc-blocked-*.json |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 02:30~02:51 — 시간 사이클: 실행 4 전부(블루스키 ✅·블루스키 답글 ✅·스레드 ✅·스레드 답글 ✅ — 넷 다 비로그인 공개 확인) · 게이트 341/0 · 클릭 재측정 · 스윕 0 · 도구 수리 1(threads-post 고정 글 오인)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 클릭 재측정(ET 9/25 기준 «오늘») | bluesky 5(3일 47) · indiehackers 7(로그인 끊긴 뒤에도 예전 댓글에서 3일 19) · home 15 · geeknews 2 · medium 2 · x_us 1 · note 1 · seo_darkpool 4 | mkt-clicks.js |
+| **bluesky ✅(계정 합계 3/3 — 오늘 블루스키 본글 끝)** | $NKE 10/1 실적: 최근 4번 모두 EPS 상회인데 다음 날 +6.4/−10.5/−15.5/+4.9%, 두 하락은 가장 작은 상회(21·43%) 뒤 · 10/2 옵션 약 ±8.3% · #stocks · 이미지 = 나이키 머리글+다크풀 | https://bsky.app/profile/signumhq.bsky.social/post/3mwecgsrpt22t · 공개 API: 본문·링크 facet(from=bluesky)·이미지 |
+| **bluesky_reply ✅ 1/2** | FinSky·EconSky 류 피드(공개 getFeed, 1.5시간 안·금리/실적 키워드)는 팔로워 최대 1,626 → «큰 계정» 없음 → 큰 금융 계정 getAuthorFeed 로 넓혀 @wsj.com(팔로워 253,708·게시 1.3시간·답글 0) «Active bond funds claim to beat the benchmark, but hidden risks often drive returns»(츠바이크 칼럼)에 답글: 8/24→9/24 2년 +63·10년 +48·30년 +24bp·10년 TIPS +47bp·기대인플레 ~2.3% → «같은 ‹채권› 이름표라도 곡선 어디에 있었느냐에 따라 한 달이 크게 달랐을 수 있다». 링크 0·X/스레드 답글과 다른 문장 | https://bsky.app/profile/signumhq.bsky.social/post/3mwecjpubna2i · 공개 getPostThread: WSJ 글 답글 1개 = 우리 글 |
+| **threads ✅(계정 합계 1/2)** | $COST 후속: 목요일 옵션 ±3.2%($900 스트래들 $28.68, 1:14pm ET 중간값) → 금요일 1:32pm ET +2.45%($918.41) 범위 안 · 목요일 장외 37.4% vs 49.6%(FINRA) · #stocks · 이미지 = 코스트코 머리글+다크풀 | https://www.threads.com/@signumhq_official/post/DduAyohmb06 · 비로그인 크롤러 og:description 에 본문·링크 문구, og:image 있음 |
+| **도구 수리 — threads-post.mjs** | 게시 후 «내 글 첫 번째 링크 = 새 글»로 판정했는데, 9/25 부터 프로필 맨 위가 «고정됨» 글(의회 거래)이라 새 글 대신 고정 글 주소를 보고했다 → 표식이 든 «고정 아닌» 글의 주소를 찾도록 수정(못 찾으면 «발행했다»고 쓰지 않음) | scripts/threads-post.mjs |
+| **threads_reply ✅ 1/2(공개 확인)** | @edgewarroom «BofA just cut Nike to Underperform and slashed the price target to $30 from $47…»(게시 28분) ← 나이키 최근 4번 상회·다음 날 반응·두 하락은 작은 상회 뒤·10/2 옵션 ±8.3%(스트래들 ~$2.95, 11:49 ET) · 이미지 = 나이키 다크풀. 어제 @yahoofinance(브랜드) 답글이 비공개였던 것과 달리 개인 금융 계정 글 → 새 도구의 비로그인 확인 통과 | https://www.threads.com/@signumhq_official/post/DduBt5umd2q · 내 답글 탭 + 비로그인 og:description |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |

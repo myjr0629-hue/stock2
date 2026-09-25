@@ -62,8 +62,12 @@ const p = await page.evaluate(function () {
 if (!p) { console.log('NO_POST'); process.exit(1); }
 await page.mouse.click(p.x, p.y); await L.wait(11000);
 const MARK = task.mark || '';
+// ★2026-09-26 수리: 프로필 맨 위 «고정됨» 글(9/25 부터)을 새 글로 오인했다 → 표식이 든 «고정 아닌» 글의 주소를 찾는다.
 const out = await page.evaluate(function (MARK) {
-  return { mine: (document.body.innerText || '').includes(MARK),
-           own: [...document.querySelectorAll('a[href^="/@signumhq_official/post/"]')].map(function (a) { return a.getAttribute('href'); }).slice(0, 2) };
+  const hs = [...new Set([...document.querySelectorAll('a[href^="/@signumhq_official/post/"]')].map(function (a) { return a.getAttribute('href').split('?')[0].replace(/\/media$/, ''); }))];
+  const rows = hs.map(function (h) { const a = document.querySelector('a[href^="' + h + '"]'); let b = a; for (let i = 0; i < 9 && b && b.parentElement; i++) b = b.parentElement; const t = (b ? b.innerText : '').replace(/\s+/g, ' '); return { h: h, has: t.includes(MARK), pinned: /고정됨|Pinned/.test(t) }; });
+  const hit = rows.find(function (r) { return r.has && !r.pinned; });
+  return { mine: (document.body.innerText || '').includes(MARK), url: hit ? 'https://www.threads.com' + hit.h : null };
 }, MARK);
 console.log(JSON.stringify(out));
+if (out.url) console.log('✅ 새 글(고정 제외·표식 일치): ' + out.url); else console.log('⚠ 표식이 든 새 글 주소를 못 찾았다 — «발행했다»고 적지 않는다');
