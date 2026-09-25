@@ -5,6 +5,8 @@
 
 
 import { getOptionsData } from '@/services/stockApi';
+import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, runAfterResponse, type ExtSessionClose } from '@/services/extendedSessionClose';
+import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
@@ -109,6 +111,19 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
     const marketStatus = await getMarketStatusSSOT();
     const currentSession = marketStatus.session;
 
+    // ★ [2026-09-25] 시간외 기준 날짜 + 마감 뒤 애프터 «종가»(날짜 키). 저장값은 즉시, 없는 것만 뒤에서 계산.
+    const extNowMs = Date.now();
+    const extTodayET = etDateOf(extNowMs);
+    const extShownDate = shownRegularSessionDate(extNowMs);
+    const postCloseMap: Record<string, ExtSessionClose | null | undefined> = {};
+    if (currentSession === 'closed') {
+        try {
+            const { values, warm } = await peekExtendedSessionClosesAndWarm(tickers, extShownDate, 'post', 3);
+            tickers.forEach((t, i) => { postCloseMap[t] = values[i]; });
+            runAfterResponse(warm);
+        } catch { /* 없으면 POST 를 비운다 */ }
+    }
+
     const results = await Promise.all(tickers.map(async (ticker) => {
         const analysis = cached[ticker];
         const snap = snapshotMap[ticker];
@@ -124,7 +139,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
 
             let displayPrice = 0;
             if (currentSession === 'regular') displayPrice = liveLast || dayClose || prevDayClose;
-            else if (currentSession === 'pre') displayPrice = prevDayClose;
+            // ⚠️ [2026-09-25] 프리마켓의 «본장»은 마지막 정규장(스냅샷 day.c)이다. prevDay.c 는 그 하나 앞이다.
+            else if (currentSession === 'pre') displayPrice = dayClose || prevDayClose;
             else displayPrice = dayClose || prevDayClose;
 
             let changePct = snap.todaysChangePerc || 0;
@@ -136,13 +152,20 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
 
             const change = displayPrice - prevDayClose;
 
+            // ★ [2026-09-25] 시간외 값은 «세션·날짜·체결 시각»으로 고른다.
+            //   예전: snap.min.c 를 먼저 봤다 — 어댑터의 min.c 는 «정규장 종가»라 PRE·POST 가
+            //   정규장 종가 +0.00% 로 지어내졌다(afterHours 는 숫자라 `.p` 는 늘 undefined).
             let extendedPrice: number | null = null;
             let extendedLabel = undefined;
+            const lastTradeMs = Number(snap.lastTrade?.t) > 0 ? Math.round(Number(snap.lastTrade.t) / 1e6) : 0;
             if (currentSession === 'pre') {
-                const prePrice = snap.min?.c || liveLast;
-                if (prePrice > 0) { extendedPrice = prePrice; extendedLabel = 'PRE'; }
-            } else if (currentSession === 'post' || currentSession === 'closed') {
-                const postPrice = snap.afterHours?.p || snap.min?.c || liveLast;
+                if (liveLast > 0 && isTradeInExtSession(lastTradeMs, extTodayET, 'pre')) { extendedPrice = liveLast; extendedLabel = 'PRE'; }
+            } else if (currentSession === 'post') {
+                if (liveLast > 0 && isTradeInExtSession(lastTradeMs, extTodayET, 'post')) { extendedPrice = liveLast; extendedLabel = 'POST'; }
+            } else if (currentSession === 'closed') {
+                const pc = postCloseMap[ticker];
+                const postPrice = (pc && pc.price > 0) ? pc.price
+                    : (liveLast > 0 && isTradeInExtSession(lastTradeMs, extShownDate, 'post') ? liveLast : 0);
                 if (postPrice > 0) { extendedPrice = postPrice; extendedLabel = 'POST'; }
             }
 

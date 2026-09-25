@@ -3,6 +3,8 @@ import { fetchMassive, fetchMassiveAll, CACHE_POLICY } from './massiveClient';
 import { getMarketStatusSSOT } from './marketStatusProvider';
 import { findWeeklyExpirationSync } from './holidayCache';
 import { getFromCache, setInCache } from './redisClient';
+import { peekExtendedSessionCloses, isTradeInExtSession } from './extendedSessionClose';
+import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 // [Phase 24.1] Central Data Hub Structure
 export interface UnifiedQuote {
@@ -260,17 +262,28 @@ export const CentralDataHub = {
             } else {
                 price = regClose;
                 priceSource = "OFFICIAL_CLOSE";
+                // ★ [2026-09-25] 시간외 값은 «세션·날짜·체결 시각»으로 고른다.
+                //   예전: S.min.c 를 먼저 봤다 — Intrinio 어댑터의 min.c 는 «정규장 종가»라 PRE·POST 가
+                //   정규장 종가(PM 0%)로 나갔고, 마감 뒤엔 시각을 안 본 마지막 체결(애프터 거래가 없던 날엔
+                //   정규장 마지막 체결)이 POST 로 나갔다. 지연 피드(15분)는 04:0x 에 어제 애프터를 준다.
+                const ltMs = Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : 0;
+                const todayET = etDateOf(Date.now());
                 if (session === 'PRE') {
-                    extendedPrice = S.min?.c || liveLast || 0;
-                    extendedLabel = 'PRE';
+                    if (liveLast && isTradeInExtSession(ltMs, todayET, 'pre')) {
+                        extendedPrice = liveLast;
+                        extendedLabel = 'PRE';
+                    }
                 } else if (session === 'POST') {
-                    extendedPrice = S.min?.c || liveLast || 0;
-                    extendedLabel = 'POST';
+                    if (liveLast && isTradeInExtSession(ltMs, todayET, 'post')) {
+                        extendedPrice = liveLast;
+                        extendedLabel = 'POST';
+                    }
                 } else if (session === 'CLOSED') {
-                    // [FIX] Use afterHours first, then lastTrade as fallback
-                    // Polygon's afterHours object becomes unavailable late at night,
-                    // but lastTrade.p always has the last traded price
-                    const postPrice = S.afterHours?.p || liveLast || 0;
+                    // 화면 날짜의 애프터 종가(저장된 값만 — 여기서 벤더를 부르지 않는다) → 그날 애프터 체결
+                    const shown = shownRegularSessionDate();
+                    const [pc] = await peekExtendedSessionCloses([ticker], shown, 'post').catch(() => [undefined]);
+                    const postPrice = (pc && pc.price > 0) ? pc.price
+                        : ((liveLast && isTradeInExtSession(ltMs, shown, 'post')) ? liveLast : 0);
                     if (postPrice > 0 && prevClose > 0) {
                         extendedPrice = postPrice;
                         extendedLabel = 'POST';

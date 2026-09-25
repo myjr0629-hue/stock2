@@ -102,8 +102,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         // [V75 INSTANT PRE/POST] Use SSR-fetched extended prices from getStockDataLight
         // Previously: prePrice was only set when session === 'pre' → PRE CLOSE badge appeared ~5s late
         // Now: always pass through extended.prePrice/postPrice so calcPriceDisplay renders badge at 0ms
+        // ★ [2026-09-25] 시간외 값은 서버(getStockDataLight)가 «세션·날짜·체결 시각»으로 고른 것만 쓴다.
+        //   예전엔 마지막 체결(effectivePrice)을 PRE/POST 자리에 그대로 넣었다 — 지연 피드라 04:0x 엔
+        //   어제 애프터가 PRE 로, 16:0x 엔 정규장 체결이 POST 로, 애프터 거래가 없던 날 마감 뒤엔
+        //   정규장 마지막 체결(공식 종가와 몇 센트 차이)이 «POST» 로 나갔다.
         const ssrPrePrice = initialStockData?.extended?.prePrice || null;
         const ssrPostPrice = initialStockData?.extended?.postPrice || null;
+        // 프리마켓의 «직전 정규장»은 스냅샷 day.c(= todayClose)다. prevDay.c 는 그 하나 앞이라
+        // 월요일 프리마켓에 목요일 종가가 메인 가격·PRE 기준선으로 나갔다(한 세션 밀림).
+        const lastRegularClose = s === 'pre'
+            ? (initialStockData?.todayClose || initialStockData?.prevClose || null)
+            : (initialStockData?.prevClose || null);
         return {
             price: effectivePrice,
             prices: {
@@ -111,16 +120,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 // During REG: null → calcPriceDisplay uses WebSocket real-time
                 // During POST/CLOSED: todayClose ($360.59) → calcPriceDisplay locks to it
                 regularCloseToday: (s !== 'reg') ? (initialStockData?.todayClose || undefined) : undefined,
-                prevRegularClose: initialStockData?.prevClose || null,
+                prevRegularClose: lastRegularClose,
                 prevClose: initialStockData?.prevClose || null,
-                prePrice: s === 'pre' ? effectivePrice : (ssrPrePrice || undefined),
-                postPrice: (s === 'post' || s === 'closed') ? effectivePrice : (ssrPostPrice || undefined),
+                prePrice: ssrPrePrice || undefined,
+                postPrice: ssrPostPrice || undefined,
                 lastTrade: effectivePrice,
             },
             extended: {
-                prePrice: ssrPrePrice || (s === 'pre' ? effectivePrice : undefined),
+                prePrice: ssrPrePrice || undefined,
                 preClose: ssrPrePrice || undefined,
-                postPrice: ssrPostPrice || (s === 'post' || s === 'closed' ? effectivePrice : undefined),
+                postPrice: ssrPostPrice || undefined,
             },
             // Session: 'post' from SSR may be stale (Redis cache). 
             // If actual post-market (16:00-20:00 ET) ended, correct to CLOSED.

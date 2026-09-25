@@ -101,10 +101,13 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
             const isRegular = s === 'reg' || s === 'open' || s === 'market';
             const extLabel = q?.extendedLabel || (!isRegular ? (s === 'pre' ? 'PRE' : 'POST') : '');
 
-            // [FIX] Compute extendedChangePercent correctly: PRE against prevClose, POST against regular close (price)
+            // [FIX] Compute extendedChangePercent correctly — 기준선은 PRE·POST 모두 quotes 의 price 다.
+            //   ★ [2026-09-25] 프리마켓의 quotes.price = 마지막 정규장 종가(= PRE 기준선),
+            //   previousClose 는 그 하나 앞(prevDay.c)이라 PRE 등락률이 한 세션 밀렸다.
+            //   애프터의 quotes.price = 오늘 정규장 종가(= POST 기준선).
             let extChangePct = q?.extendedChangePercent || 0;
             if (!isRegular) {
-                const basePrice = extLabel === 'PRE' ? q?.previousClose : q?.price;
+                const basePrice = q?.price;
                 if (basePrice > 0) {
                     extChangePct = ((wsPrice.price - basePrice) / basePrice) * 100;
                 }

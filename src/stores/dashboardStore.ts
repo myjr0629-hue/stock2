@@ -407,9 +407,16 @@ export const useDashboardStore = create<DashboardState>()(
 
                         // ── [ONE-PIPE] regularCloseToday: 최초 설정 후 유지 (Polygon 변동 차단) ──
                         // SSR initializeStore에서 설정됨. 이후 fetchPriceOnly에서는 없을 때만 설정.
-                        const regCloseToday = existing.regularCloseToday && existing.regularCloseToday > 0
-                            ? existing.regularCloseToday
-                            : (q.price > 0 ? q.price : null);
+                        // ★ [2026-09-25] «정규장 종가»는 POST·CLOSED 의 quotes.price 에만 있다. 예전엔 세션과
+                        //   무관하게 처음 값을 잡아, 정규장에 연 대시보드를 애프터까지 두면 «정규장 중 가격»이
+                        //   POST 의 메인 가격·기준선으로 남았다. PRE·REG 에선 비우고, 마감 세션에서 새로 잡는다.
+                        const isCloseSession = session === 'POST' || session === 'CLOSED';
+                        const lockedInClose = existing.session === 'POST' || existing.session === 'CLOSED';
+                        const regCloseToday = !isCloseSession
+                            ? null
+                            : (lockedInClose && existing.regularCloseToday && existing.regularCloseToday > 0
+                                ? existing.regularCloseToday
+                                : (q.price > 0 ? q.price : null));
 
                         // ── [ONE-PIPE] computeOnePipe — 단일 가격 계산 경로 ──
                         const pipe = computeOnePipe({
@@ -437,12 +444,20 @@ export const useDashboardStore = create<DashboardState>()(
                             prevRegularClose: pipe.prevClose || existing.prevRegularClose,
                             regularCloseToday: regCloseToday,
                             display: { price: pipe.price, changePctPct: changePct ?? 0 },
+                            // ★ [2026-09-25] 시간외 칸은 이번 폴링(quotes)이 «정답»이다 — 세션·날짜로 이미 골라서 온다.
+                            //   예전엔 `?? existing` 으로 옛 값을 남겨, 어제 POST 가 오늘 프리마켓·정규장까지 살아
+                            //   차트가 `postPrice || prePrice` 로 어제 애프터를 그렸다.
+                            //   PRE: 오늘 프리 체결 · REG: 오늘 PRE CLOSE · POST·CLOSED: 그날 애프터(PRE CLOSE 는 유지)
                             extended: {
                                 ...existing.extended,
-                                postPrice: pipe.session === 'POST' || pipe.session === 'CLOSED' ? pipe.extPrice ?? existing.extended?.postPrice : existing.extended?.postPrice,
-                                postChangePct: pipe.session === 'POST' || pipe.session === 'CLOSED' ? pipe.extChangePct ?? existing.extended?.postChangePct : existing.extended?.postChangePct,
-                                prePrice: pipe.session === 'PRE' || pipe.extLabel === 'PRE CLOSE' ? pipe.extPrice ?? existing.extended?.prePrice : existing.extended?.prePrice,
-                                preChangePct: pipe.session === 'PRE' || pipe.extLabel === 'PRE CLOSE' ? pipe.extChangePct ?? existing.extended?.preChangePct : existing.extended?.preChangePct,
+                                postPrice: isCloseSession ? (pipe.extPrice ?? undefined) : undefined,
+                                postChangePct: isCloseSession ? (pipe.extChangePct ?? undefined) : undefined,
+                                prePrice: session === 'PRE' ? (pipe.extPrice ?? undefined)
+                                    : session === 'REG' ? (pipe.extLabel === 'PRE CLOSE' ? (pipe.extPrice ?? undefined) : undefined)
+                                    : existing.extended?.prePrice,
+                                preChangePct: session === 'PRE' ? (pipe.extChangePct ?? undefined)
+                                    : session === 'REG' ? (pipe.extLabel === 'PRE CLOSE' ? (pipe.extChangePct ?? undefined) : undefined)
+                                    : existing.extended?.preChangePct,
                             },
                             session,
                         };

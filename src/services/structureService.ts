@@ -1,4 +1,6 @@
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { isTradeInExtSession } from './extendedSessionClose';
+import { etDateOf, isNonTradingDay, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { getFromCache, setInCache } from "@/services/redisClient";
@@ -362,20 +364,27 @@ export async function getStructureData(
         const dayClose = T.day?.c || 0; // Regular session close
         const lastTradePrice = T.lastTrade?.p || 0;
 
-        // If we have a trade after regular hours, that's extended
-        if (session === 'POST' || session === 'CLOSED') {
-            // Post-market: lastTrade might be post-close price
-            if (lastTradePrice > 0 && dayClose > 0 && lastTradePrice !== dayClose) {
+        // ★ [2026-09-25] «값이 종가와 다르다»가 아니라 «체결 시각»으로 가른다.
+        //   지연 피드(15분)는 16:0x 에 정규장 체결을, 04:0x 에 어제 애프터 체결을 마지막 체결로 준다.
+        //   애프터 거래가 없던 날 마감 뒤엔 정규장 마지막 체결(공식 종가와 몇 센트 차이)이 POST 로 나갔다.
+        //   PRE 기준선 = 마지막 정규장 종가(프리마켓의 day.c) — prevDay.c 는 그 하나 앞이다.
+        const ltMs = Number(T.lastTrade?.t) > 0 ? Math.round(Number(T.lastTrade.t) / 1e6) : 0;
+        const nowMs = Date.now();
+        // 휴장일은 시계로 모른다 — 시간외 판정에서만 CLOSED 로 본다(구조 데이터의 session 필드는 건드리지 않는다)
+        const extSession = isNonTradingDay(etDateOf(nowMs)) ? 'CLOSED' : session;
+        if (extSession === 'POST' || extSession === 'CLOSED') {
+            const d = extSession === 'POST' ? etDateOf(nowMs) : shownRegularSessionDate(nowMs);
+            if (lastTradePrice > 0 && dayClose > 0 && isTradeInExtSession(ltMs, d, 'post')) {
                 const postChangePct = (lastTradePrice - dayClose) / dayClose;
                 extended = {
                     postPrice: lastTradePrice,
                     postChangePct: postChangePct
                 };
             }
-        } else if (session === 'PRE') {
-            // Pre-market: lastTrade is pre-open price
-            if (lastTradePrice > 0 && prevClose > 0) {
-                const preChangePct = (lastTradePrice - prevClose) / prevClose;
+        } else if (extSession === 'PRE') {
+            const preBase = dayClose || prevClose;
+            if (lastTradePrice > 0 && preBase > 0 && isTradeInExtSession(ltMs, etDateOf(nowMs), 'pre')) {
+                const preChangePct = (lastTradePrice - preBase) / preBase;
                 extended = {
                     prePrice: lastTradePrice,
                     preChangePct: preChangePct

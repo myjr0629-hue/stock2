@@ -25,7 +25,7 @@ export interface EnrichedHolding extends Holding {
     // Session-aware price decomposition
     regChangePct?: number;     // Regular session change % (from prevClose)
     extChangePct?: number;     // Extended hours change % (from reg close)
-    extLabel?: 'PRE' | 'POST'; // Extended session label
+    extLabel?: 'PRE' | 'PRE CLOSE' | 'POST'; // Extended session label
     // Alpha engine data (to be enriched)
     alphaScore?: number;
     alphaGrade?: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -147,7 +147,8 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     isExtended: pipe.session === 'PRE' || pipe.session === 'POST',
                     regChangePct: pipe.changePct,
                     extChangePct: pipe.extChangePct ?? undefined,
-                    extLabel: pipe.extLabel === 'PRE CLOSE' ? 'PRE' as const : (pipe.extLabel as 'PRE' | 'POST' | undefined),
+                    // ★ [2026-09-25] 정규장의 «PRE CLOSE»(프리마켓 종가)를 «PRE»(진행 중 프리마켓)로 바꾸지 않는다
+                    extLabel: pipe.extLabel as 'PRE' | 'PRE CLOSE' | 'POST' | undefined,
                     marketValue,
                     gainLoss,
                     gainLossPct,

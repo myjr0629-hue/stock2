@@ -915,7 +915,7 @@ export default function AppFlowPage() {
     ? `$${liveGammaFlipRaw.toFixed(2)}`
     : '—';
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -2508,8 +2508,9 @@ export default function AppFlowPage() {
                   <SparklineBg up={activeExtPct >= 0} seed={`${ticker}-ext`} series={heroSeries} />
                   <span className={s.heroExtLabel}>{activeExtLabel}</span>
                   <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
-                  <span className={s.heroExtChange} style={{ color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                    {activeExtPct >= 0 ? '+' : ''}{activeExtPct.toFixed(2)}%
+                  {/* 기준선이 없어 계산 못 한 등락률은 «—» — 커맨드와 같다(«+0.00%» 는 지어낸 값이다) */}
+                  <span className={s.heroExtChange} style={{ color: !activeExtPctKnown ? 'var(--text-muted)' : activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {!activeExtPctKnown ? '—' : `${activeExtPct >= 0 ? '+' : ''}${activeExtPct.toFixed(2)}%`}
                   </span>
                 </div>
               )}

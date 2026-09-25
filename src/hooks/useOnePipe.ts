@@ -99,19 +99,24 @@ export function computeOnePipe(params: {
             break;
         }
         case 'PRE': {
-            price = prevClose;
+            // ★ [2026-09-25] 프리마켓의 «본장»은 마지막 정규장 종가 = quotes.price(스냅샷 day.c)다.
+            //   quotes.prevClose(prevDay.c)는 Intrinio 이관 뒤 «그 하나 앞»이 됐다(Massive 땐 prevDay 가
+            //   곧 마지막 정규장이었다) → 월요일 프리마켓에 목요일 종가가 메인 가격·PRE 기준선으로 나갔다.
+            //   quotes 를 아직 못 받았으면(pollPrice 0) 예전처럼 prevClose 로 둔다.
+            const lastRegClose = pollPrice > 0 ? pollPrice : prevClose;
+            price = lastRegClose;
             // PRE 본장 등락률: null이면 기존 값 유지 (Phase 0 race condition 방지)
             changePct = pollChangePct ?? changePct ?? 0;
             source = 'POLL';
             const preRealtime = (wsPrice && wsPrice > 0) ? wsPrice : (pollExtPrice > 0 ? pollExtPrice : 0);
             if (preRealtime > 0) {
                 extPrice = preRealtime;
-                extChangePct = prevClose > 0 ? round2(((preRealtime - prevClose) / prevClose) * 100) : 0;
+                extChangePct = lastRegClose > 0 ? round2(((preRealtime - lastRegClose) / lastRegClose) * 100) : 0;
                 extLabel = 'PRE';
                 source = (wsPrice && wsPrice > 0) ? 'WS' : 'POLL';
             }
-            chartPrice = preRealtime > 0 ? preRealtime : prevClose;
-            chartPrevClose = prevClose;
+            chartPrice = preRealtime > 0 ? preRealtime : lastRegClose;
+            chartPrevClose = lastRegClose;
             break;
         }
         case 'POST': {
@@ -193,10 +198,11 @@ export function useOnePipe(
     // ── 4. regularCloseToday 잠금 (useRef — 렌더 간 유지) ──
     const closeLocks = useRef<Record<string, number>>({});
 
-    // SSR 데이터로 잠금 초기화
+    // SSR 데이터로 잠금 초기화 — «정규장 종가»인 세션(POST·CLOSED)의 값만 잠근다
     if (ssrPrices && Object.keys(closeLocks.current).length === 0) {
         Object.entries(ssrPrices).forEach(([ticker, data]) => {
-            if (data.price > 0) closeLocks.current[ticker] = data.price;
+            const ss = toSession(data.session);
+            if (data.price > 0 && (ss === 'POST' || ss === 'CLOSED')) closeLocks.current[ticker] = data.price;
         });
     }
 
@@ -217,10 +223,15 @@ export function useOnePipe(
             const session = toSession(poll?.session || ssr?.session);
 
             // regularCloseToday 잠금 갱신
-            if (pollPrice > 0 && !closeLocks.current[ticker]) {
+            // ★ [2026-09-25] «정규장 종가»는 POST·CLOSED 의 quotes.price 에만 있다. 예전엔 세션과 무관하게
+            //   첫 폴링 값을 잠가서, 정규장에 연 페이지를 애프터까지 두면 «정규장 중 실시간 가격»이
+            //   POST 의 메인 가격·기준선으로 남았다. PRE·REG 에선 잠금을 비운다(다음 마감 때 새로 잡는다).
+            if (session === 'PRE' || session === 'REG') {
+                delete closeLocks.current[ticker];
+            } else if (pollPrice > 0 && !closeLocks.current[ticker]) {
                 // CLOSED/POST에서 price ≈ prevClose면 잠금 차단 (Polygon 버그 방지)
                 const isSuspicious = pollPrevClose > 0 && Math.abs(pollPrice - pollPrevClose) < 0.01;
-                if (!isSuspicious || (session !== 'CLOSED' && session !== 'POST')) {
+                if (!isSuspicious) {
                     closeLocks.current[ticker] = pollPrice;
                 }
             }
