@@ -25,6 +25,42 @@ const pct = (a, b) => (b ? (a - b) / b : NaN);
  * 키가 없는 곳(로컬)에서는 null 을 주고, 호출부가 일봉 기반 판정으로 내려간다.
  */
 const EOD_KEY_PRESENT = !!process.env.INTRINIO_API_KEY;
+
+/**
+ * [2026-09-25] 그날 창 안의 «마지막 Form T 체결»(통합 테이프) — 앱 코드와 «독립으로» 다시 구한다.
+ * 나스닥 «Consolidated Last Trade» 와 같은 정의(단주 포함 · 개장 직후 늦은 보고 포함 · U 제외).
+ * 반환: 가격 · null(창 안에 Form T 없음 — 확정) · undefined(못 읽음 — «대조 못 함»으로 보고한다.
+ *   조용히 건너뛰면 검사기가 «이상 없음»을 지어낸다: 첫 시험에서 COST 가 그렇게 통과했다).
+ */
+async function tapeLastFormT(ticker, date, start, end) {
+    if (!EOD_KEY_PRESENT) return undefined;
+    let next = null;
+    for (let page = 0; page < 3; page++) {
+        const qs = new URLSearchParams({ source: 'delayed_sip', start_date: date, start_time: start, end_date: date,
+            end_time: end, timezone: 'America/New_York', page_size: '5000', api_key: process.env.INTRINIO_API_KEY });
+        if (next) qs.set('next_page', next);
+        try {
+            let res = await fetch(`https://api-v2.intrinio.com/securities/${ticker}/trades?${qs}`);
+            if (!res.ok) {   // 분당 한도(429) 등 — 한 번만 쉬었다 다시
+                await new Promise((r) => setTimeout(r, 1500));
+                res = await fetch(`https://api-v2.intrinio.com/securities/${ticker}/trades?${qs}`);
+                if (!res.ok) return undefined;
+            }
+            const b = await res.json();
+            let best = null;
+            for (const r of (b?.trades || [])) {
+                const c = String(r?.condition || '');
+                if (!(Number(r?.price) > 0) || !c.includes('T') || c.includes('U')) continue;
+                const dt = best ? Date.parse(r.timestamp) - Date.parse(best.timestamp) : 1;
+                if (dt > 0 || (dt === 0 && (r.total_volume || 0) > (best.total_volume || 0))) best = r;
+            }
+            if (best) return Number(best.price);
+            next = b?.next_page;
+            if (!next) return null;
+        } catch { return undefined; }
+    }
+    return undefined;
+}
 const _eodCache = new Map();
 async function eodVolume(ticker, date) {
     if (!EOD_KEY_PRESENT || !date) return null;
@@ -42,7 +78,10 @@ async function eodVolume(ticker, date) {
     return v;
 }
 
-const j = (u) => fetch(`${BASE}${u}${u.includes('?') ? '&' : '?'}_cb=${Date.now()}`).then((r) => r.json()).catch(() => null);
+// 보호된 프리뷰(*.vercel.app)를 잴 때만 AUDIT_BYPASS(자동화용 우회 토큰)를 «헤더로» 붙인다 — 쿠키·URL 파라미터 금지(9/10 사고).
+const AUDIT_HEADERS = (process.env.AUDIT_BYPASS && /\.vercel\.app/.test(BASE))
+    ? { 'x-vercel-protection-bypass': process.env.AUDIT_BYPASS } : {};
+const j = (u) => fetch(`${BASE}${u}${u.includes('?') ? '&' : '?'}_cb=${Date.now()}`, { headers: AUDIT_HEADERS }).then((r) => r.json()).catch(() => null);
 
 // ══════════════════════════════════════════════════════════════════════
 // ★ «정답 대조»용 규제 원본 (2026-09-09 추가)
@@ -264,6 +303,36 @@ async function auditTicker(t) {
         if (Q.extendedPrice > 0 && tickerExt > 0 && Math.abs(pct(Q.extendedPrice, tickerExt)) > 0.03)
             add('XEP_EXT', `quotes 장외 ${Q.extendedPrice} vs ticker 장외 ${tickerExt} — ${(pct(Q.extendedPrice, tickerExt) * 100).toFixed(1)}% 차이 (${session})`);
     } else add('XEP_NONE', 'live/quotes 응답 없음');
+
+    // ── ⑦ 시간외 값의 «세션·날짜·정의»  [2026-09-25] ─────────
+    //   COST 9/25 정규장: PRE CLOSE 916.26(정규장 분봉) · POST 898.04(어제 애프터) — 전 종목이 같은 방식이었다.
+    //   ⑥ 은 정규장을 건너뛰어 못 잡았다. 정규장이야말로 «아침 PRE CLOSE·어제 POST»가 남는 때다.
+    const E = k.extended || {};
+    const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const todayET = `${etNow.getFullYear()}-${String(etNow.getMonth() + 1).padStart(2, '0')}-${String(etNow.getDate()).padStart(2, '0')}`;
+    if ((session === 'PRE' || session === 'REG') && (E.postPrice > 0 || P.postPrice > 0))
+        add('EXT_POST_EARLY', `${session} 인데 POST ${E.postPrice || P.postPrice} — 오늘 애프터는 16:00 전엔 없다(어제 값이 남은 것)`);
+    if (Q && (session === 'PRE' || session === 'REG') && Q.extendedLabel === 'POST')
+        add('EXT_POST_EARLY_Q', `${session} 인데 quotes 가 POST ${Q.extendedPrice}`);
+    if ((session === 'REG' || session === 'POST') && E.prePrice > 0 && E.preDate && E.preDate !== todayET)
+        add('EXT_PRE_DATE', `PRE CLOSE 날짜 ${E.preDate} ≠ 오늘 ${todayET}`);
+    if (session === 'POST' && E.postPrice > 0 && E.postDate && E.postDate !== todayET)
+        add('EXT_POST_DATE', `POST 날짜 ${E.postDate} ≠ 오늘 ${todayET}`);
+    if (session === 'REG' && E.prePrice > 0 && Q?.extendedLabel === 'PRE' && Q.extendedPrice > 0 && !near(E.prePrice, Q.extendedPrice, 0.0001))
+        add('EXT_PRECLOSE_XEP', `PRE CLOSE 두 문이 다르다: ticker ${E.prePrice} · quotes ${Q.extendedPrice}`);
+    // 테이프 대조 — 프리 종가가 «확정»되는 09:47 ET 뒤에만(그 전엔 null 이 정답이다)
+    const etMin = etNow.getHours() * 60 + etNow.getMinutes();
+    if (session === 'REG' && etMin >= 9 * 60 + 47 && EOD_KEY_PRESENT) {
+        const truth = await tapeLastFormT(t, todayET, '04:00:00', '09:30:03');
+        if (truth === undefined)
+            add('PRECLOSE_TRUTH_NA', `테이프를 못 읽어 PRE CLOSE ${E.prePrice ?? '없음'} 를 대조하지 못했다(재실행)`);
+        else if (truth === null && E.prePrice > 0)
+            add('PRECLOSE_NO_TRADES', `테이프엔 프리마켓 체결이 없는데 PRE CLOSE ${E.prePrice}`);
+        else if (truth != null && !(E.prePrice > 0))
+            add('PRECLOSE_MISSING', `테이프 마지막 Form T ${truth} 가 있는데 PRE CLOSE 가 비었다(첫 계산 중이면 재실행)`);
+        else if (truth != null && !near(E.prePrice, truth, 0.0001))
+            add('PRECLOSE_TRUTH', `PRE CLOSE ${E.prePrice} ≠ 테이프 마지막 Form T ${truth}`);
+    }
 
     return bad;
 }
