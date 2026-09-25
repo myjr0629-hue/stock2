@@ -320,8 +320,24 @@ async function auditTicker(t) {
         add('EXT_POST_DATE', `POST 날짜 ${E.postDate} ≠ 오늘 ${todayET}`);
     if (session === 'REG' && E.prePrice > 0 && Q?.extendedLabel === 'PRE' && Q.extendedPrice > 0 && !near(E.prePrice, Q.extendedPrice, 0.0001))
         add('EXT_PRECLOSE_XEP', `PRE CLOSE 두 문이 다르다: ticker ${E.prePrice} · quotes ${Q.extendedPrice}`);
+    // POST 는 «그날 16:00 이후» 체결이어야 한다(지연 피드 16:00~16:15 엔 정규장 체결이 마지막 체결로 온다)
+    if ((session === 'POST' || session === 'CLOSED') && E.postPrice > 0 && E.postTime) {
+        const pt = new Date(new Date(E.postTime).toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const ptMin = pt.getHours() * 60 + pt.getMinutes();
+        if (ptMin < 960 || ptMin >= 1200) add('EXT_POST_TIME', `POST ${E.postPrice} 의 체결 시각이 애프터 창 밖(${pt.toTimeString().slice(0, 8)} ET)`);
+    }
     // 테이프 대조 — 프리 종가가 «확정»되는 09:47 ET 뒤에만(그 전엔 null 이 정답이다)
     const etMin = etNow.getHours() * 60 + etNow.getMinutes();
+    // 애프터 종가(CLOSED): 확정(20:17 ET) 뒤 그 날짜 테이프의 마지막 Form T 와 독립 대조
+    if (session === 'CLOSED' && EOD_KEY_PRESENT && E.postDate && (E.postDate < todayET || etMin >= 20 * 60 + 17)) {
+        const truthPost = await tapeLastFormT(t, E.postDate, '16:00:00', '20:00:03');
+        if (truthPost === undefined)
+            add('POSTCLOSE_TRUTH_NA', `테이프를 못 읽어 POST ${E.postPrice ?? '없음'} 를 대조하지 못했다(재실행)`);
+        else if (truthPost != null && !(E.postPrice > 0))
+            add('POSTCLOSE_MISSING', `테이프 애프터 마지막 Form T ${truthPost} 가 있는데 POST 가 비었다`);
+        else if (truthPost != null && !near(E.postPrice, truthPost, 0.0001))
+            add('POSTCLOSE_TRUTH', `POST ${E.postPrice} ≠ 테이프 애프터 마지막 Form T ${truthPost} (${E.postDate})`);
+    }
     if (session === 'REG' && etMin >= 9 * 60 + 47 && EOD_KEY_PRESENT) {
         const truth = await tapeLastFormT(t, todayET, '04:00:00', '09:30:03');
         if (truth === undefined)
