@@ -12278,3 +12278,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **threads_reply ✅ 1/2(공개 확인)** | @edgewarroom «BofA just cut Nike to Underperform and slashed the price target to $30 from $47…»(게시 28분) ← 나이키 최근 4번 상회·다음 날 반응·두 하락은 작은 상회 뒤·10/2 옵션 ±8.3%(스트래들 ~$2.95, 11:49 ET) · 이미지 = 나이키 다크풀. 어제 @yahoofinance(브랜드) 답글이 비공개였던 것과 달리 개인 금융 계정 글 → 새 도구의 비로그인 확인 통과 | https://www.threads.com/@signumhq_official/post/DduBt5umd2q · 내 답글 탭 + 비로그인 og:description |
 | 고정 ⑥ 스윕 | 0편(누계 85) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 03:30~03:52 — 시간 사이클: 실행 3 전부(X 미국 ✅ 2/2·블루스키 답글 ✅ 2/2·스레드 답글 ✅ 2/2 — 셋 다 비로그인 공개 확인) · 게이트 341/0 · 스윕 0 · 도구 수리 1(x-post 280자 가드)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_reply ✅ 2/2** | @carlquintanilla(팔로워 284,801·게시 0.7시간·답글 4) «RENMAC: Oil prices coming off the boil has not kept two year yields from continuing to press to fresh highs» ← 2년물 4.24%(8/24)→4.87%(9/24, 재무부 곡선) +63bp vs 30년 +24bp · 9/17 인상 뒤 실효 연방기금 3.88% 보다 약 100bp 높은 2년물은 «정책 경로가 평평하다»와 맞추기 어렵다. 링크 0·앞선 답글들과 다른 문장 | https://bsky.app/profile/signumhq.bsky.social/post/3mwefqx6otx26 · 공개 getPostThread: 답글 5개 중 우리 글 |
+| **x_us ✅ 2/2(계정 합계 2/2)** | $COST: 목요일 옵션 ~±3.2%($900 스트래들 $28.68, 1:14pm ET) → 금요일 2:31pm ET $922.66 +2.92%(목요일 종가 대비) — 범위 안, 위쪽 끝 근처 · 목요일 장외 37.4% vs 49.6%(FINRA) · 이미지 = 코스트코 다크풀. **첫 시도는 가중 310자라 게시 안 됨**(계산값을 찍고도 막지 않고 실행한 내 실수) → 남은 작성창 없음 확인 후 줄여 재발행 | https://x.com/signumhq/status/2103555047988851102 · 비로그인 syndication: 본문·사진 1·링크 from=x_us |
+| **도구 수리 — x-post.mjs 280자 가드** | 9/26 에만 280자 초과로 두 번(293·310) 게시가 막혔다 → 발행기가 X 가중 글자 수(링크 23자, 기본 범위 밖 문자 2자)를 직접 세서 280 초과면 게시 전에 거부 | scripts/x-post.mjs |
+| **threads_reply ✅ 2/2(공개 확인)** | @metricshourofficial «Earnings calendar for next week (Sept 29 – Oct 01, 2026)…»(게시 1시간) ← 목록 중 두 종목의 실적 반응: $MU 최근 4번 다음 날 −2.8/+10.2/−3.8/+15.7%·10/2 옵션 ~±9.3%(목 종가) · $NKE +6.4/−10.5/−15.5/+4.9%·10/2 옵션 ~±8.3%(금 11:49 ET) · «8번 모두 EPS 상회». 브랜드 계정(@trendspider)은 어제 야후처럼 답글이 비공개 처리될 수 있어 피함 · 이미지 = MU 다크풀 | https://www.threads.com/@signumhq_official/post/DduIrUYkxof · 내 답글 탭 + 비로그인 og:description |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
