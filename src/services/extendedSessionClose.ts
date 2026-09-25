@@ -143,6 +143,20 @@ export async function getExtendedSessionClose(
 
     const run = (async (): Promise<ExtSessionClose | null> => {
         try {
+            // 확정 시각(09:47·20:17) 직후엔 여러 인스턴스가 같은 종목을 동시에 묻는다(대형주 페이지 ~1MB).
+            // 짧은 «선점» 표식으로 대부분의 중복을 막는다(원자적이진 않다 — 드물게 두 번 계산해도 결과는 같다).
+            const claimKey = `${key}:claim`;
+            const claimed = await getFromCache<number>(claimKey).catch(() => null);
+            if (claimed) {
+                for (let i = 0; i < 5; i++) {
+                    await new Promise((r) => setTimeout(r, 500));
+                    const v = fromStored(kind, date, await getFromCache<Stored>(key).catch(() => null));
+                    if (v !== undefined) return v;
+                }
+                return null;   // 다른 인스턴스가 곧 저장한다 — 다음 요청이 읽는다
+            }
+            await setInCache(claimKey, Date.now(), 20).catch(() => { });
+
             const [start, end] = WINDOW[kind];
             const tr = await getLastExtendedTradeIntrinio(sym, date, start, end, PAGE[kind]);
             if (tr === undefined) return null;                    // 페이지 상한 — 판정 보류(저장 안 함)
