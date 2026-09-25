@@ -12032,3 +12032,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **quora_en ✅** | «Why do some stocks seem to ignore rising bond yields while others crash?» ← 8/24→9/23 실측: 10년물 +41bp(재무부) 중 실질 +38bp·기대인플레 +3bp · SPY +0.6% vs XLK +8.5% · XLU −8.0% · XLRE −7.7% · XLF −6.3% · IWM −5.4%(Nasdaq ETF 종가). «지수 효과» 설명, 예측 없음, 링크·앱명 0 | https://www.quora.com/Why-do-some-stocks-seem-to-ignore-rising-bond-yields-while-others-crash/answer/Jiyoung-Kim-236 · 답변 주소에서 본문 확인(초안 표시 없음) |
 | 고정 ⑥ 스윕 | 0편(누계 82) | — |
 | 확장 — 새 표면 없음 | x_communities 티켓: 탐색 페이지 추천이 크립토 밈뿐. ⚠ 페이지 오른쪽 위 입력칸에 친 글자가 X 단축키로 작성창을 열었다 → 빈 작성창을 닫았고 프로필 최신 글로 **게시 없음 확인** | — |
+
+
+---
+
+## 2026-09-25 (KST) 10:30~10:54 — 시간 사이클: 실행 3(레딧 ✅ · 지식iN 새 질문 없음 · 네이버 블로그 #2 ✅) · seo 게이트 등록(도구의 신호) · 게이트 341/0 · 스윕 0 · 확장(인스타그램 고정 — 웹 불가 확인·인사이트 0 → 캡 축소)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| seo — 게이트(측정대기 10/02) | 측정은 발행 기록이 안 남아 «8일 전»으로 매 사이클 재배정 → 9/25 측정 완료·판정은 노출 누적 후, 제목·설명 변경은 웹 배포(권한 가드) | channels.json seo.gate |
+| **reddit ✅ 1/3(UTC)** | r/bonds «Bond Yields Explode: 10Y at 5.16% and 30Y at 5.46%, Who Wins or Loses?»(4.7시간·↑137·💬78, 상위 댓글은 한 줄 농담·정치) ← 누가 이기고 지나: 8/24→9/23 실질 +38bp·기대인플레 +3bp(재무부) · SPY +0.6% vs XLK +8.5%·XLU −8.0%·XLRE −7.7%·XLF −6.3%·IWM −5.4%. 링크·앱명 0. r/bonds 규칙 = 자기홍보 금지·정치 논평 최소(AI 금지 조항 없음) | https://www.reddit.com/comments/1wpd8cd/comment/pbvxoxy/ · 스레드 JSON 에서 보임·removed 아님 |
+| naver_kin — 새 질문 없음 | 추석 연휴라 새 질문이 거의 없다 | — |
+| **naver_blog ✅ 2/3** | 제목 맨 앞 «미국 10년물 실질금리»(블로그 상위 30 제목 3/30) — 명목·실질·기대인플레 분해(재무부)·업종 ETF 갈림·«방향 아님»·가디언 화면(리스크 스트립·실물경제, 게이지 «Reversal» 부분은 잘라 냄) | https://blog.naver.com/donneum/224422336561 · 비로그인 200: 8개 문단·from=naver_blog |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| 확장 — 인스타그램 고정 | 웹 게시물 메뉴(번역·인사이트·홍보·삭제·수정…)에 «프로필 고정» 없음(앱 전용) → 불가. 대신 인사이트 실측: 9/25 01:58 게시물 9시간 **조회 0·반응 0·프로필 방문 0·링크 누름 0** → instagram 캡 하루 1 → **주 2**(줄이되 유지) | — |

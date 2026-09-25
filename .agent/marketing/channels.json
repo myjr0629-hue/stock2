@@ -168,7 +168,13 @@
    "login": "ok",
    "profile": "ok",
    "note": "2026-09-03 진단 정정: 돈이 되는 질의는 **이미 1페이지**였다 (uso dark pool 6.3위·75노출, wdc max pain 7.5위, mrvl 9.6위) — 그런데 CTR 0%. 평균 31위는 put call ratio(91위) 같은 설명형이 만든 착시였다. 원인=meta description 에 AI 서술요약을 넣어 「볼 것 없다」고 말하고 있었다 → 숫자 먼저로 교체(배포됨). 백링크는 «설명형 질의»(put call ratio·gamma exposure, 67~92위)의 병목이지 티커 질의의 병목이 아니다. 다음 판단은 GSC **CTR**로만 한다 — 순위 말고. ★2026-09-25 09:5x GSC(www.signumhq.com, 28일): 클릭 12·노출 888·CTR 1.4%·평균 25.7위. 1페이지 질의 CTR 0%: uso dark pool(6.4위·노출 77)·sofi dark pool activity(7.6·43)·wdc max pain(7.5·27)·mrvl max pain(9.8·30)·orcl max pain(10.8·23). 순위 페이지는 /en/flow/<티커>(제목·설명은 숫자 먼저: «WDC Dark Pool 45.9%, Max Pain $450 — Free, Updated Daily»). 노출 13~77회라 기대 클릭 2회 미만 — 판정 불가, 10/02 재측정.",
-   "action": "build"
+   "action": "build",
+   "gate": {
+    "kind": "측정대기",
+    "until": "2026-10-02",
+    "who": "데이터(노출 누적)·웹 배포는 대표 승인",
+    "why": "9/25 GSC 28일 측정 완료 — 1페이지 질의 CTR 0% 이지만 노출 13~77회라 판정 불가. 다음 판단은 10/02 재측정(CTR). 제목·설명 변경은 웹 배포라 main 푸시 권한(㊲과 같은 가드)이 필요. «측정»은 발행 기록이 안 남아 매 사이클 «8일 전»으로 재배정됐다(도구의 신호)."
+   }
   },
   {
    "id": "aso",
