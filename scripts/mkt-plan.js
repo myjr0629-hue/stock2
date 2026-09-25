@@ -125,6 +125,7 @@ const CH = {
   linkedin:    { cap: 1, day: 'kst', window: [0, 24], note: '카드 위 클릭 금지·전체 재입력' },
   linkedin_articles: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 첫 아티클 발행(피드 «글쓰기»→/article/new/). 편집기는 iframe — 커버=«컴퓨터에서 업로드»(text 선택자)→다음, 제목칸은 좌표 클릭(텍스트 선택자는 textarea 입력 불가), 본문은 키 입력. ⚠ Shift+End 는 문서 끝까지 선택(본문이 통째로 지워졌다)' },
   linkedin_groups: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — «US Stock Market | Trading & Investing»(공개·6,033명·금융업 963명) 가입 요청(운영자 승인 대기). 그룹 화면은 iframe — 버튼은 snapshot ref 로 누른다(좌표·DOM 질의는 IFRAME 만 잡힌다)' },
+  note_kojin: { cap: 1, day: 'week', window: [18, 23], note: '★2026-09-26 확장 — note #個人開発(글 56,751·토요일 아침 1시간 20편·인기글 좋아요 10~98). 일본어 제작기(실측 수치) + 앱 화면 + from=note_kojin. 개발자 커뮤니티 제작기 = 우리 이긴 패턴(IH·GeekNews)의 일본판. 저녁 창(일본 개발자 퇴근 뒤)' },
   note_magazine: { cap: 1, day: 'week', window: [5, 9], note: '★2026-09-25 확장 티켓 — note マガジン 1개(우리 일본어 글 묶음) 개설·기존 글 추가. 일본 아침 창' },
   note_odai: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 note 글의 お題 태그(#わたしの新NISA 등, 내용이 맞을 때만). 상금 콘테스트는 응모조건 수락이라 하지 않음. 규칙은 channels.json note_odai' },
   bluesky_feeds: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 블루스키 글의 진입 태그(#econsky 매크로·#quantfinance #derivatives 옵션 구조). 규칙은 channels.json bluesky 노트' },
@@ -213,7 +214,7 @@ if (cmd === 'pub') {
 const c = counts(); const now = hhmm(); const hour = Number(now.slice(0, 2));
 let REG = [];
 try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => ({ id: x.id || x.key || x.name, tier: x.tier || x.type || '?', note: x.note || '', gate: x.gate || null })); } catch {}
-const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp' };
+const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp', bluesky_bip: 'bluesky_buildinpublic' }; // 클릭 태그 → 규칙 id (bluesky_bip: 2026-09-26)
 
 if (cmd === 'slot') {
   // 이번 사이클의 «담당 구역»을 결정론적으로 배정한다.

@@ -38,11 +38,21 @@ await page.mouse.click(ed.x, ed.y); await L.wait(700);
 const task = JSON.parse(readFileSync('/tmp/ego/th-task.json', 'utf8'));
 const lines = readFileSync(task.file, 'utf8').trim().split('\n');
 for (let i = 0; i < lines.length; i++) {
-  if (lines[i].trim()) await page.keyboard.type(lines[i].trim(), { delay: 5 });
+  const line = lines[i].trim();
+  // URL 은 붙여넣는다 — 타이핑하면 편집기가 https:// 를 깨뜨린 적이 있다(memory paste-urls-never-type-them)
+  if (/^https?:\/\//.test(line)) { await page.keyboard.paste({ text: line }); await L.wait(6000); }
+  else if (line) await page.keyboard.type(line, { delay: 5 });
   if (i < lines.length - 1) { await page.keyboard.press('Enter'); await L.wait(130); }
-  if (/^https?:\/\//.test(lines[i].trim())) await L.wait(6000);
 }
 await L.wait(2000);
+// ★2026-09-26: 게시 «전에» 편집기 안의 글을 잰다 — 표식·링크가 그대로 들어가지 않았으면(일본어 입력 깨짐 등) 올리지 않는다.
+const urls = lines.map(function (s) { return s.trim(); }).filter(function (s) { return /^https?:\/\//.test(s); });
+const typed = await page.evaluate(function () {
+  return [...document.querySelectorAll('[contenteditable="true"]')].map(function (x) { return x.innerText || ''; }).join('\n').replace(/\s+/g, ' ');
+});
+const missing = [task.mark].concat(urls).filter(function (s) { return s && !typed.includes(s.replace(/\s+/g, ' ')); });
+if (missing.length) { console.log('⛔ 편집기 본문에 없음 — 게시하지 않는다:', JSON.stringify(missing).slice(0, 200), '| 편집기:', typed.slice(0, 160)); process.exit(1); }
+console.log('편집기 본문 확인: 표식·링크 ' + (1 + urls.length) + '개 모두 있음');
 if (task.image) {
   let n = 0;
   try { await page.setInputFiles('input[type=file] >> nth=0', task.image); await L.wait(8000);

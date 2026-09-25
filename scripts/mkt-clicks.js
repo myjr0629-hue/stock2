@@ -38,9 +38,13 @@ async function liveTags() {
 (async () => {
   const days = Number(process.argv[2] || 21);
   const ch = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8'));
-  const declared = (Array.isArray(ch) ? ch : ch.channels).map((c) => c.id || c.key).filter(Boolean);
+  // ★2026-09-26 수리 — 예전엔 채널 «id»만 조회했다. 그런데 bluesky_buildinpublic 의 게시 링크는 from=bluesky_bip 라
+  //   이틀 22클릭(9/24 18·9/25 4, 레디스 실측)이 표에서 통째로 빠졌고, slot 은 그 채널을 «건당 0 ▼(줄임)»으로 띄웠다.
+  //   mkt-clicks-platform.js 는 9/23 에 id·tag 합집합으로 고쳐졌는데 이 파일만 남아 있었다(같은 고장, 다른 파일).
+  const CH = Array.isArray(ch) ? ch : ch.channels;
+  const declared = [...new Set(CH.flatMap((c) => [c.id || c.key, c.tag]).filter((t) => /^[a-z0-9_]{1,24}$/.test(t || '')))];
   const live = await liveTags();
-  const bios = ['reddit_bio', 'quora_bio', 'x_reply', 'github_profile'];
+  const bios = ['reddit_bio', 'quora_bio', 'x_reply', 'github_profile', 'bluesky_bio', 'threads_bio'];
   const tags = [...new Set([...declared, ...live, ...bios])];
   const missing = [...live].filter((t) => !declared.includes(t));
   if (missing.length) console.log(`⚠ 라이브 페이지에만 있는 태그 ${missing.length}개(channels.json 미등록): ${missing.join(', ')}\n`);
@@ -130,15 +134,23 @@ async function liveTags() {
       nPosts[ch] = (nPosts[ch] || 0) + 1;
     }
     const netAll = (t) => Math.max(0, (rows.find((x) => x.t === t) || {}).all || 0) - ((CONTAM[t] || {}).all || 0);
+    // ★2026-09-26 — 게시 링크 태그가 채널 id 와 다른 채널(bluesky_buildinpublic → bluesky_bip)은 그 태그로 센다.
+    //   단 다른 채널의 id 이거나(bluesky_reply → bluesky: 본글 클릭을 가로챈다) 프로필 태그(*_bio)면 쓰지 않는다.
+    const ids = new Set(CH.map((c) => c.id));
+    const tagsOf = (ch) => {
+      if (PAIR[ch]) return PAIR[ch];
+      const own = (CH.find((c) => c.id === ch) || {}).tag;
+      return own && own !== ch && !ids.has(own) && !/_bio$/.test(own) ? [ch, own] : [ch];
+    };
     for (const [ch, n] of Object.entries(nPosts)) {
       if (STANDING.has(ch) || n < 2) continue;          // 표본 1건은 순위로 쓰지 않는다
-      const clicks = (PAIR[ch] || [ch]).reduce((a, t) => a + Math.max(0, netAll(t)), 0);
+      const clicks = tagsOf(ch).reduce((a, t) => a + Math.max(0, netAll(t)), 0);
       // ★2026-09-21(2차) «신선도» — 21일 건당만 보면 «죽은 채널»과 «가속 중»이 구분되지 않는다.
       //   실제로 x_us 는 건당 13.67 로 1위인데 최근 3일 클릭이 0 이었고(죽음),
       //   indiehackers 는 건당 3.67 로 9위인데 21일치의 82%가 최근 3일에 났다(가속).
       //   «어디로 옮길지»는 건당 × 신선도 둘 다 봐야 한다.
       const net3 = (t) => Math.max(0, ((rows.find((x) => x.t === t) || {}).d3 || 0) - ((CONTAM[t] || {}).d3 || 0));
-      const c3 = (PAIR[ch] || [ch]).reduce((a, t) => a + net3(t), 0);
+      const c3 = tagsOf(ch).reduce((a, t) => a + net3(t), 0);
       perPost[ch] = { n, clicks, per: +(clicks / n).toFixed(2),
                       d3: c3, fresh: clicks ? Math.round((c3 / clicks) * 100) : 0 };
     }

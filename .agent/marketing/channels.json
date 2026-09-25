@@ -1520,6 +1520,17 @@
    "tag": "quora_bio",
    "action": "rejected",
    "note": "★2026-09-26 04:4x 확장 발굴(고정 패턴 복제 3 — 블루스키 고정글 첫날 14클릭·Threads·Medium 고정 이후): Quora 프로필(/profile/Jiyoung-Kim-236/answers, 답변 35) 답변 «…» 메뉴 실측 = Enable comments from people you follow · Disable comments · Edit answer · Edit credential · Downvote question · Log · Delete answer — «고정(Pin)» 없음 → 불가. 프로필 소개글(«I build SIGNUM HQ…»)이 대신 첫 화면 역할."
+  },
+  {
+   "id": "note_kojin",
+   "name": "note #個人開発 제작기(일본 개인개발자 커뮤니티)",
+   "tier": "B",
+   "handle": "note.com/signumhq",
+   "login": "ok",
+   "tag": "note_kojin",
+   "link": "https://signumhq.com/app?from=note_kojin&l=ja",
+   "action": "post",
+   "note": "★2026-09-26 07:5x 확장 발굴(실측, note 공개 API): 해시태그 #個人開発 = 글 56,751개(관련 #アプリ開発 25,880·#ClaudeCode 66,540) · 토요일 아침 06:31~07:38 JST 사이 새 글 20개(약 1시간) · 인기순 상위 20개 좋아요 10~98 · 앱 출시 글도 받아들여진다(「【アップルストア登録（無料）】Hiraku」 좋아요 15, 「【βテスター募集】…Chrome拡張機能」 12). 왜: 우리 채널 중 «개발자 커뮤니티 제작기»가 이긴 패턴이다(IndieHackers 건당 7.29·폰 38%, GeekNews 1편 33클릭·폰 48%) — 일본에서 같은 청중이 모이는 곳이 Qiita/Zenn(둘 다 게이트)과 note #個人開発 다. 형식: 일본어 제작기 1편(실측 수치 중심 — 예: SNS 링크 클릭의 79%가 PC·QR 넘겨주기 1% 같은 우리 퍼널 실측) + 앱 화면(ja) + 스마트링크 from=note_kojin + AI 지원 표시 + 태그 #個人開発 #アプリ開発 #米国株. 앱 사용자에게 보이는 버그는 쓰지 않는다. 발행기 scripts/note-post.mjs. ⚠ note 클릭 11건은 전부 PC(폰 0) — 설치로 이어지는지는 ⑬(맥 설치 허용)·PC 클릭 봇 여부 실측과 같이 본다."
   }
  ],
  "candidates": [

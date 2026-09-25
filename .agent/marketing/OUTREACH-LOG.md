@@ -12333,3 +12333,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 고정 ⑥ 스윕 | 0편(누계 85) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
 | 다음 | 07:40 KST XS 페이퍼 정기 실행(수리 미배포 — ㊸). 실행 뒤 경보·로그를 다시 잰다 | — |
+
+
+---
+
+## 2026-09-26 (KST) 07:13~08:00 — 시간 사이클: 실행 1(스레드 일본어 첫 글 ✅ — 비로그인 공개 확인) · 게이트 341/0 · 스윕 0 · **XS 페이퍼 경보 재발(예고대로)** · **클릭 집계 누락 수리 + «PC 클릭 = 사람» 전제에 봇 의심** · 확장 1(note #個人開発)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **threads_jp ✅ 1/1(첫 글 · 계정 합계 2/2)** | 「ナイキ(NKE)決算は10/1(木)引け後、日本時間10/2(金)早朝」: 1년 새 주가 약 절반(69.73→35.75ドル) · 예상 EPS 0.44(전년 0.49) · 최근 4번 모두 EPS 상회인데 다음 날 +6.4/−10.5/−15.5/+4.9% — 두 하락은 상회 폭이 가장 작았던 회(+43%·+21%) · 10/2 만기 옵션 약 ±8%(금요일 종가 호가로 계산, $35.5·$36 스트래들 2.91·2.97) · «방향이 아니다» · #米国株 · 이미지 = NKE 일본어 화면(머리글·가격·시간외 POST $35.80·다크풀 42.0% vs 시장 50.9%) — MAX PAIN·GAMMA FLIP·«IV 15»(주간 ±8% 와 안 맞음) 칸은 잘라 냄. 수치 출처 = 나스닥 API(과거 종가·EPS 서프라이즈·실적 캘린더·10/2 체인) | https://www.threads.com/@signumhq_official/post/DdujaVNk8JP · 비로그인 크롤러: og:description 에 본문 전문+링크(from=threads_jp), og:image 있음(크롤러 판은 링크를 a 태그로 그리지 않음 — 이전 스레드 글과 같은 기준) · 게시 12분 뒤 threads_jp 클릭 1(PC) |
+| **도구 수리 — threads-post.mjs** | ① URL 줄을 타이핑 대신 붙여넣기(keyboard.paste, 절차 «URL 은 붙여넣는다») ② **게시 «전에»** 편집기 안 글에 표식·링크가 그대로 들어갔는지 재고, 없으면 올리지 않는다(일본어 입력이 깨져도 공개되지 않게). 이번 글에서 «표식·링크 2개 모두 있음» 확인 후 게시 | scripts/threads-post.mjs |
+| **XS 페이퍼 — 예고대로 재발** | 9/25 22:40 UTC(9/26 07:40 KST) 정기 실행: «weekly kill: NAV 1270.77 < 1284.65 (weekStart 1324.38)» → 같은 ValidationException(«Provided list of item keys contains duplicates») 3회(22:40·22:41·22:43 UTC) · 경보 22:41 UTC OK→ALARM(두 번째 경보 메일). 9/24·9/25 NAV·청산 미저장. **코드 확인(engine 176행): 주가 바뀌면 `weekStartNav = nav` 로 초기화** → 월요일(9/28 장 마감 뒤, 9/29 07:40 KST) 실행은 킬 조건이 사라져 «오류 없이» 돌 가능성이 크고, 그러면 9/24·25 에 규칙상 발동했어야 할 킬(전량 청산+정지)이 기록 없이 사라진다 | CloudWatch(노드 SDK, ACCESS-RUNBOOK) |
+| **클릭 집계 누락 수리 — mkt-clicks.js** | 채널 «id»만 조회해서 게시 링크 태그가 다른 채널을 통째로 놓쳤다: bluesky_buildinpublic 의 from=bluesky_bip **2일 22클릭**(레디스 원값 9/24 18·9/25 4)이 표에 없었고, slot 은 그 채널을 «건당 0 ▼ 줄임»으로 띄웠다. → id·tag 합집합 조회 + 건당 계산에 채널 고유 태그 반영(다른 채널 id·*_bio 는 제외) + slot ALIAS(bluesky_bip→bluesky_buildinpublic). 수리 뒤: 21일 합계 1132→1157, bluesky_buildinpublic 건당 11(▲). 9/23 에 mkt-clicks-platform.js 만 고쳐졌던 «같은 고장, 다른 파일» | scripts/mkt-clicks.js · scripts/mkt-plan.js |
+| **★ «PC 클릭 = 사람» 전제에 봇 의심(미측정 가설)** | 3일(ET 9/23~25) 229클릭 = 안드로이드 14·iOS 35·**PC 180(79%)** · **QR 넘겨주기로 폰에 넘어온 것 1건(1%)**. 블루스키 계열(bluesky 54·bluesky_bip 22·bluesky_pin 14) **91클릭 전부 PC·폰 0** — 팔로워 25, 최근 30개 글 대부분 좋아요 0. 사람 흔적이 있는 곳은 폰이 섞인다(GeekNews 33 중 폰 16 · IH 16 중 6 · 자사 웹 23 중 18). /app 은 미리보기 봇(PREVIEW_BOT_RE)만 빼고 나머지 수집기(meta-externalagent·Go-http-client·python-requests·헤드리스)는 «desktop 클릭»으로 센다 — 그 숫자가 slot «키우기» 레인(블루스키 1순위)을 정해 왔다. → 측정 브랜치 **feat/click-ua-audit(7c50452)**: 데스크톱 요청을 `mkt:attr:ua:<태그>:<nomoz·bot·nolang·mac·win·linux·other>:<날짜>` 로 한 칸 더 센다(동작 무변경, tsc 로 route.ts 오류 0) + 읽기 `scripts/mkt-clicks-ua.js`. 운영 반영 = 대표 승인(㊻). 배포 전 대용 측정: 다음 블루스키 게시 직후 0~10분 카운터를 1분 간격으로 읽는다 | 레디스 원값 · public.api.bsky.app getAuthorFeed |
+| **확장 — note #個人開発(티켓·등록)** | note 공개 API 실측: 해시태그 #個人開発 글 56,751개(#アプリ開発 25,880·#ClaudeCode 66,540) · 토요일 아침 약 1시간(06:31~07:38 JST)에 새 글 20개 · 인기순 상위 좋아요 10~98 · 앱 출시 글도 받아들여짐(「【アップルストア登録（無料）】Hiraku」 15, 「【βテスター募集】…Chrome拡張機能」 12). 우리 이긴 패턴 «개발자 커뮤니티 제작기»(IH 건당 7.29·GeekNews 1편 33)의 일본판(Qiita·Zenn 은 게이트) → channels.json note_kojin + 규칙(주 1, 18~23시 KST). ⚠ note 클릭 11건 전부 PC — 설치 전환은 ⑬·㊻ 과 같이 본다. 오늘 note 는 이미 1편(마이크론)이라 저녁 창에 | channels.json note_kojin |
+| 고정 ⑥ 스윕 | 0편(누계 85) · 건너뜀 = 일회용이 아닌 곳(hmarkets·quantit-signal.co.kr·KB증권 등) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
