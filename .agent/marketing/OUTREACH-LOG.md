@@ -12018,3 +12018,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ### 앱 화면에서 본 것(앱 점검 후보 추가)
 - COST Flow 의 STRIKE 탭 «주간 스트라이크 맵(09-25 만기)»: 풋 플로어 $900·콜 월 $900 — 같은 만기의 구조 API levels(콜월 945·풋플로어 890, 13:14 ET)와 다르다. 탭마다 «월» 정의(범위·기준)가 다른지 확인 필요 → 블로그 이미지에서는 이 탭을 뺐다.
+
+
+---
+
+## 2026-09-25 (KST) 09:30~10:10 — 시간 사이클: 실행 4(프로모션 인앱 구입 ✅ 심사 제출 · SEO 측정 · OKKY 재시도(차단 지속) · Quora ✅) · 게이트 341/0 · 스윕 0 · 확장(새 표면 없음 — x_communities 티켓 측정 진행)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **apple_promoted_iap ✅(신규 스토어 표면)** | 1024 구독 이미지 제작(앱 아이콘과 다른 그림: 남색·맥박선·PRO·No ads) → `scripts/asc_promoted_iap.py`(신설): 이미지 업로드(UPLOAD_COMPLETE) → promotedPurchases 생성(enabled·모두에게 보임) → subscriptionSubmissions 제출 → **이미지 WAITING_FOR_REVIEW · 프로모션 IN_REVIEW**(구독은 APPROVED 유지) | ASC API 조회. 승인 후 스토어 검색 카드 확인(9/29 게이트) |
+| **seo(측정)** | GSC 28일: 클릭 12 · 노출 888 · CTR 1.4% · 25.7위. 1페이지(6~11위) 질의 5개 CTR 0% 이지만 노출 13~77회 → 기대 클릭 2회 미만이라 판정 불가. 순위 페이지 /en/flow/<티커> 의 제목·설명은 이미 숫자 먼저. 데이터셋 사이트 속성은 아직 «Processing data» | search.google.com (www.signumhq.com 속성, 화면 선택기로 진입) |
+| okky — 차단 지속 | 구글 계정 선택 → contact@ → 같은 «Access blocked … within its organization»(org_internal). 이틀 연속 → 게이트 10/02(주 1회 재시도) | — |
+| **quora_en ✅** | «Why do some stocks seem to ignore rising bond yields while others crash?» ← 8/24→9/23 실측: 10년물 +41bp(재무부) 중 실질 +38bp·기대인플레 +3bp · SPY +0.6% vs XLK +8.5% · XLU −8.0% · XLRE −7.7% · XLF −6.3% · IWM −5.4%(Nasdaq ETF 종가). «지수 효과» 설명, 예측 없음, 링크·앱명 0 | https://www.quora.com/Why-do-some-stocks-seem-to-ignore-rising-bond-yields-while-others-crash/answer/Jiyoung-Kim-236 · 답변 주소에서 본문 확인(초안 표시 없음) |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| 확장 — 새 표면 없음 | x_communities 티켓: 탐색 페이지 추천이 크립토 밈뿐. ⚠ 페이지 오른쪽 위 입력칸에 친 글자가 X 단축키로 작성창을 열었다 → 빈 작성창을 닫았고 프로필 최신 글로 **게시 없음 확인** | — |
