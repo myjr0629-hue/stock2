@@ -12204,3 +12204,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 확장 — 새 표면 없음(사유) | 오늘 확인·등록한 것: threads_jp·threads_kr·bluesky_jp·google_play_featuring·note_joint_magazine·tradingview_ideas·en_media·naver_stock_discussion·threads_pin·medium_pin. 남은 후보(Substack·XDA·Stack Exchange·Yahoo!知恵袋·Clien·velog 등)는 전부 계정 생성이 필요하거나(안전선 밖) AI 글 금지(Stack Exchange). 억지 등록 대신 기록만 한다 | — |
 | 고정 ⑥ 스윕 | 0편(누계 82) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 22:30~22:45 — 시간 사이클(미국 개장): 실행 1(x_reply ✅ 2/3 @CNBC 나이키) · 게이트 341/0 · **스윕 1편 차단(tzkhmbvw1.shop, 누계 83)** · 확장(podcast_daily_brief — 티켓 ㊷)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅ 2/3** | @CNBC «'Risks are rising' for Nike's turnaround, Bank of America says. Sell shares now»(게시 0.7시간) ← 데이터 답글(266자, 링크 0): 최근 4번 실적 모두 EPS 상회(21~82%)인데 다음 날 +6.4% / −10.5% / −15.5% / +4.9%(평균 ±9.3%, 나스닥 일별 종가) · 두 자릿수 하락 두 번은 43%·21% 상회 뒤였다 · 다음 실적 10/1 장 마감 뒤 예정(나스닥 «expected»), 컨센서스 EPS $0.44 vs 1년 전 $0.49. 옵션 내재 변동은 **개장 직후(9:35 ET) 체인 호가가 대부분 비어** 계산하지 않았다(불완전한 값으로 쓰지 않음) | https://x.com/signumhq/status/2103479204298064278 · 내 답글 탭 + 비로그인 syndication 본문·in_reply_to=CNBC |
+| **고정 ⑥ 스윕 — 1편 차단** | 검색어 «종목» 에서 새 일회용 도메인 **tzkhmbvw1.shop** 소재 1편 차단(누계 83편·69도메인). tz+문자+w+번호 .shop 꼴 = 같은 조직의 새 도메인 | /tmp/ego/arc-blocked-*.json |
+| **확장 — podcast_daily_brief(티켓 ㊷)** | 기록에 팟캐스트 0건. Apple Podcasts 는 AI 합성 음성 쇼를 허용하되 오디오·메타데이터 둘 다에 눈에 띄는 고지를 요구(지침 요약). 설계: GitHub Pages 에 feed.xml + 매일 2분 MP3(기존 음성 도구 재사용), 첫 문장·설명란 AI 고지, 설명란 ?from=podcast. 막힌 곳 = Apple Podcasts Connect 약관·쇼 제출(대표 1회), Spotify 는 새 계정 | channels.json podcast_daily_brief |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |

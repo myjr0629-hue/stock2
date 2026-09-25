@@ -1459,6 +1459,22 @@
    "link": "https://signumhq.com/app?from=medium",
    "action": "pin",
    "note": "★2026-09-25 20:4x 확장(고정 패턴 복제 2): 글 «More options» → «Pin this story to your profile». 고정 = «Congress filed 192 stock trades in 90 days. The median one was 25 days old when it went public.»(9/24, 이미지 3·링크 signumhq.com/app?from=medium·AI 표시 있음). 확인 = 작성자 로그인 프로필 첫 글 «Pinned». 비로그인 curl 은 Cloudflare 403(모든 UA)이라 공개 화면은 못 쟀다. 링크드인은 9/3 부터 «추천(Featured)» 3칸이 이미 같은 역할."
+  },
+  {
+   "id": "podcast_daily_brief",
+   "name": "팟캐스트 — 매일 2분 미국장 브리핑(AI 음성, Apple Podcasts)",
+   "tier": "B",
+   "enabled": false,
+   "tag": "podcast",
+   "link": "https://signumhq.com/app?from=podcast",
+   "action": "publish_rss",
+   "gate": {
+    "kind": "약관",
+    "until": null,
+    "who": "대표 1회",
+    "why": "2026-09-25 22:5x 확장 발굴: Apple Podcasts 는 AI 합성 음성 쇼를 허용하되 «오디오와 에피소드·쇼 메타데이터 둘 다에 눈에 띄게 AI 사용을 밝힐 것»(지침 요약, 출처 podcasters.apple.com 콘텐츠 지침·RSS.com 해설). 제출은 Apple Podcasts Connect(애플 ID) + 약관 동의 = 대표 몫. Spotify for Creators 는 새 계정(대표)."
+   },
+   "note": "설계: GitHub Pages(기존 데이터셋 저장소)에 feed.xml + 에피소드 MP3(매일 2분: 전일 지수·금리·섹터·옵션 구조 한 가지, 우리 음성 도구 scripts/tts-ad.mjs·voice 스크립트 재사용), 오디오 첫 문장과 설명란에 AI 음성 고지, 설명란 끝에 ?from=podcast 링크. 팟캐스트 앱 검색(«stock market daily» 등)이라는 새 발견 경로. 대표가 약관 동의·쇼 제출 1회 하면 이후 에피소드는 RSS 갱신만으로 자동."
   }
  ],
  "candidates": [
