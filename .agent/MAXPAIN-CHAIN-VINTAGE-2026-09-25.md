@@ -1,6 +1,6 @@
 # 옵션 레벨(맥스페인·콜월·풋플로어) — 원인·수리·검증 (2026-09-25)
 
-브랜치 `fix/maxpain-chain-vintage` · HANDOFF §3 ㊴ · 관련: 7-i(COST STRIKE 월), 7-j(Command MU MAX PAIN)
+브랜치 `fix/maxpain-chain-vintage` · HANDOFF §3 ㊲-2 · 관련: 7-i(COST STRIKE 월), 7-j(Command MU MAX PAIN)
 
 ## 1. 한 줄 요약
 
