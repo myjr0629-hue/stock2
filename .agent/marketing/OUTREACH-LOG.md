@@ -12191,3 +12191,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 실행 | 열린 채널 없음(전 채널 오늘 캡·계정 합계 소진) | slot |
 | 고정 ⑥ 스윕 | 0편(누계 82) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 21:30~21:47 — 시간 사이클: 실행 1(x_reply ✅ @CNBC 코스트코) · 게이트 341/0 · 스윕 0 · 정정 1(Threads 소개 링크 태그) · 확장(새 표면 없음 — 사유 기록)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅ 1/3** | @CNBC(팔로워 620만 — 18만 문턱 통과) «Costco just reported strong earnings. Goldman Sachs sees a sharp move higher for the stock»(게시 0.7시간) ← 데이터 답글(257자, 키 입력, 링크 0): 프리마켓 COST −0.5%($891.90, 8:31 ET, 나스닥) vs 목요일 종가 $896.48 · 옵션이 금요일까지 약 ±3.2% 를 가격에 넣었다($900 스트래들 $28.68, 목 1:14pm ET 호가 중간) · 기존점 +9.4%(유가·환율 제외 +6.7%) · EPS $6.75(관세 환급 $0.15 포함) | https://x.com/signumhq/status/2103464017910259829 · 내 답글 탭 확인 + **비로그인 syndication(cdn.syndication.twimg.com)에서 본문·in_reply_to=CNBC 확인** |
+| **정정 — Threads 소개 링크** | 19:4x 로그에 «Threads 프로필 소개 링크(signumhq.com/app)는 유입 태그가 없다»고 적었는데 **틀렸다**: 프로필 a[href] 실측 = `signumhq.com/app?from=threads_bio`(화면에는 짧게 signumhq.com/app 으로만 보인다). 프로필 편집 창은 열어 보기만 하고 저장 없이 닫았다. channels.json threads_pin 노트 정정 — «보이는 글자로 판정하지 말고 href 를 잰다» | — |
+| 확장 — 새 표면 없음(사유) | 오늘 확인·등록한 것: threads_jp·threads_kr·bluesky_jp·google_play_featuring·note_joint_magazine·tradingview_ideas·en_media·naver_stock_discussion·threads_pin·medium_pin. 남은 후보(Substack·XDA·Stack Exchange·Yahoo!知恵袋·Clien·velog 등)는 전부 계정 생성이 필요하거나(안전선 밖) AI 글 금지(Stack Exchange). 억지 등록 대신 기록만 한다 | — |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
