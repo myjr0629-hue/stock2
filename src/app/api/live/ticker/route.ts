@@ -6,7 +6,7 @@ import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedMovePct, computeIVSkew, type AlphaSession } from '@/services/alphaEngine';
 import { ensureXsScores } from '@/services/xsScores';
 import { CentralDataHub } from "@/services/centralDataHub";
-import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
+import { getStructureData, levelsFromStructure } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
@@ -144,7 +144,10 @@ const TICKER_CACHE_TTL = 60; // 60 seconds
  *   QQQ 12.1초가 됐다. 위 cacheKey 가 이미 같은 이유로 분리돼 있었는데 이걸 놓쳤다.
  *   **모양이 다르면 캐시도 달라야 한다.**
  */
-const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v2:';
+// v3 = 옵션 레벨 한 벌 + 라벨(levelsExpiration·levelsChainDate·levelsSource) 2026-09-25.
+//   ⚠️ 프리뷰와 운영은 Redis 하나를 같이 쓴다. 모양이 다른 두 코드가 같은 last-good 키를 병합하면
+//   (null 은 옛 값 유지) 서로의 필드가 섞여 나간다 — 9/25 프리뷰 검증 중 운영 응답에 새 라벨이 섞인 것을 실측.
+const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v3:';
 function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): string {
     const shape = skipAlpha ? 'lite' : (noChain ? 'nochain' : 'full');
     return `${LAST_GOOD_PREFIX}${shape}:${ticker}`;
@@ -222,20 +225,10 @@ function bandedWalls(chain: any[] | undefined, spot: number): { callWall: number
 
 function pickOptionLevels(structureResult: any, flowData: any, spot: number | null) {
     const sr = structureResult || {};
-    const srMaxPain = sanitizeMaxPain(sr.maxPain, spot);
     // 구조가 계산에 성공했으면(맥스페인이 타당성 게이트에 걸려 비더라도) 전부 그 한 벌에서 — 섞지 않는다.
-    if (sr.options_status === 'OK' && (sr.maxPain != null || sr.levels?.callWall != null || sr.levels?.putFloor != null)) {
-        return {
-            maxPain: srMaxPain,
-            callWall: sr.levels?.callWall ?? null,
-            putFloor: sr.levels?.putFloor ?? null,
-            pinZone: srMaxPain != null ? (sr.levels?.pinZone ?? srMaxPain) : null,
-            gammaFlipLevel: sr.gammaFlipLevel ?? null,
-            levelsExpiration: sr.expiration || null,
-            levelsChainDate: sr.chainDate ?? null,
-            levelsSource: 'structure' as string | null,
-        };
-    }
+    // 매핑은 structureService.levelsFromStructure 하나뿐이다(다른 문들도 같은 함수를 쓴다).
+    const lv = levelsFromStructure(sr, spot);
+    if (lv) return { ...lv, levelsSource: lv.levelsSource as string | null };
     const fd = flowData || {};
     const fromDynamo = !!fd._awsFallback;
     // DynamoDB 폴백은 한 레코드(GEX 이력)에서 나온 값끼리만 쓴다. 체인 폴백은 구조와 같은 정의로 다시 계산한다.

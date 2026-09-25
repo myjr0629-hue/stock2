@@ -2442,8 +2442,9 @@ function CmdPageContent() {
           //    maxPain 만 폴백이 있어서 «맥스페인은 뜨는데 감마플립은 —» 였다.
           gammaFlip: gammaFlipRawVal ? `$${Number(gammaFlipRawVal).toFixed(2)}` : '$—',
           gammaFlipRaw: gammaFlipRawVal ?? DEMO.premium.gammaFlipRaw,
-          callWall: flow.callWall ?? u?.structure?.callWall ?? DEMO.premium.callWall,
-          putFloor: flow.putFloor ?? u?.structure?.putFloor ?? DEMO.premium.putFloor,
+          // unified 는 벽을 `structure.levels.*` 에 싣는다 — 예전 `structure.callWall` 은 존재하지 않아 폴백이 늘 0 이었다
+          callWall: flow.callWall ?? u?.structure?.levels?.callWall ?? DEMO.premium.callWall,
+          putFloor: flow.putFloor ?? u?.structure?.levels?.putFloor ?? DEMO.premium.putFloor,
           maxPain: flow.maxPain ?? u?.structure?.maxPain ?? 0,
           // ★ [2026-09-25] 그 맥스페인이 «어느 만기·며칠 자 미결제약정»인지. live/ticker 는 옵션 레벨을
           //   구조 한 벌에서 주며 levelsExpiration·levelsChainDate 를 싣는다. 폴백 값엔 라벨을 붙이지 않는다.

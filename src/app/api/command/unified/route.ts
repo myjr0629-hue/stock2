@@ -18,6 +18,7 @@ import { GET as getInstitutional } from '@/app/api/flow/realtime-metrics/route';
 import { GET as getFundamentals } from '@/app/api/live/fundamentals/route';
 import { GET as getOverview } from '@/app/api/live/overview/route';
 import { UNIVERSE } from '@/lib/universe';
+import { peekStructureLevels, applyLevelsToUnified } from '@/services/structureService';
 
 // [극강] Allow Vercel Pro to run unified aggregation up to 30s (default 10s kills it)
 export const maxDuration = 30;
@@ -501,9 +502,26 @@ function normalizeShape(data: any): any {
     return data;
 }
 
-function jsonResponse(data: any, status = 200) {
+/**
+ * ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다(structureService 의 peekStructureLevels 설명).
+ *   이 라우트는 출처가 여럿이다(메모리·Redis·DynamoDB unified·스냅샷·직접 생성). DynamoDB 쪽은 수집 Lambda 가
+ *   다른 정의(전 행사가 최대 OI 벽·벽 중간값 «감마플립»·전 만기 맥스페인)로 쓴 값이라, 9/25 웹 /ticker 가
+ *   MU 콜월 1000·풋플로어 600·감마플립 800 을 보였다(구조 API 1200/1000/1075, 맥스페인 1000 vs 1020).
+ *   저장본만 읽는다(계산 없음). 구조 저장본이 없으면 원래 값 그대로 — 그땐 levelsSource 가 붙지 않는다.
+ *   묶음은 통째로 바꾼다: 구조에 감마플립이 없으면 «없음»이지, 다른 정의의 값을 남기지 않는다.
+ */
+async function overlayStructureLevels(data: any): Promise<any> {
+    const st = data?.structure;
+    const t = st && typeof st === 'object' ? st.ticker : null;
+    if (!t) return data;
+    const lv = (await peekStructureLevels([t]).catch(() => new Map()))?.get(String(t).toUpperCase());
+    return applyLevelsToUnified(data, lv);
+}
+
+async function jsonResponse(data: any, status = 200) {
     const isMarket = isMarketHoursNow();
-    return NextResponse.json(normalizeShape(stripStaleInstitutional(data)), {
+    const body = await overlayStructureLevels(normalizeShape(stripStaleInstitutional(data)));
+    return NextResponse.json(body, {
         status,
         headers: {
             'Cache-Control': isMarket

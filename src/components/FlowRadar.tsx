@@ -22,9 +22,18 @@ export interface FlowRadarProps {
     squeezeScore?: number | null;
     squeezeRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;
     initialFlowData?: any;
+    /**
+     * ★ [2026-09-25] 옵션 레벨 «한 벌» — /api/live/ticker 의 flow.maxPain·callWall·putFloor·levelsExpiration.
+     * Command·앱 Flow·구조 API 와 같은 숫자다(주간 만기 전체 체인, 콜월·풋플로어는 현물 ±20% 최대 OI).
+     * 주어지면 이 컴포넌트는 그것을 보여 주고, 스스로 계산한 값은 비었을 때만 쓴다.
+     */
+    maxPain?: number | null;
+    callWall?: number | null;
+    putFloor?: number | null;
+    levelsExpiration?: string | null;
 }
 
-export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
     const ui = useTranslations('flowRadarUI');
@@ -1221,6 +1230,20 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
     // [PREMIUM] Max Pain Distance - how far current price from max pain
     const maxPainDistance = useMemo(() => {
+        // ★ [2026-09-25] 같은 «Max Pain» 이름으로 여기만 다른 숫자를 냈다 — VOLUME 모드는 이 화면이 받은
+        //   체인(구조와 다른 때 읽은 사본일 수 있다), OI 모드는 0~35DTE «전 만기 합산»이었다.
+        //   API 의 한 벌(주간 만기)을 먼저 쓰고, 스스로 계산은 API 가 비었을 때만 한다.
+        const apiMp = Number(apiMaxPain);
+        if (apiMp > 0 && currentPrice) {
+            const distance = currentPrice - apiMp;
+            const distPercent = Math.round((distance / currentPrice) * 1000) / 10;
+            const direction = distance > 0.5 ? 'above' as const : distance < -0.5 ? 'below' as const : 'at' as const;
+            let color = 'text-emerald-400';
+            if (Math.abs(distPercent) > 3) color = 'text-rose-400';
+            else if (Math.abs(distPercent) > 1.5) color = 'text-amber-400';
+            else if (Math.abs(distPercent) > 0.5) color = 'text-cyan-400';
+            return { maxPain: apiMp, distance, distPercent, direction, color };
+        }
         if (!filteredChain || filteredChain.length === 0 || !currentPrice) return { maxPain: 0, distance: 0, distPercent: 0, direction: 'at' as const, color: 'text-slate-400' };
 
         // Calculate max pain: strike where total pain (loss) for option holders is maximized
@@ -1258,7 +1281,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (Math.abs(distPercent) > 0.5) color = 'text-cyan-400';
 
         return { maxPain: maxPainStrike, distance, distPercent, direction, color };
-    }, [filteredChain, currentPrice]);
+    }, [filteredChain, currentPrice, apiMaxPain]);
 
     // [MOVED] effectiveViewMode + isMarketClosed now defined after flowMap (before metrics)
 
@@ -1271,8 +1294,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         ));
     }, [flowMap, effectiveViewMode]);
 
-    // Calculate Walls (Dominant Strikes)
-    const { callWall, putWall } = useMemo(() => {
+    // Calculate Walls (Dominant Strikes) — API 의 한 벌이 없을 때만 쓰는 대체값
+    const { callWall: localCallWall, putWall: localPutWall } = useMemo(() => {
         let maxCall = -1, maxPut = -1;
         let cStrike = 0, pStrike = 0;
 
@@ -1286,6 +1309,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         return { callWall: cStrike, putWall: pStrike };
     }, [flowMap, effectiveViewMode]);
+    // ★ [2026-09-25] «Call Wall·Put Wall» 은 Command·앱 Flow·구조 API 와 같은 값(API 한 벌)을 쓴다.
+    //   예전엔 모드별(거래량 / 0~35DTE OI) 최대 행사가를 같은 이름으로 불러 화면마다 숫자가 달랐다.
+    const callWall = Number(apiCallWall) > 0 ? Number(apiCallWall) : localCallWall;
+    const putWall = Number(apiPutFloor) > 0 ? Number(apiPutFloor) : localPutWall;
 
     // [LEVEL 3] INSTITUTIONAL ANALYSIS ENGINE (Narrative Generation)
     // V2.0: Integrates OPI, IV Skew, Squeeze, Smart Money, IV Percentile
@@ -3451,7 +3478,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-between text-xs mb-1">
-                                                <span className="text-slate-400">Max Pain</span>
+                                                <span className="text-slate-400">Max Pain{Number(apiMaxPain) > 0 && levelsExpiration && /^\d{4}-\d{2}-\d{2}$/.test(levelsExpiration) ? <span className="text-slate-500 ml-1">({Number(levelsExpiration.slice(5, 7))}/{Number(levelsExpiration.slice(8, 10))} {locale === 'ko' ? '만기' : locale === 'ja' ? '満期' : 'exp'})</span> : null}</span>
                                                 <span className="text-white font-bold font-mono">${maxPainDistance.maxPain}</span>
                                             </div>
                                             <div className="text-[13px] text-white/90 font-medium pl-4 border-l border-orange-500/30">

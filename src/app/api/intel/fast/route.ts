@@ -15,6 +15,7 @@ import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { xsSnapshotOverride } from '@/services/xsScores';
 import { fetchTruePreMarket } from '@/services/marketDataLight';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
+import { peekStructureLevels } from '@/services/structureService';
 
 /** null·undefined·빈문자를 먼저 거른다. `Number(null)===0` 함정 방지. */
 function numOk(v: any): boolean {
@@ -550,6 +551,25 @@ export async function GET(request: Request) {
                 impliedMovePct,
             };
         });
+
+        // ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다(structureService.peekStructureLevels).
+        //   위에서는 분석 캐시 → 티커 캐시 → DynamoDB 이력 순으로 필드마다 따로 골랐다 — 한 카드 안에서
+        //   맥스페인과 벽이 서로 다른 계산·만기에서 올 수 있었다. 저장본만 한 번에 읽는다. 없으면 원래 값.
+        try {
+            const lvMap = await peekStructureLevels(quotes.map((q: any) => q.ticker));
+            quotes.forEach((q: any) => {
+                const lv = lvMap.get(String(q.ticker || '').toUpperCase());
+                if (!lv) return;
+                q.maxPain = lv.maxPain;
+                q.callWall = lv.callWall;
+                q.putFloor = lv.putFloor;
+                q.levelsExpiration = lv.levelsExpiration;
+                q.levelsChainDate = lv.levelsChainDate;
+                q.levelsSource = lv.levelsSource;
+            });
+        } catch (e: any) {
+            console.warn('[/api/intel/fast] 옵션 레벨 한 벌 덮기 실패(원래 값 유지):', e?.message);
+        }
 
         // Sort by changePct descending
         quotes.sort((a, b) => b.changePct - a.changePct);

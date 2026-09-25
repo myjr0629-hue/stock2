@@ -1,7 +1,8 @@
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
-import { getFromCache, setInCache } from "@/services/redisClient";
+import { getFromCache, setInCache, mgetFromCache } from "@/services/redisClient";
+import { sanitizeMaxPain } from "@/services/centralDataHub";
 
 // [S-69] Get next valid trading day for options expiration (skips weekends)
 // [V45.17 FIX] Uses getETComponents for reliable ET timezone handling
@@ -1174,4 +1175,122 @@ export async function getStructureData(
         };
         return failResponse;
     }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ★★ 옵션 레벨 «한 벌» — 화면으로 나가는 모든 문이 같은 숫자를 쓰게 하는 두 도구 [2026-09-25]
+//
+// [사고] 9/25 12:5x KST 운영에서 MU 맥스페인이 문마다 달랐다:
+//   구조 API·대시보드·UC 1020 · live/ticker(Command) 1000 · command/unified(웹 /ticker·WIM) 1000 ·
+//   watchlist/batch 970. 콜월·풋플로어도 1200/1000 vs 1000/600, 감마플립 1075 vs 800
+//   (800 = (1000+600)/2 — 수집 Lambda 가 DynamoDB 에 쓰는 «벽 중간값»이지 감마플립이 아니다).
+//   생산자가 다섯이다: 이 파일(구조) · CentralDataHub 체인 · DynamoDB GEX 이력(정의가 다른 두 Lambda) ·
+//   stockApi(D+2~D+7 만기) · 브라우저 재계산. 문마다 다른 생산자를 먼저 읽었다.
+//
+// [규칙] 화면으로 나가는 레벨(맥스페인·콜월·풋플로어·핀존·감마플립)은 이 파일의 결과 «한 벌»이다.
+//   정의: 주간 만기 전체 체인 · 맥스페인 = 총손실 최소 행사가(현물 35% 밖이면 없음) ·
+//   콜월 = (현물, 현물×1.2] 최대 콜 OI · 풋플로어 = [현물×0.8, 현물) 최대 풋 OI · 핀존 = 맥스페인.
+//   문(라우트)은 나가기 직전에 peekStructureLevels 로 덮는다 — 계산을 부르지 않고 저장본만 읽는다.
+// ════════════════════════════════════════════════════════════════════════════
+export type OptionLevels = {
+    maxPain: number | null;
+    callWall: number | null;
+    putFloor: number | null;
+    pinZone: number | null;
+    gammaFlipLevel: number | null;
+    levelsExpiration: string | null;
+    levelsChainDate: string | null;
+    levelsSource: 'structure';
+    /** 이 레벨이 계산된 시각(ms) — 저장본에서 읽었을 때만 */
+    levelsAsOf?: number | null;
+};
+
+/** 구조 결과 → 레벨 한 벌. 계산에 실패한 결과(OK 아님·레벨 전무)는 null. */
+export function levelsFromStructure(sr: any, spot?: number | null): OptionLevels | null {
+    if (!sr || sr.options_status !== 'OK') return null;
+    if (sr.maxPain == null && sr.levels?.callWall == null && sr.levels?.putFloor == null) return null;
+    const ref = Number(spot) > 0 ? Number(spot) : Number(sr.underlyingPrice) > 0 ? Number(sr.underlyingPrice) : null;
+    const mp = sanitizeMaxPain(sr.maxPain, ref);
+    return {
+        maxPain: mp,
+        callWall: sr.levels?.callWall ?? null,
+        putFloor: sr.levels?.putFloor ?? null,
+        pinZone: mp != null ? (sr.levels?.pinZone ?? mp) : null,
+        gammaFlipLevel: sr.gammaFlipLevel ?? null,
+        levelsExpiration: sr.expiration || null,
+        levelsChainDate: sr.chainDate ?? null,
+        levelsSource: 'structure',
+    };
+}
+
+/**
+ * 여러 종목의 «저장된» 구조 결과에서 레벨 한 벌을 한 번에 읽는다(Redis 한 번, 계산 없음·부작용 없음).
+ * 신선본(structure:v1)과 마지막 정상본(structure:lastgood) 중 늦게 계산된 것을 쓴다.
+ * 만기가 지난 사본은 없는 것으로 본다. 없으면 그 종목은 결과에 없다 — 문은 원래 값을 그대로 둔다.
+ */
+export async function peekStructureLevels(tickers: string[]): Promise<Map<string, OptionLevels>> {
+    const out = new Map<string, OptionLevels>();
+    const syms = Array.from(new Set((tickers || []).map((t) => String(t || '').toUpperCase()).filter(Boolean)));
+    if (!syms.length) return out;
+    const keys: string[] = [];
+    for (const t of syms) keys.push(structureRedisKey(`${t}:auto`), structureLastGoodKey(`${t}:auto`));
+    let vals: ({ data: any; timestamp: number } | null)[] = [];
+    try { vals = await mgetFromCache<{ data: any; timestamp: number }>(keys); } catch { return out; }
+    const todayET = getTodayETString();
+    syms.forEach((t, i) => {
+        const cands = [vals[2 * i], vals[2 * i + 1]]
+            .filter((v): v is { data: any; timestamp: number } => !!v?.data && !isCachedExpiryStale(v.data, todayET))
+            .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+        for (const c of cands) {
+            const lv = levelsFromStructure(c.data);
+            if (lv) { out.set(t, { ...lv, levelsAsOf: Number(c.timestamp) || null }); break; }
+        }
+    });
+    return out;
+}
+
+/**
+ * command/unified 모양의 페이로드(structure.{maxPain,levels,gammaFlipLevel,expiration} + volatility.flipLevel)에
+ * 레벨 한 벌을 덮는다(순수 함수). 묶음은 통째로 — 구조에 감마플립이 없으면 «없음»으로 둔다.
+ * API 출구(command/unified)와 웹 /ticker SSR 이 같은 함수를 쓴다.
+ */
+export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefined): any {
+    const st = data?.structure;
+    if (!lv || !st || typeof st !== 'object') return data;
+    const out = {
+        ...data,
+        structure: {
+            ...st,
+            maxPain: lv.maxPain,
+            levels: { ...(st.levels || {}), callWall: lv.callWall, putFloor: lv.putFloor, pinZone: lv.pinZone },
+            gammaFlipLevel: lv.gammaFlipLevel,
+            expiration: lv.levelsExpiration,
+            chainDate: lv.levelsChainDate,
+            levelsSource: lv.levelsSource,
+            levelsAsOf: lv.levelsAsOf ?? null,
+        },
+    };
+    if (out.volatility && typeof out.volatility === 'object') {
+        out.volatility = { ...out.volatility, flipLevel: lv.gammaFlipLevel };
+    }
+    return out;
+}
+
+/**
+ * 배치 서비스(watchlist·portfolio)의 `realtime` 모양에 레벨 한 벌을 덮는다(제자리 수정).
+ * maxPainDist 는 원래 규칙 그대로 «(맥스페인 − 기준가) / 기준가 %», 기준가 = 시간외 가격 || 표시 가격.
+ */
+export function applyLevelsToRealtime(rt: any, lv: OptionLevels | null | undefined): void {
+    if (!lv || !rt || typeof rt !== 'object') return;
+    // watchlist 는 extendedPrice, portfolio 는 extPrice 라는 이름을 쓴다(뜻은 같다: 시간외 가격).
+    const ext = Number(rt.extendedPrice) > 0 ? Number(rt.extendedPrice) : Number(rt.extPrice) > 0 ? Number(rt.extPrice) : null;
+    const ref = ext ?? (Number(rt.price) > 0 ? Number(rt.price) : null);
+    rt.maxPain = lv.maxPain;
+    rt.maxPainDist = lv.maxPain && ref ? Number((((lv.maxPain - ref) / ref) * 100).toFixed(2)) : null;
+    rt.callWall = lv.callWall;
+    rt.putFloor = lv.putFloor;
+    rt.gammaFlipLevel = lv.gammaFlipLevel;
+    rt.levelsExpiration = lv.levelsExpiration;
+    rt.levelsChainDate = lv.levelsChainDate;
+    rt.levelsSource = lv.levelsSource;
 }

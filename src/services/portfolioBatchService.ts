@@ -6,7 +6,7 @@
 
 import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData } from '@/services/structureService';
+import { getStructureData, peekStructureLevels, applyLevelsToRealtime } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
@@ -434,6 +434,15 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
             return { ticker, error: 'Analysis failed' };
         }
     }));
+
+    // ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다 — watchlist/batch 와 같은 규칙
+    //   (structureService.peekStructureLevels 설명). 저장본만 한 번에 읽는다. 없으면 원래 값.
+    try {
+        const lvMap = await peekStructureLevels(results.map((r: any) => r?.ticker).filter(Boolean));
+        results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
+    } catch (e: any) {
+        console.warn('[portfolio/batch] 옵션 레벨 한 벌 덮기 실패(원래 값 유지):', e?.message);
+    }
 
     return { results, meta: { count: tickers.length, elapsed: Date.now() - startTime, source: missingTickers.length === 0 ? 'analysis_cache' : 'hybrid_compute', cached: missingTickers.length === 0 } };
 }

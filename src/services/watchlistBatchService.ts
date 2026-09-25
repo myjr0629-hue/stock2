@@ -5,7 +5,7 @@
 
 import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData } from '@/services/structureService';
+import { getStructureData, peekStructureLevels, applyLevelsToRealtime } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, writeAnalysisCache } from '@/services/analysisCache';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
@@ -1341,6 +1341,18 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
         }
     } catch (e: any) {
         console.warn('[watchlist/batch] 유동성 주입 실패:', e?.message);
+    }
+
+    // ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다(structureService.peekStructureLevels).
+    //   이 서비스는 분석 캐시·DynamoDB unified·stockApi(D+2~D+7 만기)·AWS 이력(위 put)을 섞어 채워서
+    //   9/25 MU 가 맥스페인 970·콜월 1000·풋플로어 600·감마플립 800(=벽 중간값)으로 나갔다
+    //   (구조 API 1020/1200/1000/1075). 저장본만 한 번에 읽는다(계산 없음). 구조 저장본이 없으면 원래 값.
+    //   알파 점수 등 «내부 계산»은 건드리지 않는다 — 화면에 나가는 레벨만 한 벌로 맞춘다.
+    try {
+        const lvMap = await peekStructureLevels(results.map((r: any) => r?.ticker).filter(Boolean));
+        results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
+    } catch (e: any) {
+        console.warn('[watchlist/batch] 옵션 레벨 한 벌 덮기 실패(원래 값 유지):', e?.message);
     }
 
     return {

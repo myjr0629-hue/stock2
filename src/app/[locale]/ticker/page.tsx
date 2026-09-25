@@ -172,6 +172,17 @@ export default async function TickerPage({ params, searchParams }: Props) {
         }
     }
 
+    // ★★ [2026-09-25] 옵션 레벨은 구조 한 벌로 덮는다 — API 출구(command/unified)와 같은 함수.
+    //   위 캐시 층(Redis·DynamoDB unified·스냅샷)은 수집 Lambda 가 다른 정의로 쓴 값을 줄 수 있다
+    //   (MU 9/25: 콜월 1000·풋플로어 600·감마플립 800 = 벽 중간값). 첫 화면(그리고 검색엔진이 읽는 HTML)도 같은 숫자여야 한다.
+    if (initialUnifiedData?.structure) {
+        try {
+            const { peekStructureLevels, applyLevelsToUnified } = await import('@/services/structureService');
+            const lv = (await peekStructureLevels([ticker])).get(ticker.toUpperCase());
+            initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv);
+        } catch { /* 레벨 덮기는 부가 — 실패하면 원래 값 */ }
+    }
+
     // [FINAL SSR BYPASS] Guarantee Alpha and SmartFlow injection for all Cache combinations
     if (initialUnifiedData) {
         try {

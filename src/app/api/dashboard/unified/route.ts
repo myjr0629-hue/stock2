@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData } from '@/services/structureService';
+import { getStructureData, peekStructureLevels } from '@/services/structureService';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
@@ -1009,6 +1009,39 @@ async function fillMissingTickers(cachedData: any, requestedTickers: string[], b
     };
 }
 
+/**
+ * ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다(structureService.peekStructureLevels).
+ *   이 라우트의 값은 대개 구조(getStructureData)지만 맥스페인이 타당성 게이트(현물 35%)를 안 거쳤고,
+ *   분석 캐시 경로는 다른 생산자가 쓴 값일 수 있다. 저장본만 한 번에 읽는다(계산 없음). 없으면 원래 값.
+ */
+async function overlayDashboardLevels(payload: any): Promise<any> {
+    const tk = payload?.tickers;
+    if (!tk || typeof tk !== 'object') return payload;
+    try {
+        const lvMap = await peekStructureLevels(Object.keys(tk));
+        if (!lvMap.size) return payload;
+        const next: Record<string, any> = { ...tk };
+        for (const [t, row] of Object.entries(tk)) {
+            const lv = lvMap.get(String(t).toUpperCase());
+            if (!lv || !row || typeof row !== 'object') continue;
+            const r: any = row;
+            next[t] = {
+                ...r,
+                maxPain: lv.maxPain,
+                levels: { ...(r.levels || {}), callWall: lv.callWall, putFloor: lv.putFloor, pinZone: lv.pinZone },
+                gammaFlipLevel: lv.gammaFlipLevel,
+                expiration: lv.levelsExpiration,
+                chainDate: lv.levelsChainDate,
+                levelsSource: lv.levelsSource,
+            };
+        }
+        return { ...payload, tickers: next };
+    } catch (e: any) {
+        console.warn('[dashboard/unified] 옵션 레벨 한 벌 덮기 실패(원래 값 유지):', e?.message);
+        return payload;
+    }
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tickersParam = searchParams.get('tickers');
@@ -1029,7 +1062,7 @@ export async function GET(request: NextRequest) {
             cache.set(cacheKey, { data: filledData, timestamp: cached.timestamp });
         }
         return NextResponse.json({
-            ...filledData,
+            ...(await overlayDashboardLevels(filledData)),
             _cached: true,
             _cacheAge: Math.round((now - cached.timestamp) / 1000),
             _status: 'fresh'
@@ -1046,7 +1079,7 @@ export async function GET(request: NextRequest) {
             cache.set(cacheKey, { data: filledData, timestamp: cached.timestamp });
         }
         return NextResponse.json({
-            ...filledData,
+            ...(await overlayDashboardLevels(filledData)),
             _cached: true,
             _cacheAge: Math.round((now - cached.timestamp) / 1000),
             _status: 'warming'
@@ -1065,7 +1098,7 @@ export async function GET(request: NextRequest) {
         revalidateCache(cacheKey, tickers, baseUrl);
 
         return NextResponse.json({
-            ...filledData,
+            ...(await overlayDashboardLevels(filledData)),
             _cached: true,
             _cacheAge: Math.round((now - redisCached.timestamp) / 1000),
             _status: 'redis-hit'
@@ -1119,7 +1152,7 @@ export async function GET(request: NextRequest) {
             revalidateCache(cacheKey, tickers, baseUrl);
 
             return NextResponse.json({
-                ...response,
+                ...(await overlayDashboardLevels(response)),
                 _cached: false,
                 _status: 'analysis-cache-hit',
                 _analysisHits: cachedTickers.length,
@@ -1148,7 +1181,7 @@ export async function GET(request: NextRequest) {
         writeToRedisCache(cacheKey, response, ts);
 
         return NextResponse.json({
-            ...response,
+            ...(await overlayDashboardLevels(response)),
             _cached: false,
             _status: 'cold-start'
         });
