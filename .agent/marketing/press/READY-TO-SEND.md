@@ -166,6 +166,41 @@ Thanks,
 SIGNUM HQ
 contact@signumhq.com
 
+## ⑥ 영어권 인디 앱 소개 — 9to5Mac «Indie App Spotlight» · TapSmart «Indie Apps Showcase» (en_media, 2026-09-25)
+
+**왜**: 미국이 주 시장인데 영어권 매체 제보는 0건이었다(①~⑤는 일본·한국·Uptodown·Medium). 두 곳 모두 **무료·인디 개발자 대상** 정기 코너다.
+**조건(실측, 각 매체 페이지 원문)**:
+- 9to5Mac — 「All submissions can be emailed to michaelb@9to5mac.com」(9to5mac.com/guides/indie-app-spotlight). 주 1회(9/5·9/12·9/19). 최근 소개: GasPulse(가스값 추세·과거 데이터 — 데이터 앱), Farwave, KeyAlarm. 금융 앱은 아직 없음.
+- TapSmart — 「email it over」 tomjrolfe@intelligenti.com (tapsmart.com/apps/indie-apps-showcase-aug-2026). 월 1회, 두 앱은 전체 리뷰. 기준: 인디·«리뷰가 적은 숨은 앱» — 우리(미국 별점 1개)에 맞다.
+**보내는 시점(권장)**: ㊲·㊲-2(옵션 구조·맥스페인 수리) 운영 반영 **뒤** — 기자가 화면마다 다른 맥스페인을 보면 안 된다.
+**받는 곳**: 위 두 주소(각각 따로, 같은 날 보내도 됨)  ·  **보내는 곳**: contact@signumhq.com
+
+### 제목 (9to5Mac)
+Indie App Spotlight: SIGNUM HQ — free options, dark pool and earnings data for iPhone
+
+### 본문 (9to5Mac — TapSmart 는 첫 줄 이름만 «Hi Tom,» 으로 바꿔 같은 본문)
+Hi Michael,
+
+I'm writing about SIGNUM HQ, a free iPhone app from our small independent studio (SIGNUM HQ, LLC). It shows the kind of US stock market data that usually sits behind $50–99/month terminals:
+
+• Options structure for any ticker: max pain, gamma flip, call and put walls, implied vs. realized volatility
+• Dark pool (off-exchange) share and short volume from FINRA's daily files, compared with each stock's own normal range
+• Earnings calendar, premarket movers and sector moves, with AI summaries in English, Korean and Japanese
+• No account and no brokerage connection needed; the data is free (ad-supported)
+
+Version 1.9.2 is live now.
+App Store: https://apps.apple.com/app/id6783130444
+Website: https://signumhq.com
+
+I'm happy to send screenshots or answer any questions.
+
+Thanks for running the series,
+{대표 서명}
+
+### 발송 전 확인(내가 한다)
+- 보내기 직전에 앱 화면에서 MU·SPY 맥스페인이 Command·Flow·구조 API 에서 같은지(㊲-2 반영 확인) — `node scripts/audit-options-levels.js`
+- App Store 링크 200·버전 문구(1.9.2) 최신인지
+
 ## 발송 원칙 (내가 지킨다)
 1. **보내기 직전 내용을 대표에게 보고한다.** 승인 없이 새 수신처를 추가하지 않는다.
 2. 발송 후 **수신처·제목·발송시각**을 `OUTREACH-LOG.md` 에 남긴다.

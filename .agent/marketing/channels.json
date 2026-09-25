@@ -1409,6 +1409,21 @@
     "why": "2026-09-25 16:5x 확장 발굴(하우스룰 원문): «All content has to be free from promotion» — 광고·로고·링크·웹사이트/SNS 언급·«company names» 까지 금지, 예외는 Premium(유료) 구독자의 Signature 칸뿐. 무료 계정은 앱 이름도 못 쓰고 링크도 못 건다 → 설치로 이어질 경로가 없다. 계정도 없음(생성은 대표). AI 조항은 없음. 결론: 유료 Premium + 계정이 전제라 보류"
    },
    "note": "트레이더가 종목 아이디어를 찾는 큰 표면이지만 홍보 금지가 사이트 전체 규칙. 순수 가치 글로 프로필 유입만 기대할 수 있는데 프로필 링크 가능 여부도 유료 조건일 가능성."
+  },
+  {
+   "id": "en_media",
+   "name": "영어권 인디 앱 소개(9to5Mac Indie App Spotlight · TapSmart Indie Apps Showcase)",
+   "tier": "A",
+   "tag": "en_media",
+   "link": "https://apps.apple.com/app/id6783130444",
+   "action": "pitch_email",
+   "gate": {
+    "kind": "메일승인",
+    "until": null,
+    "who": "대표 1회",
+    "why": "2026-09-25 17:4x 확장 발굴(각 매체 페이지 원문): 9to5Mac 주간 코너 제출 = michaelb@9to5mac.com, TapSmart 월간 = tomjrolfe@intelligenti.com. 외부 메일 발송은 대표 승인. 초안 = press/READY-TO-SEND.md §⑥. 권장 시점: ㊲·㊲-2 운영 반영 뒤."
+   },
+   "note": "미국이 주 시장인데 영어권 매체 제보가 0건이었다. 두 코너 모두 무료·인디 대상. 9to5Mac 9/19 소개작 GasPulse(데이터 추세 앱)와 결이 같다."
   }
  ],
  "candidates": [
