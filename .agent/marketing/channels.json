@@ -1449,6 +1449,16 @@
    "link": "https://signumhq.com/app?from=threads",
    "action": "pin",
    "note": "★2026-09-25 19:4x 확장(이긴 패턴 복제): 블루스키 고정 소개글(bluesky_pin)이 첫날 14클릭 → Threads 도 «프로필에 고정»(글 «더 보기» 메뉴) 가능 확인. 기존 글(의회 거래 90일: 16명·192건·공개까지 중앙값 25일, 앱 화면 1장, 링크 from=threads)을 고정 = 새 본글이 아니라 계정 합계 캡 무관. 확인: 로그인 프로필에서 «고정됨» 라벨 + 첫 글. 다음: 상시 소개글을 새로 써서(threads 캡 안에서) 교체하고 태그를 threads_pin 으로 분리해 효과를 따로 잰다. 참고: 프로필 소개 링크 signumhq.com/app 은 유입 태그가 없다(9/1x 기록) — 수정은 프로필 편집."
+  },
+  {
+   "id": "medium_pin",
+   "name": "Medium 프로필 고정 글",
+   "tier": "B",
+   "handle": "@signum_hq",
+   "tag": "medium",
+   "link": "https://signumhq.com/app?from=medium",
+   "action": "pin",
+   "note": "★2026-09-25 20:4x 확장(고정 패턴 복제 2): 글 «More options» → «Pin this story to your profile». 고정 = «Congress filed 192 stock trades in 90 days. The median one was 25 days old when it went public.»(9/24, 이미지 3·링크 signumhq.com/app?from=medium·AI 표시 있음). 확인 = 작성자 로그인 프로필 첫 글 «Pinned». 비로그인 curl 은 Cloudflare 403(모든 UA)이라 공개 화면은 못 쟀다. 링크드인은 9/3 부터 «추천(Featured)» 3칸이 이미 같은 역할."
   }
  ],
  "candidates": [

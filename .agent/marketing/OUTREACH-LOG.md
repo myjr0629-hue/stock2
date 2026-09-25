@@ -12178,3 +12178,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 다음 | 상시 소개글을 새로 써서(threads 캡 안에서) 고정을 교체하고 태그를 threads_pin 으로 분리. Threads 프로필 소개 링크(signumhq.com/app)는 유입 태그가 없다 — 프로필 편집으로 ?from=threads_bio 부착 후보 | — |
 | 고정 ⑥ 스윕 | 0편(누계 82) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 20:30~20:46 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 확장(medium_pin ✅ — 고정 패턴 복제 2) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **확장 — medium_pin ✅** | 블루스키 고정글(첫날 14클릭)·Threads 고정(19:4x)에 이어 Medium: 프로필에 고정 글 없음 확인 → 첫 글(9/24 «Congress filed 192 stock trades in 90 days. The median one was 25 days old when it went public.») «More options» → «Pin this story to your profile». 글에 링크 signumhq.com/app?from=medium·이미지 3·AI 표시 있음. 의회 거래는 몇 주 동안 유효한 소재라 고정에 맞고 Threads 고정과 같은 소재로 맞췄다 | 작성자 로그인 프로필 첫 글 «Pinned» 확인 · 비로그인 curl 은 Cloudflare 403(facebookexternalhit·Googlebot·Twitterbot 모두) → 공개 화면은 못 쟀다 |
+| 참고 — 링크드인 | 개인 프로필(/in/signumhq)에 9/3 부터 «추천(Featured)» 3칸(세 앱 스마트링크 li_feat)이 이미 고정 역할 → 할 일 없음 | channels.json linkedin |
+| 실행 | 열린 채널 없음(전 채널 오늘 캡·계정 합계 소진) | slot |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
