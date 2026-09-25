@@ -51,6 +51,8 @@ const CH = {
   github_topics: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-24 — 저장소 About·토픽(얇은 토픽: short-volume 1·max-pain 9·congress-trading 11·dark-pool 19). 새 데이터셋을 올리면 토픽도 같이' },
   onestore: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — 원스토어 «미국주식» 검색 결과 앱 4개(얇은 문). 개발자 등록 = 대표' },
   linkedin_newsletter: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(자격) — 편집기 «올리는 대상»에 개별 글뿐. 생기면 대표 승인(구독 초대 대량 알림) 후 개설' },
+  note_joint_magazine: { cap: 0, day: 'kst', window: [7, 23], note: '★2026-09-25 게이트(약관 체크) — note 첫 댓글 모달 체크박스는 대표 몫. 참가 승인 후 cap 1(글을 마가진에 추가, 연속 금지)' },
+  google_play_featuring: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(자격) — 구글 추천 폼은 유료 앱 할인용, Apps Accelerator 신청은 대표 결정 ㊴' },
   bluesky_earnings_feeds: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 규칙 정의 — channels.json 에서 rejected(enabled:false). 발행 채널이 아니라 태그 실험이었고 기각됨 — 배정 대상 아님' },
   quora_spaces_share: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 티켓 — 큰 금융 Space 팔로워·제출 허용 여부 측정 전(검색 목록엔 팔로워 수 없음)' },
   bluesky_buildinpublic: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 — 블루스키 #buildinpublic 제작기(수치 1개 중심, 카드+from=bluesky_bip). 금융 글 캡과 별도. 9/28 판정' },

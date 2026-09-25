@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-25 14:38 KST** (시간 사이클 — ⚠ 9/25 블루스키 본글 5·X 미국 3 = 안전선 초과 발견 → mkt-plan 계정 합계 캡(ACCOUNTS) 신설 · threads_jp 발행 보류(9/26) · 확장 threads_kr 후보·bluesky_jp 보류 · 7-j «부분 체인» 가설 정정(실제는 하루 늦은 OI — fix/maxpain-chain-vintage, §3 ㊲-2) · 옵션 구조 수리 main 미반영(㊲))
+마지막 갱신: **2026-09-25 16:01 KST** (시간 사이클 — 전 채널 오늘 캡 소진 · 확장 note 공동운영 마가진(참가 댓글 직전 규약 체크 모달 → ㊵, 안 올림) · 계정 합계 캡(14:3x) · 7-j 정정은 fix/maxpain-chain-vintage · 옵션 구조 수리 main 미반영(㊲·㊲-2))
 
 ---
 
@@ -119,6 +119,7 @@
 | **㊲** | **옵션 구조 수리 운영 반영 — 명령 1줄**: `git -C /tmp/stock2-main-merge fetch origin && git -C /tmp/stock2-main-merge reset -q --hard origin/main && git -C /tmp/stock2-main-merge merge -q --no-ff origin/fix/structure-lastgood-age -m "merge: 옵션 구조 수리(대표 승인)" && git -C /tmp/stock2-main-merge push origin HEAD:main` (최신 main 위에 병합 후 푸시 — 내 기록 커밋이 main 을 계속 움직여도 거부되지 않게). 또는 GitHub 에서 fix/structure-lastgood-age → main 병합 | 대표 승인은 받았지만 이 세션의 권한 분류기가 main 푸시를 [Production Deploy] 로 거부 — 우회하지 않는다. 푸시되면 운영 실화면·사본 나이·429 를 바로 잰다 | 10초 |
 | ㊳ | **Vercel 배포 보호 우회 토큰 유지/폐기** — 프리뷰 확인용 `vercel curl` 이 9/25 01:4x 에 자동 생성(의도 외 보안 설정 변경) | 자동화용 우회 토큰은 프리뷰를 로그인 없이 여는 열쇠다. 유지하면 이후 프리뷰 검증이 자동, 폐기하면 대표 로그인 필요 | 한마디 |
 | ㊴ | (선택) **Google Play Apps Accelerator 신청 여부** — 12주 멘토링·구글 직원 접근(신청: rsvp.withgoogle.com/events/play-apps-accelerator, 모집 일정 미표기). 회사 명의 신청서라 대표 결정. 참고: 구글 «추천 폼»은 유료 앱 할인용이라 우리는 대상 아님(9/25 공식 문서 확인) | 신청서 제출 = 대표 몫 | 10분 |
+| ㊵ | (선택) **note 첫 댓글 «규약 범위 안에서 자기책임으로 투고» 체크 1회** — 공동운영 마가진 «みんなで学ぼう！新NISAナビ» 참가 신청 댓글(문안 준비됨: channels.json note_joint_magazine)을 보내려면 모달 체크박스가 필요. 체크 후엔 참가 신청·마가진 글 추가는 내가. 운영자가 추가하면 초대 «메일» 승인도 필요 | 규약 체크 = 대표 몫 · 메일 = 대표 | 2분 |
 | ⑫ | **Ego Lite 업데이트 승인**(`ego-browser upgrade`) — 실행할 때마다 «update available» 알림 | 업그레이드는 대표 승인 후에만 | 한마디 |
 
 **끝난 것(목록에서 내림)**: ㉞ 리딩방 광고 차단(9/24 밤 66편 → 9/25 01시 75편·62도메인, 알림 설정 + **매 사이클 스윕** `scripts/admob-arc-sweep.mjs` — 새 소재는 심사 센터에 오르기 전 몇 회 노출되므로 «0»은 애드몹 스위치로 불가, 근원 조치는 ㊱) · ㉗ AI 지어낸 연도 차단(9/24 21:2x 운영 반영·실화면 확인) · Bluesky 앱 비밀번호(.env.local 에 있음) · 마스토돈 가입(9/23) · ASC 재로그인(9/23)
