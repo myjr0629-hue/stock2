@@ -12292,3 +12292,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **threads_reply ✅ 2/2(공개 확인)** | @metricshourofficial «Earnings calendar for next week (Sept 29 – Oct 01, 2026)…»(게시 1시간) ← 목록 중 두 종목의 실적 반응: $MU 최근 4번 다음 날 −2.8/+10.2/−3.8/+15.7%·10/2 옵션 ~±9.3%(목 종가) · $NKE +6.4/−10.5/−15.5/+4.9%·10/2 옵션 ~±8.3%(금 11:49 ET) · «8번 모두 EPS 상회». 브랜드 계정(@trendspider)은 어제 야후처럼 답글이 비공개 처리될 수 있어 피함 · 이미지 = MU 다크풀 | https://www.threads.com/@signumhq_official/post/DduIrUYkxof · 내 답글 탭 + 비로그인 og:description |
 | 고정 ⑥ 스윕 | 0편(누계 85) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 04:30~04:44 — 시간 사이클: 실행 0(전 채널 오늘 캡·계정 합계 소진) · 게이트 341/0 · 스윕 0 · 확장(quora_pin — 불가 확인)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | 열린 채널 없음 — 오늘(KST) 블루스키 3/3·답글 2/2·X 2/2·스레드 1/1·스레드 답글 2/2·미디엄·링크드인·아티클·핀터레스트·Quora 스페이스 모두 소진 | slot |
+| 확장 — quora_pin(불가) | 고정 패턴(블루스키 고정글 첫날 14클릭 → Threads·Medium 복제)을 Quora 에: 프로필 답변 탭(35개) 첫 답변 «…» 메뉴 = Enable comments from people you follow · Disable comments · Edit answer · Edit credential · Downvote question · Log · Delete answer — «고정» 없음. 불가로 등록(다시 탐색하지 않게) | channels.json quora_pin |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 다음 | 05:00 KST 미국장 마감 → 코스트코 «옵션 ±3.2% vs 실제 종가» 확정치를 다음 사이클에서 잰다(9/26 KST 캡이 풀리는 채널부터 활용) · XS 페이퍼 정기 실행 07:40 KST(수리 미배포면 NAV 가 기준선 아래일 때 같은 실패 — ㊸) | — |

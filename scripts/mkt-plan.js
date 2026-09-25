@@ -54,6 +54,7 @@ const CH = {
   minkabu: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(계정)' },
   chiebukuro: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(계정) — 지식iN 형식은 건당 0.09 클릭' },
   podcast_daily_brief: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 게이트(약관) — Apple Podcasts Connect 약관·쇼 제출은 대표 1회, 이후 RSS 갱신은 나' },
+  quora_pin: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 불가 — Quora 답변 메뉴에 고정 없음' },
   medium_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 Medium 프로필 고정(기존 글) — 본글 캡 무관' },
   threads_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 Threads 프로필 고정(기존 글 고정은 본글 캡 무관). 다음 교체 때 상시 소개글 + from=threads_pin' },
   naver_stock_discussion: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류(대표결정) — 대표 개인 네이버 계정·클린봇·자본시장법 민감' },

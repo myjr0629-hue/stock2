@@ -1511,6 +1511,15 @@
     "why": "2026-09-25 23:4x 실측: chiebukuro.yahoo.co.jp «IDでもっと便利に新規取得 ログイン»(로그아웃). 답변은 Yahoo! JAPAN ID 필요 = 계정 생성(안전선 밖). 참고: 같은 형식의 네이버 지식iN 은 건당 0.09 클릭(32건) — 계정이 생겨도 기대치는 낮다."
    },
    "note": "candidates 목록(chiebukuro, todo)에서 옮김."
+  },
+  {
+   "id": "quora_pin",
+   "name": "Quora 프로필 답변 고정",
+   "tier": "C",
+   "enabled": false,
+   "tag": "quora_bio",
+   "action": "rejected",
+   "note": "★2026-09-26 04:4x 확장 발굴(고정 패턴 복제 3 — 블루스키 고정글 첫날 14클릭·Threads·Medium 고정 이후): Quora 프로필(/profile/Jiyoung-Kim-236/answers, 답변 35) 답변 «…» 메뉴 실측 = Enable comments from people you follow · Disable comments · Edit answer · Edit credential · Downvote question · Log · Delete answer — «고정(Pin)» 없음 → 불가. 프로필 소개글(«I build SIGNUM HQ…»)이 대신 첫 화면 역할."
   }
  ],
  "candidates": [
