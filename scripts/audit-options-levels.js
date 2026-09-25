@@ -16,6 +16,10 @@
  *      (맥스페인 = 행사가별 총손실 최소, 콜월 = (현물, 현물×1.2] 최대 콜 OI,
  *       풋플로어 = [현물×0.8, 현물) 최대 풋 OI — structureService 와 같은 정의·같은 현물)
  *   ③ 판본 — 구조 API 의 OI 합계(콜·풋)가 나스닥과 같은가(다르면 다른 날 EOD 다)
+ *   ④ 화면의 다른 문들 — command/unified(웹 /ticker·WIM)·dashboard/unified·watchlist/batch·
+ *      undercurrent/ticker(UC·WIM·SEO /flow/[t]) 의 맥스페인·콜월·풋플로어(·감마플립)가 구조 API 와 같은가.
+ *      (9/25 운영: MU 가 문마다 1020/1000/970, 벽 1200/1000 vs 1000/600, 감마플립 1075 vs 800 이었다)
+ *      UC 는 자체 캐시(10분) 뒤에 있어 수리 직후엔 잠시 늦을 수 있다 — «UC 캐시» 로 따로 표시한다.
  *
  * 사용:
  *   node scripts/audit-options-levels.js                       # 운영(www.signumhq.com)
@@ -33,7 +37,7 @@ const depIdx = args.indexOf('--deployment');
 const DEPLOYMENT = depIdx >= 0 ? args[depIdx + 1] : null;
 const baseIdx = args.indexOf('--base');
 const BASE = baseIdx >= 0 ? args[baseIdx + 1] : 'https://www.signumhq.com';
-const TICKERS = args.filter((a, i) => !a.startsWith('--') && i !== depIdx + 1 && i !== baseIdx + 1);
+const TICKERS = args.filter((a, i) => !a.startsWith('--') && !(depIdx >= 0 && i === depIdx + 1) && !(baseIdx >= 0 && i === baseIdx + 1));
 const BASKET = TICKERS.length ? TICKERS.map((t) => t.toUpperCase()) : ['SPY', 'NVDA', 'AAPL', 'MU', 'COST', 'JNJ', 'MCD'];
 const ETF = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'GLD', 'SLV', 'TLT', 'XLF', 'XLE', 'XLK', 'XLV', 'SMH', 'ARKK']);
 const NQ_HEAD = {
@@ -104,8 +108,11 @@ async function nasdaq(t, exp) {
         const exp = st?.expiration;
         const sOi = (st?.structure?.callsOI || []).reduce((a, b) => a + (b || 0), 0);
         const sPi = (st?.structure?.putsOI || []).reduce((a, b) => a + (b || 0), 0);
+        // 구조 API 의 맥스페인은 타당성 게이트(현물 35%)를 거치지 않고 나간다 — 화면 문들은 거친다. 같은 기준으로 비교한다.
+        const sp0 = Number(st?.underlyingPrice) || 0;
+        const mpGate = st?.maxPain != null && sp0 > 0 && Math.abs(st.maxPain - sp0) / sp0 > 0.35 ? null : (st?.maxPain ?? null);
         // ① 일관성
-        if (f.maxPain !== st?.maxPain) issues.push(`maxPain ticker ${f.maxPain} ≠ structure ${st?.maxPain}`);
+        if ((f.maxPain ?? null) !== mpGate) issues.push(`maxPain ticker ${f.maxPain} ≠ structure ${st?.maxPain}`);
         if ((f.callWall ?? null) !== (st?.levels?.callWall ?? null)) issues.push(`callWall ticker ${f.callWall} ≠ structure ${st?.levels?.callWall}`);
         if ((f.putFloor ?? null) !== (st?.levels?.putFloor ?? null)) issues.push(`putFloor ticker ${f.putFloor} ≠ structure ${st?.levels?.putFloor}`);
         if (f.levelsExpiration !== undefined && f.levelsExpiration !== exp) issues.push(`만기 라벨 ticker ${f.levelsExpiration} ≠ structure ${exp}`);
@@ -122,6 +129,42 @@ async function nasdaq(t, exp) {
             if (nq.putFloor !== (st.levels?.putFloor ?? null)) issues.push(`putFloor structure ${st.levels?.putFloor} ≠ 나스닥 ${nq.putFloor}`);
             if (nq.callOI !== sOi || nq.putOI !== sPi) issues.push(`OI 판본 structure ${sOi}/${sPi} ≠ 나스닥 ${nq.callOI}/${nq.putOI}`);
         }
+        // ④ 다른 문들 — 구조 API 와 같은 레벨인가(맥스페인은 현물 35% 게이트를 거친 값끼리 비교)
+        const want = { maxPain: mpGate, callWall: st?.levels?.callWall ?? null, putFloor: st?.levels?.putFloor ?? null, gammaFlipLevel: st?.gammaFlipLevel ?? null };
+        const doorIssues = [];
+        const cmp = (door, got, keys) => {
+            if (!got) { doorIssues.push(`${door}: 응답 없음`); return; }
+            for (const k of keys) if ((got[k] ?? null) !== want[k]) doorIssues.push(`${door}.${k} ${got[k] ?? null} ≠ structure ${want[k]}`);
+        };
+        const find = (d, k, depth = 0) => {
+            if (!d || typeof d !== 'object' || depth > 3) return undefined;
+            if (k in d) return d[k];
+            for (const v of Object.values(d)) { const r = find(v, k, depth + 1); if (r !== undefined) return r; }
+            return undefined;
+        };
+        try {
+            const cu = await ours(`/api/command/unified?t=${t}&lang=en`);
+            const s2 = cu?.structure;
+            cmp('command/unified', s2 && { maxPain: s2.maxPain, callWall: s2.levels?.callWall, putFloor: s2.levels?.putFloor, gammaFlipLevel: s2.gammaFlipLevel }, ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel']);
+        } catch (e) { doorIssues.push(`command/unified 호출 실패: ${String(e.message).split('\n')[0]}`); }
+        try {
+            const du = await ours(`/api/dashboard/unified?tickers=${t}`);
+            const r = du?.tickers?.[t];
+            cmp('dashboard/unified', r && { maxPain: r.maxPain, callWall: r.levels?.callWall, putFloor: r.levels?.putFloor, gammaFlipLevel: r.gammaFlipLevel }, ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel']);
+        } catch (e) { doorIssues.push(`dashboard/unified 호출 실패: ${String(e.message).split('\n')[0]}`); }
+        try {
+            const wb = await ours(`/api/watchlist/batch?tickers=${t}`);
+            const rt = (wb?.results || []).find((x) => String(x?.ticker).toUpperCase() === t)?.realtime;
+            cmp('watchlist/batch', rt && { maxPain: rt.maxPain, callWall: rt.callWall, putFloor: rt.putFloor, gammaFlipLevel: rt.gammaFlipLevel }, ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel']);
+        } catch (e) { doorIssues.push(`watchlist/batch 호출 실패: ${String(e.message).split('\n')[0]}`); }
+        let ucLag = [];
+        try {
+            const uc = await ours(`/api/undercurrent/ticker?t=${t}&locale=en`);
+            const m = { maxPain: find(uc, 'maxPain'), callWall: find(uc, 'callWall'), putFloor: find(uc, 'putFloor') };
+            for (const k of ['maxPain', 'callWall', 'putFloor']) if ((m[k] ?? null) !== want[k]) ucLag.push(`UC 캐시 ${k} ${m[k] ?? null} ≠ structure ${want[k]}`);
+        } catch (e) { ucLag.push(`UC 호출 실패: ${String(e.message).split('\n')[0]}`); }
+        issues.push(...doorIssues);
+
         const tag = issues.length ? '✗' : (nq ? '✓' : '·');
         if (issues.length) bad++;
         console.log(`  ${t.padEnd(5)} ${tag} 만기 ${exp || '—'} · 체인 ${st?.chainDate || '?'}(${st?.debug?.chainSource || (st?.cached ? 'cache' : '?')}) · MP ${f.maxPain}/${st?.maxPain}/${nq ? nq.maxPain : '—'}`
@@ -129,6 +172,7 @@ async function nasdaq(t, exp) {
             + ` · OI ${sOi}/${sPi}${nq ? ` vs ${nq.callOI}/${nq.putOI}` : ''}`
             + ` · 라벨 ${f.levelsExpiration ?? '(없음)'}·${f.levelsChainDate ?? '(없음)'}`);
         for (const i of issues) console.log(`          └ ${i}`);
+        for (const i of ucLag) console.log(`          · ${i} (UC 자체 캐시 10분 — 수리 직후라면 지연, 계속되면 불일치)`);
         await sleep(600);
     }
     console.log(`\n(표기: ticker/structure/나스닥) 검사 ${BASKET.length} · 불일치 ${bad} · 나스닥 미응답 SKIP ${skipped}`);
