@@ -176,10 +176,13 @@ async function run() {
     if (state.weekId !== wk) { state.weekId = wk; state.weekStartNav = nav; }
     if (!state.halted && isTradingDay && nav < state.weekStartNav * (1 - WEEK_KILL)) {
         // liquidate everything at today's close and halt (manual resume only)
-        for (const p of positions) {
+        // ★2026-09-25 수리: 같은 종목이 여러 로트(트랑슈)면 sk 가 «날짜#종목#KILL» 로 겹쳐 BatchWrite 전체가
+        //   «Provided list of item keys contains duplicates» 로 거부됐다(9/24 첫 주간 킬 — STATE·POS·NAV 전부 미저장).
+        //   평상 청산(159행)처럼 로트마다 고유한 키를 쓴다: 매수일 + 로트 순번.
+        for (const [li, p] of positions.entries()) {
             const px = num(ohlc.get(p.t)?.close) ?? snaps.get(p.t)?.price ?? p.entryPx;
             state.cash += p.qty * px;
-            trades.push({ pk: 'TRADE', sk: `${today}#${p.t}#KILL`, t: p.t, entryDate: p.entryDate, entryPx: p.entryPx, exitDate: today, exitPx: px, qty: p.qty, pnl: round((px - p.entryPx) * p.qty, 4), pnlPct: round((px / p.entryPx - 1) * 100, 3), kill: true, ver: VERSION });
+            trades.push({ pk: 'TRADE', sk: `${today}#${p.t}#KILL#${p.entryDate}#${li}`, t: p.t, entryDate: p.entryDate, entryPx: p.entryPx, exitDate: today, exitPx: px, qty: p.qty, pnl: round((px - p.entryPx) * p.qty, 4), pnlPct: round((px / p.entryPx - 1) * 100, 3), kill: true, ver: VERSION });
         }
         positions = [];
         state.halted = true;
