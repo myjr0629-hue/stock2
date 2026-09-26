@@ -12585,3 +12585,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 확장 — Tildes·Digg(등록·보류) | tildes.net/register «Registration is currently invite-only»(~finance 그룹은 있음) · digg.com/about «Digg is a technology news site … The feed is free and needs no account» = 제출형이 아닌 기술 뉴스 큐레이션 → 둘 다 rejected | channels.json |
 | 고정 ⑥ 스윕 | 0편(URL 목록 80) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 23:55~23:56 — 운영: 프로그램 업데이트·재시작으로 매시 크론 소멸 → 재생성
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 크론 | 대표 «프로그램 업데이트 다시 시작했다» 직후 `CronList` = **No scheduled jobs**(`9712d5a0` 소멸 — 9/23 모델 전환 때와 같은 종류) → 대화 기록의 마지막 CronCreate 원문(1,848자)이 HANDOFF 부록 A 와 **글자 단위로 일치**함을 확인 → 그대로 재생성 **`6a0a351d` · 매시 :13 · 만료 ≈ 10/03 23:5x** | CronList·CronCreate |
+| 누락 여부 | 23:30 사이클은 재시작 전에 끝났고 커밋(5823cd785)·푸시까지 됐다 → 빠진 사이클 없음. 다음 사이클은 00:13(KST 새 날 — 채널 캡 초기화) | git log |
+| 개선 | RUNBOOK §0 에 낡은 ID(`c5e53356`)·만료일(9/24)이 남아 있었다 → ID·만료일은 HANDOFF §0 한 곳에만 적도록 바꾸고, «재시작 소식 = 즉시 CronList» 를 절차로 넣었다 | RUNBOOK.md |
+| ego lite | 재시작 뒤에도 실행 중(0.5.0.32 Helpers 프로세스 확인) | pgrep |
