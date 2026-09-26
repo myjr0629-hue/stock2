@@ -12730,3 +12730,20 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **확장 — apd_core(실행 대기)** | awesome-public-datasets(★79.2k)의 Finance 칸 = apd-core(★408) YAML. PR #713~#720 이 9/20~23 에 0~1일 만에 합쳐짐(소규모 발행처 다수). Finance 39개 중 옵션 구조 데이터셋 0. 규칙: 광고·평판 홍보 금지, homepage = 데이터 저장소, publisher.web 허용(AlphaAI 선례). 초안 YAML 작성 → apd-core `tests/validate.py` 통과(exit 0). 설명은 사실만(필드·범위·라이선스·빈칸 정책), 의회 거래 파일은 건수 불일치 미해결이라 뺐다. 순서: 데이터셋 9/19 삭제 → 랜딩 재업로드 → PR | .agent/marketing/drafts/apd-core-US-Options-Market-Structure-Daily.yml |
 | 같은 목록의 다른 곳 | awesome-quant(★29.8k): 생성 데이터 저장소는 기능 섹션 불가, 무료 서비스는 «Commercial & Proprietary Services» 칸 — 추적 파라미터 없는 URL·공개 방법론 문서 필요 → 앱 방법론 페이지 확인 후 판단(보류) | CONTRIBUTING.md 원문 |
 | 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 07:25~07:34 — 시간 사이클: 실행 0/4(브라우저 대표 제어 4사이클째) · **⚠ 정정 필요 — 의회 거래 «16명·192건»은 부분집합이었다(게시 7곳)** · 도구 2(배정표 브라우저 경고·의회 데이터셋 커버리지 표기) · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| (0) 크론 | 6a0a351d 정상(만료 ≈10/3 밤) | CronList |
+| 실행 — apd_core·note·x_jp·threads_jp | 전부 브라우저 필요 · `agentDelegatedToUser` 지속 → 미실행. 대표에게 데스크톱 알림 1회(휴대폰 푸시는 원격 제어 꺼짐으로 미전송) | ego 상태 |
+| **도구 1 — 배정표가 브라우저 상태를 먼저 말한다** | mkt-plan slot 첫 줄: ego 작업공간 소유 상태를 읽어 `…user` 면 «⛔ 대표 제어 중 — 발행기 실행 금지(takeOverTaskSpace 가 대표 제어를 빼앗는다)». 04~07시 네 사이클 내리 같은 확인을 손으로 반복한 «도구의 신호». ⚠ ego-browser 는 스크립트 출력을 **stderr** 로 낸다(첫 시도 «못 읽음» → 둘 다 읽게 수리). 0.2초 | slot 출력 |
+| **⚠ 정정 — 의회 거래 총계(판정 뒤집힘)** | 9/24~25 게시 «90 days to Sept 23: 16 members, 192 trades (58 buys, 134 sells) · median lag 25 days · 3 filings past 45 days» 는 **부분집합**이었다: `/api/flow/congress` 목록 = 순매수 추정액 상위 **60종목**(`signals.slice(0,60)` — 같은 응답의 `count` 는 **173**), 종목 상세 = 최근 **40건**(`rows.slice(0,40)` — TKNO 68건 중 40건, 매도 28건 누락, rows_complete=false), 원천 = FMP `senate-latest`·`house-latest` **page=0·limit=250** 뿐. 어제 보류한 «16명·192건 vs 17명·220건» 불일치의 답: 220 = 종목 신호 합(TKNO 전량 포함), 17명 = 같은 의원 표기 2개(Gilbert Cisneros / Gilbert Ray Cisneros). 공개 데이터셋 페이지도 «60 tickers · 192 disclosed trades» 로 전체처럼 적혀 있었다 | route.ts·congressTrades.ts · 라이브 API count 173 |
+| 정정 대상 7곳(브라우저 복귀 즉시) | X 본글 2103166699835166886 · X 답글(@unusual_whales) 2103130925219663992 · X 일본 2103243573995151842 · 블루스키 3mwblypeeyl2o · **Threads 고정** Ddri65CE53B · **Medium 고정**(congress-filed-192…) · LinkedIn 아티클(congress-filed-192…). 공개 API·크롤러로 본문에 «192» 확인(나머지 9/24~25 글 11개는 무관). 문구 초안(EN 가중 258·JA 220) | .agent/marketing/drafts/congress-correction-2026-09-27.md |
+| **도구 2 — 의회 데이터셋 커버리지 표기** | congress-dataset.mjs: JSON 에 `coverage`(tickers_in_window·included·선정 기준·종목당 40건 상한·is_complete) · 페이지 첫 줄 «60 of 173 tickers (largest estimated net flow) · 188 trade rows (up to 40 per ticker)» + «Coverage: this is a subset … (incomplete: TKNO). Do not read the counts as all congressional trades.» · JSON-LD 설명에도 같은 범위. 임시 폴더 재생성으로 확인(업로드는 브라우저) | node --check · 재생성 출력 |
+| 수리 작업 분리 | 원천 페이지 넘김 + API `limit`(기본값은 그대로 — 앱 화면 불변) + 데이터셋 완전성 단언 → 별도 작업(라이브 웹 = 브랜치·검증·승인). 정확한 전체 수치는 그 뒤에 확정 — 그 전엔 «더 많다»까지만 쓴다 | 작업 칩 |
+| 확장 | 이번 사이클은 위 정정 조사로 갈음(새 표면 없음) — 06시 apd_core 등록분이 실행 대기 | — |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |

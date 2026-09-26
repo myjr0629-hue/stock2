@@ -284,6 +284,24 @@ if (cmd === 'slot') {
 
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
 
+  // ★2026-09-27 브라우저 상태 — 알림 권한 창 같은 «브라우저 소유» 창이 뜨면 ego 가 작업공간을 대표에게 넘긴다
+  //   (ownership=agentDelegatedToUser). 발행기는 takeOverTaskSpace 로 그 공간을 «빼앗으므로» 돌리면 안 된다.
+  //   04~07시 네 사이클 내리 브라우저 채널만 배정돼, 매번 같은 확인을 손으로 반복했다 → 배정표가 먼저 말한다.
+  try {
+    const { spawnSync } = require('child_process');
+    const V = '/Applications/ego lite.app/Contents/Frameworks/ego Framework.framework/Versions/';
+    const helper = ['0.5.0.32', 'Current'].map((v) => V + v + '/Helpers').find((d) => fs.existsSync(d));
+    const r = spawnSync('ego-browser', ['nodejs'], { input: 'const s = await listTaskSpaces(); console.log("EGO_STATE " + JSON.stringify((s || []).map((x) => ({ id: x.id, name: x.name, ownership: x.ownership }))));',
+      encoding: 'utf8', timeout: 20000, env: { ...process.env, PATH: (helper ? helper + ':' : '') + (process.env.PATH || '') } });
+    // ego-browser 는 스크립트의 console 출력을 stderr 로 낸다(2026-09-27 실측) — 둘 다 본다
+    const line = (String(r.stdout || '') + '\n' + String(r.stderr || '')).split('\n').find((l) => l.startsWith('EGO_STATE '));
+    const spaces = line ? JSON.parse(line.slice(10)) : null;
+    const held = (spaces || []).filter((x) => /user/i.test(String(x.ownership || '')));
+    if (!spaces) console.log('⚠ 브라우저 상태를 못 읽었다(ego-browser 응답 없음) — 발행 전에 직접 확인\n');
+    else if (held.length) console.log('⛔ 브라우저: ' + held.map((x) => '작업공간 #' + x.id + '(' + x.name + ') ' + x.ownership).join(', ') + ' — 대표 제어 중.\n' +
+      '   발행기 실행 금지(takeOverTaskSpace 가 대표 제어를 빼앗는다). 이번 사이클은 비브라우저 일(원고·이미지 준비·도구·확장 발굴)만 하고 HANDOFF 대표 할 일 확인.\n');
+  } catch { console.log('⚠ 브라우저 상태 확인 실패 — 발행 전에 직접 확인\n'); }
+
   // ★2026-09-20 «키우기» 레인 — 아래 «실행»은 오래 방치된 순이라, 매일 클릭을 내는 채널이
   //   구조적으로 영영 안 뽑힌다(bluesky 가 4사이클 내리 «대상 아님»에 있었다).
   //   그로스 규칙은 「이긴 것을 최소 단위로 찾아 키운다」이므로 이 레인을 «맨 앞»에 둔다.
