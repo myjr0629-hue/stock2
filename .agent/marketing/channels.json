@@ -1765,6 +1765,34 @@
     "who": "대표 1회",
     "why": "Substack 작성자 계정 생성(안전선 밖) — 로그아웃 실측(/api/v1/user/self 403)"
    }
+  },
+  {
+   "id": "tsukutta",
+   "name": "Tsukutta(つくった) — 일본 인디 개발자 앱·개발기 플랫폼(일·영)",
+   "tier": "C",
+   "tag": "tsukutta",
+   "action": "post",
+   "note": "★2026-09-27 05시 확장 발굴(비브라우저 실측 — 브라우저가 알림 권한 창으로 대표 제어 중): Qiita «モバイルアプリを無料で掲載できたサービスまとめ【2026年秋】»(2026-09-06)에서 찾음. tsukutta.app — 무료 · 일본어/영어 전환 · 최신 글 2026-09-26 · 글 150개 이상·댓글 수 표시 · 글에서 앱 페이지로 연결 · «AI translation» 태그 글 다수. 약관(2026-07-21 개정): 자기 앱 소개 허용(제17조는 앱 «판매»까지 허용) · AI 작성 금지 조항 없음 · 금융 제한 없음. 로그인 = 구글 OAuth 또는 이메일·비밀번호, 로그인 화면에 «로그인하면 이용약관·개인정보처리방침에 동의» = 새 계정 + 약관 동의 → 대표 몫. 계정이 생기면: 개발기(bluesky_buildinpublic 건당 11·indiehackers 7.7 — 우리 최고 효율 형식) 일·영 2판 + 앱 3개 등록.",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표 1회",
+    "why": "구글 OAuth/이메일 가입 + 로그인 시 약관 동의(안전선 밖)"
+   }
+  },
+  {
+   "id": "app_village",
+   "name": "AppVillage(アプリ村) — 일본 인디 앱 소개 커뮤니티",
+   "tier": "C",
+   "tag": "app_village",
+   "action": "post",
+   "note": "★2026-09-27 05시 확장 발굴(비브라우저 실측): app-village.jp — «完全無料» 게재 · 최신 등록 2026-09-26 · 8월 30개·7월 5개 등록 · 카테고리 14개(금융 전용 칸은 없음, 제한 조항도 없음) · 게재물에 App Store·Google Play 링크. 로그인 = GitHub 또는 Google 계정만(= 이 사이트 새 계정 + OAuth 권한 부여) → 대표 몫. 계정이 생기면 앱 3개(SIGNUM·Undercurrent·Why'd It Move?) 일본어 소개 등록.",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표 1회",
+    "why": "GitHub/Google OAuth 가입(새 계정 + 권한 부여 — 안전선 밖)"
+   }
   }
  ],
  "candidates": [

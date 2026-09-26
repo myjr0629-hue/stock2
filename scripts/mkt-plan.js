@@ -13,6 +13,31 @@ const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600 * 1000);
 const kstDate = (d = new Date()) => kst(d).toISOString().slice(0, 10);
 const utcDate = (d = new Date()) => d.toISOString().slice(0, 10);
 const hhmm = (d = new Date()) => kst(d).toISOString().slice(11, 16);
+// ★2026-09-27 «새 미국 마감이 있는가» — github 스냅샷처럼 미국 정규장 마감 데이터가 소재인 채널은 주말·휴장엔
+//   올릴 것이 없다. 창(5~24시)·캡만 보면 KST 일·월요일에도 «실행 1순위»로 배정돼 헛돈다(9/27 05:28 github 배정 —
+//   마지막 거래일 9/25 스냅샷은 9/26 05:34 에 이미 커밋돼 있었다). 규칙에 afterUsClose: true 를 달면
+//   «마지막 발행이 가장 최근 정규장 마감(16:00 ET) 뒤»일 때 배정에서 뺀다.
+//   휴장은 값으로 추측하지 않는다 — 정본 달력 src/lib/marketCalendar.ts 와 같은 목록(매년 함께 갱신).
+//   조기폐장일(13:00 ET)도 16:00 으로 본다 — 3시간 늦게 열릴 뿐 틀리게 열리지는 않는다.
+const US_HOLIDAYS = new Set([
+  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25',
+  '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+  '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31',
+  '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24',
+]);
+function lastUsCloseMs(nowMs = Date.now()) {
+  const parts = (ms, o) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', ...o }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  const p = parts(nowMs, { year: 'numeric', month: '2-digit', day: '2-digit' });
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day - i));
+    const ymd = d.toISOString().slice(0, 10); const dow = d.getUTCDay();
+    if (dow === 0 || dow === 6 || US_HOLIDAYS.has(ymd)) continue;
+    let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 20, 0); // 16:00 EDT
+    if (parts(t, { hour: '2-digit', hourCycle: 'h23' }).hour === '15') t += 3600e3;  // EST 면 21:00 UTC
+    if (t <= nowMs) return t;
+  }
+  return 0;
+}
 const load = () => { try { return JSON.parse(fs.readFileSync(LEDGER, 'utf8')); } catch { return { entries: [] }; } };
 const save = (o) => fs.writeFileSync(LEDGER, JSON.stringify(o, null, 1));
 
@@ -129,6 +154,8 @@ const CH = {
   digg: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 기술 뉴스 큐레이션(제출형 아님)' },
   lobsters: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대제' },
   substack_notes: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(로그아웃 실측). 계정이 생기면 cap 1' },
+  tsukutta: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(구글 OAuth/이메일 가입 + 로그인 시 약관 동의). 계정이 생기면 cap 1(주간 개발기 일·영)' },
+  app_village: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(GitHub/Google OAuth). 계정이 생기면 앱 3개 1회 등록' },
   hf_spaces: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-27 확장 — HF Spaces 정적 데모(다크풀 비중·옵션 구조). 얇은 문: «dark pool» Space 1개·«short volume» 0' },
   github_awesome_ko: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — 한국어 «미국주식 무료 데이터 출처» 목록 저장소(얇은 문: 52개·최다 별 2)' },
   threads_reply_jp: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 반응 큰 글은 초보 조언 요청(투자권유 금지와 충돌)' },
@@ -153,7 +180,7 @@ const CH = {
   note_jp:     { cap: 1, day: 'kst', window: [5, 9], note: '★2026-09-24 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침 시계. 0~24 였을 때 새벽 내내 «실행 1순위»로 배정돼 매 사이클 헛돌았다(예약투고는 note 프리미엄 전용이라 못 씀). 발행기 scripts/note-post.mjs(edit_url 로 초안 발행)' },
   medium:      { cap: 1, day: 'kst', window: [0, 24], note: '★AI 지원 표시 «필수» — 미표시는 Network Only 로 도달이 팔로워(≈0)로 잘린다. 말미에 disclosure 한 줄. 제목 복구 ⌘⌥1 → 1문단 → 이미지 순서' },
   indiehackers:{ cap: 1, day: 'kst', window: [0, 24], note: '제품 타임라인 포스트' },
-  github:      { cap: 1, day: 'kst', window: [5, 24], note: '미국 마감 후 스냅샷 → edit/new 경로로 커밋' },
+  github:      { cap: 1, day: 'kst', window: [5, 24], afterUsClose: true, note: '미국 마감 후 스냅샷 → edit/new 경로로 커밋 (새 정규장 마감이 없으면 배정 안 함 — 주말·휴장)' },
   x_jp:        { cap: 2, day: 'kst', window: [5, 9], note: '★2026-09-25 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침. [0,24] 였을 때 일본 새벽(02시)에 «실행 1순위»로 두 사이클 연속 배정됐다(note_jp 와 같은 종류). JP 원글. 계정 전환 후 프로필 링크가 /signumhq_jp 인지 확인하고 쓴다(오발행 전례)' },
   bluesky:     { cap: 3, day: 'kst', window: [0, 24], note: '웹 컴포저. 이미지 첨부는 ego 불가 → 앱 스마트링크의 OG 카드가 자동 임베드되는지 확인하고, 카드가 붙을 때만 발행' },
   quora_space: { cap: 1, day: 'kst', window: [0, 24], note: '브랜드명·앱링크가 허용되는 유일한 Quora 표면 — 답변 재활용 금지, Space 전용 글' },
@@ -197,6 +224,10 @@ function counts() {
       ? led.entries.filter((e) => e.ch === ch && e.kst >= weekAgo).length
       : led.entries.filter((e) => e.ch === ch && (r.day === 'utc' ? e.utc === d : e.kst === d)).length;
     out[ch] = { used, cap: r.cap, left: Math.max(0, r.cap - used), over: used > r.cap, day: r.day, window: r.window, note: r.note };
+    if (r.afterUsClose) {
+      const last = led.entries.filter((e) => e.ch === ch).map((e) => e.at).sort().pop();
+      out[ch].noNewClose = !!last && Date.parse(last) >= lastUsCloseMs();
+    }
   }
   // 계정 합계 캡 적용(KST 하루)
   for (const [k, a] of Object.entries(ACCOUNTS)) {
@@ -262,12 +293,12 @@ if (cmd === 'slot') {
     //   맨 앞을 영구 점유하고, 실행 4칸이 매 사이클 통째로 낭비된다(§49 와 같은 고장, 다른 얼굴).
     const g = r.gate;
     const gateOn = !!g && (!g.until || g.until > utcDate());
-    const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (!inWin ? '창밖' : '열림')));
+    const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (v.noNewClose ? '새마감없음' : (!inWin ? '창밖' : '열림'))));
     rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, note: (r.note || '').slice(0, 44), gate: g });
   }
   const by = (s) => rows.filter((x) => x.state === s).sort((a, b) => b.age - a.age);
   const open = by('열림'), acct = by('계정대기'), norule = by('규칙없음'), gated = by('게이트');
-  const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖');
+  const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖' || x.state === '새마감없음');
 
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
 
@@ -326,7 +357,7 @@ if (cmd === 'slot') {
   console.log('\n■ 확장 — 신규 표면 1개: 발굴 → 실행 또는 티켓 → channels.json 등록 (매 사이클 의무)');
   console.log('\n■ 고정 6단계 — ①게이트 audit-expiration-selection.js --live ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시 ⑥애드몹 리딩방 스윕 ego-browser nodejs < scripts/admob-arc-sweep.mjs (대표 지시 9/24·25 — 일회용 .shop/.vip 소재만 차단, 결과를 로그에)');
   if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
-  console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id).join(', '));
+  console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id + (r.state === '새마감없음' ? '(새 미국 마감 없음)' : '')).join(', '));
 
   // ── 대표 할 일 ──────────────────────────────────────────────────
   // ★2026-09-23: 예전엔 CEO-SIGNUP-LIST.md(9/20 기준)를 읽어 이미 끝난 «마스토돈 가입» 등을 계속 띄웠다.
@@ -334,7 +365,8 @@ if (cmd === 'slot') {
   try {
     const hf = fs.readFileSync(path.join(ROOT, '.agent/marketing/HANDOFF.md'), 'utf8');
     const sec = (hf.split('## 3. 대표 할 일')[1] || '').split('\n## ')[0];
-    const items = sec.split('\n').filter((l) => /^\|\s*\**[①-⑳]/.test(l) && !/~~/.test(l))
+    // ★2026-09-27 ①~⑳ 만 셌다 → ㉑~㊿·51 이후 항목(보안·Redis·브라우저 권한 창 등 최근 승인 대기 전부)이 목록에서 빠졌다.
+    const items = sec.split('\n').filter((l) => /^\|\s*\**([①-⑳㉑-㉟㊱-㊿]|\d+)\**\s*\|/.test(l) && !/~~/.test(l))
       .map((l) => l.split('|')[2].replace(/\*\*/g, '').replace(/`/g, '').trim().slice(0, 34));
     console.log('\n· 대표 할 일 ' + items.length + '건(HANDOFF §3 정본): ' + items.join(' / '));
   } catch { console.log('\n· HANDOFF.md §3 을 못 읽었다 — 경로 확인'); }
@@ -345,8 +377,8 @@ console.log(`■ 지금 ${now} KST (UTC ${utcDate()} / KST ${kstDate()})`);
 const open = [], closed = [];
 for (const [ch, v] of Object.entries(c)) {
   const inWindow = hour >= v.window[0] && hour < v.window[1];
-  const line = `${ch.padEnd(14)} ${v.used}/${v.cap}${v.over ? ' ⛔초과' : ''}${v.day === 'utc' ? ' (UTC일)' : ''}${inWindow ? '' : ` [창 ${v.window[0]}~${v.window[1]}시]`}  ${v.note}`;
-  (v.left > 0 && inWindow ? open : closed).push(line);
+  const line = `${ch.padEnd(14)} ${v.used}/${v.cap}${v.over ? ' ⛔초과' : ''}${v.day === 'utc' ? ' (UTC일)' : ''}${inWindow ? '' : ` [창 ${v.window[0]}~${v.window[1]}시]`}${v.noNewClose ? ' [새 미국 마감 없음]' : ''}  ${v.note}`;
+  (v.left > 0 && inWindow && !v.noNewClose ? open : closed).push(line);
 }
 console.log('\n● 지금 열린 채널(' + open.length + ')'); open.forEach((l) => console.log('  ' + l));
 console.log('\n○ 마감/대기(' + closed.length + ')'); closed.forEach((l) => console.log('  ' + l));
