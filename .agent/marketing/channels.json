@@ -1719,6 +1719,30 @@
     "why": "초대제(invitation tree 공개) — 초대 경로 없음"
    },
    "note": "★2026-09-26 22:4x 확장 발굴 → 보류(실측, lobste.rs/about 원문): «a user invitation tree to combat spam» = 초대제 · «self-promo should be less than a quarter of one’s stories and comments» · «not to exploit it as a write-only tool for product announcements or driving traffic». 해커뉴스(AI 작성 금지)와 달리 AI 조항은 보이지 않았지만, 초대가 없어 들어갈 수 없다. 개발자 커뮤니티는 GeekNews(한국)·note #個人開発(일본)·IndieHackers(영어, 로그인 게이트)로 간다."
+  },
+  {
+   "id": "tildes",
+   "name": "Tildes(~finance 그룹)",
+   "tier": "C",
+   "enabled": false,
+   "tag": "tildes",
+   "action": "rejected",
+   "gate": {
+    "kind": "자격",
+    "until": null,
+    "who": "초대 코드",
+    "why": "가입이 초대 코드 전용"
+   },
+   "note": "★2026-09-26 23:4x 확장 발굴 → 보류(실측, tildes.net/register 원문): «Registration is currently invite-only. You must have a valid invite code to be able to register.» · 그룹 목록에 ~finance 있음. 초대 경로 없음(계정 생성도 안전선 밖)."
+  },
+  {
+   "id": "digg",
+   "name": "Digg(2026 재출시 — 기술 뉴스 큐레이션)",
+   "tier": "C",
+   "enabled": false,
+   "tag": "digg",
+   "action": "rejected",
+   "note": "★2026-09-26 23:4x 확장 발굴 → 보류(실측, digg.com/about 원문): «Digg is a technology news site. It watches what credible people …» · «The feed is free and needs no account. Accounts are for taking part» — 사용자 제출형 링크 게시판이 아니라 큐레이션 피드이고 주제가 기술 — 우리 미국주식 데이터와 결이 다르다."
   }
  ],
  "candidates": [

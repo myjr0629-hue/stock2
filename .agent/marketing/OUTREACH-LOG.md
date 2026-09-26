@@ -12572,3 +12572,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 확장 — Lobsters(등록·보류) | lobste.rs/about 원문: «user invitation tree to combat spam»(초대제) · 자기 홍보는 글·댓글의 4분의 1 미만 · «not … a write-only tool for product announcements» → 초대 경로 없음 → channels.json lobsters(rejected) | lobste.rs |
 | 고정 ⑥ 스윕 | 0편(URL 목록 80) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 23:30~23:46 — 시간 사이클: 실행 1(X 답글 ✅ 3/3) · 게이트 341/0 · 확장 1(Tildes·Digg — 보류) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅ 3/3(KST 하루 끝)** | @CNBC «The 10-year Treasury yield is at its highest in nearly two decades. How we got here»(1시간 전)에 앞 @Barchart 답글과 겹치지 않는 «명목 대 실질» 분해로 무링크 답글(264자): 재무부 곡선 8/24→9/25 10년 명목 4.70→5.17%(+47bp) · 10년 실질(TIPS) 2.38→2.83%(+45bp) · 기대인플레(명목−실질) 2.32→2.34% → 상승 대부분이 실질금리(재무부 real yield CSV 로 계산) | https://x.com/signumhq/status/2103856387197694099 · 내 답글 탭 + 비로그인 syndication(본문·reply_to CNBC·user signumhq) |
+| 오늘 X 답글 반응 | @Barchart 답글(21:5x)·@StockMKTNewz 답글(22:3x) 모두 좋아요 0·답글 0(1~2시간 경과) — x_reply 는 건당 0(12건)인 채널, 오늘 3건도 같은 흐름 | syndication |
+| 확장 — Tildes·Digg(등록·보류) | tildes.net/register «Registration is currently invite-only»(~finance 그룹은 있음) · digg.com/about «Digg is a technology news site … The feed is free and needs no account» = 제출형이 아닌 기술 뉴스 큐레이션 → 둘 다 rejected | channels.json |
+| 고정 ⑥ 스윕 | 0편(URL 목록 80) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
