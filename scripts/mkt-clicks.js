@@ -119,7 +119,9 @@ async function liveTags() {
   //   · 상시 표면(자사 웹·SEO·피드류)은 «발행 1건»이 아니므로 제외한다.
   //   · 본문 링크가 금지된 채널(레딧·쿼라)은 프로필 경유 태그를 «합산»해야 공정하다.
   const STANDING = new Set(['home','seo','seo_darkpool','seo_uc','seo_sg','seo_wim','llms_txt',
-    'indexnow','rss_feed','github_pages','hf_datasets','aso','google_dataset_search']);
+    'indexnow','rss_feed','github_pages','hf_datasets','aso','google_dataset_search',
+    // ★2026-09-26 스토어 표면(주간 점검·설정)은 «게시 1건»이 아니다 — 건당 클릭 0 으로 ▼ 에 뜨면 오판이다
+    'android_alt_stores','galaxy_store','apple_ppo','apple_cpp','apple_cpp_channels','apple_iap_events','play_custom_listings']);
   const PAIR = { reddit: ['reddit','reddit_bio'], quora: ['quora','quora_bio'] };
   const LEDGER_ALIAS = { note_jp:'note', x_post:'x_us', x:'x_us', quora_en:'quora' };
   let perPost = {};

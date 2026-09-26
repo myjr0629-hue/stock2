@@ -182,7 +182,7 @@
    "tier": "A",
    "login": "ok",
    "profile": "ok",
-   "note": "2026-09-03 실측: 앱스토어는 SIGNUM 이 「실적 발표 일정」 #1 인데 **플레이는 한국어 10개 검색어 전부 부재**였다 — 그 단어들이 플레이 목록에 한 글자도 없었다. SIGNUM 플레이 3언어 교체·심사통과(premarket earnings US #1 즉시). UC·WIM 은 대조군으로 남겼다 → scripts/aso-play-rank.py --save 로 재측정. 조사 도구는 aso-demand-scan.py(자동완성=수요 × 경쟁). 정본=.agent/marketing/ASO-PLAN.md",
+   "note": "2026-09-03 실측: 앱스토어는 SIGNUM 이 「실적 발표 일정」 #1 인데 **플레이는 한국어 10개 검색어 전부 부재**였다 — 그 단어들이 플레이 목록에 한 글자도 없었다. SIGNUM 플레이 3언어 교체·심사통과(premarket earnings US #1 즉시). UC·WIM 은 대조군으로 남겼다 → scripts/aso-play-rank.py --save 로 재측정. 조사 도구는 aso-demand-scan.py(자동완성=수요 × 경쟁). 정본=.agent/marketing/ASO-PLAN.md ★2026-09-26 10:4x 주간 측정: 플레이 22개 중 2개(서학개미 KR #2·premarket earnings US #1, 9/3 과 같음 — 평점 게이트). 앱스토어(iTunes Search): KR 실적 발표 일정 #1·장마감 #2·서학개미 SIGNUM #8(WIM #1)·미국증시 #9·미장 #8·프리마켓 #11·증시캘린더 #6(UC #4)·주식 초보 WIM #3 / JP 需給 #4·時間外取引 #12·決算カレンダー #14·米国株アプリ #18·プレマーケット #26·株価アプリ 순위 밖 / US premarket #5·0dte #8·stock quiz WIM #7·earnings calendar·dark pool 순위 밖. 별점(lookup): SIGNUM US 1·KR 3·JP 0, UC KR 3(새로 생김), WIM KR 1.",
    "action": "build"
   },
   {
@@ -556,7 +556,13 @@
    "id": "android_alt_stores",
    "tier": "B",
    "enabled": true,
-   "note": "★«설치»가 직접 발생하는 유일한 채널. **2026-09-17 실태 정정**: APKPure 3/3 제출(등재 확인 미실시) · Softonic 3/3 심사중(확인 미실시) · **Uptodown 은 «막힘»이 아니었다** — GitHub OAuth 로 비밀번호 없이 로그인되고 앱 2개가 이미 올라가 있다. UC·WIM 모두 REJECTED 이고 사유는 **소유권 확인**이다: 「submit a ticket to our support team ... attach a screenshot showing the app in your Google Play developer account」. 처방은 지원 티켓 1건 + Play 개발자 계정 스크린샷 → 내가 할 수 있다. SIGNUM 은 Uptodown 에 아예 없다. ego 의 setInputFiles 는 17MB APK 도 다룬다(내 10MB 상한은 file_upload 도구 한계였다)."
+   "note": "★«설치»가 직접 발생하는 유일한 채널. **2026-09-17 실태 정정**: APKPure 3/3 제출(등재 확인 미실시) · Softonic 3/3 심사중(확인 미실시) · **Uptodown 은 «막힘»이 아니었다** — GitHub OAuth 로 비밀번호 없이 로그인되고 앱 2개가 이미 올라가 있다. UC·WIM 모두 REJECTED 이고 사유는 **소유권 확인**이다: 「submit a ticket to our support team ... attach a screenshot showing the app in your Google Play developer account」. 처방은 지원 티켓 1건 + Play 개발자 계정 스크린샷 → 내가 할 수 있다. SIGNUM 은 Uptodown 에 아예 없다. ego 의 setInputFiles 는 17MB APK 도 다룬다(내 10MB 상한은 file_upload 도구 한계였다). ★2026-09-26 10:5x 실측: Softonic = Why’d It Move?: Stock Quiz(whyd-it-move-stock-quiz.en.softonic.com/android, ★5·Validated Dev·v1.0.0·9/15)와 Undercurrent: News & Money(undercurrent-news-and-money.en.softonic.com/android, ★4.7·Finance·v1.0.3·8/27) 라이브, **SIGNUM 은 검색에 없다**. APKPure = Cloudflare «보안 확인» 화면(봇 확인) — 통과를 시도하지 않는다(안전선) → 등재 여부 측정 불가. Uptodown = UC·WIM 소유권 반려 그대로(지원 티켓 = 외부 발신 → 대표 승인).",
+   "gate": {
+    "kind": "메일승인",
+    "until": "2026-10-03",
+    "who": "대표(Uptodown 소유권 티켓 발송) · 나(10/3 Softonic SIGNUM 재확인)",
+    "why": "Uptodown 소유권 증명은 지원 티켓(외부 발신) — 대표 승인 필요. Softonic 은 SIGNUM 만 빠짐, APKPure 는 봇 확인 화면이라 측정 불가"
+   }
   },
   {
    "id": "admob",
@@ -624,7 +630,13 @@
    "id": "galaxy_store",
    "tier": "A",
    "enabled": false,
-   "note": "★2026-09-17 **셀러 계정 생성 완료** — SIGNUM HQ, LLC · Corporate Seller · 미국 · Free Distribution Seller. **Developer API 도 살렸다**: 서비스 계정 `1367013a-4392-431c-85b5-172d86a0324d`(권한 Publishing & ITEM + GSS), 비밀키 `~/.galaxystore/service-account-private.pem`(RSA 2048, mode 600), 클라이언트 `scripts/galaxy_client.py`. accessToken 발급·`GET /seller/contentList`·`POST /seller/createUploadSessionId` 전부 실동작 확인.\n⛔**남은 게이트 하나**: 안드로이드 앱 «신규 등록»은 **Commercial Distribution Seller** 승격이 필요하다. 게이트 팝업(`checkAndroidAddNewPopup`) 원문: 「To sell Android content, a status change to corporate Commercial Distribution Seller is necessary. If you are not a corporate Commercial Distribution Seller, existing Android content will be discontinued and you will not be able to register Android content.」 **무료 앱이어도 예외가 없다.** 프로필의 `Request Commercial Seller Status` 로 신청한다. Content Publish API 에는 «신규 앱 생성» 엔드포인트가 없어 첫 등록은 포털을 거쳐야 한다(문서 확인).\n★2026-09-18 **Commercial 승격 신청 제출 완료** — `Type of Sales: Commercial Distribution Request in Progress`. **셀러 딥링크 `000000257823`** = 우리 3앱을 한 화면에 모아 보여주는 갤럭시 스토어 셀러 페이지 ID(마케팅 자산). 셀러 페이지가 아직 **백지**다 — Home URL·Help URL·Introduction·Profile/Banner/Background 이미지·Contact E-Mail 전부 비어 있다 → t181."
+   "note": "★2026-09-17 **셀러 계정 생성 완료** — SIGNUM HQ, LLC · Corporate Seller · 미국 · Free Distribution Seller. **Developer API 도 살렸다**: 서비스 계정 `1367013a-4392-431c-85b5-172d86a0324d`(권한 Publishing & ITEM + GSS), 비밀키 `~/.galaxystore/service-account-private.pem`(RSA 2048, mode 600), 클라이언트 `scripts/galaxy_client.py`. accessToken 발급·`GET /seller/contentList`·`POST /seller/createUploadSessionId` 전부 실동작 확인.\n⛔**남은 게이트 하나**: 안드로이드 앱 «신규 등록»은 **Commercial Distribution Seller** 승격이 필요하다. 게이트 팝업(`checkAndroidAddNewPopup`) 원문: 「To sell Android content, a status change to corporate Commercial Distribution Seller is necessary. If you are not a corporate Commercial Distribution Seller, existing Android content will be discontinued and you will not be able to register Android content.」 **무료 앱이어도 예외가 없다.** 프로필의 `Request Commercial Seller Status` 로 신청한다. Content Publish API 에는 «신규 앱 생성» 엔드포인트가 없어 첫 등록은 포털을 거쳐야 한다(문서 확인).\n★2026-09-18 **Commercial 승격 신청 제출 완료** — `Type of Sales: Commercial Distribution Request in Progress`. **셀러 딥링크 `000000257823`** = 우리 3앱을 한 화면에 모아 보여주는 갤럭시 스토어 셀러 페이지 ID(마케팅 자산). 셀러 페이지가 아직 **백지**다 — Home URL·Help URL·Introduction·Profile/Banner/Background 이미지·Contact E-Mail 전부 비어 있다 → t181. ★2026-09-26 10:5x 실측: Developer API 는 살아 있음(accessToken OK) — GET /seller/contentList = [] (등록 앱 0). 셀러 포털은 로그아웃(signIn.as 로 튕김) → Commercial 승격 결과를 못 본다. 로그인은 삼성 계정 비밀번호라 안전선 밖. 포털 공지: 셀러포털 이용약관 개정 10/22 시행(9/22 공지).",
+   "gate": {
+    "kind": "로그인",
+    "until": null,
+    "who": "대표 1회(㊼)",
+    "why": "셀러 포털 세션 만료 — 삼성 계정 로그인(비밀번호) 필요. 로그인되면 Commercial 승격 확인 → SIGNUM 안드로이드 첫 등록(포털)"
+   }
   },
   {
    "id": "naver_blog",
@@ -671,7 +683,13 @@
    "tag": "apple_ppo",
    "link": "https://signumhq.com/app?from=apple_ppo",
    "action": "experiment",
-   "note": "★2026-09-18 발굴(확장): ASC «Product Page Optimization» — 기본 제품 페이지의 아이콘·스크린샷·앱 미리보기를 최대 3개 처리군으로 A/B(무료·빌드 불필요·API 로 생성 가능: appStoreVersionExperimentsV2 + appStoreVersionExperimentTreatments). 첫 실험 = SIGNUM ko/ja 첫 스크린샷을 «프리마켓/실적» 장면으로. t194"
+   "note": "★2026-09-18 발굴(확장): ASC «Product Page Optimization» — 기본 제품 페이지의 아이콘·스크린샷·앱 미리보기를 최대 3개 처리군으로 A/B(무료·빌드 불필요·API 로 생성 가능: appStoreVersionExperimentsV2 + appStoreVersionExperimentTreatments). 첫 실험 = SIGNUM ko/ja 첫 스크린샷을 «프리마켓/실적» 장면으로. t194 ★2026-09-26 11:0x 실행(ASC API): 9/18 에 만들어 둔 실험 «브리핑-먼저 A/B»(PREPARE_FOR_SUBMISSION, 50%)의 처리군 첫 장이 가디언 «역사적 극단 공포·반등 임박» 게이지였다 — 예측처럼 읽히는 문구를 스토어 첫 장에 올리는 것이라 그대로 제출하지 않았다. 처리군 ko 스크린샷 6장을 지우고, 이미 승인된 CPP «ko naver» 4장(미국 국회의원 주식 거래·실적 앞둔 종목의 옵션 지도·고래의 신규 옵션 포지션·개장 전 미국 시장, 1242×2688)으로 교체 → 4/4 COMPLETE. 이름 «미국데이터-먼저 A/B»/«미국데이터-먼저 B». reviewSubmission 19a39f3c 에 실험 항목 추가·제출 → 실험 state WAITING_FOR_REVIEW. 가설: 한국 광고 탭→설치 0(kr-ads-taps-convert-at-zero)의 원인이 첫 장 «기관의 움직임» 프레이밍인지, «미국» 데이터를 앞세우면 나아지는지. 시작(start)은 승인 뒤 — startDate 는 아직 null. ⚠ 정정: 스크립트 머리말 «시작은 대표 결정»은 내 판단이었다(대표 지시 아님) — CPP·인앱 이벤트·키워드와 같은 스토어 표면이라 승인 나면 내가 시작하고 기록한다.",
+   "gate": {
+    "kind": "심사대기",
+    "until": "2026-09-28",
+    "who": "애플 심사",
+    "why": "PPO 실험 WAITING_FOR_REVIEW(9/26 11:0x 제출). 9/28 승인 확인 → 시작 → 결과는 ASC 웹 분석(③)"
+   }
   },
   {
    "id": "naver_search_advisor",
@@ -1579,6 +1597,21 @@
     "why": "공개 신청 경로 없음 — 편집부 선정제"
    },
    "note": "★2026-09-26 09:5x 확장 발굴(실측, 비로그인): news.yahoo.co.jp/expert 목록에 금융 필자 글이 실시간으로 올라온다(예: 久保田博幸 金融アナリスト «長期金利の3%は通過点に、米長期金利は5.2%台に上昇» 9/26 09:15). 일본 폰 뉴스 1위 표면이라 도달은 크지만, 페이지의 링크는 개인정보처리방침·이용약관뿐이고 «응모/공모/なるには» 경로가 없다 → 우리가 신청할 수 없다. 같은 사이클에서 본 것: 사이트에 애플 스마트 앱 배너(apple-itunes-app app-id=6783130444)는 ko·en·ja 모두 이미 있음."
+  },
+  {
+   "id": "aptoide",
+   "name": "Aptoide(대체 안드로이드 스토어 + Aptoide Connect 배포망)",
+   "tier": "A",
+   "enabled": false,
+   "tag": "aptoide",
+   "action": "gated",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표 1회",
+    "why": "업로드는 Aptoide Connect 개발자 계정 필요(첫 화면 «Log in / Register») — 계정 생성은 안전선 밖"
+   },
+   "note": "★2026-09-26 11:1x 확장 발굴(실측): Aptoide 공개 API(ws75.aptoide.com/api/7/app/getMeta)에서 com.signumhq.app·undercurrent·wim 세 패키지 모두 404(FAIL) = 자동 미러도 없다. connect.aptoide.com 첫 화면 문구: «A single Android integration puts your app on every Aptoide-operated store, 10+ partner stores, and direct-to-consumer» · «Log in / Register». 왜 후보: 안드로이드 대체 스토어는 «클릭»이 아니라 «설치»가 바로 나는 곳(android_alt_stores 와 같은 결) — Softonic 은 UC·WIM 이 이미 라이브. 계정이 생기면 APK 업로드·등록정보는 내가 한다."
   }
  ],
  "candidates": [

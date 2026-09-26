@@ -12379,3 +12379,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 다음 사이클 | 게이트로 넘긴 4건 대신 slot 이 aso·android_alt_stores·galaxy_store·apple_ppo 를 배정(UTC 날짜가 바뀌며 주간 캡이 풀림) | mkt-plan slot |
 | 고정 ⑥ 스윕 | 0편(누계 85) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 10:30~10:53 — 시간 사이클: 실행 4 전부(ASO 주간 측정 · 대체 안드로이드 스토어 · 갤럭시 스토어 · 제품 페이지 A/B) · 게이트 341/0 · **PPO 실험 심사 제출(처리군 교체)** · 확장 1(Aptoide — 계정 게이트) · 스윕 0
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| **aso — 주간 측정** | 플레이(aso-play-rank.py --save): 22개 중 **2개**(서학개미 KR #2 · premarket earnings US #1) — 9/3 과 같음(평점 게이트, play-broad-search-is-gated-by-ratings). 앱스토어(iTunes Search): KR 실적 발표 일정 #1·장마감 #2·증시캘린더 #6(UC #4)·서학개미 #8(WIM #1)·미장 #8·미국증시 #9·프리마켓 #11·주식 초보 WIM #3 / JP 需給 #4·時間外取引 #12·決算カレンダー #14·米国株アプリ #18·プレマーケット #26·**株価アプリ 순위 밖**(광고로만 이기는 말) / US premarket #5·0dte #8·stock quiz WIM #7·earnings calendar·dark pool 순위 밖. **별점(lookup): SIGNUM US 1·KR 3·JP 0 · UC KR 3(새로 생김) · WIM KR 1** → HANDOFF §1 갱신 | _aso-play-rank-history.jsonl · /tmp/ego/aso_as_0926.json |
+| **android_alt_stores** | Softonic(실브라우저): **Why’d It Move?: Stock Quiz**(★5·Validated Dev·v1.0.0·9/15)·**Undercurrent: News & Money**(★4.7·Finance·v1.0.3·8/27) 라이브, **SIGNUM 은 검색에 없음**. APKPure: Cloudflare «보안 확인»(봇 확인) 화면 — 통과를 시도하지 않는다(안전선) → 등재 여부 측정 불가. Uptodown: UC·WIM 소유권 반려 그대로 — 해결은 지원 티켓(외부 발신) → ㊼ 에 승인 요청 · 게이트(메일승인) 10/3 | softonic 페이지 |
+| **galaxy_store** | Developer API 살아 있음(accessToken OK) · `GET /seller/contentList` = **[] (등록 앱 0)** · 셀러 포털 로그아웃(signIn.as 로 튕김) → Commercial 승격 결과·첫 등록 불가(로그인 = 삼성 계정 비밀번호, 안전선 밖) → **㊼ 대표 재로그인** · 게이트(로그인). 포털 공지: 셀러포털 이용약관 10/22 개정 | galaxy_client.py |
+| **apple_ppo — 실험 심사 제출 ✅** | 9/18 에 만들어 둔 «브리핑-먼저 A/B»(PREPARE_FOR_SUBMISSION, 50%)의 처리군 첫 장이 가디언 «역사적 극단 공포·반등 임박» 게이지였다 → 예측처럼 읽히는 문구를 스토어 첫 장에 올리는 것이라 그대로 내지 않음. 처리군 ko 6장 삭제 → 이미 승인된 CPP «ko naver» 4장(미국 국회의원 주식 거래·실적 앞둔 종목의 옵션 지도·고래의 신규 옵션 포지션·개장 전 미국 시장, 1242×2688)으로 교체(4/4 COMPLETE) → 이름 «미국데이터-먼저 A/B» → reviewSubmission 19a39f3c 에 실험 항목 추가·제출 → **실험 state WAITING_FOR_REVIEW**. 가설: 한국 광고 «탭은 되는데 설치 0»이 첫 장 프레이밍 문제인지. 시작은 승인 뒤(startDate null) · 게이트(심사대기) 9/28. ⚠ 정정: asc_ppo.py 머리말 «시작은 대표 결정»은 내 판단이었다(대표 지시 아님) — CPP·인앱 이벤트·키워드와 같은 스토어 표면이라 승인 나면 내가 시작한다 | ASC API |
+| 확장 — Aptoide(등록·게이트) | Aptoide 공개 API(ws75 getMeta)에서 세 패키지 모두 404(FAIL) — 자동 미러도 없음. connect.aptoide.com 첫 화면 «A single Android integration puts your app on every Aptoide-operated store, 10+ partner stores…» · «Log in / Register» → 업로드는 개발자 계정(대표) → channels.json aptoide(게이트·계정) | 비로그인 curl |
+| **도구 수리 — mkt-clicks.js STANDING** | 스토어 표면 주간 과제(android_alt_stores·galaxy_store·apple_ppo·apple_cpp·apple_cpp_channels·apple_iap_events·play_custom_listings)를 «상시 표면»에 넣었다 — 게시가 아닌데 원장에 2건이 쌓이면 «건당 클릭 0 ▼ 줄임»으로 잘못 뜬다(같은 오판 종류 방지). 원장 기록 주소도 실제 확인한 페이지로(앱스토어 KR·Softonic·갤럭시 셀러 페이지·ASC) | scripts/mkt-clicks.js |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |

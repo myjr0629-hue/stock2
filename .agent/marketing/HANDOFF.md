@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-26 09:51 KST** (시간 사이클 — 인앱 이벤트 공개 노출 확인(KR·JP·US) · 한국어 CPP «미장» 키워드 할당 · Play 맞춤 등록정보 Live(데이터 부족) · 링크드인 그룹 대기(9/30) · XS 페이퍼 ㊸(9/29 07:40 전 결정) · 클릭 UA 측정 ㊻ · IH ㊹ · 옵션 구조 수리 main 미반영(㊲·㊲-2))
+마지막 갱신: **2026-09-26 10:53 KST** (시간 사이클 — PPO 실험 «미국데이터-먼저 A/B» 심사 제출(처리군 교체) · ASO 주간(플레이 2/22·앱스토어 KR 실적발표일정 #1) · 별점 SIGNUM KR 3·UC KR 3 · Softonic UC·WIM 라이브·SIGNUM 없음 · 갤럭시 포털 로그인 ㊼ · XS 페이퍼 ㊸(9/29 07:40 전) · 클릭 UA ㊻ · IH ㊹ · 옵션 구조 ㊲·㊲-2)
 
 ---
 
@@ -29,7 +29,7 @@
 | SIGNUM iOS | **1.9.2 READY_FOR_SALE** (app id 6783130444) | ASC API `appStoreVersions` |
 | Why'd It Move? iOS | **1.0.4 READY_FOR_SALE** (6794356135) | 〃 |
 | Undercurrent iOS | **1.0.7 READY_FOR_SALE** (6788779895) | 〃 |
-| 애플 별점 | SIGNUM **US★5(1) · KR★5(2) · JP 0** / WIM **KR★5(1)** · US·JP 0 | `itunes.apple.com/lookup?id=…&country=…` |
+| 애플 별점 | SIGNUM **US★5(1) · KR★5(3) · JP 0** / UC **KR★5(3)**(9/26 새로 생김) / WIM **KR★5(1)** · 나머지 0 (9/26 10:4x 실측) | `itunes.apple.com/lookup?id=…&country=…` |
 | Play 별점 | SIGNUM 28일 평균 **5.00** · 총 사용자 5 | Play Console Monitor |
 | 구독 | `com.signumhq.app.pro.monthly` **APPROVED** · 175개국 | ASC API |
 | 뉴스펄스 | **10건 · 최신 26~77분** (9/23 수리 전 270~406분) | `/api/guardian/news-digest?locale=ko` |
@@ -126,6 +126,7 @@
 | ㊹ | **인디해커스 재로그인 1회** — 세션 만료(9/26 00:5x «Sign in» 확인). 우리 IH 계정 `signumhq` 은 구글 OAuth 인데 **어느 구글 계정에 연결됐는지 기록이 없다**(선택 화면: contact@signumhq.com · myjr0629@gmail.com 외 2개). 잘못 고르면 새 계정이 생길 수 있어 고르지 않았다. 대표가 한 번 로그인(또는 연결 계정 알려 주기) → 이후 댓글은 내가. IH 는 건당 6.7클릭 2위 채널이고, 준비된 댓글(모바일 앱 무광고 성장 실험 스레드·좋아요 15·댓글 138에 채널별 실측 수치)이 대기 중 | 로그인 = 대표 | 1분 |
 | **㊺** | **시간외 PRE CLOSE·POST 수리 합치기 — 명령 1줄**: `git -C /tmp/stock2-main-merge fetch origin && git -C /tmp/stock2-main-merge reset -q --hard origin/main && git -C /tmp/stock2-main-merge merge -q --no-ff origin/fix/extended-pre-close-label -m "merge: 시간외 PRE CLOSE·POST 수리(대표 승인)" && git -C /tmp/stock2-main-merge push origin HEAD:main` (브랜치 `fix/extended-pre-close-label` = a4a28d8 + ce3624b · ㊲ 과 순서 상관없이 충돌 없음 — merge-tree 시험). **무엇**: 9/25 정규장 COST 커맨드에 «PRE CLOSE $916.26 +2.21%»(진짜 프리 종가 $887.53 −1.00%, 나스닥)·«POST $898.04»(어제 애프터)가 나갔다 — 전 종목 같은 방식(운영 12:32 ET: KO 88.235 vs 실제 88.16, NVDA 225.555 vs 225.41). **원인 2개(실응답으로 확정)**: ① 프리 종가 조회의 시간창(에포크 ms)을 Intrinio 어댑터가 날짜로만 읽어 버림 → «정규장 최신 분봉»이 PRE 종가로 24h 캐시 ② last-good 병합이 정규장의 POST null(=오늘 애프터 없음)을 실패로 읽고 어제 값을 되살림. **수리**: 시간외 종가 = 통합 체결 테이프(SIP)의 마지막 Form T 체결(나스닥 «Consolidated Last Trade» 와 같은 정의, 확정 프리 09:47·애프터 20:17 ET) + 세션·날짜·체결 시각 게이트 + 같은 모양 27파일(커맨드·대시보드·Flow·워치리스트·포트폴리오·인텔·웹 티커·UC «뉴스 이후 %»). **프리뷰 실측(9/25 정규장)**: 18종목 나스닥과 1센트까지 일치 · 커맨드·Flow·웹 티커 실화면 «PRE CLOSE $887.53 −1.00%» · 정규장 POST 없음. **애프터 실측(프리뷰)**: 16:02~16:09 ET(지연 피드가 아직 정규장) POST 없음 — 같은 시각 운영은 «POST 923.155 +0.17%»(정규장 체결+어제 등락률)를 지어냈다 · 16:20 ET 6종목 POST = 16:02~16:05 실제 애프터 체결, 화면 «POST $922.56 −0.02%»(COST) · WS 게이트 추가(a12f205: WS 엔 체결 시각이 없어 서버가 확인한 뒤에만 사용). **애프터 종가(20:18~20:23 ET)**: 12/12 종목 나스닥 «After-Hours Consolidated Last Trade» 와 일치(COST $922.23·MSFT $517.89·SPY $772.04 …), 화면 «POST (CLOSED) $922.23 −0.06%» · 20:18 에 Intrinio 한도 초과(429)가 전 엔드포인트에 나자 6종목은 잠정값(그날 애프터 체결)으로 버티고 실패는 저장 안 함 → 다음 요청에서 채워졌다(설계대로) · 월요일 프리마켓 실측은 §4-0 · 자동 점검 `scripts/audit-screen-numbers.js` ⑦ 추가(운영 위반 49건 → 프리뷰 0건) | main 푸시 = 운영 배포라 대표 승인 | 10초 |
 | **㊻** | **클릭 UA 계열 측정 합치기 — 명령 1줄**: `git -C /tmp/stock2-ua-audit fetch -q origin && git -C /tmp/stock2-ua-audit merge -q --no-edit origin/main && git -C /tmp/stock2-ua-audit push -q origin HEAD:main` (최신 main 을 브랜치에 합친 뒤 main 으로 올린다 — 로컬 main 상태와 무관) (브랜치 `feat/click-ua-audit` = 7c50452, 파일 2개: src/app/app/route.ts +32줄 · scripts/mkt-clicks-ua.js 새 파일). **무엇**: 데스크톱으로 분류된 스마트링크 요청을 UA 계열로 한 칸 더 센다(`mkt:attr:ua:<태그>:<nomoz·bot·nolang·mac·win·linux·other>:<날짜>`). 리다이렉트·QR 페이지 동작은 그대로(응답 뒤 after() 안, 실패는 삼킴). **왜**: 9/23~25 블루스키 계열 91클릭이 전부 PC·폰 0(팔로워 25·좋아요 대부분 0) — 사람이라면 나오기 어려운 비율인데, 그 숫자가 «어디에 더 쓸지»(키우기 레인)를 정해 왔다. 합치면 3일 뒤 채널별 «사람추정%»로 다시 판정한다. 배포 뒤 확인은 내가(probe_ua 태그로 UA 4종 → 키 4개) | 운영 배포 = 대표 승인 | 1분 |
+| **㊼** | **갤럭시 스토어 셀러 포털 재로그인**(seller.samsungapps.com — 삼성 계정) · (선택) **Uptodown 소유권 지원 티켓 발송 승인**(UC·WIM 반려 사유 = 소유권 증명, Play 콘솔 화면 첨부) | 갤럭시: API 는 살아 있지만 등록 앱 0, 포털 세션 만료라 Commercial 승격 결과·첫 등록을 못 한다(로그인 = 비밀번호). Uptodown: 티켓은 외부 발신이라 승인 필요 | 1분 · 한마디 |
 | ⑫ | **Ego Lite 업데이트 승인**(`ego-browser upgrade`) — 실행할 때마다 «update available» 알림 | 업그레이드는 대표 승인 후에만 | 한마디 |
 
 **끝난 것(목록에서 내림)**: ㉞ 리딩방 광고 차단(9/24 밤 66편 → 9/25 01시 75편·62도메인, 알림 설정 + **매 사이클 스윕** `scripts/admob-arc-sweep.mjs` — 새 소재는 심사 센터에 오르기 전 몇 회 노출되므로 «0»은 애드몹 스위치로 불가, 근원 조치는 ㊱) · ㉗ AI 지어낸 연도 차단(9/24 21:2x 운영 반영·실화면 확인) · Bluesky 앱 비밀번호(.env.local 에 있음) · 마스토돈 가입(9/23) · ASC 재로그인(9/23)
