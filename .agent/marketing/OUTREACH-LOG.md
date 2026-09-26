@@ -12544,3 +12544,18 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 확장 — GitHub 한국어 «미국주식 무료 데이터 출처» 목록(등록·티켓) | api.github.com 검색 «미국주식» = 저장소 52·최다 별 2(무한매수법 대시보드·KIS API 예제·자동매매 봇 등) → 무료 «공식» 출처 모음은 없음(얇은 문). 목록 후보 = 이미 실측으로 쓰는 공식 출처(재무부 par yield CSV·FINRA Reg SHO API·SEC EDGAR·BEA 일정·연준 FOMC 캘린더), 비공식 API 는 약관 문제로 제외, «우리가 만든 것» 칸에 데이터셋 저장소·앱 1줄. 다음 주 GeekNews Show GN 재료(폰 클릭 48% 채널) → channels.json github_awesome_ko + 규칙(주 1, 9~23시) | api.github.com |
 | 고정 ⑥ 스윕 — 1편 | «종목» → awytirw10.shop 소재 차단 + 광고주 URL 자동 추가(«차단됨» 확인) → 목록 79 | /tmp/ego/arc-blocked-*.json |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 21:30~22:00 — 시간 사이클: 실행 2 전부(GitHub 한국어 데이터 출처 목록 ✅ 새 표면 개설 · X 답글 ✅ 1/3) · 게이트 341/0 · 스윕 1편 차단
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **github_awesome_ko ✅(새 저장소)** | 공식 출처 13곳을 발행 직전에 전부 호출 확인(재무부 par·real yield CSV·TextView, FINRA Reg SHO API(POST)·CDN 일별 파일, SEC EDGAR submissions·company_tickers.json(User-Agent 필요), 연준 FOMC 캘린더, BEA 일정, 뉴욕 연은 EFFR API, Nasdaq Trader 심볼 목록, Cboe VIX 역사, 하원 공시 = 200 · 상원 eFD 만 curl 403 → «브라우저 이용 동의 후»로 표기 · BLS 는 «자동 요청 차단» 표기). GitHub 웹(로그인 세션)에서 새 공개 저장소 «us-stock-free-data-ko» → 한국어 README 업로드(섹션: 금리·거시 / 거래·수급(FINRA «다크풀 비중» 분모 주의) / 기업·공시 / 의회 공시 / 이 데이터로 만든 것 — 데이터셋 저장소·FINRA·의회 페이지·앱 링크 from=github, 제작자 공개) · 라이선스 CC0 | https://github.com/myjr0629-hue/us-stock-free-data-ko · 비로그인 200·제목·섹션 5·공식 링크 11·앱 a[href] from=github · API: public·설명 |
+| **x_reply ✅ 1/3(KST)** | 세션이 @signumhq_jp 라 x-reply 가 거부 → x-switch 로 @signumhq 전환 후 재시도. @Barchart(팔로워 569,700, 기준 18만 이상) «10-Year Treasury Yield is on the verge of breaking above 25-year resistance on the monthly chart»(8시간 전)에 무링크 데이터 답글(266자): 재무부 일별 par 10년 5.18%(목)·5.17%(금) = 2007-07-06(5.19%) 이후 첫 5.17% 이상 마감 · 이번 주 10년 +21·30년 +20bp vs 2년 +5bp · 한 달은 반대(2년 +57bp) | https://x.com/signumhq/status/2103829591584657549 · 내 답글 탭 + 비로그인 syndication(본문·reply_to Barchart·user signumhq) |
+| 확장 | 지난 사이클에 발굴·등록한 github_awesome_ko 를 이번 사이클에 실제로 열었다(발굴 → 실행 완료) | — |
+| 고정 ⑥ 스윕 — 1편 | «종목» → awytirw9.shop 소재 차단 + URL 자동 추가(«차단됨» 확인) → 목록 80 | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 다음 | 저장소 토픽(us-stocks·finra·treasury·sec-edgar·korean) 추가 · 다음 주 GeekNews «Show GN» 재료 | — |
+| 도구 메모 | 이 로그의 파이썬 heredoc 이 «Non-UTF-8 code» 로 실패해 첫 커밋엔 로그가 빠졌다 — 로그는 항상 스크래치 파일(Write)로 쓴다(9/25 에 겪은 것과 같은 종류) | — |
