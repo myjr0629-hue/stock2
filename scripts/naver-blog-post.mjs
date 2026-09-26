@@ -114,7 +114,7 @@ const logNo = (href.match(/logNo=(\d+)/) || [])[1];
 if (!logNo) { console.log('⛔ 발행 후 주소에 logNo 가 없다:', href.slice(0, 90)); process.exit(1); }
 const pubUrl = `https://blog.naver.com/donneum/${logNo}`;
 const html = await (await fetch(`https://blog.naver.com/PostView.naver?blogId=donneum&logNo=${logNo}`, { headers: { 'user-agent': 'Mozilla/5.0' } })).text();
-const ok = { title: html.includes(T.title.slice(0, 12)), image: /se-image-resource/.test(html), link: /href="https:\/\/signumhq\.com\/app\?from&#x3D;naver_blog/.test(html) || /signumhq\.com\/app\?from=naver_blog/.test(html) };
+const ok = { title: html.includes(T.title.slice(0, 12)), image: /se-image-resource/.test(html), link: /signumhq\.com\/app(-uc|-wim)?\?from(=|&#x3D;)naver_blog/.test(html) }; // ★2026-09-26 app-uc·app-wim 링크도 인정(전엔 /app 만 봐서 멀쩡한 글을 «실패»로 판정)
 console.log('공개 검증:', JSON.stringify(ok));
 if (!Object.values(ok).every(Boolean)) { console.log('⛔ 공개 페이지 확인 실패 — «발행했다»고 적지 않는다:', pubUrl); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', pubUrl);
