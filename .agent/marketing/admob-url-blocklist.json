@@ -1,6 +1,5 @@
 {
- "updated": "2026-09-26T11:5x KST",
- "note": "애드몹 «광고주 URL» 차단 목록(대표 개인 애드몹, 계정 전체). 9/26 대표 지시로 73개 일괄 차단 — 일회용 리딩방 .shop/.vip 71 + 유료 종목 시그널 quantit-signal.co.kr + CFD 사전등록 hmarkets.com. 건너뜀(리딩방 아님): KB증권·365group(요양기관)·bebridge.finance(핀테크)·카지노 앱",
+ "updated": "2026-09-26T02:56:59.809Z",
  "domains": [
   "ahfdrtuw10.shop",
   "ahfdrtuw5.shop",
@@ -25,6 +24,7 @@
   "awdcfbw8.shop",
   "awfkdw10.shop",
   "awfkdw7.shop",
+  "awgbcmgw8.shop",
   "awgbcmgw9.shop",
   "awgbvw5.shop",
   "awhvbk2.shop",
@@ -42,6 +42,7 @@
   "dvpzkw.vip",
   "hmarkets.com",
   "hsjzpf.vip",
+  "jhrvtj.sbs",
   "quantit-signal.co.kr",
   "tzdfgw11.shop",
   "tzgbcmgw10.shop",
