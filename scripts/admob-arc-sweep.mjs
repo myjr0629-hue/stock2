@@ -67,10 +67,19 @@ if (fresh.length) {
     await L.wait(7000);
     const sn = String(await page.snapshot()); const ln = sn.split('\n'); const ix = ln.findIndex((l) => /text "모두 차단"/.test(l));
     let ref = null; for (let k = ix; k >= Math.max(0, ix - 4); k--) { const m = ln[k].match(/button[^\n]*\[ref=(\d+)/); if (m) { ref = m[1]; break; } }
-    if (ref) { await page.click('@' + ref, { label: 'URL 모두 차단' }); await L.wait(6000);
-      fs.writeFileSync(BLK, JSON.stringify({ updated: new Date().toISOString(), domains: [...known, ...fresh].sort() }, null, 1));
-      console.log(`광고주 URL 차단 목록 +${fresh.length}: ${fresh.join(', ')}`); }
-    else console.log('⚠ 광고주 URL «모두 차단» 버튼을 못 찾았다 — 수동 확인 필요:', fresh.join(', '));
+    if (ref) { await page.click('@' + ref, { label: 'URL 모두 차단' }); await L.wait(6000); }
+    // ★2026-09-26 실측: URL 이 1개일 때 «모두 차단»이 먹지 않았다(profitablenews.com 이 «허용됨»으로 남음) →
+    //   누른 뒤 상태를 다시 읽고, «허용됨»이 남은 줄은 그 줄의 스위치(«<도메인> 차단»)를 직접 켠다.
+    const sn2 = String(await page.snapshot());
+    for (const d of fresh) {
+      const st = await page.evaluate((d) => { const t = (document.body.innerText || '').replace(/\s+/g, ' '); const m = t.match(new RegExp(d.replace(/[.]/g, '\\.') + ' (허용됨|차단됨)')); return m ? m[1] : null; }, d);
+      if (st === '허용됨') { const sw = sn2.split('\n').find((l) => l.includes('switch "' + d + ' 차단"')); const r2 = sw && (sw.match(/\[ref=(\d+)/) || [])[1]; if (r2) { await page.click('@' + r2, { label: d + ' 차단' }); await L.wait(2500); } }
+    }
+    const final = await page.evaluate((ds) => { const t = (document.body.innerText || '').replace(/\s+/g, ' '); return ds.map((d) => { const m = t.match(new RegExp(d.replace(/[.]/g, '\\.') + ' (허용됨|차단됨)')); return d + ':' + (m ? m[1] : '?'); }); }, fresh);
+    const ok = fresh.filter((d, i) => /차단됨/.test(final[i]));
+    if (ok.length) fs.writeFileSync(BLK, JSON.stringify({ updated: new Date().toISOString(), domains: [...known, ...ok].sort() }, null, 1));
+    console.log(`광고주 URL 차단 목록: ${final.join(', ')}`);
+    if (ok.length < fresh.length) console.log('⚠ 일부 URL 이 «차단됨»으로 확인되지 않았다 — 수동 확인 필요');
   } catch (e) { console.log('⚠ 광고주 URL 차단 실패', String(e.message).slice(0, 80)); }
 }
 console.log(`합계: 차단 ${blocked.length}건 (검색어 ${TERMS.length}개)`);
