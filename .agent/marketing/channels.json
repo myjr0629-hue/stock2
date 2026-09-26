@@ -1696,6 +1696,14 @@
    "tag": "threads_bio",
    "action": "rejected",
    "note": "★2026-09-26 19:4x 확장 발굴 → 보류(실측, Threads 검색 «米国株» 기본 정렬 스크롤 3회): 반응이 큰 글은 초보자 조언 요청(«投資家先輩の皆さん…アドバイスほしいです» 8/24 좋아요 1.1천·답글 259 · «株初心者…NISA枠で買ったはいいけどその後がわからない» 8/18 좋아요 1.2천·답글 176) — 우리 원칙(예측·투자권유 금지)으로는 답할 게 없는 질문이다. 최근 米国株 주제 글은 좋아요 2 수준(kavuokaneai 1일). 검색 결과에 무관한 글(주택 디자인·AI 일러스트)도 섞인다. 영어 threads_reply 도 건당 0(5건). → 일본은 threads_jp 원글(첫 글 12분 만에 1클릭)·note·X JP 로 간다."
+  },
+  {
+   "id": "github_awesome_ko",
+   "name": "GitHub 한국어 «미국주식 무료 데이터 출처» 목록 저장소",
+   "tier": "B",
+   "tag": "github",
+   "action": "post",
+   "note": "★2026-09-26 20:4x 확장 발굴(실측, api.github.com search «미국주식»): 저장소 52개, 최다 별 2개(무한매수법 대시보드·KIS API 예제·자동매매 봇 등) — 한국어로 «무료 공식 데이터 출처»를 모은 목록은 없다(얇은 문). 우리가 이미 실측으로 쓰는 출처: 미 재무부 일별 par yield CSV(연도별 URL) · FINRA Reg SHO 일별(POST api.finra.org/data/group/otcMarket/name/regShoDaily, 무인증) · SEC EDGAR · BEA 발표 일정 · 연준 FOMC 캘린더 · (비공식 API 는 약관 문제로 목록에서 뺀다). 우리 데이터셋 저장소(options-market-structure-daily·FINRA 공매도)와 앱 링크(from=github_awesome_ko 태그는 코드 등록이 필요하니 기존 github 태그)를 «우리가 만든 것» 칸에 1줄. 왜: GitHub·구글 한국어 검색의 얇은 문 + GeekNews Show GN 재료(다음 주 GN 1편 자리) — GN 은 폰 클릭 48%. 실행: GitHub 웹(ego, 로그인됨)에서 새 저장소 + README 1개 — 계정 생성 아님."
   }
  ],
  "candidates": [
