@@ -12679,3 +12679,20 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 도구 수리 | ①mkt-plan: slot 이 channels.json id(x_us)를 배정하는데 pub 은 규칙 id(x_post)만 받아 «알 수 없는 채널» → ALIAS 를 pub 앞으로 옮겨 별칭을 규칙 id 로 기록 ②WIM 은 URL 탭이 없다(내부 상태 home·lib·search·me) → 캡처는 X_SHOT_CLICK_TEXT=Library 로(도구에 이미 있는 옵션). 참고: 캡처 도구는 광고 칸을 지우는데 React 가 다시 그려 가짜 스폰서가 남았다(작업 칩의 수리로 원인 제거 예정) | node --check·slot·pub 확인 |
 | 고정 ⑥ 스윕 | 차단 0(검색어 12) | admob-arc-sweep |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-27 (KST) 04:25~04:42 — 시간 사이클: 실행 3 전부 ✅(블루스키 답글·스레드 답글·X 미국 2편째) · 확장 측정 중단(브라우저 알림 권한 창) · 게이트 341/0 · 스윕 미실행(같은 이유) · 앱 결함 1건 추가(랭킹 화면)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_reply ✅ 2/2** | @fortune.com(팔로워 21,984, 게시 2.2시간) «The decline is unsurprising, given Oracle stock's volatile year and the fact that the options were priced near the peak…»에 무링크 답글: ORCL 금요일 종가 $137.10 = 1년 종가 고점 $313.00(2025-10-16) 대비 −56%, 올해 −30%(나스닥 종가) | https://bsky.app/profile/signumhq.bsky.social/post/3mwgzj4gmfr2z · 공개 API: 본문·부모 = fortune.com |
+| **threads_reply ✅ 2/2** | @bloombergbusiness(129.6만, 게시 17분) «Corporate bonds have been relatively resilient amid a global government bond selloff, but the strength may not last»에 무링크 답글: ICE BofA 미국 하이일드 OAS 9/24 2.80%, 8/28 1년 최저 2.60%에서 +17bp, 1년 범위 2.60~3.46% 의 아래쪽 절반(FRED). FRED 는 curl 이 HTTP/2 오류(92)·000 → §22 대로 **브라우저 안 fetch** 로 받음(200). 앱 가디언의 «1Y pctile 43»은 창이 달라 내 실측 46 과 다름 → 답글엔 실측값만 | https://www.threads.com/@signumhq_official/post/DdwzFilE3ic · 내 답글 탭 + 비로그인 og:description |
+| **x_us ✅ 2/2(계정 합계 2/2 — 오늘 X 미국 끝)** | 금요일 달러 거래대금 상위: SPY $28.3B·MU $22.7B·QQQ $22.6B·NVDA $20.2B·MSFT $19.7B(+3.66%)·META $19.4B(−3.33%) — «마이크론이 수요일 실적을 앞두고 QQQ·엔비디아보다 많이 거래됐다». 앱 movers 값 = 나스닥 종가×거래량으로 8종목 전부 일치 확인 · 16:9 카드 + SIGNUM movers 화면 · 가중 245자 | https://x.com/signumhq/status/2103932854204039464 · syndication: user·본문·사진 1·링크(from=x_us) |
+| 소재 보류 — 의회 거래 | 9/23 고정 글 «16명·192건(매수 58·매도 134)» vs 지금 GitHub Pages JSON «17명·220건(매도 162)», generated 표기는 둘 다 9/23 → 불일치 원인 확인 전까지 발행 안 함(다음 갱신 때 대조) | congress-by-ticker-90d.json |
+| 캡처 도구 — 원인 | SIGNUM «커맨드» 장면 이름은 `command` 가 아니라 **`cmd`**(app-view 라우트) — 오늘 두 번의 «숫자 0·글자 80» 실패 원인. 안 쓰던 화면 4개 확인: earnings·heatmap·movers·rankings | src/app/[locale]/app-view |
+| 앱 결함 추가 — rankings 화면 | 영어 화면에 한국어 문구(«유의하지않음 88 · 너무안변함 6 · 배수작음 1») · «P/C ratio (OI) 1.06 vs 1 → 1.77×»처럼 기준값 반올림 표시가 배수와 안 맞음 → 홍보 이미지에서 제외, 수리 대상 | rankings 캡처 |
+| 확장 — 측정 중단 | Yahoo Finance 종목 커뮤니티(finance.yahoo.com/quote/MU/community) 로그인·규칙 확인 중 **브라우저 알림 권한 창**이 떠 ego 가 작업공간 제어를 대표에게 넘김(규칙: 권한 창은 대표가 처리) → 측정값 없음, 등록 안 함. 대표가 창을 «차단»하면 다음 사이클에 재측정 | ego 오류 문구 |
+| 고정 ⑥ 스윕 | 미실행 — 위 권한 창으로 브라우저 사용 불가 | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
