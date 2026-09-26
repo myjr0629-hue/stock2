@@ -79,7 +79,13 @@ await L.wait(900);
 if (lastP) { await page.mouse.click(lastP.x, lastP.y); await L.wait(400); await page.keyboard.press('End'); }
 for (const line of T.rest || []) { await page.keyboard.type(line, { delay: 5 }); await page.keyboard.press('Enter'); await L.wait(220); }
 await page.keyboard.press('Enter');
-await page.keyboard.type(T.url, { delay: 10 }); await page.keyboard.press('Enter'); await L.wait(5000);
+// ★2026-09-26 URL 은 붙여넣는다(절차 · memory paste-urls-never-type-them). 편집기가 붙여넣기를 안 받으면 그때만 타이핑.
+const urlIn = () => page.evaluate((u) => document.body.innerText.includes(u)
+  || [...document.querySelectorAll('a[href], .se-oglink')].some((a) => String(a.href || a.innerText || '').includes('signumhq.com/app')), T.url);
+await page.keyboard.paste({ text: T.url }); await L.wait(1500);
+if (!(await urlIn())) { console.log('붙여넣기 미반영 → 타이핑으로 넣는다'); await page.keyboard.type(T.url, { delay: 10 }); }
+else console.log('URL 붙여넣기 반영');
+await page.keyboard.press('Enter'); await L.wait(5000);
 if (T.footer) { await page.keyboard.type(T.footer, { delay: 5 }); await L.wait(1000); }
 
 const st = await page.evaluate(() => ({
