@@ -128,6 +128,7 @@ const CH = {
   tildes: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대 코드 전용' },
   digg: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 기술 뉴스 큐레이션(제출형 아님)' },
   lobsters: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대제' },
+  substack_notes: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(로그아웃 실측). 계정이 생기면 cap 1' },
   hf_spaces: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-27 확장 — HF Spaces 정적 데모(다크풀 비중·옵션 구조). 얇은 문: «dark pool» Space 1개·«short volume» 0' },
   github_awesome_ko: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — 한국어 «미국주식 무료 데이터 출처» 목록 저장소(얇은 문: 52개·최다 별 2)' },
   threads_reply_jp: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 반응 큰 글은 초보 조언 요청(투자권유 금지와 충돌)' },
@@ -209,9 +210,12 @@ function counts() {
   }
   return out;
 }
+const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp', bluesky_bip: 'bluesky_buildinpublic', wsb_earnings_thread: 'reddit' }; // wsb 스레드 댓글은 레딧 하루 3건(UTC)에 합산(2026-09-26) // 클릭 태그 → 규칙 id (bluesky_bip: 2026-09-26)
 const cmd = process.argv[2];
 if (cmd === 'pub') {
-  const [, , , ch, url, ...rest] = process.argv;
+  let [, , , ch, url, ...rest] = process.argv;
+  // ★2026-09-27 slot 은 channels.json 의 id(x_us 등)를 배정하는데 pub 은 규칙 id(x_post)만 받아 «알 수 없는 채널»로 기록이 막혔다 → 별칭을 규칙 id 로 바꿔 기록한다.
+  if (!CH[ch] && ALIAS[ch] && CH[ALIAS[ch]]) { console.log(`(별칭 ${ch} → ${ALIAS[ch]} 로 기록)`); ch = ALIAS[ch]; }
   if (!CH[ch]) { console.error('알 수 없는 채널. 가능: ' + Object.keys(CH).join(', ')); process.exit(1); }
   // ★ 2026-09-18 — 잘린 URL(«...» 포함)이 원장에 들어가 있었고, 그것 때문에 «삭제됨»으로 오판했다.
   //   http 로 시작하는 값은 형태를 검사한다(레딧 댓글 ID 같은 «비 URL 식별자»는 그대로 허용).
@@ -228,7 +232,7 @@ if (cmd === 'pub') {
 const c = counts(); const now = hhmm(); const hour = Number(now.slice(0, 2));
 let REG = [];
 try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => ({ id: x.id || x.key || x.name, tier: x.tier || x.type || '?', note: x.note || '', gate: x.gate || null })); } catch {}
-const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp', bluesky_bip: 'bluesky_buildinpublic', wsb_earnings_thread: 'reddit' }; // wsb 스레드 댓글은 레딧 하루 3건(UTC)에 합산(2026-09-26) // 클릭 태그 → 규칙 id (bluesky_bip: 2026-09-26)
+// (ALIAS 는 pub 에서도 쓰려고 위로 옮겼다 — 2026-09-27)
 
 if (cmd === 'slot') {
   // 이번 사이클의 «담당 구역»을 결정론적으로 배정한다.

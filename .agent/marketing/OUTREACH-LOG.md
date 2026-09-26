@@ -12662,3 +12662,20 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 도구 수리 | ①threads-post: 작성칸 문구가 «새로운 소식을 공유해보세요.»로 바뀜 → 옛·새·영문 모두 인정 ②linkedin-article·quora-space-post·okky-post·tistory-post: 공개 검증 정규식이 /app 만 받아 app-uc·app-wim 글을 «실패» 판정 → 7곳을 (-uc\|-wim)? 로(어제 네이버 발행기와 같은 종류 — 이번엔 «종류»로 전부) ③make-x-shot: UC 탭 값이 앱 딥링크(div·whale)와 달라 «홈»이 두 번 찍힘(해시 동일) → 매핑 ④Enter 교훈(메모리) | node --check 전부 통과 |
 | 고정 ⑥ 스윕 | 차단 0(검색어 12) | admob-arc-sweep |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-27 (KST) 03:25~03:52 — 시간 사이클: 실행 4 전부 ✅(블루스키 답글·X 미국·스레드 답글·블루스키) · 확장 1(Substack Notes — 계정 게이트) · 게이트 341/0 · 스윕 0 · 도구 수리 2(mkt-plan pub 별칭·WIM 탭 캡처 방법 확인)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_reply ✅ 1/2** | @economist.com(팔로워 164,595, 게시 6분·답글 0) «The causes of the latest rise in interest rates—inflation, debt, geopolitical tensions…»에 무링크 데이터 답글: 재무부 곡선 8/24→9/25 10년 명목 4.70→5.17%(+47bp)·10년 TIPS 2.38→2.83%(+45bp)·기대인플레 2.32→2.34% → 상승 대부분이 실질금리(실질금리 CSV 로 재확인) | https://bsky.app/profile/signumhq.bsky.social/post/3mwgw2tz6ev2n · 공개 API: 본문·부모 = economist.com 글 |
+| **threads_reply ✅ 1/2** | @cnbc(팔로워 74만, 게시 32분) «‘It's awful’: How tariffs, soaring fuel costs and higher interest rates are squeezing American companies»에 무링크 답글: 6/30→9/25 XLI −8.0%·XLY −5.7%·IWM −6.2% vs XLE +16.8%, 같은 기간 10년물 4.44→5.17%(나스닥 종가·재무부 par) — 인과 표현 없음 | https://www.threads.com/@signumhq_official/post/DdwsR19E8wZ · 내 답글 탭 + 비로그인 크롤러 og:description |
+| **x_us ✅(계정 합계 1/2)** | 다음 주 미국 일정: 수 9/30 3분기 말·08:30 8월 PCE·2분기 GDP 3차(BEA 공식 일정 재확인 — «9월 30일 08:30 개인소득·지출(8월)» 포함)·마이크론 장 마감 뒤 / 목 10/1 나이키 / 금 10/2 08:30 9월 고용지표(BLS) / 금요일 옵션 MU ±8.5%·NKE ±8%(10/2 만기) · 가중 272자 · 16:9 카드 + Undercurrent Macro 화면 · 링크 app-uc | https://x.com/signumhq/status/2103917875153318178 · syndication: user signumhq·본문·사진 1·링크(from=x_us) |
+| **bluesky ✅(계정 합계 3/3 — 오늘 블루스키 본글 끝)** | 이번 주(금→금) 장기물 상승: 10년 +16bp(5.17%)·30년 +15bp·2년 +5bp, 10s-2s 25→36bp · 한 달 전은 반대(8/24 이후 2년 +57 vs 10년 +47) · 16:9 카드 + Why'd It Move? 개념 라이브러리 화면 · 링크 app-wim | https://bsky.app/profile/signumhq.bsky.social/post/3mwgwtaa6bs26 · 공개 API: 본문·링크(from=bluesky)·이미지 |
+| ⚠ 방법 정정(어제 X 답글) | 9/26 21:3x @Barchart 답글의 «이번 주 10년 +21·30년 +20·2년 +5bp»는 **월요일 종가→금요일 종가** 기준과 정확히 일치(금→금 기준은 +16·+15·+5). 틀린 값은 아니지만 «이번 주»의 통상 기준(금→금)과 달라 모호 → 결론(장기물이 더 올랐다)은 두 기준 모두 같아 정정 글은 안 올림. 앞으로 «이번 주»는 금→금으로만 쓴다 | 재무부 par CSV |
+| 확장 — substack_notes(게이트) | substack.com/notes → 홈 «맞춤» 피드는 보이나 /api/v1/user/self = 403(로그아웃) → Notes 는 작성자 계정 필요 = 계정 생성 안전선 밖 → channels.json(gate 계정) + mkt-plan cap 0 | channels.json |
+| 도구 수리 | ①mkt-plan: slot 이 channels.json id(x_us)를 배정하는데 pub 은 규칙 id(x_post)만 받아 «알 수 없는 채널» → ALIAS 를 pub 앞으로 옮겨 별칭을 규칙 id 로 기록 ②WIM 은 URL 탭이 없다(내부 상태 home·lib·search·me) → 캡처는 X_SHOT_CLICK_TEXT=Library 로(도구에 이미 있는 옵션). 참고: 캡처 도구는 광고 칸을 지우는데 React 가 다시 그려 가짜 스폰서가 남았다(작업 칩의 수리로 원인 제거 예정) | node --check·slot·pub 확인 |
+| 고정 ⑥ 스윕 | 차단 0(검색어 12) | admob-arc-sweep |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
