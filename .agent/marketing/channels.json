@@ -1663,6 +1663,15 @@
     "why": "매체 등록은 SmartNews 퍼블리셔 지원 사이트로 신청(외부 발신) · 기사 공급은 회사 사양(SmartFormat RSS) = 운영 웹 배포"
    },
    "note": "★2026-09-26 16:4x 확장 발굴(실측, about.smartnews.com/ja/press/publishers.html 원문): «当社の仕様に基づいて、SmartNewsへ記事を配信いただくと» — SmartView(스마트폰 최적화 고속 표시)·브랜드 로고 상시 표시·«オリジナルサイトへの動線»·SmartNews 발생 접속을 매체가 계측·관리 화면(조회수·독자 속성)·기사 아래 스폰서 2칸. 신청·사양은 «媒体運営者向けサポートサイト»(publishers.smartnews.com/hc/ja — 서버 curl 은 Cloudflare 403). 왜 후보: 일본에서 폰 뉴스 앱 상위, 우리 설치 전환은 폰 클릭뿐(PC 79%·QR 1%). 우리 쪽 준비물: 일본어 기사형 페이지(UC 에디션·WIM 해설 ja)의 SmartFormat RSS. 같은 사이클 측정: note #米国株 = 글 144,329·최근 1시간 12편·인기글 좋아요 13~96(우리 note 글은 이미 이 태그를 쓴다 — 새 표면 아님), note API 로는 «つぶやき»가 안 잡혀 측정 불가."
+  },
+  {
+   "id": "bluesky_kr",
+   "name": "블루스키 한국어 미국주식",
+   "tier": "C",
+   "enabled": false,
+   "tag": "bluesky",
+   "action": "rejected",
+   "note": "★2026-09-26 17:4x 확장 발굴 → 보류(실측, 공개 api.bsky.app searchPosts sort=latest 25건): «미국주식» 가장 최근 글 32시간 전·최고 좋아요 4·작성자 10명 · «서학개미» 가장 최근 393시간 전(최고 좋아요 30) · «미장» 18시간 전(미용 «미장»과 섞임) · «나스닥 금리» 106시간 전·최고 좋아요 3. 한국어 블루스키 미국주식 대화는 사실상 없다 — 한국은 네이버 블로그·토스 커뮤니티·스레드(threads_kr) 쪽. 일본어도 같은 결론(bluesky_jp)."
   }
  ],
  "candidates": [

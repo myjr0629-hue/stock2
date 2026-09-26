@@ -125,6 +125,7 @@ const CH = {
   linkedin:    { cap: 1, day: 'kst', window: [0, 24], note: '카드 위 클릭 금지·전체 재입력' },
   linkedin_articles: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 첫 아티클 발행(피드 «글쓰기»→/article/new/). 편집기는 iframe — 커버=«컴퓨터에서 업로드»(text 선택자)→다음, 제목칸은 좌표 클릭(텍스트 선택자는 textarea 입력 불가), 본문은 키 입력. ⚠ Shift+End 는 문서 끝까지 선택(본문이 통째로 지워졌다)' },
   linkedin_groups: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — «US Stock Market | Trading & Investing»(공개·6,033명·금융업 963명) 가입 요청(운영자 승인 대기). 그룹 화면은 iframe — 버튼은 snapshot ref 로 누른다(좌표·DOM 질의는 IFRAME 만 잡힌다)' },
+  bluesky_kr: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 한국어 블루스키 미국주식 대화 없음(최근 글 32h~393h 전)' },
   smartnews: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(외부 신청 + SmartFormat RSS 웹 배포)' },
   google_news: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(웹 배포) — 구글 뉴스 KR 색인 18건·검색 순위 0. NewsArticle·news-sitemap 필요' },
   geeknews_comment: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — GeekNews 댓글(무링크·앱명 없이 실측 데이터). 가이드라인: 홍보·트래픽 유도·대량 요약형은 노출 제한' },
