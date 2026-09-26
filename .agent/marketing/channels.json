@@ -1687,6 +1687,15 @@
     "why": "PRLog 은 «무료 제출·배포»지만 무료 계정 필요 — 계정 생성은 안전선 밖. EIN Presswire 는 유료($99.80/건)라 제외"
    },
    "note": "★2026-09-26 18:4x 확장 발굴(실측): prlog.org/pub «You can submit and distribute a PR for free and most of our services are free» · «Free account to manage all your press releases» → 계정 필요. einpresswire.com/pricing = 건당 $99.80(5건 $499) 유료(구글 뉴스·블룸버그 터미널 배포를 광고) → 예산 증액 금지로 제외. openpr.com 제출 페이지 = 서버 curl 403(측정 못 함). 왜 후보: 보도자료 페이지가 구글 뉴스에 색인되면 폰 뉴스 표면에 앱 링크가 생긴다(google_news 채널과 같은 목적) — 다만 무료 배포처의 뉴스 권위는 낮다. 원고는 press/ 의 영문 보도자료를 쓰면 된다."
+  },
+  {
+   "id": "threads_reply_jp",
+   "name": "스레드 일본어 답글(米国株 인기글)",
+   "tier": "C",
+   "enabled": false,
+   "tag": "threads_bio",
+   "action": "rejected",
+   "note": "★2026-09-26 19:4x 확장 발굴 → 보류(실측, Threads 검색 «米国株» 기본 정렬 스크롤 3회): 반응이 큰 글은 초보자 조언 요청(«投資家先輩の皆さん…アドバイスほしいです» 8/24 좋아요 1.1천·답글 259 · «株初心者…NISA枠で買ったはいいけどその後がわからない» 8/18 좋아요 1.2천·답글 176) — 우리 원칙(예측·투자권유 금지)으로는 답할 게 없는 질문이다. 최근 米国株 주제 글은 좋아요 2 수준(kavuokaneai 1일). 검색 결과에 무관한 글(주택 디자인·AI 일러스트)도 섞인다. 영어 threads_reply 도 건당 0(5건). → 일본은 threads_jp 원글(첫 글 12분 만에 1클릭)·note·X JP 로 간다."
   }
  ],
  "candidates": [

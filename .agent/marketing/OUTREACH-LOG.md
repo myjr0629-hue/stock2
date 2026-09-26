@@ -12521,3 +12521,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 확장 — 무료 보도자료(등록·게이트) | prlog.org/pub «submit and distribute a PR for free» + «Free account» → 계정 필요(대표) · EIN Presswire 건당 $99.80(유료 — 제외) · openpr 제출 페이지 curl 403 | channels.json free_press_release |
 | **고정 ⑥ 스윕 — 4편 차단** | «종목»에서 새 일회용 소재: tzkhmbvw10.shop(2편)·awvxzrw4.shop·ahokrew1.shop → 소재 차단 + **광고주 URL 자동 추가가 처음 실제로 돌았다**(오늘 고친 «누른 뒤 상태 재확인·허용됨이면 줄 스위치» 경로 포함) → admob-url-blocklist.json 75→78(«차단됨» 확인된 것만 파일에 기록하는 규칙) | /tmp/ego/arc-blocked-*.json · admob-url-blocklist.json |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 19:30~19:42 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 확장 1(스레드 일본어 답글 — 보류) · 스윕 0 · 오늘 글 초기 반응
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 확장 — 스레드 일본어 답글(등록·보류) | Threads 검색 «米国株»: 반응 큰 글 = 초보자 조언 요청(8/24 좋아요 1.1천·답글 259, 8/18 좋아요 1.2천·답글 176) — 예측·투자권유 금지 원칙상 답할 수 없는 질문 · 최근 米国株 글은 좋아요 2 수준 · 무관한 글 섞임. 영어 threads_reply 도 건당 0 → channels.json threads_reply_jp(rejected) | Threads 검색 |
+| 초기 반응 | note_kojin(18:34 JST 게시): 좋아요 0·댓글 0, 클릭 3(전부 PC — 사람인지 수집기인지는 ㊻ 없이는 구분 불가) · threads_jp·naver_blog 는 ET 9/26(13시 KST~) 클릭 0 | note API · 레디스 원값 |
+| 고정 ⑥ 스윕 | 0편(URL 목록 78) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
