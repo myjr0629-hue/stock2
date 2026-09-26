@@ -12509,3 +12509,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 큐 점검 | QUEUE.json 최근 항목(t176~t210)은 대부분 대표 결정·빌드·계정 대기(갤럭시 셀러 페이지 t181·앱 공유 버튼 t210·리딤 t205~t209 등) — 이번 사이클에 바로 실행할 새 표면 없음 | QUEUE.json |
 | 고정 ⑥ 스윕 | 0편(URL 목록 75) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 18:30~18:45 — 시간 사이클: 실행 1(note #個人開発 ✅ 첫 글 — 비로그인·API 검증) · 게이트 341/0 · 확장 1(무료 보도자료 — 게이트) · **스윕: 리딩방 새 소재 4편 차단 + URL 자동 추가 첫 실동작(78)**
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **note_kojin ✅(첫 글)** | «SNSからのクリック、79%がPCだった ― 個人開発の米国株アプリで「入れられないクリック」を数えていた話» — 3일 229클릭(Android 14·iPhone 35·PC 180) · PC 에서 QR 로 폰에 넘어간 것 1(1%) · 블루스키 91클릭 전부 PC·폰 0(팔로워 25·대부분 좋아요 0) → 봇 의심·UA 계열 측정 준비(반영 전) · GeekNews 33 중 폰 16·자사 웹 23 중 18 · «숫자가 좋아 보인 채널부터 의심» · 가치(월 50~99달러 → 무료) · from=note_kojin · AI 지원 표시 · 태그 #個人開発 #アプリ開発 #米国株 · 見出し画像 = NKE 일본어 화면(1280×670) | https://note.com/signumhq/n/nbe3c8f4f3611 · 비로그인 200·제목·링크·OG 이미지 + note API: 18:34 JST published·수치 8개·from=note_kojin·AI 표시·태그 3·eyecatch |
+| 확장 — 무료 보도자료(등록·게이트) | prlog.org/pub «submit and distribute a PR for free» + «Free account» → 계정 필요(대표) · EIN Presswire 건당 $99.80(유료 — 제외) · openpr 제출 페이지 curl 403 | channels.json free_press_release |
+| **고정 ⑥ 스윕 — 4편 차단** | «종목»에서 새 일회용 소재: tzkhmbvw10.shop(2편)·awvxzrw4.shop·ahokrew1.shop → 소재 차단 + **광고주 URL 자동 추가가 처음 실제로 돌았다**(오늘 고친 «누른 뒤 상태 재확인·허용됨이면 줄 스위치» 경로 포함) → admob-url-blocklist.json 75→78(«차단됨» 확인된 것만 파일에 기록하는 규칙) | /tmp/ego/arc-blocked-*.json · admob-url-blocklist.json |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |

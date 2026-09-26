@@ -1672,6 +1672,21 @@
    "tag": "bluesky",
    "action": "rejected",
    "note": "★2026-09-26 17:4x 확장 발굴 → 보류(실측, 공개 api.bsky.app searchPosts sort=latest 25건): «미국주식» 가장 최근 글 32시간 전·최고 좋아요 4·작성자 10명 · «서학개미» 가장 최근 393시간 전(최고 좋아요 30) · «미장» 18시간 전(미용 «미장»과 섞임) · «나스닥 금리» 106시간 전·최고 좋아요 3. 한국어 블루스키 미국주식 대화는 사실상 없다 — 한국은 네이버 블로그·토스 커뮤니티·스레드(threads_kr) 쪽. 일본어도 같은 결론(bluesky_jp)."
+  },
+  {
+   "id": "free_press_release",
+   "name": "무료 보도자료 배포(PRLog 등)",
+   "tier": "C",
+   "enabled": false,
+   "tag": "press_release",
+   "action": "gated",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표 1회",
+    "why": "PRLog 은 «무료 제출·배포»지만 무료 계정 필요 — 계정 생성은 안전선 밖. EIN Presswire 는 유료($99.80/건)라 제외"
+   },
+   "note": "★2026-09-26 18:4x 확장 발굴(실측): prlog.org/pub «You can submit and distribute a PR for free and most of our services are free» · «Free account to manage all your press releases» → 계정 필요. einpresswire.com/pricing = 건당 $99.80(5건 $499) 유료(구글 뉴스·블룸버그 터미널 배포를 광고) → 예산 증액 금지로 제외. openpr.com 제출 페이지 = 서버 curl 403(측정 못 함). 왜 후보: 보도자료 페이지가 구글 뉴스에 색인되면 폰 뉴스 표면에 앱 링크가 생긴다(google_news 채널과 같은 목적) — 다만 무료 배포처의 뉴스 권위는 낮다. 원고는 press/ 의 영문 보도자료를 쓰면 된다."
   }
  ],
  "candidates": [
