@@ -84,9 +84,9 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
     'call-wall': {
       slug: 'call-wall',
       title: 'Call Wall and Put Floor: Reading Open Interest Levels',
-      desc: 'The call wall and put floor are the strikes with the heaviest open interest. Here is why they often act as short-term resistance and support, and when they break.',
+      desc: 'The call wall and put floor are the strikes with the heaviest call and put open interest near the current price. Here is why they often act as short-term resistance and support, and when they break.',
       h1: 'Call wall and put floor, explained',
-      lead: 'The call wall is the strike carrying the largest call open interest; the put floor is its downside counterpart. They matter because of who is on the other side of those contracts.',
+      lead: 'The call wall is the strike above the current price (up to 20% higher) carrying the largest call open interest; the put floor is its downside counterpart, the strike below the price (up to 20% lower) with the largest put open interest. They matter because of who is on the other side of those contracts.',
       sections: [
         { h: 'Why a wall acts like resistance', p: 'Dealers short a large block of calls at one strike must hedge by holding shares. As price approaches that strike, the hedge is already largely in place, so further buying pressure meets supply from delta adjustments. The strike behaves like a soft ceiling.' },
         { h: 'Why a floor acts like support', p: 'The mirror image. Heavy put open interest below the price leaves dealers hedged short; as price falls toward the strike, their hedge adjustment becomes buying, which cushions the move.' },
@@ -185,9 +185,9 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
     'call-wall': {
       slug: 'call-wall',
       title: '콜월과 풋플로어 — 미결제약정 레벨 읽는 법',
-      desc: '콜월과 풋플로어는 미결제약정이 가장 두꺼운 행사가입니다. 단기 저항·지지처럼 작동하는 이유와 무너지는 순간을 설명합니다.',
+      desc: '콜월과 풋플로어는 현재가 가까이에서 콜·풋 미결제약정이 가장 두꺼운 행사가입니다. 단기 저항·지지처럼 작동하는 이유와 무너지는 순간을 설명합니다.',
       h1: '콜월과 풋플로어, 제대로 읽기',
-      lead: '콜월은 콜 미결제약정이 가장 많은 행사가, 풋플로어는 그 하방 짝입니다. 중요한 이유는 «그 계약 반대편에 누가 있는가» 때문입니다.',
+      lead: '콜월은 현재가보다 위(최대 20%)에서 콜 미결제약정이 가장 많은 행사가, 풋플로어는 그 하방 짝으로 현재가보다 아래(최대 20%)에서 풋 미결제약정이 가장 많은 행사가입니다. 중요한 이유는 «그 계약 반대편에 누가 있는가» 때문입니다.',
       sections: [
         { h: '콜월이 저항처럼 보이는 이유', p: '한 행사가에서 콜을 대량 매도한 딜러는 주식을 보유해 헤지합니다. 가격이 그 행사가에 다가갈 때쯤이면 헤지가 이미 대부분 채워져 있어, 추가 매수 압력이 델타 조정 물량과 만납니다. 그 행사가가 «부드러운 천장»처럼 작동합니다.' },
         { h: '풋플로어가 지지처럼 보이는 이유', p: '거울상입니다. 현재가 아래에 풋 미결제약정이 두꺼우면 딜러는 숏 헤지 상태이고, 가격이 그 행사가로 내려갈수록 헤지 조정이 «매수»가 되어 하락을 완충합니다.' },
@@ -286,9 +286,9 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
     'call-wall': {
       slug: 'call-wall',
       title: 'コールウォールとプットフロア — 建玉水準の読み方',
-      desc: 'コールウォールとプットフロアは建玉が最も厚い権利行使価格です。短期の抵抗・支持として働く理由と、崩れる場面を解説します。',
+      desc: 'コールウォールとプットフロアは、現在値の近くでコール・プットの建玉が最も厚い権利行使価格です。短期の抵抗・支持として働く理由と、崩れる場面を解説します。',
       h1: 'コールウォールとプットフロアの読み方',
-      lead: 'コールウォールはコール建玉が最も多い権利行使価格、プットフロアはその下方の対です。重要なのは「その契約の反対側に誰がいるか」だからです。',
+      lead: 'コールウォールは現在値より上(最大20%)でコール建玉が最も多い権利行使価格、プットフロアはその下方の対で、現在値より下(最大20%)でプット建玉が最も多い権利行使価格です。重要なのは「その契約の反対側に誰がいるか」だからです。',
       sections: [
         { h: 'ウォールが抵抗のように働く理由', p: 'ある権利行使価格でコールを大量に売ったディーラーは、株式を保有してヘッジします。価格がその水準に近づく頃にはヘッジがほぼ埋まっており、追加の買い圧力がデルタ調整の供給とぶつかります。その価格が「柔らかい天井」のように働きます。' },
         { h: 'フロアが支持のように働く理由', p: '鏡像です。現在値の下にプット建玉が厚いとディーラーはショートヘッジの状態で、価格がその水準へ下がるほどヘッジ調整が「買い」となり下落を和らげます。' },
