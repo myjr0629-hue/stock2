@@ -12613,3 +12613,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 배포 준비물 | 운영 zip 백업(로컬, 저장소 밖) · 새 패키지(파일 4,492개 동일·index.js 1곳) · 기준선: 15분마다 «481 ok, 28 fail, 509/509»·약 240초·메모리 510MB·오류 0 · 검증: 다음 실행 로그·DynamoDB 이력·Upstash 키 0 | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
 | 고정 ⑥ 스윕 | 이번 사이클 미실행(대표 지시 작업 우선) | — |
+
+
+---
+
+## 2026-09-27 (KST) 01:20~01:40 — 대표 승인 작업: Redis(Upstash) 비용 1단계 **운영 반영·검증 완료** (signum-harvest 고아 쓰기 제거)
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 배포 전 대조 | 운영 zip 을 받아 저장소와 비교: index.js·package.json 동일, intrinio-adapter.js 는 1줄 차이(운영에만 9/16 폐기한 옛 프록시 키 기본값 — 프록시가 401 로 거부 확인) → 운영 zip 을 바탕으로 두 파일만 교체(파일 4,492개 동일) | GetFunction·diff·curl 401 |
+| 배포 | 01:24 KST(16:24:02Z) `UpdateFunctionCode` — 이전 해시 NwXvpFF8… 일치 확인 후, 새 해시 KbrBJ0Kz… Successful·Active. 되돌리기용 운영 zip 은 저장소 밖에 보관 | lambda-deploy(expect-old 가드) |
+| 검증 ① 실행 | 16:32:54Z 첫 실행: «481 ok, 28 fail, 509/509 in 240s (full pass)» — 배포 전과 동일 · 310초 · 메모리 486MB · ERROR 0 · 타임아웃 0 | CloudWatch Logs |
+| 검증 ② 부수효과 | DynamoDB signum-flow-history 계속 기록(AAPL 16:34:04·NVDA 16:35:18·TSLA 16:36:05, src=flowwarm) | Query |
+| 검증 ③ Upstash | 옛 키 `flow:ticker:lite:*`(버전 없음) 16:25:47Z 481개 → **16:38:05Z 0개**(새 코드 실행 중 쓰기 0) | 읽기 전용 SCAN |
+| 효과(실측 기반) | Upstash 하루 약 3.27만 명령·4.8GB 감소 → 9월 남은 기간 하루 약 $0.21 절감(월말 예상 약 $57.5), 새 달 기준 월 약 $5 | 9/26 Monitor·CloudWatch |
+| main 반영 | 브랜치 fix/redis-cost-security(웹 코드 변경 0줄)를 main 에 합치는 푸시가 권한 검사(운영 배포)에 막힘 → 대표 승인 대기. 그 전까지 main 의 harvest_lambda/index.js 는 옛 코드(재배포 시 고아 쓰기 부활 위험 — 합치기 전 main 으로 Lambda 재배포 금지) | — |
+| 다음 | 프록시 타임아웃(토요일 5.5시간 50건, 38% 가 주말 예열 크론 직후) 원인 측정 — EC2 관측기(읽기 전용, 재시작 없음)는 권한 검사(원격 쓰기)에 막혀 승인 대기 · 보안 조치 1건은 대표 채팅 보고 참조 | Vercel 로그 |
