@@ -18,5 +18,9 @@
    맥스페인은 4종목 모두 일치). 코드 정의를 확인해 문서·데이터셋 필드 설명을 먼저 맞춘다.
 2. 데이터셋 토요일 파일(2026-09-19) 정리 · 의회 거래 커버리지 정정이 끝난 뒤 제출.
 
+## 진행(9/27 08:5x)
+- 정의 확정(코드): 콜월 (S, 1.2S] · 풋플로어 [0.8S, S) · pinZone = maxPain. 데이터셋 필드 설명 수리 완료, 설명 페이지는 브랜치 fix/learn-call-wall-definition(합치기 대기), README·HF Space 는 브라우저 복귀 시.
+- 나스닥 전체 체인 대조 11/12 전 항목 일치(계약 수 포함) — 잘림 없음.
+
 ## 항목 문안(초안)
 - [SIGNUM HQ](https://www.signumhq.com) - `Data` - Options positioning for US stocks and ETFs (max pain, net gamma exposure, call wall and put floor, put/call open interest) plus FINRA off-exchange volume share, in a web and iOS/Android app with a permanent free tier that needs no payment information; daily CC BY 4.0 JSON snapshots for 12 large caps are published on GitHub. [GitHub](https://github.com/myjr0629-hue/options-market-structure-daily)

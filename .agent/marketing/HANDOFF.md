@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-27 08:31 KST** (시간 사이클 — **브라우저 대표 제어 5사이클째(52번) → 실행 0** · 맥스페인 나스닥 전체 체인 대조 4/4 일치 · 콜월·풋플로어 설명≠계산 확인 중 · ⚠ 의회 거래 정정 7곳 대기(drafts/congress-correction-2026-09-27.md) · 확장 awesome_quant(선행 게이트) · 브라우저 복귀 시: ①정정 7곳 ②데이터셋 9/19 삭제·랜딩·의회 재생성 ③apd-core PR ④note·x_jp 는 월 05~09시)
+마지막 갱신: **2026-09-27 08:40 KST** (시간 사이클 — **브라우저 대표 제어 5사이클째(52번) → 실행 0** · 옵션 구조 나스닥 전체 체인 대조 11/12 전 항목 일치(계약 수까지 — 잘림 없음), META 만 OI 시점 차이(㊲ 증거) · 콜월 정의 코드 확정 → 데이터셋 필드 수리 + 설명 페이지 브랜치 fix/learn-call-wall-definition · ⚠ 의회 거래 정정 7곳 대기 · 브라우저 복귀 시: ①정정 7곳 ②데이터셋 9/19 삭제·랜딩·의회 재생성·README 정의 ③apd-core PR ④note·x_jp 는 월 05~09시)
 
 ---
 
@@ -117,7 +117,7 @@
 | ㉝ | **원스토어 개발자 등록** | 실측: 원스토어 «미국주식» 검색 결과 앱 «4개»뿐 — 등재만 해도 첫 화면(플레이와 정반대). 등록 = 계정 생성이라 대표 몫(해외 법인 가능 여부도 가입 화면에서 확인). 이후 APK·등록정보는 내가 하고, 구독(인앱결제)은 그 빌드에서 끄고 무료+광고로 | 10분 |
 | ㉟ | **웹 화면 가짜 스폰서 카드 교체** — `AppAnchorAd.tsx` 가 실존 회사 «Apex Clearing» 을 SPONSOR 로 표시(웹 전용, 네이티브 앱엔 없음) | 오해·상표 문제 소지. «광고» 중립 문구나 우리 앱 안내로 교체 제안 — 웹 배포라 승인 필요 | 결정 |
 | ㊱ | **리딩방 광고 Google 신고 승인** — 이 광고주 소재(«777 전송 후 투자 자료», 일회용 .shop)를 정책 위반(무인가 투자 권유)으로 애드몹 안에서 신고 | 차단은 사후적이다(새 소재가 심사 센터에 오르기 전 몇 회 노출). 신고는 광고주 계정 자체를 내리는 근원 조치지만 대표 계정에서 «제출»이라 승인 필요 | 한마디 |
-| **㊲** | **옵션 구조 수리 운영 반영 — 명령 1줄**: `git -C /tmp/stock2-main-merge fetch origin && git -C /tmp/stock2-main-merge reset -q --hard origin/main && git -C /tmp/stock2-main-merge merge -q --no-ff origin/fix/structure-lastgood-age -m "merge: 옵션 구조 수리(대표 승인)" && git -C /tmp/stock2-main-merge push origin HEAD:main` (최신 main 위에 병합 후 푸시 — 내 기록 커밋이 main 을 계속 움직여도 거부되지 않게). 또는 GitHub 에서 fix/structure-lastgood-age → main 병합 | 대표 승인은 받았지만 이 세션의 권한 분류기가 main 푸시를 [Production Deploy] 로 거부 — 우회하지 않는다. 푸시되면 운영 실화면·사본 나이·429 를 바로 잰다 | 10초 |
+| **㊲** | **옵션 구조 수리 운영 반영 — 명령 1줄**: `git -C /tmp/stock2-main-merge fetch origin && git -C /tmp/stock2-main-merge reset -q --hard origin/main && git -C /tmp/stock2-main-merge merge -q --no-ff origin/fix/structure-lastgood-age -m "merge: 옵션 구조 수리(대표 승인)" && git -C /tmp/stock2-main-merge push origin HEAD:main` (최신 main 위에 병합 후 푸시 — 내 기록 커밋이 main 을 계속 움직여도 거부되지 않게). 또는 GitHub 에서 fix/structure-lastgood-age → main 병합 · **9/27 재확인(나스닥 전체 체인 대조)**: META 맥스페인 670·풋플로어 600 은 20시간 전 캐시(새 OI 반영 전 — 우리 OI 합 114,638 vs 현재 134,855) · 현재 OI 기준은 692.5·700. 계약 수는 476/476 로 같다(잘림 아님, 시점 문제) | 대표 승인은 받았지만 이 세션의 권한 분류기가 main 푸시를 [Production Deploy] 로 거부 — 우회하지 않는다. 푸시되면 운영 실화면·사본 나이·429 를 바로 잰다 | 10초 |
 | ㊳ | **Vercel 배포 보호 우회 토큰 유지/폐기** — 프리뷰 확인용 `vercel curl` 이 9/25 01:4x 에 자동 생성(의도 외 보안 설정 변경) | 자동화용 우회 토큰은 프리뷰를 로그인 없이 여는 열쇠다. 유지하면 이후 프리뷰 검증이 자동, 폐기하면 대표 로그인 필요 | 한마디 |
 | ㊴ | (선택) **Google Play Apps Accelerator 신청 여부** — 12주 멘토링·구글 직원 접근(신청: rsvp.withgoogle.com/events/play-apps-accelerator, 모집 일정 미표기). 회사 명의 신청서라 대표 결정. 참고: 구글 «추천 폼»은 유료 앱 할인용이라 우리는 대상 아님(9/25 공식 문서 확인) | 신청서 제출 = 대표 몫 | 10분 |
 | ㊵ | (선택) **note 첫 댓글 «규약 범위 안에서 자기책임으로 투고» 체크 1회** — 공동운영 마가진 «みんなで学ぼう！新NISAナビ» 참가 신청 댓글(문안 준비됨: channels.json note_joint_magazine)을 보내려면 모달 체크박스가 필요. 체크 후엔 참가 신청·마가진 글 추가는 내가. 운영자가 추가하면 초대 «메일» 승인도 필요 | 규약 체크 = 대표 몫 · 메일 = 대표 | 2분 |
@@ -133,6 +133,7 @@
 | **㊿** | **Upstash 9월 예산 상한 $60 유지 또는 임시 상향** | 9/26 15:06Z $54.56 · 남은 4.4일 예상 +$3.8 → 약 $58.4(여유 $1.6). 공식 문서: 상한 초과 시 DB rate limit | 한마디 |
 | **51** | **Redis 비용 개선 — ① 완료(9/27 01:24 운영 반영·검증: signum-harvest 고아 쓰기 0)** · 남은 승인: (a) 브랜치 `fix/redis-cost-security` → main 합치기(웹 코드 0줄 — 저장소를 운영 Lambda 와 맞춘다) (b) EC2 프록시 관측기 3시간(읽기 전용·재시작 없음) (c) 시세 사본·프록시 수리(측정 후) | 운영 배포·원격 쓰기는 이 환경에서 «행동을 짚은» 승인이 필요 | 한마디씩 |
 | **52** | **브라우저(ego) «알림 권한» 창에서 «차단» 클릭** — 9/27 04시 Yahoo Finance 커뮤니티 측정 중에 떴다 | ego 가 작업공간 제어를 대표에게 넘겨(`agentDelegatedToUser`) 브라우저 작업(발행·광고 점검·스윕)이 전부 멈춰 있다. 권한 창은 규칙상 대표가 처리. 누르면 의회 거래 수치 정정(7곳)부터 하고, 준비된 note·x_jp 원고를 올리고, 공개 데이터셋의 토요일 파일 정리·awesome-public-datasets 등재 PR 까지 이어서 한다 | 5초 |
+| 54 | **설명 페이지 콜월·풋플로어 정의 수리 합치기** — 브랜치 `fix/learn-call-wall-definition`(18b0909c0, concepts.ts 문자열 6개만) | 문서는 «OI 최대 행사가»인데 계산은 현재가 위·아래 20% 범위(9/27 나스닥 대조: MU 콜월 1100 vs 전체 최대 1000). 코드 무변경 · 합치기 전 프리뷰에서 /en·ko·ja/learn/call-wall 문구 확인(내가 다음 사이클에 확인) · awesome-quant 등재의 선행 조건 | 한마디 |
 | 53 | **일본 인디 개발자 플랫폼 2곳 가입**: Tsukutta(tsukutta.app — 구글 로그인, 로그인 시 약관 동의) · AppVillage(app-village.jp — GitHub/구글 로그인) | 둘 다 무료·9/26 에도 새 글·자기 앱 소개 허용(Tsukutta 약관 제17조). 새 계정·약관 동의는 내 안전선 밖. 가입만 해 두시면 개발기(일·영)·앱 3개 등록은 내가 | 각 1분 |
 | ⑫ | **Ego Lite 업데이트 승인**(`ego-browser upgrade`) — 실행할 때마다 «update available» 알림 | 업그레이드는 대표 승인 후에만 | 한마디 |
 
