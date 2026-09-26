@@ -5,9 +5,9 @@
  * TEST 2: Dual Write 제거 시뮬레이션 — EC2 실패 시나리오 안전성 검증
  */
 
-const UPSTASH_URL = 'https://sacred-manatee-21571.upstash.io';
-const UPSTASH_TOKEN = 'AVRDAAIncDIwNzE3MjMwY2ZjZDg0MWY2OWY5OGYyYzdlODUzYjU4Y3AyMjE1NzE';
-
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+if (!UPSTASH_URL || !UPSTASH_TOKEN) { console.error('Upstash 자격 없음 — 환경변수 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN 을 넣고 실행하세요(코드에 적지 않는다)'); process.exit(2); }
 async function cmd(...args) {
     const res = await fetch(UPSTASH_URL, {
         method: 'POST',
