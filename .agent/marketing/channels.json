@@ -1648,6 +1648,21 @@
     "why": "순위를 얻으려면 기사 페이지에 NewsArticle 구조화 데이터·발행/수정 시각·게시자 정보 + news-sitemap.xml(현재 404)이 필요 = 운영 웹 배포(대표 승인)"
    },
    "note": "★2026-09-26 15:4x 확장 발굴(실측, 구글 뉴스 공개 RSS 검색): site:signumhq.com = 한국판(hl=ko,gl=KR) 18건 · 미국판 5건(홈·랭킹 페이지뿐, 2019·2026 날짜 섞임) · 일본판 0건. 한국판 18건은 전부 우리 한국어 종목 페이지(«BBIO 다크풀 54.6%, 맥스페인 $70 — 무료, 매일 갱신» 등 9/16~9/23) — 즉 색인은 됐다. 그런데 실제 검색 «BBIO»(11건)·«PAYC»(4건)·«FN 주가»(77건)·«다크풀»(50건)·«ARMK 다크풀»(0건)에서 우리 페이지는 0회 = «색인됐지만 순위가 없다». news-sitemap.xml 404 · 사이트맵은 sitemap.xml 하나. 왜 후보인가: 구글 뉴스·디스커버는 폰 화면이고, 설치로 이어지는 건 폰 클릭뿐(9/26 실측 PC 79%·QR 1%). 할 일(웹): ① 매일 바뀌는 해설 페이지(UC 에디션·WIM «왜 움직였나»)에 NewsArticle(headline·datePublished·dateModified·publisher·image 1200px) ② news-sitemap.xml(48시간 안 기사) ③ 종목 페이지 제목의 MAX PAIN 수치는 신뢰 문제(㊲)라 뉴스형 제목에서 뺀다. 측정: 같은 RSS 검색으로 주 1회."
+  },
+  {
+   "id": "smartnews",
+   "name": "SmartNews 매체 제휴(일본·미국 뉴스 앱 — 폰 전용 SmartView)",
+   "tier": "A",
+   "enabled": false,
+   "tag": "smartnews",
+   "action": "gated",
+   "gate": {
+    "kind": "메일승인",
+    "until": null,
+    "who": "대표(외부 신청) + 웹 배포(SmartFormat RSS)",
+    "why": "매체 등록은 SmartNews 퍼블리셔 지원 사이트로 신청(외부 발신) · 기사 공급은 회사 사양(SmartFormat RSS) = 운영 웹 배포"
+   },
+   "note": "★2026-09-26 16:4x 확장 발굴(실측, about.smartnews.com/ja/press/publishers.html 원문): «当社の仕様に基づいて、SmartNewsへ記事を配信いただくと» — SmartView(스마트폰 최적화 고속 표시)·브랜드 로고 상시 표시·«オリジナルサイトへの動線»·SmartNews 발생 접속을 매체가 계측·관리 화면(조회수·독자 속성)·기사 아래 스폰서 2칸. 신청·사양은 «媒体運営者向けサポートサイト»(publishers.smartnews.com/hc/ja — 서버 curl 은 Cloudflare 403). 왜 후보: 일본에서 폰 뉴스 앱 상위, 우리 설치 전환은 폰 클릭뿐(PC 79%·QR 1%). 우리 쪽 준비물: 일본어 기사형 페이지(UC 에디션·WIM 해설 ja)의 SmartFormat RSS. 같은 사이클 측정: note #米国株 = 글 144,329·최근 1시간 12편·인기글 좋아요 13~96(우리 note 글은 이미 이 태그를 쓴다 — 새 표면 아님), note API 로는 «つぶやき»가 안 잡혀 측정 불가."
   }
  ],
  "candidates": [
