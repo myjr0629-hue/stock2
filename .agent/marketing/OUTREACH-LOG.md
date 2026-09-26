@@ -12469,3 +12469,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 확장 — WSB «Weekly Earnings Thread»(등록) | WSB 공식 주간 실적 스레드(flair «Earnings Thread»): «8/17 - 8/21» 댓글 690·점수 121 · «7/20 7/24» 댓글 1,061·점수 246. 늦은 댓글은 묻히므로 «올라온 직후 1~2시간 안»에 그 주 큰 실적(MU 9/30·NKE 10/1)의 옵션 내재 변동폭 + 최근 4번 반응을 무링크로. **집계는 mkt-plan ALIAS 로 reddit 에 합산**(레딧 하루 3건 UTC 안전선을 한 규칙으로) → channels.json wsb_earnings_thread | channels.json · scripts/mkt-plan.js |
 | 고정 ⑥ 스윕 | 0편(URL 목록 75) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 15:30~15:43 — 시간 사이클: 실행 0(열린 채널 없음 — 전부 캡 소진·게이트) · 뚫기 0 · 게이트 341/0 · **확장 1: 구글 뉴스(색인 18·순위 0)** · 스윕 0 · PPO 심사 대기
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| slot | 실행 «열린 채널 없음», 뚫기 «없음» — 오늘 캡을 다 썼거나(네이버 3/3·레딧 3/3·블루스키 계정 3/3·X 2/2·스레드 2/2) 게이트 | mkt-plan slot |
+| **확장 — 구글 뉴스(등록·게이트)** | 구글 뉴스 공개 RSS 검색 실측: site:signumhq.com = **한국판 18건**(전부 한국어 종목 페이지 «BBIO 다크풀 54.6%, 맥스페인 $70 — 무료, 매일 갱신» 등, 9/16~9/23) · 미국판 5건(홈·랭킹뿐) · 일본판 0건 → 색인은 됐다. 그러나 실제 검색 «BBIO»(11건)·«PAYC»(4)·«FN 주가»(77)·«다크풀»(50)·«ARMK 다크풀»(0)에 우리 페이지 0회 = **색인됐지만 순위 없음**. news-sitemap.xml 404. 폰 화면(뉴스·디스커버)이라 설치 전환 쪽 표면 → 할 일(웹 배포 = 대표 승인): 매일 바뀌는 해설 페이지(UC 에디션·WIM)에 NewsArticle 구조화 데이터 + news-sitemap + 종목 페이지 뉴스형 제목에서 MAX PAIN 수치 빼기(㊲) → channels.json google_news(게이트) | news.google.com/rss/search |
+| 클릭 실측(mkt-clicks 3일, ET) | 어제(9/25): home 25 · bluesky 12 · indiehackers 9 · seo_uc 5 · bluesky_bip 4 · x_us 4 · seo_darkpool 4 · note 3 · geeknews 2 · medium 2 / 오늘(9/26 ET, 13시 KST 시작): home 3 · geeknews 1 · seo_uc 1 · seo_sg 1 · seo_wim 1 | mkt-clicks.js |
+| PPO | «미국데이터-먼저 A/B» 여전히 WAITING_FOR_REVIEW(11:0x 제출) | ASC API v2 |
+| 고정 ⑥ 스윕 | 0편(URL 목록 75) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |

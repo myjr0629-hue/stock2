@@ -1634,6 +1634,20 @@
    "tag": "reddit_bio",
    "action": "comment",
    "note": "★2026-09-26 14:4x 확장 발굴(실측, 로그인된 레딧 페이지 API): WSB 공식 주간 실적 스레드(flair «Earnings Thread») — «Weekly Earnings Thread 8/17 - 8/21» 댓글 690·점수 121, «7/20 7/24» 댓글 1,061·점수 246. 규칙 15개에 AI 금지 조항 없음(9/26 확인), 시총 5억달러 이상 종목만. 오늘 WSB «MU earning play» 스레드에 단 데이터 댓글은 스레드 점수 64 인데 내 댓글 1점(아직 반응 없음) — 늦은 댓글은 묻힌다(9/24 실측)는 교훈대로 «스레드가 올라온 직후 1~2시간 안»에 쓴다. 형식: 그 주 큰 실적(이번 주 MU 9/30 장후·NKE 10/1 장후)의 옵션 내재 변동폭 + 최근 4번 다음 날 반응 + «방향 아님», 링크·앱명 0(레딧 규칙). 레딧 하루 3건(UTC)·8분 간격 안에서 센다. 다음 스레드(9/28~10/2 주)는 보통 주말에 올라온다 — slot 이 배정하면 /r/wallstreetbets/search.json?q=Weekly%20Earnings%20Thread&restrict_sr=1&sort=new 로 찾는다. (배정·집계: mkt-plan ALIAS 로 reddit 에 합산 — 레딧 하루 3건(UTC) 안전선을 한 규칙으로 지킨다. 레딧 배정이 오면 이 스레드가 열려 있는지 먼저 본다)"
+  },
+  {
+   "id": "google_news",
+   "name": "구글 뉴스(모바일 피드·뉴스 검색) — 우리 사이트 기사 노출",
+   "tier": "A",
+   "tag": "home",
+   "action": "gated",
+   "gate": {
+    "kind": "대표승인",
+    "until": null,
+    "who": "대표(웹 배포)",
+    "why": "순위를 얻으려면 기사 페이지에 NewsArticle 구조화 데이터·발행/수정 시각·게시자 정보 + news-sitemap.xml(현재 404)이 필요 = 운영 웹 배포(대표 승인)"
+   },
+   "note": "★2026-09-26 15:4x 확장 발굴(실측, 구글 뉴스 공개 RSS 검색): site:signumhq.com = 한국판(hl=ko,gl=KR) 18건 · 미국판 5건(홈·랭킹 페이지뿐, 2019·2026 날짜 섞임) · 일본판 0건. 한국판 18건은 전부 우리 한국어 종목 페이지(«BBIO 다크풀 54.6%, 맥스페인 $70 — 무료, 매일 갱신» 등 9/16~9/23) — 즉 색인은 됐다. 그런데 실제 검색 «BBIO»(11건)·«PAYC»(4건)·«FN 주가»(77건)·«다크풀»(50건)·«ARMK 다크풀»(0건)에서 우리 페이지는 0회 = «색인됐지만 순위가 없다». news-sitemap.xml 404 · 사이트맵은 sitemap.xml 하나. 왜 후보인가: 구글 뉴스·디스커버는 폰 화면이고, 설치로 이어지는 건 폰 클릭뿐(9/26 실측 PC 79%·QR 1%). 할 일(웹): ① 매일 바뀌는 해설 페이지(UC 에디션·WIM «왜 움직였나»)에 NewsArticle(headline·datePublished·dateModified·publisher·image 1200px) ② news-sitemap.xml(48시간 안 기사) ③ 종목 페이지 제목의 MAX PAIN 수치는 신뢰 문제(㊲)라 뉴스형 제목에서 뺀다. 측정: 같은 RSS 검색으로 주 1회."
   }
  ],
  "candidates": [
