@@ -472,7 +472,13 @@
    "id": "apple_iap_events",
    "tier": "A",
    "enabled": false,
-   "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요 ★2026-09-19 실측 3건. ①3앱 모두 이벤트 **APPROVED** 상태이고 일정은 동일하다 — publishStart **2026-09-24**(카드 노출 시작) · eventStart 2026-09-28 · eventEnd 2026-10-23 · **174개국**. 즉 아직 안 보인다. ②**SIGNUM 이벤트의 deepLink 에 `?from=` 태그가 없다**(`https://www.signumhq.com/app`). UC·WIM 은 `?from=iap_event_uc`·`iap_event_wim` 로 제대로 붙어 있다. ③**고칠 수 없다** — `PATCH /appEvents/{id}` 가 409 `STATE_ERROR.UPDATE_APP_EVENT_LIMITED_UPDATE_ALLOWED`: 「Only updates to 'territorySchedules' and 'priority' are permitted in current event state」. ★그러므로 **딥링크의 `?from=` 는 «생성 시점»에 반드시 넣는다. 승인 후엔 잠긴다.** 이번 건은 되돌리면 재심사 위험(발행 4일 전)이 커서 그대로 둔다 — 대신 **09-24 전후의 from=home 클릭 단차**로 기여도를 읽는다."
+   "note": "★무료·최대 레버리지. App Store In-App Events — «검색 결과에 앱과 나란히 별도 행»으로 뜨고 이용자가 직접 검색할 수도 있다. 전 개발자 대상(플레이의 동급 기능은 28일 활성 80만 필요라 영구 불가). 동시 10개·최대 31일·14일 전 예고. ASC API(appEvents·appEventLocalizations·appEventScreenshots)로 크론화 가능. 조건: «반복 일상 과제»는 반려되고 «날짜가 박힌 시장 이벤트»(FOMC·CPI·실적시즌 개막·쿼드러플 위칭)는 통과. 심사 필요 ★2026-09-19 실측 3건. ①3앱 모두 이벤트 **APPROVED** 상태이고 일정은 동일하다 — publishStart **2026-09-24**(카드 노출 시작) · eventStart 2026-09-28 · eventEnd 2026-10-23 · **174개국**. 즉 아직 안 보인다. ②**SIGNUM 이벤트의 deepLink 에 `?from=` 태그가 없다**(`https://www.signumhq.com/app`). UC·WIM 은 `?from=iap_event_uc`·`iap_event_wim` 로 제대로 붙어 있다. ③**고칠 수 없다** — `PATCH /appEvents/{id}` 가 409 `STATE_ERROR.UPDATE_APP_EVENT_LIMITED_UPDATE_ALLOWED`: 「Only updates to 'territorySchedules' and 'priority' are permitted in current event state」. ★그러므로 **딥링크의 `?from=` 는 «생성 시점»에 반드시 넣는다. 승인 후엔 잠긴다.** 이번 건은 되돌리면 재심사 위험(발행 4일 전)이 커서 그대로 둔다 — 대신 **09-24 전후의 from=home 클릭 단차**로 기여도를 읽는다. ★2026-09-26 09:4x 실측: 3앱 이벤트 PUBLISHED, 공개 앱스토어 페이지(us·kr·jp)에 «이벤트» 선반이 실제로 뜬다 — KR «특별 이벤트 · 이번 주 실적 발표», JP «スペシャルイベント · 今週の決算», US «SPECIAL EVENT · This week’s earnings»(비로그인 curl). 이벤트 기간 9/28~10/23. 다음 = 연준 공식 일정(federalreserve.gov) 10/27~28 FOMC 에 맞춘 새 이벤트를 10/6 생성·10/13 예고 시작, deepLink 에 from=iap_event_fomc 를 «생성 시점»에 넣는다(승인 후 잠김).",
+   "gate": {
+    "kind": "일정",
+    "until": "2026-10-06",
+    "who": "나",
+    "why": "현재 이벤트 공개 노출 확인(9/26). 다음 이벤트(FOMC 10/27~28)는 10/6 생성 — 그 전엔 할 일 없음"
+   }
   },
   {
    "id": "apple_whats_new",
@@ -526,13 +532,25 @@
    "id": "play_custom_listings",
    "tier": "A",
    "enabled": false,
-   "note": "★무료·자격 게이트 없음. 구글플레이 «맞춤 스토어 등록정보» — 앱당 50개까지, 국가·사용자상태·광고캠페인에 더해 «Play 검색 키워드»로 타깃팅된다. 우리는 Play 미국에서 premarket earnings #2, 한국에서 서학개미 #2 라 이미 잡히는 검색어가 있다. LiveOps(프로모션 콘텐츠)와 달리 28일 활성 80만 요건이 «없다». 주의: 한 국가는 동시에 하나의 맞춤 등록정보만 받고, 저장≠제출이라 게시 개요에서 검토 제출까지 해야 한다"
+   "note": "★무료·자격 게이트 없음. 구글플레이 «맞춤 스토어 등록정보» — 앱당 50개까지, 국가·사용자상태·광고캠페인에 더해 «Play 검색 키워드»로 타깃팅된다. 우리는 Play 미국에서 premarket earnings #2, 한국에서 서학개미 #2 라 이미 잡히는 검색어가 있다. LiveOps(프로모션 콘텐츠)와 달리 28일 활성 80만 요건이 «없다». 주의: 한 국가는 동시에 하나의 맞춤 등록정보만 받고, 저장≠제출이라 게시 개요에서 검토 제출까지 해야 한다 ★2026-09-26 09:4x 실측(Play Console, SIGNUM app 4974871698649706116): 맞춤 등록정보 1호 «web home (listing=home)» URL 타깃 50% = Live, 방문자·전환 «More data needed for comparison»(from=home 안드로이드 클릭이 3일 1건뿐). 기본 등록정보 28일: 방문자 46·전환 34.8% · 스토어 등록정보 전체 방문자 43(+105%)·설치 클릭 16(−11%). 스마트링크 연결(storeRedirect listing=home)은 이미 라이브.",
+   "gate": {
+    "kind": "측정대기",
+    "until": "2026-10-03",
+    "who": "나",
+    "why": "1호가 Live 인데 방문자가 적어 비교 불가 — 10/3 에 다시 읽는다. 한국(안드로이드 비중 큼) 채널용 2호는 storeRedirect 매핑 추가(웹 배포 = 대표 승인)가 먼저"
+   }
   },
   {
    "id": "apple_cpp",
    "tier": "A",
    "enabled": false,
-   "note": "★무료. App Store 맞춤 제품 페이지(CPP) + «키워드 할당». 2025-07-30 부터 CPP 가 광고뿐 아니라 «유기 검색 결과»에도 나온다 — 우리 100자 키워드 필드의 특정 단어를 지정 CPP 에 묶으면 그 검색에서 기본 페이지 대신 그 페이지가 뜬다. 2025-10-29 에 상한이 35→70개로 올랐다. 한 키워드는 하나의 CPP 에만 묶을 수 있다(중복하면 반려). CPP 마다 심사 필요(24~48h). ASC → App Store → 맞춤 제품 페이지 → 키워드 할당"
+   "note": "★무료. App Store 맞춤 제품 페이지(CPP) + «키워드 할당». 2025-07-30 부터 CPP 가 광고뿐 아니라 «유기 검색 결과»에도 나온다 — 우리 100자 키워드 필드의 특정 단어를 지정 CPP 에 묶으면 그 검색에서 기본 페이지 대신 그 페이지가 뜬다. 2025-10-29 에 상한이 35→70개로 올랐다. 한 키워드는 하나의 CPP 에만 묶을 수 있다(중복하면 반려). CPP 마다 심사 필요(24~48h). ASC → App Store → 맞춤 제품 페이지 → 키워드 할당 ★2026-09-26 09:4x 실행(ASC API): CPP «ko naver»(8202cd7d, APPROVED)의 ko 현지화에 검색 키워드 «미장» 할당 — POST /appCustomProductPageLocalizations/{id}/relationships/searchKeywords {type:appKeywords,id:미장} → 목록 [미장], 버전 상태 APPROVED 그대로(재심사 없음). 고른 이유(실측): 한국 앱스토어 검색 순위(iTunes Search) — 미장 8위·실적발표일정 1위·장마감 2위·증시캘린더 6위·종목분석 29위, 옵션·공시·해외주식은 순위 밖(할당해도 무효). 기본 페이지(기관의 움직임·맥스페인·옵션 플로우·리스크)와 달리 이 CPP 는 «미국 국회의원 주식 거래»«개장 전 미국 시장» 등 «미국»을 제목에 박아 «미장» 검색 의도에 맞는다. 1위 검색어(실적발표일정)는 건드리지 않았다. 효과 측정은 ASC 웹 분석(대표 할 일 ③) 필요. 일본은 CPP 없음 — 需給 4위·時間外取引 12위·決算カレンダー 14위·米国株アプリ 18위라 일본어 CPP 가 다음 후보(apple_cpp_channels).",
+   "gate": {
+    "kind": "측정대기",
+    "until": "2026-10-03",
+    "who": "나(측정은 대표 ③ ASC 웹 로그인 필요)",
+    "why": "«미장» 키워드를 한국어 CPP 에 할당(9/26). 10/3 에 CPP 노출·전환 확인 — ASC 웹 세션이 살아야 잰다"
+   }
   },
   {
    "id": "android_alt_stores",
@@ -1028,11 +1046,11 @@
    "action": "post",
    "gate": {
     "kind": "승인대기",
-    "until": "2026-09-26",
+    "until": "2026-09-30",
     "who": "그룹 운영자",
-    "why": "2026-09-24 10:5x 가입 요청 전송(공개 그룹인데도 운영자 승인제 — 화면 문구 «가입 요청을 그룹 운영자에게 전송했습니다»). 9/26 에 승인 여부를 다시 본다"
+    "why": "9/24 가입 요청 → 9/26 09:4x 여전히 «요청 취소» 버튼(대기). 9/30 재확인"
    },
-   "note": "★2026-09-24 확장 «발굴→가입 요청». 링크드인 검색(options trading → 그룹 필터)을 «눌러서» 들어감(결과 745). 후보 실측: ①Algorithmic Traders Association(공개·15만) — 가입 전에 외부 사이트(atassn.com) 회원가입을 요구 = 계정 생성이라 제외 ②US Stock Market | Trading & Investing | Stocks, Options, Futures(/groups/12274630, 공개·6,033명·금융업 종사 963명·한국 8명, 운영자 Stavros Georgiadis CFA, 고정글=투자위험 면책) — 가입 요청 ③Equity Options Sales & Trading Group(비공개·6천)·Options Traders Trading Post(비공개·5천)·Stock and Options Trading Group(비공개·5천)는 다음 후보. 왜: 우리 링크드인은 팔로워 ≈0 이라 피드 글 도달이 없다 — 그룹 글은 그 그룹 회원에게 간다(팔로워 불필요). 그룹 화면은 iframe 이라 DOM 질의·elementFromPoint 는 IFRAME 만 잡는다 → page.snapshot() 의 ref 로 누른다. 승인 후: 그룹 규칙(모두 표시)을 읽고 홍보 허용 범위 확인 → 데이터 글 1편(앱 화면 + 스마트링크 ?from=linkedin). 태그는 기존 linkedin 을 쓴다(새 태그는 코드 등록·배포가 먼저라)."
+   "note": "★2026-09-24 확장 «발굴→가입 요청». 링크드인 검색(options trading → 그룹 필터)을 «눌러서» 들어감(결과 745). 후보 실측: ①Algorithmic Traders Association(공개·15만) — 가입 전에 외부 사이트(atassn.com) 회원가입을 요구 = 계정 생성이라 제외 ②US Stock Market | Trading & Investing | Stocks, Options, Futures(/groups/12274630, 공개·6,033명·금융업 종사 963명·한국 8명, 운영자 Stavros Georgiadis CFA, 고정글=투자위험 면책) — 가입 요청 ③Equity Options Sales & Trading Group(비공개·6천)·Options Traders Trading Post(비공개·5천)·Stock and Options Trading Group(비공개·5천)는 다음 후보. 왜: 우리 링크드인은 팔로워 ≈0 이라 피드 글 도달이 없다 — 그룹 글은 그 그룹 회원에게 간다(팔로워 불필요). 그룹 화면은 iframe 이라 DOM 질의·elementFromPoint 는 IFRAME 만 잡는다 → page.snapshot() 의 ref 로 누른다. 승인 후: 그룹 규칙(모두 표시)을 읽고 홍보 허용 범위 확인 → 데이터 글 1편(앱 화면 + 스마트링크 ?from=linkedin). 태그는 기존 linkedin 을 쓴다(새 태그는 코드 등록·배포가 먼저라). ★2026-09-26 09:4x 재확인: 그룹 화면에 «그룹 가입 요청 취소» — 이틀째 승인 대기(회원 6,041). 9/30 에 다시 보고, 그때도 대기면 다음 후보(Options Traders Trading Post·Stock and Options Trading Group 등) 2곳에 요청."
   },
   {
    "id": "bluesky_feeds",
@@ -1546,6 +1564,21 @@
     "why": "글쓰기는 토스 로그인(실명 증권계좌 = 대표 개인) 필요. 커뮤니티 규칙(홍보·링크 허용 여부)은 미측정. 글에 «주주»·수익 배지가 붙는 곳이라 앱 홍보 글은 결이 다르다 — 쓸지·어떤 형식(링크 없는 순수 분석)으로 쓸지 대표 결정"
    },
    "note": "★2026-09-26 09:0x 확장 발굴(실측, 비로그인 웹): tossinvest.com 상단 «피드»(/feed/recommended)가 로그인 없이 보인다. 주제별 커뮤니티 8개 = 미국주식이야기·국내주식토론·배당투자이야기·지금코인·주식투자Q&A·채권투자노트·아무말대잔치·자동매매이야기. 추천 피드 글 예: 삼성전자 글 좋아요 29·댓글 6(18시간), 샌디스크 글 22·9(7시간), 미국 3대 지수 요약 글(1시간). 작성자에 «주주»·«수익금 상위 5%»·«1억대 자산가»·«팔로워 부자» 배지. 왜 후보인가: 한국 개인투자자의 미국주식 대화가 «폰 앱» 안에서 일어나는 곳 — 우리 클릭 중 설치로 이어지는 건 폰 클릭뿐이다(PC 79%·QR 넘겨주기 1%, 9/26 실측). 막힌 점: 로그인·규칙·배지 문화(위 gate)."
+  },
+  {
+   "id": "yahoo_news_expert",
+   "name": "Yahoo!ニュース エキスパート(일본 야후 뉴스 필자)",
+   "tier": "A",
+   "enabled": false,
+   "tag": "yahoo_news_expert",
+   "action": "rejected",
+   "gate": {
+    "kind": "자격",
+    "until": null,
+    "who": "야후(초청)",
+    "why": "공개 신청 경로 없음 — 편집부 선정제"
+   },
+   "note": "★2026-09-26 09:5x 확장 발굴(실측, 비로그인): news.yahoo.co.jp/expert 목록에 금융 필자 글이 실시간으로 올라온다(예: 久保田博幸 金融アナリスト «長期金利の3%は通過点に、米長期金利は5.2%台に上昇» 9/26 09:15). 일본 폰 뉴스 1위 표면이라 도달은 크지만, 페이지의 링크는 개인정보처리방침·이용약관뿐이고 «응모/공모/なるには» 경로가 없다 → 우리가 신청할 수 없다. 같은 사이클에서 본 것: 사이트에 애플 스마트 앱 배너(apple-itunes-app app-id=6783130444)는 ko·en·ja 모두 이미 있음."
   }
  ],
  "candidates": [
