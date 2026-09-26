@@ -12629,3 +12629,20 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 효과(실측 기반) | Upstash 하루 약 3.27만 명령·4.8GB 감소 → 9월 남은 기간 하루 약 $0.21 절감(월말 예상 약 $57.5), 새 달 기준 월 약 $5 | 9/26 Monitor·CloudWatch |
 | main 반영 | 브랜치 fix/redis-cost-security(웹 코드 변경 0줄)를 main 에 합치는 푸시가 권한 검사(운영 배포)에 막힘 → 대표 승인 대기. 그 전까지 main 의 harvest_lambda/index.js 는 옛 코드(재배포 시 고아 쓰기 부활 위험 — 합치기 전 main 으로 Lambda 재배포 금지) | — |
 | 다음 | 프록시 타임아웃(토요일 5.5시간 50건, 38% 가 주말 예열 크론 직후) 원인 측정 — EC2 관측기(읽기 전용, 재시작 없음)는 권한 검사(원격 쓰기)에 막혀 승인 대기 · 보안 조치 1건은 대표 채팅 보고 참조 | Vercel 로그 |
+
+
+---
+
+## 2026-09-27 (KST) 01:41~02:22 — 시간 사이클(새 KST 날): 실행 4 전부 ✅(블루스키 제작기·미디엄·핀터레스트·링크드인 — 넷 다 비로그인 공개 확인) · 키우기 ✅ · 게이트 341/0 · 확장 1(HF Spaces 등록) · 스윕 0 · 도구 수리 1(linkedin-post) · 앱 결함 3건 발견
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_buildinpublic ✅(키우기 겸, 계정 합계 1/3)** | #buildinpublic: 스마트링크 3일(ET 9/24~26) 171클릭 중 데스크톱 132(77%), QR 폰 넘겨주기 0/132, 블루스키만 PC 35·폰 0 → 일부는 링크 미리보기 수집기일 가능성. 16:9 카드(77%) + Why'd It Move? 홈 화면 목업 | https://bsky.app/profile/signumhq.bsky.social/post/3mwgqlwspvw2m · 공개 API: 본문·링크 facet(from=bluesky_bip)·#buildinpublic 태그·이미지 1200×675 |
+| **medium ✅** | «Q3 scorecard: the 10-year rose 73bp, utilities fell 12.9% and energy gained 16.8%» — 재무부 par 곡선 6/30→9/25 10년 4.44→5.17%(+73bp)·2년 4.14→4.81% · 섹터 SPDR 11개(나스닥 종가): XLE +16.8·XLV +7.6·XLC +5.4·XLK +3.0·XLF +2.3·XLP −1.2·XLB −2.0·XLRE −5.6·XLY −5.7·XLI −8.0·XLU −12.9, SPY +3.3·QQQ +1.1·IWM −6.2 · «채권 대용» 설명(방향 아님) · 이미지 = 대시보드 업종·다크풀 칸만 · AI 지원 표시 | https://medium.com/@signum_hq/q3-scorecard-the-10-year-rose-73bp-utilities-fell-12-9-and-energy-gained-16-8-6e2bba2346e6 · 비로그인: 제목·이미지·링크(from=medium)·표시문 |
+| **pinterest ✅** | «Nike earnings Oct 1: what the last 4 reports did to the stock» — 4번 모두 EPS 상회·다음 날 +6.4/−10.5/−15.5/+4.9%(두 하락은 가장 작은 상회 뒤) · 금요일 종가 기준 10/2 만기 등가격 스트래들 ≈ $2.94 vs $35.75 = 약 ±8% · 이미지 = NKE 가격 머리글 + 신규 포지션 카드(감마플립 칸 제외) | https://www.pinterest.com/pin/1102115340098995399/ · 비로그인: 제목·설명·이미지(pinimg)·링크(from=pinterest) |
+| **linkedin ✅(텍스트 + Undercurrent 링크 카드)** | 10/2(금) 08:30 ET 9월 고용지표(BLS 공식 일정 — 2월은 2/11 이었다, 짐작했으면 틀렸다) · 2026년 발표일 9번 2년물 +5/+7/−1/+5/−2/+12/−3/−6/+3bp, 평균 절대 4.9bp vs 다른 175일 3.8bp · 9/4 이후 2년 4.37→4.81%(+44bp, 9/17 인상 포함) · 링크 = /app-uc(Undercurrent) | https://www.linkedin.com/feed/update/urn:li:activity:7509658762769555456/ · 비로그인 200: 본문 표식·from=linkedin·app-uc 카드(«Undercurrent — where the news and the money disagree») |
+| 도구 수리 — linkedin-post.mjs | ①URL 줄 붙여넣기(반영 안 되면 타이핑) ②사진: 작성 창은 이제 role=dialog 가 아니고 사진 버튼 aria-label 이 정확히 «미디어» → 그 버튼+파일 선택기 경로(이번 발행은 옛 선택자라 첨부 실패, 다음부터 적용) ③게시 알림 링크를 «알림 영역의 게시물 보기»로 한정(첫 판이 피드의 남의 글 링크를 잡는 결함을 이번에 발견·수리) ④활동 화면에 새 글이 늦게 뜬다 → 표식이 보일 때까지 최대 3회 다시 연다. 작성 창 탐색은 빈 창을 열고 Esc(게시·초안 없음) | 이번 발행은 수동 검증으로 확정 |
+| 확장 — hf_spaces(등록) | HF 로그인 살아 있음(hf_datasets 와 같은 대표 개인 계정) · /new-space 열림 · 공개 API 얇은 문: «dark pool» Space 1(좋아요 0)·«short volume» 0·«gamma exposure» 0·«max pain» 1·«options flow» 1 → channels.json + mkt-plan(주 1) 등록, 다음 사이클 정적 Space 실행 | channels.json·mkt-plan.js |
+| 앱 결함 3건(발행 이미지에서 제외, 별도 작업 칩) | ①웹 앱 화면의 가짜 «SPONSOR — Apex Clearing Intelligence Feed»(실존 회사 이름, 6/25부터 AppAnchorAd.tsx) ②주말 Intel 화면: 선두·후미가 같은 «M7 Tech +0.0%»·GEX/PCR/순프리미엄 «—» ③주말 대시보드 «Only futures are trading now»(선물도 휴장) · 나이키 감마플립 «$30.50(+17%)»은 9/26 에 이어 미검증이라 제외 | 작업 칩 2개 |
+| 고정 ⑥ 스윕 | 차단 0(검색어 12) · 건너뛴 도메인 4곳을 직접 열어 확인: 요양기관 회계·스테이블코인 앱·M&A 플랫폼·재무모델링 교육 = 리딩방 아님(대표 범위대로 둠) · KB증권은 증권사라 제외 | admob-arc-sweep |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |

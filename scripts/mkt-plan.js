@@ -128,6 +128,7 @@ const CH = {
   tildes: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대 코드 전용' },
   digg: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 기술 뉴스 큐레이션(제출형 아님)' },
   lobsters: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대제' },
+  hf_spaces: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-27 확장 — HF Spaces 정적 데모(다크풀 비중·옵션 구조). 얇은 문: «dark pool» Space 1개·«short volume» 0' },
   github_awesome_ko: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — 한국어 «미국주식 무료 데이터 출처» 목록 저장소(얇은 문: 52개·최다 별 2)' },
   threads_reply_jp: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 반응 큰 글은 초보 조언 요청(투자권유 금지와 충돌)' },
   free_press_release: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(계정) — PRLog 무료 배포는 계정 필요' },

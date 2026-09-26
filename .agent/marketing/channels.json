@@ -1743,6 +1743,14 @@
    "tag": "digg",
    "action": "rejected",
    "note": "★2026-09-26 23:4x 확장 발굴 → 보류(실측, digg.com/about 원문): «Digg is a technology news site. It watches what credible people …» · «The feed is free and needs no account. Accounts are for taking part» — 사용자 제출형 링크 게시판이 아니라 큐레이션 피드이고 주제가 기술 — 우리 미국주식 데이터와 결이 다르다."
+  },
+  {
+   "id": "hf_spaces",
+   "name": "Hugging Face Spaces — 다크풀 비중(FINRA)·옵션 구조 공개 데모",
+   "tier": "B",
+   "tag": "hf_datasets",
+   "action": "post",
+   "note": "★2026-09-27 02시 확장 발굴(실측): HF 로그인 살아 있음(eunhoon — hf_datasets 와 같은 대표 개인 계정, 새 계정 아님) · /new-space 화면 열림(정적 HTML·Gradio·Docker). 공개 API 검색 결과 얇은 문: «dark pool» Space 1개(좋아요 0) · «short volume» 0 · «gamma exposure» 0 · «max pain» 1 · «options flow» 1 · «finra» 27(최다 2) · «stock market» 100+(최다 6). 계획: 정적 Space 1개 — 우리 데이터셋(eunhoon/…·GitHub Pages JSON)을 읽어 12종목 다크풀 비중·옵션 구조를 표로 보여 주고 앱 링크 1줄(from=hf_datasets — 새 태그는 /app 코드 등록 = 배포 승인 필요). 왜: HF 검색·Spaces 목록의 얇은 문 + 구글 색인. 실행은 다음 사이클(만들기 = 기존 계정 사용, 약관 동의 없음 확인 후)."
   }
  ],
  "candidates": [
@@ -1817,5 +1825,5 @@
    "blocker": "YT_CLIENT_ID / YT_CLIENT_SECRET / YT_KR_REFRESH_TOKEN 이 .env.local·.env.development.local·Vercel 어디에도 없다. 키만 있으면 즉시 자동화된다. out/ 영상은 8/11자라 재렌더 필요"
   }
  ],
- "updated": "2026-09-18T18:42:42.859870Z"
+ "updated": "2026-09-27 02:12 KST"
 }
