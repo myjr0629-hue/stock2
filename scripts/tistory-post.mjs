@@ -91,7 +91,7 @@ await L.wait(5000);
 const rss = await (await fetch('https://smartbox.tistory.com/rss', { headers: { 'user-agent': 'Mozilla/5.0' } })).text();
 const first = (rss.match(/<item>[\s\S]*?<link>([\s\S]*?)<\/link>/) || [])[1];
 const html = first ? await (await fetch(first, { headers: { 'user-agent': 'Mozilla/5.0' } })).text() : '';
-const ok = { title: html.includes(T.title.slice(0, 10)), link: /href="https:\/\/signumhq\.com\/app\?from=tistory/.test(html) };
+const ok = { title: html.includes(T.title.slice(0, 10)), link: /href="https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=tistory/.test(html) };
 console.log('공개 검증:', JSON.stringify(ok), first);
 if (!ok.title || !ok.link) { console.log('⛔ 공개 확인 실패 — «발행했다»고 적지 않는다'); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', first);

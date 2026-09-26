@@ -12646,3 +12646,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 앱 결함 3건(발행 이미지에서 제외, 별도 작업 칩) | ①웹 앱 화면의 가짜 «SPONSOR — Apex Clearing Intelligence Feed»(실존 회사 이름, 6/25부터 AppAnchorAd.tsx) ②주말 Intel 화면: 선두·후미가 같은 «M7 Tech +0.0%»·GEX/PCR/순프리미엄 «—» ③주말 대시보드 «Only futures are trading now»(선물도 휴장) · 나이키 감마플립 «$30.50(+17%)»은 9/26 에 이어 미검증이라 제외 | 작업 칩 2개 |
 | 고정 ⑥ 스윕 | 차단 0(검색어 12) · 건너뛴 도메인 4곳을 직접 열어 확인: 요양기관 회계·스테이블코인 앱·M&A 플랫폼·재무모델링 교육 = 리딩방 아님(대표 범위대로 둠) · KB증권은 증권사라 제외 | admob-arc-sweep |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-27 (KST) 02:25~03:00 — 시간 사이클: 실행 4 전부 ✅(블루스키·스레드·Quora 스페이스·링크드인 아티클) · 확장 실행 ✅(HF Space 개설) · 게이트 341/0 · 스윕 0 · 도구 수리 4종(스레드 작성칸 문구·발행기 4개 링크 정규식·캡처 도구 UC 탭·HF 생성 교훈)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky ✅(키우기, 계정 합계 2/3)** | 금요일 VIX 14.87 = 최근 1년 종가의 하위 8%(Cboe VIX_History, 1년 범위 13.47~31.05) · 같은 날 10년물 5.17%(전날 5.18% = 2007년 7월 이후 최고 종가) — «주식 변동성은 잠잠, 채권 금리는 19년 고점 근처» · 16:9 카드 + 가디언 화면(VIX·공포탐욕 37·신용 2.80%·실물경제 표, 스폰서 칸 제외) | https://bsky.app/profile/signumhq.bsky.social/post/3mwgsue5znl2o · 공개 API: 본문·링크(from=bluesky)·이미지 |
+| **threads ✅(계정 합계 1/2)** | 마이크론 9/30(수) 장 마감 뒤 실적 · 금요일 종가 기준 10/2 만기 $1,080 스트래들 ≈ $92 = 약 ±8.5% · 최근 4번 다음 날 −2.8/+10.2/−3.8/+15.7%(모두 EPS 상회) · 이미지 = MU 가격 머리글 + 신규 포지션 카드(감마플립 칸 제외). 첫 시도는 507자(한도 500)·작성칸 못 찾음(NO_BOX) → 줄이고 도구 수리 | https://www.threads.com/@signumhq_official/post/DdwlyJ3GU-p · 비로그인(크롤러 UA): og:description 표식·링크 문구·og:image |
+| **quora_space ✅** | 넷플릭스 9/25 FINRA Reg SHO: 장외 9.76M / 통합 23.2M = 42.1%(전날 31.8%) · 장외분 중 공매도 28.1%(9/15~17 41~46%, 9/18 만기일 54.5%) · «공매도 거래량 ≠ 공매도 잔고, 하루치는 예측 아님» · 이미지 = Undercurrent 고래 레이더(종목별 장외 %) · 링크 app-uc | https://signumhqusstockmarketintelligence.quora.com/Netflix-42-of-Friday-volume-traded-off-exchange-while-the-short-share-of-it-stayed-near-28-FINRA-publishes-daily-sho · 게시물 6→7, 새 글: 표식·이미지·링크(from=quora_space) |
+| **linkedin_articles ✅** | «When the news and the options money disagree, who is right three days later? So far, 43 to 43» — Undercurrent 점수판(코드 확인: 신호일 가격 대비 3거래일 뒤 종가, ±1% 미만 무승부) 판정 121건: 자금 43·뉴스 43·무승부 35, 추적 중 79 · 9/21 사례(ORCL −7.12% 자금 승, JPM −2.57%·GOOGL −1.61% 뉴스 승, AAPL·TSLA 무승부) · AI 고지 · 표지 = 16:9 카드(43–43) + 점수판 화면 | https://www.linkedin.com/pulse/when-news-options-money-disagree-who-right-three-days-signum-hq-obsjc/ · 비로그인: 제목·첫 문단·링크·표지 + 핵심 문단 4/4·app-uc 링크 |
+| **확장 실행 — hf_spaces ✅** | 정적 Space «Max Pain and Options Levels for 12 US Stocks» — 공개 데이터셋(CC BY 4.0, 출처 SIGNUM HQ)의 최신 일별 JSON 을 읽어 12종목 현재가·맥스페인·괴리·콜월·풋플로어·풋콜비율 표(감마플립 등 미검증 칸 제외) + 앱 링크. ⚠ 생성 스크립트 결함: 라이선스 자동완성 항목을 못 찾자 Enter 를 눌러 양식이 제출됨 → 안전 확인 전에 기본값(Gradio)으로 생성. 빈 Space(앱 파일 없음·과금 없음)였고, README(sdk: static)·index.html 업로드로 정적 Space 로 바로잡음(API: sdk static·RUNNING·하드웨어 없음). 라이선스도 처음 CC0 로 잘못 적었다가 원 저장소 README(CC BY 4.0) 확인 뒤 정정 | https://huggingface.co/spaces/eunhoon/max-pain-options-levels · 공개 200 · 정적 주소에서 표 12행·링크(from=hf_datasets) |
+| 도구 수리 | ①threads-post: 작성칸 문구가 «새로운 소식을 공유해보세요.»로 바뀜 → 옛·새·영문 모두 인정 ②linkedin-article·quora-space-post·okky-post·tistory-post: 공개 검증 정규식이 /app 만 받아 app-uc·app-wim 글을 «실패» 판정 → 7곳을 (-uc\|-wim)? 로(어제 네이버 발행기와 같은 종류 — 이번엔 «종류»로 전부) ③make-x-shot: UC 탭 값이 앱 딥링크(div·whale)와 달라 «홈»이 두 번 찍힘(해시 동일) → 매핑 ④Enter 교훈(메모리) | node --check 전부 통과 |
+| 고정 ⑥ 스윕 | 차단 0(검색어 12) | admob-arc-sweep |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |

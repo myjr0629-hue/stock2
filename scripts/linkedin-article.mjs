@@ -15,7 +15,7 @@
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const T = JSON.parse(fs.readFileSync('/tmp/ego/li-art-task.json', 'utf8'));
-if (!(T.paras || []).some((p) => /^https:\/\/signumhq\.com\/app\?from=linkedin/.test(p))) { console.log('⛔ 본문에 스마트링크(?from=linkedin) 줄이 없다'); process.exit(1); }
+if (!(T.paras || []).some((p) => /^https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=linkedin/.test(p))) { console.log('⛔ 본문에 스마트링크(?from=linkedin) 줄이 없다'); process.exit(1); }
 if (!fs.existsSync(T.cover)) { console.log('⛔ 커버 파일 없음'); process.exit(1); }
 
 const list = await listTaskSpaces();
@@ -68,7 +68,7 @@ if (!/linkedin\.com\/pulse\//.test(url)) { console.log('⛔ 발행 주소가 아
 // 6) 비로그인 검증
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
 const html = await (await fetch(url, { headers: { 'user-agent': UA } })).text();
-const ok = { title: html.includes(T.title.slice(0, 24)), first: html.includes(T.paras[0].slice(0, 30)), link: /signumhq\.com\/app\?from=linkedin/.test(html), ogimg: /og:image/.test(html) };
+const ok = { title: html.includes(T.title.slice(0, 24)), first: html.includes(T.paras[0].slice(0, 30)), link: /signumhq\.com\/app(-uc|-wim)?\?from=linkedin/.test(html), ogimg: /og:image/.test(html) };
 console.log('공개 검증(비로그인):', JSON.stringify(ok));
 if (!Object.values(ok).every(Boolean)) { console.log('⛔ 공개 페이지 확인 실패 —', url); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', url);

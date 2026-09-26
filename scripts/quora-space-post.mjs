@@ -120,7 +120,7 @@ const v = await page.evaluate((a) => ({
   // ★2026-09-25: Quora 는 곧은 따옴표(')를 둥근 따옴표(’)로 바꿔 보여 준다 → 양쪽을 같은 모양으로 맞춰 비교
   mark: (document.body.innerText || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').includes(a.mark.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')),
   img: [...document.querySelectorAll('img')].filter((i) => /qimg/.test(i.src)).length,
-  href: [...document.querySelectorAll('a[href]')].some((x) => /signumhq\.com\/app\?from=quora_space/.test(decodeURIComponent(x.href))),
+  href: [...document.querySelectorAll('a[href]')].some((x) => /signumhq\.com\/app(-uc|-wim)?\?from=quora_space/.test(decodeURIComponent(x.href))),
 }), { mark: T.mark });
 console.log('새 글 검증(로그인 화면):', JSON.stringify(v));
 if (!(v.mark && v.img && v.href)) { console.log('⛔ 검증 실패'); process.exit(1); }

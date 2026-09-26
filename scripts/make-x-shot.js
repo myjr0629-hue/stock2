@@ -29,7 +29,9 @@ const SCENES = {
     onboard: ['signumhq.app.onboarding.v1', 'accepted'],
     path: (l, s, t) => `/${l}/app-view/${s}${t ? `?t=${t}` : ''}`,
   },
-  uc: { onboard: null, path: (l, s) => `/${l}/undercurrent${s === 'home' ? '' : `?tab=${s}`}` },
+  // ★2026-09-27 앱의 딥링크 값은 ?tab=macro|div|whale|stories|search 다(undercurrent/page.tsx). 예전엔 diverge·whales 를
+  //   그대로 보내 «홈»이 찍혔다(두 장이 바이트까지 같았다). 사람이 쓰는 이름을 앱의 값으로 바꿔 보낸다.
+  uc: { onboard: null, path: (l, s) => { const t = ({ diverge: 'div', whales: 'whale' })[s] || s; return `/${l}/undercurrent${t === 'home' ? '' : `?tab=${t}`}`; } },
   // WIM 도 홍보 대상이다. 세 앱 중 하나만 찍히면 나머지 둘은 영영 홍보가 안 된다.
   wim: { onboard: ['wim.onboard', '1'], path: (l, s) => `/${l}/wim${s === 'home' ? '' : `?tab=${s}`}` },
 };

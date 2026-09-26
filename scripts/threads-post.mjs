@@ -20,12 +20,13 @@ const b = await page.evaluate(function () {
   window.scrollTo(0, 0);
   const norm = function (s) { return (s || '').replace(/\s+/g, ' ').trim(); };
   const c = [...document.querySelectorAll('div,span')].map(function (e) { return { e: e, t: norm(e.innerText), r: e.getBoundingClientRect() }; })
-    .filter(function (o) { return o.r.width > 100 && o.r.height > 14 && o.r.top > 40 && o.r.top < 700 && /^새로운 소식이 있나요\?$/.test(o.t); })
+    .filter(function (o) { return o.r.width > 100 && o.r.height > 14 && o.r.top > 40 && o.r.top < 700 && /^(새로운 소식이 있나요\?|새로운 소식을 공유해보세요\.?|What's new\?|Start a thread\.*)$/.test(o.t); })
     .sort(function (a, b) { return a.r.top - b.r.top; });
   if (!c.length) return null;
   const r = c[0].r;
   return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
 });
+// ★2026-09-27 작성 상자 문구가 «새로운 소식을 공유해보세요.»로 바뀌어 NO_BOX 로 멈췄다 → 옛·새 문구(한·영) 모두 인정
 if (!b) { console.log('NO_BOX'); process.exit(1); }
 await page.mouse.click(b.x, b.y); await L.wait(6000);
 const ed = await page.evaluate(function () {
