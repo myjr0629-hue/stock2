@@ -1793,6 +1793,14 @@
     "who": "대표 1회",
     "why": "GitHub/Google OAuth 가입(새 계정 + 권한 부여 — 안전선 밖)"
    }
+  },
+  {
+   "id": "apd_core",
+   "name": "awesome-public-datasets(7.9만★) — apd-core YAML 등재(Finance)",
+   "tier": "B",
+   "tag": "github",
+   "action": "submit",
+   "note": "★2026-09-27 06시 확장 발굴(비브라우저 실측): awesomedata/awesome-public-datasets(★79.2k) 의 Finance 칸은 apd-core(★408) 의 core/Finance/*.yml 로 만들어진다. apd-core 는 매우 활발 — PR #713~#720 이 9/20~9/23 에 0~1일 만에 합쳐짐(StartupPerks·CoworkingView·Evidaxis 등 소규모 발행처). Finance 39개 중 옵션 시장 구조(맥스페인·GEX) 데이터셋 0 = 우리가 유일. 규칙(CONTRIBUTING 원문): «No advertisement! No Spam! No reputation promotion!» · 사이트가 아니라 데이터 «저장소»를 homepage 로 · 자동 검증(title·homepage·category=폴더명) 통과 후 관리자 검토. AlphaAI 항목처럼 publisher.web 에 자사 사이트 허용 → publisher SIGNUM HQ / https://www.signumhq.com(추적 파라미터 없음). 초안 = .agent/marketing/drafts/apd-core-US-Options-Market-Structure-Daily.yml (tests/validate.py 통과, exit 0). ⚠ 순서: ① 데이터셋 저장소에서 휴장일 파일 2026-09-19.json·.md 삭제(내용이 9/18 과 같은 토요일 파일) → ② node scripts/marketing/gh-dataset-index.js 로 index.html 재생성(휴장일 필터 추가됨 — 9/19 항목만 빠지는 6줄 차이 확인) → 업로드 → ③ github.com/awesomedata/apd-core/new/master/core/Finance 에서 파일 제안(자동 포크) → PR «Add US Options Market Structure Daily under Finance». 브라우저 필요."
   }
  ],
  "candidates": [

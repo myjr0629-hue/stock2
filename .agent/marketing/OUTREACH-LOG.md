@@ -12714,3 +12714,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 확장 2 — 게이트 등록 | Qiita «モバイルアプリを無料で掲載できたサービスまとめ【2026年秋】»(2026-09-06)에서 발굴 → **tsukutta**(tsukutta.app: 무료·일/영·최신 글 9/26·글 150+·약관상 자기 앱 소개 허용·AI 금지 조항 없음 / 로그인 = 구글 OAuth·이메일 + «로그인하면 약관 동의») · **app_village**(app-village.jp: «完全無料»·최신 등록 9/26·8월 30개·스토어 링크 / GitHub·Google 로그인만) → 둘 다 새 계정·약관 = 대표 몫 → channels.json(gate 계정) + mkt-plan cap 0. 같은 목록의 **AppLink**(applink.jp): 무료·로그인 없음이지만 최신 글이 2019년 6월 = 멈춘 사이트 → 등록 안 함 · **Appliv 무료 리뷰 요청** 페이지는 여전히 404 → 기존 기록(유료 전용) 유지 | channels.json 143개 · slot 게이트 레인 |
 | 고정 ⑥ 스윕 · (6) 광고 | 둘 다 브라우저 필요 → 미실행(대표 제어 중) | — |
 | 도구 수리 2 — 대표 할 일 집계 | mkt-plan slot 의 «대표 할 일 N건»이 ①~⑳ 만 세어 17건으로 나왔다 — ㉑~㊿·51~53(보안·Redis·브라우저 권한 창 등 최근 승인 대기 전부)이 빠져 있었다. 정규식을 ①~⑳·㉑~㉟·㊱~㊿·숫자로 넓힘 → 48건(표를 직접 센 값: 51행 중 취소선 제외 48과 일치) | node --check · slot |
+
+
+---
+
+## 2026-09-27 (KST) 06:25~06:34 — 시간 사이클: 실행 0/3(브라우저 대표 제어 지속 — note·x_jp 준비물 유지) · **공개 데이터셋 결함 발견·도구 3개 종류 수리** · 확장 1(apd_core — awesome-public-datasets 등재 준비·검증 통과) · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| (0) 크론 | 6a0a351d 살아 있음 · 만료 ≈10/3 밤(6일+) | CronList |
+| 실행 — note·x_jp | 브라우저 `agentDelegatedToUser` 지속(06:25·06:33 재확인) → 발행기 미실행(대표 제어 공간을 가져오지 않는다). 준비물 그대로: /tmp/ego/note-task-0927.json(+머리 이미지) · /tmp/ego/x-task-jp-0927.json(+카드). note 원고(이번 주 일정)는 월요일 아침까지 유효, x_jp(금요일 거래대금)는 오늘이 최적 | ego 상태 |
+| **공개 데이터셋 결함 — 토요일 파일** | options-market-structure-daily 에 `2026-09-19.json`(토요일) 이 있고 내용은 금요일 9/18 파일과 같다(SPY spot 762.96, 만기 9/25, takenAt 9/20 04:45Z) · 랜딩 JSON-LD 에도 «2026-09-19 snapshot» 으로 실려 구글 데이터셋 검색에 나갔다 · 목요일 9/17 은 빠져 있다(빈칸). 원인: 스냅샷 도구 날짜 = «지금 UTC − 4시간»(달력 판정 없음) + 랜딩 생성기가 날짜 형식만 봤다 | 저장소 8개 파일 snapshotDateET·takenAt 전수 대조 |
+| **종류 수리 3 — 달력 공용본** | ① `scripts/lib/us-market-calendar.js` 신설(정본 marketCalendar.ts 와 같은 휴장표 · lastUsClose · snapshotWindow) — mkt-plan 의 인라인 사본을 이것으로 교체 ② `github-structure-snapshot.js`: **마지막 정규장 마감 ~ 다음 거래일 04:00 ET(프리마켓·미결제약정 갱신 전)** 사이에만, 그 거래일 날짜로만 찍는다. 지정 날짜가 다르면 거부(지난 날은 지금 API 값으로 재구성 불가 → 빈칸 유지) ③ `gh-dataset-index.js`: 휴장일 날짜 파일을 JSON-LD 에서 빼고 경고. 검사 29/29(주말·노동절·추수감사절·조기폐장·신정·DST 시작/끝 새벽 경계·마감 전후) · 실제 실행: 9/19·9/26 지정 → 거부(exit 2), 기본 → 2026-09-25(임시 폴더, 업로드 안 함) · 재생성 index 는 현 공개본과 6줄 차이(9/19 항목만 삭제) | 테스트 스크립트 · node --check |
+| 관찰(결함 아님, 기록) | 금요일 파일(9/25 20:31Z 촬영)의 만기는 당일 9/25(마감 직후 아직 롤 전), 토요일 API 는 10/2. 만기 칸이 명시돼 있어 데이터는 정직하지만, «마감 뒤 스냅샷 = 이미 만료된 만기» 가 된다 — 다음 거래일부터 롤 시각과 스냅샷 시각을 같이 본다 | 스냅샷 실행 출력 |
+| **확장 — apd_core(실행 대기)** | awesome-public-datasets(★79.2k)의 Finance 칸 = apd-core(★408) YAML. PR #713~#720 이 9/20~23 에 0~1일 만에 합쳐짐(소규모 발행처 다수). Finance 39개 중 옵션 구조 데이터셋 0. 규칙: 광고·평판 홍보 금지, homepage = 데이터 저장소, publisher.web 허용(AlphaAI 선례). 초안 YAML 작성 → apd-core `tests/validate.py` 통과(exit 0). 설명은 사실만(필드·범위·라이선스·빈칸 정책), 의회 거래 파일은 건수 불일치 미해결이라 뺐다. 순서: 데이터셋 9/19 삭제 → 랜딩 재업로드 → PR | .agent/marketing/drafts/apd-core-US-Options-Market-Structure-Daily.yml |
+| 같은 목록의 다른 곳 | awesome-quant(★29.8k): 생성 데이터 저장소는 기능 섹션 불가, 무료 서비스는 «Commercial & Proprietary Services» 칸 — 추적 파라미터 없는 URL·공개 방법론 문서 필요 → 앱 방법론 페이지 확인 후 판단(보류) | CONTRIBUTING.md 원문 |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |

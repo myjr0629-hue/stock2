@@ -16,28 +16,9 @@ const hhmm = (d = new Date()) => kst(d).toISOString().slice(11, 16);
 // ★2026-09-27 «새 미국 마감이 있는가» — github 스냅샷처럼 미국 정규장 마감 데이터가 소재인 채널은 주말·휴장엔
 //   올릴 것이 없다. 창(5~24시)·캡만 보면 KST 일·월요일에도 «실행 1순위»로 배정돼 헛돈다(9/27 05:28 github 배정 —
 //   마지막 거래일 9/25 스냅샷은 9/26 05:34 에 이미 커밋돼 있었다). 규칙에 afterUsClose: true 를 달면
-//   «마지막 발행이 가장 최근 정규장 마감(16:00 ET) 뒤»일 때 배정에서 뺀다.
-//   휴장은 값으로 추측하지 않는다 — 정본 달력 src/lib/marketCalendar.ts 와 같은 목록(매년 함께 갱신).
-//   조기폐장일(13:00 ET)도 16:00 으로 본다 — 3시간 늦게 열릴 뿐 틀리게 열리지는 않는다.
-const US_HOLIDAYS = new Set([
-  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25',
-  '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
-  '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31',
-  '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24',
-]);
-function lastUsCloseMs(nowMs = Date.now()) {
-  const parts = (ms, o) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', ...o }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
-  const p = parts(nowMs, { year: 'numeric', month: '2-digit', day: '2-digit' });
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day - i));
-    const ymd = d.toISOString().slice(0, 10); const dow = d.getUTCDay();
-    if (dow === 0 || dow === 6 || US_HOLIDAYS.has(ymd)) continue;
-    let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 20, 0); // 16:00 EDT
-    if (parts(t, { hour: '2-digit', hourCycle: 'h23' }).hour === '15') t += 3600e3;  // EST 면 21:00 UTC
-    if (t <= nowMs) return t;
-  }
-  return 0;
-}
+//   «마지막 발행이 가장 최근 정규장 마감(16:00 ET) 뒤»일 때 배정에서 뺀다. 달력은 공용본 scripts/lib/us-market-calendar.js
+//   (정본 src/lib/marketCalendar.ts 와 같은 휴장 목록 — 스냅샷 도구도 같은 것을 쓴다).
+const { lastUsCloseMs } = require('./lib/us-market-calendar');
 const load = () => { try { return JSON.parse(fs.readFileSync(LEDGER, 'utf8')); } catch { return { entries: [] }; } };
 const save = (o) => fs.writeFileSync(LEDGER, JSON.stringify(o, null, 1));
 
@@ -154,6 +135,7 @@ const CH = {
   digg: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 기술 뉴스 큐레이션(제출형 아님)' },
   lobsters: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대제' },
   substack_notes: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(로그아웃 실측). 계정이 생기면 cap 1' },
+  apd_core: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — awesome-public-datasets(apd-core) Finance 등재 1회. 먼저 데이터셋 휴장일 파일 정리(channels.json 메모 순서)' },
   tsukutta: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(구글 OAuth/이메일 가입 + 로그인 시 약관 동의). 계정이 생기면 cap 1(주간 개발기 일·영)' },
   app_village: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(GitHub/Google OAuth). 계정이 생기면 앱 3개 1회 등록' },
   hf_spaces: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-27 확장 — HF Spaces 정적 데모(다크풀 비중·옵션 구조). 얇은 문: «dark pool» Space 1개·«short volume» 0' },
