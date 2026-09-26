@@ -218,7 +218,7 @@ if (cmd === 'pub') {
 const c = counts(); const now = hhmm(); const hour = Number(now.slice(0, 2));
 let REG = [];
 try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => ({ id: x.id || x.key || x.name, tier: x.tier || x.type || '?', note: x.note || '', gate: x.gate || null })); } catch {}
-const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp', bluesky_bip: 'bluesky_buildinpublic' }; // 클릭 태그 → 규칙 id (bluesky_bip: 2026-09-26)
+const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp', bluesky_bip: 'bluesky_buildinpublic', wsb_earnings_thread: 'reddit' }; // wsb 스레드 댓글은 레딧 하루 3건(UTC)에 합산(2026-09-26) // 클릭 태그 → 규칙 id (bluesky_bip: 2026-09-26)
 
 if (cmd === 'slot') {
   // 이번 사이클의 «담당 구역»을 결정론적으로 배정한다.

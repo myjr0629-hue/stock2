@@ -1626,6 +1626,14 @@
     "who": "나",
     "why": "최근 GeekNews 글 64개에 금융·투자 관련 글 0 — 관련 글이 생길 때 댓글"
    }
+  },
+  {
+   "id": "wsb_earnings_thread",
+   "name": "r/wallstreetbets «Weekly Earnings Thread» 초기 댓글(무링크 데이터)",
+   "tier": "A",
+   "tag": "reddit_bio",
+   "action": "comment",
+   "note": "★2026-09-26 14:4x 확장 발굴(실측, 로그인된 레딧 페이지 API): WSB 공식 주간 실적 스레드(flair «Earnings Thread») — «Weekly Earnings Thread 8/17 - 8/21» 댓글 690·점수 121, «7/20 7/24» 댓글 1,061·점수 246. 규칙 15개에 AI 금지 조항 없음(9/26 확인), 시총 5억달러 이상 종목만. 오늘 WSB «MU earning play» 스레드에 단 데이터 댓글은 스레드 점수 64 인데 내 댓글 1점(아직 반응 없음) — 늦은 댓글은 묻힌다(9/24 실측)는 교훈대로 «스레드가 올라온 직후 1~2시간 안»에 쓴다. 형식: 그 주 큰 실적(이번 주 MU 9/30 장후·NKE 10/1 장후)의 옵션 내재 변동폭 + 최근 4번 다음 날 반응 + «방향 아님», 링크·앱명 0(레딧 규칙). 레딧 하루 3건(UTC)·8분 간격 안에서 센다. 다음 스레드(9/28~10/2 주)는 보통 주말에 올라온다 — slot 이 배정하면 /r/wallstreetbets/search.json?q=Weekly%20Earnings%20Thread&restrict_sr=1&sort=new 로 찾는다. (배정·집계: mkt-plan ALIAS 로 reddit 에 합산 — 레딧 하루 3건(UTC) 안전선을 한 규칙으로 지킨다. 레딧 배정이 오면 이 스레드가 열려 있는지 먼저 본다)"
   }
  ],
  "candidates": [

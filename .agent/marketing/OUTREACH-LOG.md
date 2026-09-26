@@ -12456,3 +12456,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | geeknews_comment — 관련 글 없음(게이트) | 브라우저로 /new 1~3쪽·홈 1~2쪽(글 64개) 스캔 → 금융·투자·트레이딩 글 0(걸린 건 8일 전 «Ask GN: OSS 사용자 대상 광고 노출» 1개, 주제 어긋남). 억지 댓글 금지 → 게이트(피드 마름) 9/29 | channels.json |
 | 고정 ⑥ 스윕 | 0편(URL 목록 75) · quantit-signal 은 심사 센터엔 «미검토»로 남지만 광고주 URL 차단이라 게재 안 됨 | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 14:30~14:46 — 시간 사이클: 실행 1(레딧 ✅ 3/3) · 게이트 341/0 · 확장 1(WSB 주간 실적 스레드) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **reddit ✅ 3/3(UTC 하루 끝)** | 로그인된 레딧 페이지 API 로 15개 서브 스캔(10시간 안·댓글 50 미만) → r/stocks(규칙 8개, AI 조항 없음) «Hertz ⬇️ 75%: Operational Turnaround Or Falling Knife? Will HTZ bounce post Q3 earnings?»(게시 1시간·댓글 1). 예측 없이: 최근 4번 «발표 전날 종가 → 발표일 종가» +36.2%(상회)·+1.8%(미달)·−4.8%(소폭 상회)·+29.5%(상회, 다음 날까지 +45.5%) · 8월 급등분 대부분 반납($2.27 8/7 → $1.74 9/25) · 다음 실적일은 확정 아님(Zacks 추정 11/3, 컨센서스는 애널리스트 1명). 나스닥 API(EPS 서프라이즈·일별 종가·실적일) 실측, 링크·앱명 0 | https://www.reddit.com/comments/1wqh7sr/comment/pc49pb6/ · 로그인 스레드 JSON found·removed=false |
+| 레딧 반응 실측 | 오늘 세 댓글(WSB MU·swingtrading SMCI·stocks HTZ) 모두 점수 1·답글 0(게시 1~2시간). WSB MU 스레드 자체는 점수 64·댓글 13 | /api/info.json |
+| 확장 — WSB «Weekly Earnings Thread»(등록) | WSB 공식 주간 실적 스레드(flair «Earnings Thread»): «8/17 - 8/21» 댓글 690·점수 121 · «7/20 7/24» 댓글 1,061·점수 246. 늦은 댓글은 묻히므로 «올라온 직후 1~2시간 안»에 그 주 큰 실적(MU 9/30·NKE 10/1)의 옵션 내재 변동폭 + 최근 4번 반응을 무링크로. **집계는 mkt-plan ALIAS 로 reddit 에 합산**(레딧 하루 3건 UTC 안전선을 한 규칙으로) → channels.json wsb_earnings_thread | channels.json · scripts/mkt-plan.js |
+| 고정 ⑥ 스윕 | 0편(URL 목록 75) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
