@@ -1801,6 +1801,20 @@
    "tag": "github",
    "action": "submit",
    "note": "★2026-09-27 06시 확장 발굴(비브라우저 실측): awesomedata/awesome-public-datasets(★79.2k) 의 Finance 칸은 apd-core(★408) 의 core/Finance/*.yml 로 만들어진다. apd-core 는 매우 활발 — PR #713~#720 이 9/20~9/23 에 0~1일 만에 합쳐짐(StartupPerks·CoworkingView·Evidaxis 등 소규모 발행처). Finance 39개 중 옵션 시장 구조(맥스페인·GEX) 데이터셋 0 = 우리가 유일. 규칙(CONTRIBUTING 원문): «No advertisement! No Spam! No reputation promotion!» · 사이트가 아니라 데이터 «저장소»를 homepage 로 · 자동 검증(title·homepage·category=폴더명) 통과 후 관리자 검토. AlphaAI 항목처럼 publisher.web 에 자사 사이트 허용 → publisher SIGNUM HQ / https://www.signumhq.com(추적 파라미터 없음). 초안 = .agent/marketing/drafts/apd-core-US-Options-Market-Structure-Daily.yml (tests/validate.py 통과, exit 0). ⚠ 순서: ① 데이터셋 저장소에서 휴장일 파일 2026-09-19.json·.md 삭제(내용이 9/18 과 같은 토요일 파일) → ② node scripts/marketing/gh-dataset-index.js 로 index.html 재생성(휴장일 필터 추가됨 — 9/19 항목만 빠지는 6줄 차이 확인) → 업로드 → ③ github.com/awesomedata/apd-core/new/master/core/Finance 에서 파일 제안(자동 포크) → PR «Add US Options Market Structure Daily under Finance». 브라우저 필요."
+  },
+  {
+   "id": "awesome_quant",
+   "name": "awesome-quant(★29.8k) — Commercial & Proprietary Services 등재",
+   "tier": "B",
+   "tag": "github",
+   "action": "submit",
+   "note": "★2026-09-27 08시 확장 발굴(비브라우저 실측): 상업 서비스 칸 81개 중 옵션 포지셔닝(맥스페인·GEX) 서비스 0. 조건(CONTRIBUTING 원문): 결제정보 없는 영구 무료 등급·요금/무료 한도 공개·공개 방법론·추적 파라미터 없는 URL·비홍보 설명 → 우리 /en/pricing(FREE $0)·/en/learn/*·GitHub 데이터셋으로 충족. 초안 .agent/marketing/drafts/awesome-quant-entry.md. ⚠ 선행: 콜월·풋플로어 정의(문서 «콜 OI 최대 행사가» vs API 값 — MU 1100 vs 전체 최대 1000)를 코드 기준으로 맞추고, 데이터셋 정리(9/19 파일·의회 커버리지)가 끝난 뒤 제출.",
+   "gate": {
+    "kind": "선행",
+    "until": null,
+    "who": "나(정의 정합·데이터셋 정리 후)",
+    "why": "콜월·풋플로어 문서 정의와 계산 불일치 확인 중 — 틀린 설명으로 등재하지 않는다"
+   }
   }
  ],
  "candidates": [

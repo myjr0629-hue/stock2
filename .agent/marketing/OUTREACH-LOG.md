@@ -12747,3 +12747,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 수리 작업 분리 | 원천 페이지 넘김 + API `limit`(기본값은 그대로 — 앱 화면 불변) + 데이터셋 완전성 단언 → 별도 작업(라이브 웹 = 브랜치·검증·승인). 정확한 전체 수치는 그 뒤에 확정 — 그 전엔 «더 많다»까지만 쓴다 | 작업 칩 |
 | 확장 | 이번 사이클은 위 정정 조사로 갈음(새 표면 없음) — 06시 apd_core 등록분이 실행 대기 | — |
 | 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 08:25~08:31 — 시간 사이클: 실행 0/4(브라우저 대표 제어 5사이클째 — 일본 아침 창 09시 전 발행 불가 확정) · 맥스페인 독립 검증 4/4 일치 · 콜월·풋플로어 정의 불일치 발견 · 확장 1(awesome_quant 선행 게이트) · 클릭 재측정 · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·note·x_jp·threads_jp 전부 브라우저 필요 → 미실행(slot 첫 줄 «⛔ 대표 제어 중» 경고가 제대로 뜸). note·x_jp 는 월요일 일본 아침(05~09시)에도 «최근 세션 = 금요일» 이라 그대로 쓸 수 있다 | slot · ego 상태 |
+| **종류 점검 — 맥스페인이 잘린 체인으로 계산되지 않는가** | 어제의 결함 종류(상한이 부분집합을 전체처럼 보이게)를 우리 핵심 지표에 적용: 나스닥 공개 체인 **전 행사가**(MU 335·SPY 171·NFLX 48·AVGO 98 행사가, 10/2 만기)로 맥스페인을 직접 계산 → **4종목 모두 우리 API 와 일치**(MU 970·SPY 765·NFLX 73·AVGO 355) · 풋/콜 OI 비율도 일치(NFLX 0.52 vs 0.50 만 소수점 차) | scratchpad maxpain-xcheck.mjs · api.nasdaq.com option-chain |
+| **발견 — 콜월·풋플로어 정의 불일치** | 같은 대조에서 MU 콜월 **1100** vs 전체 최대 콜 OI 행사가 **1000**, 풋플로어 **900** vs **600** · AVGO 풋플로어 350 vs 360 (SPY·NFLX 는 일치). 설명 문서(/en/learn/call-wall «the strike carrying the largest call open interest»)와 데이터셋 필드 설명(«strike with the largest call open interest»)이 실제 계산(범위·방향 제한으로 보임)과 다르다 → 코드 정의 확인 중(백그라운드 조사), 확인되면 문서·데이터셋·HF Space 설명을 계산에 맞춘다 | 위 대조 |
+| 확장 — awesome_quant(선행 게이트) | awesome-quant(★29.8k) «Commercial & Proprietary Services» 81개 중 옵션 포지셔닝 서비스 0. 조건(무료 영구 등급·요금 공개·공개 방법론·추적 없는 URL·비홍보)을 /en/pricing(FREE $0)·/en/learn/*·GitHub 데이터셋으로 충족 확인. 다만 콜월 정의 정합과 데이터셋 정리 전엔 제출 안 함 → gate «선행» 등록, 초안 작성 | drafts/awesome-quant-entry.md · channels.json 145 |
+| 클릭 재측정(ET 9/26 토) | 오늘: bluesky 27(⚠ 봇 계수 가능 채널 — 메모리 our-click-counter-counts-bots-too)·home 22·bluesky_bip 8·geeknews 6·x_us 6·threads 6(새벽 MU 글, 가속)·medium 4·quora_space 3·note_kojin 3(첫날) · 3일: home 72·bluesky 60·bluesky_bip 30·geeknews 25·indiehackers 16 | mkt-clicks.js → clicks-cache.json |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |

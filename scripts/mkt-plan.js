@@ -135,6 +135,7 @@ const CH = {
   digg: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 기술 뉴스 큐레이션(제출형 아님)' },
   lobsters: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대제' },
   substack_notes: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(로그아웃 실측). 계정이 생기면 cap 1' },
+  awesome_quant: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — awesome-quant 상업 서비스 칸 등재 1회(선행: 콜월 정의 정합·데이터셋 정리)' },
   apd_core: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — awesome-public-datasets(apd-core) Finance 등재 1회. 먼저 데이터셋 휴장일 파일 정리(channels.json 메모 순서)' },
   tsukutta: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(구글 OAuth/이메일 가입 + 로그인 시 약관 동의). 계정이 생기면 cap 1(주간 개발기 일·영)' },
   app_village: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(GitHub/Google OAuth). 계정이 생기면 앱 3개 1회 등록' },
