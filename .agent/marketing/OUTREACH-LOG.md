@@ -12559,3 +12559,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
 | 다음 | 저장소 토픽(us-stocks·finra·treasury·sec-edgar·korean) 추가 · 다음 주 GeekNews «Show GN» 재료 | — |
 | 도구 메모 | 이 로그의 파이썬 heredoc 이 «Non-UTF-8 code» 로 실패해 첫 커밋엔 로그가 빠졌다 — 로그는 항상 스크래치 파일(Write)로 쓴다(9/25 에 겪은 것과 같은 종류) | — |
+
+
+---
+
+## 2026-09-26 (KST) 22:30~22:45 — 시간 사이클: 실행 1(X 답글 ✅ 2/3) · 게이트 341/0 · 확장 1(Lobsters — 초대제, 보류) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅ 2/3(KST)** | 큰 계정 최근 6시간 스캔 → @StockMKTNewz «There are currently 15 stocks in the NASDAQ 100 that are up by more than 100% so far in 2026»(12분 전)에 무링크 데이터 답글(262자): $MU 2025-12-31 종가 285.41 → 9/25 1,082.28(+279%, 나스닥 일별 종가로 계산) · 수요일 장 마감 후 실적 · 10/2 만기 옵션 약 ±8.5%(1080 스트래들 ~$92, 금 종가 호가) · 최근 4번 다음 날 −2.8/+10.2/−3.8/+15.7%(모두 EPS 상회) | https://x.com/signumhq/status/2103841136217624969 · 내 답글 탭 + 비로그인 syndication(본문·reply_to StockMKTNewz·user signumhq) |
+| 앞 답글 반응 | @Barchart 답글(21:5x) 1시간 뒤: 좋아요 0·답글 0 | syndication |
+| 확장 — Lobsters(등록·보류) | lobste.rs/about 원문: «user invitation tree to combat spam»(초대제) · 자기 홍보는 글·댓글의 4분의 1 미만 · «not … a write-only tool for product announcements» → 초대 경로 없음 → channels.json lobsters(rejected) | lobste.rs |
+| 고정 ⑥ 스윕 | 0편(URL 목록 80) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
