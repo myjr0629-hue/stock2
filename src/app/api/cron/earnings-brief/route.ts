@@ -147,8 +147,10 @@ const SYSTEM = [
 ].join('\n');
 
 const HANGUL = /[가-힣]/, KANA = /[぀-ヿ]/, KANJI = /[一-鿿]/;
-/** 예측 표현은 우리 규칙상 절대 나가면 안 된다 — 여기서 잘라 낸다. */
-const PREDICT = /전망|예상\s*(상회|됩니다|된다)|상회할|하회할|증가가\s*예상|will\s+(beat|miss|rise|fall|increase)|expected\s+(to|increase)|予想されます/i;
+/** 예측 표현은 우리 규칙상 절대 나가면 안 된다 — 여기서 잘라 낸다.
+ *  ★ 「송전망·배전망·급전망」(전력망)의 «전망»은 예측이 아니다 — 이걸 잡아 AEP 한국어 문장이
+ *    8회 연속 버려졌다(2026-09-27 프리뷰, 3회 재현 전부 「송전망 현대화 자본지출…」). */
+const PREDICT = /(?<![송배급])전망|예상\s*(상회|됩니다|된다)|상회할|하회할|증가가\s*예상|will\s+(beat|miss|rise|fall|increase)|expected\s+(to|increase)|予想されます/i;
 
 /**
  * 등록 회사명과 한 줄 설명 (FMP profile — 캘린더와 같은 벤더·같은 키).
