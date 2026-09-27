@@ -12764,3 +12764,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **정의 확정(코드)** | structureService.ts: **콜월 = (S, 1.2S] 콜 OI 최대 · 풋플로어 = [0.8S, S) 풋 OI 최대 · 감마플립 탐색 ±15% · pinZone = maxPain 복사**. 설명 문서·데이터셋·HF Space 는 «OI 최대 행사가»(범위 없음), pinZone 은 «콜·풋 합산 OI 최대»로 적혀 있었다 → ①데이터셋 필드 설명(github-structure-snapshot.js) 수리 ②설명 페이지(concepts.ts 영·한·일 desc·lead 6문자열) 브랜치 `fix/learn-call-wall-definition` 18b0909c0 푸시(라이브 웹 → 프리뷰 확인 후 합치기 승인) ③README·HF Space 문구는 브라우저 복귀 시 | structureService.ts L674-686·L576·L1001 |
 | **게이트 신설 — audit-structure-vs-nasdaq.js** | 나스닥 전체 체인으로 맥스페인·풋콜·콜월·풋플로어·**계약 수** 대조(12종목): **11/12 전 항목 일치**(계약 수까지 — SPY 342/342·MU 670/670 등 = 체인 잘림 없음). ✗ META: 맥스페인 670 vs 692.5·풋플로어 600 vs 700 — 계약 476/476 같고 OI 합 114,638 vs 134,855, 우리 값 20시간 전 → **OI 시점 차이(새 OI 반영 전 캐시)**, 잘림 아님 = 이미 수리 브랜치가 있는 결함(fix/structure-lastgood-age, 대표 할 일 ㊲ 에 증거 추가). 판정 규칙: 맥스페인 불일치·계약 수 < 90%·풋콜 차 > 0.15 → 실패(해당 종목 수치 게시 금지) / 콜월·풋플로어·풋콜 0.05~0.15 → 경고. slot 고정 ① 에 추가 | scripts/audit-structure-vs-nasdaq.js |
 | 코드 조사 결과(백그라운드, 읽기 전용) | 체인은 만기당 Intrinio 호출 1번·다음 페이지 확인 없음 · 실패 만기는 `.catch(()=>null)` 로 사라짐 · 빠진 OI·감마를 0 으로 채워 내장 완결성 검사가 발동 못 함(gexConfidence 항상 HIGH) · Lambda 체인 캐시 키에 날짜 없음 · route.ts 의 result.gex 블록은 죽은 코드 → 앱 쪽 «완결성 가드» 별도 작업으로 분리(라이브 = 브랜치·승인) | 작업 칩 |
+
+
+---
+
+## 2026-09-27 (KST) 09:25~09:28 — 시간 사이클: 실행 0/4(브라우저 대표 제어 6사이클째) · 게이트 2종(만기 341/0 · 구조 대조 11/12, META 는 OI 시점 → META 수치 게시 금지) · 설명 페이지 브랜치 프리뷰 검증 ✅ · FINRA 데이터셋 잘림 점검(이상 없음) · 데이터셋 README 수정본 준비
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 — apd_core·macrumors·play_app_tags·github_pages | 전부 브라우저 필요 → 미실행(slot 첫 줄 경고). UTC 날짜가 9/27 로 넘어가 레딧·Quora 창도 열렸지만 역시 브라우저 | slot |
+| 게이트 | 만기 341/0 · **구조 대조(신설) 11/12** — META 만 ✗(OI 시점 차이, 20시간 전 캐시) → 이번 사이클 이후 복귀해도 **META 맥스페인·풋플로어는 게시하지 않는다**(㊲ 합치기 전까지) | audit-structure-vs-nasdaq.js |
+| **설명 페이지 브랜치 프리뷰 검증 ✅** | fix/learn-call-wall-definition(18b0909c0) 프리뷰 stock2-57edba6cg — `vercel curl`(자동화 우회 토큰 헤더)로 /en·ko·ja/learn/call-wall 200 · 실제 페이지(93~100KB, 로그인 화면 아님) · 새 정의 문장·설명(desc) 3개 언어 반영 · 운영본과 문장 단위 비교: 달라진 곳은 정의 문장뿐(푸터 이메일 표기 차이는 운영 도메인 CDN 의 이메일 가림 — 무관) → 대표 할 일 54 에 «검증 완료» | vercel inspect · vercel curl |
+| 종류 점검 — FINRA 데이터셋 | finra-short-dataset.py 는 FINRA 가 날마다 올리는 **전체 파일**(cdn.finra.org CNMSshvol*.txt)을 받는다 — 페이지·건수 상한 없음 → 잘림 결함 해당 없음 | 스크립트 원문 |
+| 데이터셋 README 수정본 | 정의 3줄(감마플립 ±15% · 콜월/풋플로어 ±20% 범위 · 핀존 = 맥스페인) · 의회 거래 «Coverage (read this first)»(173종목 중 60·종목당 40건 · 9/23 판 «192건·16명»은 부분집합) · «빈 날짜는 빈칸(예 9/17), 주말·휴장 파일 없음» → /tmp/ego/gh-fix-0927/README.md, 업로드 작업 파일 gh-task-fix-0927.json(index.html + README) | diff 확인 |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
