@@ -515,6 +515,27 @@ async function getRealtimeGreeks(sym, opts = {}) {
   return { greeks: out, calls };
 }
 
+// ── 체인 뒤 페이지 ───────────────────────────────────────────
+// ★ [2026-09-27] 만기당 한 번 받고 끝내면 «잘린 체인»을 알 방법이 없었다.
+//   Intrinio 문서·SDK 모델(ApiResponseOptionsChainEod = chain 하나)에는 page_size/next_page 가 없다.
+//   그래도 응답에 next_page 가 실려 오면 끝까지 따라가고, 다 못 받으면 _truncated 로 표시한다(방어).
+//   Vercel(src/services/intrinioClient.ts fetchChainPagesIntrinio)과 같은 규칙이다.
+const CHAIN_MAX_PAGES = 10;
+async function followChainPages(sym, exp, first) {
+  let next = typeof first.next_page === 'string' && first.next_page ? first.next_page : null;
+  if (!next) return first;
+  const rows = first.chain.slice();
+  let pages = 1;
+  while (next && pages < CHAIN_MAX_PAGES) {
+    const j = await callIntrinio(`options/chain/${sym}/${exp}/eod`, { next_page: next }).catch(() => null);
+    if (!j || !Array.isArray(j.chain)) break;
+    rows.push(...j.chain);
+    pages++;
+    next = typeof j.next_page === 'string' && j.next_page ? j.next_page : null;
+  }
+  return { ...first, chain: rows, next_page: null, _pages: pages, _truncated: !!next };
+}
+
 // ── 3) 옵션 체인 ─────────────────────────────────────────────
 async function getOptionChain(ticker, opts = {}) {
   const sym = String(ticker).toUpperCase();
@@ -560,18 +581,21 @@ async function getOptionChain(ticker, opts = {}) {
   //    그러면 맥스페인이 다른 만기 하나로 계산되는데 화면엔 아무 표시가 없다 —
   //    맥스페인 220 이 어느 만기 것인지 모르게 되는, 가장 위험한 종류의 오류다.
   //    → ① 한 번 재시도 ② 그래도 실패하면 결과에 명시한다.
+  //    ★ [2026-09-27] 빈 체인(chain: [])도 누락이다 — 목록에 있는 만기에 계약 0개는 «빈 응답»(한도 초과)의 지문인데,
+  //      예전엔 배열이기만 하면 통과해 그 만기가 조용히 빠졌다. 뒤 페이지를 다 못 받은 만기는 «잘림»으로 따로 센다.
   const fetchChain = async (e) => {
     let r = await cachedChain(sym, e);
-    if (!r || !Array.isArray(r.chain)) {
+    if (!r || !Array.isArray(r.chain) || !r.chain.length) {
       await new Promise((z) => setTimeout(z, 400));
       r = await cachedChain(sym, e);
     }
-    return r;
+    return r && Array.isArray(r.chain) && r.chain.length ? followChainPages(sym, e, r) : r;
   };
   const chains = await Promise.all(expirations.map(fetchChain));
-  const missing = expirations.filter((e, i) => !chains[i] || !Array.isArray(chains[i].chain));
-  if (missing.length) {
-    console.warn(`[Intrinio] ${sym} 체인 누락 ${missing.join(',')} — 남은 만기로만 계산된다`);
+  const missing = expirations.filter((e, i) => !chains[i] || !Array.isArray(chains[i].chain) || !chains[i].chain.length);
+  const truncated = expirations.filter((e, i) => !missing.includes(e) && chains[i]._truncated);
+  if (missing.length || truncated.length) {
+    console.warn(`[Intrinio] ${sym} 체인 누락 ${missing.join(',') || '-'} · 잘림 ${truncated.join(',') || '-'} — 남은 계약으로만 계산된다`);
   }
 
   // 실시간 그릭스를 «같은 계약»에 덮어쓴다. OI·행사가·만기는 EOD 것을 그대로 쓴다.
@@ -604,13 +628,15 @@ async function getOptionChain(ticker, opts = {}) {
         },
         greeks: {
           delta: num(rt && rt.delta) ?? num(p.delta) ?? 0,
-          gamma: num(rt && rt.gamma) ?? num(p.gamma) ?? 0,
+          // 없으면 0 이 아니라 null — 0 으로 채우면 Vercel 의 감마 커버리지가 늘 100% 로 읽혀 gexConfidence 가 거짓 HIGH (2026-09-27)
+          gamma: num(rt && rt.gamma) ?? num(p.gamma) ?? null,
           theta: num(rt && rt.theta) ?? num(p.theta) ?? 0,
           vega: num(rt && rt.vega) ?? num(p.vega) ?? 0,
         },
         implied_volatility: num(rt && rt.implied_volatility) ?? num(p.implied_volatility) ?? 0,
         // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
-        open_interest: num(p.open_interest) || 0,
+        //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사가 발동하지 않는다(2026-09-27). 소비처는 `|| 0` 로 읽는다.
+        open_interest: num(p.open_interest),
         break_even_price: type === 'put'
           ? (num(o.strike) || 0) - (num(p.close) || 0)
           : (num(o.strike) || 0) + (num(p.close) || 0),
@@ -640,7 +666,9 @@ async function getOptionChain(ticker, opts = {}) {
     greeksSource: rtGreeks ? 'realtime' : 'eod',
     greeksRealtimeCount: rtHits,
     greeksCalls: rtCalls,
-    ...(missing.length ? { expirationsMissing: missing, partial: true } : {}),
+    ...(missing.length ? { expirationsMissing: missing } : {}),
+    ...(truncated.length ? { expirationsTruncated: truncated } : {}),
+    ...(missing.length || truncated.length ? { partial: true } : {}),
   };
 }
 
