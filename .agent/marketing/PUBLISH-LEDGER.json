@@ -1,6 +1,14 @@
 {
  "entries": [
   {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?dirId=40102&docId=495051403&answerNo=2",
+   "note": "S&P500 선물 vs SPY — 계약 크기·레버리지·만기·한국 시간·지표 쓰임, 앱 1회(제작자 밝힘), 무링크",
+   "at": "2026-09-27T11:33:06.587Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
    "ch": "naver_search_advisor",
    "url": "https://searchadvisor.naver.com/console/site/request/crawl?site=https%3A%2F%2Fwww.signumhq.com",
    "note": "수집 현황 0(6/30~) → 한국어 핵심 13개 수집 요청 접수 · 30일 노출 3·클릭 0",

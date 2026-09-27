@@ -12956,3 +12956,14 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **quora — 세션 만료(대표 할 일 56)** | 검색 주소가 로그인 화면으로 · /notifications → `LoginRequired` 리다이렉트 확인(9/27 02:4x 스페이스 게시 땐 로그인). 재로그인 = «Continue with Google»(contact@) + 약관 문구 → 안전선 밖 → quora·quora_space·quora_jp·quora_de·quora_pin·quora_spaces_share 로그인 게이트(이전 게이트는 gate_prev 에 보존) | quora.com |
 | reddit — 맞는 스레드 없음 | 기준(게시 3시간 안·댓글 50 미만·비고정) r/stocks·thetagang·wallstreetbets·StockMarketChat·investing_discussion·SecurityAnalysis·Semiconductors → 1건(r/stocks «Why is Uber and Vistra Corp being hyped up so much?» 0.4h·댓글 4) — 사업 펀더멘털 질문이라 우리 데이터로 검증된 답을 못 준다 → 미국 낮(한국 23시 이후)에 재탐색. 오늘(UTC) 1/3 | reddit new.json |
 | 확장 | 이번 사이클 없음(로그인 만료 확인·게이트 정리로 갈음) | — |
+
+
+---
+
+## 2026-09-27 (KST) 20:25~20:35 — 시간 사이클: **naver_kin ✅(공개 확인)** · reddit 맞는 스레드 없음(다음 목표 = WSB «What Are Your Moves Tomorrow», 한국 월 05시 게시 직후) · 도구 수리 1(키우기 칸 게이트 표시) · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **naver_kin ✅** | 최신순 검색(미국주식·나스닥·마이크론·미국 증시 일정·옵션 만기)에서 답변 1개짜리 설명형 질문 «S&P500선물 이건 뭔가요?»(9/6, SPY 는 해봤는데 선물은 뭐가 다른지·초보 가능?) — 기존 답(개념 교정)에 없는 숫자로 보탬: E-mini 1pt=$50(지수 7,000 → 1계약 ≈ 35만 달러)·Micro $5 · 증거금·일일정산·마진콜 · 3/6/9/12월 셋째 금요일 만기·롤오버 · 한국 시간 월 07시~토 06시(매일 06~07시 휴장, 서머타임 끝나면 1시간 늦게) · «개장 전 지표»로의 쓰임(반대로 가는 날도 흔함) · 앱 1회(제작자 밝힘) · 무링크 · 권유 없음 | https://kin.naver.com/qna/detail.naver?dirId=40102&docId=495051403&answerNo=2 · 발행기 «공개 확인(로그인 없이): true» |
+| reddit — 맞는 스레드 없음 | 전체 검색(micron earnings·MU earnings·PCE this week·jobs report friday, 오늘·6시간·댓글 60 미만) → r/trading212(주제 밖)·r/Metricshour(소형 서브 자동 미리보기) 뿐. 미국 일요일 아침이라 조용 → 다음 목표: WSB «What Are Your Moves Tomorrow, September 28»(미국 일 16:00 = 한국 월 05:00 게시) 직후 1~2시간 · 오늘(UTC) 1/3 | reddit search.json |
+| 도구 수리 — 키우기 칸 게이트 | «키우기» 칸이 channels.json 게이트를 안 봐서 indiehackers 가 «오늘 0/1 가능»으로 떴다(실제로는 로그인 게이트 ㊹) → 게이트면 «게이트(종류 — 여는 사람)»으로 표시 | node --check · slot |

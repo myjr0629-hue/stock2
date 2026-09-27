@@ -321,7 +321,10 @@ if (cmd === 'slot') {
     if (!top.length) console.log('   (3일 클릭 0 — 키울 것이 없다)');
     for (const [t, n] of top) {
       const v = c[ALIAS[t] || t];
-      const room = v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음';
+      // ★2026-09-27 키우기 칸이 게이트를 안 봤다 — indiehackers 가 로그인 게이트(㊹)인데 «오늘 0/1 가능»으로 떠서 헛걸음을 부른다
+      const reg = REG.find((x) => (ALIAS[x.id] || x.id) === (ALIAS[t] || t) || x.id === t);
+      const gOn = reg && reg.gate && (!reg.gate.until || reg.gate.until > utcDate());
+      const room = gOn ? ('게이트(' + (reg.gate.kind || '?') + ' — ' + (reg.gate.who || '') + ')') : (v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음');
       const cm = (cc.contam || {})[t] || 0;
       console.log('   ★ ' + t.padEnd(16) + '3일 ' + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
     }
