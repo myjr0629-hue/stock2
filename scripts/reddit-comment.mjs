@@ -103,7 +103,12 @@ if (res.status !== 200 || (res.errors && res.errors.length) || !res.id) {
 
 // ── ★검증: 200 은 «게시됨»이 아니다. 스레드를 다시 읽어 실제로 보이는지 본다 ──
 await L.wait(4000);
-const linkId = String(res.link || parent).replace(/^t3_/, '');
+// ★2026-09-27 부모가 «댓글»(t1_)이면 응답에 link 가 없어 댓글 id 로 스레드를 찾다가 total 0 → «안 보인다» 오판(실제로는 게시됨).
+//   원글 id 는 부모 댓글의 link_id 로 조회한다.
+let linkId = String(res.link || '').replace(/^t3_/, '');
+if (!linkId && parent.startsWith('t3_')) linkId = parent.slice(3);
+if (!linkId) linkId = await page.evaluate(async (p) => { try { const j = await (await fetch('/api/info.json?id=' + p, { credentials: 'include' })).json(); return String((j.data.children[0] || {}).data?.link_id || '').replace(/^t3_/, ''); } catch { return ''; } }, parent);
+if (!linkId) { console.log('⛔ 원글 id 를 못 찾아 검증 불가 — «올렸다»고 적지 않는다'); process.exit(1); }
 // ⚠ 응답의 id 는 «t1_ 접두사»가 붙어 오고(t1_pbcxrer), 스레드 JSON 의 id 는 «맨 id»다(pbcxrer).
 //   2026-09-22 실측: 이 차이 때문에 검증이 항상 false 로 나와 «안 올라갔다»고 오판했다(실제로는 올라가 있었다).
 //   검사기가 «없다»를 말할 때는 검사기부터 의심한다 — 여기서 접두사를 벗겨 맞춘다.

@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "naver_search_advisor",
+   "url": "https://searchadvisor.naver.com/console/site/request/crawl?site=https%3A%2F%2Fwww.signumhq.com",
+   "note": "수집 현황 0(6/30~) → 한국어 핵심 13개 수집 요청 접수 · 30일 노출 3·클릭 0",
+   "at": "2026-09-27T09:55:27.067Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "reddit",
+   "url": "https://www.reddit.com/r/wallstreetbets/comments/1wq1q7n/weekly_earnings_thread_sep_28_oct_2_2026/pcc4q8s/",
+   "note": "WSB 주간 실적 스레드 — «MU is literally the only thing» 댓글(23점)에 데이터 답글: ±8.5% 스트래들·최근 4번 반응",
+   "at": "2026-09-27T09:40:37.410Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "threads_jp",
+   "url": "https://www.threads.com/@signumhq_official/post/DdySkfBGQtp",
+   "note": "今週の米国株(日本時間) 일정 + MU/NKE 옵션 내재 변동폭 · 이미지 = 일정 카드+결산 캘린더 화면",
+   "at": "2026-09-27T09:29:48.162Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
    "ch": "github_pages",
    "url": "https://myjr0629-hue.github.io/options-market-structure-daily/",
    "note": "토요일 파일 9/19 삭제 + JSON-LD 재생성 + README 정의·커버리지 + 의회 커버리지 표기",

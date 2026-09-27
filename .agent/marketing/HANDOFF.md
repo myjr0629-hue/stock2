@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-27 18:10 KST** (브라우저 복귀 · 의회 정정 7/7 · **공개 데이터셋 정리 완료**(9/19 삭제·README 정의/커버리지·의회 «60 of 182» — Pages 반영 확인) · **apd-core PR #733**(관리자 검토 대기) · indexnow_ghpages 25개 · macrumors·play_app_tags 게이트 · 다음: naver_search_advisor·llms_txt·naver_kin·threads_jp·quora·reddit · note·x_jp 는 월 05~09시)
+마지막 갱신: **2026-09-27 18:55 KST** (시간 사이클 — threads_jp ✅ · WSB 실적 스레드 답글 ✅ · **네이버 수집 0 → 한국어 13개 수집 요청** · 데이터셋 정리·apd-core PR #733(검토 대기) · 의회 정정 7/7 · 다음: naver_kin · quora · reddit 2/3 남음(UTC) · note·x_jp 는 월 05~09시)
 
 ---
 

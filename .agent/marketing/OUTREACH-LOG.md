@@ -12928,3 +12928,18 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | indexnow_ghpages ✅ | 첫 실행이 기본 경로 members.json 을 읽어 5개만 → 새 members.json 경로로 25개 URL 200 접수. 주간 캡 2/1(9/23 기록 포함) — 실제로 바뀐 페이지 통보라 유지, 기록만 | indexnow-ghpages.mjs |
 | **도구 신호 — 헛배정 2개 게이트** | macrumors: 포럼 규칙상 «새 버전·기능이 있을 때만» 기존 스레드에 이어쓰기(범프 = 밴) → gate 조건 · play_app_tags: 9/19 설정 뒤 주간 변경 근거 없음 → gate 주기(10/19 까지, 월 1회) | channels.json |
 | 다음 사이클 배정 | naver_search_advisor · llms_txt · naver_kin · threads_jp (+ quora · wsb_earnings_thread · reddit) | slot |
+
+
+---
+
+## 2026-09-27 (KST) 18:25~18:55 — 시간 사이클: threads_jp ✅ · WSB 주간 실적 스레드 답글 ✅(reddit 1/3 UTC) · **네이버 서치어드바이저: 수집 0 발견 → 한국어 13개 수집 요청 접수** · llms_txt 게이트 · 도구 수리 1(reddit-comment 검증) · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **threads_jp ✅(계정 합계 2/2)** | 「今週の米国株、日本時間でいつ何が出るか」 — 9/30 21:30 PCE・GDP確報値 / 10/1 05:00頃 マイクロン / 10/1 23:00 ISM / 10/2 早朝 ナイキ / 10/2 21:30 雇用統計 + 金曜終値時点 10/2満期 MU ±8.5%·NKE ±8%(予想ではない) + 決算カレンダー 가치 + from=threads_jp + #米国株 · 304자 · 이미지 = 일정 카드+앱 決算カレンダー 조각 | https://www.threads.com/@signumhq_official/post/DdySkfBGQtp · 비로그인 og:description·og:image |
+| **wsb_earnings_thread ✅(reddit 1/3 UTC)** | WSB 공식 «Weekly Earnings Thread Sep 28 - Oct 2»(9/25 17:01Z, 댓글 80) 윗댓글이 «MU is literally the only thing that matters here»(23점)·«MU MU MU» 류 → 그 댓글에 데이터 답글: 금요일 종가 $1,082.28 · 10/2 $1,080 스트래들 중간값 ≈$92 = ±8.5%(목·금 일반 거래 포함) · 최근 4번 다음 날 -2.8/+10.2/-3.8/+15.7%(4번 모두 EPS 상회) · 링크·앱명 0 · 방향 아님 | https://www.reddit.com/r/wallstreetbets/comments/1wq1q7n/weekly_earnings_thread_sep_28_oct_2_2026/pcc4q8s/ · info API(삭제 표시 없음)·스레드 목록 안 깊이 1 |
+| 도구 수리 — reddit-comment 검증 | 부모가 «댓글»(t1_)이면 응답에 link 가 없어 댓글 id 로 스레드를 찾다 total 0 → «안 보인다» 오판(실제 게시됨). 부모 댓글의 link_id 를 /api/info.json 으로 조회해 원글 스레드에서 확인하도록 | node --check |
+| **naver_search_advisor ✅ — 발견** | 사이트 상태(인증서·HTTPS·사이트맵) 정상이지만 **수집 현황 그래프가 6/30~9/27 내내 완료·제한 0** · 콘텐츠 노출/클릭(30일, 9/26 갱신) **노출 3·클릭 0**(검색어 «감마익스포져»·«감마 익스포져란»·«미국 주식 hq», 페이지 / · /ko). robots.txt 는 앱·관리 경로만 막고 Yeti UA 로 /ko·/ko/flow/NVDA·sitemap(1.09MB) 전부 200 → 기술 차단 아님, 신규 사이트 수집 우선순위 문제로 판단 | searchadvisor 리포트 |
+| **naver_search_advisor ✅ — 수집 요청 13건** | 요청 → 웹 페이지 수집에 전체 URL 로 13개: /ko · /ko/dark-pool · /ko/options-flow · /ko/tickers · /ko/learn/max-pain · gamma-exposure · dark-pool · /ko/flow/NVDA·TSLA·MU·AAPL · /ko/undercurrent · /ko/wim (전부 Yeti 200 확인 후). 콜월 설명은 정의 수리(54) 반영 뒤로 미룸 · 요청 내역 표 13건(10+3, 2쪽) 18:51:14~18:52:04 확인 | https://searchadvisor.naver.com/console/site/request/crawl?site=https%3A%2F%2Fwww.signumhq.com |
+| llms_txt(게이트) | 지금 llms.txt 의 «개념 설명은 실제 계산과 같다»는 54 합치기 전엔 콜월에서 거짓 → 54 합친 뒤 확인·IndexNow 로 조건 게이트 | channels.json |
+| naver_kin | 다음 사이클로(한국 일요일 저녁 · 건당 0.13 채널이라 질문을 골라 제대로) | — |
