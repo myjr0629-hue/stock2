@@ -12850,3 +12850,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 클릭 재측정(ET 9/26 토 확정) | home 26 · bluesky 27(봇 계수 가능 채널) · bluesky_bip 8 · x_us 6 · geeknews 6 · threads 6 · medium 4 · quora_space 3 · note_kojin 3(첫날) · naver_blog 2 · mastodon 2(정지 계정의 옛 링크) · 3일: home 53 · bluesky 39 · bluesky_bip 12 · indiehackers 11 · x_us 10 | mkt-clicks.js |
 | 확장 — line_official_jp(계정 게이트) | 무료 コミュニケーションプラン 월 200통(초과 발송 불가), 2026-10 추가 메시지 요금 개정 예정 · 통수 = 친구 수 × 발송 수라 친구 0~6명 동안은 매일 1통도 무료 · 개설 = LINE Business ID·약관(대표) · C형(청중 0) — 일본 X·note 에서 친구 추가로 끌어와야 의미 | LY 공식 요금 페이지·2026 정리 글 |
 | 고정 ⑥ 스윕 · (6) 광고 | 브라우저·콘솔 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 16:25~16:27 — 시간 사이클: 실행 0/4(브라우저 대표 제어 13사이클째) · 게이트 341/0 · 구조화 데이터(schema.org Dataset) 점검 7페이지 · 확장 없음(사유 기록)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| 구조화 데이터 점검(구글 데이터셋 요건: 필수 name·description 50~5000자 / 권장 license·creator·url·temporalCoverage·distribution·variableMeasured) | 데이터셋 사이트 3페이지(옵션 구조 랜딩 dist 8 · congress dist 2 · FINRA dist 1) **전부 ✓** · 우리 사이트 /en·ko/flow/NVDA(설명 900·872자) · /en/dark-pool(962) · /en/options-flow(605): 필수는 충족, **권장 distribution 없음**·티커 페이지는 **temporalCoverage 없음**. 판단: distribution 은 공개 API 를 내보이는 것이라 긁기 부하(Redis·벤더 비용)를 부르므로 넣지 않는다 · temporalCoverage(데이터 날짜)만 다음 웹 작업 때 후보(오류 아님, 저우선) | scratchpad ld-audit.py |
+| 확장 | 이번 사이클엔 새 표면을 추가하지 않았다 — 오늘 등록한 계정 게이트(tsukutta·app_village·apple_news·telegram_kr·line_official_jp)가 모두 대표 가입 대기라, 같은 종류를 더 쌓으면 대표 목록만 길어진다. 대신 기존 문(자사 웹·데이터셋)의 요건 점검으로 갈음 | — |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저·콘솔 필요 → 미실행 | — |
