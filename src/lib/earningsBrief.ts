@@ -14,8 +14,9 @@
 //     읽을 때 «그 발표»일 때만 붙인다.
 // ============================================================================
 
-// v3 — v2 는 EPS 숫자·지난 분기 문장을 품고 있다. 키를 올려 한 번에 걷어낸다.
-export const EARNINGS_BRIEF_KEY = 'earnings:brief:v3';
+// v4 — v2 는 EPS 숫자·지난 분기 문장·틀린 회사를 품고 있다. 키를 올려 한 번에 걷어낸다.
+//   (v3 는 프리뷰 검증에서만 채워졌다 — 영문 이름에 「Inc.」가 붙어 버리고 다시 만들었다. 운영엔 나간 적 없다.)
+export const EARNINGS_BRIEF_KEY = 'earnings:brief:v4';
 
 export type BriefLang = 'ko' | 'en' | 'ja';
 export interface BriefLine { name: string; watch: string }

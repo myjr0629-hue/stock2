@@ -106,7 +106,12 @@ const bedrock = () => new BedrockRuntimeClient({
  *   티커만 주자 S 를 「Sprint」, SYM 을 「Symposium International」, PL 을 「Platinum Group Metals」,
  *   ASTS 를 「Astrotech」, SMR 을 「Small Modular Reactor」로 짓고 그 회사 얘기를 썼다
  *   (실제는 SentinelOne · Symbotic · Planet Labs · AST SpaceMobile · NuScale).
+ *   162개를 다시 만들어 보니 ZS=「Zendesk」, WELL=「Wellcare」, SEDG=「Sunnova」, VST=「Vista Energy」,
+ *   MO=「Philip Morris」, VKTX=「Viokace」도 틀려 있었다.
  *   → 등록 회사명과 한 줄 설명(FMP profile)을 같이 준다. 못 얻으면 그 종목은 만들지 않는다.
+ *   ★ 단 등록명을 주자 모델이 그걸 그대로 베꼈다 — 「Apple Inc.」「International Business Machines
+ *     Corporation」「KLA 코퍼레이션」(프리뷰 실측). 카드엔 사람들이 부르는 짧은 이름이 나가야 한다 →
+ *     NAME 규칙 + stripLegal 로 법인 꼬리를 뗀다.
  */
 const SYSTEM = [
     'You write the "what to watch" line for upcoming US earnings in an institutional-grade stock app.',
@@ -114,7 +119,10 @@ const SYSTEM = [
     '',
     'IDENTITY — when an item has "company" (its registered name) and "about" (what it does), that IS',
     '  the company behind the ticker. Write about that business only — never about another company whose',
-    '  ticker or name looks similar. Localize that name for "name".',
+    '  ticker or name looks similar.',
+    'NAME — the short name investors call the company, not its legal name: no Inc., Corp., Corporation,',
+    '  Co., Ltd., plc, N.V. and no leading "The". Write it as that language\'s financial press does —',
+    '  Korean in Hangul, Japanese in katakana — unless the company is usually written as an acronym or in Latin letters.',
     '',
     'DEPTH — this is the whole point. A generic line is worthless.',
     '- Name the SPECIFIC line item, segment, or metric that decides this quarter for THIS company.',
@@ -165,7 +173,19 @@ async function registered(t: string, key: string | undefined): Promise<{ name: s
     }
 }
 
-/** 「SentinelOne, Inc.」→「SentinelOne」 — 법인 꼬리만 뗀다. */
+/** 모델이 쓴 이름에서 법인 꼬리만 뗀다 — 「Apple Inc.」→「Apple」·「KLA 코퍼레이션」→「KLA」.
+ *  Company 는 떼지 않는다(「Southern Company」는 그게 이름이다). */
+const LATIN_LEGAL = /[\s,]+(?:inc\.?|incorporated|corp\.?|corporation|co\.?|ltd\.?|limited|plc|pbc|n\.v\.|s\.a\.|a\/s|ag|se|llc|l\.p\.)$/i;
+const CJK_LEGAL = /[\s・]*(?:인크|인코퍼레이티드|코퍼레이션|주식회사|インク|インコーポレイテッド|コーポレーション|株式会社)$/;
+function stripLegal(name: string): string {
+    let s = name.trim().replace(/^株式会社\s*/, '');
+    for (let i = 0; i < 3 && (LATIN_LEGAL.test(s) || CJK_LEGAL.test(s)); i++) {
+        s = s.replace(LATIN_LEGAL, '').replace(CJK_LEGAL, '').replace(/[\s,&・]+$/, '').trim();
+    }
+    return s || name.trim();
+}
+
+/** 「SentinelOne, Inc.」→「SentinelOne」 — 등록명으로 대신 쓸 때(모델 이름이 다른 회사를 가리킬 때). */
 const LEGAL_TAIL = /[\s,]+(?:inc\.?|incorporated|corp\.?|corporation|co\.?|company|ltd\.?|limited|plc|pbc|n\.v\.|s\.a\.|a\/s|ag|se|llc|l\.p\.)$/i;
 function shortName(reg: string): string {
     let s = reg.trim().replace(/^the\s+/i, '');
@@ -318,9 +338,9 @@ export async function GET(request: Request) {
                     // ★ 회사명은 사전이 이긴다. 영어는 등록명과 다른 회사를 가리키면 등록명으로 바꾼다.
                     const said = String(cell.name || '').trim();
                     const g = reg.get(t);
-                    const name = lang === 'ko' ? (NAME_KO[t] || said)
-                               : lang === 'ja' ? (NAME_JA[t] || said)
-                               : (g && !sameCompany(said, g.name) ? shortName(g.name) : said);
+                    const name = lang === 'ko' ? (NAME_KO[t] || stripLegal(said))
+                               : lang === 'ja' ? (NAME_JA[t] || stripLegal(said))
+                               : (g && !sameCompany(said, g.name) ? shortName(g.name) : stripLegal(said));
                     if (!name) { why.push(`${lang}:이름`); continue; }
                     entry[lang] = { name, watch };
                 }
