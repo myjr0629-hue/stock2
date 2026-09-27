@@ -759,6 +759,7 @@ export default function AppDashPage() {
       regularOpen: '정규장 실시간 흐름을 반영합니다.',
       holidayNote: '미국 증시 휴장 — 직전 값입니다.',
       marketClosed: '장 마감 데이터와 선물 흐름을 함께 봅니다.',
+      futuresPausedNote: '마감 데이터 · 선물도 쉬는 중',
       riskOn: 'Risk-On 우위',
       mixed: '혼조',
       riskOff: 'Risk-Off 경계',
@@ -784,6 +785,7 @@ export default function AppDashPage() {
       regularOpen: 'Regular-session flow is updating live.',
       holidayNote: 'US markets closed — last values shown.',
     marketClosed: 'Last close + live futures.',
+    futuresPausedNote: 'Last close · futures not trading.',
       riskOn: 'Risk-On Tilt',
       mixed: 'Mixed Tape',
       riskOff: 'Risk-Off Watch',
@@ -809,6 +811,7 @@ export default function AppDashPage() {
       regularOpen: '通常取引のリアルタイムフローを反映します。',
       holidayNote: '米国市場は休場 — 直近値です。',
       marketClosed: '引け後データと先物フロー。',
+      futuresPausedNote: '引け後データ · 先物も休止中',
       riskOn: 'Risk-On 優勢',
       mixed: 'まちまち',
       riskOff: 'Risk-Off 警戒',
@@ -834,6 +837,7 @@ export default function AppDashPage() {
     regularOpen: 'Regular-session flow is updating live.',
     holidayNote: 'US markets closed — last values shown.',
     marketClosed: 'Last close + live futures.',
+    futuresPausedNote: 'Last close · futures not trading.',
     riskOn: 'Risk-On Tilt',
     mixed: 'Mixed Tape',
     riskOff: 'Risk-Off Watch',
@@ -1002,9 +1006,14 @@ export default function AppDashPage() {
   // both rather than publish a score computed off a demo half.
   const regimeReady = indicesReady && futuresReady;
   const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : futuresStalled ? copy.futuresStalled : copy.closed;
+  // ★ [2026-09-26 토] 선물이 닫혀 있는데 «Last close + live futures»(마감 분기)·«Futures tracked
+  //   live»(VIX 만 살아 있는 평일 17–18시·금 17–20시)라고 말했다. 선물을 말하는 문장은 선물 세션으로 가른다.
   const pulseStatusNote = isHolidaySession
     ? copy.holidayNote
-    : isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : futuresStalled ? copy.futuresStalledNote : copy.marketClosed;
+    : isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen
+    : volatilityLive ? (futuresSessionOpen ? copy.futuresOpen : copy.futuresPausedNote)
+    : futuresStalled ? copy.futuresStalledNote
+    : futuresSessionOpen ? copy.marketClosed : copy.futuresPausedNote;
   const pulseStatusClass = isLive ? '' : (futuresLive || volatilityLive) ? s.futuresOpen : s.closed;
   const etfRowStatus = equityExtendedLive ? 'LIVE' : volatilityLive ? 'VIX LIVE' : isMarketHoliday ? copy.holiday : copy.closed;
   const etfRowLive = equityExtendedLive || volatilityLive;

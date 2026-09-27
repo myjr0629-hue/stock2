@@ -4430,7 +4430,7 @@ export default function AppIntelPage() {
             //   바꿔치던 `|| sec.change` 도 같은 모양이라 뺐다(0 은 실제 보합).
             const leadSymbol = topStock?.ticker || '—';
             const leadChange = topStock && Number.isFinite(topStock.changePct) ? topStock.changePct : null;
-            const leadMove = formatPercentCompact(leadChange);
+            const leadMove = topStock ? formatPercentCompact(leadChange) : '';   // 종목이 없으면 «—» 하나만
             const leadMoveColor = leadChange == null ? '#94a3b8' : leadChange < 0 ? '#ef4444' : '#10b981';
             // 섹터 종목 실시간 데이터 (브레드스 칩 색상 + 주도종목 추세선 — 실제 데이터)
             const sectorQuotes = getSectorQuotes(sec.id);
