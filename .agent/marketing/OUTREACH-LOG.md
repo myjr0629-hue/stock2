@@ -12978,3 +12978,22 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 후보 탐색 | 대형 계정 8곳 최근 8시간(@KobeissiLetter·unusual_whales·Barchart·StockMKTNewz·CNBC·zerohedge·LizAnnSonders·DeItaone) → 우리 검증 데이터와 맞는 글 = @CNBC «Debt-hungry AI companies face increased risk as bond yields spike»(1.3시간 전) | x.com 프로필 |
 | **x_reply ✅** | 금리 쪽 규모: 10년물 금요일 종가 5.17%·주간 +16bp·전날 5.18% = 2007년 이후 최고 종가 / 신용은 아직: HY OAS 2.80%(9/24)·1년 범위 2.60~3.46% 의 아래쪽 절반 — «금리는 튀었는데 스프레드는 안 따라왔다» · 가중 271 · 무링크 · 계정 @signumhq_jp → @signumhq 자동 전환(정정 모드 수리분) · 루트 팔로워 620만(18만 조건 충족) | https://x.com/signumhq/status/2104187417632846216 · syndication: user signumhq·in_reply_to CNBC 2104167347208560854 |
 | reddit | 미국 일요일 오전 — 다음 목표 WSB «What Are Your Moves Tomorrow»(한국 월 05:00 게시) 직후 · 오늘(UTC) 1/3 | — |
+
+
+---
+
+## 2026-09-27 (KST) 22:32~00:2x — 시간 사이클 + **대표 지시 «유입 극대화 실측·연구»**: x_reply ✅ 2/3 · reddit ✅ r/bonds(UTC 2/3) · 지식iN 맞는 질문 없음 · 광고 콘솔 로그아웃(③) · **클릭 두 배·설치 그대로 실측** · 도구 수리 2 · 리딤 방침 저장 · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| (2) 만기 게이트 | ✅ 두 구현 일치 | audit-expiration-selection --live |
+| **x_reply ✅(2/3)** | @StockMKTNewz(110만) «2026 뱅가드 섹터 ETF 상위 3» 글에 3분기만 떼어 본 값: 6/30→9/25 종가(나스닥 historical 재확인) XLE +16.8 · XLV +7.6 · XLK +3.0 · XLU −12.9(11개 중 꼴찌) + «유틸리티 = 채권 대용 섹터, 10년물 +73bp 분기» · 가중 241 · 무링크 | https://x.com/signumhq/status/2104205228019191917 · syndication: user signumhq·in_reply_to StockMKTNewz 2104187051998372309 |
+| **reddit ✅(UTC 2/3)** | r/bonds(7.1만, 규칙: 자기홍보 영구밴·AI 조항 없음) «Bond yield flying across the globe»(0.4시간·댓글 7)에 미국 쪽 곡선 — 재무부 par 곡선 CSV 재확인: 10년 5.17%(목 5.18% = 2007-07-06 이후 최고 종가, 2008~2025 5.18 이상 0일) · 주간 2y +5·10y +16·30y +15bp · 10s-2s 25→36bp · 8/24 이후는 2y +57 vs 10y +47·30y +26(첫 구간은 연준 기대, 가팔라짐은 지난주부터) · 무링크·무앱명 | https://www.reddit.com/comments/1wrkv39/comment/pcde8jt/ · 발행기 검증 found·not removed |
+| naver_kin — 맞는 질문 없음 | 최신순 2회 스캔(주제어 15개 + 미국주식류 12개, 답변 0~1 필터): «미국주식 결제일»(답 5·채택 있음, 추석 연휴 결제 설명 완비) · «20대 투자 공부»(채택 있음) · «나스닥 지수 투자»(9시간 전 장문 답이 QQQ/QQQM·국내 ETF·세금·(H) 다 다룸) → 여섯 번째 답은 가치 없음. 답 0 은 태블릿·마인크래프트 등 주제 밖 | kin-candidates12/13.json |
+| (6) 광고 | app-ads.apple.com → idmsa 로그인 화면(세션 만료 그대로, ③) | — |
+| **대표 지시 — 유입 실측** | 오늘 클릭 13(ET 날짜 = 한국 13시 시작) · 9/9~15 하루 42 → 9/20~26 하루 93 · **신규 설치(RevenueCat) 5.6 → 5.4 그대로** · 7일 기기: PC 78%·블루스키 107 중 폰 4 · 3일 폰 클릭: home 17·threads 5/6·indiehackers 3/11·블루스키 0/39·X 0/10 · 설치 국가 미국 42·한국 33·일본 8 · Play 28일 취득 16(Play 검색 0)·등록정보 방문 43 · 앱스토어 한국 얇은 문 1위 4개·미국 premarket 5위 | research/INFLOW-MAX-2026-09-27.md 1절 |
+| **대표 지시 — 외부 연구 3건** | ① 비교 앱: 종목별 자동 페이지 검색이 최강(OptionCharts X 627명·구글 «max pain» 2위) · 설치는 «웹으로 못 하는 행동»에 붙음(Autopilot 1M+ vs Unusual Whales 50K+) ② PC→폰: Play 웹 «내 폰에 설치»·QR 3cm+·가림막 금지·Smart App Banner ③ 코드 배포처 원문 확인(MacRumors 코드 포럼·r/droidappshowcase·r/SingleUseCodes·X 추첨 ✓ / r/ios·r/apple·금융 서브 ✗) | 같은 문서 3절 · REDEEM-CODES.md K절 |
+| **발견 — 종목 페이지 묵은 값** | 6,768쪽 중 드물게 오는 페이지는 첫 요청(구글봇)에 묵은 값: ja SPY 9/18 · ja AAPL 9/17 · ko SPY 9/22 → 1분 뒤 재요청 9/25(Next 데이터 캐시 SWR) · /en/rankings/maxpain-gap 에 한국어 설명 | 작업 칩 «Fix stale data on rarely visited ticker pages» |
+| **리딤 대표 방침 저장** | «뿌린다·플랫폼별 적당량·얻는 기분·누르면 적용 + 직접 입력 병행» → J절(설계) · K절(배포처·법) · 메모리 | REDEEM-CODES.md |
+| 도구 수리 2 | ① 키우기 칸이 계정 합계 소진을 «2/3»으로 보여 한 편 더 되는 듯 읽혔다 → «계정 합계 3/3(자정 초기화)» ② **키우기 칸을 «3일 폰 클릭» 순으로** — mkt-clicks.js 가 d3phone 을 캐시에 싣고, slot 이 «클릭은 있는데 폰 0» 채널을 경고 | node --check · slot 실출력 |
+| 개선 | 채널 성과는 «폰 클릭 + RevenueCat 신규»로 본다. 전체 클릭 증가를 성과로 쓰지 않는다(메모리 clicks-doubled-installs-flat) | — |

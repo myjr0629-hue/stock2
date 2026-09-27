@@ -176,8 +176,31 @@ async function liveTags() {
   //   mkt-plan.js slot 은 «오래 방치된 순»으로만 골라서, 매일 클릭을 내는 채널(bluesky)이
   //   4사이클 내리 «대상 아님»에 있었다. 이긴 것을 키우라는 규칙과 정면으로 어긋난다.
   //   그래서 여기서 캐시를 남기고 slot 이 «키우기» 레인으로 먼저 보여 준다.
+  // ★2026-09-27 «폰 클릭» — 키우기 칸이 전체 클릭으로 순위를 매겨 bluesky 를 1위로 키웠다. 그런데 7일 기기 실측
+  //   bluesky 107클릭 중 폰 4(데스크톱 103 — 봇 포함 가능)였고, 같은 2주 동안 전체 클릭이 하루 42→93 으로 두 배가 될 때
+  //   신규 설치(RevenueCat 첫 실행)는 하루 5.6→5.4 로 그대로였다. 설치가 되는 건 폰 클릭뿐이다 → 3일 폰 클릭을 같이 싣는다.
+  //   키: /app 라우트가 9/22 부터 세는 mkt:attr:hit:<tag>:<android|ios|desktop>:<ET날짜> (mkt-clicks-platform.js 와 같은 키).
+  let d3phone = null;
   try {
-    const cache = { at: new Date().toISOString(), days, failed,
+    const pj = []; for (const r of live2.filter((x) => x.d3 > 0)) for (const d of dates.slice(0, 3)) for (const p of ['android', 'ios']) pj.push([r.t, p, d]);
+    const ph = {}; let pi = 0, pfail = 0;
+    await Promise.all([...Array(LIMIT)].map(async () => {
+      while (pi < pj.length) {
+        const [t, p, d] = pj[pi++];
+        let v = null;
+        for (let i = 0; i < 3 && v == null; i++) {
+          try { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; }
+          catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+        }
+        if (v == null) pfail++; else ph[t] = (ph[t] || 0) + v;
+      }
+    }));
+    if (!pfail) d3phone = Object.fromEntries(live2.map((r) => [r.t, ph[r.t] || 0]));
+    else console.log(`· 폰 클릭 ${pfail}건을 못 쟀다 — 이번 캐시엔 싣지 않는다(0 으로 삼키지 않음)`);
+  } catch (e) { console.log('· 폰 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
+
+  try {
+    const cache = { at: new Date().toISOString(), days, failed, d3phone,
       // d3 는 «내 점검분을 뺀» 값이다 — 큐가 이걸로 키울 채널을 고른다.
       d3: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.d3 - ((CONTAM[r.t] || {}).d3 || 0))])),
       d3raw: Object.fromEntries(live2.map((r) => [r.t, r.d3])),

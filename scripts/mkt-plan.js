@@ -315,18 +315,24 @@ if (cmd === 'slot') {
     const cc = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), 'utf8'));
     const ageH = (Date.now() - Date.parse(cc.at)) / 36e5;
     const SELF = new Set(['home', 'seo', 'seo_darkpool']); // 우리 자산 — 게시로 키우는 대상이 아니다
-    const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !SELF.has(t))
-      .sort((a, b) => b[1] - a[1]).slice(0, 3);
-    console.log('■ 키우기 — 최근 3일 «클릭이 실제로 나온» 채널. 이번 사이클에 최소 1편을 여기에 쓴다');
+    // ★2026-09-27 폰 클릭 우선 — 설치가 되는 건 폰 클릭뿐이다(mkt-clicks.js d3phone 주석). 폰 클릭이 있으면 그 순으로, 같으면 전체 클릭 순.
+    const PH = cc.d3phone || null;
+    const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !SELF.has(t) && !/^seo_/.test(t) && (!PH || (PH[t] || 0) > 0))
+      .sort((a, b) => (PH ? (PH[b[0]] || 0) - (PH[a[0]] || 0) : 0) || b[1] - a[1]).slice(0, 3);
+    console.log('■ 키우기 — 최근 3일 «' + (PH ? '폰 클릭(설치 가능)' : '클릭') + '이 실제로 나온» 채널. 이번 사이클에 최소 1편을 여기에 쓴다');
+    if (PH) { const deskOnly = Object.entries(cc.d3 || {}).filter(([t, n]) => n >= 5 && !SELF.has(t) && !/^seo_/.test(t) && !(PH[t] > 0)).map(([t, n]) => t + ' ' + n); if (deskOnly.length) console.log('   ⚠ 3일 클릭은 있는데 폰 0 — 설치로 못 간다(데스크톱·봇): ' + deskOnly.join(' · ')); }
     if (!top.length) console.log('   (3일 클릭 0 — 키울 것이 없다)');
     for (const [t, n] of top) {
       const v = c[ALIAS[t] || t];
       // ★2026-09-27 키우기 칸이 게이트를 안 봤다 — indiehackers 가 로그인 게이트(㊹)인데 «오늘 0/1 가능»으로 떠서 헛걸음을 부른다
       const reg = REG.find((x) => (ALIAS[x.id] || x.id) === (ALIAS[t] || t) || x.id === t);
       const gOn = reg && reg.gate && (!reg.gate.until || reg.gate.until > utcDate());
-      const room = gOn ? ('게이트(' + (reg.gate.kind || '?') + ' — ' + (reg.gate.who || '') + ')') : (v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음');
+      // ★2026-09-27 «오늘 소진 2/3» 으로 떠서 한 편 더 가능한 것처럼 읽혔다 — 실제로는 계정 합계(bluesky 2 + bluesky_bip 1)가 3/3 이었다.
+      //   소진 사유가 계정 합계면 그 숫자를 보여 준다.
+      const acctFull = v && v.acctCap != null && v.acctUsed >= v.acctCap;
+      const room = gOn ? ('게이트(' + (reg.gate.kind || '?') + ' — ' + (reg.gate.who || '') + ')') : (v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : acctFull ? '오늘 소진 — 계정 합계 ' + v.acctUsed + '/' + v.acctCap + '(자정 KST 초기화)' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음');
       const cm = (cc.contam || {})[t] || 0;
-      console.log('   ★ ' + t.padEnd(16) + '3일 ' + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
+      console.log('   ★ ' + t.padEnd(16) + (PH ? '3일 폰 ' + String(PH[t] || 0).padStart(2) + ' / ' : '3일 ') + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
     }
     // ★2026-09-21 «줄일 것» — 키우기만 보여 주면 «무엇을 그만둘지»는 영영 안 보인다(ENGINE §57).
     //   건당 1 미만 채널은 노력 대비 회수가 없다. 죽이지는 않되 신규 투입을 줄인다.
