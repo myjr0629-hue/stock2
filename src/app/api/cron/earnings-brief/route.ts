@@ -211,6 +211,9 @@ function sameCompany(said: string, reg: string): boolean {
 }
 
 const LANGS: BriefLang[] = ['ko', 'en', 'ja'];
+/** 다른 언어 글자가 섞였는가 — 이름 칸에서 「버ライ즌」(VZ ko)이 나왔다(2026-09-27 프리뷰 실측). */
+const mixed = (lang: BriefLang, s: string) =>
+    lang === 'ko' ? KANA.test(s) : lang === 'ja' ? HANGUL.test(s) : HANGUL.test(s) || KANA.test(s);
 
 export async function GET(request: Request) {
     const t0 = Date.now();
@@ -251,7 +254,7 @@ export async function GET(request: Request) {
     for (const r of rows) if (r?.ticker && !nearest.has(r.ticker)) nearest.set(r.ticker, r);
     const todo = [...nearest.keys()].filter((t) => {
         const e = out[t];
-        return !sameReport(e?.in, nearest.get(t)) || !LANGS.every((l) => e?.[l]);
+        return !sameReport(e?.in, nearest.get(t)) || !LANGS.every((l) => e?.[l] && !mixed(l, e[l]!.name));
     });
     const stale = todo.filter((t) => out[t]).length;
 
@@ -327,7 +330,7 @@ export async function GET(request: Request) {
                 // 언어별로 따로 받는다 — 하나가 오염돼도 나머지는 살린다.
                 for (const [lang, ok] of [
                     // 깊이 판이므로 하한을 올린다 — 짧으면 «일반론»이라는 뜻이다.
-                    ['ko', (w: string) => w.length >= 34 && HANGUL.test(w) && !PREDICT.test(w)],
+                    ['ko', (w: string) => w.length >= 34 && HANGUL.test(w) && !KANA.test(w) && !PREDICT.test(w)],
                     ['en', (w: string) => w.length >= 60 && !HANGUL.test(w) && !KANA.test(w) && !PREDICT.test(w)],
                     ['ja', (w: string) => w.length >= 26 && !HANGUL.test(w) && (KANA.test(w) || KANJI.test(w)) && !PREDICT.test(w)],
                 ] as [BriefLang, (w: string) => boolean][]) {
@@ -340,9 +343,11 @@ export async function GET(request: Request) {
                     // ★ 회사명은 사전이 이긴다. 영어는 등록명과 다른 회사를 가리키면 등록명으로 바꾼다.
                     const said = String(cell.name || '').trim();
                     const g = reg.get(t);
-                    const name = lang === 'ko' ? (NAME_KO[t] || stripLegal(said))
-                               : lang === 'ja' ? (NAME_JA[t] || stripLegal(said))
-                               : (g && !sameCompany(said, g.name) ? shortName(g.name) : stripLegal(said));
+                    let name = lang === 'ko' ? (NAME_KO[t] || stripLegal(said))
+                             : lang === 'ja' ? (NAME_JA[t] || stripLegal(said))
+                             : (g && !sameCompany(said, g.name) ? shortName(g.name) : stripLegal(said));
+                    // 글자가 섞인 이름은 쓰지 않는다 — 등록명(라틴)으로 대신한다.
+                    if (mixed(lang, name)) name = g ? shortName(g.name) : '';
                     if (!name) { why.push(`${lang}:이름`); continue; }
                     entry[lang] = { name, watch };
                 }
