@@ -12790,3 +12790,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **indexnow ✅(주 1회, 마지막 9/19)** | 제출 전 점검: sitemap 6,768개 중 **6,729개 lastmod 2026-09-25**(9/19 이후 변경), 39개는 8/31 그대로 → IndexNow 취지(바뀐 URL 통보)에 맞게 **바뀐 6,729개만** 제출 · api.indexnow.org 1,000건씩 7회 **전부 HTTP 200 = 접수 6,729/6,729**(Bing·Yandex·Seznam·Naver 전달). 키 파일 https://www.signumhq.com/a23324ff2f2e147eb4364b1661650b47.txt 200·내용 일치. «접수»이지 «색인»은 아니다(색인 확인은 BWT·네이버 서치어드바이저 = 브라우저) | mkt-plan pub indexnow |
 | 보류 — indexnow_ghpages | 데이터셋 사이트는 9/19 파일 삭제·README·랜딩 교체(브라우저) **직후**에 통보한다 — 지금 보내면 고칠 페이지를 다시 긁게 한다 | — |
 | 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 11:25~11:27 — 시간 사이클: 실행 0/4(브라우저 대표 제어 8사이클째) · 게이트 341/0 · 마감 있는 대표 결정(㊸) 자료 갱신 · 승인 대기 브랜치 4개 합치기 사전 점검
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행. 같은 4개가 반복 배정되지만 원인은 채널이 아니라 «브라우저 전체»라 게이트로 빼지 않는다(빼면 복귀 때 사라진다) — slot 첫 줄 경고가 그 신호 | slot |
+| ㊸ XS 페이퍼 — 마감 재확인 | 스케줄 `cron(40 22 ? * MON-FRI *)` ENABLED · 9/26 22:00Z 이후 로그 0건 = 정상(UTC 토요일은 실행 없음) → **다음 실행 = 9/29(월) 07:40 KST**, 그 전에 배포·결정 필요(HANDOFF ㊸ 그대로) | EventBridge DescribeRule · CloudWatch Logs(읽기 전용) |
+| **승인 대기 브랜치 합치기 사전 점검** | `git merge-tree` 로 현재 main 과 가상 합치기: fix/xs-paper-kill-dupkey(고유 1·main 앞섬 47) · fix/structure-lastgood-age(2·79) · fix/learn-call-wall-definition(1·3) · fix/redis-cost-security(1·13) — **4개 모두 충돌 없음** → 승인 시 HANDOFF 의 명령 1줄이 그대로 통한다 | git merge-tree --write-tree |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
