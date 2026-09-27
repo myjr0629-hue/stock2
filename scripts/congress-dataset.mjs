@@ -164,7 +164,7 @@ a{color:var(--acc)}code{font-size:13px}
 <h1>US Congress Stock Trades — last 90 days, per ticker</h1>
 ${isComplete
   ? `<p class="sub">Window ${cut} → ${today} · ${tickers.length} tickers · ${rows.length} trades · ${memberCount} members · updated ${today}</p>
-<p class="sub"><b>Coverage:</b> complete for the window — every ticker with a disclosed stock trade and every buy and sell (exchanges excluded), from filings disclosed up to ${esc(String(coverage.source_fetched_at || today).slice(0, 10))}.</p>`
+<p class="sub"><b>Coverage:</b> complete for the window — every ticker with a disclosed stock trade and every buy and sell (exchanges excluded), from the filings available on ${esc(String(coverage.source_fetched_at || today).slice(0, 10))}${list.latestDisclosure ? ` (latest disclosure ${esc(list.latestDisclosure)})` : ''}.</p>`
   : `<p class="sub">Window ${cut} → ${today} · ${tickers.length}${tickersTotal ? ` of ${tickersTotal}` : ''} tickers (largest estimated net flow) · ${rows.length} trade rows · updated ${today}</p>
 <p class="sub"><b>Coverage:</b> this is a subset — ${esc(subsetWhy.join('; '))}. Do not read the counts as all congressional trades.</p>`}
 <p>Members of Congress must report stock trades over $1,000 within 45 days (STOCK Act, 2012), and only as dollar ranges. This page folds the last 90 days of those reports per ticker. Two things the raw tables hide are counted separately: <b>how many different members</b> are behind the filings (one member filing 17 times is one decision), and the <b>reporting lag</b> between the trade and the disclosure.</p>
