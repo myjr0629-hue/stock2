@@ -12802,3 +12802,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | ㊸ XS 페이퍼 — 마감 재확인 | 스케줄 `cron(40 22 ? * MON-FRI *)` ENABLED · 9/26 22:00Z 이후 로그 0건 = 정상(UTC 토요일은 실행 없음) → **다음 실행 = 9/29(월) 07:40 KST**, 그 전에 배포·결정 필요(HANDOFF ㊸ 그대로) | EventBridge DescribeRule · CloudWatch Logs(읽기 전용) |
 | **승인 대기 브랜치 합치기 사전 점검** | `git merge-tree` 로 현재 main 과 가상 합치기: fix/xs-paper-kill-dupkey(고유 1·main 앞섬 47) · fix/structure-lastgood-age(2·79) · fix/learn-call-wall-definition(1·3) · fix/redis-cost-security(1·13) — **4개 모두 충돌 없음** → 승인 시 HANDOFF 의 명령 1줄이 그대로 통한다 | git merge-tree --write-tree |
 | 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 12:25~12:28 — 시간 사이클: 실행 0/4(브라우저 대표 제어 9사이클째) · 게이트 341/0 · 확장 1(기각 기록 — 투자 도구 awesome 목록 3곳) · llms.txt·스토어 프로모션 문구 점검(변경 불필요)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| 점검 — llms_txt(대기열) | 라이브 llms.txt 에 개념 설명·시장 랭킹·티커 페이지·앱 3개·«Open dataset(CC BY 4.0)» 섹션까지 이미 있다 → 이번엔 바꿀 가치가 작고 운영 배포 승인만 하나 더 늘어 보류(콜월 정의 브랜치 54 합치기 뒤 «설명이 계산과 같다» 문장이 참이 된다) | https://www.signumhq.com/llms.txt |
+| 점검 — App Store promotionalText | 9/18 이후 «월 $50~99 자료 → 무료·가입 없음» 가치 설명으로 채워져 있다(교리: 스토어 첫 줄 = 가치 설명) → 이벤트 문구로 바꾸지 않는다 | asc-promo-text.py · 로그 9947행 |
+| 확장 — 기각 기록 | GitHub 투자 도구 awesome 목록 3곳(awesome-investing ★2,470 · awesome-stock-trading ★855 · Find My Moat 투자도구 디렉터리 ★97 — «옵션·파생» 칸에 Unusual Whales·OptionStrat) — **최근 닫힌 PR 6건 중 병합 0**(세 곳 모두), 디렉터리의 커뮤니티 제출 파일 0건·커밋 1회 → 외부 제출이 합쳐지지 않는 목록. channels.json(action rejected) 등록 — 다시 조사하지 않는다. 교훈: 등재 준비 전 «닫힌 PR 병합 비율»부터(apd-core 는 0~1일 병합) | GitHub API |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |

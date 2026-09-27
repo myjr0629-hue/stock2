@@ -1815,6 +1815,21 @@
     "who": "나(정의 정합·데이터셋 정리 후)",
     "why": "콜월·풋플로어 문서 정의와 계산 불일치 확인 중 — 틀린 설명으로 등재하지 않는다"
    }
+  },
+  {
+   "id": "awesome_investing_lists",
+   "name": "GitHub 투자 도구 awesome 목록 3곳(awesome-investing·awesome-stock-trading·투자도구 디렉터리)",
+   "tier": "C",
+   "enabled": false,
+   "tag": "github",
+   "action": "rejected",
+   "note": "★2026-09-27 12시 확장 발굴 → 기각(실측, GitHub API): mr-karan/awesome-investing(★2,470, 마지막 push 4/23) · shi-rudo/awesome-stock-trading(★855, 4/26) · Jera-Value/awesome-investing-tools-and-software-directory(★97, 8/15 — «옵션·파생» 칸에 Unusual Whales·OptionStrat 수록). 세 곳 모두 **최근 닫힌 PR 6건 중 병합 0**(도구 추가 PR 이 전부 닫힘). 디렉터리는 Find My Moat 사이트가 README 를 생성하고 기여 경로(data/community-tools.json)는 **0건·커밋 1회** = 외부 제출이 합쳐진 적 없음. 교훈: 등재 준비 전에 «닫힌 PR 중 병합 비율»부터 본다(apd-core 는 0~1일 만에 병합 — 그래서 그쪽을 연다).",
+   "gate": {
+    "kind": "거절",
+    "until": null,
+    "who": "—",
+    "why": "관리자가 외부 PR 을 병합하지 않는다(최근 6건 0 병합)"
+   }
   }
  ],
  "candidates": [
