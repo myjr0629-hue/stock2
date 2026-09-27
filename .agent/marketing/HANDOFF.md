@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-27 20:35 KST** (시간 사이클 — naver_kin ✅(S&P500 선물 설명) · reddit 다음 목표 = WSB «What Are Your Moves Tomorrow»(월 05시) · 키우기 칸 게이트 표시 수리 · Quora 재로그인 대기(56) · 월 05~09시: x_jp·note(준비 완료) + WSB 댓글 · ㊸ XS 페이퍼 마감 월 07:40)
+마지막 갱신: **2026-09-27 21:33 KST** (시간 사이클 — x_reply ✅(@CNBC 금리·신용) · naver_kin ✅ · reddit 목표 월 05시 WSB · Quora 재로그인 대기(56) · 월 05~09시: x_jp·note(준비 완료) + WSB 댓글 · ㊸ XS 페이퍼 마감 월 07:40)
 
 ---
 
