@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "github_pages",
+   "url": "https://myjr0629-hue.github.io/options-market-structure-daily/",
+   "note": "토요일 파일 9/19 삭제 + JSON-LD 재생성 + README 정의·커버리지 + 의회 커버리지 표기",
+   "at": "2026-09-27T09:09:16.444Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "indexnow_ghpages",
+   "url": "https://myjr0629-hue.github.io/options-market-structure-daily/",
+   "note": "9/19 삭제·README·랜딩·의회 재생성 직후 통보(의원 페이지 20 포함)",
+   "at": "2026-09-27T09:09:16.398Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "apd_core",
+   "url": "https://github.com/awesomedata/apd-core/pull/733",
+   "note": "awesome-public-datasets Finance 등재 PR (US Options Market Structure Daily)",
+   "at": "2026-09-27T09:08:56.079Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
    "ch": "correction",
    "url": "https://www.linkedin.com/pulse/congress-filed-192-stock-trades-90-days-median-one-25-signum-hq-5qdcc/",
    "note": "LinkedIn 아티클 — 제목 교체 + 맨 위 정정 문단(«변경»)",

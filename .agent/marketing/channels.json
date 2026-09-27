@@ -453,7 +453,13 @@
    "tier": "A",
    "enabled": true,
    "note": "★2026-09-19 **첫 스레드 게시 완료** — forums.macrumors.com/threads/…2489848/ (iOS Apps and Apple Arcade). 개발자 가이드라인 확인: 앱당 스레드 «하나»만, 제목에 앱 이름, 첫 글에 회사명+URL 로 신원 표시 필수, 범프 금지. 업데이트·신버전은 **그 스레드에 이어쓴다**. 프로모코드는 여기 금지(Code Sharing 포럼 전용). 무료앱 스레드는 이 포럼이 맞다(선례 다수).",
-   "account": "signumhq (contact@signumhq.com · Mac/iOS developer 체크 · 이메일 확인 완료)"
+   "account": "signumhq (contact@signumhq.com · Mac/iOS developer 체크 · 이메일 확인 완료)",
+   "gate": {
+    "kind": "조건",
+    "until": null,
+    "who": "새 앱 버전·기능 출시 때",
+    "why": "포럼 규칙: 앱당 스레드 1개·범프 금지 — 업데이트가 있을 때만 기존 스레드(2489848)에 이어쓴다. 주간 배정은 범프를 부른다(2026-09-27 정리)"
+   }
   },
   {
    "id": "mybest_jp",
@@ -841,7 +847,13 @@
    "tag": "play_tags",
    "link": "https://play.google.com/store/apps/details?id=com.signumhq.app",
    "action": "edit",
-   "note": "★2026-09-19 확장 발굴·실행. 경로: 앱 → Grow users → Store presence → **Store settings** → Tags [Manage tags]. **즉시 반영이고 AI 신고 모달이 없다**(등록정보 저장과 다른 경로) — Play 에서 내가 심사 없이 건드릴 수 있는 몇 안 되는 칸. 태그는 «노출 위치»와 «비교 피어그룹»을 함께 바꾼다. 어휘는 고정 172개라 「stock」·「quiz」·「trivia」·「budget」은 **없다**; 우리 것은 fin→Finance/Personal finance, invest→Investment, aggregator→News aggregator, news→News & magazines, crypto→Cryptocurrency, educat→Education. 실측 적용: SIGNUM 0→**Finance/Investment/News aggregator**, UC 1→**Finance/Investment/News & magazines/News aggregator**, WIM 은 이미 5칸 만석(Finance/Investment/News & magazines/Study guide/Test preparation)이라 손대지 않음. 조작 요령: 모달의 검색칸은 `aria-label=\"Search tags\"`, 선택은 행 «왼쪽 30px»를 클릭, 확인은 「Selected tags: …」 문자열로 읽는다."
+   "note": "★2026-09-19 확장 발굴·실행. 경로: 앱 → Grow users → Store presence → **Store settings** → Tags [Manage tags]. **즉시 반영이고 AI 신고 모달이 없다**(등록정보 저장과 다른 경로) — Play 에서 내가 심사 없이 건드릴 수 있는 몇 안 되는 칸. 태그는 «노출 위치»와 «비교 피어그룹»을 함께 바꾼다. 어휘는 고정 172개라 「stock」·「quiz」·「trivia」·「budget」은 **없다**; 우리 것은 fin→Finance/Personal finance, invest→Investment, aggregator→News aggregator, news→News & magazines, crypto→Cryptocurrency, educat→Education. 실측 적용: SIGNUM 0→**Finance/Investment/News aggregator**, UC 1→**Finance/Investment/News & magazines/News aggregator**, WIM 은 이미 5칸 만석(Finance/Investment/News & magazines/Study guide/Test preparation)이라 손대지 않음. 조작 요령: 모달의 검색칸은 `aria-label=\"Search tags\"`, 선택은 행 «왼쪽 30px»를 클릭, 확인은 「Selected tags: …」 문자열로 읽는다.",
+   "gate": {
+    "kind": "주기",
+    "until": "2026-10-19",
+    "who": "나(월 1회)",
+    "why": "9/19 적용(SIGNUM Finance/Investment/News aggregator 등) 뒤 바꿀 근거가 생길 때까지 월 1회 점검 — 주간 배정은 헛돈다(2026-09-27 정리)"
+   }
   },
   {
    "id": "android_deep_links",

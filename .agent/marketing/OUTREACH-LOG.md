@@ -12914,3 +12914,17 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - **9/9 Quora 답변도 같은 부분집합이다**: «90일 191건·60종목 → 지연 중앙값 24.5일 · 45일 초과 7건»(위 9/9 (4) 항목) — 정정 목록 7곳에 없던 8번째.
 
 ---
+
+
+---
+
+## 2026-09-27 (KST) 17:38~18:10 — 시간 사이클(브라우저 복귀 후 첫 사이클): **공개 데이터셋 정리 ✅ · apd-core 등재 PR ✅(#733)** · indexnow_ghpages ✅ · 헛배정 2개 게이트 · 게이트 341/0 · 구조 대조 11/12(META OI 시점)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **github_pages ✅ — 토요일 파일 삭제** | GitHub 삭제 화면(/delete/main/…)에서 «Commit changes...» → 대화상자 «Commit changes» 로 `2026-09-19.json`·`.md` 삭제 → API 404(9/18 파일은 200 유지) | api.github.com contents |
+| **github_pages ✅ — 랜딩·README·의회 재생성 업로드(26개 파일)** | gh-dataset-index(휴장일 필터)로 index 재생성(7개 파일, 9/16~9/25) · README 정의(콜월 ±20%·감마플립 ±15%·핀존=맥스페인)·의회 «Coverage (read this first)»·빈 날짜 안내 · congress-dataset(커버리지 표기) 재생성: **API count 가 173 → 182 로 늘어** 문구도 «60 of 182» 로 맞춤 · 의원 페이지 20개(기존 16개 전부 포함 — 고아 없음) · github-upload 반영 확인. raw: README 커버리지·정의 ✓, index 9/19 참조 0 ✓, JSON coverage 182 ✓ · **Pages 재빌드 후**: 랜딩 9/19 참조 0 ✓, congress.html «this is a subset»·«60 of 182» ✓ | raw.githubusercontent · github.io |
+| **apd_core ✅ — PR #733** | 새 파일 화면의 «Fork this repository» 는 두 번 눌러도 포크가 안 생김 → 저장소 머리 «Fork» → /fork «Create fork»(master 만) → myjr0629-hue/apd-core 생성(API fork=true) · 포크에 `core/Finance/US-Options-Market-Structure-Daily.yml` 을 **붙여넣기**로 입력(편집기 41줄 = 원본 + 끝 줄바꿈) · 커밋 대화상자의 Copilot 자동 설명은 지우고 우리 메시지 · 새 브랜치(myjr0629-hue-patch-1) · 포크 간 비교(awesomedata:master ← patch-1) «Able to merge»·1 file · ⚠ PR 설명 칸에 저장소 PR 템플릿(38-Cloud YAML)이 미리 차 있어 첫 붙여넣기가 중간에 끼었다 → 값 대조가 막아 미제출 → 칸 안 전체 선택 후 교체·일치 확인 후 제출 · 관계 공개 문장 포함 · 자동 검사 0건(첫 기여 포크 워크플로는 관리자 승인 대기) | https://github.com/awesomedata/apd-core/pull/733 |
+| indexnow_ghpages ✅ | 첫 실행이 기본 경로 members.json 을 읽어 5개만 → 새 members.json 경로로 25개 URL 200 접수. 주간 캡 2/1(9/23 기록 포함) — 실제로 바뀐 페이지 통보라 유지, 기록만 | indexnow-ghpages.mjs |
+| **도구 신호 — 헛배정 2개 게이트** | macrumors: 포럼 규칙상 «새 버전·기능이 있을 때만» 기존 스레드에 이어쓰기(범프 = 밴) → gate 조건 · play_app_tags: 9/19 설정 뒤 주간 변경 근거 없음 → gate 주기(10/19 까지, 월 1회) | channels.json |
+| 다음 사이클 배정 | naver_search_advisor · llms_txt · naver_kin · threads_jp (+ quora · wsb_earnings_thread · reddit) | slot |
