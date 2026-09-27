@@ -1,6 +1,14 @@
 {
  "entries": [
   {
+   "ch": "indexnow",
+   "url": "https://www.signumhq.com/sitemap.xml",
+   "note": "6729/6729 HTTP 200 — lastmod 9/25 로 바뀐 URL 만(9/19 이후 변경분)",
+   "at": "2026-09-27T01:26:58.335Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
    "ch": "x_post",
    "url": "https://x.com/signumhq/status/2103932854204039464",
    "note": "",

@@ -12778,3 +12778,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 종류 점검 — FINRA 데이터셋 | finra-short-dataset.py 는 FINRA 가 날마다 올리는 **전체 파일**(cdn.finra.org CNMSshvol*.txt)을 받는다 — 페이지·건수 상한 없음 → 잘림 결함 해당 없음 | 스크립트 원문 |
 | 데이터셋 README 수정본 | 정의 3줄(감마플립 ±15% · 콜월/풋플로어 ±20% 범위 · 핀존 = 맥스페인) · 의회 거래 «Coverage (read this first)»(173종목 중 60·종목당 40건 · 9/23 판 «192건·16명»은 부분집합) · «빈 날짜는 빈칸(예 9/17), 주말·휴장 파일 없음» → /tmp/ego/gh-fix-0927/README.md, 업로드 작업 파일 gh-task-fix-0927.json(index.html + README) | diff 확인 |
 | 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 10:25~10:27 — 시간 사이클: 실행 0/4(브라우저 대표 제어 7사이클째) · **indexnow ✅(대기열 중 비브라우저 채널 실행)** · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 — apd_core·macrumors·play_app_tags·github_pages | 전부 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| **indexnow ✅(주 1회, 마지막 9/19)** | 제출 전 점검: sitemap 6,768개 중 **6,729개 lastmod 2026-09-25**(9/19 이후 변경), 39개는 8/31 그대로 → IndexNow 취지(바뀐 URL 통보)에 맞게 **바뀐 6,729개만** 제출 · api.indexnow.org 1,000건씩 7회 **전부 HTTP 200 = 접수 6,729/6,729**(Bing·Yandex·Seznam·Naver 전달). 키 파일 https://www.signumhq.com/a23324ff2f2e147eb4364b1661650b47.txt 200·내용 일치. «접수»이지 «색인»은 아니다(색인 확인은 BWT·네이버 서치어드바이저 = 브라우저) | mkt-plan pub indexnow |
+| 보류 — indexnow_ghpages | 데이터셋 사이트는 9/19 파일 삭제·README·랜딩 교체(브라우저) **직후**에 통보한다 — 지금 보내면 고칠 페이지를 다시 긁게 한다 | — |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
