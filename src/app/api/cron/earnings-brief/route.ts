@@ -21,12 +21,15 @@ import { NextResponse } from 'next/server';
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
+import {
+    EARNINGS_BRIEF_KEY, SAME_REPORT_DAYS, sameReport, headerFactIn,
+    type BriefEntry, type BriefLang, type BriefPack,
+} from '@/lib/earningsBrief';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// v2 — 모델과 프롬프트가 바뀌었다. 옛 판(얕은 문장)이 남으면 안 되므로 키를 올린다.
-export const EARNINGS_BRIEF_KEY = 'earnings:brief:v2';
+// 키·«같은 발표» 판정·숫자 검사는 @/lib/earningsBrief — 캘린더 라우트가 같은 것을 읽는다.
 
 /**
  * ★ [2026-09-10] 가벼운 모델(Nova Lite)에서 Haiku 로 되돌렸다.
@@ -90,24 +93,45 @@ const bedrock = () => new BedrockRuntimeClient({
     maxAttempts: 2,
 });
 
+/**
+ * ★ [2026-09-27] 숫자를 쓰지 못하게 했다.
+ *   카드 머리글이 이미 EPS·매출 추정치를 보여 주고, 그 값은 매일 바뀐다. 문장에 박힌 숫자는
+ *   만든 날의 값이라 곧 머리글과 어긋났다(MU 머리글 $31.52 ↔ 문장 $31.16).
+ *   원인은 프롬프트 두 줄이었다 — 「추정치가 특이하면(very high EPS) 그 의미를 말하라 — 예: 메모리
+ *   가격 사이클」 예시와 「추정치를 인용해도 된다」. 예시는 오염원이다(뉴스 번역 NVIDIA→앤스로픽과 같은 꼴).
+ *   → 예시를 걷고, 모델 입력에서 EPS·매출 숫자 자체를 뺐다. 없는 숫자는 옮겨 적을 수 없다.
+ *   프롬프트만 믿지 않고 아래에서 headerFactIn 으로 다시 거른다.
+ *
+ * ★ 회사 신원도 모델에게 맡기지 않는다 (같은 날 실측).
+ *   티커만 주자 S 를 「Sprint」, SYM 을 「Symposium International」, PL 을 「Platinum Group Metals」,
+ *   ASTS 를 「Astrotech」, SMR 을 「Small Modular Reactor」로 짓고 그 회사 얘기를 썼다
+ *   (실제는 SentinelOne · Symbotic · Planet Labs · AST SpaceMobile · NuScale).
+ *   → 등록 회사명과 한 줄 설명(FMP profile)을 같이 준다. 못 얻으면 그 종목은 만들지 않는다.
+ */
 const SYSTEM = [
     'You write the "what to watch" line for upcoming US earnings in an institutional-grade stock app.',
     'For each ticker produce: name (company name in that language) and watch.',
+    '',
+    'IDENTITY — when an item has "company" (its registered name) and "about" (what it does), that IS',
+    '  the company behind the ticker. Write about that business only — never about another company whose',
+    '  ticker or name looks similar. Localize that name for "name".',
     '',
     'DEPTH — this is the whole point. A generic line is worthless.',
     '- Name the SPECIFIC line item, segment, or metric that decides this quarter for THIS company.',
     '  Not "revenue growth" — say which segment. Not "margins" — say which margin and what drives it.',
     '- Tie it to something real about the company: a business shift, a product cycle, a pricing',
     '  regime, a capex cycle, a regulatory change, a competitive position.',
-    '- Where the estimate given is unusual (very high EPS, huge revenue), say what that implies',
-    '  structurally — a memory pricing cycle, a buyback-shrunk share count, a seasonal quarter.',
     '- Two clauses is the shape: WHAT to look at ; WHY that number moves the read.',
     '',
     'HARD RULES',
     '- Korean 55-95자 · Japanese 40-70자 · English 90-165 chars.',
     '- NEVER predict a result or a direction. No "전망", "예상됩니다", "상회할", "will beat/miss",',
     '  "expected to". Describe what to LOOK at and why it matters structurally — observation, not forecast.',
-    '- No investment advice. Do not invent numbers; you may reference the estimate given.',
+    '- No investment advice.',
+    '- NO FIGURES. Never write an EPS, revenue or dollar amount, a growth rate, or any other value.',
+    '  The card already shows the live estimate above your line and it is revised often — a number',
+    '  in your line goes stale and contradicts it. Name the metric, never its value.',
+    '  Do not label the fiscal quarter or fiscal year either — the card shows it.',
     '- LANGUAGE PURITY: "ko" Korean only, "en" English only, "ja" Japanese only.',
     '  Ticker symbols and standard finance acronyms (OCI, FICC, ASP, DRAM) are fine in any language.',
     '',
@@ -117,6 +141,54 @@ const SYSTEM = [
 const HANGUL = /[가-힣]/, KANA = /[぀-ヿ]/, KANJI = /[一-鿿]/;
 /** 예측 표현은 우리 규칙상 절대 나가면 안 된다 — 여기서 잘라 낸다. */
 const PREDICT = /전망|예상\s*(상회|됩니다|된다)|상회할|하회할|증가가\s*예상|will\s+(beat|miss|rise|fall|increase)|expected\s+(to|increase)|予想されます/i;
+
+/**
+ * 등록 회사명과 한 줄 설명 (FMP profile — 캘린더와 같은 벤더·같은 키).
+ * 못 얻으면 null 이다. 신원을 모델에게 추측시키지 않는다 — 새로 만들 종목에만 부른다.
+ */
+async function registered(t: string, key: string | undefined): Promise<{ name: string; about: string } | null> {
+    if (!key) return null;
+    try {
+        const r = await fetch(`https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(t)}&apikey=${key}`, {
+            cache: 'no-store', signal: AbortSignal.timeout(8000),
+        });
+        if (!r.ok) return null;
+        const p = (await r.json())?.[0];
+        const name = String(p?.companyName || '').trim();
+        if (!name || name.toUpperCase() === t) return null;          // 티커 자신이 이름 자리에 오는 때가 있다
+        // 첫 문장만 자르면 「SentinelOne, Inc.」에서 끊긴다(Inc. 의 마침표) — 글자 수로 자른다.
+        const desc = String(p?.description || '').replace(/\s+/g, ' ').trim();
+        const about = desc.length <= 220 ? desc : `${desc.slice(0, 220).replace(/\s+\S*$/, '')}…`;
+        return { name, about };
+    } catch {
+        return null;
+    }
+}
+
+/** 「SentinelOne, Inc.」→「SentinelOne」 — 법인 꼬리만 뗀다. */
+const LEGAL_TAIL = /[\s,]+(?:inc\.?|incorporated|corp\.?|corporation|co\.?|company|ltd\.?|limited|plc|pbc|n\.v\.|s\.a\.|a\/s|ag|se|llc|l\.p\.)$/i;
+function shortName(reg: string): string {
+    let s = reg.trim().replace(/^the\s+/i, '');
+    for (let i = 0; i < 4 && LEGAL_TAIL.test(s); i++) s = s.replace(LEGAL_TAIL, '').replace(/[\s,&]+$|\s+and$/i, '').trim();
+    return s || reg.trim();
+}
+
+/** 모델이 쓴 영문 이름이 등록명과 같은 회사인가 — 고유 단어가 겹치거나, 약칭(AMD·TSMC·P&G)이 머리글자와 맞으면. */
+const GENERIC = new Set(['the', 'and', 'inc', 'corp', 'corporation', 'company', 'holdings', 'holding', 'group', 'international',
+    'technologies', 'technology', 'systems', 'global', 'energy', 'financial', 'services', 'solutions', 'industries',
+    'therapeutics', 'pharmaceuticals', 'platforms', 'networks', 'capital', 'partners', 'resources', 'brands']);
+function sameCompany(said: string, reg: string): boolean {
+    const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !GENERIC.has(w));
+    const r = words(shortName(reg));
+    if (words(said).some((w) => r.includes(w))) return true;
+    if (!/^[A-Z][A-Z&.\-]{1,5}$/.test(said.trim())) return false;    // 약칭처럼 생긴 것만 머리글자와 맞춘다
+    const abbr = said.replace(/[^A-Z]/g, '').toLowerCase();
+    const initials = shortName(reg).split(/[^A-Za-z0-9]+/).filter((w) => w && !/^(the|and|of)$/i.test(w))
+        .map((w) => w[0].toLowerCase()).join('');
+    return abbr.length >= 2 && initials.length >= 2 && (initials.startsWith(abbr) || abbr.startsWith(initials));
+}
+
+const LANGS: BriefLang[] = ['ko', 'en', 'ja'];
 
 export async function GET(request: Request) {
     const t0 = Date.now();
@@ -137,12 +209,38 @@ export async function GET(request: Request) {
     }
     if (!rows.length) return NextResponse.json({ success: true, skipped: 'empty-calendar' });
 
-    // 이미 만들어 둔 것은 다시 만들지 않는다. 새로 들어온 종목만 채운다.
-    const prev = (await getFromCache<any>(EARNINGS_BRIEF_KEY).catch(() => null)) || {};
-    const have = new Set(Object.keys(prev.tickers || {}));
-    const todo = rows.map((r) => r.ticker).filter((t: string) => !have.has(t));
+    // 이미 만들어 둔 것은 다시 만들지 않는다 — 단 «지금 행의 발표»를 보고 쓴 것만.
+    // ★ [2026-09-27] 전에는 티커만 봤다. 한 번 만들면 다음 분기 행에도 그 문장이 붙었다
+    //   (COST: 9/24 발표용 「Q4 EPS 6.53」이 12/10 행에). 이제 문장마다 어느 발표 행을 보고
+    //   썼는지(in)를 남기고, 그 발표가 아니면 새로 만든다. 같은 발표면 일정이 며칠 옮겨져도
+    //   다시 만들지 않는다 — 분기에 한 번이면 된다(«한 번 많이 해 놓으면» 지시 그대로).
+    //   세 언어가 다 없는 항목도 다시 만든다(하나가 검사에 걸려 빠진 채 분기 내내 비지 않게).
+    const prev = await getFromCache<BriefPack>(EARNINGS_BRIEF_KEY).catch(() => null);
+    const out: Record<string, BriefEntry> = {};
+    const today = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    let pruned = 0;
+    for (const [t, e] of Object.entries(prev?.tickers || {})) {
+        // 발표가 30일 넘게 지난 문장은 어떤 행에도 다시 붙을 수 없다 — 버린다.
+        const d = e?.in?.date ? Date.parse(`${e.in.date}T00:00:00Z`) : NaN;
+        if (Number.isFinite(d) && today - d <= SAME_REPORT_DAYS * 86_400_000) out[t] = e;
+        else pruned++;
+    }
+    const nearest = new Map<string, any>();      // 티커당 가장 가까운 발표 한 행(행은 날짜순)
+    for (const r of rows) if (r?.ticker && !nearest.has(r.ticker)) nearest.set(r.ticker, r);
+    const todo = [...nearest.keys()].filter((t) => {
+        const e = out[t];
+        return !sameReport(e?.in, nearest.get(t)) || !LANGS.every((l) => e?.[l]);
+    });
+    const stale = todo.filter((t) => out[t]).length;
+
+    const save = () => {
+        const pack: BriefPack = { generatedAt: new Date().toISOString(), source: 'ai', tickers: out };
+        // ★ 분기 단위 정보라 30일. 항목마다 in 으로 발표를 가려 붙이므로 TTL 이 늘어나도 옛 분기가 새지 않는다.
+        return setInCache(EARNINGS_BRIEF_KEY, pack, 30 * 24 * 3600);
+    };
     if (!todo.length) {
-        return NextResponse.json({ success: true, skipped: 'all-cached', have: have.size, ms: Date.now() - t0 });
+        if (pruned) await save();
+        return NextResponse.json({ success: true, skipped: 'all-cached', have: Object.keys(out).length, pruned, ms: Date.now() - t0 });
     }
 
     // ── 2) 배치로 만든다. ──
@@ -153,14 +251,31 @@ export async function GET(request: Request) {
     // Haiku 는 RPM 10 이라 «호출 수»가 비싸다 → 배치를 키우고 토큰을 넉넉히 준다.
     const BATCH = 8;
     const client = bedrock();
-    const out: Record<string, any> = { ...(prev.tickers || {}) };
-    let made = 0, rejected: string[] = [], calls = 0;
+    const fmpKey = process.env.FMP_API_KEY || process.env.NEXT_PUBLIC_FMP_API_KEY;
+    let made = 0, calls = 0, saves = 0, firstMade: string | null = null;
+    const rejected: string[] = [], partial: string[] = [], noName: string[] = [];
 
-    for (let i = 0; i < todo.length && Date.now() - t0 < 46_000; i += BATCH) {
-        const slice = todo.slice(i, i + BATCH);
-        const facts = slice.map((t: string) => {
-            const r = rows.find((x: any) => x.ticker === t) || {};
-            return { ticker: t, date: r.date, hour: r.hour || null, eps: r.epsEstimate, rev: r.revenueEstimate, q: r.quarter, y: r.year };
+    // 새 배치는 38초 안에서만 시작한다 — 배치 하나가 7~20초라 46초에 시작하면 60초 제한을 넘는다
+    // (로컬 실측: 46초 한도에서 52초에 끝났다).
+    for (let i = 0; i < todo.length && Date.now() - t0 < 38_000; i += BATCH) {
+        // 신원부터 확정한다. 등록명도 없고 사전에도 없으면 이번엔 만들지 않는다(다음 회차에 다시 본다).
+        const cand = todo.slice(i, i + BATCH);
+        const regs = await Promise.all(cand.map((t) => registered(t, fmpKey)));
+        const reg = new Map<string, { name: string; about: string }>();
+        const slice: string[] = [];
+        cand.forEach((t, k) => {
+            if (regs[k]) reg.set(t, regs[k]!);
+            if (regs[k] || NAME_KO[t]) slice.push(t); else noName.push(t);
+        });
+        if (!slice.length) continue;
+
+        // ★ EPS·매출 숫자는 넣지 않는다 — 카드 머리글이 보여 주고, 옮겨 적으면 곧 어긋난다.
+        const facts = slice.map((t) => {
+            const r = nearest.get(t) || {};
+            // 등록명이 없으면(사전 종목·FMP 실패) 필드 자체를 뺀다 — null 로 두자 모델이 «필수 필드가 없다»며
+            // 배치 전체를 거절했다(로컬 실측 2026-09-27, 8종목 통째 유실).
+            const g = reg.get(t);
+            return { ticker: t, ...(g ? { company: g.name, about: g.about } : {}), date: r.date, q: r.quarter ?? null, y: r.year ?? null };
         });
         const user = [
             `Upcoming earnings (${facts.length} companies):`,
@@ -168,6 +283,7 @@ export async function GET(request: Request) {
             `Return ALL ${facts.length} tickers: ${slice.join(', ')}. JSON only.`,
         ].join('\n');
 
+        let txt = '';
         try {
             calls++;
             const r = await client.send(new ConverseCommand({
@@ -176,57 +292,64 @@ export async function GET(request: Request) {
                 messages: [{ role: 'user', content: [{ text: user }] }],
                 inferenceConfig: { maxTokens: 6000, temperature: 0.3 },
             }));
-            const txt = (r.output?.message?.content || []).map((x: any) => x.text || '').join('').trim();
+            txt = (r.output?.message?.content || []).map((x: any) => x.text || '').join('').trim();
             const m = txt.match(/\{[\s\S]*\}/);
             const parsed = JSON.parse(m ? m[0] : txt);
 
+            let madeHere = 0;
             for (const t of slice) {
                 const v = parsed?.[t];
                 if (!v) { rejected.push(`${t}(누락)`); continue; }
-                const entry: any = {};
+                const entry: BriefEntry = {};
+                const why: string[] = [];
                 // 언어별로 따로 받는다 — 하나가 오염돼도 나머지는 살린다.
                 for (const [lang, ok] of [
                     // 깊이 판이므로 하한을 올린다 — 짧으면 «일반론»이라는 뜻이다.
                     ['ko', (w: string) => w.length >= 34 && HANGUL.test(w) && !PREDICT.test(w)],
                     ['en', (w: string) => w.length >= 60 && !HANGUL.test(w) && !KANA.test(w) && !PREDICT.test(w)],
                     ['ja', (w: string) => w.length >= 26 && !HANGUL.test(w) && (KANA.test(w) || KANJI.test(w)) && !PREDICT.test(w)],
-                ] as [string, (w: string) => boolean][]) {
+                ] as [BriefLang, (w: string) => boolean][]) {
                     const cell = v[lang] || {};
                     const watch = String(cell.watch || '').trim();
-                    if (!ok(watch)) continue;
-                    // ★ 회사명은 사전이 이긴다. 모델이 지어낸 이름을 쓰지 않는다.
-                    const name = lang === 'ko' ? (NAME_KO[t] || String(cell.name || '').trim())
-                               : lang === 'ja' ? (NAME_JA[t] || String(cell.name || '').trim())
-                               : String(cell.name || '').trim();
-                    if (!name) continue;
+                    if (!ok(watch)) { why.push(`${lang}:형식`); continue; }
+                    // ★ 머리글이 보여 주는 사실(숫자·분기)을 다시 말하면 버린다 — 프롬프트만 믿지 않는다.
+                    const fact = headerFactIn(watch);
+                    if (fact) { why.push(`${lang}:${fact}`); continue; }
+                    // ★ 회사명은 사전이 이긴다. 영어는 등록명과 다른 회사를 가리키면 등록명으로 바꾼다.
+                    const said = String(cell.name || '').trim();
+                    const g = reg.get(t);
+                    const name = lang === 'ko' ? (NAME_KO[t] || said)
+                               : lang === 'ja' ? (NAME_JA[t] || said)
+                               : (g && !sameCompany(said, g.name) ? shortName(g.name) : said);
+                    if (!name) { why.push(`${lang}:이름`); continue; }
                     entry[lang] = { name, watch };
                 }
-                if (!entry.ko) { rejected.push(`${t}(ko실패)`); continue; }
+                if (!entry.ko) { rejected.push(`${t}(${why.join(',')})`); continue; }
+                if (why.length) partial.push(`${t}(${why.join(',')})`);
+                const row = nearest.get(t);
+                entry.in = { date: row.date, q: row.quarter ?? null, y: row.year ?? null, eps: row.epsEstimate ?? null };
+                entry.at = new Date().toISOString();
                 out[t] = entry;
-                made++;
+                made++; madeHere++; firstMade ??= t;
             }
+            // 배치마다 저장한다 — 마지막 배치가 60초 제한에 잘려도 앞의 배치는 남는다.
+            if (madeHere) { await save(); saves++; }
         } catch (e: any) {
             rejected.push(`batch@${i}(${e?.name || 'err'})`);
+            // 원인을 로그로 남긴다 — 파싱 실패면 모델 출력의 앞뒤를 본다(그 배치는 다음 회차에 다시 만든다).
+            console.warn(`[earnings-brief] batch@${i} ${slice.join(',')} ${e?.name}: ${String(e?.message || '').slice(0, 160)}`,
+                txt ? `| out(${txt.length}) head=${JSON.stringify(txt.slice(0, 100))} tail=${JSON.stringify(txt.slice(-100))}` : '');
         }
     }
 
-    if (!made && !have.size) {
-        return NextResponse.json({ success: false, error: 'nothing produced', rejected, ms: Date.now() - t0 }, { status: 502 });
+    if (!made && !Object.keys(out).length) {
+        return NextResponse.json({ success: false, error: 'nothing produced', rejected, noName, ms: Date.now() - t0 }, { status: 502 });
     }
-
-    // ★ 실적 «관전 포인트»는 분기 단위 정보다 — 매일 다시 만들 이유가 없다.
-    //   크론은 이미 «새로 들어온 종목만» 만들고(이미 있으면 all-cached 로 즉시 종료,
-    //   Bedrock 호출 0건), TTL 만 짧으면 그 이점이 주 1회 리셋된다. 30일로 둔다.
-    //   실적 일정 자체가 바뀌면 캘린더가 새 티커를 물고 오고, 그때만 그 종목을 만든다.
-    await setInCache(EARNINGS_BRIEF_KEY, {
-        generatedAt: new Date().toISOString(),
-        source: 'ai',
-        tickers: out,
-    }, 30 * 24 * 3600);
+    if (!saves && pruned) await save();
 
     return NextResponse.json({
-        success: true, made, total: Object.keys(out).length, todo: todo.length,
-        calls, rejected: rejected.slice(0, 8), ms: Date.now() - t0,
-        sample: out[todo[0]] || null,
+        success: true, made, total: Object.keys(out).length, todo: todo.length, stale, pruned,
+        calls, rejected: rejected.slice(0, 8), partial: partial.slice(0, 12), noName: noName.slice(0, 12),
+        ms: Date.now() - t0, sample: firstMade ? out[firstMade] : null,
     });
 }

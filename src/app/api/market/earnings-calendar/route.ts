@@ -19,6 +19,7 @@ import { NextResponse } from 'next/server';
 import { SECTOR_MAP } from '@/services/universePolicy';
 import { getEarningsCalendar } from '@/services/finnhubClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { EARNINGS_BRIEF_KEY, sameReport, headerFactIn, type BriefLang, type BriefLine, type BriefPack } from '@/lib/earningsBrief';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -68,17 +69,28 @@ export interface EarningsRow {
  *   ORCL 을 봐도 무슨 회사인지, 이번 분기에 뭘 봐야 하는지 알 수 없었다.
  *   /api/cron/earnings-brief 가 만들어 Redis 에 두고, 여기서 행에 붙인다.
  *   없으면 붙이지 않는다 — 기존 화면 그대로라 절대 비지 않는다.
+ *
+ * ★ [2026-09-27] 티커만 보고 붙였더니 «다른 발표»를 보고 쓴 문장이 붙었다
+ *   (COST 12/10 행에 9/24 발표용 「Q4 EPS 6.53」). 이제 문장이 이 행의 발표를 보고 쓴 것일 때만
+ *   붙이고(sameReport), 머리글이 보여 주는 숫자·분기를 다시 말하는 문장은 나가는 길에서도 뺀다.
+ *   만드는 쪽과 같은 키·같은 판정(@/lib/earningsBrief)을 쓴다.
  */
 async function attachEarningsBrief(rows: any[]): Promise<{ rows: any[]; aiCount: number; aiAt: string | null }> {
     try {
-        const pack = await getFromCache<any>('earnings:brief:v2');
+        const pack = await getFromCache<BriefPack>(EARNINGS_BRIEF_KEY);
         if (!pack?.tickers) return { rows, aiCount: 0, aiAt: null };
         let n = 0;
         const merged = rows.map((r) => {
             const b = pack.tickers[r.ticker];
-            if (!b) return r;
+            if (!b || !sameReport(b.in, r)) return r;
+            const brief: Partial<Record<BriefLang, BriefLine>> = {};
+            for (const l of ['ko', 'en', 'ja'] as const) {
+                const c = b[l];
+                if (c?.watch && !headerFactIn(c.watch)) brief[l] = { name: c.name, watch: c.watch };
+            }
+            if (!Object.keys(brief).length) return r;
             n++;
-            return { ...r, brief: b };   // { ko:{name,watch}, en:{...}, ja:{...} }
+            return { ...r, brief };   // { ko:{name,watch}, en:{...}, ja:{...} } — in·at 은 내보내지 않는다
         });
         return { rows: merged, aiCount: n, aiAt: pack.generatedAt || null };
     } catch {
