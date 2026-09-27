@@ -12815,3 +12815,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 점검 — App Store promotionalText | 9/18 이후 «월 $50~99 자료 → 무료·가입 없음» 가치 설명으로 채워져 있다(교리: 스토어 첫 줄 = 가치 설명) → 이벤트 문구로 바꾸지 않는다 | asc-promo-text.py · 로그 9947행 |
 | 확장 — 기각 기록 | GitHub 투자 도구 awesome 목록 3곳(awesome-investing ★2,470 · awesome-stock-trading ★855 · Find My Moat 투자도구 디렉터리 ★97 — «옵션·파생» 칸에 Unusual Whales·OptionStrat) — **최근 닫힌 PR 6건 중 병합 0**(세 곳 모두), 디렉터리의 커뮤니티 제출 파일 0건·커밋 1회 → 외부 제출이 합쳐지지 않는 목록. channels.json(action rejected) 등록 — 다시 조사하지 않는다. 교훈: 등재 준비 전 «닫힌 PR 병합 비율»부터(apd-core 는 0~1일 병합) | GitHub API |
 | 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 13:25~13:27 — 시간 사이클: 실행 0/4(브라우저 대표 제어 10사이클째) · 게이트 341/0 · (6) 광고 비브라우저 경로 조사 → 대표 할 일 55(선택) · 확장 1(apple_news 게이트)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| (6) 광고 — 브라우저 없이 읽을 수 있나 | 저장소에 애플 광고 API 클라이언트·자격이 **없다**(ads-baseline.js 는 콘솔 스크린샷을 «눈으로» 읽어 넣는 검산기) → 콘솔 세션이 끊기면(③) 광고 점검이 멈추는 구조. 공식 문서: API 역할(읽기 전용 가능) 사용자 초대 → 계정 설정 «API» 탭에서 공개키 업로드 → clientId·teamId·keyId. 읽기 전용 자격이면 예산·입찰을 못 건드리니 안전선과도 맞다 → 대표 할 일 55(선택) | developer.apple.com Implementing OAuth for the Apple Ads API |
+| 확장 — apple_news(게이트) | Undercurrent RSS(영·한·일)를 받을 표면으로 조사: 새 발행자는 News Publisher 포털(Apple ID·약관·도메인 확인·편집 심사). RSS 신규 수용 여부는 2차 출처끼리 엇갈려 미확정 → 계정 게이트·우선순위 낮음으로 등록 | channels.json 147 |
+| 고정 ⑥ 스윕 | 브라우저 필요 → 미실행 | — |

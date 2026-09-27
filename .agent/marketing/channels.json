@@ -1830,6 +1830,20 @@
     "who": "—",
     "why": "관리자가 외부 PR 을 병합하지 않는다(최근 6건 0 병합)"
    }
+  },
+  {
+   "id": "apple_news",
+   "name": "Apple News — Undercurrent RSS(영·한·일) 채널",
+   "tier": "C",
+   "tag": "apple_news",
+   "action": "post",
+   "note": "★2026-09-27 13시 확장 발굴(비브라우저 조사): Apple News 는 RSS/Atom 또는 Apple News Format 으로 기사를 받지만, 새 발행자는 News Publisher 포털(Apple ID·약관·도메인 확인·편집 심사)을 거친다. «새 채널을 지금도 RSS 로 받는가»는 2차 출처끼리 엇갈려 확정 못 함(MagLoft 블로그 «ANF/AMP 필요» vs Metro Publisher 지원 문서 «첫 ANF 기사 전까지 RSS 수집»). 우리 피드: /en·ko·ja/feed.xml(Undercurrent). 금융 소형 발행자의 편집 심사 통과 가능성은 미지수 → 우선순위 낮음.",
+   "gate": {
+    "kind": "계정",
+    "until": null,
+    "who": "대표 1회",
+    "why": "News Publisher = 회사 Apple ID 로 가입·약관 동의·도메인 확인(안전선 밖)"
+   }
   }
  ],
  "candidates": [
