@@ -64,13 +64,17 @@ export async function GET(req: NextRequest) {
         const fetched = recentlyFailed ? null : await getCongressTrades();
         if (usable(fetched)) {
             data = fetched;
-            // 빈 결과를 캐시에 굳히지 않는다 — 「공시 없음」이 6시간 고착된다
-            setInCache(CONGRESS_CACHE_KEY, fetched, fetched.coverage.complete ? TTL : PARTIAL_TTL).catch(() => { });
             // 마지막 정상본은 «창을 다 덮은» 수집만 덮어쓴다 — 부분 수집이 완전본을 밀어내지 않게
             const keep = fetched.coverage.complete ? null : await getFromCache<CongressFetch>(LASTGOOD_KEY).catch(() => null);
-            if (!usable(keep)) setInCache(LASTGOOD_KEY, fetched, LASTGOOD_TTL).catch(() => { });
+            // ★2026-09-27 쓰기를 «기다린다». 값이 ≈0.7MB(2,400여 행)로 커져, 응답 뒤로 미룬 쓰기가 끝나기 전에
+            //   함수가 멈추면 다음 요청이 또 미스 → FMP 를 다시 페이지 넘긴다(프리뷰 첫 측정에서 8초 사이 3번 수집).
+            //   빈 결과는 여기 오지 않는다(usable) — 「공시 없음」이 6시간 고착되지 않게.
+            await Promise.all([
+                setInCache(CONGRESS_CACHE_KEY, fetched, fetched.coverage.complete ? TTL : PARTIAL_TTL).catch(() => false),
+                usable(keep) ? true : setInCache(LASTGOOD_KEY, fetched, LASTGOOD_TTL).catch(() => false),
+            ]);
         } else {
-            if (!recentlyFailed) setInCache(FAIL_KEY, Date.now(), FAIL_TTL).catch(() => { });
+            if (!recentlyFailed) await setInCache(FAIL_KEY, Date.now(), FAIL_TTL).catch(() => false);
             const last = await getFromCache<CongressFetch>(LASTGOOD_KEY).catch(() => null);
             if (usable(last)) { data = last; stale = true; }
         }
