@@ -135,6 +135,7 @@ const CH = {
   digg: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 기술 뉴스 큐레이션(제출형 아님)' },
   lobsters: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대제' },
   substack_notes: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(로그아웃 실측). 계정이 생기면 cap 1' },
+  correction: { cap: 12, day: 'kst', window: [0, 24], note: '★2026-09-27 정정 — 자기 글에 다는 정정 답글·본문 수정. 홍보가 아니라 바로잡기라 채널 캡에 합산하지 않는다(의회 거래 192건 부분집합 정정 7곳)' },
   line_official_jp: { cap: 0, day: 'kst', window: [5, 9], note: '★2026-09-27 확장 — 계정 게이트(LINE Business ID). 무료 월 200통' },
   telegram_kr: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 — 대표결정 게이트(계정·규제 민감성)' },
   apple_news: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — 계정 게이트(News Publisher). RSS 신규 수용 여부 미확정' },

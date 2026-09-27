@@ -7,6 +7,7 @@
  *   · X 는 채점에 «Reply Was Pasted»를 넣는다 → 붙여넣기 금지, keyboard.type(키 입력)만
  *   · 링크+이미지 답글은 9/18 스팸 분류기에 통째로 숨겨졌다 → 링크를 거부한다(무링크 데이터 답글)
  * 사용: /tmp/ego/xr-task.json = {"status":"/Barchart/status/…","file":"/tmp/ego/xr.txt","mark":"본문 고유 문구"}
+ *       정정(자기 글): {"status":"/signumhq_jp/status/…","handle":"/signumhq_jp","correction":true,…} — 계정 전환·팔로워 조건 면제
  *       ego-browser nodejs < scripts/x-reply.mjs
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
@@ -31,7 +32,23 @@ await L.wait(7000);
 const who = await page.evaluate(() => ([...document.querySelectorAll('nav a[href]')].map((a) => a.getAttribute('href'))
   .filter((h) => h && /^\/[A-Za-z0-9_]+$/.test(h) && !/^\/(home|explore|notifications|messages|i|settings|compose|search|jobs)$/.test(h))[0] || null));
 console.log('계정:', who);
-if (who !== '/signumhq') { console.log('⛔ 현재 계정이 @signumhq 가 아니다 — x-post.mjs 로 먼저 전환'); process.exit(1); }
+// ★2026-09-27 정정 모드: 우리 글(미국·일본 계정)에 다는 «정정 답글»을 같은 도구로 — handle 지정·계정 전환·팔로워 조건 면제
+const HANDLE = T.handle || '/signumhq';
+let who2 = who;
+if (who2 !== HANDLE) {
+  const bb = await page.evaluate(() => { const e = document.querySelector('[aria-label="Account menu"], [data-testid="SideNav_AccountSwitcher_Button"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; });
+  if (!bb) { console.log('⛔ 계정 메뉴 없음'); process.exit(1); }
+  await page.mouse.click(bb.x, bb.y, { label: '계정 메뉴' }); await L.wait(2200);
+  const it = await page.evaluate((h) => { const layer = document.querySelector('#layers') || document.body; const want = '@' + h.replace('/', '');
+    const c = [...layer.querySelectorAll('[data-testid="UserCell"],[role=menuitem]')].map((e) => ({ e, t: (e.innerText || '').replace(/\s+/g, ' ').trim(), r: e.getBoundingClientRect() }))
+      .filter((o) => o.r.width > 0 && new RegExp(want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z0-9_])').test(o.t)); // 부분 문자열 금지(@signumhq ⊂ @signumhq_jp)
+    if (!c.length) return null; const r = c[0].r; return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; }, HANDLE);
+  if (!it) { console.log('⛔ 전환할 계정 항목 없음'); process.exit(1); }
+  await page.mouse.click(it.x, it.y, { label: '계정 전환' }); await L.wait(5500);
+  who2 = await page.evaluate(() => ([...document.querySelectorAll('nav a[href]')].map((a) => a.getAttribute('href')).filter((h) => h && /^\/[A-Za-z0-9_]+$/.test(h) && !/^\/(home|explore|notifications|messages|i|settings|compose|search|jobs)$/.test(h))[0] || null));
+  console.log('전환 후 계정:', who2);
+}
+if (who2 !== HANDLE) { console.log('⛔ 현재 계정이 ' + HANDLE + ' 가 아니다'); process.exit(1); }
 
 // ② 루트 작성자 팔로워 ≥ 18만
 try { await page.goto('https://x.com/' + author, { waitUntil: 'domcontentloaded' }); } catch {}
@@ -39,7 +56,9 @@ await L.wait(6000);
 const fl = await page.evaluate(() => { const t = (document.body.innerText || '').replace(/\s+/g, ' '); const m = t.match(/([\d.,]+)\s*([KM]?)\s*Followers/i); if (!m) return null;
   const v = parseFloat(m[1].replace(/,/g, '')); return Math.round(v * (m[2].toUpperCase() === 'M' ? 1e6 : m[2].toUpperCase() === 'K' ? 1e3 : 1)); });
 console.log(`@${author} 팔로워:`, fl);
-if (!fl || fl < 180000) { console.log('⛔ 루트 팔로워 18만 미만 — 답글 랭킹이 돌지 않는다'); process.exit(1); }
+const selfCorrection = T.correction === true && author === HANDLE.slice(1);
+if (selfCorrection) console.log('정정 답글(자기 글) — 팔로워 조건 면제: 도달이 아니라 «바로잡기»가 목적');
+else if (!fl || fl < 180000) { console.log('⛔ 루트 팔로워 18만 미만 — 답글 랭킹이 돌지 않는다'); process.exit(1); }
 
 // ③ 글 열고 인라인 답글 칸에 «키 입력»
 try { await page.goto('https://x.com' + T.status, { waitUntil: 'domcontentloaded' }); } catch {}
@@ -61,15 +80,16 @@ await L.wait(9000);
 // ★2026-09-23: 답글 탭 갱신이 늦어 8초 한 번 확인은 «안 보인다»로 빗나갔다(재확인하니 스레드·탭 모두 노출) → 최대 3번 다시 본다
 let v = { seen: false, link: null };
 for (let i = 0; i < 3 && !v.seen; i++) {
-try { await page.goto('https://x.com/signumhq/with_replies', { waitUntil: 'domcontentloaded' }); } catch {}
+try { await page.goto('https://x.com' + HANDLE + '/with_replies', { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(8000 + i * 4000);
-v = await page.evaluate((mark) => {
-  const a = [...document.querySelectorAll('article')].find((x) => (x.innerText || '').includes(mark));
-  const link = a ? [...a.querySelectorAll('a[href*="/status/"]')].map((y) => y.getAttribute('href')).find((h) => /^\/signumhq\/status\/\d+$/.test(h)) : null;
+v = await page.evaluate((a2) => {
+  const a = [...document.querySelectorAll('article')].find((x) => (x.innerText || '').includes(a2.mark));
+  const re = new RegExp('^' + a2.h + '/status/\\d+$');
+  const link = a ? [...a.querySelectorAll('a[href*="/status/"]')].map((y) => y.getAttribute('href')).find((h) => re.test(h)) : null;
   return { seen: !!a, link };
-}, T.mark);
+}, { mark: T.mark, h: HANDLE });
 }
 console.log('내 답글 탭:', JSON.stringify(v));
 if (!v.seen) { console.log('⛔ 답글 탭에서 안 보인다 — «발행했다»고 적지 않는다(스팸 분류 가능성, 스레드에서 따로 확인)'); process.exit(1); }
 console.log('\n✅ 답글 게시·확인:', 'https://x.com' + v.link);
-console.log('다음: node scripts/mkt-plan.js pub x_reply "https://x.com' + v.link + '"');
+console.log('다음: node scripts/mkt-plan.js pub ' + (selfCorrection ? 'correction' : 'x_reply') + ' "https://x.com' + v.link + '"');

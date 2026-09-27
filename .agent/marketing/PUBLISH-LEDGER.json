@@ -1,6 +1,62 @@
 {
  "entries": [
   {
+   "ch": "correction",
+   "url": "https://www.linkedin.com/pulse/congress-filed-192-stock-trades-90-days-median-one-25-signum-hq-5qdcc/",
+   "note": "LinkedIn 아티클 — 제목 교체 + 맨 위 정정 문단(«변경»)",
+   "at": "2026-09-27T08:38:17.906Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "correction",
+   "url": "https://medium.com/@signum_hq/congress-filed-192-stock-trades-in-90-days-the-median-one-was-25-days-old-when-it-went-public-e954857333d9",
+   "note": "Medium 고정 글 — 제목 교체 + 맨 위 정정 문단(재게시)",
+   "at": "2026-09-27T08:30:32.996Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "correction",
+   "url": "https://www.threads.com/@signumhq_official/post/DdyJ0RLmdOV",
+   "note": "Threads 고정 Ddri65CE53B 정정(자기 글 → 스레드 이어짐)",
+   "at": "2026-09-27T08:15:24.365Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "correction",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mwidwyqubk2f",
+   "note": "블루스키 3mwblypeeyl2o 정정",
+   "at": "2026-09-27T08:10:11.342Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "correction",
+   "url": "https://x.com/signumhq_jp/status/2104121187651706908",
+   "note": "X 일본 2103243573995151842 정정",
+   "at": "2026-09-27T08:09:44.642Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "correction",
+   "url": "https://x.com/signumhq/status/2104119862033580117",
+   "note": "X 답글(@unusual_whales) 2103130925219663992 정정",
+   "at": "2026-09-27T08:04:27.587Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
+   "ch": "correction",
+   "url": "https://x.com/signumhq/status/2104118884794302867",
+   "note": "X 본글 2103166699835166886 정정(192건 부분집합)",
+   "at": "2026-09-27T08:00:48.695Z",
+   "kst": "2026-09-27",
+   "utc": "2026-09-27"
+  },
+  {
    "ch": "indexnow",
    "url": "https://www.signumhq.com/sitemap.xml",
    "note": "6729/6729 HTTP 200 — lastmod 9/25 로 바뀐 URL 만(9/19 이후 변경분)",

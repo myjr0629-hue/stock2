@@ -12862,3 +12862,22 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 구조화 데이터 점검(구글 데이터셋 요건: 필수 name·description 50~5000자 / 권장 license·creator·url·temporalCoverage·distribution·variableMeasured) | 데이터셋 사이트 3페이지(옵션 구조 랜딩 dist 8 · congress dist 2 · FINRA dist 1) **전부 ✓** · 우리 사이트 /en·ko/flow/NVDA(설명 900·872자) · /en/dark-pool(962) · /en/options-flow(605): 필수는 충족, **권장 distribution 없음**·티커 페이지는 **temporalCoverage 없음**. 판단: distribution 은 공개 API 를 내보이는 것이라 긁기 부하(Redis·벤더 비용)를 부르므로 넣지 않는다 · temporalCoverage(데이터 날짜)만 다음 웹 작업 때 후보(오류 아님, 저우선) | scratchpad ld-audit.py |
 | 확장 | 이번 사이클엔 새 표면을 추가하지 않았다 — 오늘 등록한 계정 게이트(tsukutta·app_village·apple_news·telegram_kr·line_official_jp)가 모두 대표 가입 대기라, 같은 종류를 더 쌓으면 대표 목록만 길어진다. 대신 기존 문(자사 웹·데이터셋)의 요건 점검으로 갈음 | — |
 | 고정 ⑥ 스윕 · (6) 광고 | 브라우저·콘솔 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 16:5x~17:38 — 대표가 브라우저 권한 창 «차단» → 작업공간 회수 · **의회 거래 «16명·192건» 정정 7/7 완료(전부 공개 확인)** · 내장 디스크 2.8GB → 27GB(23GB 파일 외장 이동) · 도구 수리 3
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 브라우저 복귀 | 대표 «차단했다» → takeOverTaskSpace(1): ownership agentDelegatedToUser → **agent**. Yahoo 탭 권한 창 사라짐 | ego |
+| 정정 1 — X 본글 | 답글(영문 가중 258) | https://x.com/signumhq/status/2104118884794302867 · 내 답글 탭 확인 |
+| 정정 2 — X 답글(@unusual_whales 스레드) | 답글 | https://x.com/signumhq/status/2104119862033580117 · 내 답글 탭 확인 |
+| 정정 3 — X 일본 | @signumhq_jp 로 전환 후 일본어 답글(가중 220) | https://x.com/signumhq_jp/status/2104121187651706908 · 내 답글 탭 확인 |
+| 정정 4 — 블루스키 | 브라우저 없이 API 답글(bsky-publish --reply-to) | https://bsky.app/profile/signumhq.bsky.social/post/3mwidwyqubk2f · 공개 API: 부모 = 192건 글 |
+| 정정 5 — Threads(프로필 고정 글) | 자기 글 답글 → «답글» 탭이 아니라 원글 아래·프로필 스레드로 이어짐 | https://www.threads.com/@signumhq_official/post/DdyJ0RLmdOV · 비로그인 og:description 에 정정문 |
+| 정정 6 — Medium(프로필 고정 글) | 제목 «Congress stock-trade filings in 90 days: a correction to our count» + 맨 위 정정 문단 → Save and publish(repub). ⚠ 과정 사고: 제목을 세 번 클릭으로 선택하자 선택이 문단 경계를 넘어 첫 문단이 제목 블록에 합쳐짐(공개 전 초안 상태) → 제목 끝에 커서(Range)·Enter 분리 → 둘째 블록이 H3 로 남아 ⌘⌥1 로 일반 문단 복원 → 정정 문단 삽입. 첫 문단 원문 전부 보존 확인 | https://medium.com/@signum_hq/congress-filed-192-stock-trades-in-90-days-the-median-one-was-25-days-old-when-it-went-public-e954857333d9 · 비로그인 200·og:title 새 제목·정정 문단 |
+| 정정 7 — LinkedIn 아티클 | «글 수정» 버튼으로 진입 → 제목 textarea 안에서만 전체 선택·교체 → 본문 focus·Enter 로 맨 위 빈 문단(스냅샷 확인)·↑·정정 입력 → «변경» | https://www.linkedin.com/pulse/congress-filed-192-stock-trades-90-days-median-one-25-signum-hq-5qdcc/ · 비로그인 200·og:title 새 제목·정정 문단 |
+| 남은 것 | 이미지(Medium 본문 카드·LinkedIn 표지·X/블루스키 카드)에는 «192 trades · 16 members» 가 그대로 — 각 글의 정정 문장이 «아래 수치 = 부분집합»을 밝힌다. 수리 작업(원천·API 상한) 뒤 정확한 총계로 카드 교체 검토 | — |
+| 도구 수리 | ①x-reply.mjs **정정 모드**: handle 지정·계정 전환(부분 문자열 금지 규칙 유지)·자기 글이면 18만 팔로워 조건 면제·확인 탭도 handle 기준 ②threads-reply.mjs: 자기 글 답글은 답글 탭에 안 뜬다 → 원글·프로필 순으로 재확인(원글 자신 제외) ③mkt-plan: `correction` 채널(하루 12, 홍보 캡에 합산 안 함) | node --check |
+| **디스크(대표 지시)** | 내장 데이터 볼륨 99%(여유 **2.8GB**) → 원인: `~/Documents/Project/recipt/promo-cards/app/raw.mov.sb-b5b9db1a-K3uCon` **23.3GiB 파일 1개**(9/12 끝나지 않은 QuickTime 녹화의 안전저장 임시본·본파일 없음·lsof 사용 중 아님). 외장 `/Volumes/macportable/mac-offload/2026-09-27/recipt-promo-cards-app/` 로 복사→검증(크기·rsync 0·앞뒤 256MB SHA-256 동일)→원본 삭제 · 원자리 MOVED-TO-EXTERNAL.txt · 외장 MANIFEST.txt → **여유 27GB(86%)**. 손대지 않은 것: iOS 시뮬레이터 31GB(외장 noowners 에선 0대 인식 — 9/1 실측), Claude 앱 데이터 14GB(이 세션), DeviceSupport 5.6GB(외장 미검증), /private/tmp 워크트리(HANDOFF 명령 경로) | df · 메모리 external-drive-offload |
