@@ -15,6 +15,7 @@ import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
+import { isCmeGlobexOpenAt } from '@/lib/marketCalendar';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -300,16 +301,10 @@ function getEtClockParts() {
   };
 }
 
+// 규칙(일 18:00 개장 · 평일 17–18시 휴식 · 금 17:00 주말 마감 · 휴장 13:00 정지)은
+// marketCalendar 가 정본이다 — 경계는 tests/marketCalendar.session.test.ts 가 지킨다.
 function isCmeGlobexActive(kind: 'equity' | 'gold' | 'oil', isHoliday: boolean): boolean {
-  const { day, timeDecimal } = getEtClockParts();
-  if (day === 6) return false;
-  if (day === 0) return timeDecimal >= 18;
-  if (isHoliday) {
-    const haltTime = kind === 'gold' ? 13.75 : 13;
-    return timeDecimal < haltTime || timeDecimal >= 18;
-  }
-  if (day === 5) return timeDecimal < 17;
-  return timeDecimal < 17 || timeDecimal >= 18;
+  return isCmeGlobexOpenAt(Date.now(), kind, isHoliday);
 }
 
 function isVixSessionActive(isHoliday: boolean): boolean {
@@ -1839,6 +1834,8 @@ export default function AppDashPage() {
       idxNoteLive: '정규장 진행 중 — 선물·현물·ETF 모두 실시간입니다.',
       idxNotePre: '프리마켓 진행 중 — 선물·ETF는 실시간, 현물 지수는 마감값입니다.',
       idxNotePost: '애프터마켓 진행 중 — 선물·ETF는 실시간, 현물 지수는 마감값입니다.',
+      idxNotePostFutOff: '애프터마켓 진행 중 — ETF만 실시간, 선물은 쉬는 시간입니다.',
+      idxNoteClosed: '지금은 선물도 쉽니다 — 선물·현물·ETF 모두 마감값입니다.',
       secMacro: '매크로', mcMore: (n: number) => `${n}개 더 보기`, mcLess: '접기',
       secSector: '섹터', heat: '히트맵',
       secDisc: '오늘의 발견', discAll: '랭킹 11종',
@@ -1864,6 +1861,8 @@ export default function AppDashPage() {
       idxNoteLive: 'Regular session is open — futures, cash and ETFs are all live.',
       idxNotePre: 'Pre-market is open — futures and ETFs are live; cash indices show the close.',
       idxNotePost: 'After-hours is open — futures and ETFs are live; cash indices show the close.',
+      idxNotePostFutOff: 'After-hours is open — only ETFs are live; futures are paused.',
+      idxNoteClosed: 'Markets are closed — futures, cash and ETFs show the last close.',
       secMacro: 'Macro', mcMore: (n: number) => `Show ${n} more`, mcLess: 'Show less',
       secSector: 'Sectors', heat: 'Heatmap',
       secDisc: "Today's Find", discAll: 'All 11 rankings',
@@ -1889,6 +1888,8 @@ export default function AppDashPage() {
       idxNoteLive: '通常取引中 — 先物・現物・ETFすべてリアルタイムです。',
       idxNotePre: 'プレマーケット中 — 先物・ETFはリアルタイム、現物指数は終値です。',
       idxNotePost: '時間外取引中 — 先物・ETFはリアルタイム、現物指数は終値です。',
+      idxNotePostFutOff: '時間外取引中 — リアルタイムはETFのみ、先物は休止中です。',
+      idxNoteClosed: '今は先物も休み — 先物・現物・ETFはすべて終値です。',
       secMacro: 'マクロ', mcMore: (n: number) => `他${n}件を表示`, mcLess: '折りたたむ',
       secSector: 'セクター', heat: 'ヒートマップ',
       secDisc: '今日の発見', discAll: 'ランキング11種',
@@ -2104,12 +2105,16 @@ export default function AppDashPage() {
         </div>
         <div className={n9.e9Note}>
           {/* 프리·애프터에 「현물·ETF는 마감값」이라고 말하던 문구가 틀렸다.
-              그 시간대에 ETF 는 실제로 거래된다 — 현물 «지수»만 마감값이다. */}
+              그 시간대에 ETF 는 실제로 거래된다 — 현물 «지수»만 마감값이다.
+              ★ [2026-09-26 토] «지금 움직이는 건 선물뿐»이 토요일에도 나갔다 — 선물 세션을
+              안 보고 기본값으로 떨어졌다. 선물도 세션으로 가른다(일 18:00 개장 · 평일 17–18시
+              휴식 · 금 17:00 주말 마감). 금 17–20시·평일 17–18시 애프터엔 선물이 쉰다. */}
           {isHolidaySession ? c9.holidayNote
             : isLive ? c9.idxNoteLive
             : equityExtendedLive && marketSession === 'pre' ? c9.idxNotePre
-            : equityExtendedLive && marketSession === 'post' ? c9.idxNotePost
-            : c9.idxNote}
+            : equityExtendedLive && marketSession === 'post' ? (futuresSessionOpen ? c9.idxNotePost : c9.idxNotePostFutOff)
+            : futuresSessionOpen ? c9.idxNote
+            : c9.idxNoteClosed}
         </div>
       </div>
 

@@ -88,3 +88,56 @@ export function etTradingDateOf(ms: number = Date.now()): string {
     for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
     return s;
 }
+
+/**
+ * 그 시점에 «마지막으로 끝난» 정규장 날짜. 정규장이 끝나기(16:00 ET) 전이면 그날은 아직
+ * 끝나지 않았다 → 토·일·휴장·평일 새벽 모두 직전 거래일(토 → 금, 노동절 다음 날 새벽 → 금).
+ * 화면이 장 마감 중에 «9/25(금) 마감 기준»처럼 as-of 를 말할 때 쓴다.
+ * (etTradingDateOf 와 다르다 — 그건 «그 시점이 속한 거래일»이라 평일 새벽엔 오늘을 준다.)
+ */
+export function etLastClosedSessionDate(ms: number = Date.now()): string {
+    let s = etDateOf(ms);
+    if (isNonTradingDay(s) || etMinutesOf(ms) < 16 * 60) s = shiftDay(s, -1);
+    for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
+    return s;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CME 글로벡스(지수·금·원유 선물) 세션 — «지금 선물이 거래되는가».
+//
+//   [2026-09-26 토] 대시 지수 안내가 «지금 움직이는 건 선물뿐»이라고 했다. 토요일엔
+//   선물도 닫혀 있다. 안내문이 세션을 안 보고 «정규장·프리·애프터가 아니면» 으로 떨어졌다.
+//   규칙: 일 18:00 ET 개장 · 평일 17:00–18:00 ET 일일 휴식 · 금 17:00 ET 주말 마감 · 토 휴장.
+//   휴장일엔 13:00 ET(금 13:45)에 멈췄다가 18:00 ET 에 다음 거래일 세션을 연다.
+//   (대시의 isCmeGlobexActive 를 옮겨 온 것 — 규칙은 그대로다.)
+//
+//   ⚠️ ET 시각은 etDateOf/etMinutesOf 로 읽는다. Intl 의 hour12:false 는 구형 V8
+//   (Node 20 실측)에서 hourCycle h24 라 자정을 «24시»로 준다 → 대시의 옛 시계로는
+//   토 00:30 이 «일 24:30»(= 선물 열림)이 된다. 현행 Chrome 146·Safari 는 h23 이라 정상.
+// ══════════════════════════════════════════════════════════════════════
+
+export type CmeProduct = "equity" | "gold" | "oil";
+
+/** 그 시점의 ET 요일 (0=일 … 6=토). 날짜 문자열에서 계산해 로컬 타임존 영향이 없다. */
+export function etWeekdayOf(ms: number): number {
+    const [y, m, d] = etDateOf(ms).split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** 그 시점에 CME 글로벡스 세션이 열려 있는가. isHoliday 기본값은 달력(그날이 휴장인가). */
+export function isCmeGlobexOpenAt(
+    ms: number,
+    kind: CmeProduct = "equity",
+    isHoliday: boolean = isUsMarketHoliday(etDateOf(ms)),
+): boolean {
+    const day = etWeekdayOf(ms);
+    const t = etMinutesOf(ms) / 60;
+    if (day === 6) return false;
+    if (day === 0) return t >= 18;
+    if (isHoliday) {
+        const haltTime = kind === "gold" ? 13.75 : 13;
+        return t < haltTime || t >= 18;
+    }
+    if (day === 5) return t < 17;
+    return t < 17 || t >= 18;
+}
