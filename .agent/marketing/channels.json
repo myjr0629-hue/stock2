@@ -246,7 +246,14 @@
    "link": "https://www.signumhq.com/app?from=quora_bio",
    "url": "https://www.quora.com/profile/Jiyoung-Kim-236",
    "note": "★★2026-09-20 정정 — 채널은 살아 있다. 프로필 실측 «31 Answers». 9/18 에 본 «Page Not Found» 2건은 삭제였지만 «이의신청으로 복구»됐다(알림 Your content: 「Your appeal has been reviewed and we restored your answer」 2건). 즉 규칙은 «삭제되면 포기»가 아니라 «삭제되면 이의신청»이다. 남은 삭제 1건은 스팸정책(밈스톡 답변)이고 답변 페이지에 「This post can be restored by the Quora moderation team」 표시는 있으나 페이지 내 이의신청 버튼은 못 찾았다 — 다음 사이클 과제. 2026-09-09 개설(contact@signumhq.com 구글). 실명 정책이라 계정명은 실명, 브랜드는 크리덴셜로 전 답변에 노출. Knows about 7종(팔로워 합 1,600만+). 답변이 구글에 색인되는 «영구 검색 자산»이 본체",
-   "action": "answer_popular_questions"
+   "action": "answer_popular_questions",
+   "gate_prev": null,
+   "gate": {
+    "kind": "로그인",
+    "until": null,
+    "who": "대표 1회(56)",
+    "why": "2026-09-27 19:3x 실측: Quora 세션 만료 — /notifications → LoginRequired 로그인 화면(9/27 02:4x 스페이스 게시 땐 로그인 상태). 재로그인은 «Continue with Google»(contact@) + 약관 문구라 대표 몫"
+   }
   },
   {
    "id": "quora_space",
@@ -261,7 +268,14 @@
    "link": "https://www.signumhq.com/app?from=quora_space",
    "url": "https://signumhqusstockmarketintelligence.quora.com/",
    "note": "★★2026-09-20 정정 — 채널은 살아 있다. 프로필 실측 «31 Answers». 9/18 에 본 «Page Not Found» 2건은 삭제였지만 «이의신청으로 복구»됐다(알림 Your content: 「Your appeal has been reviewed and we restored your answer」 2건). 즉 규칙은 «삭제되면 포기»가 아니라 «삭제되면 이의신청»이다. 남은 삭제 1건은 스팸정책(밈스톡 답변)이고 답변 페이지에 「This post can be restored by the Quora moderation team」 표시는 있으나 페이지 내 이의신청 버튼은 못 찾았다 — 다음 사이클 과제. 브랜드명을 쓸 수 있는 유일한 Quora 표면. 상세정보에 앱링크 상시 노출. 글마다 앱 스크린샷 첨부",
-   "action": "post_daily_data"
+   "action": "post_daily_data",
+   "gate_prev": null,
+   "gate": {
+    "kind": "로그인",
+    "until": null,
+    "who": "대표 1회(56)",
+    "why": "2026-09-27 19:3x 실측: Quora 세션 만료 — /notifications → LoginRequired 로그인 화면(9/27 02:4x 스페이스 게시 땐 로그인 상태). 재로그인은 «Continue with Google»(contact@) + 약관 문구라 대표 몫"
+   }
   },
   {
    "id": "hackernews",
@@ -1256,7 +1270,14 @@
    "tag": "quora_space",
    "link": "https://www.signumhq.com/app?from=quora_space",
    "action": "share",
-   "note": "★2026-09-25 01:5x 확장(발굴·티켓). 실측: Quora 검색 «stock market investing» → Spaces 필터(type=tribe, 화면 클릭으로 진입) 상위 15개가 대부분 인도 증시 중심의 개인 Space(«Investment in Indian stock market» 등). 검색 목록엔 팔로워 수가 안 나온다. 다음: 상위 Space 를 눌러 팔로워 수·«게시물 제출/공유 허용» 여부·미국 시장 비중을 표로 재고, 미국 시장 중심·팔로워 1만+ 이고 제출을 받는 곳만 1주 1회 공유. ⚠ 9/23 우리 Space 글 2편이 Quora 에 삭제됐다(㉒) — 남의 Space 공유는 자기홍보로 보일 수 있으니 규칙(About)부터 읽는다."
+   "note": "★2026-09-25 01:5x 확장(발굴·티켓). 실측: Quora 검색 «stock market investing» → Spaces 필터(type=tribe, 화면 클릭으로 진입) 상위 15개가 대부분 인도 증시 중심의 개인 Space(«Investment in Indian stock market» 등). 검색 목록엔 팔로워 수가 안 나온다. 다음: 상위 Space 를 눌러 팔로워 수·«게시물 제출/공유 허용» 여부·미국 시장 비중을 표로 재고, 미국 시장 중심·팔로워 1만+ 이고 제출을 받는 곳만 1주 1회 공유. ⚠ 9/23 우리 Space 글 2편이 Quora 에 삭제됐다(㉒) — 남의 Space 공유는 자기홍보로 보일 수 있으니 규칙(About)부터 읽는다.",
+   "gate_prev": null,
+   "gate": {
+    "kind": "로그인",
+    "until": null,
+    "who": "대표 1회(56)",
+    "why": "2026-09-27 19:3x 실측: Quora 세션 만료 — /notifications → LoginRequired 로그인 화면(9/27 02:4x 스페이스 게시 땐 로그인 상태). 재로그인은 «Continue with Google»(contact@) + 약관 문구라 대표 몫"
+   }
   },
   {
    "id": "linkedin_newsletter",
@@ -1347,6 +1368,12 @@
    "action": "answer_unanswered_questions",
    "note": "★2026-09-25 12:1x 확장(재등록): mkt-plan 에 규칙(quora_jp: 하루 1·UTC)은 있었는데 channels.json 에 항목이 없어 배정이 한 번도 안 됐다(규칙 107개 중 고아 3개: quora_jp·quora_de·threads_reply). 답변 이력: OUTREACH-LOG t052(米国債とAI企業…, 첫 답변)·스크리닝 앱 질문 등. 실측(9/25): jp.quora 로그인 유지(ホーム·回答·通知 3), 검색 期間=過去1週間 에서 米国債·米国株·マイクロン·金利上昇 株価·コストコ 決算 모두 0건, 過去1か月 은 2건(하나는 이미 우리 답) → 피드가 마르면 억지 발행 금지. 본문 무링크·앱명 0~1회·데이터 화면 1장(quora 규칙과 같다).",
    "gate": {
+    "kind": "로그인",
+    "until": null,
+    "who": "대표 1회(56)",
+    "why": "2026-09-27 19:3x 실측: Quora 세션 만료 — /notifications → LoginRequired 로그인 화면(9/27 02:4x 스페이스 게시 땐 로그인 상태). 재로그인은 «Continue with Google»(contact@) + 약관 문구라 대표 몫"
+   },
+   "gate_prev": {
     "kind": "피드 마름",
     "until": "2026-09-28",
     "who": "데이터(질문 유입)",
@@ -1368,6 +1395,12 @@
    "action": "answer_unanswered_questions",
    "note": "★2026-09-25 재등록(고아 규칙) — 2026-09-15 개통된 유럽 표면, 무응답은 «Dark Pool» 계열에만 있었다(9/23 마지막 답변). 본문 무링크·앱명 0~1회.",
    "gate": {
+    "kind": "로그인",
+    "until": null,
+    "who": "대표 1회(56)",
+    "why": "2026-09-27 19:3x 실측: Quora 세션 만료 — /notifications → LoginRequired 로그인 화면(9/27 02:4x 스페이스 게시 땐 로그인 상태). 재로그인은 «Continue with Google»(contact@) + 약관 문구라 대표 몫"
+   },
+   "gate_prev": {
     "kind": "피드 마름",
     "until": "2026-09-28",
     "who": "데이터(질문 유입)",
@@ -1573,7 +1606,14 @@
    "enabled": false,
    "tag": "quora_bio",
    "action": "rejected",
-   "note": "★2026-09-26 04:4x 확장 발굴(고정 패턴 복제 3 — 블루스키 고정글 첫날 14클릭·Threads·Medium 고정 이후): Quora 프로필(/profile/Jiyoung-Kim-236/answers, 답변 35) 답변 «…» 메뉴 실측 = Enable comments from people you follow · Disable comments · Edit answer · Edit credential · Downvote question · Log · Delete answer — «고정(Pin)» 없음 → 불가. 프로필 소개글(«I build SIGNUM HQ…»)이 대신 첫 화면 역할."
+   "note": "★2026-09-26 04:4x 확장 발굴(고정 패턴 복제 3 — 블루스키 고정글 첫날 14클릭·Threads·Medium 고정 이후): Quora 프로필(/profile/Jiyoung-Kim-236/answers, 답변 35) 답변 «…» 메뉴 실측 = Enable comments from people you follow · Disable comments · Edit answer · Edit credential · Downvote question · Log · Delete answer — «고정(Pin)» 없음 → 불가. 프로필 소개글(«I build SIGNUM HQ…»)이 대신 첫 화면 역할.",
+   "gate_prev": null,
+   "gate": {
+    "kind": "로그인",
+    "until": null,
+    "who": "대표 1회(56)",
+    "why": "2026-09-27 19:3x 실측: Quora 세션 만료 — /notifications → LoginRequired 로그인 화면(9/27 02:4x 스페이스 게시 땐 로그인 상태). 재로그인은 «Continue with Google»(contact@) + 약관 문구라 대표 몫"
+   }
   },
   {
    "id": "note_kojin",
@@ -1651,7 +1691,13 @@
    "tier": "A",
    "tag": "reddit_bio",
    "action": "comment",
-   "note": "★2026-09-26 14:4x 확장 발굴(실측, 로그인된 레딧 페이지 API): WSB 공식 주간 실적 스레드(flair «Earnings Thread») — «Weekly Earnings Thread 8/17 - 8/21» 댓글 690·점수 121, «7/20 7/24» 댓글 1,061·점수 246. 규칙 15개에 AI 금지 조항 없음(9/26 확인), 시총 5억달러 이상 종목만. 오늘 WSB «MU earning play» 스레드에 단 데이터 댓글은 스레드 점수 64 인데 내 댓글 1점(아직 반응 없음) — 늦은 댓글은 묻힌다(9/24 실측)는 교훈대로 «스레드가 올라온 직후 1~2시간 안»에 쓴다. 형식: 그 주 큰 실적(이번 주 MU 9/30 장후·NKE 10/1 장후)의 옵션 내재 변동폭 + 최근 4번 다음 날 반응 + «방향 아님», 링크·앱명 0(레딧 규칙). 레딧 하루 3건(UTC)·8분 간격 안에서 센다. 다음 스레드(9/28~10/2 주)는 보통 주말에 올라온다 — slot 이 배정하면 /r/wallstreetbets/search.json?q=Weekly%20Earnings%20Thread&restrict_sr=1&sort=new 로 찾는다. (배정·집계: mkt-plan ALIAS 로 reddit 에 합산 — 레딧 하루 3건(UTC) 안전선을 한 규칙으로 지킨다. 레딧 배정이 오면 이 스레드가 열려 있는지 먼저 본다)"
+   "note": "★2026-09-26 14:4x 확장 발굴(실측, 로그인된 레딧 페이지 API): WSB 공식 주간 실적 스레드(flair «Earnings Thread») — «Weekly Earnings Thread 8/17 - 8/21» 댓글 690·점수 121, «7/20 7/24» 댓글 1,061·점수 246. 규칙 15개에 AI 금지 조항 없음(9/26 확인), 시총 5억달러 이상 종목만. 오늘 WSB «MU earning play» 스레드에 단 데이터 댓글은 스레드 점수 64 인데 내 댓글 1점(아직 반응 없음) — 늦은 댓글은 묻힌다(9/24 실측)는 교훈대로 «스레드가 올라온 직후 1~2시간 안»에 쓴다. 형식: 그 주 큰 실적(이번 주 MU 9/30 장후·NKE 10/1 장후)의 옵션 내재 변동폭 + 최근 4번 다음 날 반응 + «방향 아님», 링크·앱명 0(레딧 규칙). 레딧 하루 3건(UTC)·8분 간격 안에서 센다. 다음 스레드(9/28~10/2 주)는 보통 주말에 올라온다 — slot 이 배정하면 /r/wallstreetbets/search.json?q=Weekly%20Earnings%20Thread&restrict_sr=1&sort=new 로 찾는다. (배정·집계: mkt-plan ALIAS 로 reddit 에 합산 — 레딧 하루 3건(UTC) 안전선을 한 규칙으로 지킨다. 레딧 배정이 오면 이 스레드가 열려 있는지 먼저 본다)",
+   "gate": {
+    "kind": "주기",
+    "until": "2026-10-02",
+    "who": "다음 주간 스레드(금 17:01 UTC 게시)",
+    "why": "이번 주 스레드(Sep 28 - Oct 2)에 9/27 답글 완료 — 같은 스레드 재댓글은 도배. 다음 스레드는 10/2 금요일에 올라온다"
+   }
   },
   {
    "id": "google_news",

@@ -12943,3 +12943,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **naver_search_advisor ✅ — 수집 요청 13건** | 요청 → 웹 페이지 수집에 전체 URL 로 13개: /ko · /ko/dark-pool · /ko/options-flow · /ko/tickers · /ko/learn/max-pain · gamma-exposure · dark-pool · /ko/flow/NVDA·TSLA·MU·AAPL · /ko/undercurrent · /ko/wim (전부 Yeti 200 확인 후). 콜월 설명은 정의 수리(54) 반영 뒤로 미룸 · 요청 내역 표 13건(10+3, 2쪽) 18:51:14~18:52:04 확인 | https://searchadvisor.naver.com/console/site/request/crawl?site=https%3A%2F%2Fwww.signumhq.com |
 | llms_txt(게이트) | 지금 llms.txt 의 «개념 설명은 실제 계산과 같다»는 54 합치기 전엔 콜월에서 거짓 → 54 합친 뒤 확인·IndexNow 로 조건 게이트 | channels.json |
 | naver_kin | 다음 사이클로(한국 일요일 저녁 · 건당 0.13 채널이라 질문을 골라 제대로) | — |
+
+
+---
+
+## 2026-09-27 (KST) 19:25~19:42 — 시간 사이클: 게시 0 — **Quora 세션 만료 발견(대표 할 일 56)** · 지식iN·레딧은 «맞는 질문·스레드 없음»(억지 답변 안 함) · WSB 주간 스레드 10/2 까지 게이트 · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| wsb_earnings_thread(게이트) | 이번 주 스레드(Sep 28 - Oct 2)에 18:4x 답글 완료 → 같은 스레드 재댓글은 도배 → 다음 주간 스레드(10/2 금 17:01 UTC)까지 게이트 | channels.json |
+| naver_kin — 맞는 질문 없음 | 검색(마이크론 실적 발표·미국 고용지표 발표 시간·미국 PCE 발표·맥스페인·미국주식 옵션 만기, 최신순) = 전부 답변 2~8개 · «이번 마이크론 실적발표 어떨까요»는 예측 요청이라 규칙상 제외 · 주식 분야(dirId 40102) 최신 30건 = 국내주식·ISA·배당·계좌 질문, 미국주식 데이터 질문 0 → 관련 없는 질문에 앱 얘기를 끼우지 않는다. 한국 낮(월)에 재탐색 | kin.naver.com |
+| **quora — 세션 만료(대표 할 일 56)** | 검색 주소가 로그인 화면으로 · /notifications → `LoginRequired` 리다이렉트 확인(9/27 02:4x 스페이스 게시 땐 로그인). 재로그인 = «Continue with Google»(contact@) + 약관 문구 → 안전선 밖 → quora·quora_space·quora_jp·quora_de·quora_pin·quora_spaces_share 로그인 게이트(이전 게이트는 gate_prev 에 보존) | quora.com |
+| reddit — 맞는 스레드 없음 | 기준(게시 3시간 안·댓글 50 미만·비고정) r/stocks·thetagang·wallstreetbets·StockMarketChat·investing_discussion·SecurityAnalysis·Semiconductors → 1건(r/stocks «Why is Uber and Vistra Corp being hyped up so much?» 0.4h·댓글 4) — 사업 펀더멘털 질문이라 우리 데이터로 검증된 답을 못 준다 → 미국 낮(한국 23시 이후)에 재탐색. 오늘(UTC) 1/3 | reddit new.json |
+| 확장 | 이번 사이클 없음(로그인 만료 확인·게이트 정리로 갈음) | — |
