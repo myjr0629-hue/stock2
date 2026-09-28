@@ -88,7 +88,7 @@ const CH = {
   apple_whats_new: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 빌드 게이트다. 라이브 버전에서 PATCH 하면 409 STATE_ERROR(2026-09-20 실측). 다시 시도하지 말 것. 편집 가능한 버전이 생기는 «그 사이클»에만 12로케일을 채운다(규칙은 NEXT-VERSION-CHECKLIST)' },
   play_promotional_content: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 아직 «있는지»도 확인 못 했다. 첫 행동은 발행이 아니라 확인: Play Console → 앱 → Grow users → Store presence 아래에 Promotional content(구 LiveOps) 항목이 있는가. 있으면 cap 1 로 올리고 애플 인앱이벤트와 같은 리듬으로 운영, 없으면 enabled:false 로 닫고 이유를 적는다(Play Developer page 처럼). 주소 직타 금지 — 눌러서 간다' },
   naver_topic_feed: { cap: 0, day: 'week', window: [0, 24], note: '★발행하지 않는다 — 네이버 블로그 글이 그대로 흘러드는 «피드»다(section.blog.naver.com/ThemePost.naver?directoryNo=33 비즈니스·경제). 행동은 주 1회 «노출 확인» 하나: directoryNo=33 에서 donneum 링크가 보이는지 재고 OUTREACH-LOG 에 적는다. 보이면 naver_blog 제목·주제 선택이 듣는 것이고, 안 보이면 피드가 선별형이라는 뜻이다. 비용 0' },
-  naver_kin:   { cap: 12, day: 'kst', window: [7, 24], note: '★2026-09-25 창 7~24시 — 한국 낮 우선(RUNBOOK), 새벽엔 새 질문도 거의 없다. ★계정 필요. 답변 0건 질문 선점 = 영구 1등. 본문 링크 금지(사업자 홍보 판정) — 프로필 경유. 네이버 메이트 인용수 누적' },
+  naver_kin:   { cap: 12, day: 'kst', window: [8, 22], note: '★2026-09-28 창 7~24→8~22: 22:05·23:48 두 번 스캔(최근 질문 99·73건)에 맞는 질문 0 — 밤엔 새 질문이 거의 없어 헛배정만 났다. ★2026-09-25 창 7~24시 — 한국 낮 우선(RUNBOOK), 새벽엔 새 질문도 거의 없다. ★계정 필요. 답변 0건 질문 선점 = 영구 1등. 본문 링크 금지(사업자 홍보 판정) — 프로필 경유. 네이버 메이트 인용수 누적' },
   qiita:       { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 자사 기술해설은 광고 아님(명문). 엔지니어링이 본문·미국옵션은 소재. 금융태그로는 아무도 안 온다 → 전체 트렌드 노림. 5~10 LGTM' },
   zenn:        { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 홍보는 «말미 고정 메시지» 한 블록만. 일일트렌드 48칸·좋아요 1~2로도 진입' },
   discord_usstock: { cap: 1, day: 'week', window: [0, 24], note: '참여 우선. 콜드 링크 투척 = 규칙4 위반. 파이썬 채널에서 빌더로 먼저 알려질 것' },

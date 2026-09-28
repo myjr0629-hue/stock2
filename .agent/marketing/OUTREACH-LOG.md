@@ -13023,3 +13023,14 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 9/27 23:16 백그라운드로 넘어간 Play 보고서 스크립트(ego-browser, PID 6020)가 TERM 에도 안 죽고 24시간 «진행 중» → 세션이 한가해지지 않아 크론이 안 불렸다(새 크론 c1b0fb5e 도 23:13 무실행). 23:39 `kill -9` 즉시 작업 «completed» 알림. 고아 ego 프로세스 2개(9/21·9/27)도 정리.
 - 재발 방지: cycle-watchdog.sh 가 45분 넘은 «ego-browser nodejs» 를 -9 로 정리(로그 KILLED) · 메모리 `hung-background-task-blocks-session-cron`
 - 23:3x~: bluesky ✅ #3(계정 3/3) 장중 10:38 ET — 10년물 5.24%(+6bp)·나스닥 −0.9%·NVDA +2.6%(엔비디아 뉴스룸 «$150 Billion Share Repurchase Authorization Increase» 1차 출처 확인)·MU −3.5% https://bsky.app/profile/signumhq.bsky.social/post/3mwlk62subi2f · naver_blog ✅ #2 «미국 10년물 국채금리 5.24% — 2007년 이후 최고 수준, 오늘은 무엇이 달랐나»(지난주 장기물 주도 vs 오늘 2년물 동반·유틸리티/에너지 3분기) https://blog.naver.com/donneum/224425329563 · 리딤: 대표 «내일 하도록할게» — 애플은 내가 API 발급 가능(«이 조건으로 발급해» 필요), 구글은 약관 1회(대표) 뒤 내가 발급
+
+## 2026-09-28 (KST) 23:42~ — 시간 사이클(**크론 자동 실행 복구 확인** — 막혀 있던 23:13 몫이 세션이 한가해지자 23:42 에 불렸다): bluesky_reply ✅ · threads_reply ✅ · linkedin_articles ✅ · 지식iN 맞는 질문 없음 → 창 조정 · 게이트 통과
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| (2) 만기 게이트 | ✅ | audit --live |
+| **bluesky_reply ✅** | @carlquintanilla(28.5만, 6분 전 «Wolfe: 적자·금리 악순환 우려»)에 무링크: 10년물 5.24%(+6bp, 목 5.18% 종가 = 2007-07 이후 최고)·지난주 장기물 주도 vs 오늘 2년물 동반·원유 +2% | https://bsky.app/profile/signumhq.bsky.social/post/3mwlkgwm5bf2i (공개 API: 대상 글 연결) |
+| **threads_reply ✅** | @cnbc «Which 10-year yield level will really start to hit stocks?»(18분 전)에 무링크: 3분기 10년물 +73bp 동안 유틸리티 −12.9% 꼴찌·S&P +3.3% · 오늘 나스닥 −0.9% vs 다우 −0.4% + 장중 대시보드 화면 | https://www.threads.com/@signumhq_official/post/Dd1bm-LmSsv (답글 탭·비로그인 og) |
+| **linkedin_articles ✅** | «The 10-Year Treasury Yield Hit 5.24%. Three Things to Separate: the Curve, Oil and Credit» 10문단 · 커버 = 10Y 5.24% 카드 · AI 지원 표시 | https://www.linkedin.com/pulse/10-year-treasury-yield-hit-524-three-things-separate-curve-signum-hq-z5brc/ (비로그인 제목·첫 문단·링크·og 이미지) |
+| naver_kin — 없음 | 오늘 이슈 검색어 9개 스캔(후보 73·최근 5) — 전부 오래됐거나 주제 밖 · 오늘 저녁 세 번째 «없음» → **도구 수리: 배정 창 7~24 → 8~22**(밤 헛배정 제거) | kin-candidates15.json |
+| (6) 광고 | 콘솔 로그아웃·결제 거절 메일(대표 61) → 미실행 | — |
