@@ -13022,3 +13022,4 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 ## 2026-09-28 (KST) 23:36~ — **크론이 또 안 돌았다(23:13) → 진짜 원인 확정·해소**
 - 9/27 23:16 백그라운드로 넘어간 Play 보고서 스크립트(ego-browser, PID 6020)가 TERM 에도 안 죽고 24시간 «진행 중» → 세션이 한가해지지 않아 크론이 안 불렸다(새 크론 c1b0fb5e 도 23:13 무실행). 23:39 `kill -9` 즉시 작업 «completed» 알림. 고아 ego 프로세스 2개(9/21·9/27)도 정리.
 - 재발 방지: cycle-watchdog.sh 가 45분 넘은 «ego-browser nodejs» 를 -9 로 정리(로그 KILLED) · 메모리 `hung-background-task-blocks-session-cron`
+- 23:3x~: bluesky ✅ #3(계정 3/3) 장중 10:38 ET — 10년물 5.24%(+6bp)·나스닥 −0.9%·NVDA +2.6%(엔비디아 뉴스룸 «$150 Billion Share Repurchase Authorization Increase» 1차 출처 확인)·MU −3.5% https://bsky.app/profile/signumhq.bsky.social/post/3mwlk62subi2f · naver_blog ✅ #2 «미국 10년물 국채금리 5.24% — 2007년 이후 최고 수준, 오늘은 무엇이 달랐나»(지난주 장기물 주도 vs 오늘 2년물 동반·유틸리티/에너지 3분기) https://blog.naver.com/donneum/224425329563 · 리딤: 대표 «내일 하도록할게» — 애플은 내가 API 발급 가능(«이 조건으로 발급해» 필요), 구글은 약관 1회(대표) 뒤 내가 발급
