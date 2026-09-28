@@ -18,12 +18,22 @@ const page = await L.findPage(ts, /linkedin/, null);
 await L.trapDialogs(page);
 try { await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(10000);
+// ★2026-09-28: 「글 올리기」를 눌렀더니 «₩0에 Premium 써보기» 권유 모달이 작성기를 가려 «작성기 없음»으로 멈췄다.
+//   권유 모달은 체험 버튼을 절대 누르지 않고 우상단 «닫기»(X)로만 닫는다.
+const closeUpsell = async () => {
+  const c = await page.evaluate(() => { if (!/Premium 써보기|Try Premium for|Premium free/i.test(document.body.innerText)) return null;
+    const b = [...document.querySelectorAll('button')].find((x) => /닫기|Dismiss|Close/.test(x.getAttribute('aria-label') || '') && x.getBoundingClientRect().top < 140 && x.getBoundingClientRect().left > 600);
+    if (!b) return null; const r = b.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
+  if (c) { await page.mouse.click(c.x, c.y, { label: '프리미엄 권유 닫기' }); await L.wait(1500); console.log('프리미엄 권유 모달 닫음'); }
+};
+await closeUpsell();
 const box = await page.evaluate(() => { window.scrollTo(0, 0); const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
   const c = [...document.querySelectorAll('div,span,button')].map((e) => ({ t: n(e.innerText), r: e.getBoundingClientRect() }))
     .filter((o) => o.r.width > 200 && o.r.height > 24 && o.r.top > 60 && o.r.top < 220 && /^(글 올리기|Start a post)$/.test(o.t)).sort((a, b) => a.r.top - b.r.top);
   if (!c.length) return null; const r = c[0].r; return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; });
 if (!box) { console.log('⛔ 「글 올리기」 상자 없음(로그인 확인)'); process.exit(1); }
 await page.mouse.click(box.x, box.y); await L.wait(7000);
+await closeUpsell(); // 작성기를 연 «뒤»에 뜨는 경우도 있다(9/28 실측)
 const ed = await page.evaluate(() => { const e = [...document.querySelectorAll('[contenteditable="true"]')].map((x) => ({ r: x.getBoundingClientRect() })).filter((o) => o.r.width > 300).sort((a, b) => b.r.height - a.r.height)[0]; return e ? { x: Math.round(e.r.left + 60), y: Math.round(e.r.top + 20) } : null; });
 if (!ed) { console.log('⛔ 작성기 없음'); process.exit(1); }
 await page.mouse.click(ed.x, ed.y); await L.wait(600);

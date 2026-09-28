@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-28 22:1x KST** (**9/28 00:25~21:36 크론 무실행 → 대표 발견 → 크론 재생성 `c1b0fb5e` + 앱 밖 감시 launchd** · 재개 후 게시 9: threads·threads_jp(계정 2/2)·x_us 1/2·x_reply 1/3·bluesky_bip·bluesky(계정 2/3)·reddit 2/3(r/Economics·r/stocks)·pinterest · rss 점검(ko/ja 피드 9/25 에 멈춤) · 발견 2 → 작업 칩: 종목 페이지 첫 방문 묵은 값 · **UC 월요일 아침판이 금요일 값을 «오늘»로 씀** · 리딤 별도 보고서 REDEEM-PLAN-2026-09-28.md(대표 할 일 60) · MU 구조 대조 실패(OI 시점) → MU 맥스페인 미게시)
+마지막 갱신: **2026-09-28 22:2x KST** (**9/28 00:25~21:36 크론 무실행 → 크론 재생성 `c1b0fb5e` + 앱 밖 감시 launchd** · 재개 46분에 게시 15(전부 공개 확인): threads·threads_jp·x_us 2/2·x_reply 3/3·bluesky_bip·bluesky(계정 2/3)·reddit 2/3·pinterest·medium·naver_blog 1/3·linkedin · 남은 자리: bluesky 1·naver_blog 2·reddit 1(월 05시 WSB moves) · 월 05~09시 x_jp·note · 발견: UC/WIM 월요일판 금요일 값·종목 페이지 첫 방문 묵은 값(칩 2)·NVDA/MU 구조 57시간(㊲·58) · 리딤 별도 보고서(대표 할 일 60) · 애플 광고 결제 거절 메일(대표))
 
 ---
 
