@@ -29,10 +29,11 @@ const ICON: Record<App, string> = {
 // 문구는 «누가 보냈는지» + «무엇인지» + «무료». 예측·권유 표현 없음(스토어·플랫폼 공통 안전선).
 // 길이는 375px 에서 세 언어 모두 말줄임 없이 들어가게 잡았다(2026-09-29 프리뷰 실측 — 영어 원안이 잘렸다).
 const COPY: Record<App, Record<Loc, { kicker: string; line: string }>> = {
+  // SIGNUM 은 «카드»(본문 안, 좌우 여백 20)라 글 칸이 가장 좁다(375px 에서 약 155px) — 가장 짧게
   signum: {
-    en: { kicker: 'Shared from SIGNUM HQ', line: 'The whole US market, free' },
-    ko: { kicker: 'SIGNUM HQ 앱에서 공유된 화면', line: '미국 시장 전체를 무료 앱 하나로' },
-    ja: { kicker: 'SIGNUM HQ アプリから共有', line: '米国市場を無料アプリひとつで' },
+    en: { kicker: 'Shared from SIGNUM HQ', line: 'The US market, free' },
+    ko: { kicker: 'SIGNUM HQ 앱에서 공유된 화면', line: '미국 시장을 무료 앱 하나로' },
+    ja: { kicker: 'SIGNUM HQ アプリから共有', line: '米国市場を無料アプリで' },
   },
   uc: {
     en: { kicker: 'Shared from Undercurrent', line: 'The news behind the money' },
@@ -84,7 +85,8 @@ export function ShareLanding({ app, surface, locale, via, variant }: {
           (2026-09-29 프리뷰 실측: 375px 에서 본문이 467px 로 넘쳤다. 부모가 flex 세로라 min-width:auto 가 글 길이를 따른다) */}
       <span style={{ minWidth: 0, width: 0, flex: '1 1 0%', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.72, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.kicker}</span>
-        <span style={{ fontSize: 13.5, fontWeight: 800, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.line}</span>
+        {/* 넘치면 말줄임 대신 두 줄로 접는다(좁은 360px 폰·넓은 안드로이드 글꼴 대비) — 대표 원칙 «글을 두 줄로» */}
+        <span style={{ fontSize: 13.5, fontWeight: 800, lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all' }}>{c.line}</span>
       </span>
       {/* 높이를 박는다 — globals.css 가 모바일 폭에서 모든 a 에 min-height:44px 를 준다(글자가 위로 쏠린다) */}
       <a href={href} rel="noopener" onClick={onClick} style={{
