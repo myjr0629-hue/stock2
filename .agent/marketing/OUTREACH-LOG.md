@@ -13077,3 +13077,6 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 ## 2026-09-29 (KST) 03:26~03:4x — 시간 사이클: 배정 = reddit 1(보류: UTC 9/28 마지막 자리 = 05시 WSB «moves») · 나머지 채널 오늘 한도 소진 · 게이트 통과 · **개선: 감시 장치 오경보 수리**
 - 03:18 감시 장치 «STALE 121m» 경보 — 직전 사이클(01:35~03:19)이 게시는 계속했는데 OUTREACH-LOG 를 마지막에만 써서 난 **오경보**(대표에게 맥 알림이 갔을 수 있다).
 - 수리: cycle-watchdog.sh 가 «작업 기록·발행 원장(게시마다 갱신)·사이클 시작 신호(.heartbeat)» 중 가장 최근 수정으로 판정 · RUNBOOK 0단계 ③ `touch .agent/marketing/.heartbeat` 추가 · .heartbeat 는 .gitignore · 시험 «ok 0m».
+
+## 2026-09-29 (KST) 04:43 — 시간 사이클: 배정 reddit 1 = 05:00 KST(16:00 ET) 게시되는 WSB «What Are Your Moves Tomorrow» 대기(UTC 9/28 마지막 자리) · 다른 채널 오늘 한도 소진·창 밖 · 게이트 통과 · 감시 ok
+- 05:13 사이클 할 일: ① WSB moves 스레드 댓글(무링크 — 화요일 일정 ET: 10:00 콘퍼런스보드·JOLTS · 수 PCE·MU 장 마감 후(월 장중 ±8.0%)·목 ISM·NKE(±8.5%)·금 고용 + 오늘 10년물 마감값) ② x_jp·note(창 5~9시 — note-task-0927 은 «金曜終値時点» 표기 유지 또는 월요일 종가로 갱신)
