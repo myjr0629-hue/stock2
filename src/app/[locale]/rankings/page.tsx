@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { publicBase } from '@/lib/net/publicBase';
+import { byId, specCopy } from '@/lib/rankings/registry';
+import { loadRankingSnapshot, describeItem, emptyText } from '@/lib/rankings/present';
 
 // ============================================================================
 // /[locale]/rankings — 랭킹 엔진의 «공개 표면».
@@ -18,7 +20,8 @@ import { publicBase } from '@/lib/net/publicBase';
 //    크론·프리렌더 시점에 보호된 내부 주소로 나가 실패한다.
 // ============================================================================
 
-export const revalidate = 1800;          // 30분 — 장중에도 적당히 신선하게
+// (layout 이 headers() 를 읽어 매 요청 동적 렌더다 — 자료의 신선도는 present.ts 의 공용 스냅샷이 정한다)
+export const revalidate = 1800;
 
 type Loc = 'en' | 'ko' | 'ja';
 
@@ -28,7 +31,7 @@ const COPY = {
         title: 'Unusual Options Activity & Dark Pool Rankings Today | SIGNUM HQ',
         desc: 'Daily rankings built from options flow and FINRA off-exchange data: what deviated from its own normal, max pain gaps, gamma flip proximity, stealth accumulation and insider open-market buys.',
         lead: 'Not the biggest — the furthest from their own normal. Every ranking below compares a stock against its own recent history, because absolute size just re-ranks the mega caps every day.',
-        today: 'Today', usual: 'Usual', multiple: 'vs usual', empty: 'No names cleared the gates today.',
+        empty: 'No names cleared the gates today.',
         waiting: 'Waiting on data', updated: 'Updated', method: 'How these are built',
         cta: 'See it live in the free app', ticker: 'Ticker',
         intraday: 'During the session', postclose: 'After the close', anytime: 'Any time',
@@ -38,7 +41,7 @@ const COPY = {
         title: '오늘의 이상 옵션·다크풀 랭킹 | SIGNUM HQ',
         desc: '옵션 자금 흐름과 FINRA 장외 데이터로 매일 만드는 랭킹 — 평소 대비 이탈, 맥스페인 이격, 감마플립 근접, 은밀 축적, 내부자 장내 매수.',
         lead: '가장 큰 종목이 아니라 «자기 평소»에서 가장 멀어진 종목입니다. 절대 크기로 줄 세우면 매일 같은 대형주만 나옵니다.',
-        today: '오늘', usual: '평소', multiple: '평소 대비', empty: '오늘은 기준을 통과한 종목이 없습니다.',
+        empty: '오늘은 기준을 통과한 종목이 없습니다.',
         waiting: '자료 축적 중', updated: '갱신', method: '어떻게 만드나',
         cta: '무료 앱에서 실시간으로 보기', ticker: '종목',
         intraday: '장중', postclose: '마감 후', anytime: '상시',
@@ -48,7 +51,7 @@ const COPY = {
         title: '本日の異常オプション・ダークプール ランキング | SIGNUM HQ',
         desc: 'オプション資金フローとFINRA取引所外データから毎日作るランキング — 平常からの乖離、マックスペイン乖離、ガンマフリップ接近、静かな買い集め、インサイダーの市場内買い。',
         lead: '大きい銘柄ではなく«その銘柄の平常»から最も外れた銘柄です。絶対値で並べると毎日同じ大型株になります。',
-        today: '本日', usual: '平常', multiple: '平常比', empty: '本日は基準を通過した銘柄がありません。',
+        empty: '本日は基準を通過した銘柄がありません。',
         waiting: 'データ蓄積中', updated: '更新', method: '作り方',
         cta: '無料アプリでリアルタイムに見る', ticker: '銘柄',
         intraday: '取引時間中', postclose: '引け後', anytime: '常時',
@@ -78,39 +81,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 type Item = Record<string, any>;
 type Block = { available: boolean; phase?: string; name?: Record<string, string>; what?: string; why?: string; items?: Item[]; reason?: string; readiness?: any };
 
-async function load(): Promise<{ results: Record<string, Block>; generatedAt?: string; darkPool?: any } | null> {
-    try {
-        const r = await fetch(`${publicBase()}/api/ranking?run=all&top=5`, { next: { revalidate: 1800 } });
-        if (!r.ok) return null;
-        return await r.json();
-    } catch { return null; }
-}
-
-/** 값 한 줄을 사람이 읽는 형태로. 랭킹마다 필드가 다르므로 여기서 흡수한다. */
-function describe(it: Item, c: typeof COPY[Loc]): string {
-    if (it.ratio != null) {
-        const m = it.ratio >= 1 ? `${it.ratio.toFixed(1)}x` : `${Math.round(it.ratio * 100)}%`;
-        const t = it.today != null ? Math.round(it.today * 100) / 100 : null;
-        const b = it.baseline != null ? Math.round(it.baseline * 100) / 100 : null;
-        return t != null && b != null ? `${c.today} ${t.toLocaleString()} · ${c.usual} ${b.toLocaleString()} · ${c.multiple} ${m}` : m;
-    }
-    if (it.gapPct != null) return `${it.gapPct > 0 ? '+' : ''}${it.gapPct}%`;
-    if (it.deviationPp != null) return `${it.deviationPp > 0 ? '+' : ''}${it.deviationPp}%p (${c.usual} ${it.baseline})`;
-    if (it.stealth != null) return `${it.stealth} / 100 · ${it.regime}`;
-    if (it.axisCount != null) return `${it.axisCount} axes`;
-    if (it.dollarRatio != null) return `$ ${it.dollarRatio} vs OI ${it.oiRatio}`;
-    if (it.usd != null) return `$${Math.round(it.usd).toLocaleString()} · ${it.buyerCount}`;
-    if (it.fcfYield != null) return `FCF ${it.fcfYield}% · EV/EBITDA ${it.evToEbitda}`;
-    if (it.ivRank != null) return `IV rank ${it.ivRank}`;
-    return '';
-}
-
 export default async function RankingsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const l = (['en', 'ko', 'ja'].includes(locale) ? locale : 'en') as Loc;
     const c = COPY[l];
-    const data = await load();
-    const blocks = Object.entries(data?.results || {});
+    // 허브·상세 36장이 함께 쓰는 한 스냅샷(present.ts) — 여기선 랭킹마다 상위 5개만 보인다
+    const data = await loadRankingSnapshot();
+    const blocks = Object.entries((data?.results || {}) as Record<string, Block>);
     const phaseLabel = (p?: string) => (p === 'intraday' ? c.intraday : p === 'postclose' ? c.postclose : c.anytime);
 
     // 구조화 데이터 — Dataset. creator 에 @type 을 «인라인»으로 넣어야 유효하다.
@@ -134,7 +111,13 @@ export default async function RankingsPage({ params }: { params: Promise<{ local
                 </p>
             )}
 
-            {blocks.map(([id, b]) => (
+            {blocks.map(([id, b]) => {
+                // 설명은 등록부의 번역본 — API 의 what/why 는 한국어 원문이라 en·ja 에 그대로 찍으면 샌다
+                const spec = byId(id);
+                const sc = spec ? specCopy(spec, l) : null;
+                const what = sc?.what ?? (l === 'ko' ? b.what : undefined);
+                const why = sc?.why ?? (l === 'ko' ? b.why : undefined);
+                return (
                 <section key={id} style={{ margin: '0 0 30px', border: '1px solid #e3e8ef', borderRadius: 14, padding: '18px 18px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
                         <h2 style={{ fontSize: 19, margin: 0, fontWeight: 750 }}>
@@ -147,29 +130,28 @@ export default async function RankingsPage({ params }: { params: Promise<{ local
                             {phaseLabel(b.phase)}
                         </span>
                     </div>
-                    {b.what && <p style={{ color: '#5b6472', fontSize: 14, lineHeight: 1.65, margin: '8px 0 0' }}>{b.what}</p>}
-                    {b.why && <p style={{ color: '#78818f', fontSize: 13.5, lineHeight: 1.65, margin: '6px 0 12px' }}>{b.why}</p>}
+                    {what && <p style={{ color: '#5b6472', fontSize: 14, lineHeight: 1.65, margin: '8px 0 0' }}>{what}</p>}
+                    {why && <p style={{ color: '#78818f', fontSize: 13.5, lineHeight: 1.65, margin: '6px 0 12px' }}>{why}</p>}
 
                     {b.available && b.items?.length ? (
                         <ol style={{ margin: '10px 0 0', padding: 0, listStyle: 'none' }}>
-                            {b.items.map((it, i) => (
+                            {b.items.slice(0, 5).map((it, i) => (
                                 <li key={`${id}-${it.ticker}-${i}`} style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '9px 0', borderTop: '1px solid #eef1f6' }}>
                                     <span style={{ width: 20, color: '#9aa3b2', fontWeight: 700, fontSize: 14 }}>{i + 1}</span>
                                     {/* 티커 페이지로 내부 링크 — 이 허브가 3,585개 페이지의 발견을 돕는다 */}
                                     <Link href={`/${l}/flow/${it.ticker}`} style={{ fontWeight: 800, fontSize: 16, minWidth: 74, textDecoration: 'none', color: '#0f172a' }}>
                                         {it.ticker}
                                     </Link>
-                                    <span style={{ color: '#4b5563', fontSize: 14 }}>{describe(it, c)}</span>
+                                    <span style={{ color: '#4b5563', fontSize: 14 }}>{describeItem(it, l)}</span>
                                 </li>
                             ))}
                         </ol>
                     ) : (
-                        <p style={{ color: '#9aa3b2', fontSize: 13.5, margin: '10px 0 0' }}>
-                            {b.readiness ? `${c.waiting} — ${b.readiness.have}/${b.readiness.need}` : (b.reason || c.empty)}
-                        </p>
+                        <p style={{ color: '#9aa3b2', fontSize: 13.5, margin: '10px 0 0' }}>{emptyText(b, l, c.waiting, c.empty)}</p>
                     )}
                 </section>
-            ))}
+                );
+            })}
 
             <p style={{ margin: '28px 0 0', fontSize: 15 }}>
                 <a href="https://www.signumhq.com/app?from=seo_rankings" style={{ fontWeight: 700 }}>{c.cta} →</a>
