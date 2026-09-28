@@ -25,6 +25,7 @@ node scripts/mkt-plan.js slot      # ① 담당 구역 배정 (이게 이번 시
 node scripts/audit-expiration-selection.js --live   # ② 발행 게이트
 ```
 
+0. **엔진 점검(2026-09-28 대표 지시 «크론이 문제 생기지 않게»)** — ① `ps -axo pid,lstart,command | grep "ego-browser nodejs"` 로 오래된 브라우저 스크립트가 없는지 본다(있으면 `kill -9` — TERM 은 안 먹는다. 9/28 하루 공백의 실측 원인: 멈춘 스크립트가 24시간 세션을 붙잡아 크론이 안 불렸다) ② `tail -2 ~/Library/Logs/signum-cycle-watchdog.log`(앱 밖 감시 launchd: 45분 넘은 스크립트 자동 정리·75분 무기록 알림)가 «ok» 인지 본다.
 1. **크론 수명 확인** — `CronList`. 7일 만료가 가까우면 재생성.
 1-b. **클릭 실측 먼저** — `node scripts/mkt-clicks.js`. 이게 없으면 slot 의 «키우기» 레인이 빈다.
 2. **담당 구역 배정** — `mkt-plan.js slot`. 출력이 곧 지시다. **골라서 하지 않는다.**
@@ -39,8 +40,12 @@ node scripts/audit-expiration-selection.js --live   # ② 발행 게이트
 5. **발행 즉시 기록·검증** — `node scripts/mkt-plan.js pub <채널> <URL>` + **공개 페이지에서 본문·이미지·링크 확인**. 검증 못 하면 «발행했다»고 쓰지 않는다.
 6. **광고** — 콘솔이 살아 있으면 **기간을 «오늘»로 고정**하고 지출·설치·CPA + 키워드 단위를 읽는다. 이긴 키워드 확장, 진 키워드 정지. **예산·입찰 증액 금지.**
 7. **기록** — `OUTREACH-LOG.md` 에 **과정·결과·개선사항**을 성공과 실패 모두 적는다. 판정이 뒤집히면 그 자리에서 정정한다.
+7-b. **개선 1건(필수, 2026-09-28 대표 지시 «매번 고도화»)** — 이번 사이클에 겪은 막힘·오판·헛수고 하나를 골라 **도구·절차·문구를 실제로 고친다**(스크립트 수리·규칙 조정·게이트 등록·템플릿 개선). 로그에 «개선» 줄로 남긴다. 개선 없는 사이클은 없다.
+7-c. **주 1회 최신 기술 조사**(slot 의 `learning_scan` 배정) — 스토어(애플·구글)·X·Threads·Bluesky·Reddit·네이버·구글 검색의 «새 기능·알고리즘 변화»를 1차 출처로 조사해 `research/LEARNING-LOG.md` 에 날짜별로 적고, 그 주에 바로 시험할 1건을 정해 채널표에 넣는다.
 8. **커밋·푸시** — `git add <경로>` (**-A 금지**) → 커밋 → 푸시.
 9. **보고** — 한글. 대표 개입이 필요한 것은 티켓으로 쌓고 **한 번에** 보고한다.
+
+**브라우저 실행 규칙(2026-09-28)**: ego lite 만 — **반드시 `scripts/ego-run.sh <스크립트.mjs> [제한초=420]`** 로 돌린다(하드 타임아웃, 초과 시 -9·종료코드 124). 맨손 `ego-browser nodejs < 스크립트` 금지 — 멈춘 맨손 실행 하나가 크론을 24시간 막았다(memory: hung-background-task-blocks-session-cron).
 
 ### 사이클 0-b: 대표 가입 체크를 «먼저» 본다
 `mkt-plan.js slot` 이 `CEO-SIGNUP-LIST.md` 의 `- [x]` 를 읽어 **「대표님이 체크한 신규 가입 N건」**을 출력한다.

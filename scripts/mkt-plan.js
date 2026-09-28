@@ -113,6 +113,7 @@ const CH = {
   android_deep_links: { cap: 1, day: 'week', window: [0, 24], note: '★대표 1회(매니페스트 intent-filter + autoVerify). 웹쪽 assetlinks.json 은 배포 완료. Play Console→Deep links 의 Status 로 검증' },
   disquiet:    { cap: 1, day: 'week', window: [9, 24], note: '★계정 필요(대표 1회). 한국판 Product Hunt — 홍보가 취지라 삭제 위험 없음. okky 11클릭이 근거' },
   github_pages: { cap: 1, day: 'week', window: [0, 24], note: '데이터셋 랜딩 + schema.org Dataset JSON-LD. 스냅샷 갱신 시 contentUrl·temporalCoverage 같이 갱신' },
+  learning_scan: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-28 대표 지시 «더 최신 기술을 습득» — 주 1회: 스토어(애플·구글)·X·Threads·Bluesky·Reddit·네이버·구글 검색의 «새 기능·알고리즘 변화»를 1차 출처로 조사 → research/LEARNING-LOG.md 날짜별 기록 → 그 주에 시험할 1건을 channels.json 에 등록. pub 은 LEARNING-LOG 커밋 주소로' },
   rss_feed:    { cap: 1, day: 'week', window: [0, 24], note: '피드는 «이미 있다» — /{locale}/feed.xml 3개국어 200. 할 일은 네이버 RSS 제출·피드리더 등록이지 코드가 아니다. /rss 리다이렉트 대상만 404' },
   app_share:   { cap: 1, day: 'week', window: [0, 24], note: '★앱 코드(대표/개발). 공유 버튼 → ?from=share. 붙으면 클릭 추적표에 바로 올라온다' },
   taaft:       { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요(t203). 디렉터리 등재는 «1회»다 — 무료 경로만, 유료 승급 금지. 등재문에 «AI가 무엇을 하는가»를 구체로: 프리마켓·섹터·매크로·기관수급을 읽어 매일 ko/en/ja 브리핑. 재등록·중복 제출 금지' },

@@ -19,7 +19,7 @@
 4. 메모리 인덱스(`~/.claude/projects/-Users-eunhoon-Documents-Project-recipt/memory/MEMORY.md`)의 ★★★ 항목을 훑는다.
 
 **저장소**: `~/.gemini/antigravity/scratch/stock2` (폴더명이 signum 이 아니라 **stock2**)
-**브라우저**: ego lite 만 (`export PATH="/Applications/ego lite.app/Contents/Frameworks/ego Framework.framework/Versions/0.5.0.32/Helpers:$PATH"; ego-browser nodejs < 스크립트.mjs`). 크롬 MCP 금지.
+**브라우저**: ego lite 만 — **`scripts/ego-run.sh <스크립트.mjs> [제한초]`로만 실행**(하드 타임아웃, 9/28 크론 24시간 막힘의 재발 방지). 맨손 `ego-browser nodejs <` 금지.
 
 ---
 

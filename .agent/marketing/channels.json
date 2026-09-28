@@ -1936,6 +1936,14 @@
     "who": "대표 1회",
     "why": "LINE Business ID 생성·약관 동의(안전선 밖)"
    }
+  },
+  {
+   "id": "learning_scan",
+   "name": "주간 최신 기술 조사",
+   "tier": "A",
+   "enabled": true,
+   "action": "research",
+   "note": "★2026-09-28 대표 지시 «매번 기록·고도화·더 최신 기술 습득·성과를 만드는 엔진». 주 1회 1차 출처 조사 → research/LEARNING-LOG.md → 그 주에 시험할 1건 등록"
   }
  ],
  "candidates": [
