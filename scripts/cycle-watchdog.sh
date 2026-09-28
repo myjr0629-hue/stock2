@@ -4,13 +4,13 @@
 # 왜: 9/28 00:25~21:36 KST, 이 세션의 시간당 크론(목록엔 살아 있었다)이 한 번도 돌지 않았다.
 #     맥은 잠들지 않았다(pmset: sleep prevented · 화면만 꺼짐). 앱의 예약 작업들도 9/26 23:52 이후 lastRunAt 이 그대로였다.
 #     즉 멈춘 곳은 Claude 앱 안의 스케줄러다 — 앱 안의 장치로는 앱이 멈춘 걸 알 수 없다. 그래서 launchd(맥 자체)가 30분마다 본다.
-# 판정: 모든 사이클은 OUTREACH-LOG.md 에 기록을 남긴다 → 그 파일의 마지막 수정이 2시간을 넘으면 «멈춤».
+# 판정: 모든 사이클은 OUTREACH-LOG.md 에 기록을 남긴다 → 그 파일의 마지막 수정이 75분을 넘으면 «멈춤».
 # 동작: 멈춤이면 맥 알림(소리) + 로그. 같은 멈춤에 30분마다 반복(대표가 볼 때까지). 사이클이 다시 돌면 조용해진다.
 # 해제: launchctl bootout gui/$(id -u)/com.signumhq.cycle-watchdog
 REPO="$HOME/.gemini/antigravity/scratch/stock2"
 LOG_FILE="$REPO/.agent/marketing/OUTREACH-LOG.md"
 OUT="$HOME/Library/Logs/signum-cycle-watchdog.log"
-LIMIT=7200
+LIMIT=4500   # 75분 — 매시 사이클이 한 번 빠지면 바로 알린다(9/28 23:4x 2시간→75분)
 now=$(date +%s)
 last=$(stat -f %m "$LOG_FILE" 2>/dev/null || echo 0)
 age=$(( now - last ))
