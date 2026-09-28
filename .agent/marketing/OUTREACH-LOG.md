@@ -13034,3 +13034,9 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **linkedin_articles ✅** | «The 10-Year Treasury Yield Hit 5.24%. Three Things to Separate: the Curve, Oil and Credit» 10문단 · 커버 = 10Y 5.24% 카드 · AI 지원 표시 | https://www.linkedin.com/pulse/10-year-treasury-yield-hit-524-three-things-separate-curve-signum-hq-z5brc/ (비로그인 제목·첫 문단·링크·og 이미지) |
 | naver_kin — 없음 | 오늘 이슈 검색어 9개 스캔(후보 73·최근 5) — 전부 오래됐거나 주제 밖 · 오늘 저녁 세 번째 «없음» → **도구 수리: 배정 창 7~24 → 8~22**(밤 헛배정 제거) | kin-candidates15.json |
 | (6) 광고 | 콘솔 로그아웃·결제 거절 메일(대표 61) → 미실행 | — |
+
+## 2026-09-29 (KST) 00:0x — 대표 지시 처리 + 새 날짜 첫 게시
+- 대표 지시(원문 메모리 보존): Redis 개선은 브랜치로, 기능·성능 저하 «전혀» 불가 → 칩 «Cut Redis dependency on a branch with zero regression»(대표 시작) · 설치 트래픽 기하급수 → 칩 «Add share buttons to app screens for a referral loop»(대표 시작 — 앱이 웹 화면을 띄우므로 빌드 없이 공유 고리)
+- 랭킹 «장 마감 후» 조사(대표 요청): run=all 이면 다크풀 날짜(9/25) ≠ 진행 중 옵션 세션(9/28) → 숨김 / 단독 run 이면 1,820종목 정상 — 칩 «Fix after-close rankings hidden by a session date gate»(대표 시작)
+- threads ✅(새 날짜 1/2) 11:00 ET 장중: 10년물 5.27%(+8bp)·나스닥 −1.1%·NVDA +1.9%(1차 출처: 엔비디아 뉴스룸)·MU −3.8%·원유 +2.9%·금 −4.0% + 장중 가디언 화면 https://www.threads.com/@signumhq_official/post/Dd1drYDGWDI (비로그인 og 확인) — 발행은 새 래퍼 `scripts/ego-run.sh` 로 처음 실행(정상)
+- 워치리스트(대표 질문, «작업 말고 보고») — 실측: 웹엔 이미 /watchlist(무료 5·pro 50·elite 999, 등급=Supabase user_profiles)가 있고 앱 화면(app-view)엔 없음 · 앱 PRO 판정은 RevenueCat(useProStatus, entitlement «pro») → 앱 전용 워치리스트는 RevenueCat 기준으로 따로 두는 게 맞다
