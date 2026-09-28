@@ -12997,3 +12997,15 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **리딤 대표 방침 저장** | «뿌린다·플랫폼별 적당량·얻는 기분·누르면 적용 + 직접 입력 병행» → J절(설계) · K절(배포처·법) · 메모리 | REDEEM-CODES.md |
 | 도구 수리 2 | ① 키우기 칸이 계정 합계 소진을 «2/3»으로 보여 한 편 더 되는 듯 읽혔다 → «계정 합계 3/3(자정 초기화)» ② **키우기 칸을 «3일 폰 클릭» 순으로** — mkt-clicks.js 가 d3phone 을 캐시에 싣고, slot 이 «클릭은 있는데 폰 0» 채널을 경고 | node --check · slot 실출력 |
 | 개선 | 채널 성과는 «폰 클릭 + RevenueCat 신규»로 본다. 전체 클릭 증가를 성과로 쓰지 않는다(메모리 clicks-doubled-installs-flat) | — |
+
+
+---
+
+## 2026-09-28 (KST) 21:36~ — **사이클 21시간 공백 → 재개** (진행 중, 끝나면 이 절에 이어 쓴다)
+- 공백: 9/28 00:25 ~ 21:36 KST 크론 `6a0a351d` 가 목록엔 있었는데 한 번도 안 돌았다 → 오늘 게시 0 을 대표가 발견. 맥은 잠들지 않았다(pmset «sleep prevented», 화면만 23:09~21:34 꺼짐 — 9/27 에는 화면이 꺼진 채로도 크론이 돌았다). 앱 예약 작업 3개도 lastRunAt 9/26 23:52 에서 멈춤 → **멈춘 곳은 Claude 앱 안의 스케줄러**.
+- 조치: 크론 재생성 `c1b0fb5e`(매시 :13) · **앱 밖 감시 장치** launchd `com.signumhq.cycle-watchdog`(30분마다 OUTREACH-LOG.md 수정 시각 확인, 2시간 넘으면 맥 알림+소리 — `scripts/cycle-watchdog.sh`, 첫 실행에서 «STALE 1335m» 잡음)
+- 재개 후 발행: threads ✅ https://www.threads.com/@signumhq_official/post/Dd1NfVrmSco · x_us ✅ https://x.com/signumhq/status/2104552780237328471 · bluesky_bip ✅ https://bsky.app/profile/signumhq.bsky.social/post/3mwldsxfmey2z
+- 이어서 발행(21:49~22:05): reddit ✅ r/Economics «Bond selloff resumes…»(482점)에 곡선 데이터 — 오늘 2y +5bp·10y +4bp(CNBC 08:41) vs 지난주 10y +16·2y +5 → «오늘은 연준 기대가 움직인다» https://www.reddit.com/comments/1ws5xcb/comment/pcke8aw/ · x_reply ✅ @elerianm(«연준에 기대는 정책 조합») 같은 곡선 데이터 https://x.com/signumhq/status/2104554662120894742 · pinterest ✅ «10-Year Treasury Yield at a 2007 High: How to Read the 2s10s Curve» https://www.pinterest.com/pin/1102115340099164372/ (링크 from=pinterest 확인) · threads_jp ✅ https://www.threads.com/@signumhq_official/post/Dd1PJOBGbZI · reddit ✅ r/stocks 월요일 스레드에 주간 일정(ET)·MU ±8.5%·NKE ±8%(금요일 종가 스트래들) https://www.reddit.com/comments/1wsbc89/comment/pckgd34/ (새 계정 속도 제한 RATELIMIT 3회 → 10분 뒤 성공) · bluesky ✅ 3분기 업종 성적표 카드 https://bsky.app/profile/signumhq.bsky.social/post/3mwlemu7lm72n
+- 게이트: MU 구조 대조 ✗(맥스페인 970 vs 나스닥 995·풋콜 0.76 vs 1.56 — OI 시점 차이) → MU 흐름 화면·맥스페인 미게시, 대시보드·가디언 화면으로 대체. 10년물 5.22% 는 대시보드·CNBC 두 곳 대조.
+- 발견 2(작업 칩): ① 종목 페이지 첫 방문 묵은 값(대표가 칩 시작) ② **UC 월요일 아침판이 «Stocks are modestly higher today — NASDAQ +0.48%»·10Y 5.17%(−1bp)** = 금요일 값(실제 선물 −0.4%·10Y 5.22%) → 칩 «Fix Undercurrent Monday edition showing Friday as today» · rss: en 피드 최신 9/28 인데 ko/ja 는 9/25 에 멈춤(번역 계열 의심)
+- 대표 지시 기록: 메모리 `ceo-directives-2026-09-28-never-idle`(원문) · 리딤 별도 보고서 `research/REDEEM-PLAN-2026-09-28.md`
