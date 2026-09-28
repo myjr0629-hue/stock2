@@ -1,0 +1,10 @@
+# 정밀 A/B — Redis 호출이 응답 시간을 지배하는 가벼운 경로(캐시 적중이 대부분)
+/api/market/status
+/api/live/market
+/api/market/index-close
+/api/guardian/fedwatch
+/api/guardian/news-digest
+/api/flow/dark-pool-trades?ticker=NVDA&limit=10
+/api/command/insider?ticker=NVDA
+/api/live/fundamentals?t=NVDA
+/api/flow/options-eod?t=NVDA

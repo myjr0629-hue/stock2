@@ -1,0 +1,27 @@
+unique rows 131 span 2026-09-28T14:10:29.601Z → 2026-09-28T15:10:11.243Z
+rows with down-log 59 → distinct events 43 over 60 min = 43.2 /h
+reasons { 'The operation was aborted due to timeout': 42, 'fetch failed': 1 }
+by hour { '2026-09-28T14Z': 38, '2026-09-28T15Z': 5 }
+paths [
+  [ '/api/market/status', 12 ],
+  [ '/api/market/macro', 7 ],
+  [ '/api/live/fundamentals', 5 ],
+  [ '/api/market/ticker', 5 ],
+  [ '/api/live/market', 4 ],
+  [ '/api/admin/heartbeat', 4 ],
+  [ '/api/live/quotes', 3 ],
+  [ '/api/live/ticker', 3 ],
+  [ '/api/market/movers', 2 ],
+  [ '/api/market/index-close', 2 ],
+  [ '/api/watchlist/batch', 2 ],
+  [ '/api/dashboard/unified', 1 ],
+  [ '/api/flow/dark-pool-trades', 1 ],
+  [ '/api/guardian/fedwatch', 1 ],
+  [ '/api/live/earnings', 1 ],
+  [ '/api/intel/m7', 1 ],
+  [ '/api/live/premium-metrics', 1 ],
+  [ '/api/cron/market-feed', 1 ],
+  [ '/api/command/insider', 1 ],
+  [ '/api/logo/META', 1 ]
+]
+down-log rows 59 co-logged background: { warmer: 32, lastgood: 20, guardian: 1, intrinioTimeout: 8 }

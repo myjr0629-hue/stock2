@@ -1,0 +1,37 @@
+운영 기준선(합치기 전) — www.signumhq.com, 9/28 22:21~22:33Z(미국 장후), 35경로×15, 한국 맥에서 측정
+/api/market/status                                             상태 200 n=15 5xx·실패=0 p50=255 p95=695
+/api/market/ticker                                             상태 400 n=15 5xx·실패=0 p50=260 p95=1018
+/api/live/premium-metrics?t=NVDA                               상태 200 n=15 5xx·실패=0 p50=308 p95=820
+/en/flow/NVDA                                                  상태 200 n=15 5xx·실패=0 p50=481 p95=1567
+/api/live/fundamentals?t=NVDA                                  상태 200 n=15 5xx·실패=0 p50=255 p95=628
+/api/guardian/news-digest                                      상태 200 n=15 5xx·실패=0 p50=288 p95=1542
+/api/intel/m7                                                  상태 200 n=15 5xx·실패=0 p50=462 p95=1150
+/api/flow/iv-percentile?t=NVDA                                 상태 200 n=15 5xx·실패=0 p50=271 p95=4091
+/api/guardian/fedwatch                                         상태 200 n=15 5xx·실패=0 p50=252 p95=1100
+/api/watchlist/batch?tickers=NVDA,AAPL,TSLA,MSFT,META,AMZN,GOOGL 상태 200 n=15 5xx·실패=0 p50=514 p95=1419
+/api/debug/guardian                                            상태 200 n=15 5xx·실패=0 p50=369 p95=6535
+/ko                                                            상태 200 n=15 5xx·실패=0 p50=374 p95=1860
+/api/live/market                                               상태 200 n=15 5xx·실패=0 p50=236 p95=1328
+/api/live/ticker?t=AAPL                                        상태 200 n=15 5xx·실패=0 p50=352 p95=2153
+/en/tickers                                                    상태 200 n=15 5xx·실패=0 p50=518 p95=1737
+/api/guardian/economic-calendar                                상태 200 n=15 5xx·실패=0 p50=255 p95=607
+/api/live/ticker?t=NVDA                                        상태 200 n=15 5xx·실패=0 p50=310 p95=1048
+/api/dashboard/unified?tickers=NVDA,AAPL,TSLA                  상태 200 n=15 5xx·실패=0 p50=431 p95=837
+/api/flow/realtime-metrics?ticker=NVDA                         상태 200 n=15 5xx·실패=0 p50=284 p95=707
+/api/intel/fast?sector=m7                                      상태 200 n=15 5xx·실패=0 p50=612 p95=1351
+/api/intel/cross-sector-brief                                  상태 200 n=15 5xx·실패=0 p50=354 p95=1895
+/api/market/index-close                                        상태 200 n=15 5xx·실패=0 p50=249 p95=1637
+/api/flow/unified?t=NVDA                                       상태 200 n=15 5xx·실패=0 p50=343 p95=2352
+/api/market/macro                                              상태 200 n=15 5xx·실패=0 p50=250 p95=909
+/api/command/insider?ticker=NVDA                               상태 200 n=15 5xx·실패=0 p50=233 p95=1487
+/api/undercurrent/ticker?t=NVDA&locale=en                      상태 200 n=15 5xx·실패=0 p50=316 p95=977
+/api/ticker/overview?ticker=NVDA                               상태 200 n=15 5xx·실패=0 p50=637 p95=1808
+/en                                                            상태 200 n=15 5xx·실패=0 p50=377 p95=715
+/api/flow/dark-pool-trades?ticker=NVDA&limit=10                상태 200 n=15 5xx·실패=0 p50=249 p95=925
+/api/guardian/briefing                                         상태 200 n=15 5xx·실패=0 p50=297 p95=680
+/api/flow/options-eod?t=NVDA                                   상태 200 n=15 5xx·실패=0 p50=242 p95=712
+/api/market/movers                                             상태 200 n=15 5xx·실패=0 p50=350 p95=8807
+/api/live/quotes?symbols=NVDA,AAPL,TSLA,MSFT,SPY               상태 200 n=15 5xx·실패=0 p50=319 p95=839
+/en/ticker?ticker=NVDA                                         상태 200 n=15 5xx·실패=0 p50=617 p95=1003
+/api/ranking?run=all&top=5                                     상태 200 n=15 5xx·실패=0 p50=311 p95=6326
+전체 요청 525 · 5xx·실패 0 · p50 342 · p95 1150 · p99 2352

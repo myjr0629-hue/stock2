@@ -64,7 +64,9 @@ async function hit(target, p, token) {
 }
 
 (async () => {
-    const token = await bypassToken();
+    // 프리뷰 대상이 없으면(운영만) 토큰이 필요 없다 — Vercel 로그인이 끊겨도 운영 기준선은 잰다
+    const needToken = targets.some((t) => PREVIEW_HOST.test(new URL(t.base).hostname));
+    const token = needToken ? await bypassToken().catch(() => '') : '';
     if (!token && targets.some((t) => PREVIEW_HOST.test(new URL(t.base).hostname))) { console.error('우회 토큰을 못 읽었다 — 프리뷰는 SSO 302 만 잰다. 중단.'); process.exit(3); }
     const out = fs.createWriteStream(OUT);
     console.log(`대상 ${targets.map((t) => t.name).join(' · ')} · 경로 ${PATHS.length} · ${ROUNDS}라운드 · 동시 ${CONC} → ${OUT}`);

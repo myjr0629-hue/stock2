@@ -1,0 +1,23 @@
+unique rows 40 span 2026-09-28T15:40:38.883Z → 2026-09-28T16:35:43.826Z
+rows with down-log 40 → distinct events 25 over 55 min = 27.2 /h
+reasons { 'The operation was aborted due to timeout': 25 }
+by hour { '2026-09-28T15Z': 8, '2026-09-28T16Z': 17 }
+paths [
+  [ '/api/live/analyst', 3 ],
+  [ '/api/live/quotes', 3 ],
+  [ '/api/live/ticker', 3 ],
+  [ '/api/market/status', 2 ],
+  [ '/api/live/market', 2 ],
+  [ '/api/live/fundamentals', 2 ],
+  [ '/api/live/earnings', 2 ],
+  [ '/api/flow/iv-percentile', 2 ],
+  [ '/api/chart', 2 ],
+  [ '/api/cron/market-feed', 2 ],
+  [ '/api/logo/META', 1 ],
+  [ '/api/live/technicals', 1 ],
+  [ '/api/intel/fast', 1 ],
+  [ '/app', 1 ],
+  [ '/api/flow/options-eod', 1 ],
+  [ '/api/live/treasury', 1 ]
+]
+down-log rows 40 co-logged background: { warmer: 8, lastgood: 21, guardian: 0, intrinioTimeout: 0 }
