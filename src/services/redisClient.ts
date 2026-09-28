@@ -27,11 +27,11 @@ let ecProxyAvailable: boolean | null = null; // null = not tested yet
 // 비용: 호출당 정수 몇 개 증가 + performance.now() 2회. 값·키 내용은 기록하지 않는다.
 // ═══════════════════════════════════════════════════════════════════════════
 type ObsOp = 'get' | 'mget' | 'set' | 'del';
-type ObsOutcome = 'hit' | 'miss' | 'ok' | 'timeout' | 'neterr' | 'http' | 'moji';
+type ObsOutcome = 'hit' | 'miss' | 'ok' | 'timeout' | 'neterr' | 'http' | 'moji' | 'stall';
 /** 지연 구간(ms) 상한 — 마지막 칸은 그 이상 전부 */
 const OBS_BUCKETS = [2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
 function obsOpStat() {
-    return { n: 0, hit: 0, miss: 0, ok: 0, timeout: 0, neterr: 0, http: 0, moji: 0, maxMs: 0, h: new Array(OBS_BUCKETS.length + 1).fill(0) as number[] };
+    return { n: 0, hit: 0, miss: 0, ok: 0, timeout: 0, neterr: 0, http: 0, moji: 0, stall: 0, maxMs: 0, h: new Array(OBS_BUCKETS.length + 1).fill(0) as number[] };
 }
 function obsFresh() {
     return {
@@ -43,6 +43,8 @@ function obsFresh() {
         up: { get: {} as Record<string, number>, mget: {} as Record<string, number>, set: {} as Record<string, number>, del: 0, getHit: 0, getMiss: 0, err: 0, maxMs: 0 },
         /** 쿨다운 진입 횟수·사유, 창 안에서 쿨다운이었던 시간(ms) */
         trips: 0, tripReasons: {} as Record<string, number>, cooldownMs: 0,
+        /** 정체 유예 덕에 살린 호출 · 네트워크 오류 재시도(와 그 성공) · 반개방 시험 */
+        rescued: 0, retry: 0, retryOk: 0, probes: 0,
     };
 }
 let obs = obsFresh();
@@ -75,10 +77,6 @@ function obsUpDone(t0: number, err = false): void {
     if (err) obs.up.err++;
     obsMaybeFlush();
 }
-function obsErrKind(e: any): ObsOutcome {
-    const name = String(e?.name || ''); const msg = String(e?.message || '');
-    return name === 'TimeoutError' || name === 'AbortError' || /aborted|timeout/i.test(msg) ? 'timeout' : 'neterr';
-}
 function obsCooldownEnter(reason: string): void {
     obs.trips++;
     const k = /timeout|aborted/i.test(reason) ? 'timeout' : /^HTTP /.test(reason) ? reason : 'neterr';
@@ -104,7 +102,7 @@ function obsMaybeFlush(force = false): void {
     for (const op of ['get', 'mget', 'set', 'del'] as ObsOp[]) {
         const s = cur.ec[op]; if (!s.n) continue;
         const o: Record<string, number | null> = { n: s.n };
-        for (const k of ['hit', 'miss', 'ok', 'timeout', 'neterr', 'http', 'moji'] as const) if (s[k]) o[k] = s[k];
+        for (const k of ['hit', 'miss', 'ok', 'timeout', 'neterr', 'http', 'moji', 'stall'] as const) if (s[k]) o[k] = s[k];
         o.p50 = obsPct(s.h, s.n, 0.5); o.p95 = obsPct(s.h, s.n, 0.95); o.p99 = obsPct(s.h, s.n, 0.99); o.max = Math.round(s.maxMs);
         o.h = s.h as any;
         ec[op] = o;
@@ -127,6 +125,7 @@ function obsMaybeFlush(force = false): void {
         ...(cur.timeoutElapsedMax ? { toMax: Math.round(cur.timeoutElapsedMax) } : {}),
         up: cur.up, trips: cur.trips, ...(cur.trips ? { tripWhy: cur.tripReasons } : {}),
         cdMs: Math.round(cur.cooldownMs), state: ecProxyAvailable === false ? 'cooldown' : ecProxyAvailable === true ? 'up' : 'unknown',
+        ...(cur.rescued || cur.retry || cur.probes ? { rescued: cur.rescued, retry: cur.retry, retryOk: cur.retryOk, probes: cur.probes } : {}),
         ...(loop ? { loop } : {}),
     };
     console.log('[RedisStats] ' + JSON.stringify(line));
@@ -146,26 +145,159 @@ export function _obsSnapshotForTest() { return obs; }
  * Upstash 가 받쳐주면 티가 안 나지만, 느려지고 비용이 든다.
  *
  * [원칙] 일시적 흔들림이 영구 저하가 되면 안 된다 → 쿨다운으로 바꾼다.
+ *
+ * ★ 2026-09-29 — 쿨다운의 «원인»을 고친다 (브랜치 fix/redis-proxy-reliability).
+ *
+ * 실측(9/28 장중 운영 로그 1시간 43건 · 관측 프리뷰 [RedisStats] 65 인스턴스·분 · 맥→프록시 2Hz 프로브 45분):
+ *   · 프록시 자체는 정체가 없었다(프로브 p99 ≈ 왕복시간, 오류 0, 가동 254시간).
+ *   · 타임아웃이 난 GET 의 «실제 경과»가 15~100초였다(예산 6초). 같은 창의 이벤트 루프 지연도 같은 크기
+ *     (예: GET 100,580ms ↔ 루프 100,663ms). 100초 동기 막힘은 불가능하다 → 응답을 보낸 뒤 인스턴스가
+ *     일시정지됐다가 다음 요청에 깨어나면서, 멈춰 있던 배경 요청(캐시 워머·LAST-GOOD 배경 갱신·미대기 쓰기)의
+ *     마감 타이머가 한꺼번에 울린 것이다. 장중엔 무거운 배경 계산(워머 20~177초)으로 루프가 막히는 경우도 겹친다.
+ *     둘 다 «이미 도착했거나 곧 올 응답»보다 마감 타이머가 먼저 울린다(libuv: 다음 바퀴 timers 가 poll 보다 앞).
+ *   · 그 한 번의 «가짜 타임아웃»이 (깨운 사용자 요청까지) 인스턴스 전체를 30초간 Upstash 로 돌렸다
+ *     → 래퍼 키는 Upstash 에 없어 미스 → 벤더 재계산 → 루프가 더 막히는 되먹임.
+ *     관측 프리뷰(약한 합성 부하)에서도 Redis 호출의 26%가 Upstash, 그중 86%가 쿨다운·EC2 오류 사유였다.
+ * 고친 것:
+ *   ① 정체 감지 마감(ecDeadline): 마감 타이머가 EC_TIMING.lateMs 넘게 «늦게» 울리면 루프가 막혔던 것 —
+ *      바로 끊지 않고 EC_TIMING.graceMs 한 번 유예해 poll 단계가 도착한 응답을 처리하게 한다.
+ *      루프가 멀쩡한데 응답이 없을 때만 «진짜 타임아웃»이다. 정체 후 타임아웃은 차단기를 열지 않는다.
+ *   ② 차단기: 진짜 실패(무응답·HTTP 오류·재시도 후에도 연결 실패)에만 연다. 30초 고정 → 5·10·20·30초
+ *      지수 증가, 끝나면 «한 요청만» 시험(반개방) — 성공하면 닫고, 실패하면 다음 단계로.
+ *      (프록시가 정말 죽었을 때: 예전엔 30초마다 동시 요청 «전부»가 타임아웃을 맞았다 → 이제 한 요청만)
+ *   ③ 네트워크 오류(소켓 끊김·keep-alive 경합)는 지터 20~80ms 후 1회 재시도 — 프록시 명령은 전부 멱등.
+ *   가용성 폴백(Upstash)은 그대로 둔다 — 드물어지고, 사유가 [RedisStats] 에 남는다.
  */
-const EC_COOLDOWN_MS = 30 * 1000;
+/**
+ * 시간 설정. 예산(budget)은 예전 값 그대로 둔다 — 실측 근거:
+ *   · 프록시 자체 응답: 맥→프록시 2Hz 프로브(9/28 장중 45분) p50 207ms·p99 236ms·p99.9 418ms 가 전부 한국↔us-east-1
+ *     왕복(≈205ms)이다 → 프록시 처리 p99 ≈ 30ms. GET 6초는 그 200배 — «진짜 무응답» 감지기로 충분하다.
+ *   · 앱 안에서 잰 지연 p99(>10초)는 루프 경합·일시정지가 섞여 예산을 정하는 근거가 못 된다.
+ *   · 예산을 줄이면 루프 경합으로 느려진 «정상» 응답을 끊어 Upstash 미스·재계산을 늘릴 위험이 있다.
+ *   → 가짜 타임아웃은 예산이 아니라 정체 유예(lateMs·graceMs)로 없앤다.
+ */
+const EC_TIMING = {
+    budget: { get: 6_000, mget: 5_000, set: 3_000, del: 3_000 } as Record<ObsOp, number>,
+    /** 마감 타이머가 이보다 늦게 울리면 «정체»(루프 막힘·인스턴스 일시정지)로 본다 — 평상시 루프 지연 p50 ≈ 20ms */
+    lateMs: 250,
+    /** 정체였으면 끊기 전에 한 번 더 기다리는 시간 — 이미 도착한 응답을 poll 단계가 처리할 기회 */
+    graceMs: 1_500,
+    cooldownBaseMs: 5_000,
+    cooldownMaxMs: 30_000,
+};
+/** 테스트 전용 — 시간 설정을 줄여 결정적으로 재현한다 */
+export function _setEcTimingForTest(t: Partial<Omit<typeof EC_TIMING, 'budget'>> & { budget?: Partial<Record<ObsOp, number>> }): void {
+    const { budget, ...rest } = t;
+    Object.assign(EC_TIMING, rest);
+    if (budget) Object.assign(EC_TIMING.budget, budget);
+}
+/** 테스트 전용 — 차단기 상태 초기화 */
+export function _resetEcBreakerForTest(): void { ecProxyAvailable = null; ecProxyDownUntil = 0; ecTripStreak = 0; ecProbeInFlight = false; ecProbeSince = 0; obsCooldownFrom = 0; }
 let ecProxyDownUntil = 0;
+let ecTripStreak = 0;        // 연속 개방 횟수(쿨다운 지수) — 성공하면 0
+let ecProbeInFlight = false; // 반개방: 쿨다운이 끝난 뒤 «한 요청만» 시험한다
+let ecProbeSince = 0;        // 시험 시작 시각 — 정산이 빠져도 20초 뒤엔 다시 시험한다(영구 «시험 중» 방지)
+const EC_PROBE_STALE_MS = 20_000;
 
-function ecProxyUsable(): boolean {
-    if (ecProxyAvailable === false && Date.now() >= ecProxyDownUntil) {
-        // 쿨다운이 끝났다 — 다시 시도해 본다
-        ecProxyAvailable = null;
-        obsCooldownExit();
+/**
+ * 이번 호출이 EC2 를 써도 되나.
+ *   'use'   — 차단기 닫힘(정상)
+ *   'probe' — 쿨다운이 끝났다: 이 호출 «하나»가 시험한다(결과로 닫거나 다시 연다)
+ *   'skip'  — 쿨다운 중이거나 다른 호출이 시험 중 → Upstash 로(예전 쿨다운과 같은 경로)
+ */
+type EcGate = 'use' | 'probe' | 'skip';
+function ecAcquire(): EcGate {
+    if (ecProxyAvailable !== false) return 'use';
+    if (Date.now() < ecProxyDownUntil || (ecProbeInFlight && Date.now() - ecProbeSince < EC_PROBE_STALE_MS)) return 'skip';
+    ecProbeInFlight = true;
+    ecProbeSince = Date.now();
+    obs.probes++;
+    return 'probe';
+}
+/** 호출 결과를 차단기에 알린다. ok=프록시가 정상 응답(값이 null 이어도). tripReason 이 있으면 «진짜 실패». */
+function ecSettle(gate: EcGate, ok: boolean, tripReason?: string): void {
+    if (gate === 'probe') ecProbeInFlight = false;
+    if (ok) {
+        if (ecProxyAvailable !== true) {
+            if (ecProxyAvailable === false) obsCooldownExit();
+            console.log(ecProxyAvailable === false ? `[Redis] EC2 Proxy 복구(${gate === 'probe' ? '시험 요청' : '진행 중이던 요청'} 성공)` : '[Redis] EC2 Proxy connected');
+            ecProxyAvailable = true;
+        }
+        ecTripStreak = 0;
+        return;
     }
-    return ecProxyAvailable !== false;
+    if (tripReason) markEcProxyDown(tripReason, gate === 'probe');
+}
+function markEcProxyDown(reason: string, fromProbe = false): void {
+    // 이미 열려 있으면(같은 사건의 동시 실패) 연장·가중하지 않는다 — 시험 요청의 실패만 다음 단계로 올린다
+    if (ecProxyAvailable === false && !fromProbe) return;
+    const cd = Math.min(EC_TIMING.cooldownMaxMs, EC_TIMING.cooldownBaseMs * 2 ** ecTripStreak);
+    ecTripStreak = Math.min(ecTripStreak + 1, 6);
+    console.warn(`[Redis] EC2 Proxy 일시 중단(${Math.round(cd / 1000)}초): ${reason}`);
+    if (ecProxyAvailable !== false) obsCooldownEnter(reason); else obs.trips++;
+    ecProxyAvailable = false;
+    ecProxyDownUntil = Date.now() + cd;
 }
 
-function markEcProxyDown(reason: string): void {
-    if (ecProxyAvailable !== false) {
-        console.warn(`[Redis] EC2 Proxy 일시 중단(${Math.round(EC_COOLDOWN_MS / 1000)}초): ${reason}`);
-        obsCooldownEnter(reason);
+/**
+ * 정체 감지 마감. AbortSignal.timeout(n) 과 같지만, 타이머가 EC_TIMING.lateMs 넘게 늦게 울리면
+ * (= 그동안 이벤트 루프가 막혀 있었다) 한 번 유예한다. stalled() 는 유예가 있었는지.
+ */
+function ecDeadline(budgetMs: number): { signal: AbortSignal; stalled: () => boolean; clear: () => void } {
+    const ac = new AbortController();
+    let graced = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const arm = (ms: number) => {
+        const due = performance.now() + ms;
+        timer = setTimeout(() => {
+            if (!graced && performance.now() - due > EC_TIMING.lateMs) { graced = true; arm(EC_TIMING.graceMs); return; }
+            const err = new Error('The operation was aborted due to timeout'); err.name = 'TimeoutError';
+            ac.abort(err);
+        }, ms);
+        (timer as any)?.unref?.();
+    };
+    arm(budgetMs);
+    return { signal: ac.signal, stalled: () => graced, clear: () => { if (timer) clearTimeout(timer); } };
+}
+/** undici 의 네트워크 오류(소켓 끊김·연결 거부 등) — fetch 는 TypeError('fetch failed') 로 감싼다 */
+function isNetErr(e: any): boolean {
+    return e?.name === 'TypeError' || /fetch failed|ECONNRESET|ECONNREFUSED|EPIPE|socket|other side closed|UND_ERR/i.test(String(e?.message || '') + String(e?.cause?.code || ''));
+}
+type EcResult = { ok: true; res: Response; body: any } | { ok: false; err: any; kind: 'timeout' | 'stall' | 'neterr' };
+/**
+ * 프록시 호출(응답 본문까지 읽어 돌려준다). 한 번 실패하면 지터 20~80ms 뒤 «새로» 1회 재시도한다:
+ *   · 네트워크 오류(소켓 끊김·keep-alive 경합 — 일시정지 동안 서버가 닫은 소켓을 깨어나자마자 집은 경우 포함)
+ *   · 정체 뒤 타임아웃(일시정지 동안 연결이 죽었을 수 있다 — 프록시는 멀쩡하다)
+ *   지터는 poll 단계가 닫힌 소켓을 풀에서 치울 틈을 준다. 명령은 전부 멱등(GET·MGET·SET·DEL)이다.
+ * 실패 kind: 'timeout'(루프 정상인데 무응답 = 진짜) · 'stall'(정체가 끼었다 = 프록시 탓 아님) · 'neterr'.
+ * makeInit 은 시도마다 부른다 — trade:* 서명(±30초 재전송 창)을 재시도 때 새로 만든다.
+ */
+async function ecCall(op: ObsOp, url: string, makeInit: () => RequestInit): Promise<EcResult> {
+    let anyStall = false;
+    for (let attempt = 0; ; attempt++) {
+        const d = ecDeadline(EC_TIMING.budget[op]);
+        try {
+            const res = await fetch(url, { ...makeInit(), signal: d.signal });
+            const text = await res.text();                 // 본문을 끝까지 읽는다(소켓을 keep-alive 풀로 돌려준다)
+            const body = res.ok ? JSON.parse(text) : null; // 파싱 오류는 아래 catch → 실패(예전에도 실패로 셌다)
+            if (d.stalled()) obs.rescued++;
+            if (attempt) obs.retryOk++;
+            return { ok: true, res, body };
+        } catch (e: any) {
+            const stalled = d.stalled();
+            anyStall = anyStall || stalled;
+            const kind = d.signal.aborted ? (stalled ? 'stall' : 'timeout') : 'neterr';
+            if (attempt === 0 && (kind === 'stall' || (kind === 'neterr' && isNetErr(e)))) {
+                obs.retry++;
+                await new Promise((r) => setTimeout(r, 20 + Math.random() * 60));
+                continue;
+            }
+            // 정체가 한 번이라도 끼었으면 실패 원인은 정체다(깨어난 직후 죽은 소켓 등) — 차단기를 열지 않는다
+            return { ok: false, err: e, kind: anyStall ? 'stall' : kind };
+        } finally {
+            d.clear();
+        }
     }
-    ecProxyAvailable = false;
-    ecProxyDownUntil = Date.now() + EC_COOLDOWN_MS;
 }
 
 // EC2 Redis Proxy configuration
@@ -227,64 +359,58 @@ export function getRedisStatus() {
 
 // ?�?� EC2 Redis Proxy helpers ?�?�
 /** EC2 프록시 읽기 — `ok:true` 는 «프록시가 정상 응답했다»(값이 null 이어도)를 뜻한다. */
-async function ecProxyGetEx<T>(key: string): Promise<{ ok: boolean; value: T | null }> {
+async function ecProxyGetEx<T>(key: string, gate: EcGate = 'use'): Promise<{ ok: boolean; value: T | null }> {
     const t0 = performance.now();
-    try {
-        const res = await fetch(`${EC2_PROXY_URL}/get?key=${encodeURIComponent(key)}`, {
-            headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
-            // ★ 2026-09-15 — 3초는 너무 빡빡했다.
-            //   guardian:snapshot 처럼 큰 키(실측 24,651바이트)는 런타임이 바쁠 때
-            //   3초를 넘긴다. 그러면 «멀쩡한 캐시»를 두고도 못 쓰고, 예전에는
-            //   그 한 번으로 인스턴스 전체가 캐시를 영구히 포기했다.
-            //   넘겨봐야 잃는 게 더 크므로 6초로 늘린다(쿨다운도 함께 도입했다).
-            signal: AbortSignal.timeout(6000),
-            cache: 'no-store'
-        });
-        if (!res.ok) {
-            // ★ 401/5xx 는 «미스»가 아니라 «프록시 이상»이다. 예전엔 null 로 돌려 미스처럼 보였고,
-            //   키가 틀린 배포에서도 모든 읽기가 조용히 Upstash 로 갔다. 쿨다운으로 넘긴다.
-            obsRecord('get', 'http', t0);
-            markEcProxyDown(`HTTP ${res.status}`);
-            return { ok: false, value: null };
-        }
-        const data = await res.json();
-        if (ecProxyAvailable === null) {
-            ecProxyAvailable = true;
-            console.log('[Redis] EC2 Proxy connected');
-        }
-        obsRecord('get', data.result == null ? 'miss' : 'hit', t0);
-        return { ok: true, value: (data.result ?? null) as T | null };
-    } catch (e: any) {
-        obsRecord('get', obsErrKind(e), t0);
-        markEcProxyDown(e.message);
+    // ★ 2026-09-15 — 3초는 너무 빡빡했다(guardian:snapshot 24,651바이트가 런타임이 바쁠 때 넘김) → 6초.
+    // ★ 2026-09-29 — «런타임이 바쁠 때»는 이제 ecDeadline 이 가려낸다(정체 유예). 예산은 EC_TIMING.budget.get.
+    const r = await ecCall('get', `${EC2_PROXY_URL}/get?key=${encodeURIComponent(key)}`, () => ({
+        headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
+        cache: 'no-store',
+    }));
+    if (!r.ok) {
+        obsRecord('get', r.kind, t0);
+        // 정체 뒤 타임아웃('stall')은 프록시 탓이 아니다 — 이 호출만 Upstash 로, 차단기는 그대로
+        ecSettle(gate, false, r.kind === 'stall' ? undefined : String(r.err?.message || r.err));
         return { ok: false, value: null };
     }
+    if (!r.res.ok) {
+        // ★ 401/5xx 는 «미스»가 아니라 «프록시 이상»이다. 예전엔 null 로 돌려 미스처럼 보였고,
+        //   키가 틀린 배포에서도 모든 읽기가 조용히 Upstash 로 갔다. 쿨다운으로 넘긴다.
+        obsRecord('get', 'http', t0);
+        ecSettle(gate, false, `HTTP ${r.res.status}`);
+        return { ok: false, value: null };
+    }
+    obsRecord('get', r.body?.result == null ? 'miss' : 'hit', t0);
+    ecSettle(gate, true);
+    return { ok: true, value: (r.body?.result ?? null) as T | null };
 }
 async function ecProxyGet<T>(key: string): Promise<T | null> {
     return (await ecProxyGetEx<T>(key)).value;
 }
 
-async function ecProxySet<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
+/** 쓰기 — 예전처럼 쓰기 실패는 차단기를 열지 않는다(Upstash 가 받는다). 단 «시험 요청»이 실패하면 다음 단계로. */
+async function ecProxySet<T>(key: string, value: T, ttlSeconds?: number, gate: EcGate = 'use'): Promise<boolean> {
     const t0 = performance.now();
-    try {
-        const rawBody = JSON.stringify({ key, value, ttl: ttlSeconds });
-        const res = await fetch(`${EC2_PROXY_URL}/set`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${EC2_PROXY_KEY}`,
-                'Content-Type': 'application/json',
-                ...signedWriteHeaders(rawBody, [key]),
-            },
-            body: rawBody,
-            signal: AbortSignal.timeout(3000),
-        });
-        if (!res.ok && PROTECTED_KEY.test(key)) console.error(`[Redis] EC2 proxy refused trade write key=${key} status=${res.status}`);
-        obsRecord('set', res.ok ? 'ok' : 'http', t0);
-        return res.ok;
-    } catch (e: any) {
-        obsRecord('set', obsErrKind(e), t0);
+    let rawBody: string;
+    try { rawBody = JSON.stringify({ key, value, ttl: ttlSeconds }); } catch { if (gate === 'probe') ecProbeInFlight = false; return false; }
+    const r = await ecCall('set', `${EC2_PROXY_URL}/set`, () => ({
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${EC2_PROXY_KEY}`,
+            'Content-Type': 'application/json',
+            ...signedWriteHeaders(rawBody, [key]),
+        },
+        body: rawBody,
+    }));
+    if (!r.ok) {
+        obsRecord('set', r.kind, t0);
+        ecSettle(gate, false, gate === 'probe' && r.kind !== 'stall' ? String(r.err?.message || r.err) : undefined);
         return false;
     }
+    if (!r.res.ok && PROTECTED_KEY.test(key)) console.error(`[Redis] EC2 proxy refused trade write key=${key} status=${r.res.status}`);
+    obsRecord('set', r.res.ok ? 'ok' : 'http', t0);
+    ecSettle(gate, r.res.ok, !r.res.ok && gate === 'probe' ? `HTTP ${r.res.status}` : undefined);
+    return r.res.ok;
 }
 
 // ?�?� Upstash (HTTP) connection ?�?�
@@ -386,8 +512,9 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
     // Try EC2 Proxy first (ElastiCache via HTTP)
     let ecAuthoritative = false;
     let upReason = 'cooldown'; // 관측 전용: 이 호출이 Upstash 로 가게 된 사유
-    if (ecProxyUsable()) {
-        const r = await ecProxyGetEx<T>(key);
+    const gate = ecAcquire();
+    if (gate !== 'skip') {
+        const r = await ecProxyGetEx<T>(key, gate);
         // Skip a corrupted EC2 value (mojibake) and let Upstash serve the clean copy.
         if (r.ok && r.value !== null && !isMojibake(r.value)) return r.value;
         // 정상 응답인데 null(진짜 미스) → 래퍼로만 쓰는 키는 Upstash 에도 없으므로 묻지 않는다.
@@ -427,55 +554,47 @@ export async function mgetFromCache<T>(keys: string[]): Promise<(T | null)[]> {
 
     // Try EC2 Proxy /mget first (ElastiCache, ~15ms single round-trip)
     let upReason = 'cooldown'; // 관측 전용
-    if (ecProxyAvailable !== false) {
+    const gate = ecAcquire();
+    if (gate !== 'skip') {
         const t0 = performance.now();
-        try {
-            const res = await fetch(
-                `${EC2_PROXY_URL}/mget?keys=${keys.map(encodeURIComponent).join(',')}`,
-                {
-                    headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
-                    signal: AbortSignal.timeout(5000),
-                    cache: 'no-store',
-                }
-            );
-            upReason = 'ecErr';
-            if (res.ok) {
-                const data = await res.json();
-                const results = (data.results || []) as (T | null)[];
-                // If the EC2 proxy corrupted any multi-byte value, fall through to
-                // Upstash's clean copy rather than returning mojibake.
-                if (!results.some(isMojibake)) {
-                    obsRecord('mget', results.some((x) => x != null) ? 'hit' : 'miss', t0);
-                    if (ecProxyAvailable === null) {
-                        ecProxyAvailable = true;
-                        console.log('[Redis] EC2 Proxy connected (via mget)');
+        const r = await ecCall('mget', `${EC2_PROXY_URL}/mget?keys=${keys.map(encodeURIComponent).join(',')}`, () => ({
+            headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
+            cache: 'no-store',
+        }));
+        upReason = 'ecErr';
+        if (!r.ok) {
+            obsRecord('mget', r.kind, t0);
+            // 예전: 여기서 플래그만 false(쿨다운 시각 없이) — 이제 GET 과 같은 차단기. 정체 뒤 타임아웃은 열지 않는다.
+            ecSettle(gate, false, r.kind === 'stall' ? undefined : String(r.err?.message || r.err));
+            console.warn(`[Redis] EC2 Proxy mget unavailable: ${r.err?.message || r.err}`);
+        } else if (!r.res.ok) {
+            obsRecord('mget', 'http', t0);
+            ecSettle(gate, false, gate === 'probe' ? `HTTP ${r.res.status}` : undefined); // 예전처럼 HTTP 오류는 열지 않는다(시험 요청만)
+        } else {
+            const results = (r.body?.results || []) as (T | null)[];
+            ecSettle(gate, true);
+            // If the EC2 proxy corrupted any multi-byte value, fall through to
+            // Upstash's clean copy rather than returning mojibake.
+            if (!results.some(isMojibake)) {
+                obsRecord('mget', results.some((x) => x != null) ? 'hit' : 'miss', t0);
+                // Upstash 에만 있을 수 있는 키(cache:13f 등)의 미스만 골라 채운다.
+                const need = keys.map((k, i) => (results[i] === null && shouldFallbackToUpstash(k, true) ? i : -1)).filter((i) => i >= 0);
+                if (need.length) {
+                    const upstash = getUpstashClient();
+                    if (upstash) {
+                        obsUp('mget', 'fill');
+                        const tu = performance.now();
+                        try {
+                            const extra = await upstash.mget(...need.map((i) => keys[i]));
+                            need.forEach((i, j) => { if (extra[j] != null) results[i] = extra[j] as T; });
+                            obsUpDone(tu);
+                        } catch (e: any) { obsUpDone(tu, true); console.warn(`[Redis/Upstash] mget(fill) failed:`, e.message); }
                     }
-                    // Upstash 에만 있을 수 있는 키(cache:13f 등)의 미스만 골라 채운다.
-                    const need = keys.map((k, i) => (results[i] === null && shouldFallbackToUpstash(k, true) ? i : -1)).filter((i) => i >= 0);
-                    if (need.length) {
-                        const upstash = getUpstashClient();
-                        if (upstash) {
-                            obsUp('mget', 'fill');
-                            const tu = performance.now();
-                            try {
-                                const extra = await upstash.mget(...need.map((i) => keys[i]));
-                                need.forEach((i, j) => { if (extra[j] != null) results[i] = extra[j] as T; });
-                                obsUpDone(tu);
-                            } catch (e: any) { obsUpDone(tu, true); console.warn(`[Redis/Upstash] mget(fill) failed:`, e.message); }
-                        }
-                    }
-                    return results;
                 }
-                obsRecord('mget', 'moji', t0);
-                upReason = 'moji';
-            } else {
-                obsRecord('mget', 'http', t0);
+                return results;
             }
-        } catch (e: any) {
-            obsRecord('mget', obsErrKind(e), t0);
-            upReason = 'ecErr';
-            ecProxyAvailable = false;
-            console.warn(`[Redis] EC2 Proxy mget unavailable: ${e.message}`);
+            obsRecord('mget', 'moji', t0);
+            upReason = 'moji';
         }
     }
 
@@ -525,9 +644,10 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
     const effectiveTtl = ttlSeconds ? applyJitter(ttlSeconds) : undefined;
 
     // Write to EC2 Proxy (ElastiCache)
-    const ecTried = ecProxyUsable();
+    const gate = ecAcquire();
+    const ecTried = gate !== 'skip';
     if (ecTried) {
-        ecOk = await ecProxySet(key, value, effectiveTtl);
+        ecOk = await ecProxySet(key, value, effectiveTtl, gate);
     }
 
     // Upstash 복제는 정책이 정한다(내구 키·장애-필수 키·EC2 실패 시). 그 외는 EC2 만.
@@ -581,18 +701,22 @@ export async function deleteFromCache(key: string): Promise<boolean> {
     let upstashOk = false;
 
     // Delete from EC2 Proxy
-    if (ecProxyAvailable !== false) {
+    const gate = ecAcquire();
+    if (gate !== 'skip') {
         const t0 = performance.now();
-        try {
-            const res = await fetch(`${EC2_PROXY_URL}/del?key=${encodeURIComponent(key)}`, {
-                method: 'DELETE',
-                // protected keys: the proxy verifies HMAC(ts + "." + key) for /del
-                headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}`, ...signedWriteHeaders(key, [key]) },
-                signal: AbortSignal.timeout(3000),
-            });
-            ecOk = res.ok;
-            obsRecord('del', res.ok ? 'ok' : 'http', t0);
-        } catch (e: any) { obsRecord('del', obsErrKind(e), t0); }
+        const r = await ecCall('del', `${EC2_PROXY_URL}/del?key=${encodeURIComponent(key)}`, () => ({
+            method: 'DELETE',
+            // protected keys: the proxy verifies HMAC(ts + "." + key) for /del
+            headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}`, ...signedWriteHeaders(key, [key]) },
+        }));
+        if (!r.ok) {
+            obsRecord('del', r.kind, t0);
+            ecSettle(gate, false, gate === 'probe' && r.kind !== 'stall' ? String(r.err?.message || r.err) : undefined);
+        } else {
+            ecOk = r.res.ok;
+            obsRecord('del', r.res.ok ? 'ok' : 'http', t0);
+            ecSettle(gate, r.res.ok, !r.res.ok && gate === 'probe' ? `HTTP ${r.res.status}` : undefined);
+        }
     }
 
     // Delete from Upstash

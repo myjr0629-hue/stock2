@@ -82,7 +82,7 @@ console.log('── ④ EC2 장애 (쿨다운) — 마지막에 둔다');
 reset(); ecMode = 'http-401'; upstore.set('intrinio:resp:v1:x', JSON.stringify({ u: 1 })); const v401 = await R.getFromCache<any>('intrinio:resp:v1:x');
 t('EC2 401 → 비권위 → Upstash 폴백(예전과 동일)', calls.upGet === 1 && v401?.u === 1, JSON.stringify(v401));
 reset(); ecMode = 'ok-value'; await R.getFromCache('anything');
-t('쿨다운 30초 동안 EC2 호출 생략 · Upstash 로(예전과 동일)', calls.ecGet === 0 && calls.upGet === 1);
+t('쿨다운 동안 EC2 호출 생략 · Upstash 로(예전과 동일)', calls.ecGet === 0 && calls.upGet === 1);
 reset(); await R.setInCache('intrinio:resp:v1:x', { v: 9 }, 60);
 t('쿨다운 중 쓰기 → EC2 0회·Upstash 1회(EC2 실패 시 복제 = 예전과 동일)', calls.ecSet === 0 && calls.upSet === 1);
 console.log(fails ? `\n✗ 실패 ${fails}건` : '\n✓ 전부 통과'); process.exit(fails ? 1 : 0);

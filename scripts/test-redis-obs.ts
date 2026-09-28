@@ -82,7 +82,7 @@ const advance = (ms: number) => { clockOffset += ms; };
 
 type R = typeof import('../src/services/redisClient');
 /** 같은 시나리오 — 반환값과 호출 로그를 모은다 */
-async function scenario(R: R): Promise<string[]> {
+async function scenario(R: R, withFailures = true): Promise<string[]> {
     const out: string[] = [];
     const note = (s: string) => out.push(s);
     const reset = () => { log = []; upstore.clear(); env.ecMode = 'ok-null'; env.setMode = 'ok'; env.mgetMode = 'ok'; R._resetReplicateThrottle(); };
@@ -102,13 +102,14 @@ async function scenario(R: R): Promise<string[]> {
     note('set guardian → ' + await R.setInCache('guardian:snapshot:ko', { v: 1 }, 300)); flushLog('9');
     note('set durable → ' + await R.setInCache('mkt:x', { v: 1 })); flushLog('10');
     note('set lastgood x2 → ' + await R.setInCache('flow:ticker:lastgood:v2:N', { v: 1 }, 43200) + await R.setInCache('flow:ticker:lastgood:v2:N', { v: 2 }, 43200)); flushLog('11');
+    note('del → ' + await R.deleteFromCache('intrinio:resp:v1:a')); flushLog('15');
+    note('null blocked → ' + await R.setInCache('x', null as any, 10)); flushLog('16');
+    note('error blocked → ' + await R.setInCache('x', { error: 'fetch failed' } as any, 10)); flushLog('17');
+    if (!withFailures) return out;
     env.setMode = 'timeout'; note('set ec timeout → ' + await R.setInCache('intrinio:resp:v1:b', { v: 1 }, 60)); flushLog('12');
     env.setMode = 'neterr'; note('set ec neterr → ' + await R.setInCache('intrinio:resp:v1:c', { v: 1 }, 60)); flushLog('13');
     env.setMode = 'http-500'; note('set ec 500 → ' + await R.setInCache('intrinio:resp:v1:d', { v: 1 }, 60)); flushLog('14');
     env.setMode = 'ok';
-    note('del → ' + await R.deleteFromCache('intrinio:resp:v1:a')); flushLog('15');
-    note('null blocked → ' + await R.setInCache('x', null as any, 10)); flushLog('16');
-    note('error blocked → ' + await R.setInCache('x', { error: 'fetch failed' } as any, 10)); flushLog('17');
     // 장애 → 쿨다운 → 복구 (가짜 시계)
     env.ecMode = 'timeout'; note('get timeout → ' + JSON.stringify(await R.getFromCache('intrinio:resp:v1:e'))); flushLog('18');
     env.ecMode = 'ok-value';
@@ -152,14 +153,15 @@ async function scenario(R: R): Promise<string[]> {
     const restore = () => { console.log = origLog; console.warn = origWarn; console.error = origErr; };
     silence();
     const Base: R = await import(path.resolve(basePath));
-    const baseOut = await scenario(Base);
-    clockOffset = 0;
     const Cur: R = await import('../src/services/redisClient');
+    const fixMode = typeof (Cur as any)._setEcTimingForTest === 'function';
+    const baseOut = await scenario(Base, !fixMode);
+    clockOffset = 0;
     const statLines: string[] = [];
     console.log = (...a: any[]) => { const s = a.join(' '); if (s.startsWith('[RedisStats] ')) statLines.push(s); };
-    const curOut = await scenario(Cur);
+    const curOut = await scenario(Cur, !fixMode);
     restore();
-    console.log('── ① 동등성: 비교 대상 = ' + (process.argv[2] || 'origin/main') + ` · 시나리오 32단계 · 호출 로그 ${baseOut.length}줄`);
+    console.log('── ① 동등성: 비교 대상 = ' + (process.argv[2] || 'origin/main') + (fixMode ? ' · 수리 판 → 정상 경로만(장애 경로는 test-redis-reliability.ts)' : ' · 시나리오 32단계') + ` · 호출 로그 ${baseOut.length}줄`);
     let firstDiff = -1;
     for (let i = 0; i < Math.max(baseOut.length, curOut.length); i++) if (baseOut[i] !== curOut[i]) { firstDiff = i; break; }
     t('EC2·Upstash 호출 순서·대상·키·타임아웃 유무·반환값이 전부 같다', firstDiff === -1,
@@ -175,16 +177,24 @@ async function scenario(R: R): Promise<string[]> {
     const lines = statLines.map((s) => JSON.parse(s.slice('[RedisStats] '.length)));
     t('한 줄 이상 나왔다·형식 v1', lines.length >= 1 && lines.every((l) => l.v === 1 && typeof l.inst === 'string'));
     const sum = (f: (l: any) => number) => lines.reduce((a, l) => a + (f(l) || 0), 0);
-    t('EC2 GET: 적중 3(값 2·깨짐 1)·미스 5·타임아웃 1·HTTP 1·네트워크 1', sum((l) => l.ec.get?.hit) === 3 && sum((l) => l.ec.get?.miss) === 5 && sum((l) => l.ec.get?.timeout) === 1 && sum((l) => l.ec.get?.http) === 1 && sum((l) => l.ec.get?.neterr) === 1,
-        JSON.stringify(lines.map((l) => l.ec.get)));
-    t('EC2 MGET: 타임아웃 1·네트워크 1·HTTP 1·깨짐 1', sum((l) => l.ec.mget?.timeout) === 1 && sum((l) => l.ec.mget?.neterr) === 1 && sum((l) => l.ec.mget?.http) === 1 && sum((l) => l.ec.mget?.moji) === 1, JSON.stringify(lines.map((l) => l.ec.mget)));
-    t('Upstash MGET 사유: fill·moji·ecErr·cooldown', ['fill', 'moji', 'ecErr', 'cooldown'].every((k) => sum((l) => l.up.mget[k]) >= 1), JSON.stringify(lines.map((l) => l.up.mget)));
-    t('깨진 값(moji)을 따로 셌다', sum((l) => l.ec.get?.moji) === 1, JSON.stringify(lines.map((l) => l.ec.get)));
-    t('EC2 SET: 타임아웃 1·네트워크 1·HTTP 1', sum((l) => l.ec.set?.timeout) === 1 && sum((l) => l.ec.set?.neterr) === 1 && sum((l) => l.ec.set?.http) === 1, JSON.stringify(lines.map((l) => l.ec.set)));
-    t('Upstash GET 사유: cooldown·ecErr·moji·policy 가 모두 잡힌다', ['cooldown', 'ecErr', 'moji', 'policy'].every((k) => sum((l) => l.up.get[k]) >= 1), JSON.stringify(lines.map((l) => l.up.get)));
-    t('Upstash SET 사유: ecFail 3(타임아웃·네트워크·500)·cooldown 1·replicate ≥3', sum((l) => l.up.set.ecFail) === 3 && sum((l) => l.up.set.cooldown) === 1 && sum((l) => l.up.set.replicate) >= 3, JSON.stringify(lines.map((l) => l.up.set)));
-    t('쿨다운 진입 3회(타임아웃·401·네트워크) 사유별', sum((l) => l.trips) === 3 && sum((l) => l.tripWhy?.timeout) === 1 && sum((l) => l.tripWhy?.['HTTP 401']) === 1 && sum((l) => l.tripWhy?.neterr) === 1, JSON.stringify(lines.map((l) => [l.trips, l.tripWhy])));
-    t('쿨다운 시간(cdMs)을 잰다', sum((l) => l.cdMs) >= 30_000, JSON.stringify(lines.map((l) => l.cdMs)));
+    if (!fixMode) {
+        t('EC2 GET: 적중 3(값 2·깨짐 1)·미스 5·타임아웃 1·HTTP 1·네트워크 1', sum((l) => l.ec.get?.hit) === 3 && sum((l) => l.ec.get?.miss) === 5 && sum((l) => l.ec.get?.timeout) === 1 && sum((l) => l.ec.get?.http) === 1 && sum((l) => l.ec.get?.neterr) === 1,
+            JSON.stringify(lines.map((l) => l.ec.get)));
+        t('EC2 MGET: 타임아웃 1·네트워크 1·HTTP 1·깨짐 1', sum((l) => l.ec.mget?.timeout) === 1 && sum((l) => l.ec.mget?.neterr) === 1 && sum((l) => l.ec.mget?.http) === 1 && sum((l) => l.ec.mget?.moji) === 1, JSON.stringify(lines.map((l) => l.ec.mget)));
+        t('Upstash MGET 사유: fill·moji·ecErr·cooldown', ['fill', 'moji', 'ecErr', 'cooldown'].every((k) => sum((l) => l.up.mget[k]) >= 1), JSON.stringify(lines.map((l) => l.up.mget)));
+        t('깨진 값(moji)을 따로 셌다', sum((l) => l.ec.get?.moji) === 1, JSON.stringify(lines.map((l) => l.ec.get)));
+        t('EC2 SET: 타임아웃 1·네트워크 1·HTTP 1', sum((l) => l.ec.set?.timeout) === 1 && sum((l) => l.ec.set?.neterr) === 1 && sum((l) => l.ec.set?.http) === 1, JSON.stringify(lines.map((l) => l.ec.set)));
+        t('Upstash GET 사유: cooldown·ecErr·moji·policy 가 모두 잡힌다', ['cooldown', 'ecErr', 'moji', 'policy'].every((k) => sum((l) => l.up.get[k]) >= 1), JSON.stringify(lines.map((l) => l.up.get)));
+        t('Upstash SET 사유: ecFail 3(타임아웃·네트워크·500)·cooldown 1·replicate ≥3', sum((l) => l.up.set.ecFail) === 3 && sum((l) => l.up.set.cooldown) === 1 && sum((l) => l.up.set.replicate) >= 3, JSON.stringify(lines.map((l) => l.up.set)));
+        t('쿨다운 진입 3회(타임아웃·401·네트워크) 사유별', sum((l) => l.trips) === 3 && sum((l) => l.tripWhy?.timeout) === 1 && sum((l) => l.tripWhy?.['HTTP 401']) === 1 && sum((l) => l.tripWhy?.neterr) === 1, JSON.stringify(lines.map((l) => [l.trips, l.tripWhy])));
+        t('쿨다운 시간(cdMs)을 잰다', sum((l) => l.cdMs) >= 30_000, JSON.stringify(lines.map((l) => l.cdMs)));
+    } else {
+        // 수리 판 — 정상 경로만 흘렸다(장애 경로 통계는 test-redis-reliability.ts 가 실제 타임아웃으로 본다)
+        t('EC2 GET: 적중 2(값 1·깨짐 1)·미스 2·실패 0', sum((l) => l.ec.get?.hit) === 2 && sum((l) => l.ec.get?.miss) === 2 && !sum((l) => (l.ec.get?.timeout || 0) + (l.ec.get?.neterr || 0) + (l.ec.get?.http || 0)), JSON.stringify(lines.map((l) => l.ec.get)));
+        t('EC2 MGET: 깨짐 1·HTTP 1', sum((l) => l.ec.mget?.moji) === 1 && sum((l) => l.ec.mget?.http) === 1, JSON.stringify(lines.map((l) => l.ec.mget)));
+        t('Upstash 사유: GET policy·moji / MGET fill·moji·ecErr / SET replicate ≥3', ['policy', 'moji'].every((k) => sum((l) => l.up.get[k]) >= 1) && ['fill', 'moji', 'ecErr'].every((k) => sum((l) => l.up.mget[k]) >= 1) && sum((l) => l.up.set.replicate) >= 3, JSON.stringify(lines.map((l) => l.up)));
+        t('정상 경로에선 차단 0', sum((l) => l.trips) === 0, JSON.stringify(lines.map((l) => l.trips)));
+    }
     t('이벤트 루프 지연(loop)이 실린다', lines.some((l) => l.loop && typeof l.loop.p99 === 'number'));
     t('창별 CPU 사용(cpuMs)·루프 활용도(elu)가 실린다(일시정지 vs 과부하 판별)', lines.some((l) => typeof l.cpuMs === 'number' && typeof l.elu === 'number'));
     t('값·키 내용은 싣지 않는다(키 이름 0회)', !statLines.join('\n').includes('intrinio:resp') && !statLines.join('\n').includes('guardian:snapshot'));
