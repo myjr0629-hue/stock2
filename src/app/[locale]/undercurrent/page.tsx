@@ -43,6 +43,8 @@ const T: Record<Locale, Record<string, string>> = {
     secDiv: '괴리 시그널', secDivSub: '뉴스와 돈이 반대로 움직이는 곳',
     secWhale: '큰손 레이더', secWhaleSub: '어제 새로 걸린 옵션 포지션',
     whaleEmpty: '어제는 두드러진 신규 포지션이 없었어요. 매일 장 마감 후 갱신됩니다.',
+    // 데이터 세션의 요일({d}) — 월요일에 «어제»는 금요일이 아니다 (2026-09-28)
+    secWhaleSubOn: '{d} 새로 걸린 옵션 포지션', whaleEmptyOn: '{d}에는 두드러진 신규 포지션이 없었어요. 매일 장 마감 후 갱신됩니다.',
     secStories: '오늘의 스토리', secStoriesSub: '돈의 반응과 함께 읽는 뉴스',
     connected: '연결된 흐름', more: '더 보기',
     share: '공유', shareCopied: '링크가 복사되었어요', viewTicker: '이 종목 전체 보기', backdropNow: '지금 시장', bdFutures: '선물 거래 중', futEs: 'S&P 선물', futNq: '나스닥 선물',
@@ -122,6 +124,7 @@ const T: Record<Locale, Record<string, string>> = {
     secDiv: 'Divergence signals', secDivSub: 'Where news and money point opposite ways',
     secWhale: 'Whale radar', secWhaleSub: 'New option positions opened yesterday',
     whaleEmpty: 'No standout new positions yesterday. Updates after each close.',
+    secWhaleSubOn: 'New option positions opened {d}', whaleEmptyOn: 'No standout new positions on {d}. Updates after each close.',
     secStories: "Today's stories", secStoriesSub: 'News read together with the money',
     connected: 'Connected flows', more: 'See all',
     share: 'Share', shareCopied: 'Link copied', viewTicker: 'See all on this ticker', backdropNow: 'The market now', bdFutures: 'Futures live', futEs: 'S&P fut', futNq: 'Nasdaq fut',
@@ -201,6 +204,7 @@ const T: Record<Locale, Record<string, string>> = {
     secDiv: '乖離シグナル', secDivSub: 'ニュースとお金が逆方向の銘柄',
     secWhale: '大口レーダー', secWhaleSub: '昨日新たに建てられたオプションポジション',
     whaleEmpty: '昨日は目立った新規ポジションがありませんでした。引け後に更新されます。',
+    secWhaleSubOn: '{d}に新たに建てられたオプションポジション', whaleEmptyOn: '{d}は目立った新規ポジションがありませんでした。引け後に更新されます。',
     secStories: '今日のストーリー', secStoriesSub: 'お金の反応と一緒に読むニュース',
     connected: 'つながる流れ', more: 'すべて見る',
     share: 'シェア', shareCopied: 'リンクをコピーしました', viewTicker: 'この銘柄をすべて見る', backdropNow: 'いまの市場', bdFutures: '先物取引中', futEs: 'S&P先物', futNq: 'ナスダック先物',
@@ -790,6 +794,10 @@ export default function UndercurrentPage() {
   const bdSub = !bd || bd.mode === 'cash-live' ? t.macroTitle : bd.mode === 'futures' ? t.bdFutures : closeLabel(bd.cash.sessionDate, loc);
   const tenYDay = bd?.us10y && !bd.us10y.live && bd.us10y.sessionDate && bd.us10y.sessionDate !== bd.clock.date ? bd.us10y.sessionDate : null;
   const pctText = (x: number) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}%`;
+  // 큰손 레이더: 옵션 신규 포지션은 «마지막으로 끝난 세션» 것 — «어제» 대신 그 요일
+  const whaleDay = feed?.cards?.find((c) => c.money?.optionsDate)?.money.optionsDate || null;
+  const whaleSub = whaleDay ? t.secWhaleSubOn.replace('{d}', weekdayName(whaleDay, loc)) : t.secWhaleSub;
+  const whaleEmptyText = whaleDay ? t.whaleEmptyOn.replace('{d}', weekdayName(whaleDay, loc)) : t.whaleEmpty;
   const [showBreaking, setShowBreaking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // 바이너리 실버전 (@capacitor/app — UC 바이너리에 포함). 하드코딩 1.0.0 이 1.0.1
@@ -1987,7 +1995,7 @@ export default function UndercurrentPage() {
                 {whaleCards.length > 0 && (
                   <>
                     <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                      <SectionHead title={t.secWhale} sub={t.secWhaleSub} color={C.emerald} />
+                      <SectionHead title={t.secWhale} sub={whaleSub} color={C.emerald} />
                       <button type="button" onClick={() => { setTab('whale'); window.scrollTo(0, 0); }} style={{ font: 'inherit', marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: C.emerald, background: 'none', border: 'none', cursor: 'pointer' }}>{t.more} →</button>
                     </div>
                     <div style={{ display: 'flex', gap: 11, overflowX: 'auto', margin: '0 -18px', padding: '2px 18px 6px', scrollSnapType: 'x mandatory' }}>
@@ -2222,7 +2230,7 @@ export default function UndercurrentPage() {
             {/* ── 큰손 TAB ── */}
             {tab === 'whale' && (
               <>
-                <SectionHead title={t.secWhale} sub={t.secWhaleSub} color={C.emerald} />
+                <SectionHead title={t.secWhale} sub={whaleSub} color={C.emerald} />
                 {whaleCards.map((c, i) => (
                   <span key={c.ticker}>
                     <button type="button" onClick={() => openDetail(c)} style={{
@@ -2255,7 +2263,7 @@ export default function UndercurrentPage() {
                     marginTop: 11, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`,
                     boxShadow: C.shadow, padding: '20px 16px', fontSize: 13, lineHeight: 1.6, color: C.sub, fontWeight: 600,
                   }}>
-                    {t.whaleEmpty}
+                    {whaleEmptyText}
                   </div>
                 )}
               </>
