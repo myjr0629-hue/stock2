@@ -47,7 +47,7 @@
 |---|---|---|---|---|
 | 1 | **종목 페이지 신선도 수리**(첫 방문자에게 묵은 값) + 영어 페이지 한국어 설명 수리 | 1절 실측 · 검색은 «매일 갱신»이라 쓰고 묵은 값을 준다 | 나(브랜치, 작업 칩) → 대표(병합) | 첫 요청 날짜 = 최신 거래일 |
 | 2 | **제목을 검색어 순서로**: «SPY Max Pain Today $765 · Call Wall $785 · Put Floor $750 (Sep 25)» — 종목 절반은 Max Pain 선두, 절반은 Dark Pool 선두로 A/B | A절(OptionCharts·Barchart) | 나(브랜치) → 대표(병합) | Search Console 노출·클릭(권한 필요) |
-| 3 | **웹 → 앱 배너**: Smart App Banner(iOS)·Chrome 설치 창(안드)·맥락 CTA(«NVDA 콜월이 움직이면 알림 받기») · 가림막 금지 | B절 · 웹 방문 폰 80% | 나(브랜치) → 대표(병합) | `from=home` 폰 탭·iOS 신규 |
+| 3 | **웹 → 앱 배너**: ~~Smart App Banner(iOS)~~ **이미 있다(9/28 실측: /en·/ko → SIGNUM, /flow·/undercurrent → UC, /wim → WIM)** · **안드로이드도 이미 있다**(/manifest.json related_applications=com.signumhq.app · prefer_related_applications=true) · 남은 것 = 맥락 CTA(«NVDA 콜월이 움직이면 알림 받기»)·코드 블록(리딤) | B절 · 웹 방문 폰 80% | 나(브랜치) → 대표(병합) | `from=home` 폰 탭·iOS 신규 |
 | 4 | **게시 노력 재배분**: 폰 클릭이 나는 곳(Threads 5/6·IndieHackers 3/11)을 키우고, 폰 0 채널(블루스키·X·Medium)은 «유지»로 낮춘다(죽이지 않음) | 1절 3일 폰 클릭 | **나 — 오늘 도구에 반영 완료** | 채널별 3일 폰 클릭 |
 | 5 | **PC 방문자 착지 변경**: QR 전용 화면 → 클릭한 콘텐츠 화면 + 옆 패널(QR ≥3cm «폰으로 스캔하면 무료 앱»·짧은 URL · «Android: Google Play 에서 내 폰에 설치» · 메일로 받기) | B절 | 나(브랜치) → 대표(병합) | 0.3%(1/315) 대비 |
 | 6 | **앱을 설치할 이유 = 알림**(웹에서 못 하는 것): 관심 종목 콜월·맥스페인 변화·의회 공시 푸시(FCM 은 이미 들어 있다). 문구도 «데이터 보기» → «알림 받기» | A절(자동 복사 앱 vs 보기 앱 10~100배) | 대표(다음 빌드) | 설치·7일 유지 |
