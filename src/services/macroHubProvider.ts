@@ -86,6 +86,9 @@ export interface MacroSnapshot {
         us10y: number;     // 10-Year Yield
         spread2s10s: number; // 10Y - 2Y (negative = inversion warning)
         trend: 'STEEPENING' | 'FLATTENING' | 'INVERTED' | 'NORMAL';
+        /** 곡선 관측일(YYYY-MM-DD) — 런타임엔 이미 실려 있었다(YieldCurveData). «지금 시장» 10Y 날짜 꼬리표의 근거 */
+        date?: string;
+        source?: string;
     };
     realYield?: {
         us10y: number;          // 10Y Nominal
