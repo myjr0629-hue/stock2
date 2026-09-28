@@ -35,8 +35,13 @@ const outDir = process.argv[2] || '/tmp/ego/gh';
     });
     if (!r.ok) throw new Error(`저장소 목록 실패 HTTP ${r.status} — index 를 건드리지 않는다`);
     const files = await r.json();
-    const days = files.map((f) => f.name).filter((n) => /^\d{4}-\d{2}-\d{2}\.json$/.test(n))
-        .map((n) => n.slice(0, 10)).sort();
+    // ★2026-09-27 휴장일 날짜 파일은 싣지 않는다 — 토요일 파일 2026-09-19.json(내용은 금요일 9/18 값)이
+    //   «2026-09-19 snapshot»으로 JSON-LD 에 실려 구글 데이터셋 검색에 나갔다. 달력 공용본으로 거른다.
+    const cal = require('../lib/us-market-calendar');
+    const allDays = files.map((f) => f.name).filter((n) => /^\d{4}-\d{2}-\d{2}\.json$/.test(n)).map((n) => n.slice(0, 10));
+    const bad = allDays.filter((d) => cal.isNonTradingDay(d));
+    if (bad.length) console.warn(`⚠ 휴장일 날짜 파일 ${bad.join(', ')} — JSON-LD 에서 뺀다(저장소에서도 지울 것)`);
+    const days = allDays.filter((d) => !cal.isNonTradingDay(d)).sort();
     if (!days.length) throw new Error('날짜 파일이 0개 — index 를 건드리지 않는다');
 
     // ② 현재 index.html 을 받아 JSON-LD 블록만 갈아 끼운다(디자인·본문은 손대지 않는다)

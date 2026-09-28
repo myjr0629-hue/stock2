@@ -12096,3 +12096,1009 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 고정 ⑥ 스윕 | 0편(누계 82) | — |
 | (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
 | 키우기 | bluesky 3/3·geeknews 주 1/1·indiehackers 1/1, 그 다음(note·x_us·medium·x_jp)도 오늘 캡 소진 → 추가 없음 | — |
+
+
+---
+
+## 2026-09-25 (KST) 14:30~14:38 — 시간 사이클: ⚠ 안전선 초과 발견·수리(계정 합계 캡) · 실행 0(threads_jp 배정 → 계정 합계 초과라 발행 안 함) · 게이트 341/0 · 스윕 0 · 확장(threads_kr 후보·bluesky_jp 보류) · 7-j 판정 정정
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **⚠ 안전선 초과(9/25 KST, 원장 실측)** | 블루스키 본글 **5편**(bluesky 00:45·02:24·05:34 + bluesky_buildinpublic 01:04 + bluesky_pin 새 소개글 04:39) > 안전선 3 · X 미국 **3편**(x_post 01:58·02:53 + x_pin 새 소개글 07:14) > 2. 원인: 확장으로 만든 하위 채널마다 자기 캡만 있고 «계정 합계»를 세는 곳이 없었다. 이번 사이클 slot 이 새 채널 threads_jp 를 배정했는데 이것도 Threads 오늘 3번째 본글이 되는 것이었다 → **발행하지 않았다**. 이미 올라간 글은 지우지 않는다(반응 소실) — 오늘은 두 계정에 더 올리지 않는다 | PUBLISH-LEDGER.json |
+| **종류 수리 — 계정 합계 캡** | `scripts/mkt-plan.js` 에 `ACCOUNTS` 묶음(bluesky_acct 3·threads_acct 2·x_us_acct 2·x_jp_acct 2·mastodon_acct 2·naver_acct 3). 묶음 합이 캡에 닿으면 묶음 전체 «소진», `pub` 은 초과 때 경고. 적용 후 slot: 실행 레인 «열린 채널 없음»(threads_jp 가 소진으로 바뀜). 답글 채널은 본글이 아니라 따로 센다. 메모리 account-cap-must-sum-subchannels | mkt-plan.js |
+| **판정 정정 — HANDOFF 7-j** | 11:5x 에 적은 «부분 체인(630계약)» 가설은 **틀렸다**. 별도 작업 세션(브랜치 `fix/maxpain-chain-vintage`) 실측: 630계약은 9/25 만기 전체였고 **미결제약정 날짜가 9/23(하루 늦음)** — 수집 Lambda 체인 캐시가 날짜 없이 20시간 적중 + 같은 레벨을 만드는 생산자가 5개라 문마다 값이 달랐다(1020/1000/970). 수리는 그 브랜치(구조 한 벌을 모든 문 출구에서 덮기 + 체인 판본). main 의 7-j 줄은 그 브랜치가 이미 고쳐 두었으므로 충돌을 피하려고 여기(로그)에만 정정을 적는다 | origin/fix/maxpain-chain-vintage |
+| 실행 — threads_jp | 배정됐지만 계정 합계(Threads 오늘 본글 2/2) 때문에 발행 안 함 → 9/26 07시 이후 | — |
+| 확장 — threads_kr(후보, cap 0) | Threads «미국주식» 인기글 좋아요 97~651·답글 16~64 — 계정 합계 2 가 영어 1 + 일본어 1 로 차 있어, threads_jp 첫 주(9/26~10/2) 클릭을 본 뒤 번갈아 쓸지 결정 | channels.json threads_kr |
+| 확장 — bluesky_jp(보류) | 일본어 주식 피드(getPopularFeedGenerators query=株) 좋아요 21·12·7·5·4·2 — 작다. 공개 searchPosts 는 JSON 이 아닌 응답(인증 필요 추정)이라 글 반응은 못 쟀다 | channels.json bluesky_jp |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 15:30~16:01 — 시간 사이클: 실행 0(전 채널 오늘 캡·계정 합계 소진) · 게이트 341/0 · 스윕 0 · 확장(note 공동운영 마가진 — 참가 댓글 직전 «규약 체크» 모달에서 멈춤 → 대표 할 일 ㊵) · 규칙 미정의 1건 정의
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 규칙 미정의 | google_play_featuring → cap 0 규칙(자격 없음·㊴) | mkt-plan.js |
+| 실행 | 열린 채널 없음 — 계정 합계 캡(14:3x 신설) 적용 후 threads_jp 도 소진(Threads 오늘 본글 2/2) | slot |
+| **확장 — note 공동운영 마가진(발굴·티켓)** | note API(`/api/v3/searches?context=magazine`·`/api/v1/magazines/<key>`)로 米国株·投資·NISA·資産運用 마가진 수백 개 중 `editors_count>1` 26개를 뽑아 활동량을 쟀다. 열려 있는 곳: «《共同マガジン》みんなで学ぼう！新NISAナビ»(편집자 8·글 438·오늘 갱신) — 참가 = 고정 글에 댓글 → 운영자 추가 → 메일 승인, 규칙(연속 투고 금지·부적절 금지·표지 변경 금지·하루 2편). 다른 참가 신청 댓글이 4~8월에도 있다. 참가 댓글(일본어, 링크 없음)을 입력하고 [送信] 을 눌렀더니 **«コメントをするまえに…» 모달 — 체크박스 «…noteの規約の範囲内において、自己責任で投稿します» 를 체크해야 [送信する] 가 켜진다** → Qiita 약관 체크와 같은 종류라 **체크하지 않고 취소**, 입력칸 비움. 공개 댓글 수 23 그대로(안 올라감). 채널 note_joint_magazine 등록(게이트 약관) + 대표 할 일 ㊵(선택, 문안 준비) | https://note.com/index_couple/n/n3c855c767a1b (댓글 수 23 유지 확인) |
+| 참고 | 다른 후보: «金融教育専門で日本を変える»(moneyterrace, 348편, 주식·투신 OK·FX/암호 NG) · 나머지 공동 마가진은 유료 구독 묶음(すてぃ次郎 1344편)이나 자기 팀 전용 | — |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 16:30~16:38 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 스윕 0 · **판정 정정: 9/17 «iPad 스크린샷 0장 = 가장 큰 결함»은 오진** · 확장(TradingView 아이디어 — 보류)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **판정 정정 — iPad 스크린샷(9/17)** | 확장 후보를 찾다 9/17 기록(«iPad 80기종 지원인데 iPad 스크린샷 0장 = 가장 큰 결함», t079·t139 로 다음 빌드에 반영)을 다시 쟀다. itunes lookup(US·KR·JP): SIGNUM 1.9.2 아이폰 6장·iPad 0장·supportedDevices 중 iPad 80종 / WIM 1.0.4·UC 1.0.7 도 iPad 0장. 그런데 **빌드 설정은 세 앱 모두 `TARGETED_DEVICE_FAMILY = 1`(아이폰 전용)** — 아이폰 앱은 아이패드에서 호환 모드로 돌아서 지원 기기 목록에 iPad 가 잡히고, 스토어는 아이폰 스크린샷을 보여 준다. iPad 스크린샷은 올릴 대상이 아니다 → QUEUE t079·t139 에 정정 주석, 메모리(kr-ads-taps…)에 정정·교훈(«지원 기기 목록 말고 빌드 설정으로 판정»). 같은 감사의 나머지(설명 606자/4,000·스크린샷 6 vs 중위 8·평점 수)는 유효 | ios/App·uc-app·wim-app project.pbxproj |
+| 확장 — tradingview_ideas(보류) | 하우스룰 원문: «All content has to be free from promotion» — 광고·링크·웹사이트/SNS 언급·**회사명**까지 금지, 예외는 유료 Premium 의 Signature 칸뿐. 무료 계정은 앱 이름도 링크도 못 쓴다 → 설치 경로 없음 + 계정 없음(대표) → 보류 등록 | channels.json tradingview_ideas |
+| 실행 | 열린 채널 없음(전 채널 오늘 캡·계정 합계 소진) | slot |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 17:30~17:38 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 스윕 0 · 확장(en_media — 영어권 인디 앱 코너 2곳 발굴·초안, 발송은 대표 ㊶)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **확장 — en_media(발굴·초안·티켓)** | 미국이 주 시장인데 매체 제보 초안(READY-TO-SEND ①~⑤)은 일본·한국·Uptodown·Medium 뿐이었다. 검색으로 인디 앱 코너를 찾고 각 매체 페이지 원문으로 제출 경로를 확인: **9to5Mac «Indie App Spotlight»**(주간 9/5·9/12·9/19, 「All submissions can be emailed to michaelb@9to5mac.com」, 9/19 소개작 GasPulse = 가스값 추세 데이터 앱) · **TapSmart «Indie Apps Showcase»**(월간, 「email it over」 tomjrolfe@intelligenti.com, 기준 = 인디·리뷰 적은 숨은 앱). 두 곳 모두 최근 금융 앱 없음. 영문 피치(무료·계정 불필요·옵션 구조·FINRA 다크풀·실적 캘린더·AI 요약 3개 언어, 사실만)를 §⑥ 으로 작성. **외부 메일이라 발송은 대표 승인(㊶)**, 권장 시점 = ㊲·㊲-2 운영 반영 뒤(화면마다 다른 맥스페인을 기자가 보면 안 된다). 참고로 찾은 Appedus(무료 리뷰)는 신뢰도 미확인이라 넣지 않았다 | press/READY-TO-SEND.md §⑥ · channels.json en_media |
+| 실행 | 열린 채널 없음(전 채널 오늘 캡·계정 합계 소진) | slot |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 18:30~18:42 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 스윕 0 · 다음 주 일정 확인(9/30 PCE·GDP 3차·마이크론) · 확장(네이버페이 증권 «토론» — 보류, 대표결정)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 일정 확인(소재 준비) | BEA 발표 일정 원문: **9/30(수) 08:30 ET — «Personal Income and Outlays, August 2026»(PCE) + GDP 3차(2분기)** · 10/29 PCE 9월·GDP 속보치. 오늘(9/25) PCE 없음. 9/30 은 아침 PCE·GDP + 장 마감 뒤 마이크론 실적이 겹치는 날 → 다음 주 소재 1순위 | bea.gov/news/schedule |
+| 확장 후보 재확인(중복 회피) | «우리 awesome 목록» → 이미 github_awesome(9/11 awesome-quant #648·awesome-ai-in-finance #254 PR)로 기록돼 있어 새 표면 아님 · IndieHackers 제품 페이지 → 이미 있음(indiehackers.com/product/signum-hq, 200) | channels.json |
+| 확장 — naver_stock_discussion(보류) | 네이버페이 증권 첫 화면에서 상단 «토론» 탭을 눌러 진입(/discussion/home/hot): HOT 글 조회 244~3,708·댓글 2~6, 국내 종목 위주(HLB·SK이노베이션·알테오젠). 세션이 대표 «개인» 네이버 계정 + «클린봇» + 종목게시판은 허위사실·풍문 신고가 오가는 곳(자본시장법 민감) → 앱 홍보성 글은 브랜드 위험. 대표결정 게이트로 등록(권장: 하지 않음) | channels.json naver_stock_discussion |
+| 실행 | 열린 채널 없음(전 채널 오늘 캡·계정 합계 소진) | slot |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 19:30~19:49 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 클릭 재측정 · 확장(threads_pin ✅ — 블루스키 고정글 성공 복제) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 클릭 재측정(ET 날짜) | 3일: home 46 · bluesky 42(오늘 0/어제 21/그제 21) · geeknews 31(0/17/14) · indiehackers 15(3/6/6) · **bluesky_pin 14(어제 첫날)** · x_us 13(0/0/13 — 어제 본글 2편 0클릭) · note 9 · seo_darkpool 8 · seo_uc 7 · medium 5 · x_jp 4 · naver_blog 3 · quora_space 3 · threads 1. ET 오늘은 13시 KST 에 시작해 아직 새 글 없음 | mkt-clicks.js |
+| **확장 — threads_pin ✅(이긴 패턴 복제)** | 블루스키 고정 소개글이 첫날 14클릭 → Threads 도 글 «더 보기» 메뉴에 «프로필에 고정» 이 있음을 확인(메뉴: 인사이트·저장·프로필에 고정·보관·답글 옵션·삭제). 기존 글(의회 거래 90일: 16명·192건·공개까지 중앙값 25일 + 앱 화면 1장 + 링크 signumhq.com/app?from=threads)을 고정 — 새 본글이 아니라 계정 합계 캡 무관. 도구 교훈: 글의 «…» 아이콘은 aria-label 이 비어 있어, 시간 링크와 «같은 줄» 오른쪽 끝 아이콘을 좌표로 찾아야 했다 | 로그인 프로필: 첫 글 = Ddri65CE53B, «고정됨» 라벨 · 글 페이지 a[href]=l.threads.com→signumhq.com/app?from=threads, 이미지 1 |
+| 다음 | 상시 소개글을 새로 써서(threads 캡 안에서) 고정을 교체하고 태그를 threads_pin 으로 분리. Threads 프로필 소개 링크(signumhq.com/app)는 유입 태그가 없다 — 프로필 편집으로 ?from=threads_bio 부착 후보 | — |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 20:30~20:46 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 확장(medium_pin ✅ — 고정 패턴 복제 2) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **확장 — medium_pin ✅** | 블루스키 고정글(첫날 14클릭)·Threads 고정(19:4x)에 이어 Medium: 프로필에 고정 글 없음 확인 → 첫 글(9/24 «Congress filed 192 stock trades in 90 days. The median one was 25 days old when it went public.») «More options» → «Pin this story to your profile». 글에 링크 signumhq.com/app?from=medium·이미지 3·AI 표시 있음. 의회 거래는 몇 주 동안 유효한 소재라 고정에 맞고 Threads 고정과 같은 소재로 맞췄다 | 작성자 로그인 프로필 첫 글 «Pinned» 확인 · 비로그인 curl 은 Cloudflare 403(facebookexternalhit·Googlebot·Twitterbot 모두) → 공개 화면은 못 쟀다 |
+| 참고 — 링크드인 | 개인 프로필(/in/signumhq)에 9/3 부터 «추천(Featured)» 3칸(세 앱 스마트링크 li_feat)이 이미 고정 역할 → 할 일 없음 | channels.json linkedin |
+| 실행 | 열린 채널 없음(전 채널 오늘 캡·계정 합계 소진) | slot |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 21:30~21:47 — 시간 사이클: 실행 1(x_reply ✅ @CNBC 코스트코) · 게이트 341/0 · 스윕 0 · 정정 1(Threads 소개 링크 태그) · 확장(새 표면 없음 — 사유 기록)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅ 1/3** | @CNBC(팔로워 620만 — 18만 문턱 통과) «Costco just reported strong earnings. Goldman Sachs sees a sharp move higher for the stock»(게시 0.7시간) ← 데이터 답글(257자, 키 입력, 링크 0): 프리마켓 COST −0.5%($891.90, 8:31 ET, 나스닥) vs 목요일 종가 $896.48 · 옵션이 금요일까지 약 ±3.2% 를 가격에 넣었다($900 스트래들 $28.68, 목 1:14pm ET 호가 중간) · 기존점 +9.4%(유가·환율 제외 +6.7%) · EPS $6.75(관세 환급 $0.15 포함) | https://x.com/signumhq/status/2103464017910259829 · 내 답글 탭 확인 + **비로그인 syndication(cdn.syndication.twimg.com)에서 본문·in_reply_to=CNBC 확인** |
+| **정정 — Threads 소개 링크** | 19:4x 로그에 «Threads 프로필 소개 링크(signumhq.com/app)는 유입 태그가 없다»고 적었는데 **틀렸다**: 프로필 a[href] 실측 = `signumhq.com/app?from=threads_bio`(화면에는 짧게 signumhq.com/app 으로만 보인다). 프로필 편집 창은 열어 보기만 하고 저장 없이 닫았다. channels.json threads_pin 노트 정정 — «보이는 글자로 판정하지 말고 href 를 잰다» | — |
+| 확장 — 새 표면 없음(사유) | 오늘 확인·등록한 것: threads_jp·threads_kr·bluesky_jp·google_play_featuring·note_joint_magazine·tradingview_ideas·en_media·naver_stock_discussion·threads_pin·medium_pin. 남은 후보(Substack·XDA·Stack Exchange·Yahoo!知恵袋·Clien·velog 등)는 전부 계정 생성이 필요하거나(안전선 밖) AI 글 금지(Stack Exchange). 억지 등록 대신 기록만 한다 | — |
+| 고정 ⑥ 스윕 | 0편(누계 82) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 22:30~22:45 — 시간 사이클(미국 개장): 실행 1(x_reply ✅ 2/3 @CNBC 나이키) · 게이트 341/0 · **스윕 1편 차단(tzkhmbvw1.shop, 누계 83)** · 확장(podcast_daily_brief — 티켓 ㊷)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅ 2/3** | @CNBC «'Risks are rising' for Nike's turnaround, Bank of America says. Sell shares now»(게시 0.7시간) ← 데이터 답글(266자, 링크 0): 최근 4번 실적 모두 EPS 상회(21~82%)인데 다음 날 +6.4% / −10.5% / −15.5% / +4.9%(평균 ±9.3%, 나스닥 일별 종가) · 두 자릿수 하락 두 번은 43%·21% 상회 뒤였다 · 다음 실적 10/1 장 마감 뒤 예정(나스닥 «expected»), 컨센서스 EPS $0.44 vs 1년 전 $0.49. 옵션 내재 변동은 **개장 직후(9:35 ET) 체인 호가가 대부분 비어** 계산하지 않았다(불완전한 값으로 쓰지 않음) | https://x.com/signumhq/status/2103479204298064278 · 내 답글 탭 + 비로그인 syndication 본문·in_reply_to=CNBC |
+| **고정 ⑥ 스윕 — 1편 차단** | 검색어 «종목» 에서 새 일회용 도메인 **tzkhmbvw1.shop** 소재 1편 차단(누계 83편·69도메인). tz+문자+w+번호 .shop 꼴 = 같은 조직의 새 도메인 | /tmp/ego/arc-blocked-*.json |
+| **확장 — podcast_daily_brief(티켓 ㊷)** | 기록에 팟캐스트 0건. Apple Podcasts 는 AI 합성 음성 쇼를 허용하되 오디오·메타데이터 둘 다에 눈에 띄는 고지를 요구(지침 요약). 설계: GitHub Pages 에 feed.xml + 매일 2분 MP3(기존 음성 도구 재사용), 첫 문장·설명란 AI 고지, 설명란 ?from=podcast. 막힌 곳 = Apple Podcasts Connect 약관·쇼 제출(대표 1회), Spotify 는 새 계정 | channels.json podcast_daily_brief |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-25 (KST) 23:30~23:45 — 시간 사이클: 실행 1(x_reply ✅ 3/3 @KobeissiLetter 금리 곡선) · 게이트 341/0 · **스윕 1편 차단(ahfdrtuw5.shop, 누계 84)** · 확장(candidates 의 미탐색 2개 — minkabu·chiebukuro 둘 다 계정 게이트)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 참고 — 코스트코 장중 | 10:33 ET $917.60 **+2.36%**(나스닥) — 프리마켓 −0.5% 에서 뒤집혔다. 옵션이 금요일까지 매긴 ±3.2% 안쪽. 금요일 종가로 «내재 vs 실제»를 다시 잰다 | api.nasdaq.com |
+| **x_reply ✅ 3/3** | @KobeissiLetter «The last time US Treasury yields were this high, total US national debt stood at just $8.9 trillion…»(게시 0.7시간) ← 데이터 답글(255자, 링크 0, 오늘 앞의 두 답글과 다른 소재): 재무부 곡선 8/24→9/24 2년 +63·10년 +48·30년 +24bp — 앞쪽이 끈다 = 장기 부채 공급 파업보다 연준 경로 재가격에 가깝게 읽힌다 · 10년 TIPS +47bp, 기대인플레 ~2.3% 그대로 | https://x.com/signumhq/status/2103493897351766061 · 내 답글 탭 + 비로그인 syndication 본문·in_reply_to=KobeissiLetter |
+| **고정 ⑥ 스윕 — 1편 차단** | «종목» 검색에서 새 일회용 도메인 **ahfdrtuw5.shop**(ah+문자+w+번호 꼴, 같은 조직) 1편 차단 → 누계 84편 | /tmp/ego/arc-blocked-*.json |
+| 확장 — candidates 미탐색 2개 정리 | channels.json candidates(8개) 중 손대지 않은 «todo» 2개를 실측: **minkabu.jp** 로그아웃(«ログイン», 첫 화면 상단이 «今買う大化け株·推奨株» 광고) · **Yahoo!知恵袋** 로그아웃(«IDでもっと便利に新規取得»). 둘 다 게시에 새 계정 필요 = 안전선 밖 → 계정 게이트로 channels.json 에 옮김(다시 탐색하지 않게). 지식iN 과 같은 형식이라 계정이 생겨도 기대치 낮음(지식iN 건당 0.09) | channels.json minkabu·chiebukuro |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 00:30~01:15 — 시간 사이클(새 KST 날): 실행 4 중 3(미디엄 ✅·링크드인 ✅(이미지 실패)·핀터레스트 ✅, 인디해커스 = 세션 만료 → ㊹) + 키우기 블루스키 ✅ · 게이트 341/0 · 스윕 0 · **대표 질문: AWS 경보 메일(XS 페이퍼) 원인 확정·수리 브랜치 → ㊸** · 앱 수치 버그 1건 추가 발견(PRE CLOSE)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **대표 질문 — «signum-xs-paper-errors» 경보 메일** | AWS CloudWatch 자동 경보. 실측(node SDK·.env.local — ACCESS-RUNBOOK 대로): 경보 이력 9/24 22:41 UTC OK→ALARM, 9/25 01:44 UTC ALARM→OK · 7일 호출/오류 9/24 = 3/3(원 실행+비동기 재시도 2회) · 로그 22:40:30 «weekly kill: NAV 1271.66 < 1284.65 (weekStart 1324.38)» 직후 «ValidationException: Provided list of item keys contains duplicates». 원인 = 킬 청산 기록 키 «날짜#종목#KILL» 이 같은 종목 여러 로트에서 겹침(실제 보유 30로트·22종목, 7종목 2~3로트 → 고유키 22/30) → BatchWrite 전체 거부 → STATE(halted=false)·POS·9/24 NAV 전부 미저장. 수리 = 브랜치 `fix/xs-paper-kill-dupkey`(3dbad210e, 키에 매수일+로트 순번 → 30/30). **배포 안 함** → 대표 할 일 ㊸(배포 명령·9/24 누락 킬 처리 결정). 메모리 rare-branches-carry-latent-bugs | CloudWatch·DynamoDB signum-trade-journal |
+| **bluesky ✅ 1/3(계정 합계 1/3)** | $COST 후속: 목요일 옵션이 금요일까지 ±3.2%($900 스트래들 $28.68, 1:14pm ET 중간값) → 금요일 11:36 ET +2.3%($916.80), 범위 안 · 목요일 장외 비중 37.4% vs 시장 49.6%·거래량 평소 1.5배(FINRA) · #stocks. 이미지 = COST 커맨드 화면 머리글+다크풀 카드만(아래 버그 칸 제외) | https://bsky.app/profile/signumhq.bsky.social/post/3mwe44ranqc2o · 공개 API: 본문·링크 facet(from=bluesky)·이미지 |
+| ⚠ 앱 수치 버그 추가(발행 전 차단) | 커맨드 화면 «PRE CLOSE $916.26 +2.21%»(COST, 11:37 ET) — 나스닥 프리마켓 마지막 체결은 09:30:00 **$887.53(−1.00%)**. API `/api/live/ticker` 가 정규장에 `extended.prePrice=916.26` 을 내려보낸다(현재가 수준). 나이키 화면도 «PRE CLOSE $36.16 +0.47%»·감마플립 $31(+15%)·«IV 15»(10/2 스트래들 ±8.3% 와 모순) → 이미지에서 전부 잘라 냄. 별도 작업 칩 «Fix PRE CLOSE showing live price on Command screen» | api.nasdaq.com extended-trading |
+| **medium ✅** | «Nike beat EPS estimates four times in a row. Twice, the stock still fell double digits the next day.» — 최근 4번 EPS 상회(81.5/43.2/20.7/81.8%)와 다음 날 +6.4/−10.5/−15.5/+4.9%(평균 9.3%), 작은 상회 두 번이 두 자릿수 하락(«규칙 아님» 명시) · 10/2 만기 35.5~36 스트래들 약 $2.95 = ±8.3%(11:49 ET 중간값, 앞 4거래일 포함) · 9/24 장외 38.8% vs 49.6%(FINRA) · 다음 실적 10/1 장 마감 뒤 예정, 컨센서스 $0.44. 첫 시도는 도구가 «줄 머리 글머리표 금지»로 막아 문장형으로 고쳐 재발행 | https://medium.com/@signum_hq/nike-beat-eps-estimates-four-times-in-a-row-de14360e58fd · 비로그인: 제목·이미지·링크·AI 고지 |
+| **linkedin ✅(텍스트만)** | 금리 곡선 분해(8/24→9/24 3개월 +37·2년 +63·5년 +62·10년 +48·30년 +24bp · 9/17 인상·목표 3.75~4.00% · 10년 TIPS 2.38→2.85, 기대인플레 ~2.3% · 5년 입찰 2.21/딜러 13.6% · 업종 ETF 8/24→9/23 XLU −8.0·XLRE −7.7·IWM −5.4·XLK +8.5) + 앱 링크. **이미지 첨부 실패**(도구 «이미지 첨부: false») · 도구의 URN 후보 검증도 실패(새 화면이 DOM 에 URN 을 안 싣는다) → 글 «관리 메뉴 열기 → 링크 복사»로 lnkd.in/p/gnwGmtke 를 받아 풀어서 검증 | https://www.linkedin.com/posts/signumhq_the-10-year-treasury-yield-is-at-its-highest-share-7509279973413675009-5uZ9/ · 비로그인 200·본문 표식·본문 링크 lnkd.in/gTuxkF34 → signumhq.com/app?from=linkedin |
+| **pinterest ✅** | «Micron earnings Sep 30: what the last 4 reports did to the stock» — 다음 날 −2.8/+10.2/−3.8/+15.7%(평균 ±8.1%, 네 번 모두 EPS 상회) · 9/24 종가 기준 10/2 만기 ±9.3% · 이미지 = MU 커맨드 머리글+다크풀(확장시간 칸 제외) | https://www.pinterest.com/pin/1102115340098906988/ · 비로그인: 제목·링크 from=pinterest·이미지 |
+| indiehackers — 세션 만료 → ㊹ | IH 가 «Sign in»(로그아웃). 계정은 구글 OAuth 인데 **어느 구글 계정인지 기록 없음**(선택 화면: contact@signumhq.com·myjr0629@gmail.com 외 2) → 잘못 고르면 새 계정이 생길 수 있어 선택하지 않고 창 닫음. 준비된 댓글: «I'm trying to grow a mobile app without relying on paid ads»(좋아요 15·댓글 138)에 채널별 건당 클릭 실측 | 대표 할 일 ㊹ |
+| 고정 ⑥ 스윕 | 0편(누계 84) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 개선 필요(다음) | linkedin-post.mjs: ①이미지 첨부 경로(§22 우회 — setInputFiles·drop·paste) ②검증을 «관리 메뉴 → 링크 복사 → lnkd.in 풀기»로 교체 | — |
+
+
+---
+
+## 2026-09-26 (KST) 01:30~01:53 — 시간 사이클: 실행 4 전부(블루스키 제작기 ✅·X 미국 ✅·Quora 스페이스 ✅·링크드인 아티클 ✅) · 인디해커스 게이트(로그인 ㊹) · 게이트 341/0 · **스윕 1편 차단(ahfdrtuw10.shop, 누계 85)**
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| indiehackers — 게이트 등록 | 00:5x 세션 만료(대표 재로그인 ㊹)인데 slot 이 계속 1순위로 배정 → 도구의 신호 → channels.json 게이트(로그인) | channels.json indiehackers.gate |
+| **bluesky_buildinpublic ✅(계정 합계 2/3)** | #buildinpublic 제작기: «발행 계획기가 채널별 하루 캡만 세고 계정 합계를 안 셌다 → 고정 소개글·제작기를 같은 계정에 더하자 하루 5편(내 한도 3) → 이제 계정 합계로 센다». 앱 사용자에게 보이는 버그는 공개하지 않음. 이미지 = 가디언 화면(«모든 게시물에 앱 화면»), 링크 from=bluesky_bip | https://bsky.app/profile/signumhq.bsky.social/post/3mwe72krfej26 · 공개 API: 본문·링크 facet·#buildinpublic 태그·이미지 |
+| **x_us ✅(계정 합계 1/2)** | «Wednesday, Sept 30 stacks three events»: 8:30 ET 8월 PCE + 2분기 GDP 3차 · 장 마감 뒤 $MU 4분기 · MU 최근 4번 다음 날 -2.8/+10.2/-3.8/+15.7%(모두 EPS 상회) · 10/2 만기 옵션 목요일 종가 기준 ~±9% · 이미지 = MU 머리글+다크풀. 첫 시도는 가중 293자(링크 23자 계산)로 280자 초과 → 게시 안 됨(도구가 «새 글 없음»으로 멈춤), 남은 작성창 없음 확인 후 276자로 줄이고 유니코드 «−»(X 가중치 2)를 «-» 로 바꿔 재발행 | https://x.com/signumhq/status/2103524929027383606 · 비로그인 syndication: 본문·사진 1·링크 from=x_us |
+| **quora_space ✅** | «Nike beat EPS estimates four times in a row. Twice, the stock fell double digits the next day.» — 나이키 4번 상회·다음 날 반응·평균 9.3%·«규칙 아님» · 10/2 스트래들 ±8.3%(11:49 ET) · 9/24 장외 38.8% vs 49.6%(FINRA) · 이미지 = 나이키 머리글+다크풀, 링크 from=quora_space | https://signumhqusstockmarketintelligence.quora.com/Nike-beat-EPS-estimates-four-times-in-a-row-Twice-the-stock-fell-double-digits-the-next-day-Nike-reports-fiscal-Q1-o · 로그인 화면: Space 게시물 5→6·본문·이미지 1·링크 / **비로그인 curl 은 403(Quora 자동 요청 차단) — 공개 화면은 못 쟀다** |
+| **linkedin_articles ✅** | «September 30: PCE, GDP and Micron in one session» — BEA 일정(8:30 ET PCE 8월·GDP 3차) · 7월 PCE 3.7%·근원 3.3%(샌프란 연은 FedViews 9/3) · 9/17 인상·목표 3.75~4.00%·EFFR 3.88% · 8/24 이후 2년 +63·10년 +48·30년 +24bp · MU 컨센서스 $31.24 vs 1년 전 $2.86·최근 4번 반응·10/2 옵션 ±9.3%(9/24 종가) · SK하이닉스 -1.0/+0.2/-4.1/+13.1%·삼성 +0.8/-0.3/-3.8/+5.3%(한국이 먼저 반응) · «방향 아님» · AI 고지 · 표지 = MU 앱 화면(1200×675) | https://www.linkedin.com/pulse/september-30-pce-gdp-micron-one-session-signum-hq-33lec/ · 비로그인: 제목·첫 문단·링크·표지 |
+| 고정 ⑥ 스윕 — 1편 차단 | «종목» 에서 새 일회용 도메인 **ahfdrtuw10.shop** 차단 → 누계 85편 | /tmp/ego/arc-blocked-*.json |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 02:30~02:51 — 시간 사이클: 실행 4 전부(블루스키 ✅·블루스키 답글 ✅·스레드 ✅·스레드 답글 ✅ — 넷 다 비로그인 공개 확인) · 게이트 341/0 · 클릭 재측정 · 스윕 0 · 도구 수리 1(threads-post 고정 글 오인)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 클릭 재측정(ET 9/25 기준 «오늘») | bluesky 5(3일 47) · indiehackers 7(로그인 끊긴 뒤에도 예전 댓글에서 3일 19) · home 15 · geeknews 2 · medium 2 · x_us 1 · note 1 · seo_darkpool 4 | mkt-clicks.js |
+| **bluesky ✅(계정 합계 3/3 — 오늘 블루스키 본글 끝)** | $NKE 10/1 실적: 최근 4번 모두 EPS 상회인데 다음 날 +6.4/−10.5/−15.5/+4.9%, 두 하락은 가장 작은 상회(21·43%) 뒤 · 10/2 옵션 약 ±8.3% · #stocks · 이미지 = 나이키 머리글+다크풀 | https://bsky.app/profile/signumhq.bsky.social/post/3mwecgsrpt22t · 공개 API: 본문·링크 facet(from=bluesky)·이미지 |
+| **bluesky_reply ✅ 1/2** | FinSky·EconSky 류 피드(공개 getFeed, 1.5시간 안·금리/실적 키워드)는 팔로워 최대 1,626 → «큰 계정» 없음 → 큰 금융 계정 getAuthorFeed 로 넓혀 @wsj.com(팔로워 253,708·게시 1.3시간·답글 0) «Active bond funds claim to beat the benchmark, but hidden risks often drive returns»(츠바이크 칼럼)에 답글: 8/24→9/24 2년 +63·10년 +48·30년 +24bp·10년 TIPS +47bp·기대인플레 ~2.3% → «같은 ‹채권› 이름표라도 곡선 어디에 있었느냐에 따라 한 달이 크게 달랐을 수 있다». 링크 0·X/스레드 답글과 다른 문장 | https://bsky.app/profile/signumhq.bsky.social/post/3mwecjpubna2i · 공개 getPostThread: WSJ 글 답글 1개 = 우리 글 |
+| **threads ✅(계정 합계 1/2)** | $COST 후속: 목요일 옵션 ±3.2%($900 스트래들 $28.68, 1:14pm ET 중간값) → 금요일 1:32pm ET +2.45%($918.41) 범위 안 · 목요일 장외 37.4% vs 49.6%(FINRA) · #stocks · 이미지 = 코스트코 머리글+다크풀 | https://www.threads.com/@signumhq_official/post/DduAyohmb06 · 비로그인 크롤러 og:description 에 본문·링크 문구, og:image 있음 |
+| **도구 수리 — threads-post.mjs** | 게시 후 «내 글 첫 번째 링크 = 새 글»로 판정했는데, 9/25 부터 프로필 맨 위가 «고정됨» 글(의회 거래)이라 새 글 대신 고정 글 주소를 보고했다 → 표식이 든 «고정 아닌» 글의 주소를 찾도록 수정(못 찾으면 «발행했다»고 쓰지 않음) | scripts/threads-post.mjs |
+| **threads_reply ✅ 1/2(공개 확인)** | @edgewarroom «BofA just cut Nike to Underperform and slashed the price target to $30 from $47…»(게시 28분) ← 나이키 최근 4번 상회·다음 날 반응·두 하락은 작은 상회 뒤·10/2 옵션 ±8.3%(스트래들 ~$2.95, 11:49 ET) · 이미지 = 나이키 다크풀. 어제 @yahoofinance(브랜드) 답글이 비공개였던 것과 달리 개인 금융 계정 글 → 새 도구의 비로그인 확인 통과 | https://www.threads.com/@signumhq_official/post/DduBt5umd2q · 내 답글 탭 + 비로그인 og:description |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 03:30~03:52 — 시간 사이클: 실행 3 전부(X 미국 ✅ 2/2·블루스키 답글 ✅ 2/2·스레드 답글 ✅ 2/2 — 셋 다 비로그인 공개 확인) · 게이트 341/0 · 스윕 0 · 도구 수리 1(x-post 280자 가드)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_reply ✅ 2/2** | @carlquintanilla(팔로워 284,801·게시 0.7시간·답글 4) «RENMAC: Oil prices coming off the boil has not kept two year yields from continuing to press to fresh highs» ← 2년물 4.24%(8/24)→4.87%(9/24, 재무부 곡선) +63bp vs 30년 +24bp · 9/17 인상 뒤 실효 연방기금 3.88% 보다 약 100bp 높은 2년물은 «정책 경로가 평평하다»와 맞추기 어렵다. 링크 0·앞선 답글들과 다른 문장 | https://bsky.app/profile/signumhq.bsky.social/post/3mwefqx6otx26 · 공개 getPostThread: 답글 5개 중 우리 글 |
+| **x_us ✅ 2/2(계정 합계 2/2)** | $COST: 목요일 옵션 ~±3.2%($900 스트래들 $28.68, 1:14pm ET) → 금요일 2:31pm ET $922.66 +2.92%(목요일 종가 대비) — 범위 안, 위쪽 끝 근처 · 목요일 장외 37.4% vs 49.6%(FINRA) · 이미지 = 코스트코 다크풀. **첫 시도는 가중 310자라 게시 안 됨**(계산값을 찍고도 막지 않고 실행한 내 실수) → 남은 작성창 없음 확인 후 줄여 재발행 | https://x.com/signumhq/status/2103555047988851102 · 비로그인 syndication: 본문·사진 1·링크 from=x_us |
+| **도구 수리 — x-post.mjs 280자 가드** | 9/26 에만 280자 초과로 두 번(293·310) 게시가 막혔다 → 발행기가 X 가중 글자 수(링크 23자, 기본 범위 밖 문자 2자)를 직접 세서 280 초과면 게시 전에 거부 | scripts/x-post.mjs |
+| **threads_reply ✅ 2/2(공개 확인)** | @metricshourofficial «Earnings calendar for next week (Sept 29 – Oct 01, 2026)…»(게시 1시간) ← 목록 중 두 종목의 실적 반응: $MU 최근 4번 다음 날 −2.8/+10.2/−3.8/+15.7%·10/2 옵션 ~±9.3%(목 종가) · $NKE +6.4/−10.5/−15.5/+4.9%·10/2 옵션 ~±8.3%(금 11:49 ET) · «8번 모두 EPS 상회». 브랜드 계정(@trendspider)은 어제 야후처럼 답글이 비공개 처리될 수 있어 피함 · 이미지 = MU 다크풀 | https://www.threads.com/@signumhq_official/post/DduIrUYkxof · 내 답글 탭 + 비로그인 og:description |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 04:30~04:44 — 시간 사이클: 실행 0(전 채널 오늘 캡·계정 합계 소진) · 게이트 341/0 · 스윕 0 · 확장(quora_pin — 불가 확인)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | 열린 채널 없음 — 오늘(KST) 블루스키 3/3·답글 2/2·X 2/2·스레드 1/1·스레드 답글 2/2·미디엄·링크드인·아티클·핀터레스트·Quora 스페이스 모두 소진 | slot |
+| 확장 — quora_pin(불가) | 고정 패턴(블루스키 고정글 첫날 14클릭 → Threads·Medium 복제)을 Quora 에: 프로필 답변 탭(35개) 첫 답변 «…» 메뉴 = Enable comments from people you follow · Disable comments · Edit answer · Edit credential · Downvote question · Log · Delete answer — «고정» 없음. 불가로 등록(다시 탐색하지 않게) | channels.json quora_pin |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 다음 | 05:00 KST 미국장 마감 → 코스트코 «옵션 ±3.2% vs 실제 종가» 확정치를 다음 사이클에서 잰다(9/26 KST 캡이 풀리는 채널부터 활용) · XS 페이퍼 정기 실행 07:40 KST(수리 미배포면 NAV 가 기준선 아래일 때 같은 실패 — ㊸) | — |
+
+
+---
+
+## 2026-09-26 (KST) 05:30~05:52 — 시간 사이클(미국장 마감 뒤): 실행 3 전부(GitHub 스냅샷 ✅·X 일본 ✅·note ✅ — 셋 다 비로그인 공개 확인) · 게이트 341/0 · 스윕 0 · **코스트코 «내재 vs 실제» 확정**
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **코스트코 결과 확정** | 금요일 9/25 종가 **$922.765(+2.93%)**(나스닥 «Closed at 4:00 PM ET») · 목요일 1:14pm ET 옵션 ±3.2%($900 스트래들 $28.68) 범위 안, 위쪽 끝 근처 · 만기 때 스트래들 가치 = $22.77(<$28.68) → 옵션이 실제보다 약간 큰 움직임을 가격에 넣었다. 시간외 16:31 ET $921.90(−0.09%) | api.nasdaq.com |
+| **github ✅** | 9/25 구조 스냅샷(12/12 종목, 값 나이 0~499초 — 신선) json+md 업로드 → gh-dataset-index.js 로 index.html 재생성(날짜 파일 8개, 9/16~9/25) → 업로드 | https://github.com/myjr0629-hue/options-market-structure-daily/blob/main/2026-09-25.json · raw 200·12종목 · index.html 에 2026-09-25 |
+| **x_jp ✅ 1/2** | 「$COST(コストコ)決算の答え合わせ」: 목 13:14 ET 900ドル・ストラドル 28.68ドル=約±3.2% → 금 종가 922.76ドル(+2.93%) 범위 안 · 満期価値 22.76ドル = 옵션이 약간 크게 織り込んでいた · X 가중 243자(새 280자 가드 통과) · 이미지 = 코스트코 일본어 화면(머리글·가격·시간외·다크풀 — 감마플립 $785(+17.55%)·«IV 67·実現 13» 칸 제외) | https://x.com/signumhq_jp/status/2103585698553221375 · 비로그인 syndication: 본문·사진 1·링크 from=x_jp |
+| **note_jp ✅** | 「マイクロン決算(9/30)の前に:過去4回の翌日値動きと、オプションが織り込む±9%」 — 일정(9/30 引け後, 전화회의 日本時間 10/1 05:30)·Zacks 31.24ドル vs 前年 2.86ドル · 同日 8:30 ET PCE·GDP確報値(BEA) · 過去4回 −2.8/+10.2/−3.8/+15.7%(平均 8.1%)·上振れ最大の3月に下落 · 10/2 満期 ±9.3%(9/24 終値) · SKハイニックス・サムスン 翌営業日 · 「方向を示すものではない」· AI 支援 표시 · 태그 米国株·マイクロン·決算 · 헤더 = MU 일본어 화면 | https://note.com/signumhq/n/n467b2f7e1f31 · 비로그인 200·제목·링크·OG 이미지 + note API 본문 수치 6개·from=note |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 참고 — 앱 화면 | MU 일본어 화면의 MAX PAIN 이 이번엔 $1020(구조 API 와 같음) — 어제 $1000 은 하루 늦은 미결제약정 탓이었고(fix/maxpain-chain-vintage 조사), 체인 판본이 바뀌어 일치한 것으로 보인다(수리 반영과는 별개) | — |
+
+
+---
+
+## 2026-09-26 (KST) 06:30~06:40 — 시간 사이클: 실행 1(X 일본 ✅ 2/2 — 비로그인 공개 확인) · 게이트 341/0 · 스윕 0 · 도구 수리 1(make-x-shot 스켈레톤 검사)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_jp ✅ 2/2(계정 합계 2/2)** | 「米国債利回り上昇の中身(米財務省、8/24→9/24)」: 2年債 +63bp・10年債 +48bp・30年債 +24bp — 短期ほど上昇が大きく FRB 利上げ経路の織り込み直しが中心 · 10年 TIPS +47bp、期待インフレ率 2.3% 前後で横ばい · X 가중 231자 · 이미지 = 가디언 일본어 화면 위쪽(리스크 스트립·크레딧·実体経済: FF 金利 3.88%·10年-2年スプレッド 0.36%) — 게이지 «歴史的極端恐怖・反発接近» 문구 부분은 잘라 냄 | https://x.com/signumhq_jp/status/2103599196310028464 · 비로그인 syndication: 본문·사진 1·링크 from=x_jp |
+| **도구 수리 — make-x-shot.js 스켈레톤 검사** | 첫 캡처에서 가디언 «実体経済» 칸이 회색 막대(스켈레톤) 그대로 찍혔는데 검사(로딩 글자·숫자 6개·빈 칸)를 통과했다 → 화면에 보이는 skeleton/animate-pulse/shimmer 요소가 있으면 «덜 그려짐»으로 보고 기다렸다 다시 재도록 추가 → 재캡처에서 칸이 채워진 것 확인 | scripts/make-x-shot.js |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 다음 | 07:40 KST XS 페이퍼 정기 실행(수리 미배포 — ㊸). 실행 뒤 경보·로그를 다시 잰다 | — |
+
+
+---
+
+## 2026-09-26 (KST) 07:13~08:00 — 시간 사이클: 실행 1(스레드 일본어 첫 글 ✅ — 비로그인 공개 확인) · 게이트 341/0 · 스윕 0 · **XS 페이퍼 경보 재발(예고대로)** · **클릭 집계 누락 수리 + «PC 클릭 = 사람» 전제에 봇 의심** · 확장 1(note #個人開発)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **threads_jp ✅ 1/1(첫 글 · 계정 합계 2/2)** | 「ナイキ(NKE)決算は10/1(木)引け後、日本時間10/2(金)早朝」: 1년 새 주가 약 절반(69.73→35.75ドル) · 예상 EPS 0.44(전년 0.49) · 최근 4번 모두 EPS 상회인데 다음 날 +6.4/−10.5/−15.5/+4.9% — 두 하락은 상회 폭이 가장 작았던 회(+43%·+21%) · 10/2 만기 옵션 약 ±8%(금요일 종가 호가로 계산, $35.5·$36 스트래들 2.91·2.97) · «방향이 아니다» · #米国株 · 이미지 = NKE 일본어 화면(머리글·가격·시간외 POST $35.80·다크풀 42.0% vs 시장 50.9%) — MAX PAIN·GAMMA FLIP·«IV 15»(주간 ±8% 와 안 맞음) 칸은 잘라 냄. 수치 출처 = 나스닥 API(과거 종가·EPS 서프라이즈·실적 캘린더·10/2 체인) | https://www.threads.com/@signumhq_official/post/DdujaVNk8JP · 비로그인 크롤러: og:description 에 본문 전문+링크(from=threads_jp), og:image 있음(크롤러 판은 링크를 a 태그로 그리지 않음 — 이전 스레드 글과 같은 기준) · 게시 12분 뒤 threads_jp 클릭 1(PC) |
+| **도구 수리 — threads-post.mjs** | ① URL 줄을 타이핑 대신 붙여넣기(keyboard.paste, 절차 «URL 은 붙여넣는다») ② **게시 «전에»** 편집기 안 글에 표식·링크가 그대로 들어갔는지 재고, 없으면 올리지 않는다(일본어 입력이 깨져도 공개되지 않게). 이번 글에서 «표식·링크 2개 모두 있음» 확인 후 게시 | scripts/threads-post.mjs |
+| **XS 페이퍼 — 예고대로 재발** | 9/25 22:40 UTC(9/26 07:40 KST) 정기 실행: «weekly kill: NAV 1270.77 < 1284.65 (weekStart 1324.38)» → 같은 ValidationException(«Provided list of item keys contains duplicates») 3회(22:40·22:41·22:43 UTC) · 경보 22:41 UTC OK→ALARM(두 번째 경보 메일). 9/24·9/25 NAV·청산 미저장. **코드 확인(engine 176행): 주가 바뀌면 `weekStartNav = nav` 로 초기화** → 월요일(9/28 장 마감 뒤, 9/29 07:40 KST) 실행은 킬 조건이 사라져 «오류 없이» 돌 가능성이 크고, 그러면 9/24·25 에 규칙상 발동했어야 할 킬(전량 청산+정지)이 기록 없이 사라진다 | CloudWatch(노드 SDK, ACCESS-RUNBOOK) |
+| **클릭 집계 누락 수리 — mkt-clicks.js** | 채널 «id»만 조회해서 게시 링크 태그가 다른 채널을 통째로 놓쳤다: bluesky_buildinpublic 의 from=bluesky_bip **2일 22클릭**(레디스 원값 9/24 18·9/25 4)이 표에 없었고, slot 은 그 채널을 «건당 0 ▼ 줄임»으로 띄웠다. → id·tag 합집합 조회 + 건당 계산에 채널 고유 태그 반영(다른 채널 id·*_bio 는 제외) + slot ALIAS(bluesky_bip→bluesky_buildinpublic). 수리 뒤: 21일 합계 1132→1157, bluesky_buildinpublic 건당 11(▲). 9/23 에 mkt-clicks-platform.js 만 고쳐졌던 «같은 고장, 다른 파일» | scripts/mkt-clicks.js · scripts/mkt-plan.js |
+| **★ «PC 클릭 = 사람» 전제에 봇 의심(미측정 가설)** | 3일(ET 9/23~25) 229클릭 = 안드로이드 14·iOS 35·**PC 180(79%)** · **QR 넘겨주기로 폰에 넘어온 것 1건(1%)**. 블루스키 계열(bluesky 54·bluesky_bip 22·bluesky_pin 14) **91클릭 전부 PC·폰 0** — 팔로워 25, 최근 30개 글 대부분 좋아요 0. 사람 흔적이 있는 곳은 폰이 섞인다(GeekNews 33 중 폰 16 · IH 16 중 6 · 자사 웹 23 중 18). /app 은 미리보기 봇(PREVIEW_BOT_RE)만 빼고 나머지 수집기(meta-externalagent·Go-http-client·python-requests·헤드리스)는 «desktop 클릭»으로 센다 — 그 숫자가 slot «키우기» 레인(블루스키 1순위)을 정해 왔다. → 측정 브랜치 **feat/click-ua-audit(7c50452)**: 데스크톱 요청을 `mkt:attr:ua:<태그>:<nomoz·bot·nolang·mac·win·linux·other>:<날짜>` 로 한 칸 더 센다(동작 무변경, tsc 로 route.ts 오류 0) + 읽기 `scripts/mkt-clicks-ua.js`. 운영 반영 = 대표 승인(㊻). 배포 전 대용 측정: 다음 블루스키 게시 직후 0~10분 카운터를 1분 간격으로 읽는다 | 레디스 원값 · public.api.bsky.app getAuthorFeed |
+| **확장 — note #個人開発(티켓·등록)** | note 공개 API 실측: 해시태그 #個人開発 글 56,751개(#アプリ開発 25,880·#ClaudeCode 66,540) · 토요일 아침 약 1시간(06:31~07:38 JST)에 새 글 20개 · 인기순 상위 좋아요 10~98 · 앱 출시 글도 받아들여짐(「【アップルストア登録（無料）】Hiraku」 15, 「【βテスター募集】…Chrome拡張機能」 12). 우리 이긴 패턴 «개발자 커뮤니티 제작기»(IH 건당 7.29·GeekNews 1편 33)의 일본판(Qiita·Zenn 은 게이트) → channels.json note_kojin + 규칙(주 1, 18~23시 KST). ⚠ note 클릭 11건 전부 PC — 설치 전환은 ⑬·㊻ 과 같이 본다. 오늘 note 는 이미 1편(마이크론)이라 저녁 창에 | channels.json note_kojin |
+| 고정 ⑥ 스윕 | 0편(누계 85) · 건너뜀 = 일회용이 아닌 곳(hmarkets·quantit-signal.co.kr·KB증권 등) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 08:30~09:01 — 시간 사이클: 실행 1(네이버 블로그 ✅ — 비로그인 공개 확인) · 게이트 341/0 · 확장 1 · 스윕 · 도구 수리 1(네이버 발행기 URL 붙여넣기)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **naver_blog ✅ 1/3(계정 합계 1/3)** | 얇은 문 실측(블로그 탭 상위 30 제목에 질의 낱말 전부 포함): «나이키 실적 발표 후 주가» **0/30** · «나이키 실적 옵션» 0/30 · «코스트코 실적 발표 후 주가» 0/30 → 제목 맨 앞 «나이키 실적 발표 후 주가 — 4번 모두 예상 넘겼는데 다음 날 +6.4%·−10.5%·−15.5%·+4.9%, 이번 옵션 예상 변동폭 약 ±8%». 본문: 10/1(목) 장 마감 후·한국 10/2(금) 새벽 · 컨센서스 EPS 0.44(전년 0.49) · 1년 −48.7%(69.73→35.75) · 최근 4번 실제/예상/서프라이즈와 다음 날 변동 · 하락 두 번은 서프라이즈가 가장 작던 회차 · 평균 9.3% · 10/2 스트래들 ±8%(금 종가 호가) · **FINRA 원자료로 앱 수치 대조**: 장외 15,986,679주 / 전체 38,238,846주 = 41.8%(앱 42.0%) · 장외 중 공매도 43.5%(앱 44%) · 가치(월 50~99달러 단말 → 무료) · AI 도움 표시 · 이미지 = NKE 한국어 화면(머리글·가격·POST·다크풀, GAMMA FLIP·IV 칸 제외) | https://blog.naver.com/donneum/224422914643 · 비로그인 PostView: 제목·본문 수치 6개·이미지 1(se-image)·a[href] from=naver_blog 3개 |
+| **도구 수리 — naver-blog-post.mjs** | URL 을 타이핑하던 것을 붙여넣기(keyboard.paste)로 — 편집기에 안 들어가면 그때만 타이핑. 이번 글에서 «URL 붙여넣기 반영» → OG 카드(se-oglink) 생성 확인 | scripts/naver-blog-post.mjs |
+| 참고 — 앱 화면(㊲ 근거 추가) | 같은 NKE 커맨드 화면의 GAMMA FLIP 이 장 마감 뒤 1시간 사이 **$36.00(18:35 ET, 일본어) → $31.00(19:38 ET, 한국어)** 로 바뀌었다(거래 없는 시간). 옵션 구조 «생산자 여럿» 문제(options-levels-five-producers-one-door-rule, ㊲)의 또 다른 실례 — 게시 이미지에서는 잘라 냄 | 캡처 2장 |
+| 확장 | **토스증권 피드·주제별 커뮤니티(toss_community) — 게이트(대표결정)로 등록.** 실측(비로그인 웹, 클릭 이동): tossinvest.com 상단 «피드»(/feed/recommended)가 로그인 없이 보인다 · 주제별 커뮤니티 8개(미국주식이야기·국내주식토론·배당투자이야기·지금코인·주식투자Q&A·채권투자노트·아무말대잔치·자동매매이야기) · 추천 글 예: 삼성전자 좋아요 29·댓글 6(18시간), 샌디스크 22·9(7시간) · 작성자 «주주»·«수익금 상위 5%»·«1억대 자산가» 배지. 폰 앱 안의 한국 미국주식 대화 = 설치로 이어지는 «폰 클릭» 청중. 막힌 점: 글쓰기는 토스 로그인(대표 개인 실명 증권계좌) · 홍보 규칙 미측정. 같은 사이클에서 먼저 본 두 후보: ① 스레드 «커뮤니티» — 웹 홈 메뉴·검색 화면(최근 검색·추천 계정: wall_street_trapper 37만·yahoofinance 39만·watcher.guru 17만) 어디에도 입구 없음 → 등록 안 함 ② 구글 디스커버 — 사이트 googlebot 메타에 이미 max-image-preview:large → 새 표면 아님 | — |
+| 고정 ⑥ 스윕 | 0편(누계 85) · 건너뜀 = 일회용 아님(hmarkets·quantit-signal.co.kr·KB증권·365group 등) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 09:30~09:51 — 시간 사이클: 실행 4 전부(스토어 표면 3 + 링크드인 그룹) · 게이트 341/0 · **앱스토어 인앱 이벤트 공개 노출 확인** · **한국어 CPP 에 «미장» 키워드 할당** · 확장 1(야후 뉴스 엑스퍼트 — 초청제) · 스윕 0
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| **apple_iap_events — 공개 노출 확인** | 3앱 이벤트 PUBLISHED(ASC API) · 공개 앱스토어 페이지(비로그인 curl)에 «이벤트» 선반이 실제로 뜬다: KR «특별 이벤트 · 이번 주 실적 발표 — 이번 주 실적 발표하는 미국 기업을 날짜·시간(장 전/장 후)까지…», JP «スペシャルイベント · 今週の決算», US «SPECIAL EVENT · This week's earnings». 이벤트 기간 9/28~10/23. 다음 이벤트 = **FOMC 10/27~28**(연준 공식 일정 federalreserve.gov 에서 확인 — 2026 회의 9/15~16·10/27~28·12/8~9) → 10/6 생성·10/13 예고, deepLink 에 from=iap_event_fomc 를 생성 시점에(승인 후 잠김) → 게이트(일정) 10/6 | apps.apple.com/{us,kr,jp}/app/id6783130444 |
+| **apple_cpp — «미장» 키워드 할당 ✅(API)** | 한국 앱스토어 검색 순위 실측(iTunes Search): **미장 8위** · 실적발표일정 1위 · 장마감 2위 · 증시캘린더 6위 · 종목분석 29위 · 옵션·공시·해외주식 순위 밖(할당해도 무효). 기본 페이지 스크린샷(기관의 움직임·맥스페인·옵션 플로우·리스크)과 CPP «ko naver»(미국 국회의원 주식 거래·실적 앞둔 종목 옵션 지도·고래 신규 옵션·개장 전 미국 시장)를 나란히 비교 → «미국»을 제목에 박은 CPP 가 «미장» 의도에 맞다. `POST /appCustomProductPageLocalizations/{ko}/relationships/searchKeywords` {type: appKeywords, id: 미장} → 목록 [미장], CPP 버전 APPROVED 그대로(재심사 없음). 1위 검색어는 건드리지 않았다. 일본 참고: 需給 4위·時間外取引 12위·決算カレンダー 14위·米国株アプリ 18위, 미국: premarket 5위·0dte 8위 — 일본어 CPP 가 다음 후보. 효과 측정은 ASC 웹 분석(③) 필요 → 게이트(측정대기) 10/3 | ASC API |
+| **play_custom_listings — 상태 실측** | Play Console(SIGNUM app 4974871698649706116): 맞춤 등록정보 1호 «web home (listing=home)» URL 타깃 50% = **Live**, 방문자·전환 «More data needed for comparison»(from=home 안드로이드 클릭이 3일 1건). 기본 등록정보 28일: 방문자 46·전환 34.8% · 전체 방문자 43(+105%)·설치 클릭 16(−11%). 스마트링크 listing=home 연결은 이미 라이브(t186) → 게이트(측정대기) 10/3. 한국(안드로이드 비중 큼)용 2호는 storeRedirect 매핑 추가(웹 배포 = 대표 승인)가 먼저 | Play Console |
+| **linkedin_groups — 아직 대기** | 그룹(US Stock Market · Trading & Investing, 회원 6,041) 화면에 «그룹 가입 요청 취소» — 9/24 요청 뒤 이틀째 대기 → 게이트 9/30 로 연장, 그때도 대기면 다음 후보 2곳 요청 | LinkedIn |
+| 확장 — 야후 뉴스 엑스퍼트(등록·게이트) | news.yahoo.co.jp/expert 에 금융 필자 글이 실시간으로 오른다(예: 久保田博幸 金融アナリスト «長期金利の3%は通過点に、米長期金利は5.2%台に上昇» 9/26 09:15) — 일본 폰 뉴스 1위 표면. 그러나 페이지의 링크는 개인정보처리방침·이용약관뿐, «응모/공모/なるには» 경로 없음 = 편집부 선정제 → channels.json yahoo_news_expert(rejected·자격). 같은 사이클에서 본 것: 사이트에 애플 스마트 앱 배너(apple-itunes-app app-id=6783130444)는 ko·en·ja 모두 이미 있음 — 새 표면 아님 | 비로그인 curl |
+| 다음 사이클 | 게이트로 넘긴 4건 대신 slot 이 aso·android_alt_stores·galaxy_store·apple_ppo 를 배정(UTC 날짜가 바뀌며 주간 캡이 풀림) | mkt-plan slot |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 10:30~10:53 — 시간 사이클: 실행 4 전부(ASO 주간 측정 · 대체 안드로이드 스토어 · 갤럭시 스토어 · 제품 페이지 A/B) · 게이트 341/0 · **PPO 실험 심사 제출(처리군 교체)** · 확장 1(Aptoide — 계정 게이트) · 스윕 0
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| **aso — 주간 측정** | 플레이(aso-play-rank.py --save): 22개 중 **2개**(서학개미 KR #2 · premarket earnings US #1) — 9/3 과 같음(평점 게이트, play-broad-search-is-gated-by-ratings). 앱스토어(iTunes Search): KR 실적 발표 일정 #1·장마감 #2·증시캘린더 #6(UC #4)·서학개미 #8(WIM #1)·미장 #8·미국증시 #9·프리마켓 #11·주식 초보 WIM #3 / JP 需給 #4·時間外取引 #12·決算カレンダー #14·米国株アプリ #18·プレマーケット #26·**株価アプリ 순위 밖**(광고로만 이기는 말) / US premarket #5·0dte #8·stock quiz WIM #7·earnings calendar·dark pool 순위 밖. **별점(lookup): SIGNUM US 1·KR 3·JP 0 · UC KR 3(새로 생김) · WIM KR 1** → HANDOFF §1 갱신 | _aso-play-rank-history.jsonl · /tmp/ego/aso_as_0926.json |
+| **android_alt_stores** | Softonic(실브라우저): **Why’d It Move?: Stock Quiz**(★5·Validated Dev·v1.0.0·9/15)·**Undercurrent: News & Money**(★4.7·Finance·v1.0.3·8/27) 라이브, **SIGNUM 은 검색에 없음**. APKPure: Cloudflare «보안 확인»(봇 확인) 화면 — 통과를 시도하지 않는다(안전선) → 등재 여부 측정 불가. Uptodown: UC·WIM 소유권 반려 그대로 — 해결은 지원 티켓(외부 발신) → ㊼ 에 승인 요청 · 게이트(메일승인) 10/3 | softonic 페이지 |
+| **galaxy_store** | Developer API 살아 있음(accessToken OK) · `GET /seller/contentList` = **[] (등록 앱 0)** · 셀러 포털 로그아웃(signIn.as 로 튕김) → Commercial 승격 결과·첫 등록 불가(로그인 = 삼성 계정 비밀번호, 안전선 밖) → **㊼ 대표 재로그인** · 게이트(로그인). 포털 공지: 셀러포털 이용약관 10/22 개정 | galaxy_client.py |
+| **apple_ppo — 실험 심사 제출 ✅** | 9/18 에 만들어 둔 «브리핑-먼저 A/B»(PREPARE_FOR_SUBMISSION, 50%)의 처리군 첫 장이 가디언 «역사적 극단 공포·반등 임박» 게이지였다 → 예측처럼 읽히는 문구를 스토어 첫 장에 올리는 것이라 그대로 내지 않음. 처리군 ko 6장 삭제 → 이미 승인된 CPP «ko naver» 4장(미국 국회의원 주식 거래·실적 앞둔 종목의 옵션 지도·고래의 신규 옵션 포지션·개장 전 미국 시장, 1242×2688)으로 교체(4/4 COMPLETE) → 이름 «미국데이터-먼저 A/B» → reviewSubmission 19a39f3c 에 실험 항목 추가·제출 → **실험 state WAITING_FOR_REVIEW**. 가설: 한국 광고 «탭은 되는데 설치 0»이 첫 장 프레이밍 문제인지. 시작은 승인 뒤(startDate null) · 게이트(심사대기) 9/28. ⚠ 정정: asc_ppo.py 머리말 «시작은 대표 결정»은 내 판단이었다(대표 지시 아님) — CPP·인앱 이벤트·키워드와 같은 스토어 표면이라 승인 나면 내가 시작한다 | ASC API |
+| 확장 — Aptoide(등록·게이트) | Aptoide 공개 API(ws75 getMeta)에서 세 패키지 모두 404(FAIL) — 자동 미러도 없음. connect.aptoide.com 첫 화면 «A single Android integration puts your app on every Aptoide-operated store, 10+ partner stores…» · «Log in / Register» → 업로드는 개발자 계정(대표) → channels.json aptoide(게이트·계정) | 비로그인 curl |
+| **도구 수리 — mkt-clicks.js STANDING** | 스토어 표면 주간 과제(android_alt_stores·galaxy_store·apple_ppo·apple_cpp·apple_cpp_channels·apple_iap_events·play_custom_listings)를 «상시 표면»에 넣었다 — 게시가 아닌데 원장에 2건이 쌓이면 «건당 클릭 0 ▼ 줄임»으로 잘못 뜬다(같은 오판 종류 방지). 원장 기록 주소도 실제 확인한 페이지로(앱스토어 KR·Softonic·갤럭시 셀러 페이지·ASC) | scripts/mkt-clicks.js |
+| 고정 ⑥ 스윕 | 0편(누계 85) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 11:1x~11:57 — 대표 지시: SIGNUM 배너 리딩방 광고 «안 나오게» — 광고주 URL 73개 차단 · 스윕 강화 · 근본 차단 방식 결정 ㊽
+
+**계기**: 대표 캡처 4편(11:03~11:05, SIGNUM iOS 대시보드 하단 배너) — «Analysisnnc · 지금 무료 상담을 통해 시장 정보를 확인해보세요» · «ozckzohcizh · 2026년 주목할 핵심 종목 분석» · «poszkjdkubpkx · 2026년 주목받는 종목은» · «CamBeulah · 하반기 유망 종목 분석» — 배너가 새로고침될 때마다 다른 무작위 광고주. 우리 스윕은 매 사이클 «차단 0»이었다.
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 원인 실측 ① 심사 센터에 없다 | 텍스트 검색(미검토: 광고주명 4개·«무료 상담»·«핵심 종목»·«유망 종목»·«주목받는 종목» 전부 0) · 상태 «차단됨»에서 «유망 종목» = 이미 막은 .shop 소재들(tzkhmbvw1·ahprtw8·tzmtuerw4·tzytirw15·tzytirw7) · **이미지로 검색**(캡처에서 배너만 잘라 업로드 4장) = «시각적으로 일치»는 무관한 광고(회계·앱·임대)뿐 또는 0 → 대표가 본 4편은 **아직 목록에 없다**. 애드몹은 노출된 뒤에야 소재를 올린다 → 소재 차단은 늘 한발 늦다 | ARC |
+| 원인 실측 ② 설정으로 텍스트만 못 끈다 | SIGNUM-IOS-banner(미디에이션 0 = 구글 수요만) 고급 설정 «광고 유형» 편집 창: 체크박스가 «텍스트, 이미지, 리치 미디어» 한 칸 + «동영상» 뿐 → 텍스트 광고만 끄기 불가(끄면 동영상만 남음). 창은 «취소»로 닫음(변경 0) | 광고 단위 설정 |
+| 원인 실측 ③ 앱이 문구를 못 본다 | 앱은 @capacitor-community/admob v8 배너(showBanner) = 구글이 그린 배너 → 앱이 광고 문구·광고주를 볼 수 없다. 근본 차단은 «네이티브 광고 + 앱에서 거르기»(빌드) → ㊽ | package.json · src/services/adManager.ts |
+| **✅ 광고주 URL 73개 차단(대표 «검색한 것 차단할 수 있는데 왜 안 해?»)** | 9/24 이후 소재 단위로만 막던 것을 **«광고주 URL» 목록(계정 전체·앞으로 올 소재까지)**으로: 차단 기록의 일회용 .shop/.vip 71개 + 스윕이 «건너뜀»으로 남겼던 **quantit-signal.co.kr**(«PASS 투자시그널», 월 8,800원 유료 종목 시그널) + **join.hmarkets.com**(CFD 브로커 사전등록). 확인: «차단 가능한 URL 427개 남음(한도 500)» · 검색 시 hmarkets.com·quantit-signal.co.kr·tzkhmbvw1.shop «차단됨». 건너뜀(리딩방 아님, 그대로 둠): KB증권·365group(요양기관 지원)·bebridge.finance(스테이블코인 미국주식 토큰 핀테크)·카지노 앱. 목록 정본 `.agent/marketing/admob-url-blocklist.json` | 애드몹 차단 설정 › 광고주 URL |
+| ⚠ 정정 | 9/24 대표 범위 «리딩방만»을 내가 «.shop/.vip 도메인만»으로 좁게 구현해 유료 시그널·CFD 를 매 사이클 «건너뜀»으로 남겼다 — 대표가 그걸 보고 지적. 리딩방 «같은» 유료 종목 시그널·CFD 권유도 차단 대상 | — |
+| **도구 수리 — admob-arc-sweep.mjs** | ① 새로 막은 소재의 도메인을 «광고주 URL» 목록에 자동 추가(소재 차단은 같은 도메인의 새 소재를 못 막는다) ② 검색어 7→12(유망·주목·상담·분석·하반기) ③ 일회용 TLD 범위 .shop/.vip → .xyz·.top·.site·.online·.store·.click·.link·.live 등 | scripts/admob-arc-sweep.mjs |
+| 넓힌 스윕 1회 | 검색어 12개 → **새 리딩방 소재 2편 차단**: «주목» → **jhrvtj.sbs**(.sbs — 예전 «.shop/.vip 만» 규칙이면 건너뛰었을 도메인) · «분석» → **awgbcmgw8.shop**. 두 도메인은 스윕이 «광고주 URL» 목록에도 자동 추가(+2 → 75개). 대표 캡처 문구(«2026년 주목할 핵심 종목 분석»·«주목받는 종목은»·«유망 종목 분석»)와 같은 검색어에서 나왔다(소재 문구 대조는 미실시). 건너뜀(리딩방 아님): KB증권·365group·bebridge·villagewellth·the-modellers·secui(보안 제품)·앱 광고 2·카지노 앱. quantit-signal·hmarkets 는 심사 센터엔 «미검토»로 남아 있지만 광고주 URL 차단으로 게재가 막힌다 | ARC |
+| 대표 결정 ㊽ | 근본 차단 방식: ① 네이티브 광고 + 앱 필터(권장, 빌드) ② 민감 카테고리 «벼락부자 되기» 차단(효과 불확실) ③ ㊱ 구글 신고 | HANDOFF §3 |
+
+
+---
+
+## 2026-09-26 (KST) 12:0x~12:3x — 대표 지시 2차: «이런 리딩방 광고는 안 나오게 해라» · «데이트 같은 건 괜찮다, 주식 관련만» · «리딩방 관련만 막고 증권회사는 건드리지 마라»
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 대표 캡처 3편(11:58~11:59) | WIM «Cornemmy · 20년 경력 전문가의 종목 선정 기법 매일 무료 전수» · UC «Cornemmy · 10배 성장주 무료 입장» · SIGNUM «Analysisnnc · 지금 무료 상담을 통해 시장 정보를…» → 9/24 기록(«UC 없음»)과 달리 **세 앱 모두**에 나온다 | 대표 캡처 |
+| 심사 센터 재검색 | «Cornemmy»·«Analysisnnc»·«무료 전수»·«성장주»·«종목 선정»·«기법» 0 (여전히 미등재) · «무료 입장»=학회 · «전문가»=회계·보안·빌딩관리 등 · «10배»=삼성자산운용·쿠팡·포켓몬·**네이버 카페 «삼경» 선물거래 MTS**(bess01/36428) | ARC |
+| ✅ 소재 차단 1 | 네이버 카페 «삼경»(«편리한 MTS를 통해 안전한 선물거래») — 정식 증권·선물사가 아닌 카페 권유라 차단. «MTS» 검색에 뜬 KB증권·토스 등 증권사 앱 광고는 손대지 않음 | ARC |
+| ✅ 민감 카테고리 «벼락부자 되기» 차단 | 30일 노출 2.8%·수입 2.3% → «차단됨» 확인(표준 카테고리 차단 1개, 10개 남음). 데이트(노출 1.5%·수입 3.6%)·선정성 등 나머지는 대표 지시대로 그대로. 금융 «일반 카테고리»는 증권사까지 막히므로 손대지 않음 | 차단 설정 › 민감한 카테고리 |
+| ✅ hmarkets.com 차단 해제 | 대표 «증권회사는 건드리지 마라» → 해외 CFD 중개사라 URL 차단 해제 → «허용됨» 확인 · 목록 75→74(«426개 남음») · 나머지(일회용 도메인·quantit-signal·jhrvtj.sbs) «차단됨» 그대로 | 광고주 URL |
+| 남은 한계 | 대표 캡처 광고들은 아직 심사 센터에 없다(노출 뒤 등재) → 매시 스윕이 등재되는 대로 소재+도메인 차단. 사전 차단은 ㊽①(네이티브 광고 + 앱 필터, 앱 업데이트) | — |
+
+
+---
+
+## 2026-09-26 (KST) 12:30~13:16 — 시간 사이클: 실행 3 전부(레딧 ✅·Quora ✅·네이버 블로그 ✅) · 게이트 341/0 · **네이버 글 사실 오류 1건 발행 직후 정정** · 확장 1(GeekNews 댓글) · 스윕
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **reddit ✅ 1/3(UTC)** | 레딧 서버 조회는 curl 403 → 로그인된 레딧 페이지 안 API(병렬 fetch)로 15개 서브 신규글 스캔(4시간 안·댓글 50 미만·키워드). r/wallstreetbets «MU earning play.»(게시 24분·댓글 4·YOLO, 1100/1200 콜 스프레드) — 규칙 15개에 AI 금지 조항 없음 확인. 댓글(링크·앱명 0): 금 종가 1,082.28 · 10/2 1080 스트래들 ~$92 = ±8.5%(평소 며칠 포함) · 1100/1200 스프레드 ~$26.6 → 손익분기 ~1,127(+4.1%), 최대 1,200(+10.9%) · 최근 4번 다음 날 −2.8/+10.2/−3.8/+15.7%, 모두 EPS 상회인데 −3.8% 는 최대 상회(+40%) 뒤 · 10% 넘은 건 4번 중 2번 | https://www.reddit.com/comments/1wqfpar/comment/pc3t4au/ · 로그인 스레드 JSON: found·removed=false·점수 1 · 비로그인 확인은 레딧이 403/302 로 막아 못 함 |
+| **quora_en ✅ 1/1** | Quora 검색(이번 주·질문) 무응답 2건 중 «When Club name Micron reports earnings next Wednesday evening, do you think the stock will have to beat and raise to avoid a post-earnings decline?» — 예측 없이 기준선: 최근 4번 상회 폭과 다음 날(7%→−2.8·26%→+10.2·40%→−3.8·19%→+15.7) · 컨센서스 $31.24(10명, 전년 $2.86 — 나스닥 캘린더) · 10/2 스트래들 ±8.5% · 금요일 장외 47.5%(FINRA 원자료 9,953,125/20,948,206 = 47.5%, 공매도 34.7% — 앱 47.5%·35% 와 일치) · 앱명 1회(제작자 공개)·링크 0 · 이미지 = MU 영어 화면(카드만 — 옵션 수준 칸 MAX PAIN $970 등과 로고 빈 탭 줄은 잘라 냄). 첫 시도는 «Page Not Found» — 내 검색 추출 스크립트가 주소를 150자에서 잘랐다(도구 실수) → 전체 주소로 재시도 | https://www.quora.com/When-Club-name-Micron-reports-earnings-next-Wednesday-evening-do-you-think-the-stock-will-have-to-beat-and-raise-to-avoid-a-post-earnings-decline/answer/Jiyoung-Kim-236 · 로그인 화면: 표식 문구·답변 링크 · 비로그인 curl 403(Quora 차단) |
+| **naver_blog ✅ 2/3** | 제목 맨 앞 «코스트코 실적 발표 후 주가»(오늘 아침 얇은 문 실측 0/30) — 조정 EPS 6.60 vs 컨센서스 6.48(+1.9%, 나스닥) · 9/24→9/25 896.48→922.77 +2.93% · 옵션 ±3.2%(9/24 13:14 ET $900 스트래들 $28.68) 범위 안, 만기 가치 22.77 < 28.68 · 최근 5번 다음 날 −2.9/0.0/+1.6/−3.9/+2.9%(이번이 가장 큰 상승) · 9/25 장외 37%(FINRA 1,714,950/4,631,555 = 37.0%, 공매도 38.4% — 앱과 일치)·거래량 2.3배 · 이미지 = COST 한국어 화면(다크풀 카드의 해석 배지 «은밀 매집»은 매수 신호처럼 읽혀 배경색으로 지움 · 옵션 수준·IV 칸 제외) | https://blog.naver.com/donneum/224423052287 · 비로그인 PostView: 수치 6개·이미지 1·a[href] from=naver_blog |
+| **⚠ 정정 — 네이버 글 사실 오류** | 발행 직후 다시 읽다가 발견: 9/24 에 잰 스트래들은 «다음 날(9/25) 만기»인데 본문에 «이틀 뒤 만기»라고 썼다 → 수정 편집기(postupdate)에서 «뒤» 글자 끝 클릭 + 백스페이스 4 + «다음 날(9/25)» 입력(드래그 선택은 스마트에디터가 안 받음) → 수정 발행 → 비로그인 PostView 에 «다음 날(9/25) 만기인» 있음·«이틀 뒤» 없음 확인 | 같은 URL |
+| 확장 — GeekNews 댓글(등록) | 가이드라인 원문 실측: «광고·홍보·트래픽 유도 성격이 큰 글 … 대량 생산된 요약형·SEO형 콘텐츠 … 노출 제한·삭제(AI 사용 여부와 관계없이)» · 댓글은 가입 7일 지난 회원. GeekNews 는 «사람·폰 클릭»이 확인된 채널(3일 33·폰 48%) — 글은 주 1회라 관련 글에 무링크 데이터 댓글로 존재를 쌓는다 → channels.json geeknews_comment + 규칙(주 1). 서버 curl 로 검색 결과 구조를 못 뽑음(방법 문제) → 다음은 브라우저에서 눌러서 | channels.json |
+| 고정 ⑥ 스윕 | 검색어 12개 → 새 차단 0 · 건너뜀 중 **profitablenews.com/sms-list-act3**(«앞으로 10년을 지배할 초소형 AI 종목 5개 — 바로 받기» 종목 추천 유도) = 리딩방 부류 → 심사 센터 소재 차단 + 광고주 URL 차단(«차단됨» 확인, 목록 75·«425개 남음»). **도구 결함 발견·수리**: URL 이 1개일 때 «모두 차단»이 먹지 않아 «허용됨»으로 남았다 → 스윕이 누른 뒤 상태를 다시 읽고 «허용됨» 줄은 그 줄 스위치를 직접 켜도록 수정. 건너뜀(주식 무관): 운세 상담 앱(신통)·365group·villagewellth·the-modellers·secui | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 13:30~14:00 — 시간 사이클: 실행 3 전부(네이버 ✅ 3/3·레딧 ✅ 2/3·GeekNews 댓글 — 관련 글 0, 게이트) · 게이트 341/0 · 스윕 0 · 도구 수리 1(네이버 발행기 app-uc 링크 오판)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **naver_blog ✅ 3/3(계정 합계 3/3)** | 소재 = 이번 주 미국 장기 금리 급등(미 재무부 일별 par yield 실측): 9/25 2년 4.81·10년 5.17·30년 5.49% · 10년물 9/24 5.18% = 올해 최고 · **5.17% 이상 마감은 2007-07-06(5.19%) 이후 처음**(2008~2025 최고 = 2023-10-19 4.98%, 연도별 CSV 19개로 확인) · 이번 주(9/21→9/25) 2년 +5bp·10년 +21bp·30년 +20bp vs 한 달(8/24→9/25) 2년 +57·10년 +47·30년 +26bp → 무게가 단기→장기로 이동 · 10−2년 금리차 0.46(8/24)→0.20(9/21)→0.36%p(9/25) · 9/30 08:30 ET PCE·GDP 확정치(BEA 일정) · 고용보고서 날짜는 BLS 가 curl 403 이라 확인 못 해 넣지 않음. 얇은 문 실측: «미국 10년물 금리 5%» 22/30 · «…2007년» 11/30(붐빔) · «미국 장기 금리 급등» 4/30 → 제목 맨 앞. 이미지 = **Undercurrent** 한국어 홈(«지금 시장» 카드: 10년물 5.17%·동결 확률 36%(앱 FedWatch 수집값 noChange 35.8·hike 64.2 — 원출처 대조 못 해 본문엔 안 옮김)) — 오라클 뉴스 카드는 잘라 냄. 링크 = app-uc?from=naver_blog(UC 첫 네이버 노출) | https://blog.naver.com/donneum/224423076580 · 비로그인 PostView: 제목·수치 6개·이미지 1·a[href] app-uc?from=naver_blog |
+| **도구 수리 — naver-blog-post.mjs 링크 검사** | 공개 검증이 /app?from= 만 찾아 app-uc 링크 글을 «실패»로 판정(글은 멀쩡) → /app(-uc\|-wim)?\?from= 로 | scripts/naver-blog-post.mjs |
+| **reddit ✅ 2/3(UTC)** | r/swingtrading(규칙 11개, AI 조항 없음) «Hold SMCI until after earnings report?»(게시 18분·댓글 0, 수익 10%↑ 보유 고민) ← 조언 없이: 다음 실적일은 회사 발표가 아니라 Zacks 추정 11/3(약 5주 뒤) · 최근 4번 다음 날 −11.3/+13.8/+24.5/+19.0%(4번 모두 EPS 상회, −11.3% 포함) · 평균 약 17% = 10% 수익보다 큰 하루 변동 · 링크·앱명 0 | https://www.reddit.com/comments/1wqh455/comment/pc43g4q/ · 로그인 스레드 JSON found·removed=false |
+| geeknews_comment — 관련 글 없음(게이트) | 브라우저로 /new 1~3쪽·홈 1~2쪽(글 64개) 스캔 → 금융·투자·트레이딩 글 0(걸린 건 8일 전 «Ask GN: OSS 사용자 대상 광고 노출» 1개, 주제 어긋남). 억지 댓글 금지 → 게이트(피드 마름) 9/29 | channels.json |
+| 고정 ⑥ 스윕 | 0편(URL 목록 75) · quantit-signal 은 심사 센터엔 «미검토»로 남지만 광고주 URL 차단이라 게재 안 됨 | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 14:30~14:46 — 시간 사이클: 실행 1(레딧 ✅ 3/3) · 게이트 341/0 · 확장 1(WSB 주간 실적 스레드) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **reddit ✅ 3/3(UTC 하루 끝)** | 로그인된 레딧 페이지 API 로 15개 서브 스캔(10시간 안·댓글 50 미만) → r/stocks(규칙 8개, AI 조항 없음) «Hertz ⬇️ 75%: Operational Turnaround Or Falling Knife? Will HTZ bounce post Q3 earnings?»(게시 1시간·댓글 1). 예측 없이: 최근 4번 «발표 전날 종가 → 발표일 종가» +36.2%(상회)·+1.8%(미달)·−4.8%(소폭 상회)·+29.5%(상회, 다음 날까지 +45.5%) · 8월 급등분 대부분 반납($2.27 8/7 → $1.74 9/25) · 다음 실적일은 확정 아님(Zacks 추정 11/3, 컨센서스는 애널리스트 1명). 나스닥 API(EPS 서프라이즈·일별 종가·실적일) 실측, 링크·앱명 0 | https://www.reddit.com/comments/1wqh7sr/comment/pc49pb6/ · 로그인 스레드 JSON found·removed=false |
+| 레딧 반응 실측 | 오늘 세 댓글(WSB MU·swingtrading SMCI·stocks HTZ) 모두 점수 1·답글 0(게시 1~2시간). WSB MU 스레드 자체는 점수 64·댓글 13 | /api/info.json |
+| 확장 — WSB «Weekly Earnings Thread»(등록) | WSB 공식 주간 실적 스레드(flair «Earnings Thread»): «8/17 - 8/21» 댓글 690·점수 121 · «7/20 7/24» 댓글 1,061·점수 246. 늦은 댓글은 묻히므로 «올라온 직후 1~2시간 안»에 그 주 큰 실적(MU 9/30·NKE 10/1)의 옵션 내재 변동폭 + 최근 4번 반응을 무링크로. **집계는 mkt-plan ALIAS 로 reddit 에 합산**(레딧 하루 3건 UTC 안전선을 한 규칙으로) → channels.json wsb_earnings_thread | channels.json · scripts/mkt-plan.js |
+| 고정 ⑥ 스윕 | 0편(URL 목록 75) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 15:30~15:43 — 시간 사이클: 실행 0(열린 채널 없음 — 전부 캡 소진·게이트) · 뚫기 0 · 게이트 341/0 · **확장 1: 구글 뉴스(색인 18·순위 0)** · 스윕 0 · PPO 심사 대기
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| slot | 실행 «열린 채널 없음», 뚫기 «없음» — 오늘 캡을 다 썼거나(네이버 3/3·레딧 3/3·블루스키 계정 3/3·X 2/2·스레드 2/2) 게이트 | mkt-plan slot |
+| **확장 — 구글 뉴스(등록·게이트)** | 구글 뉴스 공개 RSS 검색 실측: site:signumhq.com = **한국판 18건**(전부 한국어 종목 페이지 «BBIO 다크풀 54.6%, 맥스페인 $70 — 무료, 매일 갱신» 등, 9/16~9/23) · 미국판 5건(홈·랭킹뿐) · 일본판 0건 → 색인은 됐다. 그러나 실제 검색 «BBIO»(11건)·«PAYC»(4)·«FN 주가»(77)·«다크풀»(50)·«ARMK 다크풀»(0)에 우리 페이지 0회 = **색인됐지만 순위 없음**. news-sitemap.xml 404. 폰 화면(뉴스·디스커버)이라 설치 전환 쪽 표면 → 할 일(웹 배포 = 대표 승인): 매일 바뀌는 해설 페이지(UC 에디션·WIM)에 NewsArticle 구조화 데이터 + news-sitemap + 종목 페이지 뉴스형 제목에서 MAX PAIN 수치 빼기(㊲) → channels.json google_news(게이트) | news.google.com/rss/search |
+| 클릭 실측(mkt-clicks 3일, ET) | 어제(9/25): home 25 · bluesky 12 · indiehackers 9 · seo_uc 5 · bluesky_bip 4 · x_us 4 · seo_darkpool 4 · note 3 · geeknews 2 · medium 2 / 오늘(9/26 ET, 13시 KST 시작): home 3 · geeknews 1 · seo_uc 1 · seo_sg 1 · seo_wim 1 | mkt-clicks.js |
+| PPO | «미국데이터-먼저 A/B» 여전히 WAITING_FOR_REVIEW(11:0x 제출) | ASC API v2 |
+| 고정 ⑥ 스윕 | 0편(URL 목록 75) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 16:30~16:41 — 시간 사이클: 실행 0(캡 소진) · 뚫기 0 · 게이트 341/0 · 확장 1(SmartNews — 게이트) · 스윕 0 · 저녁 note #個人開発 원고 준비
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 확장 — SmartNews(등록·게이트) | about.smartnews.com/ja/press/publishers.html 원문 실측: 회사 사양(SmartFormat RSS)으로 기사를 공급하면 SmartView(폰 최적화)·브랜드 로고 상시 표시·원 사이트 동선·SmartNews 발 접속 계측·관리 화면 제공 · 신청·사양은 퍼블리셔 지원 사이트(서버 curl 은 Cloudflare 403). 일본 폰 뉴스 앱 상위 = 설치 전환 쪽 표면 → 외부 신청(대표) + SmartFormat RSS(웹 배포) 게이트 | channels.json smartnews |
+| 같은 사이클 측정 — note #米国株 | 해시태그 글 144,329 · 최근 1시간 12편 · 인기글 좋아요 13~96(«米国債利回り19年ぶり高水準»·«バーリ『マイクロンはばかげた価格』»·«高配当株は国債に勝てないのか — 19年ぶりの金利5%» 등 — 이번 주 일본 관심사 = 미국채 금리·마이크론). 우리 note 글은 이미 이 태그를 쓴다(새 표면 아님). API 로는 «つぶやき»가 안 잡혀 측정 못 함 | note API |
+| 준비 — note_kojin 원고(18~23시 창) | «SNSからのクリック、79%がPCだった ― 個人開発の米国株アプリで「入れられないクリック」を数えていた話» 13문단 1,110자: 3일 229클릭(Android 14·iPhone 35·PC 180) · QR 넘겨주기 1(1%) · 블루스키 91클릭 폰 0(팔로워 25) → 봇 의심·UA 계열 측정 준비(반영 전) · GeekNews 33 중 폰 16·자사 웹 23 중 18 · 교훈 · 가치(월 50~99달러 → 무료) · from=note_kojin · AI 지원 표시 · 태그 個人開発·アプリ開発·米国株 · 헤더 1280×670(NKE 일본어 화면) → /tmp/ego/note-kojin-task.json | — |
+| **도구 수리 — note-post.mjs** | 링크 검사가 from=note 만 허용해 note 하위 채널(note_kojin) 글을 «스마트링크 없음»으로 막았을 것 → from=note(_[a-z]+)? 허용 | scripts/note-post.mjs |
+| 고정 ⑥ 스윕 | 0편(URL 목록 75) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 17:30~17:40 — 시간 사이클: 실행 0(캡 소진·note_kojin 창은 18시부터) · 뚫기 0 · 게이트 341/0 · 확장 1(블루스키 한국어 — 보류) · 스윕 0
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 확장 — 블루스키 한국어(등록·보류) | 공개 api.bsky.app searchPosts(sort=latest, 25건): «미국주식» 가장 최근 32시간 전·좋아요 최고 4·작성자 10 · «서학개미» 가장 최근 393시간 전 · «미장» 18시간 전(미용 «미장»과 섞임) · «나스닥 금리» 106시간 전·최고 3 → 한국어 블루스키 미국주식 대화는 사실상 없음 → channels.json bluesky_kr(rejected). 한국은 네이버 블로그·토스 커뮤니티(게이트)·스레드(threads_kr) 쪽 | api.bsky.app |
+| 큐 점검 | QUEUE.json 최근 항목(t176~t210)은 대부분 대표 결정·빌드·계정 대기(갤럭시 셀러 페이지 t181·앱 공유 버튼 t210·리딤 t205~t209 등) — 이번 사이클에 바로 실행할 새 표면 없음 | QUEUE.json |
+| 고정 ⑥ 스윕 | 0편(URL 목록 75) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 18:30~18:45 — 시간 사이클: 실행 1(note #個人開発 ✅ 첫 글 — 비로그인·API 검증) · 게이트 341/0 · 확장 1(무료 보도자료 — 게이트) · **스윕: 리딩방 새 소재 4편 차단 + URL 자동 추가 첫 실동작(78)**
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **note_kojin ✅(첫 글)** | «SNSからのクリック、79%がPCだった ― 個人開発の米国株アプリで「入れられないクリック」を数えていた話» — 3일 229클릭(Android 14·iPhone 35·PC 180) · PC 에서 QR 로 폰에 넘어간 것 1(1%) · 블루스키 91클릭 전부 PC·폰 0(팔로워 25·대부분 좋아요 0) → 봇 의심·UA 계열 측정 준비(반영 전) · GeekNews 33 중 폰 16·자사 웹 23 중 18 · «숫자가 좋아 보인 채널부터 의심» · 가치(월 50~99달러 → 무료) · from=note_kojin · AI 지원 표시 · 태그 #個人開発 #アプリ開発 #米国株 · 見出し画像 = NKE 일본어 화면(1280×670) | https://note.com/signumhq/n/nbe3c8f4f3611 · 비로그인 200·제목·링크·OG 이미지 + note API: 18:34 JST published·수치 8개·from=note_kojin·AI 표시·태그 3·eyecatch |
+| 확장 — 무료 보도자료(등록·게이트) | prlog.org/pub «submit and distribute a PR for free» + «Free account» → 계정 필요(대표) · EIN Presswire 건당 $99.80(유료 — 제외) · openpr 제출 페이지 curl 403 | channels.json free_press_release |
+| **고정 ⑥ 스윕 — 4편 차단** | «종목»에서 새 일회용 소재: tzkhmbvw10.shop(2편)·awvxzrw4.shop·ahokrew1.shop → 소재 차단 + **광고주 URL 자동 추가가 처음 실제로 돌았다**(오늘 고친 «누른 뒤 상태 재확인·허용됨이면 줄 스위치» 경로 포함) → admob-url-blocklist.json 75→78(«차단됨» 확인된 것만 파일에 기록하는 규칙) | /tmp/ego/arc-blocked-*.json · admob-url-blocklist.json |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 19:30~19:42 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 확장 1(스레드 일본어 답글 — 보류) · 스윕 0 · 오늘 글 초기 반응
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 확장 — 스레드 일본어 답글(등록·보류) | Threads 검색 «米国株»: 반응 큰 글 = 초보자 조언 요청(8/24 좋아요 1.1천·답글 259, 8/18 좋아요 1.2천·답글 176) — 예측·투자권유 금지 원칙상 답할 수 없는 질문 · 최근 米国株 글은 좋아요 2 수준 · 무관한 글 섞임. 영어 threads_reply 도 건당 0 → channels.json threads_reply_jp(rejected) | Threads 검색 |
+| 초기 반응 | note_kojin(18:34 JST 게시): 좋아요 0·댓글 0, 클릭 3(전부 PC — 사람인지 수집기인지는 ㊻ 없이는 구분 불가) · threads_jp·naver_blog 는 ET 9/26(13시 KST~) 클릭 0 | note API · 레디스 원값 |
+| 고정 ⑥ 스윕 | 0편(URL 목록 78) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 20:30~20:40 — 시간 사이클: 실행 0(캡 소진) · 게이트 341/0 · 확장 1(GitHub 한국어 데이터 출처 목록 — 티켓) · 스윕 1편 차단
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 확장 — GitHub 한국어 «미국주식 무료 데이터 출처» 목록(등록·티켓) | api.github.com 검색 «미국주식» = 저장소 52·최다 별 2(무한매수법 대시보드·KIS API 예제·자동매매 봇 등) → 무료 «공식» 출처 모음은 없음(얇은 문). 목록 후보 = 이미 실측으로 쓰는 공식 출처(재무부 par yield CSV·FINRA Reg SHO API·SEC EDGAR·BEA 일정·연준 FOMC 캘린더), 비공식 API 는 약관 문제로 제외, «우리가 만든 것» 칸에 데이터셋 저장소·앱 1줄. 다음 주 GeekNews Show GN 재료(폰 클릭 48% 채널) → channels.json github_awesome_ko + 규칙(주 1, 9~23시) | api.github.com |
+| 고정 ⑥ 스윕 — 1편 | «종목» → awytirw10.shop 소재 차단 + 광고주 URL 자동 추가(«차단됨» 확인) → 목록 79 | /tmp/ego/arc-blocked-*.json |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 21:30~22:00 — 시간 사이클: 실행 2 전부(GitHub 한국어 데이터 출처 목록 ✅ 새 표면 개설 · X 답글 ✅ 1/3) · 게이트 341/0 · 스윕 1편 차단
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **github_awesome_ko ✅(새 저장소)** | 공식 출처 13곳을 발행 직전에 전부 호출 확인(재무부 par·real yield CSV·TextView, FINRA Reg SHO API(POST)·CDN 일별 파일, SEC EDGAR submissions·company_tickers.json(User-Agent 필요), 연준 FOMC 캘린더, BEA 일정, 뉴욕 연은 EFFR API, Nasdaq Trader 심볼 목록, Cboe VIX 역사, 하원 공시 = 200 · 상원 eFD 만 curl 403 → «브라우저 이용 동의 후»로 표기 · BLS 는 «자동 요청 차단» 표기). GitHub 웹(로그인 세션)에서 새 공개 저장소 «us-stock-free-data-ko» → 한국어 README 업로드(섹션: 금리·거시 / 거래·수급(FINRA «다크풀 비중» 분모 주의) / 기업·공시 / 의회 공시 / 이 데이터로 만든 것 — 데이터셋 저장소·FINRA·의회 페이지·앱 링크 from=github, 제작자 공개) · 라이선스 CC0 | https://github.com/myjr0629-hue/us-stock-free-data-ko · 비로그인 200·제목·섹션 5·공식 링크 11·앱 a[href] from=github · API: public·설명 |
+| **x_reply ✅ 1/3(KST)** | 세션이 @signumhq_jp 라 x-reply 가 거부 → x-switch 로 @signumhq 전환 후 재시도. @Barchart(팔로워 569,700, 기준 18만 이상) «10-Year Treasury Yield is on the verge of breaking above 25-year resistance on the monthly chart»(8시간 전)에 무링크 데이터 답글(266자): 재무부 일별 par 10년 5.18%(목)·5.17%(금) = 2007-07-06(5.19%) 이후 첫 5.17% 이상 마감 · 이번 주 10년 +21·30년 +20bp vs 2년 +5bp · 한 달은 반대(2년 +57bp) | https://x.com/signumhq/status/2103829591584657549 · 내 답글 탭 + 비로그인 syndication(본문·reply_to Barchart·user signumhq) |
+| 확장 | 지난 사이클에 발굴·등록한 github_awesome_ko 를 이번 사이클에 실제로 열었다(발굴 → 실행 완료) | — |
+| 고정 ⑥ 스윕 — 1편 | «종목» → awytirw9.shop 소재 차단 + URL 자동 추가(«차단됨» 확인) → 목록 80 | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 다음 | 저장소 토픽(us-stocks·finra·treasury·sec-edgar·korean) 추가 · 다음 주 GeekNews «Show GN» 재료 | — |
+| 도구 메모 | 이 로그의 파이썬 heredoc 이 «Non-UTF-8 code» 로 실패해 첫 커밋엔 로그가 빠졌다 — 로그는 항상 스크래치 파일(Write)로 쓴다(9/25 에 겪은 것과 같은 종류) | — |
+
+
+---
+
+## 2026-09-26 (KST) 22:30~22:45 — 시간 사이클: 실행 1(X 답글 ✅ 2/3) · 게이트 341/0 · 확장 1(Lobsters — 초대제, 보류) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅ 2/3(KST)** | 큰 계정 최근 6시간 스캔 → @StockMKTNewz «There are currently 15 stocks in the NASDAQ 100 that are up by more than 100% so far in 2026»(12분 전)에 무링크 데이터 답글(262자): $MU 2025-12-31 종가 285.41 → 9/25 1,082.28(+279%, 나스닥 일별 종가로 계산) · 수요일 장 마감 후 실적 · 10/2 만기 옵션 약 ±8.5%(1080 스트래들 ~$92, 금 종가 호가) · 최근 4번 다음 날 −2.8/+10.2/−3.8/+15.7%(모두 EPS 상회) | https://x.com/signumhq/status/2103841136217624969 · 내 답글 탭 + 비로그인 syndication(본문·reply_to StockMKTNewz·user signumhq) |
+| 앞 답글 반응 | @Barchart 답글(21:5x) 1시간 뒤: 좋아요 0·답글 0 | syndication |
+| 확장 — Lobsters(등록·보류) | lobste.rs/about 원문: «user invitation tree to combat spam»(초대제) · 자기 홍보는 글·댓글의 4분의 1 미만 · «not … a write-only tool for product announcements» → 초대 경로 없음 → channels.json lobsters(rejected) | lobste.rs |
+| 고정 ⑥ 스윕 | 0편(URL 목록 80) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 23:30~23:46 — 시간 사이클: 실행 1(X 답글 ✅ 3/3) · 게이트 341/0 · 확장 1(Tildes·Digg — 보류) · 스윕 0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_reply ✅ 3/3(KST 하루 끝)** | @CNBC «The 10-year Treasury yield is at its highest in nearly two decades. How we got here»(1시간 전)에 앞 @Barchart 답글과 겹치지 않는 «명목 대 실질» 분해로 무링크 답글(264자): 재무부 곡선 8/24→9/25 10년 명목 4.70→5.17%(+47bp) · 10년 실질(TIPS) 2.38→2.83%(+45bp) · 기대인플레(명목−실질) 2.32→2.34% → 상승 대부분이 실질금리(재무부 real yield CSV 로 계산) | https://x.com/signumhq/status/2103856387197694099 · 내 답글 탭 + 비로그인 syndication(본문·reply_to CNBC·user signumhq) |
+| 오늘 X 답글 반응 | @Barchart 답글(21:5x)·@StockMKTNewz 답글(22:3x) 모두 좋아요 0·답글 0(1~2시간 경과) — x_reply 는 건당 0(12건)인 채널, 오늘 3건도 같은 흐름 | syndication |
+| 확장 — Tildes·Digg(등록·보류) | tildes.net/register «Registration is currently invite-only»(~finance 그룹은 있음) · digg.com/about «Digg is a technology news site … The feed is free and needs no account» = 제출형이 아닌 기술 뉴스 큐레이션 → 둘 다 rejected | channels.json |
+| 고정 ⑥ 스윕 | 0편(URL 목록 80) | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-26 (KST) 23:55~23:56 — 운영: 프로그램 업데이트·재시작으로 매시 크론 소멸 → 재생성
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 크론 | 대표 «프로그램 업데이트 다시 시작했다» 직후 `CronList` = **No scheduled jobs**(`9712d5a0` 소멸 — 9/23 모델 전환 때와 같은 종류) → 대화 기록의 마지막 CronCreate 원문(1,848자)이 HANDOFF 부록 A 와 **글자 단위로 일치**함을 확인 → 그대로 재생성 **`6a0a351d` · 매시 :13 · 만료 ≈ 10/03 23:5x** | CronList·CronCreate |
+| 누락 여부 | 23:30 사이클은 재시작 전에 끝났고 커밋(5823cd785)·푸시까지 됐다 → 빠진 사이클 없음. 다음 사이클은 00:13(KST 새 날 — 채널 캡 초기화) | git log |
+| 개선 | RUNBOOK §0 에 낡은 ID(`c5e53356`)·만료일(9/24)이 남아 있었다 → ID·만료일은 HANDOFF §0 한 곳에만 적도록 바꾸고, «재시작 소식 = 즉시 CronList» 를 절차로 넣었다 | RUNBOOK.md |
+| ego lite | 재시작 뒤에도 실행 중(0.5.0.32 Helpers 프로세스 확인) | pgrep |
+
+
+---
+
+## 2026-09-27 (KST) 00:59~01:15 — 시간 사이클: **발행 0(대표 지시로 비용·보안 작업 우선)** · 게이트 341/0 · 클릭 캐시 갱신
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 배정 | 실행 4 = medium·linkedin·pinterest·bluesky_buildinpublic(키우기 겸) · 확장 1 — 소재·화면까지 정했으나(분기 말 업종 성적표·고용지표 전 2년물·나이키 10/1·PC 클릭 79% 제작기) **발행하지 않았다** | slot |
+| 왜 | 01:0x 대표 지시: «주말에 비용·보안 전부를 완벽하게, 기능 저하·운영 문제 없이, 실상황에서 검증» → Redis 비용·보안 작업을 먼저 한다. 이 사이클의 게시 0건은 실패가 아니라 우선순위 변경 | 대표 메시지 |
+| 발행 게이트 | 341건 · 실패 0 | audit-expiration-selection.js --live |
+| 클릭 캐시 | 갱신(9시간 묵음 해소) — ▲ bluesky_buildinpublic 3일 22·100% | mkt-clicks.js |
+| Redis 작업 진행 | 브랜치 `fix/redis-cost-security`(4d011edb1): ① 수집 Lambda(signum-harvest)가 8/31 이후 아무도 안 읽는 키에 하루 약 3.27만 SETEX·4.8GB 를 쓰던 것 제거(DynamoDB 옵션 자금 이력·커서는 그대로) ② 점검 스크립트 7개가 자격을 환경변수에서 읽게. **운영 Lambda 코드 교체는 이 환경의 권한 검사(운영 배포)에서 막혀 대표 승인 대기** — 운영 코드 해시 그대로(NwXvpFF8…) | CloudWatch·Monitor 실측, 배포 전 운영 zip 대조(index.js 동일) |
+| 배포 준비물 | 운영 zip 백업(로컬, 저장소 밖) · 새 패키지(파일 4,492개 동일·index.js 1곳) · 기준선: 15분마다 «481 ok, 28 fail, 509/509»·약 240초·메모리 510MB·오류 0 · 검증: 다음 실행 로그·DynamoDB 이력·Upstash 키 0 | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+| 고정 ⑥ 스윕 | 이번 사이클 미실행(대표 지시 작업 우선) | — |
+
+
+---
+
+## 2026-09-27 (KST) 01:20~01:40 — 대표 승인 작업: Redis(Upstash) 비용 1단계 **운영 반영·검증 완료** (signum-harvest 고아 쓰기 제거)
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 배포 전 대조 | 운영 zip 을 받아 저장소와 비교: index.js·package.json 동일, intrinio-adapter.js 는 1줄 차이(운영에만 9/16 폐기한 옛 프록시 키 기본값 — 프록시가 401 로 거부 확인) → 운영 zip 을 바탕으로 두 파일만 교체(파일 4,492개 동일) | GetFunction·diff·curl 401 |
+| 배포 | 01:24 KST(16:24:02Z) `UpdateFunctionCode` — 이전 해시 NwXvpFF8… 일치 확인 후, 새 해시 KbrBJ0Kz… Successful·Active. 되돌리기용 운영 zip 은 저장소 밖에 보관 | lambda-deploy(expect-old 가드) |
+| 검증 ① 실행 | 16:32:54Z 첫 실행: «481 ok, 28 fail, 509/509 in 240s (full pass)» — 배포 전과 동일 · 310초 · 메모리 486MB · ERROR 0 · 타임아웃 0 | CloudWatch Logs |
+| 검증 ② 부수효과 | DynamoDB signum-flow-history 계속 기록(AAPL 16:34:04·NVDA 16:35:18·TSLA 16:36:05, src=flowwarm) | Query |
+| 검증 ③ Upstash | 옛 키 `flow:ticker:lite:*`(버전 없음) 16:25:47Z 481개 → **16:38:05Z 0개**(새 코드 실행 중 쓰기 0) | 읽기 전용 SCAN |
+| 효과(실측 기반) | Upstash 하루 약 3.27만 명령·4.8GB 감소 → 9월 남은 기간 하루 약 $0.21 절감(월말 예상 약 $57.5), 새 달 기준 월 약 $5 | 9/26 Monitor·CloudWatch |
+| main 반영 | 브랜치 fix/redis-cost-security(웹 코드 변경 0줄)를 main 에 합치는 푸시가 권한 검사(운영 배포)에 막힘 → 대표 승인 대기. 그 전까지 main 의 harvest_lambda/index.js 는 옛 코드(재배포 시 고아 쓰기 부활 위험 — 합치기 전 main 으로 Lambda 재배포 금지) | — |
+| 다음 | 프록시 타임아웃(토요일 5.5시간 50건, 38% 가 주말 예열 크론 직후) 원인 측정 — EC2 관측기(읽기 전용, 재시작 없음)는 권한 검사(원격 쓰기)에 막혀 승인 대기 · 보안 조치 1건은 대표 채팅 보고 참조 | Vercel 로그 |
+
+
+---
+
+## 2026-09-27 (KST) 01:41~02:22 — 시간 사이클(새 KST 날): 실행 4 전부 ✅(블루스키 제작기·미디엄·핀터레스트·링크드인 — 넷 다 비로그인 공개 확인) · 키우기 ✅ · 게이트 341/0 · 확장 1(HF Spaces 등록) · 스윕 0 · 도구 수리 1(linkedin-post) · 앱 결함 3건 발견
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_buildinpublic ✅(키우기 겸, 계정 합계 1/3)** | #buildinpublic: 스마트링크 3일(ET 9/24~26) 171클릭 중 데스크톱 132(77%), QR 폰 넘겨주기 0/132, 블루스키만 PC 35·폰 0 → 일부는 링크 미리보기 수집기일 가능성. 16:9 카드(77%) + Why'd It Move? 홈 화면 목업 | https://bsky.app/profile/signumhq.bsky.social/post/3mwgqlwspvw2m · 공개 API: 본문·링크 facet(from=bluesky_bip)·#buildinpublic 태그·이미지 1200×675 |
+| **medium ✅** | «Q3 scorecard: the 10-year rose 73bp, utilities fell 12.9% and energy gained 16.8%» — 재무부 par 곡선 6/30→9/25 10년 4.44→5.17%(+73bp)·2년 4.14→4.81% · 섹터 SPDR 11개(나스닥 종가): XLE +16.8·XLV +7.6·XLC +5.4·XLK +3.0·XLF +2.3·XLP −1.2·XLB −2.0·XLRE −5.6·XLY −5.7·XLI −8.0·XLU −12.9, SPY +3.3·QQQ +1.1·IWM −6.2 · «채권 대용» 설명(방향 아님) · 이미지 = 대시보드 업종·다크풀 칸만 · AI 지원 표시 | https://medium.com/@signum_hq/q3-scorecard-the-10-year-rose-73bp-utilities-fell-12-9-and-energy-gained-16-8-6e2bba2346e6 · 비로그인: 제목·이미지·링크(from=medium)·표시문 |
+| **pinterest ✅** | «Nike earnings Oct 1: what the last 4 reports did to the stock» — 4번 모두 EPS 상회·다음 날 +6.4/−10.5/−15.5/+4.9%(두 하락은 가장 작은 상회 뒤) · 금요일 종가 기준 10/2 만기 등가격 스트래들 ≈ $2.94 vs $35.75 = 약 ±8% · 이미지 = NKE 가격 머리글 + 신규 포지션 카드(감마플립 칸 제외) | https://www.pinterest.com/pin/1102115340098995399/ · 비로그인: 제목·설명·이미지(pinimg)·링크(from=pinterest) |
+| **linkedin ✅(텍스트 + Undercurrent 링크 카드)** | 10/2(금) 08:30 ET 9월 고용지표(BLS 공식 일정 — 2월은 2/11 이었다, 짐작했으면 틀렸다) · 2026년 발표일 9번 2년물 +5/+7/−1/+5/−2/+12/−3/−6/+3bp, 평균 절대 4.9bp vs 다른 175일 3.8bp · 9/4 이후 2년 4.37→4.81%(+44bp, 9/17 인상 포함) · 링크 = /app-uc(Undercurrent) | https://www.linkedin.com/feed/update/urn:li:activity:7509658762769555456/ · 비로그인 200: 본문 표식·from=linkedin·app-uc 카드(«Undercurrent — where the news and the money disagree») |
+| 도구 수리 — linkedin-post.mjs | ①URL 줄 붙여넣기(반영 안 되면 타이핑) ②사진: 작성 창은 이제 role=dialog 가 아니고 사진 버튼 aria-label 이 정확히 «미디어» → 그 버튼+파일 선택기 경로(이번 발행은 옛 선택자라 첨부 실패, 다음부터 적용) ③게시 알림 링크를 «알림 영역의 게시물 보기»로 한정(첫 판이 피드의 남의 글 링크를 잡는 결함을 이번에 발견·수리) ④활동 화면에 새 글이 늦게 뜬다 → 표식이 보일 때까지 최대 3회 다시 연다. 작성 창 탐색은 빈 창을 열고 Esc(게시·초안 없음) | 이번 발행은 수동 검증으로 확정 |
+| 확장 — hf_spaces(등록) | HF 로그인 살아 있음(hf_datasets 와 같은 대표 개인 계정) · /new-space 열림 · 공개 API 얇은 문: «dark pool» Space 1(좋아요 0)·«short volume» 0·«gamma exposure» 0·«max pain» 1·«options flow» 1 → channels.json + mkt-plan(주 1) 등록, 다음 사이클 정적 Space 실행 | channels.json·mkt-plan.js |
+| 앱 결함 3건(발행 이미지에서 제외, 별도 작업 칩) | ①웹 앱 화면의 가짜 «SPONSOR — Apex Clearing Intelligence Feed»(실존 회사 이름, 6/25부터 AppAnchorAd.tsx) ②주말 Intel 화면: 선두·후미가 같은 «M7 Tech +0.0%»·GEX/PCR/순프리미엄 «—» ③주말 대시보드 «Only futures are trading now»(선물도 휴장) · 나이키 감마플립 «$30.50(+17%)»은 9/26 에 이어 미검증이라 제외 | 작업 칩 2개 |
+| 고정 ⑥ 스윕 | 차단 0(검색어 12) · 건너뛴 도메인 4곳을 직접 열어 확인: 요양기관 회계·스테이블코인 앱·M&A 플랫폼·재무모델링 교육 = 리딩방 아님(대표 범위대로 둠) · KB증권은 증권사라 제외 | admob-arc-sweep |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-27 (KST) 02:25~03:00 — 시간 사이클: 실행 4 전부 ✅(블루스키·스레드·Quora 스페이스·링크드인 아티클) · 확장 실행 ✅(HF Space 개설) · 게이트 341/0 · 스윕 0 · 도구 수리 4종(스레드 작성칸 문구·발행기 4개 링크 정규식·캡처 도구 UC 탭·HF 생성 교훈)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky ✅(키우기, 계정 합계 2/3)** | 금요일 VIX 14.87 = 최근 1년 종가의 하위 8%(Cboe VIX_History, 1년 범위 13.47~31.05) · 같은 날 10년물 5.17%(전날 5.18% = 2007년 7월 이후 최고 종가) — «주식 변동성은 잠잠, 채권 금리는 19년 고점 근처» · 16:9 카드 + 가디언 화면(VIX·공포탐욕 37·신용 2.80%·실물경제 표, 스폰서 칸 제외) | https://bsky.app/profile/signumhq.bsky.social/post/3mwgsue5znl2o · 공개 API: 본문·링크(from=bluesky)·이미지 |
+| **threads ✅(계정 합계 1/2)** | 마이크론 9/30(수) 장 마감 뒤 실적 · 금요일 종가 기준 10/2 만기 $1,080 스트래들 ≈ $92 = 약 ±8.5% · 최근 4번 다음 날 −2.8/+10.2/−3.8/+15.7%(모두 EPS 상회) · 이미지 = MU 가격 머리글 + 신규 포지션 카드(감마플립 칸 제외). 첫 시도는 507자(한도 500)·작성칸 못 찾음(NO_BOX) → 줄이고 도구 수리 | https://www.threads.com/@signumhq_official/post/DdwlyJ3GU-p · 비로그인(크롤러 UA): og:description 표식·링크 문구·og:image |
+| **quora_space ✅** | 넷플릭스 9/25 FINRA Reg SHO: 장외 9.76M / 통합 23.2M = 42.1%(전날 31.8%) · 장외분 중 공매도 28.1%(9/15~17 41~46%, 9/18 만기일 54.5%) · «공매도 거래량 ≠ 공매도 잔고, 하루치는 예측 아님» · 이미지 = Undercurrent 고래 레이더(종목별 장외 %) · 링크 app-uc | https://signumhqusstockmarketintelligence.quora.com/Netflix-42-of-Friday-volume-traded-off-exchange-while-the-short-share-of-it-stayed-near-28-FINRA-publishes-daily-sho · 게시물 6→7, 새 글: 표식·이미지·링크(from=quora_space) |
+| **linkedin_articles ✅** | «When the news and the options money disagree, who is right three days later? So far, 43 to 43» — Undercurrent 점수판(코드 확인: 신호일 가격 대비 3거래일 뒤 종가, ±1% 미만 무승부) 판정 121건: 자금 43·뉴스 43·무승부 35, 추적 중 79 · 9/21 사례(ORCL −7.12% 자금 승, JPM −2.57%·GOOGL −1.61% 뉴스 승, AAPL·TSLA 무승부) · AI 고지 · 표지 = 16:9 카드(43–43) + 점수판 화면 | https://www.linkedin.com/pulse/when-news-options-money-disagree-who-right-three-days-signum-hq-obsjc/ · 비로그인: 제목·첫 문단·링크·표지 + 핵심 문단 4/4·app-uc 링크 |
+| **확장 실행 — hf_spaces ✅** | 정적 Space «Max Pain and Options Levels for 12 US Stocks» — 공개 데이터셋(CC BY 4.0, 출처 SIGNUM HQ)의 최신 일별 JSON 을 읽어 12종목 현재가·맥스페인·괴리·콜월·풋플로어·풋콜비율 표(감마플립 등 미검증 칸 제외) + 앱 링크. ⚠ 생성 스크립트 결함: 라이선스 자동완성 항목을 못 찾자 Enter 를 눌러 양식이 제출됨 → 안전 확인 전에 기본값(Gradio)으로 생성. 빈 Space(앱 파일 없음·과금 없음)였고, README(sdk: static)·index.html 업로드로 정적 Space 로 바로잡음(API: sdk static·RUNNING·하드웨어 없음). 라이선스도 처음 CC0 로 잘못 적었다가 원 저장소 README(CC BY 4.0) 확인 뒤 정정 | https://huggingface.co/spaces/eunhoon/max-pain-options-levels · 공개 200 · 정적 주소에서 표 12행·링크(from=hf_datasets) |
+| 도구 수리 | ①threads-post: 작성칸 문구가 «새로운 소식을 공유해보세요.»로 바뀜 → 옛·새·영문 모두 인정 ②linkedin-article·quora-space-post·okky-post·tistory-post: 공개 검증 정규식이 /app 만 받아 app-uc·app-wim 글을 «실패» 판정 → 7곳을 (-uc\|-wim)? 로(어제 네이버 발행기와 같은 종류 — 이번엔 «종류»로 전부) ③make-x-shot: UC 탭 값이 앱 딥링크(div·whale)와 달라 «홈»이 두 번 찍힘(해시 동일) → 매핑 ④Enter 교훈(메모리) | node --check 전부 통과 |
+| 고정 ⑥ 스윕 | 차단 0(검색어 12) | admob-arc-sweep |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-27 (KST) 03:25~03:52 — 시간 사이클: 실행 4 전부 ✅(블루스키 답글·X 미국·스레드 답글·블루스키) · 확장 1(Substack Notes — 계정 게이트) · 게이트 341/0 · 스윕 0 · 도구 수리 2(mkt-plan pub 별칭·WIM 탭 캡처 방법 확인)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_reply ✅ 1/2** | @economist.com(팔로워 164,595, 게시 6분·답글 0) «The causes of the latest rise in interest rates—inflation, debt, geopolitical tensions…»에 무링크 데이터 답글: 재무부 곡선 8/24→9/25 10년 명목 4.70→5.17%(+47bp)·10년 TIPS 2.38→2.83%(+45bp)·기대인플레 2.32→2.34% → 상승 대부분이 실질금리(실질금리 CSV 로 재확인) | https://bsky.app/profile/signumhq.bsky.social/post/3mwgw2tz6ev2n · 공개 API: 본문·부모 = economist.com 글 |
+| **threads_reply ✅ 1/2** | @cnbc(팔로워 74만, 게시 32분) «‘It's awful’: How tariffs, soaring fuel costs and higher interest rates are squeezing American companies»에 무링크 답글: 6/30→9/25 XLI −8.0%·XLY −5.7%·IWM −6.2% vs XLE +16.8%, 같은 기간 10년물 4.44→5.17%(나스닥 종가·재무부 par) — 인과 표현 없음 | https://www.threads.com/@signumhq_official/post/DdwsR19E8wZ · 내 답글 탭 + 비로그인 크롤러 og:description |
+| **x_us ✅(계정 합계 1/2)** | 다음 주 미국 일정: 수 9/30 3분기 말·08:30 8월 PCE·2분기 GDP 3차(BEA 공식 일정 재확인 — «9월 30일 08:30 개인소득·지출(8월)» 포함)·마이크론 장 마감 뒤 / 목 10/1 나이키 / 금 10/2 08:30 9월 고용지표(BLS) / 금요일 옵션 MU ±8.5%·NKE ±8%(10/2 만기) · 가중 272자 · 16:9 카드 + Undercurrent Macro 화면 · 링크 app-uc | https://x.com/signumhq/status/2103917875153318178 · syndication: user signumhq·본문·사진 1·링크(from=x_us) |
+| **bluesky ✅(계정 합계 3/3 — 오늘 블루스키 본글 끝)** | 이번 주(금→금) 장기물 상승: 10년 +16bp(5.17%)·30년 +15bp·2년 +5bp, 10s-2s 25→36bp · 한 달 전은 반대(8/24 이후 2년 +57 vs 10년 +47) · 16:9 카드 + Why'd It Move? 개념 라이브러리 화면 · 링크 app-wim | https://bsky.app/profile/signumhq.bsky.social/post/3mwgwtaa6bs26 · 공개 API: 본문·링크(from=bluesky)·이미지 |
+| ⚠ 방법 정정(어제 X 답글) | 9/26 21:3x @Barchart 답글의 «이번 주 10년 +21·30년 +20·2년 +5bp»는 **월요일 종가→금요일 종가** 기준과 정확히 일치(금→금 기준은 +16·+15·+5). 틀린 값은 아니지만 «이번 주»의 통상 기준(금→금)과 달라 모호 → 결론(장기물이 더 올랐다)은 두 기준 모두 같아 정정 글은 안 올림. 앞으로 «이번 주»는 금→금으로만 쓴다 | 재무부 par CSV |
+| 확장 — substack_notes(게이트) | substack.com/notes → 홈 «맞춤» 피드는 보이나 /api/v1/user/self = 403(로그아웃) → Notes 는 작성자 계정 필요 = 계정 생성 안전선 밖 → channels.json(gate 계정) + mkt-plan cap 0 | channels.json |
+| 도구 수리 | ①mkt-plan: slot 이 channels.json id(x_us)를 배정하는데 pub 은 규칙 id(x_post)만 받아 «알 수 없는 채널» → ALIAS 를 pub 앞으로 옮겨 별칭을 규칙 id 로 기록 ②WIM 은 URL 탭이 없다(내부 상태 home·lib·search·me) → 캡처는 X_SHOT_CLICK_TEXT=Library 로(도구에 이미 있는 옵션). 참고: 캡처 도구는 광고 칸을 지우는데 React 가 다시 그려 가짜 스폰서가 남았다(작업 칩의 수리로 원인 제거 예정) | node --check·slot·pub 확인 |
+| 고정 ⑥ 스윕 | 차단 0(검색어 12) | admob-arc-sweep |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-27 (KST) 04:25~04:42 — 시간 사이클: 실행 3 전부 ✅(블루스키 답글·스레드 답글·X 미국 2편째) · 확장 측정 중단(브라우저 알림 권한 창) · 게이트 341/0 · 스윕 미실행(같은 이유) · 앱 결함 1건 추가(랭킹 화면)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_reply ✅ 2/2** | @fortune.com(팔로워 21,984, 게시 2.2시간) «The decline is unsurprising, given Oracle stock's volatile year and the fact that the options were priced near the peak…»에 무링크 답글: ORCL 금요일 종가 $137.10 = 1년 종가 고점 $313.00(2025-10-16) 대비 −56%, 올해 −30%(나스닥 종가) | https://bsky.app/profile/signumhq.bsky.social/post/3mwgzj4gmfr2z · 공개 API: 본문·부모 = fortune.com |
+| **threads_reply ✅ 2/2** | @bloombergbusiness(129.6만, 게시 17분) «Corporate bonds have been relatively resilient amid a global government bond selloff, but the strength may not last»에 무링크 답글: ICE BofA 미국 하이일드 OAS 9/24 2.80%, 8/28 1년 최저 2.60%에서 +17bp, 1년 범위 2.60~3.46% 의 아래쪽 절반(FRED). FRED 는 curl 이 HTTP/2 오류(92)·000 → §22 대로 **브라우저 안 fetch** 로 받음(200). 앱 가디언의 «1Y pctile 43»은 창이 달라 내 실측 46 과 다름 → 답글엔 실측값만 | https://www.threads.com/@signumhq_official/post/DdwzFilE3ic · 내 답글 탭 + 비로그인 og:description |
+| **x_us ✅ 2/2(계정 합계 2/2 — 오늘 X 미국 끝)** | 금요일 달러 거래대금 상위: SPY $28.3B·MU $22.7B·QQQ $22.6B·NVDA $20.2B·MSFT $19.7B(+3.66%)·META $19.4B(−3.33%) — «마이크론이 수요일 실적을 앞두고 QQQ·엔비디아보다 많이 거래됐다». 앱 movers 값 = 나스닥 종가×거래량으로 8종목 전부 일치 확인 · 16:9 카드 + SIGNUM movers 화면 · 가중 245자 | https://x.com/signumhq/status/2103932854204039464 · syndication: user·본문·사진 1·링크(from=x_us) |
+| 소재 보류 — 의회 거래 | 9/23 고정 글 «16명·192건(매수 58·매도 134)» vs 지금 GitHub Pages JSON «17명·220건(매도 162)», generated 표기는 둘 다 9/23 → 불일치 원인 확인 전까지 발행 안 함(다음 갱신 때 대조) | congress-by-ticker-90d.json |
+| 캡처 도구 — 원인 | SIGNUM «커맨드» 장면 이름은 `command` 가 아니라 **`cmd`**(app-view 라우트) — 오늘 두 번의 «숫자 0·글자 80» 실패 원인. 안 쓰던 화면 4개 확인: earnings·heatmap·movers·rankings | src/app/[locale]/app-view |
+| 앱 결함 추가 — rankings 화면 | 영어 화면에 한국어 문구(«유의하지않음 88 · 너무안변함 6 · 배수작음 1») · «P/C ratio (OI) 1.06 vs 1 → 1.77×»처럼 기준값 반올림 표시가 배수와 안 맞음 → 홍보 이미지에서 제외, 수리 대상 | rankings 캡처 |
+| 확장 — 측정 중단 | Yahoo Finance 종목 커뮤니티(finance.yahoo.com/quote/MU/community) 로그인·규칙 확인 중 **브라우저 알림 권한 창**이 떠 ego 가 작업공간 제어를 대표에게 넘김(규칙: 권한 창은 대표가 처리) → 측정값 없음, 등록 안 함. 대표가 창을 «차단»하면 다음 사이클에 재측정 | ego 오류 문구 |
+| 고정 ⑥ 스윕 | 미실행 — 위 권한 창으로 브라우저 사용 불가 | — |
+| (6) 광고 | 애플 광고 콘솔 끊김 지속 | — |
+
+
+---
+
+## 2026-09-27 (KST) 05:25~05:45 — 시간 사이클: 실행 0/3(github=새 미국 마감 없음 · note·x_jp=브라우저가 대표 제어 중 — 원고·이미지 발행 대기) · 도구 수리 1(mkt-plan 휴장 판정) · 확장 2(게이트: Tsukutta·AppVillage) · 게이트 341/0 · 앱 결함 1(실적 캘린더 EPS 불일치 → 수리 작업 분리)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **github — 해당 없음(도구 신호)** | 마지막 거래일 9/25(금) 스냅샷 `2026-09-25.json` 은 9/26 05:34 KST(=9/25 16:34 ET, 마감 뒤)에 이미 커밋됨. 지금은 미국 토요일 — 새 마감이 없다. 그런데 창(5~24시)·캡만 보는 규칙이라 KST 일·월에도 «실행 1순위»로 배정됐다 | 저장소 git log(716297e·eb358d6) · 원장 github 마지막 2026-09-25T20:37Z |
+| **도구 수리 — mkt-plan 휴장 판정(종류 수리)** | 규칙에 `afterUsClose: true` 를 달면 «마지막 발행이 가장 최근 정규장 마감(16:00 ET) 뒤»일 때 배정에서 뺀다(상태 «새마감없음»). 휴장 목록은 정본 `src/lib/marketCalendar.ts` 와 같은 표(2026·2027), 조기폐장일은 16:00 으로 봐 3시간 늦게 열릴 뿐 틀리게 열리지 않는다. 고정 시각 14건 검사 전부 통과(주말·노동절·추수감사절·신정·DST 시작/끝·마감 전후·정각). 적용 후 slot: 실행 = note·x_jp, github 은 «대상 아님(새 미국 마감 없음)». 다음 열림 = 9/29(화) 05:00 KST 이후(9/28 월 마감 뒤) | node --check · 검사 14/14 · slot 재실행 |
+| **note(note_jp) — 발행 대기** | 브라우저 작업공간이 여전히 `agentDelegatedToUser`(04시 사이클의 Yahoo 알림 권한 창). note-post.mjs·x-post.mjs 는 `takeOverTaskSpace` 로 대표 제어 중인 공간을 가져오게 돼 있어 **실행하지 않았다**(ego 규칙: 권한 창은 대표 처리, 우회 금지). 원고·이미지는 완성: 「米国株 今週の予定(日本時間)9/28〜10/2:PCE・マイクロン決算・ナイキ決算・雇用統計」 25문단 · 見出し 1280×670(일정 5줄 + MU ±8.5% + 앱 «決算カレンダー» 화면 조각) · 태그 米国株·マイクロン·雇用統計 · AI 지원 고지 | /tmp/ego/note-task-0927.json · /tmp/ego/note-header-0927.png |
+| 사실 확인(원고) | BEA 공식 일정: **9/30 08:30 ET** GDP 2분기 확정치·기업이익 + 8월 개인소득·지출(PCE) · 나스닥 실적 캘린더: **MU 9/30 장 마감 뒤**(EPS 예상 $31.24) · **NKE 10/1 장 마감 뒤**($0.44) · 나스닥 경제 캘린더: 화 10:00 소비자신뢰·JOLTS / 수 08:15 ADP / 목 08:30 실업수당·10:00 ISM 제조업 / **금 10/2 08:30 고용지표**. ⚠ 나스닥 경제 캘린더는 `date=D` 에 D−1 일자 행이 온다(BEA 9/30 발표가 date=10/1 에, 금요일 고용지표가 date=10/3(토)에, 월요일 국채 입찰이 date=9/29 에) — 요일 고정 항목 3개로 확인하고 하루 당겨 읽었다. BLS·나이키 IR·마이크론 IR 은 curl 403 → 마이크론 전화회의 시각은 이번 글에서 뺐다(재확인 불가) | bea.gov/news/schedule · api.nasdaq.com calendar |
+| 사실 확인(옵션) | 금요일 종가·10/2 만기 ATM 스트래들(호가 중간값): **MU 종가 $1,082.28 · $1,080 = $92.42 → ±8.5%** · **NKE 종가 $35.75 · $35.5 = $2.90(±8.1%)·$36 = $2.97(±8.3%)** → 3시 사이클 값과 같다. ⚠ 나스닥 시세 API 가 금요일 종가에 «AS OF SEP 24» 를 붙인다 — 날짜로 묻는 일별 이력(`/historical`)에서 **09/25/2026** 종가가 같은 값임을 확인(표기 오류, 값은 금요일) | api.nasdaq.com quote·historical·option-chain |
+| **x_jp — 발행 대기** | 「金曜(9/25)の米国株 売買代金」 1위 SPY 283億ドル · 2위 マイクロン 227億ドル · 3위 QQQ 226億ドル · 4위 エヌビディア 202億ドル — 決算前にマイクロン1銘柄がQQQとエヌビディアを上回った · X 가중 253자 · 16:9 카드(MU #2 · $22.7B) + SIGNUM 일본어 무버 화면(값 = 앱 화면 그대로) | /tmp/ego/x-task-jp-0927.json · /tmp/ego/xjp-movers-card.png |
+| **앱 결함 — 실적 캘린더 EPS 불일치** | 일본어 «決算カレンダー» 에서 같은 카드의 머리글 EPS 와 AI 한 줄 EPS 가 다르다: MU $31.52 vs «EPS $31.16が…», BLK $14.25 vs $14.28(PEP·NKE 는 일치). 원인(코드 조사): AI 한 줄(`earnings:brief:v2`)은 종목별로 한 번 만들고 EPS 가 바뀌어도 다시 만들지 않으며(입력값 미저장·30일 TTL), 프롬프트가 EPS 를 다시 적도록 유도한다. 수리 = 숫자 재기재 금지 + 검증기 + 키 v3 + 날짜·분기 불일치 시 숨김 → 별도 작업으로 분리(라이브 웹 변경 = 브랜치·실화면 검증·승인). 이번 이미지는 그 줄을 뺀 머리 행만 썼다 | src/app/api/cron/earnings-brief/route.ts · earnings-calendar/route.ts |
+| 확장 2 — 게이트 등록 | Qiita «モバイルアプリを無料で掲載できたサービスまとめ【2026年秋】»(2026-09-06)에서 발굴 → **tsukutta**(tsukutta.app: 무료·일/영·최신 글 9/26·글 150+·약관상 자기 앱 소개 허용·AI 금지 조항 없음 / 로그인 = 구글 OAuth·이메일 + «로그인하면 약관 동의») · **app_village**(app-village.jp: «完全無料»·최신 등록 9/26·8월 30개·스토어 링크 / GitHub·Google 로그인만) → 둘 다 새 계정·약관 = 대표 몫 → channels.json(gate 계정) + mkt-plan cap 0. 같은 목록의 **AppLink**(applink.jp): 무료·로그인 없음이지만 최신 글이 2019년 6월 = 멈춘 사이트 → 등록 안 함 · **Appliv 무료 리뷰 요청** 페이지는 여전히 404 → 기존 기록(유료 전용) 유지 | channels.json 143개 · slot 게이트 레인 |
+| 고정 ⑥ 스윕 · (6) 광고 | 둘 다 브라우저 필요 → 미실행(대표 제어 중) | — |
+| 도구 수리 2 — 대표 할 일 집계 | mkt-plan slot 의 «대표 할 일 N건»이 ①~⑳ 만 세어 17건으로 나왔다 — ㉑~㊿·51~53(보안·Redis·브라우저 권한 창 등 최근 승인 대기 전부)이 빠져 있었다. 정규식을 ①~⑳·㉑~㉟·㊱~㊿·숫자로 넓힘 → 48건(표를 직접 센 값: 51행 중 취소선 제외 48과 일치) | node --check · slot |
+
+
+---
+
+## 2026-09-27 (KST) 06:25~06:34 — 시간 사이클: 실행 0/3(브라우저 대표 제어 지속 — note·x_jp 준비물 유지) · **공개 데이터셋 결함 발견·도구 3개 종류 수리** · 확장 1(apd_core — awesome-public-datasets 등재 준비·검증 통과) · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| (0) 크론 | 6a0a351d 살아 있음 · 만료 ≈10/3 밤(6일+) | CronList |
+| 실행 — note·x_jp | 브라우저 `agentDelegatedToUser` 지속(06:25·06:33 재확인) → 발행기 미실행(대표 제어 공간을 가져오지 않는다). 준비물 그대로: /tmp/ego/note-task-0927.json(+머리 이미지) · /tmp/ego/x-task-jp-0927.json(+카드). note 원고(이번 주 일정)는 월요일 아침까지 유효, x_jp(금요일 거래대금)는 오늘이 최적 | ego 상태 |
+| **공개 데이터셋 결함 — 토요일 파일** | options-market-structure-daily 에 `2026-09-19.json`(토요일) 이 있고 내용은 금요일 9/18 파일과 같다(SPY spot 762.96, 만기 9/25, takenAt 9/20 04:45Z) · 랜딩 JSON-LD 에도 «2026-09-19 snapshot» 으로 실려 구글 데이터셋 검색에 나갔다 · 목요일 9/17 은 빠져 있다(빈칸). 원인: 스냅샷 도구 날짜 = «지금 UTC − 4시간»(달력 판정 없음) + 랜딩 생성기가 날짜 형식만 봤다 | 저장소 8개 파일 snapshotDateET·takenAt 전수 대조 |
+| **종류 수리 3 — 달력 공용본** | ① `scripts/lib/us-market-calendar.js` 신설(정본 marketCalendar.ts 와 같은 휴장표 · lastUsClose · snapshotWindow) — mkt-plan 의 인라인 사본을 이것으로 교체 ② `github-structure-snapshot.js`: **마지막 정규장 마감 ~ 다음 거래일 04:00 ET(프리마켓·미결제약정 갱신 전)** 사이에만, 그 거래일 날짜로만 찍는다. 지정 날짜가 다르면 거부(지난 날은 지금 API 값으로 재구성 불가 → 빈칸 유지) ③ `gh-dataset-index.js`: 휴장일 날짜 파일을 JSON-LD 에서 빼고 경고. 검사 29/29(주말·노동절·추수감사절·조기폐장·신정·DST 시작/끝 새벽 경계·마감 전후) · 실제 실행: 9/19·9/26 지정 → 거부(exit 2), 기본 → 2026-09-25(임시 폴더, 업로드 안 함) · 재생성 index 는 현 공개본과 6줄 차이(9/19 항목만 삭제) | 테스트 스크립트 · node --check |
+| 관찰(결함 아님, 기록) | 금요일 파일(9/25 20:31Z 촬영)의 만기는 당일 9/25(마감 직후 아직 롤 전), 토요일 API 는 10/2. 만기 칸이 명시돼 있어 데이터는 정직하지만, «마감 뒤 스냅샷 = 이미 만료된 만기» 가 된다 — 다음 거래일부터 롤 시각과 스냅샷 시각을 같이 본다 | 스냅샷 실행 출력 |
+| **확장 — apd_core(실행 대기)** | awesome-public-datasets(★79.2k)의 Finance 칸 = apd-core(★408) YAML. PR #713~#720 이 9/20~23 에 0~1일 만에 합쳐짐(소규모 발행처 다수). Finance 39개 중 옵션 구조 데이터셋 0. 규칙: 광고·평판 홍보 금지, homepage = 데이터 저장소, publisher.web 허용(AlphaAI 선례). 초안 YAML 작성 → apd-core `tests/validate.py` 통과(exit 0). 설명은 사실만(필드·범위·라이선스·빈칸 정책), 의회 거래 파일은 건수 불일치 미해결이라 뺐다. 순서: 데이터셋 9/19 삭제 → 랜딩 재업로드 → PR | .agent/marketing/drafts/apd-core-US-Options-Market-Structure-Daily.yml |
+| 같은 목록의 다른 곳 | awesome-quant(★29.8k): 생성 데이터 저장소는 기능 섹션 불가, 무료 서비스는 «Commercial & Proprietary Services» 칸 — 추적 파라미터 없는 URL·공개 방법론 문서 필요 → 앱 방법론 페이지 확인 후 판단(보류) | CONTRIBUTING.md 원문 |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 07:25~07:34 — 시간 사이클: 실행 0/4(브라우저 대표 제어 4사이클째) · **⚠ 정정 필요 — 의회 거래 «16명·192건»은 부분집합이었다(게시 7곳)** · 도구 2(배정표 브라우저 경고·의회 데이터셋 커버리지 표기) · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| (0) 크론 | 6a0a351d 정상(만료 ≈10/3 밤) | CronList |
+| 실행 — apd_core·note·x_jp·threads_jp | 전부 브라우저 필요 · `agentDelegatedToUser` 지속 → 미실행. 대표에게 데스크톱 알림 1회(휴대폰 푸시는 원격 제어 꺼짐으로 미전송) | ego 상태 |
+| **도구 1 — 배정표가 브라우저 상태를 먼저 말한다** | mkt-plan slot 첫 줄: ego 작업공간 소유 상태를 읽어 `…user` 면 «⛔ 대표 제어 중 — 발행기 실행 금지(takeOverTaskSpace 가 대표 제어를 빼앗는다)». 04~07시 네 사이클 내리 같은 확인을 손으로 반복한 «도구의 신호». ⚠ ego-browser 는 스크립트 출력을 **stderr** 로 낸다(첫 시도 «못 읽음» → 둘 다 읽게 수리). 0.2초 | slot 출력 |
+| **⚠ 정정 — 의회 거래 총계(판정 뒤집힘)** | 9/24~25 게시 «90 days to Sept 23: 16 members, 192 trades (58 buys, 134 sells) · median lag 25 days · 3 filings past 45 days» 는 **부분집합**이었다: `/api/flow/congress` 목록 = 순매수 추정액 상위 **60종목**(`signals.slice(0,60)` — 같은 응답의 `count` 는 **173**), 종목 상세 = 최근 **40건**(`rows.slice(0,40)` — TKNO 68건 중 40건, 매도 28건 누락, rows_complete=false), 원천 = FMP `senate-latest`·`house-latest` **page=0·limit=250** 뿐. 어제 보류한 «16명·192건 vs 17명·220건» 불일치의 답: 220 = 종목 신호 합(TKNO 전량 포함), 17명 = 같은 의원 표기 2개(Gilbert Cisneros / Gilbert Ray Cisneros). 공개 데이터셋 페이지도 «60 tickers · 192 disclosed trades» 로 전체처럼 적혀 있었다 | route.ts·congressTrades.ts · 라이브 API count 173 |
+| 정정 대상 7곳(브라우저 복귀 즉시) | X 본글 2103166699835166886 · X 답글(@unusual_whales) 2103130925219663992 · X 일본 2103243573995151842 · 블루스키 3mwblypeeyl2o · **Threads 고정** Ddri65CE53B · **Medium 고정**(congress-filed-192…) · LinkedIn 아티클(congress-filed-192…). 공개 API·크롤러로 본문에 «192» 확인(나머지 9/24~25 글 11개는 무관). 문구 초안(EN 가중 258·JA 220) | .agent/marketing/drafts/congress-correction-2026-09-27.md |
+| **도구 2 — 의회 데이터셋 커버리지 표기** | congress-dataset.mjs: JSON 에 `coverage`(tickers_in_window·included·선정 기준·종목당 40건 상한·is_complete) · 페이지 첫 줄 «60 of 173 tickers (largest estimated net flow) · 188 trade rows (up to 40 per ticker)» + «Coverage: this is a subset … (incomplete: TKNO). Do not read the counts as all congressional trades.» · JSON-LD 설명에도 같은 범위. 임시 폴더 재생성으로 확인(업로드는 브라우저) | node --check · 재생성 출력 |
+| 수리 작업 분리 | 원천 페이지 넘김 + API `limit`(기본값은 그대로 — 앱 화면 불변) + 데이터셋 완전성 단언 → 별도 작업(라이브 웹 = 브랜치·검증·승인). 정확한 전체 수치는 그 뒤에 확정 — 그 전엔 «더 많다»까지만 쓴다 | 작업 칩 |
+| 확장 | 이번 사이클은 위 정정 조사로 갈음(새 표면 없음) — 06시 apd_core 등록분이 실행 대기 | — |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 08:25~08:31 — 시간 사이클: 실행 0/4(브라우저 대표 제어 5사이클째 — 일본 아침 창 09시 전 발행 불가 확정) · 맥스페인 독립 검증 4/4 일치 · 콜월·풋플로어 정의 불일치 발견 · 확장 1(awesome_quant 선행 게이트) · 클릭 재측정 · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·note·x_jp·threads_jp 전부 브라우저 필요 → 미실행(slot 첫 줄 «⛔ 대표 제어 중» 경고가 제대로 뜸). note·x_jp 는 월요일 일본 아침(05~09시)에도 «최근 세션 = 금요일» 이라 그대로 쓸 수 있다 | slot · ego 상태 |
+| **종류 점검 — 맥스페인이 잘린 체인으로 계산되지 않는가** | 어제의 결함 종류(상한이 부분집합을 전체처럼 보이게)를 우리 핵심 지표에 적용: 나스닥 공개 체인 **전 행사가**(MU 335·SPY 171·NFLX 48·AVGO 98 행사가, 10/2 만기)로 맥스페인을 직접 계산 → **4종목 모두 우리 API 와 일치**(MU 970·SPY 765·NFLX 73·AVGO 355) · 풋/콜 OI 비율도 일치(NFLX 0.52 vs 0.50 만 소수점 차) | scratchpad maxpain-xcheck.mjs · api.nasdaq.com option-chain |
+| **발견 — 콜월·풋플로어 정의 불일치** | 같은 대조에서 MU 콜월 **1100** vs 전체 최대 콜 OI 행사가 **1000**, 풋플로어 **900** vs **600** · AVGO 풋플로어 350 vs 360 (SPY·NFLX 는 일치). 설명 문서(/en/learn/call-wall «the strike carrying the largest call open interest»)와 데이터셋 필드 설명(«strike with the largest call open interest»)이 실제 계산(범위·방향 제한으로 보임)과 다르다 → 코드 정의 확인 중(백그라운드 조사), 확인되면 문서·데이터셋·HF Space 설명을 계산에 맞춘다 | 위 대조 |
+| 확장 — awesome_quant(선행 게이트) | awesome-quant(★29.8k) «Commercial & Proprietary Services» 81개 중 옵션 포지셔닝 서비스 0. 조건(무료 영구 등급·요금 공개·공개 방법론·추적 없는 URL·비홍보)을 /en/pricing(FREE $0)·/en/learn/*·GitHub 데이터셋으로 충족 확인. 다만 콜월 정의 정합과 데이터셋 정리 전엔 제출 안 함 → gate «선행» 등록, 초안 작성 | drafts/awesome-quant-entry.md · channels.json 145 |
+| 클릭 재측정(ET 9/26 토) | 오늘: bluesky 27(⚠ 봇 계수 가능 채널 — 메모리 our-click-counter-counts-bots-too)·home 22·bluesky_bip 8·geeknews 6·x_us 6·threads 6(새벽 MU 글, 가속)·medium 4·quora_space 3·note_kojin 3(첫날) · 3일: home 72·bluesky 60·bluesky_bip 30·geeknews 25·indiehackers 16 | mkt-clicks.js → clicks-cache.json |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+| **정의 확정(코드)** | structureService.ts: **콜월 = (S, 1.2S] 콜 OI 최대 · 풋플로어 = [0.8S, S) 풋 OI 최대 · 감마플립 탐색 ±15% · pinZone = maxPain 복사**. 설명 문서·데이터셋·HF Space 는 «OI 최대 행사가»(범위 없음), pinZone 은 «콜·풋 합산 OI 최대»로 적혀 있었다 → ①데이터셋 필드 설명(github-structure-snapshot.js) 수리 ②설명 페이지(concepts.ts 영·한·일 desc·lead 6문자열) 브랜치 `fix/learn-call-wall-definition` 18b0909c0 푸시(라이브 웹 → 프리뷰 확인 후 합치기 승인) ③README·HF Space 문구는 브라우저 복귀 시 | structureService.ts L674-686·L576·L1001 |
+| **게이트 신설 — audit-structure-vs-nasdaq.js** | 나스닥 전체 체인으로 맥스페인·풋콜·콜월·풋플로어·**계약 수** 대조(12종목): **11/12 전 항목 일치**(계약 수까지 — SPY 342/342·MU 670/670 등 = 체인 잘림 없음). ✗ META: 맥스페인 670 vs 692.5·풋플로어 600 vs 700 — 계약 476/476 같고 OI 합 114,638 vs 134,855, 우리 값 20시간 전 → **OI 시점 차이(새 OI 반영 전 캐시)**, 잘림 아님 = 이미 수리 브랜치가 있는 결함(fix/structure-lastgood-age, 대표 할 일 ㊲ 에 증거 추가). 판정 규칙: 맥스페인 불일치·계약 수 < 90%·풋콜 차 > 0.15 → 실패(해당 종목 수치 게시 금지) / 콜월·풋플로어·풋콜 0.05~0.15 → 경고. slot 고정 ① 에 추가 | scripts/audit-structure-vs-nasdaq.js |
+| 코드 조사 결과(백그라운드, 읽기 전용) | 체인은 만기당 Intrinio 호출 1번·다음 페이지 확인 없음 · 실패 만기는 `.catch(()=>null)` 로 사라짐 · 빠진 OI·감마를 0 으로 채워 내장 완결성 검사가 발동 못 함(gexConfidence 항상 HIGH) · Lambda 체인 캐시 키에 날짜 없음 · route.ts 의 result.gex 블록은 죽은 코드 → 앱 쪽 «완결성 가드» 별도 작업으로 분리(라이브 = 브랜치·승인) | 작업 칩 |
+
+
+---
+
+## 2026-09-27 (KST) 09:25~09:28 — 시간 사이클: 실행 0/4(브라우저 대표 제어 6사이클째) · 게이트 2종(만기 341/0 · 구조 대조 11/12, META 는 OI 시점 → META 수치 게시 금지) · 설명 페이지 브랜치 프리뷰 검증 ✅ · FINRA 데이터셋 잘림 점검(이상 없음) · 데이터셋 README 수정본 준비
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 — apd_core·macrumors·play_app_tags·github_pages | 전부 브라우저 필요 → 미실행(slot 첫 줄 경고). UTC 날짜가 9/27 로 넘어가 레딧·Quora 창도 열렸지만 역시 브라우저 | slot |
+| 게이트 | 만기 341/0 · **구조 대조(신설) 11/12** — META 만 ✗(OI 시점 차이, 20시간 전 캐시) → 이번 사이클 이후 복귀해도 **META 맥스페인·풋플로어는 게시하지 않는다**(㊲ 합치기 전까지) | audit-structure-vs-nasdaq.js |
+| **설명 페이지 브랜치 프리뷰 검증 ✅** | fix/learn-call-wall-definition(18b0909c0) 프리뷰 stock2-57edba6cg — `vercel curl`(자동화 우회 토큰 헤더)로 /en·ko·ja/learn/call-wall 200 · 실제 페이지(93~100KB, 로그인 화면 아님) · 새 정의 문장·설명(desc) 3개 언어 반영 · 운영본과 문장 단위 비교: 달라진 곳은 정의 문장뿐(푸터 이메일 표기 차이는 운영 도메인 CDN 의 이메일 가림 — 무관) → 대표 할 일 54 에 «검증 완료» | vercel inspect · vercel curl |
+| 종류 점검 — FINRA 데이터셋 | finra-short-dataset.py 는 FINRA 가 날마다 올리는 **전체 파일**(cdn.finra.org CNMSshvol*.txt)을 받는다 — 페이지·건수 상한 없음 → 잘림 결함 해당 없음 | 스크립트 원문 |
+| 데이터셋 README 수정본 | 정의 3줄(감마플립 ±15% · 콜월/풋플로어 ±20% 범위 · 핀존 = 맥스페인) · 의회 거래 «Coverage (read this first)»(173종목 중 60·종목당 40건 · 9/23 판 «192건·16명»은 부분집합) · «빈 날짜는 빈칸(예 9/17), 주말·휴장 파일 없음» → /tmp/ego/gh-fix-0927/README.md, 업로드 작업 파일 gh-task-fix-0927.json(index.html + README) | diff 확인 |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 10:25~10:27 — 시간 사이클: 실행 0/4(브라우저 대표 제어 7사이클째) · **indexnow ✅(대기열 중 비브라우저 채널 실행)** · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 — apd_core·macrumors·play_app_tags·github_pages | 전부 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| **indexnow ✅(주 1회, 마지막 9/19)** | 제출 전 점검: sitemap 6,768개 중 **6,729개 lastmod 2026-09-25**(9/19 이후 변경), 39개는 8/31 그대로 → IndexNow 취지(바뀐 URL 통보)에 맞게 **바뀐 6,729개만** 제출 · api.indexnow.org 1,000건씩 7회 **전부 HTTP 200 = 접수 6,729/6,729**(Bing·Yandex·Seznam·Naver 전달). 키 파일 https://www.signumhq.com/a23324ff2f2e147eb4364b1661650b47.txt 200·내용 일치. «접수»이지 «색인»은 아니다(색인 확인은 BWT·네이버 서치어드바이저 = 브라우저) | mkt-plan pub indexnow |
+| 보류 — indexnow_ghpages | 데이터셋 사이트는 9/19 파일 삭제·README·랜딩 교체(브라우저) **직후**에 통보한다 — 지금 보내면 고칠 페이지를 다시 긁게 한다 | — |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 11:25~11:27 — 시간 사이클: 실행 0/4(브라우저 대표 제어 8사이클째) · 게이트 341/0 · 마감 있는 대표 결정(㊸) 자료 갱신 · 승인 대기 브랜치 4개 합치기 사전 점검
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행. 같은 4개가 반복 배정되지만 원인은 채널이 아니라 «브라우저 전체»라 게이트로 빼지 않는다(빼면 복귀 때 사라진다) — slot 첫 줄 경고가 그 신호 | slot |
+| ㊸ XS 페이퍼 — 마감 재확인 | 스케줄 `cron(40 22 ? * MON-FRI *)` ENABLED · 9/26 22:00Z 이후 로그 0건 = 정상(UTC 토요일은 실행 없음) → **다음 실행 = 9/29(월) 07:40 KST**, 그 전에 배포·결정 필요(HANDOFF ㊸ 그대로) | EventBridge DescribeRule · CloudWatch Logs(읽기 전용) |
+| **승인 대기 브랜치 합치기 사전 점검** | `git merge-tree` 로 현재 main 과 가상 합치기: fix/xs-paper-kill-dupkey(고유 1·main 앞섬 47) · fix/structure-lastgood-age(2·79) · fix/learn-call-wall-definition(1·3) · fix/redis-cost-security(1·13) — **4개 모두 충돌 없음** → 승인 시 HANDOFF 의 명령 1줄이 그대로 통한다 | git merge-tree --write-tree |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 12:25~12:28 — 시간 사이클: 실행 0/4(브라우저 대표 제어 9사이클째) · 게이트 341/0 · 확장 1(기각 기록 — 투자 도구 awesome 목록 3곳) · llms.txt·스토어 프로모션 문구 점검(변경 불필요)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| 점검 — llms_txt(대기열) | 라이브 llms.txt 에 개념 설명·시장 랭킹·티커 페이지·앱 3개·«Open dataset(CC BY 4.0)» 섹션까지 이미 있다 → 이번엔 바꿀 가치가 작고 운영 배포 승인만 하나 더 늘어 보류(콜월 정의 브랜치 54 합치기 뒤 «설명이 계산과 같다» 문장이 참이 된다) | https://www.signumhq.com/llms.txt |
+| 점검 — App Store promotionalText | 9/18 이후 «월 $50~99 자료 → 무료·가입 없음» 가치 설명으로 채워져 있다(교리: 스토어 첫 줄 = 가치 설명) → 이벤트 문구로 바꾸지 않는다 | asc-promo-text.py · 로그 9947행 |
+| 확장 — 기각 기록 | GitHub 투자 도구 awesome 목록 3곳(awesome-investing ★2,470 · awesome-stock-trading ★855 · Find My Moat 투자도구 디렉터리 ★97 — «옵션·파생» 칸에 Unusual Whales·OptionStrat) — **최근 닫힌 PR 6건 중 병합 0**(세 곳 모두), 디렉터리의 커뮤니티 제출 파일 0건·커밋 1회 → 외부 제출이 합쳐지지 않는 목록. channels.json(action rejected) 등록 — 다시 조사하지 않는다. 교훈: 등재 준비 전 «닫힌 PR 병합 비율»부터(apd-core 는 0~1일 병합) | GitHub API |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 13:25~13:27 — 시간 사이클: 실행 0/4(브라우저 대표 제어 10사이클째) · 게이트 341/0 · (6) 광고 비브라우저 경로 조사 → 대표 할 일 55(선택) · 확장 1(apple_news 게이트)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| (6) 광고 — 브라우저 없이 읽을 수 있나 | 저장소에 애플 광고 API 클라이언트·자격이 **없다**(ads-baseline.js 는 콘솔 스크린샷을 «눈으로» 읽어 넣는 검산기) → 콘솔 세션이 끊기면(③) 광고 점검이 멈추는 구조. 공식 문서: API 역할(읽기 전용 가능) 사용자 초대 → 계정 설정 «API» 탭에서 공개키 업로드 → clientId·teamId·keyId. 읽기 전용 자격이면 예산·입찰을 못 건드리니 안전선과도 맞다 → 대표 할 일 55(선택) | developer.apple.com Implementing OAuth for the Apple Ads API |
+| 확장 — apple_news(게이트) | Undercurrent RSS(영·한·일)를 받을 표면으로 조사: 새 발행자는 News Publisher 포털(Apple ID·약관·도메인 확인·편집 심사). RSS 신규 수용 여부는 2차 출처끼리 엇갈려 미확정 → 계정 게이트·우선순위 낮음으로 등록 | channels.json 147 |
+| 고정 ⑥ 스윕 | 브라우저 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 14:25~14:26 — 시간 사이클: 실행 0/4(브라우저 대표 제어 11사이클째) · 게이트 341/0 · 확장 1(telegram_kr 대표결정 게이트)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| 확장 — telegram_kr(대표결정) | 한국 투자정보 텔레그램 채널 약 1,200개(한국경제 2025-05) · 증권사 최대였던 키움 «미국주식 톡톡» 36,989명(2025-12-22) → 12-26 운영 중단, 보도상 배경 금감원 압박 · 집계 사이트 텔레모아 존재. 자체 채널 = 휴대폰 인증 계정(대표) + 규제 민감성 → «열지 여부»가 대표 결정. 열면 매일 데이터 카드 1장(예측·추천 없음) + 스마트링크, 청중 0 에서 시작(C형) | 한국경제·알파경제·인베스팅닷컴 기사 |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저·콘솔 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 15:25~15:28 — 시간 사이클: 실행 0/4(브라우저 대표 제어 12사이클째) · 게이트 341/0 · 클릭 재측정 · 확장 1(line_official_jp 계정 게이트)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| 클릭 재측정(ET 9/26 토 확정) | home 26 · bluesky 27(봇 계수 가능 채널) · bluesky_bip 8 · x_us 6 · geeknews 6 · threads 6 · medium 4 · quora_space 3 · note_kojin 3(첫날) · naver_blog 2 · mastodon 2(정지 계정의 옛 링크) · 3일: home 53 · bluesky 39 · bluesky_bip 12 · indiehackers 11 · x_us 10 | mkt-clicks.js |
+| 확장 — line_official_jp(계정 게이트) | 무료 コミュニケーションプラン 월 200통(초과 발송 불가), 2026-10 추가 메시지 요금 개정 예정 · 통수 = 친구 수 × 발송 수라 친구 0~6명 동안은 매일 1통도 무료 · 개설 = LINE Business ID·약관(대표) · C형(청중 0) — 일본 X·note 에서 친구 추가로 끌어와야 의미 | LY 공식 요금 페이지·2026 정리 글 |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저·콘솔 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 16:25~16:27 — 시간 사이클: 실행 0/4(브라우저 대표 제어 13사이클째) · 게이트 341/0 · 구조화 데이터(schema.org Dataset) 점검 7페이지 · 확장 없음(사유 기록)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 실행 | apd_core·macrumors·play_app_tags·github_pages — 브라우저 필요 → 미실행 | slot 첫 줄 경고 |
+| 구조화 데이터 점검(구글 데이터셋 요건: 필수 name·description 50~5000자 / 권장 license·creator·url·temporalCoverage·distribution·variableMeasured) | 데이터셋 사이트 3페이지(옵션 구조 랜딩 dist 8 · congress dist 2 · FINRA dist 1) **전부 ✓** · 우리 사이트 /en·ko/flow/NVDA(설명 900·872자) · /en/dark-pool(962) · /en/options-flow(605): 필수는 충족, **권장 distribution 없음**·티커 페이지는 **temporalCoverage 없음**. 판단: distribution 은 공개 API 를 내보이는 것이라 긁기 부하(Redis·벤더 비용)를 부르므로 넣지 않는다 · temporalCoverage(데이터 날짜)만 다음 웹 작업 때 후보(오류 아님, 저우선) | scratchpad ld-audit.py |
+| 확장 | 이번 사이클엔 새 표면을 추가하지 않았다 — 오늘 등록한 계정 게이트(tsukutta·app_village·apple_news·telegram_kr·line_official_jp)가 모두 대표 가입 대기라, 같은 종류를 더 쌓으면 대표 목록만 길어진다. 대신 기존 문(자사 웹·데이터셋)의 요건 점검으로 갈음 | — |
+| 고정 ⑥ 스윕 · (6) 광고 | 브라우저·콘솔 필요 → 미실행 | — |
+
+
+---
+
+## 2026-09-27 (KST) 16:5x~17:38 — 대표가 브라우저 권한 창 «차단» → 작업공간 회수 · **의회 거래 «16명·192건» 정정 7/7 완료(전부 공개 확인)** · 내장 디스크 2.8GB → 27GB(23GB 파일 외장 이동) · 도구 수리 3
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 브라우저 복귀 | 대표 «차단했다» → takeOverTaskSpace(1): ownership agentDelegatedToUser → **agent**. Yahoo 탭 권한 창 사라짐 | ego |
+| 정정 1 — X 본글 | 답글(영문 가중 258) | https://x.com/signumhq/status/2104118884794302867 · 내 답글 탭 확인 |
+| 정정 2 — X 답글(@unusual_whales 스레드) | 답글 | https://x.com/signumhq/status/2104119862033580117 · 내 답글 탭 확인 |
+| 정정 3 — X 일본 | @signumhq_jp 로 전환 후 일본어 답글(가중 220) | https://x.com/signumhq_jp/status/2104121187651706908 · 내 답글 탭 확인 |
+| 정정 4 — 블루스키 | 브라우저 없이 API 답글(bsky-publish --reply-to) | https://bsky.app/profile/signumhq.bsky.social/post/3mwidwyqubk2f · 공개 API: 부모 = 192건 글 |
+| 정정 5 — Threads(프로필 고정 글) | 자기 글 답글 → «답글» 탭이 아니라 원글 아래·프로필 스레드로 이어짐 | https://www.threads.com/@signumhq_official/post/DdyJ0RLmdOV · 비로그인 og:description 에 정정문 |
+| 정정 6 — Medium(프로필 고정 글) | 제목 «Congress stock-trade filings in 90 days: a correction to our count» + 맨 위 정정 문단 → Save and publish(repub). ⚠ 과정 사고: 제목을 세 번 클릭으로 선택하자 선택이 문단 경계를 넘어 첫 문단이 제목 블록에 합쳐짐(공개 전 초안 상태) → 제목 끝에 커서(Range)·Enter 분리 → 둘째 블록이 H3 로 남아 ⌘⌥1 로 일반 문단 복원 → 정정 문단 삽입. 첫 문단 원문 전부 보존 확인 | https://medium.com/@signum_hq/congress-filed-192-stock-trades-in-90-days-the-median-one-was-25-days-old-when-it-went-public-e954857333d9 · 비로그인 200·og:title 새 제목·정정 문단 |
+| 정정 7 — LinkedIn 아티클 | «글 수정» 버튼으로 진입 → 제목 textarea 안에서만 전체 선택·교체 → 본문 focus·Enter 로 맨 위 빈 문단(스냅샷 확인)·↑·정정 입력 → «변경» | https://www.linkedin.com/pulse/congress-filed-192-stock-trades-90-days-median-one-25-signum-hq-5qdcc/ · 비로그인 200·og:title 새 제목·정정 문단 |
+| 남은 것 | 이미지(Medium 본문 카드·LinkedIn 표지·X/블루스키 카드)에는 «192 trades · 16 members» 가 그대로 — 각 글의 정정 문장이 «아래 수치 = 부분집합»을 밝힌다. 수리 작업(원천·API 상한) 뒤 정확한 총계로 카드 교체 검토 | — |
+| 도구 수리 | ①x-reply.mjs **정정 모드**: handle 지정·계정 전환(부분 문자열 금지 규칙 유지)·자기 글이면 18만 팔로워 조건 면제·확인 탭도 handle 기준 ②threads-reply.mjs: 자기 글 답글은 답글 탭에 안 뜬다 → 원글·프로필 순으로 재확인(원글 자신 제외) ③mkt-plan: `correction` 채널(하루 12, 홍보 캡에 합산 안 함) | node --check |
+| **디스크(대표 지시)** | 내장 데이터 볼륨 99%(여유 **2.8GB**) → 원인: `~/Documents/Project/recipt/promo-cards/app/raw.mov.sb-b5b9db1a-K3uCon` **23.3GiB 파일 1개**(9/12 끝나지 않은 QuickTime 녹화의 안전저장 임시본·본파일 없음·lsof 사용 중 아님). 외장 `/Volumes/macportable/mac-offload/2026-09-27/recipt-promo-cards-app/` 로 복사→검증(크기·rsync 0·앞뒤 256MB SHA-256 동일)→원본 삭제 · 원자리 MOVED-TO-EXTERNAL.txt · 외장 MANIFEST.txt → **여유 27GB(86%)**. 손대지 않은 것: iOS 시뮬레이터 31GB(외장 noowners 에선 0대 인식 — 9/1 실측), Claude 앱 데이터 14GB(이 세션), DeviceSupport 5.6GB(외장 미검증), /private/tmp 워크트리(HANDOFF 명령 경로) | df · 메모리 external-drive-offload |
+
+## 2026-09-27 (KST) 17:4x — 의회 거래 «정정 수치»: 같은 창을 원천 전량으로 다시 셌다 (fix/congress-coverage 프리뷰)
+
+게시 수치 «90 days to Sept 23: 16 members, 192 trades (58 buys, 134 sells), median lag 25 days, 3 filings past 45 days»와
+**같은 창**(매매일 2026-06-25 ~ 2026-09-23)을, 원천을 페이지 넘겨 전부 받은 API 로 다시 셌다.
+
+| 항목 | 게시(부분집합) | **전량** |
+|---|---|---|
+| 의원 | 16명 | **51명** (상원 11 · 하원 40) |
+| 거래 | 192건 | **878건** (상원 141 · 하원 737) |
+| 매수 · 매도 | 58 · 134 | **385 · 493** |
+| 종목 | 60 | **367** |
+| 공시 지연 중앙값 | 25일 | **24일** (평균 25.8 · 최소 1 · 최대 67) |
+| 45일 넘긴 공시 | 3건 | **공시 6건 = 거래 79건 · 의원 5명** |
+
+- **근거**: 프리뷰 `stock2-c22ei2xga`(커밋 36a87bc1) API. 원천 수집 2026-09-27 08:24Z — 상원 3쪽(750행)·하원 7쪽(1,750행), 정렬 어긋남 0,
+  `coveredFrom` 2026-05-14(창 시작보다 앞). `days=94&limit=1000`(창 시작 06-25) 목록 count 367 = 받은 367, `complete:true` ·
+  367종목 모두 `limit=1000` 으로 받은 행 = 매수+매도, `complete:true`. 원자료 `/private/tmp/claude-501/…/scratchpad/m2/rows-94.json`(세션 스크래치).
+- **셈 규칙(게시 때와 같다)**: 행 1개 = 거래 1건 · 교환(exchange) 제외 · 의원은 표기 차이를 합침(앱 personKey — 이 창에서 59개 이름 → 51명,
+  합친 8쌍은 전부 같은 사람: «April Delaney/April McClain Delaney», «Thomas H. Kean/Thomas Kean» 등) · 지연 = 공시일 − 매매일 ·
+  중앙값은 표준(짝수면 가운데 둘 평균, 여기선 둘 다 24) · «45일 넘김» = 지연 > 45일.
+- **«9/23 까지 공시분» = «9/27 까지 공시분»**: 원천의 가장 최근 공시일이 9/23(상원 9/21) — 9/24~27 공시가 아직 0건이라 두 기준이 같은 값이다.
+- **45일 넘긴 6건**: 시스네로스(하원) 1건·50거래(지연 48~67일) · 블루멘설(상원) 1건·16거래(47~49) · 룰리(하원) 1건·6거래(46) ·
+  모스코위츠(하원) 1건·3거래(46) · 부즈먼(상원) 2건·4거래(46). 게시의 «3 filings»가 공시 단위였는지 행 단위였는지는 기록에 없다 — 전량으로는 공시 6건·행 79건이다.
+- **부분집합이 «매도 쏠림»을 과장했다**: 게시 매도 70%(134/192) vs 전량 56%(493/878). 중앙값(25→24일)만 거의 맞았다.
+- ⚠ **878행 중 99행은 같은 공시 안의 다른 행과 모든 필드가 같다**(예: 매코믹 GS 3행씩, 펠로시 BE 2행). 페이지를 넘기지 않는 운영(1쪽)에서도
+  같은 3중 행이 보여 **원천(FMP)의 행**이다 — 소유자(본인·배우자·공동)·자산 설명 필드를 우리가 옮기지 않아 같아 보이는 것으로 추정.
+  행 = 거래 규칙(게시 때와 같음)으로 878, 같은 행을 하나로 치면 779. 총계를 새로 쓸 땐 «878 disclosed transactions» 처럼 «공시 행» 기준임을 밝힌다.
+- **이 수치로 남은 일**: ① 정정 답글/문단에 «실제 총계» 한 줄을 더할지(추가 게시 = 게시 승인 규칙대로) ② 이미지 카드(192·16 그대로 — Medium 본문·LinkedIn 표지·X/블루스키)
+  교체 ③ 공개 데이터셋은 `fix/congress-coverage` 운영 반영 뒤 `node scripts/congress-dataset.mjs` 가 «커버리지: ✅ 전체»를 낼 때 재생성·업로드(HANDOFF §3 57).
+- **9/9 Quora 답변도 같은 부분집합이다**: «90일 191건·60종목 → 지연 중앙값 24.5일 · 45일 초과 7건»(위 9/9 (4) 항목) — 정정 목록 7곳에 없던 8번째.
+
+---
+
+
+---
+
+## 2026-09-27 (KST) 17:38~18:10 — 시간 사이클(브라우저 복귀 후 첫 사이클): **공개 데이터셋 정리 ✅ · apd-core 등재 PR ✅(#733)** · indexnow_ghpages ✅ · 헛배정 2개 게이트 · 게이트 341/0 · 구조 대조 11/12(META OI 시점)
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **github_pages ✅ — 토요일 파일 삭제** | GitHub 삭제 화면(/delete/main/…)에서 «Commit changes...» → 대화상자 «Commit changes» 로 `2026-09-19.json`·`.md` 삭제 → API 404(9/18 파일은 200 유지) | api.github.com contents |
+| **github_pages ✅ — 랜딩·README·의회 재생성 업로드(26개 파일)** | gh-dataset-index(휴장일 필터)로 index 재생성(7개 파일, 9/16~9/25) · README 정의(콜월 ±20%·감마플립 ±15%·핀존=맥스페인)·의회 «Coverage (read this first)»·빈 날짜 안내 · congress-dataset(커버리지 표기) 재생성: **API count 가 173 → 182 로 늘어** 문구도 «60 of 182» 로 맞춤 · 의원 페이지 20개(기존 16개 전부 포함 — 고아 없음) · github-upload 반영 확인. raw: README 커버리지·정의 ✓, index 9/19 참조 0 ✓, JSON coverage 182 ✓ · **Pages 재빌드 후**: 랜딩 9/19 참조 0 ✓, congress.html «this is a subset»·«60 of 182» ✓ | raw.githubusercontent · github.io |
+| **apd_core ✅ — PR #733** | 새 파일 화면의 «Fork this repository» 는 두 번 눌러도 포크가 안 생김 → 저장소 머리 «Fork» → /fork «Create fork»(master 만) → myjr0629-hue/apd-core 생성(API fork=true) · 포크에 `core/Finance/US-Options-Market-Structure-Daily.yml` 을 **붙여넣기**로 입력(편집기 41줄 = 원본 + 끝 줄바꿈) · 커밋 대화상자의 Copilot 자동 설명은 지우고 우리 메시지 · 새 브랜치(myjr0629-hue-patch-1) · 포크 간 비교(awesomedata:master ← patch-1) «Able to merge»·1 file · ⚠ PR 설명 칸에 저장소 PR 템플릿(38-Cloud YAML)이 미리 차 있어 첫 붙여넣기가 중간에 끼었다 → 값 대조가 막아 미제출 → 칸 안 전체 선택 후 교체·일치 확인 후 제출 · 관계 공개 문장 포함 · 자동 검사 0건(첫 기여 포크 워크플로는 관리자 승인 대기) | https://github.com/awesomedata/apd-core/pull/733 |
+| indexnow_ghpages ✅ | 첫 실행이 기본 경로 members.json 을 읽어 5개만 → 새 members.json 경로로 25개 URL 200 접수. 주간 캡 2/1(9/23 기록 포함) — 실제로 바뀐 페이지 통보라 유지, 기록만 | indexnow-ghpages.mjs |
+| **도구 신호 — 헛배정 2개 게이트** | macrumors: 포럼 규칙상 «새 버전·기능이 있을 때만» 기존 스레드에 이어쓰기(범프 = 밴) → gate 조건 · play_app_tags: 9/19 설정 뒤 주간 변경 근거 없음 → gate 주기(10/19 까지, 월 1회) | channels.json |
+| 다음 사이클 배정 | naver_search_advisor · llms_txt · naver_kin · threads_jp (+ quora · wsb_earnings_thread · reddit) | slot |
+
+
+---
+
+## 2026-09-27 (KST) 18:25~18:55 — 시간 사이클: threads_jp ✅ · WSB 주간 실적 스레드 답글 ✅(reddit 1/3 UTC) · **네이버 서치어드바이저: 수집 0 발견 → 한국어 13개 수집 요청 접수** · llms_txt 게이트 · 도구 수리 1(reddit-comment 검증) · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **threads_jp ✅(계정 합계 2/2)** | 「今週の米国株、日本時間でいつ何が出るか」 — 9/30 21:30 PCE・GDP確報値 / 10/1 05:00頃 マイクロン / 10/1 23:00 ISM / 10/2 早朝 ナイキ / 10/2 21:30 雇用統計 + 金曜終値時点 10/2満期 MU ±8.5%·NKE ±8%(予想ではない) + 決算カレンダー 가치 + from=threads_jp + #米国株 · 304자 · 이미지 = 일정 카드+앱 決算カレンダー 조각 | https://www.threads.com/@signumhq_official/post/DdySkfBGQtp · 비로그인 og:description·og:image |
+| **wsb_earnings_thread ✅(reddit 1/3 UTC)** | WSB 공식 «Weekly Earnings Thread Sep 28 - Oct 2»(9/25 17:01Z, 댓글 80) 윗댓글이 «MU is literally the only thing that matters here»(23점)·«MU MU MU» 류 → 그 댓글에 데이터 답글: 금요일 종가 $1,082.28 · 10/2 $1,080 스트래들 중간값 ≈$92 = ±8.5%(목·금 일반 거래 포함) · 최근 4번 다음 날 -2.8/+10.2/-3.8/+15.7%(4번 모두 EPS 상회) · 링크·앱명 0 · 방향 아님 | https://www.reddit.com/r/wallstreetbets/comments/1wq1q7n/weekly_earnings_thread_sep_28_oct_2_2026/pcc4q8s/ · info API(삭제 표시 없음)·스레드 목록 안 깊이 1 |
+| 도구 수리 — reddit-comment 검증 | 부모가 «댓글»(t1_)이면 응답에 link 가 없어 댓글 id 로 스레드를 찾다 total 0 → «안 보인다» 오판(실제 게시됨). 부모 댓글의 link_id 를 /api/info.json 으로 조회해 원글 스레드에서 확인하도록 | node --check |
+| **naver_search_advisor ✅ — 발견** | 사이트 상태(인증서·HTTPS·사이트맵) 정상이지만 **수집 현황 그래프가 6/30~9/27 내내 완료·제한 0** · 콘텐츠 노출/클릭(30일, 9/26 갱신) **노출 3·클릭 0**(검색어 «감마익스포져»·«감마 익스포져란»·«미국 주식 hq», 페이지 / · /ko). robots.txt 는 앱·관리 경로만 막고 Yeti UA 로 /ko·/ko/flow/NVDA·sitemap(1.09MB) 전부 200 → 기술 차단 아님, 신규 사이트 수집 우선순위 문제로 판단 | searchadvisor 리포트 |
+| **naver_search_advisor ✅ — 수집 요청 13건** | 요청 → 웹 페이지 수집에 전체 URL 로 13개: /ko · /ko/dark-pool · /ko/options-flow · /ko/tickers · /ko/learn/max-pain · gamma-exposure · dark-pool · /ko/flow/NVDA·TSLA·MU·AAPL · /ko/undercurrent · /ko/wim (전부 Yeti 200 확인 후). 콜월 설명은 정의 수리(54) 반영 뒤로 미룸 · 요청 내역 표 13건(10+3, 2쪽) 18:51:14~18:52:04 확인 | https://searchadvisor.naver.com/console/site/request/crawl?site=https%3A%2F%2Fwww.signumhq.com |
+| llms_txt(게이트) | 지금 llms.txt 의 «개념 설명은 실제 계산과 같다»는 54 합치기 전엔 콜월에서 거짓 → 54 합친 뒤 확인·IndexNow 로 조건 게이트 | channels.json |
+| naver_kin | 다음 사이클로(한국 일요일 저녁 · 건당 0.13 채널이라 질문을 골라 제대로) | — |
+
+
+---
+
+## 2026-09-27 (KST) 19:25~19:42 — 시간 사이클: 게시 0 — **Quora 세션 만료 발견(대표 할 일 56)** · 지식iN·레딧은 «맞는 질문·스레드 없음»(억지 답변 안 함) · WSB 주간 스레드 10/2 까지 게이트 · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| wsb_earnings_thread(게이트) | 이번 주 스레드(Sep 28 - Oct 2)에 18:4x 답글 완료 → 같은 스레드 재댓글은 도배 → 다음 주간 스레드(10/2 금 17:01 UTC)까지 게이트 | channels.json |
+| naver_kin — 맞는 질문 없음 | 검색(마이크론 실적 발표·미국 고용지표 발표 시간·미국 PCE 발표·맥스페인·미국주식 옵션 만기, 최신순) = 전부 답변 2~8개 · «이번 마이크론 실적발표 어떨까요»는 예측 요청이라 규칙상 제외 · 주식 분야(dirId 40102) 최신 30건 = 국내주식·ISA·배당·계좌 질문, 미국주식 데이터 질문 0 → 관련 없는 질문에 앱 얘기를 끼우지 않는다. 한국 낮(월)에 재탐색 | kin.naver.com |
+| **quora — 세션 만료(대표 할 일 56)** | 검색 주소가 로그인 화면으로 · /notifications → `LoginRequired` 리다이렉트 확인(9/27 02:4x 스페이스 게시 땐 로그인). 재로그인 = «Continue with Google»(contact@) + 약관 문구 → 안전선 밖 → quora·quora_space·quora_jp·quora_de·quora_pin·quora_spaces_share 로그인 게이트(이전 게이트는 gate_prev 에 보존) | quora.com |
+| reddit — 맞는 스레드 없음 | 기준(게시 3시간 안·댓글 50 미만·비고정) r/stocks·thetagang·wallstreetbets·StockMarketChat·investing_discussion·SecurityAnalysis·Semiconductors → 1건(r/stocks «Why is Uber and Vistra Corp being hyped up so much?» 0.4h·댓글 4) — 사업 펀더멘털 질문이라 우리 데이터로 검증된 답을 못 준다 → 미국 낮(한국 23시 이후)에 재탐색. 오늘(UTC) 1/3 | reddit new.json |
+| 확장 | 이번 사이클 없음(로그인 만료 확인·게이트 정리로 갈음) | — |
+
+
+---
+
+## 2026-09-27 (KST) 20:25~20:35 — 시간 사이클: **naver_kin ✅(공개 확인)** · reddit 맞는 스레드 없음(다음 목표 = WSB «What Are Your Moves Tomorrow», 한국 월 05시 게시 직후) · 도구 수리 1(키우기 칸 게이트 표시) · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **naver_kin ✅** | 최신순 검색(미국주식·나스닥·마이크론·미국 증시 일정·옵션 만기)에서 답변 1개짜리 설명형 질문 «S&P500선물 이건 뭔가요?»(9/6, SPY 는 해봤는데 선물은 뭐가 다른지·초보 가능?) — 기존 답(개념 교정)에 없는 숫자로 보탬: E-mini 1pt=$50(지수 7,000 → 1계약 ≈ 35만 달러)·Micro $5 · 증거금·일일정산·마진콜 · 3/6/9/12월 셋째 금요일 만기·롤오버 · 한국 시간 월 07시~토 06시(매일 06~07시 휴장, 서머타임 끝나면 1시간 늦게) · «개장 전 지표»로의 쓰임(반대로 가는 날도 흔함) · 앱 1회(제작자 밝힘) · 무링크 · 권유 없음 | https://kin.naver.com/qna/detail.naver?dirId=40102&docId=495051403&answerNo=2 · 발행기 «공개 확인(로그인 없이): true» |
+| reddit — 맞는 스레드 없음 | 전체 검색(micron earnings·MU earnings·PCE this week·jobs report friday, 오늘·6시간·댓글 60 미만) → r/trading212(주제 밖)·r/Metricshour(소형 서브 자동 미리보기) 뿐. 미국 일요일 아침이라 조용 → 다음 목표: WSB «What Are Your Moves Tomorrow, September 28»(미국 일 16:00 = 한국 월 05:00 게시) 직후 1~2시간 · 오늘(UTC) 1/3 | reddit search.json |
+| 도구 수리 — 키우기 칸 게이트 | «키우기» 칸이 channels.json 게이트를 안 봐서 indiehackers 가 «오늘 0/1 가능»으로 떴다(실제로는 로그인 게이트 ㊹) → 게이트면 «게이트(종류 — 여는 사람)»으로 표시 | node --check · slot |
+
+
+---
+
+## 2026-09-27 (KST) 21:25~21:33 — 시간 사이클: **x_reply ✅ 1/3(@CNBC 620만)** · reddit 대기(목표 월 05시 WSB moves 스레드) · naver_kin 1시간 전 완료 · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 후보 탐색 | 대형 계정 8곳 최근 8시간(@KobeissiLetter·unusual_whales·Barchart·StockMKTNewz·CNBC·zerohedge·LizAnnSonders·DeItaone) → 우리 검증 데이터와 맞는 글 = @CNBC «Debt-hungry AI companies face increased risk as bond yields spike»(1.3시간 전) | x.com 프로필 |
+| **x_reply ✅** | 금리 쪽 규모: 10년물 금요일 종가 5.17%·주간 +16bp·전날 5.18% = 2007년 이후 최고 종가 / 신용은 아직: HY OAS 2.80%(9/24)·1년 범위 2.60~3.46% 의 아래쪽 절반 — «금리는 튀었는데 스프레드는 안 따라왔다» · 가중 271 · 무링크 · 계정 @signumhq_jp → @signumhq 자동 전환(정정 모드 수리분) · 루트 팔로워 620만(18만 조건 충족) | https://x.com/signumhq/status/2104187417632846216 · syndication: user signumhq·in_reply_to CNBC 2104167347208560854 |
+| reddit | 미국 일요일 오전 — 다음 목표 WSB «What Are Your Moves Tomorrow»(한국 월 05:00 게시) 직후 · 오늘(UTC) 1/3 | — |
+
+
+---
+
+## 2026-09-27 (KST) 22:32~00:2x — 시간 사이클 + **대표 지시 «유입 극대화 실측·연구»**: x_reply ✅ 2/3 · reddit ✅ r/bonds(UTC 2/3) · 지식iN 맞는 질문 없음 · 광고 콘솔 로그아웃(③) · **클릭 두 배·설치 그대로 실측** · 도구 수리 2 · 리딤 방침 저장 · 게이트 341/0
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| (2) 만기 게이트 | ✅ 두 구현 일치 | audit-expiration-selection --live |
+| **x_reply ✅(2/3)** | @StockMKTNewz(110만) «2026 뱅가드 섹터 ETF 상위 3» 글에 3분기만 떼어 본 값: 6/30→9/25 종가(나스닥 historical 재확인) XLE +16.8 · XLV +7.6 · XLK +3.0 · XLU −12.9(11개 중 꼴찌) + «유틸리티 = 채권 대용 섹터, 10년물 +73bp 분기» · 가중 241 · 무링크 | https://x.com/signumhq/status/2104205228019191917 · syndication: user signumhq·in_reply_to StockMKTNewz 2104187051998372309 |
+| **reddit ✅(UTC 2/3)** | r/bonds(7.1만, 규칙: 자기홍보 영구밴·AI 조항 없음) «Bond yield flying across the globe»(0.4시간·댓글 7)에 미국 쪽 곡선 — 재무부 par 곡선 CSV 재확인: 10년 5.17%(목 5.18% = 2007-07-06 이후 최고 종가, 2008~2025 5.18 이상 0일) · 주간 2y +5·10y +16·30y +15bp · 10s-2s 25→36bp · 8/24 이후는 2y +57 vs 10y +47·30y +26(첫 구간은 연준 기대, 가팔라짐은 지난주부터) · 무링크·무앱명 | https://www.reddit.com/comments/1wrkv39/comment/pcde8jt/ · 발행기 검증 found·not removed |
+| naver_kin — 맞는 질문 없음 | 최신순 2회 스캔(주제어 15개 + 미국주식류 12개, 답변 0~1 필터): «미국주식 결제일»(답 5·채택 있음, 추석 연휴 결제 설명 완비) · «20대 투자 공부»(채택 있음) · «나스닥 지수 투자»(9시간 전 장문 답이 QQQ/QQQM·국내 ETF·세금·(H) 다 다룸) → 여섯 번째 답은 가치 없음. 답 0 은 태블릿·마인크래프트 등 주제 밖 | kin-candidates12/13.json |
+| (6) 광고 | app-ads.apple.com → idmsa 로그인 화면(세션 만료 그대로, ③) | — |
+| **대표 지시 — 유입 실측** | 오늘 클릭 13(ET 날짜 = 한국 13시 시작) · 9/9~15 하루 42 → 9/20~26 하루 93 · **신규 설치(RevenueCat) 5.6 → 5.4 그대로** · 7일 기기: PC 78%·블루스키 107 중 폰 4 · 3일 폰 클릭: home 17·threads 5/6·indiehackers 3/11·블루스키 0/39·X 0/10 · 설치 국가 미국 42·한국 33·일본 8 · Play 28일 취득 16(Play 검색 0)·등록정보 방문 43 · 앱스토어 한국 얇은 문 1위 4개·미국 premarket 5위 | research/INFLOW-MAX-2026-09-27.md 1절 |
+| **대표 지시 — 외부 연구 3건** | ① 비교 앱: 종목별 자동 페이지 검색이 최강(OptionCharts X 627명·구글 «max pain» 2위) · 설치는 «웹으로 못 하는 행동»에 붙음(Autopilot 1M+ vs Unusual Whales 50K+) ② PC→폰: Play 웹 «내 폰에 설치»·QR 3cm+·가림막 금지·Smart App Banner ③ 코드 배포처 원문 확인(MacRumors 코드 포럼·r/droidappshowcase·r/SingleUseCodes·X 추첨 ✓ / r/ios·r/apple·금융 서브 ✗) | 같은 문서 3절 · REDEEM-CODES.md K절 |
+| **발견 — 종목 페이지 묵은 값** | 6,768쪽 중 드물게 오는 페이지는 첫 요청(구글봇)에 묵은 값: ja SPY 9/18 · ja AAPL 9/17 · ko SPY 9/22 → 1분 뒤 재요청 9/25(Next 데이터 캐시 SWR) · /en/rankings/maxpain-gap 에 한국어 설명 | 작업 칩 «Fix stale data on rarely visited ticker pages» |
+| **리딤 대표 방침 저장** | «뿌린다·플랫폼별 적당량·얻는 기분·누르면 적용 + 직접 입력 병행» → J절(설계) · K절(배포처·법) · 메모리 | REDEEM-CODES.md |
+| 도구 수리 2 | ① 키우기 칸이 계정 합계 소진을 «2/3»으로 보여 한 편 더 되는 듯 읽혔다 → «계정 합계 3/3(자정 초기화)» ② **키우기 칸을 «3일 폰 클릭» 순으로** — mkt-clicks.js 가 d3phone 을 캐시에 싣고, slot 이 «클릭은 있는데 폰 0» 채널을 경고 | node --check · slot 실출력 |
+| 개선 | 채널 성과는 «폰 클릭 + RevenueCat 신규»로 본다. 전체 클릭 증가를 성과로 쓰지 않는다(메모리 clicks-doubled-installs-flat) | — |
+
+
+---
+
+## 2026-09-28 (KST) 21:36~ — **사이클 21시간 공백 → 재개** (진행 중, 끝나면 이 절에 이어 쓴다)
+- 공백: 9/28 00:25 ~ 21:36 KST 크론 `6a0a351d` 가 목록엔 있었는데 한 번도 안 돌았다 → 오늘 게시 0 을 대표가 발견. 맥은 잠들지 않았다(pmset «sleep prevented», 화면만 23:09~21:34 꺼짐 — 9/27 에는 화면이 꺼진 채로도 크론이 돌았다). 앱 예약 작업 3개도 lastRunAt 9/26 23:52 에서 멈춤 → **멈춘 곳은 Claude 앱 안의 스케줄러**.
+- 조치: 크론 재생성 `c1b0fb5e`(매시 :13) · **앱 밖 감시 장치** launchd `com.signumhq.cycle-watchdog`(30분마다 OUTREACH-LOG.md 수정 시각 확인, 2시간 넘으면 맥 알림+소리 — `scripts/cycle-watchdog.sh`, 첫 실행에서 «STALE 1335m» 잡음)
+- 재개 후 발행: threads ✅ https://www.threads.com/@signumhq_official/post/Dd1NfVrmSco · x_us ✅ https://x.com/signumhq/status/2104552780237328471 · bluesky_bip ✅ https://bsky.app/profile/signumhq.bsky.social/post/3mwldsxfmey2z
+- 이어서 발행(21:49~22:05): reddit ✅ r/Economics «Bond selloff resumes…»(482점)에 곡선 데이터 — 오늘 2y +5bp·10y +4bp(CNBC 08:41) vs 지난주 10y +16·2y +5 → «오늘은 연준 기대가 움직인다» https://www.reddit.com/comments/1ws5xcb/comment/pcke8aw/ · x_reply ✅ @elerianm(«연준에 기대는 정책 조합») 같은 곡선 데이터 https://x.com/signumhq/status/2104554662120894742 · pinterest ✅ «10-Year Treasury Yield at a 2007 High: How to Read the 2s10s Curve» https://www.pinterest.com/pin/1102115340099164372/ (링크 from=pinterest 확인) · threads_jp ✅ https://www.threads.com/@signumhq_official/post/Dd1PJOBGbZI · reddit ✅ r/stocks 월요일 스레드에 주간 일정(ET)·MU ±8.5%·NKE ±8%(금요일 종가 스트래들) https://www.reddit.com/comments/1wsbc89/comment/pckgd34/ (새 계정 속도 제한 RATELIMIT 3회 → 10분 뒤 성공) · bluesky ✅ 3분기 업종 성적표 카드 https://bsky.app/profile/signumhq.bsky.social/post/3mwlemu7lm72n
+- 게이트: MU 구조 대조 ✗(맥스페인 970 vs 나스닥 995·풋콜 0.76 vs 1.56 — OI 시점 차이) → MU 흐름 화면·맥스페인 미게시, 대시보드·가디언 화면으로 대체. 10년물 5.22% 는 대시보드·CNBC 두 곳 대조.
+- 발견 2(작업 칩): ① 종목 페이지 첫 방문 묵은 값(대표가 칩 시작) ② **UC 월요일 아침판이 «Stocks are modestly higher today — NASDAQ +0.48%»·10Y 5.17%(−1bp)** = 금요일 값(실제 선물 −0.4%·10Y 5.22%) → 칩 «Fix Undercurrent Monday edition showing Friday as today» · rss: en 피드 최신 9/28 인데 ko/ja 는 9/25 에 멈춤(번역 계열 의심)
+- 대표 지시 기록: 메모리 `ceo-directives-2026-09-28-never-idle`(원문) · 리딤 별도 보고서 `research/REDEEM-PLAN-2026-09-28.md`
+- 이어서(22:03~22:12): x_reply ✅ @RyanDetrick(«신용 스프레드는 걱정 안 한다»)에 하이일드 OAS 2.80%(9/24, 1년 43분위, 20거래일 +17bp — «수준은 조용, 방향은 돌아섰다») https://x.com/signumhq/status/2104557924999991418 · **medium ✅** «Micron Reports Wednesday: Options Price a ±8.5% Move…»(스트래들 $92.54=콜 47.79+풋 44.75 · 지난 4번 −2.8/+10.2/−3.8/+15.7 · 평균 8.1% · 주간 일정 · AI 지원 표시) https://medium.com/@signum_hq/micron-reports-wednesday-options-price-a-8-5-move-here-is-what-the-last-four-reports-did-faeb85c6787e (비로그인 200·링크·표시·이미지) · **naver_blog ✅** «마이크론 실적 발표 10월 1일 새벽(한국시간) — 옵션이 반영한 변동폭 ±8.5%, 지난 4번은?» https://blog.naver.com/donneum/224425250485 (비로그인 제목·이미지·링크) · 지식iN: 최근 질문 99건 중 맞는 것 없음(렌트카·교통사고 등)
+- 도구 수리: medium-post.mjs — 확정 뒤 주소창이 /submission 에 머문 채 이미 발행돼 있었는데 «실패»로 멈췄다 → /p/<id> 비로그인 리다이렉트로 판정
+- 정정: 조사 보고서 4절 3번 «웹 → 앱 배너»는 **이미 있다** — iOS Smart App Banner(/en·/ko → SIGNUM, /flow·/undercurrent → UC, /wim → WIM) + 안드로이드 manifest related_applications(com.signumhq.app, prefer=true). 남은 것은 맥락 CTA·코드 블록
+- 22:16 linkedin ✅ «10년물 5.22% — 지난주 장기물 주도 / 오늘 단기물 동반 / 신용은 아직» https://www.linkedin.com/feed/update/urn:li:activity:7510326281868197888/ (비로그인 200·링크) — 첫 시도는 «₩0에 Premium 써보기» 권유 모달이 작성기를 가려 실패 → 닫기(X)로만 닫고 재시도 성공 → linkedin-post.mjs 에 권유 모달 닫기 추가(체험 버튼은 누르지 않음)
+- **구조 게이트 월요일 22:17**: NVDA ✗ — 우리 값 나이 **57시간**(맥스페인 220 vs 222.5 · 콜월 250 vs 227.5 · OI 합 46.9만 vs 71.5만) = 월요일 OI 갱신 미반영. MU ✗(같은 종류). HANDOFF ㊲·58(구조 신선도·완결성 가드) 병합 전까지 옵션 구조 수치는 게시하지 않는다 — 가격·금리만 쓴다
+- NVDA 자사주 매입 확대($150B 증액·총 $235B)는 SEC 8-K 가 아직 없다(EDGAR 최근 = Form 4) → 1차 출처 확인 전엔 소재로 쓰지 않는다
+- 22:19~22:22: x_reply ✅ @Reuters(«외교 대신 원유만 비싸졌다»)에 원유 +2.8%·2년물 +5bp·3분기 에너지 1위(XLE +16.8%)/유틸리티 꼴찌(−12.9%) https://x.com/signumhq/status/2104561730508742734 (x_reply 3/3) · **x_us ✅ #2** 마이크론 카드(±8.5% · 지난 4번) https://x.com/signumhq/status/2104562290150490222 (x 계정 2/2)
+- WIM 홈도 «US 10Y 5.17%»(전일 FRED) — 오늘 5.22% 와 어긋나 게시 이미지에서 제외(UC 작업 칩 범위에 WIM 포함). GeekNews 는 «프로젝트당 1회»·주 1회 소진(9/24) → WIM(별도 앱) Show GN 은 10/1 이후 후보
+- **재개 후 46분 합계: 게시 15**(threads·threads_jp·x_us 2·x_reply 3·bluesky_bip·bluesky·reddit 2·pinterest·medium·naver_blog·linkedin) 전부 공개 확인. 남은 오늘 자리: bluesky 1 · naver_blog 2 · reddit 1(월 05시 WSB «moves» 스레드용)
+
+## 2026-09-28 (KST) 23:36~ — **크론이 또 안 돌았다(23:13) → 진짜 원인 확정·해소**
+- 9/27 23:16 백그라운드로 넘어간 Play 보고서 스크립트(ego-browser, PID 6020)가 TERM 에도 안 죽고 24시간 «진행 중» → 세션이 한가해지지 않아 크론이 안 불렸다(새 크론 c1b0fb5e 도 23:13 무실행). 23:39 `kill -9` 즉시 작업 «completed» 알림. 고아 ego 프로세스 2개(9/21·9/27)도 정리.
+- 재발 방지: cycle-watchdog.sh 가 45분 넘은 «ego-browser nodejs» 를 -9 로 정리(로그 KILLED) · 메모리 `hung-background-task-blocks-session-cron`
+- 23:3x~: bluesky ✅ #3(계정 3/3) 장중 10:38 ET — 10년물 5.24%(+6bp)·나스닥 −0.9%·NVDA +2.6%(엔비디아 뉴스룸 «$150 Billion Share Repurchase Authorization Increase» 1차 출처 확인)·MU −3.5% https://bsky.app/profile/signumhq.bsky.social/post/3mwlk62subi2f · naver_blog ✅ #2 «미국 10년물 국채금리 5.24% — 2007년 이후 최고 수준, 오늘은 무엇이 달랐나»(지난주 장기물 주도 vs 오늘 2년물 동반·유틸리티/에너지 3분기) https://blog.naver.com/donneum/224425329563 · 리딤: 대표 «내일 하도록할게» — 애플은 내가 API 발급 가능(«이 조건으로 발급해» 필요), 구글은 약관 1회(대표) 뒤 내가 발급
+
+## 2026-09-28 (KST) 23:42~ — 시간 사이클(**크론 자동 실행 복구 확인** — 막혀 있던 23:13 몫이 세션이 한가해지자 23:42 에 불렸다): bluesky_reply ✅ · threads_reply ✅ · linkedin_articles ✅ · 지식iN 맞는 질문 없음 → 창 조정 · 게이트 통과
+
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| (2) 만기 게이트 | ✅ | audit --live |
+| **bluesky_reply ✅** | @carlquintanilla(28.5만, 6분 전 «Wolfe: 적자·금리 악순환 우려»)에 무링크: 10년물 5.24%(+6bp, 목 5.18% 종가 = 2007-07 이후 최고)·지난주 장기물 주도 vs 오늘 2년물 동반·원유 +2% | https://bsky.app/profile/signumhq.bsky.social/post/3mwlkgwm5bf2i (공개 API: 대상 글 연결) |
+| **threads_reply ✅** | @cnbc «Which 10-year yield level will really start to hit stocks?»(18분 전)에 무링크: 3분기 10년물 +73bp 동안 유틸리티 −12.9% 꼴찌·S&P +3.3% · 오늘 나스닥 −0.9% vs 다우 −0.4% + 장중 대시보드 화면 | https://www.threads.com/@signumhq_official/post/Dd1bm-LmSsv (답글 탭·비로그인 og) |
+| **linkedin_articles ✅** | «The 10-Year Treasury Yield Hit 5.24%. Three Things to Separate: the Curve, Oil and Credit» 10문단 · 커버 = 10Y 5.24% 카드 · AI 지원 표시 | https://www.linkedin.com/pulse/10-year-treasury-yield-hit-524-three-things-separate-curve-signum-hq-z5brc/ (비로그인 제목·첫 문단·링크·og 이미지) |
+| naver_kin — 없음 | 오늘 이슈 검색어 9개 스캔(후보 73·최근 5) — 전부 오래됐거나 주제 밖 · 오늘 저녁 세 번째 «없음» → **도구 수리: 배정 창 7~24 → 8~22**(밤 헛배정 제거) | kin-candidates15.json |
+| (6) 광고 | 콘솔 로그아웃·결제 거절 메일(대표 61) → 미실행 | — |
+
+## 2026-09-29 (KST) 00:0x — 대표 지시 처리 + 새 날짜 첫 게시
+- 대표 지시(원문 메모리 보존): Redis 개선은 브랜치로, 기능·성능 저하 «전혀» 불가 → 칩 «Cut Redis dependency on a branch with zero regression»(대표 시작) · 설치 트래픽 기하급수 → 칩 «Add share buttons to app screens for a referral loop»(대표 시작 — 앱이 웹 화면을 띄우므로 빌드 없이 공유 고리)
+- 랭킹 «장 마감 후» 조사(대표 요청): run=all 이면 다크풀 날짜(9/25) ≠ 진행 중 옵션 세션(9/28) → 숨김 / 단독 run 이면 1,820종목 정상 — 칩 «Fix after-close rankings hidden by a session date gate»(대표 시작)
+- threads ✅(새 날짜 1/2) 11:00 ET 장중: 10년물 5.27%(+8bp)·나스닥 −1.1%·NVDA +1.9%(1차 출처: 엔비디아 뉴스룸)·MU −3.8%·원유 +2.9%·금 −4.0% + 장중 가디언 화면 https://www.threads.com/@signumhq_official/post/Dd1drYDGWDI (비로그인 og 확인) — 발행은 새 래퍼 `scripts/ego-run.sh` 로 처음 실행(정상)
+- 워치리스트(대표 질문, «작업 말고 보고») — 실측: 웹엔 이미 /watchlist(무료 5·pro 50·elite 999, 등급=Supabase user_profiles)가 있고 앱 화면(app-view)엔 없음 · 앱 PRO 판정은 RevenueCat(useProStatus, entitlement «pro») → 앱 전용 워치리스트는 RevenueCat 기준으로 따로 두는 게 맞다
+
+## 2026-09-29 (KST) 00:12~00:2x — 시간 사이클(실행 4: bluesky_bip ✅ · pinterest ✅ · medium ✅ · reddit 보류(UTC 9/28 마지막 1자리 = 05시 WSB «moves» 스레드용)) · 게이트 통과
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_bip ✅** | 제작기: «발행 루프 21시간 침묵, 에러 없음 → 원인 = 멈춘 브라우저 스크립트가 SIGTERM 무시·스케줄러 대기 → 수리 = 모든 스크립트 하드 타임아웃 + 앱 밖 감시(75분)» + 카드(21h) | https://bsky.app/profile/signumhq.bsky.social/post/3mwlm5jyowr2o (공개 API: 링크·태그·이미지) |
+| **pinterest ✅** | «VIX vs Fear & Greed Index: What Each Measures and Why They Disagree» — 공포탐욕 36·VIX ~16(금 14.87 = 1년 하위 8%) + 장중 가디언 화면 | https://www.pinterest.com/pin/1102115340099174186/ |
+| **medium ✅** | «The 10-Year Treasury Yield Hit 5.27%. Not Every Rise in Yields Is the Same Story»(11:00 ET 수치·곡선·업종·신용 9/24 날짜 명시·NVDA 1차 출처) | https://medium.com/@signum_hq/the-10-year-treasury-yield-hit-5-27-not-every-rise-in-yields-is-the-same-story-3b96f6fadebe (비로그인 200·제목·이미지·링크·AI 표시 — **수리한 발행 판정이 끝까지 정상**) |
+| 확인 못 함 | 가디언 화면 신용 2.93%(20일 +0.33·1년 70분위)로 바뀜 — FRED 가 이 컴퓨터에서 응답 없음(HTTP 000) → 새 값은 원자료 확인 전이라 게시에 안 씀 | — |
+| 개선 | 모든 발행을 `scripts/ego-run.sh`(하드 타임아웃)로 실행 — 이번 사이클 3건 정상 · 워치리스트 계획(대표 지시) 조사 2건 진행 중 | — |
+- 00:2x **x_us ✅**(오늘 1/2) 엔비디아 자사주 매입 — 1차 출처(엔비디아 뉴스룸 원문: «authorized an additional $150 billion … total remaining amount authorized to $235 billion … through fiscal year 2028»·«largest share repurchase authorization increase in history»는 회사 주장으로 표기) · 시총 $5.544T(나스닥) 대비 ≈4.2% · NVDA +2.2% vs 나스닥 −1.0%(11:20 ET, CNBC) + 카드 https://x.com/signumhq/status/2104592242396799301 (syndication: 이미지·링크 from=x_us)
+- **개선 1건**: make-x-card.py 제목이 폰 목업에 가려 잘리던 문제(오늘 3번: «LINK CLICKS 2.2×»·«10-YEAR YIELD»·«NVDA BUYBACK») → 왼쪽 칸 폭에 맞춰 글자 자동 축소(최소 60px) · 픽셀 검사로 폰 앞 20px 구간 겹침 0 확인
+- 00:2x bluesky_reply ✅ @carlquintanilla «The ten-year yield blasts thru 5.25%»에 무링크: 2007년 par 곡선 종가 고점 5.26%(2007-06-12, 재무부 CSV 확인)·목 5.18% = 2007-07 이후 최고 → «오늘 5.26% 이상 마감이면 2007년 고점과 같거나 넘는다» https://bsky.app/profile/signumhq.bsky.social/post/3mwlmlsekux2f
+- 00:3x threads_reply ✅ @wsj «Six investing pros … surging yields»에 무링크: 2007 종가 고점 5.26%(2007-06-12) vs 오늘 5.25~5.27% · 지난주 장기물 주도 vs 오늘 2년물 동반(연준 재평가) + 장중 대시보드 https://www.threads.com/@signumhq_official/post/Dd1gHaaGVpj
+- 00:4x **linkedin ✅**(오늘 1/1) 엔비디아 자사주(1차 출처 원문·시총 대비 4.2%·«승인액은 상한이지 일정이 아니다» 설명) + NVDA 카드 https://www.linkedin.com/feed/update/urn:li:activity:7510361725515231232/ (비로그인 200·링크) · 워치리스트 화면 시안 대표에게 제시(9/28 실측 레벨: MU 900/970/1,100 · NVDA 200/220/250 · AAPL 330/332.5/345)
+- **확장(발굴)**: 애플 공식 원문 확인 — 맞춤 제품 페이지(CPP) **앱당 70개**(옛 기록 35) · 키워드 지정 시 그 검색어의 일반 검색 결과에 기본 페이지 대신 노출 · 키워드 조합은 페이지마다 달라야 함 → 한국 «얇은 문» 검색어(미국장 프리마켓·실적발표 일정 등 1위군)와 미국 premarket(5위) 주변으로 CPP 를 늘리는 것이 폰→설치 직행 표면. apple_cpp 주간 과제에서 검색어별 페이지 확장(스크린샷은 그 검색 의도에 맞게)
+
+## 2026-09-29 (KST) 01:02~01:1x — 시간 사이클(실행 4: x_us ✅ · bluesky ✅ · linkedin_articles ✅ · reddit 보류(UTC 9/28 마지막 자리 = 05시 WSB)) · 엔진 점검 정상(멈춘 스크립트 0·감시 ok) · 게이트 통과
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_us ✅**(2/2) | 마이크론 −3.6%, 실적 이틀 전 — 10/2 만기 1,040 스트래들 **실시간 호가 중간값** $83.92(12:04 ET, 나스닥 체인 bid/ask) = ±8.0% · 금요일 ±8.5% · 지난 4번 · 카드(±8.0%·가디언 화면) | https://x.com/signumhq/status/2104603564115214614 (syndication: 이미지·링크) |
+| **bluesky ✅**(계정 2/3) | 엔비디아 자사주 +$150B·잔여 $235B·시총 4.2%·«승인액은 상한이지 일정이 아니다» + NVDA 카드 | https://bsky.app/profile/signumhq.bsky.social/post/3mwlpefwn7l26 (공개 API) |
+| **linkedin_articles ✅** | «Micron Reports Wednesday: Options Price About ±8%. What the Last Four Reports Did»(Medium 9/28 원고를 장중 실시간 값으로 갱신·AI 지원 표시) | https://www.linkedin.com/pulse/micron-reports-wednesday-options-price-8-what-last-four-signum-hq-nfixc/ (비로그인 검증) |
+| 개선 | 옵션 소재는 «금요일 종가 last» 대신 장중 «bid/ask 중간값»으로 갱신해 쓴다(메모리 chain-day-fields-are-eod-not-live 원칙) · 모든 발행 ego-run 래퍼 | — |
+
+## 2026-09-29 (KST) 01:35~03:0x — 시간 사이클(실행 4: bluesky_reply ✅ · threads_reply ✅ · bluesky ✅ · reddit 보류(05시 WSB)) · 엔진 정상 · 게이트 통과
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 클릭 오염 차단 | «키우기»에 새 태그 `share`(3일 5클릭·폰 2)가 떴다 — 공유 버튼 브랜치의 프리뷰 실화면 검증(커밋 430820a4e) 클릭이 운영과 같은 레디스에 찍힌 것(운영 미병합이라 실사용자 불가) → clicks-contamination.json 에 5건 등록 → 키우기에서 빠짐 | mkt-clicks 재집계 |
+| **bluesky_reply ✅**(2/2) | @cnbc.com(6만) «Stocks making the biggest moves midday … Nvidia»에 무링크: 자사주 +$150B·잔여 $235B(1차 출처)·시총 4.2%·«승인액은 상한» | https://bsky.app/profile/signumhq.bsky.social/post/3mwlt67xpx62n (대상 연결) |
+| **threads_reply ✅**(2/2) | @cnbc 같은 글(Threads)에 같은 데이터 + NVDA 카드 | https://www.threads.com/@signumhq_official/post/Dd1v9QKGawk (비로그인 og) |
+| **bluesky ✅**(계정 3/3) | 나이키 목요일 실적 — 10/2 36.5 스트래들 중간값 $3.095 / $36.60 = ±8.5%(1:57 PM ET 실시간 호가) · 지난 4번 +6.4/−10.5/−15.5/+4.9% + 카드 | https://bsky.app/profile/signumhq.bsky.social/post/3mwlwbeh4mh2z (공개 API) |
+| 개선 | 프리뷰 시험 클릭 오염 규칙: 다른 세션이 프리뷰에서 스마트링크를 누르면 운영 카운터가 오른다 — 칩 작업의 검증 클릭은 contamination 에 등록(이번 share 5) | — |
+| 주의(시간) | 이 사이클이 1.5시간 걸려 02:13 크론 몫을 늦췄다 — 사이클은 1시간 안에 끝낼 것 | — |
+
+## 2026-09-29 (KST) 03:26~03:4x — 시간 사이클: 배정 = reddit 1(보류: UTC 9/28 마지막 자리 = 05시 WSB «moves») · 나머지 채널 오늘 한도 소진 · 게이트 통과 · **개선: 감시 장치 오경보 수리**
+- 03:18 감시 장치 «STALE 121m» 경보 — 직전 사이클(01:35~03:19)이 게시는 계속했는데 OUTREACH-LOG 를 마지막에만 써서 난 **오경보**(대표에게 맥 알림이 갔을 수 있다).
+- 수리: cycle-watchdog.sh 가 «작업 기록·발행 원장(게시마다 갱신)·사이클 시작 신호(.heartbeat)» 중 가장 최근 수정으로 판정 · RUNBOOK 0단계 ③ `touch .agent/marketing/.heartbeat` 추가 · .heartbeat 는 .gitignore · 시험 «ok 0m».
+
+## 2026-09-29 (KST) 04:43 — 시간 사이클: 배정 reddit 1 = 05:00 KST(16:00 ET) 게시되는 WSB «What Are Your Moves Tomorrow» 대기(UTC 9/28 마지막 자리) · 다른 채널 오늘 한도 소진·창 밖 · 게이트 통과 · 감시 ok
+- 05:13 사이클 할 일: ① WSB moves 스레드 댓글(무링크 — 화요일 일정 ET: 10:00 콘퍼런스보드·JOLTS · 수 PCE·MU 장 마감 후(월 장중 ±8.0%)·목 ISM·NKE(±8.5%)·금 고용 + 오늘 10년물 마감값) ② x_jp·note(창 5~9시 — note-task-0927 은 «金曜終値時点» 표기 유지 또는 월요일 종가로 갱신)
+
+## 2026-09-29 (KST) 05:53~07:2x — 시간 사이클(실행 4: reddit ✅ · github ⛔게이트 · note_jp ✅ · x_jp ✅) · 엔진 정상(멈춘 ego 0·감시 ok) · 만기 게이트 통과
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **reddit ✅**(UTC 9/28 3/3) | WSB «What Are Your Moves Tomorrow, September 29» 무링크 댓글: 화 10:00 ET 콘퍼런스보드·JOLTS → 주간 일정 · 월 종가 스트래들 MU 1,055 중간값 $83.42 = ±7.9% · NKE 36.5 $3.17 = ±8.7% · MU 지난 4번 · 10년물 ~5.24%(+5bp)·2년 +7bp·금 −4%·나스닥 −0.9% | https://www.reddit.com/comments/1wsp5pn/comment/pco1yf7/ |
+| **github ⛔ 게이트 신설** | 데이터셋 스냅샷 전 `audit-structure-vs-nasdaq.js`(나스닥 전체 체인 대조) 12종목 중 **실패 6·경고 5** — 전부 «OI 시점 차이»(우리 OI 합 = 나스닥의 65~80%, 계약 수는 일치 = 잘림 아님). 구조 값이 하루 늦다 → 공개 데이터셋에 틀린 레벨을 싣지 않는다. channels.json github 에 선행 게이트(여는 사람 = 대표 ㊲·58 병합, 재대조 통과 시 재개) | — |
+| **note_jp ✅**(1/1) | 「米国株 今週の予定(日本時間)9/29〜10/2:PCE・マイクロン決算・ナイキ決算・雇用統計」 — 9/27 원고(발행 못 한 것)를 월요일 종가로 갱신(MU ±7.9%·NKE ±8.7%, 금요일 ±8.5% 병기) · **헤더 재제작**: 9/26 캡처(D−3·금요일 값)를 버리고 실적 캘린더를 새로 찍어(D−1·D−2) «9/29–10/2 · ±7.9% · 月曜終値時点» · MU 카드 AI 한 줄(EPS «$31.16» vs 머리글 $31.62 — HANDOFF 7-h 결함, 아직 라이브)은 헤더에서 잘라냄 | https://note.com/signumhq/n/n6972c63365f9 (비로그인 200·제목·링크·og 이미지) |
+| **x_jp ✅**(1/2) | 今週の米国株(日本時間) 5줄 일정 + «オプションが織り込む値動き(10/2満期・月曜終値) MU ±7.9% / NKE ±8.7%» + 헤더 이미지 · 가중 276자 | https://x.com/signumhq_jp/status/2104695495776186378 (syndication: 본문·링크 facet `?from=x_jp&l=ja`·사진 1) |
+| **개선 1건** | `capture-app-screens.mjs`(퍼피티어)가 크롬 기동 30초 타임아웃으로 죽음 → **scripts/ego/app-shot.mjs** 신설: ego 로 app-view 를 402×874@3x(1206×2622)로 캡처 · CDP 캡처(ego screenshot 은 1x, clip.scale 은 DSF 에 곱해져 9배가 됨 → scale 1) · sig_native 쿠키는 finally 에서 삭제(사용자 프로필 오염 방지) · 앱 화면이 아니면 거부 | 1206×2622 실측 |
+
+## 2026-09-29 (KST) 07:13~08:1x — 시간 사이클(실행: threads_jp ✅ · x_jp 2편째 ✅) · 크론 정상(만료 10/5) · 만기 게이트 341/0 · 광고 세션 만료 · **애드몹 스윕 수리·완주(차단 1)** · 확장: Threads 커뮤니티(티켓)
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 소재 확인 | 앱 대시보드 «TOP SIGNAL»에 뜬 AMD×World Labs 인수 → 1차 출처 확인: AMD IR 보도자료(9/28 16:05 ET, 전액 주식·약 $8.2B·연말 완료 예정·페이페이 리 EVP 겸 수석과학자) + SEC 8-K · 나스닥: 정규장 −3.61%($607.87, 발표 전) · 시간외 +0.25%(18:16 ET) · 시총 $992B → 인수액 ≈0.8% | ir.amd.com · sec.gov |
+| **threads_jp ✅**(계정 2/2) | AMD×World Labs(일본어 487자): 자일링스(~$50B, 2022) 다음 2번째 규모·공간지능·리 박사 직책·완료 시점·시총 대비 0.8%·정규장/시간외 값 + 대시보드(TOP SIGNAL 보이게 위 1608px) + #米国株 | https://www.threads.com/@signumhq_official/post/Dd2PZfSk-IA (크롤러 UA og:description 전문·링크·og:image 확인) |
+| **x_jp ✅**(2/2) | 미 10년물 5.24% = **재무부 par 곡선 9/28 공표값**, 2007-06-12 5.26% 이후 최고(재무부 2007 CSV: 5.26→5.20→5.23, 이후 5.24 이상 없음) · 전일 대비 2년 +11bp(4.92%)·10년 +7bp · 카드(US 10Y 5.24%·주황) + 대시보드 · 가중 271자 | https://x.com/signumhq_jp/status/2104698154864300342 (syndication: 본문·`?from=x_jp&l=ja`·사진 1) |
+| 앱 결함 발견 → 칩 | 대시보드 매크로 «US 10Y 5.24% **+1.08**» = 수익률 «상대 %변화»(chgPct)를 단위 없이 표시 → +1.08%p 로 읽힌다(실제 +7bp). DXY 도 같은 모양(단위 없음). `src/app/[locale]/app-view/dash/page.tsx` 1522~1541 · 칩 task_6de3b4a5(브랜치 수리·실화면 검증·대표 합치기) · 카드엔 접힌 화면(10년물 안 보이게)을 씀 | — |
+| 광고 ② | 애플 광고 콘솔 세션 만료(SESSION_EXPIRED) — 대표 재로그인 ③·결제수단 61 대기(기존 할 일) | — |
+| **고정 ⑥ 애드몹 스윕 — 수리·완주** | 첫 실행 480초 강제 종료. 진단: ARC 는 로그인·검색칸 정상 → «막힘»이 아니라 «느림»(검색어 12개 × 약 45초 ≈ 9분 > 제한), 결과를 맨 끝에만 써서 강제 종료 시 전부 유실 = **9/27 03:51 이후 완주 0회**. 수리: 5분 예산 안에서만 새 검색어 시작 + 커서(/tmp/ego/arc-cursor.json)로 다음 실행이 이어서 + 검색어마다 결과·진행 파일 기록. 재실행: 8/12개(종목~유망) · **리딩방 소재 1건 차단(awmchdw8.shop, «종목»)** · 광고주 URL 차단 목록 추가 «차단됨» 확인 · 다음 시작 = «주목» | admob-arc-sweep.mjs |
+| **확장: Threads 커뮤니티(티켓)** | Meta 공식(2026-06): 커뮤니티 정식 출시·허브·Community Progress·«로컬 커뮤니티 — 일본·한국·대만 현지어 태그부터». 웹(한국어 UI) 검색 米国株·미국주식·株式投資 = 커뮤니티 표식·가입 버튼 0, 허브 메뉴 없음 → channels.json `threads_communities`(action discover): 다음 = 모바일 UA 로 허브·태그 페이지 확인 | about.fb.com/news/2026/06 |
+| **개선 1건** | ①스윕 «시간 예산 + 이어서 하기»(위) · ②`scripts/ego/app-shot.mjs` 에 `click`(찍기 전 펼치기, 공백 정규화 정규식) 추가 — 매크로 «他4件を表示» 펼침 캡처 실측 · ③슬롯 고정 ⑥ 안내를 ego-run 래퍼 명령으로 교체 | — |
+| 교훈 | 작업 파일 JSON 에 정규식을 셸 echo 로 쓰면 `\d` 가 잘못된 JSON 이스케이프가 된다 → 작업 파일은 python json.dump 로 쓴다 | — |

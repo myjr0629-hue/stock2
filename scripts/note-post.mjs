@@ -16,7 +16,7 @@ process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.m
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const T = JSON.parse(fs.readFileSync('/tmp/ego/note-task.json', 'utf8'));
-const URL_RE = /^https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=note(&l=ja)?$/;
+const URL_RE = /^https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=note(_[a-z]+)?(&l=ja)?$/; // ★2026-09-26 note_kojin 등 note 하위 채널 태그 허용
 if (!T.edit_url) {
   if (!(T.lines || []).some((l) => URL_RE.test(l))) { console.log('⛔ 본문에 스마트링크(?from=note) 줄이 없다'); process.exit(1); }
   if ((T.lines || []).some((l) => /^\s*(\d+[.)]|[-*•])\s/.test(l))) { console.log('⛔ 줄 머리 번호·글머리표 금지(자동 목록)'); process.exit(1); }

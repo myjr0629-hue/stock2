@@ -79,7 +79,13 @@ await L.wait(900);
 if (lastP) { await page.mouse.click(lastP.x, lastP.y); await L.wait(400); await page.keyboard.press('End'); }
 for (const line of T.rest || []) { await page.keyboard.type(line, { delay: 5 }); await page.keyboard.press('Enter'); await L.wait(220); }
 await page.keyboard.press('Enter');
-await page.keyboard.type(T.url, { delay: 10 }); await page.keyboard.press('Enter'); await L.wait(5000);
+// ★2026-09-26 URL 은 붙여넣는다(절차 · memory paste-urls-never-type-them). 편집기가 붙여넣기를 안 받으면 그때만 타이핑.
+const urlIn = () => page.evaluate((u) => document.body.innerText.includes(u)
+  || [...document.querySelectorAll('a[href], .se-oglink')].some((a) => String(a.href || a.innerText || '').includes('signumhq.com/app')), T.url);
+await page.keyboard.paste({ text: T.url }); await L.wait(1500);
+if (!(await urlIn())) { console.log('붙여넣기 미반영 → 타이핑으로 넣는다'); await page.keyboard.type(T.url, { delay: 10 }); }
+else console.log('URL 붙여넣기 반영');
+await page.keyboard.press('Enter'); await L.wait(5000);
 if (T.footer) { await page.keyboard.type(T.footer, { delay: 5 }); await L.wait(1000); }
 
 const st = await page.evaluate(() => ({
@@ -108,7 +114,7 @@ const logNo = (href.match(/logNo=(\d+)/) || [])[1];
 if (!logNo) { console.log('⛔ 발행 후 주소에 logNo 가 없다:', href.slice(0, 90)); process.exit(1); }
 const pubUrl = `https://blog.naver.com/donneum/${logNo}`;
 const html = await (await fetch(`https://blog.naver.com/PostView.naver?blogId=donneum&logNo=${logNo}`, { headers: { 'user-agent': 'Mozilla/5.0' } })).text();
-const ok = { title: html.includes(T.title.slice(0, 12)), image: /se-image-resource/.test(html), link: /href="https:\/\/signumhq\.com\/app\?from&#x3D;naver_blog/.test(html) || /signumhq\.com\/app\?from=naver_blog/.test(html) };
+const ok = { title: html.includes(T.title.slice(0, 12)), image: /se-image-resource/.test(html), link: /signumhq\.com\/app(-uc|-wim)?\?from(=|&#x3D;)naver_blog/.test(html) }; // ★2026-09-26 app-uc·app-wim 링크도 인정(전엔 /app 만 봐서 멀쩡한 글을 «실패»로 판정)
 console.log('공개 검증:', JSON.stringify(ok));
 if (!Object.values(ok).every(Boolean)) { console.log('⛔ 공개 페이지 확인 실패 — «발행했다»고 적지 않는다:', pubUrl); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', pubUrl);

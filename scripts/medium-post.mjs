@@ -97,7 +97,14 @@ if ((T.topics || []).length) {
 if (!/\/submission/.test(await page.url())) { console.log('⛔ 발행 패널(/submission)이 안 열렸다:', await page.url()); process.exit(1); }
 if (!(await clickText(/^Publish( now)?$/, 'Publish 확정'))) { console.log('⛔ 패널 확정 버튼 없음 — 초안으로 남았다:', await page.url()); process.exit(1); }
 await L.wait(14000);
-const pub = (await page.url()).split('?')[0];
+let pub = (await page.url()).split('?')[0];
+// ★2026-09-28: 확정 뒤에도 주소창이 /p/<id>/submission 에 머문 채 «이미 발행돼» 있었다(그 주소를 다시 열면 404) — 도구는 실패로 멈췄다.
+//   주소창 대신 /p/<id> 의 공개 리다이렉트(비로그인)로 판정한다.
+if (!/medium\.com\/@[^/]+\/[^/]+-[0-9a-f]{8,}$/.test(pub)) {
+  const id = (pub.match(/\/p\/([0-9a-f]{8,})/) || [])[1];
+  if (id) { try { const r = await fetch('https://medium.com/p/' + id, { headers: { 'user-agent': UA, accept: 'text/html' }, redirect: 'follow' });
+    const u = r.url.split('?')[0]; if (r.ok && /medium\.com\/@[^/]+\/[^/]+-[0-9a-f]{8,}$/.test(u)) pub = u; } catch { /* 아래에서 거부 */ } }
+}
 if (!/medium\.com\/@[^/]+\/[^/]+-[0-9a-f]{8,}$/.test(pub)) { console.log('⛔ 발행 주소가 아니다:', pub); process.exit(1); }
 console.log('발행 후 주소:', pub);
 

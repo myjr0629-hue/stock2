@@ -38,9 +38,13 @@ async function liveTags() {
 (async () => {
   const days = Number(process.argv[2] || 21);
   const ch = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8'));
-  const declared = (Array.isArray(ch) ? ch : ch.channels).map((c) => c.id || c.key).filter(Boolean);
+  // ★2026-09-26 수리 — 예전엔 채널 «id»만 조회했다. 그런데 bluesky_buildinpublic 의 게시 링크는 from=bluesky_bip 라
+  //   이틀 22클릭(9/24 18·9/25 4, 레디스 실측)이 표에서 통째로 빠졌고, slot 은 그 채널을 «건당 0 ▼(줄임)»으로 띄웠다.
+  //   mkt-clicks-platform.js 는 9/23 에 id·tag 합집합으로 고쳐졌는데 이 파일만 남아 있었다(같은 고장, 다른 파일).
+  const CH = Array.isArray(ch) ? ch : ch.channels;
+  const declared = [...new Set(CH.flatMap((c) => [c.id || c.key, c.tag]).filter((t) => /^[a-z0-9_]{1,24}$/.test(t || '')))];
   const live = await liveTags();
-  const bios = ['reddit_bio', 'quora_bio', 'x_reply', 'github_profile'];
+  const bios = ['reddit_bio', 'quora_bio', 'x_reply', 'github_profile', 'bluesky_bio', 'threads_bio'];
   const tags = [...new Set([...declared, ...live, ...bios])];
   const missing = [...live].filter((t) => !declared.includes(t));
   if (missing.length) console.log(`⚠ 라이브 페이지에만 있는 태그 ${missing.length}개(channels.json 미등록): ${missing.join(', ')}\n`);
@@ -115,7 +119,9 @@ async function liveTags() {
   //   · 상시 표면(자사 웹·SEO·피드류)은 «발행 1건»이 아니므로 제외한다.
   //   · 본문 링크가 금지된 채널(레딧·쿼라)은 프로필 경유 태그를 «합산»해야 공정하다.
   const STANDING = new Set(['home','seo','seo_darkpool','seo_uc','seo_sg','seo_wim','llms_txt',
-    'indexnow','rss_feed','github_pages','hf_datasets','aso','google_dataset_search']);
+    'indexnow','rss_feed','github_pages','hf_datasets','aso','google_dataset_search',
+    // ★2026-09-26 스토어 표면(주간 점검·설정)은 «게시 1건»이 아니다 — 건당 클릭 0 으로 ▼ 에 뜨면 오판이다
+    'android_alt_stores','galaxy_store','apple_ppo','apple_cpp','apple_cpp_channels','apple_iap_events','play_custom_listings']);
   const PAIR = { reddit: ['reddit','reddit_bio'], quora: ['quora','quora_bio'] };
   const LEDGER_ALIAS = { note_jp:'note', x_post:'x_us', x:'x_us', quora_en:'quora' };
   let perPost = {};
@@ -130,15 +136,23 @@ async function liveTags() {
       nPosts[ch] = (nPosts[ch] || 0) + 1;
     }
     const netAll = (t) => Math.max(0, (rows.find((x) => x.t === t) || {}).all || 0) - ((CONTAM[t] || {}).all || 0);
+    // ★2026-09-26 — 게시 링크 태그가 채널 id 와 다른 채널(bluesky_buildinpublic → bluesky_bip)은 그 태그로 센다.
+    //   단 다른 채널의 id 이거나(bluesky_reply → bluesky: 본글 클릭을 가로챈다) 프로필 태그(*_bio)면 쓰지 않는다.
+    const ids = new Set(CH.map((c) => c.id));
+    const tagsOf = (ch) => {
+      if (PAIR[ch]) return PAIR[ch];
+      const own = (CH.find((c) => c.id === ch) || {}).tag;
+      return own && own !== ch && !ids.has(own) && !/_bio$/.test(own) ? [ch, own] : [ch];
+    };
     for (const [ch, n] of Object.entries(nPosts)) {
       if (STANDING.has(ch) || n < 2) continue;          // 표본 1건은 순위로 쓰지 않는다
-      const clicks = (PAIR[ch] || [ch]).reduce((a, t) => a + Math.max(0, netAll(t)), 0);
+      const clicks = tagsOf(ch).reduce((a, t) => a + Math.max(0, netAll(t)), 0);
       // ★2026-09-21(2차) «신선도» — 21일 건당만 보면 «죽은 채널»과 «가속 중»이 구분되지 않는다.
       //   실제로 x_us 는 건당 13.67 로 1위인데 최근 3일 클릭이 0 이었고(죽음),
       //   indiehackers 는 건당 3.67 로 9위인데 21일치의 82%가 최근 3일에 났다(가속).
       //   «어디로 옮길지»는 건당 × 신선도 둘 다 봐야 한다.
       const net3 = (t) => Math.max(0, ((rows.find((x) => x.t === t) || {}).d3 || 0) - ((CONTAM[t] || {}).d3 || 0));
-      const c3 = (PAIR[ch] || [ch]).reduce((a, t) => a + net3(t), 0);
+      const c3 = tagsOf(ch).reduce((a, t) => a + net3(t), 0);
       perPost[ch] = { n, clicks, per: +(clicks / n).toFixed(2),
                       d3: c3, fresh: clicks ? Math.round((c3 / clicks) * 100) : 0 };
     }
@@ -162,8 +176,31 @@ async function liveTags() {
   //   mkt-plan.js slot 은 «오래 방치된 순»으로만 골라서, 매일 클릭을 내는 채널(bluesky)이
   //   4사이클 내리 «대상 아님»에 있었다. 이긴 것을 키우라는 규칙과 정면으로 어긋난다.
   //   그래서 여기서 캐시를 남기고 slot 이 «키우기» 레인으로 먼저 보여 준다.
+  // ★2026-09-27 «폰 클릭» — 키우기 칸이 전체 클릭으로 순위를 매겨 bluesky 를 1위로 키웠다. 그런데 7일 기기 실측
+  //   bluesky 107클릭 중 폰 4(데스크톱 103 — 봇 포함 가능)였고, 같은 2주 동안 전체 클릭이 하루 42→93 으로 두 배가 될 때
+  //   신규 설치(RevenueCat 첫 실행)는 하루 5.6→5.4 로 그대로였다. 설치가 되는 건 폰 클릭뿐이다 → 3일 폰 클릭을 같이 싣는다.
+  //   키: /app 라우트가 9/22 부터 세는 mkt:attr:hit:<tag>:<android|ios|desktop>:<ET날짜> (mkt-clicks-platform.js 와 같은 키).
+  let d3phone = null;
   try {
-    const cache = { at: new Date().toISOString(), days, failed,
+    const pj = []; for (const r of live2.filter((x) => x.d3 > 0)) for (const d of dates.slice(0, 3)) for (const p of ['android', 'ios']) pj.push([r.t, p, d]);
+    const ph = {}; let pi = 0, pfail = 0;
+    await Promise.all([...Array(LIMIT)].map(async () => {
+      while (pi < pj.length) {
+        const [t, p, d] = pj[pi++];
+        let v = null;
+        for (let i = 0; i < 3 && v == null; i++) {
+          try { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; }
+          catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+        }
+        if (v == null) pfail++; else ph[t] = (ph[t] || 0) + v;
+      }
+    }));
+    if (!pfail) d3phone = Object.fromEntries(live2.map((r) => [r.t, ph[r.t] || 0]));
+    else console.log(`· 폰 클릭 ${pfail}건을 못 쟀다 — 이번 캐시엔 싣지 않는다(0 으로 삼키지 않음)`);
+  } catch (e) { console.log('· 폰 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
+
+  try {
+    const cache = { at: new Date().toISOString(), days, failed, d3phone,
       // d3 는 «내 점검분을 뺀» 값이다 — 큐가 이걸로 키울 채널을 고른다.
       d3: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.d3 - ((CONTAM[r.t] || {}).d3 || 0))])),
       d3raw: Object.fromEntries(live2.map((r) => [r.t, r.d3])),

@@ -13,6 +13,12 @@ const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600 * 1000);
 const kstDate = (d = new Date()) => kst(d).toISOString().slice(0, 10);
 const utcDate = (d = new Date()) => d.toISOString().slice(0, 10);
 const hhmm = (d = new Date()) => kst(d).toISOString().slice(11, 16);
+// ★2026-09-27 «새 미국 마감이 있는가» — github 스냅샷처럼 미국 정규장 마감 데이터가 소재인 채널은 주말·휴장엔
+//   올릴 것이 없다. 창(5~24시)·캡만 보면 KST 일·월요일에도 «실행 1순위»로 배정돼 헛돈다(9/27 05:28 github 배정 —
+//   마지막 거래일 9/25 스냅샷은 9/26 05:34 에 이미 커밋돼 있었다). 규칙에 afterUsClose: true 를 달면
+//   «마지막 발행이 가장 최근 정규장 마감(16:00 ET) 뒤»일 때 배정에서 뺀다. 달력은 공용본 scripts/lib/us-market-calendar.js
+//   (정본 src/lib/marketCalendar.ts 와 같은 휴장 목록 — 스냅샷 도구도 같은 것을 쓴다).
+const { lastUsCloseMs } = require('./lib/us-market-calendar');
 const load = () => { try { return JSON.parse(fs.readFileSync(LEDGER, 'utf8')); } catch { return { entries: [] }; } };
 const save = (o) => fs.writeFileSync(LEDGER, JSON.stringify(o, null, 1));
 
@@ -51,6 +57,17 @@ const CH = {
   github_topics: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-24 — 저장소 About·토픽(얇은 토픽: short-volume 1·max-pain 9·congress-trading 11·dark-pool 19). 새 데이터셋을 올리면 토픽도 같이' },
   onestore: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — 원스토어 «미국주식» 검색 결과 앱 4개(얇은 문). 개발자 등록 = 대표' },
   linkedin_newsletter: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(자격) — 편집기 «올리는 대상»에 개별 글뿐. 생기면 대표 승인(구독 초대 대량 알림) 후 개설' },
+  minkabu: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(계정)' },
+  chiebukuro: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(계정) — 지식iN 형식은 건당 0.09 클릭' },
+  podcast_daily_brief: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 게이트(약관) — Apple Podcasts Connect 약관·쇼 제출은 대표 1회, 이후 RSS 갱신은 나' },
+  quora_pin: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 불가 — Quora 답변 메뉴에 고정 없음' },
+  medium_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 Medium 프로필 고정(기존 글) — 본글 캡 무관' },
+  threads_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 Threads 프로필 고정(기존 글 고정은 본글 캡 무관). 다음 교체 때 상시 소개글 + from=threads_pin' },
+  naver_stock_discussion: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류(대표결정) — 대표 개인 네이버 계정·클린봇·자본시장법 민감' },
+  en_media: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(메일승인) — 9to5Mac·TapSmart 인디 코너 제보, 초안 press/READY-TO-SEND.md §⑥' },
+  tradingview_ideas: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류 — 사이트 전체 홍보 금지(회사명·링크 포함), 예외는 유료 Premium 서명' },
+  note_joint_magazine: { cap: 0, day: 'kst', window: [7, 23], note: '★2026-09-25 게이트(약관 체크) — note 첫 댓글 모달 체크박스는 대표 몫. 참가 승인 후 cap 1(글을 마가진에 추가, 연속 금지)' },
+  google_play_featuring: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(자격) — 구글 추천 폼은 유료 앱 할인용, Apps Accelerator 신청은 대표 결정 ㊴' },
   bluesky_earnings_feeds: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 규칙 정의 — channels.json 에서 rejected(enabled:false). 발행 채널이 아니라 태그 실험이었고 기각됨 — 배정 대상 아님' },
   quora_spaces_share: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 티켓 — 큰 금융 Space 팔로워·제출 허용 여부 측정 전(검색 목록엔 팔로워 수 없음)' },
   bluesky_buildinpublic: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 — 블루스키 #buildinpublic 제작기(수치 1개 중심, 카드+from=bluesky_bip). 금융 글 캡과 별도. 9/28 판정' },
@@ -71,7 +88,7 @@ const CH = {
   apple_whats_new: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 빌드 게이트다. 라이브 버전에서 PATCH 하면 409 STATE_ERROR(2026-09-20 실측). 다시 시도하지 말 것. 편집 가능한 버전이 생기는 «그 사이클»에만 12로케일을 채운다(규칙은 NEXT-VERSION-CHECKLIST)' },
   play_promotional_content: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 아직 «있는지»도 확인 못 했다. 첫 행동은 발행이 아니라 확인: Play Console → 앱 → Grow users → Store presence 아래에 Promotional content(구 LiveOps) 항목이 있는가. 있으면 cap 1 로 올리고 애플 인앱이벤트와 같은 리듬으로 운영, 없으면 enabled:false 로 닫고 이유를 적는다(Play Developer page 처럼). 주소 직타 금지 — 눌러서 간다' },
   naver_topic_feed: { cap: 0, day: 'week', window: [0, 24], note: '★발행하지 않는다 — 네이버 블로그 글이 그대로 흘러드는 «피드»다(section.blog.naver.com/ThemePost.naver?directoryNo=33 비즈니스·경제). 행동은 주 1회 «노출 확인» 하나: directoryNo=33 에서 donneum 링크가 보이는지 재고 OUTREACH-LOG 에 적는다. 보이면 naver_blog 제목·주제 선택이 듣는 것이고, 안 보이면 피드가 선별형이라는 뜻이다. 비용 0' },
-  naver_kin:   { cap: 12, day: 'kst', window: [7, 24], note: '★2026-09-25 창 7~24시 — 한국 낮 우선(RUNBOOK), 새벽엔 새 질문도 거의 없다. ★계정 필요. 답변 0건 질문 선점 = 영구 1등. 본문 링크 금지(사업자 홍보 판정) — 프로필 경유. 네이버 메이트 인용수 누적' },
+  naver_kin:   { cap: 12, day: 'kst', window: [8, 22], note: '★2026-09-28 창 7~24→8~22: 22:05·23:48 두 번 스캔(최근 질문 99·73건)에 맞는 질문 0 — 밤엔 새 질문이 거의 없어 헛배정만 났다. ★2026-09-25 창 7~24시 — 한국 낮 우선(RUNBOOK), 새벽엔 새 질문도 거의 없다. ★계정 필요. 답변 0건 질문 선점 = 영구 1등. 본문 링크 금지(사업자 홍보 판정) — 프로필 경유. 네이버 메이트 인용수 누적' },
   qiita:       { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 자사 기술해설은 광고 아님(명문). 엔지니어링이 본문·미국옵션은 소재. 금융태그로는 아무도 안 온다 → 전체 트렌드 노림. 5~10 LGTM' },
   zenn:        { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 홍보는 «말미 고정 메시지» 한 블록만. 일일트렌드 48칸·좋아요 1~2로도 진입' },
   discord_usstock: { cap: 1, day: 'week', window: [0, 24], note: '참여 우선. 콜드 링크 투척 = 규칙4 위반. 파이썬 채널에서 빌더로 먼저 알려질 것' },
@@ -96,6 +113,7 @@ const CH = {
   android_deep_links: { cap: 1, day: 'week', window: [0, 24], note: '★대표 1회(매니페스트 intent-filter + autoVerify). 웹쪽 assetlinks.json 은 배포 완료. Play Console→Deep links 의 Status 로 검증' },
   disquiet:    { cap: 1, day: 'week', window: [9, 24], note: '★계정 필요(대표 1회). 한국판 Product Hunt — 홍보가 취지라 삭제 위험 없음. okky 11클릭이 근거' },
   github_pages: { cap: 1, day: 'week', window: [0, 24], note: '데이터셋 랜딩 + schema.org Dataset JSON-LD. 스냅샷 갱신 시 contentUrl·temporalCoverage 같이 갱신' },
+  learning_scan: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-28 대표 지시 «더 최신 기술을 습득» — 주 1회: 스토어(애플·구글)·X·Threads·Bluesky·Reddit·네이버·구글 검색의 «새 기능·알고리즘 변화»를 1차 출처로 조사 → research/LEARNING-LOG.md 날짜별 기록 → 그 주에 시험할 1건을 channels.json 에 등록. pub 은 LEARNING-LOG 커밋 주소로' },
   rss_feed:    { cap: 1, day: 'week', window: [0, 24], note: '피드는 «이미 있다» — /{locale}/feed.xml 3개국어 200. 할 일은 네이버 RSS 제출·피드리더 등록이지 코드가 아니다. /rss 리다이렉트 대상만 404' },
   app_share:   { cap: 1, day: 'week', window: [0, 24], note: '★앱 코드(대표/개발). 공유 버튼 → ?from=share. 붙으면 클릭 추적표에 바로 올라온다' },
   taaft:       { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요(t203). 디렉터리 등재는 «1회»다 — 무료 경로만, 유료 승급 금지. 등재문에 «AI가 무엇을 하는가»를 구체로: 프리마켓·섹터·매크로·기관수급을 읽어 매일 ko/en/ja 브리핑. 재등록·중복 제출 금지' },
@@ -105,6 +123,8 @@ const CH = {
   x_post:      { cap: 2, day: 'kst', window: [0, 24], note: '링크는 앞 280자 안' },
   x_reply:     { cap: 3, day: 'kst', window: [21, 24], note: '청중 차용. 280자 하드 제한·링크 금지·with_replies 로 검증' },
   threads:     { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 하루 2→1: 영어 글 건당 0.36클릭(11건) — 한 자리를 threads_jp 로 옮겼다(계정 합계 하루 2 유지). 패널 좌표로 스코프·프로필 time 으로 검증' },
+  threads_kr:  { cap: 0, day: 'kst', window: [8, 23], note: '★2026-09-25 후보 — threads_jp 첫 주 결과 뒤 결정(계정 합계 2 안에서)' },
+  bluesky_jp:  { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류 — 일본어 주식 피드가 작다(좋아요 2~21)' },
   threads_jp:  { cap: 1, day: 'kst', window: [7, 23], note: '★2026-09-25 확장 — 같은 Threads 계정의 일본어 글 + 주제 태그 #米国株(글당 태그 1개, 본문 해시태그가 주제로 바뀐다). 실측: 米国株·NISA 주제 인기글 좋아요 365~879·답글 64~131. 앱 화면(ja)+ ?from=threads_jp. 예측·권유 금지' },
   threads_reply: { cap: 2, day: 'kst', window: [0, 24], note: '오독 정정은 반드시 원문 확인 후' },
   instagram:   { cap: 2, day: 'week', window: [0, 24], note: '★2026-09-25 하루 1 → 주 2(줄이되 죽이지 않는다): 9/25 01:58 게시물 9시간 인사이트 = 조회 0·반응 0·프로필 방문 0·링크 누름 0, 21일 건당 0.4클릭. 자르기 «원본»·링크는 바이오. 웹엔 «프로필 고정» 메뉴 없음(앱 전용)' },
@@ -112,6 +132,31 @@ const CH = {
   linkedin:    { cap: 1, day: 'kst', window: [0, 24], note: '카드 위 클릭 금지·전체 재입력' },
   linkedin_articles: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 첫 아티클 발행(피드 «글쓰기»→/article/new/). 편집기는 iframe — 커버=«컴퓨터에서 업로드»(text 선택자)→다음, 제목칸은 좌표 클릭(텍스트 선택자는 textarea 입력 불가), 본문은 키 입력. ⚠ Shift+End 는 문서 끝까지 선택(본문이 통째로 지워졌다)' },
   linkedin_groups: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — «US Stock Market | Trading & Investing»(공개·6,033명·금융업 963명) 가입 요청(운영자 승인 대기). 그룹 화면은 iframe — 버튼은 snapshot ref 로 누른다(좌표·DOM 질의는 IFRAME 만 잡힌다)' },
+  tildes: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대 코드 전용' },
+  digg: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 기술 뉴스 큐레이션(제출형 아님)' },
+  lobsters: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 초대제' },
+  substack_notes: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(로그아웃 실측). 계정이 생기면 cap 1' },
+  correction: { cap: 12, day: 'kst', window: [0, 24], note: '★2026-09-27 정정 — 자기 글에 다는 정정 답글·본문 수정. 홍보가 아니라 바로잡기라 채널 캡에 합산하지 않는다(의회 거래 192건 부분집합 정정 7곳)' },
+  line_official_jp: { cap: 0, day: 'kst', window: [5, 9], note: '★2026-09-27 확장 — 계정 게이트(LINE Business ID). 무료 월 200통' },
+  telegram_kr: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 — 대표결정 게이트(계정·규제 민감성)' },
+  apple_news: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — 계정 게이트(News Publisher). RSS 신규 수용 여부 미확정' },
+  awesome_investing_lists: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 기각 — 최근 닫힌 PR 병합 0(세 목록)' },
+  awesome_quant: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — awesome-quant 상업 서비스 칸 등재 1회(선행: 콜월 정의 정합·데이터셋 정리)' },
+  apd_core: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — awesome-public-datasets(apd-core) Finance 등재 1회. 먼저 데이터셋 휴장일 파일 정리(channels.json 메모 순서)' },
+  tsukutta: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(구글 OAuth/이메일 가입 + 로그인 시 약관 동의). 계정이 생기면 cap 1(주간 개발기 일·영)' },
+  app_village: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(GitHub/Google OAuth). 계정이 생기면 앱 3개 1회 등록' },
+  hf_spaces: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-27 확장 — HF Spaces 정적 데모(다크풀 비중·옵션 구조). 얇은 문: «dark pool» Space 1개·«short volume» 0' },
+  github_awesome_ko: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — 한국어 «미국주식 무료 데이터 출처» 목록 저장소(얇은 문: 52개·최다 별 2)' },
+  threads_reply_jp: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 반응 큰 글은 초보 조언 요청(투자권유 금지와 충돌)' },
+  free_press_release: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(계정) — PRLog 무료 배포는 계정 필요' },
+  bluesky_kr: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 한국어 블루스키 미국주식 대화 없음(최근 글 32h~393h 전)' },
+  smartnews: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(외부 신청 + SmartFormat RSS 웹 배포)' },
+  google_news: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(웹 배포) — 구글 뉴스 KR 색인 18건·검색 순위 0. NewsArticle·news-sitemap 필요' },
+  geeknews_comment: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — GeekNews 댓글(무링크·앱명 없이 실측 데이터). 가이드라인: 홍보·트래픽 유도·대량 요약형은 노출 제한' },
+  aptoide: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(계정) — Aptoide Connect 개발자 계정(대표). 세 패키지 모두 미등재(404)' },
+  yahoo_news_expert: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(자격) — 초청제, 공개 신청 경로 없음' },
+  toss_community: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(대표결정) — 토스증권 피드 주제별 커뮤니티(미국주식이야기 등). 글쓰기 = 대표 개인 실명 계정' },
+  note_kojin: { cap: 1, day: 'week', window: [18, 23], note: '★2026-09-26 확장 — note #個人開発(글 56,751·토요일 아침 1시간 20편·인기글 좋아요 10~98). 일본어 제작기(실측 수치) + 앱 화면 + from=note_kojin. 개발자 커뮤니티 제작기 = 우리 이긴 패턴(IH·GeekNews)의 일본판. 저녁 창(일본 개발자 퇴근 뒤)' },
   note_magazine: { cap: 1, day: 'week', window: [5, 9], note: '★2026-09-25 확장 티켓 — note マガジン 1개(우리 일본어 글 묶음) 개설·기존 글 추가. 일본 아침 창' },
   note_odai: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 note 글의 お題 태그(#わたしの新NISA 등, 내용이 맞을 때만). 상금 콘테스트는 응모조건 수락이라 하지 않음. 규칙은 channels.json note_odai' },
   bluesky_feeds: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 블루스키 글의 진입 태그(#econsky 매크로·#quantfinance #derivatives 옵션 구조). 규칙은 channels.json bluesky 노트' },
@@ -124,7 +169,7 @@ const CH = {
   note_jp:     { cap: 1, day: 'kst', window: [5, 9], note: '★2026-09-24 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침 시계. 0~24 였을 때 새벽 내내 «실행 1순위»로 배정돼 매 사이클 헛돌았다(예약투고는 note 프리미엄 전용이라 못 씀). 발행기 scripts/note-post.mjs(edit_url 로 초안 발행)' },
   medium:      { cap: 1, day: 'kst', window: [0, 24], note: '★AI 지원 표시 «필수» — 미표시는 Network Only 로 도달이 팔로워(≈0)로 잘린다. 말미에 disclosure 한 줄. 제목 복구 ⌘⌥1 → 1문단 → 이미지 순서' },
   indiehackers:{ cap: 1, day: 'kst', window: [0, 24], note: '제품 타임라인 포스트' },
-  github:      { cap: 1, day: 'kst', window: [5, 24], note: '미국 마감 후 스냅샷 → edit/new 경로로 커밋' },
+  github:      { cap: 1, day: 'kst', window: [5, 24], afterUsClose: true, note: '미국 마감 후 스냅샷 → edit/new 경로로 커밋 (새 정규장 마감이 없으면 배정 안 함 — 주말·휴장)' },
   x_jp:        { cap: 2, day: 'kst', window: [5, 9], note: '★2026-09-25 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침. [0,24] 였을 때 일본 새벽(02시)에 «실행 1순위»로 두 사이클 연속 배정됐다(note_jp 와 같은 종류). JP 원글. 계정 전환 후 프로필 링크가 /signumhq_jp 인지 확인하고 쓴다(오발행 전례)' },
   bluesky:     { cap: 3, day: 'kst', window: [0, 24], note: '웹 컴포저. 이미지 첨부는 ego 불가 → 앱 스마트링크의 OG 카드가 자동 임베드되는지 확인하고, 카드가 붙을 때만 발행' },
   quora_space: { cap: 1, day: 'kst', window: [0, 24], note: '브랜드명·앱링크가 허용되는 유일한 Quora 표면 — 답변 재활용 금지, Space 전용 글' },
@@ -145,6 +190,19 @@ const CHECKS = [
   { at: '22:30', what: '미국 정규장 개장 — X 답글·레딧 가치 댓글', cmd: '' },
 ];
 
+// ★2026-09-25 계정 합계 캡 — 한 계정에 채널이 여러 개(본글·고정 소개글·제작기·언어판)면 채널별 캡만 보고는
+//   계정 전체가 안전선을 넘는다. 실측(원장, KST 9/25): 블루스키 본글 5(bluesky 3 + bluesky_buildinpublic 1 + bluesky_pin 소개글 1)
+//   > 안전선 3 · X 미국 3(x_post 2 + x_pin 소개글 1) > 2. 그리고 새로 만든 threads_jp 가 같은 날 Threads 3번째 본글로 배정됐다.
+//   → 계정 묶음의 합이 캡에 닿으면 묶음 안 모든 채널을 «소진»으로 본다(답글 채널은 본글이 아니라 따로 센다).
+const ACCOUNTS = {
+  bluesky_acct:  { cap: 3, members: ['bluesky', 'bluesky_buildinpublic', 'bluesky_pin'] },
+  threads_acct:  { cap: 2, members: ['threads', 'threads_jp', 'threads_kr'] },
+  x_us_acct:     { cap: 2, members: ['x_post', 'x_pin'] },
+  x_jp_acct:     { cap: 2, members: ['x_jp'] },
+  mastodon_acct: { cap: 2, members: ['mastodon'] },
+  naver_acct:    { cap: 3, members: ['naver_blog'] },
+};
+function acctOf(ch) { for (const [k, a] of Object.entries(ACCOUNTS)) if (a.members.includes(ch)) return k; return null; }
 function counts() {
   const led = load(); const k = kstDate(); const u = utcDate();
   const out = {};
@@ -155,12 +213,29 @@ function counts() {
       ? led.entries.filter((e) => e.ch === ch && e.kst >= weekAgo).length
       : led.entries.filter((e) => e.ch === ch && (r.day === 'utc' ? e.utc === d : e.kst === d)).length;
     out[ch] = { used, cap: r.cap, left: Math.max(0, r.cap - used), over: used > r.cap, day: r.day, window: r.window, note: r.note };
+    if (r.afterUsClose) {
+      const last = led.entries.filter((e) => e.ch === ch).map((e) => e.at).sort().pop();
+      out[ch].noNewClose = !!last && Date.parse(last) >= lastUsCloseMs();
+    }
+  }
+  // 계정 합계 캡 적용(KST 하루)
+  for (const [k, a] of Object.entries(ACCOUNTS)) {
+    const total = led.entries.filter((e) => a.members.includes(e.ch) && e.kst === kstDate()).length;
+    for (const m of a.members) {
+      if (!out[m]) continue;
+      out[m].acct = k; out[m].acctUsed = total; out[m].acctCap = a.cap;
+      if (total >= a.cap) { out[m].left = 0; }
+      if (total > a.cap) { out[m].acctOver = true; }
+    }
   }
   return out;
 }
+const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp', bluesky_bip: 'bluesky_buildinpublic', wsb_earnings_thread: 'reddit' }; // wsb 스레드 댓글은 레딧 하루 3건(UTC)에 합산(2026-09-26) // 클릭 태그 → 규칙 id (bluesky_bip: 2026-09-26)
 const cmd = process.argv[2];
 if (cmd === 'pub') {
-  const [, , , ch, url, ...rest] = process.argv;
+  let [, , , ch, url, ...rest] = process.argv;
+  // ★2026-09-27 slot 은 channels.json 의 id(x_us 등)를 배정하는데 pub 은 규칙 id(x_post)만 받아 «알 수 없는 채널»로 기록이 막혔다 → 별칭을 규칙 id 로 바꿔 기록한다.
+  if (!CH[ch] && ALIAS[ch] && CH[ALIAS[ch]]) { console.log(`(별칭 ${ch} → ${ALIAS[ch]} 로 기록)`); ch = ALIAS[ch]; }
   if (!CH[ch]) { console.error('알 수 없는 채널. 가능: ' + Object.keys(CH).join(', ')); process.exit(1); }
   // ★ 2026-09-18 — 잘린 URL(«...» 포함)이 원장에 들어가 있었고, 그것 때문에 «삭제됨»으로 오판했다.
   //   http 로 시작하는 값은 형태를 검사한다(레딧 댓글 ID 같은 «비 URL 식별자»는 그대로 허용).
@@ -170,13 +245,14 @@ if (cmd === 'pub') {
   }
   const led = load(); led.entries.unshift({ ch, url: url || '', note: rest.join(' '), at: new Date().toISOString(), kst: kstDate(), utc: utcDate() });
   led.entries = led.entries.slice(0, 500); save(led);
-  const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)`);
+  const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)` + (c.acct ? ` · 계정 합계 ${c.acctUsed}/${c.acctCap}(${c.acct})` : ''));
+  if (c.acctOver) console.log(`⚠ 계정 합계 캡 초과 — ${c.acct} 오늘 ${c.acctUsed}/${c.acctCap}. 안전선 위반이다: OUTREACH-LOG 에 기록하고 오늘은 이 계정에 더 올리지 않는다.`);
   process.exit(0);
 }
 const c = counts(); const now = hhmm(); const hour = Number(now.slice(0, 2));
 let REG = [];
 try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => ({ id: x.id || x.key || x.name, tier: x.tier || x.type || '?', note: x.note || '', gate: x.gate || null })); } catch {}
-const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp' };
+// (ALIAS 는 pub 에서도 쓰려고 위로 옮겼다 — 2026-09-27)
 
 if (cmd === 'slot') {
   // 이번 사이클의 «담당 구역»을 결정론적으로 배정한다.
@@ -206,14 +282,32 @@ if (cmd === 'slot') {
     //   맨 앞을 영구 점유하고, 실행 4칸이 매 사이클 통째로 낭비된다(§49 와 같은 고장, 다른 얼굴).
     const g = r.gate;
     const gateOn = !!g && (!g.until || g.until > utcDate());
-    const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (!inWin ? '창밖' : '열림')));
+    const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (v.noNewClose ? '새마감없음' : (!inWin ? '창밖' : '열림'))));
     rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, note: (r.note || '').slice(0, 44), gate: g });
   }
   const by = (s) => rows.filter((x) => x.state === s).sort((a, b) => b.age - a.age);
   const open = by('열림'), acct = by('계정대기'), norule = by('규칙없음'), gated = by('게이트');
-  const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖');
+  const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖' || x.state === '새마감없음');
 
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
+
+  // ★2026-09-27 브라우저 상태 — 알림 권한 창 같은 «브라우저 소유» 창이 뜨면 ego 가 작업공간을 대표에게 넘긴다
+  //   (ownership=agentDelegatedToUser). 발행기는 takeOverTaskSpace 로 그 공간을 «빼앗으므로» 돌리면 안 된다.
+  //   04~07시 네 사이클 내리 브라우저 채널만 배정돼, 매번 같은 확인을 손으로 반복했다 → 배정표가 먼저 말한다.
+  try {
+    const { spawnSync } = require('child_process');
+    const V = '/Applications/ego lite.app/Contents/Frameworks/ego Framework.framework/Versions/';
+    const helper = ['0.5.0.32', 'Current'].map((v) => V + v + '/Helpers').find((d) => fs.existsSync(d));
+    const r = spawnSync('ego-browser', ['nodejs'], { input: 'const s = await listTaskSpaces(); console.log("EGO_STATE " + JSON.stringify((s || []).map((x) => ({ id: x.id, name: x.name, ownership: x.ownership }))));',
+      encoding: 'utf8', timeout: 20000, env: { ...process.env, PATH: (helper ? helper + ':' : '') + (process.env.PATH || '') } });
+    // ego-browser 는 스크립트의 console 출력을 stderr 로 낸다(2026-09-27 실측) — 둘 다 본다
+    const line = (String(r.stdout || '') + '\n' + String(r.stderr || '')).split('\n').find((l) => l.startsWith('EGO_STATE '));
+    const spaces = line ? JSON.parse(line.slice(10)) : null;
+    const held = (spaces || []).filter((x) => /user/i.test(String(x.ownership || '')));
+    if (!spaces) console.log('⚠ 브라우저 상태를 못 읽었다(ego-browser 응답 없음) — 발행 전에 직접 확인\n');
+    else if (held.length) console.log('⛔ 브라우저: ' + held.map((x) => '작업공간 #' + x.id + '(' + x.name + ') ' + x.ownership).join(', ') + ' — 대표 제어 중.\n' +
+      '   발행기 실행 금지(takeOverTaskSpace 가 대표 제어를 빼앗는다). 이번 사이클은 비브라우저 일(원고·이미지 준비·도구·확장 발굴)만 하고 HANDOFF 대표 할 일 확인.\n');
+  } catch { console.log('⚠ 브라우저 상태 확인 실패 — 발행 전에 직접 확인\n'); }
 
   // ★2026-09-20 «키우기» 레인 — 아래 «실행»은 오래 방치된 순이라, 매일 클릭을 내는 채널이
   //   구조적으로 영영 안 뽑힌다(bluesky 가 4사이클 내리 «대상 아님»에 있었다).
@@ -222,15 +316,24 @@ if (cmd === 'slot') {
     const cc = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), 'utf8'));
     const ageH = (Date.now() - Date.parse(cc.at)) / 36e5;
     const SELF = new Set(['home', 'seo', 'seo_darkpool']); // 우리 자산 — 게시로 키우는 대상이 아니다
-    const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !SELF.has(t))
-      .sort((a, b) => b[1] - a[1]).slice(0, 3);
-    console.log('■ 키우기 — 최근 3일 «클릭이 실제로 나온» 채널. 이번 사이클에 최소 1편을 여기에 쓴다');
+    // ★2026-09-27 폰 클릭 우선 — 설치가 되는 건 폰 클릭뿐이다(mkt-clicks.js d3phone 주석). 폰 클릭이 있으면 그 순으로, 같으면 전체 클릭 순.
+    const PH = cc.d3phone || null;
+    const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !SELF.has(t) && !/^seo_/.test(t) && (!PH || (PH[t] || 0) > 0))
+      .sort((a, b) => (PH ? (PH[b[0]] || 0) - (PH[a[0]] || 0) : 0) || b[1] - a[1]).slice(0, 3);
+    console.log('■ 키우기 — 최근 3일 «' + (PH ? '폰 클릭(설치 가능)' : '클릭') + '이 실제로 나온» 채널. 이번 사이클에 최소 1편을 여기에 쓴다');
+    if (PH) { const deskOnly = Object.entries(cc.d3 || {}).filter(([t, n]) => n >= 5 && !SELF.has(t) && !/^seo_/.test(t) && !(PH[t] > 0)).map(([t, n]) => t + ' ' + n); if (deskOnly.length) console.log('   ⚠ 3일 클릭은 있는데 폰 0 — 설치로 못 간다(데스크톱·봇): ' + deskOnly.join(' · ')); }
     if (!top.length) console.log('   (3일 클릭 0 — 키울 것이 없다)');
     for (const [t, n] of top) {
       const v = c[ALIAS[t] || t];
-      const room = v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음';
+      // ★2026-09-27 키우기 칸이 게이트를 안 봤다 — indiehackers 가 로그인 게이트(㊹)인데 «오늘 0/1 가능»으로 떠서 헛걸음을 부른다
+      const reg = REG.find((x) => (ALIAS[x.id] || x.id) === (ALIAS[t] || t) || x.id === t);
+      const gOn = reg && reg.gate && (!reg.gate.until || reg.gate.until > utcDate());
+      // ★2026-09-27 «오늘 소진 2/3» 으로 떠서 한 편 더 가능한 것처럼 읽혔다 — 실제로는 계정 합계(bluesky 2 + bluesky_bip 1)가 3/3 이었다.
+      //   소진 사유가 계정 합계면 그 숫자를 보여 준다.
+      const acctFull = v && v.acctCap != null && v.acctUsed >= v.acctCap;
+      const room = gOn ? ('게이트(' + (reg.gate.kind || '?') + ' — ' + (reg.gate.who || '') + ')') : (v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : acctFull ? '오늘 소진 — 계정 합계 ' + v.acctUsed + '/' + v.acctCap + '(자정 KST 초기화)' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음');
       const cm = (cc.contam || {})[t] || 0;
-      console.log('   ★ ' + t.padEnd(16) + '3일 ' + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
+      console.log('   ★ ' + t.padEnd(16) + (PH ? '3일 폰 ' + String(PH[t] || 0).padStart(2) + ' / ' : '3일 ') + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
     }
     // ★2026-09-21 «줄일 것» — 키우기만 보여 주면 «무엇을 그만둘지»는 영영 안 보인다(ENGINE §57).
     //   건당 1 미만 채널은 노력 대비 회수가 없다. 죽이지는 않되 신규 투입을 줄인다.
@@ -268,9 +371,9 @@ if (cmd === 'slot') {
     });
   }
   console.log('\n■ 확장 — 신규 표면 1개: 발굴 → 실행 또는 티켓 → channels.json 등록 (매 사이클 의무)');
-  console.log('\n■ 고정 6단계 — ①게이트 audit-expiration-selection.js --live ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시 ⑥애드몹 리딩방 스윕 ego-browser nodejs < scripts/admob-arc-sweep.mjs (대표 지시 9/24·25 — 일회용 .shop/.vip 소재만 차단, 결과를 로그에)');
+  console.log('\n■ 고정 6단계 — ①게이트 audit-expiration-selection.js --live + audit-structure-vs-nasdaq.js(맥스페인·풋콜을 나스닥 전체 체인과 대조 — ✗ 종목의 수치는 게시 금지) ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시 ⑥애드몹 리딩방 스윕 bash scripts/ego-run.sh scripts/admob-arc-sweep.mjs 540 — 5분 예산·멈춘 자리부터 이어서 (대표 지시 9/24·25 — 일회용 .shop/.vip 소재만 차단, 결과를 로그에)');
   if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
-  console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id).join(', '));
+  console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id + (r.state === '새마감없음' ? '(새 미국 마감 없음)' : '')).join(', '));
 
   // ── 대표 할 일 ──────────────────────────────────────────────────
   // ★2026-09-23: 예전엔 CEO-SIGNUP-LIST.md(9/20 기준)를 읽어 이미 끝난 «마스토돈 가입» 등을 계속 띄웠다.
@@ -278,7 +381,8 @@ if (cmd === 'slot') {
   try {
     const hf = fs.readFileSync(path.join(ROOT, '.agent/marketing/HANDOFF.md'), 'utf8');
     const sec = (hf.split('## 3. 대표 할 일')[1] || '').split('\n## ')[0];
-    const items = sec.split('\n').filter((l) => /^\|\s*\**[①-⑳]/.test(l) && !/~~/.test(l))
+    // ★2026-09-27 ①~⑳ 만 셌다 → ㉑~㊿·51 이후 항목(보안·Redis·브라우저 권한 창 등 최근 승인 대기 전부)이 목록에서 빠졌다.
+    const items = sec.split('\n').filter((l) => /^\|\s*\**([①-⑳㉑-㉟㊱-㊿]|\d+)\**\s*\|/.test(l) && !/~~/.test(l))
       .map((l) => l.split('|')[2].replace(/\*\*/g, '').replace(/`/g, '').trim().slice(0, 34));
     console.log('\n· 대표 할 일 ' + items.length + '건(HANDOFF §3 정본): ' + items.join(' / '));
   } catch { console.log('\n· HANDOFF.md §3 을 못 읽었다 — 경로 확인'); }
@@ -289,8 +393,8 @@ console.log(`■ 지금 ${now} KST (UTC ${utcDate()} / KST ${kstDate()})`);
 const open = [], closed = [];
 for (const [ch, v] of Object.entries(c)) {
   const inWindow = hour >= v.window[0] && hour < v.window[1];
-  const line = `${ch.padEnd(14)} ${v.used}/${v.cap}${v.over ? ' ⛔초과' : ''}${v.day === 'utc' ? ' (UTC일)' : ''}${inWindow ? '' : ` [창 ${v.window[0]}~${v.window[1]}시]`}  ${v.note}`;
-  (v.left > 0 && inWindow ? open : closed).push(line);
+  const line = `${ch.padEnd(14)} ${v.used}/${v.cap}${v.over ? ' ⛔초과' : ''}${v.day === 'utc' ? ' (UTC일)' : ''}${inWindow ? '' : ` [창 ${v.window[0]}~${v.window[1]}시]`}${v.noNewClose ? ' [새 미국 마감 없음]' : ''}  ${v.note}`;
+  (v.left > 0 && inWindow && !v.noNewClose ? open : closed).push(line);
 }
 console.log('\n● 지금 열린 채널(' + open.length + ')'); open.forEach((l) => console.log('  ' + l));
 console.log('\n○ 마감/대기(' + closed.length + ')'); closed.forEach((l) => console.log('  ' + l));

@@ -66,18 +66,26 @@ const p = await page.evaluate(function () {
 });
 if (!p) { console.log('NO_POST_BUTTON'); process.exit(1); }
 await page.mouse.click(p.x, p.y); await L.wait(14000);
-try { await page.goto('https://www.threads.com/@signumhq_official/replies', { waitUntil: 'domcontentloaded' }); } catch {}
-await L.wait(9000);
-const out = await page.evaluate(function (M) {
-  const hs = [...document.querySelectorAll('a[href^="/@signumhq_official/post/"]')].map(function (a) {
-    let b = a; for (let i = 0; i < 8 && b.parentElement; i++) b = b.parentElement;
-    return { h: a.getAttribute('href').split('?')[0], has: (b.innerText || '').includes(M) };
-  });
-  const hit = hs.find(function (x) { return x.has; });
-  return { found: !!hit, url: hit ? 'https://www.threads.com' + hit.h.replace(/\/media$/, '') : null, bodyHas: (document.body.innerText || '').includes(M) };
-}, task.mark);
-console.log(JSON.stringify(out));
-if (!out.found) { console.log('\n⚠ 내 답글 탭에서 mark 를 못 찾았다 — «게시됨»이라 쓰지 않는다'); process.exit(1); }
+// ★2026-09-27 자기 글에 단 답글(정정 등)은 «답글» 탭이 아니라 원글 아래·프로필 «스레드»로 이어진다 — 실측: 답글 탭 0, 원글·프로필에서 보임.
+//   답글 탭에서 못 찾고 대상이 우리 글이면 원글 → 프로필 순으로 다시 찾는다.
+const PLACES = ['https://www.threads.com/@signumhq_official/replies'].concat(/\/@signumhq_official\//.test(task.post) ? [task.post.split('?')[0], 'https://www.threads.com/@signumhq_official'] : []);
+const TARGET = '/' + task.post.split('?')[0].split('threads.com/')[1]; // 원글 자신은 답글이 아니다
+let out = { found: false };
+for (const where of PLACES) {
+  try { await page.goto(where, { waitUntil: 'domcontentloaded' }); } catch {}
+  await L.wait(9000);
+  out = await page.evaluate(function (a) {
+    const hs = [...document.querySelectorAll('a[href^="/@signumhq_official/post/"]')].map(function (x) {
+      let b = x; for (let i = 0; i < 8 && b.parentElement; i++) b = b.parentElement;
+      return { h: x.getAttribute('href').split('?')[0].replace(/\/media$/, ''), has: (b.innerText || '').includes(a.M) };
+    });
+    const hit = hs.find(function (x) { return x.has && x.h !== a.T; });
+    return { found: !!hit, url: hit ? 'https://www.threads.com' + hit.h : null, bodyHas: (document.body.innerText || '').includes(a.M) };
+  }, { M: task.mark, T: TARGET });
+  console.log(where, JSON.stringify(out));
+  if (out.found) break;
+}
+if (!out.found) { console.log('\n⚠ 답글 탭·원글·프로필에서 mark 를 못 찾았다 — «게시됨»이라 쓰지 않는다'); process.exit(1); }
 console.log('\n✅ 게시(내 답글 탭에서 확인):', out.url);
 // ★2026-09-25 추가: «내 화면에 보임» ≠ «공개». @yahoofinance 글에 단 답글은 내 로그인 화면·부모 글 아래엔 보였지만
 //   비로그인(크롤러)에선 ?error=invalid_post 였다(부모 계정의 답글 필터 또는 스팸 필터 추정). 그래서 공개 여부를 따로 잰다.

@@ -37,6 +37,10 @@ const getJson = async (u) => { const r = await fetch(u, { headers: { 'user-agent
 
 const list = await getJson(`${API}?days=90`);
 if (!list.available || !Array.isArray(list.signals) || !list.signals.length) { console.error('⛔ 신호가 비었다 — 발행하지 않는다'); process.exit(1); }
+// ★2026-09-27 커버리지를 밝힌다 — 목록 API 는 순매수 추정액(절대값) 상위 60종목만, 종목 상세는 최근 40건만 준다.
+//   9/23 판은 «60 tickers · 192 disclosed trades»라고 써서 전체처럼 읽혔는데, 같은 창의 종목은 173개(9/27 API count)였고
+//   TKNO 는 68건 중 40건만 실렸다(매도 28건 누락). 게시물 «16명·192건»도 이 부분집합이었다 → 전체가 아니면 전체라고 쓰지 않는다.
+const tickersTotal = Number.isFinite(list.count) ? list.count : null;
 const today = new Date().toISOString().slice(0, 10);
 const cut = new Date(Date.now() - 90 * 86400_000).toISOString().slice(0, 10);
 
@@ -62,7 +66,7 @@ rows.sort((a, b) => (a.disclosureDate < b.disclosureDate ? 1 : -1));
 const csvEsc = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 const cols = ['ticker', 'side', 'transactionDate', 'disclosureDate', 'lagDays', 'amountRange', 'amountMid', 'person', 'chamber', 'member_key', 'link'];
 writeFileSync(join(OUT, 'congress-trades-90d.csv'), [cols.join(','), ...rows.map((r) => cols.map((c) => csvEsc(r[c])).join(','))].join('\n') + '\n');
-writeFileSync(join(OUT, 'congress-by-ticker-90d.json'), JSON.stringify({ generated: today, window_days: 90, source: 'US Senate eFD and House Clerk periodic transaction reports (STOCK Act), via SIGNUM HQ', note: 'Amounts are disclosed as ranges; net_estimate_usd uses range midpoints. distinct_members merges spelling variants of the same member.', tickers }, null, 1) + '\n');
+writeFileSync(join(OUT, 'congress-by-ticker-90d.json'), JSON.stringify({ generated: today, window_days: 90, source: 'US Senate eFD and House Clerk periodic transaction reports (STOCK Act), via SIGNUM HQ', note: 'Amounts are disclosed as ranges; net_estimate_usd uses range midpoints. distinct_members merges spelling variants of the same member.', coverage: { tickers_in_window: tickersTotal, tickers_included: tickers.length, selection: 'tickers with the largest absolute estimated net flow', per_ticker_row_cap: 40, all_rows_complete: tickers.every((t) => t.rows_complete), row_count: rows.length, is_complete: tickersTotal != null && tickers.length >= tickersTotal && tickers.every((t) => t.rows_complete) }, tickers }, null, 1) + '\n');
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmtUsd = (n) => `${n < 0 ? '−' : '+'}$${(Math.abs(n) / 1e6).toFixed(2)}M`;
@@ -70,7 +74,7 @@ const top = tickers.slice(0, 25);
 const ld = {
   '@context': 'https://schema.org/', '@type': 'Dataset',
   name: 'US Congress Stock Trades — last 90 days, per ticker',
-  description: `Stock trades disclosed by members of the US Senate and House under the STOCK Act over the last 90 days (window ending ${today}), folded per ticker: number of buys and sells, estimated net dollar flow from the disclosed ranges, number of distinct members (spelling variants of the same member merged), last transaction and last disclosure date. Row-level file keeps the transaction date, disclosure date, reporting lag in days, amount range and a link to the official filing. Public records compiled for research; not investment advice.`,
+  description: `Stock trades disclosed by members of the US Senate and House under the STOCK Act over the last 90 days (window ending ${today}), folded per ticker: number of buys and sells, estimated net dollar flow from the disclosed ranges, number of distinct members (spelling variants of the same member merged), last transaction and last disclosure date. Coverage: the ${tickers.length} tickers with the largest estimated net flow${tickersTotal ? ` out of ${tickersTotal} with disclosures in the window` : ''}; per-ticker rows are capped at 40, so totals here are a subset, not all trades. Row-level file keeps the transaction date, disclosure date, reporting lag in days, amount range and a link to the official filing. Public records compiled for research; not investment advice.`,
   url: `${SITE}/congress.html`,
   sameAs: 'https://github.com/myjr0629-hue/options-market-structure-daily',
   license: 'https://creativecommons.org/licenses/by/4.0/',
@@ -112,7 +116,8 @@ a{color:var(--acc)}code{font-size:13px}
 </head>
 <body><main>
 <h1>US Congress Stock Trades — last 90 days, per ticker</h1>
-<p class="sub">Window ${cut} → ${today} · ${tickers.length} tickers · ${rows.length} disclosed trades · updated ${today}</p>
+<p class="sub">Window ${cut} → ${today} · ${tickers.length}${tickersTotal ? ` of ${tickersTotal}` : ''} tickers (largest estimated net flow) · ${rows.length} trade rows (up to 40 per ticker) · updated ${today}</p>
+<p class="sub"><b>Coverage:</b> this is a subset${tickersTotal ? ` — ${tickers.length} of the ${tickersTotal} tickers with disclosures in the window` : ''}, and at most 40 filings per ticker${tickers.some((t) => !t.rows_complete) ? ` (incomplete: ${tickers.filter((t) => !t.rows_complete).map((t) => esc(t.ticker)).join(', ')})` : ''}. Do not read the counts as all congressional trades.</p>
 <p>Members of Congress must report stock trades over $1,000 within 45 days (STOCK Act, 2012), and only as dollar ranges. This page folds the last 90 days of those reports per ticker. Two things the raw tables hide are counted separately: <b>how many different members</b> are behind the filings (one member filing 17 times is one decision), and the <b>reporting lag</b> between the trade and the disclosure.</p>
 <p>Largest net flow in this window: <b>${esc(lead.ticker)}</b> — ${lead.buys} buys, ${lead.sells} sells, estimated ${fmtUsd(lead.net_estimate_usd)}, ${lead.distinct_members} member${lead.distinct_members === 1 ? '' : 's'}.</p>
 <h2>Top 25 by estimated net flow</h2>

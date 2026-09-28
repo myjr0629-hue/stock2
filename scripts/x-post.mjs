@@ -18,6 +18,14 @@ const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])
 let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const task = JSON.parse(readFileSync('/tmp/ego/x-task.json','utf8'));
+// ★2026-09-26 추가: X 가중 글자 수(링크 23자, 기본 범위 밖 문자 2자) > 280 이면 게시 전에 거부한다.
+//   9/26 에 293자·310자 글을 두 번 올리려다 게시 버튼이 막힌 채 «새 글 없음»으로 끝났다(계산은 했지만 막지 않았다).
+function xWeightedLength(t) {
+  const noUrl = t.replace(/(https?:\/\/)?[a-z0-9.-]+\.[a-z]{2,}(\/[^\s]*)?/gi, (m) => (/\./.test(m) && /[a-z]{2,}/i.test(m) ? '\u0000'.repeat(23) : m));
+  let n = 0; for (const ch of noUrl) { const c = ch.codePointAt(0); n += (c <= 4351 || (c >= 8192 && c <= 8205) || (c >= 8208 && c <= 8223) || (c >= 8242 && c <= 8247)) ? 1 : 2; }
+  return n;
+}
+{ const body = readFileSync(task.file, 'utf8').trim(); const w = xWeightedLength(body); if (w > 280) { console.log(`⛔ X 가중 ${w}자 > 280 — 게시하지 않는다(줄여서 다시)`); process.exit(1); } console.log('X 가중 글자 수:', w); }
 const page = await L.findPage(ts, /x\.com/, null);
 try { await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(8000);

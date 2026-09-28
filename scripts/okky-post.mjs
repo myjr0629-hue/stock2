@@ -18,7 +18,7 @@ process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.m
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const T = JSON.parse(fs.readFileSync('/tmp/ego/okky-task.json', 'utf8'));
-if (!/signumhq\.com\/app\?from=okky/.test(T.html || '')) { console.log('⛔ 본문에 스마트링크(?from=okky) 가 없다'); process.exit(1); }
+if (!/signumhq\.com\/app(-uc|-wim)?\?from=okky/.test(T.html || '')) { console.log('⛔ 본문에 스마트링크(?from=okky) 가 없다'); process.exit(1); }
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
@@ -78,7 +78,7 @@ const pre = await page.evaluate((must) => {
 console.log('등록 전:', JSON.stringify(pre));
 await shot('2-filled');
 if (pre.title !== T.title) { console.log('⛔ 제목 불일치'); process.exit(1); }
-if (pre.emoji || pre.missing.length || !pre.links.some((h) => /signumhq\.com\/app\?from=okky/.test(h || ''))) { console.log('⛔ 본문 점검 실패 — 등록하지 않는다'); process.exit(1); }
+if (pre.emoji || pre.missing.length || !pre.links.some((h) => /signumhq\.com\/app(-uc|-wim)?\?from=okky/.test(h || ''))) { console.log('⛔ 본문 점검 실패 — 등록하지 않는다'); process.exit(1); }
 
 const sub = await page.evaluate(() => {
   const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
@@ -96,7 +96,7 @@ if (!/okky\.kr\/articles\/\d+/.test(url)) { console.log('⛔ 글 주소로 안 �
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
 const res = await fetch(url, { headers: { 'user-agent': UA } });
 const html = await res.text();
-const ok = { status: res.status, title: html.includes(T.title.slice(0, 20)), must: (T.must || []).every((m) => html.includes(m)), link: /signumhq\.com\/app\?from=okky/.test(html), emoji: !/\u{1F615}/u.test(html) };
+const ok = { status: res.status, title: html.includes(T.title.slice(0, 20)), must: (T.must || []).every((m) => html.includes(m)), link: /signumhq\.com\/app(-uc|-wim)?\?from=okky/.test(html), emoji: !/\u{1F615}/u.test(html) };
 console.log('공개 검증(비로그인):', JSON.stringify(ok));
 if (!(ok.status === 200 && ok.title && ok.must && ok.link && ok.emoji)) { console.log('⛔ 공개 페이지 확인 실패 —', url); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', url);
