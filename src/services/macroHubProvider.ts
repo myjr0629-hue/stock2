@@ -274,7 +274,7 @@ async function fetchFedYield(): Promise<MacroFactor> {
 }
 
 // [V45.0] Yield Curve Data (2Y, 10Y for 2s10s Spread)
-interface YieldCurveData {
+export interface YieldCurveData {
     us2y: number;
     us10y: number;
     spread2s10s: number;
@@ -315,6 +315,25 @@ async function fetchYieldCurveData(): Promise<YieldCurveData | null> {
         console.error("[MacroHub] Yield Curve Fetch Failed", e);
     }
     return null;
+}
+
+/**
+ * 헤드라인 10Y 정본 — 순수 함수(tests/yieldChange.test.ts).
+ * ^TNX 세션이 곡선(재무부)보다 새로울 때만 ^TNX 를 쓴다(장중엔 재무부가 아직 게시 전이다).
+ *
+ * 곡선을 쓸 때는 변화량도 같은 곡선의 직전 거래일 대비로 만든다 (2026-09-29).
+ *   ⚠️ 예전엔 수준만 곡선으로 갈아끼우고 변화량은 ^TNX 것이 남았다. 9/28 마감 뒤 실측:
+ *      재무부 9/25 5.17 → 9/28 5.24 = +7bp 인데 변화량은 ^TNX 의 +0.056(+1.08%) —
+ *      「전일 5.184」라는 어느 원본에도 없는 값을 암시했다. 직전 행이 없을 때만 예전대로 둔다.
+ */
+export function unifyUs10y(tnx: MacroFactor, yieldCurve: YieldCurveData | null, tnxIsNewer: boolean): MacroFactor {
+    if (tnxIsNewer || !yieldCurve) return tnx;
+    const curveChange = changeFromPrev(yieldCurve.us10y, yieldCurve.prevUs10y);
+    return {
+        ...tnx, level: yieldCurve.us10y, ...(curveChange ?? {}), label: "US 10Y",
+        symbolUsed: yieldCurve.source === "US_TREASURY" ? "UST:10Y" : (tnx.symbolUsed || "FED:10Y"),
+        source: (yieldCurve.source === "US_TREASURY" ? "US_TREASURY" : tnx.source) as any,
+    };
 }
 
 // [V45.0] Inflation Expectations (for Real Yield calculation)
@@ -526,20 +545,8 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         ? (us10y.level ?? yieldCurve?.us10y ?? null)
         : (yieldCurve?.us10y ?? us10y.level ?? null);
 
-    // 변화량도 수준과 «같은 곡선»에서 만든다 (2026-09-29).
-    //   ⚠️ 예전엔 수준만 곡선(재무부)으로 갈아끼우고 변화량은 ^TNX 것이 남았다. 9/28 마감 뒤 실측:
-    //      재무부 9/25 5.17 → 9/28 5.24 = +7bp 인데 변화량은 ^TNX 의 +0.056(+1.08%) —
-    //      「전일 5.184」라는 어느 원본에도 없는 값을 암시했다. 직전 행이 없을 때만 예전대로 둔다.
-    const curveChange = yieldCurve ? changeFromPrev(yieldCurve.us10y, yieldCurve.prevUs10y) : null;
-
     // 헤드라인 지표도 정본에 맞춘다 — 화면마다 다른 10년물이 뜨면 안 된다
-    const us10yUnified: MacroFactor = tnxIsNewer
-        ? us10y
-        : (yieldCurve
-            ? { ...us10y, level: yieldCurve.us10y, ...(curveChange ?? {}), label: "US 10Y",
-                symbolUsed: yieldCurve.source === "US_TREASURY" ? "UST:10Y" : (us10y.symbolUsed || "FED:10Y"),
-                source: (yieldCurve.source === "US_TREASURY" ? "US_TREASURY" : us10y.source) as any }
-            : us10y);
+    const us10yUnified = unifyUs10y(us10y, yieldCurve, tnxIsNewer);
 
     // 스프레드는 곡선 «안에서» 만든다. 갈아끼운 10Y 를 섞지 않는다.
     const liveYieldCurve = yieldCurve ? { ...yieldCurve } : null;
