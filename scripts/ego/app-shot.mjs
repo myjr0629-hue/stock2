@@ -42,8 +42,10 @@ try {
   if (T.click) {
     const p = await page.evaluate((src) => {
       const re = new RegExp(src); const nn = (s) => (s || '').replace(/\s+/g, ' ').trim();
-      const e = [...document.querySelectorAll('button,[role=button],a,div,span')].filter((x) => re.test(nn(x.innerText)) && x.getBoundingClientRect().width > 0)
-        .sort((a, b) => nn(a.innerText).length - nn(b.innerText).length)[0];
+      // 글자 없는 아이콘 버튼(검색 등)은 aria-label·title 로도 맞춘다
+      const label = (x) => nn(x.innerText) || nn(x.getAttribute('aria-label')) || nn(x.getAttribute('title'));
+      const e = [...document.querySelectorAll('button,[role=button],a,div,span')].filter((x) => re.test(label(x)) && x.getBoundingClientRect().width > 0)
+        .sort((a, b) => label(a).length - label(b).length)[0];
       if (!e) return null; e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2), t: nn(e.innerText) };
     }, T.click);
     if (!p) { console.log('⛔ 누를 것을 못 찾았다:', T.click); process.exit(1); }
