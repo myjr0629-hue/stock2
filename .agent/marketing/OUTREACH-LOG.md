@@ -13040,3 +13040,12 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 랭킹 «장 마감 후» 조사(대표 요청): run=all 이면 다크풀 날짜(9/25) ≠ 진행 중 옵션 세션(9/28) → 숨김 / 단독 run 이면 1,820종목 정상 — 칩 «Fix after-close rankings hidden by a session date gate»(대표 시작)
 - threads ✅(새 날짜 1/2) 11:00 ET 장중: 10년물 5.27%(+8bp)·나스닥 −1.1%·NVDA +1.9%(1차 출처: 엔비디아 뉴스룸)·MU −3.8%·원유 +2.9%·금 −4.0% + 장중 가디언 화면 https://www.threads.com/@signumhq_official/post/Dd1drYDGWDI (비로그인 og 확인) — 발행은 새 래퍼 `scripts/ego-run.sh` 로 처음 실행(정상)
 - 워치리스트(대표 질문, «작업 말고 보고») — 실측: 웹엔 이미 /watchlist(무료 5·pro 50·elite 999, 등급=Supabase user_profiles)가 있고 앱 화면(app-view)엔 없음 · 앱 PRO 판정은 RevenueCat(useProStatus, entitlement «pro») → 앱 전용 워치리스트는 RevenueCat 기준으로 따로 두는 게 맞다
+
+## 2026-09-29 (KST) 00:12~00:2x — 시간 사이클(실행 4: bluesky_bip ✅ · pinterest ✅ · medium ✅ · reddit 보류(UTC 9/28 마지막 1자리 = 05시 WSB «moves» 스레드용)) · 게이트 통과
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **bluesky_bip ✅** | 제작기: «발행 루프 21시간 침묵, 에러 없음 → 원인 = 멈춘 브라우저 스크립트가 SIGTERM 무시·스케줄러 대기 → 수리 = 모든 스크립트 하드 타임아웃 + 앱 밖 감시(75분)» + 카드(21h) | https://bsky.app/profile/signumhq.bsky.social/post/3mwlm5jyowr2o (공개 API: 링크·태그·이미지) |
+| **pinterest ✅** | «VIX vs Fear & Greed Index: What Each Measures and Why They Disagree» — 공포탐욕 36·VIX ~16(금 14.87 = 1년 하위 8%) + 장중 가디언 화면 | https://www.pinterest.com/pin/1102115340099174186/ |
+| **medium ✅** | «The 10-Year Treasury Yield Hit 5.27%. Not Every Rise in Yields Is the Same Story»(11:00 ET 수치·곡선·업종·신용 9/24 날짜 명시·NVDA 1차 출처) | https://medium.com/@signum_hq/the-10-year-treasury-yield-hit-5-27-not-every-rise-in-yields-is-the-same-story-3b96f6fadebe (비로그인 200·제목·이미지·링크·AI 표시 — **수리한 발행 판정이 끝까지 정상**) |
+| 확인 못 함 | 가디언 화면 신용 2.93%(20일 +0.33·1년 70분위)로 바뀜 — FRED 가 이 컴퓨터에서 응답 없음(HTTP 000) → 새 값은 원자료 확인 전이라 게시에 안 씀 | — |
+| 개선 | 모든 발행을 `scripts/ego-run.sh`(하드 타임아웃)로 실행 — 이번 사이클 3건 정상 · 워치리스트 계획(대표 지시) 조사 2건 진행 중 | — |
