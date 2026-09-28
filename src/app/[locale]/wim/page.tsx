@@ -21,11 +21,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
+import { ShareButton } from '@/components/share/ShareButton';
 import { maybePromptReview, openStoreReview } from '@/lib/native/capacitorBridge';
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
 import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
-import { ShareButton } from '@/components/share/ShareButton';
 // ★ 2026-08-25 배선. 여기까지 «구조만» 있고 `./ads` 를 아무도 import 하지 않아
 //   광고 모듈 전체가 죽은 코드였다(로컬에 같은 이름 상수를 또 선언해 그렇게 보였다).
 //   실제 스위치는 ads.ts 의 WIM_ADS_LIVE 하나뿐이다 — 여기서 다시 선언하지 말 것.

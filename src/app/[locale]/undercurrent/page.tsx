@@ -20,11 +20,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
+import { buildShareUrl, shareBeacon, shareOrCopy, shareVia } from '@/lib/share/share';
 import { maybePromptReview, openStoreReview } from '@/lib/native/capacitorBridge';
 import { useParams, useRouter } from 'next/navigation';
 import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, hideBanner, resumeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
-import { buildShareUrl, shareBeacon, shareOrCopy, shareVia } from '@/lib/share/share';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: unknown): Locale => (l === 'en' || l === 'ja' ? l : 'ko');
