@@ -38,6 +38,21 @@ try {
   const info = await page.evaluate(() => ({ url: location.href, h: document.documentElement.scrollHeight, text: document.body.innerText.slice(0, 300) }));
   if (!/\/app-view\//.test(info.url)) { console.log('⛔ 앱 화면이 아니라 다른 곳으로 갔다(쿠키 미적용?):', info.url); process.exit(1); }
   console.log(JSON.stringify(info).slice(0, 500));
+  // click: 찍기 전에 눌러 펼칠 것(예: "他4件を表示") — 공백 정규화 후 정규식으로 맞춘다(memory normalize-element-text-before-matching)
+  if (T.click) {
+    const p = await page.evaluate((src) => {
+      const re = new RegExp(src); const nn = (s) => (s || '').replace(/\s+/g, ' ').trim();
+      const e = [...document.querySelectorAll('button,[role=button],a,div,span')].filter((x) => re.test(nn(x.innerText)) && x.getBoundingClientRect().width > 0)
+        .sort((a, b) => nn(a.innerText).length - nn(b.innerText).length)[0];
+      if (!e) return null; e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2), t: nn(e.innerText) };
+    }, T.click);
+    if (!p) { console.log('⛔ 누를 것을 못 찾았다:', T.click); process.exit(1); }
+    await page.mouse.click(p.x, p.y, { label: 'expand section' });
+    await L.wait(1500);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await L.wait(500);
+    console.log('눌렀다:', p.t);
+  }
   const height = T.full && info.h > 874 ? info.h : 874;
   const r = await page.cdp('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: 402, height, scale: 1 }, captureBeyondViewport: !!T.full });
   fs.writeFileSync(T.out, Buffer.from(r.data, 'base64'));

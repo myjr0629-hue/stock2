@@ -1,6 +1,6 @@
 {
  "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
- "_updated": "2026-09-21",
+ "_updated": "2026-09-29T08:10+09:00",
  "_tiers": {
   "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
   "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -1959,6 +1959,17 @@
    "enabled": true,
    "action": "research",
    "note": "★2026-09-28 대표 지시 «매번 기록·고도화·더 최신 기술 습득·성과를 만드는 엔진». 주 1회 1차 출처 조사 → research/LEARNING-LOG.md → 그 주에 시험할 1건 등록"
+  },
+  {
+   "id": "threads_communities",
+   "name": "Threads 커뮤니티(로컬: 일본·한국 현지어 태그)",
+   "tier": "B",
+   "enabled": true,
+   "handle": "@signumhq_official",
+   "tag": "threads_jp",
+   "link": "https://signumhq.com/app?from=threads_jp&l=ja",
+   "action": "discover",
+   "note": "★2026-09-29 08:0x 확장 «발굴(티켓)». 근거: Meta 공식 발표(about.fb.com/news/2026/06 — 월 5억 사용자 기념) = 커뮤니티 정식 출시·커뮤니티 허브(왼쪽 메뉴)·«Community Progress»(주제가 커뮤니티가 되기까지 남은 것)·«Local Communities: 일본·한국·대만 현지어 태그부터». 왜: 우리 Threads 팔로워 3 — 커뮤니티 피드는 팔로워 없이 도달한다(X 커뮤니티와 같은 논리). 실측(웹·한국어 UI): 검색 米国株·미국주식·株式投資 결과에 커뮤니티 표식·가입 버튼 0, 왼쪽 메뉴에 허브 없음(추천·새로운 스레드·검색·메시지·활동·프로필·인사이트·기타). 다음 행동: 모바일 UA(402px, mobile:true)로 threads.com 을 열어 커뮤니티 허브와 «米国株» 태그 페이지가 커뮤니티인지 확인 → 커뮤니티면 threads_jp 본문 태그를 그 커뮤니티 태그로 바꾼다. 가입 버튼에 규칙 동의가 붙으면 약관 동의 = 대표 몫(누르지 않고 대표 할 일로)."
   }
  ],
  "candidates": [
