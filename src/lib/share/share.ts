@@ -66,10 +66,13 @@ export function shareBeacon(e: ShareEvent, s: ShareSurface, via?: string | null)
  */
 export async function shareOrCopy(data: { title?: string; text?: string; url: string }): Promise<ShareOutcome> {
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+  // ★ 링크는 문구 «안에» 넣어 한 덩어리로 넘긴다. text 와 url 을 따로 주면 iOS 공유 시트의 «복사»가
+  //   문구만 클립보드에 넣고 링크를 떨군다(2026-09-29 시뮬레이터 실측: pbpaste = 문구뿐).
+  //   카톡·아이메시지·왓츠앱은 문구 속 링크로 미리보기 카드를 만든다 — 링크가 두 번 찍히는 일도 없다.
+  const line = data.text ? `${data.text}\n${data.url}` : data.url;
   if (typeof nav.share === 'function') {
-    const payload: ShareData = { url: data.url };
+    const payload: ShareData = data.text ? { text: line } : { url: data.url };
     if (data.title) payload.title = data.title;
-    if (data.text) payload.text = data.text;
     let allowed = true;
     try { allowed = nav.canShare ? nav.canShare(payload) : true; } catch { allowed = true; }
     if (allowed) {
@@ -83,7 +86,6 @@ export async function shareOrCopy(data: { title?: string; text?: string; url: st
       }
     }
   }
-  const line = data.text ? `${data.text}\n${data.url}` : data.url;
   try {
     await navigator.clipboard.writeText(line);
     return 'copied';
