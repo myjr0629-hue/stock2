@@ -15,6 +15,7 @@ import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
+import { ShareButton } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 
@@ -3101,12 +3102,29 @@ function CmdPageContent() {
             <span className={s.headerTicker} style={{ fontSize: '15px' }}>{data.ticker}</span>
           </div>
         </div>
-        <button className={s.headerBtn} aria-label="Search" onClick={() => setIsSearchOpen(true)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="7" stroke="var(--text-dim)" strokeWidth="2" />
-            <path d="m16.5 16.5 4 4" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* 공유(2026-09-29 공유 루프) — 받는 사람은 이 종목의 공개 수급 페이지(/flow/티커:
+              다크풀·맥스페인·콜월·풋플로어 + 앱 CTA)를 본다. 앱이 없어도 읽힌다.
+              숫자는 문구에 넣지 않는다 — 미리보기 제목이 그 페이지의 숫자를 보여 주므로 둘이 어긋날 일이 없다. */}
+          <ShareButton
+            className={s.headerBtn}
+            surface="ticker"
+            locale={locale}
+            path={`/${locale}/flow/${data.ticker}`}
+            title={locale === 'ko' ? `${data.ticker} 수급 스냅샷` : locale === 'ja' ? `${data.ticker} 資金フロー` : `${data.ticker} money-flow snapshot`}
+            text={locale === 'ko' ? `${data.ticker} 다크풀·맥스페인·콜월/풋플로어 — SIGNUM HQ 무료`
+              : locale === 'ja' ? `${data.ticker} ダークプール・マックスペイン・コールウォール — SIGNUM HQ（無料）`
+              : `${data.ticker} dark pool, max pain & option walls — free on SIGNUM HQ`}
+            iconSize={18}
+            color="var(--text-dim)"
+          />
+          <button className={s.headerBtn} aria-label="Search" onClick={() => setIsSearchOpen(true)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="7" stroke="var(--text-dim)" strokeWidth="2" />
+              <path d="m16.5 16.5 4 4" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* ── Ticker quick-pick chips (recently-viewed + popular) ── */}

@@ -25,6 +25,7 @@ import { maybePromptReview, openStoreReview } from '@/lib/native/capacitorBridge
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
 import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
+import { ShareButton } from '@/components/share/ShareButton';
 // ★ 2026-08-25 배선. 여기까지 «구조만» 있고 `./ads` 를 아무도 import 하지 않아
 //   광고 모듈 전체가 죽은 코드였다(로컬에 같은 이름 상수를 또 선언해 그렇게 보였다).
 //   실제 스위치는 ads.ts 의 WIM_ADS_LIVE 하나뿐이다 — 여기서 다시 선언하지 말 것.
@@ -2961,6 +2962,14 @@ export default function WimPage() {
 
   const [today, setToday] = useState<Today | null>(null);
   const [failed, setFailed] = useState(false);
+  // 공유 링크의 ?t= (히어로 선택에만 쓴다 — 아래 heroU). 서버 렌더에선 없고 마운트 뒤 한 번 읽는다.
+  const [sharedT, setSharedT] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const v = (new URLSearchParams(window.location.search).get('t') || '').toUpperCase();
+      if (/^[A-Z][A-Z0-9.-]{0,9}$/.test(v)) setSharedT(v);
+    } catch { /* noop */ }
+  }, []);
   // [SHELL] route once to the saved or device language — the native shell enters
   // at /en/wim for every user (mirrors the UC pattern; router nav only, because
   // window.location is a top-level nav that opens in-app Safari under Capacitor).
@@ -3444,7 +3453,11 @@ export default function WimPage() {
   // Order: unsolved+chart → unsolved → any chart → first. Never null while units
   // exist, so the "start the quiz" CTA can never disappear.
   const hasSpark = (u: Unit) => !!u.spark && u.spark.closes.length >= 8;
-  const heroU = units.find((u) => !done[u.id] && hasSpark(u))
+  // 공유 링크(?t=티커, 2026-09-29)로 들어온 사람은 «보낸 사람이 본 그 종목»을 첫 문제로 받는다.
+  // 오늘 세트에 없으면(다음 날 열었으면) 평소 규칙 그대로 — t 가 없는 방문자에겐 아무것도 안 바뀐다.
+  const sharedU = sharedT ? units.find((u) => u.ticker === sharedT && !done[u.id]) : undefined;
+  const heroU = sharedU
+    || units.find((u) => !done[u.id] && hasSpark(u))
     || units.find((u) => !done[u.id])
     || units.find(hasSpark)
     || units[0] || null;
@@ -4369,6 +4382,20 @@ export default function WimPage() {
                       <span style={{ fontSize: 13.5, fontWeight: 900 }}>{heroU.ticker}</span>
                       <span style={{ fontSize: 14, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#8A5B00', background: 'rgba(255,173,31,0.16)', border: '1px solid rgba(255,173,31,0.35)', borderRadius: 99, padding: '4px 11px' }}>±<CountUp value={heroU.moveMagnitude} />%</span>
                       <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
+                      {/* 공유(2026-09-29 공유 루프) — 오늘의 무브를 «문제»로 보낸다. 받은 사람은 /wim 에서
+                          같은 종목을 첫 문제로 받는다(?t=). 줄 높이는 로고(30px)가 정하므로 28px 원은 줄을 키우지 않는다.
+                          문구는 관찰형(크기만, 방향 없음) — WIM 준법 규칙 그대로. */}
+                      <ShareButton
+                        surface="wim"
+                        locale={loc}
+                        path={`/${loc}/wim`}
+                        params={{ t: heroU.ticker }}
+                        title="Why'd It Move?"
+                        text={`${t.heroHeadline.replace('{c}', shortCompanyName(heroU.companyName, heroU.ticker)).replace('{v}', String(heroU.moveMagnitude))} — ${loc === 'ko' ? '왜 움직였을까? 30초 퀴즈로 풀어 보세요' : loc === 'ja' ? 'なぜ動いた？30秒クイズで解いてみて' : 'why did it move? Crack it in a 30-second quiz'} · Why'd It Move?`}
+                        style={{ font: 'inherit', flexShrink: 0, width: 28, height: 28, padding: 0, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(108,92,231,0.2)', cursor: 'pointer' }}
+                      >
+                        <Ic name="share" size={14} color={P.heroDeep} sw={2} />
+                      </ShareButton>
                     </div>
                     {hasSpark(heroU) && heroU.spark && (
                       <div style={{ margin: '10px -16px 0' }}>

@@ -24,6 +24,7 @@ import { maybePromptReview, openStoreReview } from '@/lib/native/capacitorBridge
 import { useParams, useRouter } from 'next/navigation';
 import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, hideBanner, resumeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
+import { buildShareUrl, shareBeacon, shareOrCopy, shareVia } from '@/lib/share/share';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: unknown): Locale => (l === 'en' || l === 'ja' ? l : 'ko');
@@ -956,6 +957,9 @@ export default function UndercurrentPage() {
           if (openP) {
             const found = (d.cards || []).find((c: Card) => c.ticker === openP);
             if (found) setDetail(found);
+            // 공유 링크가 늦게 열려 그 이야기가 판에서 빠졌으면(하루 2~3회 발행) 홈 대신
+            // 그 종목의 전체 화면(돈 + 뉴스)을 연다 — 받은 사람이 «무엇을 공유받았는지»를 잃지 않게.
+            else if (/^[A-Z]{1,5}$/.test(openP)) { setTab('search'); runSearch(openP); }
           }
           const tP = (sp.get('t') || '').toUpperCase();
           if (tP && /^[A-Z]{1,5}$/.test(tP)) { setTab('search'); runSearch(tP); }
@@ -1191,24 +1195,23 @@ export default function UndercurrentPage() {
   // deep money layer + all its news) — the hub link of the web.
   const gotoTicker = (tk: string) => { setDetail(null); setTab('search'); window.scrollTo(0, 0); runSearch(tk); };
 
-  // [SHARE] the divergence card is the viral unit. Web Share API (works in iOS
-  // WKWebView / Android WebView on a user gesture); clipboard + toast fallback.
+  // [SHARE] the divergence card is the viral unit. Web Share API (iOS WKWebView ·
+  // mobile browsers, on a user gesture); clipboard + toast fallback (Android WebView
+  // has no Web Share). ★2026-09-29 공유 루프: 링크에 from=share&via= 를 단다 → 받은 쪽
+  // 페이지(이 화면의 웹판)가 설치 띠를 보여주고, 그 버튼이 /app-uc?from=share 로 집계된다.
   const shareCard = async (c: Card) => {
-    const url = `https://www.signumhq.com/${loc}/undercurrent?open=${c.ticker}`;
+    const via = shareVia();
+    shareBeacon('tap', 'uc', via);
+    const url = buildShareUrl(`/${loc}/undercurrent`, { open: c.ticker }, via);
     const lead = c.divergence ? `${t.divergence} · ${c.ticker}` : c.ticker;
     const body = (c.moneyRead || c.whyItMatters || '').trim();
     const text = `${c.plainTitle}\n\n💰 ${lead}${body ? `\n${body}` : ''}\n\n— Undercurrent`;
-    try {
-      if (typeof navigator !== 'undefined' && (navigator as any).share) {
-        await (navigator as any).share({ title: c.plainTitle, text, url });
-        return;
-      }
-    } catch { return; /* user cancelled the native sheet — not an error */ }
-    try {
-      await navigator.clipboard.writeText(`${text}\n${url}`);
+    const out = await shareOrCopy({ title: c.plainTitle, text, url });
+    if (out === 'shared' || out === 'copied') shareBeacon('sent', 'uc', via);
+    if (out === 'copied') {
       setShareToast(true);
       window.setTimeout(() => setShareToast(false), 1800);
-    } catch { /* no clipboard access — silently ignore */ }
+    }
   };
 
   // ── [ADS] init + anchored banner once per session (native shell only) ──

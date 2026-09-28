@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { ShareButton } from '@/components/share/ShareButton';
 import s from './rankings.module.css';
 
 type Phase = 'intraday' | 'postclose' | 'anytime';
@@ -253,6 +254,24 @@ export default function RankingsPage() {
                 <span className={s.rkCW}>{RANK_WHAT[b.id][(locale as 'ko' | 'en' | 'ja')] ?? RANK_WHAT[b.id].en}</span>
               )}
               {b.phase && <span className={s.rkCP}>{t[b.phase]}</span>}
+              {/* 공유(2026-09-29 공유 루프) — 이 랭킹의 공개 페이지(/rankings/<id>)로. 빈 랭킹은 보낼 게 없어 버튼도 없다.
+                  문구엔 상위 종목 «이름»만 싣는다(값은 받는 페이지가 그 시점 숫자로 보여준다). */}
+              {b.available && items.length > 0 && (() => {
+                const nm = b.name?.[locale as 'ko'] || b.name?.en || b.id;
+                const top = items.slice(0, 3).map((it) => (noTicker(it.ticker) ? String(it.company || '') : String(it.ticker))).filter(Boolean);
+                const lead = locale === 'ko' ? '오늘의 랭킹' : locale === 'ja' ? '本日のランキング' : "Today's ranking";
+                return (
+                  <ShareButton
+                    className={s.rkShare}
+                    surface="rank"
+                    locale={locale}
+                    path={`/${locale}/rankings/${b.id}`}
+                    title={`${nm} — SIGNUM HQ`}
+                    text={`${lead} · ${nm}: ${top.join(' · ')}`}
+                    iconSize={13}
+                  />
+                );
+              })()}
             </div>
 
             {b.available && items.length > 0 ? (
