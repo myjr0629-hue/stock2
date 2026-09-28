@@ -977,6 +977,15 @@
    "note": "★2026-09-20 태그 분리. 티커 페이지(6,684장) CTA 3개가 통짜 `seo` 를 공유해 어느 앱을 원하는지 알 수 없었다. 발행 대상이 아니라 «측정 전용» 태그다 — slot 에 뜨면 무시한다. 7일 뒤 셋을 비교해 이긴 앱을 그 자리의 1순위로 올린다(분리 전 기준선: seo 21일 142클릭)."
   },
   {
+   "id": "share",
+   "name": "앱 안 공유 버튼(공유 루프)",
+   "tier": "A",
+   "enabled": true,
+   "tag": "share",
+   "action": "measure",
+   "note": "★2026-09-29 신설(브랜치 feat/share-loop, 대표 할 일 65 — 합치기 전엔 0). 앱 4화면(SIGNUM 커맨드 헤더·랭킹 카드·WIM 오늘의 무브·UC 이야기)의 공유 버튼 → 받은 사람이 여는 공개 페이지(?from=share&via=ios|android|web)의 앱 CTA 가 /app·/app-uc·/app-wim ?from=share 로 바뀌어 기존 스마트링크 집계(mkt:attr:hit:share:<ET날짜> + /app 기기별)가 센다. 발행 대상이 아니라 «측정 전용» — slot 에 뜨면 무시한다. 퍼널(탭→보냄→열림→앱받기)은 EC2 전용 키 share:<e>:<표면>:<via>:<날짜>(Upstash 0) → `node scripts/mkt-share.js 7`. ⚠ ET 2026-09-28 의 share 5클릭은 프리뷰 검증분(clicks-contamination.json 등록 완료). 판정: 3일 뒤 «보냄÷탭»(공유 시트 완료율)·«열림÷보냄»(받은 사람이 여는 비율)·«앱받기÷열림» 세 칸이 어디서 끊기는지 본다."
+  },
+  {
    "id": "devto",
    "name": "dev.to",
    "tier": "A",
