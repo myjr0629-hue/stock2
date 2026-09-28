@@ -13063,3 +13063,13 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **bluesky ✅**(계정 2/3) | 엔비디아 자사주 +$150B·잔여 $235B·시총 4.2%·«승인액은 상한이지 일정이 아니다» + NVDA 카드 | https://bsky.app/profile/signumhq.bsky.social/post/3mwlpefwn7l26 (공개 API) |
 | **linkedin_articles ✅** | «Micron Reports Wednesday: Options Price About ±8%. What the Last Four Reports Did»(Medium 9/28 원고를 장중 실시간 값으로 갱신·AI 지원 표시) | https://www.linkedin.com/pulse/micron-reports-wednesday-options-price-8-what-last-four-signum-hq-nfixc/ (비로그인 검증) |
 | 개선 | 옵션 소재는 «금요일 종가 last» 대신 장중 «bid/ask 중간값»으로 갱신해 쓴다(메모리 chain-day-fields-are-eod-not-live 원칙) · 모든 발행 ego-run 래퍼 | — |
+
+## 2026-09-29 (KST) 01:35~03:0x — 시간 사이클(실행 4: bluesky_reply ✅ · threads_reply ✅ · bluesky ✅ · reddit 보류(05시 WSB)) · 엔진 정상 · 게이트 통과
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| 클릭 오염 차단 | «키우기»에 새 태그 `share`(3일 5클릭·폰 2)가 떴다 — 공유 버튼 브랜치의 프리뷰 실화면 검증(커밋 430820a4e) 클릭이 운영과 같은 레디스에 찍힌 것(운영 미병합이라 실사용자 불가) → clicks-contamination.json 에 5건 등록 → 키우기에서 빠짐 | mkt-clicks 재집계 |
+| **bluesky_reply ✅**(2/2) | @cnbc.com(6만) «Stocks making the biggest moves midday … Nvidia»에 무링크: 자사주 +$150B·잔여 $235B(1차 출처)·시총 4.2%·«승인액은 상한» | https://bsky.app/profile/signumhq.bsky.social/post/3mwlt67xpx62n (대상 연결) |
+| **threads_reply ✅**(2/2) | @cnbc 같은 글(Threads)에 같은 데이터 + NVDA 카드 | https://www.threads.com/@signumhq_official/post/Dd1v9QKGawk (비로그인 og) |
+| **bluesky ✅**(계정 3/3) | 나이키 목요일 실적 — 10/2 36.5 스트래들 중간값 $3.095 / $36.60 = ±8.5%(1:57 PM ET 실시간 호가) · 지난 4번 +6.4/−10.5/−15.5/+4.9% + 카드 | https://bsky.app/profile/signumhq.bsky.social/post/3mwlwbeh4mh2z (공개 API) |
+| 개선 | 프리뷰 시험 클릭 오염 규칙: 다른 세션이 프리뷰에서 스마트링크를 누르면 운영 카운터가 오른다 — 칩 작업의 검증 클릭은 contamination 에 등록(이번 share 5) | — |
+| 주의(시간) | 이 사이클이 1.5시간 걸려 02:13 크론 몫을 늦췄다 — 사이클은 1시간 안에 끝낼 것 | — |
