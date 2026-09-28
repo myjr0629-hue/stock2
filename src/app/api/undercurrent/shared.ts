@@ -215,6 +215,7 @@ RULES:
 - Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "open interest", "max pain"). Translate: e.g. "금요일(그 세션의 요일) 상승 쪽에 큰 규모로 새 포지션이 걸렸다", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
 - TIME WORDS (2026-09-28: Monday cards said "yesterday's flow" about Friday): every money number comes from ONE past session, money.session. Use that day's name ("on Friday" / "금요일" / "金曜日"); NEVER "today", "yesterday", "오늘", "어제", "今日", "昨日" for them. If money.session is null, say "in the latest session".
 - Describe facts only — NEVER buy/sell/hold advice, NEVER price predictions.
+- Money amounts (newOiNotional, prices) are US DOLLARS: keep them in dollars in every language (달러 / ドル) — NEVER yen or won. Convert magnitudes exactly: 241,800,000 = "$242M" = "2억 4,180만 달러" = "2億4180万ドル".
 - moneyRead: ONE sentence, grounded ONLY in the given numbers. If signals are mixed or weak, say so honestly.
 - divergence=true ONLY when news tone and money signals clearly point OPPOSITE ways. Mixed/unclear = false.
 - moneyMood: 'bullish' (call-heavy / accumulation), 'cautious' (put-heavy / defensive / high squeeze stress), or 'neutral'.
