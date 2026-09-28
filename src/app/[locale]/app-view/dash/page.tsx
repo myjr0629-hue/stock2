@@ -15,6 +15,7 @@ import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -46,8 +47,14 @@ interface PulseItem {
 interface MacroItem {
   label: string;
   value: string;
-  chg: number;
-  unit: string;
+  /** null = 모름(«—»). 단위는 unit 이 정한다 — fmtMacroChg 참고 */
+  chg: number | null;
+  /**
+   * 변화량의 단위. 배지 항목(2s10s·F&G)은 변화량을 그리지 않으므로 없다.
+   * ⚠️ 단위 없는 변화량은 타입으로 막는다 — 10Y 의 chgPct «+1.08»(수익률의 상대 %)이
+   *    «+1.08%p»(하루 108bp)로 읽혔고, DXY «+0.20» 도 % 없이 나갔다(2026-09-29).
+   */
+  unit?: '%' | 'bp';
   badge?: string;
   live?: boolean;
   updatedAt?: string;
@@ -149,10 +156,10 @@ const DEMO_MACRO: MacroItem[] = [
   { label: 'GOLD', value: '$2,340', chg: -0.4, unit: '%' },
   { label: 'OIL', value: '$72.3', chg: 1.2, unit: '%' },
   { label: 'SOX', value: '5,200', chg: 1.1, unit: '%' },
-  { label: 'US 10Y', value: '4.25%', chg: -0.03, unit: '' },
-  { label: 'DXY', value: '104.2', chg: 0.1, unit: '' },
-  { label: '2s10s', value: '+0.25', chg: 0, unit: '', badge: 'STEEP' },
-  { label: 'F&G', value: '68', chg: 0, unit: '', badge: 'GREED' },
+  { label: 'US 10Y', value: '4.25%', chg: -3, unit: 'bp' },
+  { label: 'DXY', value: '104.2', chg: 0.1, unit: '%' },
+  { label: '2s10s', value: '+25bp', chg: null, badge: 'STEEP' },
+  { label: 'F&G', value: '68', chg: null, badge: 'GREED' },
 ];
 
 const DEMO_SECTORS: SectorItem[] = [
@@ -392,6 +399,19 @@ function fmtMacroValue(level: number | null, label: string): string {
   if (label === 'US 10Y') return `${level.toFixed(2)}%`;
   if (label.includes('DXY') || label.includes('DOLLAR')) return level.toFixed(1);
   return level.toFixed(2);
+}
+
+/**
+ * 매크로 카드의 변화량 — 단위가 곧 읽는 법이다 (2026-09-29).
+ *   '%'  = 상대 등락률, 소수 둘째 자리. 0 은 예전처럼 «—»(값이 없으면 `?? 0` 으로 들어온다).
+ *   'bp' = 금리의 절대 변화, 정수 bp. null 만 «—» — 재무부 값은 소수 둘째 자리라 «보합(0bp)»이 실제로 있다.
+ *   단위가 없으면 그리지 않는다(«—»). 단위 없는 숫자는 독자가 아무 단위로나 읽는다.
+ */
+function fmtMacroChg(chg: number | null, unit: MacroItem['unit']): string {
+  if (chg == null || !Number.isFinite(chg) || !unit) return '—';
+  if (unit === 'bp') return fmtBp(chg);
+  if (chg === 0) return '—';
+  return `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%`;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1520,22 +1540,22 @@ export default function AppDashPage() {
               live: isLive,
             });
 
-            // US 10Y
+            // US 10Y — 변화는 bp(절대 변화). chgPct 는 수익률의 «상대 %»라 +1.08%p 로 읽혔다.
             macroItems.push({
               label: 'US 10Y',
               value: fmtMacroValue(f.us10y?.level, 'US 10Y'),
-              chg: f.us10y?.chgPct ?? 0,
-              unit: '',
+              chg: yieldChangeBp(f.us10y),
+              unit: 'bp',
               ...feedMetaForItem(f.us10y, isUs10YSessionActive(isMarketHoliday), { requireFresh: false }),
               live: isUs10YSessionActive(isMarketHoliday),
             });
 
-            // DXY
+            // DXY — 지수의 등락률(%)
             macroItems.push({
               label: 'DXY',
               value: fmtMacroValue(f.dxy?.level, 'DOLLAR (DXY)'),
               chg: f.dxy?.chgPct ?? 0,
-              unit: '',
+              unit: '%',
               ...feedMetaForItem(f.dxy, isDxySessionActive(), { requireFresh: false }),
               live: isDxySessionActive(),
             });
@@ -1545,9 +1565,9 @@ export default function AppDashPage() {
               const spread = macroSnap.yieldCurve.spread2s10s;
               macroItems.push({
                 label: '2s10s',
-                value: (spread >= 0 ? '+' : '') + spread.toFixed(2),
-                chg: 0,
-                unit: '',
+                // 금리차도 bp — 옆 10Y 가 bp 인데 «+0.32» 로 두면 또 단위 없는 숫자다
+                value: fmtBp(spread * 100),
+                chg: null,
                 badge: macroSnap.yieldCurve.trend === 'INVERTED' ? 'INVERT' : macroSnap.yieldCurve.trend === 'STEEPENING' ? 'STEEP' : macroSnap.yieldCurve.trend === 'FLATTENING' ? 'FLAT' : 'NORMAL',
                 live: isUs10YSessionActive(isMarketHoliday),
               });
@@ -1561,8 +1581,7 @@ export default function AppDashPage() {
               macroItems.push({
                 label: 'F&G',
                 value: fgScore.toFixed(1),
-                chg: 0,
-                unit: '',
+                chg: null,
                 badge: fgBadgeLabel(fgScore),
                 live: false,
               });
@@ -1576,8 +1595,7 @@ export default function AppDashPage() {
               macroItems.push({
                 label: 'F&G',
                 value: fg.toFixed(1),
-                chg: 0,
-                unit: '',
+                chg: null,
                 badge: fgBadgeLabel(fg),
                 live: false,
               });
@@ -2140,8 +2158,8 @@ export default function AppDashPage() {
                   <div className={`${n9.e9McV} num`}>{m.value}</div>
                   {m.badge
                     ? <em className={n9.e9McB}>{m.badge}</em>
-                    : <div className={`${n9.e9McD} num ${m.chg > 0 ? n9.gr : m.chg < 0 ? n9.rd : ''}`}>
-                        {m.chg > 0 ? '+' : ''}{m.chg !== 0 ? m.chg.toFixed(2) : '—'}{m.unit}
+                    : <div className={`${n9.e9McD} num ${(m.chg ?? 0) > 0 ? n9.gr : (m.chg ?? 0) < 0 ? n9.rd : ''}`}>
+                        {fmtMacroChg(m.chg, m.unit)}
                       </div>}
                 </div>
               ))}
