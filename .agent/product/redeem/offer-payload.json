@@ -1,0 +1,3880 @@
+{
+ "data": {
+  "type": "subscriptionOfferCodes",
+  "attributes": {
+   "name": "SIGNUM PRO 1 Month Free (Launch)",
+   "customerEligibilities": [
+    "NEW",
+    "EXPIRED"
+   ],
+   "offerEligibility": "REPLACE_INTRO_OFFERS",
+   "offerMode": "FREE_TRIAL",
+   "duration": "ONE_MONTH",
+   "numberOfPeriods": 1
+  },
+  "relationships": {
+   "subscription": {
+    "data": {
+     "type": "subscriptions",
+     "id": "6786909663"
+    }
+   },
+   "prices": {
+    "data": [
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p0}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p1}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p2}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p3}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p4}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p5}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p6}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p7}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p8}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p9}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p10}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p11}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p12}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p13}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p14}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p15}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p16}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p17}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p18}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p19}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p20}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p21}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p22}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p23}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p24}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p25}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p26}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p27}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p28}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p29}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p30}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p31}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p32}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p33}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p34}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p35}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p36}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p37}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p38}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p39}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p40}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p41}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p42}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p43}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p44}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p45}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p46}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p47}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p48}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p49}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p50}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p51}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p52}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p53}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p54}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p55}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p56}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p57}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p58}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p59}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p60}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p61}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p62}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p63}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p64}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p65}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p66}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p67}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p68}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p69}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p70}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p71}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p72}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p73}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p74}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p75}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p76}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p77}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p78}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p79}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p80}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p81}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p82}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p83}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p84}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p85}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p86}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p87}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p88}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p89}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p90}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p91}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p92}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p93}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p94}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p95}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p96}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p97}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p98}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p99}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p100}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p101}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p102}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p103}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p104}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p105}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p106}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p107}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p108}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p109}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p110}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p111}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p112}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p113}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p114}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p115}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p116}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p117}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p118}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p119}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p120}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p121}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p122}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p123}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p124}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p125}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p126}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p127}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p128}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p129}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p130}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p131}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p132}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p133}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p134}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p135}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p136}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p137}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p138}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p139}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p140}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p141}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p142}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p143}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p144}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p145}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p146}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p147}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p148}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p149}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p150}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p151}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p152}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p153}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p154}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p155}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p156}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p157}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p158}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p159}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p160}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p161}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p162}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p163}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p164}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p165}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p166}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p167}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p168}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p169}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p170}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p171}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p172}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p173}"
+     },
+     {
+      "type": "subscriptionOfferCodePrices",
+      "id": "${p174}"
+     }
+    ]
+   }
+  }
+ },
+ "included": [
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p0}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "AFG"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBRkciLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p1}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "AGO"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBR08iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p2}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "AIA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBSUEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p3}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ALB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBTEIiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p4}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ARE"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBUkUiLCJwIjoiMTAxMzQifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p5}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ARG"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBUkciLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p6}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ARM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBUk0iLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p7}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ATG"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBVEciLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p8}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "AUS"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBVVMiLCJwIjoiMTAxNTEifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p9}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "AUT"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBVVQiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p10}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "AZE"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBWkUiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p11}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BEL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCRUwiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p12}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BEN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCRU4iLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p13}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BFA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCRkEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p14}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BGR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCR1IiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p15}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BHR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCSFIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p16}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BHS"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCSFMiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p17}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BIH"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCSUgiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p18}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BLR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCTFIiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p19}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BLZ"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCTFoiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p20}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BMU"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCTVUiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p21}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BOL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCT0wiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p22}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BRA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCUkEiLCJwIjoiMTAyMTIifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p23}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BRB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCUkIiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p24}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BRN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCUk4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p25}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BTN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCVE4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p26}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "BWA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCV0EiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p27}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CAN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDQU4iLCJwIjoiMTAxNDIifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p28}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CHE"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDSEUiLCJwIjoiMTAwOTcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p29}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CHL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDSEwiLCJwIjoiMTAxOTcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p30}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CHN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDSE4iLCJwIjoiMTAxNTAifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p31}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CIV"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDSVYiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p32}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CMR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDTVIiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p33}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "COD"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDT0QiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p34}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "COG"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDT0ciLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p35}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "COL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDT0wiLCJwIjoiMTAxNDgifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p36}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CPV"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDUFYiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p37}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CRI"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDUkkiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p38}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CYM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDWU0iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p39}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CYP"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDWVAiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p40}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "CZE"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDWkUiLCJwIjoiMTAxMjUifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p41}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "DEU"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJERVUiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p42}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "DMA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJETUEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p43}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "DNK"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJETksiLCJwIjoiMTAwODcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p44}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "DOM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJET00iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p45}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "DZA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJEWkEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p46}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ECU"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJFQ1UiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p47}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "EGY"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJFR1kiLCJwIjoiMTAzMDkifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p48}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ESP"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJFU1AiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p49}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "EST"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJFU1QiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p50}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "FIN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJGSU4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p51}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "FJI"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJGSkkiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p52}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "FRA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJGUkEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p53}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "FSM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJGU00iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p54}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GAB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHQUIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p55}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GBR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHQlIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p56}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GEO"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHRU8iLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p57}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GHA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHSEEiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p58}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GMB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHTUIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p59}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GNB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHTkIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p60}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GRC"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHUkMiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p61}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GRD"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHUkQiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p62}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GTM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHVE0iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p63}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "GUY"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHVVkiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p64}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "HKG"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJIS0ciLCJwIjoiMTAwODcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p65}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "HND"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJITkQiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p66}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "HRV"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJIUlYiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p67}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "HUN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJIVU4iLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p68}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "IDN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJRE4iLCJwIjoiMTAyMDYifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p69}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "IND"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJTkQiLCJwIjoiMTAyMTMifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p70}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "IRL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJUkwiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p71}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "IRQ"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJUlEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p72}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ISL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJU0wiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p73}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ISR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJU1IiLCJwIjoiMTAxMDMifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p74}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ITA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJVEEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p75}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "JAM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJKQU0iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p76}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "JOR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJKT1IiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p77}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "JPN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJKUE4iLCJwIjoiMTAxMjQifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p78}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "KAZ"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLQVoiLCJwIjoiMTAyNDUifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p79}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "KEN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLRU4iLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p80}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "KGZ"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLR1oiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p81}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "KHM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLSE0iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p82}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "KNA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLTkEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p83}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "KOR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLT1IiLCJwIjoiMTAxMjYifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p84}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "KWT"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLV1QiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p85}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LAO"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQU8iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p86}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LBN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQk4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p87}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LBR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQlIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p88}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LBY"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQlkiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p89}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LCA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQ0EiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p90}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LKA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMS0EiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p91}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LTU"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMVFUiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p92}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LUX"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMVVgiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p93}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "LVA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMVkEiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p94}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MAC"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNQUMiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p95}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MAR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNQVIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p96}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MDA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNREEiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p97}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MDG"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNREciLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p98}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MDV"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNRFYiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p99}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MEX"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNRVgiLCJwIjoiMTAxOTUifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p100}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MKD"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNS0QiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p101}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MLI"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTEkiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p102}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MLT"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTFQiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p103}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MMR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTVIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p104}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MNE"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTkUiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p105}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MNG"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTkciLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p106}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MOZ"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNT1oiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p107}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MRT"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNUlQiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p108}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MSR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNU1IiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p109}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MUS"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNVVMiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p110}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MWI"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNV0kiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p111}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "MYS"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNWVMiLCJwIjoiMTAxNzgifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p112}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NAM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOQU0iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p113}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NER"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJORVIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p114}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NGA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOR0EiLCJwIjoiMTAyNDUifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p115}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NIC"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOSUMiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p116}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NLD"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOTEQiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p117}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NOR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOT1IiLCJwIjoiMTAxMDYifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p118}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NPL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOUEwiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p119}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NRU"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOUlUiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p120}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "NZL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOWkwiLCJwIjoiMTAxNzYifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p121}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "OMN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJPTU4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p122}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "PAK"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQQUsiLCJwIjoiMTAyMzEifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p123}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "PAN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQQU4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p124}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "PER"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQRVIiLCJwIjoiMTAxNzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p125}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "PHL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQSEwiLCJwIjoiMTAxNjkifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p126}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "PLW"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQTFciLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p127}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "PNG"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQTkciLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p128}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "POL"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQT0wiLCJwIjoiMTAxNTMifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p129}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "PRT"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQUlQiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p130}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "PRY"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQUlkiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p131}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "QAT"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJRQVQiLCJwIjoiMTAxMzQifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p132}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ROU"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJST1UiLCJwIjoiMTAxNTMifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p133}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "RUS"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJSVVMiLCJwIjoiMTAyNjYifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p134}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "RWA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJSV0EiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p135}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SAU"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTQVUiLCJwIjoiMTAxMzQifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p136}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SEN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTRU4iLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p137}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SGP"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTR1AiLCJwIjoiMTAxNjAifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p138}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SLB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTTEIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p139}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SLE"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTTEUiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p140}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SLV"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTTFYiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p141}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SRB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTUkIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p142}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "STP"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTVFAiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p143}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SUR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTVVIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p144}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SVK"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTVksiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p145}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SVN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTVk4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p146}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SWE"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTV0UiLCJwIjoiMTAxMDYifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p147}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SWZ"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTV1oiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p148}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "SYC"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTWUMiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p149}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TCA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUQ0EiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p150}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TCD"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUQ0QiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p151}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "THA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUSEEiLCJwIjoiMTAxMTkifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p152}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TJK"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUSksiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p153}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TKM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUS00iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p154}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TON"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUT04iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p155}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TTO"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUVE8iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p156}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TUN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUVU4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p157}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TUR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUVVIiLCJwIjoiMTAzMDkifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p158}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TWN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUV04iLCJwIjoiMTAwODAifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p159}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "TZA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUWkEiLCJwIjoiMTAxOTAifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p160}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "UGA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVR0EiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p161}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "UKR"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVS1IiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p162}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "URY"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVUlkiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p163}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "USA"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVU0EiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p164}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "UZB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVWkIiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p165}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "VCT"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWQ1QiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p166}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "VEN"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWRU4iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p167}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "VGB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWR0IiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p168}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "VNM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWTk0iLCJwIjoiMTAxOTEifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p169}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "VUT"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWVVQiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p170}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "XKS"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJYS1MiLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p171}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "YEM"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJZRU0iLCJwIjoiMTAxMjcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p172}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ZAF"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJaQUYiLCJwIjoiMTAxNTgifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p173}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ZMB"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJaTUIiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  },
+  {
+   "type": "subscriptionOfferCodePrices",
+   "id": "${p174}",
+   "relationships": {
+    "territory": {
+     "data": {
+      "type": "territories",
+      "id": "ZWE"
+     }
+    },
+    "subscriptionPricePoint": {
+     "data": {
+      "type": "subscriptionPricePoints",
+      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJaV0UiLCJwIjoiMTAxMzcifQ"
+     }
+    }
+   }
+  }
+ ]
+}
