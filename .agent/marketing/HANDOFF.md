@@ -4,7 +4,7 @@
 > 절차는 `RUNBOOK.md`, 교리는 `ENGINE.md`, 채널 정본은 `channels.json` 이다. 이 파일은 «상태»만 담는다.
 > **사실이 바뀌면 새 문서를 만들지 말고 이 파일을 고친다.** 매 사이클 (7)단계에서 «지금 상태»를 갱신한다.
 
-마지막 갱신: **2026-09-28 22:2x KST** (**9/28 00:25~21:36 크론 무실행 → 크론 재생성 `c1b0fb5e` + 앱 밖 감시 launchd** · 재개 46분에 게시 15(전부 공개 확인): threads·threads_jp·x_us 2/2·x_reply 3/3·bluesky_bip·bluesky(계정 2/3)·reddit 2/3·pinterest·medium·naver_blog 1/3·linkedin · 남은 자리: bluesky 1·naver_blog 2·reddit 1(월 05시 WSB moves) · 월 05~09시 x_jp·note · 발견: UC/WIM 월요일판 금요일 값·종목 페이지 첫 방문 묵은 값(칩 2)·NVDA/MU 구조 57시간(㊲·58) · 리딤 별도 보고서(대표 할 일 60) · 애플 광고 결제 거절 메일(대표))
+마지막 갱신: **2026-09-29 01:1x KST** (크론 `c1b0fb5e` 정상 발화 확인 · 엔진: `scripts/ego-run.sh` 하드 타임아웃·감시 launchd(45분 스크립트 정리·75분 알림)·사이클마다 «개선 1건»·주간 학습(`learning_scan`) · **오늘(KST 9/29) 게시 12**: threads·bluesky_bip·pinterest·medium·x_us 2/2·bluesky(계정 2/3)·bluesky_reply·threads_reply·linkedin·linkedin_articles — 전부 공개 확인 · reddit UTC 9/28 마지막 자리 = 05시 WSB «moves» · 대표 지시 처리: 워치리스트 기획 완성(`.agent/product/WATCHLIST-PLAN-2026-09-29.md`, 결정 4개 대기) · 리딤 발급 스크립트 dry-run ✅(승인 잠금) · 칩: Redis(대표 시작)·공유 버튼(대표 시작)·랭킹 장 마감 게이트(대표 시작)·UC 월요일판(대표 시작)·종목 페이지 묵은 값(대표 시작)·**배치 API 레벨 값 오류(MU 풋플로어 $60 — 새 칩)**)
 
 ---
 
