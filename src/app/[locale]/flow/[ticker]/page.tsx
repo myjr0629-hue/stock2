@@ -16,6 +16,7 @@ import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { readDarkPool } from '@/lib/darkPoolRead';
 import { getDarkPoolCurrent, type DarkPoolTicker } from '@/services/darkPool';
+import { seoFreshness, etDate, mmdd } from '@/lib/seo/freshness';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 
@@ -68,14 +69,6 @@ async function getData(locale: string, ticker: string): Promise<TickerData | nul
   } catch { return null; }
 }
 
-/** ET 기준 날짜(YYYY-MM-DD) — 거래일과 견주려면 UTC 날짜가 아니라 뉴욕 날짜여야 한다 */
-const etDate = (iso: string | null | undefined): string | null => {
-  const ms = Date.parse(iso || '');
-  if (!Number.isFinite(ms)) return null;
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms);
-};
-const mmdd = (ymd: string | null | undefined) => (ymd ? ymd.slice(5).replace('-', '/') : null);
-
 type View = {
   data: TickerData | null;
   /** 화면·제목·설명에 쓰는 숫자. 다크풀은 FINRA 현재 판본, 옵션 레벨은 페이로드. */
@@ -108,15 +101,14 @@ const getView = cache(async (locale: string, ticker: string): Promise<View | nul
   if (!data && !dp) return null;
   const pm: Partial<Money> = data?.money ?? {};
 
-  const genDay = etDate(data?.generatedAt);
-  const session = cur?.session ?? null;   // FINRA 원본의 기준일 = 가장 최근 세션
-  const levelsFresh = !!data && (session
-    ? !!genDay && genDay >= session
-    // 원본을 못 읽은 드문 경우(EC2 장애) — 시간으로만 판단한다
-    : Number.isFinite(Date.parse(data.generatedAt || '')) && Date.now() - Date.parse(data.generatedAt!) < 36 * 3600e3);
-  // 해석이 쓰인 다크풀 날짜 = 지금 보여 주는 다크풀 날짜? (원본을 못 읽었으면 비교 불가 → 시간 판단에 맡긴다)
-  const basisMatch = cur ? (pm.darkPoolDate ?? null) === (dp?.date ?? null) : true;
-  const proseFresh = levelsFresh && basisMatch;
+  // 거래일로 판본을 맞춘다(lib/seo/freshness.ts — 주말·ET 날짜 경계는 거기 시험이 있다)
+  const f = seoFreshness({
+    generatedAt: data?.generatedAt, payloadDpDate: pm.darkPoolDate ?? null,
+    sourceRead: !!cur, session: cur?.session ?? null, rowDate: dp?.date ?? null,
+  });
+  const levelsFresh = !!data && f.levelsFresh;
+  const basisMatch = f.basisMatch;
+  const proseFresh = !!data && f.proseFresh;
 
   // 다크풀: 현재 판본이 있으면 그것, 없으면(원본 장애) 신선한 페이로드일 때만
   const useDp = dp ? {
@@ -140,7 +132,7 @@ const getView = cache(async (locale: string, ticker: string): Promise<View | nul
     // ⚠️ volumePcr 는 이름과 반대로 «콜÷풋»이다 — 풋/콜 칸에 대신 넣으면 방향이 뒤집힌다.
     oiPcr: pm.oiPcr ?? null, volumePcr: null,
   };
-  return { data, m, levelsFresh, levelsAsOf: levelsFresh ? null : mmdd(genDay), proseFresh };
+  return { data, m, levelsFresh, levelsAsOf: data ? f.levelsAsOf : null, proseFresh };
 });
 
 type Strings = {
@@ -429,13 +421,15 @@ export default async function FlowTickerPage(
         ? `${m.darkPoolShortPct.toFixed(1)}%  (${l.lbl.norm} ${m.darkPoolShortAvg.toFixed(0)}%)`
         : `${m.darkPoolShortPct.toFixed(1)}%`, null]);
   }
-  // 현재가는 낡은 사본이면 아예 싣지 않는다 — «현재가»라는 이름 자체가 지금을 주장한다
+  // 현재가는 낡은 사본이면 아예 싣지 않는다 — «현재가»라는 이름 자체가 지금을 주장한다.
+  // 나머지 레벨은 신선하거나, 낡았어도 «언제 것»인지 밝힐 수 있을 때만 싣는다.
+  const lv = levelsFresh || !!asOf;
   if (m.price != null && levelsFresh) metrics.push([l.lbl.price, money$(m.price)!, null]);
-  if (m.maxPain != null) metrics.push([l.lbl.maxPain, money$(m.maxPain)!, asOf]);
-  if (m.callWall != null) metrics.push([l.lbl.callWall, money$(m.callWall)!, asOf]);
-  if (m.putFloor != null) metrics.push([l.lbl.putFloor, money$(m.putFloor)!, asOf]);
-  if (pcr != null) metrics.push([l.lbl.pcr, pcr.toFixed(2), asOf]);
-  if (m.squeezeScore != null) metrics.push([l.lbl.squeeze, String(Math.round(m.squeezeScore)), asOf]);
+  if (lv && m.maxPain != null) metrics.push([l.lbl.maxPain, money$(m.maxPain)!, asOf]);
+  if (lv && m.callWall != null) metrics.push([l.lbl.callWall, money$(m.callWall)!, asOf]);
+  if (lv && m.putFloor != null) metrics.push([l.lbl.putFloor, money$(m.putFloor)!, asOf]);
+  if (lv && pcr != null) metrics.push([l.lbl.pcr, pcr.toFixed(2), asOf]);
+  if (lv && m.squeezeScore != null) metrics.push([l.lbl.squeeze, String(Math.round(m.squeezeScore)), asOf]);
 
   // JSON-LD FAQ from the real data — rich results + LLM extraction
   const faq: { q: string; a: string }[] = [];
