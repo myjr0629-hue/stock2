@@ -13018,3 +13018,7 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 22:19~22:22: x_reply ✅ @Reuters(«외교 대신 원유만 비싸졌다»)에 원유 +2.8%·2년물 +5bp·3분기 에너지 1위(XLE +16.8%)/유틸리티 꼴찌(−12.9%) https://x.com/signumhq/status/2104561730508742734 (x_reply 3/3) · **x_us ✅ #2** 마이크론 카드(±8.5% · 지난 4번) https://x.com/signumhq/status/2104562290150490222 (x 계정 2/2)
 - WIM 홈도 «US 10Y 5.17%»(전일 FRED) — 오늘 5.22% 와 어긋나 게시 이미지에서 제외(UC 작업 칩 범위에 WIM 포함). GeekNews 는 «프로젝트당 1회»·주 1회 소진(9/24) → WIM(별도 앱) Show GN 은 10/1 이후 후보
 - **재개 후 46분 합계: 게시 15**(threads·threads_jp·x_us 2·x_reply 3·bluesky_bip·bluesky·reddit 2·pinterest·medium·naver_blog·linkedin) 전부 공개 확인. 남은 오늘 자리: bluesky 1 · naver_blog 2 · reddit 1(월 05시 WSB «moves» 스레드용)
+
+## 2026-09-28 (KST) 23:36~ — **크론이 또 안 돌았다(23:13) → 진짜 원인 확정·해소**
+- 9/27 23:16 백그라운드로 넘어간 Play 보고서 스크립트(ego-browser, PID 6020)가 TERM 에도 안 죽고 24시간 «진행 중» → 세션이 한가해지지 않아 크론이 안 불렸다(새 크론 c1b0fb5e 도 23:13 무실행). 23:39 `kill -9` 즉시 작업 «completed» 알림. 고아 ego 프로세스 2개(9/21·9/27)도 정리.
+- 재발 방지: cycle-watchdog.sh 가 45분 넘은 «ego-browser nodejs» 를 -9 로 정리(로그 KILLED) · 메모리 `hung-background-task-blocks-session-cron`

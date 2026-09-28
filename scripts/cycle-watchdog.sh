@@ -14,6 +14,18 @@ LIMIT=7200
 now=$(date +%s)
 last=$(stat -f %m "$LOG_FILE" 2>/dev/null || echo 0)
 age=$(( now - last ))
+
+# ★2026-09-28 23:4x 실측 원인: 9/27 23:16 백그라운드로 넘어간 ego-browser 스크립트(PID 6020)가 kill(TERM)에도 안 죽고 24시간 «진행 중»으로
+#   남아 있었다 → 세션이 «한가함»이 안 돼 크론이 한 번도 불리지 않았다(kill -9 하자마자 작업이 «완료» 처리됐다).
+#   그래서 45분 넘게 살아 있는 «ego-browser nodejs» 는 멈춘 것으로 보고 -9 로 정리한다(내 자동화 스크립트만 이 이름으로 돈다).
+now_ts=$(date +%s)
+ps -axo pid=,lstart=,command= | grep "ego-browser nodejs" | grep -v grep | while read -r pid rest; do
+  start=$(echo "$rest" | awk '{print $1,$2,$3,$4,$5}')
+  st=$(date -j -f "%a %b %d %T %Y" "$start" +%s 2>/dev/null || echo "$now_ts")
+  if [ $(( now_ts - st )) -gt 2700 ]; then
+    kill -9 "$pid" 2>/dev/null && echo "$(date '+%F %T') KILLED hung ego-browser pid=$pid age=$(( (now_ts - st) / 60 ))m" >> "$OUT"
+  fi
+done
 if [ "$age" -gt "$LIMIT" ]; then
   mins=$(( age / 60 ))
   echo "$(date '+%F %T') STALE ${mins}m (log mtime $(date -r "$last" '+%F %T'))" >> "$OUT"
