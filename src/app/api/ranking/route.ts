@@ -4,6 +4,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
 import {
     Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith, readinessOf, dailyValues,
+    afterCloseState,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
 import { fetchInsiderBuys, fetchFundamentals } from '@/lib/rankings/sources';
@@ -15,9 +16,10 @@ import { fetchInsiderBuys, fetchFundamentals } from '@/lib/rankings/sources';
 //   GET /api/ranking?run=all        → 전부 실행
 //   GET /api/ranking?run=stealth    → 하나만 실행
 //
-// 장중(intraday)과 마감 후(postclose)를 구분한다. 마감 후 랭킹은 FINRA 자료가
-// 들어와야(마감 +약 90분) 작동하고, 그 전에는 «없음»으로 보고한다 —
-// 어제 것을 오늘인 척 내보내지 않는다.
+// 장중(intraday)과 마감 후(postclose)를 구분한다. 마감 후 랭킹은 «마지막으로 끝난
+// 정규장»의 FINRA 자료로 돌고, 블록마다 그 날짜(session)를 싣는다 — 어제 것을
+// 오늘인 척 내보내지 않는 방법은 숨기는 게 아니라 날짜를 다는 것이다.
+// 두 세션 이상 뒤처진 자료만 «없음»으로 보고한다(engine.afterCloseState).
 // ============================================================================
 
 export const dynamic = 'force-dynamic';
@@ -90,7 +92,8 @@ export async function GET(req: NextRequest) {
     //      화면이 카드 제목에 id 를 그대로 찍는다(캐시 10분).
     // v5 — 엔진의 영어 표시명을 줄였다(카드 제목이 잘려서). 이름이 응답에 실려 있으므로
     //      키를 올리지 않으면 옛 긴 이름이 10분 더 나간다.
-    const CACHE = `ranking:v7:${run}:${days}:${top}`;
+    // v8 — 마감 후 블록에 session·state 를 실었다(화면이 날짜 칩을 그린다).
+    const CACHE = `ranking:v8:${run}:${days}:${top}`;
     if (q.get('refresh') !== '1') {
         const hit = await getFromCache<any>(CACHE);
         if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
@@ -143,11 +146,13 @@ export async function GET(req: NextRequest) {
         }
     }
 
-    // 옵션이 보고 있는 최신 세션 — 다크풀 신선도 판정의 기준
+    // 옵션이 보고 있는 최신 세션 — 옵션 축(IV 랭크)이 멈췄는지 판정할 때 쓴다.
+    // ⚠️ 다크풀 판정에는 쓰지 않는다. 옵션 수집은 주말 포함 매일 04:03 ET 에 새 달력
+    //    날짜를 시작해서, 이걸 기준으로 삼으면 마감 후 랭킹이 장중·주말 내내 빈다(9/28 대표 보고).
     const optionSession = [...Object.values(flowSnaps), ...Object.values(gexSnaps)]
         .flat().reduce<string | null>((m, s: any) => (s?._d && (!m || s._d > m) ? s._d : m), null);
 
-    let dp: Record<string, any> = {};
+    const dp: Record<string, any> = {};
     let dpMeta: any = { available: false, reason: '요청되지 않음' };
     if (needDp) {
         try {
@@ -156,16 +161,32 @@ export async function GET(req: NextRequest) {
             // 다크풀도 25종목만 보고 있었다. FINRA 키는 한 덩어리라 목록 길이와
             // 무관하게 한 번만 읽는다 — 넓혀도 비용이 같다.
             const dpUni = STRUCT_UNIVERSE.length ? STRUCT_UNIVERSE : UNIVERSE;
-            dp = await getDarkPoolBatch(dpUni.filter((t) => !ETF.has(t)));
-            const list = Object.values(dp);
-            const dpDate = list.length ? (list[0] as any).date ?? null : null;
-            if (!list.length) dpMeta = { available: false, reason: '자료 없음' };
-            else if (optionSession && dpDate !== optionSession) {
-                dpMeta = { available: false, stale: true, date: dpDate, expected: optionSession,
-                    reason: `아직 안 들어옴 — 보유분 ${dpDate}, 옵션은 ${optionSession} 세션 (마감 후 약 90분에 갱신)` };
-                dp = {};
+            const batch = await getDarkPoolBatch(dpUni.filter((t) => !ETF.has(t)));
+            const list = Object.values(batch);
+            // 판본 날짜 = 행 날짜 중 가장 최근. 거래가 없던 종목은 옛 행이 «자기 날짜»를 달고
+            // 이월돼 있어서(9/28 실측 12,952행 중 807) list[0] 하나로 정하면 그 옛 날짜가
+            // 판본 날짜 행세를 한다.
+            const dpDate = list.reduce<string | null>((m, r) => (r.date && (!m || r.date > m) ? r.date : m), null);
+            const { state, lastClosed } = afterCloseState(dpDate);
+            if (!list.length || !dpDate) dpMeta = { available: false, reason: '자료 없음' };
+            else if (state === 'stale') {
+                dpMeta = { available: false, stale: true, state, date: dpDate, expected: lastClosed,
+                    reason: `자료가 멈춰 있음 — 보유분 ${dpDate}, 마지막 마감 ${lastClosed}` };
             } else {
-                dpMeta = { available: true, date: dpDate, covered: list.length };
+                // 이월 행은 «다른 세션의 값»이다 — 이 마감의 순위에 섞지 않는다.
+                let carried = 0;
+                for (const [t, r] of Object.entries(batch)) {
+                    if (r.date === dpDate) dp[t] = r; else carried++;
+                }
+                dpMeta = {
+                    available: true, state, date: dpDate, expected: lastClosed,
+                    covered: Object.keys(dp).length, carried,
+                    ...(state === 'fresh' ? {} : {
+                        reason: state === 'pending'
+                            ? `${lastClosed} 마감분은 적재 전(보통 17:45 ET) — ${dpDate} 마감 기준`
+                            : `${lastClosed} 마감분 지연 — ${dpDate} 마감 기준`,
+                    }),
+                };
             }
         } catch { dpMeta = { available: false, reason: '조회 실패' }; }
     }
@@ -251,10 +272,11 @@ export async function GET(req: NextRequest) {
                 //    phase 가 없어 탭 분류에서도 빠진다(실측: 11종인데 탭 합이 8).
                 results[spec.id] = {
                     available: false, phase: spec.phase, name: spec.name, what: spec.what, why: spec.why,
-                    reason: dpMeta.reason, items: [],
+                    reason: dpMeta.reason, state: dpMeta.state ?? null, session: null, items: [],
                 };
                 continue;
             }
+            if (dpMeta.carried) skipped['이월(다른 세션)'] = dpMeta.carried;
             const list = Object.values(dp) as any[];
             const mktVolRatio = median(list.map((x) => x.volRatio).filter((v) => typeof v === 'number' && v > 0)) ?? 1;
             const mktStealth = median(list.map((x) => x.stealth).filter((v) => typeof v === 'number')) ?? 50;
@@ -430,11 +452,13 @@ export async function GET(req: NextRequest) {
             available: picked.length > 0, phase: spec.phase,
             name: spec.name, what: spec.what, why: spec.why, guards: spec.guards,
             candidates: rows.length, skipped, items: picked,
+            // 마감 후 블록은 «어느 마감»의 순위인지 싣는다 — 화면은 이걸 날짜 칩으로 그린다
+            ...(spec.needsPostClose ? { session: dpMeta.date, state: dpMeta.state } : {}),
         };
     }
 
     const payload = {
-        ok: true, _v: 11, docs: 'https://www.signumhq.com/ranking-api.md',
+        ok: true, _v: 12, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta,
         // 실제로 훑은 종목 수를 말한다. 하드코딩 25 를 그대로 말하면 거짓말이 된다.

@@ -62,7 +62,9 @@ GET /api/ranking?run=all&top=10     # 개수 지정
   "universe": 1986,                       // 실제로 훑은 종목 수
   "universeSource": "structure-build (2,001종목)",
   "optionSession": "2026-09-03",          // 옵션이 보고 있는 세션
-  "darkPool": { "available": true, "date": "2026-09-03" },
+  // 마감 후 3종은 «마지막으로 끝난 정규장»의 것 — state: fresh(그 마감) · pending(마감~18:00 ET 적재 대기라 직전 마감)
+  //   · late(적재 지연이라 직전 마감) · stale(두 세션 이상 뒤처짐 → available:false). 블록마다 session 에 그 날짜가 있다
+  "darkPool": { "available": true, "state": "fresh", "date": "2026-09-03", "expected": "2026-09-03" },
   "results": {
     "gamma-flip": {
       "available": true,
@@ -127,7 +129,7 @@ GET /api/ranking/deviation?top=5&refresh=1     # 캐시 무시하고 다시 계�
 | `multi-axis` | **다축 동시 이탈** | 두 축 이상에서 동시에 벗어난 종목만 | 한 축만 튀는 건 우연일 수 있다. 여럿이 같이 움직이면 같은 사건의 여러 얼굴이다 |
 | `money-vs-oi` | **돈과 포지션의 불일치** | 프리미엄 비 vs 미결제약정 비가 서로 반대를 가리키는 정도 | 풋이 수로 깔려 있는데 돈은 콜에 몰리는 그림이 실제로 나온다. 하나만 보면 정반대로 읽는다 |
 
-## 마감 후 (`phase: postclose` · FINRA, 17:30 ET 이후)
+## 마감 후 (`phase: postclose` · FINRA — 마지막으로 끝난 정규장, 블록의 `session` 이 그 날짜)
 
 | id | 이름 | 무엇을 재나 | 왜 가치가 있나 |
 |---|---|---|---|
@@ -151,8 +153,10 @@ GET /api/ranking/deviation?top=5&refresh=1     # 캐시 무시하고 다시 계�
 
 | 상황 | 어떻게 보이나 | 이유 |
 |---|---|---|
-| 장중 (마감 전) | `darkpool-*`·`stealth` 가 `available:false` | FINRA 는 **마감 후 약 90분(17:30 ET)** 에 그날 자료를 낸다. 어제 것을 오늘인 척 섞지 않는다 |
-| 옵션 세션 ≠ 다크풀 날짜 | 다크풀 랭킹 전체 제외 | 오늘 옵션에 어제 다크풀을 섞으면 3일 전 숫자가 1위로 올라온다 |
+| 장중·주말 | `darkpool-*`·`stealth` 가 **직전 마감**의 목록(`session`=그 날짜) | FINRA 는 그날치를 마감 뒤 약 90분에 내고 우리는 **17:45 ET** 에 적재한다. 마감 후 자료는 «마지막으로 끝난 정규장»을 말하므로 날짜를 달아 그대로 보여 준다 |
+| 마감(16:00)~적재 전 | `darkPool.state: "pending"` · 목록은 그 전 마감분 | 정상 대기다. 18:00 ET 가 지나도 안 들어오면 `late` |
+| 두 세션 이상 뒤처짐 | `darkPool.state: "stale"` · `available:false` | 적재가 멈춘 것이다 — 순위에 넣지 않는다 |
+| `/api/ranking/deviation` 합본 | `darkPool.inRanking: false` 면 합본 `ranking` 에서 다크풀 제외 | 합본은 «한 세션»의 목록이다 — 옵션 세션과 다른 날의 다크풀은 `groups`(항목마다 `date`)에만 둔다 |
 | `deviation`·`multi-axis` 후보가 적음 | 후보 10~20건 | 이력이 최소 8세션 필요하다. 2026-09-03 부터 2,001종목 이력을 새로 쌓기 시작했고 **약 9거래일 뒤** 정상화된다 |
 | `axesStatus[].ready === false` | 그 축만 빠짐 | 자료를 기다리는 중이다. 차면 손대지 않아도 켜진다 |
 | `structure.stale === true` | 위치 축이 오래됨 | 구조를 구운 지 4시간이 넘었다. 마감 후에는 정상(그날 종가 구조가 정답) |
@@ -228,6 +232,6 @@ foreach ($k in $d.groups.PSObject.Properties.Name) {
 |---|---|
 | 랭킹이 통째로 비었다 | `universe` 와 `universeSource`. 25 라고 나오면 구조 캐시가 없는 것 → `structure-build` 를 돌린다 |
 | 위치 축(감마플립·맥스페인)만 없다 | `structure.available` / `ageMin`. TTL 26시간이라 하루 넘게 안 구우면 사라진다 |
-| 다크풀만 없다 | `darkPool.reason`. 「아직 안 들어옴」이면 정상(마감 후 90분) |
+| 다크풀만 없다 | `darkPool.state === "stale"` 이면 적재가 두 세션 넘게 멈춘 것(`date`=보유분, `expected`=마지막 마감). EC2 `finra-offexchange.js` 로그부터 본다 |
 | 이탈 축 후보가 10건대다 | `coverage.freshPct` 와 `axes[].samples`. 이력이 8세션을 넘어야 한다 |
 | 순위가 이상하다 | 각 항목의 `direction` 을 보고 있는지. 배수만 읽고 있으면 붕괴와 급증이 뒤섞인다 |

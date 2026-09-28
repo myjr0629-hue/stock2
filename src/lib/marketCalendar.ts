@@ -46,6 +46,16 @@ export function isNonTradingDay(dateStr: string | null | undefined): boolean {
     return dow === 0 || dow === 6;
 }
 
+/**
+ * 'YYYY-MM-DD' 바로 앞의 거래일 (주말·휴장을 건너뛴다).
+ * 화 9/8 → 금 9/4 (월 9/7 노동절) · 토 9/26 → 금 9/25.
+ */
+export function prevTradingDate(dateStr: string): string {
+    let s = shiftDay(dateStr, -1);
+    for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
+    return s;
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // «언제의 값인가» — 캐시가 낡았는지 판정할 때 쓴다.
 //

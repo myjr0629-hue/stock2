@@ -70,6 +70,9 @@
 .rkFoot{position:relative;display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:8px;
   border-top:1px solid rgba(255,255,255,.06);font-size:9.5px;color:#94a8c6}
 .rkAll{margin-left:auto;font-size:9.5px;font-weight:600;color:#8fb0d4;white-space:nowrap}
+/* 마감 후 카드 — 새 마감분 대기·지연 한 줄 (시안엔 없다). 좁으면 이 줄이 먼저 준다 */
+.rkNote{margin-left:auto;min-width:0;font-size:9.5px;font-weight:600;color:#8fb0d4;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* 준비 중인 랭킹은 «비어 있음»이 아니라 «왜 비었는지»를 적는다 */
 .rkSoon{position:relative;display:flex;align-items:center;gap:9px;padding:9px 2px 4px}
