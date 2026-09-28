@@ -191,6 +191,10 @@ export function _setEcTimingForTest(t: Partial<Omit<typeof EC_TIMING, 'budget'>>
     Object.assign(EC_TIMING, rest);
     if (budget) Object.assign(EC_TIMING.budget, budget);
 }
+/** 테스트 전용 — «지금 정체가 있었다»를 심장박동 대신 주입한다(부하가 큰 맥에서도 결정적으로 재현) */
+export function _markStallForTest(): void { ecLastStallAt = performance.now(); }
+/** 테스트 전용 — 마지막 정체 시각(심장박동이 실제 막힘을 잡았는지 확인용) */
+export function _lastStallAtForTest(): number { return ecLastStallAt; }
 /** 테스트 전용 — 차단기 상태 초기화 */
 export function _resetEcBreakerForTest(): void { ecProxyAvailable = null; ecProxyDownUntil = 0; ecTripStreak = 0; ecProbeInFlight = false; ecProbeSince = 0; obsCooldownFrom = 0; }
 let ecProxyDownUntil = 0;
@@ -240,17 +244,35 @@ function markEcProxyDown(reason: string, fromProbe = false): void {
 }
 
 /**
- * 정체 감지 마감. AbortSignal.timeout(n) 과 같지만, 타이머가 EC_TIMING.lateMs 넘게 늦게 울리면
- * (= 그동안 이벤트 루프가 막혀 있었다) 한 번 유예한다. stalled() 는 유예가 있었는지.
+ * 정체 심장박동 — 100ms 마다 한 번. 박동 간격이 100ms+lateMs 를 넘으면 그 순간을 «정체 시각»으로 적는다.
+ * 왜: 인스턴스가 요청 «도중» 멈췄다가 마감 «전에» 깨어나면 마감 타이머는 제시간에 울리지만, 멈춘 사이 잃은
+ * TCP 패킷의 재전송이 늦게 와서 6초를 넘긴다(관측 프리뷰: 수리판에 남은 타임아웃 26건, 경과 최대 6.2초).
+ * 마감 타이머가 늦었는지만 보면 이 경우를 «진짜 무응답»으로 오판한다. 비용: 100ms 타이머 하나(unref).
+ */
+let ecLastBeat = performance.now();
+let ecLastStallAt = -1;
+try {
+    const beat = setInterval(() => {
+        const now = performance.now();
+        if (now - ecLastBeat > 100 + EC_TIMING.lateMs) ecLastStallAt = now;
+        ecLastBeat = now;
+    }, 100);
+    (beat as any)?.unref?.();
+} catch { /* 타이머를 못 만들면 마감 타이머 지각만 본다 */ }
+/**
+ * 정체 감지 마감. AbortSignal.timeout(n) 과 같지만, ① 타이머가 EC_TIMING.lateMs 넘게 늦게 울렸거나
+ * ② 요청이 떠 있던 사이 심장박동이 정체를 봤으면(= 이벤트 루프가 막혔거나 인스턴스가 멈췄다 깨어났다)
+ * 바로 끊지 않고 한 번 유예한다. stalled() 는 유예가 있었는지.
  */
 function ecDeadline(budgetMs: number): { signal: AbortSignal; stalled: () => boolean; clear: () => void } {
     const ac = new AbortController();
+    const started = performance.now();
     let graced = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const arm = (ms: number) => {
         const due = performance.now() + ms;
         timer = setTimeout(() => {
-            if (!graced && performance.now() - due > EC_TIMING.lateMs) { graced = true; arm(EC_TIMING.graceMs); return; }
+            if (!graced && (performance.now() - due > EC_TIMING.lateMs || ecLastStallAt > started)) { graced = true; arm(EC_TIMING.graceMs); return; }
             const err = new Error('The operation was aborted due to timeout'); err.name = 'TimeoutError';
             ac.abort(err);
         }, ms);
