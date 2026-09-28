@@ -13080,3 +13080,12 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 
 ## 2026-09-29 (KST) 04:43 — 시간 사이클: 배정 reddit 1 = 05:00 KST(16:00 ET) 게시되는 WSB «What Are Your Moves Tomorrow» 대기(UTC 9/28 마지막 자리) · 다른 채널 오늘 한도 소진·창 밖 · 게이트 통과 · 감시 ok
 - 05:13 사이클 할 일: ① WSB moves 스레드 댓글(무링크 — 화요일 일정 ET: 10:00 콘퍼런스보드·JOLTS · 수 PCE·MU 장 마감 후(월 장중 ±8.0%)·목 ISM·NKE(±8.5%)·금 고용 + 오늘 10년물 마감값) ② x_jp·note(창 5~9시 — note-task-0927 은 «金曜終値時点» 표기 유지 또는 월요일 종가로 갱신)
+
+## 2026-09-29 (KST) 05:53~07:2x — 시간 사이클(실행 4: reddit ✅ · github ⛔게이트 · note_jp ✅ · x_jp ✅) · 엔진 정상(멈춘 ego 0·감시 ok) · 만기 게이트 통과
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **reddit ✅**(UTC 9/28 3/3) | WSB «What Are Your Moves Tomorrow, September 29» 무링크 댓글: 화 10:00 ET 콘퍼런스보드·JOLTS → 주간 일정 · 월 종가 스트래들 MU 1,055 중간값 $83.42 = ±7.9% · NKE 36.5 $3.17 = ±8.7% · MU 지난 4번 · 10년물 ~5.24%(+5bp)·2년 +7bp·금 −4%·나스닥 −0.9% | https://www.reddit.com/comments/1wsp5pn/comment/pco1yf7/ |
+| **github ⛔ 게이트 신설** | 데이터셋 스냅샷 전 `audit-structure-vs-nasdaq.js`(나스닥 전체 체인 대조) 12종목 중 **실패 6·경고 5** — 전부 «OI 시점 차이»(우리 OI 합 = 나스닥의 65~80%, 계약 수는 일치 = 잘림 아님). 구조 값이 하루 늦다 → 공개 데이터셋에 틀린 레벨을 싣지 않는다. channels.json github 에 선행 게이트(여는 사람 = 대표 ㊲·58 병합, 재대조 통과 시 재개) | — |
+| **note_jp ✅**(1/1) | 「米国株 今週の予定(日本時間)9/29〜10/2:PCE・マイクロン決算・ナイキ決算・雇用統計」 — 9/27 원고(발행 못 한 것)를 월요일 종가로 갱신(MU ±7.9%·NKE ±8.7%, 금요일 ±8.5% 병기) · **헤더 재제작**: 9/26 캡처(D−3·금요일 값)를 버리고 실적 캘린더를 새로 찍어(D−1·D−2) «9/29–10/2 · ±7.9% · 月曜終値時点» · MU 카드 AI 한 줄(EPS «$31.16» vs 머리글 $31.62 — HANDOFF 7-h 결함, 아직 라이브)은 헤더에서 잘라냄 | https://note.com/signumhq/n/n6972c63365f9 (비로그인 200·제목·링크·og 이미지) |
+| **x_jp ✅**(1/2) | 今週の米国株(日本時間) 5줄 일정 + «オプションが織り込む値動き(10/2満期・月曜終値) MU ±7.9% / NKE ±8.7%» + 헤더 이미지 · 가중 276자 | https://x.com/signumhq_jp/status/2104695495776186378 (syndication: 본문·링크 facet `?from=x_jp&l=ja`·사진 1) |
+| **개선 1건** | `capture-app-screens.mjs`(퍼피티어)가 크롬 기동 30초 타임아웃으로 죽음 → **scripts/ego/app-shot.mjs** 신설: ego 로 app-view 를 402×874@3x(1206×2622)로 캡처 · CDP 캡처(ego screenshot 은 1x, clip.scale 은 DSF 에 곱해져 9배가 됨 → scale 1) · sig_native 쿠키는 finally 에서 삭제(사용자 프로필 오염 방지) · 앱 화면이 아니면 거부 | 1206×2622 실측 |
